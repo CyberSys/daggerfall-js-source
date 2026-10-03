@@ -84,11 +84,15 @@ async function landing(label, ctxOpts) {
   check(`${label}: the page carries no pictures at all`, (await page.locator('img').count()) === 0);
   const strip = await page.locator('.foot .stat').evaluateAll((els) => els.map((e) => e.textContent));
   check(`${label}: the foot carries two figures`, strip.length === 2 && strip.every((t) => /^[\d,]{4,}$/.test(t)), strip.join(' / '));
-  // The door's pair: Play into the browser, Install onto the desk.
+  // The door's three: Play into the browser, Install onto the desk, Discord for the people (DISC1).
+  // REL5: Install lands on the desktop app's entry, where each platform's installer is one click.
   const plaques = await page.locator('a.plaque').evaluateAll((els) => els.map((e) => [e.textContent, e.getAttribute('href')]));
-  check(`${label}: Play and Install stand together on the door`,
-    plaques.length === 2 && plaques[0][0] === 'Play' && plaques[0][1] === './play/'
-    && plaques[1][0] === 'Install' && /releases\/latest$/.test(plaques[1][1]), JSON.stringify(plaques));
+  check(`${label}: Play, Install and Discord stand together on the door`,
+    plaques.length === 3 && plaques[0][0] === 'Play' && plaques[0][1] === './play/'
+    && plaques[1][0] === 'Install' && plaques[1][1] === '#desktop' && plaques[2][0] === 'Discord', JSON.stringify(plaques));
+  const downloads = await page.locator('#desktop + dd .dl a').evaluateAll((els) => els.map((e) => [e.textContent, e.getAttribute('href')]));
+  check(`${label}: Install lands on three direct downloads`,
+    downloads.length === 3 && downloads.every(([, h]) => /\/releases\/latest\/download\/DaggerfallOnline-[\w-]+\.(exe|dmg|AppImage)$/.test(h)), JSON.stringify(downloads));
   check(`${label}: no page errors`, errors.length === 0, errors.join(' | '));
   await page.screenshot({ path: `${shots}/landing-${label}.png`, fullPage: true });
   console.log(`  ${shots}/landing-${label}.png`);
@@ -101,7 +105,7 @@ check('desktop: the foot carries build, tests, lines and Source',
   && (await desk.page.locator('.foot .stat').count()) === 2);
 
 // The door behind the door: press Play (the door's FIRST plaque - the
-// second is Install, which leaves the site), land on the PIXEL HOME
+// second is Install, which lands on the downloads), land on the PIXEL HOME
 // with no data, no picker.
 await desk.page.locator('a.plaque', { hasText: 'Play' }).click();
 await desk.page.waitForSelector('.px-menu button', { timeout: 15000 });

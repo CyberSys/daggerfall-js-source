@@ -16,6 +16,12 @@ import { srand, rand, randomRange } from '../formats/dfRandom.js';
 import { firstName, GENDERS } from '../characters/nameHelper.js';
 import { localizedText, localizedTable, localizedTextList } from '../systems/textManager.js';   // L10N3d: DFU's Internal_Strings, read in the player's language
 import { getLocalizedFactionName } from '../systems/textManager.js';   // L10N3e: a guild hall's and a temple's faction names, as shown
+import { isOnlinePage } from '../systems/onlineLane.js';   // EMPIRE-BANK: online, every bank is the Empire's
+
+/** EMPIRE-BANK (2026-09-27, Discord: "For online mode, the bank of daggerfall becomes the bank of the empire"): what an
+ *  online page's banks are "of" - every one of them, whatever region it stands in ("The Bank of the Empire"). A
+ *  departure (Port-Ledger A); offline a bank is Daggerfall's "The Bank of <region>". */
+export const EMPIRE_BANK_OF = 'the Empire';
 
 export const BUILDING_TYPES = Object.freeze({
   None: -1, Alchemist: 0, HouseForSale: 1, Armorer: 2, Bank: 3, Town4: 4,
@@ -117,7 +123,7 @@ export function generateBuildingName(seed, type, opts = {}) {
       break;
     }
     case BUILDING_TYPES.Bank:
-      b = shownRegionName;
+      b = isOnlinePage() ? EMPIRE_BANK_OF : shownRegionName;   // EMPIRE-BANK
       a = localizedText('theBankOf', 'The Bank of');
       break;
     case BUILDING_TYPES.GuildHall:

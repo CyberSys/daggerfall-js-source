@@ -21,7 +21,8 @@ import { ENCHANTMENT_TYPES, computeEnchantmentMods } from '../src/systems/enchan
 import { ITEM_GROUPS } from '../src/characters/equipRules.js';
 import { climbingChanceOverride, climbingChance } from '../src/player/climbing.js';
 import { setWeaponPoseProbe } from '../src/combat/playerWeapon.js';
-import { getMeleeWeaponAnimTime, CLASSIC_FRAME_UPDATE } from '../src/characters/weaponStates.js';
+import { getMeleeWeaponAnimTime, CLASSIC_FRAME_UPDATE, swingFrameSeconds, swingHandling, swingHeft, SWING_FRAME_MIN } from '../src/characters/weaponStates.js';
+import { installSwingLaw, readSwing } from '../src/combat/swingLaw.js';
 import { calculateMaxBankLoan, LOAN_MAX_PER_LEVEL } from '../src/systems/banking.js';
 import { isShipAvailable } from '../src/systems/ship.js';
 import { computeEntityMods } from '../src/systems/entityMods.js';
@@ -35,9 +36,13 @@ import { createFactionRep, getReputation } from '../src/systems/factionRep.js';
 import { SKILLS } from '../src/systems/skills.js';
 import { WEAPONS, WEAPON_MATERIALS } from '../src/characters/weapons.js';
 import { mintCondition, setItemFields } from '../src/systems/itemTemplates.js';
-import { equipTableOf, EQUIP_SLOTS } from '../src/systems/equip.js';
-import { liveStat } from '../src/systems/statMods.js';
+import { equipTableOf, EQUIP_SLOTS, _wearScaleForTests, _dfuWearMultipleForTests } from '../src/systems/equip.js';
+import { liveStat, FATIGUE_DRAIN_SCALE } from '../src/systems/statMods.js';
 import { carriedWeight } from '../src/systems/inventory.js';
+
+// BALANCE1: this file pins DFU's / the mod's own wear verbatim, so it runs the port's wear scale at 1 (test/balance1.test.js pins the scale)
+_wearScaleForTests(1);
+_dfuWearMultipleForTests(1);   // WEAR-TWICE: and DFU's amount unmultiplied (wear_vanilla.test.js pins the 2)
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const rd = (p) => readFileSync(join(ROOT, p), 'utf8');
@@ -64,7 +69,8 @@ test('RR1 the record: the manifest, the switches (27 keys - 26 on the pane, figh
       assert.ok(keys[name], `${name} is on the pane`);
       assert.equal(keys[name].description, k.Description, `${name}: the mod's own words`);
       const expected = typeof k.Value === 'string' ? (k.Value === 'True' ? true : k.Value === 'False' ? false : Number(k.Value)) : k.Value;
-      if (name === 'shipPorts') { assert.equal(expected, true); assert.equal(keys[name].default, false, 'SHIP-PORTS: the ONE recorded departure from the mod\'s defaults - the boat stays reachable from anywhere until a player asks for the port rule'); n++; continue; }
+      if (name === 'shipPorts') { assert.equal(expected, true); assert.equal(keys[name].default, false, 'SHIP-PORTS: a recorded departure from the mod\'s defaults - the boat stays reachable from anywhere until a player asks for the port rule'); n++; continue; }
+      if (name === 'equipDamage') { assert.equal(expected, true); assert.equal(keys[name].default, false, 'WEAR-VANILLA: the other recorded departure - armour wears at DFU\'s rate, not x5'); n++; continue; }
       assert.equal(keys[name].default, expected, `${name}: the mod's own default`);
       n++;
     }
@@ -124,25 +130,41 @@ test('RR1 climbingRestriction: a drawn weapon that is not bare hands answers 0 w
 
 test('RR1 weaponSpeed: the speed/strength blend by hands (:350-387), behind Roleplay & Realism: Items\' weaponBalance; weaponMaterials: the material x3 (:389-392)', () => {
   reset();
-  const t = (o) => rrMeleeWeaponAnimTime(o, CLASSIC_FRAME_UPDATE);
-  assert.equal(t({ liveSpeed: 50, liveStrength: 50 }), 3 * (115 - (50 * 0.8 + 50 * 0.2)) / CLASSIC_FRAME_UPDATE, 'one hand: 80/20');
-  assert.equal(t({ liveSpeed: 50, liveStrength: 50, hands: 'Both' }), 3 * (115 - (25 + 25)) / CLASSIC_FRAME_UPDATE, 'both: 50/50');
-  assert.equal(t({ liveSpeed: 50, liveStrength: 50, weaponType: 4 }), 3 * (115 - (45 + 5)) / CLASSIC_FRAME_UPDATE, 'a dagger: 90/10');
-  assert.equal(t({ liveSpeed: 50, liveStrength: 50, weaponType: 15 }), 3 * (115 - 50) / CLASSIC_FRAME_UPDATE, 'bare hands: the speed alone');
-  assert.equal(t({ liveSpeed: 80, liveStrength: 80 }), 3 * (115 - (80 * (0.8 - 0.08) + 80 * (0.2 - 0.08))) / CLASSIC_FRAME_UPDATE, 'past 70 each ratio loses the cap (the C#\'s own float order)');
-  assert.equal(t({ liveSpeed: 80, liveStrength: 80, hands: 'Both' }), 3 * (115 - (80 * (0.5 - 0.15) + 80 * (0.5 - 0.15))) / CLASSIC_FRAME_UPDATE);
+  // SWING-LAW (2026-09-28): the blend is the Speed the swing is read at; the port's law turns it into time (its bounded
+  // curve and the weapon's handling - characters/weaponStates.js swingFrameSeconds), not the mod's `3 * (115 - blend)`
+  installSwingLaw();
+  const t = (o) => rrMeleeWeaponAnimTime(o);
+  const law = (blend, type = -1, both = false) => swingFrameSeconds(blend, { handling: swingHandling(type, both) });
+  assert.equal(t({ liveSpeed: 50, liveStrength: 50 }), law(50 * 0.8 + 50 * 0.2), 'one hand: 80/20');
+  assert.equal(t({ liveSpeed: 50, liveStrength: 50, hands: 'Both' }), law(25 + 25, -1, true), 'both: 50/50, a two-hander\'s handling');
+  assert.equal(t({ liveSpeed: 50, liveStrength: 50, weaponType: 4 }), law(45 + 5, 4), 'a dagger: 90/10, a dagger\'s handling');
+  assert.equal(t({ liveSpeed: 50, liveStrength: 50, weaponType: 15 }), law(50, 15), 'bare hands: the speed alone');
+  assert.equal(t({ liveSpeed: 80, liveStrength: 80 }), law(80 * (0.8 - 0.08) + 80 * (0.2 - 0.08)), 'past 70 each ratio loses the cap (the C#\'s own float order)');
+  assert.equal(t({ liveSpeed: 80, liveStrength: 80, hands: 'Both' }), law(80 * (0.5 - 0.15) + 80 * (0.5 - 0.15), -1, true));
+  assert.ok(t({ liveSpeed: 100, liveStrength: 100, weaponType: 4 }) >= SWING_FRAME_MIN && 1 / (5 * t({ liveSpeed: 100, liveStrength: 100, weaponType: 4 })) < 2, 'the quickest blend swings under two a second, where the mod\'s line swung four');
   // the seam: Items' weaponBalance (on by default) answers first
   const player = { stats: { strength: 50, speed: 50 }, activeEffects: [], items: [] };
   equipTableOf(player)[EQUIP_SLOTS.RightHand] = sword();
   const ctx = { entity: player, weaponType: 0, usingRightHand: true };
   const itemsTime = getMeleeWeaponAnimTime(50, ctx);
   setModSetting('roleplay-realism-items', 'weaponBalance', false);
-  assert.equal(getMeleeWeaponAnimTime(50, ctx), t({ liveSpeed: 50, liveStrength: 50 }), 'Items\' weaponBalance off: this mod\'s blend (a longsword is one-handed)');
+  assert.equal(getMeleeWeaponAnimTime(50, ctx), t({ liveSpeed: 50, liveStrength: 50, weight: readSwing(ctx).weight }), 'Items\' weaponBalance off: this mod\'s blend (a longsword is one-handed), and its weight (AUDIT PRE-MERGE 0929 S3)');
+  assert.ok(readSwing(ctx).weight > 2.5, 'a longsword heavier than any arm carries free');
   assert.notEqual(itemsTime, getMeleeWeaponAnimTime(50, ctx));
   equipTableOf(player)[EQUIP_SLOTS.RightHand] = mint({ group: 'Weapons', templateIndex: WEAPONS.Claymore, material: 0 });
-  assert.equal(getMeleeWeaponAnimTime(50, ctx), t({ liveSpeed: 50, liveStrength: 50, hands: 'Both' }), 'a claymore: both hands');
+  assert.equal(getMeleeWeaponAnimTime(50, ctx), t({ liveSpeed: 50, liveStrength: 50, hands: 'Both', weight: 7.5 }), 'a claymore: both hands, and its 7.5 kg');
+  // AUDIT PRE-MERGE 0929 S3: with this module answering alone, a heavier blade swings SLOWER - the blend has no weight
+  // in it, and a 2 kg shortsword, a 4.5 kg longsword and a 5 kg broadsword all swung at 0.995 s
+  const byWeight = [WEAPONS.Shortsword, WEAPONS.Longsword, WEAPONS.Broadsword].map((w) => {
+    equipTableOf(player)[EQUIP_SLOTS.RightHand] = mint({ group: 'Weapons', templateIndex: w, material: 0 });
+    return getMeleeWeaponAnimTime(50, ctx);
+  });
+  assert.ok(byWeight[0] < byWeight[1] && byWeight[1] < byWeight[2], `shortsword < longsword < broadsword: ${byWeight}`);
+  equipTableOf(player)[EQUIP_SLOTS.RightHand] = mint({ group: 'Weapons', templateIndex: WEAPONS.Claymore, material: 0 });
+  assert.equal(rrMeleeWeaponAnimTime({ liveSpeed: 50, liveStrength: 50 }), rrMeleeWeaponAnimTime({ liveSpeed: 50, liveStrength: 50, weight: 2.5 }), 'bare of weight (or under what an arm carries free), no heft');
   on('weaponSpeed', false);
-  assert.equal(getMeleeWeaponAnimTime(50, ctx), 3 * (115 - 50) / CLASSIC_FRAME_UPDATE, 'both off: DFU\'s line');
+  assert.equal(getMeleeWeaponAnimTime(50, ctx), swingFrameSeconds(50, { heft: swingHeft(7.5, 50), handling: swingHandling(0, true) }), 'both off: the port\'s own law - the claymore\'s heft against the arm, a two-hander\'s handling');
+  assert.equal(getMeleeWeaponAnimTime(50), 3 * (115 - 50) / CLASSIC_FRAME_UPDATE, 'no wielder: DFU\'s line');
   reset();
   assert.equal(rrWeaponToHit(sword(WEAPON_MATERIALS.Daedric)), 18, 'Daedric +6 x3');
   assert.equal(rrWeaponToHit(sword(WEAPON_MATERIALS.Iron)), -3);
@@ -163,6 +185,7 @@ test('RR1 equipDamage: armor takes damage x5 and the override answers true, a we
   // replaces FormulaHelper's whole member while its equipmentDamageEnhanced is on (as in DFU, where the mod that
   // registered last owns the member) - off here, so DFU's member and this override's slot inside it run
   setModSetting('pcaao', 'equipmentDamageEnhanced', false);
+  on('equipDamage');   // WEAR-VANILLA: the port ships it off - the law under test is the module's
   const attacker = { items: [], activeEffects: [] };
   const target = { items: [], activeEffects: [] };
   const worn = mint({ group: 'Armor', templateIndex: 102, material: 0 });
@@ -237,7 +260,7 @@ test('RR1 encumbranceEffects: past 75% of MaxEncumbrance the excess x2 takes spe
   assert.equal(liveStat(player, 'speed'), 60 + player._mods.stats.speed);
   const drained = [];
   runMagicRoundsFor(player, 0, 1, { sinks: { drainFatigue: (n) => drained.push(n) } });
-  assert.deepEqual(drained, [Math.trunc(over * 100)], 'the round: DecreaseFatigue(fatigueEffect, false)');
+  assert.deepEqual(drained, [Math.trunc(Math.trunc(over * 100) * FATIGUE_DRAIN_SCALE)], 'the round: DecreaseFatigue(fatigueEffect, false) - on BALANCE1\'s exertion scale');
   player.isResting = true;
   computeEntityMods(player);
   assert.equal(player._mods.stats.speed ?? 0, 0, 'resting: no effect (IsResting guard)');
@@ -282,7 +305,22 @@ test('ENC-CEIL: the encumbrance penalty reads the pack\'s own ceiling - PlayerEn
   assert.equal(heavy._mods.stats.speed, -10);
   const drained = [];
   runMagicRoundsFor(heavy, 0, 1, { sinks: { drainFatigue: (n) => drained.push(n) } });
-  assert.deepEqual(drained, [17], '(int)(encOver * 100) off 75.25 / 90');
+  assert.deepEqual(drained, [Math.trunc(17 * FATIGUE_DRAIN_SCALE)], '(int)(encOver * 100) off 75.25 / 90 - 17, on BALANCE1\'s exertion scale');
+  // THE FRACTION IS CARRIED (the pre-merge audit 0927b F2): each round pays 17 x the scale on average - over twenty
+  // rounds the whole of it, where truncating every round lost the fraction twenty times and a light overload's 1 a
+  // minute paid nothing at all. Derived from the scale, so a turn of it is balance1's pins alone.
+  runMagicRoundsFor(heavy, 1, 20, { sinks: { drainFatigue: (n) => drained.push(n) } });
+  const per = 17 * FATIGUE_DRAIN_SCALE;
+  assert.equal(drained.length, 20);
+  assert.ok(drained.every((n) => n === Math.floor(per) || n === Math.ceil(per)), `each round pays the scale's share: ${drained}`);
+  assert.equal(drained.reduce((x, y) => x + y, 0), Math.floor(20 * per + 1e-9), 'the carry never loses a point');
+  assert.ok(Math.floor(20 * per + 1e-9) > 20 * Math.trunc(per), 'which truncating every round would have');
+  // ...and with no sink the round sets the fatigue itself - the same scaled drain (SetFatigue's clamps)
+  const bare = laden(10);
+  bare.fatigue = 1000;   // under its own maximum, so SetFatigue's ceiling does not take part
+  const f0 = bare.fatigue;
+  runMagicRoundsFor(bare, 0, 1, { sinks: {} });
+  assert.equal(f0 - bare.fatigue, Math.trunc(per), 'the no-sink arm charges the scaled drain too');
   // the seam reads the property, never the bare formula again
   assert.match(rd('src/systems/rrInstall.js'), /maxEncumbrance: entityMaxEncumbrance\(entity\)/);
   assert.ok(!/maxEncumbrance\(liveStat\(/.test(rd('src/systems/rrInstall.js')), 'the bare strength formula is back in the penalty');
@@ -357,8 +395,10 @@ test('RR1 underworldExpulsion: the two guild classes - expulsion allowed, the jo
   // the expulsion: the squad through the host's seam, the lines on the outcome
   const spawned = [];
   setRrHostSeams({ spawnFoe: (mt, opts) => spawned.push([mt, opts.minDistance, opts.maxDistance]) });
-  const store3 = createFactionRep(new Map([[tg.factionId, { id: tg.factionId, rep: -3 }]]));
-  const m = { [tg.guildGroup]: { guild: tg.name, rank: 0, lastRankChange: -100 } };
+  // REP6 (the reputation overhaul: "probation below 0, and expulsion only below -10, with a warning first"): PIN MOVED -
+  // the expulsion is a review that finds the member already on probation and below -10 (DFU's: any review below zero)
+  const store3 = createFactionRep(new Map([[tg.factionId, { id: tg.factionId, rep: -11 }]]));
+  const m = { [tg.guildGroup]: { guild: tg.name, rank: 0, lastRankChange: -100, probation: true } };
   const moved = updateRank(m, tg, entity, store3, 0);
   assert.equal(moved.outcome, 'expulsion');
   assert.deepEqual(moved.lines, RR_UNDERWORLD.ThievesGuild.expulsion, 'TokensExpulsion');
@@ -384,12 +424,13 @@ test('RR1 bedSleeping and the wiring: the three bed models, listed by the interi
   assert.match(rd('src/scenes/interiorContext.js'), /\} else if \(isBedModel\(p\.modelIdNum\)\) \{\n      beds\.push\(\{ cpu, matrix \}\);/);
   const wm = rd('src/scenes/worldModes.js');
   assert.match(wm, /if \(bedSleepingOn\(\)\) interiorCtx\.beds\?\.forEach\(\(bd, i\) => \{/, 'a bed is a target only while the module is on');
-  assert.match(wm, /if \(key\.startsWith\('bed:'\)\) \{\n        interiorKeyCtx\.toggleRest\(\{ ignoreAllocatedBed: true \}\);/, 'BedActivation is the rest gate, and `new DaggerfallRestWindow(uiManager, true)` (:524) - AUDIT-RR F6');
-  assert.match(wm, /joinGuild\(memberships, guild, gameDate\(\), store\);/);
-  assert.match(wm, /const doused = rrDouseOnDungeonExit\(playerEntity, \{ isDay: isDayFromMinutes\(Math\.floor\(worldMinutes\(\)\)\) \}\);\n      if \(doused\) townTalk\?\.showOverlay\?\.\(new ActionTextBox\(\[expandItemMacro\(USE_TEXT\.lightDouse, doused\)\]\)\);/, 'the douse on the dungeon exit with the light\'s own box');
+  assert.match(wm, /if \(key\.startsWith\('bed:'\)\) \{\n        restFromInteriorBed\(\);/, 'BedActivation is the rest gate');
+  assert.match(wm, /const restFromInteriorBed = \(\) => \{ _restFromBed = true; try \{ interiorKeyCtx\.toggleRest\(\{ ignoreAllocatedBed: true \}\); \} finally \{ _restFromBed = false; \} \};/, 'and `new DaggerfallRestWindow(uiManager, true)` (:524) - AUDIT-RR F6 (CSA-J: through the bed\'s own door, which drops the GiveOffer rung)');
+  assert.match(wm, /joinGuild\(memberships, guild, ownDate\(\), store\);/);   // LIVED1: a join is dated on the character's own clock (the rank wait's)
+  assert.match(wm, /const doused = rrDouseOnDungeonExit\(playerEntity, \{ isDay: isDayFromMinutes\(Math\.floor\(skyMinutes\(\)\)\) \}\);[^\n]*\n      if \(doused\) townTalk\?\.showOverlay\?\.\(new ActionTextBox\(\[expandItemMacro\(USE_TEXT\.lightDouse, doused\)\]\)\);/, 'the douse on the dungeon exit with the light\'s own box');
   assert.match(wm, /setRrHostSeams\(\{ spawnFoe: \(mobileType, opts\) => standInteriorLooseFoe\(mobileType, opts\) \}\);/);
   assert.match(rd('src/combat/formulas.js'), /chanceToHitMod \+= _overrides\.get\('calculateWeaponToHit'\)\?\.\(weapon\) \?\? \(WEAPON_MATERIAL_MODIFIER\[weapon\.material\] \?\? 0\) \* 10;/);
-  assert.match(rd('src/combat/formulas.js'), /if \(_overrides\.get\('applyConditionDamageThroughPhysicalHit'\)\?\.\(item, owner, damage, \{ say \}\) === true\) return;/);
+  assert.match(rd('src/combat/formulas.js'), /if \(_overrides\.get\('applyConditionDamageThroughPhysicalHit'\)\?\.\(item, owner, damage, \{ say, rolls \}\) === true\) return;/);   // BALANCE1: the override is handed the rolls, for the wear scale's rounding
   assert.match(rd('src/player/climbing.js'), /const chance = climbingChanceOverride\(base, \{ \.\.\.i, say: this\.deps\.say \?\? null \}\) \?\? climbingChance\(/);
   assert.match(rd('src/combat/weaponRig.js'), /const poseProbe = \(\) => \(\{ \.\.\.weaponPoseOf\(playerWeapon\), weaponType: weaponTypeForItem\(playerWeapon\.weapon\) \}\);/, 'the pair through its one law (HARD2c)');
   assert.match(rd('src/combat/weaponRig.js'), /setWeaponPoseProbe\(poseProbe\);/, 'AUDIT 68 S09-rig-globals-last-built: re-claimed by the stepping rig');

@@ -172,7 +172,7 @@ test('EV8: the wiring - enhanced-gated, weather-gated, inside the sky\'s foreign
     'the 1:1 lane keeps the fog horizon DFU draws');
   // the draw sits between the sky and the one existing seam mark - no
   // third markForeignPass (glstate.test.js counts exactly two)
-  const skyAt = world.indexOf('sky.draw(cam.yaw');
+  const skyAt = world.indexOf('sky.draw(tvf ? tvf.yaw : cam.yaw');   // TV1: the sky turns to the travel view's eye
   const markAt = world.indexOf('renderer.markForeignPass();', skyAt);
   const span = world.slice(skyAt, markAt);
   assert.ok(span.includes("fogNow.mode === 'linear'"), 'exp fog (weather) hides the ring');   // WX2: the row on the front
@@ -181,6 +181,6 @@ test('EV8: the wiring - enhanced-gated, weather-gated, inside the sky\'s foreign
     'one translation places the whole mesh - recenters are free');
   assert.ok(span.includes('farRing.needsRebuild(state.current.x, state.current.y)'),
     'the grid follows the walk');
-  assert.equal((world.match(/renderer\.markForeignPass\(\);/g) || []).length, 11,   // DUEL1: the duel ring's wall; WB2: the gate's fire and beacon; WB4a: the court's telegraph; WB6a: the Deadlands' sea and sky; DW-C: the Deep Waters surfaces
-    'the ring shares the sky\'s seam - the EV6 count stands (GR1 added the grass, the third; WIND3 the wisps, the fourth; WEATHER2d the sand, the fifth; BOLT the bolts, the sixth; DW-C the sea\'s surfaces, the eighth)');
+  assert.equal((world.match(/renderer\.markForeignPass\(\);/g) || []).length, 20,   // WB12d: the rite's pillar of smoke; LOOT11: the lines of light over a find - the street's pass and the modes' hook; UNDER-LOOK (FIELD BUGS 2026-10-01): the water body and the shafts under the sea; GUILD1d: the guild halls' banners; WB9g: Dagon's Fire at the wearers' feet; DUEL1: the duel ring's wall; WB2: the gate's fire and beacon; WB4a: the court's telegraph; WB6a: the Deadlands' sea and sky; DW-C: the Deep Waters surfaces; OH-C: the pit's core and miasma; TV4: the curtains from above   // CROWN-HALL: the banners' cloth in a castle's throne room (PIN MOVED)
+    'the ring shares the sky\'s seam - the EV6 count stands (GR1 added the grass, the third; WIND3 the wisps, the fourth; WEATHER2d the sand, the fifth; BOLT the bolts, the sixth; DW-C the sea\'s surfaces, the eighth; OH-C the pit\'s core and miasma, the ninth; TV4 the curtains from above, the tenth; WB9g the aura at the wearers\' feet)');
 });

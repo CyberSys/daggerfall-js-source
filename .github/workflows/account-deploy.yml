@@ -53,11 +53,47 @@ on:
       - "src/net/homeLaw.js"
       - "src/net/decorLaw.js"
       - "src/net/guildLaw.js"
+      - "src/net/hallLaw.js"
+      - "src/net/heraldryLaw.js"
+      - "src/net/townSeatLaw.js"
+      - "src/net/tideLaw.js"
+      - "src/net/fortLaw.js"
+      - "src/net/watchReceipt.js"
+      - "src/net/marksLaw.js"
+      - "src/net/boardLaw.js"
+      - "src/net/professionLaw.js"
+      - "src/net/nodeLaw.js"
+      - "src/net/skyLaw.js"
+      - "src/net/kingdomLaw.js"
+      - "src/net/recipeLaw.js"
+      - "src/net/productRecord.js"
+      - "src/net/marketLaw.js"
+      - "src/net/writLaw.js"
+      - "src/net/gateLaw.js"
+      - "src/formats/mapsTables.js"
+      - "src/systems/foragingCore.js"
+      - "src/systems/gameDate.js"
+      - "src/systems/itemTemplatesData.js"
+      - "src/net/raidLaw.js"
       - "src/net/gateReceipt.js"
+      - "src/net/legalLaw.js"
+      - "src/net/raidReceipt.js"
       - "src/net/wire.js"
+      - "src/net/siegeRef.js"
+      - "src/net/siegeReceipt.js"
+      - "src/net/gateMods.js"
+      - "src/net/insignia.js"
       - "src/net/dice.js"
+      - "src/net/realmTradeLaw.js"
+      - "src/net/canon.js"
+      - "src/net/realmGoldLaw.js"
+      - "src/net/realmSaveCodec.js"
       - "src/world/mat4.js"
       - "src/characters/nameGen.json"
+      - "src/characters/dyes.js"
+      - "src/net/alchemyLaw.js"
+      - "src/systems/potionRecipes.js"
+      - "src/characters/itemTemplates.json"
       - ".github/workflows/account-deploy.yml"
   workflow_dispatch:
 
@@ -71,7 +107,19 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  # SCALE1 (2026-09-30, the scaling audit): THE SUITE FIRST. This service
+  # deployed on every push that touched it whatever the check said - on
+  # 2026-09-30 the site's deploy stopped at a red "lint and types" while
+  # this job shipped the same commit's service to every player. The
+  # site's deploy waits up to thirty minutes for this service's version
+  # (deploy.yml), which the suite's few minutes fit inside.
+  verify:
+    uses: ./.github/workflows/verify.yml
+    with:
+      build: false
+
   deploy:
+    needs: verify
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -208,6 +256,24 @@ jobs:
       # NOT idempotent - `ALTER TABLE ADD COLUMN` has no IF NOT EXISTS -
       # so "apply each one exactly once" has to be something a tool
       # knows, not something a comment asks for.
+      # SCALE1 (2026-09-30, the scaling audit): THE DATABASE AS IT STOOD
+      # BEFORE THEM, written where a person will look. Some migrations are
+      # not idempotent and none can be undone by another; D1 Time Travel
+      # can put the whole database back to this bookmark (realm-restore.yml
+      # reads it the same way). A bookmark that cannot be read is a warning,
+      # not a stop - a restore by timestamp still works without it.
+      - name: Record the database's bookmark before the migrations
+        working-directory: server-account
+        run: |
+          set -uo pipefail
+          b=$($WRANGLER d1 time-travel info "$DB_NAME" --json | jq -r '.bookmark // empty' || true)
+          if [ -z "$b" ]; then
+            echo "::warning::could not read the database's Time Travel bookmark before the migrations"
+            exit 0
+          fi
+          echo "before the migrations: $b"
+          { echo "The database before this deploy's migrations, should it need putting back:"; echo ""; echo "    npx wrangler d1 time-travel restore $DB_NAME --bookmark $b"; echo ""; } >> "$GITHUB_STEP_SUMMARY"
+
       - name: Apply migrations
         working-directory: server-account
         run: |
@@ -265,16 +331,18 @@ jobs:
           test -n "$want" || { echo "::error::could not read RELAY_VERSION from src/net/wire.js"; exit 1; }
           test -n "$host" || { echo "::error::could not read DEFAULT_SERVER from src/net/online.js"; exit 1; }
           n() { printf '%s' "$1" | grep -oE '[0-9]+$' || echo -1; }
-          for i in $(seq 1 60); do
+          # SEAT2a part three (Seats-Arc 17): the relay's deploy now waits out a siege's blackout, so this waits to
+          # outlast it - five and a half hours (GitHub's job ceiling is six)
+          for i in $(seq 1 1000); do
             got=$(curl -fsS --max-time 15 "https://$host/health" | sed -n 's/.*"version":"\([^"]*\)".*/\1/p' || true)
             if [ "$got" = "$want" ] || { [ -n "$got" ] && [ "$(n "$got")" -ge "$(n "$want")" ]; }; then
               echo "the relay serves ${got} - the service may sign what it verifies"
               exit 0
             fi
-            echo "the relay serves '${got:-unreachable}', not $want yet - waiting (${i}/60)"
+            echo "the relay serves '${got:-unreachable}', not $want yet - waiting (${i}/1000)"
             sleep 20
           done
-          echo "::error::the relay never came to serve $want in twenty minutes - not deploying a service that may sign what the live relay refuses (dispatch relay-deploy.yml, then re-run this)"
+          echo "::error::the relay never came to serve $want in five and a half hours - not deploying a service that may sign what the live relay refuses (dispatch relay-deploy.yml, then re-run this)"
           exit 1
 
       - name: Deploy
@@ -442,6 +510,46 @@ jobs:
             echo "A receipt signed by any earlier relay key is refused at the signature and expires with its week."
           } >> "$GITHUB_STEP_SUMMARY"
 
+      # ── 4c. PATREON-LINK'S TWO SECRETS, WHERE THE REPOSITORY HAS THEM ──
+      #
+      # PATREON-LINK (2026-10-01, Mac: "having to manually hand out titles
+      # ... its really hard to keep up with it"): a patron links their own
+      # Patreon, and the service needs the two things only Patreon and Mac
+      # hold - the API client's secret (to spend the code a player comes
+      # back with) and the webhook's (to believe Patreon's word on a
+      # member). Each is a REPOSITORY secret, PATREON_CLIENT_SECRET and
+      # PATREON_WEBHOOK_SECRET, put on the Worker here on EVERY deploy - so
+      # a secret changed in the repository reaches the service on the next
+      # push. An unset one is not an error: linking stays off (patreon.js
+      # patreonLinkOn) and the webhook answers `patreon-closed`.
+      #
+      # ONE PUT FOR BOTH (`secret bulk`, one redeploy), fed through a pipe:
+      # jq builds the JSON from the environment, so neither value is ever
+      # echoed, written to a file, or an argument. The summary names the two
+      # addresses the Patreon client and its webhook are registered with,
+      # read off this deploy - never typed (AUDIT-ACC F16).
+      - name: Put the Patreon secrets, where the repository has them
+        working-directory: server-account
+        env:
+          PATREON_CLIENT_SECRET: ${{ secrets.PATREON_CLIENT_SECRET }}
+          PATREON_WEBHOOK_SECRET: ${{ secrets.PATREON_WEBHOOK_SECRET }}
+        run: |
+          set -euo pipefail
+          base="${{ steps.deploy.outputs.base }}"
+          if [ -z "${PATREON_CLIENT_SECRET}" ] && [ -z "${PATREON_WEBHOOK_SECRET}" ]; then
+            echo "neither PATREON_CLIENT_SECRET nor PATREON_WEBHOOK_SECRET is set for this repository - Patreon linking stays off"
+          else
+            jq -n 'env | {PATREON_CLIENT_SECRET, PATREON_WEBHOOK_SECRET} | with_entries(select(.value != null and .value != ""))' | $WRANGLER secret bulk
+          fi
+          {
+            echo "### Patreon linking"
+            echo ""
+            echo "- client secret: $([ -n "${PATREON_CLIENT_SECRET}" ] && echo put || echo 'not set - linking is off')"
+            echo "- webhook secret: $([ -n "${PATREON_WEBHOOK_SECRET}" ] && echo put || echo 'not set - pledges are not followed')"
+            echo "- the Patreon client's redirect URI: \`$base/v1/patreon/callback\`"
+            echo "- the Patreon webhook's URL: \`$base/v1/patreon/webhook\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+
       # ...AND PROVE IT LANDED, BY CONTENT. The client's deploy has been
       # verified this way since U60 and the relay's since SRV-N/CI, for
       # the same reason both times: a wrangler exit code of 0 over an
@@ -474,6 +582,28 @@ jobs:
           echo "::error::the account service never reported $want - the deploy did not take"
           exit 1
 
+      # ═══ AUDIT PRE-MERGE 0929 T-CI: THE SMOKE AGREES AS A PLAYER DOES ══
+      #
+      # TERMS1 (acct20) refuses a guest row or a name without the Terms
+      # of Service and the Privacy Policy ticked - and the smoke below
+      # opened its guest, and named it, with `{"label":"deploy-smoke"}`
+      # alone: 400 `terms-unaccepted` under `curl -f`, every step after
+      # the Worker went live red, and the checks they are (the gate's
+      # half, a password route on the platform, the public key and the
+      # relay's copy of it) never run on this deploy or any after it.
+      # The versions are read off the one home both ends read
+      # (src/net/legalLaw.js), never typed here - a smoke with its own
+      # copy is the drift the file exists to refuse. The smoke's rows
+      # record an agreement: they are the deploy's own throwaways.
+      - name: Read the documents a new account agrees to
+        run: |
+          set -euo pipefail
+          terms=$(grep -oP "^export const TERMS_VERSION = '\K[^']+" src/net/legalLaw.js)
+          privacy=$(grep -oP "^export const PRIVACY_VERSION = '\K[^']+" src/net/legalLaw.js)
+          test -n "$terms" && test -n "$privacy" || { echo "::error::could not read TERMS_VERSION and PRIVACY_VERSION from src/net/legalLaw.js"; exit 1; }
+          { echo "LEGAL_TERMS=$terms"; echo "LEGAL_PRIVACY=$privacy"; } >> "$GITHUB_ENV"
+          echo "the smoke agrees to the Terms of Service $terms and the Privacy Policy $privacy"
+
       # GATE-KEYS: AND THE SERVICE HOLDS THE GATE'S HALF. A claim is asked
       # with a receipt no relay signed: a service holding the public half
       # refuses it as not a receipt (400 `receipt`); one holding none
@@ -486,7 +616,7 @@ jobs:
           set -euo pipefail
           base="${{ steps.deploy.outputs.base }}"
           guest=$(curl -fsS --max-time 15 -X POST "$base/v1/auth/guest" \
-            -H 'content-type: application/json' -d '{"label":"deploy-smoke"}')
+            -H 'content-type: application/json' -d "{\"label\":\"deploy-smoke\",\"terms\":\"$LEGAL_TERMS\",\"privacy\":\"$LEGAL_PRIVACY\"}")
           secret=$(echo "$guest" | sed -n 's/.*"secret":"\([^"]*\)".*/\1/p')
           test -n "$secret" || { echo "::error::no guest session - /v1/auth/guest did not answer a secret"; echo "$guest"; exit 1; }
           # AUDIT (the pre-merge audit, S3): one ask - a timeout or a reset is an answer to ask again (000), never the
@@ -532,7 +662,7 @@ jobs:
           set -euo pipefail
           base="${{ steps.deploy.outputs.base }}"
           guest=$(curl -fsS --max-time 15 -X POST "$base/v1/auth/guest" \
-            -H 'content-type: application/json' -d '{"label":"deploy-smoke"}')
+            -H 'content-type: application/json' -d "{\"label\":\"deploy-smoke\",\"terms\":\"$LEGAL_TERMS\",\"privacy\":\"$LEGAL_PRIVACY\"}")
           secret=$(echo "$guest" | sed -n 's/.*"secret":"\([^"]*\)".*/\1/p')
           test -n "$secret" || { echo "::error::no guest session - /v1/auth/guest did not answer a secret"; echo "$guest"; exit 1; }
 
@@ -631,7 +761,7 @@ jobs:
           handle="smoke$(date +%s | tail -c 7)"
           code=$(curl -sS --max-time 25 -o /tmp/reg.json -w '%{http_code}' -X POST "$base/v1/auth/register" \
             -H 'content-type: application/json' \
-            -d "{\"secret\":\"$secret\",\"handle\":\"$handle\",\"password\":\"a-long-enough-password\"}")
+            -d "{\"secret\":\"$secret\",\"handle\":\"$handle\",\"password\":\"a-long-enough-password\",\"terms\":\"$LEGAL_TERMS\",\"privacy\":\"$LEGAL_PRIVACY\"}")
           echo "register -> $code"
           cat /tmp/reg.json || true
           echo

@@ -20,8 +20,8 @@
   {
     "name": "ROADS-CLEAR-the-site-is-never-asked",
     "file": "src/scenes/world.js",
-    "old": "}, wodPathsPoint, (name, prefab, rect) => wodSiteClear(terrainGen.roads(), px, py, name, prefab, rect));",
-    "new": "}, wodPathsPoint);",
+    "old": "}, wodPathsPoint, (name, prefab, rect) => wodSiteClear(terrainGen.roads(), px, py, name, prefab, rect) && gateSite(name, prefab, rect));",
+    "new": "}, wodPathsPoint, (name, prefab, rect) => gateSite(name, prefab, rect));",
     "tests": [
       "test/roadsclear.test.js"
     ]

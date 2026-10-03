@@ -8,7 +8,7 @@
 // separate table here: the words and the numbers are two facts, and
 // only the numbers are arithmetic.
 import { HOLIDAYS, getHolidayId } from './holidays.js';
-import { calculateTradePrice } from './shopStock.js';
+import { calculateTradePrice, essentialPrice } from './shopStock.js';   // ESSENTIALS-HALF: online, a room and a meal cost half
 import { dayOfYear } from './gameDate.js';
 import { interiorSceneName, addPermanentScene, removePermanentScene } from './sceneCache.js';   // P1: the rented room's own scene
 import { localizedText, localizedStrings } from './textManager.js';   // L10N3d: the tavern's words
@@ -53,6 +53,13 @@ const TAVERN_MENU_LINES = localizedStrings({
 });
 export const tavernMenuLines = () => Object.values(TAVERN_MENU_LINES);
 
+/** ESSENTIALS-HALF: the menu's rows as the player reads them - DFU's own labels offline, each row's gold the half it
+ *  costs online (eatOrDrink's own essentialPrice). L10N3d: the lines are the language's (tavernMenuLines), so the
+ *  price is the last number before the line's closing bracket, whatever the language calls a gold piece. */
+export const tavernMenuPrice = (index, { online } = {}) => essentialPrice(TAVERN_PRICES[index], { online });
+export const tavernMenuLabels = ({ online } = {}) => tavernMenuLines().map((text, i) =>
+  text.replace(/\d+(?=\D*\)\s*$)/, String(tavernMenuPrice(i, { online }))));
+
 /** The rental ceiling (:188) - days ALREADY rented count toward it. */
 export const MAX_RENTAL_DAYS = 350;
 /** Heart's Day is day 46; a rental spanning it is one day cheaper. */
@@ -81,8 +88,8 @@ export function calculateRoomCost(daysToRent, date) {
  *  character sleeps cheaper. The first draft here reached for
  *  calculateCost (the item-shop formula) and would have charged every
  *  character the same. */
-export const roomPrice = (daysToRent, date, quality, skills) =>
-  calculateTradePrice(calculateRoomCost(daysToRent, date).cost, quality, skills, false);
+export const roomPrice = (daysToRent, date, quality, skills, { online } = {}) =>
+  essentialPrice(calculateTradePrice(calculateRoomCost(daysToRent, date).cost, quality, skills, false), { online });   // ESSENTIALS-HALF
 
 /** PlayerEntity.GetRemainingHours (:268-275) - the `%dwr` macro's
  *  source, and the sweep's own test. A null room answers -1, which is
@@ -132,7 +139,7 @@ export function daysAlreadyRented(room, nowMinutes) {
  *  The ORDER is DFU's and is load-bearing: the ceiling is tested
  *  BEFORE the knightly exemption, so even a free room cannot be
  *  booked past 350 days. */
-export function rentalDecision(input, { room = null, nowMinutes = 0, date, quality = 0, free = false, skills = undefined } = {}) {
+export function rentalDecision(input, { room = null, nowMinutes = 0, date, quality = 0, free = false, skills = undefined, online = undefined } = {}) {
   const days = Number.parseInt(input, 10);
   if (!Number.isFinite(days) || days < 1) return { kind: 'ignore' };
   if (days + daysAlreadyRented(room, nowMinutes) > MAX_RENTAL_DAYS) return { kind: 'tooMany', days };
@@ -141,7 +148,8 @@ export function rentalDecision(input, { room = null, nowMinutes = 0, date, quali
   return {
     kind: 'offer',
     days,
-    price: calculateTradePrice(cost, quality, skills, false),
+    // ESSENTIALS-HALF (2026-09-30, Discord: "things are way too expensive rn for money to be nerfed so heavily... cut the cost of most essential items by half"): online the room costs half (shopStock.js essentialPrice)
+    price: essentialPrice(calculateTradePrice(cost, quality, skills, false), { online }),
     heartsDay: freeForHeartsDay,
   };
 }
@@ -186,7 +194,7 @@ export const canEat = (lastAteMinutes, nowMinutes) =>
  *  where `price` is still the halved-or-not menu price even though
  *  nothing was spent, so the free meal heals as if bought. Verbatim.
  *  Answers { kind: 'poor' } or { kind: 'ate', spend, heal }. */
-export function eatOrDrink(index, { gold = 0, gameMinutes = 0 } = {}) {
+export function eatOrDrink(index, { gold = 0, gameMinutes = 0, online = undefined } = {}) {
   let price = TAVERN_PRICES[index];
   if (price === undefined) return { kind: 'ignore' };
   // VERBATIM, and a quirk (Ledger B): DFU passes region 0 as a
@@ -203,17 +211,19 @@ export function eatOrDrink(index, { gold = 0, gameMinutes = 0 } = {}) {
     if (price === 0) price = 1;
   }
   const newLife = holiday === HOLIDAYS.New_Life;
-  if (!newLife && gold < price) return { kind: 'poor' };
-  return { kind: 'ate', spend: newLife ? 0 : price, heal: 2 * price };
+  // ESSENTIALS-HALF (2026-09-30, Discord: "things are way too expensive rn for money to be nerfed so heavily... cut the cost of most essential items by half"): online the meal costs half (shopStock.js essentialPrice) - and heals as the menu's price, never less
+  const cost = essentialPrice(price, { online });
+  if (!newLife && gold < cost) return { kind: 'poor' };
+  return { kind: 'ate', spend: newLife ? 0 : cost, heal: 2 * price };
 }
 
 // The three clauses that stood here are all closed:
-//  - (RETIRED by TK-iv: the TALK button. tavernWindow.js:355, and the
-//    KeyT arm at :343, fire hooks.onTalk; worldModes.js:3793 supplies
+//  - (RETIRED by TK-iv: the TALK button. tavernWindow.js:371, and the
+//    KeyT arm at :343, fire hooks.onTalk; worldModes.js:4193 supplies
 //    it as openStaticNpc(pn, { forceTalk: true }), which reaches
-//    npcSession.talkToStaticNPC at worldModes.js:3003 - TalkManager.
+//    npcSession.talkToStaticNPC at worldModes.js:3218 - TalkManager.
 //    TalkToStaticNPC (TalkManager.cs:752-770). The guild popup's TALK
-//    button shares that door at worldModes.js:3900, popupTalkToStaticNpc.)
+//    button shares that door at worldModes.js:4300, popupTalkToStaticNpc.)
 //  - (RETIRED by P1: AddPermanentScene (:246) keeps a rented room's
 //    interior loaded across a save. The port now has a permanent-scene
 //    set, and rentRoom names the scene it should hold.)

@@ -42,9 +42,10 @@ test('CLK1: the constants - the ease is 14 real seconds at the default scale, sa
 test('CLK1: the controller - the presentation differences the host\'s classicMinutes, never the wall; the stretch has no time scale in it; the mod keeps its real frame', () => {
   const shared = read('src/scenes/shared.js');
   const use = shared.slice(shared.indexOf('use(skyIndex, minuteOfDay, showNightSky = true, extra = null) {'), shared.indexOf('let frame = params.has(\'window\')'));
-  assert.match(use, /const nowMin = extra\?\.classicMinutes \?\? 0;\s*\n\s*const dt = lastMin === null \|\| nowMin < lastMin \? 0 : nowMin - lastMin;   \/\/ GAME MINUTES\s*\n\s*lastMin = nowMin;/, 'dt is the clock\'s delta, in minutes; a clock that went backwards costs none');
+  // TIME1: the feed takes TWO minutes - the event clock it walks (dt, here) and the sky it dates the moons by (`skyNow`)
+  assert.match(use, /const nowMin = extra\?\.classicMinutes \?\? 0;[\s\S]{0,800}?const skyNow = extra\?\.skyMinutes \?\? nowMin;\s*\n\s*const dt = lastMin === null \|\| nowMin < lastMin \? 0 : nowMin - lastMin;   \/\/ GAME MINUTES\s*\n\s*lastMin = nowMin;/, 'dt is the clock\'s delta, in minutes; a clock that went backwards costs none');
   assert.match(use, /const dtReal = weatherAt === null \? 0 : Math\.min\(MAX_DELTA_SECONDS, Math\.max\(0, seconds - weatherAt\)\);/, 'the wall\'s delta survives for one reader, clamped as Time.deltaTime is (MODS AUDIT)');
-  assert.match(use, /dynamic\.tick\(\{\s*\n\s*minuteOfDay, classicMinutes: nowMinutes, weather: skyWord, seconds, dt: dtReal,/, 'the mod (1:1) takes it - BLBSkybox reads Time.deltaTime');
+  assert.match(use, /dynamic\.tick\(\{\s*\n\s*minuteOfDay, classicMinutes: skyNow, weather: skyWord, seconds, dt: dtReal,/, 'the mod (1:1) takes it - BLBSkybox reads Time.deltaTime');   // TIME1: its date (the moons) the sky's
   assert.equal((use.match(/dtReal/g) || []).length, 2, 'and nothing else does');
   assert.match(use, /const easeDt = windModel\.inLead\(\) \? dt \* \(WEATHER_EASE_MINUTES \/ windModel\.leadMinutes\(\)\) : dt;/, 'minutes over minutes');
   assert.doesNotMatch(use, /60 \/ 12|\* 12\b/, 'no time scale hard-coded in the presentation');
@@ -181,7 +182,7 @@ test('CLK2: the change lands through DFU\'s own drain - live under the sky it is
   resetWeatherSim(); setWeatherMapLaw(false);
   // the wiring: the tick calls it after the day roll; the lane's door
   const tick = read('src/systems/worldTick.js');
-  assert.match(tick, /runDayChange\(\{ entity, lastMinutes, nowMinutes, rolls, say \}\);\s*\n(\s*\/\/[^\n]*\n)*\s*evolveClimateWeathers\(nowMinutes\);/, 'after the day roll, wherever the player is');
+  assert.match(tick, /else runDayChange\(\{ entity, lastMinutes, nowMinutes, rolls, say \}\);\s*\n(\s*\/\/[^\n]*\n)*\s*evolveClimateWeathers\(_sharedClock \? Math\.floor\(worldTo\) : nowMinutes\);/, 'after the day roll, wherever the player is (LIVED1: online on the world\'s hours)');
   const sim = read('src/systems/weatherSim.js');
   assert.match(sim, /_evolveUrlDoor \?\?= new URLSearchParams\(globalThis\.location\?\.search \?\? ''\)\.get\('evolve'\) !== 'off';\s*\n\s*return _evolveUrlDoor && isEnhanced\(\) && !!getPref\('enhancedEnvironments'\);/, 'Enhanced Environments read LIVE (the pane flips it without a reload), ?evolve=off the kill switch read once');
   assert.match(sim, /const r = seededRng\(\(h \* 6 \+ zone\) \^ EVOLVE_SEED\);/, 'its own generator');
@@ -242,7 +243,7 @@ test('CLK3: the moon\'s phase is continuous on the clock for the dome - no 45-de
   assert.equal(lunarPhase(dateFromClassicMinutes(base), { masser: true }) >= 0, true, 'the ladder itself is untouched');
   // the systems keep the step: the dome alone takes the fraction, a caller's own phases go in whole
   const dome = read('src/render/enhancedSky.js');
-  assert.match(dome, /const ph = phases \?\? lunarPhaseFractionsFromMinutes\(classicMinutes\);/);
+  assert.match(dome, /const ph = phases \?\? lunarPhaseFractionsFromMinutes\(skyMinutes\);/);   // TIME1: the moons' date is the sky's (`skyMinutes`, the one clock when unhanded)
   assert.doesNotMatch(dome, /lunarPhasesFromMinutes/, 'the ladder is not the dome\'s to read any more');
   // the systems keep the step - the readers the page names (the enchant ctx's moon arms, the lycanthrope's full
   // moon, the Dynamic Skies mod's own), unconditionally: a file that stops reading DFU's step goes red, not quiet

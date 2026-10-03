@@ -21,6 +21,7 @@ import {
   addRemovedSecondaryAction, isPadCode, saveKeyBinds,
 } from '../systems/inputActions.js';
 import { isEnhancedPlus } from '../systems/uiSkin.js';
+import { PIXEL_FONT_CSS } from './pixelifyFive.js';   // FONT3: the prompt bar in the whole trio
 import { getPref, setPref } from '../systems/uiPrefs.js';
 import { hdGlyphSvg, hdGlyphName } from './padGlyphsHD.js';
 
@@ -31,8 +32,9 @@ export function plusPadActive() {
 
 // ── 1. THE LAYOUT ───────────────────────────────────────────────────
 
-/** Bumped when the layout below changes, so the one-time move runs again for rows still on the old default. */
-export const PLUS_PAD_LAYOUT_VERSION = 1;
+/** Bumped when the layout below changes, so the one-time move runs again for rows still on the old default. TOUCH-HOLD:
+ *  2 - LT is Interact (it was Recast, which the d-pad's right holds now - PLUS_DPAD_DEFAULTS). */
+export const PLUS_PAD_LAYOUT_VERSION = 2;
 
 /** The Plus rows, secondary dict. LB and RB are left FREE: holding one is the crossbar. RT is the attack through the
  *  joystick-UI RightClick (the drag-swing arm), so it holds no secondary row of its own. */
@@ -44,7 +46,10 @@ export const PLUS_PAD_LAYOUT = Object.freeze([
   ['JoystickButton7', 'Escape'],             // Menu - pause
   ['JoystickButton8', 'Run'],                // L3 - toggled by the poller (plusToggleRun)
   ['JoystickButton9', 'Crouch'],             // R3
-  ['JoystickAxis9Button0', 'RecastSpell'],   // LT - cast the last spell again
+  // TOUCH-HOLD (2026-10-01 part four - Mac: "Interact button + knife Use"): LT - E, the professions' start and their
+  // hold, and the sea's. Every Plus button held a row, and a trigger holds while the right thumb draws the knife's
+  // line; Recast, which it held, is the d-pad's right held (PLUS_DPAD_DEFAULTS)
+  ['JoystickAxis9Button0', 'Interact'],      // LT
   ['JoystickAxis7Button0', 'QuickUse1'],     // d-pad: the diamond / crossbar-left's d-pad, as PAD1
   ['JoystickAxis7Button1', 'QuickUse2'],
   ['JoystickAxis6Button1', 'QuickSpell'],
@@ -57,6 +62,9 @@ export const PLUS_PAD_UI = Object.freeze([
   ['JoystickButton0', 'LeftClick'], ['JoystickAxis10Button0', 'RightClick'], ['JoystickButton19', 'MiddleClick'], ['JoystickButton1', 'Back'],
 ]);
 const PAD1_UI = Object.freeze({ LeftClick: 'JoystickButton0', RightClick: 'JoystickButton3', MiddleClick: 'JoystickButton2', Back: 'JoystickButton1' });
+/** TOUCH-HOLD: the rows an earlier version laid that this one takes back where they still stand - version 1's Recast on
+ *  LT, which Interact takes. */
+export const PLUS_PAD_RETIRED = Object.freeze([['JoystickAxis9Button0', 'RecastSpell']]);
 
 /**
  * Move a bindings store to the Plus layout. Without `force` only PAD1's untouched defaults move - a row the player
@@ -66,8 +74,8 @@ const PAD1_UI = Object.freeze({ LeftClick: 'JoystickButton0', RightClick: 'Joyst
 export function applyPlusPadLayout(store, { force = false } = {}) {
   const changed = [];
   if (!store?.secondary) return changed;
-  // let go of PAD1's own rows where they still stand
-  for (const [code, action] of DEFAULT_SECONDARY_BINDINGS) {
+  // let go of PAD1's own rows where they still stand - TOUCH-HOLD: and an earlier Plus layout's that this one retired
+  for (const [code, action] of [...DEFAULT_SECONDARY_BINDINGS, ...PLUS_PAD_RETIRED]) {
     if (store.secondary.get(code) === action) { dropBinding(store, code, action, false); changed.push(`${action} off ${code}`); }
   }
   if (force) {
@@ -161,7 +169,7 @@ export const PLUS_DPAD_DEFAULTS = Object.freeze({
   up: Object.freeze({ tap: 'SwitchHand', hold: NEXT_MODE }),
   down: Object.freeze({ tap: 'AutoMap', hold: 'TravelMap' }),
   left: Object.freeze({ tap: 'LogBook', hold: 'Transport' }),
-  right: Object.freeze({ tap: 'Rest', hold: null }),
+  right: Object.freeze({ tap: 'Rest', hold: 'RecastSpell' }),   // TOUCH-HOLD: Recast, which LT held before Interact took it
 });
 /** What a d-pad slot may hold - the words the bindings window shows. null is "nothing". */
 export const DPAD_CHOICES = Object.freeze([
@@ -170,6 +178,10 @@ export const DPAD_CHOICES = Object.freeze([
   ['CharacterSheet', 'Character sheet'], ['CastSpell', 'Spellbook'], ['RecastSpell', 'Recast spell'], ['Inventory', 'Inventory'],
   ['StealMode', 'Steal mode'], ['GrabMode', 'Grab mode'], ['InfoMode', 'Info mode'], ['TalkMode', 'Talk mode'],
   ['Jump', 'Jump'], ['Crouch', 'Crouch'], ['ReadyWeapon', 'Draw / sheathe'],
+  // Mac: "add mouselook and walk mode to the d-pad's tap and hold too" - the same two registry actions the
+  // Controller bindings window already lets you put on a single button (ui/plusPadBinds.js PLUS_BIND_ROWS), now
+  // also choosable per d-pad direction and per tap/hold, same as every other entry here.
+  ['FreeMouse', 'Mouselook on / off'], ['WalkMode', 'Walk mode on / off'],
 ]);
 export const dpadChoiceWord = (a) => DPAD_CHOICES.find(([v]) => v === (a ?? null))?.[1] ?? String(a);
 const DPAD_ACTION_OK = new Set(DPAD_CHOICES.map(([v]) => v));
@@ -238,6 +250,11 @@ export const LOOT_DPAD = Object.freeze({
   JoystickAxis7Button0: 'up', JoystickAxis7Button1: 'down',
   JoystickAxis6Button0: 'QuickLootAll', JoystickAxis6Button1: 'QuickLootOpen',
 });
+/** CSA-L: the d-pad at Come Sail Away's helm - each direction by its code (a tap, a hold and a let-go reported to the
+ *  host's helm, ui/enhancedHelm.js helmPadGesture, which names the mod's action for it). */
+export const HELM_DPAD = Object.freeze({
+  JoystickAxis7Button0: 'up', JoystickAxis7Button1: 'down', JoystickAxis6Button1: 'left', JoystickAxis6Button0: 'right',
+});
 /** The prompt rows while looting. */
 export function lootPrompts({ take = 'JoystickButton0' } = {}) {
   return [[['JoystickAxis7Button0', 'JoystickAxis7Button1'], 'Choose'], [[take], 'Take'],
@@ -253,7 +270,9 @@ export function crossbarInForce() { try { return !!_xb?.inForce?.(); } catch { r
 // ── 3. THE MENUS ────────────────────────────────────────────────────
 
 const doc = () => globalThis.document ?? null;
-const visible = (n) => !!n && n.isConnected !== false && typeof n.getClientRects === 'function' && n.getClientRects().length > 0
+// AUDIT TIMERS1 UI-7: and not inside an [inert] subtree - a window over the pause face makes the face inert, and a bumper
+// turned the tabs under it
+const visible = (n) => !!n && n.isConnected !== false && !n.closest?.('[inert]') && typeof n.getClientRects === 'function' && n.getClientRects().length > 0
   && (globalThis.getComputedStyle?.(n)?.visibility ?? 'visible') !== 'hidden';
 
 /** The tab strips a bumper turns, first match wins: the pack's and the shop's category tabs, the pause window's
@@ -389,7 +408,7 @@ const PROMPT_CSS = `
   z-index: 39; display: none; gap: 14px; align-items: center; padding: 6px 14px; pointer-events: none;
   background: linear-gradient(180deg, rgba(34,31,26,0.94), rgba(14,13,11,0.94));
   border: 2px solid; border-color: #b08a4a #5c4526 #3a2c18 #8a6c3c; box-shadow: 0 0 0 1px #000, 0 6px 18px rgba(0,0,0,0.55);
-  font: 13px/1 var(--pixel-font, "Pixelify Sans", ui-monospace, monospace); letter-spacing: 0.06em; color: #ece3c8;
+  ${PIXEL_FONT_CSS} font-size: 13px; line-height: 1; letter-spacing: 0.06em; color: #ece3c8;   /* FONT3: --pixel-font was never declared, so this was bare Pixelify - no Silkscreen five, smoothed, ligatures on */
   text-shadow: 1px 1px 0 #000; white-space: nowrap; }
 #${PROMPT_ID}.on { display: flex; }
 #${PROMPT_ID} .pp { display: inline-flex; align-items: center; gap: 5px; }

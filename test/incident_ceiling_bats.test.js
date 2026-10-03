@@ -92,11 +92,14 @@ test('bats 2: every collider.move in both motors passes this.height', () => {
 test('bats 1: both spawn hosts build the capsule from the idle sprite and drop a FLYER from centre to feet', () => {
   const d = src('src/scenes/dungeonContext.js');
   // the monster branch: only Flying skips the ground align (RDBLayout.cs:1546-1548)
-  assert.match(d, /const pos = behaviour === 'Flying' \? feetFromCentre\(\[e\.x, e\.y, e\.z\], idleH\) : D\.floorLanding\(collider, \[e\.x, e\.y \+ 0\.2, e\.z\]\);/);
+  // DISC28-H: the hang is flyerSpawnFeet now - feetFromCentre floored at the floor under the marker. AUDIT DISC28 MO-4:
+  // through the anchor's one door, flyerStandFeet; where it stands a flyer is pinned on the mounted builder and the real
+  // motor in test/disc28_flyer.test.js - this line holds only the branch's shape, Flying against the ground align
+  assert.match(d, /const pos = behaviour === 'Flying' \? flyerStandFeet\(collider, \[e\.x, e\.y, e\.z\], idleH, feetGiven\) : D\.floorLanding\(collider, \[e\.x, e\.y \+ 0\.2, e\.z\]\);/);
   assert.doesNotMatch(d, /const canFly = behaviour === 'Flying' \|\| behaviour === 'Spectral';/, 'a Spectral grounds at the layout');
   assert.equal([...d.matchAll(/height: enemyControllerHeight\(idleH, /g)].length, 2, 'the class and monster branches both size the capsule');
   assert.equal([...d.matchAll(/gender: e\.gender, idleH, marker: \[e\.x, e\.y, e\.z\], src: e \}\);/g)].length, 2, 'both records carry the idle height for the draw (and the layout marker, REVIEW 2026-09-05)');
-  assert.match(d, /o\[1\] = spriteOriginY\(f\.ai\.feet\[1\], f\.idleH, sz\.h, _bh\);/, 'the dungeon draw pins a flyer\'s centre');
+  assert.match(d, /o\[1\] = spriteOriginY\(f\.ai\.feet\[1\], f\.idleH, szH, _bh\);/, 'the dungeon draw pins a flyer\'s centre');   // FB0930-FOE-RAYS: the record's height as drawn (the casting 1.35 on a local, not the cache)
   const x = src('src/scenes/exteriorFoes.js');
   // REVIEW 2026-09-05: a DELTA on the live pending array (offsetAll may
   // have recentred it during the awaits), gated off for a restore whose
@@ -105,7 +108,7 @@ test('bats 1: both spawn hosts build the capsule from the idle sprite and drop a
     'the exterior pool reads the sprite BEFORE the AI stands, and drops a flyer from FinalizeFoe\'s lifted centre as a delta');
   // AUDIT 63 F24 widened the option bag with the revived quest link;
   // `feetGiven: true` is the clause this pin is about and still stands.
-  assert.match(x, /spawnFoe\(sf\.mobileType, \[lx, sf\.y \+ yOffset, lz\], \{ gender: sf\.gender, feetGiven: true, questBehaviour, placed: !!sf\.placed \}\)/, 'restoreWorld hands back FEET and says so - no second drop per load');   // WOD3: and a placed foe restores placed
+  assert.match(x, /spawnFoe\(sf\.mobileType, \[lx, sf\.y \+ yOffset, lz\], \{ gender: sf\.gender, feetGiven: true, questBehaviour, placed: !!sf\.placed, eliteFoe: sf\.eliteFoe === true, champion: sf\.champion \? championIndex\(sf\.champion\) : null \}\)/, 'restoreWorld hands back FEET and says so - no second drop per load');   // WOD3: and a placed foe restores placed; LOOT7: a champion as one
   assert.match(x, /const pending = \{ feet: \[pos\[0\], pos\[1\] \+ \(feetGiven \|\| groundAlign \|\| transformY \? 0 : 0\.1\), pos\[2\]\] \};/, 'and takes no walker lift either (a flyer never grounds - 0.1 per load, cumulative)');   // WOD3: nor does a ground-aligned spawn; DW-E4: nor one whose transform is set straight
   assert.match(x, /height: enemyControllerHeight\(idleH, behaviour\),/);
   assert.match(x, /org\[1\] = spriteOriginY\(f\.ai\.feet\[1\], f\.idleH, sz\.h, _bh\);/, 'the exterior draw pins a flyer\'s centre');

@@ -5,7 +5,7 @@
 // port already keeps:
 //
 //   Active quests  - QuestMachine.getAllQuestLogMessages()
-//                    (systems/quest/machine.js:685, already verbatim)
+//                    (systems/quest/machine.js:743, already verbatim)
 //   Finished quests- PlayerNotebook.getFinishedQuests()
 //   Notebook       - PlayerNotebook.getNotes()
 //   Messages       - PlayerNotebook.getMessages() (the 50-slot ring)
@@ -20,7 +20,7 @@ import { FntFile } from '../formats/fntFile.js';
 import { drawScreenDimBackdrop } from './chargenArt.js';
 import { MAX_LINES_QUESTS, MAX_LINES_SMALL, MAX_LINE_LENGTH } from '../systems/notebook.js';
 import { layoutMessageBox, drawMessageBox, messageBoxHit, MB_BUTTONS, messageBoxArtLoaded } from './messageBox.js';
-import { getMessageResources } from '../systems/quest/questMacros.js';   // QuestMacroHelper.GetMessageResources (:61-83)
+import { lastPlaceMentionedInMessage, locationInRegionText } from './questLens.js';   // GetLastPlaceMentionedInMessage (:470-485) - GUIDE1: its one home, shared with the quest lens; GUIDE2: and locationInRegionProvince's
 import { REGION_NAMES, patchRegionIndex } from '../formats/mapsFile.js';
 import { audio } from '../systems/audio.js';
 import { SOUND } from '../systems/soundClips.js';
@@ -144,10 +144,12 @@ export const FIND_PLACE_TEXT = localizedTable({
   head: ['confirmFindHead', 'Travel to location'],
   action: ['confirmFind', 'Do you want to open the world map to travel to:'],
   note: ['confirmFind2', '(Note: you can cancel travel from the world map)'],
+  /** locationInRegionProvince, "{0} in {1} province" - GUIDE2: its one
+   *  home is the quest lens now, which the enhanced faces say it through. */
+  locationInRegion: () => locationInRegionText,
 });
-/** locationInRegionProvince, "{0} in {1} province" (:459-462). */
-export const locationInRegionText = (locationName, regionName) =>
-  formatText(localizedText('locationInRegionProvince', '{0} in {1} province'), locationName, regionName);
+/** locationInRegionProvince (:459-462) - its one home is the quest lens (GUIDE2), read there in the player's language. */
+export { locationInRegionText };
 
 /** F160: CreateDialogBox's six strings and the note prompt -
  *  Internal_Strings_en verbatim (m_Id 636-641, 645), the same table
@@ -521,33 +523,19 @@ export class QuestJournalWindow {
     return true;
   }
 
-  /** GetLastPlaceMentionedInMessage (:469-485): the LAST Place resource
-   *  any macro in the message names. Not ParentQuest.LastPlaceReferenced -
-   *  DFU's own comment says that sends the player to an unrelated home
-   *  location for the last NPC processed - and a message that names no
-   *  Place at all (the Dark Brotherhood initiation keeps its entry
-   *  secret) answers null. */
-  _lastPlaceMentionedInMessage(message) {
-    const resources = getMessageResources(message);
-    if (!resources || resources.length === 0) return null;
-    let lastPlace = null;
-    for (const resource of resources) if (resource?.isPlace) lastPlace = resource;
-    return lastPlace;
-  }
-
   /** HandleQuestClicks (:439-466). Three gates before the offer: the
    *  message names a Place, that Place has a location name, and it is
    *  not the one the player is standing in - then CanFindPlace decides,
    *  through the CANONICAL name, whether the map can even show it. */
   _handleQuestClicks(message) {
-    const place = this._lastPlaceMentionedInMessage(message);
+    const place = lastPlaceMentionedInMessage(message);   // GUIDE1: ui/questLens.js, the member's one home
     const site = place?.siteDetails ?? null;
     if (!site?.locationName) return false;
     if (site.locationName === this.deps.currentLocationName()) return false;
     if (!this.deps.gotoPlace) return false;
     if (!this.deps.canFindPlace(site.regionName, site.locationName)) return false;
     this.findPlace = place;
-    // :474-481 - the workaround for saves written before SiteDetails
+    // :455-456 - the workaround for saves written before SiteDetails   (AUDIT GUIDE D4: the cite corrected)
     // carried a regionIndex, and the region NAME the dialog shows comes
     // off the patched index. L10N3e: "Display using localized name"
     // (:459-462) - the place by its map id, the region by that index;
@@ -592,7 +580,7 @@ export class QuestJournalWindow {
   // in src/ui takes `(renderer, canvas, font, s)` where s is the HUD
   // scale, and that is what the one caller passes: CharSheet.draw
   // forwards its own four arguments straight through to `this.child`
-  // (charsheet.js:343). So the logbook received the SCALE - a number -
+  // (charsheet.js:358). So the logbook received the SCALE - a number -
   // in its font slot, `largeFont ?? font` picked it because a number is
   // not nullish, and `measureText(3.fnt, title)` reached measureText
   // with undefined. Opening the character sheet and pressing LOGBOOK

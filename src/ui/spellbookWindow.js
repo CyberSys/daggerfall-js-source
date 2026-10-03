@@ -74,7 +74,7 @@
 // and SetSpell writes it back into the player's slot - the shared
 // SPELLS.STD record is untouched. The port's records are objects
 // shared by every caster, so confirmRename copies explicitly and
-// marks the copy `custom`, which is exactly the flag save.js:348
+// marks the copy `custom`, which is exactly the flag save.js:374
 // already reads to store a whole record instead of a bare index.
 // U4's "rename needs per-entity copies + name persistence first" is
 // answered: it has both.
@@ -443,7 +443,7 @@ export class SpellbookWindow {
     this._tipHover(x, y, vx, vy);
     // ROAD-G G4: THE THUMB DRAG (VerticalScrollBar.Update, :101-130).
     // `e.buttons & 1` is the port's read of GetMouseButton(0) - the
-    // same read `listPicker.js:292` makes - and the host's mousemove
+    // same read `listPicker.js:295` makes - and the host's mousemove
     // is the frame. The drag continues wherever the cursor goes,
     // including off the bar and off the panel, because DFU polls a
     // POSITION and a held button, not a component the pointer is over.
@@ -545,7 +545,7 @@ export class SpellbookWindow {
    *  spellings of "no subtype": a SPELLS.STD record reads it as a
    *  SIGNED byte and stores -1, while a spell built in the maker
    *  copies the catalog's 255. Every other consumer normalizes the
-   *  same way (systems/effects.js:160's classicSub, spellcost.js:129)
+   *  same way (systems/effects.js:169's classicSub, spellcost.js:130)
    *  and the effect table is keyed on 255, so a Free Action off the
    *  file would otherwise print "Effect not found" in the book. */
   effectLabels(slot) {
@@ -679,7 +679,7 @@ export class SpellbookWindow {
    *  copy, and SetSpell writes it into the player's slot - the shared
    *  SPELLS.STD record is never touched. The port's records are
    *  objects shared by every caster, so the copy has to be explicit,
-   *  and it is marked `custom` so save.js:348 stores the whole record
+   *  and it is marked `custom` so save.js:374 stores the whole record
    *  instead of the bare index it would otherwise write (which would
    *  reload the ORIGINAL name). That retires the U4 ledger's rename
    *  row: renaming is real and it persists. */
@@ -826,8 +826,8 @@ export class SpellbookWindow {
 
   /** AUDIT 65 UI-1: THE HOSTS OWN THE THIRD AND FOURTH SLOTS. Every
    *  host that holds an overlay slot dispatches
-   *  `click(vx, vy, right, middle)` - `scenes/townTalk.js:1263`,
-   *  `scenes/worldModes.js:9666`, `scenes/dungeonContext.js:7372` - so
+   *  `click(vx, vy, right, middle)` - `scenes/townTalk.js:1266`,
+   *  `scenes/worldModes.js:10510`, `scenes/dungeonContext.js:8377` - so
    *  a clock threaded positionally here arrived as `e.button === 2`, a
    *  BOOLEAN. `false ?? Date.now()` keeps the `false`, `false != null`
    *  is true and `false - false === 0 < 300`, which made EVERY second
@@ -1114,7 +1114,9 @@ export class SpellbookWindow {
   }
 
   _drawBox(renderer, m, font) {
-    if (messageBoxArtLoaded() && drawMessageBox(renderer, m, font, this._box)) return;
+    // SHOP-PLUS: drawMessageBox answers false itself when the classic art is not up; asking it first lets the
+    // Enhanced Plus face (a decision drawn as the enhanced dialog) stand whether or not that art has loaded
+    if (drawMessageBox(renderer, m, font, this._box)) return;
     (this._box.rows ?? []).forEach((r, i) => drawText(renderer, font, r.text ?? r,
       m.ox + 20 * m.s, m.oy + (20 + i * 10) * m.s, m.s, [0.9, 0.9, 0.75, 1]));
   }

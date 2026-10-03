@@ -24,6 +24,7 @@
 import { LOCATION_TYPES, DUNGEON_TYPES, longitudeLatitudeToMapPixel } from '../formats/mapsFile.js';
 import { cureAllOfKind } from './effects.js';   // DEATHLOOP1
 import { maxFatigue, liveStat, STAT_KEYS_ORDER } from './statMods.js';   // AUDIT DISC19: the revival's fatigue floor; DISC24-D: its stat floor
+import { sharedClockOn, worldMinutes, skipDeadMinutes } from './worldTick.js';   // DISC28-E: the dead live no minutes
 
 const SAFE_KINDS = Object.freeze([
   { kind: 'temple', match: (e) => e.locationType === LOCATION_TYPES.ReligionTemple },
@@ -59,6 +60,30 @@ export function nearestSafeLocation(mapTable, mapPixelXY) {
     const d2 = dx * dx + dz * dz;
     if (d2 < bestDist) { bestDist = d2; best = { kind: found.kind, locationIndex: i, mapPixel: px }; }
   }
+  return best;
+}
+
+/**
+ * SEA-RISE (2026-09-27, Yugi on Discord: "Underwater Deathloop - My character just autoran into the ocean, stuck at
+ * the bottom because of my loot"): THE SEA'S OWN REGION HOLDS NO SAFE PLACE. An open-sea pixel is politic 64, region
+ * 31 (formats/mapsFile.js getRegionIndexAt), whose table carries a crux and two moorings - none of the three kinds - so
+ * the respawn stood the player where they fell: the carved seafloor, with the loot that sank them and one breath, to
+ * drown and rise there again. When the region answers none, the nearest of the three in ANY region. One region
+ * resident at a time and the one resident before put back - world/roadsProducer.js settlementsOf's sweep. Returns
+ * nearestSafeLocation's shape, or null when no region carries one (no map at all).
+ */
+export function nearestSafeLocationAnywhere(maps, mapPixelXY) {
+  const before = maps?._lastRegion ?? -1;
+  let best = null;
+  let bestDist = Infinity;
+  for (let r = 0; r < (maps?.regionCount ?? 0); r++) {
+    const hit = nearestSafeLocation(maps.getRegion(r)?.mapTable ?? [], mapPixelXY);
+    if (!hit) continue;
+    const dx = hit.mapPixel.x - mapPixelXY.x, dz = hit.mapPixel.y - mapPixelXY.y;
+    const d2 = dx * dx + dz * dz;
+    if (d2 < bestDist) { bestDist = d2; best = hit; }
+  }
+  if (before >= 0 && typeof maps?.loadRegion === 'function') maps.loadRegion(before);
   return best;
 }
 
@@ -303,8 +328,10 @@ function holdsOn(entity, stat) {
  *
  *  `force` re-asserts the health even on a living entity (the respawn
  *  path pays the death's cost up front); without it an already-living
- *  player keeps the health they have, which is what a prison release
- *  wants - it is not a free heal, it is a floor under zero. */
+ *  player keeps the health they have - it is not a free heal, it is a
+ *  floor under zero. [AUDIT LIVED1 K: the prison release no longer
+ *  comes here - its days are served on the prisoner's own clock and it
+ *  refills in both lanes, as DFU's does (arrestFlow.js).] */
 export function reviveForPlay(entity, { force = false } = {}) {
   if (!entity) return { revived: false, cleared: [] };
   const dead = !(entity.health > 0);
@@ -323,6 +350,20 @@ export function reviveForPlay(entity, { force = false } = {}) {
   // them again beside the foes that had caught them. The same fraction
   // and the same floor as the health - LAST, because its ceiling is
   // (live STR + live END) x 64 and the two lines above may raise both.
-  if ((dead || force) && !(entity.fatigue > 0)) entity.fatigue = respawnHealth(maxFatigue(entity));
-  return { revived: dead || force, cleared, exposure, lifted };
+  //
+  // DISC28-E (Discord: "dying infinitely from fatigue ... respawn at 0% fatigue"): a FLOOR, not a zero test. The
+  // zero test handed back a player who died with a sliver - a blow landing while exhausted, an online collapse that
+  // paid its eighth - at 0-12% of the pool, and the next walking drain collapsed them again beside the same foes.
+  // The respawn's fatigue is at least the health's fraction; more than that is kept. A living release (no force) is
+  // untouched, as its health is.
+  if (dead || force) entity.fatigue = Math.max(entity.fatigue > 0 ? entity.fatigue : 0, respawnHealth(maxFatigue(entity)));
+  // DISC28-E: ...and the minutes spent dead are not the BODY's to pay (worldTick.js skipDeadMinutes). Online the shared
+  // clock ran through the death screen with nothing ticking under it, and the first tick after this charged the whole
+  // span - stamina drain, needs, magic rounds - to the body just revived. AUDIT DISC28 TM-2/3/4, as LIVED1 has them:
+  // the skip bills the body nothing (the character's own clock stood under the screen, so no marker of theirs moved and
+  // none needs carrying, and the encounter loop rolls none of it) while the WORLD's half of the calendar runs through
+  // it - the day block's world half and the powers and conditions, as for any minute the world ran. Offline there is
+  // no such span (a death is a load).
+  const skipped = (dead || force) && sharedClockOn() ? skipDeadMinutes(entity, worldMinutes()) : false;
+  return { revived: dead || force, cleared, exposure, lifted, skipped };
 }

@@ -58,9 +58,10 @@ import { BODY_PARTS } from '../src/systems/armorMaterials.js';
 import { mintCondition } from '../src/systems/itemTemplates.js';
 import { buildAutomapModel } from '../src/systems/automapModel.js';
 import { calculateCost, calculateTradePrice } from '../src/systems/shopStock.js';
-import { calculateItemRepairCost } from '../src/systems/repairService.js';
+import { dfuItemRepairCost as calculateItemRepairCost } from '../src/systems/repairService.js';   // REPAIR-EASE: DFU's formula, unscaled
 import { normalizeReputations } from '../src/systems/court.js';
 import { createFactionRep, setReputation } from '../src/systems/factionRep.js';
+import { _wearScaleForTests, _dfuWearMultipleForTests } from '../src/systems/equip.js';   // BALANCE1: DFU's wear, read unscaled; WEAR-TWICE: and unmultiplied
 import { dfuFile } from './dfuRoot.mjs';   // PY1: DFU_PATH, then the in-tree sparse clone
 
 const seq = (...v) => { let i = 0; return () => v[Math.min(i++, v.length - 1)]; };
@@ -266,10 +267,16 @@ test('AUDIT 58: the condition-damage floor roll is exactly 20%', () => {
   const att = dude(), tgt = dude();
   const w = mintCondition({ group: 'Weapons', name: 'Saber', templateIndex: 117, material: 2 });
   const w0 = w.currentCondition;
-  damageEquipment(att, tgt, 4, w, BODY_PARTS.Chest, { rolls: () => 0.195 });
-  assert.equal(w.currentCondition, w0 - 1, 'roll 19 is UNDER 20: the amount floors to 1');
-  damageEquipment(att, tgt, 4, w, BODY_PARTS.Chest, { rolls: () => 0.205 });
-  assert.equal(w.currentCondition, w0 - 1, 'roll 20 is NOT under 20: nothing');
+  // BALANCE1 (the pre-merge audit 0927b F3): DFU's roll, read at the port's wear scale 1 - at 0.6 the 0.195 below also
+  // rounded the scaled point UP, so this pin passed by that coincidence rather than by the floor roll it names
+  _wearScaleForTests(1);
+  _dfuWearMultipleForTests(1);   // WEAR-TWICE: DFU's own amount (wear_vanilla.test.js pins the port's 2)
+  try {
+    damageEquipment(att, tgt, 4, w, BODY_PARTS.Chest, { rolls: () => 0.195 });
+    assert.equal(w.currentCondition, w0 - 1, 'roll 19 is UNDER 20: the amount floors to 1');
+    damageEquipment(att, tgt, 4, w, BODY_PARTS.Chest, { rolls: () => 0.205 });
+    assert.equal(w.currentCondition, w0 - 1, 'roll 20 is NOT under 20: nothing');
+  } finally { _wearScaleForTests(); _dfuWearMultipleForTests(); }
 });
 
 // ── 7: the automap containment skin ───────────────────────────────────
@@ -322,7 +329,7 @@ test('AUDIT 58: ApplyRegionalPriceAdjustment has its OWN floor of 1 (FormulaHelp
   assert.equal(calculateCost(1, 12, 250), 2, 'PRICE_ADJUSTMENT_MIN, the worst case');
   // and the live wire that reaches it: CalculateItemRepairCost hands
   // CalculateCost a base of exactly 1 for any item worth <= 10 gold
-  // (repairService.js:47-52), so without the floor a cheap repair in a
+  // (repairService.js:60-65), so without the floor a cheap repair in a
   // cheap province is FREE.
   assert.equal(calculateItemRepairCost(5, 10, 0, 100, { priceAdjustment: 750 }), 2);
 });
@@ -348,7 +355,7 @@ test('AUDIT 58: the 112-day faction drift does NOT fan out (PlayerEntity.cs:2239
   // the TWO-argument overload, and PersistentFactionData.cs:390 declares
   // `bool ChangeReputation(int factionID, int amount, bool propagate = false)`.
   // So the faction half of the drift is a single clamped write, not a
-  // walk. Adding `, true` at court.js:202-203 survived the whole suite,
+  // walk. Adding `, true` at court.js:239-240 survived the whole suite,
   // because the only fixture on that arm was a ONE-record dict with no
   // hierarchy: a propagating walk over it has nowhere to go. This one is
   // a root with two children, which is exactly what a walk would move -

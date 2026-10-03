@@ -83,8 +83,8 @@
   {
     "name": "PERF-SUN2-the-flats-gate-goes-so-every-sprite-in-the-world-reads-the-sun-map-at-midnight",
     "file": "src/render/enhancedLighting.js",
-    "old": "  vBBSunVis = dot(uBBSun, uBBSun) > 0.0 ? sunShadowSoftAt(vBBBase + vec3(0.0, 0.5, 0.0), vec3(0.0, 1.0, 0.0)) : 1.0;",
-    "new": "  vBBSunVis = sunShadowSoftAt(vBBBase + vec3(0.0, 0.5, 0.0), vec3(0.0, 1.0, 0.0));",
+    "old": "  vBBSunVis = dot(uBBSun, uBBSun) > 0.0 ? sunShadowSoftAt(vBBBase + vec3(0.0, 0.5, 0.0), vec3(0.0, 1.0, 0.0), uSize.y) : 1.0;",
+    "new": "  vBBSunVis = sunShadowSoftAt(vBBBase + vec3(0.0, 0.5, 0.0), vec3(0.0, 1.0, 0.0), uSize.y);",
     "tests": [
       "test/perfsun_fragment.test.js"
     ]
@@ -92,8 +92,8 @@
   {
     "name": "PERF-SUN2-the-flat-reads-its-shadow-at-its-own-fragment-so-a-sprite-shadows-itself",
     "file": "src/render/enhancedLighting.js",
-    "old": "sunShadowSoftAt(vBBBase + vec3(0.0, 0.5, 0.0), vec3(0.0, 1.0, 0.0)) : 1.0;",
-    "new": "sunShadowSoftAt(vBBWorld, vec3(0.0, 1.0, 0.0)) : 1.0;",
+    "old": "sunShadowSoftAt(vBBBase + vec3(0.0, 0.5, 0.0), vec3(0.0, 1.0, 0.0), uSize.y) : 1.0;",
+    "new": "sunShadowSoftAt(vBBWorld, vec3(0.0, 1.0, 0.0), uSize.y) : 1.0;",
     "tests": [
       "test/perfsun_fragment.test.js"
     ]
@@ -110,17 +110,18 @@
   {
     "name": "PERF-SUN-the-sway-door-parses-the-query-string-once-a-frame-again",
     "file": "src/systems/windDrive.js",
-    "old": "let _swayOff;",
-    "new": "",
+    "old": "  return pageParam('sway', search) === 'off';",
+    "new": "  return new URLSearchParams(search).get('sway') === 'off';",
     "tests": [
-      "test/perfsun_fragment.test.js"
+      "test/perfsun_fragment.test.js",
+      "test/perfurl_doors.test.js"
     ]
   },
   {
     "name": "PERF-SUN-the-sway-door-caches-too-hard-and-cannot-see-a-changed-search",
-    "file": "src/systems/windDrive.js",
-    "old": "  if (_swayOff === undefined || search !== _swaySearch) {",
-    "new": "  if (_swayOff === undefined) {",
+    "file": "src/systems/pageQuery.js",
+    "old": "  if (_params === null || search !== _search) {",
+    "new": "  if (_params === null) {",
     "tests": [
       "test/perfsun_fragment.test.js"
     ]
@@ -163,9 +164,9 @@
   },
   {
     "name": "AUDIT-F1-the-sway-doors-state-goes-back-below-its-reader",
-    "file": "src/systems/windDrive.js",
-    "old": "let _swaySearch;   // AUDIT F1: declared ABOVE its reader - a `let` below one is in the temporal dead zone until the module finishes evaluating, and this port has already lost a boot to one end of a module cycle reaching the other too early\nexport function swayDisabled",
-    "new": "export function swayDisabled",
+    "file": "src/systems/pageQuery.js",
+    "old": "let _search = null;\n/** @type {URLSearchParams|null} */\nlet _params = null;\n\n/** @param {string} search */\nfunction parsed(search) {\n  if (_params === null || search !== _search) {\n    _params = new URLSearchParams(search);\n    _search = search;\n  }\n  return _params;\n}",
+    "new": "/** @param {string} search */\nfunction parsed(search) {\n  if (_params === null || search !== _search) {\n    _params = new URLSearchParams(search);\n    _search = search;\n  }\n  return _params;\n}\nlet _search = null;\n/** @type {URLSearchParams|null} */\nlet _params = null;",
     "tests": [
       "test/perfsun_fragment.test.js"
     ]
@@ -182,7 +183,7 @@
   {
     "name": "TREES1-the-flat-goes-back-to-the-cheap-tap-and-a-distant-tree-flips-lit-to-dark",
     "file": "src/render/enhancedLighting.js",
-    "old": "sunShadowSoftAt(vBBBase + vec3(0.0, 0.5, 0.0), vec3(0.0, 1.0, 0.0)) : 1.0;",
+    "old": "sunShadowSoftAt(vBBBase + vec3(0.0, 0.5, 0.0), vec3(0.0, 1.0, 0.0), uSize.y) : 1.0;",
     "new": "sunShadowAt(vBBBase + vec3(0.0, 0.5, 0.0), vec3(0.0, 1.0, 0.0)) : 1.0;",
     "tests": [
       "test/perfsun_fragment.test.js"
@@ -200,8 +201,8 @@
   {
     "name": "TREES1-the-soft-entry-point-is-not-soft-at-all",
     "file": "src/render/shadowPass.js",
-    "old": "float sunShadowSoftAt(vec3 wp, vec3 n) { return sunShadowTap(wp, n, true); }",
-    "new": "float sunShadowSoftAt(vec3 wp, vec3 n) { return sunShadowTap(wp, n, false); }",
+    "old": "float sunShadowSoftAt(vec3 wp, vec3 n, float h) { return sunShadowTap(wp, n, true, h); }",
+    "new": "float sunShadowSoftAt(vec3 wp, vec3 n, float h) { return sunShadowTap(wp, n, false, h); }",
     "tests": [
       "test/perfsun_fragment.test.js"
     ]
@@ -209,8 +210,8 @@
   {
     "name": "TREES1-the-per-fragment-entry-point-takes-the-kernel-too-so-the-whole-saving-goes",
     "file": "src/render/shadowPass.js",
-    "old": "float sunShadowAt(vec3 wp, vec3 n) { return sunShadowTap(wp, n, false); }",
-    "new": "float sunShadowAt(vec3 wp, vec3 n) { return sunShadowTap(wp, n, true); }",
+    "old": "float sunShadowAt(vec3 wp, vec3 n) { return sunShadowTap(wp, n, false, 0.0); }",
+    "new": "float sunShadowAt(vec3 wp, vec3 n) { return sunShadowTap(wp, n, true, 0.0); }",
     "tests": [
       "test/perfsun_fragment.test.js"
     ]

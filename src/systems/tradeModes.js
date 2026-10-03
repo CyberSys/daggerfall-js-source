@@ -53,10 +53,12 @@
 //    one home here. The only difference is the +3 that moves the SELL
 //    modes onto their own three records.
 
-import { calculateCost, calculateTradePrice } from './shopStock.js';
+import { calculateCost, calculateTradePrice, essentialPrice } from './shopStock.js';   // ESSENTIALS-HALF: online, a potion costs half
 import { GOLD_PIECE_WEIGHT_KG, isEnchanted } from './inventory.js';
 import { calculateItemRepairCost, repairRefusal } from './repairService.js';
-import { itemValueOf, conditionPercentage } from './itemTemplates.js';   // JAN1: the one value read; RRI2: ConditionPercentage, the Sell arm's third argument
+import { itemValueOf, conditionPercentage } from './itemTemplates.js';
+import { isOnlinePage } from './onlineLane.js';   // SELL-AS-FOUND: online, a sale reads a piece as it was found
+import { isPotion } from './useItem.js';   // ESSENTIALS-HALF: the potion, by DFU's own IsPotion   // JAN1: the one value read; RRI2: ConditionPercentage, the Sell arm's third argument
 import { HOLIDAYS } from './holidays.js';
 import { GUILDS } from './guilds.js';
 import {
@@ -128,7 +130,7 @@ export const IDENTIFY_COST_MULTIPLIER = 25;
  *  no magic in it at all. It was never seen because the Identify
  *  destination was a null and the mode could not be opened; X7 opened
  *  it, so the derivation had to be right first. Both paths run at
- *  worldModes.js:2462 now (commitTrade) - the paid service and the spell. */
+ *  worldModes.js:2645 now (commitTrade) - the paid service and the spell. */
 export const itemIsIdentified = (item) => !isEnchanted(item) || item?.isIdentified === true;
 
 /** FormulaHelper.CalculateItemIdentifyCost (:1935-1955). FREE on the
@@ -185,7 +187,7 @@ export function identifySpellPass(items, chance, rolls = Math.random) {
  *  exact: the whole pass returns, nothing is identified, no magicka is
  *  spent and Mercantile is not tallied.
  *  (GodMode's `&& !GodMode` arm has no port counterpart, as
- *  motor.js:738 already records for the levitation term.) */
+ *  motor.js:920 already records for the levitation term.) */
 export const NOT_ENOUGH_SPELL_POINTS_TEXT = 'You do not have enough spell points left.';
 /** L10N3d: ...as the refusal shows it (:962), in the player's language. */
 export const notEnoughSpellPointsText = () => localizedText('notEnoughSpellpointsLeft', NOT_ENOUGH_SPELL_POINTS_TEXT);
@@ -209,10 +211,30 @@ export function buyHolidayHalvesPrice(item, { holidayId = HOLIDAYS.None, guildFa
 /** One basket item's Buy price (:443-450). The halving is C# integer
  *  division on an int, so it TRUNCATES, and it lands AFTER the stack
  *  multiply rather than per unit. */
-export function buyItemPrice(item, { quality = 0, priceAdjustment = 1000, holidayId = HOLIDAYS.None, guildFactionId = null } = {}) {
+export function buyItemPrice(item, { quality = 0, priceAdjustment = 1000, holidayId = HOLIDAYS.None, guildFactionId = null, online = undefined } = {}) {
   const price = calculateCost(itemValueOf(item), quality, priceAdjustment) * (item.stackCount ?? 1);   // JAN1: the one value read
-  return buyHolidayHalvesPrice(item, { holidayId, guildFactionId })
-    ? Math.trunc(price / 2) : price;
+  const holiday = buyHolidayHalvesPrice(item, { holidayId, guildFactionId });
+  const held = holiday ? Math.trunc(price / 2) : price;
+  // ESSENTIALS-HALF (2026-09-30, Discord: "cut the cost of most essential items by half"): online a POTION costs half
+  // (shopStock.js essentialPrice, rounded up - its law against buying to sell back), at every counter's Buy. AUDIT
+  // ESSENTIALS F1: never on top of a holiday's own half - the sale cap reads the full price, so a quarter bought on
+  // Merchants Festival sold back for half; the two halves do not stack
+  return isPotion(item) && !holiday ? essentialPrice(held, { online }) : held;
+}
+
+/** SELL-AS-FOUND (AUDIT ECON O1, 2026-10-01): ONLINE A COUNTER PAYS FOR A PIECE AS THE WORLD HANDED IT OVER, AT BEST.
+ *  Roleplay & Realism: Items' condition prices are the room's (onlineLane.js), and its rolls hand pieces over worn - a
+ *  pile's and a body's at 20-75%, a poorer shelf's at 25-100% (rriRealism.js) - so a sale climbs with a repair. At
+ *  REPAIR-RATE's third (repairService.js) the repair cost less than the sale it added: mending worn loot to sell it paid
+ *  every player online - +102 gold on a value-1000 piece found at 20% (Mercantile 30, Personality 40, a quality-10
+ *  counter), +2,592 on a Daedric longsword. So online the Sell arm reads a piece's condition no higher than the
+ *  `foundCondition` those rolls leave on it: a repair or a kit is for using a piece, never for selling it, and wear
+ *  after the find still lowers the sale. A piece with no mark - handed over whole (a craft, a reward, a new shelf's),
+ *  or found before this - sells at its own condition, repaired or not. Offline, the mod's prices stand. */
+export function saleConditionPercentage(item, { online = isOnlinePage() } = {}) {
+  const found = item?.foundCondition;
+  if (!online || !Number.isInteger(found) || !(found < (item?.currentCondition ?? 0))) return conditionPercentage(item);
+  return conditionPercentage({ currentCondition: found, maxCondition: item.maxCondition });
 }
 
 /**
@@ -225,27 +247,35 @@ export function buyItemPrice(item, { quality = 0, priceAdjustment = 1000, holida
  * other. Repair skips an item already being repaired and Identify
  * skips one already identified, so a list of nothing BUT those totals
  * zero AND cannot be committed - the two are one fact.
+ *
+ * FB0929: the same walk counts the PIECES a purchase pays for - the
+ * basket's, and the live repair jobs', a stack piece by piece - which
+ * is what getTradePrice's floor below asks a gold for. The sale and
+ * identify arms count none.
  */
 export function tradeCost(mode, staged = [], {
   quality = 0, priceAdjustment = 1000, holidayId = HOLIDAYS.None,
   guildFactionId = null, reducedRepairCost = null, reducedIdentifyCost = null,
-  usingIdentifySpell = false, isBeingRepaired = () => false,
+  usingIdentifySpell = false, isBeingRepaired = () => false, online = undefined,
 } = {}) {
   let cost = 0;
   let modeActionEnabled = false;
+  let pieces = 0;
   for (const item of staged) {
     const stack = item.stackCount ?? 1;
     switch (mode) {
       case 'Buy':
         modeActionEnabled = true;
         cost += buyItemPrice(item, { quality, priceAdjustment, holidayId, guildFactionId });
+        pieces += stack;
         break;
       case 'Sell':
         modeActionEnabled = true;
         // DFU passes ConditionPercentage (:462) into a slot its own
         // CalculateCost never reads - see the header; RRI2: Roleplay &
         // Realism: Items' override reads it, so the slot is passed.
-        cost += calculateCost(itemValueOf(item), quality, priceAdjustment, conditionPercentage(item)) * stack;   // JAN1: an item with no finite value is priced at its base, never NaN
+        // SELL-AS-FOUND: online, no better than the condition the world handed the piece over at
+        cost += calculateCost(itemValueOf(item), quality, priceAdjustment, saleConditionPercentage(item, { online })) * stack;   // JAN1: an item with no finite value is priced at its base, never NaN
         break;
       case 'SellMagic':
         // DFU's own TODO sits on this line: "Fencing base price higher
@@ -260,6 +290,7 @@ export function tradeCost(mode, staged = [], {
         modeActionEnabled = true;
         cost += calculateItemRepairCost(itemValueOf(item), quality, item.currentCondition ?? 0, item.maxCondition ?? 0,
           { reducedRepairCost, priceAdjustment }) * stack;
+        pieces += stack;
         break;
       case 'Identify':
         if (itemIsIdentified(item)) break;
@@ -274,19 +305,45 @@ export function tradeCost(mode, staged = [], {
         break;
     }
   }
-  return { cost, modeActionEnabled };
+  return { cost, modeActionEnabled, pieces };
 }
+
+/** FB0929: the least a purchase asks for each piece it buys or mends -
+ *  see getTradePrice. */
+export const MIN_PRICE_PER_PIECE = 1;
 
 /** GetTradePrice (:492-509). Buy and Repair haggle as a PURCHASE,
  *  Sell and SellMagic as a SALE, and Identify does not haggle at all -
  *  its cost is the price. DFU THROWS on any other mode rather than
  *  returning the cost, so Inventory mode reaching here is a bug and
- *  says so. */
-export function getTradePrice(mode, cost, quality, skills) {
+ *  says so.
+ *
+ *  FB0929 - A PURCHASE IS NEVER FREE (Port-Ledger A; lumin on Discord,
+ *  relayed by Mac: "There should be a hard minimum of 1 gold for
+ *  anything"). CalculateTradePrice's buying `amount` (FormulaHelper.cs
+ *  :2000) is the cost times 66/256 to 256/256, truncated, and
+ *  CalculateCost floors a piece at 2 (1 after a holiday's halving) - so
+ *  a piece at that floor (a candle, the General Store's parchment worth
+ *  0, a bandage in a cheap province, a cheap blade's repair) came to 0
+ *  gold wherever the haggle fell under 128/256, and a stack to less than
+ *  a gold a piece. Both PURCHASE modes ask at least MIN_PRICE_PER_PIECE
+ *  for each piece tradeCost priced (`pieces`; a caller with no walk
+ *  still never asks nothing), and Daggerfall's number wherever it is
+ *  more. The lot is still haggled once, as DFU does, so a candle bought
+ *  beside a horse rounds into the horse's price like any piece of a lot;
+ *  no price a counter quotes is under a gold a piece.
+ *
+ *  THE SALE IS NOT FLOORED. Online REALM P0.4 pays at most half the
+ *  asking price (shopStock.js ONLINE_SALE_SHARE), and half a one-gold
+ *  ask is nothing; offline that candle rode the horse for no gold, so a
+ *  gold for selling it alone would be minted. The floor only raises an
+ *  asking price, so no buy-and-sell-back gains by it. Identify keeps its
+ *  cost - the Witches Festival's free one is DFU's design. */
+export function getTradePrice(mode, cost, quality, skills, pieces = cost > 0 ? 1 : 0) {
   switch (mode) {
     case 'Buy':
     case 'Repair':
-      return calculateTradePrice(cost, quality, skills, false);
+      return Math.max(pieces * MIN_PRICE_PER_PIECE, calculateTradePrice(cost, quality, skills, false));
     case 'Sell':
     case 'SellMagic':
       return calculateTradePrice(cost, quality, skills, true);
@@ -330,6 +387,40 @@ export function tradeDecision(mode, { cost, tradePrice, gold = 0 }) {
 export const LETTER_OF_CREDIT_TEXT = 'You are paid with a letter of credit.';
 /** L10N3d: ...as the box shows it (:1093), in the player's language - both skins read it. */
 export const letterOfCreditText = () => localizedText('letterOfCredit', LETTER_OF_CREDIT_TEXT);
+
+/** SHIP-CREDIT (2026-10-01, Mac's "Buy on credit"): the templates a lot must hold to be bought on credit - Come Sail
+ *  Away's parts and deed (systems/comeSailAwayItems.js BOAT_PARTS_TEMPLATE, BOAT_DEED_TEMPLATE; pinned equal). */
+export const CREDIT_ITEM_TEMPLATES = Object.freeze([1320, 1321]);
+/** SHIP-CREDIT: whether a lot staged to buy holds a boat - only a boat is sold on the bank's credit. */
+export const lotHasBoat = (staged = []) => staged.some((it) => CREDIT_ITEM_TEMPLATES.includes(it?.templateIndex));
+/** SHIP-CREDIT (the review before the merge, 2026-10-01: a boat in the basket put the whole basket on the bank's
+ *  credit): whether a lot staged to buy is boats and nothing else - the one lot the bank lends on. */
+export const lotAllBoats = (staged = []) => staged.length > 0 && staged.every((it) => CREDIT_ITEM_TEMPLATES.includes(it?.templateIndex));
+/** SHIP-CREDIT: the refusal of a lot that holds a boat among other goods (creditRefusalRows names it). */
+export const CREDIT_BOAT_ALONE = 'boatAlone';
+/** SHIP-CREDIT: the offer's box - what the purse holds against the price, what the bank lends, what is paid now and
+ *  owed within the year (banking.js creditDecision's `credit`), and the question. */
+export function creditRows({ loan, pay, owed }, price, purse) {
+  return [
+    { text: `You have ${purse} of the ${price} gold.`, center: true },
+    { text: `The bank will lend you ${loan} gold for the boat.`, center: true },
+    { text: `You pay ${pay} now, and owe ${owed} within a year.`, center: true },
+    { text: 'Buy on credit?', center: true },
+  ];
+}
+/** SHIP-CREDIT: why the bank lends nothing, under the refusal's own box (creditDecision's `refuse`); none for a
+ *  refusal it does not name. `empireLines` the Empire's own words online (banking.js empireRefusalLines). */
+export function creditRefusalRows(r, empireLines = null) {
+  if (Array.isArray(empireLines) && empireLines.length) return empireLines.map((text) => ({ text, center: true }));
+  const text = r?.result === CREDIT_REFUSALS.ALREADY_HAVE_LOAN ? 'The bank will not lend: a loan of yours stands here.'
+    : r?.result === CREDIT_REFUSALS.ALREADY_DEFAULTED ? 'The bank lends nothing to one who has defaulted.'
+      : r?.result === CREDIT_REFUSALS.NOT_ENOUGH_GOLD ? `The bank lends on a boat only to one who pays ${r.down} gold down.`
+        : r?.result === CREDIT_REFUSALS.LOAN_REQUEST_TOO_HIGH ? `The bank will lend you no more than ${r.max} gold.`
+          : r?.result === CREDIT_BOAT_ALONE ? 'The bank lends on a boat bought by itself.' : null;
+  return text ? [{ text, center: true }] : [];
+}
+/** SHIP-CREDIT: the refusals creditRefusalRows names - banking.js TRANSACTION_RESULT's (pinned equal). */
+export const CREDIT_REFUSALS = Object.freeze({ ALREADY_DEFAULTED: 288, ALREADY_HAVE_LOAN: 289, LOAN_REQUEST_TOO_HIGH: 295, NOT_ENOUGH_GOLD: 454 });
 
 /** ConfirmTrade's SELL arm (:1035-1050): the proceeds are weighed
  *  BEFORE they are paid, and a purse that would push the player past
@@ -413,14 +504,14 @@ export const doesntNeedIdentifyText = () => localizedText('doesntNeedIdentify', 
 
 // The three clauses that stood here are all closed:
 //  - the IDENTIFY SPELL arm (:956-996) is live. identifySpellPass
-//    (:161) feeds worldModes.js:2232-2252, which spends the magicka
+//    (:161) feeds worldModes.js:2398-2418, which spends the magicka
 //    ONCE for the whole list whatever the outcome and tells the player
 //    "N of M identified"; the window opens from openIdentifyWindow
-//    (worldModes.js:9130), the entry point the magic arc owed.
+//    (worldModes.js:9953), the entry point the magic arc owed.
 //  - the LETTER OF CREDIT is tender and bankable: minted at systems/
-//    inventory.js:69, summed by creditAmount at systems/court.js:218,
-//    spent letters-before-coins by deductGold at court.js:260, and
-//    moved at systems/banking.js:493 depositAllLetters / :484
+//    inventory.js:69, summed by creditAmount at systems/court.js:260,
+//    spent letters-before-coins by deductGold at court.js:302, and
+//    moved at systems/banking.js:735 depositAllLetters / :753
 //    withdrawLetter.
 //  - SellMagic's "fencing base price" TODO is DFU's own
 //    (DaggerfallTradeWindow.cs:464 carries it verbatim), so it is

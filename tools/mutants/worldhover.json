@@ -66,8 +66,8 @@
   {
     "name": "WORLD-HOVER-corpse-prefix-stops-itemising",
     "file": "src/systems/worldHover.js",
-    "old": "export const ITEMISED_KEYS = Object.freeze(['loot:', 'corpse:', 'droppedLoot:', 'foeCorpse:', 'guardCorpse:', 'dwFish:']);",
-    "new": "export const ITEMISED_KEYS = Object.freeze(['loot:', 'droppedLoot:', 'foeCorpse:', 'guardCorpse:', 'dwFish:']);",
+    "old": "export const ITEMISED_KEYS = Object.freeze(['loot:', 'corpse:', 'droppedLoot:', 'foeCorpse:', 'guardCorpse:', 'dwFish:', 'spoil:']);",
+    "new": "export const ITEMISED_KEYS = Object.freeze(['loot:', 'droppedLoot:', 'foeCorpse:', 'guardCorpse:', 'dwFish:', 'spoil:']);",
     "tests": [
       "test/worldhover.test.js"
     ]
@@ -360,8 +360,8 @@
   {
     "name": "WORLD-HOVER-raceWinner-tie-order-inverted",
     "file": "src/player/activationRace.js",
-    "old": "  return firmFirst([gate, broker, camp, water, wagon, horseCart, torch, corpse, pile, ground, person, peer, foe], nearestInOrder);",
-    "new": "  return firmFirst([foe, peer, person, ground, pile, corpse, torch, horseCart, wagon, water, camp, broker, gate], nearestInOrder);",
+    "old": "  return firmFirst([gate, broker, camp, water, wagon, horseCart, boat, torch, corpse, pile, ground, person, peer, foe], nearestInOrder);",
+    "new": "  return firmFirst([foe, peer, person, ground, pile, corpse, torch, boat, horseCart, wagon, water, camp, broker, gate], nearestInOrder);",
     "tests": [
       "test/worldhover.test.js"
     ]
@@ -495,8 +495,8 @@
   {
     "name": "WORLD-HOVER-a-foe-beats-a-townsperson-on-a-tie",
     "file": "src/player/activationRace.js",
-    "old": "  return firmFirst([gate, broker, camp, water, wagon, horseCart, torch, corpse, pile, ground, person, peer, foe], nearestInOrder);",
-    "new": "  return firmFirst([gate, broker, camp, water, wagon, horseCart, torch, corpse, pile, ground, foe, peer, person], nearestInOrder);",
+    "old": "  return firmFirst([gate, broker, camp, water, wagon, horseCart, boat, torch, corpse, pile, ground, person, peer, foe], nearestInOrder);",
+    "new": "  return firmFirst([gate, broker, camp, water, wagon, horseCart, boat, torch, corpse, pile, ground, foe, peer, person], nearestInOrder);",
     "tests": [
       "test/worldhover.test.js"
     ]
@@ -504,8 +504,8 @@
   {
     "name": "WORLD-HOVER-a-townsperson-beats-the-door-on-a-tie",
     "file": "src/player/activationRace.js",
-    "old": "  return firmFirst([gate, broker, camp, water, wagon, horseCart, torch, corpse, pile, ground, person, peer, foe], nearestInOrder);",
-    "new": "  return firmFirst([gate, broker, camp, water, wagon, horseCart, torch, corpse, pile, person, peer, ground, foe], nearestInOrder);",
+    "old": "  return firmFirst([gate, broker, camp, water, wagon, horseCart, boat, torch, corpse, pile, ground, person, peer, foe], nearestInOrder);",
+    "new": "  return firmFirst([gate, broker, camp, water, wagon, horseCart, boat, torch, corpse, pile, person, peer, ground, foe], nearestInOrder);",
     "tests": [
       "test/worldhover.test.js"
     ]
@@ -513,8 +513,8 @@
   {
     "name": "WORLD-HOVER-the-mobile-band-reaches-as-far-as-the-ray",
     "file": "src/player/activate.js",
-    "old": "      distance: RAY_DISTANCE,\n      reach: MOBILE_NPC_ACTIVATION_DISTANCE,\n    });\n  }\n  return targets;\n}",
-    "new": "      distance: RAY_DISTANCE,\n      reach: RAY_DISTANCE,\n    });\n  }\n  return targets;\n}",
+    "old": "      distance: RAY_DISTANCE,\n      reach: MOBILE_NPC_ACTIVATION_DISTANCE,\n",
+    "new": "      distance: RAY_DISTANCE,\n      reach: RAY_DISTANCE,\n",
     "tests": [
       "test/worldhover.test.js"
     ]
@@ -549,7 +549,7 @@
   {
     "name": "WORLD-HOVER-the-dungeon-plaque-stops-racing-live-foes",
     "file": "src/scenes/dungeonContext.js",
-    "old": "          foe: pickActivatableHit(eye, d, liveFoeTargets(foes, 'mobileFoe'), collider),\n",
+    "old": "          foe: ((ft) => peacefulFoePass(pickActivatableHit(eye, d, ft, collider), ft, doorDistanceOf(eye, d, api.dungeonActivationTargets(), collider), getInteractionMode()))(liveFoeTargets(foes, 'mobileFoe')),   // AUDIT TACT C7: the plaque names the door the press opens\n",
     "new": "",
     "tests": [
       "test/worldhover.test.js"
@@ -912,7 +912,7 @@
   {
     "name": "AUDIT-WH2-no-watchdog",
     "file": "src/ui/worldPlaque.js",
-    "old": "  _cancel(_watchdog);\n  _watchdog = _schedule(() => { _watchdog = null; hideWorldPlaque(); }, PLAQUE_WATCHDOG_MS);\n",
+    "old": "  disarmDraw(_watchdog);\n  _watchdog = armDrawWatchdog(PLAQUE_WATCHDOG_MS, () => { _watchdog = null; hideWorldPlaque(); }, { schedule: _schedule, cancel: _cancel });\n",
     "new": "",
     "tests": [
       "test/worldhover.test.js"
@@ -1065,8 +1065,8 @@
   {
     "name": "AUDIT-WH2-the-modal-return-leaks-the-frame-token",
     "file": "src/scenes/world.js",
-    "old": "      frameAbort();   // AUDIT-WH2 L1-F4: the frame never reached frameEnd - close the token, take no sample\n",
-    "new": "",
+    "old": "      frameEnd();\n      requestAnimationFrame(frame);\n      return;\n",
+    "new": "      requestAnimationFrame(frame);\n      return;\n",
     "tests": [
       "test/worldhover.test.js"
     ]
@@ -1101,8 +1101,8 @@
   {
     "name": "AUDIT-WH2-the-live-entity-takes-the-corpses-member",
     "file": "src/scenes/exteriorFoes.js",
-    "old": "    const t = mobileEntityName(liveEntityName(f, enemyDisplayName(f.mobileType)), { hostile: !!f.ai?.isHostile });",
-    "new": "    const t = mobileEntityName(enemyDisplayName(f.mobileType), { hostile: !!f.ai?.isHostile });",
+    "old": "    const t = mobileEntityName(liveEntityName(f, enemyDisplayName(f.mobileType)), { hostile: !!f.ai?.isHostile && !f.yielded && !f._pupYield });",
+    "new": "    const t = mobileEntityName(enemyDisplayName(f.mobileType), { hostile: !!f.ai?.isHostile && !f.yielded && !f._pupYield });",
     "tests": [
       "test/worldhover.test.js",
       "test/citedrift.test.js"

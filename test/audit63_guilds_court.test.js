@@ -24,7 +24,7 @@ import {
 import { revealGuildHallsOnMap } from '../src/systems/guildHallReveal.js';
 import { hasSpellbook, SPELLBOOK_TEMPLATE_INDEX } from '../src/systems/spellMaker.js';
 import { activateMobileEnemy, tryMobileEnemyActivate, youSeeEnemyText } from '../src/player/mobileEnemyActivate.js';
-import { PICKPOCKET_DISTANCE, TOO_FAR_AWAY_TEXT, DEFAULT_ACTIVATION_DISTANCE, pickActivatableHit } from '../src/player/activate.js';
+import { PICKPOCKET_DISTANCE, TOO_FAR_AWAY_TEXT, DEFAULT_ACTIVATION_DISTANCE, pickActivatableHit, doorDistanceOf } from '../src/player/activate.js';
 // AUDIT 65 MC-2: the ray's own reach, and the reaches the handlers gate on
 import {
   RAY_DISTANCE, DOOR_ACTIVATION_DISTANCE, TREASURE_ACTIVATION_DISTANCE,
@@ -474,7 +474,7 @@ const dungeonEnemyArm = (mode, rolls = null) => {
   };
   const build = new Function('dungeonCtx', 'tryMobileEnemyActivate', 'eye', 'dir',
     'getInteractionMode', 'playerEntity', 'makeEnemiesHostile', 'player', 'townTalk',
-    'FOUND_NOTHING_VALUABLE_TEXT_ID', 'say', 'mountInterior', 'ActionTextBox',
+    'FOUND_NOTHING_VALUABLE_TEXT_ID', 'say', 'mountInterior', 'ActionTextBox', 'doorDistanceOf', 'targets',
     `${decl}\n    return _enemyArm;`);
   const arm = build(dungeonCtx,
     // the REAL member, with only the dice fixed - the sinks under test
@@ -483,7 +483,8 @@ const dungeonEnemyArm = (mode, rolls = null) => {
     [0, 1, 0], [0, 0, 1], () => mode, thief(), () => { seen.hostile++; },
     { pos: [0, 0, 0] }, { randomText: () => null, say: (t) => seen.say.push(t) }, 8999,
     (t) => seen.say.push(t), (w) => seen.mounted.push(w),
-    class { constructor(rows) { this.rows = rows; } });
+    class { constructor(rows) { this.rows = rows; } },
+    doorDistanceOf, []);   // AUDIT TACT C7: the arm asks for a door behind the foe - none here
   return { arm, seen, foe };
 };
 
@@ -716,9 +717,10 @@ test('AUDIT 65 MC-2: per family - who reaches for the ray, who keeps the narrow 
     // (review) the interior's and the dungeon's EXIT doors are the same
     // ActivateStaticDoor (:364-369) as tryEnter's, gated :501-504 -
     // both reach for the ray, so a too-far click on the way out speaks
-    ['the interior exit door (:501-504)', /interiorCtx\.doors\.map\(\(d, i\) => \(\{ key: `exit:\$\{i\}`, aabb: doorWorldAabb\(d\), distance: RAY_DISTANCE, reach: DOOR_ACTIVATION_DISTANCE \}\)\)/],
+    ['the interior exit door (:501-504)', /interiorCtx\.doors\.map\(\(d, i\) => \(\{ key: `exit:\$\{i\}`, aabb: doorWorldAabb\(d\), distance: RAY_DISTANCE, reach: DOOR_ACTIVATION_DISTANCE, door: true \}\)\)/],
     // WORLD-HOVER: registered at the dungeon mount now, not composed in the press arm - same family, same reach.
-    ['the dungeon exit door (:501-504)', /ctx\.addActivationTargets\(\(\) => ctx\.exitDoors\.map\(\(d, i\) => \(\{ key: `exit:\$\{i\}`, aabb: doorWorldAabb\(d\), distance: RAY_DISTANCE, reach: DOOR_ACTIVATION_DISTANCE \}\)\)\)/],
+    // AUDIT SS: a gate court's exits are pressed in their fire's own box (world/gateArena.js courtDoorAabb) - the same ray and reach
+    ['the dungeon exit door (:501-504)', /ctx\.addActivationTargets\(\(\) => ctx\.exitDoors\.map\(\(d, i\) => \(\{ key: `exit:\$\{i\}`, aabb: d\.court \? courtDoorAabb\(d\) : doorWorldAabb\(d\), distance: RAY_DISTANCE, reach: DOOR_ACTIVATION_DISTANCE, door: true \}\)\)\)/],
   ]) assert.match(wm, re, `${what} does not reach for the ray`);
   // ...and the static door's rung sits where ActivateStaticDoor's own
   // first statement does: BELOW the NPC and board arms, which carry

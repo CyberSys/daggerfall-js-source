@@ -8,7 +8,7 @@
 // `pauseWhileOpened = false` and a clear background (:83-84), which is
 // a window that does not stop the game - the player keeps walking
 // underneath it. The port's overlay slot is the opposite: a townTalk
-// overlay HOLDS the motor and the world clock (scenes/world.js:14970,
+// overlay HOLDS the motor and the world clock (scenes/world.js:21600,
 // `_overlayHeld`), which is exactly what a journey must not do. So this
 // panel lives on the HUD layer, drawn by the host's `drawHud` pass and
 // clicked through the host's pointer ladder beside the large HUD's own
@@ -92,7 +92,7 @@ export async function preloadTravelControlArt(deps = {}) {
       // so drawScreenQuad ran untextured and painted the whole 320x27
       // strip as one opaque white bar with the yellow text on top. The
       // port's idiom for a vendored PNG on a screen quad is
-      // handheldTorches.js:249 - toScreenOrder, then upload, then
+      // handheldTorches.js:264 - toScreenOrder, then upload, then
       // `{ tex, w, h }` (loadImg's own shape, ui/nativePanel.js:52-58).
       const px = toScreenOrder(await decodePng(bytes));
       const tex = deps.renderer?.uploadTexture?.('img', 'travelopts:TOcontrolUI', px, { mips: false, variant: '#travelopts' }) ?? null;
@@ -145,6 +145,17 @@ export class TravelControlUI {
 
   /** :67-70, GetAccelerationLimit. */
   accelerationLimit() { return this.halfLimit ? this.halfAccelLimit : this.accelLimit; }
+
+  /** TO-LIVE (scenes/world.js refreshTravelOptionsSettings): the tile's Acceleration Limit dial turned in play - the
+   *  constructor's rounding again, and the acceleration in force brought under it. */
+  setAccelerationLimit(accelerationLimit) {
+    this.accelLimit = accelLimitOf(accelerationLimit);
+    this.halfAccelLimit = halfAccelLimitOf(accelerationLimit);
+    const limit = this.accelerationLimit();
+    if (this.timeAcceleration <= limit) return;
+    this.timeAcceleration = Math.max(1, limit);
+    if (this.isShowing) this._accelChanged();
+  }
 
   /** :60-63, SetDestinationName. */
   setDestinationName(name) { this.destinationName = String(name ?? ''); }

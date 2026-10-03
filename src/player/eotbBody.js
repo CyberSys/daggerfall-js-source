@@ -45,7 +45,7 @@ import { eotbCamera } from './eotbCamera.js';
 import { setEotbBodyReady, setEotbDrawBody, setEotbPlayerState } from './mwView.js';
 import { modSettingIfDeclared, modSettingsOf, modSettingsGeneration } from '../systems/modSettings.js';
 import {
-  chooseTable, deathTable, ORIENTATIONS, orientationFor, facingFor, frameTime, speedMod, frameCount, isFootstepFrame,
+  chooseTable, deathTable, ORIENTATIONS, orientationFor, facingFor, boatForwardOf, frameTime, speedMod, frameCount, isFootstepFrame,
   stateFor, STATE_TABLES, STRING, meleeAnimTickTime, RANGED_TICK, SPELL_TICK, LYCAN_TICK, DEATH_TICK,
   usesPingPong, pingPongFrames, forwardFrames, holdDrawFrames, pingPongTickFrames, mirrorFlips, mirrorRevertTime,
   DELAYED_FRAMES, ORIENTATION_TIME, signedAngleY, tableMoveSpeed,
@@ -159,10 +159,12 @@ export function bodyState(s = {}) {
     spellcasting: !!s.spellcasting,
     usingBow: !!s.usingBow,
     attacking: !!s.attacking,
+    swingN: Number.isInteger(s.swingN) ? s.swingN : null,   // AUDIT PRE-MERGE 0929 S1: the rig's blow count, or none named
     castPlaying: !!s.castPlaying,
     bowDrawback: !!s.bowDrawback,
     swingHeld: !!s.swingHeld,
     liveSpeed: Number.isFinite(s.liveSpeed) ? s.liveSpeed : 50,
+    animCtx: s.animCtx ?? null,   // AUDIT DISC28 AR-2: the weapon the swing clock is asked about (weaponRig's eotbState)
     concealment: s.concealment ?? null,
     forward: m.forward || 0,
     strafe: m.strafe || 0,
@@ -201,6 +203,7 @@ export function createEotbBody({ count = spriteCount, urlFor = eotbSpriteUrl, de
   let renderer = null;
   /** the per-frame state thunk of the rig that owns the body (see attach) */
   let attachedState = null;
+  let clipSwing = null;   // AUDIT PRE-MERGE 0929 S1: the blow the last melee or claw clip was started for
   let cfg = look();
   let cfgGeneration = modSettingsGeneration();
   function reload() {
@@ -217,6 +220,7 @@ export function createEotbBody({ count = spriteCount, urlFor = eotbSpriteUrl, de
   let last = bodyState();
   /** the frame's camera, handed in by the view seam */
   let cam = { pos: [0, 0, 0], forward: [0, 0, 1], yaw: 0, feet: [0, 0, 0] };
+  let face = null;   // AUDIT DEEP R-2: the travel view's { yaw, up } the quads turn to - null: the camera's own (cam.yaw, upright)
 
   // ── PlayerBillboard's fields, by their own names ──────────────────
   let activeFlag = false;       // the GameObject's active state (ToggleBillboard)
@@ -303,7 +307,7 @@ export function createEotbBody({ count = spriteCount, urlFor = eotbSpriteUrl, de
     const base = place();
     if (!base) return false;
     const f = facingBasis();
-    hangSpriteLantern(lantern, base, batchSize.h, f.fx, f.fz, cam.pos, cam.feet, cam.yaw, cfg.scale > 0 ? cfg.scale : 1, art);
+    hangSpriteLantern(lantern, base, batchSize.h, f.fx, f.fz, cam.pos, cam.feet, face?.yaw ?? cam.yaw, cfg.scale > 0 ? cfg.scale : 1, art);   // AUDIT DEEP R-2: its quad faces the view's eye too
     // the light, from the lantern's middle, in the offset words PlayerTorch's seam speaks (the yaw frame) - where it
     // hangs, whether or not this view draws it (HT-WAIST-BACK: the lantern is still there, lit, seen from the front)
     const mid = lantern.mid;
@@ -473,11 +477,21 @@ export function createEotbBody({ count = spriteCount, urlFor = eotbSpriteUrl, de
   }
   /** [IL] `PlayMeleeAttackAnimation` (IL_5050-IL_514e): never in the
    *  saddle, never over a clip; PingPong by `usesPingPong`; the tick is
-   *  the weapon's own. */
+   *  the weapon's own.
+   *
+   *  AUDIT DISC28 AR-2: THE WEAPON'S OWN, overrides and all. [IL]
+   *  `GetMeleeAnimTickTime` (IL_545c-IL_548e) hands FormulaHelper
+   *  .GetMeleeWeaponAnimTime the PlayerEntity and the ScreenWeapon's
+   *  WeaponType and WeaponHands, so a registered override answers it
+   *  exactly as it answers the weapon. Asked with the Speed alone, the
+   *  override never answered (it reads the player and the hand), and
+   *  under Roleplay & Realism: Items' default weaponBalance the sprite
+   *  swung on DFU's line while the blow landed on the override's - a
+   *  clip that ended before the blow did, and a second one started. */
   function playMeleeAttack() {
     if (last.riding || isAnimating) return null;
     const n = frameCount('AttackMelee');
-    const animTime = getMeleeWeaponAnimTime(last.liveSpeed);
+    const animTime = getMeleeWeaponAnimTime(last.liveSpeed, last.animCtx);
     if (usesPingPong(cfg.attackStrings, pingpongCount)) {
       return startClip('AttackMelee', pingPongFrames(n, cfg.pingPongOffset), meleeAnimTickTime(animTime, pingPongTickFrames(n, cfg.pingPongOffset)), { kind: 'pingpong' });
     }
@@ -529,6 +543,7 @@ export function createEotbBody({ count = spriteCount, urlFor = eotbSpriteUrl, de
     const facing = facingFor({
       turnToView: cfg.turnToView, floating: last.floating, animating: !!isAnimating,
       sheathed: last.sheathed, spellcasting: last.spellcasting, stopped: last.stopped,
+      boatForward: boatForwardOf(eotbCamera.sailing()),   // CSA-J: EyeOfTheBeholder.Instance's boat fields
     }, moveDir, lastMoveDirection, cam.forward);
     lastMoveDirection = facing;
     currentAngle = signedAngleY(toCamera, facing);
@@ -668,8 +683,15 @@ export function createEotbBody({ count = spriteCount, urlFor = eotbSpriteUrl, de
     updateOrientation(false);
     if (!isAnimating) {
       if (last.attacking) {
-        if (last.transformed) playLycanAttack();
-        else if (!last.usingBow) playMeleeAttack();
+        // AUDIT PRE-MERGE 0929 S1: ONE SWING A BLOW. The IL polls IsAttacking and starts a clip whenever none is
+        // playing, so a blow that outlasts its clip swings the sprite again: the claws' clip is the IL's fixed
+        // LYCAN_TICK (0.375 s) and SWING-LAW's claw blow is 0.54 s at the least - the report's own werewolf clawed two
+        // and three times a blow, where every peer (peerRiders, one clip a swing count) saw one; and a melee clip's
+        // frame rounding left a phantom second one. The rig says which blow it is in (`swingN`), and a blow's clip
+        // starts once. A bow's draw and hold keep the IL's poll; a rig that names no count keeps it too.
+        const fresh = last.swingN == null || last.swingN !== clipSwing;
+        if (last.transformed) { if (fresh && playLycanAttack()) clipSwing = last.swingN; }
+        else if (!last.usingBow) { if (fresh && playMeleeAttack()) clipSwing = last.swingN; }
         else if (last.bowDrawback) playRangedAttackHold();
         else playRangedAttack();
       }
@@ -758,6 +780,7 @@ export function createEotbBody({ count = spriteCount, urlFor = eotbSpriteUrl, de
       // pair is another host's rig taking the body over.
       if (r && r === renderer && playerState === attachedState) return this;
       attachedState = playerState ?? null;
+      clipSwing = null;   // AUDIT PRE-MERGE 0929 S1: another rig's blows count from its own start - its first is always new
       renderer = r || null;
       reload();
       if (renderer) {
@@ -834,7 +857,8 @@ export function createEotbBody({ count = spriteCount, urlFor = eotbSpriteUrl, de
       return { table: stateCurrent, frame: frameCurrent, clip: isAnimating ? { table: isAnimating.table, i: isAnimating.i, phase: isAnimating.phase } : null };
     },
 
-    draw(canvas, { eye, feet, yaw } = {}) {
+    draw(canvas, { eye, feet, yaw, face: faceNow = null } = {}) {
+      face = faceNow && Number.isFinite(faceNow.yaw) ? faceNow : null;
       if (!renderer || !activeFlag || !shown) return false;
       if (!cfg.graphic) { dropLantern(); return false; }   // HT-WAIST: no body drawn, no lantern on it
       if (feet) cam.feet = feet;
@@ -845,16 +869,22 @@ export function createEotbBody({ count = spriteCount, urlFor = eotbSpriteUrl, de
       // mirrored
       const flipView = FP && cfg.visibility === 2;
       const s = spriteFor(shown.table, shown.orientation, shown.frame, lookNow(), { flip: shown.flip !== flipView });   // PR-WW1: the live form's archive (112381 the wereboar)
+      // OW-BIG (2026-09-28, Mac: "The player sprite needs to appear larger"): under the travel view the sprite is drawn
+      // `face.grow` times its size (player/travelCamera.js tvOwnGrow) - a party's icon from the Overworld's height, not
+      // a speck; whole steps, the batch made again at each
+      const grow = face && face.grow > 1 ? face.grow : 1;
       const up = ensure(s);
       if (up) {
         const xml = spriteOffset(s.archive, s.record);
         const size = spriteSize(up.w, up.h, { riding: last.riding, transformed: last.transformed, scale: cfg.scale }, xml.scale);
-        if (!batch || batchRec !== cacheKey(s)) {
+        const key = `${cacheKey(s)}|${grow}`;
+        if (!batch || batchRec !== key) {
           if (batch) renderer.destroyBillboardBatch?.(batch);
-          batch = renderer.createBillboardBatch(s.archive, s.rec, size, [[0, 0, 0]]);
+          batch = renderer.createBillboardBatch(s.archive, s.rec, grow > 1 ? { w: size.w * grow, h: size.h * grow } : size, [[0, 0, 0]]);
           batch.origin = [0, 0, 0];
-          batch.selfCard = true;   // DISC24-C: the player's own body - it casts as drawn, into the maps redrawn every frame (render/shadowPass.js SELF CARD)
-          batchRec = cacheKey(s);
+          batch.selfCard = grow === 1;   // DISC24-C: the player's own body - it casts as drawn, into the maps redrawn every frame (render/shadowPass.js SELF CARD); OW-BIG: a grown one casts no giant's shadow
+          batch.noShadow = grow > 1;   // AUDIT OW5 R2: OW-BIG's giant casts NOTHING - selfCard off was never that (render/shadowPass.js: it only keeps the card out of the lamps' maps when it is not the player's own; the sun's cascades drew the tenfold card, a fifty-metre shadow at a low sun, and the lamps' maps baked it)
+          batchRec = key;
         }
         batchSize = size;
       }
@@ -863,9 +893,12 @@ export function createEotbBody({ count = spriteCount, urlFor = eotbSpriteUrl, de
       if (!c) return false;
       batch.origin[0] = c[0]; batch.origin[1] = c[1]; batch.origin[2] = c[2];
       batch.conceal = material();
-      const camRight = [Math.cos(cam.yaw), 0, -Math.sin(cam.yaw)];
-      renderer.drawBillboards([batch], camRight, [0, 1, 0]);
-      drawLantern();   // HT-WAIST: the lantern at the waist, its own billboard, after the body
+      // AUDIT DEEP R-2: under the travel view the quad turns to the VIEW's eye (and leans with the flats) - on the
+      // traveller's own heading it went edge-on as the view orbited, a sliver at 90 degrees, mirrored at 180
+      const by = face ? face.yaw : cam.yaw;
+      const camRight = [Math.cos(by), 0, -Math.sin(by)];
+      renderer.drawBillboards([batch], camRight, face?.up ?? [0, 1, 0]);
+      if (grow === 1) drawLantern();   // HT-WAIST: the lantern at the waist, its own billboard, after the body - OW-BIG: a grown body's waist is not where the lantern hangs
       return true;
     },
 

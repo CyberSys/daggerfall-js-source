@@ -165,13 +165,15 @@ test('DUEL1 hosts by source: the swing reaches my opponent before any pool and i
   assert.match(w, /if \(duelMeleeHit\(cam\.pos, makeInView\(proj, view, multiply\)\)\) \{\s*\n\s*tallySwingSkills\(playerEntity, weaponRig\.playerWeapon\.weapon\);\s*\n\s*surfacePlayer\(\);\s*\n\s*\} else if \(!cityGuards\.resolvePlayerHit/, 'the duel arm first, the ladder after');
   assert.match(w, /\.filter\(\(t\) => !t\.dead && t\.ai\)\.map\(\(t\) => \(\{ feet: t\.ai\.feet, ref: t \}\)\), \.\.\.duelArrowTargets\(\)\]/);
   assert.match(w, /onFoeHit: \(m, t\) => \(t\?\.duel \? undefined : exteriorFoes\.arrowHitFoe\(m, t\)\)/);
-  assert.match(w, /onPlayerArrowHitFoe: \(m, t\) => \(t\?\.duel \? duelStrikeOut\('arrow', m\.weapon \?\? null, 'StrikeDown', weaponRig\.playerWeapon\?\.lastDrawMs \?\? 0\) : playerArrowHitFoe\(m, t, \{/);
+  // PIN MOVED (AUDIT-SEATS): the shaft's target's id rides too - outside a duel, a battle's foe it struck (G5's shaft)
+  assert.match(w, /onPlayerArrowHitFoe: \(m, t\) => \(t\?\.duel \? duelStrikeOut\('arrow', m\.weapon \?\? null, 'StrikeDown', weaponRig\.playerWeapon\?\.lastDrawMs \?\? 0, t\.id\) : playerArrowHitFoe\(m, t, \{/);
   assert.match(w, /castAtDuel: \(id, sp\) => duelSpellOut\(id, sp\),/);
   assert.match(w, /hurt: \(n\) => \{ if \(n > 0\) hurtPlayer\(playerEntity, n, _duelScope \? \{ spare: duelSpare \} : undefined\); \}/);
   assert.match(w, /_duelScope = true;\s*\n\s*try \{ magic\.applySpellToPlayer\(spell, d\.level, null, \{ duelCast: true \}\); \} finally \{ _duelScope = false; \}/);
   assert.match(w, /const r = resolveDuelStrike\(d, playerEntity, \{ backFacing: isBackFacing\(cam\.yaw, player\.feetAt\(\), from\) \}\);\s*\n\s*if \(r\.dmg > 0\) \{\s*\n\s*hurtPlayer\(playerEntity, r\.dmg, \{ spare: duelSpare \}\);/);
   assert.match(w, /if \(!duelBlowPlausible\(d, \[\.\.\._duelTrail\.map\(\(e\) => e\.p\), campToWire\(player\.feetAt\(\)\)\], duelWorldOf\(duel\.peer\), DUEL_RADIUS_M\)\) return null;/, 'AUDIT DUEL1 B6: the trail of my own feet, now last');
-  assert.match(w, /if \(duelEnemyNear\(\) \|\| areEnemiesNearby\(\[\.\.\.cityGuards\.guards, \.\.\.exteriorFoes\.foes\]\)\) \{\s*\n\s*townTalk\.say\(localizedText\('cannotTravelWithEnemiesNearby', CANNOT_TRAVEL_ENEMIES_TEXT\)\);/, 'the travel map');
+  // NAV-H (2026-09-28): a hostile ship in reach joined the same doors, after the duel and the foes
+  assert.match(w, /if \(duelEnemyNear\(\) \|\| areEnemiesNearby\(\[\.\.\.cityGuards\.guards, \.\.\.exteriorFoes\.foes\]\) \|\| navalHostileNear\(\)\) \{[^\n]*\n\s*townTalk\.say\(localizedText\('cannotTravelWithEnemiesNearby', CANNOT_TRAVEL_ENEMIES_TEXT\)\);/, 'the travel map');
   assert.equal((w.match(/enemiesNearby: \(\) => duelEnemyNear\(\) \|\| areEnemiesNearby\(/g) ?? []).length, 2, 'rest and a journey');
   assert.match(w, /duelHolds: \(\) => duelEnemyNear\(\),/);
   const m = rd('src/scenes/worldModes.js');

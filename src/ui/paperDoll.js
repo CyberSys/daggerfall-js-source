@@ -45,7 +45,8 @@ import { getBool } from '../systems/settings.js';   // UI3: EnableGeographicBack
 import { EQUIP_SLOTS, equipTableOf, getItemHands, ITEM_HANDS } from '../systems/equip.js';
 import { getTemplate, paperdollOrder } from '../characters/paperdoll.js';
 import { applyDyeToIndex, DYE_TARGETS, DYE_COLORS, CLOTHING_DYES } from '../characters/dyes.js';
-import { decodedTextureTopDown, preloadTextureRecord } from '../systems/textureReplacement.js';   // DW3: GetItemImage's import arm, by the item's dye; AUDIT-DW F1: decoded when the doll asks
+import { decodedTextureTopDown, preloadTextureRecord, textureReplacementRect } from '../systems/textureReplacement.js';
+import { dfmodImgImage, dfmodCifRciImage, dfmodGeneration, resampleRgba, attachedDfmods } from '../systems/dfmodTextures.js';   // DFMOD1: an attached mod's backdrop, body, head and hi-res items   // DW3: GetItemImage's import arm, by the item's dye; AUDIT-DW F1: decoded when the doll asks
 import { itemDyeColor } from '../systems/itemDye.js';   // DW3: DaggerfallUnityItem.dyeColor, as the port's items carry it
 import { customItemClass } from '../systems/rriItems.js';   // RRI1: a custom class's own archive and record on the doll
 import { clampArmorVariant, armorArchive, HUMAN_MORPHOLOGY, ARMOR_MATERIAL } from '../systems/armorMaterials.js';
@@ -176,6 +177,25 @@ export function paperdollItemImage(item, { gender = 'male', race = 'Breton' } = 
 let _art = null;      // indexed bitmaps + palette
 let _live = null;     // { tex } - the current composite
 let _pixels = null;   // U59: the same composite as RGBA, for the DOM
+/** DFMOD1-E (Enhanced Plus: "the paperdoll doesn't get the texture update") - WHICH ATTACHED-MOD SET THE COMPOSITE
+ *  WAS MADE FROM. The art set (backdrop, body, head) was loaded once at the host's boot, which runs BEFORE the
+ *  mods' registration lands, and nothing asked again unless the identity drifted: the doll kept the classic art for
+ *  the session. The enhanced avatar also never recomposes on a draw. So the composite remembers the generation it
+ *  was built from, and a stale one is rebuilt - art first - by the next refresh or draw. */
+let _composedGen = -1;
+/** True when a composite exists and the attached mods changed since it was made. */
+let _staleTried = -1;   // DFMOD3-F: the generation a stale recompose was last started for
+/** True when a composite could be rebuilt for a changed mod set and has not been tried for it yet.
+ *  DFMOD3-F (a player: "game freezes when opening inventory"): this used to stay true WHILE the rebuild ran, and the
+ *  Enhanced Plus pack asks on every render and renders when the ask resolves - an ask during a compose resolves at
+ *  once (it is coalesced), so render -> ask -> render spun forever. Now it answers true ONCE per generation, never
+ *  during a compose, and never without the art and deps a compose needs. */
+export const paperDollStale = () => {
+  const gen = dfmodGeneration();
+  if (!_art || !_deps || _refreshing || _composedGen === gen || _staleTried === gen) return false;
+  _staleTried = gen;
+  return true;
+};
 let _layout = [];     // blitted item layers, draw order (backwards hit test)
 let _deps = null;
 let _version = 0;
@@ -208,7 +228,7 @@ export const paperDollIdentityKey = ({ race = 'Breton', gender = 'male', faceInd
  *  only from the four hosts' boots (with the PRE-CHARGEN Breton/male/0
  *  stand-in) and from the three chargen completions, so a character
  *  who arrived by RESTORE - `systems/save.js` restorePlayer, which is
- *  every `?load` boot, and main.js:193 makes Continue, Load Game AND
+ *  every `?load` boot, and main.js:210 makes Continue, Load Game AND
  *  Online all `?load` - wore the stand-in's body, face and morphology
  *  for the rest of the session.
  *
@@ -241,11 +261,13 @@ async function loadArtSet(deps, { race = 'Breton', gender = 'male', faceIndex = 
   const loadImgBmp = async (name) => {
     const img = new ImgFile();
     img.load(await fetchBytes(name), name, palette);
-    return { bmp: img.getDFBitmap(), off: img.imageOffset, name };   // OVH2: the NAME rides it - a worn UI pack answers the backdrop by name
+    const bmp = img.getDFBitmap();
+    return { bmp, off: img.imageOffset, name, alt: await dfmodAlt(dfmodImgImage(name), bmp) };   // OVH2: the NAME rides it - a worn UI pack answers the backdrop by name; DFMOD1: an attached mod's picture of it
   };
   const face = new CifRciFile();
   face.load(await fetchBytes(art.heads), art.heads, palette);
   const fi = Math.max(0, Math.min(FACES_PER_RACE - 1, faceIndex | 0));
+  const headBmp = face.getDFBitmap(fi, 0);
   return {
     palette,
     // UI3: the SETTING decides, not the caller's context word. Off -
@@ -256,13 +278,37 @@ async function loadArtSet(deps, { race = 'Breton', gender = 'male', faceIndex = 
     })),
     nude: await loadImgBmp(unclothed),
     clothed: await loadImgBmp(clothed),
-    head: { bmp: face.getDFBitmap(fi, 0), off: face.getOffset(fi) },
+    head: { bmp: headBmp, off: face.getOffset(fi), alt: await dfmodAlt(dfmodCifRciImage(art.heads, fi, 0), headBmp) },
   };
 }
 
+/** DFMOD1: an attached mod's picture of a classic IMG/CIF - the mod's own top-down RGBA `{ width, height, data }`,
+ *  or null. DFMOD4: kept at the mod's resolution; `altAt` fits it to the classic size times the compose scale, so
+ *  every offset, subrect and click mask stays the classic one while the pixels are the mod's. */
+async function dfmodAlt(pending, bmp) {
+  try {
+    const img = await pending;
+    return img && bmp?.width ? img : null;
+  } catch { return null; }
+}
+/** DFMOD4: a holder's (`{ bmp, alt }`) mod picture at `S` texels per doll pixel, box-filtered once per scale. */
+function altAt(holder, S) {
+  holder._altFit ??= new Map();
+  if (!holder._altFit.has(S)) holder._altFit.set(S, resampleRgba(holder.alt, holder.bmp.width * S, holder.bmp.height * S).data);
+  return holder._altFit.get(S);
+}
+
+/** DFMOD4 (a player's screenshots: DFU's DREAM doll beside the port's) - THE COMPOSE SCALE. The doll composed at
+ *  Daggerfall's 110x184 and every screen scaled that up, so DREAM's paperdoll - drawn at 8x - arrived as 110x184 worth
+ *  of pixels, blurred. With a texture mod attached the doll composes at 4x (440x736): the classic layers are
+ *  nearest-scaled into it exactly as before, and the mod's layers keep four times the detail. Every rect, offset and
+ *  click mask stays in the classic 110x184 space; only the pixels are denser. */
+export const PAPERDOLL_HD_SCALE = 4;
+const composeScale = () => (attachedDfmods().length ? PAPERDOLL_HD_SCALE : 1);
+
 export async function preloadPaperDollArt(deps, ident = {}) {
   const { race = 'Breton', gender = 'male' } = ident;
-  const key = paperDollIdentityKey(ident);
+  const key = `${paperDollIdentityKey(ident)}#${dfmodGeneration()}`;   // DFMOD1: attaching or removing a mod rebuilds the art
   if (_art && _identity === key) return;
   try {
     _art = await loadArtSet(deps, ident);
@@ -319,12 +365,18 @@ export const paperDollArtLoaded = () => !!_art;
    mask is skipped, which is what the body and head layers get (no
    item, no shader). A doll composed with no background (another's,
    ONLINE1) copies `under`'s alpha too, so its mask is a see-through. */
-function blit(out, img, palette, { rows = null, remap = null, atOffset = null, under = null } = {}) {
+function blit(out, img, palette, { rows = null, remap = null, atOffset = null, under = null, S = 1 } = {}) {
+  if (img.alt) {   // DFMOD1: a mod's truecolor body/head, at the classic size and offset; DFMOD4: S times as dense
+    const [y0, y1] = rows ?? [0, img.bmp.height];
+    blitRgba(out, { bmp: { width: img.bmp.width * S, height: img.bmp.height * S, rgba: altAt(img, S), scale: S }, off: img.off }, { atOffset, rows: [y0 * S, y1 * S], S });
+    return;
+  }
   const [orgX, orgY] = PAPERDOLL_ORIGIN;
   const off = atOffset ?? img.off;
   const px = off.x - orgX, py = off.y - orgY;
   const { width, height, data } = img.bmp;
   const [y0, y1] = rows ?? [0, height];
+  const OW = PAPERDOLL_W * S;
   for (let y = y0; y < y1; y++) {
     const dy = py + y;
     if (dy < 0 || dy >= PAPERDOLL_H) continue;
@@ -333,14 +385,23 @@ function blit(out, img, palette, { rows = null, remap = null, atOffset = null, u
       if (dx < 0 || dx >= PAPERDOLL_W) continue;
       let idx = data[y * width + x];
       if (idx === 0) continue;
-      const o = (dy * PAPERDOLL_W + dx) * 4;
+      let r, g, b, a = 255, fromUnder = false;
       if (idx === 0xff) {
-        if (under) { out[o] = under[o]; out[o + 1] = under[o + 1]; out[o + 2] = under[o + 2]; out[o + 3] = under[o + 3]; }
-        continue;
+        if (!under) continue;
+        fromUnder = true;
+      } else {
+        if (remap) idx = remap(idx);
+        const c = palette.get(idx);
+        r = c.r; g = c.g; b = c.b;
       }
-      if (remap) idx = remap(idx);
-      const c = palette.get(idx);
-      out[o] = c.r; out[o + 1] = c.g; out[o + 2] = c.b; out[o + 3] = 255;
+      // DFMOD4: one classic texel is an S x S block of the composite (S = 1: the classic compose, texel for texel)
+      for (let j = 0; j < S; j++) {
+        for (let i = 0; i < S; i++) {
+          const o = ((dy * S + j) * OW + dx * S + i) * 4;
+          if (fromUnder) { out[o] = under[o]; out[o + 1] = under[o + 1]; out[o + 2] = under[o + 2]; out[o + 3] = under[o + 3]; continue; }
+          out[o] = r; out[o + 1] = g; out[o + 2] = b; out[o + 3] = a;
+        }
+      }
     }
   }
 }
@@ -355,36 +416,48 @@ function blit(out, img, palette, { rows = null, remap = null, atOffset = null, u
  *  Everything else is `blit`'s, deliberately - the same origin, the
  *  same clip, the same offset arithmetic - so a layer that draws here
  *  lands exactly where the indexed one would have. */
-function blitRgba(out, img, { atOffset = null, under = null } = {}) {
+function blitRgba(out, img, { atOffset = null, under = null, rows = null, S = 1 } = {}) {
   const off = atOffset ?? img.off;
-  const [px, py] = dollXY(off);
+  const [dpx, dpy] = dollXY(off);
   const { width, height, rgba } = img.bmp;
   if (!rgba) return;
+  // DFMOD4: the picture carries `scale` texels per doll pixel (1 for classic-sized art, S for a mod picture fitted
+  // to this compose); `f` composite pixels per texel - a 1x vendor sprite is nearest-scaled up, as the classic layers
+  const f = S / (img.bmp.scale ?? 1);
+  const OW = PAPERDOLL_W * S, OH = PAPERDOLL_H * S;
+  const px = Math.round(dpx * S), py = Math.round(dpy * S);
+  const dw = Math.round(width * f), dh = Math.round(height * f);
   // RRI1: the mask first - where it is set, the background comes back
   // (the hair under a helmet), and the sprite draws over that
   if (under && img.mask?.rgba) {
     const { width: mw, height: mh, rgba: m } = img.mask;
-    for (let y = 0; y < mh; y++) {
-      const dy = py + y;
-      if (dy < 0 || dy >= PAPERDOLL_H) continue;
-      for (let x = 0; x < mw; x++) {
-        const dx = px + x;
-        if (dx < 0 || dx >= PAPERDOLL_W || m[(y * mw + x) * 4 + 3] === 0) continue;
-        const o = (dy * PAPERDOLL_W + dx) * 4;
+    const mf = dw / mw;
+    for (let Y = 0; Y < Math.round(mh * mf); Y++) {
+      const dy = py + Y;
+      if (dy < 0 || dy >= OH) continue;
+      const y = Math.min(mh - 1, Math.floor(Y / mf));
+      for (let X = 0; X < Math.round(mw * mf); X++) {
+        const dx = px + X;
+        const x = Math.min(mw - 1, Math.floor(X / mf));
+        if (dx < 0 || dx >= OW || m[(y * mw + x) * 4 + 3] === 0) continue;
+        const o = (dy * OW + dx) * 4;
         out[o] = under[o]; out[o + 1] = under[o + 1]; out[o + 2] = under[o + 2]; out[o + 3] = under[o + 3];
       }
     }
   }
-  for (let y = 0; y < height; y++) {
-    const dy = py + y;
-    if (dy < 0 || dy >= PAPERDOLL_H) continue;
-    for (let x = 0; x < width; x++) {
-      const dx = px + x;
-      if (dx < 0 || dx >= PAPERDOLL_W) continue;
+  const [r0, r1] = rows ?? [0, height];   // DFMOD1: the censor welds' bands, as `blit` takes them (in the picture's rows)
+  for (let Y = Math.round(r0 * f); Y < Math.min(dh, Math.round(r1 * f)); Y++) {
+    const dy = py + Y;
+    if (dy < 0 || dy >= OH) continue;
+    const y = Math.min(height - 1, Math.floor(Y / f));
+    for (let X = 0; X < dw; X++) {
+      const dx = px + X;
+      if (dx < 0 || dx >= OW) continue;
+      const x = Math.min(width - 1, Math.floor(X / f));
       const si = (y * width + x) * 4;
       const a = rgba[si + 3];
       if (a === 0) continue;
-      const o = (dy * PAPERDOLL_W + dx) * 4;
+      const o = (dy * OW + dx) * 4;
       if (a === 255) { out[o] = rgba[si]; out[o + 1] = rgba[si + 1]; out[o + 2] = rgba[si + 2]; out[o + 3] = 255; continue; }
       const k = a / 255;   // the sprite's own edge, over whatever is under it
       out[o] = rgba[si] * k + out[o] * (1 - k);
@@ -405,7 +478,7 @@ function blitRgba(out, img, { atOffset = null, under = null } = {}) {
 // back to the racial art, the never-traps rule.
 const _overrideArt = new Map();   // 'FILE#record' -> { bmp, off } | null
 async function loadOverrideArt(file, record, deps, palette) {
-  const key = `${file}#${record}`;
+  const key = `${file}#${record}#${dfmodGeneration()}`;   // DFMOD1: a mod attached mid-session re-reads it
   if (_overrideArt.has(key)) return _overrideArt.get(key);
   let art = null;
   try {
@@ -413,10 +486,12 @@ async function loadOverrideArt(file, record, deps, palette) {
       const cif = new CifRciFile();
       cif.load(await deps.fetchBytes(file), file, palette);
       art = { bmp: cif.getDFBitmap(record, 0), off: cif.getOffset(record) };
+      art.alt = await dfmodAlt(dfmodCifRciImage(file, record, 0), art.bmp);   // DFMOD1
     } else {
       const img = new ImgFile();
       img.load(await deps.fetchBytes(file), file, palette);
       art = { bmp: img.getDFBitmap(), off: img.imageOffset };
+      art.alt = await dfmodAlt(dfmodImgImage(file), art.bmp);   // DFMOD1
     }
     if (!art.bmp?.width) art = null;
   } catch { console.warn('[paperdoll] override art unavailable:', key); art = null; }
@@ -433,8 +508,9 @@ async function loadOverrideArt(file, record, deps, palette) {
  * while the inventory shows the player's own, untouched.
  * `background` false leaves the panel clear (a peer's billboard).
  */
-async function composeDoll(art, deps, entity, { background = true } = {}) {
-  const out = new Uint8Array(PAPERDOLL_W * PAPERDOLL_H * 4);
+async function composeDoll(art, deps, entity, { background = true, scale: S = 1 } = {}) {
+  const OW = PAPERDOLL_W * S, OH = PAPERDOLL_H * S;   // DFMOD4: the composite, S texels per doll pixel
+  const out = new Uint8Array(OW * OH * 4);
   const layout = [];
   // V5: the racial override's three art laws - the beast/crypt
   // background, the whole-body suppression (PaperDollRenderer:165 -
@@ -445,11 +521,19 @@ async function composeDoll(art, deps, entity, { background = true } = {}) {
   const bgOverride = bgOverrideName ? await loadOverrideArt(bgOverrideName, 0, deps, art.palette) : null;
   // background subrect fills the panel
   const bg = (bgOverride ?? art.bg).bmp;
-  for (let y = 0; background && y < PAPERDOLL_H; y++) {
-    for (let x = 0; x < PAPERDOLL_W; x++) {
-      const idx = bg.data[(y + BG_SUBRECT[1]) * bg.width + (x + BG_SUBRECT[0])];
+  const bgHolder = bgOverride ?? art.bg;
+  const bgAlt = bgHolder.alt ? altAt(bgHolder, S) : null;   // DFMOD1: an attached mod's backdrop; DFMOD4: at S x the classic size
+  const BW = bg.width * S;
+  for (let y = 0; background && y < OH; y++) {
+    for (let x = 0; x < OW; x++) {
+      const o = (y * OW + x) * 4;
+      if (bgAlt) {
+        const si = ((y + BG_SUBRECT[1] * S) * BW + (x + BG_SUBRECT[0] * S)) * 4;
+        out[o] = bgAlt[si]; out[o + 1] = bgAlt[si + 1]; out[o + 2] = bgAlt[si + 2]; out[o + 3] = 255;
+        continue;
+      }
+      const idx = bg.data[(Math.floor(y / S) + BG_SUBRECT[1]) * bg.width + (Math.floor(x / S) + BG_SUBRECT[0])];
       const c = art.palette.get(idx);
-      const o = (y * PAPERDOLL_W + x) * 4;
       out[o] = c.r; out[o + 1] = c.g; out[o + 2] = c.b; out[o + 3] = 255;
     }
   }
@@ -462,9 +546,10 @@ async function composeDoll(art, deps, entity, { background = true } = {}) {
     const it = table[slot];
     if (!it || !CLOAK_TEMPLATES.has(it.templateIndex)) continue;
     const t = getTemplate(it.templateIndex);
-    const img = await loadRecord(t.playerTextureArchive + (raceByKey(deps.race)?.morphologyIndex ?? HUMAN_MORPHOLOGY), t.playerTextureRecord, deps.getTexture, itemDyeColor(it));
+    const img = await loadRecord(t.playerTextureArchive + (raceByKey(deps.race)?.morphologyIndex ?? HUMAN_MORPHOLOGY), t.playerTextureRecord, deps.getTexture, itemDyeColor(it), S);
     if (img) {
-      blit(out, img, art.palette, { remap: (i) => applyDyeToIndex(i, it.dye ?? DYE_COLORS.Blue, DYE_TARGETS.Clothing), under });
+      if (img.bmp?.rgba) blitRgba(out, img, { under, S });   // DFMOD4: a mod's cloak lining is truecolor
+      else blit(out, img, art.palette, { remap: (i) => applyDyeToIndex(i, it.dye ?? DYE_COLORS.Blue, DYE_TARGETS.Clothing), under, S });
       // AUDIT 18: BlitCloakInterior passes the cloak to DrawTexture
       // (PaperDollRenderer.cs:384-400), whose tail (:284-292) pushes
       // an ItemElement into itemLayout - so the interior IS in the
@@ -478,7 +563,7 @@ async function composeDoll(art, deps, entity, { background = true } = {}) {
   }
   // body + welds + head (BlitBody) - all skipped while suppressed
   if (!suppress) {
-    blit(out, art.nude, art.palette);
+    blit(out, art.nude, art.palette, { S });
     const split = WAIST_HEIGHT;
     // BlitBody (PaperDollRenderer.cs:346-353): the WELDS as a whole
     // hang off the setting - the nude body above is drawn either
@@ -486,31 +571,31 @@ async function composeDoll(art, deps, entity, { background = true } = {}) {
     // show around real clothes. The setting ships False, which is
     // why the port drawing the welds unconditionally looked right.
     if (!getBool('ChildGuard', 'PlayerNudity')) {
-      if (!table[EQUIP_SLOTS.ChestClothes] && !table[EQUIP_SLOTS.ChestArmor]) blit(out, art.clothed, art.palette, { rows: [0, split] });
-      if (!table[EQUIP_SLOTS.LegsClothes]) blit(out, art.clothed, art.palette, { rows: [split, art.clothed.bmp.height] });
+      if (!table[EQUIP_SLOTS.ChestClothes] && !table[EQUIP_SLOTS.ChestArmor]) blit(out, art.clothed, art.palette, { rows: [0, split], S });
+      if (!table[EQUIP_SLOTS.LegsClothes]) blit(out, art.clothed, art.palette, { rows: [split, art.clothed.bmp.height], S });
     }
     // V5: the vampire's clanless head replaces the racial one
     const headOv = racialOverrideHeadArt(entity);
     const headArt = headOv ? await loadOverrideArt(headOv.file, headOv.record, deps, art.palette) : null;
-    blit(out, headArt ?? art.head, art.palette);
+    blit(out, headArt ?? art.head, art.palette, { S });
   }
   // items ascending drawOrder (BlitItems)
   const ordered = suppress ? [] : paperdollOrder(worn.map((w) => ({ ...w.it, drawOrder: w.t.drawOrderOrEffect })));
   for (const it of ordered) {
     const res = paperdollItemImage(it, { gender: deps.gender, race: deps.race });
     if (!res) continue;
-    const img = await loadRecord(res.archive, res.record, deps.getTexture, itemDyeColor(it));   // DW3: the import ask is by item.dyeColor (an artifact's is Unchanged); the remap below stays res.dye
+    const img = await loadRecord(res.archive, res.record, deps.getTexture, itemDyeColor(it), S);   // DW3: the import ask is by item.dyeColor (an artifact's is Unchanged); the remap below stays res.dye
     if (!img) continue;
     // FIELD-GUN4: a vendor-only archive has no indexed bitmap to blit
     // through the palette - it hands back RGBA instead, and it is the
     // port's own art rather than DFU's, so it takes neither the dye
     // nor the helm mask.
-    if (img.bmp?.rgba) { blitRgba(out, img, { under }); layout.push({ slot: it.equipSlot, img }); continue; }   // RRI1: the imported helmet's mask erases the hair under it
+    if (img.bmp?.rgba) { blitRgba(out, img, { under, S }); layout.push({ slot: it.equipSlot, img }); continue; }   // RRI1: the imported helmet's mask erases the hair under it
     const remap = res.target == null ? null : (i) => applyDyeToIndex(i, res.dye, res.target);
-    blit(out, img, art.palette, { remap, under });   // HM1: the helm's mask erases the hair
+    blit(out, img, art.palette, { remap, under, S });   // HM1: the helm's mask erases the hair
     layout.push({ slot: it.equipSlot, img });
   }
-  return { out, layout, bgSize: [bg.width, bg.height] };
+  return { out, layout, bgSize: [bg.width, bg.height], width: OW, height: OH };
 }
 
 export async function refreshPaperDoll(entity) {
@@ -533,6 +618,8 @@ export async function refreshPaperDoll(entity) {
     // trap - to be tried again on the next refresh.
     const drift = paperDollIdentityDrift(entity);
     if (drift) await preloadPaperDollArt(_deps, drift);
+    else if (_ident && !_identity?.endsWith(`#${dfmodGeneration()}`)) await preloadPaperDollArt(_deps, _ident);   // DFMOD1-E: the mods changed - the backdrop, body and head are reloaded with theirs
+    const gen = dfmodGeneration();
     // OVH2: A WORN UI PACK'S BACKDROP. The doll composes WITHOUT its SCBG and the pack's picture of that SCBG is
     // drawn under it (drawPaperDoll) - its hi-res pixels would be lost in the 110x184 composite. The HM1 masks
     // still hole through to "the background": composed on nothing, a masked pixel is clear, and the pack's
@@ -540,7 +627,7 @@ export async function refreshPaperDoll(entity) {
     const overrideName = racialPaperDollBackground(entity);
     const bgName = overrideName && await loadOverrideArt(overrideName, 0, _deps, _art.palette) ? overrideName : _art.bg.name;   // composeDoll's own choice (an override that did not load falls to the racial art)
     const packBg = bgName ? await packImgTexture(_deps.renderer, bgName) : null;
-    const { out, layout, bgSize } = await composeDoll(_art, _deps, entity, { background: !packBg });
+    const { out, layout, bgSize, width: OW, height: OH } = await composeDoll(_art, _deps, entity, { background: !packBg, scale: composeScale() });   // DFMOD4: 4x with a texture mod
     const key = `paperdoll_v${++_version}`;
     const prevKey = _live?.key ?? null;
     // U59: the composite is KEPT, not just uploaded. `out` is already
@@ -549,8 +636,9 @@ export async function refreshPaperDoll(entity) {
     // that was about to be discarded is what let the enhanced pack
     // draw the same avatar the classic window draws, without a second
     // compositor reading the same laws again.
-    _pixels = { width: PAPERDOLL_W, height: PAPERDOLL_H, rgba: out, version: _version };
-    _live = { key, tex: _deps.renderer.uploadTexture('img', key, { width: PAPERDOLL_W, height: PAPERDOLL_H, colors: new Uint32Array(out.buffer) }), packBg: packBg ? { tex: packBg, w: bgSize[0], h: bgSize[1] } : null };
+    _pixels = { width: OW, height: OH, rgba: out, version: _version, density: OW / PAPERDOLL_W };   // DFMOD4: texels per doll pixel
+    _composedGen = gen;   // DFMOD1-E
+    _live = { key, tex: _deps.renderer.uploadTexture('img', key, { width: OW, height: OH, colors: new Uint32Array(out.buffer) }), packBg: packBg ? { tex: packBg, w: bgSize[0], h: bgSize[1] } : null };
     // AUDIT 17e F27 / EVERY ALLOCATION HAS AN OWNER: each refresh mints
     // a NEW versioned key, so the previous composite leaked (~81 KB per
     // equip click, unbounded across a session).
@@ -564,7 +652,7 @@ export async function refreshPaperDoll(entity) {
 
 /** One TEXTURE.### record as an indexed bitmap + its baked offset
  *  (with DFU's 237/52+54 bad-offset fix). */
-async function loadRecord(archive, record, getTexture, dye = null) {
+async function loadRecord(archive, record, getTexture, dye = null, S = 1) {
   try {
     const tex = await getTexture(archive);
     if (!tex || record >= tex.recordCount) return null;
@@ -582,8 +670,21 @@ async function loadRecord(archive, record, getTexture, dye = null) {
       // areas of image and alpha 1 are masked areas" - the helmet's
       // hair cutout. Asked by the same name with `_Mask`; absent for
       // everything that has none.
-      const mask = (await preloadTextureRecord(archive, record, 0, 'Mask', dye)) ? decodedTextureTopDown(archive, record, 0, 'Mask', dye) : null;
-      return { bmp: { width: swap.width, height: swap.height, data: null, rgba: swap.rgba }, off, mask };
+      let mask = (await preloadTextureRecord(archive, record, 0, 'Mask', dye)) ? decodedTextureTopDown(archive, record, 0, 'Mask', dye) : null;
+      // DFMOD1: A HI-RES SPRITE TAKES ITS CLASSIC PLACE. The doll composes at 110x184, and a mod's paperdoll art is
+      // several times that (DREAM's is 8x): drawn raw it covered the panel. DFU draws an imported item into the
+      // classic record's rect, or the `<rect>` its xml gives (TextureReplacement.OverridePaperdollItemRect) - the
+      // same here, box-filtered to that size. Same-size art (every vendored set) passes through untouched.
+      let pic = { width: swap.width, height: swap.height, data: swap.rgba };
+      let place = off;
+      const rect = textureReplacementRect(archive, record, 0, 'Albedo', dye);
+      const classic = tex.vendor ? null : tex.getSize(record);
+      // DFMOD4: fitted at S texels per doll pixel - the composite's own density - and marked so
+      let scale = 1;
+      if (rect) { pic = resampleRgba(pic, rect.width * S, rect.height * S); place = { x: rect.x, y: rect.y, paperdoll: true }; scale = S; }
+      else if (classic?.width && (pic.width > classic.width || pic.height > classic.height)) { pic = resampleRgba(pic, classic.width * S, classic.height * S); scale = S; }   // a hi-res sprite with no <rect>: the classic record's box
+      if (mask && (mask.width !== pic.width || mask.height !== pic.height)) { const m = resampleRgba({ width: mask.width, height: mask.height, data: mask.rgba }, pic.width, pic.height); mask = { width: m.width, height: m.height, rgba: m.data }; }
+      return { bmp: { width: pic.width, height: pic.height, data: null, rgba: pic.data, scale }, off: place, mask };
     }
     return { bmp: tex.getDFBitmap(record, 0), off };
   } catch { return null; }
@@ -592,7 +693,7 @@ async function loadRecord(archive, record, getTexture, dye = null) {
 /** Draw the doll with the panel's top-left at virtual (x,y). */
 export function drawPaperDoll(renderer, m, entity, x, y) {
   if (!_art) return false;
-  if (!_live) refreshPaperDoll(entity);   // first draw composes async
+  if (!_live || paperDollStale()) refreshPaperDoll(entity);   // DFMOD3-F: a stale ask answers true once per generation   // first draw composes async; DFMOD1-E: and a composite from before the mods changed
   if (!_live) return true;
   const dst = { x: m.ox + x * m.s, y: m.oy + y * m.s, w: PAPERDOLL_W * m.s, h: PAPERDOLL_H * m.s };
   if (_live.packBg) {   // OVH2: the pack's backdrop under the doll - the same subrect of the same SCBG, in the pack's pixels
@@ -617,7 +718,12 @@ export function slotAtPaperDoll(px, py) {
     // neither 0 nor 0xff and so returned the slot for every point
     // inside the sprite's BOX - the transparent corners included, and
     // that box is what sits over the doll's own body.
-    if (img.bmp.rgba) { if (img.bmp.rgba[(y * img.bmp.width + x) * 4 + 3] !== 0) return slot; continue; }
+    if (img.bmp.rgba) {   // DFMOD4: a picture `scale` texels per doll pixel is sampled at its own density
+      const sc = img.bmp.scale ?? 1;
+      const sx = Math.floor(x * sc), sy = Math.floor(y * sc);
+      if (sx < img.bmp.width && sy < img.bmp.height && img.bmp.rgba[(sy * img.bmp.width + sx) * 4 + 3] !== 0) return slot;
+      continue;
+    }
     const idx = img.bmp.data[y * img.bmp.width + x];
     if (idx !== 0 && idx !== 0xff) return slot;
   }

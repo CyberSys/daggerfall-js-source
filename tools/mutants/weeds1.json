@@ -38,8 +38,8 @@
  {
   "name": "WEEDS1-the-sun-cascade-stops-passing-its-texel-so-the-saving-never-happens",
   "file": "src/render/shadowPass.js",
-  "old": "SHADOW_CASCADE_MIN_RADIUS_TEXELS * sunTexelWorld(c), sunTexelWorld(c));",
-  "new": "SHADOW_CASCADE_MIN_RADIUS_TEXELS * sunTexelWorld(c));",
+  "old": "SHADOW_CASCADE_MIN_RADIUS_TEXELS * sunTexelWorld(c, k), sunTexelWorld(c, k));",
+  "new": "SHADOW_CASCADE_MIN_RADIUS_TEXELS * sunTexelWorld(c, k));",
   "tests": [
    "test/weeds1_flatcasters.test.js"
   ]
@@ -47,8 +47,8 @@
  {
   "name": "WEEDS1-the-LANTERN-replay-starts-passing-a-texel-and-props-stop-shadowing-by-lamplight",
   "file": "src/render/shadowPass.js",
-  "old": "this.replay(f, this.faceVP[face], pos, false, 0, 0, REPLAY_ALL, near);",
-  "new": "this.replay(f, this.faceVP[face], pos, false, 0, 0.5, REPLAY_ALL, near);",
+  "old": "this.replay(f, this.faceVP[face], pos, false, 0, 0, REPLAY_ALL, selfNear);",
+  "new": "this.replay(f, this.faceVP[face], pos, false, 0, 0.5, REPLAY_ALL, selfNear);",
   "tests": [
    "test/weeds1_flatcasters.test.js"
   ]

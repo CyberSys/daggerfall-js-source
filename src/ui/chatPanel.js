@@ -222,7 +222,7 @@ ${PIXELIFY_FIVE_FACE}
 .dfchat-peek { display: flex; flex-direction: column; gap: 3px; }
 .dfchat-line { flex: none; font-size: calc(13px * var(--dfchat-scale, 1)); line-height: 1.35; overflow-wrap: anywhere; overflow: hidden; text-shadow: ${PIXEL_TEXT_SHADOW}; }
 .dfchat-name { color: var(--brass, #c08a3e); font-weight: 600; }
-.dfchat-tag { color: var(--dim, #8b8578); font-size: calc(10px * var(--dfchat-scale, 1)); margin: 0 6px 0 2px; }
+.dfchat-tag { color: var(--dim, #9a9486); font-size: calc(11px * var(--dfchat-scale, 1)); margin: 0 6px 0 2px; }
 .dfchat-line.mine .dfchat-name { color: #dcc27c; }
 .dfchat-line.system .dfchat-text { color: #8fb8d8; font-style: italic; }
 /* CHAT-CHAN: an aside out of character - (( )) - is drawn as one: dimmed and leaning, the words kept readable */
@@ -247,7 +247,7 @@ ${PIXELIFY_FIVE_FACE}
 /* DICE1: a roll the relay made - its own colour, which no typed line can wear (the kind is set from the FRAME's type) */
 .dfchat-line.roll .dfchat-text { color: #e7c46a; }
 /* CHAT-CHAN: the channel a peek line came from, when it is not the tab the chat opens on */
-.dfchat-chan { font-size: calc(10px * var(--dfchat-scale, 1)); letter-spacing: .05em; text-transform: uppercase; margin-right: 6px; color: var(--dim, #8b8578); }
+.dfchat-chan { font-size: calc(11px * var(--dfchat-scale, 1)); letter-spacing: .05em; text-transform: uppercase; margin-right: 6px; color: var(--dim, #9a9486); }
 .dfchat-chan[data-tab="world"] { color: #d9c089; }
 .dfchat-chan[data-tab="region"] { color: #e0a45a; }
 .dfchat-chan[data-tab="party"] { color: ${PARTY_GREEN_CSS}; }
@@ -264,8 +264,8 @@ ${PIXELIFY_FIVE_FACE}
    in the Dungeon Master title's own orange (ui/playerBadge.js TITLE_RGBA.dungeonmaster). */
 .dfchat-line.dm .dfchat-text { color: ${cssRgba(TITLE_RGBA.dungeonmaster)}; font-style: normal; font-weight: 600;
   letter-spacing: .01em; }
-.dfchat-time { color: var(--dim, #8b8578); font-size: calc(10px * var(--dfchat-scale, 1)); margin-right: 6px; }
-.dfchat-hint { margin-top: 4px; font-size: calc(11px * var(--dfchat-scale, 1)); color: var(--dim, #8b8578); opacity: .75; text-shadow: ${PIXEL_TEXT_SHADOW}; }
+.dfchat-time { color: var(--dim, #9a9486); font-size: calc(11px * var(--dfchat-scale, 1)); margin-right: 6px; }
+.dfchat-hint { margin-top: 4px; font-size: calc(11px * var(--dfchat-scale, 1)); color: var(--dim, #9a9486); opacity: .75; text-shadow: ${PIXEL_TEXT_SHADOW}; }
 .dfchat-status { margin-top: 4px; font-size: calc(11px * var(--dfchat-scale, 1)); color: #e0b070; text-shadow: ${PIXEL_TEXT_SHADOW}; }
 .dfchat-status:empty { display: none; }
 .dfchat-open { display: none; pointer-events: auto; margin-top: 4px; align-items: center; gap: 6px; }
@@ -275,7 +275,7 @@ ${PIXELIFY_FIVE_FACE}
 .dfchat[data-state="open"] .dfchat-box { display: flex; flex-direction: column; }
 .dfchat[data-state="open"] .dfchat-peek, .dfchat[data-state="open"] .dfchat-hint, .dfchat[data-state="open"] .dfchat-open { display: none; }
 .dfchat-tabs { display: flex; gap: 2px; padding: 4px 4px 0; border-bottom: 1px solid var(--iron, #2b323b); }
-.dfchat-tab { background: none; border: 0; border-bottom: 2px solid transparent; color: var(--dim, #8b8578); font: inherit; font-size: 13px;
+.dfchat-tab { background: none; border: 0; border-bottom: 2px solid transparent; color: var(--dim, #9a9486); font: inherit; font-size: 13px;
   letter-spacing: .05em; text-transform: uppercase; padding: 6px 10px; cursor: pointer; flex: none; white-space: nowrap; }
 /* CHAT-CHAN: FOUR TABS AND THE SOCIAL BUTTON IN ONE BAR - measured in Chromium, and looked at (tools/chatChanProbe.mjs).
    The tabs stand in a strip of their own and the Social button beside it, OUTSIDE it, so Social is always in the box.
@@ -313,12 +313,17 @@ ${PIXELIFY_FIVE_FACE}
 .dfchat-input { flex: 1; min-width: 0; background: var(--ink, #0e1013); color: var(--bone, #e9e4d9); border: 1px solid var(--iron, #2b323b); border-radius: 3px; padding: 6px 8px; font: inherit; font-size: calc(14px * var(--dfchat-scale, 1)); }
 .dfchat-input:focus { outline: 1px solid var(--brass, #c08a3e); }
 .dfchat-send, .dfchat-close, .dfchat-open, .dfchat-hide, .dfchat-show { background: var(--iron, #2b323b); color: var(--bone, #e9e4d9); border: 0; border-radius: 3px; font: inherit; font-size: 14px; padding: 6px 10px; cursor: pointer; }
+/* ONE-SEAT: the way back online for a tab another tab or window took the seat from - a thumb's button under the status
+   line, drawn only while the host hands an action in, and NOT taken by Hide: a player who hid the chat is still told
+   this tab is out, and can still take it back */
+.dfchat-here { display: none; pointer-events: auto; margin-top: 4px; background: var(--brass, #b08d57); color: var(--ink, #14110d); border: 0; border-radius: 3px; font: inherit; font-size: 14px; padding: 6px 10px; cursor: pointer; }
+.dfchat-here.on { display: inline-flex; }
 /* CHAT-SIZE: the corner the box is dragged from - the BOX's own bottom-right, over both columns (the form's row ends
    where the conversation column does, and the roster stands beyond it). The width it gives is the text's scale
    (--dfchat-scale), the height the list's lines; arrow keys on it step the same two, and a double click puts the
    sheet's own size back. The form keeps its last button clear of it, and the roster its last row. */
 .dfchat-grip { position: absolute; right: 0; bottom: 0; width: 12px; height: 12px; cursor: nwse-resize; touch-action: none; border-bottom-right-radius: 6px;
-  background: linear-gradient(135deg, transparent 0 50%, var(--dim, #8b8578) 50% 58%, transparent 58% 70%, var(--dim, #8b8578) 70% 78%, transparent 78%); opacity: .75; }
+  background: linear-gradient(135deg, transparent 0 50%, var(--dim, #9a9486) 50% 58%, transparent 58% 70%, var(--dim, #9a9486) 70% 78%, transparent 78%); opacity: .75; }
 .dfchat-grip:hover, .dfchat-grip:focus-visible { opacity: 1; outline: none; }
 .dfchat.touch .dfchat-grip { width: 26px; height: 26px; }
 .dfchat.touch .dfchat-form { padding-right: 30px; }
@@ -338,7 +343,7 @@ ${PIXELIFY_FIVE_FACE}
    holds, and the list scrolls inside that. */
 .dfchat-who { flex: none; width: calc(148px * var(--dfchat-scale, 1)); border-left: 1px solid var(--iron, #2b323b); position: relative; min-height: 0; }
 .dfchat-who-inner { position: absolute; inset: 0; display: flex; flex-direction: column; min-height: 0; }
-.dfchat-whohead { flex: none; padding: 6px 8px 4px; font-size: calc(11px * var(--dfchat-scale, 1)); letter-spacing: .06em; text-transform: uppercase; color: var(--dim, #8b8578); }
+.dfchat-whohead { flex: none; padding: 6px 8px 4px; font-size: calc(11px * var(--dfchat-scale, 1)); letter-spacing: .06em; text-transform: uppercase; color: var(--dim, #9a9486); }
 .dfchat-wholist { flex: 1; min-height: 0; overflow-y: auto; padding: 0 8px 14px; display: flex; flex-direction: column; gap: 1px; }
 /* CHAT-FIT: A ROW IS ONE LINE. Title, name, glyphs and tag stand in a
    nowrap flex line; the NAME is the part that gives (ellipsis, the full
@@ -349,19 +354,19 @@ ${PIXELIFY_FIVE_FACE}
 .dfchat-who-row { font-size: calc(12px * var(--dfchat-scale, 1)); line-height: 1.35; color: var(--bone, #e9e4d9); }
 .dfchat-who-line { display: flex; align-items: baseline; white-space: nowrap; min-width: 0; }
 .dfchat-who-row.me .dfchat-who-name { color: #dcc27c; }
-.dfchat-who-name { font-weight: 600; flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.dfchat-who-name { font-weight: 600; flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; letter-spacing: 0; }   /* AUDIT FONT3 L7: a 16-letter name whole in the roster column */
 .dfchat-who-glyph, .dfchat-who-tag { flex: none; }
-.dfchat-who-tag { color: var(--dim, #8b8578); font-size: calc(10px * var(--dfchat-scale, 1)); margin-left: 4px; }
+.dfchat-who-tag { color: var(--dim, #9a9486); font-size: calc(11px * var(--dfchat-scale, 1)); margin-left: 4px; }
 /* ACC3c: the glyphs AFTER the name, the world label read left to right (TITLE-R: the roster wears no title). */
 .dfchat-who-glyph { width: calc(11px * var(--dfchat-scale, 1)); height: calc(11px * var(--dfchat-scale, 1)); display: inline-block; vertical-align: -1px;
   margin-left: 3px; }
 /* CHAT-FIT: the same badge on a chat LINE - the title before the name
    at the tag's size, the glyphs after it at the roster's size. */
-.dfchat-line-title { font-size: calc(10px * var(--dfchat-scale, 1)); letter-spacing: .05em; text-transform: uppercase; margin-right: 4px; }
+.dfchat-line-title { font-size: calc(11px * var(--dfchat-scale, 1)); letter-spacing: .05em; text-transform: uppercase; margin-right: 4px; }
 .dfchat-line-glyph { width: calc(11px * var(--dfchat-scale, 1)); height: calc(11px * var(--dfchat-scale, 1)); display: inline-block; vertical-align: -1px; margin-left: 3px; }
 /* GUILD1c: the guild's tag right of the name, before the glyphs - the name layer's own steel, on a line and in the roster */
-.dfchat-line-guild, .dfchat-who-guild { flex: none; color: #a9c4dd; font-size: calc(10px * var(--dfchat-scale, 1)); letter-spacing: .04em; margin-left: 4px; }
-.dfchat-who-more { font-size: calc(11px * var(--dfchat-scale, 1)); color: var(--dim, #8b8578); padding-top: 4px; }
+.dfchat-line-guild, .dfchat-who-guild { flex: none; color: #a9c4dd; font-size: calc(11px * var(--dfchat-scale, 1)); letter-spacing: .04em; margin-left: 4px; }
+.dfchat-who-more { font-size: calc(11px * var(--dfchat-scale, 1)); color: var(--dim, #9a9486); padding-top: 4px; }
 /* the roster is the first thing to go when there is no width for it */
 @media (max-width: 560px) { .dfchat-who { display: none; } }
 
@@ -415,7 +420,7 @@ ${PIXELIFY_FIVE_FACE}
    when the two do not fit, and a label wider than the column breaks at its spaces. */
 .dfchat-rowbtn[disabled] { opacity: .45; cursor: default; }
 /* AUDIT SOC C11: the reason a row is dead, drawn beside its label - a title is a hover, and a finger cannot hover. */
-.dfchat-rowwhy { font-size: 10px; font-style: italic; color: var(--dim, #8b8578); margin-left: auto; }
+.dfchat-rowwhy { font-size: 11px; font-style: italic; color: var(--dim, #9a9486); margin-left: auto; }
 /* AUDIT SOC C8: the finger's own sizes for the two controls SOC3 added to this panel - the Social button (23 tall)
    and a roster row's menu buttons (18) - on the touch skin alone, where every one of them is pressed by a thumb. */
 .dfchat.touch .dfchat-social { min-height: 44px; }
@@ -491,6 +496,10 @@ export function createChatPanel({ log, onSend, roster = null, canOpen = () => tr
   const peek = el('div', 'dfchat-peek');
   const hint = el('div', 'dfchat-hint', 'Enter to chat');
   const status = el('div', 'dfchat-status');
+  const here = el('button', 'dfchat-here');   // ONE-SEAT: "Play online here", while the host says this tab is out
+  here.type = 'button';
+  let hereRun = null;
+  here.addEventListener('click', (e) => { e.preventDefault?.(); e.stopPropagation?.(); hereRun?.(); });
   const openBtn = el('button', 'dfchat-open', 'Chat');
   openBtn.type = 'button';
   const badgeOut = el('span', 'dfchat-badge');
@@ -603,7 +612,7 @@ export function createChatPanel({ log, onSend, roster = null, canOpen = () => tr
   cols.append(main, who);
   box.append(tabs, cols, grip);   // CHAT-SIZE: the grip stands at the BOX's corner, over both columns
   // the Social button follows the Chat button (they share a line when both are drawn); `show` and the box keep their places
-  root.append(peek, hint, status, openBtn, ...(socialOut ? [socialOut] : []), show, box);
+  root.append(peek, hint, status, here, openBtn, ...(socialOut ? [socialOut] : []), show, box);
   doc.body.append(root);
 
   let painted = -1;
@@ -1103,6 +1112,9 @@ export function createChatPanel({ log, onSend, roster = null, canOpen = () => tr
   // SOC3: the closed-state Social button is outside the box, so it carries the box's own press rule - a thumb that
   // taps it must not also draw a weapon (D7). The tab-bar one is inside the box and already has it.
   if (socialOut) for (const t of ['pointerdown', 'mousedown', 'click', 'touchstart']) socialOut.addEventListener(t, swallow);
+  // AUDIT ONESEAT H1: and ONE-SEAT's "Play online here" is outside the box too - a press on it reached the host's
+  // mousedown as Mouse0 (ActivateCenterObject): the readied spell cast, and what stood at the centre was used
+  for (const t of ['pointerdown', 'mousedown', 'click', 'touchstart']) here.addEventListener(t, swallow);
 
   return {
     root, input,
@@ -1132,7 +1144,7 @@ export function createChatPanel({ log, onSend, roster = null, canOpen = () => tr
      * inert in the only host that has one, and every CHAT-R2 pin passed,
      * because they drove `setHidden` and never drove a FRAME.
      */
-    render({ covered = false, status: line = null } = {}) {
+    render({ covered = false, status: line = null, here: hereAct = null } = {}) {
       if (!alive) return;
       if (covered || overlay()) { if (log.open) closePanel(); if (root.style.display !== 'none') root.style.display = 'none'; return; }
       if (root.style.display !== '') root.style.display = '';
@@ -1150,6 +1162,13 @@ export function createChatPanel({ log, onSend, roster = null, canOpen = () => tr
       paintNames();
       const s = line ? String(line) : '';
       if (status.textContent !== s) status.textContent = s;
+      // ONE-SEAT: the host's action, or none - `{ label, run }`
+      const act = hereAct && typeof hereAct.run === 'function' ? hereAct : null;
+      hereRun = act ? act.run : null;
+      const label = act ? String(act.label ?? '') : '';
+      if (here.textContent !== label) here.textContent = label;
+      const cls = act ? 'dfchat-here on' : 'dfchat-here';
+      if (here.className !== cls) here.className = cls;
     },
     destroy() {
       if (!alive) return;

@@ -18,13 +18,15 @@ export const settle = () => new Promise((r) => setTimeout(r, 0));
 export const near = (a, b, eps = 1e-6) => Math.abs(a - b) < eps;
 
 
-/** A parsed RMB block holding one room with `models` (ids) and `flats` ([a, r] pairs). */
-export const rmb = (models = [], flats = []) => ({
+/** A parsed RMB block holding one room with `models` (ids) and `flats` ([a, r] pairs) - HOME-DOORS: and `doors`, its
+ *  door records' model indices. */
+export const rmb = (models = [], flats = [], doors = []) => ({
   rmbBlock: {
     subRecords: [{
       interior: {
         block3dObjectRecords: models.map((id) => ({ objectType: PROP_MODEL_TYPE, modelIdNum: id })),
         blockFlatObjectRecords: flats.map(([a, r]) => ({ textureArchive: a, textureRecord: r })),
+        blockDoorRecords: doors.map((i) => ({ doorModelIndex: i })),
       },
     }],
   },
@@ -123,11 +125,16 @@ export const ACTIONS = new Map([['KeyW', 'MoveForwards'], ['KeyS', 'MoveBackward
  * AUDIT DECOR-SHELL 3: `getGpuMesh` the pipeline's mesh door (one that loads every model, as before), and `now` the
  * tool's clock (0, as before). AUDIT2 DECOR-SHELL 8: with a real `collider`, a model piece put stands SOLID in it as the
  * room stands it (scenes/decorRoom.js put) - its model's box, closed, under the piece's own matrix, in its own bucket.
+ * HOME-DOORS: `doors` the door records the scan's second block holds (model indices: door model 9000 + each), a door
+ * model's box a door's own (a metre wide along x from its hinge, 2.1 high, 10 cm thick); `doorsHere` the host's doors,
+ * `walls` its walls' filter - neither unless a pin hands one. HOME-RENT: `rent` the host's rooms door (none unless handed).
+ * HOME-LOOK: `look` the painter's door; HOME-YARD: `placeOk`, `lot` and `yardCap` - the lot's law (each none unless handed).
+ * SEAT-HALL: `charterClear` the host's two metres from the court (none unless handed).
  */
-export function toolRig({ room = { kind: 'house', where: 'Your house' }, gold = 1000, homeDecor = null, locked = true, touch = false, radius = () => 0.8, base = null, mwPicture = null, collider = null, iconUrl = async () => null, getGpuMesh = async (id) => ({ gpu: id }), now = () => 0 } = {}) {
+export function toolRig({ room = { kind: 'house', where: 'Your house' }, gold = 1000, homeDecor = null, locked = true, touch = false, radius = () => 0.8, base = null, mwPicture = null, collider = null, iconUrl = async () => null, getGpuMesh = async (id) => ({ gpu: id }), now = () => 0, extraFlats = [], realm = null, doors = [], doorsHere = null, walls = null, rent = null, look = null, placeOk = null, lot = null, yardCap = null, charterClear = null } = {}) {
   const doc = fakeDoc();
   const win = fakeWin();
-  const entries = catalogue();
+  const entries = decorCatalogue(collectDecor([rmb([41000, 41000, 41001, 41811], [[210, 3], [209, 0]]), rmb([41000], [[209, 0]], doors)]));
   const standing = [];
   const holds = new Set();
   const owned = new Map();   // DECOR2a: the owner's own items by piece id (scenes/decorRoom.js keepOwn and its kin)
@@ -163,7 +170,7 @@ export function toolRig({ room = { kind: 'house', where: 'Your house' }, gold = 
   const rays = [];   // each eye ray's bucket filter (player/collider.js raycastHit's fourth), or null
   let visit = 1;
   let cursorOff = 0;
-  const cpuModels = new Map(entries.filter((e) => e.model != null).map((e) => [e.model, { positions: new Float32Array([-0.5, -0.1, -0.5, 0.5, 0.9, 0.5]) }]));
+  const cpuModels = new Map(entries.filter((e) => e.model != null).map((e) => [e.model, { positions: new Float32Array(e.kind === 'door' ? [0, 0, -0.05, 1, 2.1, 0.05] : [-0.5, -0.1, -0.5, 0.5, 0.9, 0.5]) }]));
   const draws = [];
   const textures = new Map();   // DECOR2c: the renderer's cache, by the icon upload's key
   const decals = [];            // DECOR2c: every decal batch made
@@ -187,7 +194,7 @@ export function toolRig({ room = { kind: 'house', where: 'Your house' }, gold = 
     room: () => state.room,
     base: () => base,   // BASE-HIDE: the room's own furniture (scenes/decorBase.js), none unless a pin hands one
     scanDeps: () => ({
-      blocks: fakeBlocks([{ type: TOWN, block: rmb([41000, 41000, 41001, 41811], [[210, 3], [209, 0]]) }, { type: TOWN, block: rmb([41000], [[209, 0]]) }]),
+      blocks: fakeBlocks([{ type: TOWN, block: rmb([41000, 41000, 41001, 41811], [[210, 3], [209, 0]]) }, { type: TOWN, block: rmb([41000], [[209, 0], ...extraFlats], doors) }]),   // DECOR-MODFLATS: `extraFlats`, a pin's own; HOME-DOORS: `doors`
       isTownBlock: (t) => t === TOWN, modelRadius: radius, flatRadius: async () => 0.2,
     }),
     getGpuMesh, cpuModels,
@@ -205,6 +212,7 @@ export function toolRig({ room = { kind: 'house', where: 'Your house' }, gold = 
     locked: () => state.locked, cursorOff: () => { cursorOff++; },
     wallet: () => ({ gold: w.gold, pay: (n) => { w.paid.push(n); w.gold -= n; }, credit: (n) => { w.credited.push(n); w.gold += n; } }),
     homeDecor, character: () => 'char-me', visit: () => visit,
+    realm: () => realm,   // REALM P2.2b: a realm character's act on its record (systems/realmSaves.js realmGoldAct), none unless a pin hands one
     pack: () => pack, identity: () => null, furnishings: () => furnishings, packHas: (item) => homeOf(item).includes(item),
     packTake: (item) => {
       const list = homeOf(item);
@@ -217,6 +225,10 @@ export function toolRig({ room = { kind: 'house', where: 'Your house' }, gold = 
     packGive: (item) => { homeOf(item).push(item); },
     openSlot: (o) => slots.push(['open', o]), closeSlot: (o) => slots.push(['close', o]),
     say: (l) => said.push(l), refusal: (word) => `refused: ${word}`, now,
+    ...(doorsHere ? { doorsHere } : {}), ...(walls ? { walls } : {}),   // HOME-DOORS
+    ...(rent ? { rent } : {}),   // HOME-RENT
+    ...(look ? { look } : {}), ...(placeOk ? { placeOk } : {}), ...(lot ? { lot } : {}), ...(yardCap ? { yardCap } : {}),   // HOME-LOOK; HOME-YARD
+    ...(charterClear ? { charterClear } : {}),   // SEAT-HALL: the court's two metres
   });
   const cam = { pos: [10, 1.6, 10], yaw: 0, pitch: 0 };
   const frame = (over = {}) => tool.frame({ dt: 0.1, cam, overlayUp: false, interior: true, ...over });

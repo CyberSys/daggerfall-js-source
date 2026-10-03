@@ -35,6 +35,9 @@ import { resolveHover, nextSelection } from '../src/systems/worldHover.js';
 import { foldQuickLoot, quickLootWheel, plaqueActionFor, resetQuickLoot } from '../src/systems/quickLoot.js';
 import { fakeRoom } from './fakeRoom.mjs';
 import { withClock } from './placeWidest.mjs';   // the relay's gates on a clock the test turns - a second is a tick, not a wait
+import { r2, seatRealm } from './realmSeat.mjs';   // AUDIT REALM2 S2: a house and a founding are a realm character's
+import { realmIo, createRealmSession, realmGoldAct } from '../src/systems/realmSaves.js';
+import { ACCEPTED } from '../src/net/legalLaw.js';   // TERMS1: a request that makes an account carries the versions ticked
 
 const src = (p) => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8');
 const { subtle } = globalThis.crypto;
@@ -103,7 +106,7 @@ async function stand({ kp = null, db = d1() } = {}) {
   _resetKeyForTests();
   const keys = kp ?? await subtle.generateKey({ name: 'Ed25519' }, true, ['sign', 'verify']);
   const pkcs8 = Buffer.from(new Uint8Array(await subtle.exportKey('pkcs8', keys.privateKey))).toString('base64');
-  const env = { DB: db, IDENTITY_PRIVATE_KEY: pkcs8, ACCOUNT_VERSION: 'test1', ALLOWED_ORIGIN: '*' };
+  const env = { DB: db, SAVES: r2(), IDENTITY_PRIVATE_KEY: pkcs8, ACCOUNT_VERSION: 'test1', ALLOWED_ORIGIN: '*' };
   const sent = [];
   const fetch = (url, init) => { sent.push(new URL(url).pathname); return worker.fetch(new Request(url, init), env); };
   const call = async (path, body, bearer = null) => {
@@ -114,18 +117,22 @@ async function stand({ kp = null, db = d1() } = {}) {
     });
     return { status: res.status, body: await res.json().catch(() => null) };
   };
-  /** A linked account at Renown `renown` on its character, and the page's session store the client's doors read. */
-  const registered = async (handle, { character = `char-${handle.toLowerCase()}`, renown = GUILD_FOUND_RENOWN } = {}) => {
-    const secret = (await call('/v1/auth/guest', {})).body.secret;
-    assert.equal((await call('/v1/auth/register', { secret, handle, password: 'a good long one' })).status, 200);
+  /** A linked account at Renown `renown` on its character (RENOWN-CHAR: the character's own track again), and the
+   *  page's session store the client's doors read. AUDIT REALM2 S2: a founder is a REALM character (`realm: true`) - a
+   *  founding is paid on its record - `at()` where it stands. */
+  const registered = async (handle, { character = `char-${handle.toLowerCase()}`, renown = GUILD_FOUND_RENOWN, realm = false } = {}) => {
+    const secret = (await call('/v1/auth/guest', { ...ACCEPTED })).body.secret;
+    assert.equal((await call('/v1/auth/register', { secret, handle, password: 'a good long one', ...ACCEPTED })).status, 200);
     const id = env.DB._raw.prepare('SELECT id FROM players WHERE handle_lc = ?').get(handle.toLowerCase()).id;
+    let at = null;
+    if (realm) ({ id: character, at } = await seatRealm(env, secret, handle, { name: handle, level: 9, goldPieces: 100_000, items: [] }));
     if (renown > 1) {
       env.DB._raw.prepare('INSERT OR REPLACE INTO renown_tracks (player, char_id, name, xp, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)')
         .run(id, character, handle, renownXpFor(renown), 1, 1);
     }
     const kept = new Map([[SESSION_KEY, JSON.stringify({ secret, id })]]);
     const storage = { getItem: (k) => kept.get(k) ?? null, setItem: (k, v) => kept.set(k, v), removeItem: (k) => kept.delete(k) };
-    return { secret, id, character, handle, storage };
+    return { secret, id, character, handle, storage, at };
   };
   const claimsOf = async (order, kind) => {
     if (order == null) return null;
@@ -164,13 +171,19 @@ function bookOf(gold) {
 test('AUDIT MERGE-PLUS A1 the house: a second "Buy it" pressed while the first claim is out answers busy and asks nothing - one claim to the real Worker, 42,000 paid once where it was paid twice; the claim is held per HOUSE (two houses of one town at once both land) and let go when it answers - a purse emptied on the way gives the house back and the next press buys it - or throws (mutants: no hold; the hold per town; the hold never let go)', async () => {
   const { env, fetch, registered, sent } = await stand();
   const me = await registered('Aldric');
-  let who = me.character;
-  const homes = createOnlineHomes({ api: accountHomes({ fetch, storage: me.storage }), character: () => who });
+  // AUDIT REALM2 S2: a house is a realm character's, bought on its record - the door's buy is the realm's act
+  const seat = async (name) => {
+    const R = await seatRealm(env, me.secret, name, { name, level: 9, goldPieces: 1_000_000, items: [] });
+    const session = createRealmSession({ io: realmIo({ fetch, storage: me.storage }), id: R.id, lease: R.lease, seq: 1 });
+    return { ...R, act: (o) => realmGoldAct({ session, checkpoint: () => {}, wait: () => Promise.resolve(), ...o }) };
+  };
+  const who = await seat('Aldric');
+  const homes = createOnlineHomes({ api: accountHomes({ fetch, storage: me.storage }), character: () => who.id });
   assert.equal(await homes.ensure(T), true, 'the town known, as the door asks it before it offers a house');
   let gold = 200_000;
   const paid = [];
   const buy = (buildingKey, over = {}) => buyOnlineHome(homes, {
-    mapId: T, buildingKey, region: 17, price: 42_000, afford: (p) => p <= gold, pay: (p) => { paid.push(p); gold -= p; }, ...over,
+    mapId: T, buildingKey, region: 17, price: 42_000, afford: (p) => p <= gold, pay: (p) => { paid.push(p); gold -= p; }, refund: (p) => { paid.push(-p); gold += p; }, realm: { act: who.act }, ...over,
   });
   const claims = () => sent.filter((p) => p === '/v1/homes/claim').length;
   const owner = (key) => env.DB._raw.prepare('SELECT char_id FROM homes WHERE map_id = ? AND building_key = ?').get(T, key)?.char_id ?? null;
@@ -180,19 +193,25 @@ test('AUDIT MERGE-PLUS A1 the house: a second "Buy it" pressed while the first c
   assert.deepEqual([first, second], [{ ok: true }, { ok: false, error: HOME_BUY_BUSY }], 'the first claim\'s answer speaks for both');
   assert.deepEqual(paid, [42_000], 'paid ONCE - the service answers a second claim of my own house `repeat`, and it was paid again');
   assert.equal(claims(), 1, 'the busy press asks the service nothing');
-  assert.equal(owner(9), me.character);
+  assert.equal(owner(9), who.id);
   assert.equal(homes.homeAt(T, 9).own, true);
-  // let go on the answer: the purse emptied while the claim was out, so the house was given back, and the next press buys it
-  let asks = 0;
-  assert.deepEqual(await buy(10, { afford: () => (++asks === 1) }), { ok: false, error: 'gold' });
-  assert.equal(owner(10), null, 'given back unpaid');
+  // let go on the answer: a purse that cannot pay is answered at once, and the next press is asked, and buys it
+  assert.deepEqual(await buy(10, { afford: () => false }), { ok: false, error: 'gold' });
+  assert.equal(owner(10), null, 'nothing claimed');
   assert.deepEqual(await buy(10), { ok: true }, 'the hold went with the answer: this press is asked, and lands');
-  assert.equal(owner(10), me.character);
-  assert.equal(claims(), 3);
-  // per house: two houses of one town at once (the account's other character - three homes a character)
-  who = 'char-aldric-2';
-  assert.deepEqual(await Promise.all([buy(11), buy(12)]), [{ ok: true }, { ok: true }], 'one claim a HOUSE at a time, not a town');
-  assert.deepEqual([owner(11), owner(12)], ['char-aldric-2', 'char-aldric-2']);
+  assert.equal(owner(10), who.id);
+  assert.equal(claims(), 2);
+  // per house: two houses of one town at once. The hold is the door's own, whoever answers the claim - a realm character's
+  // session takes one act at a time (it answers `busy` itself), so the pair is asked of a door that answers each
+  const pairDoor = createOnlineHomes({
+    api: {
+      town: async (mapId) => ({ ok: true, data: { mapId, homes: [] } }),
+      claim: async () => { await new Promise((r) => { setImmediate(r); }); return { ok: true, data: { ok: true, home: { entry: 'private' } } }; },
+    },
+    character: () => 'char-aldric-2',
+  });
+  const pair = (buildingKey) => buyOnlineHome(pairDoor, { mapId: T, buildingKey, region: 17, price: 42_000, afford: () => true, pay: (p) => { paid.push(p); } });
+  assert.deepEqual(await Promise.all([pair(11), pair(12)]), [{ ok: true }, { ok: true }], 'one claim a HOUSE at a time, not a town');
   assert.deepEqual(paid, [42_000, 42_000, 42_000, 42_000]);
   // ...and let go on a throw (a door that is not `call`, which never throws): the next press is asked again
   let boom = true;
@@ -284,25 +303,27 @@ test('AUDIT MERGE-PLUS A2 the leave: a member\'s leave answers, beside her own n
   const h = fakeRoom(SOCIAL_ROOM);
   const kp = await h.signer();
   const { call, registered, claimsOf } = await stand({ kp });   // the Worker signs with the hub's own key
-  const aldric = await registered('Aldric');
+  const aldric = await registered('Aldric', { realm: true });   // AUDIT REALM2 S2: a founding is a realm character's
   const mara = await registered('Mara', { renown: 1 });
   const rowOf = (guild) => guild.members.find((m) => m.you).member;
-  const found = (await call('/v1/guilds/found', { character: aldric.character, name: 'The Hound', tag: 'HND' }, aldric.secret)).body;
+  const found = (await call('/v1/guilds/found', { character: aldric.character, name: 'The Hound', tag: 'HND', realm: aldric.at() }, aldric.secret)).body;
   const gi = found.guild.id;
   await call('/v1/guilds/invite', { character: aldric.character, handle: 'Mara' }, aldric.secret);
   const maraRow = rowOf((await call('/v1/guilds/answer', { character: mara.character, guild: gi, accept: true }, mara.secret)).body.guild);
-  // the hub: each of them in two tabs, every socket wearing the guild its token was minted with
+  // the hub: each of them in their tab, wearing the guild its token was minted with. ONE-SEAT (2026-09-27): each in ONE -
+  // this pin stood two tabs of each in the hub, and a player's second tab there is now refused (or, claiming, closes the
+  // first), so "every tab of hers" is the one she holds the hub from
   const tabs = async (who, gm, ids) => {
     const out = [];
     for (const id of ids) { const ws = h.connect(); await h.hello(ws, id, null, { tokenSub: who.id, gi, gt: 'HND', gm }); out.push(ws); }
     return out;
   };
-  const [al, al2] = await tabs(aldric, rowOf(found.guild), ['aldr-0001', 'aldr-0009']);
-  const [ma, ma2] = await tabs(mara, maraRow, ['mara-0002', 'mara-0008']);
+  const [al] = await tabs(aldric, rowOf(found.guild), ['aldr-0001']);
+  const [ma] = await tabs(mara, maraRow, ['mara-0002']);
   const say = (ws, text) => h.room.webSocketMessage(ws, JSON.stringify({ t: 'chat', text, ch: 'guild' }));
   const heard = (ws) => ofType(ws, 'chat').filter((c) => c.ch === 'guild').map((c) => `${c.id}:${c.text}`);
   await say(al, 'hail');
-  assert.deepEqual(heard(ma2), ['aldr-0001:hail'], 'both her tabs hear the guild');
+  assert.deepEqual(heard(ma), ['aldr-0001:hail'], 'she hears the guild');
   tick(5000);
   // a token her client minted a moment before she left (a few minutes' life, spent at a hello)
   const preLeave = await mintToken({ s: mara.id, n: 'mara-0004', k: 'linked', gi, gt: 'HND', gm: maraRow }, kp.privateKey, { subtle, nowS: nowS() - 2 });
@@ -312,15 +333,15 @@ test('AUDIT MERGE-PLUS A2 the leave: a member\'s leave answers, beside her own n
   assert.deepEqual(await claimsOf(left.outOrder, 'guildout'), { o: 'guildout', s: mara.id, gi, gt: undefined, gm: maraRow }, 'and the hub hears her ROW taken off, as a removal says it');
   // her client carries the out order to the hub (world.js: the book's out order goes to the hub alone), down the tab that acted
   await h.room.webSocketMessage(ma, JSON.stringify({ t: 'guildout', order: left.outOrder }));
-  assert.deepEqual([ma.att.gi, ma2.att.gi], [undefined, undefined], 'EVERY tab of hers - the other one carried nothing');
-  assert.deepEqual([al.att.gi, al2.att.gi], [gi, gi], 'the guild stays');
+  assert.equal(ma.att.gi, undefined, 'her tab is taken off');
+  assert.equal(al.att.gi, gi, 'the guild stays');
   tick(1100); await say(al, 'plans for the raid');
-  tick(1100); await say(ma2, 'still listening');
-  assert.deepEqual(heard(ma2), ['aldr-0001:hail'], 'her other tab hears the guild no longer...');
-  assert.equal(heard(al).includes('mara-0008:still listening'), false, '...and says nothing into it');
+  tick(1100); await say(ma, 'still listening');
+  assert.deepEqual(heard(ma), ['aldr-0001:hail'], 'she hears the guild no longer...');
+  assert.equal(heard(al).includes('mara-0002:still listening'), false, '...and says nothing into it');
   // HELD: a fresh socket on the token minted before the leave does not come back in
   tick(1100);
-  const back = h.connect(); await h.hello(back, 'mara-0004', null, { tok: preLeave });
+  const back = h.connect(); await h.hello(back, 'mara-0004', null, { tok: preLeave, cl: 1 });   // ONE-SEAT: a fresh tab going online claims (her first tab holds the hub)
   assert.equal(back.att.id, 'mara-0004', 'let in...');
   assert.equal(back.att.gi, undefined, '...without the guild she left');
   // the lone guildmaster leaves: nobody else is in it and the treasury is empty, so the guild goes with him
@@ -330,18 +351,18 @@ test('AUDIT MERGE-PLUS A2 the leave: a member\'s leave answers, beside her own n
   assert.deepEqual(await claimsOf(alone.outOrder, 'guildout'), { o: 'guildout', s: aldric.id, gi, gt: undefined, gm: undefined }, 'the GUILD\'s out order - a disbanding\'s, never one member\'s');
   tick(1100);
   await h.room.webSocketMessage(al, JSON.stringify({ t: 'guildout', order: alone.outOrder }));
-  assert.deepEqual([al.att.gi, al2.att.gi], [undefined, undefined], 'every tab of his, not only the one that carried the act');
+  assert.equal(al.att.gi, undefined, 'his tab - under ONE-SEAT the one he holds the hub from');
 }));
 
 test('AUDIT MERGE-PLUS A2 the leave\'s row: a leave takes the very row it read, by its rowid and its guild - a removal that lands between the read and the delete leaves it nothing to take, answered no-guild with no order signed, and a character removed and joined to ANOTHER guild in that window keeps the new guild (mutants: the leave deleting by the character, the new guild\'s row with it; a leave that took nothing answered as one)', async () => {
   const db = racing(d1());
   const { call, registered } = await stand({ db });
-  const aldric = await registered('Aldric');
-  const bran = await registered('Bran');
+  const aldric = await registered('Aldric', { realm: true });   // AUDIT REALM2 S2: a founding is a realm character's
+  const bran = await registered('Bran', { realm: true });
   const mara = await registered('Mara', { renown: 1 });
   const rowOf = (r) => r.body.guild.members.find((m) => m.you).member;
-  const gi = (await call('/v1/guilds/found', { character: aldric.character, name: 'The Hound', tag: 'HND' }, aldric.secret)).body.guild.id;
-  const wolves = (await call('/v1/guilds/found', { character: bran.character, name: 'The Wolves', tag: 'WLF' }, bran.secret)).body.guild.id;
+  const gi = (await call('/v1/guilds/found', { character: aldric.character, name: 'The Hound', tag: 'HND', realm: aldric.at() }, aldric.secret)).body.guild.id;
+  const wolves = (await call('/v1/guilds/found', { character: bran.character, name: 'The Wolves', tag: 'WLF', realm: bran.at() }, bran.secret)).body.guild.id;
   const join = async () => {
     await call('/v1/guilds/invite', { character: aldric.character, handle: 'Mara' }, aldric.secret);
     return rowOf(await call('/v1/guilds/answer', { character: mara.character, guild: gi, accept: true }, mara.secret));
@@ -395,7 +416,7 @@ test('AUDIT MERGE-PLUS A3 the sleep: the hub keeps its held removals in its stor
   // the hub sleeps; the first thing its next instance hears is a hello on a token minted before the removal
   h.wake();
   tick(1100);
-  const back = h.connect(); await h.hello(back, 'mara-0006', null, { tok: hoarded[0] });
+  const back = h.connect(); await h.hello(back, 'mara-0006', null, { tok: hoarded[0], cl: 1 });   // ONE-SEAT: a fresh tab going online claims (her first tab holds the hub)
   assert.equal(back.att.id, 'mara-0006', 'let in...');
   assert.equal(back.att.gi, undefined, '...but not into the guild she was removed from');
   await h.room.webSocketMessage(aldric, JSON.stringify({ t: 'chat', text: 'she is gone', ch: 'guild' }));
@@ -409,13 +430,13 @@ test('AUDIT MERGE-PLUS A3 the sleep: the hub keeps its held removals in its stor
   // and a third time: a socket that came in wearing no guild carries her join, said before the removal
   h.wake();
   tick(1100);
-  const plain = h.connect(); await h.hello(plain, 'mara-0005', null, { tok: bare });
+  const plain = h.connect(); await h.hello(plain, 'mara-0005', null, { tok: bare, cl: 1 });
   assert.equal(plain.att.gi, undefined);
   await h.room.webSocketMessage(plain, JSON.stringify({ t: 'guild', order: joined }));
   assert.equal(plain.att.gi, undefined, 'the join is older than the removal the hub slept on');
   assert.deepEqual(ofType(plain, 'guild').at(-1), { t: 'guild', id: 'mara-0005' }, 'and its carrier hears that the room holds none');
   tick(1100);
-  const again = h.connect(); await h.hello(again, 'mara-0007', null, { tok: hoarded[1] });
+  const again = h.connect(); await h.hello(again, 'mara-0007', null, { tok: hoarded[1], cl: 1 });
   assert.equal(again.att.gi, undefined, 'three sleeps and a second write on, the first hold stands');
 }));
 
@@ -442,7 +463,7 @@ test('AUDIT MERGE-PLUS A3 the keeping: a hold is kept while anything said before
   // and a copy the hub slept on past its keeping is not read back
   h.wake();
   tick(3_600_000);
-  const al2 = h.connect(); await h.hello(al2, 'aldr-0009', null, { tokenSub: 'acct-aldr-0001', gi: G1, gt: 'HND', gm: 'm1' });   // a hello wearing the guild reads the holds
+  const al2 = h.connect(); await h.hello(al2, 'aldr-0009', null, { tokenSub: 'acct-aldr-0001', gi: G1, gt: 'HND', gm: 'm1', cl: 1 });   // a hello wearing the guild reads the holds - ONE-SEAT: a fresh tab going online, so it claims
   assert.equal(al2.att.gi, G1);
   assert.deepEqual([...h.room._guildOuts.keys()], [], 'the room holds nothing it can no longer need');
 }));
@@ -456,7 +477,10 @@ test('AUDIT MERGE-PLUS A4 the book\'s refusals: a deposit the Worker refuses in 
     const me = await registered('Aldric');
     const w = fakeWallet(50_000);
     const book = new GuildBook({ door: accountGuilds({ fetch, storage: me.storage }), character: () => me.character, wallet: w.make });
-    assert.equal((await book.found('The Hound', 'HND')).ok, true);
+    // AUDIT REALM2 S2: a guild from before the realm, its guildmaster this character - a founding is a realm character's
+    // now; a deposit is still any member's, on this lane's own order
+    env.DB._raw.prepare("INSERT INTO guilds (id, name, name_key, tag, ranks, treasury, founded_at) VALUES ('ghound00001', 'The Hound', 'the hound', 'HND', ?, 0, 1)").run(JSON.stringify(GUILD_RANK_NAMES));
+    env.DB._raw.prepare("INSERT INTO guild_members (player, char_id, guild_id, rank, name, joined_at) VALUES (?, ?, 'ghound00001', 0, 'Aldric', 1)").run(me.id, me.character);
     let n = 0;
     while ((await call('/v1/guilds/invites', {}, me.secret)).status !== 429) assert.ok(++n <= ACCOUNT_MAX, 'the account\'s bucket fills');
     const before = w.gold;

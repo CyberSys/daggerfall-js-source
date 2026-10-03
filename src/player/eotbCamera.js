@@ -63,6 +63,7 @@
 
 import { MOD_SETTINGS, modSettingsGeneration } from '../systems/modSettings.js';
 import { AUTO_TOGGLE_ROWS, AUTO_TOGGLE, autoToggleRows } from './eotbBillboard.js';   // [IL] LateUpdate's table
+import { seaZoomStep } from './seaZoom.js';   // FIELD BUGS 2026-09-29 (the sea) #3: the zoom at a helm
 
 /** `eyeRadius` is a field initialiser in the mod's own .ctor, not a
  *  setting - the clearance the camera keeps off a wall. */
@@ -256,11 +257,50 @@ export function createEotbCamera() {
   let billboard = null;
   /** DaggerfallUI.PopupMessage, as the rig hands it in */
   let popup = null;
+  /** CSA-J: [IL] ModCompatibilityChecking's Come Sail Away (IL_0756-IL_079a) - the mod its GUID found, as its message
+   *  door `{ send(message, data, callBack), colliderBounds(gameObject) -> { center, extents } }` (null: not loaded) - and the fields
+   *  OnUpdateSailing keeps (IL_07a8-IL_0922). */
+  let ComeSailAway = null;
+  let isSailing = false;
+  let boatMeshObject = null, boatDriveObject = null, boatFlagObject = null;
+  let boatMeshObjectCenter = [0, 0, 0], boatMeshObjectExtent = 0;
+  /** FIELD BUGS 2026-09-29 (the sea) #3: the helm's reach (m; 0 off it), said by the host each frame (setSeaReach). */
+  let seaReach = 0;
+  /** Debug.Log, as the host hands it in (null: unheard) */
+  let log = null;
   /** `spellCasting.enabled`, the FPS spell hands - false in third person */
   let spellHandsEnabled = true;
   /** AUDIT 68 S15-eotb-settings-snapshot: the last LoadSettings - its
    *  reader, the store's generation then, and what each section read. */
   let loaded = null;
+
+  /**
+   * CSA-J: [IL] `OnUpdateSailing(bool)` (IL_07a8-IL_0922), Come Sail Away's event. Setting sail asks the mod for the
+   * boat's mesh object (GetBoatMeshObject, answered at once - `<OnUpdateSailing>b__120_0`'s cast), takes its first
+   * collider's bounds - the centre as a vector in the object's own frame, the extent the largest half-size - and looks
+   * among the object's own children for the flag and the helm, stopping once both are found; no flag, the object
+   * itself. The centre is a LOCAL vector the target adds to a world position: the mod's own arithmetic, kept.
+   */
+  function onUpdateSailing(sailing) {
+    isSailing = !!sailing;
+    if (!isSailing) { log?.('EYE OF THE BEHOLDER - WE HAVE STOPPED SAILING!'); return; }
+    log?.('EYE OF THE BEHOLDER - WE ARE NOW SAILING!');
+    boatFlagObject = null;
+    boatDriveObject = null;
+    ComeSailAway.send('GetBoatMeshObject', null, (message, data) => { boatMeshObject = data ?? null; });
+    const bounds = ComeSailAway.colliderBounds(boatMeshObject);   // GetComponentInChildren<Collider>().bounds
+    const p = boatMeshObject.position;
+    boatMeshObjectCenter = boatMeshObject.inverseTransformVector([bounds.center[0] - p[0], bounds.center[1] - p[1], bounds.center[2] - p[2]]);
+    const e = bounds.extents;
+    boatMeshObjectExtent = Math.max(Math.max(Math.abs(e[0]), Math.abs(e[1])), Math.abs(e[2]));
+    for (let i = 0; i < boatMeshObject.childCount; i++) {
+      if (boatFlagObject != null && boatDriveObject != null) break;
+      const child = boatMeshObject.getChild(i);
+      if (child.name === 'FlagObject') boatFlagObject = child;
+      if (child.name === 'DrivePosition') boatDriveObject = child;
+    }
+    if (boatFlagObject == null) boatFlagObject = boatMeshObject;
+  }
 
   /**
    * `posOffset`, the mod's own property. Four arms in the order the IL
@@ -274,7 +314,7 @@ export function createEotbCamera() {
   function posOffset(state) {
     const m = mirror ? -1 : 1;
     const o = cfg.overrides;
-    if (o.Boat.enabled && state.sailing) return [m * o.Boat.x, o.Boat.y, o.Boat.z - offsetScroll];
+    if (o.Boat.enabled && isSailing) return [m * o.Boat.x, o.Boat.y, o.Boat.z - offsetScroll];   // CSA-J: the camera's own field, OnUpdateSailing's
     if (o.Mount.enabled && state.riding) return [m * o.Mount.x, o.Mount.y, o.Mount.z - offsetScroll];
     if (o.Weapon.enabled && state.weaponReady) return [m * o.Weapon.x, o.Weapon.y, o.Weapon.z - offsetScroll];
     const r = state.riding ? cfg.riding : 0;      // get_offsetRidingMod
@@ -446,6 +486,28 @@ export function createEotbCamera() {
     setBillboard(b) { billboard = b ?? null; },
     /** DaggerfallUI.PopupMessage's seam. */
     setPopup(fn) { popup = typeof fn === 'function' ? fn : null; },
+    /** CSA-J: Debug.Log's seam. */
+    setLog(fn) { log = typeof fn === 'function' ? fn : null; },
+    /**
+     * CSA-J: [IL] ModCompatibilityChecking's Come Sail Away arm (IL_0756-IL_079a) - the mod found by its GUID
+     * (dbe3e8ff-9059-45f1-a8be-732bb6000df7) and OnUpdateSailing handed to its receiver. Its other two arms stay
+     * unported: Travel Options' flag feeds only the billboard's FixedUpdate hook, and Tome of Battle is not in the port.
+     * The port's camera outlives a host boot where the mod's component is the session's, so the host hands each
+     * boot's runtime here (null: the mod is off), and a new one is a new session for the boat: the fields the .ctor
+     * would initialise put back, and the subscription made again once Start has run.
+     */
+    setComeSailAway(mod) {
+      ComeSailAway = mod ?? null;
+      isSailing = false;
+      boatMeshObject = null; boatDriveObject = null; boatFlagObject = null;
+      boatMeshObjectCenter = [0, 0, 0]; boatMeshObjectExtent = 0;
+      if (started && ComeSailAway) ComeSailAway.send('OnUpdateSailing', onUpdateSailing, null);
+    },
+    /** CSA-J: OnUpdateSailing's fields - PlayerBillboard reads three off `EyeOfTheBeholder.Instance` (UpdateOrientation,
+     *  IL_471c-IL_4765). */
+    sailing: () => ({ isSailing, boatMeshObject, boatDriveObject, boatFlagObject, boatMeshObjectCenter: [...boatMeshObjectCenter], boatMeshObjectExtent }),
+    /** #3: the helm's reach (m; 0 or less off it) - the far end the wheel zooms to at a helm, past the mod's own. */
+    setSeaReach(metres) { seaReach = Number.isFinite(metres) && metres > 0 ? metres : 0; },
     /** The mod's OnToggleOffset event - MessageReceiver's subscribers. */
     onToggleOffset(fn) { listeners.add(fn); return () => listeners.delete(fn); },
 
@@ -458,6 +520,7 @@ export function createEotbCamera() {
     start() {
       if (started) return offset;   // Unity's Start runs once; a second rig is not a second boot
       started = true;
+      if (ComeSailAway) ComeSailAway.send('OnUpdateSailing', onUpdateSailing, null);   // CSA-J: ModCompatibilityChecking (IL_053d), Start's first call
       mirror = false; mirrorOriginal = mirror; mirrorTimer = 0; offsetScroll = 0;
       boundsX = BOUNDS_INITIAL; boundsY = BOUNDS_INITIAL; boundsZ = BOUNDS_INITIAL;
       prev = null;
@@ -483,6 +546,12 @@ export function createEotbCamera() {
       const row = cfg.auto[`OnTransition${kind}`];
       if (row === undefined || !autoPOVSwitch) return offset;
       return applyRow(row);
+    },
+    /** AUDIT OW5 V3: whether a door's row DECIDES the POV - the table armed, the row first or third person (never
+     *  Don'tChange). The travel view's hold then hands the body back as the row left it (player/mwView.js). */
+    transitionDecides(kind) {
+      const row = cfg.auto[`OnTransition${kind}`];
+      return autoPOVSwitch && (row === AUTO_TOGGLE.FirstPerson || row === AUTO_TOGGLE.ThirdPerson);
     },
     /** [IL] ToggleInput (IL_17ea-IL_1841): arm or disarm the table, say
      *  so, and an arming forces the fan-out this frame. */
@@ -568,9 +637,23 @@ export function createEotbCamera() {
       // per Update and branches `> 0` / `< 0`; it never scales by the
       // reading's magnitude, so three notches inside one frame move the
       // camera exactly as far as one does.
+      // FIELD BUGS 2026-09-29 (the sea) #3: AT A HELM THE FAR END IS THE HULL'S REACH (player/seaZoom.js) - past the
+      // mod's own MAX_Z a notch is a ratio, one a frame and by its sign as the mod reads a notch, down to MAX_Z coming
+      // in; the mod's own boat override (CameraOverrideBoat) keeps its own ladder, scaled by the hull already
+      // HELM-ZOOM (Mac: "increase the sensitivity ... when on the wheel"): at a helm the ratio runs from the offset's own
+      // base distance out - the mod's 0.2 a notch took forty notches from it to MAX_Z - and below the base the mod's own
+      // ladder takes her in to first person
+      const far = seaReach > -MAX_Z && !(cfg.overrides.Boat.enabled && isSailing) ? -seaReach : MAX_Z;
+      const baseDist = -(z + offsetScroll);   // the offset at no scroll
+      // AUDIT HELM-ZOOM E3: out by the ratio from the base up - below it the mod's own ladder both ways (out from there
+      // leapt to the base in one notch, in stepped it by 0.2)
+      if (far < MAX_Z && clicks && (-z > baseDist + 1e-6 || (clicks < 0 && -z >= baseDist - 1e-6))) {
+        offsetScroll += z + seaZoomStep(-z, clicks > 0 ? 1 : -1, Math.min(baseDist, -MAX_Z), -far);
+        return offset;
+      }
       if (clicks > 0) offsetScroll -= cfg.increment;
       else if (clicks < 0) offsetScroll += cfg.increment;
-      if (z < MAX_Z) offsetScroll = -MAX_Z + (posOffset(state)[2] + offsetScroll);
+      if (z < far) offsetScroll = -far + (posOffset(state)[2] + offsetScroll);
       else if (z > nearEnd) toggleOffset(false);
       return offset;
     },
@@ -597,7 +680,13 @@ export function createEotbCamera() {
       revertMirror(headLocal, feet, state, yaw, raycast);
       checkBounds(origin, state, yaw, pitch, raycast);
 
-      posTarget = add(origin, eyeVector(setVectorBounds(posOffset(state), state), yaw, pitch));
+      // CSA-J: [IL] IL_1612-IL_16c5 - sailing under the boat override, the target is the boat's: the masthead (Target 1)
+      // or the hull's position plus its local centre, and the offset scaled by the hull's extent
+      if (isSailing && cfg.overrides.Boat.enabled) {
+        const off = setVectorBounds(posOffset(state), state);
+        const reach = eyeVector([off[0] * boatMeshObjectExtent, off[1] * boatMeshObjectExtent, off[2] * boatMeshObjectExtent], yaw, pitch);
+        posTarget = cfg.boatTarget === 1 ? add(boatFlagObject.position, reach) : add(add(boatMeshObject.position, boatMeshObjectCenter), reach);
+      } else posTarget = add(origin, eyeVector(setVectorBounds(posOffset(state), state), yaw, pitch));
       let s = cfg.speed;
       if (cfg.dampen !== 0) s = cfg.speed * dist(posCurrent, posTarget) / cfg.dampen;
       posCurrent = moveTowards(posCurrent, posTarget, dt * s);

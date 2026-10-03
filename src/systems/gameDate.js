@@ -219,6 +219,21 @@ export const isFullMoonFromMinutes = (gameMinutes) => {
   const { masser, secunda } = lunarPhasesFromMinutes(gameMinutes);
   return masser === LUNAR_PHASES.Full || secunda === LUNAR_PHASES.Full;
 };
+/** TIME2 (bible/06-Systems/Online-Time-Arc.md 6.1): the NIGHT a minute stands in, named by the date of its dusk - from
+ *  18:00 of a date to 06:00 of the next (isDayFromMinutes' complement) - as that date's first minute; null by day. */
+export const nightDateMinutes = (gameMinutes) => {
+  const day = Math.floor(gameMinutes / MINUTES_PER_DAY), into = gameMinutes - day * MINUTES_PER_DAY;
+  if (into >= DUSK_HOUR * 60) return day * MINUTES_PER_DAY;
+  if (into < DAWN_HOUR * 60) return (day - 1) * MINUTES_PER_DAY;
+  return null;
+};
+/** TIME2: a full moon UP - the night begun at the dusk of a full-moon date (either moon, as DFU's test; a phase is the
+ *  date's, so the date's first minute reads it). Online the forced change holds for that night alone; offline DFU's
+ *  whole calendar day stands (isFullMoonFromMinutes). */
+export const isFullMoonNightFromMinutes = (gameMinutes) => {
+  const night = nightDateMinutes(gameMinutes);
+  return night !== null && isFullMoonFromMinutes(night);
+};
 /** GetMinuteOfDay (:618-622). */
 export const minuteOfDay = (date) => (date.hour * MINUTES_PER_HOUR) + date.minute;
 

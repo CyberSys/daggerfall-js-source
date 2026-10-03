@@ -114,7 +114,7 @@
   {
     "name": "MAC-I-the-kill-door-does-not-close",
     "file": "src/combat/fpsWeapon.js",
-    "old": "  return !!getPref('firstPersonLighting') && new URLSearchParams(search).get('fplight') !== 'off';",
+    "old": "  return !!getPref('firstPersonLighting') && pageParam('fplight', search) !== 'off';",
     "new": "  return !!getPref('firstPersonLighting');",
     "tests": [
       "test/machij_sprites_and_chat.test.js"
@@ -123,8 +123,8 @@
   {
     "name": "MAC-I-the-weapon-sprite-drops-the-tint",
     "file": "src/combat/weaponRig.js",
-    "old": "      if (art && spriteShown()) drawFpsWeapon(renderer, c, art, playerWeapon.machine.state, playerWeapon.machine.frame, { tint: fpTint });",
-    "new": "      if (art && spriteShown()) drawFpsWeapon(renderer, c, art, playerWeapon.machine.state, playerWeapon.machine.frame);",
+    "old": "      if (art && spriteShown()) drawFpsWeapon(renderer, c, art, playerWeapon.machine.state, playerWeapon.machine.frame, { tint: fpTint, offsetHeight:",
+    "new": "      if (art && spriteShown()) drawFpsWeapon(renderer, c, art, playerWeapon.machine.state, playerWeapon.machine.frame, { offsetHeight:",
     "tests": [
       "test/machij_sprites_and_chat.test.js"
     ]

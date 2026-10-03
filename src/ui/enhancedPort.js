@@ -34,6 +34,8 @@
 // window as it always has, so every hotkey and Y/N still works.
 
 import { injectEnhancedStyle, injectEnhancedFonts } from './enhancedStyle.js';
+import { swallowBrowserKey } from './input.js';   // AUDIT 27h H2: the typed field still swallows the keys the browser would steal
+import { armDrawWatchdog, disarmDraw } from './drawWatchdog.js';   // DISC29-D: the watchdog counts frames, not milliseconds
 
 /** A renderer that paints nothing and answers the canvas. */
 export function quietRenderer(renderer) {
@@ -61,6 +63,17 @@ const el = (doc, tag, cls, text) => {
 
 /** The native-coordinate centre of a panel-relative rect. */
 export const centreOf = ([x, y, w, h], ox = 0, oy = 0) => [ox + x + w / 2, oy + y + h / 2];
+
+/** HOLD-STEP (2026-09-27, Skeptikali on Discord: "hold a + or - button in for example spell making to increase values
+ *  instead of clicking hundred times"): a spinner's button held repeats its press - the first repeat after `delay`,
+ *  then one every `every`, and every `fast` once `fastAfter` have gone by: a field walked 1 to 100 in under five
+ *  seconds. Never DFU's (its UpDownSpinner steps once a click); the enhanced port's own. */
+export const HOLD_REPEAT = Object.freeze({ delay: 400, every: 100, fast: 40, fastAfter: 10 });
+/** The wait before repeat `n + 1`, after `n` repeats. */
+export const holdRepeatDelay = (n) => (n <= 0 ? HOLD_REPEAT.delay : n < HOLD_REPEAT.fastAfter ? HOLD_REPEAT.every : HOLD_REPEAT.fast);
+/** HOLD-STEP (Tabitha on Discord: "add a field to type in the value"): what a spinner's typed value reads as - one to
+ *  three digits, or null (the field puts its value back). The window clamps it to the spinner's range, as a step is. */
+export const typedSpinValue = (text) => (/^\s*\d{1,3}\s*$/.test(String(text ?? '')) ? Number(String(text).trim()) : null);
 
 // ── THE VIEW -> DOM ────────────────────────────────────────────────
 // A view is plain data: { title, sub, size, blocks: [...], foot: [...] }.
@@ -179,7 +192,10 @@ function blockNode(doc, b, acts, canvases) {
       const n = el(doc, 'div', `port-spin${b.disabled ? ' off' : ''}`);
       n.append(el(doc, 'span', 'port-spinlabel', b.label));
       n.append(buttonNode(doc, { label: '\u2212', act: b.down, disabled: b.disabled }, acts, ' port-spinbtn'));
-      n.append(el(doc, 'span', 'port-spinvalue', b.disabled ? '-' : String(b.value)));
+      // HOLD-STEP: a spinner whose view can take a typed value wears a field; the act order is down, set, up
+      // (collectActs walks it the same way)
+      if (b.set && !b.disabled) n.append(spinField(doc, b, acts));
+      else n.append(el(doc, 'span', 'port-spinvalue', b.disabled ? '-' : String(b.value)));
       n.append(buttonNode(doc, { label: '+', act: b.up, disabled: b.disabled }, acts, ' port-spinbtn'));
       return n;
     }
@@ -230,6 +246,22 @@ function blockNode(doc, b, acts, canvases) {
   }
 }
 
+/** HOLD-STEP: a spinner's value as a field - typed, and committed on Enter or on leaving it (the host's `change`);
+ *  Escape, or anything not a number, puts the value back. The field is a text box with the numeric keypad: a
+ *  `type=number` would hand the wheel and its own arrows a second way to step. */
+function spinField(doc, b, acts) {
+  const f = el(doc, 'input', 'port-spinvalue port-spinfield');
+  f.type = 'text';
+  f.inputMode = 'numeric';
+  f.maxLength = 3;
+  f.autocomplete = 'off';
+  f.defaultValue = String(b.value);
+  f.setAttribute('aria-label', b.label);
+  if (b.min != null && b.max != null) f.title = `${b.min} to ${b.max}`;
+  f.dataset.s = String(acts.push(b.set) - 1);
+  return f;
+}
+
 /** The part of a view that decides its DOM (functions dropped, canvases
  *  are live and never part of it). */
 const viewSig = (view) => JSON.stringify(view, (k, v) => (typeof v === 'function' ? undefined : v));
@@ -241,10 +273,58 @@ const viewSig = (view) => JSON.stringify(view, (k, v) => (typeof v === 'function
 export function portWindow(win, spec, doc = globalThis.document) {
   let host = null, winEl = null, body = null, sig = '', acts = [], canvases = [], watchdog = null;
   const scrolls = new Map();
+  // HOLD-STEP: the held spinner button - its PLACE among the window's spinner buttons (every step rebuilds the DOM
+  // under the finger, so the node is not kept; each repeat finds the button at that place and runs the latest view's
+  // act for it, and a window whose spinners are gone - the editor shut mid-hold - ends the hold rather than pressing
+  // whatever stands at that index now), how many repeats it has made, and its timer
+  let hold = null;
+  let swallowClick = false;
+  const stopHold = () => {
+    if (!hold) return;
+    clearTimeout(hold.timer);
+    // a hold that repeated has stepped for the press: the click its release makes is swallowed, once
+    if (hold.n > 0) { swallowClick = true; setTimeout(() => { swallowClick = false; }, 0); }
+    hold = null;
+  };
+  const startHold = (pos) => {
+    stopHold();
+    const h = { pos, n: 0, timer: null };
+    const tick = () => {
+      if (hold !== h || !host) return;
+      // AUDIT 27h H1: THE LIVE VIEW, read at the repeat - not the last one drawn. The acts click the classic window at
+      // fixed points, so a repeat that fired after the window moved on and before the next draw (Escape shutting the
+      // editor mid-hold, under a 30 fps cap) clicked whatever stood there now: the main window's Buy spell.
+      let view = null;
+      try { view = win.done ? null : spec.view(proxy); } catch { view = null; }
+      if (!view) { stopHold(); return; }
+      const vs = viewSig(view);
+      if (vs !== sig) { sig = vs; render(view); } else acts = collectActs(view);
+      const btn = body?.querySelectorAll?.('.port-spinbtn')?.[h.pos] ?? null;
+      const fn = btn && !btn.disabled && btn.dataset.a != null ? acts[Number(btn.dataset.a)] : null;
+      if (typeof fn !== 'function') { stopHold(); return; }
+      fn();
+      h.n += 1;
+      h.timer = setTimeout(tick, holdRepeatDelay(h.n));
+    };
+    h.timer = setTimeout(tick, holdRepeatDelay(0));
+    hold = h;
+  };
+  const onRelease = () => stopHold();
+  // AUDIT 27h H7: a typed value not yet committed goes in BEFORE a button's act. A press keeps the focus where it was
+  // (its pointerdown is cancelled), so Done shut the editor with the value still in the field, and the commit that
+  // came with the field's removal found an editor gone (H1's guard) - the typed value was lost
+  const commitTyped = () => {
+    const f = doc.activeElement;
+    if (f && host?.contains?.(f) && f.matches?.('input[data-s]')) f.blur();
+  };
 
   const unmount = () => {
-    clearTimeout(watchdog);
+    disarmDraw(watchdog);
     watchdog = null;
+    stopHold();   // HOLD-STEP: a window taken down mid-hold stops stepping
+    doc.removeEventListener?.('pointerup', onRelease, true);
+    doc.removeEventListener?.('pointercancel', onRelease, true);
+    globalThis.removeEventListener?.('blur', onRelease);
     if (!host) return;
     try { host.remove(); } catch { /* gone */ }
     host = null; winEl = null; body = null; sig = ''; acts = []; canvases = [];
@@ -262,10 +342,46 @@ export function portWindow(win, spec, doc = globalThis.document) {
     shell.append(winEl);
     host.append(shell);
     // one listener for every press: the index is the latest view's act
-    host.addEventListener('pointerdown', (e) => { if (e.target.closest?.('button')) e.preventDefault(); e.stopPropagation(); });
+    host.addEventListener('pointerdown', (e) => {
+      if (e.target.closest?.('button')) e.preventDefault();
+      e.stopPropagation();
+      // HOLD-STEP: a spinner's button held repeats its press; the release is heard anywhere (the button is rebuilt)
+      const spin = e.target.closest?.('.port-spinbtn[data-a]');
+      if (spin && !spin.disabled && (e.button ?? 0) === 0) {
+        startHold([...body.querySelectorAll('.port-spinbtn')].indexOf(spin));
+        // AUDIT 27h H6: ...and on the pressed node itself - the Plus pad's release falls back to the node its press went
+        // down on (gamepadInput.js, a cursor over no element), which the first repeat rebuilt away, and an event on a
+        // detached node never reaches the document: the hold stepped on to the limit
+        spin.addEventListener('pointerup', onRelease, { once: true });
+        spin.addEventListener('pointercancel', onRelease, { once: true });
+      }
+    });
+    doc.addEventListener?.('pointerup', onRelease, true);
+    doc.addEventListener?.('pointercancel', onRelease, true);
+    globalThis.addEventListener?.('blur', onRelease);   // the window lost mid-hold: no release will come
+    // HOLD-STEP: a typed value, committed - Enter or leaving the field (the browser's change); not a number, it goes back
+    host.addEventListener('change', (e) => {
+      const f = e.target.closest?.('input[data-s]');
+      if (!f) return;
+      const v = typedSpinValue(f.value);
+      const fn = acts[Number(f.dataset.s)];
+      if (v == null || typeof fn !== 'function') { f.value = f.defaultValue; return; }
+      fn(v);
+      sig = '';   // AUDIT 27h H3: repainted from the model - a value clamped to the one already set changes no view, and "999" stood in the field
+    });
+    host.addEventListener('keydown', (e) => {
+      const f = e.target.closest?.('input[data-s]');
+      if (!f) return;
+      e.stopPropagation();   // the field's keys are the field's
+      swallowBrowserKey(e);   // AUDIT 27h H2: ...but F5, F6 and F11 are still not the browser's - the hosts' swallow never heard them here, and F5 reloaded the page (chatPanel.js's own guard)
+      if (e.key === 'Enter') { e.preventDefault(); f.blur(); }
+      else if (e.key === 'Escape') { e.preventDefault(); f.value = f.defaultValue; f.blur(); }
+    });
     host.addEventListener('click', (e) => {
+      if (swallowClick) { swallowClick = false; e.stopPropagation(); return; }   // HOLD-STEP: the release of a hold that stepped
       const b = e.target.closest?.('[data-a]');
       e.stopPropagation();
+      if (b && !b.disabled) commitTyped();   // AUDIT 27h H7: at the click, not the press - a commit at the press rebuilt the buttons before the release, and the click never came
       // DROPS-AUDIT F6: a click-anywhere notice the classic window holds (a box with no buttons) takes the first
       // click, as the classic click does - dismissed there, and nothing under it acts
       if (win.box && !win.box.buttons?.length && !win.picker) { win.click?.(-1, -1); return; }
@@ -279,6 +395,13 @@ export function portWindow(win, spec, doc = globalThis.document) {
 
   const render = (view) => {
     for (const s of body.querySelectorAll('[data-scroll-key]')) scrolls.set(s.dataset.scrollKey, s.scrollTop);
+    // AUDIT 27h H4: the typed field that has the focus keeps it through the rebuild - by its place (the labels repeat
+    // across groups), with any text not yet committed and its selection. A Tab into the next field, whose commit
+    // changed the view, dropped the focus to the page, and the keys typed next went to the classic editor.
+    const fieldsOf = () => [...body.querySelectorAll('input[data-s]')];
+    const had = doc.activeElement;
+    const fi = had ? fieldsOf().indexOf(had) : -1;
+    const kept = fi >= 0 ? { value: had.value, dirty: had.value !== had.defaultValue, a: had.selectionStart, b: had.selectionEnd } : null;
     body.replaceChildren();
     acts = [];
     canvases = [];
@@ -289,6 +412,7 @@ export function portWindow(win, spec, doc = globalThis.document) {
     if (view.sub) titles.append(el(doc, 'span', 'port-sub', view.sub));
     head.append(titles);
     const main = el(doc, 'div', 'port-body');
+    main.dataset.scrollKey = `body:${view.title ?? ''}`;   // AUDIT 27h H5: the body keeps its place too - each step's rebuild put a phone's scrolled editor back at the top, the held spinner out from under the finger
     for (const b of view.blocks ?? []) { const n = b && blockNode(doc, b, acts, canvases); if (n) main.append(n); }
     body.append(head, main);
     if (view.foot?.length) {
@@ -299,6 +423,12 @@ export function portWindow(win, spec, doc = globalThis.document) {
     for (const s of body.querySelectorAll('[data-scroll-key]')) {
       const v = scrolls.get(s.dataset.scrollKey);
       if (v) s.scrollTop = v;
+    }
+    const nf = kept ? fieldsOf()[fi] : null;
+    if (nf) {
+      if (kept.dirty) nf.value = kept.value;
+      nf.focus?.({ preventScroll: true });
+      try { nf.setSelectionRange?.(kept.a, kept.b); } catch { /* a field that takes no selection */ }
     }
   };
 
@@ -312,7 +442,7 @@ export function portWindow(win, spec, doc = globalThis.document) {
         case 'tiles': for (const t of b.items) if (t.act && !t.disabled) out.push(t.act); return;
         case 'rows': for (const r of b.items) if (r.act && !r.disabled) out.push(r.act); return;
         case 'field': if (b.button?.act && !b.button.disabled) out.push(b.button.act); return;
-        case 'spinner': if (!b.disabled) { if (b.down) out.push(b.down); if (b.up) out.push(b.up); } return;
+        case 'spinner': if (!b.disabled) { if (b.down) out.push(b.down); if (b.set) out.push(b.set); if (b.up) out.push(b.up); } return;   // HOLD-STEP: render's order
         case 'iconGrid': for (const it of b.items) out.push(it.act); return;
         case 'group': for (const c of b.blocks) walk(c); return;
         case 'cols': for (const col of b.cols) for (const c of col) walk(c); return;
@@ -334,8 +464,8 @@ export function portWindow(win, spec, doc = globalThis.document) {
     const s = viewSig(view);
     if (s !== sig) { sig = s; render(view); } else acts = collectActs(view);
     for (const c of canvases) { try { c.paint?.(c.cv); } catch { /* a live picture never takes the window down */ } }
-    clearTimeout(watchdog);
-    watchdog = setTimeout(unmount, PORT_WATCHDOG_MS);
+    disarmDraw(watchdog);
+    watchdog = armDrawWatchdog(PORT_WATCHDOG_MS, unmount);   // DISC29-D: a frame undrawn, not a slow one
   };
 
   // DROPS-AUDIT F11: a wrapped window paints nothing of its own - the purchase window's 3D preview goes to the canvas

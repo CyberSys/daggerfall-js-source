@@ -89,6 +89,9 @@ export async function preloadListPickerArt(deps) {
   catch { console.warn('[picker] PICK00I0.IMG unavailable; list pickers stay closed'); }
 }
 export const listPickerArtLoaded = () => !!_art;
+/** MEND-AIM: the seam the other windows' art has (nativeInventory `_setInventoryArtForTests`) - a host that pushes a
+ *  picker only when the art is loaded is driven in a test without the IMG. */
+export function _setListPickerArtForTests(art) { _art = art; }
 
 /** AUDIT 58: DaggerfallUI.SmallFont (FONT0002, DaggerfallUI.cs:155)
  *  against the FONT0003 DefaultFont (:156). Three windows build this
@@ -329,7 +332,7 @@ export class ListPickerWindow {
       // argument is only a pre-first-frame seed now, and is ignored
       // unless it really is a font: the three routers that mount a bare
       // picker pass a right-button BOOLEAN in that slot
-      // (townTalk.js:1263, worldModes.js:9584, dungeonContext.js:7448 - all three re-resolved BY CONTENT and pinned in test/citedrift.test.js by the ROAD-H tail review: they were stale together and a mechanical +1 had kept the dungeon's that way),
+      // (townTalk.js:1266, worldModes.js:10435, dungeonContext.js:8453 - all three re-resolved BY CONTENT and pinned in test/citedrift.test.js by the ROAD-H tail review: they were stale together and a mechanical +1 had kept the dungeon's that way),
       // and `false ?? this._font` kept the `false`, dropping the click
       // grid to 6+1=7 against a drawn and hovered grid of 7+1=8 for
       // FONT0003 - so from the 6th visible row on, the row you

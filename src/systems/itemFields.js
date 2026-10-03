@@ -107,10 +107,48 @@ export const ITEM_FIELDS = Object.freeze({
   legendary: str(),
   aetheric: str(),   // SET6: an Aetheric piece's record (systems/aetheric.js) - Ruhn's Regalia
   affixes: list(validAffix),
+  exalted: bool(),   // LOOT2 (bible/06-Systems/Loot-Arc.md section 4): a Legendary minted Exalted - one line more, true or absent
+  untaken: bool(),   // LOOT8 (bible/06-Systems/Loot-Arc.md section 10): a piece a source door rolled that no player has taken - true or absent; its first take clears it and counts for the drought
+  reforged: int({ min: 0, max: 15 }),   // LOOT9 (bible/06-Systems/Loot-Arc.md section 11): the one line the Reforge has rolled again (its index) - only it may be again
+  imprint: str(),   // LOOT10 (bible/06-Systems/Loot-Arc.md section 12): a Rare's imprinted power - a Legendary record's id of its own group (loot.js validLootItem: lootRarity.js validImprint)
   // SIGIL1: an online win's sigil (systems/sigil.js) - its power, the fight that won it, what it has drunk
   sigil: rec(validSigil),
   // LOCK1: the player's lock (systems/itemLock.js) - true, or absent
   locked: bool(),
+  // SS4: a piece bound to its owner by how it was won (systems/itemBound.js - the Sigil Broker's wares) - true, or absent
+  bound: bool(),
+  // SS5: the Sigil Stones the Broker took for a ware (systems/sigilBroker.js brokerStock) - its dismantle's measure
+  stonesPaid: int({ min: 1 }),
+  // PROF3: a crafted piece (systems/smithItems.js) - its quality (0 Crude .. 4 Masterwork), its provenance id (the
+  // service's `products`), the maker's name at the moment of making; a Repair Kit's metal (DFU's material, 0..9)
+  quality: int({ min: 0, max: 4 }),
+  provenance: str(),
+  maker: str(),
+  kitMetal: int({ min: 0, max: 9 }),
+  // REPAIR-EASE: a Field Repair Kit (systems/smithItems.js) - found in loot, mends any metal; true, or absent
+  fieldKit: bool(),
+  // AUDIT 31 H3: the recipe a crafted piece was minted of (recipeLaw's id) - an Ebony and a Warforged piece share their
+  // template and material, so a commission's picker reads this before any look-alike
+  recipe: str(),
+  // PROF4: a piece whose name carries its maker's mark below Masterwork - a Master Joiner's furniture (the service's
+  // `products.marked`)
+  marked: bool(),
+  // PROF7: a Butcher's Raw Meat, which spoils half as fast (PROF0 3.3; survival/food.js rotFoodDay)
+  slowRot: bool(),
+  // PROF9: a Provisioner's provisions, which never spoil - their dishes and the foods they take from the Stores (PROF0
+  // 3.3; survival/food.js rotFoodDay); and a Chef's feast, which lasts half again (recipeLaw dishHand) - true, or absent
+  noRot: bool(),
+  chef: bool(),
+  // AUDIT PROF-541 J6: a crafted piece of jewellery's jeweller's hand (recipeLaw JEWEL_HAND_*: 1 a Goldsmith's Silver, 2 a
+  // Gemcutter's gem) - the share its points' cap allows (enchanting.js craftedJewelPoints), or absent
+  hand: int({ min: 1, max: 2 }),
+  // PROF12: a Potent potion, brewed at an alchemy station (net/alchemyLaw.js) - its share of magnitude, 25 (a Master
+  // Alchemist's 40), or absent
+  potent: int({ min: 25, max: 40 }),
+  // SELL-AS-FOUND (AUDIT ECON O1): the condition the world handed a piece over at - Roleplay & Realism: Items' rolls on
+  // a pile, a body and a shelf (systems/rriRealism.js) - which an online counter's sale reads at best (tradeModes.js
+  // saleConditionPercentage); absent on a piece handed over whole
+  foundCondition: int({ min: 0 }),
 });
 
 /** The declared names, and those of one kind. */

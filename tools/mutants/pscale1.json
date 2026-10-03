@@ -192,8 +192,8 @@
   {
     "name": "PSCALE1-outdoor-blow-unweighed",
     "file": "src/scenes/exteriorFoes.js",
-    "old": "const dmg = partyHit(calculateAttackDamage(f.entity, playerEntity, {",
-    "new": "const dmg = ((d) => d)(calculateAttackDamage(f.entity, playerEntity, {",
+    "old": "partyHit(calculateAttackDamage(f.entity, playerEntity, {",
+    "new": "((d) => d)(calculateAttackDamage(f.entity, playerEntity, {",
     "tests": [
       "test/pscale1.test.js",
       "test/auditpscale1.test.js"
@@ -202,8 +202,8 @@
   {
     "name": "PSCALE1-outdoor-hit-unexported",
     "file": "src/scenes/exteriorFoes.js",
-    "old": "  return { foes, spawnFoe, damageFoe, encounterRoom, partyHit, healFoe,",
-    "new": "  return { foes, spawnFoe, damageFoe, encounterRoom, partyHit: (d) => d, healFoe,",
+    "old": "  return { foes, spawnFoe, damageFoe, encounterRoom, newCampId, partyHit, healFoe,",
+    "new": "  return { foes, spawnFoe, damageFoe, encounterRoom, newCampId, partyHit: (d) => d, healFoe,",
     "tests": [
       "test/pscale1.test.js",
       "test/auditpscale1.test.js"
@@ -252,8 +252,8 @@
   {
     "name": "PSCALE1-dungeon-blow-unweighed",
     "file": "src/scenes/dungeonContext.js",
-    "old": "    const dmg = _weighHit(f, foeDeps.calculateAttackDamage(f.entity, foeDeps.playerEntity, {",
-    "new": "    const dmg = ((x, d) => d)(f, foeDeps.calculateAttackDamage(f.entity, foeDeps.playerEntity, {",
+    "old": "_weighHit(f, foeDeps.calculateAttackDamage(f.entity, foeDeps.playerEntity, {",
+    "new": "((x, d) => d)(f, foeDeps.calculateAttackDamage(f.entity, foeDeps.playerEntity, {",
     "tests": [
       "test/pscale1.test.js",
       "test/auditpscale1.test.js"
@@ -312,8 +312,8 @@
   {
     "name": "PSCALE1-camp-does-not-grow",
     "file": "src/scenes/world.js",
-    "old": "for (const mobileType of partyGroupMembers(hit.mobileTypes, partySize())) {",
-    "new": "for (const mobileType of hit.mobileTypes) {",
+    "old": "hit.fixed ? hit.mobileTypes : campMembers(hit.mobileTypes)",
+    "new": "hit.fixed ? hit.mobileTypes : hit.mobileTypes",
     "tests": [
       "test/pscale1.test.js",
       "test/auditpscale1.test.js"

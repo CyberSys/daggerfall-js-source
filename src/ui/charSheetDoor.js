@@ -37,6 +37,7 @@
 // ═══════════════════════════════════════════════════════════════════
 
 import { isEnhanced } from '../systems/uiSkin.js';
+import { PIXEL_FAMILIES } from './pixelifyFive.js';   // FONT3: the wait card names the enhanced face first
 import { eventActions } from './input.js';   // MAC-C: the REGISTRY's answer for the two window keys
 import { mountEnhancedChunk, paintChunkNotice } from './enhancedChunk.js';   // MENU1: the one lazy-chunk door, and the notice it paints when a chunk is gone
 import { registerOverlay } from './enhancedOverlays.js';   // PX28: Tab puts it away
@@ -190,6 +191,24 @@ export function createCharSheetWindow(deps = {}) {
 }
 
 /**
+ * ESC-BOOK (2026-09-27, Eterna on Discord: "if u enter the spellbook via the escape menue, instead of the chosen
+ * keybind, the spellbook will open and stay persistent, behind all screens, making it unable to exit or play"):
+ * THE PAGE'S DOORS ARE THE HOST'S OWN ARMS. The sheet's hooks are FACTORIES - the classic sheet pushes what they build
+ * as its own child - and this page called them, closed itself and dropped what they built. An enhanced spellbook or
+ * pack mounts its screen the moment it is built, so it stood over the game with no host slot holding it: the pointer
+ * relocked, the game ran on under it, and nothing the host owned could close it (the pause opened OVER it). The
+ * Chronicle's factory builds the CLASSIC journal, which was built and never seen - the notebook had no door here.
+ * Each host's pause bag opens these three INTO ITS OWN SLOT, the doors the pause window's Stats page has always used,
+ * so the page takes those: the page goes down, then the host's arm opens the window where the host holds it. A host
+ * with no such arm gets no door - the honest refusal - rather than a factory's window nobody holds.
+ */
+export function sheetPageDoors(bag, close) {
+  // AUDIT 27h A4: the arm's answer rides back (false: it opened nothing), so the page's door can resume instead.
+  const door = (arm) => (typeof bag?.[arm] === 'function' ? () => { close(); return bag[arm](); } : undefined);
+  return { openPack: door('openPack'), openSpellbook: door('openSpellbook'), openChronicle: door('openChronicle') };
+}
+
+/**
  * PX27: the pause window, opened on Stats, in the overlay shape the
  * hosts already push. The keyboard, the scrim and the frame are all
  * enhancedMenu's; this only chooses the page and forwards the sheet's
@@ -256,7 +275,10 @@ function enhancedSheetPageOverlay(hooks, entity = null, pause = null) {
     const t = e.target;
     if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) return;
     const acts = eventActions(e);   // AUDIT KB1: the event's own read - a sheet opened by a combo closes on it; UXB1-S: every action a shared key carries
-    if (!acts.includes('CharacterSheet') && !(acts.includes('Inventory') && hooks.inventory)) return;
+    // ESC-BOOK: the pack's key crosses over through the HOST's arm - the Pack door's own (sheetPageDoors) - which opens
+    // the pack in the host's slot; the factory's pack was built here and held by nobody.
+    const pack = acts.includes('Inventory') ? sheetPageDoors(pause?.(), close).openPack : undefined;
+    if (!acts.includes('CharacterSheet') && !pack) return;
     // A MODAL OVERLAY OWNS ITS INPUT (U50's law, the same one
     // enhancedMenu's handler states): on CAPTURE and stopped, so the
     // host's window keydown - which would re-open the very screen this
@@ -265,8 +287,8 @@ function enhancedSheetPageOverlay(hooks, entity = null, pause = null) {
     e.stopPropagation();
     if (e.repeat) return;   // AUDIT KB1: a held key's repeat is swallowed, not an open-shut flicker
     const toPack = !acts.includes('CharacterSheet');   // the pack's key crosses over; the sheet's own closes (UXB1-S: a key that is both is the sheet's)
-    close();                              // the sheet's own close law runs FIRST...
-    if (toPack) hooks.inventory();        // ...and this replaces the slot it just freed
+    if (toPack) pack();                   // the door closes the page FIRST, then the host's arm fills the slot it freed
+    else close();
   }
   /** THE PAGE'S OWN OPTIONS, named once. ASCEND-ANYTIME mounts this
    *  page a SECOND time - after a view of the stars closes over it -
@@ -279,14 +301,14 @@ function enhancedSheetPageOverlay(hooks, entity = null, pause = null) {
     // dial listed every quest, its Save and Load said there was no door, and its Exit did nothing. `pause` is the
     // function the host's own togglePause spreads, so the two doors cannot drift; the act and the slot seams are
     // ui/pauseDoor.js's own.
+    const bag = pause?.() ?? {};
     const menuHooks = pauseMenuHooks({
-      ...(pause?.() ?? {}),
+      ...bag,
       // The sheet's own buttons, onto the page PX25 built to take
       // them. A host that hands no hook gets no button, which is the
       // same honest refusal the classic sheet gives.
-      openPack: hooks.inventory ? () => { close(); hooks.inventory(); } : undefined,
-      openSpellbook: hooks.spellbook ? () => { close(); hooks.spellbook(); } : undefined,
-      openChronicle: hooks.logbook ? () => { close(); hooks.logbook(); } : undefined,
+      // ESC-BOOK: through the HOST's arms (sheetPageDoors) - the sheet's factories built windows no slot held.
+      ...sheetPageDoors(bag, close),
       // ASCEND-ANYTIME: this page can always offer it, because this
       // door owns the entity the button is about. A host that handed
       // no entity gets no button, the same refusal the three above
@@ -438,7 +460,9 @@ export const LEVELUP_WAIT_MS = 120;
  * THE WAIT, painted into the door's own host with INLINE STYLE ONLY -
  * no chunk, no font, no stylesheet, nothing that could be the thing
  * that is still loading. Exactly `paintChunkNotice`'s doctrine, for
- * exactly its reason.
+ * exactly its reason. FONT3: the enhanced face is NAMED first and
+ * loads nothing - the skin's request has long since landed by a
+ * level-up, and if it never did the system face stands, as before.
  */
 export function paintLevelUpWait(host, { oghma = false } = {}) {
   if (!host?.ownerDocument) return null;
@@ -446,7 +470,7 @@ export function paintLevelUpWait(host, { oghma = false } = {}) {
   const el = doc.createElement('div');
   el.id = 'levelup-wait';
   el.style.cssText = 'position:fixed;inset:0;display:flex;align-items:center;justify-content:center;'
-    + 'background:#0a0c11;color:#d8cfae;font:20px/1.6 system-ui,sans-serif;letter-spacing:0.18em;'
+    + `background:#0a0c11;color:#d8cfae;font:500 20px/1.6 ${PIXEL_FAMILIES},system-ui,sans-serif;letter-spacing:0.18em;`
     + 'text-transform:uppercase;text-align:center;padding:24px';
   el.textContent = oghma ? OGHMA_WAIT_TEXT : RISEN_WAIT_TEXT;
   host.append(el);

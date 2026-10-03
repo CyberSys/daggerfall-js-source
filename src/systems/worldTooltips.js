@@ -54,6 +54,7 @@
 // which is strictly stronger: it also sees a container's contents
 // change under a constant key, which the mod cannot.
 import { modSetting } from './modSettings.js';
+import { foeTitle } from './foeTitle.js';   // FOE-TITLE: a champion, an elite, a revenant - what each is called
 import { itemLongName } from './itemInfo.js';   // RF6: ResolveItemLongName, the port's one resolver
 import { buildingClosedText, buildingLockValue } from './buildingLocks.js';
 import { BUILDING_TYPES } from '../world/buildingNames.js';
@@ -312,6 +313,18 @@ export const mobilePersonName = (nameNPC) => (nameNPC || null);
  * standing without an `ai`. A hostile one answers nothing and the
  * plaque draws nothing over it, exactly as an unnamed key does: the
  * mod will not label the thing that is trying to kill you.
+ *
+ * HOVER-PLAIN (2026-10-03, Mac: "remove the crosshair tooltip. They
+ * should only have names/modifiers under their healthbar"): LOOT7-CHECK
+ * CHAMP-HOVER's exception - a hostile champion, elite or revenant named
+ * here - is retired. The mod's law holds for every foe again: while a
+ * special foe fights, its name and its trait stand on its health bar
+ * alone (ui/hudFoeTarget.js, systems/foeTitle.js), and the first blow's
+ * line (LOOT7-CHECK CHAMP-SAID) still says a champion on every skin. At
+ * peace it is named as ever, title and all (liveEntityName below) - a
+ * sworn companion, a calmed one, and a kneeling revenant (its motor is
+ * still hostile, so the street's and the dungeon's arms say it is not:
+ * `!f.yielded`, the plaque's "- beaten" cue).
  */
 export function mobileEntityName(entityName, { hostile = false } = {}) {
   if (hostile) return null;
@@ -340,7 +353,10 @@ export function mobileEntityName(entityName, { hostile = false } = {}) {
  * takes. The fallback is the port's limit, not a second reading of the
  * mod.
  */
-export const liveEntityName = (rec, enemyName = null) => rec?.entity?.name ?? enemyName ?? null;
+/** LOOT7 (the Loot arc): a CHAMPION's trait before its name; ELITE FOES: "Elite" before it; REVENANT: its own name -
+ *  systems/foeTitle.js, the one home every surface asks. HOVER-PLAIN keeps it: mobileEntityName names no HOSTILE foe,
+ *  so the title reaches the hover only at peace (a sworn companion by its own name, a beaten revenant, a calmed one). */
+export const liveEntityName = (rec, enemyName = null) => foeTitle(rec?.entity, rec?.entity?.name ?? enemyName ?? null);
 
 // ── THE TOTEM (.cs:491-505) ─────────────────────────────────────
 //

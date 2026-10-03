@@ -42,6 +42,7 @@ const bootWorld = (...a) => import('./scenes/world.js').then((m) => m.bootWorld(
 import { ensureArena2, getBytes } from './scenes/dataSource.js';
 import { installCursor } from './ui/cursor.js';
 import { mountFpsCounter } from './ui/fpsCounter.js';   // FPS1: the counter, over every host
+import { installFramePacer } from './systems/frameCap.js';   // FPS-VSYNC (AUDIT 28e): the desktop app's lifted wait, paced by the cap
 import { setScreenshotCanvas } from './ui/screenshot.js';   // KB1: the PrintScreen action's canvas - the key itself is routed by the hosts (AUDIT KB1)
 import { getPref } from './systems/uiPrefs.js';   // FPS1: its switch
 import { publishBootParams, BOOT_DOOR_KEYS } from './systems/onlineLane.js';   // MAC-N3: the boot's params are the URL, or the online lane reads nothing
@@ -51,6 +52,7 @@ import { publishBootParams, BOOT_DOOR_KEYS } from './systems/onlineLane.js';   /
 import { staleChunkAction, RELOAD_KEY, STALE_CHUNK_TEXT } from './systems/staleChunk.js';
 
 async function boot() {
+  installFramePacer();   // FPS-VSYNC: first, before any loop asks for a frame - a no-op but in the app with the wait lifted
   const canvas = document.getElementById('c');
   const renderer = new Renderer(canvas);
   renderer.setRetroSource(retroFrameConfig);   // RETRO1: DFU's retro mode - asked once per world frame, so the settings screen's change lands on the next
@@ -68,8 +70,18 @@ async function boot() {
   Promise.all([import('./ui/input.js'), import('./systems/controlsConfig.js'), import('./systems/notify.js')])
     .then(([input, cfg, notify]) => input.setKeybindNoticeSink((report) => { for (const line of cfg.keybindCarryNotes(report)) notify.hudTextWhenShown(line, 12); }))
     .catch((err) => console.warn('[keybinds] the carry notice could not load:', err?.message ?? err));
+  // DA8: the desktop shell's "an update is ready", through the same door and OFF the entry's static graph, as the
+  // carry above (BOOT2 holds that graph's ceiling). A tab has no shell and loads neither.
+  if (typeof globalThis.daggerShell?.onUpdateReady === 'function') {
+    Promise.all([import('./systems/shellUpdates.js'), import('./systems/notify.js')])
+      .then(([updates, notify]) => updates.listenForShellUpdates(globalThis.daggerShell, (text) => notify.hudTextWhenShown(text, 12)))
+      .catch((err) => console.warn('[update] the update notice could not load:', err?.message ?? err));
+  }
   mountFpsCounter({ enabled: () => params.has('fps') || !!getPref('showFps'), stats: () => renderer.stats, info: () => renderer.frameInfo });   // FPS1: over every host, on the pref or the probe door; PERF3: with the renderer's counts; PERF-SCALE: and its GPU and frame size
+  // FB0930-TITLE: a boot's steps name themselves in the title, and a null step is the boot done - the bare name, so
+  // the window does not say "loading the saved game" for the rest of the session.
   const status = (msg) => {
+    if (msg == null) { document.title = 'Daggerfall Online'; return; }
     document.title = `Daggerfall Online - ${msg}`;
   };
   // Data gate: readers load user-supplied ARENA2 at runtime
@@ -167,6 +179,11 @@ async function boot() {
     publishBootParams(params);
     const { runEnhancedMenu } = await import('./ui/enhancedMenu.js');
     const { runCinematicFrontDoor } = await import('./ui/introScreen.js');
+    // PAD-DOOR (2026-09-27, Discord - an AYN Thor: "unable to select online, load game anything"): the intro, the menu
+    // and its windows answer a controller - the d-pad moves, A presses, B backs out (ui/menuPad.js) - until a game is
+    // chosen, when the scene's own pad layer takes over.
+    const { attachMenuPad } = await import('./ui/menuPad.js');
+    const detachMenuPad = attachMenuPad();
     // INTRO2: the cinematic and menu share ONE music session. The final
     // splash holds for the player's tap; opening the menu ducks the track,
     // choosing a game closes it before any in-game or classic video audio.
@@ -182,7 +199,7 @@ async function boot() {
       menuMusic: !params.has('nointro') && !!getPref('skipStartVideo'),
       debug: import.meta.env.DEV && params.has('introdebug'),
       freezeAt: freeze !== null && Number.isFinite(freeze) ? Math.max(0, freeze) : null,
-    });
+    }).finally(detachMenuPad);   // PAD-DOOR: the choice is made - the door's pad stops before the scene's starts
   }
   if (choice !== 'begin') {
     await ensureData();
@@ -197,14 +214,22 @@ async function boot() {
     // F12's law - the first cut wired it into the classic start window's
     // branch below, which never answers 'online', so PLAY ONLINE booted a
     // new character with no relay at all.
-    if (choice === 'online') params.set('online', '1');
+    if (choice === 'online' || choice === 'online-new') params.set('online', '1');   // REALM P1.3: and a character born online
     else params.delete('online');
     // SLOTS1: the Load and Online panes pick a slot; the boot's load arm
     // reads the key (world.js, the SAV4 arm). The same SET-or-DELETE law.
-    const { takePickedSaveKey } = await import('./ui/enhancedMenu.js');
+    const { takePickedSaveKey, takePickedRealmId } = await import('./ui/enhancedMenu.js');
     const picked = takePickedSaveKey();
-    if ((choice === 'load' || choice === 'online') && picked != null) params.set('loadkey', String(picked));
+    if (choice === 'load' && picked != null) params.set('loadkey', String(picked));   // REALM P1.3: never online - a local slot is not the realm's
     else params.delete('loadkey');
+    // REALM P1.3 (bible/06-Systems/Realm-Arc.md section 2): THE ONLINE DOOR'S CHARACTER IS THE REALM'S - its id rides the
+    // boot, which joins it and reads its save from the service; a character born online boots the online lane with no
+    // save, its chargen, and the realm makes it (world.js realmBirth). The same SET-or-DELETE law.
+    const realmId = choice === 'online' ? takePickedRealmId() : null;
+    if (realmId) params.set('realm', realmId);
+    else params.delete('realm');
+    if (choice === 'online-new') params.set('realmnew', '1');
+    else params.delete('realmnew');
     // TR3: the Test Room door - the pane answers 'test:<preset>' and
     // the world host seeds the character and the armory off the same
     // testRoom home the pane showed. The param family follows F12's
@@ -220,8 +245,9 @@ async function boot() {
     // dev boot in the U31 sense: it keeps the named start (the city's
     // exterior) and never asks for the classic path. Every other menu
     // door still begins where Daggerfall begins.
-    const { TEST_RIDE } = await import('./systems/testRoom.js');
-    if (params.get('test') === TEST_RIDE.id) params.delete('classic');
+    // FIELD BUGS 2026-09-29 (the sea) #5: the sea battle is a spawn outdoors too - the room's own list (testStartsOutdoors)
+    const { testStartsOutdoors } = await import('./systems/testRoom.js');
+    if (testStartsOutdoors(params.get('test'))) params.delete('classic');
     else params.set('classic', '1');
     // MAC-N3: THE DECIDED PARAMS ARE THE URL before the world boots.
     // `online` above was set on this in-memory copy alone, and the
@@ -353,7 +379,7 @@ const rememberReload = () => {
   if (/re-pick|not in the stored/i.test(e.message)) {
     const b = document.createElement('button');
     b.textContent = 'clear stored data and pick again';
-    b.style.cssText = 'display:block;margin:16px;padding:12px;font:14px monospace';
+    b.style.cssText = 'display:block;margin:16px;padding:12px;font:14px monospace;-webkit-font-smoothing:antialiased;letter-spacing:normal;';
     b.onclick = async () => {
       const { clearStoredData } = await import('./scenes/dataSource.js');
       try { await clearStoredData(); } catch { /* wipe best-effort */ }
@@ -379,7 +405,7 @@ function crashOverlay(msg) {
   }
   const el = document.createElement('pre');
   el.id = 'crash';
-  el.style.cssText = 'position:fixed;left:8px;right:8px;bottom:8px;max-height:45%;overflow:auto;background:#300;color:#f88;font:12px monospace;padding:8px;border:1px solid #f66;z-index:20;white-space:pre-wrap;pointer-events:none';   // PL3: a report, not a wall - it sat over the bottom half of the canvas and ate every click that should have relocked the pointer
+  el.style.cssText = 'position:fixed;left:8px;right:8px;bottom:8px;max-height:45%;overflow:auto;background:#300;color:#f88;font:12px monospace;-webkit-font-smoothing:antialiased;letter-spacing:normal;padding:8px;border:1px solid #f66;z-index:20;white-space:pre-wrap;pointer-events:none';   // PL3: a report, not a wall - it sat over the bottom half of the canvas and ate every click that should have relocked the pointer
   el.textContent = `CRASH\n${msg}`;
   document.body.appendChild(el);
   return el;

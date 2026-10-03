@@ -62,9 +62,16 @@ test('V4: setCrimeCommitted is the ONE crime write, and a transformed lycanthrop
   morphSelf(p, { nowMinutes: 2000 });   // morph back (past the once-a-day gate)
   setCrimeCommitted(p, 4);
   assert.equal(p.crimeCommitted, 4, 'back in human form the law returns');
-  // and no scene writes the field directly any more
-  for (const f of ['src/scenes/world.js', 'src/scenes/exterior.js', 'src/scenes/cityGuards.js']) {
-    assert.ok(!/playerEntity\.crimeCommitted = [^0]/.test(read(f)), `${f} routes through the setter`);
+  // and no scene writes the field directly - but for DFU's own one: WERE-LEVY (FB 2026-09-29g), the passive levy of
+  // PlayerEntity.cs:502/:509 assigns the FIELD, SuppressCrime never asked. REP1 (the reputation overhaul): PIN MOVED -
+  // the levy is retired from both hosts, and its Conspiracy is the watch's stop's now: refused (standingHost.js) or
+  // answered by coming quietly (arrestFlow.js surrenderToChallenge) - the field, as the levy wrote it (the stop itself
+  // never asks a transformed beast)
+  const LEVY = /\n\s*(?:if \(crimeId\(\) === 0\) )?playerEntity\.crimeCommitted = CRIMES\.Criminal_Conspiracy;   \/\/ the levy's own write \(WERE-LEVY: the field\)/g;
+  for (const [f, n] of [['src/scenes/world.js', 0], ['src/scenes/exterior.js', 0], ['src/scenes/cityGuards.js', 0], ['src/scenes/standingHost.js', 1], ['src/scenes/arrestFlow.js', 1]]) {
+    const src = read(f), levies = src.match(LEVY)?.length ?? 0;
+    assert.equal(levies, n, `${f}: ${n ? 'the one levy, on the field' : 'no levy'}`);
+    assert.ok(!/playerEntity\.crimeCommitted = [^0]/.test(src.replace(LEVY, '')), `${f} routes every other write through the setter`);
   }
   // AUDIT 63 F33 generalized Pickpocket to DFU's one method with an
   // optional target, and PlayerActivate.cs:1655 gates the crime write on

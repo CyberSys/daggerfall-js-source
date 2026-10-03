@@ -92,7 +92,7 @@ export function mapSides(l, prov, targetsFor) {
  *   - An ESCAPED test literal (`world\.js:N`) whose number the docs carry
  *     ONLY on struck lines holds too, because the literal exists to MATCH
  *     that struck row and the two must stay in step. That is `holdEscaped`,
- *     and it is what bit twice in one hour: `world.js:4117-4120` names a
+ *     and it is what bit twice in one hour: `world.js:4144-4147` names a
  *     seam FX1 deleted, citedrift.test.js quotes it in NO_LINE_LEFT, and
  *     each merge moved the quote away from the row it has to match.
  *
@@ -158,7 +158,13 @@ function main(argv) {
         if (!/:\d/.test(l)) continue;
         const prov = provenance(l, theirs, ours);
         if (!prov) continue;
-        for (const side of sidesOf(prov)) for (const [t, cfg] of targetsOf[side]) {
+        // THE MERGE OF MAIN INTO L10N (2026-10-03): only the targets the line NAMES, as pass two asks - a cite (and a
+        // bare continuation after it) is into a file by its name, so every other target sees nothing here. Walking all
+        // of them made this pass lines x targets: a 1,334-commit merge (2,000-odd targets) ran for most of an hour.
+        const named = new Set([...l.matchAll(/([\w.-]+?)(\\?)\.(js|mjs|md|sh):\d+/g)].map((m) => `${m[1]}.${m[3]}`));
+        if (/Port-Ledger row|Ledger rows?|ledger rows?/.test(l)) named.add('Port-Ledger.md');
+        for (const side of sidesOf(prov)) for (const name of named) for (const t of byBase[side].get(name) ?? []) {
+          const cfg = targetsOf[side].get(t);
           if (t === doc) continue;
           for (const { a, status, escaped } of mapLine(l, t, { ...cfg, moveStruck, ambiguousBare: byBase[side].get(basename(t)).length > 1 }).seen) {
             if (escaped) continue;

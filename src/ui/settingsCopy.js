@@ -33,7 +33,7 @@ export const LABELS = Object.freeze({
   "Controls/JoystickCursorSensitivity": "Gamepad Cursor Speed",
   "Controls/JoystickDeadzone": "Gamepad Stick Deadzone",
   "Controls/JoystickLookSensitivity": "Gamepad Look Speed",
-  "Controls/JoystickMovementThreshold": "Gamepad Movement Deadzone",
+  "Controls/JoystickMovementThreshold": "Gamepad Movement Threshold",
   "Controls/MouseLookSensitivity": "Mouse Sensitivity",
   "Controls/MouseLookSmoothingFactor": "Look Smoothing",
   "Controls/MovementAcceleration": "Gradual Start And Stop",
@@ -311,6 +311,7 @@ export const INSTEAD = Object.freeze({
 /** The one-line status a row's tier earns, shown in the help panel. */
 export const TIER_TEXT = Object.freeze({
   live: 'This works now.',
+  restart: 'Takes effect the next time the app starts.',   // FPS-VSYNC: the desktop shell reads it at launch
   stored: 'Your choice is saved, but nothing reads it yet.',
   unavailable: 'Fixed here - it cannot be changed in this port.',
 });

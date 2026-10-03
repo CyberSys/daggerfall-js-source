@@ -75,10 +75,10 @@ export const INTERIM_WEAPON = Object.freeze({
  * The verbatim hit rule against one foe. `inView` and `losClear` are
  * provided by the caller (projection + collider live scene-side).
  */
-/** WeaponManager.cs:343 - Random.Range((int)UpRight, (int)DownRight + 1)
- *  over MouseDirections {None, UpLeft, Up, UpRight, Left, Right,
- *  DownLeft, Down, DownRight}: indices 3..8. */
-export const CLICK_ATTACK_DIRECTIONS = Object.freeze(['UpRight', 'Left', 'Right', 'DownLeft', 'Down', 'DownRight']);
+// WeaponManager.cs:343's click draw lives in characters/weaponStates.js beside the gesture's own ways (AUDIT
+// TOUCH-BUTTONS A7: the touch Attack button draws from it too, and the door's menu reads that module)
+import { CLICK_ATTACK_DIRECTIONS } from '../characters/weaponStates.js';
+export { CLICK_ATTACK_DIRECTIONS };
 
 export function playerMeleeCanHit(dist, inView, losClear) {
   return dist <= WEAPON_REACH && inView && losClear;
@@ -254,6 +254,15 @@ export class PlayerWeapon {
     return t !== WEAPON_TYPES.Melee && t !== WEAPON_TYPES.None;
   }
 
+  /** DISC28-D (Discord: "the speed attribute only affects the third-person animation, not the first-person swing
+   *  rate"): the swing clock's Speed is the player's LIVE Speed, read on every step - FPSWeapon.GetAnimTickTime
+   *  (FPSWeapon.cs:549-556) asks GetMeleeWeaponAnimTime(player.Stats.LiveSpeed ...) on each UpdateWeapon (:431), and
+   *  the bow's cooldown asks the same stat. The rig hands a reader; a plain number is still accepted (a fixed-speed
+   *  weapon, every test that pins the formula at 50). The weapon used to take a NUMBER once, and the rig gave it none,
+   *  so every player swung at the default 50 while the third-person body and the widget's clone read the real stat. */
+  get liveSpeed() { return this._liveSpeed(); }
+  set liveSpeed(v) { this._liveSpeed = typeof v === 'function' ? v : () => v; }
+
   constructor({ liveSpeed = 50, weapon = INTERIM_WEAPON } = {}) {
     this.machine = createWeaponMachine(false);
     this.liveSpeed = liveSpeed;
@@ -368,7 +377,7 @@ export class PlayerWeapon {
    * `sum over both hands of (EquipDelayTimes[GroupIndex] - 500)`,
    * divided by 1.7, onto the hand now in use.
    *
-   * PORT NOTE (the CH3 collapse, equip.js:67): DFU keeps a countdown
+   * PORT NOTE (the CH3 collapse, equip.js:72): DFU keeps a countdown
    * PER HAND and this bill lands on the used one; the port sums both
    * into entity.equipCountdown, so the bill lands on the one clock.
    * Same delay, same block on the swing - only the per-hand split is

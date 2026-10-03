@@ -48,8 +48,8 @@ test('AUDIT39 #29: the start-marker test runs BEFORE the mode/collider commit, a
   assert.ok(at > 0, 'the refusal is still there');
   // DFU: `if (!dungeon.StartMarker) { Destroy(newDungeon); RaiseOnFailedTransition(...); return; }`
   // BEFORE EnableDungeonParent/MovePlayerToMarker (PlayerEnterExit.cs:921-934).
-  const refusal = WM.slice(at, at + 200);
-  assert.match(refusal, /abandonContext\(ctx\);\n\s+dungeonCtx = null;\n\s+return false;/,   // AUDIT 68: the ONE abandon, which destroys
+  const refusal = WM.slice(at, at + 320);   // OH-D: the failed-transition raise stands in it now
+  assert.match(refusal, /abandonContext\(ctx\);\n\s+dungeonCtx = null;\n\s+host\.onFailedTransition\?\.\('ToDungeonInterior'\);[^\n]*\n\s+return false;/,   // AUDIT 68: the ONE abandon, which destroys; OH-D: then RaiseOnFailedTransition, DFU's own order
     'Destroy + the handle cleared - the built layout must not leak');
   const commit = WM.indexOf("setMode('dungeon');", at);   // AUDIT-WH2 L1-F5: `mode` has one writer now; the ORDER this pin holds is unchanged
   assert.ok(commit > at, 'the three commits sit BELOW the refusal, not above it');
@@ -322,7 +322,7 @@ test('AUDIT39 #65: the interior arrow update takes the four impact options it ne
   assert.match(call, /onFoeHit: \(m, t\) => interiorFoes\?\.arrowHitFoe\(m, t\),/);
   // ...and the PLAYER's shaft damages through the pool that owns the
   // billboard, the same `_encounter` split this host's sinks take -
-  // world.js:16354's own law, so a killed watchman still runs the crime
+  // world.js:24903's own law, so a killed watchman still runs the crime
   // and the corpse.
   assert.match(call, /dealDamage: \(f, d\) => \(f\._encounter\n\s+\? interiorFoes\?\.damageFoe\(f, d, player\.pos, m\.dir, \{ kind: 'arrow' \}\)[^\n]*\n\s+: interiorGuards\?\.hurtGuard\(f, d, player\.pos, m\.dir\)\),/);
   // the player-side arm of the same call

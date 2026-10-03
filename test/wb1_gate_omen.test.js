@@ -5,14 +5,14 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import {
-  gateTimes, gateAt, gatePhase, gameDayAt, isGateDay, gateCountdown, countdownText, gateStands, gateMarked,
+  gateTimes, gateAt, gatePhase, gameDayAt, isGateDay, gateCountdown, countdownText, countdownWords, gateStands, gateMarked,
   gateRoomKey, isGateRoom, gateDayOfRoom, gateAdmits, gateHolds, gateHash, gateRoll, pickGateRegion, pickGatePixel,
   gateSpotLocal, omenRing, gateBossOf, GATE_BOSSES, PIXEL_M, GATE_DAY_MINUTES, GATE_SPOT_SPREAD_M, OMEN_RING_PIXELS,
-  GATE_RISE_MS, GATE_COLLAPSE_MS, GATE_EVERY_DAYS, omenLine, riseLine, openLine, sealLine, wrathLine,
+  GATE_RISE_MS, GATE_COLLAPSE_MS, GATE_EVERY_DAYS, riseLine, wrathLine, marksLine, gateModsOf,
 } from '../src/net/gateLaw.js';
 import { scanGatePixels, findGateSite, gateRegions, politicClaimed, gateSeaPixel, GATE_TOWN_MIN_PX, GATE_TOWN_MAX_PX, GATE_TOWN_TYPES } from '../src/systems/gateSite.js';
 import { isWaterPixel } from '../src/ui/overworldModel.js';
-import { createGateOmen, insideGateRing, gateSceneXZ } from '../src/systems/gateOmen.js';
+import { createGateOmen, insideGateRing, gateSceneXZ, omenTimeLine, openTimeLine, sealTimeLine, riteOmenLine } from '../src/systems/gateOmen.js';   // TIME1: the lines that name a time say local time alone
 import { readGateMark, gateMarkKey, gateRingKey, gateRingTexels, GATE_RING_BAND } from '../src/ui/gateMapMark.js';
 import { paintGateRing } from '../src/ui/inkMap.js';
 import { hash32, spawnsDungeon, WORLD_SALT } from '../src/world/spawnedDungeons.js';
@@ -86,7 +86,15 @@ test('WB1 the countdown: to the opening while sealed, to the seal while open, ro
   const t = gateTimes(410);
   assert.deepEqual(gateCountdown(t, t.riseAt + 30_000), { to: 'open', ms: t.openAt - t.riseAt - 30_000 });
   assert.deepEqual(gateCountdown(t, t.openAt + 1000), { to: 'seal', ms: t.sealAt - t.openAt - 1000 });
-  assert.equal(gateCountdown(t, t.sealAt), null);
+  // GATE-COLLAPSE (2026-09-28, Mac: "Count down to collapse"): sealed for the night, it counts to the wrath's collapse -
+  // and not past it: collapsing (the wrath, or a kill inside) and gone count nothing
+  assert.deepEqual(gateCountdown(t, t.sealAt), { to: 'collapse', ms: t.wrathAt - t.sealAt });
+  assert.deepEqual(gateCountdown(t, t.sealAt + 61_000), { to: 'collapse', ms: t.wrathAt - t.sealAt - 61_000 });
+  assert.equal(gateCountdown(t, t.wrathAt), null, 'collapsing');
+  assert.equal(gateCountdown(t, t.sealAt + 61_000, gatePhase(t, t.sealAt + 61_000, t.sealAt + 30_000)), null, 'a kill after the seal: collapsing, nothing to count');
+  assert.equal(gateCountdown(t, t.wrathAt + GATE_COLLAPSE_MS), null, 'gone');
+  assert.deepEqual([{ to: 'open', ms: 247_000 }, { to: 'seal', ms: 9_000 }, { to: 'collapse', ms: 372_000 }, null].map(countdownWords),
+    ['opens in 4:07', 'seals in 0:09', 'collapses in 6:12', null], 'one home for the words');
   assert.equal(countdownText(247_000), '4:07');
   assert.equal(countdownText(9_000), '0:09');
   assert.equal(countdownText(500), '0:01', 'half a second left reads a second, never 0:00');
@@ -255,18 +263,23 @@ function omenOver(day, site = { place: 'Copperham, Wrothgarian Mountains', near:
 test('WB1 the chat: each moment\'s line ONCE, in order, and a late arrival hears where the gate stands now', () => {
   const { t, clock, lines, omen } = omenOver(600);
   for (let ms = clock.now; ms <= t.wrathAt + GATE_COLLAPSE_MS + 5000; ms += 1000) { clock.now = ms; omen.frame(); }
-  assert.equal(lines.length, 5, lines.join('\n'));
-  assert.equal(lines[0], omenLine({ place: 'Copperham, Wrothgarian Mountains', at: `L${600 * 1440 + 1200}` }));
-  assert.match(lines[0], /^The sky burns over the wilds near Copperham, Wrothgarian Mountains\. An Oblivion Gate opens there at 20:00 \(L\d+ your time\)/);
-  assert.equal(lines[1], riseLine({ near: 'Copperham', left: '5:00' }));
-  assert.equal(lines[2], openLine({ near: 'Copperham', at: `L${600 * 1440 + 1320}` }));
-  assert.equal(lines[3], sealLine({ near: 'Copperham' }));
-  assert.equal(lines[4], wrathLine({ near: 'Copperham', boss: 'Valkynaz Ruhn' }));
-  // a player arriving 90 s into the sealed wait hears the rise line with what is LEFT, and nothing before it
+  assert.equal(lines.length, 7, lines.join('\n'));
+  assert.equal(lines[0], omenTimeLine({ place: 'Copperham, Wrothgarian Mountains', at: `L${600 * 1440 + 1200}` }));
+  // TIME1: the event clock's game time ("at 20:00") is gone - the sky the player sees no longer keeps it
+  assert.match(lines[0], /^The sky burns near Copperham, Wrothgarian Mountains\. Dagon's faithful open a breach at L\d+ your time\.$/);   // WB13b
+  assert.equal(lines[1], riteOmenLine(), 'WB12d: the faithful\'s rite, right after the omen (AUDIT WB12d D3: its "nearby" the breach just named) - once');
+  assert.equal(lines[2], marksLine({ boss: 'Valkynaz Ruhn', md: gateModsOf(600) }), 'WB8c: tonight\'s marks, beside the omen - once');
+  assert.equal(lines[3], riseLine({ near: 'Copperham', left: '5:00' }));
+  assert.equal(lines[4], openTimeLine({ near: 'Copperham', at: `L${600 * 1440 + 1320}` }));
+  assert.equal(lines[5], sealTimeLine({ near: 'Copperham', at: `L${600 * 1440 + 1440}` }));
+  assert.match(lines[5], /^The Covenant has sealed Dagon's Breach near Copperham\. It collapses at L865440 your time\.$/, 'GATE-COLLAPSE: the seal says when it goes - the wrath; TIME1: in local time alone');
+  assert.equal(lines[6], wrathLine({ near: 'Copperham', boss: 'Valkynaz Ruhn' }));
+  // a player arriving 90 s into the sealed wait hears the rise line with what is LEFT, and nothing before it - and
+  // (WB8c) tonight's marks beside it
   const late = omenOver(601);
   late.clock.now = late.t.riseAt + GATE_RISE_MS + 90_000;
   late.omen.frame(); late.omen.frame();
-  assert.deepEqual(late.lines, [riseLine({ near: 'Copperham', left: countdownText(late.t.openAt - late.clock.now) })]);
+  assert.deepEqual(late.lines, [riseLine({ near: 'Copperham', left: countdownText(late.t.openAt - late.clock.now) }), riteOmenLine(), marksLine({ boss: 'Valkynaz Ruhn', md: gateModsOf(601) })]);   // WB12d: and the rite, while it holds - right after the rise (AUDIT WB12d D3)
 });
 
 test('WB1 the chat: a fallen boss\'s gate says no wrath, and a host with no map data says nothing at all', () => {
@@ -274,7 +287,7 @@ test('WB1 the chat: a fallen boss\'s gate says no wrath, and a host with no map 
   clock.now = t.openAt + 1000; omen.frame();
   fall(t.openAt + 60_000);
   for (let ms = t.openAt + 60_000; ms <= t.openAt + 60_000 + GATE_COLLAPSE_MS + 1000; ms += 500) { clock.now = ms; omen.frame(); }
-  assert.deepEqual(lines, [openLine({ near: 'Copperham', at: `L${602 * 1440 + 1320}` })], 'the fall is the relay\'s line to say (WB3)');
+  assert.deepEqual(lines, [openTimeLine({ near: 'Copperham', at: `L${602 * 1440 + 1320}` }), marksLine({ boss: 'Valkynaz Ruhn', md: gateModsOf(602) })], 'the fall is the relay\'s line to say (WB3); WB8c: the marks beside the first line');
   const blind = createGateOmen({ now: () => gateTimes(603).openAt, site: () => null, say: () => assert.fail('no site, no line') });
   assert.equal(blind.frame().phase, 'open');
   assert.equal(blind.mapMark(), null);
@@ -288,14 +301,21 @@ test('WB1 the map\'s mark and the compass: the ring while marked, its words coun
   clock.now = t.omenAt + 1000; omen.frame();
   const m = omen.mapMark();
   assert.deepEqual({ cx: m.cx, cy: m.cy, r: m.r, day: m.day }, { cx: 400.3, cy: 200.6, r: 2, day: 604 });
-  assert.equal(m.label, `Oblivion Gate - opens in ${countdownText(t.openAt - clock.now)}`);
+  assert.equal(m.label, `Dagon's Breach - opens in ${countdownText(t.openAt - clock.now)}`);
   assert.equal(omen.standing(), null, 'the omen marks the land before the gate stands on it');
   clock.now = t.openAt + 2000; omen.frame();
-  assert.match(omen.mapMark().label, /^Oblivion Gate - seals in 9:58$/);
+  assert.match(omen.mapMark().label, /^Dagon's Breach - seals in 9:58$/);
   const st = omen.standing();
   assert.deepEqual({ day: st.day, px: st.px, py: st.py, spot: st.spot, phase: st.phase, near: st.near }, { day: 604, px: 400, py: 200, spot: [409.6, 409.6], phase: 'open', near: 'Copperham' });
   assert.deepEqual(st.t, t, 'its times, for the pool\'s rise and collapse (WB2)');
   assert.equal(st.fellAt, null, 'no fall said');
+  // GATE-COLLAPSE (the field's screenshot: the ring labelled "Oblivion Gate" and nothing else, sealed for the night):
+  // the sealed hours count down to the collapse, and the ring goes with the gate
+  clock.now = t.sealAt + 2000; omen.frame();
+  assert.match(omen.mapMark().label, /^Dagon's Breach - sealed, collapses in 9:58$/);
+  assert.equal(omen.mapMark().phase, 'closed');
+  clock.now = t.wrathAt + GATE_COLLAPSE_MS; omen.frame();
+  assert.equal(omen.mapMark(), null, 'gone: no ring');
   // the compass: inside the ring (with a pixel's slack), and the spot added to the pixel's corner, north +z
   assert.ok(insideGateRing(m, 400, 200) && insideGateRing(m, 402, 202) && !insideGateRing(m, 404, 200));
   assert.deepEqual(gateSceneXZ({ spot: [10, 20] }, [100, 5, -300]), [110, -280]);
@@ -308,8 +328,8 @@ test('WB1 the maps\' reading: a bad mark is none, the held map repaints on the w
   assert.equal(readGateMark(() => ({ cx: NaN, cy: 1, r: 2 }), size), null);
   assert.equal(readGateMark(() => ({ cx: 1, cy: 1, r: 0 }), size), null);
   assert.equal(readGateMark(() => ({ cx: 2000, cy: 1, r: 2 }), size), null, 'off the map');
-  const a = readGateMark(() => ({ day: 5, cx: 10.5, cy: 20.25, r: 2, label: 'Oblivion Gate - opens in 4:00', phase: 'sealed' }), size);
-  const b = { ...a, label: 'Oblivion Gate - opens in 3:59' };
+  const a = readGateMark(() => ({ day: 5, cx: 10.5, cy: 20.25, r: 2, label: 'Dagon\'s Breach - opens in 4:00', phase: 'sealed' }), size);
+  const b = { ...a, label: 'Dagon\'s Breach - opens in 3:59' };
   assert.notEqual(gateMarkKey(a), gateMarkKey(b), 'the held map shows the countdown');
   assert.equal(gateRingKey(a), gateRingKey(b), 'the classic page draws no words and does not rebuild for them');
   const texels = gateRingTexels(a, 0, 0, 320, 160);
@@ -324,10 +344,10 @@ test('WB1 the maps\' reading: a bad mark is none, the held map repaints on the w
 test('WB1 the ink: the ring in map pixels, never under ten paper pixels, with its words over its top', () => {
   const calls = [];
   const ctx = new Proxy({}, { get: (o, k) => (k in o ? o[k] : (...args) => calls.push([k, ...args])), set: (o, k, v) => { o[k] = v; return true; } });
-  paintGateRing(ctx, { ox: 0, oy: 0, scale: 12 }, { cx: 10, cy: 5, r: 2, label: 'Oblivion Gate - opens in 1:00' }, 0.5);
+  paintGateRing(ctx, { ox: 0, oy: 0, scale: 12 }, { cx: 10, cy: 5, r: 2, label: 'Dagon\'s Breach - opens in 1:00' }, 0.5);
   const arcs = calls.filter(([k]) => k === 'arc');
   assert.deepEqual(arcs[0].slice(1, 4), [120, 60, 24], 'the area: two map pixels at twelve paper pixels each');
-  assert.ok(calls.some(([k, text]) => k === 'fillText' && text === 'Oblivion Gate - opens in 1:00'));
+  assert.ok(calls.some(([k, text]) => k === 'fillText' && text === 'Dagon\'s Breach - opens in 1:00'));
   calls.length = 0;
   paintGateRing(ctx, { ox: 0, oy: 0, scale: 1 }, { cx: 10, cy: 5, r: 2 }, 0);
   assert.equal(calls.find(([k]) => k === 'arc')[3], 10, 'the whole bay on the sheet: still findable');
@@ -354,7 +374,7 @@ test('WB1 the seams: online alone, the omen before the dead return, both maps ha
   const page = read('src/ui/travelMapWindow.js');
   assert.match(page, /gateRingTexels\(gate, originX, originY, width, height\)\) plot\(x, y, gatePx\)/);
   assert.match(page, /gateRingKey\(readGateMark\(this\.deps\.gate,/, 'the page rebuilds when the ring comes, goes or moves');
-  // the law is the relay's to import later (WB3): it reaches for wire.js alone
+  // the law is the relay's to import later (WB3): it reaches for wire.js and (WB8b) the marks' leaf alone
   const law = read('src/net/gateLaw.js');
-  assert.deepEqual([...law.matchAll(/^import .* from '([^']+)'/gm)].map((m) => m[1]), ['./wire.js']);
+  assert.deepEqual([...law.matchAll(/^import .* from '([^']+)'/gm)].map((m) => m[1]), ['./wire.js', './gateMods.js'], 'WB8b: and the marks\' leaf, which imports nothing');
 });

@@ -330,10 +330,13 @@ test('WA1 the host: the events where DFU raises them, the coroutine\'s clock, th
   assert.ok(board.indexOf('hudFade.smashHUDToBlack();') < board.indexOf('await _teleportToPixel(') && board.indexOf('hudFade.fadeHUDFromBlack();') > board.indexOf('await _teleportToPixel('), 'black, the teleport, the fade back');
   assert.match(w, /function shipTransportMode\(\) \{\n\s+if \(\(modes\?\.mode \?\? 'exterior'\) !== 'exterior'\) modes\?\.forceExitToExterior\(\);\n\s+return boardOrDisembark\(\);/);
   assert.match(w, /modData: \{ \[HCC_VENDOR\]: hccRuntime\.getSaveData\(\), \.\.\.modSaveRecords\(\) \}/);
-  assert.match(w, /if \(hccRecord\) hccRuntime\.restoreSaveData\(hccRecord\);\n\s+restoreModSaveRecords\(extras\.modData\);/);
+  assert.match(w, /if \(hccRecord\) hccRuntime\.restoreSaveData\(hccRecord\);\n\s+restoreModSaveRecords\(extras\.modData, csaModLoadFailed\);/);   // CSA-D: with SaveLoadManager's per-mod catch
   assert.match(w, /if \(!_loadedGame\) newGameModSaveRecords\(\);/);
   const d = read('src/scenes/dungeonContext.js');
   assert.match(d, /opts\.modSaveLoad\?\.\(extras\.modData \?\? null\);[^\n]*\n\s+opts\.horseCartLoad\?\./);
+  // OH-D: and worldModes hands both into the dungeon's build - the host's two seams stopped there, so a dungeon save
+  // carried no registered mod's record
+  assert.match(read('src/scenes/worldModes.js'), /modSaveRecords: \(\) => host\.modSaveRecords\?\.\(\) \?\? \{\},\n\s+modSaveLoad: \(modData\) => host\.modSaveLoad\?\.\(modData\),/);
   assert.match(read('src/scenes/shared.js'), /installWarmAshesShips\(\);[^\n]*\n\s+installDiverseWeaponsIcons\(\);/);
 });
 

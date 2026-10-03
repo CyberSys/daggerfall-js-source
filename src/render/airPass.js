@@ -98,14 +98,15 @@ import { CLOUD_SHADOW_GLSL } from './cloudShadow.js';   // VC6c: a covered sun t
 import { BAYER_GLSL, BAYER_MEAN } from './orderedDither.js';   // EL6: the port's one Bayer - the dither at the byte, the AO's rotation
 import { spherePlanes, recordVisible, subMeshVisible, batchVisible, ZERO_ORIGIN } from './bounds.js';   // EL5: the emission replay culls by the records' spheres too (a leaf's import: bounds.js touches no GL)
 import { billboardKey } from './billboardKey.js';   // AUDIT 68 S16-bbkey-stale-shadow-reach: re-keyed here, however the batch reached the records
+import { pageParam } from '../systems/pageQuery.js';   // PERF-URL: the page's query, parsed once a search
 
 /** The kill door: `?air=off` keeps EL1 and EL2 and drops the three effects. */
 export function airOn(search = globalThis.location?.search ?? '') {
-  return new URLSearchParams(search).get('air') !== 'off';
+  return pageParam('air', search) !== 'off';   // PERF-URL
 }
 /** EL8: the contact shadows' door - `?contact=off` (the air's shape). */
 export function contactOn(search = globalThis.location?.search ?? '') {
-  return new URLSearchParams(search).get('contact') !== 'off';
+  return pageParam('contact', search) !== 'off';   // PERF-URL
 }
 
 /** The AO image's scale of the world viewport, and the bloom's and shafts'. */
@@ -739,12 +740,18 @@ float horizonAt(vec3 p, vec3 n, vec3 v, vec2 uv, vec2 dir, float radiusPx, float
 }
 void main() {
   float d0 = depthAt(vUV);
-  if (d0 >= 0.99999) { outColor = vec4(1.0); return; }
   vec3 p = posAt(vUV);
+  // AUDIT FLICKER F3: THE DERIVATIVES BEFORE ANY RETURN. A quad on the skyline mixes sky and geometry, and a derivative
+  // taken after the sky's pixels returned is undefined (GLSL ES 3.00 8.9) - the GPU decides what the partner holds: 9
+  // of 120 rim pixels differed between three legal behaviours, NaN among them. Taken here, every quad computes them
+  // whole; a degenerate cross faces the eye.
+  vec3 pdx = dFdx(p), pdy = dFdy(p);
+  if (d0 >= 0.99999) { outColor = vec4(1.0); return; }
   // AUDIT HQ1: the quad's derivative stands. A normal from the nearer neighbour each way (the silhouette-edge
   // mitigation) was tried and read WORSE on SwiftShader (the crate's two flanks 0.71 / 0.95 against 0.95 / 0.96
   // here); the depth-aware blur keeps an edge quad's normal from smearing past its edge.
-  vec3 n = normalize(cross(dFdx(p), dFdy(p)));
+  vec3 cr = cross(pdx, pdy);
+  vec3 n = dot(cr, cr) > 1e-30 ? normalize(cr) : -normalize(p);
   if (dot(n, -p) < 0.0) n = -n;   // a normal faces the eye whatever the projection's handedness did to the derivatives
   vec3 v = normalize(-p);
   // the radius on screen, in the AO image's uv: the world radius over the view distance, through the focal term
@@ -1309,7 +1316,7 @@ export class AirPass {
         // the march's shadow block, the names ShadowPass.upload binds by (the sun's are null here - the shader declares them and reads none)
         this.programs.vol = vol;
         vol.shadow = {
-          sunShadow: u(p, 'uSunShadow'), sunVP: u(p, 'uSunVP'), sunParams: u(p, 'uSunShadowParams'), sunTexel: u(p, 'uSunTexel'),
+          sunShadow: u(p, 'uSunShadow'), sunVP: u(p, 'uSunVP'), sunParams: u(p, 'uSunShadowParams'), sunTexel: u(p, 'uSunTexel'), sunOrigin: u(p, 'uSunOrigin'),
           pointShadow: u(p, 'uPointShadow'), pointParams: u(p, 'uPointShadowParams'), shadowIndex: u(p, 'uShadowIndex'), casterOf: u(p, 'uCasterOf'), pointShadowLo: u(p, 'uPointShadowLo'),
         };
       } catch (e) {
@@ -1465,6 +1472,41 @@ export class AirPass {
   _deleteFrame(k) {
     const gl = this.gl;
     gl.deleteTexture(k.tex); for (const d of k.depths) gl.deleteTexture(d); for (const f of k.fbos) gl.deleteFramebuffer(f);
+    if (k.aoDepth) { gl.deleteTexture(k.aoDepth); gl.deleteFramebuffer(k.aoFbo); }   // GRASS-LIT
+  }
+  /**
+   * GRASS-LIT (2026-10-01): THE OCCLUSION'S DEPTH, TAKEN BEFORE THE GRASS. The AO is read off the frame's depth at the
+   * resolve (EL6), and the grass writes that depth - so every blade, a sixty-centimetre card standing out of the
+   * ground, read as a crease: the AO darkened the field and the ground round each tuft by its 0.75 resolve, and with
+   * `?air=off` the same tufts drew the ground's own colour (tools/grassLookProbe.mjs photographs both). The host takes
+   * the depth HERE, just before the grass draws (Renderer.snapshotAoDepth), and the AO and its blur read this copy:
+   * the world occludes as it did, the grass neither takes the world's occlusion as its own nor casts any, and the
+   * blades still hide one another and are hidden by the depth they write. One depth blit a world frame that has grass,
+   * none otherwise (the next frame's prepare drops the copy). A no-op with no frame bound.
+   */
+  snapshotAoDepth() {
+    const F = this.frame;
+    if (!F || !this.f || !this.fresh) return false;
+    const gl = this.gl;
+    if (!F.aoDepth) {
+      F.aoDepth = gl.createTexture();
+      gl.bindTexture(gl.TEXTURE_2D, F.aoDepth);
+      gl.texStorage2D(gl.TEXTURE_2D, 1, gl.DEPTH_COMPONENT24, F.w, F.h);   // the frame's own format, so the blit is legal
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+      gl.bindTexture(gl.TEXTURE_2D, null);
+      F.aoFbo = gl.createFramebuffer();
+      gl.bindFramebuffer(gl.FRAMEBUFFER, F.aoFbo);
+      gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.TEXTURE_2D, F.aoDepth, 0);
+    }
+    gl.bindFramebuffer(gl.READ_FRAMEBUFFER, F.fbo);
+    gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, F.aoFbo);
+    gl.blitFramebuffer(0, 0, F.w, F.h, 0, 0, F.w, F.h, gl.DEPTH_BUFFER_BIT, gl.NEAREST);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, F.fbo);   // the frame's own, read and draw, as the world left it
+    F.aoTaken = true;
+    return true;
   }
   /** PERF-SCALE (the review): free a slot's frame image - the world stopped drawing into an image of its own (retro
    *  off, the render scale back at 100%; Renderer._dropWorldImage), so the image-sized frame is not held for the rest
@@ -1622,21 +1664,23 @@ export class AirPass {
       gl.useProgram(prog.p);
       gl.bindVertexArray(this.quadVao);
     };
-    const depthOn = (prog) => {   // the depth block's four uniforms, the depth on unit 0
+    const depthOn = (prog, depth = F.depth) => {   // the depth block's four uniforms, the depth on unit 0
       gl.activeTexture(gl.TEXTURE0);
-      gl.bindTexture(gl.TEXTURE_2D, F.depth);
+      gl.bindTexture(gl.TEXTURE_2D, depth);
       gl.uniform1i(prog.uDepth, 0);
       gl.uniform4fv(prog.uProjInfo, this.projInfo);
       gl.uniform4fv(prog.uRect, this.rect);
       gl.uniform2fv(prog.uCanvas, this.canvas);
     };
     // 1. the ambient occlusion, then its box blur (exactly one tile of the ordered rotation)
+    const aoDepth = F.aoTaken && F.aoDepth ? F.aoDepth : F.depth;   // GRASS-LIT: the depth before the grass, where it was taken
+    F.aoTaken = false;
     quad(this.programs.ao, T.ao);
-    depthOn(this.programs.ao);
+    depthOn(this.programs.ao, aoDepth);
     gl.uniform4fv(this.programs.ao.uAOParams, this.aoParams);
     gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
     quad(this.programs.box, T.aoBlur);
-    depthOn(this.programs.box);   // EL7: the blur reads the depth too - on unit 0; the AO on unit 1
+    depthOn(this.programs.box, aoDepth);   // EL7: the blur reads the depth too - on unit 0; the AO on unit 1 (GRASS-LIT: the AO's own)
     gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, T.ao.tex); gl.uniform1i(this.programs.box.uSrc, 1);
     gl.activeTexture(gl.TEXTURE0);
     gl.uniform2f(this.programs.box.uTexel, 1 / T.ao.w, 1 / T.ao.h);
@@ -1789,7 +1833,7 @@ export class AirPass {
         }
       } else if (r.kind === 2) {
         for (const b of r.batches) {
-          if (!b?.vao || b._dead || b.conceal) continue;
+          if (!b?.vao || b._dead || b.conceal || b.emissionOff) continue;   // CSA-B: a flat whose emission is black has nothing to bloom
           if (!batchVisible(planes, b)) continue;   // EL5
           const key = billboardKey(b);
           const emis = f.emissionTextures.get(key);

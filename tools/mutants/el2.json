@@ -128,8 +128,8 @@
  {
   "name": "glsl-point-off-dark",
   "file": "src/render/shadowPass.js",
-  "old": "  float far = P.w;\n  if (far <= 0.0) return 1.0;",
-  "new": "  float far = P.w;\n  if (far <= 0.0) return 0.0;",
+  "old": "float pointShadowAt(int k, vec3 wp, vec3 n) {\n  vec4 P = uPointShadowParams[k];\n  float far = P.w;\n  if (far <= 0.0) return 1.0;",
+  "new": "float pointShadowAt(int k, vec3 wp, vec3 n) {\n  vec4 P = uPointShadowParams[k];\n  float far = P.w;\n  if (far <= 0.0) return 0.0;",
   "tests": [
    "test/el2_shadows.test.js"
   ]
@@ -283,8 +283,8 @@
  {
   "name": "renderer-wire-casts",
   "file": "src/render/renderer.js",
-  "old": "    if (!wire && this._casting) this._shadows.recordMesh(mesh, modelMatrix, texRemap);   // EL2",
-  "new": "    if (this._casting) this._shadows.recordMesh(mesh, modelMatrix, texRemap);   // EL2",
+  "old": "    if (!wire && this._casting) this._shadows.recordMesh(mesh, modelMatrix, texRemap, 1 - (this._dissolve ?? 1));",
+  "new": "    if (this._casting) this._shadows.recordMesh(mesh, modelMatrix, texRemap, 1 - (this._dissolve ?? 1));",
   "tests": [
    "test/el2_shadows.test.js"
   ]

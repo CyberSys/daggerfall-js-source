@@ -11,7 +11,10 @@
 // THE SOURCE is BLOCKS.BSA's own town blocks (RMB): every building
 // interior's PROP models - the object type Daggerfall lays out as a
 // room's furniture (world/interiorLayout.js PROP_MODEL_TYPE) - and its
-// flats, the editor's markers (TEXTURE.199) excepted. A piece is in the
+// flats, the editor's markers (TEXTURE.199) excepted. HOME-DOORS
+// (2026-09-30): and its DOORS - the five models AddActionDoors hangs
+// between a building's rooms, a door placed hanging in a doorway
+// (systems/decorDoorways.js). A piece is in the
 // catalogue because Daggerfall put it in a room; nothing is invented and
 // nothing is carried over from a mod. The ladder is left out: placed, it
 // would stand in the room and not be climbed (the climb reads the
@@ -28,7 +31,8 @@
 // measures each piece's size (the price is by size, net/decorLaw.js).
 // ═══════════════════════════════════════════════════════════════════
 
-import { PROP_MODEL_TYPE } from '../world/interiorLayout.js';
+import { PROP_MODEL_TYPE, DOOR_MODEL_BASE_ID, DOOR_MODEL_COUNT } from '../world/interiorLayout.js';
+import { isDoorModel } from './decorDoorways.js';   // HOME-DOORS
 import { EDITOR_FLATS_ARCHIVE } from '../world/rmbFlats.js';
 import { LADDER_MODEL_ID } from '../player/enterExit.js';
 import { BED_MODELS } from './rrRealism.js';
@@ -38,16 +42,17 @@ import { HOUSE_CONTAINER_NAMES } from './worldTooltips.js';
 import { interiorLightProperties } from '../world/interiorLights.js';
 import { decorPrice } from '../net/decorLaw.js';
 import { localizedStrings } from './textManager.js';   // L10N3d: DFU's Internal_Strings, read in the player's language
+import { BULLETIN_BOARD_MODEL_ID } from '../world/rmbLayout.js';   // GUILD1e: the hall's board is Daggerfall's own
 
 /** A piece's KIND - the panel's filter - and what it reads as. */
 export const DECOR_KINDS = Object.freeze({
-  bed: 'Beds', storage: 'Storage', shelf: 'Shelves', furniture: 'Furniture',
+  bed: 'Beds', storage: 'Storage', shelf: 'Shelves', furniture: 'Furniture', door: 'Doors',   // HOME-DOORS
   light: 'Lights', clothing: 'Clothing', boxes: 'Boxes and bottles', arms: 'Arms and armour',
   books: 'Books and scrolls', misc: 'Odds and ends', treasure: 'Treasure', decor: 'Decorations',
 });
 /** A kind's own word for one piece of it, where the game gives none. */
 const KIND_ONE = Object.freeze({
-  bed: 'Bed', storage: 'Cupboard', shelf: 'Shelves', furniture: 'Furniture', light: 'Light', clothing: 'Clothing',
+  bed: 'Bed', storage: 'Cupboard', shelf: 'Shelves', furniture: 'Furniture', door: 'Door', light: 'Light', clothing: 'Clothing',
   boxes: 'Box', arms: 'Arms', books: 'Books', misc: 'Odds and ends', treasure: 'Treasure', decor: 'Decoration',
 });
 /** The flat archives Daggerfall files its interior dressing under (lootDataTables.js DROP_ICON_ARCHIVES names five of
@@ -64,6 +69,7 @@ const LIGHT_NAMES = Object.freeze({
 
 /** A model's kind. */
 export function modelKind(model) {
+  if (isDoorModel(model)) return 'door';   // HOME-DOORS: hung in a doorway, never stood on a floor
   if (BED_MODELS.includes(model)) return 'bed';
   if (isShopShelfModel(model)) return 'shelf';
   if (isHouseContainerModel(model)) return 'storage';
@@ -99,6 +105,12 @@ export function collectDecor(dfBlocks, into = new Map()) {
         const id = m.modelIdNum;
         if (!Number.isSafeInteger(id) || id <= 0 || id === LADDER_MODEL_ID) continue;
         add({ model: id, flat: null });
+      }
+      // HOME-DOORS: the doors Daggerfall hangs between its rooms - DaggerfallInterior's AddActionDoors model
+      for (const d of interior?.blockDoorRecords ?? []) {
+        const idx = d?.doorModelIndex;
+        if (!Number.isSafeInteger(idx) || idx < 0) continue;
+        add({ model: DOOR_MODEL_BASE_ID + (idx % DOOR_MODEL_COUNT), flat: null });
       }
       for (const f of interior?.blockFlatObjectRecords ?? []) {
         const a = f?.textureArchive;
@@ -157,6 +169,21 @@ export function decorCatalogue(collected) {
     count: e.count, storage: e.storage, light: e.light ? Object.freeze({ ...e.light, color: Object.freeze([...e.light.color]) }) : null,
   }));
 }
+
+/**
+ * GUILD1e (2026-09-30, Mac: "Finish the seats"; Seats-Arc 8.2: "the hall carries ... a private guild board"): THE HALL'S
+ * BOARD - Daggerfall's own board (rmbLayout.js BULLETIN_BOARD_MODEL_ID, a town's), offered in a guild's hall alone
+ * (`hall`), never in a home or a yard: a town's board stands outdoors, and nothing of Daggerfall's rooms carries one, so
+ * it is the one piece the catalogue holds that no room placed. Pressed in the hall, it opens the guild's own notes
+ * (scenes/worldModes.js activateDecor). Priced by its size, as every piece.
+ */
+export const HALL_BOARD_ENTRY = Object.freeze({
+  key: `m${BULLETIN_BOARD_MODEL_ID}`, model: BULLETIN_BOARD_MODEL_ID, flat: null, kind: 'furniture', name: 'Notice Board',
+  count: 0, storage: false, light: null, hall: true,
+});
+/** The catalogue a room offers: a hall's board in a hall's room alone; HOME-YARD: no door in a yard. */
+export const decorRoomEntries = (entries, room) => entries?.filter((e) => (!e.hall || (!!room?.hall && !room?.yard))
+  && !(room?.yard && e.kind === 'door')) ?? null;
 
 /** A piece's SIZE band, by its radius in metres - the panel's size filter. */
 export const DECOR_SIZES = localizedStrings({ small: 'Small', medium: 'Medium', large: 'Large' });

@@ -31,13 +31,28 @@
 // instead of constant damage taken they should get reduced stats in
 // day and get the bonus at night"; asked, "Day -20 / night +20"): THE
 // PORT'S DEPARTURE. The sun no longer burns a vampire. The curse's
-// stat advantages are the NIGHT's; from 06:00 to 18:00, wherever the
-// vampire stands, the same stats are 20 DOWN (vampireStatMod) - held
+// stat advantages are the NIGHT's; from 06:00 to 18:00, in the sun the
+// burn struck in - never under a roof or underground (FIELD BUGS
+// 2026-10-01b, vampireStatMod) - the same stats are 20 DOWN - held
 // where the stat is read so a day never zeroes one (statMods.js
 // liveStat: a live 0 kills). The skills' +30, holy ground's burn, the
 // feeding and the rest it gates, and the travel rules the sunDamage
 // flag still keys (no fast travel by day, arriving by night) stand
-// as DFU has them.
+// as DFU has them - for a bare head (VAMP-HOOD, below).
+//
+// VAMP-HOOD (2026-09-29, #suggestions, Starempire42: "adds the ability
+// to travel during the day if you a wearing a cloak or robe with a hood
+// up"; Sir McMobdon: "nice, good idea"; sent in by Mac): THE SECOND DEPARTURE.
+// The flag's travel rules ask racialSunAverse, never the flag: under
+// a raised hood - a cloak drawn hood up, or plain robes with theirs,
+// survival/temperature.js cloakState, the felt temperature's one hood
+// law - the sun does not reach the curse, so the map's door opens by
+// day and an arrival is not pushed to dusk. Online that is the whole
+// complaint: the shared clock's day is one real hour, and neither a
+// rest nor a trip moves that clock. The hood is the travel rules'
+// alone: the day's -20 is the street's sun on the stats (indoors and
+// underground there is none - FIELD BUGS 2026-10-01b), and a hood
+// leaves it.
 //
 // THE QUESTS went live in V2d (racialQuests.js): P0A01L00 on the
 // first 50% hit of the 38-day arm with hasStartedInitialVampireQuest
@@ -69,6 +84,9 @@ import { EFFECT_BITS, SPECIAL_ABILITY_BITS } from './specialAdvantages.js';   //
 import { SOUND } from './soundClips.js';   // V5: the gendered attack voices
 import { endVampireQuests } from './racialQuests.js';   // V2d: the cure's P0* tombstone sweep
 import { localizedText, localizedTable } from './textManager.js';   // L10N3d: DFU's Internal_Strings, read in the player's language
+import { cloakState } from './survival/temperature.js';   // VAMP-HOOD: the ONE "is the hood up" - the felt temperature's, never a second list
+import { isEnhanced } from './uiSkin.js';   // HOOD-SAID: the hint names the skin's own button
+import { playerInSunlight } from './passiveSpecials.js';   // FIELD BUGS 2026-10-01b: the day's -20 is the SUN's - IsPlayerInSunlight, the one seam every host registers
 
 /** VampirismEffect.VampirismCurseKey (:33). */
 export const VAMPIRISM_CURSE_KEY = 'Vampirism-Curse';
@@ -77,9 +95,19 @@ export const VAMPIRISM_CURSE_KEY = 'Vampirism-Curse';
  *  every stat but Intelligence, which only the Anthotis add - and
  *  +30 on six skills (no Swimming: the dead do not float better). */
 export const VAMPIRE_STAT_MOD = 20;
-/** VAMP-DAY: the curse's stat mod at a clock minute - DFU's +20 by night, the same 20 DOWN by day (06:00-18:00,
- *  isDayFromMinutes: the hour, never the sky or a roof). */
-export const vampireStatMod = (clockMinutes) => (isDayFromMinutes(clockMinutes) ? -VAMPIRE_STAT_MOD : VAMPIRE_STAT_MOD);
+/** VAMP-DAY: the curse's stat mod at a clock minute - DFU's +20 out of the sun, the same 20 DOWN in it (06:00-18:00,
+ *  outside).
+ *  FIELD BUGS 2026-10-01b (Mac: "Sunlight debuff applies in interior (Should be buffed in interiors) (Vampires)"): THE
+ *  DAY'S -20 IS THE SUN'S, NEVER THE HOUR'S ALONE. It read isDayFromMinutes - "the hour, never the sky or a roof" - so
+ *  at noon a vampire in a tavern, a guild hall or a crypt was 20 down where DFU gives him 20 up. The -20 took the
+ *  burn's place, and the burn was DamageFromSunlight (PassiveSpecialsEffect.cs:149-172), which strikes only
+ *  `if (GameManager.Instance.PlayerEnterExit.IsPlayerInSunlight)` (:168) - `IsDay && !IsPlayerInside &&
+ *  !PlayerEntity.InPrison` (PlayerEnterExit.cs:371), IsPlayerInside raised by a building's EnableInteriorParent (:1086)
+ *  and a dungeon's EnableDungeonParent (:1110). So the penalty asks that same flag through the seam every host
+ *  registers (passiveSpecials.js playerInSunlight: worldModes for the street and its buildings, dungeonContext for a
+ *  dungeon), and out of the sun - indoors, underground, in a cell, or by night - the vampire has what DFU gives him at
+ *  every hour: ApplyVampireAdvantages' +20 (VampirismEffect.cs:349-359). No bonus past it. */
+export const vampireStatMod = (clockMinutes) => (playerInSunlight(clockMinutes) ? -VAMPIRE_STAT_MOD : VAMPIRE_STAT_MOD);
 export const VAMPIRE_SKILL_MOD = 30;
 export const VAMPIRE_STATS = Object.freeze(['strength', 'willpower', 'agility', 'endurance', 'personality', 'speed', 'luck']);
 export const VAMPIRE_SKILLS = Object.freeze([
@@ -127,6 +155,17 @@ export const NOT_SATED_TEXT_ID = 36;
 export const SUNLIGHT_TRAVEL_TEXT = 'You cannot initiate fast travel during the day.';
 /** The refusal as the player reads it, for both of its callers. */
 export const sunlightTravelText = () => localizedText('sunlightDamageFastTravelDay', SUNLIGHT_TRAVEL_TEXT);
+/** VAMP-HOOD: the port's own line, said after DFU's refusal at the map's
+ *  door - the rule, where the sun's rule is met.
+ *  HOOD-SAID (FIELD BUGS 2026-09-30): AND THE BUTTON THAT DOES IT. The
+ *  line sent a player to raise a hood with no button of that name: the
+ *  pack's card offered Use, which stepped the cloak through its drawings
+ *  and drew nothing. The card carries Raise hood now (ui/enhancedInventory.js),
+ *  and the line names it. The classic window has no such button - its
+ *  Use on the doll steps DFU's drawings, the doll redrawn at each - so
+ *  on that skin the line says that. */
+export const VAMPIRE_HOOD_TEXT = 'Raise the hood of a cloak or robe to travel by day - Raise hood, on its card in the pack.';
+export const VAMPIRE_HOOD_TEXT_CLASSIC = 'Use a cloak or robe on your doll until its hood is up.';
 
 /** The live curse entry, or null. VU1 moved the DECLARATION into
  *  systems/racialLive.js - an import-free leaf - because
@@ -204,14 +243,15 @@ export function consumeVampirismPending(entity, { now = 0 } = {}) {
  * ConstantEffect (:97-107) + MagicRound (:109-113) at the round
  * cadence: both immunities, silver ALWAYS (no beast form to toggle
  * it), and the advantages re-applied - the Anthotis alone add
- * Intelligence (:295-296). VAMP-DAY: at the clock's hour - the
- * night's +20, the day's -20 on the same stats (`nowMinutes` is the
- * world clock, worldTick's `clockMinutes`).
+ * Intelligence (:295-296). VAMP-DAY: the sun's -20 on the same stats,
+ * DFU's +20 out of it - FIELD BUGS 2026-10-01b: by day only where the
+ * sun reaches, the host's roof read through vampireStatMod
+ * (`nowMinutes` is the world clock, worldTick's `clockMinutes`).
  */
-export function vampirismMagicRound(entity, { nowMinutes = 0 } = {}) {
+export function vampirismMagicRound(entity, { nowMinutes = 0, skyMinutes = nowMinutes } = {}) {
   const entry = liveVampirism(entity);
   if (!entry) return;
-  const mod = vampireStatMod(nowMinutes);
+  const mod = vampireStatMod(skyMinutes);   // LIVED1: VAMP-DAY's day and night are the world's sky; the thirst below is the character's own clock
   entry.statMods = {};
   for (const stat of VAMPIRE_STATS) entry.statMods[stat] = mod;
   if (entry.clan === VAMPIRE_CLANS.Anthotis) entry.statMods.intelligence = mod;
@@ -371,14 +411,25 @@ export function liveRaceTemplate(entity) {
 // existing consumers.
 export { isDayFromMinutes };
 
+/** VAMP-HOOD: whether the sun reaches a racial override - its SunDamage
+ *  flag (CreateCompoundRace), UNLESS the wearer's hood is up. Every
+ *  rule the flag keys asks this: the map's door below and the arrival
+ *  clamp (world.js sunAverse). The worn table is read as the survival
+ *  feed reads it, never minted by the read. */
+export function racialSunAverse(entity) {
+  if (!entity?.racialOverride?.sunDamage) return false;
+  return !cloakState(entity.equip?.slots ?? null).hood;
+}
+
 /** CheckFastTravel (:129-141), called where DFU calls it - at the
  *  travel map's own door (DaggerfallUI.cs:625): a sun-damaged
- *  override cannot fast travel by day. Answers null, or the refusal
- *  line for the host to speak. */
+ *  override cannot fast travel by day - VAMP-HOOD: bare-headed. Answers
+ *  null, or the refusal line for the host to speak and the hood's
+ *  `hint` to speak after it. */
 export function racialFastTravelBlock(entity, nowMinutes = 0) {
-  if (!entity?.racialOverride?.sunDamage) return null;
+  if (!racialSunAverse(entity)) return null;
   if (!isDayFromMinutes(nowMinutes)) return null;
-  return { text: sunlightTravelText() };
+  return { text: sunlightTravelText(), hint: isEnhanced() ? VAMPIRE_HOOD_TEXT : VAMPIRE_HOOD_TEXT_CLASSIC };   // HOOD-SAID: the skin's own button
 }
 
 /**

@@ -329,7 +329,7 @@ test('seducer: archive 284 carries the transform records [needs ARENA2_PATH]', {
   const { readFile } = await import('node:fs/promises');
   const { TextureFile } = await import('../src/formats/textureFile.js');
   const t = new TextureFile();
-  t.load(new Uint8Array(await readFile(`${process.env.ARENA2_PATH}/TEXTURE.284`)));
+  t.load(new Uint8Array(await readFile(`${process.env.ARENA2_PATH}/TEXTURE.284`)), 'TEXTURE.284');
   // The winged tables index records 20-23; the unwinged row uses 0-19.
   for (const record of [20, 21, 22, 23]) {
     assert.ok(record < t.recordCount, `TEXTURE.284 record ${record}`);

@@ -239,8 +239,11 @@ test('TI1 touch.js: the five buttons, the gate-by-hook dial, and the three route
   // the keys no OTHER live control still wants down - because a combo
   // binding shares its modifier with the stick's Run (the fixture is in
   // test/audit62_touch.test.js, executed both ways).
-  assert.match(s, /downAction\('Jump'\)[\s\S]{0,120}upCode\(c, liveNeeds\(\)\)/, 'jump, held, on Jump\'s live code');
-  assert.match(s, /downAction\('ReadyWeapon'\)[\s\S]{0,140}upCode\(c, liveNeeds\(\)\)/, 'sheathe, held, on ReadyWeapon\'s');
+  // TOUCH-BUTTONS: jump and sheathe are the corner's two default HOLD slots (ui/touchButtons.js), each held on its
+  // action's live code and lifted against liveNeeds() - the same arm for any held action a player puts there
+  assert.match(s, /if \(action\.kind === 'hold'\) \{\s*\n\s*b = button\(action\.glyph, \.\.\.at, \(\) => \{ slotHeld\.set\(b, downAction\(action\.id\)\); \}, \(\) => \{ const c = slotHeld\.get\(b\) \?\? null; slotHeld\.delete\(b\); upCode\(c, liveNeeds\(\)\); \}\);/, 'a held slot, on its action\'s live code');
+  // PIN MOVED (2026-10-01 part four, TOUCH-HOLD - Mac: "Interact button + knife Use"): and Interact, the third
+  assert.match(read('src/ui/touchButtons.js'), /TOUCH_BUTTON_DEFAULTS = Object\.freeze\(\{ touchButton1: 'Jump', touchButton2: 'ReadyWeapon', touchButton3: 'Interact' \}\)/, 'jump and sheathe by default, and Interact');
   assert.match(s, /on\('MoveForwards',[\s\S]*on\('Run',/, 'the stick holds the four move actions and Run');
   assert.doesNotMatch(s, /\['KeyW', 'KeyA', 'KeyS', 'KeyD', 'ShiftLeft'\]/, 'and releases what it HOLDS, not a frozen literal list');
   assert.match(s, /createGestureRecognizer\(\{ locked: \(\) => !!hooks\.locked\?\.\(\) \}\)/, 'the recogniser takes the host\'s lock predicate');
@@ -261,7 +264,7 @@ test('TI1 hosts: the three combat hosts wire swipe, tap, lock and dial; the fly-
   for (const h of ['src/scenes/world.js', 'src/scenes/exterior.js', 'src/scenes/dungeon.js']) {
     const s = read(h);
     assert.match(s, /const inputHooks = \{[\s\S]*?const touch = attachTouch\(canvas, inputHooks\);/, `${h}: the layer's handle is kept for the dot (GP1: the hooks are one object the pad shares)`);
-    assert.match(s, /\n\s*attack: \(dx, dy, held\) =>/, `${h}: the swipe hook`);
+    assert.match(s, /\n\s*attack: \(dx, dy, held(?:, o = null)?\) =>/, `${h}: the swipe hook`);   // PIN MOVED (AUDIT 2026-10-01 part four, PAD-PULSE): world.js's hears a held stroke's repeat
     assert.match(s, /\n\s*tap: \(x, y, opts = null\) =>/, `${h}: the tap hook`);
     assert.match(s, /_tapLockOnly = !!opts\?\.lockOnly;/, `${h}: the tap carries the stick-half flag (TS1)`);
     assert.match(s, /locked: \(\) => lockOn\.locked,/, `${h}: the lock predicate`);

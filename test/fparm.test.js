@@ -1448,13 +1448,14 @@ test('MW-D27: the faceIndex THREAD is unbroken, swept at the source', () => {
 
 // ═══ MW-D28: THE ITEM MAP ═══════════════════════════════════════════
 import {
-  DF_TO_MW_ARMOR_MATERIAL, DF_ARMOR_ROWS, DECLARED_SPRITE_WEAPONS,
+  DF_TO_MW_ARMOR_MATERIAL, DF_ARMOR_ROWS, DECLARED_SPRITE_WEAPONS, MOD_ARMOR_ROWS,
   mwArmorRecords, itemMapCoverage, mwItemReport,
   ARMO_PART, composeWornArmor, shadowSkinRows, dfWornArmor, dfWornEquipment,
   MW_CLOTHING_TYPE, DF_CLOTHING_ROWS, mwClothingRecord, fpWornAdds,
 } from '../src/formats/mwItemMap.js';
-import { armorRecords, clothingRecords, raceBeastFlag, pickWeaponRecord, facePools } from '../src/formats/mwFirstPerson.js';
+import { armorRecords, clothingRecords, raceBeastFlag, pickWeaponRecord, facePools, MOD_WEAPON_TO_MW } from '../src/formats/mwFirstPerson.js';
 import { OWN_MW_MODELS } from '../src/characters/ownWeaponModels.js';   // FIELD-GUN-MW2: counted off the table, not typed
+import { OWN_MW_ARMOR } from '../src/characters/ownArmorModels.js';   // MW-BRIG1: and the armour
 import { ARMOR_ENUM } from '../src/combat/enemyEquipment.js';
 import { ARMOR_MATERIAL } from '../src/systems/armorMaterials.js';
 
@@ -1472,15 +1473,19 @@ test('MW-D28: the map is TOTAL - every DF equippable x material answers, or the 
   // THE PORT'S OWN (FIELD-GUN-MW2) - counted off the table rather than
   // typed, because that table's whole defect was being outside a
   // population somebody had counted by hand.
-  assert.equal(cover.length, 19 * 10 + 11 * 13 + 76 + Object.keys(OWN_MW_MODELS).length);
+  // MW-ASSIGN: and every weapon and armour template a MOD adds, every material of each - counted off their tables too
+  assert.equal(cover.length, 19 * 10 + 11 * 13 + 76 + Object.keys(OWN_MW_MODELS).length + Object.keys(MOD_WEAPON_TO_MW).length * 10 + Object.keys(MOD_ARMOR_ROWS).length * 13);
+  assert.equal(cover.filter((c) => c.via === 'mod weapon' || c.via === 'mod armor').length, 2 * 10 + 12 * 13, 'Roleplay & Realism Items\' two weapons and twelve pieces are asked');
   // FIELD-GUN-MW2: and the port's own weapons are IN it. The census
   // walked `WEAPONS` - DFU's frozen eighteen - so the Dwarven
   // Thunderlock (template 560, minted at runtime) was never asked
   // about, and this pin reported total coverage while the gun drew
   // empty hands in Morrowind first person.
   const own = cover.filter((c) => c.kind === 'own');
-  assert.equal(own.length, Object.keys(OWN_MW_MODELS).length, 'every own-model weapon answers a row');
-  assert.ok(own.every((o) => o.model && o.item), 'an own row names its mesh and its weapon');
+  // MW-BRIG1: and the port's own ARMOUR, one row per template x material it dresses, inside the mod's space
+  assert.equal(own.length, Object.keys(OWN_MW_MODELS).length + OWN_MW_ARMOR.length, 'every own-model weapon and armour piece answers a row');
+  assert.ok(own.every((o) => o.model && o.item), 'an own row names its mesh and its item');
+  assert.deepEqual(own.filter((o) => o.own === 'ownArmorModels').map((o) => o.index), OWN_MW_ARMOR.map((a) => a.templateIndex));
   // Declared sprites are present, named, and reasoned.
   const sprites = cover.filter((c) => c.kind === 'sprite');
   assert.ok(sprites.length >= 10, 'the Arrow rows are not declared');
@@ -1710,7 +1715,8 @@ test('MW-D29: shadows trim the skin - whole slots gone, single sides kept on the
 
 test('MW-D29: the thread is unbroken - the menu reads the equip table, the build wears it', () => {
   const arm = readFileSync('src/combat/fpArm.js', 'utf8');
-  assert.match(arm, /composeWornArmor\(\{ pieces: armor \?\? \[\], armors: armors \?\? \[\], clothes: clothes \?\? \[\], bodyPool: parts, female, colourOf \}\)/);
+  // NUDE-FLATS: through the upper weld's door (composeWornModest composes, then welds a bare woman's chest)
+  assert.match(arm, /composeWornModest\(\{ pieces: armor \?\? \[\], armors: armors \?\? \[\], clothes: clothes \?\? \[\], bodyPool: parts, female, colourOf \}, showNudity\(\)\)/);
   assert.match(arm, /const armors = esmBytes\.flatMap\(\(e\) => walk\(e, 'armors', armorRecords\)\);/);
   assert.match(arm, /const clothes = esmBytes\.flatMap\(\(e\) => walk\(e, 'clothes', clothingRecords\)\);/);
   // MW-D31: ONE composition serves both rigs - buildFpArm composes,
@@ -2285,7 +2291,7 @@ test('MW-D32: raceRecords reads RADT by hand-laid offsets - heights at 120, flag
 test('MW-D34: the third-person model matrix carries the measured chirality flip and adjustScale', () => {
   // MEASURED through the real composite (mwArmProbe L5b): the 3P body
   // rides drawRigSpriteBox into the world's mirrorProjectionX lens, and
-  // the port's world convention is left-handed (motor.js:744 - the
+  // the port's world convention is left-handed (motor.js:926 - the
   // player's right is +X at yaw 0), so a right-handed NIF actor placed
   // with a pure rotation reads MIRRORED on screen. The -u on the local
   // side axis is the same basis adaptation the mirror gives every
@@ -3089,7 +3095,9 @@ test('AUDIT 36 F2: an INSTANT self-cast animates - the cast latches its own stan
   const hm = readFileSync('src/scenes/hostMagic.js', 'utf8');
   // AUDIT ALLY-CAST A1: the instant arm arms instead when a party mate is in touch reach; with nobody there it is
   // the same synchronous castInput, which is the case F2 exists for.
-  assert.match(hm, /if \(sp\.rangeType === 0\) \{\n(?:\s*\/\/[^\n]*\n)*\s*if \(!free && allyCastable\(sp\) && allyInReach\([^\n]*\n\s*if \(!free && hasResurrect\(sp\)\)[^\n]*\n\s*return castInput\(null, null\) !== false;\n\s*\}/,   // AUDIT CONTRIB H3: the instant cast is the ready's answer   // RESURRECT1: the dead's own arm beside the ally's
+  // PIN MOVED (AUDIT WATCH-KIT WK-M9, 2026-10-01): my companion's two arms (COMPANION-KIT) stand among the mate's, in the
+  // click's own order, where they stood in a block ahead of this one; the instant cast is still the arm's last line
+  assert.match(hm, /if \(sp\.rangeType === 0\) \{\n(?:\s*\/\/[^\n]*\n)*\s*if \(!free && allyCastable\(sp\) && allyInReach\([^\n]*\n(?:\s*\/\/[^\n]*\n)*\s*if \(companionInReach\([^\n]*\n(?:\s*\/\/[^\n]*\n)*\s*if \(!free && allyCastable\(sp\) && allyNear\([^\n]*\n\s*if \(companionNear\([^\n]*\n\s*if \(!free && hasResurrect\(sp\)\)[^\n]*\n\s*return castInput\(null, null\) !== false;\n\s*\}/,   // SPELL-GIFT: the near arm between   // AUDIT CONTRIB H3: the instant cast is the ready's answer   // RESURRECT1: the dead's own arm beside the ally's
     'the CasterOnly instant cast is the case F2 exists for');
   // ROAD-E6 folded the four release arms' identical tail into one
   // `done` closure - RaiseOnCastReadySpell (:2129) still runs BEFORE

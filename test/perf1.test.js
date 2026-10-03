@@ -70,7 +70,7 @@ test('PERF1 pins: every host stamps its frame, the grass takes the pref\'s fract
   const w = read('src/scenes/world.js');
   assert.match(w, /const grassDensity = Math\.max\(0, Math\.min\(1, Number\(getPref\('grassDensity'\)\) \|\| 0\)\) \* LAB_GRASS\.density;/);
   assert.match(w, /getPref\('enhancedEnvironments'\) && grassDensity > 0 &&/, 'a zero density builds no renderer');
-  assert.match(w, /createGrassField\(labGrass, \{ keep, ground, density: grassDensity \}\)/, 'the field is built at the fraction');
+  assert.match(w, /createGrassField\(labGrass, \{ keep, ground, slope, density: grassDensity \}\)/, 'the field is built at the fraction');
   assert.match(read('src/scenes/shared.js'), /Object\.hasOwn\(CLOUD_QUALITY, cloudsDoor\) \? cloudsDoor : \(Object\.hasOwn\(CLOUD_QUALITY, getPref\('cloudQuality'\)\) \? getPref\('cloudQuality'\) : 'default'\)/, 'the URL door still wins; the pref sits behind it; an unknown pref is the default');
   const menu = read('src/ui/enhancedMenu.js');
   // FT7: the two rows are the Features registry's now (test/ft7_quality.test.js pins their tiers); the menu holds no copy

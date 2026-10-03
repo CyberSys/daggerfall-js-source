@@ -290,7 +290,8 @@ test('audit64 F10: each host spends the RIGHT region index, clock and HUD flag o
     );
     // ToClassicDaggerfallTime (:569) — GetHolidayId's whole day
     // arithmetic is in classic minutes.
-    assert.match(block, /gameMinutes:\s*\(\)\s*=>\s*Math\.floor\(playerTicker\.classicMinutes\)/, `${file} must hand it CLASSIC minutes (:569)`);
+    // TIME1: the SKY's classic minutes - a holiday is the calendar the player sees (offline the one clock)
+    assert.match(block, /gameMinutes:\s*\(\)\s*=>\s*Math\.floor\(skyMinutes\(\)\)/, `${file} must hand it CLASSIC minutes (:569)`);
     // GameManager.IsPlayerOnHUD (GameManager.cs:400-402 -> IsHUDTopWindow
     // :915): a window on top DEFERS the fire, so the term must be the
     // host's own top-window question, not a drop.

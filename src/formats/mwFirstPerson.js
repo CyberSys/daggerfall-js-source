@@ -167,8 +167,10 @@ export { MW_BODY_PARTS, isFirstPersonId } from './mwEsmFile.js';
 import { MW_BODY_PARTS, isFirstPersonId } from './mwEsmFile.js';
 import FACE_TABLE from './mwFaceTable.json' with { type: 'json' };
 import { GRAPH_ROOT, ACCUM_ROOT_NAMES } from './mwSkin.js';
+import { transferSkin, sourceSkin, fitLift, liftBatch } from './mwSkinTransfer.js';   // MW-BRIG2: a worn model skinned from the body under it; MW-BRIG3: and fitted onto it
 import { getTextKeyTime, animVelocity } from './mwAnim.js';
 import { mat33Mul } from './mwNifMesh.js';   // AUDIT 68 S11-affine-dup: the one row-major 3x3 product
+import { applyClimbRig } from '../combat/climbRig.js';   // CLIMB6: the climb's pose on the rig's own bones
 
 /** The four parts allowed to fall back to a third-person mesh when the
  *  first-person record is missing (rule 3 / npcanimation.cpp:1217-1253).
@@ -1382,8 +1384,17 @@ export function dfWeaponToMw(item, weaponsTable) {
   for (const [name, tmpl] of Object.entries(weaponsTable ?? {})) {
     if (tmpl === idx && name in DF_TO_MW_WEAPON) return DF_TO_MW_WEAPON[name];
   }
-  return MW_WEAPON_TYPE.None;
+  return MOD_WEAPON_TO_MW[idx] ?? MW_WEAPON_TYPE.None;   // MW-ASSIGN: a mod's weapon of a classic shape
 }
+
+/** MW-ASSIGN (2026-09-27, Discord: "Some sprites not assigned morrowind skin"): THE WEAPONS A MOD ADDS, by template -
+ *  Roleplay & Realism Items' Archer's Axe (ItemArchersAxe: one-handed, either hand) and Light Flail (ItemLightFlail: a
+ *  flail, as the classic one maps). Outside DFU's frozen WEAPONS, so the walk above never met them: in Morrowind first
+ *  person they drew EMPTY HANDS, and their icon and a wall's mount stood as the classic picture. */
+export const MOD_WEAPON_TO_MW = Object.freeze({
+  513: MW_WEAPON_TYPE.AxeOneHand,     // Archer's Axe
+  514: MW_WEAPON_TYPE.BluntOneHand,   // Light Flail
+});
 
 export function pickWeaponRecord(records, type, material = null, { has = null } = {}) {
   // AUDIT MW-A F3: id-sorted, for the face's own reason (D27) - file
@@ -2027,6 +2038,9 @@ export function bindPartsInto(assembly, parts) {
     // `part.bones` overrides the table so a test can drive real assembly
     // against a fixture skeleton whose bone names are not Morrowind's.
     const bones = part.bones ?? mod.PART_BONES[part.slot] ?? [];
+    // MW-BRIG2: a worn model of the port's own is SKINNED FROM THE BODY under it (formats/mwSkinTransfer.js) - it
+    // moves by the body's own bones and binds, never by an attach node the body does not use.
+    if (part.skinFrom) { bindSkinnedFromBody(assembly, part, bones); continue; }
     let nif;
     try {
       nif = mod.parseNif(part.bytes);
@@ -2443,7 +2457,7 @@ export function applyFirstPersonNeck(skeleton, pose, rootRef, skelMats, pitch, a
 }
 
 export function poseAssembly(assembly, { tracks = null, sampleTrack = null,
-  time = 0, accumRoot = null, neckPitch = 0, neckAim = 0, neckOffset = null } = {}) {
+  time = 0, accumRoot = null, neckPitch = 0, neckAim = 0, neckOffset = null, climb = null } = {}) {
   const { fns, skeleton, pieces } = assembly;
   if (!fns || !skeleton) return assembly;
   const pose = fns.poseSkeleton(skeleton, tracks, sampleTrack, time, { accumRoot });
@@ -2456,6 +2470,9 @@ export function poseAssembly(assembly, { tracks = null, sampleTrack = null,
   // transform is identity - true of every fixture, false of retail data,
   // where the difference is a hand floating away from its forearm.
   applyFirstPersonNeck(skeleton, pose, GRAPH_ROOT, fns.skelMats, neckPitch, neckAim, neckOffset);
+  // CLIMB6: the climb's pose over the clip's - the hands on the stone, the feet on the wall - solved on THIS skeleton's
+  // own bones (combat/climbRig.js) in the same graph space, before any piece is placed on it
+  assembly.climbFit = climb ? applyClimbRig(skeleton, pose, GRAPH_ROOT, fns.skelMats, climb) : null;
   const mats = fns.skelMats(skeleton, pose, GRAPH_ROOT);
   for (const p of pieces) {
     if (p.kind === 'skinned') {
@@ -2576,6 +2593,82 @@ export function armPieceRows(pieces) {
     triangles: p.indices ? p.indices.length / 3 : 0,
     bounds: meshBounds([p]),
   }));
+}
+
+/**
+ * MW-BRIG2: bind a garment SKINNED FROM THE BODY. `part.skinFrom` lists the body parts it is fitted over (the
+ * player's own skin meshes, `{ slot, bones?, bytes }`); each is bound exactly as the body binds it - a skinned
+ * shape by rule 15's filter per bone, a rigid one at its bone with rule 13's mirror and rule 14's offset - and the
+ * garment copies their skins (formats/mwSkinTransfer.js), solved against the skeleton's rest pose. A garment with
+ * no body under it is a note and is not drawn: floating free of the body is exactly the failure this exists to end.
+ *
+ * MW-BRIG3: `part.fitTo` names the body part the garment hides (the cuirass hides the chest), and the garment is first
+ * MOVED ONTO THE WEARER - its top to that part's top, measured in the same rest pose (fitLift) - rather than trusted
+ * to sit where the modeller's scene put it. That scene's body stood lower than this one, and the brigandine drawn at
+ * the scene's height left the chest it hides bare. With no such part, the garment keeps its baked height and a note
+ * says so.
+ */
+function bindSkinnedFromBody(assembly, part, bones) {
+  const mod = assembly.fns;
+  const { skeleton, pieces, notes } = assembly;
+  let nif;
+  try { nif = mod.parseNif(part.bytes); } catch (err) { notes.push(`${part.slot}: ${err.message}`); return; }
+  const sources = [];
+  const slotOf = new Map();   // MW-BRIG3: which body part each source is, for the fit
+  for (const src of part.skinFrom) {
+    let srcNif;
+    try { srcNif = mod.parseNif(src.bytes); } catch (err) { notes.push(`${part.slot}: body ${src.slot}: ${err.message}`); continue; }
+    let tookNameless = false;
+    for (const bone of src.bones ?? mod.PART_BONES[src.slot] ?? []) {
+      if (!skeleton.byName.has(bone.toLowerCase())) continue;
+      let bound;
+      try { bound = mod.bindPart(skeleton, srcNif, { attachBone: bone }); } catch { continue; }
+      for (const b of bound.skinned) {
+        const nameless = !String(b.name || '').trim();
+        if (nameless ? tookNameless : !shapeMatchesBone(b.name, bone)) continue;
+        if (nameless) tookNameless = true;
+        sources.push(b);
+        slotOf.set(b, src.slot);
+      }
+      if (bound.skinned.length) continue;   // a rig file's rigid shapes are not drawn (MW-D31), so they are no body
+      const ref = skeleton.byName.get(bone.toLowerCase());
+      const mirrored = (skeleton.nodes.get(ref)?.name ?? '').includes('Left');
+      for (const b of bound.attached) {
+        const skin = sourceSkin(b, { attachRef: bound.attachRef, mirrored, boneOffset: bound.boneOffset || null });
+        sources.push(skin);
+        slotOf.set(skin, src.slot);
+      }
+    }
+  }
+  if (!sources.length) {
+    notes.push(`${part.slot}: no body part to skin it from (${part.skinFrom.map((x) => x.slot).join(', ') || 'none named'}) - not drawn`);
+    return;
+  }
+  let garment;
+  try { garment = mod.bindPart(skeleton, nif, bones[0] ? { attachBone: bones[0] } : {}); } catch (err) { notes.push(`${part.slot}: ${err.message}`); return; }
+  const pose = mod.poseSkeleton(skeleton, null, null, 0, {});
+  const ctx = { skeleton, pose, mats: mod.skelMats(skeleton, pose, GRAPH_ROOT), skinBatch: mod.skinBatch };
+  let worn = [...garment.attached, ...garment.skinned];
+  // MW-BRIG3: ONTO THE WEARER FIRST - its top to the top of the part it hides - and only then skinned from the body
+  // there, so every vertex copies the skin of the body it now actually covers.
+  if (part.fitTo) {
+    const fit = fitLift(worn, sources.filter((s) => slotOf.get(s) === part.fitTo), ctx);
+    if (fit) {
+      worn = worn.map((g) => liftBatch(g, fit.lift));
+      notes.push(`${part.slot}: fitted to the ${part.fitTo} - moved ${fit.lift >= 0 ? 'up' : 'down'} ${Math.abs(fit.lift).toFixed(1)} `
+        + `(its top from ${fit.top.toFixed(1)} to the ${part.fitTo}'s top at ${fit.anchorTop.toFixed(1)})`);
+    } else {
+      notes.push(`${part.slot}: no ${part.fitTo} to fit it to - drawn at its baked height`);
+    }
+  }
+  for (const g of worn) {
+    for (const batch of transferSkin(g, sources, ctx)) {
+      pieces.push({ slot: part.slot, bone: bones[0] ?? null, kind: 'skinned', mirrored: false,
+        batch, source: null, attachRef: null,
+        uvs: batch.uvs || null, colors: null, material: batch.material || null,
+        positions: new Float32Array(batch.positions.length), indices: batch.indices });
+    }
+  }
 }
 
 /** MW-D16: bake a part's pre-transform into its authored vertices. Null

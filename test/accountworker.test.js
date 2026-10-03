@@ -25,8 +25,8 @@ import { ACCOUNT_VERSION, MAX_BODY_BYTES } from '../server-account/src/service.j
 import { _resetKeyForTests } from '../server-account/src/signing.js';
 import {
   createGuest, openSession, resolveSession, closeSession, closeAllSessions,
-  devicesOf, accountView, displayName, accountKind, hashSecret, mintId, handleRefusal, LOGIN_MAX,
-  SESSION_IDLE_S, ACCOUNT_MAX,
+  devicesOf, accountView, displayName, accountKind, hashSecret, mintId, handleRefusal, LOGIN_MAX, LOGIN_WINDOW_S,
+  SESSION_IDLE_S, SESSION_TOUCH_S, ACCOUNT_MAX,
 } from '../server-account/src/accounts.js';
 import { guestName, GUEST_BANKS, pick, isGuestShaped, isHandleShaped } from '../server-account/src/guestName.js';
 // AUDIT-ACC F7 enumerates the WHOLE name space, so it needs the bank data
@@ -37,6 +37,7 @@ import {
   mintRecoveryCode, canonicalCode, codeForHashing, timingSafeEqual, PBKDF2_ITERS, PBKDF2_CAP, CODE_ALPHABET,
 } from '../server-account/src/password.js';
 import { verifyToken, importPublicKeyB64, ID_RE, nameIsIssuable, TOKEN_V } from '../src/net/identityToken.js';
+import { ACCEPTED } from '../src/net/legalLaw.js';   // TERMS1: a request that makes an account carries the versions ticked
 
 const src = (p) => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8');
 const { subtle } = globalThis.crypto;
@@ -107,7 +108,58 @@ test('ACC1b: the migration is the real schema, and applying it twice changes not
   // RENOWN1 took it): one row a gate an account closed, keyed (day, account),
   // counted off it.
   // BASE-HIDE added `home_hidden` (0015): what an online home's owner took out of the room's own furniture
-  assert.deepEqual(tables, ['duel_results', 'gate_kills', 'guild_invites', 'guild_ledger', 'guild_members', 'guilds', 'home_decor', 'home_hidden', 'homes', 'letters', 'players', 'rate_limits', 'renown_tracks', 'saves', 'sessions']);
+  // RAID4 added `raid_cleanses` (0016): one row a (raid, account) whose receipt was counted and paid in
+  // Renown. AUDIT RAID added `raid_spoils` (0017): one row a (raid, account) whose town's thanks were given, keyed to the
+  // device's claim id. The professions branch's were renumbered behind them at THE MERGE, and again behind the realm's at MERGE 2 (0025-0034).
+  // REALM P1 added `realm_characters` (0018; 0016 on its branch): one row a realm character - an online character's truth, its save in R2
+  // REALM P2.1 added `realm_trades` (0019; 0017 on its branch): one row a trade the service settles, by the peers' sid - and
+  // `realm_tx_guard`, which never holds a row: its CHECK is what rolls a settling batch back whole
+  // AUDIT REALM added `realm_census` (0020; 0018 on its branch): the characters that played online before the realm, counted once as the
+  // migration is applied - customs' gate, which no session can write to since
+  // RENOWN-ACCOUNT added `renown_accounts` (0021): ONE row an account's Renown, keyed by the account alone - each account
+  // began at its best character's track. RENOWN-CHAR (0035) made Renown the characters' again: each track took what
+  // the account earned while it was the account's, and `renown_accounts` stays as history nothing writes again
+  // CUSTOMS-PASS added `realm_passes` (0024): one row a developer's grant of a customs pass - open until customs spends it
+  // on the one character it lets in, then the record of whom it let in (at most one open an account)
+  // MARKS1 added three (0025): `marks` (an account's balance), `guild_marks` (a guild's Marks treasury) and
+  // `marks_ledger` (one line a movement - the truth, whose own triggers move the two balances)
+  // NOTICE1 added three (0026): `board_notes` (a town's notes), `board_reports` (one row a reader who reported one)
+  // and `board_notices` (the server's word, on every board)
+  // PROF1 added seven (0027): `prof_tracks` (a character's track a profession), `prof_stores` (the Stores - a material,
+  // own or bought), `node_harvests` (the day's harvests), `prof_withdrawals` (one row a withdrawal to the pack),
+  // `world_witness` (the witnessed world's reports, its first kind the map pixel), `writ_days` and `writs` (a region's
+  // Court writs, written down for the day)
+  // PROF2 added one (0028): `prof_smelts` (one row a smelt). AUDIT 29 added one (0029): `prof_choices` (one row a free
+  // first specialisation, found by its id before the switch)
+  // PROF3 added three (0030): `prof_crafts` (one row a craft at the anvil), `products` (every crafted piece - its
+  // provenance id, owner and signed record) and `prof_stock` (one row a purchase from the smith's stock)
+  // PROF5 (0032_market.sql): the market's seven - listings, sales, deliveries, orders, fills, prices, reports
+  // HOME-RENT (0037_home_rooms.sql): `home_rooms` (one row a room offered to rent, and its tenancy)
+  // GOLD-MARKET added two (0041): `market_gold` (the gold a character's sales hold for it) and `market_gold_prices`
+  // (gold's own price table)
+  // GUILD1e added one (0047 - 0046 until main's PATREON-LINK took 0045, 0045 until main's MARKET-ANY took 0044, 0044 before SCALE1): `guild_notes` (a guild's own board - its notes, its members' alone)
+  // SEAT1a added one (0048 - 0047 until main's PATREON-LINK took 0045, 0046 until main's MARKET-ANY took 0044, 0045 until main's SCALE1 took 0043): `town_seat_history` (the Chronicle - its first rows a
+  // developer's strike); and rebuilt `world_witness` to admit the kind `seat`. SEAT1b added four (0049):
+  // `town_seat_pledges` (a guild's seat a region a week), `town_seat_binds` (an account's war-guild for the week),
+  // `town_seat_influence` (the week's sources, one row an event) and `town_seat_renown` (Renown earned in a region); and
+  // gave `gate_kills` a region. SEAT1c added four (0050): `town_seat_weeks` (the Turning's key, one row a settled week),
+  // `town_seat_holds` (the Charters held), `town_seat_legacy` (what a guild carries into a week) and `town_seat_rights`
+  // (the week's battles the Turning named). SEAT1d added four (0051): `town_seat_edicts` (a seat's Edict a week),
+  // `town_seat_stockpile` (the Levy's units, the seat's), `town_seat_levies` (one row a harvest that paid it) and
+  // `town_seat_bounties` (a camp paid, once a day); and gave the holds their Tithe and debt, the listings and auctions
+  // their board
+  // SEAT2a added four (0052): `town_seat_windows` (a holder's window), `town_seat_battles` (the week's battles the Turning
+  // placed), `town_seat_rosters` (each side's signed fighters) and `town_seat_hires` (the Sellswords' contracts)
+  // CROWN1 part two added four (0055, PIN MOVED): `town_seat_royal_fields` (each contender's ring), `town_seat_royal` (a
+  // Royal Tourney's week - its ring and champion), `town_seat_bouts` (each bout a receipt brought) and `town_seat_titles`
+  // (the titles kept for good)
+  // CROWN2 added three (0056, PIN MOVED): `guild_fealty` (a vassal's liege, offered, sworn or breaking), `guild_pacts` (a
+  // pair's Pact for the rest of the Season) and `town_seat_red` (the server's red lines)
+  // SEASON1 part two added one (0058, PIN MOVED): `town_seat_ribbons` (each guild a Season's end gave its banner ribbon)
+  // SEAT2b added four (0061, PIN MOVED): `town_seat_forts` (a seat's works, each its tier and the project raising the next),
+  // `town_seat_fort_held` (what a project holds), `town_seat_fortifier` (a Fortifier's save a Season) and `town_seat_camps` (a
+  // challenger's Siege Camp)
+  assert.deepEqual(tables, ['board_notes', 'board_notices', 'board_reports', 'commissions', 'duel_results', 'gate_kills', 'guild_fealty', 'guild_invites', 'guild_ledger', 'guild_marks', 'guild_members', 'guild_notes', 'guild_pacts', 'guild_prof_stores', 'guild_store_ledger', 'guild_store_moves', 'guild_writ_budgets', 'guild_writ_fills', 'guild_writs', 'guilds', 'home_decor', 'home_hidden', 'home_rooms', 'homes', 'letters', 'market_auction_reports', 'market_auctions', 'market_bids', 'market_deliveries', 'market_fills', 'market_gold', 'market_gold_prices', 'market_listings', 'market_orders', 'market_prices', 'market_reports', 'market_sales', 'marks', 'marks_ledger', 'node_harvests', 'players', 'products', 'prof_brews', 'prof_choices', 'prof_crafts', 'prof_disenchants', 'prof_smelts', 'prof_stock', 'prof_stores', 'prof_tracks', 'prof_unbruised', 'prof_withdrawals', 'raid_cleanses', 'raid_spoils', 'rate_limits', 'realm_census', 'realm_characters', 'realm_passes', 'realm_trades', 'realm_tx_guard', 'renown_accounts', 'renown_tracks', 'saves', 'seat_hall_decor', 'sessions', 'town_seat_aftermath', 'town_seat_battles', 'town_seat_binds', 'town_seat_bounties', 'town_seat_bouts', 'town_seat_camps', 'town_seat_edicts', 'town_seat_fields', 'town_seat_fort_held', 'town_seat_fortifier', 'town_seat_forts', 'town_seat_hires', 'town_seat_history', 'town_seat_holds', 'town_seat_honours', 'town_seat_influence', 'town_seat_legacy', 'town_seat_levies', 'town_seat_pledges', 'town_seat_red', 'town_seat_renown', 'town_seat_results', 'town_seat_ribbons', 'town_seat_rights', 'town_seat_rosters', 'town_seat_royal', 'town_seat_royal_fields', 'town_seat_stockpile', 'town_seat_titles', 'town_seat_weeks', 'town_seat_windows', 'world_witness', 'writ_days', 'writs']);   // SEAT2a part three: the field, the result, the aftermath, Honours (PIN MOVED); SEAT-HALL: the Charter Room's pieces (PIN MOVED); PROF12 (0070): a brew's row, a disenchant's, the herbs picked unbruised (PIN MOVED)
   // ACC1b IS IDENTITY ALONE, and the PLAYERS row still is: the save
   // arrived beside it, never inside it.
   const cols = db._raw.prepare('PRAGMA table_info(players)').all().map((c) => c.name);
@@ -127,9 +179,26 @@ test('ACC1b: the migration is the real schema, and applying it twice changes not
   // (`renown_last_credit`, read back by the same UPDATE's RETURNING): the
   // hour's bound is the account's across all its characters, so it lives
   // on the account's row. No level and no total is a column here.
-  assert.deepEqual(cols.sort(), ['created_at', 'email', 'guest_name', 'handle', 'handle_lc', 'id',
-    'last_seen', 'muted_by', 'muted_until', 'password', 'played_at', 'played_s', 'recovery_hash', 'registered_at', 'renown_hour', 'renown_hour_xp', 'renown_last_credit', 'title']);
-  assert.ok(!cols.some((c) => /founder|developer|sprout|glyph|grant/i.test(c)), `a grant became a column: ${cols}`);
+  // TERMS1 added THREE - what a new account agreed to and when:
+  // `terms_version` and `privacy_version` (each document's Last Updated
+  // date, src/net/legalLaw.js) and `legal_accepted_at`. An agreement is a
+  // fact about the account itself, made once by its player, so it is the
+  // row's; NULL on every account made before the boxes existed.
+  // WB9g added THREE - the Sigil Broker's insignia (0040): `insignia`, the
+  // pieces the account BOUGHT, and `insignia_spent`, what they cost in all
+  // (a sale is a fact that happened, never a rule a row satisfies - so it
+  // is recorded, and what is held is still read off it at every ask), and
+  // `aura`, the aura WORN, the one choice about it, as `title` is.
+  // PATREON-LINK added FOUR - the Patreon account this one linked and what Patreon last said of its membership (0045):
+  // `patreon_user` (UNIQUE: one pledge dresses one account), `patreon_tiers`, `patreon_status` and `patreon_at`. Patreon's
+  // word, stored as WB9g's sale is because nothing here can derive it; the title is still read off it at every ask.
+  // GLYPH-WEAR added ONE (0068): `glyphs_off`, the glyphs a player took off - the one choice about a glyph, as `title` is.
+  assert.deepEqual(cols.sort(), ['aura', 'created_at', 'email', 'glyphs_off', 'guest_name', 'handle', 'handle_lc', 'id', 'insignia', 'insignia_spent',
+    'last_seen', 'legal_accepted_at', 'muted_by', 'muted_until', 'password', 'patreon_at', 'patreon_status', 'patreon_tiers', 'patreon_user',
+    'played_at', 'played_s', 'privacy_version', 'recovery_hash',
+    'registered_at', 'renown_hour', 'renown_hour_xp', 'renown_last_credit', 'terms_version', 'title']);
+  // GLYPH-WEAR: `glyphs_off` is the one glyph column, and it grants nothing - it is the choice of which true glyphs to hide
+  assert.ok(!cols.some((c) => c !== 'glyphs_off' && /founder|developer|sprout|glyph|grant/i.test(c)), `a grant became a column: ${cols}`);
   // SAVES AND PROVIDER LINKS ARE STILL NOT HERE. They arrive as their
   // own migrations rather than as columns somebody added to this one.
   assert.ok(!cols.some((c) => /save|slot|provider|blob|r2/i.test(c)), `ACC2's columns arrived early: ${cols}`);
@@ -195,7 +264,7 @@ test('AUDIT-ACC F13: a credential is never accepted from a URL', async () => {
   // Cloudflare's request logs, into a Referer header, and into browser
   // history. Read-only or not, the session secret was in all three.
   const { call } = await stand();
-  const guest = (await call('POST', '/v1/auth/guest', {})).body;
+  const guest = (await call('POST', '/v1/auth/guest', { ...ACCEPTED })).body;
 
   // THE OLD SPELLING MUST NOT WORK. A route that still honours it has
   // not been fixed, it has merely grown a second door.
@@ -235,7 +304,7 @@ test('AUDIT-ACC F12: a credential is not a licence to hammer, and the refusal is
   Date.now = () => held;
   t.after(() => { Date.now = realNow; });
   const { call } = await stand();
-  const guest = (await call('POST', '/v1/auth/guest', {})).body;
+  const guest = (await call('POST', '/v1/auth/guest', { ...ACCEPTED })).body;
 
   let sawRate = 0;
   for (let i = 0; i < ACCOUNT_MAX + 5; i++) {
@@ -257,7 +326,7 @@ test('AUDIT-ACC F12: a credential is not a licence to hammer, and the refusal is
 
   // A DIFFERENT ACCOUNT IS UNAFFECTED - the bucket is per account, not
   // global, so one noisy client cannot lock everybody else out.
-  const other = (await call('POST', '/v1/auth/guest', {})).body;
+  const other = (await call('POST', '/v1/auth/guest', { ...ACCEPTED })).body;
   assert.equal((await call('POST', '/v1/auth/token', { secret: other.secret })).status, 200,
     'one account over its limit stopped another account working');
 });
@@ -304,7 +373,8 @@ test('AUDIT-ACC F10: a failed freshness write does not fail the request it rode 
   const db = d1();
   const made = await createGuest(ctx(db), {});
 
-  // a database that answers reads and refuses every UPDATE
+  // a database that answers reads and refuses every UPDATE - alone or in a batch (SCALE1: the touch is one batch, and
+  // only once the session has gone SESSION_TOUCH_S stale, so this asks past it)
   const brittle = {
     _raw: db._raw,
     prepare(sql) {
@@ -313,8 +383,9 @@ test('AUDIT-ACC F10: a failed freshness write does not fail the request it rode 
       }
       return db.prepare(sql);
     },
+    async batch() { throw new Error('D1_ERROR: storage is having a day'); },
   };
-  const who = await resolveSession({ db: brittle, subtle, rand, nowS: NOW + 60 }, made.secret);
+  const who = await resolveSession({ db: brittle, subtle, rand, nowS: NOW + SESSION_TOUCH_S + 60 }, made.secret);
   assert.ok(who, 'a failed cosmetic write threw away a valid session');
   assert.equal(who.player.id, made.id);
 });
@@ -559,7 +630,7 @@ test('ACC1b: the Worker mints a guest, then a token the RELAY\'s public key veri
   assert.equal(health.body.v, 'test1', '/health names the deploy, as the relay\'s does');
   assert.equal(health.headers.get('access-control-allow-origin'), 'https://daggerfalljs.dev');
 
-  const guest = (await call('POST', '/v1/auth/guest', { label: 'desktop' })).body;
+  const guest = (await call('POST', '/v1/auth/guest', { label: 'desktop', ...ACCEPTED })).body;
   assert.match(guest.id, ID_RE);
   assert.ok(isGuestShaped(guest.name));
 
@@ -592,7 +663,7 @@ test('ACC1b: the Worker mints a guest, then a token the RELAY\'s public key veri
 
 test('ACC1b: every route needs a secret, and a bad one is 401 and nothing else', async () => {
   const { call } = await stand();
-  const guest = (await call('POST', '/v1/auth/guest', {})).body;
+  const guest = (await call('POST', '/v1/auth/guest', { ...ACCEPTED })).body;
   for (const [m, p, b, bearer] of [
     ['POST', '/v1/auth/token', { secret: 'nope' }],
     ['POST', '/v1/auth/session', { secret: 'nope' }],
@@ -679,7 +750,7 @@ test('ACC1b: THE PRIVATE KEY IS A SECRET, and the committed config proves it', a
   const mk = async (p, b) => worker.fetch(new Request(`https://x.invalid${p}`, {
     method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(b),
   }), env);
-  const guest = await (await mk('/v1/auth/guest', {})).json();
+  const guest = await (await mk('/v1/auth/guest', { ...ACCEPTED })).json();
   assert.ok(guest.id, 'an account could not be made without a signing key');
   const tok = await mk('/v1/auth/token', { secret: guest.secret });
   assert.equal(tok.status, 503);
@@ -854,9 +925,9 @@ test('ACC1c: THE RECOVERY CODE ROUND-TRIPS - the bug that would have locked peop
 
 test('ACC1c: registering is an UPGRADE IN PLACE, and the code is shown exactly once', async () => {
   const { call } = await stand();
-  const guest = (await call('POST', '/v1/auth/guest', {})).body;
+  const guest = (await call('POST', '/v1/auth/guest', { ...ACCEPTED })).body;
 
-  const reg = await call('POST', '/v1/auth/register', { secret: guest.secret, handle: 'Nystul', password: 'a good long one' });
+  const reg = await call('POST', '/v1/auth/register', { secret: guest.secret, handle: 'Nystul', password: 'a good long one', ...ACCEPTED });
   assert.equal(reg.status, 200);
   assert.match(reg.body.recoveryCode, /^[0-9A-Z]{5}(-[0-9A-Z]{5}){3}$/);
 
@@ -880,18 +951,18 @@ test('ACC1c: registering is an UPGRADE IN PLACE, and the code is shown exactly o
   assert.ok(!/recovery/i.test(JSON.stringify(acct)), `the account view mentions recovery: ${JSON.stringify(acct)}`);
 
   // registering twice is refused, and so is a taken name
-  assert.equal((await call('POST', '/v1/auth/register', { secret: guest.secret, handle: 'Other', password: 'a good long one' })).body.error, 'already-registered');
-  const second = (await call('POST', '/v1/auth/guest', {})).body;
-  const taken = await call('POST', '/v1/auth/register', { secret: second.secret, handle: 'NYSTUL', password: 'a good long one' });
+  assert.equal((await call('POST', '/v1/auth/register', { secret: guest.secret, handle: 'Other', password: 'a good long one', ...ACCEPTED })).body.error, 'already-registered');
+  const second = (await call('POST', '/v1/auth/guest', { ...ACCEPTED })).body;
+  const taken = await call('POST', '/v1/auth/register', { secret: second.secret, handle: 'NYSTUL', password: 'a good long one', ...ACCEPTED });
   assert.equal(taken.body.error, 'handle-taken', 'casing smuggled a duplicate past the index');
-  assert.equal((await call('POST', '/v1/auth/register', { secret: second.secret, handle: 'Ok', password: 'a good long one' })).body.error, 'handle-shape');
-  assert.equal((await call('POST', '/v1/auth/register', { secret: second.secret, handle: 'Fine', password: 'short' })).body.error, 'password-short');
+  assert.equal((await call('POST', '/v1/auth/register', { secret: second.secret, handle: 'Ok', password: 'a good long one', ...ACCEPTED })).body.error, 'handle-shape');
+  assert.equal((await call('POST', '/v1/auth/register', { secret: second.secret, handle: 'Fine', password: 'short', ...ACCEPTED })).body.error, 'password-short');
 });
 
 test('ACC1c: logging in costs the same for a handle nobody holds as for a wrong password', async () => {
   const { call } = await stand();
-  const guest = (await call('POST', '/v1/auth/guest', {})).body;
-  await call('POST', '/v1/auth/register', { secret: guest.secret, handle: 'Medora', password: 'a good long one' });
+  const guest = (await call('POST', '/v1/auth/guest', { ...ACCEPTED })).body;
+  await call('POST', '/v1/auth/register', { secret: guest.secret, handle: 'Medora', password: 'a good long one', ...ACCEPTED });
 
   const ok = await call('POST', '/v1/auth/login', { handle: 'MEDORA', password: 'a good long one', label: 'phone' });
   assert.equal(ok.status, 200, 'the handle is case-insensitive to log in with, as it is to take');
@@ -927,8 +998,8 @@ test('ACC1c: logging in costs the same for a handle nobody holds as for a wrong 
 
 test('ACC1c: the recovery code sets a new password, mints a NEW code, and signs every device out', async () => {
   const { call } = await stand();
-  const guest = (await call('POST', '/v1/auth/guest', {})).body;
-  const reg = await call('POST', '/v1/auth/register', { secret: guest.secret, handle: 'Kithlan', password: 'the old one here' });
+  const guest = (await call('POST', '/v1/auth/guest', { ...ACCEPTED })).body;
+  const reg = await call('POST', '/v1/auth/register', { secret: guest.secret, handle: 'Kithlan', password: 'the old one here', ...ACCEPTED });
   const other = (await call('POST', '/v1/auth/login', { handle: 'Kithlan', password: 'the old one here' })).body;
 
   const back = await call('POST', '/v1/auth/recover', {
@@ -960,9 +1031,13 @@ test('ACC1c: the recovery code sets a new password, mints a NEW code, and signs 
 
 test('ACC1c: guessing is throttled, per handle and per address', async () => {
   const { call } = await stand();
-  const guest = (await call('POST', '/v1/auth/guest', {})).body;
-  await call('POST', '/v1/auth/register', { secret: guest.secret, handle: 'Barenziah', password: 'a good long one' });
+  const guest = (await call('POST', '/v1/auth/guest', { ...ACCEPTED })).body;
+  await call('POST', '/v1/auth/register', { secret: guest.secret, handle: 'Barenziah', password: 'a good long one', ...ACCEPTED });
 
+  // the window is aligned to the clock (overRate: floor(now / LOGIN_WINDOW_S)), so guesses that straddle its edge are
+  // counted from one again - 2026-09-28's full suite crossed 02:30:00 mid-loop and saw no 429. Begin past the edge.
+  const intoWindow = Math.floor(Date.now() / 1000) % LOGIN_WINDOW_S;
+  if (intoWindow > LOGIN_WINDOW_S - 15) await new Promise((r) => { setTimeout(r, (LOGIN_WINDOW_S - intoWindow + 1) * 1000); });
   let sawRate = false;
   for (let i = 0; i < LOGIN_MAX + 4; i++) {
     const r = await call('POST', '/v1/auth/login', { handle: 'Barenziah', password: `wrong ${i}` });
@@ -978,8 +1053,8 @@ test('ACC1c: guessing is throttled, per handle and per address', async () => {
   // A SUCCESSFUL LOGIN FORGIVES THE KEY, so somebody who mistyped twice
   // and then got it right is not still on a countdown.
   const fresh = await stand();
-  const g2 = (await fresh.call('POST', '/v1/auth/guest', {})).body;
-  await fresh.call('POST', '/v1/auth/register', { secret: g2.secret, handle: 'Clavicus', password: 'a good long one' });
+  const g2 = (await fresh.call('POST', '/v1/auth/guest', { ...ACCEPTED })).body;
+  await fresh.call('POST', '/v1/auth/register', { secret: g2.secret, handle: 'Clavicus', password: 'a good long one', ...ACCEPTED });
   for (let i = 0; i < 3; i++) await fresh.call('POST', '/v1/auth/login', { handle: 'Clavicus', password: 'nope' });
   assert.equal((await fresh.call('POST', '/v1/auth/login', { handle: 'Clavicus', password: 'a good long one' })).status, 200);
   for (let i = 0; i < LOGIN_MAX - 1; i++) {
@@ -990,8 +1065,8 @@ test('ACC1c: guessing is throttled, per handle and per address', async () => {
 
 test('ACC1c: a password is changed with the OLD one, and email is COMPLETELY optional', async () => {
   const { call } = await stand();
-  const guest = (await call('POST', '/v1/auth/guest', {})).body;
-  await call('POST', '/v1/auth/register', { secret: guest.secret, handle: 'Sheogorath', password: 'the first one' });
+  const guest = (await call('POST', '/v1/auth/guest', { ...ACCEPTED })).body;
+  await call('POST', '/v1/auth/register', { secret: guest.secret, handle: 'Sheogorath', password: 'the first one', ...ACCEPTED });
   const phone = (await call('POST', '/v1/auth/login', { handle: 'Sheogorath', password: 'the first one' })).body;
 
   // A STOLEN DEVICE SHOULD NOT BE ABLE TO LOCK ITS OWNER OUT, so the
@@ -1019,8 +1094,8 @@ test('ACC1c: a password is changed with the OLD one, and email is COMPLETELY opt
 
 test('ACC1c: no credential of any kind is stored in the clear, or shipped back', async () => {
   const { call, env } = await stand();
-  const guest = (await call('POST', '/v1/auth/guest', {})).body;
-  const reg = await call('POST', '/v1/auth/register', { secret: guest.secret, handle: 'Uriel', password: 'a memorable phrase' });
+  const guest = (await call('POST', '/v1/auth/guest', { ...ACCEPTED })).body;
+  const reg = await call('POST', '/v1/auth/register', { secret: guest.secret, handle: 'Uriel', password: 'a memorable phrase', ...ACCEPTED });
 
   const dump = JSON.stringify(env.DB._raw.prepare('SELECT * FROM players').all());
   assert.ok(!dump.includes('a memorable phrase'), 'the password is in the database');

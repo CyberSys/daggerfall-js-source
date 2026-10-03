@@ -65,8 +65,8 @@
   {
     "name": "INVISLOOK-doll-named",
     "file": "src/net/remotePlayers.js",
-    "old": "    if (!veil) this._shown.push({ peer, height: entry.doll.h });",
-    "new": "    this._shown.push({ peer, height: entry.doll.h });",
+    "old": "    if (!veil) this._shown.push({ peer, height: entry.doll.h * g });",
+    "new": "    this._shown.push({ peer, height: entry.doll.h * g });",
     "tests": [
       "test/invislook.test.js"
     ]
@@ -146,8 +146,8 @@
   {
     "name": "INVISLOOK-late-pass-no-camera",
     "file": "src/net/peerBodies.js",
-    "old": "    this._cam = { canvas, proj, view, eye, flashOf };\n",
-    "new": "    \n",
+    "old": "    const c = this._cam ?? (this._cam = { canvas: null, proj: null, view: null, eye: null, flashOf: null, grow: null, up: null });\n",
+    "new": "    const c = { canvas: null, proj: null, view: null, eye: null, flashOf: null, grow: null, up: null };\n",
     "tests": [
       "test/invislook.test.js"
     ]
@@ -155,8 +155,8 @@
   {
     "name": "INVISLOOK-body-drawn-plain",
     "file": "src/net/peerBodies.js",
-    "old": "hitFlash: flashOf ? flashOf(b.id) : 0, conceal: b.veil ?? null })",
-    "new": "hitFlash: flashOf ? flashOf(b.id) : 0, conceal: null })",
+    "old": "hitFlash: flashOf ? flashOf(b.id) : 0, conceal: b.veil ?? null, grow: g",
+    "new": "hitFlash: flashOf ? flashOf(b.id) : 0, conceal: null, grow: g",
     "tests": [
       "test/invislook.test.js"
     ]

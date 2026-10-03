@@ -38,7 +38,7 @@
   {
     "name": "contact-door-ignored",
     "file": "src/render/airPass.js",
-    "old": "  return new URLSearchParams(search).get('contact') !== 'off';",
+    "old": "  return pageParam('contact', search) !== 'off';",
     "new": "  return true;",
     "tests": [
       "test/el8_contact.test.js"
@@ -236,7 +236,7 @@
   {
     "name": "cadence-casters-every-frame",
     "file": "src/render/shadowPass.js",
-    "old": "      const due = near || (this.frameNo + k) % SHADOW_FAR_CASTER_EVERY === 0;",
+    "old": "      const due = near || selfNear || (this.frameNo + k) % SHADOW_FAR_CASTER_EVERY === 0;",
     "new": "      const due = true;",
     "tests": [
       "test/el8_contact.test.js"

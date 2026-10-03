@@ -192,10 +192,10 @@ test('ROAD-H H1b: all four hosts fill playerCrouching, and both archer sites rea
   }
   // The dungeon host takes it as a drawFoes argument (its senses
   // context is built inside the draw), and both of its mounts pass it.
-  assert.match(src('scenes/dungeonContext.js'), /playerBobY = 0, playerCrouching = false, playerRenderFeet = null\) \{/);   // DISC13-A: the render feet ride behind it
+  assert.match(src('scenes/dungeonContext.js'), /playerBobY = 0, playerCrouching = false, playerRenderFeet = null, playerClimb = null, aimView = null\) \{/);   // DISC13-A: the render feet ride behind it   // CLIMB6 and AUDIT CLIMB-ARC F10: then the climb and the aim
   assert.match(src('scenes/dungeonContext.js'), /\.\.\._activity, playerHeight, playerCrouching,/);
   for (const h of ['scenes/dungeon.js', 'scenes/worldModes.js']) {
-    assert.match(src(h), /drawFoes\(dt, canvas[^\n]*!!player\.crouching, player\.feetAt\(\)\)/, `${h} passes the latch into drawFoes`);   // DISC13-A: then the render feet
+    assert.match(src(h), /drawFoes\(dt, canvas[^\n]*!!player\.crouching, player\.feetAt\(\), climbRigInput\(player, cam\.yaw\), aimView\)/, `${h} passes the latch into drawFoes`);   // DISC13-A: then the render feet
   }
   assert.match(src('scenes/dungeonContext.js'), /playerCrouching: !!_senses\.playerCrouching/, 'the dungeon archer reads it');
   assert.match(src('scenes/exteriorFoes.js'), /playerCrouching: !!senses\.playerCrouching/, 'the exterior archer reads it');
@@ -434,7 +434,7 @@ test('ROAD-H H2: the sweep and the player arm are wired through the one helper, 
   assert.ok(!/f\.ai\.feet\[1\] \+ \(f\.ai\.height \?\? 1\.8\) \/ 2, f\.ai\.feet\[2\]\];\n\s*if \(Math\.hypot/.test(sc),
     'and no longer a point at the capsule centre within the bare radius');
   const hm = src('scenes/hostMagic.js');
-  assert.match(hm, /if \(playerFeet && sphereOverlapsCapsule\(pos, EXPLOSION_RADIUS, playerFeet, playerHeight, PLAYER_BODY_RADIUS\)\)/);   // AUDIT 65 CV-2
+  assert.match(hm, /if \(playerFeet && (?:!crewBlast && )?sphereOverlapsCapsule\(pos, EXPLOSION_RADIUS, playerFeet, playerHeight, PLAYER_BODY_RADIUS\)\)/);   // AUDIT 65 CV-2
   assert.ok(!/playerFeet\[1\] \+ 0\.9 - pos\[1\]/.test(hm), 'the feet + 0.9 point is gone');
   // Every caller of explodeAt hands it the live capsule.
   for (const m of hm.matchAll(/\bexplodeAt\((?!pos, spell)[^\n]*/g)) {

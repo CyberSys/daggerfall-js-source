@@ -20,8 +20,8 @@
   {
     "name": "AUDITSURV-food-ages-from-the-world-s-first-day",
     "file": "src/systems/survival/food.js",
-    "old": "    if (rotRoll(item, Math.max(0, rotDay - item.rotDay), rolls)) n++;",
-    "new": "    if (rotRoll(item, rotDay, rolls)) n++;",
+    "old": "    const kept = Math.max(0, rotDay - item.rotDay);",
+    "new": "    const kept = rotDay;",
     "tests": [
       "test/auditsurv.test.js"
     ]
@@ -129,7 +129,7 @@
   {
     "name": "AUDITSURV-escape-cannot-leave-the-search",
     "file": "src/ui/huntWindow.js",
-    "old": "      if (code === 'Escape') this._end(false);\n",
+    "old": "      if ((code === 'Escape' || code === 'back') && this._escape) this._end(false);\n",
     "new": "",
     "tests": [
       "test/auditsurv.test.js"

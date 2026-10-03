@@ -632,9 +632,14 @@ export class AnswerPipeline {
 
   getKeySubjectBuildingHint() {
     const randomFloat = this._rolls()();
-    if (randomFloat > CHANCE_TO_REVEAL_LOCATION_ON_MAP || (this.deps.isPlayerInside?.() ?? false)) {
-      return this.getKeySubjectBuildingDirection();
-    }
+    if (this.deps.isPlayerInside?.() ?? false) return this.getKeySubjectBuildingDirection();
+    // FIELD BUGS 2026-09-30b (RES-MARK, a departure - Port-Ledger A): "People aren't marking it on the map, I've gone
+    // in the direction they said but every door looks like just a house". A quest's own building (its row is a quest
+    // resource's) is always marked by one who knows where it is, outdoors; DFU's 35% roll marked 26 questions in 100
+    // (a street commoner knows it three times in four) and a residence has no sign on its door. Every other building
+    // keeps the roll.
+    const questRow = !!this._resourceInfo(this.currentQuestionListItem ?? { questID: 0, key: '' });
+    if (randomFloat > CHANCE_TO_REVEAL_LOCATION_ON_MAP && !questRow) return this.getKeySubjectBuildingDirection();
     return this.getKeySubjectBuildingOnMap();
   }
 

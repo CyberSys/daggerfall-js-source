@@ -46,6 +46,10 @@ import { ARMOR_MATERIAL } from './armorMaterials.js';
 import { WEAPON_MATERIALS } from '../characters/weapons.js';
 import { customItemClass } from './rriItems.js';   // RRI1: GetEnchantmentPower is a virtual the armor classes answer
 import { localizedText } from './textManager.js';   // L10N3d: DFU's Internal_Strings, read in the player's language
+import { enchantGold } from '../net/alchemyLaw.js';   // PROF12: Enchanting's layer - the gold with the rank's share off
+import { recipeById, jewelPoints } from '../net/recipeLaw.js';   // AUDIT PROF10 J1: the most a crafted piece's recipe mints
+import { enchantmentSettings } from './enchantmentCatalogue.js';   // AUDIT PROF10 J2: a crafted piece's own enchantments, costed as the maker costs a row
+import { ENCHANTMENT_TYPES } from '../formats/magicDef.js';   // and their classic type back to the catalogue's key
 
 /** SetEnchantments' `maxEnchantments` (:1273) - and the same ten the
  *  two picker buttons test against (DaggerfallItemMakerWindow.cs:629,
@@ -107,10 +111,60 @@ export const armorEnchantmentMultiplier = (material) =>
 /** GetItemEnchantmentPower (:2660-2678). The material multiplies only
  *  for WEAPONS and ARMOR; everything else (a ring, a robe) takes its
  *  template's base points untouched, because the multiplier stays 0.
- *  The FloorToInt is the quirk - see the header. */
+ *  The FloorToInt is the quirk - see the header.
+ *  PROF10 (bible/06-Systems/Professions-Arc.md 9.3, 36): a CRAFTED
+ *  piece of jewellery carries its own base - the item's own
+ *  `enchantmentPoints` (DFU's item field, itemFields.js), its template's
+ *  and the share its metal and its gem add (net/recipeLaw.js
+ *  jewelPoints, written at its mint). Every other item reads its
+ *  template's, as before; the maker's law is untouched. */
+export function craftedJewelPoints(item) {
+  const r = craftedJewelRecipe(item);
+  if (!r || !Number.isSafeInteger(item.enchantmentPoints) || item.enchantmentPoints < 0) return null;
+  // AUDIT PROF10 J1: never more than its recipe could have minted - the template's and the share its jeweller's hand adds
+  // (a Goldsmith's Silver, a Gemcutter's gem): a piece forged over the wire or in a save carries no budget of its own.
+  // AUDIT PROF-541 J6: the piece's OWN hand (written at its mint, smithItems.js setJewel) - no hand, no hand's share
+  const tpl = templateByIndex(r.templateIndex)?.enchantmentPoints ?? 0;
+  return Math.min(item.enchantmentPoints, jewelPoints(r, tpl, item.hand ?? null));
+}
+/** AUDIT PROF10 J1: a CRAFTED piece of jewellery's recipe - DFU's Jewellery with the service's 16-hex provenance, its
+ *  record a jeweller's (recipeLaw JEWELCRAFTING_RECIPES) of the very template it is - or null for every other item. */
+export function craftedJewelRecipe(item) {
+  if (item?.group !== 'Jewellery' || !/^[0-9a-f]{16}$/.test(item.provenance ?? '') || typeof item.recipe !== 'string') return null;
+  const r = recipeById(item.recipe);
+  return r?.kind === 'jewel' && r.templateIndex === item.templateIndex ? r : null;
+}
+const TYPE_KEY = Object.freeze(Object.fromEntries(Object.entries(ENCHANTMENT_TYPES).map(([k, v]) => [v, k])));
+/** AUDIT PROF-541 J4: what a row costs the item maker - the catalogue's (enchantmentSettings), by its classic type or
+ *  its key - or null where the catalogue cannot cost it. A crafted piece's Rare roll is drawn among those its points hold. */
+export function enchantmentRowCost(e) {
+  return enchantmentSettings(TYPE_KEY[e?.type] ?? e?.type, e?.param)?.enchantCost ?? null;
+}
+/**
+ * AUDIT PROF10 J2 (DECIDED, Mac: "Item maker can add to it" - bible/06-Systems/Professions-Arc.md 36): THE ENCHANTMENTS A
+ * CRAFTED PIECE KEEPS in the item maker. DFU's maker refuses any enchanted item (AddFilteredItem :415-443), so a
+ * Masterwork piece's Rare roll would leave its points unspendable; a crafted piece of jewellery (craftedJewelRecipe) is
+ * taken with what it carries, and each row stays, costed as the maker costs a row (the catalogue's - never a cost the
+ * item says of itself), counted against its budget and never taken off. Answers [] for an item with none, the rows as
+ * EnchantmentSettings for a crafted piece, and null for any other enchanted item (DFU's refusal) or a row the catalogue
+ * cannot cost.
+ */
+export function keptEnchantments(item) {
+  const list = item?.enchantments ?? [];
+  if (!list.length) return [];
+  if (!craftedJewelRecipe(item)) return null;
+  const out = [];
+  for (const e of list) {
+    const parent = typeof e?.parentEnchantment === 'string' ? e.parentEnchantment : 0;
+    const row = enchantmentSettings(TYPE_KEY[e?.type] ?? e?.type, e?.param, { parent });
+    if (!row) return null;
+    out.push({ ...row, kept: true });
+  }
+  return out;
+}
 export function itemEnchantmentPower(item) {
   if (!item) throw new Error('itemEnchantmentPower: item is null');
-  const basePower = templateByIndex(item.templateIndex)?.enchantmentPoints ?? 0;
+  const basePower = craftedJewelPoints(item) ?? templateByIndex(item.templateIndex)?.enchantmentPoints ?? 0;
   const cls = customItemClass(item.templateIndex);
   if (cls?.enchantmentPower) return cls.enchantmentPower(item, { enchantmentPoints: basePower, armorEnchantmentMultiplier });
   let multiplier = 0;
@@ -185,13 +239,18 @@ export function openPickerDecision(selectingPowers, { item = null, powers = [], 
  *   { kind: 'overLimit', text, cost, power }
  *   { kind: 'enchant', text, goldCost, cost, power }
  */
-export function enchantDecision(item, powers = [], sideEffects = [], { gold = 0 } = {}) {
+export function enchantDecision(item, powers = [], sideEffects = [], { gold = 0, discountPct = 0 } = {}) {
   if (!item) return { kind: 'noItem', text: ITEM_MUST_BE_SELECTED };
   if (powers.length === 0 && sideEffects.length === 0) {
     return { kind: 'noEnchantments', text: localizedText('noEnchantments', NO_ENCHANTMENTS_PREPARED) };   // L10N3d: DaggerfallItemMakerWindow.cs:724
   }
-  const cost = totalEnchantmentCost(powers, sideEffects);
-  const goldCost = totalGoldCost(powers);
+  // AUDIT PROF10 J2: a crafted piece's kept enchantments count against its points (GetTotalEnchantmentCost's own walk), and
+  // cost no gold - they are on it already
+  const cost = totalEnchantmentCost(powers, sideEffects) + enchantmentListCost(keptEnchantments(item) ?? []);
+  // PROF12 (bible/06-Systems/Professions-Arc.md 9.3: "Enchanting (DFU's item maker, unchanged): cost -10% at Journeyman,
+  // -20% at Master (Efficient -5% more)"): online, the enchanter's gold with the rank's share off (net/alchemyLaw.js
+  // enchantGold) - none offline and none asked, DFU's own ladder whole
+  const goldCost = enchantGold(totalGoldCost(powers), discountPct);
   const power = itemEnchantmentPower(item);
   if (gold < goldCost) {
     return { kind: 'noGold', text: NOT_ENOUGH_GOLD_TO_ENCHANT, goldCost };
@@ -241,6 +300,11 @@ export function applyEnchantments(item, enchantments, { owner = null, ctx = null
     applied.push({ ...e });
     if (++count > MAX_ENCHANTMENTS) break;
   }
+  // AUDIT PROF10 J2: a crafted piece's own rows stay ahead of the new (keptEnchantments) - their created payloads ran
+  // when they were laid on, and run no second time
+  const kept = keptEnchantments(item)?.length ? item.enchantments : [];
+  // AUDIT PROF-541 R2-C5: and count in the cap - DFU's eleven rows the most the item stores, kept and new together
+  applied.length = Math.min(applied.length, Math.max(0, MAX_ENCHANTMENTS + 1 - kept.length));
   doEnchantedPayloads(item, applied, { entity: owner, ctx, nowMinutes });
   unequipItem(owner, item);
   // 3. AND WHAT IS STORED IS THE CLASSIC TYPE (:1316-1320). The
@@ -250,7 +314,7 @@ export function applyEnchantments(item, enchantments, { owner = null, ctx = null
   //    runtime reader - the payload dispatcher, the value sum, the
   //    held fold - looks the effect up by. A made item whose rows
   //    kept their keys is an item whose enchantments do nothing.
-  item.enchantments = applied.map((e) => ({ ...e, type: classicEnchantmentType(e.type) }));
+  item.enchantments = [...kept, ...applied.map((e) => ({ ...e, type: classicEnchantmentType(e.type) }))];
   // 4. AND THE ITEM COMES OUT IDENTIFIED (:1341). SetEnchantments
   //    ends with IdentifyItem(), `flags |= identifiedMask` (:1253-
   //    1256), so a just-made item never needs the Identify service -

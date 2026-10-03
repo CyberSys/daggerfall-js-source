@@ -46,11 +46,11 @@
 // branch at U25 (AUDIT 23 trimmed that list). The LETTER OF CREDIT
 // went last and whole: minted at systems/inventory.js:69
 // (DaggerfallTradeWindow.cs:1044-1048), summed by creditAmount at
-// systems/court.js:218 (ItemCollection.GetCreditAmount, ItemCollection
+// systems/court.js:260 (ItemCollection.GetCreditAmount, ItemCollection
 // .cs:108-118), spent letters-before-coins with the shortfall returned
-// by deductGold at court.js:260 (DeductGoldAmount, PlayerEntity.cs
-// :1324-1354), banked at systems/banking.js:493/:506, and described by
-// the 1007 text at systems/itemInfo.js:107. Nothing was ever owed at
+// by deductGold at court.js:302 (DeductGoldAmount, PlayerEntity.cs
+// :1324-1354), banked at systems/banking.js:731/:749, and described by
+// the 1007 text at systems/itemInfo.js:108. Nothing was ever owed at
 // THIS surface anyway - DaggerfallInventoryWindow.cs has no
 // letter-of-credit arm at all.
 
@@ -58,10 +58,14 @@ import { loadImg, nativeMetrics, drawImg, drawImgSub, drawImgCrop, shadowText, D
 import { getBool } from '../systems/settings.js';   // UI4: EnableInventoryInfoPanel
 import { bindings } from './input.js';   // KB1: the live registry
 import { getBinding } from '../systems/inputActions.js';   // KB1: the toggle-close binding, GetBinding(Actions.Inventory)
-import { layoutMessageBox, drawMessageBox, messageBoxHit, MB_BUTTONS } from './messageBox.js';   // U25
+import { layoutMessageBox, drawMessageBox, messageBoxHit, MB_BUTTONS, fitBoxRows } from './messageBox.js';   // U25   // SS5: fitBoxRows, a long row wrapped on the screen
 import { useItem, isLightSource, isPotionRecipe, nextVariant, USE_PENDING } from '../systems/useItem.js';   // U25; AUDIT 64 F49/F50
 import { itemInfoRows, itemInfoPanelRows, infoPanelShorten, questLetterName, INFO_TEXT, itemLongName, potionRecipeIngredientNames } from '../systems/itemInfo.js';   // U25; AUDIT 64 F51; AUDIT MERGE-PLUS C3: the refusal's name; AUDIT 64 F49 / L10N3e: PotionRecipeIngredients, one list for both skins
 import { lockRefuses, lockedText } from '../systems/itemLock.js';   // AUDIT MERGE-PLUS C3: the player's lock holds on this skin too
+import { boundRefusesPut, boundText } from '../systems/itemBound.js';   // SS3: a bound piece stays the player's on this skin too
+import { dismantleStones, dismantleRefusal, dismantleWare, DISMANTLE_INSTEAD, DISMANTLED } from '../systems/sigilBroker.js';   // SS5: a Broker ware back into stones
+import { YesNoBoxWindow } from './yesNoBox.js';   // SS5: the dismantle's question, DFU's own Yes/No box
+import { ListPickerWindow, listPickerArtLoaded } from './listPicker.js';   // MEND-AIM: the piece a repair kit mends, chosen
 import { paintingImage, setPaintingArtDeps } from './paintingImage.js';   // ROAD-A7: the painting's picture
 import { goldAmount, deductGold } from '../systems/court.js';
 import { enchantArmorDisplayMod } from '../systems/enchantments.js';   // AUDIT 26 F122
@@ -89,6 +93,7 @@ import {
   // the cycling arithmetic and dropIconIdxs' record lookup.
   openDropIcon, canChangeDropIcon, cycleDropIcon, dropIconRecord,
   groundRefusalOf,   // HOUSE-DROP: the host's word against the ground
+  storeCapacityOf,   // COMPANION-WEIGHT: a storage's own weight limit
 } from '../systems/inventorySession.js';
 import { isEquipped, equipItem, unequipSlot, isForbiddenEquip, isBrokenItem, EQUIP_SLOTS, FORBIDDEN_EQUIPMENT_TEXT_ID, ITEM_BROKEN_TEXT_ID, equipDelaySnapshot, billEquipDelayOnClose } from '../systems/equip.js';   // S23; FX1 (F128): the per-visit swap-pause clock
 import { drawPaperDoll, refreshPaperDoll, slotAtPaperDoll, ARMOR_LABEL_POS } from './paperDoll.js';
@@ -531,9 +536,12 @@ export class NativeInventoryWindow {
     if (loot && (loot.textureArchive ?? 0) > 0) {
       return { image: dropIconImage(loot.textureArchive, loot.textureRecord), label: pileLabel(loot.pile) };
     }
+    // AUDIT ECON C2: a storage with its own limit (a companion's pack, COMPANION-WEIGHT) is labelled with its load the way
+    // the wagon is - the classic window said nothing of it while its Remove refused at the limit
+    const cap = storeCapacityOf(this.hooks, { usingWagon: this.usingWagon, chooseOne: this.chooseOne });
     return {
       container: loot ? (loot.containerImage?.() ?? CONTAINER_IMAGES.Ground) : CONTAINER_IMAGES.Ground,
-      label: pileLabel(loot?.pile),
+      label: cap ? targetIconWeightText(totalWeight(this._remote()), cap.kg) : pileLabel(loot?.pile),
     };
   }
 
@@ -766,6 +774,17 @@ export class NativeInventoryWindow {
       else this.boxes = [{ rows: [{ text: USE_PENDING[r.kind], center: true }] }];
       return;
     }
+    // MEND-AIM: a use that asks WHICH (a repair kit, with more than one piece to mend) pushes DFU's list picker over
+    // the pack, the choices in the law's order; a row chosen uses the item again, aimed at it, and a click outside
+    // keeps the kit. With no picker art the law's own first choice is taken, as the quick keys take it.
+    if (r.kind === 'chooseTarget') {
+      if (!listPickerArtLoaded()) { this._use(r.item, collection, r.targets[0]); return; }
+      this.inputBox = new ListPickerWindow({
+        items: r.labels, backdrop: 'none',
+        onPick: (i) => this._use(r.item, collection, r.targets[i]),
+      });
+      return;
+    }
     if (r.text) this.boxes = [{ rows: [{ text: r.text, center: true }] }];
     else if (r.textId && this.hooks.rows) this.boxes = [{ rows: expandRowValues(this.hooks.rows(r.textId) ?? [], r.macros ?? null) }];   // MACROS1: %map is the map's name
     else if (r.pending) this.boxes = [{ rows: [{ text: USE_PENDING[r.kind] ?? 'Nothing happens.', center: true }] }];
@@ -825,6 +844,7 @@ export class NativeInventoryWindow {
           usingWagon: this.usingWagon,
           remote: this._remote(),
           groundRefusal: groundRefusalOf(this.hooks, { usingWagon: this.usingWagon, chooseOne: this.chooseOne }),   // HOUSE-DROP
+          capacity: storeCapacityOf(this.hooks, { usingWagon: this.usingWagon, chooseOne: this.chooseOne }),   // COMPANION-WEIGHT
         });
         if (plan.notice) this.boxes = [{ rows: [{ text: plan.notice, center: true }] }];
         if (!plan.ok) { if (plan.refusal?.reason === 'ground') this._refuse(plan.refusal); return; }   // HOUSE-DROP: the floor's refusal is said
@@ -834,8 +854,9 @@ export class NativeInventoryWindow {
     });
   }
 
-  _use(it, collection) {
+  _use(it, collection, target = null) {
     this._useResult(useItem(it, collection, {
+      target, chooseTarget: target == null,   // MEND-AIM: this window can ask which piece a kit mends
       entity: this.hooks.entity,
       // AUDIT 22 F4: the oil arm looks for its lantern in the LOCAL
       // pack whatever list the click came from, so the bag travels
@@ -893,10 +914,29 @@ export class NativeInventoryWindow {
         this._refuse({ text: lockedText(itemLongName(it, { getQuest: this.hooks.getQuest ?? null })) });
         return;
       }
+      // SS3: A BOUND PIECE GOES NOWHERE BUT THE WAGON AND THE PLAYER'S OWN STORAGE (systems/itemBound.js), on this skin
+      // as on the enhanced pack - the ground, a corpse and a chest refuse it, and it says why. The target in the
+      // enhanced pack's own words (remoteModel's kinds): the wagon, the owner's storage, or elsewhere. AUDIT SS: a
+      // reward tray is not asked - DFU refuses every piece put there in silence (planStore's chooseOne arm, below)
+      const t = remoteTargetType(this.hooks, { usingWagon: this.usingWagon, chooseOne: this.chooseOne });
+      if (t !== REMOTE_TARGET_TYPES.Merchant) {
+        const kind = t === REMOTE_TARGET_TYPES.Wagon ? 'wagon' : t === REMOTE_TARGET_TYPES.Loot && this.hooks.loot?.storage === true ? 'storage' : 'elsewhere';
+        if (boundRefusesPut(it, kind)) {
+          // SS5: a Broker ware Removed over the GROUND - the player getting rid of it - is offered its dismantle
+          // instead (a locked one was refused the ground above, and a worn one is never in this list); AUDIT SS: the
+          // player's own pile on the ground is the ground too (groundRefusalOf's, canChangeDropIcon's)
+          const ground = t === REMOTE_TARGET_TYPES.Dropped || (t === REMOTE_TARGET_TYPES.Loot && this.hooks.loot?.playerOwned === true);
+          const n = ground && !dismantleRefusal(it) ? dismantleStones(it) : 0;   // (and never one the law would refuse - a locked one over the player's own pile)
+          if (n > 0) { this._askDismantle(it, n); return; }
+          this._refuse({ text: boundText(itemLongName(it, { getQuest: this.hooks.getQuest ?? null })) });
+          return;
+        }
+      }
       const plan = planStore(it, {
         remote: to, usingWagon: this.usingWagon, chooseOne: this.chooseOne,
         getQuest: this.hooks.getQuest ?? null,
         groundRefusal: groundRefusalOf(this.hooks, { usingWagon: this.usingWagon, chooseOne: this.chooseOne }),   // HOUSE-DROP: a floor that refuses a drop
+        capacity: storeCapacityOf(this.hooks, { usingWagon: this.usingWagon, chooseOne: this.chooseOne }),   // COMPANION-WEIGHT: a companion's pack takes what fits
       });
       if (!plan.ok) { this._refuse(plan.refusal); return; }
       // AUDIT 26 F156: the map interception (:1471-1478) - the reveal
@@ -962,6 +1002,22 @@ export class NativeInventoryWindow {
    *  nothing, and none of them ever reaches the click sound. */
   _refuse(refusal) {
     if (refusal.text) this.boxes = [{ rows: [{ text: refusal.text, center: true }] }];
+  }
+
+  /** SS5 (Mac: "The ability to dismantle in the inventory and recieve back sigil stones"): THE DISMANTLE, ON THIS SKIN.
+   *  Its six buttons are DFU's art, so the question comes where the player tries to be rid of a ware - Remove over the
+   *  ground, which its binding refuses: the refusal and the offer in DFU's own Yes/No box (ui/yesNoBox.js, pressed or
+   *  keyed). Yes dismantles it (systems/sigilBroker.js dismantleWare) and says so; No leaves it in the pack. */
+  _askDismantle(it, n) {
+    const name = itemLongName(it, { getQuest: this.hooks.getQuest ?? null });
+    this._tip.hide();   // AUDIT SS: the piece's tooltip drew over the question until the mouse moved
+    this.inputBox = new YesNoBoxWindow({
+      rows: [{ text: boundText(name), center: true }, { text: DISMANTLE_INSTEAD(n), center: true }],
+      onYes: () => {
+        const r = dismantleWare(it, { items: this.hooks.items() });
+        if (r.ok) this.boxes = [{ rows: [{ text: DISMANTLED(name, r.stones), center: true }] }];
+      },
+    });
   }
 
   _pickRemote(slot, mode = this.mode) {
@@ -1142,6 +1198,7 @@ export class NativeInventoryWindow {
    *  hand the live point in (they already compute it for hover); the
    *  remembered one is only the fallback for a caller that has none. */
   wheel(dir, vx = this._mouse[0], vy = this._mouse[1]) {
+    if (dir && typeof this.inputBox?.wheel === 'function') { this.inputBox.wheel(dir); return; }   // MEND-AIM: the pushed picker scrolls
     if (!dir || this.topBox || this.inputBox) return;
     const R = INV_RECTS;
     const kind = dir > 0 ? 'down' : 'up';
@@ -1258,6 +1315,7 @@ export class NativeInventoryWindow {
       const t = this._tipItemAt(vx, vy);
       this._tip.show(t.item, vx, vy, { getQuest: this.hooks.getQuest ?? null, books: t.books });
     }
+    if (typeof this.inputBox?.hover === 'function') this.inputBox.hover(vx, vy, e);   // MEND-AIM: the pushed picker's rows light under the cursor
     if (this.topBox || this.inputBox) return;
     const R = INV_RECTS;
     // The GOLD button (:2243-2247). Not an item - two generated lines,
@@ -1358,7 +1416,12 @@ export class NativeInventoryWindow {
    *  THREE separate click handlers (:437-439), so the middle button
    *  has to reach it or a third of the law is unreachable. */
   click(vx, vy, right = false, middle = false) {
-    if (this.inputBox) { this.inputBox.click(vx, vy); return true; }   // CM5: modal, not click-anywhere
+    if (this.inputBox) {   // CM5: modal, not click-anywhere
+      const box = this.inputBox;
+      if (!right && !middle) box.click(vx, vy);   // AUDIT SS: a box's buttons answer the LEFT button (DaggerfallMessageBox.AddButton wires OnMouseClick) - a right click is this pack's Remove, and struck the dismantle's Yes
+      if (box.done && this.inputBox === box) this.inputBox = null;   // SS5: a Yes/No box is answered by a press, as a key answers it
+      return true;
+    }
     if (this.topBox) { this._dismissBox(); return true; }   // ClickAnywhereToClose
     const R = INV_RECTS;
     // G5: the drop-icon panel (:437-439). LEFT cycles the icon UP,
@@ -1468,7 +1531,7 @@ export class NativeInventoryWindow {
   /** MAC-N2: the release edge the hosts send on mouseup (ROAD-E E1) -
    *  VerticalScrollBar.Update's else arm (:123-129), for the frame the
    *  button comes up without a move to carry it. */
-  release() { this._drag = null; }
+  release() { this._drag = null; this.inputBox?.release?.(); }   // MEND-AIM: and the pushed picker's thumb
 
   /** ROAD-E E1's key-up half: only the Control state reads it here. */
   keyup(code, e = null) {
@@ -1597,7 +1660,7 @@ export class NativeInventoryWindow {
     // the message-box queue (info, use, the equip refusal, wagon, gold)
     const box = this.topBox;
     if (box) {
-      const rows = box.rows;
+      const rows = box.painting ? box.rows : fitBoxRows(font, box.rows);   // SS5: a row naming a long piece wraps, rather than standing past the screen - AUDIT SS: never a painting's box, whose picture's height wrapping would push off the panel
       // ROAD-A7: a painting box carries an ImagePanel, which is part of
       // the SIZING (UpdatePanelSizes :527-534) - so the picture is
       // measured into the layout, not stamped over it. It arrives on a

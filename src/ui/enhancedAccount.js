@@ -26,11 +26,20 @@
 // plaque, the refusal line, and the signed-in fact list.
 // ═══════════════════════════════════════════════════════════════════
 
-import { STAGES, FIELDS, FIELD_SPEC } from './accountFlow.js';
-import { TITLE_TEXT, glyphBadges, glyphArtNode, badgeClass } from './playerBadge.js';   // ACC3c: the SAME table the name over a head reads, so the picker shows what a player will actually wear - the COLOUR is the skin's (this card may not style itself, and a pin holds that)
+import { STAGES, FIELDS, FIELD_SPEC, AGREEMENTS, AGREEMENT_SPEC } from './accountFlow.js';
+import { TITLE_TEXT, AURA_TEXT, glyphBadges, glyphArtNode, badgeClass } from './playerBadge.js';   // ACC3c: the SAME table the name over a head reads, so the picker shows what a player will actually wear - the COLOUR is the skin's (this card may not style itself, and a pin holds that)
 import { duelRecordText } from '../net/duelRecord.js';   // DUEL1: the account card's K/D row
 import { renownText, renownProgressText } from '../net/renown.js';   // RENOWN1: Renown, left of the name and in its rows
 import { gateRecordText } from '../net/gateClaims.js';   // WB5b: and its gates-closed row
+import { marksText } from '../net/marksLaw.js';   // MARKS1: and its Marks row
+import { raidRecordText } from '../net/raidClaims.js';   // RAID4: and its towns-defended row
+
+/** RENOWN-CHAR (Mac: "Can we make renown per character again"): the card's Renown tracks as the service sends them -
+ *  its characters', the most recently played first - or none: none earned yet, or a service from RENOWN-ACCOUNT's day
+ *  (which sent the account's one, `{ xp, level }`, not a list - no character's Renown, so none is drawn). */
+export function renownTracksOfCard(r) {
+  return Array.isArray(r) ? r.filter((t) => renownText(t?.level) && Number.isSafeInteger(t?.xp) && t.xp >= 0) : [];
+}
 
 /** COPY LIVES IN ONE TABLE, so a stage cannot be drawn with a heading
  *  from one slice and a paragraph from another. Keyed by stage, and a
@@ -49,6 +58,12 @@ export const GLYPH_LABEL = Object.freeze({
   apostle: 'Apostle',
   hierophant: 'Hierophant',
   shadowfang: 'Shadow Fang',   // SHADOW-FANG: the wolf's head beside SirMcMobdon's name
+  penitent: 'Penitent',   // PENITENT: the sword in its lozenge beside Diggleborf's name
+  herald: 'Herald',   // HERALD: the herald's trumpet and its banner
+  tower: 'A seat\'s Charter',   // SEAT1c: the tower of a guild holding a palace seat
+  crownDF: 'The Crown of Daggerfall',   // SEAT1c: a crown seat's crown, its kingdom's
+  crownWR: 'The Crown of Wayrest',
+  crownSN: 'The Crown of Sentinel',
 });
 
 /** ACC4: THE TWO FACTS MAC ASKED FOR, as words. Pure, so node pins
@@ -133,12 +148,30 @@ export function accountCard(doc, flow, { onClose = null } = {}) {
 
   const root = el('div', 'card acct');
 
+  /**
+   * AUDIT TERMS1 T3 — THE KEYBOARD SURVIVES A REDRAW. paint() builds the
+   * card anew, and a control built anew is one the keyboard is no longer
+   * on. A refusal is cleared by the first keystroke or tick that answers
+   * it (flow.set, flow.agree), and that repaint came under the player's
+   * fingers: after "Type your username" the rest of "Nystul" went nowhere
+   * but its N, and a Space on the Terms box - the one answer its refusal
+   * has - left the next Tab on Username. So every control is built under
+   * a name (`keyed`), and the one that held the focus, with its caret, is
+   * found again under that name. One the redraw disabled (a button while
+   * its press is out) is kept in mind, and handed the focus back when the
+   * card that follows has it again, if the player has not moved it.
+   */
+  let keyed = new Map();
+  let wanted = null;   // { key, stage, caret } - the control the focus goes back to, on a card of that stage
+  let painted = null;  // the stage the card on screen was built for
+  const keyedAs = (n, key) => { n.acctKey = key; keyed.set(key, n); return n; };
+
   /** One field, wearing exactly the shape ONLINE1 and NAME-F2 built. */
   function field(key) {
     const spec = FIELD_SPEC[key];
     const wrap = el('label', 'field');
     wrap.append(el('span', 'fieldlabel', spec.label));
-    const input = el('input');
+    const input = keyedAs(el('input'), `field:${key}`);
     input.type = spec.secret ? 'password' : 'text';
     input.maxLength = spec.max;
     input.value = flow.values[key] ?? '';
@@ -163,8 +196,40 @@ export function accountCard(doc, flow, { onClose = null } = {}) {
     return wrap;
   }
 
-  function act(label, onclick, { primary = false, disabled = false } = {}) {
-    const b = el('button', `act${primary ? ' primary' : ''}`, label);
+  /**
+   * TERMS1 — ONE BOX, AND THE DOCUMENT IT AGREES TO.
+   *
+   * "I wanna make sure these need to be reviewed and checked off by
+   * players before creating an account". So the box starts UNTICKED -
+   * the flow wipes the ticks on every move, and nothing here sets one -
+   * and the document's name beside it is a LINK to the whole text.
+   *
+   * THE LINK OPENS OUTSIDE THE GAME: a new tab on the web, the system
+   * browser from the desktop app (app/main.cjs hands http(s) there), so
+   * reading it loses nothing already typed. It sits inside the <label>,
+   * and a click on a link inside a label follows the link without
+   * toggling the box - the HTML rule for interactive content in a label -
+   * so a player cannot tick what they only meant to open.
+   */
+  function agreement(key) {
+    const spec = AGREEMENT_SPEC[key];
+    const wrap = el('label', 'acctagree');
+    const box = keyedAs(el('input'), `agree:${key}`);
+    box.type = 'checkbox';
+    box.checked = flow.agreed?.[key] === true;
+    box.onchange = () => flow.agree(key, box.checked);
+    const link = keyedAs(el('a', null, spec.label), `doc:${key}`);
+    link.href = spec.url;
+    link.target = '_blank';
+    link.rel = 'noopener';
+    const words = el('span');
+    words.append(el('span', null, 'I have read and agree to the '), link);
+    wrap.append(box, words);
+    return wrap;
+  }
+
+  function act(label, onclick, { primary = false, disabled = false, key = label } = {}) {
+    const b = keyedAs(el('button', `act${primary ? ' primary' : ''}`, label), `act:${key}`);
     b.type = 'button';
     if (disabled) b.disabled = true;
     b.onclick = onclick;
@@ -182,16 +247,18 @@ export function accountCard(doc, flow, { onClose = null } = {}) {
    * holds no title sees no picker - not an empty box with a heading
    * over it - because ACC1e's own correction was Mac's ("there's
    * uneeded text explaining what an account is") and a control with
-   * no options is exactly that. The glyphs are shown BESIDE it and
-   * are not pressable, because a glyph is TRUE of a player rather
-   * than chosen by one; a control that cannot be operated would say
-   * the opposite.
+   * no options is exactly that. GLYPH-WEAR (2026-10-02, Mac: "can we
+   * make it where players can also equip/unequip their glyphs"): each
+   * glyph is a button too - pressed off, pressed back on - though it
+   * stays TRUE of the player: hiding one is paint, and what it grants
+   * stays.
    */
   function wardrobe() {
     const w = flow.wardrobe;
     const held = Array.isArray(w?.titles) ? w.titles : [];
     const glyphs = glyphBadges(w);
-    if (!held.length && !glyphs.length) return;
+    const auras = Array.isArray(w?.auras) ? w.auras : [];   // WB9g: the Broker's auras this account owns
+    if (!held.length && !glyphs.length && !auras.length) return;
 
     const box = el('div', 'acctwear');
     if (held.length) {
@@ -209,13 +276,31 @@ export function accountCard(doc, flow, { onClose = null } = {}) {
         // its own, which is the rule ACC1e was built under.
         // SHADOW-FANG: the word in a span of its own, so a gradient title's paint clips to the letters and leaves
         // the button's border in its plain colour (ui/playerBadge.js badgeCss)
-        const b = el('button', `acttitle ${badgeClass('tl', key)}${worn ? ' worn' : ''}`);
+        const b = keyedAs(el('button', `acttitle ${badgeClass('tl', key)}${worn ? ' worn' : ''}`), `title:${key}`);
         b.append(el('span', 'acttitleword', TITLE_TEXT[key] ?? key));
         b.type = 'button';
         b.disabled = !!flow.busy;
         b.setAttribute('aria-pressed', worn ? 'true' : 'false');
-        b.title = worn ? 'Wearing this - press to take it off' : `Wear ${TITLE_TEXT[key] ?? key}`;
+        b.title = worn ? 'Worn. Press to take it off.' : `Wear ${TITLE_TEXT[key] ?? key}`;   // WB13b
         b.onclick = () => flow.equip(key);
+        row.append(b);
+      }
+      box.append(row);
+    }
+    if (auras.length) {
+      // WB9g: AN AURA IS WORN AS A TITLE IS - one at a time, pressed on, pressed off (the flow decides which), the fire at
+      // the feet every other player sees once the next hello carries it
+      box.append(el('span', 'fieldlabel', 'Aura'));
+      const row = el('div', 'acctwearrow');
+      for (const key of auras) {
+        const worn = w.aura === key;
+        const b = keyedAs(el('button', `acttitle actaura aura-${key}${worn ? ' worn' : ''}`), `aura:${key}`);
+        b.append(el('span', 'actauraword', AURA_TEXT[key] ?? key));
+        b.type = 'button';
+        b.disabled = !!flow.busy;
+        b.setAttribute('aria-pressed', worn ? 'true' : 'false');
+        b.title = worn ? 'Worn. Press to take it off.' : `Wear ${AURA_TEXT[key] ?? key}`;
+        b.onclick = () => flow.wearAura(key);
         row.append(b);
       }
       box.append(row);
@@ -223,11 +308,17 @@ export function accountCard(doc, flow, { onClose = null } = {}) {
     if (glyphs.length) {
       box.append(el('span', 'fieldlabel', 'Glyphs'));
       const row = el('div', 'acctwearrow');
+      const off = Array.isArray(w?.glyphsOff) ? w.glyphsOff : [];
       for (const g of glyphs) {
-        // NOT A BUTTON. A glyph is a fact about the account - the
-        // sprout is its age, the dev mark is a grant - and nothing
-        // equips one, so nothing here can be pressed.
-        const chip = el('span', `acctglyph ${badgeClass('gl', g.key)}`);
+        // GLYPH-WEAR: A BUTTON NOW, worn as a title's is - full strength while shown, faded while hidden - and the
+        // press asks the service (flow.toggleGlyph). Still a fact about the account: hidden, it grants what it did.
+        const shown = !off.includes(g.key);
+        const chip = keyedAs(el('button', `acctglyph ${badgeClass('gl', g.key)}${shown ? ' worn' : ''}`), `glyph:${g.key}`);
+        chip.type = 'button';
+        chip.disabled = !!flow.busy;
+        chip.setAttribute('aria-pressed', shown ? 'true' : 'false');
+        chip.title = shown ? 'Showing this - press to hide it' : 'Hidden - press to show it';
+        chip.onclick = () => flow.toggleGlyph(g.key);
         // SHADOW-FANG: the one drawing's colourless half (ui/playerBadge.js glyphArtNode) - its shapes are
         // currentColor, which this chip's class colours; a gradient glyph brings its own fill and eye
         const svg = glyphArtNode(doc, g, 'acctglyphart', 1.6);
@@ -241,8 +332,74 @@ export function accountCard(doc, flow, { onClose = null } = {}) {
   }
 
   function paint() {
-    root.textContent = '';
     const stage = STAGES.includes(flow.stage) ? flow.stage : 'out';
+    // AUDIT TERMS1 T3: what the keyboard is on, before the card it is on is taken down
+    const on = /** @type {any} */ (doc.activeElement);
+    if (on && typeof on.acctKey === 'string' && keyed.get(on.acctKey) === on) {
+      wanted = { key: on.acctKey, stage: painted, caret: typeof on.selectionStart === 'number' ? [on.selectionStart, on.selectionEnd] : null };
+    } else if (on && on !== doc.body && on !== doc.documentElement) wanted = null;   // the player moved it elsewhere
+    keyed = new Map();
+    root.textContent = '';
+    build(stage);
+    painted = stage;
+    focusBack(stage);
+  }
+
+  /** AUDIT TERMS1 T3: the focus back where it was - the same control, the same caret - on a card of the same stage. */
+  function focusBack(stage) {
+    if (!wanted) return;
+    if (wanted.stage !== stage) { wanted = null; return; }
+    const n = keyed.get(wanted.key);
+    if (!n || n.disabled || typeof n.focus !== 'function') return;   // kept for the card that has it again
+    n.focus();
+    if (wanted.caret && typeof n.setSelectionRange === 'function') {
+      try { n.setSelectionRange(wanted.caret[0], wanted.caret[1]); } catch { /* a box or a button has no caret */ }
+    }
+    wanted = null;
+  }
+
+  /**
+   * PATREON-LINK — THE PATRON'S OWN LINK (Mac: "having to manually hand out titles ... its really hard to keep up with
+   * it"). A registered account, on a service with linking on, gets one row: Link Patreon, or Linked with what the
+   * pledge holds, a Refresh (the same link - Patreon asked again) and an Unlink.
+   *
+   * THE LINK IS A LINK, not a button that asks for one: the service put it in the account read, so the press opens it
+   * at once - a new tab on the web, the system browser from the desktop app (app/main.cjs hands http(s) there), exactly
+   * as TERMS1's document links do. A window opened after an await is a popup a phone's browser blocks.
+   */
+  function patreonRow() {
+    const p = flow.patreon;
+    if (!p?.on || !flow.account?.handle) return;
+    const titles = Array.isArray(p.titles) ? p.titles : [];
+    const box = el('div', 'acctwear acctpatreon');
+    box.append(el('span', 'fieldlabel', 'Patreon'));
+    const row = el('div', 'acctwearrow');
+    if (p.linked) row.append(el('span', 'acctpatreonstate', titles.length ? `Linked - ${titles.map((t) => TITLE_TEXT[t] ?? t).join(', ')}` : 'Linked - no tier yet'));
+    if (typeof p.link === 'string' && p.link.startsWith('https://')) {
+      const a = keyedAs(el('a', 'act', p.linked ? 'Refresh' : 'Link Patreon'), 'patreon:link');
+      a.href = p.link;
+      a.target = '_blank';
+      a.rel = 'noopener';
+      a.onclick = () => flow.patreonOpened();
+      row.append(a);
+    }
+    if (p.linked) row.append(act('Unlink', () => flow.unlinkPatreon(), { disabled: !!flow.busy, key: 'patreon:unlink' }));
+    box.append(row);
+    root.append(box);
+  }
+
+  /** PATREON-LINK: BACK FROM THE BROWSER, the account is read again - a link that landed, or a pledge that moved, is on
+   *  the card the player comes back to. One listener a card, gone on the first focus after the card is. */
+  const win = doc.defaultView;
+  if (win && typeof win.addEventListener === 'function') {
+    const onFocus = () => {
+      if (!root.isConnected) { win.removeEventListener('focus', onFocus); return; }
+      if (flow.stage === 'in' && flow.patreon?.on && typeof flow.refresh === 'function') Promise.resolve(flow.refresh()).catch(() => {});
+    };
+    win.addEventListener('focus', onFocus);
+  }
+
+  function build(stage) {
     const copy = STAGE_COPY[stage];
 
     // The tag earns its place only where it is NOT a restatement of the
@@ -254,7 +411,8 @@ export function accountCard(doc, flow, { onClose = null } = {}) {
     // Renown of the character most recently played online, left of the name - the service's tracks come most
     // recently played first (AUDIT RENOWN1 UI-10: "earned" was never what it measured - a report the hour had spent
     // still marks its character played). None for an account that has not earned any yet, or a service before it.
-    const tracks = stage === 'in' && Array.isArray(flow.account?.renown) ? flow.account.renown : [];
+    // RENOWN-CHAR: a character's again (RENOWN-ACCOUNT drew the account's one here).
+    const tracks = stage === 'in' ? renownTracksOfCard(flow.account?.renown) : [];
     const heading = stage === 'in' ? (flow.account?.name ?? copy.title) : copy.title;
     const lvText = renownText(tracks[0]?.level);
     if (lvText) {
@@ -296,15 +454,22 @@ export function accountCard(doc, flow, { onClose = null } = {}) {
       // WB5b: the Oblivion Gates this account closed - each a kill the relay signed and this service counted once
       // (net/gateClaims.js carries the receipts). A service from before it says nothing.
       const gates = gateRecordText(flow.account.gates);
-      if (gates) row('Gates closed', gates);
+      if (gates) row('Breaches closed', gates);   // WB12a
+      // MARKS1: the account's Marks - the server's currency, struck for acts a server witnessed (PROF0 10.5). Null where
+      // Marks are not this account's (a guest, the service's switch), and a service from before it says nothing.
+      if (Number.isSafeInteger(flow.account.marks)) row('Silver', marksText(flow.account.marks));
+      // RAID4: the towns this account defended - each a raid's cleanse the relay signed and this service counted once
+      // (net/raidClaims.js carries the receipts). A service from before it says nothing.
+      const raids = raidRecordText(flow.account.raids);
+      if (raids) row('Towns defended', raids);
       // RENOWN1: each character's Renown and how far into it they are - online's own level, never the save's. The
-      // service sends the RENOWN_CARD_TRACKS (five) most recently played.
+      // service sends the RENOWN_CARD_TRACKS (five) most recently played (RENOWN-CHAR: a row each again).
       for (const t of tracks) {
-        if (!Number.isSafeInteger(t?.level) || !Number.isSafeInteger(t?.xp)) continue;
         row('Renown', `${typeof t.name === 'string' && t.name ? t.name : 'A character'} - Renown ${t.level}, ${renownProgressText(t.xp)}`);
       }
       root.append(rows);
       wardrobe();
+      patreonRow();   // PATREON-LINK
       if (!flow.account.handle) {
         root.append(el('p', 'meta', 'Adding a username keeps everything this account already has.'));
       }
@@ -319,6 +484,9 @@ export function accountCard(doc, flow, { onClose = null } = {}) {
 
     // ── THE FIELDS ──────────────────────────────────────────────────
     for (const key of FIELDS[stage] ?? []) root.append(field(key));
+
+    // ── TERMS1: THE BOXES, under the fields and over the button ──────
+    for (const key of AGREEMENTS[stage] ?? []) root.append(agreement(key));
 
     // ── WHAT WENT WRONG, OR WHAT WENT RIGHT ─────────────────────────
     // Two lines rather than one with a colour swap: a refusal and a
@@ -340,7 +508,7 @@ export function accountCard(doc, flow, { onClose = null } = {}) {
       } else {
         acts.append(act('Give it a username', () => flow.go('register'), { primary: true, disabled: busy }));
       }
-      acts.append(act(busy ? 'Signing out…' : 'Sign out', () => flow.signOut(false), { disabled: busy }));
+      acts.append(act(busy ? 'Signing out…' : 'Sign out', () => flow.signOut(false), { disabled: busy, key: 'signout' }));
       acts.append(act('Sign out everywhere', () => flow.signOut(true), { disabled: busy }));
     } else if (stage === 'code') {
       // THE ONLY WAY OFF THIS STAGE. No cancel, no close, no second
@@ -351,7 +519,7 @@ export function accountCard(doc, flow, { onClose = null } = {}) {
       // nothing to press yet
     } else {
       const spec = STAGE_ACTS[stage];
-      acts.append(act(busy ? 'Working…' : spec.submit, () => flow.submit(), { primary: true, disabled: busy }));
+      acts.append(act(busy ? 'Working…' : spec.submit, () => flow.submit(), { primary: true, disabled: busy, key: 'submit' }));
       acts.append(act('Back', () => flow.go(spec.back), { disabled: busy }));
       if (stage === 'login') {
         acts.append(act('Lost your password?', () => flow.go('recover'), { disabled: busy }));

@@ -40,7 +40,7 @@
 // mount, so RegensHealth/ItemDeteriorates/UserTakesDamage's
 // conditional arms are live), season(), moonPhase(param) (V2c:
 // ExtraSpellPts' IsFull/IsHalf/IsNewMoon over gameDate's lunar law),
-// nearbyFoes(range) -> [{ mobileType, hurt(n) }] (PlayerGPS.
+// nearbyFoes(range) -> [{ mobileType, spared, hurt(n, o) }] (PlayerGPS.
 // GetNearbyObjects - the affinity classifier lives HERE off
 // ENEMY_BASICS), spawnFoe(mobileType) (SoulBound's break, B1's
 // spawner), isResting(), allowMagicRepairs (a DFU setting, default
@@ -55,6 +55,7 @@ import { skillValue } from './skills.js';
 import { unitWeightInKg } from './inventory.js';   // AUDIT-RR2 G1: ExtraWeight's base
 import { enchantmentCost, defaultParam } from './enchantmentCatalogue.js';   // G4: the legacy value sum reads M4's costs
 import { artifactHook } from './artifactEffects.js';   // V3: the nine artifact classes' sub-registry
+import { applyDressStanding } from './clothingStanding.js';   // DRESS1 (2026-09-30, Discord): the clothing reaction, a leaf
 
 // EnchantmentTypes moved HOME to formats/magicDef.js (V3) - it is
 // FallExe's enum and the artifact registry reads it below this module
@@ -159,7 +160,7 @@ export const isEnchantedItem = (item) => !!itemEnchantments(item);
 // ported" - and M4's catalogue is that sum's missing half, so it
 // closed here and stays closed: legacyEnchantmentValue (:222-238) is
 // the sum, over VALUE_COUNTS_BELOW (:179), spellEnchantPtCost (:214)
-// and the SoulBound/CastWhen arms, and systems/loot.js:300 prices
+// and the SoulBound/CastWhen arms, and systems/loot.js:321 prices
 // every minted legacy item through it.
 //
 // THE BOUND IS THE ENUM'S OWN ORDER (:604-605): only
@@ -341,6 +342,9 @@ const REGISTRY = new Map([
     flags: PAYLOAD.Used,
     used({ param, entity, item, ctx }) {
       if (item && (item.currentCondition ?? 1) <= 0) return { durabilityLoss: DURABILITY_LOSS_ON_USE };
+      // HOME-MAGIC (not DFU's: a departure, Port-Ledger A): where the host bars casting (a visitor in another's online
+      // home), the item's spell does not go - the host says why - and the item spends no durability on it
+      if (ctx?.castBarred?.()) return null;
       const record = ctx?.spellsByIndex?.()?.get?.(param);
       if (record) {
         if (record.rangeType === 0) ctx?.applySpellToSelf?.(record, entity, item);
@@ -451,8 +455,8 @@ const REGISTRY = new Map([
     magicRound({ param, round, entity, ctx }) {
       if (param !== 0 || round % REGEN_PER_ROUNDS !== 0) return;
       const nearby = ctx?.nearbyFoes?.(VAMPIRIC_DRAIN_RANGE) ?? [];
-      for (const foe of nearby) {
-        foe.hurt?.(1);
+      for (const foe of nearby.filter((n) => !n.spared)) {   // AUDIT NAV2 F55: the player's own harm passes a shipmate and a town's defender by (the host's rows say which) - the drain too, and the wearer takes nothing of theirs
+        foe.hurt?.(1, { fromPlayer: false });   // AUDIT NAV2 F55: DFU writes CurrentHealth and raises no attack (no HandleAttackFromSource) - as the player's blow the drain woke the area (a prize's yielded men) and turned a drained ally on the wearer
         entity.health = Math.min(entity.maxHealth, entity.health + 1);
       }
     },
@@ -846,6 +850,7 @@ export function computeEnchantmentMods(entity, ctx = null, { clampMagicka = true
 export function enchantmentMagicRound(entity, round, { nowMinutes = 0, ctx = null } = {}) {
   ctx = mergeCtx(ctx);
   if (entity.isPlayer) (entity.reactionMods ??= new Array(SOCIAL_GROUP_COUNT).fill(0)).fill(0);   // ClearReactionMods (PlayerEntity.cs:1567-1570 - Array.Clear over all socialGroupCount = 11 entries)
+  applyDressStanding(entity);   // DRESS1 (2026-09-30, Discord "reputation buffs for clothing items"): worn clothing refills the just-cleared mods - BEFORE the early return, so plain clothes count with nothing enchanted worn
   const items = equippedEnchantedItems(entity);
   if (!items.length) { entity._enchantMods = null; return; }
   computeEnchantmentMods(entity, ctx);

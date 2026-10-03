@@ -219,6 +219,67 @@ export const COLLISION_TRIGGER_FLAGS = Object.freeze([
  *  add DaggerFallActionCollision component". */
 export const hasActionCollision = (o) => !!o && COLLISION_TRIGGER_FLAGS.includes(o.triggerFlag ?? TRIGGER_FLAGS.None);
 
+/** DISC29-A: THE STANDING RAY (DaggerfallActionCollision.cs:74-85). A hit that is not beneath the player is WalkInto -
+ *  except on a Collision01 object, where DFU first casts "straight down from the controller's bottom, skinWidth long,
+ *  against THIS object's collider": "see if player standing on this action object w/ raycast ... to avoid player being
+ *  able to push against wall to avoid". Standing on the object is WalkOn wherever its surface is - a throne's seat, a
+ *  room's floor - not only at the top of its box. `surfaces` holds the object's triangles in a bucket of its own
+ *  (`key`); the ray starts TRIGGER_RAY_LIFT above the feet, so a body resting exactly on the face (a ray's t of 0,
+ *  which the triangle test refuses) is still standing on it. Unity's CharacterController skinWidth default. */
+export const TRIGGER_SKIN_WIDTH = 0.08;
+export const TRIGGER_RAY_LIFT = 0.01;
+const DOWN = Object.freeze([0, -1, 0]);
+export function ownSurfaceUnderFeet(surfaces, key, feet, skin = TRIGGER_SKIN_WIDTH) {
+  if (!surfaces || key == null || !feet) return false;
+  const origin = [feet[0], feet[1] + TRIGGER_RAY_LIFT, feet[2]];
+  return Number.isFinite(surfaces.raycast(origin, DOWN, skin + TRIGGER_RAY_LIFT, { only: [key] }));
+}
+/** AUDIT PRE-MERGE 0929 D1/D2: OnCharacterCollided, WHOLE (DaggerfallActionCollision.cs:62-89) - what a body touching
+ *  the object `o` makes of the touch, or null when it touches nothing of it (no ControllerColliderHit: the component
+ *  hears nothing, and fires nothing).
+ *
+ *  "check if hit point beneath player": the contact's direction from the controller's centre, `dir.y < -0.9`, is a
+ *  WalkOn, for EVERY flag. Else a Collision01 object casts its standing ray (ownSurfaceUnderFeet); else WalkInto.
+ *  The port read "beneath" as "within 0.15 of the top of the object's BOX", and added the ray at DISC29-A: a body on
+ *  a staircase rides the treads' edges well under its box's top (N0000007's Hurt22 stairs took 2 hits walking all
+ *  16 steps down), a seat between two arms sits under theirs - and a body crossing a MultiTrigger's floor under
+ *  its walls was bumping INTO it (Orsinium's castle, S0000020 object 10406, a DoorText with a trespass on it: the
+ *  whole castle hostile at the first steps over its floor, where DFU's floor is beneath and refused).
+ *
+ *  The contact is the collider's (capsuleContact): the nearest point of the object's own triangles within the
+ *  skin of the capsule the motor resolves - a wall leaned on is nearer than the floor rested on, which is how a push
+ *  against a wall is WalkInto in DFU too (the reason Collision01 has its ray: "to avoid player being able to push
+ *  against wall to avoid"). A SIDE is heard only while the body moves into it (`wish`, the direction it presses -
+ *  a ControllerColliderHit only comes of a Move into the collider): a body resting against a lip, or walking along
+ *  a wall, is heard by what holds it up - the nearest contact beneath - or not at all. `surfaces` holds the object's
+ *  own bucket; `height` is the body's stance; no `wish` presses every side. */
+export const WALK_ON_DIR_Y = -0.9;
+const _contact = [0, 0, 0];
+const _beneath = [0, 0, 0];
+export function actionContact(o, feet, height, surfaces, wish = null) {
+  if (!surfaces || o?.key == null || !feet) return null;
+  const only = { only: [o.key] };
+  const at = surfaces.capsuleContact(feet, height, TRIGGER_SKIN_WIDTH, only, _contact);
+  if (!at) return null;
+  const dx = at[0] - feet[0], dy = at[1] - (feet[1] + height / 2), dz = at[2] - feet[2];
+  const len = Math.hypot(dx, dy, dz);
+  if (len > 0 && dy / len < WALK_ON_DIR_Y) return 'WalkOn';
+  if (wish && !(wish[0] * dx + wish[1] * dz > 0)) {
+    return surfaces.capsuleContact(feet, height, TRIGGER_SKIN_WIDTH, only, _beneath, WALK_ON_DIR_Y) ? 'WalkOn' : null;
+  }
+  if (o.triggerFlag === TRIGGER_FLAGS.Collision01 && ownSurfaceUnderFeet(surfaces, o.key, feet)) return 'WalkOn';
+  return 'WalkInto';
+}
+
+/** OnCharacterCollided's WalkOn arm for an ACTING FLAT (it has no triangles): a body whose box already touches the
+ *  flat's `box` is on it when its feet are within 0.15 of the box's top. (AUDIT PRE-MERGE 0929 D1/D2: every model
+ *  now takes actionContact; a flat keeps the box - DFU gives a flat's action a BoxCollider with isTrigger, RDBLayout.cs
+ *  :977-987, which the port has always read as a box.) */
+export function standsOnAction(o, feet, box, surfaces) {
+  if (feet[1] >= box.max[1] - 0.15) return true;
+  return o?.triggerFlag === TRIGGER_FLAGS.Collision01 && ownSurfaceUnderFeet(surfaces, o.key, feet);
+}
+
 export const DOOR_OPEN_ANGLE = -90;
 export const DOOR_OPEN_DURATION = 1.5;
 
@@ -318,12 +379,20 @@ const DOOR_TEXT_SKIP = new Set([7700, 7706, 7711, 7712, 7715, 7717, 7719]);
 export const CASTLE_DAGGERFALL_MAP_ID = 1291010263;              // PlayerGPS.CurrentLocation.MapTableData.MapId
 export const CASTLE_DAGGERFALL_FOYER_DOOR_LOAD_IDS = Object.freeze([29331574, 29331622]);
 
+/** HOME-DOORS (AUDIT): the keys a record may wait under for its object (a placed door's), and how many may wait. */
+const EARLY_KEY_PREFIX = 'act:decor:';
+const EARLY_MAX = 64;
+
 export class ActionSystem {
 constructor(collider, { damagePlayer = null, drainMagicka = null, castSpell = null, setGlobalVar = null, playerLevel = () => 1, lockpickSkill = () => 0, rolls = Math.random, insideDungeonCastle = () => false, magicDoorsContext = null } = {}) {
     this.collider = collider;
     this.objects = new Map(); // key -> runtime object
     this._links = new Map();  // `${ns}:${position}` -> object (the chain graph)
     this._doorCount = 0;
+    // HOME-DOORS (AUDIT): a placed door's record that came before its door - a save's, the room's memory's or a peer's,
+    // read while the door was still being hung (its model is fetched, scenes/decorRoom.js) - kept by its key until the
+    // door is added, and written with the scene's records meanwhile, so a visit that never hung it keeps its state
+    this._early = new Map();
     this._damagePlayer = damagePlayer;
     this._drainMagicka = drainMagicka;
     this._castSpell = castSpell;
@@ -444,7 +513,7 @@ constructor(collider, { damagePlayer = null, drainMagicka = null, castSpell = nu
       // life of the session - a door bricked open, for every player in the room, by one 146-byte frame.
       const rec = validActionRecord(raw);
       const o = rec && this.objects.get(rec.key);
-      if (!o) continue;
+      if (!o) { if (rec) this._keepEarly(rec); continue; }   // HOME-DOORS (AUDIT): a placed door not hung yet takes it when it is
       const opening = o.kind === 'door' && o.state !== 'forward' && rec.state === 'forward';
       // AUDIT WORLD3 B3: the author rings the RDB soundIndex on EVERY Play (`_play`, "if (PlaySound && Index > 0)"),
       // and a Play always moves the record's own state - a tween's start, or an INSTANT flip. Gating the peers' ring
@@ -710,7 +779,30 @@ constructor(collider, { damagePlayer = null, drainMagicka = null, castSpell = nu
     this.objects.set(key, o);
     if (opts.positionKey != null) this._links.set(`${ns}:${opts.positionKey}`, o);
     this.collider.addMesh(key, cpu.positions, cpu.indices, baseMatrix);
+    const early = this._early.get(key);
+    if (early) { this._early.delete(key); this.restoreSaveData([early]); }   // HOME-DOORS (AUDIT): its swing and lock, as they were left
     return o;
+  }
+
+  /** HOME-DOORS (AUDIT): a record whose object is not here - kept when it is a placed door's (`act:decor:`), which is
+   *  hung a moment after the scene's records are read; a bounded handful, the latest per key. */
+  _keepEarly(rec) {
+    if (typeof rec?.key !== 'string' || !rec.key.startsWith(EARLY_KEY_PREFIX)) return;
+    if (!this._early.has(rec.key) && this._early.size >= EARLY_MAX) this._early.delete(this._early.keys().next().value);
+    this._early.set(rec.key, rec);
+  }
+
+  /** HOME-DOORS (2026-09-30): a door taken back out - one an owner hung in a doorway (scenes/decorRoom.js), moved or
+   *  removed. Not a DFU member (Daggerfall's doors are never taken down): the object, its place in the chain graph and
+   *  its collider bucket go, open or shut. Answers whether there was one. */
+  removeDoor(key) {
+    const o = this.objects.get(key);
+    if (!o || o.kind !== 'door') return false;
+    this.objects.delete(key);
+    this._early.delete(key);
+    for (const [k, v] of this._links) if (v === o) this._links.delete(k);
+    this.collider.removeBucket(key);
+    return true;
   }
 
   /** Register a SPECIAL door (verbatim DaggerfallActionDoorSpecial):
@@ -1244,7 +1336,7 @@ constructor(collider, { damagePlayer = null, drainMagicka = null, castSpell = nu
       ...(o.kind === 'door'
         ? { lock: o.currentLockValue, failedSkillLevel: o.failedSkillLevel ?? 0, moveState: o.moveState, moveT: o.moveT ?? 0 }   // P10 lock; the Move pair
         : {}),
-    }));
+    })).concat([...this._early.values()]);   // HOME-DOORS (AUDIT): a placed door's record whose door was not hung this visit
   }
 
   /** RestoreSaveData for the whole action graph: set the saved state,
@@ -1264,7 +1356,7 @@ constructor(collider, { damagePlayer = null, drainMagicka = null, castSpell = nu
   restoreSaveData(list) {
     list?.forEach((sa) => {
       const o = this.objects.get(sa.key);
-      if (!o) return;
+      if (!o) { this._keepEarly(sa); return; }   // HOME-DOORS (AUDIT): a placed door, hung a moment later, takes it then
       o.state = sa.state;
       o.t = sa.t;
       // F185: activationCount deliberately NOT restored - an old

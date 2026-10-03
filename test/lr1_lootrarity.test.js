@@ -43,7 +43,7 @@ import '../src/world/landView.js';   // RF4: the condensed rows' lanes register 
 import '../src/world/outdoors.js';
 import '../src/systems/featureLanes.js';   // FT18: the wind, the quick slots and the blood lanes register themselves too
 import * as LR from '../src/systems/lootRarity.js';
-import { REGALIA } from '../src/systems/aetheric.js';   // SET6: the test room shows the Aetheric rung too
+import { AETHERIC_RECORDS } from '../src/systems/aetheric.js';   // SET6: the test room shows the Aetheric rung too (RAID4b: the raids' sets with it)
 import { createRandomWeapon, createRandomArmor, LOOT_ARRAY_FIELDS, validLootItem, validLootList } from '../src/systems/loot.js';   // AUDIT-LR: a container's whole list, the shape both online doors send
 import { createWeapon } from '../src/combat/enemyEquipment.js';
 import { mintCondition, itemBaseValue } from '../src/systems/itemTemplates.js';
@@ -153,15 +153,17 @@ test('LR1: the odds follow the SOURCE - monotone in tier, luck and boss, capped,
   assert.equal(LR.rollRarity({ kind: 'corpse', tier: 10 }, () => (c.magic - 0.5) / 1000), 'magic');
   assert.equal(LR.rollRarity({ kind: 'corpse', tier: 10 }, () => 0.999), 'common');
   // the sources
-  assert.deepEqual(LR.corpseSource({ level: 7, affinity: 'Animal' }, 3), { kind: 'corpse', tier: 7, boss: false });
-  assert.deepEqual(LR.corpseSource({ level: 3, affinity: 'Daedra' }, 3), { kind: 'corpse', tier: 3, boss: true }, 'any Daedra is a boss');
-  assert.deepEqual(LR.corpseSource({ level: LR.BOSS_LEVEL }, 1), { kind: 'corpse', tier: LR.BOSS_LEVEL, boss: true });
-  assert.deepEqual(LR.corpseSource({}, 9), { kind: 'corpse', tier: 9, boss: false }, 'a class enemy has no level in ENEMY_BASICS - its entity level stands in');
+  assert.deepEqual(LR.corpseSource({ level: 7, affinity: 'Animal' }, 3), { kind: 'corpse', tier: 7, boss: false, family: null });   // LOOT6: a family by the foe's type, none without one
+  assert.deepEqual(LR.corpseSource({ level: 3, affinity: 'Daedra' }, 3), { kind: 'corpse', tier: 3, boss: true, family: null }, 'any Daedra is a boss');
+  assert.deepEqual(LR.corpseSource({ level: LR.BOSS_LEVEL }, 1), { kind: 'corpse', tier: LR.BOSS_LEVEL, boss: true, family: null });
+  assert.deepEqual(LR.corpseSource({}, 9), { kind: 'corpse', tier: 9, boss: false, family: null }, 'a class enemy has no level in ENEMY_BASICS - its entity level stands in');
   assert.deepEqual(LR.pileSource(12), { kind: 'pile', tier: 12, boss: false });
 });
 
 test('LR2: the affix kinds - six, each banded per tier, each with a word for the name and a line for the tooltip', () => {
-  assert.deepEqual(LR.AFFIX_IDS, ['damage', 'armor', 'weight', 'stat', 'resist', 'skill']);
+  // LOOT4 (bible/06-Systems/Loot-Arc.md section 6): the six numbers LR1 shipped, and five that DO something after them
+  assert.deepEqual(LR.AFFIX_IDS.filter((id) => !LR.AFFIX_KINDS[id].proc), ['damage', 'armor', 'weight', 'stat', 'resist', 'skill']);
+  assert.deepEqual(LR.AFFIX_IDS.filter((id) => LR.AFFIX_KINDS[id].proc), ['elemental', 'leech', 'thorns', 'focus', 'slayer']);
   for (const id of LR.AFFIX_IDS) {
     const k = LR.AFFIX_KINDS[id];
     assert.ok(['prefix', 'suffix'].includes(k.slot));
@@ -278,7 +280,7 @@ test('LR2: every flavour and every Legendary is priced by DFU\'s own catalogue a
     const cost = enchantmentCost(key, rec.enchantment.param);
     assert.ok(cost !== null && cost > 0, `${rec.id}: ${key}/${rec.enchantment.param} priced (${cost})`);
     // every record can be reached by a roll on some base
-    const bases = [...Array(18).keys()].map((i) => ({ group: 'Weapons', templateIndex: 113 + i })).concat([...Array(11).keys()].map((i) => ({ group: 'Armor', templateIndex: 102 + i })), [133, 135].map((t) => ({ group: 'Jewellery', templateIndex: t })));
+    const bases = [...Array(18).keys()].map((i) => ({ group: 'Weapons', templateIndex: 113 + i })).concat([...Array(11).keys()].map((i) => ({ group: 'Armor', templateIndex: 102 + i })), GROUP_TEMPLATE_INDICES.Jewellery.map((t) => ({ group: 'Jewellery', templateIndex: t })));   // LOOT3: every kind of jewellery - a bracer's, a mark's, a torc's record lands on its own
     assert.ok(bases.some((b) => LR.legendariesFor(b).includes(rec)), `${rec.id} lands on some base`);
   }
 });
@@ -396,12 +398,12 @@ test('LR1: rollLootRarity - off or sourceless returns the DFU list untouched; on
 
 test('LR1: four hosts - every list a host mints rolls at its source, and the pile\'s tier is the dungeon\'s', () => {
   const dc = read('src/scenes/dungeonContext.js');
-  assert.equal((dc.match(/spawnEnemyLoot\(entity, e\.mobileType, basics, D\.playerEntity, eliteLootOpts\(e\)\)/g) ?? []).length, 2, 'both dungeon spawn arms, through the one seam (RF2), whose corpse door is LR4\'s');
-  assert.match(dc, /rollLootRarity\(items, \{ \.\.\.pileSource\(dungeonRarityTier\(dfLocation\.mapTableData\.dungeonType\)\), qualityMult: elite \? ELITE_LOOT_QUALITY_MULT : 1 \}, \{ luck: liveStat\(playerEntity, 'luck'\) \}\)/, 'the treasure piles at the dungeon\'s tier');
+  assert.equal((dc.match(/spawnEnemyLoot\(entity, e\.mobileType, basics, D\.playerEntity, \{ \.\.\.eliteLootOpts\(e\), where: 'dungeon' \}\)/g) ?? []).length, 2, 'both dungeon spawn arms, through the one seam (RF2), whose corpse door is LR4\'s');
+  assert.match(dc, /rollLootRarity\(items, \{ \.\.\.pileSource\(dungeonRarityTier\(dfLocation\.mapTableData\.dungeonType\)\), qualityMult: elite \? ELITE_LOOT_QUALITY_MULT : 1, family: dungeonFamily\(dfLocation\.mapTableData\.dungeonType\) \}, \{ luck: liveStat\(playerEntity, 'luck'\) \}\)/, 'the treasure piles at the dungeon\'s tier (LOOT6: and its kind\'s family)');
   assert.match(read('src/scenes/exteriorFoes.js'), /spawnEnemyLoot\(entity, mobileType, basics, playerEntity, \{ rolls \}\)/, 'the exterior foes, off the same stream');
   assert.match(read('src/scenes/cityGuards.js'), /spawnEnemyLoot\(entity, GUARD_MOBILE_TYPE, basics, playerEntity, \{ rolls: rand \}\)/, 'the watch');
   assert.match(read('src/scenes/hostCombat.js'), /rollCorpseLoot\(entity, basics, \{ rolls, luck: liveStat\(player, 'luck'\), qualityMult: lootQualityMult \}\);/, 'the corpse door, in the one seam (RF2)');
-  assert.match(read('src/scenes/interiorContext.js'), /rollLootRarity\(addPileLootExtras\(generateLootItems\(lootKey, \{ level, gender \}\), lootKey\), pileSource\(INTERIOR_RARITY_TIER\), \{ luck \}\)/, 'a tavern\'s pile');
+  assert.match(read('src/scenes/interiorContext.js'), /rollLootRarity\(addPileLootExtras\(generateLootItems\(lootKey, \{ level, gender \}\), lootKey, Math\.random, \{ locationIndex: locationType, luck, level \}\), pileSource\(INTERIOR_RARITY_TIER\), \{ luck \}\)/, 'a tavern\'s pile');
   assert.match(read('src/scenes/worldModes.js'), /luck: liveStat\(playerEntity, 'luck'\),   \/\/ LR1/, 'the interior host hands its luck in');
   // the reads, at DFU's own read sites
   const f = read('src/combat/formulas.js');
@@ -466,7 +468,8 @@ test('LR1: the skins - the native cell tints and the tooltip lists, the enhanced
   // the card's list leaves the sigil to its own block under it (SIGIL-UI)
   assert.match(inv, /markItemFrame\(row, item\);   \/\/ LR1/, 'a row wears its tier');
   assert.match(inv, /export function markItemFrame\(node, item\) \{\n\s+const r = rarityAttr\(item\);\n\s+if \(r\) node\.dataset\.rarity = r;/, 'through the marker');
-  assert.match(inv, /const lines = rarityLines\(picked, \{ sigil: false, set: false \}\); if \(lines\.length\)/, 'the card lists the lines (SET5: the sigil and the set draw their own blocks)');
+  assert.match(inv, /const lines = itemPowerLines\(picked, deps, \{ set: false, lore: false \}\); if \(lines\.length\)/, 'the card lists the lines (SET5: the sigil and the set draw their own blocks; CARD-FIT: the lore is the Info box\'s)');   // TRADE-INFO: rarityLines, and a DFU magic item's powers
+  assert.match(inv, /export function itemPowerLines\(item, d = deps, \{ set = true, lore = true \} = \{\}\) \{\n  const lines = rarityLines\(item, \{ sigil: false, set, lore \}\);/, 'the tier\'s lines first');
   assert.match(read('src/ui/worldPlaque.js'), /if \(r\.rarity\) row\.dataset\.rarity = r\.rarity;/);
   assert.match(read('src/ui/nativeInventory.js'), /armorLabelValue\(av\[i\] \?\? 100, entityArmorDisplayMod\(this\.hooks\.entity, i\)\)/, 'the doll\'s numbers, per part (RF1)');
   assert.match(read('src/ui/enhancedInventory.js'), /material: parts\.material \|\| null,/, 'LR4: the enhanced row names no material until identified - RF6: the long name\'s own prefix, which an unidentified item has none of');
@@ -500,11 +503,11 @@ test('LR3: the Test Room\'s loot ladder - one door, thirty items (a Magic and a 
   assert.equal(LR.lootRarityOn(), true, 'the door turns the ladder on');
   // LR6: the ladder, plus the unidentified pair - one Rare and one
   // Legendary left on the floor's own reading.
-  assert.equal(added.length, 20 + LR.LEGENDARIES.length + 2 + REGALIA.length);
-  assert.deepEqual(added.filter((i) => i.rarity === 'aetheric').map((i) => i.aetheric), REGALIA.map((r) => r.id), 'SET6: the nine Regalia pieces, once each');
+  assert.equal(added.length, 20 + LR.LEGENDARIES.length + 2 + AETHERIC_RECORDS.length + 1);   // LOOT2: and one Exalted
+  assert.deepEqual(added.filter((i) => i.rarity === 'aetheric').map((i) => i.aetheric), AETHERIC_RECORDS.map((r) => r.id), 'SET6: the nine Regalia pieces, once each; RAID4b: then the raids\' twenty-seven');
   assert.equal(added.filter((i) => i.rarity === 'magic').length, 10);
   assert.equal(added.filter((i) => i.rarity === 'rare').length, 11);
-  const legs = added.filter((i) => i.rarity === 'legendary' && i.isIdentified);
+  const legs = added.filter((i) => i.rarity === 'legendary' && i.isIdentified && !i.exalted);   // LOOT2: the Exalted is the room's one extra
   assert.deepEqual(legs.map((i) => i.legendary).sort(), LR.LEGENDARIES.map((l) => l.id).sort(), 'every record once');
   for (const it of legs) { const rec = LR.legendaryById(it.legendary); assert.ok(!rec.templates || rec.templates.includes(it.templateIndex), `${rec.id} on a fitting base`); }
   assert.equal(e.items.length, added.length);
@@ -604,7 +607,7 @@ test('LR4: the audit - the corpse door rolls the loot and never the worn kit, a 
   const forged = { ...ring(), affixes: [{ id: 'armor', value: 1e9 }, { id: 'stat', value: 3 }, null, { id: 'stat', param: 'luck', value: 5 }] };
   e.items.push(forged); equipItem(e, forged);
   assert.equal(liveStat(e, 'luck'), 55, 'the one sound record folds; the three malformed fold nothing and throw nothing');
-  assert.deepEqual(LR.rarityLines({ ...forged, rarity: 'magic' }).filter(Boolean), ['Magic', '+5 Luck']);
+  assert.deepEqual(LR.rarityLines({ ...forged, rarity: 'magic' }).filter(Boolean), ['Magic', '+5 Luck [2-5]'], 'LOOT2: a rolled line says its band');
   // (3) THE FLAVOURS: every one fires on a worn or wielded drop - never an Enchanted-only payload (FeatherWeight, ExtraWeight fire at the item maker alone).
   for (const list of Object.values(LR.RARE_FLAVOURS)) for (const f of list) assert.ok(![ENCHANTMENT_TYPES.FeatherWeight, ENCHANTMENT_TYPES.ExtraWeight].includes(f.type), `${typeKey(f.type)} is a dead line on a drop`);
   for (const rec of LR.LEGENDARIES) assert.ok(![ENCHANTMENT_TYPES.FeatherWeight, ENCHANTMENT_TYPES.ExtraWeight].includes(rec.enchantment.type));

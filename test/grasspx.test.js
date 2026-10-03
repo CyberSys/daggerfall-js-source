@@ -10,7 +10,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { buildTuftSheet, buildTuftMips, downsampleCoverage, coverageOf, layTuft, paintTuft, toneAt, toneByte, isHighlightRow, mulberry32, pixelGrass,
   PX_VARIANTS, PX_TUFT_W, PX_TUFT_H, PX_TONES, PX_RAMP_STEPS, PX_TINT_BANDS, PX_BLADES_PER_TUFT, PX_TUFT_MARGIN, PX_BLADE_MIN, PX_HIGHLIGHT_MIN, tuftMarginFor, bladeMinFor, highlightMinFor } from '../src/render/grassPixelArt.js';
-import { LAB_GRASS_HEAD, GAME_GRASS_FIELD, LAB_GRASS_VS, LAB_GRASS_FS, GAME_GRASS_VS, GAME_GRASS_FS, GRASSPX_VS_EDITS, GRASSFOG_VS_EDITS, GRASSFOG_FS_EDITS, GRASSPX_FS_EDITS, applyGrassEdits, LabGrassRenderer, GRASS_CELL } from '../src/render/labGrass.js';
+import { LAB_GRASS_HEAD, GAME_GRASS_FIELD, LAB_GRASS_VS, LAB_GRASS_FS, GAME_GRASS_VS, GAME_GRASS_FS, GRASSPX_VS_EDITS, GRASSFOG_VS_EDITS, GRASSFOG_FS_EDITS, GRASSPX_FS_EDITS, GRASSLIT_VS_EDITS, GRASSLIT_FS_EDITS, applyGrassEdits, LabGrassRenderer, GRASS_CELL } from '../src/render/labGrass.js';
 import { FEATURES, FEATURE_PREF_DEFAULTS } from '../src/systems/features.js';
 import { perspective, mirrorProjectionX, lookAt } from '../src/world/mat4.js';
 
@@ -165,8 +165,9 @@ test('GRASS AUDIT 1: the rim has somewhere to land - the highlight is the top tw
 test('GRASS-PX: the compiled stages are the lab\'s text under the declared edits, each landing exactly once, and the lab\'s text is untouched', () => {
   assert.equal(GRASSPX_VS_EDITS.length, 4, 'GRASS-PX3: the two sway edits are gone - the wind is the lab\'s in both styles'); assert.equal(GRASSPX_FS_EDITS.length, 6);
   // DISC20-A: and then the fog's edits, over the pixel style's (the fog is not snapped to a ramp rung)
-  assert.equal(GAME_GRASS_VS, applyGrassEdits(applyGrassEdits(LAB_GRASS_VS, GRASSPX_VS_EDITS), GRASSFOG_VS_EDITS));
-  assert.equal(GAME_GRASS_FS, applyGrassEdits(applyGrassEdits(LAB_GRASS_FS, GRASSPX_FS_EDITS), GRASSFOG_FS_EDITS));
+  // GRASS-LIT: the fourth list, after the fog's
+  assert.equal(GAME_GRASS_VS, applyGrassEdits(applyGrassEdits(applyGrassEdits(LAB_GRASS_VS, GRASSPX_VS_EDITS), GRASSFOG_VS_EDITS), GRASSLIT_VS_EDITS));
+  assert.equal(GAME_GRASS_FS, applyGrassEdits(applyGrassEdits(applyGrassEdits(LAB_GRASS_FS, GRASSPX_FS_EDITS), GRASSFOG_FS_EDITS), GRASSLIT_FS_EDITS));
   for (const [lab, edits] of [[LAB_GRASS_VS, GRASSPX_VS_EDITS], [LAB_GRASS_FS, GRASSPX_FS_EDITS]]) {
     for (const e of edits) {
       assert.equal(lab.split(e.from).length - 1, 1, `the lab carries the line once: ${e.why}`);
@@ -182,12 +183,13 @@ test('GRASS-PX: the compiled stages are the lab\'s text under the declared edits
   // every uniform used is declared (the shader audit glstate.test.js runs over the lab's stages, here over the game's)
   const vs = LAB_GRASS_HEAD + GAME_GRASS_FIELD + GAME_GRASS_VS, fs = LAB_GRASS_HEAD + GAME_GRASS_FS;
   for (const [label, body] of [['VS', vs], ['FS', fs]]) {
-    const declared = new Set([...body.matchAll(/uniform\s+\w+\s+([^;]+);/g)].flatMap((x) => x[1].split(',').map((v) => v.trim().replace(/\[.*?\]/, '').split('//')[0].trim())));
+    // GRASS-LIT: a precision qualifier may stand before the type (the eye's `uniform highp sampler2D uAdapt`)
+    const declared = new Set([...body.matchAll(/uniform\s+(?:(?:highp|mediump|lowp)\s+)?\w+\s+([^;]+);/g)].flatMap((x) => x[1].split(',').map((v) => v.trim().replace(/\[.*?\]/, '').split('//')[0].trim())));
     const used = new Set([...body.matchAll(/\bu[A-Z]\w*/g)].map((x) => x[0]));
     assert.deepEqual([...used].filter((u) => !declared.has(u)), [], `${label} uses an undeclared uniform`);
     // `flat` is a qualifier here and never a name (VC6 took the sky down with an identifier named flat), and `patch` is reserved
     const code = body.split('\n').map((l) => l.split('//')[0]).join('\n');   // the comments are prose and say "flat" as a word
-    assert.equal((code.match(/\bflat\b/g) || []).length, (code.match(/\bflat (in|out) float vVar\b/g) || []).length, `${label}: flat only as the varying's qualifier`);
+    assert.equal((code.match(/\bflat\b/g) || []).length, (code.match(/\bflat (in|out) (?:float (?:vVar|vSun)|vec3 vPoint)\b/g) || []).length, `${label}: flat only as the varyings' qualifier (GRASS-LIT: the root's sun, one a triangle; GRASS-LIT2: its lanterns)`);
     assert.ok(!/\bpatch\b/.test(code), `${label}: no identifier named patch`);
   }
   // the pixel terms, by their exact lines: with the switch at zero every one of them is the lab's arithmetic
@@ -202,10 +204,10 @@ test('GRASS-PX: the compiled stages are the lab\'s text under the declared edits
     'vec4 px = texture(uPxSheet, vec2((vVar + vUV.x) / uPxVariants, vUV.y));',
     'if (px.a < 0.5 || vFade < bayer4(gl_FragCoord.xy)) discard;',
     'pxTone = floor(px.r * 4.0 + 0.5); t = px.g; pxBlade = px.b;',
-    'if (uPixel > 0.5) c = (pxTone < 1.5 ? root : (pxTone < 2.5 ? mid : tip)) * (0.92 + pxBlade * 0.16);',
-    'c *= 0.80 + mix(vTint, floor(vTint * (uPxTintBands - 1.0) + 0.5) / (uPxTintBands - 1.0), uPixel) * 0.42;',
-    'c *= (uAmb * 1.25 * (0.42 + 0.58*t) + uSunCol',
-    'mix(smoothstep(0.86,1.0,t), step(3.5, pxTone), uPixel) * vLam;',
+    'if (uPixel > 0.5) c = (pxTone < 1.5 ? root : (pxTone < 2.5 ? mid : (pxTone < 3.5 ? tip : top))) * (0.95 + pxBlade * 0.10);',   // GRASS-LIT: the fourth tone, the highlight
+    'c *= 0.88 + mix(vTint, floor(vTint * (uPxTintBands - 1.0) + 0.5) / (uPxTintBands - 1.0), uPixel) * 0.24;',   // GRASS-LIT: the bands kept, their extremes narrowed
+    'vec3 light = uAmb * (0.9 + 0.10*t) + uSunCol',   // GRASS-LIT: the sward's shade still reads the drawn stalk
+    'mix(smoothstep(0.86,1.0,t), step(3.5, pxTone), uPixel) * vLam * vSun;',   // GRASS-LIT: the rim under the deck and the map
     'if (uPixel > 0.5) { float l = max(dot(c, vec3(0.299, 0.587, 0.114)), 1e-4); float g = max(1.0, floor(pow(l, 1.0 / 2.2) * uPxSteps + 0.5)) / uPxSteps; c *= pow(g, 2.2) / l; }',
     'o = vec4(c, mix(vFade * smoothstep(0.0, 0.30, vT), 1.0, uPixel));',
   ]) assert.ok(GAME_GRASS_FS.includes(line), `FS: ${line}`);
@@ -321,7 +323,7 @@ test('GRASS-PX: the row, its default, and the host reading it live', () => {
   assert.deepEqual({ ...part, tiers: part.tiers.map((t) => [...t]) }, { key: 'grassStyle', label: 'Style', tiers: [['pixel', 'Pixel'], ['smooth', 'Smooth']] });
   assert.deepEqual({ ...row.control.also.find((a) => a.key === 'grassStyle') }, { store: 'prefs', key: 'grassStyle', initial: 'pixel', online: 'player' });
   assert.equal(row.group, 'sight'); assert.deepEqual([...row.kinds], ['enhanced']); assert.match(row.effect, /the style at once\.$/);
-  assert.ok(row.note.includes('under the enhanced outdoors'), 'GRASS AUDIT 1: the row says what it is inert without');
+  assert.ok(row.note.includes('in the enhanced outdoors'), 'GRASS AUDIT 1: the row says what it is inert without');
   assert.ok(world.includes('vertsPerBlade: labGrass._oneQuad ? labGrass.vertsFar : labGrass.verts'), 'GRASS AUDIT 1: the stats say which blade the frame drew');
   assert.equal(FEATURE_PREF_DEFAULTS.grassStyle, 'pixel', 'the shelf\'s default is the row\'s');
   assert.deepEqual(['pixel', 'smooth', undefined, 'junk'].map(pixelGrass), [true, false, true, true]);

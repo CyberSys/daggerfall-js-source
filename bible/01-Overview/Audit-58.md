@@ -35,7 +35,7 @@ briefly shared a name.
 **Why the findings are numbered from F3.** The tree cites `AUDIT 58 F3`,
 `F4` and `F5` by number **37 times across 14 files** - `src/world/terrainGenClient.js:147`,
 `src/world/terrainGenWorker.js:45`, `src/world/terrainHelper.js:2`,
-`src/world/roadsCache.js:17`, `src/scenes/world.js:133`,
+`src/world/roadsCache.js:17`, `src/scenes/world.js:145`,
 `src/formats/woodsFile.js:93`, `test/modsettings.test.js`,
 `test/audit58_terrainhelper.test.js`, `test/ledger.test.js:245`,
 `test/citedrift.test.js`, `Port-Ledger.md:82-83`, `Testing.md` - and
@@ -143,7 +143,7 @@ confirmed, 21 refuted.**
 
 **The road height smoother wrote the transposed heightmap index.** The
 port's heightmap is x-major with z fastest - `data[x * hDim + y]`
-(`src/world/terrainSampler.js:155`, DFU's `JobA.Idx(y, x, hDim)` at
+(`src/world/terrainSampler.js:160`, DFU's `JobA.Idx(y, x, hDim)` at
 `TerrainSampler.cs:123`) - and every consumer in the tree obeys it.
 `smoothRoadHeights` read its tile correctly at `tilemap[y * tDim + x]` and
 then wrote the four corner samples from `y * hDim + x`, the mirror. A
@@ -168,14 +168,14 @@ now has a name per host.
 readers asked one.** `interiorFoes` and `interiorGuards` are both live
 inside a building; the senses feed, the enchant pool and the rest refusal
 each walked only the first, so the indoor city watch was invisible to all
-three (`src/scenes/worldModes.js:1112-1206`). **The exterior host mounted no
+three (`src/scenes/worldModes.js:1235-1329`). **The exterior host mounted no
 enchant ctx at all** - the session has ONE, and that host set none, so
 every enchantment payload that needs a foe idled in the host a player
 spends most of their time in (`setDefaultEnchantCtx` is imported at
-`src/scenes/exterior.js:66` now, and the pool it answers with is the
+`src/scenes/exterior.js:72` now, and the pool it answers with is the
 live one). **`scenes/interior.js` registered a keydown listener and never
 called `swallowBrowserKey`**, so F5 inside a building reloaded the page
-and destroyed the session - against `src/ui/input.js:699-721`'s own law,
+and destroyed the session - against `src/ui/input.js:705-727`'s own law,
 "one list, because there is one keyboard, and every host has to use it."
 **The large HUD's sheath panel answered only in the dungeon**, three
 hosts inert. The interior ray had no quest-foe click arm, so `clicked foe`
@@ -224,7 +224,7 @@ mitigates in `DaggerfallEntity.DecreaseHealth`
 (`Assets/Scripts/Game/Entities/DaggerfallEntity.cs:312-328`), the base
 class every entity passes through, with DFU's own comment "from all
 sources"; the port consumed the pool only in `hurtPlayer`
-(`src/characters/playerEntity.js:269`) and the three foe doors subtracted
+(`src/characters/playerEntity.js:302`) and the three foe doors subtracted
 raw, so a Shield cast on a foe absorbed nothing. Beside it: `CastReadySpell`
 had grown a magicka-sufficiency refusal DFU does not have and re-priced
 the spell at click time, the six concealment effects lost DFU's
@@ -279,7 +279,7 @@ hardcoded F1-F4 literals that the controls window could not rebind.
 
 **`cacheScene()` discarded `droppedPiles`.** `currentSceneState()` builds
 three fields, `restoreInteriorScene()` reads three back, and the store
-between them destructured two (`src/systems/sceneCache.js:125-129`), so
+between them destructured two (`src/systems/sceneCache.js:131-135`), so
 `restorePiles(undefined)` killed every live pile and restored nothing:
 interior dropped loot never cached, never rode the save, and was
 destroyed on every exit. **The Ledger recorded the opposite** - the
@@ -327,7 +327,7 @@ and cannot be seen to stop. Each was confirmed by running the mutant in
 an isolated mirror of the tree, not by reading the test.
 
 The two that matter most are in advancement. **The reflexes use-scale
-`>> 16`** (`src/systems/advancement.js:111`) was unpinned: change it and
+`>> 16`** (`src/systems/advancement.js:123`) was unpinned: change it and
 every skill in the game advances twice as fast, with the suite green.
 **`GetAdvancementMultiplier` is a 35-row DFU table pinned at four rows**,
 so Jumping and CriticalStrike floated free. Then `LootTables`' per-level
@@ -516,12 +516,12 @@ Left, deliberately, each recorded at its site or here:
   **G1's review closed the arm the lane missed**: an ARROW reaches a pool
   through two seams, and only `dealDamage` (inside `arrowFlight`'s own
   `dmg > 0` fork) had been wired - the unconditional `onAttackFromPlayer`
-  seam, which is where :630 actually lives (`arrowFlight.js:317`), still
+  seam, which is where :630 actually lives (`arrowFlight.js:324`), still
   excluded the guards in all three hosts that resolve a player shaft. So
   a zero-damage arrow into a pacified watchman turned nobody while the
   identical SWING turned the area. `handleAttackFromPlayer` is on the
   pool's public surface now (as the encounter pool's has always been,
-  `exteriorFoes.js:2171`) and all three seams route by pool membership.
+  `exteriorFoes.js:2674`) and all three seams route by pool membership.
 - ~~The indoor WATCH refuses the Wabbajack: DFU transforms any
   `EnemyEntity` and `Knight_CityWatch` is one, but the guard pool exposes
   no remove/spawn pair. The refusal and its reason are written into the

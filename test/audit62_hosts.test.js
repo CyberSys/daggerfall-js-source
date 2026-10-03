@@ -96,8 +96,8 @@ test('AUDIT 62 F11: the mode machine rings the loop once per modal frame, and fr
     'under the same gate the interior ticker rides - a paused game runs no Update');
   // TickRest's minutes pass indoors too (the outdoor hosts' rest deps
   // have consumed theirs since ROAD-G TAIL).
-  assert.match(wm, /advanceMinutes: \(n, sharedEnd\) => \{ interiorTicker\.advance\(n, sharedEnd\); host\.encounterTick\?\.\(\); \},/,
-    'the interior rest consumes its own minutes');   // REST-ROUNDS re-aim: the rest's own line (the camp meal's twin kept the old text)
+  assert.match(wm, /advanceMinutes: \(n\) => \{ interiorTicker\.advance\(n\); host\.encounterTick\?\.\(\); \},   \/\/ LIVED1/,
+    'the interior rest consumes its own minutes');   // LIVED1 re-aim: the rest's own line (its note), on the character's own clock
   // and both hosts hand the dep in
   for (const h of ['src/scenes/world.js', 'src/scenes/exterior.js']) {
     const s = src(h);
@@ -173,7 +173,7 @@ test('AUDIT 62 F12: a saturated pool refuses a plain spawn and ACCEPTS the trans
 
 test('AUDIT 62 F12: all three Wabbajack re-stand sites pass it', () => {
   for (const [h, re] of [
-    ['src/scenes/world.js', /exteriorFoes\.spawnFoe\(mobileType, feet, \{ replacing: true \}\)\.then\(stamp\)/],
+    ['src/scenes/world.js', /exteriorFoes\.spawnFoe\(mobileType, feet, \{ replacing: true, \.\.\.siteFoeSpawn\(f\) \}\)\.then\(\(nf\) => \{ stamp\(nf\);/],   // AUDIT WB12d (C11): and a site's foe keeps its site
     ['src/scenes/exterior.js', /exteriorFoes\.spawnFoe\(mobileType, feet, \{ replacing: true \}\)\.then\(stamp\)/],
     ['src/scenes/worldModes.js', /return interiorFoes\.spawnFoe\(mobileType, feet, \{ replacing: true \}\);/],
   ]) assert.match(src(h), re, `${h}: the transform is unconditional, as WabbajackEffect.cs:86-88 is`);

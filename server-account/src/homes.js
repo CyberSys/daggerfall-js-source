@@ -35,53 +35,158 @@
 // ═══════════════════════════════════════════════════════════════════
 import { accountKind, displayName, overRate } from './accounts.js';
 import { CHAR_ID_RE } from './service.js';
+import { prepareRealmRecord, realmActFirst, realmAtOf, recordMovedOf, mustChange, dropObjects, dropIfUnnamed, REALM_ID_RE } from './realm.js';   // REALM P2.2b; AUDIT REALM L1-F2: the record asked first; AUDIT REALM2 S3: a landed batch's object kept
+import { payFromSave, creditSave } from '../../src/net/realmGoldLaw.js';   // REALM P2.2b: the wallet's own order, over the record
 import {
   HOME_CAP, HOME_ENTRY_DEFAULT, HOME_CLAIMS_MAX, HOME_CLAIMS_WINDOW_S, HOME_TOWN_MAX,
-  homeMapIdOk, homeBuildingKeyOk, homeRegionOk, homePriceOk, homeEntryOk,
+  homeMapIdOk, homeBuildingKeyOk, homeRegionOk, homePriceOk, homeEntryOk, homeSaleRefund, homeLookOf,
 } from '../../src/net/homeLaw.js';
+import { DECOR_OPS_MAX, DECOR_OPS_WINDOW_S } from '../../src/net/decorLaw.js';   // HOME-LOOK: a repaint counts as a decorator's write
+import { hallMay } from '../../src/net/hallLaw.js';   // GUILD1d: a hall's keepers
+import { heraldryOfRow } from './halls.js';   // GUILD1d: a hall's heraldry, on its door
+import { openGatesAt } from './seatHolding.js';   // SEAT1d: Open Gates, where the town's holder proclaims it
+import { OWNS } from './decor.js';   // GUILD-YARD: a home's character, or a hall's keeper - as its decor asks
 
 const homeOf = (row) => ({
   mapId: row.map_id, buildingKey: row.building_key, region: row.region, character: row.char_id,
   entry: row.entry, price: row.price, boughtAt: row.bought_at,
 });
 
+/** THE CLAIM'S ONE WRITE: the house the character's, while it is nobody's and the character holds fewer than its cap.
+ *  `paid` (AUDIT REALM L1-F3, migration 0020): the gold a realm record paid for it - the price, for a realm character's
+ *  claim; nothing for any other character's, whose client paid (or did not) out of a save the service never sees. */
+const claimStatement = (db, player, { mapId, buildingKey, region, character, price }, nowS, paid = 0) => db.prepare(`INSERT OR IGNORE INTO homes (map_id, building_key, player, char_id, owner_name, region, entry, price, bought_at, paid)
+    SELECT ?, ?, ?, ?, ?, ?, ?, ?, ?, ? WHERE (SELECT COUNT(*) FROM homes WHERE player = ? AND char_id = ?) < ?`)
+  .bind(mapId, buildingKey, player.id, character, displayName(player), region, HOME_ENTRY_DEFAULT, price, nowS, paid, player.id, character, HOME_CAP);
+
 /**
- * CLAIM ONE: the building becomes the character's, or the claim is refused and nothing changes.
- * @param {{db: any, nowS: number}} ctx
- * @param {any} player  the session's player row
- * @param {{mapId?: unknown, buildingKey?: unknown, region?: unknown, character?: unknown, price?: unknown}} claim
+ * REALM P2.2b: A REALM CHARACTER'S CLAIM - the house and the record's payment in ONE batch, the price off the record by
+ * the wallet's own order (the region's account last), or neither. Where the record stands is asked before it, by
+ * claimHome (realm.js realmActFirst - an act sent again because its answer was lost finds it one on: `seq`, which the
+ * client reads as landed); here the house (the character's own already - a second press - is answered as the claim,
+ * and pays nothing).
  */
-export async function claimHome({ db, nowS }, player, { mapId, buildingKey, region, character, price } = {}) {
+async function realmClaim(ctx, player, at, claim) {
+  const { db, bucket, nowS } = ctx;
+  const held = await db.prepare('SELECT * FROM homes WHERE map_id = ? AND building_key = ?').bind(claim.mapId, claim.buildingKey).first();
+  if (held) return held.player === player.id && held.char_id === claim.character ? { ok: true, repeat: true, home: homeOf(held), realm: { seq: at.seq } } : { error: 'home-taken' };
+  const prep = await prepareRealmRecord(ctx, player.id, at, (save) => (payFromSave(save, claim.price, claim.region) ? null : 'realm-gold'));
+  if (prep.error) return prep;
+  try {
+    await db.batch([...prep.steps, claimStatement(db, player, claim, nowS, claim.price), mustChange(db)]);
+  } catch {
+    await dropIfUnnamed(db, bucket, player.id, at.id, prep.key);   // AUDIT REALM2 S3: a batch that landed and lost its answer keeps its save
+    const now = await recordMovedOf(db, player.id, at);
+    if (now) return now;
+    return (await db.prepare('SELECT 1 AS one FROM homes WHERE map_id = ? AND building_key = ?').bind(claim.mapId, claim.buildingKey).first()) ? { error: 'home-taken' } : { error: 'home-cap' };
+  }
+  await dropObjects(bucket, [prep.prev]);
+  const row = await db.prepare('SELECT * FROM homes WHERE map_id = ? AND building_key = ?').bind(claim.mapId, claim.buildingKey).first();
+  return { ok: true, home: homeOf(row), realm: { seq: prep.seq } };
+}
+
+/**
+ * CLAIM ONE: the building becomes the character's, or the claim is refused and nothing changes. A realm character's
+ * record pays for it in the claim's own batch (REALM P2.2b).
+ * @param {{db: any, nowS: number, bucket?: any, rand?: any}} ctx
+ * @param {any} player  the session's player row
+ * @param {{mapId?: unknown, buildingKey?: unknown, region?: unknown, character?: unknown, price?: unknown, realm?: unknown}} claim
+ */
+export async function claimHome(ctx, player, { mapId, buildingKey, region, character, price, realm = null } = {}) {
+  const { db, nowS } = ctx;
   if (accountKind(player) !== 'linked') return { error: 'homes-need-account' };
   if (!homeMapIdOk(mapId) || !homeBuildingKeyOk(buildingKey) || !homeRegionOk(region) || !homePriceOk(price)) return { error: 'bad-home' };
   if (typeof character !== 'string' || !CHAR_ID_RE.test(character)) return { error: 'home-character' };
+  // AUDIT REALM2 S2: A HOUSE IS A REALM CHARACTER'S, BOUGHT ON ITS RECORD. Any other id still claimed on its client's word
+  // - a made-up one at a price of 1, sixty buildings an hour taken from the world - and customs carried the house in.
+  if (!REALM_ID_RE.test(character)) return { error: 'realm-only' };
+  const side = await realmActFirst(db, player.id, character, realm);   // AUDIT REALM L1-F2: where the record stands, before the hour's claims
+  if (side.error) return side;
   if (await overRate({ db, nowS }, `home:${player.id}`, HOME_CLAIMS_MAX, HOME_CLAIMS_WINDOW_S)) return { error: 'home-rate' };
-  const r = await db.prepare(`INSERT OR IGNORE INTO homes (map_id, building_key, player, char_id, owner_name, region, entry, price, bought_at)
-    SELECT ?, ?, ?, ?, ?, ?, ?, ?, ? WHERE (SELECT COUNT(*) FROM homes WHERE player = ? AND char_id = ?) < ?`)
-    .bind(mapId, buildingKey, player.id, character, displayName(player), region, HOME_ENTRY_DEFAULT, price, nowS, player.id, character, HOME_CAP).run();
-  const row = await db.prepare('SELECT * FROM homes WHERE map_id = ? AND building_key = ?').bind(mapId, buildingKey).first();
-  if (r?.meta?.changes) return { ok: true, home: homeOf(row) };
-  if (row && row.player === player.id && row.char_id === character) return { ok: true, repeat: true, home: homeOf(row) };
-  if (row) return { error: 'home-taken' };
-  return { error: 'home-cap' };
+  return realmClaim(ctx, player, side.at, { mapId, buildingKey, region, character, price });   // a realm character's side is always its record
+}
+
+/** DECOR1e: a home's placed pieces and half of what they cost - what its sale gives back for them. */
+const decorBackStatement = (db, mapId, buildingKey) => db.prepare(`SELECT COALESCE(SUM(CASE WHEN json_valid(place) THEN 1 ELSE 0 END), 0) AS n,
+      COALESCE(SUM(CASE WHEN json_valid(place) THEN CAST(json_extract(place, '$.paid') AS INTEGER) / 2 ELSE 0 END), 0) AS back
+      FROM home_decor WHERE map_id = ? AND building_key = ?`).bind(mapId, buildingKey);
+/** AUDIT REALM L1-F3: the same pieces, and half of what REALM RECORDS paid for them (home_decor.paid, decor.js) - what a
+ *  realm character's sale gives back: never half of a cost a client named that no record paid. */
+const realmDecorBackStatement = (db, mapId, buildingKey) => db.prepare(`SELECT COALESCE(SUM(CASE WHEN json_valid(place) THEN 1 ELSE 0 END), 0) AS n,
+      COALESCE(SUM(CASE WHEN json_valid(place) THEN paid / 2 ELSE 0 END), 0) AS back
+      FROM home_decor WHERE map_id = ? AND building_key = ?`).bind(mapId, buildingKey);
+
+/**
+ * REALM P2.2b: A HOME A REALM CHARACTER SELLS - the house given up and the record paid back in ONE batch: Daggerfall's
+ * deed share of what the house cost (homeLaw.js homeSaleRefund) and half of what its placed pieces cost, into the bank
+ * account of the house's region, as the client's sale pays. The record asked first, as a claim asks it.
+ * AUDIT REALM L1-F3: THE CHARACTER'S OWN HOUSE, AND ONLY WHAT A RECORD PAID FOR IT. The sale read any house of the
+ * account and credited its client-named price - a claim at the ten-million cap by a character no record stands behind,
+ * sold by the realm character's record, made 8,500,000; a house customs carried in from before the realm, the same. The
+ * house must be this character's - the batch's DELETE names it, so another character's house moves nothing and the sale
+ * is refused - and what comes back is the deed share of `paid` (migration 0020) and half of what records paid for its
+ * pieces: a house no record paid for comes back as a house, never as gold. The answer says what the record got
+ * (`refund`), which the client takes - never its own sum of a price.
+ */
+async function realmRelease(ctx, player, at, home) {
+  const { db, bucket } = ctx;
+  if (!home) return { error: 'no-home' };
+  // HOME-CROSSED (FIELD BUGS 2026-09-30, Seanobi's "Sold House for 600 K, Got Nothing Back"): A HOUSE NO RECORD PAID FOR
+  // STAYS A HOUSE. Customs carried it in (CUSTOMS-CARRY) and its deed share of nothing was paid while the house and its
+  // pieces went - RESTORE's law for a deed (Mac: "Keep all, can't sell"), a home's now: never bought back online. (Another
+  // character's house is still the batch's own refusal, `no-home`.)
+  if (home.char_id === at.id && !(Number(home.paid) > 0)) return { error: 'home-crossed' };
+  const d = await realmDecorBackStatement(db, home.map_id, home.building_key).first();
+  const decorCount = Number(d?.n) || 0, decorBack = Math.max(0, Number(d?.back) || 0);
+  const refund = homeSaleRefund(Math.max(0, Number(home.paid) || 0));
+  const rentDue = Math.max(0, Number(home.rent_due) || 0);   // HOME-RENT: the rent held on it, never collected, comes with the sale
+  const back = refund + decorBack + rentDue;
+  const prep = await prepareRealmRecord(ctx, player.id, at, (save) => (creditSave(save, back, { bank: home.region }) ? null : 'no-data'));
+  if (prep.error) return prep;
+  try {
+    await db.batch([
+      ...prep.steps,
+      db.prepare('DELETE FROM homes WHERE map_id = ? AND building_key = ? AND player = ? AND char_id = ? AND paid = ? AND rent_due = ?').bind(home.map_id, home.building_key, player.id, at.id, home.paid, home.rent_due ?? 0),   // HOME-RENT: a rent landing between the read and the sale is never lost
+      mustChange(db),
+    ]);
+  } catch {
+    await dropIfUnnamed(db, bucket, player.id, at.id, prep.key);   // AUDIT REALM2 S3
+    return (await recordMovedOf(db, player.id, at)) || { error: 'no-home' };
+  }
+  await dropObjects(bucket, [prep.prev]);
+  return { ok: true, price: home.price, refund, decorCount, decorBack, ...(rentDue ? { rent: rentDue } : {}), realm: { seq: prep.seq } };
 }
 
 /**
  * GIVE ONE UP: the caller's own, whichever character holds it. Answers what it was bought for (the client pays back
- * Daggerfall's share of it) and, DECOR1e, how many placed pieces went with it and half of what they cost.
- * @param {{db: any}} ctx
+ * Daggerfall's share of it) and, DECOR1e, how many placed pieces went with it and half of what they cost. A realm
+ * character's home - or any sale that names a record - pays back into the record, in the release's own batch (REALM
+ * P2.2b).
+ * @param {{db: any, bucket?: any, rand?: any, nowS?: number}} ctx
  */
-export async function releaseHome({ db }, player, { mapId, buildingKey } = {}) {
+export async function releaseHome(ctx, player, { mapId, buildingKey, realm = null } = {}) {
+  const { db } = ctx;
   if (!homeMapIdOk(mapId) || !homeBuildingKeyOk(buildingKey)) return { error: 'no-home' };
+  const at = realm != null ? realmAtOf(realm) : null;
+  if (at) {
+    const moved = await recordMovedOf(db, player.id, at);   // AUDIT REALM L1-F2: where the record stands, before the house is looked for
+    if (moved) return moved;
+  }
+  // GUILD1d: a guild's hall is no account's to sell - its row's `player` is only its anchor (halls.js sellHall sells it)
+  const home = await db.prepare('SELECT * FROM homes WHERE map_id = ? AND building_key = ? AND player = ? AND guild_id IS NULL').bind(mapId, buildingKey, player.id).first();
+  // HOME-RENT: a home another player is renting a room in is not sold from under them - their days were paid for
+  if (home && Number((await db.prepare(`SELECT COUNT(*) AS n FROM home_rooms WHERE map_id = ? AND building_key = ? AND tenant IS NOT NULL AND until > ?`)
+    .bind(mapId, buildingKey, ctx.nowS ?? Math.floor(Date.now() / 1000)).first())?.n ?? 0) > 0) return { error: 'home-tenants' };
+  if (realm != null || (typeof home?.char_id === 'string' && REALM_ID_RE.test(home.char_id))) {
+    return at ? realmRelease(ctx, player, at, home) : { error: 'realm-needed' };
+  }
   // DECOR1e: the home's placed pieces go with it (decor.js - the cascade), and half of what each cost comes back, as
   // removing it would give (net/decorLaw.js decorSaleBack: truncated, a piece at a time). Read in the SAME batch as
   // the release, so no piece is placed between the sum and the going - and answered only when the release is the
   // caller's; a record that is not JSON is no piece and counts nothing.
   const [pieces, gone] = await db.batch([
-    db.prepare(`SELECT COALESCE(SUM(CASE WHEN json_valid(place) THEN 1 ELSE 0 END), 0) AS n,
-      COALESCE(SUM(CASE WHEN json_valid(place) THEN CAST(json_extract(place, '$.paid') AS INTEGER) / 2 ELSE 0 END), 0) AS back
-      FROM home_decor WHERE map_id = ? AND building_key = ?`).bind(mapId, buildingKey),
-    db.prepare('DELETE FROM homes WHERE map_id = ? AND building_key = ? AND player = ? RETURNING price')
+    decorBackStatement(db, mapId, buildingKey),
+    db.prepare('DELETE FROM homes WHERE map_id = ? AND building_key = ? AND player = ? AND guild_id IS NULL RETURNING price')
       .bind(mapId, buildingKey, player.id),
   ]);
   const row = gone?.results?.[0];
@@ -97,25 +202,87 @@ export async function releaseHome({ db }, player, { mapId, buildingKey } = {}) {
 export async function setHomeEntry({ db }, player, { mapId, buildingKey, entry } = {}) {
   if (!homeEntryOk(entry)) return { error: 'bad-entry' };
   if (!homeMapIdOk(mapId) || !homeBuildingKeyOk(buildingKey)) return { error: 'no-home' };
-  const r = await db.prepare('UPDATE homes SET entry = ? WHERE map_id = ? AND building_key = ? AND player = ?')
-    .bind(entry, mapId, buildingKey, player.id).run();
+  const r = await db.prepare('UPDATE homes SET entry = ? WHERE map_id = ? AND building_key = ? AND player = ? AND guild_id IS NULL')
+    .bind(entry, mapId, buildingKey, player.id).run();   // GUILD1d: a hall's entry is its guild's (halls.js setHallEntry)
   return r?.meta?.changes ? { ok: true, entry } : { error: 'no-home' };
 }
+
+/**
+ * HOME-LOOK (2026-09-30): HOW A HOME LOOKS OUTSIDE, as its owner paints it (net/homeLaw.js homeLookOf) - the owner's
+ * character's alone, free, a decorator's write against the hour's (decor.js's own count). `look` null paints it back
+ * the town's own. Every client reads it with the town's homes.
+ * GUILD-YARD (Seats-Arc 8.2): a guild's hall is painted by its keepers - its Officers and its guildmaster, a realm
+ * character each (decor.js OWNS, the rule its rooms' pieces are placed by) - free, as a home's is; a member below them,
+ * and anyone outside the guild, paints nothing of it (`no-home`, as another's home).
+ * @param {{db: any, nowS: number}} ctx
+ */
+export async function setHomeLook({ db, nowS }, player, { mapId, buildingKey, character, look = null } = {}) {
+  if (!homeMapIdOk(mapId) || !homeBuildingKeyOk(buildingKey)) return { error: 'bad-home' };
+  if (typeof character !== 'string' || !CHAR_ID_RE.test(character)) return { error: 'home-character' };
+  const next = look == null ? null : homeLookOf(look);
+  if (look != null && !next) return { error: 'bad-look' };
+  if (await overRate({ db, nowS }, `decor:${player.id}`, DECOR_OPS_MAX, DECOR_OPS_WINDOW_S)) return { error: 'decor-rate' };
+  const r = await db.prepare(`UPDATE homes SET look = ? WHERE map_id = ? AND building_key = ? AND ${OWNS}`)
+    .bind(next ? JSON.stringify(next) : null, mapId, buildingKey, mapId, buildingKey, player.id, character).run();
+  return r?.meta?.changes ? { ok: true, look: next } : { error: 'no-home' };
+}
+
+/** HOME-LOOK: a row's look as the law takes it - `{ look }`, or nothing (the town's own). */
+const lookOfRow = (h) => { const look = h.look ? homeLookOf(h.look) : null; return look ? { look } : {}; };
 
 /**
  * A TOWN'S HOMES, for everyone standing in it - guests too: whose each is (the handle the relay signs), who may walk
  * in, and which are the caller's own. Never the price, never another account's character.
  * @param {{db: any}} ctx
  */
-export async function homesInTown({ db }, player, { mapId } = {}) {
+export async function homesInTown({ db, nowS = Math.floor(Date.now() / 1000) }, player, { mapId, character = null } = {}, { seats = false } = {}) {
   if (!homeMapIdOk(mapId)) return { error: 'bad-home' };
-  const { results = [] } = await db.prepare(`SELECT building_key, player, char_id, owner_name, entry FROM homes
-    WHERE map_id = ? ORDER BY building_key LIMIT ?`).bind(mapId, HOME_TOWN_MAX).all();
+  // SEAT1d (Seats-Arc 7.6): OPEN GATES - while the town's holder proclaims it, every home there stands open to all (a
+  // reader the seats are open to); each owner's own choice is kept, and its own view shows it
+  const open = seats && await openGatesAt(db, nowS, mapId);
+  // HOME-RENT: each home's rooms still free to rent (how many, and the cheapest a day), and - for the character the
+  // caller names - the end of its own tenancy there, which opens the door to it
+  const me = typeof character === 'string' && CHAR_ID_RE.test(character) ? character : '';
+  // GUILD1d: a hall's guild (its name, tag and heraldry) and the named character's rank in it; a home whose owner opened
+  // it to their guild, whether the named character is in that guild with them
+  const { results = [] } = await db.prepare(`SELECT h.building_key, h.player, h.char_id, h.owner_name, h.entry, h.paid, h.look, h.guild_id,
+      g.name AS guild_name, g.tag AS guild_tag, g.heraldry AS guild_heraldry,
+      (SELECT COUNT(*) FROM home_rooms r WHERE r.map_id = h.map_id AND r.building_key = h.building_key AND r.listed = 1 AND (r.tenant IS NULL OR r.until <= ?1)) AS vacant,
+      (SELECT MIN(r.price) FROM home_rooms r WHERE r.map_id = h.map_id AND r.building_key = h.building_key AND r.listed = 1 AND (r.tenant IS NULL OR r.until <= ?1)) AS rent_from,
+      (SELECT MAX(r.until) FROM home_rooms r WHERE r.map_id = h.map_id AND r.building_key = h.building_key AND r.tenant = ?2 AND r.tenant_char = ?3 AND r.until > ?1) AS tenancy,
+      (SELECT m.rank FROM guild_members m WHERE m.guild_id = h.guild_id AND m.player = ?2 AND m.char_id = ?3) AS my_rank,
+      (h.guild_id IS NULL AND h.entry = 'guild' AND EXISTS (SELECT 1 FROM guild_members a JOIN guild_members b ON b.guild_id = a.guild_id
+        WHERE a.player = h.player AND a.char_id = h.char_id AND b.player = ?2 AND b.char_id = ?3)) AS guildmate,
+      EXISTS (SELECT 1 FROM realm_characters rc WHERE rc.id = ?3 AND rc.player = ?2) AS me_realm
+    FROM homes h LEFT JOIN guilds g ON g.id = h.guild_id WHERE h.map_id = ?4 ORDER BY h.building_key LIMIT ?5`).bind(nowS, player.id, me, mapId, HOME_TOWN_MAX).all();
   return {
-    mapId,
+    mapId, ...(open ? { openGates: true } : {}),
     homes: results.map((h) => {
+      if (h.guild_id != null) {
+        // GUILD1d: A GUILD'S HALL - named by its guild, whose members walk in and whose Officers furnish it; nobody's home
+        const rank = Number.isSafeInteger(h.my_rank) ? h.my_rank : null;
+        return {
+          buildingKey: h.building_key, owner: h.guild_name ?? h.owner_name, entry: h.entry, mine: false,
+          hall: { name: h.guild_name ?? h.owner_name, tag: h.guild_tag ?? '', heraldry: heraldryOfRow(h.guild_heraldry) },
+          // AUDIT GUILD-YARD Y1: a keeper as OWNS keeps it - of the rank, and a realm character (a local one is refused
+          // every write; its decorator stood for nothing)
+          ...(rank != null ? { member: true, ...(hallMay(rank, 'decorate') && h.me_realm === 1 ? { keeper: true } : {}) } : {}),
+          // AUDIT PROF-541 G2: who may say who walks in, as setHallEntry asks it (halls.js) - the rank alone, any character;
+          // `keeper`'s realm clause took the door's "Who may enter" from a local Officer the service would have answered
+          ...(rank != null && hallMay(rank, 'hallEntry') ? { hallEntry: true } : {}),
+          ...lookOfRow(h),   // GUILD-YARD: how its keepers painted it, to everyone
+        };
+      }
       const mine = h.player === player.id;
-      return { buildingKey: h.building_key, owner: h.owner_name, entry: h.entry, mine, ...(mine ? { character: h.char_id } : {}) };
+      // HOME-CROSSED: my own realm character's house no record paid for is `crossed` - its door asks no price
+      const crossed = mine && REALM_ID_RE.test(String(h.char_id)) && !(Number(h.paid) > 0);
+      return {
+        buildingKey: h.building_key, owner: h.owner_name, entry: open && !mine ? 'public' : h.entry, mine, ...(mine ? { character: h.char_id } : {}), ...(crossed ? { crossed } : {}),
+        ...(Number(h.vacant) > 0 ? { rent: { vacant: Number(h.vacant), from: Number(h.rent_from) } } : {}),
+        ...(Number.isSafeInteger(h.tenancy) && h.tenancy > nowS ? { tenant: h.tenancy } : {}),
+        ...lookOfRow(h),   // HOME-LOOK: how its owner painted it
+        ...(h.guildmate === 1 ? { guildmate: true } : {}),   // GUILD1d: the named character is in the owner's character's guild
+      };
     }),
   };
 }
@@ -125,7 +292,7 @@ export async function homesInTown({ db }, player, { mapId } = {}) {
  * @param {{db: any}} ctx
  */
 export async function homesOf({ db }, player) {
-  const { results = [] } = await db.prepare('SELECT * FROM homes WHERE player = ? ORDER BY bought_at, map_id, building_key')
-    .bind(player.id).all();
+  const { results = [] } = await db.prepare('SELECT * FROM homes WHERE player = ? AND guild_id IS NULL ORDER BY bought_at, map_id, building_key')
+    .bind(player.id).all();   // GUILD1d: a hall is its guild's, never the account's that bought it
   return { homes: results.map(homeOf), cap: HOME_CAP };
 }

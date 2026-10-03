@@ -406,7 +406,8 @@ test('SOC5: scenes/world.js - the door on hudCtx, the ray read as the activation
   assert.match(w, /Friend request sent to \$\{who\}/); assert.match(w, /Party invite sent to \$\{who\}/);
   // the pointer door is the chat's, and the open gate is the chat's
   assert.match(w, /onOpen: \(\) => surfaceOpen\('menu'\),   \/\/ AUDIT CHAT C2's law/, 'AUDIT SOC B6: the card is a counted pointer surface');
-  assert.match(w, /if \(!townTalk\.overlayActive && act === 'SocialInteract' && socialMenuCanOpen\(\) && socialInteract\(\)\) \{ e\.preventDefault\(\); return true; \}/, 'AUDIT SOC B4/D1: the door answers ABOVE the exterior gate - F on a body works in a tavern and a dungeon');
+  // PIN MOVED (AUDIT OW5 V2): and never from under the travel view (the body in front of the hidden head)
+  assert.match(w, /if \(!townTalk\.overlayActive && !travelView\?\.active && act === 'SocialInteract' && socialMenuCanOpen\(\) && socialInteract\(\)\) \{ e\.preventDefault\(\); return true; \}/, 'AUDIT SOC B4/D1: the door answers ABOVE the exterior gate - F on a body works in a tavern and a dungeon');
   assert.ok(w.indexOf("act === 'SocialInteract' && socialMenuCanOpen()") < w.indexOf("if (!townTalk.overlayActive && (modes?.mode ?? 'exterior') === 'exterior') {"), 'written above the mode gate, not inside it');
   assert.match(w, /onClose: \(\) => surfaceClose\('menu'\),   \/\/ and taken back inside the one that closed/);
   assert.match(w, /const socialMenuCanOpen = \(\) => !gamePaused\(\) && !\(townTalk\.hudCovered \|\| \(modes\?\.hudCovered \?\? false\)\);/, 'the chat\'s own gate: a window\'s keys are the window\'s');
@@ -483,7 +484,7 @@ test('AUDIT SOC C12/C25: a refused row is READABLE - the disabled opacity is .75
 
 test('AUDIT SOC C9: the touch layer has a control for SocialInteract - one 48px button beside the mode cycle, drawn only where a host hands the hook in, calling the HOST door rather than synthesizing a key (mutants: the button always drawn, so an offline page offers a dead door; a synthesized KeyF that a rebind would break; the hook undocumented)', () => {
   const touch = rd('src/ui/touch.js');
-  assert.match(touch, /if \(hooks\.socialInteract\) button\('[^']+', edge\('right', hooks\.cycleMode \? 232 : 160\), edge\('bottom', 16\), 48, \(\) => \{ hooks\.socialInteract\(\); \}\);/,
+  assert.match(touch, /if \(hooks\.socialInteract\) socialBtn = button\('[^']+', edge\('right', hooks\.cycleMode \? 232 : 160\), edge\('bottom', 16\), 48, \(\) => \{ hooks\.socialInteract\(\); \}\);/,
     'gated by the hook, 48 like its neighbours, and the host answers for itself');
   assert.doesNotMatch(touch, /tapAction\('SocialInteract'\)/, 'never the key: F is rebindable and may be unbound outright');
   assert.match(touch, /socialInteract\?\(\)/, 'and the header documents the hook it calls');

@@ -51,7 +51,7 @@ import {
   LYCANTHROPY_TYPES, INFECTION,
 } from './infection.js';
 import {
-  MINUTES_PER_DAY, DAYS_PER_MONTH, isFullMoonFromMinutes,
+  MINUTES_PER_DAY, DAYS_PER_MONTH, isFullMoonFromMinutes, isFullMoonNightFromMinutes,
 } from './gameDate.js';
 import { EQUIP_SLOTS, equipTableOf, unequipSlot } from './equip.js';
 import { spellRecordOfIndex } from './loot.js';
@@ -67,7 +67,9 @@ export const MOVE_SOUND_MAX_SECONDS = 20;
 const initMoveSoundTimer = (rolls) =>
   MOVE_SOUND_MIN_SECONDS + rolls() * (MOVE_SOUND_MAX_SECONDS - MOVE_SOUND_MIN_SECONDS);
 import { ENCHANTMENT_TYPES } from './enchantments.js';
-import { cureAllDiseases } from './effects.js';
+import { cureAllDiseases, cureAllPoisons } from './effects.js';
+import { cureAllAttributes } from './guildServiceFlow.js';   // CURE-ALL: CureAllAttributes' one home (the guild's stat reset)
+import { fillVitalSigns } from './statMods.js';   // CURE-ALL: FillVitalSigns' one home
 import { SOUND } from './soundClips.js';   // V4: the transformed attack voices
 import { renownHpOf } from './renownLayer.js';   // AUDIT RENOWN1 GAME-4: the online layer rides above the limiter
 import { endLycanthropyQuests } from './racialQuests.js';   // V2d: the cure's $CUREWER tombstone sweep
@@ -111,16 +113,31 @@ export const YOU_NEED_TO_HUNT = 'You need to hunt the innocent.';
 export const ONCE_PER_DAY = 'You may only cast this spell once per day.';
 
 /** PlayerEffectManager.CureAll at a racial override's Start (:120 /
- *  VampirismEffect.cs:81): every effect of the old life ends - the
- *  diseases through their own end law, the rest generically (the
- *  infection that brought us here is already ended by
- *  deployInfection). ONE home for both curses. */
+ *  VampirismEffect.cs:81, "cure everything on player"), whole
+ *  (EntityEffectManager.cs:1598-1608): the three pools full
+ *  (FillVitalSigns), every poison and every disease ended by their own
+ *  laws (the infection that brought us here among them), every drained
+ *  attribute healed (CureAllAttributes; no effect of the port holds a
+ *  skill down, so CureAllSkills has nothing to cure). ONE home for
+ *  both curses.
+ *  CURE-ALL (FIELD BUGS 2026-10-01, Skaadi: "Regen spell stopped
+ *  providing healing after vampire transformation"): THE BUFFS RUNNING
+ *  NOW ARE THIS LIFE'S. This ended every other live entry - a
+ *  Regenerate, a Fortify, a Shield - and a timed entry ticks on with
+ *  `ended` set: gone from the HUD, the party cards and the dispel list
+ *  (mysticism.js liveBundles), and every recast of the same spell
+ *  merged into the hidden entry (effects.js findInc), so the buff was
+ *  never seen again while it was kept up. CureAll leaves them; it
+ *  never cured the poisons it said it did, nor filled a pool.
+ *  CURE-FILL (AUDIT 2026-10-01 part four): THE POOLS ARE FILLED LAST,
+ *  to the maximums the cures give back - DFU fills them first, so a
+ *  turn with Endurance, Strength or Intelligence drained or diseased
+ *  left fatigue and magicka short of the full the turn promises. */
 export function endOldLifeEffects(entity) {
+  cureAllPoisons(entity);
   cureAllDiseases(entity);
-  for (const a of entity.activeEffects ?? []) {
-    if (a.kind === 'disease' || a.kind === 'poison') continue;   // ended above by their own law
-    a.ended = true;
-  }
+  cureAllAttributes(entity);
+  fillVitalSigns(entity);
 }
 
 /** The live curse entry, or null. DISC10-E V9: a hole in the list is
@@ -228,13 +245,15 @@ export function consumeRacialOverridePending(entity, { now = 0 } = {}) {
  * the HUD line seam; `refreshHead` the portrait's (both optional -
  * the headless charter).
  */
-export function lycanthropyMagicRound(entity, { nowMinutes = 0, clockMinutes = nowMinutes, say = null, refreshHead = null } = {}) {
+export function lycanthropyMagicRound(entity, { nowMinutes = 0, clockMinutes = nowMinutes, skyMinutes = clockMinutes, moonNight = false, say = null, refreshHead = null } = {}) {
   const entry = liveLycanthropy(entity);
   if (!entry) return;
   // DISC10-E V1: `clockMinutes` is WorldTime.Now, the clock every catch-up
   // round of one broker Update reads (EntityEffectBroker.cs:210-232): the
   // moon (:565-575) and the kill clock (TimeSinceLastInnocentKilled) are
   // its. `nowMinutes`, the round's number, keeps the nag's real-time fold.
+  // LIVED1: online the kill clock is the character's own time and the moon
+  // the world's - `skyMinutes`, which offline is the same clock.
   entry.wearingHircineRing = isWearingHircineRing(entity);
 
   // ApplyLycanthropeAdvantages (:520-537) - re-applied every round,
@@ -250,7 +269,13 @@ export function lycanthropyMagicRound(entity, { nowMinutes = 0, clockMinutes = n
   // a forced change already reads the beast; the port's fold is
   // per-round, so the order inside the round is what keeps silver
   // from lagging the change by a round.
-  if (!entry.wearingHircineRing && isFullMoonFromMinutes(clockMinutes) && !entry.isTransformed) {
+  // TIME2 (Mac, 2026-10-01: "werewolf forms last insanely long"; bible/06-Systems/Online-Time-Arc.md 6.1): ONLINE THE
+  // FULL MOON IS A NIGHT. The change is forced while the full moon is UP - from the dusk of a full-moon date to the next
+  // dawn, on the sky (`moonNight`, which the round runner raises when a host hands the sky: the online lane) - thirty
+  // real minutes at the sky's TimeScale 24, not a whole day no rest can shorten. At dawn the lock ends; changing back
+  // is the power, ungated, as DFU has it. Offline DFU's rule stands: the whole calendar day of either moon's full phase.
+  const moonForces = moonNight ? isFullMoonNightFromMinutes(skyMinutes) : isFullMoonFromMinutes(skyMinutes);
+  if (!entry.wearingHircineRing && moonForces && !entry.isTransformed) {
     say?.(YOU_DREAM_OF_THE_MOON);
     morphSelf(entity, { force: true, nowMinutes: clockMinutes, refreshHead });
   }
@@ -388,6 +413,34 @@ export const racialSuppressCrime = (entity) => isTransformedNow(entity);
  *  arm holds while transformed (the streets empty out around the
  *  beast; walkers already out keep walking, DFU's own shape). */
 export const racialSuppressPopulationSpawns = (entity) => isTransformedNow(entity);
+
+/**
+ * WERE-FRIGHT (2026-09-29, Mac: "being a werewolf has a different interaction with guards ... you cannot surrender,
+ * but instead a chance to frighten"): THE BEAST'S ANSWER TO THE WATCH. The port's own - neither classic nor DFU has a
+ * beast that frightens the guards off, and there a transformed lycanthrope with a crime on record is asked to
+ * surrender like anyone. Here it cannot surrender; it roars (scenes/arrestFlow.js carries the box). The chance is
+ * Mac's pick of the three offered: the beast's level against the level of the guard who halted it - 50%, five points
+ * a level either way, never under 10 nor over 90. The city watch is minted three to six levels above the player
+ * (DFU's Range(3, 7) on Knight_CityWatch, characters/enemyEntity.js makeEnemyEntity), so against the watch the roar
+ * runs 20-35%: an even guard is the formula's middle, not the street's.
+ */
+export const FRIGHTEN_BASE_CHANCE = 50;
+export const FRIGHTEN_CHANCE_PER_LEVEL = 5;
+export const FRIGHTEN_MIN_CHANCE = 10;
+export const FRIGHTEN_MAX_CHANCE = 90;
+/** The percent chance the watch flees; a guard of unknown level is taken at the beast's own. */
+export function frightenChance(playerLevel, guardLevel = playerLevel) {
+  const p = Number.isFinite(playerLevel) ? playerLevel : 1;
+  const g = Number.isFinite(guardLevel) ? guardLevel : p;
+  return Math.min(FRIGHTEN_MAX_CHANCE, Math.max(FRIGHTEN_MIN_CHANCE, FRIGHTEN_BASE_CHANCE + FRIGHTEN_CHANCE_PER_LEVEL * (p - g)));
+}
+/** The roar the frighten is made with: the strain's own bark (the clip its landed blows roll 20% for), or null for
+ *  anyone not in beast form. */
+export function frightenRoar(entity) {
+  const entry = liveLycanthropy(entity);
+  if (!entry?.isTransformed) return null;
+  return entry.infectionType === LYCANTHROPY_TYPES.Wereboar ? SOUND.EnemyWereboarBark : SOUND.EnemyWerewolfBark;
+}
 
 /** OnWeaponHitEntity's voice half (:349-372): a transformed
  *  lycanthrope's landed hit rolls 10% for the attack cry, ELSE 20%

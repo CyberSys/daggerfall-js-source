@@ -2,8 +2,8 @@
   {
     "name": "AUDIT-DISC19-W1-fight-with-defender-is-quiet",
     "file": "src/systems/townWatch.js",
-    "old": "  if (!isPlayerTarget(t) && !(t?.defender === true && !t.dead)) return false;",
-    "new": "  if (!isPlayerTarget(t)) return false;",
+    "old": "  if (!isPlayerTarget(t) && !(t?.defender === true && !t.dead) && !(t?.companion != null && !t.dead)) return false;",
+    "new": "  if (!isPlayerTarget(t) && !(t?.companion != null && !t.dead)) return false;",
     "tests": [
       "test/auditdisc19.test.js"
     ]
@@ -47,8 +47,8 @@
   {
     "name": "AUDIT-DISC19-W3-quiet-cumulative",
     "file": "src/systems/townWatch.js",
-    "old": "      if (threats > 0) quiet = 0;\n",
-    "new": "",
+    "old": "      if (threats > 0) quiet = 0;\n      else if ((quiet += dt) >= TOWN_WATCH_STAND_DOWN_SECONDS) waves = 0;",
+    "new": "      if ((quiet += dt) >= TOWN_WATCH_STAND_DOWN_SECONDS) waves = 0;",
     "tests": [
       "test/auditdisc19.test.js"
     ]
@@ -191,8 +191,8 @@
   {
     "name": "AUDIT-DISC19-W2-defender-counts-as-watch",
     "file": "src/scenes/cityGuards.js",
-    "old": "    !g.dead && !g.defender && g.ai?.isHostile && g.entity?.team !== 'PlayerAlly');",
-    "new": "    !g.dead && g.ai?.isHostile && g.entity?.team !== 'PlayerAlly');",
+    "old": "    !g.dead && !g.defender && !g.fleeing && g.ai?.isHostile && g.entity?.team !== 'PlayerAlly');",
+    "new": "    !g.dead && !g.fleeing && g.ai?.isHostile && g.entity?.team !== 'PlayerAlly');",
     "tests": [
       "test/auditdisc19.test.js"
     ]
@@ -288,19 +288,10 @@
     ]
   },
   {
-    "name": "AUDIT-DISC19-W5-fallback-with-protection-off",
-    "file": "src/scenes/cityGuards.js",
-    "old": "    if (defendersOnly && !protect) return false;\n",
-    "new": "",
-    "tests": [
-      "test/auditdisc19.test.js"
-    ]
-  },
-  {
     "name": "AUDIT-DISC19-W5-spare-ignores-setting",
     "file": "src/scenes/cityGuards.js",
-    "old": "!(spareDefenders && protect && g.defender)",
-    "new": "!(spareDefenders && g.defender)",
+    "old": "(getBool('MeleeAttacks', 'MeleeAttackFriendlyProtection') || !!raidHere())",
+    "new": "true",
     "tests": [
       "test/auditdisc19.test.js"
     ]
@@ -344,8 +335,8 @@
   {
     "name": "AUDIT-DISC19-W5-host-token-dropped",
     "file": "src/scenes/world.js",
-    "old": "guardHitSound, { defendersOnly: true, swing }))",
-    "new": "guardHitSound, { defendersOnly: true }))",
+    "old": "guardHitSound, { swing })) {\n          // X-slice: encounter foes resolve after the watch, before civilians",
+    "new": "guardHitSound, {})) {\n          // X-slice: encounter foes resolve after the watch, before civilians",
     "tests": [
       "test/auditdisc19.test.js"
     ]
@@ -362,8 +353,8 @@
   {
     "name": "AUDIT-DISC19-W4-shaft-strikes-defender",
     "file": "src/combat/arrowFlight.js",
-    "old": "          if (m.fromPlayer && t.ref?.defender === true) continue;",
-    "new": "          if (false) continue;",
+    "old": "          if (m.fromPlayer && sparedByPlayer(t.ref)) continue;",
+    "new": "          if (m.fromPlayer && sparedByPlayer(t.ref) && t.ref?.defender !== true) continue;",
     "tests": [
       "test/auditdisc19.test.js"
     ]
@@ -371,8 +362,8 @@
   {
     "name": "AUDIT-DISC19-W4-enemy-shaft-passes-too",
     "file": "src/combat/arrowFlight.js",
-    "old": "          if (m.fromPlayer && t.ref?.defender === true) continue;",
-    "new": "          if (t.ref?.defender === true) continue;",
+    "old": "          if (m.fromPlayer && sparedByPlayer(t.ref)) continue;",
+    "new": "          if (sparedByPlayer(t.ref)) continue;",
     "tests": [
       "test/auditdisc19.test.js"
     ]
@@ -416,7 +407,7 @@
   {
     "name": "AUDIT-DISC19-W4-nobody-spared",
     "file": "src/scenes/hostMagic.js",
-    "old": "  const sparedFromPlayer = (t) => t?.defender === true;",
+    "old": "  const sparedFromPlayer = (t) => sparedByPlayer(t);",
     "new": "  const sparedFromPlayer = (t) => t?.defender === 'never';",
     "tests": [
       "test/auditdisc19.test.js"
@@ -425,8 +416,8 @@
   {
     "name": "AUDIT-DISC19-W4-torch-strikes-defender",
     "file": "src/scenes/world.js",
-    "old": "foes: () => [...cityGuards.guards.filter((g) => !g.defender), ...exteriorFoes.foes], foeSinks",
-    "new": "foes: () => [...cityGuards.guards, ...exteriorFoes.foes], foeSinks",
+    "old": "foes: () => [...cityGuards.guards.filter((g) => !g.defender), ...exteriorFoes.foes.filter((f) => !sparedByPlayer(f))], foeSinks",
+    "new": "foes: () => [...cityGuards.guards, ...exteriorFoes.foes.filter((f) => !sparedByPlayer(f))], foeSinks",
     "tests": [
       "test/auditdisc19.test.js"
     ]
@@ -479,7 +470,7 @@
   {
     "name": "AUDIT-DISC19-S4-fatigue-left-at-zero",
     "file": "src/systems/deathRespawn.js",
-    "old": "  if ((dead || force) && !(entity.fatigue > 0)) entity.fatigue = respawnHealth(maxFatigue(entity));\n",
+    "old": "  if (dead || force) entity.fatigue = Math.max(entity.fatigue > 0 ? entity.fatigue : 0, respawnHealth(maxFatigue(entity)));\n",
     "new": "",
     "tests": [
       "test/auditdisc19.test.js"
@@ -488,8 +479,8 @@
   {
     "name": "AUDIT-DISC19-S4-living-rested",
     "file": "src/systems/deathRespawn.js",
-    "old": "  if ((dead || force) && !(entity.fatigue > 0))",
-    "new": "  if (!(entity.fatigue > 0))",
+    "old": "  if (dead || force) entity.fatigue = Math.max(",
+    "new": "  if (true) entity.fatigue = Math.max(",
     "tests": [
       "test/auditdisc19.test.js"
     ]
@@ -497,8 +488,8 @@
   {
     "name": "AUDIT-DISC19-S4-respawn-not-rested",
     "file": "src/systems/deathRespawn.js",
-    "old": "  if ((dead || force) && !(entity.fatigue > 0))",
-    "new": "  if (dead && !(entity.fatigue > 0))",
+    "old": "  if (dead || force) entity.fatigue = Math.max(",
+    "new": "  if (dead) entity.fatigue = Math.max(",
     "tests": [
       "test/auditdisc19.test.js"
     ]
@@ -506,8 +497,8 @@
   {
     "name": "AUDIT-DISC19-S4-fatigue-overwritten",
     "file": "src/systems/deathRespawn.js",
-    "old": "  if ((dead || force) && !(entity.fatigue > 0))",
-    "new": "  if ((dead || force))",
+    "old": "  if (dead || force) entity.fatigue = Math.max(entity.fatigue > 0 ? entity.fatigue : 0, respawnHealth(maxFatigue(entity)));",
+    "new": "  if (dead || force) entity.fatigue = respawnHealth(maxFatigue(entity));",
     "tests": [
       "test/auditdisc19.test.js"
     ]
@@ -614,8 +605,8 @@
   {
     "name": "AUDIT-DISC19-B1-candle-tinted",
     "file": "src/scenes/worldModes.js",
-    "old": "        dungeonCtx.candleLight(), _dgTint(playerTorchLight(",
-    "new": "        _dgTint(dungeonCtx.candleLight()), _dgTint(playerTorchLight(",
+    "old": "        abyssCandle(dungeonCtx.candleLight(), _abyss), _abyss?.torchOff",
+    "new": "        abyssCandle(_dgTint(dungeonCtx.candleLight()), _abyss), _abyss?.torchOff",
     "tests": [
       "test/auditdisc19.test.js"
     ]

@@ -130,10 +130,17 @@ test('AUDIT 39 F127 / TI1: the drag hook is live - the swipe calls it, and no bu
   // AUDIT SOC C9 re-pinned: `socialInteract` joined the list - the phone's door to SOC5's action, which had no
   // control at all on a touch device. The law is unchanged: the header documents EXACTLY the hooks the layer calls.
   // FONT1 re-pinned: `enhanced` joined it - the skin flag that puts the layer's text in the pixel face (the classic skin keeps system-ui)
-  assert.match(touch, /@param hooks \{ look\(dx,dy\), attack\?\(dx,dy,held\), tap\?\(x,y\), locked\?\(\), dial\?, enhanced\?, cycleMode\?\(\), socialInteract\?\(\), overlayActive\?\(\), paused\?\(\) \}/,
+  // AUDIT PRE-MERGE 0928 U3 re-pinned: `stickRuns` joined it - the host's word on whether the stick's 80% throw runs (the boat's helm reads Run + a side key as the strafe)
+  // NAV-H re-pinned: `aimHold` joined it - the host's word that the attack is a held aim (a helm with guns), whose drag is a look
+  assert.match(touch, /@param hooks \{ look\(dx,dy\), attack\?\(dx,dy,held\), tap\?\(x,y\), locked\?\(\), dial\?, enhanced\?, cycleMode\?\(\), socialInteract\?\(\), overlayActive\?\(\), paused\?\(\), stickRuns\?\(\), aimHold\?\(\) \}/,
     'the header documents exactly the hooks the layer calls (AUDIT 62 F7 added `paused`, the pause predicate the mouse arms always carried)');
-  assert.match(touch, /if \(hooks\.socialInteract\) button\(/, '...and the social button is drawn only where a host hands the hook in');
-  assert.match(touch, /const face = hooks\.enhanced \? `font-weight:500;font-size:15px;\$\{PIXEL_FONT_CSS\}` : 'font:600 15px system-ui,-apple-system,"Segoe UI",sans-serif';/, 'FONT1: the enhanced skin\'s layer is in the pixel face, the classic skin\'s in the system face');
+  assert.match(touch, /if \(hooks\.socialInteract\) socialBtn = button\(/, '...and the social button is drawn only where a host hands the hook in');
+  // TOUCH-BUTTONS (2026-09-27, Discord: "I would much rather use a button to attack"): the one button that calls the
+  // drag seam is a corner slot the PLAYER chose Attack for - never by default (TI1's two stand there), and never on a
+  // host with no attack hook, where it would be a door that opens nothing.
+  assert.match(touch, /filter\(\(a\) => a\.kind !== 'attack' \|\| typeof hooks\.attack === 'function'\)/, 'no Attack slot where the host has no attack');
+  // FONT3: the trio FIRST, so the layer's own weight after it is the one that holds (PIXEL_FONT_CSS carries 500 now)
+  assert.match(touch, /const face = hooks\.enhanced \? `\$\{PIXEL_FONT_CSS\}font-weight:500;font-size:15px;` : 'font:600 15px system-ui,-apple-system,"Segoe UI",sans-serif';/, 'FONT1: the enhanced skin\'s layer is in the pixel face, the classic skin\'s in the system face');
   // AUDIT FONT F5: ALL FOUR HOSTS, not one. FONT1 wired `enhanced` in
   // scenes/world.js alone and this pin read that one file, so on
   // ?exterior, ?dungeon and ?interior every touch button, the nav row
@@ -149,7 +156,7 @@ test('AUDIT 39 F127 / TI1: the drag hook is live - the swipe calls it, and no bu
   // from the layer's root, so it set its own font shorthand and was the
   // one place on this layer a player TYPES that FONT1's face never
   // reached. Same size, this skin's letters.
-  assert.match(touch, /const entryFace = hooks\.enhanced \? `font-weight:600;font-size:18px;\$\{PIXEL_FONT_CSS\}` : 'font:600 18px system-ui,-apple-system,sans-serif';/,
+  assert.match(touch, /const entryFace = hooks\.enhanced \? `\$\{PIXEL_FONT_CSS\}font-weight:600;font-size:18px;` : 'font:600 18px system-ui,-apple-system,sans-serif';/,
     'AUDIT FONT F6: the entry field takes the skin\'s face too');
   assert.match(touch, /box-sizing:border-box;\$\{entryFace\};color:#eee;/,
     'mutants: the field back on its own hard-coded system-ui shorthand, whatever the layer around it wears');
@@ -160,7 +167,7 @@ test('AUDIT 39 F127 / TI1: the drag hook is live - the swipe calls it, and no bu
   // passes neither it nor a tap and gets no sword and no dial.
   for (const h of ['src/scenes/world.js', 'src/scenes/exterior.js', 'src/scenes/dungeon.js']) {
     const s = read(h);
-    assert.match(s, /\n\s*attack: \(dx, dy, held\) =>/, `${h} passes the live drag hook`);
+    assert.match(s, /\n\s*attack: \(dx, dy, held(?:, o = null)?\) =>/, `${h} passes the live drag hook`);   // PIN MOVED (AUDIT 2026-10-01 part four, PAD-PULSE): world.js's hears a held stroke's repeat
     assert.doesNotMatch(s, /attackTap: \(\) =>/, `${h} no longer passes a tap-to-attack`);
   }
   assert.doesNotMatch(read('src/scenes/interior.js'), /attackTap|attack: \(dx/);

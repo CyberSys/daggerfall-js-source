@@ -178,11 +178,12 @@ test('AUDIT WORLD6b-iii(b) by source: the world host joins a held cell at once a
   assert.match(w, /if \(wantHalo\.some\(\(r\) => !online\.haloRooms\(\)\.includes\(r\)\)\) online\.setLook\(composeLook\(playerEntity\)\);/, 'C5 (PROFILE2: through setLook, so the sockets already open are told too)');
   assert.match(w, /const ids = ownerIds\(\); if \(ids\) exteriorFoes\.pruneOwners\(ids, now\);/, 'C3/B5');
   const x = rd('src/scenes/exteriorFoes.js');
-  assert.match(x, /if \(data\.k != null && _net\?\.room && data\.k !== _net\.room\(\) && !_net\.inRoom\?\.\(data\.k\)\) return false;[\s\S]{0,5000}?const f = foes\.find\(\(x\) => !x\.puppet && x\.seq === \(data\.i \| 0\)\) \?\? watchOf\(data\.i \| 0\);\s*if \(_questLike\(f\) && !_peerMayHit\(from, f\)\) return false;[^\n]*\n\s*const dmg = Number\(data\.dmg\);/, 'C1: applyHit (WORLD6b-iii(c): the take and the grant arms stand between; WATCH1: the number may name a watchman)');
+  assert.match(x, /if \(data\.k != null && _net\?\.room && data\.k !== _net\.room\(\) && !_net\.inRoom\?\.\(data\.k\)\) return false;[\s\S]{0,7000}?const f = foes\.find\(\(x\) => !x\.puppet && x\.seq === \(data\.i \| 0\)\) \?\? watchOf\(data\.i \| 0\);\s*if \(_questLike\(f\) && !_peerMayHit\(from, f\)\) return false;[^\n]*\n\s*const dmg = Number\(data\.dmg\);/, 'C1: applyHit (WORLD6b-iii(c): the take and the grant arms stand between; WATCH1: the number may name a watchman)');
   const o = rd('src/net/online.js');
   assert.match(o, /if \(h && h\.ws && h\.status === 'open' && this\._ws && isCellRoom\(room\) && isCellRoom\(this\.room\)\) \{/, 'A1: a live halo alone');
   assert.match(o, /const want = new Set\(isCellRoom\(this\.room\) && !this\.terminal \? /, 'A5: the room\'s life');
-  assert.match(o, /if \(code === CLOSE_REPLACED \|\| code === CLOSE_POLICY\) \{ h\.ws = null; h\.status = 'terminal'; h\.retryAt = null; return; \}/, 'A2');
+  // SCALE2: a policy close is terminal unless it refused a hello whose token the service did not give in time (noToken)
+  assert.match(o, /if \(code === CLOSE_REPLACED \|\| \(code === CLOSE_POLICY && !noToken\)\) \{ h\.ws = null; h\.status = 'terminal'; h\.retryAt = null; return; \}/, 'A2');
   assert.equal((o.match(/this\._endHalo\(\);/g) ?? []).length, 3, 'A4: leave and the two terminal closes');
   assert.doesNotMatch(o, /_holder\(|_heldElsewhere\(/, 'A9: the dead code is gone');
   assert.match(rd('bible/06-Systems/Online-Arc.md'), /## AUDIT WORLD6b-iii\(b\) \(2026-09-14\)/, 'the record');

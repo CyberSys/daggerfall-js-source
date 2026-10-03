@@ -39,6 +39,7 @@ import { survivalRules } from './survival/switch.js';   // SURV-TIERS: a meal's 
 import { SURVIVAL_RULES } from './survival/difficulty.js';   // AUDIT SURV-TIERS: and with the arc off, Casual's - none
 import { setLightSource } from './lightSource.js';   // DISC7: the light in hand's one door
 import { localizedStrings } from './textManager.js';   // L10N3d: DFU's Internal_Strings, read in the player's language
+import { hoodCapable, hoodUp } from './survival/temperature.js';   // HOOD-SAID: the one hood law, for toggleHood
 
 /** THE ARMS WHOSE DESTINATION WINDOW THE PORT HAS NOT BUILT, named so a use
  *  SAYS something rather than eating itself. Keyed by this module's own result
@@ -159,6 +160,64 @@ export function nextVariant(item) {
   return true;
 }
 
+/** HOOD-SAID (FIELD BUGS 2026-09-30, Discord: "Vampire hood on cloaks dont show hood is up or down making them think
+ *  its a bug"): THE HOOD IS RAISED OR LOWERED, NOT CYCLED. NextVariant steps a garment through every drawing, and a
+ *  casual cloak's six run hood down, UP, UP, down, down, UP, so a Use that meant "hood up" could put it down. The
+ *  drawings come in pairs, one drape hood down and hood up: 0/1, 2/3 and 4/5 on the casual cloak - the felt
+ *  temperature's own tables say so, every pair holding one hooded drawing that is the warmer by one
+ *  (survival/temperature.js HOODED_CLOAK_VARIANTS, CLOAK_WARMTH) - and 0/1 on the formal cloak and on plain robes. So the
+ *  hood moves to the same drape's other drawing, `variant ^ 1`; a drawing with no partner (a stray value past the
+ *  template's count) takes NextVariant's own order to the first whose hood differs, one round at most. Only the six
+ *  hooded garments move (temperature.js hoodCapable); true when the hood changed. The classic window keeps DFU's
+ *  NextVariant on its Use and middle click - its doll is redrawn at each step, so every drawing stays in reach. */
+export function toggleHood(item) {
+  if (!hoodCapable(item)) return false;
+  const total = templateByIndex(item.templateIndex)?.variants ?? 0;
+  const from = item.variant ?? 0;
+  const up = hoodUp(item);
+  if ((from ^ 1) < total) {
+    item.variant = from ^ 1;
+    if (hoodUp(item) !== up) return true;
+    item.variant = from;
+  }
+  for (let i = 1; i < total; i++) {
+    nextVariant(item);
+    if (hoodUp(item) !== up) return true;
+  }
+  item.variant = from;
+  return false;
+}
+/** HOOD-SAID: what a press of the pack's hood button says - the port's own lines, beside UseItem's "You light the %it.". */
+export const HOOD_TEXT = Object.freeze({ raise: 'You raise your hood.', lower: 'You lower your hood.' });
+
+/** CLOAK-DRAPE (FIELD BUGS 2026-10-01, SlipperyPeasant: "I can no longer change how the cloak is worn, eg; Over shoulder,
+ *  behind, etc"): HOW MANY WAYS A HOODED GARMENT HANGS - its drawings in HOOD-SAID's pairs (one drape hood down and hood
+ *  up), so the casual cloak's six are three drapes and the formal cloak's and plain robes' two are one. 0 for a garment
+ *  with no hood, whose Use still steps its drawings. */
+export const drapeCount = (item) => (hoodCapable(item) ? Math.floor((templateByIndex(item.templateIndex)?.variants ?? 0) / 2) : 0);
+/** CLOAK-DRAPE: THE NEXT DRAPE, THE HOOD AS IT WAS - Use stood on a worn cloak's card for this until HOOD-SAID gave its
+ *  place to the hood, which keeps the drape; this keeps the hood. The next pair round (a stray value past the count is
+ *  the last drape's), and of it the drawing whose hood is the one the garment wore. True when the drape moved; a
+ *  garment of one drape stays as it was. */
+export function nextDrape(item) {
+  const drapes = drapeCount(item);
+  if (drapes < 2) return false;
+  const from = item.variant ?? 0;
+  const up = hoodUp(item);
+  const d = Math.min(drapes - 1, from >> 1);
+  for (let step = 1; step < drapes; step++) {
+    const pair = (d + step) % drapes;
+    for (const v of [2 * pair, 2 * pair + 1]) {
+      item.variant = v;
+      if (hoodUp(item) === up) return true;
+    }
+  }
+  item.variant = from;
+  return false;
+}
+/** CLOAK-DRAPE: what a press of the pack's drape button says. */
+export const DRAPE_TEXT = 'You rearrange your cloak.';
+
 // ── the strings UseItem shows (DFU's Internal_Strings) ────────────
 
 export const USE_TEXT = localizedStrings({
@@ -219,6 +278,10 @@ export function useItem(item, collection, {
   // use-click block below. A host with no quest machine leaves it
   // null and DFU's own fall-through arm stands.
   getQuest = null, nameOf = null,   // L10N3e: nameOf(item), the name AS SHOWN - shownItemName, handed in (itemInfo.js imports this module)
+  // MEND-AIM: a use AIMED at another item (a repair kit at the piece it mends), and whether the host can ask which -
+  // a handler that wants an aim answers `chooseTarget` with the choices, and the host uses the item again with the
+  // one chosen. The quick keys cannot ask, and take the handler's own first choice.
+  target = null, chooseTarget = false,
 } = {}) {
   if (!item) return { kind: 'none' };
   const named = (t) => expandItemMacro(USE_TEXT[t], item, nameOf?.(item));   // L10N3e: the light lines' %it, as the item MCP names it (DaggerfallInventoryWindow.cs:1777-1800)
@@ -280,7 +343,7 @@ export function useItem(item, collection, {
   // RETURNS - past the ladder and past the Used-payload tail alike.
   const handler = itemUseHandler(item.templateIndex);
   if (handler) {
-    const handled = handler(item, collection, { entity, rolls, nowMinute });
+    const handled = handler(item, collection, { entity, rolls, nowMinute, localItems: bag, target, chooseTarget });   // MEND-AIM: the pack, the aim, and whether it may be asked
     if (handled) return questItem ? { ...handled, questItem: true } : handled;
   }
 
@@ -314,7 +377,7 @@ export function useItem(item, collection, {
     // DrinkPotion's own guard is `PotionRecipeKey == 0` (:906), so a
     // bottle naming no recipe is drunk and does nothing, exactly as
     // here.
-    const drank = drinkPotion ? drinkPotion(item.potionRecipeKey ?? 0) : null;
+    const drank = drinkPotion ? drinkPotion(item.potionRecipeKey ?? 0, Number.isInteger(item.potent) ? item.potent : 0) : null;   // PROF12: a Potent potion's share
     out = drank ? { kind: 'potion', potion: drank } : { kind: 'potion', pending: true };
   }
 
@@ -382,7 +445,7 @@ export function useItem(item, collection, {
     // ItemCollection.GetItem verbatim now, allowQuestItem: false
     // included (:1791) - the port grew quest items (item.questItem,
     // read at :211) and inventory.getItem already ports that filter
-    // (inventory.js:309), so a quest lantern is invisible to the oil
+    // (inventory.js:398), so a quest lantern is invisible to the oil
     // exactly as it is in DFU and the bottle refuses instead.
     const lantern = getItem(bag ?? [], 'UselessItems2', TEMPLATES.Lantern, { allowQuestItem: false });
     const oil = item.currentCondition ?? 0;

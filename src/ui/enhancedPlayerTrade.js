@@ -11,8 +11,9 @@
 //
 // CLOSING: Escape / Close cancels a trade that is still being negotiated. Once the goods are in flight (`committing`) the
 // window cannot be cancelled and says so; when the session ends it shows the outcome a moment and closes itself.
-import { itemLine, linePicture, markItemFrame, wearBar } from './enhancedInventory.js';   // RARITY-UI: the pack's one frame marker; WEAR-UI: its wear bar
+import { itemLine, linePicture, markItemFrame, wearBar, itemBriefLines } from './enhancedInventory.js';   // TRADE-INFO: an item's magic, in words   // RARITY-UI: the pack's one frame marker; WEAR-UI: its wear bar
 import { lockRefuses, lockedText } from '../systems/itemLock.js';   // LOCK1: a locked piece is not held out
+import { setLines } from '../systems/sigilSets.js';   // CARD-FIT U4: a set's tiers, under the pointer
 import { SLOT_BOX } from './iconFit.js';   // UI1: the row's picture box
 import { fittedImg } from './textureCanvas.js';   // UI1: the fitted picture's element
 import { injectEnhancedStyle, injectEnhancedFonts } from './enhancedStyle.js';
@@ -30,10 +31,16 @@ const PTRADE_CSS = `
 .ptrade-shell input { font: inherit; }   /* AUDIT DROPS F1: every form control, the stack-quantity field included - a control falls to the browser's face unless told */
 .ptrade-shell .goldbox input { width: 110px; background: #0e1013; color: var(--bone, #e9e4d9); border: 1px solid var(--iron, #2b323b);
   border-radius: 3px; padding: 4px 6px; font: inherit; }
-.ptrade-shell .lockmark { font-size: 12px; padding: 2px 8px; border-radius: 3px; background: var(--iron, #2b323b); color: var(--dim, #8b8578); }
+.ptrade-shell .lockmark { font-size: 12px; padding: 2px 8px; border-radius: 3px; background: var(--iron, #2b323b); color: var(--dim, #9a9486); }
 .ptrade-shell .lockmark.on { background: var(--brass, #c08a3e); color: var(--ink, #0e1013); }
-.ptrade-shell .ptrade-note { margin: 0; padding: 6px 4px; font-size: 12.5px; color: var(--dim, #8b8578); flex: 1 1 100%; }
+.ptrade-shell .ptrade-note { margin: 0; padding: 6px 4px; font-size: 12.5px; color: var(--dim, #9a9486); flex: 1 1 100%; }
 .ptrade-shell .itemrow.staged { outline: 1px solid var(--brass, #c08a3e); }
+/* CARD-FIT U4 (the card audit): THE STRIP IS BOUNDED. A set piece's words ran it to 2,174 px on a phone - the three
+   lists fell to nothing and Offer and Close under the window's foot. Its words scroll in a box of their own and the
+   buttons stay in the row; on a narrow screen the buttons wrap under the words rather than squeeze them a word a line. */
+.ptrade-shell .trade-detail-info { max-height: min(30dvh, 180px); overflow-y: auto; overscroll-behavior: contain; }
+.ptrade-shell .trade-detail-info ul.rarity { list-style: none; margin: 4px 0 0; padding: 0; font-size: 12.5px; line-height: 1.4; color: #d8cfae; }
+@media (max-width: 640px) { .ptrade-shell .trade-detail { flex-wrap: wrap; } .ptrade-shell .trade-detail-info { flex: 1 1 calc(100% - 96px); } }
 `;
 function injectPtradeStyle() {
   if (typeof document === 'undefined' || document.getElementById(STYLE_ID)) return;
@@ -106,6 +113,9 @@ export function mountEnhancedPlayerTrade(hostEl, { session, deps }) {
     const sub = [line.material, line.word].filter(Boolean).join(' · ');
     if (sub) mid.append(el('small', null, sub));
     b.append(mid, el('span', 'itemwt', `${line.weight.toFixed(2)} kg`));
+    // TRADE-INFO (Tabitha: "magic item stats on the trade hover"): the row's hover says what its magic is - mine and theirs
+    // (CARD-FIT: in brief - the sigil's line too, and the set's tiers each by its brief; the lore is the pack's Info box's)
+    b.title = [line.name, ...itemBriefLines(item, deps, { worn: true }), ...setLines(item).slice(1)].join('\n');
     if (selected?.item === item) b.classList.add('picked');
     if (side === 'offer') b.classList.add('staged');
     b.onclick = (e) => {
@@ -184,6 +194,16 @@ export function mountEnhancedPlayerTrade(hostEl, { session, deps }) {
     if (line.armour != null) bits.push(`Armour ${line.armour}`);
     for (const t of line.survival ?? []) bits.push(t);
     info.append(el('p', 'meta', bits.filter(Boolean).join(' · ')));
+    // TRADE-INFO: and the item's magic, a line each - CARD-FIT U4: in brief (the tier, its affixes, the sigil, the set's
+    // name and what I wear of it; its tiers under the pointer), in a box that scrolls rather than grows
+    const powers = itemBriefLines(selected.item, deps, { worn: true });
+    if (powers.length) {
+      const ul = el('ul', 'rarity');
+      for (const p of powers) ul.append(el('li', null, p));
+      const tiers = setLines(selected.item).slice(1);
+      if (tiers.length) ul.title = tiers.join('\n');
+      info.append(ul);
+    }
     bar.append(info);
     const stack = Math.max(1, selected.item.stackCount ?? 1);
     if (selected.side === 'pack' && session.phase === 'open' && !session.myConfirm) {

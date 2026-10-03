@@ -69,11 +69,14 @@ test('WATER-BACK: all THREE water doors answer the same question - none of them 
 
   const level = bodyOf('function blockWaterLevelAt(x, z) {');
   assert.doesNotMatch(level, /dfLocation\?\.spawned/, 'the fog and swim check read the block, whatever kind of dungeon it is');
-  assert.match(level, /return b\.layout\.waterLevel;/, '...and answer the block\u2019s own level');
+  assert.match(level, /return levelOf\(b\);/, '...and answer the block\u2019s own level');
+  // OH-D: through the one reader - the block's own level, or PlayerEnterExit.blockWaterLevel as a writer from outside
+  // left it for the block the player stood in (There's a Hole in the Bottom of the Ocean's flood), until they cross
+  assert.match(src, /const levelOf = \(b\) => \(_blockWaterOverride && _blockWaterOverride\.block === b \? _blockWaterOverride\.level : b\.layout\.waterLevel\);/);
 
   const surface = bodyOf('function waterSurfaceYAt(x, z) {');
   assert.doesNotMatch(surface, /dfLocation\?\.spawned/, 'the swim toggle and the drowning tick never had the skip - now nothing does');
-  assert.match(surface, /b\.layout\.waterLevel === 10000 \? null :/, 'and they share the one sentinel');
+  assert.match(surface, /const level = levelOf\(b\);\s*return level === 10000 \? null :/, 'and they share the one sentinel, off the one reader');
 
   // No water door anywhere in the file branches on the spawn flag. The
   // flag itself stays - it is a real thing about a location and other

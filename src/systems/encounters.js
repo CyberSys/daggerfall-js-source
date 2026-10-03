@@ -194,7 +194,9 @@ export function intermittentEnemySpawn(ctx, rolls = Math.random) {
 function intermittentEnemySpawnOnce(ctx, rolls) {
   // :560 - `if (!timeForSpawn || preventEnemySpawns) return false;`
   if (!timeForSpawn(ctx.gameMinutes) || ctx.preventEnemySpawns) return null;
-  const timeOfDay = ctx.gameMinutes % 1440;
+  // LIVED1: the cadence above is the minute the player lives (their own clock online); night and day are the SKY's -
+  // `skyMinutes`, the world's clock, when the host hands it (offline the one clock, so the minute itself).
+  const timeOfDay = ((Number.isFinite(ctx.skyMinutes) ? ctx.skyMinutes : ctx.gameMinutes) % 1440 + 1440) % 1440;
   if (!ctx.inside) {
     if (ctx.inLocationRect) {
       if ((timeOfDay < 360 || timeOfDay > 1080) && rollLocationNight(rolls()) === 0) {
@@ -240,7 +242,9 @@ export const SEVERE_PUNISHMENT_EXECUTED = 2;
 
 /** How many SpawnCityGuards(false) calls this ONE catch-up minute
  *  owes: 0, 1 or - both rolls landing, which DFU permits because the
- *  two `if`s are independent - 2. */
+ *  two `if`s are independent - 2.
+ *  AUDIT REP F6: KEPT, WITH NO PRODUCTION CALLER SINCE REP1 - both street hosts retired DFU's per-minute levy for the
+ *  watch's stop (scenes/standingHost.js); this is DFU's law as ported, for its pins and a mod that wants the old watch. */
 export function passiveGuardSpawns({ legalRep = 0, severePunishmentFlags = 0 } = {}, rolls = Math.random) {
   let spawns = 0;
   if (legalRep < PASSIVE_GUARD_LEGAL_REP && dice100(PASSIVE_GUARD_LOW_REP_CHANCE, rolls())) spawns++;
@@ -317,7 +321,7 @@ export const RESTING_DISTANCE = 12;
  * nothing pending to count. Nor were quest spawns ever in that sweep
  * on either side - DFU's CreateFoe is a QuestAction that calls
  * CreateFoeGameObjects + TryPlacement itself (no CreateFoeSpawner in
- * CreateFoe.cs), which is systems/quest/actions.js:2309-2331 here.
+ * CreateFoe.cs), which is systems/quest/actions.js:2335-2357 here.
  */
 export function areEnemiesNearby(foes, { resting = false, includingPacified = false } = {}) {
   for (const f of foes ?? []) {
@@ -332,12 +336,16 @@ export function areEnemiesNearby(foes, { resting = false, includingPacified = fa
     if (!(canSee || f.ai.wouldBeSpawned)) continue;
     // :709 - the hostility/team gate, INSIDE the proximity arm
     if (includingPacified) return true;
-    // `isHostile ?? true`: EnemyMotor.IsHostile is initialised TRUE
-    // (:79) and only pacification clears it, so an ai without the
-    // field - a headless stub, a pool that predates the C-slice -
-    // reads hostile, which is the charter's "absent member idles the
-    // arm" for a flag whose absence means "no pacification here".
-    if ((f.ai.isHostile ?? true) && mobileTeamOf(f.entity) !== 'PlayerAlly') return true;
+    if (foeHostile(f)) return true;
   }
   return false;
+}
+
+/** :709's hostility and team gate - one home, for the sweep above and OW6's slowing journey (systems/travelThreat.js):
+ *  a live foe, unpacified, not of the player's team. `isHostile ?? true`: EnemyMotor.IsHostile is initialised TRUE
+ *  (:79) and only pacification clears it, so an ai without the field - a headless stub, a pool that predates the
+ *  C-slice - reads hostile, which is the charter's "absent member idles the arm" for a flag whose absence means "no
+ *  pacification here". */
+export function foeHostile(f) {
+  return !!f && !f.dead && !!f.ai && (f.ai.isHostile ?? true) && mobileTeamOf(f.entity) !== 'PlayerAlly';
 }

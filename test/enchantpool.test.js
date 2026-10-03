@@ -17,7 +17,7 @@
 // classic strike spells did nothing; the vampiric drain and both
 // artifact affinity scans saw an empty room. Nothing threw and nothing
 // was logged. The one ctx in play is that mount - no host passes an
-// enchantCtx at the strike site (formulas.js:511 defaults it null) -
+// enchantCtx at the strike site (formulas.js:514 defaults it null) -
 // so mergeCtx folds it under every dispatch, in every mode.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -173,7 +173,7 @@ test('AUDIT 58: the WABBAJACK re-stands a foe in the pool that owns it', () => {
   // is two pools. `exteriorFoePool` is the watch AND the encounter
   // foes, and this arm handed both to the encounter pool's remover.
   // That was not a leak - removeFoe never looks the record up in `foes`
-  // (exteriorFoes.js:484-489) and both pools share the host's one
+  // (exteriorFoes.js:576-581) and both pools share the host's one
   // renderer - but the teardown of a watchman is the WATCH's to own,
   // and `removeFoe`'s `questBehaviour?.notifyDestroyed()` is an
   // encounter-pool term a guard has no business reaching, so the
@@ -187,7 +187,7 @@ test('AUDIT 58: the WABBAJACK re-stands a foe in the pool that owns it', () => {
   // exempt from that pool's own cap - WabbajackEffect.cs:86-88 destroys
   // one entity and mints one, so removing a GUARD (which frees no slot
   // here) must not be able to leave the strike with nothing standing.
-  assert.match(body, /exteriorFoes\.spawnFoe\(mobileType, feet, \{ replacing: true \}\)\.then\(stamp\)\.catch\(\(\) => \{\}\);/,
+  assert.match(body, /exteriorFoes\.spawnFoe\(mobileType, feet, \{ replacing: true, \.\.\.siteFoeSpawn\(f\) \}\)\.then\(\(nf\) => \{ stamp\(nf\); carrySiteFoe\(f, nf\); \}\)\.catch\(\(\) => \{\}\);/,   // AUDIT WB12d (C11): a site's foe keeps its site
     'the re-stand is the encounter pool either way, and unconditional');
   // and the pool really exposes the door the router needs - the
   // SetActive(false) shape, no corpse and no death chain
@@ -296,7 +296,7 @@ test('EC1: the world host consumes the shared law rather than a second copy of i
 
 test('AUDIT 58 (f2/hosts): the EXTERIOR host mounts the same body over its own pools', () => {
   // The third host that can hold an enchanted item and mounted nothing.
-  // `_defaultCtx` is a session singleton (enchantments.js:255-257) and
+  // `_defaultCtx` is a session singleton (enchantments.js:256-258) and
   // in a ?exterior session it stayed null for the whole boot, so every
   // arm that folds it in optional-chained into silence - CastWhenUsed
   // and CastWhenStrikes found no record and still billed 10 condition,
@@ -335,7 +335,7 @@ test('AUDIT 58 (f2/hosts): the EXTERIOR host mounts the same body over its own p
     'no site inside the mount names a host pool directly');
   // and the reflection path travels with the player's OWN sinks, which
   // is why they are hoisted here rather than inlined into the cast
-  // engine (effects.js:903/:917 heals the caster through them).
+  // engine (effects.js:970/:984 heals the caster through them).
   assert.match(ext, /const playerSpellSinks = \{/);
   assert.match(ext, /^\s*playerSinks: playerSpellSinks,$/m, 'one object, both readers');
   assert.match(mount, /^\s*playerSpellSinks,$/m);
@@ -354,7 +354,7 @@ test('AUDIT 58 (f2/hosts): the EXTERIOR host mounts the same body over its own p
   assert.match(rf, /if \(cityGuards\.guards\.includes\(f\)\) cityGuards\.removeGuard\(f\);\n\s*else exteriorFoes\.removeFoe\(f\);/, 'the watch is named by MEMBERSHIP, not by pool identity');
   assert.match(rf, /exteriorFoes\.spawnFoe\(mobileType, feet, \{ replacing: true \}\)/, 'AUDIT 62 F12: the re-stand cannot be refused by the cap');
   // ROAD-G TAIL: the arm names the watch pool ONLY for the membership route
-  // (world.js:5151's shape) - the removal, never the re-stand
+  // (world.js:9091's shape) - the removal, never the re-stand
   assert.equal((rf.match(/cityGuards\./g) || []).length, 2, 'guards.includes + removeGuard, nothing else');
   assert.equal(/cityGuards\.spawn/.test(rf), false, 'the re-stand is the encounter pool\'s');
   // (PR #59 review) pin the ARM: after the inside arm nothing returns before

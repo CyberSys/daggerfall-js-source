@@ -2,8 +2,8 @@
   {
     "name": "LA-SHADOW1-1-the-sun-snapped-at-the-origin-again",
     "file": "src/render/shadowPass.js",
-    "old": "      sunCascadeMatrices(f.eye, f.lightDir, this._sunVPNew, this._sunAnchor);",
-    "new": "      sunCascadeMatrices(f.eye, f.lightDir, this._sunVPNew);",
+    "old": "      sunCascadeMatrices(f.eye, f.lightDir, this._sunVPNew, this._sunAnchor, k);",
+    "new": "      sunCascadeMatrices(f.eye, f.lightDir, this._sunVPNew, undefined, k);",
     "tests": [
       "test/la_shadow.test.js"
     ]
@@ -57,7 +57,7 @@
   {
     "name": "LA-SHADOW2-1-the-hard-line-again",
     "file": "src/render/shadowPass.js",
-    "old": "  return t > 0.0 ? mix(lit, sunCascadeTap(c + 1, wp, n, soft), t) : lit;",
+    "old": "  return t > 0.0 ? mix(lit, sunCascadeTap(c + 1, wp, n, soft, h), t) : lit;",
     "new": "  return lit;",
     "tests": [
       "test/la_shadow.test.js"
@@ -66,8 +66,8 @@
   {
     "name": "LA-SHADOW2-2-the-far-box-edge-again",
     "file": "src/render/shadowPass.js",
-    "old": "  if (c == 2) return t >= 1.0 ? 1.0 : mix(sunCascadeTap(2, wp, n, soft), 1.0, t);",
-    "new": "  if (c == 2) return sunCascadeTap(2, wp, n, soft);",
+    "old": "  if (c == 2) return t >= 1.0 ? 1.0 : mix(sunCascadeTap(2, wp, n, soft, h), 1.0, t);",
+    "new": "  if (c == 2) return sunCascadeTap(2, wp, n, soft, h);",
     "tests": [
       "test/la_shadow.test.js"
     ]
@@ -84,8 +84,8 @@
   {
     "name": "LA-SHADOW2-4-the-band-drops-soft",
     "file": "src/render/shadowPass.js",
-    "old": "  float lit = sunCascadeTap(c, wp, n, soft);",
-    "new": "  float lit = sunCascadeTap(c, wp, n, false);",
+    "old": "  float lit = sunCascadeTap(c, wp, n, soft, h);",
+    "new": "  float lit = sunCascadeTap(c, wp, n, false, h);",
     "tests": [
       "test/la_shadow.test.js",
       "test/perfsun_fragment.test.js"

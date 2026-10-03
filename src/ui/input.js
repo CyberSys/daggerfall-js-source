@@ -507,8 +507,8 @@ export function released(edges, keys, action) { return edgeAction(edges?.upFrame
  *  left/RIGHT/MIDDLE, MouseEvent.button as left/MIDDLE/right, so the
  *  two middle names cross. One table, so no host spells 'Mouse' +
  *  e.button and hands the wheel the right button's action. */
-export const MOUSE_CODES = Object.freeze(['Mouse0', 'Mouse2', 'Mouse1']);
-/** The binding code for a MouseEvent.button, or null past the third. */
+export const MOUSE_CODES = Object.freeze(['Mouse0', 'Mouse2', 'Mouse1', 'Mouse3', 'Mouse4']);   // VIEW-TOGGLE (from VOICE1, which is reverted): and the two side buttons (MouseEvent.button 3 back, 4 forward - Unity's Mouse3/Mouse4), the view toggle's
+/** The binding code for a MouseEvent.button, or null past the fifth. */
 export function mouseCode(button) { return MOUSE_CODES[button] ?? null; }
 
 /** FIX-F: THE SWING BUTTON IS A BINDING. Every host swung on the raw
@@ -674,6 +674,12 @@ export function routeKeyUp(e, ctx) {
  *  the player on it. */
 export function isTextEntryTarget(t) {
   return !!t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable === true);
+}
+
+/** AUDIT 28 H11: a DOM window's own control (a button, a list, a link) with the keyboard's focus - its Enter and Space
+ *  are the BROWSER's press of it; a host that prevents them presses nothing. */
+export function isDomControlTarget(t) {
+  return !!t && (t.tagName === 'BUTTON' || t.tagName === 'SELECT' || t.tagName === 'SUMMARY' || (t.tagName === 'A' && !!t.href));
 }
 
 /**
@@ -898,6 +904,10 @@ export function routeAction(action, ctx, setPlayerPos = null) {
     case 'Escape': return ctx.togglePause ? (ctx.togglePause({ setPlayerPos }), true) : false;
     case 'CharacterSheet': ctx.toggleCharSheet({ setPlayerPos }); return true;   // F5-QUESTS: the enhanced sheet IS the pause window, and its Load wants the applier Escape's gets
     case 'Inventory': ctx.toggleInventory(); return true;
+    // CLASSIC-PAGES: the Professions key opens the pause on the Professions page - on either skin (ui/pauseDoor.js
+    // openPauseFlow opens the enhanced pages for it), or says why not
+    // HELM-KEYS' merge: the key shares the down arrow with less sail - at a helm it is the sails' alone (`sailing`)
+    case 'Professions': return ctx.togglePause && ctx.sailing?.() !== true ? (ctx.togglePause({ at: 'professions', setPlayerPos }), true) : false;
     // GameManager.cs:550-553 - the CastSpell ACTION opens the
     // spellbook window; the cast itself is the attack click.
     case 'CastSpell': ctx.toggleSpellbook(); return true;

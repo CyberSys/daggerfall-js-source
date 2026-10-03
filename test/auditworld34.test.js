@@ -205,14 +205,14 @@ test('AUDIT WORLD34 B2: online, the whole dungeon - the layout the room addresse
   const m = rd('src/scenes/worldModes.js'), w = rd('src/scenes/world.js');
   assert.match(m, /dungeonLocationFor\(hit\.dfLocation, \{ questMachine: questBridge\?\.machine, online: host\.dungeonOnline\?\.\(\) \?\? false \}\)/, 'the entry seam asks');
   assert.match(w, /dungeonOnline: \(\) => onlineOn,/, 'and the world host answers');
-  assert.equal((w.match(/online: onlineOn \}\)/g) ?? []).length, 2, 'the quest layer\'s two location doors too');
+  assert.equal((w.match(/questMachine: questBridge\?\.machine, online: params\.has\('online'\) \}\)/g) ?? []).length, 2, 'the quest layer\'s two location doors too (the page flag: a quest parsed at chargen reaches them before `onlineOn` is declared)');
   const d = rd('src/scenes/dungeonContext.js');
   assert.match(d, /if \(data\.k != null && data\.k !== _locationKey\) \{ if \(!_keyMismatchSaid\) \{ _keyMismatchSaid = true; console\.warn\(/, 'a stream keyed to another layout is refused and SAID once');
 });
 
 test('AUDIT WORLD34 B1/B3 by source: a dead foe is retyped too (a joiner whose save had killed the foe at `i` refused the rebuild for the life of the context and stood an invulnerable mismatch); a full frame goes even when it carries nothing - it is the heartbeat', () => {
   const d = rd('src/scenes/dungeonContext.js');
-  assert.match(d, /async function retypeFoe\(i, mobileType, gender = null\) \{\s*const f = foes\[i\];\s*(?:\/\/[^\n]*\n\s*)*if \(!f \|\| i >= _layoutFoes \|\| !f\.src \|\| _retyping\.has\(i\) \|\| !canStandFoe\(mobileType\)\) return false;/, 'no f.dead in the guard');
+  assert.match(d, /async function retypeFoe\(i, mobileType, gender = null, \{ anyFoe = false, at = null \} = \{\}\) \{\s*const f = foes\[i\];\s*(?:\/\/[^\n]*\n\s*)*if \(!f \|\| \(!anyFoe && i >= _layoutFoes\) \|\| !f\.src \|\| _retyping\.has\(i\) \|\| !canStandFoe\(mobileType\)\) return false;/, 'no f.dead in the guard (OH-E: `anyFoe` lets the abyss retype a spawned foe; the layout run is still the stream\'s)');
   assert.doesNotMatch(d.slice(d.indexOf('async function retypeFoe('), d.indexOf('async function retypeFoe(') + 900), /f\.dead \|\|/);
   // REST-SYNC re-aim: the frame also carries the room's shared encounters (`x`) - an empty full frame still goes
   assert.match(d, /if \(!out\.length && !shared\.length && !full\) return null;\s*const frame = \{ n: \+\+_foesSeq, k: _locationKey, f: out \};/, 'the empty full frame goes');
@@ -224,8 +224,8 @@ test('AUDIT WORLD34 B1/B3 by source: a dead foe is retyped too (a joiner whose s
 test('AUDIT WORLD34 C2 by source: the memory\'s action records are the SHARED half out (no picker\'s latch) and PROJECTED in (validActionRecord, as an act\'s are) - the relay serves the stored bytes back unparsed for thirty days', () => {
   const d = rd('src/scenes/dungeonContext.js');
   assert.match(d, /import \{[^\n]*sharedRecord, validActionRecord \} from '\.\.\/world\/actionSystem\.js';/);
-  assert.match(d, /w\.loot = lootRecords\(\[\.\.\._lootSeen\]\);\s*(?:\/\/[^\n]*\n\s*)*w\.actions = \(w\.actions \?\? \[\]\)\.map\(sharedRecord\);\s*(?:w\.camps = campMemory\(\);[^\n]*\n\s*)?return \{ locationKey: _locationKey, stamp: _sharedStamp, world: w \};/, 'out');   // SURV3: the camps ride the memory too
-  assert.match(d, /const acts = Array\.isArray\(shared\.world\.actions\) \? shared\.world\.actions\.map\(validActionRecord\)\.filter\(Boolean\) : \[\];[\s\S]*?const sfoes = Array\.isArray\(shared\.world\.foes\) \? shared\.world\.foes\.slice\(0, _layoutFoes\)\.map\(validSharedFoe\)\.filter\(Boolean\) : \[\];[\s\S]*?applyWorld\(\{ \.\.\.shared\.world, piles: undefined, actions: acts, foes: sfoes \}/, 'in');
+  assert.match(d, /w\.loot = lootRecords\(\[\.\.\._lootSeen\]\);\s*(?:for \(const f of w\.foes\) delete f\.noBody;[^\n]*\n\s*)?(?:\/\/[^\n]*\n\s*)*w\.actions = \(w\.actions \?\? \[\]\)\.map\(sharedRecord\);\s*(?:w\.camps = campMemory\(\);[^\n]*\n\s*)?return \{ locationKey: _locationKey, stamp: _sharedStamp, world: w \};/, 'out');   // SURV3: the camps ride the memory too   // PIN MOVED (the revenant audit): a foe's `noBody` stripped after the loot
+  assert.match(d, /const acts = Array\.isArray\(shared\.world\.actions\) \? shared\.world\.actions\.map\(validActionRecord\)\.filter\(Boolean\) : \[\];[\s\S]*?const sfoes = Array\.isArray\(shared\.world\.foes\) \? shared\.world\.foes\.slice\(0, _layoutFoes\)\.map\(validSharedFoe\) : \[\];[\s\S]*?applyWorld\(\{ \.\.\.shared\.world, piles: undefined, actions: acts, foes: sfoes \}/, 'in');
 });
 
 test('AUDIT WORLD34 C3 by source: a refused act is KEPT while the socket is away and flushed when it returns; it is cleared only when the room is no world room', () => {
@@ -255,7 +255,7 @@ test('AUDIT WORLD34 D4/D5: the relay names itself in /health; the session says t
   assert.deepEqual(lines, [`[online] room dungeon:m${PRIVATEERS_HOLD} - a shared world`, '[online] host bbbb-0002', '[online] room world:3,12 - shared country (each player\'s foes are everyone\'s)'], 'a cell says its room and no host (WORLD6b: and what it shares)');
   const menu = rd('src/ui/enhancedMenu.js');
   assert.doesNotMatch(menu, /el\('p', 'meta', 'Everyone runs their own game from their own save; you see each other and walk together\. Nothing else is shared yet\.'\)/, 'the pre-WORLD1 promise is gone');
-  assert.match(menu, /A dungeon is one shared world: its foes, doors, levers, platforms and every chest anyone has opened are the same for everyone in it, and it remembers\. A building is a shared world too: its doors, and every shelf and cupboard anyone has opened, are the same for everyone in it, and it remembers\. Towns and the open country share who is there and the creatures that find you: what one player meets, everyone nearby sees and fights - and its creatures can hurt you too\./);   // WORLD6a: the building joined the sentence; WORLD6b: the cell's foes
+  assert.match(menu, /Dungeons and buildings are shared: enemies, doors, levers and every chest, shelf or cupboard someone has opened are the same for everyone, and stay that way\. In towns and the wilds you share who is around: what one player meets, everyone nearby sees and can fight/);   // WORLD6a: the building joined the sentence; WORLD6b: the cell's foes
 });
 
 test('AUDIT WORLD34: the record carries the root and the pins that enshrined it are turned', () => {

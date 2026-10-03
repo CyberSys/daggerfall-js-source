@@ -16,8 +16,89 @@ export const CLASSIC_UPDATE_INTERVAL = 0.0625;     // GameManager.classicUpdateI
 export function getMeleeWeaponAnimTime(liveSpeed, ctx = null) {
   const o = _animTimeOverride?.(liveSpeed, ctx, CLASSIC_FRAME_UPDATE);   // TryGetOverride("GetMeleeWeaponAnimTime") - RRI2's weaponBalance registers one
   if (o != null) return o;
+  // SWING-LAW: a wielder the port knows (`ctx.entity` - the player's machine, the Weapon Widget's clone, the third-person
+  // body) swings on the port's own law; one it does not (a foe's machine, a peer's walker at PEER_SWING_SPEED, the
+  // viewers) keeps DFU's line - which DFU never asks for a foe at all (characters/enemyAttack.js).
+  if (ctx?.entity) {
+    const w = _swingReader?.(ctx) ?? null;
+    return swingFrameSeconds(liveSpeed, {
+      heft: w ? swingHeft(w.weight, w.strength) : 1,
+      handling: swingHandling(ctx.weaponType, !!w?.twoHanded),
+    });
+  }
   return (3 * (115 - liveSpeed)) / CLASSIC_FRAME_UPDATE;   // seconds per anim frame
 }
+
+// ── SWING-LAW (2026-09-28, Mac: "swing speed is insane", then "Do whatever is the most detailed. I dont care about
+// departure, especially if we can do it better"): THE PLAYER'S SWING IS THE PORT'S OWN LAW. ──────────────────────────
+// DFU's line, `3 * (115 - Speed) / 980` a frame, is a hyperbola in the swing RATE: a second a swing at Speed 50, a
+// quarter of one at 100 - four swings a second. DISC28-D (2026-09-28) gave the rig the player's live Speed, which it had
+// never read (every player had swung at 50), and a lycanthrope's +40 Speed put anyone with a base of 60 or more on the
+// cap. The law below keeps Speed meaning something and bounds it, and reads the weapon in the hand:
+//   time a frame = DFU's frame at Speed 50 x TEMPO(Speed) x HEFT(weight, Strength) x HANDLING(weapon, hands),
+// bounded to [SWING_FRAME_MIN, SWING_FRAME_MAX]. A frame is never 0 (DFU's line was at 115, and the machine's loop
+// then never ended - Online-Arc "Recorded, not paid"). Roleplay & Realism's weaponSpeed and Items' weaponBalance keep
+// their own weight-and-Strength arithmetic as the Speed they read, and answer through this curve and this handling
+// (systems/rrRealism.js, systems/rriRealism.js). A declared departure: Ledger A (SWING-LAW).
+/** DFU's frame at Speed 50 - the swing every player had before DISC28-D, and this law's middle. */
+export const SWING_BASE_FRAME = (3 * (115 - 50)) / CLASSIC_FRAME_UPDATE;
+/** The TEMPO at Speed 0 and at 100: a straight line through 1 at 50 - each point of Speed takes the same 0.8% off the
+ *  swing, so Speed 100 swings 1.67 times as often as 50 and Speed 0 takes 1.4 times as long, where DFU's line runs
+ *  7.7 times from end to end. */
+export const SWING_TEMPO_AT_0 = 1.4;
+export const SWING_TEMPO_AT_100 = 0.6;
+/** The tempo at a Speed (held to 0..100; a Speed that is no number reads as 50). */
+export function swingTempo(speed) {
+  const s = Math.max(0, Math.min(100, Number.isFinite(speed) ? speed : 50));
+  return 1 + ((50 - s) / 100) * (SWING_TEMPO_AT_0 - SWING_TEMPO_AT_100);   // pivoted on 50, so the middle is DFU's frame exactly
+}
+/** THE HEFT: a weapon's base weight as the arm feels it - `(150 - Strength)%` of it (Items' weaponBalance scaling: all
+ *  of it at 50, half at 100, half again at 0) - costs SWING_HEFT_PER_KG of the swing a kilogram past the
+ *  SWING_HEFT_FREE_KG any arm carries lightly, to at most SWING_HEFT_MAX. A shortsword costs an average arm nothing; a
+ *  claymore (7.5 kg) a fifth at Strength 50 and a tenth at 90. */
+export const SWING_HEFT_FREE_KG = 2.5;
+export const SWING_HEFT_PER_KG = 0.045;
+export const SWING_HEFT_MAX = 0.35;
+export function swingHeft(weightKg, strength) {
+  const w = Math.max(0, Number.isFinite(weightKg) ? weightKg : 0);
+  const str = Math.max(0, Math.min(100, Number.isFinite(strength) ? strength : 50));
+  const load = (w * (150 - str)) / 100;
+  return 1 + Math.min(SWING_HEFT_MAX, Math.max(0, (load - SWING_HEFT_FREE_KG) * SWING_HEFT_PER_KG));
+}
+/** THE HANDLING: each weapon's own tempo apart from its weight, by DFU's WeaponTypes (combat/fpsWeapon.js WEAPON_TYPES -
+ *  pinned equal; this module is a leaf): a dagger, bare hands and a beast's claws are quick; a sword is the measure; a
+ *  mace, a flail, an axe and a warhammer come round a little slower; a staff sweeps quicker than the other two-handers
+ *  (every staff takes both hands: 0.97 x 1.06, against a claymore's 1.06 and a warhammer's 1.06 x 1.06 - a sword's
+ *  1.0 is still quicker). A two-handed weapon takes SWING_TWO_HANDED on top of its kind. Anything else (the bow's draw,
+ *  the port's own gun, which keep their own clocks) reads 1. (AUDIT PRE-MERGE 0929 S2: this said a staff was "a little
+ *  quicker", and the table's dagger row "and the tanto" - DFU draws the tanto as a long blade, fpsWeapon.js, and it
+ *  handles as one.) */
+export const SWING_HANDLING = Object.freeze({
+  0: 1, 1: 1,           // LongBlade (every sword the sprites draw as one: the tanto and the shortsword to the dai-katana)
+  2: 0.97, 3: 0.97,     // Staff
+  4: 0.9, 5: 0.9,       // Dagger
+  6: 1.03, 7: 1.03,     // Mace
+  8: 1.05, 9: 1.05,     // Flail
+  10: 1.06, 11: 1.06,   // Warhammer
+  12: 1.05, 13: 1.05,   // Battleaxe (every axe)
+  15: 0.9,              // Melee - bare hands
+  16: 0.9,              // Werecreature - the beast's claws
+});
+export const SWING_TWO_HANDED = 1.06;
+export const swingHandling = (weaponType, twoHanded = false) => (SWING_HANDLING[weaponType] ?? 1) * (twoHanded ? SWING_TWO_HANDED : 1);
+/** The bounds of a frame: no swing is quicker than 0.45 s (five frames) or slower than 2 s, whatever a mod reads. */
+export const SWING_FRAME_MIN = 0.09;
+export const SWING_FRAME_MAX = 0.4;
+/** Seconds a frame of a melee swing at an effective Speed, with the weapon's heft and handling (both 1 by default). */
+export function swingFrameSeconds(speed, { heft = 1, handling = 1 } = {}) {
+  return Math.max(SWING_FRAME_MIN, Math.min(SWING_FRAME_MAX, SWING_BASE_FRAME * swingTempo(speed) * heft * handling));
+}
+/** The weapon in the hand as the law reads it - `(ctx) => {weaponType, weight, strength, twoHanded}` or null - from a
+ *  module that can read the equip table (combat/swingLaw.js, which registers it as it loads - combat/weaponRig.js
+ *  imports it: AUDIT PRE-MERGE 0929 S5); this module is a leaf. Without one the
+ *  law reads no heft, and the handling off `ctx.weaponType` alone. */
+let _swingReader = null;
+export function registerSwingReader(fn) { _swingReader = typeof fn === 'function' ? fn : null; }
 /** FormulaHelper.RegisterOverride("GetMeleeWeaponAnimTime"): the C# takes
  *  (player, weaponType, weaponHands); the port's callers pass the live
  *  speed and, where they have one, `ctx` = { entity, weaponType,
@@ -74,6 +155,12 @@ export const THUNDERLOCK_NUM_FRAMES = Object.freeze({
 // this arm FIRST, for WeaponTypes.Melee and Werecreature only, and
 // cannot end before the eighth tick.
 export const LEFT_UNARMED_ANIMS = Object.freeze([0, 1, 2, 3, 4, 2, 1, 0]);
+
+/** WeaponManager.cs:343 - Random.Range((int)UpRight, (int)DownRight + 1)
+ *  over MouseDirections {None, UpLeft, Up, UpRight, Left, Right,
+ *  DownLeft, Down, DownRight}: indices 3..8. The swing-mode click's draw (combat/playerWeapon.js, which re-exports
+ *  it) and the touch Attack button's (ui/touchButtons.js attackStroke) - one table. */
+export const CLICK_ATTACK_DIRECTIONS = Object.freeze(['UpRight', 'Left', 'Right', 'DownLeft', 'Down', 'DownRight']);
 
 // WeaponManager.TrackMouseAttack verbatim: 15deg radial sections.
 // Note gesture tracking emits only SIX directions (UpLeft/UpRight

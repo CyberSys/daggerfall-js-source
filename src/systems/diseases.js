@@ -170,6 +170,13 @@ export function startDisease(target, diseaseType, currentDay, rolls = Math.rando
  *  is money and not decoration. */
 export const diseaseCount = (entity) =>
   (entity?.activeEffects ?? []).filter((a) => a.kind === 'disease' && !a.ended).length;
+/** FIELD BUGS 29h (INFECTION-KEPT): the diseases the next cure ENDS - the plain ones while any runs, else the
+ *  lycanthropy or vampirism infections (GetDiseaseCount then) - so the temple prices and claims what it takes
+ *  (effects.js cureDiseasesInfectionsLast). */
+export const curableDiseaseCount = (entity) => {
+  const live = (entity?.activeEffects ?? []).filter((a) => a.kind === 'disease' && !a.ended);
+  return live.filter((a) => !a.infection).length || live.length;
+};
 
 /** EndDisease, verbatim: completed marker + expire (the tick pass
  *  removes the entry, lifting its statMods with it). */

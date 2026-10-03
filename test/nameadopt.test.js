@@ -114,6 +114,7 @@ test('NAME-ADOPT bug 1: a guest who REGISTERS used to keep the guest name in the
   flow.set('handle', 'Lattymoy');
   flow.set('password', 'a-long-enough-password');
   flow.set('confirm', 'a-long-enough-password');
+  flow.agree('terms', true); flow.agree('privacy', true);   // TERMS1: a new account ticks both documents
   await flow.submit();
   assert.equal(flow.stage, 'code');
 
@@ -156,7 +157,7 @@ test('NAME-ADOPT: every mint ADOPTS what the answer says and hands it to the hos
   assert.equal(tok, 'v1.abc.def');
   // ...but the answer is no longer thrown away.
   assert.equal(storedSession(st).name, 'Lattymoy', 'the store learned it');
-  assert.deepEqual(seen, [{ name: 'Lattymoy', kind: 'linked', title: 'developer', glyphs: ['dev'], level: null, xp: null }], 'and so did the host (RENOWN1: with the level the token was signed with - none from a mint that named no character; RENOWN4: nor a total)');
+  assert.deepEqual(seen, [{ name: 'Lattymoy', kind: 'linked', title: 'developer', ts: null, glyphs: ['dev'], level: null, xp: null }], 'and so did the host (RENOWN1: with the level the token was signed with - none from a mint that named no character; RENOWN4: nor a total)');
 
   // A HOST THAT THROWS DOES NOT COST THE HELLO ITS WORD. The token is
   // good and the connection is what matters; a display seam that breaks

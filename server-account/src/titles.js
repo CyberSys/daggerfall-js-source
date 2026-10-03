@@ -20,8 +20,19 @@
 //   DEV       the same list as the Developer title.
 //   DUNGEON MASTER, DISCIPLE, APOSTLE, HIEROPHANT (TITLE-N, 2026-09-24)
 //             your handle is in that title's own list in the config;
-//             each list grants the title AND its glyph.
+//             each list grants the title AND its glyph. PATREON-LINK
+//             (2026-10-01): or, for the three Patreon tiers, the Patreon
+//             account you linked is an active patron entitled to that
+//             tier now (patreon.js) - Patreon's word, stored as WB9g's
+//             sale is, and read against the config at every ask.
 //   SHADOW FANG (SHADOW-FANG, 2026-09-26) the same, one player's own.
+//   PENITENT (PENITENT, 2026-09-29) the same, Diggleborf's own.
+//   HERALD (HERALD, 2026-10-01) the same, and the Patreon tier's.
+//   GATEBREAKER (WB9g, 2026-09-30) - the ONE grant that is not derived
+//             but recorded: the title the Sigil Broker sells, held because
+//             the account bought it (the row's `insignia`, 0036). A sale is
+//             a fact that happened, not a rule a row satisfies - and what
+//             is HELD is still read off the row at every ask, as the rest.
 //
 // WHY THAT AND NOT A `grants` TABLE. Mac asked that "all current
 // players should be granted the founder title", and the obvious
@@ -49,7 +60,9 @@
 // worn by a row nobody has looked at since.
 // ═══════════════════════════════════════════════════════════════════
 
-import { TITLES, GLYPHS } from '../../src/net/identityToken.js';
+import { TITLES, GLYPHS, AURAS, SEAT_TITLES } from '../../src/net/identityToken.js';
+import { insigniaHeld, insigniaKeys } from '../../src/net/insignia.js';   // WB9g: the Broker's insignia - a title and an aura bought
+import { patreonTitlesOf } from './patreon.js';   // PATREON-LINK: a Patreon tier's title, held by the pledge
 
 /** THE FOUNDER CUTOFF, and it is a date rather than a count because
  *  "all current players" is a statement about a MOMENT. Everyone who
@@ -126,14 +139,24 @@ export const TIER_LISTS = Object.freeze({
   // SHADOW-FANG (2026-09-26, Mac): "SirMcMobdon gets a brand new title/glyph. Remove them from Apostle" - a title
   // made for one player, granted the tiers' way: a list in the config, the title and its glyph together.
   shadowfang: 'SHADOW_FANG_HANDLES',
+  // PENITENT (2026-09-29, Mac): "This new custom title/glyph is for the user Diggleborf" - a second title made for one
+  // player, granted the same way.
+  penitent: 'PENITENT_HANDLES',
+  // HERALD (2026-10-01, Mac: "Herald doesnt exist ingame yet" - "you'll need to develop the herald title/glyph"): the
+  // Patreon tier between Disciple and Hierophant. Held by its pledge (PATREON_TIERS) like the tiers before it, and by
+  // this list for a Herald Mac names.
+  herald: 'HERALD_HANDLES',
 });
 /** The glyph each of those titles carries, in the vocabulary's words. */
-export const TIER_GLYPH = Object.freeze({ dungeonmaster: 'dm', disciple: 'disciple', apostle: 'apostle', hierophant: 'hierophant', shadowfang: 'shadowfang' });
+export const TIER_GLYPH = Object.freeze({ dungeonmaster: 'dm', disciple: 'disciple', apostle: 'apostle', hierophant: 'hierophant', shadowfang: 'shadowfang', penitent: 'penitent', herald: 'herald' });
 
-/** Does this player hold that list's title? A guest holds none, for the developer's reason. */
+/** Does this player hold that list's title? A guest holds none, for the developer's reason. PATREON-LINK (2026-10-01,
+ *  Mac: "having to manually hand out titles ... its really hard to keep up with it"): AND a Patreon tier's title is held
+ *  by the pledge too - the account's linked Patreon membership, read against PATREON_TIERS (patreon.js) - so a patron
+ *  needs no line here, and the lists stay for the titles Mac grants by name. */
 export const holdsTier = (title, player, env) =>
   typeof player?.handle === 'string' && !!player.handle && Object.hasOwn(TIER_LISTS, title)
-  && handleList(env?.[TIER_LISTS[title]]).has(player.handle.toLowerCase());
+  && (handleList(env?.[TIER_LISTS[title]]).has(player.handle.toLowerCase()) || patreonTitlesOf(player, env).includes(title));
 
 /** Is this player one of them? A handle a guest does not have cannot
  *  be in any list, so a guest is never a developer - which is right:
@@ -181,12 +204,33 @@ export function titlesHeld(player, env) {
   if (Number.isFinite(player?.registered_at) && firstPlayed(player) <= FOUNDER_UNTIL) held.push('founder');
   if (isDeveloper(player, env)) held.push('developer');
   for (const t of Object.keys(TIER_LISTS)) if (holdsTier(t, player, env)) held.push(t);   // TITLE-N
+  // WB9g: AND THE BROKER'S - a title bought with Sigil Stones, held because the sale is recorded on the row (0037). A
+  // guest row cannot buy one (accounts.js buyInsignia refuses it), so none is ever read off one.
+  for (const t of insigniaKeys(player?.insignia, 'title')) if (!held.includes(t)) held.push(t);
+  // SEAT1c (Seats-Arc 7.4): AND A CHARTER'S - "Warden of <Town>", "Protector of <Kingdom>" - derived from the seats the
+  // account's guildmaster characters' guilds hold (seatTurning.js seatTitlesOf), read by the caller and laid on the row
+  // as `seatTitles` for this request alone
+  if (Array.isArray(player?.seatTitles)) for (const t of player.seatTitles) if (SEAT_TITLES.includes(t) && !held.includes(t)) held.push(t);
   return held;
 }
 
-/** THE GLYPHS THAT ARE TRUE OF THIS PLAYER. Not held and not worn -
- *  true, which is why nothing equips one and why the order is fixed
- *  rather than a preference. */
+/** WB9g: THE AURAS THIS PLAYER HOLDS - the Broker's, bought (the row's `insignia`), in the offers' order. */
+export const aurasHeld = (player) => insigniaKeys(player?.insignia, 'aura');
+/** WB9g: the aura this player WEARS - the stored one, while they hold it (titleWorn's law). */
+export function auraWorn(player) {
+  const a = player?.aura;
+  if (typeof a !== 'string' || !a) return undefined;
+  return aurasHeld(player).includes(a) ? a : undefined;
+}
+/** WB9g: what a player may wear at their feet - the refusal word, or null; `null` (none) is always allowed. */
+export function auraRefusal(aura, player) {
+  if (aura === null) return null;
+  if (typeof aura !== 'string' || !AURAS.includes(aura)) return 'no-aura';
+  return aurasHeld(player).includes(aura) ? null : 'not-held';
+}
+
+/** THE GLYPHS THAT ARE TRUE OF THIS PLAYER, in a fixed order. GLYPH-WEAR: a player may take one off (glyphsHidden),
+ *  which hides it and nothing more - this list is still what is true, and what the rights read. */
 export function glyphsOf(player, env, nowS) {
   const on = [];
   if (Number.isFinite(player?.created_at) && nowS - player.created_at < SPROUT_S) on.push('sprout');
@@ -194,6 +238,27 @@ export function glyphsOf(player, env, nowS) {
   if (isModerator(player, env)) on.push('mod');   // MOD1: the blue shield
   for (const t of Object.keys(TIER_LISTS)) if (holdsTier(t, player, env)) on.push(TIER_GLYPH[t]);   // TITLE-N: each title's own glyph
   return on;
+}
+
+/** GLYPH-WEAR (2026-10-02, Mac: "can we make it where players can also equip/unequip their glyphs"): THE GLYPHS THIS
+ *  PLAYER HAS TAKEN OFF - the stored choice (`glyphs_off`, 0068), read against what is true now, so a glyph that has
+ *  lapsed is not "hidden" and one granted later shows until it is taken off. In glyphsOf's order. */
+export function glyphsHidden(player, env, nowS) {
+  const off = typeof player?.glyphs_off === 'string' ? player.glyphs_off.split(' ') : [];
+  return glyphsOf(player, env, nowS).filter((g) => off.includes(g));
+}
+
+/** GLYPH-WEAR: THE GLYPHS THIS PLAYER SHOWS - what is true of them, less what they took off. Paint alone: a right that
+ *  rides a glyph (the relay's /red and /dm, canModerate, the staff commands) reads glyphsOf, never this. */
+export function glyphsShown(player, env, nowS) {
+  const off = glyphsHidden(player, env, nowS);
+  return glyphsOf(player, env, nowS).filter((g) => !off.includes(g));
+}
+
+/** GLYPH-WEAR: may this player show or hide this glyph - the refusal word, or null. Only a glyph true of them now. */
+export function glyphRefusal(glyph, player, env, nowS) {
+  if (typeof glyph !== 'string' || !GLYPHS.includes(glyph)) return 'no-glyph';
+  return glyphsOf(player, env, nowS).includes(glyph) ? null : 'not-held';
 }
 
 /** The title this player WEARS: the stored one, but only while they
@@ -216,11 +281,19 @@ export function equipRefusal(title, player, env) {
   return titlesHeld(player, env).includes(title) ? null : 'not-held';
 }
 
-/** The account view's own half: what to show in the window. */
+/** GLYPH-WEAR: `{ glyphsOff }` while a glyph is taken off, else nothing - a player hiding none reads the answer they always did. */
+const glyphsOffOf = (player, env, nowS) => { const off = glyphsHidden(player, env, nowS); return off.length ? { glyphsOff: off } : {}; };
+
+/** The account view's own half: what to show in the window. WB9g: and the auras held and the one worn, and the
+ *  Broker's insignia the account bought (its ids). */
 export const wardrobeOf = (player, env, nowS) => ({
   titles: titlesHeld(player, env),
   title: titleWorn(player, env) ?? null,
   glyphs: glyphsOf(player, env, nowS),
+  ...glyphsOffOf(player, env, nowS),   // GLYPH-WEAR: the ones taken off, absent for none - `glyphs` stays all that is true
+  auras: aurasHeld(player),
+  aura: auraWorn(player) ?? null,
+  insignia: insigniaHeld(player?.insignia),
 });
 
 export { TITLES, GLYPHS };

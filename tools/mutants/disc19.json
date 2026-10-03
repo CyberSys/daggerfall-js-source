@@ -47,8 +47,8 @@
   {
     "name": "DISC19-B-dungeon-reads-world-candle",
     "file": "src/scenes/worldModes.js",
-    "old": "        dungeonCtx.candleLight(), _dgTint(playerTorchLight(",
-    "new": "        magic?.candleLight(), _dgTint(playerTorchLight(",
+    "old": "        abyssCandle(dungeonCtx.candleLight(), _abyss), _abyss?.torchOff",
+    "new": "        abyssCandle(magic?.candleLight(), _abyss), _abyss?.torchOff",
     "tests": [
       "test/disc19.test.js"
     ]
@@ -92,8 +92,8 @@
   {
     "name": "DISC19-C-handler-reads-no-death",
     "file": "src/scenes/world.js",
-    "old": "exitAutosaveNames(playerEntity, { deathUp: townTalk.overlay instanceof DeathScreen || !!modes?.deathUp?.() })",
-    "new": "exitAutosaveNames(playerEntity, { deathUp: townTalk.overlay instanceof DeathScreen })",
+    "old": "for (const saveName of exitAutosaveNames(playerEntity, { deathUp: townTalk.overlay instanceof DeathScreen || !!modes?.deathUp?.() })) save(saveName);",
+    "new": "for (const saveName of exitAutosaveNames(playerEntity, { deathUp: townTalk.overlay instanceof DeathScreen })) save(saveName);",
     "tests": [
       "test/disc19.test.js"
     ]
@@ -146,7 +146,7 @@
   {
     "name": "DISC19-F-threat-need-not-hunt",
     "file": "src/systems/townWatch.js",
-    "old": "  if (!isPlayerTarget(t) && !(t?.defender === true && !t.dead)) return false;\n",
+    "old": "  if (!isPlayerTarget(t) && !(t?.defender === true && !t.dead) && !(t?.companion != null && !t.dead)) return false;   // AUDIT CC-B6: a monster fighting a companion is still the fight\n",
     "new": "",
     "tests": [
       "test/disc19.test.js"
@@ -218,8 +218,8 @@
   {
     "name": "DISC19-F-defenders-saved",
     "file": "src/scenes/cityGuards.js",
-    "old": "    return guards.filter((g) => !g.dead && !g.defender).map((g) => {",
-    "new": "    return guards.filter((g) => !g.dead).map((g) => {",
+    "old": "    return guards.filter((g) => !g.dead && !g.defender && !g.fleeing).map((g) => {",
+    "new": "    return guards.filter((g) => !g.dead && !g.fleeing).map((g) => {",
     "tests": [
       "test/disc19.test.js"
     ]
@@ -236,8 +236,8 @@
   {
     "name": "DISC19-F-swing-takes-the-defender-first",
     "file": "src/scenes/cityGuards.js",
-    "old": "(defendersOnly ? g.defender : !(spareDefenders && protect && g.defender))",
-    "new": "(defendersOnly ? g.defender : true)",
+    "old": "const live = guards.filter((g) => !g.dead && !playerSpares(g));",
+    "new": "const live = guards.filter((g) => !g.dead);",
     "tests": [
       "test/disc19.test.js"
     ]
@@ -263,8 +263,8 @@
   {
     "name": "DISC19-F-host-swing-order",
     "file": "src/scenes/world.js",
-    "old": "guardHitSound, { spareDefenders: true, swing })) {",
-    "new": "guardHitSound, { swing })) {",
+    "old": "          } else\n          cityGuards.resolveCivilianHit(weaponRig.playerWeapon, cam.pos, lookFwd",
+    "new": "          } else if (!cityGuards.resolvePlayerHit(weaponRig.playerWeapon, cam.pos, lookFwd, player.pos, makeInView(proj, view, multiply), guardHitSound, { swing }))\n          cityGuards.resolveCivilianHit(weaponRig.playerWeapon, cam.pos, lookFwd",
     "tests": [
       "test/disc19.test.js"
     ]

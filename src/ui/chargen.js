@@ -1171,7 +1171,7 @@ export class ChargenFlow {
 
   /** VerticalScrollBar.Update's per-frame arm (:101-130), on the
    *  hosts' HOVER seam - `e.buttons & 1` is the port's only reading of
-   *  InputManager.GetMouseButton(0), the same one ui/listPicker.js:292
+   *  InputManager.GetMouseButton(0), the same one ui/listPicker.js:295
    *  takes; nothing else here reads the pointer.
    *
    *  ROAD-G G4 (review): the (-1, -1) the hosts answer with for a

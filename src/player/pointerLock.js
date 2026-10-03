@@ -96,6 +96,26 @@ export function toggleCursorActive(canvas) {
   return _cursorActive;
 }
 
+// HERB-CURSOR (FIELD BUGS 2026-10-02 part four, "Herbalism minigame
+// bugged": "Doesn't make mouse appear when the minigame starts, so cant
+// click on the targets"): A CURSOR AN ACT HOLDS FREE. The Basket's
+// glints stand about the crosshair, where no look reaches them - the
+// mouse turned the view and the glints turned with it. Its act frees
+// the mouse while it plays. Not the player's toggle above (its freed
+// mouse is the large HUD's, the hotbar's, the pad's pointer mode): a
+// hold of its own, which requestLook honours as it honours the toggle.
+// The release answers whether it was the last, for the host to take
+// the look back.
+const _cursorHolds = new Set();
+export const cursorHeld = () => _cursorHolds.size > 0;
+/** The cursor held free, the lock let go; answers the release - once-only, true when it let go of the last hold. */
+export function holdCursor() {
+  const hold = {};
+  _cursorHolds.add(hold);
+  releaseLook();
+  return () => _cursorHolds.delete(hold) && _cursorHolds.size === 0;
+}
+
 /** FREEMOUSE: the action the port added beside DFU's, for the players
  *  who want a key that is ONLY the mouse. Named here because this is
  *  the one module that reads it. */
@@ -139,6 +159,7 @@ export function bindCursorToggle(canvas, isWindowUp = () => false, actionsOf = n
   // is a fresh PlayerMouseLook (cursorActive is an instance field,
   // :32) - so the bind is the reset.
   setCursorActive(false);
+  _cursorHolds.clear();   // HERB-CURSOR: and an act's hold the last host never let go
   let lastRealEscape = -Infinity;   // ESC-LOCK (1), below
   const onKey = (e) => {
     // ESC-LOCK (1): a real Escape the browser DID hand the page is noted first, whatever is up - the loss that follows
@@ -166,6 +187,9 @@ export function bindCursorToggle(canvas, isWindowUp = () => false, actionsOf = n
     const acts = Array.isArray(got) ? got : got ? [got] : [];   // UXB1-S (AUDIT UXB1 F9: named for what the hosts hand in)
     if (!acts.includes(FREE_MOUSE_ACTION) && !(acts.includes('ActivateCursor') && !cursorKeyClaimed(e))) return;   // KB1: online, ActivateCursor's key is the chat's - when the chat takes this press
     e.preventDefault();
+    // AUDIT HERB-CURSOR A2: never while an act holds the cursor free - the press changed nothing a player could see,
+    // latched the flag, and the look never came back after the act (requestLook's precedence line refused every click).
+    if (_cursorHolds.size) return;
     // PL1: "Don't allow activate cursor for 0.3 seconds after closing
     // an input message box" (PlayerMouseLook.cs:192-196).
     if (cursorToggleRefused()) return;
@@ -292,13 +316,20 @@ export const RELOCK_GRACE_MS = 150;
 
 export function requestLook(canvas) {
   // The precedence above: a cursor the player activated is not taken
-  // back by the next gesture, only by the toggle.
-  if (_cursorActive) return;
+  // back by the next gesture, only by the toggle (or, HERB-CURSOR, an
+  // act aimed by the look, which clears the flag). Nor a cursor an act
+  // holds free, until it lets go.
+  if (_cursorActive || _cursorHolds.size) return;
   _lastRequestAt = nowMs();
   if (!_errBound && typeof document !== 'undefined') {
     document.addEventListener('pointerlockerror', () => {
       console.warn('[input] pointer lock refused (focus/cooldown); the next gesture retries');
     }, false);
+    // AUDIT OW5 V1: A LOCK GRANTED AFTER THE CURSOR WAS FREED IS LET GO. The browser answers a request frames later, and
+    // a free cursor asked for between (the travel view risen on the frame after a window closed, over the look gate's
+    // relock: its release found no lock yet to let go) had the lock land under it - no cursor over the Overworld, a drag
+    // turned the traveller's head, a click picked where the Begin button had been. Only this module asks for the lock.
+    document.addEventListener('pointerlockchange', () => { if ((_cursorActive || _cursorHolds.size) && document.pointerLockElement) releaseLook(); }, false);
     _errBound = true;
   }
   try {

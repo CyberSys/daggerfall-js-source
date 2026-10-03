@@ -21,7 +21,7 @@
 // the stones, gives the piece and marks it - in that order), and the wearer whose sets the set block reads - so this
 // file draws and asks, and never touches a pack.
 import { rarityLines, rarityAttr, RARITIES } from '../systems/lootRarity.js';
-import { brokerOfferState, BROKER_REFUSALS, offerSetName, brokerTurnsIn } from '../systems/sigilBroker.js';
+import { brokerOfferState, BROKER_REFUSALS, offerSetName, brokerTurnsIn, stonesText } from '../systems/sigilBroker.js';
 import { inventoryItemImage } from '../systems/itemTemplates.js';
 import { sigilCard } from './sigilCard.js';
 import { setCard, markSetFrame } from './setCard.js';
@@ -31,8 +31,10 @@ import { closeOnOutsideTap } from './enhancedOverlays.js';
 import { overlayAction } from './input.js';
 import { injectEnhancedStyle, injectEnhancedFonts } from './enhancedStyle.js';
 import { rarityVarsCss, SIGIL_VARS_CSS, SIGIL_KEYFRAMES_CSS, SIGIL_BLOCK_CSS, SET_BLOCK_CSS, BROKER_CSS } from './enhancedPlusStyle.js';
-import { frameCss } from './enhancedFrame.js';
+import { frameCss, scopeRules } from './enhancedFrame.js';
 import { isEnhancedPlus } from '../systems/uiSkin.js';
+import { isBound, BOUND_LINE } from '../systems/itemBound.js';   // SS4: the wares are bound, and the card says so
+import { paintTitle, titleBadge } from './playerBadge.js';   // WB9g: the Gatebreaker's word, in its own fire
 
 /** @param {string} tag @param {string|null} [cls] @param {string|null} [text] */
 const el = (tag, cls = null, text = null) => {
@@ -47,13 +49,32 @@ export function brokerTurnText(ms) {
   return m >= 60 ? `${Math.floor(m / 60)}h ${String(m % 60).padStart(2, '0')}m` : `${m}m`;
 }
 /** "1 Sigil Stone", "3 Sigil Stones". */
-export const stonesText = (n) => `${n} Sigil Stone${n === 1 ? '' : 's'}`;
+export { stonesText };   // SS5: the law's own words now (systems/sigilBroker.js) - the dismantle says them too
 /** The purse's words: the stones a sale may take, and the locked ones it may not ("3 Sigil Stones · 1 locked"). */
 export const purseText = (have, locked = 0) => (locked > 0 ? `${stonesText(have)} · ${locked} locked` : stonesText(have));
 /** The last word of a press: the piece bought, or why not (the law's refusals and the host's own). */
 export const BROKER_SOLD = (name, price) => `Bought: ${name}, for ${stonesText(price)}.`;   // AUDIT SET U6: no article of its own - a Legendary's name brings one ("The Warden"), a Regalia piece's is a possessive
 /** How often the window re-reads the world while it stands: the turn's clock, and a stone won or dropped meanwhile. */
 export const BROKER_REPAINT_MS = 30_000;
+/** WB9g (2026-09-30, Mac: "Add a brand new title to the broker and a new addition (the aura) ... These items should be
+ *  expensive and sought after"): THE INSIGNIA'S WORDS - its heading, each piece's line, and its card. */
+export const INSIGNIA_HEAD = 'Insignia';
+export const INSIGNIA_SUB = 'Account-wide. Bought once.';   // WB13b: each line says one thing
+export const INSIGNIA_LINE = Object.freeze({
+  title: 'A title worn over your name',   // WB12a
+  aura: 'A ring of Dagon\'s fire at your feet',
+});
+export const INSIGNIA_CARD = Object.freeze({
+  title: ['Gatebreaker', 'Worn over your name in the breach\'s fire.', 'Paid from your account\'s embers. Wear it here or on your account card.'],   // AUDIT WB12d (A4): a broken rite's ember is the account's too, and closes no breach
+  aura: ['Dagon\'s Fire', 'A ring of Dagon\'s fire at your feet, seen by every player near you.', 'Paid from your account\'s embers. Wear it here or on your account card.'],
+});
+/** WB9g: an insignia row's button word - why not, or what a press will do. */
+export function insigniaLabel(row, { have, busy, pending }) {
+  if (pending) return row.owned ? 'A moment...' : 'Buying...';
+  if (row.owned) return row.worn ? 'Take off' : 'Wear';
+  if (busy) return 'Buy';
+  return have >= row.price ? 'Buy' : `Need ${row.price - have} more`;
+}
 /** The Buy's own word - "Buy", or why not in a word or two that fits the button ("Need 3 more", "Bought"); the whole
  *  reason (the law's BROKER_REFUSALS) rides its title. A sentence on the button starved the name beside it to "Ruh...". */
 export function buyLabel(s) {
@@ -63,39 +84,9 @@ export function buyLabel(s) {
   return 'Gone';
 }
 
-/** A selector list split at its top-level commas (never inside `:is(...)`/`:not(...)`). */
-function splitSelectors(prelude) {
-  const out = [];
-  let depth = 0, at = 0;
-  for (let i = 0; i < prelude.length; i++) {
-    const c = prelude[i];
-    if (c === '(') depth++; else if (c === ')') depth--;
-    else if (c === ',' && depth === 0) { out.push(prelude.slice(at, i).trim()); at = i + 1; }
-  }
-  out.push(prelude.slice(at).trim());
-  return out.filter(Boolean);
-}
-/** A sheet's rules cut to the selectors `keep` answers yes for - each rule's list cut, a rule left with none dropped,
- *  an @media kept round what it keeps, a @keyframes kept whole (it dresses nothing by itself). The kit is written for
- *  every surface, its roles and its hand-set rules alike (the hotbar's sockets, the dividers); the classic skin's
- *  Broker lays its own window's share of it and nothing else. */
-export function scopeRules(css, keep) {
-  const text = String(css).replace(/\/\*[\s\S]*?\*\//g, '');
-  let out = '', i = 0;
-  while (i < text.length) {
-    const open = text.indexOf('{', i);
-    if (open < 0) break;
-    const prelude = text.slice(i, open).trim();
-    let depth = 1, j = open + 1;
-    while (j < text.length && depth) { if (text[j] === '{') depth++; else if (text[j] === '}') depth--; j++; }
-    const inner = text.slice(open + 1, j - 1);
-    if (/^@(media|supports)\b/.test(prelude)) { const kept = scopeRules(inner, keep); if (kept) out += `${prelude} {\n${kept}}\n`; }
-    else if (prelude.startsWith('@')) out += `${prelude} {${inner}}\n`;
-    else { const sels = splitSelectors(prelude).filter(keep); if (sels.length) out += `${sels.join(',\n')} {${inner}}\n`; }
-    i = j;
-  }
-  return out;
-}
+/** The kit's rules cut to a surface's own selectors - the kit's module holds it now (NAV-F: the naval readout lays its
+ *  share too, and a HUD in the main bundle must not import this lazy chunk for it); said here still for its callers. */
+export { scopeRules };
 
 /** AUDIT SET U1: THE WINDOW'S OWN SHEET, for the classic skin - everything it wears, scoped to it, and nothing that
  *  would dress another surface: its layout, the tiers' colours under its shell, the sigil's and the set's blocks (their
@@ -125,6 +116,20 @@ function classicPicture(item, wearer, onReady) {
   return img?.archive ? requestFittedIcon(img.archive, img.record, { box: SLOT_BOX.broker, dpr: screenDpr(), dye: img.dye, dyeTarget: img.dyeTarget, onReady }) : null;
 }
 
+/** WB9g: a piece of the insignia's sign - the title's word in its own fire, or the aura's ring turning - the row's small
+ *  one, or the card's large (`hero`). AUDIT WB9 (the shots): the row's sign is 36 px and the whole word ~55 px at its
+ *  8 px, so a row read "tebreak" - the row's sign is the word's first letter, large, and the row's name beside it says
+ *  the word. */
+function insigniaSign(g, hero = false) {
+  const sign = el('span', `insignia-sign insig-${g.kind}${hero ? ' hero' : ''}`);
+  if (g.kind === 'title') {
+    const word = el('span', hero ? 'insignia-word' : 'insignia-word mono', hero ? g.name : [...g.name][0] ?? '');
+    paintTitle(word, titleBadge({ title: g.key }));
+    sign.append(word);
+  } else sign.append(el('span', `aura-ring aura-${g.key}`));
+  return sign;
+}
+
 /**
  * Mount the window in the door's host.
  * @param {HTMLElement} host
@@ -133,7 +138,13 @@ function classicPicture(item, wearer, onReady) {
  *   buy: (offer: any) => { ok: boolean, reason?: string|null, text?: string|null },
  *   locked?: (() => number) | null, picture?: ((item: any) => { src: string, w: number, h: number, smooth?: boolean }|string|null) | null,
  *   wearer?: any, nameOf?: (item: any) => string, onExit?: (() => void) | null,
+ *   insignia?: (() => Array<{ id: string, kind: string, key: string, price: number, name: string, owned: boolean, worn: boolean }>) | null,
+ *   insigniaLoad?: (() => Promise<void>) | null, buyInsignia?: ((row: any) => Promise<{ ok: boolean, text?: string|null }>) | null,
+ *   wearInsignia?: ((row: any) => Promise<{ ok: boolean, text?: string|null }>) | null, insigniaBusy?: (() => boolean) | null,
  * }} deps
+ *   WB9g: `insignia` the Broker's insignia as the account holds them (net/insignia.js - the host's rows, the service's word),
+ *   `insigniaLoad` asked once as the window opens (the account's wardrobe), `buyInsignia` and `wearInsignia` the account's
+ *   sale and its wearing - each a promise; the window says "Buying..." until it answers.
  * @returns {{ repaint: () => void, unmount: () => void }}
  */
 export function mountBrokerWindow(host, deps) {
@@ -143,6 +154,8 @@ export function mountBrokerWindow(host, deps) {
   const nameOf = deps.nameOf ?? ((it) => String(it?.name ?? ''));
   const exit = () => deps.onExit?.();
   let pickedSlot = 0;
+  /** WB9g: the insignia row pressed (its card shown in place of a ware's), and the one whose press is in flight */
+  let pickedInsig = null, pendingInsig = null;
   /** The last press's word, and whether it was a sale (a refusal is read in the refusal's colour). */
   let note = null;
   const shell = el('div', 'broker-shell');
@@ -173,13 +186,21 @@ export function mountBrokerWindow(host, deps) {
   win.append(head, body);
   let card = null;
   let alive = true;
+  /** U10: A ROW IS A CONTROL - the pad's d-pad and the keyboard reach it, as the mouse always could; a key pressed on the
+   *  row picks it, and one pressed on its button is the button's. WB9g: the wares' rows and the insignia's alike. */
+  const pressable = (row, pick) => {
+    row.setAttribute('role', 'button');
+    row.setAttribute('tabindex', '0');
+    row.onclick = pick;
+    row.onkeydown = (e) => { if (e.target === row && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault?.(); pick(); } };
+  };
   /** @param {{ reveal?: boolean }} [opts] reveal: a row was pressed - the card brought into view where it stands below the list */
   const render = ({ reveal = false } = {}) => {
     if (!alive) return;
     const offers = deps.stock();
     const state = { items: deps.items(), bought: deps.bought(), day: deps.day() };
     const picture = deps.picture !== undefined ? deps.picture : (it) => classicPicture(it, deps.wearer, () => render());
-    sub.textContent = `Sigil Stones buy the day's stock · it turns in ${brokerTurnText(brokerTurnsIn(deps.now()))}`;
+    sub.textContent = `New stock in ${brokerTurnText(brokerTurnsIn(deps.now()))}`;   // WB12a; WB13b: the prices say Embers
     noteLine.textContent = note ? note.text : '';
     noteLine.className = `broker-note${note?.ok ? ' ok' : ''}`;
     if (!note) noteLine.setAttribute('hidden', ''); else noteLine.removeAttribute?.('hidden');
@@ -187,11 +208,8 @@ export function mountBrokerWindow(host, deps) {
     for (const c of [...list.children]) c.remove();
     for (const o of offers) {
       const s = brokerOfferState(o, state);
-      const row = el('li', `broker-offer${o.slot === pickedSlot ? ' on' : ''}${s.ok ? '' : ` no-${s.reason}`}`);
+      const row = el('li', `broker-offer${o.slot === pickedSlot && !pickedInsig ? ' on' : ''}${s.ok ? '' : ` no-${s.reason}`}`);
       row.dataset.slot = String(o.slot);
-      // U10: a row is a control - the pad's d-pad and the keyboard reach it, as the mouse always could
-      row.setAttribute('role', 'button');
-      row.setAttribute('tabindex', '0');
       row.setAttribute('aria-pressed', o.slot === pickedSlot ? 'true' : 'false');
       row.setAttribute('aria-label', `${nameOf(o.item)}, ${offerSetName(o)}, ${stonesText(o.price)}`);
       const r = rarityAttr(o.item);
@@ -213,22 +231,73 @@ export function mountBrokerWindow(host, deps) {
       buy.setAttribute('type', 'button');
       buy.setAttribute('aria-label', s.ok ? `Buy ${nameOf(o.item)} for ${stonesText(o.price)}` : `${nameOf(o.item)}: ${BROKER_REFUSALS[s.reason] ?? ''}`);   // U14: the button says whose
       if (!s.ok) { buy.setAttribute('disabled', ''); buy.setAttribute('title', BROKER_REFUSALS[s.reason] ?? ''); }
+      else if (pendingInsig || deps.insigniaBusy?.()) buy.setAttribute('disabled', '');   // AUDIT WB9 (insignia F2): nothing else sold while a piece of the insignia is
       buy.onclick = (e) => {
         e.stopPropagation();
+        if (pendingInsig || deps.insigniaBusy?.()) return;
         const done = deps.buy(o);
         note = done?.ok ? { ok: true, text: BROKER_SOLD(nameOf(o.item), o.price) } : { ok: false, text: done?.text ?? BROKER_REFUSALS[done?.reason] ?? 'The Broker will not sell that.' };
         pickedSlot = o.slot;
         render();
       };
-      const pick = () => { pickedSlot = o.slot; render({ reveal: true }); };
       row.append(frame, text, price, buy);
-      row.onclick = pick;
-      row.onkeydown = (e) => { if (e.target === row && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault?.(); pick(); } };
+      pressable(row, () => { pickedSlot = o.slot; pickedInsig = null; render({ reveal: true }); });   // U10
       list.append(row);
+    }
+    // WB9g: THE INSIGNIA, under the day's stock - its heading, then a row a piece in the wares' own grid
+    const insig = deps.insignia?.() ?? [];
+    if (insig.length) {
+      const head = el('li', 'broker-insignia-head');
+      head.setAttribute('role', 'presentation');
+      head.append(el('span', 'broker-insignia-title', INSIGNIA_HEAD), el('span', 'broker-set', INSIGNIA_SUB));
+      list.append(head);
+      const have = brokerOfferState(null, state).have, busy = !!deps.insigniaBusy?.();
+      for (const g of insig) {
+        const row = el('li', `broker-offer broker-insig${pickedInsig === g.id ? ' on' : ''}${g.owned ? ' owned' : ''}${g.worn ? ' worn' : ''}`);
+        row.dataset.insignia = g.id;
+        row.setAttribute('aria-pressed', pickedInsig === g.id ? 'true' : 'false');
+        row.setAttribute('aria-label', `${g.name}, ${g.kind === 'title' ? 'a title' : 'an aura'}, ${stonesText(g.price)}${g.owned ? ', owned' : ''}${g.worn ? ', worn' : ''}`);
+        const frame = el('span', 'broker-frame insignia-frame');
+        frame.append(insigniaSign(g));
+        const text = el('div', 'broker-offer-body');
+        text.append(el('span', 'broker-name', g.name), el('span', 'broker-set', INSIGNIA_LINE[g.kind] ?? ''));
+        const price = el('span', 'broker-price', g.owned ? (g.worn ? 'Worn' : 'Owned') : stonesText(g.price));
+        const btn = el('button', 'act broker-buy', insigniaLabel(g, { have, busy, pending: pendingInsig === g.id }));
+        btn.setAttribute('type', 'button');
+        const can = g.owned || have >= g.price;
+        if (!can || busy || pendingInsig) btn.setAttribute('disabled', '');
+        if (!can) btn.setAttribute('title', BROKER_REFUSALS.stones);
+        btn.onclick = (e) => {
+          e.stopPropagation();
+          const act = g.owned ? deps.wearInsignia : deps.buyInsignia;
+          if (!act || pendingInsig) return;
+          pendingInsig = g.id; pickedInsig = g.id;
+          render();
+          Promise.resolve().then(() => act(g)).then((done) => {
+            note = done?.ok ? { ok: true, text: done.text ?? '' } : { ok: false, text: done?.text ?? 'The Broker will not sell that.' };
+          }, () => { note = { ok: false, text: 'The Broker will not sell that.' }; }).finally(() => { pendingInsig = null; render(); });
+        };
+        row.append(frame, text, price, btn);
+        pressable(row, () => { pickedInsig = g.id; render({ reveal: true }); });
+        list.append(row);
+      }
     }
     // the piece, whole: its tier's lines, its sigil, its set
     card?.remove();
     card = null;
+    const pickedG = pickedInsig ? insig.find((x) => x.id === pickedInsig) : null;
+    if (pickedG) {
+      // WB9g: a piece of the insignia, whole - its sign large, its name, what it is and how it is kept
+      card = el('div', 'card broker-card broker-insignia-card');
+      const hero = el('div', 'insignia-hero');
+      hero.append(insigniaSign(pickedG, true));
+      const [name, what, kept] = INSIGNIA_CARD[pickedG.kind] ?? [pickedG.name, '', ''];
+      card.append(hero, el('h3', null, name), el('p', 'insignia-what', what), el('p', 'insignia-kept', kept));
+      card.append(el('p', 'boundline', pickedG.owned ? (pickedG.worn ? 'Owned and worn.' : 'Owned.') : `${stonesText(pickedG.price)}. One per account.`));   // WB13b
+      body.append(card);
+      if (reveal && globalThis.matchMedia?.('(max-width: 720px)')?.matches) card.scrollIntoView?.({ block: 'start', behavior: 'smooth' });
+      return;
+    }
     const o = offers.find((x) => x.slot === pickedSlot) ?? offers[0];
     if (o) {
       card = el('div', 'card broker-card');
@@ -241,6 +310,7 @@ export function mountBrokerWindow(host, deps) {
       if (sb) card.append(sb);
       const set = setCard(o.item, deps.wearer ?? null, nameOf);
       if (set) card.append(set);
+      if (isBound(o.item)) card.append(el('p', 'boundline', BOUND_LINE));   // SS4: what the stones buy stays with its buyer - said before the sale
       body.append(card);
       // U4: on a phone the card stands under the six rows - a press brings it up, rather than leaving it off the screen
       if (reveal && globalThis.matchMedia?.('(max-width: 720px)')?.matches) card.scrollIntoView?.({ block: 'start', behavior: 'smooth' });
@@ -248,6 +318,8 @@ export function mountBrokerWindow(host, deps) {
   };
   render();
   host.append(shell);
+  // WB9g: the account's insignia asked once as the window opens - the rows say "Buy" until it answers, then the truth
+  if (deps.insigniaLoad) Promise.resolve().then(() => deps.insigniaLoad()).catch(() => null).then(() => render());
   const onKey = (e) => {
     if (e.metaKey || e.ctrlKey || e.altKey) return;
     if (overlayAction(e) === 'back') { e.preventDefault(); e.stopPropagation(); exit(); }

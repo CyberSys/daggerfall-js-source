@@ -216,16 +216,19 @@ test('AUDIT 68 S22-teleport-reentry: F11 during a fast travel\'s build is refuse
   const head = lift(WORLD, '  async function worldQuickLoad(', '    _loading = true;');
   const said = [];
   const load = new Function('townTalk', 'travelOptions', 'worldTimeScale', 'resetTimeScale', 'online',
-    `let _seasonStraightening = true, _traveling = true, _teleporting = false, _recalling = false, _respawning = false, _loading = false;\n${busy}\n${head}\n    return 'loading';\n  }\nreturn worldQuickLoad;`)(
+    `let _seasonStraightening = true, _traveling = true, _teleporting = false, _recalling = false, _respawning = false, _loading = false, ohAbyss = null;\n${busy}\n${head}\n    return 'loading';\n  }\nreturn worldQuickLoad;`)(
     { say: (l) => said.push(l) }, { clearTravelDestination() { said.push('travel cleared'); } }, () => 1, () => {}, null);
   return load().then((r) => {
     assert.equal(r, undefined, 'the load does not start while the travel\'s arrival is building');
     assert.deepEqual(said, ['Loading is disabled while travelling.'], 'it says so, and touches nothing - not even the travel destination');
     // the predicate: the core's own window (the arrival latch) and every mover's latch
-    const q = new Function('s', `let { _seasonStraightening, _traveling, _teleporting, _recalling, _respawning, _loading } = s;\n${busy}\nreturn worldMoveBusy();`);
-    const idle = { _seasonStraightening: false, _traveling: false, _teleporting: false, _recalling: false, _respawning: false, _loading: false };
+    const q = new Function('s', `let { _seasonStraightening, _traveling, _teleporting, _recalling, _respawning, _loading, ohAbyss } = s;\n${busy}\nreturn worldMoveBusy();`);
+    const idle = { _seasonStraightening: false, _traveling: false, _teleporting: false, _recalling: false, _respawning: false, _loading: false, ohAbyss: null };
     assert.equal(q(idle), false);
-    for (const k of Object.keys(idle)) assert.equal(q({ ...idle, [k]: true }), true, `${k} is a world move`);
+    for (const k of Object.keys(idle)) if (k !== 'ohAbyss') assert.equal(q({ ...idle, [k]: true }), true, `${k} is a world move`);
+    // AUDIT OH-F B4: the abyss's descent is one (DFU's is a single frame)
+    assert.equal(q({ ...idle, ohAbyss: { entering: true } }), true, 'the descent is a world move');
+    assert.equal(q({ ...idle, ohAbyss: { entering: false } }), false);
     // every mover that can be reached while another is in flight refuses first - the ship and the court release had no latch at all
     for (const fn of ['async function fastTravelTo(', 'async function teleportTo(', 'async function recallToAnchor(', 'async function boardOrDisembark(', 'function positionPlayerAtLocationEntrance(']) {
       const at = WORLD.indexOf(`  ${fn}`);
@@ -337,10 +340,19 @@ test('AUDIT 68 S17-ground-mean-colour: a blade\'s root is the mean of the tile\'
   const groundTex = { recordCount: 2, getDFBitmap: (r) => (r === 0 ? bitmap : { width: 1, height: 1, data: new Uint8Array([9]) }), getColor32: (b, a) => t.getColor32(b, a) };
   const { markPuddleWater } = await import('../src/world/puddleMask.js');
   const groundPuddles = new Map();   // WATER-PUDDLE: the same block learns the pass's puddle mask for the blades
-  new Function('grassRecords', 'groundArchive', 'groundTex', 'grassRecordsOf', 'groundMeanColour', 'tileMeanColour', 'groundPuddles', 'markPuddleWater', block)(
-    new Map(), 302, groundTex, grassRecordsOf, groundMeanColour, tileMeanColour, groundPuddles, markPuddleWater);
+  // GRASS-LIT2: `drawnMeans` is the record means of a texture mod's tile set where one dresses the archive (null: none -
+  // the classic's); AUDIT GRASS-LIT2 B2: taken at the upload, off the layers drawn
+  const run = (drawnMeans) => new Function('grassRecords', 'groundArchive', 'groundTex', 'grassRecordsOf', 'groundMeanColour', 'tileMeanColour', 'groundPuddles', 'markPuddleWater', 'drawnMeans', block)(
+    new Map(), 302, groundTex, grassRecordsOf, groundMeanColour, tileMeanColour, groundPuddles, markPuddleWater, drawnMeans);
+  run(null);
   assert.equal(groundPuddles.get(302)?.length, 2, 'and the puddle mask with them, off the same layers');
   assert.ok(groundMeanColour.has(302), 'the scene learned the archive\'s colours though the tile array was the renderer\'s already');
   near(groundMeanColour.get(302)[0], [150 / 255, 125 / 255, 100 / 255]);
   near(groundMeanColour.get(302)[1], [100 / 255, 50 / 255, 0]);
+  // a mod's tile set: the colours are ITS (the ground drawn), the records and the puddles still the classic file's
+  const modTile = (r, g, b) => ({ width: 2, height: 2, colors: new Uint8Array([r, g, b, 255, r, g, b, 255, r, g, b, 255, r, g, b, 255]) });
+  run([modTile(30, 90, 20), modTile(60, 60, 60)].map(tileMeanColour));
+  near(groundMeanColour.get(302)[0], [30 / 255, 90 / 255, 20 / 255]);
+  near(groundMeanColour.get(302)[1], [60 / 255, 60 / 255, 60 / 255]);
+  assert.equal(groundPuddles.get(302)?.length, 2);
 });

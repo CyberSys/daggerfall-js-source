@@ -133,7 +133,7 @@ test('X8: the pacify reaches the AI, and attacking restores hostility', () => {
   // uses. The flag lives on the foe RECORD, not the entity, so the
   // one door that holds both is where it can land.
   const host = readFileSync(join(ROOT, 'src/scenes/hostMagic.js'), 'utf8');
-  assert.match(host, /if \(r\.pacify && foe\.ai\) foe\.ai\.isHostile = false;/,
+  assert.match(host, /if \(r\.pacify && foe\.ai && !foe\.entity\?\.pacifyImmune\) foe\.ai\.isHostile = false;/,   // WB8a: never the gate's Warden
     'applySpellToFoe is the one door holding both the result and the foe');
   // and it must sit inside applySpellToFoe, which EVERY player->foe
   // application routes through since X5

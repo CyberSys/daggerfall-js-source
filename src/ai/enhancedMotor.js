@@ -20,7 +20,7 @@
 // enemyMelee.js htClose (the waypoint advance), at project-final
 // 8ba9100. The constants are his numbers with his comments; the two
 // functions are his bodies, re-homed on `this` instead of `e` because
-// the port's foe IS its motor. navWalkable is main.js:321 verbatim.
+// the port's foe IS its motor. navWalkable is main.js:340 verbatim.
 // Where the port's shape forced a change it is named below; there are
 // exactly two, and neither touches how a route is chosen or held.
 //
@@ -125,7 +125,7 @@ export const PATH_BUDGET_PER_FRAME = 3; // cap findPath (poly A* + funnel) calls
  *  number; the port's, not his. */
 export const PROJECT_MARGIN = 0.05;
 
-/** project-final main.js:321, verbatim: a cell is walkable iff it holds
+/** project-final main.js:340, verbatim: a cell is walkable iff it holds
  *  a walkable, regioned span (or its bit is set in a hydrated map's
  *  walkmask). */
 export function navWalkable(chf, x, z) {
@@ -164,6 +164,7 @@ export class EnhancedEnemyAI extends EnemyAI {
     this.path = null; this.pathI = 1; this.repathT = 0; this.pathEpoch = undefined;
     this.stuckT = 0; this.lastX = feet[0]; this.lastZ = feet[2];
     this.navBroken = false;
+    this._wasFollowing = false;   // AUDIT CC-B5: the route's goal - the leader's or the foe's
     /** observational, his stuckStats pattern - probes and tests only */
     this.navStats = { repaths: 0, fails: 0, stuckFires: 0 };
   }
@@ -213,7 +214,8 @@ export class EnhancedEnemyAI extends EnemyAI {
       const drop = this.fallDetected;
       this.obstacleDetected = od; this.foundUpwardSlope = us; this.foundDoor = fd; this.fallDetected = false;
       if (drop) continue;
-      this.collider.move(this.feet, nx - this.feet[0], 0, nz - this.feet[2], this.height);
+      const moveResult = this.collider.move(this.feet, nx - this.feet[0], 0, nz - this.feet[2], this.height);   // a Move like any other: isGrounded is its (FIELD BUGS 2026-09-29 sea #2)
+      this.isGrounded = moveResult.grounded;
       break;
     }
     this.path = null; this.repathT = 0;
@@ -231,6 +233,14 @@ export class EnhancedEnemyAI extends EnemyAI {
       // pursuing: CanAct, not given up, and a position to head for -
       // the classic tick's own three gates, read after it ran. The goal
       // is the classic destination's own target, the predicted position.
+      // CREW-COMPANIONS: a follower's route is _followGoal's (repathed there, toward the leader); only the watchdog here
+      // AUDIT CC-B5: a route is to one goal - the leader's or the foe's; turning from one to the other, it goes
+      if (this._following !== this._wasFollowing) { this._wasFollowing = this._following; this.path = null; this.repathT = 0; }
+      if (this._following) {
+        if (this.path && this.moving) this._stuckWatch(chf, Math.sin(this.yaw), Math.cos(this.yaw), dt);
+        else { this.stuckT = 0; this.lastX = this.feet[0]; this.lastZ = this.feet[2]; }
+        return;
+      }
       const pursuing = this.canAct && this.giveUpTimer > 0 && this.predictedTargetPos !== null;
       if (!pursuing) { this.path = null; this.stuckT = 0; this.lastX = this.feet[0]; this.lastZ = this.feet[2]; return; }
       this._repathToward(chf, this.predictedTargetPos, dt);
@@ -263,6 +273,26 @@ export class EnhancedEnemyAI extends EnemyAI {
     if (last || d <= 1e-6 || d >= reach) { this.destination = [wp[0], y, wp[2]]; return; }
     const k = reach / d;
     this.destination = [this.feet[0] + dx * k, y, this.feet[2] + dz * k];
+  }
+
+  /** CREW-COMPANIONS: a follower walks the navmesh route to its leader - the route's next corner (the pursuit's own
+   *  corner walk), the leader's live feet on the last leg, and the straight line when there is no mesh or a detour
+   *  is running. */
+  _followGoal(leader, dt) {
+    if (this.navBroken || this.avoidObstaclesTimer > 0) return leader;
+    const chf = this.nav();
+    if (!chf) { this.path = null; return leader; }
+    try {
+      this._repathToward(chf, leader, dt);
+      if (!this.path || this.pathI >= this.path.length - 1) return leader;
+      let wp = this.path[this.pathI];
+      while (this.pathI < this.path.length - 1 && Math.hypot(wp[0] - this.feet[0], wp[2] - this.feet[2]) <= WP_REACH) wp = this.path[++this.pathI];
+      return this.pathI === this.path.length - 1 ? leader : wp;
+    } catch (e) {
+      this.navBroken = true; this.path = null;
+      console.warn('[enhanced-ai] follow fell back to classic:', e?.message ?? e);
+      return leader;
+    }
   }
 
   /** WORLD2: the base resume, and the cached path with it - the next pursuit paths from where the puppet stood. */

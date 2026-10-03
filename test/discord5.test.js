@@ -29,6 +29,10 @@ import { MOD_SETTINGS } from '../src/systems/modSettings.js';
 import { modDials } from '../src/systems/features.js';
 import { ITEM_HANDS } from '../src/characters/equipTable.js';
 import { spellCandidates, cycleQuickslot, clearQuickslots, spellQuickslot, setSpellQuickslot } from '../src/systems/quickslots.js';
+import { setPref } from '../src/systems/uiPrefs.js';
+// HB-LYCFREE (2026-09-30): the hotbar is the quick slots' default now. This suite is the DIAMOND's, written while the
+// diamond was the default, so it chooses the diamond (PIN MOVED: the environment it always ran in, now said).
+setPref('quickbarStyle', 'quickbar');
 
 const rd = (p) => readFileSync(new URL('../' + p, import.meta.url), 'utf8');
 
@@ -108,6 +112,7 @@ test('TORCH-BIND (re-aimed by KB1): every key a vendored mod answers is a regist
   for (const [vendor, rows] of Object.entries(MOD_ACTIONS)) {
     assert.deepEqual(rows.map((r) => r.action), byMod[vendor], `${vendor}: every key has a Controls row, under the mod`);
     for (const r of rows) {
+      if (r.legacy == null) continue;   // HELM-KEYS: a port row (More sail, Less sail) - no old setting of the mod's to carry
       assert.ok(MOD_SETTINGS[vendor].keys[r.legacy], `${vendor}/${r.legacy} is still declared - the one-time carry reads a player's old choice off it`);
       assert.ok(!modDials(vendor).includes(r.legacy), `${vendor}/${r.legacy} is off the tile - its door is Controls`);
     }
@@ -216,7 +221,7 @@ test('LOOT-REGEN by source: the dungeon\'s quick-loot take is the room\'s word -
   const d = rd('src/scenes/dungeonContext.js');
   // LOOT-STACK: the quick take is a PRESS's (`!pileKeys` - a pile tab asks for that body's window), and the pile's
   // tabs are laid on the hooks before C6's order, which stands untouched behind them
-  assert.match(d, /if \(!pileKeys && quickLootTake\(key, \{ items: \(\) => source \}, playerEntity, setMidScreenText, \{ getQuest: \(uid\) => opts\.questBridge\?\.machine\?\.getQuest\?\.\(uid\) \?\? null \}\)\) \{[^\n]*\n\s*const _q = roomLootKey\(key\);[^\n]*\n\s*if \(_q\) publishLoot\(_q\);\s*if \(!source\.length\) onEmptied\?\.\(\);\s*return source\.length;\s*\}\s*const pile = kind === 'corpse' \? lootPile\(key, \{[\s\S]{0,400}?\}\) : null;\s*if \(pile\) lootHooks = \{ \.\.\.\(lootHooks \?\? \{\}\), pile \};\s*const _k = roomLootKey\(key\);[^\n]*\n\s*const _w = openInventory\(source, onEmptied, \{ lootHooks, lootKey: _k \}\);\s*if \(_w\) activeOverlay = _w;/);   // DISC10-E L3 re-aim: a refused pack (the door's null) is not written over the slot
+  assert.match(d, /if \(!pileKeys && quickLootTake\(key, \{ items: \(\) => source \}, playerEntity, setMidScreenText, \{ getQuest: \(uid\) => opts\.questBridge\?\.machine\?\.getQuest\?\.\(uid\) \?\? null, took: showPickups \}\)\) \{[^\n]*\n\s*const _q = roomLootKey\(key\);[^\n]*\n\s*if \(_q\) publishLoot\(_q\);\s*if \(!source\.length\) onEmptied\?\.\(\);\s*return source\.length;\s*\}\s*const pile = kind === 'corpse' \? lootPile\(key, \{[\s\S]{0,400}?\}\) : null;\s*if \(pile\) lootHooks = \{ \.\.\.\(lootHooks \?\? \{\}\), pile \};\s*const _k = roomLootKey\(key\);[^\n]*\n\s*const _w = openInventory\(source, onEmptied, \{ lootHooks, lootKey: _k \}\);\s*if \(_w\) activeOverlay = _w;/);   // DISC10-E L3 re-aim: a refused pack (the door's null) is not written over the slot
   // publishLoot without `claim` is the whole word: the stamp, the record, the seen-set, the first-word memory push
-  assert.match(d, /function publishLoot\(key, \{ claim = false \} = \{\}\) \{\s*const canon = lootKeyOf\(key\);\s*if \(!canon \|\| !lootHolder\(canon\)\) return false;\s*if \(claim && _lootSeen\.has\(canon\)\) return false;/);
+  assert.match(d, /function publishLoot\(key, \{ claim = false \} = \{\}\) \{\s*const canon = lootKeyOf\(key\);\s*if \(!canon \|\| !lootHolder\(canon\)\) return false;\s*(?:if \(_lootUnreadable\.has\(canon\)\) return false;[^\n]*\n\s*)?if \(claim && _lootSeen\.has\(canon\)\) return false;/);   // AUDIT SETS M2: and never over a word this build cannot read
 });

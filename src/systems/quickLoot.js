@@ -103,12 +103,31 @@ function takeSound() {
   if (_tookSound) audio.playOneShot(_tookSound === 'gold' ? SOUND.GoldPieces : SOUND.ButtonClick, 1);
   _tookSound = null;
 }
-function takeThrough(playerEntity, items, item, getQuest) {
+function takeThrough(playerEntity, items, item, getQuest, moved = null) {
   if (isMap(item)) return null;
   const plan = planTake(item, { bag: playerEntity.items ?? [], entity: playerEntity, getQuest });
   if (!plan.ok) return { refusal: plan.refusal };
   if (plan.sound === 'gold' || !_tookSound) _tookSound = plan.sound === 'gold' ? 'gold' : 'click';
-  return applyTransfer(item, plan, items, (playerEntity.items ??= []), { entity: playerEntity, toPlayer: true }) ?? item;
+  const got = applyTransfer(item, plan, items, (playerEntity.items ??= []), { entity: playerEntity, toPlayer: true }) ?? item;
+  moved?.push({ item: got, count: plan.amount });   // PICKUP-FEED: the plan's amount, not the record's - gold answers the pile's own row, whose stack is what STAYED
+  return got;
+}
+
+/**
+ * PICKUP-FEED (2026-10-01, Mac: "a better center screen notification for pickups"): WHAT MOVED, TOLD TO THE HOST'S
+ * FACE. `took` is the host's optional hook (ui/pickupFeed.js showPickups, handed by each of the four hosts), given what
+ * one press put in the pack - `[{ item, count }]`, in the order it moved - and the player it went to. It answers TRUE
+ * when it SHOWED them (the enhanced skin's cards), and the take's own line is then not said: the cards are its words.
+ * Anything else - no hook, the classic skin (where Daggerfall's line is the answer), a face that threw - and the line
+ * is said exactly as before. A refusal is never the face's: it is said whatever the face answers. The take stays a
+ * law with no document in it; the hook is the whole seam.
+ */
+function shownBy(took, moved, playerEntity) {
+  if (typeof took !== 'function' || !moved.length) return false;
+  try { return took(moved, playerEntity) === true; } catch (e) {
+    console.warn(`[quick-loot] the pickup face failed; the line is said instead: ${e?.message ?? e}`);
+    return false;
+  }
 }
 
 /**
@@ -204,6 +223,14 @@ export function plaqueActionFor(key) {
   return _actionIds[_sel.row] ?? null;
 }
 
+/** PROF-MENU: the act choice key's step over a list of verbs - `n` rows down (negative up), folded on the next frame
+ *  as the wheel's nudge is (clamped there; the caller wraps). True when a list of verbs stands to step. */
+export function plaqueStep(n) {
+  if (!_actionIds || !_sel || !Number.isFinite(n) || !n) return false;
+  _nudge += Math.trunc(n);
+  return true;
+}
+
 /** AUDIT DISC7 A2: F on a player whose list is unlit lights its first row - the keyboard's way onto the list, as the
  *  wheel's first notch is. True when it lit something. */
 export function plaqueLightFirst(key) {
@@ -290,8 +317,12 @@ export function resetQuickLoot() { _sel = null; _nudge = 0; _pending = null; _ac
  * said "You cannot remove this item." and never opened. The resolver
  * rides beside the hooks, from the host, so the take and the window
  * read the same quest.
+ *
+ * PICKUP-FEED: `took` rides beside it, the host's face for what moved
+ * (`shownBy` above) - the enhanced skin's cards say the take, the
+ * classic skin's line says it as it always did.
  */
-export function quickLootTake(key, hooks, playerEntity, say = () => {}, { getQuest = null } = {}) {
+export function quickLootTake(key, hooks, playerEntity, say = () => {}, { getQuest = null, took = null } = {}) {
   const how = _pending;
   _pending = null;   // spent on the press it was armed for, whatever that press finds
   if (how === 'open') return null;   // J: the player asked for the window
@@ -312,25 +343,30 @@ export function quickLootTake(key, hooks, playerEntity, say = () => {}, { getQue
     // not is the line said when nothing fitted at all, and the rows left
     // stay on the pile for the window or the next press.
     let n = 0, refusal = null;
+    const moved = [];   // PICKUP-FEED: what this press put in the pack, in the order it went
     _tookSound = null;
     for (const it of [...items]) {
-      const got = takeThrough(playerEntity, items, it, getQuest);
+      const got = takeThrough(playerEntity, items, it, getQuest, moved);
       if (got?.refusal) { refusal ??= got.refusal; continue; }
       if (got) n += 1;
     }
     // AUDIT QL-WEIGHT1: a count with rows LEFT says why they stayed, on the same line - "You take 2 items." over a
     // pile that still holds three read as a door that stuck, with the reason unsaid
     takeSound();   // SND1
-    if (n) say((n === 1 ? 'You take 1 item.' : `You take ${n} items.`) + (refusal?.text ? ` ${refusal.text}` : ''));   // AUDIT: a refusal with no line (none the loop can meet today) adds nothing
+    // PICKUP-FEED: the cards say the count, so the line says only why the rest stayed - and says nothing at all when
+    // nothing stayed (an empty say would blank whatever the line was saying)
+    if (n && shownBy(took, moved, playerEntity)) { if (refusal?.text) say(refusal.text); }
+    else if (n) say((n === 1 ? 'You take 1 item.' : `You take ${n} items.`) + (refusal?.text ? ` ${refusal.text}` : ''));   // AUDIT: a refusal with no line (none the loop can meet today) adds nothing
     else if (refusal) { say(refusal.text); return QUICK_LOOT_REFUSED; }
     return n ? items : null;
   }
   const item = quickLootItemAt(key, items);
   if (!item) return null;
   _tookSound = null;
-  const got = takeThrough(playerEntity, items, item, getQuest);
+  const moved = [];
+  const got = takeThrough(playerEntity, items, item, getQuest, moved);
   if (got?.refusal) { say(got.refusal.text); return QUICK_LOOT_REFUSED; }
-  if (got) { takeSound(); say(tookItemText(got)); }   // SND1
+  if (got) { takeSound(); if (!shownBy(took, moved, playerEntity)) say(tookItemText(got)); }   // SND1; PICKUP-FEED: the card, or the line
   return got;
 }
 
@@ -355,6 +391,11 @@ export function quickLootArm(action) {
   if (action === 'QuickLootOpen') { _pending = 'open'; return true; }
   return false;
 }
+
+/** AUDIT WB9 (spoils F2): THE ARMED KEY SPENT by a press that takes through no pile - a piece of the Warden's spoils (the
+ *  court's own rung, scenes/worldModes.js): P or J over one armed the mode, the press took the piece and never read it,
+ *  and the next E on a pile took all of it (or opened its window). */
+export function quickLootSpend() { _pending = null; }
 
 /** WHICH item the highlighted row is, out of this container.
  *

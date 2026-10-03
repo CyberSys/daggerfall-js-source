@@ -9,6 +9,11 @@ is vendored at `vendor/dfu-quests` (MIT, provenance-pinned README).
 That makes the quest corpus gate the first that runs with NO ARENA2 and
 no network anywhere.
 
+What the PLAYER sees of this machine - the journal's faces, the news,
+the way to a quest's place, accessibility - is its own arc, built over
+the machine and never in it: `06-Systems/Quest-Guide-Arc.md` (GUIDE,
+2026-09-29). Its GUIDE1 lens is pinned invisible to everything below.
+
 ## Q1 - THE PARSE LAYER (SHIPPED 2026-08-20)
 
 `src/systems/quest/`, all DFU sources named per file:
@@ -716,7 +721,7 @@ Ignoring') - permanent by parity, recorded in the coverage pin.
   faction-listener slot (addFactionListener first-claim-wins /
   removeFactionListener at dispose; PlayerActivate.StaticNPCClick
   reads the map - :1534, the only consumer in the DFU tree, and
-  wired at src/scenes/worldModes.js:613). activeFactionPersons walks NON-COMPLETE quests only -
+  wired at src/scenes/worldModes.js:668). activeFactionPersons walks NON-COMPLETE quests only -
   completed quests must not lock an NPC out (QuestMachine.cs:1085).
   The non-individual parse throw carries the TEMPLATE-SetComplete
   quirk; its sibling's does not.
@@ -1422,10 +1427,10 @@ triage: 25 kills at fails=5+ (one at fails=7 - the `| 0` int32 rail
 broke three pins at once), 2 survivors at the baseline 4, both
 PROVEN equivalents:
 
-- questBridge.js:68 `rawZ ?? 0 -> ?? 1`: the hash's only read of
+- questBridge.js:77 `rawZ ?? 0 -> ?? 1`: the hash's only read of
   rawZ is `z >> 2`, and `1 >> 2 === 0 === 0 >> 2` - for any record
   LACKING rawZ the mutated default is arithmetically invisible.
-- questBridge.js:75 `(pn.flags ?? 0) -> (?? 1)` in the gender arm:
+- questBridge.js:86 `(pn.flags ?? 0) -> (?? 1)` in the gender arm:
   gender reads bit 5 alone, and `1 & 32 === 0 === 0 & 32` - Male
   either way, every path.
 
@@ -1453,7 +1458,7 @@ spamming the same questor does not re-pulse the task. DFU makes you go
 click someone else and come back.
 
 The port carries `lastNPCClicked` as an NPCData-shaped OBJECT LITERAL,
-and both hosts mint a fresh one at every click - worldModes.js:1345's
+and both hosts mint a fresh one at every click - worldModes.js:1462's
 quest-flat arm builds `{ hash, flags, factionID, nameSeed, gender,
 buildingKey, mapID }` inline, and questBridge.clickNpc runs
 `staticNpcData(pn, sceneCtx)`. So `lastClicked === this.clickMemory`
@@ -2808,7 +2813,7 @@ banker and guild clerk in Daggerfall reached `TalkManager` with an
 empty name. Two things read it:
 
 - the greeting says the NPC's name once reaction is above zero, and
-  "stranger" below it (`townTalk.js:577`). Every static NPC in the
+  "stranger" below it (`townTalk.js:580`). Every static NPC in the
   game stayed a stranger no matter how well liked.
 - `topicTree`'s same-building-static test (`:558`) matches a topic
   caption against that name, so it never matched.
@@ -2894,7 +2899,7 @@ correct than the game it is a port of, which is the one thing this arc
 has never allowed. Expanding in place now. (The caller-side
 `if (quest)` went too - C# calls `ExpandQuestMessage` whether or not
 `GetQuest` found anything, and the null-parent bail is a forum-bug fix
-*inside* the helper, which `questMacros.js:580` already carries.)
+*inside* the helper, which `questMacros.js:584` already carries.)
 
 **Three nits with teeth.**
 
@@ -2902,7 +2907,7 @@ has never allowed. Expanding in place now. (The caller-side
 `PlayerActivate.StaticNPCClick:1534`. `TalkManager.cs` does not
 contain the word `Listener`. Three port comments named TalkManager as
 the reader and marked the wiring `(Q4 wires)` - over a reader the port
-already ships, at `worldModes.js:613`. A pending marker over shipped
+already ships, at `worldModes.js:668`. A pending marker over shipped
 work is worse than no marker at all: it sends the next reader looking
 for work that is done, in a file that never had it. Four sites
 corrected, the bible's copy included.
@@ -3060,7 +3065,7 @@ That is the ninth catch of *a pin that restates the port instead of the
 source* - except this one restated a misreading of the source, which is
 a worse failure and one only a second reader was ever going to find.
 The port carries `mapNameLookup` already, built first-wins at
-`mapsFile.js:527`, so the fix is to use it. Two names differing only in
+`mapsFile.js:495`, so the fix is to use it. Two names differing only in
 CASE still take the last, because the `ToLower` compare matches both
 while the dictionary keys stay exact-case - so the lookup is
 per-iteration, not hoisted.
@@ -4282,6 +4287,11 @@ risking the import cycle this arc has now hit three times.
 `quest/foe.js` already imports anyway - and `quest/foe.js` re-exports
 them, so the edge got shorter rather than longer.
 
+(LOOT7-CHECK DUNGEON-DIED, 2026-10-01: the notice reached the two street pools here and never the dungeon -
+`dungeonContext.js` `damageFoe`'s death arm had no line, so no dungeon foe's death was ever said. It is said now,
+the street's law: mine alone, and online at the striker the host's record names. `06-Systems/Loot-Arc.md`
+section 17.)
+
 That move turned up its own bug. The dungeon's pacification line reads
 
 ```js
@@ -4858,7 +4868,7 @@ found `mode !== 'exterior'`, fell through, and turned the camera. So
 you swung and the view swung with you - every time, in every building
 and every dungeon reached from the town.
 
-`dungeon.js:271`, the standalone host, has always had the right shape:
+`dungeon.js:287`, the standalone host, has always had the right shape:
 attack, then `return`, with no mode in the test at all. It has no modal
 sibling to share the drag with, which is precisely why it never needed
 one - and why the difference between the three files never looked like
@@ -5470,7 +5480,7 @@ lesson one host over.
 **What did NOT ship:** PlayerEntity.Update's per-minute *intermittent
 spawn* roll (:486-492) still has no caller on this route. It is not
 this pool's dependency — it is a loop that carries the passive-guard
-spawns and the NPC-guard conversion with it (world.js:4482-4575) — and
+spawns and the NPC-guard conversion with it (world.js:8108-8213) — and
 it is named at the mount so the absence reads as a fact.
 
 **(c) The find-place seam's absence, narrowed to one sentence.**
@@ -5489,17 +5499,17 @@ knows its one city outright.
 This host owns a cast engine of its own, and `worldModes` takes *that
 instance* for the interior mode, so it covers the shops entered from
 `?exterior` too. It passed neither of `EntityEffectManager`'s two
-ready-spell events (`hostMagic.js:93-94`), and those two doors are the
+ready-spell events (`hostMagic.js:98-99`), and those two doors are the
 *only* route into the machine's `CastSpellDo` / `CastEffectDo` latches
-(`machine.js:887`/`:870`; C# subscribes them in the action's
+(`machine.js:945`/`:928`; C# subscribes them in the action's
 constructor). Every `cast X spell do` and `cast X effect do` on this
 whole route could therefore never latch and never fire. The pair the
-other two engine-owning hosts wire (`world.js:4867-4868`,
-`dungeonContext.js:2398-2399`) is wired here now, and with it
+other two engine-owning hosts wire (`world.js:8509-8510`,
+`dungeonContext.js:2679-2680`) is wired here now, and with it
 `CastSpellDo`'s two world reads — `getClassicSpellEffects` and the
-byte-folded `spellHasMatchForClassicEffect` (`world.js:9513-9516`),
+byte-folded `spellHasMatchForClassicEffect` (`world.js:14436-14439`),
 absent which the action self-completes at *parse*
-(`actions.js:2768`/`:2775`) and the task can never arm at all.
+(`actions.js:2794`/`:2801`) and the task can never arm at all.
 
 Pins: 5 in `test/qx1_exterior_host.test.js` (the placement law RUN over
 the real `placeFoeFreely` with a stubbed world — the FOV cone bounded on
@@ -5798,7 +5808,7 @@ MAP - and the three findings it produced, all paid in the same commit.
 
 ### F1 - "LOUDLY" was written over an operation that is silent
 
-`machine.js:55` stated the headless charter: *"absent = headless, every
+`machine.js:78` stated the headless charter: *"absent = headless, every
 Place pends its site **LOUDLY** and the corpus gate stands."* The same
 word sat in `place.js` three times, in `person.js`, and twice in
 `foe.js`, and the bridge's header compressed it to *"absent members idle
@@ -6377,3 +6387,55 @@ was missing from your active quest(s).", or "You have no active quests to repair
 Every host's pause hands `repairQuests` off its own bridge (`questBridge.repair`): the world, the fixed city, the
 dungeon, and the interior pause through its host. Pinned: `test/qrepair.test.js` (6) over a real machine, Place and
 mount; `tools/mutants/qrepair.json`.
+
+## DISC29-H - Info mode looks at a quest stand; it does not click it (2026-09-28, Triage)
+
+Triage on Discord: thrown out of the Mages Guild in the middle of its guard quest, after killing raiding mages and
+knights - "Not a member", then "ineligible ... less than sterling reputation", then "Your name is familiar to us, and
+not in a very favorable light", and the quest would not complete. What expels is N0B20Y02 ("Protect an Honored Mage")
+itself, faithfully run, as KimNix met it (`01-Overview/Field-Bugs-2026-09-26b.md` DEAD-CLOCK): a click on the sleeping
+mage is `_S.04_` (-10, popup 1012, and a shielded hostile Mage placed in the hall - the mage himself), and that Mage's
+death is `_S.07_` (-50, the Knight, Battle-mage and Assassin waves, and the seven-day `_S.09_` clock). The next visit's
+UpdateRank finds a negative reputation and expels (TEXT.RSC 668); JOIN reads 612, the record for rep < 0. The raiders'
+deaths change no reputation (driven through the real script: 38 of them moved no faction row - a quest foe carries no
+faction), and success needs `not _S.04_`, so after the click the only ending is `_talisman_`'s failure, seven days after
+the kill.
+
+The port's part was one way in that DFU does not have. The quest-resource arm clicks "only ... when not in info mode"
+(PlayerActivate.cs:334-338), and a static NPC in Info is PresentNPCInfo's one line and nothing else (:753-757,
+:1484-1486) - StaticNPCClick, and the DoClick inside it, belong to Grab, Talk and Steal. `clickQuestFlat` ran DoClick
+in every mode, so a LOOK at the sleeping mage sprang the trap. It returns in Info now, a Person answering "You see
+<name>" - StaticNPC.DisplayName off the same layout data the click stamps (`npcData`), FACTION.TXT awaited as
+`activateStaticNpc` awaits it - and an item saying nothing.
+
+Not changed, and Mac's to decide: a PARTNER's kill of a shared quest's foe is credited to every member's copy
+(`onPuppetDied` -> `incrementKills`), so `_S.07_` - and its -50 - runs for a member who never touched the mage. That
+same credit is what carries an ordinary summon-and-kill quest forward for the whole party.
+`test/disc29_questinfo.test.js` (3); `test/dungeonquestclick.test.js`'s one-home pin re-aimed to the shared builder;
+`tools/mutants/disc29.json` (DISC29-H, 3). `01-Overview/Field-Bugs-2026-09-28f.md` DISC29-H.
+
+## TIME3 - QUESTS ON TWO CLOCKS (2026-10-01, Mac: "people have to wait insanely long" / "This needs to be perfect")
+
+Design and law: `bible/06-Systems/Online-Time-Arc.md` 6.3 and 6.3a. The machine reads three clocks online where DFU
+reads one, all of them DFU's one clock offline:
+
+- **`nowSeconds`, the CHARACTER's clock** (LIVED1's own): the Clock resource, CreateFoe's and PlaySound's
+  intervals, GUARD-ONLINE's watch, the tombstone's week. A rest, a loiter or a journey spends them, as in DFU: the
+  time RAISED since a sample is charged whole (the session's count, `worldTick.js raisedMinutes`), the time lived
+  with the world one played step at most (WORLD7's bound, on the lived part alone). The rest ticks the quests
+  online too (`restSession.js`; RESTX2's stand-down retired).
+- **`skySeconds`, the SKY**: DailyFrom's window, GivePc's daytime, the season trigger, QAE's "until", the
+  date/time macros.
+- **`worldSeconds`, the EVENT clock**: a quest's start and each logged step - the journal's dates - which `%qdt`
+  reads on the sky's calendar (`skyCalendar.js skySecondsOfEvent`).
+
+The machine hands all four seams at every door a live quest is born through (`_questClocks`). A quest envelope
+carries `ownSecondsAt`, the clock its countdowns stood on when it was taken (`quest/questStamps.js`): a party
+member's copy moves onto the receiver's clock on every share and resync, a resync keeps each holder's running
+clocks (and a clock this copy ran out stays run out, its task's edge kept; a wave's interval and count stay the
+holder's - AUDIT TIME), and an online save from before TIME3 moves onto the character's clock once at the load.
+
+**Found on the way, a fidelity fix offline too:** the Clock sampled the fractional clock and cut each tick's GAP to
+whole seconds, where DFU samples `WorldTime.Now.ToSeconds()` - whole seconds of a clock that keeps its fraction - so
+every tick dropped its fraction: at ten ticks a real second a countdown ran a fifth to a third slow. It samples
+whole seconds now (`clock.js wholeSeconds`). Pins: `test/time3_quests.test.js`; mutants: `tools/mutants/time3.json`.

@@ -105,6 +105,10 @@ export function flashPlayerDamage(amount = 0) {
   playerDamageFlash.flash();
   _removeHealthListener?.(amount);
 }
+/** WB13d: a blow DFU never flashes (spell damage - the gate boss's frost, fire, lightning and venom) that the camera
+ *  still feels: the RemoveHealth listener alone (Better Ambience's DamageShaker prices it by the share of health it
+ *  took, under the player's own maxShake), no flash. */
+export function shakePlayerDamage(amount = 0) { _removeHealthListener?.(amount); }
 /** BLOOD2e: the player bled a drip - the subtle flash, and no
  *  RemoveHealth (a drip is not a blow; the shaker does not hear it). */
 export function flashPlayerBleed() { playerDamageFlash.bleed(); }

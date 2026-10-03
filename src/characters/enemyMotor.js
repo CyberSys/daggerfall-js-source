@@ -52,11 +52,20 @@ export const FOE_MAX_FRAME_DT = 3 * FIXED_DT;
 /** AUDIT (the pre-merge audit, S2): every foe's move keeps its floor under a ceiling that holds it down (collider move's
  *  `keepFloor`, SQUEEZE1) - a body of any height, not only one past the player's tallest stance. */
 const FOE_KEEPS_FLOOR = true;
+/** WERE-FRIGHT: how far ahead along the way away a fleeing foe's aim point stands (EnemyAI.flee). */
+const FLEE_AIM = 10;
+/** CREW-COMPANIONS: a follower stands inside FOLLOW_STOP of its leader, sets off again past FOLLOW_STOP +
+ *  FOLLOW_SLACK, and breaks off a fight that has drawn it past FOLLOW_LEASH. */
+export const FOLLOW_STOP = 3;
+export const FOLLOW_SLACK = 1.5;
+export const FOLLOW_LEASH = 20;
 export const foeFrameDt = (dt) => Math.min(dt, FOE_MAX_FRAME_DT);
 export const GIVE_UP_TICKS = 200;   // EnemyMotor.GiveUpTimer refill (classic ticks; ~12.5s)
 import { GRAVITY, FIXED_DT, MAX_FRAME_DT, CLASSIC_TO_UNITY_RATIO, FALL_DAMAGE_THRESHOLD } from '../player/motor.js';   // the shared fall rule + the P16 fixed-timestep law; CH3: the fall threshold single-sources with the player's
 import { wrapAngle } from '../world/mat4.js';   // ONCRASH1: the port's one angle wrap, which cannot loop
 import { MOBILE_TYPES } from './mobileTypes.js';
+import { coverDistance } from '../ai/cover.js';   // TACT1: billboards are cover (sight, the clear shot)
+import { tacticsStep } from '../ai/tactics.js';   // TACT2: the tactics brain
 
 // C15 knockback (EnemyMotor.KnockbackMovement): classic units through
 // the speed ratio. Stored speed clamps at 40; motion caps at 25; the
@@ -251,10 +260,16 @@ export function canSeeTarget(collider, feet, yaw, height, targetFeet, targetHeig
     const h = collider.raycastHit(eye, [ex / el, ey / el, ez / el], Math.min(radius, el));
     const seen = !Number.isFinite(h.dist) || h.dist >= el - 1e-3;
     if (!seen) blockerOut.key = h.key;
-    return seen;
+    return seen && !coveredSight(collider, eye, ex / el, ey / el, ez / el, el);
   }
   const hit = collider.raycast(eye, [ex / el, ey / el, ez / el], Math.min(radius, el));
-  return !Number.isFinite(hit) || hit >= el - 1e-3;
+  return (!Number.isFinite(hit) || hit >= el - 1e-3) && !coveredSight(collider, eye, ex / el, ey / el, ez / el, el);
+}
+
+/** TACT1: does cover (a tree, a crate, a statue - ai/cover.js) stand between the eye and a target `el` away along
+ *  the unit (ux, uy, uz)? Never with the Enhanced AI switch off. A cover hit is no door, so `blockerOut` is left. */
+function coveredSight(collider, eye, ux, uy, uz, el) {
+  return coverDistance(collider, eye, [ux, uy, uz], el, true) < el - 1e-3;   // AUDIT TACT B2: a line of sight - one in a crown is seen in it
 }
 
 // EnemyMotor.cs:34 - the maximum distance to open a door.
@@ -346,7 +361,7 @@ export const DETOUR_ARRIVAL = 0.3;              // UpdateTimers zeroes the timer
  * waterSurfaceY(x, z), the 2.5 head margin, beached = frozen).
  */
 export class EnemyAI {
-  constructor(collider, feet, yawRad, { liveSpeed = 50, isHostile = true, height = CAPSULE_HEIGHT, seesThroughInvisibility = false, behaviour = 'General', mobileId = -1, waterSurfaceY = null, spawnDistanceType = 0, playerInside = true, isActionDoor = null, rolls = Math.random, hasBowAttack = false, canCastRangedSpell = null, hasMagickaToCast = null, centreOffset = null } = {}) {
+  constructor(collider, feet, yawRad, { liveSpeed = 50, isHostile = true, height = CAPSULE_HEIGHT, seesThroughInvisibility = false, behaviour = 'General', mobileId = -1, waterSurfaceY = null, spawnDistanceType = 0, playerInside = true, isActionDoor = null, rolls = Math.random, hasBowAttack = false, canCastRangedSpell = null, hasMagickaToCast = null, centreOffset = null, vitals = null } = {}) {
     this.collider = collider;
     /** ObstacleCheck's DaggerfallActionDoor arm (:1167-1176). The AI
      *  cannot resolve a collider bucket key to an action object - the
@@ -392,6 +407,11 @@ export class EnemyAI {
     this.landedFall = 0;   // > 0 for ONE host frame after a damaging landing
     this._airborne = false;
     this._restGrounded = false;   // C11's rest latch: true only while the grounded branch last left this foe resting on ground
+    // FIELD BUGS 2026-09-29 (the sea, #2): CharacterController.isGrounded - whether the controller's LAST Move stood it
+    // on something (CollisionFlags.Below), kept until the next Move, false for one that has never moved. Every branch
+    // below writes it from the move it makes; a step that makes none (a swimmer out of water, frozen) leaves it as the
+    // last one left it. Come Sail Away's riders read it (world.js csaEnemies): a swimmer in open water is on nothing.
+    this.isGrounded = false;
     // AUDIT 39: TakeAction re-derives `moveSpeed` from
     // `entity.Stats.LiveSpeed` EVERY FixedUpdate (:432), so a Drain or
     // Fortify Speed on a foe moves it. A number captured at spawn
@@ -483,6 +503,19 @@ export class EnemyAI {
     // struck (RDBLayout.AddEnemy :1519-1521). Pacification (C-slice)
     // clears it too; damage restores it.
     this.isHostile = isHostile;
+    /** TACT2: () => { health, maxHealth } - the brain's read of the body it drives (null: no read) */
+    this.vitals = vitals;
+    /** @type {number[]|null} TACT2: the brain's step (unit xz) - null, the classic walk along the yaw */
+    this._tacDir = null;
+    this._tacSpeed = 1;
+    // WERE-FRIGHT: the run from a fright (flee, below) - seconds left, and the point it runs from. No run by default.
+    this.fleeLeft = 0;
+    this.fleeFrom = null;
+    /** CREW-COMPANIONS: the leader a companion keeps to (the host sets it; null for every other foe). @type {{ feet: () => (number[]|null), stop?: number, leash?: number }|null} */
+    this.follow = null;
+    this._following = false;
+    this._followWalking = false;
+    this._returning = false;   // AUDIT CC-B3: drawn past the leash, coming home
     // TakeAction:443-449 sets stopDistance BEFORE GetDestination, and
     // both the approach test (:487) and the search ramp (:552) read it.
     // Seeded here so a caller that drives _getDestination directly has
@@ -956,7 +989,8 @@ export class EnemyAI {
     // :727 - the sweep runs from the shoot origin but over the distance
     // measured from the BODY, so it overshoots by originDistance.
     const hit = this.collider.sphereCast(origin, radius, [dx, dy, dz], dist);
-    return !Number.isFinite(hit.dist);
+    // TACT1: and no cover between - an archer behind a tree steps out rather than loose into the bark
+    return !Number.isFinite(hit.dist) && !(coverDistance(this.collider, origin, [dx, dy, dz], dist - originDistance, true) < dist - originDistance - 1e-3);   // AUDIT TACT B2: to the target, which a crown it stands in does not hide
   }
 
   /**
@@ -1405,7 +1439,7 @@ export class EnemyAI {
     // "Classic AI moves only as close as melee range. It uses a
     // different range for the player and for other AI." The port held
     // the 2.25 literal at both sites, so two infighting foes each
-    // halted 0.75 outside the 1.5 swing gate enemyAttack.js:165-166
+    // halted 0.75 outside the 1.5 swing gate enemyAttack.js:168-184
     // already honours - a stand-off that never resolved.
     this.stopDistance = (this._armedTargeting && this.target && !this.target.isPlayer)
       ? CLASSIC_MELEE_DISTANCE_VS_AI : MELEE_DISTANCE;
@@ -1420,6 +1454,12 @@ export class EnemyAI {
     // EvaluateMoveInForAttack and every AttemptMove below it.
     if (paused) { this.moving = false; return; }
     const dx = this.destination[0] - this.feet[0], dz = this.destination[2] - this.feet[2];
+    // TACT2 (ai/tactics.js, the Enhanced AI switch on): the tokens, the ring, the beat after a blow, backing off,
+    // a coward's run, an archer's kiting - a foe in sight of its target, not detouring. Off, it answers false and
+    // touches nothing.
+    const _took = tacticsStep(this, dx, dz);
+    if (_took && (!detouring || this.fleeLeft > 0 || this._tac?.state === 'windup')) return;   // AUDIT TACT A6: a committed wind-up and a coward's run are never the detour's
+    this._tacDir = null;
     // Ranged attacks (:468-470) - the FIRST branch of TakeAction's
     // action ladder, AHEAD of the detour (AUDIT 26 F011: the port took
     // the detour first, so for up to 0.75s after an obstacle probe an
@@ -1504,7 +1544,165 @@ export class EnemyAI {
     }
   }
 
+  /** C15 KnockbackMovement's motion, verbatim (the comment at its call in _step): one step of the shove along the
+   *  attack ray, the hurt-anim flag, and the decay. Shared by the pursuit step and a frightened foe's run
+   *  (_fleeStep), which a blow shoves exactly as it shoves any foe. */
+  _knockbackStep(dt, classicTicks) {
+    if (this.knockbackSpeed > KB(KNOCKBACK_STORE_CAP)) this.knockbackSpeed = KB(KNOCKBACK_STORE_CAP);
+    this.hurtKnock = this.knockbackSpeed > KB(KNOCKBACK_HURT_THRESHOLD);
+    const sp = Math.min(this.knockbackSpeed, KB(KNOCKBACK_MOTION_CAP));
+    const d = this.knockbackDir ?? [0, 0, 0];
+    const mx = d[0] * sp * dt, myRaw = d[1] * sp * dt, mz = d[2] * sp * dt;
+    if (this.swims) {
+      const waterY = this.waterSurfaceY ? this.waterSurfaceY(this.feet[0], this.feet[2]) : null;
+      const center = this.feet[1] + this.centreOffset;   // EnemyMotor.cs:1333 controller.transform.position.y
+      if (waterY !== null && center < waterY) {
+        let my = myRaw;
+        if (my > 0 && center + WATER_HEAD_MARGIN >= waterY) my = 0;
+        const moveResult = this.collider.move(this.feet, mx, my, mz, this.height, true, FOE_KEEPS_FLOOR);
+        this.isGrounded = moveResult.grounded;
+      }
+    } else if (this.flies || this.levitating) {
+      // :293-298 - `else if (flies || IsLevitating) controller.Move(...)`,
+      // the full 3D ray. A LEVITATOR takes no gravity with it:
+      // KnockbackMovement raises flyerFalls, but ApplyGravity's
+      // flyer arm is `flyerFalls && flies && !IsLevitating`
+      // (:347) and its walker arm is `!flies && !swims &&
+      // !IsLevitating` (:335) - both refuse a levitating foe, so a
+      // knocked-back levitator sails and does not drop.
+      if (this.flies && !this.levitating) this.velY -= GRAVITY * dt;   // flyerFalls: a hit knocks them out of the air
+      else this.velY = 0;   // no gravity arm claims a levitator: the port's accumulator must not carry one either
+      const r = this.collider.move(this.feet, mx, myRaw + this.velY * dt, mz, this.height, true, FOE_KEEPS_FLOOR);
+      this.isGrounded = r.grounded;
+      if (r.grounded) this.velY = 0;
+      this._trackFall(r.grounded);   // CH3: a knocked-down flyer lands hard
+    } else {
+      this.velY -= GRAVITY * dt;   // SimpleMove: horizontal motion, gravity applies
+      const r = this.collider.move(this.feet, mx, this.velY * dt, mz, this.height, true, FOE_KEEPS_FLOOR);
+      this.isGrounded = r.grounded;
+      if (r.grounded) this.velY = 0;
+      this._trackFall(r.grounded);
+    }
+    this.knockbackSpeed -= classicTicks * KB(KNOCKBACK_DECAY_PER_CLASSIC);
+    if (this.knockbackSpeed < 0) this.knockbackSpeed = 0;
+    this._restGrounded = false;
+  }
+
+  /**
+   * WERE-FRIGHT (2026-09-29, the port's own - no DFU motor ever runs FROM anything): FRIGHTENED OFF. For `seconds`
+   * the foe drops its target and runs from `fromFeet`, by the pursuit's own laws turned round: per
+   * classic tick it turns (TurnToTarget's 20 degrees) in place until it is inside the 5.625 degree move gate of the
+   * way away, and only then runs, at its own move speed, through the same capsule, obstacle and ledge probes and
+   * gravity its pursuit walks with - and what blocks it buys DFU's own detour (_findDetour), which it runs round as a
+   * pursuer does. It decides nothing and senses nothing while it runs; the pool that frightened it retires it when
+   * `fleeLeft` is spent. A blow does not end the run: it shoves the foe as it shoves any (KnockbackMovement, the hurt
+   * anim with it), and a frightened man keeps running once the shove is spent.
+   */
+  flee(fromFeet, seconds) {
+    this.fleeFrom = [fromFeet[0], fromFeet[1], fromFeet[2]];
+    this.fleeLeft = seconds;
+    // AUDIT WERE-FRIGHT F3: NOT its hostility. IsHostile false is DFU's PASSIVE foe - a blow on one turns the area
+    // (MakeEnemiesHostile) and friendly protection spares one from a swing - and a routed foe is neither. The run
+    // takes its target, which is all that stops it striking.
+    this.target = null;
+    this.secondaryTarget = null;
+    this.moving = false;   // it turns first
+    this.avoidObstaclesTimer = 0;
+    this.canAct = false;   // it decides and senses nothing from here (_fleeStep keeps these down each step) - so it
+    this.inSight = false;   // raises no alert and meets no one: the encounter edge the host's tongue roll consumes
+    this.detected = false;   // (tryLanguagePacification) is spent with the rest
+    this.justEncountered = false;
+  }
+
+  /** CREW-COMPANIONS: whether a companion turns to its leader this step. He fights a foe within the leash of his
+   *  LEADER that he can pursue; otherwise he keeps to the leader. AUDIT CC-B3/B4: once drawn past the leash he is
+   *  RETURNING - every target dropped, the secondary one too (a struck companion's attacker was pinned back on the next
+   *  tick, and he froze at the leash), until he is back inside `stop + FOLLOW_SLACK`; a foe standing off past the leash
+   *  of the leader (an archer at 30 m) is never run out to; and a target he holds but cannot pursue (never seen, given
+   *  up) leaves him following, never standing idle 15 m out. */
+  _followWanted() {
+    const leader = this.follow.feet?.();
+    if (!leader) return this.target == null;
+    const leash = this.follow.leash ?? FOLLOW_LEASH;
+    const home = Math.hypot(leader[0] - this.feet[0], leader[2] - this.feet[2]);
+    if (this._returning) {
+      if (home <= (this.follow.stop ?? FOLLOW_STOP) + FOLLOW_SLACK) this._returning = false;
+      else { this._dropTargets(); return true; }
+    }
+    if (this.target == null) return true;
+    const tf = this.target.ai?.feet ?? this.target.feet ?? null;
+    if (home > leash || (tf && Math.hypot(tf[0] - leader[0], tf[2] - leader[2]) > leash)) {
+      this._returning = home > leash;
+      this._dropTargets();
+      return true;
+    }
+    return this.predictedTargetPos == null || this.giveUpTimer <= 0;
+  }
+
+  /** CREW-COMPANIONS: every target a companion holds, let go (the secondary one and the senses on it included). */
+  _dropTargets() {
+    this.target = null; this.secondaryTarget = null; this.targetSenses = null;
+    this.lastKnownTargetPos = null; this.predictedTargetPos = null;
+  }
+
+  /** CREW-COMPANIONS: one step of keeping to the leader - stand inside `stop`, walk once past `stop + FOLLOW_SLACK`
+   *  (the slack keeps a companion from stuttering at the edge), turning in place on the classic ticks as a pursuer
+   *  does. `_followGoal` is the seam the pathing motor (src/ai) routes through. */
+  _followTicks(classicTicks, dt) {
+    const leader = this.follow.feet?.();
+    if (!leader) { this.moving = false; return; }
+    const d = Math.hypot(leader[0] - this.feet[0], leader[2] - this.feet[2]);
+    const stop = this.follow.stop ?? FOLLOW_STOP;
+    if (d <= stop || (!this._followWalking && d <= stop + FOLLOW_SLACK)) { this._followWalking = false; this.moving = false; return; }
+    this._followWalking = true;
+    const goal = this._followGoal(leader, dt);
+    this.destination = [goal[0], leader[1], goal[2]];
+    const aim = this.avoidObstaclesTimer > 0 ? this.detourDestination : this.destination;
+    const dx = aim[0] - this.feet[0];
+    const dz = aim[2] - this.feet[2];
+    for (let i = 0; i < classicTicks; i++) {
+      if (!withinYaw(this.yaw, dx, dz, MOVE_YAW_GATE_DEG)) this.yaw = turnTowards(this.yaw, dx, dz);   // classic turns in place
+    }
+    this.moving = withinYaw(this.yaw, dx, dz, MOVE_YAW_GATE_DEG);
+  }
+
+  /** CREW-COMPANIONS: where a following companion heads - straight at the leader (the pathing motor routes it). */
+  _followGoal(leader, dt) { return leader; }
+
+  /** WERE-FRIGHT: one fixed step of the run (flee, above). */
+  _fleeStep(dt, paralyzed) {
+    this.fleeLeft -= dt;
+    this._clock += dt;   // the detour's stuck clock reads it
+    let classicTicks = 0;   // the motor's one classic cadence (_step's)
+    this._classicTimer += dt;
+    while (this._classicTimer >= CLASSIC_UPDATE_INTERVAL) { this._classicTimer -= CLASSIC_UPDATE_INTERVAL; classicTicks++; }
+    const knocked = this.knockbackSpeed > 0;
+    this.canAct = false;
+    this.inSight = false;
+    this.detected = false;
+    this._updateDetourTimers(dt, !paralyzed && !knocked);
+    this.hurtKnock = false;
+    if (knocked) { this._knockbackStep(dt, classicTicks); return; }   // a blow shoves it first; the run resumes after
+    // The way away, and the point FLEE_AIM along it - the "destination" _findDetour falls back on when both of its
+    // 45-degree probes are blocked. While a detour stands, the run aims round the obstacle instead.
+    let ax = this.feet[0] - this.fleeFrom[0];
+    let az = this.feet[2] - this.fleeFrom[2];
+    const al = Math.hypot(ax, az);
+    if (al > 1e-6) { ax /= al; az /= al; } else { ax = Math.sin(this.yaw); az = Math.cos(this.yaw); }
+    this.destination = [this.feet[0] + ax * FLEE_AIM, this.feet[1], this.feet[2] + az * FLEE_AIM];
+    const aim = this.avoidObstaclesTimer > 0 ? this.detourDestination : this.destination;
+    const dx = aim[0] - this.feet[0];
+    const dz = aim[2] - this.feet[2];
+    for (let i = 0; i < classicTicks; i++) {
+      if (withinYaw(this.yaw, dx, dz, MOVE_YAW_GATE_DEG)) this.moving = true;
+      else { this.yaw = turnTowards(this.yaw, dx, dz); this.moving = false; }   // classic turns in place
+    }
+    if (paralyzed) this.moving = false;
+    this._walkStep(dt);   // the pursuit's own walk - the watch is the one foe frightened, and it walks
+  }
+
   _step(dt, playerFeet, senses, paralyzed = false, paused = false) {
+    if (this.fleeLeft > 0) { this._fleeStep(dt, paralyzed); return; }   // WERE-FRIGHT: a frightened foe only runs
     // CH4 (the senses verify pass): DFU's cadence split, exactly -
     // sight/hearing/detection resolve EVERY FixedUpdate (the fixed
     // step here); the spawn-band recompute and the illusion re-roll
@@ -1606,6 +1804,7 @@ export class EnemyAI {
     // MT-iii's hostility narrowing, now on THIS step's target machine.
     const foeTarget = this._armedTargeting && this.target != null && !this.target.isPlayer;
     this.canAct = !paralyzed && !knocked && (this.isHostile || foeTarget);
+    if (!this.canAct || paused) this._tacSkipped = true;   // AUDIT TACT D1/A3: a step it could not decide - the brain's word for a knock, never a clock's
     if (targeting && targetFeet == null) {
       this.inSight = false;
       this.detected = false;
@@ -1644,6 +1843,10 @@ export class EnemyAI {
     // tick sets, and a latch left standing would walk the Seducer on
     // for up to a classic tick after DFU's has stopped dead.
     if (paralyzed || paused || !(this.isHostile || foeTarget)) this.moving = false;
+    // CREW-COMPANIONS: a companion (the host's `follow`) with no foe to fight - or one chased too far from its
+    // leader - keeps to the leader instead: the pursuit's own turn-then-walk, aimed at the leader's feet.
+    this._following = !!this.follow && !paralyzed && !paused && !knocked && this._followWanted();
+    if (this._following) this._followTicks(classicTicks, dt);
 
     // C15 KnockbackMovement, verbatim: runs INSTEAD of pursuit (and
     // regardless of paralysis - DFU calls it before the CanAct
@@ -1654,44 +1857,7 @@ export class EnemyAI {
     // flyers take the full 3D ray AND fall (flyerFalls), swimmers
     // ride the WaterMove gates; decay is 5 per classic tick.
     this.hurtKnock = false;
-    if (knocked) {
-      if (this.knockbackSpeed > KB(KNOCKBACK_STORE_CAP)) this.knockbackSpeed = KB(KNOCKBACK_STORE_CAP);
-      this.hurtKnock = this.knockbackSpeed > KB(KNOCKBACK_HURT_THRESHOLD);
-      const sp = Math.min(this.knockbackSpeed, KB(KNOCKBACK_MOTION_CAP));
-      const d = this.knockbackDir ?? [0, 0, 0];
-      const mx = d[0] * sp * dt, myRaw = d[1] * sp * dt, mz = d[2] * sp * dt;
-      if (this.swims) {
-        const waterY = this.waterSurfaceY ? this.waterSurfaceY(this.feet[0], this.feet[2]) : null;
-        const center = this.feet[1] + this.centreOffset;   // EnemyMotor.cs:1333 controller.transform.position.y
-        if (waterY !== null && center < waterY) {
-          let my = myRaw;
-          if (my > 0 && center + WATER_HEAD_MARGIN >= waterY) my = 0;
-          this.collider.move(this.feet, mx, my, mz, this.height, true, FOE_KEEPS_FLOOR);
-        }
-      } else if (this.flies || this.levitating) {
-        // :293-298 - `else if (flies || IsLevitating) controller.Move(...)`,
-        // the full 3D ray. A LEVITATOR takes no gravity with it:
-        // KnockbackMovement raises flyerFalls, but ApplyGravity's
-        // flyer arm is `flyerFalls && flies && !IsLevitating`
-        // (:347) and its walker arm is `!flies && !swims &&
-        // !IsLevitating` (:335) - both refuse a levitating foe, so a
-        // knocked-back levitator sails and does not drop.
-        if (this.flies && !this.levitating) this.velY -= GRAVITY * dt;   // flyerFalls: a hit knocks them out of the air
-        else this.velY = 0;   // no gravity arm claims a levitator: the port's accumulator must not carry one either
-        const r = this.collider.move(this.feet, mx, myRaw + this.velY * dt, mz, this.height, true, FOE_KEEPS_FLOOR);
-        if (r.grounded) this.velY = 0;
-        this._trackFall(r.grounded);   // CH3: a knocked-down flyer lands hard
-      } else {
-        this.velY -= GRAVITY * dt;   // SimpleMove: horizontal motion, gravity applies
-        const r = this.collider.move(this.feet, mx, this.velY * dt, mz, this.height, true, FOE_KEEPS_FLOOR);
-        if (r.grounded) this.velY = 0;
-        this._trackFall(r.grounded);
-      }
-      this.knockbackSpeed -= classicTicks * KB(KNOCKBACK_DECAY_PER_CLASSIC);
-      if (this.knockbackSpeed < 0) this.knockbackSpeed = 0;
-      this._restGrounded = false;
-      return;   // CanAct = false: no pursuit this step
-    }
+    if (knocked) { this._knockbackStep(dt, classicTicks); return; }   // CanAct = false: no pursuit this step
 
     // C12 aquatic (WaterMove verbatim): movement exists ONLY while
     // the controller center is below the block water surface; a
@@ -1712,7 +1878,8 @@ export class EnemyAI {
       if (this.fallDetected || this.obstacleDetected) { this._findDetour(d); return; }
       let my = d[1] * this.speed * dt;
       if (my > 0 && center + WATER_HEAD_MARGIN >= waterY) my = 0;
-      this.collider.move(this.feet, d[0] * this.speed * dt, my, d[2] * this.speed * dt, this.height, true, FOE_KEEPS_FLOOR);
+      const moveResult = this.collider.move(this.feet, d[0] * this.speed * dt, my, d[2] * this.speed * dt, this.height, true, FOE_KEEPS_FLOOR);
+      this.isGrounded = moveResult.grounded;
       return;
     }
 
@@ -1765,7 +1932,8 @@ export class EnemyAI {
       this._obstacleCheck(d);
       this._fallCheck(d);
       if (this.fallDetected || this.obstacleDetected) { this._findDetour(d); this.lastGroundedY = this.feet[1]; return; }
-      this.collider.move(this.feet, d[0] * this.speed * dt, d[1] * this.speed * dt, d[2] * this.speed * dt, this.height, true, FOE_KEEPS_FLOOR);
+      const moveResult = this.collider.move(this.feet, d[0] * this.speed * dt, d[1] * this.speed * dt, d[2] * this.speed * dt, this.height, true, FOE_KEEPS_FLOOR);
+      this.isGrounded = moveResult.grounded;
       this.lastGroundedY = this.feet[1];   // the altitude-control anchor, post-move
       return;
     }
@@ -1780,6 +1948,13 @@ export class EnemyAI {
     // under a parked foe leaves it frozen mid-air until it next
     // pursues - accepted: foes never ride movers (pre-C11 statics
     // did not either).
+    this._walkStep(dt);
+  }
+
+  /** The grounded walker's step - _step's tail (the comment above its call), and a frightened foe's run (_fleeStep):
+   *  the rest fast path, gravity, AttemptMove's obstacle and ledge probes with DFU's detour, and the one capsule
+   *  move, at whatever `moving` the caller's classic tick decided. */
+  _walkStep(dt) {
     if (!this.moving && this._restGrounded) return;
     this.velY -= GRAVITY * dt;
     const dy = this.velY * dt;
@@ -1791,20 +1966,23 @@ export class EnemyAI {
       // grounded foe); the port steers by yaw, which the 5.625 gate in
       // _classicTick has already brought within 5.625 degrees of the
       // direction to the destination.
-      const dir2d = [Math.sin(this.yaw), 0, Math.cos(this.yaw)];
+      const dir2d = this._tacDir ? [this._tacDir[0], 0, this._tacDir[1]] : [Math.sin(this.yaw), 0, Math.cos(this.yaw)];   // TACT2: a step the brain chose - back, or round the ring - facing the target
       this._obstacleCheck(dir2d);
       this._fallCheck(dir2d);
       if (this.fallDetected || this.obstacleDetected) {
         // The translation is the ELSE arm (:989-996) - a blocked foe
         // does not move this step at all, it picks a way round. Gravity
         // is separate (ApplyGravity, :167) and still applies.
-        this._findDetour(dir2d);
+        if (this._tacDir) { this._tacDir = null; this._tacBlocked = true; this.moving = false; }   // TACT2: a wall or a drop behind it: it stands its ground (AUDIT TACT A1: and the brain hears of it; TACT5: for the rest of the classic tick too - never walked on the way it faces, into a detour)
+        else this._findDetour(dir2d);
       } else {
-        dxm = dir2d[0] * this.speed * dt;
-        dzm = dir2d[2] * this.speed * dt;
+        const k = this._tacDir ? this._tacSpeed : 1;
+        dxm = dir2d[0] * this.speed * k * dt;
+        dzm = dir2d[2] * this.speed * k * dt;
       }
     }
     const r = this.collider.move(this.feet, dxm, dy, dzm, this.height, true, FOE_KEEPS_FLOOR);
+    this.isGrounded = r.grounded;
     if (r.grounded) this.velY = 0;
     this._trackFall(r.grounded);   // CH3 (characters-8): walkers and falling paralyzed flyers
     this._restGrounded = !this.moving && r.grounded;
@@ -1867,6 +2045,23 @@ export class EnemyAI {
     this._restGrounded = false;   // AUDIT WORLD2 B12: a foe that takes the seat standing still re-grounds on its first step, not its first move
   }
 
+  /** FALL-HOLD (FIELD BUGS 2026-09-30b, ReynBlackwinter: "constant fps drop in overworld ... Resets after
+   *  saving\loading, heard its from an enemy endlessly falling through the ground somewhere"): A FRAME THE HOST HOLDS
+   *  THIS FOE ON steps nothing, so it senses nothing - PlayerMotor.holdFrame's law, foe-side. The streaming host holds
+   *  the player's motor until the pixel under him is built (world.js _seasonHoldKey); its pools now hold a foe whose
+   *  column has no built ground (`groundStands`, the host's heightAt finite). Stepped there, a walker fell for ever:
+   *  nothing here bounds a fall, a placed foe (a World of Daggerfall camp's) is never culled, and the save re-mints it
+   *  wherever it stood - over a pixel the load has not built. Every fixed step of the fall cost more: collider.move
+   *  sweeps in SUBSTEP_LEN pieces, 256 at most (DFU's CharacterController.Move is one sweep), ten capsule resolves a
+   *  piece - 770 a frame at a minute's fall, 2,560 from 201.6 s. The column alone is asked, never the height: a flyer,
+   *  a levitator or a swimmer over built ground, and a Deep Waters swimmer (a carved cell answers its seafloor), are
+   *  stepped as before. A sense latched before the hold would outlive it - `detected` spared it the relevance cull
+   *  (and held the encounter cap), `inSight` kept its melee deciding, either one or `wouldBeSpawned` refused the
+   *  player's rest (areEnemiesNearby). The first step after the hold senses afresh. */
+  holdFrame() {
+    this.inSight = false; this.detected = false; this.wouldBeSpawned = false;
+  }
+
   /** AUDIT 68 S20-offset-ai-memory: the floating-origin recenter moves every WORLD position the motor holds, not the
    *  feet alone. The fall anchor is DFU's own (FloatingOrigin.cs:128-130 -> EnemyMotor.AdjustLastGrounded, :235-238);
    *  the pursuit memory is a departure (EnemySenses hears no OnPositionUpdate), else a foe hunting out of sight walks
@@ -1874,7 +2069,7 @@ export class EnemyAI {
    *  move once. */
   offsetOrigin(offset) {
     const moved = new Set();
-    for (const p of [this.feet, this.destination, this.detourDestination, this.lastKnownTargetPos, this.oldLastKnownTargetPos, this.predictedTargetPos, this._predictedTargetPosWithoutLead]) {
+    for (const p of [this.feet, this.destination, this.detourDestination, this.lastKnownTargetPos, this.oldLastKnownTargetPos, this.predictedTargetPos, this._predictedTargetPosWithoutLead, this.fleeFrom]) {   // WERE-FRIGHT: the point a run is from
       if (!p || moved.has(p)) continue;
       moved.add(p);
       p[0] += offset[0]; p[1] += offset[1]; p[2] += offset[2];

@@ -62,12 +62,15 @@ import { BLOOD_ABSORB, BLOOD_F0, BLOOD_MENISCUS, WET_THICK_LO, WET_THICK_HI, INK
 import { isEnhanced } from '../systems/uiSkin.js';
 import { SHADOW_GLSL, shadowCacheOn } from './shadowPass.js';   // EL2: the receiver block - the sun map on the sun term, the cube map on its lantern; SC1: the cache's door
 import { FOG_GLSL as EL_FOG_GLSL } from './fogGlsl.js';   // AUDIT 68 S17-fog-glsl-dup: the fog law's one home, the classic lane's too (the lane's five interpolate it by this name)
+import { COLUMN_GLSL } from './columnGlsl.js';   // DW-F: the water column's share, the lane's flats too
 import { AIR_ADAPT_GLSL, AIR_CONTACT_GLSL, AIR_CONTACT_RANGE_FRACTION, airOn, contactOn, glslFloat } from './airPass.js';   // EL6: no AO block - the resolve's; EL8: the contact block
-import { BAYER_GLSL, BAYER_MEAN } from './orderedDither.js';
+import { BAYER_GLSL, BAYER_MEAN, DISSOLVE_GLSL } from './orderedDither.js';   // SHIP-FADE: and the mesh shader's dissolve
 import { CLOUD_SHADOW_GLSL } from './cloudShadow.js';   // AUDIT 68 S16-el-cloudshadow-dup: the reader's one home, as the classic lane and the shafts take it - five hand copies were here
 import { CLUSTER_X, CLUSTER_Y, CLUSTER_Z, CLUSTER_LIST_W, clustersOn } from './lightClusters.js';   // LC1: the grid the lantern loop walks, and its door   // EL6: the dither at the encode - the port's one Bayer
 import { SHADE_DARK } from '../systems/concealDraw.js';   // AUDIT-EL F14: the shade's pull toward black, interpolated as the classic BB_FS does   // EL3: the ambient occlusion image by screen position, and its kill door; EL4: the adapted exposure
-import { HIT_FLASH_GLSL } from '../systems/hitFlash.js';   // HITFLASH1: the struck-red term, the classic BB_FS's own
+import { FLAT_DISSOLVE_GLSL } from '../systems/dissolve.js';   // DISSOLVE: the classic BB_FS's own
+import { HIT_FLASH_GLSL, ELITE_GLOW_GLSL } from '../systems/hitFlash.js';   // HITFLASH1: the struck-red term, the classic BB_FS's own
+import { pageParam } from '../systems/pageQuery.js';   // PERF-URL: the page's query, parsed once a search
 
 /** The lane's light cap - the classic lane's sixteen, tripled. Forty-eight
  *  vec4 + forty-eight vec3 are 96 uniform vectors; ES 3.0 guarantees 224
@@ -99,11 +102,11 @@ export const EL_SCATTER = 0.35;
 /** VOL1: `?volumetrics=off` - the lanterns' glow marched through their shadows (airPass.js VOL_FS) or the lane's
  *  own analytic glow per fragment, as before. */
 export function volumetricsOn(search = globalThis.location?.search ?? '') {
-  return new URLSearchParams(search).get('volumetrics') !== 'off';
+  return pageParam('volumetrics', search) !== 'off';   // PERF-URL
 }
 /** VC7b: the sun in the haze has its own door - `?haze=off` keeps the beams and drops the march. */
 export function hazeOn(search = globalThis.location?.search ?? '') {
-  return new URLSearchParams(search).get('haze') !== 'off';
+  return pageParam('haze', search) !== 'off';   // PERF-URL
 }
 /** The near-field gain and the falloff's knee (elAttenuation). */
 export const EL_LIGHT_GAIN = 2;
@@ -144,6 +147,10 @@ export const EL_CONTACT_FADE_START = 0.6;
  *  mark's own wetness (one fresh, zero dried), so the sheen is what
  *  says "wet" and it goes as the mark dries. */
 export const EL_WET_GLOSS = 64;
+/** AUDIT FLICKER P1: how far toward a lamp a flat's lamp shadow is read from its base (world units, capped at half the
+ *  way to the lamp) - off the flat's own card, which the lamp's map holds up to three frames late: a card that far
+ *  behind a flat walking at a run stays behind the read. A caster nearer the flat than this no longer shades it. */
+export const EL_FLAT_LAMP_LIFT = 0.35;
 export const EL_WET_STRENGTH = 0.55;   // BLOOD3: Schlick carries most of the reduction (4% head-on); this is what is left at a grazing angle, a sheen and not a mirror
 /** EL4: PROPER DARK DUNGEONS. The lane scales a dungeon's ambient (DFU's
  *  flat 0.12 and Better Ambience's trilight alike; the Dungeon Brightness
@@ -162,13 +169,13 @@ export const EL_FLAME_COLOR = Object.freeze([1.0, 0.72, 0.42]);
  *  enhanced skin, the Enhanced Lighting pref, and `?lighting=classic` as
  *  the kill door. */
 export function enhancedLightingOn(search = globalThis.location?.search ?? '') {
-  return isEnhanced() && !!getPref('enhancedLighting') && new URLSearchParams(search).get('lighting') !== 'classic';
+  return isEnhanced() && !!getPref('enhancedLighting') && pageParam('lighting', search) !== 'classic';   // PERF-URL
 }
 
 /** The exposure a page asks for: `?exposure=1.2` for tuning; EL_EXPOSURE
  *  otherwise. A non-number or a non-positive number is the default. */
 export function exposureFor(search = globalThis.location?.search ?? '') {
-  const v = Number(new URLSearchParams(search).get('exposure'));
+  const v = Number(pageParam('exposure', search));   // PERF-URL
   return Number.isFinite(v) && v > 0 ? v : EL_EXPOSURE;
 }
 
@@ -309,12 +316,9 @@ float elScatter(vec3 L, float range, vec3 dir, float dist) {
   return (atan((tb - t0) / h) - atan((ta - t0) / h)) / h;
 }
 `;
-export const EL_GLSL = `
-uniform float uELExposure;   // EL1: scene exposure before the tonemap
-uniform float uELScatter;    // EL1: in-scatter gain x the fog's density (0 = no fog, no glow; VOL1: 0 on a world frame the air pass glows for)
-${BAYER_GLSL}
-${AIR_ADAPT_GLSL}
-vec3 elDecode(vec3 c) {
+/** GRASS-LIT: the lane's sRGB codec alone (elDecode / elEncode above, term for term) - the grass's program takes it
+ *  without the rest of EL_GLSL, whose Bayer block it already carries under its own name. */
+export const EL_CODEC_GLSL = `vec3 elDecode(vec3 c) {
   vec3 lo = c / 12.92;
   vec3 hi = pow((c + 0.055) / 1.055, vec3(2.4));
   return mix(hi, lo, step(c, vec3(0.04045)));
@@ -324,14 +328,23 @@ vec3 elEncode(vec3 c) {
   vec3 lo = c * 12.92;
   vec3 hi = 1.055 * pow(c, vec3(1.0 / 2.4)) - 0.055;
   return mix(hi, lo, step(c, vec3(0.0031308)));
-}
-float elAttenuation(float d, float range) {
+}`;
+/** GRASS-LIT2: the lane's lantern falloff alone (elAttenuation above, term for term) - the grass's vertex stage lights
+ *  its roots by it without the rest of EL_GLSL. */
+export const EL_ATTEN_GLSL = `float elAttenuation(float d, float range) {
   float x = d / max(range, 1e-4);
   float x2 = x * x;
   float win = clamp(1.0 - x2 * x2, 0.0, 1.0);
   win *= win;
   return ${EL_LIGHT_GAIN}.0 / (1.0 + ${EL_LIGHT_KNEE}.0 * x2) * win;
-}
+}`;
+export const EL_GLSL = `
+uniform float uELExposure;   // EL1: scene exposure before the tonemap
+uniform float uELScatter;    // EL1: in-scatter gain x the fog's density (0 = no fog, no glow; VOL1: 0 on a world frame the air pass glows for)
+${BAYER_GLSL}
+${AIR_ADAPT_GLSL}
+${EL_CODEC_GLSL}
+${EL_ATTEN_GLSL}
 ${EL_TONEMAP_GLSL}
 ${EL_SCATTER_GLSL}
 `;
@@ -346,8 +359,9 @@ uniform vec4 uClusterRect;               // LC1: the world viewport's x, y, and 
 uniform vec2 uClusterZ;                  // LC1: 1 / CLUSTER_NEAR, CLUSTER_Z / log(FAR / NEAR)
 uniform vec4 uCamFwd;                    // LC1: the view's third row negated - dot(xyz, wp) + w is a point's view depth
 uniform int uClusterOn;                  // LC1: 1 on a world frame with a grid built; 0 walks every light
-// the fragment's cell as (offset, count) into the list - or (0, uPointCount) with the grid off
-uvec2 elCluster(vec3 wp) {
+// the fragment's cell as (offset, count) into the list - or (0, uPointCount) with the grid off. AUDIT FLICKER F4: highp
+// throughout - a dense night street's offsets pass 32767, past what a fragment shader's default (mediump) int holds
+highp uvec2 elCluster(vec3 wp) {
   if (uClusterOn == 0) return uvec2(0u, uint(uPointCount));
   ivec2 t = clamp(ivec2((gl_FragCoord.xy - uClusterRect.xy) * uClusterRect.zw), ivec2(0), ivec2(${CLUSTER_X - 1}, ${CLUSTER_Y - 1}));
   float depth = dot(uCamFwd.xyz, wp) + uCamFwd.w;
@@ -355,9 +369,9 @@ uvec2 elCluster(vec3 wp) {
   return texelFetch(uClusterGrid, ivec2(t.x + t.y * ${CLUSTER_X}, z), 0).rg;
 }
 // the j-th light of a cell - the list's byte, or j itself with the grid off
-int elClusterLight(uvec2 cell, int j) {
+int elClusterLight(highp uvec2 cell, int j) {
   if (uClusterOn == 0) return j;
-  int at = int(cell.x) + j;
+  highp int at = int(cell.x) + j;
   return int(texelFetch(uClusterList, ivec2(at & ${CLUSTER_LIST_W - 1}, at >> ${Math.log2(CLUSTER_LIST_W)}), 0).r);
 }
 `;
@@ -390,7 +404,7 @@ ${powChainGlsl('elSpecLobe', EL_SPEC_GLOSS)}
 vec3 elPointLitWet(vec3 wp, vec3 n, float wet, out vec3 glint) {
   vec3 acc = vec3(0.0);
   glint = vec3(0.0);
-  uvec2 cell = elCluster(wp);   // LC1
+  highp uvec2 cell = elCluster(wp);   // LC1
   int cellCount = int(cell.y);
   // LA-COST4: the eye's direction ONCE a fragment - it was normalised again for every light in range, the same vector
   // each time - and not at all where the cell holds no light (the loop is then empty and never reads it)
@@ -427,17 +441,27 @@ vec3 elPointLitWet(vec3 wp, vec3 n, float wet, out vec3 glint) {
 vec3 elPointLit(vec3 wp, vec3 n) { vec3 g; return elPointLitWet(wp, n, 0.0, g); }
 // a flat's lantern term, attenuation only; its shadow is read at the
 // flat's base (one value for the whole sprite - a sprite in its own map
-// would shadow itself)
+// would shadow itself). AUDIT FLICKER P1: read from a point LIFTED toward the
+// lamp (EL_FLAT_LAMP_LIFT, never past half the way there), with no normal
+// offset. Each lamp's map holds a flat as a card turned to face that lamp
+// through this same upright line, drawn where the flat stood a frame to three
+// ago (the replay's records are a frame old; a lamp past the nearest two
+// redraws every third frame): a flat walking away from its lamp read its
+// own late card nearer the lamp than itself and lost that lamp's light whole
+// - the player's own sprite in third person at 60 Hz, a townsman at 20 Hz.
 vec3 elPointFlat(vec3 wp, vec3 base) {
   vec3 acc = vec3(0.0);
-  uvec2 cell = elCluster(wp);   // LC1
+  highp uvec2 cell = elCluster(wp);   // LC1
   int cellCount = int(cell.y);
   for (int j = 0; j < ${EL_MAX_LIGHTS}; j++) {
     if (j >= cellCount) break;
     int i = elClusterLight(cell, j);
     float d = length(uPointLights[i].xyz - wp);
     if (d >= uPointLights[i].w) continue;   // EL5
-    float sh = shadowOfLight(i, uPointLights[i], base, vec3(0.0, 1.0, 0.0));   // EL2; EL5: any caster's; DISC15: either tier
+    vec3 toL = uPointLights[i].xyz - base;
+    float tl = length(toL);
+    vec3 at = base + toL * (min(${glslFloat(EL_FLAT_LAMP_LIFT)}, tl * 0.5) / max(tl, 1e-4));   // AUDIT FLICKER P1: off the flat's own (late) card
+    float sh = shadowOfLight(i, uPointLights[i], at, vec3(0.0));   // EL2; EL5: any caster's; DISC15: either tier
     acc += sh * elAttenuation(d, uPointLights[i].w) * uPointColors[i];
   }
   return acc;
@@ -540,11 +564,13 @@ ${SHADOW_GLSL}
 ${AIR_CONTACT_GLSL}
 ${EL_FOG_GLSL}
 ${EL_POINT_LIT_GLSL}
+${DISSOLVE_GLSL}
 out vec4 outColor;
 void main() {
   int amMode = int(uAutomapMode + 0.5);
   if (amMode >= 3) { if (vWorldPos.y <= uClipY) discard; }
   else if (vWorldPos.y > uClipY) discard;
+  dissolveCut();   // SHIP-FADE: a ship sailing into the world or out of it, her share of her fragments (orderedDither.js)
   vec4 tex = texture(uTex, vUV);
   vec3 n = normalize(vNormal);
   // PERF-SUN2 (2026-09-19, Mac: "over 1000 calls and looking up in the sky
@@ -599,6 +625,9 @@ uniform sampler2D uEmissionTex;
 uniform int uSpectral;
 uniform vec4 uConceal;
 uniform float uHitFlash;   // HITFLASH1
+uniform float uEliteGlow;  // ELITE FOES
+uniform float uEliteTime;  // ELITE FOES: the embers' clock
+uniform vec4 uDissolve;  // DISSOLVE: the burn's share and its edge (systems/dissolve.js)
 uniform vec3 uTint;
 uniform vec3 uBBSun;
 uniform int uPointCount;
@@ -617,17 +646,30 @@ ${SHADOW_GLSL}
 ${AIR_CONTACT_GLSL}
 ${EL_FOG_GLSL}
 ${EL_POINT_LIT_GLSL}
+${COLUMN_GLSL}
 ${HIT_FLASH_GLSL}
+${ELITE_GLOW_GLSL}
+${FLAT_DISSOLVE_GLSL}
 out vec4 outColor;
 void main() {
   vec2 uv = vUV;
-  if (uConceal.x == 1.0) {
-    uv.x += sin(vUV.y * 28.0 + uConceal.z * 7.0 + uConceal.w) * 0.008;
-    if (uv.x < 0.0 || uv.x > 1.0) discard;
-  }
+  if (uConceal.x == 1.0) uv.x += sin(vUV.y * 28.0 + uConceal.z * 7.0 + uConceal.w) * 0.008;
+  // SPRITE-GRAD (render/renderer.js BB_FS): both maps sampled before any branch or discard - a mip level picked
+  // inside non-uniform control flow is undefined, and on Apple's GPUs it drew a dark box round every flat
   vec4 tex = texture(uTex, uv);
-  if (tex.a < ((uSpectral == 1 || uConceal.x > 0.0) ? 0.1 : 0.5)) discard;
-  vec3 emission = elDecode(texture(uEmissionTex, uv).rgb);
+  vec3 emissionTexel = texture(uEmissionTex, uv).rgb;
+  if (uv.x < 0.0 || uv.x > 1.0 || uv.y < 0.0 || uv.y > 1.0) tex = vec4(0.0);   // ELITE FOES: the widened quad's margin is empty; ECV1: nor the ripple's reach past the edge
+  if (tex.a < ((uSpectral == 1 || uConceal.x > 0.0) ? 0.1 : 0.5)) {
+    // ELITE FOES: the rim and the embers, bright enough in linear light for the bloom to catch
+    if (uEliteGlow != 0.0 && uConceal.x == 0.0 && uDissolve.x <= 0.0) {   // negative: an elite's corpse - the rim alone; DISSOLVE: none round a body burning away or through a portal
+      if (eliteRim(uTex, uv) > 0.0) { outColor = vec4(dwColumn(dwWaterFog(mix(uFogColor, min(eliteRimColor(eliteRimK(uEliteGlow, uEliteTime)), vec3(1.0)), fogFactorAt(vBBWorld)), vBBWorld), vBBWorld), 1.0); return; }   // in DISPLAY colour, past the exposure: through the tone curve a dark dungeon's exposure took it to white (Mac's screenshot) - this is the classic lane's blue
+      float em = uEliteGlow > 0.0 ? eliteEmber(uTex, uv, uEliteTime) : 0.0;
+      if (em > 0.0) { outColor = vec4(dwColumn(dwWaterFog(mix(uFogColor, min(eliteRimColor(uEliteGlow) * (0.55 + 0.6 * em), vec3(1.0)), fogFactorAt(vBBWorld)), vBBWorld), vBBWorld), 1.0); return; }   // display colour, as the rim
+    }
+    discard;
+  }
+  if (dissolveGone(uv)) discard;   // DISSOLVE: burnt away, or not yet through its portal
+  vec3 emission = elDecode(emissionTexel);   // SPRITE-GRAD: sampled above the cut
   vec3 albedo = max(elDecode(tex.rgb) - emission, vec3(0.0));
   vec3 base = vBBBase + vec3(0.0, 0.5, 0.0);   // EL2: the shadow is read a half unit up the sprite's base, once for the whole flat
   // PERF-SUN2: a flat has no normal, so there is no n.L to gate on - but
@@ -648,11 +690,15 @@ void main() {
   vec3 lit = albedo * (uTint + sunLit + elPointFlat(vBBWorld, base) + elIndirectFlat(vBBWorld)) + emission;
   if (uConceal.x == 2.0) lit *= ${SHADE_DARK};   // AUDIT-EL F14: a uniform nothing uploaded read 0 - every shade a black cut-out
   if (uConceal.x == 5.0) lit = mix(lit, vec3(0.95, 0.06, 0.04), uConceal.z);   // PEERFX3's mode, which this lane never drew
+  lit = eliteGlowLit(lit, albedo + emission, max(uEliteGlow, 0.0));   // ELITE FOES (never a corpse)
   lit = hitFlashLit(lit, albedo + emission, uHitFlash);   // HITFLASH1: a struck body's red - the lane had no flash at all
+  lit = dissolveLit(lit, uv, elDecode(uDissolve.yzw));   // DISSOLVE: the burning edge, its colour decoded into the lane's linear light (the bloom catches it)
   if (uConceal.x == 4.0) lit = vec3(0.0);
   float alpha = uSpectral == 1 ? tex.a : 1.0;
   if (uConceal.x > 0.0) alpha = tex.a * uConceal.y;
-  outColor = vec4(elFinish(lit, vBBWorld), alpha);
+  // DW-F: the column's share on the finished DISPLAY colour, as the sea's own programs take it - after elFinish's
+  // dwWaterFog, which is off whenever the share is on (the camera over the sea; the fog is the camera under it)
+  outColor = vec4(dwColumn(elFinish(lit, vBBWorld), vBBWorld), alpha);
 }`;
 
 /** LA-COST3 (2026-09-27, Mac: "a deep audit on the enhanced lighting system ... performance improvements"): THE
@@ -676,7 +722,7 @@ uniform vec3 uBBSun;
 flat out float vBBSunVis;   // LA-COST3: the sun map's word at the flat's base, one value for the whole quad
 ${SHADOW_GLSL}`,
   main: `
-  vBBSunVis = dot(uBBSun, uBBSun) > 0.0 ? sunShadowSoftAt(vBBBase + vec3(0.0, 0.5, 0.0), vec3(0.0, 1.0, 0.0)) : 1.0;   // LA-COST3: EL2's point, TREES1's kernel, PERF-SUN2's gate`,
+  vBBSunVis = dot(uBBSun, uBBSun) > 0.0 ? sunShadowSoftAt(vBBBase + vec3(0.0, 0.5, 0.0), vec3(0.0, 1.0, 0.0), uSize.y) : 1.0;   // LA-COST3: EL2's point, TREES1's kernel, PERF-SUN2's gate; AUDIT FLICKER S1: its height, off its own card`,
 });
 
 /** MAC-BUG W6 (2026-09-20, Mac: "super dark coloring instead of red") -

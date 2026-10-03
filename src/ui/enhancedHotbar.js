@@ -80,6 +80,7 @@ const el = (tag, cls, text) => {
 const entryName = (e) => (e?.type === 'spell' ? shownSpellName(e) : e?.name);
 
 let bar = null;          // the one .hb node
+let hbTook = null;       // AUDIT 27h B1: the press a socket stopped ({ node, button }), until the next press anywhere
 let slots = [];          // per slot: { node, icon, glyph, count, key, wear, wearFill, pip }
 let caption = null;
 let hint = null;
@@ -542,6 +543,7 @@ function onKey(e) {
  *  hotbarInForce). The button means what the registry says, read the same way as a key; only while the game has the
  *  mouse (the pointer locked), because a click with the cursor free is a click on the page. */
 function onMouse(e) {
+  hbTook = null;   // AUDIT 27h B1 (HB1c's twin): every press anywhere, before a socket's own - no press of the world's inherits a socket's
   if (!bar || !hotbarMode() || dropOwners.size || lastPaused) return;
   if (typeof document === 'undefined' || !document.pointerLockElement) return;
   const code = mouseCode(e.button);
@@ -775,9 +777,16 @@ function bindSlot(node, i) {
   // HB1c: THE PRESS IS THE BAR'S. Every host swings from a WINDOW
   // `mousedown` listener, so a click on a socket in mouse mode (and the
   // right-click that clears one) would also have swung the weapon.
-  const own = (e) => { if (editable()) e.stopPropagation(); };
-  node.addEventListener('mousedown', own);
-  node.addEventListener('mouseup', own);
+  // AUDIT 27h B1: ...and so is THAT press's release, and only that one. Any release over a socket was swallowed, so a
+  // press begun on the world and let go over the bar never reached the host: the button stayed down in it - the look
+  // frozen under a held right button, a held swing swinging on. `hbTook` is the press a socket stopped (onMouse, the
+  // window's capture, clears it at every press first).
+  node.addEventListener('mousedown', (e) => {
+    if (!editable()) return;
+    hbTook = { node, button: e.button };
+    e.stopPropagation();
+  });
+  node.addEventListener('mouseup', (e) => { if (hbTook?.node === node && hbTook.button === e.button) e.stopPropagation(); });
   node.addEventListener('contextmenu', (e) => {
     if (!editable()) return;
     e.preventDefault();
@@ -856,7 +865,7 @@ const CROSSBAR_CSS = `
 .hb.xb[data-xbset="0"] .xb-set[data-set="1"], .hb.xb[data-xbset="1"] .xb-set[data-set="0"] { opacity: 0.42; filter: saturate(0.4); transform: scale(0.94); }
 .hb.xb.dropping .xb-set { opacity: 1; filter: none; transform: none; }
 @media (max-width: 900px) { .hb.xb { --xb-cell: 38px; } .xb-wrap { gap: 12px; } .xb-body { gap: 6px; } .xb-badge { width: 16px; height: 16px; left: -5px; top: -5px; } }
-@media (max-width: 560px) { .hb.xb { --xb-cell: 30px; } .xb-headglyph { width: 22px; height: 22px; } .xb-head { font-size: 9px; } }
+@media (max-width: 560px) { .hb.xb { --xb-cell: 30px; } .xb-headglyph { width: 22px; height: 22px; } .xb-head { font-size: 11px; } }
 @media (prefers-reduced-motion: reduce) { .xb-set { transition: none; } }
 `;
 
@@ -882,11 +891,11 @@ export const HOTBAR_CSS = `
 .hb-icon { max-width: 100%; max-height: 100%; image-rendering: pixelated; filter: drop-shadow(1px 1px 0 rgba(0,0,0,0.8)); }
 .hb-glyph { font-size: 15px; letter-spacing: 0.04em; color: #d8cfae; text-shadow: 2px 2px 0 rgba(0,0,0,0.9); line-height: 1; }
 .hb-glyph[data-len="3"] { font-size: 12px; letter-spacing: 0; }
-.hb-key { position: absolute; left: 3px; top: 1px; font-size: 10px; color: #a89f88;
+.hb-key { position: absolute; left: 3px; top: 1px; font-size: 11px; color: #a89f88;
   text-shadow: 1px 1px 0 #000; pointer-events: none; }
 .hb-count { position: absolute; right: 3px; bottom: 1px; font-size: 11px; color: var(--bone, #e9e4d9);
   font-variant-numeric: tabular-nums; text-shadow: 1px 1px 0 #000, -1px 0 0 #000; pointer-events: none; }
-.hb-pip { position: absolute; right: 3px; top: 1px; font-size: 9px; opacity: 0.85; pointer-events: none; }
+.hb-pip { position: absolute; right: 3px; top: 1px; font-size: 11px; opacity: 0.85; pointer-events: none; }
 .hb-wear { display: none; position: absolute; left: 5px; right: 5px; bottom: 4px; height: 3px; background: rgba(0,0,0,0.65); }
 .hb-slot.hb-hasbar .hb-wear { display: block; }
 .hb-wearfill { display: block; height: 100%; background: #74d9a0; }
@@ -940,7 +949,7 @@ export const HOTBAR_CSS = `
 .hb-caption.bad { border-color: var(--blood, #8c3a32); color: #f0b8ae; }
 .hb-caption.on { animation: hb-cap ${CAPTION_MS}ms linear forwards; }
 @keyframes hb-cap { 0% { opacity: 0; } 8% { opacity: 1; } 75% { opacity: 1; } 100% { opacity: 0; } }
-.hb-hint { display: none; margin-top: 7px; font-size: 10px; letter-spacing: 0.06em; color: #a89f88;
+.hb-hint { display: none; margin-top: 7px; font-size: 11px; letter-spacing: 0.06em; color: #a89f88;
   text-shadow: 1px 1px 0 #000; }
 
 /* UNDER A WINDOW: the drop target. Body-level, under the drag ghosts (16)
@@ -973,7 +982,7 @@ export const HOTBAR_CSS = `
   background: rgba(23,27,33,0.94); }
 .hb-ghost[class*="el-"] .hb-ghosttile { border-color: var(--hb-acc); background: radial-gradient(circle at 35% 30%, #2c4a72, #15253d 62%, #0c1626); }
 .hb-ghosttile img { max-width: 40px; max-height: 40px; image-rendering: pixelated; }
-.hb-ghostverb { font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--slate, #171b21);
+.hb-ghostverb { font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--slate, #171b21);
   background: var(--brass, #c08a3e); padding: 2px 6px; white-space: nowrap; opacity: 0; }
 .hb-ghostverb.on { opacity: 1; }
 .hb-ghost.clearing .hb-ghosttile { border-color: var(--blood, #8c3a32); opacity: 0.7; }
@@ -984,7 +993,9 @@ ${CROSSBAR_CSS}
 .hud-quick.hotbarmode .hud-qdiamond, .hud-quick.hotbarmode .hud-qspell { display: none; }
 
 @media (max-width: 760px) { .hb { --hb-cell: 40px; --hb-gap: 3px; } .hb-glyph { font-size: 12px; } .hb-hint { display: none !important; } }
-@media (max-width: 480px) { .hb { --hb-cell: 32px; --hb-gap: 2px; } .hb-key { font-size: 8px; } .hb-count { font-size: 9px; } }
+@media (max-width: 480px) { .hb { --hb-cell: 32px; --hb-gap: 2px; } .hb-key { font-size: 11px; } .hb-count { font-size: 11px; }
+  /* AUDIT FONT3 L3: at the floor the corner words keep to their corners - a 1.0 line and no tracking in a 32px cell */
+  .hb-key, .hb-count, .hb-pip { line-height: 1; letter-spacing: 0; } }
 @media (prefers-reduced-motion: reduce) {
   .hb-slot, .hb-slot.hb-strike, .hb-slot.hb-deny { animation: none; transition: none; transform: none; }
   .hb-ring { display: none; }

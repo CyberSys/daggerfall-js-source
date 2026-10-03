@@ -60,10 +60,11 @@
 // interiorContext.js. Neither exterior host owns doors. That is the
 // next slice, and those are its seams.
 import { EFFECT_FLAGS } from './spellcast.js';
-import { isSilencedEffect, BUFF_START_TEXT } from './effects.js';
+import { isSilencedEffect, BUFF_START_TEXT, WATER_WALKING_SILENT_KIND, BUFF_KINDS } from './effects.js';   // BUFF-END: the duration buffs are the kinds a player may end
 import { hasArtifactSubtype, ARTIFACTS } from './artifactEffects.js';   // ROAD-U: ContainsEnchantment, the way SoulTrap.cs asks
 import { setEnchantmentEffectDoors } from './enchantments.js';   // AUDIT 63 F14: SoulBound's Enchanted arm reaches RemoveFilledTrap through the doors bag (this leaf cannot be imported BY enchantments.js - effects.js sits between them)
 import { localizedStrings, localizedText } from './textManager.js';   // L10N3d: DFU's Internal_Strings, read in the player's language
+import { DISH_STAMINA_KIND } from './cookItems.js';   // AUDIT PROF-541 K6: the Orchard Tart's stamina, a dish the player may end as the others
 
 /** The ten, with the classic key DFU registers and which of the three
  *  cost axes each supports. `chance` and `duration` cost pairs are
@@ -254,7 +255,7 @@ export function dispellableBundles(bundles) {
  *  lumped together: an untagged entry belongs to no cast, and
  *  inventing a bundle for it would let the picker offer something it
  *  cannot coherently remove. */
-const NO_ICON_KINDS = new Set(['openArmed', 'lockArmed']);
+const NO_ICON_KINDS = new Set(['openArmed', 'lockArmed', WATER_WALKING_SILENT_KIND]);   // CSA-I: WaterWalkingSilent's ShowSpellIcon false
 export function liveBundles(entity) {
   const byId = new Map();
   for (const a of entity?.activeEffects ?? []) {
@@ -296,6 +297,43 @@ export function dispelBundle(entity, bundleId, { selfCast = false, roll01 = 0, c
   entity.activeEffects = list.filter((a) => a.bundleId !== bundleId);
   return { removed: doomed.length, alert: 'dispelMagicSuccess' };
 }
+
+/**
+ * BUFF-END (2026-09-27, Leafen on Discord: "Could there be a way to dispel magic for non-magic users? It's a bit of a
+ * buzzkill just having something on me that will take irl months of game time to wear off" - a Shield Group at 11397
+ * rounds, casts stacked the way DFU's Shield.AddState stacks them; Zerofyre: "An option to right click cancel buffs on
+ * yourself like most RPGs"). NEVER DFU'S: its one way off is Dispel Magic, a spell a warrior has none of, and the
+ * stacking law stands - ending one is the player's own choice, not a cap on anyone's cast.
+ *
+ * What may be ended is a SPELL of the kinds that only help: never a held item's magic (it is back the moment the item
+ * is read again), a duel's, an armed Open or Lock, a disease or a poison (neither is a bundle), and never anything with
+ * a harmful kind in it - a foe's Drain merges into the incumbent it finds (effects.js findInc), so who cast the bundle
+ * is not enough and every entry's KIND is asked.
+ */
+export const ENDABLE_KINDS = Object.freeze(new Set([
+  'shield', 'fortifyAttribute', 'regenerate', 'elementalResistance',
+  'spellAbsorption', 'spellReflection', 'spellResistance', 'comprehendLanguages',
+  'healHealth', 'healFatigue', 'healSpellPoints', 'healAttribute',
+  DISH_STAMINA_KIND,   // AUDIT PROF-541 K6: the Tart's (cookItems.js feedEffect) - the other dishes are Fortify Attribute's
+  ...Object.values(BUFF_KINDS).filter((k) => k !== 'silenced'),
+]));
+/** Whether a live bundle (liveBundles') is the player's to end. */
+export function canEndBundle(bundle) {
+  if (!bundle || bundle.bundleType === 'HeldMagicItem') return false;
+  const entries = bundle.entries ?? [];
+  return entries.length > 0 && entries.every((a) => !a.bundleDuel && !a.permanent && ENDABLE_KINDS.has(a.kind));
+}
+/** BUFF-END: end one - every entry of the bundle, as Dispel Magic takes a self-cast one (dispelBundle, no roll) and
+ *  without its line. Removal is the port's End() (effects.js: what an effect does is read from the list). Answers the
+ *  spell's name for the one line said, or null when the bundle is gone or not the player's to end. */
+export function endBundle(entity, bundleId) {
+  const bundle = liveBundles(entity).find((b) => b.bundleId === bundleId);
+  if (!canEndBundle(bundle)) return null;
+  dispelBundle(entity, bundleId, { selfCast: true });
+  return String(bundle.name ?? '').replace(/^!+/, '') || 'The spell';
+}
+/** BUFF-END: the line an ended spell says. */
+export const endedSpellText = (name) => `${name} ends.`;
 
 /** Internal_Strings.csv - the two outcome lines. */
 export const DISPEL_MAGIC_TEXT = localizedStrings({
@@ -472,6 +510,17 @@ export function attemptSoulTrap(target, soulType, items, roll01, { azurasStarOnl
   const filled = fillEmptyTrap(items, soulType, { azurasStarOnly });
   if (filled) return { allowDeath: true, alert: 'trapSuccess', filled };
   return { allowDeath: false, alert: 'trapNoneEmpty', filled: null };
+}
+
+/** STRIKE-SHARED (2026-09-29): the running soul trap on `target` when ANOTHER PLAYER cast it - online, a peer's Cast
+ *  When Strikes lands on the foe's owner (hostMagic applySpellToFoe, `ctx.peerCaster`), which marks the new trap with
+ *  its caster (`by`). Its soul is that caster's, not the owner's: the owner's kill door reads no gem of its own for it
+ *  and names the caster on the dead foe's record (`j`, `q`), where the caster rolls the trap against its own pack as
+ *  the Oblivion Gate's court already does (world.js gateCourt `soulTrap`, WBX7) - and, as there, with no tether: the
+ *  foe fell on the owner's machine. Null for no trap, or a trap of the owner's own. */
+export function peerSoulTrapOf(target) {
+  const trap = (target?.activeEffects ?? []).find((a) => a.kind === 'soulTrap' && !a.ended);
+  return trap && typeof trap.by === 'string' ? trap : null;
 }
 
 /** ItemHelper.ResolveItemLongName's soul-trap tail (:352-368): a

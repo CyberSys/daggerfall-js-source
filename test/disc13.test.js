@@ -154,11 +154,12 @@ test('DISC13-A: the Light spell\'s candle hangs off the render feet the host han
   const d = magic.candleLight();
   assert.ok(near([d.x, d.y, d.z], candleBase(stepped, 1.8, fwd), CANDLE.jitterRadius * 2), 'a caller that passes no render feet keeps the old answer');
   // the four hosts: world, exterior and the world's interior arm hand the render feet; the dungeon context takes them from
-  // both of its mounts (the standalone dungeon and the world's dungeon arm) and passes them on
+  // both of its mounts (the standalone dungeon and the world's dungeon arm) and passes them on (AUDIT CLIMB-ARC F10: aimed
+  // with the view before the climb's feel, `aim`; CLIMB6: the climb's snapshot and that aim ride after the feet)
   for (const f of ['src/scenes/world.js', 'src/scenes/exterior.js']) assert.match(rd(f), /magic\.update\(dt, player\.pos, _mfwd, player\.height, player\.feetAt\(\)\);/, f);
   assert.match(rd('src/scenes/worldModes.js'), /magic\.update\(dt, player\.pos, eyeDir\(\), player\.height, player\.feetAt\(\)\);/);
-  assert.match(rd('src/scenes/dungeonContext.js'), /magic\.update\(dt, playerFeet, \[-view\[2\], -view\[6\], -view\[10\]\], playerHeight, playerRenderFeet\);/);
-  for (const f of ['src/scenes/dungeon.js', 'src/scenes/worldModes.js']) assert.match(rd(f), /drawFoes\(dt, canvas[^\n]*!!player\.crouching, player\.feetAt\(\)\);/, f);
+  assert.match(rd('src/scenes/dungeonContext.js'), /magic\.update\(dt, playerFeet, \[-aimed\[2\], -aimed\[6\], -aimed\[10\]\], playerHeight, playerRenderFeet\);/);
+  for (const f of ['src/scenes/dungeon.js', 'src/scenes/worldModes.js']) assert.match(rd(f), /drawFoes\(dt, canvas[^\n]*!!player\.crouching, player\.feetAt\(\), climbRigInput\(player, cam\.yaw\), aimView\);/, f);
 });
 
 // ── DISC13-B ─────────────────────────────────────────────────────────
@@ -187,8 +188,9 @@ test('DISC13-B: the Bandage card offers Use, and Use heals Min(medical/3, MaxHea
   _resetModSettings();
   const e = medic([bandage()]);
   withBandageCard(e, ({ acts, press }) => {
-    // PLUS10: Enhanced Plus - the default dress since PLUS-DEFAULT - adds Info to every card, last; LOCK1 the lock before it
-    assert.deepEqual(acts(), ['Drop', 'Use', 'Lock', 'Info'], 'the card icebreyker saw showed Drop alone');
+    // PLUS10: Enhanced Plus - the default dress since PLUS-DEFAULT - adds Info to every card, last; LOCK1 the lock before it;
+    // HB-LYCFREE: the hotbar, the default since, its Add to hotbar before the lock (PIN MOVED)
+    assert.deepEqual(acts(), ['Drop', 'Use', 'Add to hotbar', 'Lock', 'Info'], 'the card icebreyker saw showed Drop alone');
     press('Use');
   });
   assert.equal(e.health, 35, 'medical 45 / 3 = 15 healed');
@@ -201,7 +203,7 @@ test('DISC13-B: with bandaging off the handler hands the click back, so the card
   setModSetting('roleplay-realism-items', 'bandaging', false);
   assert.equal(usableItem(bandage()), false);
   assert.equal(useItem(bandage(), [bandage()], { entity: medic([]) }).kind, 'none', 'and a Use would have said nothing');
-  withBandageCard(medic([bandage()]), ({ acts }) => assert.deepEqual(acts(), ['Drop', 'Lock', 'Info']));   // PLUS10's Info and LOCK1's lock, as above
+  withBandageCard(medic([bandage()]), ({ acts }) => assert.deepEqual(acts(), ['Drop', 'Add to hotbar', 'Lock', 'Info']));   // PLUS10's Info, LOCK1's lock and the hotbar's add, as above
   setModSetting('roleplay-realism-items', 'bandaging', true);
   assert.equal(usableItem(bandage()), true, 'back on: back');
   setModSetting('roleplay-realism-items', 'Enabled', false);
@@ -347,7 +349,8 @@ function shipLocationOf({ loc = null, travelOptions = false, ports = [], onShip 
   const line = rd('src/scenes/world.js').split('\n').find((l) => l.includes('shipLocation: () => {'));
   assert.ok(line, 'world.js answers shipLocation');
   const src = line.slice(line.indexOf('() => {'), line.lastIndexOf('; },') + 3);
-  const make = new Function('_questLoc', 'modSetting', 'hasPort', 'isOnShip', 'playerEntity', 'playerTravelPixel', `return (${src});`);
+  // SEAT2b part two (PIN MOVED): the host asks hasPortFor - HasPort, or a members' Harbour at a seat
+  const make = new Function('_questLoc', 'modSetting', 'hasPortFor', 'isOnShip', 'playerEntity', 'playerTravelPixel', `return (${src});`);
   return make(() => loc, (v, k) => (v === 'travel-options' && k === 'Enabled' ? travelOptions : undefined),
     (mapId) => ports.includes(mapId), () => onShip, { boardShipPosition: null }, () => ({ x: 0, y: 0 }))();
 }

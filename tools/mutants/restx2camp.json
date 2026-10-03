@@ -1,48 +1,19 @@
 [
   {
-    "name": "RESTX2-the-quest-tick-rides-the-online-sub-tick",
+    "name": "RESTX2-TIME3-the-rest-stands-the-quests-down-online",
     "file": "src/systems/restSession.js",
-    "old": "      if (!online) this.deps.tickQuests?.();",
-    "new": "      this.deps.tickQuests?.();",
+    "old": "      this.deps.tickQuests?.();",
+    "new": "      if (!Number.isFinite(this.deps.sharedMinutes?.())) this.deps.tickQuests?.();",
     "tests": [
       "test/restx2_online_rest.test.js"
-    ]
+    ],
+    "note": "TIME3 (SUPERSEDED, REVERSED): RESTX2 stood the quest tick down online and this record killed its removal; TIME3 made the removal the law (a quest's countdowns run on the character's clock, which the rest moves), so the record now kills the stand-down put back."
   },
   {
-    "name": "RESTX2-the-sim-minute-runs-twenty-a-sub-tick",
+    "name": "RESTX2-the-session-hands-the-host-an-end-again",
     "file": "src/systems/restSession.js",
-    "old": "        this._onlineSimMinutes += MINUTES_PER_TICK;",
-    "new": "        this._onlineSimMinutes += MINUTES_PER_TICK * 2;",
-    "tests": [
-      "test/restx2_online_rest.test.js",
-      "test/world5.test.js"
-    ]
-  },
-  {
-    "name": "RESTX2-the-seed-is-not-floored",
-    "file": "src/systems/restSession.js",
-    "old": "        if (this._onlineSimMinutes == null) this._onlineSimMinutes = Math.floor(this.deps.sharedMinutes());",
-    "new": "        if (this._onlineSimMinutes == null) this._onlineSimMinutes = this.deps.sharedMinutes();",
-    "tests": [
-      "test/restx2_online_rest.test.js",
-      "test/auditworld5.test.js"
-    ]
-  },
-  {
-    "name": "RESTX2-the-seed-is-re-read-off-the-live-clock-every-sub-tick",
-    "file": "src/systems/restSession.js",
-    "old": "        if (this._onlineSimMinutes == null) this._onlineSimMinutes = Math.floor(this.deps.sharedMinutes());",
-    "new": "        this._onlineSimMinutes = Math.floor(this.deps.sharedMinutes());",
-    "tests": [
-      "test/restx2_online_rest.test.js",
-      "test/auditworld5.test.js"
-    ]
-  },
-  {
-    "name": "RESTX2-the-host-is-handed-the-live-shared-clock-not-the-sim-minute",
-    "file": "src/systems/restSession.js",
-    "old": "      this.deps.advanceMinutes(MINUTES_PER_TICK, online ? this._onlineSimMinutes : null);",
-    "new": "      this.deps.advanceMinutes(MINUTES_PER_TICK, online ? this.deps.sharedMinutes() : null);",
+    "old": "      this.deps.advanceMinutes(MINUTES_PER_TICK);",
+    "new": "      this.deps.advanceMinutes(MINUTES_PER_TICK, this.deps.sharedMinutes?.() ?? undefined);",
     "tests": [
       "test/restx2_online_rest.test.js"
     ]
@@ -66,29 +37,29 @@
     ]
   },
   {
-    "name": "RESTX2-the-rest-windows-line-says-the-pace-that-is-no-longer-true",
+    "name": "RESTX2-the-rest-windows-line-says-the-rest-moves-no-clock",
     "file": "src/ui/restWindow.js",
-    "old": "  return `World time ${two(d.hour)}:${two(d.minute)} - resting does not move it`;",
-    "new": "  return `World time ${two(d.hour)}:${two(d.minute)} - an hour here is 5 real minutes`;",
+    "old": "  return `World time ${two(d.hour)}:${two(d.minute)} - you ${loiter ? 'wait' : 'rest'} on your own clock`;",
+    "new": "  return `World time ${two(d.hour)}:${two(d.minute)} - resting does not move it`;",
     "tests": [
       "test/ol2.test.js",
       "test/restx2_online_rest.test.js"
     ]
   },
   {
-    "name": "RESTX2-world-js-reads-the-standing-clock-under-a-rest",
+    "name": "RESTX2-world-js-rolls-on-the-worlds-clock-under-a-rest",
     "file": "src/scenes/world.js",
-    "old": "    const now = simMinutesEnd ?? Math.floor(playerTicker.classicMinutes);",
+    "old": "    const now = Math.floor(playerTicker.ownMinutes);",
     "new": "    const now = Math.floor(playerTicker.classicMinutes);",
     "tests": [
       "test/restx2_online_rest.test.js"
     ]
   },
   {
-    "name": "RESTX2-exterior-js-drops-the-sessions-end-on-the-floor",
+    "name": "RESTX2-exterior-js-rolls-on-the-worlds-clock-under-a-rest",
     "file": "src/scenes/exterior.js",
-    "old": "    advanceMinutes: (n, sharedEnd) => { playerTicker.advance(n, sharedEnd); runEncounterTick(walkMode ? player.pos : cam.pos, sharedEnd, true); },",
-    "new": "    advanceMinutes: (n, sharedEnd) => { playerTicker.advance(n, sharedEnd); runEncounterTick(walkMode ? player.pos : cam.pos, undefined, true); },",
+    "old": "    const now = Math.floor(playerTicker.ownMinutes);",
+    "new": "    const now = Math.floor(playerTicker.classicMinutes);",
     "tests": [
       "test/restx2_online_rest.test.js",
       "test/exteriorfoes.test.js"

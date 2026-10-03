@@ -14,6 +14,7 @@
 // of active mods on that stat, so expiry/heal restores the base
 // cleanly and the raw (permanent) stat is never mutated.
 
+import { mentoredStat } from './mentorMode.js';   // SOFTCAP1: mentor mode's overlay - a leaf, so this file stays cycle-free
 export const STAT_KEYS_ORDER = Object.freeze([
   'strength', 'intelligence', 'willpower', 'agility',
   'endurance', 'personality', 'speed', 'luck',
@@ -34,7 +35,7 @@ export const MAX_STAT_VALUE = 100;
  *  unbounded, as DFU's do. Combat and advancement read THIS, never
  *  the raw base. */
 export function liveStat(entity, statName, skipKind = null) {   // AUDIT SURV-TIERS: `skipKind` leaves one entry kind out - the survival law caps its own entry against the stat WITHOUT it
-  const base = entity.stats?.[statName] ?? 0;
+  const base = mentoredStat(entity, statName, entity.stats?.[statName] ?? 0);   // SOFTCAP1: mentor mode's attribute overlay (a no-op outside it)
   let mod = 0;
   let survival = 0;   // AUDIT SURV-TIERS: the needs' entry, capped below against everything else
   let curse = 0;   // VAMP-DAY: a racial override's PENALTY (the vampire's day), capped below so it never zeroes a stat
@@ -196,3 +197,17 @@ export function maxBreath(entity) {
 export const FATIGUE_LOSS = Object.freeze({
   Default: 11, Climbing: 22, Running: 88, Swimming: 44, Jumping: 11,
 });
+
+/** BALANCE 2026-09-27 (Mac: "I want to adjust fatigue drain and durability
+ *  drain. Just needs some balancing. Currently things drain a little too
+ *  fast"): EXERTION COSTS A QUARTER LESS. The losses above stay DFU's
+ *  verbatim, and measured as DFU's (a full bar at STR/END 50 walks 48.5
+ *  real minutes and runs 6.1); this is the port's scale on what exertion
+ *  CHARGES - the minute's walk, climb, run and failed swim, a jump, a
+ *  swing (hostCombat SWING_FATIGUE_COST), Roleplay Realism's overload
+ *  (its fraction carried) and Enhanced Riding's charge - applied where
+ *  each is charged, inside the truncation DFU gives its own multiplier. NOT exertion, so not scaled: fatigue DAMAGE
+ *  (spells, poisons, diseases), training's fixed cost, survival's needs
+ *  (their own tier setting) and the deep's swim stroke (a burst bought on
+ *  purpose). A departure: Ledger A, BALANCE1. */
+export const FATIGUE_DRAIN_SCALE = 0.75;

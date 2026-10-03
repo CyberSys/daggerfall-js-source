@@ -33,7 +33,7 @@ test('ELITE x PSCALE1: an elite foe\'s blow on a party is elite\'s double, THEN 
   // the dungeon weighs a shared foe's weapon and arrow hit AROUND the blow the formula returned - elite's tail inside it
   const d = rd('src/scenes/dungeonContext.js');
   assert.match(d, /function _weighHit\(f, dmg\) \{ return f && _sharedFoe\(f\) \? partyFoeHits\(dmg, fightN\(f\), playerEntity\) : dmg; \}/);
-  assert.match(d, /const dmg = _weighHit\(f, foeDeps\.calculateAttackDamage\(f\.entity, foeDeps\.playerEntity, \{/, 'the melee hit');
+  assert.match(d, /const dmg = (?:blowScaled\(f\.ai, )?_weighHit\(f, foeDeps\.calculateAttackDamage\(f\.entity, foeDeps\.playerEntity, \{/, 'the melee hit');
   assert.match(d, /const dmg = foeDeps && shooter \? _weighHit\(shooter, foeDeps\.calculateAttackDamage\(shooter\.entity, playerEntity, \{/, 'the arrow');
 });
 
@@ -87,6 +87,7 @@ test('ELITE x AUDIT SET P-M3 (AUDIT FINAL F7): a joiner\'s name rides a death\'s
 
 test('ELITE x PSCALE1 outdoors: a camp grows by the party it meets, and CAMP-RING\'s room is asked for the grown group', () => {
   assert.deepEqual(partyGroupMembers([1, 2, 3], 5), [1, 2, 3, 1, 2], 'five together: two more, drawn from its own');
-  assert.match(rd('src/scenes/world.js'), /const size = partyGroupMembers\(h\.mobileTypes, partySize\(\)\)\.length;\n\s*if \(size > room\) continue;/);
-  assert.match(rd('src/scenes/world.js'), /for \(const mobileType of partyGroupMembers\(hit\.mobileTypes, partySize\(\)\)\) \{/, 'the stand grows it the same way');
+  assert.match(rd('src/scenes/world.js'), /const size = campMembers\(h\.mobileTypes\)\.length;\n\s*if \(size > room\) continue;/);
+  assert.match(rd('src/scenes/world.js'), /for \(const mobileType of \(hit\.fixed \? hit\.mobileTypes : campMembers\(hit\.mobileTypes\)\)\) \{/, 'the stand grows it the same way (a camp; BOUNTY1\'s `fixed` pack is the posting\'s count - auditbounty1 B2)');
+  assert.match(rd('src/scenes/world.js'), /const campMembers = \(types\) => partyGroupMembers\(types, partySize\(\)\)\.slice\(0, MAX_ACTIVE_ENCOUNTER_FOES\);/, 'OW6: one home for the growth, bounded by the pool');
 });

@@ -414,14 +414,16 @@ test('NAME1 + BUBBLE1: the wiring in scenes/world.js - the layer is made ONCE be
   const w = rd('src/scenes/world.js');
   const bare = w.replace(/\/\/[^\n]*/g, ' ');
   assert.match(w, /import \{ createNameLayer, nameLayerWanted \} from '\.\.\/ui\/nameLayer\.js';/);
-  assert.match(w, /import \{ RemotePlayers, composeLook, createSightCache \} from '\.\.\/net\/remotePlayers\.js';/);   // AUDIT 68 S22: sightBlockedBy is the cache's to call, never the host's
+  assert.match(w, /import \{ RemotePlayers, composeLook, createSightCache, NAME_RANGE \} from '\.\.\/net\/remotePlayers\.js';/);   // AUDIT 68 S22: sightBlockedBy is the cache's to call, never the host's (AUDIT NAMES N2-2: NAME_RANGE, the Overworld's reach for one who shares nothing)
   assert.match(bare, /let online = null, remotePlayers = null, peerBodies = null, nameLayer = null, nameSight = null,/, 'one handle each, held for the session');
   // AUDIT NAME1 F7 + OVH3: the DOM face takes the gate the chat panel the bubbles belong to takes - a document, on either skin.
   assert.match(bare, /if \(nameLayerWanted\(\)\) nameLayer = createNameLayer\(\{\}\);/, 'made where there is a document to put it in');
   assert.match(bare, /if \(typeof document !== 'undefined'\) chatStart\(\);/, '...the same gate the chat takes');
   assert.equal((w.match(/createNameLayer\(/g) ?? []).length, 1, 'called in exactly one place - never per frame');
   assert.match(bare, /nameSight = createSightCache\(\);/, 'AUDIT NAME1 F2/F5: and the sight cache is the session\'s, made once beside it');
-  assert.equal((w.match(/createSightCache\(/g) ?? []).length, 1, 'never per frame either - a cache rebuilt every frame is no cache');
+  assert.equal((w.match(/createSightCache\(/g) ?? []).length, 3, 'never per frame either - a cache rebuilt every frame is no cache: the names\', (AUDIT NAV1) the ships\' tags\' and (SHIPMATES) the crew\'s bars\', each made once');
+  assert.match(bare, /\n  const shipSight = createSightCache\(\);/, 'the ships\' tags\' own made with the host, at its top level - offline too, where the names\' is never made');
+  assert.match(bare, /\n  const crewSight = createSightCache\(\);/, 'SHIPMATES: the crew\'s bars\' own, the same');
   assert.match(bare, /const blocked = \(head, id\) => nameSight\.blocked\(player\.collider, eye, id, head\);/);
   // AUDIT NAME1 F1/F14: ONE call, into the pass the test below drives end to end.
   assert.match(bare, /remotePlayers\.nameFrame\(\{/, 'the whole pass in one call');

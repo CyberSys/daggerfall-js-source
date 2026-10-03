@@ -110,7 +110,7 @@
   {
     "name": "DISC10-D-H1-the-stamp-is-not-the-clock",
     "file": "src/systems/worldTick.js",
-    "old": "export function playerWeaponHitEntity(player, target, { nowMinutes = Math.floor(worldMinutes()), isCivilian = false",
+    "old": "export function playerWeaponHitEntity(player, target, { nowMinutes = Math.floor(ownMinutes()), isCivilian = false",
     "new": "export function playerWeaponHitEntity(player, target, { nowMinutes = 0, isCivilian = false",
     "tests": [
       "test/disc10_vampire.test.js",
@@ -215,7 +215,7 @@
   {
     "name": "DISC10-D-V1-the-round-hands-no-clock-to-the-sun",
     "file": "src/systems/worldTick.js",
-    "old": "passiveSpecialsMagicRound(entity, { nowMinutes: r + 1, clockMinutes, sinks });",
+    "old": "passiveSpecialsMagicRound(entity, { nowMinutes: r + 1, clockMinutes: sky, sinks });",
     "new": "passiveSpecialsMagicRound(entity, { nowMinutes: r + 1, sinks });",
     "tests": [
       "test/disc10_vampire.test.js"
@@ -224,8 +224,8 @@
   {
     "name": "DISC10-E-V1-the-moon-reads-the-past-round",
     "file": "src/systems/lycanthropy.js",
-    "old": "isFullMoonFromMinutes(clockMinutes) && !entry.isTransformed",
-    "new": "isFullMoonFromMinutes(nowMinutes) && !entry.isTransformed",
+    "old": "const moonForces = moonNight ? isFullMoonNightFromMinutes(skyMinutes) : isFullMoonFromMinutes(skyMinutes);",
+    "new": "const moonForces = moonNight ? isFullMoonNightFromMinutes(skyMinutes) : isFullMoonFromMinutes(nowMinutes);",
     "tests": [
       "test/disc10_lycan.test.js"
     ]
@@ -260,7 +260,7 @@
   {
     "name": "DISC10-D-V2-the-host-hands-no-clock",
     "file": "src/scenes/shared.js",
-    "old": "    nowMinutes: () => Math.floor(worldMinutes()),\n",
+    "old": "    nowMinutes: () => Math.floor(ownMinutes()),\n",
     "new": "",
     "tests": [
       "test/disc10_vampire.test.js"
@@ -447,32 +447,14 @@
     ]
   },
   {
-    "name": "DISC10-D-V9-the-infection-day-stays-the-saves",
-    "file": "src/systems/worldTick.js",
-    "old": "    if (a.infection && Number.isFinite(a.startingDay)) a.startingDay = pastDay(a.startingDay);\n",
-    "new": "",
-    "tests": [
-      "test/disc10_vampire.test.js",
-      "test/disc10_lycan.test.js"
-    ]
-  },
-  {
-    "name": "DISC10-E-V9-the-werewolf-clocks-stay-the-saves",
-    "file": "src/systems/worldTick.js",
-    "old": "  if (lyc) for (const k of ['lastKilledInnocent', 'lastCastMorphSelf', 'lastUrgeNotify']) if (Number.isFinite(lyc[k])) lyc[k] = past(lyc[k]);\n",
-    "new": "",
-    "tests": [
-      "test/disc10_lycan.test.js"
-    ]
-  },
-  {
     "name": "DISC10-E-V9-a-hole-is-read-as-a-curse",
     "file": "src/systems/lycanthropy.js",
     "old": "(entity?.activeEffects ?? []).find((a) => a?.kind === 'racialOverride'\n    && a.racial === 'lycanthropy'",
     "new": "(entity?.activeEffects ?? []).find((a) => a.kind === 'racialOverride'\n    && a.racial === 'lycanthropy'",
     "tests": [
       "test/auditworld5.test.js",
-      "test/world5.test.js"
+      "test/world5.test.js",
+      "test/auditlived1b_t.test.js"
     ]
   },
   {
@@ -551,7 +533,7 @@
   {
     "name": "DISC10-E-L3-the-street-pack-mounts-a-null",
     "file": "src/scenes/world.js",
-    "old": "    openPack: () => { const w = makeInventoryWindow(); if (w) townTalk.showOverlay(w); },   // DISC10-E L3: a refused pack is null\n",
+    "old": "    openPack: () => { const w = makeInventoryWindow(); if (w) townTalk.showOverlay(w); return !!w; },   // DISC10-E L3: a refused pack is null\n",
     "new": "    openPack: () => townTalk.showOverlay(makeInventoryWindow()),\n",
     "tests": [
       "test/disc10_lycan.test.js"

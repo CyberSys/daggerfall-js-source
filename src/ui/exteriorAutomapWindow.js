@@ -135,6 +135,7 @@ import { normalizeCode, keyboardModifiers, checkSetModifiers } from '../systems/
 import { audio } from '../systems/audio.js';
 import { SOUND } from '../systems/soundClips.js';
 import { resolveNameplates, nameplateAnchor, WORLD_PER_PX } from './nameplateLayout.js';   // EM4: WORLD_PER_PX has one home there
+import { shownBuildingName } from '../systems/discovery.js';   // EMPIRE-BANK
 import {
   nativeMetrics, drawImg, drawRect, loadImg, NATIVE_W, NATIVE_H, SCREEN_DIM,
 } from './nativePanel.js';
@@ -150,7 +151,7 @@ import {
   exteriorRotate, exteriorRotateAroundPlayerPos, exteriorDragPan, getLocationBorderPos,
 } from './automapCamera.js';
 import { rasterizeTopDown, rasterizeDisc } from './meshStamp.js';
-import { drawCompassStrip } from './hud.js';   // ONE HOME for the strip (hud.js:421-422)
+import { drawCompassStrip } from './hud.js';   // ONE HOME for the strip (hud.js:452-453)
 import { drawToolTipBox } from './toolTip.js';
 import { GLOBAL_SCALE } from '../world/meshReader.js';
 import { registerCommand } from '../systems/consoleCommands.js';   // E3: the console command database
@@ -510,8 +511,14 @@ export function stampResidenceQuestNames(summaries, discoveredRows, questSource,
   const discovered = new Map((discoveredRows ?? []).map((r) => [r.buildingKey, r]));
   for (const b of summaries ?? []) {
     const rec = discovered.get(b.buildingKey);
-    if (!rec || !b.isResidence || rec.isOverrideName) continue;
-    b.questName = residenceQuestName(questSource, mapID, b.buildingKey);
+    if (!rec || !b.isResidence) continue;
+    const marked = residenceQuestName(questSource, mapID, b.buildingKey);
+    // FIELD BUGS 2026-09-30b (RES-RING): whether a quest's marked residence, whichever arm its plate takes - the
+    // Enhanced sheet's ring and pen. Every quest house the player learns of is override-named at discovery (AUDIT 63
+    // F49), so the arm below never ran for one and the sheet drew the house a townsperson had just marked as any house
+    b.questMarked = marked !== '';
+    if (rec.isOverrideName) continue;   // :676-682 - the display-name arm returns first (the classic plate, unchanged)
+    b.questName = marked;
   }
   return summaries;
 }
@@ -531,7 +538,7 @@ export class ExteriorAutomapWindow {
   constructor(deps) {
     this.deps = deps;
     this.done = false;
-    // The raw-code seam townTalk.js:425 forks on, the same one the
+    // The raw-code seam townTalk.js:428 forks on, the same one the
     // dungeon window takes (automapWindow.js:497) - it is that fork's
     // switch, not a semantic claim about choice windows, and without it
     // ui/input.js's cooked alphabet cannot spell an arrow, an F-key,
@@ -1075,7 +1082,7 @@ export class ExteriorAutomapWindow {
       let custom = '';
       if (rec) {
         if (!b.isResidence || rec.isOverrideName) {
-          name = rec.displayName || byKey.get(b.buildingKey)?.name || '';
+          name = shownBuildingName(rec, byKey.get(b.buildingKey)?.name) || byKey.get(b.buildingKey)?.name || '';   // EMPIRE-BANK: a bank's name now
           custom = rec.customUserDisplayName || '';
         } else if (b.questName) {
           // :705-707 - `if (!string.IsNullOrEmpty(buildingQuestName))`,

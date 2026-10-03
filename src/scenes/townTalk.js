@@ -43,7 +43,7 @@ import { TalkWindow } from '../ui/talkWindow.js';
 import { hudScale } from '../ui/hud.js';
 import { hudRenderEnabled } from '../ui/hudShortcuts.js';   // AUDIT 64 F37: DaggerfallHUD's Draw override covers popupText too
 import { setMidScreenText, midScreenText } from '../ui/midScreenText.js';   // AUDIT 64 F34: the HUD's OTHER text surface, and its notebook tail
-import { overlayAction, actionsOf, isTextEntryTarget } from '../ui/input.js';   // AUDIT 58: the mode keys read the registry, not e.code; CG2: a DOM field's key is the field's
+import { overlayAction, actionsOf, isTextEntryTarget, isDomControlTarget } from '../ui/input.js';   // AUDIT 58: the mode keys read the registry, not e.code; CG2: a DOM field's key is the field's
 import { makeWindowStack, pauseWhileOpen, hidesHud } from '../ui/windowStack.js';   // ROAD-B B1: UserInterfaceManager's stack, under this host's one slot; ROAD-tail: and its PAUSE
 import { hudFade } from '../ui/fadeLayer.js';   // D4: PushWindow's ClearFade
 import {
@@ -416,6 +416,9 @@ export function createTownTalk({ renderer, canvas, fetchBytes, playerEntity, reg
       // bubble here). Consumed for the host's ladder (typing must not
       // walk the player), untouched for the field.
       if (isTextEntryTarget(e.target)) return true;
+      // AUDIT 28 H11: Enter or Space on a DOM window's own button is the browser's press of it - the payday notice's
+      // "Take the reward", the boards' every act - never prevented under the window that drew it
+      if ((e.key === 'Enter' || e.key === ' ') && isDomControlTarget(e.target)) return true;
       e.preventDefault();
       // E says goodbye too - the touch layer's E button opens AND
       // closes talk (desktop-consistent; Esc/Enter unchanged). Choice
@@ -1474,6 +1477,12 @@ export function createTownTalk({ renderer, canvas, fetchBytes, playerEntity, reg
     /** AUDIT 21 (hosts lane, F6): the live overlay, so a death presenter can
      *  refuse to stack a second death screen on the first. */
     get overlay() { return overlay; },
+    /** AUDIT OW4 P3: ContainsWindow (UserInterfaceManager.cs:114-117) -
+     *  whether the STACK still holds `win`: the slot's, or suspended under
+     *  a window pushed over it (pushOverlay). The slot alone answers "gone"
+     *  for a box a trade window, a quest popup or the exhaustion box was
+     *  laid over, and world.js's party walk lost its question that way. */
+    containsOverlay(win) { return windows.containsWindow(win); },
     /** S40: PopToHUD. A window that must VACATE the slot before it
      *  hands control on - the rest window does, because DFU pops to
      *  the HUD before RaiseSkills and the level-up screen it can raise

@@ -17,7 +17,7 @@
 //
 // HOW IT DRAWS, and why this needs no renderer change at all: the port
 // has ALREADY shipped a first-person pass. renderCharacterSprite
-// (render/renderer.js:1231) binds an offscreen target with its OWN depth
+// (render/renderer.js:1358) binds an offscreen target with its OWN depth
 // renderbuffer, clears colour AND depth, swaps the frame's proj/view for
 // ones the caller supplies, draws, and restores; drawScreenOverlayQuad
 // (:987) composites it fullscreen with an alpha cut and no depth test.
@@ -32,7 +32,7 @@
 //     framebuffer, so there is nothing to be clipped by.
 //
 // MW-D10: the framing constants this pass USED to borrow from the voxel
-// viewmodel (render/characterSprite.js:132-144) are gone with the mapper
+// viewmodel (render/characterSprite.js:148-160) are gone with the mapper
 // that needed them. Rule 54 places the camera inside the rig, so there
 // is no distance to push, no drop to apply and no scale to solve - and
 // the viewmodel's two hard-won laws do not transfer either: its camera
@@ -40,6 +40,9 @@
 // takes the player's pitch through the neck the reference rotates.
 
 import { lookAt, multiply, ortho, perspective, transformPoint, trs, wrapAngle } from '../world/mat4.js';
+import { ClimbPose } from '../player/climbPose.js';   // CLIMB6: the climb's limbs, in the world
+import { climbRequestToRig, climbRequestToFirstPerson } from './climbRig.js';   // CLIMB6: ...and in each rig's space
+import { fieldOfView } from '../ui/viewSettings.js';   // CLIMB6: the world lens the arm's hands are matched to
 import { MW_ARM_PIXEL, CHAR_SPRITE_RT_SIZE } from '../render/renderer.js';
 import {
   sampleTrack, resetClip, advanceClip, getTextKeyTime,
@@ -74,7 +77,8 @@ import { appStorage } from '../systems/appStorage.js';   // DA1: the storage sea
 import { drawRigSpriteBox } from '../render/characterSprite.js';
 import { WEAPONS } from '../characters/weapons.js';
 import { materialName } from '../systems/itemInfo.js';
-import { composeWornArmor, shadowSkinRows, fpWornAdds, mwArmorRecords, mwClothingRecord, CLOTHING_NAME, werewolfRobeOf, firstPersonPartGroup } from '../formats/mwItemMap.js';   // WEREWOLF1: the robe and its first-person ladder
+import { composeWornArmor, composeWornModest, shadowSkinRows, fpWornAdds, mwArmorRecords, mwClothingRecord, CLOTHING_NAME, werewolfRobeOf, firstPersonPartGroup } from '../formats/mwItemMap.js';   // WEREWOLF1: the robe and its first-person ladder; NUDE-FLATS: the upper weld
+import { showNudity } from '../characters/nudeFlats.js';   // NUDE-FLATS: Show Nudity, the weld's switch
 import { skinMips, skinUseOf, skinUseKey } from '../characters/werewolfSkin.js';   // SHADOW-FANG: the werewolf's skin, a law over its own textures
 import { correctTexturePath, correctActorModelPath, wrapModes, warningImage, decodeTextureImage } from '../formats/mwTexture.js';
 import { decodeTextureOffThread } from '../formats/mwTextureClient.js';   // MW-TEXTHREAD: the preload's decodes, in the pool
@@ -569,7 +573,7 @@ export function armReach(eye, unionBounds) {
 /**
  * PACK THE ASSEMBLY for drawCharacter's vertex stream: 9 floats per
  * vertex, [pos.xyz, colour.rgb, normal.xyz], NON-INDEXED, because
- * drawCharacter issues drawArrays (renderer.js:1144). The MW readers hand
+ * drawCharacter issues drawArrays (renderer.js:1271). The MW readers hand
  * back indexed triangles, so the indices are expanded here.
  *
  * NORMALS ARE COMPUTED, not read. poseAssembly skins positions with a
@@ -583,7 +587,7 @@ export function armReach(eye, unionBounds) {
  * left arm is lit inside-out - dark where the right arm is bright - and
  * that is a lighting bug that reads as "the mesh is wrong" rather than
  * as "the mirror is wrong". drawCharacter disables back-face culling
- * (renderer.js:1142), so the winding costs nothing else.
+ * (renderer.js:1269), so the winding costs nothing else.
  */
 export function packFpArm(pieces, out = null) {
   let tris = 0;
@@ -1674,8 +1678,13 @@ async function buildTpBody({
     // reads synchronously - every third-person skin part and worn add
     // (the loop's own `meshes/${row.model}`), and the weapon and arrow
     // meshes resolveWeaponParts reads further down.
+    // MW-BRIG2: the body a worn model is skinned from - the player's own skin parts for the slots it names, SHADOWED
+    // OR NOT (the cuirass hides the very chest it copies; hidden is not drawn, and the skin is still the body's).
+    const bodyUnder = (add) => (add.skinFrom ?? []).flatMap((slot) => rows
+      .filter((r) => r.record && r.slot === slot).map((r) => ({ slot, path: `meshes/${r.record.model}` })));
     await loadFromArchives(archives, [
       ...[...skinRows, ...worn.adds].map((row) => `meshes/${row.model}`),
+      ...worn.adds.flatMap(bodyUnder).map((b) => b.path),   // MW-BRIG2
       ...weaponPartPaths({ weapon, hasAmmo, allWeapons, has: archiveHas(archives) }),   // MW-D50
       ...torchPartPaths({ torch, allLights, has: archiveHas(archives) }),   // MW-D51
       ...hipLanternPartPaths({ hipLight, allLights, has: archiveHas(archives) }),   // HT-WAIST
@@ -1687,7 +1696,8 @@ async function buildTpBody({
       if (!arc) { missing.push(`${row.slot}: ${path} is not in your archives`); continue; }
       // partName rides along: a worn add's slot is a label carrying its
       // record id, and the binder's part rules key on the part itself.
-      partBytes.push({ slot: row.slot, partName: row.partName, bones: row.bones, bytes: arc.get(path).slice() });
+      partBytes.push({ slot: row.slot, partName: row.partName, bones: row.bones, bytes: arc.get(path).slice(),
+        ...(row.skinFrom ? { skinFrom: bodyUnder(row).map((b) => ({ slot: b.slot, bytes: find(b.path)?.get(b.path)?.slice() })).filter((b) => b.bytes), fitTo: row.fitTo ?? null } : {}) });   // MW-BRIG2; MW-BRIG3: and the part it is fitted onto
     }
     if (!partBytes.length) {
       return { ok: false, stage: 'parts', error: werewolf ? 'no werewolf body mesh resolved - its robe, head and hair are Bloodmoon\'s' : `no third-person body mesh resolved for race "${race}"`, notes: missing, rows };
@@ -2005,9 +2015,11 @@ export async function buildFpArm({
         (probe) => composeWornArmor({ pieces: armor ?? [], armors: armors ?? [], clothes: clothes ?? [], bodyPool: parts, female, colourOf: probe }),
         parts, archives, gen);
     }
+    // NUDE-FLATS: and a woman's bare chest wears the upper weld while Show Nudity is off - this body is the
+    // player's own figure and every peer's, each drawn by the viewer's setting as the classic doll is.
     const worn = werewolf
       ? composeWornArmor({ pieces: robe ? [{ kind: 'record', record: robe, reserve: 'robe' }] : [], armors: [], clothes: [], bodyPool: parts, female })
-      : composeWornArmor({ pieces: armor ?? [], armors: armors ?? [], clothes: clothes ?? [], bodyPool: parts, female, colourOf });
+      : composeWornModest({ pieces: armor ?? [], armors: armors ?? [], clothes: clothes ?? [], bodyPool: parts, female, colourOf }, showNudity());
     // AUDIT C7: which of the two it is - Bloodmoon.esm not attached, or attached and naming no robe (a mod's master)
     if (werewolf && !robe) {
       worn.notes.push(esmNames.some((n) => /^bloodmoon\.esm$/i.test(n))
@@ -2728,6 +2740,13 @@ export function createFpArm() {
   // overlayMemo does: one merged map and one sampler per (base, spec,
   // inner sampler), rebuilt only when one of them changes.
   let held = null;               // { spec, piece, aspect, eye, built, reach0 }
+  // CLIMB6: THE CLIMB'S POSE. One law per rig instance (the own player's arm and body share it - the same hands on the
+  // same stone in either view; a peer's has its own), stepped every update; `climbLast` the body's last request in the
+  // rig's space, kept so the pose fades with the body as the hands let go; `climbHands` the hands on the stone this
+  // frame (WeaponManager's climbing return: no weapon, no torch in them).
+  const climbLaw = new ClimbPose();
+  let climbLast = null;
+  let climbHands = false;
   let heldMemo = null;           // { base, spec, inner, tracks, sampler }
   let lastFrame = null;          // { model, view, proj, rect } - what draw() last composed with
   let lastThirdModel = null;   // AUDIT FIELD-GUN-MW F2: drawThird's model matrix, for the muzzle in the world
@@ -2955,6 +2974,12 @@ export function createFpArm() {
   function iconRecordOf(cat, item) {
     try {
       if (item.group === 'Weapons') {
+        // MW-ASSIGN (2026-09-27, Discord: "Some sprites not assigned morrowind skin"): a weapon of the port's OWN (the
+        // Thunderlock) is its own shipped model on the icon and hung on a wall, as it is in the hand
+        // (resolveWeaponParts) - Morrowind's records hold no type for it, so the ask below answered none and the
+        // classic picture stood
+        const own = ownWeaponModelFor(item);
+        if (own) return { id: own.id, model: own.model };
         const mwType = dfWeaponToMw(item, WEAPONS);
         return mwType !== MW_WEAPON_TYPE.None ? pickWeaponRecord(cat.weapons, mwType, materialName(item)) : null;
       }
@@ -3034,7 +3059,7 @@ export function createFpArm() {
   function uploadThirdMesh(t) {
     thirdPacked = packFpArm(t.arm.pieces, thirdPacked);
     if (!thirdMesh) {
-      thirdMesh = renderer.createCharacterMesh(thirdPacked.packed, { uv: true });
+      thirdMesh = renderer.createCharacterMesh(thirdPacked.packed, { uv: true, bounds: false });   // MW-CROWD: drawn only through the sprite target (drawRigSpriteBox), which casts nothing - no sphere to walk at every pose
       thirdMesh.ranges = thirdPacked.ranges;
       hangRangeTextures(thirdMesh.ranges, t.textures, { skin: bodySkin() });   // SHADOW-FANG
     } else {
@@ -3148,6 +3173,29 @@ export function createFpArm() {
    *  light hides while the drawn type carries the TwoHanded bit -
    *  carriedLeftVisible below. Sheathed, the drawn type is None and the
    *  torch is up. */
+  /** CLIMB6: the climb's request in the THIRD-PERSON body's space - the snapshot's body feet and yaw are the ones the
+   *  hosts draw it at (drawThird: bodyFeetAt, bodyYawFor), the race's scales its own. Off the wall the last request
+   *  fades with the law's weight, held where it was on the body (the hands leave the stone with it). */
+  function thirdClimb(cw, cam) {
+    if (!(cw && cw.w > 0)) { climbLast = null; return null; }
+    const snap = cam && cam.climb;
+    if (snap && snap.feet) {
+      const rs = (built && built.raceScale) || { weight: 1, height: 1 };
+      climbLast = climbRequestToRig(cw, { feet: snap.feet, yaw: snap.yaw, unitsPerMetre: MW_UNITS_PER_METER, weight: rs.weight, height: rs.height });
+      return climbLast;
+    }
+    return climbLast ? { ...climbLast, w: cw.w } : null;
+  }
+  /** CLIMB6: ...and the FIRST-PERSON arms' - the hands only, each reaching along the line from the rig's eye through
+   *  where its hold stands on screen (the arms are laid over the world: the grip covers the stone in the picture). The
+   *  rig's eye is its camera node, as the lens stands it (last frame's pose; the sneak's and the bob's offset with it). */
+  function firstClimb(cw, cam) {
+    if (!(cw && cw.w > 0) || !cam || !cam.pos || !built.arm.mats) return null;
+    const node = built.arm.mats.get(built.cameraRef);
+    if (!node) return null;
+    const rigEye = [node.t[0] + fpOffset[0], node.t[1] + fpOffset[1], node.t[2] + fpOffset[2]];
+    return climbRequestToFirstPerson(cw, { eye: cam.pos, yaw: cam.yaw || 0, pitch: cam.pitch || 0, fov: fieldOfView(), lensFov: FP_FIELD_OF_VIEW, lensPitch: followCam ? 0 : (cam.pitch || 0), rigEye });
+  }
   function torchVisible() {
     if (!torchLit || !built || !built.ok) return false;
     // AUDIT MW-TORCH F2: a light that resolved to NOTHING on this rig
@@ -4180,6 +4228,10 @@ export function createFpArm() {
      * path from then on. Returns the slow path's promise, true on the
      * fast path, false when nothing changed or nothing stands.
      */
+    /** CLIMB6: are the hands on the stone - the climb's pose holding them (its weight at least half), the first-person
+     *  arms posed on the lip or the face this frame. The weapon rig keeps the arms ON the screen then (CLIMB4 lowered
+     *  them out of it: an arm with no pose for the climb had nothing better to show). */
+    climbPosed() { return climbHands && viewMode === 'first' && !held; },
     /** MAP3: HOLD THE SHEET. The travel map's holder calls this when it
      *  opens on a drawn Morrowind arm: the pose deltas go over the idle,
      *  the weapon/arrow/torch hide, and a parchment piece of `aspect`
@@ -4494,6 +4546,9 @@ export function createFpArm() {
       if (!built || !built.ok || !renderer) return;
       const cam = camera && camera();
       sneaking = !!(cam && cam.sneaking);
+      // CLIMB6: the climb's limbs, every frame (a frame that does not pose still walks the gait: a peer's travel)
+      const climbWorld = climbLaw.update(dt, (cam && cam.climb) || null);
+      climbHands = climbWorld.w >= 0.5 && !!(cam && cam.climb);
       // refreshCurrentAnims' order, and it is not arbitrary: the weapon
       // state is stepped FIRST because the idle refresh below depends on
       // it - "idle handled last as it can depend on the other states"
@@ -4579,6 +4634,7 @@ export function createFpArm() {
             sampleTrack: tOverlay ? overlaySample : sampleTrack,
             time: poseTime(state),   // MS1: a backhand's window runs backwards
             accumRoot: t.accumRoot,
+            climb: thirdClimb(climbWorld, cam),   // CLIMB6
           });
           uploadThirdMesh(t);
           // MAC-Q: the body's particle systems, on the clock its parts ride
@@ -4589,7 +4645,7 @@ export function createFpArm() {
         // Rule 57 hides on the SAME flags: sheathed vanilla shows no
         // weapon on the body, and the arrow follows the shoot keys.
         for (const r of thirdMesh.ranges) {
-          if (r.slot === 'weapon') r.hidden = !weaponShown;
+          if (r.slot === 'weapon') r.hidden = !weaponShown || climbHands;   // CLIMB6: no weapon in hands on the stone
           else if (r.slot === 'arrow') r.hidden = !arrowShown;
           else if (r.slot === 'torch') r.hidden = !torchVisible();   // MW-D51
           else if (r.slot === HIP_LIGHT_SLOT) r.hidden = !hipVisible();   // HT-WAIST: lit, and never the carried-left rule
@@ -4629,6 +4685,7 @@ export function createFpArm() {
         tracks: fTracks,
         sampleTrack: fSampler,
         time: poseTime(state),   // MS1: a backhand's window runs backwards
+        climb: held ? null : firstClimb(climbWorld, cam),   // CLIMB6: the hands reach the stone they hold (the sheet's hands are the sheet's)
         // Rule 56's accum root is STICKY and rig-wide, so it does not
         // follow the source the way the tracks do.
         accumRoot: built.accumRoot,
@@ -4702,6 +4759,8 @@ export function createFpArm() {
         else if (r.slot === 'paper') r.hidden = !held;
         // MAP3: the hands hold the sheet and nothing else while it is up
         if (held && (r.slot === 'weapon' || r.slot === 'arrow' || r.slot === 'torch')) r.hidden = true;
+        // CLIMB6: ...and the stone while they climb (WeaponManager's climbing return, ShowWeapons(false))
+        if (climbHands && (r.slot === 'weapon' || r.slot === 'arrow' || r.slot === 'torch')) r.hidden = true;
       }
       frames++;
     },
@@ -4930,9 +4989,9 @@ export function createFpArm() {
      *
      * MW-D34, THE MEASURED CHIRALITY (mwArmProbe L5b, through the REAL
      * composite - MW-D23's law): this pass composites through the
-     * WORLD's lens, which is mirrorProjectionX (dungeon.js:752 et al.),
+     * WORLD's lens, which is mirrorProjectionX (dungeon.js:769 et al.),
      * and the port's world convention puts the player's RIGHT at +X at
-     * yaw 0 (motor.js:739) - a LEFT-handed convention the mirror turns
+     * yaw 0 (motor.js:921) - a LEFT-handed convention the mirror turns
      * into correct screen imagery. A right-handed NIF actor placed with
      * a pure rotation therefore reads MIRRORED on screen (measured:
      * sword ink Δleft 1701 vs Δright -127 with the motor's +X anchor
@@ -4943,10 +5002,12 @@ export function createFpArm() {
      * (chirality-true by MW-D23's measurement) already shows it.
      * Winding is safe: drawCharacter disables CULL_FACE.
      */
-    drawThird(canvas, { proj, view, eye, feet, yaw, hitFlash = 0, conceal = null }) {
+    drawThird(canvas, { proj, view, eye, feet, yaw, hitFlash = 0, conceal = null, grow = 1, up = null }) {
       if (!thirdActive() || !canvas || !feet) return false;
       const t = thirdBuilt;
-      const u = 1 / MW_UNITS_PER_METER;
+      // AUDIT OW3 J6: `grow` - the travel view's OW-BIG, the body drawn that many times its size ABOUT ITS FEET (the root
+      // trs stands MW 0,0,0 on them at any scale), its box and so its picture with it; 1 everywhere else
+      const u = (grow > 1 ? grow : 1) / MW_UNITS_PER_METER;
       const yawDeg = (yaw * 180 / Math.PI) + 180;
       // MW-D34: adjustScale on the rendered body (npc.cpp:1124-1135):
       // x,y take the race's WEIGHT, z its HEIGHT. In this frame the
@@ -4999,8 +5060,10 @@ export function createFpArm() {
       // MW-D43b: the body is a Morrowind MESH, so it takes the arm's
       // dial, not the sprite standard - the same fix MW-D43 made for
       // the first-person pass and missed here.
-      // INVIS-LOOK: `conceal` a concealed peer's draw (ECV1's visual, net/peerBodies.js drawVeiled) - the quad blends
-      drawRigSpriteBox(renderer, canvas, thirdMesh, model, { center, halfW, halfH, anchor, hitFlash, conceal }, proj, view, eye, MW_ARM_PIXEL);   // HITFLASH1: a struck peer's body flashes
+      // INVIS-LOOK: `conceal` a concealed peer's draw (ECV1's visual, net/peerBodies.js drawVeiled) - the quad blends.
+      // AUDIT OW4 J6: `up` the travel view's leaned vertical (player/mwView.js, face.up) - the quad leans with the flats and
+      // the sprite lane's body, so the picture taken down the pitched ray is not foreshortened a second time
+      drawRigSpriteBox(renderer, canvas, thirdMesh, model, { center, halfW, halfH, anchor, hitFlash, conceal, up }, proj, view, eye, MW_ARM_PIXEL);   // HITFLASH1: a struck peer's body flashes
       return true;
     },
 

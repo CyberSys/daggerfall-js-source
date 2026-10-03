@@ -55,6 +55,7 @@ import { createNameLayer } from '../src/ui/nameLayer.js';
 import { profileView, profileRenown } from '../src/ui/profileWindow.js';
 import { accountCard } from '../src/ui/enhancedAccount.js';
 import { AccountFlow } from '../src/ui/accountFlow.js';
+import { ACCEPTED } from '../src/net/legalLaw.js';   // TERMS1: a request that makes an account carries the versions ticked
 
 const src = (p) => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8');
 const { subtle } = globalThis.crypto;
@@ -207,7 +208,7 @@ async function stand() {
 test('AUDIT RENOWN1 DATA-4 at the route: `rid` rides the body to the report, and a REPEAT carries a signed order when the level is past 1 - the answer that was lost may have been the one with the rise in it; the deploy asks D1 itself for a report and its repeat (mutants: the rid dropped at the route; no order on a repeat)', async (t) => {
   t.mock.method(Date, 'now', () => T0 * 1000);
   const { call } = await stand();
-  const me = (await call('POST', '/v1/auth/guest', {})).body;
+  const me = (await call('POST', '/v1/auth/guest', { ...ACCEPTED })).body;
   const rid = 'aaaaaaaaaaaaaaaa';
   const first = (await call('POST', '/v1/renown/xp', { character: 'char-aaaa', xp: 5000, rid }, me.secret)).body;
   assert.deepEqual([first.credited, first.rose, typeof first.order], [5000, true, 'string']);
@@ -389,7 +390,7 @@ test('AUDIT RENOWN1 GAME-8: the page\'s last word - `leave` sends the held repor
   assert.equal(JSON.parse(sent.at(-1).init.body).secret, undefined, 'and never in the body');
   assert.equal((await accountCall({ fetch, base: 'https://x.invalid' }, '/v1/health')).ok, true);
   assert.match(renownRid(), RENOWN_RID_RE, 'a report\'s own id, in its shape');
-  assert.match(src('src/scenes/world.js'), /leave: \(c, xp, name, rid\) => renownAccount\.leave\(c, xp, name, rid\),/);
+  assert.match(src('src/scenes/world.js'), /leave: \(c, xp, name, rid, region\) => renownAccount\.leave\(c, xp, name, rid, region\),/);
 });
 
 test('AUDIT RENOWN1 UI-5/UI-7/WIRE-2c: the answer\'s plan - the order carried WHENEVER the service signed one, a rise announced against what was SAID (never against the page\'s level, which a token may have raised first), the hour\'s line only for a report the hour cut short (never at the cap, never for a repeat) (mutants: the order gated on the page\'s level; the announcement against the page\'s level; the cap line at the cap; the cap line for a repeat)', () => {

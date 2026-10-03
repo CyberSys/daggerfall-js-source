@@ -582,6 +582,26 @@ LevitateMotor / PlayerSpeedChanger / PlayerEnterExit / PlayerEntity:
   race gate short-circuits before the roll); breath/drowning
   (isPlayerSubmerged at +76*GlobalScale) shipped at P12, its residue
   at P18.
+  **BALANCE1 (2026-09-27, Mac: fatigue "drain[s] a little too fast")**:
+  the losses above stay DFU's; what exertion CHARGES is x0.75
+  (`statMods.js FATIGUE_DRAIN_SCALE`, inside the same truncation as the
+  multiplier) - the minute's band, a jump, a swing (8) and Roleplay
+  Realism's overload. A full bar at STR/END 50 walks 66.7 real minutes
+  (DFU 48.5) and runs 8.1 (DFU 6.1). A departure: Ledger A,
+  `01-Overview/Field-Bugs-2026-09-27-phone-backup-drains.md`.
+  **FATIGUE-IDLE (2026-09-29, Mac: "You shouldn't lose fatigue at an
+  insane rate standing still"; asked, "Nothing")**: standing still ON
+  THE GROUND pays no minute's band (`worldTick.js`, off the motor's
+  `standing` - grounded, no move input - which every host now hands the
+  tick). DFU charges the default 11 then too (PlayerEntity.cs:405-418),
+  and it was the whole of the report: measured on the live build and
+  through the hosts' own ticker, nothing else drained and nothing
+  charged twice - a full bar at STR/END 50 emptied in ~67 real minutes
+  of doing nothing. A climb, a run, a swim (its passed roll's walk
+  included), a jump, a swing and Roleplay Realism's overload (the mod's
+  own round - Mac: "Keep the mod's rule") keep their amounts; the
+  journey's autopilot drives the move axes, so a journey still walks.
+  A departure: Ledger A, FATIGUE-IDLE; `test/fatigue_idle.test.js`.
 - **PARITY FIX**: PlayerMotor.limitDiagonalSpeed (.7071 when both
   axes are live) had never been ported - the grounded motor moved
   sqrt(2) fast on diagonals. Applied on both paths.
@@ -969,7 +989,7 @@ all four caught, then reverted).
   update's worth; the cadence, the submergence geometry and the
   SetHealth(0) stay in dungeonContext.breathTick, which BOTH
   dungeon-mode hosts drive through dungeonCtx.drawFoes
-  (worldModes.js:919). exterior.js and world.js have no submersion
+  (worldModes.js:1040). exterior.js and world.js have no submersion
   path for it to ride yet - when exterior water lands, it consumes
   this same step. New in the step:
   (1) THE ARGONIAN COIN REFUND (:331-333): on each drain tick,
@@ -1700,10 +1720,10 @@ that `worldModes`'s own mousedown/mouseup handlers never call
 `mouseCode(e.button)`, so `held(keys, 'AutoRun')` was dead in that host
 at the shipped `Mouse2` default, and handed it to the input lane.
 `worldModes` has no `keys` Set of its own: it destructures one from
-`host` (`worldModes.js:449`), and its only two callers are `world.js`
+`host` (`worldModes.js:492`), and its only two callers are `world.js`
 (`:6147`) and `exterior.js` (`:2769`), both of which pass their own Set
-and both of whose WINDOW-level handlers (`world.js:9098-9099`,
-`exterior.js:3299-3300`) call `mouseCode(e.button)` and add/delete
+and both of whose WINDOW-level handlers (`world.js:13669-13670`,
+`exterior.js:3372-3373`) call `mouseCode(e.button)` and add/delete
 unconditionally - outside every mode and overlay gate. `MOUSE_CODES`
 maps button 2 to `Mouse2` (`input.js:510`), which is the shipped
 binding (`InputManager.cs:995`). The latch is live in that host; there
@@ -1721,7 +1741,7 @@ not gate on `HasAction`; it gates on `playerMotor.IsStandingStill`
 that `GroundedMovement` writes straight into `moveDirection`, so DFU
 plays the stride. The port walked the autorunner forward in silence in
 every host. All four now pass `standingStill: player.standing`, the
-motor's own mirror of that getter (`world.js:17262` already did at its
+motor's own mirror of that getter (`world.js:25942` already did at its
 other footstep site) - which is also still the paralysis answer,
 because the hosts zero both axes for a frozen player.
 
@@ -2146,3 +2166,85 @@ a 30-degree hill the body sat 13 cm under the ground, and 23 cm running.
 `bodyFeetAt()` is EV1's interpolation alone. The five body draws take it,
 and the cameras keep the smoothing. `01-Overview/Field-Bugs-2026-09-23.md`
 DISC18.
+
+## DISC29-A - a Collision01 object is stood on wherever its own surface is (2026-09-28, Skibbster)
+
+"The throne puzzle's switch doesn't activate when you walk on it." N0000037's two thrones (objects 22908 and 22979,
+model 41123) are CastSpell effects with the Collision01 trigger - WalkOn only (TRIGGER_GATE) - chained to a tapestry
+(23098) that slides 1.6 m off a teleporter brick. DaggerfallActionCollision calls a contact WalkOn when it is beneath
+the player, and on a Collision01 object ALSO when "a ray straight down from the controller's bottom, skinWidth long"
+hits the object's own collider (:68-85). `collisionTriggers` read "beneath" as the top of the object's BOX and folded
+the standing ray into it ("at our capsule scale") - and a throne's box tops its backrest at 34.08 where the seat is at
+32.55, so a player on the seat was WalkInto, refused, 18 times, and the tapestry never moved.
+
+The ray is its own arm now (`world/actionSystem.js standsOnAction`): the box's top, or - Collision01 alone - the
+object's own surface within `TRIGGER_SKIN_WIDTH` (Unity's 0.08) under the feet (`ownSurfaceUnderFeet`, cast from
+`TRIGGER_RAY_LIFT` above them so a body resting exactly on the face still stands on it). A mover or a door is its own
+bucket in the dungeon's collider; an effect or relay model is in the shared `'dungeon'` bucket, so the host keeps a
+copy of a Collision01 one's triangles in a probe-only collider (`triggerSurfaces`) that nothing moves against. Every
+other flag keeps the box's top alone - Collision03, MultiTrigger and Collision09 admit no WalkOn, so for them the arm
+only decides a refusal; 99 MultiTrigger room pieces have floors, and moving them to a contact rule is its own review.
+
+Measured on BLOCKS.BSA: of the 104 Collision01 objects (52 models), 49 have no upward face within the old band's
+0.15 of their box's top and 12 only some of theirs - 18 Activate relays, 15 DoorText plaques (S0000205's corridor
+among them), 8 Hurt23/Hurt24 rooms (model 67017 in N0000006 and N0000008), 4 CastSpell (the two thrones, N0000007's
+room), 2 DrainMagicka, a Teleport and an Unknown32 among the 49. Stood on, each now fires as DFU's does.
+`test/disc29_throne.test.js` (5, one on the real N0000037); `tools/mutants/disc29.json` (DISC29-A, 7).
+`01-Overview/Field-Bugs-2026-09-28f.md` DISC29-A.
+
+**AUDIT PRE-MERGE 0929 D1/D2** (`01-Overview/Audit-PreMerge-0929.md`) - the review above, due at once. DFU's WalkOn is
+the contact's DIRECTION from the controller's centre (`dir.y < -0.9`, :68-71) for EVERY flag; the ray (:74-85) is only
+Collision01's second test. The box's top and a ray under the capsule's centre missed a staircase, where a body rides the
+treads' edges - N0000007's Hurt22 staircase (object 20798, in 69 dungeons) bit 2 times walking all sixteen steps down, 4
+up - and a MultiTrigger floor stood on was WalkInto, and fired: Orsinium's castle floor (S0000020 object 10406, a
+DoorText with a trespass on it) turned the castle hostile at the first steps across it. OnCharacterCollided is whole
+now (`world/actionSystem.js actionContact`). The contact is the collider's (`player/collider.js capsuleContact`: the
+nearest point of the object's own triangles within the skin of the sphere chain the motor resolves the capsule as);
+beneath is WalkOn for every flag, a Collision01 casts its ray, else WalkInto; a box touched with nothing of the object
+touched hears nothing; and a side is heard only while the body moves INTO it - the pass hands the contact the direction
+the body presses, the motor's own sin and cos of forward and strafe from the yaw the motor moved it by (its own word,
+`moveYaw`, carried in the one motion bag), as a ControllerColliderHit only comes of a Move into its collider: walking along a
+wall bumps nothing. Every collision-trigger model's triangles are in `triggerSurfaces`. Over BLOCKS.BSA's 1,546 resting
+spots the port agrees with DFU on 1,537 (983 before); the nine left are a lip or an arm beside the body, where DFU's
+answer too depends on which way the body moves. The staircase bites 9 times down, 13 up; the throne is WalkOn at the
+motor's own rest (0.078 over the seat, where DISC29-A's pins stood the feet by hand at 0.027). The acting FLATS keep
+their box - DFU gives a flat's action a trigger BoxCollider (RDBLayout.cs:977-987). `test/audit0929_actions.test.js`
+(6, three on the real BLOCKS.BSA); `tools/mutants/audit0929_actions.json` (11, all dead - D3's among them).
+
+## WW-LID - A lift the body has no room for is never taken (2026-09-29, Cruor)
+
+"Water walking is still evil" - "I fell out the map again..", the dungeon seen from outside it, Water Walking on the
+effect list. FOUND BY FUZZING, not guessed: a water walker and a plain swimmer driven at random (float up and down,
+run, strafe, 12-60 fps) through every flooded RDB block over the real BLOCKS.BSA, with a probe that asks whether the
+body's centre crossed a face in one frame. The first road out, W0000021.RDB: a flooded room with its ceiling at 3.2
+and, in its wall, a doorway whose lintel is at 2.8, the passage's ceiling sloping down behind it. A crouched swimmer
+(0.9 tall) floated to the ceiling and swam at the doorway. Water walking moves a swimmer at the LAND speed
+(LevitateMotor.cs:116-122, ported verbatim), so one step carried the LOWER sphere under the lintel's floor-sloped
+underside before the head had met the lintel; PH1's one-way floor (above) set the body ON it, and the head sphere, its
+centre now over the room's ceiling, was pushed out on top of that. A swimmer's slower stroke lets the head meet the
+lintel first and be turned back - which is why only water walking did it (through the real motor: 16 of 16 water
+walker runs out through the ceiling, 0 of 16 swimmers). With that road shut the fuzz found two more, a rib hung under
+the ceiling through the crouched body's waist (straddled, so PH1 lifted it into the ceiling) and the step ladder
+lifting the body onto such a rib. Four laws in `player/collider.js`, the rest of the resolve untouched:
+
+- **S - the sideways pass straddles too.** DISC28-G's law - a surface is a floor to the lower sphere only below the
+  head's centre - held for the rising pass alone; `_moveStep`'s horizontal resolve hands it now (`straddle`, the
+  renamed `rising`). A standing body's band is empty, so only a crouched body (0.9, axis 0.2) and the swim sphere change.
+- **H - a resolve never carries the head up through a face.** When a resolve has raised the body past a skin, the path
+  its head's centre rose along is asked (a ray from a skin under the centre - `rayTriangle` takes no hit nearer than
+  1e-4, and a centre standing ON a ceiling's plane went through it unasked), and a face across it refuses the rise, as
+  the too-tight clamp does. The refusal says so (`out.refused`).
+- **B - a refused sideways pass is not taken.** The refusal reverts to the resolve's entry, which is the move itself -
+  so a body with a rib through its waist and no room over it passed clean through the rib. It is stopped now, and the
+  step ladder asks whether the rib is a step.
+- **L - a refused rung is no headroom.** The too-tight revert hands a raised rung back at the raised height, which the
+  ladder read as room gained.
+
+Each is held by its own case in `test/fb0929d_waterwalk.test.js` (6: the motor at the doorway, the stride sweep, the
+high doorway for S, the ribs for B, H and L, the crawl slot for H, the real block's step behind ARENA2); every scene is
+built there in the doorway's shape, never read off the block. `tools/mutants/fb0929d_waterwalk.json`, 10 mutants, 10
+dead. The fuzz over all 32 flooded blocks (W0000000-W0000029, S0000160-S0000161), 1152 runs (6 spawns, 3 seeds, water
+walking and not, 20 seconds each): before, 10 bodies out through a face (7 water walking, 3 swimming; W0000012,
+W0000021, W0000024); after, none.
+PH1's own cases (a floor the body sank under, its head over it) are unchanged and pinned; PH1's source pin re-aimed to
+the renamed line, and DISC28-G's and AUDIT DISC28's `rising` mutants with it.

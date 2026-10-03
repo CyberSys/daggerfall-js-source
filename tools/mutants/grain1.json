@@ -151,7 +151,7 @@
  {
   "name": "AUDIT-GRAIN-the-door-is-ignored",
   "file": "src/render/renderer.js",
-  "old": "  return new URLSearchParams(search).get('ground') ?? getPref('groundSharpness');",
+  "old": "  return pageParam('ground', search) ?? getPref('groundSharpness');",
   "new": "  return getPref('groundSharpness');",
   "tests": [
    "test/grain1_terrainmip.test.js"

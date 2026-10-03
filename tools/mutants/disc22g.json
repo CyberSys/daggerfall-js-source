@@ -83,8 +83,8 @@
   {
     "name": "D22G-home-whole-level",
     "file": "src/ui/automapSheet.js",
-    "old": "      const scale = Math.max(min, READABLE_SCALE, fit);",
-    "new": "      const scale = min;",
+    "old": "      const scale = restScale(min, fit);   // capped first, so the centre holds",
+    "new": "      const scale = min;   // capped first, so the centre holds",
     "tests": [
       "test/disc22g_automap.test.js"
     ]
@@ -128,7 +128,7 @@
   {
     "name": "D22G-note-anywhere",
     "file": "src/ui/automapSheet.js",
-    "old": "        if (!onRevealedFloor(mx, my)) return false;",
+    "old": "        if (!solidOn && !onRevealedFloor(mx, my)) return false;",
     "new": "",
     "tests": [
       "test/disc22g_automap.test.js"
@@ -164,8 +164,8 @@
   {
     "name": "D22G-no-breath",
     "file": "src/ui/automapSheet.js",
-    "old": "    breathes() { return !!entranceHere() || readPartyBodies(deps.party).length > 0; },",
-    "new": "    breathes() { return readPartyBodies(deps.party).length > 0; },",
+    "old": "    breathes() { return !!entranceHere() || readPartyBodies(deps.party).length > 0 || hoverRow != null || hoverNote != null || (solidOn && (!!(hoverStair || hoverButton) || solidBlitted)); },   // EM3-3D fix: a scaled blit is redrawn once the zoom rests   // EM3-3D: a hovered stair's name and a hovered button are inked on the beat",
+    "new": "    breathes() { return readPartyBodies(deps.party).length > 0 || hoverRow != null || hoverNote != null || (solidOn && (!!(hoverStair || hoverButton) || solidBlitted)); },   // EM3-3D fix: a scaled blit is redrawn once the zoom rests   // EM3-3D: a hovered stair's name and a hovered button are inked on the beat",
     "tests": [
       "test/disc22g_automap.test.js"
     ]

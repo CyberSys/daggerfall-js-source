@@ -30,10 +30,11 @@
 // finds it twice and believes it.
 
 import { savingThrow, rollMagnitude, EFFECT_FLAGS, careerTolerance } from './spellcast.js';
+import { mentorDamageTakenMult } from './mentorMode.js';   // SOFTCAP2: a leaf
 import { raceById, raceByKey } from './races.js';   // L2-slice (magic-10): the racial immunity arm
 import { STAT_KEYS_ORDER, FATIGUE_MULTIPLIER, maxFatigue, increaseDrainMagnitude, liveStat } from './statMods.js';
 import { dice100 } from '../combat/formulas.js';
-import { tryAbsorption, effectCastingCost } from './absorption.js';
+import { tryAbsorption, effectCastingCost, absorbRefund } from './absorption.js';
 import { enemyGroupOf, NEARBY } from './nearbyObjects.js';   // X8: Pacify matches on DFU's EnemyGroups, the same table X4 ported   // S24; X7: the Identify refund reads the same per-effect cost
 // AUDIT 24 (wave 31): the concealment BREAK lives in its own leaf so that
 // combat/formulas.js can reach it without the effects -> spellcast ->
@@ -41,8 +42,10 @@ import { enemyGroupOf, NEARBY } from './nearbyObjects.js';   // X8: Pacify match
 // already speak to.
 import { breakNormalPowerConcealment, handleAttackFromSource } from './concealment.js';
 import { entityAbsorbsSpells, setEnchantmentEffectDoors } from './enchantments.js';   // E1: the AbsorbsSpells fold feeds the absorption gate
+import { markPlayerHarm } from './harmMark.js';   // REVENANT-HARM: a lingering effect's round on the player keeps its caster's mark
 import { regenBarred } from './courtRules.js';   // WBX6: the Burning Court keeps no regeneration
 import { localizedText, localizedTable } from './textManager.js';   // L10N3d: DFU's Internal_Strings, read in the player's language
+import { HEAL_SPELL_POINTS_KEY } from './potionRecipes.js';   // PROF12: Heal-SpellPoints' key, beside the one recipe that names it
 
 export { breakNormalPowerConcealment, handleAttackFromSource, NORMAL_POWER_CONCEALMENTS } from './concealment.js';
 
@@ -147,6 +150,12 @@ export const BUFF_KINDS = Object.freeze({
   // it - in the candle producer, not in this table - so a foe really
   // does carry the effect and really does stay dark.
   '15,255': 'light',
+  // PARTY-MAP (2026-09-30, Discord: "share map data between party members, possibly with a spell effect so that
+  // maintaining some kind of buff for it becomes part of the dungeoneering loop"): SHARED CARTOGRAPHY (46,255 - the
+  // port's own, no classic key uses 46; RESURRECT1's 45 is the precedent). Duration-only and CasterOnly, stacking
+  // rounds as every row here does; the entry's PRESENCE is the share - systems/partyMap.js reads it, and a caster in
+  // no party (offline, solo) holds a buff that does nothing at all.
+  '46,255': 'sharedCartography',
 });
 
 /** DaggerfallEntity.IsInvisible / IsBlending / IsAShade, verbatim:
@@ -241,6 +250,7 @@ export const MAGIC_ONLY_KEYS = new Set([
   '27,255', '28,255', '29,255', '30,255', '31,255', '33,0', '33,1',
   '33,2', '33,3', '35,255', '39,0', '39,1', '39,2', '40,255',
   '43,255', '44,255',
+  '46,255',   // PARTY-MAP: Shared Cartography, the port's own - a self-buff, Magic as every buff here
 ]);
 
 /** THE BUFF LANDING ALERTS - every line DFU speaks on the frame a
@@ -262,6 +272,7 @@ export const BUFF_START_TEXT = localizedTable({
   chameleonNormal: ['youAreBlending', 'You are blending.'], chameleonTrue: ['youAreBlending', 'You are blending.'],
   shadeNormal: ['youAreAShade', 'You are a shade.'], shadeTrue: ['youAreAShade', 'You are a shade.'],
   silenced: ['youAreSilenced', 'You are silenced.'],   // Silence.cs:91-95
+  sharedCartography: () => 'Your map is shared with your party.',   // PARTY-MAP: the port's own line
 });
 /** The name this table shipped under, kept live for its importers. */
 export const CONCEALMENT_START_TEXT = BUFF_START_TEXT;
@@ -306,12 +317,26 @@ export const PACIFY_GROUP = Object.freeze({
 });
 export const isPacifyEffect = (e) => e.type === 33 && PACIFY_GROUP[classicSub(e)] != null;
 export const isCharmEffect = (e) => e.type === 34 && classicSub(e) === 255;
+/** WB8a: a spell that would sway its target - any Pacify or Charm in it (the one home the boss's doors ask). */
+export const spellSways = (sp) => (sp?.effects ?? []).some((e) => e && (isPacifyEffect(e) || isCharmEffect(e)));
 /** X7: Identify (40,255) - a window opener, not a lasting effect. */
 export const isIdentifyEffect = (e) => e.type === 40 && classicSub(e) === 255;
 /** Identify.cs:54-55 - the refund never drops below 5. */
 export const IDENTIFY_REFUND_FLOOR = 5;
 export const hasActiveEffect = (entity, kind) =>
   !!entity?.activeEffects?.some((a) => a.kind === kind);   // presence = active; expired entries End on the NEXT tick pass (DFU shape)
+/** CSA-I: Come Sail Away's WaterWalkingSilent (WaterWalkingSilent.cs) - an incumbent of its own kind, as its
+ *  IsLikeKind keeps it from stacking onto the spell's Water Walking; no spell icon (ShowSpellIcon false). */
+export const WATER_WALKING_SILENT_KIND = 'waterWalkingSilent';
+/** DaggerfallEntity.IsWaterWalking: the flag WaterWalking.ConstantEffect raises - and WaterWalkingSilent's
+ *  StartWaterWalking, the one other effect that sets it. */
+export const isEntityWaterWalking = (entity) => hasActiveEffect(entity, 'waterWalking') || hasActiveEffect(entity, WATER_WALKING_SILENT_KIND);
+/** AUDIT PRE-MERGE 0928 S3: a mod's own effect kinds, each with whether its mod is loaded for the game. DFU's broker
+ *  instantiates an effect only from a loaded mod's registration, and RestoreInstancedBundleSaveData skips one it cannot;
+ *  the port's flat list would keep any kind, so a restore asks this (systems/save.js restorePlayer). */
+const _modEffectKinds = new Map();
+export function registerModEffectKind(kind, loaded) { _modEffectKinds.set(kind, loaded); }
+export const effectKindLoaded = (kind) => !_modEffectKinds.has(kind) || !!_modEffectKinds.get(kind)();
 
 // S22 FreeAction: the two DFU laws.
 // DaggerfallEntity.IsImmuneToParalysis (THE ENTITY FLAG) is written
@@ -442,7 +467,9 @@ export const isHealFatigue = (e) => e.type === 10 && e.subType === 9;
  *  DFU builds one from EffectEntry(effect.Key, settings) - a STRING
  *  key - so this effect travels under its own, and `type` stays -1
  *  because there is no pair to carry. */
-export const HEAL_SPELL_POINTS_KEY = 'Heal-SpellPoints';
+// PROF12: the key's one home is the recipe table's leaf (systems/potionRecipes.js), the one record that names it - imported
+// and re-exported here, every reader's import standing
+export { HEAL_SPELL_POINTS_KEY };
 export const isHealSpellPoints = (e) => e.key === HEAL_SPELL_POINTS_KEY;
 export const isDamageFatigue = (e) => e.type === 4 && e.subType === 1;
 export const isContinuousDamageFatigue = (e) => e.type === 1 && e.subType === 1;
@@ -550,10 +577,19 @@ export const CURE_KINDS = Object.freeze(['disease', 'poison', 'paralyze']);   //
  *  them. The three named wrappers below are the members DFU actually
  *  exposes, and the temple's cure-disease service (U24) calls the
  *  first one directly - not through a spell. */
-export function cureAllOfKind(target, kind) {
-  if (target?.activeEffects) target.activeEffects = target.activeEffects.filter((a) => a.kind !== kind);
+export function cureAllOfKind(target, kind, keepInfections = false) {
+  if (target?.activeEffects) target.activeEffects = target.activeEffects.filter((a) => a.kind !== kind || (keepInfections && !!a.infection));
 }
 export const cureAllDiseases = (t) => cureAllOfKind(t, 'disease');
+/** FIELD BUGS 29h (INFECTION-KEPT; Julian: "during this time i had gotten another disease from a dungeon and had to cure
+ *  it which likely wiped my lycanthropy progress"; Mac: "Dont worry abour DFU"): A CURE OF DISEASE TAKES THE PLAIN
+ *  DISEASES FIRST. DFU stores a lycanthropy or vampirism infection as a disease bundle, and CureAllDiseases ended it
+ *  with the plague caught beside it. While a plain disease runs, a cure (the temple's, a spell's, a potion's) ends the
+ *  plain ones and leaves the infection to its turn; a cure with nothing else to end ends the infection, so curing it
+ *  before the turn still saves a player who does not want it. The turn's CureAll of the old life
+ *  (lycanthropy.js endOldLifeEffects) still ends every disease there is. */
+export const plainDiseaseLive = (t) => (t?.activeEffects ?? []).some((a) => a.kind === 'disease' && !a.ended && !a.infection);
+export const cureDiseasesInfectionsLast = (t) => cureAllOfKind(t, 'disease', plainDiseaseLive(t));
 export const cureAllPoisons = (t) => cureAllOfKind(t, 'poison');
 export const cureParalyzation = (t) => cureAllOfKind(t, 'paralyze');
 const CURE_MARKER_KINDS = Object.freeze(['cureDisease', 'curePoison', 'cureParalyzation']);   // the three cure CLASSES themselves
@@ -630,8 +666,18 @@ export function healAttributeDamage(entity, stat, amount) {
 /** DROPS-AUDIT ELITE-SPELLS: an elite foe's spells land at its `damageScale`, as its blows do (combat/formulas.js
  *  calculateAttackDamage's tail, the same rounding and floor) - so a caster in an elite dungeon is as strong with
  *  a Fireball as with its sword. The player's own casts, and every caster without a scale, are untouched. */
-export const casterDamageScaled = (n, ent) => (n > 0 && ent && !ent.isPlayer && Number.isFinite(ent.damageScale) && ent.damageScale !== 1
+const casterScaledOnly = (n, ent) => (n > 0 && ent && !ent.isPlayer && Number.isFinite(ent.damageScale) && ent.damageScale !== 1
   ? Math.max(1, Math.round(n * ent.damageScale)) : n);
+/** SOFTCAP2: and a MENTORED player takes a foe's spell as it takes a foe's blow - at the mentored health pool
+ *  (mentorMode.js damageTakenMult, formulas.js's own tail for blows). `target` optional: without it, as before. */
+export const casterDamageScaled = (n, ent, target = null) => {
+  let v = casterScaledOnly(n, ent);
+  if (v > 0 && target?.isPlayer && !target.peer && !ent?.isPlayer) {
+    const m = mentorDamageTakenMult(target);
+    if (m > 1) v = Math.max(1, Math.round(v * m));
+  }
+  return v;
+};
 
 /** One magic round for one ACTIVE entry - the saving throw rolls
  *  FRESH here every round (F10), gated on the spell's range (S15).
@@ -639,10 +685,11 @@ export const casterDamageScaled = (n, ent) => (n > 0 && ent && !ent.isPlayer && 
  *  applies via liveStat / hasActiveEffect). */
 function runEffectRound(a, target, sinks, rolls) {
   if (a.kind === 'continuousDamage') {
-    const n = casterDamageScaled(effectMagnitude(a.effect, a.casterLevel, a.saveScaled ?? true, a.element, a.flag, target, rolls), a.caster);   // DROPS-AUDIT ELITE-SPELLS
+    const n = casterDamageScaled(effectMagnitude(a.effect, a.casterLevel, a.saveScaled ?? true, a.element, a.flag, target, rolls), a.caster, target);   // DROPS-AUDIT ELITE-SPELLS; SOFTCAP2: the target, for mentor mode
     // AUDIT 68 S19-round-ticks-player-provenance: the tick is DamageHealthFromSource(caster) - the player's blow only
     // when the player cast it (no caster is the player, hostMagic's `!caster` law). A round sink bills nobody else.
     // DUEL1: and the entry's duel tag rides along - a duel's damage over time (bundleDuel) stops at the duel's floor
+    if (n > 0 && target?.isPlayer && a.caster && !a.caster.isPlayer) markPlayerHarm(a.caster);   // REVENANT-HARM: the round that may be the death is its caster's
     if (n > 0 && sinks.hurt) sinks.hurt(n, { fromPlayer: !a.caster || !!a.caster.isPlayer, bundleDuel: !!a.bundleDuel });
     handleAttackFromSource(a.caster);   // DamageHealthFromSource's tail, wave 31
   } else if (a.kind === 'continuousDamageSpellPoints') {
@@ -668,6 +715,26 @@ function pushActive(target, entry, sinks, rolls) {
   target.activeEffects.push(entry);
   runEffectRound(entry, target, sinks, rolls);
   entry.roundsRemaining--;
+}
+
+/**
+ * CSA-I: EntityEffectManager.AssignBundle for a MOD'S bundle of one effect the port models by its kind alone (Come
+ * Sail Away's "I'm On A Boat": one WaterWalkingSilent) - the entry pushed with its rounds and its initial round run,
+ * as pushActive does for a cast, and stamped as a bundle the way applySpell stamps one (X10): its name, the type, no
+ * icon, the caster the target.
+ */
+export function assignModBundle(target, { name, kind, rounds, bundleType = 'Spell', sinks = {}, rolls = Math.random }) {
+  const entry = { kind, roundsRemaining: rounds, bundleId: ++_bundleSeq, bundleName: name, bundleType, bundleIcon: 0, bundleSelfCast: true };
+  pushActive(target, entry, sinks, rolls);
+  return entry;
+}
+/** CSA-I: EntityEffectManager.RemoveBundle of the first live bundle with the name - every entry it holds. */
+export function removeBundleNamed(target, name) {
+  const list = target?.activeEffects ?? [];
+  const first = list.find((a) => a.bundleId != null && !a.ended && a.bundleName === name);
+  if (!first) return false;
+  target.activeEffects = list.filter((a) => a.bundleId !== first.bundleId);
+  return true;
 }
 
 /** Push a PERMANENT entry (drain/transfer attribute): no rounds, no
@@ -823,7 +890,7 @@ export function applySpell(spell, casterLevel, target, sinks, rolls = Math.rando
     if (isParalyze(e) && isEntityImmuneToParalysis(target)) continue;
     // DFU requires a CASTER ENTITY on the bundle (:505) and
     // BundleType == Spell - repeated on ALL THREE gates (:509, :521,
-    // :525). D9: the enchantment arc arrived (enchantments.js:284
+    // :525). D9: the enchantment arc arrived (enchantments.js:285
     // routes CastWhenHeld through this same applySpell with caster
     // `{ entity }` and ctx.heldItem set), so the caster check alone
     // stopped being the whole gate: a HeldMagicItem bundle is
@@ -922,7 +989,7 @@ export function applySpell(spell, casterLevel, target, sinks, rolls = Math.rando
       continue;
     }
     if (isDamageHealth(e)) {
-      const n = casterDamageScaled(magnitude(e), caster?.entity);   // DROPS-AUDIT ELITE-SPELLS
+      const n = casterDamageScaled(magnitude(e), caster?.entity, target);   // DROPS-AUDIT ELITE-SPELLS; SOFTCAP2: the target, for mentor mode
       out.damage += n;
       if (n > 0 && sinks.hurt) sinks.hurt(n);
       // DamageHealthFromSource runs HandleAttackFromSource whatever the
@@ -1213,7 +1280,10 @@ export function applySpell(spell, casterLevel, target, sinks, rolls = Math.rando
         out.saved = (out.saved ?? 0) + 1;
         continue;
       }
-      cureAllOfKind(target, CURE_KINDS[e.subType]);
+      // AUDIT SPELL-GIFT B6: a STRANGER's Cure Disease leaves an incubating infection be (systems/infection.js stores
+      // one as a disease) - a player choosing the curse lost it for good to anyone passing with a Cure. FIELD BUGS 29h
+      // (INFECTION-KEPT): and any cure leaves it while a plain disease is there to take (cureDiseasesInfectionsLast)
+      cureAllOfKind(target, CURE_KINDS[e.subType], ctx?.strangerCast === true || plainDiseaseLive(target));
       pushInstantMarker(target, CURE_MARKER_KINDS[e.subType], e);   // after the removal pass, as AssignBundle adds before MagicRound cures
       out.cured = (out.cured ?? 0) + 1;
       continue;
@@ -1449,7 +1519,7 @@ export function applySpell(spell, casterLevel, target, sinks, rolls = Math.rando
     //
     // The "until attacked" half already exists here - every foe damage
     // door re-hostiles a pacified target (MakeEnemyHostileToAttacker),
-    // which enemyMotor.js:434 has anticipated by name since the
+    // which enemyMotor.js:454 has anticipated by name since the
     // C-slice.
     //
     // Chance-only, no magnitude, TargetFlags_Other - so it takes the
@@ -1457,6 +1527,9 @@ export function applySpell(spell, casterLevel, target, sinks, rolls = Math.rando
     if (isPacifyEffect(e) || isCharmEffect(e)) {
       const mt = target?.mobileType;
       if (mt == null) continue;                 // not an enemy: IsGroupMatch/IsEnemyClass both refuse
+      // WB8a (2026-09-28, Mac: "Make the oblivion gate boss not be able to be pacified"): a target that cannot be swayed
+      // (world/gateBoss.js bossStandIn - the gate's Warden) refuses it before any roll: no chance, no save, no flag
+      if (target.pacifyImmune) { out.swayRefused = (out.swayRefused ?? 0) + 1; continue; }
       const matches = isCharmEffect(e)
         ? mt >= 128                             // IsClassEnemyId - Charm is enemy CLASSES only
         : enemyGroupOf(mt) === PACIFY_GROUP[classicSub(e)];
@@ -1739,8 +1812,10 @@ export function applySpell(spell, casterLevel, target, sinks, rolls = Math.rando
     // to the raw target entity never matched, so the cap was dead.
     if (caster?.entity === target && selfCastCost > 0 && totalAbsorbed > selfCastCost) totalAbsorbed = selfCastCost;
     out.absorbed = totalAbsorbed;
+    // ABSORB-NERF (2026-09-30, Discord: "Nerf spell absorption, it breaks the game"): the refund is HALF the points
+    // absorbed, floored - every source, the Sorcerer's Always included (absorption.js absorbRefund)
     if (target.maxMagicka != null) {
-      target.magicka = Math.min(target.maxMagicka, (target.magicka ?? 0) + totalAbsorbed);
+      target.magicka = Math.min(target.maxMagicka, (target.magicka ?? 0) + absorbRefund(totalAbsorbed));
     }
     sinks?.say?.(localizedText('spellAbsorbed', SPELL_ABSORBED_TEXT));
   }

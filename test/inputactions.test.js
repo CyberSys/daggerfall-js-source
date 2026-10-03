@@ -4,7 +4,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { DEFAULT_SECONDARY_BINDINGS,
-  ACTIONS, DEFAULT_BINDINGS, parseActionName,
+  ACTIONS, DEFAULT_BINDINGS, DEFAULT_SHARES, parseActionName,
   createBindings, setBinding, clearBinding, clearBindingByCode,
   addRemovedPrimaryAction, getBinding, getBindings, actionForCode,
   resetDefaults, serializeKeyBinds, loadKeyBinds,
@@ -61,6 +61,21 @@ test('I1: the Actions enum, verbatim names and order (:324-384)', () => {
     'FollowPaths',
     'HorseMount', 'HorseSummon',
     'DebugOverlay',
+    // CSA-D: Come Sail Away's two helm keys (Controls.Disembark, Controls.ToggleLight), appended under the same law.
+    'BoatDisembark', 'BoatToggleLight',
+    // CSA-E: and its sails' four (Controls.ToggleSail, TrimRight, TrimLeft, TrimModifier).
+    'BoatToggleSail', 'BoatTrimRight', 'BoatTrimLeft', 'BoatTrimModifier',
+    'BoatTimeScaleUp', 'BoatTimeScaleDown', 'BoatTimeScaleReset',
+    // TV1 (2026-09-28, bible/06-Systems/Travel-View.md): the travel view from play - appended, shipped unbound (the
+    // held map's Overworld door is the way in).
+    'TravelView',
+    'WalkMode',   // PADWALK
+    'TogglePerspective',   // VIEW-TOGGLE
+    // PROF1: the act choice at an herb patch (bible/06-Systems/Professions-Arc.md 22) - appended, under the same law (MERGE 2: after VIEW-TOGGLE's)
+    'ActChoice',
+    // HELM-KEYS: Come Sail Away's helm on the arrows - more sail and less sail, appended under the same law
+    'BoatSailUp', 'BoatSailDown',
+    'Professions',   // CLASSIC-PAGES: the Professions and Stores pages on either skin, appended after HELM-KEYS' two
   ]);
   // ActionNameToEnum's sentinel: unknown parses to Unknown, and
   // Unknown itself is NOT a bindable action.
@@ -103,6 +118,7 @@ test('I1: ResetDefaults\' table, every row (:979-1032)', () => {
     'KeyP=QuickLootAll',
     'KeyJ=QuickLootOpen',
     'KeyY=FreeMouse',   // FREEMOUSE: the one letter DFU, the port and every vendored mod all leave alone
+    'Mouse4=TogglePerspective',   // VIEW-TOGGLE: the mouse's forward side button
     // QS2: the number row. Digit1-Digit3 are unspent by SetupDefaults, by the
     // port and by every vendored mod's TextKey defaults (the HT4 pin in
     // test/ht1_handheldtorches.test.js walks that whole set).
@@ -121,6 +137,14 @@ test('I1: ResetDefaults\' table, every row (:979-1032)', () => {
     'KeyB=ShoulderSwitch', 'NumpadAdd=AutoPerspective',
     'KeyK=FollowPaths',
     'Comma=HorseMount', 'Period=HorseSummon',
+    // CSA-D: the mod's C and Period are Crouch's and the summon's, so the helm's two ship on free keys under the
+    // right hand (the Port-Ledger's Come Sail Away row).
+    'Quote=BoatDisembark', 'Semicolon=BoatToggleLight',
+    // CSA-E: the mod's Space is Jump's, so the sails ship on End; the trim keeps the mod's brackets and backslash.
+    'End=BoatToggleSail', 'BracketRight=BoatTrimRight', 'BracketLeft=BoatTrimLeft', 'Backslash=BoatTrimModifier',
+    'NumpadMultiply=BoatTimeScaleUp', 'NumpadSubtract=BoatTimeScaleDown', 'NumpadEnter=BoatTimeScaleReset',
+    'ArrowUp=ActChoice',   // PROF1 (THE MERGE: `;` is Come Sail Away's lantern - CSA-D)
+    'ArrowDown=BoatSailDown',   // HELM-KEYS: less sail (more sail shares the up arrow - DEFAULT_SHARES)
   ]);
   // every bindable action except the four with no default key
   // (MoveLeft/MoveRight arrive via A/D; TurnLeft/TurnRight via
@@ -138,11 +162,15 @@ test('I1: ResetDefaults\' table, every row (:979-1032)', () => {
   // so the table and the enum both grow by two and the one unbound
   // action below is still the only one.
   // KB1: two DFU rows unbound (the hidden console and Slide), seventeen actions appended, sixteen of them bound -
-  // DebugOverlay ships unbound, a developer's key.
-  assert.equal(DEFAULT_BINDINGS.length, 66);
-  assert.equal(bound.size, 66, 'no action is defaulted twice');
-  assert.equal(ACTIONS.length, 70);
-  assert.deepEqual(ACTIONS.filter((a) => !bound.has(a)), ['ToggleConsole', 'Slide', 'QuickSwap', 'DebugOverlay'], 'the four that ship unbound, named');
+  // DebugOverlay ships unbound, a developer's key. CSA-D: two more appended, both bound; CSA-E four more, all bound;
+  // CSA-G three more, all bound. PROF1: and the act choice, appended and bound (the up arrow). HELM-KEYS: less sail on
+  // the down arrow; more sail owns no key - it SHARES the up arrow with the act choice (DEFAULT_SHARES).
+  assert.equal(DEFAULT_BINDINGS.length, 78);   // VIEW-TOGGLE: plus the view's toggle; PROF1: plus the act choice's; HELM-KEYS: plus less sail's
+  assert.equal(bound.size, 78, 'no action is defaulted twice');
+  // TV1: one more appended after them, and unbound - the travel view's door is the map's.
+  assert.equal(ACTIONS.length, 86);   // CLASSIC-PAGES: + Professions, last; PADWALK: + WalkMode, after them (main's indices are live); VIEW-TOGGLE: + TogglePerspective; PROF1: + ActChoice; HELM-KEYS: + BoatSailUp, BoatSailDown, last
+  assert.deepEqual(ACTIONS.filter((a) => !bound.has(a)), ['ToggleConsole', 'Slide', 'QuickSwap', 'DebugOverlay', 'TravelView', 'WalkMode', 'BoatSailUp', 'Professions'], 'the eight without an owned key, named - more sail\'s and the Professions key\'s are default shares');
+  assert.deepEqual(DEFAULT_SHARES, [['ArrowUp', 'BoatSailUp', 'ActChoice'], ['ArrowDown', 'Professions', 'BoatSailDown']], 'HELM-KEYS: the default shares - onto their partners\' own keys; CLASSIC-PAGES: the Professions key beside less sail');
   const codes = DEFAULT_BINDINGS.map(([c]) => c);
   assert.equal(new Set(codes).size, codes.length, 'and no KEY is spent twice - the number row was free');
 });
@@ -186,7 +214,7 @@ test('I1: the two clears - by action walks all its codes, by code takes one (:80
 test('I1: a FULL reset clears primary and the removed list but NOT secondary (:956-960)', () => {
   const s = createBindings();
   resetDefaults(s);
-  assert.equal(s.primary.size, 66);   // KB1: DFU's 42 (its console and Slide rows unbound) plus the port's 24; SOC5: DFU's 44 plus SocialInteract; QS2: plus the three quickslot rows; QS4: plus the off hand's; QUICK-LOOT B4: plus the plaque's two; FREEMOUSE: plus the mouse toggle's own key
+  assert.equal(s.primary.size, 78);   // HELM-KEYS: plus less sail's (more sail's is a share - sharedPrimary); VIEW-TOGGLE: plus the view's toggle; PROF1: plus the act choice's key; CSA-D: plus the helm's two; CSA-E: the sails' four; CSA-G: the time scale's three; KB1: DFU's 42 (its console and Slide rows unbound) plus the port's 24; SOC5: DFU's 44 plus SocialInteract; QS2: plus the three quickslot rows; QS4: plus the off hand's; QUICK-LOOT B4: plus the plaque's two; FREEMOUSE: plus the mouse toggle's own key
   // a secondary binding on a code no default uses SURVIVES the reset;
   // one on a default's code is stolen back by SetBinding's alt-removal.
   // QUICK-LOOT B4: this was KeyP, chosen because no default used it -
@@ -379,4 +407,38 @@ test('MAC-D1: an action the game cannot be played without is never left addressi
   const { readFileSync } = await import('node:fs');
   const src = readFileSync(new URL('../src/systems/inputActions.js', import.meta.url), 'utf8');
   assert.match(src, /if \(repairUnloseableBindings\(store\)\.length\) saveKeyBinds\(store\);/, 'run after the autofill pass, and written back');
+});
+
+// HELM-KEYS (2026-09-29): the default share - seated onto its partner's own key alone, and on a saved file only while the
+// action is keyless and not unbound on purpose
+test('HELM-KEYS the default share: More sail answers the up arrow beside ActChoice; an autofill seats it only onto the partner\'s own key, never onto a player\'s rebind of it, never back after a player unbinds it; the professions read no choice at a helm (mutants: the partner unread, the removal unread)', async () => {
+  const { actionsForCode, dropBinding, addRemovedPrimaryAction } = await import('../src/systems/inputActions.js');
+  const fresh = createBindings();
+  resetDefaults(fresh);
+  assert.deepEqual(actionsForCode(fresh, 'ArrowUp'), ['ActChoice', 'BoatSailUp']);
+  assert.deepEqual(actionsForCode(fresh, 'ArrowDown'), ['BoatSailDown', 'Professions'], 'CLASSIC-PAGES: the Professions key shares less sail\'s down arrow');
+  // an old file: the arrow the act choice's, More sail unknown to it - the autofill seats the share
+  const old = createBindings();
+  resetDefaults(old);
+  dropBinding(old, 'ArrowUp', 'BoatSailUp', true);
+  resetDefaults(old, true);
+  assert.deepEqual(actionsForCode(old, 'ArrowUp'), ['ActChoice', 'BoatSailUp'], 'carried forward');
+  // a player who put the up arrow on Jump: never shared onto
+  const mine = createBindings();
+  resetDefaults(mine);
+  dropBinding(mine, 'ArrowUp', 'BoatSailUp', true);
+  setBinding(mine, 'ArrowUp', 'Jump');
+  resetDefaults(mine, true);
+  assert.deepEqual(actionsForCode(mine, 'ArrowUp'), ['Jump'], 'a rebind of the key is the player\'s');
+  // a player who unbound More sail on purpose: it stays unbound
+  const off = createBindings();
+  resetDefaults(off);
+  dropBinding(off, 'ArrowUp', 'BoatSailUp', true);
+  addRemovedPrimaryAction(off, 'BoatSailUp');
+  resetDefaults(off, true);
+  assert.deepEqual(actionsForCode(off, 'ArrowUp'), ['ActChoice']);
+  // the two never live together: a helm's hands are on the wheel - the professions' choice is no press there
+  const { readFileSync } = await import('node:fs');
+  const WORLD = readFileSync(new URL('../src/scenes/world.js', import.meta.url), 'utf8');
+  assert.match(WORLD, /choice: !csaRuntime\?\.isSailing\(\) && pressed\(latch\.edge, keys, 'ActChoice'\)/);
 });

@@ -184,8 +184,11 @@ export function leaderJourneyed(was, now) {
 }
 
 /** The fare row a prompt shows - the popup's own two numbers, the whole trip and what of it must be coin. */
-export function fareText(computed, afford = true) {
+export function fareText(computed, afford = true, coinsShort = false) {
   const total = Math.max(0, Math.round(computed?.totalCost ?? 0));
+  // AUDIT 28e: the purse holds the fare and the COINS fall short - "Taverns only accept gold pieces" (enoughGoldCheck's
+  // second half) - so the words name the coin the inns want, not the whole fare
+  if (!afford && coinsShort) return `You cannot afford the journey (${Math.max(0, Math.round(computed?.piecesCost ?? 0))} gold in coin for the inns).`;
   if (!afford) return `You cannot afford the journey (${total} gold).`;
   return total > 0 ? `The journey costs ${total} gold.` : 'The journey costs nothing.';
 }

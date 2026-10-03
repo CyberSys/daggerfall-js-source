@@ -22,16 +22,25 @@
 // where it was and makes each step cover more ground, which is what
 // Unity does and what the mod's second line buys.
 //
-// ONE HOME, and a small one: a number and two readers. The frame
-// multiplies its dt by `timeScale()`; the motor takes its fixed step
-// from `fixedStep()`. Nothing else may read it - a system that wants
-// to know whether a journey is running asks the journey.
+// ONE HOME, and a small one: a number and its readers. The frame
+// multiplies its dt by `timeScale()`, and the motor scales its own fixed
+// step by the same number (player/motor.js); and (CSA-G) the HUD's two
+// message clocks, which DFU counts in `Time.deltaTime` - game time -
+// where the port hands its HUD the frame's real dt (ui/midScreenText.js,
+// ui/hudText.js). The mods whose Unity code reads `Time.timeScale` read
+// it here too (AUDIT OW5, the audit before the merge, counted them: the
+// bands' and the raiders' chases, the sea's helm, Come Sail Away, Warm
+// Ashes, the horse and cart, Deep Waters, Ocean Holes). A system that
+// wants to know whether a journey is running asks the journey, never
+// this number.
 //
 // PAUSE IS NOT THIS. DFU pauses with `Time.timeScale = 0` and the port
 // does not: it holds the frame (scenes/world.js `gamePaused()`,
 // `_overlayHeld`), which is older than this module and stays as it is.
-// This scale is only ever the travel acceleration, and it is 1
-// whenever no journey is running.
+// This scale is the travel acceleration, or (CSA-G) Come Sail Away's
+// helm's - its time keys walk the five steps 1, 5, 10, 15, 30
+// (systems/comeSailAway.js SetTimeScale) - and it is 1 whenever neither
+// runs.
 
 /** TravelControlUI.cs:76-79 - the acceleration the panel can reach:
  *  the setting rounded DOWN to a multiple of five (`(limit / 5) * 5`),

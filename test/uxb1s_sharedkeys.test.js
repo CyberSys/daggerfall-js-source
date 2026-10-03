@@ -95,13 +95,13 @@ test('UXB1-S: a share across the two dicts - a key one action holds as its prima
 
 test('UXB1-S: the file - shares only where there are any (a file without is what it was), round-tripped, an unknown name carried (AUDIT UXB1 F8); and the autofill does not put a shared action\'s default back', () => {
   const plain = defaults();
-  assert.equal('sharedActionKeyBinds' in serializeKeyBinds(plain), false, 'no shares, no field');
+  assert.deepEqual(serializeKeyBinds(plain).sharedActionKeyBinds, { ArrowUp: ['BoatSailUp'], ArrowDown: ['Professions'] }, 'HELM-KEYS and CLASSIC-PAGES: the default shares (inputActions.js DEFAULT_SHARES), and no other');
   const b = defaults();
   const space = getBinding(b, 'Jump');
   const floatUpDefault = DEFAULT_BINDINGS.find(([, a]) => a === 'FloatUp')[0];
   shareBinding(b, space, 'FloatUp');
   const file = serializeKeyBinds(b);
-  assert.deepEqual(file.sharedActionKeyBinds, { [space]: ['FloatUp'] });
+  assert.deepEqual(file.sharedActionKeyBinds, { ArrowUp: ['BoatSailUp'], ArrowDown: ['Professions'], [space]: ['FloatUp'] });
   const back = createBindings();
   loadKeyBinds(back, JSON.parse(JSON.stringify(file)));
   resetDefaults(back, true);   // the startup's autofill, which fills a MISSING action on a free code
@@ -149,7 +149,7 @@ test('AUDIT UXB1 F3/F8: a newer build\'s names ride through this one - the whole
   const r = createBindings();
   loadKeyBinds(r, JSON.parse(JSON.stringify(file)));
   resetDefaults(r);
-  assert.equal('sharedActionKeyBinds' in serializeKeyBinds(r), false);
+  assert.deepEqual(serializeKeyBinds(r).sharedActionKeyBinds, { ArrowUp: ['BoatSailUp'], ArrowDown: ['Professions'] }, 'the carried shares gone with the primary\'s own - the default shares seated again (HELM-KEYS, CLASSIC-PAGES)');
   // the ONE seat: the load and the share both take it
   const src = read('src/systems/inputActions.js');
   assert.equal((src.match(/seatOnKey\(store, code, action, primary\);/g) ?? []).length, 2);
@@ -177,7 +177,7 @@ test('UXB1-S: the frame\'s polls see every action on a shared key - held and pre
     assert.deepEqual(eventActions(e), ['Jump', 'FloatUp']);
     assert.equal(eventAction(e), 'Jump');
     assert.equal(eventMeans(e, 'FloatUp'), true);
-    assert.deepEqual(actionsOf({ code: 'Semicolon' }, new Set(['Semicolon'])), [], 'an unbound key means nothing');
+    assert.deepEqual(actionsOf({ code: 'ScrollLock' }, new Set(['ScrollLock'])), [], 'an unbound key means nothing');   // CSA-D/E: Semicolon and End are the boat's now
     // AUDIT UXB1 F5: the polls walk the maps as they stand - the secondary dict's sharers too
     setBinding(b, 'KeyP', 'Crouch', false);
     shareBinding(b, 'KeyP', 'FloatDown', false);

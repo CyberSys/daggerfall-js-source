@@ -181,7 +181,9 @@ test('EL2: the receiver block and the depth shaders - six uniforms, no dynamic m
   assert.match(SHADOW_GLSL, /int c = d < uSunShadowParams\.x \* 0\.9 \? 0 : d < uSunShadowParams\.y \* 0\.9 \? 1 : 2;/, 'the cascade by view distance');
   assert.match(SHADOW_GLSL, /vec2 wA = 2\.0 - f, wB = 1\.0 \+ f;/, 'a 3x3 PCF - PERF-EXT5: in four bilinear taps that weigh its texels as its nine did');
   assert.match(SHADOW_GLSL, /float near = 0\.1;/, 'the cube near plane, the constant');
-  assert.match(SHADOW_GLSL, /if \(uSunShadowParams\.w <= 0\.0\) return 1\.0;/); assert.match(SHADOW_GLSL, /if \(far <= 0\.0\) return 1\.0;/);
+  assert.match(SHADOW_GLSL, /if \(uSunShadowParams\.w <= 0\.0\) return 1\.0;/);
+  // pointShadowAt's own guard, by its head: VOL1's pointShadowOne carries the same line, and a bare match took either
+  assert.match(SHADOW_GLSL, /float pointShadowAt\(int k, vec3 wp, vec3 n\) \{\n  vec4 P = uPointShadowParams\[k\];\n  float far = P\.w;\n  if \(far <= 0\.0\) return 1\.0;/, 'a caster with no map this frame is lit, not dark');
   assert.equal(DEPTH_FS, '#version 300 es\nprecision highp float;\nvoid main() {}');
   assert.match(DEPTH_BB_FS, /if \(texture\(uTex, vUV\)\.a < 0\.5\) discard;/);
   for (const [name, fs] of [['mesh', EL_MESH_FS], ['terrain', EL_TERRAIN_FS], ['char', EL_CHAR_FS]]) {
@@ -202,7 +204,7 @@ test('EL2: the receiver block and the depth shaders - six uniforms, no dynamic m
   // and handed on flat - the fragment wears it under the cloud's.
   assert.match(EL_BB_FS, /uBBSun \* cloudShadowAt\(vBBWorld\) \* vBBSunVis/);
   assert.match(EL_BB_FS, /flat in float vBBSunVis;/);
-  assert.match(EL_LANE.bbVs.main, /vBBSunVis = dot\(uBBSun, uBBSun\) > 0\.0 \? sunShadowSoftAt\(vBBBase \+ vec3\(0\.0, 0\.5, 0\.0\), vec3\(0\.0, 1\.0, 0\.0\)\) : 1\.0;/, 'the flat\'s point, the soft kernel, the night gate');
+  assert.match(EL_LANE.bbVs.main, /vBBSunVis = dot\(uBBSun, uBBSun\) > 0\.0 \? sunShadowSoftAt\(vBBBase \+ vec3\(0\.0, 0\.5, 0\.0\), vec3\(0\.0, 1\.0, 0\.0\), uSize\.y\) : 1\.0;/, 'the flat\'s point, the soft kernel, the night gate');
   assert.ok(EL_LANE.bbVs.head.includes(SHADOW_GLSL), 'the vertex stage carries the receiver block');
   assert.match(EL_BB_FS, /elPointFlat\(vBBWorld, base\)/);
   assert.ok(!EL_FAR_RING_FS.includes('uSunShadow'), 'the far ring receives no shadow');
@@ -320,7 +322,7 @@ test('EL2: the renderer\'s wiring - the three draw paths record behind one gate,
   const r = read('src/render/renderer.js');
   assert.equal((r.match(/this\._casting\) this\._shadows\.record/g) || []).length, 3, 'mesh, terrain, billboards');
   assert.match(r, /if \(this\._casting && this\._spriteDepth === 0 && this\._studioDepth === 0\) this\._shadows\.recordCharacter\(mesh, modelMatrix\);/, 'EL7: the rigs, never from the sprite target or the studio');
-  assert.match(r, /if \(!wire && this\._casting\) this\._shadows\.recordMesh\(mesh, modelMatrix, texRemap\);/, 'a wireframe draw (the automap) is not a caster');
+  assert.match(r, /if \(!wire && this\._casting\) this\._shadows\.recordMesh\(mesh, modelMatrix, texRemap, 1 - \(this\._dissolve \?\? 1\)\);/, 'a wireframe draw (the automap) is not a caster');   // AUDIT BAY A12 PIN MOVED: with a fading ship's cut
   assert.match(r, /get _casting\(\) \{ return !!this\._shadows && !this\._panelSaved; \}/);
   const bf = r.slice(r.indexOf('beginFrame(proj, view, lightDir, opts = null) {'), r.indexOf('beginFrame(proj, view, lightDir, opts = null) {') + 3200);   // AUDIT-EL F5; LC1: the grid's build sits between the passes and the clear, so the window grew
   const passes = bf.indexOf('this._beginLane(proj, view, lightDir, opts?.world === true)');

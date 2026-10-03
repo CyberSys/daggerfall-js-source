@@ -57,7 +57,7 @@
   {
     "name": "MAC-C-the-sheet-page-claims-every-key-not-just-its-two",
     "file": "src/ui/charSheetDoor.js",
-    "old": "    if (!acts.includes('CharacterSheet') && !(acts.includes('Inventory') && hooks.inventory)) return;",
+    "old": "    if (!acts.includes('CharacterSheet') && !pack) return;",
     "new": "    if (!acts.length) return;",
     "tests": [
       "test/macc_window_keys.test.js"
@@ -129,8 +129,8 @@
   {
     "name": "MAC-A-a-clear-sweep-leaks-Infinity-into-the-camera-instead-of-a-miss",
     "file": "src/scenes/world.js",
-    "old": "      spherecast: (o, r, d, m) => { const h = collider.sphereCast(o, r, d, m).dist; return Number.isFinite(h) ? h : null; },",
-    "new": "      spherecast: (o, r, d, m) => collider.sphereCast(o, r, d, m).dist,",
+    "old": "      spherecast: (o, r, d, m) => { const h = collider.sphereCast(o, r, d, m, camFilter).dist; return Number.isFinite(h) ? h : null; },",
+    "new": "      spherecast: (o, r, d, m) => collider.sphereCast(o, r, d, m, camFilter).dist,",
     "tests": [
       "test/maca_camera_sphere.test.js"
     ]

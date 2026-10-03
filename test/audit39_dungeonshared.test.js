@@ -82,9 +82,9 @@ test('AUDIT 39 #38: the dungeon pause doors call THIS host\'s builders, not memb
   // there, and the door must still spread it.
   assert.match(DC.slice(at, at + 400), /\.\.\.this\.pauseHooks\(setPlayerPos\),/, 'the door spreads the bag arm');
   const arm = DC.indexOf('pauseHooks(setPlayerPos = null) {');
-  const call = DC.slice(arm, arm + 1600);
-  assert.match(call, /openPack: \(\) => \{ const w = openInventory\(null\); if \(w\) activeOverlay = w; \},/);
-  assert.match(call, /openChronicle: \(\) => \{ const w = makeJournalWindow\('notebook'\); if \(w\) activeOverlay = w; \},/);
+  const call = DC.slice(arm, arm + 2000);   // AUDIT 27h A4: each arm answers whether it opened, and the Chronicle is withheld with no bridge
+  assert.match(call, /openPack: \(\) => \{ const w = openInventory\(null\); if \(w\) activeOverlay = w; return !!w; \},/);
+  assert.match(call, /openChronicle: opts\.questBridge \? \(\) => \{ const w = makeJournalWindow\('notebook'\); if \(w\) activeOverlay = w; return !!w; \} : undefined,/);
   // The names that were never there: the whole file, not just the call.
   assert.ok(!DC.includes('api.makeInventory'), 'no arm reads a member this context does not export');
   assert.ok(!DC.includes('api.makeJournal'));
@@ -213,7 +213,7 @@ test('AUDIT 39 #160: every rAF host WAITS on the hold instead of drawing under t
       + String.raw`\s+frameBegin\(now\);[^\n]*\n`
       + String.raw`\s+beginInputFrame\([A-Za-z.]+\);[^\n]*\n`
       + String.raw`(?:\s*//[^\n]*\n)*`
-      + String.raw`\s+if \(frameHeld\(\)\) \{ frameAbort\(\); hideWorldPlaque\(\); last = now; requestAnimationFrame\(frame\); ${h.endsWith('world.js') ? String.raw`drawGateBanner\(null\); ` : ''}return; \}\n`   // AUDIT WB C5: the world host's gate countdown is a DOM line too, and goes down on the same line as the plaque
+      + String.raw`\s+if \(frameHeld\(\)\) \{ frameAbort\(\); hideWorldPlaque\(\); last = now; requestAnimationFrame\(frame\); ${h.endsWith('world.js') ? String.raw`drawGateBanner\(null\); drawGateMarksCard\(null\); drawGateDamageChart\(null\); drawGateGround\(null\); travelView\?\.exit\('video', true\); ` : ''}return; \}\n`   // AUDIT DEEP X-1: and the travel view cut on the same return   // AUDIT WB C5: the world host's gate countdown is a DOM line too, and goes down on the same line as the plaque   // WB9a / WB9d: and so are the Warden's marks card and his ground's rim - DOM, down with it
       + String.raw`\s+const dt =`),
     `${h} waits out the video and keeps its loop`);
   }

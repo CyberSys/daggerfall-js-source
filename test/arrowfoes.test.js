@@ -117,7 +117,8 @@ test('AR1: exteriorFoes lands the hit on BowDamage\'s own payload', () => {
   const body = src.slice(from, from + 1200);
   assert.match(body, /weapon: m\.weapon, direction: dir, bowAttack: true/,
     ':303 with bowAttack=true - the melee arm passes false by omission');
-  assert.match(body, /dealDamage: \(t, d\) => \(t\.hurtFromFoe \? t\.hurtFromFoe\(d, dir\) : damageFoe\(t, d, null, dir\)\)/,
+  // PIN MOVED (AUDIT CC-E1): the door names the shooter too
+  assert.match(body, /dealDamage: \(t, d\) => \(t\.hurtFromFoe \? t\.hurtFromFoe\(d, dir, f\) : damageFoe\(t, d, null, dir\)\)/,
     'the target\'s own pool owns its death chain - the melee arm\'s exact split');
   // MAC-N1: the shaft is CreateWeapon's arrow (EnemyAttack.cs:145-147),
   // minted by the one export - the bare literal this pin used to match

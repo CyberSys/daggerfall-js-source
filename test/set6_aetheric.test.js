@@ -11,7 +11,7 @@ import {
 } from '../src/systems/aetheric.js';
 import {
   RARITY_ORDER, RARITIES, ROLLED_TIERS, rarityOf, rarityRank, applyRarity, rarityEligible, bestRarity, rarityLines, rollRarity,
-  affixesWorth, validAffix, AFFIX_RANGES,
+  affixesWorth, validAffix, AFFIX_RANGES, isProcAffix,   // LOOT4: a line that does something, appended in a door's last pass
 } from '../src/systems/lootRarity.js';
 import { rollSpoils, spoilsBase, magicOrBetter, SPOILS_GOLD_PER_LEVEL, SPOILS_LEGENDARY } from '../src/systems/gateSpoils.js';
 import { spoilsList } from '../src/scenes/spoilsPool.js';
@@ -157,7 +157,11 @@ test('SET6 the drop: the spoils\' LAST roll - a Regalia piece a sixth of the tim
     const b = before(seed, 12);
     assert.equal(s.gold, b.gold, `seed ${seed}: the gold`);
     assert.deepEqual(s.pieces.slice(0, 3).map((p) => p.item.name), b.names, `seed ${seed}: the three graded pieces`);
-    assert.deepEqual(s.pieces.slice(0, 3).map((p) => JSON.stringify(p.item.affixes ?? null)), b.affixes);
+    // LOOT2/LOOT4 (bible/06-Systems/Loot-Arc.md sections 4 and 6): an Exalted Legendary's extra line and a Magic's or a
+    // Rare's line that does something are drawn AFTER everything and appended - the lines before them are still the
+    // seed's, exactly
+    const drawn = (it) => (it.exalted ? it.affixes.slice(0, -1) : it.affixes?.filter((a) => !isProcAffix(a)));
+    assert.deepEqual(s.pieces.slice(0, 3).map((p) => JSON.stringify(drawn(p.item) ?? null)), b.affixes);
     const has = s.pieces.length === 4;
     assert.equal(has, b.next < REGALIA_CHANCE, `seed ${seed}: the next roll decides it`);
     if (!has) continue;
@@ -173,7 +177,7 @@ test('SET6 the drop: the spoils\' LAST roll - a Regalia piece a sixth of the tim
   assert.deepEqual(rollSpoils(77, 12), rollSpoils(77, 12), 'the same seed, the same spoils');
 });
 
-test('SET6 the floor and the card: a Regalia piece is laid as an item in its tier\'s line - between the Legendary\'s height and the Artifact\'s, in the rung\'s colour - before the Sigil Stone and the gold; its card names the rung, its affixes, its sigil and its lore, and its name is its record\'s with no material before it (mutants: the line at a lower tier\'s height; the lore unsaid; the Daedric prefix)', () => {
+test('SET6 the floor and the card: a Regalia piece is laid as an item in its tier\'s line - between the Legendary\'s height and the Artifact\'s, in the rung\'s colour - before the Deadlands Ember and the gold; its card names the rung, its affixes, its sigil and its lore, and its name is its record\'s with no material before it (mutants: the line at a lower tier\'s height; the lore unsaid; the Daedric prefix)', () => {
   let seed = 1;
   while (seed < 500 && rollSpoils(seed, 12).pieces.length !== 4) seed++;
   assert.ok(seed < 500, 'a kill whose spoils carry a Regalia piece, within the first five hundred seeds');
@@ -181,7 +185,7 @@ test('SET6 the floor and the card: a Regalia piece is laid as an item in its tie
   assert.equal(list.length, 6, 'three graded pieces, the Regalia piece, the stone, the gold');
   assert.equal(list[3].kind, 'item');
   assert.equal(list[3].tier, 'aetheric');
-  assert.equal(list[4].item.name, 'Sigil Stone');
+  assert.equal(list[4].item.name, 'Deadlands Ember');
   assert.equal(list[5].kind, 'gold');
   assert.ok(SPOILS_LINE_H.aetheric > SPOILS_LINE_H.legendary && SPOILS_LINE_H.aetheric < SPOILS_LINE_H.artifact);
   assert.deepEqual(tierColour('aetheric').map((c) => Math.round(c * 255)), [0xbf, 0xe8, 0xff]);

@@ -174,6 +174,16 @@ export function groundRefusalOf(deps = {}, state = {}) {
   return deps.dropRefusal?.() ?? null;
 }
 
+/** COMPANION-WEIGHT (2026-10-01): the destination's own weight limit when it is a storage with one - a companion's pack
+ *  carries what a person of his strength can (the host's `loot.capacity`) - asked only when the remote list IS that
+ *  storage, never the wagon (WagonCanHoldAmount's own 750), the ground or a choose-one list. Null: no limit.
+ *  `{ kg, name }` - the limit, and whose it is for the refusal's words. */
+export function storeCapacityOf(deps = {}, state = {}) {
+  if (state.usingWagon || state.chooseOne || !deps.loot) return null;
+  const cap = deps.loot.capacity?.();
+  return cap && Number.isFinite(cap.kg) ? cap : null;
+}
+
 /** RemoteTargetTypes (:213-219), in the enum's own order. */
 export const REMOTE_TARGET_TYPES = Object.freeze({
   Dropped: 0, Wagon: 1, Loot: 2, Merchant: 3,

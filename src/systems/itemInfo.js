@@ -44,6 +44,7 @@ import { isFood, foodOf, foodStage, foodSatiety, isWaterskin, waterIn, WATERSKIN
 import { localizedText, localizedTable, formatText } from './textManager.js';   // L10N3d: DFU's Internal_Strings, read in the player's language
 import { getLocalizedItemName, getLocalizedMagicItemName, getLocalizedEnemyName } from './textManager.js';   // L10N3e: the names of things, by their own ids
 import { getMagicItemTemplates } from './loot.js';   // L10N3e: the MAGIC.DEF template a magic item's name came from
+import { makerName, PROVENANCE_RE } from '../net/recipeLaw.js';   // AUDIT 30 C7: a maker's mark as the law writes it
 
 /** The thirteen ids GetItemInfo names as constants (:750-762). */
 export const INFO_TEXT = Object.freeze({
@@ -90,7 +91,7 @@ export const potionRecipeTokens = () => [
  *  W3: this read the constant 0 with a "the port has no settings
  *  layer" note that U29 made stale - it reads the setting now, at the
  *  point of use as DFU does. `item.material` IS DFU's raw
- *  nativeMaterialValue (equip.js:145), so the `>=` compares hold. */
+ *  nativeMaterialValue (equip.js:150), so the `>=` compares hold. */
 export function armorShouldShowMaterial(item, setting = getInt('GUI', 'HelmAndShieldMaterialDisplay', 0, 3)) {
   // `artifact` is the classic FLAGS word's artifact bit: minted by
   // loot.js's createArtifact (SetArtifact's :617) and read straight
@@ -187,10 +188,10 @@ export function weightString(item) {
 }
 
 /** WeaponDamage() (:150-154): "min - max", both shifted by the
- *  material modifier. */
+ *  material modifier - weaponDamageRange's two numbers (AC-COMPARE, below: one law for the row and its comparison). */
 export function weaponDamageString(item) {
-  const mod = weaponMaterialModifier(item?.material ?? WEAPON_MATERIALS.Iron);
-  return `${weaponMinDamage(item.templateIndex) + mod} - ${weaponMaxDamage(item.templateIndex) + mod}`;
+  const [min, max] = weaponDamageRange(item);
+  return `${min} - ${max}`;
 }
 
 /** ArmourMod() (:157-160): GetMaterialArmorValue with a C# "+0;-0;0"
@@ -278,6 +279,14 @@ export const itemHandsLine = (item) => (
  *  piece of armour has one, and a shield's comes off the same
  *  `itemArmorValue` the paperdoll totals. */
 export const itemArmourLine = (item) => (item?.group === 'Armor' ? armourModString(item) : null);
+
+/** AC-COMPARE (FIELD BUGS 2026-09-29d): WeaponDamage()'s two NUMBERS (:150-154) - the template's base damage, both ends
+ *  shifted by the material modifier - which weaponDamageString prints and the enhanced pack's card sets against the
+ *  weapon a wear would replace (ui/armourCard.js), so the card's Damage row and its comparison are one law. */
+export function weaponDamageRange(item) {
+  const mod = weaponMaterialModifier(item?.material ?? WEAPON_MATERIALS.Iron);
+  return [weaponMinDamage(item.templateIndex) + mod, weaponMaxDamage(item.templateIndex) + mod];
+}
 
 /** The material NAMES the %mat macro resolves (TextProvider's
  *  GetArmorMaterialName / GetWeaponMaterialName). Armor's enum is
@@ -612,7 +621,14 @@ export function itemNameParts(item, { getQuest = null, differentiatePlantIngredi
   let material = '';
   if (item?.group === 'Weapons' && !isAmmunition(item)) material = materialText(item);
   if (item?.group === 'Armor' && armorShouldShowMaterial(item)) material = materialText(item);
-  if (isPotion(item)) return { name: potionMacroName(item) ?? base, material };
+  // PROF3: a Masterwork's name is its maker's mark (bible/06-Systems/Professions-Arc.md 9.2) - "Silverthorn's Mithril
+  // Longsword", the mark before the material, one name; PROF4: and a Master Joiner's furniture at any quality (`marked`)
+  // AUDIT 30 C7: only a mark the law would write (a peer's, the wire's or an old save's text is not a name), on a piece
+  // with a real provenance - the tooltip's and DECOR's own tests
+  if ((item?.quality === 4 || item?.marked === true) && typeof item.maker === 'string' && item.maker && makerName(item.maker) === item.maker
+    && typeof item.provenance === 'string' && PROVENANCE_RE.test(item.provenance)) return { name: `${item.maker}'s ${material ? `${material} ` : ''}${base}`, material: '' };
+  // PROF12: a Potent potion (an alchemy station's brew, net/alchemyLaw.js) is named so (9.3: "+25% magnitude, named so")
+  if (isPotion(item)) return { name: `${Number.isInteger(item.potent) && item.potent > 0 ? 'Potent ' : ''}${potionMacroName(item) ?? base}`, material };
   const signoff = questLetterName(item, getQuest);
   if (signoff) return { name: signoff, material: '' };
   return { name: base + soulTrapNameSuffix(item, shownSoulName), material };   // L10N3e: ItemHelper.cs:361

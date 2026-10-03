@@ -395,7 +395,7 @@ export class SaveWindow {
    *
    *  RECORDED (structural): DFU routes the wheel to the component under
    *  the pointer; the hosts carry the point on the overlay wheel seam
-   *  now (AUDIT 65 UI-5: townTalk.js:1329-1336, worldModes.js:9749-9765,
+   *  now (AUDIT 65 UI-5: townTalk.js:1332-1339, worldModes.js:10593-10609,
    *  dungeonContext's overlayWheel), and this window has one scrolling
    *  list, so it still ignores the point and forwards the sign to it. */
   wheel(dir) {
@@ -469,7 +469,7 @@ export class SaveWindow {
       try {
         const c = document.createElement('canvas');
         c.width = img.width; c.height = img.height;
-        const ctx = c.getContext('2d');
+        const ctx = c.getContext('2d', { willReadFrequently: true });   // FIELD 2026-09-27: read back below (textureReplacement.decodePng's note)
         ctx.drawImage(img, 0, 0);
         const data = ctx.getImageData(0, 0, c.width, c.height);
         shot.tex = renderer.uploadTexture('saveshot', key,

@@ -39,9 +39,11 @@ export const SOUND = {
   NormalDoorClose: 93,
   NormalDoorOpen: 94,
   HorseClop: 97,          // TR2: the riding loop below half speed
-  // WIND3: the wind's own voice - DFU draws these only as dungeon
-  // one-shots (AMBIENT_SOUNDS.dungeon, SoundClips.cs:94-103); the port's
-  // wind loop (systems/windAudio.js) plays the moan and the blow.
+  // WIND3: the wind's clips by name - DFU draws these only as dungeon
+  // one-shots (AMBIENT_SOUNDS.dungeon, SoundClips.cs:94-103). The port's
+  // wind loop played the moan and the blow end to end until FIELD-WIND1
+  // (systems/windAudio.js makes its own bed); the Deadlands' air and the
+  // gate's veil play the deep moan.
   AmbientWindMoan: 65,
   AmbientWindMoanDeep: 66,
   AmbientWindBlow1: 70,

@@ -35,12 +35,15 @@ import {
 import { calculateAttackDamage, damageModifier, damageEquipment, formulaOverride, registerFormulaOverride, adjustWeaponHitChanceMod, adjustWeaponAttackDamage, weaponAttackDamage } from '../src/combat/formulas.js';
 import { ENEMY_BASICS } from '../src/characters/enemyBasics.js';
 import { makeEnemyEntity } from '../src/characters/enemyEntity.js';
-import { EQUIP_SLOTS, equipTableOf } from '../src/systems/equip.js';
+import { EQUIP_SLOTS, equipTableOf, _wearScaleForTests } from '../src/systems/equip.js';
 import { MOD_SETTINGS, setModSetting, _resetModSettings } from '../src/systems/modSettings.js';
 import { RR_VENDOR, rrAdjustWeaponHitChanceMod, rrAdjustWeaponAttackDamage } from '../src/systems/rrRealism.js';
 import { CREDITS } from '../src/ui/credits.js';
 import { SKILLS } from '../src/systems/skills.js';
 import { newMods } from '../src/systems/entityMods.js';   // AUDIT SET P-M1: the port's points, as the fold writes them
+
+// BALANCE1: this file pins DFU's / the mod's own wear verbatim, so it runs the port's wear scale at 1 (test/balance1.test.js pins the scale)
+_wearScaleForTests(1);
 
 const rd = (p) => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8');
 const ALL_ON = { Enabled: true, equipmentDamageEnhanced: true, fadingEnchantedItems: true, fixedStrengthDamageModifier: true, armorHitFormulaRedone: true, criticalStrikesIncreaseDamage: true, conditionBasedEffectiveness: true, softMaterialRequirements: true };
@@ -475,7 +478,8 @@ test('PCO1: the seams - the Mods pane entry, the credit, the vendor folder, worl
   const shipped = JSON.parse(rd('vendor/pcaao/modsettings.json')).Sections[0].Keys;
   for (const k of shipped) {
     assert.ok(m.keys[k.Name], `the shipped key ${k.Name} is on the pane`);
-    assert.equal(m.keys[k.Name].default, k.Value, `${k.Name} defaults as shipped`);
+    if (k.Name === 'equipmentDamageEnhanced' || k.Name === 'fadingEnchantedItems') { assert.equal(k.Value, true); assert.equal(m.keys[k.Name].default, false, `WEAR-VANILLA: ${k.Name} ships on, the port's default is off`); }
+    else assert.equal(m.keys[k.Name].default, k.Value, `${k.Name} defaults as shipped`);
     assert.equal(m.keys[k.Name].description, k.Description, `${k.Name}'s description is the mod's own`);
   }
   assert.equal(m.keys.Enabled.default, true, 'MO1 (Mac, 2026-09-12): every mod is on by default; the Mods pane is where it is turned off');

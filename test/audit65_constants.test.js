@@ -74,7 +74,7 @@ const QUIET = (() => {
 
 /** The producer chain, end to end: chargen mints the skills array, the
  *  curse mints the racialOverride, and the MAGIC ROUND is what writes
- *  `entry.skillMods` (lycanthropy.js:244-245 - ApplyLycanthropeAdvantages
+ *  `entry.skillMods` (lycanthropy.js:263-264 - ApplyLycanthropeAdvantages
  *  re-applied every round, LycanthropyEffect.cs:566-584). Nothing here
  *  touches `entity.skills`, which is the whole point: the permanent
  *  array never moves, so a reader of it never sees the +30. */
@@ -149,8 +149,8 @@ test('AUDIT 65 CV-1: the enhanced skin reads the same law - the number AND the m
   // The accessor's ONE consumer draws the value text and the bar from
   // it, so the meter tracks the same figure the attribute bars do.
   const menu = src('src/ui/enhancedMenu.js');
-  assert.match(menu, /el\('span', 'v', String\(m\.skill\(id\)\)\)/, 'the number reads through the model');
-  assert.match(menu, /pxMeter\(m\.skill\(id\), 100, 'thin'\)/, '...and so does the meter beside it');
+  assert.match(menu, /el\('span', 'v', m\.skillText \? m\.skillText\(id\) : String\(m\.skill\(id\)\)\)/, 'the number reads through the model');   // SOFTCAP1: \"85 (150)\" while mentoring
+  assert.match(menu, /skillMeter\(m\.skillBase \? m\.skillBase\(id\) : m\.skill\(id\), mastered\)/, '...and so does the meter beside it');   // SOFTCAP6: and the mastery's gold track   // SOFTCAP1: the 0..100 bar and the gold 100..200 one
   // sheetModel's empty-entity path stays safe: `entity ?? {}` and
   // skillValue({}, id) is 0.
   assert.equal(sheetModel(undefined).skill(SKILLS.HandToHand), 0, 'the art-less/entity-less path still answers 0');
@@ -251,9 +251,9 @@ test('AUDIT 65 CV-2: an enemy shaft meets the player at 0.45 + 0.35, two-sided, 
 test('AUDIT 65 CV-2: EVERY player-side capsule call carries the player body, at all five sites', () => {
   // The seam is five direct calls: hostMagic's AoE arm and its enemy
   // missile contact, dungeonContext's two enemy-missile player arms, and
-  // the shared ArrowFlight the three world hosts fly (world.js:328,
-  // exterior.js:40, worldModes.js:95; the dungeon runs its own loop and
-  // takes the shared player-arrow LAW at dungeonContext.js:96) - so
+  // the shared ArrowFlight the three world hosts fly (world.js:480,
+  // exterior.js:45, worldModes.js:106; the dungeon runs its own loop and
+  // takes the shared player-arrow LAW at dungeonContext.js:105) - so
   // worldModes.js and exterior.js hold no arrow contact of their own.
   // THE FOUR HOSTS RULE: the sweep is the WHOLE of src/, not a list of
   // three files, or a fifth host wiring its own contact escapes it.

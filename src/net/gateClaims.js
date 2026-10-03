@@ -11,7 +11,8 @@
 // no session yet, the service without its public half, a guest who may still register (its id survives the
 // registering), the network - and (AUDIT WB A5) a refusal the SERVICE can mend: its public half not the relay's pair
 // (`signature`, `verify-threw`), or its clock or the relay's off (`future`, `clock`). A receipt carries a week
-// (net/gateReceipt.js RECEIPT_TTL_S) and an expired one is let go unasked; an UNSIGNED one (a relay with no key) is
+// (net/gateReceipt.js RECEIPT_TTL_S) and an expired one - by the RELAY's clock (AUDIT ONLINE2 F2; unheard, it is kept and
+// the service judges it) - is let go unasked; an UNSIGNED one (a relay with no key) is
 // never kept - the service could only decline it.
 //
 // AUDIT WB A9: THE DEVICE IS NOT THE ACCOUNT. Receipts are kept one a day AND ACCOUNT, and only the signed-in
@@ -35,17 +36,27 @@ export const GATE_ME_POLL_MS = 1000;
 
 /** The words. */
 export const GATE_CLAIM_TEXT = Object.freeze({
-  recorded: (n) => `The gate is closed in your name. Gates closed: ${n}.`,
-  guest: 'This gate is not on your record yet: only registered accounts keep one. Add a username this week and it counts.',
+  recorded: (n) => `Breach recorded. Breaches closed: ${n}.`,   // WB12a; WB13b
+  rite: 'Rite recorded.',   // WB12d: a receipt of the rite alone - its ember, no breach closed
+  guest: 'Breach not recorded. Add a username within a week to keep it.',
+  guestRite: 'Rite not recorded. Add a username within a week to keep it.',   // AUDIT WB12d (A3): a guest's receipt of the rite alone
 });
 
 /** AUDIT WB A5: the refusals of a receipt the service can mend - its key not the relay's pair, a clock off - kept for
  *  the week the receipt carries rather than let go. */
 export const GATE_CLAIM_MENDABLE = Object.freeze(['signature', 'verify-threw', 'future', 'clock']);
 
-/** What the account service's answer does to a kept receipt: 'done' (let it go) or 'keep'. */
-export function gateClaimVerdict(answer) {
-  if (answer?.ok) return answer.data?.why === 'guest' ? 'keep' : 'done';   // counted, or counted before
+/** What the account service's answer does to a kept receipt: 'done' (let it go) or 'keep'. WB12d: a receipt of the
+ *  rite alone refused its claims is a service from before it (acct45) - kept for its week, never let go. AUDIT WB12d
+ *  (A1): and a fighter's `r` counted by a service that does not answer its embers (acct45 took it as one) - kept until
+ *  one that counts two has (acct62 makes the row good on the claim again). */
+export function gateClaimVerdict(answer, claims = null) {
+  if (answer?.ok) {
+    if (answer.data?.why === 'guest') return 'keep';
+    if (claims?.r === 1 && !Number.isSafeInteger(answer.data?.stones)) return 'keep';
+    return 'done';   // counted, or counted before
+  }
+  if (claims?.x === 'rite' && answer?.error === 'receipt' && answer.why === 'claims') return 'keep';
   return answer?.error === 'receipt' && !GATE_CLAIM_MENDABLE.includes(answer.why) ? 'done' : 'keep';
 }
 
@@ -60,19 +71,19 @@ export function gateRecordText(rec) {
  * @param {{
  *   claim: (receipt: string) => Promise<any>,
  *   store?: { get: (k: string) => any, set: (k: string, v: any) => void }|null,
- *   nowS?: () => number, nowMs?: () => number, say?: (text: string) => void, onClosed?: (closed: number) => void,
- *   me?: () => (string|null),
+ *   nowS?: () => (number|null), nowMs?: () => number, say?: (text: string) => void, onClosed?: (closed: number) => void,
+ *   me?: () => (string|null), onMarks?: (marks: any) => (string|null),
  * }} deps `claim` is net/accountClient.js accountGates' - `{ ok, data }` or `{ ok: false, error, why? }`, never a
  *   throw; `me` the signed-in account's id (accountGates' `me`), null for none
  */
-export function createGateClaims({ claim, store = null, nowS = () => Math.floor(Date.now() / 1000), nowMs = () => Date.now(), say = () => {}, onClosed = () => {}, me = () => null }) {
+export function createGateClaims({ claim, store = null, nowS = () => Math.floor(Date.now() / 1000), nowMs = () => Date.now(), say = () => {}, onClosed = () => {}, me = () => null, onMarks = () => null }) {
   /** an offer under way; a receipt that came in during it (offered as soon as it ends); the last offer's time */
   let busy = false, again = false, lastAt = -Infinity;
   /** AUDIT WB A9: the account the last frame saw signed in (undefined before the first); AUDIT WBX W4: when it was asked */
   let lastMe, meAt = -Infinity;
   /** the receipts settled this session (a re-send is not asked again), and the ones whose guest line was said */
   const settled = new Set(), guestSaid = new Set();
-  const live = (r) => { const c = typeof r === 'string' ? readReceipt(r) : null; return c && c.signed && c.e > nowS() ? c : null; };
+  const live = (r) => { const c = typeof r === 'string' ? readReceipt(r) : null; const t = nowS(); return c && c.signed && (t == null || c.e > t) ? c : null; };   // AUDIT ONLINE2 F2: `nowS` the relay's clock, null unheard - never the device's (a week ahead let every receipt go unasked)
   /** AUDIT WB A6: the list as this session last kept it - read back when the store cannot answer */
   let memory = [];
   function kept() {
@@ -98,12 +109,16 @@ export function createGateClaims({ claim, store = null, nowS = () => Math.floor(
         if (answer?.ok && answer.data?.recorded === true) {
           recorded++;
           const n = Number.isSafeInteger(answer.data.closed) ? answer.data.closed : null;
-          if (n != null) { onClosed(n); say(GATE_CLAIM_TEXT.recorded(n)); }
+          if (n != null) { onClosed(n); say(answer.data.rite === true ? GATE_CLAIM_TEXT.rite : GATE_CLAIM_TEXT.recorded(n)); }   // WB12d: the rite alone closed no breach
+          // MARKS1: and the gate's Marks, struck by the service as it counted the gate (marks.js strikeGateMarks) - the
+          // host's line for them, or none (a service from before it, Marks not this account's)
+          const marksLine = answer.data.marks ? onMarks(answer.data.marks) : null;
+          if (typeof marksLine === 'string' && marksLine) say(marksLine);
         } else if (answer?.ok && answer.data?.why === 'guest' && !guestSaid.has(r)) {
           guestSaid.add(r);
-          say(GATE_CLAIM_TEXT.guest);
+          say(live(r)?.x === 'rite' ? GATE_CLAIM_TEXT.guestRite : GATE_CLAIM_TEXT.guest);
         }
-        if (gateClaimVerdict(answer) === 'done') { settled.add(r); keep(kept().filter((k) => k !== r)); }
+        if (gateClaimVerdict(answer, live(r)) === 'done') { settled.add(r); keep(kept().filter((k) => k !== r)); }
       }
     } finally { busy = false; }
     if (again) { again = false; void flush(); }

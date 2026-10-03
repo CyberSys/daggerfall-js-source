@@ -448,7 +448,7 @@ test('SET3 Unbroken: damage that would kill me leaves me at 1, said and sounded,
   at(1000);
   assert.equal(hurtPlayer(e, 500), false);
   assert.equal(e.health, 1, 'left at 1');
-  assert.deepEqual(v.said, ['Unbroken! Malacath will not let you fall - all damage halved for 4 s.']);
+  assert.deepEqual(v.said, ['Unbroken! Damage halved for 4 s.']);   // WB13b
   assert.deepEqual(v.sounds, ['unbroken']);
   e.health = 50;
   at(1001);
@@ -520,7 +520,7 @@ test('SET3 Wrath of the Warden: a foe\'s blow that takes me from at or above 30%
   blow(e, 11);
   assert.equal(e.health, 29);
   assert.deepEqual(d.hurts, [['near', 10]], 'crossed: 10 at Faint, only within six metres');
-  assert.deepEqual(v.said, ['Wrath of the Warden! The gate\'s fire bursts from you (1 struck).']);
+  assert.deepEqual(v.said, ['Wrath of the Warden! 1 foe struck.']);
   assert.deepEqual(v.sounds, ['wrath']);
   assert.equal(weaponBlowMods(sword(), 100, e, RAT), 112, 'the fury (+10%) and the sear (+2)');
   at(WRATH_SECONDS - 0.01);
@@ -549,7 +549,7 @@ test('SET3 Wrath of the Warden: a foe\'s blow that takes me from at or above 30%
   setPlayerDoor(null);
   e.health = 50; at(1000);
   blow(e, 25);   // AUDIT FINAL F10: through the door, which takes the mark as it opens
-  assert.equal(v.said.at(-1), 'Wrath of the Warden! The gate\'s fire bursts from you.', 'no door: the fury still wakes, no count said');
+  assert.equal(v.said.at(-1), 'Wrath of the Warden!', 'no door: the fury still wakes, no count said');
   assert.equal(weaponBlowMods(sword(), 100, e, RAT), 112);
   // AUDIT SET H1/M4/L7: who the Nova spares - asked in that order, the host's ray last (only for a foe otherwise struck)
   const w = fresh(); online(1);
@@ -567,7 +567,7 @@ test('SET3 Wrath of the Warden: a foe\'s blow that takes me from at or above 30%
   blow(me, 25);
   assert.deepEqual(dw.hurts, [['step', 10], ['open', 10]], 'the ally, the calmed foe, the storey above, the one behind the wall and the fire daedra spared');
   assert.deepEqual(rays.map(([a, b]) => [a, b[0]]), [[[0, 0, 0], 2.5], [[0, 0, 0], 3], [[0, 0, 0], 4]], 'the ray asked from my feet, only for a foe nothing else spared');
-  assert.deepEqual(w.said, ['Wrath of the Warden! The gate\'s fire bursts from you (2 struck).']);
+  assert.deepEqual(w.said, ['Wrath of the Warden! 2 foes struck.']);
 });
 
 test('SET3 Eventide: a kill of mine wraps me in Nocturnal\'s shadow - a Chameleon of whole magic rounds on me through the door, no save and no roll - said and sounded, and it recovers in its time; the bundle lands as the classic Chameleon; AUDIT M5: a round more than it names, so it lasts at least what the card says; L8: the kill of my own ally or the watch is no kill (mutants: no recovery; the shadow on four pieces; the rounds off the stage; the shadow a round short; an ally\'s death feeding it)', () => {
@@ -582,7 +582,7 @@ test('SET3 Eventide: a kill of mine wraps me in Nocturnal\'s shadow - a Chameleo
   assert.equal(d.casts[0].effects[0].durationMod, 0, 'whatever my level');
   assert.equal(d.casts[0].effects[0].type, 23);
   assert.equal(d.casts[0].effects[0].subType, 0, 'Chameleon (Normal): a strike of mine breaks it');
-  assert.deepEqual(v.said, ['Eventide - Nocturnal\'s shadows take you.']);
+  assert.deepEqual(v.said, ['Eventide! Nocturnal\'s shadows take you.']);
   assert.deepEqual(v.sounds, ['eventide']);
   at(29.99);
   reportPlayerKill(RAT);
@@ -682,15 +682,15 @@ test('SET3 the round: each recovering power is said ready again at the first mag
 
 test('SET3 the HUD\'s read of the powers: the Rampage\'s stacks and seconds, the halving, the fury and every recovery - whole seconds left, 0 for one not running (mutants: a window read past its end)', () => {
   fresh(); online(1);
-  assert.deepEqual(setPowerStates(), { rampage: 0, rampageLeft: 0, halvedLeft: 0, unbrokenLeft: 0, wrathLeft: 0, wrathRecoverLeft: 0, eventideLeft: 0 });
+  assert.deepEqual(setPowerStates(), { rampage: 0, rampageLeft: 0, halvedLeft: 0, unbrokenLeft: 0, wrathLeft: 0, wrathRecoverLeft: 0, eventideLeft: 0, riposteLeft: 0, blood: 0, bloodLeft: 0, markLeft: 0, ward: 0, wardRecoverLeft: 0 });
   const e = wearSet(player(), 'dagon', 6);
   door([], { me: e });
   at(10);
   reportPlayerKill(RAT); reportPlayerKill(RAT);
   at(10.5);
-  assert.deepEqual(setPowerStates(), { rampage: 2, rampageLeft: 12, halvedLeft: 0, unbrokenLeft: 0, wrathLeft: 0, wrathRecoverLeft: 0, eventideLeft: 0 });
+  assert.deepEqual(setPowerStates(), { rampage: 2, rampageLeft: 12, halvedLeft: 0, unbrokenLeft: 0, wrathLeft: 0, wrathRecoverLeft: 0, eventideLeft: 0, riposteLeft: 0, blood: 0, bloodLeft: 0, markLeft: 0, ward: 0, wardRecoverLeft: 0 });
   at(22);
-  assert.deepEqual(setPowerStates(), { rampage: 0, rampageLeft: 0, halvedLeft: 0, unbrokenLeft: 0, wrathLeft: 0, wrathRecoverLeft: 0, eventideLeft: 0 }, 'every window past its end: 0, never a count below it');
+  assert.deepEqual(setPowerStates(), { rampage: 0, rampageLeft: 0, halvedLeft: 0, unbrokenLeft: 0, wrathLeft: 0, wrathRecoverLeft: 0, eventideLeft: 0, riposteLeft: 0, blood: 0, bloodLeft: 0, markLeft: 0, ward: 0, wardRecoverLeft: 0 }, 'every window past its end: 0, never a count below it');
   fresh(); online(1);
   const m = wearSet(player(), 'malacath', 6);
   m.health = 5;
@@ -704,8 +704,8 @@ test('SET3 the HUD\'s read of the powers: the Rampage\'s stacks and seconds, the
 
 test('SET3 the host: world.js imports the powers (registering them) and gives them its voice - the parry\'s ring for Unbroken, a fire cast for the Wrath, a magic cast for Eventide, through the cast sounds\' ID door; the running host\'s door names my entity (mutants: the powers never imported; a cast sound spent as a raw index; a thrown sound breaking the save)', () => {
   const w = strip(read('src/scenes/world.js'));
-  assert.match(w, /import \{ setSetPowersVoice, setHudChips \} from '\.\.\/systems\/sigilSetPowers\.js';/);
-  assert.match(w, /setSetPowersVoice\(\{ sound: \(name\) => \{\s*if \(name === 'unbroken'\) audio\.playOneShot\(SOUND\.Parry6, 1\);\s*else if \(name === 'wrath'\) audio\.playOneShotId\(SPELL_CAST_SOUND\[0\], 1\);\s*else if \(name === 'eventide'\) audio\.playOneShotId\(SPELL_CAST_SOUND\[4\], 1\);\s*\} \}\);/);
+  assert.match(w, /import \{ setSetPowersVoice, setHudChips, heldPlayerBlow, remarkPlayerBlow \} from '\.\.\/systems\/sigilSetPowers\.js';/);   // AUDIT SETS L3: and the held blow's two doors
+  assert.match(w, /setSetPowersVoice\(\{ sound: \(name\) => \{\s*if \(name === 'unbroken'\) audio\.playOneShot\(SOUND\.Parry6, 1\);\s*else if \(name === 'wrath'\) audio\.playOneShotId\(SPELL_CAST_SOUND\[0\], 1\);\s*else if \(name === 'eventide'\) audio\.playOneShotId\(SPELL_CAST_SOUND\[4\], 1\);\s*else if \(name === 'mark'\) audio\.playOneShot\(SOUND\.DrawWeapon, 1\);\s*else if \(name === 'ward'\) audio\.playOneShot\(SOUND\.EquipMaceOrHammer, 1\);\s*\} \}\);/);
   assert.match(strip(read('src/scenes/hostMagic.js')), /player: \(\) => playerEntity,/);
   assert.match(strip(read('src/scenes/hostMagic.js')), /player: \(\) => playerEntity,\s*clear: \(a, b\) => burstClear\(collider, a, b\),/, 'AUDIT SET M4: the host\'s door answers the Nova\'s ray with its own collider');
   assert.equal(eventideBundle(3).element, 4, 'Eventide\'s bundle rides the magic element - its cast sound\'s index');

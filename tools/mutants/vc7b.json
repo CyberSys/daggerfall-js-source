@@ -30,6 +30,6 @@
  {"name": "VC7b-no-sky-on-the-deck", "file": "src/render/volumetricClouds.js", "old": "sky: this.sweeps > 0 ? this.map.tex : null };", "new": "sky: null };", "tests": ["test/vc7b_shafts.test.js"]},
  {"name": "VC7b-renderer-hands-the-glow-gain", "file": "src/render/renderer.js", "old": "haze: this._lane ? this._lane.scatterDensity(this._fogMode, this._fogDensity, this._fogRange[0], this._fogRange[1]) : 0,", "new": "haze: this._scatterGain(),", "tests": ["test/vc7b_shafts.test.js"]},
  {"name": "VC7b-door-not-read", "file": "src/render/enhancedLighting.js", "old": "renderer.setHaze?.(hazeOn(search)); }", "new": "}", "tests": ["test/vc7b_shafts.test.js"]},
- {"name": "VC7b-door-inverted", "file": "src/render/enhancedLighting.js", "old": "return new URLSearchParams(search).get('haze') !== 'off';", "new": "return new URLSearchParams(search).get('haze') === 'off';", "tests": ["test/vc7b_shafts.test.js"]},
+ {"name": "VC7b-door-inverted", "file": "src/render/enhancedLighting.js", "old": "return pageParam('haze', search) !== 'off';", "new": "return pageParam('haze', search) === 'off';", "tests": ["test/vc7b_shafts.test.js"]},
  {"name": "VC7b-door-lost-at-build", "file": "src/render/renderer.js", "old": "      this._air.hazeOn = this._hazeWanted !== false;   // VC7b\n", "new": "", "tests": ["test/vc7b_shafts.test.js"]}
 ]

@@ -215,8 +215,11 @@ test('ONLINE1: the socket\'s lifecycle - a room change closes and reopens, a sta
   // replaced by another window: terminal too
   s.join('town:m5', pose(0)); assert.equal(sockets.length, 6); assert.equal(s.terminal, false, 'a new room starts clean');
   sockets[5].open(); sockets[5].drop(CLOSE_REPLACED);
-  assert.equal(s.terminal, true); assert.match(s.error, /another window/);
+  assert.equal(s.terminal, true); assert.match(s.error, /another tab, window or device/);
   now += BACKOFF_MAX_MS * 4; s.tick(); assert.equal(sockets.length, 6, 'replaced: not retried, or two tabs would evict each other forever');
+  // ONE-SEAT (2026-09-27): and STICKY - no room joins until the player takes the seat back (test/oneseat.test.js)
+  s.join('town:m6', pose(0)); assert.equal(sockets.length, 6, 'a crossing joins nothing while another tab has the seat');
+  s.resume();
   // busy (1013): not terminal, but a hard backoff
   s.join('town:m6', pose(0)); sockets[6].open(); sockets[6].drop(CLOSE_BUSY);
   assert.equal(s.terminal, false); assert.ok(s._backoff >= BACKOFF_MAX_MS / 2, 'a full room is waited out, not hammered'); now += BACKOFF_MAX_MS + 1; s.tick(); assert.equal(sockets.length, 8, 'then tried again');
@@ -317,13 +320,13 @@ test('ONLINE1: the others drawn through a fake renderer - the figure cropped to 
 test('ONLINE1: the compositor\'s door is PURE - composePaperDollPixels composes over its own art set and buffer, and the compose body reads nothing of the singleton (mutant: the peer composed through the inventory\'s doll)', () => {
   const pd = rd('src/ui/paperDoll.js');
   assert.match(pd, /export async function composePaperDollPixels\(deps, entity, \{ context = 'town', background = true \} = \{\}\)/);
-  const from = pd.indexOf('async function composeDoll(art, deps, entity, { background = true } = {}) {');
+  const from = pd.indexOf('async function composeDoll(art, deps, entity, { background = true, scale: S = 1 } = {}) {');
   assert.ok(from > 0, 'the compose is a function of its art and deps');
   const body = pd.slice(from, pd.indexOf('\nexport async function refreshPaperDoll(', from));
   const names = (text, list, what) => { for (const name of list) assert.ok(!new RegExp(`\\b${name}\\b`).test(text), `${what} ${name}`); };
   names(body, ['_art', '_deps', '_live', '_pixels', '_layout', '_identity', '_refreshing', '_pending'], 'the compose reads no');
-  assert.match(body, /for \(let y = 0; background && y < PAPERDOLL_H; y\+\+\) \{/, 'the background loop is skipped for a peer, the panel stays clear');
-  assert.match(pd, /export async function refreshPaperDoll\(entity\) \{[\s\S]*?const \{ out, layout, bgSize \} = await composeDoll\(_art, _deps, entity, \{ background: !packBg \}\);/, 'the inventory\'s doll rides the same compose (OVH2: on nothing, when a worn UI pack draws its backdrop under it)');
+  assert.match(body, /for \(let y = 0; background && y < OH; y\+\+\) \{/, 'the background loop is skipped for a peer, the panel stays clear');   // DFMOD4: OH = PAPERDOLL_H * S, and a peer composes at S = 1
+  assert.match(pd, /export async function refreshPaperDoll\(entity\) \{[\s\S]*?const \{ out, layout, bgSize, width: OW, height: OH \} = await composeDoll\(_art, _deps, entity, \{ background: !packBg, scale: composeScale\(\) \}\);/, 'the inventory\'s doll rides the same compose (OVH2: on nothing, when a worn UI pack draws its backdrop under it)');
   const door = pd.slice(pd.indexOf('export async function composePaperDollPixels('), pd.indexOf('/** Test seam. */'));
   names(door, ['_art', '_deps', '_live', '_pixels', '_layout', '_identity', 'refreshPaperDoll', 'preloadPaperDollArt'], 'the door touches no');
   assert.match(door, /_artSets\.set\(key, art\)/, 'an art set per identity');

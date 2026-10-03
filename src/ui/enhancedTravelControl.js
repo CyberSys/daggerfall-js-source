@@ -40,7 +40,14 @@ let host = null;
 let parts = null;
 let last = null;
 
-/** enhancedHud.js:283 - write only on a change. */
+/** TV2 (AUDIT DEEP X-6): the held clock, in words - the rate the travel view's governor lets run, of the one asked for,
+ *  and why. AUDIT OW5 G1: the load (TV2's governor), or the ground (AUDIT OW4 J5: an Overworld journey walks at x1 on the
+ *  ground until the view can rise), which the load's words called loading while nothing was; OW6: or an enemy near
+ *  (systems/travelThreat.js). */
+export const TRAVEL_HELD_WHY = Object.freeze({ load: 'while the land loads', ground: 'until the Overworld rises', foes: 'with enemies near' });
+export const TRAVEL_HELD_TEXT = (n, of, why = 'load') => `Held to ×${n} of ×${of} ${TRAVEL_HELD_WHY[why] ?? TRAVEL_HELD_WHY.load}`;
+
+/** enhancedHud.js:440 - write only on a change. */
 function put(node, key, value) {
   if (!node || last[key] === value) return;
   last[key] = value;
@@ -83,7 +90,14 @@ function build(doc, hooks) {
     <canvas class="travelpanel-junction" width="${JUNCTION_MAP_WIDTH * DOT_SCALE}" height="${JUNCTION_MAP_HEIGHT * DOT_SCALE}"></canvas>
   `;
   doc.body.append(root);
-  root.addEventListener('click', (e) => {
+  // AUDIT DEEP2 A1: a press on one of the panel's own controls is the panel's - the host's window mousedown counts any
+  // press as Mouse0 (the activation, the swing, a readied spell), so under the travel view a click on + or Exit also
+  // activated what stood before the traveller's head. The PRESS stops here; never the release (AUDIT CHAT C5).
+  // OW-DECK: the listeners stand on the BAR, not the root - every [data-act] is in it, and the Overworld's strip docks
+  // the bar in itself (ui/travelViewHud.js): a press there must still reach these hooks
+  const bar = root.querySelector('.travelpanel-bar');
+  bar.addEventListener('mousedown', (e) => { if (e.target?.closest?.('[data-act]')) e.stopPropagation(); });
+  bar.addEventListener('click', (e) => {
     const act = e.target?.closest?.('[data-act]')?.dataset?.act;
     if (!act) return;
     e.preventDefault();
@@ -97,7 +111,7 @@ function build(doc, hooks) {
     accel: root.querySelector('.travelpanel-accel'),
     msg: root.querySelector('.travelpanel-msg'),
     junction: root.querySelector('.travelpanel-junction'),
-    bar: root.querySelector('.travelpanel-bar'),
+    bar,
   };
 }
 
@@ -149,7 +163,7 @@ export function paintJunction(canvas, buf, { mapPixel, direction, settings, deps
   const img = ctx.createImageData(w, h);
   const out = new Uint32Array(img.data.buffer);
   // the buffer is bottom-up, as every generated map texture in this
-  // port is (ui/travelMapWindow.js:1474-1482)
+  // port is (ui/travelMapWindow.js:1525-1532)
   for (let row = 0; row < h; row++) out.set(buf.subarray((h - row - 1) * w, (h - row) * w), row * w);
   ctx.putImageData(img, 0, 0);
   return true;
@@ -157,7 +171,8 @@ export function paintJunction(canvas, buf, { mapPixel, direction, settings, deps
 
 /** The panel's frame. `state` is what the journey knows:
  *  { showing, covered, destination, following, accel, message, minutesLeft,
- *    from, to, junction: { on, mapPixel, direction, settings, deps, buf } }
+ *    from, to, junction: { on, mapPixel, direction, settings, deps, buf }, held }
+ *  (TV2: `held` the rate the travel view's governor holds the clock to, or null)
  *  `hooks` are the five controls, wired once at build.
  *
  *  AUDIT-TO1 F1: THE JUNCTION MAP OUTLIVES THE BAR. In the mod the
@@ -180,10 +195,10 @@ export function drawEnhancedTravelControl(state = {}, hooks = {}) {
   if (!state.showing && !junctionOnly) { hideEnhancedTravelControl(); return null; }
   if (!host) { last = {}; parts = build(document, hooks); host = parts.root; }
   if (state.covered) {
-    if (last.covered !== true) { last.covered = true; parts.root.style.display = 'none'; }
+    if (last.covered !== true) { last.covered = true; parts.root.style.display = 'none'; parts.bar.style.display = 'none'; parts.msg.style.display = 'none'; }   // OW-DECK: the bar and word may stand docked outside the root
     return parts.root;
   }
-  if (last.covered === true) { last.covered = false; parts.root.style.display = ''; }
+  if (last.covered === true) { last.covered = false; parts.root.style.display = ''; parts.bar.style.display = ''; parts.msg.style.display = ''; }
   // PLUS8: THE HUD'S SCALE, READ OFF THE HUD. The bar stands under the
   // compass (Enhanced Plus - ui/enhancedPlusStyle.js TRAVEL_CSS), and the
   // compass grows with --hud-scale; this panel is a sibling of `.hud` on
@@ -194,12 +209,20 @@ export function drawEnhancedTravelControl(state = {}, hooks = {}) {
   const scale = document.querySelector('.hud')?.style?.getPropertyValue('--hud-scale') || '1';
   if (last.scale !== scale) { last.scale = scale; parts.root.style.setProperty('--hud-scale', scale); }
   cls(parts.root, 'rootClass', `travelpanel${state.following ? ' following' : ''}${junctionOnly ? ' junction-only' : ''}`);
-  cls(parts.bar, 'barClass', junctionOnly ? 'travelpanel-bar hidden' : 'travelpanel-bar');
+  cls(parts.bar, 'barClass', `travelpanel-bar${state.following ? ' following' : ''}${junctionOnly ? ' hidden' : ''}`);   // OW-DECK: `following` on the bar too - docked, it is outside the root
   put(parts.name, 'name', String(state.destination ?? ''));
   const eta = etaText(state.minutesLeft);
   const dist = distanceText(state.from, state.to);
   put(parts.sub, 'sub', [eta, dist].filter(Boolean).join('  ·  '));
-  put(parts.accel, 'accel', `×${state.accel ?? 1}`);
+  // TV2: under the travel view the clock may be HELD under the spinner (systems/travelGovernor.js) - the rate that
+  // runs, then the one asked for; the spinner stays the player's
+  const accel = state.accel ?? 1;
+  const held = state.held != null && state.held < accel ? state.held : null;
+  put(parts.accel, 'accel', held != null ? `×${held} / ×${accel}` : `×${accel}`);
+  cls(parts.accel, 'accelClass', held != null ? 'travelpanel-accel held' : 'travelpanel-accel');
+  // AUDIT DEEP X-6: and says why, under the pointer (the travel view's own words - they were written, and never shown)
+  const why = held != null ? TRAVEL_HELD_TEXT(held, accel, state.heldWhy) : '';
+  if (parts.accel && last.accelTitle !== why) { last.accelTitle = why; parts.accel.title = why; }
   put(parts.msg, 'msg', String(state.message ?? ''));
   cls(parts.msg, 'msgClass', state.message && !junctionOnly ? 'travelpanel-msg show' : 'travelpanel-msg');
   const j = state.junction;
@@ -220,6 +243,7 @@ export function drawEnhancedTravelControl(state = {}, hooks = {}) {
 export function hideEnhancedTravelControl() {
   if (!host) return;
   try { host.remove(); } catch { /* already gone */ }
+  try { parts?.bar?.remove(); parts?.msg?.remove(); } catch { /* OW-DECK: docked in the Overworld's strip - taken down with the journey */ }
   host = null; parts = null; last = null;
 }
 

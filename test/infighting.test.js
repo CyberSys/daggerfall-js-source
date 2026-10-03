@@ -109,7 +109,8 @@ test('IF1 (7): the DUNGEON host arms the machine and acts on a foe target', () =
   // and all three action arms fork on a non-player target
   assert.match(dc, /function resolveFoeMeleeVsFoe\(f\)/, 'melee');
   assert.match(dc, /if \(!vsPlayer && resolveFoeMeleeVsFoe\(f\)\) return;/, 'melee, from the one home');
-  assert.match(dc, /dealDamage: \(tt, d\) => tt\.hurtFromFoe\?\.\(d, m\.dir\)/, 'missiles');
+  // PIN MOVED (AUDIT CC-E1): the door names the shooter too, so a companion struck on another's screen knows whose
+  assert.match(dc, /dealDamage: \(tt, d\) => tt\.hurtFromFoe\?\.\(d, m\.dir, m\.shooterFoe \?\? null\)/, 'missiles');
   assert.match(dc, /f\.ai\.target\?\.entity \?\? foeDeps\.PEER_CAST_TARGET \?\? playerEntity/, 'casting');
 });
 

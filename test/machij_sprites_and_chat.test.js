@@ -222,7 +222,7 @@ test('MAC-I: the switch, and every sprite in the seam wearing the tint', () => {
   assert.match(rig, /handheld\.draw\(renderer, c, fpTint\)/);
   assert.match(rig, /widget\.draw\(renderer, c, fpTint\)/);   // FIELD-GUN12: the gun takes its own frame above this, so the clone is the tint alone again
   // FIELD-GUN6: `adjust` joined the tint - the Thunderlock's recoil and reload lower, null for every classic weapon
-  assert.match(rig, /drawFpsWeapon\(renderer, c, art, playerWeapon\.machine\.state, playerWeapon\.machine\.frame, \{ tint: fpTint \}\)/);   // FIELD-GUN12: the classic sprite is the classic sprite again
+  assert.match(rig, /drawFpsWeapon\(renderer, c, art, playerWeapon\.machine\.state, playerWeapon\.machine\.frame, \{ tint: fpTint(?:, offsetHeight: weaponOffsetHeight\(\) - climbDrop\(_climbLower, c\.height\))? \}\)/);   // FIELD-GUN12: the classic sprite is the classic sprite again; CLIMB4: lowered for the climb (climb4.test.js F16)
   // and each draw passes it THROUGH to the quad rather than accepting and dropping it
   // FIELD-GUN11: the rect is expanded from the weapon's own box to
   // the drawn box first (art that declares one - the Thunderlock's

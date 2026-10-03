@@ -17,18 +17,24 @@
 // trophy, one a kill. The spoils are graded whatever the Loot Rarity switch says: their glow is their tier.
 //
 // THE SIGIL STONE IS ITS OWN TEMPLATE (SIGIL_STONE_TEMPLATE, 570 - past DFU's 288, Climates & Calories' 530-541 and the
-// Thunderlock's 560/561), a gem by its group - so the gem stores and the pawn shops buy it - and not a renamed gem: every
+// Thunderlock's 560/561), a gem by its group (bound, so no counter buys it - SS4) - and not a renamed gem: every
 // classic gem is an ingredient, an ingredient STACKS, and a Ruby renamed would merge into the Ruby already in the pack
-// and lose its name and its price. A custom row is no ingredient and does not stack (inventory.js isStackable). It wears
-// the gems' own art, the Ruby's red, and no shelf stocks it: it is in no group's enum a shelf draws from. Registered here,
-// and scenes/shared.js imports this file so every host has the row before a save carrying one loads.
+// and lose its name and its price. A custom row is no ingredient. SS1 (2026-09-27, Mac: "make sigil stones bound items
+// and stackable"): the row STACKS with its own kind alone - it says `stackable`, as the rations' row does
+// (inventory.js isStackable), and a stack merges only with the same template, so a stone never joins a Ruby nor a Ruby
+// a stone - and it is BOUND (`bound`, systems/itemBound.js): a stone is never handed to another player. A pack saved
+// before it stacked is folded on load (restackStones). It wears the gems' own art, the Ruby's red, and no shelf stocks
+// it: it is in no group's enum a shelf draws from. Registered here, and scenes/shared.js imports this file so every host
+// has the row before a save carrying one loads.
 //
 // Not a DFU member. Ledger A (WB).
 import { seededRng } from './wind.js';
 import { createRandomWeapon, createRandomArmor, ITEM_GROUPS } from './loot.js';
 import { setItemFields, isAmmunition, mintCondition, registerCustomTemplates, templateByIndex } from './itemTemplates.js';
-import { applyRarity, rarityChances } from './lootRarity.js';
+import { applyRarity, rarityChances, lastPass } from './lootRarity.js';
 import { rollRegalia } from './aetheric.js';   // SET6: Ruhn's Regalia - the spoils' last roll
+import { stacksWith } from './inventory.js';   // SS1: the fold of a pack saved before the stone stacked
+import { wearableItem } from './equip.js';   // RARITY-WEAR: a spoils piece is one a slot takes
 
 /** Gold a level of the player's, before the seed's variation (0.8 to 1.2 of it). */
 export const SPOILS_GOLD_PER_LEVEL = 250;
@@ -36,12 +42,15 @@ export const SPOILS_GOLD_PER_LEVEL = 250;
 export const SPOILS_LEGENDARY = 0.1;
 /** The source the two Magic-or-better pieces are laddered at: a boss, at the ladder's top tier, a player's even luck. */
 export const SPOILS_SOURCE = Object.freeze({ boss: true, tier: 21, luck: 50 });
-/** The gate's trophy: its template, its name and its price. */
+/** The gate's trophy: its template, its name and its price. WB12a (2026-10-01, Mac: "I'd like to rename the stones" -
+ *  "Deadlands Ember"): a coal of the breach's fire, carried out when the Warden falls - only the NAME moved; the id, the
+ *  binding and every key are the Sigil Stone's (bible World-Bosses.md section 19 A). */
 export const SIGIL_STONE_TEMPLATE = 570;
-export const SIGIL_STONE = Object.freeze({ name: 'Sigil Stone', value: 5000 });
+export const SIGIL_STONE = Object.freeze({ name: 'Deadlands Ember', value: 5000 });
 
 /** The Sigil Stone's row, in DFU's ItemTemplates.txt columns: a gem's weight and wear, the gate's price, the rarest
- *  rarity, the Ruby's art (TEXTURE.254 record 0). */
+ *  rarity, the Ruby's art (TEXTURE.254 record 0) - and the port's two (SS1): it stacks, with its own kind alone, and it
+ *  is bound. */
 export const SIGIL_STONE_TEMPLATES = Object.freeze([{
   index: SIGIL_STONE_TEMPLATE,
   name: SIGIL_STONE.name,
@@ -51,18 +60,79 @@ export const SIGIL_STONE_TEMPLATES = Object.freeze([{
   rarity: 20,
   worldTextureArchive: 254,
   worldTextureRecord: 0,
+  stackable: true,
+  bound: true,
 }]);
 registerCustomTemplates(SIGIL_STONE_TEMPLATES);
 export const isSigilStone = (item) => item?.templateIndex === SIGIL_STONE_TEMPLATE;
+/** LOOT9 (the Loot arc, bible/06-Systems/Loot-Arc.md section 11): THE WELKYND SHARD - a sliver of Ayleid
+ *  magicka-crystal, what a laddered piece is salvaged into and the Reforge's only coin (systems/reforge.js). Its own row
+ *  beside the Stone's, on the Stone's laws: it stacks with its own kind alone, and it is BOUND - never sold, traded,
+ *  dropped or listed (systems/itemBound.js; net/realmTradeLaw.js BOUND_TEMPLATES names it). The Sapphire's art
+ *  (TEXTURE.254 record 2): a Welkynd stone's blue. */
+export const WELKYND_SHARD_TEMPLATE = 571;
+export const WELKYND_SHARD = Object.freeze({ name: 'Welkynd Shard', value: 250 });
+export const WELKYND_SHARD_TEMPLATES = Object.freeze([{
+  index: WELKYND_SHARD_TEMPLATE,
+  name: WELKYND_SHARD.name,
+  baseWeight: 0.1,
+  hitPoints: 1000,
+  basePrice: WELKYND_SHARD.value,
+  rarity: 20,
+  worldTextureArchive: 254,
+  worldTextureRecord: 2,
+  bound: true,
+  stackable: true,
+}]);
+registerCustomTemplates(WELKYND_SHARD_TEMPLATES);
+export const isWelkyndShard = (item) => item?.templateIndex === WELKYND_SHARD_TEMPLATE;
+/** `n` shards (at least one), one stack, minted on their own row. */
+export function welkyndShards(n = 1) {
+  return Object.assign(mintCondition(setItemFields({ group: 'Gems', templateIndex: WELKYND_SHARD_TEMPLATE })), { stackCount: Math.max(1, Math.trunc(Number(n) || 1)) });
+}
+
+/** SS1: STONES WON BEFORE THEY STACKED ARE ONE STACK. A pack saved before the row stacked holds a record a stone; each
+ *  goes into the first record before it that it stacks with (a locked stone into a locked one - inventory.js
+ *  stacksWith), so the load shows the stack the next kill would have made. Runs where no index into the list is still
+ *  to be read (systems/save.js, below its index-keyed relinks). Answers how many records it folded. */
+export function restackStones(list) {
+  if (!Array.isArray(list)) return 0;
+  let folded = 0;
+  for (let i = 0; i < list.length; i++) {
+    const it = list[i];
+    if (!isSigilStone(it)) continue;
+    const into = list.findIndex((held, j) => j < i && isSigilStone(held) && stacksWith(held, it));
+    if (into < 0) continue;
+    list[into].stackCount = (list[into].stackCount ?? 1) + (it.stackCount ?? 1);
+    list.splice(i, 1);
+    i--;
+    folded++;
+  }
+  return folded;
+}
+
+/** WB12a: THE EMBER'S NAME, GIVEN TO EVERY STONE. A stone's name is written into its record at the mint and kept by
+ *  every save, so a stone won before the rename still said "Sigil Stone" - and a stack it heads keeps its name through
+ *  every merge (inventory.js stacksWith never compares names). Every record of the template under another name takes
+ *  the template's (systems/save.js, beside the rarity names' repair; the crash record's pieces, scenes/spoilsPool.js).
+ *  Answers how many it renamed. */
+export function nameEmbers(list) {
+  if (!Array.isArray(list)) return 0;
+  let renamed = 0;
+  for (const it of list) if (isSigilStone(it) && it.name !== SIGIL_STONE.name) { it.name = SIGIL_STONE.name; renamed++; }
+  return renamed;
+}
 
 const pick = (list, rolls) => list[Math.floor(rolls() * list.length)];
 
 /** One piece to grade: a weapon (never ammunition), a piece of armour or a jewel, the seed choosing which and what, with
  *  SetItem's condition - and never one the port has no row for (a custom class whose template is not registered names
- *  nothing true and wears nothing: the next is made). */
+ *  nothing true and wears nothing: the next is made). RARITY-WEAR (FIELD BUGS 2026-10-01, Cruor: a King's Mark "spawn[ed]
+ *  as wands, they cannot be equipped"): nor one no slot takes - the Wand is the eighth jewel, and a tier on it is read by
+ *  nothing - so it is made again too; a seed that drew no wand draws what it drew before. */
 export function spoilsBase(level, rolls) {
   let item = makeBase(level, rolls);
-  for (let n = 0; n < 32 && !templateByIndex(item?.templateIndex); n++) item = makeBase(level, rolls);
+  for (let n = 0; n < 32 && (!templateByIndex(item?.templateIndex) || !wearableItem(item)); n++) item = makeBase(level, rolls);
   return mintCondition(item);
 }
 function makeBase(level, rolls) {
@@ -76,7 +146,9 @@ function makeBase(level, rolls) {
   return setItemFields({ group: 'Jewellery', templateIndex: pick(ITEM_GROUPS.Jewellery, rolls) });
 }
 
-/** A Magic-or-better tier by the source's own chances, the Common share cut away. */
+/** A Magic-or-better tier by the source's own chances, the Common share cut away (RAID4b: a town's thanks name their own
+ *  source - systems/raidSpoils.js).
+ * @param {() => number} rolls @param {{ kind?: string, tier?: number, boss?: boolean, luck?: number }} [source] */
 export function magicOrBetter(rolls, source = SPOILS_SOURCE) {
   const c = rarityChances(source);
   const r = rolls() * c.magic;
@@ -106,6 +178,9 @@ export function rollSpoils(seed, level) {
   // sixth of the time - rolled LAST, so every spoils before it is what it was for its seed; it leaves him last
   const regalia = rollRegalia(rolls);
   if (regalia) pieces.push({ item: regalia, tier: regalia.rarity });
+  // LOOT2 (bible/06-Systems/Loot-Arc.md section 4): the ladder's last pass - a Legendary among them Exalted one time in
+  // ten - rolled after the Regalia, so every spoils before it is what it was for its seed
+  lastPass(pieces.map((p) => p.item), rolls);
   return { gold, pieces, sigil: sigilStone() };
 }
 

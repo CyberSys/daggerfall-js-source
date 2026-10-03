@@ -23,9 +23,12 @@
 import { injectEnhancedStyle, injectEnhancedFonts } from './enhancedStyle.js';
 import { closeOnOutsideTap } from './enhancedOverlays.js';   // OT1
 import { overlayAction, eventMeans } from './input.js';   // LV1's audit: the REGISTRY's answer (AUDIT KB1: `eventAction`, the event's own read) for the key this window is named after
-import { questRail, questTitleOf } from './questRail.js';   // MAC-K2: the ONE quest walk, shared with the pause window's Quests tab
+import { questRail, questTitleOf, remainWords, QUEST_URGENT_SECONDS } from './questRail.js';   // MAC-K2: the ONE quest walk, shared with the pause window's Quests tab
+import { entryTarget, targetWords, WHERE_TEXT } from './questLens.js';   // GUIDE2: where a quest points, said the way every face says it
+import { followOn, trackButton } from './questTracker.js';   // GUIDE4: the HUD's card - the Track toggle's one home
 import { breakableNote } from '../systems/notebook.js';   // JOURNAL1: a note the notebook's wrap can take, whatever was typed
 import { pageOfNote, pageRefusalText } from '../net/journalPage.js';   // JOURNAL1: a note as the page it would be shown as, or why it cannot be
+import { isBountyQuestId, abandonBountyQuest, shareBountyQuest, bountyQuestShareable } from '../systems/bountyJournal.js';   // BOUNTY1: a bounty's Abandon and Share
 
 const el = (tag, cls, text) => {
   const n = document.createElement(tag);
@@ -43,6 +46,7 @@ let draft = '';   // PX24b: the note being written, kept across renders
 // position like a fold: kept across renders, cleared on mount.
 let sharing = null;
 let shareWord = '';
+let bountyArmed = null;   // BOUNTY1: the bounty whose Abandon was pressed once
 // MAC-F (Mac: "Quests and their tabs should be able to be minimized").
 // WHICH CARDS THE PLAYER HAS SHUT, as `section:index`. A quest's whole
 // trail is its body and twelve of them is a wall of text; the classic
@@ -51,6 +55,11 @@ let shareWord = '';
 // and across a tab change, cleared on mount - a fold is a reading
 // position, not a saved setting, and nothing on disk should learn it.
 const folded = new Set();
+// GUIDE2: THE DEADLINES, LIVE - QT-LIVE1's law, this window's copy of its arming: once a second the host's walk is
+// read again for each running clock (the walk alone - no entry's text is read for it) and the words rewritten in place.
+// One owner: cleared by every render and by destroy.
+let clockTimer = null;
+const clockSpans = new Map();   // quest id -> its timer span, this render's
 
 // MAC-K2 (Mac: "Logbook not reflecting quests"). QUESTS GOES FIRST,
 // and it is the section this window was missing entirely. The L key
@@ -80,7 +89,7 @@ export function chronicleLines(entry) {
  *
  * `PlayerNotebook._createNote` puts a HIGHLIGHT token first - the
  * dated header, `noteHeader` formatted with the host's own
- * dateTimeString and cityName (notebook.js:109) - and the finished-
+ * dateTimeString and cityName (notebook.js:115) - and the finished-
  * quest filing does the same (:179). Flattening every token to a
  * string turned that date into just another line, and the window
  * numbered its entries 1, 2, 3 instead, which tells a player nothing.
@@ -106,7 +115,7 @@ export function chronicleEntry(entry) {
  * PX24c: WHAT A MESSAGE IS, checked rather than assumed.
  *
  * `addMessage` builds `[{formatting:'center', text:''}, {text: str}]`
- * (notebook.js:126) - a CENTRE token and the words. It never writes a
+ * (notebook.js:132) - a CENTRE token and the words. It never writes a
  * highlight, so a message has NO dated head, ever. PX24b's fallback
  * printed "- continued -" on every one of them, which is a lie about
  * all fifty: a continuation is a note whose page split, and a message
@@ -137,13 +146,24 @@ export function chronicleModel(d = {}) {
   const log = d.questLog?.() ?? null;
   const rail = log ? questRail(log) : { active: [], finished: [] };
   const quests = [
-    ...rail.active.map((q) => ({
-      head: questTitleOf(q.name),
-      body: [...q.entries].reverse().flat(),
-      uid: q.id,
-      questName: q.questName,
-      main: q.main,
-    })),
+    ...rail.active.map((q) => {
+      // GUIDE2: WHERE THE QUEST POINTS NOW - the latest entry's target (ui/questLens.js: DFU's own
+      // GetLastPlaceMentionedInMessage, and of that place only the names the entry says or DFU's find-place box would),
+      // in the words every face says it in, with the door's payload; and the deadline the pause tab has carried since
+      // PX5, which this window - the one the L key opens - never showed.
+      const said = targetWords(entryTarget(q.written.at(-1)?.message, { canFindPlace: d.canFindPlace, currentLocationName: d.currentLocationName }));
+      return {
+        head: questTitleOf(q.name),
+        body: [...q.entries].reverse().flat(),
+        uid: q.id,
+        questName: q.questName,
+        main: q.main,
+        where: said?.where ?? null,
+        note: said?.note ?? null,
+        find: said?.find ?? null,
+        clockSeconds: q.clockSeconds,
+      };
+    }),
     ...rail.finished.map((q) => ({
       head: `${questTitleOf(q.name)}${q.when ? ` \u2014 ${q.success === false ? 'ended' : 'completed'} ${q.when}` : ''}`,
       body: [...q.lines],
@@ -223,7 +243,63 @@ function shareStrip(share, index) {
   return box;
 }
 
+/** GUIDE2: a live quest's state line under its head - where the latest entry sends the player, the way there where
+ *  the host has a map to open, the note when the player's map is known not to have it, and the deadline. Null when
+ *  there is none of it to say. */
+function questState(e) {
+  const track = followOn() && e.uid != null;   // GUIDE4: every live card can be the HUD's (AUDIT GUIDE T2: the card's or the marks')
+  if (!e.where && e.clockSeconds == null && !track) return null;
+  const box = el('div', 'cr-where');
+  if (e.where) {
+    box.append(el('span', 'cr-whereplace', e.where));
+    // THE WAY THERE - HandleQuestClicks' Yes (FindPlace_OnButtonClick, DaggerfallQuestJournalWindow.cs:353-363): the
+    // journal closes, THEN the map is asked for with the place. DFU's order: a map the host refuses (indoors, an
+    // enemy near, the sun) says why in its own words over a closed journal, as the classic logbook's Yes does. The
+    // door is read BEFORE the close, because the close empties this module's deps.
+    const door = deps.showQuestPlace;
+    if (e.find && typeof door === 'function') {
+      const go = el('button', 'act', WHERE_TEXT.show);
+      go.type = 'button';
+      go.title = WHERE_TEXT.showLabel(e.where);
+      go.setAttribute('aria-label', WHERE_TEXT.showLabel(e.where));
+      const find = e.find;
+      go.onclick = () => { onExit(); door(find); };
+      box.append(go);
+    }
+    if (e.note) box.append(el('span', 'cr-wherenote', e.note));
+  }
+  if (e.clockSeconds != null) {
+    const t = el('span', `cr-timer${e.clockSeconds < QUEST_URGENT_SECONDS ? ' urgent' : ''}`, `Time remains: ${remainWords(e.clockSeconds)}`);
+    clockSpans.set(String(e.uid), t);
+    box.append(t);
+  }
+  // GUIDE4: TRACK THIS QUEST on the HUD's card (ui/questTracker.js) - the card follows the quest the journal last
+  // changed until the player chooses one, here or in the pause window's Quests tab (the same toggle, one home).
+  if (track) box.append(trackButton(document, e.uid, e.head));   // AUDIT GUIDE T5/U3: changed in place - the focus and the scroll stay
+  return box;
+}
+
+/** GUIDE2: arm the once-a-second rewrite over this render's timer spans, if it drew any. A clock that has stopped under
+ *  the window (a quest ended, a timer fired) is a stale CARD, and that repaints, as the pause tab's does. */
+function armClocks() {
+  if (!clockSpans.size) return;
+  clockTimer = setInterval(() => {
+    const live = new Map((deps.questLog?.()?.active ?? []).map((q) => [String(q.id), q.clockSeconds]));
+    for (const [id, span] of clockSpans) {
+      const left = live.get(id);
+      if (!Number.isFinite(left)) { render(); return; }
+      span.textContent = `Time remains: ${remainWords(left)}`;
+      span.className = `cr-timer${left < QUEST_URGENT_SECONDS ? ' urgent' : ''}`;
+    }
+  }, 1000);
+}
+function disarmClocks() {
+  if (clockTimer) { clearInterval(clockTimer); clockTimer = null; }
+  clockSpans.clear();
+}
+
 function render() {
+  disarmClocks();   // GUIDE2: this render's spans replace the last one's
   if (!host) return;
   host.innerHTML = '';
   const model = chronicleModel(deps);
@@ -293,7 +369,7 @@ function render() {
     // shares through the party, the history is chargen's), and null offline, where nothing is drawn.
     const share = section === 'notes' && deps.notebook?.() ? (deps.pageShare?.() ?? null) : null;
     // PX24b: THE PLAYER MAY WRITE. The classic notebook has AddNote and
-    // RemoveNote (notebook.js:81, :70); the first draft was read-only,
+    // RemoveNote (notebook.js:87, :76); the first draft was read-only,
     // which is a LOSS of function dressed as a nicer window. The
     // composer sits above the entries, where a new note lands.
     if (section === 'notes' && deps.notebook?.()) {
@@ -330,7 +406,7 @@ function render() {
       // NEWEST FIRST for messages (the ring's own order is oldest
       // first and the last thing you were told is the thing you
       // opened this for); notes keep the player's OWN order, because
-      // they arranged them (MoveNote is a law, notebook.js:67-75).
+      // they arranged them (MoveNote is a law, notebook.js:73-81).
       const list = section === 'messages'
         ? rows.map((e, i) => ({ e, i })).reverse()
         : rows.map((e, i) => ({ e, i }));
@@ -354,7 +430,7 @@ function render() {
         const entry = el('div', `cr-entry${isFolded(folded, section, i) ? ' cr-shut' : ''}`);
         const top = el('div', 'cr-head');
         // THE DATE, which the notebook wrote and PX24 lost. A NOTE
-        // whose page split files with no header (notebook.js:100-110)
+        // whose page split files with no header (notebook.js:106-116)
         // and says so; a MESSAGE never has one at all, so it gets the
         // only true thing there is to say - which of them is newest.
         const head = e.head ?? (section === 'messages'
@@ -400,7 +476,27 @@ function render() {
         // hand off) and ONLY with a party to offer it to
         // (deps.partyMembers, an online-only seam - a host with no
         // online layer supplies none, so this never draws offline).
-        if (section === 'quests' && e.uid != null && !e.main
+        // BOUNTY1: a bounty's own presses - Share (in a party) and Abandon (twice), never the quest share's
+        if (section === 'quests' && isBountyQuestId(e.uid)) {
+          if (bountyQuestShareable(e.uid)) {
+            const bs = el('button', 'cr-rm cr-share', 'Share');
+            bs.title = 'Share this bounty with your party';
+            bs.onclick = () => { shareBountyQuest(e.uid); render(); };
+            top.append(bs);
+          }
+          const armed = bountyArmed === e.uid;
+          const ab = el('button', 'cr-rm cr-share', armed ? 'Click again' : 'Abandon');
+          ab.title = 'Give up this bounty';
+          ab.setAttribute('aria-label', armed ? 'Click again to give up this bounty' : 'Abandon this bounty');
+          ab.onclick = () => {
+            if (bountyArmed !== e.uid) { bountyArmed = e.uid; render(); return; }
+            bountyArmed = null;
+            abandonBountyQuest(e.uid);
+            render();
+          };
+          top.append(ab);
+        }
+        if (section === 'quests' && e.uid != null && !e.main && !isBountyQuestId(e.uid)
           && (deps.partyMembers?.() ?? []).length) {
           const share = el('button', 'cr-rm cr-share', 'Share');
           share.title = 'Share this quest with your party';
@@ -409,6 +505,12 @@ function render() {
           top.append(share);
         }
         entry.append(top);
+        // GUIDE2: a live quest's WHERE and WHEN, under its head and standing when the card is shut - they are the
+        // quest's state, as its title is, and a folded list of quests is most useful as titles with where they point.
+        if (section === 'quests' && e.uid != null) {
+          const state = questState(e);
+          if (state) entry.append(state);
+        }
         if (share && sharing === e.index) entry.append(shareStrip(share, e.index));
         if (!isFolded(folded, section, i)) {
           for (const line of e.body) entry.append(el('p', null, line));
@@ -424,6 +526,7 @@ function render() {
   shell.append(win);
   host.append(shell);
   closeOnOutsideTap(shell, '.px-win', () => onExit());   // OT1 (Mac: a tap outside the window closes it)
+  armClocks();   // GUIDE2: after the spans exist
 }
 
 function onKey(e) {
@@ -478,14 +581,16 @@ export function mountEnhancedChronicle(hostEl, d = {}) {
   section = CHRONICLE_SECTIONS.some(([id]) => id === d.section) ? d.section : 'quests';
   draft = '';
   sharing = null; shareWord = '';   // JOURNAL1: a fresh open shares nothing yet
+  bountyArmed = null;   // AUDIT 28 B11: an armed Abandon never outlives the visit it was armed on
   folded.clear();   // MAC-F: a fresh open reads whole, as it always has
   render();
   window.addEventListener('keydown', onKey, true);
   return {
     render,
     destroy() {
+      disarmClocks();
       window.removeEventListener('keydown', onKey, true);
-      host = null; deps = {}; section = 'notes'; draft = ''; folded.clear(); sharing = null; shareWord = '';
+      host = null; deps = {}; section = 'notes'; draft = ''; folded.clear(); sharing = null; shareWord = ''; bountyArmed = null;
     },
   };
 }

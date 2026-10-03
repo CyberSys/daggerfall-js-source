@@ -99,8 +99,10 @@ test('AUDIT DISC19 W3: one incident brings at most TOWN_WATCH_MAX_WAVES squads -
   for (let i = 0; i < 800; i++) if (w.tick(0.25, T) === 'summon') summons++;   // every squad dies the moment it lands
   assert.equal(summons, 3, 'two hundred seconds against a monster no squad can beat: three squads, the port\'s own number');
   assert.equal(w.waves, TOWN_WATCH_MAX_WAVES);
+  for (let i = 0; i < 36; i++) w.tick(0.25, { ...T, threats: 0 });   // nine quiet seconds...
+  w.tick(0.25, T);   // ...and the monster shows itself again: the quiet starts over
   for (let i = 0; i < 39; i++) w.tick(0.25, { ...T, threats: 0 });
-  assert.equal(w.waves, TOWN_WATCH_MAX_WAVES, 'not yet: nine and three-quarter quiet seconds');
+  assert.equal(w.waves, TOWN_WATCH_MAX_WAVES, 'not yet: nine and three-quarter quiet seconds - the nine before the monster\'s moment are not counted');
   w.tick(0.25, { ...T, threats: 0 });
   assert.equal(w.waves, 0, 'ten quiet seconds end the incident');
   let t = 0, act = null;
@@ -175,7 +177,7 @@ test('AUDIT DISC19 W6 by source: the world host answers the frame with the stric
     const px = playerTravelPixel();
     const feet = walkMode && playerSpawned ? player.pos : cam.pos;
     runTownWatchFrame(townWatch, dt, {
-      enabled: getPref('townWatch') !== false && !isTransformedLycanthrope(playerEntity),
+      enabled: (getPref('townWatch') !== false || raidDefendingHere()) && !isTransformedLycanthrope(playerEntity),
       inTown: _isPlayerInTownStrict(), crime: !!playerEntity.crimeCommitted, locationKey: \`\${px.x},\${px.y}\`,
       foes: exteriorFoes.foes, inTownRect: _foeInTownRect, guards: cityGuards,
       playerFeet: [...feet], playerFwd: [Math.sin(cam.yaw), 0, Math.cos(cam.yaw)], pool: _guardPool,
@@ -321,7 +323,7 @@ test('AUDIT DISC19: the summon converts the wandering GUARDS in range and nobody
   assert.equal(await g2.summonDefenders({ playerFeet: FEET0, playerFwd: FWD0, threats: [centaur], pool: [] }), 3, 'an empty street: the band');
 });
 
-test('AUDIT DISC19 W5: with MeleeAttackFriendlyProtection off the first pass strikes a defender in front like anything else, and the second has nothing to offer', async () => {
+test('AUDIT DISC19 W5: with MeleeAttackFriendlyProtection off the watch\'s pass strikes a defender in front like anything else - and on, it spares him (FB0929: no second pass offers him alone)', async () => {
   const p = townsman();
   const guards = createCityGuards(rig(p));
   const monsters = createExteriorFoes(rig(p));
@@ -329,16 +331,16 @@ test('AUDIT DISC19 W5: with MeleeAttackFriendlyProtection off the first pass str
   await guards.summonDefenders({ playerFeet: FEET0, playerFwd: FWD0, pool: [{ pos: [0, 0, 1.2], fwdYaw: Math.PI, guard: true, disable: () => {} }], threats: [centaur] });
   const d = guards.guards[0];
   d.entity.health = 10000;
+  assert.equal(guards.resolvePlayerHit(new PlayerWeapon({}), EYE0, FWD0, FEET0, () => true, null), false, 'protected: the watch\'s pass spares him');
+  assert.equal(d.entity.health, 10000);
+  assert.equal(d.defender, true, 'untouched');
   setValue('MeleeAttacks', 'MeleeAttackFriendlyProtection', false);
   try {
-    assert.equal(guards.resolvePlayerHit(new PlayerWeapon({}), EYE0, FWD0, FEET0, () => true, null, { defendersOnly: true }), false, 'the fallback pass has nothing to offer - the first already had him');
-    assert.equal(d.entity.health, 10000);
-    assert.equal(d.defender, true, 'untouched');
-    assert.equal(guards.resolvePlayerHit(new PlayerWeapon({}), EYE0, FWD0, FEET0, () => true, null, { spareDefenders: true }), true, 'no protection: the watch\'s own pass reaches him');
+    assert.equal(guards.resolvePlayerHit(new PlayerWeapon({}), EYE0, FWD0, FEET0, () => true, null), true, 'no protection: the watch\'s own pass reaches him');
   } finally { setValue('MeleeAttacks', 'MeleeAttackFriendlyProtection', true); }
 });
 
-test('AUDIT DISC19 W5: one swing, one attack grunt - the host offers it to the watch, the monsters and the defenders, and only the first pool with anyone in it rolls', async () => {
+test('AUDIT DISC19 W5: one swing, one attack grunt - the host offers it to the watch and the monsters, and only the first pool with anyone in it rolls', async () => {
   setValue('Enhancements', 'CombatVoices', true);
   try {
     const plays = [];
@@ -352,28 +354,31 @@ test('AUDIT DISC19 W5: one swing, one attack grunt - the host offers it to the w
     const AWAY = [0, 0, -1];   // a swing at the air behind: every pool misses
     const w = new PlayerWeapon({});
     const swing = {};
-    assert.equal(guards.resolvePlayerHit(w, EYE0, AWAY, FEET0, () => true, null, { spareDefenders: true, swing }), false);
+    assert.equal(guards.resolvePlayerHit(w, EYE0, AWAY, FEET0, () => true, null, { swing }), false);
     assert.equal(monsters.resolvePlayerHit(w, EYE0, AWAY, FEET0, () => true, null, { swing }), false);
-    assert.equal(guards.resolvePlayerHit(w, EYE0, AWAY, FEET0, () => true, null, { defendersOnly: true, swing }), false);
     assert.equal(plays.length, 1, 'one grunt');
     assert.equal(swing.voiced, true);
     plays.length = 0;
-    guards.resolvePlayerHit(w, EYE0, AWAY, FEET0, () => true, null, { defendersOnly: true });
+    monsters.resolvePlayerHit(w, EYE0, AWAY, FEET0, () => true, null);
     assert.equal(plays.length, 1, 'a pool offered a swing on its own still rolls its own');
     guards.guards[0].defender = false;   // a watchman of a crime stands in the watch's pool - it is the first with anyone in it
     plays.length = 0;
     const second = {};
-    guards.resolvePlayerHit(w, EYE0, AWAY, FEET0, () => true, null, { spareDefenders: true, swing: second });
+    guards.resolvePlayerHit(w, EYE0, AWAY, FEET0, () => true, null, { swing: second });
     monsters.resolvePlayerHit(w, EYE0, AWAY, FEET0, () => true, null, { swing: second });
     assert.equal(plays.length, 1, 'the watch rolled it, the monsters did not');
+    plays.length = 0;
+    const third = {};
+    monsters.resolvePlayerHit(w, EYE0, AWAY, FEET0, () => true, null, { swing: third });
+    guards.resolvePlayerHit(w, EYE0, AWAY, FEET0, () => true, null, { swing: third });   // the watch offered the swing after another pool - the Assault conversion's carried swing
+    assert.equal(plays.length, 1, 'the monsters rolled it, the watch after them did not');
   } finally { setValue('Enhancements', 'CombatVoices', false); }
 });
 
 test('AUDIT DISC19 W5 by source: every host that offers one swing to more than one pool hands them the one token', () => {
   const w = rd('src/scenes/world.js');
-  assert.match(w, /const swing = \{\};\n(?:\s*\/\/[^\n]*\n)*\s*if \(duelMeleeHit\([^\n]*\n[^\n]*\n[^\n]*\n\s*\} else if \(!cityGuards\.resolvePlayerHit\([^\n]*\{ spareDefenders: true, swing \}\)\) \{/);   // DUEL1: my duel opponent is offered the swing first
+  assert.match(w, /const swing = \{\};\n(?:\s*\/\/[^\n]*\n)*\s*if \(duelMeleeHit\([^\n]*\n[^\n]*\n[^\n]*\n\s*\} else if \(!cityGuards\.resolvePlayerHit\([^\n]*\{ swing \}\)\) \{/);   // DUEL1: my duel opponent is offered the swing first
   assert.match(w, /if \(exteriorFoes\.resolvePlayerHit\([^\n]*guardHitSound, \{ swing \}\)\) \{/);
-  assert.match(w, /\{ defendersOnly: true, swing \}\)\)/);
   assert.match(w, /\{ onMurder: \(\) => _crimeResponse\(\), onHitSound: guardHitSound, swing \}\)\.then/);
   const e = rd('src/scenes/exterior.js');
   assert.equal((e.match(/guardHitSound, \{ swing \}\)\)/g) ?? []).length, 2, 'the fixed-city host\'s two pools');
@@ -464,7 +469,7 @@ test('AUDIT DISC19 W4: the player\'s spells pass the town\'s defenders by - the 
 });
 
 test('AUDIT DISC19 W4 by source: a thrown torch passes the defenders by (the world host\'s torch pool), and a monster\'s blast still lands on them', () => {
-  assert.match(rd('src/scenes/world.js'), /foes: \(\) => \[\.\.\.cityGuards\.guards\.filter\(\(g\) => !g\.defender\), \.\.\.exteriorFoes\.foes\], foeSinks: \(f\) => foeSinks\(f\), makeEnemiesHostile/);
+  assert.match(rd('src/scenes/world.js'), /foes: \(\) => \[\.\.\.cityGuards\.guards\.filter\(\(g\) => !g\.defender\), \.\.\.exteriorFoes\.foes\.filter\(\(f\) => !sparedByPlayer\(f\)\)\], foeSinks: \(f\) => foeSinks\(f\), makeEnemiesHostile/);   // SHIPMATES: and the player's crew (deckwalk.test.js)
   assert.match(rd('src/scenes/hostMagic.js'), /if \(caster\?\.entity === playerEntity && sparedFromPlayer\(t\)\) continue;/);
 });
 
@@ -534,9 +539,14 @@ test('AUDIT DISC19 S4: the revival stands an exhausted corpse up with the same f
   const tired = { health: 30, maxHealth: 80, fatigue: 0, stats: { strength: 50, endurance: 60 } };
   reviveForPlay(tired);
   assert.equal(tired.fatigue, 0, 'a prison release is not a rest');
-  const rested = { health: 0, maxHealth: 80, fatigue: 900, stats: { strength: 50, endurance: 60 } };
+  // DISC28-E: a FLOOR, not a zero test - a sliver left (900 of 7040) was a respawn at 13% and the next drain's collapse
+  // (test/disc28_fatigue.test.js); above the floor, fatigue left is still fatigue kept
+  const sliver = { health: 0, maxHealth: 80, fatigue: 900, stats: { strength: 50, endurance: 60 } };
+  reviveForPlay(sliver, { force: true });
+  assert.equal(sliver.fatigue, respawnHealth(maxFatigue(sliver)), 'a sliver is raised to the floor');
+  const rested = { health: 0, maxHealth: 80, fatigue: 5000, stats: { strength: 50, endurance: 60 } };
   reviveForPlay(rested, { force: true });
-  assert.equal(rested.fatigue, 900, 'fatigue left is fatigue kept');
+  assert.equal(rested.fatigue, 5000, 'fatigue above the floor is fatigue kept');
   const respawn = { health: 12, maxHealth: 80, fatigue: 0, stats: { strength: 50, endurance: 60 } };
   reviveForPlay(respawn, { force: true });
   assert.equal(respawn.fatigue, respawnHealth(maxFatigue(respawn)), 'the respawn pays it too');
@@ -643,7 +653,12 @@ test('AUDIT DISC19 B1: underground the candle burns its own white - every other 
   const at = src.indexOf("if (mode === 'dungeon') {\n      if (pendingDungeonExit)");
   const branch = src.slice(at, src.indexOf('\n    }\n', at));
   assert.match(branch, /const _dgColor = lanternColor\(!!renderer\.lightingLane, new Float32Array\(DUNGEON_LIGHT_COLOR\)\);/);
-  assert.match(branch, /const _dgNear = nearestLights\(dungeonCtx\.lights, cam\.pos, renderer\.maxPointLights \+ \(_dgFade \? 1 : 0\), dungeonCtx\.flicker\.ranges, \(\) => _dgColor, DUNGEON_LIGHT_BLOCK_RANGE\);/);   // LA-AUDIT A5: one past the cap, for its fade
-  assert.match(branch, /\n\s*dungeonCtx\.candleLight\(\), _dgTint\(playerTorchLight\([^\n]*\)\), _dgTint\(thunderlockMuzzleLight\([^\n]*\)\), \.\.\.\(host\.peerLights\?\.\(\) \?\? \[\]\)\.map\(_dgTint\), \.\.\.dungeonCtx\.campLights\(\)\.map\(_dgTint\), \.\.\.dungeonCtx\.torchLights\(\)\.map\(_dgTint\)\);/);
+  assert.match(branch, /const _dgNear = _iilDg \? nearestLights\(_iilDg\.lights, cam\.pos, renderer\.maxPointLights, _iilDg\.ranges, _iilDg\.colorOf\) : nearestLights\(dungeonCtx\.lights, cam\.pos, renderer\.maxPointLights \+ \(_dgFade \? 1 : 0\), dungeonCtx\.flicker\.ranges, \(\) => _dgColor, DUNGEON_LIGHT_BLOCK_RANGE\);/);   // LA-AUDIT A5: one past the cap, for its fade
+  assert.match(branch, /\n\s*abyssCandle\(dungeonCtx\.candleLight\(\), _abyss\), _abyss\?\.torchOff \? null : _dgTint\(playerTorchLight\([^\n]*\)\), _dgTint\(thunderlockMuzzleLight\([^\n]*\)\), \.\.\.\(host\.peerLights\?\.\(\{ torches: !_abyss\?\.torchOff \}\) \?\? \[\]\)\.map\(\(l\) => abyssCandle\(_dgTint\(l\), _abyss\)\), \.\.\.dungeonCtx\.campLights\(\)\.map\(_dgTint\), \.\.\.dungeonCtx\.torchLights\(\)\.map\(_dgTint\), \.\.\.\(host\.modeLights\?\.\(\) \?\? \[\]\)\);/);   // AUDIT PRE-MERGE 0928 M4: the others' torches out and their candles at half in the abyss, as mine
+  // CSA-C: a boat's lanterns, where one stands on the dungeon's water, keep the colour Come Sail Away's AddBillboardLight
+  // gives them - it sets the Light's colour on DFU's own light prefab, which the dungeon's lights share untouched
+  // OH-E: the abyss's arm scales the candle's own white (SuppressAbyssLights' half) - never the dungeon's tint - and
+  // hands every other candle back as it came
+  assert.match(src, /const abyssCandle = \(l, abyss\) => \(l && abyss \? \{ \.\.\.l, range: l\.range \* abyss\.magicLightScale, color: \(l\.color \?\? \[1, 1, 1\]\)\.map\(\(c\) => c \* abyss\.magicLightScale\) \} : l\);/);
   assert.match(branch, /renderer\.setPointLights\(_dgLit\.data, null, \(_dgFade && capFadePairs\(_dgLit\.data, [^\n]*, _dgLit\.colors\)\) \|\| _dgLit\.colors\);/);   // LA-AUDIT A5: the pairs' own colours, the cap's fade on them
 });

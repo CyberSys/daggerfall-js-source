@@ -182,8 +182,8 @@
   {
     "name": "BLOOD1a-the-mark-takes-the-surfaces-normal-from-nowhere",
     "file": "src/combat/bloodMarks.js",
-    "old": "      const d = lay(at, h.normal ?? (up ? DOWN : [0, 1, 0]), {\n        size: dropSize(i, rate, rng),",
-    "new": "      const d = lay(at, [0, 1, 0], {\n        size: dropSize(i, rate, rng),",
+    "old": "      if (i > 0) { land(fly, pos, at, h.normal ?? (up ? DOWN : [0, 1, 0]), opts, kind, up, mayStreak, launch); continue; }",
+    "new": "      if (i > 0) { land(fly, pos, at, [0, 1, 0], opts, kind, up, mayStreak, launch); continue; }",
     "tests": [
       "test/blood1_decals.test.js"
     ]
@@ -245,8 +245,8 @@
   {
     "name": "BLOOD1a-the-marks-draw-OVER-the-billboards",
     "file": "src/scenes/world.js",
-    "old": "    bloodMarks.draw(camRight, UP_Y);   // BLOOD1a: the marks go down BEFORE the billboards, so a body standing in its own blood is over it and not under it. ABOVE setFlatWind for the reason its own neighbour gives: WIND3 pins the wind and the draw as ADJACENT.\n    renderer.setFlatWind(floraSwayOn() && wd.on ? [wd.windV[0], wd.windV[1], now / 1000, wd.gust] : null);   // WIND3: the flats lean with the one wind; the flora batches carry their share (sway)\n    renderer.drawBillboards(allBatches, camRight, UP_Y);",
-    "new": "    renderer.setFlatWind(floraSwayOn() && wd.on ? [wd.windV[0], wd.windV[1], now / 1000, wd.gust] : null);   // WIND3: the flats lean with the one wind; the flora batches carry their share (sway)\n    renderer.drawBillboards(allBatches, camRight, UP_Y);\n    bloodMarks.draw(camRight, UP_Y);",
+    "old": "    bloodMarks.draw(camRight, UP_Y);   // BLOOD1a: the marks go down BEFORE the billboards, so a body standing in its own blood is over it and not under it. ABOVE setFlatWind for the reason its own neighbour gives: WIND3 pins the wind and the draw as ADJACENT.\n    renderer.setFlatWind(floraSwayOn() && wd.on ? [wd.windV[0], wd.windV[1], now / 1000, wd.gust] : null);   // WIND3: the flats lean with the one wind; the flora batches carry their share (sway)\n    renderer.drawBillboards(allBatches, camRight, bbUp);",
+    "new": "    renderer.setFlatWind(floraSwayOn() && wd.on ? [wd.windV[0], wd.windV[1], now / 1000, wd.gust] : null);   // WIND3: the flats lean with the one wind; the flora batches carry their share (sway)\n    renderer.drawBillboards(allBatches, camRight, bbUp);\n    bloodMarks.draw(camRight, UP_Y);",
     "tests": [
       "test/blood1_decals.test.js"
     ]
@@ -356,26 +356,26 @@
   {
     "name": "BLOOD1b-drop-zero-is-thrown-clear-of-the-body",
     "file": "src/combat/bloodDecals.js",
-    "old": "  if (!(i > 0)) return [0, 0];",
-    "new": "  if (i < 0) return [0, 0];",
+    "old": "  const out = [{ dx: 0, dz: 0, scale: 1 }];",
+    "new": "  const out = [{ dx: R, dz: 0, scale: 1 }];",
     "tests": [
       "test/blood1_decals.test.js"
     ]
   },
   {
-    "name": "BLOOD1b-the-drops-are-laid-by-radius-and-the-middle-fills-in",
+    "name": "BLOOD5-the-spray-falls-into-the-pool",
     "file": "src/combat/bloodDecals.js",
-    "old": "  const r = (radius > 0 ? radius : 0) * Math.sqrt(Math.min(1, (i + rng()) / n));",
-    "new": "  const r = (radius > 0 ? radius : 0) * Math.min(1, (i + rng()) / n);",
+    "old": "    let r = R * (SPRAY_NEAR + (1 - SPRAY_NEAR) * Math.pow(frac(rng() + i * 0.4142135624), 0.8));",
+    "new": "    let r = R * Math.pow(frac(rng() + i * 0.4142135624), 0.8);",
     "tests": [
       "test/blood1_decals.test.js"
     ]
   },
   {
-    "name": "BLOOD1b-the-drops-take-a-random-angle-and-clump",
+    "name": "BLOOD5-the-lobes-are-gone-and-the-spray-is-a-ring-again",
     "file": "src/combat/bloodDecals.js",
-    "old": "  const turn = (i / n) * Math.PI * 2 + (rng() - 0.5) * SPRAY_WOBBLE * (Math.PI * 2 / n);   // BLOOD1 AUDIT 3: the wobble is a share of the slot, not an angle",
-    "new": "  const turn = rng() * Math.PI * 2;",
+    "old": "      ang = lobe.ang + gauss(rng(), frac(rng() + i * 0.5698402910)) * lobe.spread;",
+    "new": "      ang = rng() * TAU;",
     "tests": [
       "test/blood1_decals.test.js"
     ]
@@ -887,7 +887,7 @@
   {
     "name": "BLOOD1b-a-ceiling-never-lets-go",
     "file": "src/combat/bloodMarks.js",
-    "old": "      if (up && _drips.length < MAX_DRIPS) _drips.push(dripFrom(at));",
+    "old": "    if (d && drips && _drips.length < MAX_DRIPS) _drips.push(dripFrom(at));",
     "new": "",
     "tests": [
       "test/blood1_decals.test.js"
@@ -896,8 +896,8 @@
   {
     "name": "BLOOD1b-the-drips-in-the-air-are-uncapped",
     "file": "src/combat/bloodMarks.js",
-    "old": "      if (up && _drips.length < MAX_DRIPS) _drips.push(dripFrom(at));",
-    "new": "      if (up) _drips.push(dripFrom(at));",
+    "old": "    if (d && drips && _drips.length < MAX_DRIPS) _drips.push(dripFrom(at));",
+    "new": "    if (d && drips) _drips.push(dripFrom(at));",
     "tests": [
       "test/blood1_decals.test.js"
     ]
@@ -905,8 +905,8 @@
   {
     "name": "BLOOD1b-a-floor-mark-hangs-a-drip-too",
     "file": "src/combat/bloodMarks.js",
-    "old": "      if (up && _drips.length < MAX_DRIPS) _drips.push(dripFrom(at));",
-    "new": "      if (_drips.length < MAX_DRIPS) _drips.push(dripFrom(at));",
+    "old": "    if (d && drips && _drips.length < MAX_DRIPS) _drips.push(dripFrom(at));",
+    "new": "    if (d && _drips.length < MAX_DRIPS) _drips.push(dripFrom(at));",
     "tests": [
       "test/blood1_decals.test.js"
     ]
@@ -1058,8 +1058,8 @@
   {
     "name": "BLOOD1b-the-shaft-claims-a-swing",
     "file": "src/combat/arrowFlight.js",
-    "old": "bloodHit(dmg, foe.entity, { fromPlayer: true, weapon: m.weapon ?? null })",
-    "new": "bloodHit(dmg, foe.entity, { fromPlayer: true, weapon: m.weapon ?? null, swing: 'StrikeRight', forward: [0, 0, 1] })",
+    "old": "bloodHit(dmg, foe.bloodOf ?? foe.entity, { fromPlayer: true, weapon: m.weapon ?? null })",
+    "new": "bloodHit(dmg, foe.bloodOf ?? foe.entity, { fromPlayer: true, weapon: m.weapon ?? null, swing: 'StrikeRight', forward: [0, 0, 1] })",
     "tests": [
       "test/blood1_decals.test.js"
     ]
@@ -1240,7 +1240,7 @@
   {
     "name": "AUDIT3-the-switch-does-not-drop-the-chunks",
     "file": "src/combat/bloodMarks.js",
-    "old": "    if (!on()) { _gibs = []; _drips = []; reseatGibs(); return 0; }\n",
+    "old": "    if (!on()) { _gibs = []; _drips = []; reseatGibs(); return flew; }\n",
     "new": "",
     "tests": [
       "test/blood1_decals.test.js"
@@ -1258,8 +1258,8 @@
   {
     "name": "AUDIT3-a-recentre-leaves-the-chunks-quads-behind-for-a-frame",
     "file": "src/combat/bloodMarks.js",
-    "old": "    if (_gibBatch) renderer?.moveBillboardBatch?.(_gibBatch, _gibPos);\n    if (!_pool || !_pool.count || !offset) return 0;",
-    "new": "    if (!_pool || !_pool.count || !offset) return 0;",
+    "old": "    if (_gibBatch) renderer?.moveBillboardBatch?.(_gibBatch, _gibPos);\n    // BLOOD5: and a droplet's whole arc",
+    "new": "    // BLOOD5: and a droplet's whole arc",
     "tests": [
       "test/blood1_decals.test.js"
     ]
@@ -1292,10 +1292,10 @@
     ]
   },
   {
-    "name": "AUDIT3-the-wobble-is-radians-again",
+    "name": "BLOOD5-the-throw-does-not-lean-the-spray",
     "file": "src/combat/bloodDecals.js",
-    "old": "(rng() - 0.5) * SPRAY_WOBBLE * (Math.PI * 2 / n);",
-    "new": "(rng() - 0.5) * SPRAY_WOBBLE;",
+    "old": "  const main = Math.hypot(tx, tz) > 1e-6 ? Math.atan2(tz, tx) + (rng() - 0.5) * 0.4 : rng() * TAU;",
+    "new": "  const main = rng() * TAU;",
     "tests": [
       "test/blood1_decals.test.js"
     ]
@@ -1442,7 +1442,7 @@
   {
     "name": "AUDIT3-blood-off-does-not-exist",
     "file": "src/combat/bloodSwitch.js",
-    "old": "  getPref(BLOOD_PREF) !== false && new URLSearchParams(search).get('blood') !== 'off';",
+    "old": "  getPref(BLOOD_PREF) !== false && pageParam('blood', search) !== 'off';",
     "new": "  getPref(BLOOD_PREF) !== false;",
     "tests": [
       "test/blood1_decals.test.js"
@@ -1460,7 +1460,7 @@
   {
     "name": "BLOOD2a-a-drop-meeting-a-wall-is-lost-again",
     "file": "src/combat/bloodMarks.js",
-    "old": "          lay([wx, pos[1], wz], wall.normal ?? [-ox / run, 0, -oz / run], { size: dropSize(i, rate, rng), turn: lean }, bloodMarkKind({ wall: true }));\n          continue;",
+    "old": "          land(fly, pos, [wx, pos[1], wz], wall.normal ?? [-ox / run, 0, -oz / run], { size: dropSize(i, rate, rng) * scale, turn: lean }, bloodMarkKind({ wall: true }), false, false, launch);\n          continue;",
     "new": "          continue;",
     "tests": [
       "test/blood1_decals.test.js"
@@ -1469,8 +1469,8 @@
   {
     "name": "BLOOD2a-the-wall-mark-lands-at-the-drop-s-spot-not-the-wall",
     "file": "src/combat/bloodMarks.js",
-    "old": "          lay([wx, pos[1], wz], wall.normal ?? [-ox / run, 0, -oz / run], { size: dropSize(i, rate, rng), turn: lean }, bloodMarkKind({ wall: true }));\n          continue;",
-    "new": "          lay([fromX, pos[1], fromZ], wall.normal ?? [-ox / run, 0, -oz / run], { size: dropSize(i, rate, rng), turn: lean }, bloodMarkKind({ wall: true }));\n          continue;",
+    "old": "          land(fly, pos, [wx, pos[1], wz], wall.normal ?? [-ox / run, 0, -oz / run], { size: dropSize(i, rate, rng) * scale, turn: lean }, bloodMarkKind({ wall: true }), false, false, launch);\n          continue;",
+    "new": "          land(fly, pos, [fromX, pos[1], fromZ], wall.normal ?? [-ox / run, 0, -oz / run], { size: dropSize(i, rate, rng) * scale, turn: lean }, bloodMarkKind({ wall: true }), false, false, launch);\n          continue;",
     "tests": [
       "test/blood1_decals.test.js"
     ]
@@ -1478,8 +1478,8 @@
   {
     "name": "BLOOD2a-the-wall-mark-is-a-streak",
     "file": "src/combat/bloodMarks.js",
-    "old": "          lay([wx, pos[1], wz], wall.normal ?? [-ox / run, 0, -oz / run], { size: dropSize(i, rate, rng), turn: lean }, bloodMarkKind({ wall: true }));\n          continue;",
-    "new": "          lay([wx, pos[1], wz], wall.normal ?? [-ox / run, 0, -oz / run], { size: dropSize(i, rate, rng), turn: 0, along: [ox, 0, oz], stretch: streakFor(run, radius) }, bloodMarkKind({ wall: true }));\n          continue;",
+    "old": "          land(fly, pos, [wx, pos[1], wz], wall.normal ?? [-ox / run, 0, -oz / run], { size: dropSize(i, rate, rng) * scale, turn: lean }, bloodMarkKind({ wall: true }), false, false, launch);\n          continue;",
+    "new": "          land(fly, pos, [wx, pos[1], wz], wall.normal ?? [-ox / run, 0, -oz / run], { size: dropSize(i, rate, rng) * scale, turn: 0, along: [ox, 0, oz], stretch: streakFor(run, radius) }, bloodMarkKind({ wall: true }), false, false, launch);\n          continue;",
     "tests": [
       "test/blood1_decals.test.js"
     ]
@@ -1554,7 +1554,9 @@
     "new": "          const inBorder = false;",
     "tests": [
       "test/blood1_decals.test.js"
-    ]
+    ],
+    "equivalent": true,
+    "why": "BLOOD5: every grown primitive is clamped INSIDE 0.86 of the cell (bloodArt.js clampIn) and the drip and print never reach the frame, so the shapes stop short of the two-texel border on their own; the explicit clear is belt-and-braces, and the border pin still holds either way."
   },
   {
     "name": "BLOOD2b-the-cell-s-uv-is-not-inset",
@@ -1649,8 +1651,8 @@
   {
     "name": "BLOOD2b-the-wall-s-mark-is-spatter",
     "file": "src/combat/bloodMarks.js",
-    "old": "{ size: dropSize(i, rate, rng), turn: lean }, bloodMarkKind({ wall: true }));",
-    "new": "{ size: dropSize(i, rate, rng), turn: lean }, bloodMarkKind({}));",
+    "old": "{ size: dropSize(i, rate, rng) * scale, turn: lean }, bloodMarkKind({ wall: true }), false, false, launch);",
+    "new": "{ size: dropSize(i, rate, rng) * scale, turn: lean }, bloodMarkKind({}), false, false, launch);",
     "tests": [
       "test/blood1_decals.test.js"
     ]
@@ -1658,8 +1660,8 @@
   {
     "name": "BLOOD2b-the-pool-under-the-body-is-spatter",
     "file": "src/combat/bloodMarks.js",
-    "old": "      }, bloodMarkKind({ pool: i === 0, stretch }));",
-    "new": "      }, bloodMarkKind({ stretch }));",
+    "old": "      const kind = bloodMarkKind({ pool: i === 0, stretch });",
+    "new": "      const kind = bloodMarkKind({ stretch });",
     "tests": [
       "test/blood1_decals.test.js"
     ]
@@ -1685,8 +1687,8 @@
   {
     "name": "BLOOD2b-the-wall-s-run-is-not-hung-from-world-up",
     "file": "src/combat/bloodMarks.js",
-    "old": "{ size: dropSize(i, rate, rng), turn: lean }, bloodMarkKind({ wall: true }));",
-    "new": "{ size: dropSize(i, rate, rng) }, bloodMarkKind({ wall: true }));",
+    "old": "{ size: dropSize(i, rate, rng) * scale, turn: lean }, bloodMarkKind({ wall: true }), false, false, launch);",
+    "new": "{ size: dropSize(i, rate, rng) * scale }, bloodMarkKind({ wall: true }), false, false, launch);",
     "tests": [
       "test/blood1_decals.test.js"
     ]
@@ -1795,8 +1797,8 @@
   {
     "name": "BLOOD2c-the-drip-rays-from-the-chest",
     "file": "src/combat/bloodMarks.js",
-    "old": "    const d = spray(col, [feet[0], feet[1] + DRIP_FROM, feet[2]], n, BLEED_RADIUS, BLEED_RATE, null, { up: false, streak: false });",
-    "new": "    const d = spray(col, [feet[0], feet[1] + 1.5, feet[2]], n, BLEED_RADIUS, BLEED_RATE, null, { up: false, streak: false });",
+    "old": "    const d = spray(col, [feet[0], feet[1] + DRIP_FROM, feet[2]], n, BLEED_RADIUS, BLEED_RATE, null, { up: false, streak: false, launch: DRIP_LAUNCH });   // BLOOD5: and it falls, it is not flung",
+    "new": "    const d = spray(col, [feet[0], feet[1] + 1.5, feet[2]], n, BLEED_RADIUS, BLEED_RATE, null, { up: false, streak: false, launch: DRIP_LAUNCH });   // BLOOD5: and it falls, it is not flung",
     "tests": [
       "test/blood1_decals.test.js"
     ]
@@ -1885,8 +1887,8 @@
   {
     "name": "BLOOD2c-a-drip-looks-up-for-a-ceiling",
     "file": "src/combat/bloodMarks.js",
-    "old": "    const d = spray(col, [feet[0], feet[1] + DRIP_FROM, feet[2]], n, BLEED_RADIUS, BLEED_RATE, null, { up: false, streak: false });",
-    "new": "    const d = spray(col, [feet[0], feet[1] + DRIP_FROM, feet[2]], n, BLEED_RADIUS, BLEED_RATE, null, { streak: false });",
+    "old": "    const d = spray(col, [feet[0], feet[1] + DRIP_FROM, feet[2]], n, BLEED_RADIUS, BLEED_RATE, null, { up: false, streak: false, launch: DRIP_LAUNCH });   // BLOOD5: and it falls, it is not flung",
+    "new": "    const d = spray(col, [feet[0], feet[1] + DRIP_FROM, feet[2]], n, BLEED_RADIUS, BLEED_RATE, null, { streak: false, launch: DRIP_LAUNCH });   // BLOOD5: and it falls, it is not flung",
     "tests": [
       "test/blood1_decals.test.js"
     ]
@@ -2137,8 +2139,8 @@
   {
     "name": "AUDIT4-a-drip-s-drops-streak",
     "file": "src/combat/bloodMarks.js",
-    "old": "BLEED_RADIUS, BLEED_RATE, null, { up: false, streak: false });",
-    "new": "BLEED_RADIUS, BLEED_RATE, null, { up: false });",
+    "old": "BLEED_RADIUS, BLEED_RATE, null, { up: false, streak: false, launch: DRIP_LAUNCH });   // BLOOD5: and it falls, it is not flung",
+    "new": "BLEED_RADIUS, BLEED_RATE, null, { up: false, launch: DRIP_LAUNCH });   // BLOOD5: and it falls, it is not flung",
     "tests": [
       "test/blood1_decals.test.js"
     ]
@@ -2605,8 +2607,8 @@
   {
     "name": "AUDIT5-the-world-s-load-is-a-blow",
     "file": "src/scenes/world.js",
-    "old": "      cameraRecoiler.reset();\n      resetVitalsDetector();",
-    "new": "      cameraRecoiler.reset();",
+    "old": "      resetVitalsDetector();   // BLOOD AUDIT 5",
+    "new": "      // BLOOD AUDIT 5",
     "tests": [
       "test/blood1_decals.test.js"
     ]

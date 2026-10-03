@@ -30,7 +30,7 @@ import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { OnlineSession, TOKEN_WAIT_MS } from '../src/net/online.js';
-import { parseClient, rosterFor } from '../src/net/wire.js';
+import { parseClient, rosterFor, HELLO_WAIT_MS } from '../src/net/wire.js';
 import { ChatLog } from '../src/net/chat.js';
 import { RELAY_GRAPH } from './relayversion.test.js';
 import { accountTokenMinter, mintIdentity, SESSION_KEY, DEFAULT_ACCOUNT_SERVICE } from '../src/net/accountClient.js';
@@ -220,7 +220,9 @@ test('ACC1d: TOKEN_WAIT_MS is the WHOLE budget - an account service that never a
     assert.equal(sockets[0].sent.length, 1, 'past it, the hello goes anyway');
     assert.equal('tok' in sockets[0].sent[0], false);
   } finally { mock.timers.reset(); }
-  assert.ok(TOKEN_WAIT_MS > 0 && TOKEN_WAIT_MS <= 5000, 'a budget a player would not notice as a hang');
+  // FIELD BUGS 29h (TOKEN-WAIT): PIN MOVED - ACC1g made the unsigned hello a refusal, so the budget covers the service's
+  // real answer and stays under the relay's HELLO_WAIT_MS (test/fb0929h_tokenwait.test.js holds why)
+  assert.ok(TOKEN_WAIT_MS > 2500 && TOKEN_WAIT_MS < HELLO_WAIT_MS, 'past the old 2.5 s, under the relay\'s own wait for a hello');
 });
 
 test('ACC1d: ONE TOKEN PER CONNECTION - every socket mints its own (mutant: minted once and reused, which the relay refuses the second time)', async () => {
@@ -264,7 +266,10 @@ test('ACC1d: the wire checks the token\'s SHAPE and nothing else - kept, absent,
   assert.equal(none.t, 'hello', 'a hello with no token is still a hello');
   assert.equal('tok' in none, false, 'no token: the key is not invented');
   assert.equal(none.error, undefined);
-  for (const bad of ['', 'v1', 'v1.aaa', 'v1.aaa.bbb.ccc', 'v1.aa a.bbb', 'v1.aaa+bbb.ccc', `v1.${'a'.repeat(513)}.bbb`, `v1.aaa.${'b'.repeat(129)}`, `${'v'.repeat(9)}.aaa.bbb`]) {
+  // SEASON1 part two (world149, PIN MOVED): the body's bound is 640 - a body one past it is the malformed one, and the
+  // old bound's 513 now rides through
+  assert.equal(hello({ tok: `v1.${'a'.repeat(640)}.bbb` }).tok, `v1.${'a'.repeat(640)}.bbb`);
+  for (const bad of ['', 'v1', 'v1.aaa', 'v1.aaa.bbb.ccc', 'v1.aa a.bbb', 'v1.aaa+bbb.ccc', `v1.${'a'.repeat(641)}.bbb`, `v1.aaa.${'b'.repeat(129)}`, `${'v'.repeat(9)}.aaa.bbb`]) {
     assert.equal(hello({ tok: bad }).error, 'bad token', `a malformed token is an error: ${JSON.stringify(bad.slice(0, 20))}`);
   }
   for (const bad of [null, 0, 1, true, {}, [], ['v1.a.b']]) {
@@ -286,8 +291,9 @@ test('ACC1d: the host builds ONE minter and hands it to the presence session AND
   // NAME-ADOPT: and every answer's identity flows back onto the live
   // sessions - the half of this seam that was missing, which is why a
   // player saw their character's name while everybody else saw the handle.
-  // RENOWN1: and the character coming online, whose Renown the token carries
-  assert.match(w, /const identityMinter = accountTokenMinter\(\{ fetch: \(u, i\) => globalThis\.fetch\(u, i\), storage: appStorage\(\), onIssued: adoptIssued,\s+character: \(\) => \(onlineOn \? characterIdOf\(playerEntity\) : null\) \}\)/);
+  // RENOWN1: and the character coming online, whose Renown the token carries - REALM-DOOR: the realm character this tab
+  // joined, which the service signs as the realm's and the relay's door reads (test/realmdoor.test.js)
+  assert.match(w, /const identityMinter = accountTokenMinter\(\{ fetch: \(u, i\) => globalThis\.fetch\(u, i\), storage: appStorage\(\), onIssued: adoptIssued,\s+character: \(\) => \(onlineOn \? realmSession\?\.id \?\? null : null\) \}\)/);
   assert.match(w, /online = new OnlineSession\(\{[\s\S]*?mintToken: identityMinter,[\s\S]*?\}\);/, 'the presence session');
   assert.match(w, /link\.mintToken = identityMinter;/, 'and every channel link - the hub is where a name is READ');
   assert.equal((w.match(/accountTokenMinter\(/g) ?? []).length, 1, 'ONE minter: two would be two reads of the store per connect and no benefit');

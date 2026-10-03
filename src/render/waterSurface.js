@@ -38,6 +38,7 @@ import { WIND_ROW_CALM, WIND_ROW_SPAN } from '../systems/wind.js';
 import { getPref } from '../systems/uiPrefs.js';   // FT6: the switch, read here alone
 import { isEnhanced } from '../systems/uiSkin.js';
 import { FOG_GLSL } from './fogGlsl.js';   // AUDIT 68 S17-fog-glsl-dup: the fog every world pass takes, one home
+import { pageParam } from '../systems/pageQuery.js';   // PERF-URL: the page's query, parsed once a search
 
 /** FT6 (2026-09-14, the Features arc): THE SWITCH, ONE HOME. Both
  *  exterior hosts composed "the enhanced skin, the pref, the kill door"
@@ -47,8 +48,42 @@ import { FOG_GLSL } from './fogGlsl.js';   // AUDIT 68 S17-fog-glsl-dup: the fog
  *  still asks tilemapRectHasWater beside it - that is the town's, not
  *  the switch's. */
 export function waterSwitchOn(search = globalThis.location?.search ?? '') {
-  return isEnhanced() && !!getPref('enhancedWater') && new URLSearchParams(search).get('water') !== 'off';
+  return isEnhanced() && !!getPref('enhancedWater') && pageParam('water', search) !== 'off';   // PERF-URL
 }
+
+// ═══════════════════════════════════════════════════════════════════
+// FIELD BUGS 2026-09-29 (the sea) #4 (the Discord, through Mac: "Water flickers from a distance"): THE WATER'S LAYERS
+// IN WINDOW DEPTH. The sea is a stack of sheets a few centimetres apart: the ground under it (the beach at the sea's
+// own 34 m, Iliac Puddle No More's carved floor at least 5 cm under it), the sea's surface film over that (Iliac Puddle
+// No More's top 3 cm up, SurfaceRenderYOffset; WATER1 a hand's breadth over the ground it lies on), and Come Sail Away's
+// breakers 10 cm up (WAVE_LIFT). Unity draws them on a reversed, floating-point depth buffer that parts a centimetre
+// at any range; this port's world pass is the GL convention's - a 24-bit buffer, the near plane 0.2 m out - where a
+// step of depth is z^2 / (0.2 x 2^24) metres of eye depth: 3 mm at 100 m, 30 cm at 1 km. Seen from a raised eye a
+// sheet 3 cm over another is a fraction of a step apart at a few hundred metres, and which of the two a pixel shows is
+// the rounding's, which moves with every centimetre the deck bobs the camera: the far beach and the breakers flicker
+// (tools/fbseaWaterProbe.mjs measures it on a real pipeline). WATER1 met the same law first and took a polygon offset
+// (renderer.js, WATER-AUDIT M3): a nudge in WINDOW depth, so worth one resolvable step at every distance, never a lift
+// in metres that is worth nothing past a few hundred. Every sheet of the stack takes it now, in the order the sheets
+// stand in, from this one table:
+//
+//   the ground and the floor .......... 0 (opaque, written)
+//   the surface film (the top, WATER1)  SURFACE: it covers what lies under it by two steps
+//   Come Sail Away's breakers ......... BREAKERS: they stand over the film by four more - they write their depth, and
+//                                       the film is drawn after them and tested against it
+//
+// The CONSTANT term only (WATER-AUDIT M3's reason: a slope factor grows with the sheet's own depth slope, hundreds of
+// units a pixel at a grazing look, and would pull the water in front of a hull or a shore standing above it). What a
+// step of bias costs: a sheet shows through what stands within that many steps in front of it - under a millimetre
+// at 100 m, and at a kilometre a hull's waterline creeps up by a few centimetres, a fraction of the one pixel it is.
+// ═══════════════════════════════════════════════════════════════════
+
+/** polygonOffset's units (constant term, factor 0) for each sheet of the sea, the ground's 0 under them. */
+export const WATER_LAYER_UNITS = Object.freeze({
+  /** The sea's surface film: Iliac Puddle No More's top and WATER1 - never both over one texel (DW-F). */
+  surface: -2,
+  /** Come Sail Away's breakers: opaque, written, and drawn before the film - so the film tests against them. */
+  breakers: -6,
+});
 
 /** How far above the ground the surface is drawn, in world units (a
  *  tile is 6.4). Enough to clear the depth test on a slope, too little
@@ -343,6 +378,21 @@ void main() {
     float att = clamp(1.0 - d / uPointLights[i].w, 0.0, 1.0);
     pointAcc += att * att * max(dot(n, L / max(d, 1e-4)), 0.0) * uPointColors[i];
   }
+  // WATER-LIT1 (Mac, 2026-09-27, Gothway Garden at night with a torch: "the water tiles are buggy ... there for a long
+  // while"): WATER IS NOT LIT LIKE MUD. A lamp or the torch lit the water's own texel as if it were ground - the blue
+  // ripples times a warm flame is a brown field with the water's pattern in it, and inside the light's reach that is
+  // what the pool read as. Water sends back little light diffusely and a lot as a glint: the flame's share of the
+  // texel is cut to a quarter, and each light shows as a moving highlight on the waves (the sun's and moon's law).
+  vec3 pointSpec = vec3(0.0);
+  for (int i = 0; i < 16; i++) {
+    if (i >= uPointCount) break;
+    vec3 Lp = uPointLights[i].xyz - vWorldPos;
+    float dp = length(Lp);
+    float ap = clamp(1.0 - dp / uPointLights[i].w, 0.0, 1.0);
+    vec3 Hp = normalize(Lp / max(dp, 1e-4) + V);
+    pointSpec += ap * pow(max(dot(n, Hp), 0.0), 90.0) * uPointColors[i];
+  }
+  pointAcc *= 0.25;
   lit += tex * pointAcc;
   vec3 iL = uIndirect.xyz - vWorldPos;
   float iD = length(iL);
@@ -354,6 +404,7 @@ void main() {
   vec3 Hm = normalize(uMoonDir + V);
   float mspec = pow(max(dot(n, Hm), 0.0), 220.0) * uMoonScale;
   col += uSunColor * (1.6 * spec) + uMoonColor * (0.7 * mspec);
+  col += pointSpec * 1.2;   // WATER-LIT1: the lamps' and the torch's glints
   float alpha = (uOpacity + (1.0 - uOpacity) * F) * edge;
   outColor = vec4(dwWaterFog(mix(uFogColor, col, fogFactorAt(vWorldPos)), vWorldPos), alpha);   // DW-C: the sea's distance fog
 }`;

@@ -11,14 +11,21 @@
 // or is away, a wave in flight still lands. (7) A welcome clock more than a
 // year from this machine's is SAID - the console and the HUD line - rather
 // than run uncorrected in silence.
+//
+// LIVED1 (2026-09-29) re-aims (1)'s deadlines: a room, a loan and a
+// repair run on the CHARACTER's own clock now (worldTick.js ownMinutes),
+// which stands while they are away - so the price is said in THEIR time
+// and in play (ownTimeLeftText), not as a wall-clock date the character's
+// clock does not keep. The wire's inverse and the real-time words stand
+// for the world's own dates (the gates' local times, the raids).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, readdirSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { sharedClassicMinutes, wallMsForClassicMinutes, ONLINE_EPOCH_MS, PIXEL_UNITS, RELAY_VERSION } from '../src/net/wire.js';
-import { setSharedClock, sharedWallMs, realTimeText, sharedRealTimeText, sharedClockOn } from '../src/systems/worldTick.js';
-import { TavernWindow, REAL_TIME_UNTIL, REAL_TIME_NOTE, TAVERN_RECTS, TAVERN_PANEL_X, TAVERN_PANEL_Y } from '../src/ui/tavernWindow.js';
+import { setSharedClock, sharedWallMs, sharedClockOn, ownTimeLeftText, setOwnMinutes } from '../src/systems/worldTick.js';
+import { TavernWindow, OWN_TIME_ROOM, OWN_TIME_ROOM_NOTE, TAVERN_RECTS, TAVERN_PANEL_X, TAVERN_PANEL_Y } from '../src/ui/tavernWindow.js';
 import { OFFER_PRICE_ID } from '../src/systems/tavern.js';
 import { MINUTES_PER_DAY } from '../src/systems/gameDate.js';
 import { loadQuestTables } from '../src/systems/quest/tables.js';
@@ -29,33 +36,31 @@ import { fakeSocketClass } from './fakeSocket.mjs';
 const rd = (p) => readFileSync(new URL('../' + p, import.meta.url), 'utf8');
 const quiet = (fn) => { const info = console.info, warn = console.warn; console.info = () => {}; console.warn = () => {}; try { return fn(); } finally { console.info = info; console.warn = warn; } };
 
-test('OL3 (1): the shared clock has an inverse at the wire, and the ticker carries it beside the source - a classic minute reads as this machine\'s wall-clock time, in the font\'s own ASCII, and offline as nothing', () => {
+test('OL3 (1): the shared clock has an inverse at the wire, and the ticker carries it beside the source - a classic minute reads as this machine\'s wall-clock ms, and offline as nothing [AUDIT LIVED1b U6: the words over it, realTimeText and sharedRealTimeText, went with their last reader]', () => {
   for (const ms of [ONLINE_EPOCH_MS, ONLINE_EPOCH_MS + 123456789, ONLINE_EPOCH_MS - 5000]) assert.ok(Math.abs(wallMsForClassicMinutes(sharedClassicMinutes(ms)) - ms) < 1e-3, 'the inverse round-trips');
   const local = new Date(2026, 8, 15, 18, 5).getTime();   // Tue 15 Sep 2026, 18:05, whatever this machine\'s zone
-  assert.equal(realTimeText(local), 'Tue 15 Sep 18:05');
-  assert.equal(realTimeText(NaN), null);
   assert.equal(sharedWallMs(1000), null, 'offline: no wall clock');
-  assert.equal(sharedRealTimeText(1000), null);
   try {
     setSharedClock(() => 5000, (m) => local + (m - 5000) * 5000);   // five real seconds a minute, anchored so minute 5000 is 18:05
     assert.equal(sharedClockOn(), true);
     assert.equal(sharedWallMs(5000), local);
-    assert.equal(sharedRealTimeText(5012), 'Tue 15 Sep 18:06', 'twelve minutes of the world are one real minute');
+    assert.equal(sharedWallMs(5012), local + 60000, 'twelve minutes of the world are one real minute');
     assert.equal(sharedWallMs(NaN), null);
   } finally { setSharedClock(null); }
   assert.equal(sharedWallMs(5000), null, 'uninstalled with the clock');
-  assert.match(rd('src/scenes/world.js'), /setSharedClock\(\(\) => sharedClassicMinutes\(Date\.now\(\) \+ _sharedOffsetMs\), \(m\) => wallMsForClassicMinutes\(m\) - _sharedOffsetMs\);/, 'the host installs the inverse through the relay\'s offset');
+  // TIME1: and the sky's own source and inverse beside them, through the same offset
+  assert.match(rd('src/scenes/world.js'), /setSharedClock\(\(\) => sharedClassicMinutes\(Date\.now\(\) \+ _sharedOffsetMs\), \(m\) => wallMsForClassicMinutes\(m\) - _sharedOffsetMs, \{ sky: \(\) => skyClassicMinutes\(Date\.now\(\) \+ _sharedOffsetMs\), skyWall: \(m\) => wallMsForSkyMinutes\(m\) - _sharedOffsetMs \}\);/, 'the host installs the inverse through the relay\'s offset');
 });
 
-test('OL3 (1): the tavern\'s offer says when the room ends by the player\'s clock - a fresh rental from now, a renewal from the standing expiry - and offline the offer is DFU\'s', () => {
+test('OL3 (1) + LIVED1: the tavern\'s offer says how long the room is theirs in the character\'s own time and in play - a fresh rental from now, a renewal from the standing expiry - and offline the offer is DFU\'s', () => {
   const rows = (id) => [{ text: `#${id} %a gold, %dwr hours`, center: true }];
   const now = 99 * MINUTES_PER_DAY + 600;
   const asked = [];
-  const mk = (realTimeOf, rentedRooms = []) => new TavernWindow({
+  const mk = (ownTimeOf, rentedRooms = []) => new TavernWindow({
     entity: { name: 'Rin', health: 20, maxHealth: 50, rentedRooms, goldPieces: 5000, items: [], stats: { personality: 50 } },
     rows, now: () => now, mapId: () => 7, buildingKey: () => 42, buildingName: () => 'The Dancing Dagger', quality: () => 10, bedCount: () => 4,
     freeRooms: () => false, skills: () => ({ mercantile: 50, personality: 50 }), heal() {}, onTalk() {}, onClose() {}, rolls: () => 0.5,
-    ...(realTimeOf ? { realTimeOf } : {}),
+    ...(ownTimeOf ? { ownTimeOf } : {}),
   });
   const offerFor = (w, days) => {
     const [x, y, rw, rh] = TAVERN_RECTS.room;
@@ -65,21 +70,34 @@ test('OL3 (1): the tavern\'s offer says when the room ends by the player\'s cloc
     w.flow.input('Enter');
     return w.flow.top;
   };
-  const on = mk((m) => { asked.push(m); return 'Wed 16 Sep 04:00'; });
+  const on = mk((m) => { asked.push(m); return '3 days of your time (6h of play)'; });
   const offer = offerFor(on, 3);
   assert.match(offer.rows[0].text, new RegExp(`^#${OFFER_PRICE_ID} `), 'DFU\'s offer first');
-  assert.equal(offer.rows.length, 2);
-  assert.equal(offer.rows[1].text, `${REAL_TIME_UNTIL} Wed 16 Sep 04:00${REAL_TIME_NOTE}`);
+  // AUDIT LIVED1 N (U2): two rows, split at the play's bracket - the classic box lays its rows out unwrapped
+  assert.equal(offer.rows.length, 3);
+  assert.deepEqual(offer.rows.slice(1).map((r) => r.text), [`${OWN_TIME_ROOM} 3 days of your time`, `(6h of play)${OWN_TIME_ROOM_NOTE}`]);
+  assert.deepEqual(offer.rows.slice(1).map((r) => r.text), ['The room is yours for 3 days of your time', '(6h of play) - a rest spends it, logging off does not.']);
   assert.equal(offer.rows[1].center, true);
+  assert.equal(offer.rows[2].center, true);
   assert.deepEqual(asked, [now + 3 * MINUTES_PER_DAY], 'a fresh rental ends three days from now');
   const room = { name: 'The Dancing Dagger', mapId: 7, buildingKey: 42, allocatedBedIndex: 0, expiryMinutes: now + 20 * 60 };
-  const renew = mk((m) => { asked.push(m); return 'Thu 17 Sep 06:00'; }, [room]);
+  const renew = mk((m) => { asked.push(m); return '2 days 20 hours of your time (5h 40m of play)'; }, [room]);
   offerFor(renew, 2);
   assert.equal(asked[1], room.expiryMinutes + 2 * MINUTES_PER_DAY, 'a renewal extends the standing expiry, as RentRoom does');
   const off = mk(null);
   assert.equal(offerFor(off, 3).rows.length, 1, 'offline: the offer it always was');
-  assert.match(rd('src/scenes/worldModes.js'), /realTimeOf: \(m\) => sharedRealTimeText\(m\),/, 'the host\'s word');
-  assert.match(rd('src/scenes/worldModes.js'), /dueDateText: \(minutes\) => \{\s*if \(!\(minutes > 0\)\) return '';\s*const real = sharedRealTimeText\(minutes\);\s*return dateString\(dateFromClassicMinutes\(minutes\)\) \+ \(real \? ` \(\$\{real\}\)` : ''\);/, 'the bank\'s due-by carries the real time beside the date online, and is the date alone offline');
+  assert.match(rd('src/scenes/worldModes.js'), /ownTimeOf: \(m\) => ownTimeLeftText\(m\),/, 'the host\'s word');
+  assert.match(rd('src/scenes/worldModes.js'), /dueDateText: \(minutes, \{ short = false \} = \{\}\) => \{\s*if \(!\(minutes > 0\)\) return '';\s*const left = ownTimeLeftShort\(minutes\);\s*if \(left === 'now'\) return short \? 'now' : 'due now';[^\n]*\n\s*const own = short \? \(left && `\$\{left\} of your time`\) : ownTimeLeftText\(minutes\);\s*return own \? `in \$\{own\}` : dateString\(dateFromClassicMinutes\(minutes\)\);/, 'the bank\'s due-by says the time left in the character\'s own time online (short on the classic parchment, "due now" once due: AUDIT LIVED1 P/L), and is the date alone offline');
+  // the words themselves: the character's clock and the most play it can take (the wire's one rate)
+  try {
+    setSharedClock(() => 900000);
+    setOwnMinutes(500000);
+    assert.equal(ownTimeLeftText(500000 + 7 * MINUTES_PER_DAY), '7 days of your time (14h of play)', 'a week\'s lodging');
+    assert.equal(ownTimeLeftText(500000 + 360 * MINUTES_PER_DAY), '360 days of your time (720 hours of play)', 'a loan\'s year');
+    assert.equal(ownTimeLeftText(500000 + 90), '1 hour of your time (8m of play)');
+    assert.equal(ownTimeLeftText(500000 - 5), '0 minutes of your time (0m of play)', 'a deadline past says nothing is left');
+  } finally { setSharedClock(null); }
+  assert.equal(ownTimeLeftText(500000 + 90), null, 'offline DFU says its dates');
 });
 
 test('OL3 (2), re-spelt by WORLD7: CreateFoe\'s spawn interval charges PLAYED time - a tick\'s gap past the step is forgiven (one step charged, one wave, not thirty), a wave in flight still lands, a resume past a step waits a full interval from there, and offline the marker arithmetic is DFU\'s own', () => {

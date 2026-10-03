@@ -168,7 +168,7 @@ test('AUDIT-RR2 G10: the shelf\'s add IS ItemCollection.AddItem (DaggerfallLoot.
 
 test('AUDIT-RR2 G11/G12: the starting kit\'s armor takes CreateArmor\'s default variant (-1 -> RandomizeArmorVariant), and a custom weapon mints with its template\'s name', () => {
   assert.match(rd('src/systems/rriKits.js'), /function armor\(templateIndex, material, rolls, variant = -1\)/);
-  assert.match(rd('src/combat/enemyEquipment.js'), /const name = WEAPON_BY_INDEX\[templateIndex\] \?\? templateByIndex\(templateIndex\)\?\.name;/);
+  assert.match(rd('src/combat/enemyEquipment.js'), /const t = templateByIndex\(templateIndex\);\n\s*const name = WEAPON_BY_INDEX\[templateIndex\] \?\? t\?\.name;/);   // OH-E: in weaponOfMaterial, CreateWeapon's material pass (its melee arm hands to it)
 });
 
 test('AUDIT-RR2 G13: a building entry sets WorldDataVariants\' last key to THIS location (PlayerEnterExit.cs:695-696) - a streamed neighbour may have left it on itself', () => {
@@ -226,7 +226,8 @@ test('AUDIT-RR2 G20: the encumbrance round drains nothing inside a synthetic-tim
 
 test('AUDIT-RR2 G21/G22/G23: the five-day box answers Y and N (DaggerfallMessageBox.cs:377); the ship gate asks Travel Options\' port list when that mod is on (:635-644); PitchMaxLimit clamps to PitchMin -90', () => {
   assert.match(rd('src/ui/guildServiceWindows.js'), /if \(t\.buttonsMulti\) \{\s+if \(code === 'KeyY' && t\.buttonsMulti\.includes\(MB_BUTTONS\.Yes\)\) this\._advance\(t\.onButton\?\.\(MB_BUTTONS\.Yes\) \?\? null\);\s+else if \(code === 'KeyN' && t\.buttonsMulti\.includes\(MB_BUTTONS\.No\)\) this\._advance\(t\.onButton\?\.\(MB_BUTTONS\.No\) \?\? null\);\s+return;\s+\}/);
-  assert.match(rd('src/scenes/world.js'), /portTown: \(modSetting\('travel-options', 'Enabled'\) === true \? hasPort\(loc\.mapTableData\?\.mapId\) : \(loc\.exterior\?\.exteriorData\?\.portTownAndUnknown \?\? 0\) !== 0\)/);
+  // SEAT2b part two (PIN MOVED): TO's port answer, a members' Harbour among them (travelPorts.js hasPortFor)
+  assert.match(rd('src/scenes/world.js'), /portTown: \(modSetting\('travel-options', 'Enabled'\) === true \? hasPortFor\(loc\.mapTableData\?\.mapId\) : \(loc\.exterior\?\.exteriorData\?\.portTownAndUnknown \?\? 0\) !== 0\)/);
   setPitchFloorProvider(() => -120);
   try {
     assert.equal(pitchFloor(), (-90 * Math.PI) / 180, 'PlayerMouseLook.cs:87-90');

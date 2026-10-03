@@ -16,7 +16,7 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -72,7 +72,7 @@ test('A2: the host takes the day comparison on all three loot arms, not a stock-
   assert.match(wm, /const stockedToday = \(\) => createStockedDate\(gameDate\(\)\);/,
     'CreateStockedDate over the live date, one home');
   // the SHELF arm (:881-886)
-  assert.match(wm, /const fresh = needsRestock\(shelf, today\);[^\n]*\n\s*if \(fresh\) \{\s*\n\s*shelf\.stockedDate = today;\s*\n\s*shelf\.items = onShopShelfStocked\(stockShopShelf\(/,   // RRI2: through the mod's OnLootSpawned hooks   // AUDIT WORLD6a A5: the comparison's answer is also the open's word to the room
+  assert.match(wm, /const fresh = needsRestock\(shelf, today\);[^\n]*\n\s*if \(fresh\) \{\s*\n\s*shelf\.stockedDate = today;\s*\n\s*shelf\.items = shelfLootSpawned\(stockShopShelf\(/,   // RRI2, FORAGE3: through PlayerActivate.OnLootSpawned's one home (CSA-H's subscriber in it)   // AUDIT WORLD6a A5: the comparison's answer is also the open's word to the room
     'the shelf stamps the day and re-mints - `items.Clear()` then StockShopShelf');
   // the HOUSE CONTAINER arm (:910-915) and the owned latch (:907)
   assert.match(wm, /c\.stockedDate = 1;/, 'the owned arm stamps DFU\'s literal 1');
@@ -159,7 +159,9 @@ test('A2: the book-price warm is wired to the one books boot all three hosts cal
     assert.match(src(host), /preloadBookArt\(\{ renderer, fetchBytes, palette \}\)/, `${host} calls the books boot`);
   }
   // and the four mint sites share ONE member
-  assert.match(src('systems/shopStock.js'), /add\(createRandomBook\(rolls\)\)/);
+  // WB12c: a shop's shelf mints through createShelfBook - CreateRandomBook itself over the shelf's draw
+  assert.match(src('systems/shopStock.js'), /add\(createShelfBook\(rolls\)\)/);
+  assert.match(src('systems/books.js'), /export const createShelfBook = \(rolls = Math\.random\) => createRandomBook\(rolls, getShelfBookID\);/);
   assert.match(src('systems/loot.js'), /halving\(matrix\.BK, \(\) => createRandomBook\(rolls\)\)/);
   assert.match(src('systems/biography.js'), /if \(group === 'Books'\) return createRandomBook\(rolls\);/);
   assert.match(src('systems/quest/item.js'), /: createRandomBook\(rolls\);/);
@@ -170,7 +172,14 @@ test('A2 (data-gated): the real BOOKS files price 300..800 off their own first f
   if (!ARENA2) return;   // corpus-gated, the repo idiom
   t.after(clearBookPrices);
   clearBookPrices();
-  const fetchBytes = async (name) => new Uint8Array(readFileSync(join(ARENA2, 'BOOKS', name)));
+  // The folder is found whatever the disk calls it: DFU opens
+  // Path.Combine(arena2, "books") (BookFile.cs:27, :96), a retail copy
+  // says BOOKS, and the host's seam keys by basename either way
+  // (dataSource.normalizeName). A literal 'BOOKS' missed every file on
+  // a case-sensitive disk, and the warm's skip swallowed each ENOENT.
+  const books = readdirSync(ARENA2).find((f) => f.toUpperCase() === 'BOOKS');
+  assert.ok(books, 'the ARENA2 folder carries its books');
+  const fetchBytes = async (name) => new Uint8Array(readFileSync(join(ARENA2, books, name)));
   const n = await loadBookPrices(fetchBytes);
   assert.ok(n > 0, 'the warm registered prices');
   assert.equal(bookPriceCount(), n);
@@ -274,7 +283,8 @@ test('A2: SplitStack mints a FRESH template item (ItemCollection.cs:267 -> ItemB
   assert.equal(picked.material, 0, 'nativeMaterialValue = 0');
   assert.equal(picked.variant, 0, 'currentVariant = 0');
   assert.equal(picked.flags, 0, 'flags = 0');
-  assert.equal(picked.message, 0, 'message = 0 (a Paintings mint would roll instead)');
+  // BOOK-SPLIT (2026-09-29, Port-Ledger A): FindExistingStack's identity terms ride the split - flipped from 0
+  assert.equal(picked.message, 12345, 'message rides the split (a Paintings mint still rolls its own)');
   assert.equal(picked.currentCondition, t.hitPoints, 'currentCondition = itemTemplate.hitPoints');
   assert.equal(picked.maxCondition, t.hitPoints, 'maxCondition too');
   assert.equal(picked.enchantmentPoints, t.enchantmentPoints);
@@ -283,8 +293,10 @@ test('A2: SplitStack mints a FRESH template item (ItemCollection.cs:267 -> ItemB
   // and the per-item state the port used to carry across is GONE
   assert.equal(picked.enchantments, undefined,
     'enchantments are NOT duplicated - the item maker splits one off a stack precisely so the rest stay plain');
-  assert.equal(picked.potionRecipeKey, undefined);
-  assert.equal(picked.timeForItemToDisappear, undefined);
+  // BOOK-SPLIT: the recipe and the expiry are identity, and ride it (flipped from undefined); a gem's value is still
+  // the template's - only a book's id and a potion's recipe priced their stack
+  assert.equal(picked.potionRecipeKey, 221871);
+  assert.equal(picked.timeForItemToDisappear, 700);
   assert.notEqual(picked, stack);
   assert.deepEqual(stack.enchantments, [{ type: 11, param: -1 }], 'the source is untouched');
 });

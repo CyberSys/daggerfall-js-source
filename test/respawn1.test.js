@@ -45,7 +45,7 @@ function strippedFoeKeys() {
  *  source - so this pin follows the publisher rather than a copy of it. */
 function publishedFoeKeys() {
   const src = read('src/scenes/dungeonContext.js');
-  const at = src.indexOf('      foes: foes.filter((f) => f._ownFrom == null).map((f) => ({');   // QUEST-PARTY phase 3c: a party member's quest foe is in no record of mine
+  const at = src.indexOf('      foes: foes.filter((f) => f._ownFrom == null && f.companion == null).map((f) => ({');   // QUEST-PARTY phase 3c: a party member's quest foe is in no record of mine - PIN MOVED (CREW-COMPANIONS): nor my companion
   assert.ok(at > 0, 'collectWorld no longer opens its foe record where this pin looks');
   const end = src.indexOf('\n      })),', at);
   assert.ok(end > at, 'the foe record no longer closes where this pin looks');
@@ -67,6 +67,8 @@ const REAL = {
   items: [], hostile: true, encountered: true, magicka: 4, mobileType: 21, gender: 'female',
   maxHealth: 30, fatigue: 64, activeEffects: [{ name: 'Paralysis', rounds: 2 }],
   team: 'PlayerEnemy', mobileTeam: 'PlayerEnemy', wabbajackActive: false, specialTransformationCompleted: false,
+  abyssDestroyed: true,   // AUDIT OH-F B1: the save's alone - sharedWorld strips it, and the door does not admit it
+  noBody: true,   // REVENANT-FATE (the 2026-10-02 audit): a foe gone with no body - the save's alone too, stripped the same way
 };
 
 test('RESPAWN1: the door admits the record the dungeon really publishes - every field, by the type the publisher writes', () => {
@@ -131,8 +133,10 @@ test('RESPAWN1: the team pair is a NAME, not an ordinal - DFU writes the number,
 
 test('RESPAWN1: the restore projects the foes through that door, and a refusal drops the record whole', () => {
   const d = read('src/scenes/dungeonContext.js');
-  // The one line the bug was fatal at: a null from the door is filtered
-  // out, so a door that refuses everything restores nothing at all.
-  assert.match(d, /const sfoes = Array\.isArray\(shared\.world\.foes\) \? shared\.world\.foes\.slice\(0, _layoutFoes\)\.map\(validSharedFoe\)\.filter\(Boolean\) : \[\];/);
+  // The one line the bug was fatal at: a null from the door is a record
+  // not applied, so a door that refuses everything restores nothing at all.
+  // CORPSE-GOLD: the null stays at its index (applyWorld skips it) - the
+  // index is the foe's key, and filtering it out renumbered the rest.
+  assert.match(d, /const sfoes = Array\.isArray\(shared\.world\.foes\) \? shared\.world\.foes\.slice\(0, _layoutFoes\)\.map\(validSharedFoe\) : \[\];/);
   assert.match(d, /applyWorld\(\{ \.\.\.shared\.world, piles: undefined, actions: acts, foes: sfoes \}/);
 });

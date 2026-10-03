@@ -50,6 +50,7 @@ import { nativeMetrics, NATIVE_W, DEFAULT_TEXT_COLOR } from './nativePanel.js';
 import { isEnhanced } from '../systems/uiSkin.js';
 import { drawEnhancedToasts, releaseEnhancedToasts } from './enhancedNotice.js';
 import { processGrammar } from '../systems/textManager.js';   // L10N3g: PopupText.AddText runs the grammar (PopupText.cs:117-118)
+import { timeScale } from '../systems/timeScale.js';   // CSA-G: PopupText.Update counts Time.deltaTime, which the time scale scales
 
 /** AUDIT FONT F1: every model gets a name of its own, so two never
  *  share one DOM column - see ui/enhancedHudText.js's header for why
@@ -164,9 +165,11 @@ export class HudText {
     this.onMessage?.(pgText);
   }
 
-  /** PopupText.Update verbatim. */
-  tick(dt) {
+  /** PopupText.Update verbatim. CSA-G: its `Time.deltaTime` (PopupText.cs:56-59) is game time, so the frame's real
+   *  dt is taken at `Time.timeScale` - a journey's or the boat's helm's scale runs the lines out as DFU runs them. */
+  tick(frameDt) {
     if (!this.lines.length) return;
+    const dt = frameDt * timeScale();
     const rowsLate = this.lines.length - HUD_TEXT_MAX_ROWS;
     this.timer -= rowsLate > 0 ? dt * (1 + HUD_TEXT_RUBBERBAND * rowsLate) : dt;
     while (this.lines.length && this.timer < -HUD_TEXT_POP_DELAY) {

@@ -181,14 +181,14 @@ function twin(d) {
 
 test('LA-SHADOW2: THE CASCADES HAND OVER IN A BAND - sunShadowTap picks by distance as it did, mixes the next cascade in over the band before the line, and fades the far one to lit; the lookup is sunCascadeTap\'s, whole', () => {
   assert.equal(SUN_CASCADE_BAND, 0.2);
-  const tap = /float sunShadowTap\(vec3 wp, vec3 n, bool soft\) \{([\s\S]*?)\n\}/.exec(SHADOW_GLSL)[1];
+  const tap = /float sunShadowTap\(vec3 wp, vec3 n, bool soft, float h\) \{([\s\S]*?)\n\}/.exec(SHADOW_GLSL)[1];
   assert.match(tap, /int c = d < uSunShadowParams\.x \* 0\.9 \? 0 : d < uSunShadowParams\.y \* 0\.9 \? 1 : 2;/, 'the pick as it was');
   assert.match(tap, /float r = c == 0 \? uSunShadowParams\.x : c == 1 \? uSunShadowParams\.y : uSunShadowParams\.z;/);
   assert.match(tap, /float t = smoothstep\(r \* 0\.70, r \* 0\.9, d\);/, 'the band: the last fifth of the reach before the line');
-  assert.match(tap, /if \(c == 2\) return t >= 1\.0 \? 1\.0 : mix\(sunCascadeTap\(2, wp, n, soft\), 1\.0, t\);/, 'the far one fades to lit, and past its fade reads nothing');
-  assert.match(tap, /float lit = sunCascadeTap\(c, wp, n, soft\);\n\s+return t > 0\.0 \? mix\(lit, sunCascadeTap\(c \+ 1, wp, n, soft\), t\) : lit;/, 'the next one mixed in, only in the band');
+  assert.match(tap, /if \(c == 2\) return t >= 1\.0 \? 1\.0 : mix\(sunCascadeTap\(2, wp, n, soft, h\), 1\.0, t\);/, 'the far one fades to lit, and past its fade reads nothing');
+  assert.match(tap, /float lit = sunCascadeTap\(c, wp, n, soft, h\);\n\s+return t > 0\.0 \? mix\(lit, sunCascadeTap\(c \+ 1, wp, n, soft, h\), t\) : lit;/, 'the next one mixed in, only in the band');
   assert.doesNotMatch(tap, /texture\(uSunShadow/, 'the pick reads no map itself');
-  assert.match(SHADOW_GLSL, /float sunCascadeTap\(int c, vec3 wp, vec3 n, bool soft\) \{/);
+  assert.match(SHADOW_GLSL, /float sunCascadeTap\(int c, vec3 wp, vec3 n, bool soft, float h\) \{/);
   assert.ok(SHADOW_GLSL.indexOf('float sunCascadeTap(') < SHADOW_GLSL.indexOf('float sunShadowTap('), 'declared before its caller');
 });
 
@@ -304,7 +304,7 @@ test('LA-LIGHTS1: EACH LANTERN FLICKERS ON ITS PIXEL\'S SLOTS - a pixel streamed
   assert.equal(lanternSlot(110, 220), lanternSlot(110, 220), 'named by the pixel alone');
   // the host: the street fills its pool by fillLanternPool from the animator's ranges, and the selection reads the pool's own ranges
   const w = rd('src/scenes/world.js');
-  assert.match(w, /const _pool = fillLanternPool\(built\.values\(\), \(p\) => state\.pixelTranslation\(p\.px, p\.py, _lightT\), _sceneLights, _litRanges, worldLightAnimator\.ranges\);/);
+  assert.match(w, /const _pool = fillLanternPool\(built\.values\(\), \(p\) => state\.pixelTranslation\(p\.px, p\.py, _lightT\), _sceneLights, _litRanges, worldLightAnimator\.ranges, festivalStage \? festivalStage\.lanterns : null\);/);   // FESTIVAL-STAGE: and a Festival town's lanterns
   assert.match(w, /_litRanges = _pool\.ranges;/);
   assert.match(w, /nearestLights\(_sceneLights, cam\.pos, renderer\.maxPointLights \+ \(renderer\.lightingLane \? 1 : 0\), _litRanges, null, 0, n\)/);
   assert.doesNotMatch(w, /nearestLights\([^)]*worldLightAnimator\.ranges/, 'no selection reads the animator by pool index');
@@ -384,7 +384,7 @@ test('LA-LIGHTS2: the host - on the lane the street picks one lantern past the c
 
 test('LA-SHADOW1: the pass and the grid by source - the anchor held and passed, carried by the recentre, the Z up', () => {
   const sp = rd('src/render/shadowPass.js');
-  assert.match(sp, /sunAnchorFor\(f\.eye, this\._sunAnchor\);[^\n]*\n\s+sunCascadeMatrices\(f\.eye, f\.lightDir, this\._sunVPNew, this\._sunAnchor\);/);
+  assert.match(sp, /sunAnchorFor\(f\.eye, this\._sunAnchor, f\.lightDir, sunTexelWorld\(SHADOW_CASCADES\.length - 1, k\)\);[^\n]*\n\s+sunCascadeMatrices\(f\.eye, f\.lightDir, this\._sunVPNew, this\._sunAnchor, k\);/);
   assert.match(sp, /this\._sunAnchor\[0\] \+= offset\[0\]; this\._sunAnchor\[1\] \+= offset\[1\]; this\._sunAnchor\[2\] \+= offset\[2\];/);
   assert.match(sp, /const up = Math\.abs\(lightDir\[2\]\) < 0\.9 \? Z_UP : Y_UP;/);
   assert.ok(sunTexelWorld(0) < 0.02);

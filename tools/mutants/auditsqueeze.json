@@ -2,8 +2,8 @@
   {
     "name": "ASQ-S1-head-stands-on-the-ceiling",
     "file": "src/player/collider.js",
-    "old": "      this._resolveSphere(high, CAPSULE_RADIUS, out, standCeil, axis === 0, tall && axis !== 0);",
-    "new": "      this._resolveSphere(high, CAPSULE_RADIUS, out, standCeil, axis === 0);",
+    "old": "      this._resolveSphere(high, CAPSULE_RADIUS, out, standCeil, axis === 0 ? lowOneWay : false, axis !== 0);",
+    "new": "      this._resolveSphere(high, CAPSULE_RADIUS, out, standCeil, axis === 0 ? lowOneWay : false);",
     "tests": [
       "test/squeeze1.test.js"
     ]

@@ -39,10 +39,11 @@
 import { boundarySegments, linkSegments, fitView, toPaper, NAME_FACE } from './inkMap.js';
 import {
   townBytes, townChains, quarterChains, quarterOfType, isBuilt, QUARTERS, sheetY,
-  paintTownStatic, paintTownOverlay, BLOCK_PX,
+  paintTownStatic, paintTownOverlay, BLOCK_PX, TOWN_MARK_HALF,
 } from './inkTown.js';
 import { nameplateAnchor, resolveNameplates, WORLD_PER_PX } from './nameplateLayout.js';
 import { readPartyBodies, PARTY_MARK_CSS } from './partyMapMarks.js';   // DISC23-A: the party's bodies in the streets
+import { readTownBoards, readTownHomes, TOWN_MARK_REACH } from './townMapMarks.js';   // TOWN-MARKS: the Notice Boards and the player housing
 
 /** The fit at rest has ONE HOME in ui/inkMap.js - re-exported so a
  *  pin that has this sheet does not also have to reach for it. */
@@ -80,7 +81,7 @@ const EMPTY_SIZE = Object.freeze({ width: 1, height: 1 });
 
 /**
  * @typedef {{buildingKey?: number, blockX?: number, blockY?: number, position?: number[],
- *            name?: string, isResidence?: boolean, questName?: string,
+ *            name?: string, isResidence?: boolean, questName?: string, questMarked?: boolean,
  *            buildingType?: number}} Summary
  * @typedef {{buildingKey?: number, displayName?: string, customUserDisplayName?: string,
  *            isOverrideName?: boolean}} Discovered
@@ -93,6 +94,9 @@ const EMPTY_SIZE = Object.freeze({ width: 1, height: 1 });
  *   revealAll?: () => boolean,
  *   player?: () => {x:number, y:number, yaw?:number}|null,
  *   party?: () => Array<{acct?: string|null, name?: string, feet?: number[], yaw?: number}>,
+ *   boards?: () => Array<{feet: number[], label?: string}>,
+ *   homes?: () => Array<{buildingKey: number, own?: boolean, label: string}>,
+ *   homesVersion?: () => number,
  *   title?: string,
  * }} deps
  */
@@ -105,6 +109,7 @@ export function createTownSheet(deps = {}) {
   let plates = null;     // { key, rows } - laid out per view
   let lastView = null;
   let lastPaper = 0;
+  let paintedHomes = null;   // TOWN-MARKS: the homes' version the overlay last painted
 
   function ensureField() {
     if (field) return field;
@@ -128,7 +133,7 @@ export function createTownSheet(deps = {}) {
 
   /**
    * WHICH BUILDINGS GET A NAME, and what that name is. The shipped
-   * town map's own ladder (ui/exteriorAutomapWindow.js:1064-1106),
+   * town map's own ladder (ui/exteriorAutomapWindow.js:1071-1113),
    * kept whole because it is the DISCOVERY law rather than a
    * presentation choice.
    */
@@ -144,6 +149,7 @@ export function createTownSheet(deps = {}) {
         if (!b.isResidence || rec.isOverrideName) {
           // the player's own name for it wins over the canonical one
           text = rec.customUserDisplayName || rec.displayName || b.name || '';
+          quest = !!b.questMarked;   // RES-RING: a quest's marked residence, override-named at its discovery
         } else if (b.questName) {
           // a discovered residence is named ONLY by a quest
           text = b.questName;
@@ -190,13 +196,38 @@ export function createTownSheet(deps = {}) {
     }));
   }
 
+  /** TOWN-MARKS: the town's Notice Boards, in sheet space - the host hands each at its foot in the location's frame,
+   *  and it crosses into the sheet by the party's two steps (metres to layout pixels, then +Z up). */
+  function boardsOnSheet() {
+    const h = ensureField().h;
+    return readTownBoards(deps.boards).map((b) => ({ x: b.feet[0] / WORLD_PER_PX, y: sheetY(h, b.feet[2] / WORLD_PER_PX), label: b.label }));
+  }
+
+  /** TOWN-MARKS: the player housing, in sheet space - each home at its building's place, by the plates' own anchor law
+   *  (nameplateAnchor, then sheetY), so a home's mark and its building's name stand on one place. */
+  function homesOnSheet() {
+    const rows = readTownHomes(deps.homes);
+    if (!rows.length) return [];
+    const at = new Map();
+    for (const b of deps.buildings?.() ?? []) if (b?.buildingKey != null) at.set(b.buildingKey, b);
+    const h = ensureField().h;
+    const out = [];
+    for (const r of rows) {
+      const b = at.get(r.buildingKey);
+      if (!b) continue;
+      const [x, y] = nameplateAnchor(b.blockX ?? 0, b.blockY ?? 0, b.position ?? [0, 0, 0]);
+      out.push({ x, y: sheetY(h, y), own: r.own, label: r.label });
+    }
+    return out;
+  }
+
   /** Every residence a quest has marked, named or not, in layout
    *  pixels - the ring is the thing a player is actually hunting for. */
   function questMarks() {
     const found = discoveredBy();
     const out = [];
     for (const b of deps.buildings?.() ?? []) {
-      if (!b?.questName || !found.has(b.buildingKey)) continue;
+      if (!(b?.questName || b?.questMarked) || !found.has(b.buildingKey)) continue;   // RES-RING
       const [x, y] = nameplateAnchor(b.blockX ?? 0, b.blockY ?? 0, b.position ?? [0, 0, 0]);
       out.push({ x, y: sheetY(ensureField().h, y) });   // EM-BUG3: into sheet space, as the plates are
     }
@@ -230,8 +261,11 @@ export function createTownSheet(deps = {}) {
    * than the town does.
    */
   function ensurePlates(view, paperW, paperH, measure, reserveTop = 0, hands = null) {
+    // TOWN-MARKS: a building a home's glyph stands on has its name lettered UNDER the glyph - so which buildings wear
+    // one is part of what the plates were laid for
+    const marked = new Set(readTownHomes(deps.homes).map((r) => r.buildingKey));
     const key = [Math.round(view.ox), Math.round(view.oy), Math.round(view.scale * 100),
-      Math.round(paperW), Math.round(paperH), Math.round(reserveTop), hands?.length ?? 0].join('|');
+      Math.round(paperW), Math.round(paperH), Math.round(reserveTop), hands?.length ?? 0, [...marked].join(',')].join('|');
     if (plates?.key === key) return plates.rows;
     const rows = [];
     if (view.scale >= NAME_ZOOM_MIN) {
@@ -242,7 +276,11 @@ export function createTownSheet(deps = {}) {
         // them - a landmark asks for more room and now gets it.
         const size = nameSize(view, n);
         const w = measure ? measure(n.text, size) : n.text.length * size * 0.52;
-        return { ...n, size, px: x, py: y, w, h: size * 1.15 };
+        const h = size * 1.15;
+        // TOWN-MARKS: under the glyph, clear of it by a pixel - the glyph is the building's tick, and the plate's own
+        // place (its `anchorY`) is the glyph's foot, so a name the solver leaves where it was laid draws no leader
+        if (marked.has(n.key)) return { ...n, size, px: x, py: y + TOWN_MARK_HALF + 1 + h / 2, foot: y + TOWN_MARK_HALF, marked: true, w, h };
+        return { ...n, size, px: x, py: y, w, h };
       // only what is ON the paper is worth solving for
       // only what is on the paper is worth solving for - and the band
       // the TAB STRIP has taken is not the paper, for a name: the probe
@@ -266,7 +304,8 @@ export function createTownSheet(deps = {}) {
         // the building and lead back to it when the words have moved.
         rows.push({
           text: n.text, quest: n.quest, quarter: n.quarter, size: n.size,
-          x: n.px, y: n.py + (s.offY ?? 0), anchorY: n.py,
+          x: n.px, y: n.py + (s.offY ?? 0), anchorY: n.marked ? n.foot : n.py,
+          ...(n.marked ? { marked: true } : {}),
         });
       });
     }
@@ -317,7 +356,10 @@ export function createTownSheet(deps = {}) {
         player: playerOnSheet(),
         party: partyOnSheet(),   // DISC23-A
         partyFill: PARTY_MARK_CSS,
+        homes: homesOnSheet(),   // TOWN-MARKS
+        boards: boardsOnSheet(),
       });
+      paintedHomes = deps.homesVersion?.() ?? null;
     },
 
     pickAt() { /* a town plan picks nothing yet - the names are read, not chosen */ },
@@ -332,6 +374,11 @@ export function createTownSheet(deps = {}) {
           const [x, y] = toPaper(lastView, m.x, m.y);
           if ((x - px) ** 2 + (y - py) ** 2 <= PARTY_REACH * PARTY_REACH) return { label: m.name, cursor: '' };
         }
+        // TOWN-MARKS: a board's or a home's glyph under the pointer names it - the glyph stands on its place
+        for (const m of [...boardsOnSheet(), ...homesOnSheet()]) {
+          const [x, y] = toPaper(lastView, m.x, m.y);
+          if ((x - px) ** 2 + (y - py) ** 2 <= TOWN_MARK_REACH * TOWN_MARK_REACH) return { label: m.label, cursor: '' };
+        }
         for (const p of plates?.rows ?? []) {
           if (Math.abs(p.x - px) <= p.size * p.text.length * 0.3 && Math.abs(p.y - py) <= p.size) {
             return { label: p.text, cursor: 'pointer' };
@@ -341,8 +388,11 @@ export function createTownSheet(deps = {}) {
       return { label: deps.title ?? '', cursor: '' };
     },
 
-    /** DISC23-A: the street plan repaints on the window's beat while a party member walks it. */
-    breathes() { return readPartyBodies(deps.party).length > 0; },
+    /** DISC23-A: the street plan repaints on the window's beat while a party member walks it. TOWN-MARKS: and once more
+     *  when the town's homes have changed since it was painted - the service's answer lands after the map is open. */
+    breathes() {
+      return readPartyBodies(deps.party).length > 0 || (!!deps.homesVersion && deps.homesVersion() !== paintedHomes);
+    },
 
     mark() { /* the middle button marks a place on the BAY; a street has none */ },
     key() { return false; },
@@ -361,6 +411,8 @@ export function createTownSheet(deps = {}) {
     names: named,
     quests: questMarks,
     party: partyOnSheet,
+    boards: boardsOnSheet,   // TOWN-MARKS
+    homes: homesOnSheet,
     platesAt: (view, paperW, paperH, measure, reserveTop = 0, hands = null) => ensurePlates(view, paperW, paperH, measure, reserveTop, hands),
     get paperW() { return lastPaper; },
     /** One block is this many layout pixels - re-exported so a caller

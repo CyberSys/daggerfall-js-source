@@ -6,9 +6,18 @@ this section owns renderer specifics.
 Current (`src/render/`) - one bullet per module, pinned against the real
 directory by `test/audit18_bible_docs.test.js`:
 - `deepWatersRender.js` - DW-C: Iliac Puddle No More's own passes (jet082's shaders, term for term): the SEAFLOOR (opaque, unlit, both faces - the depth band's sand/mid/deep ramp, the climate's texture and palette, the night's ambient boost, the scene tint while the camera is over the sea, the world fog, and the column's share of the top's alpha carried onto it), the SURFACE's top and underside (the top gone while the fog's presentation is under, the underside only then), and the DISTANCE FOG's sky share - a far-plane triangle, multiply then add, over the pixels no program fogs (the fog itself is `fogGlsl.js`'s `dwWaterFog`, in every world program); `03-World/Deep-Waters.md`
+- `oceanHolesRender.js` - OH-C: There's a Hole in the Bottom of the Ocean's pit, drawn beside the sea's passes and on their frame and column uniforms: three discs of the one 48-segment mesh on Unity's Unlit/Color (the flat colour under the world's fog, then the column's share and the sea's distance fog) - the pit's black and the surface's underside with the opaque floors, the surface's core after the sea's top - and the MIASMA, Standard in Fade mode with emission (the puff's alpha, the tint lit as the billboards take the day's light, fogged, no depth write), camera-facing and no larger than maxParticleSize of the view; every vertex input bound by `layout(location)`; `03-World/Ocean-Holes.md`. OH-E's abyss presentation is no pass of its own: it rides the dungeon frame (`scenes/worldModes.js`, `host.abyssPresentation`) - the water fog's colour and ceiling through the context's UnderwaterFog, the Trilight or flat ambient from the darkened dungeon ambient x DungeonAmbientLightScale, the Light spell's candle at half its range and colour, the player's torch left out of the frame's lights
+- `bannerPass.js` - GUILD1d: a guild's banners beside its hall's door (`11-Multiplayer/Seats-Arc.md` 3.4, 8) - the port's own cloth, 0.9 by 2.7 m, a strip of quads hung from its top edge that swings out along its face on the weather's wind, its picture the heraldry painted once on a canvas (ui/heraldryArt.js drawBanner), the swallowtail's cut discarded, lit by the frame's ambient and sun and fogged as the ground is; one foreign pass on the world host (scenes/hallBanners.js the anchors); SEAT1a: and a seat town's banners on the same pass - the kingdom's plain cloth at its palace door, its gates and over its rumour boards (scenes/seatBanners.js), the halls' and the seats' the nearest sixteen together
 - `duelWall.js` - DUEL1: the duel ring's holographic wall - a cylinder of light added onto the frame (see-through, no depth written, cut by the ground), a grid and rising bands on the cylinder's own coordinates, fogged as the ground is; drawn for the duellists and every onlooker (net/duelSession.js the ring)
+- `rainCurtains.js` - TV4: the weather's CURTAINS stood in the world for the travel view (`06-Systems/Travel-View.md` TV4) - VC7c's own veil (CURTAIN_SHARE of a falling cell's radius, CURTAIN_EXT a metre at a full fall, CURTAIN_STREAKS round its axis) as a cylinder from under the traveller's ground up into the cell's base, its optical depth the CHORD a line of sight takes through the solid cylinder (a back face's chord is none, so no winding is trusted under the mirrored lens), premultiplied over the frame with no depth written and the ground cutting its foot, fogged from the traveller (uFocus), thinning as the eye comes over it; the weather map's cells at the shared minute, never its own. One foreign pass on the world host, under the view alone.
 - `gatePass.js` - WB2: the Oblivion Gate's fire and beacon, one foreign pass on the world host. The MEMBRANE: a vortex of fire masked to the arch's own opening (`world/gateModel.js gateArchProfile`, measured off the built mesh), turned without an angle (no branch cut to seam it), premultiplied so it hides what stands behind it as much as it glows - an ember sealed, a blaze open. The BEACON: a column of red light added onto the frame from over the gate's crown, soft across its width, widening with its distance so it never thins to a hair, fogged but never out (`BEACON_FOG_FLOOR`). Both on the duel wall's law - fixed geometry, placement by uniforms, every rate whole cycles over `GATE_CLOCK_PERIOD`. `tools/gatePassProbe.mjs` compiles, links and draws it in a real WebGL2 context.
 - `gateTelegraph.js` - WB4a: the Burning Court boss's telegraph, one foreign pass on the world host drawn in the dungeon arm (after the court's billboards, before drawFoes' screen quads). One quad over the court's floor and the attack's shape as the fragment's question - a cone that always holds his body, a disc about him or under each target, the lane his charge runs, the nova's ring, the whole floor - dim at the word, filling toward its edge as the wind-up runs, bright at the landing. `telegraphField` is the shader's own reading in JS, held by the pins to `net/gateStrike.js inAttack` at every point of the floor. The duel wall's law: added onto the frame, no depth written, fogged, a polygon offset off the floor it lies on. `tools/gateTelegraphProbe.mjs` compiles, links and draws it over the court in a real WebGL2 context.
+- `foeTelegraph.js` - TACT4: a foe's telegraphed blow on the ground (`renderer.drawFoeTelegraphs`, a foreign pass beside the blood marks in every host). One flat quad at the foe's feet and the shape - the lunge's lane, the sweep's cone, the slam's disc ahead - as the fragment's question; `blowField` is the shader's reading in JS, held by the pins to `ai/foeBlows.js inBlow` point for point. A dim rim at once, filling outward through the wind-up, a flash at the landing; added onto the frame, depth-tested, no depth written, a polygon offset off the ground.
+- `riteSmoke.js` - WB12d: the faithful's rite's pillar of smoke, one foreign pass on the world host after the gate's fire (`11-Multiplayer/World-Bosses.md` 19 D). A column 340 m tall from the altar fire's width, swelling slowly and leaning the same way every day (no wind is read - AUDIT WB12d D16: this line said downwind). Its rows and its noise run on the billows' own height, so the billows grow as they climb, and the biggest bulge its outline as they rise; its edge thins where its own surface turns from the eye; each octave climbs whole columns over its clock, so neither the seam nor the wrap shows (the beacon's law). Lit as the frame is, the fire a glow in its first metres; premultiplied. Far off each octave settles to a thick mean (no shimmer), never thinner than a few pixels, and a clear day's distance fog leaves SMOKE_FOG_FLOOR (0.6) of it, a dark line on the horizon; weather's fog takes it whole. Seen in Chromium by `tools/riteProbe.mjs` (AUDIT WB12d).
+- `gateFx.js` - WB9e: the Burning Court boss's blows, seen LANDING - one foreign pass on the world host drawn in the dungeon arm after the telegraph. THE BURST: every landing throws sparks out of the stone where it lands (`fxBurstOf` - his weight's grit and embers for the slam, the Crushing Leap and the bound across the fire; his fire's flame for the hellfire and the Meteor; his aspect's colour for the Nova and Dagon's own), flying out and up, falling, cooling white-hot to their colour to nothing over `FX_BURST_MS`; `sparkAt` is the shader's own flight in JS. THE METEOR: through the last `METEOR_FALL_MS` of its wind-up a burning stone streaks down out of the Deadlands' sky onto its mark, its trail behind it (`meteorFall`). The duel wall's law: fixed geometry (a strip of seeds, one quad) placed by uniforms, added onto the frame, depth-tested and never written, fogged. `tools/gateCourtFxProbe.mjs` compiles, links and draws it over the court in a real WebGL2 context and reads the frame back.
+- `courtCrystals.js` - WB9c: the Crystals of Oblivion Dagon's Reckoning grows out of the last court's floor - two programs in one pass on the world host, drawn in the dungeon arm with the court. THE CLUSTER, opaque: one model made once (`crystalCluster` - a great six-sided prism and five lesser ones, each a piece that flies on its own), grown out of the stone as the Reckoning is called (`crystalGrowth`), cracking as it is broken down, flashing as it is struck, shattering outward when it breaks; depth-tested and written, lit by its own heart and the Deadlands' light, fogged. THE GLOW, added: a pool of its light on the floor under each, and from each one standing a ribbon of light into his chest while the Reckoning winds up - the duel wall's law. `tools/gateCourtFxProbe.mjs` compiles, links and draws it over the court in a real WebGL2 context and reads the frame back.
+- `auraRing.js` - WB9g: Dagon's Fire, the Sigil Broker's aura, burning about the feet of whoever wears it (the token's `au`, net/insignia.js) - one foreign pass on the world host, drawn after each mode's opaque world (the veiled bodies' hook: the street, the dungeon's lateWorldDraw, the building), never under the travel view. Two draws a wearer: THE GROUND, one quad under the feet answered per pixel from the polar distance and angle - a ring band broken by value-noise fire flowing round and out, bright crests chasing about it, ten embers circling in it at whole multiples of its turn, an ember-glow in the stone within; THE FLAMES, a low cylinder of tongues rising out of noise scrolled up and round, white-hot at the root to red and gone at the top. The noise is periodic (`vnoiseP`/`fbmP` - a lattice wrapping at whole periods, doubled per octave) so a flow scrolled by the clock meets itself at AURA_CLOCK_PERIOD's wrap and the angle's noise meets itself where the ring closes. The duel wall's law: fixed geometry placed by uniforms, added onto the frame, depth-tested and never written, the ground offset off the stone, fogged (the focus uploaded where the renderer sets one). `auraWearers` picks who is drawn - nearest first, AURA_DRAW_MAX, within AURA_RANGE_M. `tools/auraProbe.mjs` compiles, links and draws it in a real WebGL2 context and reads the frame back.
+- `nodeGlow.js` - NODE-MARKS: a gathering node's glow (Professions-Arc 31) - every herb patch, vein, boulder, tree, school and skinnable body the gathering host marks near the player (scenes/gatherHost.js marks), lit in its profession's colour (ui/nodeMarks.js, the colour its compass mark wears) - one foreign pass on the world host, drawn after each mode's opaque world through the veiled bodies' hook (the street, the dungeon's lateWorldDraw), never under the travel view or in a building. One card a node, turned about the upright to face the eye and stood NODE_GLOW_PULL toward it over the node's own picture, answered per pixel in metres: THE HALO, soft across and narrowing as it climbs, rising out of nothing at the ground (so the ground's cut shows no edge), breathing; THE SHIMMER, a band climbing it; six MOTES rising out of it, each its own pace and place, born and gone dark. Slight by intent. The duel wall's law: fixed geometry placed by uniforms, added onto the frame, depth-tested and never written, fogged from the focus, every rate whole over NODE_GLOW_PERIOD. `nodeGlows` picks who is drawn and how bright - nearest first, NODE_GLOW_MAX, each kindled over NODE_GLOW_KINDLE_S as it first stands near and faded from NODE_GLOW_FADE_M to nothing at NODE_GLOW_M. AUDIT NODE-MARKS: its still form under reduced motion (`uStill`: the halo steady, no shimmer, the motes held), its program built at idle once a node is first marked (never on a frame), a typed camera (the renderer's own `_camPos`) taken as any three numbers. `tools/nodeGlowProbe.mjs` compiles, links and draws it in a real WebGL2 context over a stand-in node and wall, and through `createNodeGlowPass` with a typed camera, and reads the frame back.
 - `gateVeil.js` - WB6c: the step through an Oblivion gate - a vortex of fire over the whole screen, painted per pixel on one triangle on a canvas of its own (`ui/gateVeil.js` holds the canvas, its loop and its sounds): flame arms spiralling into a white-hot eye (log-polar value noise tiled round the circle, so no seam where the angle wraps), pouring inward and turning, embers streaking with them, soot between the arms and a dark throat round the eye. Its inner edge - the FRONT, ragged with tongues of flame - stands where `veilAt` says: closing, from past the corners to past the centre by all its raggedness; shut, the eye breathing; opening, from the centre past the corners. What the fire has not taken is tinted toward the Deadlands' red with the cover. Premultiplied; no pass of the renderer's is touched. `tools/gateVeilProbe.mjs` compiles, links and draws it in a real WebGL2 and steps the real layer through a real page.
 - `lightningBolts.js` - BOLT: a ground strike's channel drawn as ribbons of light, never thinner than a line far away, past the far plane along its own sight line (systems/lightning.js the strike)
 - `renderer.js` - WebGL2, two programs: lit solid geometry (MVP, directional
@@ -23,6 +32,14 @@ directory by `test/audit18_bible_docs.test.js`:
   NEAREST, uploaded bottom-up exactly as getColor32 emits (matches GL texel
   order; DFU's negative-V UVs rely on REPEAT). ALL ground - exterior blocks
   and terrain alike - runs through this file's `drawTerrain` tilemap pass.
+  FAR-CLIP1 (2026-09-28): a world set's terrain program has a CLIP variant
+  (`terrainClipFs` - Iliac Puddle No More's
+  DeepWaters/TilemapTextureArrayClipWater: the cap's byte, `CLIP_SENTINEL`
+  in `world/terrainSurface.js`, discarded after the gradient the tile
+  sample takes), built the first time it is asked for; `drawTerrain`'s
+  `clip` binds it for a pixel whose TileMap the cap patched, and every
+  other pixel keeps the plain program and its early depth test
+  (`03-World/Deep-Waters.md`).
 - `contract.js` - HARD3 THE RENDERER'S CONTRACT, types only and no code:
   `BillboardBatch`, `MeshBundle`, `Color32` and `RendererLike`, the shapes
   that cross the boundary between a host and this folder. It exists
@@ -64,6 +81,11 @@ directory by `test/audit18_bible_docs.test.js`:
   the air pass's emission replay all key through it, so a batch recorded for
   the maps without being drawn (SHADOW-REACH) casts its current frame. A
   leaf: no GL, no imports.
+- `classicShadowLane.js` - IIL2 IMPROVED INTERIOR LIGHTING'S OWN SHADOWS: the Enhanced
+  Lighting lane's programs with Daggerfall's look put back (no colour decode, no
+  tonemap, the classic falloff, no highlight, no eye adaptation, no air), so the
+  shadow maps can draw under the classic look; the renderer hides it from the
+  hosts (`lightingLane` answers null).
 - `cloudShadow.js` - EE5 / VC4 THE CLOUD SHADOW BLOCK: the uniforms and
   the reader (`cloudShadowAt`) that answer how much sun reaches a point
   on the ground, off the map `volumetricClouds.js` writes. Its own leaf
@@ -72,6 +94,34 @@ directory by `test/audit18_bible_docs.test.js`:
   program that lights by the sun, and the air pass's shafts, which
   cannot import from the renderer that imports them. No GL, no imports.
   See `07-Rendering/Volumetric-Clouds-Arc.md`.
+- `columnGlsl.js` - DW-F THE WATER COLUMN'S SHARE: `COLUMN_GLSL`, Iliac
+  Puddle No More's top's depth-read alpha split onto what it covers (the
+  floor and the decorations in `deepWatersRender.js`, and both lanes'
+  billboard programs - DFU's own flats write the depth texture the top
+  reads, so a foe under the carved sea takes it, on a batch the host flags
+  `dwColumn`; the surface texture on `BB_SURFACE_UNIT`). Its camera forward
+  is `uDwCamFwd`, because the lane's light clusters already declare a vec4
+  `uCamFwd` in the same program. No GL; one import, the look's leaf (the
+  surface's tiling). `03-World/Deep-Waters.md`.
+- `comeSailAwayRender.js` - CSA-F COME SAIL AWAY'S WAVES AND PARTICLES:
+  the Dither/Wave shader restated from the bundle's compiled program (the
+  breakers dithered out toward the land against the 8x8 Bayer table, cut
+  at half alpha, tinted, lit and fogged; its 32 frames composed where they
+  are sampled, `composeTiledPicture`'s texel for texel), and the three
+  particle materials - WakeMaterial's cut-out quads, Default-Particle's
+  premultiplied drops, FlagMaterial's lit cubes - over the renderer's own
+  frame state (its matrices, light and fog). `03-World/Come-Sail-Away.md`.
+- `navalRender.js` - NAV-B THE SEA FIGHT, DRAWN: one program of CPU-laid
+  world quads for everything the naval arc shows between the shot and the
+  splinter - smoke, spray, foam, splinters, the balls in flight, the fire
+  barrels afloat and the aim's splash zone premultiplied and lit (back to
+  front), the muzzle flames, embers and the aim's arcs added (ONE / ONE) -
+  over the renderer's own matrices, light and fog (the travel view's focus
+  among them), testing the world's depth and writing none; four pictures
+  made at load, never shipped. NAV-B also made Come Sail Away's soft drop
+  premultiplied (`comeSailAwayRender.js softParticleTexture`, the root of the
+  white squares) and flies a sea ship's colours on its flag (`flagRuns`).
+  `03-World/Naval-Combat.md`.
 - `fogGlsl.js` - AUDIT 68 THE FOG BLOCK: `FOG_GLSL`, the one `fogFactorAt`
   every world pass interpolates - renderer.js's seven programs, the water
   surface and the lighting lane's five (DS1's exp2 had been added to nine
@@ -545,6 +595,163 @@ directory by `test/audit18_bible_docs.test.js`:
   `GRASSPX_FS_EDITS` then `GRASSFOG_FS_EDITS`; run through `test/glsl.mjs`
   in both styles, no fog is the old picture to the bit and each fog mode
   is exactly the terrain's blend (`test/disc20.test.js`).
+  **GRASS-LIT (2026-10-01, Mac: "drastically improve the grass texture
+  that isn't super dark and blends well into the terrain"): THE GROUND'S
+  COLOUR AND THE GROUND'S LIGHT.** Measured first, on the real tiles
+  (TEXTURE.302 and the four other grass climates, read 2026-10-01) and
+  the real light (`tools/grassLightProbe.mjs` prints both lanes, five
+  climates, six times and weathers): the blade's middle drew 0.62x the
+  ground under it at a sunny noon, 0.37x in rain and 0.28x in a storm,
+  and FIVE causes stacked. (1) A fixed olive the ground is not - the
+  temperate grass tile averages (52, 76, 42), the blade's middle was
+  (33, 51, 18), its root the tile x 0.62 shaded again by 0.42. (2) The
+  lab's weather dim (LAB_DIM) on a light the host had weathered already
+  (exteriorAmbient takes the scale squared, the sun once). (3) No
+  lighting lane: under Enhanced Lighting the ground is decoded, lit in
+  linear, exposed (EL_EXPOSURE x the eye), tonemapped and encoded, and
+  the grass ran none of it. (4) Light the ground did not get - the
+  cloud deck's shadow, the sun map and R12's player light lit the
+  ground and not the blades on it. (5) THE AMBIENT OCCLUSION: the air
+  pass reads its AO off the frame's depth at the resolve (EL6), the
+  grass writes that depth, and every blade read as a crease - the AO's
+  0.75 resolve darkened the field and the ground round each tuft
+  (`?air=off` drew the same tufts in the ground's own colour; the
+  probe photographs both). A FOURTH EDIT LIST, `GRASSLIT_VS_EDITS` /
+  `GRASSLIT_FS_EDITS`, after the fog's: the tuft's four tones are
+  RATIOS OF THE GROUND'S MEAN under each blade (`GRASS_TONES`, uploaded
+  as `uGrassTone` - the root in the tile's own shade, the middle its
+  light third and over, the tip and the highlight brighter and a shade
+  greener: a lit blade is lighter than the soil under it), drawn from
+  the tiles' measured palette (`GRASS_PALETTE`: the dark third 0.85x,
+  the light third 1.16x, the brightest tenth 1.27x of the mean); the
+  light is the terrain's - ambient under a soft sward shade
+  (`GRASS_SWARD` 0.9 at the root), the sun by its scale through the
+  deck and the sun map read once at the root (lifted `GRASS_SUN_LIFT`
+  0.2 off the ground's own depth, the flats' one-read law - in each
+  triangle's provoking vertex alone, handed down `flat`), the moon,
+  R12 - and under the lane through its own decode, exposure, eye,
+  curve and encode (`EL_CODEC_GLSL`, the lane's text factored out
+  byte for byte); the blade's normal stands nearer the ground's; the
+  rim catches only in sun; past `GRASS_FAR_BLEND` (0.12-0.6 of the
+  range) the colour gives way to the ground's mean, so the far field
+  melts into the tile instead of banding. The host hands no weather dim
+  (dim 1) and the frame's lane, eye, deck, sun map and player light;
+  `Renderer.snapshotAoDepth` copies the depth just before the grass
+  draws (one blit) and the AO and its blur read the copy
+  (`AirPass.snapshotAoDepth`), so the grass neither takes nor casts
+  occlusion and still hides and is hidden by depth. Now the middle is
+  1.17x the ground in every condition the probe walks. `grassLit` is
+  the fragment in JS term for term; `test/grasslit.test.js` runs the
+  compiled stage through `test/glsl.mjs` against TERRAIN_FS's and
+  EL_TERRAIN_FS's formulas (a blade in the ground's colour IS the
+  ground's pixel on both lanes), pins the upload (linear under the lane,
+  every sampler on its own unit), the AO copy and the host;
+  `tools/mutants/grasslit.json` (19, all dead). Seen on the real game
+  data (`tools/grassLookProbe.mjs`, the world at a one-square radius,
+  `__grassSpot` / `__grassTones` in shot mode): no dark tuft, no yellow
+  band at the middle distance, a field lighter than its ground by a
+  blade's sunlit tip.
+  **GRASS-LIT2 (2026-10-02, Mac: "Tackle the not done" - the five
+  things GRASS-LIT's report left unpaid): THE LANTERNS, THE SLOPE, THE
+  DRAWN TILE SET AND THE CLASSIC LANE.** (1) THE LANTERNS LIGHT THE
+  GRASS: the vertex stage walks the frame's own point lights
+  (`uPointLights` / `uPointColors`, the list and colours the ground
+  took - `renderer._pointLights`, display colours decoded under the
+  lane - up to `GRASS_MAX_LIGHTS`, the lane's cap of 48) at the root
+  with the ground's own falloff (TERRAIN_FS's (1 - d/r)^2 on the
+  classic lane, `elAttenuation` on its own - `EL_ATTEN_GLSL`, factored
+  out of EL_GLSL byte for byte) and each light's map where it has one
+  (`shadowOfLight`, the flats' reader, at the sun's lift), in the
+  provoking vertex alone, handed down `flat` as `vPoint`; the fragment
+  adds it beside R12 (the stage holds 212 uniform vectors at most,
+  counting every scalar whole and off the code, not its comments -
+  224 if a driver keeps the two const face tables as uniforms - of the
+  256 WebGL2 promises; pinned). A
+  lantern at night: the blade beside it drew
+  0.21-0.52x the lit ground and draws 1.06-1.21x (`tools/
+  grassLightProbe.mjs`; AUDIT GRASS-LIT2: the numbers first written
+  here were an intermediate build's). (2) A BLADE IS LIT ABOUT THE GROUND'S NORMAL:
+  `normalize(lean + 1.2 * gN)`, where it stood about straight up (level
+  ground's gN is that up: 0.35 + 0.85 = 1.2). The normal is the drawn
+  surface's own - `world/terrainSurface.js surfaceNormalAt`, the near
+  grid's vertex normals (ghost rows and all, kept on a stride-1 pixel
+  as `groundNormals`) interpolated over the triangle the root stands
+  in, normalised as TERRAIN_FS normalises - asked by the placer once a
+  blade (`slope`) and PACKED INTO THE HEIGHT LANE: GRASS5 gave the
+  height a u16 and wrote it needed eight bits; it takes the high six
+  (`GRASS_HEIGHT_BITS`, 7 mm steps) and the normal's x and z five each
+  (`packHeightSlope`: codes 0..30 over +/-`GRASS_SLOPE_SPAN` 0.75, 15
+  the level, so level packs exactly level; dithered by the blade's
+  index on the R2 sequence, so a hillside's step lands as grain and
+  never a contour, and a patch's mean is the slope's own). No byte
+  more a blade (a near pixel keeps its grid's normals, 195 KiB, while
+  the field is on). A 30-degree slope facing away from the 9:00 sun drew
+  1.34-1.43x its ground and draws 1.04-1.18x, as level ground does.
+  (3) THE COLOUR OFF THE TILE SET THAT IS DRAWN: the record means
+  (`groundMeanColour`) are taken off an attached texture mod's tile set
+  where one dresses the archive (GROUND1's `dfmodGroundLayers`, asked
+  before the three per-archive maps are learned so they land in one
+  step), the classic file's otherwise; which records are grass stays
+  the classic file's question. A big tile's mean reads at most
+  `GRASS_MEAN_SAMPLES` texels, on an odd step so no power-of-two
+  pattern is read on one phase. (4) THE CLASSIC LANE'S OWN TONES,
+  `GRASS_TONES_CLASSIC`, CALIBRATED BY PHOTOGRAPH against the default
+  lane at noon (four palettes from one boot; the near field's pixels
+  counted by how far they stand over the ground beside them): over
+  1.2x and over 1.3x, the default lane 6.4% and 4.9%, GRASS_TONES on
+  the classic lane 9.9% and 7.2% (the brighter, limer field), a
+  per-channel match of the lane's mean colours still 9.1% and 6.3% (the
+  lane's eye and curve press the middle tones harder than its mean
+  says), these 7.8% and 4.9%, a shade less green; the draw uploads
+  each lane its own. The classic frame stays brighter overall - its
+  ground is too.
+  `test/grasslit2.test.js` runs the compiled VERTEX stage through
+  `test/glsl.mjs` (the slope's decode and lambert, the lanterns against
+  the terrain's two formulas, the shadow, the provoking vertex), the
+  normal against the real mesh, the pack, the placer and the upload;
+  `tools/mutants/grasslit2.json` (76 with AUDIT GRASS-LIT2's below; 75
+  dead, one recorded equivalent). (5) Seen on the real
+  game data: a lantern on a field at 23:30 (before, the ground in its
+  pool lit and the tufts standing dark in it; after, lit with it), the
+  classic lane at noon beside the default lane, and a real wood round a
+  hidden keep (The Citadel of Gaersley) from the air, Real forests on
+  and off. The hillside was not photographed: in shot mode a pose
+  turns the eye but its x and z stay at the pixel's corner (cause not
+  run down; `01-Overview/Audit-Forest1-Grass.md`) - its proof is the
+  compiled stage's and the probe's numbers. New shot hooks: `__forestSpot` (the deepest
+  wood in the built pixels) and `__grassSpot`'s `steep`.
+  **AUDIT GRASS-LIT2 (2026-10-02, Mac: "Audit this"; three read-only
+  lenses - the shader, the host, the tests and docs - record in
+  `01-Overview/Audit-Forest1-Grass.md`).** A CELL WALKS ITS OWN
+  LANTERNS: the frame's list goes up whole once a draw, and before each
+  cell `_cellLights` picks the lights whose reach meets the cell's box
+  (the shader's own `d >= range` cut, at the box), nearest first, at
+  most `GRASS_CELL_LIGHTS` (8; a tie keeps the earlier light), and
+  uploads `uPointCount` / `uPointIdx[8]` only when the list changes - an
+  open field's cells are one upload, not one a cell. The stage walked
+  all 48 in every provoking vertex; it walks the cell's eight at most.
+  A DRAW WITHOUT SHADOWS HANDS EVERY LANTERN NO CASTER (`uCasterOf` all
+  -1, the point params zero): a program's uniforms outlive the frame
+  that set them, and a frame with shadows then one without read the
+  last frame's caster slots - a stale slot answering black put a
+  lantern out. A ZERO WORD IS LEVEL: the slope's two codes are stored
+  XOR 15, so a pad or a cleared slot (all zero) reads level, not the
+  steepest lean; a NaN or infinite normal packs level. The mean's step
+  is `ceil(n / GRASS_MEAN_SAMPLES) | 1`, so a tile never reads more than
+  the cap (a 256 x 384 tile read all 98,304). The host keeps a pixel's
+  normals only when the lab field is on, and takes a texture mod's
+  means off the layers it uploaded rather than asking the mod a second
+  time. The tests feed the stage its word as a GPU that normalises a unorm16
+  by its reciprocal in float32 hands it (512 of the 65,536 words land a
+  hair under themselves there, which a floor would read one down; a
+  correctly rounded normalise lands none), hold the JS twin against both stages end to end on a
+  hillside under the moon beside the lanterns, and read the ground's
+  lantern formulas off TERRAIN_FS's and EL_TERRAIN_FS's own text. The
+  light probe's classic "was" column had painted the old blade in the
+  lane's new tones; it takes GRASS_TONES now (`grassLit`'s `tones`), and
+  the numbers above are the probe's as it stands - the first written
+  were an intermediate build's. The look probe hands a palette to the
+  lane it boots.
 - `grassPixelArt.js` - GRASS-PX THE TUFT SHEET: eight 8x16 tufts (GRASS-PX4; 16x32 until 2026-09-22, and the laws are written as fractions of the tuft so the old size still builds through `buildTuftSheet({ w, h })`) built at boot from a seed (one-texel stalks bending as height squared, four tones with one highlight texel, alpha 0 or 255), their coverage mip chain (max alpha per block, never an average, down to 1x1), the pixel style's numbers (8 Hz sway, 24 lean steps, 3x tuft width, 8-step ramp, 4 tint bands) and `pixelGrass()`, the row's word; the shader edits themselves are `GRASSPX_VS_EDITS` / `GRASSPX_FS_EDITS` in labGrass.js.
 - `spoilsGlow.js` - WB5: a fallen boss's spoils at rest, each in a BEAM of its tier's colour rising from a HALO on the floor (Loot Rarity's own colours - the first place a rarity is drawn in the world), a Legendary's and an Artifact's taller and pulsing. One foreign pass drawn beside the Burning Court's telegraph (the same seam), on the duel wall's law: fixed geometry placed by uniforms, added onto the frame, no depth written, fogged.
 - `deadlands.js` - WB6a: the Deadlands round the Burning Court - THE SKY, painted per pixel on one triangle at the far plane (a churning overcast lit from below; Oblivion's VORTEX over the great tower, turning whole and pouring inward; the BEAM up into its eye; black Daedric TOWERS with horns and a crown; three rings of JAGGED RIDGES hazier the further, with falls of fire; seeded LIGHTNING in the deck), and THE SEA, a disc of moving fire (crust plates on molten channels, glowing cracks, a slow pulse) whose rim becomes exactly the sky's horizon, so no edge is ever seen. One foreign pass in the dungeon arm after the court's solid geometry and before its flats (PERF2's law: the sea depth-tested, the sky tested at the far plane and never written); and the court's own light (`courtLighting` - a trilight red above and fire-orange below, the vortex's key light from behind the boss). WB6b: THE AIR'S LIFE (`drawLife`, after the telegraph in the court's pass - one vertex a mote: embers off the sea from past the court's edge and off its braziers, turning with the drift of the air, and ash falling through it; depth-tested and never written, the ash laid over premultiplied and the embers added; the world image's own height sizes the motes, RETRO1's `worldViewportPx` as the bolts read it); a strike LIGHTS THE COURT (`courtLighting(flash)`: the trilight's sky flares and the key swings toward it); `flashOfSlot`, the one answer the sky's flash and the thunder (scenes/deadlandsAir.js) read, on slots whole over the period; and the hosts hand the relay's clock (world.js `deadlandsSeconds`), so it is one moment on every screen. The land and the floor's shards round the court are court draws, not this pass (world/deadlandsLand.js, stood by worldModes' `standDeadlands`).
@@ -611,7 +818,16 @@ directory by `test/audit18_bible_docs.test.js`:
   pinned number. Not AmbientEffects (DFU's player, bug for bug, stays
   so): ticked beside it on the exterior frame and STOPPED on every modal
   frame, as the mills' hum is - the port's own sounds fall silent
-  indoors. THE SWAY: BB_VS takes the wind (`uFlatWind`, one upload a
+  indoors. **FIELD-WIND1 (2026-09-29) corrected the voice** (the
+  Discord: "A repetitive moaning sound in the open world"): those clips
+  are one-shots, short, shaped and pitched - the moan is 1.96 s that
+  swells and falls with a voice's pitch in it - and played end to end it
+  came back every 1.97 s under every breeze. The loop is a BED the port
+  makes now (`windBedSamples`: seeded white noise under a band-pass and a
+  low-pass, periodic so it has no seam, at the moan's own RMS) on the
+  engine's native loop (`audio.registerSamples`, `audio.loop` with a live
+  `setPitch`), one source for the whole blow; the gain law above stands.
+  `01-Overview/Field-Bugs-2026-09-29e.md`. THE SWAY: BB_VS takes the wind (`uFlatWind`, one upload a
   call) and a share per batch (`uSway`, uploaded when it changes), and
   leans the quad by the grass's own wave - the lab's 1.7 / -along*0.35
   gust running across the field, the 0.55/0.75 push - weighted by the
@@ -657,8 +873,11 @@ directory by `test/audit18_bible_docs.test.js`:
   storm walks the peak across with no gap; a twelve-second smoothing
   rides on top so a jump in the clock never steps the count. THE
   EPISODE: every precipitating cut rolls a PEAK from its mode's range -
-  rain 0.25..1.0 (a sprinkle to a downpour), storm 0.6..1.0, snow
-  0.2..0.85 - seeded on the cut's minute as WIND1 seeds its front, and
+  rain 0.05..1.0 (a sprinkle to a downpour), storm 0.6..1.0, snow
+  0.05..0.85, placed by the roll to the power of its skew (rain 2, snow
+  1.5: RAIN-SPRINKLE, FIELD BUGS 2026-10-01 #2 - a rain system's edge
+  drizzles and only its heart pours, and the fog, the sun and the grass
+  dim follow what falls, `fallTerms`) - seeded on the cut's minute as WIND1 seeds its front, and
   the intensity WANDERS under the peak (0.6..1.0 on two slow periods) so
   a shower is never one number for an hour. The ear follows what FALLS:
   the rain loop's gain is the intensity (a `setVolume` on the engine's
@@ -724,7 +943,11 @@ directory by `test/audit18_bible_docs.test.js`:
   water-corner table that inverts the marching squares, the swell, foam, Fresnel,
   glint and rain shader (`drawWaterSurface` in renderer.js), drawn after
   every opaque pass of a pixel and before the first flat, in both exterior
-  hosts. Switch `enhancedWater`, `?water=off`. `07-Rendering/Water-Arc.md`.
+  hosts. Switch `enhancedWater`, `?water=off`. `07-Rendering/Water-Arc.md`. And
+  (FIELD BUGS 2026-09-29 (the sea) #4) THE SEA'S STACK IN WINDOW DEPTH,
+  `WATER_LAYER_UNITS`: the polygon offsets the water sheets a few
+  centimetres apart are drawn at - the surface film (Iliac Puddle No More's
+  top, WATER1) over the ground, Come Sail Away's breakers over the film.
 - `underwaterFog.js` - ROAD-B B3: UnderwaterFog.UpdateFog, the submerged fog/tint law shared by the dungeon and exterior hosts
 - `windowEmission.js` - R2 window emission.
 - `precipitation.js` - R13 rain/snow + storm lightning. TWO PROFILES,

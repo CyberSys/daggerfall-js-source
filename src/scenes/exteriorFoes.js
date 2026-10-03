@@ -14,27 +14,33 @@
 // 13 fixed-list casters do not cast up here yet.
 
 import { ENEMY_BASICS } from '../characters/enemyBasics.js';
+import { foeTitle } from '../systems/foeTitle.js';   // FOE-TITLE: what a revenant, a champion or an elite is called
+import { effectiveLevel } from '../systems/mentorMode.js';   // SOFTCAP2: mentor mode - the level the world is built around
 import { markFoeStruck } from '../ui/hudFoeTarget.js';   // PX30
 import { damageShieldPool, playerBlowCameToNothing } from '../characters/playerEntity.js';   // AUDIT 58: DecreaseHealth's shield hook is the BASE class's (DaggerfallEntity.cs:313-328)
 import { lycanthropeAttackVoice } from '../systems/lycanthropy.js';   // V4: the beast's attack voice
 import { copyEffectEntry } from '../systems/save.js';   // AUDIT 26 F216: the caster-stripping effect copy, one home
 import { EnemyAI, isBackFacing, withinYaw, MELEE_DISTANCE, foeFrameDt } from '../characters/enemyMotor.js';   // AUDIT WORLD6b-iii(a) B4: the puppet's cast is read against the owner's own bands
 import { spaceFoes } from '../characters/foeSpacing.js';   // FOE-SPACING: the pack keeps apart
-import { runTargetMachine, isPlayerTarget, isLocalPlayerTarget, isPeerTarget, resetAllyTeamOnPlayerAttack, PLAYER_TARGET, PEER_CAST_TARGET, targetAimPoint, enemyArrowOrigin, enemyTransformPoint, arrowAimDirection, wireRecipient, bumpAtkCount } from '../characters/enemyTargets.js';   // AUDIT WATCH1: the wire's spellings, one home   // WORLD6b-ii: the local player told from a peer, the peer told from a foe   // MT-ii   // ROAD-H H1/H1b: the ONE arrow loose point and the crouch dip
+import { blowConnects, blowScaled } from '../ai/foeBlows.js';   // TACT4
+import { runTargetMachine, isPlayerTarget, isLocalPlayerTarget, isPeerTarget, resetAllyTeamOnPlayerAttack, PLAYER_TARGET, PEER_CAST_TARGET, targetAimPoint, enemyArrowOrigin, enemyTransformPoint, arrowAimDirection, wireRecipient, bumpAtkCount, staticTeamOf } from '../characters/enemyTargets.js';   // AUDIT WATCH1: the wire's spellings, one home   // WORLD6b-ii: the local player told from a peer, the peer told from a foe   // MT-ii   // ROAD-H H1/H1b: the ONE arrow loose point and the crouch dip
 import { FALL_DAMAGE_THRESHOLD, FALL_HP_PER_METRE, CAPSULE_HEIGHT } from '../player/motor.js';   // CH3: the shared fall formula
 import { SOUND, hitSoundFor, ENEMY_HIT_VOLUME } from '../systems/soundClips.js';   // CH3: the FallDamage clip; WORLD6b: a peer's blow rung at the owner
 import { EnemyCaster, castEnemySpell, hasMagickaToCast, MIN_RANGED_DISTANCE, MAX_RANGED_DISTANCE } from '../characters/enemyCasting.js';   // X3: the shared decision + the ONE cast executor
 import { assignEnemySpells, SPELL_CAST_SOUND } from '../systems/enemySpells.js';   // X3
-import { applySpell, maxFatigue, entityIsParalyzed, applyEnemyMotorEffectFlags, concealmentFlags, concealFlagsOfBits } from '../systems/effects.js';   // X3: self-casts land through the effect spine   // A5: the enemy Levitate arm, the foe-target concealment closure + EntityConcealmentBehaviour's visual
+import { applySpell, isSoulTrapEffect, maxFatigue, entityIsParalyzed, applyEnemyMotorEffectFlags, concealmentFlags, concealFlagsOfBits } from '../systems/effects.js';   // X3: self-casts land through the effect spine   // A5: the enemy Levitate arm, the foe-target concealment closure + EntityConcealmentBehaviour's visual
 import { calculateCastCost } from '../systems/spellcost.js';   // X3: costs priced off the player (magic-15 note)
-import { silenceBlocksCast, attemptSoulTrap, SOUL_TRAP_TEXT, fillEmptyTrap } from '../systems/mysticism.js';   // X3: the enemy silence gate; X5: the soul trap's kill intercept
+import { silenceBlocksCast, attemptSoulTrap, SOUL_TRAP_TEXT, fillEmptyTrap, peerSoulTrapOf } from '../systems/mysticism.js';   // X3: the enemy silence gate; X5: the soul trap's kill intercept; STRIKE-SHARED: a peer's trap is its caster's
 import { isAzurasStarEquipped, registerFoeDoor } from '../systems/artifactEffects.js';   // V3: the Star's kill capture; AUDIT PSCALE1 DOORS-2: Namira's reflection through this pool's door
 import { EnemyAttack } from '../characters/enemyAttack.js';
-import { makeEnemyEntity, loadMonsterCareer, KNIGHT_CITYWATCH_ID } from '../characters/enemyEntity.js';   // AUDIT WATCH1 A1: the watch's own puppet allowance
+import { makeEnemyEntity, loadMonsterCareer, KNIGHT_CITYWATCH_ID, applyProgressionScaling } from '../characters/enemyEntity.js';
+import { combatStanding, foeShare, progressionScaling, wildernessShare } from '../systems/skillSoftcap.js';   // SOFTCAP5: tougher foes in the wilds
+import { isNight } from '../world/worldClock.js';   // SOFTCAP5: the wilds' night share   // AUDIT WATCH1 A1: the watch's own puppet allowance
 import { MobileUnit, MOBILE_DAEDRA_SEDUCER, SeducerTransformBehaviour } from '../characters/mobileUnit.js';   // A5: the Seducer transform pair + its trigger
 import { ClassFile } from '../formats/classFile.js';
 import { spawnEnemyLoot, hasBowAttack, backstabChanceOf, zeroDamageHitSound, enemyMissSound, enemyAttackVoice, enemyPainVoice, playerAttackGrunt, tickEnemySound, playEnemyClip, tryLanguagePacification, applyDamageToNonPlayer } from './hostCombat.js';   // C2-slice (combat-9/17); MT-ii: the foe-vs-foe payload
-import { validLootList } from '../systems/loot.js';   // WORLD6b-iii(c): the pile on the wire, WORLD4's projection
+import { validLootList, LOOT_NEWER_TAKE_TEXT } from '../systems/loot.js';   // WORLD6b-iii(c): the pile on the wire, WORLD4's projection; AUDIT ONLINE2 F4: a grant this build cannot read
+import { unbound } from '../systems/itemBound.js';   // SS3: a bound piece in a peer's grant never lands
 import { calculateAttackDamage, meleeHitConnects, MELEE_HIT_YAW_DEG, chooseEnemyWeapon, dropWeaponIfTargetImmune, enemyWeightClassicUnits, weaponKnockbackSpeed, weaponKnockbackApplies, enemyLanguageSkill, calculateEnemyPacification } from '../combat/formulas.js';   // AUDIT 24 (wave 42): pacification
 import { tallySkill, SKILLS } from '../systems/skills.js';
 import { liveStat } from '../systems/statMods.js';
@@ -47,11 +53,14 @@ import { inflictPoison } from '../systems/poisons.js';
 import { onMonsterHit, SPIDER_TOUCH_SPELL_INDEX } from '../systems/diseases.js';   // AUDIT 24 (wave 30): the monster special-attack rider, above ground
 import { MINUTES_PER_DAY, playerWeaponHitEntity, playerWeaponKillReported } from '../systems/worldTick.js';   // DISC10-D H1: OnWeaponHitEntity's one dispatcher
 import { FOES_MS } from '../net/online.js';   // AUDIT ALL B2: the watchman moved since the frame the striker swung at
-import { validFoeRecord, CELL_PUPPETS_MAX, CELL_WATCH_PUPPETS_MAX, CELL_FRAME_RECORDS_MAX, FOE_SEQ_MAX, POSE_BOUND, POSE_Y_BOUND, tokenGate, FOE_HEALTH_MAX, hitPoisonOf, HIT_ARROWS_MAX } from '../net/wire.js';
+import { applyChampion, rollStreetChampion, championIndex, championName, properName } from '../systems/champions.js';   // LOOT7: the street's champions
+import { lootCrown } from './lootLines.js';   // LOOT11: a body's line of light
+import { validFoeRecord, REVENANT_NAME_MAX, CELL_PUPPETS_MAX, CELL_WATCH_PUPPETS_MAX, CELL_FRAME_RECORDS_MAX, FOE_SEQ_MAX, POSE_BOUND, POSE_Y_BOUND, tokenGate, FOE_HEALTH_MAX, hitPoisonOf, hitSpellOf, hitSpellFields, HIT_ARROWS_MAX } from '../net/wire.js';   // STRIKE-SHARED: a strike spell rides the hit
 import { CORPSE_ACTIVATION_DISTANCE, liveFoeTargets, liveFoeFor } from '../player/activate.js';   // WORLD-HOVER H2: the LIVE bodies, in the shape the hover's one seam takes
 import { WEAPON_REACH } from '../combat/playerWeapon.js';   // AUDIT WATCH1 B2: a peer's melee blow on my watch lands from the player's own reach, no farther   // AUDIT WORLD6b-iii(c) A1/C7: the owner reads the taker's reach
 import { createWeapon, bowDamageArrow } from '../combat/enemyEquipment.js';   // MAC-N1: the recovered shaft is CreateWeapon's arrow, value and all   // AUDIT WORLD6b-ii B2: a puppet's weapon is its owner's word, rebuilt from the descriptor   // AUDIT WORLD6b B3/C2: a cell's record projected and its puppets capped, the wire's law
 import { mintCorpseMarker, playBodyFall, playRareDrop, corpseLootTargets, corpseEntryFor, corpseContents, takeCorpseLoot, openCorpseLoot, pileBody, sayEnemyDied, raiseEnemyDeath, corpseEntityName } from './corpseMarker.js';
+import { floorLanding } from '../player/enterExit.js';   // REVENANT-FATE (the 2026-10-02 audit): a flyer kneels, and its pile lies, on the ground below
 import { renownFoeStruck, renownFoeDied } from '../net/renownTracker.js';   // RENOWN1: a foe the player fought pays its Renown XP when it dies, by any hand
 import { reportPlayerKill } from '../systems/playerKills.js';   // SET2: my own kills, told
 import { partyFoeLoses, partyFoeHits, partyFoeHeals, noteFighter, foeFighters, takeWholeBlow, PARTY_ME } from '../systems/partyScale.js';   // PSCALE1: a shared foe weighs whoever fights it
@@ -64,9 +73,19 @@ import { addItem } from '../systems/inventory.js';   // AR1: BowDamage's recover
 import { EnemySoundSource, acuteHearingMultiplier } from '../characters/enemySounds.js';   // AUDIT 24 (wave 41): EnemySounds.cs, one home
 import { flashPlayerDamage } from '../ui/damageFlash.js';   // AUDIT 24 (wave 39): ShowPlayerDamage   // AUDIT 24 (wave 38): EnemyDeath's one home
 import { bindQuestFoeHost, isPrivateQuestFoe } from './questFoeHost.js';   // B1: quest foes ride this pool; CURSE-SYNC: a world quest's ride as the world's
-import { validSites, validSiteTags, WOD_CAMP_PUPPETS_MAX, WOD_SITES_MAX, WOD_AGE_MAX } from '../world/wodShared.js';   // WOD7: a World of Daggerfall camp's foes, shared
+import { validSites, validSiteTags, isRiteSite, WOD_CAMP_PUPPETS_MAX, WOD_SITES_MAX, WOD_AGE_MAX } from '../world/wodShared.js';   // WOD7: a World of Daggerfall camp's foes, shared
+import { validRaidTags, validAlliedIds, RAID_PUPPETS_MAX } from '../world/raidShared.js';   // RAID2: a town's raid, shared
+import { isShipmate } from '../combat/friendlyFire.js';   // SHIPMATES: my crew named on the wire, and never the swing's
+import { campTagsOf, validCampTags } from '../world/campShared.js';   // OW6: a camp rides tagged, and an heir takes it as a camp
+import { CAMP_SIGHT_RADIUS, CAMP_ALERT_RADIUS, PACK_ALERT_RADIUS } from '../systems/campEncounters.js';   // OW6: a camp taken over sees and wakes as it did
 import { combatVisualsOn, foeDraw, markConcealedHit } from '../systems/combatVisuals.js';   // ECV1: what the enhanced skin draws for a concealed foe
-import { foeHitFlash, setBatchHitFlash, puppetHurtStep } from '../systems/hitFlash.js';   // HITFLASH1
+import { foeHitFlash, setBatchHitFlash, puppetHurtStep } from '../systems/hitFlash.js';
+import { isOnlinePage } from '../systems/onlineLane.js';   // ELITE FOES: online play only
+import { revenantFleeStep, revenantFleeHealth, revenantDeed, revenantSlain, applyRevenant, grantRevenantLoot, revenantById, revenantSay, revenantTauntEvent, revenantFleeEvent, revenantCorneredEvent, revenantEscapeEvent, revenantSlainEvent, REVENANT_TAUNT_DISTANCE } from '../systems/revenant.js';   // REVENANT: the foes that kill you or run, and come back
+import { revenantMayYield, beginYield, yieldStep, slipEvent, kneelPose, beginExecution, executionStep, finishExecution, beginSpare, spareDone, fateDissolve, fateModel, dropFateHeld } from '../systems/revenantFate.js';   // REVENANT-FATE: beaten, it yields - kill it or spare it
+import { setBatchDissolve } from '../systems/dissolve.js';   // DISSOLVE: burnt away, or gathered through a portal
+import { createPortalSet } from './portalFx.js';   // COMPANION-PORTAL
+import { elitesAllowed, promoteEliteFoe, rollOverworldElite, grantEliteLoot, eliteGlow, setBatchEliteGlow, eliteSize, isEliteCorpse, markEliteCorpseBatch, ELITE_FOE_SIZE } from '../systems/eliteFoes.js';   // ELITE FOES: 5% of the wilds' foes   // HITFLASH1
 
 // The port's allocation-owner guards (classic self-limits through the
 // 144-minute cadence; these keep a long session bounded).
@@ -101,6 +120,21 @@ export function validQuestTags(qf) {
  *  owner's LOOSE stands (a summon's foe, a Wabbajack's change), which ride to the whole room; the deep's `dz` shape, and
  *  a malformed entry names nothing. */
 export const validLooseSeqs = (lf) => validDeepIds(lf);
+/** AUDIT WK-U3: the names of an owner's companions on the foes frames (`cn`, beside `cp` and in its order) - his own
+ *  name, never his class's (another player's companion wore "Warrior" over his head). Each at most COMPANION_NAME_MAX
+ *  characters, control characters dropped; anything else stands for none. `Map<number, string>` by number. */
+export const COMPANION_NAME_MAX = 40;
+export function companionNames(cp, cn) {
+  const out = new Map();
+  if (!Array.isArray(cp) || !Array.isArray(cn)) return out;
+  for (let k = 0; k < cp.length && k < cn.length; k++) {
+    const i = cp[k], n = cn[k];
+    if (!Number.isInteger(i) || typeof n !== 'string') continue;
+    const name = n.replace(/[\u0000-\u001f\u007f]/g, '').trim().slice(0, COMPANION_NAME_MAX);
+    if (name) out.set(i, name);
+  }
+  return out;
+}
 /** QUEST-PARTY phase 3 (2026-09-26, Mac: "Dungeons and buildings"): A MARKER'S FOE STANDS ONCE FOR THE PARTY. A quest
  *  marker stands its foe in every copy of the quest at the same spot - the palace's imp, the dungeon's vampire - so two
  *  members in the room stood two, each seeing both. My untouched copy stands down for a party member's live one that a
@@ -127,6 +161,8 @@ const TAKES_PER_S = 3;
 /** AUDIT WORLD6b-iii(c) B1/C1: how long an ask stands at the taker - a grant lands only for a body I asked for inside
  *  it, once; an unasked grant is refused whole (a peer wrote into my pack at will until now). */
 const TAKE_WINDOW_MS = 3000;
+/** AUDIT ONLINE2 F4: how long an owner keeps a grant's pieces for the taker's "I cannot read it" (`back`), ms. */
+const GRANT_BACK_MS = 2 * TAKE_WINDOW_MS;
 // DISC10-E: how long after my blow on a puppet its owner's `slain` report is mine - the take's round trip, the same bound
 const SLAIN_WINDOW_MS = TAKE_WINDOW_MS;
 const PUPPET_LEAP = 3;
@@ -139,9 +175,26 @@ export const ENCOUNTER_CULL_DISTANCE = 120;
  *  MAX_CAMP_SPAWN_DISTANCE) and see only 60 m, so the 120 m cull took most of CAMP-RING's groups on the
  *  frame after they stood, never seen. A camp member is culled past this instead - the band and a margin. */
 export const CAMP_CULL_DISTANCE = 200;
+/** AUDIT WB12d (C11): A SITE'S FOE CHANGED IS STILL ITS SITE'S - a Wabbajack's re-stand (scenes/world.js
+ *  enchantReplaceFoe) keeps a shared camp's member shared, and the faithful's Summoner turned a beast is still their
+ *  Summoner (scenes/riteHost.js reads its part): the spawn's options for the new foe, and what it takes from the old. */
+export const siteFoeSpawn = (f) => (f?.site ? { site: f.site, placed: true, transient: !!f.transient } : {});
+const SITE_FOE_KEYS = Object.freeze(['campId', 'campKind', 'campAlertRadius', 'riteRole', 'riteCareer']);
+export function carrySiteFoe(from, to) {
+  if (!from?.site || !to) return;
+  for (const k of SITE_FOE_KEYS) if (from[k] !== undefined) to[k] = from[k];
+  if (to.entity && from.entity?.campId !== undefined) to.entity.campId = from.entity.campId;
+}
 
 export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture, uploadRecordFrame,
   playerEntity, audio, onPlayerHurt, currentMinute, say = null, rolls = Math.random,
+  // TIME1: the SKY's minute - the wilds' night (SOFTCAP5's share) is the sky's; `currentMinute` is the character's own
+  // (the poison's anchor, the alert, the disease day). A host that hands none reads the one clock, as offline.
+  skyMinute = null,
+  // SOFTCAP5: is the player on a location's ground (a town, a city, a dungeon's or a graveyard's own rect)? Only the
+  // WILDERNESS scales its foes, so a host that cannot say keeps them all as they were (an interior's pool, the
+  // one-location exterior host).
+  inLocation = () => true,
   playerSinks = null,   // AUDIT 24 (wave 30): the player's damage/drain doors - the nymph and lamia riders need drainFatigue
   regionIndex = () => -1,   // DISC10-D V3: PlayerGPS.CurrentRegionIndex - the infection a vampire's bite starts records it (VampirismInfection.cs:91)
   onArrow = null,   // X2-slice: the host's arrow seam - (from, dir, foe) at the shoot frame
@@ -193,8 +246,12 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
   // No More's swim driver holds the sea's forged level
   // (scenes/deepWatersPlayer.js waterLevelY), so an aquatic foe swims
   // only then, as it does under the mod. Absent: no water.
-  waterLevelY = null,
-  magicHooks = null }) {  // X3-slice: { explodeAt, fireMissile } - the host's spell release seams
+  waterLevelY = null, groundStands = null,   // FALL-HOLD: (x, z) => whether ground is BUILT under that column (the streaming host's heightAt) - a foe over none is held (EnemyAI.holdFrame); absent, nothing is
+  magicHooks = null,  // X3-slice: { explodeAt, fireMissile } - the host's spell release seams
+  // REVENANT-FATE: the host can open a yielded revenant's choice (its activation's door) - a host that cannot leaves
+  // its revenants dying as ever; `dropLoot(items, feet)` where an executed one's pile is minted (the host's dropped-loot
+  // pool), absent a body is left holding it; `shake(k)` the camera's kick
+  fates = false, dropLoot = null, shake = null }) {
   const foes = [];        // { mobile, ai, attack, entity, batch, tex, archive, mobileType, dead, _encounter: true }
   const corpseBatches = [];
   // AUDIT 39 / THE FOUR HOSTS RULE: an IN-FLIGHT spawn's feet. spawnFoe
@@ -206,6 +263,8 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
   // array as soon as there is one, because EnemyAI COPIES the position
   // it is handed.
   const spawning = [];    // { feet, capped }
+  const portals = createPortalSet({ renderer, audio });   // COMPANION-PORTAL: this pool's own, drawn with its foes
+  let _eye = null;   // COMPANION-PORTAL: the camera, for a portal to stand behind its body
   // AUDIT-39r: THE SWEEP'S EPOCH. clearLive below is
   // CleanupUntrackedObjects, but emptying an array cannot reach work
   // that is still crossing an await - a spawn or a corpse mint in
@@ -229,6 +288,15 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
   let _onCamps = null;          // SURV3: (from, records, nowMs) - a peer's camps off their foes frame, once the frame has passed the room test
   let _onHcc = null;            // HCC-ONLINE: (from, record | null, nowMs) - a peer's horse and wagon off the same frame (systems/horseCartWire.js)
   let _onHccClear = null;       // HCC-ONLINE: called wherever clearPuppets runs - the peers' teams go with the puppets
+  let _onRaids = null;          // RAID2: (from, word, nowMs) - a peer's word on its raids (systems/raidingParties.js raidPeerWord)
+  let _onCsa = null;            // CSA-J: (from, record | null, nowMs) - a peer's boats off the same frame (systems/comeSailAwayWire.js)
+  let _onCsaClear = null;       // CSA-J: called wherever the teams' clear runs - the peers' boats go with the puppets
+  let _onBands = null;          // TV7b: (from, word, nowMs) - a peer's band chases off the same frame (systems/travelBands.js validBandWord)
+  let _onSeaRaiders = null;     // OW6: (from, word, nowMs) - a peer's raider chases at sea, the bands' law (systems/seaRaiders.js validRaiderWord)
+  let _onCsaAboard = null;      // CSA-K: (from, word | null, nowMs) - a peer's place aboard a boat, off the same frame
+  let _onCsaAboardClear = null; // CSA-K: and gone with the boats
+  let _onNaval = null;          // NAV-G: (from, record | null, nowMs) - a peer's sea (the ships they stand, their volleys) off the same frame (systems/naval/navalWire.js)
+  let _onNavalClear = null;     // NAV-G: called wherever the teams' clear runs - the peers' ships go with the puppets
   let _onDuel = null;           // DUEL1: (from, record | null, nowMs) - the duel ring a peer stands in, off their foes frame (null: theirs is down)
   let _onDuelClear = null;      // DUEL1: called wherever clearPuppets runs - the peers' rings go with the puppets
   let _foesSeq = 0;             // my frames out, numbered
@@ -240,6 +308,12 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
   let _ownerGen = 0;
   const _pupPending = new Map();   // owner:seq -> the latest record for a puppet being built (B13: it lands when the build does)
   const _adopted = new Map();   // AUDIT (pre-merge) D2: owner:seq -> the foe of theirs I took (an orphan, or handed me) - theirs again if they stream it alive
+  // AUDIT DISC28 QS-J: owner:seq -> { r, qt } - the last word on a party member's quest foe my unlinked copy refuses to
+  // stand (DISC28-J), KEPT for the orphan law alone (keepQuestRecord / standKeptOrphan): no puppet, nothing drawn, struck,
+  // counted or credited; it goes as a stood record goes (a full frame that no longer names it, a death, a heir named
+  // elsewhere, its owner's leave, a quiet owner, a room change)
+  const _pupKept = new Map();
+  let _fullNext = false;   // AUDIT CC-E3: a companion lifted since the last frame
   const _pupIndex = new Map();     // owner:seq -> the standing puppet (B16)
   // WORLD6b-ii (Mac, 2026-09-14: "Continue"): THE FOE HUNTS EVERY PLAYER IN THE CELL - WORLD3's law for the dungeon
   // host's foes, per owner. The peers ride MY foes' target machine as candidates minted off the pose stream (one
@@ -253,7 +327,7 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
   const _peerCands = new Map();   // id -> { isPlayer, isPeer, id, feet, height, health }
   let _peerFrame = 0, _peerRead = -1;
 
-  const activeCount = () => foes.filter((f) => !f.dead && !f.puppet && !f.placed).length;   // WORLD6b: a puppet is its owner's, not this cap's; WOD3: nor is a foe a mod PLACED
+  const activeCount = () => foes.filter((f) => !f.dead && !f.puppet && !f.placed && f.companion == null).length;   // AUDIT CC-A7: a companion is the player's, never one of the place's encounter slots   // WORLD6b: a puppet is its owner's, not this cap's; WOD3: nor is a foe a mod PLACED
 
   /** One encounter foe at a world position - the dungeon load chain's
    *  shape, host-owned. B1 opts: a QUEST foe rides the same chain -
@@ -283,7 +357,7 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
   // CENTRE, and `hitDist` what AlignControllerToGround's ray found below
   // it (null: nothing within 3); the drop needs the capsule the sprite
   // sizes, so it lands once the sprite has.
-  async function spawnFoe(mobileType, pos, { gender: forcedGender = null, yaw = null, questBehaviour = null, allied = false, feetGiven = false, replacing = false, puppet = null, seq = null, level = null, placed = false, groundAlign = null, site = null, loose = false, transformY = null, team = null, transient = false, managed = false, questMarker = false } = {}) {
+  async function spawnFoe(mobileType, pos, { gender: forcedGender = null, yaw = null, questBehaviour = null, allied = false, feetGiven = false, replacing = false, puppet = null, seq = null, level = null, placed = false, groundAlign = null, site = null, loose = false, transformY = null, team = null, transient = false, managed = false, questMarker = false, champion = undefined, revenant = null, eliteFoe = undefined } = {}) {   // LOOT7: `champion` - a puppet's owner's word or a save's trait (null none); unsaid, an encounter's own roll
     // WORLD6b: a puppet is not this cap's. AUDIT 68 review (R-scenes-loose-foe-squad-capped): nor is a `loose` stand -
     // CreateFoeSpawner's (a summoning punishment, RR's expulsion squad, a Rose's Daedroth) stands however many it is
     // told in one loop, and DFU caps none of them; the cap is the encounter rolls'
@@ -302,7 +376,7 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
       const career = isClass
         ? (() => { const cf = new ClassFile(); return fetchBytes(`CLASS${String(mobileType - 128).padStart(2, '0')}.CFG`).then((b) => { cf.load(b); return cf.career; }); })()
         : loadMonsterCareer(mobileType, fetchBytes);
-      const builtLevel = level ?? playerEntity.level;
+      const builtLevel = level ?? effectiveLevel(playerEntity);   // SOFTCAP2: a mentor's foes at the group's level
       const entity = makeEnemyEntity(mobileType, basics, await career, builtLevel, Math.random, { exactLevel: !!puppet });   // AUDIT WORLD6b-ii B2: a puppet at its OWNER's foe's level, not mine; AUDIT WATCH1 A5: EXACTLY that level (the City Watch bonus is the owner's roll, already in the word)
       // MT-ii: an ALLIED summon (Sanguine Rose / Skull of Corruption).
       // SetupDemoEnemy.cs:85-86 overwrites the MobileEnemy STRUCT COPY
@@ -311,14 +385,32 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
       // frozen basics row (the STATIC table the ally-revert reads)
       // does not. Getting that wrong would ally every foe of the type.
       if (allied) { entity.team = 'PlayerAlly'; entity.mobileTeam = 'PlayerAlly'; }
+      // ELITE FOES: one foe in twenty in the open world stands as an elite - my own foes only (a puppet's is its owner's
+      // word, the record's `z`), never an ally, a quest's foe, a retype, a team a spawner set, or anything on a
+      // location's ground. Off Math.random, not this pool's `rolls`, so the encounter's own dice are not moved.
+      // ELITE-RATES: ELITE-RARITY's gate (one standing at a time, a 180-minute gap, never a loose stand) is gone.
+      if (eliteFoe === true && !allied) promoteEliteFoe(entity);   // a saved foe's classification, restored before its HP/items overlay - never re-rolled
+      else if (eliteFoe === undefined && !puppet && !allied && !questBehaviour && !replacing && !team && !inLocation() && elitesAllowed({ onlinePage: isOnlinePage(), inRoom: _net != null })
+        && (revenant ? revenant.elite : rollOverworldElite(Math.random))) promoteEliteFoe(entity);   // REVENANT: a returning revenant stands as what it was - an elite's glow where elites stand, never a fresh roll   // ONLINE ONLY
+      // SOFTCAP5: THE WILDS ARE AN AREA TOO - the dungeons' law, with the wilderness's share (22% by day, 44% at night):
+      // my own foes only (a puppet is its owner's build), never an ally, never on a location's ground
+      if (!puppet && !allied && !inLocation()) {
+        let night = false;
+        try { night = isNight((skyMinute ?? currentMinute)()); } catch { /* no clock: day */ }   // TIME1: the sky's night
+        applyProgressionScaling(entity, progressionScaling(combatStanding(playerEntity), wildernessShare(night), foeShare(basics?.level ?? entity.level, isClass)));
+      }
       // DW-E4: SetEnemyTeam - Entity.Team alone (the treasure guards' Undead), the MobileEnemy copy kept
       if (team) entity.team = team;
+      if (!allied && !entity.eliteFoe) applyChampion(entity, champion !== undefined ? champion : revenant ? (revenant.trait ? championIndex(revenant.trait) : null) : (capped ? rollStreetChampion(pending.feet, mobileType) : null));   // LOOT7: a champion - before its loot, which reads the mark
+      if (revenant && !puppet) applyRevenant(entity, revenant);   // REVENANT: its name and its rank - over its trait or its glow, before its loot
       // AUDIT WORLD6b B14: a PUPPET carries no loot of this player's (its body is its owner's - WORLD6b-iii(c): taken under the owner's grant), wears no
       // kit of its own and casts nothing, so its stand rolls no table and draws nothing off the injectable roll or
       // the shared stream: what my neighbours stream must not move my own dice
       if (puppet) entity.items = [];
       else {
         spawnEnemyLoot(entity, mobileType, basics, playerEntity, { rolls });   // RF2: SetEnemyCareer's whole loot chain, one seam - the trio and the port's roll off this pool's stream
+        if (entity.eliteFoe) grantEliteLoot(entity, builtLevel);   // ELITE FOES: better loot
+        if (entity.revenant) grantRevenantLoot(entity, builtLevel);   // REVENANT: its own drop, by its rank
       }
       // NT2 (F210): GetTextureArchive's gender arm - a DFRandom draw off
       // the shared stream (Ledger A: a DFRandom site never rides the
@@ -370,10 +462,10 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
         // the target in sight stands off instead of closing.
         hasBowAttack: hasBowAttack(basics),
         canCastRangedSpell: () => caster?.canCastRangedSpell() ?? false,   // D9: SelectedSpell, from the caster stood below
-        hasMagickaToCast: () => hasMagickaToCast(entity),   // GetDestination's own term (:539-540)
+        hasMagickaToCast: () => hasMagickaToCast(entity), vitals: () => entity,   // GetDestination's own term (:539-540); TACT2: the brain reads its health
       });
       pending.feet = ai.feet;   // AUDIT 39: the AI's copy is the live array from here
-      const attack = new EnemyAttack({ liveSpeed: () => liveStat(entity, 'speed'), playerLevel: () => playerEntity.level, reflexes: playerEntity.reflexes, rolls });   // AUDIT 39: EnemyAttack.cs:69-72, ditto
+      const attack = new EnemyAttack({ liveSpeed: () => liveStat(entity, 'speed'), playerLevel: () => effectiveLevel(playerEntity), reflexes: playerEntity.reflexes, rolls });   // AUDIT 39: EnemyAttack.cs:69-72, ditto
       // X2-slice: the arrow seam exists (the host's onArrow) - bow
       // foes read the SAME ranged-flags law the dungeon build does,
       // and the C-slice 6..51.2 band drives them above ground.
@@ -424,7 +516,7 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
       // revert a struck ally's team, both for a blow the player never
       // struck. (The audit lane's F041 pin caught exactly this on the
       // merge - the two laws meet here.)
-      f.hurtFromFoe = (dmg, dir) => damageFoe(f, dmg, null, dir ?? null, { fromPlayer: false });
+      f.hurtFromFoe = (dmg, dir, striker = null) => damageFoe(f, dmg, null, dir ?? null, { fromPlayer: false, striker });   // AUDIT CC-E1: and whose blow
       // A5 - SetupDemoEnemy.cs:191-195: "Add special behaviour for
       // Daedra Seducer mobiles", gated on the mobile ID and nothing
       // else. RandomEncounters lists the seducer in five outdoor
@@ -436,7 +528,7 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
       f.uid = _nextUid++;   // AUDIT WORLD6b B15: the corpse loot's stable key (an index names another body once anything ahead is spliced)
       // AUDIT FOES FOE8: the level this body was BUILT at, which is not always the
       // level it ended up with - makeEnemyEntity adds Range(3,7) to a Knight_CityWatch it builds fresh (a PUPPET hands the streamed level in as final - AUDIT WATCH1 A5 - so for it builtLevel and entity.level agree); a fresh watchman's is
-      // inside the constructor (enemyEntity.js:87, DFU's own). The stream's `l` is the
+      // inside the constructor (enemyEntity.js:116, DFU's own). The stream's `l` is the
       // owner's BUILD level, so comparing it against entity.level found a mismatch on
       // every record and tore the puppet down and rebuilt it five times a second, for
       // ever. The record's own word is what the record's word is compared to.
@@ -474,6 +566,7 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
       if (f.dead || f.puppet) return;   // AUDIT WORLD6b B9: a peer's foe is not mine to remove (a dispel, a Wabbajack, a clear leave it to its owner's stream)
       releaseFoeBatch(f);
       f.dead = true;
+      if (f.companion != null) _fullNext = true;   // AUDIT CC-E3: a companion lifted - the next frame is whole, so the room lets him go at once (a delta only stops naming him, and he stood there to the next full frame)
       f.questBehaviour?.notifyDestroyed();
     },
     // AUDIT 58: the SetHealth(0) door, not a damage source - like
@@ -499,8 +592,10 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
     feet: f.ai.feet,
     fallbackSize: billboardSize(f.tex, 0),
     stillDead: () => f.dead,
+    sizeScale: isEliteCorpse(f.entity) ? ELITE_FOE_SIZE : 1,   // ELITE FOES: the body as large as the elite was
   }).then((c) => {
     if (!c) return;
+    if (isEliteCorpse(f.entity)) { c.elite = true; c.elitePhase = Math.random(); markEliteCorpseBatch(c.batch, c.elitePhase); }   // ELITE FOES: the blue outline stays and pulses, the embers stop
     // AUDIT-39r: the sweep took this pool's world while the marker
     // was still loading its art. Its pixelKey would be the
     // departure pixel, which the teleport has already torn down -
@@ -518,6 +613,26 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
     playRareDrop(audio, c.pos, f.entity.items);   // LR3: the chime for a Rare or better on the body
   }).catch(() => {});
   }
+
+  /** STRIKE-SHARED (2026-09-29, Mac: "Do #1"): A STRIKE SPELL OF MINE ON A PEER'S FOE GOES TO ITS OWNER, WHOLE. The
+   *  puppet is a copy its owner's next frame overwrites, so a Cast When Strikes paralysis, sleep, drain or trap landed
+   *  on it and was gone - only damage crossed (as a blow). The spell rides a hit of no damage (kind 'spell': it turns
+   *  the owner's foe on me, as any connect does) through the ONE divert this pool's blows take, and the owner lands it
+   *  on its real foe (applyHit). Answers whether it went; false for a foe of mine, or a record the wire refuses - the
+   *  caller lands those as before. And false for a peer's WATCHMAN: the watch is the crime's and lands a peer's blow
+   *  through its own door alone (WATCH1), which takes damage and nothing else - so the spell lands on the copy as
+   *  before and its damage crosses as a blow. */
+  function spellToOwner(f, record, level, playerFeet = null) {
+    if (!f?.puppet || f.dead || !foes.includes(f) || f.mobileType === KNIGHT_CITYWATCH_ID) return false;
+    const spell = hitSpellFields(record, level);
+    if (!spell) return false;
+    damageFoe(f, 0, playerFeet, null, { kind: 'spell', spell });
+    if (record.effects.some((e) => e && isSoulTrapEffect(e))) f._trapSent = true;   // the owner names me on the body if my trap was on it (applyPuppetRecord's `j`)
+    return true;
+  }
+  /** STRIKE-SHARED: the sinks a PEER's strike spell lands through on my foe - its damage is that peer's blow (the
+   *  fighters' count, the `slain` answer), every other sink the foe's own. */
+  const peerSpellSinks = (f, from) => ({ ...foeSinks(f), hurt: (n, o) => damageFoe(f, n, null, null, { fromPlayer: true, peer: true, peerId: from, kind: 'spell', whole: !!o?.whole }) });
 
   /** The one damage door: corpse + loot on death (no crime - these
    *  are monsters and brigands, not the watch). */
@@ -606,7 +721,7 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
     handleAttackFromPlayer(f, playerFeet);
   }
   function handleAttackFromPlayer(f, playerFeet = null, peer = false, peerId = null) {
-    if (!f?.ai) return;
+    if (!f?.ai || f.companion != null) return;   // AUDIT CC-B1: no blow of the player's - nor a peer's - turns a companion
     // ROAD-B: DaggerfallEntityBehaviour.cs:255-258 sits BEFORE the
     // call below and is a different law - the whole area turns, this
     // one foe additionally learns where the blow came from. The
@@ -628,9 +743,12 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
 
   /** QUEST-PARTY (2026-09-26, Mac: "Party shares them"): the host's word on a quest shared with the party -
    *  tagOf(f) { q, s } for MY quest foe while its quest is shared with my party (else it stays mine alone, as every
-   *  quest foe was), accepts(from, tag) whether a member stands an owner's, peerMayHit(peerId, f) whether a peer's blow
-   *  (and so a hunt) may reach my quest foe, and onPuppetHurt/onPuppetDied(tag) - the injury and the kill a member's
-   *  own copy of the quest counts off a partner's foe it saw hurt and fall. */
+   *  quest foe was), accepts(from, tag) whether a member stands an owner's (DISC28-J: only for my LINKED copy),
+   *  partyPeer(id) whether a peer is of my party (AUDIT DISC28 QS-J: an heir's taking and a kept foe's blow),
+   *  peerMayHit(peerId, f) whether a peer's blow (and so a hunt) may reach my quest foe, and
+   *  onPuppetHurt/onPuppetDied(tag) - the injury and the kill a member's own copy of the quest counts off a partner's
+   *  foe it saw hurt and fall (KEPT-KILL: the death names its owner and number, `onPuppetDied(tag, owner, i)`), and
+   *  onKeptDied(tag, i) - KEPT-KILL: a foe I kept on a partner's word fell here, to be said in my party pose. */
   let _questShare = null;
   function setQuestShare(q) { _questShare = q ?? null; }
   /** AUDIT (the pre-merge audit, Q3): the quest word a foe of mine rides with - my shared quest's, or the partner's word
@@ -641,8 +759,20 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
   /** CURSE-SYNC: a world quest's foe (the Curse of Daggerfall's) is not quest-like to the stream - it rides, is struck
    *  and hunts as an encounter's does. */
   const _questLike = (f) => !!f && (isPrivateQuestFoe(f) || !!f._keptTag);
-  /** A peer's blow on my shared quest foe - the quest law's (the party it rides to), or a kept word's party. */
-  const _peerMayHit = (id, f) => (f._keptTag ? !!_questShare?.accepts?.(id, f._keptTag) : !!_questShare?.peerMayHit?.(id, f));
+  /** A peer's blow on my shared quest foe - the quest law's (the party it rides to), or a kept word's party. AUDIT DISC28
+   *  QS-J: the PARTY'S (partyPeer) - accepts is DISC28-J's linked-copy law, which a foe kept on a partner's word is kept
+   *  exactly for lacking, so no member's blow landed on it. */
+  const _peerMayHit = (id, f) => (f._keptTag ? !!_questShare?.partyPeer?.(id) : !!_questShare?.peerMayHit?.(id, f));
+  /** KEPT-KILL (2026-10-01): a foe I keep on a partner's word (`_keptTag` - my copy holds no such quest, so nothing here
+   *  counts it) says its fall once, by the quest behaviour's own test (health at zero, QuestResourceBehaviour.update),
+   *  with its number on my stream - my party pose carries it (`qk`) and every copy that holds the quest counts it,
+   *  wherever its member stands. A foe culled or let go fell to nobody. */
+  function keptKillTick(f) {
+    if (!f._keptTag || f._keptSaid || f.puppet || !(f.entity?.health <= 0)) return false;
+    f._keptSaid = true;
+    _questShare?.onKeptDied?.(f._keptTag, f.seq);
+    return true;
+  }
   /** QUEST-PARTY: the peers my quest foe may hunt - only those whose blow may reach it (it rides to them), never a
    *  peer that stands no puppet of it: a quest foe hunted any peer in the cell, and chased one who could not see it. */
   const questPeerCandidates = (f) => (_qTag(f) ? peerCandidates().filter((c) => _peerMayHit(c.id, f)) : []);
@@ -670,9 +800,10 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
     f.entity.health = Math.min(f.entity.maxHealth ?? Infinity, f.entity.health + h);
   }
 
-  function damageFoe(f, damage, playerFeet, knockDir = null, { fromPlayer = true, bypassShield = false, kind = 'melee', peer = false, peerId = null, whole = false } = {}) {
-    if (f.dead) return;   // AUDIT 68 S20-foe-dies-twice: a corpse takes no blow - a magic round after the killing one re-ran the whole death (notice, loot handlers, corpse)
+  function damageFoe(f, damage, playerFeet, knockDir = null, { fromPlayer = true, bypassShield = false, kind = 'melee', peer = false, peerId = null, whole = false, spell = null, striker = null } = {}) {   // AUDIT CC-E1: `striker` the foe whose blow it is (hurtFromFoe's)
+    if (f.dead || (fromPlayer && !peer && isShipmate(f))) return;   // AUDIT 68 S20-foe-dies-twice: a corpse takes no blow - a magic round after the killing one re-ran the whole death (notice, loot handlers, corpse)   // AUDIT NAV2 F55: and a shipmate none of the player's, whatever road it took here (cityGuards' damageGuard holds a raid's defender so) - the vampiric drain's reached him as the player's attack and turned him
     if (fromPlayer && !peer) renownFoeStruck(f);   // RENOWN1: MY blow - a puppet's too, before the divert sends it to the owner
+    if (f.yielded || f.executing || f.sparing) return;   // REVENANT-FATE: a beaten revenant takes no blow - its fate is the player's choice
     // AUDIT PSCALE1 DOORS-1: a KILL is not a blow - a Disintegrate, a stat drained to zero (the sinks' `whole`), the
     // Razor's whole-health strike (its mark on the foe) - and no fighters' toughness divides it, here or at the owner
     const _whole = whole || takeWholeBlow(f.entity);
@@ -685,6 +816,17 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
     // WORLD6b: a PUPPET takes no damage here - the blow goes to its owner as a hit (the owner's door applies it and
     // the owner's next frame says so); the striker's own ring, blood and pain played before this door, as ever
     if (f.puppet) {
+      if (!fromPlayer && striker && !striker.puppet && !striker.dead && (striker.companion != null || f.companion != null)) {
+        // AUDIT CC-E1 (Mac: "Full co-op combat now"): the companions' fights cross the clients. MY companion's blow on
+        // another's foe goes to its owner as an ALLY's (`al`, `ac` his number - the owner's foe turns on him, no blow of
+        // mine); a foe of mine mauling ANOTHER's companion sends the blow to the companion's owner (`fb`, `sf` the
+        // striker's number) - where the companion is real, and his knock-out is
+        const hit = { to: f.puppet, k: _owners.get(f.puppet)?.k ?? _net?.room?.() ?? null, i: f.seq, dmg: Math.max(0, Math.round(Number(damage) || 0)), kind,
+          ...(knockDir ? { d: [q3(knockDir[0]), q3(knockDir[1]), q3(knockDir[2])] } : {}) };
+        if (f.companion != null) _net?.onPeerHit?.({ ...hit, fb: 1, ...(striker.seq != null ? { sf: striker.seq } : {}) });
+        else if (striker.companion != null) _net?.onPeerHit?.({ ...hit, al: 1, ...(striker.seq != null ? { ac: striker.seq } : {}) });
+        return;
+      }
       // AUDIT WORLD6b B1: THE DIVERT HAS THE DUNGEON DOOR'S PROVENANCE GATE - only this PLAYER's own blow goes to the
       // owner; a fall, another foe's maul, a poison round, a blow relayed here are not mine to report (the owner's
       // simulation has its own), and every one went to the owner as MY blow until now (AUDIT WORLD2 B7 re-opened).
@@ -703,6 +845,7 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
           ...(knockDir ? { d: [q3(knockDir[0]), q3(knockDir[1]), q3(knockDir[2])] } : {}),
           ...(_pt != null ? { pt: _pt } : {}),   // WORLD6b-iii(e): the striker's poison rides to the owner's foe. AUDIT WORLD6b-iii(e) A3: the dose is the CALC's word - FormulaHelper doses on the calc's damage and the Strikes payload can zero the number after it (LowDamageVs), so the number gates nothing here
           ...(kind === 'arrow' ? { ar: 1 } : {}),
+          ...(spell ?? {}),   // STRIKE-SHARED: a strike spell's record and level (`sp`, `lv`) - the owner lands the whole spell
           ...(_whole ? { z: 1 } : {}) });   // AUDIT PSCALE1 DOORS-1: a kill goes to the owner as a kill. WORLD6b-iii(e): the shaft lands in the owner's copy, where BowDamage puts it (WORLD3's spelling for the dungeon's hit)
       }
       return;
@@ -731,13 +874,23 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
     // owner applies every blow (a SetHealth(0) and a kill are no blows, and stand as they were)
     f.entity.health -= !bypassShield && !_whole && _sharedFoe(f) ? partyFoeLoses(f, healthDamage, fightN(f)) : healthDamage;
     if (f.entity.health <= 0) {
+      // CREW-COMPANIONS: a companion is knocked out, never killed - held at 1 and marked, before every death arm (the
+      // trap, the notice, the corpse); the companion layer (crewAshore.js) carries him back aboard next frame
+      if (f.companion != null) { f.entity.health = 1; f._knockedOut = true; return; }
+      // REVENANT-FATE: one of the player's revenants beaten is never killed outright - it YIELDS (whoever struck: the
+      // revenant is the player's own), its fate the player's; a kill (a Disintegrate's whole) is a kill
+      if (fates && !_whole && revenantMayYield(f)) { yieldFoe(f); return; }
       // X5: the SOUL TRAP intercept, where EnemyEntity.SetHealth's
       // override sits (:157-177) - before the death, every source alike.
       // AUDIT WORLD6b B2 (AUDIT WORLD2 B9's law, the dungeon's): a PEER's killing blow reads no gem of mine and fills
       // no Star of mine, and speaks no kill notice of mine - the kill is the peer's
-      const trap = peer ? { allowDeath: true } : attemptSoulTrap(f.entity, f.mobileType, playerEntity.items, Math.random());
+      // STRIKE-SHARED: and a PEER's trap reads no gem of mine whoever struck - its soul is its caster's, named on the
+      // body's record (foesFrame's `j`, `q`) for the caster to roll against its own pack
+      const _peerTrap = peerSoulTrapOf(f.entity);
+      const trap = peer || _peerTrap ? { allowDeath: true } : attemptSoulTrap(f.entity, f.mobileType, playerEntity.items, Math.random());
       if (trap.alert) say?.(SOUL_TRAP_TEXT[trap.alert]);
       if (!trap.allowDeath) { f.entity.health = 1; return; }
+      if (_peerTrap) { f._trapBy = _peerTrap.by; f._trapQ = Math.max(0, Math.min(100, Math.trunc(Number(_peerTrap.chance) || 0))); }
       // V3: the equipped AZURA'S STAR takes every slain MONSTER's soul
       // (DaggerfallEntityBehaviour.cs:240-247); after the trap, so a
       // trap-filled Star is no longer empty; classes have no soul.
@@ -760,7 +913,8 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
       // PlayerEntityBehaviour` too - a foe killed while fighting
       // ANOTHER foe never touches the player's alert (MT-ii).
       if (isLocalPlayerTarget(f.ai?.target) && f.ai?.detected) setEnemyAlert(playerEntity, false);   // WORLD6b-ii: mine, not a peer's (AUDIT WORLD3 C3)
-      if (!peer) sayEnemyDied(say, f.mobileType);   // EnemyDeath:79-83, the kill notice - mine alone (AUDIT WORLD6b B2)
+      if (!peer) sayEnemyDied(say, f.mobileType, f.entity);   // EnemyDeath:79-83, the kill notice - mine alone (AUDIT WORLD6b B2); LOOT7: a champion by its name
+      if (f.entity?.revenant) { const nr = revenantSlain(playerEntity, f.entity); if (nr && !peer) revenantSay(revenantSlainEvent(nr, playerEntity?.name, { archive: f.archive }), say); }   // REVENANT: slain at last - its record closed, whoever struck last
       stampWonWeapons(f.entity.items, _sharedFoe(f) ? fightN(f) : 1, { rolls });   // SIGIL1: the body's Magic+ weapons won online may carry a sigil - here, where its list lives, whoever struck last; a bigger fight, better odds
       raiseEnemyDeath(f.entity, { rolls, luck: liveStat(playerEntity, 'luck') });   // UL1: OnEnemyDeath (:139) - the corpse's items are the entity's. AUDIT VC6: a handler that ROLLS (SURV2's food) takes this pool's own stream and the player's luck, as spawnEnemyLoot does
       // AUDIT 24 (wave 38): EnemyDeath.CompleteDeath, through the one
@@ -820,7 +974,7 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
         const campAsleep = f.campId != null && !!senses.playerEntity?.isResting && !isLocalPlayerTarget(ai.target);
         // AUDIT BRANCH (WoD) M1: a PLACED foe hunts no peer - it never rides, so no peer holds its puppet, and a blow at
         // a peer lands only through the puppet the peer stands; its site is the peer's own, with its own foes
-        const result = runTargetMachine(f, [...senses.candidates(), PLAYER_TARGET, ...(f.placed && !f.site ? [] : _questLike(f) ? questPeerCandidates(f) : peerCandidates())], pf, cdt, {   // QUEST-PARTY: a quest foe hunts only the party it rides to
+        const result = runTargetMachine(f, [...senses.candidates(), PLAYER_TARGET, ...(f.placed && !f.site ? [] : _questLike(f) ? questPeerCandidates(f) : peerCandidates()), ...coopCandidates(f)], pf, cdt, {   // QUEST-PARTY: a quest foe hunts only the party it rides to
           noTargetMode: campAsleep,   // WORLD6b-ii: the peers are MY foes' candidates; AUDIT WORLD6b-ii A5: after ME (a peer never beats me on a tie), A9: a puppet never steps here
           playerEntity: senses.playerEntity ?? null,
           playerHeight: senses.playerHeight,   // AUDIT 62 F23: GetTargets measures the player at its LIVE capsule too
@@ -903,9 +1057,9 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
     const hdx = playerFeet[0] - f.ai.feet[0], hdz = playerFeet[2] - f.ai.feet[2];
     const wpn = chooseEnemyWeapon(f.entity.weapon, ENEMY_BASICS[f.mobileType]);
     const mid = [f.ai.feet[0], f.ai.feet[1] + 0.9, f.ai.feet[2]];
-    if (meleeHitConnects(f.ai._dist, f.ai.inSight, withinYaw(f.ai.yaw, hdx, hdz, MELEE_HIT_YAW_DEG))) {
+    if (blowConnects(f.ai, meleeHitConnects(f.ai._dist, f.ai.inSight, withinYaw(f.ai.yaw, hdx, hdz, MELEE_HIT_YAW_DEG)))) {   // TACT4: a telegraphed blow's shape decides, not the reach
       tallySkill(playerEntity, SKILLS.Dodging, 1);
-      const dmg = partyHit(calculateAttackDamage(f.entity, playerEntity, {
+      const dmg = blowScaled(f.ai, partyHit(calculateAttackDamage(f.entity, playerEntity, {
         weapon: wpn,
         // AUDIT 24 (wave 30): THE SPECIAL-ATTACK RIDER, which this
         // pool never passed. FormulaHelper's monster branch calls
@@ -931,7 +1085,7 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
         }),
         onInflictPoison: (att, tgt, pt) => inflictPoison(playerEntity, pt, false, { currentMinute: Math.floor(currentMinute()) }),
         say,
-      }), f);   // PSCALE1: harder for the party beside me
+      }), f));   // PSCALE1: harder for the party beside me; TACT4: a telegraphed blow's weight
       // AUDIT 24 (wave 39): EnemyAttack.cs:406 -
       // `PlayerObject.SendMessage("RemoveHealth", damage)` - which
       // is ShowPlayerDamage.Flash's trigger. An enemy's BLOW
@@ -952,8 +1106,141 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
     if (v && v.clip >= 0) audio?.play3d?.(v.clip, mid, 1, { maxDistance: 16, pitch: 1 + v.pitchLift });   // AUDIT 58: EnemySounds.cs:172-175
   }
 
+  /** REVENANT: a running foe's one step - its walk, no blow and no cast in it (the anim step the loop's tail takes). */
+  function fleeWalk(f, dt, eye) {
+    f._mout = f.mobile.update(dt, { moving: f.ai.moving, striking: false, rangedStriking: false, hurting: f.ai.hurtKnock, casting: false }, f.ai.yaw, f.ai.feet, eye);
+  }
+  /** REVENANT: a fleeing foe out of reach - gone as the cull takes a foe (no corpse, no kill, its batch freed; online
+   *  its record leaves the stream), made a revenant (or a stronger one), and said. */
+  function escapeFoe(f, { slip = false } = {}) {
+    releaseFoeBatch(f);
+    f.dead = true;
+    f.fleeing = false;
+    f.escaped = true;
+    f.yielded = null;
+    if (f.ai?.detected) setEnemyAlert(playerEntity, false);
+    const r = revenantDeed(playerEntity, f.entity, 'fled', { mobileType: f.mobileType, gender: f.gender, rec: f, archive: f.archive });
+    if (r) revenantSay(slip ? slipEvent(playerEntity, r, { archive: f.archive }) : revenantEscapeEvent(r, playerEntity?.name, { archive: f.archive }), say);   // REVENANT-FATE: a slip says the hesitation
+  }
+
+  // ── REVENANT-FATE: beaten, it yields; judged, it burns or is sworn ─────────────────────────────────────────────
+  /** It yields: held at 1, kneeling, its plea said - its fate the player's (systems/revenantFate.js). */
+  function yieldFoe(f) {
+    if (isLocalPlayerTarget(f.ai?.target) && f.ai?.detected) setEnemyAlert(playerEntity, false);
+    const ev = beginYield(playerEntity, f, { now: Date.now(), rolls });
+    if (f.ai) { f.ai.velX = 0; f.ai.velZ = 0; }
+    // AUDIT (2026-10-02): a FLYER beaten kneels on the ground below, never in the air out of the player's reach
+    if (f.ai?.flies && collider) { const g = floorLanding(collider, [f.ai.feet[0], f.ai.feet[1] + 0.1, f.ai.feet[2]]); if (g && g[1] < f.ai.feet[1]) f.ai.feet[1] = g[1]; }
+    audio?.play3d?.(SOUND.BodyFall, [f.ai.feet[0], f.ai.feet[1], f.ai.feet[2]], 0.8, { maxDistance: 16 });   // it drops to its knees
+    if (ev) revenantSay(ev, say);
+  }
+  /** The choice's model for a kneeling one (the host's window), or null. */
+  function fateFor(f) {
+    if (!f || f.dead || !f.yielded || !foes.includes(f)) return null;
+    return fateModel(playerEntity, f, { choose: (id) => chooseFate(f, id) });
+  }
+  /** The player chose: KILL - the execution plays; SPARE - it is sworn and steps into its portal. */
+  function chooseFate(f, id) {
+    if (!f?.yielded || f.dead) return false;
+    const at = [f.ai.feet[0], f.ai.feet[1], f.ai.feet[2]];
+    if (id === 'kill') {
+      renownFoeStruck(f);   // AUDIT (2026-10-02): the execution is my blow - a kneel past RENOWN_ASSIST_MS paid nothing
+      const ev = beginExecution(playerEntity, f, { now: Date.now(), rolls });
+      audio?.play3d?.(SOUND.SwingLowPitch, at, 1, { maxDistance: 16 });
+      shake?.(1.4);
+      if (ev) revenantSay(ev, say);
+      return true;
+    }
+    if (id === 'spare') {
+      const s = beginSpare(playerEntity, f, { now: Date.now(), rolls });
+      if (!s) return false;
+      portals.open(at);
+      revenantSay(s.event, say);
+      return true;
+    }
+    return false;
+  }
+  /** One frame of a judged or kneeling foe: no step, no blow, no cast - its pose held, its beats played. */
+  function fateFrame(f, dt, playerFeet, eye) {
+    const now = Date.now();
+    if (f.executing) {
+      const st = executionStep(f, now);
+      f._mout = kneelPose(f, eye, now);
+      if (st === 'burst') executionBurst(f);
+      else if (st === 'done') executionDone(f);
+      return;
+    }
+    if (f.sparing) {
+      f._mout = f.mobile?.heldPose ? f.mobile.heldPose('idle', 0, f.ai.yaw, f.ai.feet, eye ?? f.ai.feet) : f._mout;   // it rises
+      if (spareDone(f, now)) questPoolOps.removeFoe(f);   // through: the companion layer stands it at the player's side
+      return;
+    }
+    if (yieldStep(f, playerFeet, dt * 1000) === 'slip') { escapeFoe(f, { slip: true }); return; }
+    f._mout = kneelPose(f, eye, now);
+  }
+  /** The blow's burst: blood thrown wide, the body's last flash, the ground shaken. */
+  function executionBurst(f) {
+    const mark = ENEMY_BASICS[f.mobileType]?.bloodIndex ?? 0;
+    const max = f.entity?.maxHealth || 100;
+    // the heaviest blow there is: past every overkill line, a warhammer's to throw the gibs (combat/bloodDecals.js)
+    hitEffects?.showBloodSplash(mark, f.ai._centre?.() ?? f.ai.feet, null, { ...bloodHit(max * 4, f.entity, { fromPlayer: true, weapon: { templateIndex: 126 } }), markIndex: mark });
+    audio?.play3d?.(SOUND.Hit2, [f.ai.feet[0], f.ai.feet[1], f.ai.feet[2]], 1, { maxDistance: 20 });
+    audio?.play3d?.(SOUND.Burning, [f.ai.feet[0], f.ai.feet[1], f.ai.feet[2]], 0.7, { maxDistance: 20 });
+    shake?.(3);
+    f._hfAt = performance.now() / 1000;   // the red flash, on foeHitFlash's own clock (the frame's write reads it - a set value was overwritten before the draw)
+  }
+  /** Burnt away: gone with no body - its kill counted - and where it knelt, its pile: all it carried, and its trophy. */
+  function executionDone(f) {
+    // AUDIT (2026-10-02): its pile lies on the ground (a flyer's knelt there already; a hover's never floats)
+    const feet = collider ? floorLanding(collider, [f.ai.feet[0], f.ai.feet[1] + 0.1, f.ai.feet[2]]) : [f.ai.feet[0], f.ai.feet[1], f.ai.feet[2]];
+    // AUDIT (2026-10-02): ITS SOUL - the kill door's X5 trap and V3 Star, which the yield ran ahead of: an execution is a
+    // death, and a trap that finds no gem cannot refuse the one the player chose
+    const trap = attemptSoulTrap(f.entity, f.mobileType, playerEntity.items, Math.random());
+    if (trap.alert && trap.alert !== 'trapNoneEmpty') say?.(SOUL_TRAP_TEXT[trap.alert]);
+    if (f.mobileType < 128 && isAzurasStarEquipped(playerEntity) && fillEmptyTrap(playerEntity.items, f.mobileType, { azurasStarOnly: true })) say?.(SOUL_TRAP_TEXT.trapSuccess);
+    reportPlayerKill(f.entity, { kind: 'melee' });   // SET2: a kill of mine
+    renownFoeDied(f);
+    raiseEnemyDeath(f.entity, { rolls, luck: liveStat(playerEntity, 'luck') });   // UL1: OnEnemyDeath - its handlers' items join its pile
+    const items = finishExecution(playerEntity, f);
+    releaseFoeBatch(f);
+    f.dead = true;
+    f.executed = true;
+    f.executing = null;
+    if (typeof dropLoot === 'function' && items.length) { try { dropLoot(items, feet); playRareDrop?.(audio, feet, items); } catch (e) { console.warn('[revenant] the pile would not drop', e?.message ?? e); } }
+    else if (items.length) { f.entity.items = items; f.corpse = true; f._diedAt = _now(); mintCorpse(f); }   // no pile door: a body holds it
+  }
+  /** COMPANION-PORTAL: the place's portal work for the companion layer (crewAshore.js `place.fx`). */
+  const companionFx = {
+    arrive(rec) { if (!rec?.ai) return; portals.open(rec.ai.feet); rec.portalFx = { dir: 'in', at: Date.now(), delay: 220, ms: 640 }; },
+    leave(rec, done) {
+      if (!rec?.ai || rec.dead) { done(); return; }
+      portals.open(rec.ai.feet);
+      rec.portalFx = { dir: 'out', at: Date.now(), delay: 180, ms: 600 };
+      rec.leaving = { at: Date.now(), done };
+    },
+    jump(rec, from) {
+      if (!rec?.ai) return;
+      portals.open(from, { short: true });
+      portals.open(rec.ai.feet, { short: true, quiet: true });
+      rec.portalFx = { dir: 'in', at: Date.now(), delay: 140, ms: 480 };
+    },
+  };
+  /** A companion stepping out through its portal: held where it stands, taken out once the portal has it. */
+  /** AUDIT (2026-10-02): the portal's hand-offs, run AFTER the foe loop - a lift takes its record out of `foes`, and a
+   *  splice under the loop's own iteration skipped the next foe for that frame (no step, no draw: a flicker). */
+  const _leftDone = [];
+  function leavingFrame(f, eye) {
+    f._mout = f.mobile?.heldPose ? f.mobile.heldPose('idle', 0, f.ai.yaw, f.ai.feet, eye ?? f.ai.feet) : f._mout;
+    if (Date.now() - f.leaving.at >= 900) { _leftDone.push(f, f.leaving.done); f.leaving = null; }
+  }
+  function runLeftDone() {
+    for (let i = 0; i < _leftDone.length; i += 2) { const f = _leftDone[i]; try { _leftDone[i + 1](); } catch { questPoolOps.removeFoe(f); } }
+    _leftDone.length = 0;
+  }
   function update(dt, playerFeet, eye, senses = {}) {
     _ecvT += dt; _lastPlayerHeight = senses.playerHeight ?? CAPSULE_HEIGHT;   // ROAD-H H2: the live capsule this tick, for the AoC blast the cast seam fires
+    if (eye) _eye = eye;
+    portals.tick(_eye);   // COMPANION-PORTAL: each opening, holding, sealing
     hitEffects?.bleed?.(dt, foes, foeBleedView);   // BLOOD2c: the wounded drip, the dead bleed out - every body this pool walks, puppets included
     _peerFrame++;   // WORLD6b-ii: the peers are read once a frame
     spaceFoes(foes, collider, foeFrameDt(dt));   // FOE-SPACING: two bodies in one spot are pushed apart (characters/foeSpacing.js)
@@ -964,6 +1251,7 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
       // zero (the injured-check return holds death to the next tick),
       // and a corpse's component still runs in DFU.
       f.questBehaviour?.update();
+      if (f._keptTag) keptKillTick(f);   // KEPT-KILL: and a foe kept on a partner's word says its fall
       if (f.dead) continue;
       // WORLD6b: a PUPPET - posed by its owner's stream (the feet eased toward the streamed feet, a far jump snapped, the
       // yaw set), the walk while the streamed feet move, the hurt one-shot after a health drop, the strike edge once
@@ -993,6 +1281,9 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
           f._pup.cast = null;
         }
         f._mout = f.mobile.update(dt, { moving: f.ai.moving, striking: edge && !f.attack.firedRanged, rangedStriking: edge && !!f.attack.firedRanged, hurting: f.ai.hurtKnock, casting: !!f._castPending }, f.ai.yaw, f.ai.feet, eye);
+        if ((f._pupYield || f._pupExec) && f.mobile.heldPose) f._mout = f.mobile.heldPose('hurt', -1, f.ai.yaw, f.ai.feet, eye ?? f.ai.feet);   // REVENANT-FATE: its owner's kneels - so it kneels here
+        else if (f._pupSpare && f.mobile.heldPose) f._mout = f.mobile.heldPose('idle', 0, f.ai.yaw, f.ai.feet, eye ?? f.ai.feet);   // ...and rises, sworn, into the light
+        if (f._pupSpare && !f._pupSpareGate) { f._pupSpareGate = true; portals.open(f.ai.feet, { quiet: true }); }   // its portal, seen here too
         f._castPending = false;
         if (edge) playEnemyClip(audio, f.sounds.attack(), f.ai.feet, acuteHearingMultiplier(playerEntity));
         tickEnemySound(f.sounds, f.ai.feet, playerFeet, dt, { audio, collider, hearing: acuteHearingMultiplier(playerEntity) });
@@ -1018,6 +1309,10 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
         }
         continue;
       }
+      // REVENANT-FATE: a beaten revenant kneels - no step, no blow, no cast - until its fate is chosen (or it slips away);
+      // its execution and its oath play out where it knelt. COMPANION-PORTAL: a companion stepping out stands still.
+      if (f.yielded || f.executing || f.sparing) { fateFrame(f, dt, playerFeet, eye); continue; }
+      if (f.leaving) { leavingFrame(f, eye); continue; }
       // AUDIT 24 (wave 32): PARALYSIS. This pool passed the literal `false`
       // for the motor's paralyzed argument and ran the attack machine
       // unconditionally, so a paralysed encounter foe kept walking and kept
@@ -1032,7 +1327,23 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
       // action at all (EnemyMotor.cs:464-466 + :267-269,
       // EnemyAttack.cs:59-61), not merely no anim intent.
       const _fPaused = !!(f.mobile?.isPlayingOneShot() && f.mobile.oneShotPauseActionsWhilePlaying());
-      f.ai.update(foeFrameDt(dt), playerFeet, _armed(f, senses), _fParalyzed, _fPaused);   // FOE-CATCHUP: three steps a frame at most
+      if (groundStands && !groundStands(f.ai.feet[0], f.ai.feet[2])) f.ai.holdFrame(); else f.ai.update(foeFrameDt(dt), playerFeet, _armed(f, senses), _fParalyzed, _fPaused);   // FALL-HOLD: no ground built under it - held, not stepped; FOE-CATCHUP: three steps a frame at most
+      // REVENANT (systems/revenant.js revenantFleeStep - one law for every pool): a special foe of mine on me, under a fifth
+      // of its health for the first time, may RUN - and running it strikes and casts nothing, its walk still drawn (and no
+      // cull); out of reach it has ESCAPED (no corpse, no kill, a revenant made of it); run down, it is CORNERED and turns
+      // to fight to the end
+      const _flee = f.fleeing || (!f._fleeRolled && revenantFleeHealth(f.entity)) ? revenantFleeStep(f, playerFeet, { onMe: () => isLocalPlayerTarget(f.ai.target) || !f.ai._armedTargeting }) : null;   // asked only of a foe running or under the line - nothing made per foe per frame
+      if (_flee === 'escape') { escapeFoe(f); continue; }
+      if (_flee === 'start') revenantSay(revenantFleeEvent(f.entity, foeTitle(f.entity, enemyDisplayName(f.mobileType)), { gender: f.gender, archive: f.archive, playerName: playerEntity?.name }), say);   // REVENANT-CARD: the card on the enhanced skin, the line on the classic
+      else if (_flee === 'cornered') revenantSay(revenantCorneredEvent(f.entity, foeTitle(f.entity, enemyDisplayName(f.mobileType)), { gender: f.gender, archive: f.archive, playerName: playerEntity?.name }), say);
+      if (_flee === 'start' || _flee === 'run') { fleeWalk(f, dt, eye); continue; }
+      // REVENANT: a returning revenant in sight and near says what it came to say - once a return
+      if (f.entity.revenant && !f._taunted && f.ai.inSight && (isLocalPlayerTarget(f.ai.target) || !f.ai._armedTargeting)
+        && Math.hypot(playerFeet[0] - f.ai.feet[0], playerFeet[2] - f.ai.feet[2]) < REVENANT_TAUNT_DISTANCE) {
+        f._taunted = true;
+        const r = revenantById(f.entity.revenant.id);
+        if (r) revenantSay(revenantTauntEvent(r, playerEntity?.name, { archive: f.archive }), say);   // REVENANT-CARD: its portrait and its words
+      }
       // MT-ii: the foe now aims at whatever it SELECTED - the player
       // (the only candidate in an unarmed host) or another enemy.
       const _tgt = _targetFeet(f, playerFeet);
@@ -1182,7 +1493,7 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
               // guard pool's door (the host wires that through the
               // candidate's `hurtFromFoe`, the `_encounter` split
               // world.js already uses for spell sinks).
-              dealDamage: (t, d) => (t.hurtFromFoe ? t.hurtFromFoe(d, ffwd) : damageFoe(t, d, null, ffwd)),
+              dealDamage: (t, d) => (t.hurtFromFoe ? t.hurtFromFoe(d, ffwd, f) : damageFoe(t, d, null, ffwd)),
               audio, hitEffects,
               // AUDIT 58: FormulaHelper.cs:691-696 has NO player gate -
               // a poisoned foe blade doses the foe it strikes. Without
@@ -1225,6 +1536,7 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
       }
       // the -1 damage marker vs the player (C16)
     }
+    if (_leftDone.length) runLeftDone();   // COMPANION-PORTAL: the portal has them - out of the pool, after the loop
     for (let i = foes.length - 1; i >= 0; i--) if (foes[i].dead && !foes[i].corpse) foes.splice(i, 1);
   }
 
@@ -1241,7 +1553,7 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
     return inflictPoison(f.entity, pt, false, { rolls, currentMinute: Math.floor(currentMinute()) });   // ENGINE-PRNG RULE: the pool's uniform seam
   }
   function resolvePlayerHit(playerWeapon, eye, lookDir, playerFeet, inViewFn, onHitSound, { swing = null } = {}) {
-    const live = foes.filter((f) => !f.dead);
+    const live = dropFateHeld(foes.filter((f) => !f.dead && !isShipmate(f)));   // REVENANT-FATE (the 2026-10-02 audit): one held by its fate is no swing's - its poison, its drain, its training and its blood were. SHIPMATES: the player's own crew is never the swing's - not even alone in reach, where the vanilla arm strikes a lone ally (combat/friendlyFire.js)
     if (!live.length) return false;
     const canSee = (f) => {
       const c = [f.ai.feet[0], f.ai.feet[1] + (f.ai.height ?? CAPSULE_HEIGHT) / 2, f.ai.feet[2]];   // REVIEW 2026-09-05: the foe's own capsule centre
@@ -1336,7 +1648,7 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
    *  producer did not stand. */
   const hoverName = (key) => {
     const e = corpseEntryFor(foes, key, 'foeCorpse', corpseLens);
-    return e ? { title: corpseName(corpseEntityName(e.mobileType)) } : null;   // .cs:526 - loot.entityName (GameObjectHelper.cs:701, L10N3e)
+    return e ? { title: corpseName(properName(e.entity) ?? championName(e.entity, corpseEntityName(e.mobileType))) } : null;   // .cs:526 - loot.entityName (GameObjectHelper.cs:701, L10N3e); LOOT7: a champion's body by its name; AUDIT WB12d (D2): the Summoner's by his
   };
   /** ...and what it HOLDS (AUDIT-WH H3). `foeCorpse:` itemises, so the
    *  plaque draws a LIST for it; without this the host's `contents`
@@ -1382,8 +1694,8 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
     // exterior door's is a bare NUMBER.
     const f = liveFoeFor(foes, key, 'mobileFoe', { idOf });
     if (!f) return null;
-    const t = mobileEntityName(liveEntityName(f, enemyDisplayName(f.mobileType)), { hostile: !!f.ai?.isHostile });
-    return t ? { title: t } : null;
+    const t = mobileEntityName(liveEntityName(f, enemyDisplayName(f.mobileType)), { hostile: !!f.ai?.isHostile && !f.yielded && !f._pupYield });   // HOVER-PLAIN: a hostile foe is never named here, a champion, an elite or a revenant included - its name stands on its health bar alone; a kneeling revenant (mine or a peer's, still hostile in its motor) is done fighting, so it says so below
+    return t ? { title: f.yielded || f._pupYield ? `${t} - beaten` : t } : null;   // REVENANT-FATE: a kneeling revenant says so
   };
   // MAC-E: and the general arm is the WINDOW now (PlayerActivate.cs:957),
   // not a bulk transfer - `openWindow` is the host's own inventory door.
@@ -1435,7 +1747,11 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
       // holds those items, so a second asker cannot be granted them. `dropped` puts them back at the FRONT, in
       // order, so the body is exactly as it was.
       const held = items.splice(0, grant.length);
-      const back = () => { items.unshift(...held); };
+      // AUDIT ONLINE2 F4 (AUDIT SETS M2's other half): and they come back if the taker's build cannot read them - its
+      // `back` answers this grant alone, inside GRANT_BACK_MS (a piece from a newer build was refused whole and lost)
+      const granted = { to, held, at: _now() };
+      f._granted = granted;
+      const back = () => { if (f._granted === granted) f._granted = null; items.unshift(...held); };
       if (!_net?.onPeerHit) { back(); return; }
       _net.onPeerHit(frame, { dropped: back });
       return;
@@ -1463,11 +1779,17 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
       if (ecv.kind === 'hidden') continue;
       f.batch.conceal = ecv.kind === 'conceal' ? ecv.visual : null;
       setBatchHitFlash(f.batch, foeHitFlash(f, performance.now() / 1000));   // HITFLASH1: a foe struck flashes red - any blow, mine, a peer's, or its owner's stream
+      setBatchEliteGlow(f.batch, eliteGlow(f.entity, performance.now() / 1000, (f.seq * 1.7) % 6.28), performance.now() / 1000);   // ELITE FOES: the pulse
+      const _dv = f.executing || f.sparing || f.portalFx ? fateDissolve(f, Date.now()) : f._pupExec ? fateDissolve({ executing: { at: f._pupExec } }, Date.now()) : f._pupSpare ? fateDissolve({ sparing: { at: f._pupSpare } }, Date.now()) : null;   // REVENANT-FATE / COMPANION-PORTAL: burning away (its owner's too), or through a portal
+      if (!_dv && f.portalFx && f.portalFx.dir === 'in') f.portalFx = null;   // through: whole
+      setBatchDissolve(f.batch, _dv ? _dv[0] : 0, _dv ? _dv.slice(1) : undefined);
 
       const o = f._mout;
       const rkey = `${o.record}#${o.frame}`;
       if (!renderer.textures.has(`${f.archive}_${rkey}`)) uploadRecordFrame(f.archive, o.record, o.frame);
-      const sz = mobileBillboardSize(f.tex, o.record);   // AUDIT MM1: a mobile unit's record cache carries the xml scale
+      const sz0 = mobileBillboardSize(f.tex, o.record);   // AUDIT MM1: a mobile unit's record cache carries the xml scale
+      const szE = eliteSize(f.entity);   // ELITE FOES: a quarter larger (onto locals - the cache's object is shared)
+      const sz = szE === 1 ? sz0 : { w: sz0.w * szE, h: sz0.h * szE };
       f.batch.record = rkey;
       f.batch.size = { w: o.flip ? -sz.w : sz.w, h: sz.h };
       // INCIDENT 2026-09-04: a flyer or swimmer keeps its CENTRE across
@@ -1480,7 +1802,7 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
       } else f.batch.origin = f.ai.feet;
       out.push(f.batch);
     }
-    return [...out, ...corpseBatches.map((c) => c.batch)];
+    return [...out, ...corpseBatches.map((c) => c.batch), ...portals.batches()];   // COMPANION-PORTAL: and the portals
   }
 
   /** CollectLooseObjects (StreamingWorld.cs:1040-1052), the corpse
@@ -1508,6 +1830,27 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
       f.corpseMarker = null;
     }
   }
+  /** AUDIT NAV2 F11: A BODY ON A DECK THAT MOVES - its corpse carried to `pos` (the world's navalCarry, her deck's point
+   *  where he fell): the marker's ground point (the loot seam's) and its batch, drawn there by its origin - the centres
+   *  are baked at the mint (a recenter bakes a new batch where it lies), so the origin is the way it has come since. */
+  function moveCorpse(f, pos) {
+    const c = f?.corpseMarker;
+    if (!c || !pos) return;
+    const b = c.batch;
+    b._base ??= [c.pos[0], c.pos[1], c.pos[2]];
+    c.pos[0] = pos[0]; c.pos[1] = pos[1]; c.pos[2] = pos[2];
+    const o = (b.origin ??= [0, 0, 0]);
+    o[0] = pos[0] - b._base[0]; o[1] = pos[1] - b._base[1]; o[2] = pos[2] - b._base[2];
+  }
+  /** AUDIT NAV2 F11: A BODY GONE DOWN WITH THE HULL IT LAY ON - its corpse taken off (its batch destroyed, a marker still
+   *  loading refused on arrival - `_gone`) and the record ended, as CollectLooseObjects ends one (update's tail prunes a
+   *  dead record with no body). removeFoe spares the dead; this is the dead's. */
+  function removeCorpse(f) {
+    if (!f?.dead || f.puppet) return;
+    f._gone = true;
+    if (f.corpseMarker) { const i = corpseBatches.indexOf(f.corpseMarker); if (i >= 0) { renderer.destroyBillboardBatch(corpseBatches[i].batch); corpseBatches.splice(i, 1); } }
+    f.corpse = false; f.corpseMarker = null;
+  }
 
   /**
    * IF: TEARDOWN. Every allocation has an owner, and until a SECOND
@@ -1532,10 +1875,15 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
     for (const c of corpseBatches) renderer.destroyBillboardBatch(c.batch);
     corpseBatches.length = 0;
     foes.length = 0;
+    portals.clear();   // COMPANION-PORTAL: and the portals standing
     for (const s of spawning) s.capped = false;   // AUDIT 68 S20-encounter-cap-race: a cancelled spawn holds no slot in the next world
-    _owners.clear(); _pupPending.clear(); _pupIndex.clear();   // AUDIT WORLD6b C10: the teardown ends the owners' records too
+    _lostSites.clear();   // AUDIT WB12d (C1): a site a race gave away is the old world's - the epoch above already ends its spawns in flight
+    _owners.clear(); _pupPending.clear(); _pupIndex.clear(); _pupKept.clear();   // AUDIT WORLD6b C10: the teardown ends the owners' records too (AUDIT DISC28 QS-J: the kept ones with them)
     _onHccClear?.();   // AUDIT HCC O2: and the peers' teams with them - a fast travel's clearLive re-anchors the origin with no offset to ride
     _onDuelClear?.();   // DUEL1: and the rings they duel in
+    _onCsaClear?.();   // CSA-J: and their boats
+    _onCsaAboardClear?.();   // CSA-K: and their places aboard
+    _onNavalClear?.();   // NAV-G: and the ships they stand
   }
 
   /** AUDIT 17e F23: the floating-origin recenter shifts everything. */
@@ -1546,11 +1894,13 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
     }
     // AUDIT 39: the spawns still crossing their awaits move too.
     for (const s of spawning) { s.feet[0] += offset[0]; s.feet[1] += offset[1]; s.feet[2] += offset[2]; }
+    portals.offsetAll(offset);   // COMPANION-PORTAL
     for (const c of corpseBatches) {
       c.pos[0] += offset[0]; c.pos[1] += offset[1]; c.pos[2] += offset[2];
       renderer.destroyBatch(c.batch);
       c.batch = renderer.createBillboardBatch(c.archive, c.record, c.size, [c.pos]);
       c.batch.frame = 0;   // FA1 slice 3: a REBUILT batch is a new object - it needs the frame too
+      if (c.elite) markEliteCorpseBatch(c.batch, c.elitePhase);   // ELITE FOES: ...and its outline, in step with itself
     }
   }
 
@@ -1569,7 +1919,7 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
    *  teardown loses corpses on any teleport already, and DFU's own
    *  restore disables a dead record rather than re-minting it. */
   function snapshotWorld(toNative) {
-    return foes.filter((f) => !f.dead && !f.puppet && !f.transient).map((f) => {   // WORLD6b: a puppet is its owner's, never this save's; DW-E4: nor a foe with no LoadID
+    return foes.filter((f) => !f.dead && !f.puppet && !f.transient && !f.entity?.revenant).map((f) => {   // REVENANT (the 2026-10-02 audit): a revenant standing - fighting, kneeling, burning, sworn and going - is its record's to stand again (systems/revenant.js getSaveData), never a nameless copy   // REVENANT-FATE: a kneeling revenant is the moment's, never the save's   // WORLD6b: a puppet is its owner's, never this save's; DW-E4: nor a foe with no LoadID
       const wc = toNative(f.ai.feet);
       return {
         mobileType: f.mobileType, gender: f.gender,
@@ -1589,6 +1939,8 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
         // rewrite - came back on its species' static row and turned on
         // the player, with MeleeAttackFriendlyProtection gone with it.
         team: f.entity.team, mobileTeam: f.entity.mobileTeam,
+        eliteFoe: !!f.entity.eliteFoe,   // a saved foe is never re-rolled on load
+        champion: f.entity.champion ?? null,   // LOOT7: a champion is saved one, and comes back one - never rolled again
         // AUDIT 63 F29: WabbajackActive (:124, restored :172) - the
         // once-per-creature latch WabbajackEffect.cs:69 refuses on.
         // Re-minting cleared it, so a load re-armed the artifact
@@ -1623,6 +1975,7 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
    *  the mint is; the caller does not wait on the art. */
   function restoreWorld(saved, fromNative, yOffset = 0, { reviveQuestBehaviour = null } = {}) {
     for (const sf of saved ?? []) {
+      if (isRiteSite(sf.site)) continue;   // AUDIT WB12d (C5): a breach's faithful are never a save's - its circle stands its survivors again (scenes/riteHost.js)
       const [lx, lz] = fromNative(sf.nativeX, sf.nativeZ);
       // AUDIT 63 F24: SerializableEnemy.cs:205-218 - a saved
       // questSpawn gets its QuestResourceBehaviour back BEFORE the
@@ -1632,7 +1985,7 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
       // owns one hands it in; a host without one restores plain foes.
       const questBehaviour = (sf.questResource && reviveQuestBehaviour)
         ? (reviveQuestBehaviour(sf.questResource) ?? null) : null;
-      spawnFoe(sf.mobileType, [lx, sf.y + yOffset, lz], { gender: sf.gender, feetGiven: true, questBehaviour, placed: !!sf.placed }).then((f) => {   // REVIEW 2026-09-05: the snapshot holds FEET - a flyer must not take the centre drop twice
+      spawnFoe(sf.mobileType, [lx, sf.y + yOffset, lz], { gender: sf.gender, feetGiven: true, questBehaviour, placed: !!sf.placed, eliteFoe: sf.eliteFoe === true, champion: sf.champion ? championIndex(sf.champion) : null }).then((f) => {   // REVIEW 2026-09-05: the snapshot holds FEET - a flyer must not take the centre drop twice
         if (!f) return;
         if (typeof sf.site === 'string') f.site = sf.site;   // WOD7: a shared camp's foe keeps riding for its site
         if (sf.questMarker === true) f._questMarker = true;   // AUDIT (pre-merge) F1
@@ -1677,11 +2030,13 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
    *  (:146-148 - senses.Target.Entity.Items.AddItem), damage or not. */
   function arrowHitFoe(m, target) {
     const f = m.shooterFoe;
-    if (!f || f.dead || !target || target.puppet) return;   // AUDIT WORLD6b B8: a foe's shaft into a PUPPET is a ghost hit - nobody's
+    // AUDIT WORLD6b B8: a foe's shaft into a PUPPET is a ghost hit - nobody's; AUDIT CC-E1: but my companion's into
+    // another's foe, or my foe's into another's companion, goes to the puppet's owner as the melee blow does
+    if (!f || f.dead || !target || (target.puppet && f.companion == null && target.companion == null)) return;
     const dir = [...m.dir];
     applyDamageToNonPlayer(f, target, {
       weapon: m.weapon, direction: dir, bowAttack: true, rolls, calculateAttackDamage,
-      dealDamage: (t, d) => (t.hurtFromFoe ? t.hurtFromFoe(d, dir) : damageFoe(t, d, null, dir)),
+      dealDamage: (t, d) => (t.hurtFromFoe ? t.hurtFromFoe(d, dir, f) : damageFoe(t, d, null, dir)),
       audio, hitEffects,
       // AUDIT 58: the poisoned SHAFT doses its foe mark too - the
       // clear at FormulaHelper.cs:695 fires with or without a hook.
@@ -1702,7 +2057,8 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
    *  WATCH1: and `watch` - { list() -> the city watch pool's live records, hurt(g, dmg, at, dir) -> the pool's own
    *  damage door, with the host's own provenance } - so the criminal's watchmen ride this stream as `t: 146` records
    *  and a peer's blow on one lands through the watch's door, never this pool's. A watchman's `seq` is minted here,
-   *  off the one counter. */
+   *  off the one counter. STRIKE-SHARED: and `spellOnFoe(f, spell, level, sinks, from)` - a peer's strike spell on my
+   *  foe, through the host's cast engine (its trap marked as `from`'s). */
   function setNet(net) { _net = net ?? null; }
   /** WATCH1: the watchmen that ride my stream - every live or killed-and-lying one of MINE (the pool's own prune
    *  splices the walk-aways on its next update, and foesFrame's `dead && !corpse` skip holds the frame between - a
@@ -1717,10 +2073,21 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
   /** WOD7: my own foes a site stood - taken down whole when a race gives the site to a peer. */
   function removeSiteFoes(site) {
     _lostSites.add(site);   // AUDIT WOD7: and one still building ends as it lands
-    for (const f of [...foes]) if (f.site === site && !f.puppet) questPoolOps.removeFoe(f);
+    dropSiteFoes(site);
   }
+  /** AUDIT WB12d (C1): my own foes a site stood taken down, the site still mine to stand again - a circle left behind
+   *  (a teleport, its breach collapsed), never a race lost (removeSiteFoes poisons the site for good). */
+  function dropSiteFoes(site) { for (const f of [...foes]) if (f.site === site && !f.puppet) questPoolOps.removeFoe(f); }
+  /** AUDIT WB12d (C1, C2): a site a race gave away, mine to stand again - a peer's camp that left with its owner. */
+  function reclaimSite(site) { _lostSites.delete(site); }
   function setOnCamps(fn) { _onCamps = typeof fn === 'function' ? fn : null; }
   function setOnHcc(fn, onClear = null) { _onHcc = typeof fn === 'function' ? fn : null; _onHccClear = typeof onClear === 'function' ? onClear : null; }   // HCC-ONLINE
+  function setOnBands(fn) { _onBands = typeof fn === 'function' ? fn : null; }   // TV7b
+  function setOnSeaRaiders(fn) { _onSeaRaiders = typeof fn === 'function' ? fn : null; }   // OW6
+  function setOnRaids(fn) { _onRaids = typeof fn === 'function' ? fn : null; }   // RAID2
+  function setOnCsa(fn, onClear = null) { _onCsa = typeof fn === 'function' ? fn : null; _onCsaClear = typeof onClear === 'function' ? onClear : null; }   // CSA-J
+  function setOnCsaAboard(fn, onClear = null) { _onCsaAboard = typeof fn === 'function' ? fn : null; _onCsaAboardClear = typeof onClear === 'function' ? onClear : null; }   // CSA-K
+  function setOnNaval(fn, onClear = null) { _onNaval = typeof fn === 'function' ? fn : null; _onNavalClear = typeof onClear === 'function' ? onClear : null; }   // NAV-G
   function setOnDuel(fn, onClear = null) { _onDuel = typeof fn === 'function' ? fn : null; _onDuelClear = typeof onClear === 'function' ? onClear : null; }   // DUEL1
   const _now = () => (_net?.now ? _net.now() : Date.now());
   /** My foes out, and my watch behind them (WATCH1) - every one of MINE whose streamed state changed since its last
@@ -1736,6 +2103,7 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
    *  encounter's (`_questLike`). */
   function foesFrame(full = false, force = false, heirOf = null) {
     if (!_net?.toWire) return null;
+    if (_fullNext) { full = true; _fullNext = false; }   // AUDIT CC-E3
     const out = [];
     // WATCH1: the watch rides behind the foes, in the same record shape - `t` 146 (Knight_CityWatch, whose row every
     // client's ENEMY_BASICS holds, so applyFoes at a reader stands the puppet through the one spawn chain at the
@@ -1754,10 +2122,12 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
       const g = wireRecipient(f.ai.target);   // AUDIT WORLD6b-ii A8: no target is '' (none) - '.' was the word for a foe that had not stepped yet, and it latched the puppet hostile
       // AUDIT WORLD6b-ii B2/B3: the attacker's terms - its level and its right-hand weapon - so a puppet's blow is this foe's
       const wpn = f.entity.weapon, wd = wpn && Number.isInteger(wpn.templateIndex) ? [wpn.templateIndex, wpn.material | 0] : null;
-      const r = { i: f.seq, t: f.mobileType, x: f.gender === 'female' ? 1 : 0, f: [q2(w[0]), q2(w[1]), q2(w[2])], y: q3(f.ai.yaw), ...(Number.isFinite(f.entity.health) ? { h: Math.max(0, Math.min(FOE_HEALTH_MAX, f.entity.health)) } : {}), d: f.dead ? 1 : 0, a: f._atkA | 0, b: f._atkB ?? '', m: f.ai.moving ? 1 : 0, g, l: f.entity.level | 0, w: wd, c: f._castN | 0, s: f._castIdx | 0, u: f._castU ?? '', o: onWatch || _questLike(f) ? 0 : (f.corpse ? Math.min(255, f.entity?.items?.length | 0) : 0) };   // AUDIT (pre-merge) Q5: nor a quest foe's body - its take arm answers only the owner's own (A5), so a member's press asked again forever   // AUDIT WATCH1 A3: a watch body advertises NO pile - its take arm is its owner's own door (cityGuards.takeLoot), which the wire does not reach, so a peer offered the body clicked it for ever and heard nothing; WORLD6b-iii: the cast count and its spell; AUDIT WORLD6b-iii(a) A3: b/u whom the last blow/cast was at; WORLD6b-iii(c): o the body's pile
+      const r = { i: f.seq, t: f.mobileType, x: f.gender === 'female' ? 1 : 0, f: [q2(w[0]), q2(w[1]), q2(w[2])], y: q3(f.ai.yaw), ...(Number.isFinite(f.entity.health) ? { h: Math.max(0, Math.min(FOE_HEALTH_MAX, f.entity.health)) } : {}), ...(Number.isFinite(f.entity.maxHealth) && f.entity.maxHealth >= 1 ? { k: Math.min(FOE_HEALTH_MAX, f.entity.maxHealth) } : {}), d: f.dead ? 1 : 0, a: f._atkA | 0, b: f._atkB ?? '', m: f.ai.moving ? 1 : 0, g, l: f.entity.level | 0, w: wd, c: f._castN | 0, s: f._castIdx | 0, u: f._castU ?? '', o: onWatch || _questLike(f) ? 0 : (f.corpse ? Math.min(255, f.entity?.items?.length | 0) : 0), ...(f.entity?.eliteFoe ? { z: 1 } : {}), ...(!onWatch && typeof f.entity?.revenant?.name === 'string' && f.entity.revenant.name ? { nm: f.entity.revenant.name.replace(/[\u0000-\u001f\u007f]/g, '').slice(0, REVENANT_NAME_MAX) } : {}), ...(f.yielded ? { yd: 1 } : {}), ...(f.executing ? { ex: 1 } : {}), ...(f.sparing ? { sp: 1 } : {}) };   // REVENANT-FATE: kneeling, burning   // REVENANT-WIRE: its revenant's name rides to every puppet   // ELITE FOES: `z` an elite, so a puppet stands as one   // AUDIT (pre-merge) Q5: nor a quest foe's body - its take arm answers only the owner's own (A5), so a member's press asked again forever   // AUDIT WATCH1 A3: a watch body advertises NO pile - its take arm is its owner's own door (cityGuards.takeLoot), which the wire does not reach, so a peer offered the body clicked it for ever and heard nothing; WORLD6b-iii: the cast count and its spell; AUDIT WORLD6b-iii(a) A3: b/u whom the last blow/cast was at; WORLD6b-iii(c): o the body's pile
+      if (!onWatch && f.entity?.champion) r.cp = championIndex(f.entity.champion);   // LOOT7: its trait rides to every puppet, which stands as the same champion
       if (!onWatch && !f.dead && _sharedFoe(f)) { const n = fightN(f); if (n > 1) r.n = n; }   // AUDIT PSCALE1: how many fight it - every reader weighs its hits by the owner's count
+      if (!onWatch && f.dead && typeof f._trapBy === 'string') { r.j = f._trapBy; r.q = f._trapQ | 0; }   // STRIKE-SHARED: whose soul trap was on it as it fell, and the trap's chance
       if (heirOf && !onWatch && !f.dead) { const h = heirOf(f) ?? null; f._heir = h; if (h) r.e = h; }   // AUDIT CONTRIB P1: the handover frame's heir (handOverFrame); QUEST-PARTY phase 2: a shared quest's foe too - the host names a party member   // AUDIT CONTRIB P1: the handover frame's heir (handOverFrame)
-      const key = `${r.f[0]},${r.f[1]},${r.f[2]},${r.y},${r.h},${r.d},${r.a},${r.b},${r.m},${r.g},${r.l},${wd ? wd.join('/') : '-'},${r.c},${r.s},${r.u},${r.o},${r.n}`;
+      const key = `${r.f[0]},${r.f[1]},${r.f[2]},${r.y},${r.h},${r.k},${r.d},${r.a},${r.b},${r.m},${r.g},${r.l},${wd ? wd.join('/') : '-'},${r.c},${r.s},${r.u},${r.o},${r.n},${r.z ?? 0},${r.nm ?? ''},${r.yd ?? 0},${r.ex ?? 0},${r.sp ?? 0}`;
       if (!full && f._sentKey === key) continue;
       f._sentKey = key;
       out.push(r); src.set(r, f); if (qt) qtOf.set(r, qt);
@@ -1793,18 +2163,38 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
     }
     const qf = out.filter((r) => qtOf.has(r)).map((r) => { const f = src.get(r), fl = (f?._questMarker ? 1 : 0) | (r.d !== 1 && questTouched(f) ? 2 : 0); return fl ? [r.i, qtOf.get(r).q, qtOf.get(r).s, fl] : [r.i, qtOf.get(r).q, qtOf.get(r).s]; });   // QUEST-PARTY: which records are a shared quest's foes, and whose; phase 3: a marker's, and touched
     const dz = out.filter((r) => src.get(r)?.managed).map((r) => r.i);   // DEEP-SHARE: the deep's foes (managed: its spawner owns its life), by number - a reader stands them under DEEP_PUPPETS_MAX
-    return { n: ++_foesSeq, k: _net.room?.() ?? null, full: full ? 1 : 0, f: out, ...(st.length ? { st } : {}), ...(sp.length ? { sp } : {}), ...(dz.length ? { dz } : {}), ...(qf.length ? { qf } : {}) };
+    const rz = out.filter((r) => src.get(r)?.raidKey).map((r) => [r.i, src.get(r).raidKey]);   // RAID2: a raid's raiders, by number and raid - a reader stands them under RAID_PUPPETS_MAX
+    const cz = campTagsOf(out, (r) => src.get(r));   // OW6: a camp's members, by number, camp and kind - a reader marks the camp on its Overworld, an heir takes it as one
+    const al = out.filter((r) => r.t === KNIGHT_CITYWATCH_ID && r.d !== 1 && src.get(r)?.defender).map((r) => r.i);   // RAID2: the watchmen who are MY allies (DISC19-F's defenders, a raid's among them) - a reader stands them as its allies, where a watch record carried no team
+    const cw = out.filter((r) => r.d !== 1 && isShipmate(src.get(r))).map((r) => r.i);
+    const mates = out.filter((r) => r.d !== 1 && src.get(r)?.companion != null);
+    const cp = mates.map((r) => r.i);   // AUDIT CC-E1: my companions, by number - a reader marks them so its foes may fight them
+    const cn = mates.map((r) => src.get(r)?.entity?.name ?? '');   // AUDIT WK-U3: and their names, in that order   // SHIPMATES: my crew on a deck (combat/friendlyFire.js) - a reader stands them as its allies and its own harm passes them by
+    return { n: ++_foesSeq, k: _net.room?.() ?? null, full: full ? 1 : 0, f: out, ...(rz.length ? { rz } : {}), ...(cz.length ? { cz } : {}), ...(al.length ? { al } : {}), ...(cw.length ? { cw } : {}), ...(cp.length ? { cp, cn } : {}), ...(st.length ? { st } : {}), ...(sp.length ? { sp } : {}), ...(dz.length ? { dz } : {}), ...(qf.length ? { qf } : {}) };
   }
   /** The owner's record (AUDIT WORLD6b B4/C3), minted on its first frame. */
   function ownerOf(from) { let o = _owners.get(from); if (!o) { o = { n: -1, at: _now(), gen: ++_ownerGen, k: null }; _owners.set(from, o); } return o; }   // WORLD6b-iii(b): k the cell the owner's frames are keyed to - its own
   const pupKey = (from, i) => `${from}:${i}`;
+  /** AUDIT CC-E1: the other clients' bodies a foe of mine may fight - my companion, their foes; a hostile foe of mine,
+   *  their companions. Every other puppet stays out of my hunt, as it was (the place's own candidates decide). */
+  function coopCandidates(f) {
+    if (!_pupIndex.size) return [];
+    const mine = f.companion != null;
+    if (!mine && (f.entity?.team === 'PlayerAlly' || !f.ai?.isHostile)) return [];
+    const out = [];
+    for (const p of _pupIndex.values()) {
+      if (p.dead || !p.ai) continue;
+      if (mine ? p.companion == null && !p.shipmate : p.companion != null) out.push(p);
+    }
+    return out;
+  }
   /** The puppets standing or building for an owner - the cap's count (B3). */
-  function livePuppetsOf(from, watch = false, camp = false, deep = false, quest = false) {   // AUDIT WATCH1 A1: the watch counted apart from the foes; WOD7: and a shared camp's; DEEP-SHARE: and the deep's; QUEST-PARTY: and a shared quest's
-    const kind = (t, site, dp, qq) => (site ? 'camp' : qq ? 'quest' : dp ? 'deep' : t === KNIGHT_CITYWATCH_ID ? 'watch' : 'foe');
-    const want = camp ? 'camp' : quest ? 'quest' : deep ? 'deep' : watch ? 'watch' : 'foe';
+  function livePuppetsOf(from, watch = false, camp = false, deep = false, quest = false, raid = false) {   // RAID2: and a raid's   // AUDIT WATCH1 A1: the watch counted apart from the foes; WOD7: and a shared camp's; DEEP-SHARE: and the deep's; QUEST-PARTY: and a shared quest's
+    const kind = (t, site, dp, qq, rd) => (site ? 'camp' : qq ? 'quest' : rd ? 'raid' : dp ? 'deep' : t === KNIGHT_CITYWATCH_ID ? 'watch' : 'foe');
+    const want = camp ? 'camp' : quest ? 'quest' : raid ? 'raid' : deep ? 'deep' : watch ? 'watch' : 'foe';
     let n = 0;
-    for (const f of _pupIndex.values()) if (f.puppet === from && !f.dead && kind(f.mobileType, f.site, f._pupDeep, f._pupQuest) === want) n++;
-    for (const [k, r] of _pupPending) if (k.startsWith(from + ':') && kind(r.t, r._site, r._deep, r._quest) === want) n++;
+    for (const f of _pupIndex.values()) if (f.puppet === from && !f.dead && kind(f.mobileType, f.site, f._pupDeep, f._pupQuest, f._pupRaid) === want) n++;
+    for (const [k, r] of _pupPending) if (k.startsWith(from + ':') && kind(r.t, r._site, r._deep, r._quest, r._raid) === want) n++;
     return n;
   }
   /** DEEP-SHARE: the live deep foes OTHER players stand within `radius` of `feet` - what the deep's spawner here counts
@@ -1837,6 +2227,12 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
     const tags = validSiteTags(data.st);   // WOD7: which of these records stood for a World of Daggerfall marker
     const deepIds = validDeepIds(data.dz);   // DEEP-SHARE: which are the deep's
     const questTags = validQuestTags(data.qf);   // QUEST-PARTY: which are a shared quest's foes, and whose
+    const raidTags = validRaidTags(data.rz);   // RAID2: which are a raid's raiders, and whose raid
+    const campTags = validCampTags(data.cz);   // OW6: which are a camp's members, and whose camp
+    const allied = validAlliedIds(data.al);   // RAID2: which watchmen are the owner's allies
+    const crew = validAlliedIds(data.cw);   // SHIPMATES: which are the owner's crew on a deck
+    const comp = validAlliedIds(data.cp);   // AUDIT CC-E1: and which of them are the owner's companions
+    const compNames = companionNames(data.cp, data.cn);   // AUDIT WK-U3: and their names
     const stood = new Set(), refused = new Set();   // AUDIT WOD7: a site whose every record the allowance refused is not spent here
     const liveMarks = [];   // QUEST-PARTY phase 3: the owner's live marker foes of a quest the party shares
     let adopted = 0;   // AUDIT CONTRIB P1: the foes this frame hands to me
@@ -1848,30 +2244,49 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
       const key = pupKey(from, r.i);
       const f = _pupIndex.get(key) ?? null;
       const qt = questTags.get(r.i) ?? null;
-      if (qt && !_questShare?.accepts?.(from, qt)) { if (f) removePuppet(f); continue; }   // QUEST-PARTY: a party's quest foes stand at its members alone
+      // AUDIT DISC28 QS-J: a record that names ME its heir is taken on party membership (partyPeer, the pre-J law) - the
+      // owner has let it go, and a copy with no link to its quest stands none of its puppets, so refused here it was
+      // gone for everyone; taken unbound, it keeps the partner's word (adopt, `_keptTag`)
+      if (qt && !_questShare?.accepts?.(from, qt) && !(heirIsMe(r) && _questShare?.partyPeer?.(from))) {   // QUEST-PARTY: a party's quest foes stand at its members alone
+        if (f) removePuppet(f);
+        // AUDIT DISC28 QS-J: an orphan my unlinked copy took from a kept record, streamed ALIVE by its owner again (a
+        // socket back under the same id) - theirs again (AUDIT pre-merge D2's law, which this gate's `continue` skips),
+        // and a build of it still in flight is no longer mine to land
+        const took = _adopted.get(key);
+        if (took) { _adopted.delete(key); if (r.d !== 1 && !took.dead && !took._gone) letGo(took); }
+        const pend = _pupPending.get(key);
+        if (pend?._orphanMine) pend._orphanMine = false;
+        keepQuestRecord(from, key, r, qt);
+        continue;
+      }
+      _pupKept.delete(key);   // AUDIT DISC28 QS-J: stood (or taken) from here, or no party's quest foe at all - no longer only kept
       if (qt?.mk && r.d !== 1 && !r.e) liveMarks.push(qt);   // QUEST-PARTY phase 3; AUDIT (pre-merge) F1: a HANDED record (it names an heir) marks nothing - the heir took that very foe, and its own frame carries the mark from here
       if (site && (f || _pupPending.has(key))) stood.add(site);   // AUDIT WOD7: standing or building here
       if (f) {
         if ((r.t !== undefined && r.t !== f.mobileType) || (r.d === 0 && f.dead) || (r.l !== undefined && f.mobileType >= 128 && r.l !== (f.builtLevel | 0))) removePuppet(f);   // AUDIT WORLD6b-ii B2: a CLASS foe's level is its owner's word (its skills and health are built from it) - a monster's is its species' (makeEnemyEntity), whatever the record says; AUDIT FOES FOE8: against the level it was BUILT at, which a City Watch's constructor re-rolls
-        else { applyPuppetRecord(f, r); f._heirElse = heirElse(r); if (heirIsMe(r)) adopted += adopt(from, f); continue; }
+        else { if (campTags.has(r.i)) f._pupCamp = campTags.get(r.i); applyPuppetRecord(f, r); f._heirElse = heirElse(r); if (heirIsMe(r)) adopted += adopt(from, f); if (f.mobileType === KNIGHT_CITYWATCH_ID) alliedWatchPuppet(f, allied.has(r.i)); crewPuppet(f, crew.has(r.i), comp.has(r.i)); f.companionName = compNames.get(r.i) ?? null; continue; }   // OW6: its camp, as the owner last said it
       }
       // AUDIT (the pre-merge audit, D2): a foe of theirs I took, streamed ALIVE by them again (a socket back under the
       // same id, a tab that woke) - theirs again: mine goes, and their record stands it here as their puppet
       const took = _adopted.get(key);
       if (took) { _adopted.delete(key); if (r.d !== 1 && !took.dead && !took._gone) letGo(took); }
-      if (_pupPending.has(key)) { _pupPending.set(key, { ...r, t: _pupPending.get(key).t, _site: _pupPending.get(key)._site, _deep: _pupPending.get(key)._deep, _quest: _pupPending.get(key)._quest }); continue; }   // AUDIT ALL A1: a pending build's SPECIES is fixed at the build - a later word without `t` (or with another) neither moves it out of its class's count (an unbounded stand: a peer re-worded a pending watch as no species and stood ten more) nor lands a record of the wrong species on the build
+      if (_pupPending.has(key)) { _pupPending.set(key, { ...r, t: _pupPending.get(key).t, _site: _pupPending.get(key)._site, _deep: _pupPending.get(key)._deep, _quest: _pupPending.get(key)._quest, _raid: _pupPending.get(key)._raid, _camp: campTags.get(r.i) ?? _pupPending.get(key)._camp }); continue; }   // AUDIT ALL A1: a pending build's SPECIES is fixed at the build - a later word without `t` (or with another) neither moves it out of its class's count (an unbounded stand: a peer re-worded a pending watch as no species and stood ten more) nor lands a record of the wrong species on the build   OW6: and its camp, the newest word
       if (r.d === 1 || r.t === undefined || !ENEMY_BASICS[r.t] || !r.f) continue;
       if (site && livePuppetsOf(from, false, true) >= WOD_CAMP_PUPPETS_MAX) { refused.add(site); continue; }   // WOD7: a shared camp's foes under their own allowance
       const deep = deepIds.has(r.i);
-      if (!site && (qt ? livePuppetsOf(from, false, false, false, true) >= QUEST_PUPPETS_MAX : deep ? livePuppetsOf(from, false, false, true) >= DEEP_PUPPETS_MAX : r.t === KNIGHT_CITYWATCH_ID ? livePuppetsOf(from, true) >= CELL_WATCH_PUPPETS_MAX : livePuppetsOf(from) >= CELL_PUPPETS_MAX)) continue;   // DEEP-SHARE: the deep's, its own   // AUDIT WATCH1 A1: the watch has its own allowance - under one cap the foes spent it first and no watchman ever stood; WOD7: a camp's, its own
+      const raidKey = raidTags.get(r.i) ?? null;   // RAID2: a raid's raider stands under the raid's allowance
+      if (!site && (qt ? livePuppetsOf(from, false, false, false, true) >= QUEST_PUPPETS_MAX : deep ? livePuppetsOf(from, false, false, true) >= DEEP_PUPPETS_MAX : r.t === KNIGHT_CITYWATCH_ID ? livePuppetsOf(from, true) >= CELL_WATCH_PUPPETS_MAX : raidKey ? livePuppetsOf(from, false, false, false, false, true) >= RAID_PUPPETS_MAX : livePuppetsOf(from) >= CELL_PUPPETS_MAX)) continue;   // DEEP-SHARE: the deep's, its own   // AUDIT WATCH1 A1: the watch has its own allowance - under one cap the foes spent it first and no watchman ever stood; WOD7: a camp's, its own
       const feet = _net.toScene(r.f);
       if (!feet) continue;
-      _pupPending.set(key, { ...r, _site: site, _deep: deep, _quest: qt });
+      _pupPending.set(key, { ...r, _site: site, _deep: deep, _quest: qt, _raid: raidKey, _camp: campTags.get(r.i) ?? null });
       if (site) stood.add(site);
       const gen = o.gen;
-      spawnFoe(r.t, feet, { puppet: from, seq: r.i, gender: GENDER_BIT[r.x === 1 ? 1 : 0], feetGiven: true, yaw: r.y ?? null, level: r.l ?? null, site })
+      const shipmate = crew.has(r.i);
+      spawnFoe(r.t, feet, { puppet: from, seq: r.i, gender: GENDER_BIT[r.x === 1 ? 1 : 0], feetGiven: true, yaw: r.y ?? null, level: r.l ?? null, site, allied: (r.t === KNIGHT_CITYWATCH_ID && allied.has(r.i)) || shipmate, champion: r.cp ?? null })   // RAID2: a watchman the owner names its ally stands as mine - SHIPMATES: and a crewman
         .then((nf) => {
           if (!nf) return;
+          if (shipmate) nf.shipmate = true;
+          if (comp.has(r.i)) { nf.companion = `peer:${from}:${r.i}`; nf.companionName = compNames.get(r.i) ?? null; }   // AUDIT CC-E1: another's companion - my foes may fight it; WK-U3: his name
           const owner = _owners.get(from);
           const kept = _pupPending.get(key) ?? null;   // null once a room change cleared it (clearPuppets)
           // AUDIT (the pre-merge audit, F3): the owner's leave pruned it while this build was in flight, and its last
@@ -1881,6 +2296,8 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
           const rec = kept ?? r;
           nf._pupDeep = !!(rec._deep ?? deep);   // DEEP-SHARE: its class as it was built
           nf._pupQuest = rec._quest ?? qt;   // QUEST-PARTY: and its quest's word
+          nf._pupRaid = rec._raid ?? raidKey;   // RAID2: and its raid
+          nf._pupCamp = rec._camp ?? campTags.get(r.i) ?? null;   // OW6: and its camp
           applyPuppetRecord(nf, rec);
           nf._heirElse = heirElse(rec);
           if (heirIsMe(rec) && adopt(from, nf)) console.info('[foes] took over 1 foe from a fallen player');   // AUDIT CONTRIB P1: a handed foe I had not stood yet
@@ -1890,6 +2307,7 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
         .finally(() => _pupPending.delete(key));
     }
     if (data.full === 1) for (const f of [..._pupIndex.values()]) if (f.puppet === from && !seen.has(f.seq)) removePuppet(f);
+    if (data.full === 1) for (const [key, k] of [..._pupKept]) if (k.from === from && !seen.has(k.r.i)) _pupKept.delete(key);   // AUDIT DISC28 QS-J: as a stood record goes
     if (liveMarks.length) standDownMarkerCopies(from, liveMarks);   // QUEST-PARTY phase 3: a marker's foe stands once for the party
     if (adopted) console.info(`[foes] took over ${adopted} foe(s) from a fallen player`);   // PDEATH-FOES2: said, so a failed handover can be told apart
     // WOD7: the markers this owner sprang - the full frame's list with its ages, and the tags of what stands here (an
@@ -1899,7 +2317,13 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
     for (const [s, age] of validSites(data.sp)) if (!refused.has(s) || stood.has(s)) spent.set(s, age);
     for (const s of tags.values()) if (!spent.has(s) && (!refused.has(s) || stood.has(s))) spent.set(s, null);
     if (spent.size) _onSites?.(from, [...spent]);
+    if (data.rk !== undefined) _onRaids?.(from, data.rk, _now());   // RAID2: the owner's word on the raids it fought - past the same room test
     if (data.du !== undefined) _onDuel?.(from, data.du, _now());   // DUEL1: the ring the owner duels in (null: none) - a frame without the field leaves the last word standing; past the same room test
+    if (data.bd !== undefined) _onBands?.(from, data.bd, _now());   // TV7b: the owner's band chases and spent bands - past the same room test
+    if (data.sr !== undefined) _onSeaRaiders?.(from, data.sr, _now());   // OW6: and its raider chases and spent raiders at sea - the same test
+    if (data.sa !== undefined) _onCsa?.(from, data.sa, _now());   // CSA-J: the owner's boats (null: none stand) - a frame without the field leaves the last word standing; past the same room test
+    if (data.ab !== undefined) _onCsaAboard?.(from, data.ab, _now());   // CSA-K: the sender's place aboard a boat (null: aboard none) - the same law, the same test
+    if (data.nv !== undefined) _onNaval?.(from, data.nv, _now());   // NAV-G: the owner's sea (null: none) - the ships they stand, their last volleys and barrels; past the same room test
     if (data.hv !== undefined) _onHcc?.(from, data.hv, _now());   // HCC-ONLINE: the owner's horse and wagon (null: none stand) - a frame without the field leaves the last word standing; past the same room test the camps pass
     if (Array.isArray(data.c)) _onCamps?.(from, data.c, _now());   // SURV3: the owner's camps ride the same frame, past the same room test - the host's pool lands them
     return true;
@@ -1909,6 +2333,23 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
    *  map pixel away at every crossing; a peer's pose is converted every frame for the same reason, AUDIT ONLINE D5),
    *  the health (a drop is the hurt one-shot), the attack once per count (a joiner latches the count it arrives with
    *  and replays nothing), death through the puppet's own fall. */
+  /** RAID2: a watch puppet's side is its owner's word - named in the frame's `al` it is the player's ally here too
+   *  (spawnFoe's `allied`: both per-instance teams), unnamed it is the watch again (a defender turned by a crime,
+   *  cityGuards.js enlistDefender). A watch record carried no team, so a peer stood every defender as the hostile
+   *  watch (WATCH1's recorded limit). */
+  function alliedWatchPuppet(f, on) {
+    const team = on ? 'PlayerAlly' : staticTeamOf(KNIGHT_CITYWATCH_ID);
+    if (f.entity && f.entity.team !== team) { f.entity.team = team; f.entity.mobileTeam = team; }
+  }
+  /** SHIPMATES: a puppet the owner names its crew (the frame's `cw`) is a shipmate here too - the player's ally, spared
+   *  the player's harm, wearing the crew's bar (combat/friendlyFire.js); one it names no longer is its species' again. */
+  function crewPuppet(f, on, companion = false) {
+    f.companion = on && companion ? `peer:${f.puppet}:${f.seq}` : null;   // AUDIT CC-E1: the owner's word, every frame
+    if (!!f.shipmate === on) return;
+    f.shipmate = on;
+    const team = on ? 'PlayerAlly' : staticTeamOf(f.mobileType);
+    if (f.entity && f.entity.team !== team) { f.entity.team = team; f.entity.mobileTeam = team; }
+  }
   function applyPuppetRecord(f, r) {
     const p = f._pup ?? (f._pup = { wire: null, yaw: f.ai.yaw, moving: false, hurt: false, hurtUntil: 0, strike: null, a: null, target: null, at: _now(), leap: false, c: null, cast: null, h: null });
     if (r.f) {
@@ -1930,13 +2371,32 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
     if (r.y !== undefined) p.yaw = r.y;
     if (r.m !== undefined) p.moving = r.m === 1;
     if (r.h !== undefined && f._pupQuest && !f._qHurt && p.h != null && r.h < p.h) { f._qHurt = true; _questShare?.onPuppetHurt?.(f._pupQuest); }   // QUEST-PARTY: the first blow I see land is the injury my copy of the quest reads (QuestResourceBehaviour's own check)
+    if (r.z === 1 && !f.entity.eliteFoe && !f.entity.champion) promoteEliteFoe(f.entity, { own: false });
+    f._pupYield = r.yd === 1;   // REVENANT-FATE: its owner's revenant kneels...
+    f._pupExec = r.ex === 1 ? (f._pupExec ?? Date.now()) : null;   // ...or burns away, from the record that said so
+    f._pupSpare = r.sp === 1 ? (f._pupSpare ?? Date.now()) : null;   // AUDIT (2026-10-02): ...or rises sworn into its portal
+    if (typeof r.nm === 'string' && r.nm && f.entity.revenant?.name !== r.nm) f.entity.revenant = { id: null, name: r.nm, rank: 0 };   // REVENANT-WIRE: called what its owner calls it   // ELITE FOES: its owner's elite - the blows, the size, the glow (its maximum is `k`)
+    if (r.k !== undefined) f.entity.maxHealth = r.k;   // AUDIT SETS M1: the owner's maximum - "under half" is its word
     if (r.h !== undefined) { if (p.h != null && r.h < p.h) p.hurt = true; p.h = r.h; f.entity.health = r.h; }   // AUDIT WORLD6b-iii(a) B6: a drop against the last STREAMED health - a self-heal cast here made every record after it a hurt
     // AUDIT WORLD6b-iii(a) A3: the blow's and the cast's RECIPIENT ride with their counts (b, u); an older record without
     // them falls back on the live hunt (g), the slice's law
     if (r.a !== undefined) { if (p.a != null && r.a !== p.a) p.strike = { kind: (r.a & 1) ? 'ranged' : 'melee', at: r.b ?? r.g ?? p.target }; p.a = r.a; }
     // WORLD6b-iii: a cast once per count, never the count a joiner arrived with; AUDIT WORLD6b-iii(a) B3/C9: no spell, no cast
     if (r.c !== undefined) { if (p.c != null && r.c !== p.c && Number.isInteger(r.s)) p.cast = { s: r.s, at: r.u ?? r.g ?? p.target }; p.c = r.c; }
-    if (r.d === 1 && !f.dead) { const t = p.wire ? _net.toScene(p.wire) : null; if (t) { f.ai.feet[0] = t[0]; f.ai.feet[1] = t[1]; f.ai.feet[2] = t[2]; } puppetDie(f); }
+    if (r.d === 1 && !f.dead) {
+      if (r.j !== undefined) casterSoulTrap(f, r);
+      const t = p.wire ? _net.toScene(p.wire) : null; if (t) { f.ai.feet[0] = t[0]; f.ai.feet[1] = t[1]; f.ai.feet[2] = t[2]; } puppetDie(f);
+    }
+  }
+  /** STRIKE-SHARED (2026-09-29): MY SOUL TRAP WAS ON A PEER'S FOE AS IT FELL - the owner's record names me (`j`) with the
+   *  trap's chance (`q`), and the soul is mine to roll for, into my own pack, as EnemyEntity.AttemptSoulTrap rolls it at
+   *  the kill (the gate court's own arm, world.js WBX7) - with no tether, since the foe fell on its owner's machine. Once,
+   *  and only on a puppet I sent a trap to: the name alone is the owner's word, and it fills no gem of mine unasked. */
+  function casterSoulTrap(f, r) {
+    if (!f._trapSent || r.j !== (_net?.selfId?.() ?? null)) return;
+    f._trapSent = false;
+    const res = attemptSoulTrap({ activeEffects: [{ kind: 'soulTrap', chance: r.q }] }, f.mobileType, playerEntity.items ?? [], rolls());
+    if (res.alert) say?.(SOUL_TRAP_TEXT[res.alert]);
   }
   /** AUDIT WORLD6b-ii B1/C1: whether a blow (or a cast, WORLD6b-iii) of this puppet's owner's may land on me now - the
    *  owner's budget spent, and never from a puppet that leapt. */
@@ -1998,7 +2458,7 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
     if (f._pupMine && f.ai?.detected) setEnemyAlert(playerEntity, false);   // AUDIT WORLD6b-ii B6: its owner's foe was on me; the alert clears as a foe of mine would (survivors re-raise it)
     f.dead = true;
     renownFoeDied(f);
-    if (f._pupQuest) _questShare?.onPuppetDied?.(f._pupQuest);   // QUEST-PARTY: a party's quest foe fell - my copy of the quest counts the kill (IncrementKills)   // RENOWN1: its owner's frame says it fell - it pays me if I fought it
+    if (f._pupQuest) _questShare?.onPuppetDied?.(f._pupQuest, f.puppet, f.seq);   // KEPT-KILL: whose foe, by its number - the kill the owner's pose may say too counts once   // QUEST-PARTY: a party's quest foe fell - my copy of the quest counts the kill (IncrementKills)   // RENOWN1: its owner's frame says it fell - it pays me if I fought it
     f.corpse = true;
     releaseFoeBatch(f);
     mintCorpse(f);
@@ -2058,13 +2518,29 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
       grantCorpse(f, from, data.k ?? _net?.room?.() ?? null);
       return true;
     }
+    if (data.back === 1) {
+      // AUDIT ONLINE2 F4: THE TAKER COULD NOT READ MY GRANT (a piece from after its build) - the pieces come back to the
+      // body, for the grant it answers alone, inside the window; any other `back` is nothing
+      const f = foes.find((x) => !x.puppet && x.seq === (data.i | 0));
+      const g = f?._granted;
+      if (!g || g.to !== from || _now() - g.at > GRANT_BACK_MS) return false;
+      f._granted = null;
+      if (Array.isArray(f.entity?.items)) f.entity.items.unshift(...g.held);
+      return true;
+    }
     if (data.grant !== undefined) {
-      const grant = validLootList(data.grant);
-      if (!grant) return false;
       // AUDIT WORLD6b-iii(c) B1/C1: a grant lands for a body of THIS owner's that I ASKED for, inside the window, once -
       // an unasked grant is refused whole (any socket in the cell put items and gold into my pack at will)
       const f = _pupIndex.get(pupKey(from, data.i | 0)) ?? null;
-      if (!f || f._takeAsked == null || _now() - f._takeAsked > TAKE_WINDOW_MS) return false;
+      const asked = !!f && f._takeAsked != null && _now() - f._takeAsked <= TAKE_WINDOW_MS;
+      const grant = unbound(validLootList(data.grant));   // SS3: without a bound piece - one never passes between players
+      if (!grant) {
+        // AUDIT ONLINE2 F4: one I asked for that this build cannot read - its owner is told (`back`), so the pieces go
+        // back to the body rather than to nobody, and the player is told to reload
+        if (asked) { f._takeAsked = null; _net?.onPeerHit?.({ to: from, k: data.k ?? _net?.room?.() ?? null, i: data.i | 0, back: 1 }); (say ?? (() => {}))(LOOT_NEWER_TAKE_TEXT); }
+        return false;
+      }
+      if (!asked) return false;
       f._takeAsked = null;
       const n = takeCorpseLoot({ entity: { items: grant } }, playerEntity, say ?? (() => {}));   // the one take law: arrows whole, gold to the counter, the count said
       if (n > 0) playRareDrop(audio, f.corpseMarker?.pos ?? f.ai?.feet ?? null, grant);   // B10: the rare-drop chime rings over a peer's body too
@@ -2092,6 +2568,17 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
     if (_questLike(f) && !_peerMayHit(from, f)) return false;   // QUEST-PARTY: a quest's foe takes a peer's blow only from the party it rides to - any peer's word used to land on one it could not even see
     const dmg = Number(data.dmg);
     if (!f || f.dead || !Number.isFinite(dmg) || dmg < 0 || dmg > 10000) return false;
+    // AUDIT CC-E1: ANOTHER's foe mauled my companion where it stands - the blow lands here, where he is real: the foe's
+    // blow, not a player's (the knock-out arm his death), and he turns on the striker's puppet
+    if (data.fb === 1) {
+      if (f.companion == null || !foes.includes(f)) return false;
+      const fd = Array.isArray(data.d) && data.d.length === 3 && data.d.every(Number.isFinite) ? data.d : null;
+      const fl = fd ? Math.hypot(fd[0], fd[1], fd[2]) : 0;
+      damageFoe(f, dmg, null, fl > 1e-6 && fl < 1e6 ? [fd[0] / fl, fd[1] / fl, fd[2] / fl] : null, { fromPlayer: false, kind: data.kind === 'arrow' ? 'arrow' : 'melee' });
+      const by = _pupIndex.get(pupKey(from, data.sf | 0));
+      if (by && !by.dead && f.ai && !f.dead) f.ai.target = by;
+      return true;
+    }
     // AUDIT FINAL F12: never a peer's blow on MY ally (a Sanguine Rose's daedroth, a summon) - underground the room's own
     // door refuses it (dungeonContext.js applyOwnHit, SUMMON-SYNC D6); here a partner's Cleave or Nova landed, because
     // their puppet of it carries no side (a cell record says none), and turned my ally on them - and a kill said `slain`
@@ -2144,9 +2631,16 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
     // AUDIT WORLD6b-iii(e) A1: BOUNDED - HIT_ARROWS_MAX Arrows a body from peers' shafts, past it the blow lands and no
     // Arrow (a crafted stream minted a stack the projection refused whole, and the grant dropped the pile with it)
     if (data.ar === 1 && kind === 'arrow' && !(onWatch && f.dead) && arrowsIn(f.entity.items ??= []) < HIT_ARROWS_MAX) addItem(f.entity.items, bowDamageArrow());   // MAC-N1: minted, not a bare literal; AUDIT ALL A4: not into a watch body a peer's shaft just felled - that body carries nothing (AUDIT WATCH1 A3), and the shaft landed after the kill emptied it
+    // AUDIT CC-E1: an ALLY's blow (a peer's companion struck it): my foe turns on that companion, not on its owner
+    if (data.al === 1 && !onWatch && !f.dead && f.ai) { const by = _pupIndex.get(pupKey(from, data.ac | 0)); if (by && !by.dead && by.companion != null) f.ai.target = by; }
     // DISC10-E: and if that blow killed it (it was alive at the door above), the striker is told - its OnWeaponHitEntity
     // asks whether the target died, and the death happened HERE. The grant's own path back (to, the cell, the number);
     // an older client's applyHit reads no `dmg` in it and refuses it whole.
+    // STRIKE-SHARED: the striker's strike spell, landed on MY foe - the real one - through the host's own foe door (its
+    // saving throw, its pacify, its trap), its damage the striker's blow; before the kill report, so a killing spell
+    // says `slain` too. Never on my watch (a watchman is the crime's, and no strike payload lands on one here).
+    const hs = onWatch || f.dead ? null : hitSpellOf(data);
+    if (hs) _net?.spellOnFoe?.(f, hs.spell, hs.level, peerSpellSinks(f, from), from);
     if (f.dead) _net?.onPeerHit?.({ to: from, k: data.k ?? _net?.room?.() ?? null, i: data.i | 0, slain: 1 });
     return true;
   }
@@ -2167,8 +2661,47 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
         if (gone && f._pupQuest && !f.dead && !f._heirElse && _questShare?.adoptsOrphan?.(from, f) && adopt(from, f)) continue;
         removePuppet(f);
       }
+      // AUDIT DISC28 QS-J: AND THE RECORDS MY UNLINKED COPY KEPT. The law elects among the party members near the foe by
+      // id alone, and cannot know which of them stand it - since DISC28-J an unlinked member stands none, so the orphan it
+      // was elected for was lost to everyone. Elected, it stands the foe from its kept record and takes it as a linked
+      // member would take its puppet (adopt: kept on the partner's word); else the record goes with its owner.
+      for (const [key, k] of [..._pupKept]) {
+        if (k.from !== from) continue;
+        _pupKept.delete(key);
+        const feet = gone && k.r.f ? _net?.toScene?.(k.r.f) : null;
+        if (feet && _questShare?.adoptsOrphan?.(from, { ai: { feet } })) standKeptOrphan(from, key, k.r, k.qt, feet);
+      }
       _owners.delete(from);
     }
+  }
+  /** AUDIT DISC28 QS-J: a party member's quest-foe record my unlinked copy refuses to stand, kept for the orphan law - a
+   *  living one, from my party, naming no heir (a handover's heir takes its foe itself), merged over the last word (a
+   *  record carries what changed), and no more of them per owner than the quest allowance a stood copy has
+   *  (QUEST_PUPPETS_MAX). Anything else it was is let go. */
+  function keepQuestRecord(from, key, r, qt) {
+    const had = _pupKept.get(key) ?? null;
+    if (r.d === 1 || r.e || !_questShare?.partyPeer?.(from)) { _pupKept.delete(key); return; }
+    if (!had) { let n = 0; for (const k of _pupKept.values()) if (k.from === from) n++; if (n >= QUEST_PUPPETS_MAX) return; }
+    _pupKept.set(key, { from, r: { ...(had?.r ?? {}), ...r }, qt });
+  }
+  /** AUDIT DISC28 QS-J: the orphan the law gave me, stood from its kept record through the pool's one spawn chain and taken
+   *  on landing as adopt takes a puppet - unless a room change or its owner's return (the build's record replaced by the
+   *  owner's own word) overtook the build. */
+  function standKeptOrphan(from, key, r, qt, feet) {
+    if (r.t === undefined || !ENEMY_BASICS[r.t] || _pupPending.has(key) || _pupIndex.has(key)) return;
+    _pupPending.set(key, { ...r, _quest: qt, _orphanMine: true });
+    spawnFoe(r.t, feet, { puppet: from, seq: r.i, gender: GENDER_BIT[r.x === 1 ? 1 : 0], feetGiven: true, yaw: r.y ?? null, level: r.l ?? null, champion: r.cp ?? null })
+      .then((nf) => {
+        if (!nf) return;
+        const last = _pupPending.get(key) ?? null;
+        if (!last?._orphanMine) { removePuppet(nf); return; }
+        nf._pupQuest = last._quest ?? qt;
+        applyPuppetRecord(nf, last);
+        if (adopt(from, nf)) console.info('[foes] took over an orphaned quest foe of the party\'s (a kept record)');
+        else removePuppet(nf);
+      })
+      .catch(() => {})
+      .finally(() => _pupPending.delete(key));
   }
   /** PDEATH-FOES (Discord, 2026-09-23: "enemies a player generated by resting etc should not disappear when the player
    *  is killed"): THE FALLEN OWNER'S FOES ARE ADOPTED. A cell has no seat - each player streams the foes it owns - so a
@@ -2217,6 +2750,12 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
     const origin = pupKey(from, f.seq);
     if (_pupIndex.get(origin) === f) _pupIndex.delete(origin);
     f.puppet = null; f._pupMine = false; f._pup = null; f.seq = _nextSeq++;   // the owner's streamed state goes with the owner
+    f._pupYield = false; f._pupExec = null; f._pupSpare = null;   // AUDIT (2026-10-02): its owner's judgement too - it stands as itself
+    // A streamed copy has no decision driver. Its new owner must resume casting from the existing spell state.
+    if (!f.caster && f.entity?.spells?.length) {
+      f.caster = new EnemyCaster(f.entity, rolls);
+      f.ai.canCastRangedSpell = () => f.caster.canCastRangedSpell();
+    }
     // QUEST-PARTY phase 2: a shared quest's foe becomes MY quest's - bound to my own copy's Foe, so its injury and its
     // death are my quest's own word from here (and it rides to the party as mine). AUDIT (the pre-merge audit, Q3): a
     // copy that holds no such quest keeps its partner's word (`_keptTag`) - it took it as a plain foe, which rode to
@@ -2229,6 +2768,20 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
       if (qt.mk) f._questMarker = true;
       takeTouched(f, qt);
     }
+    if (f._pupRaid) { f.raidKey = f._pupRaid; f._pupRaid = null; }   // RAID2: a raid's raider taken over is still the raid's - it rides tagged from here, and its death is my share
+    // OW6: A CAMP TAKEN OVER IS STILL A CAMP - one number of mine for all of the owner's camp (its members still spare and
+    // wake each other, CAMP2's exemption keyed on it), its sixty metres' sight and its alert radius as they were; it rides
+    // tagged from here, and my Overworld marks it. The handover had turned every camp into loose wanderers at infighting
+    if (f._pupCamp) {
+      const t = f._pupCamp, ck = `${from}:${t.id}`;
+      f._pupCamp = null;
+      let id = _adoptedCamps.get(ck);
+      if (id == null) { id = newCampId(); _adoptedCamps.set(ck, id); }
+      f.campId = id; f.campKind = t.kind; f.campAlertRadius = t.kind === 'camp' ? CAMP_ALERT_RADIUS : PACK_ALERT_RADIUS;
+      if (f.ai) f.ai.sightRadius = CAMP_SIGHT_RADIUS;
+      if (f.entity) f.entity.campId = id;
+    }
+    if (f.site) f.placed = true;   // AUDIT WB12d (C3): a site's foe taken over stands where it was stood - no relevance cull takes it off every screen
     _adopted.set(origin, f);   // AUDIT (pre-merge) D2: theirs again if they stream it alive
     return 1;
   }
@@ -2263,15 +2816,25 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
   function clearPuppets() {
     for (const f of [..._pupIndex.values()]) removePuppet(f);
     _owners.clear();
+    _pupKept.clear();   // AUDIT DISC28 QS-J: and the records kept beside their puppets - the old cell's, nobody's to take here
     _pupPending.clear();
     _adopted.clear();   // AUDIT (pre-merge) D2: another cell's foes are nobody's to give back here
     _onHccClear?.();   // HCC-ONLINE: the peers' teams go with their puppets (a room change, a leave)
     _onDuelClear?.();   // DUEL1: and their rings
+    _onCsaClear?.();   // CSA-J: and their boats
+    _onCsaAboardClear?.();   // CSA-K: and their places aboard
+    _onNavalClear?.();   // NAV-G: and the ships they stand
   }
+  /** OW6: THE CAMPS' NUMBERS, one counter for this pool - the host's stands (world.js _standCampEncounter) and a camp an
+   *  heir takes over (adopt) alike, so an adopted camp never shares a number with one of mine. */
+  let _nextCampId = 1;
+  const newCampId = () => _nextCampId++;
+  /** OW6: an owner's camp taken over, by `owner:campId` - every member of it one camp of mine. */
+  const _adoptedCamps = new Map();
   /** DROPS-AUDIT CAMP-CAP: the encounter slots still free, the spawns in flight counted. */
   const encounterRoom = () => MAX_ACTIVE_ENCOUNTER_FOES - activeCount() - spawning.filter((s) => s.capped).length;
 
-  return { foes, spawnFoe, damageFoe, encounterRoom, partyHit, healFoe, pendingFeet: () => spawning.map((p) => p.feet), handleAttackFromPlayer, attackFromPlayer, update, resolvePlayerHit, poisonFoe, batches, offsetAll, activeCount, lootTargets, hoverName, hoverContents, liveTargets, liveHoverName, takeLoot, pileBody: (key) => pileBody(corpseEntryFor(foes, key, 'foeCorpse', corpseLens)), snapshotWorld, restoreWorld, destroy,   // LOOT-STACK: a body as the loot window's tab
+  return { foes, spawnFoe, damageFoe, encounterRoom, newCampId, partyHit, healFoe, pendingFeet: () => spawning.map((p) => p.feet), handleAttackFromPlayer, attackFromPlayer, update, resolvePlayerHit, poisonFoe, batches, offsetAll, activeCount, lootTargets, hoverName, hoverContents, liveTargets, liveHoverName, takeLoot, pileBody: (key) => pileBody(corpseEntryFor(foes, key, 'foeCorpse', corpseLens)), corpseAt: corpseLens.feetOf, corpseKeyOf: (f) => (corpseLens.isCorpse(f) && !f.corpseDisabled ? `foeCorpse:${idOf(f)}` : null), snapshotWorld, restoreWorld, destroy,   // LOOT-STACK: a body as the loot window's tab; PROF7: where a body lies, the lens's one home (Hunting's bodies); AUDIT 32 H8: its loot's key while it may be searched
     /** AUDIT 39: CleanupUntrackedObjects' enemy half (StreamingWorld.cs
      *  :1624-1635), which a teleport reaches too through
      *  ClearStreamingWorld -> CollectLooseObjects(true) (:993-998) -
@@ -2282,10 +2845,21 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
      *  is the name the world host's teleport asks for it by. */
     clearLive: destroy,
     collectPixel, arrowHitFoe, removeFoe: questPoolOps.removeFoe,
+    moveCorpse, removeCorpse,   // AUDIT NAV2 F11: a deck's dead ride her and go down with her
+    // LOOT11 (the Loot arc): the bodies a line of light may stand over - my own, still searchable, with their lists read
+    // live (scenes/lootLines.js picks the Rare-or-better); a peer's body shows none - its list lives on its owner's side
+    lootFinds: () => foes.filter((f) => f.dead && f.corpseMarker && !f.puppet && !f.corpseDisabled && f.entity?.items?.length).map((f) => ({ root: lootCrown(f.corpseMarker.pos, f.corpseMarker.size), items: f.entity.items })),
     // WORLD6b: the cell's stream - the net installed, my foes out, a peer's in, a peer's blow in, the puppets pruned
-    setNet, foesFrame, applyFoes, applyHit, pruneOwners, clearPuppets, handOverFrame, dropOwnLive,
+    fateFor, chooseFate, companionFx, portals,   // REVENANT-FATE: a kneeling revenant's choice; COMPANION-PORTAL: this pool's portals
+    setNet, foesFrame, applyFoes, applyHit, spellToOwner, pruneOwners, clearPuppets, handOverFrame, dropOwnLive,
     deepPuppetsNear,   // DEEP-SHARE: the deep's foes others stand near a point
     setQuestShare,   // QUEST-PARTY
-    setOnSites, removeSiteFoes,   // WOD7
+    setOnSites, removeSiteFoes, dropSiteFoes, reclaimSite,   // WOD7; AUDIT WB12d (C1): a site left behind, and one taken back
+    setOnRaids,   // RAID2
+    setOnCsa,   // CSA-J
+    setOnBands,   // TV7b
+    setOnSeaRaiders,   // OW6
+    setOnCsaAboard,   // CSA-K
+    setOnNaval,   // NAV-G
     setOnCamps, setOnHcc, setOnDuel };   // SURV3; HCC-ONLINE
 }

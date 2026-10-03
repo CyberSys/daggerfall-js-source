@@ -160,11 +160,14 @@ export const restArtLoaded = () => !!_art;
  *  clock. RESTX2 (2026-09-17) retired the pace half of the line ("an
  *  hour here is 5 real minutes"): online a rest paces on the window's
  *  own timer now, exactly as offline, and the world's clock is what it
- *  always was under a rest - untouched. The line says that instead. */
-export function restClockLine(worldMinutes) {
+ *  always was under a rest - untouched. LIVED1 (2026-09-29): and the
+ *  hours are the character's OWN - their clock runs through the night
+ *  (worldTick.js ownMinutes) while the world's sky stays where it is -
+ *  so the line says whose time the counter is spending. */
+export function restClockLine(worldMinutes, { loiter = false } = {}) {
   const d = dateFromClassicMinutes(worldMinutes);
   const two = (n) => String(n).padStart(2, '0');
-  return `World time ${two(d.hour)}:${two(d.minute)} - resting does not move it`;
+  return `World time ${two(d.hour)}:${two(d.minute)} - you ${loiter ? 'wait' : 'rest'} on your own clock`;   // AUDIT LIVED1 S (U8): a loiter waits
 }
 
 export class RestWindow {
@@ -233,7 +236,7 @@ export class RestWindow {
     // (InputManager.cs:634-637) - so the opening release is already
     // spent when DFU's window first runs, and :193's bare `GetKeyUp`
     // is safe there. Every host here opens on the key DOWN
-    // (world.js:8956, exterior.js:3133, ui/input.js:912), and that same
+    // (world.js:13532, exterior.js:3205, ui/input.js:922), and that same
     // key's release is then routed straight into the freshly mounted
     // window, so the release door needs the deferral DFU gives every
     // window whose open edge IS the down: DaggerfallAutomapWindow.cs
@@ -758,6 +761,8 @@ export class RestWindow {
     // modes off the shared clock; RESTX2 put every mode on the window's
     // own timer, online included. The read below is unchanged: the
     // page says the world's time, which a rest online never moves.
+    // (LIVED1: the session no longer reads this dep - its hours move the
+    // character's own clock - and the window's line is its one reader.)
     const shared = this.deps.sharedMinutes?.();
     if (Number.isFinite(shared)) st.worldMinutes = shared;
     return st;
@@ -771,7 +776,7 @@ export class RestWindow {
       this.mode === 'loiter' ? 'Loitering...' : 'Resting...',
       `${st.texture === 'hoursPast' ? 'Hours passed' : 'Hours remaining'}: ${st.hours}`,
     ];
-    if (Number.isFinite(st.worldMinutes)) lines.push(restClockLine(st.worldMinutes));
+    if (Number.isFinite(st.worldMinutes)) lines.push(restClockLine(st.worldMinutes, { loiter: this.mode === 'loiter' }));
     if (v) lines.push(`Health ${v.health}/${v.maxHealth}  Fatigue ${v.fatigue}  Magicka ${v.magicka}`);
     lines.push('', 'Esc - stop');
     return lines;
@@ -827,7 +832,7 @@ export class RestWindow {
     }
     // OL2: the world's clock, under the vitals, while the shared clock stands (RESTX2: the pace half is gone)
     if (Number.isFinite(st.worldMinutes)) {
-      shadowText(renderer, font, restClockLine(st.worldMinutes), m, 0, REST_PANEL_Y + REST_COUNTER_RECT[3] + 18, { align: 'center', w: NATIVE_W });
+      shadowText(renderer, font, restClockLine(st.worldMinutes, { loiter: this.mode === 'loiter' }), m, 0, REST_PANEL_Y + REST_COUNTER_RECT[3] + 18, { align: 'center', w: NATIVE_W });
     }
     return true;
   }

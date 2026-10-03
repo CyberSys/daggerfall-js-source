@@ -47,6 +47,22 @@ const EDITOR_FLAT_ARCHIVE = 199;
 const SPAWN_MARKER_RECORD = 11;
 const ITEM_MARKER_RECORD = 18;
 
+/** FIELD BUGS 29h (BOUNTY-LAIR): WHERE DFU STANDS A DUNGEON QUEST'S FOE - every quest spawn marker (199.11, the records
+ *  EnumerateDungeonQuestMarkers :1522 collects) of a laid-out dungeon, in its scene's frame: the marker's place under its
+ *  block's origin, as markerScenePosition puts a mounted one and collectDungeonEnemies an enemy's. `blocks` is the
+ *  dungeon context's own (world/rdbLayout.js markers - archive-199 flats carry no archive, a treasure flat carries its
+ *  216). */
+export function dungeonQuestSpawnSpots(blocks) {
+  const spots = [];
+  for (const b of blocks ?? []) {
+    for (const m of b?.layout?.markers ?? []) {
+      if ((m.archive ?? EDITOR_FLAT_ARCHIVE) !== EDITOR_FLAT_ARCHIVE || m.record !== SPAWN_MARKER_RECORD) continue;
+      spots.push([m.x + b.originX, m.y, m.z + b.originZ]);
+    }
+  }
+  return spots;
+}
+
 // Place.cs:621-623 - the wildcard building-type sets (exported so the
 // gate can pin them as literals).
 export const VALID_BUILDING_TYPES = Object.freeze([0, 2, 3, 5, 6, 8, 9, 11, 12, 13, 14, 15, 17, 18, 19, 20]);

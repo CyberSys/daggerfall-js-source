@@ -40,6 +40,7 @@
 // refused act's records name none. The bag's `home` says so.
 import { sharedRecord, validActionRecord } from './actionSystem.js';
 import { validLootList, LOOT_LIST_MAX } from '../systems/loot.js';
+import { unbound } from '../systems/itemBound.js';   // SS3: a bound piece in a room's container never lands
 import { mintSharedStamp } from '../net/wire.js';   // AUDIT WORLD6a B7: one stamp mint at the wire, twelve digits always
 
 /** The room's own key for a building - the SAME spelling roomKeyFor mints for the relay room (the map id unsigned,
@@ -59,7 +60,7 @@ export function interiorLocationKey(mapId, buildingKey) {
  *  owning one owns them all, and two players in one hull would disagree about whether the room exists) keeps NO
  *  room at all: no key, no memory, no presence room either (the host reports a 0 building key). */
 export function mintInteriorShared(locationKey, { owned = false, home = false } = {}) {
-  return { locationKey: owned ? null : (locationKey ?? null), owned: !!owned, home: !!home, stamp: mintSharedStamp(), seen: new Set(), tooBig: new Set(), applied: false, openKey: null, openWin: null };
+  return { locationKey: owned ? null : (locationKey ?? null), owned: !!owned, home: !!home, stamp: mintSharedStamp(), seen: new Set(), tooBig: new Set(), unreadable: new Set(), applied: false, openKey: null, openWin: null };   // AUDIT SETS M2: `unreadable` the containers whose room word this build cannot read
 }
 
 /** The container vocabulary a building shares - the cache's own keys (`shelf:<i>`, `container:<i>`, worldModes
@@ -97,7 +98,7 @@ export function interiorLootRecords(ctx, keys, tooBig = new Set()) {
       continue;
     }
     tooBig.delete(canon);
-    out.push({ k: canon, r: t.items.map((it) => ({ ...it })), d: Number.isFinite(t.stockedDate) ? t.stockedDate : 0 });
+    out.push({ k: canon, r: unbound(t.items).map((it) => ({ ...it })), d: Number.isFinite(t.stockedDate) ? t.stockedDate : 0 });   // AUDIT SS: never a bound piece on the wire - a stone left in one before SS3 stays off the room (an older build connected beside this one would land it)
   }
   return out;
 }
@@ -106,7 +107,7 @@ export function interiorLootRecords(ctx, keys, tooBig = new Set()) {
  *  rows) - except on the container this player has OPEN (AUDIT WORLD4 C1: yours until you close it, and your close
  *  is the room's newest word). A container this client never opened takes the room's list whole - that is the
  *  point: a second reader adopts the first's roll. Answers how many landed; `seen` gains every key the room spoke. */
-export function applyInteriorLoot(ctx, list, { seen = new Set(), openKey = null, today = null } = {}) {
+export function applyInteriorLoot(ctx, list, { seen = new Set(), openKey = null, today = null, unreadable = null } = {}) {
   let n = 0;
   for (const rec of Array.isArray(list) ? list : []) {
     const canon = interiorLootKeyOf(rec?.k);
@@ -120,11 +121,14 @@ export function applyInteriorLoot(ctx, list, { seen = new Set(), openKey = null,
     // then restock and republish over the room (A2's secondary). And the day only ever moves FORWARD (A3): a stale
     // close from a window opened yesterday must not un-restock a shelf the new day already rolled.
     if (!Number.isFinite(rec.d) || rec.d < 0 || (today != null && rec.d > today + 1)) continue;
-    const items = validLootList(rec.r);
-    if (!items) continue;
+    const items = unbound(validLootList(rec.r));   // SS3: a shelf or a container is the room's - a bound piece in one never lands
+    // AUDIT SETS M2: a list this build cannot read (a newer game's item) - the room HAS spoken: seen, and never claimed
+    // or closed over here (worldModes' interiorPublishLoot reads `unreadable`)
+    if (!items) { if (unreadable && interiorLootTarget(ctx, canon)) { seen.add(canon); unreadable.add(canon); } continue; }
     const t = interiorLootTarget(ctx, canon);
     if (!t) continue;
     seen.add(canon);
+    unreadable?.delete(canon);
     if (canon === openKey) { n++; continue; }
     if (Array.isArray(t.items)) { t.items.length = 0; for (const it of items) t.items.push(it); } else t.items = items;
     t.stockedDate = Math.max(Number.isFinite(t.stockedDate) ? t.stockedDate : 0, Math.floor(rec.d));

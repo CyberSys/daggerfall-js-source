@@ -106,6 +106,21 @@ closed. The C# is `float` throughout and the port runs every step
 through `Math.fround`, so the samples it writes are the ones DFU's
 `SetHeights` received.
 
+The lerp reaches EVERY sample of the tile, so a site a few metres over the
+sea lifted its whole pixel's sea over Come Sail Away's 34 m line (the sea is
+0.4 of a heightmap step from reading land) and over Deep Waters' carve (its
+four corners at most 34.019 m) while the tiles stay water: with Deep Waters
+on, every boat there lay beached, her sails refused, and no sea was carved.
+SEA-LEVEL (FIELD BUGS 2026-10-02b, Mac: "Controls for the player vessel are
+currently broken, including not being able to lower sails"; a departure):
+the flatten never raises the sea past SEA_RAMP (2) samples of the site's own
+rect - a sample at the sampler's sea clamp (SEA_SAMPLE) under the site's
+mean stays the sea past it; inside the rect the site's ground is the mod's,
+and within SEA_RAMP the mod's own lerp, a ramp down to the water. The land
+is levelled as the mod levels it. (SEA-SHOAL, FIELD BUGS 2026-10-02, had the
+boat read a carved seafloor there; the carve never took the lifted sea, and
+its audit struck it.)
+
 Because the flatten runs after texturing and before nature, three
 things follow and all three are the reference's: the ground's TILES are
 the unflattened terrain's (a levelled site keeps the grass and rock
@@ -191,6 +206,17 @@ flat, by its ARCHIVE STRING:
   Unity reverses the culling of a transform with a negative
   determinant, so the batch reverses that model's winding (WOD5).
   Before that fix the port drew the wall inside out.
+  The shrub (model 60610 in the camps, the nature spot and two ruins:
+  45 placements ringing the sites, every bandit camp among them) is the
+  one model NOT stood at the mod's height: its mesh foot goes to the
+  lowest drawn ground under the middle of its footprint (WOD-BUSH, a
+  Ledger A departure). The mod levels only the prefab's rect, the
+  shrubs stand in the eased band past it at heights read off the
+  author's own ground, and on falling ground they hung in the air, in
+  DFU as here. The rock fields' 157 placements of the same model are
+  boulders set into the outcrops and keep the mod's height (ROCK-SUNK,
+  `isWodShrub`): standing them raised shards up to 377 m tall round
+  every rock field (`01-Overview/Field-Bugs-2026-10-02.md`).
 - **a flat** is a billboard, base-anchored where `AlignToBase` and the
   scale fix (`LocationLoader.cs:243-248`) leave it; the four records the
   layouts scale are batches at their own size.
@@ -433,6 +459,8 @@ mutants are in `tools/mutants/auditwod.json`, and every one dies.
   20,000 sphere queries. With a stand-in rock (the real meshes are
   ARENA2's), every shipped layout, the giant included, now files in
   under 20 ms; the other mountains alone took 0.4 to 0.8 s before.
+  OW-WOD (2026-09-29, `06-Systems/Travel-View.md`): the coarse grid was the field's "lag near WOD mountains" - a query
+  took every face over its column - and is a bounding-volume tree over the wide faces now, each face once.
 - **M1: placed foes took a peer's puppet slots** (Online, above). They
   never ride and hunt no peer now; the camp no longer stands twice.
 - **M2: one bad or hung pack stopped the stream.** A pack the decoder
@@ -733,3 +761,43 @@ pieces do. Pinned in `test/roadsclear.test.js`, mutants in
 `tools/mutants/roadsclear.json`. The wilderness camps (CAMP-RING) take the same
 test for their anchor (its whole ring) and each member.
 
+
+## GATE-CLEAR - off the Oblivion Gate (2026-09-28, a port departure)
+
+The field, through Mac: "gate under the rock didnt go away stayed there"; Mac: "the
+gate can spawn inside the rock geometry from world of daggerfall". The online
+world's Oblivion Gate (`11-Multiplayer/World-Bosses.md`) takes a spot that is
+the clock's and the map files' alone - every client rolls the same one - and
+keeps off the game's own locations and the spawned dungeons, but not off this
+mod's sites: of 6,000 of the gate's own spots laid on the pixels the lists name,
+198 stood within 24 m of an object the mod stands. Inside a boulder the gate's
+fire is out of reach (the rock's collider takes the press's ray and the body
+first), so nobody fought and the gate stood its whole schedule.
+
+The gate does not move; the rock yields, ROADS-CLEAR's shape
+(`world/gateClearance.js`, read by `scenes/world.js`):
+- a camp, fort, shrine, ruin, cave or nature spot whose objects (grown by the
+  road test's 8 m site margin) reach the gate's 24 m clearing is refused at its
+  pick, after the road test - a `continue`, so a later instance may take the
+  pixel;
+- a rock field's or mountain's piece - or any other model - whose own mesh box
+  reaches the clearing is not stood (no mesh, no collider), and a flat whose
+  base is within it (2 m more);
+- the clearing is the gate the clock is about (from the last gate's collapse to
+  this one's), read once by a build at its pick; when it turns, the streamer
+  builds again, between builds, each pixel the old clearing cost something and
+  each standing a piece that reaches the new one (`sweepGateClear`, the late
+  sweep's shape), and a pixel building across the turn is asked as it
+  publishes.
+
+The faithful's circle (WB12d, `11-Multiplayer/World-Bosses.md` 19 D) is a second
+clearing of the gate's day, RITE_CLEAR_M (20 m) about the circle the day's law
+places (`riteLocalOf`): the same refusals, so no boulder stands through the altar,
+the braziers or the faithful's tents (AUDIT WB12d G12).
+
+Online alone: the gate is online's, and online this mod is the room's, forced
+on (`systems/onlineLane.js`) - so every client that sees a gate stands the same
+rock and refuses the same pieces, and the ground the room shares (the flatten)
+is refused with the site on every one of them. Offline the mod stands 1:1.
+Pinned in `test/gateclear.test.js`, mutants in `tools/mutants/gateclear.json`;
+`01-Overview/Field-Bugs-2026-09-28b.md` has the reading.

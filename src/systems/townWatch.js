@@ -83,7 +83,7 @@ export function isTownThreat(f, { inTownRect } = {}) {
   if (!f.ai.isHostile) return false;
   if (f.entity.team === 'PlayerAlly') return false;
   const t = f.ai.target;
-  if (!isPlayerTarget(t) && !(t?.defender === true && !t.dead)) return false;
+  if (!isPlayerTarget(t) && !(t?.defender === true && !t.dead) && !(t?.companion != null && !t.dead)) return false;   // AUDIT CC-B6: a monster fighting a companion is still the fight
   return !!inTownRect?.(f);
 }
 

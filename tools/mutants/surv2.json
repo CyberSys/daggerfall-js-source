@@ -29,11 +29,12 @@
   {
     "name": "SURV2-eating-does-not-take-one-off-the-stack",
     "file": "src/systems/survival/items.js",
-    "old": "    takeOne();\n    if (entity && r.sick)",
-    "new": "    if (entity && r.sick)",
+    "old": "  if (list) {\n    if ((item.stackCount ?? 1) > 1) item.stackCount -= 1;\n    else { const i = list.indexOf(item); if (i >= 0) list.splice(i, 1); }\n  }\n  if (entity && r.sick)",
+    "new": "  if (entity && r.sick)",
     "tests": [
       "test/surv2_items.test.js"
-    ]
+    ],
+    "note": "PROF9 (RE-AIMED by content): the fire's code beside it."
   },
   {
     "name": "SURV2-the-drink-does-not-relieve-thirst",
@@ -83,8 +84,8 @@
   {
     "name": "SURV2-a-vendor-archive-is-gated-like-a-pick",
     "file": "src/systems/textureReplacement.js",
-    "old": "  const v = _vendor.get(key);\n  if (v) return !v.gate || v.gate() === true;   // DW3: a gated entry answers only while its switch is on\n  if (!textureReplacementEnabled()) return false;\n  return _index.has(key);",
-    "new": "  if (!textureReplacementEnabled()) return false;\n  return _index.has(key) || _vendor.has(key);",
+    "old": "  const v = _vendor.get(key);\n  if (v) return !v.gate || v.gate() === true;   // DW3: a gated entry answers only while its switch is on\n  if (!textureReplacementEnabled()) return false;\n  return _index.has(key) || _bundle.has(key);   // DFMOD1: an attached bundle's texture answers too",
+    "new": "  if (!textureReplacementEnabled()) return false;\n  return _index.has(key) || _bundle.has(key) || _vendor.has(key);",
     "tests": [
       "test/surv2_items.test.js"
     ]
@@ -92,7 +93,7 @@
   {
     "name": "SURV2-a-user-pick-drops-the-ports-own-pixels",
     "file": "src/systems/textureReplacement.js",
-    "old": "  for (const k of _decoded.keys()) if (!_vendor.has(k)) _decoded.delete(k);   // a new pick must not inherit the old one's pixels; the port's own stay",
+    "old": "  for (const k of _decoded.keys()) if (!_vendor.has(k) && !_bundle.has(k)) _decoded.delete(k);   // a new pick must not inherit the old one's pixels; the port's own stay (DFMOD1: and an attached bundle's)",
     "new": "  _decoded.clear();",
     "tests": [
       "test/surv2_items.test.js"

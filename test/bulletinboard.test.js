@@ -187,7 +187,7 @@ test('world.js collects the boards a pixel stands and hands them over shifted', 
   const w = src('src/scenes/world.js');
   assert.ok(w.includes("import { isBulletinBoard, isCityGate,") && w.includes("} from '../world/rmbLayout.js';"),
     'the model test comes from RMBLayout\'s home, not a second 41739 (AUDIT 64 F14 added isCityGate to the same import - RMBLayout.cs declares both)');
-  assert.ok(w.includes('if (isBulletinBoard(placed.modelIdNum)) pixelBoards.push({ box });'),
+  assert.ok(w.includes('if (isBulletinBoard(placed.modelIdNum)) pixelBoards.push({ box, local });'),   // SEAT1a: and its matrix, a seat's pennant's face
     'the board is caught where the placement is stood, with the box already in the pixel frame');
   assert.ok(w.includes('boards: pixelBoards,'), 'the list rides the pixel, so destroyPixel takes it away');
   assert.match(w, /boardTargets: \(\) => \{/);
@@ -235,7 +235,7 @@ test('the probe exterior host stands its boards too - the standing host rule', (
     "no mill in this host - the board opens on the location name alone, C#'s own empty arm");
   // ...AND THE NAME IS NOT FREE. The heading is PlayerGPS
   // .CurrentLocalizedLocationName (:721), which the arm reads off
-  // `buildingDirectory` (worldModes.js:2478) and off nothing else - so
+  // `buildingDirectory` (worldModes.js:2670) and off nothing else - so
   // a host that stands boards without handing one over opens the box
   // on a BLANK parchment, not "the location name alone": the head row
   // composes empty and bulletinBoard.js:97 shifts the starter row off,

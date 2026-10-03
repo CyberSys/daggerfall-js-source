@@ -176,8 +176,8 @@ for the C# member.
 | `Enemies[id].LootTableKey = MobLootKeys[id]` (:79-84) | the basics row | `loot.js enemyLootTableKey`, read by `hostCombat.spawnEnemyLoot` |
 | `IsItemStackable` override (:168-171) | FormulaHelper.cs:2100-2102, an added yes | `inventory.js isStackable`, one arm |
 | `RegisterItemUseHandler(Bandage, UseBandage)` (:93) | ItemHelper's handler dictionary, asked by UseItem (:1703-1709) | `itemTemplates.registerItemUseHandler` / `useItem.js`, the delegate arm ahead of the ladder |
-| `StackableBandages_OnLootSpawned`, `StoreQualityItemCondition`, `AddPotions_OnLootSpawned` | PlayerActivate.OnLootSpawned (:885) | `rriKits.onShopShelfStocked`, at both of worldModes' shelf doors |
-| `RandomConditionEnemyItems` / `RandomConditionLootItems` | EnemyEntity.OnLootSpawned (:399), LootTables.OnLootSpawned (:163) | `hostCombat.spawnEnemyLoot` after the trio (the worn set walked too - DFU's Items holds it, the port's droppable cut does not); `loot.addPileLootExtras` after the J..O tail |
+| `StackableBandages_OnLootSpawned`, `StoreQualityItemCondition`, `AddPotions_OnLootSpawned` | PlayerActivate.OnLootSpawned (:885) | `rriKits.onShopShelfStocked`, the first subscriber of the event's one home (`systems/containerLoot.js`, FORAGE3 2026-09-28), raised at both of worldModes' shelf doors and, as DFU raises it (:914), at a house container - which RRI's own ShopShelves gate refuses; Come Sail Away's AssignVariantsToShopItems subscribes after it by name (THE MERGE: CSA-H's host hook folded in) |
+| `RandomConditionEnemyItems` / `RandomConditionLootItems` | EnemyEntity.OnLootSpawned (:399), LootTables.OnLootSpawned (:163) | `hostCombat.spawnEnemyLoot` after the trio (the worn set walked too - DFU's Items holds it, the port's droppable cut does not); `loot.addPileLootExtras` after the J..O tail - since FORAGE3 (2026-09-28) through the event's one home (`raiseTabledLootSpawned`, RRI's the first subscriber) and for EVERY key GenerateLoot finds, as :163 does: a Coven's (Q), a Laboratory's (U) and the other keys outside J..O wear their piles' armour, weapons and books too, which they had not (main's OH-E found the same at 2026-09-26 and built the event a second time; THE MERGE made the two one list - `loot.tableLootSpawned` is OH-E's add-and-remove door onto it, beside `enemyEntity.enemyLootSpawned`, and There's a Hole in the Bottom of the Ocean's AddBonusMagicLoot and UpgradeLoot subscribe after RRI's) |
 | `CalculateCost` override (:247-260) | FormulaHelper.cs:1884 - `conditionPercentage`, the third parameter DFU's arm never reads | `shopStock.calculateCost`'s fourth argument; `tradeModes` Sell passes `conditionPercentage(item)` as DaggerfallTradeWindow.cs:462 does |
 | `CalculateItemRepairCost` override (:262-278) | FormulaHelper.cs:1901 | `repairService.calculateItemRepairCost`, 0.6 / 0.9 under InstantRepairs |
 | `EnemyEntity.AssignEnemyEquipment = ...` (:113) | EnemyEntity.cs:133, the delegate | `enemyEquipment.setEnemyEquipmentAssigner`; `assignEnemyStartingEquipment` dispatches; the roll and the armor-value pass are two exports now (`rollEnemyEquipment`, `enemyArmorValues`), the pass reading a custom piece's own `GetMaterialArmorValue` and its class's slot |
@@ -225,7 +225,12 @@ Read against the C#:
   the live speed; a weapon's `baseWeight` scaled by `150 - Strength`
   per cent, times 3.4, comes off a speed capped at 98 as
   `speed * reduction / 90` (an int cast), then DFU's `3 * (115 -
-  speed)` over the classic frame update.
+  speed)` over the classic frame update. SWING-LAW (2026-09-28, Mac:
+  "swing speed is insane"): the adjusted speed is now the Speed the
+  swing is read at, answered through the port's own swing law - its
+  bounded curve and the handling of the weapon's kind and hands - and
+  the mod's weight law stands in for the law's own heft (Ledger A
+  SWING-LAW, `05-Combat/Combat.md` SWING-LAW).
 - **ConditionPercentage** has one home now (`itemTemplates`), the
   C# integer division; itemInfo re-exports it.
 
@@ -336,6 +341,34 @@ of nothing is 0: broken to the equip check, undamaged to the repairer. The biogr
 `mintCondition` now, the kit mints the dagger before it wears it (`isQuestionsDagger`, `QUESTIONS_DAGGER_WEAR`, one
 home in `systems/conditionRepair.js`), and a load mints a never-minted wearable by the law it missed - the kit's 20%
 for this dagger at 0. `test/disc21.test.js` (A). `01-Overview/Field-Bugs-2026-09-23.md`, DISC21-A.
+
+## DISC29-B (2026-09-28) - the word a rarity name dropped, and the two mods that read the raw make
+
+Julian on Discord: a coloured-tier "iron" helmet his class was refused as leather. The refusal is this mod's design -
+a light-set piece of a plate material is BRIGANDINE, and `NativeMaterialValue` takes 0x0200 off "so DFU treats this
+item as leather for forbidden checks" - but the list gave him no way to know: the class's CurrentVariant setter
+names the mint "Brigandine Helmet", and the Loot Rarity ladder built its "Sentinel's Helmet of the Bear" again from
+the bare TEMPLATE's name (`systems/lootRarity.js rarityName`), so the long name read "Iron Sentinel's Helmet".
+
+- **One rule for the word** (`systems/rriItems.js`): each armour class carries `variantWord` - the light set's
+  `lightWord` (a plate material is Brigandine; Chain is Fur, read before the fold or after it as Leather with
+  `message` 1) and the chain set's `mailWord` (plate is Mail). The setters build their names from it, and
+  `rriVariantWord(item)` answers it to anyone else ('' for a classic item, the weapons, leather, the mod off).
+- **The rarity name reads it**: `rarityName` puts the word before the template's name ("Sentinel's Brigandine Helmet
+  of the Bear"). Every roll mints through `setItemFields` first (`createRandomArmor`, the corpse's kit, the Broker, the
+  gate's spoils, the Test Room), so the word is never written twice.
+- **A save's names are given it back** (`repairRarityNames`, run on load over the pack, the wagon and the repair
+  shelf, beside DISC21-A's repair - and, since AUDIT PRE-MERGE 0929 D3, over every list of the character's own things
+  the save carries: a cached scene's chests, piles and storage pieces, the world's piles and dead foes' packs, Come Sail
+  Away's boats and cargoes, `net/realmGoldLaw.js stashedItemLists`): only a Magic or Rare name that IS the old bare
+  build moves - idempotent, and a name that is anything else is left.
+- **The same class value, read by two other mods**: Immersive Footsteps (`boots.NativeMaterialValue`,
+  ImmersiveFootstepsMain.cs:502-532) and Better Ambience's HasArmor (`chest.NativeMaterialValue`,
+  BetterFootstepsComponent.cs:256-259) read the PROPERTY this mod overrides; the port read the raw `material`, so
+  brigandine boots walked in plate and a mail hauberk clanked as plate. Both read `rriNativeMaterialValue` now.
+
+`test/disc29_rarity.test.js` (6), `test/if1_immersivefootsteps.test.js` (the boots' ladder);
+`tools/mutants/disc29.json` (DISC29-B, 11). `01-Overview/Field-Bugs-2026-09-28f.md`, DISC29-B.
 
 ## Record
 

@@ -91,7 +91,7 @@ test('F204: the 8-hour alert decay is part of the PLAYER TICK, so the ticker-les
 });
 
 test('F204: the dungeon REST window jumps the clock without the tick, so it decays before the roll it gates', () => {
-  const i = DUNGEON_CTX.indexOf('const _restAdvance = (n, sharedEnd = null) => {');
+  const i = DUNGEON_CTX.indexOf('const _restAdvance = (n) => {');
   const fn = DUNGEON_CTX.slice(i, DUNGEON_CTX.indexOf('\n  };', i));
   assert.ok(i > 0 && fn.length > 200, 'the rest advance arm was found whole');
   assert.ok(fn.includes('decayEnemyAlert(playerEntity, Math.floor(end));'),   // AUDIT 68 S19-rest-alert-decay-wrong-clock: the session's minute
@@ -168,7 +168,7 @@ test('F050: every dungeon foe gets its spell list at BUILD time (EnemyEntity.cs:
 // =====================================================================
 
 test('F051: the ?dungeon fly-cam is gated on the OVERLAY, not on the imported input helper', () => {
-  // `held` at dungeon.js:47 is the input helper - a function, always
+  // `held` at dungeon.js:54 is the input helper - a function, always
   // truthy - so `} else if (!held) {` was a branch that could not run:
   // with ?dungeon&fly or ?shot, WASD never moved the camera. The gate
   // was a local overlay boolean once, renamed overlayHeld at :353.
@@ -266,37 +266,24 @@ test('F036: the passive watch rolls, verbatim (PlayerEntity.cs:498-511)', () => 
   assert.equal(passiveGuardSpawns({ severePunishmentFlags: 1 }, () => 0.10), 0, 'roll 10 is not');
 });
 
-test('F036: the world host runs those rolls in the catch-up loop and calls SpawnCityGuards(FALSE)', () => {
-  // The witness arm of cityGuards.spawnCityGuards had NO production
-  // caller: both hosts passed `true` only, so civilians seeing a crime,
-  // guard NPCs converting on sight and the 5-10 second arrival
-  // countdown never ran in the shipped game.
+test('F036: the world host runs those rolls in the catch-up loop and calls SpawnCityGuards(FALSE) - REP1 RETIRED THE LEVY: the loop rolls none, and the witness arm\'s eye stops a known criminal instead', () => {
+  // The witness arm of cityGuards.spawnCityGuards had NO production caller until F036 put the passive rolls in the loop.
+  // REP1 (the reputation overhaul, 2026-09-29, Mac: "Challenged on sight"): PIN MOVED - the per-minute levy is retired
+  // (in town the watch about every hundred real seconds for a bad name, no guard anywhere near), and a guard who SEES a
+  // known criminal stops them (scenes/standingHost.js, test/rep1_watchstop.test.js). The loop rolls nothing for a name;
+  // the roll's own law above is DFU's record (encounters.js keeps it, with no production caller).
   const i = WORLD.indexOf('function runEncounterTick');
   const fn = WORLD.slice(i, WORLD.indexOf('\n  }\n', i));
   assert.ok(i > 0, 'the port of PlayerEntity.Update:486-511 was found');
-  assert.ok(fn.includes('passiveGuardSpawns({'), 'the rolls ride the SAME per-minute loop DFU puts them in');
-  assert.ok(fn.includes('legalRep: legalRepOf(playerEntity, _region)'), 'off the current region\'s LegalRep');
-  assert.ok(fn.includes('severePunishmentFlags: playerEntity.regionConditions?.[_region]?.severePunishmentFlags ?? 0'),
-    'and the region record\'s SeverePunishmentFlags');
-  // V4 advanced this pin: every crime write routes through court.js's
-  // setCrimeCommitted (PlayerEntity.CrimeCommitted's setter - the
-  // SuppressCrime gate), so the levy is the setter call now.
-  assert.ok(fn.includes('setCrimeCommitted(playerEntity, CRIMES.Criminal_Conspiracy);'),
-    'each success levies Criminal_Conspiracy first, exactly as :502/:509');
-  assert.ok(fn.indexOf('intermittentEnemySpawn({') < fn.indexOf('passiveGuardSpawns({'),
-    'after the spawn roll, which breaks out of the loop before them (:492)');
-  // ROAD-B MOVED THIS NEEDLE. SpawnCityGuards' INDOOR arm
-  // (PlayerEntity.cs:628-642) is offered the call ahead of the street
-  // law now, so both arms route through the host's ONE entry and the
-  // literal `false` moved one frame out: `_witnessResponse` passes it
-  // to `_spawnGuards`, which passes the bool on to the pool with the
-  // live NPC list. The fact the pin guards - the witness arm HAS a
-  // production caller, over the real pool - is unchanged.
-  assert.ok(WORLD.includes('function _witnessResponse() { _spawnGuards(false); }'),
-    'the witness arm finally has a caller');
+  assert.ok(!fn.includes('passiveGuardSpawns('), 'the loop rolls no levy');
+  assert.ok(!fn.includes('CRIMES.Criminal_Conspiracy'), 'and levies no Conspiracy');
+  assert.match(fn, /REP1 \(Mac: "Challenged on sight"\): THE PASSIVE LEVY IS RETIRED\./);
+  assert.ok(!WORLD.includes('function _witnessResponse()'), 'the witness hook had one caller, the levy, and went with it');
+  assert.match(WORLD, /\n\s*standingWatch\.frame\(\);   \/\/ REP1: a guard who sees a known criminal stops them/, 'the stop is looked for in the frame');
   assert.ok(WORLD.includes("cityGuards.spawnCityGuards(!!immediate, { playerFeet: [...feet], playerFwd: fwd, pool: _guardPool() })"),
-    'and it reaches the pool with the live NPC pool');
+    'the seen crime still reaches the pool with the live NPC pool');
 });
+
 
 // =====================================================================
 // F212 - exterior corpses are loose objects and get collected
@@ -542,7 +529,12 @@ test('F212: the world host collects both pools with the pixel, which is also wha
   // PIN MOVED AGAIN (PERF-EXT21), 4600 -> 5400: the sweep now empties the
   // grass field too - a crossing no longer does it - with its own note,
   // above the needles.
-  const core = WORLD.slice(t, t + 5400);
+  // PIN MOVED AGAIN (CSA-F), 5400 -> 5600: the core now raises Come Sail
+  // Away's OnTeleportToCoordinates beside DW-D's (the waves laid a tenth of
+  // a second on), one statement above the needles.
+  // PIN MOVED (AUDIT OW5 J2), 5600 -> 6600: a jump stops a route's walk first thing, with its note
+  // PIN MOVED (AUDIT CLIMB-ARC F6), 6600 -> 6800: the climb's feel resets beside the recoiler, one statement above
+  const core = WORLD.slice(t, t + 6800);
   assert.ok(core.includes('destroyPixel(bx, by);'),
     'so a fast travel or a teleport takes every corpse with it');
   assert.ok(core.includes('exteriorFoes.clearLive();') && core.includes('cityGuards.clearLive();'),

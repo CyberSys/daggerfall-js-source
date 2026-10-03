@@ -12,7 +12,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { webcrypto } from 'node:crypto';
 import { fakeRoom } from './fakeRoom.mjs';
-import { TITLES, GLYPHS, RENOWN_MAX, claimsValid, mintToken, verifyToken, importPublicKeyB64 } from '../src/net/identityToken.js';
+import { TITLES, GLYPHS, RENOWN_MAX, SEAT_TITLES, AURAS, claimsValid, mintToken, verifyToken, importPublicKeyB64 } from '../src/net/identityToken.js';
 import {
   TITLE_TEXT, TITLE_RGBA, TITLE_GRADIENT, GLYPH_RGBA, GLYPH_GRADIENT, GLYPH_DETAIL, GLYPH_EDGE_W, GLYPH_MARK, GLYPH_PATH,
   GLYPH_STROKE, FONT_GLYPH_MIN, FONT_GLYPH_MAX, cssRgba, cssGradient, titleBadge, glyphBadges, glyphSvgNode, glyphArtNode,
@@ -143,7 +143,7 @@ test('SHADOW-FANG grant: SirMcMobdon alone holds it, case-folded, title and glyp
   assert.equal(titleWorn(row('SirMcMobdon', { title: 'shadowfang' }), env), 'shadowfang');
   assert.equal(equipRefusal('shadowfang', row('SirMcMobdon'), env), null, 'theirs to wear');
   assert.equal(equipRefusal('apostle', row('SirMcMobdon'), env), 'not-held');
-  assert.deepEqual(wardrobeOf(row('sirmcmobdon', { title: 'shadowfang' }), env, nowS), { titles: ['shadowfang'], title: 'shadowfang', glyphs: ['shadowfang'] });
+  assert.deepEqual(wardrobeOf(row('sirmcmobdon', { title: 'shadowfang' }), env, nowS), { titles: ['shadowfang'], title: 'shadowfang', glyphs: ['shadowfang'], auras: [], aura: null, insignia: [] });   // WB9g: and no aura, no insignia bought
   for (const h of ['Dutchess', 'SquidKamer', 'Lattymoy', 'Stranger']) {
     assert.ok(!titlesHeld(row(h), env).includes('shadowfang'), `${h} does not hold it`);
     assert.ok(!glyphsOf(row(h), env, nowS).includes('shadowfang'));
@@ -163,16 +163,25 @@ test('SHADOW-FANG token and relay: a token may carry the title and the glyph and
   assert.deepEqual(r.claims.g, ['shadowfang']);
   assert.equal(claimsValid({ v: 1, s: 'acct-sf', n: 'SirMcMobdon', k: 'linked', i: nowS, e: nowS + 60, g: [...GLYPHS] }), true, 'every glyph at once still fits');
   // AUDIT B8: THE WIDEST TOKEN STILL PASSES THE HELLO - every glyph, the longest title, the longest name and account
-  // id, a mute and the Renown cap - inside wire.js's TOKEN_RE (a 512-character body) and the verifier's 1024; and
+  // id, a mute and the Renown cap - inside wire.js's TOKEN_RE (a 640-character body since world149; 512 before) and the verifier's 1024; and
   // (the merge) GUILD1c's three guild claims at their shapes' bounds (guildLaw.js GUILD_ID_RE, GUILD_TAG_RE, GUILD_MEMBER_RE)
   const TOKEN_RE = new RegExp(/const TOKEN_RE = \/(.+)\/;/.exec(rd('src/net/wire.js'))[1]);
   const longest = TITLES.reduce((a, t) => (t.length > a.length ? t : a), '');
   const guild = { gi: `g${'z'.repeat(10)}`, gt: 'WWWW', gm: `m${'9'.repeat(15)}` };
   const wide = await mintToken({ s: 'a'.repeat(40), n: 'W'.repeat(NAME_MAX), k: 'linked', t: longest, g: [...GLYPHS], mu: nowS + 10 ** 9, lv: RENOWN_MAX, ...guild }, kp.privateKey, { subtle, nowS });
   assert.equal(JSON.parse(Buffer.from(wide.split('.')[1], 'base64url').toString()).gm, guild.gm, 'the guild rides it');
-  assert.ok(TOKEN_RE.test(wide), `the widest token passes the hello (${wide.split('.')[1].length} of 512)`);
+  assert.ok(TOKEN_RE.test(wide), `the widest token passes the hello (${wide.split('.')[1].length} of 640)`);
   assert.ok(wide.length <= 1024);
   assert.ok((await verifyToken(wide, pub, { subtle, nowS })).ok);
+  // SEASON1 part two (world149): AND EVERY OPTIONAL CLAIM AT ONCE - the longest seat title with its claim at its bounds,
+  // the longest aura, the realm's word and a Season's banner ribbon beside the rest. The old 512 refused this one.
+  const seatT = SEAT_TITLES.reduce((a, t) => (t.length > a.length ? t : a), '');
+  const aura = AURAS.reduce((a, x) => (x.length > a.length ? x : a), '');
+  const widest = await mintToken({ s: 'a'.repeat(40), n: 'W'.repeat(NAME_MAX), k: 'linked', t: seatT, ts: [0xffffffff, 9999], g: [...GLYPHS], au: aura, mu: nowS + 10 ** 9, lv: RENOWN_MAX, ...guild, rc: 1, rb: [15, 14] }, kp.privateKey, { subtle, nowS });
+  assert.ok(widest.split('.')[1].length > 512, `past the old bound (${widest.split('.')[1].length})`);
+  assert.ok(TOKEN_RE.test(widest), `every claim at once passes the hello (${widest.split('.')[1].length} of 640)`);
+  assert.ok(widest.length <= 1024);
+  assert.deepEqual((await verifyToken(widest, pub, { subtle, nowS })).claims.rb, [15, 14]);
   assert.deepEqual(readBadge({ title: 'shadowfang', glyphs: ['sprout', 'shadowfang'] }), { title: 'shadowfang', glyphs: ['sprout', 'shadowfang'] });
 
   const room = fakeRoom('town:m9');
@@ -275,7 +284,7 @@ test('SHADOW-FANG the account card: the button keeps the plain crimson (its bord
   assert.ok(badgeCss().includes(rule), 'the word\'s rule');
   assert.ok(ENHANCED_CSS.includes(rule), 'and it reached the skin');
   assert.ok(ENHANCED_CSS.includes(`.card button.acttitle.${badgeClass('tl', 'shadowfang')} { color: #d3193c; }`));
-  assert.equal((badgeCss().match(/\.acttitleword/g) ?? []).length, 1, 'only a gradient title gets a word rule');
+  assert.equal((badgeCss().match(/\.acttitleword/g) ?? []).length, Object.keys(TITLE_GRADIENT).length, 'only a gradient title gets a word rule - Shadow Fang\'s, and since PENITENT Penitent\'s');
   const js = rd('src/ui/enhancedAccount.js');
   const wardrobe = js.slice(js.indexOf('function wardrobe()'), js.indexOf('function paint()'));
   assert.match(wardrobe, /b\.append\(el\('span', 'acttitleword', TITLE_TEXT\[key\] \?\? key\)\);/);

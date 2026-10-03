@@ -13,6 +13,7 @@ import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { LabGrassRenderer, createGrassField, grassPerCell, GRASS_CELL, LAB_GRASS } from '../src/render/labGrass.js';
 import { perspective, mirrorProjectionX, lookAt } from '../src/world/mat4.js';
+import { codeOnly } from './codeOnly.mjs';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const read = (p) => readFileSync(join(root, p), 'utf8');
@@ -182,12 +183,12 @@ test('PERF2 pins: the sky passes, the clouds\' composite and the ring sit AT the
   // the hosts: terrain, then the sky block, then the water
   const w = read('src/scenes/world.js');
   const terrainAt = w.indexOf('renderer.drawTerrain(p.dwTerrain ?? p.terrain, pixelMatrix,');   // DW-C: a pixel's clipped ground (Iliac Puddle No More's cap) draws in its place
-  const skyAt = w.indexOf('sky.draw(cam.yaw, cam.pitch, fieldOfView(), worldAspect');
+  const skyAt = w.indexOf('sky.draw(tvf ? tvf.yaw : cam.yaw, tvf ? tvf.pitch : cam.pitch + climbFeel.pitch(), fieldOfView() + climbFeel.fovRad(), worldAspect');   // CLIMB4: the climb's pitch and kick   // TV1: the sky turns to the travel view's eye
   const ringAt = w.indexOf('farRing.draw(view, {');
   const waterAt = w.indexOf('if (waterOn) {');
-  const billAt = w.indexOf('renderer.drawBillboards(allBatches, camRight, UP_Y);');
+  const billAt = w.indexOf('renderer.drawBillboards(allBatches, camRight, bbUp);');   // TV1: the flats lean to the travel view's eye
   assert.ok(terrainAt > 0 && terrainAt < skyAt && skyAt < ringAt && ringAt < waterAt && waterAt < billAt, `world: terrain ${terrainAt} < sky ${skyAt} < ring ${ringAt} < water ${waterAt} < flats ${billAt}`);
-  assert.equal((w.match(/renderer\.markForeignPass\(\);/g) || []).length, 11, 'moved, not added (DUEL1 added the ring wall\'s seam, WB2 the gate\'s fire, WB4a the court\'s telegraph, WB6a the Deadlands\' sea and sky, counted in glstate too): glstate counts the seams (WIND3 added the wisps\' seam, WEATHER2d the sand\'s, BOLT the bolts\', DW-C the sea surfaces\', counted there too)');
+  assert.equal((w.match(/renderer\.markForeignPass\(\);/g) || []).length, 20, 'moved, not added (WB12d added the rite\'s smoke; LOOT11 added the loot lines\' two seams, the street\'s pass and the modes\' hook; UNDER-LOOK added the water\'s seam under the sea, GUILD1d added the halls\' banners\' seam, WB9g added the aura\'s seam, TV4 added the curtains\' seam under the travel view, DUEL1 added the ring wall\'s seam, WB2 the gate\'s fire, WB4a the court\'s telegraph, WB6a the Deadlands\' sea and sky, counted in glstate too): glstate counts the seams (WIND3 added the wisps\' seam, WEATHER2d the sand\'s, BOLT the bolts\', DW-C the sea surfaces\', OH-C the pit\'s core and miasma, counted there too)');   // CROWN-HALL: the banners' cloth in a castle's throne room (PIN MOVED)
   const e = read('src/scenes/exterior.js');
   const eTerrain = e.indexOf('renderer.drawTerrain(groundSurface, identityMatrix,');
   const eSky = e.indexOf('sky.draw(Math.atan2(dx, dz), Math.atan2(dy, horiz)');
@@ -201,7 +202,7 @@ test('PERF2 pins: the sky passes, the clouds\' composite and the ring sit AT the
   const wQueue = w.indexOf('groundQueue.push(p);');
   assert.ok(wQueue > 0 && wQueue < wMesh && terrainAt > wMesh, 'world: the pixel walk queues its ground and draws the meshes; the ground is drawn after the walk');
   const wDrain = w.indexOf('for (const p of groundQueue) {');
-  assert.ok(wDrain > wMesh && wDrain < terrainAt && terrainAt < w.indexOf('_camRight[0] = Math.cos(cam.yaw);'), 'the queue drains - the whole queue - before the flats are gathered for the draw');
+  assert.ok(wDrain > wMesh && wDrain < terrainAt && terrainAt < w.indexOf('_camRight[0] = Math.cos(_bbYaw);'), 'the queue drains - the whole queue - before the flats are gathered for the draw');
   // NEAR-FIRST: the pixel walk is sorted nearest-first before the meshes go down, so near buildings hide far ones in the depth buffer
   const wSort = w.indexOf('_pixelOrder.sort((a, b) => a._dist2 - b._dist2);');
   assert.ok(wSort > 0 && wSort < wMesh && w.indexOf('for (const p of _pixelOrder) {') > wSort && w.indexOf('for (const p of _pixelOrder) {') < wMesh, 'the walk runs over the sorted order');
@@ -210,4 +211,8 @@ test('PERF2 pins: the sky passes, the clouds\' composite and the ring sit AT the
   const eMesh = e.lastIndexOf('renderer.drawMesh(d.mesh, d.matrix, texRemap);'), eArrows = e.indexOf('arrows.draw(renderer, texRemap);');
   assert.ok(eMesh > 0 && eArrows > eMesh && eTerrain > eArrows, 'exterior: the ground after the buildings, the mills and the arrows');
   assert.match(w, /window\.__grassStats = \(\) => \(\{ blades: labGrass\.count, drawn: labGrass\.drawn,/, 'the probe reports what was drawn');
+  // PERF-URL (2026-09-29): the hook's `cells` and `slots` sat INSIDE a trailing comment on its first line, so it had
+  // answered without them since at least 2026-09-24 - held in the CODE now (codeOnly blanks comments), not the text
+  const hook = codeOnly(w.slice(w.indexOf('window.__grassStats = () => ({'), w.indexOf('window.__grassStats = () => ({') + 1200));
+  assert.match(hook, /cells: labGrassField\?\.live\.size \?\? 0, slots: labGrassField\?\.slots \?\? 0,/, 'the probe reports the field\u2019s cells and slots');
 });

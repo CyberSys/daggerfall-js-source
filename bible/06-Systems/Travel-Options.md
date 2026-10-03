@@ -337,6 +337,11 @@ must be assigned there, never re-declared. Mutants
    ignores it. Offline the spinner buys real time and charges game-days;
    online it buys both. Named here rather than capped: capping it would
    be an online rule, and this slice was asked not to make one.
+   [SUPERSEDED for the character's clock by FIELD BUGS 2026-09-29h
+   WALK-CLOCK (Mac: *"Dont worry abour DFU."*): online the journey's
+   minutes past the world's are raised on the character's own clock
+   (LIVED1), so the traveller lives the ride's days as offline; the
+   world's clock still moves its real minutes alone.]
 
    AUDITED BEFORE MERGE, and one consequence named rather than fixed.
    The journey machinery itself is online-agnostic - `travelOptions`,
@@ -355,7 +360,8 @@ must be assigned there, never re-declared. Mutants
    written down here for whoever meets it.
 
    THE POPUP SAYS SO. `ONLINE_TRAVEL_LINE` - "the world's clock does
-   not wait. You arrive now, and no inn is paid" - is DFU's fast travel
+   not wait. You arrive now, and no inn is paid" [LIVED1: now "Online: the days pass
+   on your own clock. You arrive in the world's present."] - is DFU's fast travel
    talking, and it was true of every online trip while the journey stood
    down. It is false over a walked one, so both skins now gate it off
    `walkedTrip` / `t.walked`; that branch already carries the mod's own
@@ -407,12 +413,12 @@ must be assigned there, never re-declared. Mutants
     active" (`:1273`), so a ring walked after any stopped journey ran
     under a stale name - the one condition that keeps `InitLocationRects`
     refreshing the rects mid-journey (`:606-612`). The port's arm
-    forgets the name as the other two do (`travelOptions.js:533`).
+    forgets the name as the other two do (`travelOptions.js:764`).
 17. **The recovery walk's give-up is a junction** (`:727-1050`, ROAD-CRASH
     below). When `SelectNextPath`'s nine shifts narrow nothing, the mod
     hands `GetTargetPixel` a multi-bit mask whose `default` arm is the
     pixel the player stands in: a leg arrived before it starts, forever.
-    The port stops at a junction instead (`travelOptions.js:600`).
+    The port stops at a junction instead (`travelOptions.js:832`).
 18. **The journey steers round what is in its way, and stops short of what
     it cannot pass** (TRAVEL-NAV, below). The mod's autopilot beelines and
     its body grinds against whatever stands on the line. The port's own
@@ -424,6 +430,16 @@ must be assigned there, never re-declared. Mutants
     rect only inside the destination pixel (`PlayerAutoPilot.cs:80`); a location eight blocks
     across fills its pixel, so its whole buffer lies in the neighbours and
     the traveller came up to the walls before the question was asked.
+20. **On the ship, the ports rule asks of the port it was boarded at**
+    (SHIP-PORT, 2026-09-28, below). `IsNotAtPort` (TravelOptionsPopUp.cs:87-91)
+    reads `PlayerGPS.CurrentLocation`, which on the player's own ship is
+    "Your Ship" (2,2 or 5,5) - in neither port list - so the mod refuses the
+    passage from the deck, while DFU reckons every trip from the deck from
+    the boarding pixel (TravelTimeCalculator.GetPlayerTravelPosition) and the
+    mod's own `HasNoOceanTravel` (:93-96) names `IsOnShip`, the passage it
+    meant. Ashore the rule reads exactly as the mod's. The boarding PLACE is
+    what is read, not a harbour by fiat: a ship boarded in the wilderness
+    (DFU boards anywhere) reads no port from its deck, as there (AUDIT 28e).
 
 ## AUDIT-TO1 (2026-09-18) - the audit of TO1, and what it found
 
@@ -638,7 +654,7 @@ third was a thing the port never said out loud.
 > not a fatigue knob, it is the needs' one word for "sat still", and
 > FOUR laws read it - the two fatigue drains it was aimed at, the two
 > health arms F12 later disclosed, and SURV6's hunting roll, which
-> refuses outright on `resting` (`hunting.js:114`). One flag reached
+> refuses outright on `resting` (`hunting.js:120`). One flag reached
 > three laws nobody had asked it to reach. That is the lesson worth
 > keeping out of this whole exchange.
 
@@ -648,7 +664,7 @@ third was a thing the port never said out loud.
   (`PlayerEntity.cs:402-418`, and `systems/worldTick.js` verbatim), so
   the journey's vanilla drain IS DFU's - and Travel Options watches that
   very number with its own cautious stop (`TravelOptionsMod.cs:1079`,
-  ported at `travelOptions.js:804`). The NEEDS are this port's own
+  ported at `travelOptions.js:1083`). The NEEDS are this port's own
   addition, from a mod Travel Options has never heard of, and they
   charged on top of it on a traveller who by construction never stops to
   eat, drink or sleep. An accelerated journey is sat as `resting` now -
@@ -677,7 +693,7 @@ third was a thing the port never said out loud.
 
   **And `resting` holds two HEALTH arms with the fatigue ones** (F12),
   which the first cut did not disclose: the bare-skin block's naked-cold
-  and sunburn ticks (`needs.js:480`), and, for a traveller who is also
+  and sunburn ticks (`needs.js:516`), and, for a traveller who is also
   `byFire`, the exposure damage at `:422`. Harm you cannot answer while
   the autopilot holds the controls is not a loss worth keeping. The law
   is executed now, not matched: `test/surv7_feed.test.js` runs ten game
@@ -742,16 +758,16 @@ options"*. No crash text came with it; the whole follow path was read
 for a throw the frame loop cannot survive, and there is one.
 
 **The throw.** `FollowPath`'s third arm walks the border ring of a town
-(`:658-664`; `travelOptions.js:516-536`). Unlike the two path arms
+(`:658-664`; `travelOptions.js:747-767`). Unlike the two path arms
 before it, it never forgot the named destination, and `InterruptTravel`
 "leaves current destination active" (`:1273`) - so a ring walked after
 ANY stopped journey (a foe, low fatigue, CAMP, the map's own stop near
 a town) ran with that name still set. That is the one condition under
 which `InitLocationRects` keeps refreshing the rects MID-journey
 (`:606-612`, `autopilot == null || destinationName != null`;
-`travelOptions.js:464-467`). A town's ring reaches into its neighbour
+`travelOptions.js:695-698`). A town's ring reaches into its neighbour
 pixels; the crossing fired `OnMapPixelChanged`, the host's
-`locationTileRect` answered null for the neighbour (world.js:8064 -
+`locationTileRect` answered null for the neighbour (world.js:12443 -
 null both for a pixel not yet built and for one with no location),
 `SetLocationRects` nulled both rects (`:602-604`), and the walk's own
 `OnArrival` (`circumnavigateLocation`, `:753-797`) read
@@ -760,7 +776,7 @@ is a NullReferenceException logged per frame and the mod stalls with
 the panel up; this host's frame loop dies on it, and `main.js`'s
 overlay prints the stack in red. Three fixes, at the root:
 
-- **The ring arm forgets the name** (`travelOptions.js:533`), as the
+- **The ring arm forgets the name** (`travelOptions.js:764`), as the
   two path arms do. With the name gone the rects hold for the whole
   walk exactly as they do for every path leg, and everything else that
   reads `destinationName` now reads the walk as the followed path it
@@ -768,14 +784,14 @@ overlay prints the stack in red. Three fixes, at the root:
   resumes IT rather than the old named journey (`:1210`), the
   LocationPause "nearby" arm stays out of it, and `isPathFollowing` is
   true. Departure 16.
-- **The walk guards its rects** (`travelOptions.js:630-634`) - the
+- **The walk guards its rects** (`travelOptions.js:862-866`) - the
   seam's own guard for a state the mod cannot survive either. A walk
   whose rects are gone ends where it stands, as a junction's does
   (`:1063`, CloseWindow, whose host onClose is InterruptTravel; a host
   whose panel is already down is interrupted outright), and the follow
   key asked again answers "no path here" through `FollowPath`'s own
   rect test.
-- **The recovery walk's give-up is a junction** (`travelOptions.js:600`).
+- **The recovery walk's give-up is a junction** (`travelOptions.js:832`).
   `nextPathDirection` returns the mod's RAW mask when its nine shifts
   narrow nothing (the reset at zero is not a rotate: from north the
   walk visits only N, NW and W, so a pixel with E and SE faced from the
@@ -931,6 +947,23 @@ curated onto the mod's tile so it is reachable, read at boot with the rest
 of the mod's settings (the tile's "Takes effect when the world next
 loads"). Off, the journey is the mod's beeline and its pixel-gated arrival,
 exactly.
+
+**The first-person switch (OW-TOGGLE, 2026-09-28).** `GeneralOptions.FirstPersonTravel`
+is the port's own key on the same pane, the same shape, OFF by default and on
+the tile - but read LIVE, not with the settings at boot: a flip takes effect
+at once (AUDIT OW5 T1), and its words say so. The Overworld's OW-ONLY
+(`06-Systems/Travel-View.md`) made every walked trip on the enhanced interface
+the Overworld's; on, this switch gives the mod's own first-person journey back
+- a map pick walked on the ground, the mod's resume for it, the view neither
+raised with it nor stopping it (`test/ow_toggle.test.js`). A journey of the
+mod's own begun at a boat's helm meets the mod's own ocean stop, as the mod
+does (AUDIT OW5 S1: the Overworld's crossing alone stands it down).
+
+**Its roads (TO-ROADS, 2026-09-29, FIELD BUGS 2026-09-29d).** `GeneralOptions.FirstPersonTravelFollowsRoads`, the
+same shape again, OFF, beside it on the tile: with First-Person Travel on, a map pick is the Overworld's route - its
+planner, its join, the peaks and the water, its refusals - walked by this mod's autopilot leg by leg, in first person.
+A departure from the mod, which never routes to a named destination (TO-FIELD above) - off, it is the mod's beeline
+again. `06-Systems/Travel-View.md` TO-ROADS (`test/fb0929d_toroads.test.js`).
 
 **Not done, and said.** A gap barely wider than the corridor is threaded
 when it is on the line, or found while the detour walks past it at a
@@ -1285,6 +1318,55 @@ screen) - the message another mod sends to stop a journey: CloseWindow -> Interr
 gone, the destination KEPT for the map's resume prompt. Not a departure: the mod's own door, from a caller DFU does
 not have. Why the journey climbed the wall at all was not looked into (TRAVEL-NAV's steering means to stop short).
 
+## SHIP-PORT (2026-09-28) - the deck is no port
+
+The Discord through Mac: *"a player is at a port but unable to set sail"*. The batch's record is
+`01-Overview/Field-Bugs-2026-09-28e.md`; the three this arc owns:
+
+- **The deck.** A player who bought a ship and boarded it in a harbour stands on "Your Ship" (the bank's
+  `SHIP_COORDS`, 2,2 or 5,5). The map's ship laws asked `IsNotAtPort` of that pixel, which neither list carries (the
+  mod's 378 harbours, or the MAPS byte's 343 - measured against the retail MAPS.BSA: every one of the 343 is among the
+  378, so the two lists never refuse a real port between them), so By ship was refused ("since there's no port") and
+  knocked off as the map opened - while the trip it priced was reckoned from the boarding pixel (`playerTravelOrigin`).
+  By land then walked from the deck onto the sea, into the mod's own ocean stop ("maybe you should travel on a ship").
+  The one dep bag both maps and a party's fare read (`travelFareDeps`) now hands the ship laws `travelOriginMapId`:
+  where the player stands, unless they stand on their own ship - then the place the ship was boarded at. Departure 20.
+  DFU boards the ship anywhere (`ShipAvailiable = HasShip`), so a ship boarded in the wilderness reads the
+  wilderness from its deck - no port, as it would ashore there (AUDIT 28e). A passage taken from the deck caches the
+  deck's scene first, as `performFastTravel` does (:330-332), so what lies on the deck waits for the return.
+- **The re-bill.** The enhanced map's card priced the trip, THEN ran the mod's OnPush guard, and never priced it again:
+  a guard that knocked the ship off left By land showing over the ship's days and fare, and Begin gold-checked that
+  fare - a walk refused for gold it does not cost. The classic window refreshes after its guard (`travelMapWindow.js`);
+  the card now re-bills whenever the guard moved the ship.
+- **The Overworld takes the passage (SHIP-SAIL).** The Overworld sails the player's own boats alone (OWS2) and the
+  map sells DFU's passage; a place across the water with no boat to hand was refused with "a boat would carry you
+  across the water" - at a port, read as no way to sail. Mac, asked whether the Overworld should take the passage
+  itself: *"Shouldn't it already function as such?"* It does now: where the walk is refused and the passage sails
+  there, the Overworld OFFERS it - "There is no way to Wayrest by land. Sail there by ship?", the fare's row and the
+  days - priced by the map's own popup headless (`partyTripFare`, whose constructor prices the trip, so its guard sees
+  the water: the ports rule, the guild's blessing, the fare, the two-sided gold gate), refused by the map door's own
+  rungs (`partyTravelRefusal`: foes near, the sun, indoors), and on Yes taken as the map takes it - a party gathered
+  asked first, then the fade and `fastTravelTo`. A purse that cannot pay is told so and not asked; where the passage's
+  own law refuses the place (no port here), the boat's line stands (with Come Sail Away off, the plain refusal). The
+  passage is Daggerfall's, so it is offered with that mod on or off (AUDIT 28e: the first version asked it only with
+  the mod on). AUDIT 28e too: Yes ENDS the journey on the ground first (the mod's `ClearTravelDestination` - it drove
+  on from the far shore back into the sea); No raises the Overworld the box cut down; a pending quest offer is handed
+  over first (the map door's GiveOffer rung); a purse that holds the fare but not the inns' coin is told the coin. (A first draft of this record said the popup
+  priced AFTER its guard and so read no ocean; the constructor's own refresh makes that false - corrected.)
+
+## TO-FARE (2026-09-29) - the fare's haggle reads the Mercantile skill
+
+Found on MERC-CAP's way (`01-Overview/Field-Bugs-2026-09-29f.md`), fixed at Mac's word: *"Fix the separate bug"*.
+The mod scales a fast-travel fare and puts each half back through `FormulaHelper.CalculateTradePrice(cost, 10, false)`
+(TravelTimeCalculatorTO.CalculateTripCost), which reads the traveller's live Mercantile SKILL (GetLiveSkillValue,
+FormulaHelper.cs:1992/1998). `scaleTripCost` read `liveStat(e, 'mercantile')` - a stat by the skill's name, which no
+entity has - so every scaled fare haggled at Mercantile 0: on a trip of 300 in inn nights and 400 in passage at x4 and
+x3, a traveller at Mercantile 90 was billed a novice's 1686 for a 1068 fare. It reads `skillValue(e,
+SKILLS.Mercantile)` now, the same read every counter makes, so a worn Enhances Skill haggles too. The split this page
+called faithful was; its haggle's Mercantile was not. Both maps and a party's fare bill through it (`travelFareDeps`),
+and the dials are the player's own online (`ONLINE_PLAYERS_OWN_MODS`), where MERC-CAP reads the skill no further than
+100. Offline, past 233 the mod's own call bills under nothing, as a room does - put to Mac with MERC-CAP.
+
 ## Pins
 
 `test/to1_travelOptions.test.js`. `tools/mutants/to1.json`.
@@ -1295,3 +1377,6 @@ not have. Why the journey climbed the wall at all was not looked into (TRAVEL-NA
 `tools/mutants/audittravelstrafe2.json` (AUDIT TRAVEL-STRAFE2, 11 dead).
 `test/spawntravel.test.js`, `tools/mutants/spawntravel.json` (SPAWN-TRAVEL).
 `test/risestuck.test.js`, `tools/mutants/rise_stuck.json` (RISE-STUCK).
+`test/disc28e_shipport.test.js`, `tools/mutants/disc28e.json` (SHIP-PORT's ten, SHIP-SAIL's twenty-three).
+`test/fb0929d_toroads.test.js`, `tools/mutants/fb0929d_toroads.json` (TO-ROADS, 14 dead, 2 equivalent).
+`test/fb0929f_tofare.test.js`, `tools/mutants/fb0929f_tofare.json` (TO-FARE, 2 dead).

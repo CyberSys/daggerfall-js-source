@@ -64,11 +64,11 @@ button.port-row { cursor: pointer; }
 .port-rowmark { font-size: 11px; color: rgb(243,239,44); visibility: hidden; }
 button.port-row:hover, .port-row.on { color: rgb(243,239,44); text-shadow: 2px 2px 0 rgb(93,77,12); }
 button.port-row:hover .port-rowmark, .port-row.on .port-rowmark { visibility: visible; }
-.port-row.muted { color: #7d7460; }
+.port-row.muted { color: #9c937d; }
 .port-rowwords { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .port-rowsub { font-size: 12px; color: #8f8670; text-shadow: none; }
 .port-rowvalue { margin-left: auto; }
-.port-empty { margin: 6px 4px; font-size: 14px; color: #7d7460; grid-column: 1 / -1; }
+.port-empty { margin: 6px 4px; font-size: 14px; color: #9c937d; grid-column: 1 / -1; }
 
 .port-fieldrow { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 .port-fieldlabel { font-size: 12px; letter-spacing: 0.14em; text-transform: uppercase; color: #8f8670; }
@@ -90,6 +90,12 @@ button.port-row:hover .port-rowmark, .port-row.on .port-rowmark { visibility: vi
 .port-spinlabel { font-size: 13px; color: #a89f88; }
 .port-btn.port-spinbtn { min-width: 36px; min-height: 32px; padding: 0; text-indent: 0; letter-spacing: 0; font-size: 18px; }
 .port-spinvalue { text-align: center; font-size: 17px; font-variant-numeric: tabular-nums; color: #efe8d6; }
+/* HOLD-STEP: the value is a field - type a number, Enter (or leave it) to set it; and a held button is a hold, never a
+   scroll a finger started */
+.port-spinfield { width: 100%; min-width: 0; box-sizing: border-box; padding: 3px 0; font: inherit; font-size: 17px;
+  background: rgba(0,0,0,0.35); border: 1px solid rgba(125,116,96,0.55); border-radius: 0; }
+.port-spinfield:focus { outline: none; border-color: rgb(243,239,44); }
+.port-btn.port-spinbtn { touch-action: none; user-select: none; -webkit-user-select: none; }
 
 .port-screen { display: flex; justify-content: center; }
 .port-canvas { width: min(640px, 100%); aspect-ratio: 320 / 200; image-rendering: pixelated; background: #000;
@@ -113,5 +119,5 @@ button.port-row:hover .port-rowmark, .port-row.on .port-rowmark { visibility: vi
 .pick-mark { font-size: 11px; color: rgb(243,239,44); visibility: hidden; }
 .pick-row:hover, .pick-row.on { color: rgb(243,239,44); text-shadow: 2px 2px 0 rgb(93,77,12); }
 .pick-row:hover .pick-mark, .pick-row.on .pick-mark { visibility: visible; }
-.pick-num { margin-left: auto; font-size: 11px; color: #7d7460; text-shadow: none; }
+.pick-num { margin-left: auto; font-size: 11px; color: #9c937d; text-shadow: none; }
 `;

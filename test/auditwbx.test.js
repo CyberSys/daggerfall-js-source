@@ -112,7 +112,7 @@ test('AUDIT WBX S1 a spent receipt is said to the hub, which forgets its kept co
     const r = await mintReceipt({ d: DAY, b: 'ruhn', s: 'acct-peer-0005', c: 7, x: 'dealt', l: 12 }, null, { subtle: globalThis.crypto.subtle, nowS: Math.floor(clock / 1000) });
     const r2 = await mintReceipt({ d: DAY, b: 'ruhn', s: 'acct-peer-0006', c: 8, x: 'dealt', l: 12 }, null, { subtle: globalThis.crypto.subtle, nowS: Math.floor(clock / 1000) });
     const t1 = hub.connect(), t2 = hub.connect(), h6 = hub.connect();
-    await hub.hello(t1, 'peer-0005'); clock += 10; await hub.hello(t2, 'peer-0015', null, { tokenSub: 'acct-peer-0005' }); await hub.hello(h6, 'peer-0006');
+    await hub.hello(t1, 'peer-0005'); clock += 10; await hub.hello(t2, 'peer-0015', null, { tokenSub: 'acct-peer-0005', cl: 1 }); await hub.hello(h6, 'peer-0006');   // ONE-SEAT: a second device going online claims (t1 goes)   // AUDIT ONESEAT T2: h6's hello had slid into that comment, and "a fighter in the court: its floor gives it" asked a socket that never said hello
     const res = await hub.room.fetch(new Request('https://relay.internal/internal/gate/fell', { method: 'POST', body: JSON.stringify({ d: DAY, at: clock, top: ['A'], n: 2, rc: [['acct-peer-0005', r], ['acct-peer-0006', r2]], here: ['acct-peer-0006'] }) }));
     assert.equal(res.status, 200);
     const rc = (ws) => ws.sent.filter((m) => m.t === 'gate' && m.k === 'rcpt');
@@ -126,7 +126,8 @@ test('AUDIT WBX S1 a spent receipt is said to the hub, which forgets its kept co
     await hub.raw(t2, JSON.stringify({ t: 'gate', k: 'spent', d: DAY }));
     // AUDIT WBX2 M3: its copy gone, and the word kept in its place for a receipt's life
     assert.deepEqual(await hub.room.state.storage.get(gateReceiptKey('acct-peer-0005')), { d: DAY, spent: true, e: Math.floor(clock / 1000) + RECEIPT_TTL_S }, 'spent: forgotten');
-    const later = hub.connect(); await hub.hello(later, 'peer-0005');
+    const later = hub.connect(); await hub.hello(later, 'peer-0005', null, { cl: 1 });   // ONE-SEAT: the next device claims - admitted, so what it is not handed is the receipt's doing
+    assert.ok(later.sent.some((m) => m.t === 'welcome'), 'in');
     assert.equal(rc(later).length, 0, 'the next device is handed nothing');
   } finally { Date.now = realNow; }
   assert.equal(GATE_SPENT_RELAY_MIN, 116);   // world114 on its branch - main's Enhanced Plus patch and GUILD1c took 114 and 115, neither hears it
@@ -189,7 +190,7 @@ test('AUDIT WBX S2 the receipt says the level the fight admitted its account at,
   assert.equal(spoilsLevel(8, 30), 8, 'never over the player\'s own');
   assert.equal(spoilsLevel(50, undefined), 50);
   assert.equal(spoilsLevel(0, undefined), 1);
-  assert.match(read('server/src/index.js'), /mintReceipt\(\{ d: f\.day, b: f\.boss, s: sub, c: rand32\(\), x: earnedBy\(f, sub\), l: f\.players\[sub\]\.lv \}/, 'the relay signs the level it admitted');
+  assert.match(read('server/src/index.js'), /mintReceipt\(\{ d: f\.day, b: f\.boss, s: sub, c: rand32\(\), x: earnedBy\(f, sub\), l: f\.players\[sub\]\.lv, \.\.\.\(helped\.has\(sub\) \? \{ r: 1 \} : \{\}\) \}/, 'the relay signs the level it admitted');
 });
 
 // ═══ F: THE COURT ════════════════════════════════════════════════════════════════════════════════════════════════════
@@ -202,8 +203,8 @@ test('AUDIT WBX F1/F2 no weapon is worn or destroyed on him: the Razor\'s whole-
   assert.ok(foe === null || foe.durabilityLoss === 40, 'a foe as the artifact has it');
   const e = read('src/systems/enchantments.js');
   assert.match(e, /applyResults\(target\?\.spareGear && r\?\.durabilityLoss \? \{ \.\.\.r, durabilityLoss: 0 \} : r, env\);/, 'the Strikes payloads\' bill spared on him');
-  assert.match(read('src/scenes/hostEnchant.js'), /if \(target\?\.spareGear\) \{ bossSpell\?\.\(record\); return; \}/, 'a Cast When Strikes spell goes by his own spell door');
-  assert.match(read('src/scenes/dungeonContext.js'), /bossSpell: opts\.gateBoss \? \(record\) => \{ spellOnBoss\(record\); \} : null,/);
+  assert.match(read('src/scenes/hostEnchant.js'), /if \(target\?\.spareGear\) \{ bossSpell\?\.\(record, target\); return; \}/, 'a Cast When Strikes spell goes by his own spell door (AUDIT WB11 W1: the stand-in it met with it)');
+  assert.match(read('src/scenes/dungeonContext.js'), /bossSpell: opts\.gateBoss \? \(record, target\) => \{ spellOnStandIn\(record, target\); \} : null,/);   // AUDIT WB11 W1: by the stand-in it met
 });
 
 test('AUDIT WBX F3/F4 where he stands: his fall frozen where he fell (a charge\'s head, a leap\'s flight, a walk\'s step) on every screen and in the relay\'s state; a walk\'s word ends the attack before it, so he is never drawn frozen at a charge\'s end while he walks (mutants: the fall at the last word\'s start; the charge kept through the walk)', () => {

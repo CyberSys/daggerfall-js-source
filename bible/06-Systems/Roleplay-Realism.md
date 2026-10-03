@@ -43,11 +43,11 @@ after Items'), and the seams they hang on.
 | climbingRestriction: `CalculateClimbingChance` (:320-348) | FormulaHelper.cs:295-297 | `climbing.js registerClimbingChanceOverride`; the drawn weapon read through `playerWeapon.currentWeaponPose` (the rig registers the probe) |
 | weaponSpeed: `GetMeleeWeaponAnimTime` (:350-387), registered only when Items' weaponBalance is off (:171) | FormulaHelper.cs:830 | `weaponStates.registerMeleeWeaponAnimTime` - one adapter, Items' arm first, this one behind it |
 | weaponMaterials: `CalculateWeaponToHit` (:389-392) | FormulaHelper.cs:1140-1146 | `formulas.js calculateAttackDamage`, the to-hit line |
-| equipDamage: `ApplyConditionDamageThroughPhysicalHit` (:394-407) | FormulaHelper.cs:1123-1128, "Only return if override returns true" | `formulas.js damageEquipment`'s `hit` |
+| equipDamage: `ApplyConditionDamageThroughPhysicalHit` (:394-407) | FormulaHelper.cs:1123-1128, "Only return if override returns true" | `formulas.js damageEquipment`'s `hit` - OFF by default since WEAR-VANILLA (2026-10-01; the mod ships it on; the room's online is off too - `05-Combat/Physical-Combat-Overhaul.md`); on, the x5 lands on the port's wear scale (`equip.js blowWear`, 1 since WEAR-VANILLA, BALANCE1's 0.6 before) |
 | classicStrengthDamageBonus: `DamageModifier_classicDisplay` (:314-317) | FormulaHelper.DamageModifier | `formulas.js damageModifier` (PCO1's slot, chained) |
 | loanAmountPerLevel: `CalculateMaxBankLoan` (:98, :309-312) | FormulaHelper.cs:2008-2010 | `banking.registerMaxBankLoan` |
 | shipPorts: `IsShipAvailiable` (:610-631) | `TransportManager.ShipAvailiable`, the delegate | `ship.setShipAvailable`; `mountRig` asks with `shipLocation()` = `{ locationLoaded, portTown, onShip }` from the host (DISC13-D: it said `loaded`, which the delegate never read) |
-| encumbranceEffects: `EncumbranceEffects_OnNewMagicRound` (:580-598) | EntityEffectBroker.OnNewMagicRound | `worldTick.registerMagicRoundHook` (the fatigue) + `entityMods.registerEntityFold` (MergeDirectStatMods' channel - the speed) |
+| encumbranceEffects: `EncumbranceEffects_OnNewMagicRound` (:580-598) | EntityEffectBroker.OnNewMagicRound | `worldTick.registerMagicRoundHook` (the fatigue) + `entityMods.registerEntityFold` (MergeDirectStatMods' channel - the speed) - BALANCE1 (2026-09-27): the round's fatigue on the port's exertion scale (x0.75), its fraction carried on the entity so a light overload's 1 a minute still costs (the pre-merge audit 0927b); `01-Overview/Field-Bugs-2026-09-27-phone-backup-drains.md` |
 | bandaging: `UseBandage` (:600-608), `if (rrItemsMod == null && bandaging)` | ItemHelper.RegisterItemUseHandler | never registered - the port carries Items always; `rrBandageHeal` ported for the record |
 | autoExtinguishLight (:633-640) | PlayerEnterExit.OnPreTransition ToDungeonExterior | `worldModes` at the dungeon exit, the light's own "You douse the %it." box |
 | purificationPotion: `CureDiseasePotionRR` | `RegisterEffectTemplate(..., true)` - the recipes replaced | `potions.overridePotionRecipes` |
@@ -69,6 +69,12 @@ Read against the C#:
   chains where DFU would simply have lost the earlier one. The
   weapon-speed arm is the one InitMod gates on Items' weaponBalance
   (:171); the port's one adapter asks Items first.
+- **SWING-LAW (2026-09-28, Mac: "swing speed is insane")**: the
+  weaponSpeed blend is the Speed the swing is read at, and the port's
+  own swing law turns it into time - its bounded curve and the weapon's
+  handling (`characters/weaponStates.js` swingFrameSeconds) - where the
+  mod's `3 * (115 - blend)` swung a quick blend four times a second.
+  A declared departure: Ledger A (SWING-LAW), `05-Combat/Combat.md` SWING-LAW.
 - **The climbing gate** reads `WeaponManager.Sheathed` and
   `ScreenWeapon.WeaponType != Melee`; the rig registers
   `setWeaponPoseProbe` when it stands, a host with no rig answers null
@@ -89,7 +95,8 @@ Read against the C#:
   false`; a host that cannot say where it stands (`portTown` null)
   hands the question back to DFU's HasShip rather than refusing.
   **SHIP-PORTS (2026-09-23): `shipPorts` ships OFF here, ON in the
-  mod** - the one departure from the mod's defaults. The day the merge
+  mod** - one of two departures from the mod's defaults (`equipDamage`,
+  WEAR-VANILLA 2026-10-01, is the other). The day the merge
   landed, Sir McMobdon on Discord: "cant access my boat anymore"; the
   module restricts the Ship row to a port town (Hazelnut's list with
   Travel Options on), every boat owner lost the classic

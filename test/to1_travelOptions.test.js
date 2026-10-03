@@ -143,9 +143,11 @@ test('TO1: the settings are the mod\'s own modsettings.json, key for key, type f
   // TRAVEL-NAV1: plus the port's own steering switch - a key the mod does
   // not ship (HT-WAIST's shape on Handheld Torches), named so a third
   // cannot ride in unnoticed
-  assert.equal(Object.keys(ours).length, n + 2, 'and the port declares them all, plus Enabled and its own AvoidObstacles');
-  assert.deepEqual(Object.keys(ours).filter((k) => !shippedNames.has(k)).sort(), ['Enabled', 'GeneralOptions.AvoidObstacles'],
-    'the port\'s two keys, and nothing else');
+  // PIN MOVED (OW-TOGGLE): and its first-person switch (test/ow_toggle.test.js)
+  // PIN MOVED (TO-ROADS): and that switch's roads (test/fb0929d_toroads.test.js)
+  assert.equal(Object.keys(ours).length, n + 4, 'and the port declares them all, plus Enabled, its own AvoidObstacles, FirstPersonTravel and FirstPersonTravelFollowsRoads');
+  assert.deepEqual(Object.keys(ours).filter((k) => !shippedNames.has(k)).sort(), ['Enabled', 'GeneralOptions.AvoidObstacles', 'GeneralOptions.FirstPersonTravel', 'GeneralOptions.FirstPersonTravelFollowsRoads'],
+    'the port\'s four keys, and nothing else');
   // the five unnamed spacer sections carry no keys and are not declared
   assert.deepEqual(shipped.Sections.filter((s) => !s.Keys.length).map((s) => s.Name), ['__', '-', '_', '--', '.']);
 });
@@ -974,6 +976,88 @@ test('TO1: another window stops the journey, and the game being paused stops eve
   assert.equal(to.destinationName, 'Nowhere', 'InterruptTravel keeps the destination - the map can offer to resume it');
 });
 
+test('AUDIT OW4 J7: a new disease stops the journey THROUGH THE PANEL (its Camp - the destination kept for the map\'s Resume) and shows the health status; a bare interrupt left the panel up over no autopilot - the journey read "active", no Resume was offered and the Overworld never rose again until Camp', () => {
+  const hold = {}, shown = [];
+  const ui = new TravelControlUI({ defaultStartingAccel: 10, accelerationLimit: 60, onClose: () => hold.to.interruptTravel() });   // the world host's own: Camp is InterruptTravel
+  const { to, state } = rig({ deps: { ui, showHealthStatus: () => shown.push('status') } });
+  hold.to = to;
+  to.beginTravel({ pixel: { x: 900, y: 250 }, name: 'Nowhere' }, false);
+  assert.deepEqual([to.isTravelActive, !!to.state.autopilot], [true, true]);
+  state.disease = 1;
+  to.update({ topWindowIsTravelUI: true });
+  assert.deepEqual([to.isTravelActive, !!to.state.autopilot, to.destinationName], [false, false, 'Nowhere'], 'stopped through the panel, kept for the Resume');
+  assert.deepEqual(shown, ['status'], ':1426-1437 - the health status box');
+  to.resumeTravel();
+  assert.deepEqual([to.isTravelActive, !!to.state.autopilot], [true, true], 'the map\'s Resume takes it up again');
+  to.update({ topWindowIsTravelUI: true });
+  assert.equal(to.isTravelActive, true, 'the same disease is no new stop');
+  // a host whose panel does not interrupt (ROAD-CRASH's guard, the steering's own): stopped outright all the same
+  const bare = rig();
+  bare.to.beginTravel({ pixel: { x: 900, y: 250 }, name: 'Nowhere' }, false);
+  bare.state.disease = 2;
+  bare.to.update({ topWindowIsTravelUI: true });
+  assert.deepEqual([bare.to.isTravelActive, !!bare.to.state.autopilot], [false, false]);
+});
+
+test('AUDIT OW5b E1: THE ENEMIES STOP ASKED BY THE ENCOUNTER THAT MEETS THE TRAVELLER (Mac: "Need to get pullout of fast travel little sooner for encounters. U run thru them") - the sweep\'s own arm, the moment the host asks: no journey walking, nothing; reckless, stopped through the panel with the box; cautious, the roll - lost, stopped; won, the journey goes on and the grace passes the next one by until it lapses', () => {
+  const walking = (over = {}) => {
+    const hold = {};
+    const ui = new TravelControlUI({ defaultStartingAccel: 10, accelerationLimit: 60, onClose: () => hold.to.interruptTravel() });   // the world host's own: Camp is InterruptTravel
+    const r = rig({ ...over, deps: { ui, ...over.deps } });
+    hold.to = r.to;
+    return { ...r, ui };
+  };
+  // nothing walks: nothing to stop, nothing said - the panel alone over a stopped journey is no journey (AUDIT OW3 P1)
+  {
+    const { to, boxed } = walking();
+    assert.equal(to.encounter(), null, 'no journey');
+    to.beginTravel({ pixel: { x: 900, y: 250 }, name: 'Nowhere' }, false);
+    to.interruptTravel();
+    assert.equal(to.encounter(), null, 'the autopilot gone: not walking');
+    assert.deepEqual(boxed, []);
+  }
+  // reckless: stopped THROUGH THE PANEL (its Camp - the destination kept for the map's Resume), the box says why
+  {
+    const { to, ui, boxed, scales } = walking();
+    to.beginTravel({ pixel: { x: 900, y: 250 }, name: 'Nowhere' }, false);
+    assert.equal(to.encounter(), 'stopped');
+    assert.deepEqual([ui.isShowing, !!to.state.autopilot, to.destinationName], [false, false, 'Nowhere'], 'stopped at once, kept for the Resume');
+    assert.equal(scales.at(-1), 1, 'the clock back to walking pace the same moment');
+    assert.deepEqual(boxed, [TRAVEL_OPTIONS_TEXT.MsgEnemies]);
+  }
+  // cautious, the roll lost: stopped, the mod's own words
+  {
+    const { to, ui, boxed } = walking({ roll: 100 });
+    to.beginTravel({ pixel: { x: 900, y: 250 }, name: 'Nowhere' }, true);
+    assert.equal(to.encounter(), 'stopped');
+    assert.equal(ui.isShowing, false);
+    assert.deepEqual(boxed, [TRAVEL_OPTIONS_TEXT.MsgAvoidFail]);
+  }
+  // cautious, the roll won: the journey walks on, and the grace passes the next encounter by - until it lapses
+  {
+    const { to, ui, state, boxed } = walking({ roll: 1 });
+    to.beginTravel({ pixel: { x: 900, y: 250 }, name: 'Nowhere' }, true);
+    assert.equal(to.encounter(), 'avoided');
+    assert.deepEqual([ui.isShowing, !!to.state.autopilot], [true, true], 'taken up again');
+    assert.equal(ui.message, TRAVEL_OPTIONS_TEXT.MsgAvoidSuccess);
+    assert.deepEqual(boxed, []);
+    state.now = IGNORE_ENCOUNTERS_SECONDS - 1;
+    assert.equal(to.encounter(), 'ignored', 'within the grace: passed by');
+    assert.deepEqual([ui.isShowing, !!to.state.autopilot], [true, true], 'and nothing stopped');
+    state.now = IGNORE_ENCOUNTERS_SECONDS;
+    assert.equal(to.encounter(), 'avoided', 'the grace lapsed: a new encounter, a new roll');
+  }
+  // one home: the frame's sweep and the asked stop are the same arm (its grace included)
+  {
+    const { to, state, boxed } = walking({ roll: 1 });
+    to.beginTravel({ pixel: { x: 900, y: 250 }, name: 'Nowhere' }, true);
+    assert.equal(to.encounter(), 'avoided');
+    state.enemies = true;
+    assert.equal(to.update({ topWindowIsTravelUI: true }).stopped, undefined, 'the sweep keeps the same grace');
+    assert.deepEqual(boxed, []);
+  }
+});
+
 test('TO1: the follow key - a road under the feet and a facing that matches begins a leg; nothing under the feet says so', () => {
   const { to, ui, net, state, said } = rig();
   const at = (x, y) => x + y * 1000;
@@ -1167,8 +1251,8 @@ test('TO1: the wiring - one construction, the fork on the popup\'s word, the pan
   assert.match(w, /\n  travelOptions = travelOptionsOn \? createTravelOptions\(\{/, 'BOOT-TDZ: ASSIGNED where the mod is built - the binding is declared above the stream that reads it');
   assert.match(w, /let travelOptions = null;/, 'BOOT-TDZ: and declared there, null');
   // the fork
-  assert.match(w, /if \(opts\?\.playerControlled && beginAcceleratedTravel\(pick, opts, \{ estimateMinutes: computed\?\.minutes \?\? null \}\)\) return;[^\n]*\n\s*fastTravelTo\(pick, opts, computed\);/,
-    'the walked trip is tried first (with the popup\'s estimate riding along - AUDIT-TO1 L5) and fast travel is the fallback');
+  assert.match(w, /if \(opts\?\.playerControlled && beginAcceleratedTravel\(pick, opts, \{ estimateMinutes: computed\?\.minutes \?\? null \}\)\) return;[^\n]*\n(?:\s*\/\/[^\n]*\n)*(?:\s*if \(opts\?\.playerControlled && tvRoutesJourneys\(\)\) return;\n)?\s*fastTravelTo\(pick, opts, computed\);/,   // PIN MOVED (TO-ROADS): a routed trip's refusal (the Overworld's, or a first-person route's)
+    'the walked trip is tried first (with the popup\'s estimate riding along - AUDIT-TO1 L5) and fast travel is the fallback (AUDIT OW3 J2: never for a walk the Overworld refused)');
   // TO-ONLINE (2026-09-19, Mac: "travel options uses instant travel for the
   // online mod, which shouldn't be the case"): the journey RUNS online. The
   // stand-down departure 9 wrote was argued from a premise the code does not
@@ -1181,8 +1265,8 @@ test('TO1: the wiring - one construction, the fork on the popup\'s word, the pan
     'the journey asks only whether the mod is there');
   assert.doesNotMatch(w, /if \(!travelOptions \|\| sharedClockOn\(\)\) return false;/, 'and not whether the clock is shared');
   // not vacuous: WORLD5's law is what makes this safe, so read it
-  assert.match(read('src/systems/worldTick.js'), /if \(_sharedClock\) \{\s*\n\s*classicMinutes = _sharedLastTick \?\? _sharedClock\(\);/,
-    'the shared clock is READ, never advanced from dt - which is why an accelerated journey cannot move it');
+  assert.match(read('src/systems/worldTick.js'), /if \(_sharedClock\) \{\s*\n\s*const reading = _sharedClock\(\);/,
+    'the shared clock is READ, never advanced from dt - which is why an accelerated journey cannot move it (LIVED1: nor the character\'s clock, which moves by the world\'s reading and by a raise alone)');
   // THE COMPATIBILITY CHECK Mac asked for: following is handed HIS network alone
   assert.match(w, /roads: \(\) => \{ const net = terrainGen\.roads\(\); return net\?\.source === 'basic-roads' \? net : null; \},/,
     'the port\'s own generated network is never followed');
@@ -1588,7 +1672,10 @@ test('AUDIT-TO1 G1/G2/G3/I2/I3/I4/I6/J1/K2/H1/H2: the host seams the sweep found
   // its first await, not that it is the first statement in it.
   assert.match(w, /async function worldQuickLoad\(\{ mostRecent = false, key = null, snap: picked = null \} = \{\}\) \{\s*\n\s*if \(_loading\) return;[\s\S]{0,2400}?travelOptions\?\.clearTravelDestination\(\);\s*\n\s*if \(worldTimeScale\(\) !== 1\) resetTimeScale\(\);/);
   // G2: the scale's net above every gate, and an indoor mode ends the journey
-  assert.match(w, /if \(travelControlUI\?\.isShowing && \(modes\?\.mode \?\? 'exterior'\) !== 'exterior'\) travelControlUI\.closeWindow\(\);\s*\n\s*if \(!travelControlUI\?\.isShowing && worldTimeScale\(\) !== 1\) resetTimeScale\(\);/);
+  // PIN MOVED (CSA-G): a scale with no panel behind it is reset unless Come Sail Away's helm holds it (its time keys
+  // set Time.timeScale too, and no journey stands behind that one); PIN MOVED (TV-WASD): or the Overworld's movement
+  // keys travel under a view still up (test/tv_wasd.test.js drives it)
+  assert.match(w, /if \(travelControlUI\?\.isShowing && \(modes\?\.mode \?\? 'exterior'\) !== 'exterior'\) travelControlUI\.closeWindow\(\);\s*\n\s*if \(!travelControlUI\?\.isShowing && worldTimeScale\(\) !== 1 && !csaHoldsTimeScale\(\) && !tvWalkHoldsTimeScale\(\)\) resetTimeScale\(\);/);
   // I2: the strip's click router wants a FREE pointer and the primary button (DISC22-E: the lock, not the flag -
   // test/disc22e_travel_click.test.js drives the predicate)
   assert.match(w, /if \(stripTakesClick\(\{ showing: travelControlUI\?\.isShowing, paused: gamePaused\(\), locked: document\.pointerLockElement === canvas,\s*button: e\.button, enhancedDom: isEnhanced\(\) && typeof document !== 'undefined' \}\)\) \{/);
@@ -1600,7 +1687,7 @@ test('AUDIT-TO1 G1/G2/G3/I2/I3/I4/I6/J1/K2/H1/H2: the host seams the sweep found
   assert.doesNotMatch(follow.slice(0, follow.indexOf('\n')), /sharedClockOn\(\)/,   // KB1: one line now - the registry's press
     'the follow key does not stand down on the shared clock either');
   // I4: the coordinates door acts on its refusal, and the popup opens only where it is honoured
-  assert.match(w, /if \(!beginAcceleratedTravel\(pick, opts, \{ coords: true \}\)\) townTalk\.say\('You cannot travel there now\.'\);/);
+  assert.match(w, /if \(!beginAcceleratedTravel\(pick, opts, \{ coords: true \}\)( && !tvRoutesJourneys\(\))?\) townTalk\.say\('You cannot travel there now\.'\);/);   // AUDIT OW3 J2: the Overworld says its own (PIN MOVED, TO-ROADS: a first-person route's too)
   assert.match(w, /coordsAllowed: \(\) => !!travelOptions,/, 'TO-ONLINE: the door opens wherever the journey runs, which is now everywhere the mod is on');
   assert.match(read('src/ui/travelMapWindow.js'), /\(this\.deps\.coordsAllowed\?\.\(\) \?\? true\)/);
   // I6: the discovery store is read by the key its writers use
@@ -1608,12 +1695,15 @@ test('AUDIT-TO1 G1/G2/G3/I2/I3/I4/I6/J1/K2/H1/H2: the host seams the sweep found
   assert.match(w, /discoveryLocationId: \(\) => `\$\{_questLoc\(\)\?\.regionIndex \?\? -1\}:\$\{_questLoc\(\)\?\.name \?\? ''\}`,/, 'the writer\'s own key shape');
   // J1: the two switches have readers
   assert.match(w, /\} else if \(precipShown && precip\) \{[\s\S]{0,2500}?if \(!_travelWeatherOff(?: && !_dwPrecipOff)?\) \{\s*\n\s*precip\.draw\(precipShown, proj, view/, 'the rain (the branch literal is W1/WX2/WEATHER2d\'s; the switch wraps the draw; DW-D: and the sea\'s own stand-down beside it)');
-  assert.match(w, /const _step = _travelSoundsOff \? null : footsteps\.update\(player\.pos, \{/, 'the classic stride: the component does not RUN (the one-gate line is BA1/IF1\'s literal)');
-  assert.match(w, /paused: _overlayHeld \|\| _seasonHeld \|\| _travelSoundsOff, entity: playerEntity,/, 'the mod\'s stride');
+  assert.match(w, /const _step = _travelSoundsOff (?:\|\| _csaFootstepsOff )?\? null : footsteps\.update\(player\.pos, \{/, 'the classic stride: the component does not RUN (the one-gate line is BA1/IF1\'s literal; CSA-D\'s helm disables it too)');
+  assert.match(w, /paused: _overlayHeld \|\| _seasonHeld \|\| _travelSoundsOff(?: \|\| _csaFootstepsOff)?, entity: playerEntity,/, 'the mod\'s stride (DECK-FIELD: and the helm\'s footsteps-off - test/deckfield.test.js)');
   assert.match(w, /ridingVolumeScale: \(\) => \(_travelSoundsOff \? 0 : 1\),/, 'the riding loop');
   assert.match(read('src/player/mountRig.js'), /soundVolume: ridingVolumeScale\(\),/);
-  // K2: the strafe is the player's own
-  assert.ok(!/axes\.strafe = 0;/.test(w), 'ApplyVerticalForce writes the vertical axis alone');
+  // K2: the strafe is the player's own. PIN MOVED (TV-WASD): the journey's drive block never writes it, and the one zero
+  // in the host is the Overworld keys' ground gate, which stands only while no journey drives (test/tv_wasd.test.js)
+  const k2 = w.indexOf('        if (_travelDrive) {\n          cam.yaw = (_travelDrive.yaw * Math.PI) / 180;');
+  assert.ok(k2 > 0 && !/axes\.strafe\s*=/.test(w.slice(k2, w.indexOf('\n        }\n', k2))), 'ApplyVerticalForce writes the vertical axis alone');
+  assert.deepEqual([...w.matchAll(/axes\.strafe = 0;/g)].map((m) => /^\n        if \(tvWalking && !_travelDrive && /.test(w.slice(w.lastIndexOf('\n        if (', m.index)))), [true], 'the one zero: the keys\' travel, no journey driving');
   // H1: the help is boxed a row a line, in both doors
   assert.match(w, /townTalk\.showBox\(travelOptions\.helpText\(\)\.split\('\\n'\)\)/);
   assert.match(w, /helpRows: \(\) => \(travelOptions \? travelOptions\.helpText\(\)\.split\('\\n'\) : null\),/);
@@ -1623,8 +1713,10 @@ test('AUDIT-TO1 G1/G2/G3/I2/I3/I4/I6/J1/K2/H1/H2: the host seams the sweep found
   // G3: NO on the resume prompt leaves the map open
   const m = read('src/ui/travelMapWindow.js');
   assert.match(m, /if \(code === 'KeyN' \|\| code === 'Escape'\) \{ this\._click\(\); this\.top = null; \}\s*\n\s*return;\s*\n\s*\}\s*\n\s*\/\/ TO1 \(:477-497\): the teleport fee/);
-  // D1: the two reads the popup needed
-  assert.match(w, /currentLocationMapId: \(\) => _musicLoc\?\.mapTableData\?\.mapId \?\? null,/);
+  // D1: the two reads the popup needed - the location through SHIP-PORT's travelOriginMapId since 2026-09-28:
+  // PlayerGPS.CurrentLocation's MapId ashore, the boarding port's on the player's own ship (disc28e_shipport)
+  assert.match(w, /currentLocationMapId: \(\) => travelOriginMapId\(\),/);
+  assert.match(w, /if \(from\.x === here\.x && from\.y === here\.y\) return _musicLoc\?\.mapTableData\?\.mapId \?\? null;/);
   assert.match(w, /isOnShip: \(\) => isOnShip\(playerEntity, playerEntity\.boardShipPosition \?\? null, playerTravelPixel\(\)\),/);
   assert.match(m, /currentLocationMapId: this\.deps\.currentLocationMapId,\s*\n\s*isOnShip: this\.deps\.isOnShip,/);
   assert.match(m, /this\.popUp\.enforceShipRestriction\(\);/, 'OnPush\'s guard has a caller');
@@ -1783,7 +1875,7 @@ test('TO-FIELD: the accelerated journey waits for the ground; TO-FIELD3 took the
   // fatigue drains it was aimed at, the bare-skin block's naked-cold
   // and sunburn ticks and the byFire exposure damage (the health), and
   // - never counted by the change that set it - SURV6's hunting roll,
-  // which refuses outright on `resting` (hunting.js:114).
+  // which refuses outright on `resting` (hunting.js:120).
   assert.match(w, /survivalEnv: \(\) => \(_mode\(\) === 'dungeon' \? \(playerEntity\.isResting \? modes\?\.dungeonCtx\?\.survivalEnvNow\?\.\(\) \?\? null : null\) : survivalEnvNow\(\)\),/,
     'the journey feeds the needs the world it is actually in');
   assert.doesNotMatch(w, /resting: true \}\n?\s*: survivalEnvNow/, 'and no travel arm sits the traveller down');
@@ -1796,7 +1888,7 @@ test('TO-FIELD: the accelerated journey waits for the ground; TO-FIELD3 took the
   assert.match(n, /if \(hungerAfter === 'starving' && !resting\) tire\(DRAIN\.starving, 'hunger'\);/, 'the starving drain');
   assert.match(n, /if \(sleepNow === 'exhausted' && !resting\) tire\(DRAIN\.exhausted, 'sleep'\);/, 'the exhausted drain');
   assert.match(n, /if \(!env\.insideBuilding && !vampire && !ctx\.beastForm && !sleeping && !resting\) \{/, 'the bare-skin health ticks');
-  assert.match(read('src/systems/survival/hunting.js'), /if \(!climate \|\| !outdoors \|\| inLocationRect \|\| night \|\| enemiesNear \|\| resting\) return null;/,
+  assert.match(read('src/systems/survival/hunting.js'), /if \(!climate \|\| !outdoors \|\| (?:afloat \|\| )?inLocationRect \|\| night \|\| enemiesNear \|\| resting\) return null;/,
     'and the hunting roll, which is the one the flag took without saying so');
 
   // 3. THE FOLLOW KEY IS NAMED WHERE THE TRIP IS BOUGHT. The mod does not
@@ -1826,7 +1918,7 @@ test('TO-ONLINE: an online trip the toggles call WALKED is a ride, and the "you 
   // online trip while the journey stood down and the teleport was the
   // only arrival there was. It is false over a walked one.
   const pop = read('src/ui/travelPopUp.js');
-  assert.match(pop, /if \(this\.noWorldTime\(\) && !this\.walkedTrip\) shadowText\(renderer, font, ONLINE_TRAVEL_LINE,/,
+  assert.match(pop, /if \(this\.noWorldTime\(\) && !this\.walkedTrip\) ONLINE_TRAVEL_ROWS\.forEach\(\(row, i\) => shadowText\(renderer, font, row,/,   // AUDIT LIVED1b U1: the line in two rows
     'the classic popup gates the line off the walked trip');
   // and the enhanced skin bills the same trip, so it says the same thing
   assert.match(read('src/ui/heldMap.js'), /if \(t\?\.online && !t\.walked\) card\.append\(el\('p', 'hmmeta', ONLINE_TRAVEL_LINE\)\);/,

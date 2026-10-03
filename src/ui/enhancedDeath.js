@@ -14,7 +14,7 @@
 // THE LOOK. The world is already going black under the canvas fade; over
 // it the edges close in first (a blood-dark vignette that tightens as
 // the fade runs), then a black band opens across the middle and the
-// words rise in it: YOU DIED, in the display serif, a dried-blood red,
+// words rise in it: YOU DIED, in the skin's pixel face (FONT3; DEATH2 set it in the display serif), a dried-blood red,
 // spaced wide and settling tighter as they come in. One line beneath,
 // and the keys, last. One slow moment, nothing that loops. The world
 // behind ends in solid black (DEATH4), and the screen does not end
@@ -25,17 +25,21 @@
 // simply stop drawing it (the video takes the screen, the title menu
 // mounts, the respawn clears the overlay). So a draw STAMPS, and a
 // watchdog takes the layer down the first frame nobody stamped.
+// DISC29-D: a FRAME nobody stamped (ui/drawWatchdog.js) - it read the
+// wall clock, and a frame slower than it tore the layer down and built it
+// again every frame.
 import { injectEnhancedStyle, injectEnhancedFonts } from './enhancedStyle.js';
 import { PIXEL_STACK } from './pixelifyFive.js';
 import { isOnlinePage } from '../systems/onlineLane.js';
+import { deathPenaltyLine } from '../systems/deathPenalty.js';   // DEATH-PENALTY: the line about the loss
+import { armDrawWatchdog, disarmDraw } from './drawWatchdog.js';
 
 export const ENHANCED_DEATH_ID = 'enhanced-death';
 const STALE_MS = 350;
 
 let node = null;
 let owner = null;
-let stamp = 0;
-let watch = 0;
+let watch = null;
 
 const el = (tag, cls, text) => {
   const n = document.createElement(tag);
@@ -43,7 +47,6 @@ const el = (tag, cls, text) => {
   if (text != null) n.textContent = text;
   return n;
 };
-const now = () => (typeof performance !== 'undefined' ? performance.now() : Date.now());
 
 /** What the keys do, from the screen's own hint - a host with no
  *  quickload passes 'ENTER end' and gets no F11 plate (FIX-E's law: a
@@ -69,9 +72,13 @@ function build(screen) {
   const title = el('h1', 'dth-title', 'You Died');
   const rule = el('div', 'dth-rule');
   rule.append(el('i'), el('span', 'dth-gem'), el('i'));
-  const line = el('p', 'dth-line', online
+  // DEATH-PENALTY (Mac: "remove the tale line and use the same fonts for the gold loss message in online
+  // mode"): a death that costs gold says so IN the line's place, in the line's own italic serif, rather than
+  // under it in a second face. A death that costs nothing (offline, or a purse under four coins) keeps its words.
+  const lossLine = screen.goldLoss > 0 ? (screen.goldLossLine || deathPenaltyLine(screen.goldLoss)) : '';
+  const line = el('p', `dth-line${lossLine ? ' dth-lossline' : ''}`, lossLine || (online
     ? 'Your body falls. The Bay is not done with you yet.'
-    : 'Your tale in the Iliac Bay ends here.');
+    : 'Your tale in the Iliac Bay ends here.'));
   const keys = el('div', 'dth-keys');
   for (const k of deathKeys(screen.hint, online)) {
     const b = el(k.confirm ? 'button' : 'span', 'dth-key');
@@ -104,12 +111,12 @@ export function drawEnhancedDeath(screen, fade = 0) {
     const text = `Rising in ${left}`;
     if (c && c.textContent !== text) c.textContent = text;
   }
-  stamp = now();
-  if (!watch) watch = setInterval(() => { if (now() - stamp > STALE_MS) removeEnhancedDeath(); }, 120);
+  disarmDraw(watch);
+  watch = armDrawWatchdog(STALE_MS, removeEnhancedDeath);
 }
 
 export function removeEnhancedDeath() {
-  clearInterval(watch); watch = 0;
+  disarmDraw(watch); watch = null;
   node?.remove(); node = null; owner = null;
 }
 
@@ -153,7 +160,9 @@ export const DEATH_CSS = `
 .dth-band::before { top: 0; } .dth-band::after { bottom: 0; }
 @keyframes dth-band { from { clip-path: inset(50% 0 50% 0); } to { clip-path: inset(0 0 0 0); } }
 
-.dth-title { margin: 0; font-family: var(--display, 'Cormorant', Georgia, serif); font-weight: 500;
+/* FONT3 (2026-10-02, Mac: "we need to ensure everything recieves our enhanced font"): the title and the line were the
+   display serif, the one screen of the game's own words still in it; they are the pixel face, named outright. */
+.dth-title { margin: 0; font-family: ${PIXEL_STACK}; font-weight: 500;
   font-size: clamp(44px, 9vw, 104px); line-height: 1; text-transform: uppercase;
   letter-spacing: 0.34em; text-indent: 0.34em; color: #8e1b14;
   text-shadow: 0 0 18px rgba(142,27,20,0.55), 0 0 60px rgba(90,8,4,0.6), 0 3px 0 #1a0302;
@@ -168,12 +177,13 @@ export const DEATH_CSS = `
 .dth-rule i:last-child { background: linear-gradient(90deg, rgba(192,138,62,0.45), transparent); }
 .dth-gem { width: 7px; height: 7px; transform: rotate(45deg); background: #6b1510; box-shadow: 0 0 6px rgba(142,27,20,0.8); }
 
-.dth-line { margin: 0; font-family: var(--display, 'Cormorant', Georgia, serif); font-style: italic;
+.dth-line { margin: 0; font-family: ${PIXEL_STACK};   /* FONT3: upright - the face has no italic, and a slanted pixel smears */
   font-size: clamp(16px, 2.2vw, 21px); color: #b3a893; letter-spacing: 0.04em;
   animation: dth-in 900ms ease-out 1300ms both; }
+.dth-lossline { max-width: min(760px, 92vw); line-height: 1.4; }   /* DEATH-PENALTY: the longest of the four lines wraps on a phone rather than running off it */
 
 .dth-count { margin: 2px 0 0; font-family: ${PIXEL_STACK}; -webkit-font-smoothing: none; font-size: 13px;
-  letter-spacing: 0.18em; text-transform: uppercase; color: #7d6f5e; text-shadow: 2px 2px 0 #000;
+  letter-spacing: 0.18em; text-transform: uppercase; color: #9c917b; text-shadow: 2px 2px 0 #000;   /* FONT3: the keys' own tone - #7d6f5e read at 3.6:1 */
   font-variant-numeric: tabular-nums; animation: dth-in 700ms ease-out 1500ms both; }
 .dth-keys { display: flex; flex-wrap: wrap; justify-content: center; gap: 12px 26px; margin-top: 10px;
   animation: dth-in 700ms ease-out 1700ms both; }

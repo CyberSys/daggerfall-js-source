@@ -30,7 +30,8 @@ test('GUILD-REP: the book - affiliation, rank title and live reputation, one row
   });
   const book = affiliations(e);
   assert.equal(book.length, 2, 'a membership naming no guild is no row');
-  assert.deepEqual(book[0], { affiliation: 'The Fighters Guild', title: 'Swordsman', rep: 37, factionId: fighters.factionId });
+  // REP6: PIN MOVED - the row carries the probation too (the Standing page tags a member on it)
+  assert.deepEqual(book[0], { affiliation: 'The Fighters Guild', title: 'Swordsman', rep: 37, factionId: fighters.factionId, probation: false });
   assert.equal(book[1].affiliation, 'Julianos');
   assert.equal(book[1].rep, -4);
   assert.deepEqual(affiliations(hero({ guildMemberships: {} })), [], 'no memberships, no rows');
@@ -79,7 +80,9 @@ test('GUILD-REP: one model, both skins - the classic box and the enhanced page r
   assert.match(read('src/ui/charsheet.js'), /const book = affiliations\(entity\);/);
   const menu = read('src/ui/enhancedMenu.js');
   assert.match(menu, /const book = affiliations\(entity\);/);
-  assert.match(menu, /r\.append\(el\('span', 'k', SOCIAL_GROUP_NAMES\[i\]\), signedRep\(reps\[i\] \?\? 0\)\);\s*detail\.append\(r\);\s*\}\s*statsGuilds\(detail, playerEntity\);/,
-    'the Standing page draws the guilds after the social groups');
+  // REP5: PIN MOVED - the law of each region stands between the social groups and the guilds (test/rep5_notices.test.js)
+  // DRESS1 (2026-09-30): PIN MOVED again - the Dress line (test/dress_standing.test.js) sits under the groups, before the law
+  assert.match(menu, /r\.append\(el\('span', 'k', SOCIAL_GROUP_NAMES\[i\]\), signedRep\(reps\[i\] \?\? 0\)\);\s*detail\.append\(r\);\s*\}\s*statsDress\(detail, playerEntity\);\s*statsLaw\(detail, playerEntity\);\s*statsGuilds\(detail, playerEntity\);/,
+    'the Standing page draws the guilds after the social groups (and the law between)');
   assert.doesNotMatch(menu, /from '\.\/charsheet\.js'/, 'the enhanced skin never imports the classic sheet');
 });

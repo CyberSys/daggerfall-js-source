@@ -802,7 +802,7 @@ MorphSelf is not, and carries its own spellbook description.
 **The cites.** `citeMerge` read a line both sides carry verbatim as
 THEIRS and moved its numbers through their diff - and the drop's
 untouched comments sat beside targets that had moved on their side
-(nine cites, `spellcost.js:191` -> :181 among them). A shared line's
+(nine cites, `spellcost.js:192` -> :181 among them). A shared line's
 number was read off one side's target and the line cannot say which;
 the tool now maps it from both and moves it only where the two agree,
 else prints it AMBIGUOUS for a person (`test/citemerge.test.js`).
@@ -968,7 +968,8 @@ before it was changed, and each is pinned by execution in
 - **V8 - resting through the change.** The deploy cancels the rest first.
 - **V9 - online clocks.** Going online shifts the infection's
   `startingDay` and the werewolf's kill/morph/urge stamps with the shared
-  clock (and `liveLycanthropy` survives a null effect entry).
+  clock (and `liveLycanthropy` survives a null effect entry). [SUPERSEDED BY LIVED1: nothing is shifted -
+  the stamps are on the character's own clock, which stood.]
 - **V11 - the dream lost on reload.** An unplayed dream is re-scheduled on
   restore, for both infections.
 - **L2 - the beast struck with a marker item.** `strikingWeapon` is the

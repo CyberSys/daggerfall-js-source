@@ -43,6 +43,7 @@ import { closeSession } from '../systems/inventorySession.js';
 import { immersiveFootsteps } from '../systems/immersiveFootsteps.js';   // AUDIT-IF F5: the enhanced skin's close refreshes the mod's armour slots too
 import { racialSuppressInventory } from '../systems/lycanthropy.js';   // DISC10-E L3: GetSuppressInventory, in the window itself
 import { messageBox } from '../systems/notify.js';   // DISC10-E L3: DaggerfallUI.MessageBox, the refusal's voice
+import { ChoiceWindow } from './talkWindow.js';   // REVENANT-FATE: the classic skin's keyed box
 
 export { inventoryArtLoaded };
 
@@ -69,6 +70,11 @@ export function createInventoryWindow(deps = {}) {
   // refusal onto a few of its doors and missed the rest (a building's pack,
   // every corpse and pile, the sheet's Items button). Here it is ONE door:
   // the line is said and no window is built - the caller mounts nothing.
+  // REVENANT-FATE: a beaten revenant's choice is the loot window's fate side on the enhanced skin; the classic's canvas
+  // window has no room for one, so there it is a keyed box - its name, its plea, K kill, S spare, Esc leave it
+  // AUDIT (2026-10-02): before the beast's refusal - it refuses the pack, never the judgement (the classic box always
+  // came first; the enhanced skin's loot window was refused in beast form)
+  if (deps.fate) return isEnhanced() && typeof document !== 'undefined' ? enhancedInventoryOverlay(deps) : classicFateWindow(deps.fate);
   const sup = racialSuppressInventory(deps.entity);
   if (sup) { messageBox(sup.text); return null; }
   // `document` for the reason every fork before this one gives: node
@@ -78,6 +84,17 @@ export function createInventoryWindow(deps = {}) {
     return enhancedInventoryOverlay(deps);
   }
   return new NativeInventoryWindow(deps);
+}
+
+/** REVENANT-FATE on the classic skin: the choice as a keyed box (talkWindow.js ChoiceWindow). */
+function classicFateWindow(fate) {
+  // AUDIT (2026-10-02): the details ride the box's wrapped lines (an option's label is never wrapped - a Spare's whole
+  // sentence ran off the screen), and a choice it cannot take says why instead of vanishing
+  const lines = [fate.name, fate.sub ?? '', '', fate.plea?.speech ? `"${fate.plea.speech}"` : (fate.plea?.body ?? ''), '',
+    ...fate.options.map((o) => `${o.label}: ${o.detail}`)].filter((l, i, a) => l !== '' || (i > 0 && a[i - 1] !== ''));
+  const options = fate.options.filter((o) => !o.disabled).map((o) => ({ code: `Key${o.key}`, label: `${o.key} - ${o.label}`, action: () => fate.choose(o.id) }));
+  options.push({ code: 'Escape', label: 'Esc - Leave it kneeling', action: () => {} });
+  return new ChoiceWindow({ lines, options });
 }
 
 /**
@@ -103,7 +120,11 @@ function enhancedInventoryOverlay(deps) {
   // shape, one door over, and it blacked out every scrim behind it.
   // Same standing caveat as PX4: the classic window keeps its own
   // opaque draw; only the enhanced host goes glass.
-  host.style.cssText = 'position:fixed;inset:0;z-index:13;background:transparent;overflow:hidden';
+  // CARD-FIT U5 (the card audit): CLIPPED, NOT HIDDEN - a box with `overflow: hidden` is still scrolled by the browser
+  // to show a focused control, so a Tab onto a button under the screen's foot shoved the whole pack up and left it
+  // there (nothing a wheel or a thumb could scroll back). `clip` is no scroller at all; `hidden` stays for a browser
+  // without it.
+  host.style.cssText = 'position:fixed;inset:0;z-index:13;background:transparent;overflow:hidden;overflow:clip';
   document.body.append(host);
   let unregister = () => {};   // PX28: Tab must be able to put the pack away
 

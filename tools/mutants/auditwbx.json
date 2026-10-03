@@ -20,7 +20,7 @@
   {
     "name": "AUDWBX-R2-a-beat-holding-a-seat",
     "file": "src/net/gateBrain.js",
-    "old": "    if (present.has(sub) || p.dealt >= RECEIPT_SHARE * p.share || p.stoodMs >= SEAT_KEEP_MS) continue;",
+    "old": "    if (present.has(sub) || hasPart(p)) continue;",
     "new": "    if (present.has(sub) || p.dealt > 0 || p.stoodMs > 0) continue;",
     "tests": [
       "test/auditwb_relay.test.js"
@@ -29,8 +29,8 @@
   {
     "name": "AUDWBX-R3-the-cleave-back-at-six",
     "file": "src/net/gateBrain.js",
-    "old": "arc: 110, pct: 0.35, base: 8, el: null, aim: 'target', phase: 1, range: 7,",
-    "new": "arc: 110, pct: 0.35, base: 8, el: null, aim: 'target', phase: 1, range: 6,",
+    "old": "arc: 110, pct: 0.45, base: 12, el: null, aim: 'target', phase: 1, range: 7,",
+    "new": "arc: 110, pct: 0.45, base: 12, el: null, aim: 'target', phase: 1, range: 6,",
     "tests": [
       "test/auditwbx.test.js"
     ]
@@ -65,8 +65,8 @@
   {
     "name": "AUDWBX-R6-a-blow-never-waking-him",
     "file": "server/src/index.js",
-    "old": "    else if (!f.fell && !f.wrath && !(this._beatArmedTo > now)) { this._beatArmedTo = now + BRAIN_TICK_MS; await this._gateArm(now); }",
-    "new": "    else void this._beatArmedTo;",
+    "old": "    if (!f.fell && !f.wrath && !(this._beatArmedTo > now)) { this._beatArmedTo = now + BRAIN_TICK_MS; await this._gateArm(now); }",
+    "new": "    void this._beatArmedTo;",
     "tests": [
       "test/auditwbx.test.js"
     ]
@@ -93,7 +93,9 @@
     "name": "AUDWBX-S4-every-tab-handed-it",
     "file": "server/src/index.js",
     "old": "    for (const [sub, { ws }] of newest) this._send(ws, JSON.stringify({ t: 'gate', ...rc.get(sub) }));",
-    "new": "    for (const [ws, b] of [...this._all()]) if (b.id && b.sub && rc.has(b.sub) && !here.has(b.sub)) this._send(ws, JSON.stringify({ t: 'gate', ...rc.get(b.sub) }));",
+    "new": "    for (const [ws, b] of [...this._all()]) if (b.id && b.sub && rc.has(b.sub) && !here.has(b.sub) && !done.has(b.sub)) this._send(ws, JSON.stringify({ t: 'gate', ...rc.get(b.sub) }));",
+    "equivalent": true,
+    "why": "ONE-SEAT (2026-09-27): an account holds the hub from ONE tab - a second tab of the same verified account is refused there, or closes the first by claiming (net/wire.js ONE-SEAT) - so every tab of the account and its newest tab are the same socket, and the two hand-outs cannot differ. The hand-out itself is pinned (S1: one tab of the account handed it, the newest). AUDIT ONESEAT T3: re-aimed - the first `new` also dropped the spent-receipt exclusion (AUDIT WBX2 M3), which is no equivalent (auditwbx2.test.js kills it); the one it changes now is every-tab-for-newest alone.",
     "tests": [
       "test/auditwbx.test.js"
     ]
@@ -111,7 +113,7 @@
   {
     "name": "AUDWBX-S1-said-before-it-is-safe",
     "file": "src/scenes/spoilsPool.js",
-    "old": "    const durable = store?.persisted?.(SPOILS_STORE_KEY) ?? true;",
+    "old": "    const durable = store?.persisted?.(STORE_KEY) ?? true;",
     "new": "    const durable = true;",
     "tests": [
       "test/auditwbx.test.js"
@@ -129,7 +131,7 @@
   {
     "name": "AUDWBX-S3-a-save-clearing-nothing",
     "file": "src/scenes/spoilsPool.js",
-    "old": "      const ids = new Set([...held].filter(([, h]) => h.who === whoSaved).map(([id]) => id));",
+    "old": "      const ids = new Set([...held].filter(([id, h]) => h.who === whoSaved && (!only || only.includes(id))).map(([id]) => id));",
     "new": "      const ids = new Set();",
     "tests": [
       "test/auditwbx.test.js",
@@ -139,8 +141,8 @@
   {
     "name": "AUDWBX-S2-the-level-unsigned",
     "file": "src/net/gateReceipt.js",
-    "old": "const claimsOf = ({ d, b, s, c, x, l }, nowS) => ({ d, b, s, c, x, ...(l !== undefined ? { l } : {}), i: nowS, e: nowS + RECEIPT_TTL_S });",
-    "new": "const claimsOf = ({ d, b, s, c, x }, nowS) => ({ d, b, s, c, x, i: nowS, e: nowS + RECEIPT_TTL_S });",
+    "old": "const claimsOf = ({ d, b, s, c, x, l, r }, nowS) => ({ d, b, s, c, x, ...(l !== undefined ? { l } : {}), ...(r === 1 ? { r } : {}), i: nowS, e: nowS + RECEIPT_TTL_S });",
+    "new": "const claimsOf = ({ d, b, s, c, x, l, r }, nowS) => ({ d, b, s, c, x, ...(r === 1 ? { r } : {}), i: nowS, e: nowS + RECEIPT_TTL_S });",
     "tests": [
       "test/auditwbx.test.js"
     ]
@@ -193,7 +195,7 @@
   {
     "name": "AUDWBX-F7-the-lane-at-half-its-width",
     "file": "src/render/gateTelegraph.js",
-    "old": "halfW: A.shape === 'lane' ? Math.max((A.width ?? 0) / 2, BOSS_R) : (A.width ?? 0) / 2,",
+    "old": "halfW: A.shape === 'lane' ? Math.max((A.width ?? 0) / 2, P.bossR) : (A.width ?? 0) / 2,",
     "new": "halfW: (A.width ?? 0) / 2,",
     "tests": [
       "test/auditwbx.test.js",

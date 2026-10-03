@@ -59,6 +59,7 @@
 
 import { injectEnhancedStyle, injectEnhancedFonts } from './enhancedStyle.js';
 import { isEnhanced, isEnhancedPlus } from '../systems/uiSkin.js';   // PLUS1: the toast's fade is Enhanced Plus's
+import { armDrawWatchdog, disarmDraw } from './drawWatchdog.js';   // DISC29-D: the watchdog counts frames, not milliseconds
 
 export const ENHANCED_NOTICE_ID = 'enhanced-notice';
 /** The sheet's transition length (ui/enhancedStyle.js .notice), in ms. */
@@ -132,10 +133,13 @@ function buildPanel(doc, key, toast = false, hint = undefined) {
 
 /** A row record as the box carries it: a string, a { text, center,
  *  highlight } record, or AUDIT 64 F28's { cells: [{ text, x }] }
- *  tab-stopped row. The panel keeps the columns the parchment kept. */
+ *  tab-stopped row. The panel keeps the columns the parchment kept.
+ *  GUIDE3: `cls` is a face's own class for the row (the quest herald's
+ *  kind, title and line), so a toast that says three things can say
+ *  them in three weights. */
 function paintRow(doc, node, row) {
   const rec = typeof row === 'string' ? { text: row } : (row ?? {});
-  const cls = `notice-row${rec.center ? ' center' : ''}${rec.highlight ? ' highlight' : ''}${Array.isArray(rec.cells) ? ' cells' : ''}`;
+  const cls = `notice-row${rec.center ? ' center' : ''}${rec.highlight ? ' highlight' : ''}${Array.isArray(rec.cells) ? ' cells' : ''}${rec.cls ? ` ${rec.cls}` : ''}`;
   if (node.className !== cls) node.className = cls;
   if (Array.isArray(rec.cells)) {
     const want = rec.cells.map((c) => c?.text ?? '');
@@ -176,9 +180,10 @@ export function drawEnhancedNotice(frame, doc = (typeof document === 'undefined'
   if (!p) { p = buildPanel(doc, key, !!frame?.toast, frame?.hint); panels.set(key, p); }
   const { host, body, rows, last } = p;
   if (p.hintNode && typeof frame?.hint === 'string' && p.hintNode.textContent !== frame.hint) p.hintNode.textContent = frame.hint;
-  // the watchdog: re-armed on every draw, fires only when the draws stop
-  cancel(p.watchdog);
-  p.watchdog = frame?.hold ? null : schedule(() => { if (panels.get(key) === p) releaseEnhancedNotice(key); }, NOTICE_WATCHDOG_MS);
+  // the watchdog: re-armed on every draw, fires only when the draws stop - DISC29-D: a frame that came and went
+  // without one, never a frame slower than the timer (ui/drawWatchdog.js)
+  disarmDraw(p.watchdog);
+  p.watchdog = frame?.hold ? null : armDrawWatchdog(NOTICE_WATCHDOG_MS, () => { if (panels.get(key) === p) releaseEnhancedNotice(key); }, { schedule, cancel });
 
   const shown = lines.length > 0;
   if (last.on !== shown) { last.on = shown; host.style.display = shown ? '' : 'none'; }
@@ -204,7 +209,7 @@ export function releaseEnhancedNotice(key) {
   const p = panels.get(key);
   if (!p) return;
   panels.delete(key);
-  cancel(p.watchdog);
+  disarmDraw(p.watchdog);
   // AUDIT ENH-NOTICE3 A2: a toast the WATCHDOG swept (its model's
   // draws stopped - a backgrounded tab, a host gone without dispose)
   // must leave its owner's id set too, or the set outlives the model
@@ -299,7 +304,9 @@ const toastKey = (owner, id) => `${owner}:${id}`;
 /**
  * ONE FRAME OF ONE PopupText MODEL, AS TOASTS (ENH-NOTICE3). `frame`
  * is ui/hudText.js's own (`rows` front first, `ids` beside them,
- * `visible` the host's draw gate); each row is a panel of its own,
+ * `visible` the host's draw gate); each row is a panel of its own
+ * (GUIDE3: or, where `rows[i]` is itself a list, a panel of those rows -
+ * the quest herald's kind, title and line are one notice),
  * keyed by its id under `key`, so a row that was there last frame and
  * is not in this one has been POPPED by PopupText's timer and slides
  * out, while the rows still queued stay put - a new line never
@@ -318,7 +325,10 @@ export function drawEnhancedToasts(frame, doc = (typeof document === 'undefined'
   if (!mine) { mine = new Set(); toasts.set(key, mine); }
   const out = [];
   for (let i = 0; i < ids.length; i++) {
-    const host = drawEnhancedNotice({ rows: [rows[i] ?? ''], visible, toast: true }, doc, toastKey(key, ids[i]));
+    const host = drawEnhancedNotice({ rows: Array.isArray(rows[i]) ? rows[i] : [rows[i] ?? ''], visible, toast: true }, doc, toastKey(key, ids[i]));
+    // AUDIT GUIDE H3: an owner that speaks its news itself (the quest herald's own live region) keeps its toasts out of
+    // the stack's - said once and whole there, never twice, never a merged row alone
+    if (host && frame?.silent && host.getAttribute?.('aria-hidden') !== 'true') host.setAttribute?.('aria-hidden', 'true');
     if (host) {
       const p = panels.get(toastKey(key, ids[i]));
       if (p) { p.toastOwner = key; p.rowId = ids[i]; }   // AUDIT ENH-NOTICE3 A2: the watchdog's release finds the owner's set through these
@@ -354,7 +364,7 @@ export const enhancedToastOwners = () => [...toasts.keys()];
 
 /** Tests: drop everything at once. */
 export function destroyEnhancedNotice() {
-  for (const p of panels.values()) { cancel(p.watchdog); try { p.host.remove(); } catch { /* gone */ } }
+  for (const p of panels.values()) { disarmDraw(p.watchdog); try { p.host.remove(); } catch { /* gone */ } }
   panels.clear();
   toasts.clear();
   try { stack?.remove(); } catch { /* gone */ }

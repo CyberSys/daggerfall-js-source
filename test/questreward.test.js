@@ -16,8 +16,10 @@ test('RW1 world: the pends flag is GONE and the reward is a container, not a sil
   const world = read('src/scenes/world.js');
   assert.ok(!/loot window pends/.test(world), 'retiring a flag deletes the sentence');
   assert.ok(!/You have been given/.test(world), 'the stand-in HUD line goes with it');
-  const from = world.indexOf('offerReward: (q, dfItem) => {');
-  assert.ok(from > 0, 'the door exists');
+  assert.ok(world.indexOf('offerReward: (q, dfItem) => {') > 0, 'the door exists');
+  assert.match(world, /offerReward: \(q, dfItem\) => \{[\s\S]{0,400}?else giveReward\(dfItem\);/, 'and gives through the one giver (AUDIT 28 F6: a reward held behind Foraging\'s wait is given by it too)');
+  const from = world.indexOf('const giveReward = (dfItem) => {');
+  assert.ok(from > 0, 'the giver exists');
   const body = world.slice(from, from + 1400);
   assert.match(body, /modes\?\.mintRewardPile\?\.\(dfItem\)/,
     'the MODE that owns the ground is asked first');

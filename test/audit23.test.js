@@ -136,8 +136,9 @@ test('AUDIT 23: both dungeon-mounting hosts pass the spawn applier; the snapshot
   // player.spawn - a quickload kept velY/falling across the teleport.
   const root = join(dirname(fileURLToPath(import.meta.url)), '..');
   const wm = readFileSync(join(root, 'src/scenes/worldModes.js'), 'utf8');
-  assert.ok(wm.includes('(p) => player.spawn(p[0], p[1], p[2])'),
-    'worldModes routeKey applier calls player.spawn');
+  // FALL-KEPT (FIELD BUGS 2026-09-30, PIN MOVED): the law lands a saved fall after the spawn (fb0930_fallkept.test.js).
+  assert.ok(wm.includes('const placeLoadedPlayer = (p, fall = null) => { player.spawn(p[0], p[1], p[2]); player.restoreFall(fall); player.stopAutorun(); };'),
+    'worldModes\' load law calls player.spawn (AUDIT 27h S2: and drops the autorun latch - a load is no run; DIAL-LOAD: named once, handed everywhere)');
   assert.equal(wm.includes('player.pos[0] = p[0]'), false,
     'the raw-pos applier is gone');
   // I2 FOLLOW-UP: the applier has to be routeKey's THIRD argument, and
@@ -151,7 +152,7 @@ test('AUDIT 23: both dungeon-mounting hosts pass the spawn applier; the snapshot
     // held-keys Set, without which routeKey's actionOf cannot see a
     // combo (InputManager.cs:1666-1712). The spawn applier must stay
     // THIRD, which is what this pin is about, so the tail is read too.
-    const call = /routeKey\(e, \w+, \(p\) => player\.spawn\(p\[0\], p\[1\], p\[2\]\), keys\)/.exec(sourceText);
+    const call = /routeKey\(e, \w+, placeLoadedPlayer, keys\)/.exec(sourceText);   // AUDIT 27h S2 + DIAL-LOAD: the host's one load law, which drops the latch too
     assert.ok(call, `${name} passes the spawn applier as routeKey's third argument`);
   }
   const dc = readFileSync(join(root, 'src/scenes/dungeonContext.js'), 'utf8');

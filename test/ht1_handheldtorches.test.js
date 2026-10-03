@@ -36,7 +36,7 @@ import { domCodeForKeyCode, keyCodeForDomCode, isBindableKeyCode, KEYCODE_NONE }
 import { MOD_SETTINGS, isIntKey, isFloatKey, isChoiceKey, isTextKey, isTupleKey, modSettingsOf, setModSetting, _resetModSettings } from '../src/systems/modSettings.js';
 import { BOB_SHAPE as WW_BOB_SHAPE, STEP_CONDITION as WW_STEP_CONDITION } from '../src/combat/weaponWidget.js';
 import { FEATURES } from '../src/systems/features.js';
-import { DEFAULT_BINDINGS, PORT_ACTIONS, MOD_ACTIONS } from '../src/systems/inputActions.js';   // HT4: the keys DFU already answers; KB1: and the mods' own, which are actions now
+import { DEFAULT_BINDINGS, DEFAULT_SHARES, PORT_ACTIONS, MOD_ACTIONS } from '../src/systems/inputActions.js';   // HT4: the keys DFU already answers; KB1: and the mods' own, which are actions now
 import { shortcutBinding } from '../src/systems/dialogShortcuts.js';   // KB1: DFU's world shortcuts
 import { CREDITS } from '../src/ui/credits.js';
 import { TEMPLATES } from '../src/systems/useItem.js';
@@ -838,7 +838,7 @@ test('HT1: the rig runs the component beside the widget - one per rig, the pool 
   // holding the screen stops the classic body's four painters, the torch
   // hand among them (hands holding a map hold no torch either).
   assert.match(rig, /if \(fpArm\.active\(\)\) \{[^}]*fpArm\.draw\(c\);[^}]*return; \}\s*(?:\/\/[^\n]*\n\s*)*if \(sheetWindowUp\(\)\) return;\s*(?:\/\/[^\n]*\n\s*)*if \(shieldRect\) shield\.draw\(\(index, rect, uv\) => drawShieldSprite\(index, rect, uv, fpTint\)\);\s*if \(handheldOn\(\) && c\) handheld\.draw\(renderer, c, fpTint\);\s*if \(torchOnly && !gunSliding\) return;[^\n]*\n\s*(?:\/\/[^\n]*\n\s*)*if \(!shown\(\) && !gunSliding\) return;[^\n]*\n\s*(?:\/\/[^\n]*\n\s*)*const tlArt = c && thunderlockHeld\(\) \? artFor\(playerWeapon\.weapon\) : null;\s*if \(tlArt\?\.anchor && tlArt\.unionBox\) \{ drawThunderlock\(tlArt, c, fpTint\); return; \}\s*(?:\/\/[^\n]*\n\s*)*if \(gunSliding && !shown\(\)\) return;\s*if \(widgetOn\(\) && c && widget\.draw\(renderer, c, fpTint\)\) return;/, 'the arms return first (no classic hand under the Morrowind arms), the shield behind the torch hand, the torch hand under the weapon');
-  assert.match(rig, /actionDown = null, torches = \(\) => null, sheetWindowUp = \(\) => false(?:, dropRefusal = \(\) => null)? \}\)/, 'KB1: the registry\'s held read (it was the raw key set) and the pool - the two deps the hosts feed, and MAP-WEAPON\'s third - defaulted so a host that never heard of it draws what it always drew');
+  assert.match(rig, /actionDown = null, torches = \(\) => null, sheetWindowUp = \(\) => false(?:, dropRefusal = \(\) => null)?(?:, actTool = \(\) => null)? \}\)/, 'KB1: the registry\'s held read (it was the raw key set) and the pool - the two deps the hosts feed, and MAP-WEAPON\'s third - defaulted so a host that never heard of it draws what it always drew');
   assert.match(rig, /if \(!_torchesOn && _handheldWasOn\) handheld\.dispose\(\);/, 'AUDIT 66 F8: the switch off is a teardown - update() runs only while the mod is on, so the burning loop could not stop itself');
   assert.match(rig, /dispose\(\) \{ handheld\.dispose\(\); _handheldWasOn = false; \}/, 'AUDIT 66 F8: and the host has a door to call');
   assert.match(rig, /handheld,\s*\/\/ HT1/);
@@ -883,7 +883,7 @@ test('HT1: the five hosts - each owns a pool, feeds the rig its raw keys and the
   assert.match(world, /droppedTorches\.restore\(arrived\.droppedTorches\.map\(/, 'world: the F9 envelope too');   // TERRAIN-SCALE1: stood again on today's ground
   // the interior mode
   assert.match(wm, /const interiorTorches = createDroppedTorches\(\{/);
-  assert.match(wm, /\.\.\.interiorTorches\.lights\(\)\);/); assert.match(wm, /interiorTorches\.tick\(dt\);/); assert.match(wm, /const _torches = interiorTorches\.batches\(\);/);
+  assert.match(wm, /\.\.\.interiorTorches\.lights\(\)(?:, \.\.\.\(host\.modeLights\?\.\(\) \?\? \[\]\))?\);/); assert.match(wm, /interiorTorches\.tick\(dt\);/); assert.match(wm, /const _torches = interiorTorches\.batches\(\);/);
   assert.match(wm, /targets\.push\(\.\.\.interiorTorches\.targets\(\)\);/);
   assert.match(wm, /if \(key\.startsWith\('droppedTorch:'\)\) \{ interiorTorches\.activate\(key, getInteractionMode\(\)\); return true; \}/);
   // AUDIT 66 F4: the sweep runs with the TRANSITION, before the scene cache puts the room's own torches back - it used to sit at the foot of the same function and destroyed what the restore had just spawned
@@ -895,7 +895,7 @@ test('HT1: the five hosts - each owns a pool, feeds the rig its raw keys and the
   // TERRAIN-SCALE1: measured from the building, and placed on this visit's origin
   assert.match(wm, /const droppedTorches = interiorTorches\.snapshot\(\(p\) => \[p\[0\] - o\[0\], p\[1\] - o\[1\], p\[2\] - o\[2\]\]\);/); assert.match(wm, /interiorTorches\.restore\(data\.droppedTorches, place\);/);
   assert.match(wm, /key\.startsWith\('droppedTorch:'\)\) \{/, 'the dungeon arm\'s loot ladder takes the key');
-  assert.match(wm, /\.\.\.dungeonCtx\.torchLights\(\)(?:\.map\(_dgTint\))?\)/);   // AUDIT DISC19: the dungeon's colour on each, the candle alone white assert.match(wm, /\.\.\.dungeonCtx\.torchBatches\(\)/);
+  assert.match(wm, /\.\.\.dungeonCtx\.torchLights\(\)(?:\.map\(_dgTint\))?(?:, \.\.\.\(host\.modeLights\?\.\(\) \?\? \[\]\))?\)/);   // AUDIT DISC19: the dungeon's colour on each, the candle alone white assert.match(wm, /\.\.\.dungeonCtx\.torchBatches\(\)/);
   // the dungeon context and the standalone dungeon
   assert.match(dc, /droppedTorches, torchBatches: \(\) => droppedTorches\.batches\(\), torchLights: \(\) => droppedTorches\.lights\(\),/);
   assert.match(dc, /targets\.push\(\.\.\.droppedTorches\.targets\(\)\);/); assert.match(dc, /if \(kind === 'droppedTorch'\) return droppedTorches\.activate\(key, mode\) \? 1 : 0;/);
@@ -938,7 +938,9 @@ test('HT4 (re-aimed by KB1): no action ships on a key another action, DFU\'s wor
     assert.ok(!browser.has(code), `${action} ships ${code}, which the browser takes`);
   }
   // every mod action ships a key, and the three this mod ships are the three it ships, named
-  const def = new Map(DEFAULT_BINDINGS.map(([code, action]) => [action, code]));
+  // HELM-KEYS: a default share ships its key too (inputActions.js DEFAULT_SHARES) - held to the same world and browser law
+  for (const [code, action] of DEFAULT_SHARES) { assert.ok(!world.has(code) && !browser.has(code), `${action} shares ${code}, a key DFU or the browser takes`); }
+  const def = new Map([...DEFAULT_BINDINGS.map(([code, action]) => [action, code]), ...DEFAULT_SHARES.map(([code, action]) => [action, code])]);
   for (const rows of Object.values(MOD_ACTIONS)) for (const r of rows) assert.ok(def.has(r.action), `${r.action} ships a key`);
   assert.equal(def.get('TorchToggleLight'), 'KeyO', 'SOC5: off the F-menu\'s F');
   assert.equal(def.get('TorchDrop'), 'KeyG', 'HT4: off the dial\'s Tab');

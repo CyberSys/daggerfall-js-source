@@ -335,6 +335,19 @@ export class AudioEngine {
     }
   }
 
+  /** FIELD-WIND1: a sound the port MAKES rather than decodes - mono `samples` at `sampleRate` - registered under a
+   *  string key as registerSound registers a decoded WAV, so every entry point takes it in place of an index (the
+   *  wind's bed rides `loop`). True once it stands; false with no context to make it on yet (the caller asks again). */
+  registerSamples(key, samples, sampleRate) {
+    this._ensureCtx();
+    if (!this.ctx) return false;
+    if (this.buffers.get(key)) return true;
+    const b = this.ctx.createBuffer(1, samples.length, sampleRate);
+    b.getChannelData(0).set(samples);
+    this.buffers.set(key, b);
+    return true;
+  }
+
   _ready() {
     this._ensureCtx();
     return this.enabled && this.ctx && this.ctx.state === 'running';
@@ -433,6 +446,9 @@ export class AudioEngine {
       },
       /** WX2: the loop's gain, live - the rain loop fades with the front. */
       setVolume(v) { gain.gain.value = Math.max(0, Math.min(1, v)); },
+      /** FIELD-WIND1: the loop's pitch, live (Unity's AudioSource.pitch, WebAudio's playbackRate) - the wind's bed
+       *  brightens as the wind gets up. */
+      setPitch(p) { src.playbackRate.value = p; },
     };
   }
 
@@ -559,14 +575,17 @@ export class AudioEngine {
    *  the streaming world shifts its origin under a built pixel, and a
    *  source that stayed at the old numbers would drift away from the
    *  mill it belongs to. */
-  loop3d(index, pos, volume = 1, { refDistance = 1, maxDistance = 5, distanceModel = 'linear', lowpass = 0 } = {}) {
+  /** CSA-G: `rolloffFactor` 0 is a panner that places and never attenuates - for a caller that works Unity's own
+   *  rolloff out itself (Come Sail Away's loops: logarithmic, which stops attenuating at maxDistance, as no WebAudio
+   *  model does) and sets the gain each frame through the handle's `setVolume`. */
+  loop3d(index, pos, volume = 1, { refDistance = 1, maxDistance = 5, distanceModel = 'linear', lowpass = 0, rolloffFactor = 1 } = {}) {
     if (!this._ready()) return null;
     const buf = this._buffer(index);
     if (!buf) return null;
     const src = this.ctx.createBufferSource();
     src.buffer = buf;
     src.loop = true;
-    const pan = this._panner(pos, { refDistance, maxDistance, distanceModel });
+    const pan = this._panner(pos, { refDistance, maxDistance, distanceModel, rolloffFactor });
     const gain = this.ctx.createGain();
     gain.gain.value = volume;
     const tail = lowpass > 0 ? this._lowpass(lowpass) : null;   // BA1: AudioLowPassFilter, as loop() has it
@@ -574,12 +593,18 @@ export class AudioEngine {
     src.start();
     return {
       move(p) { placeAudio(pan, p); },
+      /** CSA-G: the loop's gain, live (a Unity AudioSource's `volume`). */
+      setVolume(v) { gain.gain.value = Math.max(0, v); },
       stop() {
         try { src.stop(); } catch { /* already stopped */ }
         src.disconnect();
       },
     };
   }
+
+  /** CSA-G: where the ears stand (the last setListener's position, scene coordinates) - for a caller that works a
+   *  source's rolloff out itself. */
+  listenerPosition() { const L = this._listener; return [L.x, L.y, L.z]; }
 
   /** Per-frame listener sync from the camera (position + forward), in SCENE coordinates - `_listener` keeps them so;
    *  the handedness is turned at the one door into WebAudio (audioFrame). */
@@ -616,12 +641,13 @@ export class AudioEngine {
    *  HRTF, not equal-power: equal-power folds every azimuth past 90 degrees onto the front, so a foe behind sounded
    *  exactly like one ahead. Unity's own stereo panner has no front/back cue either - this is the port going past
    *  DFU on purpose, at the player's ask; the left/right law is DFU's (a source on the right plays on the right). */
-  _panner(pos, { refDistance = 1, maxDistance = 500, distanceModel = 'inverse' } = {}) {
+  _panner(pos, { refDistance = 1, maxDistance = 500, distanceModel = 'inverse', rolloffFactor = 1 } = {}) {
     const pan = this.ctx.createPanner();
     pan.panningModel = PANNING_MODEL;
     pan.distanceModel = distanceModel;
     pan.refDistance = refDistance;
     pan.maxDistance = maxDistance;
+    pan.rolloffFactor = rolloffFactor;
     placeAudio(pan, pos);
     return pan;
   }
@@ -657,6 +683,16 @@ export class AudioEngine {
 }
 
 export const audio = new AudioEngine();
+
+/** CSA-G: AudioRolloffMode.Logarithmic - Unity's (FMOD's inverse) rolloff: full inside minDistance, minDistance over
+ *  the distance past it, and no quieter past maxDistance, where it stops attenuating. The panner's own inverse model
+ *  never stops, so a caller holding Unity's curve works it out here and hands the panner a rolloff factor of 0. */
+export const logarithmicRolloff = (d, min, max) => (d <= min ? 1 : min / Math.min(d, max));
+/** CSA-G: A PLAIN UNITY AudioSource ON THE ONE BUS. The bus carries DaggerfallUnity.Settings.SoundVolume (`_out`) - the
+ *  multiply DaggerfallAudioSource makes at every play - and a plain AudioSource never reads the setting, so its own
+ *  volume is handed over the bus with SoundVolume divided out; a bus at nought is silence (the one case the bus
+ *  cannot give back). */
+export const plainSourceGain = (v, soundVolume) => (soundVolume > 0 ? v / soundVolume : 0);
 
 /**
  * E6: DaggerfallAudioSource, as much of it as the QUEST MACHINE's own

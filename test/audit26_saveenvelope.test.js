@@ -72,7 +72,8 @@ test('audit26 F222: both hosts write the pose and land it on load', () => {
   // (combat/playerWeapon.js), so what is matched here is the host's
   // WIRING - which rig it offers and where the pair sits in the bag -
   // and the law itself is CALLED below rather than quoted.
-  assert.match(w, /pose: \{ yaw: cam\.yaw, pitch: cam\.pitch, crouching: !!player\.crouching, \.\.\.mergeWeaponPose\(wp, weaponPoseOf\(weaponRig\.playerWeapon\)\), camera: mwCamera\.state\(\), transport: player\.transportMode \}/);
+  // FALL-KEPT (FIELD BUGS 2026-09-30, PIN MOVED): the fall joined the bag's tail (fb0930_fallkept.test.js runs it).
+  assert.match(w, /pose: \{ yaw: cam\.yaw, pitch: cam\.pitch, crouching: !!player\.crouching, \.\.\.mergeWeaponPose\(wp, weaponPoseOf\(weaponRig\.playerWeapon\)\), camera: mwViewSaveCamera\(\), transport: player\.transportMode, fall: player\.fallSnapshot\(\) \}/);
   assert.match(w, /const wp = modes\?\.weaponPose\?\.\(\) \?\? null;/, 'and `wp` is the mode host\'s answer, null outside interior mode');
   // SAV3 moved the landing into the ONE pose-apply (quickload + the
   // classic import share it); HARD2c moved the inversion one step
@@ -88,7 +89,8 @@ test('audit26 F222: both hosts write the pose and land it on load', () => {
     'the dungeon context folds its own weapon AND the hand in, and takes yaw/pitch/crouch from the host seam');
   assert.match(d, /opts\.pose\?\.apply\?\.\(extras\.pose\);/);
   const m = rd('src/scenes/worldModes.js');
-  assert.match(m, /read: \(\) => \(\{ yaw: cam\.yaw, pitch: cam\.pitch, crouching: !!player\.crouching \}\)/,
+  // FALL-KEPT (FIELD BUGS 2026-09-30, PIN MOVED): and the fall beside it (fb0930_fallkept.test.js runs it).
+  assert.match(m, /read: \(\) => \(\{ yaw: cam\.yaw, pitch: cam\.pitch, crouching: !!player\.crouching, fall: player\.fallSnapshot\(\) \}\)/,
     'the mode host supplies the modal camera half');
 });
 
@@ -149,7 +151,7 @@ test('audit26 F102: a quest envelope without a notebook leaves the live notes st
 test('audit26 F216/F217: both exterior pools snapshot in natives and restore through their own mint', () => {
   const ef = rd('src/scenes/exteriorFoes.js');
   assert.match(ef, /function snapshotWorld\(toNative\)/);
-  assert.match(ef, /foes\.filter\(\(f\) => !f\.dead\)/, 'dead foes stay out - DFU disables, never re-mints');
+  assert.match(ef, /function snapshotWorld\(toNative\) \{\n\s*return foes\.filter\(\(f\) => !f\.dead && /, 'dead foes stay out - DFU disables, never re-mints (the snapshot\'s own filter: the pin had matched the swing pass\'s line, never this one)');
   for (const field of ['mobileType', 'gender', 'nativeX', 'nativeZ', 'yaw', 'health', 'maxHealth', 'magicka', 'fatigue', 'activeEffects', 'hostile', 'encountered']) {
     assert.ok(ef.includes(`${field}:`), `the foe record carries ${field}`);
   }
@@ -157,7 +159,7 @@ test('audit26 F216/F217: both exterior pools snapshot in natives and restore thr
   // before the mint (SerializableEnemy.cs:205-218), through a callback
   // the caller that owns a quest machine hands in.
   assert.match(ef, /function restoreWorld\(saved, fromNative, yOffset = 0, \{ reviveQuestBehaviour = null \} = \{\}\)/);
-  assert.match(ef, /spawnFoe\(sf\.mobileType, \[lx, sf\.y \+ yOffset, lz\], \{ gender: sf\.gender, feetGiven: true, questBehaviour, placed: !!sf\.placed \}\)/,   // WOD3: a placed foe restores placed   // REVIEW 2026-09-05: the snapshot holds FEET
+  assert.match(ef, /spawnFoe\(sf\.mobileType, \[lx, sf\.y \+ yOffset, lz\], \{ gender: sf\.gender, feetGiven: true, questBehaviour, placed: !!sf\.placed, eliteFoe: sf\.eliteFoe === true, champion: sf\.champion \? championIndex\(sf\.champion\) : null \}\)/,   // B04 (#534 fix package): its elite word restored, never re-rolled   // WOD3: a placed foe restores placed; LOOT7: a champion as one   // REVIEW 2026-09-05: the snapshot holds FEET
     'the restore re-mints through the pool\'s ONE spawn chain, then overlays the saved truth');
   const cg = rd('src/scenes/cityGuards.js');
   assert.match(cg, /function snapshotWorld\(toNative\)/);

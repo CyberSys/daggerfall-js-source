@@ -93,13 +93,13 @@ test('PEER-PLAQUE1 hosts by source: the street races the F key\'s own pick and n
   assert.match(w, /peerHoverPick: \(\) => _hoverPeerPick\(cam\.pos, socialFwd\(\)\),\s*\n\s*peerHoverName: \(key\) => peerHoverName\(key\),/, 'the two doors the modal hosts reach - the pick off the F key\'s OWN ray (AUDIT DROPS E3), never the mode\'s eye');
   assert.match(w, /const hit = peerInSight\(cam\.pos, socialFwd\(\)\);/, 'the same ray the key casts');
   const m = rd('src/scenes/worldModes.js');
-  assert.match(m, /foe: pickActivatableHit\(mwv\.eye, d, liveFoeTargets\(interiorFoePool\(\), 'mobileFoe'\), interiorCtx\.collider\),\s*\n\s*peer: host\.peerHoverPick\?\.\(\) \?\? null,/, 'the building races it off the key\'s own ray');
+  assert.match(m, /foe: peacefulFoePass\(pickActivatableHit\(mwv\.eye, d, liveFoes, interiorCtx\.collider\), liveFoes, doorDistanceOf\(mwv\.eye, d, interiorActivationTargets\(\), interiorCtx\.collider\), getInteractionMode\(\)\),[^\n]*\n\s*peer: host\.peerHoverPick\?\.\(\) \?\? null,/, 'the building races it off the key\'s own ray');
   const interiorNamer = m.slice(m.indexOf('const interiorHoverName = composeNamer(['), m.indexOf('if (!worldTooltipsOn()) return null;', m.indexOf('const interiorHoverName = composeNamer([')));
   assert.match(interiorNamer, /\(key\) => host\.peerHoverName\?\.\(key\) \?\? null,/, 'the building names it above the mod\'s switch');
   assert.match(m, /shareQuest: \(uid, questName, displayName\) => host\.shareQuest\?\.\(uid, questName, displayName\),\s*\n(?:\s*\/\/[^\n]*\n)*\s*peerHoverPick: \(\) => host\.peerHoverPick\?\.\(\) \?\? null,/, 'the dungeon is handed the pick with the quest doors');
   assert.match(m, /ctx\.addActivationNamer\(\(key\) => host\.peerHoverName\?\.\(key\) \?\? null\);/, 'the dungeon names it through the extension door the exit uses');
   const d = rd('src/scenes/dungeonContext.js');
-  assert.match(d, /foe: pickActivatableHit\(eye, d, liveFoeTargets\(foes, 'mobileFoe'\), collider\),\s*\n\s*peer: opts\.peerHoverPick\?\.\(\) \?\? null,/, 'the dungeon races it off the key\'s own ray');
+  assert.match(d, /foe: \(\(ft\) => peacefulFoePass\(pickActivatableHit\(eye, d, ft, collider\), ft, doorDistanceOf\(eye, d, api\.dungeonActivationTargets\(\), collider\), getInteractionMode\(\)\)\)\(liveFoeTargets\(foes, 'mobileFoe'\)\),[^\n]*\n\s*peer: opts\.peerHoverPick\?\.\(\) \?\? null,/, 'the dungeon races it off the key\'s own ray');
   const race = rd('src/player/activationRace.js');
   assert.match(race, /person = null, peer = null, foe = null,/);
   // AUDIT DROPS (lens 3): "the press has no arm for it" - raceActivation, the PRESS's own race, passes no peer
@@ -110,5 +110,5 @@ test('PEER-PLAQUE1 hosts by source: the street races the F key\'s own pick and n
   assert.match(m, /cursorActive: overlayHeld \|\| !!host\.pointerSurfaceUp\?\.\(\),/);
   assert.match(m, /pointerSurfaceUp: \(\) => !!host\.pointerSurfaceUp\?\.\(\),/);
   assert.match(d, /cursorActive: dungeonPaused\(\) \|\| !!opts\.pointerSurfaceUp\?\.\(\),/);
-  assert.match(race, /return firmFirst\(\[gate, broker, camp, water, wagon, horseCart, torch, corpse, pile, ground, person, peer, foe\], nearestInOrder\);/, 'between the townsperson and the foe');   // PR-WAGON1: the one order, raced firm-first   // HCC: the mod's activator stands after the cart   // WB2: the gate's fire heads the list   // SET7: the Broker beside it next
+  assert.match(race, /return firmFirst\(\[gate, broker, camp, water, wagon, horseCart, boat, torch, corpse, pile, ground, person, peer, foe\], nearestInOrder\);/, 'between the townsperson and the foe');   // PR-WAGON1: the one order, raced firm-first   // HCC: the mod's activator stands after the cart   // WB2: the gate's fire heads the list   // SET7: the Broker beside it next   // CSA-D: Come Sail Away's boats after HCC's
 });

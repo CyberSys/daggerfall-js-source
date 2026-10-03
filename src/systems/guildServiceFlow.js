@@ -171,14 +171,22 @@ export function hasDamagedAttributes(entity) {
 /** CureAllAttributes (:1548-1557) - ConfirmStatReset's Yes branch.
  *  DFU calls CureAttributeDamage on every live effect, which zeroes
  *  that effect's statMods without ending the effect. The port's
- *  equivalent is to drop the attribute contribution and leave the
- *  entry: a drain becomes magnitude 0, a disease's negative columns
- *  clear. Returns the number of contributions cured. */
+ *  equivalent is to drop the attribute contribution: a drain becomes
+ *  magnitude 0, a disease's negative columns clear. Returns the number
+ *  of contributions cured.
+ *  CURE-ENDS (AUDIT 2026-10-01 part four): A CURED DRAIN ENDS, as a
+ *  healed-out one does (effects.js healAttributeDamage) - left, the
+ *  spell's bundle kept it on the HUD as a debuff that did nothing,
+ *  blinking as expiring and never ending (only a Dispel took it), on
+ *  the party's cards and in the dispel list, through every save: after
+ *  this stat reset, and after a vampire's or a werewolf's turn
+ *  (lycanthropy.js endOldLifeEffects). The disease keeps its own end. */
 export function cureAllAttributes(entity) {
   let n = 0;
   for (const a of entity?.activeEffects ?? []) {
     if (a.kind === 'drainAttribute' || a.kind === 'transferAttribute') {
       if ((a.magnitude ?? 0) > 0) { a.magnitude = 0; n++; }
+      a.ended = true;
       continue;
     }
     if (a.kind === 'disease' || a.kind === 'poison') {
@@ -274,6 +282,13 @@ export const SERVICE_DESTINATION = Object.freeze({
   ReceiveHouse: 'guildServiceReceiveHouse',   // H1: KnightlyOrder.ReceiveHouse, over the live house registry
 });
 export const serviceDestination = (service) => SERVICE_DESTINATION[service] ?? null;
+
+/** STATION-ROWS (2026-09-27, Discord - the crash box: "TypeError: m.rows.map is not a function"): A SERVICE'S ANSWER
+ *  IS A BOX - text to stand on the popup that asked - only when its `rows` are a LIST. The spell maker is handed the
+ *  host's TEXT.RSC reader as `rows` and keeps it, and the maker arms hand their window back: read as a box by
+ *  `rows` being there at all, a home's Spellmaking station mapped the reader as a list and threw on every press, and
+ *  the guild popup pushed the whole window onto itself as a message. One test, every reader of the answer. */
+export const isServiceBox = (answer) => Array.isArray(answer?.rows);
 
 /** D1: Services.GetServiceShortcutButton (Services.cs:408-459) - the
  *  DaggerfallShortcut button whose binding the popup hangs on its

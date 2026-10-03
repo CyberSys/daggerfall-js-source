@@ -54,6 +54,7 @@ import { drawText, measureText } from './text.js';
 import { nativeMetrics, NATIVE_W, DEFAULT_TEXT_COLOR } from './nativePanel.js';
 import { isEnhanced } from '../systems/uiSkin.js';
 import { drawEnhancedMidText, midTextTopPx } from './enhancedHudText.js';
+import { timeScale } from '../systems/timeScale.js';   // CSA-G: the timer adds Time.deltaTime, which the time scale scales
 
 /** DaggerfallHUD.cs:25 `const int midScreenTextDefaultY = 146`, the
  *  label's Position.y on the 320x200 NativePanel (:176). */
@@ -126,10 +127,15 @@ export class MidScreenText {
   }
 
   /** The Update tail (:259-267): the sentinel gates the tick, and a
-   *  crossing blanks the label and re-arms the sentinel. */
+   *  crossing blanks the label and re-arms the sentinel. CSA-G: `+=
+   *  Time.deltaTime` (:262) is GAME time - the time scale scales it - so
+   *  the frame's real dt is taken at `Time.timeScale` here: at a Travel
+   *  Options journey's scale or the boat's helm's, a message holds for
+   *  its delay of game seconds (Come Sail Away's "Time scale set to 30."
+   *  asks 3 x 30 of them: three real seconds), as DFU holds it. */
   tick(dt) {
     if (this.timer === -1) return;
-    this.timer += dt;
+    this.timer += dt * timeScale();
     if (this.timer > this.delay) {
       this.timer = -1;
       this.text = '';

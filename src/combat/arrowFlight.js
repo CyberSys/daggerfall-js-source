@@ -32,6 +32,8 @@ import { hitSoundFor, ENEMY_HIT_VOLUME } from '../systems/soundClips.js';
 import { addItem } from '../systems/inventory.js';
 import { orbArchiveFor, ORB_RECORD, noteOrbColour, ORB_SCALE } from '../characters/thunderlockIds.js';   // FIELD-GUN14: what this weapon's shot LOOKS like - the leaf, so no cycle   // FIELD-GUN17: ...and what colour it is, sampled the one moment the texture is in hand   // FIELD-GUN18: ...and how big it is drawn
 import { playerWeaponHitEntity } from '../systems/worldTick.js';   // DISC10-D H1: OnWeaponHitEntity's one dispatcher (worldTick never reaches this module - no cycle)
+import { sparedByPlayer } from './friendlyFire.js';   // SHIPMATES: the player's shaft passes their own crew by
+import { coverDistance, coverStep } from '../ai/cover.js';   // TACT1: billboards are cover; AUDIT TACT B5: met by touch
 
 export const ARROW_MODEL_ID = 99800;
 
@@ -130,11 +132,13 @@ export class ArrowFlight {
       if (m.age > MISSILE_LIFESPAN_S) { m.dead = true; continue; }
       const step = MISSILE_SPEED * dt;
       const { unit, reach } = missileReach(m.dir, step);   // ROAD-H tail: displacement.magnitude + ColliderRadius along the NORMALISED direction (DaggerfallMissile.cs:333 builds the displacement, :337 casts it - an ARROW always takes that Raycast arm, never the :339 SphereCast) - a crouch-dipped shaft carries |dir| > 1
-      const hit = c ? c.raycast(m.pos, unit, reach) : Infinity;
-      if (Number.isFinite(hit) && hit <= reach) { m.dead = true; continue; }   // met geometry: the arrow is LOST (DFU)
-      m.pos[0] += m.dir[0] * step;
-      m.pos[1] += m.dir[1] * step;
-      m.pos[2] += m.dir[2] * step;
+      // TACT1: a tree, a crate - cover stops a shaft; AUDIT TACT B5: by touch, the bodies before it tested first
+      const cs = c ? coverStep(coverDistance(c, m.pos, unit, reach), c.raycast(m.pos, unit, reach), reach, reach - step * Math.hypot(m.dir[0], m.dir[1], m.dir[2]), step * Math.hypot(m.dir[0], m.dir[1], m.dir[2])) : null;
+      if (cs && Number.isFinite(cs.stop)) { m.dead = true; continue; }   // met geometry: the arrow is LOST (DFU)
+      const adv = cs ? step * cs.advance : step;
+      m.pos[0] += m.dir[0] * adv;
+      m.pos[1] += m.dir[1] * adv;
+      m.pos[2] += m.dir[2] * adv;
       // FIELD-GUN14: the flat follows AFTER the advance, so what is
       // drawn is where the shot IS rather than where it was a step
       // ago. The mesh lane gets this for free - `arrowMatrix(m.pos)`
@@ -182,7 +186,7 @@ export class ArrowFlight {
       if (foeImpact && foeTargets) {
         for (const t of foeTargets) {
           if (!t?.feet || t.ref === m.shooterFoe || t.ref?.dead) continue;
-          if (m.fromPlayer && t.ref?.defender === true) continue;   // DISC19-F (AUDIT DISC19): the player's shaft flies through the town's defenders, as their spells do (hostMagic.js sparedFromPlayer)
+          if (m.fromPlayer && sparedByPlayer(t.ref)) continue;   // DISC19-F (AUDIT DISC19): the player's shaft flies through the town's defenders, as their spells do (hostMagic.js sparedFromPlayer) - SHIPMATES: and the player's own crew (combat/friendlyFire.js)
           if (missileHitsCapsule(m.pos, t.feet, t.ref?.ai?.height)) {   // ROAD-H tail: the target's own CAPSULE (REVIEW 2026-09-05 had its centre as a point)
             // ROAD-H tail (review): an ENEMY shaft damages only the foe
             // it was loosed at (:669); any other foe it meets stops it
@@ -236,7 +240,7 @@ export class ArrowFlight {
  *
  * WAVE D: four bodies became FOUR CALLERS. dungeonContext.js's
  * `m.fromPlayer` block - the arm this function was extracted FROM -
- * now calls it (dungeonContext.js:3007), so the copy that survived
+ * now calls it (dungeonContext.js:3311), so the copy that survived
  * the extraction is gone. It was not a harmless copy: it still
  * splashed at the arrow tip, the exact bug AUDIT 39r/R16 fixed here.
  * DaggerfallMissile.cs:681-687 routes an arrow into
@@ -262,7 +266,7 @@ export class ArrowFlight {
  * controller.center (AdjustControllerHeight, BOTTOM justification),
  * never the transform - so `hitTransform.position` is the idle sprite's
  * CENTRE, feet + idleH/2, which is the motor's `centreOffset`
- * (enemyAnchor.js:41-50). The header used to claim the feet were the
+ * (enemyAnchor.js:74-83). The header used to claim the feet were the
  * transform origin and bled every struck foe half a sprite low. It is
  * still not bloodCentre, which is the melee-miss centre+height/8 point
  * EnemyAttack.cs:326-328 builds when there is no contact point at all.
@@ -287,6 +291,9 @@ export function playerArrowHitFoe(m, foe, {
   rolls = Math.random,
 } = {}) {
   if (!foe || foe.dead || !playerEntity) return 0;
+  // REVENANT-FATE (the 2026-10-02 audit): one held by its fate (kneeling, burning, gathering into a portal) - the shaft
+  // lands nothing: no blow, no poison, no rage, no Archery (the kill door refused the damage; the rest still landed)
+  if (foe.yielded || foe.executing || foe.sparing || foe.leaving) return 0;
   const swing = SWING_MODS[playerWeapon?.machine?.state] ?? { damage: 0, toHit: 0 };
   const back = foe.ai && playerFeet ? isBackFacing(foe.ai.yaw, foe.ai.feet, playerFeet) : false;
   const dmg = calculateAttackDamage(playerEntity, foe.entity, {
@@ -307,7 +314,7 @@ export function playerArrowHitFoe(m, foe, {
     : at;
   if (dmg > 0) {
     audio?.play3d?.(hitSoundFor(m.weapon ?? null), at, ENEMY_HIT_VOLUME, { maxDistance: 16 });
-    hitEffects?.showBloodSplash?.(foe.entity?.basics?.bloodIndex ?? 0, bloodAt, null, bloodHit(dmg, foe.entity, { fromPlayer: true, weapon: m.weapon ?? null }));   // BLOOD1b: the player's shaft drives the ladder, and the bow it came off decides the heavy branch   // ...and NO SWING: the reference reads the LIVE weapon state when blood spawns, which for a shaft that has been in the air is whatever the player's arm happens to be doing now. A shaft's blood is thrown by the shaft.
+    hitEffects?.showBloodSplash?.(foe.entity?.basics?.bloodIndex ?? 0, bloodAt, null, bloodHit(dmg, foe.bloodOf ?? foe.entity, { fromPlayer: true, weapon: m.weapon ?? null }));   // BLOOD1b: the player's shaft drives the ladder, and the bow it came off decides the heavy branch   // ...and NO SWING: the reference reads the LIVE weapon state when blood spawns, which for a shaft that has been in the air is whatever the player's arm happens to be doing now. A shaft's blood is thrown by the shaft.
     const pain = enemyPainVoice(foe, dmg, rolls);
     if (pain && pain.clip >= 0) audio?.play3d?.(pain.clip, [at[0], at[1] + 0.9, at[2]], 1, { maxDistance: 16, pitch: 1 + pain.pitchLift });   // AUDIT 58: EnemySounds.cs:172-175
     dealDamage?.(foe, dmg);

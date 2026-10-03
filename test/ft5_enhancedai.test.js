@@ -27,16 +27,16 @@ test('FT5: the registry row - Enhanced only, over the pref, off by default, soun
   assert.deepEqual(f.kinds, ['enhanced'], 'the port\'s own; DFU\'s EnhancedCombatAI is a different thing and wears no label here');
   assert.deepEqual(f.control, { store: 'prefs', key: 'enhancedAI', initial: false, online: true });   // RF4: the row declares its default and the lane's answer
   assert.equal(PREF_DEFAULTS.enhancedAI, false, 'off by default: the classic motor is the 1:1 law');
-  assert.equal(f.effect, 'Takes effect on the next dungeon you enter.');
+  assert.equal(f.effect, 'At once - the dungeon pathfinding from the next dungeon you enter.');   // AUDIT TACT D7: the tactics, cover and blows read the switch live; only the navmesh waits
   assert.deepEqual(checkFeature(f), []);
   assert.equal(featureForControl('prefs', 'enhancedAI'), f);
 });
 
 test('FT5: the note says what ships and names what it is not', () => {
   const f = FEATURES.find((x) => x.id === 'enhanced-ai');
-  assert.match(f.note, /Dungeons for now/);
-  assert.match(f.note, /Off keeps the 1:1 classic motor/);
-  assert.match(f.note, /not Daggerfall Unity’s “Smarter Enemies” setting \(EnhancedCombatAI\)/, 'the name collision, said outright');
+  assert.match(f.note, /Dungeons only for now/);
+  assert.match(f.note, /Off keeps the classic movement/);
+  assert.match(f.note, /not Daggerfall Unity’s “Smarter Enemies” setting/, 'the name collision, said outright');
   assert.match(f.note, /which the port does not run/);
   // ...and the DFU key it names IS unavailable, in Settings, under that label
   assert.equal(tierOf('Enhancements/EnhancedCombatAI'), 'unavailable');
@@ -49,7 +49,7 @@ test('FT5: "still to come" is checked against the arc, not remembered - the clai
   const ahead = arc.slice(arc.indexOf('## The slices ahead'));
   const f = FEATURES.find((x) => x.id === 'enhanced-ai');
   // the note promises nothing the arc has not reached, and names as ahead only what the arc lists as ahead
-  for (const [claim, slice] of [['doors', /ENHANCED AI 4b - doors and the crowd/], ['the crowd slice', /ENHANCED AI 4b - doors and the crowd/], ['towns, interiors', /ENHANCED AI 5 - exteriors and interiors/]]) {
+  for (const [claim, slice] of [['doors', /ENHANCED AI 4b - doors and the crowd/], ['towns, interiors', /ENHANCED AI 5 - exteriors and interiors/]]) {   // TACT2/TACT3 (Tactics-Arc): 'bunch up' died - the tokens, the ring and the spacing across pools shipped it
     assert.match(f.note, new RegExp(claim.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')), `the note names ${claim}`);
     assert.match(ahead, slice, `and the arc still lists it ahead - if this fails, the arc shipped it and the note must change`);
   }

@@ -11,6 +11,7 @@
 // closes it. It draws per frame from the box's own `draw` and is taken down by the box's close, or by a watchdog
 // when the draws stop (a host gone without closing it) - the notice's own lifecycle, one box at a time.
 import { injectEnhancedStyle, injectEnhancedFonts } from './enhancedStyle.js';
+import { armDrawWatchdog, disarmDraw } from './drawWatchdog.js';   // DISC29-D: the watchdog counts frames, not milliseconds
 
 export const ENHANCED_INPUT_BOX_ID = 'enhanced-inputbox';
 export const INPUT_BOX_WATCHDOG_MS = 400;
@@ -51,9 +52,9 @@ export function drawEnhancedInputBox(frame, doc = (typeof document === 'undefine
   if (!doc || !frame) return null;
   if (!host) host = build(doc);
   if (owner !== frame.key) { owner = frame.key; for (const k of Object.keys(last)) delete last[k]; }
-  cancel(watchdog);
+  disarmDraw(watchdog);
   const key = frame.key;
-  watchdog = schedule(() => { if (owner === key) releaseEnhancedInputBox(key); }, INPUT_BOX_WATCHDOG_MS);
+  watchdog = armDrawWatchdog(INPUT_BOX_WATCHDOG_MS, () => { if (owner === key) releaseEnhancedInputBox(key); }, { schedule, cancel });   // DISC29-D: a frame undrawn, not a slow one
   const rows = Array.isArray(frame.rows) ? frame.rows.map((r) => String(r ?? '')) : [];
   const rk = rows.join('\n');
   if (last.rows !== rk) {
@@ -80,7 +81,7 @@ export function drawEnhancedInputBox(frame, doc = (typeof document === 'undefine
 /** The box closed (or its draws stopped): the window goes. A no-op for a key that is not the one up. */
 export function releaseEnhancedInputBox(key) {
   if (!host || owner !== key) return;
-  cancel(watchdog); watchdog = null;
+  disarmDraw(watchdog); watchdog = null;
   try { host.root.remove(); } catch { /* already gone */ }
   host = null; owner = null;
   for (const k of Object.keys(last)) delete last[k];

@@ -46,7 +46,7 @@ import { audio } from '../systems/audio.js';
 import { enhancedSoundsOn } from '../systems/enhancedSounds.js';
 import { SOUND } from '../systems/soundClips.js';
 import {
-  tradeCost, getTradePrice, tradeDecision, sellProceeds,
+  tradeCost, getTradePrice, tradeDecision, sellProceeds, creditRows, creditRefusalRows,
   localListAccepts, localClickDecision, doesntNeedIdentifyText, letterOfCreditText,
   MAGIC_ITEMS_CANNOT_BE_REPAIRED_TEXT_ID, DOES_NOT_NEED_TO_BE_REPAIRED_TEXT_ID,
 } from '../systems/tradeModes.js';
@@ -61,9 +61,10 @@ import { isTextEntryTarget } from './input.js';
 import { isSummoned, carriedWeight, totalWeight, transferAll, addItem } from '../systems/inventory.js';   // AUDIT UXB1 F4: addItem, a returning lot's merge
 import { isFurnishing } from '../systems/decorFurnish.js';   // DECOR2b: furniture is delivered, never carried
 import { lockRefuses, lockedText } from '../systems/itemLock.js';   // LOCK1: a locked piece is not for sale
+import { isBound, boundText } from '../systems/itemBound.js';   // SS4: nor a bound one - a Sigil Stone, the Broker's wares
 import { getBool } from '../systems/settings.js';   // UXB1-K: InstantRepairs - no clock to count down
 import { dateFromClassicMinutes, dateString } from '../systems/gameDate.js';
-import { sharedRealTimeText } from '../systems/worldTick.js';   // UXB1-K: online, the ready time in the player's own clock
+import { ownTimeLeftText, ownTimeLeftShort } from '../systems/worldTick.js';   // UXB1-K: online, the ready time in the player's own terms (LIVED1: their own clock)
 import { shopliftAttempt } from '../systems/theft.js';
 import { entityMaxEncumbrance } from '../combat/formulas.js';
 import { cannotRemoveItemText } from '../systems/createItem.js';
@@ -177,7 +178,7 @@ function cost() {
 function quotePriceFor(item, side) {
   const ctx = deps.priceCtx?.() ?? {};
   const quality = ctx.quality ?? 0; const skills = ctx.skills ?? {};
-  const priced = (m) => getTradePrice(m, tradeCost(m, [item], ctx).cost, quality, skills);
+  const priced = (m) => { const lot = tradeCost(m, [item], ctx); return getTradePrice(m, lot.cost, quality, skills, lot.pieces); };   // FB0929: the quote is the lot's own price, floor and all
   if (side === 'remote') {
     // Buying: the shelf. Every other mode's remote pane is the STAGED
     // lot already, not something new to quote.
@@ -195,6 +196,7 @@ function quotePriceFor(item, side) {
   // make (localClickDecision) - a quote for an item this mode would
   // refuse (an unrepairable trinket, an already-identified ring, a
   // wagon in use) would just be misleading.
+  if (saleRefused(item)) return null;   // AUDIT SS: and a locked or bound piece's sale is refused - "Sell for 25000 gold" over five Sigil Stones was a price the counter never pays
   const d = localClickDecision(mode, item, {
     allowMagicRepairs: deps.allowMagicRepairs ?? false,
     usingIdentifySpell: deps.usingIdentifySpell ?? false,
@@ -230,10 +232,20 @@ function refuse(refusal) {
   render();
 }
 
+/** LOCK1, SS4: a piece this counter will not put up for SALE - locked, or bound (systems/itemBound.js); a repair or an
+ *  identify still takes either, because it comes back. AUDIT SS: one reading for the refusal, the quote and the count. */
+const saleRefused = (item) => selling() && (lockRefuses(item, 'sell') || isBound(item));
+
 function refuseTransfer(item) {
   // LOCK1: a locked piece is not put up for SALE - a repair or an identify still takes it, because it comes back
   if (selling() && lockRefuses(item, 'sell')) {
     box = { rows: [{ text: lockedText(itemLine(item, deps.entity).name), center: true }], buttons: null };
+    render();
+    return true;
+  }
+  // SS4: a BOUND piece is not put up for sale either (systems/itemBound.js) - a repair or an identify still takes it
+  if (selling() && isBound(item)) {
+    box = { rows: [{ text: boundText(itemLine(item, deps.entity).name), center: true }], buttons: null };
     render();
     return true;
   }
@@ -246,10 +258,14 @@ function refuseTransfer(item) {
   return true;
 }
 
+/** ItemCollection.Transfer (:473-480): out of `from`, then AddItem into `to` - so a lot rejoins its own stack there,
+ *  as DFU's every click-back (TransferItem -> DoTransferItem) and ClearSelectedItems (Transfer, TransferAll) do.
+ *  BOOK-SPLIT: a `push` left a book taken back off the counter as a second row beside its own stack. A quest item goes
+ *  to the front (DoTransferItem's order, :1573-1579), as itemTransfer.applyTransfer places it. */
 function move(item, from, to) {
   const i = from.indexOf(item);
   if (i >= 0) from.splice(i, 1);
-  to.push(item);
+  addItem(to, item, item?.questItem ? 'front' : 'dontCare');
 }
 
 /** Whether a pending local (your own pack) selection in Buy mode is a
@@ -371,6 +387,7 @@ function askAgain(item) {
  */
 function splitMaxOf(item, side) {
   if (!item || mode === 'Repair') return 0;
+  if (side === 'local' && saleRefused(item)) return 0;   // AUDIT SS: no "how many" over a sale that is refused
   if (side === 'remote') {
     if (!inBuy()) return stackOf(item);
     const plan = planTake(item, { bag: [...deps.packItems(), ...basket], entity: deps.entity ?? null, dryRun: true });
@@ -548,9 +565,9 @@ function castIdentifySpell() {
   render();
 }
 
-function confirmTrade(price) {
+function confirmTrade(price, credit = null) {
   const isSelling = selling();
-  const proceeds = isSelling ? sellProceeds(price, deps.weight?.() ?? {}) : null;
+  const proceeds = isSelling ? sellProceeds(price, deps.weight?.() ?? {}) : credit;   // SHIP-CREDIT: a purchase on the bank's credit
   deps.commit?.(mode, [...stagedForCost()], price, proceeds);
   if (inBuy()) basket.length = 0;
   else if (isSelling) staged.length = 0;
@@ -575,9 +592,10 @@ function confirmTrade(price) {
 function quickSellSelected() {
   if (!selected || !isQuickSellCandidate()) return;
   const item = selected.item;
+  if (isBound(item) || lockRefuses(item, 'sell')) return;   // AUDIT SS: the counter's own refusals hold here too, should this path ever open (isQuickSellCandidate answers false)
   const ctx = deps.priceCtx?.() ?? {};
-  const c = tradeCost('Sell', [item], ctx).cost;
-  const price = getTradePrice('Sell', c, ctx.quality ?? 0, ctx.skills ?? {});
+  const { cost: c, pieces } = tradeCost('Sell', [item], ctx);
+  const price = getTradePrice('Sell', c, ctx.quality ?? 0, ctx.skills ?? {}, pieces);
   const d = tradeDecision('Sell', { cost: c, tradePrice: price, gold: deps.gold?.() ?? 0 });
   box = {
     rows: rowsFor(d.textId, price),
@@ -609,14 +627,21 @@ function primaryAction() {
 }
 
 function modeAction() {
-  const { cost: c, modeActionEnabled } = cost();
+  const { cost: c, modeActionEnabled, pieces } = cost();
   if (!modeActionEnabled) return;
   if (deps.usingIdentifySpell) { castIdentifySpell(); return; }
   const ctx = deps.priceCtx?.() ?? {};
-  const price = getTradePrice(mode, c, ctx.quality ?? 0, ctx.skills ?? {});
+  const price = getTradePrice(mode, c, ctx.quality ?? 0, ctx.skills ?? {}, pieces);   // FB0929: a purchase asks a gold a piece at least
   const d = tradeDecision(mode, { cost: c, tradePrice: price, gold: deps.gold?.() ?? 0 });
   if (d.kind === 'notEnoughGold') {
-    box = { rows: d.textIds.flatMap((id) => rowsFor(id, price)), buttons: null };
+    // SHIP-CREDIT (Mac: "Buy on credit"): a boat the purse falls short of, offered on the bank's credit - or why not
+    const credit = mode === 'Buy' ? deps.credit?.([...stagedForCost()], price) ?? null : null;
+    if (credit?.kind === 'credit') {
+      box = { rows: creditRows(credit, price, deps.gold?.() ?? 0), buttons: 'YesNo', onYes: () => confirmTrade(price, credit) };
+      render();
+      return;
+    }
+    box = { rows: [...d.textIds.flatMap((id) => rowsFor(id, price)), ...(credit?.kind === 'refuse' ? creditRefusalRows(credit, credit.lines) : [])], buttons: null };
     render();
     return;
   }
@@ -662,17 +687,29 @@ function repairEstimatesNow() {
 function repairWhen(item, now) {
   if (!repairEst) return null;
   const c = repairCountdown(item, now, repairEst.get(item) ?? null);
-  return c ? { ...c, text: repairCountdownText(c) } : null;
+  return c ? { ...c, text: repairRowText(c) } : null;
+}
+/** AUDIT LIVED1b U2: the row's words beside the detail line's - online both count the job down on the character's
+ *  clock in whole units FLOORED (ownTimeLeftShort, the long form's leading unit), where the row ceiled as DFU's
+ *  daysUntil does: "Ready in 2 days" stood over "Ready in 1 day of your time" for the same job. Offline the row is
+ *  UXB1-K's, DFU's unit and ceiling. */
+export function repairRowText(c) {
+  const own = !c.done ? ownTimeLeftShort(c.doneAt) : null;
+  if (!own || own === 'now') return repairCountdownText(c);
+  return c.estimate ? `About ${own}` : `Ready in ${own}`;
 }
 const pad2 = (n) => String(n).padStart(2, '0');
-/** The detail strip's line: the hour and the day it is ready, and online the player's own clock beside it (the
- *  bank's due date shape, worldModes.js dueDateText). */
+/** The detail strip's line: the hour and the day it is ready. LIVED1: online the job runs on the character's own
+ *  clock (a rest or a wait spends it, time away does not), so the line says the time left in their time and in play
+ *  (the bank's due-by shape, worldModes.js dueDateText) - an hour and a date on their own clock would read as the
+ *  world's. */
 export function repairReadyLine(c) {
   if (!c) return null;
   if (c.done) return 'Ready to collect.';
+  const own = ownTimeLeftText(c.doneAt);
+  if (own) return `${c.estimate ? 'Ready in about' : 'Ready in'} ${own}.`;
   const d = dateFromClassicMinutes(c.doneAt);
-  const real = sharedRealTimeText(c.doneAt);
-  return `${c.estimate ? 'Ready about' : 'Ready by'} ${pad2(d.hour)}:${pad2(d.minute)}, ${dateString(d)}${real ? ` (${real})` : ''}.`;
+  return `${c.estimate ? 'Ready about' : 'Ready by'} ${pad2(d.hour)}:${pad2(d.minute)}, ${dateString(d)}.`;
 }
 
 // ── ROWS ──────────────────────────────────────────────────────────
@@ -952,6 +989,10 @@ export function mountEnhancedTrade(hostEl, hooks = {}) {
   return {
     repaint: render,
     unmount() {
+      // AUDIT SS: EVERY way off this screen puts back what is staged - OnPop's ClearSelectedItems. The door's own close
+      // (the QuickDial's key, a death, a building left, a load: ui/tradeDoor.js dispose) comes straight here, past this
+      // view's close(), and the staged goods - a sale's, an identify's, a basket's - went with the view
+      if (host) clear();
       if (keyHandler) globalThis.removeEventListener('keydown', keyHandler, { capture: true });
       keyHandler = null;
       unregisterOutside();

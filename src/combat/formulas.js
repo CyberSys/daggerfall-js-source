@@ -26,7 +26,9 @@ import { rand } from '../formats/dfRandom.js';
 import { enchantChanceToHitMod, doItemEnchantmentPayloads, PAYLOAD, isEnchantedItem, entityImprovedAdrenalineRush } from '../systems/enchantments.js';   // E1: the enchantment channels + the Strikes payload; AUDIT 39: ImprovesTalents' adrenaline flag lives in the fold's bag   // the monster multi-attack reflex gate (F2)
 import { entityArmorMod, entityWeightMult, weaponDamageMods, weaponBlowMods } from '../systems/entityMods.js';   // RF1: one read per channel - DFU's enchantment channel and every enhancement fold, summed there
 import { liveStat } from '../systems/statMods.js';   // S14: fortify-aware stat reads
-import { skillValue, SKILLS } from '../systems/skills.js';   // S3: real skills (enemies stay flat, verbatim)
+import { skillValue, SKILLS } from '../systems/skills.js';
+import { noteSkillChallenge } from '../systems/skillSoftcap.js';   // SOFTCAP1: the foe a blow was traded with, for the real-use law
+import { mentorArmorValue, mentorGearScale, mentorDamageTakenMult } from '../systems/mentorMode.js';   // SOFTCAP1: mentor mode's overlay   // S3: real skills (enemies stay flat, verbatim)
 import { RACES } from '../systems/races.js';   // CalculateRacialModifiers reads the DFU-numbered race id
 import { SPECIAL_ABILITY_BITS, PROFICIENCY_BITS } from '../systems/specialAdvantages.js';   // AUDIT 21 F2: the Adrenaline Rush bit; CF1: the HandToHand expertise bit
 // NOT from rest.js, which re-exports healingRateModifier FROM here - importing
@@ -34,7 +36,7 @@ import { SPECIAL_ABILITY_BITS, PROFICIENCY_BITS } from '../systems/specialAdvant
 // the temporal dead zone: the helper reads `undefined` at call time and the
 // bonus silently never applies. specialAdvantages.js is a leaf.
 import { weaponMinDamage, weaponMaxDamage, weaponSkillUsed } from '../characters/weapons.js';   // AUDIT 18: GetBaseDamageMin/Max and GetWeaponSkillIDAsShort resolve the TEMPLATE, never a baked field or a display name
-import { equipTableOf, lowerCondition, slotForBodyPart, EQUIP_SLOTS, weaponProficiencyFlag } from '../systems/equip.js';   // C-slice: DamageEquipment; CF1: GetWeaponSkillUsed as a ProficiencyFlag, -1 quirk included
+import { equipTableOf, lowerCondition, dfuBlowWear, slotForBodyPart, EQUIP_SLOTS, weaponProficiencyFlag } from '../systems/equip.js';   // C-slice: DamageEquipment; CF1: GetWeaponSkillUsed as a ProficiencyFlag, -1 quirk included
 import { SHIELD_PARTS } from '../systems/armorMaterials.js';
 import { totalWeight } from '../systems/inventory.js';   // EW1: ItemCollection.GetWeight, the one home for a stack's kg
 import { liveVampirism } from '../systems/racialLive.js';   // VU1: an import-free LEAF - vampirism.js cycles back here through loot.js
@@ -161,9 +163,9 @@ export const baseDamageMax = (weapon) => weaponMaxDamage(weapon?.templateIndex);
 // ---- DaggerfallUnityItem.GetWeaponMaterialModifier (index = material 0..9) ----
 export const WEAPON_MATERIAL_MODIFIER = Object.freeze([-1, 0, 0, 1, 2, 3, 3, 4, 5, 6]);
 
-// ---- CalculateStruckBodyPart ----
-const BODY_PARTS = Object.freeze([0, 0, 1, 1, 1, 2, 2, 2, 3, 3, 3, 3, 4, 4, 4, 4, 5, 5, 5, 6]);
-export const calculateStruckBodyPart = (roll01 = Math.random()) => BODY_PARTS[Math.floor(roll01 * BODY_PARTS.length)];
+// ---- CalculateStruckBodyPart (FormulaHelper.cs:869-870; AC-COMPARE: the table exported, its one home - see struckBodyPartTable) ----
+export const STRUCK_BODY_PARTS = Object.freeze([0, 0, 1, 1, 1, 2, 2, 2, 3, 3, 3, 3, 4, 4, 4, 4, 5, 5, 5, 6]);
+export const calculateStruckBodyPart = (roll01 = Math.random()) => STRUCK_BODY_PARTS[Math.floor(roll01 * STRUCK_BODY_PARTS.length)];
 
 // ---- DFCareer.StructureData attack-modifier bit table ----
 export const ENEMY_GROUPS = Object.freeze({ None: -1, Undead: 0, Daedra: 1, Humanoid: 2, Animals: 3 });
@@ -403,7 +405,8 @@ export function calculateSuccessfulHit(attacker, target, chanceToHitMod, struckB
   // IncreasedArmorValueModifier + DecreasedArmorValueModifier. The
   // channels are the enchantment fold's (Strengthens/WeakensArmor,
   // BadReactionsFrom) - the audit-F5 zeros, live at last.
-  chance += (target.armorValues?.[struckBodyPart] ?? 0) + entityArmorMod(target, struckBodyPart);   // RF1: the enchantment channels and the port's points on the struck part, one read
+  // SOFTCAP1: a mentored target's armour keeps its gear-scale share of its protection (mentorMode.js)
+  chance += mentorArmorValue(target, target.armorValues?.[struckBodyPart] ?? 0) + entityArmorMod(target, struckBodyPart);   // RF1: the enchantment channels and the port's points on the struck part, one read
   // AUDIT 21 F2: the adrenaline rush is APPLIED now, in DFU's own slot
   // (FormulaHelper.cs:811, between the armour term and the stats term).
   chance += adrenalineRushToHit(attacker, target);
@@ -544,10 +547,10 @@ export function damageEquipment(attacker, target, damage, weapon, struckBodyPart
   if (!weapon || damage <= 0) return;
   const hit = (item, owner) => {
     // RR1: ApplyConditionDamageThroughPhysicalHit's own override slot (FormulaHelper.cs:1123-1128) - "Only return if override returns true"
-    if (_overrides.get('applyConditionDamageThroughPhysicalHit')?.(item, owner, damage, { say }) === true) return;
+    if (_overrides.get('applyConditionDamageThroughPhysicalHit')?.(item, owner, damage, { say, rolls }) === true) return;
     let amount = Math.trunc((10 * damage + 50) / 100);
     if (amount === 0 && dice100(20, rolls())) amount = 1;
-    lowerCondition(item, amount, owner, say);
+    lowerCondition(item, dfuBlowWear(amount, rolls), owner, say);   // BALANCE1: DFU's amount, on the port's wear scale; WEAR-TWICE: twice it, WEAR-ONE: once again
   };
   hit(weapon, attacker);
   const slots = equipTableOf(target);
@@ -563,6 +566,12 @@ export function damageEquipment(attacker, target, damage, weapon, struckBodyPart
 
 export function calculateAttackDamage(attacker, target, { weapon = null, damageMod = 0, toHitMod = 0, backstabChance = 0, weaponAnimTime = 0, rolls = Math.random, dfRand = rand, onMonsterHit = null, onInflictPoison = null, say = null, enchantCtx = null, playerReflexes = null, unaware = false } = {}) {
   if (!attacker || !target) return 0;
+  // SOFTCAP1: THE FOE THIS BLOW WAS TRADED WITH, remembered on the player
+  // for the tallies that follow it (hit or miss - a swing at a tough foe is
+  // real use; skillSoftcap.js overcapTallyWeight). Both directions: my
+  // weapon skills learn from whom I strike, my Dodging from who strikes me.
+  if (attacker.isPlayer && !attacker.peer) noteSkillChallenge(attacker, target);
+  if (target.isPlayer && !target.peer) noteSkillChallenge(target, attacker);
   // HN1: THE RESOLUTION IS REPORTED, once per attack, through one seam
   // (setPlayerAttackHook - the enhanced HUD's damage numbers). Every
   // path out of this function tells the hook what happened: a miss, an
@@ -715,6 +724,18 @@ export function calculateAttackDamage(attacker, target, { weapon = null, damageM
   // whichever formula rolled the hit; the concealment break and the HUD below see the real number.
   if (!attacker.isPlayer && damage > 0 && Number.isFinite(attacker.damageScale) && attacker.damageScale !== 1) {
     damage = Math.max(1, Math.round(damage * attacker.damageScale));
+  }
+  // SOFTCAP1: MENTOR MODE at the same tail - a mentored player's weapon lands
+  // at its gear scale, and a mentored player takes blows as if carrying the
+  // mentored health pool (mentorMode.js: rawMax / mentoredMax). Both are 1
+  // outside mentor mode, so no other blow moves.
+  if (damage > 0 && attacker.isPlayer && !attacker.peer) {
+    const k = mentorGearScale(attacker);
+    if (k < 1) damage = Math.max(1, Math.round(damage * k));
+  }
+  if (damage > 0 && target?.isPlayer && !target.peer && !attacker.isPlayer) {
+    const m = mentorDamageTakenMult(target);
+    if (m > 1) damage = Math.max(1, Math.round(damage * m));
   }
   // AUDIT 24 (wave 31) - A LANDED HIT ENDS THE ATTACKER'S NORMAL-POWER
   // CONCEALMENT, and it was unported at every door.
@@ -919,7 +940,7 @@ export const KB_UNIT = CLASSIC_TO_UNITY_RATIO / 10;   // 3.95
  *  at 350 instead of ~570 takes roughly 60% more knockback speed.
  *
  *  `items` is the foe's own list; totalWeight IS ItemCollection
- *  .GetWeight (inventory.js:355), so the kg->classic multiply and the
+ *  .GetWeight (inventory.js:386), so the kg->classic multiply and the
  *  C# (int) truncation are the only arithmetic added here. A caller
  *  with no list passes nothing and gets the old base-only answer,
  *  which is the honest value for a foe the port gives no inventory. */
@@ -1014,3 +1035,10 @@ export function weaponKnockbackSpeed(damage, weightClassic) {
   const floor = 15 / KB_UNIT;
   return ks < floor ? floor : ks;
 }
+
+/** AC-COMPARE (FIELD BUGS 2026-09-29d): THE STRUCK-PART TABLE A BLOW IS DRAWN FROM, under the core in force. A
+ *  registered core that draws a blow's part from a table of its own registers the table beside the core, on the core's
+ *  own switch, and declines with it (the combat overhaul's twenty - combat/pcaao.js); FormulaHelper's STRUCK_BODY_PARTS
+ *  (:869 - the head 2, each arm 3, the chest 4, the hands 4, the legs 3, the feet 1) stands otherwise. The enhanced
+ *  pack's overall armour weighs the doll's seven numbers by it (ui/armourCard.js), so it follows the core a blow meets. */
+export const struckBodyPartTable = () => _overrides.get('struckBodyPartTable')?.() ?? STRUCK_BODY_PARTS;

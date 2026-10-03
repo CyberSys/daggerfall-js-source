@@ -12,9 +12,9 @@
 // it rides the cache metadata and is put back on the hydrated chf, so a
 // cached dungeon answers the same heights as a fresh bake. No change to
 // his file for it.
-import { navInputFromCollider, bakeSoup } from './navBake.js';
+import { navInputFromCollider, bakeSoup, SOUP_AGENT } from './navBake.js';
 import { trianglesToColliders, unpackColliders } from './triRaster.js';
-import { AGENT, hydrateBakedNav, bakeNavData } from './navmesh.js';
+import { hydrateBakedNav, bakeNavData } from './navmesh.js';
 import { idbStore } from '../world/roadsCache.js';
 
 /** Bumped BY HAND whenever the bake's output for the same input changes
@@ -24,23 +24,31 @@ import { idbStore } from '../world/roadsCache.js';
  *  and the serialised vertex heights (F1). 3: DUNGEON-SEAMS moved the
  *  corners of 32 dungeon models (world/arch3dSeams.js) under the collider
  *  a bake reads - same triangle count, and in most dungeons the same
- *  height bounds, so the key could not tell a bake of the old corners. */
-export const NAV_BAKE_VERSION = 3;
+ *  height bounds, so the key could not tell a bake of the old corners.
+ *  4 (2026-09-27, the soup bake whole - its branch's 3, renumbered when
+ *  main's 3 met it at the merge): the soup bake's own cell and agent, doors
+ *  out, flat floors kept, the anchor union - every earlier bake is a coarse
+ *  one that sealed its doorways, and a v3 of either change lacks the other. */
+export const NAV_BAKE_VERSION = 4;
 
 /** AUDIT 62 F3: the key carries the ANCHOR's cell too - buildRegions keeps
  *  the anchor's foot-connected component and culls the rest, so a bake taken
  *  from a save loaded in a teleporter pocket must never be a cache hit for the
  *  front-door entry (or vice versa). */
-export function navCacheKey({ key, tris, minY, maxY, agent = AGENT, anchor = null }) {
-  const a = anchor ? `:a${Math.floor(anchor[0] / agent.cs)},${Math.floor(anchor[2] / agent.cs)},${Math.round(anchor[1] ?? 0)}` : '';
-  return `nav:v${NAV_BAKE_VERSION}:${key}:${tris}:${minY.toFixed(2)}:${maxY.toFixed(2)}:${agent.cs}:${agent.radius}:${agent.height}:${agent.maxStep}:${agent.maxSlope}${a}`;
+export function navCacheKey({ key, tris, minY, maxY, agent = SOUP_AGENT, anchor = null, anchors = null }) {
+  const cell = (p) => `${Math.floor(p[0] / agent.cs)},${Math.floor(p[2] / agent.cs)},${Math.round(p[1] ?? 0)}`;
+  const a = anchor ? `:a${cell(anchor)}` : '';
+  // the union's cells, hashed: the same layout is the same key, a moved foe a new one
+  let h = 0; for (const p of anchors ?? []) for (const c of cell(p)) h = (Math.imul(h, 31) + c.charCodeAt(0)) | 0;
+  const u = anchors?.length ? `:u${anchors.length}.${(h >>> 0).toString(36)}` : '';
+  return `nav:v${NAV_BAKE_VERSION}:${key}:${tris}:${minY.toFixed(2)}:${maxY.toFixed(2)}:${agent.cs}:${agent.radius}:${agent.height}:${agent.maxStep}:${agent.maxSlope}${a}${u}`;
 }
 
 /** Bake on this thread - the fallback, and node. The worker's core
  *  (navBake's bakeSoup), and the same answer: the compact form, its cell
  *  size, its stats and the boxes it was cut into. */
-export function bakeHere(input, anchor, agent = AGENT) {
-  const r = bakeSoup(input.positions, input.indices, { floor: input.minY - 10, anchor, agent });
+export function bakeHere(input, anchor, agent = SOUP_AGENT, anchors = null) {
+  const r = bakeSoup(input.positions, input.indices, { floor: input.minY - 10, anchor, anchors, agent });
   return { baked: bakeNavData(r.chf), cs: r.agent.cs, stats: r.stats, cols: r.cols };
 }
 
@@ -60,6 +68,10 @@ export function hydrateHere(baked, cols, input) {
 export const DEGENERATE_MIN_TRIS = 1000;
 export const DEGENERATE_MIN_POLYS = 20;
 export const DEGENERATE_POLY_SHARE = 0.02;
+
+/** What the worker said when it failed - its error's own message (a job's
+ *  `t: 'error'` reply, or the worker's onerror) - for the console line. */
+const workerWord = (e) => e?.message ?? 'the worker is gone';
 
 export class NavClient {
   constructor({ store = idbStore(), WorkerCtor = globalThis.Worker } = {}) {
@@ -89,6 +101,7 @@ export class NavClient {
         this._worker = w;
       } catch { this._worker = null; }
     }
+    this._hadWorker = !!this._worker;
   }
 
   /** One job to the worker, the soup copied and transferred: resolves
@@ -103,27 +116,45 @@ export class NavClient {
   }
 
   /** A cached bake's boxes, cut at its cell size: by the worker, else
-   *  here (no Worker, or one that failed). */
+   *  here (no Worker, or one that failed on a small soup); null when the
+   *  worker failed on a large one. */
   async _cols(input, cs, agent) {
-    const m = this._worker ? await this._ask({ t: 'cols', cs, maxSlope: agent.maxSlope }, input).catch(() => null) : null;
-    return m ? unpackColliders(m.cols) : trianglesToColliders(input.positions, input.indices, { cs, maxSlope: agent.maxSlope });
+    let failed = null;
+    const m = this._worker ? await this._ask({ t: 'cols', cs, maxSlope: agent.maxSlope }, input).catch((e) => { failed = e; return null; }) : null;
+    if (m) return unpackColliders(m.cols);
+    if (this._hadWorker && input.tris >= DEGENERATE_MIN_TRIS) {   // AUDIT PRE-MERGE 0928 N5: the bake path's rule on a cache hit too - a dead worker's large soup is not re-cut here (2.8 s on 25k triangles at the soup's cell)
+      console.warn(`[enhanced-ai] the nav worker failed on ${input.tris} triangles - not re-cutting a cached bake on the main thread; the classic motor stands (the worker: ${workerWord(failed)})`);
+      return null;
+    }
+    return trianglesToColliders(input.positions, input.indices, { cs, maxSlope: agent.maxSlope });
   }
 
-  /** One bake: cache, else worker, else here. Resolves { chf, stats, cached }. */
-  async bake({ collider, anchor, key, agent = AGENT }) {
-    const input = navInputFromCollider(collider);
+  /** One bake: cache, else worker, else here. Resolves { chf, stats, cached }.
+   *  `anchors`: every other place agents live (the layout's foes); `exclude`:
+   *  the buckets the soup leaves out (the doors a foe opens). */
+  async bake({ collider, anchor, anchors = null, exclude = null, key, agent = SOUP_AGENT }) {
+    const input = navInputFromCollider(collider, { exclude });
     if (!input.tris) return null;
-    const ck = navCacheKey({ key, tris: input.tris, minY: input.minY, maxY: input.maxY, agent, anchor });
+    const ck = navCacheKey({ key, tris: input.tris, minY: input.minY, maxY: input.maxY, agent, anchor, anchors });
     if (this._store) {
       const hit = await this._store.get(ck).catch(() => null);
-      if (hit && hit.baked) return { chf: hydrateHere(hit.baked, await this._cols(input, hit.cs, agent), input), stats: { ...(hit.stats ?? {}), cached: true }, cached: true };
+      if (hit && hit.baked) { const cols = await this._cols(input, hit.cs, agent); return cols ? { chf: hydrateHere(hit.baked, cols, input), stats: { ...(hit.stats ?? {}), cached: true }, cached: true } : null; }
     }
-    let result = null;
+    let result = null, failed = null;
     if (this._worker) {
-      const m = await this._ask({ t: 'bake', floor: input.minY - 10, anchor, agent }, input).catch(() => null);
+      const m = await this._ask({ t: 'bake', floor: input.minY - 10, anchor, anchors, agent }, input).catch((e) => { failed = e; return null; });   // AUDIT PRE-MERGE 0928 N4: the worker's own word is kept for the console
       if (m) result = { ...m, cols: unpackColliders(m.cols) };
     }
-    if (!result) result = bakeHere(input, anchor, agent);
+    // A WORKER THAT DIED IS NOT A REASON TO FREEZE THE PAGE (2026-09-27). The soup bake keeps its own cell now, so a
+    // large dungeon is 5-11 s and up to ~1.3 GB (the corpus's largest) - AUDIT 59 F1's main-thread freeze, several
+    // times over. Here the bake runs only where there never was a worker (node, a test) or the soup is small; a worker
+    // that failed on a large one leaves the classic motor standing, which is where a degenerate bake left it too.
+    if (!result && this._hadWorker && input.tris >= DEGENERATE_MIN_TRIS) {
+      console.warn(`[enhanced-ai] the nav worker failed on ${input.tris} triangles - not baking on the main thread; the classic motor stands (the worker: ${workerWord(failed)})`);
+      return null;
+    }
+    if (!result && this._hadWorker) console.warn(`[enhanced-ai] the nav worker failed - baking ${input.tris} triangles on the main thread (the worker: ${workerWord(failed)})`);   // AUDIT PRE-MERGE 0928 N4: a small soup's fallback says so
+    if (!result) result = bakeHere(input, anchor, agent, anchors);
     // DEGENERATE-BAKE GUARD (2026-09-20, Mac's patch - a report of foes
     // standing idle across most of a dungeon, with the console showing a
     // CACHED bake of 11 polys against 17,450 collision triangles).
@@ -150,6 +181,9 @@ export class NavClient {
     // non-walkable wall geometry with the floor area the polys are actually
     // drawn from. Gated on a genuinely large input too, so a real small
     // dungeon - few triangles, honestly few polys - is never touched.
+    // (2026-09-27: the field bake that raised it - 11 polys from 17,592 -
+    // was the bake's own cell, erosion, flat floors and single anchor, not
+    // luck; navBake.js bakeSoup has the four. The guard stays as the net.)
     const polys = result.stats?.polys ?? 0;
     if (input.tris >= DEGENERATE_MIN_TRIS && (polys < DEGENERATE_MIN_POLYS || polys < input.tris * DEGENERATE_POLY_SHARE)) {
       console.warn(`[enhanced-ai] navmesh bake looks degenerate (${polys} polys from ${input.tris} triangles) - not caching, so the next entry gets a fresh retry instead of being stuck with this one`);

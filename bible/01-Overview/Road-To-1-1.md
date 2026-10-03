@@ -108,9 +108,9 @@ in the wave reports.
   UpdateNpcPresence on pop, the toggle-binding close - and, on the same
   stack, the two recorded stages Wave A routed here: the courtroom
   backdrop, ONE window on CORT01I0 with every box of the trial pushed
-  over it (`ui/prisonScreen.js:63`, `scenes/arrestFlow.js:123`), and
+  over it (`ui/prisonScreen.js:65`, `scenes/arrestFlow.js:137`), and
   the prison screen's held-Back accelerator, DFU's raw Escape poll
-  rather than a binding (`ui/prisonScreen.js:69`). Both pinned by
+  rather than a binding (`ui/prisonScreen.js:71`). Both pinned by
   `test/roadb_court_backdrop.test.js` (10).
 
 ## Wave C - the two arcs - CLOSED 2026-09-02
@@ -222,16 +222,16 @@ narrowed while E3 closed the two console verbs
 (`ui/exteriorAutomapWindow.js:96` - the site id the flag list was
 measured on; the closure narrates at `:100` today) by building the
 console host they were waiting on. The SHIP LANDING then took a seventh
-(`scenes/world.js:6524`, the two ship pixels): the owner supplied the
+(`scenes/world.js:10757`, the two ship pixels): the owner supplied the
 real MAPS.BSA, the pixels turned out to carry the two "Your Ship"
 locations rather than open sea, and the boarding became an ordinary
 location arrival. **ROAD-F then took three more**: GS1 closed the
-guild-service popup above ground (`scenes/worldModes.js:2516`) with the
+guild-service popup above ground (`scenes/worldModes.js:2708`) with the
 replace-mode mount door plus the sweep of the subtree under it, and GS2
-reworded `systems/skills.js:202` - a RETIREMENT RECORD whose only claim
+reworded `systems/skills.js:283` - a RETIREMENT RECORD whose only claim
 on the list was that it wrote the marker down in the past tense.
 DR1 (2026-09-03) took another
-(`scenes/dungeonContext.js:2412`, the standalone dungeon host's two
+(`scenes/dungeonContext.js:2693`, the standalone dungeon host's two
 window seams) by BUILDING them: "a DFU original that does not exist"
 had been that flag's stated blocker, and it was a claim about the
 SCENE, not about the two windows - both of which have DFU originals
@@ -245,13 +245,13 @@ residence plates all read the machine instead of saying they cannot -
 and TP2 NARROWED the flag beside it, that host's Recall, to the one
 cross-LOCATION jump a route with no streamer cannot make (set-anchor,
 the same-interior move and the whole cross-context arm INSIDE the
-loaded pixel all ship). That leaves **6** open flags as
+loaded pixel all ship). That leaves **8** open flags as
 of this wave - the count `node tools/regenOpenFlags.mjs --check`
 answers, and the only count this page may state - each with its
 blocker named at the site: no asset in the repo (the PlayerTorch
 prefab), a DFU original that does not exist (the enhanced menu's
 keyboard), or the owner's call (the gamepad layer, the pause
-dropdown's mod rows).
+dropdown's mod rows, the woods' pictures).
 
 ## Wave G - the audit's deliberately-left remainder - CLOSED 2026-09-04
 
@@ -334,7 +334,8 @@ The two things the Wave G lanes wrote down at their sites are closed:
   `runEncounterTick` in `exterior.js`, the world host's twin: per
   elapsed minute the intermittent roll (placed through DFU's ring with
   the arm's band, a flyer lifted 1.5), the two passive-guard rolls
-  levying Criminal_Conspiracy through the witness arm, the
+  levying Criminal_Conspiracy through the witness arm [retired by REP1, 2026-09-29: a guard who sees a known criminal
+  stops them - `06-Systems/Standing-Arc.md`], the
   once-per-Update NPC-guard conversion, the suppression flag gating
   and clearing; driven from the frame in exterior mode and from the
   rest advance. On the way: `:488-491`'s "no spawn while swimming"

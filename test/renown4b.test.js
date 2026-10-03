@@ -8,6 +8,7 @@
 // is gone from the column - its chips are the status widget's tiles, on the quickslot block - so the model has no
 // status row, and the sheet no lift for one.)
 import { test } from 'node:test';
+import { TOUCH_CORNER_MAX, layoutTouchCorner, touchButtonSlots, TOUCH_BUTTON_ACTIONS } from '../src/ui/touchButtons.js';   // TOUCH-BUTTONS
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 
@@ -49,7 +50,7 @@ function layout({ W, s, plus, touch, row, safe = 0, stick = false }) {
   else if (row) qb = phone ? 46 + 60 * s : 22 + 64 * s;
   else qb = phone ? 76 + 30 * (s - 1) : 22 + 32 * s;
   const quick = { x0: left, x1: left + bw * s, y0: qb + safe };
-  const buttons = touch ? { x0: W - 280, x1: W - 16, y0: 16 + safe, y1: 64 + safe } : null;
+  const buttons = touch ? { x0: W - TOUCH_CORNER_MAX, x1: W - 16, y0: 16 + safe, y1: 64 + safe } : null;   // TOUCH-BUTTONS: the widest corner a player can choose
   return { vitals, renown, quick, buttons };
 }
 const xMeet = (a, b) => a.x0 < b.x1 && b.x0 < a.x1;
@@ -109,8 +110,15 @@ test('RENOWN4b the sheet: every number the model reads is the sheet\'s - the col
   assert.ok(C.indexOf('@media (pointer: coarse) and (hover: none) {\n  .hud-bars { order: 1; }') > C.indexOf('  .hud:has(.hud-renown.on) .hud-quick { bottom: calc(46px'), 'the touch rules come after the phone\'s, or the phone\'s lift would stand on a touch phone');
   // the touch layer's buttons the model keeps clear of
   const T = src('src/ui/touch.js');
-  assert.match(T, /button\('↑↑', edge\('right', 16\), edge\('bottom', 16\), 64,/);
-  assert.match(T, /if \(hooks\.socialInteract\) button\('☺', edge\('right', hooks\.cycleMode \? 232 : 160\), edge\('bottom', 16\), 48,/);
+  // TOUCH-BUTTONS: the corner is laid by touchButtons.js - TI1's default at the 16..280 px it always held (Jump at 16,
+  // F at 232), every control 48 tall on the 16 px bottom edge, and the model above takes the WIDEST corner a player
+  // can choose (TOUCH_CORNER_MAX), so a third button cannot walk under the row
+  // PIN MOVED (2026-10-01 part four, TOUCH-HOLD): Interact in the third slot - F at 296, the corner ending at 344
+  const def = layoutTouchCorner(touchButtonSlots(() => undefined), { mode: true, social: true });
+  assert.deepEqual([def.slots[0].right, def.social, def.extent], [16, 296, 344]);
+  assert.ok(TOUCH_CORNER_MAX >= def.extent && TOUCH_CORNER_MAX === layoutTouchCorner([...Array(3)].map(() => TOUCH_BUTTON_ACTIONS.reduce((a, b) => ((b.w ?? 0) > (a.w ?? 0) ? b : a))), { mode: true, social: true }).extent);
+  assert.match(T, /const at = \[edge\('right', right\), edge\('bottom', 16\), action\.w \?\? 60\];/);
+  assert.match(T, /if \(hooks\.socialInteract\) socialBtn = button\('☺', edge\('right', hooks\.cycleMode \? 232 : 160\), edge\('bottom', 16\), 48,/);
   assert.match(T, /height:48px;/);
   // Plus
   assert.match(PLUS_CSS, /\.hud-bars \{ display: flex; align-items: center; gap: 16px; \}/);

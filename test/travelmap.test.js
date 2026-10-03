@@ -311,7 +311,15 @@ test('U41: the world host mounts the art window and keeps performFastTravel\'s o
   // PIN MOVED (PERF-EXT21), 6600 -> 7400: the sweep empties the grass
   // field too - a crossing no longer does - with its own note, above the
   // needles.
-  const core = src.slice(k, k + 7400);
+  // PIN MOVED (DW-F), 7400 -> 7800: the sweep frees the rubble a rebuild
+  // carried and forgets the wrecks' guards, with their notes, above the
+  // needles.
+  // PIN MOVED (AUDIT OW5 J2), 7800 -> 8800: a jump stops a route's walk first thing, with its note
+  // PIN MOVED (RESPAWN-GROUND, FIELD BUGS 2026-09-30), 8800 -> 10000: the eye stood on the new pixel before the build is
+  // awaited, with its note, above the last needle
+  // PIN MOVED (KEEP-PLUNDER, 2026-09-30), 10000 -> 10400: a jump's sea stowed before Come Sail Away's teleport, with its
+  // note, above the needles
+  const core = src.slice(k, k + 10400);
   for (const needle of ['destroyPixel(bx, by)', 'state.init(px, py)', 'awaitedBuild(first.px']) {
     assert.ok(core.includes(needle), `the core carries ${needle}`);
   }

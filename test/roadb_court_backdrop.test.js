@@ -44,6 +44,7 @@ const convict = () => ({
   stats: { endurance: 50, strength: 50, willpower: 50, personality: 50 },
   crimeCommitted: CRIMES.Murder, legalRep: { 17: 0 }, items: [], skills: 30,
   haveShownSurrenderDialogue: true, arrested: false,
+  chargedCrime: CRIMES.Murder,   // AUDIT REP F1: the box charged it - the court charges only a crime not yet charged, so the rig says so
 });
 
 /** A FNT the port's reader accepts: header + the 240-entry glyph table

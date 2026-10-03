@@ -106,6 +106,10 @@ export const SURVIVAL_TEXT = Object.freeze({
   cold: 'You shiver from the cold...',
   freezing: 'The cold is seeping into your bones...',
   deadly: 'Your teeth are chattering uncontrollably!',
+  // WARM-SAID (FIELD BUGS 2026-09-30): the way out of the red, said once (stageNote's recoveryNote)
+  cooling: 'You are cooling down.',
+  warming: 'You are warming up.',
+  dried: 'You have dried off.',
   nakedCold: 'The cold air numbs your bare skin.',
   bareFeetCold: 'Your bare feet are freezing.',
   bareFeetHot: 'Your bare feet are getting burned.',
@@ -259,9 +263,41 @@ const STAGE_SEVERITY = Object.freeze({
   sleep: Object.freeze({ tired: 1, drowsy: 2, exhausted: 3 }),
   temp: Object.freeze({ cold: -1, freezing: -2, deadly: -3, warm: 1, hot: 2, scorching: 3 }),
 });
+/**
+ * FIELD BUGS 2026-09-30 (WARM-SAID; #bug-reports, "Climates & Calories
+ * Bugs": "your temperature gets to either "Scorching" or "Freezing" or
+ * "Soaked" etc and seems to never recover"): THE WAY OUT OF THE RED IS
+ * SAID, ONCE. The rule above is right for the stages and left every
+ * recovery unsaid: the cold seeping into your bones was said and its
+ * going never was, and a drenching dried without a word. Leaving a red
+ * temperature (the strip's danger words - scorching, freezing, deadly
+ * cold) for any stage that is not red says "You are cooling down." or
+ * "You are warming up."; a soaking or a drenching dried all the way says
+ * "You have dried off." Each is said once a recovery - the temperature
+ * at its first stage out of the red, the wet at dry (its way down passes
+ * wet and damp) - and the improving stages stay silent. `s.notes` keeps
+ * the red stage last reached under '<family>:red'; stageNote asks after
+ * the replay gate, so a jump's landing says the net recovery. A declared
+ * departure (Port-Ledger A): the mod speaks no recovery.
+ */
+const RECOVERY = Object.freeze({
+  temp: Object.freeze({ from: Object.freeze({ scorching: 'cooling', freezing: 'warming', deadly: 'warming' }), atDry: false }),
+  wet: Object.freeze({ from: Object.freeze({ soaked: 'dried', drenched: 'dried' }), atDry: true }),
+});
+function recoveryNote(s, family, stage, say) {
+  const r = RECOVERY[family];
+  if (!r) return;
+  const key = `${family}:red`;
+  if (stage && r.from[stage]) { s.notes[key] = stage; return; }
+  const from = s.notes[key];
+  if (!from || (r.atDry && stage)) return;
+  delete s.notes[key];
+  say?.(SURVIVAL_TEXT[r.from[from]]);
+}
 function stageNote(s, family, stage, say, text, replay) {
   if (replay) return;
   const was = s.notes[family];
+  recoveryNote(s, family, stage, say);   // WARM-SAID: the way out of the red, said once
   if (!stage) { delete s.notes[family]; return; }
   if (stage === was) return;
   const sev = STAGE_SEVERITY[family], now = sev[stage] ?? 0, before = was ? sev[was] ?? 0 : 0;
@@ -619,8 +655,10 @@ export function runSurvivalMinutes(entity, from, to, env, deps) {
  * audit found both ways that was wrong: a meal eaten while Off (which
  * writes `lastAte` inside the gap) was moved a second time, days into
  * the future; and WORLD5's online load (worldTick.js alignEntityClocks)
- * leaves exactly such a gap for a short absence ON PURPOSE - "an hour
- * away keeps its hunger" - which the shift forgave in every tier. Paused
+ * left exactly such a gap for a short absence ON PURPOSE - "an hour
+ * away keeps its hunger" - which the shift forgave in every tier.
+ * [LIVED1: online an absence leaves no gap at all - the needs stand on
+ * the character's own clock, which stood while they were away.] Paused
  * here, per span, only while Off, neither can happen: a meal writes a
  * marker the next span carries, and a gap the arc was on for is not
  * touched. A player with no record is given none.
@@ -647,19 +685,6 @@ export function pauseSurvival(entity, from, to) {
   // classic game's days - fed, watered, rested, dry and sober - and the needs start again from there.
   s.offFor = (s.offFor ?? 0) + span;
   if (s.offFor > ALIGN_GRACE_MINUTES) { alignSurvival(entity, Math.floor(to), null); delete s.offFor; }   // AUDIT SURV-TIERS (the third pass): gone, not nought - a 0 rode every save after
-  return true;
-}
-/**
- * AUDIT SURV-TIERS (the third pass): A CORRECTION IS NOT AN ABSENCE. The relay's clock stepping this machine's by
- * `delta` minutes moved the world under the needs' timestamps - worldTick.js alignEntityClocks moves every other
- * marker by it - so a player fed a minute before the socket opened on a clock three hours slow read Starving, and in
- * Hard lost two from every attribute. The record rides the same delta: the needs stand where they were. (A LOAD's
- * gap is different, and save.js keeps it: an hour away is an hour hungrier - WORLD5.)
- */
-export function shiftSurvival(entity, delta) {
-  const s = entity?.survival;
-  if (!s || typeof s !== 'object' || !Number.isFinite(delta) || delta === 0) return false;
-  for (const k of ['lastAte', 'awakeSince', 'lastMinute', 'stiffUntil']) if (Number.isFinite(s[k]) && s[k] !== 0) s[k] += delta;
   return true;
 }
 /** AUDIT SURV A: the feed stopped (the mod off, a host with no reader) - the drains the last minute wrote go with it. */

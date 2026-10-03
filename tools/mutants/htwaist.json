@@ -359,7 +359,7 @@
   {
     "name": "HT-WAIST-the-sprite-never-draws-it",
     "file": "src/player/eotbBody.js",
-    "old": "      drawLantern();   // HT-WAIST: the lantern at the waist, its own billboard, after the body\n",
+    "old": "      if (grow === 1) drawLantern();   // HT-WAIST: the lantern at the waist, its own billboard, after the body - OW-BIG: a grown body's waist is not where the lantern hangs\n",
     "new": "",
     "tests": [
       "test/htwaist_eotb.test.js"
@@ -507,7 +507,7 @@
   {
     "name": "HT-WAIST-BACK-the-walker-never-hangs-it",
     "file": "src/net/peerRiders.js",
-    "old": "      hangLantern(r, pose, feet, view, eye, right, step, ft);\n",
+    "old": "      else hangLantern(r, pose, feet, view, eye, right, step, ft);\n",
     "new": "",
     "tests": [
       "test/htwaistback.test.js"
@@ -534,7 +534,7 @@
   {
     "name": "HT-WAIST-BACK-the-walker-pace-unmeasured",
     "file": "src/net/peerRiders.js",
-    "old": "    r.pace = stepPeerPace(r.pace, r.paceFeet, feet, dt);\n",
+    "old": "    r.pace = stepPeerPace(r.pace, r.paceKey === on ? r.paceFeet : null, at, dt);\n",
     "new": "",
     "tests": [
       "test/htwaistback.test.js"

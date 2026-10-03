@@ -11,8 +11,8 @@
   {
     "name": "DECOR1e-a-full-piece-unheld",
     "file": "src/ui/decorPanel.js",
-    "old": "    storeBtn.disabled = !it || !!it.piece.item || (it.piece.storage && it.holds);",
-    "new": "    storeBtn.disabled = !it || !!it.piece.item;",
+    "old": "    storeBtn.disabled = !it || !!it.piece.item || (it.piece.storage && it.holds) || !!it.piece.station || door;",
+    "new": "    storeBtn.disabled = !it || !!it.piece.item || !!it.piece.station || door;",
     "tests": [
       "test/decor1e.test.js"
     ]
@@ -56,8 +56,8 @@
   {
     "name": "DECOR1e-the-room-view-drawing-the-catalogue",
     "file": "src/ui/decorPanel.js",
-    "old": "    if (mode === 'room') {\n      const placed = view.placed ?? [];",
-    "new": "    if (false) {\n      const placed = view.placed ?? [];",
+    "old": "} else if (mode === 'room') {\n      const placed = roomed(view.placed ?? []);",
+    "new": "} else if (false) {\n      const placed = roomed(view.placed ?? []);",
     "tests": [
       "test/decor1e.test.js"
     ]
@@ -83,8 +83,8 @@
   {
     "name": "DECOR1e-the-tabs-idle",
     "file": "src/ui/decorPanel.js",
-    "old": "chip('Catalogue', mode === 'catalogue', () => setMode('catalogue'))",
-    "new": "chip('Catalogue', mode === 'catalogue', () => {})",
+    "old": "chip('Catalogue', mode === 'catalogue', () => setMode('catalogue')), chip(`In this room",
+    "new": "chip('Catalogue', mode === 'catalogue', () => {}), chip(`In this room",
     "tests": [
       "test/decor1e.test.js"
     ]
@@ -200,7 +200,7 @@
   {
     "name": "DECOR1e-the-shrink-not-given-back",
     "file": "src/scenes/decorTool.js",
-    "old": "      if (price.refund > 0) deps.wallet().credit?.(price.refund);",
+    "old": "      if (price.refund > 0 && !r.hall) deps.wallet().credit?.(price.refund);",
     "new": "      if (false) deps.wallet().credit?.(price.refund);",
     "tests": [
       "test/decor1e.test.js"
@@ -290,8 +290,8 @@
   {
     "name": "DECOR1e-the-removal-refund-whole",
     "file": "src/scenes/decorTool.js",
-    "old": "    const back = decorRefund(paid);",
-    "new": "    const back = paid;",
+    "old": "      back = r.hall ? 0 : decorRefund(paid);   // AUDIT GUILD1d A4: a hall's half is the treasury's, never the purse's\n      if (back > 0) deps.wallet?.().credit?.(back);\n    }",
+    "new": "      back = r.hall ? 0 : paid;   // AUDIT GUILD1d A4: a hall's half is the treasury's, never the purse's\n      if (back > 0) deps.wallet?.().credit?.(back);\n    }",
     "tests": [
       "test/decor1e.test.js"
     ]
@@ -317,8 +317,8 @@
   {
     "name": "DECOR1e-the-old-place-never-written-back",
     "file": "src/scenes/decorTool.js",
-    "old": "        await writeChange(r, was);\n        return false;",
-    "new": "        return false;",
+    "old": "          await writeChange(r, was);\n          return false;",
+    "new": "          return false;",
     "tests": [
       "test/decor1e.test.js"
     ]
@@ -335,8 +335,8 @@
   {
     "name": "DECOR1e-a-refused-removal-taken",
     "file": "src/scenes/decorTool.js",
-    "old": "'The piece could not be removed.'); return false; }",
-    "new": "'The piece could not be removed.'); }",
+    "old": "'The piece could not be removed.'); return false; }\n        paid = decorPieceOf(res.data?.piece)?.paid ?? paid;",
+    "new": "'The piece could not be removed.'); }\n        paid = decorPieceOf(res.data?.piece)?.paid ?? paid;",
     "tests": [
       "test/decor1e.test.js"
     ]
@@ -353,8 +353,8 @@
   {
     "name": "DECOR1e-a-late-move-standing",
     "file": "src/scenes/decorTool.js",
-    "old": "      if (deps.visit?.() === visit) pool.put(stood);",
-    "new": "      pool.put(stood);",
+    "old": "        if (price.refund > 0 && !r.hall) deps.wallet().credit?.(price.refund);   // AUDIT GUILD1d A4: a hall's half is the treasury's, the service's\n      }\n      if (deps.visit?.() === visit) pool.put(stood);",
+    "new": "        if (price.refund > 0 && !r.hall) deps.wallet().credit?.(price.refund);   // AUDIT GUILD1d A4: a hall's half is the treasury's, the service's\n      }\n      pool.put(stood);",
     "tests": [
       "test/decor1e.test.js"
     ]
@@ -380,8 +380,8 @@
   {
     "name": "DECOR1e-the-pieces-half-dropped",
     "file": "src/systems/onlineHomes.js",
-    "old": "decorBack: n(r.data?.decorBack) };",
-    "new": "decorBack: 0 };",
+    "old": "decorBack: n(r.data?.decorBack), ...(r.data?.refund != null",
+    "new": "decorBack: 0, ...(r.data?.refund != null",
     "tests": [
       "test/decor1e.test.js"
     ]
@@ -389,8 +389,8 @@
   {
     "name": "DECOR1e-the-sale-line-the-home-alone",
     "file": "src/systems/onlineHomes.js",
-    "old": "`You sold your home. ${refund + piecesBack} gold",
-    "new": "`You sold your home. ${refund} gold",
+    "old": "`You sold your home. ${refund + piecesBack + rent} gold",
+    "new": "`You sold your home. ${refund + rent} gold",
     "tests": [
       "test/decor1e.test.js"
     ]
@@ -426,8 +426,8 @@
   {
     "name": "DECOR1e-the-bad-record-counted",
     "file": "server-account/src/homes.js",
-    "old": "SELECT COALESCE(SUM(CASE WHEN json_valid(place) THEN 1 ELSE 0 END), 0) AS n,",
-    "new": "SELECT COUNT(*) AS n,",
+    "old": "const decorBackStatement = (db, mapId, buildingKey) => db.prepare(`SELECT COALESCE(SUM(CASE WHEN json_valid(place) THEN 1 ELSE 0 END), 0) AS n,",
+    "new": "const decorBackStatement = (db, mapId, buildingKey) => db.prepare(`SELECT COUNT(*) AS n,",
     "tests": [
       "test/decor1.test.js"
     ]
@@ -489,8 +489,8 @@
   {
     "name": "DECOR1e-a-tap-activating",
     "file": "src/scenes/world.js",
-    "old": "      if (modes?.decorFlying?.()) return;   // DECOR1e:",
-    "new": "      // DECOR1e:",
+    "old": "      if (modes?.decorFlying?.() || yards?.flying()) return;   // DECOR1e:",
+    "new": "      if (yards?.flying()) return;   // DECOR1e:",
     "tests": [
       "test/decor1e.test.js"
     ]
@@ -516,8 +516,8 @@
   {
     "name": "DECOR1e-the-sale-said-alone",
     "file": "src/scenes/worldModes.js",
-    "old": "homeSoldLine(r.refund, r.decorBack)",
-    "new": "homeSoldLine(r.refund)",
+    "old": "homeSoldLine(r.refund, r.decorBack, r.rent ?? 0)",
+    "new": "homeSoldLine(r.refund, 0, r.rent ?? 0)",
     "tests": [
       "test/decor1e.test.js"
     ]

@@ -19,7 +19,7 @@ test('audit24 scenes: seenByGuard rides ANY raycast hit, not a clear line', () =
   const i = t.indexOf('const hit = collider.raycast(eye, dir, dist);');
   assert.ok(i > 0);
   const arm = t.slice(i, i + 1100);
-  assert.match(arm, /const clear = !Number\.isFinite\(hit\) \|\| hit >= dist - 1e-3;/);
+  assert.match(arm, /const clear = \(!Number\.isFinite\(hit\) \|\| hit >= dist - 1e-3\) && !\(coverDistance\(collider, eye, dir, dist, true\) < dist - 1e-3\);/);   // TACT1: and no cover between (the switch on)
   assert.match(arm, /if \(clear\) seen = true;/);
   // DFU's raycast always hits SOMETHING (the player, or the wall
   // between), so seenByGuard is unconditional once the NPC is a guard
@@ -59,7 +59,7 @@ test('audit24 scenes: lastCastCost is stamped AFTER the CasterOnly cast lands', 
   const t = rd('src/scenes/hostMagic.js');
   // ALLY-CAST: the arm before this one (a cast on a party mate) stamps its own cost; the law here is the SELF arm's
   const selfArm = t.indexOf('if (sp.rangeType === 0) {');
-  const apply = t.indexOf('const r = applySpellToPlayer(sp, playerEntity.level, playerCaster());', selfArm);
+  const apply = t.indexOf('const r = applySpellToPlayer(sp, effectiveLevel(playerEntity), playerCaster());', selfArm);
   const stamp = t.indexOf('lastCastCost = cost;', selfArm);
   assert.ok(apply > 0 && stamp > 0);
   assert.ok(stamp > apply, 'the stamp follows the self-cast, as C# orders it');

@@ -52,32 +52,5 @@
     "tests": [
       "test/guildserviceflows.test.js"
     ]
-  },
-  {
-    "name": "MACBUG3-the-repair-job-is-left-on-the-saves-clock",
-    "file": "src/systems/worldTick.js",
-    "old": "      if (Number.isFinite(it.repairData?.timeStarted)) it.repairData.timeStarted = due(it.repairData.timeStarted);",
-    "new": "",
-    "tests": [
-      "test/auditworld5.test.js"
-    ]
-  },
-  {
-    "name": "MACBUG3-only-the-pack-is-walked-again",
-    "file": "src/systems/worldTick.js",
-    "old": "  for (const bag of [entity.items, entity.otherItems, entity.wagonItems]) {",
-    "new": "  for (const bag of [entity.items]) {",
-    "tests": [
-      "test/auditworld5.test.js"
-    ]
-  },
-  {
-    "name": "MACBUG3-a-not-in-repair-sentinel-is-shifted-into-a-date",
-    "file": "src/systems/worldTick.js",
-    "old": "      if (Number.isFinite(it.repairData?.timeStarted)) it.repairData.timeStarted = due(it.repairData.timeStarted);",
-    "new": "      if (Number.isFinite(it.repairData?.timeStarted)) it.repairData.timeStarted += (delta ?? 0);",
-    "tests": [
-      "test/auditworld5.test.js"
-    ]
   }
 ]

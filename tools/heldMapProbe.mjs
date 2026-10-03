@@ -40,9 +40,9 @@ const BASE = `http://127.0.0.1:${PORT}`;
 const browser = await chromium.launch({ args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader'] });
 
 /** The synthetic bay + a live window on the menu page (no game data). */
-async function mount(page, { armed = false, gotoPlace = null, mod = false, party = false, hands = false } = {}) {
+async function mount(page, { armed = false, gotoPlace = null, mod = false, party = false, hands = false, events = false } = {}) {
   await page.goto(`${BASE}/menu.html?skin=enhanced`, { waitUntil: 'networkidle' });
-  await page.evaluate(async ({ armed2, gotoPlace2, mod2, party2, hands2 }) => {
+  await page.evaluate(async ({ armed2, gotoPlace2, mod2, party2, hands2, events2 }) => {
     document.getElementById('enhanced-menu')?.remove();
     // MAP3: the REAL first-person rig on the fixture arm, drawn on a WebGL
     // canvas under the window, holding the sheet through the same four
@@ -140,7 +140,23 @@ async function mount(page, { armed = false, gotoPlace = null, mod = false, party
         cautiousTravelMultiplier: 0.8, recklessTravelMultiplier: 1, markLocationColor: [255, 235, 5, 255], teleportCost: false },
       destinationName: mod2 === 'resume' ? 'Proofhold' : null, isTravelActive: false,
     } : null;
+    // EVENT-TIP: the world's events through their REAL producers - an omen on a clock the probe turns (the gate's mark
+    // and card) and raidMapMarks over a raid record in rollRaids' own shape, on Lowmarsh
+    let events = {};
+    if (events2) {
+      const [{ raidMapMarks }, omenMod, lawMod] = await Promise.all([import('/src/ui/eventMapMarks.js'), import('/src/systems/gateOmen.js'), import('/src/net/gateLaw.js')]);
+      const t = lawMod.gateTimes(9);
+      const clock = { now: t.openAt + 1000 };
+      const omen = omenMod.createGateOmen({ now: () => clock.now, say: () => {},
+        site: () => ({ place: 'Lowmarsh, Daggerfall', near: 'Lowmarsh', px: 60, py: 42, spot: [409.6, 409.6], ring: { cx: 60.5, cy: 42.5, r: 2 } }) });
+      omen.frame();
+      const raid = { regionIndex: 17, locationIndex: 1, startDay: 9, locationName: 'Lowmarsh', type: 2, startMinute: 9 * 1440 + 600, endMinute: 9 * 1440 + 720,
+        killed: 12, attackAmount: 20, cleansed: false, announced: false, struck: false, px: 45, py: 34 };
+      events = { gate: () => omen.mapMark(), raids: () => raidMapMarks([raid], 9 * 1440 + 650, { regionName: () => 'Daggerfall' }) };
+      globalThis.__event = { clock, omen, t };
+    }
     const deps = {
+      ...events,
       maps, mapDict, woods: { heightMapBuffer: bytes }, mapSize: { width: W, height: H },
       roads: () => net,
       getPlayerPixel: () => ({ x: 60, y: 45 }),
@@ -179,7 +195,7 @@ async function mount(page, { armed = false, gotoPlace = null, mod = false, party
       requestAnimationFrame(loop);
     };
     requestAnimationFrame(loop);
-  }, { armed2: armed, gotoPlace2: gotoPlace, mod2: mod, party2: party, hands2: hands });
+  }, { armed2: armed, gotoPlace2: gotoPlace, mod2: mod, party2: party, hands2: hands, events2: events });
 }
 
 const state = (page) => page.evaluate(() => JSON.parse(globalThis.__heldMap?.() ?? 'null'));
@@ -511,6 +527,49 @@ try {
   await page.waitForFunction(() => globalThis.__win.done, null, { timeout: 5000 });
   const released = await page.evaluate(() => ({ pose: globalThis.__arm.heldPose(), corners: globalThis.__arm.paperCorners() }));
   check('closing the map releases the sheet from the arm', released.pose === null && released.corners === null, JSON.stringify(released));
+
+  // ── 8. EVENT-TIP: the world's events answer a hover with their card ──
+  await mount(page, { events: true });
+  await waitPhase(page, 'map');
+  const tipOf = () => page.evaluate(() => {
+    const w = globalThis.__win, t = w._chrome.tip, r = t.getBoundingClientRect(), cs = getComputedStyle(t);
+    return { display: cs.display, pe: cs.pointerEvents, text: [...t.children].map((c) => c.textContent), rect: [r.left, r.top, r.width, r.height], label: w._chrome.label.textContent };
+  });
+  const raided = await screenOf(page, 45.5, 34.5);
+  await page.mouse.move(raided.x, raided.y);
+  await page.waitForTimeout(60);
+  const onRaid = await tipOf();
+  check('EVENT-TIP: a raided town answers a hover with its card', onRaid.display === 'block' && onRaid.text[0] === 'Raiding Party'
+    && onRaid.text.includes('Lowmarsh, Daggerfall') && onRaid.text.includes('Orcs attacking') && onRaid.text.includes('12 of 20 driven off'), JSON.stringify(onRaid.text));
+  check('...beside the pointer, whole on the screen, and never in the pointer\'s way', onRaid.pe === 'none' && onRaid.rect[0] >= raided.x && onRaid.rect[1] >= raided.y
+    && onRaid.rect[0] + onRaid.rect[2] <= 1280 && onRaid.rect[1] + onRaid.rect[3] <= 800 && onRaid.rect[2] > 60 && onRaid.rect[3] > 30, JSON.stringify(onRaid.rect));
+  check('...and the label line names the raid', onRaid.label === 'Lowmarsh - under attack', onRaid.label);
+  const crimson = await page.evaluate(([x, y]) => {
+    const w = globalThis.__win, c = w._chrome.ink, r = c.getBoundingClientRect(), dpr = w._paper.dpr;
+    const d = c.getContext('2d').getImageData(Math.round((x - r.left - 14) * dpr), Math.round((y - r.top - 28) * dpr), Math.round(28 * dpr), Math.round(42 * dpr)).data;
+    let n = 0; for (let i = 0; i < d.length; i += 4) if (d[i + 3] > 0 && d[i] > 170 && d[i + 1] < 90 && d[i + 2] < 120) n++;
+    return n;
+  }, [raided.x, raided.y]);
+  check('the raided town wears its crimson ring and blades on the sheet', crimson > 20, `${crimson} crimson device pixels`);
+  if (SHOTS) await page.screenshot({ path: `${SHOTS}/held-map-raid-card.png` });
+  const ringGround = await screenOf(page, 59.6, 41.9);
+  await page.mouse.move(ringGround.x, ringGround.y);
+  await page.waitForTimeout(60);
+  const onRing = await tipOf();
+  check('the gate\'s ring answers anywhere inside it with the gate\'s card', onRing.display === 'block' && onRing.text[0] === 'Dagon\'s Breach'
+    && onRing.text[1] === 'Near Lowmarsh, Daggerfall' && /^Open - seals in \d+:\d\d$/.test(onRing.text[2]) && onRing.text[3] === 'Valkynaz Ruhn, Warden of the Burning Gate', JSON.stringify(onRing.text));
+  // GATE-COLLAPSE, on a still pointer: the gate seals under it and the card and the label follow the poll
+  await page.evaluate(() => { const e = globalThis.__event; e.clock.now = e.t.sealAt + 2000; e.omen.frame(); });
+  await page.waitForTimeout(400);
+  const sealed = await tipOf();
+  check('...and follows the clock under a still pointer: sealed, it says when it collapses', sealed.text[2] === 'Sealed - collapses in 9:58'
+    && sealed.label === 'Dagon\'s Breach - sealed, collapses in 9:58', JSON.stringify({ line: sealed.text[2], label: sealed.label }));
+  if (SHOTS) await page.screenshot({ path: `${SHOTS}/held-map-gate-card.png` });
+  const noEvent = await screenOf(page, 80.5, 12.5);
+  await page.mouse.move(noEvent.x, noEvent.y);
+  await page.waitForTimeout(60);
+  check('...and the card goes where nothing under the pointer has one', (await tipOf()).display === 'none');
+  await page.evaluate(() => globalThis.__win.input('Escape'));
 
   // ── 7. MAP-FIELD: the sprite, asked for from the GAME'S OWN PAGE ──
   // Every check above mounts the window on menu.html, which sits at the

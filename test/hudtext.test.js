@@ -449,7 +449,7 @@ test('AUDIT FONT F2: --hud-scale reaches the mid-screen label - a SIBLING of .hu
   });
   // ...and the one hand that knows the live scale calls it, beside the
   // damage-number layer it already fed for exactly this reason.
-  assert.match(rd('src/ui/enhancedHud.js'), /getElementById\('enhanced-hitnums'\)\?\.style\.setProperty\('--hud-scale', String\(scale\)\);[\s\S]{0,400}?setEnhancedMidTextScale\(scale, document\);/,   // AUDIT ENH-NOTICE3 A10: named for the one surface it scales
+  assert.match(rd('src/ui/enhancedHud.js'), /getElementById\('enhanced-hitnums'\)\?\.style\.setProperty\('--hud-scale', String\(scale\)\);[\s\S]{0,400}?\n[ \t]*setEnhancedMidTextScale\(scale, document\);/,   // AUDIT ENH-NOTICE3 A10: named for the one surface it scales; CSA-G's re-run: the call its own statement, so a commented-out one no longer matches
     'mutant: the propagation dropped out of the scale write, so nothing ever sets it on the label');
 });
 
@@ -490,7 +490,7 @@ test('AUDIT FONT F3: the dungeon hosts\' overlay branch takes BOTH DOM surfaces 
   // BOTH dungeon hosts say it, ON the branch, BEFORE the return - the
   // branch is an early return and a hide written after it is dead code.
   assert.match(rd('src/scenes/worldModes.js'),
-    /if \(dungeonCtx\.uiOverlayActive\) \{ dungeonCtx\.hideHudText\?\.\(\); hideWorldPlaque\(\); dungeonCtx\.tickOverlay\(dt\); host\.drawPeerNames\?\.\(\{ proj, view, eye: mwv\.eye \}\); dungeonCtx\.drawOverlay\(canvas\); return true; \}/,   // AUDIT NAME1 F1 runs the name pass on the same arm, between the clock and the overlay; AUDIT-WH H4 puts the world plaque - a THIRD DOM surface, and the same law - beside the two
+    /if \(dungeonCtx\.uiOverlayActive\) \{ dungeonCtx\.hideHudText\?\.\(\); hideWorldPlaque\(\); dungeonCtx\.tickOverlay\(dt\); host\.drawPeerNames\?\.\(\{ proj, view, eye: mwv\.eye \}\); host\.drawCompanionBars\?\.\(\{ proj, view, eye: mwv\.eye \}\); dungeonCtx\.drawOverlay\(canvas\); return true; \}/,   // PIN MOVED (AUDIT CC-A6: the companions' bars ride the same arm, beside the names)   // AUDIT NAME1 F1 runs the name pass on the same arm, between the clock and the overlay; AUDIT-WH H4 puts the world plaque - a THIRD DOM surface, and the same law - beside the two
     'mutants: the hide door dropped from ?world\'s dungeon arm, or written after the return where nothing runs it');
   const dg = rd('src/scenes/dungeon.js');
   const branch = dg.indexOf('if (ctx.uiOverlayActive) {');

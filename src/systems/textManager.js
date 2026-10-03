@@ -398,11 +398,14 @@ export function localizedStrings(en, collection = TextCollections.Internal) {
 }
 
 /** L10N3d: a table keyed by the port's own names whose words are DFU's - `entries` maps each name to [its DFU key,
- *  DFU's English] (GuildServices.Training -> "serviceTraining") - read as localizedStrings reads. */
+ *  DFU's English] (GuildServices.Training -> "serviceTraining") - read as localizedStrings reads. An entry that is a
+ *  function is the port's own line beside DFU's (a `t` call, L10N4): it is that name's getter as it stands, so a table
+ *  that mixes the two keeps one shape. */
 export function localizedTable(entries, collection = TextCollections.Internal) {
   const out = {};
-  for (const [name, [key, value]] of Object.entries(entries)) {
-    Object.defineProperty(out, name, { enumerable: true, get: () => localizedText(key, value, collection) });
+  for (const [name, entry] of Object.entries(entries)) {
+    const get = typeof entry === 'function' ? entry : () => localizedText(entry[0], entry[1], collection);
+    Object.defineProperty(out, name, { enumerable: true, get });
   }
   return Object.freeze(out);
 }

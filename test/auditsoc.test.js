@@ -10,7 +10,7 @@ import { readFileSync } from 'node:fs';
 import {
   SOCIAL_ROOM, SOCIAL_REPEAT_MS, ACCOUNT_IDLE_MS, ACCOUNT_SWEEP_MS, SWEEP_STEP_MS, SWEEP_PAGE, INVITE_TTL_MS, PARTY_OFFLINE_MS, ACCOUNT_TABS_MAX,
   SOCIAL_ROOM_HZ_MAX, SOCIAL_IN_HZ_MAX, NOTE_IN_HZ_MAX, PARTY_IN_HZ_MAX, PARTY_HZ_MAX, PARTY_MAX, INBOUND_FRAME_MAX, WORLD_FRAME_MAX, ROSTER_MAX, MAX_FRAME_BYTES,
-  PARTY_LOC_MAX, NAME_MAX, RELAY_VERSION, validPartyPose, validSocialAct, validSocialFrame,
+  PARTY_LOC_MAX, NAME_MAX, RELAY_VERSION, validPartyPose, validSocialAct, validSocialFrame, PARTY_FX_MAX, PARTY_FX_NAME_MAX,
 } from '../src/net/wire.js';
 import { fakeRoom } from './fakeRoom.mjs';
 import { SocialState, PARTY_GREEN_CSS, FRIEND_CSS } from '../src/net/social.js';
@@ -201,28 +201,41 @@ test('AUDIT SOC A7: a socket REPLACED by a hello naming another account (or none
   assert.equal(lastOf(b, 'party').party.members.find((m) => m.acct === 'acct-a').online, false, 'the view says so');
 }));
 
-test('AUDIT SOC A10/B9: ACCOUNT_TABS_MAX is the hub\'s own bound - a row names that many peer ids and a fan reaches that many sockets of one account; and of one account\'s tabs the NEWEST speaks for the party seat - an older tab\'s pose is kept and fanned to nobody (mutants: the bound on the projection alone; every tab fanned to; two tabs fighting over the seat\'s pose)', () => withHub(async ({ r, act, pose, join, befriend, tick }) => {
-  const a = await join('a'), b = await join('b');
+// FRIENDS-SYNC (FIELD BUGS 2026-10-01 part five): the hub account is the token's SUBJECT now (it was the browser
+// profile's id), and ONE-SEAT keeps one hub tab a subject - a second tab claims and the first is closed - so the nine
+// OPEN tabs of one account this pin used to build cannot be built any more. What still puts several sockets under one
+// account is the runtime: it lists a socket the object closed until the close completes (AUDIT ONESEAT R4,
+// test/oneseat.test.js `lingering`), so a burst of claims leaves every closed tab listed beside the one holding the
+// seat, attachment and all - and a pose one of them sent before its close landed can still arrive. The bound and the
+// newest-speaks rule are pinned there, which is where they still bite.
+test('AUDIT SOC A10/B9: ACCOUNT_TABS_MAX is the hub\'s own bound - a row names no more peer ids than that and a fan reaches no more sockets of one account, the stalest the ones past it; and of one account\'s sockets the NEWEST speaks for the party seat - an older one\'s pose is kept and fanned to nobody. FRIENDS-SYNC: built from a burst of claims whose closed tabs the runtime still lists (mutants: the bound on the projection alone; every tab fanned to; the stalest kept; two tabs fighting over the seat\'s pose)', () => withHub(async ({ r, act, pose, join, befriend, tick }) => {
+  /** Closed by the object and still listed (AUDIT ONESEAT R4), counting the sends tried on it - a closing socket takes none. */
+  const lingering = (ws) => { ws.tries = 0; const send = ws.send; ws.send = function (s) { this.tries++; return send.call(this, s); }; ws.close = function (code, reason) { this.closed = { code, reason }; }; return ws; };
+  const a = await join('a'), b = lingering(await join('b'));
   await befriend(a, b, 'b');
-  const tabs = [b];
-  for (let i = 0; i < ACCOUNT_TABS_MAX + 1; i++) { const t = r.connect(); await r.hello(t, `peer-b${i}`, null, { name: 'b', acct: 'acct-b', asecret: 'secret-of-acct-b' }); tick(); tabs.push(t); }
-  assert.equal(lastOf(a, 'presence').peers.length, ACCOUNT_TABS_MAX, 'the row names ACCOUNT_TABS_MAX of the ten');
   await act(a, { k: 'party.invite', peer: 'peer-b' }); tick(); await act(b, { k: 'party.accept', party: a.att.party }); tick();
+  const tabs = [b];
+  for (let i = 0; i < ACCOUNT_TABS_MAX; i++) { const t = lingering(r.connect()); await r.hello(t, `peer-b${i}`, null, { name: 'b', acct: 'acct-b', asecret: 'secret-of-acct-b', cl: 1 }); tick(); tabs.push(t); }
+  const newest = tabs.at(-1);
+  assert.ok(tabs.slice(0, -1).every((t) => t.closed) && !newest.closed, 'each claim closed the tab before it - one open tab');
+  assert.ok(tabs.every((t) => r.sockets.includes(t)), 'and the runtime lists all ACCOUNT_TABS_MAX + 1 still');
+  const row = lastOf(a, 'presence');
+  assert.ok(row.online && row.peers.length <= ACCOUNT_TABS_MAX && row.peers.length >= ACCOUNT_TABS_MAX - 1, 'the row names ACCOUNT_TABS_MAX at most - and no fewer than the bound less the tab whose leave said it');
+  assert.ok(row.peers.includes(`peer-b${ACCOUNT_TABS_MAX - 1}`) && !row.peers.includes('peer-b'), 'the newest named, the stalest past the bound');
+  for (const t of tabs) t.tries = 0;
   await pose(a); tick();
-  assert.equal(tabs.filter((t) => poses(t).length > 0).length, ACCOUNT_TABS_MAX, 'the fan reaches ACCOUNT_TABS_MAX of b\'s tabs');
-  assert.ok(poses(b).length === 0 && poses(tabs[1]).length === 0, 'and the two STALEST tabs are the ones past the bound - the newest are kept');
-  // the newest tab speaks
-  const newest = tabs.at(-1), older = tabs[2];
+  assert.equal(tabs.filter((t) => t.tries > 0).length, ACCOUNT_TABS_MAX, 'the fan tries ACCOUNT_TABS_MAX of b\'s sockets - no more, no fewer');
+  assert.equal(b.tries, 0, 'the stalest is the one past the bound');
+  assert.equal(poses(newest).at(-1)?.acct, 'acct-a', 'and the tab holding the seat hears it');
+  // the newest speaks: a pose from an older socket (sent before its close landed) is kept and fanned to nobody
+  const older = tabs.at(-2);
   await pose(older, { ...P, px: 1 }); tick();
-  assert.equal(poses(a).length, 0, 'the older tab\'s pose reached nobody');
+  assert.equal(poses(a).length, 0, 'the older socket\'s pose reached nobody');
   assert.equal(older.att.pm.px, 1, 'but it is kept on its attachment');
   await pose(newest, { ...P, px: 2 }); tick();
   assert.equal(poses(a).at(-1)?.p.px, 2, 'the newest tab\'s pose is the seat\'s');
-  await r.drop(newest); tick();
-  await pose(tabs.at(-2), { ...P, px: 3 }); tick();
-  assert.equal(poses(a).at(-1)?.p.px, 3, 'the newest gone, the next newest speaks');
   await pose(older, { ...P, px: 4 }); tick();
-  assert.equal(poses(a).at(-1)?.p.px, 3, 'and the older still does not');
+  assert.equal(poses(a).at(-1)?.p.px, 2, 'and the older still does not');
 }));
 
 test('AUDIT SOC A11: "no account" is a refusal UNDER the room\'s budget - past SOCIAL_ROOM_HZ_MAX in a second every socket hears "busy", the accountless too (mutants: the accountless answered before the budget, which was an unbudgeted send per act from every socket without one)', () => withHub(async ({ r, act, tick }) => {
@@ -238,7 +251,14 @@ test('AUDIT SOC (the attachment): the widest attachment a hub socket carries - t
   const a = await join('a', { name: 'N'.repeat(NAME_MAX) });
   const b = await join('b');
   await act(a, { k: 'party.invite', peer: 'peer-b' }); tick(); await act(b, { k: 'party.accept', party: a.att.party }); tick();
-  await pose(a, { ...P, loc: 'L'.repeat(PARTY_LOC_MAX), px: 999, py: 499, h: 9999, hm: 9999, f: 9999, fm: 9999, m: 9999, mm: 9999 }); tick();
+  // AUDIT (the batch's cross-cutting audit, F6): AND THE POSE AT ITS WIDEST - every effect PARTY-BUFFS carries at its longest
+  // name, the rest flags, a rest and a vote - which the first cut of this pin never sent, so the attachment's growth
+  // (1371 bytes before the batch, 1865 after it at the widest) was never measured against the runtime's cap
+  const fx = Array.from({ length: PARTY_FX_MAX }, (_, k) => ({ i: 60 + k, r: 9999, n: `Spell${k}`.padEnd(PARTY_FX_NAME_MAX, 'x'), d: 1 }));
+  await pose(a, { ...P, loc: 'L'.repeat(PARTY_LOC_MAX), px: 999, py: 499, h: 9999, hm: 9999, f: 9999, fm: 9999, m: 9999, mm: 9999, fx, rs: 1, nr: 1,
+    rest: { mode: 2, hoursRemaining: 99, totalHours: 99, kind: 'rough' }, restPending: { mode: 2, hours: 99 }, ready: true, readyAt: 1.79e12, voteAt: 1.79e12,
+    restEnemyAt: 1.79e12, restStartedAt: 1.79e12 }); tick();
+  assert.equal(a.att.pm?.fx?.length, PARTY_FX_MAX, 'the widest pose is the one stored');
   for (let i = 0; i < 5; i++) { await act(a, { k: 'party.kick', acct: 'acct-zz' }); await r.ping(a); await pose(a); }   // the buckets and the strike counts written
   assert.equal(a.closed, null, 'never "hello too large" or a failed write');
   assert.ok(a.meters.sbucket && a.meters.pbucket && a.meters.bucket, 'the buckets written - among its meters');
@@ -350,7 +370,7 @@ test('AUDIT SOC B5/B18/B10: the party pose says fatigue in the sheet\'s digits (
   assert.doesNotMatch(pose, /_questLoc\(\)/, 'which read it twice more');
   const start = w.slice(w.indexOf('const socialStart = () => {'), w.indexOf('const composePartyPose'));
   assert.match(start, /if \(!link\.acct\) \{[^\n]*\n\s*if \(!_noAccountSaid\) \{ _noAccountSaid = true; chatLog\.push\(tab\.id, \{ text: NO_ACCOUNT_TEXT, system: true \}\); \}\n\s*return;\n\s*\}/, 'no account: the line, once, and out');
-  assert.match(start, /social = new SocialState\(\{ acct: link\.acct \}\);/, 'AUDIT SOC B19: the picture expects the account this session sent');
+  assert.match(start, /social = new SocialState\(\{ acct: \[storedSession\(appStorage\(\)\)\?\.id, link\.acct\]\.filter\(Boolean\) \}\);/, 'AUDIT SOC B19: the picture expects the account this session is - FRIENDS-SYNC (FIELD BUGS 2026-10-01 part five): the signed-in player\'s id (the hub\'s account since), or the profile id it sent (a relay before)');
   assert.match(w, /const NO_ACCOUNT_TEXT = 'Friends and parties are off: this browser keeps no storage, so there is no account to be anyone by';/);
   // AUDIT SOC C2/C14/C9: the host's word on which surface is TOPMOST (ui/chatPanel.js, ui/socialPanel.js, ui/socialMenu.js
   // take `above`), and the phone's F handed to the touch layer as the host's own door

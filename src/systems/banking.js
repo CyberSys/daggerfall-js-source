@@ -4,7 +4,7 @@
 //
 // Audit-25 listed banking among the six systems at or near zero, and
 // several laws already in the tree have been waiting on it with no
-// caller at all: CRIMES.LoanDefault (court.js:44) has never fired,
+// caller at all: CRIMES.LoanDefault (court.js:52) has never fired,
 // U40's letter of credit is minted and carried with nowhere to cash
 // it, and staticNpcRoute has answered { merchant, 'banking' } since G8
 // into a dead arm.
@@ -39,6 +39,7 @@
 
 import { CRIMES } from './court.js';
 import { BUILDING_TYPES, isResidence } from '../world/buildingNames.js';   // H1: the houses-for-sale filter
+import { isOnlinePage } from './onlineLane.js';   // EMPIRE-BANK: online, the Empire lends a tenth
 import { GOLD_PIECE_WEIGHT_KG, letterOfCredit } from './inventory.js';
 import {
   DAYS_PER_YEAR, DAYS_PER_MONTH, MINUTES_PER_DAY,
@@ -198,6 +199,7 @@ export function allocateHouseToPlayer(houses, regionIndex, { buildingKey, mapId,
   slot.location = location;
   slot.mapId = mapId;
   slot.buildingKey = buildingKey;
+  delete slot.crossed;   // RESTORE: a house bought is the buyer's own, whatever crossed customs in this slot before
   discoverBuilding?.(buildingKey, `${playerName}'s residence`);
   addPermanentScene?.(mapId, buildingKey);
   // L10N3e: the deed names its region as shown - GetLocalizedRegionName
@@ -212,7 +214,7 @@ export function allocateHouseToPlayer(houses, regionIndex, { buildingKey, mapId,
  * whatever the purse could not cover.
  *
  * The mechanism is DeductGoldAmount's return value, which is the
- * SHORTFALL rather than nothing (court.js:209 ports it, letters of
+ * SHORTFALL rather than nothing (court.js:251 ports it, letters of
  * credit and all) - so `accountGold -= deductGold(...)` subtracts
  * exactly the remainder, and subtracts ZERO when the purse covered it.
  * Written any other way this either double-charges or lets the account
@@ -223,7 +225,7 @@ export function allocateHouseToPlayer(houses, regionIndex, { buildingKey, mapId,
  * "no building".
  */
 export function purchaseHouse(accounts, houses, regionIndex, house, player, {
-  meshRadius = 0, mapId = 0, location = '', sideEffects = {},
+  meshRadius = 0, mapId = 0, location = '', sideEffects = {}, online = isOnlinePage(),
 } = {}) {
   if (!(house?.buildingKey > 0)) return { result: TRANSACTION_RESULT.NONE };
   const amount = housePrice(meshRadius);
@@ -233,9 +235,10 @@ export function purchaseHouse(accounts, houses, regionIndex, house, player, {
   // letters too, so gate and payment agree again. Coins-only remains
   // right for deposit/withdraw, which move physical gold.
   const purse = player.totalGold?.() ?? player.gold();
-  const account = accounts[regionIndex].accountGold;
+  const bank = accounts[goldRegion(accounts, regionIndex, online)];   // EMPIRE-ACCOUNT: online, the Empire's account pays
+  const account = bank.accountGold;
   if (amount > purse + account) return { result: TRANSACTION_RESULT.NOT_ENOUGH_GOLD, amount };
-  accounts[regionIndex].accountGold -= player.deductGold(amount);
+  bank.accountGold -= player.deductGold(amount);
   allocateHouseToPlayer(houses, regionIndex, {
     buildingKey: house.buildingKey, mapId, location,
   }, sideEffects);
@@ -261,14 +264,15 @@ export function purchaseHouse(accounts, houses, regionIndex, house, player, {
  *  the building and zeroed the slot - the deed destroyed for nothing.
  *  `found` is GetBuildingSummary's bool; it defaults TRUE so a caller
  *  that has already resolved the building need not say so twice. */
-export function sellHouse(accounts, houses, regionIndex, { meshRadius = 0, found = true } = {}, {
+export function sellHouse(accounts, houses, regionIndex, { meshRadius = 0, found = true, online = isOnlinePage() } = {}, {
   removePermanentScene = null, undiscoverBuilding = null,
 } = {}) {
   const slot = houses[regionIndex];
   if (!(slot.buildingKey > 0)) return { kind: 'none' };
+  if (online && slot.crossed) return { kind: 'crossed' };   // RESTORE: what came through customs is never bought back online
   if (!found) return { kind: 'none' };   // :454-456 falls to :464 - the miss arm has no effects at all
   const price = houseSellPrice(meshRadius);
-  accounts[regionIndex].accountGold += price;
+  accounts[goldRegion(accounts, regionIndex, online)].accountGold += price;   // EMPIRE-ACCOUNT: online, into the Empire's account
   removePermanentScene?.(slot.mapId, slot.buildingKey);
   undiscoverBuilding?.(slot.buildingKey);
   houses[regionIndex] = { regionIndex, location: '', mapId: 0, buildingKey: 0 };
@@ -316,6 +320,7 @@ export const shipCameraDist = (ship) => (ship >= 0 ? SHIP_CAMERA_DIST[ship] : 0)
  */
 export function assignShipToPlayer(player, shipType, { addPermanentScene = null } = {}) {
   player.ownedShip = shipType;
+  delete player.shipCrossed;   // RESTORE: a ship bought is the buyer's own, whatever crossed customs before it
   if (shipType !== SHIP_TYPES.None) addPermanentScene?.(shipType);
   return shipType;
 }
@@ -323,7 +328,7 @@ export function assignShipToPlayer(player, shipType, { addPermanentScene = null 
 /** ResetShip (:128) - `ownedShip = ShipType.None` and nothing else: the
  *  permanent scenes stay listed, as they do in DFU. WA1: Warm Ashes -
  *  Ships takes back the ship it lends with this. */
-export function resetShip(player) { player.ownedShip = SHIP_TYPES.None; }
+export function resetShip(player) { player.ownedShip = SHIP_TYPES.None; delete player.shipCrossed; }
 
 /**
  * PurchaseShip (:467-486). The ladder is PurchaseHouse's, with one
@@ -336,13 +341,14 @@ export function resetShip(player) { player.ownedShip = SHIP_TYPES.None; }
 export function purchaseShip(accounts, regionIndex, shipType, player, purse, hooks = {}) {
   if (shipType === SHIP_TYPES.None) return { kind: 'none', result: TRANSACTION_RESULT.NONE };
   const amount = shipPrice(shipType);
-  const accountGold = accounts[regionIndex].accountGold;
+  const bank = accounts[goldRegion(accounts, regionIndex, hooks.online ?? isOnlinePage())];   // EMPIRE-ACCOUNT: online, the Empire's account pays
+  const accountGold = bank.accountGold;
   // F105: same law - PurchaseShip gates on GetGoldAmount (:474).
   if (amount > (purse.totalGold?.() ?? purse.gold()) + accountGold) {
     return { kind: 'refuse', result: TRANSACTION_RESULT.NOT_ENOUGH_GOLD };
   }
   const shortfall = purse.deductGold(amount);
-  accounts[regionIndex].accountGold -= shortfall;
+  bank.accountGold -= shortfall;
   assignShipToPlayer(player, shipType, hooks);
   return { kind: 'purchased', result: TRANSACTION_RESULT.PURCHASED_SHIP, price: amount };
 }
@@ -355,13 +361,15 @@ export function purchaseShip(accounts, regionIndex, shipType, player, purse, hoo
  * the `ship >= 0` guard, so the arithmetic is harmless; the port
  * refuses it outright instead, which is Ledger A.
  */
-export function sellShip(accounts, regionIndex, player, { removePermanentScene = null } = {}) {
+export function sellShip(accounts, regionIndex, player, { removePermanentScene = null, online = isOnlinePage() } = {}) {
   const ship = ownedShipType(player);
   if (ship === SHIP_TYPES.None) return { kind: 'none' };
+  if (online && player.shipCrossed) return { kind: 'crossed' };   // RESTORE: what came through customs is never bought back online
   const price = shipSellPrice(ship);
-  accounts[regionIndex].accountGold += price;
+  accounts[goldRegion(accounts, regionIndex, online)].accountGold += price;   // EMPIRE-ACCOUNT: online, into the Empire's account
   removePermanentScene?.(ship);
   player.ownedShip = SHIP_TYPES.None;
+  delete player.shipCrossed;
   return { kind: 'sold', price };
 }
 
@@ -420,6 +428,71 @@ const mustValidate = (accounts, regionIndex) => {
   }
 };
 
+// ── EMPIRE-ACCOUNT: online, every branch keeps one account ──────────
+/** EMPIRE-ACCOUNT (2026-10-01, the field - maya: "i deposited alot of letters of credit in a random bank somewhere but
+ *  theyre gone in the daggerfall bank"; Mac chose "2": online, merge every region into one Empire-wide account):
+ *  ONLINE, EVERY BRANCH KEEPS ONE ACCOUNT, the Empire's, held at Daggerfall's index (EMPIRE-BANK: the bank of Daggerfall
+ *  became the bank of the Empire). Gold paid in at any branch is drawn at any branch, and every deed, sale and wallet
+ *  pays from it and into it. A LOAN STILL STANDS WHERE IT WAS TAKEN - its due date, its default and the reputation a
+ *  default costs are that region's - but the gold it lends and the gold that repays it are the Empire account's.
+ *  Offline, Daggerfall's sixty-two accounts stand. The service pays a realm record the same way (net/realmGoldLaw.js
+ *  REALM_EMPIRE_ACCOUNT, pinned equal). */
+export const EMPIRE_ACCOUNT_REGION = 17;
+/** The index whose `accountGold` region `regionIndex`'s gold moves in: the Empire's online, the region's own offline (or
+ *  where a short table has no Empire account). */
+export const goldRegion = (accounts, regionIndex, online = isOnlinePage()) =>
+  (online && validateRegion(accounts ?? [], EMPIRE_ACCOUNT_REGION) ? EMPIRE_ACCOUNT_REGION : regionIndex);
+/** THE FOLD, as an online character boots (scenes/world.js, beside the amnesty): every other branch's gold moves into the
+ *  Empire account, so what was paid in anywhere before EMPIRE-ACCOUNT is there at every branch. Every account's gold
+ *  moves, whatever its sign, so the total never changes; a loan stays where it stands. Answers `{ gold, branches }` (the
+ *  gold that moved in and how many branches it came from), or null when nothing moved. */
+export function foldEmpireAccounts(snap) {
+  const accounts = Array.isArray(snap?.bankAccounts) ? snap.bankAccounts : null;
+  const empire = accounts?.[EMPIRE_ACCOUNT_REGION];
+  if (!empire || typeof empire !== 'object') return null;
+  let gold = 0, branches = 0;
+  accounts.forEach((a, i) => {
+    if (i === EMPIRE_ACCOUNT_REGION || !a || typeof a !== 'object' || !Number.isFinite(a.accountGold) || a.accountGold === 0) return;
+    empire.accountGold = (Number.isFinite(empire.accountGold) ? empire.accountGold : 0) + a.accountGold;
+    gold += a.accountGold;
+    a.accountGold = 0;
+    branches++;
+  });
+  return branches > 0 ? { gold, branches } : null;
+}
+/** What the character is told when the fold moved gold in, once the world stands. */
+export function empireAccountLines(r) {
+  if (!(r?.gold > 0)) return [];
+  return ['The Bank of the Empire keeps one account now,', `open at every branch. ${r.gold.toLocaleString('en-US')} gold came in from other regions.`];
+}
+/** The gold every account holds together: what an overdue loan's settling drew is the difference (worldTick.js). */
+export const bankedGold = (accounts) => (accounts ?? []).reduce((s, a) => s + (Number.isFinite(a?.accountGold) ? a.accountGold : 0), 0);
+/** EMPIRE-ACCOUNT (the field - Regi: "irs taken money again"): THE EMPIRE SAYS WHAT IT TOOK for an overdue loan, online,
+ *  where its draw on the account and every branch was silent (systems/worldTick.js, the day's sweep and the join). */
+export const empireDrawLines = (taken, regionName = '') => (taken > 0
+  ? ['The Empire takes', `${taken} gold from your account for your loan${regionName ? ` in ${regionName}` : ''}.`]
+  : []);
+
+/** MARKS1 (PROF0 10.5): what the Bank of the Empire pays for Marks sold at its counter, into THIS region's account - as a
+ *  deed's sale is paid (sellHouse above), so a purse's weight never refuses it. Answers the account's new total. */
+export function creditMarksSale(accounts, regionIndex, gold, { online = isOnlinePage() } = {}) {
+  mustValidate(accounts, regionIndex);
+  const bank = accounts[goldRegion(accounts, regionIndex, online)];   // EMPIRE-ACCOUNT: online, into the Empire's account
+  if (!Number.isSafeInteger(gold) || gold <= 0) return bank.accountGold;
+  bank.accountGold += gold;
+  return bank.accountGold;
+}
+
+/** MARKS1 / AUDIT 28 M12: the Bank's credit as the Marks book calls it - `(gold, region)`, into the region the sale was
+ *  MADE at when the book names one (a kept sale settled at another bank), else this bank's (`here()`). PROF-SAVE: and
+ *  `saved()` told a credit landed (the host's checkpoint soon - the Marks are spent at the service, the gold only in the
+ *  save). */
+export const marksSaleCredit = (accounts, here, saved = null) => (gold, region = null) => {
+  const total = creditMarksSale(accounts(), Number.isSafeInteger(region) ? region : here(), gold);
+  if (Number.isSafeInteger(gold) && gold > 0) saved?.();
+  return total;
+};
+
 export function accountTotal(accounts, regionIndex) {
   mustValidate(accounts, regionIndex);
   return accounts[regionIndex].accountGold;
@@ -449,10 +522,172 @@ export function setDefaulted(accounts, regionIndex, defaulted) {
 // RR1: `if (TryGetOverride("CalculateMaxBankLoan", out del)) return del();` (FormulaHelper.cs:2008-2010) - Roleplay & Realism's loanAmountPerLevel
 let _maxLoanOverride = null;
 export function registerMaxBankLoan(fn) { _maxLoanOverride = typeof fn === 'function' ? fn : null; }
-export const calculateMaxBankLoan = (level) => _maxLoanOverride?.(level) ?? level * LOAN_MAX_PER_LEVEL;
+/** EMPIRE-BANK (2026-09-27, Discord: "For online mode, the bank of daggerfall becomes the bank of the empire. The
+ *  empire has come and has reduced loans substantially (90%)"): ONLINE, THE EMPIRE LENDS A TENTH - of whatever the cap
+ *  is (DFU's level x 50,000, or Roleplay & Realism's per-level choice, which the lane keeps on online), rounded down.
+ *  The interest and the year to repay are the classic ones; offline the law is untouched. A departure (Port-Ledger A). */
+export const EMPIRE_LOAN_DIVISOR = 10;
+export const calculateMaxBankLoan = (level, online = isOnlinePage()) => {   // SHIP-CREDIT: `online` a caller's own word, as borrowDecision's
+  const cap = _maxLoanOverride?.(level) ?? level * LOAN_MAX_PER_LEVEL;
+  return online ? Math.floor(cap / EMPIRE_LOAN_DIVISOR) : cap;
+};
 /** CalculateBankLoanRepayment (:2017-2024) - `(int)(amount + amount *
  *  .1)`, a FLOAT sum truncated once at the end. */
 export const calculateBankLoanRepayment = (amount) => Math.trunc(amount + amount * 0.1);
+
+// ── RESTORE: what came through customs is never bought back online ──
+
+/** RESTORE (2026-09-29, Mac: "I want people to get their stuff back", and of what customs does with a house, a ship and
+ *  their pieces: "Keep all, can't sell"): CUSTOMS KEEPS EVERY DEED AND MARKS IT - a house's slot `crossed`, the ship's
+ *  `shipCrossed` (systems/realmCustoms.js crossDeeds) - and, online, the bank of the Empire buys none of them back, so a
+ *  deed carries no gold into the realm past the allowance and customs has no reason to take one. (AUDIT REALM2 T3 took
+ *  them off the copy instead - a house and every piece in its room, for an excess the purse could often pay.) A house
+ *  or ship bought in the realm is the buyer's own and sells (allocateHouseToPlayer, assignShipToPlayer clear the mark);
+ *  offline, a copy is an offline character's, and every deed of it sells. */
+export const CROSSED_DEED_LINES = Object.freeze([
+  'That came into the realm through customs.',
+  'The bank of the Empire does not buy it back.',
+]);
+/** The words the bank says for a sale it will not make here, or null: a crossed house in this region, a crossed ship. */
+export function crossedDeedLines(kind, { houses = null, regionIndex = 0, player = null, online = isOnlinePage() } = {}) {
+  if (!online) return null;
+  const slot = houses?.[regionIndex];
+  const crossed = kind === 'ship' ? ownsShip(player) && !!player?.shipCrossed : slot?.buildingKey > 0 && !!slot.crossed;
+  return crossed ? CROSSED_DEED_LINES : null;
+}
+
+// ── REALM P0.3: online, the Empire is one lender ───────────────────
+/** REALM P0.3 (2026-09-28, Mac: "I want to make sure players cant take an offline character and bring in massive
+ *  resources"; bible/06-Systems/Realm-Arc.md "The Empire is one lender"). Daggerfall lends region by region: sixty-two
+ *  lenders, each blind to the rest, and a default costs one region's reputation. ONLINE THE EMPIRE IS ONE LENDER:
+ *  one loan a character, wherever it stands; a default anywhere shuts every branch, and the Empire then takes from
+ *  every account and every deposit; a character joining with more debt than the Empire would lend has the rest
+ *  called in. Offline, DFU's law stands. */
+export const empireLoanRegion = (accounts) => (accounts ?? []).findIndex((a) => a?.loanTotal > 0);
+/** Why the Empire will not lend: a default on any branch, else a loan standing on one; null when it will. */
+export function empireRefusal(accounts) {
+  const defaulted = (accounts ?? []).findIndex((a) => !!a?.hasDefaulted);
+  if (defaulted >= 0) return { result: TRANSACTION_RESULT.ALREADY_DEFAULTED, empireRegion: defaulted };
+  const loan = empireLoanRegion(accounts);
+  return loan >= 0 ? { result: TRANSACTION_RESULT.ALREADY_HAVE_LOAN, empireRegion: loan } : null;
+}
+/** The Empire's own words for a refusal another branch caused: Daggerfall's 0288 names the region in context. */
+export function empireRefusalLines({ result, empireRegion }, regionName = () => '') {
+  const where = regionName(empireRegion) || 'another region';
+  return result === TRANSACTION_RESULT.ALREADY_DEFAULTED
+    ? ['The Empire lends nothing to one', `who defaulted on it, in ${where}.`]
+    : ['The Empire lends one loan at a time.', `Yours stands in ${where}.`];
+}
+/** What the defaulted loans still owe, over every branch: what a defaulter's deposit is taken for. */
+export const empireDefaultOwed = (accounts) => (accounts ?? []).reduce((sum, a) => sum + (a?.hasDefaulted && a.loanTotal > 0 ? a.loanTotal : 0), 0);
+/** THE EMPIRE TAKES FROM EVERY BRANCH: up to `owed` of region `regionIndex`'s loan is paid from the other accounts in
+ *  region order (the loan's own account pays first, in DFU's sweep and the call below - online the Empire's account,
+ *  EMPIRE-ACCOUNT, and then the loan's own branch is one of the others). Answers the gold taken. */
+export function drawEmpireAccounts(accounts, regionIndex, owed = accounts[regionIndex].loanTotal, { online = isOnlinePage() } = {}) {
+  const loan = accounts[regionIndex];
+  const paidFirst = goldRegion(accounts, regionIndex, online);
+  let drawn = 0;
+  for (let i = 0; i < accounts.length && drawn < owed; i++) {
+    if (i === paidFirst) continue;
+    const take = Math.min(owed - drawn, accounts[i].accountGold);
+    if (take > 0) { accounts[i].accountGold -= take; drawn += take; }
+  }
+  loan.loanTotal -= drawn;
+  if (loan.loanTotal <= 0) loan.loanDueDate = 0;
+  return drawn;
+}
+/** A DEFAULTER'S DEPOSIT IS THE EMPIRE'S: gold just paid into `regionIndex` goes to the defaulted loans first, up to
+ *  `amount`. Answers the gold taken. */
+export function garnishDeposit(accounts, regionIndex, amount) {
+  const account = accounts[regionIndex];
+  let taken = 0;
+  for (const loan of accounts) {
+    if (!loan.hasDefaulted || !(loan.loanTotal > 0)) continue;
+    const take = Math.min(loan.loanTotal, amount - taken, account.accountGold);
+    if (take <= 0) break;
+    account.accountGold -= take;
+    loan.loanTotal -= take;
+    if (loan.loanTotal <= 0) loan.loanDueDate = 0;
+    taken += take;
+  }
+  return taken;
+}
+export const empireGarnishLines = (taken) => ['The Empire takes', `${taken} gold of it for your default.`];
+/** THE EMPIRE CALLS IN WHAT IT WOULD NOT HAVE LENT, as a character joins. It keeps one loan, the largest, up to what its
+ *  own cap would owe with interest (`cap` is the Empire's cap, calculateMaxBankLoan online); the rest of that loan and
+ *  every other loan are called in. A call is paid from the loan's own account, then the other accounts, then the purse
+ *  (`player.deductGold`, coins and then letters of credit, answering what it could not cover). A loan whose call is not
+ *  paid in full falls due now, for the host to settle as the overdue sweep does - a default. Answers
+ *  { called, paid, owed, unpaid }, `unpaid` the regions that fell due. */
+export function callInEmpireDebt(accounts, player, { cap = 0, nowMinutes = 0, online = isOnlinePage() } = {}) {
+  const out = { called: 0, paid: 0, owed: 0, unpaid: [] };
+  const loans = (accounts ?? []).map((_, i) => i).filter((i) => accounts[i]?.loanTotal > 0)
+    .sort((x, y) => accounts[y].loanTotal - accounts[x].loanTotal || x - y);
+  const kept = calculateBankLoanRepayment(cap);
+  loans.forEach((r, n) => {
+    const loan = accounts[r];
+    const call = n === 0 ? Math.max(0, loan.loanTotal - kept) : loan.loanTotal;
+    if (!(call > 0)) return;
+    const standing = loan.loanTotal - call;
+    const bank = accounts[goldRegion(accounts, r, online)];   // EMPIRE-ACCOUNT: online, the Empire's account pays first
+    const own = Math.min(call, bank.accountGold);
+    bank.accountGold -= own;
+    loan.loanTotal -= own;
+    if (loan.loanTotal > standing) drawEmpireAccounts(accounts, r, loan.loanTotal - standing, { online });
+    if (loan.loanTotal > standing) loan.loanTotal = standing + player.deductGold(loan.loanTotal - standing);
+    out.called += call;
+    out.paid += call - (loan.loanTotal - standing);
+    if (loan.loanTotal > standing) { out.owed += loan.loanTotal - standing; out.unpaid.push(r); loan.loanDueDate = nowMinutes; }
+    else if (loan.loanTotal <= 0) loan.loanDueDate = 0;
+  });
+  return out;
+}
+
+/**
+ * LOAN-AMNESTY (2026-09-29, Mac: "Can we reset the loans for everyone online. The bank of the empire has decided to
+ * forgive everyone's loans"): THE EMPIRE FORGIVES EVERY LOAN ONCE. A save's `loanAmnesty` says which amnesty it has had;
+ * one older than LOAN_AMNESTY has every loan struck off - the debt, its due date and the mark of a default, so the
+ * Empire lends again and nothing is garnished - and is marked with it. The gold borrowed stays where it is; what was
+ * already repaid, garnished or drawn stays paid; the reputation a default cost stays lost (it recovers as reputation
+ * does). A save written before the amnesty carries no mark (0); every save written after it carries the mark (save.js),
+ * so a character made after it, and a loan taken after it, are never forgiven. Applied to an online character's save as
+ * it boots, before it is restored and before the Empire's join settles a loan (scenes/world.js); a character crossing
+ * customs is marked as it crosses (realmCustoms.js) - an offline loan is never forgiven by walking it online.
+ * Answers `{ forgiven, defaulted }` (the gold owed that was struck off, and the regions that had defaulted), or null
+ * when the save had nothing to forgive or had its amnesty already.
+ */
+export const LOAN_AMNESTY = 1;
+export function forgiveLoans(snap) {
+  if (!snap || typeof snap !== 'object') return null;
+  if ((Number.isSafeInteger(snap.loanAmnesty) ? snap.loanAmnesty : 0) >= LOAN_AMNESTY) return null;
+  snap.loanAmnesty = LOAN_AMNESTY;
+  let forgiven = 0, defaulted = 0;
+  for (const a of Array.isArray(snap.bankAccounts) ? snap.bankAccounts : []) {
+    if (!a || typeof a !== 'object') continue;
+    if (!(a.loanTotal > 0) && a.hasDefaulted !== true && !a.loanDueDate) continue;
+    if (a.loanTotal > 0) forgiven += Math.trunc(a.loanTotal);
+    if (a.hasDefaulted === true) defaulted++;
+    a.loanTotal = 0;
+    a.loanDueDate = 0;
+    a.hasDefaulted = false;
+  }
+  return forgiven > 0 || defaulted > 0 ? { forgiven, defaulted } : null;
+}
+/** What the character is told when its loans are forgiven, once the world stands. */
+export function loanAmnestyLines(r) {
+  if (!r) return [];
+  return [r.forgiven > 0
+    ? `The Bank of the Empire has forgiven your loan of ${r.forgiven.toLocaleString('en-US')} gold.`
+    : 'The Bank of the Empire has forgiven your debt.',
+  'Its branches will lend to you again.'];
+}
+/** The join's words: what the Empire called in, and what stands unpaid. */
+export function empireCallInLines({ called, owed }) {
+  if (!(called > 0)) return [];
+  return owed > 0
+    ? [`The Empire calls in ${called} gold of your loans.`, `${owed} gold is unpaid: you are in default.`]
+    : [`The Empire calls in ${called} gold of your loans.`, 'Your accounts and purse have paid it.'];
+}
 
 // ── the transactions ───────────────────────────────────────────────
 // Each answers a TRANSACTION_RESULT and mutates the account in place.
@@ -463,58 +698,67 @@ export const calculateBankLoanRepayment = (amount) => Math.trunc(amount + amount
 /** DepositGold (:339-360). The WAGON counts toward what can be
  *  deposited, and is drawn on only for the shortfall after the purse
  *  is empty - so depositing everything empties the purse first. */
-export function depositGold(accounts, regionIndex, amount, player) {
+export function depositGold(accounts, regionIndex, amount, player, { online = isOnlinePage() } = {}) {
   mustValidate(accounts, regionIndex);
+  const g = goldRegion(accounts, regionIndex, online);   // EMPIRE-ACCOUNT: online, paid into the Empire's account
   const purse = player.gold();
   const wagon = player.wagonGold?.() ?? 0;
   if (amount > purse + wagon) return TRANSACTION_RESULT.NOT_ENOUGH_GOLD;
-  accounts[regionIndex].accountGold += amount;
+  accounts[g].accountGold += amount;
   if (amount > purse && wagon > 0) {
     player.takeWagonGold(amount - purse);
     player.deductGold(purse);
   } else {
     player.deductGold(amount);
   }
+  if (online) garnishDeposit(accounts, g, amount);   // REALM P0.3: a defaulter's deposit is the Empire's
   return TRANSACTION_RESULT.NONE;
 }
 
 /** WithdrawGold (:362-375). The weight gate is the point: gold is
  *  0.0025 kg a piece, so a large withdrawal is refused outright
  *  rather than partially paid. */
-export function withdrawGold(accounts, regionIndex, amount, player) {
+export function withdrawGold(accounts, regionIndex, amount, player, { online = isOnlinePage() } = {}) {
   mustValidate(accounts, regionIndex);
-  if (amount > accounts[regionIndex].accountGold) return TRANSACTION_RESULT.NOT_ENOUGH_ACCOUNT;
+  const bank = accounts[goldRegion(accounts, regionIndex, online)];   // EMPIRE-ACCOUNT: online, drawn on the Empire's account
+  if (amount > bank.accountGold) return TRANSACTION_RESULT.NOT_ENOUGH_ACCOUNT;
   if (player.carriedWeightKg() + amount * GOLD_PIECE_WEIGHT_KG > player.maxEncumbranceKg()) {
     return TRANSACTION_RESULT.TOO_HEAVY;
   }
-  accounts[regionIndex].accountGold -= amount;
+  bank.accountGold -= amount;
   player.addGold(amount);
   return TRANSACTION_RESULT.NONE;
 }
 
 /** DepositAll_LOC (:377-389) - EVERY letter in the pack, at face
  *  value, in one go. There is no partial deposit. */
-export function depositAllLetters(accounts, regionIndex, player) {
+export function depositAllLetters(accounts, regionIndex, player, { online = isOnlinePage() } = {}) {
   mustValidate(accounts, regionIndex);
+  const g = goldRegion(accounts, regionIndex, online);   // EMPIRE-ACCOUNT: online, paid into the Empire's account
+  let paid = 0;
   for (;;) {
     const loc = player.takeLetter();
-    if (!loc) return TRANSACTION_RESULT.NONE;
-    accounts[regionIndex].accountGold += loc.value ?? 0;
+    if (!loc) break;
+    accounts[g].accountGold += loc.value ?? 0;
+    paid += loc.value ?? 0;
   }
+  if (online) garnishDeposit(accounts, g, paid);   // REALM P0.3: the letters too
+  return TRANSACTION_RESULT.NONE;
 }
 
 /** Withdraw_LOC (:391-404). The commission leaves the ACCOUNT and the
  *  letter is worth the plain amount; and the balance test comes
  *  BEFORE the minimum, so a small request against an empty account
  *  is refused for funds rather than for size. */
-export function withdrawLetter(accounts, regionIndex, amount, player) {
+export function withdrawLetter(accounts, regionIndex, amount, player, { online = isOnlinePage() } = {}) {
   mustValidate(accounts, regionIndex);
+  const bank = accounts[goldRegion(accounts, regionIndex, online)];   // EMPIRE-ACCOUNT: online, drawn on the Empire's account
   const amountPlusCommission = Math.trunc(amount * LOC_COMMISSION);
-  if (amountPlusCommission > accounts[regionIndex].accountGold) {
+  if (amountPlusCommission > bank.accountGold) {
     return TRANSACTION_RESULT.NOT_ENOUGH_ACCOUNT_LOC;
   }
   if (amount < LOC_MINIMUM) return TRANSACTION_RESULT.LOC_REQUEST_TOO_SMALL;
-  accounts[regionIndex].accountGold -= amountPlusCommission;
+  bank.accountGold -= amountPlusCommission;
   player.addLetter(letterOfCredit(amount));
   return TRANSACTION_RESULT.NONE;
 }
@@ -524,10 +768,11 @@ export function withdrawLetter(accounts, regionIndex, amount, player) {
  *  Answers { result, amount } because DFU passes `amount` by REF and
  *  CLAMPS it to the outstanding loan on an overpayment, which the
  *  caller then sees. */
-export function repayLoan(accounts, regionIndex, amount, player, { accountOnly = false } = {}) {
+export function repayLoan(accounts, regionIndex, amount, player, { accountOnly = false, online = isOnlinePage() } = {}) {
   mustValidate(accounts, regionIndex);
   const account = accounts[regionIndex];
-  let available = account.accountGold;
+  const bank = accounts[goldRegion(accounts, regionIndex, online)];   // EMPIRE-ACCOUNT: online, the loan stands here and the Empire's account pays it
+  let available = bank.accountGold;
   if (!accountOnly) available += player.totalGold?.() ?? player.gold();   // F103: RepayLoan gates on GetGoldAmount (:516)
 
   if (!hasLoan(accounts, regionIndex)) return { result: TRANSACTION_RESULT.NONE, amount };
@@ -545,7 +790,7 @@ export function repayLoan(accounts, regionIndex, amount, player, { accountOnly =
   // account. So a part-purse part-account payment is one transaction.
   let remainder = paid;
   if (!accountOnly) remainder = player.deductGold(paid);
-  if (remainder > 0) account.accountGold -= remainder;
+  if (remainder > 0) bank.accountGold -= remainder;
   if (account.loanTotal <= 0) account.loanDueDate = 0;
   return { result, amount: paid };
 }
@@ -553,13 +798,15 @@ export function repayLoan(accounts, regionIndex, amount, player, { accountOnly =
 /** BorrowLoan (:542-556). The account is credited with `amount` and
  *  the loan is debited with amount + 10% - the interest exists from
  *  the instant the loan is made, so repaying early saves nothing. */
-export function borrowLoan(accounts, regionIndex, amount, { level = 1, nowMinutes = 0 } = {}) {
+export function borrowLoan(accounts, regionIndex, amount, { level = 1, nowMinutes = 0, online = isOnlinePage() } = {}) {
   mustValidate(accounts, regionIndex);
+  const empire = online ? empireRefusal(accounts) : null;   // REALM P0.3: one loan a character online, whatever asked
+  if (empire) return empire.result;
   if (amount < LOAN_MINIMUM) return TRANSACTION_RESULT.LOAN_REQUEST_TOO_LOW;
   if (amount > calculateMaxBankLoan(level)) return TRANSACTION_RESULT.LOAN_REQUEST_TOO_HIGH;
   const account = accounts[regionIndex];
   account.loanTotal += calculateBankLoanRepayment(amount);
-  account.accountGold += amount;
+  accounts[goldRegion(accounts, regionIndex, online)].accountGold += amount;   // EMPIRE-ACCOUNT: online, lent into the Empire's account
   account.loanDueDate = nowMinutes + LOAN_REPAY_MINUTES;
   return TRANSACTION_RESULT.NONE;
 }
@@ -594,9 +841,10 @@ export function checkOverdueLoans(accounts, lastGameMinutes, gameMinutes) {
  *  is a default. The reputation drop happens ONCE, guarded by the
  *  hasDefaulted flag, and DFU notes that flag "does not seem to ever
  *  be set in classic". Answers what the host must do. */
-export function settleOverdueLoan(accounts, regionIndex, player) {
-  const transfer = Math.min(loanedTotal(accounts, regionIndex), accountTotal(accounts, regionIndex));
-  repayLoan(accounts, regionIndex, transfer, player, { accountOnly: true });
+export function settleOverdueLoan(accounts, regionIndex, player, { online = isOnlinePage() } = {}) {
+  const transfer = Math.min(loanedTotal(accounts, regionIndex), accountTotal(accounts, goldRegion(accounts, regionIndex, online)));   // EMPIRE-ACCOUNT: online, the Empire's account
+  repayLoan(accounts, regionIndex, transfer, player, { accountOnly: true, online });
+  if (online && hasLoan(accounts, regionIndex)) drawEmpireAccounts(accounts, regionIndex, undefined, { online });   // REALM P0.3: every branch pays
   if (!hasLoan(accounts, regionIndex)) return { kind: 'settled' };
   if (hasDefaulted(accounts, regionIndex)) return { kind: 'alreadyDefaulted' };
   setDefaulted(accounts, regionIndex, true);
@@ -644,10 +892,52 @@ export function parseTransactionAmount(text) {
 /** LoanBorrowButton_OnMouseClick (:398-415). Two refusals BEFORE the
  *  input opens, and their order is DFU's: a defaulted region is told
  *  so even if it also has a loan outstanding. */
-export function borrowDecision(accounts, regionIndex) {
+export function borrowDecision(accounts, regionIndex, { online = isOnlinePage() } = {}) {
   if (hasDefaulted(accounts, regionIndex)) return { kind: 'refuse', result: TRANSACTION_RESULT.ALREADY_DEFAULTED };
   if (hasLoan(accounts, regionIndex)) return { kind: 'refuse', result: TRANSACTION_RESULT.ALREADY_HAVE_LOAN };
+  // REALM P0.3: online, another branch's default or loan refuses here too, in the Empire's words (empireRefusalLines)
+  const empire = online ? empireRefusal(accounts) : null;
+  if (empire) return { kind: 'refuse', ...empire };
   return { kind: 'input', transactionType: TRANSACTION_TYPE.Borrowing_loan };
+}
+
+/**
+ * SHIP-CREDIT (2026-10-01, Mac: "make ship prices more reasonable and provide more accessibility options to acquiring";
+ * his pick, "Buy on credit - Pay part now; the bank lends you the rest under Daggerfall's own loan rules") - A BOAT
+ * BOUGHT ON CREDIT at a shop's counter (the shelf's Come Sail Away deed or parts). The purse pays what it holds - at
+ * least CREDIT_DOWN_SHARE of the price - and the bank of the shop's region lends the rest under BorrowLoan's own law:
+ * borrowDecision's refusals (a loan or a default standing there; online the Empire's one loan a character), the loan
+ * LOAN_MINIMUM at least (a shortfall under it borrows the minimum and the purse pays the less) and CalculateMaxBankLoan
+ * at most, repaid with its 10% within LOAN_REPAY_MINUTES - LoanChecker's reminders and default as for any loan. The
+ * lent gold goes to the shop: never into the account (`takeCredit`).
+ */
+export const CREDIT_DOWN_SHARE = 0.2;
+/**
+ * SHIP-CREDIT: what a purchase of `price` with `purse` in hand can be on credit - `{ kind: 'none' }` (the purse pays
+ * it), `{ kind: 'credit', loan, pay, owed }` (the purse pays `pay`, the bank lends `loan`, `owed` repaid), or
+ * `{ kind: 'refuse', result, ... }` - borrowDecision's refusal (with `empireRegion` online), NOT_ENOUGH_GOLD with the
+ * `down` payment the purse lacks, or LOAN_REQUEST_TOO_HIGH with the `max` the bank lends.
+ */
+export function creditDecision(accounts, regionIndex, { price = 0, purse = 0, level = 1, online = isOnlinePage() } = {}) {
+  mustValidate(accounts, regionIndex);
+  const cost = Math.max(0, Math.trunc(price)), have = Math.max(0, Math.trunc(purse));
+  if (have >= cost) return { kind: 'none' };
+  const gate = borrowDecision(accounts, regionIndex, { online });
+  if (gate.kind === 'refuse') return { ...gate };
+  const down = Math.ceil(cost * CREDIT_DOWN_SHARE);
+  if (have < down) return { kind: 'refuse', result: TRANSACTION_RESULT.NOT_ENOUGH_GOLD, down };
+  const loan = Math.max(LOAN_MINIMUM, cost - have);
+  const max = calculateMaxBankLoan(level, online);
+  if (loan > max) return { kind: 'refuse', result: TRANSACTION_RESULT.LOAN_REQUEST_TOO_HIGH, max };
+  return { kind: 'credit', loan, pay: cost - loan, owed: calculateBankLoanRepayment(loan) };
+}
+/** SHIP-CREDIT: the loan a credit purchase takes - BorrowLoan's debt and its year (:542-556), with no gold into the
+ *  account: the bank paid the shop. */
+export function takeCredit(accounts, regionIndex, loan, { nowMinutes = 0 } = {}) {
+  mustValidate(accounts, regionIndex);
+  const account = accounts[regionIndex];
+  account.loanTotal += calculateBankLoanRepayment(loan);
+  account.loanDueDate = nowMinutes + LOAN_REPAY_MINUTES;
 }
 
 /** BuyHouseButton (:417-436) and BuyShipButton (:453-464). Both refuse
@@ -725,7 +1015,7 @@ const loansLine = (cells, highlight = false) => ({
   cells: cells.map((text, i) => ({ x: BANKING_STATUS_COLUMNS[i], text: String(text ?? '') })),
 });
 
-export function bankingStatusRows(accounts, { regionName = () => '' } = {}) {
+export function bankingStatusRows(accounts, { regionName = () => '', dueText = null } = {}) {
   // L10N3d: the four headers and the empty row are GetLocalizedText'd as
   // the box is made (:526-530, :543), so they read in the player's language
   const headers = [localizedText('region', HEADER_REGION), localizedText('account', HEADER_ACCOUNT),
@@ -742,8 +1032,11 @@ export function bankingStatusRows(accounts, { regionName = () => '' } = {}) {
       String(accountTotal(accounts, i)),
       String(loanedTotal(accounts, i)),
       // GetLoanDueDateString (:573-582) - the same expression the bank
-      // window's own dueDateText carries.
-      due > 0 ? dateString(dateFromClassicMinutes(due)) : '',
+      // window's own dueDateText carries. AUDIT LIVED1 Q (U6/R7): online
+      // the loan runs on the character's own clock, so the host's
+      // `dueText` says the time left there (a date on that clock reads
+      // as the world's calendar, and wrong); null keeps DFU's date.
+      due > 0 ? (dueText?.(due) ?? dateString(dateFromClassicMinutes(due))) : '',
     ], hasDefaulted(accounts, i)));
     found = true;
   }
@@ -757,14 +1050,14 @@ export function bankingStatusRows(accounts, { regionName = () => '' } = {}) {
 //    the permanent-scene set, so housesForSale, allocateHouseToPlayer
 //    and sellHouse above are live; H2/H4 brought the BUY UI itself -
 //    DaggerfallBankPurchasePopUp is ui/bankPurchaseWindow.js
-//    (BankPurchaseWindow :102), mounted at scenes/worldModes.js:2963
+//    (BankPurchaseWindow :102), mounted at scenes/worldModes.js:3178
 //    openPurchase with drawBankModelPreview (:1938) as the dedicated
-//    3D model panel, and ui/bankWindow.js:258-271 routes BUY HOUSE's
+//    3D model panel, and ui/bankWindow.js:304-317 routes BUY HOUSE's
 //    'pick' into it (a host without the window still falls back to
 //    DFU's own missing-directory answer, :433-434).
 //  - ReadNativeBankData (:584-614) IS PORTED, verbatim quirks and all:
 //    systems/classicSave.js:263 classicBankAccounts, fed the SaveTree
-//    BankAccount record at classicSave.js:838 and mounted by SAV3
+//    BankAccount record at classicSave.js:841 and mounted by SAV3
 //    (ui/loadClassicWindow.js -> scenes/menu.js -> world.js's
 //    classicLoadBoot).
 //  - D6 CLOSED THE SHIP HALF, and it needed no new scenes seam: the

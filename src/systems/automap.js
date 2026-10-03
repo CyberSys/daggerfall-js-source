@@ -155,18 +155,27 @@ export const automapDungeonKey = (regionIndex, name) => `${regionIndex}/${name}`
  *  renderer re-apply (SetState :387-389, RestoreState... :2351-2422);
  *  the stamp and prune belong to SAVE time (:2155, :2216-2238), so a
  *  load must never evict records the save itself carried (A1 review). */
+const newAutomapRecord = () => ({
+  revealed: new Set(), visitedThisRun: new Set(), entranceDiscovered: false, lastVisited: 0,
+  blockNames: null,   // c2/S1: the layout the discovery was recorded against (the restore guard's input)
+  // c2/S8: AutomapDungeonState's two user-data collections (:93-94).
+  // The SortedList is a Map kept in ASCENDING KEY ORDER - AddNext
+  // reads Keys[i] positionally, so the order is part of the law.
+  notes: new Map(),        // id -> { position:[x,y,z], note }
+  teleporters: new Map(),  // dictKey -> { entrance:{pos,yawDeg}, exit:{pos,yawDeg} }
+  trail: new Set(),        // EM3-3D: where the player has stood (automapTrailTick)
+});
+
+/** AUDIT 27h M1: a record OUTSIDE the store, for a level with no map to keep - the Burning Court (WB3b, the port's own
+ *  made level, whose M is refused). Entered on the fresh arm it took one of the remembered-dungeon slots, stamped the
+ *  newest, and pruned a real dungeon's map against it: each region's court cost one. Nothing enters, stamps, prunes,
+ *  saves or forgets through it; the exit that follows finds no live key and a player who was never inside. */
+export const detachedAutomapRecord = () => newAutomapRecord();
+
 export function enterDungeonAutomap(key, nowMinutes, { fromLoad = false } = {}) {
   let rec = _dungeons.get(key);
   if (!rec) {
-    rec = {
-      revealed: new Set(), visitedThisRun: new Set(), entranceDiscovered: false, lastVisited: 0,
-      blockNames: null,   // c2/S1: the layout the discovery was recorded against (the restore guard's input)
-      // c2/S8: AutomapDungeonState's two user-data collections (:93-94).
-      // The SortedList is a Map kept in ASCENDING KEY ORDER - AddNext
-      // reads Keys[i] positionally, so the order is part of the law.
-      notes: new Map(),        // id -> { position:[x,y,z], note }
-      teleporters: new Map(),  // dictKey -> { entrance:{pos,yawDeg}, exit:{pos,yawDeg} }
-    };
+    rec = newAutomapRecord();
     _dungeons.set(key, rec);
   }
   _inside = true;
@@ -189,10 +198,11 @@ export function exitDungeonAutomap(nowMinutes = null) {
   // transition stamps the record with the EXIT time (:2155, :2530-2534)
   const live = _liveKey ? _dungeons.get(_liveKey) : null;
   if (live && Number.isFinite(nowMinutes)) live.lastVisited = nowMinutes;
+  const wasInside = _inside;   // MAP-KEEP: a teardown after a load left no dungeon of THIS store - there is nothing to forget
   _inside = false;
   _liveKey = null;
   _live = null;   // E3: Automap.instance goes with the geometry
-  if (getInt('Map', 'AutomapNumberOfDungeons', 0, 100) === 0) _dungeons = new Map();
+  if (wasInside && getInt('Map', 'AutomapNumberOfDungeons', 0, 100) === 0) _dungeons = new Map();
 }
 
 /** The LRU prune (:2216-2238), DFU's own removal law: everything
@@ -253,6 +263,9 @@ export function snapshotAutomap(nowMinutes = null) {
       // keeps the same field for the same purpose; it is OPTIONAL on
       // the way back in, so an A1/A2 envelope still restores.
       ...(rec.blockNames ? { blockNames: [...rec.blockNames] } : {}),
+      // EM3-3D: the walked trail, only where there is one (an older reader ignores it; see automapTrailTick)
+      ...(rec.trail?.size ? { trail: [...rec.trail] } : {}),
+      ...(rec.trailAll ? { trailAll: true } : {}),
       // c2/S8: :2199 / :2202 - the two user collections are COPIED into
       // the state on every save. Sorted-list order is the law for the
       // notes (AddNext reads Keys positionally), insertion order for the
@@ -276,6 +289,14 @@ export function snapshotAutomap(nowMinutes = null) {
 export function restoreAutomap(snap) {
   if (!snap) return;
   _dungeons = new Map();
+  // MAP-KEEP (2026-09-27, Flylighter on Discord: "Parts of the map previously filled out will randomly disappear from
+  // the 3D map"): THE STORE IS THE SAVE'S NOW, and nobody stands in any of its dungeons until the load enters one
+  // (fromLoad). The world host restores the save BEFORE it tears the scene it is leaving down, and that teardown's
+  // exit stamped the dungeon it left - in the SAVE's store - with the clock being left, and at "remember 0 dungeons"
+  // cleared the whole store it had just restored.
+  _inside = false;
+  _liveKey = null;
+  _live = null;
   for (const [key, rec] of Object.entries(snap)) {
     _dungeons.set(key, {
       revealed: new Set(rec.revealed ?? []),
@@ -291,6 +312,12 @@ export function restoreAutomap(snap) {
       // with. Ascending key order is rebuilt, not trusted.
       notes: sortedNoteMap(rec.notes),
       teleporters: new Map(Array.isArray(rec.teleporters) ? rec.teleporters : []),
+      // EM3-3D: the walked trail comes back where it was saved; a save without one gets one at the first scan
+      ...(Array.isArray(rec.trail) ? { trail: new Set(rec.trail) } : {}),
+      // EM3-3D fix: `trailPartial` (the first cut's flag) is NOT restored. It was set on every dungeon entered with
+      // that build - the reveal scan runs before the trail tick, so the first trail always found a map already
+      // there - and it made the sheet draw every model the scan had touched. A trail with points is the truth.
+      ...(rec.trailAll ? { trailAll: true } : {}),
     });
   }
 }
@@ -472,6 +499,7 @@ export function bindAutomapLayout(rec, model) {
     // the portals with the discovery, and does not keep half of each.
     rec.notes = new Map();
     rec.teleporters = new Map();
+    delete rec.trail; delete rec.trailAll;   // EM3-3D: the walked trail is of a layout that is gone
     rec.blockNames = [...model.blockNames];
     return false;
   }
@@ -837,13 +865,21 @@ export function teleporterDictKey(entrance, exit) {
  * Answers the key (whether or not it was new) so the caller can name the
  * marker objects with it, and `added` for the pins.
  */
-export function recordTeleporterConnection(rec, entrance, exit) {
-  if (!rec || !entrance || !exit) return null;
+/** TP-SEEN: the connection a portal WOULD record - the two raw action transforms with DFU's offsets applied - so a
+ *  portal the map shows before it is walked lands exactly where, and under exactly the key, it will once walked. */
+export function teleporterConnection(entrance, exit) {
+  if (!entrance?.pos || !exit?.pos) return null;
   const conn = {
     entrance: { pos: addOffset(entrance.pos, TELEPORTER_ENTRANCE_OFFSET), yawDeg: entrance.yawDeg ?? 0 },
     exit: { pos: addOffset(exit.pos, TELEPORTER_EXIT_OFFSET), yawDeg: exit.yawDeg ?? 0 },
   };
-  const key = teleporterDictKey(conn.entrance, conn.exit);
+  return { key: teleporterDictKey(conn.entrance, conn.exit), conn };
+}
+
+export function recordTeleporterConnection(rec, entrance, exit) {
+  if (!rec || !entrance || !exit) return null;
+  const { key, conn } = teleporterConnection(entrance, exit) ?? {};
+  if (!conn) return null;
   if (rec.teleporters.has(key)) return { key, added: false };
   rec.teleporters.set(key, conn);
   return { key, added: true };
@@ -867,6 +903,7 @@ export function revealAllAutomap(rec, model) {
     rec.visitedThisRun.add(row.key);
   }
   rec.entranceDiscovered = true;
+  rec.trailAll = true;   // EM3-3D: everything is known now, walked or not - the solid sheet draws the reveal
   return true;
 }
 
@@ -879,7 +916,42 @@ export function hideAllAutomap(rec) {
   if (!rec) return false;
   rec.revealed = new Set();
   rec.entranceDiscovered = false;
+  rec.trail = new Set(); delete rec.trailAll;   // EM3-3D: nothing is known, so nothing was walked
   return true;
+}
+
+/**
+ * EM3-3D (2026-09-27, Mac: "it should only uncover parts on the dungeon map where you went in"): THE WALKED TRAIL.
+ * DFU's reveal is by MODEL - a row the scan hits is revealed whole - and a Daggerfall dungeon's models are big, so
+ * one glance down a corridor inks rooms the player never set foot in. The held map's solid sheet draws only floor
+ * within a short walk of where the player has STOOD, so it keeps its own record of that: the feet, on a one-metre
+ * grid, at the scan's own 5 Hz. It rides the dungeon's record beside `revealed` and is saved with it.
+ *
+ * EM3-3D fix: every new record starts with an empty trail (enterDungeonAutomap), and a trail is never marked
+ * "partial" by the tick. The first cut did that whenever the record already had a reveal - which the reveal scan,
+ * running a line above this tick, had ALWAYS just made - so every dungeon fell back to drawing each model the
+ * scan had touched, whole floors the player never set foot on. Only RevealAll (`trailAll`) asks for the reveal now;
+ * a record with no trail point at all (a save older than the trail) shows its reveal until its first step.
+ */
+export const TRAIL_CELL = 1;
+export function automapTrailTick(rec, eye, eyeHeight = EYE_HEIGHT) {
+  if (!rec || !eye) return false;
+  if (!rec.trail) rec.trail = new Set();
+  const x = Math.floor(eye[0] / TRAIL_CELL), z = Math.floor(eye[2] / TRAIL_CELL);
+  const y = Math.round((eye[1] - eyeHeight) * 2) / 2;
+  const key = `${x},${y},${z}`;
+  if (rec.trail.has(key)) return false;
+  rec.trail.add(key);
+  return true;
+}
+/** The trail as world points (the middle of each cell stood in, at the feet's height). */
+export function automapTrailPoints(rec) {
+  const out = [];
+  for (const k of rec?.trail ?? []) {
+    const [x, y, z] = k.split(',').map(Number);
+    if (Number.isFinite(x) && Number.isFinite(y) && Number.isFinite(z)) out.push([(x + 0.5) * TRAIL_CELL, y, (z + 0.5) * TRAIL_CELL]);
+  }
+  return out;
 }
 
 /** DebugTeleportMode (:2665-2687): a bare toggle on the Automap
@@ -949,4 +1021,32 @@ export function registerAutomapConsoleCommands() {
   } catch (ex) {
     console.error(`Error Registering Automap Console commands: ${ex?.message ?? ex}`);
   }
+}
+
+// ---- PARTY-MAP (2026-09-30, Discord: "share map data between party members, possibly with a spell effect so that
+// maintaining some kind of buff for it becomes part of the dungeoneering loop"): SHARED CARTOGRAPHY's two automap
+// halves. The port's own - DFU has no party and no shared map. The SENDER reads its live record's visitedThisRun (the
+// rows its OWN scan revealed this run - never the rows a mate sent it, so a share is never echoed back);
+// systems/partyMap.js batches them. The RECEIVER marks a mate's rows REVEALED and nothing else: not visitedThisRun (so
+// they draw in DFU's grayscale, known but not visited) and not the walked trail (EM3-3D: the solid sheet inks where I
+// stood, not where a mate did).
+
+/** The dungeon the player stands in, by its automap key - null outside (or in a building). */
+export const liveDungeonAutomapKey = () => (_inside ? _liveKey : null);
+
+/** A party mate's revealed rows for dungeon `key`, merged into MY record - only when I stand in that same dungeon,
+ *  and only rows the live level's model holds (a key from another layout is dropped). Answers how many were new. */
+export function mergePartyAutomap(key, rows) {
+  if (!_inside || key == null || key !== _liveKey || !Array.isArray(rows)) return 0;
+  const rec = _dungeons.get(key);
+  if (!rec) return 0;
+  const byKey = _live && _live.rec === rec ? _live.model?.byKey ?? null : null;
+  let added = 0;
+  for (const k of rows) {
+    if (typeof k !== 'string' || rec.revealed.has(k)) continue;
+    if (byKey && !byKey.has(k)) continue;
+    rec.revealed.add(k);
+    added++;
+  }
+  return added;
 }

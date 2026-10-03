@@ -99,7 +99,7 @@ test('U53: encumbrance is the same expression the sheet and the classic window u
     'LIVE strength - a drained player must not be told they can carry the undrained amount');
   // ...and the OTHER half. PlayerEntity.CarriedWeight (:184) is the
   // items PLUS the gold counter's weight, and the pane composes it by
-  // hand (enhancedInventory.js:219-241) because it is handed the list
+  // hand (enhancedInventory.js:231-253) because it is handed the list
   // and not the entity - so it must still land on inventory
   // .carriedWeight's answer.
   assert.equal(m.encumbrance.now, Math.trunc(carriedWeight(e)));
@@ -540,6 +540,11 @@ test('U55: AUDIT 22 F9 - `enchanted` is a RIDER, not a replacement', () => {
 test('U55: a variant change repaints, and closesWindow travels', () => {
   assert.equal(useResultAction({ kind: 'variant' }, {}).repaint, true,
     'the slot map is drawn FROM the worn set, so a changed variant must redraw');
+  // HOOD-SAID (FIELD BUGS 2026-09-30, PIN MOVED): the flag was set and never read - the doll kept a cloak's old drawing
+  // after its Use. The use path reads it now; the flag alone pinned a promise nothing kept.
+  const src = read('src/ui/enhancedInventory.js');
+  const use = src.slice(src.indexOf('function use(item'), src.indexOf('export function inventoryQuickAct('));
+  assert.match(use, /\n {2}refresh\(\);\n {2}if \(act\.repaint\) refreshFigure\(\);/, 'the use path redraws the doll on the flag');
   assert.equal(useResultAction({ kind: 'potion', closesWindow: true }, {}).closesWindow, true);
   assert.equal(useResultAction({ kind: 'potion' }, {}).closesWindow, false);
   assert.equal(useResultAction(null, {}).kind, 'nothing', 'no result is not a crash');
@@ -968,7 +973,7 @@ test('PX20c: the name is in the title bar, the count is gone, the tiles carry th
     'and no count under it');
   assert.match(src, /if \(name\) title\.append\(el\('span', 'pack-who', name\)\);/, 'the name rides the window title');
   const css = read('src/ui/enhancedStyle.js');
-  assert.match(css, /\.pack-shell \.pack-id \.pack-who \{ color: #7d7460;/);
+  assert.match(css, /\.pack-shell \.pack-id \.pack-who \{ color: #9c937d;/);
   // The tile is a ROW now, and the piece's NAME is visible again -
   // PX19g hid it because a 52px square clipped it, and that reason is
   // gone with the width.
@@ -1202,7 +1207,7 @@ test('PX21c / WORLD-HOVER: the plaque names a pile without opening it, on the ta
   // its own - but it is still that one list, built once, inside the call.
   assert.match(frame, /ground: pickActivatableHit\(eye, d, api\.dungeonActivationTargets\(\), collider\),/,
     'a THUNK, and the SAME list the press races - one construction seam, so the plaque cannot name what the button ignores');
-  assert.match(frame, /foe: pickActivatableHit\(eye, d, liveFoeTargets\(foes, 'mobileFoe'\), collider\),/,
+  assert.match(frame, /foe: \(\(ft\) => peacefulFoePass\(pickActivatableHit\(eye, d, ft, collider\), ft, doorDistanceOf\(eye, d, api\.dungeonActivationTargets\(\), collider\), getInteractionMode\(\)\)\)\(liveFoeTargets\(foes, 'mobileFoe'\)\),/,   // AUDIT TACT C7: a peaceful guard before a door is no hit
     '...and the live foes beside it, through the one precedence both readers share');
   assert.match(frame, /contents: api\.lootContents,/);
   assert.match(hov, /const hit = pick \? pick\(\) : pickActivatableHit\(eye, dir, targets\?\.\(\) \?\? \[\], collider\);/,
@@ -1260,7 +1265,8 @@ test('PX21f: a tooltip is not a scroll box, and the loot frame does not clip it'
   // wherever scrollbars are not overlays.
   assert.match(css, /^\.packcol \{ background: var\(--slate\); overflow: auto;/m, 'the column still scrolls - it is a column');
   const tip = css.slice(css.indexOf('.pack-shell .packtip.packdetail {'), css.indexOf('.pack-shell .packtip.packdetail .card'));
-  assert.match(tip, /overflow: visible; \}/, 'the tooltip does not');
+  assert.match(tip, /overflow: visible;/, 'the tooltip does not');
+  assert.match(tip, /max-height: none; bottom: auto; right: auto; \}/, 'CARD-FIT: nor does it wear the phone column\'s sheet (its card is what bounds it, and its body what scrolls)');
   // And the loot frame no longer CLIPS: PX21e used overflow:hidden to
   // stop the frame scrolling, but the tip is a child of that frame in
   // the loot-only flow, so a tip near the bottom edge would vanish -
@@ -1308,7 +1314,7 @@ test('PX29b: the doll is DFU\'s whole composite - the figure mask is REVERTED', 
   assert.match(pd, /PX29, REVERTED \(PX29b\)/, 'and the file records why, for whoever tries it again');
   // TWO BUFFERS DESCRIBING ONE IMAGE MUST SWAP IN TOGETHER. The
   // composite's own law, which the mask broke by publishing early.
-  assert.match(pd, /_pixels = \{ width: PAPERDOLL_W, height: PAPERDOLL_H, rgba: out, version: _version \};/);
+  assert.match(pd, /_pixels = \{ width: OW, height: OH, rgba: out, version: _version, density: OW \/ PAPERDOLL_W \};/);
   // Both windows draw the same composite again.
   assert.match(read('src/ui/enhancedInventory.js'), /paperDollDataUrl\(paperDollPixels\(\), \{ scale: 4 \}\)/);
 });
@@ -2350,7 +2356,7 @@ test('ENH-NOTICE3 (AUDIT B/F5): a refusal raised over a LOOT PILE with the pack 
       const host = dom.mk('div');
       dom.body.append(host);
       const e = hero();
-      e.goldPieces = 2000000;   // CanCarryAmount's own gate: the coin weight alone fills the load (itemTransfer.js:280)
+      e.goldPieces = 2000000;   // CanCarryAmount's own gate: the coin weight alone fills the load (itemTransfer.js:311)
       const pile = [mk('Claymore')];
       const view = mountEnhancedInventory(host, {
         entity: e, items: () => e.items, loot: { items: () => pile }, onExit: () => {},

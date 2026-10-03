@@ -93,7 +93,7 @@ test('AUDIT WBX2 M3 a spent word that comes before the kill\'s own is kept in th
     const mark = { d: DAY, spent: true, e: Math.floor(clock.t / 1000) + RECEIPT_TTL_S };
     assert.deepEqual(await hub.room.state.storage.get(gateReceiptKey('acct-peer-0005')), mark, 'the word, kept');
     clock.t += 10;
-    const between = hub.connect(); await hub.hello(between, 'peer-0015', null, { tokenSub: 'acct-peer-0005' });
+    const between = hub.connect(); await hub.hello(between, 'peer-0015', null, { tokenSub: 'acct-peer-0005', cl: 1 });   // ONE-SEAT: a device going online claims
     assert.equal(rcpts(between).length, 0);
     assert.deepEqual(await hub.room.state.storage.get(gateReceiptKey('acct-peer-0005')), mark, 'a hello between leaves the word standing');
     clock.t += 5000;   // the tell again, GATE_TELL_RETRY_MS on
@@ -101,11 +101,11 @@ test('AUDIT WBX2 M3 a spent word that comes before the kill\'s own is kept in th
     assert.equal(rcpts(court).length + rcpts(between).length, 0, 'the kill hands its spent account nothing');
     assert.deepEqual(await hub.room.state.storage.get(gateReceiptKey('acct-peer-0005')), mark, 'no copy stored over the word');
     assert.equal((await fell([['acct-peer-0005', r]])).status, 200, 'a tell said twice');
-    const phone = hub.connect(); await hub.hello(phone, 'peer-0025', null, { tokenSub: 'acct-peer-0005' });
+    const phone = hub.connect(); await hub.hello(phone, 'peer-0025', null, { tokenSub: 'acct-peer-0005', cl: 1 });   // ONE-SEAT: a device going online claims
     assert.equal(rcpts(phone).length, 0, 'another device is handed nothing');
     // its life ends: the sweep, or the next hello, forgets it
     clock.t = (mark.e + 1) * 1000;
-    const late = hub.connect(); await hub.hello(late, 'peer-0035', null, { tokenSub: 'acct-peer-0005' });
+    const late = hub.connect(); await hub.hello(late, 'peer-0035', null, { tokenSub: 'acct-peer-0005', cl: 1 });   // ONE-SEAT: a device going online claims
     assert.equal(await hub.room.state.storage.get(gateReceiptKey('acct-peer-0005')), undefined);
   });
 });
@@ -117,16 +117,16 @@ test('AUDIT WBX2 M4 a court fighter\'s kept copy is held from their hellos GATE_
     assert.equal((await hub.room.state.storage.get(gateReceiptKey('acct-peer-0006'))).hold, clock.t + GATE_HERE_HOLD_MS);
     assert.equal((await hub.room.state.storage.get(gateReceiptKey('acct-peer-0007'))).hold, undefined, 'away from the court: no hold');
     clock.t += 1000;
-    const town = hub.connect(); await hub.hello(town, 'peer-0016', null, { tokenSub: 'acct-peer-0006' });
+    const town = hub.connect(); await hub.hello(town, 'peer-0016', null, { tokenSub: 'acct-peer-0006', cl: 1 });   // ONE-SEAT: a device going online claims
     assert.equal(rcpts(town).length, 0, 'a tab in town, just after the kill: held');
     const away = hub.connect(); await hub.hello(away, 'peer-0007');
     assert.equal(rcpts(away).length, 1, 'the away fighter\'s next hello is handed theirs at once');
     clock.t += GATE_HERE_HOLD_MS;
-    const later = hub.connect(); await hub.hello(later, 'peer-0026', null, { tokenSub: 'acct-peer-0006' });
+    const later = hub.connect(); await hub.hello(later, 'peer-0026', null, { tokenSub: 'acct-peer-0006', cl: 1 });   // ONE-SEAT: a device going online claims
     assert.deepEqual(rcpts(later).map((m) => m.r), [r6], 'past the hold: handed as any other');
     // and spent within the hold: never handed at all
     await hub.raw(later, JSON.stringify({ t: 'gate', k: 'spent', d: DAY }));
-    const again = hub.connect(); await hub.hello(again, 'peer-0036', null, { tokenSub: 'acct-peer-0006' });
+    const again = hub.connect(); await hub.hello(again, 'peer-0036', null, { tokenSub: 'acct-peer-0006', cl: 1 });   // ONE-SEAT: a device going online claims
     assert.equal(rcpts(again).length, 0);
   });
   assert.ok(GATE_HERE_HOLD_MS >= 30_000 && GATE_HERE_HOLD_MS <= 10 * 60_000, 'long enough for the floor to spend it, short enough to have them back');
@@ -204,8 +204,9 @@ test('AUDIT WBX2 M7 the stone asks for a player in a horn\'s root at every stand
   assert.match(read('src/scenes/gatePool.js'), /const f = feet\(\);\n {4}if \(f && g && inGateRoot\(place, f\)\) landBefore\(g\);/);
 });
 
-test('AUDIT WBX2 M9 the sweep reads its three cursors in one storage read', () => {
+test('AUDIT WBX2 M9 the sweep reads its cursors in one storage read (AUDIT RAID R2: four now - the raid receipts\' too)', () => {
   const idx = read('server/src/index.js');
-  assert.match(idx, /const cur = \(await this\.state\.storage\.get\(\['sweep:acct', 'sweep:party', 'sweep:gaterc'\]\)\);/);
+  assert.match(idx, /const cur = \(await this\.state\.storage\.get\(\['sweep:acct', 'sweep:party', 'sweep:gaterc', 'sweep:raidrc'\]\)\);/);
   assert.doesNotMatch(idx, /storage\.get\('sweep:gaterc'\)/);
+  assert.doesNotMatch(idx, /storage\.get\('sweep:raidrc'\)/);
 });

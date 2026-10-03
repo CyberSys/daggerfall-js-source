@@ -158,8 +158,8 @@
     "tests": [
       "test/overhauls.test.js"
     ],
-    "old": "await composeDoll(_art, _deps, entity, { background: !packBg });",
-    "new": "await composeDoll(_art, _deps, entity);"
+    "old": "await composeDoll(_art, _deps, entity, { background: !packBg, scale: composeScale() });",
+    "new": "await composeDoll(_art, _deps, entity, { scale: composeScale() });"
   },
   {
     "name": "OVH2-buttons-ask-no-pack",

@@ -72,7 +72,9 @@
 // ═══════════════════════════════════════════════════════════════════
 
 import { STAT_KEYS_ORDER } from '../systems/chargen.js';
-import { SKILLS, SKILL_NAMES, skillValue } from '../systems/skills.js';
+import { SKILLS, SKILL_NAMES, skillValue, displaySkillValue, realSkillValue, skillValueText, skillModOf } from '../systems/skills.js';
+import { mentorStatusText } from '../systems/mentorMode.js';   // SOFTCAP1
+import { masterSkillsActive, masterSkillsSwitchable, masterSkillsBlockReason, setMasterSkills, MASTER_SKILLS_ABOUT, MASTERY_GROUP_NAMES, masterySlots, masteryCandidates, masteryChoiceRows, masterSkill, isMasteredSkill } from '../systems/masterSkills.js';   // SOFTCAP3/4
 import { liveStat, maxFatigue, FATIGUE_MULTIPLIER } from '../systems/statMods.js';
 import { entityMaxEncumbrance, handToHandMinDamage, handToHandMaxDamage } from '../combat/formulas.js';   // AUDIT 26: PlayerEntity.MaxEncumbrance, enchantment allowance and all; AUDIT 63 F34: the H2H damage line
 import { carriedWeight } from './charsheet.js';
@@ -147,7 +149,47 @@ export function sheetModel(entity) {
       // open; the remainder is the disclosure.
       career: i < 3,
     })),
-    skill: (id) => skillValue(e, id),   // AUDIT 65 CV-1: TextProvider.cs:503 - every row of GetSkillSummary is GetLiveSkillValue, so the number AND its meter move with a lycanthrope's +30
+    // SOFTCAP1: the PRINTED value - 0..200, mentored while mentoring - never the
+    // softcap's quarter-weighted formula value (skillValue); `skillReal` and
+    // `skillText` carry the real number beside a mentored one ("85 (150)").
+    skill: (id) => displaySkillValue(e, id),
+    // SOFTCAP7: the TRAINED value alone (no curse, enchantment or Fortify) - what the bars climb; the number beside
+    // them stays the live total, as the sheet always printed it
+    skillBase: (id) => displaySkillValue(e, id) - skillModOf(e, id),
+    skillReal: (id) => realSkillValue(e, id),
+    skillText: (id) => skillValueText(e, id),
+    mentor: e._mentor ? mentorStatusText(e) : null,   // automatic: said only while mentoring
+    // SOFTCAP3: the Master Skills switch - its state, why it cannot move right now (null when it can), what it
+    // does in words, and the one door that moves it (systems/masterSkills.js setMasterSkills: { ok, text })
+    master: {
+      on: masterSkillsActive(e),
+      switchable: masterSkillsSwitchable(e),   // offline only - online it is always on
+      blocked: masterSkillsBlockReason(e),
+      about: MASTER_SKILLS_ABOUT,
+      toggle: () => setMasterSkills(e, !masterSkillsActive(e)),
+      // SOFTCAP4: the 2/2/1 masteries - each group's count, the skills that can be mastered right now (with their
+      // box's rows: what it does, that it is permanent, the count before and after), and the one door that masters
+      slots: Object.keys(MASTERY_GROUP_NAMES).map((g) => ({ group: g, label: MASTERY_GROUP_NAMES[g], ...masterySlots(e, g) })),
+      candidates: masteryCandidates(e).map((id) => ({ id, name: SKILL_NAMES[id], rows: masteryChoiceRows(e, id, SKILL_NAMES) })),
+      isMastered: (id) => isMasteredSkill(e, id),
+      master: (id) => masterSkill(e, id, SKILL_NAMES),
+      // SOFTCAP6: the Master Skills page - each career group with its slots and every one of its skills: the REAL
+      // value, mastered or not, whether it can be mastered now (and the box's rows), and why not in a word
+      groups: ['primary', 'major', 'minor'].map((g) => {
+        const ids = g === 'primary' ? e.career?.primarySkills : g === 'major' ? e.career?.majorSkills : e.career?.minorSkills;
+        const slots = masterySlots(e, g);
+        return {
+          group: g, label: MASTERY_GROUP_NAMES[g], ...slots,
+          skills: (ids ?? []).map((id) => {
+            const value = Array.isArray(e.skills) ? e.skills[id] ?? 0 : 0;
+            const mastered = isMasteredSkill(e, id);
+            const candidate = !mastered && masteryCandidates(e).includes(id);
+            const why = mastered || candidate ? null : !masterSkillsActive(e) ? 'Off' : value < 100 ? `${100 - value} to 100` : 'No slot left';
+            return { id, name: SKILL_NAMES[id], value, mastered, candidate, why, rows: candidate ? masteryChoiceRows(e, id, SKILL_NAMES) : null };
+          }),
+        };
+      }),
+    },   // AUDIT 65 CV-1: TextProvider.cs:503 - every row of GetSkillSummary is GetLiveSkillValue, so the number AND its meter move with a lycanthrope's +30
     // AUDIT 63 F34: ShowSkillsDialog's hand-to-hand damage line
     // (DaggerfallCharacterSheetWindow.cs:283-284, :309-318) - one
     // extra row under whichever GROUP holds HandToHand, formatted

@@ -537,6 +537,15 @@ test('MAC-K2: the bridge’s questLog is the ONE walk - and it is the arithmetic
     uid: 8, questName: 'M0B00Y01', getLogMessages: () => [{ messageID: 999 }],
     getMessage: () => null, resources: new Map(),
   };
+  // GUIDE1: a quest the machine has COMPLETED - its log gone, its
+  // tombstone kept - is no row, and is the walk's `ended`, with the
+  // verdict the notebook files it under
+  const paid = { uid: 9, displayName: 'Paid', questName: 'M0B00Y02', questComplete: true, questSuccess: true, getLogMessages: () => null, resources: new Map() };
+  const lost = { uid: 10, displayName: null, questName: 'M0B00Y03', questComplete: true, questSuccess: false, getLogMessages: () => null, resources: new Map() };
+  // ...and withLog's log as the machine keeps it: a step, a message and
+  // the time each was written - one of them a message that is gone (777)
+  withLog.getLogMessages = () => [{ stepID: 0, messageID: 1010, time: 50 }, { stepID: 3, messageID: 777, time: 60 }, { stepID: 1, messageID: 1020, time: 40 }];
+  withLog.getMessage = (id) => (id === 777 ? null : { id });
 
   // The walk is read off the shipped module and driven, rather than
   // retyped here - the bridge's own factory needs a world's worth of
@@ -544,10 +553,10 @@ test('MAC-K2: the bridge’s questLog is the ONE walk - and it is the arithmetic
   const src = readFileSync(join(dirname(fileURLToPath(import.meta.url)), '../src/scenes/questBridge.js'), 'utf8');
   const body = src.slice(src.indexOf('    questLog() {'), src.indexOf('\n    },', src.indexOf('    questLog() {')) + 6);
   assert.ok(body.includes('remainingTimeInSeconds'), 'the slice really is the walk');
-  const questLog = new Function('machine', 'notebook', 'clockCounts',   // DEAD-CLOCK: whether a clock's end changes anything
+  const questLog = new Function('machine', 'notebook', 'clockCounts', 'questTimeFree = () => false',   // DEAD-CLOCK: whether a clock's end changes anything; TIMEFREE: whether the quest runs time-free (online)
     `const o = { ${body} }; return o.questLog();`);
 
-  const machine = { quests: new Map([[5, withLog], [6, silent], [7, done], [8, ghost]]) };
+  const machine = { quests: new Map([[5, withLog], [6, silent], [7, done], [8, ghost], [9, paid], [10, lost]]) };
   const log = questLog(machine, { getFinishedQuests: () => ['a finished one'] }, () => true);
 
   assert.equal(log.active.length, 1, 'only the quest that has really written a log entry is a row');
@@ -555,15 +564,22 @@ test('MAC-K2: the bridge’s questLog is the ONE walk - and it is the arithmetic
   assert.equal(log.active[0].name, 'A Small Debt');
   assert.equal(log.active[0].questName, '_BRISIEN');
   assert.deepEqual(log.active[0].messages, [{ id: 1010 }, { id: 1020 }], 'resolved, in the machine’s own order');
+  assert.deepEqual(log.active[0].steps, [{ stepID: 0, messageID: 1010, time: 50 }, { stepID: 1, messageID: 1020, time: 40 }],
+    'GUIDE1: each message beside the step it was written at - a step whose message is gone goes with it, so steps[i] is messages[i]\'s');
+  assert.deepEqual(log.ended, [{ id: '9', name: 'Paid', questName: 'M0B00Y02', success: true }, { id: '10', name: null, questName: 'M0B00Y03', success: false }]);
   assert.equal(log.active[0].clockSeconds, 120,
     'the SHORTEST live clock, by its LIVE read (clock_b\'s field says 130) - a finished one and a disabled one are not timers');
   assert.deepEqual(log.finished, ['a finished one']);
   // DEAD-CLOCK (test/deadclock.test.js): a clock whose end changes nothing is not the line's - the next deadline is
   const dead = questLog(machine, { getFinishedQuests: () => [] }, (q, r) => r !== withLog.resources.get('clock_b'));
   assert.equal(dead.active[0].clockSeconds, 600, 'clock_b counts for nothing: clock_a\'s ten minutes are the deadline');
+  // TIMEFREE: online a quest has no time left to show - no clock is read, the row's clockSeconds is null
+  const online = questLog(machine, { getFinishedQuests: () => [] }, () => true, () => true);
+  assert.equal(online.active[0].clockSeconds, null, 'online: no "Time remains" on any surface the walk feeds');
+  assert.deepEqual(online.active[0].clocks, [], '...and no clock by name for the lens');
 
   // a host whose notebook has not been built yet is not a crash
-  assert.deepEqual(questLog({ quests: new Map() }, null), { active: [], finished: [] });
+  assert.deepEqual(questLog({ quests: new Map() }, null), { active: [], finished: [], ended: [], hidden: [] });
 
   // AND NO HOST WALKS IT ITSELF ANY MORE. Derived: the clock field is
   // the walk's own vocabulary, so a host that spells it has grown a

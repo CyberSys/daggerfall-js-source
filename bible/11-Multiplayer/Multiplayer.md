@@ -47,7 +47,7 @@ and not by anyone's save.
 Each player's quest state, dialogue state, travel map and history are
 their own. You walk together; the story you are in is yours.
 
-Why: the save envelope (`systems/save.js:793`) already splits the world
+Why: the save envelope (`systems/save.js:879`) already splits the world
 from the player - `position, pose, classicMinutes, world, locationKey`
 on one side; `quest, talk, travelMap, escortingFaces, interior` on the
 other. That line IS the replication boundary. A shared campaign would
@@ -65,7 +65,10 @@ shared quest is still a copy each (QUEST1) and the quest engine is still untouch
 stream. The member who shared it stands them while near, the party sees and fights the same ones, each member's copy
 counts the injuries and the kills it sees, and no one outside the party sees them, strikes them or is hunted by them.
 In the open air, in a building and in a dungeon, and a host who leaves hands them to the party (phases 1-3 - a quest
-marker's foe stands once for the party).
+marker's foe stands once for the party). And a kill of one counts for every copy of the quest, wherever its member
+stands - KEPT-KILL (2026-10-01, Mac: "If someone kills a quest target regardless of relation then it should ping the
+quest for the players involved regardless"): a foe handed to a member whose copy holds no such quest says its fall in
+that member's party pose (`qk`), and every linked copy counts it once (`01-Overview/Field-Bugs-2026-10-01.md`).
 `06-Systems/Online-Arc.md` (QUEST-PARTY).
 
 **And a world quest's - CURSE-SYNC (2026-09-27).** S0000977, the Curse of Daggerfall, is no player's story: every character runs it and no task counts its foes, so the ghosts and wraiths it stands in Daggerfall's streets at night ride the cell as an encounter's do - everyone sees them, strikes them and is hunted by them. `06-Systems/Online-Arc.md` (CURSE-SYNC).
@@ -79,7 +82,7 @@ introduces peers and relays bytes; it runs no game.
 
 Why, and this is the constraint that decides everything: **lockstep is
 impossible here.** The frame loop is `requestAnimationFrame` with a
-variable `dt` (`scenes/world.js:10302`) and 110 source files call
+variable `dt` (`scenes/world.js:15264`) and 110 source files call
 `Math.random` unseeded. Two clients cannot simulate the same world in
 parallel and agree, and making them able to would mean a fixed-step
 deterministic rewrite of the simulation. So one authority owns the
@@ -149,6 +152,12 @@ Friends-only co-op. A client's damage claim is applied as sent. There
 is no anti-cheat in v1 and no plan for one; the room code is the access
 control. This is recorded so nobody later mistakes its absence for an
 oversight.
+
+PVP-REF (2026-10-01, `06-Systems/Online-Arc.md` PVP-REF): the one room
+where that stops being true is a SIEGE's (`siege:<seat>:<week>`), where a
+town's Charter changes hands - there the relay holds every fighter's
+vitality and judges every blow, cast and step (`src/net/siegeRef.js`,
+`11-Multiplayer/Seats-Arc.md` 6.1). Everywhere else this section stands.
 
 ### The state model is the save
 

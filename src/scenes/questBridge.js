@@ -18,7 +18,16 @@
 //                                 NAMES them once at construction -
 //                                 the headless charter (AUDIT-QUEST F1)
 //   classicSeconds()            - the classic game clock in seconds
-//                                 (the ticker's minutes * 60)
+//                                 (the ticker's minutes * 60) - TIME3:
+//                                 the quest's clock, the CHARACTER's
+//                                 own online (playerTicker.ownMinutes;
+//                                 the one clock offline)
+//   skySeconds()                - TIME3: the sky (skyMinutes() * 60) -
+//                                 a quest's hour, date and season
+//   worldSeconds()              - TIME3: the event clock (worldMinutes()
+//                                 * 60) - the journal's dates
+//   raisedSeconds()             - TIME3: the session's raises
+//                                 (raisedMinutes() * 60), charged whole
 //   playerEntity                - { name, level, gender, ... }
 //   playerRaceName()            - the birth race name (%ra)
 //   getReputation(factionId)    - factionRep.getReputation over the
@@ -53,7 +62,7 @@
 // billboard indices ride along for the questor flat-pick (Q4-iii).
 
 import { QuestMachine, TICKS_PER_SECOND } from '../systems/quest/machine.js';
-import { clockCounts } from '../systems/quest/clock.js';   // DEAD-CLOCK: a clock whose end changes nothing is no deadline
+import { clockCounts, questTimeFree } from '../systems/quest/clock.js';   // DEAD-CLOCK: a clock whose end changes nothing is no deadline
 import { repairActiveQuests } from '../systems/quest/questRepair.js';   // QREPAIR: the Settings' repair
 import { QuestListsManager } from '../systems/quest/questLists.js';
 import { QuestOfferFlow } from '../systems/quest/offerFlow.js';
@@ -68,6 +77,9 @@ import { getBool } from '../systems/settings.js';
 import { noteOfferPending } from '../ui/pendingOffer.js';   // AUDIT 58: DaggerfallUI's GivePc.OnOfferPending subscription
 import { getTitle } from '../systems/guilds.js';
 import { addQuestResourceObjects } from '../systems/quest/sceneMount.js';
+import { QuestLens } from '../ui/questLens.js';   // GUIDE1: the modern faces' one read-only picture of this machine
+import { questHerald, heraldOn } from '../ui/questHerald.js';   // GUIDE3: the news the lens sees, told
+import { questTracker, followOn } from '../ui/questTracker.js';   // GUIDE4: the quest the HUD follows (GUIDE5: the card's or the marks')
 
 // AUDIT 24 (wave 24): SetLayoutData's three overloads and
 // GetPositionHash now live in characters/staticNpc.js, next to the
@@ -186,15 +198,15 @@ export const QUEST_CTX_CONTRACT = Object.freeze([
   'getReputation', 'getTotalGold', 'giveItemToPlayer', 'hasQuestTopics',
   'isPlayerInTown', 'isPlayerInsideCastle', 'makeEnemiesHostile',
   'makeHeldQuestItemsPermanent', 'makePcDiseased', 'midDateTimeString',
-  'offerReward', 'onQuestEnded', 'onQuestStarted', 'playSong',
+  'offerReward', 'onQuestEnded', 'onQuestStarted', 'ownMinutes', 'partySize', 'playSong',
   'playSound', 'playVideo', 'playerEntity', 'playerHasItem',
-  'playerRaceName', 'questClockStepMax', 'questFoeInstances',
-  'raiseTime', 'regionPriceAdjustment', 'releaseQuestItem',
+  'playerRaceName', 'questClockStepMax', 'questFoeInstances', 'questWhere',   // GUIDE4: the host's two questions for the lens's look
+  'raiseTime', 'raisedSeconds', 'regionPriceAdjustment', 'releaseQuestItem',
   'relinkQuestTopics', 'removeItemFromPlayer', 'removeNpcQuestor',
   'removeProgressRumors', 'removeQuestInfoTopics', 'removeQuestRumors',
   'removeQuestorPostMessage', 'setPlayerCrime', 'sharedClock', 'showPopup',
-  'showPrompt', 'showPromptMulti', 'spawnCityGuards',
-  'undiscoverBuilding', 'world',
+  'showPrompt', 'showPromptMulti', 'skySeconds', 'spawnCityGuards',
+  'undiscoverBuilding', 'waitOnline', 'world', 'worldSeconds',
 ]);
 
 export const QUEST_CTX_REQUIRED = Object.freeze(['data']);
@@ -234,7 +246,17 @@ export function createQuestBridge(ctx, { label = 'host' } = {}) {
   const machine = new QuestMachine({
     world: ctx.world ?? null,
     nowSeconds: () => ctx.classicSeconds?.() ?? 0,
-    questClockStepMax: () => ctx.questClockStepMax?.() ?? Infinity,   // WORLD7: online, a quest clock charges played time (the host's step); a host that says nothing charges every clock, DFU's own
+    // TIME3 (bible/06-Systems/Online-Time-Arc.md 6.3): the sky, the event clock and the session's raises beside the
+    // character's clock above - null where a host names none (the machine falls back to the one clock)
+    skySeconds: () => ctx.skySeconds?.() ?? null,
+    worldSeconds: () => ctx.worldSeconds?.() ?? null,
+    raisedSeconds: () => ctx.raisedSeconds?.() ?? null,
+    // AUDIT LIVED1b D1 (A1, O6): the character's clock, for the stamps a quest makes on it (TrainPc's training time) -
+    // AUDIT LIVED1 D gave the machine the hook and world.js the member, and the deps below are built key by key, so the
+    // member never reached the machine: TrainPc stamped the world's minute, the guild's gate read the character's
+    // (refused for 84 days of their time behind the world, open at once ahead of it)
+    ownMinutes: () => ctx.ownMinutes?.() ?? null,
+    questClockStepMax: () => ctx.questClockStepMax?.() ?? Infinity,   // WORLD7: online, a quest clock bounds the LIVED part of a gap to the host's step, a raise charged whole (TIME3); a host that says nothing charges every clock, DFU's own
     sharedClock: () => !!ctx.sharedClock?.(),   // GUARD-ONLINE: online, a guarded quest's window is the player's arrival's (quest/onlineGuard.js)
     getQuestSourceLines: (name) => ctx.data.getQuestSourceLines(name),
     playerLevel: () => ctx.playerEntity?.level ?? 0,
@@ -247,6 +269,7 @@ export function createQuestBridge(ctx, { label = 'host' } = {}) {
     getGoldPieces: () => ctx.getGoldPieces?.() ?? 0,
     deductGoldPieces: (n) => ctx.deductGoldPieces?.(n),
     raiseTime: (seconds) => ctx.raiseTime?.(seconds),
+    waitOnline: (seconds, quest) => ctx.waitOnline?.(seconds, quest),   // FORAGE4: online, QAE's raise time is the host's wait (scenes/foragingWait.js)
     spawnCityGuards: (immediate) => ctx.spawnCityGuards?.(immediate),
     makeEnemiesHostile: () => ctx.makeEnemiesHostile?.(),
     clearEnemies: () => ctx.clearEnemies?.(),
@@ -272,6 +295,7 @@ export function createQuestBridge(ctx, { label = 'host' } = {}) {
     makeHeldQuestItemsPermanent: (uid, sym) => ctx.makeHeldQuestItemsPermanent?.(uid, sym),
     offerReward: (q, item) => ctx.offerReward?.(q, item),
     isPlayerInTown: () => ctx.isPlayerInTown?.() ?? false,
+    partySize: () => ctx.partySize?.() ?? 1,   // REALM P0.4: a shared quest's gold, split
     // AUDIT 58: DaggerfallUI.Awake's one subscription to GivePc's
     // static OnOfferPending event (DaggerfallUI.cs:352) - the handler
     // latches the sender and nothing else (:1731-1735). The two key
@@ -354,7 +378,66 @@ export function createQuestBridge(ctx, { label = 'host' } = {}) {
     if (updateTimer < 1 / TICKS_PER_SECOND) return false;
     machine.tick();
     updateTimer = 0;
+    news();
     return true;
+  }
+
+  // GUIDE3: THE NEWS - one lens look after each machine tick, handed to
+  // the herald (ui/questHerald.js), and only while it is listening (the
+  // enhanced skin, its switch on), so a player who never hears it never
+  // pays for the look. Here rather than in a host because every host
+  // that has quests ticks this bridge (THE ONE CONSTRUCTION SEAM): the
+  // news reaches all of them at once. A herald that starts listening
+  // mid-game hears a baseline first, never the backlog of whatever
+  // happened while it was off - the lens's: a look after a stretch with
+  // no look is one (AUDIT GUIDE L8), and a lens the tracker kept looking
+  // has no backlog, only this tick's news (AUDIT GUIDE H11: a flag of the
+  // bridge's own dropped that tick). The look is the lens's quiet one
+  // (GUIDE1's pin plays a game with a look at every tick and without:
+  // the same save, the same popups, the same draws), and a look that
+  // throws costs the news and never the frame: the machine has ticked.
+  //
+  // GUIDE4: THE TRACKER hears the same look - every one, the baseline
+  // included, because what it shows is the quests as they stand and not
+  // only what changed - and the look answers the host's own two questions
+  // (`ctx.questWhere`: is a place on the player's map, which place is the
+  // player in - GUIDE2's gates), so the card can say "(you are here)".
+  let newsWarned = false, lookedLast = false, textHour = null;
+  const warnNewsOnce = (err) => {
+    if (newsWarned) return;
+    newsWarned = true;
+    console.warn(`[quest herald] the lens could not look (${err?.message ?? err}); the news is silent, the machine is not`);
+  };
+  // GUIDE5: THE QUEST THE PLAYER FOLLOWS has two faces now - the tracker's
+  // card and the marks (ui/questMarks.js) - and one model (questTracker):
+  // it hears every look while either face is on, and when neither is, what
+  // it followed is forgotten here (the player's tracked choice is the
+  // save's and stays).
+  function news() {
+    const herald = heraldOn(), follow = followOn();
+    // AUDIT GUIDE T3: the tracked quest is let go when it is gone - every tick, faces on or off, so no save carries
+    // a uid a later quest could be minted under (the uid counter is re-derived from the loaded quests, Q4-iv)
+    if (questTracker.pinned != null) {
+      const q = machine.quests.get(Number(questTracker.pinned));
+      if (!q || q.questComplete) questTracker.pinned = null;
+    }
+    if (!follow && (questTracker.views.length || questTracker.follow != null)) questTracker.forget();
+    if (!herald && !follow) { lookedLast = false; return; }
+    // AUDIT GUIDE L8/T8: a look after a stretch with no look at all is a baseline, not a diff against the look before
+    // the gap - its "news" would be the backlog in the walk's order, and the card would follow the last of it
+    if (!lookedLast) lens.reset();
+    lookedLast = true;
+    // AUDIT GUIDE L6: a kept line whose macros read the world as it is (a clock's days, %di) is read again each game
+    // hour - the card's opening says what the journal says now
+    // TIME3: on either clock's hour - a clock's days run on the character's, %di and the dates on the sky's
+    const hour = `${Math.floor((ctx.classicSeconds?.() ?? 0) / 3600)}|${Math.floor((ctx.skySeconds?.() ?? 0) / 3600)}`;
+    if (textHour !== hour) { if (textHour != null) lens.rereadText(); textHour = hour; }
+    // AUDIT GUIDE L4: the look AND its listeners: a face that throws costs the news, never the frame
+    try {
+      const seen = lens.look(ctx.questWhere ?? {});
+      if (follow) questTracker.hear(seen);
+      if (herald) questHerald.hear(seen);
+    } catch (err) { warnNewsOnce(err); }
   }
 
   /** GetRaceFromFaction's two inputs, off the machine's own world. */
@@ -363,19 +446,27 @@ export function createQuestBridge(ctx, { label = 'host' } = {}) {
     raceOfCurrentRegion: () => ctx.world?.currentRegionRace?.() ?? 0,
   });
 
-  return {
-    machine, questLists, offerFlow, notebook,
+  // GUIDE1: the quest lens is made HERE, once, over this bridge's own
+  // walk - THE ONE CONSTRUCTION SEAM: every host that has quests holds
+  // the bridge, so no host builds a lens of its own - and a load resets
+  // it (restore, below), so the loaded game's quests are its baseline.
+  const lens = new QuestLens({ questLog: () => bridge.questLog() });
+
+  const bridge = {
+    machine, questLists, offerFlow, notebook, lens,
     tick,
 
     /**
      * MAC-K2 - THE QUEST WALK, ONE HOME.
      *
-     * `{active, finished}`: one row per live quest that has written a
-     * log entry, its messages in the machine's own order, and the
-     * TIGHTEST RUNNING clock on the quest's resources (Clock carries
+     * `{active, finished, ended}`: one row per live quest that has
+     * written a log entry, its messages in the machine's own order
+     * (and, GUIDE1, the step each was written at), and the TIGHTEST
+     * RUNNING clock on the quest's resources (Clock carries
      * `remainingTimeInSeconds` in game seconds beside
-     * `clockEnabled`/`clockFinished`, quest/clock.js:118,164). The
-     * archive is the notebook's filed entries.
+     * `clockEnabled`/`clockFinished`, quest/clock.js:270,164). The
+     * archive is the notebook's filed entries; `ended` the completed
+     * quests the machine still holds, with their verdict.
      *
      * IT WAS WRITTEN THREE TIMES - world.js's pause hooks,
      * dungeonContext.js's, and exterior.js's `pauseQuestLog`, whose own
@@ -387,21 +478,77 @@ export function createQuestBridge(ctx, { label = 'host' } = {}) {
      */
     questLog() {
       const active = [];
+      // GUIDE1: a quest that has COMPLETED - its log is gone
+      // (Quest.getLogMessages answers null) but it lingers a week as a
+      // tombstone - with the verdict the notebook files it under
+      // ('completed' when the quest paid out, notebook.js
+      // _createFinishedQuest). The quest lens reads it to say how a
+      // quest it was showing ended.
+      const ended = [];
       for (const q of machine.quests.values()) {
+        if (q.questComplete) {
+          notebook?.unhideQuest?.(q.uid);   // JOURNAL-CLEAN: an ended quest is no longer hidden (one that filed no entry never reached addFinishedQuest's drop)
+          ended.push({ id: String(q.uid), name: q.displayName || null, questName: q.questName || '', success: !!q.questSuccess });
+          continue;
+        }
         const les = q.getLogMessages();
         if (!les?.length) continue;
-        const messages = les.map((le) => q.getMessage(le.messageID)).filter(Boolean);
+        // GUIDE1: each message beside the step it was written at -
+        // `steps[i]` is `messages[i]`'s - so a face can order the
+        // entries by when they were written (ui/questRail.js
+        // writtenOrder) and tell a new one from one it has read.
+        const messages = [], steps = [];
+        for (const le of les) {
+          const message = q.getMessage(le.messageID);
+          if (!message) continue;
+          messages.push(message);
+          steps.push({ stepID: le.stepID, messageID: le.messageID, time: le.time ?? null });
+        }
         if (!messages.length) continue;
         let clockSeconds = null;
-        for (const r of q.resources.values()) {
+        const clocks = [];   // AUDIT GUIDE H1: each counting clock by name - the lens counts only one the journal names
+        // TIMEFREE: online a quest has no time left to show - its deadlines never run out (quest/clock.js), so no
+        // "Time remains", no "Under a day left", no urgent herald, on any surface this walk feeds
+        if (!questTimeFree(q)) for (const r of q.resources.values()) {
           if (r.clockEnabled && !r.clockFinished && Number.isFinite(r.remainingTimeInSeconds) && clockCounts(q, r)) {   // DEAD-CLOCK
             const left = r.liveRemainingSeconds(q);   // QT-LIVE1: as of NOW, not as of the last tick the pause gate let through
             clockSeconds = clockSeconds == null ? left : Math.min(clockSeconds, left);
+            clocks.push({ name: r.symbol?.name ?? '', seconds: left });
           }
         }
-        active.push({ id: String(q.uid), name: q.displayName || null, questName: q.questName || '', clockSeconds, messages });
+        active.push({ id: String(q.uid), name: q.displayName || null, questName: q.questName || '', clockSeconds, clocks, messages, steps });
       }
-      return { active, finished: notebook?.getFinishedQuests() ?? [] };
+      // JOURNAL-CLEAN: `hidden` is the uids the player hid from the journal. The rows stay in `active` - the lens,
+      // the tracker and the marks read this walk and a hidden quest still runs - and the journal's rail
+      // (ui/questRail.js) is what leaves them out.
+      // AUDIT JOURNAL-CLEAN F3: an id hidden for a quest no longer running is dropped - whatever ended it
+      notebook?.pruneHiddenQuests?.([...machine.quests.values()].filter((q) => !q.questComplete).map((q) => q.uid));
+      return { active, finished: notebook?.getFinishedQuests() ?? [], ended, hidden: notebook?.getHiddenQuests?.() ?? [] };
+    },
+
+    /**
+     * JOURNAL-CLEAN (2026-09-30, Discord: "Should there be a way to clean both finished and unfinished quests from
+     * your journal for a cleaner look?"): the enhanced journal's four tidy-ups, one home - every host that hands its
+     * pause window `questLog` hands `journalClean` beside it (world.js, worldModes.js through world.js's host,
+     * exterior.js, dungeonContext.js). Removing an archived entry and clearing the archive act on the notebook's
+     * filed entries (the classic logbook's right-click remove, ui/questJournal.js removeEntry, is the same store);
+     * hide/unhide only file a uid in the notebook's hidden list, which saves with the notebook.
+     */
+    journalClean: {
+      /** The archived entry at notebook index `i` (the rail's `f:<i>` key); answers whether one went. */
+      removeFinished(i) {
+        if (!notebook || !Number.isInteger(i) || i < 0 || i >= notebook.getFinishedQuests().length) return false;
+        notebook.removeFinishedQuest(i);
+        return true;
+      },
+      /** Every archived entry; answers how many went. */
+      clearFinished() {
+        const n = notebook?.getFinishedQuests().length ?? 0;
+        notebook?.clearFinishedQuests();
+        return n;
+      },
+      hide: (id) => notebook?.hideQuest(id) ?? false,
+      unhide: (id) => notebook?.unhideQuest(id) ?? false,
     },
 
     /** SetLayoutData's direct overload for a host that has a quest
@@ -552,7 +699,13 @@ export function createQuestBridge(ctx, { label = 'host' } = {}) {
       // wiped every note and filed quest of the session on an
       // old-version envelope.
       if (data.notebook) notebook.restoreSaveData(data.notebook);
+      // AUDIT JOURNAL-CLEAN F3: ...and at the load, before any new quest can take a uid a stale id names
+      notebook?.pruneHiddenQuests?.([...machine.quests.values()].filter((q) => !q.questComplete).map((q) => q.uid));
       questLists.oneTimeQuestsAccepted = data.oneTimeQuestsAccepted ? [...data.oneTimeQuestsAccepted] : null;
+      lens.reset();   // GUIDE1: a loaded game is not news
+      questTracker.forget();   // GUIDE4: ...nor what the last game's card followed (the tracked quest is the save's own record)
+      questHerald.clear();   // AUDIT GUIDE O2: ...nor the last game's news - a notice standing over the loaded game could merge a same-uid quest's news under its verdict
     },
   };
+  return bridge;
 }

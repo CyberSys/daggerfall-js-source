@@ -67,10 +67,12 @@ test('B5: the EXHAUSTION box pushes in all three hosts that can collapse', () =>
   // PlayerEntity's OnExhausted presenter. The fatigue drain runs while
   // the inventory, the map or the spellbook is open, so this is the
   // refusal most likely to have eaten a real message.
+  // AUDIT LIVED1b K1: the box is kept (`_exhaustedBox`) for DFU's popup guard, and still pushed
   assert.match(src('src/scenes/worldModes.js'),
-    /mountInterior\(new ActionTextBox\(out\.inWater \? \[exhaustedInWaterText\(\)\] : \['You collapse from exhaustion\.'\]\)\);/);
+    /_exhaustedBox = new ActionTextBox\(out\.inWater \? \[exhaustedInWaterText\(\)\] : \['You collapse from exhaustion\.'\]\);\s*mountInterior\(_exhaustedBox\);/);
+  assert.match(src('src/scenes/world.js'), /_exhaustedBox = new ActionTextBox\(lines\);\s*townTalk\.pushOverlay\(_exhaustedBox\);/, 'src/scenes/world.js: the outdoor collapse');
   for (const f of ['src/scenes/world.js', 'src/scenes/exterior.js']) {
-    assert.match(src(f), /townTalk\.pushOverlay\(new ActionTextBox\(lines\)\);/, `${f}: the outdoor collapse`);
+    if (f === 'src/scenes/exterior.js') assert.match(src(f), /townTalk\.pushOverlay\(new ActionTextBox\(lines\)\);/, `${f}: the outdoor collapse`);
     assert.equal(/if \(!townTalk\.overlay\) townTalk\.showOverlay\(new ActionTextBox\(lines\)\);/.test(src(f)), false,
       `${f}: the refusal is GONE, not merely bypassed`);
   }
@@ -86,7 +88,7 @@ test('B5: the EXHAUSTION box pushes in all three hosts that can collapse', () =>
   // OnExhausted and an unbounded stack of pushed message boxes -
   // unpinned in both until here.
   for (const f of ['src/scenes/worldModes.js', 'src/scenes/world.js', 'src/scenes/exterior.js']) {
-    assert.match(src(f), /if \(_inExhaustion\) return;/, `${f}: the re-entrancy latch`);
+    assert.match(src(f), /if \(_inExhaustion(?: \|\| \(sharedClockOn\(\) && exhaustedShowing\(\)\))?\) return;/, `${f}: the re-entrancy latch (AUDIT LIVED1b K1: and online the box's guard beside it)`);
   }
 });
 

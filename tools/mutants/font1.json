@@ -84,8 +84,8 @@
   {
     "name": "party-title-blurred-shadow",
     "file": "src/ui/partyPanel.js",
-    "old": "  color: var(--dim, #8b8578); text-shadow: 2px 2px 0 rgba(0,0,0,0.85); }",
-    "new": "  color: var(--dim, #8b8578); text-shadow: 0 1px 2px #000; }",
+    "old": "  color: var(--dim, #9a9486); text-shadow: 2px 2px 0 rgba(0,0,0,0.85); }",
+    "new": "  color: var(--dim, #9a9486); text-shadow: 0 1px 2px #000; }",
     "tests": [
       "test/soc4_partyhud.test.js"
     ]
@@ -111,8 +111,8 @@
   {
     "name": "smoothing-left-on-everywhere",
     "file": "src/ui/pixelifyFive.js",
-    "old": "export const PIXEL_FONT_CSS = `font-family: ${PIXEL_STACK}; -webkit-font-smoothing: none;",
-    "new": "export const PIXEL_FONT_CSS = `font-family: ${PIXEL_STACK}; -webkit-font-smoothing: antialiased;",
+    "old": "export const PIXEL_FACE_CSS = `font-family: ${PIXEL_STACK}; -webkit-font-smoothing: none;",
+    "new": "export const PIXEL_FACE_CSS = `font-family: ${PIXEL_STACK}; -webkit-font-smoothing: antialiased;",
     "tests": [
       "test/chat1.test.js",
       "test/soc3_socialpanel.test.js",
@@ -123,8 +123,8 @@
   {
     "name": "the-five-dropped-out-of-the-stack",
     "file": "src/ui/pixelifyFive.js",
-    "old": "export const PIXEL_STACK = `'${PIXELIFY_FIVE_FAMILY}', 'Pixelify Sans', monospace`;",
-    "new": "export const PIXEL_STACK = \"'Pixelify Sans', monospace\";",
+    "old": "export const PIXEL_FAMILIES = `'${PIXELIFY_FIVE_FAMILY}', 'Pixelify Sans'`;",
+    "new": "export const PIXEL_FAMILIES = \"'Pixelify Sans'\";",
     "tests": [
       "test/chat1.test.js",
       "test/soc4_partyhud.test.js",
@@ -406,7 +406,7 @@
   {
     "name": "FONT1-touch-layer-in-the-system-face-under-the-enhanced-skin",
     "file": "src/ui/touch.js",
-    "old": "const face = hooks.enhanced ? `font-weight:500;font-size:15px;${PIXEL_FONT_CSS}` : 'font:600 15px system-ui,-apple-system,\"Segoe UI\",sans-serif';",
+    "old": "const face = hooks.enhanced ? `${PIXEL_FONT_CSS}font-weight:500;font-size:15px;` : 'font:600 15px system-ui,-apple-system,\"Segoe UI\",sans-serif';",
     "new": "const face = 'font:600 15px system-ui,-apple-system,\"Segoe UI\",sans-serif';",
     "tests": [
       "test/audit39_uicore.test.js"
@@ -488,8 +488,8 @@
   {
     "name": "ENH-NOTICE3-the-toasts-ignore-the-hide",
     "file": "src/ui/enhancedNotice.js",
-    "old": "    const host = drawEnhancedNotice({ rows: [rows[i] ?? ''], visible, toast: true }, doc, toastKey(key, ids[i]));",
-    "new": "    const host = drawEnhancedNotice({ rows: [rows[i] ?? ''], visible: true, toast: true }, doc, toastKey(key, ids[i]));",
+    "old": "    const host = drawEnhancedNotice({ rows: Array.isArray(rows[i]) ? rows[i] : [rows[i] ?? ''], visible, toast: true }, doc, toastKey(key, ids[i]));",
+    "new": "    const host = drawEnhancedNotice({ rows: Array.isArray(rows[i]) ? rows[i] : [rows[i] ?? ''], visible: true, toast: true }, doc, toastKey(key, ids[i]));",
     "tests": [
       "test/hudtext.test.js"
     ]
@@ -614,8 +614,8 @@
   {
     "name": "AUDIT-FONT-F5-the-layer-ignores-the-hook",
     "file": "src/ui/touch.js",
-    "old": "  const face = hooks.enhanced ? `font-weight:500;font-size:15px;${PIXEL_FONT_CSS}`",
-    "new": "  const face = false ? `font-weight:500;font-size:15px;${PIXEL_FONT_CSS}`",
+    "old": "  const face = hooks.enhanced ? `${PIXEL_FONT_CSS}font-weight:500;font-size:15px;`",
+    "new": "  const face = false ? `${PIXEL_FONT_CSS}font-weight:500;font-size:15px;`",
     "tests": [
       "test/audit62_touch.test.js",
       "test/audit39_uicore.test.js"
@@ -624,8 +624,8 @@
   {
     "name": "AUDIT-FONT-F6-the-naming-field-keeps-the-system-face",
     "file": "src/ui/touch.js",
-    "old": "  const entryFace = hooks.enhanced ? `font-weight:600;font-size:18px;${PIXEL_FONT_CSS}`",
-    "new": "  const entryFace = false ? `font-weight:600;font-size:18px;${PIXEL_FONT_CSS}`",
+    "old": "  const entryFace = hooks.enhanced ? `${PIXEL_FONT_CSS}font-weight:600;font-size:18px;`",
+    "new": "  const entryFace = false ? `${PIXEL_FONT_CSS}font-weight:600;font-size:18px;`",
     "tests": [
       "test/audit62_touch.test.js",
       "test/audit39_uicore.test.js"

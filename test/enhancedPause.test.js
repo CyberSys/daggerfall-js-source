@@ -277,10 +277,10 @@ test('U51: the host arms are no-ops BY DESIGN, and say so', () => {
 
 test('U51: Escape closes the pause door, through the shared table', () => {
   const src = read('src/ui/enhancedMenu.js');
-  assert.match(src, /import \{ overlayAction(?:, bindings)? \} from '\.\/input\.js'/,   // UXB1-F: and the live bindings a Features tile names
+  assert.match(src, /import \{ overlayAction, bindings, eventMeans \} from '\.\/input\.js'/,   // UXB1-F: and the live bindings a Features tile names; DISC28-A: the pause action's own key
     'not a second key map - the same table every other window answers through');
   const onKey = src.slice(src.indexOf('function onKey(e)'), src.indexOf('function releaseLock()'));
-  assert.match(onKey, /overlayAction\(e\) !== 'back'/, 'Escape and nothing else');
+  assert.match(onKey, /overlayAction\(e\) !== 'back' && !pauseKey/, 'the table\'s back, or (DISC28-A, test/disc28_pause.test.js) the pause action\'s own key on the pause face');
   assert.match(onKey, /e\.stopPropagation\(\)/,
     'a modal overlay owns its input - the host walks the player on the keys underneath it');
   // THE BACK STACK, innermost first: a confirm card and a phone's help
@@ -426,8 +426,11 @@ test('PX22: the timer PX5 designed is still there, and only when there is one', 
   const src = read('src/ui/enhancedMenu.js');
   // THE WORDS. Days show days and hours; under a day, hours and
   // minutes; under an hour, minutes alone, never zero.
-  assert.match(src, /function remainWords\(s\) \{/);
-  const words = src.slice(src.indexOf('function remainWords(s) {'), src.indexOf('function remainWords(s) {') + 420);
+  // GUIDE2: the words live in ui/questRail.js now, shared with the chronicle's deadline.
+  const rail = read('src/ui/questRail.js');
+  assert.match(rail, /export function remainWords\(s\) \{/);
+  assert.match(src, /remainWords \} from '\.\/questRail\.js'/);
+  const words = rail.slice(rail.indexOf('function remainWords(s) {'), rail.indexOf('function remainWords(s) {') + 420);
   assert.match(words, /if \(d > 0\) return `\$\{d\} day\$\{d === 1 \? '' : 's'\}/);
   assert.match(words, /if \(h > 0\) return `\$\{h\} hour/);
   assert.match(words, /return `\$\{Math\.max\(1, m2\)\} min`;/, 'never "0 min" - a live clock always has a minute left');
@@ -437,7 +440,11 @@ test('PX22: the timer PX5 designed is still there, and only when there is one', 
   assert.match(src, /if \(sel\.clockSeconds != null\) \{/);
   assert.match(src, /Time remains: \$\{remainWords\(sel\.clockSeconds\)\}/);
   // URGENT below one GAME DAY - the threshold in seconds, not a guess.
-  assert.match(src, /const urgent = sel\.clockSeconds < 86400;/);
+  // GUIDE1: the number has one home (ui/questRail.js), shared with the
+  // quest lens's `urgent` news, so the gold line and the notice cannot
+  // disagree about what "under a day" is.
+  assert.match(src, /const urgent = sel\.clockSeconds < QUEST_URGENT_SECONDS;/);
+  assert.match(read('src/ui/questRail.js'), /export const QUEST_URGENT_SECONDS = 86400;/);
   assert.match(read('src/ui/enhancedStyle.js'), /\.px-qtimer\.urgent/);
   // THE CLOCK ITSELF is the quest machine's: the TIGHTEST running
   // Clock resource on the quest, by clockEnabled && !clockFinished.
@@ -479,9 +486,10 @@ test('PX25: the Stats page carries the doors, and only the ones a host handed ov
   // point of the filter rather than a gap in it.
   assert.match(fn, /\.filter\(\(\[, fn\]\) => typeof fn === 'function'\)/);
   assert.match(fn, /if \(doors\.length\) \{/);
-  // The window RESUMES before it opens: two overlays at once is the
-  // stacking bug U55 found the other way round on this seam.
-  assert.match(fn, /b\.onclick = \(\) => \{ onAction\('resume'\); fn\(\); \};/);
+  // The window goes DOWN before it opens: two overlays at once is the
+  // stacking bug U55 found the other way round on this seam. ESC-BOOK:
+  // as a handoff - the door's window takes the slot, nothing relocks.
+  assert.match(fn, /b\.onclick = \(\) => \{ onAction\('handoff'\); if \(fn\(\) === false\) onAction\('resume'\); \};/);
   assert.match(read('src/ui/enhancedStyle.js'), /\.px-sheetdoors \.act \{ min-height: 44px; \}/);
 });
 
@@ -498,12 +506,13 @@ test('PX25: every host hands the pause window the arms it already had', () => {
     const s = read(host);
     let call = s.slice(s.indexOf('openPauseFlow('), s.indexOf('openPauseFlow(') + 1200);
     // F5-QUESTS: three hosts' bags are their own arm now, SPREAD into the call and handed to F5's page too - so a
-    // spread is followed to the arm it names, and the arm is read whole.
-    const spread = /\.\.\.(pauseDoorHooks\(\)|this\.pauseHooks\(setPlayerPos\)),/.exec(call);
+    // spread is followed to the arm it names, and the arm is read whole. ESC-BOOK: the building's is the fourth.
+    const spread = /\.\.\.(pauseDoorHooks\(\)|interiorPauseHooks\(\)|this\.pauseHooks\(setPlayerPos\)),/.exec(call);
     if (spread) {
-      const from = s.indexOf(spread[1] === 'pauseDoorHooks()' ? 'const pauseDoorHooks = () => ({' : 'pauseHooks(setPlayerPos = null) {');
+      const heads = { 'pauseDoorHooks()': 'const pauseDoorHooks = () => ({', 'interiorPauseHooks()': 'const interiorPauseHooks = () => ({' };
+      const from = s.indexOf(heads[spread[1]] ?? 'pauseHooks(setPlayerPos = null) {');
       assert.ok(from > 0, `${host}: the arm the door spreads exists`);
-      call = s.slice(from, s.indexOf(spread[1] === 'pauseDoorHooks()' ? '\n  });\n' : '\n      };\n    },\n', from));
+      call = s.slice(from, s.indexOf(heads[spread[1]] ? '\n  });\n' : '\n      };\n    },\n', from));
     }
     for (const hook of ['openPack', 'openSpellbook', 'openChronicle']) {
       assert.ok(call.includes(`${hook}:`), `${host} hands over ${hook}`);

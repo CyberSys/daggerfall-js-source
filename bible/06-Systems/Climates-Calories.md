@@ -320,7 +320,8 @@ room for the mod's fifth). A meal takes half an hour and banks its
 worth against the hunger marker on the mod's own law (too full under
 the worth - "The rest goes to waste.", charged; four hours back past
 worth + 240; the worth banked). A drink takes a quarter hour, quenches
-forty of thirst, and counts by its kind - milk, tea, juice and coffee
+the thirst whole (TAVERN-DRINK, FIELD BUGS 2026-09-30 - the mod's forty,
+a departure), and counts by its kind - milk, tea, juice and coffee
 nothing, an ale ten, a wine twenty, a spirit thirty-five - against the
 endurance: past half "You are getting drunk...", past ten under it
 "You are very drunk...", past it the BLACKOUT: the night passes to six
@@ -382,10 +383,23 @@ minutes run at HUNT_WAIT_PER_HOUR (eight) real seconds an hour under
 the overlay's `tick(dt)`, a row of dots for the wait, no key or click
 taken (the hunter is committed); RESULT, the outcome's lines and the
 gains in a click-anywhere box. The outcome is rolled and applied ONCE,
-at the turn from busy to result; the search's minutes pass on the
-clock offline (the host's ticker - the survival minutes with them) and
-online the clock stands (WORLD5) so the wait alone is the cost; the
-skills the search used are tallied. The beast stands when the box
+at the turn from busy to result, and the skills the search used are
+tallied there; the search's minutes pass when the box CLOSES (HUNT-FOES,
+FIELD BUGS 2026-10-02, Aru: "enemies can attack you while the result
+loads" - spent at the turn, their encounter tick stood a wanderer facing
+a hunter the result page held), on the clock offline (the host's ticker
+- the survival minutes with them) and online the clock stands (WORLD5)
+so the wait alone is the cost; a box taken from under a given result (a
+death screen, a load - which now closes it before the save is read)
+spends them quiet, the clock alone. (FORAGE4, 2026-09-28: the same page
+is Foraging's online wait, THE ONE CONSTRUCTION SEAM - four constructor
+options, of which the hunt leaves `ask`, `escape` and `result` at their
+defaults and, since HUNT-FOES, gives `interruptWhen` the host's
+`huntFoesNear` - a duel's foe, one that sees the player, or one still
+loading within 30 m: a foe come near closes the ask or the search as a
+No, nothing searched and no minute spent, and only the result page is
+left to be read; `bible/06-Systems/Foraging.md` 13.1,
+`01-Overview/Field-Bugs-2026-10-02.md`.) The beast stands when the box
 CLOSES, not under it - a foe keeps its clock under a window (WINFOE1)
 and would have had the first blow free - through the overworld host's
 own encounter placement (`_standEncounterFoe` on the wilderness arm,
@@ -397,6 +411,16 @@ tally); it asks once a game minute and never under a window or while
 its own is up. world.js alone stands it - exterior.js lives inside the
 town rect and would never roll. Wildlife meat is SURV2's corpse law:
 the beast that hunted you carries it when it falls.
+
+**SEA-HUNT (2026-09-29, Mac: "hunting notifications appear when sailing").** The roll asked the player outdoors and
+not swimming - the whole of "on land" before Come Sail Away put a deck under them - and the climate could not say it
+either: the coast's first two sea pixels read as the land's (`terrainHelper.js dilateCoastalClimate`), and every port
+is on a coast. So a helm, a deck and a sea ship's boarding all rolled the hunt, with a box of tracks mid-voyage.
+`huntRoll` takes `afloat` now and rolls nothing (and spends no cooldown) while it holds (DECLARED, the Port-Ledger's
+SEA-HUNT row). The host has one predicate for it, `world.js playerAfloat`: at a helm, on a boat's deck (its "I'm On A
+Boat"), aboard another player's boat, on a sea ship's deck (`naval.aboard()`), or swimming. The same predicate now
+gates a bounty's trail lines and pack (`canStand`) and ends a wilderness band's chase (which had missed a sea ship's
+deck). Pins: `test/deckfield.test.js` (SEA-HUNT).
 
 ### The feed (SURV7)
 
@@ -426,7 +450,9 @@ nearby". THE ALIGNMENT (WORLD5's law for these markers): the load arm
 under the shared clock aligns the needs to the world's time from the
 save's own clock (a day or more away starts fed, watered and rested;
 an hour away keeps its hunger), and the online arrival resets a record
-from further along than the world. With the mod off the feed is null,
+from further along than the world. [LIVED1 (2026-09-29): online the needs stand
+on the character's own clock, which stood while they were away - an hour away costs no hunger by construction, and the
+day-long grace stands.] With the mod off the feed is null,
 the gate answers nothing, and DFU's tick is DFU's.
 
 ### The audit (AUDIT SURV, 2026-09-18)
@@ -1293,8 +1319,8 @@ characters regardless of mode should start with supplies"* - had been read
 as every tier, Off's included, and shipped that way (SURV-KIT, `23ee51b8`).
 It is reverted whole (`4dffc8ef`), but for six line cites in the kit's
 fallback seam that had rotted before it and named moved lines (`equip.js`'s
-`startingGear.js:70`, `chargenSession.js:223` and `world.js:3804`, `startingGear.js`'s
-`equip.js:326` and `world.js:3804`, `exterior.js`'s `equip.js:325`): each
+`startingGear.js:70`, `chargenSession.js:225` and `world.js:5267`, `startingGear.js`'s
+`equip.js:331` and `world.js:5267`, `exterior.js`'s `equip.js:330`): each
 names its line again. Casual and Hard characters set out with the kit on
 every creation path there is - the wizard and `?class=` in each of the three
 hosts, and online, where the tier is the player's own - and Off's bag is
@@ -1388,8 +1414,8 @@ and was found now because SURV-OFFSIGHT made what Off sees depend on it.
 | 47 | The words: "Find a fountain, a well or a stream" (no stream fills a skin), "water skin" beside "waterskin", and Rations worth 250 minutes against the Peckish line's 240 - the page said "You could eat." and the sack refused for ten minutes. And the 250 wrote the meal's marker ten minutes AHEAD of the clock, which an online load reads as a fresh start: thirst, sleep debt, the wet and the drink wiped (the fuzz lens's exploit, older than the tiers) | both | "a fountain, a well or a trough"; one "waterskin"; Rations 240; no meal writes a marker past now (`eatLaw`) |
 | 48 | Casual's rough night sleeps at a third of a bed's rate and said nothing: eight hours on the ground woke Drowsy with no word for why | Casual | "You slept poorly on the bare ground." when a rough night leaves the sleeper short |
 | 49 | A Hard blackout's morning said nothing: the player woke on the floor without a word | Hard | the blackout hands its waking line and both tavern windows say it |
-| 50 | A relay clock correction aged the needs by the whole correction: three hours behind the relay, a player fed a minute ago read Starving (and in Hard lost two from every attribute) | both | the correction moves the markers by its own delta (`shiftSurvival`) |
-| 51 | An Off player's short online absence counted against the needs: the load's re-anchoring kept the markers for a gap under a day, and the arc had not been on for it | Off | the online load pauses the gap while Off (`pauseSurvival`), as the world tick does |
+| 50 | A relay clock correction aged the needs by the whole correction: three hours behind the relay, a player fed a minute ago read Starving (and in Hard lost two from every attribute) | both | the correction moves the markers by its own delta (`shiftSurvival`) [SUPERSEDED BY LIVED1: a correction moves nothing of the character's - their clock and their needs stand where they were.] |
+| 51 | An Off player's short online absence counted against the needs: the load's re-anchoring kept the markers for a gap under a day, and the arc had not been on for it | Off | the online load pauses the gap while Off (`pauseSurvival`), as the world tick does [SUPERSEDED BY LIVED1: an absence leaves no gap on the character's own clock, so there is nothing to pause.] |
 | 52 | THE LOAN WAS CUT BY A FALLING CEILING. A Drain on endurance, a ring of strength taken off or a Fortify's end shrank the pool's shortfall, #24's settle cut the loan to it, and when the ceiling came back the stamina the need took did not | Casual | the settle runs only on a REFILL - when the pool has risen since the last minute left it (`loanPool`, the fed hour's refund counted as the rise it is); the repayment still never fills past the ceiling |
 | 53 | A vampire's thirst chip stayed red for ever and never cost (the law freezes the thirst); and in Hard the frozen hunger, thirst and sleep drained up to twenty from every attribute (older than the tiers) | both | no thirst chip for a vampire; `survivalStatMods` skips the three drains for one |
 | 54 | A long Off left `offFor: 0` on the record for ever | - | deleted |
@@ -1570,3 +1596,29 @@ this branch's: main's own `MAC-BUG-W5-13` (`combat/bloodMarks.js`'s pool
 gate asking `raycastHit` in place of `surfaceHit`) lives on main's head
 too - a gap in main's pins, left to its owner.
 
+
+## FIELD BUGS 2026-09-30 - SIX DEPARTURES FROM THE MOD AS READ (2026-09-30)
+
+A #bug-reports thread, "Climates & Calories Bugs" ("most people are disabling the mod because of these issues"): the
+temperature "seems to never change ... gets to either "Scorching" or "Freezing" or "Soaked" etc and seems to never
+recover"; a tavern drink "does not fill your hydration"; and "Waterskins should be refillable at an inn/tavern". The
+minute law was never stuck (every host feeds it; the reading is recomputed each minute); the rules held it in the red
+and said nothing on the way out. Six changes, each a declared departure (Port-Ledger A), the record in
+`01-Overview/Field-Bugs-2026-09-30.md`:
+
+- **TAVERN-DRINK** (`tavernMenu.js` `tavernDrink`): a drink quenches the thirst whole, as a meal fills the stomach whole;
+  its kind's drunkenness and its quarter hour stand. (It took forty off a hundred and fifty, and the quarter hour
+  climbed again: four paid cups to leave the red in a desert inn.)
+- **INN-WATER** (`tavernMenu.js`, both tavern windows): every menu's first drinks row is "Fill your waterskins", at the
+  list's cheapest soft drink - the fountain's own law (`drinkAtSource`); refused before any coin moves with no skin or
+  every skin full.
+- **MENU-CLIMATE** (`tavernMenu.js` `MENU_KEY_BY_CLIMATE`): the menus keyed by the CLIMATES enum's names - the table was
+  written 224-233 over climates that run 223-232, so every climate served the menu of the one before it (Sentinel's
+  desert served the bay's bananas; the mountains the desert's camel milk). A port bug, not the mod's.
+- **ROOF-SHELTER** (`temperature.js` `naturalTemperature`): inside a building the natural temperature is the milder of
+  the street's own now and the roofed half - a roof never makes it hotter or colder than the street (a desert inn at
+  23:00 read 35 while its street read 5).
+- **CLOTHES-BREATHE** (`temperature.js` `clothingWarmth`, `CLOTHES_BREATHE_ABOVE` 10): above a natural ten, clothing
+  counts at half its warmth before the wet eats it; the cold and armour unchanged.
+- **WARM-SAID** (`needs.js`): leaving a red temperature stage says "You are cooling down." or "You are warming up.",
+  and a soaking dried says "You have dried off." - once a recovery; the improving stages stay silent (the third pass).

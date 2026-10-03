@@ -94,9 +94,11 @@ import { firstHotkey } from '../systems/dialogShortcuts.js';   // A8: the Dagger
 // two journeys a trip takes is decided HERE, by the three toggles
 // against the player's settings, and the fare is scaled here too.
 import { TRAVEL_OPTIONS_TEXT as TO_TEXT, format as toFormat } from '../systems/travelOptionsText.js';
-import { hasPort } from '../systems/travelPorts.js';
-import { calculateTradePrice } from '../systems/shopStock.js';   // TravelTimeCalculatorTO's FormulaHelper.CalculateTradePrice
+import { hasPortFor as hasPort } from '../systems/travelPorts.js';   // SEAT2b part two: HasPort, or a members' Harbour at a seat (travelPorts.js hasPortFor)
+import { calculateTradePrice, essentialPrice } from '../systems/shopStock.js';   // TravelTimeCalculatorTO's FormulaHelper.CalculateTradePrice
+import { isOnlinePage } from '../systems/onlineLane.js';   // ESSENTIALS-HALF: online, a fare costs half
 import { liveStat } from '../systems/statMods.js';
+import { skillValue, SKILLS } from '../systems/skills.js';   // TO-FARE: GetLiveSkillValue(Mercantile)
 
 /** The five Hotkey assignments this window makes, in DFU's own setup
  *  order (:167, :171, :176, :188, :200) - Panel.ProcessHotkeySequences
@@ -136,8 +138,14 @@ export const TRAVEL_TOGGLE_COLOR = Object.freeze([85 / 255, 117 / 255, 48 / 255,
 export const LABEL_POS = Object.freeze({ gold: [148, 97], cost: [117, 107], time: [129, 117] });
 /** secondsCountdownTickFastTravel (:31). */
 export const COUNTDOWN_TICK = 0.05;
-/** OL2: the line under the panel while the trip takes no world time. */
-export const ONLINE_TRAVEL_LINE = 'Online: the world\'s clock does not wait. You arrive now - the journey is still paid for.';
+/** OL2: the line under the panel while the world's clock stands. LIVED1: the journey's days are the traveller's own
+ *  time (worldTick.js ownMinutes) - they pass for the body and its contracts, and the world is where it was. */
+/** AUDIT LIVED1b U1: ...in TWO rows on the classic panel, one sentence each - whole, the line measured about 348 native
+ *  px against a 320-px screen, and its first letters ("Onli") were off the canvas at 16:10 and 5:4 (centring measures
+ *  a space a pixel wider than it draws, so the whole loss fell at the left). The enhanced skin says the line whole. */
+export const ONLINE_TRAVEL_ROWS = Object.freeze(['Online: the days pass on your own clock.', 'You arrive in the world\'s present.']);
+export const ONLINE_TRAVEL_LINE = ONLINE_TRAVEL_ROWS.join(' ');
+const ONLINE_TRAVEL_ROW_H = 9;
 /** notEnoughGoldTextId (:396) and the diseased warning's record (:422). */
 export const NOT_ENOUGH_GOLD_TEXT_ID = 454;
 export const DISEASED_WARNING_TEXT_ID = 1010;
@@ -198,15 +206,30 @@ export function enforceShipRestriction(settings, opts, ctx) {
  *  nights, ShipTravelCostScaleFactor over the passage) and each put
  *  through the shop-price formula at quality 10 afterwards. A factor of
  *  1 - the shipped default - leaves its half untouched, formula and all.
- *  No mod (`settings` null) leaves the fare as DFU billed it. */
-export function scaleTripCost(c, settings, entity) {
+ *  No mod (`settings` null) leaves the fare as DFU billed it.
+ *
+ *  TO-FARE (FIELD BUGS 2026-09-29f): the formula is FormulaHelper's
+ *  CalculateTradePrice, which reads the player's live Mercantile SKILL
+ *  (GetLiveSkillValue, FormulaHelper.cs:1992/1998) - the fare read
+ *  `liveStat(e, 'mercantile')`, a stat no entity has, so every scaled
+ *  fare haggled at Mercantile 0 and a trained haggler paid a novice's. */
+export function scaleTripCost(c, settings, entity, { online = isOnlinePage() } = {}) {
+  const scaled = modScaledTripCost(c, settings, entity);
+  if (!online) return scaled;
+  // ESSENTIALS-HALF (2026-09-30, Discord: "cut the cost of most essential items by half"): online the fare costs half
+  // (shopStock.js essentialPrice) - the inn nights and the passage each, after the mod's scaling, so both map skins
+  // (this popup and ui/heldMap.js) quote and charge the same half
+  const piecesCost = essentialPrice(scaled.piecesCost, { online });
+  return { piecesCost, totalCost: piecesCost + essentialPrice(scaled.totalCost - scaled.piecesCost, { online }) };
+}
+function modScaledTripCost(c, settings, entity) {
   const s = settings;
   if (!s) return c;
   const inns = s.fastTravelCostScaleFactor | 0, ships = s.shipTravelCostScaleFactor | 0;
   if (inns <= 1 && ships <= 1) return c;
   const e = entity ?? null;
   const trade = (cost) => calculateTradePrice(cost, 10, {
-    mercantile: e ? (liveStat(e, 'mercantile') ?? 0) : 0,
+    mercantile: e ? skillValue(e, SKILLS.Mercantile) : 0,
     personality: e ? (liveStat(e, 'personality') ?? 50) : 50,
   }, false);
   let piecesCost = c.piecesCost;
@@ -264,10 +287,13 @@ export class TravelPopUpWindow {
 
   /** OL2 (AUDIT WORLD5's sixth recorded item, paid): ONLINE THE TRIP
    *  TAKES NO WORLD TIME - the clock is the world's (WORLD5) and the
-   *  arrival is now. The host says so through `deps.noWorldTime`
-   *  (world.js: sharedClockOn); a host that says nothing travels as
-   *  DFU does. While it is true the day countdown is empty (the trip
-   *  begins on the next tick) and the window says so under the panel.
+   *  arrival is the world's now. The host says so through
+   *  `deps.noWorldTime` (world.js: sharedClockOn); a host that says
+   *  nothing travels as DFU does. While it is true the window says so
+   *  under the panel. LIVED1: the days themselves are the traveller's
+   *  own - the host's advance moves their clock by the trip - so the
+   *  day countdown counts them as DFU's does, online too. [SUPERSEDES
+   *  OL2's empty countdown and its "now".]
    *
    *  TRAVEL-FARE (2026-09-22): the FARE is no longer waived. This used
    *  to read "no inn night is paid (there are no nights)", which was
@@ -275,7 +301,8 @@ export class TravelPopUpWindow {
    *  trip's HOURS, and the journey has a length online even though the
    *  clock will not advance over it. The ship clause was always the
    *  correct reading of the same question ("a crossing is a crossing")
-   *  and now both halves agree. The zero days stand. */
+   *  and now both halves agree. [LIVED1: the days are counted online too
+   *  - they pass on the traveller's own clock.] */
   noWorldTime() { return !!this.deps.noWorldTime?.(); }
 
   /** Refresh -> UpdateTogglePanels + UpdateLabels (:254-258). The
@@ -412,7 +439,7 @@ export class TravelPopUpWindow {
       return;
     }
     this.walkedTrip = false;
-    this.countdownValueTravelTimeDays = this.noWorldTime() ? 0 : travelDays(this.travelTimeTotalMins);   // OL2: online the arrival is now
+    this.countdownValueTravelTimeDays = travelDays(this.travelTimeTotalMins);   // LIVED1: the days are the traveller's own, online too
   }
 
   /** TO1 - TravelTimeCalculatorTO.cs:24-40, CalculateTripCost. The mod
@@ -685,16 +712,16 @@ export class TravelPopUpWindow {
       shadowText(renderer, font, toFormat(TO_TEXT.MsgTimeFormat, hours, mins), m, LABEL_POS.time[0], LABEL_POS.time[1]);
     } else {
       shadowText(renderer, font, String(this.trip.totalCost), m, LABEL_POS.cost[0], LABEL_POS.cost[1]);
-      shadowText(renderer, font, this.noWorldTime() ? 'now' : String(this.countdownValueTravelTimeDays), m, LABEL_POS.time[0], LABEL_POS.time[1]);   // OL2: the days label says "now" online
+      shadowText(renderer, font, String(this.countdownValueTravelTimeDays), m, LABEL_POS.time[0], LABEL_POS.time[1]);   // LIVED1: the days, online too - the line below says whose
     }
-    // TO-ONLINE: ...and NOT over a walked trip. The line says "you
-    // arrive now, and no inn is paid", which was true of every online
+    // TO-ONLINE: ...and NOT over a walked trip. The line said "you
+    // arrive now, and no inn is paid" (LIVED1's says whose days they are), which was true of every online
     // trip while Travel Options stood down on the shared clock and the
     // teleport was the only arrival there was. A walked trip online is
     // a real ride now (scenes/world.js beginAcceleratedTravel), so over
     // that one the sentence is simply false - the branch above has
     // already said the mod's own words and an hours:minutes estimate.
-    if (this.noWorldTime() && !this.walkedTrip) shadowText(renderer, font, ONLINE_TRAVEL_LINE, m, 0, POPUP_RECTS.native[1] + POPUP_RECTS.native[3] + 4, { align: 'center', w: NATIVE_W });
+    if (this.noWorldTime() && !this.walkedTrip) ONLINE_TRAVEL_ROWS.forEach((row, i) => shadowText(renderer, font, row, m, 0, POPUP_RECTS.native[1] + POPUP_RECTS.native[3] + 4 + i * ONLINE_TRAVEL_ROW_H, { align: 'center', w: NATIVE_W }));   // AUDIT LIVED1b U1
     if (!_art) {
       // art-less fallback: the option rows the classic art labels
       const rows = [

@@ -390,7 +390,7 @@ test('WOD2: the streaming host wires the loader where DFU does - decision before
   assert.match(w, /wod\.noteRegion\(maps\.getRegionIndexAt\(here\.x, here\.y\)\);\s*await wod\.settle\(\);/);
   assert.match(w, /mapRegionIndex: dfLocation \? dfLocation\.regionIndex : -1,/, 'GetMapPixelData\'s -1 off a location');
   assert.match(w, /worldHeight: woods\.getHeightMapValue\(px, py\),/);
-  assert.match(w, /wod: wodPicks \? \{ picks: wodPicks\.map\(\(p\) => \(\{ flatten: p\.flatten, rect: p\.rect \}\)\) \} : null,/);
+  assert.match(w, /wod: wodPicks \? \{ picks: wodPicks\.map\(\(p\) => \(\{ flatten: p\.flatten, rect: p\.rect, hide: !wodPiecewise\(p\.prefabName\), bounds: forests \? wodSiteFootprint\(p\.prefab, p\.rect\) : null \}\)\) \} : null,/);   // FOREST1: and which picks are sites, with their footprints
   assert.match(w, /return net\?\.source === 'basic-roads' \? basicRoadsPathsPoint\(net, x, y\) : 0;/, 'only his mod answers getPathsPoint');
   // The object block: a collider per model, no climate remap, no doors.
   const block = w.slice(w.indexOf('const place = wod.placements(wodPicks, wodAverages);'), w.indexOf('// EV7: the nature layout arrived'));
@@ -400,8 +400,8 @@ test('WOD2: the streaming host wires the loader where DFU does - decision before
   assert.match(block, /pixelAnimals\.push/);
   assert.match(w, /wodLights: pixelWodLights,/);
   // Lit at every hour: the day branch takes them too.
-  assert.match(w, /const wodSel = wodLit \? _wodSelect\(0, _wodFill\(0\)\) : null;/, 'the day branch');
-  assert.match(w, /const wodSel = wodLit \? _wodSelect\(n, _wodFill\(n\)\) : null;/, 'the night branch, after the lanterns');
+  assert.match(w, /const wodSel = wodLit \|\| csaLit\.length \? _wodSelect\(0, _csaFill\(wodLit \? _wodFill\(0\) : 0, csaLit\)\) : null;/, 'the day branch');   // AUDIT PRE-MERGE 0928 R2: the boats' lanterns join the one selection after the mod's lights
+  assert.match(w, /const wodSel = wodLit \|\| csaLit\.length \? _wodSelect\(n, _csaFill\(wodLit \? _wodFill\(n\) : n, csaLit\)\) : null;/, 'the night branch, after the lanterns');
   assert.match(w, /if \(p\.wodSite && tx >= p\.wodSite\.xMin && tx < p\.wodSite\.xMax && tz >= p\.wodSite\.yMin && tz < p\.wodSite\.yMax\) return null;/, 'grass keeps off the site');
   assert.match(w, /\n    if \(labGrassField\) \{   \/\/ WOD2: a levelled camp moved the ground the same way; AUDIT BRANCH \(WoD\) m2[^\n]*\n      const t = state\.pixelTranslation\(px, py\);/, 'and re-reads the ground a site moved - or a rebuild moved back (AUDIT BRANCH (WoD) m2) - as every publish does since PERF-EXT21');
 });

@@ -60,7 +60,11 @@ export function roomSigner(env, now = () => Date.now()) {
   // minted `nowS - 1` and then `(nowS + 1) - 2` - the same instant, the
   // same claims, the same Ed25519 bytes, and the room refused the
   // second as a replay. So each identity's `i` is kept and only ever
-  // goes DOWN, and it jumps forward to follow a clock that has moved.
+  // goes DOWN - a token minted again a moment later is a moment OLDER,
+  // which pins lean on (GUILD1c: "a token minted a moment before the
+  // removal") - and only when that walk would leave MAX_TTL_S behind a
+  // clock that has moved does it start again from the clock, at the
+  // newest second it has not signed (FRIENDS-SYNC, below).
   const lastI = new Map();
   const signer = async () => {
     if (!signing) {
@@ -77,8 +81,10 @@ export function roomSigner(env, now = () => Date.now()) {
    *  BYTES TWICE - the room spends a signature once (ACC1d F8) and
    *  Ed25519 is deterministic, so the same claims signed twice would be
    *  refused as a replay. The issued-at walks one second further into
-   *  the past per mint, which stays inside MAX_TTL_S; past that the
-   *  harness says so out loud rather than failing as something else. */
+   *  the past per mint, which stays inside MAX_TTL_S; a clock that has
+   *  moved far enough starts it again from the clock, and only past
+   *  that the harness says so out loud rather than failing as
+   *  something else. */
   const token = async (id, who = {}) => {
     const kp = await signer();
     const claims = { s: who.s ?? `acct-${id}`, n: who.n ?? String(id), k: who.k ?? 'guest' };
@@ -87,16 +93,26 @@ export function roomSigner(env, now = () => Date.now()) {
     // the token and never off the frame - so a harness that wants a
     // titled peer has to mint one, which is exactly the point.
     if (who.t !== undefined) claims.t = who.t;
+    if (who.ts !== undefined) claims.ts = who.ts;   // SEAT1c: a seat title's claim
     if (who.g !== undefined) claims.g = who.g;
     if (who.mu !== undefined) claims.mu = who.mu;   // MOD1: a muted player's token
     if (who.lv !== undefined) claims.lv = who.lv;   // RENOWN1: the Renown level the service signed in
     if (who.gi !== undefined || who.gt !== undefined || who.gm !== undefined) Object.assign(claims, { gi: who.gi, gt: who.gt, gm: who.gm });   // GUILD1c: the character's guild the service signed in
-    const key = `${claims.s}|${claims.n}|${claims.k}|${claims.t ?? ''}|${(claims.g ?? []).join('+')}|${claims.mu ?? ''}|${claims.lv ?? ''}|${claims.gi ?? ''}|${claims.gm ?? ''}`;
+    if (who.rc !== undefined) claims.rc = who.rc;   // REALM-DOOR: whether the service found the named character the realm's
+    if (who.au !== undefined) claims.au = who.au;   // WB9g: the aura worn
+    if (who.rb !== undefined) claims.rb = who.rb;   // SEASON1 part two: a Season's banner ribbon
+    const key = `${claims.s}|${claims.n}|${claims.k}|${claims.t ?? ''}|${(claims.ts ?? []).join('/')}|${(claims.g ?? []).join('+')}|${claims.mu ?? ''}|${claims.lv ?? ''}|${claims.gi ?? ''}|${claims.gm ?? ''}|${claims.rc ?? ''}|${claims.au ?? ''}|${(claims.rb ?? []).join('/')}`;
     const nowS = Math.floor(now() / 1000);
-    const prev = lastI.get(key);
+    const kept = lastI.get(key) ?? { last: undefined, used: new Set() };
     let i = nowS - 1;
-    if (prev !== undefined && i >= prev) i = prev - 1;
-    lastI.set(key, i);
+    if (kept.last !== undefined && i >= kept.last) i = kept.last - 1;
+    // FRIENDS-SYNC (FIELD BUGS 2026-10-01 part five): a social hello's token now names the hub account itself
+    // (`s: over.acct`), so one account's hellos either side of a PARTY_OFFLINE_MS wait walked out of MAX_TTL_S here.
+    // The walk down stands while it fits; past the window it starts again from the clock, never on a second it signed.
+    if (i <= nowS - MAX_TTL_S) i = nowS - 1;
+    while (kept.used.has(i)) i--;
+    kept.last = i; kept.used.add(i);
+    lastI.set(key, kept);
     if (i <= nowS - MAX_TTL_S) throw new Error(`roomSigner: ${key} has run out of issued-at room inside MAX_TTL_S - this harness has minted for one identity too many times on one clock`);
     return mintToken(claims, kp.privateKey, { subtle: globalThis.crypto.subtle, nowS: i });
   };
@@ -114,15 +130,18 @@ export function fakeRoom(key, { now = () => Date.now(), ROOMS = null } = {}) {
       // AUDIT SOC (2026-09-16): THE RUNTIME'S BATCH LIMIT IS A LAW HERE TOO. A Durable Object's batched get takes 128 keys
       // and its batched put 128 pairs; SLAM5 found the 130th player's hello throwing on exactly this wall, and the fake
       // let it pass - a fake that lies makes a pin pass that production would fail (this file's own header).
-      async get(k) { if (Array.isArray(k) && k.length > 128) throw new Error(`storage.get(): ${k.length} keys, the runtime takes 128 at most`); return Array.isArray(k) ? new Map(k.filter((x) => store.has(x)).map((x) => [x, store.get(x)])) : store.get(k); },
-      async put(k, v) { if (k && typeof k === 'object') { const e = Object.entries(k); if (e.length > 128) throw new Error(`storage.put(): ${e.length} pairs, the runtime takes 128 at most`); for (const [kk, vv] of e) store.set(kk, vv); } else store.set(k, v); },
+      // AUDIT WB12d (lens T, F8): A VALUE IS COPIED IN AND OUT, as the runtime's structured clone copies it - a fake that
+      // handed back the very object it was given let a write that never happened pass (a ledger mutated after its first
+      // put read back changed, with no second put to carry it)
+      async get(k) { if (Array.isArray(k) && k.length > 128) throw new Error(`storage.get(): ${k.length} keys, the runtime takes 128 at most`); return Array.isArray(k) ? new Map(k.filter((x) => store.has(x)).map((x) => [x, structuredClone(store.get(x))])) : structuredClone(store.get(k)); },
+      async put(k, v) { if (k && typeof k === 'object') { const e = Object.entries(k); if (e.length > 128) throw new Error(`storage.put(): ${e.length} pairs, the runtime takes 128 at most`); for (const [kk, vv] of e) store.set(kk, structuredClone(vv)); } else store.set(k, structuredClone(v)); },
       async delete(k) { if (Array.isArray(k) && k.length > 128) throw new Error(`storage.delete(): ${k.length} keys, the runtime takes 128 at most`); for (const x of Array.isArray(k) ? k : [k]) store.delete(x); },
       async deleteAll() { store.clear(); },
       // AUDIT SOC A4: list() pages as the runtime's does - `limit` keys at most, sorted, after `startAfter` - or a paged
       // sweep over this fake never ends (a page that is always full is always followed)
       async list({ prefix = '', limit = Infinity, startAfter = null } = {}) {
         const keys = [...store.keys()].filter((k) => k.startsWith(prefix) && (startAfter == null || k > startAfter)).sort();
-        return new Map(keys.slice(0, limit).map((k) => [k, store.get(k)]));
+        return new Map(keys.slice(0, limit).map((k) => [k, structuredClone(store.get(k))]));
       },
       async setAlarm(at) { alarm.at = at; },
       async getAlarm() { return alarm.at; },
@@ -164,9 +183,10 @@ export function fakeRoom(key, { now = () => Date.now(), ROOMS = null } = {}) {
     // never laid on the frame - the relay ignores what a client says
     // about its own badge, and a harness that could set one on the
     // frame would be testing the wrong half forever.
-    const tok = 'tok' in over ? over.tok : await token(id, { s: over.tokenSub, n: over.name ?? String(id), t: over.title, g: over.glyphs, mu: over.mu, lv: over.lv, gi: over.gi, gt: over.gt, gm: over.gm });   // AUDIT HCC-PARK: `tokenSub` names the verified account the token carries (default acct-<id>; never a frame field - a social hello's own `acct` is the hub's) - one player in a second tab is one account under two ids
-    const frame = { t: 'hello', id, secret: 'secret-of-' + id, name: id, look, pose, ...over };
-    delete frame.title; delete frame.glyphs; delete frame.mu; delete frame.lv; delete frame.tokenSub; delete frame.gi; delete frame.gt; delete frame.gm;   // ACC3/MOD1/RENOWN1/GUILD1c: they went into the token above; the wire has no such hello field
+    const tok = 'tok' in over ? over.tok : await token(id, { s: over.tokenSub ?? over.acct, n: over.name ?? String(id), t: over.title, ts: over.ts, g: over.glyphs, mu: over.mu, lv: over.lv, gi: over.gi, gt: over.gt, gm: over.gm, rc: over.rc, au: over.au, rb: over.rb });   // AUDIT HCC-PARK: `tokenSub` names the verified account the token carries (default acct-<id>; never a frame field - a social hello's own `acct` is the hub's) - one player in a second tab is one account under two ids
+    // AUDIT FRIENDS-SYNC F5: a hello with an account is a current build's - it says `ps` - unless the pin asks for an old one (`ps: undefined`)
+    const frame = { t: 'hello', id, secret: 'secret-of-' + id, name: id, look, pose, ...(over.acct && !('ps' in over) ? { ps: 1 } : {}), ...over };
+    delete frame.title; delete frame.ts; delete frame.glyphs; delete frame.mu; delete frame.lv; delete frame.tokenSub; delete frame.gi; delete frame.gt; delete frame.gm; delete frame.rc; delete frame.au; delete frame.rb;   // ACC3/MOD1/RENOWN1/GUILD1c/REALM-DOOR/WB9g/SEASON1: they went into the token above; the wire has no such hello field
     if (tok == null) delete frame.tok; else frame.tok = tok;
     return room.webSocketMessage(ws, JSON.stringify(frame));
   };
@@ -176,7 +196,9 @@ export function fakeRoom(key, { now = () => Date.now(), ROOMS = null } = {}) {
   const world = (ws, data, extra = {}) => room.webSocketMessage(ws, JSON.stringify({ t: 'world', data, ...extra }));
   const raw = (ws, text) => room.webSocketMessage(ws, text);
   const drop = (ws) => { const i = sockets.indexOf(ws); if (i >= 0) sockets.splice(i, 1); return room.webSocketClose(ws, 1005, ''); };
-  const fire = () => room.alarm();
+  // AUDIT WB12d (lens R): the runtime's alarm is SPENT as its handler begins - getAlarm() answers null inside it, so a
+  // re-arm there is never mistaken for a sooner one already set
+  const fire = () => { alarm.at = null; return room.alarm(); };
   return { get room() { return room; }, state, store, sockets, alarm, connect, hello, token, signer, env, pose, chat, ping, world, raw, drop, wake, fire, now, look };
 }
 

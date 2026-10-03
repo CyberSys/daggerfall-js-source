@@ -75,10 +75,14 @@ test('DISC22-F: a load forgets the share memory with the game it belonged to', (
   const q = takeAndShare(A);
   const env = envelope(A, q);
   const got = receiveSharedQuest(R, lists, '__SH', env);
+  got.quest.questComplete = true;   // finished here: its final waits to be sent (DISC28-I)
   R.tombstoneQuest(got.quest);
   assert.equal(receiveSharedQuest(R, lists, '__SH', env).reason, 'done');
+  assert.ok(R.nextFinishedShare(), 'a final pending');
   R.clearState();
-  assert.deepEqual([R.sharedQuestNames.size, R.finishedSharedQuestNames.size, R.finishedShareIds.size, R._rearmed.size], [0, 0, 0, 0]);
+  // AUDIT DISC28 QS-4: A2's per-key re-arm gate is retired (the firing's once is monotonic completion); AUDIT DISC28
+  // QS-1: the finals still to be sent are this game's share memory too
+  assert.deepEqual([R.sharedQuestNames.size, R.finishedSharedQuestNames.size, R.finishedShareIds.size, R.nextFinishedShare()], [0, 0, 0, null]);
 });
 
 test('DISC22-F: the refusal reads as said to the receiver - "... but you already have this quest."', () => {

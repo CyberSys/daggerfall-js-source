@@ -56,20 +56,22 @@
   {
     "name": "SHADOWFANG-glyph-without-the-title",
     "file": "server-account/src/titles.js",
-    "old": "hierophant: 'hierophant', shadowfang: 'shadowfang' });",
-    "new": "hierophant: 'hierophant', shadowfang: 'apostle' });",
+    "old": "hierophant: 'hierophant', shadowfang: 'shadowfang', penitent: 'penitent', herald: 'herald' });",
+    "new": "hierophant: 'hierophant', shadowfang: 'apostle', penitent: 'penitent', herald: 'herald' });",
     "tests": [
       "test/shadowfang.test.js"
-    ]
+    ],
+    "note": "HERALD (RE-AIMED by content: the lists end with herald now)."
   },
   {
     "name": "SHADOWFANG-vocabulary-without-the-glyph",
     "file": "src/net/identityToken.js",
-    "old": "'apostle', 'hierophant', 'shadowfang']);   // TITLE-N: each new title has its own glyph",
-    "new": "'apostle', 'hierophant']);   // TITLE-N: each new title has its own glyph",
+    "old": "'apostle', 'hierophant', 'shadowfang', 'penitent', 'herald', 'tower',",
+    "new": "'apostle', 'hierophant', 'penitent', 'herald', 'tower',",
     "tests": [
       "test/shadowfang.test.js"
-    ]
+    ],
+    "note": "SEAT1c (PIN MOVED) and HERALD (RE-AIMED), each by content; the merge of main re-aimed it over both - herald after the penitent, the seats' after herald."
   },
   {
     "name": "SHADOWFANG-paint-shadow-left-on",
@@ -164,7 +166,7 @@
   {
     "name": "SHADOWFANG-classic-edge-dropped",
     "file": "src/net/remotePlayers.js",
-    "old": "          drawText(renderer, font, title.text, tx + Math.max(1, Math.round(s)), ty + Math.max(1, Math.round(s)), s, title.rgba ?? [1, 1, 1, 1]);\n",
+    "old": "          drawText(renderer, font, title.text, tx + Math.max(1, Math.round(s)), ty + Math.max(1, Math.round(s)), s, title.edge ?? title.rgba ?? [1, 1, 1, 1]);\n",
     "new": "          \n",
     "tests": [
       "test/shadowfang.test.js"

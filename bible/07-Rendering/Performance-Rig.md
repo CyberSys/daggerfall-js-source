@@ -327,6 +327,160 @@ instead of one. The probe's "before" was checked by driving a scratch
 copy of the module with `[[Infinity, 1]]`: 1.00 / 1.00 / 1.00, and HEAD
 0.74 / 0.52 / 0.43, as recorded.
 
+## WB9h - the bodies in a crowd (2026-09-30)
+
+Mac: "Further improve the morrowind model performance as it's unplayable
+with so many players around." PEER-CADENCE measured a body walking past
+on its own. A CROWD is the other case - forty players milling round you
+at a gate or in a square, you turning to look at them - and
+`tools/peerCrowdProbe.mjs` drives exactly that: the real PeerBodies over
+the real fixture rig, forty peers walking at random 3-40 m about the eye
+for thirty seconds (1,800 frames), the eye turning a full circle every ten
+seconds or looking one way, a counting renderer.
+
+**What it found.** 5.21 skins a frame of 8 bodies (the worst frame all 8),
+4.10 sprite passes a frame turning - and **81 bodies BUILT in thirty
+seconds**, up to 24 in five: the nearest eight reshuffle as a crowd mills,
+so every few hundred milliseconds the farthest body was torn down and
+another queued, each build a multi-second mesh parse on a retail body on
+the one queue, **68 of them taken from a player still standing within
+25 m** - a Morrowind body turning back into a paper doll, and the parse
+that made it thrown away. That churn is the stutter: the skin and the
+sprite pass are paid every frame, but a build is a long task in the
+middle of one.
+
+**Four laws now** (`net/peerBodies.js`):
+
+- **THE VIEW.** The last body pass's frustum is kept (`viewPlanes`: the
+  left, right, bottom, top and near sides off `proj x view`, normalised -
+  the far one left out, a lens with no far has none). A body whose sphere
+  (about its middle, BODY_SPHERE_SHARE of its height round it) is past a side is
+  not drawn, and in the next frame's sync is not skinned (CULL_MARGIN_M,
+  2 m, more for the skin's test, so a body the view is swinging onto is
+  posed before it is seen). Its clocks and its weapon still step every
+  frame; its skin falls behind them (`stale`), and the draw that first
+  sees it poses it where its clocks stand (`update(0, { pose: true,
+  effectsDt: bank })`) before drawing it - a flick faster than the margin
+  never shows an old pose. A pair that is not a lens (a stub's) keeps the
+  old behind-the-eye test alone.
+- **THE BUDGET.** Of the bodies wanting a skin at most SKIN_BUDGET (4) pose
+  in a frame, in `bySkinRank`'s order: a body with NO skin to keep first
+  (PEER-CADENCE F3's law, whatever the budget), then one OWED a skin (over
+  the last frame's budget, or back in the view), then one its cadence
+  names; within each the longest since it was posed, then the nearest. A
+  body left over is owed the next frame, not its cadence's next - eight
+  near bodies are each skinned every other frame, thrice the wire's rate.
+- **THE SWAP.** A nearer bodiless stranger takes the farthest stranger's
+  body only once it has wanted one SWAP_DWELL_MS (2.5 s), no sooner than
+  SWAP_EVERY_MS (4 s) after the last hand-over, and not while another body
+  builds - it would wait on the one queue with the body it took already
+  gone - unless a spare stands for it. A party mate takes a stranger's
+  outright (AUDIT PARTY8) and a lingering body's slot goes to anyone at
+  once, as before: nothing is seen to go.
+- **THE SPARES.** A body given up in a swap - built and skinned - keeps its
+  rig on nobody's camera for SPARE_MS (60 s), at most SPARE_MAX (4), the
+  oldest unloaded first. The next peer who wears the same body (its look
+  and its form, `peerBodyKey`) stands in it at once: no rig made, no build,
+  its old skin stale until it is seen. A crowd in starting gear is a crowd
+  of a few bodies. A lingering or failed body is unloaded as before; a new
+  data generation and the gate shutting take the spares with the bodies.
+
+And the frame's own garbage (AUDIT WB D10): the live map and the wanting
+list are the module's, refilled; the bodies are walked without a spread;
+the camera takes the body's eased yaw as an argument rather than a copy of
+the pose each frame; the draw keeps its camera in one object.
+
+**Measured**, the same probe on the old and the new module:
+
+| forty players, 30 s | skins/frame (worst) | sprite passes/frame (worst) | builds (most in 5 s) | bodies lost near |
+|---|---|---|---|---|
+| before, turning | 5.21 (8) | 4.10 (8) | 81 (24) | 68 |
+| after, turning | 1.21 (4) | 2.20 (5) | 11 (9) | 0 |
+| before, one way | 5.21 (8) | 4.68 (8) | 81 (24) | 68 |
+| after, one way | 1.83 (4) | 3.43 (6) | 11 (9) | 0 |
+
+The builds left are the first eight and three hand-overs; "most in 5 s" is
+the first fill. The fixture rig is four small pieces, so the probe reports
+counts, not milliseconds - and a retail body's skin is PERF-RIG1's ~0.3 ms
+at 3,000 vertices and more clothed, its build seconds.
+
+**Pinned** in `test/wb9h_crowd_bodies.test.js` (7): the view's sides off
+the game's own mirrored lens; a body behind the eye neither drawn nor
+skinned while its clocks run, one just past the edge skinned inside the
+margin and not drawn, and one the view swings onto posed at no dt with
+every frame it banked before it is drawn; the budget spent and never
+exceeded by eight near bodies, each skinned every other frame, eight far
+ones due together skinned over two frames (the owed), and five meshless
+posed past it; the swap's dwell, its interval, never behind a build, a
+mate outright and a lingering slot at once (its rig unloaded); the spares
+- the same body handed over with no rig and no build and posed that frame,
+another body building its own, the spare on no camera, gone after
+SPARE_MS, the pool bounded, taken by a new data generation and by the gate
+with no body standing; a crowd of thirty driven for twenty seconds with the
+eye turning, holding every law at once; and the garbage by source.
+`tools/mutants/wb9h.json`: 25 mutants, all dead. Re-aimed: the cadence's
+source pins and nine of its mutants onto the ranked step
+(`tools/mutants/peercadence.json`, 20 dead), INVIS-LOOK's late-pass mutant
+onto the kept camera, AUDIT PARTY8's stranger and MWBODY1's cap onto the
+swap's dwell (the cap's newcomer now standing in the rig given up - one
+look, one body).
+
+**AUDIT WB9 (2026-09-30, before the merge; World-Bosses.md section 14's
+audit table, H1-H4).** Four minors, each reproduced: a body out of the view
+banked its particles' time without end (a minute behind the eye was one
+sixty-second particle step - a lantern's flame thrown out of its sprite), so
+the bank holds at most `EFFECTS_BANK_MAX_S` (0.1 s); a hand-over allowed on
+a spare could push that very spare out of a full pool as the body it freed
+was kept (`_keepSpare` now keeps the spare a hand-over is for); a queued
+build read its peer's look when the queue reached it, keyed on the look
+asked for (it is built from the look its key names); and a concealed peer
+who took a spare was drawn open for its first frame (its veil is set as it
+stands). Pinned in `test/audit_wb9.test.js`; mutants in
+`tools/mutants/audit_wb9.json`.
+
+**Still open.** The sprite render is still one a SEEN body a frame (the
+shared target); a per-body target kept across frames - re-rendered on a
+pose or a camera move - is the next slice, and it needs a GPU to measure.
+GPU skinning still removes the skin's cost outright. The build itself is
+still a long task on the main thread when it comes.
+
+## MW-CROWD - the crowd's bodies, turned onto (FIELD BUGS 2026-10-01 #8)
+
+"Culling performance issues when using the morrowind model and around a large
+group of players." Read on the code after WB9h (no GPU here to measure): the
+crowd's skins were budgeted, but four costs were left, each fixed with the
+picture unchanged (`test/fb1001_mwcrowd.test.js`, `tools/mutants/fb1001_mwcrowd.json`):
+
+- THE TURN. The skins are decided on the last body pass's view with
+  CULL_MARGIN_M (2 m), about 11 degrees of lead at 10 m - and a body the view
+  swung onto past it arrived stale and was posed in the DRAW, outside
+  SKIN_BUDGET (`_drawBodies`' stale arm). At 300 degrees a second and 30
+  frames a crowd turned onto posed whole in one frame - a CPU skin and a whole
+  re-upload each. `turnLeadMargin`: the margin grows by the angle the view
+  turned last frame (measured off the two passes' forwards), TURN_LEAD_FRAMES
+  (3) frames of it at the body's distance, never past TURN_LEAD_MAX (1.2 rad),
+  so the bodies about to come into view are skinned on the budget before.
+- DEAD WORK AT EVERY POSE. `updateCharacterMesh` walked every corner of the
+  skin twice (`boundsOf`) for a sphere only the shadow recorder reads - and the
+  sprite target never casts (`drawCharacter` records nothing under
+  `_spriteDepth`). The third-person mesh is minted with `bounds: false`; the
+  first-person arm keeps its sphere.
+- GARBAGE EVERY FRAME. `peerWeaponOf` built a whole stand-in (an entity, a
+  27-slot equip table, its items) for every stepped body every frame. One a
+  look (a WeakMap, as lookKey's).
+- REBUILDS. A weapon drawn tore down a built body after BODY_REBUILD_MS and
+  queued a whole build (the doll standing meanwhile), though `setWeapon` had
+  put it in the hand - a person's body key is its look LESS ITS WEAPONS now.
+  And a lingering body's rig was unloaded, so a peer who mounted or dropped
+  out of the list a moment came back to a whole build - it is kept as a spare
+  (SPARE_MS, SPARE_MAX), as a body given up in a swap is.
+
+Still open, as WB9h left it: the sprite render is one a seen body a frame
+(one offscreen pass, two framebuffer switches and the character block
+re-sent each) - batching every seen body into one bind of the target, or
+keeping each body's picture across frames, is the next slice, and it needs a
+GPU (above all a tiler's) to measure.
+
 ## PERF-READ1 - the `hud` span was the vsync wait (2026-09-21)
 
 Mac pasted a `?perf=cpu` readout from the road: `cpu 17.15ms | hud 7.09 |
@@ -405,7 +559,10 @@ GPU made this century does for free.
 pixel walk, draws the pixel's static batch and models where the ground
 used to be drawn, and drains the queue once the walk is done - so a
 pixel's ground also lies under the NEXT pixel's buildings, and the
-terrain program binds once a frame instead of twice a pixel. The sky,
+terrain program binds once a frame instead of twice a pixel (FAR-CLIP1:
+and the ground of a pixel Iliac Puddle No More's cap patched draws after
+the rest on the program's clip variant - one that discards - bound once
+more; `03-World/Deep-Waters.md`). The sky,
 the ring, the water and the flats keep their places after it: the water
 reads the ground's depth and the flats are cut-outs blended over it.
 **The town host** draws its ground after the buildings, the mills, the

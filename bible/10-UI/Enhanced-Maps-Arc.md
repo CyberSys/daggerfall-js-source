@@ -542,7 +542,7 @@ different spaces**, and EM4's own note argued its way into both.
 
 `autoMapData` is an FLD-header grid, and the port already knows which way
 those run — `buildGroundTilemap` reads `groundTiles[x][15 - y]` for "row
-0 nearest Z=0" (`world/rmbLayout.js:282`). `ExteriorAutomap.cs:1481` is
+0 nearest Z=0" (`world/rmbLayout.js:285`). `ExteriorAutomap.cs:1481` is
 that same law at 64 rows instead of 16, which is what the shipped
 window's "per-block row flip" is.
 
@@ -625,4 +625,35 @@ is nearest (`surfaceY`), the stairs between storeys are found
 (`levelField`, `storeyLinks`), drawn and taken with a press, the strip stops
 above the thumb and marks you and the way out, and the foot says the keys.
 The record is `01-Overview/Field-Bugs-2026-09-25.md` DISC25-A.
+
+## TOWN-MARKS (2026-09-29) - the Notice Boards and the player housing on the town plan
+
+Mac: "For the notice boards in town. Can we physically mark them on the town map, and also mark owned player
+housing". Neither was on any map: the town plan marked the player, a quest's residence and (DISC23-A) the party.
+The bank's house showed only as its name ("<Name>'s residence", once discovered) and an online home (HOME1) not at
+all.
+
+- **A Notice Board** is a pinned card, where the board stands in the street. It is one of the town's
+  boards (model 41739) that is not a bounty board (`questBoardIndices`), while the Notice Board is open: online,
+  `BOARD_OPEN` - the boards NOTICE1 floats a town's unread count over. Offline the boards are Daggerfall's rumour
+  boards and are not marked. Under the pointer: "Notice Board", or "Notice Board: 3 new".
+- **A player's house** is a house on its building (its place: the plates' anchor). Every online home in the
+  town is marked, as its door names it: "Your home" filled in the player's ink (the caret's), another player's
+  ("Gryphoth's home") in parchment - the fill says whose, not the colour alone. The house the character bought at a
+  bank is "Your house", and only in its own town: `isHouseOwned` asks the region alone because its callers stand at
+  the door, and a building key is a location's own numbering, so the map id is matched too (unsigned).
+- **Where they are drawn:** ON their places (Mac, seeing them first lifted on posts beside the buildings: "I kinda
+  wish the icons were on top of the building itself, not on the side"), no bigger than the player's caret, under the
+  names and in the map's own pens only (EM4's law). A building that wears a house has its name lettered UNDER the
+  glyph, clear of it by a pixel, with no tick of its own - the glyph is its tick - and the plates are laid again when
+  which buildings wear one changes. A name the solver moves still leads back, to the glyph's foot.
+- **When the homes arrive:** the service answers after the map may be open, so the plan repaints once when the
+  registry's version moves (`breathes`), and the town's homes are asked for as the map opens.
+- **The classic exterior automap is untouched:** it is DFU's own window and draws DFU's marks alone, as DISC23-A left
+  the party. The `?exterior` probe host hands none.
+
+Code: `ui/townMapMarks.js` (the rows and the reading), `ui/inkTown.js` (`paintBoardMark`, `paintHomeMark`),
+`ui/townSheet.js`, `ui/townMapDoor.js`, `scenes/world.js` (`townBoardMarks`, `townHomes`). Pins:
+`test/town_marks.test.js` (9). Mutants: `tools/mutants/town_marks.json` (35, all dead); `disc23a.json`'s breathing
+record and `survtiers3.json`'s two cite records re-aimed. Patch notes: `PATCH-NOTES-Town-Map-Marks.md`.
 

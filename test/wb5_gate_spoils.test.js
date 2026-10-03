@@ -3,7 +3,7 @@
 // piece's launch out of his chest toward the player's side, one at a time, and the thrown torch's own flight: gravity
 // by its drag, the bounce off the struck face at its bounciness, rest under a fifth of the throw); the glow
 // (render/spoilsGlow.js - Loot Rarity's own colours, a beam by tier over a halo, the pass on the duel wall's law); the
-// roll and the Sigil Stone's own row (systems/gateSpoils.js); the floor, once a day, and the crash's door
+// roll and the Deadlands Ember's own row (systems/gateSpoils.js); the floor, once a day, and the crash's door
 // (scenes/spoilsPool.js); the court's burst and the world host's seams.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -18,7 +18,7 @@ import { RARITIES, RARITY_ORDER, rarityChances } from '../src/systems/lootRarity
 import {
   rollSpoils, spoilsBase, magicOrBetter, sigilStone, isSigilStone, SPOILS_GOLD_PER_LEVEL, SPOILS_LEGENDARY, SPOILS_SOURCE, SIGIL_STONE, SIGIL_STONE_TEMPLATE,
 } from '../src/systems/gateSpoils.js';
-import { createSpoilsPool, spoilsList, spoilsStore, recoverSpoils, savedSince, SPOILS_TAKE_M, SPOILS_STORE_KEY, SPOILS_DAY_KEY, SPOILS_TEXT, SIGIL_TIER, SPOILS_RECORD_V } from '../src/scenes/spoilsPool.js';
+import { createSpoilsPool, spoilsList, spoilsStore, recoverSpoils, savedSince, SPOIL_KEY, SPOILS_STORE_KEY, SPOILS_DAY_KEY, SPOILS_TEXT, SIGIL_TIER, SPOILS_RECORD_V } from '../src/scenes/spoilsPool.js';
 import { isAmmunition, templateByIndex, setItemFields, mintCondition, inventoryItemImage, registerCustomTemplates, ITEM_TEMPLATES } from '../src/systems/itemTemplates.js';
 import { RRI_TEMPLATES } from '../src/systems/rriItems.js';
 import { isStackable, stacksWith, addItem } from '../src/systems/inventory.js';
@@ -126,7 +126,7 @@ test('WB5 the glow, WBX3 a line: Loot Rarity\'s own colours, a SMALL line out of
 
 // ── the roll, the floor and the court's burst ─────────────────────────
 
-test('WB5 the roll: the seed\'s own - the same spoils every time, another seed\'s others; gold by the level, a fifth either way; three graded pieces - the first Rare or better, the others Magic or better - weapons never ammunition, never a piece the port has no row for, each with SetItem\'s condition and KNOWN (the name the floor says is the pack\'s), every field a declared one; and the Sigil Stone, one a kill (mutants: the gold off the level; the first piece only Magic; ammunition kept; no condition; unidentified; a piece without its row)', () => {
+test('WB5 the roll: the seed\'s own - the same spoils every time, another seed\'s others; gold by the level, a fifth either way; three graded pieces - the first Rare or better, the others Magic or better - weapons never ammunition, never a piece the port has no row for, each with SetItem\'s condition and KNOWN (the name the floor says is the pack\'s), every field a declared one; and the Deadlands Ember, one a kill (mutants: the gold off the level; the first piece only Magic; ammunition kept; no condition; unidentified; a piece without its row)', () => {
   assert.deepEqual(rollSpoils(1234, 12), rollSpoils(1234, 12), 'the same seed and world roll the same');
   assert.notDeepEqual(rollSpoils(1235, 12).pieces.map((p) => p.item.name), rollSpoils(1234, 12).pieces.map((p) => p.item.name));
   let legendary = 0;
@@ -148,7 +148,7 @@ test('WB5 the roll: the seed\'s own - the same spoils every time, another seed\'
       assert.equal(p.item.isIdentified, true, 'known');
       for (const k of Object.keys(p.item)) assert.ok(isDeclaredItemField(k), `'${k}' is a declared item field`);
     }
-    assert.ok(isSigilStone(s.sigil), 'the Sigil Stone, one a kill');
+    assert.ok(isSigilStone(s.sigil), 'the Deadlands Ember, one a kill');
     for (const k of Object.keys(s.sigil)) assert.ok(isDeclaredItemField(k), `the stone's '${k}' is a declared item field`);
   }
   assert.deepEqual([...groups].sort(), ['Armor', 'Jewellery', 'Weapons'], 'all three makers answer');
@@ -176,27 +176,29 @@ test('WB5 the roll: the seed\'s own - the same spoils every time, another seed\'
   assert.ok(custom > 0, `the custom pieces ride the roll: ${custom}`);
 });
 
-test('WB5 the Sigil Stone is its own row, not a renamed gem: template 570 (past DFU\'s 288, Climates & Calories\' 530-541 and the Thunderlock\'s 560/561), a gem by group at the gate\'s price with a gem\'s weight and wear and the Ruby\'s art; no ingredient, so it never stacks - a Ruby in the pack keeps its row and the stone its name; it rides the loot validator whole; and every host has the row, because the hosts\' shared module imports it (mutants: a renamed gem; the hosts\' import pulled)', () => {
+test('WB5 the Deadlands Ember is its own row, not a renamed gem: template 570 (past DFU\'s 288, Climates & Calories\' 530-541 and the Thunderlock\'s 560/561), a gem by group at the gate\'s price with a gem\'s weight and wear and the Ruby\'s art; no ingredient, so it never joins a gem - a Ruby in the pack keeps its row and the stone its name - and (SS1) it stacks with its own kind alone; it rides the loot validator whole, a stack too; and every host has the row, because the hosts\' shared module imports it (mutants: a renamed gem; the hosts\' import pulled)', () => {
   assert.equal(SIGIL_STONE_TEMPLATE, 570);
   assert.ok(SIGIL_STONE_TEMPLATE >= ITEM_TEMPLATES.length && ![THUNDERLOCK_TEMPLATE, PELLET_TEMPLATE].includes(SIGIL_STONE_TEMPLATE) && (SIGIL_STONE_TEMPLATE < 530 || SIGIL_STONE_TEMPLATE > 541), 'past every other row');
   const t = templateByIndex(SIGIL_STONE_TEMPLATE);
   assert.equal(t.name, SIGIL_STONE.name); assert.equal(t.basePrice, SIGIL_STONE.value); assert.equal(t.custom, true); assert.equal(t.isIngredient, false);
   assert.equal(t.baseWeight, templateByIndex(0).baseWeight, 'a gem\'s weight'); assert.equal(t.hitPoints, templateByIndex(0).hitPoints, 'and wear');
   const stone = sigilStone();
-  assert.deepEqual(stone, { group: 'Gems', templateIndex: SIGIL_STONE_TEMPLATE, name: 'Sigil Stone', value: 5000, maxCondition: 1000, currentCondition: 1000 });
+  assert.deepEqual(stone, { group: 'Gems', templateIndex: SIGIL_STONE_TEMPLATE, name: 'Deadlands Ember', value: 5000, maxCondition: 1000, currentCondition: 1000 });
   assert.deepEqual(inventoryItemImage(stone).archive, 254); assert.equal(inventoryItemImage(stone).record, 0, 'the Ruby\'s art');
   const ruby = mintCondition(setItemFields({ group: 'Gems', templateIndex: 0 }));
   assert.equal(isStackable(ruby), true, 'a classic gem is an ingredient, and stacks');
-  assert.equal(isStackable(stone), false, 'the stone does not');
-  assert.equal(stacksWith(ruby, stone), false);
+  assert.equal(isStackable(stone), true, 'SS1: the stone stacks too - its row says so');
+  assert.equal(stacksWith(ruby, stone), false, 'but never with a gem');
+  assert.equal(stacksWith(stone, sigilStone()), true, 'with its own kind');
   const pack = [];
-  addItem(pack, ruby); addItem(pack, stone); addItem(pack, sigilStone());
-  assert.deepEqual(pack.map((i) => [i.name, i.stackCount ?? 1]), [['Ruby', 1], ['Sigil Stone', 1], ['Sigil Stone', 1]], 'a row each, the name kept');
+  addItem(pack, ruby); addItem(pack, stone); addItem(pack, sigilStone()); addItem(pack, mintCondition(setItemFields({ group: 'Gems', templateIndex: 0 })));
+  assert.deepEqual(pack.map((i) => [i.name, i.stackCount ?? 1]), [['Ruby', 2], ['Deadlands Ember', 2]], 'a stack each, the names kept');
   assert.deepEqual(validLootItem(JSON.parse(JSON.stringify(stone))), stone, 'whole through the validator');
+  assert.equal(validLootItem(JSON.parse(JSON.stringify(stone))).stackCount, 2, 'a stack too');
   // THE WAY THE GAME ASKS: a process that imports the hosts' shared module and nothing else has the row
   const root = new URL('..', import.meta.url);
   const out = execFileSync(process.execPath, ['--input-type=module', '-e', "await import('./src/scenes/shared.js'); const { templateByIndex } = await import('./src/systems/itemTemplates.js'); process.stdout.write(String(templateByIndex(570)?.name ?? null));"], { cwd: root, encoding: 'utf8' });
-  assert.equal(out, 'Sigil Stone', 'the hosts carry the row');
+  assert.equal(out, 'Deadlands Ember', 'the hosts carry the row');
   const shared = readFileSync(new URL('../src/scenes/shared.js', import.meta.url), 'utf8');
   assert.match(shared, /^import '\.\.\/systems\/gateSpoils\.js';/m, 'and the import is said out loud');
 });
@@ -216,7 +218,7 @@ function pool({ feet = null, store = null, who = 'char-1' } = {}) {
 }
 const run = (h, ms, step = 16) => { for (let t = 0; t < ms; t += step) { h.clock.t += step; h.p.frame(); } };
 
-test('WB5 the floor: the burst leaves one piece at a time from his chest, each clattering where it lands and resting in its tier (the Sigil Stone the rarest, the gold plain); a Rare-or-better at rest rings the chime and carries a light; walked over, a piece goes into the pack with its name said; leaving gathers the rest; the device keeps the pieces AS ROLLED, and whose, from the burst until a save holds them - taking and gathering change nothing there (mutants: a piece taken in the air; the take out of reach; the gather leaving pieces; the record without its pieces)', () => {
+test('WB5 the floor: the burst leaves one piece at a time from his chest, each clattering where it lands and resting in its tier (the Deadlands Ember the rarest, the gold plain); a Rare-or-better at rest rings the chime and carries a light; pressed, a piece goes into the pack with its name said (GATE-UX: never walked over); leaving gathers the rest; the device keeps the pieces AS ROLLED, and whose, from the burst until a save holds them - taking and gathering change nothing there (mutants: a piece taken in the air; a piece taken underfoot; the gather leaving pieces; the record without its pieces)', () => {
   const me = { at: null };
   const h = pool({ feet: () => me.at });
   assert.equal(h.p.spew({ day: 700, seed: 99, level: 8, at: [0, 3.1, 0], bearing: 0 }), true);
@@ -236,13 +238,12 @@ test('WB5 the floor: the burst leaves one piece at a time from his chest, each c
   assert.equal(h.sounds.filter((x) => x[0] === 364).length, rare, 'the rare chime for each Rare or better, at rest');
   assert.equal(h.p.lights().length, rare, 'and its light');
   assert.equal(h.p.batches().length, 0, 'no sprite with no art (the node test has none)');
-  // walk over the first
-  me.at = [s[0].pos[0] + SPOILS_TAKE_M + 0.3, 0, s[0].pos[2]];
-  run(h, 50);
-  assert.equal(h.pack.length, 0, 'out of reach');
-  me.at = [s[0].pos[0] + SPOILS_TAKE_M - 0.2, 0, s[0].pos[2]];
-  run(h, 50);
-  assert.ok(h.pack.length >= 1, 'walked over, taken');
+  // GATE-UX: stood on, it stays; pressed, it is taken
+  me.at = [s[0].pos[0], 0, s[0].pos[2]];
+  run(h, 3000);
+  assert.equal(h.pack.length, 0, 'underfoot, never taken');
+  assert.equal(h.p.pick(`${SPOIL_KEY}0`), true);
+  assert.equal(h.pack.length, 1, 'pressed, taken');
   assert.equal(h.pack[0].item.name, list[0].item.name, 'the first to land, the first taken');
   assert.equal(h.said[0], SPOILS_TEXT.item(list[0].item.name, list[0].tier), 'its name said, with its tier');
   assert.deepEqual(h.st.get(SPOILS_STORE_KEY), [burst], 'taking changes nothing in the record: the pack is only as safe as the last save');
@@ -352,7 +353,7 @@ test('WB5 the seams, by source: the world host makes the floor on the link with 
   assert.match(w, /ray: \(from, dir, len\) => \{ const c = modes\?\.dungeonCtx\?\.collider;/);
   assert.match(w, /store: _spoilsStore,\n    who: \(\) => characterIdOf\(playerEntity\),/);   // AUDIT WB A6: the one store
   assert.match(w, /link: gateLink, spoils: spoilsPool,/);
-  assert.match(w, /const who = characterIdOf\(playerEntity\);\n    if \(who === _spoilsAskedFor\) return;\n    _spoilsAskedFor = who;\n    try \{ if \(recoverSpoils\(_spoilsStore, takeSpoil, \{ who, saves: enumerateSaves\(\)\.info\.values\(\), onHanded: \(rec\) => spoilsPool\.adopt\(rec\) \}\)\) setMidScreenText\(SPOILS_TEXT\.gathered\); \}/);   // AUDIT WBX S3: handed over - the next save clears it
+  assert.match(w, /const who = characterIdOf\(playerEntity\);\n    if \(who === _spoilsAskedFor\) return;\n    _spoilsAskedFor = who;\n    try \{ if \(recoverSpoils\(_spoilsStore, takeGateSpoil, \{ who, saves: enumerateSaves\(\)\.info\.values\(\), onHanded: \(rec\) => spoilsPool\.adopt\(rec\), inSave: _spoilsInSave \}\)\) setMidScreenText\(SPOILS_TEXT\.gathered\); \}/);   // AUDIT WBX S3: handed over - the next save clears it
   assert.match(w, /\n    spoilsRecoverFrame\(\);   \/\/ WB5[^\n]*\n    if \(onlineOn && playerSpawned\) \{/, 'in the main frame, ahead of the online one');
   assert.doesNotMatch(w, /_spoilsRecovered/, 'the online-only door is gone');
 });

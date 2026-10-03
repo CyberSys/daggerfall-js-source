@@ -92,14 +92,19 @@ npm start              # the app; first run asks for ARENA2
 npm run dist           # electron-builder installers into app/release/
 ```
 
+Packaged, the built site rides inside `app.asar` (DA11) - never as
+loose files beside it.
+
 `DAGGER_DEV_URL=http://localhost:5173/play/` points the shell at a
 running vite dev server (file saves still live; arena2 comes from the
 dev middleware). `DAGGER_USER_DATA` relocates saves/config (the
 probe's door, and a portable install's). `DAGGER_SKIP_ARENA2_PROMPT`
 suppresses the first-run dialog (headless). `DAGGER_SHELL_EXE` points
 the probe at a PACKAGED binary (release/linux-unpacked/...) so the
-installer's payload answers the same sixteen checks the dev shell
-does.
+installer's payload answers the same checks the dev shell does.
+~~`DAGGER_SKIP_ARENA2_PROMPT` suppresses the first-run dialog~~ (DA8/DA10:
+there is no dialog - it stands for the player choosing the game's own
+picker, so the launcher asks nothing; the probe still presses Play).
 
 ## The release channel
 
@@ -127,6 +132,62 @@ The cost is what it is: three OS builds per merge, and the desktop
 update notice fires per merge, exactly as the site's own new-build
 notice (SRV-N2) does. Pinned in `test/updatecheck.test.js`. The
 paragraph below is the history it replaced.
+
+**REL4 (2026-09-29, Mac: "How can we drastically improve the install
+experience? ... I really want to make it AAA grade"): THE RELEASE IS
+PUBLISHED WHOLE, ONCE.** Read off GitHub the day this was written: every
+release carried its generated notes two or three times over - each OS leg
+created-or-updated the same release with `generate_release_notes` on, and
+where two legs finished a second apart one append was lost to the other's
+write (app-v0.1.4582) - and each release went `latest` when its FIRST leg
+finished: app-v0.1.4605 was published at 19:46:32 and its Windows files,
+latest.yml among them, arrived at 19:47:57, eighty-five seconds in which
+no Windows copy could update from `latest` and no Windows player could
+download it. A leg dying after the gate would have left that standing
+until the next merge. Now a `version` job resolves REL3's one number once
+and every job reads it; the three legs only BUILD and hand their files on
+as run artifacts; and `publish` - which runs only when the whole matrix
+passed - checks the set is complete (`scripts/desktopRelease.mjs check`:
+the four downloads, the three manifests, the two blockmaps, by name),
+writes the notes once, stages a DRAFT with every file attached, and
+publishes it in one PATCH. `latest` never names a release that is half
+there, and a hand re-cut of an old build does not take `latest` back
+(`shouldMarkLatest`, REL3's numeric compare). The notes are the
+player's: the PATCH-NOTES-*.md added or changed since the previous
+`app-v` tag, with GitHub's list of merged changes beneath them - the
+launcher's news panel shows the part above that list (DA10). A changed
+file brings only its NEWS, decided by what each line says (Audit-Install
+R2-C1: by position, app-v0.1.4534 lost four new fixes). Pinned in
+`test/rel4_release.test.js`; `tools/mutants/rel4.json`, 15, all dead.
+
+**REL5 (2026-09-29): THE DOWNLOADS HAVE NAMES THAT DO NOT MOVE.** The
+build number is out of every file name - `DaggerfallOnline-win-x64-setup.exe`,
+`-win-x64-portable.exe`, `-mac-arm64.dmg`, `-linux-x86_64.AppImage` - so
+`releases/latest/download/<name>` serves the newest copy for ever and the
+landing page (which runs no script, U60) links each platform's installer
+directly: the door's Install lands on the desktop app's entry, one click
+per platform, where it used to open a release page of eleven files,
+updater manifests among them. The number is not lost: it is the TAG, the
+stamp inside every file and the `version:` of the manifests. The updater
+never keyed on a file name (it reads the name out of latest.yml), and
+its differential download finds the previous blockmap by swapping the
+version inside the URL, which the tag segment still carries
+(electron-updater `Provider.getBlockMapFiles`) - a copy that has updated
+before reads it from its own cache first. The one cost, said out loud: a
+copy that has never updated through electron-updater, updating across the
+rename, finds no old blockmap under the new name and takes one full
+download (the updater's own fallback), once. The names are a contract
+(`app/lib/downloads.cjs`), held at both ends: the build config must
+produce them (`test/rel4_release.test.js`, by electron-builder's own
+precedence - target, then platform, then top level) and the publish job
+refuses a set without them - a naming change in electron-builder fails
+the release before a dead link goes live. **Except once** (Audit-Install
+L3-1): the landing page links names only a REL5 release carries, and the
+site deploys minutes before the first REL5 release publishes - so from
+the merge until that release is `latest`, the four links are dead (and
+stay dead if that release fails). Before merging: upload the four
+downloads, under the new names, to the current latest release (or merge
+the landing page's links after the first REL5 release).
 
 
 `.github/workflows/release-desktop.yml` cuts a release through any
@@ -167,11 +228,20 @@ section points at `releases/latest`, so cutting a release IS
 updating the site's download - no site change needed per release.
 `workflow_dispatch` builds the same installers as run artifacts
 without cutting a release. Artifact names are
-~~`DaggerfallJS-...`~~ ~~`DaggerfallEnhanced-...`~~ `DaggerfallOnline-<version>-<os>-<arch>.<ext>`
-(BR1, 2026-09-13; BR4, 2026-09-27); bump `app/package.json`'s version with the tag. The
-update check reads the release TAG and its html_url, never an asset
-name, so the rename does not reach it - and the appId is deliberately
-unchanged, or every installed copy would stop seeing updates.
+~~`DaggerfallJS-...`~~ ~~`DaggerfallEnhanced-...`~~ ~~`DaggerfallOnline-<version>-<os>-<arch>.<ext>`~~
+`DaggerfallOnline-<os>-<arch>.<ext>` and the two Windows names
+(BR1, 2026-09-13; BR4, 2026-09-27; REL5, 2026-09-29: no version in any);
+~~bump `app/package.json`'s version with the tag~~ (REL3 derives it).
+~~The update check reads the release TAG and its html_url, never an asset
+name~~ - the check reads the TAG; since REL5 the notice's Download is
+this copy's own asset by its name that never moves (`app/lib/downloads.cjs`)
+- and the appId is deliberately unchanged, or every installed copy would
+stop seeing updates. ~~The landing page's "On your desktop" section points
+at `releases/latest`~~ (REL5: each installer under
+`releases/latest/download/`, which is still "cutting a release IS
+updating the site's download"). An artifacts-only run is built with
+`publish: null` and carries no update metadata (Audit-Install L3-4): a
+"try this build" never replaces itself with the public release.
 
 ## Updating (DA6)
 
@@ -195,6 +265,11 @@ wiring (one endpoint, both gates, browser-only Download). If signed
 builds ever exist, electron-updater can replace the notice on
 Windows/Linux; the notice composes with that rather than fighting
 it.
+
+DA8 (2026-09-29) retired the LAUNCH dialog: a modal box on nearly every
+launch - a release lands several times a day - is a notice in the
+launcher window now, and later in the game; the menu's loud check keeps
+its three dialogs, and its Download opens this copy's own file (REL5).
 
 ## Updating in place (DA7, 2026-09-21)
 
@@ -233,10 +308,14 @@ keeps it too.
 the portable exe - today the NSIS install and the AppImage, the two
 electron-builder already cuts; `notice` for macOS (an unsigned app
 cannot swap itself there, and no signing identity exists), the Windows
-portable exe (a bare file that unpacks into `%TEMP%`; electron-builder
-writes no `app-update.yml` into it, and its launcher marks its process
-with `PORTABLE_EXECUTABLE_DIR`), and an unpackaged `electron .`. DA6
-stands under it as the fallback for those three, unchanged.
+portable exe (a bare file that unpacks into `%TEMP%`; it DOES carry an
+`app-update.yml` - both Windows targets pack one `win-unpacked`,
+Audit-Install R2-C5 - so the portable launcher's mark on its process,
+`PORTABLE_EXECUTABLE_DIR`, is the test, asked first), a Linux copy not
+running as its AppImage (electron-updater replaces only the AppImage
+named by `APPIMAGE`, and declines to check without one - R2-A10), and an
+unpackaged `electron .`. DA6 stands under it as the fallback for those,
+unchanged.
 
 **How the updater finds a release.** The GitHub provider asks
 `releases/latest` for its `tag_name` and downloads `latest.yml` under
@@ -269,6 +348,343 @@ dependency moved to dev - all dead.
 the first one after the merge carries the metadata, and copies
 installed from IT onward update in place. A copy installed before it
 has no updater and takes the notice one last time.
+
+## The launcher (DA8, 2026-09-29)
+
+Mac: *"How can we drastically improve the install experience? Is there
+anyway to send a notification that a new update is available and just
+overall improve the experience? A launcher? I really want to make it AAA
+grade."*
+
+**What the shell did, measured.** It opened straight into the game and
+updated on QUIT (DA7). With a release on every merge - eleven on
+2026-09-28 - a player launched into the build before the last one nearly
+every time, and online that is a client a protocol behind the relay it
+talks to (world117 to world125 in three days; the relay and the client
+share `net/wire.js`'s law, with no handshake between builds). They were
+never told an update existed, arrived, or what it changed: the website
+has SRV-N's build notice, and in the shell that poll reads the BUNDLED
+page, so it always answers "current". macOS and the portable exe got a
+modal dialog on nearly every launch. And the first run was a bare OS
+folder dialog before any window.
+
+**Why not a separate launcher program.** The updates are already small:
+the Windows releases' own blockmaps say an update between two of them is
+~4.5 MB of a 208 MB installer (2.0-2.2% across four pairs - the same diff
+electron-updater runs). A second program would make nothing smaller, and
+would be a second thing to install, sign and keep updated. What players
+mean by a launcher - a window that is theirs, the update shown and
+applied before play, what changed, the first-run setup, the game always
+current - the shell does in its FIRST WINDOW, the way Discord's does.
+
+**The window** (`app/launcher/`, drawn from `app/lib/launcherState.cjs`):
+dagger://launcher, its own origin; SANDBOXED, with a two-word bridge
+(`launcherPreload.cjs`: hear the view, say which button) - no storage, no
+files; a CSP with nothing remote and nothing inline; every word, the
+patch notes from GitHub included, reaching the page as text; the brand's
+own night, wordmark, rule and gem, every colour one the Enhanced skin
+uses (U63's law), and the two faces on disk (`fonts/README.md` - it runs
+before anything is known about the network). In order:
+
+1. **The update**, inside DA6's two gates. On the updater transport the
+   download is SHOWN (its MB~~, and "What's new"~~ - DA10: its notes in
+   the news, marked UPDATE) and installs BEFORE play:
+   "Installing", then the app closes, the NSIS or AppImage installer runs
+   silent (a visible NSIS would stop on a Finish page) and reopens it.
+   "Play now, update when I quit" (DA10: **Play without updating**) is the
+   way out - never the default Enter presses. On the notice transport the
+   window offers **Download** (this copy's own file, REL5) or **Play this
+   version** (DA10: Download beside Play). Silence never keeps anyone out:
+   an error, or no answer in CHECK_TIMEOUT_MS (8 s), lets the player in,
+   ~~and an answer that comes later is the game's to hear~~ (DA10: it
+   lands - the launcher is still open). An installer that never takes
+   over does not strand the player on "Installing" (INSTALL_GIVEUP_MS) -
+   and (Audit-Install L2-1) neither does a download that breaks off or
+   stalls, its end its own promise's, never a later check's (R2-A2).
+2. **The files** (DA9, below), only when no whole ARENA2 is configured.
+3. ~~**What's new**, once, on the launch that runs an update: the patch
+   notes of every version between the one the player had and this one~~
+   (DA10: the news panel, every launch - the latest releases' notes, the
+   versions since the player last played marked NEW. The "every version
+   between" was never true: the list is the latest 20 releases, and at
+   a release per merge that is about a day and a half, Audit-Install
+   L5-9.) electron-updater's own fullChangelog cannot read `app-v` tags -
+   it takes versions as semver and returns null.
+4. **The game**, built hidden and shown at its first paint - and only
+   THEN does the launcher close, so the app is never without a window.
+
+~~With nothing to decide it is a moment's splash.~~ (DA10: it waits for Play.)
+
+**And the app wears its own face.** Every build until this one shipped
+with Electron's atom as its icon (electron-builder said so each time:
+"default Electron icon is used") - in the taskbar, the Start menu, the
+dock, on the installer and inside the AppImage. It is the brand's own
+mark now, TI2's home-screen icon (`public/icons/icon-512.png`, the 'D'
+on the night), the one the website's install to a phone already wears.
+
+**After the launcher.** An update that lands later - "Play now", or the
+hourly re-check while playing (RECHECK_MS, inside the same gates) - is
+told IN THE GAME: a HUD line through notify's host-less door
+(`src/systems/shellUpdates.js`; `app/preload.cjs` keeps it for a page
+that subscribes late), saying what the player can do - it installs at
+quit, or now from **File > Restart to Update** (asked first: the game is
+running), or on the notice transport **File > Download v...**. Nothing
+restarts by itself. Told ONCE, by whoever can: the launcher when it took
+it, else the game - now, or at its first load (Audit-Install L2-6).
+
+**UNLOAD-ASK (found building Restart to Update).** The game's unload
+guard (`src/systems/unloadGuard.js`, MAC-L3) cancels an unload while
+progress is at risk, and a browser answers that with its own "Leave
+site?" box. Electron draws none - it just cancels the close (proven on
+Electron 42: a guard-shaped beforeunload, a real click, then close():
+`will-prevent-unload` fires and the window stays). So once a player was
+in the world the window's X, Alt+F4 and File > Quit did NOTHING, and an
+update could never install on quit. The shell asks the browser's
+question itself - **Leave / Stay**, Stay the default AND the cancel
+(`app/lib/shellDialogs.cjs`), asked only when the PLAYER leaves (the
+window closing, a quit, View > Reload; a navigation the page starts
+itself is kept, as Electron always kept it - Audit-Install L1-3) - and
+lets Restart to Update through only once the installer has really taken
+over (electron-updater's `before-quit-for-update`, Audit-Install L2-4).
+
+**Network, still honest.** The shell's own requests are the repo's
+read-only releases API and nothing else: `releases/latest` for the
+notice's check, and the recent-release list for the notes, ~~asked only
+when there is an update~~ (DA10: asked at every launch as the news,
+inside the same two gates, and kept in news.json). electron-updater's
+own requests are DA7's.
+Pinned exactly (`test/updatecheck.test.js`: every `net.fetch` is one of
+those or a file on disk).
+
+**Pinned** in `test/da8_launcher.test.js` (8 since DA10: the update and
+first-run screens by execution; the page and the shell's wiring by
+source),
+`test/autoupdate.test.js` and `test/updatecheck.test.js` (DA6/DA7's pins
+re-stated at the launcher's law), and driven for real by
+`tools/appShellProbe.mjs` under xvfb: the launcher is the first window,
+the first run with nothing found asks in the launcher and hands over to
+the game's own picker, a Steam library is found and its ARENA2 served to
+the game, a partial folder is not served, ~~"What's new" is shown once and
+config.json lets it go~~ (DA10: the front door's news and marks), and an
+update crosses the bridge to a page that subscribes after it arrived.
+`tools/mutants/da8.json`: ~~28~~ 22 (DA10 retired the six whose law it
+replaced, and re-aimed four), all dead.
+
+**Not seen on a machine**, said plainly: the silent install-and-reopen on
+a real Windows NSIS install, the AppImage's in-place swap, and anything
+on a real Mac. The calls are electron-updater's own documented ones
+(`quitAndInstall(isSilent, isForceRunAfter)`), the events are its own,
+~~and the whole flow above them is driven headless on Linux~~ - the
+probe drives the launcher, the first run and the handover in a real
+window, but always with the update check OFF (a probe never touches the
+network): the checking, downloading, installing and notice screens run
+in the pure tests ~~and in Chromium with a stubbed bridge~~ (that harness
+was never in the tree - Audit-Install R2-E10; `test/launcherDom.mjs` now
+runs `launcher.js` over `index.html` in the suite, fed views the real
+state makes), never against a live release (Audit-Install L5-19). The
+first release carrying this
+is the first real proof, and the first report from a Windows player is
+the one to read.
+
+## The launcher stays (DA10, 2026-09-29)
+
+Mac, of DA8's window: *"So this is an actual launcher now? Like
+warframe?"* - and, offered one that stays open every launch with a Play
+button, the latest patch notes and the player's options: *"Yes please."*
+
+**The front door.** DA8's window was Discord's: a splash that went away
+by itself whenever it had nothing to ask. Now it is the game's front
+door, the way Warframe's is (`app/launcher/`, drawn from
+`app/lib/launcherState.cjs`): it opens on EVERY launch and waits for
+**PLAY**. On the left, the **patch notes** - the latest releases' own
+notes (the repo's release list, the update check's own request inside
+its two gates, kept in `news.json` so the panel is up from the first
+paint and stays up when GitHub does not answer), the versions installed
+since the player last pressed Play marked **NEW**, one on its way marked
+**UPDATE**, a bare "Fixes and improvements." listed only when it is one
+of those. On the right, the player's own doors: **Game files** (the
+folder, and Change), **Saves** (open the folder), **Updates** (Check
+automatically - the File menu's checkbox, the same setting - and
+Reinstall, which asks first and downloads this copy's own installer).
+Along the bottom, the status bar - checking, downloading with its MB
+and "Play without updating", installing, "Updated to v...", "Up to
+date", offline, off - and PLAY.
+
+**Play is held only while something is being decided for the player**:
+an update checked for (at most CHECK_TIMEOUT_MS), fetched or installing,
+or no game files. Detection runs at once (the player chooses while the
+update downloads), and an install never cuts off the player's own
+screen - it waits while the first run's card is up, or one of the
+launcher's own dialogs, and the app reopens into the launcher on the new
+version. A launcher left open still hears: a late answer after the
+timeout, and the hourly re-check (it starts with the launcher now), land
+in it until Play is pressed. `config.json` keeps `lastPlayed` (the
+version Play was last pressed on) and `arena2InGame` (the game's own
+picker, chosen once, not asked again - on the SAVED folder's card, for
+that launch only: Audit-Install R2-D6); a config.json from before DA10
+has no lastPlayed, and the build it runs is marked NEW for that player -
+~~any config.json without one~~ (R2-A9: a first run that chose its files
+or flipped the switch before Play wrote one too, and was told "Updated
+to"; `launcherSeen` marks a config.json this launcher has seen).
+
+**Fixed on the way** (measured on Electron 42): `Menu.setApplicationMenu`
+sets the menu on EVERY window on Windows and Linux, so the launcher grew
+a File/View bar (and 27px) at the handover and whenever a notice rebuilt
+the menu - it is stripped from the launcher after every build. A second
+launch focuses the window the player can see, never a game window still
+being built hidden behind the launcher. A dock click with no window
+(macOS) opens the launcher, as a launch does. Every folder pick clears
+what the game stored before (Audit DA F-DA2's wipe, which only a
+RE-point used to trigger - a player of the in-page picker had no folder
+to re-point from), and the boot reloads only when something was there -
+~~at the next boot~~ at the next boot that runs, whichever launch it is:
+the clear is kept in config.json (`arena2IngestClear`) until it has run
+to its end (Audit-Install R2-D2: held in memory, it died with the
+install DA10 runs right after a pick).
+
+**Pinned** in `test/da10_launcher.test.js` (11, by execution and by
+source) beside DA8's restated pins; driven for real by
+`tools/appShellProbe.mjs` (the launcher stays, the kept news and its
+marks, the status bar, Enter plays - pressed, after the first run's card
+too, since Audit-Install R2-E1: it checked the focus, in the one
+scenario with no card - the switch writes config.json, no menu bar, Play
+keeps lastPlayed); `tools/mutants/da10.json`: 40, all dead.
+
+## The install audit (2026-09-29)
+
+Mac: *"...and audit what we have so far."* Five lanes read REL4, REL5,
+DA8, DA9 and DA10 independently - security, the update lifecycle, the
+release pipeline, ARENA2 detection, and the tests, docs and player's
+eye. Every verified finding was fixed at its root and pinned
+(`test/audit_install.test.js`, `tools/mutants/auditinstall.json`: 71,
+all dead); the record, finding by finding, is
+[Audit-Install.md](Audit-Install.md).
+
+Mac, again: *"Audit this."* Five fresh lanes read the PR after round 1's
+fixes, each told to find where round 1 did not hold - and round 1's own
+L1-5 fix had stopped every release (the Windows stamp read `"$VERSION"`
+in PowerShell, an unset variable). Every verified finding was fixed at
+its root and pinned (`test/audit_install2.test.js`,
+`tools/mutants/auditinstall2.json`: 123, all dead); the record is
+Audit-Install.md's [Round 2](Audit-Install.md#round-2-2026-09-29), and
+where it found a claim on this page untrue, the claim is struck here.
+
+## The install is one archive (DA11, 2026-09-30)
+
+Mac: *"Everytime DFO updates, even with the launcher, it deletes
+itself."*
+
+The built site shipped BESIDE the app, as `extraResources`: 18,354
+loose files under `resources/dist`, 18,430 in the Windows install (read
+out of the published app-v0.1.5024 setup's `app-64.7z`). A Windows update is
+electron-builder 25.1.8's silent NSIS, and it replaces the install one
+file at a time: the OLD version's uninstaller moves every installed
+file out to `%TEMP%` (`un.atomicRMDir`, a Rename each), then the NEW
+installer unpacks every file to `%TEMP%` and copies each one in
+(`extractUsing7za`) - no window, the antivirus reading every new file.
+The install folder stood EMPTY for as long as that took, while the
+launcher said "closes and reopens by itself in a few seconds". The
+player found the app gone; a shortcut clicked in that window is a dead
+one Windows offers to delete, and the update (keeping shortcuts) never
+makes it again; a setup run by hand quits on the silent installer's
+one-instance lock; and a restart or a logoff in that window leaves no
+app at all.
+
+The site rides INSIDE `app.asar` now (`app/package.json` `files`: `{
+"from": "../dist", "to": "dist" }`), and packaged, `DIST` is
+`<app.asar>/dist`. The Linux build's install is 74 files where it was
+18,428 (measured: `electron-builder --linux dir`, before and after), and
+every one of the 18,354 site files is in the archive byte for byte. Electron's fs and its
+`file://` fetch both read inside an asar - measured on Electron 42
+(stat, readFile, `net.fetch` of a 3 MB file whole) - so `handleDagger`
+is unchanged. `tools/appShellProbe.mjs` with `DAGGER_SHELL_EXE` at the
+PACKAGED build: 61 ok, all green, the same 61 as the old packaging;
+with software GL the packaged game boots to its intro out of the
+archive, no page errors. The portable exe gains too - it unpacked all
+18,430 files into `%TEMP%` at every launch.
+
+**The first update onto DA11 is the last slow one**: the uninstaller
+that runs is the OLD version's, and it still moves the 18,354 files
+out. The installer side is already the new one's.
+
+**Not seen on a machine**, said plainly: a real Windows NSIS update,
+before or after. The mechanism is read in electron-builder 25.1.8's
+own NSIS templates (`uninstaller.nsh`, `include/installUtil.nsh`,
+`include/extractAppPackage.nsh`) and the published installer's
+contents; the fix is measured on the Linux package.
+
+**Pinned** in `test/da11_install_whole.test.js` (2): the site in the
+archive and nowhere beside it, and the shell reading it there.
+
+## Finding the game files (DA9, 2026-09-29)
+
+**A2-WHOLE, still open in the app.** The shell's test for "this is
+ARENA2" was ART_PAL.COL alone; the game's has been the seven files every
+boot reads since A2-WHOLE (Discord, 2026-09-22: "boot failed: ARCH3D.BSA:
+404"). The website stopped storing a partial folder that day. The app
+kept accepting one: a DOS install's small ARENA2 (the BSAs left on the
+CD) passed, was saved to config.json, served the palette and died on the
+first model - and the shell never asked again, because the path it had
+was "valid". Every folder, picked or saved, is held to REQUIRED_ARENA2
+now (`app/lib/arena2Detect.cjs`, pinned equal to `dataSource.js`'s), so
+a saved partial folder brings the launcher back to asking, and a picked
+one is told which files it lacks.
+
+**The shell looks before it asks.** On a first run the launcher looks
+where a copy of Daggerfall is actually installed: Daggerfall Unity's own
+settings.ini (`[Daggerfall] MyDaggerfallPath` - the folder its setup
+already validated; read from DFU's source, company "Daggerfall Workshop",
+product "Daggerfall Unity"; a portable DFU's relative path is skipped),
+every Steam library in libraryfolders.vdf at the installdir app 1812390's
+manifest names (Steam's own registry key on Windows; one install behind
+a symlink offered once), GOG Galaxy's registry and GOG's default homes,
+and a folder named for Daggerfall where a DaggerfallGameFiles.zip gets
+unpacked. Bounded (depth and folders opened), read-only, never throwing.
+It OFFERS what it finds - "Found your Daggerfall files: Steam, <path>,
+Use these files" - and never takes it silently; with nothing found it
+says where to get the game (Steam, GOG) and keeps the game's own
+in-page picker one click away, as the website's path always was. Pinned
+in `test/da9_arena2detect.test.js` (~~8~~ 14, over real temp trees);
+`tools/mutants/da9.json`: 10, all dead.
+
+**The audit's changes (Audit-Install, lane 4).** The search runs in a
+~~worker thread~~ process of its own (round 2, below) under DETECT_DEADLINE_MS (5 s), its finds streamed so a
+search stopped early still offers what it had - it had run on the main
+process, and a sleeping drive or a hung reg.exe froze the launcher's
+first paint. It finds what it missed: a zip unpacked with "Extract Here"
+(a bare `arena2/` in Downloads), folders moved by Windows' Known Folder
+Move or named in another language (the shell passes `app.getPath`),
+links and junctions (followed once), a whole `ARENA2` beside a partial
+`arena2`, and GOG by Daggerfall's own product key (1435829353) whatever
+the folder is called. `reg.exe` is run by its own path and read through
+`reg export`'s UTF-16 file. On a Mac, Downloads, Desktop and Documents -
+each a privacy prompt - are read only when nothing else was found (true
+since round 2 reads ~/Games before them, R2-D5), and the prompt says why; a Mac is sent to DaggerfallGameFiles.zip (Steam and
+GOG sell Daggerfall for Windows only). A folder picked three levels too
+high (Steam's "Browse local files") is searched, not refused; one that
+cannot be read is said to be unreadable; and a SAVED folder that fails
+is named, with Try again, instead of the first run's "Where is
+Daggerfall?". GOG's own layout is arena2 in the game folder, beside
+FALL.EXE - the words, and the fixtures, said DF/DAGGER/ARENA2 for both.
+
+**Round 2 (Audit-Install R2-D1..D8).** Every look at
+the player's disks - the saved folder, a pick, a found folder taken, Try
+again, the search - runs in an Electron utility process
+(`app/lib/arena2Probe.cjs`, `utilityProcess.fork`) under a deadline
+(JUDGE_DEADLINE_MS 5 s, PICK_DEADLINE_MS 15 s), killed once it has
+answered or has not, and at quit. The saved folder was still read on the
+main process before the window (a share that was down: no launcher at
+all), and a worker thread stuck in the kernel cannot be terminated -
+Electron waited for it at quit; a killed process holds nothing. The
+launcher is on screen first, `checking` the saved folder beside it. At
+DETECT_DEADLINE_MS the card shows what there is and the search goes on
+("Still looking on slower drives"), a later find added to the card - a
+Steam drive spinning up, a Mac's privacy prompt answered late. A pick's
+walk opens folders named for Daggerfall first (from steamapps/common the
+budget went on forty other games), and a walk cut short is never "holds
+no Daggerfall files". The in-page copy a pick clears is kept until it
+has been cleared (R2-D2, above), a refusal is said where the player can
+see it, and a found folder whose drive went away "cannot be read".
 
 ## Saves move between the website and the app (SP1, 2026-09-21)
 
@@ -322,6 +738,23 @@ are still in that browser - open the site, Load, Export all saves, then
 in the app Load, Import a zip. If you played in the app, they are files
 in `%APPDATA%\Daggerfall JavaScript\Saves` (File > Open Saves Folder),
 and an update never touches that folder.
+
+## The frame rate: VSync read at launch (FPS-VSYNC, 2026-09-28)
+
+Mac, asked whether the app should run above the screen's refresh: "Yes". A page's frames always wait for the screen;
+the shell's Chromium can stop waiting, but only if told before it starts. So `main.cjs`, after pinning userData and
+before the app is ready, asks `lib/frameRate.cjs` for the player's saved `Video/VSync` (the page's settings blob,
+`Prefs/dagger.settings.v1`, through the same file store the page writes with) and, with it OFF, appends
+`disable-gpu-vsync` and `disable-frame-rate-limit`. The page's Frame Rate Cap then holds the frames, as DFU's
+targetFrameRate does with VSync off; VSync on, the default, launches exactly as before. The settings screen offers
+the VSync switch in the app only, and says it takes effect the next time the app starts.
+
+AUDIT 28e: the switches are read ONCE (`FRAME_SWITCHES`) and the page is told what this launch runs with - the preload's
+`daggerShell.framesLifted`, over the sync `dagger:frames-lifted` - because with the wait lifted the page must pace its
+own frames (`src/systems/frameCap.js` installFramePacer; a held frame would cost a whole refresh). The launch read is
+one file (`lib/fileStorage.cjs` readPref), not a whole store: building one listed every save slot before the
+single-instance lock. On macOS closing the window does not quit the app, so "the next time the app starts" means a
+quit (Cmd+Q) and a start - reopening from the dock keeps the old switches.
 
 ## What deliberately did NOT move
 

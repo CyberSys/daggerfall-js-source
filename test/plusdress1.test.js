@@ -65,14 +65,16 @@ test('PLUS-DRESS the roles: the journal page, the F-menu, the decorator (a whole
 
 test('PLUS-DRESS the WARN role: a press that costs something (leave, remove, disband, challenge) is edged in blood lit from the top left, brighter under the pointer and never brass, sunk while held - written BEFORE the disabled rule, so a warn that cannot be pressed goes flat like any other; paint only (mutants: the warn edge after the disabled rule, brass on a warn\'s hover)', () => {
   const at = (s) => FRAME_CSS.indexOf(s);
-  const rest = at('body .dfsocial-btn.warn,\nbody .dfprofile-duel { border-color: #e0584a #5a130f #3d0d0a #b83a2e;');
+  // NAV-F (2026-09-28) joined the role: scuttling a prize (`body .dfnaval-scuttle`, a `.dfnaval-btn` first)
+  // REVENANT-FATE / COMPANION-ROSTER (the 2026-10-02 audit): and an execution, and a release confirmed
+  const rest = at('body .dfsocial-btn.warn,\nbody .dfprofile-duel,\nbody .dfnaval-scuttle,\n.pack-shell .fate-confirm .act.warn,\n.px-sys .cmp-acts .act.warn { border-color: #e0584a #5a130f #3d0d0a #b83a2e;');
   assert.ok(rest > 0, 'the edge');
-  const hover = at('body .dfsocial-btn.warn:hover:not(:disabled),\nbody .dfprofile-duel:hover:not(:disabled), body .dfsocial-btn.warn:focus-visible,\nbody .dfprofile-duel:focus-visible { border-color: #ff8a76 #7a1d16 #5a130f #e0584a;');
+  const hover = at('body .dfsocial-btn.warn:hover:not(:disabled),\nbody .dfprofile-duel:hover:not(:disabled),\nbody .dfnaval-scuttle:hover:not(:disabled),\n.pack-shell .fate-confirm .act.warn:hover:not(:disabled),\n.px-sys .cmp-acts .act.warn:hover:not(:disabled), body .dfsocial-btn.warn:focus-visible,\nbody .dfprofile-duel:focus-visible,\nbody .dfnaval-scuttle:focus-visible,\n.pack-shell .fate-confirm .act.warn:focus-visible,\n.px-sys .cmp-acts .act.warn:focus-visible { border-color: #ff8a76 #7a1d16 #5a130f #e0584a;');
   assert.ok(hover > rest, 'brighter blood under the pointer');
-  assert.ok(at('body .dfsocial-btn.warn:active:not(:disabled),\nbody .dfprofile-duel:active:not(:disabled) { border-color: #3d0d0a #b83a2e #e0584a #5a130f; }') > hover, 'sunk while held');
+  assert.ok(at('body .dfsocial-btn.warn:active:not(:disabled),\nbody .dfprofile-duel:active:not(:disabled),\nbody .dfnaval-scuttle:active:not(:disabled),\n.pack-shell .fate-confirm .act.warn:active:not(:disabled),\n.px-sys .cmp-acts .act.warn:active:not(:disabled) { border-color: #3d0d0a #b83a2e #e0584a #5a130f; }') > hover, 'sunk while held');
   const disabled = at('body .dfsocial-btn:disabled');
   assert.ok(disabled > rest && disabled > hover, 'the disabled rule comes after and wins at the same weight');
-  assert.ok(FRAME_ROLES.button.includes('body .dfprofile-duel') && FRAME_ROLES.button.includes('body .dfsocial-btn'), 'a warn is a button first');
+  assert.ok(FRAME_ROLES.button.includes('body .dfprofile-duel') && FRAME_ROLES.button.includes('body .dfsocial-btn') && FRAME_ROLES.button.includes('body .dfnaval-btn'), 'a warn is a button first');
 });
 
 test('PLUS-DRESS what a role cannot say: the words stay bone under the kit\'s hover (and the kit\'s hover said again where a native :not() outweighed it); each press the lane drew borderless or on a line gets a 2px edge taken out of its padding, so it keeps its size; the duel strip, the boss\'s bar and the gate\'s countdown in the pixel face; the Renown box a brass plaque wherever a name wears it, its bar the vitals\' own with clasps; the party\'s lines in the vitals\' tones (mutants: a width-changing edge, a border shorthand that wipes the kit\'s colours, the serif left on the gate)', () => {
@@ -122,23 +124,23 @@ test('PLUS-DRESS the gate: the boss\'s bar and the countdown paint from CLASSES 
   drawGateBossBar(model, { doc });
   drawGateBossBar({ ...model, frac: 0.4 }, { doc });
   const root = doc.body.children[0];
-  assert.equal(root.className, 'wb-boss-bar');
-  assert.deepEqual(root.children.map((c) => c.className), ['wb-boss-name', 'wb-boss-track', 'wb-boss-callout', 'wb-boss-foot']);
-  const track = root.children[1];
-  assert.deepEqual(track.children.map((c) => c.className), ['wb-boss-fill', 'wb-boss-mark', 'wb-boss-mark', 'wb-boss-ward']);
-  assert.equal(track.children[0].style.width, '40.0%');
-  assert.equal(track.children[3].style.display, 'none');
+  assert.deepEqual(root.children.map((c) => c.className), ['wb-boss-name', 'wb-boss-sub', 'wb-boss-track', 'wb-boss-marks', 'wb-boss-callout', 'wb-boss-foot']);   // WB9a: the night's marks under his health (WB8b's trials line under his name, moved and drawn whole); WB13c: his epithet's line
+  const track = root.children[2];
+  assert.deepEqual(track.children.map((c) => c.className), ['wb-boss-ghost', 'wb-boss-fill', 'wb-boss-mark', 'wb-boss-mark', 'wb-boss-ward']);   // WB13c: the trailing segment under the fill
+  assert.equal(track.children[1].style.width, '40.0%');
+  assert.equal(track.children[0].style.width, '50.0%', 'WB13c: where he was, held');
+  assert.equal(root.className, 'wb-boss-bar intro', 'WB13c: his first showing; no ward - a class, never a node shown and hidden');
   assert.ok(made.every((n) => n.style.cssText === undefined), 'no part carries its paint inline');
   assert.equal(styles.filter((s) => s.id === BOSS_BAR_STYLE_ID).length, 1, 'the sheet, once');
   assert.equal(styles[0].textContent, BOSS_BAR_CSS);
-  for (const c of ['wb-boss-bar', 'wb-boss-name', 'wb-boss-track', 'wb-boss-fill', 'wb-boss-mark', 'wb-boss-ward', 'wb-boss-callout', 'wb-boss-foot']) {
+  for (const c of ['wb-boss-bar', 'wb-boss-name', 'wb-boss-sub', 'wb-boss-track', 'wb-boss-ghost', 'wb-boss-fill', 'wb-boss-mark', 'wb-boss-ward', 'wb-boss-marks', 'wb-boss-chip', 'wb-boss-chip-head', 'wb-boss-chip-icon', 'wb-boss-chip-name', 'wb-boss-callout', 'wb-boss-callout-line', 'wb-boss-move', 'wb-boss-foot', 'wb-boss-tag', 'wb-boss-wrath']) {
     assert.match(BOSS_BAR_CSS, new RegExp(`\\.${c} \\{`), c);
     assert.match(ONLINE_DRESS_CSS, new RegExp(`body \\.${c}\\b`), `${c} is dressed under Plus`);
   }
   destroyGateBossBar();
   destroyGateBanner();
-  drawGateBanner('Oblivion Gate - opens in 3:12', { doc });
-  drawGateBanner('Oblivion Gate - opens in 3:11', { doc });
+  drawGateBanner('Dagon\'s Breach - opens in 3:12', { doc });
+  drawGateBanner('Dagon\'s Breach - opens in 3:11', { doc });
   const banner = made.at(-1);
   assert.equal(banner.className, 'wb-gate-banner');
   assert.equal(banner.style.cssText, undefined);

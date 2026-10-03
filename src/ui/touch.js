@@ -111,6 +111,7 @@ const edge = (side, px) => `${side}:calc(${px}px + env(safe-area-inset-${side}, 
 // name every caller imports.
 import { isTouchDevice } from './touchDevice.js';
 export { isTouchDevice };
+import { touchButtonSlots, layoutTouchCorner, attackStroke } from './touchButtons.js';   // TOUCH-BUTTONS: the corner is the player's
 
 const KEY_NAMES = { KeyW: 'w', KeyA: 'a', KeyS: 's', KeyD: 'd', KeyZ: 'z', Space: ' ', ShiftLeft: 'Shift', Tab: 'Tab', Escape: 'Escape', Enter: 'Enter', ArrowUp: 'ArrowUp', ArrowDown: 'ArrowDown', Equal: '=', Minus: '-' };
 function synth(type, code) {
@@ -125,7 +126,7 @@ function synth(type, code) {
 // InputManager.GetKey's dual-dict fallthrough :1084). Move Jump off
 // Space in the controls window and the JUMP button fired whatever now
 // owned Space; move Run off ShiftLeft and the stick's 80% throw did
-// nothing. The reverse lookup is GetBinding (inputActions.js:869,
+// nothing. The reverse lookup is GetBinding (inputActions.js:987,
 // InputManager.cs:641-671) and it is exactly what the automap, rest
 // and exterior-automap windows already ask. Resolved at PRESS time, so
 // a rebind takes effect on the next touch with no re-attach.
@@ -143,7 +144,10 @@ const codesOf = (code) => (code == null ? [] : (getCombo(code) ?? [code]));
 /**
  * Attach the touch layer.
  * @param canvas the game canvas (drag surface)
- * @param hooks { look(dx,dy), attack?(dx,dy,held), tap?(x,y), locked?(), dial?, enhanced?, cycleMode?(), socialInteract?(), overlayActive?(), paused?() }
+ * @param hooks { look(dx,dy), attack?(dx,dy,held), tap?(x,y), locked?(), dial?, enhanced?, cycleMode?(), socialInteract?(), overlayActive?(), paused?(), stickRuns?(), aimHold?() }
+ *   - stickRuns: AUDIT PRE-MERGE 0928 U3 - false stands the stick's 80%-throw Run down (the boat's helm); absent, it runs.
+ *   - aimHold: NAV-H - true while the attack is a held aim (a helm with guns): the swipe presses it once and the
+ *     finger's drag under it is a look - the guns are laid by the view; the lift fires them. Absent, the drag swings.
  *   TI2 adds nothing to the hooks: the analog stick is read FROM the
  *   handle (`axes()`), the gyro goes through `look`.
  *   - attack/tap/dial omitted on scenes without them (the fly-cam
@@ -163,12 +167,12 @@ export function attachTouch(canvas, hooks = {}) {
   // FONT1 (2026-09-16, Mac: "Any enhanced UI or text must be our enhanced version"): under the enhanced skin the layer's
   // buttons, entry field and nav are in the pixel face (ui/pixelifyFive.js PIXEL_FONT_CSS - one home); the classic skin
   // keeps the system face it always drew. The skin cannot change without a reload, so the boot-time hook is exact.
-  const face = hooks.enhanced ? `font-weight:500;font-size:15px;${PIXEL_FONT_CSS}` : 'font:600 15px system-ui,-apple-system,"Segoe UI",sans-serif';
+  const face = hooks.enhanced ? `${PIXEL_FONT_CSS}font-weight:500;font-size:15px;` : 'font:600 15px system-ui,-apple-system,"Segoe UI",sans-serif';
   // AUDIT FONT F6: the naming field sets its OWN font shorthand (it is
   // an <input>, which inherits nothing from the layer), so the one
   // place on this layer a player TYPES in was the one place FONT1's
   // face never reached. Same size, this skin's letters.
-  const entryFace = hooks.enhanced ? `font-weight:600;font-size:18px;${PIXEL_FONT_CSS}` : 'font:600 18px system-ui,-apple-system,sans-serif';
+  const entryFace = hooks.enhanced ? `${PIXEL_FONT_CSS}font-weight:600;font-size:18px;` : 'font:600 18px system-ui,-apple-system,sans-serif';
   ui.style.cssText = `position:fixed;inset:0;pointer-events:none;z-index:5;${face};-webkit-user-select:none;user-select:none;-webkit-touch-callout:none`;
   document.body.appendChild(ui);
 
@@ -304,7 +308,7 @@ export function attachTouch(canvas, hooks = {}) {
   button('≡', edge('left', hooks.dial ? 72 : 16), edge('top', 16), 48, () => tapAction('Escape'));   // the menu: the pause window, save and load inside it
   // AUDIT 62 F8: each held button captures the code it resolved at the
   // press and lifts THAT one, so a rebind mid-hold cannot strand a key.
-  let jumpCode = null, sheatheCode = null;
+  const slotHeld = new Map();   // TOUCH-BUTTONS: a held slot's button -> the code it holds (TI1's jumpCode and sheatheCode, per slot)
   // AUDIT 62 F8 (review): A CONTROL LIFTS ONLY THE KEYS NO OTHER LIVE
   // CONTROL STILL NEEDS. The stick already released against
   // `liveNeeds()`; the two held BUTTONS released bare, so any code they
@@ -320,13 +324,64 @@ export function attachTouch(canvas, hooks = {}) {
   // what the live controls want, and a release subtracts only its own.
   // The code is cleared BEFORE the lift so `liveNeeds()` does not count
   // the control that is letting go.
-  button('↑↑', edge('right', 16), edge('bottom', 16), 64, () => { jumpCode = downAction('Jump'); }, () => { const c = jumpCode; jumpCode = null; upCode(c, liveNeeds()); });   // jump
-  button('Z', edge('right', 96), edge('bottom', 16), 52, () => { sheatheCode = downAction('ReadyWeapon'); }, () => { const c = sheatheCode; sheatheCode = null; upCode(c, liveNeeds()); });   // ReadyWeapon: sheathe toggle (held-style so the per-frame edge reads it)
+  // TOUCH-BUTTONS (2026-09-27, Discord: "I haven't been able to remap the android "buttons" on the bottom right of the
+  // screen. I would much rather use a button to attack"): TI1's two - Jump and Ready Weapon (held-style, so the
+  // per-frame edge reads it) - are the first two of THREE SLOTS the player fills from ui/touchButtons.js's table on
+  // the Touch card, Attack among them. A HOLD slot is the action's key down while the finger is; a TAP slot one press
+  // of it; the ATTACK slot a swing through the swipe's own seam (a readied spell fires first, as the swipe's press
+  // fires it) with a stroke drawn at random - the click-to-attack swing's. A host with no attack (the fly-cam) is
+  // offered none: a drawn door that opens nothing is the lie. The mode cycle and the F button follow the slots, and
+  // the corner is re-laid by the poll below when the Touch card changes it.
+  let slotButtons = [], cornerSig = '', attacking = null, attackSeq = 0;
+  const placeRight = (b, px) => { b.style.right = `calc(${px}px + env(safe-area-inset-right, 0px))`; };
+  let modeBtn = null, socialBtn = null;
+  /** AUDIT TOUCH-BUTTONS A1: `fn` two animation frames on (at once where there are none - a test's page). */
+  const afterFrames = (fn) => { const raf = globalThis.requestAnimationFrame; if (typeof raf === 'function') raf(() => raf(fn)); else fn(); };
+  function layoutCorner() {
+    const actions = touchButtonSlots(getPref).filter((a) => a.kind !== 'attack' || typeof hooks.attack === 'function');
+    const sig = actions.map((a) => a.id).join(',');
+    if (sig === cornerSig) return;
+    cornerSig = sig;
+    for (const [b, c] of slotHeld) { slotHeld.delete(b); upCode(c, liveNeeds()); }   // nothing stays down under a button that is going
+    if (attacking) { attacking = null; hooks.attack?.(0, 0, false); }
+    for (const b of slotButtons) b.remove();
+    slotButtons = [];
+    const { slots, mode, social } = layoutTouchCorner(actions, { mode: !!modeBtn, social: !!socialBtn });
+    for (const { action, right } of slots) {
+      let b = null;
+      const at = [edge('right', right), edge('bottom', 16), action.w ?? 60];
+      if (action.kind === 'hold') {
+        b = button(action.glyph, ...at, () => { slotHeld.set(b, downAction(action.id)); }, () => { const c = slotHeld.get(b) ?? null; slotHeld.delete(b); upCode(c, liveNeeds()); });
+      } else if (action.kind === 'tap') {
+        b = button(action.glyph, ...at, () => tapAction(action.id));
+      } else if (action.kind === 'attack') {
+        // the pause gate the swipe carries (AUDIT 62 F7): no swing under a window; the release is never gated
+        // AUDIT TOUCH-BUTTONS A1: THE LIFT WAITS TWO FRAMES. The rig keeps the live button (weaponRig.attackInput) and
+        // reads it once a frame, so a tap lifted before the host's next frame - a quick one, or any during a long
+        // frame - swung nothing; held that long, the frame sees the press. A new press in between is its own.
+        // TOUCH-RETAP (AUDIT 2026-10-01 part four): A PRESS IN BETWEEN LIFTS THE ONE BEFORE IT FIRST - the stale lift lets
+        // nothing go, so the hook heard held, held: no press at all to whatever reads the press's edge (an act's strike,
+        // ACT-TOUCH's), and a quick second tap struck nothing. The rig reads the button's level, and sees it held as before.
+        const seq = () => attackSeq;
+        b = button(action.glyph, ...at, () => { if (hooks.paused?.()) return; const s = attackStroke(); if (attacking === b) hooks.attack(0, 0, false); attacking = b; attackSeq++; hooks.attack(s.dx, s.dy, true); },
+          () => {
+            if (attacking !== b) return;
+            const mine = seq();
+            afterFrames(() => { if (attacking === b && attackSeq === mine) { attacking = null; hooks.attack(0, 0, false); } });
+          });
+      }
+      if (!b) continue;
+      b.setAttribute?.('aria-label', action.label);   // (the test harness's stub element has none)
+      slotButtons.push(b);
+    }
+    if (modeBtn) placeRight(modeBtn, mode);
+    if (socialBtn) placeRight(socialBtn, social);
+  }
   if (hooks.cycleMode) {
     // T3-touch: NextInteractionMode (Steal > Grab > Info > Talk wrap,
     // verbatim order) - the phone's path to the F1-F4 modes. The
     // label shows the LIVE mode (grab is the boot default).
-    const modeBtn = button('grab', edge('right', 160), edge('bottom', 16), 64,
+    modeBtn = button('grab', edge('right', 160), edge('bottom', 16), 64,
       () => { modeBtn.textContent = hooks.cycleMode(); });
   }
   // AUDIT SOC C9: THE PHONE'S OWN F. SOC5 gave the port an action of its
@@ -340,7 +395,8 @@ export function attachTouch(canvas, hooks = {}) {
   // calls the HOST'S OWN DOOR rather than synthesizing the key: the door
   // answers true or false on its own terms (scenes/world.js
   // socialInteract) and an offline page is a host that passes no hook.
-  if (hooks.socialInteract) button('☺', edge('right', hooks.cycleMode ? 232 : 160), edge('bottom', 16), 48, () => { hooks.socialInteract(); });
+  if (hooks.socialInteract) socialBtn = button('☺', edge('right', hooks.cycleMode ? 232 : 160), edge('bottom', 16), 48, () => { hooks.socialInteract(); });
+  layoutCorner();   // TOUCH-BUTTONS: the slots, and the two above placed after them
 
   // Overlay-nav row (classic windows navigate on arrows/Enter/Esc) -
   // shown by itself while a classic overlay holds the game.
@@ -392,6 +448,7 @@ export function attachTouch(canvas, hooks = {}) {
     if (hooks.overlayActive?.()) dot.style.display = 'none';
     setGyro(!!getPref('touchGyroLook'));   // TI2: the pref can flip while the layer is up (the Touch card)
     if (stickId === null && fixedStick() !== (stick.style.display === 'block')) restStick();   // ...and so can the anchor
+    if (!slotHeld.size && !attacking) layoutCorner();   // TOUCH-BUTTONS: ...and the corner's slots - never under a finger
   }, NAV_POLL_MS);
 
   // TI2: THE GYRO. devicemotion's rotationRate, integrated over the
@@ -443,7 +500,7 @@ export function attachTouch(canvas, hooks = {}) {
   const liveNeeds = () => {
     const s = new Set();
     for (const c of stickHeld.values()) for (const k of codesOf(c)) s.add(k);
-    for (const c of [jumpCode, sheatheCode]) for (const k of codesOf(c)) s.add(k);
+    for (const c of slotHeld.values()) for (const k of codesOf(c)) s.add(k);   // TOUCH-BUTTONS: every held slot
     return s;
   };
   function setStickKey(action, want) {
@@ -464,7 +521,7 @@ export function attachTouch(canvas, hooks = {}) {
     on('MoveBackwards', !dead && dy > 0 && Math.abs(dy) >= Math.abs(dx) * 0.414);
     on('MoveLeft', !dead && dx < 0 && Math.abs(dx) >= Math.abs(dy) * 0.414);
     on('MoveRight', !dead && dx > 0 && Math.abs(dx) >= Math.abs(dy) * 0.414);
-    on('Run', !dead && mag >= RUN_THROW);
+    on('Run', !dead && mag >= RUN_THROW && hooks.stickRuns?.() !== false);   // AUDIT PRE-MERGE 0928 U3: the host may stand the throw's Run down - Come Sail Away's helm reads Run + a side key as the strafe, so a full push would never turn the boat
   }
 
   // AUDIT 62 F7: THE PAUSE GATE THE MOUSE ARMS ALWAYS CARRIED. The
@@ -499,6 +556,8 @@ export function attachTouch(canvas, hooks = {}) {
       } else if (ev.type === 'swipe') {
         if (ev.held) {
           if (paused) { if (swiping) { swiping = false; hooks.attack?.(0, 0, false); } continue; }
+          // NAV-H: at a helm with guns the hold is the broadside's aim - pressed once, and the drag under it a look
+          if (swiping && hooks.aimHold?.()) { hooks.look?.(ev.dx * TOUCH_LOOK_GAIN * lookNorm(), ev.dy * TOUCH_LOOK_GAIN * lookNorm()); continue; }
           if (!swiping) buzz(15);   // TI2: the hold armed - the finger is told
           swiping = true;
         } else swiping = false;

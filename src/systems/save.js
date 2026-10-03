@@ -18,24 +18,29 @@ import { rebuildEquipState, isEquipped, unequipSlot } from './equip.js';   // AU
 import { templateByIndex } from './itemTemplates.js';   // AUDIT 63r F28: `shortName` is SetItem's template read, not an optional override
 import { restartHeldEnchantments } from './enchantments.js';   // E2: the held bundles' restore half
 import { snapshotWeather, restoreWeather, rollClimateWeathersForDay } from './weatherSim.js';   // W1: playerPosition.weather (SerializablePlayer.cs:225) - one value, every host; AUDIT WORLD5 C4: the shared day's sky over a loaded one
-import { snapshotRegionConditions, restoreRegionConditions } from './regionConditions.js';   // S42: the CONDITION half of RegionDataRecord
+import { snapshotRegionConditions, restoreRegionConditions } from './regionConditions.js';
+import { snapshotStanding, restoreStanding } from './standing.js';   // REP: the standing book   // S42: the CONDITION half of RegionDataRecord
 import { snapshotDiscovery, restoreDiscovery } from './discovery.js';   // T4
 import { getWorldVariationSaveData, restoreWorldVariationData, clearWorldDataVariants } from './worldDataVariants.js';   // RR3b: the world-data variants ride the save
 import { snapshotAutomap, restoreAutomap } from './automap.js';   // A1: dictAutomapDungeonsDiscoveryState rides SaveData_v1
 import { createSceneCache, snapshotSceneCache, restoreSceneCache } from './sceneCache.js';   // P1
 import { seedCustomSpellIndex } from './spellMaker.js';   // S1: made spells carry their own record
-import { seedBundleSeq } from './effects.js';   // X10: the live-bundle counter's restore half
+import { seedBundleSeq, effectKindLoaded } from './effects.js';   // X10: the live-bundle counter's restore half; AUDIT PRE-MERGE 0928 S3: a mod's effect restores only while its mod is loaded
 import { repairLostCurses } from './curseRepair.js';   // CURSE-REPAIR1: a curse the round clock pruned, given back
 import { repairUnmintedConditions } from './conditionRepair.js';   // DISC21-A: a wearable minted with no condition, minted
+import { restackStones, nameEmbers } from './gateSpoils.js';   // SS1: Sigil Stones saved before they stacked, folded into one stack; WB12a: and named Deadlands Embers
+import './profTemplates.js';   // PROF2: the ores, ingots and stone a pack may hold, known to every scene a save loads in
+import { repairRarityNames, repairRarityBases } from './lootRarity.js';   // DISC29-B: a Magic or Rare Roleplay & Realism: Items piece given back its make's word; RARITY-WEAR: a rolled wand worn as an Amulet
 import { SOCIAL_GROUPS } from '../formats/factionFile.js';   // AUDIT 24
 import { travelMapSaveData, restoreTravelMapSaveData } from './travelMapState.js';   // U41: TravelMapSaveData
 import { getEscortFacesSaveData, restoreEscortFacesSaveData } from '../ui/hudEscortFaces.js';   // FE1: SaveData_v1.escortingFaces
 import { quickslotSaveData, restoreQuickslotSaveData } from './quickslots.js';   // QS1: the quickslot diamond rides the one composer
-import { resetMagicRoundMarker, sharedClockOn, worldMinutes, alignEntityClocks } from './worldTick.js';   // EntityEffectBroker.InitMagicRoundTimer, on the LOAD arm (:230-233); AUDIT WORLD5 C4: a load online is an arrival
-import { alignSurvival, pauseSurvival } from './survival/needs.js';   // SURV7: the needs' markers on the load arm
-import { survivalOn } from './survival/switch.js';   // AUDIT SURV-TIERS (the third pass): an Off player's absence is Off's
+import { resetMagicRoundMarker, sharedClockOn, worldMinutes, alignEntityClocks, setOwnMinutes, ownMinutes, normalizeAcross, payAbsenceWhenHeard, worldMinutesToSave } from './worldTick.js';   // EntityEffectBroker.InitMagicRoundTimer, on the LOAD arm (:230-233); AUDIT WORLD5 C4: a load online is an arrival; AUDIT LIVED1b P4: its absence on the relay's clock
+import { questBlockOnOwnClock } from './quest/questStamps.js';   // TIME3: an online save from before TIME3, its quest countdowns onto the character's clock
+import { alignSurvival, ALIGN_GRACE_MINUTES } from './survival/needs.js';   // SURV7: the needs' markers on the load arm
+import { saneSaveClock } from './offlineCopy.js';   // AUDIT LIVED1b F3: the envelope's clocks, read once - the doors' law too
 import { isMembershipStore } from './guilds.js';   // V2e: the two-book membership store rides the save whole
-import { createBankAccounts, createHouses } from './banking.js';   // JAN1: a save with no accounts restores the full table - an EMPTY one is truthy and the host's `??=` never minted it
+import { createBankAccounts, createHouses, LOAN_AMNESTY } from './banking.js';   // JAN1: a save with no accounts restores the full table - an EMPTY one is truthy and the host's `??=` never minted it
 import { setItemFields } from './itemTemplates.js';   // JAN1: an item saved before MAC-N1 (no value) is set on the way in, so the trade strip never sums NaN
 import { restoreKnightlyOrderFlags } from './knightlyGifts.js';   // D9: KnightlyOrder.RestoreGuildData's armour-bit back-fill
 import { GUILD_GROUPS } from '../formats/factionFile.js';   // the membership book's key IS the guild group
@@ -46,6 +51,7 @@ import { STREAMING_TERRAIN_SCALE } from '../world/terrainSampler.js';   // TERRA
 import { reviveForPlay } from './deathRespawn.js';   // ONLINE-DEATH-FIX: the SAME half-health an online respawn leaves
 import { setLightSource } from './lightSource.js';   // DISC7: the light in hand's one door
 import { renownHpOf, renownMpOf, offlineVitals } from './renownLayer.js';   // RENOWN1: the online layer never reaches a save
+import { stashedItemLists } from '../net/realmGoldLaw.js';   // AUDIT PRE-MERGE 0929 D3: every list of the character's own things a save carries
 
 /** One membership book, rows copied (GuildMembership_v1's shape). */
 const copyMembershipBook = (book) => Object.fromEntries(
@@ -112,7 +118,7 @@ const ENTITY_FIELDS = [
   // it a backward load left a FUTURE marker that froze all skill-raise
   // checks until the clock re-passed it.
   'lastSkillCheckTime',
-  'restSimMinutes',   // MAC-LVL1: an online rest's unspent skill-clock credit (spent at the rest's end; a save mid-rest is the only way it is ever non-zero)
+  'foragingWait',   // FORAGE4: an online Foraging wait's { seconds, label } left - a relog reopens the page with them (scenes/foragingWait.js); null or absent: none
   // AUDIT 26 F219/F100: the coven's daedra-of-the-day. DFU persists
   // DaedraSummonDay and DaedraSummonIndex one for one
   // (SerializablePlayer.cs:164-165, restored :332-333);
@@ -170,9 +176,9 @@ export const newSkillsRecentlyRaised = () => [0, 0];
  *  Masque of Clavicus buffed five social groups instead of eleven for
  *  the life of that character. Dropping the member costs nothing:
  *  enchantmentMagicRound clears the player's array at the head of
- *  every magic round (enchantments.js:848, DFU's ClearReactionMods at
+ *  every magic round (enchantments.js:852, DFU's ClearReactionMods at
  *  PlayerEntity.cs:1567-1570) and the folds re-apply it in the same
- *  pass, off worldTick.js:398 - so a load lands DFU's own shape, the
+ *  pass, off worldTick.js:402 - so a load lands DFU's own shape, the
  *  live mods left standing until the next DoMagicRound re-derives
  *  them eleven wide. An older snapshot's key is simply ignored (the
  *  restore loop skips what REP_ARRAYS does not name), so the envelope
@@ -262,6 +268,12 @@ export function snapshotPlayer(entity, { position = null, pose = null, classicMi
   // world host re-stands its heights on today's ground as it lands them (world.js restandHeight). Additive: SAVE_VERSION
   // does not move, and an older build ignores the field.
   const snap = { v: SAVE_VERSION, position, pose, classicMinutes, readiedSpellIndex, world, locationKey, quest, talk, interior, dungeon, travelMap, escortingFaces, quickslots, spawns, smallerDungeonsState, modData, terrainScale: STREAMING_TERRAIN_SCALE };
+  // LIVED1: `classicMinutes` is the CHARACTER's clock - the hosts hand their own (worldTick.ownMinutes): offline the
+  // one clock, online theirs, and every marker the envelope holds is on it. Online the WORLD's minute rides beside it,
+  // the minute the character left the world at, which is what the arrival's one arm for an absence measures (AUDIT
+  // DISC28 TM-1). Additive: an older build ignores it, and a save without it read the world's minute as its own.
+  // AUDIT LIVED1b P4: ...and while the loaded absence waits for the relay's clock, the minute it left at, unmoved.
+  if (sharedClockOn()) snap.worldMinutes = worldMinutesToSave();
   // W1: DFU persists exactly ONE weather value (playerPosition.weather)
   // and re-rolls the six-zone array on the next date change - the sim
   // is a module singleton, so the envelope reads it here and every
@@ -291,6 +303,18 @@ export function snapshotPlayer(entity, { position = null, pose = null, classicMi
   // wrote. The stand-in columns themselves are that file's to retire.
   snap.skills = Array.isArray(entity.skills) ? [...entity.skills] : entity.skills;
   snap.skillUses = [...(entity.skillUses ?? [])];
+  // SOFTCAP1: the climb past 100 - the fractional real-use remainders
+  // (skills.js tallySkill) and the banked progress toward the next dear point
+  // (advancement.js raiseSkills). Both optional: a save from before them
+  // restores empty. The mentor PROFILE (`_mentor`) is never saved - mentoring
+  // is automatic and recomputed from the party.
+  snap.skillUseFrac = Array.isArray(entity.skillUseFrac) ? [...entity.skillUseFrac] : null;
+  snap.skillProgress = Array.isArray(entity.skillProgress) ? [...entity.skillProgress] : null;
+  snap.masterSkills = entity.masterSkills === true;   // SOFTCAP3: the Master Skills switch
+  snap.masterSkillsAsked = !!entity.masterSkillsAsked;   // SOFTCAP3: the one-time offline offer, made
+  snap.masterSkillsInfoSeen = !!entity.masterSkillsInfoSeen;   // SOFTCAP3: the one-time online explanation, shown
+  snap.masteredSkills = Array.isArray(entity.masteredSkills) ? [...entity.masteredSkills] : [];   // SOFTCAP4: the permanent 2/2/1 masteries
+  snap.masteryPrompted = Array.isArray(entity.masteryPrompted) ? [...entity.masteryPrompted] : [];   // SOFTCAP4: the skills already asked about
   snap.career = entity.career ? { ...entity.career } : null;   // plain CFG data
   snap.items = (entity.items ?? []).map((it) => ({ ...it }));
   // E4: `data.playerEntity.goldPieces = entity.GoldPieces`
@@ -320,6 +344,8 @@ export function snapshotPlayer(entity, { position = null, pose = null, classicMi
   snap.bankAccounts = (entity.bankAccounts ?? []).map((a) => ({ ...a }));
   snap.houses = (entity.houses ?? []).map((h) => ({ ...h }));
   snap.ownedShip = entity.ownedShip ?? -1;
+  if (entity.shipCrossed === true) snap.shipCrossed = true;   // RESTORE: a ship that came through customs, which the realm's bank never buys back (banking.js)
+  snap.loanAmnesty = Number.isSafeInteger(entity.loanAmnesty) ? entity.loanAmnesty : LOAN_AMNESTY;   // LOAN-AMNESTY: which amnesty this character has had - a character never restored from an older save is born after the last
   // TR4: SerializablePlayer.cs:180 - the BOARDING MEMORY is saved
   // beside the deed. Without it a save taken at sea loads with no way
   // back: IsOnShip needs the memory to answer true, so disembarking
@@ -379,6 +405,7 @@ export function snapshotPlayer(entity, { position = null, pose = null, classicMi
   // legalRep is a region-keyed object here, not DFU's 62-entry array;
   // it must be COPIED or the snapshot aliases live state.
   snap.legalRep = entity.legalRep ? { ...entity.legalRep } : null;
+  snap.standing = snapshotStanding(entity);   // REP: the watch's clocks and the prices paid, per region
   // Any biography deltas still parked (only if FACTION.TXT was missing
   // at creation - S25 drains them at the chargen seam otherwise).
   snap.pendingFactionRep = (entity.pendingFactionRep ?? []).map((r) => ({ ...r }));
@@ -562,6 +589,16 @@ export function restorePlayer(entity, snap, spellsByIndex = null) {
     console.warn(`[save] version mismatch (got ${snap?.v}, want ${SAVE_VERSION}); refusing`);
     return null;
   }
+  // AUDIT LIVED1b F3 (S4): THE ENVELOPE'S CLOCKS ARE READ ONCE, HERE. A clock is an unsigned minute count (DFU's
+  // ToClassicDaggerfallTime answers a uint), and nothing legitimate writes another - but a tampered or corrupted one
+  // reached every reader raw: at 2^53 the calendar loop's `i++` stands still and the page froze for good, a
+  // worldMinutes of -1e308 walked the absence's normalise ~1e300 times, a string left the broker's marker NaN (no magic
+  // round again that session), and null loaded an online character at minute 0. A clock out of range is none: the
+  // character's takes the clock that stands (the host's offline, the world's online - the one a save from before LIVED1
+  // has), and the world's stamp is absent (the save's path from before LIVED1).
+  if (saneSaveClock(snap.classicMinutes) === null || (snap.worldMinutes != null && saneSaveClock(snap.worldMinutes) === null)) {
+    snap = { ...snap, classicMinutes: saneSaveClock(snap.classicMinutes) ?? Math.floor(worldMinutes()), worldMinutes: saneSaveClock(snap.worldMinutes) ?? undefined };
+  }
   // AUDIT 39: MaxMagicka is a getter for the life of the entity
   // (DaggerfallEntity.cs:264) - it cannot be lost on load. The
   // accessor has to exist BEFORE the ENTITY_FIELDS copy, or
@@ -601,16 +638,48 @@ export function restorePlayer(entity, snap, spellsByIndex = null) {
   if (entity.fatigue == null) entity.fatigue = ((snap.stats?.strength ?? 0) + (snap.stats?.endurance ?? 0)) * 64;
   entity.skills = Array.isArray(snap.skills) ? [...snap.skills] : snap.skills;   // AUDIT 17e: pre-chargen skills is a flat number
   entity.skillUses = [...snap.skillUses];
+  entity.skillUseFrac = Array.isArray(snap.skillUseFrac) ? [...snap.skillUseFrac] : null;   // SOFTCAP1
+  entity.skillProgress = Array.isArray(snap.skillProgress) ? [...snap.skillProgress] : null;   // SOFTCAP1
+  entity.masterSkills = snap.masterSkills === true;   // SOFTCAP3
+  entity.masterSkillsAsked = snap.masterSkillsAsked === true;   // SOFTCAP3
+  entity.masterSkillsInfoSeen = snap.masterSkillsInfoSeen === true;   // SOFTCAP3
+  entity.masteredSkills = Array.isArray(snap.masteredSkills) ? snap.masteredSkills.filter(Number.isInteger) : [];   // SOFTCAP4
+  entity.masteryPrompted = Array.isArray(snap.masteryPrompted) ? snap.masteryPrompted.filter(Number.isInteger) : [];   // SOFTCAP4
+  entity._mentor = null;   // SOFTCAP1: recomputed by the party frame, never restored
   entity.career = snap.career ? { ...snap.career } : entity.career;
   entity.items = snap.items.map((it) => setItemFields(it));   // JAN1: SetItem's two writes on every item in (a copy, as before)
   entity.wagonItems = (snap.wagonItems ?? []).map((it) => setItemFields(it));   // W-slice (pre-W saves restore empty); JAN1: set on the way in
   entity.furnishings = (snap.furnishings ?? []).map((it) => setItemFields(it));   // DECOR2b: a save written before holds none
   entity.otherItems = (snap.otherItems ?? []).map((it) => setItemFields(it));   // R1: the in-repair collection (pre-R1 saves restore empty); JAN1: set on the way in
+  // AUDIT PRE-MERGE 0929 D3: THE LOAD'S ITEM REPAIRS REACH EVERY LIST THE SAVE CARRIES - the pack, the wagon and the
+  // repairer's, and every list of the character's own things outside them (net/realmGoldLaw.js stashedItemLists, the
+  // one walk customs takes: a cached scene's chests, piles and storage pieces, the world's piles and dead foes' packs,
+  // Come Sail Away's boats and cargoes), repaired in the save itself before the scene cache is restored from it and
+  // before the world and the mods' data go back to their hosts. A piece kept in a house chest loaded with the name its
+  // make had lost, and kept it once carried out - "pieces you already have are renamed when you load".
+  const repairLists = [entity.items, entity.wagonItems, entity.otherItems, ...stashedItemLists(snap)];
   // DISC21-A: a biography item was minted with no condition until DISC21, and Roleplay & Realism wore the questions'
   // ebony dagger to 20% of nothing - broken, and undamaged to the repairer. Minted now, by the law it missed.
-  for (const list of [entity.items, entity.wagonItems, entity.otherItems]) {
+  for (const list of repairLists) {
     const n = repairUnmintedConditions(list);
     if (n) console.info(`[save] DISC21-A: ${n} item(s) given the condition they were never minted with`);
+  }
+  // DISC29-B: a Magic or Rare piece of Roleplay & Realism: Items armour rolled before the fix lost Brigandine, Fur or
+  // Mail from its name (lootRarity.js rarityName) - given back, so the piece a class check refuses says what it is.
+  for (const list of repairLists) {
+    const n = repairRarityNames(list);
+    if (n) console.info(`[save] DISC29-B: ${n} item name(s) given back the word their make wrote`);
+  }
+  // WB12a: the Sigil Stones a save kept under their old name are Deadlands Embers - every list, as the names above
+  for (const list of repairLists) {
+    const n = nameEmbers(list);
+    if (n) console.info(`[save] WB12a: ${n} stone record(s) named Deadlands Embers`);
+  }
+  // RARITY-WEAR (FIELD BUGS 2026-10-01): a Magic, Rare or Legendary piece the spoils minted on a Wand - no slot takes it,
+  // so its tier was read by nothing - moved to its wearable home (lootRarity.js repairRarityBases: the Amulet)
+  for (const list of repairLists) {
+    const n = repairRarityBases(list);
+    if (n) console.info(`[save] RARITY-WEAR: ${n} rolled piece(s) on a base nothing can wear moved to one a slot takes`);
   }
   entity.rentedRooms = (snap.rentedRooms ?? []).map((r) => ({ ...r }));   // U39: the rented rooms (pre-U39 saves restore empty)
   // JAN1 (2026-09-18, Janome: CRASH `region 17 is outside the 0 bank accounts`, a softlock at the bank): a pre-B1 save
@@ -620,6 +689,8 @@ export function restorePlayer(entity, snap, spellsByIndex = null) {
   entity.sceneCache = restoreSceneCache(createSceneCache(), snap.sceneCache);   // P1
   entity.houses = snap.houses?.length ? snap.houses.map((h) => ({ ...h })) : createHouses(entity.bankAccounts.length);   // JAN1: the same law for the house registry (H1 mints it beside the accounts)
   entity.ownedShip = snap.ownedShip ?? -1;
+  if (snap.shipCrossed === true) entity.shipCrossed = true; else delete entity.shipCrossed;   // RESTORE: its customs mark, or none
+  entity.loanAmnesty = Number.isSafeInteger(snap.loanAmnesty) ? snap.loanAmnesty : 0;   // LOAN-AMNESTY: a save from before the first amnesty has had none
   entity.boardShipPosition = snap.boardShipPosition ?? null;   // TR4 (:425)
   entity.anchorPosition = snap.anchorPosition ? { ...snap.anchorPosition } : null;   // TP-slice
   // A4: the three stragglers' restore arms (see the snapshot side).
@@ -682,7 +753,13 @@ export function restorePlayer(entity, snap, spellsByIndex = null) {
       entity.items.splice(i, 1);
     }
   }
-  entity.activeEffects = (snap.activeEffects ?? []).filter((a) => !a.heldItem && !a.bundleDuel).map(copyEffectEntry);   // E2: a stale pin in an old snapshot cannot re-link - drop it (DFU :2312); AUDIT DUEL1 B4: nor a duel's spell a save from before the filter kept
+  // SS1: Sigil Stones won before the stone's row stacked are one stack - folded HERE, below both index-keyed relinks, for
+  // the gold migration's own reason: a record removed before `lightSourceIndex` is read slides every later item one place.
+  for (const list of [entity.items, entity.wagonItems]) {
+    const n = restackStones(list);
+    if (n) console.info(`[save] SS1: ${n} Deadlands Ember record(s) folded into their stacks`);
+  }
+  entity.activeEffects = (snap.activeEffects ?? []).filter((a) => !a.heldItem && !a.bundleDuel).filter((a) => effectKindLoaded(a.kind)).map(copyEffectEntry);   // E2: a stale pin in an old snapshot cannot re-link - drop it (DFU :2312); AUDIT DUEL1 B4: nor a duel's spell a save from before the filter kept; AUDIT PRE-MERGE 0928 S3: nor an effect of a mod not loaded (Come Sail Away's water walk)
   // DISC10-D/E V11: THE DREAM'S PUSH IS NOT SAVED. CustomSaveData_v1 keeps
   // the two PLAYED flags and the day (VampirismInfection.cs:221-251,
   // LycanthropyInfection.cs:143-149); warningDreamVideoScheduled restores
@@ -702,6 +779,10 @@ export function restorePlayer(entity, snap, spellsByIndex = null) {
   // budget (NaN, as JSON writes it), which the next tick read as spent and pruned - the flag is given at the one door old
   // data comes in by, so tickActiveEffects keeps its one law and never learns these kinds by name.
   for (const a of entity.activeEffects) if ((a.kind === 'racialOverride' || a.infection) && !a.permanent) a.permanent = true;
+  // CURE-ENDS (AUDIT 2026-10-01 part four): a drain a cure zeroed and left (the guild's stat reset before this, and a
+  // vampire's or a werewolf's turn since part four) stood on the HUD as a debuff that did nothing, for good - it ends here,
+  // at the same door (guildServiceFlow.js cureAllAttributes ends what it cures now)
+  for (const a of entity.activeEffects) if ((a.kind === 'drainAttribute' || a.kind === 'transferAttribute') && !(a.magnitude > 0)) a.ended = true;
   // V2a: the racial override MARKER is a live reference into the list
   // just restored - rebuilt here, never serialized on its own, so the
   // marker and the entry can never disagree (the gates - a second
@@ -719,6 +800,10 @@ export function restorePlayer(entity, snap, spellsByIndex = null) {
   // strips both. Lift the counter past the save's high water mark
   // before anything can cast - restartHeldEnchantments below does.
   seedBundleSeq((snap.activeEffects ?? []).reduce((m, a) => Math.max(m, a.bundleId ?? 0), 0));
+  // AUDIT LIVED1b S5: online the character's clock is restored BEFORE the recast below - the enchantments' clock is
+  // theirs (world.js's ctx reads ownMinutes), and at the boot it still read the world's: a Cast-When-Held item with no
+  // reroll stamp took the world's minute, months ahead of theirs, and rerolled nothing for 3,606 hours.
+  if (sharedClockOn()) setOwnMinutes(Math.floor(snap.classicMinutes));
   // E2: re-instantiate the held enchantments from the worn set the
   // equip table just rebuilt - a recast, so no durability is billed.
   restartHeldEnchantments(entity);
@@ -762,6 +847,7 @@ export function restorePlayer(entity, snap, spellsByIndex = null) {
   entity.timeForThievesGuildLetter = snap.timeForThievesGuildLetter ?? 0;
   entity.timeForDarkBrotherhoodLetter = snap.timeForDarkBrotherhoodLetter ?? 0;
   entity.legalRep = snap.legalRep ? { ...snap.legalRep } : {};
+  restoreStanding(entity, snap.standing);   // REP: a pre-REP save restores an empty book
   // AUDIT 23 (C4/guilds-4): DFU clamps every region's LegalRep right
   // after restoring it (SerializablePlayer -> ClampLegalReputations) -
   // a save carrying a beyond-band value loads back into the band.
@@ -892,23 +978,66 @@ export function restorePlayer(entity, snap, spellsByIndex = null) {
   // expiring restored buffs on the spot and bursting a restored
   // continuous-damage effect over a window the saved game never lived.
   resetMagicRoundMarker(Math.floor(snap.classicMinutes ?? 0));
-  // AUDIT WORLD5 C4: under the shared clock a LOAD is an arrival, in every host and through this one door - the
-  // restored markers shifted to the world's time (alignEntityClocks) and the day's sky rolled from the shared day's
-  // seed over the one the save carried. WORLD5 aligned the session's first save at the online start and nothing
-  // after it: a quick load, a boot ?load or a dungeon's own load restored the save's own clock into every marker,
-  // and the next tick caught up the distance to the world (or read it negative).
-  if (sharedClockOn()) { alignEntityClocks(entity, worldMinutes()); rollClimateWeathersForDay(worldMinutes()); }
+  // AUDIT WORLD5 C4: under the shared clock a LOAD is an arrival, in every host and through this one door.
+  // LIVED1: an arrival that moves nothing of the character's. The save's clock IS their own clock (snapshotPlayer's
+  // classicMinutes), so it is restored as it stood - the markers above were stamped on it and stay in tune, and the
+  // time away is not theirs: nothing ages and nothing is carried across. [SUPERSEDES C4's alignment of every marker to
+  // the world's time.] The WORLD's half of an arrival stays: the tick's world reading re-anchors (the absence walks
+  // none of the world's arms), the absence's one arm is paid over the world's minutes from the one the character left
+  // at (AUDIT DISC28 TM-1 - a save from before LIVED1 carried the world's minute as its own, so it answers for both),
+  // and the day's sky is rolled from the shared day's seed over the one the save carried.
   if (sharedClockOn()) {
-    const at = Math.floor(worldMinutes()), saved = Math.floor(snap.classicMinutes ?? 0);
-    // AUDIT SURV-TIERS (the third pass): WORLD5's short absence keeps its hunger because the arc was ON for it. An Off
-    // player's is Off's, and pauses the needs as the world tick pauses every span it walks with the arc Off: an hour
-    // and a half logged off came back hungry and nineteen hours awake, in the tier that promises no needs at all.
-    if (!survivalOn() && at > saved) pauseSurvival(entity, saved, at);
-    alignSurvival(entity, at, saved);   // SURV7: the needs' markers - a save from more than a day ago starts fed, watered and rested (WORLD5's law for these)
+    // AUDIT LIVED1b F1: the reading re-anchors at now, not at its whole minute - the floor billed the first tick up to a
+    // world minute of the absence (alignEntityClocks floors where it counts)
+    const own = Math.floor(snap.classicMinutes ?? 0), at = worldMinutes();
+    // AUDIT LIVED1b P2: a copy Bring online made has no absence to pay - its stamp is this machine's clock at the click
+    // (the menu has no relay), and an OS clock set back there bought the whole distance back as TM-1's recovery
+    const left = snap.joinFresh ? null : Number.isFinite(snap.worldMinutes) ? Math.floor(snap.worldMinutes) : own;
+    setOwnMinutes(own);
+    if (!Number.isFinite(snap.worldMinutes)) clampMarkersAheadOf(entity, own);   // AUDIT LIVED1 F: a save from before LIVED1
+    alignEntityClocks(entity, at);
+    rollClimateWeathersForDay(Math.floor(at));
+    // SURV7 (WORLD5's law for these markers): the needs stood with the character's clock, so an hour away costs no
+    // hunger; a break longer than the world's day still comes back fed, watered and rested, and a record ahead of the
+    // character's own clock (a save from the RESTX2 era, whose online night left it ahead of the world) starts fresh.
+    alignSurvival(entity, own, own);
+    // AUDIT LIVED1b P4: THE ABSENCE WAITS FOR THE RELAY'S CLOCK - TM-1's recovery and SURV7's fresh start for a break past
+    // the world's day, measured over [left, the corrected now) when the host hears it (worldTick hearSharedClock)
+    if (left !== null) {
+      payAbsenceWhenHeard(left, (now) => {
+        normalizeAcross(entity, left, now);
+        if (now - left > ALIGN_GRACE_MINUTES) alignSurvival(entity, Math.floor(ownMinutes()), null);
+      });
+    }
   }
   // AUDIT 39: the three extras above ride back out too - a save from
   // before they were carried reads the same null/0 they used to.
-  return { position: snap.position, pose: snap.pose ?? null, classicMinutes: snap.classicMinutes, readiedSpellIndex: snap.readiedSpellIndex, world: snap.world ?? null, locationKey: snap.locationKey ?? null, quest: snap.quest ?? null, talk: snap.talk ?? null, interior: snap.interior ?? null, dungeon: snap.dungeon ?? null, travelMap: snap.travelMap ?? null, escortingFaces: snap.escortingFaces ?? null, quickslots: snap.quickslots ?? null, spawns: snap.spawns ?? null, smallerDungeonsState: snap.smallerDungeonsState ?? 0, modData: snap.modData ?? null, terrainScale: snap.terrainScale ?? null };   // TERRAIN-SCALE1: null - written before the stamp, on the prefab's 1.5
+  // TIME3 (bible/06-Systems/Online-Time-Arc.md 6.3): the quest block on the character's clock - an online save taken
+  // before TIME3 kept its countdowns on the world's, and they move onto the character's once, by the distance at the
+  // save (quest/questStamps.js questBlockOnOwnClock); a TIME3 save and any offline one are there already.
+  return { position: snap.position, pose: snap.pose ?? null, classicMinutes: snap.classicMinutes, readiedSpellIndex: snap.readiedSpellIndex, world: snap.world ?? null, locationKey: snap.locationKey ?? null, quest: questBlockOnOwnClock(snap) ?? null, talk: snap.talk ?? null, interior: snap.interior ?? null, dungeon: snap.dungeon ?? null, travelMap: snap.travelMap ?? null, escortingFaces: snap.escortingFaces ?? null, quickslots: snap.quickslots ?? null, spawns: snap.spawns ?? null, smallerDungeonsState: snap.smallerDungeonsState ?? 0, modData: snap.modData ?? null, terrainScale: snap.terrainScale ?? null };   // TERRAIN-SCALE1: null - written before the stamp, on the prefab's 1.5
+}
+
+/** AUDIT LIVED1 F (K3/S4): A SAVE FROM BEFORE LIVED1 CAN HOLD A MARKER AHEAD OF ITS OWN CLOCK. RESTX2's online rest ran
+ *  the rounds on a session counter ahead of the world's clock, and the 120-second checkpoint (and the page's close) saved
+ *  while the rest window held the frame - so a disease's day, a poison's minute or a curse's clock could be written a
+ *  night ahead of the `classicMinutes` beside it. The arrival's old shift clamped them (WORLD5 C3's `past`/`pastDay`);
+ *  LIVED1 restores the character's clock as it stood and shifts nothing, so the first round read `daysPast = -1`, gave
+ *  the day back and rolled it again (Lived-Time's seam 1, once more). A "last" marker is never in the future: those
+ *  ahead of the restored clock are brought back to it. Only for a save with no `worldMinutes` - one written by LIVED1
+ *  is on one clock by construction. Answers how many were moved. */
+export function clampMarkersAheadOf(entity, own) {
+  if (!entity || !Number.isFinite(own)) return 0;
+  const day = Math.floor(own / 1440);
+  let n = 0;
+  const cap = (a, k, max) => { if (Number.isFinite(a[k]) && a[k] > max) { a[k] = max; n++; } };
+  for (const a of entity.activeEffects ?? []) {
+    if (!a || typeof a !== 'object') continue;
+    if (a.kind === 'disease') { cap(a, 'lastDay', day); cap(a, 'startingDay', day); }
+    cap(a, 'lastMinute', own);   // a poison's
+    for (const k of ['lastKilledInnocent', 'lastCastMorphSelf', 'lastUrgeNotify', 'lastTimeFed']) cap(a, k, own);   // the curses'
+  }
+  return n;
 }
 
 /** CASTLE1 (2026-09-22, the same report's "(different dungeon - world

@@ -135,7 +135,7 @@ export class SocialState {
     if (!f || f.t !== 'social') return null;
     switch (f.k) {
       case 'state': {
-        if (this.expect && f.acct !== this.expect) return null;   // AUDIT SOC B19: not my picture
+        if (this.expect && !(Array.isArray(this.expect) ? this.expect.includes(f.acct) : f.acct === this.expect)) return null;   // AUDIT SOC B19: not my picture   // FRIENDS-SYNC: mine is the signed-in player's id (a relay since FRIENDS-SYNC) or this profile's (one before it)
         const got = this.now();
         this.acct = f.acct; this.name = f.name; this.peers = Array.isArray(f.peers) ? f.peers.slice() : [];   // a frame from before AUDIT SOC names none
         this.friends = new Map(f.friends.map((r) => [r.acct, r]));

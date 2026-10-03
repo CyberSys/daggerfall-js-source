@@ -52,13 +52,48 @@ IDENTITY_PUBLIC_KEY = "2ZbUhjpY80Hne60_ucjzCZMF0i5DsarfaWW9SDU5ei4"
 # src/net/identityToken.js is the hard ceiling the module itself
 # refuses past; this may only TIGHTEN it, never widen it.
 IDENTITY_MAX_TTL_S = "300"
+# ═══ RAID-ROLL: THE TOWNS TABLE THE RELAY WILL KEEP ════════════════
+#
+# The SHA-256 of the towns table (src/net/raidLaw.js raidTownsCanon) -
+# `node tools/raidTowns.mjs --arena2 <your ARENA2 folder>` says it, and
+# the game says it once in the browser console when a hub asks. The
+# relay always reads a raid word against the day's own draws (its
+# start, party and target - no game data); with this set, the hub asks
+# every hello for the table by it, keeps the first that hashes to it,
+# and every cell then reads each word against the day's WHOLE roll (its
+# town, key and pixel too). The table is the player's game data, so the
+# repository holds only its hash. EMPTY IS A LEGAL STATE: the draws
+# alone are read, as the relay did before it held a table.
+RAID_TOWNS_SHA256 = ""
+# ═══ DISCORD-GATES: THE ROLE THE OMEN PINGS ════════════════════════
+#
+# The Discord id of the opt-in role the hub pings on each gate's omen
+# (src/net/gateHerald.js) - Server Settings > Roles, right-click the
+# role, Copy Role ID (Developer Mode on), with "Allow anyone to
+# @mention this role" turned on, or Discord shows the ping and notifies
+# nobody. An id is no secret. EMPTY IS A LEGAL STATE: the posts go out
+# pinging nobody.
+#
+# THE WEBHOOK IS A SECRET, NEVER A VAR: GATE_DISCORD_WEBHOOK, the
+# channel's webhook URL (Edit Channel > Integrations > Webhooks) - its
+# URL is the key to post in the channel, so the repository never holds
+# it. Put it on the Worker (the dashboard's Settings > Variables and
+# Secrets, type Secret; or `npx wrangler secret put
+# GATE_DISCORD_WEBHOOK` here) - that redeploys the Worker and drops
+# every player once. WITHOUT IT THE RELAY POSTS NOTHING and keeps
+# nothing for it.
+# The role: its id handed over 2026-10-02, before the WB12/WB13 merge (it was
+# 1554215379817988167, World Events, from 2026-09-28).
+GATE_DISCORD_ROLE = "1555589839825670258"
 
 # ═══ WB3: THE RELAY'S ONE SECRET ═══════════════════════════════════
 #
 # GATE_SIGNING_KEY is a Worker SECRET, never a var: the Ed25519 PRIVATE
 # key (PKCS8, base64) the relay signs an Oblivion Gate's kill receipts
-# with (src/net/gateReceipt.js). GATE-KEYS (2026-09-26): the ACCOUNT
-# deploy mints the pair once and puts it here
+# with (src/net/gateReceipt.js) - and, since RAID3 (2026-09-27), a
+# town raid's receipts (src/net/raidReceipt.js, `w1`: the version is
+# inside the signed bytes, so neither passes as the other). GATE-KEYS
+# (2026-09-26): the ACCOUNT deploy mints the pair once and puts it here
 # (.github/workflows/account-deploy.yml, "Mint the gate receipt pair") -
 # that one `secret put` redeploys this Worker and drops every player
 # once. Its public half is the account service's to hold (WB5), which is

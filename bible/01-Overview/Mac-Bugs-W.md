@@ -103,6 +103,10 @@ A zero `timeStarted` stays zero: the port's absent `repairData` **is**
 DFU's `timeStarted = 0` sentinel (`repairService.js` says so), so a zero
 means "not in repair" and must not be shifted into a date.
 
+[SUPERSEDED BY LIVED1 (2026-09-29): the arrival shifts nothing. A repair's `timeStarted` is on the
+character's own clock, which stood while they were away, so the job keeps its place in the queue by
+construction - there is no walk to forget a collection in.]
+
 ### What is NOT fixed, said plainly
 
 **The "for armor" half is not reproduced.** The repair engine was driven
@@ -266,10 +270,10 @@ Outside it is not.
 
 | host | collider | where the ground is |
 |---|---|---|
-| `dungeonContext.js:338` | `new Collider(() => -Infinity)` | floor meshes |
-| `interiorContext.js:326` | `new Collider(() => -Infinity)` | floor meshes |
-| `exterior.js:570` | `new Collider(() => GROUND_OFFSET * 0.025)` | **`heightAt`** |
-| `world.js:1516` | `new Collider(heightAt)` | **`heightAt`** |
+| `dungeonContext.js:384` | `new Collider(() => -Infinity)` | floor meshes |
+| `interiorContext.js:332` | `new Collider(() => -Infinity)` | floor meshes |
+| `exterior.js:589` | `new Collider(() => GROUND_OFFSET * 0.025)` | **`heightAt`** |
+| `world.js:2304` | `new Collider(heightAt)` | **`heightAt`** |
 
 `heightAt` is applied to the **capsule**, in `_resolveSphere`, and
 nowhere else. So every drop cast down outdoors met nothing — and
@@ -318,7 +322,7 @@ nothing.
 
 ### Not changed, but noticed
 
-`droppedTorches.js:247` casts the same bucket ray to find what a
+`droppedTorches.js:248` casts the same bucket ray to find what a
 thrown torch hit, with a `raycast` fallback that has the same blind
 spot outdoors. It is not what was reported and it is not blood, so it
 is left alone and written down here instead.

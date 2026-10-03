@@ -198,15 +198,15 @@
   {
     "name": "TN-resume-without-edge-arrival",
     "file": "src/systems/travelOptions.js",
-    "old": "{ grow: true, isLocation: true, edgeArrival: st.settings.avoidObstacles });",
-    "new": "{ grow: true, isLocation: true, edgeArrival: false });",
+    "old": "travelSpeedMultiplier(st.destinationCautious, st.settings), { grow: true, isLocation: true, edgeArrival: st.settings.avoidObstacles });",
+    "new": "travelSpeedMultiplier(st.destinationCautious, st.settings), { grow: true, isLocation: true, edgeArrival: false });",
     "tests": ["test/travelnav.test.js"]
   },
   {
     "name": "TN-switch-not-read-at-the-step",
     "file": "src/systems/travelOptions.js",
-    "old": "      if (st.autopilot && drive && !drive.arrived && st.settings.avoidObstacles && deps.steer) {",
-    "new": "      if (st.autopilot && drive && !drive.arrived && deps.steer) {",
+    "old": "      if (st.autopilot && drive && !drive.arrived && st.settings.avoidObstacles && deps.steer && !deps.atSea?.()) {",
+    "new": "      if (st.autopilot && drive && !drive.arrived && deps.steer && !deps.atSea?.()) {",
     "tests": ["test/travelnav.test.js"]
   },
   {
@@ -254,8 +254,8 @@
   {
     "name": "TN-switch-off-the-tile",
     "file": "src/systems/features.js",
-    "old": "    'GeneralOptions.LocationPause', 'TimeAcceleration.AccelerationLimit',\n    'GeneralOptions.AvoidObstacles',\n  ]),",
-    "new": "    'GeneralOptions.LocationPause', 'TimeAcceleration.AccelerationLimit',\n  ]),",
+    "old": "    'GeneralOptions.LocationPause', 'TimeAcceleration.AccelerationLimit',\n    'GeneralOptions.AvoidObstacles', 'GeneralOptions.FirstPersonTravel',\n    'GeneralOptions.FirstPersonTravelFollowsRoads',\n  ]),",
+    "new": "    'GeneralOptions.LocationPause', 'TimeAcceleration.AccelerationLimit',\n    'GeneralOptions.FirstPersonTravel',\n    'GeneralOptions.FirstPersonTravelFollowsRoads',\n  ]),",
     "tests": ["test/travelnav.test.js"]
   },
   {

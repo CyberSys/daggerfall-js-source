@@ -74,7 +74,7 @@ test('exteriorfoes: the world host - the cadence loop, the travel reset, the fac
   assert.ok(fn.includes('inLocationRect: _musicInLocationRect(),'), 'the town branch reads the rect');
   assert.ok(fn.includes('maps.getClimateIndex('), 'the climate feeds the table pick');
   assert.ok(fn.includes('Math.min(now - _lastEncMinutes, 1440)'), 'the catch-up is bounded');
-  assert.ok(s.includes('_lastEncMinutes = Math.floor(playerTicker.classicMinutes);   // X-slice: PreventEnemySpawns parity'),
+  assert.ok(s.includes('_lastEncMinutes = Math.floor(playerTicker.ownMinutes);   // X-slice: PreventEnemySpawns parity'),
     'fast travel suppresses the traveled window, as DFU does');
   // encounter foes are spell targets and the sinks route by pool
   assert.ok(s.includes('[...cityGuards.guards, ...exteriorFoes.foes]'), 'magic.foes() sees both pools');
@@ -141,9 +141,11 @@ test('exteriorfoes: the FIXED-CITY host carries the catch-up loop too, both host
   assert.ok(fn.includes('Math.min(now - _lastEncMinutes, 1440)'), 'the catch-up is bounded');
   assert.ok(fn.includes('const span = playerEntity.preventEnemySpawns ? 0 : Math.min(now - _lastEncMinutes, 1440);'), 'the suppression flag gates the whole loop (:482)');
   assert.ok(fn.includes('if (playerEntity.preventEnemySpawns) playerEntity.preventEnemySpawns = false;'), 'and clears at the tail (:524-525)');
-  assert.ok(fn.includes('passiveGuardSpawns({'), 'the two passive-guard rolls (:498-511)');
-  assert.ok(fn.includes('setCrimeCommitted(playerEntity, CRIMES.Criminal_Conspiracy);'), 'each levies Criminal_Conspiracy first');
-  assert.ok(fn.includes('_witnessResponse();'), 'through SpawnCityGuards(false)');
+  // REP1 (the reputation overhaul, "Challenged on sight"): PIN MOVED - the two passive-guard rolls (:498-511) are retired
+  // here as in world.js; the fixed-city host's watch stops a known criminal a guard sees (scenes/standingHost.js)
+  assert.ok(!fn.includes('passiveGuardSpawns('), 'no passive levy in the loop');
+  assert.ok(!fn.includes('CRIMES.Criminal_Conspiracy'), 'and no Conspiracy levied by it');
+  assert.match(e, /\n\s*standingWatch\.frame\(\);   \/\/ REP1: a guard who sees a known criminal stops them/, 'the stop, in this host\'s frame');
   const _sweepLatch = /let _updatedGuards = false;[^]*if \(!_updatedGuards\) \{\n\s*_updatedGuards = true;(?:\n\s*\/\/[^\n]*)*\n\s*if \(_m === 'exterior'\) cityGuards\.makeNpcGuardsIntoEnemies\(/;
   // :488-491 - no encounter roll while the player swims (DFU: or is on a ship; the port has no ship state)
   // AUDIT 65 XL-1: PlayerEntity.cs:489 reads PlayerEnterExit.IsPlayerSwimming,
@@ -152,7 +154,7 @@ test('exteriorfoes: the FIXED-CITY host carries the catch-up loop too, both host
   assert.ok(fn.includes('const hit = player.isPlayerSwimming ? null : intermittentEnemySpawn({'), 'the fixed city skips the roll while swimming');
   const wi = w.indexOf('function runEncounterTick');
   const wfn = w.slice(wi, w.indexOf('\n  }\n', wi));
-  assert.ok(wfn.includes('const hit = (walkMode && playerSpawned && player.isPlayerSwimming) ? null : intermittentEnemySpawn({'), 'the world host skips it too');
+  assert.ok(wfn.includes('const hit = (!spawns || (walkMode && playerSpawned && player.isPlayerSwimming)) ? null : intermittentEnemySpawn({'), 'the world host skips it too');   // AUDIT LIVED1b P1: and a mirror's night asks no wanderer
   // the placement: DFU's own ring with the arm's band, a FLYING foe lifted 1.5
   assert.match(e, /const _standEncounterFoe = \(hit, feet\) => \{[^]*minDistance: hit\.minDistance, maxDistance: hit\.maxDistance,\n\s*lineOfSightCheck: hit\.lineOfSightCheck,/);
   // the callers: this host's exterior frame, its rest advance, and -
@@ -168,7 +170,7 @@ test('exteriorfoes: the FIXED-CITY host carries the catch-up loop too, both host
   // (PlayerEntity.cs:653-654, :776-777 over a disabled ExteriorParent)
   // and there is no location object underground (:768-770).
   for (const [f, body] of [['exterior.js', fn], ['world.js', wfn]]) assert.match(body, _sweepLatch, `${f}: the sweep sits INSIDE the once-per-Update latch (:513-516) and asks a population that is actually active`);
-  assert.match(e, /advanceMinutes: \(n, sharedEnd\) => \{ playerTicker\.advance\(n, sharedEnd\); runEncounterTick\(walkMode \? player\.pos : cam\.pos, sharedEnd, true\); \},/);   // RESTX2: the rest's own sim-minute rides to the roll; CAMP1-REST: flagged as a rest, so the group roll stands down
+  assert.match(e, /advanceMinutes: \(n\) => \{ playerTicker\.advance\(n\); runEncounterTick\(walkMode \? player\.pos : cam\.pos, true\); \},/);   // LIVED1: the rest's minutes are the character's own, on the ticker's clock   // RESTX2: the rest's own sim-minute rides to the roll; CAMP1-REST: flagged as a rest, so the group roll stands down
   // the watch's Wabbajack transform on this route (WabbajackEffect.cs:64 - Knight_CityWatch is an EnemyEntity)
   assert.match(e, /if \(cityGuards\.guards\.includes\(f\)\) cityGuards\.removeGuard\(f\);\n\s*else exteriorFoes\.removeFoe\(f\);/, 'a struck watchman is removed by its own pool');
   assert.match(e, /exteriorFoes\.spawnFoe\(mobileType, feet, \{ replacing: true \}\)/, 'and re-stood by the encounter pool, past its cap (AUDIT 62 F12)');

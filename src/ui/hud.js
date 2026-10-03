@@ -20,6 +20,9 @@ import { maxFatigue, maxBreath, liveStat } from '../systems/statMods.js';
 import { isEnhanced } from '../systems/uiSkin.js';   // PX30: the HUD is a skin too
 import { drawEnhancedHud } from './enhancedHud.js';   // PX30
 import { drawLevelNotices } from './levelNotice.js';   // LV2: the level-up notification, on the same one call
+import { drawQuestHerald } from './questHerald.js';   // GUIDE3: the quest news, on the same one call
+import { drawQuestTracker } from './questTracker.js';   // GUIDE4: the quest the HUD follows, on the same one call
+import { drawRevenantCards } from './revenantCard.js';   // REVENANT-CARD: a revenant's portrait and words, on the same one call (and the presenter it registers)
 import { drawCrosshairAndModeIcon, crosshairCentreY } from './hudCrosshair.js';   // U38; AUDIT RETRO1 G5: the reticle's row, for the loot panel beside it
 import { playerDamageFlash } from './damageFlash.js';   // AUDIT 24 (wave 39): ShowPlayerDamage rides the one HUD call
 import { playerBloodScreen, SCREEN_SPATTER_MIN } from './bloodScreen.js';   // BLOOD2e: blood on the lens rides the same call
@@ -27,6 +30,7 @@ import { bloodScreenOn } from '../combat/bloodSwitch.js';   // BLOOD2e: its row
 import { bloodAtlas, BLOOD_ATLAS_ARCHIVE, BLOOD_ATLAS_RECORD } from '../combat/bloodArt.js';   // BLOOD2e: the lens wears the marks' own atlas
 import { hudFade } from './fadeLayer.js';   // D4: FadeBehaviour's target IS the HUD's parent panel
 import { drawHudLarge, dockedLargeHudHeight, largeHudEnabled } from './hudLarge.js';   // U45: the classic bottom bar - an ALTERNATIVE HUD, see below; E5: and the docked bar's height, the crosshair's re-centre term
+import { cursorActive as freedCursor } from '../player/pointerLock.js';   // BUFF-END: the freed mouse is the tooltip's gate too (DaggerfallHUD.cs:141-147)
 import { drawActiveSpells, activeSpellAt, createBlinkClock, hudPointer } from './hudActiveSpells.js';   // U46: the buff/debuff icon rows
 // VB1: the indicator rig (F148) and the colour swap (F149) - HUDVitals'
 // loss trails and gain bars, the smoother, and the one change detector.
@@ -51,6 +55,10 @@ import { classicLootFrame } from '../systems/classicLootFrame.js';   // DISC22-C
 import { drawLootPanel } from './classicLootPanel.js';   // DISC22-C: quick loot's classic face
 import { packImgTexture } from './packArt.js';   // OVH2: the worn UI pack's picture
 import { ToolTip } from './toolTip.js';
+import { PARTY_GREEN } from '../net/social.js';   // COMPASS-PARTY: the one green a party is drawn in
+import { nodeMarkRgb } from './nodeMarks.js';   // NODE-MARKS: a profession's nodes in its own colour
+import { BOAT_MARK_RGB, BOAT_GLYPH_W, BOAT_GLYPH_ROWS } from './boatMarks.js';   // BOAT-MARK: my boats, a sail over a hull
+// NODE-MARKS: PROF2's Prospector's veins were drawn here in one copper; every profession's nodes are drawn in their own now.
 
 export const COMPASS_BOX_OUTLINE = 2;
 export const COMPASS_BOX_INTERIOR = 64;
@@ -89,6 +97,19 @@ export const BREATH_BAR_BOTTOM = 92;
 export const BREATH_COLOR_NORMAL = [247, 239, 41];
 export const BREATH_COLOR_SHORT = [148, 12, 0];
 export const breathShortThreshold = (liveEndurance) => (liveEndurance >> 3) + 4;
+
+// CLIMB2: THE GRIP BAR (the enhanced climb's - player/motor.js gripShown, `{ amount, low }`). The breath bar's own
+// likeness and art, a slot to its left (both may draw at once - a grip coming back while its swimmer holds breath), a
+// fixed height, bottom-anchored and rounded to whole pixels as VerticalProgress is; the short art when failing.
+export const GRIP_BAR_LEFT = BREATH_BAR_LEFT - 10;
+export const GRIP_BAR_HEIGHT = 50;
+function drawGripBar(renderer, canvas, art, grip, s) {
+  if (!grip || !art?.breathNormal) return;
+  const fill = mathfRound(GRIP_BAR_HEIGHT * s * Math.max(0, Math.min(1, grip.amount)));
+  const img = grip.low ? art.breathShort : art.breathNormal;
+  const bottom = canvas.height + HUD_BORDER - BREATH_BAR_BOTTOM * s;
+  if (fill > 0) renderer.drawScreenQuad(img.tex, { x: HUD_BORDER + GRIP_BAR_LEFT * s, y: bottom - fill, w: BREATH_BAR_WIDTH * s, h: fill });
+}
 
 // X4: the DETECT MARKER (HUDCompass.cs:219-257). The three Detect
 // effects do not draw anything themselves - each registers with the
@@ -259,7 +280,13 @@ const _spellBlink = createBlinkClock();
 let _spellTip = null;
 const spellTip = () => (_spellTip ??= new ToolTip());
 let _placedSpellIcons = [];
-export const activeSpellIconsPlaced = () => _placedSpellIcons;
+// AUDIT 27h B2: THE ICONS ARE WHERE THEY WERE LAST DRAWN, AND ONLY WHILE THEY ARE DRAWN. A HUD hidden (Shift-F10)
+// or covered returns before the rows, and the last frame's rects stood - a freed right-click there ended a spell with
+// nothing on the screen. Emptied on those returns, and a placement not drawn for a second answers none.
+let _placedAt = -Infinity;
+const PLACED_FRESH_MS = 1000;
+const nowMs = () => globalThis.performance?.now?.() ?? Date.now();
+export const activeSpellIconsPlaced = () => (nowMs() - _placedAt <= PLACED_FRESH_MS ? _placedSpellIcons : []);
 
 /**
  * The icon rows, drawn from the ONE host-agnostic call - and drawn on
@@ -281,11 +308,15 @@ function drawSpellIconRows(renderer, canvas, vitals, dt, { font, cursorActive, l
   _placedSpellIcons = drawActiveSpells(renderer, m, vitals, {
     blinkState: blink, paused: cursorActive, largeHudTop,
   });
+  _placedAt = nowMs();
   if (!font) { spellTip().hide(); return; }
-  const hit = (cursorActive && at) ? activeSpellAt(_placedSpellIcons, at[0], at[1]) : null;
+  // BUFF-END: ...OR THE CURSOR IS ACTIVE. The hosts hand `cursorActive` their paused flag, so the freed mouse (Enter,
+  // FreeMouse) - DFU's other half of the gate - showed no name over the icon it was about to right-click and end
+  const tipOn = cursorActive || freedCursor();
+  const hit = (tipOn && at) ? activeSpellAt(_placedSpellIcons, at[0], at[1]) : null;
   spellTip().show(hit?.displayName ?? null, at?.[0] ?? 0, at?.[1] ?? 0);
   spellTip().update(dt);
-  if (cursorActive) spellTip().draw(renderer, m, font);
+  if (tipOn) spellTip().draw(renderer, m, font);
 }
 
 /** P12: the breath bar (HUDBreathBar verbatim geometry) - only while
@@ -463,10 +494,16 @@ export function hideHudTextSurfaces(hudText = null) {
   hudText?.hide();
   midScreenText.hide();
   horseNameTooltip.hide();   // AUDIT HCC U6: the mod's HUD label, the same door
+  // AUDIT GUIDE O1/T7/H9: the quest guide's two HUD faces, the same door - the herald's notices hide (their clock
+  // stopped) and the card hides and gives the party list its line back, as they do under a street window
+  drawQuestHerald({ hidden: true });
+  drawQuestTracker({ hidden: true });
+  drawRevenantCards({ hidden: true });   // REVENANT-CARD: the same door
 }
 
 export function drawHud(renderer, canvas, art, vitals, heading01, dt = 0,
-  { font = null, cursorActive = false, windowCoversHud = null, hudHidden = false, detected = null, playerXZ = null, gate = null, largeHud = null, hover = null,
+  { font = null, cursorActive = false, reticleHidden = false, windowCoversHud = null, hudHidden = false, detected = null, playerXZ = null, gate = null, quest = null, party = null, ships = null, nodes = null, boats = null, largeHud = null, hover = null,
+    grip = null,   // CLIMB2: the enhanced climb's grip, { amount, low } or null
     readied = null, weapon = null, weaponSheathed = true, quickUse = null, quickSwap = null, quickOffHand = null, quickSpell = null, quickSwitchHand = null } = {}) {   // PX30b: for the enhanced HUD's hand plaques; AUDIT 28 W2: the arrow counter's gate; AUDIT 64 F35: the host's previousWindow answer; QS3: the diamond's sheathe state and its two phone taps; QS6: the caption's spell chip press
   // AUDIT 24 (wave 39): ShowPlayerDamage's red flash, under the bars.
   // THE FOUR HOSTS RULE, applied before the fact: drawHud is the one
@@ -611,6 +648,14 @@ export function drawHud(renderer, canvas, art, vitals, heading01, dt = 0,
   // persistent DOM overlay must REACH its hide door rather than be
   // skipped) and reads whether a level is still owed off the one
   // player entity itself.
+  // GUIDE3: THE HERALD rides it too, and OUTSIDE the skin's gate: off
+  // (the classic skin, its switch) it must still reach its hide door, and
+  // it answers that itself (ui/questHerald.js). Its clock is the frame's
+  // real seconds and stops under the HUD's hide gate - DFU's HUD does not
+  // Update under a window (DaggerfallUI.cs:429-433).
+  drawQuestHerald({ hidden: cursorActive || !hudRenderEnabled(), dt });
+  drawQuestTracker({ hidden: cursorActive || !hudRenderEnabled() });   // GUIDE4: the tracker's card, the same gate and the same hide door
+  drawRevenantCards({ hidden: cursorActive || !hudRenderEnabled(), dt });   // REVENANT-CARD: the same gate, its clock the frame's - no card stands on the classic skin, so this is outside its gate as the herald is
   if (isEnhanced() && typeof document !== 'undefined') {
     drawLevelNotices({ hidden: cursorActive || !hudRenderEnabled() });
     drawEnhancedHud(vitals, heading01, dt, {
@@ -618,6 +663,7 @@ export function drawHud(renderer, canvas, art, vitals, heading01, dt = 0,
       // it stays painted unless told otherwise - so a hidden HUD must
       // reach its hide door rather than be skipped by an early return.
       hidden: cursorActive || !hudRenderEnabled(),
+      reticleHidden,   // AUDIT DEEP T1-9: the travel view's - no crosshair on a camera 450 m up, the vitals kept
       paused: !!cursorActive,   // AUDIT CONTRIB H1: the hotbar's keys follow the game's pause, not the HUD's visibility
       // PX30b: the two things the reference's ability bar would hold.
       // drawHud already takes an options bag; a host that knows
@@ -630,6 +676,11 @@ export function drawHud(renderer, canvas, art, vitals, heading01, dt = 0,
       detected: detected ?? null,
       playerXZ: playerXZ ?? null,
       gate: gate ?? null,   // WB1: the Oblivion Gate's scene XZ while the player stands in its ring - the compass's own mark
+      quest: quest ?? null,   // GUIDE5: the tracker's quest's place, scene XZ, on the street - the compass's quest mark
+      party: party ?? null,   // COMPASS-PARTY: the party's points (ui/partyMapMarks.js partyCompassPoints)
+      ships: ships ?? null,   // AUDIT NAV1 (the helm): the sea's ships (scenes/navalHost.js compassShips)
+      nodes: nodes ?? null,   // NODE-MARKS: the professions' nodes, each in its profession's colour (ui/nodeMarks.js nodeCompassPoints)
+      boats: boats ?? null,   // BOAT-MARK: my boats, scene XZ (ui/boatMarks.js boatCompassPoints)
       // QS3: the quickslot diamond dims its main cell when the weapon
       // is put away. drawHud has carried `weaponSheathed` since AUDIT
       // 28 W2 for the arrow counter's gate and never passed it on, so
@@ -645,6 +696,7 @@ export function drawHud(renderer, canvas, art, vitals, heading01, dt = 0,
       quickSpell: quickSpell ?? null,   // QS6: the spell chip's
       quickSwitchHand: quickSwitchHand ?? null,   // MAC-R3: the main cell's hand switch
       escortBottom: escortBottomPx(canvas),   // UI3: how far down the escort faces reach (CSS px) - the status widget keeps below them
+      grip,   // CLIMB2
     });
     // FE1 + AUDIT 39 F133: the escort column is not the classic skin's
     // - DaggerfallHUD adds it unconditionally (:183-185) and even the
@@ -674,7 +726,7 @@ export function drawHud(renderer, canvas, art, vitals, heading01, dt = 0,
     // stands: HUDLarge's Update keeps its Rectangle live for
     // ViewportChanger and the panel click routing while its Draw is
     // suppressed.
-    if (!hudDrawn) return;
+    if (!hudDrawn) { _placedSpellIcons = []; return; }   // AUDIT 27h B2: no rows drawn, none to click
     const s2 = hudScale(canvas.width, canvas.height);
     // VB1: HUDLarge owns its OWN HUDVitals instance (HUDLarge.cs:66) -
     // the second rig, updated only while this branch is the live HUD.
@@ -699,6 +751,7 @@ export function drawHud(renderer, canvas, art, vitals, heading01, dt = 0,
     // it, so the bar survives the large HUD - drawn here after the
     // crosshair, the order the components are added in (:158-160).
     drawBreathBar(renderer, canvas, art, vitals, s2);
+    drawGripBar(renderer, canvas, art, grip, s2);   // CLIMB2: beside it, surviving the large HUD as it does
     // FE1: the escort faces survive the large HUD - the force-off
     // block (DaggerfallHUD.cs:214-220) never names escortingFaces.
     drawEscortFaces(renderer, canvas);
@@ -712,7 +765,7 @@ export function drawHud(renderer, canvas, art, vitals, heading01, dt = 0,
   // strip, the arrow count, the Detect markers, the escort column, the
   // crosshair/mode icon and the active-spell rows are all components
   // of the two HUD panels (DaggerfallHUD.cs:157-192).
-  if (!hudDrawn) return;
+  if (!hudDrawn) { _placedSpellIcons = []; return; }   // AUDIT 27h B2: no rows drawn, none to click
   const s = hudScale(canvas.width, canvas.height);
   const bottom = canvas.height - HUD_BORDER;
   // Vitals, left to right: health, fatigue, magicka (classic order),
@@ -731,6 +784,7 @@ export function drawHud(renderer, canvas, art, vitals, heading01, dt = 0,
     drawVitalsBars(renderer, rig, skin, rects, indicators);
   }
   drawBreathBar(renderer, canvas, art, vitals, s);
+  drawGripBar(renderer, canvas, art, grip, s);   // CLIMB2
   // Compass, bottom-right: strip window first, frame over it.
   // DaggerfallHUD.cs:254-257 sets compass.Position to
   // (screenRect.xMax - Size.x, screenRect.yMax - Size.y) and HUDCompass
@@ -739,6 +793,9 @@ export function drawHud(renderer, canvas, art, vitals, heading01, dt = 0,
   const by = canvas.height - art.compassBox.h * s;
   const { bw, bh } = drawCompassStrip(renderer, art, bx, by, s, heading01);
   drawArrowCount(renderer, canvas, font, vitals, weaponSheathed, { bw, bh }, s);
+  // NODE-MARKS: every profession's nodes near (a Prospector's veins, 200 m; a Tracker's animals, 100 m) - FIRST, so the
+  drawNodeCompassMarks(renderer, nodes, playerXZ, heading01, { bx, by, bw, s });   // AUDIT: Detect markers, the party and the ships stand over them
+  drawBoatCompassMarks(renderer, boats, playerXZ, heading01, { bx, by, bw, s });   // BOAT-MARK: my boats - over the nodes, under the live marks
   // X4: DrawTrackedObjects (HUDCompass.cs:198-217), AFTER the box -
   // HUDCompass.Draw() calls DrawCompass() then DrawTrackedObjects(),
   // so markers sit OVER the frame, and above it: DFU's marker y is
@@ -768,6 +825,9 @@ export function drawHud(renderer, canvas, art, vitals, heading01, dt = 0,
       }
     }
   }
+  // COMPASS-PARTY: the party's marks, over the box as the Detect markers are, in the party's green
+  drawPartyCompassMarks(renderer, party, playerXZ, heading01, { bx, by, bw, s });
+  drawShipCompassMarks(renderer, ships, playerXZ, heading01, { bx, by, bw, s });   // AUDIT NAV1: the sea's ships
   // U38: the crosshair and the interaction-mode indicator, LAST -
   // DaggerfallHUD draws them from one Update beside the vitals it
   // already owns, and drawHud is the ONE host-agnostic call all four
@@ -782,6 +842,59 @@ export function drawHud(renderer, canvas, art, vitals, heading01, dt = 0,
     { cursorActive, scale: s, border: HUD_BORDER, barWidth: HUD_NATIVE_BAR_WIDTH });
   drawClassicLoot(renderer, canvas, font);   // DISC22-C: quick loot's classic face, beside the crosshair
   drawSpellIconRows(renderer, canvas, vitals, dt, { font, cursorActive, largeHudRect: null, hover });
+}
+
+/** COMPASS-PARTY (2026-09-27, Discord - Ashley: "just lil green marks that point in that direction"): the party on
+ *  the classic compass - the Detect marker's 5x3 triangle, its row over the box's top edge and its bearing law
+ *  (compassMarkerLerp, clamped: a mate behind stands at the box's end on the side to turn toward), in the party's one
+ *  green (net/social.js PARTY_GREEN). `points` are scene XZ (ui/partyMapMarks.js partyCompassPoints); `box` is the
+ *  compass box as drawCompassStrip laid it. Not a DFU member: DFU has no party. */
+export function drawPartyCompassMarks(renderer, points, playerXZ, heading01, { bx, by, bw, s }, colour = PARTY_GREEN) {
+  if (!points || !points.length || !playerXZ) return 0;
+  const mw = DETECT_MARKER_W * s, mh = DETECT_MARKER_H * s;
+  const boxLeft = bx, boxRight = bx + bw - mw;
+  const my = by - mh;
+  const rowH = mh / DETECT_MARKER_H;
+  let drawn = 0;
+  for (const t of points) {
+    const lerp = Math.min(1, Math.max(0, compassMarkerLerp(t, playerXZ, heading01)));
+    const mx = boxLeft + (boxRight - boxLeft) * lerp;
+    for (let r = 0; r < DETECT_MARKER_ROWS.length; r++) {
+      const fill = DETECT_MARKER_ROWS[r] * s;
+      renderer.drawScreenQuad(null, { x: mx + (mw - fill) / 2, y: my + r * rowH, w: fill, h: rowH }, undefined, colour);
+    }
+    drawn++;
+  }
+  return drawn;
+}
+
+/** AUDIT NAV1 (the helm - the audit: "there are no ship bearings on the compass", the target card only within 6 degrees
+ *  of the crosshair): the sea's ships on the classic compass - the Detect marker's triangle turned UP (a hull's bow, and
+ *  never the party's or a Detect's), its row over the box's top edge and its bearing law (compassMarkerLerp, clamped),
+ *  in SHIP_MARK_COLORS by what she is to me. `ships` are `{ x, z, kind }` in scene XZ (scenes/navalHost.js
+ *  compassShips). Answers how many it drew. */
+export const SHIP_MARK_COLORS = Object.freeze({
+  hostile: Object.freeze([0.93, 0.34, 0.27, 1]), ship: Object.freeze([0.92, 0.88, 0.76, 1]), struck: Object.freeze([0.56, 0.56, 0.56, 1]),
+});
+export function drawShipCompassMarks(renderer, ships, playerXZ, heading01, { bx, by, bw, s }) {
+  if (!ships || !ships.length || !playerXZ) return 0;
+  const mw = DETECT_MARKER_W * s, mh = DETECT_MARKER_H * s;
+  const boxLeft = bx, boxRight = bx + bw - mw;
+  const my = by - mh;
+  const rowH = mh / DETECT_MARKER_H;
+  const rows = [...DETECT_MARKER_ROWS].reverse();
+  let drawn = 0;
+  for (const t of ships) {
+    const lerp = Math.min(1, Math.max(0, compassMarkerLerp([t.x, t.z], playerXZ, heading01)));
+    const mx = boxLeft + (boxRight - boxLeft) * lerp;
+    const col = SHIP_MARK_COLORS[t.kind] ?? SHIP_MARK_COLORS.ship;
+    for (let r = 0; r < rows.length; r++) {
+      const fill = rows[r] * s;
+      renderer.drawScreenQuad(null, { x: mx + (mw - fill) / 2, y: my + r * rowH, w: fill, h: rowH }, undefined, col);
+    }
+    drawn++;
+  }
+  return drawn;
 }
 
 /** DISC22-C: the classic skins' quick-loot panel - the frame worldHoverFrame resolved THIS frame, the lit row banded.
@@ -800,4 +913,53 @@ export function escortBottomPx(canvas) {
   if (!native || !canvas?.height) return 0;
   const view = Number(globalThis.innerHeight) || canvas.height;
   return native * hudScale(canvas.width, canvas.height) * (view / canvas.height);
+}
+
+/** NODE-MARKS (2026-10-01, Mac: "Any profession node, like herbs, should appear on the compass"): the professions'
+ *  nodes on the classic compass - the party's 5x3 triangle, its row over the box's top edge and its bearing law
+ *  (compassMarkerLerp, clamped), each in its profession's colour (ui/nodeMarks.js nodeMarkRgb) at its own opacity, the
+ *  nearer brighter. `points` are ui/nodeMarks.js NodeCompassPoints, the nearest last (drawn over the rest). Answers
+ *  how many it drew. */
+const _nodeCol = [0, 0, 0, 1];
+export function drawNodeCompassMarks(renderer, points, playerXZ, heading01, { bx, by, bw, s }) {
+  if (!points || !points.length || !playerXZ) return 0;
+  const mw = DETECT_MARKER_W * s, mh = DETECT_MARKER_H * s;
+  const boxLeft = bx, boxRight = bx + bw - mw;
+  const my = by - mh;
+  const rowH = mh / DETECT_MARKER_H;
+  let drawn = 0;
+  for (const t of points) {
+    const lerp = Math.min(1, Math.max(0, compassMarkerLerp(t.xz, playerXZ, heading01)));
+    const mx = boxLeft + (boxRight - boxLeft) * lerp;
+    const rgb = nodeMarkRgb(t.mark);
+    _nodeCol[0] = rgb[0]; _nodeCol[1] = rgb[1]; _nodeCol[2] = rgb[2]; _nodeCol[3] = Number.isFinite(t.a) ? t.a : 1;
+    for (let r = 0; r < DETECT_MARKER_ROWS.length; r++) {
+      const fill = DETECT_MARKER_ROWS[r] * s;
+      renderer.drawScreenQuad(null, { x: mx + (mw - fill) / 2, y: my + r * rowH, w: fill, h: rowH }, undefined, _nodeCol);
+    }
+    drawn++;
+  }
+  return drawn;
+}
+
+/** BOAT-MARK (2026-10-01, "I want to build a compass icon that tracks your boat"): my boats on the classic compass -
+ *  a little boat (ui/boatMarks.js BOAT_GLYPH_ROWS: a sail over a hull, BOAT_GLYPH_W native pixels across), its foot on
+ *  the box's top edge as the Detect markers' row stands, by their bearing law (compassMarkerLerp, clamped: a boat
+ *  behind stands at the box's end on the side to turn toward), in the boats' teal. `points` are scene XZ
+ *  (ui/boatMarks.js boatCompassPoints). Answers how many it drew. */
+export function drawBoatCompassMarks(renderer, points, playerXZ, heading01, { bx, by, bw, s }) {
+  if (!points || !points.length || !playerXZ) return 0;
+  const mw = BOAT_GLYPH_W * s;
+  const boxLeft = bx, boxRight = bx + bw - mw;
+  const my = by - BOAT_GLYPH_ROWS.length * s;
+  let drawn = 0;
+  for (const xz of points) {
+    const lerp = Math.min(1, Math.max(0, compassMarkerLerp(xz, playerXZ, heading01)));
+    const mx = boxLeft + (boxRight - boxLeft) * lerp;
+    for (let r = 0; r < BOAT_GLYPH_ROWS.length; r++) {
+      for (const [from, len] of BOAT_GLYPH_ROWS[r]) renderer.drawScreenQuad(null, { x: mx + from * s, y: my + r * s, w: len * s, h: s }, undefined, BOAT_MARK_RGB);
+    }
+    drawn++;
+  }
+  return drawn;
 }

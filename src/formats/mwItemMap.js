@@ -45,6 +45,7 @@
 
 import { WEAPONS, WEAPON_MATERIALS } from '../characters/weapons.js';
 import { OWN_MW_MODELS } from '../characters/ownWeaponModels.js';   // FIELD-GUN-MW2: the weapons Morrowind does not have
+import { OWN_MW_ARMOR, ownArmorModelFor } from '../characters/ownArmorModels.js';   // MW-BRIG1: the armour Morrowind does not have
 import { ARMOR_MATERIAL } from '../systems/armorMaterials.js';
 import { ARMOR_ENUM } from '../combat/enemyEquipment.js';
 import templates from '../characters/itemTemplates.json' with { type: 'json' };
@@ -120,7 +121,7 @@ export const RESERVES = Object.freeze({
   robe: [4, 5, 21, 22, 13, 14, 19, 20, 11, 12, 3],
   skirt: [4, 21, 22],
 });
-import { DF_TO_MW_WEAPON, DF_TO_MW_MATERIAL, ARM_PARTS } from './mwFirstPerson.js';   // WEREWOLF1: ARM_PARTS, addPartGroup's first-person fallback parts
+import { DF_TO_MW_WEAPON, DF_TO_MW_MATERIAL, ARM_PARTS, MOD_WEAPON_TO_MW } from './mwFirstPerson.js';   // WEREWOLF1: ARM_PARTS, addPartGroup's first-person fallback parts; MW-ASSIGN: a mod's weapons
 
 /** DF armor material -> the token MW armor record ids carry. */
 // MW-D37: colour truth (see DF_MATERIAL_RGB): Elven is silver-white in
@@ -173,6 +174,29 @@ export const DF_ARMOR_ROWS = Object.freeze({
   [ARMOR_ENUM.Tower_Shield]: { tokens: ['towershield'] },
 });
 
+/** MW-ASSIGN (2026-09-27, Discord: "Some sprites not assigned morrowind skin"): THE ARMOUR A MOD ADDS, against the
+ *  classic row of its shape - Roleplay & Realism Items' chain set (hauberk, chausses, spaulders, sollerets) and light
+ *  set (jerkin, cuisse, helmet, boots, gloves, vambraces), templates 515-526 (systems/rriItems.js RRI_CLASSES). A
+ *  vambrace is a forearm's guard, so it asks for Morrowind's bracer before its gauntlet, one side each. Their material
+ *  is the classic ARMOR_MATERIAL the rows already translate (a fur piece is folded to Leather at its mint). Outside
+ *  the classic rows every one of them stood as its classic picture - worn, on the icon and hung on a wall. */
+export const MOD_ARMOR_ROWS = Object.freeze({
+  515: DF_ARMOR_ROWS[ARMOR_ENUM.Cuirass],           // Hauberk
+  516: DF_ARMOR_ROWS[ARMOR_ENUM.Greaves],           // Chausses
+  517: DF_ARMOR_ROWS[ARMOR_ENUM.Left_Pauldron],     // Left Spaulder
+  518: DF_ARMOR_ROWS[ARMOR_ENUM.Right_Pauldron],    // Right Spaulder
+  519: DF_ARMOR_ROWS[ARMOR_ENUM.Boots],             // Sollerets
+  520: DF_ARMOR_ROWS[ARMOR_ENUM.Cuirass],           // Jerkin
+  521: DF_ARMOR_ROWS[ARMOR_ENUM.Greaves],           // Cuisse
+  522: DF_ARMOR_ROWS[ARMOR_ENUM.Helm],              // Helmet
+  523: DF_ARMOR_ROWS[ARMOR_ENUM.Boots],             // Boots
+  524: DF_ARMOR_ROWS[ARMOR_ENUM.Gauntlets],         // Gloves
+  525: Object.freeze({ tokens: ['bracer', 'gauntlet'], sides: ['left'] }),    // Left Vambrace
+  526: Object.freeze({ tokens: ['bracer', 'gauntlet'], sides: ['right'] }),   // Right Vambrace
+});
+/** The row a template resolves by - a classic one's, or a mod's (MW-ASSIGN). */
+export const armorRowOf = (templateIndex) => DF_ARMOR_ROWS[templateIndex] ?? MOD_ARMOR_ROWS[templateIndex] ?? null;
+
 /** The weapon rows this map DECLARES as sprite-keepers rather than
  *  mapping - each with its reason, because a silent None is a lie. */
 export const DECLARED_SPRITE_WEAPONS = Object.freeze({
@@ -222,7 +246,7 @@ export function mwClothingRecord(clothes, name, { dye = null, colourOf = null } 
  * THE SPRITE, and `note` says why in words the report can print.
  */
 export function mwArmorRecords(armorRecords, templateIndex, material) {
-  const row = DF_ARMOR_ROWS[templateIndex];
+  const row = armorRowOf(templateIndex);   // MW-ASSIGN: a mod's piece by the classic row of its shape
   if (!row) return { records: [], row: null, note: `template ${templateIndex} is not an armor row` };
   const mName = matName(ARMOR_MATERIAL, material);
   const chain = DF_TO_MW_ARMOR_MATERIAL[mName] ?? null;
@@ -312,6 +336,26 @@ export function itemMapCoverage() {
       const hasMat = mName in DF_TO_MW_ARMOR_MATERIAL;
       if (hasRow && hasMat) out.push({ kind: 'mapped', item: aName, material: mName, via: 'armor' });
       else out.push({ kind: 'UNMAPPED', item: aName, material: mName });
+    }
+  }
+  // MW-ASSIGN: A MOD'S WEAPONS AND ARMOUR ARE IN THE SPACE TOO - the Thunderlock's lesson again: templates outside
+  // DFU's population were never asked about, and a mod's hauberk stood as its classic picture while this census
+  // reported the map total. Every material of each, as the classic rows.
+  for (const index of Object.keys(MOD_WEAPON_TO_MW)) {
+    for (const [mName, m] of Object.entries(WEAPON_MATERIALS)) {
+      if (m === WEAPON_MATERIALS.None) continue;
+      out.push({ kind: MOD_WEAPON_TO_MW[index] != null ? 'mapped' : 'UNMAPPED', item: `template ${index}`, material: mName, via: 'mod weapon' });
+    }
+  }
+  for (const index of Object.keys(MOD_ARMOR_ROWS)) {
+    for (const [mName, m] of Object.entries(ARMOR_MATERIAL)) {
+      if (m === ARMOR_MATERIAL.None) continue;
+      // MW-BRIG1: a template and material the port dresses in its own model - still a row of the mod's space, and
+      // one that answers with the port's meshes rather than a retail record
+      const own = OWN_MW_ARMOR.find((a) => a.templateIndex === Number(index) && a.material === m);
+      if (own) { out.push({ kind: 'own', item: `template ${index}`, material: mName, via: 'mod armor', own: 'ownArmorModels', index: Number(index), model: own.parts.map((p) => p.model).join(' + ') }); continue; }
+      const ok = !!MOD_ARMOR_ROWS[index] && mName in DF_TO_MW_ARMOR_MATERIAL;
+      out.push({ kind: ok ? 'mapped' : 'UNMAPPED', item: `template ${index}`, material: mName, via: 'mod armor' });
     }
   }
   // MW-D30: every WEARABLE GARMENT index answers - the DB names it and
@@ -459,7 +503,7 @@ export function dfWornEquipment(slots, EQUIP_SLOTS, ARMOR_ENUM_) {
 export function dfWornArmor(slots, EQUIP_SLOTS, ARMOR_ENUM) {
   const worn = [];
   const take = (item) => {
-    if (item && typeof item.templateIndex === 'number' && item.templateIndex in DF_ARMOR_ROWS) {
+    if (item && typeof item.templateIndex === 'number' && armorRowOf(item.templateIndex)) {   // MW-ASSIGN: a mod's pieces are worn too
       worn.push({ templateIndex: item.templateIndex, material: item.material ?? 0 });
     }
   };
@@ -537,12 +581,24 @@ export function composeWornArmor({ pieces, armors, clothes, bodyPool, female = f
       for (const part of RESERVES[res.row.reserve] ?? []) claim(part, prio, null);
       continue;
     }
+    const prio = ((0 + 1) << 1) + 1;
+    // MW-BRIG1: THE PORT'S OWN WORN MODEL stands where the ARMO and its
+    // BODY records would (characters/ownArmorModels.js) - claimed at an
+    // armour's priority, part by part, as composeRefs claims a record's.
+    const own = ownArmorModelFor(piece);
+    if (own) {
+      for (const p of own.parts) {
+        const at = ARMO_PART.findIndex((r) => r.name === p.part);
+        const row = ARMO_PART[at];
+        claim(at, prio, { slot: `${row.name} (${own.id})`, partName: row.name, bones: row.bones, model: p.model, recordId: own.id, piece, skinFrom: own.skinFrom, fitTo: own.fitTo ?? null });   // MW-BRIG2: skinned from the body under it; MW-BRIG3: fitted onto the part it hides
+      }
+      continue;
+    }
     const res = mwArmorRecords(armors, piece.templateIndex, piece.material);
     if (!res.records.length) { notes.push(`armor ${piece.templateIndex}: ${res.note}`); continue; }
-    const prio = ((0 + 1) << 1) + 1;
     // AUDIT 30 F1: A HELMET HIDES THE HAIR - an engine rule, not a
     // part reference (npcanimation.cpp:615), prior to the refs.
-    if (piece.templateIndex === HELM_TEMPLATE) hairHidden = Math.max(hairHidden, prio);
+    if (armorRowOf(piece.templateIndex) === DF_ARMOR_ROWS[HELM_TEMPLATE]) hairHidden = Math.max(hairHidden, prio);   // MW-ASSIGN: any helm-shaped piece (a mod's helmet)
     // IG3 (Mac: "shields when equipped do not appear"): a SHIELD is the
     // one worn piece whose ladder ends at the item's own GROUND MESH -
     // getShieldMesh (actoranimation.cpp:108-139) tries the PRT_Shield
@@ -579,6 +635,19 @@ export function composeWornArmor({ pieces, armors, clothes, bodyPool, female = f
     if (key) shadows.add(key);
   }
   return { adds, shadows: [...shadows], notes };
+}
+
+/** NUDE-FLATS, THE MORROWIND BODY'S HALF: DFU's upper weld (PaperDollRenderer.BlitBody's `!IsUpperClothed()`, the
+ *  classic doll's in ui/paperDoll.js) for the one body that would be bare. Morrowind's own female chest is bare where
+ *  its groin wears underwear, so a woman whose composition leaves the chest skin showing wears the plainest shirt
+ *  while Show Nudity is off - resolved as a worn Short Shirt is (mwClothingRecord with no dye: the id-sorted first,
+ *  retail's common_shirt_01). A man, and a chest anything already covers - a shirt, a dress, a cloak's robe, a
+ *  cuirass - compose as they always did. `show` is Show Nudity (ChildGuard/PlayerNudity). */
+export const MODESTY_SHIRT = Object.freeze({ kind: 'clothing', name: 'Short Shirt' });
+export function composeWornModest(args, show) {
+  const worn = composeWornArmor(args);
+  if (show || !args.female || worn.shadows.includes('chest')) return worn;
+  return composeWornArmor({ ...args, pieces: [...(args.pieces ?? []), MODESTY_SHIRT] });
 }
 
 /** IG3: PRT_Shield's row index in ARMO_PART (the sided 27-enum). */

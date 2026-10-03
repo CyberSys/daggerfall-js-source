@@ -15,6 +15,7 @@
 // Unity Random.Range slots are uniform rolls, as in DFU itself.
 // Equipment (SetEnemyEquipment) and loot generation: E3b/E4.
 
+import { effectiveSkill, rawSkillForEffective } from '../systems/skillSoftcap.js';   // SOFTCAP2: a leaf
 import { KNIGHT_CITY_WATCH as KNIGHT_CITYWATCH_ID } from './mobileTypes.js';
 import { meanerMonstersRow as pcaaoMeanerMonstersRow } from '../combat/pcaaoMeanerMonsters.js';   // PCO1: Kirk.O's Meaner Monsters edit, when both mods are on
 import { applyMeanerMonsters } from './meanerMonsters.js';   // MM1: Ralzar's Meaner Monsters, when its switch is on
@@ -57,6 +58,34 @@ export function rollEnemyClassMaxHealth(level, hitPointsPerLevel, rollFn = Math.
 export function skillsLevel(level) {
   const s = level * 5 + 30;
   return s > 100 ? 100 : s;
+}
+
+/**
+ * SOFTCAP2 - TOUGHER ENEMIES, applied to a built foe (after makeEnemyEntity
+ * and the elite pass, so the DFU build is the one underneath). `scaling`
+ * is skillSoftcap.js progressionScaling's answer; null changes nothing.
+ * Four channels, each once:
+ *   skills       + scaling.skillGain effective points - the raw flat number
+ *                  is set so effectiveSkill reads the target (it may pass 100)
+ *   health       x scaling.healthMult (max and current)
+ *   damageScale  x scaling.damageMult - blows AND spells (the elite channel)
+ *   challengeLevel = level + scaling.challengeLevels - what the foe TEACHES
+ *                  (the real-use law); `level` itself is left alone, so the
+ *                  foe's spell magnitudes, loot and gear are not scaled a
+ *                  second time through it.
+ * `skillOverrides` (a caster's pinned magic skills) are left alone.
+ */
+export function applyProgressionScaling(entity, scaling) {
+  if (!entity || !scaling) return entity;
+  if (typeof entity.skills === 'number') {
+    entity.skills = rawSkillForEffective(effectiveSkill(entity.skills) + scaling.skillGain);
+  }
+  entity.maxHealth = Math.max(1, Math.round(entity.maxHealth * scaling.healthMult));
+  entity.health = entity.maxHealth;
+  entity.damageScale = (Number.isFinite(entity.damageScale) ? entity.damageScale : 1) * scaling.damageMult;
+  entity.challengeLevel = (entity.level ?? 1) + scaling.challengeLevels;
+  entity.progression = { share: scaling.share, veteran: scaling.veteran, edge: scaling.edge };   // for a HUD or a debugger; nothing reads it as law
+  return entity;
 }
 
 /**
@@ -162,3 +191,15 @@ export function makeEnemyEntity(mobileType, basicsIn, career, playerLevel, rollF
     name: isClass ? career.name : undefined,
   };
 }
+
+/**
+ * OH-E: EnemyEntity.OnLootSpawned (EnemyEntity.cs:399) - SetEnemyCareer raises it once the enemy's loot is in its Items
+ * (the table, the equipment, the map/potion/recipe trio): `{mobileType, lootTableKey, items, worn}` - `worn` the kit
+ * the port keeps off the droppable `items` (DFU's Items holds both). The port's one subscriber list; scenes/hostCombat.js's
+ * spawnEnemyLoot raises it.
+ */
+export const enemyLootSpawned = Object.freeze({
+  _fns: [],
+  add(fn) { this._fns.push(fn); return () => { const i = this._fns.indexOf(fn); if (i >= 0) this._fns.splice(i, 1); }; },
+  raise(args) { for (const fn of [...this._fns]) fn(args); },
+});

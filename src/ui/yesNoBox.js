@@ -17,7 +17,7 @@
 //   - The KEYS are DFU's on both: Y and N (the buttons' DaggerfallShortcut hotkeys, :377); Return presses the DEFAULT
 //     button, which for YesNo is NO (AddCommonButtons :630-632, Update :313-324); and Escape does nothing, because a
 //     box with buttons cannot be cancelled (AddButton :383, AllowCancel = false).
-import { layoutMessageBox, drawMessageBox, messageBoxArtLoaded, messageBoxHit, MB_BUTTONS } from './messageBox.js';
+import { layoutMessageBox, drawMessageBox, messageBoxArtLoaded, messageBoxHit, MB_BUTTONS, fitBoxRows } from './messageBox.js';
 import { nativeMetrics } from './nativePanel.js';
 import { ChoiceWindow } from './talkWindow.js';
 import { isEnhanced } from '../systems/uiSkin.js';
@@ -25,6 +25,7 @@ import { hotkeyHit } from '../systems/dialogShortcuts.js';
 import { injectEnhancedStyle, injectEnhancedFonts } from './enhancedStyle.js';
 import { audio } from '../systems/audio.js';
 import { SOUND } from '../systems/soundClips.js';
+import { armDrawWatchdog, disarmDraw } from './drawWatchdog.js';   // DISC29-D: the watchdog counts frames, not milliseconds
 
 export const YES_NO_BOX_ID = 'enhanced-yesno';
 /** The card leaves when its draws stop - a host gone without closing it - as the input box's does (400 ms). */
@@ -32,6 +33,11 @@ export const YES_NO_WATCHDOG_MS = 400;
 /** The card's words for the two buttons (BUTTONS.RCI's art says YES and NO) and its caption. */
 export const YES_NO_LABELS = Object.freeze({ yes: 'Yes', no: 'No' });
 export const YES_NO_HINT = 'Y yes · N or Enter no';
+/** SOFTCAP3: the OK box (CommonMessageBoxButtons.OK - DaggerfallMessageBox.cs's single OK button, BUTTONS.RCI record 5):
+ *  the same window with `okOnly`, for a box that only EXPLAINS. Return and the button's O answer it; Escape does not
+ *  (a box with a button is not cancelled, as for YesNo). */
+export const OK_LABEL = 'OK';
+export const OK_HINT = 'Enter or O to close';
 
 const rowText = (r) => (typeof r === 'string' ? r : String(r?.text ?? ''));
 
@@ -54,15 +60,19 @@ function buildFace(doc, owner) {
   acts.className = 'yesnobox-acts';
   const press = (yes) => () => { audio.playOneShot(SOUND.ButtonClick, 1); owner.answer(yes); };   // ButtonClickHandler (:487)
   const yes = doc.createElement('button');
-  yes.type = 'button'; yes.className = 'act yesnobox-yes'; yes.textContent = YES_NO_LABELS.yes;
+  yes.type = 'button'; yes.className = owner.okOnly ? 'act primary yesnobox-ok' : 'act yesnobox-yes'; yes.textContent = owner.okOnly ? OK_LABEL : YES_NO_LABELS.yes;
   yes.onclick = press(true);
-  const no = doc.createElement('button');
-  no.type = 'button'; no.className = 'act primary yesnobox-no'; no.textContent = YES_NO_LABELS.no;   // the default button, marked as such
-  no.onclick = press(false);
-  acts.append(yes, no);
+  acts.append(yes);
+  let no = null;
+  if (!owner.okOnly) {   // SOFTCAP3: the OK box has its one button, and it is the default
+    no = doc.createElement('button');
+    no.type = 'button'; no.className = 'act primary yesnobox-no'; no.textContent = YES_NO_LABELS.no;   // the default button, marked as such
+    no.onclick = press(false);
+    acts.append(no);
+  }
   const hint = doc.createElement('div');
   hint.className = 'notice-hint';
-  hint.textContent = YES_NO_HINT;
+  hint.textContent = owner.okOnly ? OK_HINT : YES_NO_HINT;
   root.append(rows, acts, hint);
   doc.body.append(root);
   return { owner, root, rows, yes, no, rowsKey: null };
@@ -73,8 +83,8 @@ function drawFace(owner, rows, doc = (typeof document === 'undefined' ? null : d
   if (!doc) return null;
   if (face && face.owner !== owner) releaseYesNoFace(face.owner);
   if (!face) face = buildFace(doc, owner);
-  cancel(watchdog);
-  watchdog = schedule(() => { if (face?.owner === owner) releaseYesNoFace(owner); }, YES_NO_WATCHDOG_MS);
+  disarmDraw(watchdog);
+  watchdog = armDrawWatchdog(YES_NO_WATCHDOG_MS, () => { if (face?.owner === owner) releaseYesNoFace(owner); }, { schedule, cancel });   // DISC29-D: a frame undrawn, not a slow one
   const key = rows.map(rowText).join('\n');
   if (face.rowsKey !== key) {
     face.rowsKey = key;
@@ -92,7 +102,7 @@ function drawFace(owner, rows, doc = (typeof document === 'undefined' ? null : d
 /** The box closed (or its draws stopped): the card goes. A no-op for a box whose card is not the one up. */
 export function releaseYesNoFace(owner) {
   if (!face || face.owner !== owner) return;
-  cancel(watchdog); watchdog = null;
+  disarmDraw(watchdog); watchdog = null;
   try { face.root.remove(); } catch { /* already gone */ }
   face = null;
 }
@@ -100,8 +110,9 @@ export function releaseYesNoFace(owner) {
 export const yesNoFaceOwner = () => face?.owner ?? null;
 
 export class YesNoBoxWindow {
-  /** @param {{ rows: Array<string|{text: string, center?: boolean}>, onYes?: (() => void)|null, onNo?: (() => void)|null }} opts */
-  constructor({ rows, onYes = null, onNo = null }) {
+  /** @param {{ rows: Array<string|{text: string, center?: boolean}>, onYes?: (() => void)|null, onNo?: (() => void)|null, okOnly?: boolean }} opts */
+  constructor({ rows, onYes = null, onNo = null, okOnly = false }) {
+    this.okOnly = !!okOnly;   // SOFTCAP3: the OK box - one button, answered as Yes (onYes)
     this.rows = rows?.length ? rows : [''];
     this.onYes = onYes;
     this.onNo = onNo;
@@ -120,8 +131,20 @@ export class YesNoBoxWindow {
     (yes ? this.onYes : this.onNo)?.();
   }
 
+  /** AUDIT OW4 P3 (scenes/world.js's party walk): the question TAKEN BACK unanswered - done, so it is inert wherever it
+   *  stands (under a window pushed over it, a key or a click reaches neither arm) and the slot's own drain drops it the
+   *  moment it is the top again (townTalk's `overlay?.done`); its card goes now. */
+  withdraw() {
+    this.done = true;
+    releaseYesNoFace(this);
+  }
+
   input(code, e = null) {
     if (this.done) return;
+    if (this.okOnly) {   // SOFTCAP3: the OK box - Return (the default button) or O; nothing else closes it
+      if (code === 'Enter' || code === 'NumpadEnter' || code === 'confirm' || code === 'KeyO') this.answer(true);
+      return;
+    }
     if (hotkeyHit('Yes', code, e)) { this.answer(true); return; }
     if (hotkeyHit('No', code, e)) { this.answer(false); return; }
     // Return presses the default button (Update :313-324) - No, for YesNo (:631). Escape: nothing (:383).
@@ -133,7 +156,7 @@ export class YesNoBoxWindow {
     if (this.done || this._carded) return true;   // the card's own buttons take its presses
     if (this._box) {
       const hit = messageBoxHit(this._box, vx, vy);
-      if (hit === MB_BUTTONS.Yes) this.answer(true);
+      if (hit === MB_BUTTONS.Yes || hit === MB_BUTTONS.OK) this.answer(true);
       else if (hit === MB_BUTTONS.No) this.answer(false);
       return true;
     }
@@ -146,13 +169,13 @@ export class YesNoBoxWindow {
     if (isEnhanced() && typeof document !== 'undefined' && drawFace(this, this.rows)) { this._carded = true; return; }
     if (messageBoxArtLoaded() && font) {
       const m = nativeMetrics(canvas);
-      const box = layoutMessageBox(font, this.rows, [MB_BUTTONS.Yes, MB_BUTTONS.No]);
+      const box = layoutMessageBox(font, fitBoxRows(font, this.rows), this.okOnly ? [MB_BUTTONS.OK] : [MB_BUTTONS.Yes, MB_BUTTONS.No]);   // SOFTCAP3: the OK box's one button   // SS5: a long row wraps on the screen
       if (drawMessageBox(renderer, m, font, box)) { this._box = box; return; }
     }
     this._box = null;
     this._flat ??= new ChoiceWindow({
       lines: this.rows.map(rowText),
-      options: [
+      options: this.okOnly ? [{ code: 'Enter', label: 'Enter - OK', action: () => this.answer(true) }] : [
         { code: 'KeyY', label: 'Y - yes', action: () => this.answer(true) },
         { code: 'KeyN', label: 'N - no', action: () => this.answer(false) },
       ],

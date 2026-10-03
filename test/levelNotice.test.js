@@ -341,7 +341,7 @@ test('AUDIT LV2 F2: an unspent level is announced ONCE, not once per rest', () =
   // DFU RE-OFFERS the sheet on every later pass while the level is
   // unspent - RaiseSkills' tail is outside the skill loop (:1413) and
   // `checkForLevelUp` stays true while `level` is behind the
-  // calculated one (systems/advancement.js:174, and its own comment
+  // calculated one (systems/advancement.js:215, and its own comment
   // says so). Re-opening a window is that law. Re-ANNOUNCING is not:
   // measured before the fix, three rest passes on ONE unspent level
   // played three fanfares and knocked the standing reminder back into
@@ -385,7 +385,7 @@ test('AUDIT LV2 F4: the strip hangs in the HUD\'s own bottom column, not on the 
   // grows upward with its CONTENT (breath, effects, needs) and again
   // with `--hud-scale` - so with a live block the strip sat 19px into
   // the vitals at scale 1 on a phone and 154px into them at scale 2.
-  // QS3's rule (ui/enhancedHud.js:527-530) is that a CENTRED thing
+  // QS3's rule (ui/enhancedHud.js:643-646) is that a CENTRED thing
   // above the vitals belongs IN the column; only a CORNER does the
   // arithmetic. tools/levelUpProbe.mjs measures the boxes; this pins
   // where the node goes.
@@ -467,9 +467,9 @@ test('LV2: the strip is the ONE call all four hosts already make, and the fork i
   assert.match(src('src/ui/hud.js'), /drawLevelNotices\(\{ hidden: cursorActive \|\| !hudRenderEnabled\(\) \}\);/);
   // ...and the raises and the mastery go through the same module.
   const shared = src('src/scenes/shared.js');
-  assert.match(shared, /import \{ announceSkillRaise, announceMastery \} from '\.\.\/ui\/levelNotice\.js'/);
+  assert.match(shared, /import \{ announceSkillRaise, announceMastery, announceSkillMilestone \} from '\.\.\/ui\/levelNotice\.js'/);   // SOFTCAP1: and the milestones past 100
   assert.match(shared, /announceMastery\(id, \{ box, rows: \(\) => expandRowValues\(plainLines\(lines\?\.\(MASTERY_TEXT_ID\)\), null\) \}\);/);
-  assert.match(shared, /announceSkillRaise\(id, skillValue\(entity, id\), \{ say \}\)/);
+  assert.match(shared, /announceSkillRaise\(id, displaySkillValue\(entity, id\), \{ say \}\)/);   // SOFTCAP1: the printed 0..200 value
   assert.match(shared, /audio\.playOneShot\(SOUND\.ArenaFanfareLevelUp, 1\);/, 'the mastery fanfare stays in BOTH lanes');
 });
 
@@ -654,5 +654,5 @@ test('LV3 by source: an UNBOUND sheet action presses nothing and shows no button
   assert.match(m, /if \(typeof hooks\.openAscend === 'function'\) \{/, 'the page\'s door is handed in, not gated on state');
   assert.doesNotMatch(m, /readyToLevelUp/, 'the Stats page never reads the flag: WHICH screen the door opens is the door\'s question');
   assert.doesNotMatch(m, /doors\.unshift\(\['Level up'/, 'and there is no second, conditional door for the same window');
-  assert.match(m, /b\.onclick = \(\) => \{ onAction\('resume'\); fn\(\); \};/, 'the pause window RESUMES first for the doors that LEAVE this page');
+  assert.match(m, /b\.onclick = \(\) => \{ onAction\('handoff'\); if \(fn\(\) === false\) onAction\('resume'\); \};/, 'the pause window goes down first for the doors that LEAVE this page - a handoff, ESC-BOOK: nothing relocks under the window they open');
 });

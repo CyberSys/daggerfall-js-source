@@ -56,8 +56,8 @@
   {
     "name": "WB3b-a-spire-on-the-floor",
     "file": "src/world/gateArena.js",
-    "old": "    const r = RIM_OUT + 1.5 + (k % 3) * 0.8;",
-    "new": "    const r = 10 + (k % 3) * 0.8;",
+    "old": "    const r = RIM_OUT + 1.5 + (i % 3) * 0.8;",
+    "new": "    const r = 10 + (i % 3) * 0.8;",
     "tests": [
       "test/wb3b_gate_arena.test.js"
     ]
@@ -74,7 +74,7 @@
   {
     "name": "WB3b-a-brazier-in-the-bridge",
     "file": "src/world/gateArena.js",
-    "old": "    if (Math.abs(Math.atan2(Math.cos(a), Math.sin(a))) <= 0.35) continue;\n    out.push(",
+    "old": "    if (!clearOf(k, a, BRAZIER_CLEAR)) continue;\n    out.push(",
     "new": "    out.push(",
     "tests": [
       "test/wb3b_gate_arena.test.js"
@@ -83,8 +83,8 @@
   {
     "name": "WB3b-the-collider-half-a-disc",
     "file": "src/world/gateArena.js",
-    "old": "  for (let k = 0; k < FLOOR_SIDES; k++) {\n    const a0 = (k / FLOOR_SIDES) * Math.PI * 2, a1 = ((k + 1) / FLOOR_SIDES) * Math.PI * 2;\n    out.push(",
-    "new": "  for (let k = 0; k < FLOOR_SIDES / 2; k++) {\n    const a0 = (k / FLOOR_SIDES) * Math.PI * 2, a1 = ((k + 1) / FLOOR_SIDES) * Math.PI * 2;\n    out.push(",
+    "old": "    for (let k = 0; k < FLOOR_SIDES; k++) {\n      const a0 = (k / FLOOR_SIDES) * Math.PI * 2, a1 = ((k + 1) / FLOOR_SIDES) * Math.PI * 2;\n      out.push(",
+    "new": "    for (let k = 0; k < FLOOR_SIDES / 2; k++) {\n      const a0 = (k / FLOOR_SIDES) * Math.PI * 2, a1 = ((k + 1) / FLOOR_SIDES) * Math.PI * 2;\n      out.push(",
     "tests": [
       "test/wb3b_gate_arena.test.js"
     ]
@@ -218,7 +218,7 @@
   {
     "name": "WB3b-a-save-in-the-court",
     "file": "src/scenes/dungeonContext.js",
-    "old": "      if (isGateArena(dfLocation)) { hudText.add(COURT_TEXT.noSave); return false; }",
+    "old": "      if (isGateArena(dfLocation)) { if (!quiet) hudText.add(COURT_TEXT.noSave); return false; }",
     "new": "      void 0;",
     "tests": [
       "test/wb3b_gate_arena.test.js"
@@ -245,8 +245,8 @@
   {
     "name": "WB3b-no-ring-in-the-court",
     "file": "src/scenes/world.js",
-    "old": "    if (!player.arena && modes?.gateArenaDay?.() != null) player.arena = courtRing();",
-    "new": "    if (!player.arena && false) player.arena = courtRing();",
+    "old": "    if (!player.arena && modes?.gateArenaDay?.() != null) { _courtArena.xa",
+    "new": "    if (!player.arena && false) { _courtArena.xa",
     "tests": [
       "test/wb3b_gate_arena.test.js"
     ]

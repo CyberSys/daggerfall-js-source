@@ -140,7 +140,9 @@ test('RR2 the decision per person: the two switches, the face override for the b
   // the interior context asks per person and draws the answer; identity keeps the born flat
   const ic = rd('src/scenes/interiorContext.js');
   assert.match(ic, /const v = opts\.variantPerson\?\.\(pn\) \?\? null;/);
-  assert.match(ic, /\.\.\.\(v \? \{ drawArchive: v\.textureArchive, drawRecord: v\.textureRecord \} : \{\}\)/);
+  // NUDE-FLATS: the answer reaches the draw through drawnFlat (a dressed variant is itself), and a variant always draws
+  assert.match(ic, /const \[da, dr\] = drawnFlat\(v\?\.textureArchive \?\? pn\.textureArchive, v\?\.textureRecord \?\? pn\.textureRecord\);/);
+  assert.match(ic, /const redrawn = v \|\| da !== pn\.textureArchive \|\| dr !== pn\.textureRecord;[^\n]*\n[^\n]*\.\.\.\(redrawn \? \{ drawArchive: da, drawRecord: dr \} : \{\}\)/);
   // AUDIT 68 S21-person-hide-noop: the build's stand and the late one are one stand now - four reads, every one a draw
   assert.ok((ic.match(/pn\.drawArchive \?\? pn\.textureArchive/g) ?? []).length >= 4, 'every draw read');
   assert.doesNotMatch(ic, /(?:getTexture|uploadRecord|createBillboardBatch)\(pn\.textureArchive/, 'and none reads the born flat');
@@ -290,7 +292,7 @@ test('RR2 the trample and the charge on the hosts: the contacts each frame, the 
   const rh = rd('src/systems/rrRidingHost.js');
   assert.match(rh, /latch\.pickpocketAttempted = true;/, 'PickpocketByPlayerAttempted, the latch (AUDIT-RR2 G24: the pickpocket\'s own)');
   assert.match(rh, /f\.ai\.knockbackSpeed = RR_RIDING\.chargeKnockback; f\.ai\.knockbackDir = \[\.\.\.direction\];/);
-  assert.match(rh, /playerEntity\.fatigue = Math\.max\(0, \(playerEntity\.fatigue \?\? 0\) - FATIGUE_LOSS\.Default \* RR_RIDING\.chargeFatigueMultiplier\);/);
+  assert.match(rh, /playerEntity\.fatigue = Math\.max\(0, \(playerEntity\.fatigue \?\? 0\) - Math\.trunc\(FATIGUE_LOSS\.Default \* RR_RIDING\.chargeFatigueMultiplier \* FATIGUE_DRAIN_SCALE\)\);/);   // BALANCE1 (the pre-merge audit 0927b F1): a charge is exertion
   assert.match(rh, /rrChargeDamage\(\{ minBase: handToHandMinDamage\(h2h\), maxBase: handToHandMaxDamage\(h2h\), agility: liveStat\(playerEntity, 'agility'\), willpower: liveStat\(playerEntity, 'willpower'\), roll: rolls\(\) \}\)/);
   assert.match(rh, /if \(isGuardRecord\(f\)\) hurtGuard\(f, damage, at\);\s*else damageFoe\(f, damage, at\);/, 'AUDIT-RR F17: DamageHealthFromSource - no knock direction handed to the weapon path');
   assert.match(rh, /const out = rrTrampleOutcome\(\{ isGuard: !!person\.guard, female: person\.gender === GENDERS\.Female \}\);/);

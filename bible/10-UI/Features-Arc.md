@@ -203,7 +203,7 @@ switch operates nowhere but the home. On the home a settings switch's
 face toggles it (there is no help sheet there to open), as prefRow's
 face does.
 
-**Not done, by name.** The standalone dev host `scenes/dungeon.js:119`
+**Not done, by name.** The standalone dev host `scenes/dungeon.js:127`
 still reads the raw location - a probe door, sized by nothing, as the
 struck Ledger C row already says. Building on the feature (Mac's
 "genuine enhanced feature we can build on") is a design decision, not
@@ -565,7 +565,8 @@ room has no stake in. All three are read every frame by the two
 exterior hosts, so a press takes effect at once, and each has a kill
 door: `wind-wisps` (`windWisps`, `?wisps=off`) - the wisps that show
 the wind; `wind-sound` (`windSound`, `?windaudio=off`) - the quiet loop
-on Daggerfall's own wind clips, silent indoors (ES1, 2026-09-16: this
+(on Daggerfall's own wind clips until FIELD-WIND1, 2026-09-29, made it a
+bed of its own), silent indoors (ES1, 2026-09-16: this
 row became `enhanced-sounds` / `soundEnhancements`, the port's own sounds
 under one switch - see below); `flora-sway`
 (`floraSway`, `?sway=off`) - the trees and plants leaning with the
@@ -1068,3 +1069,50 @@ card by source); `features`, `blood1_decals`, `disc23c_features_colour`,
 `grasspx`, `if1_immersivefootsteps`, `maptoggle`, `qs3_hud`,
 `rf4_featuredecl`, `weather2b_weatherfield`, `wind3_windworld` and
 `ws1_sheathing` re-aimed at the new rows. Mutants `tools/mutants/ft18.json`: 41 (FT18's 28 and FPS-CAP1's 13), all dead - the search's any-word mutant survived the first run and the every-word pin (`kamer windmills`) was written for it; seven older records the change moved out from under (blood1 2, grasspx 1, survtiers 1, survtiers3 3) re-aimed and re-run, all dead.
+
+## TEXT-PASS - the words, said plainly (2026-09-29)
+
+Mac sent the Overhaul menu's text ("only the description has been tweaked"),
+two labels for the Enhanced Plus card ("UI colour", "Left stick run"), a
+note for the controller window ("I would use a slash between every button
+use that has more than one function instead of a dot like the draw/sheathe
+button already has"), and the ask with it: "audit text in general for
+descriptions and menus, reduce bloat and overall make it less AI".
+
+**Mac's words are used as he wrote them** (`systems/overhauls.js`), with one
+typo mended ("Daggefall Online"). The controller window's "Activate ·
+Select" and "Inventory · Back", and the d-pad legend's tap-and-hold join,
+take a slash (`ui/plusPadBinds.js`).
+
+**Every Features note was rewritten.** What went: the engine's vocabulary
+(navmesh, tonemap, linear colour, SKY*.DAT, mipmaps, "the crowd slice
+lands"), version numbers, the "Author's Mod X.Y, 1:1:" opener on every mod
+row, the quoted mod taglines, and phrasing that performed rather than told
+("silence between", "the climate's word to the horizon", "under the pen").
+What stayed, on every row: what the switch does, what Off does, what online
+changes, and what the row needs (another mod, the Morrowind body, your own
+files). The DFU rows end "On/Off by default in Daggerfall Unity." rather
+than "Daggerfall Unity ships it on." The notes went from 16,634 characters
+to 13,293, and FT15's ceiling falls to match.
+
+**The Online pane** said the shared world in one 1,900-character paragraph;
+it says the same facts in plain sentences now, and its seven lock notes
+("Set for everyone online: ... Your own choice comes back offline.") share
+one shape. The "Other players" card, "Show me to travellers", the HUD scale
+row, the account line and the classic-start line were shortened.
+
+**Not touched, on purpose:** the mods' own per-setting descriptions in
+`systems/modSettings.js` (the mods' words, carried 1:1 - only each mod's
+Enabled blurb is the port's), every classic Daggerfall string, and the
+credits. The professions, market and notice-board messages are short and
+specific and were left; a handful of flourishes there ("known to the
+counting-houses - gathered on, and witnessed") are the next pass's.
+
+Every pin that read the old wording reads the new one and still holds the
+fact it held: `features` (the ceiling), `ft1`, `ft2`, `ft4`, `ft5`, `ft6`,
+`ft7`, `ft8`, `ft9`, `ft10`, `ft11`, `audit28_forage`, `audit59_enhancedai`,
+`blood1_decals`, `el3_air`, `em3_mapchoice`, `enhancedsounds`, `grasspx`,
+`maptoggle`, `auditworld5`, `auditworld34`, `auditworld6b`,
+`auditworld6bii`, `chatroster_namefilter`, `disc25d_guild_share`,
+`modsonline`, `onlinelane`, `raid2_raidsOnline`, `realm0`,
+`tv3_travellers`, `world6`, `world6b`.

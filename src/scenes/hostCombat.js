@@ -9,6 +9,7 @@
 // (MIT, Daggerfall Workshop).
 
 import { SKILLS, tallySkill, skillValue, SKILL_NAMES } from '../systems/skills.js';
+import { effectiveLevel } from '../systems/mentorMode.js';   // SOFTCAP2: mentor mode - the level the world is built around
 import { vampireAttackVoice } from '../systems/vampirism.js';   // V5: GetCustomRaceGenderAttackSoundData
 import { liveLycanthropy } from '../systems/lycanthropy.js';   // AUDIT 39: SuppressOptionalCombatVoices, the racial override's own gate
 import {
@@ -20,11 +21,14 @@ import { RACES } from '../systems/races.js';   // C2-slice: the player grunt's r
 import { assignEnemyStartingEquipment, equipmentVariantFor, equipmentItems } from '../combat/enemyEquipment.js';   // RRI2: EnemyEntity.AssignEnemyEquipment, the delegate
 import { rollEnemyWeaponPoison } from '../systems/poisons.js';
 import { EQUIP_SLOTS, equipTableOf, getEquipSlot } from '../systems/equip.js';
-import { generateItems, addEnemyLootExtras, enemyLootTableKey } from '../systems/loot.js';   // RF2: the spawn chain's DFU half, in its one home; RRI2: MobLootKeys
+import { generateItems, addEnemyLootExtras, enemyLootTableKey, createRandomWeapon, createRandomArmor } from '../systems/loot.js';   // RF2: the spawn chain's DFU half, in its one home; RRI2: MobLootKeys; LOOT7: a champion's minted piece
+import { isAmmunition } from '../systems/itemTemplates.js';   // LOOT7: a champion's minted piece is never ammunition
+import { enemyLootSpawned } from '../characters/enemyEntity.js';   // OH-E: EnemyEntity.OnLootSpawned
 import { conditionBasedPricesOn, randomConditionLootItems } from '../systems/rriRealism.js';   // RRI2: EnemyEntity.OnLootSpawned's subscriber
 import { isHumanoid } from '../systems/survival/loot.js';   // MOD: the same humanoid test SURV2's corpse food already draws its line with
-import { rollCorpseLoot } from '../systems/lootRarity.js';   // RF2: and the port's, after it
-import { liveStat } from '../systems/statMods.js';   // RF2: the player's live luck for the roll   // AUDIT 58: ItemHelper's EquipItem half - a foe's equip table is what DamageEquipment's struck side reads
+import { rollCorpseLoot, lootRarityOn, rarityRank, RARITIES, rarityEligible, applyRarity, lastPass } from '../systems/lootRarity.js';   // RF2: and the port's, after it; LOOT7: a champion's guarantee
+import { championOf } from '../systems/champions.js';   // LOOT7: the champions' traits register at import
+import { liveStat, FATIGUE_DRAIN_SCALE } from '../systems/statMods.js';   // RF2: the player's live luck for the roll   // AUDIT 58: ItemHelper's EquipItem half - a foe's equip table is what DamageEquipment's struck side reads
 import { GLOBAL_SCALE } from '../world/meshReader.js';
 import { swingSoundFor, hitSoundFor, ENEMY_HIT_VOLUME } from '../systems/soundClips.js';
 import { bloodCentre } from './hitEffects.js';   // AUDIT 62 F19: EnemyAttack.cs:326-328's one home, the same law the four player-melee sites cite
@@ -108,10 +112,10 @@ export const hasBowAttack = (basics) =>
 const HUMANOID_LOOT_ITEM_SCALE = 0.25;   // MOD: keep a quarter of the item chance (drop 75%)
 // ELITE: `lootDropMult` scales every item category's chance (gold untouched, as the humanoid cut);
 // `lootQualityMult` scales the rarity ladder's odds. Both 1 everywhere but an elite dungeon.
-export function spawnEnemyLoot(entity, mobileType, basics, player, { rolls = Math.random, lootDropMult = 1, lootQualityMult = 1 } = {}) {
+export function spawnEnemyLoot(entity, mobileType, basics, player, { rolls = Math.random, lootDropMult = 1, lootQualityMult = 1, where = null } = {}) {
   const itemChanceScale = (isHumanoid(entity) ? HUMANOID_LOOT_ITEM_SCALE : 1) * lootDropMult;
-  entity.items = generateItems(enemyLootTableKey(mobileType, basics?.lootTableKey ?? '-'), { level: player.level, gender: player.gender }, undefined, { itemChanceScale, mobileType });
-  const eq = equipEnemy(entity, mobileType, player.level, rolls, { player });
+  entity.items = generateItems(enemyLootTableKey(mobileType, basics?.lootTableKey ?? '-'), { level: effectiveLevel(player), gender: player.gender }, undefined, { itemChanceScale, mobileType });
+  const eq = equipEnemy(entity, mobileType, effectiveLevel(player), rolls, { player });   // SOFTCAP2: a mentor's foes carry the GROUP's loot and gear
   addEnemyLootExtras(entity.items, basics, rolls);
   // RRI2: EnemyEntity.OnLootSpawned (EnemyEntity.cs:399) fires here, after
   // the trio and with the kit already in Items - the mod's
@@ -120,8 +124,32 @@ export function spawnEnemyLoot(entity, mobileType, basics, player, { rolls = Mat
   // walked too: DFU's Items holds all of it, the port's droppable cut
   // (above) does not, and a foe's cuirass is worn either way.
   if (conditionBasedPricesOn()) randomConditionLootItems([...new Set([...entity.items, ...(eq?.worn ?? [])])], rolls);
+  enemyLootSpawned.raise({ mobileType, lootTableKey: enemyLootTableKey(mobileType, basics?.lootTableKey ?? '-'), items: entity.items, worn: eq?.worn ?? [], where });   // OH-E: ...and every other subscriber, in the one list (the worn set is Items' too, as above)
   rollCorpseLoot(entity, basics, { rolls, luck: liveStat(player, 'luck'), qualityMult: lootQualityMult });
+  if (championOf(entity)) ensureChampionLoot(entity, effectiveLevel(player), rolls);   // LOOT7: a champion always carries a Rare or better
   return entity.items;
+}
+/** LOOT7 (the Loot arc, bible/06-Systems/Loot-Arc.md section 9): A CHAMPION ALWAYS CARRIES A RARE OR BETTER - when its
+ *  own roll found none, its most valuable piece that could be (a plain one, or one the ladder made Magic) is made Rare;
+ *  carrying none, a weapon (never ammunition) or a piece of armour at its level is minted onto it and made Rare. Never
+ *  its worn kit (LR4's law: the sword it swings stays DFU's). AUDIT LOOT F9: the Rare it makes takes the door's last
+ *  pass (LOOT4's chance at a line that does something), which its corpse door ran before it - the last draws of the
+ *  spawn. Answers the piece, or null. */
+export function ensureChampionLoot(entity, level, rolls = Math.random) {
+  if (!lootRarityOn() || !entity) return null;
+  const worn = new Set(entity.equip ? equipTableOf(entity).filter(Boolean) : []);
+  const loot = (entity.items ?? []).filter((it) => it && !worn.has(it));
+  if (loot.some((it) => rarityRank(it) >= RARITIES.rare.rank)) return null;
+  let piece = loot.filter((it) => rarityEligible(it) || it.rarity === 'magic').sort((a, b) => (b.value ?? 0) - (a.value ?? 0))[0] ?? null;
+  if (!piece) {
+    if (rolls() < 0.5) { piece = createRandomWeapon(level, rolls); for (let n = 0; n < 32 && isAmmunition(piece); n++) piece = createRandomWeapon(level, rolls); }
+    else piece = createRandomArmor(level, rolls);
+    if (!piece || isAmmunition(piece)) return null;
+    piece.untaken = true; (entity.items ??= []).push(piece);   // LOOT8: a found piece, counted at its take
+  }
+  applyRarity(piece, 'rare', rolls);
+  lastPass([piece], rolls);
+  return piece;
 }
 
 // ---- EnemyEntity.SetEnemyCareer, the equipment chain (EnemyEntity.cs:330-347) ----
@@ -205,6 +233,10 @@ export function equipEnemy(entity, mobileType, playerLevel, rolls = Math.random,
 /** "According to DF Chronicles and verified in classic." Spent on
  *  EVERY swing that reaches the hit frame, hit or miss. */
 export const SWING_WEAPON_FATIGUE_LOSS = 11;
+/** BALANCE1 (2026-09-27, Mac: fatigue "drain[s] a little too fast"): what a
+ *  swing CHARGES here - DFU's 11 above, on the port's exertion scale
+ *  (statMods FATIGUE_DRAIN_SCALE), truncated as the minute's drain is. */
+export const SWING_FATIGUE_COST = Math.trunc(SWING_WEAPON_FATIGUE_LOSS * FATIGUE_DRAIN_SCALE);
 
 /** The tally half of the same block: the weapon's own skill (or
  *  HandToHand for a bare-handed/werecreature swing) AND CriticalStrike,
@@ -351,6 +383,21 @@ export function playerAttackGrunt(playerEntity, isBow, rolls = Math.random) {
   // swap does NOT apply to the player - it is EnemySounds' handling
   // of NPCs, by its own comment. A male High Elf player has been
   // grunting as a Wood Elf since the C2 slice.
+  return playerVoice({
+    race: RACES[playerEntity.race] ?? 1, gender: playerEntity.gender ?? 'male', isAttack: true, rolls,
+  });
+}
+
+/** CLIMB4 (the Enhanced Climbing arc - bible/03-World/Parkour-Arc.md): the player's EFFORT on a hard climb - a pull-up
+ *  from a hang, a leap's launch, a fall caught, the grip gone - in the attack grunt's own voice: the port's departure
+ *  (DFU's climber climbs in silence), so it rides the attack grunt's gates exactly (the CombatVoices switch, a
+ *  transformed lycanthrope's silence) and its clip (a vampire's override, else GetRaceGenderAttackSound by race and
+ *  gender). WHEN is the caller's (player/climbSounds.js: a chance per move, never two within seconds). Returns
+ *  { clip, pitchLift } or null. */
+export function playerClimbStrain(playerEntity, rolls = Math.random) {
+  if (!playerEntity || !combatVoicesEnabled() || suppressOptionalCombatVoices(playerEntity)) return null;
+  const vamp = vampireAttackVoice(playerEntity, rolls);
+  if (vamp != null) return { clip: vamp, pitchLift: 0 };
   return playerVoice({
     race: RACES[playerEntity.race] ?? 1, gender: playerEntity.gender ?? 'male', isAttack: true, rolls,
   });
@@ -662,6 +709,7 @@ export function tryLanguagePacification(ai, entity, mobileType, playerEntity, {
   if (!ai?.justEncountered) return null;
   ai.justEncountered = false;   // the EDGE is consumed whatever happens next
   if (isQuestFoe) return null;
+  if (entity?.pacifyImmune) return null;   // WB8a: the gate's Warden hears no tongue - no roll, no tally, no line
   const lang = enemyLanguageSkill(entity);
   if (lang === -1) return null;   // Skills.None - most monsters have no tongue
   // X11: COMPREHEND LANGUAGES. DFU reads the live effect off

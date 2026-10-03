@@ -68,7 +68,8 @@ test('AUDIT 39r: the paralysed bag zeroes the movement VECTOR and keeps the spee
   // paralysis read as RELEASED and fired a synthetic press the frame it
   // lifted. The crouch toggle stays live either way (DecideHeightAction
   // has no paralysis check).
-  const KEYS = "run: held(keys, 'Run'), autoRun: held(keys, 'AutoRun'), back: mv.backwards, sneak: held(keys, 'Sneak')";
+  // PADWALK (the EM3-3D patch): walk mode rides the same key - DFU's slow walk is Sneak, held or latched
+  const KEYS = "run: held(keys, 'Run'), autoRun: held(keys, 'AutoRun'), back: mv.backwards, sneak: held(keys, 'Sneak') || walkModeOn()";
   // MWCROUCH replaced the `crouchHeld && !<latch>` derivation the four
   // hosts shared with `crouchPress` - GetKeyDown off the frame's key
   // ring (ui/input.js). The law this pin states is untouched: the
@@ -122,7 +123,7 @@ test('AUDIT 39r: the interior arrow that lands on the player flashes the screen'
 // ---------------------------------------------------------------------
 
 test('AUDIT 39 #152: no host hides drawHud behind the classic HUD art', () => {
-  // hud.js:421-446 runs playerDamageFlash and the enhanced DOM branch
+  // hud.js:452-477 runs playerDamageFlash and the enhanced DOM branch
   // ABOVE its own `if (!art) return;` - "the enhanced HUD reads no
   // ARENA2, and a player whose HUD art failed to load still has
   // vitals". Three hosts wrapped the whole call in `if (hudArt)`, and
@@ -239,7 +240,7 @@ test('AUDIT 39 #158: the city watch sweeps on the same law', async () => {
 // coordinates. The pools now carry an epoch the sweep bumps.
 // ---------------------------------------------------------------------
 
-// the parked-fetchBytes harness of audit26_dungeonfoes.test.js:371 -
+// the parked-fetchBytes harness of audit26_dungeonfoes.test.js:358 -
 // one 74-byte CLASS*.CFG record, held until the pin lets it land
 const parkedCareer = () => {
   let land;
@@ -364,7 +365,12 @@ test('AUDIT-39r: the dungeon host runs the missile sweep at its OWN load door', 
   // (F9/F11 reach it directly, with no pane in the way to stop them) ahead of the same call chain.
   // BLOOD AUDIT 4 widened it again: the blood's clear rides beside the sweep, with its reason.
   // CASTLE1 widened it once more: the door hands a save from another place to the world host first, with its reason.
-  const body = ctx.slice(at, at + 5500);
+  // AUDIT OH-F B2 widened it again: the drowned dungeon's load goes the same way, with its reason, and the restore
+  // hands its rebuilds back. DIAL-LOAD widened it again: the second half's first line takes the host's load law when the
+  // door brought none. (The merge of the two: both widenings, 5500 + 1000 + 500.)
+  // AUDIT DISC28 widened it once more: the load's start raises the host's own OnStartLoad hands (onStartLoad - the
+  // camera's reel reset), with its reason.
+  const body = ctx.slice(at, at + 7100);
   assert.match(body, /magic\.clearMissiles\(\);/, 'which sweeps its own flights');
   assert.ok(body.indexOf('magic.clearMissiles();') < body.indexOf('applyWorld(extras.world)'),
     'ahead of the world restore, as OnStartLoad is');
@@ -386,7 +392,7 @@ test('AUDIT 39 #159: the travel map refuses with enemies nearby, before the raci
   const i = WORLD.indexOf('const toggleTravelMap = (gotoPlace = null) => {');
   assert.ok(i > 0);
   const door = WORLD.slice(i, WORLD.indexOf('townTalk.showOverlay(_travelMap);', i));
-  const nearby = door.indexOf('if (duelEnemyNear() || areEnemiesNearby([...cityGuards.guards, ...exteriorFoes.foes])) {');   // DUEL1: a duel opponent is an enemy nearby too
+  const nearby = door.indexOf('if (duelEnemyNear() || areEnemiesNearby([...cityGuards.guards, ...exteriorFoes.foes]) || navalHostileNear()) {');   // DUEL1: a duel opponent is an enemy nearby too; NAV-H (2026-09-28): and a hostile ship in reach
   const racial = door.indexOf('const ftb = racialFastTravelBlock(playerEntity');
   const build = door.indexOf('_travelMap = buildTravelMapWindow(');
   assert.ok(nearby > 0, 'the refusal is at the door');
@@ -403,7 +409,7 @@ test('AUDIT 39 #159: the travel map refuses with enemies nearby, before the raci
 
 test('AUDIT 39 #130: the exterior host\'s attack TAP defers to a readied spell like its other three doors', () => {
   // WeaponManager.cs:244-263 hands the click to the ready spell before
-  // it handles any attack; touch.js:233 already promises the tap casts.
+  // it handles any attack; touch.js:237 already promises the tap casts.
   // TI1 (2026-09-05): the tap-to-attack button is gone - the touch
   // SWIPE is the attack now, and it carries the same gate in front of
   // the drag seam, held-edge only (a release must reach the rig).

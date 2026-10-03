@@ -8,6 +8,12 @@
 // and would).
 import { SPECIAL_ABILITY_BITS } from './specialAdvantages.js';
 import { localizedStrings, localizedText, getLocalizedTextWithReversion, TextCollections } from './textManager.js';   // L10N3d: GetSkillName's words
+// SOFTCAP1: two more leaves (neither imports anything) - the softcap's law
+// and mentor mode's overlay.
+import { effectiveSkill, overcapTallyWeight, movementTallyWeight, SKILL_SOFT_CAP, SKILL_HARD_CAP } from './skillSoftcap.js';   // MOVE-REAL: the movement skills' own weight
+import { mentoredSkill } from './mentorMode.js';
+import { masterCappedSkill, skillCanPassCap } from './masterSkills.js';   // SOFTCAP3: Master Skills - past 100 only when on (and online)
+export { SKILL_SOFT_CAP, SKILL_HARD_CAP, effectiveSkill } from './skillSoftcap.js';
 
 export const SKILLS = Object.freeze({
   Medical: 0, Etiquette: 1, Streetwise: 2, Jumping: 3, Orcish: 4,
@@ -113,7 +119,46 @@ export function skillValue(entity, skillId) {
     }
   }
   mod += entity._mods?.skills?.[skillId] ?? 0;   // RF1: the port's modifier channels (systems/entityMods.js), a field read - this leaf stays import-free
-  return permanentSkillValue(entity, skillId) + mod;
+  // SOFTCAP1: what a FORMULA reads - the mentored permanent value (mentor
+  // mode's overlay, a no-op outside it), past 100 at a quarter a point plus
+  // the milestones (skillSoftcap.js effectiveSkill). Below 100 both are the
+  // identity, so every DFU number there is unchanged.
+  // SOFTCAP3: and Master Skills off (or offline) reads a player's skill above 100 as 100 - kept, not lost
+  return effectiveSkill(mentoredSkill(entity, masterCappedSkill(entity, permanentSkillValue(entity, skillId), skillId))) + mod;   // SOFTCAP4: only a MASTERED skill reads past 100
+}
+
+/** SOFTCAP1: the effect mods skillValue adds, alone (the display reads) - enchantments, Fortify, the vampire's and
+ *  the werewolf's +30. They sit ON TOP of the softcap: a trained 200 reads 140 in a formula, a cursed one 170. */
+export function skillModOf(entity, skillId) {
+  let mod = entity._enchantMods?.skillMods?.[skillId] ?? 0;
+  const list = entity.activeEffects;
+  if (list) for (const a of list) if (a.kind === 'racialOverride' && !a.ended) mod += a.skillMods?.[skillId] ?? 0;
+  return mod + (entity._mods?.skills?.[skillId] ?? 0);
+}
+
+/** SOFTCAP1: what a SCREEN prints - the value on the 0..200 scale the
+ *  player climbs (mentored while mentoring), plus the live mods, WITHOUT
+ *  the softcap's quarter weighting. Every skill UI reads this, so a 150
+ *  reads 150 and never the 112 a formula sees. */
+export function displaySkillValue(entity, skillId) {
+  const o = entity.skillOverrides;
+  if (o && o[skillId] != null) return o[skillId];
+  return mentoredSkill(entity, masterCappedSkill(entity, permanentSkillValue(entity, skillId), skillId)) + skillModOf(entity, skillId);
+}
+
+/** SOFTCAP1: the REAL value (no mentor cap), plus mods - the number in
+ *  brackets beside a mentored one. */
+export function realSkillValue(entity, skillId) {
+  const o = entity.skillOverrides;
+  if (o && o[skillId] != null) return o[skillId];
+  return permanentSkillValue(entity, skillId) + skillModOf(entity, skillId);
+}
+
+/** SOFTCAP1: "85 (150)" while mentoring lowers it, "150" otherwise. */
+export function skillValueText(entity, skillId) {
+  const shown = displaySkillValue(entity, skillId);
+  const real = realSkillValue(entity, skillId);
+  return real !== shown ? `${shown} (${real})` : String(shown);
 }
 
 /** TallySkill (the E3c flag clears): count a use toward advancement.
@@ -121,10 +166,41 @@ export function skillValue(entity, skillId) {
  *  what keeps the source's (uses * reflexesMod) >> 16 inside int32:
  *  20000 * 0x14000 fits; an unclamped tally would overflow the shift
  *  in C# and JS alike (caught by S3b's own test). */
-export function tallySkill(entity, skillId, amount = 1) {
+export function tallySkill(entity, skillId, amount = 1, movement = false) {
   if (!entity.skillUses) return;
+  // SOFTCAP1: a skill at 100+ counts only REAL use (skillSoftcap.js
+  // overcapTallyWeight - a foe tough for the skill, no spam). The weight
+  // is fractional, so the remainder rides entity.skillUseFrac and only
+  // whole uses reach the int32 counter below. The REAL permanent value is
+  // read, never the mentored one: mentor mode cannot make a weak foe count.
+  const real = Array.isArray(entity.skills) ? (entity.skills[skillId] ?? 0) : 0;
+  // SOFTCAP3: only while Master Skills is in force - off, the use is tallied as Daggerfall always did (a skill at
+  // 100 simply never spends it)
+  if (real >= SKILL_SOFT_CAP && skillCanPassCap(entity, skillId)) {   // SOFTCAP4: and only for a MASTERED skill
+    if (real >= SKILL_HARD_CAP) return;
+    const w = movement ? movementTallyWeight(entity, skillId, amount, real) : overcapTallyWeight(entity, skillId, amount, real);   // MOVE-REAL
+    if (!(w > 0)) return;
+    const frac = (entity.skillUseFrac ??= new Array(SKILL_COUNT).fill(0));
+    const total = (frac[skillId] ?? 0) + w;
+    const whole = Math.floor(total);
+    frac[skillId] = total - whole;
+    if (!whole) return;
+    // MOVE-BANK (FIELD BUGS 2026-10-01 #7): past 100 the count is PROGRESS's - advancement.js raiseSkills spends it in
+    // float, so DFU's 20000 clamp below (which keeps its int32 shift in range) has nothing to guard here. It threw away
+    // everything a mastered runner ran past 83 minutes between two rests (four uses a second), and at level 30 a full
+    // bucket was 0.68 of the first point however long the run.
+    entity.skillUses[skillId] += whole;
+    return;
+  }
   entity.skillUses[skillId] += amount;
   if (entity.skillUses[skillId] > 20000) entity.skillUses[skillId] = 20000;
+}
+
+/** MOVE-REAL: a movement skill's use FROM MOTION - the run's quarter second, the jump, the swim's minute, the climb's
+ *  check. Below 100 it is TallySkill verbatim; past 100 it counts the ground the body covered (skillSoftcap.js
+ *  movementTallyWeight), never a spam counter. Training and quests tally these skills through tallySkill. */
+export function tallyMovementSkill(entity, skillId, amount = 1) {
+  tallySkill(entity, skillId, amount, true);
 }
 
 // ---- PlayerEntity.skillsRecentlyRaised (:70, :218-231) -------------
@@ -185,13 +261,18 @@ export function resetSkillsRecentlyRaised(entity) {
  *  it from this leaf both read. */
 export function levelUpSkillSum(entity) {
   const c = entity.career;
+  // SOFTCAP1: each skill enters the sum at its EFFECTIVE value - verbatim to
+  // 100, a quarter a point past it - so the long grind above 100 still
+  // moves the level, slowly, instead of turning every eight-times-dearer
+  // point into a full point of level progress.
+  const v = (id) => effectiveSkill(masterCappedSkill(entity, entity.skills[id], id));   // SOFTCAP3: capped at 100 while Master Skills is off
   let sum = 0;
-  for (const id of c.primarySkills) sum += entity.skills[id];
+  for (const id of c.primarySkills) sum += v(id);
   let lowestMajor = Infinity;
-  for (const id of c.majorSkills) { const v = entity.skills[id]; sum += v; if (v < lowestMajor) lowestMajor = v; }
+  for (const id of c.majorSkills) { const x = v(id); sum += x; if (x < lowestMajor) lowestMajor = x; }
   sum -= lowestMajor;
   let highestMinor = -Infinity;
-  for (const id of c.minorSkills) { const v = entity.skills[id]; if (v > highestMinor) highestMinor = v; }
+  for (const id of c.minorSkills) { const x = v(id); if (x > highestMinor) highestMinor = x; }
   return sum + highestMinor;
 }
 
@@ -219,7 +300,7 @@ export function levelUpSkillSum(entity) {
  *          if (ImprovedAthleticism) += improvedAthleticismMultiplier;
  *      }
  *
- *  - exactly the shape shared.js:1374 already uses for the same pair
+ *  - exactly the shape shared.js:1509 already uses for the same pair
  *  on the fatigue rate, so the item alone does nothing and the two
  *  together make +20%. X1 landed the Jump SPELL's term (+0.6,
  *  AcrobatMotor's own jumpSpellMultiplier :16, added when
@@ -244,7 +325,7 @@ export function jumpSpeedMultiplier(entity) {
   const bits = entity.career?.abilityFlagsAndSpellPointsBitfield ?? 0;
   if ((bits & SPECIAL_ABILITY_BITS.athleticism) === SPECIAL_ABILITY_BITS.athleticism) {
     m += ATHLETICISM_MULTIPLIER;
-    // The same fold entityImprovedAthleticism (enchantments.js:948)
+    // The same fold entityImprovedAthleticism (enchantments.js:953)
     // answers, read in place: this leaf cannot import enchantments.js
     // without closing a cycle back through skills.js, which is why
     // the skillMods read above (:86) is spelled out the same way.

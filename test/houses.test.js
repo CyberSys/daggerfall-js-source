@@ -10,7 +10,7 @@
 //   - buildingLocks.isHouseOwned, whose contract has named the hook
 //     since R1 with nothing able to answer it, so your own front door
 //     was locked against you;
-//   - quest place.js:454, which skips a house you own when choosing a
+//   - quest place.js:470, which skips a house you own when choosing a
 //     quest site, and defaulted false - so your own home stayed
 //     eligible.
 //
@@ -203,7 +203,7 @@ test('H1: the four consumers are wired, and each goes through the law', () => {
   // The point of the lane. A rule per consumer, because three of the
   // four are host code with no node coverage.
   const modes = code('scenes/worldModes.js');
-  assert.match(modes, /houseOwned: interiorHome \? interiorHome\.own : isHouseOwned\(/, 'CanRest sleeps in a house you own (V5 left this false)');   // HOME1 re-aim: online, in my online home too
+  assert.match(modes, /houseOwned: !interiorHome && isHouseOwned\(playerEntity\.houses \?\? \[\], b\?\.regionIndex \?\? 0, b\?\.buildingKey \?\? 0\), homeBed: homeBedIsMine\(interiorHome, /, 'CanRest sleeps in a house you own (V5 left this false)');   // HOME1 re-aim: online, in my online home too; HOME-RENT re-aim: and a room I rent in one; PIN MOVED (FIELD BUGS 2026-10-01 RENT-REST): an online home's bed rides as `homeBed`, the offline house as ever
   assert.match(modes, /isHouseOwned: \(key\) => isHouseOwned\(/, 'the lock ladder knows your own front door');
   assert.match(modes, /ownsHouse: \(\) => ownsHouse\(/, 'the bank window asks the registry');
   assert.match(code('scenes/world.js'), /isHouseOwned: \(buildingKey\) => isHouseOwned\(/,
@@ -274,7 +274,7 @@ test('H1 DEFECT: a house on the market must carry its KEY - on REAL data', { ski
 
 test('H2: PurchaseHouse spends the purse FIRST and the account for the rest', () => {
   // :408-427, and the mechanism is DeductGoldAmount's return value:
-  // it answers the SHORTFALL, not nothing (court.js:209 ports it,
+  // it answers the SHORTFALL, not nothing (court.js:251 ports it,
   // letters of credit and all). So `accountGold -= deductGold(amount)`
   // subtracts exactly the remainder, and subtracts ZERO when the purse
   // covered it. Written any other way this double-charges, or lets the

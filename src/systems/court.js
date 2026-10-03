@@ -35,11 +35,19 @@
 // that is absent and an arm that is wrong read alike from the call
 // site). The prison time-skip riding the host clock callback is the
 // port's seam shape, not a remainder.
+// REP (2026-09-29, Mac: "overhauling the reputation system. Something just much better and not as punishing, but still
+// punishing"; his calls "The charge, with a mark" and "Timed or pardoned"): THREE OF DFU'S LAWS ABOVE ARE DEPARTED FROM,
+// and systems/standing.js is the overhaul's one home. RaiseReputationForDoingSentence gives the charge back (REP2,
+// sentenceRefund); an involuntary surrender is refused only when a watchman fell to the player in the chase (REP2,
+// surrenderToCityGuards); banishment is a Murder's or a Treason's alone (REP3, BANISHABLE_CRIMES) and is timed or
+// pardoned (standing.js), and a fine no longer rises with GOOD standing (REP2, startCourt). Port-Ledger A, REP1-REP6.
+//
 // BANISHMENT'S CONSEQUENCES SHIPPED: `SeverePunishmentFlags |= 1` is
-// written at scenes/arrestFlow.js:531-534 (severePunishment, off
-// OnPop) and read every catch-up minute by encounters.js:241
-// passiveGuardSpawns - PlayerEntity.cs:507's 10% banished-player
-// guard roll - fed at scenes/world.js:3854-3856. (The guild rescues -
+// written by systems/standing.js banish (the court's state 4, with its
+// term) and read there - the watch's stop, the pardon, the Standing
+// page (REP1, REP3, REP5). DFU's reader, PlayerEntity.cs:507's 10%
+// banished-player guard roll (encounters.js passiveGuardSpawns), has no
+// caller since REP1 (AUDIT REP F6). (The guild rescues -
 // Thieves/Dark Brotherhood - landed at CR1, guildRescue below.)
 
 import { rand } from '../formats/dfRandom.js';
@@ -63,6 +71,7 @@ export function setCrimeCommitted(entity, crime) {
 // pickpocket law wrote a string rather than reach it. Re-exported here
 // so every existing `CRIMES` caller stays where it is.
 export { CRIMES } from './crimes.js';
+import { CRIMES } from './crimes.js';   // REP2/REP3: the marked and the banishable crimes, by name
 export const CRIME_IDS = Object.freeze({ Pickpocketing: 12 });
 
 // The %cri crime names (MacroHelper.Crime, verbatim strings).
@@ -153,10 +162,23 @@ export const LEGAL_REP_MAX = 100;
 
 /** Minutes between NormalizeReputations runs (PlayerEntity.cs:457, 112 days). */
 export const NORMALIZE_INTERVAL_MINUTES = 161280;
+/** REP4 (Mac: "Earn it + faster drift"): a standing BELOW zero recovers a point every 7 days - legal and faction alike,
+ *  lived and across an absence (worldTick.js) - where DFU's walk every 112 days takes it (and wears a positive standing
+ *  down, which stays DFU's). 112 is a multiple of 7, so the 112-day walk is the week's own on its boundary. */
+export const RECOVERY_INTERVAL_MINUTES = 10080;
 
-export function changeLegalRep(player, regionIndex, delta) {
+/** REP5: the one ear on a legal standing's change - the host says it (a line on screen). Null by default: a host that
+ *  hands none hears nothing, and the law is the same. `cause` names what moved it ('crime', 'sentence', ...). */
+let _legalRepNotifier = null;
+export function setLegalRepNotifier(fn) { _legalRepNotifier = typeof fn === 'function' ? fn : null; }
+
+export function changeLegalRep(player, regionIndex, delta, cause = null) {
   if (!player.legalRep) player.legalRep = {};
-  player.legalRep[regionIndex] = (player.legalRep[regionIndex] ?? 0) + delta;
+  const before = player.legalRep[regionIndex] ?? 0;
+  player.legalRep[regionIndex] = before + delta;
+  if (delta && _legalRepNotifier) {
+    try { _legalRepNotifier({ player, regionIndex, before, after: before + delta, delta, cause }); } catch (e) { console.error('[standing]', e); }
+  }
 }
 
 /**
@@ -187,25 +209,45 @@ export function clampLegalReputations(player) {
  * NON-propagating on both sides (AUDIT 23 corrected the old claim that
  * the faction half fanned out; DFU's call passes no propagate flag).
  * The asymmetry is only direct-increment vs clamped ChangeReputation.
+ *
+ * AUDIT DISC28 TM-1 (Mac, 2026-09-28: "Recovery only"): `recoveryOnly` is
+ * the PORT'S ONLINE TIME MODEL, not DFU's - DFU's member walks both ways
+ * and never meets an absence, because the single-player clock stands
+ * while nobody plays. Online the world's clock runs through every
+ * absence, and the boundaries an absence crossed (worldTick.js
+ * normalizeAcross, from alignEntityClocks) pay only the RECOVERY half:
+ * a reputation below zero drifts one point back, a standing above zero
+ * is kept - a player who takes a break comes back owing less, never
+ * holding less. The clamp and the non-propagating ChangeReputation are
+ * DFU's either way. A lived minute (the tick) pays both halves.
+ * [AUDIT LIVED1 K: the minutes spent dead no longer pay either -
+ * the drift is the character's, on their own clock, which stands
+ * under the death screen (worldTick.js skipDeadMinutes walks the
+ * world's arms alone).]
  */
-export function normalizeReputations(player, store) {
+export function normalizeReputations(player, store, { recoveryOnly = false } = {}) {
   clampLegalReputations(player);
   for (const key of Object.keys(player.legalRep ?? {})) {
     const v = player.legalRep[key];
     if (v < 0) player.legalRep[key] = v + 1;
-    else if (v > 0) player.legalRep[key] = v - 1;
+    else if (v > 0 && !recoveryOnly) player.legalRep[key] = v - 1;
   }
   if (!store?.dict) return;
   for (const id of [...store.dict.keys()]) {
     const f = store.dict.get(id);
     if (!f) continue;
     if (f.rep < 0) changeReputation(store, f.id, 1);
-    else if (f.rep > 0) changeReputation(store, f.id, -1);
+    else if (f.rep > 0 && !recoveryOnly) changeReputation(store, f.id, -1);
   }
 }
 
+/** SEAT1d (Seats-Arc 7.6): CURFEW - the host's word on what a crime where the player stands costs, as a multiple of its
+ *  legal reputation (2 in a Curfew town; 1, DFU's, everywhere else and offline). */
+let _crimeFactor = () => 1;
+export function setCrimeRepFactor(fn) { _crimeFactor = typeof fn === 'function' ? fn : () => 1; }
 export function lowerRepForCrime(player, regionIndex, crime) {
-  changeLegalRep(player, regionIndex, -REPUTATION_LOSS_PER_CRIME[crime]);
+  const f = Math.max(1, Math.trunc(Number(_crimeFactor()) || 1));   // SEAT1d: a Curfew's doubled cost - the legal loss alone, the People's half as DFU's
+  changeLegalRep(player, regionIndex, -REPUTATION_LOSS_PER_CRIME[crime] * f, { kind: 'crime', crime });
   // PlayerEntity.cs:2294-2298 - the region's People faction takes HALF
   // the legal loss, propagating out to its allies and enemies. The
   // negation sits OUTSIDE the division in DFU, `-(loss / 2)`, and the
@@ -305,15 +347,18 @@ export function addGold(player, amount) {
   addGoldPieces(player, amount);
 }
 
-/** SurrenderToCityGuards, verbatim. setHealth1 is the host's vitals
- *  write. Returns true when the arrest goes to court. */
-export function surrenderToCityGuards(player, regionIndex, voluntary, { setHealth1 = () => { player.health = Math.max(1, Math.min(player.health, 1)); }, dfRand = rand } = {}) {
-  const legalRep = legalRepOf(player, regionIndex);
+/** SurrenderToCityGuards. setHealth1 is the host's vitals write. Returns true when the arrest goes to court.
+ *
+ *  REP2 (Mac: "Surrender is always honoured, unless you killed a watchman during that chase" - the shape he signed):
+ *  DFU refused an involuntary surrender - the blow that would kill, after an N - outright below -20 and on a coin flip
+ *  from -20 to 0, and let the blow kill; online the respawn is in the same region. The watch takes a beaten criminal to
+ *  court now, unless a watchman fell to them in this chase (`watchSlain`, cityGuards.js - cleared with the crime). The
+ *  vitals write still comes first, and a surrender still asks a living body. `regionIndex` and `dfRand` are no longer
+ *  read (the coin is gone); the arguments stay so no caller moved. */
+export function surrenderToCityGuards(player, regionIndex, voluntary, { setHealth1 = () => { player.health = Math.max(1, Math.min(player.health, 1)); } } = {}) {
   if (player.health <= 0) return false;
   setHealth1();
-  if (legalRep < -20 && !voluntary) return false;
-  else if (legalRep < -20 || legalRep > 0) return true;
-  else if ((dfRand() & 1) !== 0 && !voluntary) return false;
+  if (!voluntary && player.watchSlain) return false;
   return true;
 }
 
@@ -331,7 +376,10 @@ export function startCourt(player, regionIndex, crime, { rolls = Math.random, df
   const crimeType = crime - 1;
   const legalRep = legalRepOf(player, regionIndex);
   let threshold1 = 0, threshold2 = 0;
-  if (legalRep < 0) {
+  // REP3 (Mac: "Timed or pardoned" - "Only for Murder and worse"): the banishment roll is a Murder's or a Treason's
+  // alone; every lesser crime is fined or jailed whatever the standing (DFU rolled it for every crime below zero - 12% on
+  // a first Theft). No roll is drawn for a lesser crime, so its court takes nothing from the stream.
+  if (legalRep < 0 && BANISHABLE_CRIMES.has(crime)) {
     threshold1 = Math.min(75, -legalRep);
     threshold2 = Math.min(75, Math.trunc(-legalRep / 2));
   }
@@ -343,11 +391,13 @@ export function startCourt(player, regionIndex, crime, { rolls = Math.random, df
   // unconditionally consumed an extra number from the generator on every
   // court appearance, which shifts every later roll in the session - the
   // classic way a port stays "correct" per-expression and still desyncs.
-  const failed2 = Math.floor(rolls() * 100) >= threshold2;
-  const punishmentType = failed2 && Math.floor(rolls() * 100) >= threshold1 ? 2 : 0;
+  const failed2 = !BANISHABLE_CRIMES.has(crime) || Math.floor(rolls() * 100) >= threshold2;
+  const punishmentType = failed2 && (!BANISHABLE_CRIMES.has(crime) || Math.floor(rolls() * 100) >= threshold1) ? 2 : 0;
 
+  // REP2: a GOOD name no longer makes a fine dearer. DFU's `perRep * legalRep + base` on the good side priced a
+  // respected citizen's first Theft above a stranger's (and a Murder at +100 at the table's cap); the bad side is DFU's.
   let penaltyAmount = legalRep >= 0
-    ? PENALTY_PER_LEGAL_REP_POINT[crimeType] * legalRep + BASE_PENALTY[crimeType]
+    ? BASE_PENALTY[crimeType]
     : BASE_PENALTY[crimeType] - PENALTY_PER_LEGAL_REP_POINT[crimeType] * legalRep;
   penaltyAmount = Math.min(MAX_PENALTY[crimeType], Math.max(MIN_PENALTY[crimeType], penaltyAmount));
   penaltyAmount = Math.trunc(penaltyAmount / 40);
@@ -384,18 +434,31 @@ export function startCourt(player, regionIndex, crime, { rolls = Math.random, df
  * ("Classic changes reputation here by (1 - half) / 2"), and ports it
  * anyway. So do we: the sign is DFU's, not classic's.
  */
-export function raiseRepForSentence(player, court) {
-  const half = Math.trunc(REPUTATION_LOSS_PER_CRIME[court.crime] / 2);
-  changeLegalRep(player, court.regionIndex, half - 1);
+export function raiseRepForSentence(player, court, { acquitted = false } = {}) {
+  const refund = sentenceRefund(court.crime, { acquitted });
+  changeLegalRep(player, court.regionIndex, refund.legal, { kind: acquitted ? 'acquittal' : 'sentence', crime: court.crime });
 
   const store = player?.factionRep;
   if (!store) return;                       // no store: same silence as the debit
   const people = getPeopleOfCurrentRegion(store.dict, court.regionIndex);
-  if (people) {
-    // `(half - 1) / 2`, truncating - the division is OUTSIDE the credit
-    // exactly as the debit's negation is outside its own division.
-    changeReputation(store, people.id, Math.trunc((half - 1) / 2), true);
-  }
+  if (people && refund.people) changeReputation(store, people.id, refund.people, true);
+}
+
+/** REP2 (Mac: "The charge, with a mark" - "Lesser crimes come back in full; Murder and Assault leave half as a lasting
+ *  mark"): what a sentence served, a fine paid or a guild's rescue gives back of the arrest's charge (lowerRepForCrime
+ *  above: the legal loss, and half of it off the region's People). DFU gave back half the loss less one on the legal side
+ *  (Conspiracy nothing, a Vagrancy one point MORE lost) and half that on the People's - so a sentence never paid its
+ *  debt, and eight Conspiracy arrests served were -16 kept ("Serving time doesnt fix rep. Tried 8 times"). The charge
+ *  comes back whole now; a violent or treasonous crime (MARKED_CRIMES) keeps half of it, rounded toward the player. An
+ *  ACQUITTAL gives it all back, whatever the crime: the court found no crime to mark. */
+export const MARKED_CRIMES = Object.freeze(new Set([CRIMES.Assault, CRIMES.Murder, CRIMES.High_Treason, CRIMES.Treason]));
+/** REP3: the crimes a court may banish for - "Murder and worse". */
+export const BANISHABLE_CRIMES = Object.freeze(new Set([CRIMES.Murder, CRIMES.High_Treason, CRIMES.Treason]));
+export function sentenceRefund(crime, { acquitted = false } = {}) {
+  const loss = REPUTATION_LOSS_PER_CRIME[crime] ?? 0;
+  const people = Math.trunc(loss / 2);   // the charge's own People half (lowerRepForCrime)
+  if (acquitted || !MARKED_CRIMES.has(crime)) return { legal: loss, people };
+  return { legal: Math.ceil(loss / 2), people: Math.ceil(people / 2) };
 }
 
 /** TEXT.RSC 8060, courtTextExecuted (DaggerfallCourtWindow.cs:37). */

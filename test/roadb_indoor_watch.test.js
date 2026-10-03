@@ -117,7 +117,7 @@ test('ROAD-B: the indoor arm is the FIRST thing in SpawnCityGuards and always re
   assert.match(armBody, /findLowestOuterInteriorDoor\(interior\.doors, interior\.origin\)/);
   assert.match(armBody, /GUARD_INDOOR_DOOR_OFFSET/);
   assert.match(armBody, /const guardCount = 2 \+ Math\.floor\(rand\(\) \* 4\);/, 'Random.Range(2, 6)');
-  assert.match(armBody, /spawnGuardAt\(\[\.\.\.at\], 0, playerFeet \?\? null\)/, 'Vector3.forward, and the same point every time');
+  assert.match(armBody, /spawnGuardAt\(indoorWatchSpot\(at, door\.normal, i, collider\), 0, playerFeet \?\? null\)/, 'Vector3.forward; TACT3c (Mac, 2026-10-02): each from the classic point into the room on its own lane, never a stack in the doorway');
   // :641 - the return is OUTSIDE the door-query `if`, so a building
   // whose query fails spawns nothing and still does not fall through.
   assert.ok(/\}\n\s*return;\n\s*\}/.test(armBody), 'the return is unconditional within the arm');
@@ -165,7 +165,7 @@ test('ROAD-B: both mode-machine hosts offer the indoor arm the call before the s
     assert.ok(fn.indexOf('if (modes?.spawnCityGuardsInside?.(immediate)) return;') >= 0
       && fn.indexOf('spawnCityGuardsInside') < fn.indexOf('cityGuards.spawnCityGuards('),
       `${host}: the indoor arm first, the street pool second`);
-    assert.match(s, /onGuardHit: \(dmg, apply\) => arrestFlow\.onGuardHit\(dmg, apply\)/,
+    assert.match(s, /onGuardHit: \(dmg, apply, hit\) => arrestFlow\.onGuardHit\(dmg, apply, hit\)/,   // WERE-FRIGHT: with the striker's level
       `${host}: and the indoor watch reaches the host's arrest interception`);
   }
   // the FLAG this closes

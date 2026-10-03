@@ -33,7 +33,8 @@ test('I2: actionOf reads the LIVE bindings, not a table', () => {
   assert.equal(actionOf({ code: 'F6' }), 'Inventory');
   assert.equal(actionOf({ code: 'Backspace' }), 'CastSpell');
   assert.equal(actionOf({ code: 'KeyC' }), 'Crouch', 'I2 retired the C-cast: DFU\'s C crouches');
-  assert.equal(actionOf({ code: 'Semicolon' }), null, 'and ; is unbound (KB1: X is Handheld Torches\' throw now - every letter is spoken for)');
+  assert.equal(actionOf({ code: 'ScrollLock' }), null, 'and Scroll Lock is unbound (KB1: X is Handheld Torches\' throw now - every letter is spoken for; CSA-D: ; is Come Sail Away\'s lanterns; CSA-E: End its sails)');
+  assert.equal(actionOf({ code: 'ArrowUp' }), 'ActChoice', 'PROF1: the act choice on the up arrow (`;` was its key until the merge - CSA-D\'s lanterns hold it)');
   assert.equal(actionOf({ code: 'KeyV' }), 'TravelMap');
   // a REBIND moves the answer - the whole point of the registry
   const b = withDefaults();
@@ -187,7 +188,7 @@ test('U43: ONE dispatch - the interior host routes the same table as the dungeon
   // are the OUTER host's: one construction, one dependency list; the
   // interior host only picks the slot.
   const MOUNTS = [
-    ['toggleCharSheet', /toggleCharSheet\(\) \{ mountInterior\(host\.makeCharSheet\?\.\(interiorSheetDoors\(\)\)\); \}/],
+    ['toggleCharSheet', /toggleCharSheet\(\) \{ openInteriorSheet\(\); \}/],   // AUDIT 27h A1: the one door - host.makeCharSheet(interiorSheetDoors()) mounted here
     // RE-ANCHORED at ID1 (F041): the inventory goes through this
     // host's ONE door now (interiorInventory), which is still the OUTER
     // host's window - it only folds in the interior drop pool.
@@ -225,7 +226,7 @@ test('U43: ONE dispatch - the interior host routes the same table as the dungeon
 
 test('U43-ii: every modal mode can SPEAK - no HUD line goes to the console', () => {
   // townTalk.frame ticks and DRAWS the HUD text layer as well as the
-  // overlay (townTalk.js:1189, :1214), and the two exterior hosts called
+  // overlay (townTalk.js:1192, :1217), and the two exterior hosts called
   // it in their modal branch only when a window was up. So a broken
   // weapon, a fatigue warning and a level-up inside a building all
   // spoke to devtools while the player watched a HUD with nothing on

@@ -166,6 +166,12 @@ it is the half a probability alone cannot say.
 | tier-6 pile | 2.7‰ | about 1 in 370 |
 | tier-8 boss, luck 100 | 6‰ (the cap) | about 1 in 170 |
 
+**LOOT7-CHECK CORPSE-FIND (2026-10-01): until then, no body ever kept it.** The corpse door (`lootRarity.js`
+`rollCorpseLoot`, LR4) rolls a copy of what a body carries - its worn kit cut out - and the find was pushed onto that
+copy and went with it: 0 of 20,000 level-12 champions' bodies kept one where the list door, on the same seeds, kept 111.
+The rows above were true of the piles alone. What the roll adds past the carried pieces goes onto the body now
+(`06-Systems/Loot-Arc.md` section 17).
+
 **It arrives loaded.** 6-18 pellets with it: a gun found with no
 ammunition is a gun that cannot be fired and cannot be bought shot
 for, which reads as a broken drop rather than a rare one. Few enough
@@ -747,7 +753,7 @@ the orb is, so the two answers cannot drift apart.
 **One residual, named rather than half-fixed:** the multiplayer wire
 carries a hit's `kind` (`'arrow'`), not its weapon, so a peer-owned
 puppet struck by a Thunderlock still gains a shaft on its owner's
-client (`exteriorFoes.js:2146`, `dungeonContext.js:4352`, both gated on
+client (`exteriorFoes.js:2632`, `dungeonContext.js:4925`, both gated on
 `data.ar === 1`). Fixing it means widening the hit packet, which is a
 protocol change and not this slice's.
 
@@ -1122,7 +1128,10 @@ plausible on screen:
 - **Triangulates.** FBX stores n-gons, ended by a ones'-complement
   index. A fan is only a triangulation of a CONVEX polygon, so a
   concave one is **refused by name** rather than folded inside out —
-  the shard of stray geometry that is invisible in a diff.
+  the shard of stray geometry that is invisible in a diff. (MW-BRIG1,
+  2026-09-29: it is **ear-clipped** now instead, the triangulation
+  Blender itself draws; a convex face still fans, so this weapon's
+  bytes did not move. See `04-Characters/Steel-Brigandine.md`.)
 - **Welds on the (position, normal, uv) TRIPLE.** 543 corners, 199
   positions, 539 vertices: a hard edge and a UV seam are splits that
   have to survive, and a shared corner is a split that must not.
@@ -1400,7 +1409,7 @@ hand and the butt 5.1 behind it.
 
 This is the one that "it attaches to the right bone" hides completely.
 `resolveWeaponParts` returned `MW_WEAPON_TYPE.None`, and
-`animWeaponType` turns None into **HandToHand** (`fpArm.js:332`) —
+`animWeaponType` turns None into **HandToHand** (`fpArm.js:336`) —
 correct for empty hands, absurd for a man holding a dwemer firearm. The
 rig played unarmed stances and the gun went along for the ride:
 `composeWeaponGroup` returned no group at all, `weaponShortGroup` the

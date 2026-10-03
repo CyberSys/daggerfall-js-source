@@ -8,7 +8,7 @@
 //
 //   - `ui/spellMakerWindow.js` declared "RECORDED DEPARTURES" and closed
 //     the first with "Ledger A carries the widget row already
-//     (Port-Ledger.md:848)". Section A carried no widget row at all -
+//     (Port-Ledger.md:888)". Section A carried no widget row at all -
 //     the AUDIT 17m / F7 shape, a claim of approval standing in for one -
 //     and :686 was the stat-colour NIT row by then. The row exists now
 //     (Ledger A, TB1) and the sites cite it BY NAME.
@@ -122,7 +122,7 @@ test('CD1: Ledger A row TB1 exists, in section A, STRUCK by the classic-modals c
   // closed the sentence with "(Ledger A: VersionInfo strings are DFU's
   // identity, not this port's)" - a live departure claiming an approval
   // nobody had written: section A carried no version row at all, and
-  // doctrine.test.js:363 skips the file because it shouts no DEPARTURE
+  // doctrine.test.js:383 skips the file because it shouts no DEPARTURE
   // token. The row exists now and, like TB1, is cited BY NAME.
   const verRows = rows.filter((r) => /THE PAUSE WINDOW'S VERSION LINE IS THE PORT'S OWN BUILD TAG/.test(r.s));
   assert.equal(verRows.length, 1, 'section A carries exactly one pause-window version row');
@@ -508,7 +508,7 @@ const AF = 'src/combat/arrowFlight.js';   // ROAD-H tail (review)
 // WM3 (2026-09-15): A LITERAL IN THE PICK REGEX IS NOT A CHECK.
 //
 // These entries used to bake the OTHER half of a cite pair into the
-// pick - `/exterior\.js:(\d+)\/:1547/`, `/exterior\.js:953\/:(\d+)/` -
+// pick - `/exterior\.js:(\d+)\/:1547/`, `/exterior\.js:978\/:(\d+)/` -
 // and that number asserts nothing: nothing reads it against the target,
 // it only decides whether the regex MATCHES AT ALL. So when citeShift
 // correctly moved the cite, the pin stopped matching and this file
@@ -566,7 +566,7 @@ const SOURCE_CITES = [
   // the line goes red at the citation instead of at a reader.
   ['src/characters/playerEntity.js', /exterior\.js:(\d+) and applyHeadlessChargen/,
     EX, /createChargenFlow\(fetchBytes\)\.then/],
-  ['src/combat/weaponRig.js', /\(exterior\.js:(\d+), world\.js:4929\)/,
+  ['src/combat/weaponRig.js', /\(exterior\.js:(\d+), world\.js:8857\)/,
     EX, /^ {4}say: \(l\) => townTalk\.say\(l\),$/],
   ['src/scenes/dungeonContext.js', /exterior\.js:(\d+) and worldModes\.js:\d+/,
     EX, /onPlayerArrowHitFoe: \(m, t\) => playerArrowHitFoe\(/],
@@ -624,22 +624,22 @@ const SOURCE_CITES = [
   ['src/systems/loot.js', /world\.js:\d+ and exterior\.js:(\d+)/,
     EX, /loadMagicRegistries\(fetchBytes\)\.then/],
   ['src/systems/potions.js', /exterior\.js:(\d+)\) and useItem\.js:\d+/,
-    EX, /drinkPotion: \(key\) => magic\.drinkPotion\(key\)/],
+    EX, /drinkPotion: \(key, potent\) => magic\.drinkPotion\(key, potent\)/],
   // AUDIT SURV-TIERS: the entry above baked this half in as a literal
   // (WM3's own trap, above) - and it sat one line short, on the comment
   // over the call, since before SURV-TIERS moved it. Captured now.
   ['src/systems/potions.js', /exterior\.js:\d+\) and useItem\.js:(\d+)/,
-    'src/systems/useItem.js', /const drank = drinkPotion \? drinkPotion\(item\.potionRecipeKey \?\? 0\) : null;/],
+    'src/systems/useItem.js', /const drank = drinkPotion \? drinkPotion\(item\.potionRecipeKey \?\? 0, Number\.isInteger\(item\.potent\) \? item\.potent : 0\) : null;/],
   // AUDIT SURV-TIERS (the second pass, at the merge of main): and the sentence's other three halves, which no
   // entry captured, had rotted on BOTH sides of the merge - hostMagic.js lines 586-593 / 626-633 landed in the
   // missile code, world.js lines 3485 / 3597 in a comment, dungeonContext.js line 1389 in routeKey's (written as
   // plain numbers: they are the record of what the rotted cites said, not cites). Read by content, each pinned.
   ['src/systems/potions.js', /scenes\/hostMagic\.js:(\d+)-\d+ builds the/,
-    'src/scenes/hostMagic.js', /^ {4}drinkPotion\(recipeKey\) \{$/],
+    'src/scenes/hostMagic.js', /^ {4}drinkPotion\(recipeKey, potent = 0\) \{$/],
   ['src/systems/potions.js', /hand `drinkPotion` down \(world\.js:(\d+),/,
-    WO, /drinkPotion: \(key\) => magic\.drinkPotion\(key\)/],
+    WO, /drinkPotion: \(key, potent\) => magic\.drinkPotion\(key, potent\)/],
   ['src/systems/potions.js', /\/\/ {4}dungeonContext\.js:(\d+), exterior\.js:\d+\) and useItem/,
-    DC, /drinkPotion: \(key\) => magic\.drinkPotion\(key\)/],
+    DC, /drinkPotion: \(key, potent\) => magic\.drinkPotion\(key, potent\)/],
   ['src/systems/startingGear.js', /world\.js:\d+ and exterior\.js:(\d+) seed it/,
     EX, /if \(playerEntity\.chargenDone\) seedStartingEquipment\(playerEntity\);/],
   // AUDIT SURV-TIERS (the third pass): the OTHER halves of the kit's cites. SURV-OFFSIGHT re-aimed six of them by
@@ -678,10 +678,10 @@ const SOURCE_CITES = [
   // to a comment in input.js's header (525) while the Rest arm moved to 813.
   ['src/ui/restWindow.js', /exterior\.js:\d+, ui\/input\.js:(\d+)\)/,
     'src/ui/input.js', /case 'Rest': return ctx\.toggleRest \? \(ctx\.toggleRest\(\), true\) : false;/],   // KB1: the arm answers its door
-  ['test/daychange.test.js', /exterior\.js:(\d+), world\.js:2050/, EX, /playerTicker\.advance\(60\);/],
-  ['test/overlayreentry.test.js', /exterior\.js:(\d+) and world\.js:4523/,
+  ['test/daychange.test.js', /exterior\.js:(\d+), world\.js:3273/, EX, /playerTicker\.advance\(60\);/],
+  ['test/overlayreentry.test.js', /exterior\.js:(\d+) and world\.js:8152/,
     EX, /if \(townTalk\.overlay\?\.isRestWindow\) townTalk\.closeOverlay\?\.\(\);/],
-  ['test/overlayreentry.test.js', /exterior\.js:(\d+), world\.js:4523/,
+  ['test/overlayreentry.test.js', /exterior\.js:(\d+), world\.js:8152/,
     EX, /if \(townTalk\.overlay\?\.isRestWindow\) townTalk\.closeOverlay\?\.\(\);/],
   ['test/probehygiene.test.js', /keydown ladder, exterior\.js:(\d+)-\d+/,
     EX, /addEventListener\('keydown', \(e\) => \{/],
@@ -692,21 +692,21 @@ const SOURCE_CITES = [
   ['test/roade_up_seam.test.js', /exterior\.js:\d+\/:(\d+)/,
     EX, /if \(act === 'Escape' && pauseDoorReady\(\)\) \{ hudCtx\.togglePause\(\); return true; \}/],
   ['bible/01-Overview/Audit-58.md', /`src\/scenes\/exterior\.js:(\d+)` now/, EX, /setDefaultEnchantCtx/],
-  ['bible/06-Systems/Systems-Arc.md', /`exterior\.js:(\d+)`, `world\.js:2046`/, EX, /playerTicker\.advance\(60\);/],
+  ['bible/06-Systems/Systems-Arc.md', /`exterior\.js:(\d+)`, `world\.js:3269`/, EX, /playerTicker\.advance\(60\);/],
   ['bible/09-Testing/Testing.md', /keydown ladder \(exterior\.js:(\d+)-\d+\)/,
     EX, /addEventListener\('keydown', \(e\) => \{/],
   ['bible/10-UI/UI-Arc.md', /exterior\.js:(\d+)\. It is the only window/, EX, /createSpellbookWindow\(\{/],
   // AUDIT QS6 F1, a fifth time and at a second door: this row names FIVE hosts
   // and the table captured ONE, with a sixth number baked into the pick - so
   // citeMerge bumped the LITERAL at the BOX1/TI3 merge and left the doc, and
-  // four of the five had been stale for waves (`worldModes.js:7628` for a line
-  // that is 5921, `world.js:14953` for 8836, `interior.js:325` for 329,
-  // `dungeon.js:968` for 959). Every one is captured now, against the
+  // four of the five had been stale for waves (`worldModes.js:8375` for a line
+  // that is 5921, `world.js:21583` for 8836, `interior.js:326` for 329,
+  // `dungeon.js:985` for 959). Every one is captured now, against the
   // projection each host really builds.
-  ['bible/10-UI/Settings-Screen-Spec.md', /`exterior\.js:(\d+)`, `dungeon\.js:\d+`/, EX, /^ {6}fieldOfView\(\),$/],
-  ['bible/10-UI/Settings-Screen-Spec.md', /`exterior\.js:\d+`, `dungeon\.js:(\d+)`/, 'src/scenes/dungeon.js', /^ {4}const proj = mirrorProjectionX\(perspective\(fieldOfView\(\), largeHudWorldAspect/],
-  ['bible/10-UI/Settings-Screen-Spec.md', /`worldModes\.js:(\d+)`, `world\.js:\d+`, `interior\.js:\d+`, `exterior\.js/, WM, /^ {4}const proj = mirrorProjectionX\(perspective\(fieldOfView\(\), largeHudWorldAspect/],
-  ['bible/10-UI/Settings-Screen-Spec.md', /`worldModes\.js:\d+`, `world\.js:(\d+)`, `interior\.js:\d+`, `exterior\.js/, WO, /^ {4}const proj = mirrorProjectionX\(perspective\(fieldOfView\(\), worldAspect/],
+  ['bible/10-UI/Settings-Screen-Spec.md', /`exterior\.js:(\d+)`, `dungeon\.js:\d+`/, EX, /^ {6}fieldOfView\(\)( \+ climbFeel\.fovRad\(\))?,/],   // CLIMB4: the climb's kick on the lens
+  ['bible/10-UI/Settings-Screen-Spec.md', /`exterior\.js:\d+`, `dungeon\.js:(\d+)`/, 'src/scenes/dungeon.js', /^ {4}const proj = mirrorProjectionX\(perspective\(fieldOfView\(\)( \+ climbFeel\.fovRad\(\))?, largeHudWorldAspect/],
+  ['bible/10-UI/Settings-Screen-Spec.md', /`worldModes\.js:(\d+)`, `world\.js:\d+`, `interior\.js:\d+`, `exterior\.js/, WM, /^ {4}const proj = mirrorProjectionX\(perspective\(fieldOfView\(\)( \+ \(host\.climbFeel\?\.fovRad\(\) \?\? 0\))?, largeHudWorldAspect/],
+  ['bible/10-UI/Settings-Screen-Spec.md', /`worldModes\.js:\d+`, `world\.js:(\d+)`, `interior\.js:\d+`, `exterior\.js/, WO, /^ {4}const proj = mirrorProjectionX\(perspective\(fieldOfView\(\)( \+ climbFeel\.fovRad\(\))?, worldAspect/],
   ['bible/10-UI/Settings-Screen-Spec.md', /`worldModes\.js:\d+`, `world\.js:\d+`, `interior\.js:(\d+)`, `exterior\.js/, 'src/scenes/interior.js', /^ {4}const proj = mirrorProjectionX\(perspective\(fieldOfView\(\), largeHudWorldAspect/],   // AUDIT RETRO1 A8: the hosts' one denominator here too
   // ROAD-G G7 (review): the entry above reads the exterior number out of
   // that sentence and nothing else, so the sentence's ANCHOR cite - the
@@ -722,7 +722,7 @@ const SOURCE_CITES = [
   // PAIRS never checked. Five Ledger rows cite `world.js:N`, `exterior.js:M`
   // and this table captured M alone - so M was resolved at every wave and N
   // was never read at all. All five N's were stale by thousands of lines
-  // (`world.js:6675` for a line that is 8950; `:1067` for 1215; `:2420` for
+  // (`world.js:10908` for a line that is 8950; `:1804` for 1215; `:3717` for
   // 2194; `:3903` for 3066; `:3920` for 8907), and citeMerge rewrote one of
   // them INSIDE THE PICK REGEX at the QS6 merge - which is WM3's hazard
   // exactly: a literal in the pick decides whether the entry matches at all,
@@ -733,11 +733,11 @@ const SOURCE_CITES = [
   // update, and the modal block's own range. Every number in a pair is
   // captured now, so none of them can be the half nobody reads.
   ['bible/01-Overview/Port-Ledger.md', /wired at `world\.js:(\d+)`, `exterior\.js:\d+`, `dungeonContext\.js:\d+`/,
-    WO, /drinkPotion: \(key\) => magic\.drinkPotion\(key\),/],
+    WO, /drinkPotion: \(key, potent\) => magic\.drinkPotion\(key, potent\),/],
   ['bible/01-Overview/Port-Ledger.md', /wired at `world\.js:\d+`, `exterior\.js:(\d+)`, `dungeonContext\.js:\d+`/,
-    EX, /drinkPotion: \(key\) => magic\.drinkPotion\(key\),/],
+    EX, /drinkPotion: \(key, potent\) => magic\.drinkPotion\(key, potent\),/],
   ['bible/01-Overview/Port-Ledger.md', /wired at `world\.js:\d+`, `exterior\.js:\d+`, `dungeonContext\.js:(\d+)`/,
-    DC, /drinkPotion: \(key\) => magic\.drinkPotion\(key\),/],
+    DC, /drinkPotion: \(key, potent\) => magic\.drinkPotion\(key, potent\),/],
   ['bible/01-Overview/Port-Ledger.md', /before the ambience update \(`world\.js:(\d+)`, `exterior\.js:\d+`\)/,
     WO, /^ {4}ambience\.update\(dt, \{ playerPos: cam\.pos, inside: false, underground: modes\?\.mode === 'dungeon'(?:, waterSurfaceY: dwPlayer\?\.waterLevelY \?\? null, submerged: !!dwPlayer\?\.submerged)? \}\);/],   // CRICKET-DUNGEON: the dep rides the same line; DW-D: and the sea's forged water state
   ['bible/01-Overview/Port-Ledger.md', /before the ambience update \(`world\.js:\d+`, `exterior\.js:(\d+)`\)/,
@@ -760,7 +760,7 @@ const SOURCE_CITES = [
   // ROAD-G G1 (review): BOTH ends, because the half-shifted range is
   // exactly the defect this file exists to catch - the leading number
   // was re-resolved and the trailing one left where it was, leaving a
-  // range that cannot exist (`exterior.js:1739-1403`).
+  // range that cannot exist (`exterior.js:1773-1433`).
   ['bible/01-Overview/Port-Ledger.md', /`exterior\.js:(\d+)-\d+` build `createDetectFeed`/,
     EX, /const detectFeed = createDetectFeed\(playerEntity, \{/],
   ['bible/01-Overview/Port-Ledger.md', /`exterior\.js:\d+-(\d+)` build `createDetectFeed`/,
@@ -974,8 +974,8 @@ test('CD6: every `src/` line Port-Status cites is the line it describes', () => 
 //
 // The G1 lane re-resolved ~180 `:NNN` cites after moving code in four
 // hosts, and the pass advanced only the LEADING number of every
-// multi-number citation: `cityGuards.js:933-840`, `world.js:9541-9515`,
-// `worldModes.js:1431 against :1198`. Forty of them came out as ranges
+// multi-number citation: `cityGuards.js:1020-924`, `world.js:14487-14438`,
+// `worldModes.js:1558 against :1321`. Forty of them came out as ranges
 // that cannot exist, and every pin in this file was green throughout,
 // because each one resolves a single number a human chose to list.
 //
@@ -1009,7 +1009,7 @@ test('CD7: no citation into a port file names a range that runs backwards', () =
 
 // ═══ CD8: the cites the ROAD-G G4 REVIEW re-resolved ═══
 //
-// G4 swept `ui/listPicker.js:259` - a line the E-group's edits had
+// G4 swept `ui/listPicker.js:262` - a line the E-group's edits had
 // moved - to `:291` at four sites, and :291 is `this.syncScrollBar();`.
 // The sentence at every one of those sites names the port's ONE reading
 // of `InputManager.GetMouseButton(0)`, which is the line AFTER it. The

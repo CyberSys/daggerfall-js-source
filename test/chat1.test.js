@@ -114,8 +114,12 @@ const chats = (ws) => ws.sent.filter((m) => m.t === 'chat');
 const ofType = (ws, t) => ws.sent.filter((m) => m.t === t);
 const upgrade = (path) => new Request('https://relay.test' + path, { headers: { Upgrade: 'websocket' } });
 
-test('CHAT1 / AUDIT CHAT: the Room as a CHANNEL - a hello keeps the secret and no look, is told an empty roster and announced to no one; a pose and a ping are gated and counted, then reach no one; a line reaches everyone, the sender included, shaped {t,id,name,text,at} on the relay\'s clock; the leave says nothing; the secret still guards the id; the hello gate runs deeper, never off; the socket cap is CHAT_SOCKETS_MAX; the Worker opens no object for a channel it does not run; a room that drains sweeps its storage', async () => {
-  const r = fakeRoom(CHAT_WORLD_ROOM);
+test('CHAT1 / AUDIT CHAT: the Room as a CHANNEL - a hello keeps the secret and no look, is told an empty roster and announced to no one; a pose and a ping are gated and counted, then reach no one; a line reaches everyone, the sender included, shaped {t,id,name,text,at} on the relay\'s clock; the leave says nothing; the secret still guards the id; the hello gate runs deeper, never off; the socket cap is CHAT_SOCKETS_MAX; the Worker opens no object for a channel it does not run; a room that drains sweeps its storage', async (t) => {
+  // AUDIT SEATS-3 F7: ON A HELD CLOCK - the Room reads Date.now() itself, and on a loaded runner the pose and ping storms
+  // below refilled their bucket between frames and never reached the strikes
+  const clock = Date.now();
+  t.mock.method(Date, 'now', () => clock);
+  const r = fakeRoom(CHAT_WORLD_ROOM, { now: () => clock });
   const a = r.connect(), b = r.connect(), c = r.connect();
   await r.hello(a, 'aaaa-0001'); await r.hello(b, 'bbbb-0002', at(3, 3));
   // ROSTER-G (Mac: "Players dont show in online"): a channel HAS a roster now - names alone, with the true count -
@@ -201,8 +205,10 @@ test('CHAT1 / AUDIT CHAT: the Room as a CHANNEL - a hello keeps the secret and n
   assert.equal(drain.store.size, 0, 'the last one out sweeps everything - the secrets, the leftovers, the hello bucket');
 });
 
-test('CHAT1 / AUDIT CHAT: the Room - a line in a PLACE room reaches as far as a pose (the sender always); the chat gate is CHAT_HZ_MAX with its OWN bucket and strikes (a mover over the pose rate may still talk) - an over-rate line is dropped, never queued, and past CHAT_STRIKES_MAX in a row the socket is closed; the room spends CHAT_ROOM_HZ_MAX lines a second for everyone, and a line over that is dropped with no strike', async () => {
-  const r = fakeRoom('world:0,0');
+test('CHAT1 / AUDIT CHAT: the Room - a line in a PLACE room reaches as far as a pose (the sender always); the chat gate is CHAT_HZ_MAX with its OWN bucket and strikes (a mover over the pose rate may still talk) - an over-rate line is dropped, never queued, and past CHAT_STRIKES_MAX in a row the socket is closed; the room spends CHAT_ROOM_HZ_MAX lines a second for everyone, and a line over that is dropped with no strike', async (tc) => {
+  const clock = Date.now();   // AUDIT SEATS-3 F7: one instant held - a loaded runner refilled the room's budget mid-crowd
+  tc.mock.method(Date, 'now', () => clock);
+  const r = fakeRoom('world:0,0', { now: () => clock });
   const a = r.connect(), near = r.connect(), far = r.connect(), mute = r.connect();
   await r.hello(a, 'aaaa-0001', at(2, 2)); await r.hello(near, 'near-0002', at(4, 4)); await r.hello(far, 'farr-0003', at(9, 9)); await r.hello(mute, 'mute-0004');
   await r.chat(a, 'over here');
@@ -257,7 +263,9 @@ test('CHAT1 / AUDIT CHAT: the session as a CHANNEL (presence: false) - the hello
   let clock = 1_000_000;
   const now = () => clock;
   const heard = [];
-  const s = new OnlineSession({ url: 'wss://relay.test', name: 'Mac', id: 'mac-0001', secret: 'secret-of-mac-0001', presence: false, WebSocketImpl: FakeWS, now });
+  // SCALE2: the rejoin's jitter at its middle (rand 0.5: a factor of one) - this pin reads the wait as CHAT_REJOIN_MS;
+  // test/scale2.test.js holds the spread
+  const s = new OnlineSession({ url: 'wss://relay.test', name: 'Mac', id: 'mac-0001', secret: 'secret-of-mac-0001', presence: false, WebSocketImpl: FakeWS, now, rand: () => 0.5 });
   s.onChat = (line) => heard.push(line);
   assert.equal(s.presence, false);
   s.join(CHAT_WORLD_ROOM, { x: 1, y: 2, z: 3, yaw: 0, pitch: 0, mv: 1 });
@@ -635,7 +643,7 @@ test('CHAT1 / AUDIT CHAT: the host by source - world.js starts the chat with the
   const w = rd('src/scenes/world.js');
   assert.match(w, /import \{ ChatLog, CHAT_REJOIN_MS \} from '\.\.\/net\/chat\.js';/);
   assert.match(w, /import \{ createChatPanel \} from '\.\.\/ui\/chatPanel\.js';/);
-  assert.match(w, /import \{ requestLook, releaseLook, makeLookGate, bindCursorToggle, setCursorActive, cursorActive \} from '\.\.\/player\/pointerLock\.js';/);   // AUDIT-TO1 I2: cursorActive joined the import
+  assert.match(w, /import \{ requestLook, releaseLook, makeLookGate, bindCursorToggle, setCursorActive, cursorActive, holdCursor \} from '\.\.\/player\/pointerLock\.js';/);   // AUDIT-TO1 I2: cursorActive joined the import; HERB-CURSOR: and holdCursor
   assert.match(w, /if \(typeof document !== 'undefined'\) chatStart\(\);/, 'OVH3: on either skin, with a document (node has none)');
   assert.match(w, /const chatStart = \(\) => \{\s*if \(!online\.url\) return;/, 'AUDIT CHAT A9/B1: a relay the law refused is no relay for the chat either');
   // CHAT-CHAN: a channel session per tab that rides a room of its OWN (`link`: the World and the Region tabs) - the Party
@@ -674,7 +682,7 @@ test('CHAT1 / AUDIT CHAT: the host by source - world.js starts the chat with the
   assert.match(w, /onOpen: \(\) => surfaceOpen\('chat'\),/, 'AUDIT CHAT C2: the pointer freed on open (AUDIT SOC B6: by the first of the counted surfaces); PL3: the opening Enter reclaimed from the toggle');
   assert.match(w, /const surfaceOpen = \(name\) => \{ pointerSurfaces\.add\(name\); setCursorActive\(false\); releaseLook\(\); \};/);
   assert.match(w, /onClose: \(\) => surfaceClose\('chat'\),/, 'and taken back inside the closing gesture (AUDIT SOC B6: by the last of the counted surfaces to close)');
-  assert.match(w, /const surfaceClose = \(name\) => \{ pointerSurfaces\.delete\(name\); if \(!pointerSurfaces\.size && !gamePaused\(\)\) requestLook\(canvas\); \};/);
+  assert.match(w, /const surfaceClose = \(name\) => \{ pointerSurfaces\.delete\(name\); if \(!pointerSurfaces\.size && !gamePaused\(\)\) \{ if \(travelView\?\.active\) setCursorActive\(true\); else requestLook\(canvas\); \} \};/);
   assert.match(w, /for \(const \[tabId, link\] of chatLinks\) \{\s*const room = chatLog\.tab\(tabId\)\.room;[^\n]*\n\s*if \(room\) link\.rejoin\(room, CHAT_REJOIN_MS\);[^\n]*\n\s*link\.tick\(\);/, 'every channel rejoined when it must be (CHAT-CHAN: to the room its tab is on now, and none before it has one), and ticked');
   // AUDIT-CHATR F1: the option is `covered`, not `hidden`. The two words
   // are different things - the host's window and the player's Hide
@@ -694,7 +702,7 @@ test('CHAT1 / AUDIT CHAT: the host by source - world.js starts the chat with the
   assert.match(w, /status: chatStatus\(chatLog\.active\),/, 'the active tab\'s line');
   assert.match(w, /return s\?\.statusLine\(tab\?\.label \?\? 'chat'\) \?\? null;/, 'the session\'s own line, labelled (B5)');
   assert.doesNotMatch(w, /chat: \$\{link\.error/, 'and no remake of it');
-  assert.match(w, /const onlineFrame = \(now, dt\) => \{\s*chatFrame\(\);(?:[^\n]*\n)(?:\s*(?:\/\/[^\n]*|tradeFrame\(\);[^\n]*|duelFrame\(\);[^\n]*|profileFrame\(\);[^\n]*|pageFrame\(\);[^\n]*|mail\?\.poll\(\);[^\n]*|gateFrame\(\);[^\n]*|renownTracker\?\.tick\(\);[^\n]*|peerMenuFrame\(\);[^\n]*|peerFxFrame\(\);[^\n]*)\n)*\s*if \(townTalk\.overlay instanceof DeathScreen \|\| modes\?\.deathUp\?\.\(\)\)/, 'the chat frame runs before the dead return: the channels keep their heartbeat and reconnect while the death screen is up');
+  assert.match(w, /const onlineFrame = \(now, dt\) => \{\s*chatFrame\(\);(?:[^\n]*\n)(?:\s*(?:\/\/[^\n]*|tradeFrame\(\);[^\n]*|duelFrame\(\);[^\n]*|profileFrame\(\);[^\n]*|pageFrame\(\);[^\n]*|mail\?\.poll\(\);[^\n]*|gateFrame\(\);[^\n]*|renownTracker\?\.tick\(\);[^\n]*|peerMenuFrame\(\);[^\n]*|peerFxFrame\(\);[^\n]*|if \(realmSession && !realmSession\.lost && realmDoorShut\(online\)\) \{ realmLost\('no-realm-character'\); return; \}|if \(seatOut\(\)\) \{|if \(!_seatLeft\) leaveSeat\(now\);|if \(!_seatSaid\) \{[^\n]*|_seatSaid = true;|if \(modes\?\.gateArenaDay\?\.\(\) != null\) ejectFromCourt\(COURT_TEXT\.lost\);|chatNotice\(SEAT_NOTICE\);|setMidScreenText\(SEAT_MID_TEXT\);|peerBodies\.destroy\(\);[^\n]*|\})\n)*\s*if \(townTalk\.overlay instanceof DeathScreen \|\| modes\?\.deathUp\?\.\(\)\)/, 'the chat frame runs before the dead return: the channels keep their heartbeat and reconnect while the death screen is up');
   assert.match(w, /'pagehide', \(\) => \{\s*try \{ worldPublish\(performance\.now\(\), true\); \}\s*catch \(e\) \{[^\n]*\}\s*online\?\.leave\(\);\s*for \(const link of chatLinks\?\.values\(\) \?\? \[\]\) link\.leave\(\);\s*peerBodies\?\.destroy\(\);/, 'the goodbye leaves every channel - and AUDIT ONCRASH1 A7: the publish is behind its own guard, the leave is not behind the publish');
   assert.doesNotMatch(w, /chatPanel\?\.destroy\(\)/, 'AUDIT CHAT B4: and keeps the panel - a page restored from the cache gets its chat back');
   // CG2 rests on the host listening in the BUBBLE phase (AUDIT CHAT D2): a capture listener beside the panel's would fill the ring
@@ -714,7 +722,7 @@ test('CHAT1 / AUDIT CHAT: the host by source - world.js starts the chat with the
   // The LAW is unchanged and is what the slice asserts - the one meter runs on a channel's pose BEFORE the decline -
   // so the pin still reads the order, over a source with its comments stripped rather than around them.
   const bare = (src) => src.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/\/\/[^\n]*/g, ' ');
-  assert.match(bare(room), /if \(m\.t === 'pose' \|\| m\.t === 'ping'\) \{\s*const chat = isChatRoom\(a\.key\);\s*const posed = m\.t === 'pose' && !chat;\s*const now = Date\.now\(\);\s*const unmoved = [^\n]*\s*const stopped = [^\n]*\s*const still = [^\n]*\s*const met = this\._meter\(ws, a, now, \{ pose: posed \? m\.p : a\.pose \}[^\n]*\);\s*if \(!met\) return;\s*if \(m\.t === 'ping'\)[^\n]*\s*if \(chat\) return;/, 'AUDIT CHAT A3: a channel\'s pose is gated (the one meter, AUDIT WORLD A1) before it is declined');
+  assert.match(bare(room), /if \(m\.t === 'pose' \|\| m\.t === 'ping'\) \{\s*const chat = isChatRoom\(a\.key\);\s*const posed = m\.t === 'pose' && !chat;\s*const now = Date\.now\(\);\s*const unmoved = [^\n]*\s*const stopped = [^\n]*\s*const still = [^\n]*\s*const battle = posed && isBattleRoom\(a\.key\) && a\.sub;\s*if \(battle && !this\._spend\(ws, now, poseGate, 'bucket', 'drops', 'too many poses'\)\) return;\s*const step = battle \? await this\._siegeStep\(ws, a, m\.p, now\) : null;\s*if \(battle && !step\) return;\s*const turned = [^\n]*\s*const met = battle \? this\._metered\(ws, a, true, \{ pose: m\.p \}, turned\) : this\._meter\(ws, a, now, \{ pose: posed \? m\.p : a\.pose \}, turned\);\s*if \(!met\) return;\s*if \(m\.t === 'ping'\)[^\n]*\s*if \(chat\) return;/, 'AUDIT CHAT A3: a channel\'s pose is gated (the one meter, AUDIT WORLD A1) before it is declined (PVP-REF, PIN MOVED: a siege fighter\'s step is judged before the meter - a channel is never a siege\'s room, so its pose still reaches the meter first; CROWN1 part two, PIN MOVED again: a siege\'s room or a Royal Tourney\'s - isBattleRoom)');   // PIN MOVED (AUDIT-SEATS): R2/R4 - a battle room\'s pose spends the gate before the referee judges it (`posed` is false in a channel, so a channel\'s pose still reaches the one meter first)
   assert.match(room, /if \(other === ws \|\| chat \|\| inRange\(a\.key \?\? '', a\.pose, b\.pose\)\) this\._send\(other, out\);/, 'the fan: the sender, a channel\'s everyone, a place\'s range');
   assert.match(room, /const room = tokenGate\(this\._roomChat, now, CHAT_ROOM_HZ_MAX\);/, 'the room\'s own budget (A2)');
   const dial = rd('src/ui/pixelDial.js');

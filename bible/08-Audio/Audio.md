@@ -701,3 +701,35 @@ AUDIT WB (2026-09-25): the war songs are `seamless` - `SongPlayer` begins a seam
 to the tick, where DFU's rewind rings a second past a song's end first (the classic songs keep it); the fanfare is
 timed from when it began on this machine (`createCourtScore`) and ended by `MusicService.fadeOut` - DISC20-B's fade
 and then a stop, where `stop()` is a cut; and his grunt counts the loss since his last one.
+
+WB10a (2026-09-30, Mac: "make it more loud, just feel like its too quite, and I feel like the music is too jolly"): A
+SONG'S OWN PRESS - a port departure with no DFU member behind it (DFU's music has no dynamics; the port's made songs
+are the only ones that ask). WBX9 had given a song its own level (`songLevel`, one gain between the channels and the
+fader), and the score had spent it: its drums peaked 15 to 19 dB over its body, a decibel under the clip at the highest
+MusicVolume. A song may now carry `press` (`songPress`: threshold, knee, ratio, attack and release held to the Web Audio
+compressor's ranges, `out` to (0, PRESS_OUT_MAX], a `ceiling` in dBFS at the highest MusicVolume to [-24, 0], the clip
+itself when none is named). `SongPlayer` builds the press once - a DynamicsCompressor, a gain carrying the drive into
+a WaveShaper's [-1, 1], the shaper on `ceilingCurve` (tanh(CEILING_DRIVE u), 4x oversampled), a gain out at the
+ceiling's amplitude (`ceilingAmplitude`: over MUSIC_GAIN) - and routes the level through it for a song that carries one
+and straight to the fader for a song that does not, as before; a context without a compressor or a shaper plays the
+song unpressed. The ceiling is a bound by construction: nothing leaves the curve past its ends. Every song MIDI.BSA holds
+carries none. The court's four carry `SCORE_PRESS` and read -15.8 / -15.4 / -14.2 dBFS at war and -15.6 at his fall
+(from -25.6 / -22.1 / -21.5 / -22.9), every peak under -1 dBFS at the highest MusicVolume - `tools/gateScoreProbe.mjs`,
+which also plays one player through the whole fight and the song after it. See `11-Multiplayer/World-Bosses.md` section
+15; `test/wb10a_gate_score.test.js`.
+
+## FIELD-WIND1 (2026-09-29): the wind was a moan - a bed the port makes
+
+The Discord through Mac: "A repetitive moaning sound in the open world." The port's wind (WIND3, `systems/windAudio.js`;
+its record is `07-Rendering/Rendering.md` WIND3) played DAGGER.SND's AmbientWindMoan and AmbientWindBlow1 on the riding
+loop's shape (`setLoop`: a non-looping source started again each time it ends - TransportManager's `if (!isPlaying)
+Play()`, right for a hoofbeat). They are DFU's dungeon one-shots (A3: AmbientEffectsPlayer plays one every 5 to 28 s):
+the moan is 1.96 s that swells from nothing and falls back with a voice's pitch in it, so end to end it was a moan every
+1.97 s under every breeze. Daggerfall has no continuous wind to loop, so the port makes one: `windBedSamples`, eight
+seconds of seeded white noise under a band-pass (500 Hz, Q 0.6) and a low-pass (1.8 kHz), run through them twice so the
+bed is the filters' periodic answer and the native loop has no seam, levelled to the moan's RMS (0.0349) so WIND3's gain
+law means what it meant. Two doors on the engine for it: `registerSamples(key, samples, rate)` - a buffer the port
+MAKES, under a string key, as `registerSound` registers a decoded WAV, so every entry point takes the key - and
+`setPitch` on `loop`'s handle (playbackRate, live, beside WX2's `setVolume`). The wind rides `loop`: one source for the
+whole blow, its gain and pitch set live. The riding loop is unchanged - its clips are made to be replayed.
+`01-Overview/Field-Bugs-2026-09-29e.md`; `test/field_wind1.test.js`.

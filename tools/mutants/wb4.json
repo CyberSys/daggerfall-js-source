@@ -2,7 +2,7 @@
   {
     "name": "WB4-the-body-out-of-the-cone",
     "file": "src/net/gateStrike.js",
-    "old": "(d <= BOSS_R || Math.abs(wrap(Math.atan2(dx, dz) - atk.yw))",
+    "old": "(d <= P.bossR || Math.abs(wrap(Math.atan2(dx, dz) - atk.yw))",
     "new": "(false || Math.abs(wrap(Math.atan2(dx, dz) - atk.yw))",
     "tests": [
       "test/wb4_gate_boss.test.js"
@@ -20,8 +20,8 @@
   {
     "name": "WB4-the-targets-discs-about-him",
     "file": "src/net/gateStrike.js",
-    "old": "case 'disc': return A.aim === 'self' ? d <= A.r :",
-    "new": "case 'disc': return true ? d <= A.r :",
+    "old": "case 'disc': return A.aim === 'self' ? d <= r :",
+    "new": "case 'disc': return true ? d <= r :",
     "tests": [
       "test/wb4_gate_boss.test.js"
     ]
@@ -65,8 +65,8 @@
   {
     "name": "WB4-the-wrath-saved",
     "file": "src/net/gateStrike.js",
-    "old": "saved: A.el === 'fire' && A !== ATTACKS.wrath",
-    "new": "saved: A.el === 'fire'",
+    "old": "saved: L.el != null && !isDagons(A)",
+    "new": "saved: L.el != null",
     "tests": [
       "test/wb4_gate_boss.test.js"
     ]
@@ -92,8 +92,8 @@
   {
     "name": "WB4-the-raise-held-from-the-word",
     "file": "src/world/gateBoss.js",
-    "old": "frame: tel.t < 0.5 ? 0 : 1,",
-    "new": "frame: 1,",
+    "old": "frame: cast ? CAST_RAISE_FRAME : tel.t < 0.5 ? 0 : 1,",
+    "new": "frame: cast ? CAST_RAISE_FRAME : 1,",
     "tests": [
       "test/wb4_gate_boss.test.js"
     ]
@@ -155,8 +155,8 @@
   {
     "name": "WB4-a-cue-off-his-own-voice",
     "file": "src/world/gateBoss.js",
-    "old": "    cleave: voice(B.barkSound, 0.78),",
-    "new": "    cleave: voice(B.moveSound, 0.78),",
+    "old": "    cleave: voice(B.barkSound, 0.96),",
+    "new": "    cleave: voice(B.moveSound, 0.96),",
     "tests": [
       "test/wb4_gate_boss.test.js"
     ]
@@ -218,8 +218,8 @@
   {
     "name": "WB4-the-callout-after-the-landing",
     "file": "src/ui/gateBossBar.js",
-    "old": "const callout = !s.fell && A && tel && !tel.over ?",
-    "new": "const callout = !s.fell && A && tel ?",
+    "old": "let callout = !s.fell && A && tel && !tel.over ?",
+    "new": "let callout = !s.fell && A && tel ?",
     "tests": [
       "test/wb4_gate_boss.test.js"
     ]
@@ -245,8 +245,8 @@
   {
     "name": "WB4-the-throw-skipped",
     "file": "src/scenes/gateCourt.js",
-    "old": "    if (so.saved) dmg = fireShare(dmg, save(e));",
-    "new": "    if (false) dmg = fireShare(dmg, save(e));",
+    "old": "    if (so.saved) dmg = savedShare(dmg, save(e, so.el));",
+    "new": "    if (false) dmg = savedShare(dmg, save(e, so.el));",
     "tests": [
       "test/wb4_gate_boss.test.js"
     ]
@@ -272,8 +272,8 @@
   {
     "name": "WB4-the-roar-on-first-sight",
     "file": "src/scenes/gateCourt.js",
-    "old": "if (phaseHeard > 0) { sound(BOSS_CUES.roar, s, t, null);",
-    "new": "{ sound(BOSS_CUES.roar, s, t, null);",
+    "old": "if (phaseHeard > 0) { roarAt = t + ROAR_AFTER_MS;",
+    "new": "{ roarAt = t + ROAR_AFTER_MS;",
     "tests": [
       "test/wb4_gate_boss.test.js"
     ]
@@ -281,8 +281,8 @@
   {
     "name": "WB4-the-body-at-the-sprites-own-size",
     "file": "src/scenes/gateCourt.js",
-    "old": "    const w = sz.w * body.scale, h = sz.h * body.scale;",
-    "new": "    const w = sz.w, h = sz.h;",
+    "old": "    const w = sz.w * body.scale * P.size, h = sz.h * body.scale * P.size;",
+    "new": "    const w = sz.w * P.size, h = sz.h * P.size;",
     "tests": [
       "test/wb4_gate_boss.test.js"
     ]
@@ -308,8 +308,8 @@
   {
     "name": "WB4-the-body-not-drawn",
     "file": "src/scenes/world.js",
-    "old": ", ...(gateCourt?.batches() ?? [])],   // WB4: and the Burning Court's boss",
-    "new": "],   // WB4: and the Burning Court's boss",
+    "old": ", ...(gateCourt?.batches() ?? []), ...(csaOn() ? csa.batches() : [])],   // WB4: and the Burning Court's boss",
+    "new": ", ...(csaOn() ? csa.batches() : [])],   // WB4: and the Burning Court's boss",
     "tests": [
       "test/wb4_gate_boss.test.js"
     ]
@@ -326,7 +326,7 @@
   {
     "name": "WB4-fire-never-saved",
     "file": "src/scenes/world.js",
-    "old": "    save: (e) => savingThrow(ELEMENTS.Fire, EFFECT_FLAGS.Fire, e),",
+    "old": "    save: (e, el = 'fire') => { const w = GATE_SAVES[el] ?? GATE_SAVES.fire; return savingThrow(w[0], w[1], e); },",
     "new": "    save: () => 100,",
     "tests": [
       "test/wb4_gate_boss.test.js"
@@ -335,8 +335,8 @@
   {
     "name": "WB4-the-glow-not-lit",
     "file": "src/scenes/worldModes.js",
-    "old": "withCourtLights(_dgLit, [...courtLights(), ...(host.gateCourtLights?.() ?? [])])",
-    "new": "withCourtLights(_dgLit, courtLights())",
+    "old": "withCourtLights(_dgLit, [...(host.gateCourtLights?.() ?? []), ...courtLightsNear(cam.pos)])",
+    "new": "withCourtLights(_dgLit, courtLightsNear(cam.pos))",
     "tests": [
       "test/wb4_gate_boss.test.js"
     ]
@@ -353,7 +353,7 @@
   {
     "name": "WB4-the-strike-unflashed",
     "file": "src/scenes/dungeonContext.js",
-    "old": "      if (!fire) flashPlayerDamage(dmg);",
+    "old": "      if (!el) flashPlayerDamage(dmg);",
     "new": "      if (false) flashPlayerDamage(dmg);",
     "tests": [
       "test/wb4_gate_boss.test.js"

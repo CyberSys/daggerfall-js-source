@@ -49,8 +49,13 @@
  * @property {number[]|null} [origin]                 a per-frame translation of the whole batch (missiles, peers, markers); null means the centers as uploaded
  * @property {number|null} [frame]                    FA1: null for a still flat, a frame INDEX for an animated one, folded into the texture key
  * @property {number} [sway]                          WIND3: this batch's share of the wind's lean - the flora have one, nothing else does
+ * @property {number[]} [tip]                         PROF4: a felled tree's fall - [x, z] the way it falls, the angle it has leaned
  * @property {object|null} [conceal]                  ECV1: the concealment visual, which moves the batch into the blended pass
  * @property {number} [hitFlash]                     HITFLASH1: a struck body's red, 0..1 - read by both billboard shaders, over any concealment
+ * @property {number} [eliteGlow]                    ELITE FOES: the glow's pulse (0 off; negative an elite's corpse, the rim alone) - systems/eliteFoes.js
+ * @property {number} [eliteTime]                    ELITE FOES: the embers' clock, seconds
+ * @property {ReadonlyArray<number> | null} [elitePad] ELITE FOES: the quad widened past the sprite (left, bottom, right, top, as fractions of it)
+ * @property {ReadonlyArray<number> | null} [dissolve] DISSOLVE: [share gone 0..1, r, g, b] - a body burnt away or gathering through a portal (systems/dissolve.js)
  * @property {Float32Array} [bounds]                  EL5: the sphere [cx, cy, cz, r] about the origin the shadow and air replays cull by
  * @property {number} [_quads]                        BLOOD1b: how many quads the buffer holds, so `moveBillboardBatch` cannot write past it
  * @property {boolean} [_dyn]                         BLOOD1b: born DYNAMIC_DRAW, because its centres move every frame
@@ -60,12 +65,16 @@
  * @property {boolean} [noShadow]                     F2: a thing lying on the ground casts nothing (a loot pile)
  * @property {boolean} [selfCard]                     DISC24-C: the player's own body card - it casts as drawn
  * @property {boolean} [_dead]                        EL2: freed - a shadow record from the last frame may still hold it
+ * @property {boolean} [dwColumn]                     DW-F: the host's - one flat standing in a carved sea's column (the water column's share)
  * @property {string} [_bbKey]                        FA1/MAC4: the texture key, re-minted when a field it is made of moves (billboardKey.js)
  * @property {number} [_bbKeyId]                      LA-COST2: the key's interned id, minted with it - the cutout pass buckets by it (billboardKey.js sortByKey)
  * @property {number|string} [_bbKeyRecord]           ...the record it was minted from
  * @property {number|null} [_bbKeyFrame]              ...the frame
  * @property {number} [_bbKeyArchive]                 ...the archive
  * @property {number} [_shGen]                        SC1: the floating origin's generation the pass last saw it in
+ * @property {number} [_shAx]                         AUDIT OW5 R4: the floating origin's cumulative offset the pass last saw it at, x (NaN until then - a double from birth)
+ * @property {number} [_shAy]                         AUDIT OW5 R4: ...y
+ * @property {number} [_shAz]                         AUDIT OW5 R4: ...z
  * @property {boolean} [_shSeen]                      SC1: recorded at least once
  * @property {number} [_shOx]                         SC1: the origin it was last recorded at, x (NaN until then - a double from birth, read only once `_shSeen`)
  * @property {number} [_shOy]                         ...y
@@ -77,6 +86,7 @@
  * @property {boolean} [_shSway]                      SHADOW-REACH: moving by the wind alone (the slow cadence)
  * @property {number} [_shMovedAt]                    SC1: the pass's frame number it last moved on
  * @property {number} [_shId]                         SC1: its identity in the static signature, minted on first sight
+ * @property {boolean} [_shAnim]                      DISC29-E: a mover animating in place, a flat that cannot walk - kept by the lo tier (REPLAY_LO)
  */
 
 /**

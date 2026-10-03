@@ -14,8 +14,12 @@ import { messageToBookFilename, BookFile } from '../formats/bookFile.js';
 import { templateByIndex, mintCondition } from './itemTemplates.js';
 import { localizedBookExists, localizedBookHeader } from './localizedBook.js';   // L10N3f: LocalizedBook.cs, a translation's books
 import { globalVarsTable } from './quest/tables.js';   // L10N3f: LocalizedBookMeetsConditions reads QuestMachine.GlobalVarsTable
+import { PORT_BOOK_IDS, isPortBook, portBookTitle, portBookPrice } from './portBooks.js';   // WB12c: the port's own books
 
 const BOOK_IDS = Object.freeze([...BOOK_ID_TITLES.keys()]);
+/** WB12c: the books a bookseller's shelf and a library's draw from - the classic ones and the port's own, each at the
+ *  odds of any other. Dungeon loot, houses, biographies and quests keep the classic draw. */
+export const SHELF_BOOK_IDS = Object.freeze([...BOOK_IDS, ...PORT_BOOK_IDS]);
 
 /** AUDIT 24 (wave 24): Books.Book0..Book3 ALL resolve to template 277,
  *  so the four enum names are one constant. Its home is here, beside
@@ -28,7 +32,7 @@ export const BOOK_TEMPLATE = 277;
  *  mapping and a miss there is not news. */
 const bookFileNameQuiet = (id) => {
   const key = id === 10000 ? 5 : id;   // legacy save alias
-  return BOOK_ID_TITLES.has(key) ? messageToBookFilename(key) : null;
+  return BOOK_ID_TITLES.has(key) || isPortBook(key) ? messageToBookFilename(key) : null;   // WB12c: a port book's name is its id's own
 };
 
 /** GetBookFileName: mapped ids only; unknown ids warn and answer null
@@ -84,9 +88,15 @@ export function localizedBookMeetsConditions(id) {
   return !book.isUnique && (globalVar === -1 || globalVarSet);
 }
 
+/** WB12c: the shelf's draw - GetRandomBookID's, over the classic books and the port's own. */
+export function getShelfBookID(roll = Math.random) {
+  return SHELF_BOOK_IDS[Math.floor(roll() * SHELF_BOOK_IDS.length)];
+}
+
 /** GetBookTitle (ItemHelper.cs:567-586): the current language's -LOC
  *  title first (L10N3f), else the mapping's - null for an id outside
- *  it, where DFU answers the caller's default. Every caller SHOWS it:
+ *  it, where DFU answers the caller's default (WB12c: the port's own
+ *  books answer their own title). Every caller SHOWS it:
  *  an identified book's name (ResolveItemName :279-280), the item
  *  list's tooltip (ItemListScroller.cs:464-465), the bookshelf's pick
  *  (DaggerfallBookshelf.cs:34, :59) and the info panel's %bt; the item
@@ -96,7 +106,7 @@ export function bookTitle(id) {
   const key = id === 10000 ? 5 : id;
   const localized = localizedBookHeader(bookFileNameQuiet(key));
   if (localized) return localized.title;
-  return BOOK_ID_TITLES.get(key) ?? null;
+  return BOOK_ID_TITLES.get(key) ?? portBookTitle(id);
 }
 
 export const CLASSIC_BOOK_COUNT = BOOK_IDS.length;
@@ -139,7 +149,7 @@ export function clearBookPrices() { _bookPrices.clear(); _warnedNoPrices = false
 /** BookFile.Price for a book id, or null when the registry has no
  *  entry for it (no ARENA2 warmed, or a file that would not open -
  *  DFU's own `!TryImportBook && !OpenBook` arm). */
-export const bookFilePrice = (id) => _bookPrices.get(id === 10000 ? 5 : id) ?? null;
+export const bookFilePrice = (id) => (isPortBook(id) ? portBookPrice(id) : _bookPrices.get(id === 10000 ? 5 : id) ?? null);   // WB12c: a port book's is its own bytes'
 
 /** The value a minted book carries: the FILE price, or the template's
  *  basePrice with one loud line when nothing warmed the registry. */
@@ -168,8 +178,8 @@ export function bookValue(id) {
  * The draw ORDER is load-bearing: id first, variant second. Both sites
  * that had it inline already drew in that order; keep it.
  */
-export function createRandomBook(rolls = Math.random) {
-  const message = getRandomBookID(rolls);
+export function createRandomBook(rolls = Math.random, draw = getRandomBookID) {
+  const message = draw(rolls);
   const variant = Math.floor(rolls() * (templateByIndex(BOOK_TEMPLATE)?.variants ?? 0));
   return mintCondition({
     group: 'Books',
@@ -180,6 +190,9 @@ export function createRandomBook(rolls = Math.random) {
     value: bookValue(message),
   });
 }
+
+/** WB12c: CreateRandomBook off the shelf's draw - a bookseller's, a general store's and a pawnshop's books. */
+export const createShelfBook = (rolls = Math.random) => createRandomBook(rolls, getShelfBookID);
 
 /**
  * ItemBuilder.CreateBook(int id) (:237-251) - the NAMED book, which is

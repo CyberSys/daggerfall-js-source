@@ -46,8 +46,8 @@
 // the window's own real-time timer (REST_WAIT_PER_HOUR /
 // LOITER_WAIT_PER_HOUR real seconds a simulated hour) paces every
 // sub-tick, exactly as offline always did. So online:
-//   - the counter ticks down at the offline rate (eight hours in six
-//     real seconds; three hours of loiter in under four);
+//   - the counter ticks down at the offline rate (eight hours in under
+//     four real seconds; three hours of loiter in under three);
 //   - `advanceMinutes` is spent on EVERY sub-tick, so the magic-round
 //     catch-up and the hourly rest-interruption encounter roll
 //     (runEncounterTick / the dungeon's _restAdvance) run online as
@@ -55,16 +55,22 @@
 //   - the shared WORLD clock is untouched: `worldTick.setWorldMinutes`
 //     still refuses every local write while it stands (:834-838), so
 //     this is pacing only, not time made or taken from anyone else's
-//     sky. The game minutes the encounter roll and the catch-up READ
-//     online come from `_onlineSimMinutes`, a counter local to this
-//     one session - seeded from the shared clock, ten minutes a
-//     sub-tick, forgotten when the session ends - handed to the host as
-//     the sub-tick's END (AUDIT WORLD5 C8's slot), so every simulated
-//     hour rolls against a fresh, distinct minute;
+//     sky. [LIVED1 (2026-09-29): the minutes are the CHARACTER's own -
+//     the host's advance moves their clock (worldTick.advanceOwnMinutes
+//     through the ticker), so every hour rolls against a distinct minute
+//     that stays theirs after the rest. SUPERSEDES the session-local
+//     `_onlineSimMinutes` this paragraph described, which was forgotten
+//     when the session ended.]
 //   - a QUEST tick still does not happen online. A quest clock is
 //     cross-player-visible state; ticking it against a locally
 //     simulated minute would desync this player's quests from everyone
 //     else's. Offline the quest tick rides the sub-tick as DFU has it.
+//     [TIME3 (2026-10-01, bible/06-Systems/Online-Time-Arc.md 6.3): it
+//     does now, online as offline. A quest's countdowns run on the
+//     character's own clock, which the rest moves, and a party's shared
+//     copy runs on its holder's (quest/machine.js updateSharedQuest), so
+//     a rest spends this player's quest days and no one else's.
+//     SUPERSEDES the stand-down above.]
 // AUDIT RESTX F1's full-health guard on the Medical tally went with
 // the free lane: the exploit it closed ("rest 99 hours" = 99 tallies on
 // one click) needed an hour that cost no time, and every hour costs
@@ -399,8 +405,14 @@ export const illegalRestWarning = () => getBool('GUI', 'IllegalRestWarning');
 export function interiorRestPlace({
   inTownLocation = false, building = null, nowMinutes = 0,
   restMarkers = 0, permanentScene = false, houseOwned = false,
-  room = null, guildCanRest = false,
+  room = null, guildCanRest = false, homeBed = false,
 } = {}) {
+  // RENT-REST (FIELD BUGS 2026-10-01, "Room renting is buggy"; online, Ledger A - HOME1, HOME-RENT): `homeBed`, the
+  // visit's online home is the player's to sleep in - its owner's, or a tenant's while the tenancy runs
+  // (systems/homeRent.js homeBedIsMine). DFU asks IsHouseOwned only INSIDE its permanent-scene test (CanRest, the ship's arm at :580),
+  // since a house it sells is a permanent scene from the purchase on - as the owner's online home is (worldModes.js
+  // keeps its scene) and a tenant's visit never is: the tenant was asked the tavern's question and refused ("You have
+  // not rented a room here."). The home's bed stands where a bought house stands, in both halves of that arm.
   const buildingType = building?.buildingType ?? BUILDING_NONE;
   return {
     inTownOutside: false,
@@ -408,11 +420,11 @@ export function interiorRestPlace({
     insideBuilding: true,
     buildingType,
     isShip: buildingType === BUILDING_SHIP,
-    permanentScene,
+    permanentScene: permanentScene || homeBed,   // RENT-REST
     // DaggerfallBankManager.IsHouseOwned - live since H1; a host
     // without a bank passes DFU's own default for a player who has
     // bought nothing.
-    houseOwned,
+    houseOwned: houseOwned || homeBed,   // RENT-REST
     room,
     nowMinutes,
     restMarkers,
@@ -444,7 +456,6 @@ export class RestSession {
     // waitTimePerHour / minutesPerTick, verbatim (NOT per-hour /
     // ticks-per-hour - see the header quirk note).
     this._subTickEvery = (mode === 'loiter' ? LOITER_WAIT_PER_HOUR : REST_WAIT_PER_HOUR) / MINUTES_PER_TICK;
-    this._onlineSimMinutes = null;   // RESTX2: this session's own locally-ticked minute counter, online only - seeded from the shared clock at the first sub-tick (see tick() and the header)
   }
 
   /** End the session early (the toggle key / Escape): the mode's own
@@ -609,26 +620,11 @@ export class RestSession {
     while (this._takeSubTick()) {
       // RESTX2: every sub-tick spends `advanceMinutes` - the magic-round catch-up and the hourly
       // rest-interruption encounter roll both live inside it, so both run online as they always have offline.
-      // The host's own clock write is refused online regardless (worldTick.setWorldMinutes), so the minutes the
-      // roll and the catch-up READ online come from `_onlineSimMinutes` - local to this session, seeded from the
-      // shared clock, ten a sub-tick, forgotten when the session ends - handed over as the sub-tick's END
-      // (AUDIT WORLD5 C8's slot; null offline, where the host reads its own clock). Nothing here is visible to
-      // another player or survives past this rest; it only has to look, from the inside, like an hour passed.
-      const online = Number.isFinite(this.deps.sharedMinutes?.());
-      if (online) {
-        if (this._onlineSimMinutes == null) this._onlineSimMinutes = Math.floor(this.deps.sharedMinutes());
-        this._onlineSimMinutes += MINUTES_PER_TICK;
-        // MAC-LVL1 (2026-09-21, a player: "leveling doesn't work properly
-        // online ... how online changes the passage of time"): the same
-        // ten simulated minutes are CREDITED to the skill-check clock.
-        // DFU's RaiseSkills is called by exactly two things - this rest
-        // and fast travel - both of which have just raised world time,
-        // so its 360-minute gate always opens after a night; online the
-        // shared clock the gate reads moved 43 minutes in the 3.6 real
-        // seconds an 8-hour rest takes, and the gate stayed shut.
-        this.deps.creditSkillMinutes?.(MINUTES_PER_TICK);
-      }
-      this.deps.advanceMinutes(MINUTES_PER_TICK, online ? this._onlineSimMinutes : null);
+      // LIVED1: and online the ten minutes are the CHARACTER's own - the host's advance moves their clock (the
+      // world's stands), so the rounds, the needs, the encounter roll and the skill-check gate read a night that
+      // really passed for them, and it is still theirs after the rest ends. [SUPERSEDES RESTX2's session-local
+      // `_onlineSimMinutes`, forgotten when the session ended, and MAC-LVL1's skill credit banked beside it.]
+      this.deps.advanceMinutes(MINUTES_PER_TICK);
       // TickRest :376-379, `RaiseTime` then `QuestMachine.Instance.
       // Tick()`, in that order and inside the SAME sub-tick. DFU's own
       // comment two lines above says the ten-minute granularity exists
@@ -643,9 +639,11 @@ export class RestSession {
       // It is the SESSION's law and not a host's: DFU calls the
       // machine directly here, bypassing QuestMachine.Update's
       // real-time pacing, so the port must call the unpaced door too.
-      // RESTX2: NOT online - a quest clock is cross-player-visible state (deadlines, timers), unlike a
-      // magic-round catch-up or an encounter roll, so it never ticks against a locally simulated minute.
-      if (!online) this.deps.tickQuests?.();
+      // TIME3 (bible/06-Systems/Online-Time-Arc.md 6.3): online too. A quest's countdowns run on the character's own
+      // clock, and a rest's hours are theirs (LIVED1) - raised, so a quest charges them whole (quest/clock.js): a
+      // three-day wait is a 72-hour rest, about half a minute, as in DFU. [SUPERSEDES RESTX2's stand-down online, which
+      // WORLD7 kept while a quest clock charged played time alone.]
+      this.deps.tickQuests?.();
       this._minutesOfHour += MINUTES_PER_TICK;
       if (this._minutesOfHour < 60) {
         // :381-385 returns false here, so DFU's frame is over either

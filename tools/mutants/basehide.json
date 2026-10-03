@@ -110,8 +110,8 @@
   {
     "name": "BASEHIDE-the-list-unread",
     "file": "server-account/src/decor.js",
-    "old": "pieces: results.map(pieceOfRow).filter(Boolean), hidden: await hiddenOf(db, mapId, buildingKey) };",
-    "new": "pieces: results.map(pieceOfRow).filter(Boolean), hidden: [] };",
+    "old": "hidden: S.seat ? [] : await hiddenOf(db, mapId, buildingKey) };",
+    "new": "hidden: [] };",
     "tests": [
       "test/basehide.test.js"
     ]
@@ -182,8 +182,8 @@
   {
     "name": "BASEHIDE-the-tab-uncounted",
     "file": "src/ui/decorPanel.js",
-    "old": "      chip(`Built in (${k})`, mode === 'base', () => setMode('base')));",
-    "new": "      chip('Built in', mode === 'base', () => setMode('base')));",
+    "old": "      chip(`Built in (${k})`, mode === 'base', () => setMode('base')),",
+    "new": "      chip('Built in', mode === 'base', () => setMode('base')),",
     "tests": [
       "test/basehide.test.js"
     ]

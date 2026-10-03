@@ -28,6 +28,9 @@ import { mintInteriorShared, composeInteriorShared, applyInteriorShared, interio
 import { BankWindow, BANK_RECTS, BANK_PANEL_X, BANK_PANEL_Y } from '../src/ui/bankWindow.js';
 import { createBankAccounts, housePrice } from '../src/systems/banking.js';
 import { buildingDataForDoor, locationBuildings } from '../src/systems/talkTopics.js';
+import { r2, seatRealm, realmJoinAt } from './realmSeat.mjs';   // AUDIT REALM2 S2: a house is a realm character's, bought on its record
+import { homeSaleRefund } from '../src/net/homeLaw.js';
+import { ACCEPTED } from '../src/net/legalLaw.js';   // TERMS1: a request that makes an account carries the versions ticked
 
 const src = (p) => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8');
 const { subtle } = globalThis.crypto;
@@ -60,7 +63,7 @@ async function stand() {
   _resetKeyForTests();
   const kp = await subtle.generateKey({ name: 'Ed25519' }, true, ['sign', 'verify']);
   const pkcs8 = Buffer.from(new Uint8Array(await subtle.exportKey('pkcs8', kp.privateKey))).toString('base64');
-  const env = { DB: d1(), IDENTITY_PRIVATE_KEY: pkcs8, ACCOUNT_VERSION: 'test1', ALLOWED_ORIGIN: '*' };
+  const env = { DB: d1(), SAVES: r2(), IDENTITY_PRIVATE_KEY: pkcs8, ACCOUNT_VERSION: 'test1', ALLOWED_ORIGIN: '*' };
   const call = async (method, path, body, bearer = null) => {
     const res = await worker.fetch(new Request(`https://accounts.invalid${path}`, {
       method,
@@ -70,8 +73,8 @@ async function stand() {
     return { status: res.status, body: await res.json().catch(() => null) };
   };
   const registered = async (handle) => {
-    const guest = (await call('POST', '/v1/auth/guest', {})).body;
-    const reg = await call('POST', '/v1/auth/register', { secret: guest.secret, handle, password: 'a good long one' });
+    const guest = (await call('POST', '/v1/auth/guest', { ...ACCEPTED })).body;
+    const reg = await call('POST', '/v1/auth/register', { secret: guest.secret, handle, password: 'a good long one', ...ACCEPTED });
     assert.equal(reg.status, 200, `${handle} registers`);
     return guest.secret;
   };
@@ -79,17 +82,19 @@ async function stand() {
 }
 const T0 = 1_800_000_000;
 const home = (extra = {}) => ({ mapId: 1291010263, buildingKey: 0x10203, region: 17, character: 'char-aldric', price: 42000, ...extra });
+/** AUDIT REALM2 S2: the record a realm character buys with - rich enough for every house a pin claims. */
+const RICH = (name) => ({ name, level: 9, goldPieces: 10_000_000, items: [], bankAccounts: new Array(62).fill(0).map(() => ({ accountGold: 0 })) });
 
 test('HOME1 the law: a home is a town\'s unsigned map id and a building key inside the key\'s widest value, a region 0..61, a whole price up to ten million; three a character; private until the owner says party or public; the owner always walks in, anyone when public, the owner\'s party when party (matched on the relay\'s handle, any case), nobody else (mutants: the cap, a bound, the party matched on nothing, private open)', () => {
   assert.equal(HOME_CAP, 3);
-  assert.deepEqual(HOME_ENTRIES, ['private', 'party', 'public']);
+  assert.deepEqual(HOME_ENTRIES, ['private', 'party', 'public', 'guild']);   // GUILD1d (re-aimed by content): the owner's guild
   assert.equal(HOME_ENTRY_DEFAULT, 'private');
   assert.deepEqual([homeMapIdOk(1), homeMapIdOk(0xffffffff), homeMapIdOk(0), homeMapIdOk(-5), homeMapIdOk(2 ** 32), homeMapIdOk(1.5), homeMapIdOk('1')], [true, true, false, false, false, false, false]);
   assert.deepEqual([homeBuildingKeyOk(1), homeBuildingKeyOk(HOME_KEY_MAX), homeBuildingKeyOk(0), homeBuildingKeyOk(HOME_KEY_MAX + 1)], [true, true, false, false]);
   assert.equal(HOME_KEY_MAX, 1 << 24, 'talkTopics makeBuildingKey spells key 0 as 1<<24');
   assert.deepEqual([homeRegionOk(0), homeRegionOk(61), homeRegionOk(62), homeRegionOk(-1)], [true, true, false, false]);
   assert.deepEqual([homePriceOk(1), homePriceOk(HOME_PRICE_MAX), homePriceOk(0), homePriceOk(HOME_PRICE_MAX + 1), homePriceOk(2.5)], [true, true, false, false, false]);
-  assert.deepEqual([homeEntryOk('party'), homeEntryOk('guild'), homeEntryOk(null)], [true, false, false], 'a guild\'s entry waits for guilds');
+  assert.deepEqual([homeEntryOk('party'), homeEntryOk('friends'), homeEntryOk(null)], [true, false, false], 'an entry the law does not know');   // GUILD1d (re-aimed by content): `guild` is an entry now
   const row = (entry, mine = false) => ({ owner: 'Aldric', entry, mine });
   assert.equal(homeMayEnter(null), true, 'a building nobody owns: its own law stands');
   assert.equal(homeMayEnter(row('private', true)), true, 'the owner');
@@ -108,7 +113,7 @@ test('HOME1 the service: a town\'s homes are any session\'s to read (a guest\'s 
     assert.ok(ROUTES.has(r) && !OPEN_ROUTES.has(r), `${r} behind a session`);
   }
   assert.equal((await call('POST', '/v1/homes/town', { mapId: 5 })).status, 401, 'a stranger reads nothing');
-  const guest = (await call('POST', '/v1/auth/guest', {})).body.secret;
+  const guest = (await call('POST', '/v1/auth/guest', { ...ACCEPTED })).body.secret;
   const empty = await call('POST', '/v1/homes/town', { mapId: home().mapId }, guest);
   assert.equal(empty.status, 200);
   assert.deepEqual(empty.body, { mapId: home().mapId, homes: [] }, 'a guest reads a town');
@@ -118,27 +123,45 @@ test('HOME1 the service: a town\'s homes are any session\'s to read (a guest\'s 
   assert.equal((await call('GET', '/v1/homes/town', undefined, guest)).status, 405);
   const aldric = await registered('Aldric');
   const mara = await registered('Mara');
+  // AUDIT REALM2 S2: a house is a realm character's, bought on its record - each act names where the record stands
+  const A = await seatRealm(env, aldric, 'Aldric', RICH('Aldric'));
+  const M = await seatRealm(env, mara, 'Mara', RICH('Mara'));
+  const buy = async (who, P, extra = {}) => call('POST', '/v1/homes/claim', home({ character: P.id, realm: await realmJoinAt(env, who, P.id), ...extra }), who);
   // the claim
-  const c = await call('POST', '/v1/homes/claim', home(), aldric);
+  const c = await buy(aldric, A);
   assert.equal(c.status, 200);
-  assert.deepEqual(c.body, { ok: true, home: { mapId: home().mapId, buildingKey: home().buildingKey, region: 17, character: 'char-aldric', entry: 'private', price: 42000, boughtAt: T0 } });
+  assert.deepEqual(c.body, { ok: true, home: { mapId: home().mapId, buildingKey: home().buildingKey, region: 17, character: A.id, entry: 'private', price: 42000, boughtAt: T0 }, realm: { seq: 2 } });
+  assert.deepEqual(await call('POST', '/v1/homes/claim', home({ buildingKey: 9 }), aldric), { status: 400, body: { error: 'realm-only' } }, 'no other id buys a house');
   // one owner a building
-  const taken = await call('POST', '/v1/homes/claim', home({ character: 'char-mara' }), mara);
+  const taken = await buy(mara, M);
   assert.deepEqual([taken.status, taken.body.error], [409, 'home-taken']);
-  const again = await call('POST', '/v1/homes/claim', home(), aldric);
-  assert.deepEqual([again.status, again.body.repeat, again.body.home.character], [200, true, 'char-aldric'], 'a claim sent again after a lost answer is answered as the claim');
-  const otherChar = await call('POST', '/v1/homes/claim', home({ character: 'char-second' }), aldric);
+  const again = await buy(aldric, A);
+  assert.deepEqual([again.status, again.body.repeat, again.body.home.character], [200, true, A.id], 'a claim sent again after a lost answer is answered as the claim');
+  const A2 = await seatRealm(env, aldric, 'Aldric Two', RICH('Aldric Two'));   // the account's other character
+  const otherChar = await buy(aldric, A2);
   assert.deepEqual([otherChar.status, otherChar.body.error], [409, 'home-taken'], 'the same account\'s other character does not get it twice');
   // the town, as each sees it
   const asMara = (await call('POST', '/v1/homes/town', { mapId: home().mapId }, mara)).body.homes;
   assert.deepEqual(asMara, [{ buildingKey: home().buildingKey, owner: 'Aldric', entry: 'private', mine: false }], 'the handle on the door, never a character or a price');
   const asAldric = (await call('POST', '/v1/homes/town', { mapId: home().mapId }, aldric)).body.homes;
-  assert.deepEqual(asAldric, [{ buildingKey: home().buildingKey, owner: 'Aldric', entry: 'private', mine: true, character: 'char-aldric' }]);
+  assert.deepEqual(asAldric, [{ buildingKey: home().buildingKey, owner: 'Aldric', entry: 'private', mine: true, character: A.id }]);
+  // two claims racing for one building: another's lands between this claim's read and its write - the claim's own write
+  // lands only on a building nobody holds, so this one is taken and its record pays nothing
+  const raw = env.DB._raw;
+  const realBatch = env.DB.batch.bind(env.DB);
+  env.DB.batch = async (list) => {
+    env.DB.batch = realBatch;
+    raw.prepare("INSERT INTO homes (map_id, building_key, player, char_id, owner_name, region, entry, price, bought_at, paid) VALUES (?, 77, (SELECT id FROM players WHERE handle = 'Mara'), ?, 'Mara', 17, 'private', 42000, ?, 42000)").run(home().mapId, M.id, T0);
+    return realBatch(list);
+  };
+  const raced = await buy(aldric, A, { buildingKey: 77 });
+  assert.deepEqual([raced.status, raced.body.error], [409, 'home-taken'], 'one owner a building, raced');
+  assert.equal(raw.prepare('SELECT char_id FROM homes WHERE building_key = 77').get().char_id, M.id, 'the one that landed first keeps it');
   // the cap, a character's
-  for (const k of [2, 3]) assert.equal((await call('POST', '/v1/homes/claim', home({ buildingKey: k }), aldric)).status, 200);
-  const fourth = await call('POST', '/v1/homes/claim', home({ buildingKey: 4 }), aldric);
+  for (const k of [2, 3]) assert.equal((await buy(aldric, A, { buildingKey: k })).status, 200);
+  const fourth = await buy(aldric, A, { buildingKey: 4 });
   assert.deepEqual([fourth.status, fourth.body.error], [409, 'home-cap']);
-  assert.equal((await call('POST', '/v1/homes/claim', home({ buildingKey: 4, character: 'char-second' }), aldric)).status, 200, 'another character has its own three');
+  assert.equal((await buy(aldric, A2, { buildingKey: 4 })).status, 200, 'another character has its own three');
   const mine = (await call('POST', '/v1/homes/mine', {}, aldric)).body;
   assert.equal(mine.homes.length, 4);
   assert.equal(mine.cap, 3);
@@ -148,14 +171,14 @@ test('HOME1 the service: a town\'s homes are any session\'s to read (a guest\'s 
   const e2 = await call('POST', '/v1/homes/entry', { mapId: home().mapId, buildingKey: home().buildingKey, entry: 'public' }, aldric);
   assert.deepEqual(e2.body, { ok: true, entry: 'public' });
   assert.equal((await call('POST', '/v1/homes/town', { mapId: home().mapId }, mara)).body.homes.find((h) => h.buildingKey === home().buildingKey).entry, 'public', 'the town reads it');
-  const e3 = await call('POST', '/v1/homes/entry', { mapId: home().mapId, buildingKey: home().buildingKey, entry: 'guild' }, aldric);
+  const e3 = await call('POST', '/v1/homes/entry', { mapId: home().mapId, buildingKey: home().buildingKey, entry: 'friends' }, aldric);   // GUILD1d (re-aimed by content): `guild` is an entry now
   assert.deepEqual([e3.status, e3.body.error], [400, 'bad-entry']);
   // release: the owner's; the price back; the building free
   const r1 = await call('POST', '/v1/homes/release', { mapId: home().mapId, buildingKey: home().buildingKey }, mara);
   assert.deepEqual([r1.status, r1.body.error], [404, 'no-home']);
-  const r2 = await call('POST', '/v1/homes/release', { mapId: home().mapId, buildingKey: home().buildingKey }, aldric);
-  assert.deepEqual(r2.body, { ok: true, price: 42000, decorCount: 0, decorBack: 0 });   // DECOR1e: no pieces placed, none given back
-  assert.equal((await call('POST', '/v1/homes/claim', home({ character: 'char-mara' }), mara)).status, 200, 'free again, and Mara\'s');
+  const r2 = await call('POST', '/v1/homes/release', { mapId: home().mapId, buildingKey: home().buildingKey, realm: await realmJoinAt(env, aldric, A.id) }, aldric);
+  assert.deepEqual([r2.body.ok, r2.body.price, r2.body.refund, r2.body.decorCount, r2.body.decorBack], [true, 42000, homeSaleRefund(42000), 0, 0]);   // DECOR1e: no pieces placed, none given back
+  assert.equal((await buy(mara, M)).status, 200, 'free again, and Mara\'s');
   // shapes
   assert.equal((await call('POST', '/v1/homes/claim', home({ buildingKey: 0 }), aldric)).body.error, 'bad-home');
   assert.equal((await call('POST', '/v1/homes/claim', home({ price: 0 }), aldric)).body.error, 'bad-home');
@@ -171,14 +194,15 @@ test('HOME1 the service: a town\'s homes are any session\'s to read (a guest\'s 
 
 test('HOME1 the claim\'s rate: an account makes at most twenty claims an hour, answered home-rate - a cap stops a hoard, this stops a claim-and-release churn (mutants: the rate unread)', async (t) => {
   t.mock.method(Date, 'now', () => T0 * 1000);
-  const { call, registered } = await stand();
+  const { env, call, registered } = await stand();
   const me = await registered('Churner');
+  const C = await seatRealm(env, me, 'Churner', RICH('Churner'));   // AUDIT REALM2 S2: a realm character's, on its record
   for (let i = 0; i < HOME_CLAIMS_MAX; i++) {
-    const r = await call('POST', '/v1/homes/claim', home({ buildingKey: 100 + (i % 2), character: 'char-churn' }), me);
+    const r = await call('POST', '/v1/homes/claim', home({ buildingKey: 100 + (i % 2), character: C.id, realm: C.at() }), me);
     assert.equal(r.status, 200);
-    if (r.body.home && !r.body.repeat) await call('POST', '/v1/homes/release', { mapId: home().mapId, buildingKey: 100 + (i % 2) }, me);
+    if (r.body.home && !r.body.repeat) await call('POST', '/v1/homes/release', { mapId: home().mapId, buildingKey: 100 + (i % 2), realm: C.at() }, me);
   }
-  const over = await call('POST', '/v1/homes/claim', home({ buildingKey: 999, character: 'char-churn' }), me);
+  const over = await call('POST', '/v1/homes/claim', home({ buildingKey: 999, character: C.id, realm: C.at() }), me);
   assert.deepEqual([over.status, over.body.error], [429, 'home-rate']);
 });
 
@@ -239,8 +263,8 @@ test('HOME1 the client\'s law: a home can be Daggerfall\'s for-sale house or an 
   assert.equal(homeDoorTitle(row('private', { mine: true })), 'Aldric\'s home', 'your OTHER character\'s home is not this one\'s');
   assert.equal(homeLockedLine(row('private')), 'This is Aldric\'s home. The door is locked.');
   assert.equal(homeBelongsLine(row('public')), 'This belongs to Aldric.');
-  assert.deepEqual(HOME_ENTRY_WORDS, { private: 'Only me', party: 'My party', public: 'Anyone' });
-  assert.deepEqual([homeEntryLine('party'), homeEntryLine('guild')], ['Who may enter: My party.', 'Who may enter: Only me.']);
+  assert.deepEqual(HOME_ENTRY_WORDS, { private: 'Only me', party: 'My party', public: 'Anyone', guild: 'My guild' });   // GUILD1d: and the owner's guild
+  assert.deepEqual([homeEntryLine('party'), homeEntryLine('friends')], ['Who may enter: My party.', 'Who may enter: Only me.']);   // GUILD1d (re-aimed by content): `guild` is an entry now
   assert.equal(homeForSaleLine(12800), 'Can be your home: 12800 gold');
 });
 
@@ -277,7 +301,7 @@ test('HOME1 the client\'s registry: a town is asked once while its answer is out
     { buildingKey: 6, owner: 'Aldric', entry: 'public', mine: true, character: 'char-other' },
     { buildingKey: 7, owner: 'Mara', entry: 'party', mine: false },
     { buildingKey: 0, owner: 'Bad', entry: 'public', mine: false },
-    { buildingKey: 8, owner: 'Odd', entry: 'guild', mine: false },
+    { buildingKey: 8, owner: 'Odd', entry: 'friends', mine: false },   // GUILD1d (re-aimed by content): `guild` is an entry now
   ]]]));
   const homes = createOnlineHomes({ api, character: () => me, now: () => now });
   assert.equal(homes.known(T), false);
@@ -438,10 +462,10 @@ test('HOME1 the wiring by source: the home answers at the door BEFORE Daggerfall
   assert.match(m, /\+ \(!_intShared\.home && Array\.isArray\(data\.l\) \? applyInteriorLoot\(/, 'no peer\'s word on one');
   assert.match(m, /addPermanentScene\(sceneCache\(\), homeSceneName\(mapId, bd\.buildingKey\)\);/, 'a bought home\'s scene is kept');
   assert.match(m, /removePermanentScene\(sceneCache\(\), homeSceneName\(mapId, bd\.buildingKey\)\);/, 'a sold one\'s is not');
-  assert.match(m, /displayName: home \? homeDoorTitle\(home\) : db\.displayName,/, 'the hover names it');
+  assert.match(m, /displayName: home \? homeDoorTitle\(home\) : homeDoorName\(shownBuildingName\(db, bd\.name\), !!houseVerbs\),/, 'the hover names it');   // EMPIRE-BANK: a bank's name now (discovery.js shownBuildingName); FIELD BUGS 2026-09-30b HOME-PLAQUE (PIN MOVED)
   assert.match(m, /onlineHomeLines: \(\) => \(host\.onlineHomes \? HOME_BANK_LINES : null\),/);
   const w = src('src/scenes/world.js');
-  assert.match(w, /const onlineHomes = params\.has\('online'\)\s*\? createOnlineHomes\(/, 'online alone, and built before any quest can ask');
+  assert.match(w, /const homesApi = params\.has\('online'\) \? accountHomes\([^\n]*\n\s*const onlineHomes = homesApi \? createOnlineHomes\(/, 'online alone, and built before any quest can ask');   // HOME-RENT: the service's door kept for a home's rooms too
   assert.ok(w.indexOf('const onlineHomes = ') < w.indexOf('isPlayerHome: (mapId, buildingKey) => !!onlineHomes?.homeAt(mapId, buildingKey),'));
   assert.match(w, /townMapId: \(dfLoc\.mapTableData\?\.mapId \?\? 0\) >>> 0,/, 'the door\'s own town');
   assert.match(w, /onlineHomes\?\.ensure\(_musicLoc\?\.mapTableData\?\.mapId\);/, 'the town asked on arrival');

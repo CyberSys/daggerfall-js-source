@@ -16,7 +16,7 @@ import { loadQuestTables } from '../src/systems/quest/tables.js';
 import { QuestMachine, questNameIn } from '../src/systems/quest/machine.js';
 import { StartQuest } from '../src/systems/quest/actions.js';
 import { isMainQuestName } from '../src/systems/quest/questLists.js';
-import { mintQuestFoeWave, bindQuestFoeHost, reviveQuestBehaviour, questShareTag, WORLD_QUESTS, questNameOf, isWorldQuestFoe, isPrivateQuestFoe } from '../src/scenes/questFoeHost.js';
+import { mintQuestFoeWave, bindQuestFoeHost, reviveQuestBehaviour, questShareTag, sharedQuestFoe, WORLD_QUESTS, questNameOf, isWorldQuestFoe, isPrivateQuestFoe } from '../src/scenes/questFoeHost.js';
 import { createExteriorFoes } from '../src/scenes/exteriorFoes.js';
 import { isPeerTarget } from '../src/characters/enemyTargets.js';
 
@@ -167,7 +167,8 @@ function pool(self, m, { peers = () => [] } = {}) {
   // the world host's own seam (world.js questShareSeam), over the real machine: the party's law for a SHARED quest
   p.setQuestShare({
     tagOf: (f) => questShareTag(m, f, PARTY.has(self)),
-    accepts: (from) => PARTY.has(self) && PARTY.has(from),
+    accepts: (from, tag) => PARTY.has(self) && PARTY.has(from) && !!sharedQuestFoe(m, tag),   // DISC28-J: a LINKED copy
+    partyPeer: (id) => PARTY.has(self) && PARTY.has(id),   // AUDIT DISC28 QS-J: an heir's taking and a kept foe's blow
     peerMayHit: (peerId, f) => PARTY.has(peerId) && f.entity?.team !== 'PlayerAlly' && !!questShareTag(m, f, PARTY.has(self)),
   });
   return { p, pe, sent };

@@ -1,0 +1,350 @@
+# Revenants
+
+**Status:** shipped 2026-10-02 (`src/systems/revenant.js`, `test/revenant.test.js`).
+Mac: "the ability for these enemies that kill you, or a very small chance to flee at low health. These enemies can
+return at a later time stronger, with a new name, a chance of more loot and taunt the player. This is our own
+[...] system."
+
+**REVENANT-NAME** (2026-10-02, Mac: "Nothing should reference [the old name]. Should instead be something unique"):
+the system, its files, its save slot (`Revenant`), its app-storage key (`dagger.revenant.<characterId>`), its HUD
+piece and its words are the REVENANTS - a foe that returns. Nothing had shipped under the old name, so nothing is
+migrated.
+
+A special foe that kills you, or breaks and runs at low health and gets away, is remembered by your character. It
+comes back later under a name of its own, stronger, carrying better loot, and it tells you it remembers.
+
+## 1. Who becomes one
+
+A **special** foe: an elite (`systems/eliteFoes.js`), a LOOT7 champion (`systems/champions.js`), or a revenant already.
+It must be level 3 or more (LOOT7's floor), and never the city watch, an ally, or a quest's foe
+(`revenantCandidate`). With the **Loot rarity** row off nothing here happens: no revenant is made, flees or returns.
+
+Two deeds make one:
+
+| Deed | How | Seam |
+|---|---|---|
+| **Slew** | Its blow takes the player's last health (melee or an arrow) | The struck seam marks the attacker (`combat/formulas.js`), the damage door takes the mark, the hurt tells `registerPlayerBlowLanded` (`systems/sigilSetPowers.js`). Confirmed a microtask later, after `hurtPlayer` is done, so a death Stendarr's mercy (`setAvoidDeathHook`) undoes makes no revenant. |
+| **Fled** | Under 20% of its health for the first time, it wins a roll (5%; 15% for a revenant already) and runs. Out of reach before its run ends, it has escaped. | `scenes/exteriorFoes.js` update: `revenantFleeHealth` and `rollRevenantFlee`, then `ai.flee(playerFeet, 8 s)` (`characters/enemyMotor.js`). While fleeing it does nothing else. At the end of its run or 45 m off, `escapeFoe` removes it with no corpse and no kill. |
+
+A kill no blow names (a spell's burn, a lingering effect's round, a poison's tick) goes to the foe whose harm last
+reached the player (**REVENANT-HARM**, `systems/harmMark.js`, a leaf):
+
+- a spell landing on the player marks its caster for 30 s (`scenes/hostMagic.js applySpellToPlayer`);
+- a lingering effect's round marks its caster again as it lands (`systems/effects.js runEffectRound`);
+- any foe's blow marks it for 120 s (the struck seam), since a poisoned weapon's dose rides that blow and its ticks come later.
+
+A killing blow always outranks the mark.
+
+**REVENANT-DUNGEON** applies the same flee law in a dungeon to a foe of the player's alone: offline, or past the room's
+shared run online (a room's layout foe vanishing on one client would leave it standing on the rest). It aims at nothing
+while running, its walk still drawn. It is retired through the quest pool's own door (`escapeDungeonFoe`). A slain
+revenant closes there too.
+
+**One flee law** for every pool: `revenantFleeStep` answers each frame with `start`, `run`, `escape`, `cornered` or
+nothing. A foe chased down, its run spent within 20 m (`REVENANT_ESCAPE_NEAR`), is **cornered**: it turns and fights to
+the end and never runs again ("Then I take you with me!"). Only out of reach does it escape. The step is asked only of a
+foe running or under the line, so nothing is made per foe per frame.
+
+**A slain foe is no one's revenant**: a death no blow names never goes to a foe already dead (a fall after the fight).
+
+## 2. What it becomes
+
+A record per character:
+
+```
+{ id, rev, mobileType, gender, given, epithet, name, rank 1..5, kills, escapes, returns,
+  trait (a champion's id) | null, elite, born, dueAt, out, outAt, defeated, defeatedAt, notice, history[≤12] }
+```
+
+- **Given name**: DFU's own name banks (`characters/nameHelper.js`). A monster gets a Monster1 or Monster2 name; a
+  class foe (a person) gets a first name from one of the eight races' banks. The draw runs on DFRandom **seeded by the
+  revenant's id**, and the shared seed is restored afterwards: making a revenant moves nobody's dice, and one id always
+  gives one name.
+- **Epithet** by the deed: *the Butcher*, *Bane of Ayla* for a kill; *the Scarred*, *Who Ran* for an escape. From rank 3,
+  whatever the deed, the risen ones: *the Thrice-Risen*, *Revenant of Ayla*. Every deed after the first ranks it up
+  (to 5) and gives it a new epithet, never the one it wore.
+- **Named at once**: the foe that killed you wears its new name where it stands (`entity.revenant`). Kill it there and
+  it is slain.
+- **Cap**: five living revenants. A sixth replaces the weakest, oldest, which is BURIED: its record becomes a tombstone (its
+  id and a newer revision), which every merge keeps over an older copy, so an older save never raises it.
+- **Bounded**: the page keeps the newest 12 slain (`REVENANT_FALLEN_MAX`); older ones are buried too. At most 200
+  tombstones are kept (`REVENANT_TOMBS_MAX`).
+- **Told once**: after a kill, the player is told once they stand alive again (online's respawn, or the next load
+  offline): "The Orc that killed you lives on as Grushnak the Butcher. It will come for you again."
+
+## 3. Its return
+
+- **Due** one to three days later on the character's own clock (`worldTick.ownMinutes`).
+- **Claimed by its roll**: the record is out from the roll that picks it, so no second copy stands while its stand loads. A stand that stood nobody frees it (`releaseRevenantStand`).
+- On a due revenant, an open-world encounter roll (`scenes/world.js runEncounterTick`) stands it instead, 50% of the
+  rolls. Only one is out at a time, the highest rank first. This happens before the party's group-roll gate: a revenant
+  is the player's own.
+- **Stood** by `spawnFoe(..., { revenant })` (`revenantSpawnOptions`):
+  - an elite's glow again where elites stand (online), never a fresh roll;
+  - its champion trait again, never a fresh roll;
+  - then **its rank**: health ×(1 + 0.25·rank), blows ×(1 + 0.1·rank), over whatever its trait or glow gave;
+  - a class foe at the player's level + 2·rank.
+- **Taunt**: in sight, on me, within 25 m, once each return. The line knows its last deed and the player's name. A
+  beast or a mindless thing (rats, bears, atronachs, zombies...) bares its teeth instead.
+- **Out** from its stand until it dies, escapes, or leaves. Outrun past the cull, swept by a load, or the like, it is
+  due again in six hours (`revenantPresence`, which looks in the open world's pool and in whichever host the player stands in, with a few seconds' grace for a stand still loading).
+- **Slain**: its record is closed (`defeated`). It never returns: "Grushnak the Butcher has fallen. Your revenant is no
+  more."
+
+## 4. Its drop
+
+This drop comes on top of its kind's own loot, from the elite's minting (`eliteFoes.tieredGear`):
+
+- gold: level × rank × 15–40;
+- a Magic piece 50% of the time;
+- a Rare at 15% + 10% per rank, and always from rank 3;
+- a Legendary at 3% + 3% per rank.
+
+## 5. Its keeping
+
+Two places, merged per record by `rev`:
+
+1. **The save**: the per-mod slot `Revenant` (`systems/modSaveData.js`), which travels with an online character. A
+   record is never saved as out: the foe that stood for it is not in a fresh world.
+2. **The app's storage**: `dagger.revenant.<characterId>`. An offline death ends the run with nothing saved, and a death
+   is exactly what makes a revenant.
+
+A reload of an older save keeps every revenant made since, and never raises one already slain. Another character's
+revenants are its own.
+
+## 6. Online
+
+A revenant is its character's own memory. A returning one is my own foe, streamed as any: its kind, health, trait, glow
+and (**REVENANT-WIRE**) its name. The foe record's `nm` is printable and at most `REVENANT_NAME_MAX` (64) characters,
+validated in `net/wire.js validFoeRecord`; the relay is `world144`. Every puppet is called what its owner calls it.
+
+## 7. Names everywhere (FOE-TITLE)
+
+`systems/foeTitle.js` is the one home for what a special foe is called. In order: a revenant's own name, then a
+champion's trait before its kind, then "Elite" before its kind. The target bar, the hover (named even while hostile:
+`foeTitled`), the death line and the body's title all ask it.
+
+## 7a. The card (REVENANT-CARD, Enhanced Plus)
+
+Everything a revenant says or does is an **event** (`revenantEvent` and the builders `revenantTauntEvent`, `revenantFleeEvent`,
+`revenantEscapeEvent`, `revenantSlainEvent`, `revenantRiseEvent`). An event carries:
+
+- a kicker: *Revenant*, *Fleeing*, *Escaped*, *Revenant slain* or *A revenant rises*;
+- its name, and what it is (rank, kind, trait, elite);
+- its **portrait**: the sprite it wore (a retextured kind's own), else its kind's by gender, at the front-facing record (the idle's, 15, else the walk's, 0);
+- its **words** in its own voice: a taunt, "This isn't over!", an escape's promise, last words, a gloat;
+- what happens in the narrator's voice (a beast never speaks: "Bares its teeth - it remembers you.");
+- the one `line` a text surface says instead.
+
+`systems/revenantVoice.js` (a leaf) hands an event to the registered face, or speaks its line through the host's `say`.
+
+The face is `ui/revenantCard.js`, on the enhanced skin only:
+
+- **Placement and lifetime**: the notices' twin at the LEFT edge, sliding in and out. One card per revenant, two at most. The words are typed at 42 letters a second, then held 3.5 to 7.5 s.
+- **Colours**: a blood edge for a taunt or a rise, amber for a flight or an escape, brass for a fall (the portrait grey and struck through).
+- **Drawing**: drawn on drawHud's one call, behind the HUD's hide gate (hidden, its clock stops) and its hide door. The DISC29-D watchdog hides it when a host stops drawing. HUD-MOVE moves it (`'revenant'`, with a preview).
+- **Plus dressing**: the kit dresses it by role: panel and accent edge, the portrait a well, the rank a chip, the name a header rule. Stone gets brighter words, as the stats card does.
+- **Accessibility**: a screen reader gets the whole line at once; reduced motion types and slides nothing.
+- **Classic skin**: the presenter declines and the line is said, as before.
+
+## 7b. The page (REVENANT-PAGE)
+
+`ui/revenantPage.js` is the **Revenants** page on the Enhanced pause menu's Stats rail, shown while revenants are made or
+any is remembered. The living come first, strongest first, each with:
+
+- its portrait and rank;
+- what it is;
+- what it has done to you ("Killed you twice, escaped you once");
+- when it will come (*Hunting*, *Biding*: "in about 2 days", or *Abroad*);
+- its last deeds.
+
+Then the **Fallen**, struck through, with when each fell. A character with none is told how one is made.
+
+## 8. The numbers
+
+Every number is a named constant at the top of `systems/revenant.js`:
+
+| Constant | Value |
+|---|---|
+| `REVENANT_MIN_LEVEL` | 3 |
+| `REVENANT_MAX` | 5 |
+| `REVENANT_MAX_RANK` | 5 |
+| `REVENANT_FLEE_HEALTH` | 0.2 |
+| `REVENANT_FLEE_CHANCE` / `_REVENANT` | 0.05 / 0.15 |
+| `REVENANT_FLEE_SECONDS` | 8 |
+| `REVENANT_ESCAPE_DISTANCE` | 45 |
+| `REVENANT_RETURN_MIN/MAX_MINUTES` | 1440 / 4320 |
+| `REVENANT_RETURN_CHANCE` | 0.5 |
+| `REVENANT_LOST_MINUTES` | 360 |
+| `REVENANT_HEALTH_PER_RANK` | 0.25 |
+| `REVENANT_DAMAGE_PER_RANK` | 0.1 |
+| `REVENANT_LEVEL_PER_RANK` | 2 |
+| `REVENANT_TAUNT_DISTANCE` | 25 |
+| `REVENANT_LOOT` | see section 4 |
+
+## 9. Every host
+
+The streaming world (`scenes/world.js`) and the single-location host (`scenes/exterior.js`) both:
+
+- stand a due revenant on an open-world roll;
+- read its presence;
+- tell the player of a kill once alive again.
+
+The open world's pool (`scenes/exteriorFoes.js`) and the dungeon (`scenes/dungeonContext.js`) both run a fleeing foe
+and close a slain one. Returns stay in the open world: a dungeon's foes are its layout's.
+
+## 10. Who it is (REVENANT-VOICE)
+
+Mac: "They should have their own unique personalities that affect their speach. One could be humorous, or witty, etc."
+`systems/revenantPersonality.js` (a leaf) holds ten personalities and every word they say:
+
+| Personality | In a word | A beast's manner |
+|---|---|---|
+| Brutal | savage, blunt, hungry for blood | with a savage snarl |
+| Witty | sharp-tongued, sardonic | with an almost knowing glint |
+| Humorous | laughs at everything, your death included | with a playful yip |
+| Arrogant | proud, certain it is your better | with its head held high |
+| Cold | quiet, patient, merciless | in eerie silence |
+| Zealous | sees the gods in every blow | with wild, burning eyes |
+| Unhinged | manic, giggling | with a frenzied howl |
+| Honourable | a duellist with a code | with a steady, measured gaze |
+| Craven | all bluster and nerves | with a nervous whine |
+| Weary | tired of the killing | with a tired, rumbling sigh |
+
+- **One per revenant**, drawn from its id (`personalityFor`), so it is the same on every read, every load and every
+  client, and **leaning by kind**: an orc leans brutal, a lich cold, a daedra arrogant; a beast is never a preacher or a
+  wit; a person may be anyone. A record from before is given the one its id draws.
+- **A voice before a name**: a special foe that breaks and runs is given an id to speak with there and then; if it gets
+  away, the revenant it becomes keeps that id, and so that voice.
+- **Every moment**: its returns (by its last deed: it killed you, it ran, it has risen three times), flight, cornering,
+  escape, death, gloat, and REVENANT-FATE's and REVENANT-COMPANION's moments below - two lines or more in each, three
+  for the returns, the yield, the execution and the oath; `{p}` the player's first name.
+- **A beast never speaks**: the narrator says what it does, in its manner ("Sinks low before you with a playful yip,
+  beaten.").
+- The card and the page wear its personality as a chip.
+
+## 11. Beaten, it yields (REVENANT-FATE)
+
+Mac: "Players should have the option to kill or spare"; "the choice popup should reuse the loot menu".
+
+- **The yield**: the blow that would kill one of the player's revenants (any blow - the revenant is the player's own;
+  never a Disintegrate's kill) leaves it at 1 health on its knees (`systems/revenantFate.js beginYield`): its fight and
+  its run over, its hurt's last frame held with a breath now and then (`MobileUnit.heldPose`), no blow reaches it, no foe
+  hunts it (`enemyTargets.js`), never in the save. Its plea is said in its voice; its record notes the deed. Its
+  TROPHY is rolled now, so the choice shows it.
+- **The choice** is the loot window's: activating it (at the treasure's reach, as a body - `mobileEnemyActivate.js`)
+  opens the window with its FATE side (`ui/enhancedInventory.js` + `ui/revenantFateView.js`): the loot frame's own head
+  (its name, what it is, its personality), its plea, and two of the loot list's rows - KILL, drawn as the trophy weapon
+  is drawn when looted (its tile, its rarity's colour), and SPARE, its portrait and where it would stand. A row is
+  picked, then confirmed (a second press, the confirm button, Enter); K and S pick; Back steps out of a pick, then closes
+  the window and leaves it kneeling. The classic skin asks with a keyed box.
+- **Hesitate** past `REVENANT_YIELD_MS` (90 s of the world's own time - a window that pauses the game holds it), or walk
+  `REVENANT_YIELD_REACH` (60 m) off, and it **slips away**: an escape, its rank up, its words about your hesitation.
+- **Underground** the same, for a foe of the player's alone (REVENANT-DUNGEON's gate). A host that cannot open the
+  choice (`fates` off) lets its revenants die as before.
+
+## 12. Kill: the execution and the trophy (REVENANT-FATE, REVENANT-TROPHY)
+
+Mac: "Killing should show a unique animation where you destroy your foe, which drops a unique weapon random rarity
+weapon specific to the enemy, with their name included in the weapon name."
+
+The execution (`EXECUTION_MS`): its last words in its voice and the blow (a heavy swing's sound, the camera kicked);
+at 480 ms the BURST - blood thrown wide with gibs (the heaviest blow there is), a red flash, a harder kick, a burning
+roar - and from there the body **burns away from the feet up** in embers (DISSOLVE, below) until, at 1.5 s, it is gone:
+no body. Where it knelt drops a **pile** (the place's dropped loot, with its line of light): everything it carried and
+its trophy. Its record closes for good, **executed** (the page's Fallen say so).
+
+The trophy (`systems/revenantTrophy.js`):
+
+- **Its weapon**: the best blade it carried, else its kind's (an orc's war axe or battle axe, a lich's staff, a vampire's
+  saber or katana, a giant's warhammer, a bear's war axe...) or a person's by class (a Barbarian's claymore, an
+  Assassin's tanto, an Archer's longbow...); one of a kind's two by its id.
+- **Its name**: "<given>'s <noun>" - Grushnak's Reaver, Varis' Requiem - the noun the weapon's, by its id.
+- **A random rarity, never Common**: Legendary 12% + 5% a rank above the first, Rare 33% + 4% a rank, else Magic.
+- Its material the better of two rolls at the player's level.
+
+## 13. Spare: the sworn (REVENANT-COMPANION, COMPANION-SLOTS, COMPANION-ROSTER)
+
+Mac: "Spare should allow you to free the enemy, which then adds them as a companion, which you could keep send them away
+or keep them with you. Reuse the crew companion system. Companion slots should still be limited and will need a new
+enhanced plus UI feature."
+
+- **Sworn**: spared, it rises, gathers into a portal where it knelt, and is sworn to the player for good - it hunts
+  nobody, never returns as a foe, and its record keeps its place (`companion`: with the player, away, or resting).
+- **The crew's own layer** (`scenes/crewAshore.js`) stands the sworn - every place, every door, the heel, the catch-up,
+  health and spells carried - as a second party of the crew's shape (`systems/revenantCompanions.js revenantParty`), never
+  under the naval arc's gate. Each stands at the player's level with its rank's strength (health once, its blows always),
+  called by its own name; activated, it opens its pack (the crew's COMPANION-KIT storage); it has a card on the party
+  panel and a green bar overhead.
+- **Slots** (`systems/companionSlots.js`): **three** at the player's side, the crew's hands ashore and the sworn together -
+  a hand is refused ashore when they are full ("no room at your side"), and a newly spared one waits **away**.
+- **Six** sworn at most; with six, SPARE is refused until one is released.
+- **Knocked out**, it is carried off through a portal to rest eight hours, then waits, fit again, to be called.
+- **The Companions page** (`ui/companionRoster.js`, the pause menu's Stats rail): the slot strip (who stands in each,
+  a crew hand by name, the open ones), **At your side** (portrait, rank, personality, health; Send away), **Away**
+  (Call - refused, and saying why, while the slots are full or it is still hurt; its rest), **Release** asked twice.
+- **Its words**: as it arrives when called, as it is sent away or released, when it falls, now and then as it goes into
+  a fight or over a kill (a minute between each one's, twenty seconds between any) - all in its voice.
+
+## 14. The portals and the dissolve (COMPANION-PORTAL, DISSOLVE)
+
+Mac: "Companions when playing catch up, spawning in, or spawning out should use a unique portal animation instead of
+just popping in and out."
+
+- **The portal** (`scenes/portalFx.js`): a violet vortex drawn here (twelve frames, an oval with spiral arms turning
+  inward, a white-hot rim and a dark heart), self-lit and blended, standing a step behind the body from the eye. It tears
+  open (360 ms), holds, and seals (420 ms) with the magic school's cast sound. Every place's pool owns its set and draws
+  it with its foes (the street, a building, a dungeon).
+- **Where**: a companion's **arrival** (it gathers out of the light), its **leaving** (sent away, knocked out - it burns
+  into the light, and is taken out of the place only once the portal has it), a **catch-up** (a short pair: one where it
+  was, one where it stands again), and a spared revenant's oath. A change of place lifts the party at once (the place is
+  going) and it arrives through portals in the next.
+- **The dissolve** (`systems/dissolve.js`, both billboard shaders): `batch.dissolve = [share gone, r, g, b]` - the
+  sprite eaten in two-texel grains from the feet up, every grain blazing in its colour along the edge (ember for an
+  execution, arcane violet for a portal). The renderer uploads it per batch on change (`uDissolve`).
+
+## 15. Online (REVENANT-FATE)
+
+The choice is the owner's (a revenant is its character's memory). The foe record carries `yd` (kneeling), `ex`
+(being executed) and `sp` (spared, rising into its portal), so every puppet kneels, burns away and goes as its owner's
+does; the hover says it is beaten (`world152`, re-recorded). A foe adopted by a peer (the owner's death) stands as
+itself - its owner's judgement goes with the owner - and a foe mid-judgement is never handed over.
+
+## 16. The audit (2026-10-02, Mac: "Audit everything and ensure perfection")
+
+Five audits - the records and their words, the kill-or-spare flow, the sworn, the UI, the burn and the portals - and
+every finding fixed (`test/revenant_audit.test.js`, `tools/mutants/revenantaudit.json`):
+
+- **Records.** A judged revenant (executed, released, sworn) does no deed - its poison finishing the player after it
+  knelt raised it again under its own id, or ranked up a sworn companion. A kneeling one claims no kill and clears its
+  harm mark; a load, a new game and an answered death clear it too. The cap never buries one standing in the world, and
+  a forgotten id is never worn again. One standing as the save is made is left out of the street's save and comes due
+  again after `REVENANT_LOST_MINUTES` (a nameless copy stood beside it).
+- **A sworn one's pack is the save's.** The mirror outlives a load, but a pack is inventory: the save's copy says what
+  is in it (a load duplicated or lost items). A release hands the pack back - gold to the purse.
+- **Words.** The risen's tally taunt only with kills to count (two or more); a revenant's flight and cornering know the
+  player's name, and the cornered line says its words; a beast's moment keeps what the moment says (a spared beast
+  waiting away "fell in at your side"); a mute kind (a skeleton, a zombie, an atronach) leans as a beast does, never a
+  wit; a `$` in a name is a letter; every personality has three risen taunts; one possessive for every title
+  ("Varis' Shadow", "Varis' Rod").
+- **The fate.** The window holds the wait (the foes' clock runs under a window - WINFOE1 - so a revenant slipped away
+  behind its own choice); a choice on one gone is said. One held by its fate is no swing's, spell's or shaft's (its
+  poison, its drain, its training and a Wabbajack all landed). The execution is the player's blow (Renown past the
+  assist window) and takes the soul (the trap and Azura's Star). A flyer kneels on the ground and its pile lies there.
+  The executed hand their pack to the pile once. Underground, a foe gone with no body (fled, executed, sworn) is saved
+  bodiless (`noBody`) - a load laid its corpse, its pack lootable - and a same-dungeon load ends a judgement in flight.
+  The dungeon's hover says "beaten".
+- **The sworn.** Past the slots (a load standing the save's crew beside the mirror's sworn) the most lately sworn steps
+  away. A rest never reads longer than a rest (an older save's clock). A spared one's companion waits for its portal
+  (two of it stood for the oath's length). A fall, a sending-away, a release and a load end its member, and the spells
+  it wore with it. Opposite acts in one pause cancel their words; a load forgets the words owed.
+- **The UI.** Enter on a focused button is that button's; the window fits a phone (the rows had collapsed under the
+  confirm) and brings the confirm into view; the judgement opens in beast form; the Classic box keys short with its
+  details wrapped and a refused choice saying why; an armed Release never outlives the visit; Execute and Release are
+  edged in blood; the rows are cards, not presses; the trophy has its item card on the hover; the companion's bar is the
+  green it wears overhead, with its numbers.
+- **The burn and the portals.** The frame's reset sends the zero (the last burning flat's share stayed live in GL under
+  every flat after it - a dungeon's lone execution could take every flat away); no elite rim round a body dissolving;
+  the burst's red flash on the hit flash's own clock; a body more gone than whole casts no shadow; the lane's edge
+  decoded into its linear light; the portal's sound by its ID; the leave hand-offs wait for the foe loop (a splice under
+  it skipped a foe for a frame).

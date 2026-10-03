@@ -75,7 +75,8 @@ test('MT-iv: MeleeDamage\'s two-arm split lives in ONE home, above both call sit
   assert.ok(fork > 0 && player > fork, 'the foe arm is declared above the player arm');
   assert.match(DG, /if \(!vsPlayer && resolveFoeMeleeVsFoe\(f\)\) return;/, 'and the player arm is the ELSE');
   assert.match(DG, /applyDamageToNonPlayer\(f, t, \{/, 'the foe arm routes through the SHARED payload');
-  assert.match(DG, /dealDamage: \(tt, d\) => tt\.hurtFromFoe\?\.\(d, fwd\)/,
+  // PIN MOVED (AUDIT CC-E1): and the striking foe, so a blow on another client's companion knows whose
+  assert.match(DG, /dealDamage: \(tt, d\) => tt\.hurtFromFoe\?\.\(d, fwd, f\)/,
     'and the TARGET\'s own pool owns its death chain');
   // both call sites reach it, and neither gates on the player's feet
   assert.ok(DG.includes('if (!f.mobile) resolveFoeMelee(f, _pf);'), 'the rig path');
@@ -102,7 +103,7 @@ test('MT-iv: BowDamage forks too - an arrow aimed at a foe LANDS on it, and the 
     ':145-147 - the recovered Arrow goes into the TARGET\'s items, not the player\'s');
   // the enemy SPELL missile takes the same fork
   assert.match(DG, /an enemy SPELL missile aimed at another foe resolves/);
-  assert.match(DG, /applySpell\(m\.spell, m\.casterLevel \?\? playerEntity\.level, af\.entity, foeSinks\(af, false\)/,
+  assert.match(DG, /applySpell\(m\.spell, m\.casterLevel \?\? effectiveLevel\(playerEntity\), af\.entity, foeSinks\(af, false\)/,
     'and lands on that foe\'s own sinks');
 });
 

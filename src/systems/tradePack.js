@@ -8,13 +8,19 @@
 //     mints, `equipSlot` and `questItem` stripped (they are the RECEIVER's marks, never the sender's word);
 //   - what may not be offered is the pack's own refusals: worn gear (systems/equip.js isEquipped - a staged worn item
 //     would leave equip.slots pointing at it, AUDIT 17e F4), quest items (the quest owns them), summoned items (they
-//     vanish on a clock), and gold-piece items (gold is offered as gold);
+//     vanish on a clock), gold-piece items (gold is offered as gold), and bound pieces (SS1, systems/itemBound.js: a
+//     Sigil Stone is never handed to another player - and a peer's lot carrying one is refused whole, below), and a
+//     Come Sail Away boat's deed or parts (AUDIT REALM2 T1: the realm's own law, net/realmTradeLaw.js BOAT_TEMPLATES);
 //   - weight is systems/inventory.js's own arithmetic against combat/formulas.js entityMaxEncumbrance.
 import { validLootList } from './loot.js';
+import { itemLongName } from './itemInfo.js';   // MARKET-ANY: a pack piece named as the pack names it
+import { goodRefusal, GOOD_REFUSAL_WORDS } from '../net/marketLaw.js';   // MARKET-ANY: what may list from the pack
 import { splitStack, addItem, itemWeight, totalWeight, carriedWeight, isSummoned, isGoldPieces, addGoldPieces, goldPiecesOf, GOLD_PIECE_WEIGHT_KG } from './inventory.js';
 import { isEquipped } from './equip.js';
 import { clearLightSourceOnLeave } from './itemTransfer.js';
 import { entityMaxEncumbrance } from '../combat/formulas.js';
+import { isBound, BOUND_TRADE_TEXT } from './itemBound.js';   // SS1: a bound piece never leaves for another player
+import { BOAT_TEMPLATES } from '../net/realmTradeLaw.js';   // AUDIT REALM2 T1: nor a boat's deed or parts - what they stand for stays in the giver's save
 
 /** Why an item may not be put on the table, or null. Words a player can act on. */
 export function tradeRefusal(item) {
@@ -23,6 +29,8 @@ export function tradeRefusal(item) {
   if (item.questItem) return 'Quest items cannot be traded.';
   if (isSummoned(item)) return 'Summoned items cannot be traded.';
   if (isGoldPieces(item)) return 'Offer gold with the gold box.';
+  if (isBound(item)) return BOUND_TRADE_TEXT;   // SS1
+  if (BOAT_TEMPLATES.includes(item.templateIndex)) return 'Boat deeds and boat parts cannot be traded.';   // AUDIT REALM2 T1
   return null;
 }
 
@@ -53,8 +61,15 @@ export function createTradePack(entity) {
       return validLootList(recs);
     },
 
-    /** The peer's records as this game would mint them - every one through the wire clamp - or null if any is no item. */
-    unwire(records) { return validLootList(records); },
+    /** The peer's records as this game would mint them - every one through the wire clamp - or null if any is no item,
+     *  or any is BOUND (SS1: a peer that holds one out - an older build, a forged frame - offers what may not change
+     *  hands, and the lot is refused whole, the trade's own word for a forgery). */
+    unwire(records) { const items = validLootList(records); return items && !items.some(isBound) ? items : null; },
+
+    /** AUDIT REALM L1-F1: where each offered item stands in the pack - its index in the list a save writes as `items`
+     *  (systems/save.js snapshotPlayer keeps the order) - read BEFORE the goods are reserved, so a realm trade's half
+     *  names the very records its checkpoint holds (net/realmTradeLaw.js realmTradePickOf); -1 for one not here. */
+    picks(entries) { const items = list(); return entries.map(({ item }) => items.indexOf(item)); },
 
     /** Take the goods OUT of the pack (reserve). All-or-nothing: a lot that is not entirely here comes back null. */
     take(entries, gold) {
@@ -110,5 +125,67 @@ export function createTradePack(entity) {
     },
 
     gold: () => goldPiecesOf(entity),
+  };
+}
+
+// ─── MARKET-ANY (FIELD BUGS 2026-10-01, the field: "The market doesn't allow you to list any item that isnt bound") ───
+//
+// THE PACK'S SIDE OF A PIECE FROM THE PACK ON THE MARKET - what the Market tab's List form offers of the pack and why the
+// rest may not go, a piece as it lists (its record as the service matches it, its place in the save, its taking), a
+// record's name, and a collected piece into the pack. The law is net/marketLaw.js goodRefusal; this adapter does every
+// move, as a realm trade's piece moves (REALM P2.1): the service takes the piece out of the seller's record and puts it
+// into the buyer's (server-account/src/market.js), and these keep the pack the record's twin. Not a DFU member:
+// Daggerfall has no other player to sell to. Ledger A.
+
+/**
+ * @param {any} entity the live player entity (`items`)
+ * @param {{ kept?: (provenance: string) => boolean, say?: (text: string) => void }} [o] `kept` - a crafted piece another
+ *   act of the counting-house holds (net/marketBook.js holdsPiece, the writs' book's), left out; `say` - the HUD's line
+ */
+export function createMarketGoods(entity, { kept = () => false, say = () => {} } = {}) {
+  return {
+    /** The pack's pieces as the List form offers them - each with why it may not go, in the form's words, or null. A
+     *  crafted piece's way (from the pack, or as a crafted piece) is the service's to say - the tab asks it. */
+    goods() {
+      const pack = createTradePack(entity);
+      return (entity.items ?? []).filter((it) => it && !(typeof it.provenance === 'string' && kept(it.provenance))).map((item) => {
+        // a piece the trade's wire will not carry (a row this game does not know) is no piece the service could match
+        const why = goodRefusal(item) ?? (pack.wire([{ item, count: Math.max(1, item.stackCount ?? 1) }])?.[0] ? null : 'shape');
+        return { item, name: itemLongName(item), why: why ? (GOOD_REFUSAL_WORDS[/** @type {keyof typeof GOOD_REFUSAL_WORDS} */ (why)] ?? why) : null };
+      });
+    },
+    /** A piece of the pack as it lists: its record as the trade's wire projects it (what the service matches against
+     *  the record - realmTradeLaw recordIsOffered), its index in the list the save writes as `items` (tradePack picks -
+     *  AUDIT REALM L1-F1), and its taking - its whole stack out of the pack (tradePack take: the lit light let go) -
+     *  answering its undo, or null when the pack no longer holds it where it was, or it may not go. */
+    good(/** @type {any} */ item) {
+      const pack = createTradePack(entity);
+      const entries = [{ item, count: Math.max(1, item?.stackCount ?? 1) }];
+      const pick = pack.picks(entries)[0];
+      return {
+        offered: pack.wire(entries)?.[0] ?? null,
+        pick,
+        take: () => {
+          if ((entity.items ?? [])[pick] !== item || goodRefusal(item)) return null;
+          const handle = pack.take(entries, 0);
+          return handle ? () => pack.restore(handle) : null;
+        },
+      };
+    },
+    /** A pack piece's record named as the pack names it - another player's record through the wire's clamp first. */
+    goodName(/** @type {any} */ rec) {
+      const it = rec ? validLootList([rec])?.[0] : null;
+      return it ? itemLongName(it) : 'a piece';
+    },
+    /** A piece collected - the record the service put into this character's record - into the pack as a trade's piece
+     *  comes (tradePack unwire: the wire's clamp, and a bound piece refused; give). False: this game will not hold it. */
+    receive(/** @type {any} */ rec) {
+      const pack = createTradePack(entity);
+      const items = rec ? pack.unwire([rec]) : null;
+      if (!items?.length) return false;
+      pack.give(items, 0);
+      say(`${itemLongName(items[0])} is in your pack.`);
+      return true;
+    },
   };
 }

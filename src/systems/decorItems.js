@@ -39,6 +39,7 @@ import { isSummoned } from './inventory.js';
 import { decorFlatLight } from './decorCatalogue.js';
 import { itemDyeColor, itemDyeTarget } from './itemDye.js';
 import { decorItemOf, decorIsMount, DECOR_ARCHIVE_MAX, DECOR_RECORD_MAX, DECOR_ARTIFACT_UNKNOWN } from '../net/decorLaw.js';
+import { PROVENANCE_RE, MASTERWORK, makerName, markedName } from '../net/recipeLaw.js';   // PROF4: a crafted piece's id and mark
 
 /** The groups whose items never stand as themselves: weapons and armour are mounted (DECOR2c); a vehicle is no thing
  *  one carries, coin is a counter, and a deed or a quest's own item is not the player's to set down. */
@@ -70,11 +71,15 @@ export function decorDescriptorOf(item) {
   // AUDIT DYE-ICON 7: an artifact with no index recorded is one all the same - it hung as its base item, dyed
   const a = item.artifact ? ((bits & 1) ? bits >> 1 : DECOR_ARTIFACT_UNKNOWN) : null;
   const p = (item.group === 'Paintings' || item.group === 'Books') && Number.isSafeInteger(item.message) ? item.message : null;
+  // PROF4 (bible/06-Systems/Professions-Arc.md 25): a crafted piece's provenance, and its mark where its name carries
+  // one - online the service writes the mark from its own row, whatever this sends
+  const pv = typeof item.provenance === 'string' && PROVENANCE_RE.test(item.provenance) ? item.provenance : null;
+  const mk = pv && (item.marked === true || item.quality === MASTERWORK) ? makerName(item.maker) : null;
   return decorItemOf({
     t: item.templateIndex, g: g >= 0 ? g : null,
     m: Number.isSafeInteger(item.material) && item.material > 0 ? item.material : null,
     v: Number.isSafeInteger(item.variant) && item.variant > 0 ? item.variant : null,
-    a, p,
+    a, p, pv, mk,
   });
 }
 
@@ -156,7 +161,8 @@ export function decorItemName(d) {
   const group = own.g != null ? ITEM_GROUP_NAME_BY_CLASS[own.g] ?? null : null;
   // the list's own naming reads a book's title off its message (itemInfo.js resolveItemName)
   const item = { templateIndex: own.t, group, material: own.m ?? 0, variant: own.v ?? 0, isIdentified: true, message: own.p ?? 0 };
-  return itemLongName(item) || t.name;
+  const name = itemLongName(item) || t.name;
+  return own.mk ? markedName(own.mk, name) : name;   // PROF4: a crafted piece's maker's mark, as the service wrote it
 }
 
 /**

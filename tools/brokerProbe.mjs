@@ -2,16 +2,16 @@
 // trade for daily reset sigil items at a new NPC vendor that stands outside the oblivion gate") - THE SIGIL BROKER,
 // DRAWN AND MEASURED.
 //
-// A pin can say she stands at a spot in the gate's frame and her window lays out six rows; only a renderer and a layout
-// engine can say she is SEEN there - her sprite, at her size, beside the gate and off its plinth - and that the window
-// reads at a desk and on a phone. So:
-//   - THE WORLD: the REAL Renderer (render/renderer.js), the REAL gate pool (scenes/gatePool.js) standing an open gate,
-//     and the REAL Broker pool (scenes/sigilBrokerPool.js) on the REAL data pipeline (scenes/dataPipeline.js - her
-//     TEXTURE.284 off the dev server's ARENA2), shot from the approach, up close and from her side: she stands, her
-//     sprite loaded, an idle record, her height a person's, and her pixels ON the frame (a frame drawn without her
-//     differs where she stands);
+// A pin can say she stands at a spot in the circle's frame and her window lays out six rows; only a renderer and a
+// layout engine can say she is SEEN there - her sprite, at her size, in her cage - and that the window reads at a desk
+// and on a phone. So:
+//   - THE WORLD: the REAL Renderer (render/renderer.js) and the REAL Broker pool (scenes/sigilBrokerPool.js) on the REAL
+//     data pipeline (scenes/dataPipeline.js - her TEXTURE.284 off the dev server's ARENA2), BROKER-CAGE: caged at the
+//     faithful's circle (the circle's spot, its day's own), shot from the gate's side, up close and from her side: she
+//     stands, caged, her sprite loaded, an idle record, her height a person's, and her pixels and her cage's ON the frame
+//     (a frame drawn without them differs where she stands); then freed, the door swung open;
 //   - THE WINDOW: the REAL door (ui/brokerDoor.js - the lazy chunk through the one home) over the day's REAL stock, a
-//     pack of three spendable stones and a locked one, at a desktop, a laptop and a phone: it fits the screen; its title,
+//     pack of seven spendable stones in one stack and a locked one (SS1), at a desktop, a laptop and a phone: it fits the screen; its title,
 //     the line under it, the purse and Close clear of each other; six rows, each row's picture, name, set, price and Buy
 //     clear of each other (a refusal's sentence on the Buy once starved the name to "Ruh..." and ran the set into the
 //     price), every Buy inside its row and pressable or saying why not in a word, the pictures landed (the pack's own icon door), the
@@ -42,11 +42,12 @@ import { Renderer } from '/src/render/renderer.js';
 import { DFPalette } from '/src/formats/dfPalette.js';
 import { getBytes } from '/src/scenes/dataSource.js';
 import { createDataPipeline } from '/src/scenes/dataPipeline.js';
-import { createGatePool, gateLocal } from '/src/scenes/gatePool.js';
-import { createSigilBroker, BROKER_SPOT } from '/src/scenes/sigilBrokerPool.js';
+import { createSigilBroker, cageSpotLocal } from '/src/scenes/sigilBrokerPool.js';
+import { gameDayAt, gateTimes } from '/src/net/gateLaw.js';
+import { CAGE_DOOR_MS } from '/src/world/cageModel.js';
 import { IDLE_ANIMS } from '/src/characters/mobileUnit.js';
 import { perspective, mirrorProjectionX, lookAt } from '/src/world/mat4.js';
-import { brokerStock, brokerDay, brokerBought, makeBrokerSale, spendableStonesIn, lockedStonesIn } from '/src/systems/sigilBroker.js';
+import { brokerStock, brokerDay, brokerBought, makeBrokerSale, spendableStonesIn, lockedStonesIn, stoneCount } from '/src/systems/sigilBroker.js';
 import { sigilStone } from '/src/systems/gateSpoils.js';
 import { setLocked } from '/src/systems/itemLock.js';
 import { setSigilOnline, setSigilRenown } from '/src/systems/sigil.js';
@@ -67,39 +68,42 @@ try {
   const palette = new DFPalette();
   palette.load(await getBytes('ART_PAL.COL'), 'ART_PAL.COL');
   const pipe = createDataPipeline({ renderer: r, arch: null, palette, fetch: getBytes });
-  const now = Date.now();
-  const g = { day: 5, px: 0, py: 0, spot: [0, 0], near: 'Probe', phase: 'open', t: { omenAt: now - 1e7, riseAt: now - 9e6, openAt: now - 1000, sealAt: now + 1e7, wrathAt: now + 2e7 }, fellAt: null };
-  const gate = createGatePool({ renderer: r, gl: r.gl, standing: () => g, pixelTranslation: () => [0, 0, 0], heightAt: () => 0, now: () => Date.now() });
+  // BROKER-CAGE: today's breach, its circle at the scene's origin pixel, the clock ten real minutes into its omen (two
+  // game hours - the rite still holds)
+  const day = gameDayAt(Date.now()), sp = cageSpotLocal(day);
+  let clock = gateTimes(day).omenAt + 600_000, free = false;
   let eye = [0, 1.7, 30];
   const broker = createSigilBroker({ renderer: r, getTexture: pipe.getTexture, uploadRecordFrame: pipe.uploadRecordFrame,
-    place: () => gate.state().place, heightAt: () => 0, now: () => Date.now(), cam: () => eye, feet: () => null });
-  gate.frame(0.016); broker.frame(0.016);
+    site: () => ({ day, px: 0, py: 0 }), pixelTranslation: () => [0, 0, 0], heightAt: () => 0, now: () => clock, freed: () => free, cam: () => eye, feet: () => null });
+  broker.frame(0.016);
   for (let i = 0; i < 200 && broker.state().body !== 'loaded' && broker.state().body !== 'failed'; i++) await new Promise((res) => setTimeout(res, 50));
-  /** gate-local to the scene (gatePool.js gateLocal, undone) */
-  const toScene = (lx, ly, lz) => { const p = gate.state().place; const c = Math.cos(p.yaw), s = Math.sin(p.yaw); return [p.origin[0] + c * lx + s * lz, p.origin[1] + ly, p.origin[2] - s * lx + c * lz]; };
-  window.__world = { toScene, spot: BROKER_SPOT, idle: IDLE_ANIMS.map((a) => a.record) };
+  /** cage-local to the scene (x across, z out of its door - the pool's own turn), and back */
+  const c = Math.cos(sp.facing), s = Math.sin(sp.facing);
+  const toScene = (lx, ly, lz) => [sp.x + c * lx + s * lz, ly, sp.z - s * lx + c * lz];
+  const toLocal = (p) => { const dx = p[0] - sp.x, dz = p[2] - sp.z; return [c * dx - s * dz, p[1], s * dx + c * dz]; };
+  window.__world = { toScene, idle: IDLE_ANIMS.map((a) => a.record) };
+  window.__free = () => { free = true; clock += 5000; broker.frame(0.016); clock += CAGE_DOOR_MS; broker.frame(0.016); return broker.state(); };
   window.__shoot = (e, at, withBroker = true) => {
     eye = e;
-    gate.frame(0.016);
     const b = broker.frame(0.016);
     const proj = mirrorProjectionX(perspective(1.0, 960 / 540, 0.1, 2000));
     const view = lookAt(new Float32Array(e), new Float32Array(at), new Float32Array([0, 1, 0]));
     const yaw = Math.atan2(at[0] - e[0], at[2] - e[2]);
     r.setClearColor([0.1, 0.1, 0.4, 1]);
     r.beginFrame(proj, view, new Float32Array([0.3, 0.8, 0.5]), { world: true });
-    gate.draw(r);
+    const drawn = withBroker ? broker.draw(r) : 0;
     const bb = broker.batches();
     if (withBroker && bb.length) r.drawBillboards(bb, new Float32Array([Math.cos(yaw), 0, -Math.sin(yaw)]), new Float32Array([0, 1, 0]));
     const gl = r.gl;
     const px = new Uint8Array(gl.drawingBufferWidth * gl.drawingBufferHeight * 4);
     gl.readPixels(0, 0, gl.drawingBufferWidth, gl.drawingBufferHeight, gl.RGBA, gl.UNSIGNED_BYTE, px);
     const st = broker.state();
-    return { stands: !!b, feet: b?.feet ?? null, local: b ? gateLocal(gate.state().place, b.feet) : null, body: st.body, batch: bb[0] ? { record: bb[0].record, w: bb[0].size.w, h: bb[0].size.h, origin: [...bb[0].origin] } : null,
+    return { stands: !!b, caged: st.caged, door: st.door, drawn, feet: b?.feet ?? null, local: b ? toLocal(b.feet) : null, body: st.body, batch: bb[0] ? { record: bb[0].record, w: bb[0].size.w, h: bb[0].size.h, origin: [...bb[0].origin] } : null,
       px: Array.from(px), w: gl.drawingBufferWidth, h: gl.drawingBufferHeight };
   };
   // ── THE WINDOW ──
-  const pack = [sigilStone(), sigilStone(), sigilStone(), sigilStone()];
-  setLocked(pack[3], true);
+  const pack = [Object.assign(sigilStone(), { stackCount: 7 }), sigilStone()];   // SS1: the stones stack - seven in one, and a locked one
+  setLocked(pack[1], true);
   playerEntity.items = pack;
   const day = () => brokerDay(Date.now());
   const stock = brokerStock(day());
@@ -108,7 +112,7 @@ try {
     canvas.style.display = 'none';
     win = createBrokerOverlay({
       stock: () => stock, day, now: () => Date.now(),
-      items: () => spendableStonesIn(playerEntity.items), locked: () => lockedStonesIn(playerEntity.items).length,
+      items: () => spendableStonesIn(playerEntity.items), locked: () => stoneCount(lockedStonesIn(playerEntity.items)),
       bought: () => brokerBought(day()),
       buy: (o) => makeBrokerSale(o, { items: playerEntity.items, day: day() }),
       wearer: playerEntity, nameOf: (it) => itemLongName(it),
@@ -138,7 +142,7 @@ try {
   window.__buyFirst = () => { const b = [...document.querySelectorAll('.broker-buy')].find((x) => !x.disabled); if (!b) return null; const slot = b.closest('.broker-offer').dataset.slot; b.click(); return slot; };
   window.__press = (slot) => { document.querySelector('.broker-offer[data-slot="' + slot + '"]')?.click(); };
   window.__doorOpen = () => brokerDoorOpen();
-  window.__stones = () => ({ spendable: spendableStonesIn(playerEntity.items).length, locked: lockedStonesIn(playerEntity.items).length, items: playerEntity.items.length });
+  window.__stones = () => ({ spendable: stoneCount(spendableStonesIn(playerEntity.items)), locked: stoneCount(lockedStonesIn(playerEntity.items)), items: playerEntity.items.length });
 } catch (e) { window.__errs.push(String(e?.stack ?? e)); }
 window.__ready = true;
 </script></body></html>`;
@@ -189,25 +193,33 @@ try {
     await page.waitForFunction(() => globalThis.__ready === true, null, { timeout: 120000 });
     const errs = await page.evaluate(() => globalThis.__errs);
     check(errs.length === 0, `world: page errors ${errs.join(' | ')}`);
-    const W = await page.evaluate(() => ({ spot: globalThis.__world.spot, idle: globalThis.__world.idle }));
+    const W = await page.evaluate(() => ({ idle: globalThis.__world.idle }));
     const at = (lx, ly, lz) => page.evaluate(([a, b, c]) => globalThis.__world.toScene(a, b, c), [lx, ly, lz]);
-    for (const [name, eyeL, lookL] of [
-      ['approach', [0, 1.7, 34], [3, 4, 0]],
-      ['near', [W.spot.lx - 1.5, 1.6, W.spot.lz + 5], [W.spot.lx, 1.1, W.spot.lz]],
-      ['side', [W.spot.lx + 9, 2.2, W.spot.lz + 1], [W.spot.lx - 2, 2, W.spot.lz - 3]],
-    ]) {
+    const shots = [
+      ['approach', [0, 1.7, 16], [0, 1.2, 0]],
+      ['near', [-0.6, 1.6, 4], [0, 1.1, 0]],
+      ['side', [7, 2.2, 1], [0, 1.2, 0]],
+      ['open', [0.8, 1.7, 6], [0, 1.1, 0]],
+    ];
+    for (const [name, eyeL, lookL] of shots) {
+      if (name === 'open') {
+        const st = await page.evaluate(() => globalThis.__free());
+        check(!st.caged && Math.abs(st.door + 1.75) < 1e-6, `world open: freed, her door swung (${JSON.stringify({ caged: st.caged, door: st.door })})`);
+      }
       const eye = await at(...eyeL), look = await at(...lookL);
       const withB = await page.evaluate(([e, a]) => globalThis.__shoot(e, a, true), [eye, look]);
       await page.screenshot({ path: join(OUT, `broker-world-${name}.png`) });
       const without = await page.evaluate(([e, a]) => globalThis.__shoot(e, a, false), [eye, look]);
       const d = diff(withB.px, without.px, withB.w, withB.h);
-      console.log(`world ${name}: stands ${withB.stands} body ${withB.body} local ${withB.local?.map((v) => v.toFixed(2)).join(',')} batch ${JSON.stringify(withB.batch && { ...withB.batch, origin: withB.batch.origin.map((v) => +v.toFixed(2)) })} - her pixels ${d.n} in ${JSON.stringify(d.box)}`);
+      console.log(`world ${name}: stands ${withB.stands} caged ${withB.caged} door ${withB.door.toFixed(2)} drawn ${withB.drawn} body ${withB.body} local ${withB.local?.map((v) => v.toFixed(2)).join(',')} batch ${JSON.stringify(withB.batch && { ...withB.batch, origin: withB.batch.origin.map((v) => +v.toFixed(2)) })} - her frame differs in ${d.n} px ${JSON.stringify(d.box)}`);
       check(withB.stands, `world ${name}: she does not stand`);
+      check(withB.caged === (name !== 'open'), `world ${name}: caged ${withB.caged}`);
+      check(withB.drawn === 2, `world ${name}: her cage drew ${withB.drawn} meshes - the cage and its door`);
       check(withB.body === 'loaded', `world ${name}: her sprite is ${withB.body}`);
-      check(withB.local && Math.abs(withB.local[0] - W.spot.lx) < 1e-3 && Math.abs(withB.local[2] - W.spot.lz) < 1e-3, `world ${name}: she stands at ${withB.local} in the gate's frame`);
+      check(withB.local && Math.abs(withB.local[0]) < 1e-3 && Math.abs(withB.local[2]) < 1e-3, `world ${name}: she stands at ${withB.local} in her cage's frame`);
       check(withB.batch && W.idle.some((r) => withB.batch.record === `${r}#0`), `world ${name}: her record ${withB.batch?.record} is not an idle one`);
       check(withB.batch && withB.batch.h > 1.9 && withB.batch.h < 2.3, `world ${name}: she is ${withB.batch?.h} m tall`);
-      check(d.n > (name === 'approach' ? 60 : 1500), `world ${name}: a frame without her differs in ${d.n} pixels - she is not on the screen`);
+      check(d.n > 1500, `world ${name}: a frame without her and her cage differs in ${d.n} pixels - they are not on the screen`);
       if (name === 'near') check(d.box && d.box.x0 < 480 && d.box.x1 > 480, `world near: she is not in the middle of the frame (${JSON.stringify(d.box)})`);
     }
     await ctx.close();
@@ -235,8 +247,8 @@ try {
     console.log(`${v.name}: window ${s.win.w.toFixed(0)}x${s.win.h.toFixed(0)} purse "${s.purse}" - ${s.rows.map((r) => `${r.slot}:${r.name} (${r.set}) ${r.price} [${r.buyText}]${r.img ? '' : ' NO PICTURE'}`).join(' | ')}`);
     check(s.win.x >= -0.5 && s.win.r <= v.viewport.width + 0.5 && s.win.y >= -0.5 && s.win.b <= v.viewport.height + 0.5, `${v.name}: the window runs off the screen ${JSON.stringify(s.win)}`);
     check(s.rows.length === 6, `${v.name}: ${s.rows.length} rows`);
-    check(s.purse === '3 Sigil Stones · 1 locked', `${v.name}: the purse reads "${s.purse}"`);
-    check(/^Sigil Stones buy the day's stock · it turns in \d+(h \d\dm|m)$/.test(s.sub), `${v.name}: the sub line reads "${s.sub}"`);
+    check(s.purse === '7 Deadlands Embers · 1 locked', `${v.name}: the purse reads "${s.purse}"`);
+    check(/^Deadlands Embers buy the day's stock · it turns in \d+(h \d\dm|m)$/.test(s.sub), `${v.name}: the sub line reads "${s.sub}"`);
     check(/Pixel|monospace|VT323|Press/i.test(s.font) || s.font.length > 0, `${v.name}: the window has no font (${s.font})`);
     check(s.border !== 'none', `${v.name}: the kit did not dress the window (border ${s.border})`);
     // the header: the title, the line under it, the purse and Close each clear of the others, all inside the window
@@ -259,7 +271,7 @@ try {
     check(Math.max(...priceXs) - Math.min(...priceXs) < 2, `${v.name}: the prices do not stand in a line: ${priceXs.map((x) => x.toFixed(0)).join(', ')}`);
     const buyWs = s.rows.map((r) => r.buy?.w ?? NaN);
     check(Math.max(...buyWs) - Math.min(...buyWs) < 1, `${v.name}: the Buys are not one width: ${buyWs.map((x) => x.toFixed(0)).join(', ')}`);
-    check(s.rows[5].buyText === 'Need 3 more' && s.rows[5].buyTitle === 'Not enough Sigil Stones' && s.rows[5].disabled, `${v.name}: the Regalia at six, a purse of three: "${s.rows[5].buyText}" (${s.rows[5].buyTitle})`);
+    check(s.rows[5].buyText === 'Need 5 more' && s.rows[5].buyTitle === 'Not enough Deadlands Embers' && s.rows[5].disabled, `${v.name}: the Regalia at twelve, a purse of seven: "${s.rows[5].buyText}" (${s.rows[5].buyTitle})`);
     check(s.card && s.setbox && s.sigilbox, `${v.name}: the card has ${s.setbox ? '' : 'no set block '}${s.sigilbox ? '' : 'no sigil block'}`);
     check(s.card && s.card.x >= -0.5 && s.card.r <= v.viewport.width + 0.5, `${v.name}: the card runs off the screen sideways`);
     check(!/null|undefined|NaN/.test(s.cardText), `${v.name}: the card says null/undefined: ${s.cardText.slice(0, 200)}`);
@@ -280,8 +292,10 @@ try {
     const after = await page.evaluate(() => globalThis.__stones());
     const sold = s.rows.find((r) => r.slot === slot);
     console.log(`${v.name}: bought slot ${slot} - "${s.note}" stones ${before.spendable}->${after.spendable} (locked ${after.locked}) purse "${s.purse}"`);
-    check(slot != null && /^Bought: .+, for \d Sigil Stones?\.$/.test(s.note ?? ''), `${v.name}: the sale says "${s.note}"`);
-    check(after.locked === 1 && after.spendable < before.spendable && after.items === before.items - (before.spendable - after.spendable) + 1, `${v.name}: the stones ${JSON.stringify({ before, after })}`);
+    check(slot != null && /^Bought: .+, for \d+ Deadlands Embers?\.$/.test(s.note ?? ''), `${v.name}: the sale says "${s.note}"`);
+    const paid = Number(/for (\d+) Sigil/.exec(s.note ?? '')?.[1]);
+    // SS1: the price out of the one stack, which keeps the rest - a record more in the pack (the piece), none fewer
+    check(after.locked === 1 && before.spendable - after.spendable === paid && after.items === before.items + 1, `${v.name}: the stones ${JSON.stringify({ before, after, paid })}`);
     check(sold?.buyText === 'Bought' && sold.buyTitle === 'Bought today' && sold.disabled, `${v.name}: the bought row reads "${sold?.buyText}" (${sold?.buyTitle})`);
     await page.screenshot({ path: join(OUT, `broker-${v.name}-sold.png`) });
     // the back key shuts it through the door

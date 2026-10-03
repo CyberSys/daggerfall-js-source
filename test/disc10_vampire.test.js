@@ -326,15 +326,14 @@ test('DISC10-D V5: the character sheet reads the LIVE race - "Vampire" for the v
 
 // ── V9 / V11 ──────────────────────────────────────────────────────────────────────────────────────────────────────
 
-test('DISC10-D V9: going online shifts the infection\'s start day with the save\'s own clock', () => {
+test('DISC10-D V9 (LIVED1): going online leaves the infection\'s start day where the save left it - the incubation counts the days the character lives, on their own clock, which stood while they were away', () => {
   const p = mortal({ lastGameMinutes: START + 10 });
   const inf = startInfection(p, INFECTION.Vampirism, { day: Math.floor((START + 10) / MINUTES_PER_DAY) });
   const d0 = inf.startingDay;
-  alignEntityClocks(p, START + 10 + 30 * MINUTES_PER_DAY);
-  assert.equal(inf.startingDay, d0 + 30);
+  alignEntityClocks(p, START + 10 + 30 * MINUTES_PER_DAY, { worldLeft: START + 10 });
+  assert.equal(inf.startingDay, d0);
   resetMagicRoundMarker(null);
 });
-
 test('DISC10-D V11: a vampire\'s dream interrupted by a save dreams again after the load', () => {
   const p = mortal();
   const inf = startInfection(p, INFECTION.Vampirism, { day: 100 });

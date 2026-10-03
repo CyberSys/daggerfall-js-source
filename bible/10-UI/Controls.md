@@ -41,7 +41,9 @@ THE KEYBINDING STANDARD records every departure from DFU's table.
 5. **Every key is read through the registry, live.** `held`, `pressed`, `released` and `actionsOf` resolve codes,
    combos included, against the player's bindings at the moment of the read, so a rebind applies at once. A mod
    switched off answers nothing on its keys (`actionLive`, at the one gate every reader takes); its keys stay bound
-   for when it is switched back on. No gameplay code reads a bound key by its raw code except the reservations the
+   for when it is switched back on. A mod that takes effect when the game next loads (Come Sail Away, Travel
+   Options) answers as its host latched it at mount - switched off mid-game, its keys work until the next load, as
+   its runtime does (AUDIT PRE-MERGE 0928 U7, `modSettings.js` latchModLoaded). No gameplay code reads a bound key by its raw code except the reservations the
    sweep in `test/kb1_keybinds.test.js` names with their reasons (the back-button latch, Alt's preventDefault, the
    travel panel's help, a talk window's confirm alias, the developer fly-cam).
 6. **Tests hold it, and old saves come forward.** The file carries `version: 2`. A version-1 file is carried once:
@@ -70,6 +72,98 @@ THE KEYBINDING STANDARD records every departure from DFU's table.
   `ToggleConsole` and `Slide` ship unbound and off the page, freeing `` ` `` and Left Ctrl. The dungeon's
   diagnostics readout, a raw F8 that answered only while F8 was unbound, is the `DebugOverlay` action, unbound.
 
+## Come Sail Away's helm keys (CSA-D, 2026-09-27 - for Mac's read)
+
+The mod reads nine KeyCodes of its own, only at the helm. CSA-D reads two - Disembark and ToggleLight - and both
+shipped on keys the table already spends: C is `Crouch` and Period is Horse Cart and Cargo's summon. Law 3 ships no
+default twice, so the two are the registry's `BoatDisembark` and `BoatToggleLight` on `'` and `;`, free keys under
+the right hand (`/`, beside the Period, is the decorator's own grid key - `decorTool.js` DECOR_FREE_KEYS). The
+Transport key still leaves the helm too, as the mod has it (Actions 15). The mod's C and Period stay its `shipped`
+values, so an old saved setting of either is left to the new default. The other seven come with the slices that
+read them (CSA-E, CSA-G): Space for the sails (Jump's), the keypad's plus (Eye of the Beholder's), minus and enter for
+the time scale, the brackets and the backslash for the trim - the last five free.
+
+CSA-E (2026-09-27) reads four more - also for Mac's read. ToggleSail ships on Space, which is Jump's, so the registry's
+`BoatToggleSail` ships on End (a player who wants the mod's Space can share it with Jump - law 3's third answer: the
+motor is frozen at the helm, so the jump does nothing there). The trim keeps the mod's own keys, which nothing else
+holds: `BoatTrimRight` on `]`, `BoatTrimLeft` on `[`, `BoatTrimModifier` on `\` (held with a trim key it trims the
+square sails; held with the sails' key, with the sails up and the square-sail assist off, it raises or lowers the square
+sails alone). The fixtures that wanted a key no default holds moved off End onto Scroll Lock. The time scale's three
+(the keypad) come with CSA-G.
+
+CSA-G (2026-09-27) reads the last three - one for Mac's read. IncreaseTimeScale ships on the keypad's plus, which is Eye
+of the Beholder's `AutoPerspective`, so the registry's `BoatTimeScaleUp` ships on the keypad's star beside it
+(`NumpadMultiply`; a player who wants the mod's plus can share it with AutoPerspective - law 3's third answer - and at
+the helm both then answer). `BoatTimeScaleDown` and `BoatTimeScaleReset` keep the mod's keypad minus and enter, which
+nothing else holds. The three answer only at the helm, where the mod's sailing arm reads them. The mod's plus, minus
+and enter stay its `shipped` values.
+
+CSA-I (2026-09-27): the position reading's map reads raw keys of its own, and only while it is up - the number row's
+1 to 8 for the marker colour, the left and right mouse buttons, Left Shift held for the thin lines, and Escape's
+release to put it away (ShowBoatPositionCoroutine's GetKeyDown / GetKeyUp / GetKey on KeyCodes, none of them the
+registry's). The map is a window in the mode's slot, so those keys reach it and nothing else while it stands - the
+number row is not the quick slots there, nor Escape the pause menu.
+
+CSA-L (2026-09-28, a player's ask: "instead of an overuse of keybinds, is there a way we can instead develop enhanced
+plus UI elements?"): on Enhanced Plus the nine are also a HELM PANEL under the compass (`ui/enhancedHelm.js`) - Raise
+or Stow sails, the square sails alone where the modifier's chord would raise them, the trim while it is the player's
+(held), Light or Douse lanterns, the time scale's minus, one and plus, the position reading and Leave the helm - each
+button pressing the SAME registry action its key presses, through the mod's own input seam, so the keys stay, and a
+button presses with no key bound. The mouse clicks it while the pointer is free (`FreeMouse`, Y); a finger taps it;
+and at the helm a pad's bare d-pad is the helm's (up the sails, held the square sails; down the lanterns, held leave
+the helm; left and right the time scale, held the trim), none of it a binding - so the table below keeps no Pad row
+for the nine, and the prompt bar says what the d-pad does there. Aboard another player's boat (CSA-K) there is no
+key and no button: the helm is its owner's.
+
+HELM-KEYS (2026-09-29, the player: "Arrow keys should not only control your ship, but also setting and raising your
+sails. I also want to find a way to make the ship controls more intuitive instead of a bunch of buttons and key
+binds") - THE ARROWS ARE THE HELM (DECLARED, the Port-Ledger's HELM-KEYS row):
+
+- **Up and down make and take in sail** - `BoatSailUp` (More sail) and `BoatSailDown` (Less sail), the port's own two
+  steps through the mod's own sail states (`systems/comeSailAway.js MoreSail, LessSail`): stowed, raised; and where the
+  square sails are the player's own (the assist's AutoStowSquareSails off, a hull with both kinds) all her canvas, the
+  fore-and-aft alone, none. A step with nowhere to go says so. End still toggles, the brackets still trim.
+- **Left and right steer**: at a helm DFU's `TurnLeft` and `TurnRight` - the arrows - are the RUDDER's, as A and D are
+  (`inputActions.js HELM_RUDDER_ACTIONS`, read through the mod's own input seam, its rudder's swing too), and the
+  keyboard look does not turn the view with them there. One action, one meaning - a turn - read by whoever the hands
+  are on. Under the travel view the look keys stay the view's (TV1).
+- **The up arrow is a DEFAULT SHARE** (`inputActions.js DEFAULT_SHARES`): law 3 ships every OWNER once, and the up arrow
+  is PROF1's `ActChoice` - so More sail answers it beside its owner (UXB1-S's share, shipped as a default), seated only
+  onto the partner's own key (a player's own rebind of the arrow is never shared onto) and, on a saved file, only
+  while More sail is keyless and not unbound on purpose. The two are never live together: a helm's hands are on the
+  wheel, and the professions read no choice there (`world.js`). The down arrow was free.
+- **The helm panel teaches them**: its line under the name is the helm's hand at a glance - the sails on the arrows,
+  the rudder on the turn keys, as bound now - and its sails' button presses More and Less sail, so its hint is the
+  arrow. IN IRONS (her sails up, her bow within IRONS_TELL_DEG of the wind's eye, her way through the water under
+  IRONS_TELL_WAY - never the sea's current: AUDIT NAV2 F15) the helm is told once how she comes out - under the Classic
+  helm strike sail and row her round, under the Responsive one put the helm over first (AUDIT NAV2 F18) - and the
+  panel's line says it, with the keys, while it lasts. AUDIT NAV2 F17: while an Overworld journey holds the helm (the
+  travel view up) the panel is covered and the arrows' More sail and Less sail, and the sail toggle, stand down - the
+  journey sets her sails, and the turn keys were already the view's there.
+
+## The sea fight at the helm (NAV-H, 2026-09-28 - for Mac's read)
+
+The naval arc spends NO key of its own; at a helm with guns three actions the player already has take the sea's
+meaning (`03-World/Naval-Combat.md`):
+
+- **SwingWeapon (the attack) is the broadside.** Held, the guns on the side the look is on are laid, the arcs and the
+  splash zone drawn; let go, they fire. The drag under the held button and the look while it is held are the AIM's -
+  the camera never freezes as a held swing freezes it (lookFilter.js's swing law stands down there) - so the look
+  lays the range. A readied spell still eats the press first. A pad (`aimHold`) holds RT plainly at the guns - no
+  gesture strokes, and its right stick looks - and the finger's swipe presses once and its drag is the look. At a
+  rowboat's helm, which has no guns, the attack is the weapon's swing as ever.
+- **Crouch is the BRACE**: ducking behind the rail - hits hurt less and the guns hold fire while it is held. Every
+  letter key is spent, and a held Left Ctrl would turn the helm's W into the browser's close-tab; a pad's LB already
+  crouches.
+- **Interact (Activate)** throws the grapples on a struck ship in reach (the way off her, `BOARD_SPEED`), goes over her
+  rail on foot, and opens a prize of yours again.
+
+The readout names the player's own bindings in the Controls page's own words (`controlsConfig.js buttonText` over
+`codeForAction`, the travel view's hint's reading); a pad's button, which is no key to print, is named by its action
+(CSA-L's helm panel reads its hints the same way), and on a finger's screen the hints are taps and drags - hold and
+drag to aim, lift to fire, a tap to board (the host's one activation arm), Crouch the touch table's press. The helm
+panel's buttons and the pad's d-pad at the helm are Come Sail Away's nine and nothing of the guns'.
+
 ## AUDIT KB1 (2026-09-24, Mac: "Audit this before we merge")
 
 Three lenses over the standard - the registry and the carry, the windows and the pad and the chat, the scene hosts -
@@ -92,9 +186,27 @@ found seventeen things; every one is paid and pinned by execution in `test/kb1_a
 - **The classic grid and mouse popup** no longer offer the two hidden actions' slots.
 - Listeners that hold no host ring (the hotbar, the windows) read keys without writing the host's modifier latch.
 
+## TOUCH-HOLD - Interact on a phone and a pad (2026-10-01 part four, Mac: "Interact button + knife Use")
+
+No Interact existed on a phone or in the pad's shipped layouts, and `Interact` (E) is the professions' start and their
+hold - so a common herb, a body and the net's haul could not be played there. Now:
+
+- **The pad, classic layer**: B (`JoystickButton1`) is `Interact` in the world - a PAD1 secondary row, filled into an
+  old file at the next load like every pad row. B did nothing in the world (DFU's Back answers only while a window is
+  up, and a window's press never reaches the world's edge ring - `ui/input.js`); in a window it is Back still.
+- **The pad, Enhanced Plus**: LT (`JoystickAxis9Button0`) is `Interact` - every Plus button held a row, and a trigger
+  holds while the right thumb draws the knife's line. Recast, which LT held, is the d-pad's right held. Layout 2
+  (`ui/plusPad.js` `PLUS_PAD_LAYOUT_VERSION`): a store on layout 1 moves once, taking back layout 1's Recast on LT
+  where it still stands (`PLUS_PAD_RETIRED`); a row the player set themselves stands. The Controller bindings window
+  has the row.
+- **The touch corner**: its third slot is `Interact` by default (`ui/touchButtons.js`, glyph E, held while the finger
+  is) - the mode cycle and F a slot further in, the corner 16..344 px, inside the widest the HUD keeps clear of.
+- **The prompts**: with a pad in hand the professions' prompts and lines name its button (B, LT, Circle) - the sea's
+  readout's law (AUDIT NAV1); else the key.
+
 ## The defaults
 
-Generated from `ACTION_GROUPS` and the two default tables; the enhanced pane draws exactly these groups.
+Generated from `ACTION_GROUPS` and the two default tables; the enhanced pane draws exactly these groups. Held so by `test/audit0928_input.test.js` (AUDIT PRE-MERGE 0928 D2: the Come Sail Away table had shown two of its nine rows).
 
 ### Movement
 
@@ -109,11 +221,13 @@ Generated from `ACTION_GROUPS` and the two default tables; the enhanced pane dra
 | `LookUp` | INS |  | Look up |
 | `LookDown` | DEL |  | Look down |
 | `CenterView` | HOME |  | Centre the view |
+| `TogglePerspective` | MOUSE4 |  | First / third person |
 | `Jump` | SPACE | `JoystickButton5` | Jump |
 | `Crouch` | C | `JoystickButton4` | Crouch |
 | `Run` | LSHIFT | `JoystickButton8` | Run |
 | `AutoRun` | MIDDLE CLICK |  | Auto run |
 | `Sneak` | LALT |  | Sneak |
+| `WalkMode` | (unbound) |  | Walk mode on / off |
 | `FloatUp` | PG UP |  | Float up (levitate, swim) |
 | `FloatDown` | PG DN |  | Float down (levitate, swim) |
 
@@ -139,7 +253,7 @@ Generated from `ACTION_GROUPS` and the two default tables; the enhanced pane dra
 | Action | Key | Pad | What it does |
 |---|---|---|---|
 | `ActivateCenterObject` | LEFT CLICK |  | Activate (mouse) |
-| `Interact` | E |  | Interact |
+| `Interact` | E | `JoystickButton1` | Interact |
 | `StealMode` | F1 |  | Steal mode |
 | `GrabMode` | F2 |  | Grab mode |
 | `InfoMode` | F3 |  | Info mode |
@@ -162,6 +276,7 @@ Generated from `ACTION_GROUPS` and the two default tables; the enhanced pane dra
 | `AutoMap` | M |  | Map |
 | `TravelMap` | V |  | Travel map |
 | `QuickDial` | TAB |  | Quick dial |
+| `TravelView` | (unbound) |  | Overworld (the travel view) |
 
 ### Quickslots and hotbar
 
@@ -191,6 +306,13 @@ Generated from `ACTION_GROUPS` and the two default tables; the enhanced pane dra
 | Action | Key | Pad | What it does |
 |---|---|---|---|
 | `SocialInteract` | F |  | Interact with player |
+
+### Professions
+
+| Action | Key | Pad | What it does |
+|---|---|---|---|
+| `ActChoice` | UP |  | At a profession node: the next of its acts on the list |
+| `Professions` | DOWN |  | Open your Professions and Stores (online) |
 
 ### Game
 
@@ -228,6 +350,22 @@ Generated from `ACTION_GROUPS` and the two default tables; the enhanced pane dra
 |---|---|---|---|
 | `HorseMount` | , |  | Mount or dismount |
 | `HorseSummon` | . |  | Summon horse and wagon |
+
+### Come Sail Away (drawn, and answering, while `come-sail-away` is on)
+
+| Action | Key | Pad | What it does |
+|---|---|---|---|
+| `BoatSailUp` | UP |  | More sail |
+| `BoatSailDown` | DOWN |  | Less sail |
+| `BoatDisembark` | ' |  | Leave the helm |
+| `BoatToggleLight` | ; |  | Light or douse the boat’s lanterns |
+| `BoatToggleSail` | END |  | Raise or stow the sails |
+| `BoatTrimRight` | ] |  | Trim the sails right |
+| `BoatTrimLeft` | [ |  | Trim the sails left |
+| `BoatTrimModifier` | \ |  | Trim the square sails (hold) |
+| `BoatTimeScaleUp` | KPADMULTIPLY |  | Speed time up at the helm |
+| `BoatTimeScaleDown` | KPADSUBTRACT |  | Slow time down at the helm |
+| `BoatTimeScaleReset` | KPADENTER |  | Put time back to normal at the helm |
 
 
 Not on the page: `ToggleConsole` and `Slide` (HIDDEN_ACTIONS). The classic grid still draws DFU's thirty-eight

@@ -18,6 +18,7 @@ import { ENEMY_BASICS } from '../src/characters/enemyBasics.js';
 import { setPref, _resetForTests } from '../src/systems/uiPrefs.js';
 import { rarityOf } from '../src/systems/lootRarity.js';
 import { isMap } from '../src/systems/useItem.js';
+import { isAmmunition } from '../src/systems/itemTemplates.js';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const read = (p) => readFileSync(join(root, p), 'utf8');
@@ -54,7 +55,9 @@ test('RF2: the port\'s arm rides the seam - loot rarity rolls the carried loot a
   for (const it of e.items) {
     if (worn.has(it)) assert.equal(it.rarity, undefined, 'the kit it wears stays DFU\'s');
   }
-  const carried = e.items.filter((it) => !worn.has(it) && ['Weapons', 'Armor', 'Jewellery'].includes(it.group) && it.templateIndex !== 131);
+  // LOOT7-CHECK CORPSE-FIND: the boss's body keeps its unique find now (the Thunderlock and its pellets) - and AMMUNITION
+  // is never promoted (an arrow or a pellet), so the claim is the eligible pieces', not every weapon's
+  const carried = e.items.filter((it) => !worn.has(it) && ['Weapons', 'Armor', 'Jewellery'].includes(it.group) && !isAmmunition(it));
   for (const it of carried) assert.notEqual(rarityOf(it), 'common', 'the loot it carries rolled at the boss\'s tier');
   _resetForTests(); setPref('lootRarity', false);   // LR5: the row ships ON, so OFF is a press - a bare reset would leave this half testing the ON path
   const f = foe();
@@ -69,7 +72,7 @@ test('RF2: one seam, one home - each host calls it once per spawn branch and non
   // arguments: the humanoid item-chance scale and the dead creature's own
   // mobileType into generateItems (lootThemes.js reads it), and `rolls` into
   // equipEnemy so its worn-gear drop is on the caller's stream too.
-  assert.match(hc, /export function spawnEnemyLoot\(entity, mobileType, basics, player, \{ rolls = Math\.random, lootDropMult = 1, lootQualityMult = 1 \} = \{\}\) \{\n  const itemChanceScale = \(isHumanoid\(entity\) \? HUMANOID_LOOT_ITEM_SCALE : 1\) \* lootDropMult;\n  entity\.items = generateItems\(enemyLootTableKey\(mobileType, basics\?\.lootTableKey \?\? '-'\), \{ level: player\.level, gender: player\.gender \}, undefined, \{ itemChanceScale, mobileType \}\);\n  const eq = equipEnemy\(entity, mobileType, player\.level, rolls, \{ player \}\);\n  addEnemyLootExtras\(entity\.items, basics, rolls\);\n[\s\S]{0,900}?\n  rollCorpseLoot\(entity, basics, \{ rolls, luck: liveStat\(player, 'luck'\), qualityMult: lootQualityMult \}\);\n  return entity\.items;\n\}/, 'the chain, in DFU\'s order, the port\'s arm last');
+  assert.match(hc, /export function spawnEnemyLoot\(entity, mobileType, basics, player, \{ rolls = Math\.random, lootDropMult = 1, lootQualityMult = 1, where = null \} = \{\}\) \{\n  const itemChanceScale = \(isHumanoid\(entity\) \? HUMANOID_LOOT_ITEM_SCALE : 1\) \* lootDropMult;\n  entity\.items = generateItems\(enemyLootTableKey\(mobileType, basics\?\.lootTableKey \?\? '-'\), \{ level: effectiveLevel\(player\), gender: player\.gender \}, undefined, \{ itemChanceScale, mobileType \}\);\n  const eq = equipEnemy\(entity, mobileType, effectiveLevel\(player\), rolls, \{ player \}\);   \/\/ SOFTCAP2: a mentor's foes carry the GROUP's loot and gear\n  addEnemyLootExtras\(entity\.items, basics, rolls\);\n[\s\S]{0,900}?\n  rollCorpseLoot\(entity, basics, \{ rolls, luck: liveStat\(player, 'luck'\), qualityMult: lootQualityMult \}\);\n  if \(championOf\(entity\)\) ensureChampionLoot\(entity, effectiveLevel\(player\), rolls\);[^\n]*\n  return entity\.items;\n\}/, 'the chain, in DFU\'s order, the port\'s arm last (LOOT7: a champion\'s guarantee the arm\'s own last word)');
   for (const [f, n] of [['src/scenes/dungeonContext.js', 2], ['src/scenes/exteriorFoes.js', 1], ['src/scenes/cityGuards.js', 1]]) {
     const src = read(f);
     assert.equal((src.match(/^\s*spawnEnemyLoot\(entity, /gm) ?? []).length, n, `${f}: once per branch`);

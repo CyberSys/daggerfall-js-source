@@ -73,10 +73,12 @@ import { firmFirst, yieldsRay } from './activate.js';
  * @property {boolean} horseCartWins  Horse Cart and Cargo's parked wagon, following team or standing horse beat everything above (HCC)
  * @property {boolean} gateWins       an Oblivion Gate's fire beat everything (WB2)
  * @property {boolean} brokerWins     the Sigil Broker beside it beat everything below the gate (SET7)
+ * @property {boolean} boatWins       one of Come Sail Away's boats - an activation box, or the hull the ray met first - beat everything above (CSA-D)
  * @property {boolean} campWins       a camp's fire or tent beat everything above (SURV3)
  * @property {boolean} waterWins      a fountain, well or trough beat everything above (SURV3)
  * @property {number} nonPersonRival
  * @property {number} rival
+ * @property {number} doorDistance  TACT3d: the door / board / static-NPC set's nearest, as handed in
  */
 
 /**
@@ -98,12 +100,13 @@ import { firmFirst, yieldsRay } from './activate.js';
  * @param {RayPick|null} [opts.water]   the nearest water source (SURV3: the mod's fountains, wells and troughs)
  * @param {RayPick|null} [opts.gate]    an Oblivion Gate's fire (WB2: scenes/gatePool.js targets)
  * @param {RayPick|null} [opts.broker]  the Sigil Broker beside the gate (SET7: scenes/sigilBrokerPool.js targets)
+ * @param {RayPick|null} [opts.boat]    CSA-D: the nearest of a boat's colliders under the ray - one of the seven activation boxes (RegisterCustomActivation's 3.2), or the hull or a mast, which the ray meets and nothing answers
  * @param {number} [opts.doorDistance]  the door / board / static-NPC set's nearest, or Infinity
  * @param {number[]} [opts.personDistances]  the street's townsfolk, by the host's own cylinder pick
  * @returns {RaceResult}
  */
 export function raceActivation({
-  corpse = null, pile = null, torch = null, wagon = null, horseCart = null, camp = null, water = null, gate = null, broker = null, doorDistance = Infinity, personDistances = [],
+  corpse = null, pile = null, torch = null, wagon = null, horseCart = null, camp = null, water = null, gate = null, broker = null, boat = null, doorDistance = Infinity, personDistances = [],
 } = {}) {
   // the body and the pile, by distance, the tie to the body
   const pileNearer = !!pile && !(corpse && corpse.distance <= pile.distance);
@@ -122,9 +125,10 @@ export function raceActivation({
   const waterD = firmD(water);
   const gateD = firmD(gate);   // WB2: an Oblivion Gate's fire
   const brokerD = firmD(broker);   // SET7: the Sigil Broker
+  const boatD = firmD(boat);   // CSA-D: a boat's box or hull
 
   // what the ground must beat: everything that is not a person
-  const nonPersonRival = Math.min(lootD, dropD, torchD, wagonD, horseCartD, campD, waterD, gateD, brokerD, doorDistance);
+  const nonPersonRival = Math.min(lootD, dropD, torchD, wagonD, horseCartD, campD, waterD, gateD, brokerD, boatD, doorDistance);
   const rival = Math.min(nonPersonRival, ...personDistances);
 
   // ── ONE PRECEDENCE, AND IT IS `raceWinner`'S ─────────────────────
@@ -148,7 +152,7 @@ export function raceActivation({
   // the hosts' own arm order - and this function is now its first
   // reader. The plaque is its second.
   const ground = Number.isFinite(doorDistance) ? { key: GROUND_KEY, distance: doorDistance } : null;
-  const won = raceWinner({ gate, broker, camp, water, wagon, horseCart, torch, corpse: body, pile: heap, ground });
+  const won = raceWinner({ gate, broker, camp, water, wagon, horseCart, boat, torch, corpse: body, pile: heap, ground });
   const is = (p) => !!won && !!p && won === p;
 
   return {
@@ -159,10 +163,12 @@ export function raceActivation({
     horseCartWins: is(horseCart),
     gateWins: is(gate),   // WB2
     brokerWins: is(broker),   // SET7
+    boatWins: is(boat),   // CSA-D
     campWins: is(camp),
     waterWins: is(water),
     nonPersonRival,
     rival,
+    doorDistance,   // TACT3d: the door set's own distance, for the foe arm's peaceful pass (mobileEnemyActivate yieldsToDoor)
   };
 }
 
@@ -215,8 +221,8 @@ export const GROUND_KEY = '__ground__';
  *
  * Both of those arms take their subject only when it is STRICTLY
  * nearer than its rival (`hit.distance < nearerThan`,
- * mobileEnemyActivate.js:172; `bestDist < nearerThan`,
- * townTalk.js:711), and the person's rival leaves the persons out
+ * mobileEnemyActivate.js:218; `bestDist < nearerThan`,
+ * townTalk.js:714), and the person's rival leaves the persons out
  * while the foe's does not. Written out as one tie order that is
  * exactly what those two strict tests produce: everything in a target
  * list beats a person, a person beats a foe, and a foe loses every
@@ -227,7 +233,7 @@ export const GROUND_KEY = '__ground__';
  * @returns {RayPick|null} the winning pick, with its own key and reach
  */
 export function raceWinner({
-  corpse = null, pile = null, torch = null, wagon = null, horseCart = null, camp = null, water = null, gate = null, broker = null, ground = null,
+  corpse = null, pile = null, torch = null, wagon = null, horseCart = null, camp = null, water = null, gate = null, broker = null, boat = null, ground = null,
   person = null, peer = null, foe = null,
 } = {}) {
   // The tie order IS the precedence order; `<` keeps the earlier one (nearestInOrder, below).
@@ -241,7 +247,9 @@ export function raceWinner({
   // right after its
   // PR-WAGON1: ...and another player's team, which YIELDS, is raced only when nothing firm was met (activate.js
   // firmFirst) - a door behind their wagon is the press's and the plaque's, whichever pool picked it.
-  return firmFirst([gate, broker, camp, water, wagon, horseCart, torch, corpse, pile, ground, person, peer, foe], nearestInOrder);
+  // CSA-D: Come Sail Away's boats stand with the custom activations too, after Horse Cart and Cargo's (the order the
+  // world host tests its arms in) - a boat's box or the hull the ray met first.
+  return firmFirst([gate, broker, camp, water, wagon, horseCart, boat, torch, corpse, pile, ground, person, peer, foe], nearestInOrder);
 }
 
 /** `raceWinner`'s ordering law over one list: nearest wins, and `<` keeps the earlier on a tie. */

@@ -12,7 +12,8 @@
 //      the ordinary bindings store (the secondary dict and the joystick-UI dict), so the classic Controls grid shows
 //      the same answer. The d-pad is set in part 2; LB/RB are the crossbar's while it is in force.
 //   2. D-PAD - every direction has a TAP and a HOLD (ui/plusPad.js plusDpadMap). Defaults: up = swap hands / next
-//      interaction mode, down = map / travel map, left = quest log / transport, right = rest / -.
+//      interaction mode, down = map / travel map, left = quest log / transport, right = rest / recast spell (TOUCH-HOLD:
+//      LT, which held Recast, is Interact).
 //   3. STICKS - the left and right stick's sensitivity (ui/plusPad.js plusStickSens).
 // Everything here is buttons (no sliders, no drop-downs), so the pad's own cursor and d-pad jumps can drive all of it.
 import {
@@ -30,18 +31,22 @@ import { PIXEL_STACK } from './pixelifyFive.js';
 /** The rebindable rows. `sec` is the secondary-dict action, `ui` the joystick-UI action; a row with both keeps them
  *  on one button (B: the pack in the world, Back in a window). `keep` rows cannot be left unbound. */
 export const PLUS_BIND_ROWS = Object.freeze([
-  { id: 'activate', label: 'Activate · Select', ui: 'LeftClick', keep: true },
+  { id: 'activate', label: 'Activate / Select', ui: 'LeftClick', keep: true },
   { id: 'attack', label: 'Attack', ui: 'RightClick', keep: true },
-  { id: 'inventory', label: 'Inventory · Back', sec: 'Inventory', ui: 'Back', keep: true },
+  { id: 'inventory', label: 'Inventory / Back', sec: 'Inventory', ui: 'Back', keep: true },
   { id: 'jump', label: 'Jump', sec: 'Jump' },
   { id: 'weapon', label: 'Draw / sheathe', sec: 'ReadyWeapon' },
   { id: 'spellbook', label: 'Spellbook', sec: 'CastSpell' },
   { id: 'recast', label: 'Recast spell', sec: 'RecastSpell' },
+  { id: 'interact', label: 'Interact (the use key)', sec: 'Interact' },   // TOUCH-HOLD: the professions' E and the sea's
   { id: 'pause', label: 'Pause', sec: 'Escape', keep: true },
   { id: 'run', label: 'Run', sec: 'Run' },
   { id: 'crouch', label: 'Crouch', sec: 'Crouch' },
   { id: 'transport', label: 'Transport', sec: 'Transport' },
   { id: 'charsheet', label: 'Character sheet', sec: 'CharacterSheet' },
+  // Mac: "make mouselook on and off (same button) and walk mode bindable on controller"
+  { id: 'mouselook', label: 'Mouselook on / off', sec: 'FreeMouse' },   // one button: frees the mouse, and takes the look back
+  { id: 'walk', label: 'Walk mode on / off', sec: 'WalkMode' },          // DFU's slow walk, held on until pressed again
 ]);
 
 /** The pad button a row is on, or null. */
@@ -110,7 +115,7 @@ export function plusPadLegend(store, { crossbar = crossbarInForce() } = {}) {
   const dp = plusDpadMap();
   for (const [dir, code] of Object.entries(DPAD_CODES)) {
     const { tap, hold } = dp[dir];
-    const words = [tap ? dpadChoiceWord(tap) : null, hold ? `hold: ${dpadChoiceWord(hold)}` : null].filter(Boolean).join(' · ');
+    const words = [tap ? dpadChoiceWord(tap) : null, hold ? `hold: ${dpadChoiceWord(hold)}` : null].filter(Boolean).join(' / ');   // Mac: a slash between a button's uses, as Draw / sheathe has
     if (words) out.push([[code], words]);
   }
   return out;

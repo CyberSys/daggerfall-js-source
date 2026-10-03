@@ -48,7 +48,7 @@ test('AUDIT 23 magic-2: a wall hit explodes an AreaAtRange payload at the impact
   // DaggerfallMissile.cs:399-402 DoCollision - the port retired wall
   // hits with no payload. The wall branch now carries the explode arm.
   const src = dcSrc();
-  const i = src.indexOf('const hitWall = collider.raycast');
+  const i = src.indexOf('const hitWall = _cs.stop;');   // TACT1: the wall or the cover, whichever is first
   assert.ok(i > 0);
   const branch = src.slice(i, src.indexOf('m.pos[0] += m.dir[0] * step', i));
   assert.ok(branch.includes("m.spell?.rangeType === 4"), 'the wall branch tests AreaAtRange');
@@ -78,9 +78,10 @@ test('AUDIT 23 magic-4: every spending cast arm tallies the effect schools', () 
     'the spend is CastReadySpell\'s single DecreaseMagicka, five frames before the release');
   // ALLY-CAST (2026-09-23): a fifth arm before the four - the cast on a party mate - spends, tallies and records alike
   // RESURRECT1: and a sixth, the Resurrect at a fallen party member's body, spends, tallies and records alike
-  assert.equal((src.match(/tallyCastSkills\(sp\);/g) ?? []).length, 6,
-    'the ally arm, the Resurrect arm, CasterOnly, ByTouch, AreaAroundCaster and the missile arm all tally');
-  assert.equal((src.match(/lastCastCost = cost;/g) ?? []).length, 6, 'and all six still record the cost');
+  // PIN MOVED (COMPANION-KIT): and a seventh, the gift to my companion under the crosshair, spends, tallies and records alike
+  assert.equal((src.match(/tallyCastSkills\(sp\);/g) ?? []).length, 7,
+    'the ally arm, the companion arm, the Resurrect arm, CasterOnly, ByTouch, AreaAroundCaster and the missile arm all tally');
+  assert.equal((src.match(/lastCastCost = cost;/g) ?? []).length, 7, 'and all seven still record the cost');
   // the tally gates on the cost table (DFU's effect != null), not the
   // priced-as-Destruction default
   assert.ok(/function tallyCastSkills\(sp\) \{[\s\S]*?EFFECT_COST_TABLE\[`\$\{e\.type\},\$\{e\.subType & 0xff\}`\]/.test(src));
@@ -110,7 +111,11 @@ test('AUDIT 23 magic-14: readying enforces the cost and CasterOnly casts instant
   // a recorded departure); with nobody there it fires on the ready as :350-351 does, and a free ready always does.
   // RESURRECT1: and a Resurrect ARMS too - its target is a fallen party member's body, which the instant arm would
   // never aim at (the port's own effect; DFU has no raise-dead to depart from)
-  assert.ok(arm.includes('if (!free && allyCastable(sp) && allyInReach(lastAim?.eye ?? null, lastAim?.dir ?? null, ALLY_TOUCH_REACH)) { say(pressButtonToFireSpellText()); return true; }\n      if (!free && hasResurrect(sp)) { say(fallenInReach(lastAim?.eye ?? null, lastAim?.dir ?? null) ? pressButtonToFireSpellText() : RESURRECT_TEXT.aim); return true; }'), 'CasterOnly fires on ready, no click latch - unless a party mate is under the crosshair, or the spell raises the dead');
+  assert.ok(arm.includes('if (!free && allyCastable(sp) && allyInReach(lastAim?.eye ?? null, lastAim?.dir ?? null, ALLY_TOUCH_REACH, sp)) { say(pressButtonToFireSpellText()); return true; }\n'), 'CasterOnly fires on ready, no click latch - unless a party mate is under the crosshair');
+  // SPELL-GIFT (2026-09-27): ...or NEAR (systems/allyCast.js ALLY_ARM_RADIUS) - the arm between the crosshair's and Resurrect's
+  // PIN MOVED (AUDIT WATCH-KIT WK-M9, 2026-10-01): my companion's near arm (COMPANION-KIT) follows the mate's, in the
+  // click's own order, where it stood ahead of every arm of ALLY-CAST's
+  assert.ok(arm.includes('if (!free && allyCastable(sp) && allyNear(lastAim?.eye ?? null, sp)) { say(pressButtonToFireSpellText()); say(ALLY_ARMED_LINE); return true; }\n      if (companionNear(lastAim?.eye ?? null, sp)) { say(pressButtonToFireSpellText()); say(COMPANION_ARMED_LINE); return true; }\n      if (!free && hasResurrect(sp)) { say(fallenInReach(lastAim?.eye ?? null, lastAim?.dir ?? null) ? pressButtonToFireSpellText() : RESURRECT_TEXT.aim); return true; }'), '...or near (a mate, then my companion), or the spell raises the dead');
   // AUDIT CONTRIB H3: the arms ANSWER now, as SetReadySpell does - armed is readied, the instant cast is its own answer
   assert.ok(arm.includes('RESURRECT_TEXT.aim); return true; }   // RESURRECT1: a caster-only Resurrect waits for the click, aimed at the body\n      return castInput(null, null) !== false;'), 'and otherwise the instant cast, as ever');
   assert.ok(arm.indexOf('calculateCastCost') < arm.indexOf('readiedSpell = sp;'), 'the cost gate sits before the assignment');

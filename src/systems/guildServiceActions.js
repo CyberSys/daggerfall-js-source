@@ -26,9 +26,9 @@ import { FATIGUE_LOSS, liveStat } from './statMods.js';
 // on coins refused a purchase the payment could have made.
 import { totalGoldAmount, deductGold } from './court.js';
 import { getReputation, changeReputation } from './factionRep.js';
-import { diseaseCount } from './diseases.js';
-import { cureAllDiseases } from './effects.js';
-import { calculateCost, calculateTradePrice } from './shopStock.js';
+import { curableDiseaseCount } from './diseases.js';
+import { cureDiseasesInfectionsLast } from './effects.js';
+import { calculateCost, calculateTradePrice, essentialPrice } from './shopStock.js';   // ESSENTIALS-HALF: online, a cure costs half
 import { trainingPrice, trainingMax, trainingSkills, reducedCureCost } from './guildServices.js';
 import { getHolidayId, FREE_CURE_HOLIDAYS, HALF_PRICE_CURE_HOLIDAY } from './holidays.js';
 import { firstName } from './talkSession.js';   // MH1: %pcf's own reader
@@ -223,11 +223,12 @@ export const CURE_BASE_COST_PER_DISEASE = 250;
  *  it off the ENTITY exactly as DFU reads it off playerEntity (:57-59)
  *  rather than taking it from a host. The field arrives from the
  *  classic import (formats/characterRecord.js:183, offset 0x1f3 ->
- *  classicSave.js:203/:807) and round-trips through the save envelope
- *  (save.js:452 out, :519 back). It
+ *  classicSave.js:203/:810) and round-trips through the save envelope
+ *  (save.js:479 out, :546 back). It
  *  reaches a character only through AssignCharacter (PlayerEntity.cs
  *  :856), i.e. a classic import - the port's own infections are
- *  disease effects and diseaseCount already counts those - so a
+ *  disease effects, which a cure takes last since FIELD BUGS 29h
+ *  (INFECTION-KEPT: curableDiseaseCount counts what it ends) - so a
  *  classic character three days from turning pays for one more
  *  disease than they carry, and the cure clears the turn.
  *
@@ -238,9 +239,9 @@ export const becomingVampireOrWerebeast = (entity) =>
 
 export function cureDiseaseOffer(entity, guild, membership, {
   quality = 0, regionIndex = 0, nowClassicMinutes = 0,
-  priceAdjustment = 1000,
+  priceAdjustment = 1000, online = undefined,
 } = {}) {
-  let numberOfDiseases = diseaseCount(entity);
+  let numberOfDiseases = curableDiseaseCount(entity);   // FIELD BUGS 29h (INFECTION-KEPT): never an infection the cure leaves
   if (becomingVampireOrWerebeast(entity)) numberOfDiseases++;
   const holidayId = getHolidayId(nowClassicMinutes, regionIndex);
 
@@ -270,13 +271,16 @@ export function cureDiseaseOffer(entity, guild, membership, {
   // temple's customer is by definition diseased, and a disease's PER
   // damage lives only in the mod channel, so the permanent read quoted
   // a price that never moved.
-  const cost = calculateTradePrice(costBeforeBargaining, quality, {
+  const haggled = calculateTradePrice(costBeforeBargaining, quality, {
     mercantile: skillValue(entity, SKILLS.Mercantile),
     personality: entity.stats?.personality == null ? 50 : liveStat(entity, 'personality'),
   }, false);
+  // ESSENTIALS-HALF (2026-09-30, Discord: "cut the cost of most essential items by half"): online the cure costs half
+  // (shopStock.js essentialPrice). The priest's haggle line still reads the haggle itself, not the half.
+  const cost = essentialPrice(haggled, { online });
   return {
     kind: 'offer', diseases: numberOfDiseases, cost, holidayId,
-    textId: TRADE_MESSAGE_BASE_ID + cureOfferMessageOffset(costBeforeBargaining, cost),
+    textId: TRADE_MESSAGE_BASE_ID + cureOfferMessageOffset(costBeforeBargaining, haggled),
   };
 }
 
@@ -298,7 +302,7 @@ export function cureOfferMessageOffset(costBeforeBargaining, cost) {
 export function payForCure(entity, cost) {
   if (totalGoldAmount(entity) < cost) return { kind: 'notEnoughGold', textId: NOT_ENOUGH_GOLD_ID };
   deductGold(entity, cost);
-  cureAllDiseases(entity);
+  cureDiseasesInfectionsLast(entity);   // FIELD BUGS 29h (INFECTION-KEPT): the plague, not the lycanthropy caught beside it
   // A4: the turn is cured with the diseases (:126) - the paid arm's
   // own line, beside CureAllDiseases and before the message.
   entity.timeToBecomeVampireOrWerebeast = 0;
@@ -307,7 +311,7 @@ export function payForCure(entity, cost) {
 
 /** The free-holiday arm's cure (:69-75), which takes no payment. */
 export function cureForFree(entity) {
-  cureAllDiseases(entity);
+  cureDiseasesInfectionsLast(entity);   // INFECTION-KEPT
   entity.timeToBecomeVampireOrWerebeast = 0;   // A4: :72, the same pair on the free arm
   return { kind: 'cured', cost: 0 };
 }

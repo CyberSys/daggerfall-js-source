@@ -16,14 +16,17 @@
 //     the type tree stripped - the object layout is read FROM the tree
 //     the bundle carries, which is what keeps this reader independent
 //     of the Unity version, so a bundle without one is refused;
-//   - every texture format but the six a mod's PNG import lands on
-//     (Alpha8, RGB24, RGBA32, ARGB32, DXT1, DXT5).
+//   - every texture format but the seven a mod's PNG import lands on
+//     (Alpha8, RGB24, RGBA32, ARGB32, DXT1, DXT5, and - DFMOD1 - BC7).
 //
 // Nothing here touches the DOM. It runs in node under the pins and in
 // the browser under the data door.
 
 import { lz4BlockDecompress } from './lz4.js';
 import { dxtDecode } from './dxt.js';
+import { bc7Decode } from './bc7.js';
+import { unpackUnityCrunch } from './crunch.js';   // DWHD1: Diverse Weapons HD's handhelds are crunched
+import { resampleRgba } from './resample.js';   // DFMOD2: a picture past the detail with no smaller mip   // DFMOD1: DREAM's paperdoll ships its sprites as BC7
 
 // ---- binary reader ---------------------------------------------------
 
@@ -102,13 +105,26 @@ export function usesNewArchiveFlags([a, b, c]) {
   return true;
 }
 
+/** DFMOD2: the bundle as a random-access BYTE SOURCE - `{ size, slice(start, end) -> Uint8Array }`. A Uint8Array
+ *  is its own; a multi-gigabyte `.dfmod` (DREAM's full set) is a Blob read by range in the worker
+ *  (unityBundleWorker.js blobSource), because the whole file as one ArrayBuffer is past what a tab can hold. */
+export function byteSource(bytes) {
+  if (bytes instanceof Uint8Array) return { size: bytes.length, slice: (a, b) => bytes.subarray(a, Math.min(bytes.length, b)) };
+  if (typeof Blob !== 'undefined' && bytes instanceof Blob) throw new Error('unity bundle: a Blob is read by range in the worker (blobSource), not here');
+  if (bytes && typeof bytes.slice === 'function' && Number.isFinite(bytes.size)) return bytes;
+  throw new Error('unity bundle: not a byte source');
+}
+/** How much of the front a header is read from - the signature, two version strings and a few fields. */
+const HEADER_PEEK = 4096;
+
 /**
  * Open a UnityFS bundle: header, blocks, directory. Returns the
  * container's files as byte views, still undecoded.
- * @param {Uint8Array} bytes
+ * @param {Uint8Array | {size:number, slice:(a:number,b:number)=>Uint8Array}} bytes
  */
 export function readUnityFs(bytes) {
-  const r = new Reader(bytes, false);
+  const src = byteSource(bytes);
+  const r = new Reader(src.slice(0, Math.min(src.size, HEADER_PEEK)), false);
   const signature = r.cstr();
   if (signature !== 'UnityFS') throw new Error(`unity bundle: not a UnityFS archive (signature ${JSON.stringify(signature)})`);
   const version = r.u32();
@@ -123,11 +139,14 @@ export function readUnityFs(bytes) {
   if (version >= 7 || (engine[0] === 2019 && (engine[1] > 4 || (engine[1] === 4 && engine[2] >= 15)))) r.align(16);
   const start = r.pos;
   let infoBytes;
+  let pos = start;   // DFMOD2: an absolute position in the source from here on
   if (flags & BLOCKS_INFO_AT_END) {
-    infoBytes = bytes.subarray(bytes.length - compressedInfoSize);
+    infoBytes = src.slice(src.size - compressedInfoSize, src.size);
   } else {
-    infoBytes = r.bytesOf(compressedInfoSize);
+    infoBytes = src.slice(start, start + compressedInfoSize);
+    pos = start + compressedInfoSize;
   }
+  if (infoBytes.length < compressedInfoSize) throw new Error('unity bundle: the block directory runs past the end');
   const info = new Reader(decompress(infoBytes, uncompressedInfoSize, flags), false);
   info.bytesOf(16);   // the uncompressed data hash
   const blockCount = info.i32();
@@ -140,8 +159,8 @@ export function readUnityFs(bytes) {
   for (let i = 0; i < nodeCount; i++) {
     nodes.push({ offset: Number(info.i64()), size: Number(info.i64()), flags: info.u32(), path: info.cstr() });
   }
-  if (newFlags && (flags & BLOCK_INFO_NEED_PADDING)) r.align(16);
-  if (flags & BLOCKS_INFO_AT_END) r.pos = start;
+  if (newFlags && (flags & BLOCK_INFO_NEED_PADDING)) pos = (pos + 15) & ~15;
+  if (flags & BLOCKS_INFO_AT_END) pos = start;
   // DW1: THE BLOCKS STAY COMPRESSED. This used to decompress every
   // block into one stream the directory indexed - which is the whole
   // bundle in memory, and for a bundle that is 58 MB of LZ4 around
@@ -151,7 +170,7 @@ export function readUnityFs(bytes) {
   // that span the range, through a small LRU, and `bytes` materialises
   // the whole file for the callers that want it (a test's CAB, a
   // manifest) - a mod's whole bundle is never held at once.
-  const stream = blockStream(bytes, r.pos, blocks);
+  const stream = blockStream(src, pos, blocks);
   const files = nodes.map((n) => {
     let whole = null;
     return {
@@ -173,7 +192,7 @@ export const BLOCK_CACHE = 32;
  *  block at a time. `read` answers a fresh Uint8Array of exactly
  *  `length` bytes (short at the end of the stream), never a view into
  *  the cache, so a caller may hold it while the cache turns over. */
-function blockStream(bytes, dataStart, blocks) {
+function blockStream(src, dataStart, blocks) {
   const cOff = new Array(blocks.length);   // compressed offset of block i in `bytes`
   const uOff = new Array(blocks.length + 1);   // uncompressed offset of block i; the last entry is the total
   let c = dataStart, u = 0;
@@ -184,7 +203,7 @@ function blockStream(bytes, dataStart, blocks) {
     let d = cache.get(i);
     if (d) { cache.delete(i); cache.set(i, d); return d; }   // touched: youngest again
     const b = blocks[i];
-    d = decompress(bytes.subarray(cOff[i], cOff[i] + b.compressedSize), b.uncompressedSize, b.flags);
+    d = decompress(src.slice(cOff[i], cOff[i] + b.compressedSize), b.uncompressedSize, b.flags);
     cache.set(i, d);
     if (cache.size > BLOCK_CACHE) cache.delete(cache.keys().next().value);
     return d;
@@ -392,9 +411,30 @@ export function readSerializedFile(source, name) {
       pathId, classId, byteStart: dataOffset + byteStart, byteSize, type,
       /** Parse the object through its type tree. */
       read: () => readObject(src.read(dataOffset + byteStart, byteSize), 0, byteSize, type?.node, littleEndian),
+      /** DFMOD2: the object's top-level fields BEFORE `stopAt`, off the front of its body only - a texture's name,
+       *  size and format without reading (and, inline, decompressing) its pixels. Null when the front is not enough. */
+      head: (stopAt, peek = 2048) => readObjectHead(src.read(dataOffset + byteStart, Math.min(byteSize, peek)), type?.node, littleEndian, stopAt),
     });
   }
-  return { name, version, unityVersion, targetPlatform, littleEndian, metadataSize, fileSize, dataOffset, types, objects };
+  // CSA-A: the files a pointer's m_FileID names (1 is the first entry) - a
+  // mod's prefab points into Unity's own "unity default resources" for its
+  // built-in cube, sphere and plane. Read when the metadata holds them; a
+  // reader that stops short (an older header) leaves the list empty.
+  const externals = [];
+  try {
+    if (version >= 11) {
+      const scriptTypes = r.i32();
+      for (let i = 0; i < scriptTypes; i++) { r.i32(); if (version >= 14) { r.align(4); r.i64(); } else r.i32(); }
+    }
+    const count = r.i32();
+    for (let i = 0; i < count; i++) {
+      if (version >= 6) r.cstr();   // tempEmpty
+      const guid = version >= 5 ? r.bytesOf(16) : null;
+      const type = version >= 5 ? r.i32() : 0;
+      externals.push({ path: r.cstr(), type, guid: guid ? [...guid].map((x) => x.toString(16).padStart(2, '0')).join('') : null });
+    }
+  } catch { externals.length = 0; }
+  return { name, version, unityVersion, targetPlatform, littleEndian, metadataSize, fileSize, dataOffset, types, objects, externals };
 }
 
 const PRIMITIVES = {
@@ -451,6 +491,21 @@ function readValue(node, r) {
   return value;
 }
 
+/** DFMOD2: the top-level fields of an object up to (not including) `stopAt`, from a prefix of its body; null when
+ *  the prefix runs out first (the caller reads the whole object instead). */
+function readObjectHead(prefix, node, littleEndian, stopAt) {
+  if (!node) throw new Error('unity bundle: object has no type tree');
+  const r = new Reader(prefix, littleEndian);
+  const value = {};
+  try {
+    for (const c of node.children) {
+      if (c.name === stopAt) return value;
+      value[c.name] = readValue(c, r);
+    }
+    return value;
+  } catch { return null; }
+}
+
 function readObject(fileBytes, start, size, node, littleEndian) {
   if (!node) throw new Error('unity bundle: object has no type tree');
   const r = new Reader(fileBytes, littleEndian);
@@ -462,10 +517,10 @@ function readObject(fileBytes, start, size, node, littleEndian) {
 
 // ---- the objects a mod carries ------------------------------------------
 
-export const CLASS_ID = Object.freeze({ Texture2D: 28, TextAsset: 49, AssetBundle: 142 });
+export const CLASS_ID = Object.freeze({ Texture2D: 28, TextAsset: 49, AssetBundle: 142, Texture2DArray: 187 });   // GROUND1: the array DREAM's terrain ships as
 
 /** Unity's TextureFormat values this reader decodes. */
-export const TEXTURE_FORMAT = Object.freeze({ Alpha8: 1, RGB24: 3, RGBA32: 4, ARGB32: 5, DXT1: 10, DXT5: 12 });
+export const TEXTURE_FORMAT = Object.freeze({ Alpha8: 1, RGB24: 3, RGBA32: 4, ARGB32: 5, DXT1: 10, DXT5: 12, BC7: 25, DXT1Crunched: 28, DXT5Crunched: 29 });
 
 /**
  * Decode a parsed Texture2D to RGBA8, TOP ROW FIRST - the raster order
@@ -484,15 +539,39 @@ export const TEXTURE_FORMAT = Object.freeze({ Alpha8: 1, RGB24: 3, RGBA32: 4, AR
  *   resolves the bundle's `.resS` streams for a texture that streams
  * @returns {{width:number,height:number,data:Uint8Array}}
  */
-export function decodeTexture2D(tex, resource = null) {
-  const width = tex.m_Width;
-  const height = tex.m_Height;
+export function decodeTexture2D(tex, resource = null, { maxSize = Infinity } = {}) {
+  // DWHD1: A CRUNCHED TEXTURE is one CRN stream carrying its own mip levels - unpacked to plain DXT blocks at the
+  // level the detail asks for, then decoded as DXT1/DXT5 are (Diverse Weapons HD, format 29)
+  if (tex.m_TextureFormat === TEXTURE_FORMAT.DXT1Crunched || tex.m_TextureFormat === TEXTURE_FORMAT.DXT5Crunched) {
+    let crn = tex['image data'];
+    const st = tex.m_StreamData;
+    if ((!crn || !crn.length) && st && st.size > 0) {
+      if (!resource) throw new Error(`unity bundle: ${tex.m_Name} streams from ${st.path} and no resource resolver was given`);
+      crn = resource(st.path, Number(st.offset), Number(st.size));
+    }
+    if (!crn || !crn.length) throw new Error(`unity bundle: ${tex.m_Name} carries no image data`);
+    const lvl = mipLevelFor(tex, maxSize);
+    const u = unpackUnityCrunch(crn, lvl);
+    const px = dxtDecode(u.blocks, u.width, u.height, u.format === 'DXT5');
+    const flipped = new Uint8Array(px.length);   // bottom-up to top-down, as below
+    const row = u.width * 4;
+    for (let y = 0; y < u.height; y++) flipped.set(px.subarray(y * row, (y + 1) * row), (u.height - 1 - y) * row);
+    return { width: u.width, height: u.height, data: flipped };
+  }
+  // DFMOD2: A SMALLER MIP WHEN THE PICTURE IS BIGGER THAN ASKED. Unity stores the mip chain after mip 0, so a
+  // 2048-pixel DREAM wall asked at 512 is mip 2 - a sixteenth of the decode and of the memory it stands in.
+  const level = mipLevelFor(tex, maxSize);
+  const { offset: mipOffset, size: mipSize } = mipSpan(tex, level);
+  const width = Math.max(1, tex.m_Width >> level);
+  const height = Math.max(1, tex.m_Height >> level);
   const format = tex.m_TextureFormat;
   let src = tex['image data'];
   const stream = tex.m_StreamData;
   if ((!src || !src.length) && stream && stream.size > 0) {
     if (!resource) throw new Error(`unity bundle: ${tex.m_Name} streams from ${stream.path} and no resource resolver was given`);
-    src = resource(stream.path, Number(stream.offset), Number(stream.size));
+    src = level ? resource(stream.path, Number(stream.offset) + mipOffset, mipSize) : resource(stream.path, Number(stream.offset), Number(stream.size));
+  } else if (src && level) {
+    src = src.subarray(mipOffset, mipOffset + mipSize);
   }
   if (!src) throw new Error(`unity bundle: ${tex.m_Name} carries no image data`);
   let rgba;
@@ -529,6 +608,9 @@ export function decodeTexture2D(tex, resource = null) {
     case TEXTURE_FORMAT.DXT5:
       rgba = dxtDecode(src, width, height, true);
       break;
+    case TEXTURE_FORMAT.BC7:
+      rgba = bc7Decode(src, width, height);
+      break;
     default:
       throw new Error(`unity bundle: ${tex.m_Name} is TextureFormat ${format}, which this reader does not decode`);
   }
@@ -539,12 +621,87 @@ export function decodeTexture2D(tex, resource = null) {
   return { width, height, data: out };
 }
 
+// ---- GROUND1: TEXTURE ARRAYS (DREAM's terrain) ---------------------------------------------------------------------
+// A Texture2DArray names its format as a GraphicsFormat, not a TextureFormat. The ones a DFU texture mod's terrain
+// is built with, mapped to the TextureFormat decode they share (UnityEngine.Experimental.Rendering.GraphicsFormat).
+const GRAPHICS_FORMAT = Object.freeze({
+  4: TEXTURE_FORMAT.RGBA32, 8: TEXTURE_FORMAT.RGBA32,        // R8G8B8A8 _SRGB / _UNorm
+  96: TEXTURE_FORMAT.DXT1, 97: TEXTURE_FORMAT.DXT1,          // RGBA_DXT1 _SRGB / _UNorm
+  100: TEXTURE_FORMAT.DXT5, 101: TEXTURE_FORMAT.DXT5,        // RGBA_DXT5 _SRGB / _UNorm
+  108: TEXTURE_FORMAT.BC7, 109: TEXTURE_FORMAT.BC7,          // RGBA_BC7 _SRGB / _UNorm - DREAM's
+});
+/**
+ * Every slice of a Texture2DArray, mip 0, top-down RGBA `{ width, height, data }` each (a decoded PNG's order, as
+ * decodeTexture2D answers). Unity lays the data out SLICE-major - each slice's whole mip chain, then the next - so a
+ * slice is `m_DataSize / m_Depth` bytes and its mip 0 is the front of it (checked on DREAM's 302: water, dirt, grass,
+ * a dirt-grass edge at records 0, 1, 2, 10).
+ */
+export function decodeTextureArray(arr, resource = null) {
+  const format = GRAPHICS_FORMAT[arr.m_Format];
+  if (format == null) throw new Error(`unity bundle: ${arr.m_Name} is GraphicsFormat ${arr.m_Format}, which this reader does not decode`);
+  let data = arr['image data'];
+  const st = arr.m_StreamData;
+  if ((!data || !data.length) && st && st.size > 0) {
+    if (!resource) throw new Error(`unity bundle: ${arr.m_Name} streams from ${st.path} and no resource resolver was given`);
+    data = resource(st.path, Number(st.offset), Number(st.size));
+  }
+  const depth = arr.m_Depth | 0;
+  if (!data || !depth) throw new Error(`unity bundle: ${arr.m_Name} carries no image data`);
+  const per = Math.floor(Number(arr.m_DataSize || data.length) / depth);
+  const out = [];
+  for (let i = 0; i < depth; i++) {
+    out.push(decodeTexture2D({ m_Name: `${arr.m_Name}[${i}]`, m_Width: arr.m_Width, m_Height: arr.m_Height, m_MipCount: 1, m_TextureFormat: format, 'image data': data.subarray(i * per, (i + 1) * per) }));
+  }
+  return out;
+}
+
+/** Bytes one mip level of a format takes; 0 for a format this reader does not decode. */
+function mipBytes(format, w, h) {
+  const blocks = Math.max(1, Math.ceil(w / 4)) * Math.max(1, Math.ceil(h / 4));
+  switch (format) {
+    case TEXTURE_FORMAT.DXT1: return blocks * 8;
+    case TEXTURE_FORMAT.DXT5: case TEXTURE_FORMAT.BC7: return blocks * 16;
+    case TEXTURE_FORMAT.RGBA32: case TEXTURE_FORMAT.ARGB32: return w * h * 4;
+    case TEXTURE_FORMAT.RGB24: return w * h * 3;
+    case TEXTURE_FORMAT.Alpha8: return w * h;
+    default: return 0;
+  }
+}
+/** The first mip level no larger than `maxSize` on its longer side, within the chain the texture carries. */
+export function mipLevelFor(tex, maxSize = Infinity) {
+  const count = Math.max(1, tex.m_MipCount ?? tex.mipCount ?? 1);
+  let level = 0;
+  while (level < count - 1 && Math.max(tex.m_Width >> level, tex.m_Height >> level) > maxSize) level++;
+  return level;
+}
+/** Where mip `level` starts in the image data, and its byte size. */
+export function mipSpan(tex, level) {
+  let offset = 0;
+  for (let i = 0; i < level; i++) offset += mipBytes(tex.m_TextureFormat, Math.max(1, tex.m_Width >> i), Math.max(1, tex.m_Height >> i));
+  return { offset, size: mipBytes(tex.m_TextureFormat, Math.max(1, tex.m_Width >> level), Math.max(1, tex.m_Height >> level)) };
+}
+
 /**
  * Open a `.dfmod` (or any UnityFS bundle) and index its textures and
  * text assets by name. Textures decode lazily through `rgba()`.
  * @param {Uint8Array} bytes
  */
-export function readUnityBundle(bytes) {
+/** DFMOD2: one texture decoded no larger than `maxSize` - the mip that fits, else mip 0 box-filtered down. */
+function decodeCapped(tex, resource, maxSize) {
+  const img = decodeTexture2D(tex, resource, { maxSize });
+  if (Math.max(img.width, img.height) <= maxSize) return img;
+  const k = maxSize / Math.max(img.width, img.height);
+  const r = resampleRgba(img, img.width * k, img.height * k);
+  return { width: r.width, height: r.height, data: r.data instanceof Uint8Array ? r.data : new Uint8Array(r.data.buffer, r.data.byteOffset, r.data.byteLength) };
+}
+
+/**
+ * DFMOD2: `knownTextures` - the texture list a stored index already carries ([[name, width, height], ...] in object
+ * order) - lets an open skip every texture's head read and every text asset (a 330 MB inline bundle's index is
+ * otherwise 200 MB of decompression). It is used only when it counts exactly the Texture2D objects the file holds;
+ * anything else reads the heads as before.
+ */
+export function readUnityBundle(bytes, { maxTextureSize = Infinity, knownTextures = null } = {}) {
   const fs = readUnityFs(bytes);
   const resources = new Map();
   const assets = [];
@@ -561,10 +718,34 @@ export function readUnityBundle(bytes) {
   };
   const textures = [];
   const textAssets = [];
+  const texObjects = [];
+  for (const a of assets) for (const o of a.objects) if (o.classId === CLASS_ID.Texture2D) texObjects.push(o);
+  // GROUND1: the texture arrays, by their heads (a few per mod), whichever path reads the textures
+  const arrays = [];
+  for (const a of assets) {
+    for (const o of a.objects) {
+      if (o.classId !== CLASS_ID.Texture2DArray) continue;
+      try {
+        const h = o.head('image data') ?? o.read();
+        arrays.push({ name: h.m_Name, width: h.m_Width, height: h.m_Height, depth: h.m_Depth, format: h.m_Format, layers: () => decodeTextureArray(o.read(), resource) });
+      } catch { /* an array this reader cannot read is not one of the mod's pictures */ }
+    }
+  }
+  if (Array.isArray(knownTextures) && knownTextures.length === texObjects.length && texObjects.length) {
+    for (let i = 0; i < texObjects.length; i++) {
+      const o = texObjects[i];
+      const [name, width, height] = knownTextures[i];
+      textures.push({ name, width, height, rgba: (opts) => decodeCapped(o.read(), resource, opts?.maxSize ?? maxTextureSize) });
+    }
+    return { ...fs, assets, textures, textAssets, arrays };
+  }
   for (const a of assets) {
     for (const o of a.objects) {
       if (o.classId === CLASS_ID.Texture2D) {
-        const tex = o.read();
+        // DFMOD2: the index reads each texture's HEAD only - name, size, format, mips, settings - and stops at its
+        // pixels. Reading every body at open was the whole bundle decompressed before the first picture (a
+        // multi-gigabyte DREAM set, minutes and the tab); the body is read when a picture is asked for
+        const tex = o.head('image data') ?? o.read();
         textures.push({
           name: tex.m_Name, width: tex.m_Width, height: tex.m_Height, format: tex.m_TextureFormat,
           mipCount: tex.m_MipCount, filterMode: tex.m_TextureSettings?.m_FilterMode, wrapU: tex.m_TextureSettings?.m_WrapU,
@@ -573,7 +754,7 @@ export function readUnityBundle(bytes) {
           // it for 12,934 textures is the whole bundle in memory by
           // another road; the index above keeps the few fields it needs
           // and the object's own read is a block or two.
-          rgba: () => decodeTexture2D(o.read(), resource),
+          rgba: (opts) => decodeCapped(o.read(), resource, opts?.maxSize ?? maxTextureSize),
         });
       } else if (o.classId === CLASS_ID.TextAsset) {
         const t = o.read();
@@ -583,5 +764,5 @@ export function readUnityBundle(bytes) {
       }
     }
   }
-  return { ...fs, assets, textures, textAssets };
+  return { ...fs, assets, textures, textAssets, arrays };
 }

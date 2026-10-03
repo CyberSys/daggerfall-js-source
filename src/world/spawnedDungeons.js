@@ -14,8 +14,8 @@
 
 import { mapPixelToLongitudeLatitude } from '../formats/mapsFile.js';
 import { MINUTES_PER_DAY } from '../systems/gameDate.js';   // TTL1: a day is the clock's own, never a second 1440
-import { TERRAIN_SIZE } from './terrainSampler.js';   // SPAWNED-DUNGEONS3: a pixel is 819.2 metres on a side
-import { getLocationTerrainTileOrigin, WORLD_MAP_TILE_DIM } from './terrainTiles.js';   // SPAWNED-DUNGEONS3: where a location stands in its pixel
+import { TERRAIN_SIZE, HEIGHTMAP_DIMENSION, MAX_TERRAIN_HEIGHT, SCALED_BEACH_ELEVATION, sampleKernel } from './terrainSampler.js';   // SPAWNED-DUNGEONS3: a pixel is 819.2 metres on a side; SPAWN-SHORE: the ground a ruin is flattened to
+import { getLocationTerrainTileOrigin, WORLD_MAP_TILE_DIM, BEACH_JITTER } from './terrainTiles.js';   // SPAWNED-DUNGEONS3: where a location stands in its pixel
 import { dataPoint, PATH_KEYS } from '../systems/travelPaths.js';   // SPAWN-ROADS: the network's own byte per pixel
 
 /** The chance a pixel holds a NORMAL spawned dungeon. */
@@ -79,6 +79,40 @@ export const spawnsDungeon = (salt, px, py, chance = ANY_SPAWN_CHANCE) => spawnR
 export function pathFreePixel(net, px, py) {
   for (let t = 0; t < PATH_KEYS.length; t++) if (dataPoint(net, t, px, py)) return false;
   return true;
+}
+
+/** SPAWN-SHORE (2026-09-29, Shabalako: "An elite dungeon spawned like this on a beach/sea"): the Ocean-climate gate
+ *  alone let ruins onto the sea. The boot spreads land climates two pixels out into it (terrainHelper.js
+ *  dilateCoastalClimate, StreamingWorld.ReadyCheck's repair), so a coast's first sea pixels READ as land. And a
+ *  location is flattened to its WHOLE pixel's average height (terrainGen.js: calcAvgMaxHeight then
+ *  blendLocationTerrain, DFU's own), so on a mostly-sea pixel the plateau sits at the waterline and the ruin stood on a
+ *  square of sand in the sea. A spawn now stands only where that plateau is DRY: above the beach band's highest
+ *  dirt (SCALED_BEACH_ELEVATION + its jitter, terrainTiles.js generateTileData).
+ *
+ *  The plateau is read WITHOUT the ground noise (sampleKernel's `groundNoise` false): that term is never negative and
+ *  the ocean clamp and clamp01 are monotone, so the noiseless average is at or under the real one - a strict lower
+ *  bound, a pixel it admits is dry for certain, at less than half the kernel's cost. Pure in the height map, which
+ *  every client holds alike, so every client agrees which pixels hold a spawn. */
+export const SPAWN_DRY_ELEVATION = SCALED_BEACH_ELEVATION + BEACH_JITTER;
+
+/** The plateau a location on (px, py) would be flattened to, metres - the noiseless lower bound (see above). */
+export function spawnPlateauFloor(woods, px, py) {
+  const k = sampleKernel(woods, px, py, HEIGHTMAP_DIMENSION, false);
+  let sum = 0;
+  for (let x = 0; x < HEIGHTMAP_DIMENSION; x++) for (let y = 0; y < HEIGHTMAP_DIMENSION; y++) sum += k(x, y);
+  return (sum / (HEIGHTMAP_DIMENSION * HEIGHTMAP_DIMENSION)) * MAX_TERRAIN_HEIGHT;
+}
+
+/** Would a ruin on (px, py) stand on dry ground? Kept per pixel: the height map does not change under a session, and
+ *  the build and the Overworld's far found spawns both ask. */
+export function createSpawnGround(woods) {
+  const dry = new Map();
+  return (px, py) => {
+    const key = py * 1000 + px;
+    let d = dry.get(key);
+    if (d === undefined) dry.set(key, d = spawnPlateauFloor(woods, px, py) > SPAWN_DRY_ELEVATION);
+    return d;
+  };
 }
 
 /** Is this pixel's spawned dungeon elite? The slice of the same roll just above the normal share. */
@@ -207,7 +241,10 @@ export function dungeonSightLine(metres, direction, elite = false) {
 //
 // THE CLOCK IS THE GAME'S. Everything here is in the same classic
 // minutes `playerTicker.classicMinutes` counts, so resting through a
-// week expires what a week of walking would.
+// week expires what a week of walking would. [AUDIT LIVED1b R: offline.
+// Online those minutes are the WORLD's (the ticker's classicMinutes is
+// worldMinutes), which a rest does not move - the ledger ages with the
+// world alone, as every player sees it.]
 
 /** Emptied, and left alone this long: gone. */
 export const CLEARED_TTL_DAYS = 2;
@@ -238,14 +275,21 @@ export function spawnExpired(rec, now) {
 /**
  * The ledger of what this client has met and when.
  *
- * WHAT IT IS NOT, said plainly: this is ONE CLIENT'S memory. The roll
- * that puts a dungeon on a pixel is a pure hash every client shares, so
- * every client agrees a spawn is THERE without a word from the relay -
- * but expiry is a fact about TIME PASSING, which their clocks do not
- * share, so two players can disagree about whether one is gone. Making
- * them agree needs the relay to own the ledger, and the relay has no
- * message for it (there is no spawn or clear verb in net/wire.js). Said
- * here rather than left for someone to find.
+ * WHAT IT IS, said plainly: this is ONE CLIENT'S memory. The roll that
+ * puts a dungeon on a pixel is a pure hash every client shares, so every
+ * client agrees a spawn is THERE without a word from the relay - but
+ * expiry is a fact about TIME PASSING, which their clocks do not share,
+ * so two players could disagree about whether one is gone. Making them
+ * agree needed the relay to own the ledger, and it did not have a
+ * message for it. OW6L (2026-09-29) GAVE IT ONE: a cell room keeps a row
+ * a pixel (net/overworldLaw.js - `[px, py, seen, cleared?]`, the clocks
+ * in shared classic minutes) and MIN-MERGES what its players say, the
+ * `dg` word of net/wire.js's `ow` frame. This client says its own row
+ * when a spawn is first seen and when it is cleared (`wireRow` below,
+ * through net/online.js sendOverworld), and folds in every row the cell
+ * says (`merge`: the earliest sight and the earliest clear win, so a
+ * spawn's clocks only ever run out sooner) - its cell's welcome hands
+ * the whole of it to a player who walks in later.
  */
 export function createSpawnLedger() {
   /** @type {Map<string, {seen:number, cleared?:number}>} */
@@ -268,6 +312,30 @@ export function createSpawnLedger() {
       return r;
     },
     expired: (key, now) => spawnExpired(rows.get(key), now),
+    /** OW6L: a row HEARD - the cell's word (net/online.js onOverworld's `dg`) - MIN-MERGED in: the earlier first sight
+     *  and the earlier clear of the two are kept, a row this ledger never met is made, and nothing is ever raised (a
+     *  heard clock only runs a spawn out sooner). A non-finite `seen` is no row at all; a non-finite `cleared` is none.
+     *  Answers whether anything changed. */
+    merge(key, seen, cleared) {
+      if (!key || !Number.isFinite(seen)) return false;
+      const r = rows.get(key);
+      const clear = Number.isFinite(cleared) ? cleared : null;
+      if (!r) { rows.set(key, clear === null ? { seen } : { seen, cleared: clear }); return true; }
+      let moved = false;
+      if (seen < r.seen) { r.seen = seen; moved = true; }
+      if (clear !== null && !(Number.isFinite(r.cleared) && r.cleared <= clear)) { r.cleared = clear; moved = true; }
+      return moved;
+    },
+    /** OW6L: a key's row as the `dg` word says it - `[px, py, seen]`, or `[px, py, seen, cleared]` once it is cleared -
+     *  or null when this ledger holds none (or the key is not a pixel's "px,py"). What this client tells its cell when
+     *  `note` first starts a row and when `clear` stamps one. */
+    wireRow(key) {
+      const r = rows.get(key);
+      const at = /^(\d{1,3}),(\d{1,3})$/.exec(String(key));
+      if (!r || !at) return null;
+      const px = Number(at[1]), py = Number(at[2]);
+      return Number.isFinite(r.cleared) ? [px, py, r.seen, r.cleared] : [px, py, r.seen];
+    },
     /** Gone for good: the pixel is free to be empty from here. */
     forget(key) { return rows.delete(key); },
     get size() { return rows.size; },

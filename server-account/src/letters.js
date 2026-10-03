@@ -39,7 +39,7 @@
 // same word (`no-letter`) for both, and nothing to learn from which.
 // ═══════════════════════════════════════════════════════════════════
 import { mintId, accountKind, displayName, isMuted, overRate } from './accounts.js';
-import { titleWorn, glyphsOf } from './titles.js';
+import { titleWorn, glyphsShown } from './titles.js';
 import { HANDLE_RE } from '../../src/net/handleShape.js';
 import {
   letterWords, LETTERS_INBOX_MAX, LETTERS_SENT_MAX, LETTERS_SENT_WINDOW_S, LETTERS_PAIR_MAX, LETTER_ID_RE,
@@ -77,7 +77,7 @@ export async function sendLetter({ db, rand, nowS }, sender, { to, subject, body
 
 /** The sender's badge as the service would sign it NOW (titles.js: a title worn only while held, glyphs derived) -
  *  or none, for a sender whose row is gone. */
-const badgeOf = (row, env, nowS) => (row ? { title: titleWorn(row, env) ?? null, glyphs: glyphsOf(row, env, nowS) } : { title: null, glyphs: [] });
+const badgeOf = (row, env, nowS) => (row ? { title: titleWorn(row, env) ?? null, glyphs: glyphsShown(row, env, nowS) } : { title: null, glyphs: [] });
 
 /**
  * A READER'S BOX, newest first: every letter's head (who, what about, when, whether opened) and the count unopened -

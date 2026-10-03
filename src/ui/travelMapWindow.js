@@ -110,6 +110,7 @@ import { DOT_SCALE } from './travelPathsOverlay.js';
 import { TRAVEL_OPTIONS_TEXT as TO_TEXT, format as toFormat } from '../systems/travelOptionsText.js';
 import { readPartyMarks, partyMarksKey, PARTY_DOT_RGB, PARTY_OFFLINE_DOT_RGB } from './partyMapMarks.js';   // SOC6: the party's marks, the one reading both maps share
 import { readGateMark, gateRingKey, gateRingTexels, GATE_DOT_RGB } from './gateMapMark.js';   // WB1: the Oblivion Gate's ring, on the open province's page
+import { readBountyMarks, bountyMarksKey, bountyRingTexels, BOUNTY_DOT_RGB } from './bountyMapMark.js';   // BOUNTY1: held bounties' black circles on the region page
 import { MAP_WIDTH, MAP_HEIGHT } from '../formats/woodsFile.js';
 import { layoutMessageBox, drawMessageBox, messageBoxHit, MB_BUTTONS, messageBoxArtLoaded } from './messageBox.js';
 import { ListPickerWindow, preloadListPickerArt, listPickerArtLoaded } from './listPicker.js';
@@ -288,8 +289,20 @@ export function getPixelColorIndex(locationType, filters = {}) {
   return index;
 }
 
+/** FilterButtonClickHandler's flip (:1024-1045): the pressed filter's flag turned over IN the live store object
+ *  (systems/travelMapState.js travelMapFilters - TRUE hides), false for a name that is no filter. The classic window
+ *  then redraws its dots (:1064); MAP-KEY's key on the held map (ui/heldMap.js) presses the same law and rebuilds its
+ *  marks, so the two skins cannot disagree about what a press does or where it is kept. */
+export function flipTravelMapFilter(filters, which) {
+  if (!filters || !(which in filters)) return false;
+  filters[which] = !filters[which];
+  return true;
+}
+
 const inRect = ([rx, ry, rw, rh], x, y) => x >= rx && y >= ry && x < rx + rw && y < ry + rh;
 const packRGBA = (r, g, b, a) => (((a << 24) >>> 0) | (b << 16) | (g << 8) | r) >>> 0;
+/** packRGBA read back, its own byte order (MAP-KEY). */
+const unpackRGB = (c) => ({ r: c & 0xff, g: (c >>> 8) & 0xff, b: (c >>> 16) & 0xff });
 
 // map_reveallocations / map_hidelocations (:1788-1884). E3 gave them
 // the database DFU registers them in (the registrar is at the foot of
@@ -323,7 +336,7 @@ let _art = null;
  *  (indices, not a texture - the region shapes are read out of it),
  *  the button sheets, the border, FMAP_PAL.COL and TEXT.RSC. */
 /** TO1: a PNG out of a vendored mod folder, in the shape `drawImg`
- *  reads. The precedent is systems/handheldTorches.js:826-831 -
+ *  reads. The precedent is systems/handheldTorches.js:841-847 -
  *  `toScreenOrder`, not `toColor32`, because this is drawn on a screen
  *  quad and the flip would stand it on its head. A file that is not
  *  there answers null and the caller draws nothing. */
@@ -399,6 +412,14 @@ export async function preloadTravelMapArt(deps) {
   return _art;
 }
 export const travelMapArtLoaded = () => !!_art;
+/** MAP-KEY: the location dots' colours as this window paints them (locationPixelColors, :253-269 - FMAP_PAL.COL
+ *  entries, read off the player's own file by the preload above), one {r, g, b} per bucket for the held map's ink;
+ *  null until the art has loaded, and the held map inks in the plain pen until then. The palette is ARENA2 data, so
+ *  no colour of it is written anywhere in the port - this is the one door to it. */
+export const travelMapDotColors = () => _art?.locationPixelColors?.map(unpackRGB) ?? null;
+/** RAID1: the region picker's bytes (TRAV0I01.IMG - a pixel is 128 + its region), which World Events - Raiding
+ *  Parties' SelectRaids reads through DaggerfallUI.GetImgBitmap [IL_04b5]; null until the art has loaded. */
+export const travelMapPickerData = () => _art?.pickerBitmap?.data ?? null;
 /** Tests mount a hand-built bundle through the same door. */
 export function _setTravelMapArtForTests(art) { _art = art; }
 
@@ -419,16 +440,37 @@ export function checkLocationDiscovered(summary) {
   return hasDiscoveredLocationId(summary.id) || !!summary.discovered || _revealUndiscoveredLocations;
 }
 
+/** CanFindPlace's first half (:1136-1141): a place's map pixel through its NAME - the region by name, the place by
+ *  its map name, the row's longitude and latitude - or null for a name the region does not hold. */
+export function placePixelOf(maps, regionName, name) {
+  const region = maps?.getRegionByName?.(regionName);
+  const index = region?.mapNameLookup?.get(name);
+  if (index === undefined || index === null) return null;
+  const row = region.mapTable[index];
+  return longitudeLatitudeToMapPixel(row.longitude, row.latitude);
+}
+
+/** AUDIT GUIDE O3: placePixelOf, kept per place for a session. MapsFile holds ONE region in memory (autoDiscard), so
+ *  a question asked every tick about places in two regions re-read and re-parsed a region twenty times a second; a
+ *  place's pixel never moves, so each is read once, a miss included. The discovered test (the other half) stays live:
+ *  a place found by asking directions is on the map at the next ask. */
+export function placePixelMemo() {
+  const memo = new Map();
+  return (maps, regionName, name) => {
+    const key = `${regionName}\n${name}`;
+    if (!memo.has(key)) memo.set(key, placePixelOf(maps, regionName, name));
+    return memo.get(key);
+  };
+}
+
 /** CanFindPlace (:1134-1146) - the same test through a NAME, which is
  *  why the journal's find-place gate can ask it: a location the player
  *  has not discovered cannot be found on the map, so the dialog is
- *  never offered for one. */
-export function canFindPlace(maps, mapDict, regionName, name) {
-  const region = maps?.getRegionByName?.(regionName);
-  const index = region?.mapNameLookup?.get(name);
-  if (index === undefined || index === null) return false;
-  const row = region.mapTable[index];
-  const pixel = longitudeLatitudeToMapPixel(row.longitude, row.latitude);
+ *  never offered for one. `pixelOf` is the pixel's reader (a host's
+ *  placePixelMemo, AUDIT GUIDE O3). */
+export function canFindPlace(maps, mapDict, regionName, name, pixelOf = placePixelOf) {
+  const pixel = pixelOf(maps, regionName, name);
+  if (!pixel) return false;
   const summary = locationSummaryAt(mapDict, pixel.x, pixel.y);
   return summary ? checkLocationDiscovered(summary) : false;
 }
@@ -523,6 +565,7 @@ export class TravelMapWindow {
     this._partyKey = '';
     this._partyPoll = 0;
     this._gateKey = '';   // WB1: the ring the page last drew (its place alone - the page draws no words)
+    this._bountiesKey = '';   // BOUNTY1: the circles the page last drew
     // TO1: Travel Options' own state on this window. `_to` is the mod
     // itself (null when it is off), read ONCE per open the way DFU
     // reads `TravelOptionsMod.Instance` in the constructor
@@ -766,6 +809,13 @@ export class TravelMapWindow {
       const gatePx = packRGBA(GATE_DOT_RGB[0], GATE_DOT_RGB[1], GATE_DOT_RGB[2], 255);
       for (const [x, y] of gateRingTexels(gate, originX, originY, width, height)) plot(x, y, gatePx);
     }
+    // BOUNTY1: each held bounty's black circle, under the party as the gate's ring is
+    const bounties = readBountyMarks(this.deps.bounties, { width: MAP_WIDTH, height: MAP_HEIGHT });
+    this._bountiesKey = bountyMarksKey(bounties);
+    if (bounties.length) {
+      const bountyPx = packRGBA(BOUNTY_DOT_RGB[0], BOUNTY_DOT_RGB[1], BOUNTY_DOT_RGB[2], 255);
+      for (const [x, y] of bountyRingTexels(bounties, originX, originY, width, height)) plot(x, y, bountyPx);
+    }
     const marks = readPartyMarks(this.deps.party, { width: MAP_WIDTH, height: MAP_HEIGHT });
     this._partyKey = partyMarksKey(marks);
     for (const m of marks) plot(m.px - originX, m.py - originY, m.online ? partyPx : partyOffPx);
@@ -820,7 +870,8 @@ export class TravelMapWindow {
     this._partyPoll = PARTY_POLL_S;
     if (!this.regionSelected) return false;
     if (partyMarksKey(readPartyMarks(this.deps.party, { width: MAP_WIDTH, height: MAP_HEIGHT })) === this._partyKey
-      && gateRingKey(readGateMark(this.deps.gate, { width: MAP_WIDTH, height: MAP_HEIGHT })) === this._gateKey) return false;   // WB1: or the ring came, went or moved
+      && gateRingKey(readGateMark(this.deps.gate, { width: MAP_WIDTH, height: MAP_HEIGHT })) === this._gateKey
+      && bountyMarksKey(readBountyMarks(this.deps.bounties, { width: MAP_WIDTH, height: MAP_HEIGHT })) === (this._bountiesKey ?? '')) return false;   // WB1: or the ring came, went or moved; BOUNTY1: or a circle came or went
     this._updateMapLocationDotsTexture();
     return true;
   }
@@ -1473,10 +1524,9 @@ export class TravelMapWindow {
     this._updateCrosshair();
   }
 
-  /** FilterButtonClickHandler (:1024-1070). */
+  /** FilterButtonClickHandler (:1024-1070) - the flip is flipTravelMapFilter, the one both skins press (MAP-KEY). */
   _filterButtonClick(which) {
-    if (!(which in this.filters)) return;
-    this.filters[which] = !this.filters[which];
+    if (!flipTravelMapFilter(this.filters, which)) return;
     this._updateMapLocationDotsTexture();
   }
 

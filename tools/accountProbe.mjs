@@ -63,6 +63,8 @@ import { fileURLToPath } from 'node:url';
 import { verifyToken, importPublicKeyB64 } from '../src/net/identityToken.js';
 import { PBKDF2_ITERS } from '../server-account/src/password.js';
 import { ACCOUNT_VERSION, SHOT_MAX_BYTES } from '../server-account/src/service.js';
+import { ACCEPTED } from '../src/net/legalLaw.js';   // TERMS1: every request that makes an account carries the versions ticked
+import { gzipText, REALM_TEXT_MAX_BYTES } from '../src/net/realmSaveCodec.js';   // REALM-GZIP: a realm save rides packed
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const acct = join(root, 'server-account');
@@ -141,13 +143,14 @@ const get = (path, opts) => call('GET', path, undefined, opts);
  *  of them, paid twice. `call` above would stringify, so these have
  *  their own door, and it keeps the BUFFER rather than a decoded string
  *  because "byte for byte" is the claim under test. */
-function raw(method, path, buf, bearer) {
+function raw(method, path, buf, bearer, extra = {}) {
   return new Promise((resolve, reject) => {
     const req = httpRequest({
       host: '127.0.0.1', port: PORT, path, method, timeout: 30_000,
       headers: {
         ...(buf ? { 'content-type': 'application/octet-stream', 'content-length': buf.length } : {}),
         ...(bearer ? { authorization: `Bearer ${bearer}` } : {}),
+        ...extra,   // REALM-GZIP: a realm checkpoint's lease and sequence ride headers
       },
     }, (res) => {
       const parts = [];
@@ -261,7 +264,7 @@ try {
   // is empty looks healthy - and the first run of this probe reported
   // six mysterious failures in a row because of exactly that. Ask the
   // binding a real question, and say plainly what came back.
-  const first = await post('/v1/auth/guest', { label: 'probe' });
+  const first = await post('/v1/auth/guest', { label: 'probe', ...ACCEPTED });
   if (first.status !== 200) {
     throw new Error(`/v1/auth/guest answered ${first.status} ${JSON.stringify(first.body)}`
       + ' - if this is `no-database`, the local D1 wrangler dev opened is not the one'
@@ -271,6 +274,15 @@ try {
   ok('a guest is a real row from first contact', Boolean(guest?.id && guest?.secret));
   ok('...under a name from Daggerfall\'s own banks, with exactly one space',
     /^\S+ \S+$/.test(guest?.name ?? ''), guest?.name);
+  // TERMS1: and no row without the documents ticked - asked of the runtime that will ask it. AUDIT PRE-MERGE 0929 T1: a
+  // body naming NEITHER document is a game from before the boxes, answered `not-found` (the word every shipped build
+  // renders "The game may need updating"); one named and not the other is `terms-unaccepted`.
+  const unticked = await post('/v1/auth/guest', { label: 'probe-unticked' });
+  ok('no account opens for a game from before the boxes - told it may need updating',
+    unticked.status === 400 && unticked.body?.error === 'not-found', `${unticked.status} ${JSON.stringify(unticked.body)}`);
+  const half = await post('/v1/auth/guest', { label: 'probe-half', terms: ACCEPTED.terms });
+  ok('...nor with one document ticked and not the other',
+    half.status === 400 && half.body?.error === 'terms-unaccepted', `${half.status} ${JSON.stringify(half.body)}`);
 
   const tokRes = await post('/v1/auth/token', { secret: guest.secret });
   const tok = tokRes.body;
@@ -306,7 +318,7 @@ try {
   console.log('== password, recovery and the throttle, in the runtime that will run them');
   const t0 = Date.now();
   const reg = (await post('/v1/auth/register',
-    { secret: guest.secret, handle: HANDLE, password: 'a good long one' })).body;
+    { secret: guest.secret, handle: HANDLE, password: 'a good long one', ...ACCEPTED })).body;
   const regMs = Date.now() - t0;
   ok('registering is an UPGRADE IN PLACE - the id does not change', Boolean(reg?.recoveryCode));
   const view = (await get('/v1/account', { bearer: guest.secret })).body;
@@ -351,7 +363,7 @@ try {
   // THE WALL, in the runtime. A guest is refused, and the same request
   // from the linked account above is not - a refusal check with no
   // positive control is green over a service that refuses everybody.
-  const visitor = (await post('/v1/auth/guest', { label: 'probe-guest' })).body;
+  const visitor = (await post('/v1/auth/guest', { label: 'probe-guest', ...ACCEPTED })).body;
   const walled = await get('/v1/saves', { bearer: visitor.secret });
   ok('a GUEST is walled out of the save routes', walled.status === 403 && walled.body?.error === 'saves-need-account',
     `${walled.status} ${walled.body?.error}`);
@@ -378,8 +390,8 @@ try {
 
   // ANOTHER ACCOUNT, THE SAME CHARACTER ID AND THE SAME SLOT NAME -
   // which two people produce the moment both call a save QuickSave.
-  const other = (await post('/v1/auth/guest', { label: 'probe-other' })).body;
-  await post('/v1/auth/register', { secret: other.secret, handle: STRANGER, password: 'a good long one' });
+  const other = (await post('/v1/auth/guest', { label: 'probe-other', ...ACCEPTED })).body;
+  await post('/v1/auth/register', { secret: other.secret, handle: STRANGER, password: 'a good long one', ...ACCEPTED });
   ok('another account cannot read this slot',
     (await raw('GET', `${SLOT}/data`, undefined, other.secret)).status === 404);
   ok('...and cannot delete it either',
@@ -392,6 +404,46 @@ try {
   ok('the player\'s own delete takes the slot', (await call('DELETE', SLOT, undefined, { bearer: me.secret })).status === 200);
   ok('...the row is gone', (await get('/v1/saves', { bearer: me.secret })).body?.saves?.length === 0);
   ok('...and so is the object in R2', (await raw('GET', `${SLOT}/data`, undefined, me.secret)).status === 404);
+
+  // ═══ REALM-GZIP: A REALM SAVE RIDES PACKED ═════════════════════
+  //
+  // test/realm_gzip.test.js drives these over Node's streams and a Map.
+  // THIS asks workerd's own: that its DecompressionStream opens what a
+  // browser's CompressionStream packs, that a Response carries the bytes
+  // it is handed, and that the object R2 keeps is the one sent.
+  console.log('== a realm save, packed, against real local R2 and workerd\'s own streams');
+  const realmer = (await post('/v1/auth/guest', { label: 'probe-realm', ...ACCEPTED })).body;
+  const made = await call('POST', '/v1/realm/create', { name: 'Thoryn' }, { bearer: realmer.secret });
+  ok('a realm character is made, and the service says it opens a packed save', made.status === 200 && made.body?.gzip === true,
+    `${made.status} ${JSON.stringify(made.body)}`);
+  const RS = `/v1/realm/${made.body?.id}/data`;
+  const at = (seq) => ({ 'x-realm-lease': made.body?.lease, 'x-realm-seq': String(seq) });
+  const born = await raw('PUT', RS, Buffer.from(await gzipText(JSON.stringify({ level: 1, goldPieces: 100, items: [] }))), realmer.secret, at(1));
+  ok('a packed first save is opened and measured (AUDIT REALM2 S1) - a new character\'s lands', born.status === 200,
+    `${born.status} ${JSON.stringify(born.body)}`);
+  const items = [];
+  for (let i = 0; items.length < 60_000; i++) items.push({ templateIndex: (i * 37) % 300, name: `Record ${i}`, value: (i * 7919) % 10007, condition: (i * 31) % 100 });
+  const life = JSON.stringify({ v: 1, name: 'Thoryn', items });
+  const packed = Buffer.from(await gzipText(life));
+  const landed = await raw('PUT', RS, packed, realmer.secret, at(2));
+  ok(`a save past the request's 4 MiB of text (${Buffer.byteLength(life)} bytes) lands packed (${packed.length})`,
+    Buffer.byteLength(life) > 4 * 1024 * 1024 && landed.status === 200 && landed.body?.seq === 2, `${landed.status} ${JSON.stringify(landed.body)}`);
+  const asStored = await raw('GET', `${RS}?enc=gzip`, undefined, realmer.secret);
+  ok('...read as stored, it is the packed bytes, byte for byte', Buffer.compare(asStored.buf, packed) === 0, `${asStored.status} ${asStored.buf.length}`);
+  const older = await raw('GET', RS, undefined, realmer.secret);
+  ok('...and a build from before is answered the text, opened by workerd', older.status === 200 && older.buf.toString('utf8') === life,
+    `${older.status} ${older.buf.length} of ${Buffer.byteLength(life)}`);
+  const huge = Buffer.from(await gzipText(JSON.stringify({ v: 1, pad: 'x'.repeat(REALM_TEXT_MAX_BYTES + 10) })));
+  const refused = await raw('PUT', RS, huge, realmer.secret, at(3));
+  ok('a packed save whose trailer says past the text\'s bound is refused', refused.status === 413 && refused.body?.error === 'too-large',
+    `${refused.status} ${JSON.stringify(refused.body)}`);
+  // a trailer that lies: two members, the second's trailer saying two bytes - opened within the bound, or not at all
+  const liar = await call('POST', '/v1/realm/create', { name: 'Liar' }, { bearer: realmer.secret });
+  const text = JSON.stringify({ level: 1, goldPieces: 100, items: [], pad: 'x'.repeat(REALM_TEXT_MAX_BYTES) });
+  const lying = Buffer.concat([Buffer.from(await gzipText(text.slice(0, -2))), Buffer.from(await gzipText(text.slice(-2)))]);
+  const lied = await raw('PUT', `/v1/realm/${liar.body?.id}/data`, lying, realmer.secret, { 'x-realm-lease': liar.body?.lease, 'x-realm-seq': '1' });
+  ok('a first save whose trailer lies is no new character\'s', lied.status === 403 && lied.body?.error === 'realm-birth',
+    `${lied.status} ${JSON.stringify(lied.body)}`);
 
   console.log('== back to the account: recovery');
   const back = await post('/v1/auth/recover',

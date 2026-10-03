@@ -138,8 +138,8 @@ test('A1: both hosts take the season from the clock, with ?season demoted to a p
     const text = read(host);
     assert.match(text, /const seasonPin = seasonOverride\(params\);/,
       `${host}: ?season is still the source, not an override`);
-    assert.match(text, /let season = seasonPin \?\? climateSeasonFromMinutes\(worldMinutes\(\)\);/,
-      `${host}: the season must fall back to the one clock`);
+    assert.match(text, /let season = seasonPin \?\? climateSeasonFromMinutes\(skyMinutes\(\)\);/,
+      `${host}: the season must fall back to the one clock`);   // TIME1: the SKY's - offline the one clock
     // `let`, because both hosts re-read it: the old `const season`
     // could not have been re-read even if something wanted to.
     assert.doesNotMatch(text, /const season = /, `${host}: the season is frozen again`);
@@ -159,7 +159,7 @@ test('A1: both hosts take the season from the clock, with ?season demoted to a p
     // order. So the needle is the day-grained SHAPE rather than the
     // literal `worldMinutes()` both hosts used to inline; `atMinutes`
     // defaults to that same clock for every other caller.
-    assert.match(text, /const day = Math\.floor\((?:worldMinutes\(\)|atMinutes) \/ MINUTES_PER_DAY\);\s*\n\s*if \(day === _seasonDay\) return/,
+    assert.match(text, /const day = Math\.floor\((?:skyMinutes\(\)|atMinutes) \/ MINUTES_PER_DAY\);[^\n]*\n\s*if \(day === _seasonDay\) return/,   // TIME1: the sky's day
       `${host}: the season poll must be day-grained, not per-minute`);
     assert.match(text, /if \(seasonPin !== null\) return/,
       `${host}: a pinned ?season must not be walked over by the clock`);
@@ -205,7 +205,7 @@ test('A1: the streaming host re-skins what already stands, without unloading it'
   // season BEFORE the destination pixel builds, and take the quiet
   // path - the teleport's own teardown is a real unload.
   const tp = world.slice(world.indexOf('async function _teleportToPixel'));
-  const refresh = tp.indexOf('refreshSeason(arriveMinutes ?? worldMinutes());');
+  const refresh = tp.indexOf('refreshSeason(arriveMinutes ?? skyMinutes());');   // TIME1: the sky's
   const teardown = tp.indexOf('for (const key of [...built.keys()])');
   assert.ok(refresh > 0 && refresh < teardown,
     'the teleport must re-read the season before it rebuilds the world');
@@ -314,9 +314,13 @@ test('ROAD-Ar R0: the streaming host arms the hold before the teardown and relea
   assert.match(tick.slice(0, teardown),
     /if \(walkMode && playerSpawned && keys\.includes\(`\$\{state\.current\.x\},\$\{state\.current\.y\}`\)\) _seasonHoldKey =/,
     'the hold is armed only when the player\'s own key is among the keys going down');
-  assert.match(world, /if \(_seasonHoldKey !== null && \(built\.has\(_seasonHoldKey\) \|\| \(!building && !queue\.length\)\)\) \{\s*\n\s*player\.spawn\(player\.pos\[0\], player\.pos\[1\], player\.pos\[2\]\);\s*\n\s*_seasonHoldKey = null;/,
-    'the release must wait for the pixel and re-anchor the fall (and never wedge)');
-  assert.match(world, /const _seasonHeld = _seasonHoldKey !== null;/);
+  // FALL-KEPT (FIELD BUGS 2026-09-30, PIN MOVED): the re-anchor keeps a fall under way when the hold began - the held
+  // motor moved not at all, so the fall is the player's (fb0930_fallkept.test.js runs the release).
+  assert.match(world, /if \(_seasonHoldKey !== null && \(built\.has\(_seasonHoldKey\) \|\| \(!building && !queue\.length\)\)\) \{\s*\n\s*const fall = player\.fallSnapshot\(\);\s*\n\s*player\.spawn\(player\.pos\[0\], player\.pos\[1\], player\.pos\[2\]\);\s*\n\s*player\.restoreFall\(fall\);\s*\n\s*_seasonHoldKey = null;/,
+    'the release must wait for the pixel and re-anchor the motor, the fall kept (and never wedge)');
+  // RESPAWN-HELD (FIELD BUGS 2026-09-30b, PIN MOVED): the same hold, and an arrival's build holds it too
+  // (fb0930b_respawnheld.test.js runs it).
+  assert.match(world, /const _seasonHeld = _seasonHoldKey !== null \|\| _seasonStraightening;/);
   assert.match(world, /if \(!_overlayHeld && !_seasonHeld\) player\.update\(dt,/,
     'the motor must not integrate gravity while the ground is being rebuilt');
   assert.match(world, /if \(!_seasonHeld\) applyFallLanding\(playerEntity, player\.landedFallDistance,/,
@@ -344,9 +348,9 @@ test('ROAD-Ar R1: fast travel hands the teleport core the minute it is about to 
   const world = read('src/scenes/world.js');
   assert.match(world, /async function _teleportToPixel\(px, py, localPos = null, \{ grounded = false, arriveMinutes = null, reposition = REPOSITION\.None, travelStart = null, modEvent = null \} = \{\}\)/,
     'the core takes the arrival clock');
-  assert.match(world, /refreshSeason\(arriveMinutes \?\? worldMinutes\(\)\);/,
-    'and straightens from it, falling back to the live clock for every other caller');
-  assert.match(world, /function refreshSeason\(atMinutes = worldMinutes\(\)\) \{[\s\S]{0,400}?Math\.floor\(atMinutes \/ MINUTES_PER_DAY\)[\s\S]{0,200}?climateSeasonFromMinutes\(atMinutes\)/,
+  assert.match(world, /refreshSeason\(arriveMinutes \?\? skyMinutes\(\)\);/,
+    'and straightens from it, falling back to the live clock for every other caller');   // TIME1: the live SKY
+  assert.match(world, /function refreshSeason\(atMinutes = skyMinutes\(\)\) \{[\s\S]{0,400}?Math\.floor\(atMinutes \/ MINUTES_PER_DAY\)[\s\S]{0,200}?climateSeasonFromMinutes\(atMinutes\)/,
     'refreshSeason must read the minute it was given, both times');
   // The CALLER order, which the old pin could not see: the teleport
   // is handed worldMinutes() + the journey, and RaiseTime still runs
@@ -356,7 +360,7 @@ test('ROAD-Ar R1: fast travel hands the teleport core the minute it is about to 
   // AUDIT 64 F18 threaded DirectionFromStartMarker through this same
   // call (DaggerfallTravelPopUp.cs:334), so the literal grew - the
   // ORDER is still what this pin is about.
-  const teleport = fn.indexOf('await _teleportToPixel(pick.pixel.x, pick.pixel.y, null,\n        { arriveMinutes: sharedClockOn() ? worldMinutes() : worldMinutes() + computed.minutes,');   // WORLD5: the trip takes no world time under the shared clock
+  const teleport = fn.indexOf('await _teleportToPixel(pick.pixel.x, pick.pixel.y, null,\n        { arriveMinutes: sharedClockOn() ? skyMinutes() : worldMinutes() + computed.minutes,');   // WORLD5: the trip takes no world time under the shared clock; TIME1: online the arrival's season is the sky's now
   const raise = fn.indexOf('playerTicker.advance(computed.minutes)');
   assert.ok(teleport > 0, 'the arrival minute rides the teleport');
   assert.ok(raise > teleport, 'and RaiseTime still comes after it (:333 then :344)');
@@ -398,7 +402,7 @@ test('R1 CLOSEOUT: the frame cannot poll the straightened season away while the 
     'the frame poll stands down FIRST - above the refreshSeason that would otherwise mutate the cache');
   const tp = world.slice(world.indexOf('async function _teleportToPixel'));
   const core = tp.slice(0, tp.indexOf('\n  }'));
-  const straighten = core.indexOf('refreshSeason(arriveMinutes ?? worldMinutes());');
+  const straighten = core.indexOf('refreshSeason(arriveMinutes ?? skyMinutes());');   // TIME1: the sky's
   const raise = core.indexOf('_seasonStraightening = true;');
   const build2 = core.indexOf('await awaitedBuild(first.px, first.py);');
   const clear = core.indexOf('finally { _seasonStraightening = false; }');

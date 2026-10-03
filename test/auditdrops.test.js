@@ -106,8 +106,9 @@ test('AUDIT DROPS A2: a finished shared quest is never dragged back or paid twic
   assert.ok(receiveSharedQuest(m, lists, '__SH', done).resync, 'a resync');
   assert.equal(give().isComplete, false, 'the reward is re-armed for this receiver');
   assert.ok(receiveSharedQuest(m, lists, '__SH', done).resync, 'the same completion again, before it has run here');
-  assert.equal(give().isComplete, true, 'NOT re-armed a second time: the resync\'s `true` stands, once per action ever');
-  give().isComplete = false;   // the receiver's own run of it is still pending from the first re-arm - put it back as the machine left it
+  // AUDIT DISC28 QS-4: the once is the FIRING's, not the arming's - this pin held the resync's `true` here, which is the
+  // reward lost: it had not run for this receiver, and nothing would arm it again
+  assert.equal(give().isComplete, false, 'still armed - it has not run here yet');
   give().isComplete = true;   // ...and now it has run here
   // a partner who is BEHIND resyncs with false: monotonic - it stays complete
   assert.ok(receiveSharedQuest(m, lists, '__SH', data).resync);
@@ -360,6 +361,6 @@ test('AUDIT DROPS F: the pose\'s fk is clamped 0-5, the quest frame has its own 
   assert.match(rd('src/net/social.js'), /if \(seated\) whyNotInvite = WHY_IN_PARTY;/);
   assert.equal(typeof st.actionsFor, 'function');
   // tradeFrame after chatFrame, before the dead return (lens 3 #5)
-  assert.match(rd('src/scenes/world.js'), /const onlineFrame = \(now, dt\) => \{\s*chatFrame\(\);[^\n]*\n\s*tradeFrame\(\);[^\n]*\n(?:\s*duelFrame\(\);[^\n]*\n)?(?:\s*profileFrame\(\);[^\n]*\n)?(?:\s*pageFrame\(\);[^\n]*\n)?(?:\s*mail\?\.poll\(\);[^\n]*\n)?(?:\s*gateFrame\(\);[^\n]*\n)?(?:\s*renownTracker\?\.tick\(\);[^\n]*\n)?(?:\s*peerMenuFrame\(\);[^\n]*\n)?(?:\s*peerFxFrame\(\);[^\n]*\n)?(?:\s*\/\/[^\n]*\n)*\s*if \(townTalk\.overlay instanceof DeathScreen/);
+  assert.match(rd('src/scenes/world.js'), /const onlineFrame = \(now, dt\) => \{\s*chatFrame\(\);[^\n]*\n\s*tradeFrame\(\);[^\n]*\n(?:\s*duelFrame\(\);[^\n]*\n)?(?:\s*profileFrame\(\);[^\n]*\n)?(?:\s*pageFrame\(\);[^\n]*\n)?(?:\s*mail\?\.poll\(\);[^\n]*\n)?(?:\s*gateFrame\(\);[^\n]*\n)?(?:\s*renownTracker\?\.tick\(\);[^\n]*\n)?(?:\s*peerMenuFrame\(\);[^\n]*\n)?(?:\s*peerFxFrame\(\);[^\n]*\n)?(?:\s*\/\/[^\n]*\n)*(?:\s*if \(realmSession && !realmSession\.lost && realmDoorShut\(online\)\) \{ realmLost\('no-realm-character'\); return; \}\n)?(?:\s*\/\/[^\n]*\n)*(?:\s*if \(seatOut\(\)\) \{\n[\s\S]*?\n    \}\n)?(?:\s*\/\/[^\n]*\n)*\s*if \(townTalk\.overlay instanceof DeathScreen/);   // ONE-SEAT: a tab out of the seat returns before the dead's law, after every frame above
   assert.ok(inRange);
 });

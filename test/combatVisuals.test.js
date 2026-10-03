@@ -144,7 +144,7 @@ test('ECV1: the renderer\'s blended phase - spectral and concealed together, bac
   const ghost = batch(273, 1); ghost.origin = [0, 9, 0];
   r.drawBillboards([batch(255, 1), mid, ghost, near], [1, 0, 0], [0, 1, 0]);
   assert.equal(calls(log, 'drawElements').length, 4, 'every batch drew once - the spectral one in the blended phase only');
-  const u4 = calls(log, 'uniform4f').map((c) => c.slice(2));
+  const u4 = calls(log, 'uniform4f').filter((c) => c[1] !== r.bbUDissolve).map((c) => c.slice(2));   // DISSOLVE's own zero (the frame's burn set whole) is its law's, not the conceal's
   assert.deepEqual(u4, [
     [0, 0, 0, 0],                                    // the plain phase
     [0, 0, 0, 0],                                    // the ghost, farthest, first - plain uConceal, its spectral flag
@@ -171,15 +171,19 @@ test('ECV1: the renderer\'s blended phase - spectral and concealed together, bac
 test('ECV1: the billboard shader declares uConceal and draws each mode - the ripple, the dark shade, the opacity', () => {
   const r = read('src/render/renderer.js');
   // AUDIT 65 PN-3: the template's own interpolation, resolved the way
-  // test/glstate.test.js:356 resolves ${CLOUD_SHADOW_GLSL} - so the regex
+  // test/glstate.test.js:361 resolves ${CLOUD_SHADOW_GLSL} - so the regex
   // below can spell the NUMBER the shader compiles with.
   const fs = r.slice(r.indexOf('const BB_FS = `'), r.indexOf('`;', r.indexOf('const BB_FS = `')))
     .replace(/\$\{SHADE_DARK\}/g, String(SHADE_DARK));
   assert.match(fs, /uniform vec4 uConceal;/);
-  assert.match(fs, /if \(uConceal\.x == 1\.0\) \{\s*\n\s*uv\.x \+= sin\(vUV\.y \* 28\.0 \+ uConceal\.z \* 7\.0 \+ uConceal\.w\) \* 0\.008;\s*\n\s*if \(uv\.x < 0\.0 \|\| uv\.x > 1\.0\) discard;/, 'chameleon ripples, and never samples past the sprite\'s edge into the REPEAT wrap');
+  // SPRITE-GRAD (FIELD BUGS 2026-10-02c): the ripple's reach past the edge is masked AFTER the sample, not discarded
+  // before it - a sample under a non-uniform branch or past a discard picks an undefined mip level
+  assert.match(fs, /if \(uConceal\.x == 1\.0\) uv\.x \+= sin\(vUV\.y \* 28\.0 \+ uConceal\.z \* 7\.0 \+ uConceal\.w\) \* 0\.008;/, 'chameleon ripples');
   assert.match(fs, /vec4 tex = texture\(uTex, uv\);/, 'the rippled UV is what samples');
+  assert.match(fs, /if \(uv\.x < 0\.0 \|\| uv\.x > 1\.0 \|\| uv\.y < 0\.0 \|\| uv\.y > 1\.0\) tex = vec4\(0\.0\);/, 'and never past the sprite\'s edge into the REPEAT wrap');   // ELITE FOES: past the sprite (an elite's widened quad) is empty
   assert.match(fs, /texture\(uEmissionTex, uv\)/, 'the emission map too');
-  assert.match(fs, /if \(tex\.a < \(\(uSpectral == 1 \|\| uConceal\.x > 0\.0\) \? 0\.1 : 0\.5\)\) discard;/, 'the concealed pass takes the blended threshold');
+  assert.match(fs, /if \(tex\.a < \(\(uSpectral == 1 \|\| uConceal\.x > 0\.0\) \? 0\.1 : 0\.5\)\) (?:discard;|\{)/, 'the concealed pass takes the blended threshold');   // ELITE FOES: the cut-out may draw an elite's rim first
+  assert.match(fs, /if \(uEliteGlow != 0\.0 && uConceal\.x == 0\.0(?: && uDissolve\.x <= 0\.0)?\)/, 'ELITE FOES: a concealed foe draws no rim');   // PIN MOVED (the revenant audit): nor one dissolving
   assert.match(r, /if \(uConceal\.x == 2\.0\) lit \*= \$\{SHADE_DARK\};/, 'the FS takes the export, not a restated literal');
   assert.match(fs, /if \(uConceal\.x == 2\.0\) lit \*= 0\.12;/, 'a shade is pulled to black by SHADE_DARK - the one number, not two that agree');
   assert.match(fs, /if \(uConceal\.x > 0\.0\) alpha = tex\.a \* uConceal\.y;/, 'the visual\'s opacity');

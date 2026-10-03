@@ -19,6 +19,7 @@ import { normalizeCode } from '../systems/dialogShortcuts.js';   // AUDIT PARTY-
 import { getBinding } from '../systems/inputActions.js';
 import { bindings } from './input.js';   // B5: the live InputManager registry, as restWindow.js reads it
 import { localizedText } from '../systems/textManager.js';   // L10N3d: DFU's Internal_Strings, read in the player's language
+import { restClockLine } from './restWindow.js';   // AUDIT LIVED1 O (U3): the classic window's clock line, one home for its words
 
 const el = (tag, cls, text) => {
   const n = document.createElement(tag);
@@ -276,6 +277,10 @@ export function mountEnhancedRest(hostEl, deps, ignoreAllocatedBed = false) {
     // player resting until healed can see.
     const vitalsLine = el('p', 'vitals-line');
     c.append(vitalsLine);
+    // AUDIT LIVED1 O (U3): the world's time and whose clock the rest spends, as the classic window's resting page says it
+    // (restWindow.js restClockLine) - this card is the default skin's every rest and every party mirror, and it said none
+    const clockLine = el('p', 'clock-line');   // AUDIT LIVED1b U7: its own dress - the vitals' flex row and word spacing wrapped "clock" onto a row of its own, flush against the readouts
+    c.append(clockLine);
     const acts = el('div', 'acts');
     const stop = el('button', 'act', 'Stop');
     // PARTY-REST19 (2026-09-22, per-request: "An non initiator MUST cancel the rest for all if he cancels
@@ -289,7 +294,7 @@ export function mountEnhancedRest(hostEl, deps, ignoreAllocatedBed = false) {
     // the same frame Stop is pressed, not delayed behind this window's own teardown.
     stop.onclick = () => stopOrClose();
     acts.append(stop);
-    _restingRefs = { hourLabel: v, fill, vitalsLine };
+    _restingRefs = { hourLabel: v, fill, vitalsLine, clockLine };
     updateRestingDisplay();
     c.append(acts);
     return c;
@@ -311,6 +316,8 @@ export function mountEnhancedRest(hostEl, deps, ignoreAllocatedBed = false) {
     _restingRefs.fill.style.width = `${Math.max(0, Math.min(100, frac * 100))}%`;
     _restingRefs.vitalsLine.textContent = vit ? `Health ${vit.health}/${vit.maxHealth}  Fatigue ${vit.fatigue}  Magicka ${vit.magicka}` : '';
     if (vit && isEnhancedPlus()) _restingRefs.vitalsLine.replaceChildren(...plusVitals(vit));   // PLUS6: the same three numbers as three readouts under Plus
+    const wm = deps.sharedMinutes?.();   // null offline: no line, DFU's screen
+    _restingRefs.clockLine.textContent = Number.isFinite(wm) ? restClockLine(wm, { loiter: overlay.mode === 'loiter' }) : '';   // AUDIT LIVED1 O
   }
 
   /** PLUS6: the resting line's three numbers, one readout each. */

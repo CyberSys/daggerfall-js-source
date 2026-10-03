@@ -30,6 +30,15 @@
 //   Waters of Oblivion         a player's CAST COST modifier
 //   Eye of Mora                an ABSORPTION chance
 //
+// RAID4b (2026-09-28) - THE RAIDING PARTIES' OWN SETS, through the same seams (bible/03-World/Raiding-Parties.md, "The
+// rewards (RAID4)"; the numbers in Sigil-Sets.md section 6b):
+//   Oath of the Watch,         the FOLD
+//   Keen-Eyed, Thick-Skinned
+//   Riposte, Blood for Blood   the HURT listener arms them (a foe's blow that took health); the BLOW spends Riposte and
+//                              reads the Blood's stacks
+//   Run Them Down, No Escape   the BLOW (a foe under half health; the marked foe); No Escape's mark is the KILL's
+//   Hold the Line, Iron Hide   the DAMAGE modifier (under half health; the ward's points); Iron Hide's ward the KILL's
+//
 // THE CLOCK is real seconds (performance.now): an online session never
 // pauses, and a recovery is a thing a player times with a watch. What a
 // power remembers (a recovery, a halving window, the Rampage) lives here
@@ -53,6 +62,7 @@ import { careerTolerance, EFFECT_FLAGS } from './spellcast.js';
 import { KNIGHT_CITY_WATCH } from '../characters/mobileTypes.js';
 import {
   wornSets, setsAwake, RAMPAGE_SECONDS, RAMPAGE_STACKS, CLEAVE_METRES, WRATH_BELOW, NOVA_METRES, WRATH_SECONDS,
+  RIPOSTE_SECONDS, MARK_METRES, MARK_SECONDS, BLOOD_SECONDS, BLOOD_STACKS,
 } from './sigilSets.js';
 
 // ── the session's memory, and its voice ────────────────────────────
@@ -62,11 +72,15 @@ const fresh = () => ({
   wrathReady: 0, wrathUntil: 0,       // Ruhn (6)
   eventideReady: 0,                   // Nocturnal (6)
   rampage: 0, rampageUntil: 0,        // Dagon (6)
+  riposteUntil: 0,                    // RAID4b: the Broken Oath (4)
+  marked: null, markUntil: 0,         // RAID4b: the Thief-Taker's Garb (6) - the marked foe's entity
+  blood: 0, bloodUntil: 0,            // RAID4b: Orcsbane Harness (4)
+  ward: 0, wardReady: 0,              // RAID4b: Orcsbane Harness (6) - the ward's points left
   recovering: new Set(),              // the powers whose "ready again" is still to be said
 });
 let _s = fresh();
 /** The host's voice (scenes/world.js): a line on the HUD, and a sound by the power's name ('unbroken', 'wrath',
- *  'eventide'). The line defaults to the HUD's own door; the sound to none. */
+ *  'eventide'; RAID4b 'mark', 'ward'). The line defaults to the HUD's own door; the sound to none. */
 let _say = (line) => { hudText(line); };
 let _sound = null;
 export function setSetPowersVoice({ say = null, sound = null } = {}) {
@@ -106,25 +120,38 @@ export function setFold(entity) {
   if (mor) { add(m().stats, 'intelligence', mor.intelligence); for (const s of MAGIC_SKILLS) add(m().skills, s, mor.schools); }
   const ruhn = t.get('ruhn')?.[0];
   if (ruhn) add(m().resist, 'fire', ruhn.fire);
+  const oath = t.get('oath')?.[0];   // RAID4b: Oath of the Watch
+  if (oath) { for (let p = 0; p < NUMBER_BODY_PARTS; p++) m().armorParts[p] += oath.armor; add(m().stats, 'willpower', oath.willpower); }
+  const keen = t.get('thieftaker')?.[0];   // RAID4b: Keen-Eyed
+  if (keen) { add(m().stats, 'agility', keen.agility); add(m().skills, SKILLS.Archery, keen.archery); }
+  const hide = t.get('orcsbane')?.[0];   // RAID4b: Thick-Skinned
+  if (hide) { add(m().stats, 'endurance', hide.endurance); add(m().skills, SKILLS.BluntWeapon, hide.blunt); }
   return mods ?? EMPTY_MODS;
 }
 
 // ── the blow ────────────────────────────────────────────────────────
 /** The Rampage's standing stacks now - none once its window has run out. */
 export const rampageStacks = (now = _now()) => (now < _s.rampageUntil ? _s.rampage : 0);
+/** RAID4b: Blood for Blood's standing stacks now, and the foe No Escape has marked (its entity) - none once its window
+ *  has run out. */
+export const bloodStacks = (now = _now()) => (now < _s.bloodUntil ? _s.blood : 0);
+export const markedFoe = (now = _now()) => (now < _s.markUntil && !(_s.marked?.health <= 0) ? _s.marked : null);   // AUDIT SETS L1: a mark on a body is none (a peer's kill of it reaches no setKill of mine)
 const belowHalf = (e) => Number.isFinite(e?.health) && e.maxHealth > 0 && e.health < e.maxHealth / 2;
 const ranged = (w) => weaponSkillUsed(w?.templateIndex) === SKILLS.Archery;
 /** @type {WeakMap<object, number>} */
 let _carry = new WeakMap();
 /**
  * MY weapon's blow at a foe: the per cents of Bloodfury (twice below half health), the Rampage's stacks, Nightfall at a
- * foe that had not noticed me (`info.unaware`) and the Wrath's fury, summed and taken of the whole blow with the
- * fraction carried on the weapon; then the Burning Gate's sear, flat. And from the same blow, Cleave: the nearest other
- * foe within CLEAVE_METRES of the one struck takes its share of the blow - a MELEE blow (never a bow's or the
- * Thunderlock's). Nothing for a miss, a blow at a player (a duel), a peer's blow resolved here, or a foe's.
+ * foe that had not noticed me (`info.unaware`) and the Wrath's fury - RAID4b: and Riposte (the one blow it sharpens,
+ * spent by it), Run Them Down at a foe under half health, No Escape at the marked foe and Blood for Blood's stacks -
+ * summed and taken of the whole blow with the fraction carried on the weapon; then the Burning Gate's sear, flat. And
+ * from the same blow, Cleave: the nearest other foe within CLEAVE_METRES of the one struck takes its share of the blow
+ * - a MELEE blow (never a bow's or the Thunderlock's). Nothing for a miss, a blow at a player (a duel), a peer's blow
+ * resolved here, or a foe's.
  */
 export function setBlow(weapon, damage, attacker, target, info) {
   if (!(damage > 0) || !attacker?.isPlayer || attacker.peer || !target || target.isPlayer) return damage;
+  if (target.warded) return damage;   // AUDIT SETS L4: the Warden's ward turns the blow whole - Riposte is not spent on it (dungeonContext.js gateBossBody marks his stand-in)
   const t = awakeTiersOf(attacker);
   if (!t || !t.size) return damage;
   const now = _now();
@@ -137,6 +164,13 @@ export function setBlow(weapon, damage, attacker, target, info) {
   const ruhn = t.get('ruhn');
   if (ruhn?.[0] && !fireProof(target)) flat += ruhn[0].sear;   // AUDIT SET L7: the gate's fire, never on a foe the fire cannot touch
   if (ruhn?.[2] && now < _s.wrathUntil) pct += ruhn[2].more;
+  const oath = t.get('oath');
+  if (oath?.[1] && now < _s.riposteUntil) { pct += oath[1].more; _s.riposteUntil = 0; }   // RAID4b: Riposte - the next blow alone
+  const taker = t.get('thieftaker');
+  if (taker?.[1] && belowHalf(target)) pct += taker[1].more;   // RAID4b: Run Them Down
+  if (taker?.[2] && markedFoe(now) === target) pct += taker[2].more;   // RAID4b: No Escape
+  const orcs = t.get('orcsbane');
+  if (orcs?.[1]) pct += orcs[1].stack * bloodStacks(now);   // RAID4b: Blood for Blood
   let out = damage;
   if (pct > 0) {
     const key = weapon ?? attacker;
@@ -206,6 +240,13 @@ export function setStruck(attacker, target, damage) {
   if (!target?.isPlayer || target.peer) return;
   _blow = damage > 0 && attacker ? { attacker, at: _now() } : null;
 }
+/** AUDIT SETS L3: THE BLOW A HOST HOLDS BACK - the arrest flow's "surrender or fight on" withholds a guard's blow and
+ *  lands it seconds later, when the mark had long lapsed (Riposte, Blood for Blood and Spite never heard it), and a
+ *  blow withheld for good left its mark lying for the next hurt. A host keeps the mark (`heldPlayerBlow`) and marks it
+ *  again as the blow lands (`remarkPlayerBlow`); a blow it withholds is the door's word "nothing"
+ *  (playerEntity.js playerBlowCameToNothing). */
+export const heldPlayerBlow = () => (_blow && _now() - _blow.at <= BLOW_WINDOW_S ? { attacker: _blow.attacker } : null);
+export function remarkPlayerBlow(b) { if (b?.attacker) _blow = { attacker: b.attacker, at: _now() }; }
 /** The mark, taken - or null for a hurt no foe's blow dealt (a mark older than the window is nobody's). */
 function landedBlow() {
   const b = _blow;
@@ -221,9 +262,30 @@ function spite(entity, blow, took) {
   if (f) door.hurtFoe(f, Math.max(1, Math.round((took * v.back) / 100)));
 }
 
-// ── Unbroken: the save, and the halving it leaves ───────────────────
-export function setDamageMod(entity, dmg) {
+// ── the damage I take: Unbroken's halving, Hold the Line, Iron Hide ──
+function unbrokenHalves(entity, dmg) {
   return _now() < _s.halvedUntil && tierOf(entity, 'malacath', 2) ? Math.floor(dmg / 2) : dmg;   // AUDIT SET L1: whole points - a half point left health fractional, and a later blow of the rest spent Unbroken's save on a wound that was never lethal
+}
+/** RAID4b: Hold the Line's share of a hurt, in whole points - the fraction carried to the next hurt (the blow's own
+ *  law), so a Faint tenth takes a point of every ten a run of small blows deals, not none of them. */
+let _holdOwed = 0;
+/** THE DAMAGE MODIFIER (my one damage door, before a Shield spell's pool): Unbroken's halving, then (RAID4b) Hold the
+ *  Line while I stand under half health, then Iron Hide's ward, spent point for point on whatever is left. */
+export function setDamageMod(entity, dmg) {
+  let d = unbrokenHalves(entity, dmg);
+  const hold = tierOf(entity, 'oath', 2);
+  if (hold && d > 0 && belowHalf(entity)) {
+    const owed = (d * hold.less) / 100 + _holdOwed;
+    const cut = Math.min(d, Math.floor(owed + 1e-9));
+    _holdOwed = owed - cut;
+    d -= cut;
+  }
+  if (_s.ward > 0 && d > 0 && tierOf(entity, 'orcsbane', 2)) {
+    const took = Math.min(_s.ward, d);
+    _s.ward -= took;
+    d -= took;
+  }
+  return d;
 }
 export function setDeathSave(entity) {
   const v = tierOf(entity, 'malacath', 2);
@@ -233,7 +295,7 @@ export function setDeathSave(entity) {
   _s.unbrokenReady = now + v.recover;
   _s.halvedUntil = now + v.halved;
   _s.recovering.add('unbroken');
-  say(`Unbroken! Malacath will not let you fall - all damage halved for ${v.halved} s.`);
+  say(`Unbroken! Damage halved for ${v.halved} s.`);   // WB13b
   sound('unbroken');
   return true;
 }
@@ -247,6 +309,16 @@ function setDoorOpen(entity) {
   if (!entity?.isPlayer || entity.peer) return;
   _pending = landedBlow();
 }
+/** LOOT4 (the Loot arc, bible/06-Systems/Loot-Arc.md section 6): THE BLOW THIS HURT CARRIES - the foe's blow the door
+ *  took as it opened (`{ attacker }`), or null: a fall, a poison's round, a spell. Read by a damage modifier asked before
+ *  the hurt lands (the loot's ward, hex and evasion answer a foe's BLOW and nothing else), so the one law of what a blow
+ *  is - the struck tail's mark, taken by the door as it opens - is this file's alone. */
+export const pendingPlayerBlow = () => (_pending ? { attacker: _pending.attacker } : null);
+/** LOOT4: A FOE'S BLOW LANDED - named listeners `fn(entity, attacker, took)`, told when the door's blow took health
+ *  (the moment Spite answers), whatever set is worn: the loot's thorns, hexes and charges answer it. A name
+ *  re-registered replaces, `null` removes; one that throws is skipped. */
+const _landed = new Map();
+export function registerPlayerBlowLanded(name, fn) { if (typeof fn === 'function') _landed.set(name, fn); else _landed.delete(name); }
 
 // ── Wrath of the Warden: a blow that leaves me under the line ───────
 export function setHurt(entity, { before, after }) {
@@ -254,7 +326,9 @@ export function setHurt(entity, { before, after }) {
   const blow = _pending;
   _pending = null;
   if (!blow) return;   // L3: a fall, a poison's tick, a spell's burn - no foe's blow, no Spite and no Wrath
+  if (before - after > 0) for (const fn of _landed.values()) { try { fn(entity, blow.attacker, before - after); } catch { /* the loot is not the blow's problem */ } }   // LOOT4
   spite(entity, blow, before - after);
+  if (before - after > 0) bloodied(entity);   // RAID4b: Riposte, Blood for Blood
   const v = tierOf(entity, 'ruhn', 2);
   const max = entity?.maxHealth;
   if (!v || !(max > 0) || !(after > 0)) return;
@@ -266,9 +340,22 @@ export function setHurt(entity, { before, after }) {
   _s.wrathUntil = now + WRATH_SECONDS;
   _s.recovering.add('wrath');
   const struck = nova(v.nova);
-  say(struck ? `Wrath of the Warden! The gate's fire bursts from you (${struck} struck).` : 'Wrath of the Warden! The gate\'s fire bursts from you.');
+  say(struck ? `Wrath of the Warden! ${struck} ${struck === 1 ? 'foe' : 'foes'} struck.` : 'Wrath of the Warden!');   // WB12a; WB13b: the burst is seen - the count is the news
   sound('wrath');
 }
+/** RAID4b: A FOE'S BLOW TOOK MY HEALTH - Riposte's window opens (the next blow of mine inside it is sharpened), and
+ *  Blood for Blood gains a stack, the new one refreshing every one. */
+function bloodied(entity) {
+  const t = awakeTiersOf(entity);
+  if (!t) return;
+  const now = _now();
+  if (t.get('oath')?.[1]) _s.riposteUntil = now + RIPOSTE_SECONDS;
+  if (t.get('orcsbane')?.[1]) {
+    _s.blood = Math.min(BLOOD_STACKS, bloodStacks(now) + 1);
+    _s.bloodUntil = now + BLOOD_SECONDS;
+  }
+}
+
 /** The Nova: every live foe within NOVA_METRES of my feet takes `n` - never an ally or a foe at peace (H1), one on
  *  another floor (M4), one behind a wall (M4: the host's own ray, where it has one - `door.clear`), or one the fire
  *  cannot touch (L7). Answers how many it struck. */
@@ -321,9 +408,40 @@ export function setKill(entity = null) {
     _s.eventideReady = now + noc.recover;
     _s.recovering.add('eventide');
     door.castOnPlayer(eventideBundle(noc.rounds));
-    say('Eventide - Nocturnal\'s shadows take you.');
+    say('Eventide! Nocturnal\'s shadows take you.');   // WB13b: the procs one shape
     sound('eventide');
   }
+  if (entity && _s.marked === entity) _s.markUntil = 0;   // AUDIT SETS L1: the marked foe's own death ends its mark (its chip counted on over a body)
+  if (t.get('thieftaker')?.[2]) markNext(door, entity, now);
+  const hide = t.get('orcsbane')?.[2];
+  if (hide && now >= _s.wardReady) {   // RAID4b: Iron Hide - a fresh ward, never one on top of another
+    _s.ward = hide.ward;
+    _s.wardReady = now + hide.recover;
+    _s.recovering.add('ward');
+    say(`Iron Hide - the next ${hide.ward} damage is turned aside.`);
+    sound('ward');
+  }
+}
+/** RAID4b, NO ESCAPE: the nearest other live foe within MARK_METRES of my feet is marked for MARK_SECONDS - never the
+ *  one just killed, an ally or a foe at peace (H1), one on another floor (M4) or one behind a wall (M4's ray, where the
+ *  host has one). A kill with no such foe leaves the mark as it stood. */
+function markNext(door, killed, now) {
+  const feet = door.feet?.();
+  if (!feet) return;
+  let best = null, reach = MARK_METRES;
+  for (const f of door.foes()) {
+    if (f.dead || f.entity === killed || !f.entity || !f.ai?.feet || spared(f) || rise(f.ai.feet, feet) > REACH_RISE_M) continue;
+    const d = flat2(f.ai.feet, feet);
+    if (d > reach || door.clear?.(feet, f.ai.feet) === false) continue;
+    reach = d; best = f;
+  }
+  if (!best) return;
+  const had = markedFoe(now);
+  _s.marked = best.entity;
+  _s.markUntil = now + MARK_SECONDS;
+  if (had === best.entity) return;   // AUDIT SETS L5: the same foe marked again - its time renewed, nothing said (Rampage's own law)
+  say('No Escape - the nearest of them is marked.');
+  sound('mark');
 }
 
 // ── Mora's Mantle: the cost and the Eye ─────────────────────────────
@@ -334,18 +452,22 @@ export function setCastCost(entity, sp) {
 export const setAbsorbChance = (target) => tierOf(target, 'mora', 2)?.absorb ?? 0;
 
 // ── the round: "ready again" ────────────────────────────────────────
+// AUDIT SETS L5: each line said only while its tier is worn and awake - "Wrath of the Warden is ready again." was said
+// with the Regalia in the pack - and Iron Hide's only once its ward is spent (it was said over a ward still standing)
 const READY = Object.freeze({
-  unbroken: { at: () => _s.unbrokenReady, line: 'Unbroken is ready again.' },
-  wrath: { at: () => _s.wrathReady, line: 'Wrath of the Warden is ready again.' },
-  eventide: { at: () => _s.eventideReady, line: 'Eventide is ready again.' },
+  unbroken: { at: () => _s.unbrokenReady, line: 'Unbroken is ready again.', set: 'malacath', tier: 2 },
+  wrath: { at: () => _s.wrathReady, line: 'Wrath of the Warden is ready again.', set: 'ruhn', tier: 2 },
+  eventide: { at: () => _s.eventideReady, line: 'Eventide is ready again.', set: 'nocturnal', tier: 2 },
+  ward: { at: () => _s.wardReady, line: 'Iron Hide is ready again.', set: 'orcsbane', tier: 2, spent: () => !(_s.ward > 0) },   // RAID4b
 });
 export function setRound(entity) {
   if (!entity?.isPlayer || entity.peer || !_s.recovering.size) return;
   const now = _now();
   for (const k of [..._s.recovering]) {
-    if (now < READY[k].at()) continue;
+    const r = READY[k];
+    if (now < r.at()) continue;
     _s.recovering.delete(k);
-    if (setsAwake()) say(READY[k].line);
+    if (tierOf(entity, r.set, r.tier) && (!r.spent || r.spent())) say(r.line);
   }
 }
 
@@ -373,6 +495,9 @@ export function setPowerStates(now = _now()) {
     halvedLeft: left(_s.halvedUntil), unbrokenLeft: left(_s.unbrokenReady),
     wrathLeft: left(_s.wrathUntil), wrathRecoverLeft: left(_s.wrathReady),
     eventideLeft: left(_s.eventideReady),
+    // RAID4b: Riposte's window, Blood for Blood's stacks, No Escape's mark, Iron Hide's ward (its points) and recovery
+    riposteLeft: left(_s.riposteUntil), blood: bloodStacks(now), bloodLeft: bloodStacks(now) ? left(_s.bloodUntil) : 0,
+    markLeft: markedFoe(now) ? left(_s.markUntil) : 0, ward: _s.ward, wardRecoverLeft: left(_s.wardReady),
   };
 }
 
@@ -396,9 +521,15 @@ export function setHudChips(entity, now = _now()) {
     else if (st.wrathRecoverLeft) out.push({ key: 'wrath', set: 'ruhn', name: 'Wrath', text: time(st.wrathRecoverLeft), state: 'recovering' });
   }
   if (t.get('nocturnal')?.[2] && st.eventideLeft) out.push({ key: 'eventide', set: 'nocturnal', name: 'Eventide', text: time(st.eventideLeft), state: 'recovering' });
+  // RAID4b: No Escape's mark while it stands; Iron Hide's ward while it holds (its points), else its recovery
+  if (t.get('thieftaker')?.[2] && st.markLeft) out.push({ key: 'mark', set: 'thieftaker', name: 'No Escape', text: time(st.markLeft), state: 'active' });
+  if (t.get('orcsbane')?.[2]) {
+    if (st.ward) out.push({ key: 'ward', set: 'orcsbane', name: 'Iron Hide', text: String(st.ward), state: 'active' });
+    else if (st.wardRecoverLeft) out.push({ key: 'ward', set: 'orcsbane', name: 'Iron Hide', text: time(st.wardRecoverLeft), state: 'recovering' });
+  }
   return out;
 }
 
 /** Tests only: a clock of their own (seconds), and every power fresh. */
 export function _setSetPowersClockForTests(fn) { _now = typeof fn === 'function' ? fn : () => performance.now() / 1000; }
-export function _resetSetPowersForTests() { _s = fresh(); _carry = new WeakMap(); _blow = null; _say = (line) => { hudText(line); }; _sound = null; }
+export function _resetSetPowersForTests() { _s = fresh(); _carry = new WeakMap(); _blow = null; _holdOwed = 0; _say = (line) => { hudText(line); }; _sound = null; }

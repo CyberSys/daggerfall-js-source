@@ -9,7 +9,7 @@
 // defaults without a DOM.
 
 import { appStorage } from './appStorage.js';   // the one storage seam - localStorage lives there alone
-import { onlineForcedModSetting } from './onlineLane.js';   // MODS-ONLINE-2: online, the room's ground is forced and every other switch is the player's
+import { onlineForcedModSetting, onlineWholeModKey } from './onlineLane.js';   // MODS-ONLINE-2: online, the room's ground is forced and every other switch is the player's; REALM P0.2: and the balance mods whole
 import { FOOT_SKIN_COUNT, CLASS_SKINS, classSkinLabel } from '../player/classSkins.js';   // SKIN2: the class skins past the mod's sixteen
 
 const STORE_KEY = 'dfjs-mod-settings';
@@ -62,10 +62,9 @@ export const MOD_SETTINGS = Object.freeze({
     keys: Object.freeze({
       Enabled: Object.freeze({
         default: true,
-        description: 'A name under the crosshair for whatever you are looking at: a person, a shop and the hours it keeps, '
-          + 'a door and its lock level, the dungeon beyond an exit, a lever, a wheel, a ladder, a bookshelf, and a Daedra '
-          + 'waiting to be summoned. The mod\u2019s own ladder, in its own order, worn in the enhanced skin\u2019s dress. Off, the '
-          + 'plaque still lists what a chest or a body holds - that is the port\u2019s own and has no switch.',
+        description: 'A name under the crosshair for what you’re looking at: a person, a shop and its opening hours, a '
+          + 'door and its lock, where an exit leads, a lever, a wheel, a ladder, a bookshelf, a Daedra waiting to '
+          + 'be summoned. With it off, you still see what a chest or body holds.',
       }),
       HideDefaultInteractTooltip: Object.freeze({
         default: false,
@@ -79,9 +78,8 @@ export const MOD_SETTINGS = Object.freeze({
     keys: Object.freeze({
       Enabled: Object.freeze({
         default: true,
-        description: 'RosyTheRascal\u2019s seasonal repaints of the woodland, hills, haunted and mountain trees, rocks and plants '
-          + '- autumn, spring and winter, at the mod\u2019s 3.1x size. The textures come from your own copy of the mod '
-          + 'through the Your own textures pick; without them the classic flats draw.',
+        description: 'Seasonal looks for the trees, rocks and plants: autumn, spring and winter. The textures come from '
+          + 'your own copy of the mod, added through Your own textures; without it the classic sprites are used.',
       }),
     }),
   }),
@@ -102,9 +100,8 @@ export const MOD_SETTINGS = Object.freeze({
     keys: Object.freeze({
       Enabled: Object.freeze({
         default: true,
-        description: 'Hazelnut\u2019s Basic Roads, 1:1: his own road, track, river and stream network for the whole Iliac Bay, '
-          + 'painted onto the terrain as the mod paints it. Off draws the port\u2019s own network instead - generated '
-          + 'from the settlements on your map - so the world keeps its roads either way.',
+        description: 'Hazelnut’s roads, tracks, rivers and streams across the whole Iliac Bay, painted onto the land. Off '
+          + 'uses the port’s own roads, built from the towns on your map, so there are roads either way.',
       }),
       SmoothRoads: Object.freeze({ default: true, description: 'Enables light smoothing of road surfaces, disable for minor extra performance.' }),
       RiversAndStreams: Object.freeze({ default: false, description: 'Enables rendering of rivers and streams on terrain' }),
@@ -121,9 +118,8 @@ export const MOD_SETTINGS = Object.freeze({
     keys: Object.freeze({
       Enabled: Object.freeze({
         default: true,
-        description: 'Kamer’s World of Daggerfall 2.0, 1:1: “Adds details to the wilderness, New Locations, and Dungeon '
-          + 'Exterior detail.” Bandit camps and forts, ruins, shrines, mountains and rock fields across the Iliac Bay, the '
-          + 'ground levelled under each, with their bandits, bears and treasure - and a camp outside Privateer’s Hold.',
+        description: 'More to find in the wilderness: bandit camps and forts, ruins, shrines, mountains and rock fields '
+          + 'across the Iliac Bay, with bandits, bears and treasure, and a camp outside Privateer’s Hold.',
       }),
     }),
   }),
@@ -137,9 +133,8 @@ export const MOD_SETTINGS = Object.freeze({
     keys: Object.freeze({
       Enabled: Object.freeze({
         default: true,
-        description: 'Cliffworms’ Aquatic Sprites 1.0, 1:1: “Adds aquatic sprites to submerged caverns.” The weed, coral '
-          + 'and shells Daggerfall ships and never places, set into three of its flooded dungeon blocks - 119 of them, '
-          + 'drawn from your own game files.',
+        description: 'Seaweed, coral and shells placed in three flooded dungeon blocks. Daggerfall ships these sprites but '
+          + 'never uses them; they come from your own game files.',
       }),
     }),
   }),
@@ -151,9 +146,9 @@ export const MOD_SETTINGS = Object.freeze({
     keys: Object.freeze({
       Enabled: Object.freeze({
         default: true,
-        description: 'Cliffworms’ Detailed Ships 1.0.0, 1:1: “Revamps the interior and exterior of player ships.” Rigging, '
-          + 'crates and barrels, tenders, rudders and railings outside; below decks, quarters for you and the crew, a '
-          + 'kitchen, a cargo hold, an armory and a shrine to Kynareth, with sailors to talk to.',
+        description: 'Your ship, rebuilt inside and out. Outside: rigging, crates and barrels, a small boat, a rudder and '
+          + 'railings. Below deck: quarters for you and the crew, a kitchen, a cargo hold, an armory, a shrine to '
+          + 'Kynareth, and sailors to talk to.',
       }),
     }),
   }),
@@ -166,9 +161,38 @@ export const MOD_SETTINGS = Object.freeze({
     keys: Object.freeze({
       Enabled: Object.freeze({
         default: true,
-        description: 'Kamer\u2019s Warm Ashes - Ships 1.1, 1:1: \u201cEncounters on Ships and Ocean Fast Travel.\u201d Cross the sea by ship '
-          + 'and one voyage in four is ambushed: you are put on your ship\u2019s deck with your crew as pirate vessels close in '
-          + '(a ship is lent if you own none), and once the boarders are beaten you are set ashore where you were bound.',
+        description: 'Sailing somewhere by ship, one trip in four is attacked by pirates. You fight on your own deck with '
+          + 'your crew (a ship is lent to you if you don’t own one), and once the boarders are beaten you land '
+          + 'where you were going.',
+      }),
+    }),
+  }),
+  // RAID1 (2026-09-27): WORLD EVENTS - RAIDING PARTIES 1.1 (Kamer, made for
+  // this port). No modsettings of its own - one script - so one switch.
+  'world-events-raiding-parties': Object.freeze({
+    title: 'World Events - Raiding Parties',
+    author: 'Kamer',
+    keys: Object.freeze({
+      Enabled: Object.freeze({
+        default: true,
+        description: 'Knights, bandits or orcs raid towns across the Bay for two hours at a time. Be there and they come '
+          + 'for you, with the town guard fighting beside you. Beat 15 to 25 of them to free the town and raise '
+          + 'your standing in the region. Made for this port. Online, everyone in the town fights the same raid.',
+      }),
+    }),
+  }),
+  // FORAGE1 (2026-09-28): FORAGING 1.7 (Harbinger451). No modsettings of
+  // its own - six tools, five foods, a quest pack - so one switch.
+  'foraging': Object.freeze({
+    title: 'Foraging',
+    author: 'Harbinger451',
+    keys: Object.freeze({
+      Enabled: Object.freeze({
+        default: true,
+        description: 'Gather in the wilderness: chop wood with a Wood-Axe, mine gems and metals with a Pick-Axe, cut '
+          + 'plants with a Sickle, rob graves with a Spade, fish with a Fishing-Net and forage for food with a '
+          + 'Basket. Only by day, away from towns and enemies, and your attributes, the climate and the season '
+          + 'decide what you find.',
       }),
     }),
   }),
@@ -185,10 +209,9 @@ export const MOD_SETTINGS = Object.freeze({
     keys: Object.freeze({
       Enabled: Object.freeze({
         default: true,
-        description: 'jet082’s Iliac Puddle No More 1.2.2, 1:1: “The Iliac Puddle is now the Iliac Bay.” The sea is carved out '
-          + 'under the water - a seafloor that falls away from every coast, as deep as 250 metres - with a surface you see '
-          + 'from above and below, open-water swimming and your breath to watch, fish, weed and coral, and what lives in '
-          + 'the deep.',
+        description: 'A real sea under the water: the seafloor drops away from every coast, up to 250 metres deep, with '
+          + 'swimming in open water, a breath meter, fish, weed and coral, shipwrecks and sunken loot, and '
+          + 'whatever lives in the deep.',
       }),
       'General.WaterDepth': Object.freeze({ default: 250.0, min: 5.0, max: 250.0, float: true, step: 1, description: 'Maximum water depth' }),
       'General.SpawnWaterSurfaces': Object.freeze({ default: true, description: 'Render visible water surfaces' }),
@@ -221,6 +244,113 @@ export const MOD_SETTINGS = Object.freeze({
       'General.ArgonianInfiniteBreath': Object.freeze({ default: true, description: 'Argonians never drown' }),
     }),
   }),
+  // OH-A (2026-09-26): THERE'S A HOLE IN THE BOTTOM OF THE OCEAN 1.1.0
+  // (jet082). Listed AFTER Iliac Puddle No More, its one non-optional
+  // dependency (DFU Awakes a dependency first). Its one section, General,
+  // restated flat in the shipped order with the shipped defaults, ranges
+  // and descriptions - seven 0..1 sliders, a twentieth a step - plus the
+  // port's `Enabled` (MO1: on). With the sea's own switch off it has no
+  // sea to open (oceanHoles.js reads that switch, as DFU asks ModManager).
+  'ocean-holes': Object.freeze({
+    title: 'There’s a Hole in the Bottom of the Ocean',
+    author: 'jet082',
+    keys: Object.freeze({
+      Enabled: Object.freeze({
+        default: true,
+        description: 'Blue holes in the deep sea lead down to flooded dungeons with better loot. About one open-sea square '
+          + 'in forty-eight has one: a black hole in the seafloor under a cloud of dark mist. Needs Iliac Puddle '
+          + 'No More.',
+      }),
+      'General.PitSpawnRate': Object.freeze({ default: 0.5, min: 0.0, max: 1.0, float: true, step: 0.05, description: 'Pit spawn rate (off at 0, one in 48 at middle, one in 24 at maximum)' }),
+      'General.SurfaceHoleSize': Object.freeze({ default: 0.5, min: 0.0, max: 1.0, float: true, step: 0.05, description: 'Surface hole size' }),
+      'General.SeafloorHoleSize': Object.freeze({ default: 0.5, min: 0.0, max: 1.0, float: true, step: 0.05, description: 'Sea floor hole size' }),
+      'General.MiasmaParticleCount': Object.freeze({ default: 0.5, min: 0.0, max: 1.0, float: true, step: 0.05, description: 'Miasma particle amount' }),
+      'General.MiasmaHeight': Object.freeze({ default: 0.5, min: 0.0, max: 1.0, float: true, step: 0.05, description: 'Miasma plume height' }),
+      'General.DungeonVisualIntensity': Object.freeze({ default: 0.5, min: 0.0, max: 1.0, float: true, step: 0.05, description: 'Underwater dungeon fog intensity' }),
+      'General.DungeonVisualDarkness': Object.freeze({ default: 0.5, min: 0.0, max: 1.0, float: true, step: 0.05, description: 'Underwater dungeon fog and ambient darkness' }),
+    }),
+  }),
+  // CSA-A (2026-09-27): COME SAIL AWAY 2.1 (RedRoryOTheGlen). Its ten
+  // sections as the shipped modsettings.json carries them, section and
+  // name joined with a dot, the shipped defaults and ranges; the four
+  // unnamed spacer sections ("---", "----", "-", "--") carry no keys and
+  // fall between Controls and WindDirectionWidget, Waves and Cargo, Cargo
+  // and Audio, Audio and Handling. The mod wrote six descriptions
+  // (PortLocationSearchRange and five of Map's) and they are the pane's;
+  // the rest are the port's, each saying what ComeSailAway.LoadSettings
+  // does with the key. THREE KEYS THE ASSEMBLY NEVER READS - LoadSettings
+  // takes no Handling.BadTack, no Handling.BadTackMultiplier and no
+  // SailingAssist.AutoStowGaffSails, and nothing else in it does - are
+  // declared as shipped, so a player's file keeps them, and do nothing,
+  // as in DFU. The nine Controls keys are Unity KeyCode names (`text`);
+  // each becomes a registry action (systems/inputActions.js MOD_ACTIONS)
+  // with the slice that reads it. Plus the port's `Enabled` (MO1: on).
+  'come-sail-away': Object.freeze({
+    title: 'Come Sail Away',
+    author: 'RedRoryOTheGlen',
+    keys: Object.freeze({
+      Enabled: Object.freeze({
+        default: true,
+        description: 'Own and sail your own boat. Buy it as parts or as a deed, put it in the water (the deed near a port) '
+          + 'and take the helm: row with the oars or raise the sails and trim them to the wind, then pack it up '
+          + 'to take with you. It carries what you and your cart carry, and it shows on the travel map.',
+      }),
+      'Controls.Disembark': Object.freeze({ default: 'C', text: true, description: 'Leave the helm (the Transport key does too).' }),   // CSA-D / KB1: not read by the mod any more - the key is the registry's action (inputActions.js MOD_ACTIONS); a player's saved value is carried there once (migrateKeyBinds)
+      'Controls.ToggleSail': Object.freeze({ default: 'Space', text: true, description: 'Raise or stow the sails at the helm.' }),   // CSA-E / KB1: not read by the mod any more - the key is the registry's action (inputActions.js MOD_ACTIONS); a player's saved value is carried there once (migrateKeyBinds)
+      'Controls.ToggleLight': Object.freeze({ default: 'Period', text: true, description: 'Light or douse the boat’s lanterns at the helm.' }),   // CSA-D / KB1: not read by the mod any more - the key is the registry's action (inputActions.js MOD_ACTIONS); a player's saved value is carried there once (migrateKeyBinds)
+      'Controls.IncreaseTimeScale': Object.freeze({ default: 'KeypadPlus', text: true, description: 'Speed time up at the helm.' }),
+      'Controls.DecreaseTimeScale': Object.freeze({ default: 'KeypadMinus', text: true, description: 'Slow time back down at the helm.' }),
+      'Controls.ResetTimeScale': Object.freeze({ default: 'KeypadEnter', text: true, description: 'Return time to its own speed at the helm.' }),
+      'Controls.TrimRight': Object.freeze({ default: 'RightBracket', text: true, description: 'Hold to trim the sails to the right (with Sailing Assist’s auto trimming off).' }),   // CSA-E / KB1: not read by the mod any more - the key is the registry's action (inputActions.js MOD_ACTIONS); a player's saved value is carried there once (migrateKeyBinds)
+      'Controls.TrimLeft': Object.freeze({ default: 'LeftBracket', text: true, description: 'Hold to trim the sails to the left (with Sailing Assist’s auto trimming off).' }),   // CSA-E / KB1: not read by the mod any more - the key is the registry's action (inputActions.js MOD_ACTIONS); a player's saved value is carried there once (migrateKeyBinds)
+      'Controls.TrimModifier': Object.freeze({ default: 'Backslash', text: true, description: 'Hold with a trim key to trim the square sails instead; hold with Toggle Sail to raise or stow the square sails alone.' }),   // CSA-E / KB1: not read by the mod any more - the key is the registry's action (inputActions.js MOD_ACTIONS); a player's saved value is carried there once (migrateKeyBinds)
+      'Controls.PortLocationSearchRange': Object.freeze({ default: 3, min: 1, max: 10, description: 'How far from the player\'s current location a port can be detected' }),
+      'WindDirectionWidget.Enable': Object.freeze({ default: true, description: 'Show the wind’s direction on screen at the helm.' }),
+      'WindDirectionWidget.Position': Object.freeze({ default: Object.freeze([0.5, 0.5]), tuple: 'float', description: 'Where the widget sits on the screen, across and down.' }),
+      'WindDirectionWidget.Scale': Object.freeze({ default: 1, min: 0, max: 2, float: true, description: 'The widget’s size.' }),
+      'WindDirectionWidget.ScalingMode': Object.freeze({ default: 0, options: Object.freeze(['DoNotScale', 'ScreenHeight', 'ScreenDimensions']), description: 'Whether the widget grows with the screen.' }),
+      'WindDirectionWidget.Color': Object.freeze({ default: '#ffffffff', color: true, description: 'The widget’s colour.' }),
+      'Waves.Enable': Object.freeze({ default: true, description: 'Draw the waves breaking along the coasts around you, and let the sea carry a boat on its current.' }),
+      'Waves.Distance': Object.freeze({ default: 2, min: 1, max: 4, description: 'How many map pixels round yours the waves are laid in, each way.' }),
+      'Waves.Length': Object.freeze({ default: 1.5, min: 0, max: 2, float: true, description: 'How far out the waves reach before they end.' }),
+      'Waves.Fade': Object.freeze({ default: 0.8, min: 0, max: 1, float: true, description: 'Where along their reach the waves start to fade.' }),
+      'Waves.Speed': Object.freeze({ default: 100, min: 0, max: 200, description: 'How fast the waves animate - read in whole hundreds, as the mod reads it (an integer division): under 100 at half speed, 100 to 199 at its own, 200 a new frame every frame.' }),
+      'Cargo.CargoThreshold': Object.freeze({ default: 500, min: 0, max: 2000, description: 'The weight a boat carries before it slows.' }),
+      'Cargo.PlayerCarriedWeight': Object.freeze({ default: true, description: 'Count what you carry as cargo.' }),
+      'Cargo.CartCarriedWeight': Object.freeze({ default: true, description: 'Count what your cart carries as cargo.' }),
+      'Cargo.PlayerWeight': Object.freeze({ default: true, description: 'Count your own weight as cargo.' }),
+      'Cargo.CartItem': Object.freeze({ default: false, description: 'Count the cart itself as cargo.' }),
+      'Cargo.HorseItem': Object.freeze({ default: false, description: 'Count the horse itself as cargo.' }),
+      'Audio.SoundVolume': Object.freeze({ default: 0.5, min: 0, max: 1, float: true, description: 'The boat’s sounds: the hull, the oars, the sea.' }),
+      'Handling.OarMoveSpeed': Object.freeze({ default: 1, min: 0, max: 10, float: true, description: 'Top speed under oars.' }),
+      'Handling.OarMoveAcceleration': Object.freeze({ default: 1, min: 0, max: 10, float: true, description: 'How quickly the oars reach it.' }),
+      'Handling.OarTurnSpeed': Object.freeze({ default: 1, min: 0, max: 10, float: true, description: 'Top turning speed under oars.' }),
+      'Handling.OarTurnAcceleration': Object.freeze({ default: 1, min: 0, max: 10, float: true, description: 'How quickly the oars turn the boat.' }),
+      'Handling.SailMoveSpeed': Object.freeze({ default: 1, min: 0, max: 10, float: true, description: 'Top speed under sail.' }),
+      'Handling.SailMoveAcceleration': Object.freeze({ default: 1, min: 0, max: 10, float: true, description: 'How quickly the sails reach it.' }),
+      'Handling.SailTurnSpeed': Object.freeze({ default: 1, min: 0, max: 10, float: true, description: 'Top turning speed under sail.' }),
+      'Handling.SailTurnAcceleration': Object.freeze({ default: 1, min: 0, max: 10, float: true, description: 'How quickly the sails turn the boat.' }),
+      'Handling.BadTack': Object.freeze({ default: false, description: 'Shipped with the mod; its assembly never reads it.' }),
+      'Handling.BadTackMultiplier': Object.freeze({ default: 0.8, min: 0, max: 1, float: true, description: 'Shipped with the mod; its assembly never reads it.' }),
+      'SailingAssist.AutoTrimming': Object.freeze({ default: true, description: 'Trim the sails to the wind for you.' }),
+      'SailingAssist.AutoStowSquareSails': Object.freeze({ default: true, description: 'Stow the square sails for you when you head into the wind.' }),
+      'SailingAssist.AutoStowGaffSails': Object.freeze({ default: true, description: 'Shipped with the mod; its assembly never reads it.' }),
+      'Compatibility.AnimatedWaterVertexWaves': Object.freeze({ default: false, description: 'With Animated Water loaded, ride its vertex waves instead of drawing the mod’s own waves. INERT here: Animated Water is not in the port, so the mod’s own waves always draw (CSA-J).' }),
+      // KEEP-BOATS (2026-09-30, Mac: ship ownership "less punishing" - "Keep boats & cargo"): A DEPARTURE FROM THE
+      // MOD'S SHIPPED DEFAULT. The mod ships it off, and off a boat placed in a dungeon was destroyed once the player
+      // was back outside - a packable one and its hold for good, a crewed one's hold with it (UpdateBoatVisibility).
+      // The port ships it ON; the switch stays the player's. Pinned: test/csa_registration.test.js DEPARTED.
+      'Compatibility.PersistentDungeonBoats': Object.freeze({ default: true, description: 'Keep a boat placed indoors or underground when you leave it (off, it is gone once you are back outside).' }),
+      'Map.RestrictPositionReadingTime': Object.freeze({ default: true, description: 'Position can only be viewed around midday and midnight' }),
+      'Map.RestrictPositionReadingWeather': Object.freeze({ default: true, description: 'Position can only be viewed in Sunny or Cloudy weather' }),
+      'Map.ClickRangeThreshold': Object.freeze({ default: 5, min: 1, max: 10, description: 'How near the pointer must come to a marker on the position reading, in map pixels, to name it or pick it.' }),
+      'Map.PositionLineThickness': Object.freeze({ default: 2, min: 0, max: 5, description: 'Additional pixels on each side of the position line' }),
+      'Map.MarkerThickness': Object.freeze({ default: 2, min: 1, max: 5, description: 'Additional pixels around the map marker' }),
+      'Map.MarkerOutlineThickness': Object.freeze({ default: 2, min: 0, max: 5, description: 'Thickness of the marker outline in pixels' }),
+      'Map.BackdropOpacity': Object.freeze({ default: 50, min: 0, max: 100, description: 'How dark the screen behind the position reading is, in percent.' }),
+      'Debug.ShowValues': Object.freeze({ default: false, description: 'Show the boat’s speed, the speed it is making for and the wind’s strength on screen.' }),
+    }),
+  }),
   // MM1: MEANER MONSTERS 1.5.2 (Ralzar). No modsettings of its own -
   // `Enabled` alone (DFU enables a mod by listing it). Listed BEFORE
   // the overhaul because the overhaul names it as a dependency and so
@@ -231,9 +361,9 @@ export const MOD_SETTINGS = Object.freeze({
     keys: Object.freeze({
       Enabled: Object.freeze({
         default: true,
-        description: 'Ralzar\u2019s Meaner Monsters 1.5.2, 1:1: \"Buffs many monsters. Debuffs rats, bats and zombies.\" Twenty '
-          + 'monsters\u2019 damage, health, level and armour rewritten, the werebeasts and the dragonling drawn larger. '
-          + 'With Physical Combat And Armor Overhaul also on, its own edit of these numbers takes over.',
+        description: 'Many monsters hit harder and take more to kill; rats, bats and zombies are weaker. Twenty monsters '
+          + 'are changed, and werebeasts and the dragonling are bigger. With Physical Combat And Armor Overhaul '
+          + 'also on, that mod’s version of these changes is used.',
       }),
     }),
   }),
@@ -251,12 +381,17 @@ export const MOD_SETTINGS = Object.freeze({
     keys: Object.freeze({
       Enabled: Object.freeze({
         default: true,
-        description: 'Kirk.O\u2019s Physical Combat And Armor Overhaul 1.44, 1:1: armour reduces the damage you take instead of '
-          + 'your chance to be hit, skills decide the hit, weapons and shields wear and block by their material, and '
-          + 'critical strikes multiply damage. Off returns Daggerfall Unity\u2019s own combat formulas.',
+        description: 'Armour reduces the damage you take instead of your chance to be hit, your skills decide whether you '
+          + 'hit, shields block according to their material, and critical hits multiply '
+          + 'damage. Off uses Daggerfall Unity’s combat.',
       }),
-      equipmentDamageEnhanced: Object.freeze({ default: true, description: 'Equipment condition damage is increased significantly, the amount of wear your equipment takes is based on many different factors; Material, Damage Source, Etc' }),
-      fadingEnchantedItems: Object.freeze({ default: true, description: 'Enchanted Weapons and Armor will be destroyed upon breaking from physical combat. !!!! This Module Is Dependent On Equipment Damage Enhanced' }),
+      // WEAR-VANILLA (2026-10-01, the repair triage: "Disable the modded feature that increases durability loss.
+      // Vanilla values work fine"): the mod ships its two wear modules ON, the port ships them OFF - a blow wears gear
+      // at Daggerfall Unity's own rate (combat/formulas.js damageEquipment) and a broken enchanted piece stays,
+      // repairable. Online the room reads these defaults (onlineLane.js ONLINE_WHOLE_MODS); offline they stay the
+      // player's. A value saved under the old default is let go once (SWITCH_RESETS). Port-Ledger, WEAR-VANILLA.
+      equipmentDamageEnhanced: Object.freeze({ default: false, description: 'Equipment condition damage is increased significantly, the amount of wear your equipment takes is based on many different factors; Material, Damage Source, Etc' }),
+      fadingEnchantedItems: Object.freeze({ default: false, description: 'Enchanted Weapons and Armor will be destroyed upon breaking from physical combat. !!!! This Module Is Dependent On Equipment Damage Enhanced' }),
       fixedStrengthDamageModifier: Object.freeze({ default: true, description: 'Fixes a bug in DFU 0.10.21, the strength modifier for damage is double what classic had. This module fixes that, so 10 points = +1, instead of 10 points = +2' }),
       armorHitFormulaRedone: Object.freeze({ default: true, description: 'Armor no longer increases your chance to avoid damage, but instead reduces the damage that you do take in physical combat. The readme and mod-page provided goes into great detail if desired' }),
       criticalStrikesIncreaseDamage: Object.freeze({ default: true, description: 'Critical Strikes Increase Damage, not just hit-chance. !!!! This Module Is Dependent On Armor Hit Formula Redone' }),
@@ -275,9 +410,9 @@ export const MOD_SETTINGS = Object.freeze({
     keys: Object.freeze({
       Enabled: Object.freeze({
         default: true,
-        description: 'Ralzar\u2019s Unleveled Loot 1.1.2, 1:1: \"Makes loot and shop stock materials not scale to your level.\" '
-          + 'Materials roll by your luck, the shop\u2019s quality and the dungeon\u2019s kind; a corpse\u2019s gold '
-          + 'follows your luck rather than your level. Off returns Daggerfall Unity\u2019s own rolls.',
+        description: 'Loot and shop stock no longer scale with your level. What materials drop depends on your luck, the '
+          + 'shop’s quality and the type of dungeon, and the gold you find follows your luck. Off uses Daggerfall '
+          + 'Unity’s rolls.',
       }),
       ...Object.fromEntries(['Iron', 'Steel', 'Silver', 'Elven', 'Dwarven', 'Mithril', 'Adamantium', 'Ebony', 'Orcish', 'Daedric'].map((name, i) => [name, Object.freeze({
         default: i,
@@ -317,9 +452,9 @@ export const MOD_SETTINGS = Object.freeze({
     keys: Object.freeze({
       Enabled: Object.freeze({
         default: true,
-        description: 'RealAKP\u2019s Diverse Weapons 1.7.3: a first-person sprite set for every weapon, in every metal, plain and '
-          + 'enchanted, where the classic art has one per weapon class - a longsword no longer swings the broadsword\u2019s '
-          + 'sprite. The sprites ship with the port; a newer version\u2019s .dfmod attached through the textures pick wins over them.',
+        description: 'A different first-person look for every weapon in every metal, plain and enchanted, instead of one '
+          + 'per weapon type. A longsword no longer looks like a broadsword. Comes with the port; a newer version '
+          + 'added through Your own textures replaces it.',
       }),
       WeaponWidgetPreset: Object.freeze({
         default: false,   // DISC16-B (2026-09-24, Mac: "I just want it how it was before diverse weapons"): OFF, as at DW1 - the mod's sprites move with Weapon Widget's own defaults, as every weapon did before the mod; the preset (its step, inertia, true size and 142 bob) is the player's to choose. DW-CLIP ("mod should be defaulted on") had it on, DISC14-B off with two departures of its own
@@ -339,8 +474,8 @@ export const MOD_SETTINGS = Object.freeze({
     keys: Object.freeze({
       Enabled: Object.freeze({
         default: true,
-        description: 'Hazelnut and Ralzar\u2019s Roleplay & Realism: Items 1.3, 1:1: two new weapons and a light and a medium armor set '
-          + 'in every metal, and the mod\u2019s changes to what items weigh and cost. Its modules below are the mod\u2019s own switches.',
+        description: 'Two new weapons, a light and a medium armour set in every metal, and changes to what items weigh and '
+          + 'cost. Its options below are the mod’s own.',
       }),
       lootRebalance: Object.freeze({ default: true, description: 'Rebalances loot on mobs and in piles' }),
       bandaging: Object.freeze({ default: true, description: 'Allows bandages to stack, and to be used for healing based on medical skill' }),
@@ -361,10 +496,11 @@ export const MOD_SETTINGS = Object.freeze({
     keys: Object.freeze({
       Enabled: Object.freeze({
         default: true,
-        description: 'Hazelnut\u2019s Roleplay & Realism 1.8, 1:1: bows by their draw, no climbing with a weapon out, swing speed and material to-hit '
-          + 'moderated, armor worn by the blow, bank loans by level, ships from ports only, an encumbrance penalty, lights doused leaving a dungeon, '
-          + 'purification that cures poison, class enemies remixed, the underworld guilds expelling with prejudice, a bed you can click to sleep in. '
-          + 'The modules below are the mod\u2019s own switches.',
+        description: 'Realism changes: bows by draw weight, no climbing with a weapon out, fairer swing speed and hit '
+          + 'chance, bank loans by level, ships only from ports, a heavy-load '
+          + 'penalty, lights out when you leave a dungeon, purification that cures poison, reworked class '
+          + 'enemies, harsher guild expulsions, and beds you can click to sleep in. Its options below are the '
+          + 'mod’s own.',
       }),
       // the mod's own descriptions (modsettings.json, Modules)
       bedSleeping: Object.freeze({ default: true, description: 'Allows sleep to be initiated by clicking on a bed.' }),
@@ -376,7 +512,7 @@ export const MOD_SETTINGS = Object.freeze({
       climbingRestriction: Object.freeze({ default: true, description: 'Prevents climbing with a weapon drawn.' }),
       weaponSpeed: Object.freeze({ default: true, description: 'Moderates DPS of weapons for characters with high speed attributes.' }),
       weaponMaterials: Object.freeze({ default: true, description: 'Moderates the to-hit bonuses of weapon materials so skill remains key factor' }),
-      equipDamage: Object.freeze({ default: true, description: 'Increases equipment damage proportional to max condition.' }),
+      equipDamage: Object.freeze({ default: false, description: 'Increases equipment damage proportional to max condition.' }),   // WEAR-VANILLA (2026-10-01): the mod ships it ON (armour x5), the port OFF - see the overhaul's wear modules above; the room's too (onlineLane.js)
       enemyAppearance: Object.freeze({ default: true, description: 'Remixes human enemy appearance based on class' }),
       purificationPotion: Object.freeze({ default: true, description: 'Changes purification potion to cure poison rather than grant invisibility' }),
       autoExtinguishLight: Object.freeze({ default: true, description: 'Automatically extinguish any light sources when you exit a dungeon' }),
@@ -404,8 +540,8 @@ export const MOD_SETTINGS = Object.freeze({
     keys: Object.freeze({
       Enabled: Object.freeze({
         default: true,
-        description: 'A shield in the first-person view, which classic Daggerfall never drew: the one in your hand, in its own '
-          + 'metal, battering as it wears and moving aside when you sheathe, swing or cast.',
+        description: 'See your shield in first person, which classic Daggerfall never shows. It is drawn in its own metal, '
+          + 'gets battered as it wears, and moves out of the way when you sheathe, swing or cast.',
       }),
       'Shield.Scale': Object.freeze({ default: 1.0, min: 0.8, max: 1.2, float: true, step: 0.1, description: 'Size of the sprite' }),
       'Shield.OffsetHorizontal': Object.freeze({ default: 0.5, min: -1.0, max: 1.0, float: true, step: 0.1, description: 'Offsets the sprite relative to the left edge of the screen' }),
@@ -451,9 +587,9 @@ export const MOD_SETTINGS = Object.freeze({
     keys: Object.freeze({
       Enabled: Object.freeze({
         default: true,
-        description: 'RedRoryOTheGlen\u2019s Weapon Widget 1.6, 1:1: the first-person weapon sprite handled anew - swings that '
-          + 'wind up and recover, the sprite in the hand you swing with, a sheathe, a walking bob, look inertia and a '
-          + 'recoil on a hit or a parry. The same channels move the Morrowind arms.',
+        description: 'Livelier first-person weapons: swings that wind up and recover, the weapon in the hand you swing '
+          + 'with, a sheathe animation, a bob as you walk, sway as you look and a kick when you hit or parry. The '
+          + 'Morrowind arms move the same way.',
       }),
       'Modules.Swings': Object.freeze({ default: true, description: 'Swings: the strike winds up from the idle pose, plays at its own speed, and recovers - in reverse after a hit.' }),
       'Modules.Ambidexterity': Object.freeze({ default: true, description: 'Ambidexterity: the sprite is drawn in the hand you are swinging with (H), mirrored for the left.' }),
@@ -511,9 +647,9 @@ export const MOD_SETTINGS = Object.freeze({
     keys: Object.freeze({
       Enabled: Object.freeze({
         default: true,
-        description: 'RedRoryOTheGlen\u2019s Handheld Torches 1.4.1, 1:1: a lit torch, candle or lantern needs a free hand, with '
-          + 'keys to ignite, drop or throw one (a thrown torch can set a foe alight). A first-person hand holds the '
-          + 'light, and a dropped torch burns on the ground, lights the room and can be picked up.',
+        description: 'A lit torch, candle or lantern needs a free hand. You get keys to light, drop or throw one (a thrown '
+          + 'torch can set an enemy on fire). You see the light in your hand in first person, and a dropped torch '
+          + 'keeps burning, lights the room and can be picked up again.',
       }),
       // SOC5 (2026-09-16, Mac: "Players should be able to interact with others
       // in the world upon encountering them by pressing F on their body"): THE
@@ -660,10 +796,9 @@ export const MOD_SETTINGS = Object.freeze({
     keys: Object.freeze({
       Enabled: Object.freeze({
         default: true,
-        description: 'Regnier\u2019s Ambient Text 1.8, 1:1: an unobtrusive line about where you are, now and then, in the '
-          + 'corner of the screen - what a crypt smells of, what a village sounds like at night, what the desert does '
-          + 'to the light. It reads where you stand, the hour and the weather, and says nothing at all indoors. Off is '
-          + 'silence.',
+        description: 'Now and then, a short line in the corner about where you are: what a crypt smells like, what a '
+          + 'village sounds like at night, how the desert light looks. It depends on the place, the time and the '
+          + 'weather, and stays quiet indoors.',
       }),
       textChance: Object.freeze({ default: 33, min: 0, max: 100, description: 'Chance % of selecting any ambient text each interval' }),
       interval: Object.freeze({ default: 200, min: 60, max: 600, description: 'Interval length between checking ambient text in real time seconds' }),
@@ -687,12 +822,12 @@ export const MOD_SETTINGS = Object.freeze({
     keys: Object.freeze({
       Enabled: Object.freeze({
         default: true,
-        description: 'RedRoryOTheGlen\u2019s Eye Of The Beholder 2.1 (the camera and the sprite; its attack and death animations are not ported): third person without Morrowind data. Scroll out '
-          + 'and the camera swings behind your shoulder, clearing walls on its own; you are drawn as the mod\u2019s own '
-          + 'sprite, eight ways round, with idle, walk, attack and spell states on foot and in the saddle. Off keeps '
-          + 'you in first person unless you have the Morrowind body.',
+        description: 'Third person without Morrowind data. Scroll out and the camera moves behind your shoulder and keeps '
+          + 'clear of walls. You are drawn as the mod’s character sprite, from all sides, standing, walking, '
+          + 'attacking and casting, on foot and on horseback. Its attack and death animations aren’t included. '
+          + 'Off keeps you in first person unless you use the Morrowind body.',
       }),
-      'Camera.StartInThirdPerson': Object.freeze({ default: true, description: 'Determines the POV when starting or loading a game' }),
+      'Camera.StartInThirdPerson': Object.freeze({ default: false, description: 'Determines the POV when starting or loading a game' }),
       'Camera.FrontalPlaneOffset': Object.freeze({ default: Object.freeze([0.0, 0.5]), tuple: 'float', description: 'Moves the camera position on the X and Y axes' }),
       'Camera.LongitudinalDistance': Object.freeze({ default: 2.0, min: 1, max: 10, float: true, description: 'Moves the camera position nearer or further to the player' }),
       'Camera.MinimumDistance': Object.freeze({ default: 0.8, min: 0, max: 1, float: true, description: 'Prevents the camera from moving too close to the player. Value is a fraction of the Z offset.' }),
@@ -802,7 +937,7 @@ export const MOD_SETTINGS = Object.freeze({
     keys: Object.freeze({
       Enabled: Object.freeze({
         default: true,
-        description: 'Kirk.O\u2019s Immersive Footsteps 1.01, 1:1: footsteps by the ground you walk on, armour that sways as you move.',
+        description: 'Footsteps that match the ground you walk on, and armour that rattles as you move.',
       }),
       'AudioQualitySettings.SoundClipQuality': Object.freeze({ default: 0, options: Object.freeze(['Low-Quality (Retro)', 'High-Quality']), description: 'What Quality Sound-Clips Get Used' }),
       'FootstepSettings.AllowFootstepSounds': Object.freeze({ default: true, description: 'If Player Footsteps Should Make A Sound || Default = True' }),
@@ -848,7 +983,8 @@ export const MOD_SETTINGS = Object.freeze({
     keys: Object.freeze({
       Enabled: Object.freeze({
         default: true,
-        description: 'Joshua Steinhauer\u2019s Better Ambience 0.1.4, 1:1: the camera shakes when you are hurt, a dungeon gets its own fog, light and echo, and rain is heard indoors.',
+        description: 'The camera shakes when you’re hurt, each dungeon gets its own fog, light and echo, and you can hear '
+          + 'rain indoors.',
       }),
       'Better Footsteps.enable': Object.freeze({ default: false, description: 'Enables better footsteps module' }),
       'Better Footsteps.armorVolume': Object.freeze({ default: 1.0, min: 0.0, max: 2.0, float: true, step: 0.1, description: 'Volume for armor clanking' }),
@@ -901,7 +1037,8 @@ export const MOD_SETTINGS = Object.freeze({
     keys: Object.freeze({
       Enabled: Object.freeze({
         default: true,
-        description: 'Oblivion Remastered’s leveling in place of Daggerfall’s: every skill you raise fills a 100-point bar, and levelling up hands you a purse of virtues to spend where you choose. New characters are asked which system they want.',
+        description: 'Level up like Oblivion Remastered: every skill you raise fills a 100-point bar, and each level gives '
+          + 'you virtues to spend on the attributes you choose. New characters are asked which system they want.',
       }),
       attributePoints: Object.freeze({ default: 12, min: 0, max: 60, description: 'Amount of points for increasing attributes' }),
       maxUpdatableAttribute: Object.freeze({ default: 3, min: 2, max: 8, description: 'The number of attributes to be increased in one level up' }),
@@ -934,10 +1071,9 @@ export const MOD_SETTINGS = Object.freeze({
     keys: Object.freeze({
       Enabled: Object.freeze({
         default: true,
-        description: 'Hazelnut\u2019s Travel Options 1.11, 1:1: the travel map and its popup decide between Daggerfall\u2019s own '
-          + 'fast travel and a TIME ACCELERATED journey you actually walk - the world streaming past at up to sixty times speed, '
-          + 'with a control panel to steer it, encounters and locations pausing it, and roads and tracks to follow. Off returns '
-          + 'the classic travel map and fast travel alone.',
+        description: 'Choose between Daggerfall’s fast travel and a journey you actually travel, sped up to sixty times, '
+          + 'with a panel to steer it. Encounters and places along the way stop you, and you can follow the '
+          + 'roads. Off brings back the classic travel map and fast travel only.',
       }),
       'CautiousTravel.PlayerControlledCautiousTravel': Object.freeze({ default: true, description: "Enables the travel option \"Cautiously\" to initiate time accelerated travel, instead of vanilla fast travel" }),
       'CautiousTravel.SpeedPenalty': Object.freeze({ default: 20, min: 5, max: 40, description: "Speed penalty for travelling cautiously, as a percentage" }),
@@ -948,7 +1084,7 @@ export const MOD_SETTINGS = Object.freeze({
       // you to a destination and theres no travel". DEPARTURE FROM THE
       // MOD'S SHIPPED DEFAULT, on Mac's word, and it is the whole of that
       // report. IsPlayerControlledTravel is an AND over three toggles
-      // (travelPopUp.js:183): `(cautiousTravel || !speedCautious) &&
+      // (travelPopUp.js:191): `(cautiousTravel || !speedCautious) &&
       // (stopAtInnsTravel || !sleepModeInn) && !travelShip`. The popup
       // opens with `sleepModeInn = true` - classic Daggerfall's own
       // default, stopping at inns - so with this key false the second
@@ -974,6 +1110,19 @@ export const MOD_SETTINGS = Object.freeze({
       // walls and rocks and pauses short of what it cannot pass
       // (systems/travelSteer.js). OFF: the mod's own beeline, exactly.
       'GeneralOptions.AvoidObstacles': Object.freeze({ default: true, description: 'Steers time accelerated travel around buildings, walls and rocks, and pauses the journey before walking into one it cannot get round. (This port’s own switch - the mod has none.)' }),
+      // OW-TOGGLE (2026-09-28, Mac: "bring back the original travel option as a toggle. Off by default." - "The normal
+      // first person travel accelerated was removed in favor of the overworld travel"): THE PORT'S OWN KEY on the mod's
+      // pane, as AvoidObstacles is. ON: a journey is the mod's own, walked in first person as before OW-ONLY - a map
+      // pick begins it on the ground, the view does not rise with it and coming down does not stop it
+      // (scenes/world.js tvOwnsJourneys, which reads it live - AUDIT OW5 T1). OFF, the default: OW-ONLY.
+      'GeneralOptions.FirstPersonTravel': Object.freeze({ default: false, description: 'Walks time accelerated journeys in first person, as before the Overworld: a journey picked on the travel map runs on the ground, and the Overworld view neither rises with it nor stops it when brought down. Off, a journey on the enhanced interface is taken in the Overworld. Takes effect at once. (This port’s own switch - the mod has none.)' }),
+      // TO-ROADS (FIELD BUGS 2026-09-29d, SylviaBun on the Discord: "Travel Options First Person doesn't follow roads like
+      // Overworld Travel Options does" - "A way to toggle this behavior to match or not would be nice"): THE PORT'S OWN
+      // KEY beside First-Person Travel, the same shape - not in the vendored modsettings.json, on the tile, read live. ON,
+      // with First-Person Travel on: a journey picked on the travel map is the Overworld's route - its planner, its legs,
+      // its refusals (scenes/world.js tvRoutesJourneys) - walked in first person, the view not raised. OFF, the default:
+      // First-Person Travel is the mod's own straight journey, the original travel option Mac asked back.
+      'GeneralOptions.FirstPersonTravelFollowsRoads': Object.freeze({ default: false, description: 'With First Person Travel on, a journey picked on the travel map follows the roads and tracks as the Overworld’s journeys do - planned round the mountains, and refused where no way by land reaches - and is walked in first person, the Overworld view not raised. Off, it walks straight to its destination, as Travel Options does. Takes effect at once. (This port’s own switch - the mod has none.)' }),
       'TimeAcceleration.DefaultStartingAcceleration': Object.freeze({ default: 4, options: Object.freeze(["1", "2", "3", "5", "10", "15", "20", "25", "30", "40", "50"]), description: "The initial time acceleration used after starting the game" }),
       'TimeAcceleration.AlwaysUseStartingAcceleration': Object.freeze({ default: false, description: "Always uses the default starting acceleration when initiating a journey, rather than value from the previous journey" }),
       'TimeAcceleration.AccelerationLimit': Object.freeze({ default: 60, min: 10, max: 100, description: "The maximum limit allowed for time acceleration, road following is limited to half this amount" }),
@@ -1055,9 +1204,9 @@ export const MOD_SETTINGS = Object.freeze({
     keys: Object.freeze({
       Enabled: Object.freeze({
         default: true,
-        description: 'demifiend000\u2019s Horse Cart and Cargo 1.0.0-rc12, 1:1: your horse and wagon stand in the world - '
-          + 'left where you dismount, following or waiting on command, hitched and mounted by walking up to them. '
-          + 'Online, the others see them where you left them.',
+        description: 'Your horse and cart stay in the world: they wait where you get off, follow you or stay on command, '
+          + 'and you hitch or mount them by walking up to them. Online, other players see them where you left '
+          + 'them.',
       }),
       'Persistence.PhysicalPersistence': Object.freeze({ default: true, description: 'Physical Horse & Wagon Persistence. On: horse and wagon positions persist when left behind. Off: remote positions are forgotten and owned transport is recalled for vanilla-style transport and wagon access; the moving trailing wagon remains. Re-enabling starts fresh with owned transport at the player.' }),
       'Presentation.ShowTrailingWagon': Object.freeze({ default: true, description: 'Trailing Wagon While Riding. When disabled, hides only the wagon that trails behind you in Cart mode. Deployed and following wagons, cargo storage, physical persistence, and wagon gameplay remain enabled.' }),
@@ -1102,6 +1251,10 @@ export const KEY_MIGRATIONS = Object.freeze([
  *  KEY_MIGRATIONS, which can only match a value. A file that never mentioned the mod is not grown one. */
 export const SWITCH_RESETS = Object.freeze([
   Object.freeze({ vendor: 'diverse-weapons', key: 'WeaponWidgetPreset', stamp: 'WeaponWidgetPreset@DISC20' }),
+  // WEAR-VANILLA (2026-10-01): the three wear switches that moved to off
+  Object.freeze({ vendor: 'pcaao', key: 'equipmentDamageEnhanced', stamp: 'equipmentDamageEnhanced@WEAR-VANILLA' }),
+  Object.freeze({ vendor: 'pcaao', key: 'fadingEnchantedItems', stamp: 'fadingEnchantedItems@WEAR-VANILLA' }),
+  Object.freeze({ vendor: 'roleplay-realism', key: 'equipDamage', stamp: 'equipDamage@WEAR-VANILLA' }),
 ]);
 /** FGH2H-R (2026-09-24, Mac: "retire it"): A SWITCH TAKEN OFF THE PANE. Roleplay & Realism's
  *  fightersTeachHandToHand swapped Giantish for HandToHand in the Fighters Guild's lists; FGH2H put HandToHand in the
@@ -1249,14 +1402,35 @@ export function modSettingIfDeclared(vendor, key) {
 const declaredKey = (vendor, key) =>
   (Object.hasOwn(MOD_SETTINGS, vendor) && Object.hasOwn(MOD_SETTINGS[vendor].keys, key) ? MOD_SETTINGS[vendor].keys[key] : undefined);
 
+/** REALM P0.2: THE VALUE A KEY READS ONLINE WHEN THE ROOM OWNS IT - its room value (onlineLane.js
+ *  ONLINE_ROOM_MOD_KEYS), or for a balance mod the room owns whole (ONLINE_WHOLE_MODS) its shipped default - else
+ *  undefined. One home for the three readers: modSetting below, the Mods pane's lock and the offline sync's copy. */
+export function onlineModSetting(vendor, key, search) {
+  const room = onlineForcedModSetting(vendor, key, search);
+  if (room !== undefined) return room;
+  const def = declaredKey(vendor, key);
+  return def && onlineWholeModKey(vendor, key, search) ? def.default : undefined;
+}
+
 export function modSetting(vendor, key) {
   const def = declaredKey(vendor, key);
   if (!def) throw new Error(`modSetting: ${vendor}/${key} is not a declared switch`);
-  const forced = onlineForcedModSetting(vendor, key);   // MODS-ONLINE-2: online, a key the room's ground depends on reads the room's value and the store is not written
+  const forced = onlineModSetting(vendor, key);   // MODS-ONLINE-2: online, a key the room's ground depends on reads the room's value and the store is not written; REALM P0.2: and a balance mod's every key its shipped default
   if (forced !== undefined) return forced;
   const v = load()[vendor]?.[key];
   return v === undefined ? def.default : coerce(def, v);
 }
+
+/**
+ * AUDIT PRE-MERGE 0928 S4: A MOD LOADED FOR THE GAME. A mod whose tile says it takes effect when the game (or the world)
+ * next loads is loaded or not for the game, as DFU's mods are: the host that builds it reads its switch once, at its
+ * mount, and latches the answer here. The mod's other doors - a shelf's row, its keys, an effect's restore - ask the
+ * latch, so a switch flipped mid-game reaches none of them before the next load. A vendor no host latched answers
+ * undefined, and its door reads the switch as it stands.
+ */
+const _loadedForGame = new Map();
+export function latchModLoaded(vendor, on) { _loadedForGame.set(vendor, !!on); return !!on; }
+export const modLatchedOn = (vendor) => _loadedForGame.get(vendor);
 
 /** DS1: every key of one vendored mod, resolved - what a mod reads its
  *  ModSettings as, in one object. */
@@ -1326,4 +1500,4 @@ export function flattenModPreset(vendor, values) {
 }
 
 /** For tests: forget everything. */
-export function _resetModSettings() { memory = null; _generation++; try { appStorage()?.removeItem(STORE_KEY); } catch { /* none */ } }
+export function _resetModSettings() { memory = null; _generation++; _loadedForGame.clear(); try { appStorage()?.removeItem(STORE_KEY); } catch { /* none */ } }

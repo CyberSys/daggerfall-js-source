@@ -138,8 +138,9 @@ test('AUDIT 28 W4: Quest.Start freezes the state (Quest.cs:284), the save carrie
 
 test('AUDIT 28 W4: the entry seam - the location that gets BUILT is the sized clone, with the bridge\'s machine', () => {
   const modes = read('src/scenes/worldModes.js');
-  assert.match(modes, /const dfLocation = dungeonLocationFor\(hit\.dfLocation, \{ questMachine: questBridge\?\.machine, online: host\.dungeonOnline\?\.\(\) \?\? false \}\);/,
+  assert.match(modes, /const sized = dungeonLocationFor\(hit\.dfLocation, \{ questMachine: questBridge\?\.machine, online: host\.dungeonOnline\?\.\(\) \?\? false \}\);/,
     'tryEnterDungeon does not size the location (AUDIT WORLD34 B2: and online, the whole dungeon)');
+  assert.match(modes, /const dfLocation = ownDungeonLocation\(sized\);/, 'OH-E: and builds its own copy of it (MapsFile.GetLocation reads each caller its own)');
   const fn = modes.slice(modes.indexOf('async function tryEnterDungeon('));
   assert.ok(fn.indexOf('dungeonLocationFor(') < fn.indexOf('buildDungeonContext('), 'sized BEFORE the context is built');
 });
@@ -156,7 +157,8 @@ test('AUDIT 28 W4: the save stamps the layout, and a load at the other size warp
   // port's spawn space is the landed one.
   assert.match(arm, /const p = this\.startSpawn\(\{ preferEnterMarker: false \}\);/, 'the start marker under the entry law is the destination');
   // The warp sits AFTER the position restore, so it overrides it.
-  const posAt = ctx.indexOf('if (extras.position && extras.locationKey === _locationKey && setPlayerPos) setPlayerPos(extras.position);');
+  // FALL-KEPT (FIELD BUGS 2026-09-30, PIN MOVED): the saved fall rides the saved position's placement.
+  const posAt = ctx.indexOf('if (extras.position && extras.locationKey === _locationKey && setPlayerPos) setPlayerPos(extras.position, extras.pose?.fall);');
   const warpAt = ctx.indexOf('needsStartWarp(extras.smallerDungeonsState, dfLocation)');
   assert.ok(posAt > 0 && warpAt > posAt, 'restore first, then the warp');
 });
@@ -169,10 +171,10 @@ test('AUDIT 28 F-B2: the quest layer\'s maps sizes getLocation/getLocationByName
   const world = read('src/scenes/world.js');
   const at = world.indexOf('const questWorld = {');
   assert.ok(at > 0);
-  const wrap = world.slice(at, at + 2200);
+  const wrap = world.slice(at, at + 2600);
   assert.match(wrap, /maps: Object\.create\(maps, \{/, 'the quest maps is a wrap over the raw maps');
-  assert.match(wrap, /getLocation: \{ value: \(r, l\) => dungeonLocationFor\(maps\.getLocation\(r, l\), \{ questMachine: questBridge\?\.machine, online: onlineOn \}\) \},/);
-  assert.match(wrap, /getLocationByName: \{ value: \(rn, ln\) => dungeonLocationFor\(maps\.getLocationByName\(rn, ln\), \{ questMachine: questBridge\?\.machine, online: onlineOn \}\) \},/);
+  assert.match(wrap, /getLocation: \{ value: \(r, l\) => dungeonLocationFor\(maps\.getLocation\(r, l\), \{ questMachine: questBridge\?\.machine, online: params\.has\('online'\) \}\) \},/);
+  assert.match(wrap, /getLocationByName: \{ value: \(rn, ln\) => dungeonLocationFor\(maps\.getLocationByName\(rn, ln\), \{ questMachine: questBridge\?\.machine, online: params\.has\('online'\) \}\) \},/);   // the page flag, not the late const (a quest parsed at chargen reaches it first)
   // The prototype delegation keeps every other maps method reachable -
   // the quest layer also calls getClimateIndex, getRegion,
   // getRmbBlockName and readLocationIdFast on this object.

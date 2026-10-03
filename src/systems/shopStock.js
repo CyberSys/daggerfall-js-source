@@ -41,8 +41,8 @@ import { dice100 } from '../combat/formulas.js';
 import { rand } from '../formats/dfRandom.js';   // F209: StockHouseContainer's one classic-stream draw
 import { randomMaterial, randomArmorMaterial, createWeapon } from '../combat/enemyEquipment.js';
 import { groupTemplates, GROUP_TEMPLATE_INDICES, itemBaseValue, ITEM_TEMPLATES, mintCondition, rollPaintingMessage, setItemFields, templateByIndex, TRANSPORT_HORSE, TRANSPORT_SMALL_CART } from './itemTemplates.js';   // MAC-N1: SetItem's name + value, the one export
-import { customItemsForGroup } from './rriItems.js';   // AUDIT-RR F3: GetCustomItemsForGroup - the shelf's second loop (DaggerfallLoot.cs:255-287)
-import { createRandomBook } from './books.js';   // B1; A2: CreateRandomBook whole, priced off the book FILE
+import { customItemsForGroup } from './itemTemplates.js';   // AUDIT-RR F3: GetCustomItemsForGroup - the shelf's second loop (DaggerfallLoot.cs:255-287); FORAGE1: every mod's, from its one home
+import { createRandomBook, createShelfBook } from './books.js';   // B1; A2: CreateRandomBook whole, priced off the book FILE
 import { isLeather, isPlate } from './armorMaterials.js';
 import { CLOTHING_DYES } from '../characters/dyes.js';
 import { BUILDING_TYPES } from '../world/buildingNames.js';
@@ -54,6 +54,7 @@ import { FACTION_TYPES } from '../formats/factionFile.js';        // S41: Update
 import { findFactionByTypeAndRegion } from './talk.js';           // S41: PersistentFactionData.FindFactionByTypeAndRegion, one home
 import { MERCHANTS_FACTION_ID } from './guilds.js';               // S41: FactionIDs.The_Merchants, one home
 import { turnOnConditionFlag, turnOffConditionFlag, REGION_FLAGS, REGION_COUNT } from './regionConditions.js';   // S42: the store S41's flag was waiting on
+import { isOnlinePage } from './onlineLane.js';   // REALM P0.4: online, a shop pays at most half what it asks
 
 // ItemGroups ids used by the shelf tables (DaggerfallUnityEnums).
 const GROUP_NAMES = Object.freeze({
@@ -141,6 +142,7 @@ export const MAGIC_ITEMS_ENUM_TEMPLATE = 0;
 import { BOOK_TEMPLATE, createRegularMagicItem, createRandomPotion, randomlyAddPotionRecipe, getMagicItemTemplates, createRandomWeapon, createRandomArmor, createRandomClothing } from './loot.js';   // G4: the guild shelves' two minters (AUDIT 26 F129/F130: + the recipe arm and the registry)
 import { SPELLBOOK_TEMPLATE_INDEX } from './spellMaker.js';   // G4: one home for MiscItems 132
 import { provisionsStock } from './survival/items.js';   // SURV2: the general store's provisions shelf
+import { healingShelfCount, mintHealingPotion } from './healingSupply.js';   // POTION-COMMON: the shelf's Potions of Healing
 import { survivalOn } from './survival/switch.js';   // SURV2: the one switch
 import { conditionBasedPricesOn, conditionCostBase } from './rriRealism.js';   // RRI2: the CalculateCost override's condition arm
 
@@ -214,7 +216,7 @@ export const stockSearched = (container, today) => Number.isFinite(container?.op
  *  the DEFAULT is a point-of-use store read - a parameter with a
  *  `false` default would have been a switch every caller can forget -
  *  and an explicit argument still overrides it (the tests do). */
-export function stockShopShelf({ buildingType, quality }, playerEntity = {}, { rolls = Math.random, torchesFromItems = getBool('Enhancements', 'PlayerTorchFromItems') } = {}) {
+export function stockShopShelf({ buildingType, quality }, playerEntity = {}, { rolls = Math.random, torchesFromItems = getBool('Enhancements', 'PlayerTorchFromItems'), shelfIndex = 0 } = {}) {
   const items = [];
   // DaggerfallUnityItem.ItemName is the TEMPLATE's name for every
   // plain item; AUDIT 18: the shelf minted rows with none, so the
@@ -295,7 +297,8 @@ export function stockShopShelf({ buildingType, quality }, playerEntity = {}, { r
         // the 4 Books enum names - then `value = bookFile.Price`. A2:
         // that last term is what made the bookseller sell every title
         // at the template's flat 2500 instead of its own 300..800.
-        add(createRandomBook(rolls));
+        // WB12c: the shelf's draw - the port's own books among the classic ones
+        add(createShelfBook(rolls));
       }
       continue;
     }
@@ -378,6 +381,11 @@ export function stockShopShelf({ buildingType, quality }, playerEntity = {}, { r
       }
     }
   }
+  // POTION-COMMON (2026-10-01, the field: "make health potions more common"): an alchemist's and a general store's day of
+  // Potions of Healing (healingSupply.js) - at the shelf's end and from no roll, so DFU's own draws above are the same.
+  // AUDIT ECON P1: on the shop's FIRST shelf alone, the one its counter sells from (worldModes.js openMerchantSell) -
+  // every shelf model is its own container, stocked whole, so a shop of five shelves stocked five days' worth
+  if (shelfIndex === 0) for (let n = healingShelfCount(buildingType, quality); n > 0; n--) add(mintHealingPotion());
   return items;
 }
 
@@ -687,17 +695,72 @@ export function calculateCost(baseValue, shopQuality, priceAdjustment = 1000, co
   return cost;
 }
 
-/** FormulaHelper.CalculateTradePrice, verbatim - the classic
+/** REALM P0.4 (2026-09-28, bible/06-Systems/Realm-Arc.md "Vendor spread"): ONLINE A SHOP PAYS AT MOST HALF WHAT IT
+ *  ASKS for the same piece. DFU's haggle can turn a counter's spread upside down - a quality-1 shop pays 125/256 of the
+ *  cost to a seller with Mercantile 2 and asks 124/256 of a buyer - so buying a piece and selling it back made gold,
+ *  and the regions' price walk paid a carrier. Offline, DFU's haggle stands. */
+export const ONLINE_SALE_SHARE = 0.5;
+
+/** ESSENTIALS-HALF (2026-09-30, Discord: "things are way too expensive rn for money to be nerfed so heavily... cut the cost of most essential items by half"):
+ *  ONLINE, AN ESSENTIAL COSTS HALF. REALM P0.4, MERC-RISE and MERC-CAP cut what a player EARNS online (the sale's half,
+ *  the pile's gold divided by level) and left what they PAY where DFU put it, so a bed, a meal, a cure, a fare and a
+ *  potion ate a far bigger share of a far smaller purse. The essentials - a tavern room and its food and drink
+ *  (tavern.js, survival/tavernMenu.js), a temple's disease cure (guildServiceActions.js cureDiseaseOffer), a travel
+ *  fare (ui/travelPopUp.js scaleTripCost, both map skins) and a POTION bought at any counter (tradeModes.js
+ *  buyItemPrice, which every shelf's Buy walks - the guild shelves' too) - cost ONLINE_ESSENTIALS_PRICE_SCALE of
+ *  their price online. Nothing else moves: repairs, training, spells, enchanting, houses and ships keep theirs.
+ *  The half ROUNDS UP and a priced essential asks at least a gold - a free one (a holiday's, a knight's room) stays
+ *  free. Rounding up is load-bearing for the potion: its sale online is capped at ONLINE_SALE_SHARE of the full ask,
+ *  and ceil(cost/2) haggled is never under half the full cost haggled, so buying a potion to sell it back never pays.
+ *  Offline, DFU's prices stand. */
+export const ONLINE_ESSENTIALS_PRICE_SCALE = 0.5;
+/** ESSENTIALS-HALF: an essential's price where the player stands - `price` offline, its rounded-up half (at least 1,
+ *  a 0 kept 0) online. */
+export function essentialPrice(price, { online = isOnlinePage() } = {}) {
+  if (!online || !(price > 0)) return price;
+  return Math.max(1, Math.ceil(price * ONLINE_ESSENTIALS_PRICE_SCALE));
+}
+
+/** MERC-RISE (FIELD BUGS 2026-09-29d, ValenValarys on Discord: "As the skill level increases, the sell price for items
+ *  actually decreases" - 3499 gold at Mercantile 60, 2888 at 90, Personality 100): THE HALF IS OF THE LEAST THE
+ *  COUNTER ASKS. P0.4 took half of the SELLER's own ask, and a seller's ask falls as their Mercantile and Personality
+ *  rise - so the cap, which binds for nearly every seller online, fell with them (2888/3499 is 0.825, the two asks'
+ *  own ratio). Half of what the counter asks the best haggler there is - ONLINE_HAGGLE_MAX in each - is still at most
+ *  half of what it asks anyone, so buying back never pays (P0.4's law, whole), and it is a number of the counter and
+ *  the piece: no skill lowers a sale. Under it DFU's haggle stands, and raises the sale with the seller's skills up to it.
+ *
+ *  MERC-CAP (FIELD BUGS 2026-09-29f, ValenValarys again, at 346 Mercantile: "Having to pay gold just to sell items feels
+ *  a bit too punishing!"): ONLINE THE HAGGLE READS A SKILL IN ITS OWN RANGE, 0 TO 100. CalculateTradePrice turns a
+ *  Mercantile or a Personality of 0..100 into a factor of 128..256 in 256 (FormulaHelper.cs:1992-2000), and DFU never
+ *  bounds the Mercantile it reads (DaggerfallSkills.cs:140: "TODO: Any other clamping or processing"), so the Enhances
+ *  Skill pieces and affixes that stack it past 100 ran the buying factor under 128, through 0 at 200 and below it: the
+ *  ask is nothing by 233 (Personality 100) and less after. MERC-RISE's half followed the seller's own ask past 100
+ *  to keep P0.4 whole, so there a sale fell with the skill and then went under nothing - at the field's counter a
+ *  seller at 346 paid 2311 gold to hand the lot over - and every purchase fell with it: the counter's gold a piece
+ *  (FB0929), a room free by 200 and paying its renter from 234, a cure, a spell. Online the haggle reads 100 past 100
+ *  and 0 under 0, so the least the counter asks anyone is the best haggler's ask, a sale never falls with a skill or
+ *  goes under nothing, and no price is under the best haggler's. Inside the range nothing moves; offline, DFU's reads
+ *  stand. */
+export const ONLINE_HAGGLE_MAX = 100;
+
+/** FormulaHelper.CalculateTradePrice, verbatim offline - the classic
  *  fixed-point haggle over the merchant's quality-derived levels vs
  *  the player's Mercantile + Personality. selling=false is the BUY
  *  price of a shelf item (applied over CalculateCost's cost). */
-export function calculateTradePrice(cost, shopQuality, { mercantile = 0, personality = 50 } = {}, selling = false) {
+export function calculateTradePrice(cost, shopQuality, { mercantile = 0, personality = 50 } = {}, selling = false, { online = isOnlinePage() } = {}) {
+  if (online) {   // MERC-CAP: the haggle's own range
+    mercantile = Math.min(Math.max(mercantile, 0), ONLINE_HAGGLE_MAX);
+    personality = Math.min(Math.max(personality, 0), ONLINE_HAGGLE_MAX);
+  }
   const merchantLevel = 5 * (shopQuality - 10) + 50;   // mercantile and personality alike
   let dm, dp;
   if (selling) {
     dm = ((Math.trunc(((100 - merchantLevel) << 8) / 200) + 128) * (Math.trunc((mercantile << 8) / 200) + 128)) >> 8;
     dp = ((Math.trunc(((100 - merchantLevel) << 8) / 200) + 128) * (Math.trunc((personality << 8) / 200) + 128)) >> 8;
-    return ((((179 * dm) >> 8) + ((51 * dp) >> 8)) * cost) >> 8;
+    const sale = ((((179 * dm) >> 8) + ((51 * dp) >> 8)) * cost) >> 8;
+    if (!online) return sale;
+    const best = { mercantile: ONLINE_HAGGLE_MAX, personality: ONLINE_HAGGLE_MAX };   // MERC-RISE: the best haggler this counter can meet
+    return Math.min(sale, Math.floor(calculateTradePrice(cost, shopQuality, best, false) * ONLINE_SALE_SHARE));   // REALM P0.4; MERC-RISE: half the least it asks
   }
   dm = ((Math.trunc((merchantLevel << 8) / 200) + 128) * (Math.trunc(((100 - mercantile) << 8) / 200) + 128)) >> 8;
   dp = (((Math.trunc((merchantLevel << 8) / 200) + 128) * (Math.trunc(((100 - personality) << 8) / 200) + 128)) >> 8) << 6;
@@ -863,13 +926,40 @@ export function stockSoulGems({ quality = 0, gameMinutes = 0 } = {}, { soulPoint
   return stockGuildMagicItems({ quality, gameMinutes, sellsSoulGems: true, onlySoulGems: true }, { soulPointsOf });
 }
 
+/** GUILD-SHELF (2026-09-27, Discord: "Potion seller restock instantly"): ONE SHELF A DAY. The shelf a guild's Buy
+ *  service shows is `store[service]` while it was minted today (the day is stockDayIndex's, the one the stock is seeded
+ *  from), and a fresh `mint()` otherwise - which it then becomes. The trade window buys out of that same array, so what
+ *  was bought stays gone until the day turns. DFU mints on every open (below), which never runs out; the departure and
+ *  why are scenes/worldModes.js guildShelf's. A null store keeps nothing and answers a fresh mint. */
+export function dayShelf(store, service, gameMinutes, mint) {
+  const today = stockDayIndex(gameMinutes);
+  const kept = store?.[service];
+  if (shelfStands(kept, today)) return kept;
+  if (store) for (const k of Object.keys(store)) if (store[k]?.day !== today && !shelfStands(store[k], today)) delete store[k];   // AUDIT GUILD-SHELF A10: a past day's shelf is never shown again - it goes, and the save with it
+  const shelf = { day: today, items: mint() };
+  _mintedThisSession.add(shelf);
+  if (store) store[service] = shelf;
+  return shelf;
+}
+/** AUDIT LIVED1b A3 (a sibling of AUDIT LIVED1 I, older than LIVED1): WHAT WAS BOUGHT STAYS GONE THROUGH A STEP BACK.
+ *  Online the day is the world's (the host reads worldMinutes), and the world's reading steps back - the relay's offset
+ *  corrected at a welcome, this machine's clock set back between two - so a step across a midnight minted yesterday's
+ *  shelf over today's bought-out one, and the day's turn a frame later minted today's afresh: five potions, all bought,
+ *  and five on the shelf again. A shelf THIS session minted for a later day stands while the reading is behind it; one
+ *  a save carried (a copy's, dated on another clock) is re-minted as ever, and offline nothing reads differently. */
+const _mintedThisSession = new WeakSet();
+const shelfStands = (kept, today) => !!kept && Array.isArray(kept.items)
+  && (kept.day === today || (isOnlinePage() && kept.day > today && _mintedThisSession.has(kept)));
+
 /**
  * GetMerchantPotions (:273-280). `n = quality; while (n-- >= 0)` is
  * quality + 1 potions, and it does NOT reseed - it walks on from
  * wherever the sequence stands, so the potion shelf is not stable the
  * way the magic one is. Seeded on the day here anyway, because the
- * port has no ambient global stream to walk on from and a shelf that
- * rerolled on every open would restock itself for free.
+ * port has no ambient global stream to walk on from. The seed alone did
+ * not stop the free restock - the same lot came back at every open, the
+ * bought potions with it - so the host keeps the day's shelf (dayShelf
+ * above, GUILD-SHELF).
  *
  * AND THE DISCARDED DRAW: DFU passes `Random.Range(1, 5)` as
  * CreateRandomPotion's stackSize, and CreateRandomPotion

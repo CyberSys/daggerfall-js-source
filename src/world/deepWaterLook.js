@@ -154,9 +154,12 @@ export function sceneTint(darker, daylight, cameraAboveSea) {
 /**
  * The surfaces' uniform set for a frame, whole.
  * @param {object} s - lookSettings'
- * @param {object} f - {daylight, columnDepth (the player's water, or null), waterFogColor?}
+ * @param {object} f - {daylight, columnDepth (the player's water, or null), waterFogColor?, undersideFogColor?}
+ *   undersideFogColor: the underside material's _UnderwaterFogColor as it was last configured
+ *   (ApplySharedWaterProperties runs when a material is configured, never in the frame's refresh) -
+ *   absent, this frame's
  */
-export function surfaceLook(s, { daylight, columnDepth = null, waterFogColor = DEFAULT_UNDERWATER_FOG_COLOR }) {
+export function surfaceLook(s, { daylight, columnDepth = null, waterFogColor = DEFAULT_UNDERWATER_FOG_COLOR, undersideFogColor = null }) {
   const vision = underwaterVisionDistance(s.fogDistance);
   const tint = timeAdjustedSurfaceTint(s.darker, daylight);
   const fog = underwaterFogColor(daylight, waterFogColor);
@@ -170,7 +173,7 @@ export function surfaceLook(s, { daylight, columnDepth = null, waterFogColor = D
     undersideFadeStart: fades.start,
     undersideFadeEnd: fades.end,
     horizonColor: fog,
-    fogColor: fog,
+    fogColor: undersideFogColor ?? fog,
     columnFogStrength: clamp01(s.fogStrength),
   };
 }
@@ -288,13 +291,15 @@ export function horizonAmbientColor(s, { daylight, cameraY, oceanY, waterFogColo
  *   [2] the in-scatter colour (rgb), the darkening
  *   [3] the fog colour (rgb), the far band's factor
  *   [4] the far band's start and end, the sky's distance, 0
+ * UNDER-LOOK (FIELD BUGS 2026-10-01 #4): `murk` scales the vision distance every term is derived from - 1 is the
+ * mod's own fog; the world host passes the port's (world/underwaterLook.js UNDERWATER_MURK).
  * @param {object} s - lookSettings'
- * @param {{daylight: number, cameraY: number, oceanY: number, waterFogColor?: number[]}} f
+ * @param {{daylight: number, cameraY: number, oceanY: number, waterFogColor?: number[], murk?: number}} f
  * @param {Float32Array} [out]
  */
-export function distanceFogUniforms(s, { daylight, cameraY, oceanY, waterFogColor = DEFAULT_UNDERWATER_FOG_COLOR }, out = new Float32Array(20)) {
+export function distanceFogUniforms(s, { daylight, cameraY, oceanY, waterFogColor = DEFAULT_UNDERWATER_FOG_COLOR, murk = 1 }, out = new Float32Array(20)) {
   const strength = clamp01(s.fogStrength);
-  const vision = underwaterVisionDistance(s.fogDistance);
+  const vision = underwaterVisionDistance(s.fogDistance) * murk;
   const scatter = distanceFogScatter(daylight, waterFogColor);
   const deep = distanceFogDeep(daylight);
   const scatterStrength = lerp(0.85, 1.3, strength);

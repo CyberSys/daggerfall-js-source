@@ -170,7 +170,7 @@ test('audit18 hosts: worldModes overlayHeld covers the DUNGEON overlay, and hold
   const decl = s.slice(s.indexOf('const overlayHeld'), s.indexOf('const crouchHeld'));
   assert.match(decl, /dungeonCtx/, 'overlayHeld ignores the dungeon overlay - the motor walks under an open window');
   assert.match(decl, /uiOverlayActive/);
-  // DFU PauseGame(true) stops the movers too (dungeon.js:339 does).
+  // DFU PauseGame(true) stops the movers too (dungeon.js:355 does).
   assert.match(s, /if \(!overlayHeld\) dungeonCtx\.actions\.update\(dt\);/,
     'the dungeon movers still travel under an open window');
 });
@@ -500,8 +500,8 @@ test('audit18 hosts: BOTH exterior hosts thread the weather style into the sky',
     // the line. It is still the third argument and still the weather's.
     assert.match(src(host), /sky\.use\([^;]*minute, weatherSkyOffset === 0[,)]/,
       `${host} shows NITE on every night minute regardless of weather`);
-    assert.match(src(host), /\{ weather, violence: weatherOverride \?\? currentWeatherRaw\(\), classicMinutes: playerTicker\.classicMinutes, sun: wxNow\.sun, flash: flash - 1, pos: [^}]+ \}\);\s*\/\/ WEATHER2a[^\n]*ES1/,
-      `${host} does not feed the enhanced sky its weather and clock`);
+    assert.match(src(host), /\{ weather, violence: weatherOverride \?\? currentWeatherRaw\(\), classicMinutes: playerTicker\.classicMinutes, skyMinutes: skyMinutes\(\), sun: wxNow\.sun, flash: flash - 1, pos: [^}]+ \}\);\s*\/\/ WEATHER2a[^\n]*ES1/,
+      `${host} does not feed the enhanced sky its weather and clock (TIME1: the event clock the weather walks, the sky the moons are dated by)`);
   }
 });
 

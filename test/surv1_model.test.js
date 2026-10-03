@@ -89,8 +89,10 @@ test('SURV1: clothing warms by piece and cloak, wetness eats it one for one and 
   assert.equal(clothingWarmth(w).warmth, 8 + 10 + 4 + 15, 'tunic, pants, boots, a formal cloak at variant 1 (5 x 3)');
   assert.equal(clothingWarmth(w, { wet: 20 }).warmth, 17, 'soaked, it keeps less');
   assert.equal(clothingWarmth(w, { wet: 300 }).warmth, 0, 'drenched clothes warm nothing');
-  assert.equal(clothingWarmth(w, { natural: 40, inSunlight: true }).warmth, 37 - 10, 'the hood shades in strong sun');
-  assert.equal(clothingWarmth(w, { natural: 20, inSunlight: true }).warmth, 37, 'but not in mild sun');
+  // CLOTHES-BREATHE (FIELD BUGS 2026-09-30, PIN MOVED): 37 - 10 -> 18 - 10 and 37 -> 18 - above a natural ten the clothes
+  // count half their warmth, and the hood shades the half (test/fb0930_cc_breathe.test.js)
+  assert.equal(clothingWarmth(w, { natural: 40, inSunlight: true }).warmth, Math.trunc(37 / 2) - 10, 'the hood shades in strong sun');
+  assert.equal(clothingWarmth(w, { natural: 20, inSunlight: true }).warmth, Math.trunc(37 / 2), 'but not in mild sun');
   assert.equal(clothingWarmth(worn({})).warmth, 0, 'naked');
   assert.equal(clothingWarmth(worn({ [S.ChestClothes]: item(141) })).warmth, 1, 'straps are barely clothes');
   assert.equal(clothingWarmth(worn({ [S.Feet]: armor(108, 0) })).warmth, 0, 'armour boots are the armour\'s to count');

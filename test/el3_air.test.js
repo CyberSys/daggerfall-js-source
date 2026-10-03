@@ -135,7 +135,9 @@ test('EL3/HQ1: the ambient occlusion is HORIZON-BASED now - no kernel; two slice
   assert.match(fs, /float w = clamp\(\(uAOParams\.x - d\) \/ \(uAOParams\.x \* \$\{AIR_AO_FALLOFF\}\), 0\.0, 1\.0\);/, 'the distance weight: whole to 1 - AIR_AO_FALLOFF of the radius, then eased to nothing at it');
   assert.match(fs, /\n    c = mix\(-1\.0, c, w\);/, 'a step past the radius says nothing');
   assert.match(fs, /if \(dot\(s, n\) > bias\) h = max\(h, c\);/, 'AUDIT HQ1: the highest horizon, of the steps that RISE above the surface\'s plane by the bias');
-  assert.match(fs, /vec3 n = normalize\(cross\(dFdx\(p\), dFdy\(p\)\)\);/, 'the quad\'s derivative (AUDIT HQ1: a nearer-neighbour normal was tried and read worse on the probe)');
+  // AUDIT FLICKER F3 (re-aimed): the derivatives taken before the sky's return, in every pixel of the quad
+  assert.match(fs, /vec3 p = posAt\(vUV\);[^\n]*\n(?:  \/\/[^\n]*\n)*  vec3 pdx = dFdx\(p\), pdy = dFdy\(p\);\n  if \(d0 >= 0\.99999\) \{ outColor = vec4\(1\.0\); return; \}/, 'the derivatives before the return');
+  assert.match(fs, /vec3 cr = cross\(pdx, pdy\);\n  vec3 n = dot\(cr, cr\) > 1e-30 \? normalize\(cr\) : -normalize\(p\);/, 'the quad\'s derivative (AUDIT HQ1: a nearer-neighbour normal was tried and read worse on the probe)');
   assert.match(fs, /float radiusPx = uAOParams\.x \* abs\(uProjInfo\.x\) \/ max\(-p\.z, 1e-3\) \* 0\.5;/, 'AUDIT HQ1: the radius by the focal term\'s MAGNITUDE (the hosts\' projection is x-mirrored)');
   assert.match(fs, /float ang = bayer4\(gl_FragCoord\.xy\) \* 1\.5707963;/, 'EL6: the ordered rotation still; AUDIT HQ1: a quarter turn - a slice is a line, and the second is the first\'s perpendicular');
   assert.match(fs, /vec2 dir = vec2\(cos\(a\), sin\(a\) \* abs\(uProjInfo\.y \/ uProjInfo\.x\)\);/, 'AUDIT HQ1: the uv ellipse of a view-space circle - the aspect |proj[5] / proj[0]| on the y step');
@@ -282,5 +284,5 @@ test('EL3: the renderer\'s wiring - the air rides the lane and the door, the com
   assert.ok(!/this\.discard\(\);\n  \}\n\n  \/\*\* One map's worth/.test(sp), 'the shadow pass no longer drops the records itself - the renderer does, after the air');
   assert.match(read('src/render/enhancedLighting.js'), /renderer\.setAir\(airOn\(search\)\)/, 'the door is read at the one sync');
   const f = read('src/systems/features.js');
-  assert.match(f, /shadows, ambient occlusion in the corners, bloom on windows and flames, and '\n\s+\+ 'shafts of sunlight\./, 'the row says what the three tiers do');
+  assert.match(f, /darker corners, a glow on windows and flames, and rays of[\s\S]{0,12}sunlight\./, 'the row says what the three tiers do');
 });

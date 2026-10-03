@@ -8,6 +8,7 @@ import {
   createEotbCamera, readCameraSettings, eyeVector, eyeBasis, bodyVector, EYE_RADIUS, MAX_Z,
 } from '../src/player/eotbCamera.js';
 import { MOD_SETTINGS } from '../src/systems/modSettings.js';
+import { PrefabNode } from '../src/world/prefabNode.js';
 
 // ═══ EOTB2: THE CAMERA, READ OFF THE IL ═══════════════════════════
 //
@@ -54,9 +55,11 @@ test('EOTB2: the settings are the BUNDLE’s, sign flip and all - derived, never
   assert.equal(cfg.mirrorTime, shipped('Camera', 'SwitchResetTime'));
   assert.equal(cfg.mirrorAuto, shipped('Camera', 'Auto-Switch'));
   assert.equal(cfg.increment, shipped('CameraScrolling', 'ScrollIncrement'));
-  assert.equal(cfg.startInThird, shipped('Camera', 'StartInThirdPerson'));
+  // FP-START, a departure too: the bundle starts behind the shoulder, the port starts in the head (the player turns it on)
+  assert.equal(shipped('Camera', 'StartInThirdPerson'), true, 'the bundle ships it on');
+  assert.equal(cfg.startInThird, false, 'and the port ships it off - FP-START');
 
-  // THE ONE DEPARTURE IN THIS FILE, asserted as a departure: the bundle
+  // THE OTHER DEPARTURE IN THIS FILE, asserted as a departure: the bundle
   // ships the scrollable arm OFF and the port ships it ON (MODS-ON, and
   // Mac's own ask). Written this way round so it cannot be mistaken for
   // agreement with the bundle.
@@ -137,14 +140,25 @@ test('EOTB2: posOffset’s four arms, in the order the IL tests them', () => {
     'CameraOverrideWeapon.Enable': true, 'CameraOverrideWeapon.LongitudinalDistance': 5,
     'Camera.LongitudinalDistance': 2, 'Camera.RidingOffset': 0,
   })[k];
-  const c = createEotbCamera(); c.loadSettings(get); c.toggleOffset(true);
+  const c = createEotbCamera(); c.loadSettings(get);
+  // CSA-J: the boat arm reads the camera's OWN field, raised by Come Sail Away's OnUpdateSailing (IL_07a8) - a hull at
+  // the origin with a unit extent, so the boat's target adds nothing and the eye's z is still the arm's offset
+  let sail = null;
+  const hull = new PrefabNode('Hull');
+  c.setComeSailAway({ send: (m, data, cb) => { if (m === 'OnUpdateSailing') sail = data; if (m === 'GetBoatMeshObject') cb(m, hull); }, colliderBounds: () => ({ center: [0, 0, 0], extents: [1, 1, 1] }) });
+  c.start();
+  c.toggleOffset(true);
   const zFor = (state) => {
     const r = c.eye({ fpEye: [0, 1.6, 0], feet: [0, 0, 0], yaw: 0, pitch: 0, dt: 1000, ...state });
     return Number(r.eye[2].toFixed(4));
   };
   // with dt enormous the smoothing lands exactly on the target, so the
   // eye's z IS the arm's offset - one reading per arm
-  assert.equal(zFor({ sailing: true, riding: true, weaponReady: true }), -3, 'sailing wins over everything');
+  sail(true);
+  assert.equal(zFor({ riding: true, weaponReady: true }), -3, 'sailing wins over everything');
+  assert.equal(zFor({ sailing: false, riding: true, weaponReady: true }), -3, 'the host\'s word is not asked - the field is the camera\'s');
+  sail(false);
+  assert.equal(zFor({ sailing: true, riding: true, weaponReady: true }), -4, 'ashore a `sailing` in the state does nothing');
   assert.equal(zFor({ riding: true, weaponReady: true }), -4, 'mounted wins over a readied weapon');
   assert.equal(zFor({ weaponReady: true }), -5, 'a readied weapon wins over the base');
   assert.equal(zFor({}), -2, 'and the base is the base');
@@ -617,5 +631,14 @@ test('EOTB-WALL (2026-09-17, Mac: "3rd person clips through walls and ceilings .
   // and the cast is on the SMOOTHED position: a wall that appears mid-walk pins the camera where it IS, not where the target is
   const far = c.eye({ fpEye: head, feet: [0, 0, 0], yaw: 0, pitch: 0, dt: 0.005, raycast: (o, d, l) => (axisAligned(d) ? null : 0.9) });
   assert.equal(Number(len(far.eye).toFixed(4)), Number((0.9 - EYE_RADIUS * 2).toFixed(4)), 'a nearer wall pins the smoothed eye');
+  // ...and a wall past where the smoothed eye stands, still inside the target's reach, never pulls it OUT: two twins
+  // walked back out alike, the last frame's wall halfway between the eye's reach and the target's (CSA-J's wide run:
+  // the eye and the target stand on one line, so only the cast's LENGTH tells the smoothed position from the target)
+  const twin = () => { const t = mk(); t.eye({ fpEye: head, feet: [0, 0, 0], yaw: 0, pitch: 0, dt: 1000, raycast: diagonalWall }); t.eye({ fpEye: head, feet: [0, 0, 0], yaw: 0, pitch: 0, dt: 0.005, raycast: () => null }); return t; };
+  const open = twin().eye({ fpEye: head, feet: [0, 0, 0], yaw: 0, pitch: 0, dt: 0.005, raycast: () => null });
+  const wallAt = (len(open.eye) + Math.hypot(0.5, 2)) / 2 + EYE_RADIUS * 2;
+  const beyond = twin().eye({ fpEye: head, feet: [0, 0, 0], yaw: 0, pitch: 0, dt: 0.005, raycast: (o, d, l) => (axisAligned(d) ? null : wallAt) });
+  assert.ok(len(open.eye) + EYE_RADIUS * 2 < wallAt && wallAt < Math.hypot(0.5, 2) + EYE_RADIUS * 2, 'the wall stands past the eye\'s reach and inside the target\'s');
+  assert.deepEqual(beyond.eye.map(r3), open.eye.map(r3), 'the smoothed eye stays where the smoothing put it - the cast is the eye\'s own length, not the target\'s');
 });
 

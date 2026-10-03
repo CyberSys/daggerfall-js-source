@@ -69,11 +69,12 @@ import { audio } from '../systems/audio.js';
 import { SOUND } from '../systems/soundClips.js';
 import {
   enchantDecision, applyEnchantments, enchantmentCostLabel, totalGoldCost,
-  totalEnchantmentCost, itemEnchantmentPower, openPickerDecision,
+  totalEnchantmentCost, itemEnchantmentPower, openPickerDecision, keptEnchantments, enchantmentListCost,
 } from '../systems/enchanting.js';
+import { enchantGold } from '../net/alchemyLaw.js';   // PROF12: Enchanting's layer - the gold with the rank's share off
 import {
   enchantmentName, enchantmentParams, enchantmentParamName, primaryPickerList, primaryPick,
-  pickEnchantment, removeEnchantment, PARAM_NONE,
+  pickEnchantment, removeEnchantment, PARAM_NONE, isSideEffect,
 } from '../systems/enchantmentCatalogue.js';
 import { deductGold, totalGoldAmount } from '../systems/court.js';
 import { splitStack } from '../systems/inventory.js';
@@ -134,10 +135,14 @@ export const FORCED_TEXT_COLOR = [186 / 255, 207 / 255, 125 / 255, 1];
  *  ENCHANTED item and a potion are out of every tab; then the tab
  *  decides. MagicItems lists NOTHING - DFU disabled it because
  *  classic lists nothing there either, and the empty tab is kept
- *  (Ledger B). */
+ *  (Ledger B).
+ *  AUDIT PROF10 J2 (DECIDED, Mac: "Item maker can add to it"): a
+ *  CRAFTED piece of jewellery is taken with the enchantments it
+ *  carries (enchanting.js keptEnchantments - a Masterwork's Rare
+ *  roll); every other enchanted item is refused as DFU refuses it. */
 export function itemMakerFilter(item, tabPage, selected = null) {
   if (!item || item === selected) return false;
-  if (item.enchantments?.length || item.group === 'UselessItems2') return false;
+  if (!keptEnchantments(item) || item.group === 'UselessItems2') return false;
   if (item.potionRecipe !== undefined && item.potionRecipe !== null) return false;
   const isWeaponOrArmor = (item.group === 'Weapons' || item.group === 'Armor')
     && !(item.group === 'Weapons' && item.name === 'Arrow');
@@ -203,8 +208,9 @@ export class ItemMakerWindow {
   wheel(dir) {
     if (!dir) return;
     const [vx, vy] = this._mouse;
-    for (const [rect, list, scrollKey] of [[ITEM_RECTS.powersList, this.powers, 'powersScroll'],
-      [ITEM_RECTS.sideEffectsList, this.sideEffects, 'sideEffectsScroll']]) {
+    const shown = this._lists();   // AUDIT PROF10 J2: a crafted piece's kept rows at each list's head
+    for (const [rect, list, scrollKey] of [[ITEM_RECTS.powersList, shown.powers, 'powersScroll'],
+      [ITEM_RECTS.sideEffectsList, shown.sideEffects, 'sideEffectsScroll']]) {
       if (!inRect(rect, vx, vy)) continue;
       if (list.length <= ROWS_VISIBLE) return;   // ShowScroller (:182, :191)
       const max = Math.max(0, enchContentH(list) - rect[3]);
@@ -268,6 +274,9 @@ export class ItemMakerWindow {
    *  credit - which is what both the label (:193) and the enchant
    *  check (:734) read; the deduction seam spends the letters too. */
   gold() { return totalGoldAmount(this.hooks.player ?? this.hooks.entity ?? {}); }
+  /** PROF12 (bible/06-Systems/Professions-Arc.md 9.3): Enchanting's share off the gold, percent - the host's (online, the
+   *  professions this account's), none else: DFU's own price. */
+  goldDiscountPct() { const v = this.hooks.goldDiscountPct?.(); return Number.isSafeInteger(v) && v > 0 && v < 100 ? v : 0; }
 
   _selectTab(tab) {
     audio.playOneShot(SOUND.ButtonClick, 1);
@@ -283,6 +292,18 @@ export class ItemMakerWindow {
     this.powers = [];
     this.sideEffects = [];
     this.itemName = '';
+  }
+
+  /** AUDIT PROF10 J2: the selected piece's own enchantments (keptEnchantments), split as the two lists hold them - drawn
+   *  at the head of each, in the forced colour, never removable; counted in the picker's guard and its filters. */
+  _kept() {
+    const kept = keptEnchantments(this.selected) ?? [];
+    return { powers: kept.filter((e) => !isSideEffect(e.type)), sideEffects: kept.filter((e) => isSideEffect(e.type)) };
+  }
+  /** The two lists as the window shows and filters them: the piece's kept rows, then the player's own. */
+  _lists() {
+    const k = this._kept();
+    return { powers: [...k.powers, ...this.powers], sideEffects: [...k.sideEffects, ...this.sideEffects] };
   }
 
   _selectItem(item) {
@@ -316,13 +337,14 @@ export class ItemMakerWindow {
    *  it just has nothing in it. */
   _openPicker(selectingPowers) {
     audio.playOneShot(SOUND.ButtonClick, 1);
+    const all = this._lists();   // AUDIT PROF10 J2: a crafted piece's kept rows count in the guard and the filters
     const d = openPickerDecision(selectingPowers, {
-      item: this.selected, powers: this.powers, sideEffects: this.sideEffects,
+      item: this.selected, powers: all.powers, sideEffects: all.sideEffects,
     });
     if (d.kind === 'refuse') { this._say(d.text); return; }
     this.selectingPowers = selectingPowers;
     const types = primaryPickerList(selectingPowers, {
-      item: this.selected, powers: this.powers, sideEffects: this.sideEffects,
+      item: this.selected, powers: all.powers, sideEffects: all.sideEffects,
       // AUDIT 63 F14: EnumerateEnchantments builds groupedSideEffectTemplates
       // from the enumeration frozen at Setup/OnPush (:171, :182), so this
       // reads the window's own snapshot, not the live pack.
@@ -343,8 +365,9 @@ export class ItemMakerWindow {
 
   /** EnchantmentPrimaryPicker_OnUseSelectedItem (:820-866). */
   _pickPrimary(type) {
+    const all = this._lists();   // AUDIT PROF10 J2: and in the secondary list's filters
     const pick = primaryPick(type, {
-      powers: this.powers, sideEffects: this.sideEffects, selectingPowers: this.selectingPowers,
+      powers: all.powers, sideEffects: all.sideEffects, selectingPowers: this.selectingPowers,
       souls: this._souls,   // AUDIT 63 F14: GetFilteredEnchantments re-reads the SAME enumerated array (:543-556)
     });
     if (!pick) return;
@@ -367,7 +390,8 @@ export class ItemMakerWindow {
    *  a bound soul's forced children arrive, and the only place the
    *  window can refuse for room. */
   _pickSecondary(type, param) {
-    const result = pickEnchantment(type, param, { powers: this.powers, sideEffects: this.sideEffects });
+    const all = this._lists();   // AUDIT PROF10 J2: and in the room a bound soul's set needs
+    const result = pickEnchantment(type, param, { powers: all.powers, sideEffects: all.sideEffects });
     if (!result) return;
     if (result.kind === 'noRoom') { this._say(result.text); return; }
     this._add(result.settings);
@@ -391,7 +415,7 @@ export class ItemMakerWindow {
   /** EnchantButton_OnMouseClick (:705-770). */
   _enchant() {
     audio.playOneShot(SOUND.ButtonClick, 1);
-    const d = enchantDecision(this.selected, this.powers, this.sideEffects, { gold: this.gold() });
+    const d = enchantDecision(this.selected, this.powers, this.sideEffects, { gold: this.gold(), discountPct: this.goldDiscountPct() });   // PROF12: Enchanting's layer
     if (d.kind !== 'enchant') { this._say(d.text); return; }
     // DeductGoldAmount, which spends letters of credit as well as the
     // purse - the one deduction seam (court.js).
@@ -428,9 +452,9 @@ export class ItemMakerWindow {
     return {
       itemName: this.itemName,
       availableGold: String(this.gold()),
-      goldCost: String(totalGoldCost(this.powers)),
-      enchantmentCost: enchantmentCostLabel(
-        totalEnchantmentCost(this.powers, this.sideEffects), itemEnchantmentPower(this.selected)),
+      goldCost: String(enchantGold(totalGoldCost(this.powers), this.goldDiscountPct())),   // PROF12: the rank's share off, online
+      enchantmentCost: enchantmentCostLabel(   // AUDIT PROF10 J2: a crafted piece's kept rows counted as enchantDecision counts them
+        totalEnchantmentCost(this.powers, this.sideEffects) + enchantmentListCost(keptEnchantments(this.selected) ?? []), itemEnchantmentPower(this.selected)),
     };
   }
 
@@ -461,8 +485,9 @@ export class ItemMakerWindow {
     if (inRect(ITEM_RECTS.selectedItem, vx, vy)) { if (this.selected) this._deselect(); return true; }
     if (inRect(ITEM_RECTS.nameItem, vx, vy)) { this._openRename(); return true; }
 
-    for (const [rect, list, scrollKey] of [[ITEM_RECTS.powersList, this.powers, 'powersScroll'],
-      [ITEM_RECTS.sideEffectsList, this.sideEffects, 'sideEffectsScroll']]) {
+    const shown = this._lists();   // AUDIT PROF10 J2: a crafted piece's kept rows at each list's head
+    for (const [rect, list, scrollKey] of [[ITEM_RECTS.powersList, shown.powers, 'powersScroll'],
+      [ITEM_RECTS.sideEffectsList, shown.sideEffects, 'sideEffectsScroll']]) {
       if (!inRect(rect, vx, vy)) continue;
       // F170: the hit maps through the live scroll - the C# panels
       // carry their click at their SCROLLED position (:262-276).
@@ -470,7 +495,8 @@ export class ItemMakerWindow {
       // "Can only click to remove parent panels, child panels are
       // removed by clicking on parent" (EnchantmentListPicker.cs:
       // 266-271) - a forced child is not the player's to take off.
-      if (hit && (hit.entry.parentEnchantment ?? 0) === 0) this._removeRow(hit.entry);
+      // AUDIT PROF10 J2: and a crafted piece's own rows stay on it
+      if (hit && !hit.entry.kept && (hit.entry.parentEnchantment ?? 0) === 0) this._removeRow(hit.entry);
       return true;
     }
 
@@ -511,8 +537,9 @@ export class ItemMakerWindow {
     }
 
     // the two enchantment lists
-    for (const [rect, list, scrollKey] of [[ITEM_RECTS.powersList, this.powers, 'powersScroll'],
-      [ITEM_RECTS.sideEffectsList, this.sideEffects, 'sideEffectsScroll']]) {
+    const shown = this._lists();   // AUDIT PROF10 J2: a crafted piece's kept rows at each list's head
+    for (const [rect, list, scrollKey] of [[ITEM_RECTS.powersList, shown.powers, 'powersScroll'],
+      [ITEM_RECTS.sideEffectsList, shown.sideEffects, 'sideEffectsScroll']]) {
       const scrolled = list.length > ROWS_VISIBLE;
       // F170: rows lay out through the live scroll and hide only when
       // WHOLLY outside, either end (panel.Enabled = Overlaps, :289).
@@ -520,7 +547,7 @@ export class ItemMakerWindow {
         if (row.y + row.h <= 0 || row.y >= rect[3]) continue;
         // a FORCED row is the one thing this window colours
         // differently - it is how you can tell a row you did not pick
-        const opts = row.entry.parentEnchantment !== 0 ? { color: FORCED_TEXT_COLOR } : undefined;
+        const opts = row.entry.parentEnchantment !== 0 || row.entry.kept ? { color: FORCED_TEXT_COLOR } : undefined;   // AUDIT PROF10 J2: a kept row too
         shadowText(renderer, font, enchantmentName(row.entry.type), m, rect[0], rect[1] + row.y + 2, opts);
         // SecondaryDisplayName (EnchantmentListPicker.cs:333-334) -
         // the label for the row's PARAM VALUE, matched through the

@@ -52,7 +52,7 @@ import { isEnchanted } from './inventory.js';   // UI2: an enchanted piece shows
 import { shownSpellName } from './loot.js';   // L10N3e: a slotted spell's name as the book shows it - the stored name stays the canonical one
 
 import { expandRowValues } from './quest/questMacros.js';   // MACROS1: a used item's record through its own context (%map)
-import { racialSuppressInventory } from './lycanthropy.js';   // DISC10-E L3: the pack's refusal, at the two doors that reach into it
+import { racialSuppressInventory, LYCANTHROPY_SPELL_TAG } from './lycanthropy.js';   // DISC10-E L3: the pack's refusal, at the two doors that reach into it; HB-LYCFREE: the curse's free spell
 import { hotbarInForce } from './uiSkin.js';   // AUDIT CONTRIB H1: the diamond put away while the hotbar is
 /** The slots a player fills. The two consumables are what the diamond's
  *  top and bottom cells show; `swap` is the second weapon the off-hand
@@ -103,9 +103,9 @@ const state = { c1: null, c2: null, swap: null };
  *  item: it carries no group, no template and no material, so
  *  `quickslotKey` has nothing to say about it. What it does carry is an
  *  INDEX - a SPELLS.STD record number, or the negative one a made spell
- *  mints (systems/spellMaker.js:213-231) - and that index is already
+ *  mints (systems/spellMaker.js:235-253) - and that index is already
  *  this port's name for "which spell": it is what the save writes
- *  (systems/save.js:332), what a restore reads back, and what
+ *  (systems/save.js:358), what a restore reads back, and what
  *  `setReadiedByIndex` resolves a readied spell by. So the slot keeps
  *  the same key the rest of the port keeps, and a book that changed
  *  under it (a spell sold, a made spell deleted) leaves a GHOST that
@@ -144,7 +144,8 @@ function computeKey(item) {
     ? JSON.stringify(item.customEnchantments) : '';
   const affixes = Array.isArray(item.affixes) && item.affixes.length ? JSON.stringify(item.affixes) : '';
   return [item.group ?? '', item.templateIndex ?? '', item.material ?? '', item.potionRecipeKey ?? '',
-    item.legendary ?? '', ench, custom, affixes, item.aetheric ?? ''].join('|');   // SET6: an Aetheric piece's record, as a Legendary's
+    item.legendary ?? '', ench, custom, affixes, item.aetheric ?? ''].join('|')   // SET6: an Aetheric piece's record, as a Legendary's
+    + (item.potent ? `|p${item.potent}` : '');   // AUDIT PROF12 A2: a Potent potion's share (set at the mint - the cache holds), so a slot and its count keep Potent and plain apart; AUDIT PROF-541 Q1: only when set, so a save's plain keys still resolve
 }
 
 /** What a consumable slot takes: a potion or a drug - the two arms of
@@ -367,6 +368,13 @@ function useQuickslotNow(slot, { entity = null, items = null, hooks = {}, say = 
     say?.(USE_PENDING[res.kind]);
     return { kind: 'refused', name: r.name, result: res };
   }
+  // FORAGE1: a mod's use that REFUSED (Foraging's checks - the HUD already said why) is a refusal, never gold. AUDIT ECON
+  // R3: a refusal whose arm has no HUD of its own (a repair kit's, smithItems.js - "A kit mends nothing past three
+  // quarters.") carries its words, and the slot says them; one whose arm said them already marks it `said`
+  if (res?.refused) {
+    if (res.text && !res.said) say?.(res.text);
+    return { kind: 'refused', name: r.name, result: res };
+  }
   // UI2: AND WHAT HAS NO USE SAYS SO. UseItem's catch-all does nothing and says nothing (DFU's own - the pack's click
   // on a pair of prayer beads is silent), which from a slot on the HUD, with no window to look at, is a key that seems
   // dead. The slot names it and flashes the refusal.
@@ -586,6 +594,10 @@ const bookOf = (entity) => (Array.isArray(entity?.spells) ? entity.spells : []);
 /** A spell this slot can hold: one with the numeric index that is the
  *  port's name for it. Everything the book can contain has one. */
 const keyedSpell = (sp) => !!sp && typeof sp === 'object' && Number.isFinite(sp.index);
+/** HB-LYCFREE (2026-09-30, Mac: "Lycanthropy costs to cast from hotbar when it shouldnt"): the books' own law - the
+ *  curse's spell readies with DFU's noSpellPointCost (DaggerfallSpellBookWindow: `Tag == lycanthropySpellTag`), so
+ *  from the slot and the bar as from the book it costs nothing. */
+const freeReady = (sp) => ({ free: sp?.tag === LYCANTHROPY_SPELL_TAG });
 
 /** The slot's stored spell kind, or null. A copy, as quickslotEntry is. */
 export const spellQuickslot = () => (spellState ? { ...spellState } : null);
@@ -650,7 +662,7 @@ function spellQuickslotPressNow({ entity = null, magic = null, say = null } = {}
   if (hotbarCasting) {
     // AUDIT CONTRIB H3: a ready the engine REFUSED (silence, no spell points, the hands mid-cast) is a refusal - the
     // hotbar flashed it as a cast
-    const took = magic?.readiedIndex?.() === r.index ? true : magic?.readySpell?.(r.spell);
+    const took = magic?.readiedIndex?.() === r.index ? true : magic?.readySpell?.(r.spell, freeReady(r.spell));
     const armed = magic?.readiedIndex?.() === r.index;
     const fired = armed && magic?.interceptAttack?.(true) === true;
     return { kind: fired ? 'cast' : took === false ? 'refused' : 'pressed', name: r.name, readied: armed };
@@ -661,7 +673,7 @@ function spellQuickslotPressNow({ entity = null, magic = null, say = null } = {}
     // `readied` is the state AFTER the press, as QS4's `lit` is.
     return { kind: put ? 'unreadied' : 'pressed', name: r.name, readied: !put };
   }
-  magic?.readySpell?.(r.spell);
+  magic?.readySpell?.(r.spell, freeReady(r.spell));
   // THE KIND DOES NOT JUDGE THE ENGINE. `readied` is simply whether the
   // spell is in hand now, and a spell NOT in hand is not a refusal: a
   // CasterOnly spell readies and CASTS in the same breath (DFU's
@@ -864,7 +876,7 @@ export function quickslotSaveData() {
   const out = {};
   for (const s of QUICKSLOTS) out[s] = state[s] ? { key: state[s].key, name: state[s].name } : null;
   // QS6: the spell slot rides the same block, keyed the way save.js
-  // already keys a spell - by index (systems/save.js:332).
+  // already keys a spell - by index (systems/save.js:358).
   out.spell = spellState ? { index: spellState.index, name: spellState.name } : null;
   // HB1: and the hotbar, on the same block - ten entries, each an item
   // kind or a spell index, exactly as the slots above key them.

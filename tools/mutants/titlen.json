@@ -165,8 +165,26 @@
   {
     "name": "DISC-flylighter-not-granted",
     "file": "server-account/wrangler.toml",
-    "old": "DISCIPLE_HANDLES = \"Dutchess,Satranath,Skibbster,Flylighter\"",
-    "new": "DISCIPLE_HANDLES = \"Dutchess,Satranath,Skibbster\"",
+    "old": "DISCIPLE_HANDLES = \"Dutchess,Satranath,Skibbster,Flylighter,valenvalarys\"",
+    "new": "DISCIPLE_HANDLES = \"Dutchess,Satranath,Skibbster,valenvalarys\"",
+    "tests": [
+      "test/titlen.test.js"
+    ]
+  },
+  {
+    "name": "DISC-valenvalarys-not-granted",
+    "file": "server-account/wrangler.toml",
+    "old": "DISCIPLE_HANDLES = \"Dutchess,Satranath,Skibbster,Flylighter,valenvalarys\"",
+    "new": "DISCIPLE_HANDLES = \"Dutchess,Satranath,Skibbster,Flylighter\"",
+    "tests": [
+      "test/titlen.test.js"
+    ]
+  },
+  {
+    "name": "DISC-valenvalarys-a-different-account",
+    "file": "server-account/wrangler.toml",
+    "old": "DISCIPLE_HANDLES = \"Dutchess,Satranath,Skibbster,Flylighter,valenvalarys\"",
+    "new": "DISCIPLE_HANDLES = \"Dutchess,Satranath,Skibbster,Flylighter,valenvalary\"",
     "tests": [
       "test/titlen.test.js"
     ]

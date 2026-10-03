@@ -72,9 +72,10 @@ import { STAT_KEYS_ORDER } from '../systems/chargen.js';
 import { statUp, statDown, MAX_STAT_VALUE } from './chargen.js';
 import { mustDistributeBonusPointsText } from './charsheet.js';
 import { REMAINING_POINTS_ERROR, REMAINING_POINTS_LABEL, TAKE_ONE_BACK_HINT } from './virtueLevelUp.js';
-import { attributeOffset, canRaiseAttribute, canLowerAttribute, LEVELUP_TOTAL, levelingSettings } from '../systems/oblivionLeveling.js';   // ASCEND-ANYTIME: a mod-law view still needs the mod's own prices to draw a row
+import { attributeOffset, canRaiseAttribute, canLowerAttribute, LEVELUP_TOTAL, levelBarProgress, levelingSettings, usesVirtueLeveling } from '../systems/oblivionLeveling.js';   // ASCEND-ANYTIME: a mod-law view still needs the mod's own prices to draw a row
 import { LEVELUP_SKILL_SUM_PER_LEVEL, skillRecentlyIncreased } from '../systems/advancement.js';
-import { SKILL_NAMES, skillValue } from '../systems/skills.js';
+import { SKILL_NAMES, displaySkillValue } from '../systems/skills.js';
+import { liveStat } from '../systems/statMods.js';   // ASCEND-LIVE: what a star IS, beside what the rollout spends
 import { sheetModel } from './enhancedCharSheet.js';
 
 /** The three shapes a level-up can wear. They are not three laws -
@@ -116,7 +117,7 @@ export const attributeLabel = (k) => (k ? k.charAt(0).toUpperCase() + k.slice(1)
  * own words - as ui/settingsCopy.js's are.
  */
 export const ATTRIBUTE_BLURB = Object.freeze({
-  // combat/formulas.js:81-83 damageModifier = floor((strength - 50) / 5),
+  // combat/formulas.js:83-85 damageModifier = floor((strength - 50) / 5),
   // which calculateAttackDamage adds to every landed blow;
   // entityMaxEncumbrance over liveStat strength is the pack's ceiling.
   //
@@ -132,11 +133,11 @@ export const ATTRIBUTE_BLURB = Object.freeze({
   intelligence: 'Sets your pool of spell points, by your class\'s own multiplier.',
   // systems/spellcast.js:158 - `saving += magicResist(liveStat(target,
   // 'willpower'))`, the CONSUMER of DFU's MagicResist. The first cut
-  // cited systems/quest/questMacros.js:665, which only PRINTS the same
+  // cited systems/quest/questMacros.js:669, which only PRINTS the same
   // figure for %mr, and a display is not evidence that a number does
   // anything (LV1's audit).
   willpower: 'Hardens you against magic: a tenth of it goes into every saving throw.',
-  // combat/formulas.js:309-310 statsToHit = floor((your luck - theirs) / 10)
+  // combat/formulas.js:311-312 statsToHit = floor((your luck - theirs) / 10)
   // + floor((your agility - theirs) / 10), read INSIDE the hit roll.
   //
   // LV1's AUDIT CORRECTED THIS ONE TOO. It described `toHitModifier`
@@ -147,16 +148,17 @@ export const ATTRIBUTE_BLURB = Object.freeze({
   agility: 'Rides every swing: a tenth of the gap between your agility and your foe\'s.',
   // systems/chargen.js hitPointsPerLevelUp reads hitPointsModifier = floor(endurance / 10) - 5.
   endurance: 'Rolls into the health you gain at every level from here on.',
-  // combat/formulas.js:867 - merchant reaction takes personality / 5; systems/court.js:446 takes it again.
+  // combat/formulas.js:888 - merchant reaction takes personality / 5; systems/court.js:509 takes it again.
   personality: 'Warms merchants, judges and anyone else weighing what you are worth.',
-  // player/motor.js:512 walkSpeed(stats.speed) is how fast you move;
-  // combat/weaponRig.js:516 reads liveStat speed for the swing.
+  // player/motor.js:630 walkSpeed(stats.speed) is how fast you move;
+  // combat/weaponRig.js:541 reads liveStat speed for the swing.
   speed: 'Quickens your weapon and closes the ground between you and a fight.',
-  // combat/formulas.js:309-310 again - the same term agility rides -
+  // combat/formulas.js:311-312 again - the same term agility rides -
   // and systems/unleveledLoot.js:95, where the vendored ladder rolls
   // rarity against the player's luck, which is where a player actually
-  // notices it.
-  luck: 'Rides every swing beside agility - and tilts what the dead and the dungeons are carrying.',
+  // notices it. (AUDIT 28e: a line shorter - at 360 to 375 wide it was the one blurb that ran to a third line, and
+  // the tallest sets the Ascension's band.)
+  luck: 'Rides every swing with agility, and tilts what the dead and dungeons hold.',
 });
 
 /**
@@ -298,6 +300,29 @@ export function viewOnlyScreen(entity, virtue = false) {
   };
 }
 
+/**
+ * ASCEND-LIVE (2026-09-28, Discord, Megatronism: "The permanent stat bonuses from being a werewolf (vampire, etc...)
+ * do not appear on the level up screen ... You can actually put points into an already maxed out attribute").
+ *
+ * WHAT AN ATTRIBUTE IS, with `permanent` in the rollout's hands: liveStat's one law - the curse's channel, the
+ * spells, the diseases, the folds, the clamp - read over a stand-in carrying the working value. Both lanes spend
+ * and cap the PERMANENT value, and that stays the law: DFU's StatsRollout draws and caps
+ * GetPermanentStatValue (:202, :237-249) and the mod reads `.base` (helper.lua:112-114). But a werewolf's +40 rides
+ * the live channel (LycanthropyEffect.cs:566-574 SetStatMod), so a star read off the permanent value said 63 on a
+ * character whose Stats page says 100, and a point spent there moved nothing the player has while the curse lasts.
+ * The star now wears the live value, beside the permanent one the presses move.
+ */
+export const liveAttribute = (entity, key, permanent) =>
+  liveStat({ stats: { [key]: permanent }, activeEffects: entity?.activeEffects, _mods: entity?._mods }, key);
+
+/** A row's live reading: the value, and whether a press the row allows would show in it - `capped` is a point the
+ *  law takes that the live value cannot show: at the ceiling, or held at a floor (a vampire's day never takes a stat
+ *  below 1). Asked of liveStat itself, one point on (AUDIT 28e: the ceiling alone was asked). */
+const liveOf = (entity, key, value, canRaise) => {
+  const live = liveAttribute(entity, key, value);
+  return { live, capped: canRaise && liveAttribute(entity, key, value + 1) === live };
+};
+
 export function rolloutRows(screen) {
   if (!screen) return [];
   const virtue = levelUpLane(screen) === LANE_VIRTUE;
@@ -306,25 +331,50 @@ export function rolloutRows(screen) {
       const stats = screen.entity?.stats ?? {};
       const base = stats[key] ?? 0;
       const delta = screen.deltas?.[key] ?? 0;
+      const canRaise = canRaiseAttribute(key, stats, screen.deltas ?? {}, screen.purse ?? 0, screen.s);
       return {
         key, index, label: attributeLabel(key),
         base, value: base + delta, delta,
+        ...liveOf(screen.entity, key, base + delta, canRaise),
         cost: attributeOffset(key, screen.s),
-        canRaise: canRaiseAttribute(key, stats, screen.deltas ?? {}, screen.purse ?? 0, screen.s),
+        canRaise,
         canLower: canLowerAttribute(key, screen.deltas ?? {}),
       };
     }
     const base = screen.base?.[key] ?? 0;
     const value = screen.working?.[key] ?? base;
     const pool = screen.pool ?? 0;
+    const canRaise = statUp(value, pool).working !== value;
     return {
       key, index, label: attributeLabel(key),
       base, value, delta: value - base,
+      ...liveOf(screen.entity, key, value, canRaise),
       cost: 1,
-      canRaise: statUp(value, pool).working !== value,
+      canRaise,
       canLower: statDown(value, base, pool).working !== value,
     };
   });
+}
+
+/** ASCEND-LIVE: the line under the pick, when what the character HAS is not the permanent value the presses move -
+ *  and, where a point would not show, that it would not. Empty when the two agree. One line on a phone (AUDIT 28e:
+ *  "...shows only once that ends" wrapped to four); the star's own words say the rest. */
+export function liveNote(row) {
+  if (!row || row.live === row.value) return '';
+  const said = row.live > row.value ? `${row.live} with its bonus` : `${row.live} for now`;
+  return row.capped ? `${said} - a point here won't show` : said;
+}
+
+/** ASCEND-LIVE: the tint a star's figure and the pick line wear - the classic sheet's two, a live value above its
+ *  permanent one or below it (charsheet.js STAT_INCREASED_COLOR, STAT_DRAINED_COLOR); '' when the two agree. */
+export const liveTint = (row) => (!row ? '' : row.live > row.value ? 'boosted' : row.live < row.value ? 'lowered' : '');
+
+/** A star's words for a screen reader: the figure it wears, the permanent value under it where the two differ, the
+ *  points placed, and a point the law takes that would not show (AUDIT 28e: built in the window, unpinned). */
+export function starLabel(row) {
+  return `${row.label} ${row.live}${row.live !== row.value ? ` (${row.value} of its own)` : ''}`
+    + `${row.delta > 0 ? `, raised by ${row.delta}` : ''}${row.canRaise ? '' : ', cannot raise'}`
+    + `${row.capped ? ', a point here will not show for now' : ''}`;
 }
 
 /** What is left to spend, in whichever currency this lane counts in. */
@@ -485,13 +535,17 @@ export function levelUpCrown(entity, screen) {
  * copying its number goes stale the day the law moves.
  *
  * Virtue: the mod's bar, out of LEVELUP_TOTAL, with what rolled over
- * (rollOverLevelProgress) named beside it.
+ * (rollOverLevelProgress) named beside it - for a character the mod's
+ * law levels, whichever screen is up: the Oghma Infinium mounts the
+ * classic rollout for them too, and its crown read the skill sum that
+ * levels nothing for them (AUDIT 28e, LEVEL-PCT's mismatch inside
+ * Enhanced Plus; the classic Level box asks the same question).
  */
 export function levelProgress(entity, screen) {
   const e = entity ?? {};
-  if (levelUpLane(screen) === LANE_VIRTUE) {
+  if (levelUpLane(screen) === LANE_VIRTUE || usesVirtueLeveling(e)) {
     return {
-      now: Math.max(0, Math.min(LEVELUP_TOTAL, e.levelProgress ?? 0)),
+      now: levelBarProgress(e),
       max: LEVELUP_TOTAL,
       carried: e.levelRollUp ?? 0,
       label: 'Toward the next',
@@ -613,7 +667,7 @@ export function riseRibbon(entity) {
     name: SKILL_NAMES[id] ?? '',
     // AUDIT 65 CV-1's read, the one sheetModel makes: GetLiveSkillValue,
     // so a lycanthrope's +30 shows here exactly as it shows there.
-    value: skillValue(e, id),
+    value: displaySkillValue(e, id),   // SOFTCAP1: the printed 0..200 value, not the formula's
     group: groups.get(id) ?? 'Miscellaneous',
     role: roles.get(id) ?? ROLE_IDLE,
     note: ROLE_NOTE[roles.get(id) ?? ROLE_IDLE],
@@ -643,7 +697,9 @@ export function levelUpVitals(entity) {
 
 /** A star's brightness is its VALUE, against the same ceiling every
  *  rollout clamps to - so the figure a player sees is the character
- *  they have, and a maxed attribute is visibly a maxed attribute. */
+ *  they have, and a maxed attribute is visibly a maxed attribute. The
+ *  window hands it the LIVE value (ASCEND-LIVE): the permanent one
+ *  made a werewolf's 100 read as 63. */
 export const starBrightness = (value) => Math.max(0, Math.min(1, (value ?? 0) / MAX_STAT_VALUE));
 
 /**

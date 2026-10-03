@@ -46,11 +46,13 @@ const FACTION_RACE_KEYS = Object.freeze({
   4: 'Argonian', 5: 'WoodElf', 6: 'HighElf', 7: 'DarkElf',
 });
 import { dateFromSeconds, dateString, dayName, monthName, birthSignName, seasonName, CLASSIC_EPOCH_IN_SECONDS } from '../gameDate.js';
+import { skySecondsOfEvent } from '../skyCalendar.js';   // TIME3: a journal date (the event clock's) on the sky's calendar
 import { REGION_TEMPLES, LOCATION_TYPES } from '../../formats/mapsFile.js';
 import { factionRaceFromRace } from '../../characters/staticNpc.js';
 import { rulerTitle } from '../../world/buildingNames.js';   // AUDIT 68 S30-ruler-divine-tables-dup: GetRulerTitle's one home
 import { localizedStrings, localizedTable, localizedText, getLocalizedLocationName, getLocalizedRegionName } from '../textManager.js';   // L10N3d: DFU's Internal_Strings, read in the player's language; L10N3e: the place names shown
 import { getLocalizedFactionName, processGrammar } from '../textManager.js';   // L10N3e: the faction names shown; L10N3g: the language's grammar over a finished message
+import { legalStandingWord } from '../legalBands.js';   // %ltn's fourteen bands, one home
 
 export const MACRO_TYPES = Object.freeze({
   None: 0, NameMacro1: 1, NameMacro2: 2, NameMacro3: 3, NameMacro4: 4,
@@ -358,7 +360,9 @@ export function questMacroSource(quest) {
     // %qdt %qdat - the CURRENT log step's date (the journal sets
     // currentLogMessageId while rendering; -1 falls to quest start)
     questDate() {
-      return dateString(dateFromSeconds(quest.getCurrentLogMessageTime()));
+      // TIME3: the step's stamp is the event clock's (quest.js, worldSeconds) and the calendar the player reads is the
+      // sky's: the date is the sky's at the instant the step was logged - offline the one clock, the stamp itself
+      return dateString(dateFromSeconds(skySecondsOfEvent(quest.getCurrentLogMessageTime())));
     },
     // %oth - by the questor's race (DFU's fix over classic's region
     // race); the seam speaks TEXT.RSC 201+oathId.
@@ -726,20 +730,7 @@ const HANDLERS = {
   '%ltn': (mcp, hooks) => {
     const rep = hooks?.world?.legalRepNow?.();
     if (rep == null) return null;
-    if (rep > 80) return localizedText('revered', 'revered');
-    if (rep > 60) return localizedText('esteemed', 'esteemed');
-    if (rep > 40) return localizedText('honored', 'honored');
-    if (rep > 20) return localizedText('admired', 'admired');
-    if (rep > 10) return localizedText('respected', 'respected');
-    if (rep > 0) return localizedText('dependable', 'dependable');
-    if (rep === 0) return localizedText('aCommonCitizen', 'a common citizen');
-    if (rep < -80) return localizedText('hated', 'hated');
-    if (rep < -60) return localizedText('pondScum', 'pond scum');
-    if (rep < -40) return localizedText('aVillain', 'a villain');
-    if (rep < -20) return localizedText('aCriminal', 'a criminal');
-    if (rep < -10) return localizedText('aScoundrel', 'a scoundrel');
-    if (rep < 0) return localizedText('undependable', 'undependable');
-    return localizedText('unknown', 'unknown');
+    return legalStandingWord(rep);   // REP5: the ladder's one home (systems/legalBands.js), which the notices read too; L10N3d: in the player's language there
   },
 
   // PLACE (globals over the world hook)
@@ -1011,9 +1002,11 @@ const pgender = (hooks) => hooks?.playerGender?.() === 'female';
 /** hooks.nowSeconds is EPOCH-RELATIVE (classic minutes x 60), so the
  *  epoch goes back on before the date is read - otherwise %year answers
  *  1 where DFU's WorldTime.Now.Year answers 405. The epoch is exactly
- *  404 x 360-day years, so every other field is unmoved by this. */
+ *  404 x 360-day years, so every other field is unmoved by this.
+ *  TIME3: the date and the time are the SKY's (hooks.skySeconds, the
+ *  same epoch) - the quest's own clock where a host gives none. */
 const nowDate = (hooks) => {
-  const sec = hooks?.nowSeconds?.();
+  const sec = (hooks?.skySeconds ?? hooks?.nowSeconds)?.();
   return sec == null ? null : dateFromSeconds(CLASSIC_EPOCH_IN_SECONDS + sec);
 };
 /** GetSuffix (DaggerfallDateTime.cs:641-651), on the ONE-based day. */
@@ -1054,7 +1047,7 @@ const NULL_HANDLERS = new Set(['%1hn', '%2hn', '%3hn', '%cbl', '%dts', '%ef',
   // E7: %tcn joins them. C#'s row IS null (MacroHelper.cs:221), so
   // the table's answer is [unhandled]; the travel window's own
   // `Replace("%tcn", name)` (DaggerfallTravelMapWindow.cs:1694, and
-  // ui/travelMapWindow.js:1199 after it) is string surgery on TEXT.RSC
+  // ui/travelMapWindow.js:1250 after it) is string surgery on TEXT.RSC
   // 31 that never reaches this ladder. M-X had recorded it as a port
   // handler standing where C# has null, with a carve-out in the
   // coverage gate; there was never a handler to carve out.
@@ -1255,11 +1248,14 @@ export function expandQuestString(parentQuest, questString) {
 }
 
 /** GetMessageResources (QuestMacroHelper.cs:61-83): every resource a
- *  message's macros reference. */
-export function getMessageResources(message) {
+ *  message's macros reference. The variant is drawn on `roll` - the
+ *  engine's (UnityEngine.Random, here Math.random) unless a caller hands
+ *  its own, the same seam Message.getTextTokens carries; GUIDE1's quest
+ *  lens hands one that draws nothing. */
+export function getMessageResources(message, roll = Math.random) {
   if (!message) return null;
   const resources = [];
-  const tokens = message.getTextTokens(-1, Math.random, false);
+  const tokens = message.getTextTokens(-1, roll, false);
   for (const token of tokens) {
     if (!token.text) continue;
     for (const word of token.text.split(' ')) {

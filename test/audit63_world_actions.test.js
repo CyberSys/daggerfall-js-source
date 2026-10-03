@@ -392,6 +392,6 @@ test('AUDIT 63 F45: a Door-flagged foyer door cannot take the hack from a bump',
   const pass = dc.slice(dc.indexOf('function collisionTriggers('), dc.indexOf('function waterSurfaceYAt('));
   assert.ok(pass.includes('if (!hasActionCollision(o)) continue;'),
     'the collision pass walks only the objects DFU gives a DaggerfallActionCollision');
-  assert.ok(pass.indexOf('if (!hasActionCollision(o)) continue;') < pass.indexOf("actions.receive(o, standingOn ? 'WalkOn' : 'WalkInto');"),
-    'and refuses before Receive, which is where the hack sits');
+  assert.ok(pass.indexOf('if (!hasActionCollision(o)) continue;') < pass.indexOf('actions.receive(o, touch);'),
+    'and refuses before Receive, which is where the hack sits');   // AUDIT PRE-MERGE 0929 D1/D2: the receive is of the touch actionContact heard
 });

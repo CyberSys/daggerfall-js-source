@@ -48,15 +48,17 @@ function defaultWorkerFactory() {
 
 /** The same bundle, opened on this thread - the fallback, and node.
  *  Answers the client's shape over the reader's own objects. */
-export function openBundleHere(bytes) {
-  const bundle = readUnityBundle(bytes);
+export function openBundleHere(bytes, { maxTextureSize = Infinity, knownTextures = null } = {}) {
+  const bundle = readUnityBundle(bytes, { maxTextureSize, knownTextures });
   const byName = new Map();
   for (const t of bundle.textures) if (!byName.has(t.name)) byName.set(t.name, t);
   return {
     onThread: true,
     textAssets: bundle.textAssets.map((t) => ({ name: t.name, bytes: t.bytes, get text() { return utf8(t.bytes); } })),
     textures: bundle.textures.map((t) => ({ name: t.name, width: t.width, height: t.height, format: t.format })),
-    rgba: async (name) => { const tex = byName.get(name); return tex ? tex.rgba() : null; },
+    rgba: async (name, opts) => { const tex = byName.get(name); return tex ? tex.rgba(opts) : null; },
+    arrays: (bundle.arrays ?? []).map((a) => ({ name: a.name, width: a.width, height: a.height, depth: a.depth })),   // GROUND1
+    layers: async (name) => { const a = bundle.arrays?.find((x) => x.name === name); return a ? a.layers() : null; },
     close() { byName.clear(); },
   };
 }
@@ -71,10 +73,14 @@ export function openBundleHere(bytes) {
  * the bundle falls back to this thread. Only the reader's own error is
  * thrown, whichever thread ran it.
  */
-export async function openUnityBundle(bytes, { workerFactory = null } = {}) {
+export async function openUnityBundle(bytes, { workerFactory = null, maxTextureSize = Infinity, knownTextures = null } = {}) {
   const factory = workerFactory
     ?? ((bundleThreadDisabled() || typeof Worker === 'undefined') ? null : defaultWorkerFactory);
-  if (!factory) return openBundleHere(bytes);
+  // DFMOD2: A BLOB is read by range in the worker and never whole here. With no worker there is no sync range read
+  // on this thread, so the fallback materialises it - which a multi-gigabyte one cannot survive, and says so.
+  const isBlob = typeof Blob !== 'undefined' && bytes instanceof Blob;
+  const here = async () => openBundleHere(isBlob ? new Uint8Array(await bytes.arrayBuffer()) : bytes, { maxTextureSize, knownTextures });
+  if (!factory) return here();
   let w = null;
   const pending = new Map();
   let nextId = 1;
@@ -105,20 +111,23 @@ export async function openUnityBundle(bytes, { workerFactory = null } = {}) {
       // marked so the open's catch does not mistake it for a dead worker
       if (m.t === 'error') p.reject(Object.assign(new Error(m.message), { readerError: true })); else p.resolve(m);
     };
-    // a COPY: the caller's bytes are the fallback's if this never answers
-    const copy = bytes.slice();
-    const opened = await ask({ t: 'open', bytes: copy }, [copy.buffer]);
+    // a COPY: the caller's bytes are the fallback's if this never answers; DFMOD2: a Blob is a handle, not a copy
+    let opened;
+    if (isBlob) opened = await ask({ t: 'open', blob: bytes, maxTextureSize, knownTextures });
+    else { const copy = bytes.slice(); opened = await ask({ t: 'open', bytes: copy, maxTextureSize, knownTextures }, [copy.buffer]); }
     return {
       onThread: false,
       textAssets: opened.textAssets.map((t) => ({ name: t.name, bytes: t.bytes, get text() { return utf8(t.bytes); } })),
       textures: opened.textures,
-      rgba: async (name) => (await ask({ t: 'rgba', name })).image ?? null,
+      rgba: async (name, opts) => (await ask({ t: 'rgba', name, maxSize: opts?.maxSize })).image ?? null,
+      arrays: opened.arrays ?? [],   // GROUND1
+      layers: async (name) => (await ask({ t: 'layers', name })).images ?? null,
       close() { try { w.postMessage({ t: 'close' }); } catch { /* gone */ } down('unity bundle worker closed'); },
     };
   } catch (e) {
     down(e?.message ?? 'unity bundle worker failed');
     if (e?.readerError) throw e;   // the same bytes, the same pure reader: no second parse here
     console.warn('[unity bundle] worker unavailable; opening on the main thread', e?.message ?? e);
-    return openBundleHere(bytes);
+    return here();
   }
 }

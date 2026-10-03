@@ -31,6 +31,10 @@ import {
 import { hdGlyphSvg } from '../src/ui/padGlyphsHD.js';   // PLUS-ONLY: the HUD's glyph under the one enhanced dress
 import { quickslotTag, quickslotOffTag, tagKey, CELL_ACTIONS, tagText } from '../src/ui/quickslotTags.js';
 import { createBindings, setBinding } from '../src/systems/inputActions.js';
+import { setPref } from '../src/systems/uiPrefs.js';
+// HB-LYCFREE (2026-09-30): the hotbar is the quick slots' default now. This suite is the DIAMOND's, written while the
+// diamond was the default, so it chooses the diamond (PIN MOVED: the environment it always ran in, now said).
+setPref('quickbarStyle', 'quickbar');
 
 const read = (p) => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8');
 const HUD = read('src/ui/enhancedHud.js');
@@ -371,7 +375,7 @@ test('QS3: the block is written only when it CHANGED, and a phone can press it',
   // edges a hold needs (down, up, cancel, leave) and is called three
   // times, and the off cell's tap is the fifth site. MAC-R3 (2026-09-17):
   // and the MAIN cell's tap is the sixth - the hand switch.
-  assert.equal((HUD.match(/addEventListener\(/g) ?? []).length, 6, 'six listener sites, and they are these six');
+  assert.equal((HUD.match(/addEventListener\(/g) ?? []).length, 9, 'nine listener sites: these six, and the status widget\'s right-click three (BUFF-END, test/buffend.test.js)');
   assert.match(HUD, /cells\.main\.cell\.addEventListener\('pointerdown', tap\(\(\) => \{ liveOpts\.quickSwitchHand\?\.\(\); \}\)\);/, 'MAC-R3: the main cell switches hands');
   assert.equal((HUD.match(/\bbindHold\(/g) ?? []).length, 3, 'bindHold is called for exactly three slots');
   for (const e of ['pointerdown', 'pointerup', 'pointercancel', 'pointerleave']) {
@@ -418,7 +422,9 @@ test('QS3: drawHud forwards the sheathe state and the two phone doors', () => {
   assert.match(HUD, /import \{ controllerLook \} from '\.\.\/player\/lookFilter\.js';/);
   assert.match(HUD, /const controller = controllerLook\(\) && !!family;/);
   const gp = read('src/ui/gamepadInput.js');
-  assert.match(gp, /setControllerLook\(usingController\);\s*\n\s*setPadFamily\(padFamilyOf\(pad\.id\)\);/);
+  // the EM3-3D patch's crossbar fix: the family is still the pad's own id, now held (sticky) until the pad ACTS - the
+  // keyboard keeps the diamond meanwhile - rather than re-set every frame
+  assert.match(gp, /setPadFamily\(usingController \|\| !P\.handsOff \? padFamilyOf\(pad\.id\) : null\);[^\n]*\n[\s\S]{0,1500}setControllerLook\(usingController\);/);
   assert.match(gp, /setPadFamily\(null\);   \/\/ QS3: a glyph for a pad nobody is holding is a lie/);
   assert.match(gp, /dispose\(\) \{[^}]*setPadFamily\(null\);/);
 });

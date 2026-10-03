@@ -28,7 +28,7 @@ test('ES1 the row: Enhanced sounds on the Features home where the wind row stood
   assert.equal(ENHANCED_SOUNDS_KEY, 'soundEnhancements');
   assert.deepEqual(row.kinds, ['enhanced']);
   assert.equal(row.control.initial, true); assert.equal(row.control.online, 'player'); assert.equal(row.control.store, 'prefs');
-  assert.match(row.note, /wind/); assert.match(row.note, /gold/);
+  assert.match(row.note, /wind/); assert.match(row.note, /coin clink/);
   assert.equal(PREF_DEFAULTS.soundEnhancements, true, 'RF4: the shelf derives the default from the row');
   assert.ok(ONLINE_PLAYERS_OWN_PREFS.includes('soundEnhancements'), 'the lane leaves it to the player');
   assert.equal(FEATURES.find((f) => f.id === 'wind-sound'), undefined, 'the wind’s own row is gone - it IS this row');
@@ -61,7 +61,7 @@ test('MAC-O6 + ES1 + SND1 by source: the enhanced inventory plays DoTransferItem
   // the classic window's own call is the reference, unchanged
   assert.match(rd('src/ui/nativeInventory.js'), /audio\.playOneShot\(plan\.sound === 'gold' \? SOUND\.GoldPieces : SOUND\.ButtonClick, 1\);/, 'the classic window plays it always, as DFU does');
   const wind = rd('src/systems/windAudio.js');
-  assert.match(wind, /return enhancedSoundsOn\(\) && new URLSearchParams\(search\)\.get\('windaudio'\) !== 'off';/, 'the wind reads the one switch');
+  assert.match(wind, /return enhancedSoundsOn\(\) && pageParam\('windaudio', search\) !== 'off';/, 'the wind reads the one switch (PERF-URL: its door through the page query\'s one parse)');
   assert.doesNotMatch(wind, /getPref\('windSound'\)/, 'no pref of its own any more');
   assert.doesNotMatch(rd('src/systems/features.js'), /key: 'windSound'/, 'and no row declares one');
 });

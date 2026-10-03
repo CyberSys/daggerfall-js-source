@@ -13,18 +13,18 @@ import { readFileSync } from 'node:fs';
 
 import { ATTACKS, ATTACK_BY_ID, BOSS_R, COURT_CENTRE, COURT_R, PHASE_AT, PHASE3_WINDUP } from '../src/net/gateBrain.js';
 import {
-  inAttack, chargeHead, chargeStrikes, strikeVerdict, blowOf, strikeDamage, fireShare, telegraphAt, segmentDistance, STRIKE_LATE_MS,
+  inAttack, chargeHead, chargeStrikes, strikeVerdict, blowOf, strikeDamage, savedShare, telegraphAt, segmentDistance, STRIKE_LATE_MS,
 } from '../src/net/gateStrike.js';
 import {
   bossAct, bossFrame, bossGlow, bossPlace, bossLookOf, BOSS_LOOKS, BOSS_CUES, ATTACK_COLORS, WARD_COLOR, EMBER_COLOR, FALL_MS, FLINCH_MS,
   GLOW_UP, GLOW_RANGE, RUN_ANIM_SPEED, FIRE_CAST_ID, BURNING,
 } from '../src/world/gateBoss.js';
 import {
-  telegraphShape, telegraphField, telegraphQuad, GateTelegraphRenderer, TELEGRAPH_KIND, TELEGRAPH_FS, TELEGRAPH_VS, TELEGRAPH_POINTS_MAX,
+  telegraphShape, telegraphField, telegraphQuad, telegraphQuadOver, GateTelegraphRenderer, TELEGRAPH_KIND, TELEGRAPH_FS, TELEGRAPH_VS, TELEGRAPH_POINTS_MAX,
   TELEGRAPH_FADE_IN_MS, TELEGRAPH_FLASH_MS, TELEGRAPH_MARGIN,
 } from '../src/render/gateTelegraph.js';
 import { bossBarModel, drawGateBossBar, destroyGateBossBar, BOSS_BAR_TEXT, WRATH_WARN_MS } from '../src/ui/gateBossBar.js';
-import { createGateCourt, bossOf, COURT_STRIKE_TEXT } from '../src/scenes/gateCourt.js';
+import { createGateCourt, bossOf, COURT_STRIKE_TEXT, ROAR_AFTER_MS } from '../src/scenes/gateCourt.js';
 import { GATE_STATE_EMPTY } from '../src/net/gateLink.js';
 import { courtToDungeon } from '../src/world/gateArena.js';
 import { gateBossOf } from '../src/net/gateLaw.js';
@@ -57,8 +57,8 @@ test('WB4 the shapes: a cone holds his body and its arc about his facing and not
   assert.ok(!inAttack(W('charge', { tg: [] }), 0, 0), 'a lane with no end is none');
   const nova = W('nova', { x: 1, z: 1 });
   assert.ok(!inAttack(nova, 1 + 3.9, 1), 'safe at his feet');
-  assert.ok(inAttack(nova, 1 + 4.1, 1) && inAttack(nova, 1 + 20, 1), 'the ring');
-  assert.ok(!inAttack(nova, 1 + 30.5, 1), 'and past it');
+  assert.ok(inAttack(nova, 1 + 4.1, 1) && inAttack(nova, 1 + 15.9, 1), 'the ring');
+  assert.ok(!inAttack(nova, 1 + 16.5, 1), 'and past it (WB13a: 16 m - it ran to 30, past the floor)');
   assert.ok(inAttack(W('wrath'), 23, -3), 'the whole court');
   assert.ok(!inAttack(W('cleave'), NaN, 0) && !inAttack({ a: 99 }, 0, 0), 'nothing for a point that is none or an attack that is none');
   assert.equal(segmentDistance(0, 5, 0, 0, 0, 0), 5);
@@ -102,7 +102,7 @@ test('WB4 what a strike does: a share of the struck player\'s own maximum health
   assert.equal(strikeDamage(0.3, 40, -5), 12, 'a base is never a heal');
   assert.equal(strikeDamage(0.001, 10), 1, 'at least one');
   assert.ok(strikeDamage(ATTACKS.wrath.pct, 900) > 900, 'more than any health');
-  assert.equal(fireShare(40, 50), 20); assert.equal(fireShare(40, 0), 0); assert.equal(fireShare(40, 250), 40); assert.equal(fireShare(41, 50), 20);
+  assert.equal(savedShare(40, 50), 20); assert.equal(savedShare(40, 0), 0); assert.equal(savedShare(40, 250), 40); assert.equal(savedShare(41, 50), 20);   // WB8b: fireShare, for every element now
   const t1 = telegraphAt(W('slam'), 1, 10000 - ATTACKS.slam.windup / 2);
   assert.equal(t1.t, 0.5); assert.equal(t1.landing, false); assert.equal(t1.key, 'slam');
   const w3 = Math.round(ATTACKS.slam.windup * PHASE3_WINDUP);
@@ -123,7 +123,8 @@ test('WB4 his look: the wind-up holds the attack\'s first frame then its second,
   assert.equal(bossAct(s, 10000 - w / 2 + 10).frame, 1, 'the raise from half way');
   assert.equal(bossAct(s, 10000 - 10, 10000 - 20).act, 'windup', 'a blow of mine never breaks a wind-up');
   assert.deepEqual([10000, 10100, 10200].map((t) => bossAct(s, t)).map((x) => [x.act, x.frame]), [['strike', 2], ['strike', 3], ['strike', 4]], 'the swing at the clip\'s 10 a second');
-  assert.equal(bossAct(s, 10300).act, 'idle', 'the recovery stands');
+  assert.equal(bossAct(s, 10300).act, 'spent', 'WB13f: the Slam\'s recovery held in its last frame');
+  assert.equal(bossAct(s, 10000 + ATTACKS.slam.active + ATTACKS.slam.recover).act, 'idle', 'and then he stands');
   // the charge
   const ch = state({ atk: W('charge', { x: -5, z: 0, tg: [[15, 0]] }), x: -5, z: 0 });
   a = bossAct(ch, 10000 + 450);
@@ -217,7 +218,7 @@ test('WB4 the telegraph: the shader\'s own reading agrees with the strike\'s law
   assert.equal(hf.kind, TELEGRAPH_KIND.discs); assert.equal(hf.points.length, TELEGRAPH_POINTS_MAX, 'phase three\'s two volleys, all drawn');
   assert.equal(telegraphShape(cases[1], 1, 9500).kind, TELEGRAPH_KIND.disc);
   const slam = W('slam'), w = ATTACKS.slam.windup;
-  assert.equal(telegraphShape(slam, 1, 10000 - w).alpha, 0, 'it comes up at the word');
+  assert.equal(telegraphShape(slam, 1, 10000 - w).alpha, 1, 'WB13a: its line whole from the word (the shader brings the inside up)');
   assert.equal(telegraphShape(slam, 1, 10000 - w + TELEGRAPH_FADE_IN_MS).alpha, 1);
   assert.equal(telegraphShape(slam, 1, 10000 - w / 4).t, 0.75, 'filling with the wind-up');
   assert.equal(telegraphShape(slam, 1, 10000 - w / 4).flash, 0);
@@ -232,30 +233,33 @@ test('WB4 the telegraph: the shader\'s own reading agrees with the strike\'s law
   assert.ok(Math.abs(telegraphField(lane, 1, 1).s) < 1e-9 && Math.abs(telegraphField(lane, 7, 18).s - 1) < 1e-9);
   const ring = telegraphShape(cases[4], 1, 9500);
   assert.ok(Math.abs(telegraphField(ring, 3 + 4, -2).s) < 1e-9);
-  // the quad covers the floor
+  // WB13a: the quad is 0..1, laid by the vertex stage over its shape's own ground - the whole court's square for the
+  // whole floor's
   const q = telegraphQuad();
-  assert.equal(q.length, 12); assert.equal(Math.max(...q), COURT_R + TELEGRAPH_MARGIN); assert.equal(Math.min(...q), -(COURT_R + TELEGRAPH_MARGIN));
+  assert.equal(q.length, 12); assert.equal(Math.max(...q), 1); assert.equal(Math.min(...q), 0);
+  assert.deepEqual(telegraphQuadOver(telegraphShape(cases[5], 1, 9500), 0), [-(COURT_R + TELEGRAPH_MARGIN), -(COURT_R + TELEGRAPH_MARGIN), COURT_R + TELEGRAPH_MARGIN, COURT_R + TELEGRAPH_MARGIN]);
 });
 
 test('WB4 the shader\'s text says what the reading says: each shape\'s inside, the floor\'s edge, the fill against the wind-up, the flash, the fog (mutants: the cone\'s body dropped from the shader)', () => {
   for (const re of [
     /inside = d <= uR && \(d <= uBody \|\| ang <= uHalfArc\);/,
     /float ang = abs\(wrapAngle\(atan\(rel\.x, rel\.y\) - uYaw\)\);/,
-    /for \(int i = 0; i < 10; i\+\+\) \{ if \(i >= uCount\) break; m = min\(m, length\(vCourt - uPts\[i\]\)\); \}\n\s*inside = m <= uR;/,
+    /for \(int i = 0; i < 10; i\+\+\) \{ if \(i >= uCount\) break; float di = length\(vCourt - uPts\[i\]\); if \(di < m\) \{ m = di; near = uPts\[i\]; \} \}\n\s*inside = m <= uR;/,   // WB9e: and the nearest's own centre (WB13a: its rim's dashes)
     /float ld = length\(vCourt - \(uOrigin \+ v \* h\)\);\n\s*inside = ld <= uHalfW;/,
     /inside = d >= uR0 && d <= uR1;/,
-    /if \(c > uFloorR\) discard;/,
-    /float filled = fin \* step\(s, uT\);/,
-    /light = mix\(light, 1\.1 \* fin \+ 0\.6 \* rim, uFlash\);/,
-    /o = vec4\(uColor \* light \* uAlpha \* fogFactorAt\(vWorld\), 1\.0\);/,
+    /bool clipOut = uOnWalk == 0 \? c > uFloorR : /,   // AUDIT WB9 (court F4): the court's own disc - a laid walkway's strip is its own
+    /float filled = fin \* \(1\.0 - smoothstep\(uT - fs, uT \+ fs, s\)\);/,   // WB13a: its front anti-aliased
+    /vec3 rgb = uColor \* inner \+ lineCol \* line;/,   // WB13a: the element inside, the danger edge on the line
+    /o = vec4\(rgb \* f, clamp\(a, 0\.0, 1\.0\) \* f\);/,   // premultiplied: the light added, the floor under a fill darkened
   ]) assert.match(TELEGRAPH_FS, re);
-  assert.match(TELEGRAPH_VS, /vWorld = uCentre \+ vec3\(aCourt\.x, uLift, aCourt\.y\);/);
+  // WB9b: over the court it lies over; WB13a: over its own ground there (the vertex stage lays the 0..1 quad over uLo..uHi)
+  assert.match(TELEGRAPH_VS, /vCourt = uOnWalk == 1 \? [^\n]* : mix\(uLo, uHi, aCourt\);\n\s*vWorld = uCentre \+ vec3\(vCourt\.x, uLift, vCourt\.y\);/);   // AUDIT WB9 (court F4): or along a laid walkway
   assert.match(TELEGRAPH_FS, /uniform vec2 uPts\[10\];/);
 });
 
 function fakeGl() {
   const calls = [];
-  const gl = new Proxy({ VERTEX_SHADER: 1, FRAGMENT_SHADER: 2, COMPILE_STATUS: 3, LINK_STATUS: 4, ARRAY_BUFFER: 5, STATIC_DRAW: 6, FLOAT: 7, TRIANGLES: 8, BLEND: 9, ONE: 10, CULL_FACE: 11, POLYGON_OFFSET_FILL: 12 }, {
+  const gl = new Proxy({ VERTEX_SHADER: 1, FRAGMENT_SHADER: 2, COMPILE_STATUS: 3, LINK_STATUS: 4, ARRAY_BUFFER: 5, STATIC_DRAW: 6, FLOAT: 7, TRIANGLES: 8, BLEND: 9, ONE: 10, CULL_FACE: 11, POLYGON_OFFSET_FILL: 12, ONE_MINUS_SRC_ALPHA: 13, ZERO: 14 }, {
     get(t, k) {
       if (k in t) return t[k];
       return (...a) => { calls.push([k, ...a]); if (k === 'getShaderParameter' || k === 'getProgramParameter') return true; if (k === 'getUniformLocation') return a[1]; return {}; };
@@ -274,7 +278,7 @@ test('WB4 the pass: one quad added onto the frame, no depth written, lifted off 
   pass.draw(telegraphShape(W('hellfire', { tg: [[1, 2], [3, 4]] }), 2, 9500), I, I, [0, 0, 0], 3.5, { mode: 2, density: 0.009, range: [0, 1], camPos: [1, 2, 3] });
   assert.equal(pass.drawn, 1);
   assert.equal(calls.filter((c) => c[0] === 'drawArrays').length, 1);
-  assert.deepEqual(calls.filter((c) => c[0] === 'blendFunc').map((c) => c.slice(1)), [[gl.ONE, gl.ONE]]);
+  assert.deepEqual(calls.filter((c) => c[0] === 'blendFuncSeparate').map((c) => c.slice(1)), [[gl.ONE, gl.ONE_MINUS_SRC_ALPHA, gl.ZERO, gl.ONE]], 'WB13a: premultiplied, the frame\'s alpha untouched');
   assert.deepEqual(calls.filter((c) => c[0] === 'depthMask').map((c) => c[1]), [false, true]);
   const names = calls.map((c) => c[0]);
   const on = calls.findIndex((c) => c[0] === 'enable' && c[1] === gl.POLYGON_OFFSET_FILL), off = calls.findIndex((c) => c[0] === 'disable' && c[1] === gl.POLYGON_OFFSET_FILL);
@@ -352,7 +356,7 @@ test('WB4 the court\'s driver, the strikes: each attack judged once against my f
   await tick(h, 9000, state({ atk: slam }));
   assert.equal(h.struck.length, 0, 'nothing before the landing');
   await tick(h, 10005);
-  assert.deepEqual(h.struck, [[90, { fire: false, name: 'Ground Slam' }]], 'WBX4: 40% of my 200, and its 10');
+  assert.deepEqual(h.struck, [[118, { fire: false, el: null, name: 'Ground Slam' }]], 'WB9e: 52% of my 200, and its 14');
   await tick(h, 10050); await tick(h, 10100);
   assert.equal(h.struck.length, 1, 'judged once');
   const nova = W('nova', { i: 6, at: 12001 });
@@ -362,7 +366,7 @@ test('WB4 the court\'s driver, the strikes: each attack judged once against my f
   const hf = W('hellfire', { i: 7, at: 13001, tg: [[1, 1]] });
   await tick(h, 13000, state({ atk: hf, phase: 2 }));
   await tick(h, 13001);
-  assert.deepEqual(h.struck[1], [33, { fire: true, name: 'Hellfire' }], 'WBX4: 30% of 200 and its 6, halved by my throw');
+  assert.deepEqual(h.struck[1], [44, { fire: true, el: 'fire', name: 'Hellfire' }], 'WB9e: 40% of 200 and its 9, halved by my throw');
   const r = court({ feet: [1, 0, 1], save: 0 });
   await tick(r, 13000, state({ atk: hf, phase: 2 })); await tick(r, 13001);
   assert.deepEqual(r.struck, []); assert.deepEqual(r.said, [COURT_STRIKE_TEXT.resisted('Hellfire')]);
@@ -403,6 +407,7 @@ test('WB4 the court\'s driver, the voice and the body: the wind-up cued at the w
   await tick(h, 10100);
   assert.equal(h.sounds.length, 3, 'the landing once');
   await tick(h, 11000, state({ atk: null, x: 4, z: -2, phase: 3, shieldUntil: 14000 }));
+  await tick(h, 11000 + ROAR_AFTER_MS);   // WB13e: a moment after the bound's bark
   assert.equal(h.sounds.at(-1)[1], BOSS_CUES.roar.clip, 'the roar of a phase crossed');
   const hf = W('hellfire', { i: 8, at: 21000, tg: [[1, 1], [-5, 6]] });
   await tick(h, 20000, state({ atk: hf, phase: 3 }));
@@ -446,19 +451,20 @@ test('WB4 the court\'s driver, the voice and the body: the wind-up cued at the w
 test('WB4 the seams, by source: the world host makes the court on the link, frames it with the gate\'s frame, draws its body with the peers, hands its glow and its telegraph to the dungeon arm, judges fire by the saving throw and lands a blow through the dungeon context\'s door; the dungeon arm lights and draws it in the court; the door has the three signs a foe\'s blow has (mutants: each seam removed)', () => {
   const w = read('src/scenes/world.js');
   assert.match(w, /const gateCourt = gateLink \? createGateCourt\(\{/);
-  assert.match(w, /save: \(e\) => savingThrow\(ELEMENTS\.Fire, EFFECT_FLAGS\.Fire, e\),/);
+  assert.match(w, /save: \(e, el = 'fire'\) => \{ const w = GATE_SAVES\[el\] \?\? GATE_SAVES\.fire; return savingThrow\(w\[0\], w\[1\], e\); \},/);   // WB8b: the throw against his aspect's element
+  assert.match(w, /fire: Object\.freeze\(\[ELEMENTS\.Fire, EFFECT_FLAGS\.Fire\]\),\n\s*frost: Object\.freeze\(\[ELEMENTS\.Frost, EFFECT_FLAGS\.Frost\]\),\n\s*shock: Object\.freeze\(\[ELEMENTS\.Shock, EFFECT_FLAGS\.Shock\]\),\n\s*poison: Object\.freeze\(\[ELEMENTS\.DiseaseOrPoison, EFFECT_FLAGS\.Poison\]\),/);
   assert.match(w, /strike: \(dmg, how\) => modes\?\.dungeonCtx\?\.strikePlayer\?\.\(dmg, how\),/);
   assert.match(w, /feet: \(\) => \(playerSpawned && modes\?\.gateArenaDay\?\.\(\) != null \? player\.feetAt\(\) : null\),/);
   // the frame's own, every online frame after the court's day is read (AUDIT WBX F10's is a second, in the collapse alone)
   assert.match(w, /gateLink\.leave\(\);\n    try \{ gateCourt\?\.frame\(\); \} catch[^\n]*\/\/ WB4: the fight on this screen/);
-  assert.match(w, /extraBillboards: \(\) => \[[^\n]*\.\.\.\(gateCourt\?\.batches\(\) \?\? \[\]\)\],/);
+  assert.match(w, /extraBillboards: \(\) => \[[^\n]*\.\.\.\(gateCourt\?\.batches\(\) \?\? \[\]\)(?:, \.\.\.\(csaOn\(\) \? csa\.batches\(\) : \[\]\))?\],/);   // CSA-C: a boat's flats may follow
   assert.match(w, /gateCourtLights: \(\) => gateCourt\?\.lights\(\) \?\? \[\],/);
   // WB6b: the telegraph's pass and the air's life share the hook - either drawn marks the seam, once
   assert.match(w, /const told = gateCourt\?\.drawPass\(proj, view, eye, [^\n]*\);\n[^\n]*\n[^\n]*\n\s+if \(told \|\| lived\) renderer\.markForeignPass\(\);/);
   const wm = read('src/scenes/worldModes.js');
-  assert.match(wm, /withCourtLights\(_dgLit, \[\.\.\.courtLights\(\), \.\.\.\(host\.gateCourtLights\?\.\(\) \?\? \[\]\)\]\)/);
+  assert.match(wm, /withCourtLights\(_dgLit, \[\.\.\.\(host\.gateCourtLights\?\.\(\) \?\? \[\]\), \.\.\.courtLightsNear\(cam\.pos\)\]\)/);   // WB9b: the fight's lights first - the renderer's cap drops a far brazier, never him
   const bb = wm.indexOf('renderer.drawBillboards([...dungeonCtx.billboardBatches'), tg = wm.indexOf('if (isGateArena(dungeonLoc)) host.drawGateCourt?.({ proj, view, eye: mwv.eye });'), foes = wm.indexOf('dungeonCtx.drawFoes(dt, canvas');
   assert.ok(bb > 0 && tg > bb && tg < foes, 'the telegraph after the court and its billboards, before drawFoes\' screen quads end the world pass');
   const dc = read('src/scenes/dungeonContext.js');
-  assert.match(dc, /strikePlayer\(dmg, \{ fire = false \} = \{\}\) \{\n\s*if \(!\(dmg > 0\)\) return;\n\s*audio\.playOneShot\(fire \? SOUND\.Burning : hitSoundFor\(null\), PLAYER_HIT_VOLUME\);\n\s*hurtPlayer\(dmg\);\n\s*if \(!fire\) flashPlayerDamage\(dmg\);\n\s*playPlayerVoice\(audio, playerPainVoice\(playerEntity, dmg\)\);/);
+  assert.match(dc, /strikePlayer\(dmg, \{ fire = false, el = fire \? 'fire' : null \} = \{\}\) \{\n\s*if \(!\(dmg > 0\)\) return;\n\s*const cast = GATE_STRIKE_CAST\[el\];\n\s*if \(cast != null\) audio\.playOneShotId\?\.\(cast, PLAYER_HIT_VOLUME\);\n\s*else audio\.playOneShot\(el === 'fire' \? SOUND\.Burning : hitSoundFor\(null\), PLAYER_HIT_VOLUME\);\n\s*hurtPlayer\(dmg\);\n\s*if \(!el\) flashPlayerDamage\(dmg\);\n\s*else shakePlayerDamage\(dmg\);\n\s*playPlayerVoice\(audio, playerPainVoice\(playerEntity, dmg\)\);/);   // WB8b: his frost, lightning and venom unflashed too, each in its element's cast
 });

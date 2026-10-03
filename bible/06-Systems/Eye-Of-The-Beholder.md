@@ -5,8 +5,8 @@ sprite and the cart, read off the shipped assembly's IL - **EOTB-IL
 (2026-09-16)**: the assembly is in the tree now, every law in the arc
 cites its IL offset, and the two things Mac saw (the frame chopping,
 the sprite turning the wrong way) were both in it. See "What is and is
-not ported" below for the count - forty-five of sixty-one authored
-methods, sixteen with no twin here, checkable in
+not ported" below for the count - forty-seven of sixty-one authored
+methods (CSA-J added two), fourteen with no twin here, checkable in
 `test/eotb_scope.test.js` - and the EOTB-IL section at the foot for
 the findings. Vendor record and the permission line:
 `vendor/eye-of-the-beholder/README.md`. Registry row:
@@ -36,10 +36,12 @@ coroutine state machines, the event accessors and the three
 compiler-lifted lambdas are struck. AUDIT-EOTB, writing without the
 assembly, had counted 62 and listed a `PlayerBillboard::InitializeTextures`
 that does not exist; the texture walk is the state's alone. The port
-implements **forty-five** of them, every one read off the IL:
+implements **forty-seven** of them, every one read off the IL:
 
 | IL method | here |
 |---|---|
+| `OnUpdateSailing` (CSA-J) | `onUpdateSailing` - GetBoatMeshObject asked, the collider's local centre and largest half-size, the flag and the helm among the mesh object's own children; the camera's boat target and the sprite's boat heading read its fields |
+| `ModCompatibilityChecking` (CSA-J, its Come Sail Away arm) | `setComeSailAway` and `start()` - the mod each boot hands in (`player/mwView.js` `setEotbComeSailAway`), OnUpdateSailing sent to its receiver |
 | `get_posOffset`, `get_offsetRidingMod` | `posOffset` (eotbCamera.js) - the mirrored base arm scales Z alone |
 | `CheckBounds`, `SetVectorBounds` | `checkBounds`, `setVectorBounds` - the bounds seed at 2.0 |
 | `Update` | `tick` (the ladder, on the Z captured BEFORE the notch) and `eye` (the target-and-smooth, the shoulder's revert probe) |
@@ -65,17 +67,16 @@ implements **forty-five** of them, every one read off the IL:
 | `InitializeTextures` (state) | `preload` |
 | `Update`, `LateUpdate` (billboard) | `update`, `lateUpdate` |
 
-**Sixteen have no twin**, every one a row in `test/eotb_scope.test.js`
+**Fourteen have no twin**, every one a row in `test/eotb_scope.test.js`
 with its reason: the Unity lifecycle and component methods (`Awake` on
 both types, `Init`, `get_pivotLocal`, `get_IsReady`, `SetKeyFromText`,
 `SpawnBillboard`, the billboard's `FixedUpdate` - the TravelOptions
 hook); the mesh and material handling the port's billboard batch
 replaces (`AssignMeshAndMaterial`, `MakeBillboardMaterial`);
-`OnUpdateSailing` and `FreeRein_GetMoveVector` (Come Sail Away and Free
-Rein, neither in the port); `MeleeDamage` (the attack-from-body ray,
-moot because the port's swing and activation already start at the
-player's own head, which the view never moves); `MessageReceiver` and
-`ModCompatibilityChecking` (DFU's mod bus); and `get_scaleOffset`,
+`FreeRein_GetMoveVector` (Free Rein, not in the port); `MeleeDamage`
+(the attack-from-body ray, moot because the port's swing and
+activation already start at the player's own head, which the view
+never moves); `MessageReceiver` (DFU's mod bus); and `get_scaleOffset`,
 which is **dead in the assembly** - no caller anywhere in the IL, so
 `Animation.GlobalOffsetScale` is declared INERT on the pane rather than
 invented a meaning.
@@ -199,6 +200,20 @@ Three, each marked where it lands in `src/systems/modSettings.js`.
    like how we handle morrowind."* The key is still listed, because the
    pane is a record of what the mod ships and a key quietly deleted is
    a key nobody can ask about.
+   **VIEW-TOGGLE (2026-09-28, Mac: "Also add a force first person/third
+   person toggle")** gives the idea back as the PORT's own action beside
+   the wheel, not the mod's key: `TogglePerspective` (Controls >
+   Movement, "First / third person"), default the mouse's FORWARD side
+   button (`Mouse4` - every letter is spent; push-to-talk has the back
+   one), read on its press edge by the world host under no window
+   (`hccActionPressed`) and answered by `player/mwView.js`
+   `mwViewTogglePerspective` for whichever body can show: this lane's
+   own ToggleOffset both ways; the Morrowind lane out by the restore
+   door and in by `mwIntoHead`; refused in the Morrowind saddle
+   (RIDE-POV), while the travel view holds the body, and where no body
+   can show. The mod's `KeypadEnter` stays inert (Numpad Enter is Come
+   Sail Away's time-scale reset). `test/viewtoggle.test.js`,
+   `tools/mutants/viewtoggle.json`.
 3. **`Camera.SwitchShoulder` ships `Tab`; the port binds `B`.** HT4's
    finding again, same author, same key: Tab is free in Daggerfall
    Unity and spent here - PX15 gave it to the port's own pixel dial.
@@ -898,7 +913,13 @@ row. Pinned in `test/eotb_camera.test.js` (26: a diagonal wall the axis
 casts miss, a ceiling on the back-up diagonal, the straight-back number
 unchanged, the walk back out, the pin on the smoothed eye; the per-axis
 pin tells the port's cast from the mod's by its length);
-`tools/mutants/eotbwall.json` 4 - 4 dead.
+`tools/mutants/eotbwall.json` 4 - 4 dead. CSA-J's wide run (2026-09-28)
+found the fourth claim unmet: the cast on the target SURVIVED, on main
+too, because the smoothed eye and the target stand on one line from the
+head and both casts meet the same wall. Only the cast's length tells them
+apart, so two twins walked back out alike now meet a wall past the eye's
+reach and inside the target's, and the eye must stay where the smoothing
+put it - 4 dead again, the fourth by that case.
 
 ## RIDE-POV - the Morrowind body has no saddle (2026-09-20)
 

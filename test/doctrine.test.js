@@ -64,6 +64,8 @@ const PUBLIC_ALLOWLIST = new Map([
   // gauntleted hands holding a blank parchment, 1448x1086 - and the
   // only picture the enhanced map will ship; the map itself is drawn
   // onto the paper at runtime from MAPS and WOODS data (10-UI/Held-Map-Arc.md).
+  ['public/art/climb-grip.png', "OURS - Mac's own painting of the climbing fist, drawn for the right hand and mirrored for the left (CLIMB-HANDS, 2026-10-02); no ARENA2 pixel in it"],
+  ['public/art/climb-reach.png', "OURS - Mac's own painting of the arm reaching for a hold, mirrored for the left (CLIMB-HANDS, 2026-10-02); no ARENA2 pixel in it"],
   ['public/art/held-map.png', "OURS - Mac's own painting of the held parchment (MAP0, 2026-09-18; the fourth painting, MAP-FIELD8, 2026-09-22); no ARENA2 pixel in it"],
   // DISC22-C (2026-09-24): THE GRIMOIRE LOOT SHEET. Mac's own parchment for the classic skins' quick-loot panel under
   // the GrimoireUI pack ("The screenshot of the parchment is a spritesheet to be used for the loot menu (grimoire
@@ -90,6 +92,26 @@ const PUBLIC_ALLOWLIST = new Map([
   ['public/sfx/gun-fire-synth.wav', 'OURS - synthesised from noise and sine by tools/gunSfx.mjs, deterministically; no recording in it at all'],
   ['public/sfx/gun-reload-open-synth.wav', 'OURS - synthesised from noise and sine by tools/gunSfx.mjs, deterministically; no recording in it at all'],
   ['public/sfx/gun-reload-close-synth.wav', 'OURS - synthesised from noise and sine by tools/gunSfx.mjs, deterministically; no recording in it at all'],
+  ['public/sfx/naval-cannon.wav', 'OURS - NAV-E: synthesised from noise and sine by tools/navalSfx.mjs, deterministically; no recording in it at all'],
+  ['public/sfx/naval-cannon-far.wav', 'OURS - NAV-E: synthesised from noise and sine by tools/navalSfx.mjs, deterministically; no recording in it at all'],
+  ['public/sfx/naval-swivel.wav', 'OURS - NAV-E: synthesised from noise and sine by tools/navalSfx.mjs, deterministically; no recording in it at all'],
+  ['public/sfx/naval-hit.wav', 'OURS - NAV-E: synthesised from noise and sine by tools/navalSfx.mjs, deterministically; no recording in it at all'],
+  ['public/sfx/naval-blast.wav', 'OURS - NAV-E: synthesised from noise and sine by tools/navalSfx.mjs, deterministically; no recording in it at all'],
+  ['public/sfx/naval-grapple.wav', 'OURS - NAV-E: synthesised from noise and sine by tools/navalSfx.mjs, deterministically; no recording in it at all'],
+  ['public/sfx/naval-runout.wav', 'OURS - AUDIT NAV1: synthesised from noise and sine by tools/navalSfx.mjs, deterministically; no recording in it at all'],
+  ['public/sfx/naval-ready.wav', 'OURS - AUDIT NAV1: synthesised from noise and sine by tools/navalSfx.mjs, deterministically; no recording in it at all'],
+  ['public/sfx/naval-sinking.wav', 'OURS - AUDIT NAV1: synthesised from noise and sine by tools/navalSfx.mjs, deterministically; no recording in it at all'],
+  ['public/sfx/climb-grab-1.wav', 'OURS - CLIMB4: synthesised from noise and sine by tools/climbSfx.mjs, deterministically; no recording in it at all'],
+  ['public/sfx/climb-grab-2.wav', 'OURS - CLIMB4: synthesised from noise and sine by tools/climbSfx.mjs, deterministically; no recording in it at all'],
+  ['public/sfx/climb-catch.wav', 'OURS - CLIMB4: synthesised from noise and sine by tools/climbSfx.mjs, deterministically; no recording in it at all'],
+  ['public/sfx/climb-step-1.wav', 'OURS - CLIMB4: synthesised from noise and sine by tools/climbSfx.mjs, deterministically; no recording in it at all'],
+  ['public/sfx/climb-step-2.wav', 'OURS - CLIMB4: synthesised from noise and sine by tools/climbSfx.mjs, deterministically; no recording in it at all'],
+  ['public/sfx/climb-step-3.wav', 'OURS - CLIMB4: synthesised from noise and sine by tools/climbSfx.mjs, deterministically; no recording in it at all'],
+  ['public/sfx/climb-scrape-1.wav', 'OURS - CLIMB4: synthesised from noise and sine by tools/climbSfx.mjs, deterministically; no recording in it at all'],
+  ['public/sfx/climb-scrape-2.wav', 'OURS - CLIMB4: synthesised from noise and sine by tools/climbSfx.mjs, deterministically; no recording in it at all'],
+  ['public/sfx/climb-pull.wav', 'OURS - CLIMB4: synthesised from noise and sine by tools/climbSfx.mjs, deterministically; no recording in it at all'],
+  ['public/sfx/climb-whoosh.wav', 'OURS - CLIMB4: synthesised from noise and sine by tools/climbSfx.mjs, deterministically; no recording in it at all'],
+  ['public/sfx/climb-crumble.wav', 'OURS - CLIMB4: synthesised from noise and sine by tools/climbSfx.mjs, deterministically; no recording in it at all'],
   ['public/skin/skin-intensity.png', 'OURS - intensity baked from our own generated turnaround'],
   ['public/skin/skin-uv.json', "OURS - UVs over our own rig's geometry, no pixels at all"],
   ['public/skin/skin-layout.json', 'OURS - atlas cell rectangles, no pixels at all'],
@@ -380,6 +402,17 @@ const PUBLIC_ALLOWLIST = new Map([
   ['src/assets/mw/source/Pellet_Shot.fbx', "OURS - Mac's own Blender export of the Dwarven Thunderlock, committed so the two files below are a DERIVATION the gate can re-run rather than a blob"],
   ['src/assets/mw/meshes/thunderlock.nif', "OURS - Mac's own Dwarven Thunderlock model, baked to a Morrowind NIF by tools/nifWrite.mjs; a Bethesda format, no Bethesda data"],
   ['src/assets/mw/textures/thunderlock.dds', 'OURS - generated from that mesh\'s own geometry by tools/meshTexture.mjs (position, normal and cast occlusion); no image input, no ARENA2 or Morrowind pixel in it'],
+  // MW-BRIG1 (2026-09-29): the Steel Brigandine, the port's own worn
+  // model, supplied by Mac for the Morrowind body. Unlike the
+  // Thunderlock it carries a PAINTED texture (the FBX names it
+  // Steel.png), so the DDS is that image mip-chained rather than grown
+  // from geometry. tools/bakeBrigandine.mjs re-makes the three shipped
+  // files from the two sources, and test/mwbrig1.test.js holds it to
+  // the bytes.
+  ['src/assets/mw/source/Brigandine_Steel.fbx', "SUPPLIED - Mac's Blender export of the steel brigandine, fitted on the Morrowind body in his scene (2026-09-29), committed so the files below are a DERIVATION the gate can re-run"],
+  ['src/assets/mw/source/Brigandine_Steel.png', "SUPPLIED - the brigandine's texture as Mac supplied it with the mesh (the FBX's Steel.png), committed as the DDS's source"],
+  ['src/assets/mw/meshes/brigandine_steel.nif', 'SUPPLIED - the brigandine, baked to a Morrowind NIF by tools/bakeBrigandine.mjs (skinned from the body at bind time, MW-BRIG2); a Bethesda format, no Bethesda data'],
+  ['src/assets/mw/textures/brigandine_steel.dds', 'SUPPLIED - Brigandine_Steel.png mip-chained to an uncompressed DDS by tools/meshTexture.mjs writeDds; no ARENA2 or Morrowind pixel in it'],
 ]);
 
 test('doctrine: nothing ships out of public/ or src/assets/ that is not provably ours', () => {
@@ -446,6 +479,13 @@ test('doctrine: no raster of game data is tracked anywhere in the repo', () => {
 // claim about a file that is not there is not one) - see the pins
 // below.
 const BUNDLE_ART = new Map([
+  // FORAGE1 (2026-09-28): Foraging's seven pictures - the author's own
+  // pixel art (tools, a wood bundle, an egg), no Daggerfall record - taken
+  // out of the bundle's Texture2D objects. A directory row: membership is
+  // derived from the shipped manifest's Files, so it cannot widen.
+  ['vendor/foraging/Textures/',
+    { manifest: 'vendor/foraging/foraging.dfmod.json',
+      why: "THIRD-PARTY - Foraging 1.7 (Harbinger451), carried on Mac's word of the author's permission; the mod's own pixel art - the Wood-Axe, Pick-Axe, Sickle, Fishing-Net, Wood Bundle, Egg and Spade - written as PNG from the bundle's Texture2D objects (see vendor/foraging/README.md)" }],
   ['vendor/eye-of-the-beholder/Textures/',
     { manifest: 'vendor/eye-of-the-beholder/eyeofthebeholder.dfmod.json',
       why: "THIRD-PARTY - Eye Of The Beholder 2.1 (RedRoryOTheGlen); the mod's own player sprites, re-encoded as indexed PNG (lossless for every drawn pixel - see the vendor README)" }],
@@ -515,6 +555,15 @@ const BUNDLE_ART = new Map([
   ['public/art/diverse-weapons/',
     { manifest: 'vendor/diverse-weapons/diverse-weapons.dfmod.json',
       why: "THIRD-PARTY - Diverse Weapons 1.7.3 (RealAKP); the mod's own first-person weapon sprites - eighteen weapons x ten metals, plain and enchanted, every record and frame, Weapon Widget's double-scale idles and the icons - re-encoded from the bundle's Texture2D objects by tools/diverseWeaponsExtract.mjs as indexed PNG where the picture fits one (lossless for every drawn pixel; see the vendor README)" }],
+  // CSA-A (2026-09-27): Come Sail Away's pictures - AUDIT-TO1 F3's trap a third time: the slice ran its suite BEFORE
+  // `git add`, pushed, and the next gate reddened on 27 files. The bundle's own manifest cannot be the authority here,
+  // because the port carries LESS than it names and under other names for part: record 3 is Daggerfall's travel map
+  // (never carried), the 32 wave frames are Daggerfall's snow under the author's paint and ride as two paints with
+  // the snow taken out. So the authority is the extractor's own listing - generated beside the pictures from the
+  // bundle, which it hashes - the same both-ways derivation the loose-file packs use.
+  ['vendor/come-sail-away/Textures/',
+    { manifest: 'vendor/come-sail-away/come-sail-away.files.json',
+      why: "THIRD-PARTY - Come Sail Away 2.1 (RedRoryOTheGlen); the mod's own splash and wind-widget frames and the waves' two paints (the author's pixels, the Daggerfall snow under the crests taken out and rebuilt from the player's own TEXTURE.303), re-encoded as indexed PNG by tools/comeSailAwayExtract.mjs after measuring each against every TEXTURE record (see the vendor README)" }],
   // DW-E3: Iliac Puddle No More's seven fish - the author's own pictures (no classic record covers any: the
   // extractor measures each against every TEXTURE file, DS1's search, and refuses one a record covers).
   ['vendor/iliac-puddle-no-more/Flats/',
@@ -777,7 +826,10 @@ test('AUDIT 58: every URL knob the world render gate hands the page has a live r
   const src = tracked('src').filter((f) => f.endsWith('.js'))
     .map((f) => readFileSync(join(root, f), 'utf8')).join('\n');
   for (const k of knobs) {
-    assert.ok(src.includes(`get('${k}')`) || src.includes(`get("${k}")`),
+    // PERF-URL (2026-09-29): a door reads the page through systems/pageQuery.js's one parse - `pageParam('k'` is a reader.
+    // AUDIT PERF-URL A8: and `pageHas('k'` is NOT - every knob here hands a VALUE (`&k=${v}`), and a presence test
+    // would turn the door on for any value, `?water=on` included; the first cut accepted it
+    assert.ok(src.includes(`get('${k}')`) || src.includes(`get("${k}")`) || src.includes(`pageParam('${k}'`),
       `--${k} hands the page ?${k}=<v> and nothing in src/ reads it: a knob with no reader `
       + 'gates nothing, and the gate\u2019s own pass line then claims it did');
   }

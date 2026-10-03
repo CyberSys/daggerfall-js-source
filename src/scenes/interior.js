@@ -5,6 +5,7 @@
 // world/exterior hosts use for transitions (M4/R8/R12/P4 semantics live
 // there); this file is data loading, the fly camera, and the frame loop.
 
+import { iilActive, iilInteriorLights, iilSyncLane } from '../systems/improvedInteriorLighting.js';   // IIL1
 import { Arch3dFile } from '../formats/arch3dFile.js';
 import { WORLD_FRAME } from '../render/renderer.js';   // AUDIT-EL F5
 import { INTERIOR_CLEAR } from '../render/renderer.js';
@@ -19,7 +20,7 @@ import { loadModWorldData } from './modWorldData.js';   // RR3b
 import { DFPalette } from '../formats/dfPalette.js';
 import { INTERIOR_AMBIENT, INTERIOR_NIGHT_AMBIENT, INTERIOR_LIGHT_DIR } from '../world/interiorLights.js';
 import { isNight } from '../world/worldClock.js';   // AUDIT 23 (C12)
-import { worldMinutes } from '../systems/worldTick.js';   // AUDIT 23 (C12)
+import { skyMinutes } from '../systems/worldTick.js';   // AUDIT 23 (C12); TIME1: the sky's night
 import { nearestLights } from '../world/cityLights.js';
 import { syncLightingLane } from '../render/enhancedLighting.js';   // EL1
 import { INTERIOR_MARKER } from '../world/interiorLayout.js';
@@ -95,7 +96,7 @@ export async function bootInterior(canvas, renderer, params, status) {
 
   // R8: verbatim interior ambient; verbatim InteriorFogSettings
   // (exponential 0.001, fog color black).
-  renderer.setLighting(new Float32Array(isNight(worldMinutes() % 1440) ? INTERIOR_NIGHT_AMBIENT : INTERIOR_AMBIENT), 0);   // AUDIT 23 (C12): PlayerAmbientLight.cs:75-80
+  renderer.setLighting(new Float32Array(isNight(skyMinutes() % 1440) ? INTERIOR_NIGHT_AMBIENT : INTERIOR_AMBIENT), 0);   // AUDIT 23 (C12): PlayerAmbientLight.cs:75-80
   renderer.setWindowEmission(windowEmissionRGB('disabled'));   // F002: the dev route draws the same Disabled interiors (DaggerfallInterior.cs:473/:517/:1270)
   renderer.setFog('exp', 0.001, 0, 0, new Float32Array([0, 0, 0]));
 
@@ -194,10 +195,10 @@ export async function bootInterior(canvas, renderer, params, status) {
     // rollout enumerated four, so F5 in the ?interior route reloaded
     // the page and destroyed the session - the exact failure AUDIT 17e
     // F41 recorded for the others - and F11 went fullscreen. The law
-    // (ui/input.js:866-867) is "every host that registers a keydown
+    // (ui/input.js:872-873) is "every host that registers a keydown
     // calls this FIRST", and it is NOT conditional on the host having
     // a destination for the key. First, because every arm below
-    // returns before its own preventDefault - worldModes.js:9307 sits
+    // returns before its own preventDefault - worldModes.js:10148 sits
     // ahead of its arms for the same reason.
     swallowBrowserKey(e);
     // The open map owns the keyboard, exactly as it does in the three
@@ -361,8 +362,12 @@ export async function bootInterior(canvas, renderer, params, status) {
 
     // LT1: per-light range AND colour x intensity - AddLight's whole
     // second switch reaches the GPU (interiorLightProperties).
-    const lit = nearestLights(ctx.lights, cam.pos, renderer.maxPointLights, ctx.lights.map((l) => l.range),   // EL1: the installed set's cap
-      (l) => [l.color[0] * l.intensity, l.color[1] * l.intensity, l.color[2] * l.intensity]);
+    iilSyncLane(renderer, true);   // IIL2
+    const _iil = iilActive(renderer.lightingLane) ? iilInteriorLights(ctx.lights, ctx.iilFireplaces ?? []) : null;   // IIL1 (worldModes.js's interior arm)
+    const lit = _iil
+      ? nearestLights(_iil.lights, cam.pos, renderer.maxPointLights, _iil.ranges, _iil.colorOf)
+      : nearestLights(ctx.lights, cam.pos, renderer.maxPointLights, ctx.lights.map((l) => l.range),   // EL1: the installed set's cap
+        (l) => [l.color[0] * l.intensity, l.color[1] * l.intensity, l.color[2] * l.intensity]);
     renderer.setPointLights(lit.data, null, lit.colors);
     renderer.everyLightCasts();   // DISC15: the dev route draws the building whole too
     renderer.beginFrame(proj, view, INTERIOR_LIGHT_DIR, WORLD_FRAME);   // AUDIT-EL F5: a WORLD frame - the lane replays its records for this one
@@ -390,7 +395,7 @@ export async function bootInterior(canvas, renderer, params, status) {
     // scan, for the reason DFU states on the gate (SetActive(false) on
     // the geometry would mess with the open map's rendering). Update's
     // own call at :1001 is the one-shot lazy init, not a per-frame
-    // driver. dungeon.js:792 and worldModes.js:7178/:7206 gate the same
+    // driver. dungeon.js:809 and worldModes.js:7908/:7939 gate the same
     // way; this is that gate for this host.
     lookGate(!!overlay);   // AUDIT-AMAP H8
     if (!gamePaused()) ctx.automapTick?.(dt, cam.pos, fwd);

@@ -16,7 +16,7 @@ import { TownPopulation } from '../src/systems/townPopulation.js';
 import { BANK_TYPES } from '../src/characters/nameHelper.js';
 import { NORMALIZE_INTERVAL_MINUTES } from '../src/systems/court.js';
 import { SKILLS } from '../src/systems/skills.js';
-import { maxFatigue, FATIGUE_LOSS } from '../src/systems/statMods.js';   // AUDIT 64 F7: the two running bands
+import { maxFatigue, FATIGUE_LOSS, FATIGUE_DRAIN_SCALE } from '../src/systems/statMods.js';   // AUDIT 64 F7: the two running bands
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const src = (f) => readFileSync(join(root, f), 'utf8');
@@ -38,7 +38,7 @@ test('AUDIT 23 C2: both exterior hosts read the ONE clock; ?tod sets it, ?timesc
   // hosts-8 = audio-1: minuteNow was a demo clock frozen at noon while
   // gameplay time advanced on worldMinutes - night never fell.
   for (const [name, text] of [['exterior', EXTERIOR], ['world', WORLD]]) {
-    assert.ok(text.includes('const minuteNow = () => worldMinutes() % 1440;'), `${name}: one clock`);
+    assert.ok(text.includes('const minuteNow = () => skyMinutes() % 1440;'), `${name}: one clock`);   // TIME1: the SKY's hour - offline the one clock, online the sky's own (time1_sky.test.js)
     assert.ok(text.includes('setWorldMinutes(Math.floor(worldMinutes() / 1440) * 1440 + bootTod)'), `${name}: ?tod sets the clock`);
     assert.ok(text.includes("Number(params.get('timescale')) / 12 : 1"), `${name}: ?timescale scales the tick`);   // WORLD5: the world host's stands down under the shared clock (world5.test.js pins the guard)
     assert.equal(/performance\.now\(\) - bootedAt/.test(text), false, `${name}: the demo clock is gone`);
@@ -49,7 +49,7 @@ test('AUDIT 23 hosts-3: the guards take the classic clock and refuse to run with
   assert.throws(() => createCityGuards({ renderer: {}, collider: {}, playerEntity: {} }),
     /currentMinute/, 'the () => 0 default is gone - a missing clock fails loudly');
   for (const [name, text] of [['exterior', EXTERIOR], ['world', WORLD]]) {
-    assert.ok(text.includes('currentMinute: () => Math.floor(playerTicker.classicMinutes)'), `${name} passes the clock`);
+    assert.ok(text.includes('currentMinute: () => Math.floor(playerTicker.ownMinutes)'), `${name} passes the clock`);
   }
 });
 
@@ -124,18 +124,19 @@ test('AUDIT 64 F7: the tally gate and the fatigue gate are DIFFERENT conditions'
   const bandSinks = { ...sinks(), drainFatigue: (n) => drains.push(n) };
   tickPlayerMinutes({ entity: tickEntity(), classicMinutes: 59.9, dt: 1.0, sinks: bandSinks,
     activity: { running: true, runningTally: true }, rolls: () => 0.5 });
-  assert.ok(drains.includes(FATIGUE_LOSS.Running), `the moving runner pays RunningFatigueLoss (got ${drains})`);
+  const scaled = (loss) => Math.trunc(loss * FATIGUE_DRAIN_SCALE);   // BALANCE1: each band on exertion's scale
+  assert.ok(drains.includes(scaled(FATIGUE_LOSS.Running)), `the moving runner pays RunningFatigueLoss (got ${drains})`);
   const drains2 = [];
   const standSinks = { ...sinks(), drainFatigue: (n) => drains2.push(n) };
   tickPlayerMinutes({ entity: tickEntity(), classicMinutes: 59.9, dt: 1.0, sinks: standSinks,
     activity: { running: false, runningTally: true }, rolls: () => 0.5 });
-  assert.equal(drains2.includes(FATIGUE_LOSS.Running), false, 'the STANDING runner pays the default band, not 88');
-  assert.ok(drains2.includes(FATIGUE_LOSS.Default), `the standing runner pays DefaultFatigueLoss (got ${drains2})`);
+  assert.equal(drains2.includes(scaled(FATIGUE_LOSS.Running)), false, 'the STANDING runner pays the default band, not 88');
+  assert.ok(drains2.includes(scaled(FATIGUE_LOSS.Default)), `the standing runner pays DefaultFatigueLoss (got ${drains2})`);
 });
 
 test('AUDIT 23 C14 + combat-4: the exterior swing arms drain, tally fully, and never double-count', () => {
   for (const [name, text] of [['exterior', EXTERIOR], ['world', WORLD]]) {
-    assert.equal((text.match(/drainExteriorFatigue\(SWING_WEAPON_FATIGUE_LOSS\)/g) ?? []).length, 2,
+    assert.equal((text.match(/drainExteriorFatigue\(SWING_FATIGUE_COST\)/g) ?? []).length, 2,   // BALANCE1: DFU's swing loss on exertion's scale
       `${name}: the bow arm and the melee arm both drain`);
     assert.ok(text.includes('tallySwingSkills(playerEntity, weaponRig.playerWeapon.weapon)'), `${name}: the full bow tally arm`);
     assert.equal(/WEAPON_SKILL\[/.test(text), false, `${name}: the display-name double tally is gone`);
@@ -146,7 +147,7 @@ test('AUDIT 23 C14 + combat-4: the exterior swing arms drain, tally fully, and n
 test('AUDIT 23 C12: night interiors take the darker ambient in both interior hosts', () => {
   // PlayerAmbientLight.cs:75-80.
   for (const [name, text] of [['worldModes', WM], ['interior', src('src/scenes/interior.js')]]) {
-    assert.ok(/isNight\(worldMinutes\(\) % 1440\) \? INTERIOR_NIGHT_AMBIENT : INTERIOR_AMBIENT/.test(text),
+    assert.ok(/isNight\(skyMinutes\(\) % 1440\) \? INTERIOR_NIGHT_AMBIENT : INTERIOR_AMBIENT/.test(text),   // TIME1: the sky's night (offline the one clock)
       `${name}: the night switch`);
   }
 });
@@ -193,7 +194,7 @@ test('AUDIT 23 wts-1/2: the sky season arm and the weather-scaled ambient', () =
   const noonStorm = exteriorAmbient(720, 1, 0.25);
   assert.ok(noonStorm[0] < noonClear[0], 'a storming noon is darker than a clear one');
   for (const [name, text] of [['exterior', EXTERIOR], ['world', WORLD]]) {
-    assert.ok(text.includes('seasonValue(dateFromClassicMinutes(playerTicker.classicMinutes))'), `${name}: the sky reads the calendar`);
+    assert.ok(text.includes('seasonValue(dateFromClassicMinutes(skyMinutes()))'), `${name}: the sky reads the calendar`);   // TIME1: the sky's calendar (offline the one clock)
     // ...on the Normal-weather arm, and nowhere else: the same test
     // also drives showNightSky.
     assert.match(text, /weatherSkyOffset === 0\s*\n?\s*\? seasonValue\(/, `${name}: the season rides the Normal arm`);

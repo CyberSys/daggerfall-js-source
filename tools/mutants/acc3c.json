@@ -2,7 +2,7 @@
   {
     "name": "ACC3c-1-the-client-decides-what-is-held",
     "file": "src/ui/accountFlow.js",
-    "old": "      self.wardrobe = { titles: r.data.titles, title: r.data.title, glyphs: r.data.glyphs };",
+    "old": "      self.wardrobe = { ...(self.wardrobe ?? {}), titles: r.data.titles, title: r.data.title, glyphs: r.data.glyphs, ...glyphHalf(r.data), ...auraHalf(r.data) };   // WB9g: the auras ride the same answer",
     "new": "      self.wardrobe = { ...self.wardrobe, title: want };",
     "tests": [
       "test/acc3wear.test.js"
@@ -12,8 +12,8 @@
   {
     "name": "ACC3c-2-the-refusal-writes-anyway",
     "file": "src/ui/accountFlow.js",
-    "old": "      if (!r.ok) return refuse(accountRefusalText(r.error));",
-    "new": "      if (!r.ok) { self.wardrobe = { ...self.wardrobe, title: want }; return refuse(accountRefusalText(r.error)); }",
+    "old": "      const r = await ask(() => equipTitle(door(), want));\n      if (!r) return false;                 // `auth` already landed on `out`\n      if (!r.ok) return refuse(accountRefusalText(r.error));",
+    "new": "      const r = await ask(() => equipTitle(door(), want));\n      if (!r) return false;                 // `auth` already landed on `out`\n      if (!r.ok) { self.wardrobe = { ...self.wardrobe, title: want }; return refuse(accountRefusalText(r.error)); }",
     "tests": [
       "test/acc3wear.test.js"
     ],
@@ -32,8 +32,8 @@
   {
     "name": "ACC3c-4-a-second-press-while-one-is-in-flight",
     "file": "src/ui/accountFlow.js",
-    "old": "    if (self.busy || self.stage !== 'in') return false;",
-    "new": "    if (self.stage !== 'in') return false;",
+    "old": "  self.equip = async (title) => {\n    if (self.busy || self.stage !== 'in') return false;",
+    "new": "  self.equip = async (title) => {\n    if (self.stage !== 'in') return false;",
     "tests": [
       "test/acc3wear.test.js"
     ],
@@ -62,23 +62,13 @@
   {
     "name": "ACC3c-7-the-card-paints-its-own-colour",
     "file": "src/ui/enhancedAccount.js",
-    "old": "        const b = el('button', `acttitle ${badgeClass('tl', key)}${worn ? ' worn' : ''}`);",
-    "new": "        const b = el('button', `acttitle${worn ? ' worn' : ''}`);\n        b.style.color = key === 'founder' ? '#ffc84a' : '#e2453a';",
+    "old": "        const b = keyedAs(el('button', `acttitle ${badgeClass('tl', key)}${worn ? ' worn' : ''}`), `title:${key}`);",
+    "new": "        const b = keyedAs(el('button', `acttitle${worn ? ' worn' : ''}`), `title:${key}`);\n        b.style.color = key === 'founder' ? '#ffc84a' : '#e2453a';",
     "tests": [
       "test/acc3wear.test.js",
       "test/enhancedaccount.test.js"
     ],
     "note": "Exactly what the first cut of this slice did, and ACC1e's own pin caught it. Two copies of a design language is how the front door and the rooms behind it drift apart - and this one also hard-codes the two titles, so a third draws in the developer's red."
-  },
-  {
-    "name": "ACC3c-8-the-glyph-becomes-a-button",
-    "file": "src/ui/enhancedAccount.js",
-    "old": "        const chip = el('span', `acctglyph ${badgeClass('gl', g.key)}`);",
-    "new": "        const chip = el('button', `acctglyph ${badgeClass('gl', g.key)}`);",
-    "tests": [
-      "test/acc3wear.test.js"
-    ],
-    "note": "A glyph is TRUE of an account - the sprout is its age, the dev mark is a grant - and nothing equips one. A control that cannot be operated is worse than a fact that never offered to be."
   },
   {
     "name": "ACC3c-9-the-skin-loses-the-walked-rules",

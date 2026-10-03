@@ -34,6 +34,7 @@ import { foldQuickLoot, quickLootWheel, resetQuickLoot } from '../src/systems/qu
 import { PREF_DEFAULTS, setPref } from '../src/systems/uiPrefs.js';
 import { CROSSHAIR_ARM, crosshairCentreY } from '../src/ui/hudCrosshair.js';
 import { hudScale } from '../src/ui/hud.js';
+import { _frameForTests, DRAW_FRAMES_UNDRAWN } from '../src/ui/drawWatchdog.js';   // DISC29-D: frames that pass undrawn
 
 const read = (p) => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8');
 
@@ -152,11 +153,12 @@ test('WORLD-HOVER: only the loot keys itemise - everything else is a name', () =
   // mint, never strings written out here. `foeCorpse:`/`guardCorpse:`
   // are the two above-ground bodies, which PX21c could not reach.
   // DW-E3: `dwFish:` is Iliac Puddle No More's fish, a DaggerfallLoot of one item.
-  assert.deepEqual([...ITEMISED_KEYS], ['loot:', 'corpse:', 'droppedLoot:', 'foeCorpse:', 'guardCorpse:', 'dwFish:']);
-  for (const k of ['loot:0', 'corpse:3', 'droppedLoot:9', 'foeCorpse:abc', 'guardCorpse:x', 'dwFish:12']) {
+  // WB9f: `spoil:` a piece of the Burning Court's spoils on its floor, a pile of one; its gold (`spoilGold:`) a name.
+  assert.deepEqual([...ITEMISED_KEYS], ['loot:', 'corpse:', 'droppedLoot:', 'foeCorpse:', 'guardCorpse:', 'dwFish:', 'spoil:']);
+  for (const k of ['loot:0', 'corpse:3', 'droppedLoot:9', 'foeCorpse:abc', 'guardCorpse:x', 'dwFish:12', 'spoil:2']) {
     assert.equal(keyItemises(k), true, k);
   }
-  for (const k of ['door:2', 'person:1', 'act:1:2', 'exit:0', 'container:4', 'eotbWagon', '17', null, undefined]) {
+  for (const k of ['door:2', 'person:1', 'act:1:2', 'exit:0', 'container:4', 'eotbWagon', '17', 'spoilGold:4', null, undefined]) {
     assert.equal(keyItemises(k), false, String(k));
   }
   // and the itemised arm reads contents while the named arm never does
@@ -521,7 +523,15 @@ test('AUDIT-WH2 L3-F2: the plaque has a heartbeat - frames that stop coming take
       armed = null;
       showWorldPlaque(resolveHover(hit('person:1'), { name: () => ({ title: 'Marcus Grey' }) }));
       assert.ok(armed, 'an unchanged frame re-arms it too');
+      // DISC29-D: a frame SLOWER than the timer is not a stop - the timer fires with no frame gone by undrawn, and
+      // the plaque stays (the check re-arms) rather than coming down and going up again every slow frame
+      const slow = armed;
+      armed = null;
+      slow.fn();
+      assert.equal(n.classList.contains('on'), true, 'a slow frame keeps the plaque');
+      assert.ok(armed, 'and re-arms the heartbeat');
       // now the frames stop, and the timer is what is left
+      _frameForTests(DRAW_FRAMES_UNDRAWN);
       armed.fn();
       assert.equal(n.classList.contains('on'), false, 'a plaque nobody is drawing comes down by itself');
     });
@@ -640,7 +650,7 @@ test('WORLD-HOVER: the dungeon\'s target list has ONE builder, and the hover rea
   // - but it is still that one list and no other.
   assert.match(ctx, /ground: pickActivatableHit\(eye, d, api\.dungeonActivationTargets\(\), collider\),/,
     'the plaque races the same list the press does');
-  assert.match(ctx, /foe: pickActivatableHit\(eye, d, liveFoeTargets\(foes, 'mobileFoe'\), collider\),/,
+  assert.match(ctx, /foe: \(\(ft\) => peacefulFoePass\(pickActivatableHit\(eye, d, ft, collider\), ft, doorDistanceOf\(eye, d, api\.dungeonActivationTargets\(\), collider\), getInteractionMode\(\)\)\)\(liveFoeTargets\(foes, 'mobileFoe'\)\),/,
     '...and the live foes beside it, through the one precedence');
   // BOTH ladders read it, and neither composes one.
   for (const [f, src] of [['src/scenes/worldModes.js', read('src/scenes/worldModes.js')],
@@ -655,8 +665,15 @@ test('WORLD-HOVER: the dungeon\'s target list has ONE builder, and the hover rea
   // to and no `exit:`/`person:` arm - a target it cannot serve would win
   // the pick and eat the press in silence.
   const wm = read('src/scenes/worldModes.js');
-  assert.equal((wm.match(/ctx\.addActivationTargets\(/g) ?? []).length, 3,
-    'the exit doors, the quest stands and the static NPCs - three, named');
+  // WB9f: and a FOURTH, the Burning Court's own - his spoils on its floor - registered where the court is stood, beside
+  // the court's own namer (a family the court alone can answer: the dungeon arm's `spoil` rung)
+  // AUDIT-SEATS: and a FIFTH, the Hall of Records' shelves in a seat's castle (`records:` - empty off a castle
+  // that keeps them, so a dungeon without the Hall offers nothing)
+  // CROWN-HALL (PIN MOVED): and a SIXTH, a crown's throne room's board and chest (`crown:` - empty off a held crown's castle)
+  assert.equal((wm.match(/ctx\.addActivationTargets\(/g) ?? []).length, 6,
+    'the exit doors, the quest stands, the Records shelves, the throne room\'s pieces and the static NPCs - five, named - and the court\'s spoils');
+  assert.match(wm, /ctx\.addActivationTargets\(\(\) => host\.spoilTargets\?\.\(\) \?\? NO_TARGETS\);\n\s*ctx\.addActivationNamer\(\(key\) => \(typeof key === 'string' && key\.startsWith\('spoil'\) \? host\.spoilName\?\.\(key\) \?\? null : null\)\);/,
+    'the spoils stood with their words');
   assert.doesNotMatch(read('src/scenes/dungeon.js'), /addActivationTargets/,
     'and the dev door stands none of them, on purpose');
 });
@@ -1311,7 +1328,13 @@ test('AUDIT-WH H3: both pools and both above-ground hosts are wired to that ladd
   // identity. The bag used to be written out at each of them; HARD2's
   // law - four copies of a law is four chances to omit a term - is why
   // it is one `corpseLens` per pool now, read three times.
-  for (const f of ['src/scenes/exteriorFoes.js', 'src/scenes/cityGuards.js']) {
+  // PROF7 (Hunting's bodies): the encounter pool publishes the lens's
+  // own `feetOf` as `corpseAt` - where a body lies, for the knife (DT1:
+  // the corpse lens's one home) - its fifth reader; AUDIT 32 H8 its
+  // `isCorpse` in `corpseKeyOf`, a body's loot key for the knife's
+  // search, the sixth; the watch's pool has neither, a guard's body is
+  // never skinned.
+  for (const [f, readers] of [['src/scenes/exteriorFoes.js', 7], ['src/scenes/cityGuards.js', 5]]) {
     const src = read(f);
     assert.match(src, /const corpseLens = \{/, `${f}: one identity, not three`);
     // AUDIT-WH2 L5: A COUNT IS NOT A LAW. This was `=== 4`, and four
@@ -1321,8 +1344,8 @@ test('AUDIT-WH H3: both pools and both above-ground hosts are wired to that ladd
     // them: the targets, the namer's entry lookup, and the contents' -
     // and LOOT-STACK's pile tab (corpseMarker.js pileBody), the fourth.
     // A reader that stops passing it now fails here.
-    assert.equal((src.match(/corpseLens\b/g) ?? []).length, 5,
-      `${f}: declared once, read by the targets, the namer, the contents and the pile tab`);
+    assert.equal((src.match(/corpseLens\b/g) ?? []).length, readers,
+      `${f}: declared once, read by the targets, the namer, the contents and the pile tab${readers > 5 ? ', where a body lies and its loot\'s key' : ''}`);
     assert.match(src, /corpseLootTargets\((?:foes|guards), '(?:foe|guard)Corpse', corpseLens\)/,
       `${f}: the TARGETS walk the pool under the lens`);
     assert.equal((src.match(/corpseEntryFor\((?:foes|guards), key, '(?:foe|guard)Corpse', corpseLens\)/g) ?? []).length, 3,
@@ -1330,6 +1353,8 @@ test('AUDIT-WH H3: both pools and both above-ground hosts are wired to that ladd
     assert.match(src, /hoverContents\b/, `${f}: and the contents arm exists`);
     assert.match(src, /hoverName, hoverContents,/, `${f}: ...and is published beside the namer`);
   }
+  assert.match(read('src/scenes/exteriorFoes.js'), /corpseAt: corpseLens\.feetOf, corpseKeyOf: \(f\) => \(corpseLens\.isCorpse\(f\) && !f\.corpseDisabled \? `foeCorpse:\$\{idOf\(f\)\}` : null\),/,
+    'PROF7: where a body lies is the lens\'s own feetOf, and AUDIT 32 H8 its loot\'s key the lens\'s own test - never a second copy of either');
   // A PUPPET's pile is its owner's - the take ASKS for it over the
   // wire and nothing here knows what is in it - so the encounter pool
   // publishes nothing for one, and the plaque falls back to the name.
@@ -1398,10 +1423,12 @@ test('AUDIT-WH H2: the mod\'s MOBILE BAND - a townsperson and a live foe, named 
   assert.match(read('src/characters/enemyEntity.js'), /name: isClass \? career\.name : undefined,/,
     'the departure above is this line - if the port ever loads monster careers, the fallback stops being reachable');
   // ...and all FOUR hosts read it through that one door rather than
-  // reaching for the corpse's member again.
+  // reaching for the corpse's member again. HOVER-PLAIN: none tells the
+  // door anything but hostility - LOOT7-CHECK CHAMP-HOVER's exception is
+  // retired (test/loot7check.test.js pins the law).
   for (const [f, v] of [['src/scenes/exteriorFoes.js', 'f'], ['src/scenes/cityGuards.js', 'g'],
     ['src/scenes/worldModes.js', 'f'], ['src/scenes/dungeonContext.js', 'f']]) {
-    assert.match(read(f), new RegExp(String.raw`mobileEntityName\(liveEntityName\(${v}, enemyDisplayName\(${v}\.mobileType\)\), \{ hostile: !!${v}\.ai\?\.isHostile \}\)`),
+    assert.match(read(f), new RegExp(String.raw`mobileEntityName\(liveEntityName\(${v}, enemyDisplayName\(${v}\.mobileType\)\), \{ hostile: !!${v}\.ai\?\.isHostile[^}]*\}\)`),
       `${f}: the live arm takes Entity.Name, with the enemy name only as the port's fallback`);
   }
 
@@ -2004,14 +2031,17 @@ test('AUDIT-WH P1/P2/P5: one answer a frame, and the mod\'s own cache on the one
 
   // every host says it at BOTH of its early returns, and nowhere else
   // does a frame escape between the stamp and the close.
-  for (const f of ['src/scenes/world.js', 'src/scenes/exterior.js', 'src/scenes/dungeon.js']) {
+  // DISC29-D: ...and the two streaming hosts' INDOOR foot is a whole frame (the interior or the dungeon), so it closes
+  // the token WITH a sample - frameEnd - and the counter's script time reads indoors too. dungeon.js's early return is
+  // its UI overlay's, the frame that does next to nothing: it keeps frameAbort, as the held frame does everywhere.
+  for (const [f, modalFoot] of [['src/scenes/world.js', 'frameEnd'], ['src/scenes/exterior.js', 'frameEnd'], ['src/scenes/dungeon.js', 'frameAbort']]) {
     const src = read(f);
     assert.match(src, /import \{ frameBegin, frameEnd, frameAbort \}/, `${f}: takes the door`);
-    assert.equal((src.match(/frameAbort\(\);/g) ?? []).length, 2,
-      `${f}: the held frame and the modal return, both`);
+    assert.equal((src.match(/frameAbort\(\);/g) ?? []).length, modalFoot === 'frameAbort' ? 2 : 1,
+      `${f}: the held frame${modalFoot === 'frameAbort' ? ' and the overlay return, both' : ' alone'}`);
     assert.match(src, /if \(frameHeld\(\)\) \{ frameAbort\(\);/, `${f}: the held frame closes it`);
-    assert.match(src, /frameAbort\(\);[^\n]*\n\s+requestAnimationFrame\(frame\);\n\s+return;/,
-      `${f}: and so does the modal return, before it re-arms`);
+    assert.match(src, new RegExp(`${modalFoot}\\(\\);[^\\n]*\\n\\s+requestAnimationFrame\\(frame\\);\\n\\s+return;`),
+      `${f}: and the early return closes it too (${modalFoot}), before it re-arms`);
   }
 });
 

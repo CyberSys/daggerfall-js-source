@@ -294,6 +294,17 @@ export function announceSkillRaise(id, value, { say = null, now = nowMs(), doc =
   return true;
 }
 
+/** SOFTCAP1: a milestone past 100 (skillSoftcap.js SKILL_MILESTONES) - one
+ *  line in both lanes, and on the enhanced strip the skill's row with its
+ *  new value and title. */
+export function announceSkillMilestone(id, milestone, { say = null, now = nowMs(), doc = DOC } = {}) {
+  const text = `${milestone.title} of ${SKILL_NAMES[id]}: your ${SKILL_NAMES[id]} has reached ${milestone.at}.`;
+  say?.(text);
+  if (!isEnhanced() || !doc) return false;
+  levelNotices.announceSkill(id, `${milestone.at} - ${milestone.title}`, now);
+  return true;
+}
+
 /**
  * A mastery. DFU raises TEXT.RSC 4020 in a click-anywhere box and
  * plays the fanfare (RaiseSkills :1390-1407); the box carries no
@@ -332,7 +343,7 @@ let last = '';
 
 /**
  * WHERE IT HANGS - AUDIT LV2 F4, and QS3's rule read the right way
- * round (ui/enhancedHud.js:527-530): `.hud-bottom` is a CENTRED column
+ * round (ui/enhancedHud.js:643-646): `.hud-bottom` is a CENTRED column
  * anchored to the foot of the screen, so a centred thing that belongs
  * above the vitals goes IN it and rides it; only a CORNER block is
  * anchored to the HUD root and does the arithmetic itself, "because a

@@ -11,13 +11,14 @@
 // day's roll, and the land's beacon says the rest.
 //
 // Not a DFU member. Ledger A (WB).
+import { readTip } from './eventMapMarks.js';   // EVENT-TIP: the ring's card, read as a raid's is
 
 /** The ring's ink, the fill under it, and the classic page's texel - a burning red, apart from the party's green and
  *  every location dot's colour. */
 export const GATE_RING_CSS = '#ff5a2a';
 export const GATE_FILL_CSS = 'rgba(255, 70, 30, 0.13)';
 export const GATE_DOT_RGB = Object.freeze([255, 82, 36]);
-export const GATE_LEGEND_TEXT = 'Oblivion Gate';
+export const GATE_LEGEND_TEXT = 'Dagon\'s Breach';   // WB12a
 
 /**
  * The host's mark, read and checked - null for none, a throw, or anything a map could not place.
@@ -31,7 +32,7 @@ export function readGateMark(fn, size) {
   const { cx, cy, r } = m;
   if (![cx, cy, r].every(Number.isFinite) || !(r > 0)) return null;
   if (cx + r < 0 || cy + r < 0 || cx - r > size.width || cy - r > size.height) return null;
-  return { day: Number.isFinite(m.day) ? m.day : 0, cx, cy, r, label: String(m.label ?? GATE_LEGEND_TEXT).slice(0, 80), phase: String(m.phase ?? '') };
+  return { day: Number.isFinite(m.day) ? m.day : 0, cx, cy, r, label: String(m.label ?? GATE_LEGEND_TEXT).slice(0, 80), phase: String(m.phase ?? ''), tip: readTip(m.tip) };
 }
 
 /** What the held map repaints on: the ring AND its words (the countdown ticks each second). */

@@ -98,3 +98,75 @@ export function deriveSpec(from, picture, src, at = [0, 0]) {
   if (edits.length) spec.edits = edits;
   return spec;
 }
+
+/**
+ * CSA-A (2026-09-27): A PICTURE THAT IS A CLASSIC RECORD TILED UNDER THE
+ * AUTHOR'S PAINT. Come Sail Away's thirty-two wave frames (archive 112395,
+ * record 2, 640x640) are the author's wave shapes and dark troughs laid over
+ * Daggerfall's own snow, TEXTURE.303 record 1, repeated across the frame:
+ * every crest pixel is the record's, exactly. And the frames are two
+ * pictures, each scrolled down the same sixteen steps. The edit list above
+ * would be a quarter of a million pixels a frame, so this kind carries the
+ * author's pixels as pictures of their own - the PAINT - in which one
+ * colour, the spec's `key`, means "the record's pixel here":
+ *   { from: [archive, record, frame?], size: [width, height],
+ *     paint: '<file>',      the author's picture this frame is cut from
+ *     scroll: n,            the frame's row y is the paint's row (y + n) mod height
+ *     tile: [px, py],       the record's pixel under the FRAME's (x, y) is ((x + px) mod w, (y + py) mod h)
+ *     key: 'rrggbbaa' }     the paint colour that is not the author's
+ * A key pixel comes back opaque with the record's colour; every other paint
+ * pixel is the author's as it stands.
+ */
+export function composeTiledPicture(spec, src, paint) {
+  const [w, h] = spec.size;
+  if (paint.width !== w || paint.height !== h) throw new Error(`derived texture: a ${paint.width}x${paint.height} paint for a ${w}x${h} picture`);
+  const [px, py] = spec.tile ?? [0, 0];
+  const scroll = spec.scroll ?? 0;
+  const k = [hex(spec.key, 0), hex(spec.key, 2), hex(spec.key, 4), hex(spec.key, 6)];
+  const data = new Uint8Array(w * h * 4);
+  for (let y = 0; y < h; y++) {
+    const sy = ((y + py) % src.height + src.height) % src.height;
+    const row = ((y + scroll) % h + h) % h;
+    data.set(paint.data.subarray(row * w * 4, (row + 1) * w * 4), y * w * 4);
+    for (let x = 0; x < w; x++) {
+      const d = (y * w + x) * 4;
+      if (data[d] !== k[0] || data[d + 1] !== k[1] || data[d + 2] !== k[2] || data[d + 3] !== k[3]) continue;
+      const s = (sy * src.width + (((x + px) % src.width) + src.width) % src.width) * 4;
+      data[d] = src.data[s]; data[d + 1] = src.data[s + 1]; data[d + 2] = src.data[s + 2]; data[d + 3] = 255;
+    }
+  }
+  return { width: w, height: h, data };
+}
+
+/**
+ * The tool's half of composeTiledPicture: the paint that rebuilds `picture`
+ * over `src` tiled at `tile`. An opaque pixel that is the record's becomes
+ * the key; a clear pixel becomes clear black (a cut-out never draws the
+ * colour under it); every other pixel is the author's. Refuses a picture
+ * that already holds the key colour of its own.
+ * @returns {{ paint: {width:number,height:number,data:Uint8Array}, fromRecord: number, own: number, clear: number }}
+ */
+export function deriveTiledPaint(picture, src, tile, key) {
+  const { width: w, height: h } = picture;
+  const k = [hex(key, 0), hex(key, 2), hex(key, 4), hex(key, 6)];
+  const [px, py] = tile;
+  const data = new Uint8Array(w * h * 4);
+  let fromRecord = 0, own = 0, clear = 0;
+  for (let y = 0; y < h; y++) {
+    const sy = ((y + py) % src.height + src.height) % src.height;
+    for (let x = 0; x < w; x++) {
+      const i = (y * w + x) * 4;
+      const p = picture.data;
+      if (p[i + 3] === 0) { clear++; continue; }
+      if (p[i] === k[0] && p[i + 1] === k[1] && p[i + 2] === k[2] && p[i + 3] === k[3]) throw new Error(`derived texture: the picture holds the key colour ${key} itself at ${x},${y}`);
+      const s = (sy * src.width + (((x + px) % src.width) + src.width) % src.width) * 4;
+      if (p[i + 3] === 255 && p[i] === src.data[s] && p[i + 1] === src.data[s + 1] && p[i + 2] === src.data[s + 2]) {
+        data.set(k, i); fromRecord++;
+      } else {
+        data[i] = p[i]; data[i + 1] = p[i + 1]; data[i + 2] = p[i + 2]; data[i + 3] = p[i + 3]; own++;
+      }
+    }
+  }
+  return { paint: { width: w, height: h, data }, fromRecord, own, clear };
+}
+

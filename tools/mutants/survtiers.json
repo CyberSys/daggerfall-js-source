@@ -283,8 +283,8 @@
   {
     "name": "SURVTIERS-rest-deps-stiffen-at-hard",
     "file": "src/scenes/shared.js",
-    "old": "stiffen(entity, worldMinutes(), REST_KIND.Rough, _rules)",
-    "new": "stiffen(entity, worldMinutes(), REST_KIND.Rough)",
+    "old": "stiffen(entity, ownMinutes(), REST_KIND.Rough, _rules)",
+    "new": "stiffen(entity, ownMinutes(), REST_KIND.Rough)",
     "tests": [
       "test/survtiers.test.js"
     ]
@@ -617,8 +617,9 @@
   {
     "name": "SURVTIERS-window-asks-the-house-before-the-gold",
     "file": "src/ui/tavernWindow.js",
-    "old": "        if (totalGoldAmount(h.entity) < row.price) return [{ rows: this._rows(NOT_ENOUGH_GOLD_ID) }];\n        // SURV-TIERS: the tier refuses before the coin changes hands - the drink that would take the night, the meal that would go to waste\n        const order = tavernOrder(s, now, row, { endurance, rules });\n        if (!order.ok) return [{ rows: line(order.text) }];",
-    "new": "        const order = tavernOrder(s, now, row, { endurance, rules });\n        if (!order.ok) return [{ rows: line(order.text) }];\n        if (totalGoldAmount(h.entity) < row.price) return [{ rows: this._rows(NOT_ENOUGH_GOLD_ID) }];",
+    "old": "        if (totalGoldAmount(h.entity) < row.price) return [{ rows: this._rows(NOT_ENOUGH_GOLD_ID) }];\n        // SURV-TIERS: the tier refuses before the coin changes hands - the drink that would take the night, the meal that would go to waste\n        const order = tavernOrder(s, now, row, { endurance, rules, items: h.entity.items });   // INN-WATER: the pack, for the skins the water asks after\n        if (!order.ok) return [{ rows: line(order.text) }];",
+    "new": "        const order = tavernOrder(s, now, row, { endurance, rules, items: h.entity.items });   // INN-WATER: the pack, for the skins the water asks after\n        if (!order.ok) return [{ rows: line(order.text) }];\n        if (totalGoldAmount(h.entity) < row.price) return [{ rows: this._rows(NOT_ENOUGH_GOLD_ID) }];",
+    "note": "INN-WATER (FIELD BUGS 2026-09-30, PIN MOVED): the order call names the pack now (items: h.entity.items) - the record re-aimed to the new line, the mutant (the house asked before the gold) unchanged",
     "tests": [
       "test/survtiers.test.js"
     ]
@@ -689,8 +690,8 @@
   {
     "name": "SURVTIERS-the-mirror-overrides-a-vital",
     "file": "src/scenes/world.js",
-    "old": "    enemiesNearby: () => false,\n    advanceMinutes: (n, sharedEnd) => { playerTicker.advance(n, sharedEnd); },",
-    "new": "    enemiesNearby: () => false,\n    fullyHealed: () => false,\n    advanceMinutes: (n, sharedEnd) => { playerTicker.advance(n, sharedEnd); },",
+    "old": "    enemiesNearby: () => false,\n    // LIVED1: the mirrored night is the follower's own time too.",
+    "new": "    enemiesNearby: () => false,\n    fullyHealed: () => false,\n    // LIVED1: the mirrored night is the follower's own time too.",
     "tests": [
       "test/partyrest1.test.js"
     ]
@@ -833,8 +834,9 @@
   {
     "name": "SURVTIERS-enhanced-asks-the-house-before-the-gold",
     "file": "src/ui/enhancedTavern.js",
-    "old": "  if (totalGoldAmount(h.entity) < row.price) { say(rows(NOT_ENOUGH_GOLD_ID)); return; }\n  // SURV-TIERS: the tier refuses before the coin changes hands - the drink that would take the night, the meal that would go to waste\n  const order = tavernOrder(s, now, row, { endurance, rules });\n  if (!order.ok) { say(line(order.text)); return; }",
-    "new": "  // SURV-TIERS: the tier refuses before the coin changes hands - the drink that would take the night, the meal that would go to waste\n  const order = tavernOrder(s, now, row, { endurance, rules });\n  if (!order.ok) { say(line(order.text)); return; }\n  if (totalGoldAmount(h.entity) < row.price) { say(rows(NOT_ENOUGH_GOLD_ID)); return; }",
+    "old": "  if (totalGoldAmount(h.entity) < row.price) { say(rows(NOT_ENOUGH_GOLD_ID)); return; }\n  // SURV-TIERS: the tier refuses before the coin changes hands - the drink that would take the night, the meal that would go to waste\n  const order = tavernOrder(s, now, row, { endurance, rules, items: h.entity.items });   // INN-WATER: the pack, for the skins the water asks after\n  if (!order.ok) { say(line(order.text)); return; }",
+    "new": "  // SURV-TIERS: the tier refuses before the coin changes hands - the drink that would take the night, the meal that would go to waste\n  const order = tavernOrder(s, now, row, { endurance, rules, items: h.entity.items });   // INN-WATER: the pack, for the skins the water asks after\n  if (!order.ok) { say(line(order.text)); return; }\n  if (totalGoldAmount(h.entity) < row.price) { say(rows(NOT_ENOUGH_GOLD_ID)); return; }",
+    "note": "INN-WATER (FIELD BUGS 2026-09-30, PIN MOVED): the order call names the pack now (items: h.entity.items) - the record re-aimed to the new line, the mutant (the house asked before the gold) unchanged",
     "tests": [
       "test/survtiers.test.js"
     ]
@@ -923,8 +925,8 @@
   {
     "name": "SURVTIERS-the-mirror-overrides-dead",
     "file": "src/scenes/world.js",
-    "old": "    enemiesNearby: () => false,\n    advanceMinutes: (n, sharedEnd) => { playerTicker.advance(n, sharedEnd); },",
-    "new": "    enemiesNearby: () => false,\n    dead: () => false,\n    advanceMinutes: (n, sharedEnd) => { playerTicker.advance(n, sharedEnd); },",
+    "old": "    enemiesNearby: () => false,\n    // LIVED1: the mirrored night is the follower's own time too.",
+    "new": "    enemiesNearby: () => false,\n    dead: () => false,\n    // LIVED1: the mirrored night is the follower's own time too.",
     "tests": [
       "test/partyrest1.test.js"
     ]
@@ -932,8 +934,8 @@
   {
     "name": "SURVTIERS-the-mirror-overrides-vitals",
     "file": "src/scenes/world.js",
-    "old": "    enemiesNearby: () => false,\n    advanceMinutes: (n, sharedEnd) => { playerTicker.advance(n, sharedEnd); },",
-    "new": "    enemiesNearby: () => false,\n    vitals: () => null,\n    advanceMinutes: (n, sharedEnd) => { playerTicker.advance(n, sharedEnd); },",
+    "old": "    enemiesNearby: () => false,\n    // LIVED1: the mirrored night is the follower's own time too.",
+    "new": "    enemiesNearby: () => false,\n    vitals: () => null,\n    // LIVED1: the mirrored night is the follower's own time too.",
     "tests": [
       "test/partyrest1.test.js"
     ]
@@ -941,8 +943,8 @@
   {
     "name": "SURVTIERS-the-note-grows-a-third-sentence",
     "file": "src/systems/features.js",
-    "old": "and repay it when met; ",
-    "new": "and repay it when met. ",
+    "old": "comes back once you’ve seen to them; on Hard",
+    "new": "comes back once you’ve seen to them. On Hard",
     "tests": [
       "test/survtiers.test.js"
     ]
@@ -959,11 +961,12 @@
   {
     "name": "SURVTIERS-the-potion-cite-falls-short",
     "file": "src/systems/potions.js",
-    "old": "exterior.js:2498) and useItem.js:317",
-    "new": "exterior.js:2498) and useItem.js:301",
+    "old": "exterior.js:2553) and useItem.js:379",
+    "new": "exterior.js:2553) and useItem.js:351",
     "tests": [
       "test/citedrift.test.js"
-    ]
+    ],
+    "note": "HOOD-SAID (FIELD BUGS 2026-09-30, PIN MOVED): toggleHood and its import moved useItem.js's drink line from 316 to 347; the cite and its short mutant move with it. FIELD BUGS 2026-09-30 (PIN MOVED): re-aimed by content to the cite the batch's cite shift moved. MEND-AIM (PIN MOVED): the use door's aim options moved the drink line to 351. THE SEATS ARC'S MERGE of main's #502-#509 and #504 (PIN MOVED): re-aimed by content to the cite citeMerge moved. FIELD BUGS 2026-10-01 part five (re-aimed by content): the merge of #504 moved the cites it names. MERGE OF MAIN (#538) INTO THE TACTICS ARC (PIN MOVED): re-aimed by content to the cite citeMerge moved."
   },
   {
     "name": "SURVOFFSIGHT-off-sees-no-camp",

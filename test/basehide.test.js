@@ -18,6 +18,7 @@ import { createSceneCache, cacheScene, restoreCachedScene, clearSceneHidden, int
 import { accountDecor, SESSION_KEY } from '../src/net/accountClient.js';
 import { createDecorPanel, decorBaseSub, DECOR_HOLDS_LINE, DECOR_BASE_EMPTY } from '../src/ui/decorPanel.js';
 import { toolRig, settle, all, one, fakeDoc, fakeWin } from './decorFakes.mjs';
+import { ACCEPTED } from '../src/net/legalLaw.js';   // TERMS1: a request that makes an account carries the versions ticked
 
 const src = (p) => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8');
 
@@ -109,6 +110,7 @@ function d1() {
   db.exec('PRAGMA foreign_keys = ON');
   for (const f of MIGRATIONS) db.exec(src(`server-account/migrations/${f}`));
   return {
+    _raw: db,   // AUDIT REALM2 S2: a house from before the realm is laid in by hand
     prepare(sql) {
       const stmt = db.prepare(sql);
       let args = [];
@@ -139,20 +141,24 @@ async function stand() {
     return { status: res.status, body: await res.json().catch(() => null) };
   };
   const registered = async (handle) => {
-    const guest = (await call('/v1/auth/guest', {})).body;
-    assert.equal((await call('/v1/auth/register', { secret: guest.secret, handle, password: 'a good long one' })).status, 200);
+    const guest = (await call('/v1/auth/guest', { ...ACCEPTED })).body;
+    assert.equal((await call('/v1/auth/register', { secret: guest.secret, handle, password: 'a good long one', ...ACCEPTED })).status, 200);
     return guest.secret;
   };
-  return { call, registered };
+  /** AUDIT REALM2 S2: a house from before the realm, the account `handle`'s `character`'s - a claim is a realm
+   *  character's now; clearing its room is still its owner's character's, whichever it is. */
+  const oldHome = (handle, character) => env.DB._raw.prepare("INSERT INTO homes (map_id, building_key, player, char_id, owner_name, region, entry, price, bought_at) VALUES (?, ?, (SELECT id FROM players WHERE handle = ?), ?, ?, 17, 'private', 42000, 1)")
+    .run(HOME.mapId, HOME.buildingKey, handle, character, handle);
+  return { call, registered, oldHome };
 }
 const HOME = { mapId: 1291010263, buildingKey: 0x10203 };
 
 test('BASE-HIDE the service: a home\'s list of what is out is read with its pieces by every session; written WHOLE by the owner\'s character alone; refused whole when the law would; and the home released takes it (mutants: a stranger\'s write kept, a bad list kept, the list unread, the cascade dropped)', async () => {
-  const { call, registered } = await stand();
+  const { call, registered, oldHome } = await stand();
   assert.ok(ROUTES.has('/v1/homes/decor/hidden'), 'the route is the service\'s');
   const aldric = await registered('Aldric');
   const mara = await registered('Mara');
-  assert.equal((await call('/v1/homes/claim', { ...HOME, region: 17, character: 'char-aldric', price: 42000 }, aldric)).status, 200);
+  oldHome('Aldric', 'char-aldric');
   assert.deepEqual((await call('/v1/homes/decor', HOME, mara)).body.hidden, [], 'nothing out yet');
   const at = (keys, character = 'char-aldric') => ({ ...HOME, character, keys });
   const w = await call('/v1/homes/decor/hidden', at(['m12:41000', 'f3:210.4']), aldric);
@@ -169,7 +175,7 @@ test('BASE-HIDE the service: a home\'s list of what is out is read with its piec
   assert.deepEqual((await call('/v1/homes/decor/hidden', at([]), aldric)).body.hidden, [], 'everything put back');
   await call('/v1/homes/decor/hidden', at(['m5:41001']), aldric);
   assert.equal((await call('/v1/homes/release', HOME, aldric)).status, 200);
-  assert.equal((await call('/v1/homes/claim', { ...HOME, region: 17, character: 'char-mara', price: 42000 }, mara)).status, 200);
+  oldHome('Mara', 'char-mara');
   assert.deepEqual((await call('/v1/homes/decor', HOME, mara)).body.hidden, [], 'the next owner walks into the room as Daggerfall furnished it');
   // the client's door: the whole list, the owner's character
   const posts = [];
@@ -283,8 +289,8 @@ test('BASE-HIDE by source: the build stands a furnishable room\'s props and flat
   assert.match(m, /houseOwned, peopleVisible, baseEditable,/);
   for (const [list, v] of [['containers', 'c'], ['shelves', 's']]) assert.match(m, new RegExp(`interiorCtx\\.${list}\\.forEach\\(\\(${v}, i\\) => \\{\\s*if \\(${v}\\.hidden\\) return;`), `${list}: a piece out is no target`);
   assert.match(m, /interiorCtx\.beds\?\.forEach\(\(bd, i\) => \{[^\n]*\n\s*if \(bd\.hidden\) return;/);
-  assert.match(m, /const hiddenBase = interiorHome \? \[\.\.\._keptHidden\] : \(ctx\.base\?\.hidden\(\) \?\? \[\]\);/, 'the scene keeps the list - an online home\'s save record as it came');
-  assert.match(m, /if \(interiorHome\) _keptHidden = \[\.\.\.\(data\.hiddenBase \?\? \[\]\)\]; else interiorCtx\.base\?\.setHidden\(data\.hiddenBase \?\? \[\]\);/);
+  assert.match(m, /const hiddenBase = interiorHome \|\| _seatHallVisit \? \[\.\.\._keptHidden\] : \(ctx\.base\?\.hidden\(\) \?\? \[\]\);/, 'the scene keeps the list - an online home\'s save record as it came');   // PIN MOVED (SEAT-HALL): the palace's hall shares the line   // PIN MOVED (AUDIT SEATS-3): the visit's latch (C2)
+  assert.match(m, /if \(interiorHome \|\| _seatHallVisit\) _keptHidden = \[\.\.\.\(data\.hiddenBase \?\? \[\]\)\]; else interiorCtx\.base\?\.setHidden\(data\.hiddenBase \?\? \[\]\);/);   // PIN MOVED (SEAT-HALL): the palace's hall shares the line   // PIN MOVED (AUDIT SEATS-3): the visit's latch (C2)
   assert.match(m, /interiorCtx\?\.base\?\.setHidden\(Array\.isArray\(r\.data\.hidden\) \? r\.data\.hidden : \[\]\);/, 'the room its owner cleared, for everyone');
   assert.match(m, /function decorSold\(sceneName, region\) \{\s*clearSceneHidden\(sceneCache\(\), sceneName\);/, 'a sale brings it back');
   assert.match(m, /base: \(\) => interiorCtx\?\.base \?\? null,/, 'the tool\'s door');

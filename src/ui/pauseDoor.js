@@ -55,6 +55,8 @@ import { mountEnhancedChunk } from './enhancedChunk.js';   // MENU1: the one laz
 import { createCharSheetWindow } from './charSheetDoor.js';   // ASCEND-ANYTIME: a level OWED is answered by the sheet key's own door
 import { playerEntity } from '../characters/playerEntity.js';   // the shared entity the Stats page already reads (enhancedMenu's sheetModel)
 import { usesVirtueLeveling } from '../systems/oblivionLeveling.js';   // ORL1: which bar the Ascension reads
+import { profPagesShown, PROF_PAGE_SECTIONS } from './profPages.js';   // CLASSIC-PAGES: the professions' two pages, on either skin
+import { hudText } from '../systems/notify.js';
 import {
   openClassicPauseFlow,
   pauseArtLoaded,
@@ -140,6 +142,8 @@ export function pauseMenuHooks(base, seamsOf) {
 export function pauseMenuAct(hooks, close) {
   return (action) => {
     close();
+    // ESC-BOOK: a door that opens ANOTHER window hands the slot on - no relock under it, no return to a classic window.
+    if (action === 'handoff') return;
     // DISC22-B: opened from the classic pause window, Resume goes back to that window - the settings were a page of
     // it, not the way out of it (save, load and exit still leave as they always do).
     if (action === 'resume' && typeof hooks.onResume === 'function') { hooks.onResume(); return; }
@@ -170,12 +174,30 @@ export function pauseMenuAct(hooks, close) {
  * AUDIT 18 F9), and `hooks` is that host's own
  * { quickSave, quickLoad, exitToMenu, savingPrevented, textLines }.
  */
+/** CLASSIC-PAGES: what a door pressed for a professions page says when the pages are not this account's (offline, the
+ *  professions' switch closed, the book not read yet). */
+export const PROF_PAGES_CLOSED_LINE = 'Your professions are kept online: your Professions and Stores open while you play online.';
+/** Whether a door's landing page is one of the professions' own (the Professions key's, a station's). */
+export const profPageAt = (at) => PROF_PAGE_SECTIONS.some(([id]) => id === at);
+
 /**
  * PX26: `hooks.at` names the page the enhanced window opens ON -
  * 'quests', 'stats' or 'system'. The CLASSIC flow takes the same hooks
  * and ignores it, because the classic pause has no tabs to land on.
+ *
+ * CLASSIC-PAGES (2026-09-30, Mac: "Enhanced pages + key"): EXCEPT a
+ * professions page ('professions', 'stores' - the Professions key, a
+ * shop's or a home's station). The classic pause has no pages, so an
+ * online classic player could neither read a rank nor withdraw a
+ * gathered good; that door opens the enhanced pause on its page on
+ * either skin, as DISC22-B's Controls button opens its Settings. With
+ * no pages to show it says why and opens nothing.
  */
 export function openPauseFlow(show, hooks = {}) {
+  if (profPageAt(hooks.at)) {
+    if (!profPagesShown()) { hudText(PROF_PAGES_CLOSED_LINE); return null; }
+    if (typeof document !== 'undefined') return enhancedPauseOverlay(show, hooks);
+  }
   // `document` is the second half of the test for the reason
   // chargenSession's fork gives: a node test drives these hosts
   // headless, has no document, and must keep the canvas window rather
@@ -286,7 +308,7 @@ function enhancedPauseOverlay(show, base) {
   function openAscend() {
     if (fired || ascendHost || !playerEntity) return;
     if (playerEntity.readyToLevelUp) {
-      act('resume');   // down first, then the level-up takes the slot it frees (the Pack button's own order)
+      act('handoff');   // down first, then the level-up takes the slot it frees (the Pack button's own order - ESC-BOOK's handoff; AUDIT 27h A5: a resume relocked under the level-up, and from the classic Controls route built a throwaway pause first)
       show(createCharSheetWindow({ entity: playerEntity }));
       return;
     }
@@ -319,7 +341,7 @@ function enhancedPauseOverlay(show, base) {
   }
 
   // THE FOUR EXITS. Every one of them takes the screen down FIRST and
-  // then acts, which is classic's own order (pauseWindow.js:272, :308,
+  // then acts, which is classic's own order (pauseWindow.js:284, :320,
   // :198 - `_closeWith()` then the hook) and matters more here: the
   // port answers a save or a load with a HUD line, and this screen is
   // an opaque div over the entire canvas, so a hook fired underneath a

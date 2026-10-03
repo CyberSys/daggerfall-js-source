@@ -327,8 +327,8 @@
   {
     "name": "ENH-NOTICE3-P4-mod-enemies-refusal-sent-to-the-hud-line",
     "file": "src/systems/travelOptions.js",
-    "old": "        else messageBox(T.MsgEnemies);",
-    "new": "        else say(T.MsgEnemies);",
+    "old": "    messageBox(T.MsgEnemies);\n    return false;",
+    "new": "    say(T.MsgEnemies);\n    return false;",
     "tests": [
       "test/notify.test.js",
       "test/to1_travelOptions.test.js"
@@ -918,8 +918,8 @@
   {
     "name": "HUNT-parchment-drawn-under-the-panel",
     "file": "src/ui/huntWindow.js",
-    "old": "    if (noticeFrame(this, rows, { hint: 'Escape to walk away' })) { this._box = null; return; }",
-    "new": "    noticeFrame(this, rows, { hint: 'Escape to walk away' });",
+    "old": "    if (noticeFrame(this, rows, { hint: this._escape ? 'Escape to walk away' : false })) { this._box = null; return; }   // FORAGE4: no Escape, no promise of one",
+    "new": "    noticeFrame(this, rows, { hint: this._escape ? 'Escape to walk away' : false });   // FORAGE4: no Escape, no promise of one",
     "tests": [
       "test/surv6_hunting.test.js"
     ]

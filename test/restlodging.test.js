@@ -466,7 +466,7 @@ test('S40 restVitals: one home for the rested hour, and the dungeon host uses it
   // that hardcoded the flags inside restVitals, or dropped them from
   // createRestDeps' tickVitals, passed. RapidHealing InLight is the
   // ONE place they differ: +100 instead of +60, and only by daylight
-  // OUTDOORS. (rest.js:47-59.)
+  // OUTDOORS. (rest.js:46-58.)
   const lit = (over) => ({
     isPlayer: true, level: 5, health: 0, maxHealth: 50, magicka: 40, maxMagicka: 40,
     fatigue: 0, stats: { strength: 50, endurance: 50, willpower: 50 }, skills: 30,
@@ -517,7 +517,7 @@ test('S40 restVitals: one home for the rested hour, and the dungeon host uses it
   // other host and keeps only advanceMinutes, which is a dungeon law.
   const dc = src('src/scenes/dungeonContext.js');
   assert.match(dc, /const _restDeps = createRestDeps\(playerEntity, \{/);
-  assert.match(dc, /advanceMinutes: \(n, sharedEnd\) => _restAdvance\(n, sharedEnd\),/);
+  assert.match(dc, /advanceMinutes: \(n\) => _restAdvance\(n\),/);
   assert.doesNotMatch(dc, /fatigueRecoveryRate\(maxFatigue/);
   for (const gone of ['fullyHealed: _restFullyHealed', 'dead: () => playerEntity.health <= 0',
     'onRestFinished: () => raisePlayerSkills']) {
@@ -566,7 +566,8 @@ test('S40 hosts: all four can now rest, and each supplies its own place', () => 
   assert.match(wm, /return interiorRestPlace\(\{/);
   assert.match(wm, /room: findRentedRoom\(playerEntity\.rentedRooms/);
   // H1's ledger, which both rest lanes had to leave as a constant.
-  assert.match(wm, /houseOwned: interiorHome \? interiorHome\.own : isHouseOwned\(playerEntity\.houses/);   // HOME1 re-aim: my online home's bed is mine too
+  assert.match(wm, /houseOwned: !interiorHome && isHouseOwned\(playerEntity\.houses/);   // HOME1 re-aim: my online home's bed is mine too; HOME-RENT re-aim: and my rented room's
+  assert.match(wm, /homeBed: homeBedIsMine\(interiorHome, /);   // PIN MOVED (FIELD BUGS 2026-10-01 RENT-REST): an online home's bed - the owner's or the tenant's - is the bag's `homeBed`
   assert.match(wm, /guildCanRest\(guild, membershipOf/);
   assert.match(wm, /m\.type === INTERIOR_MARKER\.REST/);
   assert.match(wm, /permanentScene: !!scene && containsPermanentScene\(sceneCache\(\), scene\)/);
@@ -729,7 +730,7 @@ test('S40 restDecision: it is SCENE-FREE - all four hosts run it before opening'
   }
   // and the interior host uses ITS OWN clock for the stamp - the one
   // racialRestBlock takes one line above (the 8h decay reads it back)
-  assert.match(wm, /if \(d\.kind === 'enemies'\) setEnemyAlert\(playerEntity, true, Math\.floor\(interiorTicker\.classicMinutes\)\);/);
+  assert.match(wm, /if \(d\.kind === 'enemies'\) setEnemyAlert\(playerEntity, true, Math\.floor\(interiorTicker\.ownMinutes\)\);/);
   assert.doesNotMatch(src('src/scenes/dungeonContext.js'), /if \(_restDeps\.enemiesNearby\(\)\) \{/);
   // Every host that HAS motor state feeds it LIVE, not as a constant.
   // AUDIT 65 XL-1: the member is PlayerEnterExit.IsPlayerSwimming
@@ -1634,8 +1635,8 @@ test('S40 IsResting: the THIRD consumer - no per-minute fatigue drain while rest
   const sw = mk(); sw.isResting = true; sw.raceId = 99; sw.skillUses = { };
   setWorldMinutes(1000);
   createPlayerTicker(sw, {}).tick(60 / 12, { running: false, swimming: true });
-  assert.match(src('src/systems/worldTick.js'),
-    /tallySkill\(entity, SKILLS\.Swimming\);[\s\S]{0,900}?if \(!entity\.isResting\) sinks\.drainFatigue/);
+  assert.match(src('src/systems/worldTick.js'),   // MOVE-REAL: the motion tally's own door, in the same place
+    /tallyMovementSkill\(entity, SKILLS\.Swimming\);[\s\S]{0,900}?if \(!entity\.isResting\) sinks\.drainFatigue/);
 
   // The window is what raises the flag, so the gate is live end to end.
   const e = mk();

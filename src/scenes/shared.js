@@ -21,6 +21,10 @@ import { VolumetricClouds, QUALITY as CLOUD_QUALITY } from '../render/volumetric
 import { cloudsStateUnderMod, dynamicMoonState, dynamicMoonlight } from '../render/dynamicSkiesBridge.js';   // DS1/DS2: the mod's state in the port's shapes - the moons, the clouds, and the moons' own term (AUDIT 65 MC-3: the bridge's third export had no caller and this file carried its body inline)
 import { isEnhanced } from '../systems/uiSkin.js';
 import { getPref } from '../systems/uiPrefs.js';   // RA1: the Enhanced pane's sky switch
+import { pageParam } from '../systems/pageQuery.js';   // CLIMB1: `?parkour=off`, the enhanced climb's kill door
+import { isOnlinePage, onlineForcedPref } from '../systems/onlineLane.js';   // CLIMB1: online the skin is not asked, and the row is the lane's
+import { carriedWeight } from '../systems/inventory.js';   // CLIMB2: a heavy pack cuts the enhanced climb's reach
+import { entityMaxEncumbrance } from '../combat/formulas.js';   // CLIMB2: ...over what the body can carry
 import { DynamicSkiesRenderer } from '../render/dynamicSkiesRenderer.js';   // DS1: Dynamic Skies' skybox, the mod's own pass
 import { DynamicSkies } from '../systems/dynamicSkiesRuntime.js';   // DS1: BLBSkybox's instance
 import { MAX_DELTA_SECONDS } from '../systems/dynamicSkies.js';   // Time.maximumDeltaTime, the mod's frame clamp
@@ -28,19 +32,20 @@ import { dynamicSkiesAssets, loadDynamicSkiesTexture, dynamicSkiesTextureUrl, DY
 import { modSetting, modSettingsOf } from '../systems/modSettings.js';   // DS1: the mod's own switches
 import { weatherSunlightScale } from '../world/weather.js';   // DS1: WeatherManager's ScaleFactor, for the skybox's _LightColor0
 import { seasonValue, SEASONS, dateFromClassicMinutes } from '../systems/gameDate.js';   // DS1: the winter arm of that scale
-import { hasActiveEffect, isBlending, isInvisible, isAShade } from '../systems/effects.js';
-import { skillValue, tallySkill, SKILLS, SKILL_NAMES } from '../systems/skills.js';
+import { hasActiveEffect, isEntityWaterWalking, isBlending, isInvisible, isAShade } from '../systems/effects.js';
+import { skillValue, displaySkillValue, tallySkill, tallyMovementSkill, SKILLS, SKILL_NAMES } from '../systems/skills.js';   // MOVE-REAL: the climb's check is a motion tally
 import { expandRowValues } from '../systems/quest/questMacros.js';   // MACRO-3: the mastery box's %pcn and %ski
 // LV2: the level-up notification's seams. The CLASSIC lane's line and
 // box are still this file's - the seam takes them and uses them - so
 // nothing about the old skin is decided in a UI module.
-import { announceSkillRaise, announceMastery } from '../ui/levelNotice.js';
+import { announceSkillRaise, announceMastery, announceSkillMilestone } from '../ui/levelNotice.js';
+import { masterSkillsBoxDue, setMasterSkills, MASTER_SKILLS_OFFER_ROWS, MASTER_SKILLS_INFO_ROWS, MASTER_SKILLS_DECLINED_TEXT, MASTER_SKILLS_INTRO_ROWS, nextMasteryChoice, masteryChoiceRows, masterSkill } from '../systems/masterSkills.js';   // SOFTCAP3/4
 import { DOOR_SPELL_TEXT, castBySkeletonKey } from '../systems/mysticism.js';   // X1: the door-spell alert lines; D9: Open.CheckCastByItem
 import { raiseSkills } from '../systems/advancement.js';   // AUDIT 23 (entity-1): the rest-end raise
-import { tickPlayerMinutes, claimMagicRounds, runMagicRoundsFor, worldMinutes, setWorldMinutes, advanceWorldMinutes, MINUTES_PER_DAY, CLASSIC_MINUTES_PER_SECOND, sharedClockOn } from '../systems/worldTick.js';
+import { tickPlayerMinutes, runMagicRoundsFor, worldMinutes, skyMinutes, setWorldMinutes, ownMinutes, advanceOwnMinutes, tickInFlight, MINUTES_PER_DAY, CLASSIC_MINUTES_PER_SECOND, sharedClockOn } from '../systems/worldTick.js';
 import { REST_KIND, REST_TEXT_SURVIVAL, restCost, restHour, stiffen } from '../systems/survival/rest.js';   // SURV4: the rest law - a bed and a fire sleep, the window alone is rough
 import { survivalRules } from '../systems/survival/switch.js';   // SURV-TIERS: the rest's price is the tier's, read at the open
-import { sleepStage, runSurvivalMinutes } from '../systems/survival/needs.js';   // AUDIT SURV-TIERS (the third pass): the rough night's lesser sleep, said
+import { sleepStage } from '../systems/survival/needs.js';   // AUDIT SURV-TIERS (the third pass): the rough night's lesser sleep, said
 import { setSyntheticTimeIncrease } from '../systems/effectBroker.js';   // AUDIT 63 F13: VampirismInfection.cs:161-162
 import { setInfectionHost, vampireClanForFaction } from '../systems/infection.js';   // V1: the host seam for the dream/death videos and the turn's clock raise
 import { findFactions } from '../systems/talk.js';   // V1: GetRegionFaction's FindFactions(Province, region)
@@ -57,7 +62,7 @@ import { FALL_DAMAGE_THRESHOLD, FALL_HP_PER_METRE, CAPSULE_HEIGHT } from '../pla
 import { FOOTSTEP_VOLUME } from '../systems/footsteps.js';   // AUDIT 58: PlayerFootsteps.FootstepVolumeScale (:30), which its one-shots carry too
 import { flashPlayerDamage } from '../ui/damageFlash.js';   // AUDIT 24 (wave 39): ShowPlayerDamage
 import { SOUND } from '../systems/soundClips.js';
-import { surfacePlayer, hurtPlayer, duelSpare } from '../characters/playerEntity.js';   // DUEL1: the duel's floor, for its damage over time
+import { surfacePlayer, hurtPlayer, duelSpare, staffFly, levitateWarded, freeFlight } from '../characters/playerEntity.js';   // DUEL1: the duel's floor, for its damage over time   // AUDIT-SEATS G5: a siege's ward on Levitate   // AUDIT-SEATS G4: a spectator's flight
 import { readSpellsStd, spellsByIndexMap } from '../formats/spellsStd.js';   // G4: the two magic registries, one home
 import { readMagicDef } from '../formats/magicDef.js';
 import { setMagicItemTemplates, setSpellRecordsByIndex } from '../systems/loot.js';
@@ -74,15 +79,21 @@ import { installDiverseWeaponsIcons } from '../combat/diverseWeaponsIcons.js';
 import { installRoleplayRealismItems } from '../systems/rriInstall.js';
 import { installDetailedShipsArt } from '../systems/detailedShips.js';   // DS1: Detailed Ships' pictures and xml scales
 import { installWarmAshesShips } from '../systems/warmAshesShips.js';   // WA1: Warm Ashes - Ships' quest list and save slot
+import { installForaging } from '../systems/foragingInstall.js';   // FORAGE1: Foraging's quest list, tools, foods, pictures and console command
+import { installSmithing } from '../systems/smithItems.js';   // PROF3: the Repair Kit's use
+import { installCooking, dishStaminaFactor } from '../systems/cookItems.js';   // PROF9: a dish eaten, and the Tart's stamina
+import { installHealingSupply } from '../systems/healingSupply.js';   // POTION-COMMON: Potions of Healing in the loot
+import { installRaidingParties } from '../systems/raidingParties.js';   // RAID1: World Events - Raiding Parties' save slot
 import '../systems/gateSpoils.js';   // WB5: the Sigil Stone's own template (570) registers in every host, so a save carrying one loads it in any of the four
 import '../systems/sigilBroker.js';   // SET7: the Broker's record (what this character bought today) registers its save slot in every host, so a save made anywhere carries it
 import { installRoleplayRealism } from '../systems/rrInstall.js';   // RR1: Roleplay & Realism's InitMod - after Items', as DFU loads them (Items is the one it looks up)   // RRI1: the templates, the patches, the art - the same seam, the same reason   // DW3: its icons, on the replacement door - here and not at worldTick's module scope, where the mod's law sits in an import cycle (a TDZ)
 import { getBool, getInt } from '../systems/settings.js';   // M-FM: Audio/AlternateMusic, read once for all three hosts; MAC-O4: Controls/WeaponSwingMode, the drag route's own missing term
 import { SongManager, musicEnvironment, holdEnvironment } from '../systems/songManager.js';
+import { festivalEnvironment } from './seatFestival.js';   // FESTIVAL-STAGE: a Festival town's streets hear the tavern
 import { audio } from '../systems/audio.js';
 import { messageBox } from '../systems/notify.js';   // ENH-NOTICE3: the one door every DaggerfallUI.MessageBox goes through - the infection's popup names the KIND, never the host's window
 
-import { getBytes, storedMusicNames, loadMusicFile, storedTextureNames, loadTextureFile, registerMorrowindData } from './dataSource.js';   // M-EXT/M-TEX: the player's own packs
+import { getBytes, storedMusicNames, loadMusicFile, storedTextureNames, loadTextureFile, registerMorrowindData, saveTextureJson, loadTextureBlob } from './dataSource.js';   // M-EXT/M-TEX: the player's own packs
 
 
 /** The data seam every scene uses - delegates to the ARENA2 data
@@ -346,6 +357,9 @@ export function createSkyController(gl, params) {
   return {
     renderer: enhancedSky ?? dynamicSky ?? sky,
     enhanced: Boolean(enhancedSky || dynamicSky),
+    /** AUDIT DEEP2 D3: the cells the clouds DRAW this frame (picked by importance, capped by the quality) - null with no
+     *  volumetric clouds. What stands under the sky stands under these (TV4's curtains), never a cell the sky left out. */
+    drawnCells: () => clouds?.cells ?? null,
     /** DS1: Dynamic Skies is the sky this scene draws. */
     dynamic: Boolean(dynamic),
     /** DS1: WeatherManager's five fog settings as the mod installed
@@ -532,6 +546,11 @@ export function createSkyController(gl, params) {
         // hours of wind they missed; a load to an EARLIER clock costs
         // no minutes (the jump stamp takes the row whole either way).
         const nowMin = extra?.classicMinutes ?? 0;
+        // TIME1: TWO MINUTES. `classicMinutes` is the clock the presentation WALKS - dt, the ease, the wind, the drift, the
+        // clouds' boil - the event clock online, so every TimeScale 12 constant below stays true; `skyMinutes` is the one
+        // it READS the date off - the moons' phases, the season, the mod's calendar - the sky's own clock online. A host
+        // that hands one gets the one clock for both, as offline.
+        const skyNow = extra?.skyMinutes ?? nowMin;
         const dt = lastMin === null || nowMin < lastMin ? 0 : nowMin - lastMin;   // GAME MINUTES
         lastMin = nowMin;
         const dtReal = weatherAt === null ? 0 : Math.min(MAX_DELTA_SECONDS, Math.max(0, seconds - weatherAt));   // the mod's own frame (DS1): Time.deltaTime, clamped as Unity clamps it
@@ -583,9 +602,9 @@ export function createSkyController(gl, params) {
           // latch included - and the skybox's _LightColor0 takes the
           // SAME number the world's key light takes, as in DFU. The
           // calendar recompute stays for a caller that passes no `sun`.
-          const winter = seasonValue(dateFromClassicMinutes(nowMinutes)) === SEASONS.Winter;
+          const winter = seasonValue(dateFromClassicMinutes(skyNow)) === SEASONS.Winter;   // TIME1: the sky's season
           const st = dynamic.tick({
-            minuteOfDay, classicMinutes: nowMinutes, weather: skyWord, seconds, dt: dtReal,   // EVENT1: the sky's word
+            minuteOfDay, classicMinutes: skyNow, weather: skyWord, seconds, dt: dtReal,   // EVENT1: the sky's word; TIME1: its date (the moons) the sky's
             weatherScale: extra?.sun ?? weatherSunlightScale(weatherName, winter),   // SunlightManager.ScaleFactor, as WeatherManager sets it
             playerPos: extra?.pos ?? null,   // FlashOnce reads playerTransform.position live (MODS AUDIT)
           });
@@ -597,7 +616,7 @@ export function createSkyController(gl, params) {
           // the MOD's horizon; and the ground's deck takes their shadow.
           if (clouds) {
             const cb = dreadW > 0 ? { word: skyWord, row: weatherRowNow } : cloudBaseOf(extra, weatherName, weatherRowNow);   // WEATHER3c; EVENT1: the dread's deck over the map's clear air
-            clouds.setState(cloudsStateUnderMod(st, dynamicMoons, { minuteOfDay, weather: cb.word, classicMinutes: nowMinutes, seconds, drift: driftXZ, row: cb.row }),
+            clouds.setState(cloudsStateUnderMod(st, dynamicMoons, { minuteOfDay, weather: cb.word, classicMinutes: nowMinutes, skyMinutes: skyNow, seconds, drift: driftXZ, row: cb.row }),
               cb.row, cb.word, easeDt, driftXZ, (extra?.flash ?? 0) + dreadGlow, extra?.pos ?? null, extra?.cells ?? null);   // WEATHER2c: the field's cells; EVENT1: the red strikes' glow
             if (clouds.shadow) Object.assign(dynamicDeck, clouds.shadow);
           }
@@ -607,6 +626,7 @@ export function createSkyController(gl, params) {
           minuteOfDay,
           weather: skyWord,   // EVENT1
           classicMinutes: extra?.classicMinutes ?? 0,
+          skyMinutes: skyNow,   // TIME1: the moons' date
           seconds,
           drift: driftXZ,   // WIND2
           row: weatherRowNow,
@@ -620,7 +640,7 @@ export function createSkyController(gl, params) {
           // far cumulus is lit white while the storm overhead is dark by its own grey. The dome, the fog and the sun
           // keep the worn word, eased on the front. Off the lane the clouds take the dome's own state, as before.
           const cb = dreadW > 0 ? { word: skyWord, row: weatherRowNow } : cloudBaseOf(extra, weatherName, weatherRowNow);   // EVENT1: as above
-          const cloudSky = cb.row === weatherRowNow ? enhancedSky.state : skyState({ minuteOfDay, weather: cb.word, classicMinutes: extra?.classicMinutes ?? 0, seconds, drift: driftXZ, row: cb.row });
+          const cloudSky = cb.row === weatherRowNow ? enhancedSky.state : skyState({ minuteOfDay, weather: cb.word, classicMinutes: extra?.classicMinutes ?? 0, skyMinutes: skyNow, seconds, drift: driftXZ, row: cb.row });
           clouds.setState(cloudSky, cb.row, cb.word, easeDt, driftXZ, (extra?.flash ?? 0) + dreadGlow, extra?.pos ?? null, extra?.cells ?? null);   // WEATHER2c: the field's cells; EVENT1: the red strikes' glow
         }
         // VC4: the ground's deck carries the slab's own shadow map and its square
@@ -716,7 +736,8 @@ export function motorStats(entity) {
  *  inputs = CalculateClimbingChance's reads (live Climbing, live
  *  Luck, the Khajiit racial arm; the Climbing effect pends - the
  *  `enhanced` seam is here); tally = ClimbingSkillCheck's
- *  TallySkill(Climbing, 1), once per check.
+ *  TallySkill(Climbing, 1), once per check (MOVE-REAL: a motion tally -
+ *  past 100 it counts the wall climbed, skills.js tallyMovementSkill).
  *
  *  RECORDED, not a gap, and the old reason here was wrong: the luck
  *  ternary below LOOKS like motorStats' `speed` guard and is not one.
@@ -739,8 +760,69 @@ export function climbingDeps(entity, say = null) {
       // `enhanced`, which was hardcoded false waiting for this.
       enhanced: !!entity?.activeEffects?.some((a) => a.kind === 'climbing'),
     }),
-    tally: () => tallySkill(entity, SKILLS.Climbing),
+    tally: () => tallyMovementSkill(entity, SKILLS.Climbing),   // MOVE-REAL: past 100 only a climb that went up or down counts
     say,
+  };
+}
+
+/** CLIMB1: THE ENHANCED CLIMB'S SWITCH - the Features row (`enhancedClimbing`)
+ *  and `?parkour=off`, the kill door. Offline the classic skin keeps DFU's
+ *  classic climb whatever the row says, as every enhanced lane does. Online
+ *  the skin is not asked: it is the player's own (OVH3 - "nothing the room
+ *  agrees on reads the skin"), and a way over a rooftop is something the
+ *  room agrees on, so the row - forced on there - is the whole answer. */
+export function parkourSwitchOn(search) {
+  if (pageParam('parkour', search) === 'off') return false;
+  // AUDIT CLIMB1 F11: the lane asked with the page this is handed - getPref reads the tab's own, so a caller that
+  // names a page (a probe, a pin) got the shelf's value where the online lane forces the row
+  const row = onlineForcedPref('enhancedClimbing', search) ?? getPref('enhancedClimbing');
+  return (isOnlinePage(search) || isEnhanced(search)) && !!row;
+}
+
+/** FOREST1: THE REAL FORESTS' SWITCH - the Features row (`realForests`) on
+ *  the enhanced skin, and on for everyone online whatever their skin: the
+ *  woods are the ground Logging's trees stand on, and the room agrees on
+ *  its ground (parkourSwitchOn's shape). `?forests=off` the kill door, offline. The
+ *  world host reads it once, at its mount (a flip reaches the next world). */
+export function realForestsOn(search) {
+  // AUDIT FOREST1 F6: the kill door is offline's alone - online the woods are the room's ground, and a peer who shut
+  // them would stand Logging's trees where nobody else sees a tree
+  if (pageParam('forests', search) === 'off' && !isOnlinePage(search)) return false;
+  const row = onlineForcedPref('realForests', search) ?? getPref('realForests');
+  return !!row && (isOnlinePage(search) || isEnhanced(search));
+}
+/** FOREST1: the LocationTypes (DFRegion.cs:66-86) the woods close round - DungeonLabyrinth 4, DungeonKeep 7,
+ *  ReligionCult 9, DungeonRuin 10, Graveyard 12, Coven 13. Every other place stands in cleared fields. */
+export const FOREST_HIDDEN_LOCATION_TYPES = Object.freeze(new Set([4, 7, 9, 10, 12, 13]));
+
+/** CLIMB1: the enhanced climb's deps every host wires the same way - the
+ *  switch, read live (the row takes effect at once), and the Climbing
+ *  skill's reads, the same the classic climb's chance takes (climbingDeps:
+ *  the live skill, the Khajiit arm, the Climbing spell's doubling), plus the
+ *  Jumping skill a vault's pace reads (AUDIT CLIMB1 R7). `say` is the host's
+ *  HUD line, the climbingMode line's own (a refused climb's word, F10).
+ *  CLIMB2: the body's Fatigue over its most (the grip's time), the pack's
+ *  weight over what it can carry (the reach), and the Climbing tally the free
+ *  climb takes at the classic climb's cadence (climbingDeps' own). */
+/** CLIMB-NODE (FIELD BUGS 2026-10-01, Mac: "Hold it at nodes"): `hold` - whether the free climb's walk-in start is held
+ *  (the world host's: a profession's node under the look, or an act playing - player/motor.js _freeStart). */
+export function parkourDeps(entity, say = null, { hold = null } = {}) {
+  return {
+    enabled: () => parkourSwitchOn(),
+    inputs: () => {
+      const most = maxFatigue(entity), cap = entityMaxEncumbrance(entity);
+      return {
+        climbing: skillValue(entity, SKILLS.Climbing),
+        jumping: skillValue(entity, SKILLS.Jumping),
+        khajiit: entity.race === 'Khajiit',
+        enhanced: !!entity?.activeEffects?.some((a) => a.kind === 'climbing'),
+        fatigue: most > 0 && Number.isFinite(entity.fatigue) ? entity.fatigue / most : 1,
+        load: cap > 0 ? carriedWeight(entity) / cap : 0,
+      };
+    },
+    tally: () => tallyMovementSkill(entity, SKILLS.Climbing),
+    say,
+    hold,
   };
 }
 
@@ -970,8 +1052,8 @@ export function applyMotorEffectFlags(player, entity, { waterSurfaceY = null, sw
   // DW-D: Iliac Puddle No More's forge rides this ONE write - LevitateMotor.IsSwimming's setter arms CancelMovement
   // on every change, so a clear here and a forge after it would cancel the swimmer's every step (XL-1's bug again)
   player.swimming = !!swimming;
-  player.levitating = hasActiveEffect(entity, 'levitate');
-  player.waterWalking = hasActiveEffect(entity, 'waterWalking');
+  player.levitating = hasActiveEffect(entity, 'levitate') && !levitateWarded() || staffFly() || freeFlight();   // STAFF1: /fly   // AUDIT-SEATS G5: a siege's ward holds the effect (`&&` first: the staff's /fly is never warded)   // AUDIT-SEATS G4: a battle's spectator flies
+  player.waterWalking = isEntityWaterWalking(entity);   // CSA-I: either effect that raises IsWaterWalking
   player.slowFalling = hasActiveEffect(entity, 'slowfall');
 }
 
@@ -1182,6 +1264,9 @@ export function applyFallLanding(entity, distance, { hurt = null, sound = null, 
  *  which is the gap F6 closed - so the seam that already reaches all
  *  four hosts carries both. MusicService.ensure keeps its own flag, is
  *  idempotent, and disables itself quietly if MIDI.BSA will not load. */
+/** DFMOD2: the `?nomods` escape hatch - the attached .dfmod texture mods are not registered for this page load. */
+const noMods = (search = globalThis.location?.search ?? '') => /[?&]nomods\b/.test(search);
+
 export function ensureAudio(fetch = fetchBytes) {
   const sound = audio.ensure(fetch);
   const songs = music.ensure(fetch);
@@ -1203,6 +1288,7 @@ export function ensureAudio(fetch = fetchBytes) {
   // Registration is a name list and a loader - no PNG is read until an
   // archive that has replacements is actually loaded.
   installDetailedShipsArt();   // DS1: archives 1210/1230 on the texture door (their pictures built from your own records at the archive's load) and the six xml scales
+  installForaging();   // FORAGE1: the ForagingQuests list (before any quest bridge is built), the six tools' and five foods' UseItem, the seven pictures, Foraging_Tools
   installWarmAshesShips();   // WA1: the WA_Ships quest list (before any quest bridge is built - LoadQuestLists reads it) and the mod's save record
   installDiverseWeaponsIcons();   // DW3: before the archives load, so 233/234's preload carries the mod's icons
   installRoleplayRealismItems();
@@ -1212,9 +1298,25 @@ export function ensureAudio(fetch = fetchBytes) {
       setSeasonsSources(names, loadTextureFile);   // SIB1: Seasons of the Iliac Bay's bundle or folders, from the same pick
       setWeaponWidgetSources(names, loadTextureFile);   // WW1: Weapon Widget's bundle, from the same pick
       setDiverseWeaponsSources(names, loadTextureFile);   // DW1: Diverse Weapons' bundle, from the same pick
-      return setTextureReplacements(names, loadTextureFile);
+      const n = setTextureReplacements(names, loadTextureFile);
+      // DFMOD1: every other attached .dfmod (DREAM and its kin) - from its stored name index, before the first
+      // archive loads (the hosts await this), so the first preload already carries the mods' pictures
+      // DFMOD2: `?nomods` starts the game without the attached texture mods - the way back in (to remove one from the
+      // packs card) when a mod will not load on this machine
+      if (noMods()) return n;
+      return import('../systems/dfmodTextures.js')
+        .then(({ setDfmodSources, setDfmodDetailSource }) => {
+          setDfmodDetailSource(() => getPref('dfmodTextureDetail'));   // DFMOD2: the packs card's detail choice
+          // DFMOD2: indexes only - a missing one is built in the background, never on the way into the game
+          return setDfmodSources(names, loadTextureFile, { saveIndex: saveTextureJson, loadBlob: loadTextureBlob, warm: true });
+        })
+        .then((m) => n + m, () => n);
     })
     .catch(() => 0);
+  installRaidingParties();   // RAID1: the mod's save record, in every host - a save made in a dungeon carries the day's raids too
+  installSmithing();   // PROF3: the Repair Kit's use on the item-use door, in every host (a kit is the pack's, offline too)
+  installHealingSupply();   // POTION-COMMON: Potions of Healing in the loot - after the smithing install, its field kit's roll first
+  installCooking();   // PROF9: a dish eaten from the pack, in every host (a dish is the pack's, offline too)
   // MW-IMPORT: same seam, same never-traps rule - no data means the
   // opt-in layer stays inert, which is its resting state anyway.
   const morrowind = registerMorrowindData().catch(() => 0);
@@ -1284,7 +1386,10 @@ export function raisePlayerSkills(entity, { say = () => {}, onLevelUp = null, ro
   // TEXT.RSC reader (townTalk.lines), `box` its click-anywhere
   // presenter. A host that hands neither still gets the fanfare, the
   // way DFU plays it outside the `tokens != null` gate.
-  lines = null, box = null } = {}) {
+  lines = null, box = null,
+  // SOFTCAP3: the host's message-box presenter - (rows, onYes, onNo, { okOnly }) => window - for the one-time
+  // Master Skills box (DFU's own box on the classic skin, the skin's card on the enhanced one)
+  ask = null } = {}) {
   // ROAD-Ar R12 - THE PRESENTATION RUNS IN THE LOOP, NOT AFTER IT.
   // RaiseSkills (:1371-1414) pops skillImprove and builds the mastery
   // box inside the skill loop and posts dfuiOpenCharacterSheetWindow
@@ -1314,19 +1419,19 @@ export function raisePlayerSkills(entity, { say = () => {}, onLevelUp = null, ro
   // was. THE FANFARE STAYS IN BOTH LANES: it is the reward, not the
   // interruption. The CLASSIC skin takes both arms exactly as written
   // before this slice, which is why they are still written here.
-  // MAC-LVL1: the minutes an ONLINE rest simulated (restSession's
-  // creditSkillMinutes) are spent here, by pulling the last-check
-  // marker back by them - the marker stays in the shared clock's past,
-  // so alignEntityClocks' clamp never sees a future stamp, and one
-  // night is one advancement pass on both lanes (RaiseSkills' 360-minute
-  // gate, PlayerEntity.cs:1367, opened by the rest's own RaiseTime).
-  // Offline the credit is never written (the clock itself moved).
-  if (entity.restSimMinutes > 0) {
-    entity.lastSkillCheckTime = (entity.lastSkillCheckTime ?? 0) - entity.restSimMinutes;
-    entity.restSimMinutes = 0;
-  }
-  return raiseSkills(entity, Math.floor(worldMinutes()), rolls, onLevelUp,
+  // LIVED1: RaiseSkills' 360-minute gate (PlayerEntity.cs:1367) reads the
+  // CHARACTER's own clock, which a rest's hours move online as the one
+  // clock moves offline - so a night opens it on both lanes by the gate's
+  // own law. [SUPERSEDES MAC-LVL1's credit: the minutes an online rest
+  // simulated, banked on the entity and spent here by pulling the
+  // last-check marker back by them.]
+  // SOFTCAP3: whether THIS pass put a window up (a mastery box, a level-up sheet) - the Master Skills offer never
+  // lands on top of one, because a single-slot host would lose the window under it (R12's lesson, above)
+  let windowed = false;
+  const levelUpHook = onLevelUp ? (e) => { windowed = true; return onLevelUp(e); } : null;
+  const raised = raiseSkills(entity, Math.floor(ownMinutes()), rolls, levelUpHook,
     (id) => {
+      windowed = true;
       // AUDIT LV2 F3: the TEXT.RSC read is a THUNK, so it happens on
       // the lane that shows it. Passed by value it ran on BOTH - the
       // enhanced skin read record 4020 off disk at every mastery and
@@ -1335,7 +1440,37 @@ export function raisePlayerSkills(entity, { say = () => {}, onLevelUp = null, ro
       announceMastery(id, { box, rows: () => expandRowValues(plainLines(lines?.(MASTERY_TEXT_ID)), null) });   // MACRO-3: %pcn and %ski are MacroHelper globals - DFU's box expands them with no source (PlayerEntity.cs:1397-1401)
       audio.playOneShot(SOUND.ArenaFanfareLevelUp, 1);
     },
-    (id) => announceSkillRaise(id, skillValue(entity, id), { say })) ?? [];
+    (id) => announceSkillRaise(id, displaySkillValue(entity, id), { say }),   // SOFTCAP1: the 0..200 number the player climbs, not the formula's
+    // SOFTCAP1: a milestone past 100 (125/150/175/200) - the line, and the fanfare mastery plays
+    (id, ms) => {
+      announceSkillMilestone(id, ms, { say });
+      audio.playOneShot(SOUND.ArenaFanfareLevelUp, 1);
+    }) ?? [];
+  // SOFTCAP3: THE MASTER SKILLS BOX - once per character, a primary mastered, on a quiet pass (the mastery pass put its
+  // own box up, so this is the NEXT rest's or journey's). ONLINE it is always in force, so the box EXPLAINS it and has
+  // one OK; OFFLINE it ASKS (Yes/No) and No leaves the switch in the skill screen (systems/masterSkills.js).
+  // SOFTCAP4: THE MASTERY CHOICE - a skill at 100 whose group (2 primary / 2 major / 1 minor) still has a slot is
+  // asked about ONCE, permanently decided by Yes; No leaves it to the skill screen. Online the first one carries the
+  // Master Skills explanation above it, so a new master reads the rules and the choice in one box.
+  const due = ask && !windowed ? masterSkillsBoxDue(entity) : null;
+  const pick = ask && !windowed && due !== 'offer' ? nextMasteryChoice(entity) : null;
+  if (pick != null) {
+    (entity.masteryPrompted ??= []).push(pick);
+    const intro = due === 'info' ? [...MASTER_SKILLS_INTRO_ROWS] : [];
+    if (due === 'info') entity.masterSkillsInfoSeen = true;
+    ask([...intro, ...masteryChoiceRows(entity, pick, SKILL_NAMES)],
+      () => { const r = masterSkill(entity, pick, SKILL_NAMES); say(r.text); if (r.ok) audio.playOneShot(SOUND.ArenaFanfareLevelUp, 1); },
+      () => say(`You can still master ${SKILL_NAMES[pick]} later in your skill screen.`));
+  } else if (due === 'info') {
+    entity.masterSkillsInfoSeen = true;
+    ask([...MASTER_SKILLS_INFO_ROWS], null, null, { okOnly: true });
+  } else if (due === 'offer') {
+    entity.masterSkillsAsked = true;
+    ask([...MASTER_SKILLS_OFFER_ROWS],
+      () => { say(setMasterSkills(entity, true).text); audio.playOneShot(SOUND.ArenaFanfareLevelUp, 1); },
+      () => say(MASTER_SKILLS_DECLINED_TEXT));
+  }
+  return raised;
 }
 
 /**
@@ -1419,9 +1554,36 @@ export function createPlayerTicker(entity, { say = () => {}, onLevelUp = null, o
   // SURV7: the rest gate on DFU's RegisterPreventRestCondition seam, with this host's readers - too cold without a
   // fire or a roof, too hot anywhere (survival/rest.js restBlock); inert but in Hard (SURV-TIERS: env.js survivalGateOn)
   if (survivalEnv) installSurvivalGate(registerPreventRestCondition, () => entity, survivalEnv);
+  // AUDIT LIVED1b K1 (K2): a raise J moved barely - the collapse's hour, fired from inside a round - waits here for its
+  // walk, and the walk is THIS frame's, run the moment the window in hand is done (tick, below). J left it to the next
+  // tick, which the collapse's own box holds until it is dismissed: the handler's latch was long down by then, so every
+  // remaining round of the drain that emptied the pool again was a collapse of its own (a Somnalius dose 6.8 of them
+  // against DFU's 3, a sixty-round fatigue drain 59 hours on the character's clock in half an hour of play), and a save
+  // taken under the box wrote the hour without its walk. DFU walks a RaiseTime on the next Update, popup or not, and
+  // the popup refuses a second collapse (the hosts' box guard) - so the hour's rounds fall under the box, as there.
+  let _raiseWaiting = false;
+  const DEFERRED_WALKS_MAX = 4;
+  const tickOnce = (dt, activity, realSeconds, raiseMinutes) => {
+    const r = tickPlayerMinutes({
+      entity, classicMinutes: worldMinutes(), dt, sinks, activity, realSeconds, raiseMinutes,   // LIVED1: an online raise's minutes, the character's own
+      fatigueMultiplier: fatigueLossMultiplierFor(entity),
+      say, inside: isInside(),
+      survival: survivalFeed(entity, survivalEnv?.() ?? null, { say }),   // SURV7: the needs' minute, when the host says where the player stands
+    });
+    setWorldMinutes(r.classicMinutes);
+    // PlayerEntity.Update:380-384's 8-hour alert decay used to be
+    // called here. It is part of the player's per-minute update, so
+    // it moved INTO tickPlayerMinutes above - this ticker is only
+    // three of the four hosts, and the dungeon calls that function
+    // directly.
+    for (const fn of subscribers) fn(r.magicRoundWindow.from, r.magicRoundWindow.to, dt);
+    return r;
+  };
 
   return {
     get classicMinutes() { return worldMinutes(); },
+    /** LIVED1: the character's own clock - the world's offline, their own online (systems/worldTick.js ownMinutes). */
+    get ownMinutes() { return ownMinutes(); },
     /** Register a foe pool. fn(from, to, dt) - the claimed magic-round window
      *  and the real seconds this tick covered. Returns an unsubscribe. */
     subscribe(fn) {
@@ -1434,20 +1596,11 @@ export function createPlayerTicker(entity, { say = () => {}, onLevelUp = null, o
      *  drains through exactly these doors, exhaustion presenter and
      *  all, and a pool that built its own would miss the collapse. */
     get sinks() { return sinks; },
-    tick(dt, activity = { running: false, runningTally: false, swimming: false }, realSeconds = dt) {
-      const r = tickPlayerMinutes({
-        entity, classicMinutes: worldMinutes(), dt, sinks, activity, realSeconds,
-        fatigueMultiplier: fatigueLossMultiplierFor(entity),
-        say, inside: isInside(),
-        survival: survivalFeed(entity, survivalEnv?.() ?? null, { say }),   // SURV7: the needs' minute, when the host says where the player stands
-      });
-      setWorldMinutes(r.classicMinutes);
-      // PlayerEntity.Update:380-384's 8-hour alert decay used to be
-      // called here. It is part of the player's per-minute update, so
-      // it moved INTO tickPlayerMinutes above - this ticker is only
-      // three of the four hosts, and the dungeon calls that function
-      // directly.
-      for (const fn of subscribers) fn(r.magicRoundWindow.from, r.magicRoundWindow.to, dt);
+    tick(dt, activity = { running: false, runningTally: false, swimming: false }, realSeconds = dt, raiseMinutes = 0) {
+      const r = tickOnce(dt, activity, realSeconds, raiseMinutes);
+      // AUDIT LIVED1b K1 (K2): the raise J moved barely inside that window, walked now (online only - offline a raise
+      // from inside a tick still nests, K6's recorded twin)
+      for (let n = 0; _raiseWaiting && !tickInFlight() && n < DEFERRED_WALKS_MAX; n++) { _raiseWaiting = false; tickOnce(0, undefined, 0, 0); }
       return r;
     },
     /** U24: DaggerfallDateTime.RaiseTime. Guild training eats three
@@ -1459,37 +1612,25 @@ export function createPlayerTicker(entity, { say = () => {}, onLevelUp = null, o
      *  all owe the world those minutes. The once-per-minute-change
      *  fatigue drain still fires once, exactly as it does in DFU
      *  across a jump, which is why the callers that need a session's
-     *  worth of fatigue charge it explicitly. REST-ROUNDS: `sharedEnd`
-     *  is a rest sub-tick's end off the session's own counter (null
-     *  offline), which online is the only clock those minutes have. */
-    advance(minutes, sharedEnd = null) {
+     *  worth of fatigue charge it explicitly.
+     *
+     *  LIVED1: ONLINE THE MINUTES ARE THE CHARACTER'S OWN. The world's
+     *  clock is nobody's to move (WORLD5), and the character's own is
+     *  theirs: the same tick runs over the same minutes on it - the
+     *  broker's rounds, the fatigue band's one minute, the day block's and
+     *  the calendar's own arms, the needs, the letters - while the world's
+     *  arms walk only what the world's clock moved. A rest, a journey, a
+     *  training session and the collapse all come through here, online as
+     *  offline. [SUPERSEDES REST-ROUNDS' and AUDIT RISE-REST F2's online
+     *  arm - a rest sub-tick's rounds and needs run over a session-local
+     *  counter - and WORLD5's "fabricates no minutes online", which left
+     *  every other raise with nothing.] */
+    advance(minutes) {
       if (!(minutes > 0)) return null;
-      // REST-ROUNDS (Discord, 2026-09-27: "when you rest, spell effects don't wear off ... I've acomplished permanent
-      // true invisibility, waterbreathing, regenerate health, etc."): A REST'S MINUTES OWE THEIR MAGIC ROUNDS ONLINE
-      // TOO. RESTX2 hands each sub-tick's end off the session's own counter (restSession.js `_onlineSimMinutes`) so
-      // the rolls and "the magic-round catch-up" run online, and only the dungeon's arm spent it on the rounds
-      // (dungeonContext.js _restAdvance) - here the arm below ran the world's real seconds and dropped it, so a night
-      // outdoors or in a building healed every hour and aged no effect: cast, rest the magicka back, cast again, and
-      // the incumbent's rounds stacked for good. The window is claimed the dungeon's way (WORLD5 C1 moves the tick's
-      // reading with it, so the next tick re-anchors rather than running the night twice) and fanned out to the foe
-      // pools as a tick's is. Nothing is moved on the shared clock.
-      if (sharedClockOn() && Number.isFinite(sharedEnd)) {
-        const end = Math.floor(sharedEnd), start = end - minutes;
-        const w = claimMagicRounds(start, sharedEnd);
-        runMagicRoundsFor(entity, w.from, w.to, { sinks, say });
-        // AUDIT RISE-REST F2: ...and the NEEDS over the same minutes, asleep, as the dungeon's arm pays them (AUDIT SURV
-        // B) - the tick below this arm is what paid them before, and online it had the world's seconds to pay: a night
-        // in a bed or by a fire cleared no sleep debt anywhere but underground (SURV4: "ONLINE the same"). The record's
-        // own marker keeps the first frame after the night from paying it again, awake.
-        const feed = survivalFeed(entity, survivalEnv?.() ?? null, { say });
-        if (feed) runSurvivalMinutes(entity, start, end, feed.env, { ...feed.deps, sinks, rolls: Math.random });
-        for (const fn of subscribers) fn(w.from, w.to, 0);
-        return { classicMinutes: worldMinutes(), rounds: w.rounds, magicRoundWindow: w };
-      }
-      // WORLD5: the shared clock is not this player's to move - a rest, a training session, a fast travel or the
-      // exhaustion collapse fabricates no minutes online; the tick runs whatever the world's clock owes since the last
-      // reading, and nothing more
-      if (sharedClockOn()) return this.tick(0, undefined, 0);
+      // AUDIT LIVED1 J (K6): raised from INSIDE a tick (the collapse, out of a round's fatigue drain) the hour is a bare
+      // move of the character's clock, as DFU's RaiseTime is - the next tick walks it in order after the window in hand
+      // (AUDIT LIVED1b K1: and walked the moment that window is done - `_raiseWaiting`, tick above)
+      if (sharedClockOn()) { if (tickInFlight()) { advanceOwnMinutes(minutes); _raiseWaiting = true; return null; } return this.tick(0, undefined, 0, minutes); }
       // T1 (AUDIT 39): the dt below is FABRICATED game time - a jump
       // costs no REAL seconds, because DFU's RaiseTime does not advance
       // Time.deltaTime. The third argument is what the two real-time
@@ -1623,8 +1764,11 @@ export function sensesContext(entity, gameMinutes, { movingLessThanHalfSpeed = t
  *  ONE home: dungeonContext kept a second copy whose comment said the
  *  port had no source for the flag, which had stopped being true. */
 export function fatigueLossMultiplierFor(entity) {
-  if (!hasSpecialAbility(entity?.career, SPECIAL_ABILITY.Athleticism)) return 1.0;
-  return entityImprovedAthleticism(entity) ? 0.8 : 0.9;
+  // PROF9 (Professions-Arc.md 35): an Orchard Tart's stamina - every minute's drain divided by 1.2 while it lasts
+  // (systems/cookItems.js dishStaminaFactor), laid over the career's own
+  const tart = dishStaminaFactor(entity);
+  if (!hasSpecialAbility(entity?.career, SPECIAL_ABILITY.Athleticism)) return 1.0 * tart;
+  return (entityImprovedAthleticism(entity) ? 0.8 : 0.9) * tart;
 }
 
 // --- THE MUSIC DIRECTOR (AUDIT 19's 1:1 pass) ------------------------
@@ -1789,8 +1933,9 @@ export function wireInfectionVideos(renderer, { textAt = null, factionDict = nul
     cancelRest,
     // DISC10-D V2: WorldTime.Now for the curse the deploy mints - read
     // AFTER the raise, which is the clock VampirismEffect.Start's
-    // UpdateSatiation stamps (:95-96).
-    nowMinutes: () => Math.floor(worldMinutes()),
+    // UpdateSatiation stamps (:95-96). LIVED1: the curse's clocks are the
+    // character's own, and the raise moved it.
+    nowMinutes: () => Math.floor(ownMinutes()),
     playVideo(name, onClose) {
       // Off the tick's own frame: playVideo OWNS the frame loop for
       // its lifetime, and pushing it from inside a frame body is the
@@ -1836,9 +1981,11 @@ export function wireInfectionVideos(renderer, { textAt = null, factionDict = nul
     // (:76-80), HealthLeech (:101-105) and CastWhenHeld's durability
     // loss (:131-136). So the new vampire's magic items survive the
     // fortnight; his diseases and spells still age through it.
-    // advanceWorldMinutes is the bare clock move, and the marker it
-    // leaves behind is what makes the next host frame claim the window.
-    raiseTime: (seconds) => { setSyntheticTimeIncrease(true); return advanceWorldMinutes(seconds / 60); },
+    // advanceOwnMinutes is the bare clock move, and the marker it leaves
+    // behind is what makes the next host frame claim the window. LIVED1:
+    // the fortnight is the new vampire's own - online their clock takes
+    // it while the world's sky stays where it is.
+    raiseTime: (seconds) => { setSyntheticTimeIncrease(true); return advanceOwnMinutes(seconds / 60); },
     // "Death is not eternal" (:187-188) - a DaggerfallMessageBox on
     // TEXT.RSC 401.
     //
@@ -1893,7 +2040,7 @@ export function wireInfectionVideos(renderer, { textAt = null, factionDict = nul
       const province = dict && regionIndex >= 0 ? findFactions(dict, { type: FACTION_TYPES.Province, region: regionIndex })[0] : null;
       return vampireClanForFaction(province);
     },
-    hourNow: () => Math.floor((worldMinutes() % MINUTES_PER_DAY) / 60),
+    hourNow: () => Math.floor((skyMinutes() % MINUTES_PER_DAY) / 60),   // TIME1: the hour of the sky
   });
 }
 
@@ -1934,8 +2081,21 @@ export function holdFrame() {
 }
 export const frameHeld = () => _frameHold > 0;
 
+/** REALM P1.3: WHAT A HOST MUST FINISH BEFORE THE TITLE MENU - a realm character's last checkpoint and its leave (set by
+ *  scenes/world.js while a realm session stands). Run once, after the loop is claimed; the door then goes on. */
+let _beforeTitleExit = null;
+export function setBeforeTitleExit(fn) { _beforeTitleExit = typeof fn === 'function' ? fn : null; }
+/** REALM P1.3: WHERE A SAVE GOES WHILE A REALM CHARACTER PLAYS - the service's checkpoint, never a local slot (set by
+ *  scenes/world.js). Every host's composer asks it (world.js worldQuickSave, dungeonContext.js quickSave), so a save
+ *  pressed anywhere online lands in the realm and no offline door ever lists a realm character. */
+let _realmSaveSink = null;
+export function setRealmSaveSink(fn) { _realmSaveSink = typeof fn === 'function' ? fn : null; }
+export const realmSaveSink = () => _realmSaveSink;
+
 export function exitToTitleMenu() {
   claimFrame();   // P0: the old loop dies before the navigation
+  // REALM P1.3: a realm character's last checkpoint and its leave, once, before the door goes on
+  if (_beforeTitleExit) { const f = _beforeTitleExit; _beforeTitleExit = null; Promise.resolve().then(f).catch(() => {}).finally(() => exitToTitleMenu()); return; }
   // MAC-L3: the guard stands down for a door the GAME opened. Prompting
   // a player for the exit they just pressed is how you train them to
   // click through the prompt that matters.
@@ -1989,8 +2149,11 @@ export function createMusicDirector({ fm = null, play = null, stop = null, playi
       // unresolvable temple from a city street and the city track keeps
       // playing. musicEnvironment answers null for that case; the hold is
       // here, because a pure function cannot leave a field alone.
-      const environment = holdEnvironment(musicEnvironment(merged), _lastEnvironment);
-      _lastEnvironment = environment;
+      const held = holdEnvironment(musicEnvironment(merged), _lastEnvironment);
+      _lastEnvironment = held;
+      // FESTIVAL-STAGE (Seats-Arc 7.6): the base's `festival` - a Festival rules at the town - turns its streets' City
+      // music into the Tavern's (scenes/seatFestival.js festivalEnvironment); the hold keeps what DFU resolved
+      const environment = festivalEnvironment(held, merged.festival === true);
       // Probe hook: the four scene hosts have no execution coverage in
       // node, and AUDIT 21 F1 found this director being fed exclusively on
       // frames where the overlay was guaranteed null - the whole interior
@@ -2030,7 +2193,7 @@ export function createMusicDirector({ fm = null, play = null, stop = null, playi
  *  through to `cam.yaw += movementX` - so every swing inside a
  *  building or a dungeon turned the camera with it.
  *
- *  `dungeon.js:272`, the standalone host, has always had the right
+ *  `dungeon.js:288`, the standalone host, has always had the right
  *  shape: attack, then return. It has no modal sibling to share the
  *  drag with, which is why it never needed a mode in the test at all.
  *
@@ -2116,6 +2279,7 @@ export function createRestDeps(entity, opts = {}) {
     // come from the host's `endLines`, which is already its TEXT.RSC
     // reader - one host dep, not a second one that could disagree.
     box = null,
+    ask = null,   // SOFTCAP3: the host's message-box presenter (Yes/No, or OK), for the Master Skills box
     place = null,
     // SURV4: the host's word on WHERE the sleep is (survival/rest.js restKind) - a bed, a camp, or rough; a
     // host that says nothing sleeps rough, which is what the window alone has always been
@@ -2170,7 +2334,7 @@ export function createRestDeps(entity, opts = {}) {
       // SURV4: rough hours rested are a stiff morning (STIFF_HOURS of speed and agility) on the way out - an interrupted
       // night too, since the hours were slept - said once; the hours are spent
       // SURV-TIERS: under the tier the rest opened with - a Casual morning costs nothing, so nothing is said
-      if (!b && _roughHours > 0 && stiffen(entity, worldMinutes(), REST_KIND.Rough, _rules)) { say(REST_TEXT_SURVIVAL.stiff); _roughHours = 0; }
+      if (!b && _roughHours > 0 && stiffen(entity, ownMinutes(), REST_KIND.Rough, _rules)) { say(REST_TEXT_SURVIVAL.stiff); _roughHours = 0; }   // LIVED1: the body's morning, on its own clock
       // AUDIT SURV-TIERS (the third pass): a tier with no stiff morning (Casual) still sleeps the rough night at a third
       // of a bed's rate, and a sleeper woke Drowsy from eight hours on the ground with no word for why - said when it
       // left them short
@@ -2211,7 +2375,7 @@ export function createRestDeps(entity, opts = {}) {
     // so it is COMPOSED here beside setResting rather than asked of
     // four hosts, and the same read feeds each host's open gate.
     preventedRestMessage: getPreventedRestMessage,
-    onRestFinished: () => raisePlayerSkills(entity, { say, onLevelUp, lines: rest.endLines, box }),
+    onRestFinished: () => raisePlayerSkills(entity, { say, onLevelUp, lines: rest.endLines, box, ask }),
     // SURV4: the hour by its kind - DFU's whole hour in a bed or by a fire, half of it rough (survival/rest.js restHour)
     tickVitals: () => {
       if (_kind === REST_KIND.Rough) _roughHours++;
@@ -2219,8 +2383,7 @@ export function createRestDeps(entity, opts = {}) {
       return healed;
     },
     fullyHealed: () => restFullyHealed(entity),
-    sharedMinutes: () => (sharedClockOn() ? worldMinutes() : null),   // WORLD5: a rest online is paced by the world's clock, not by the window's timer
-    creditSkillMinutes: (n) => { entity.restSimMinutes = (entity.restSimMinutes ?? 0) + n; },   // MAC-LVL1: the rest's simulated minutes, owed to the skill-check clock (raisePlayerSkills spends them)
+    sharedMinutes: () => (sharedClockOn() ? skyMinutes() : null),   // OL2: the window's world-clock line online (TIME3: the session's quest gate, RESTX2's, is gone) - LIVED1: the rest's own hours are the character's; TIME1: the world time it says is the sky's
     dead: () => entity.health <= 0,
     vitals: () => ({
       health: entity.health, maxHealth: entity.maxHealth,
@@ -2277,6 +2440,14 @@ export function liveEnchantFoes(mode, dungeonCtx, exteriorPool, insidePool) {
   if (mode === 'interior') return insidePool?.() ?? [];
   if (mode === 'exterior') return exteriorPool?.() ?? [];
   return [];
+}
+
+/** CAST-USE (FIELD BUGS 2026-10-01): the player-cast engine live in `mode` - the one whose click and frame fire
+ *  a ready. Underground that is the dungeon context's OWN (dungeonContext.js builds one and drives it: its
+ *  playerAttackInput eats the click, its frame calls firePending); above ground and indoors it is the host's `own`
+ *  (worldModes takes the host's for the interior arm). A context left from a descent never answers outside one. */
+export function liveCastEngine(mode, dungeonCtx, own) {
+  return (mode === 'dungeon' ? dungeonCtx?.castEngine : null) ?? own;
 }
 
 /** The sinks for a record liveEnchantFoes handed out.

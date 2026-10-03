@@ -13,7 +13,8 @@ import { WAGON_MODEL_ID } from './horseCartLaw.js';   // DISC24-B: the cart's pi
 import TEMPLATES_JSON from '../characters/itemTemplates.json' with { type: 'json' };
 import { playerArchiveFor, resolvePaperdollRecord } from '../characters/paperdollArt.js';   // AUDIT 17f: SetRace, one home; NT3 (F006): the record law too
 import { itemDyeColor, itemDyeTarget } from './itemDye.js';
-import { customItemClass, rriVariantFields, rriStoredWeight } from './rriItems.js';   // RRI1: DFU's custom-item dispatch, asked first   // DW3: GetItemImage's `color = (int)item.dyeColor` (ItemHelper.cs:402) rides the image
+import { DYE_TARGETS } from '../characters/dyes.js';   // PROF2: a new material's picture dyed on DFU's metal swatch
+import { customItemClass, rriVariantFields, rriStoredWeight, rriCustomItemsForGroup } from './rriItems.js';   // RRI1: DFU's custom-item dispatch, asked first   // DW3: GetItemImage's `color = (int)item.dyeColor` (ItemHelper.cs:402) rides the image
 
 export { GROUP_TEMPLATE_INDICES };
 
@@ -96,6 +97,14 @@ export function registerAmmunition(templateIndex) {
 }
 export const isAmmunition = (item) => _ammunition.has(item?.templateIndex);
 
+/** SetItemPropertiesByMaterial's value line (ItemBuilder.cs:649) over
+ *  SetItem's `value = itemTemplate.basePrice` (DaggerfallUnityItem.cs
+ *  :563): `value *= 3 * valueMultipliersByMaterial[material]` - the
+ *  weapon's material, or the plate's less 0x0200. One home: the base
+ *  value below and CreateWeapon's material pass (combat/enemyEquipment.js
+ *  weaponOfMaterial) read it. */
+export const materialValue = (basePrice, material) => basePrice * 3 * (valueMultipliersByMaterial[material] ?? 1);
+
 /** The item's BASE VALUE for cost math (DaggerfallUnityItem.value
  *  after ItemBuilder): weapons/plate = basePrice * 3 * mult[material];
  *  chain armor doubles; everything else is the template basePrice.
@@ -107,11 +116,11 @@ export function itemBaseValue(item) {
   // material multiplier (ItemBuilder.cs) - an arrow is worth its
   // basePrice, not 6x it.
   if (item.group === 'Weapons' && isAmmunition(item)) return t.basePrice;
-  if (item.group === 'Weapons') return t.basePrice * 3 * (valueMultipliersByMaterial[item.material ?? 0] ?? 1);
+  if (item.group === 'Weapons') return materialValue(t.basePrice, item.material ?? 0);
   if (item.group === 'Armor') {
     const m = item.material ?? 0;
     if (m === 0x0100) return t.basePrice * 2;                     // chain
-    if (m >= 0x0200) return t.basePrice * 3 * (valueMultipliersByMaterial[m - 0x0200] ?? 1);   // plate
+    if (m >= 0x0200) return materialValue(t.basePrice, m - 0x0200);   // plate
     return t.basePrice;                                           // leather
   }
   return t.basePrice;
@@ -227,11 +236,42 @@ export const rollPaintingMessage = (rolls = Math.random) => Math.floor(rolls() *
  *  ? 100 * currentCondition / maxCondition : 100`, C# integer division. */
 export const conditionPercentage = (item) => ((item?.maxCondition ?? 0) > 0 ? Math.trunc(100 * (item.currentCondition ?? 0) / item.maxCondition) : 100);
 
+// ---- ItemHelper.GetCustomItemsForGroup ----------------------------------
+/** FORAGE1: DFU's `customItemTemplates` by group - every LOADED mod's registered custom templates of a group, in
+ *  the order the mods registered them - asked by the shelf's second loop (DaggerfallLoot.cs:255-287) and the random
+ *  weapon and armour rolls (ItemBuilder.cs:382-390). Each mod registers ONE provider, which answers from its own
+ *  switch (a mod switched off has nothing registered, as an unloaded mod has not). RRI1 kept this list as its own
+ *  until a second mod had items to shelve. */
+const _customItemProviders = [rriCustomItemsForGroup];   // RRI1's, the first mod to register (its module is this one's import)
+export function registerCustomItemsForGroup(provider) {
+  if (typeof provider === 'function' && !_customItemProviders.includes(provider)) _customItemProviders.push(provider);
+}
+export const customItemsForGroup = (group) => _customItemProviders.flatMap((p) => p(group) ?? []);
+
+/** CSA-H: THE OTHER MODS' ROWS, one a (template, group). DFU's customItemGroups is ONE table across every loaded mod
+ *  (ItemHelper.RegisterCustomItem, :151-163), so a mod that registers a class into a group - Come Sail Away's boat
+ *  parts and deed, Iliac Puddle No More's fish, UselessItems2 - lands on the same shelves the others' do. `isOn` is
+ *  the mod being loaded: its row answers only then, as DFU registers only a loaded mod's. Registration order is kept
+ *  (a group's list is walked in it), and a second registration of an index is DFU's `Contains` guard: no second row.
+ *  THE MERGE (main's CSA-H into FORAGE1's one home): the rows are one provider, taking its place in the providers'
+ *  order when the first row registers. */
+const _otherModItems = [];
+const otherModItemsForGroup = (group) => _otherModItems.filter((r) => r.group === group && r.isOn()).map((r) => r.templateIndex);
+export function registerCustomItemGroup(templateIndex, group, isOn = () => true) {
+  if (_otherModItems.some((r) => r.templateIndex === templateIndex && r.group === group)) return;
+  _otherModItems.push({ templateIndex, group, isOn });
+  registerCustomItemsForGroup(otherModItemsForGroup);
+}
+
 // ---- ItemHelper.RegisterItemUseHandler (ItemHelper.cs:113-116) --------
 /** `Dictionary<int, ItemUseHandler> itemUseHandlers` - a mod's handler for
  *  a template, asked by DaggerfallInventoryWindow.UseItem ahead of the
  *  normal-items ladder (:1703-1709). RRI2: the bandage. */
 const _useHandlers = new Map();
+/** PROF3: the Repair Kit's dye by its metal - profTemplates.js registers it (it imports this module, so this one
+ *  cannot import it). */
+let _kitDye = null;
+export function registerKitDye(fn) { _kitDye = typeof fn === 'function' ? fn : null; }
 export function registerItemUseHandler(templateIndex, handler) { if (typeof handler === 'function') _useHandlers.set(templateIndex, handler); else _useHandlers.delete(templateIndex); }
 export const itemUseHandler = (templateIndex) => _useHandlers.get(templateIndex) ?? null;
 
@@ -363,5 +403,10 @@ export function inventoryItemImage(item, identity = undefined) {
   // first (:402) and asks the replacement door by it (:453, :458), so
   // an icon door that draws this must ask by it too. DYE-ICON: and the
   // swatch its classic arm dyes (:473-476), which that door changes.
+  // PROF2: a new material's picture is DFU's own, dyed by DFU's own law - its metal's DyeColor over the WeaponsAndArmor
+  // swatch (systems/profTemplates.js `iconDye`), as an Ebony blade is told from an Iron one
+  if (Number.isFinite(t.iconDye)) return { archive, record, dye: t.iconDye, dyeTarget: DYE_TARGETS.WeaponsAndArmor };
+  // PROF3: a Repair Kit's picture is the Warhammer's, dyed by the metal it mends (the item's `kitMetal`, profTemplates.js kitDye)
+  if (t.kitDye && Number.isFinite(_kitDye?.(item))) return { archive, record, dye: _kitDye(item), dyeTarget: DYE_TARGETS.WeaponsAndArmor };
   return { archive, record, dye: itemDyeColor(item), dyeTarget: itemDyeTarget(item) };
 }

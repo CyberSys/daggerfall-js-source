@@ -30,7 +30,8 @@ import { buildGateModel, gateArchProfile, GATE_ARCHIVE, GATE_HEIGHT, PORTAL_CENT
 import { gateArt } from '../world/gateArt.js';
 import { GatePassRenderer, gateSpinRate } from '../render/gatePass.js';
 import { gateSceneXZ } from '../systems/gateOmen.js';
-import { gateYaw, gatePhase, gateCountdown, countdownText, GATE_RISE_MS, GATE_COLLAPSE_MS } from '../net/gateLaw.js';
+import { gateYaw, gatePhase, gateCountdown, countdownText, countdownWords, gateModsOf, gateBossOf, GATE_RISE_MS, GATE_COLLAPSE_MS } from '../net/gateLaw.js';
+import { marksCardModel } from '../ui/gateMarksView.js';   // WB9a: tonight's marks, over the screen before the gate is entered
 import { trs } from '../world/mat4.js';
 import { RAY_DISTANCE } from '../player/activate.js';
 
@@ -54,9 +55,10 @@ export const GATE_STEP_M = 1.5;
 
 /** The words a gate answers with. */
 export const GATE_TEXT = Object.freeze({
-  name: 'Oblivion Gate',
-  opensIn: (left) => `The gate is sealed. It opens in ${left}.`,
+  name: 'Dagon\'s Breach',   // WB12a (Mac: "Dagon's Breach"): the event's name - the arch it wears is still "the gate"
+  opensIn: (left) => `The gate opens in ${left}.`,   // WB13b
   sealed: 'The gate has sealed.',
+  collapsesIn: (left) => `The gate has sealed. It collapses in ${left}.`,   // GATE-COLLAPSE: the sealed hours say when they end
   notYet: 'The gate will not open to you yet.',
 });
 
@@ -135,12 +137,15 @@ export function gateLocal(place, p) {
  *   now: () => number, feet?: () => (number[]|null), say?: (text: string) => void, banner?: (text: string|null) => void,
  *   ready?: () => boolean, enter?: (gate: any) => void, landBefore?: (gate: any) => boolean,
  *   groundAt?: ((px:number, py:number, x:number, z:number) => number)|null,
+ *   marks?: (card: any) => void,
  * }} deps
+ *   WB9a: `marks` is handed the marks' card while the banner stands (ui/gateMarksView.js marksCardModel - the day's
+ *   marks, the ones the relay's fight is born under), null otherwise.
  */
 export function createGatePool({
   renderer = null, gl = null, collider = () => null, standing, pixelTranslation, heightAt, now,
   feet = () => null, say = () => {}, banner = () => {}, ready = () => false, enter = () => {}, groundAt = null,
-  landBefore = () => false,
+  landBefore = () => false, marks = () => {},
 }) {
   const model = buildGateModel();
   /** AUDIT WBX W6: the fire's box, made when the gate's place moves - the hover asked for a new one every frame */
@@ -211,7 +216,7 @@ export function createGatePool({
       return true;
     }
     const cd = gateCountdown(g.t, now(), place.phase);
-    refuse(cd?.to === 'open' ? GATE_TEXT.opensIn(countdownText(cd.ms)) : GATE_TEXT.sealed);
+    refuse(cd?.to === 'open' ? GATE_TEXT.opensIn(countdownText(cd.ms)) : cd?.to === 'collapse' ? GATE_TEXT.collapsesIn(countdownText(cd.ms)) : GATE_TEXT.sealed);
     return false;
   }
 
@@ -236,8 +241,12 @@ export function createGatePool({
       // the countdown over the screen, near the gate
       if (place && f && Math.hypot(f[0] - place.origin[0], f[2] - place.origin[2]) <= GATE_BANNER_M) {
         const cd = gateCountdown(g.t, now(), place.phase);
-        banner(cd ? `${GATE_TEXT.name} - ${cd.to === 'open' ? 'opens' : 'seals'} in ${countdownText(cd.ms)}` : (place.phase === 'closed' ? `${GATE_TEXT.name} - sealed` : null));
-      } else banner(null);
+        banner(cd ? `${GATE_TEXT.name} - ${cd.to === 'collapse' ? 'sealed, ' : ''}${countdownWords(cd)}` : null);   // GATE-COLLAPSE: the sealed hours count down to the collapse
+        // WB9a (Mac: "Allow people to see the modifers/trial as a popup before it starts"): TONIGHT'S MARKS beside the
+        // countdown, while it stands - the day's draw (net/gateLaw.js gateModsOf), which is what the relay's fight is
+        // born under; a gate collapsing (its master fallen, or the Wrath) has none to show
+        marks(cd && place.phase !== 'collapsing' ? marksCardModel(gateModsOf(g.day), gateBossOf(g.day), { mode: 'gate' }) : null);
+      } else { banner(null); marks(null); }
       return place;
     },
     /** The stone, in the host's world pass. */
@@ -276,7 +285,8 @@ export function createGatePool({
     hoverName(key) {
       if (typeof key !== 'string' || !key.startsWith('gate:') || !place || !g) return null;
       const cd = gateCountdown(g.t, now(), place.phase);
-      return { title: GATE_TEXT.name, subs: cd ? [`${cd.to === 'open' ? 'Opens' : 'Seals'} in ${countdownText(cd.ms)}`] : (place.phase === 'closed' ? ['Sealed'] : []) };
+      const words = countdownWords(cd);
+      return { title: GATE_TEXT.name, subs: words ? [...(cd.to === 'collapse' ? ['Sealed'] : []), words[0].toUpperCase() + words.slice(1)] : [] };   // GATE-COLLAPSE: sealed, and when it goes
     },
     /** A press on the gate. */
     activate(key) { return typeof key === 'string' && key.startsWith('gate:') ? tryEnter() : false; },

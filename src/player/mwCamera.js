@@ -38,6 +38,7 @@
  *  ONE HOME: minted in the format layer (mwFirstPerson.js), re-exported
  *  here because it is part of this module's contract too. */
 import { MW_UNITS_PER_METER } from '../formats/mwFirstPerson.js';
+import { seaZoomStep, SEA_ZOOM_RATIO } from './seaZoom.js';   // FIELD BUGS 2026-09-29 (the sea) #3: the zoom at a helm
 export { MW_UNITS_PER_METER };
 
 /** camera.cpp:63 - the third-person focal point sits this far above the
@@ -95,6 +96,9 @@ export function createMwCamera() {
   // camera.cpp:58 - the camera starts in first person.
   let firstPerson = true;
   let baseDistance = BASE_DISTANCE;
+  // FIELD BUGS 2026-09-29 (the sea) #3: at a helm the far end is the hull's reach (MW units; 0 on foot) - the host says
+  // it each frame (setSeaReach), and a distance past the reference's own maxDistance is the helm's alone
+  let seaFar = 0;
   // The ACTUAL distance after obstacle pull-in, in MW units - the zoom
   // law reads it back (camera.lua:146 getThirdPersonDistance).
   let cameraDistance = 0;
@@ -123,6 +127,19 @@ export function createMwCamera() {
   function zoom(delta, ready) {
     if (!firstPerson) {
       const obstacleDelta = preferredDistance() - cameraDistance;
+      // #3: past the reference's far end, at a helm, a notch is a ratio - out from the far end, or in down to it (and
+      // the reference's own ladder below it); out while pinned by more than one such notch is its no-op (camera.lua:153)
+      // HELM-ZOOM (Mac: "increase the sensitivity ... when on the wheel"): at a helm the WHOLE range is by the ratio, the
+      // reference's nearest ring to the hull's reach - its ten-unit ladder took sixty notches from its base to its far end
+      if (seaFar > MAX_DISTANCE && !(delta > 0 && baseDistance === MIN_DISTANCE)) {
+        // AUDIT HELM-ZOOM E1: in from where the camera STANDS when pinned (the reference's own debt, camera.lua:151) - in
+        // from the distance it wants spent notches unseen; E2: one notch a frame whatever the wheel sent (a trackpad's
+        // swipe sends a burst of them, and a ratio each crossed the whole range in one gesture)
+        const notch = Math.max(-1, Math.min(1, delta / WHEEL_STEP));
+        const from = delta > 0 ? Math.max(MIN_DISTANCE, baseDistance - Math.max(0, obstacleDelta)) : baseDistance;
+        if (delta > 0 || obstacleDelta < baseDistance * (SEA_ZOOM_RATIO - 1)) baseDistance = seaZoomStep(from, notch, MIN_DISTANCE, seaFar);
+        return;
+      }
       if (delta > 0 && baseDistance === MIN_DISTANCE) {
         // camera.lua:147-150 - already at the closest ring: the next
         // click steps INTO the head.
@@ -165,8 +182,17 @@ export function createMwCamera() {
       if (queuedFirstPerson !== null && ready) setFirstPerson(queuedFirstPerson, true);
     },
 
-    /** Restore/persist seam (camera.lua:350-352 saves the distance). */
-    state() { return { firstPerson, baseDistance }; },
+    /** #3: the helm's reach (m; 0 or less on foot, none): the far end the wheel zooms to while sailing. Off the helm a
+     *  distance past the reference's far end comes back to it. */
+    setSeaReach(metres) {
+      seaFar = Number.isFinite(metres) && metres * MW_UNITS_PER_METER > MAX_DISTANCE ? metres * MW_UNITS_PER_METER : 0;
+      if (baseDistance > Math.max(MAX_DISTANCE, seaFar)) baseDistance = Math.max(MAX_DISTANCE, seaFar);
+    },
+    seaFar() { return seaFar; },
+
+    /** Restore/persist seam (camera.lua:350-352 saves the distance). The helm's zoom is its own: a distance past the
+     *  reference's far end is saved as that far end. */
+    state() { return { firstPerson, baseDistance: Math.min(baseDistance, MAX_DISTANCE) }; },
     restore(s) {
       if (!s) return;
       if (typeof s.firstPerson === 'boolean') firstPerson = s.firstPerson;

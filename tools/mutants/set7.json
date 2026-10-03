@@ -38,8 +38,8 @@
   {
     "name": "SET7-a-price-off",
     "file": "src/systems/sigilBroker.js",
-    "old": "export const BROKER_PRICES = Object.freeze({ rare: 2, legendary: 3, weapon: 3, regalia: 6 });",
-    "new": "export const BROKER_PRICES = Object.freeze({ rare: 1, legendary: 3, weapon: 3, regalia: 6 });",
+    "old": "export const BROKER_PRICES = Object.freeze({ rare: 4, legendary: 6, weapon: 6, regalia: 12 });",
+    "new": "export const BROKER_PRICES = Object.freeze({ rare: 3, legendary: 6, weapon: 6, regalia: 12 });",
     "tests": [
       "test/set7_broker.test.js"
     ]
@@ -137,8 +137,8 @@
   {
     "name": "SET7-the-sale-taking-one-stone-too-many",
     "file": "src/systems/sigilBroker.js",
-    "old": "  return { ok: true, take: stonesIn(state.items).slice(0, offer.price), give };",
-    "new": "  return { ok: true, take: stonesIn(state.items).slice(0, offer.price + 1), give };",
+    "old": "  return { ok: true, take: stonesToTake(state.items, offer.price), give };",
+    "new": "  return { ok: true, take: stonesToTake(state.items, offer.price + 1), give };",
     "tests": [
       "test/set7_broker.test.js"
     ]
@@ -146,7 +146,7 @@
   {
     "name": "SET7-the-sale-handing-over-the-shown-piece",
     "file": "src/systems/sigilBroker.js",
-    "old": "  const give = brokerStock(offer.day)[offer.slot]?.item ?? null;",
+    "old": "  const give = real.item;",
     "new": "  const give = offer.item;",
     "tests": [
       "test/set7_broker.test.js"
@@ -164,8 +164,8 @@
   {
     "name": "SET7-a-heavy-sale-half-made",
     "file": "src/systems/sigilBroker.js",
-    "old": "  if (!canCarry(sale.give, rest)) return { ok: false, reason: 'heavy' };\n  for (const stone of sale.take) items.splice(items.indexOf(stone), 1);",
-    "new": "  for (const stone of sale.take) items.splice(items.indexOf(stone), 1);\n  if (!canCarry(sale.give, rest)) return { ok: false, reason: 'heavy' };",
+    "old": "  if (!canCarry(sale.give, rest)) return { ok: false, reason: 'heavy' };\n  takeFromPack(items, sale.take);",
+    "new": "  takeFromPack(items, sale.take);\n  if (!canCarry(sale.give, rest)) return { ok: false, reason: 'heavy' };",
     "tests": [
       "test/set7_broker.test.js"
     ]
@@ -272,38 +272,42 @@
   {
     "name": "SET7-the-spot-turned-the-wrong-way",
     "file": "src/scenes/sigilBrokerPool.js",
-    "old": "const x = o[0] + c * BROKER_SPOT.lx + s * BROKER_SPOT.lz, z = o[2] - s * BROKER_SPOT.lx + c * BROKER_SPOT.lz;",
-    "new": "const x = o[0] + c * BROKER_SPOT.lx - s * BROKER_SPOT.lz, z = o[2] + s * BROKER_SPOT.lx + c * BROKER_SPOT.lz;",
+    "old": "const facing = Math.atan2(gx - e, gz - n), a = facing + CAGE_TURN;",
+    "new": "const facing = Math.atan2(gx - e, gz - n), a = facing - CAGE_TURN;",
     "tests": [
       "test/set7_broker_world.test.js"
-    ]
+    ],
+    "note": "BROKER-CAGE (re-aimed by content): her spot is the cage's at the faithful's circle - turned the wrong way off its bearing to the gate."
   },
   {
     "name": "SET7-the-gates-ground-taken-for-hers",
     "file": "src/scenes/sigilBrokerPool.js",
-    "old": "feet: [x, Number.isFinite(h) ? h : place.ground, z]",
-    "new": "feet: [x, place.ground, z]",
+    "old": "const x = t[0] + sp.x, z = t[2] + sp.z, h = heightAt(x, z);",
+    "new": "const x = t[0] + sp.x, z = t[2] + sp.z, h = t[1];",
     "tests": [
       "test/set7_broker_world.test.js"
-    ]
+    ],
+    "note": "BROKER-CAGE (re-aimed by content): the pixel's translation taken for the ground under her cage."
   },
   {
     "name": "SET7-a-broker-by-a-sinking-gate",
     "file": "src/scenes/sigilBrokerPool.js",
-    "old": "  if (!place || place.coarse || !place.risen || place.phase === 'collapsing') return null;",
-    "new": "  if (!place || place.coarse || !place.risen) return null;",
+    "old": "  if (!site || !Number.isSafeInteger(site.day) || !cageStands(site.day, nowMs)) return null;",
+    "new": "  if (!site || !Number.isSafeInteger(site.day)) return null;",
     "tests": [
       "test/set7_broker_world.test.js"
-    ]
+    ],
+    "note": "BROKER-CAGE (re-aimed by content): she stands from the omen to midnight, not with the gate - her hours unasked."
   },
   {
     "name": "SET7-a-broker-by-a-beacon",
     "file": "src/scenes/sigilBrokerPool.js",
-    "old": "  if (!place || place.coarse || !place.risen || place.phase === 'collapsing') return null;",
-    "new": "  if (!place || !place.risen || place.phase === 'collapsing') return null;",
+    "old": "  return Number.isFinite(h) ? { day: site.day, px: site.px, py: site.py, feet: [x, h, z], rest: sp.facing } : null;",
+    "new": "  return { day: site.day, px: site.px, py: site.py, feet: [x, h, z], rest: sp.facing };",
     "tests": [
       "test/set7_broker_world.test.js"
-    ]
+    ],
+    "note": "BROKER-CAGE (re-aimed by content): a pixel not built - a cage in the air."
   },
   {
     "name": "SET7-a-snap-turn",
@@ -371,7 +375,7 @@
   {
     "name": "SET7-her-plaque-a-bare-string",
     "file": "src/scenes/sigilBrokerPool.js",
-    "old": "  hoverName(key) { return ours(key) ? { title: BROKER_TEXT.name, subs: [BROKER_TEXT.trade] } : null; },",
+    "old": "  hoverName(key) { return ours(key) ? { title: BROKER_TEXT.name, subs: [doorOpen ? BROKER_TEXT.trade : BROKER_TEXT.caged] } : null; },",
     "new": "  hoverName(key) { return ours(key) ? BROKER_TEXT.name : null; },",
     "tests": [
       "test/set7_broker_world.test.js"
@@ -434,17 +438,18 @@
   {
     "name": "SET7-the-window-left-open-on-nothing",
     "file": "src/scenes/sigilBrokerPool.js",
-    "old": "        if (was && (!p || p.phase === 'collapsing') && gone()) say(BROKER_TEXT.gone);",
-    "new": "        if (was && false) say(BROKER_TEXT.gone);",
+    "old": "      if (was && (!due || s.day !== was.day) && gone()) say(BROKER_TEXT.gone);",
+    "new": "      if (was && false) say(BROKER_TEXT.gone);",
     "tests": [
       "test/set7_broker_world.test.js"
-    ]
+    ],
+    "note": "BROKER-CAGE (re-aimed by content): midnight, not the gate's fall, takes her."
   },
   {
     "name": "SET7-the-line-said-with-no-window",
     "file": "src/scenes/sigilBrokerPool.js",
-    "old": "        if (was && (!p || p.phase === 'collapsing') && gone()) say(BROKER_TEXT.gone);",
-    "new": "        if (was && (!p || p.phase === 'collapsing')) { gone(); say(BROKER_TEXT.gone); }",
+    "old": "      if (was && (!due || s.day !== was.day) && gone()) say(BROKER_TEXT.gone);",
+    "new": "      if (was && (!due || s.day !== was.day)) { gone(); say(BROKER_TEXT.gone); }",
     "tests": [
       "test/set7_broker_world.test.js"
     ]
@@ -452,8 +457,8 @@
   {
     "name": "SET7-the-broker-left-out-of-the-rival",
     "file": "src/player/activationRace.js",
-    "old": "campD, waterD, gateD, brokerD, doorDistance);",
-    "new": "campD, waterD, gateD, doorDistance);",
+    "old": "campD, waterD, gateD, brokerD, boatD, doorDistance);",
+    "new": "campD, waterD, gateD, boatD, doorDistance);",
     "tests": [
       "test/set7_broker_world.test.js"
     ]
@@ -497,8 +502,8 @@
   {
     "name": "SET7-the-gate-plaque-a-bare-string",
     "file": "src/scenes/gatePool.js",
-    "old": "      return { title: GATE_TEXT.name, subs: cd ? [`${cd.to === 'open' ? 'Opens' : 'Seals'} in ${countdownText(cd.ms)}`] : (place.phase === 'closed' ? ['Sealed'] : []) };",
-    "new": "      return cd ? `${GATE_TEXT.name} (${cd.to === 'open' ? 'opens' : 'seals'} in ${countdownText(cd.ms)})` : GATE_TEXT.name;",
+    "old": "      return { title: GATE_TEXT.name, subs: words ? [...(cd.to === 'collapse' ? ['Sealed'] : []), words[0].toUpperCase() + words.slice(1)] : [] };",
+    "new": "      return words ? `${GATE_TEXT.name} (${words})` : GATE_TEXT.name;",
     "tests": [
       "test/wb2_gate.test.js"
     ]
@@ -524,11 +529,12 @@
   {
     "name": "SET7-AUDIT-W3-a-beacon-shutting-the-sale",
     "file": "src/scenes/sigilBrokerPool.js",
-    "old": "if (was && (!p || p.phase === 'collapsing') && gone())",
+    "old": "if (was && (!due || s.day !== was.day) && gone())",
     "new": "if (was && gone())",
     "tests": [
       "test/set7_broker_world.test.js"
-    ]
+    ],
+    "note": "BROKER-CAGE (re-aimed by content): her pixel answering no ground for a frame shuts nothing."
   },
   {
     "name": "SET7-AUDIT-W2-the-window-carried-off-the-street",
@@ -586,7 +592,7 @@
   },
   {
     "name": "SET7-AUDIT-U1-a-comma-inside-parentheses-split",
-    "file": "src/ui/brokerWindow.js",
+    "file": "src/ui/enhancedFrame.js",
     "old": "    if (c === '(') depth++; else if (c === ')') depth--;\n    else if (c === ',' && depth === 0)",
     "new": "    if (c === ',')",
     "tests": [
@@ -605,7 +611,7 @@
   {
     "name": "SET7-AUDIT-U10-rows-unreachable",
     "file": "src/ui/brokerWindow.js",
-    "old": "      row.setAttribute('tabindex', '0');\n",
+    "old": "    row.setAttribute('tabindex', '0');\n",
     "new": "",
     "tests": [
       "test/set7_broker.test.js"

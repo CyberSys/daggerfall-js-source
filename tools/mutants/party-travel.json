@@ -236,8 +236,8 @@
   {
     "name": "PT-chat-travel-not-host",
     "file": "src/net/chatCommands.js",
-    "old": "'ready', 'leader', 'travel', 'event']);",
-    "new": "'ready', 'leader', 'event']);",
+    "old": "'ready', 'leader', 'travel', 'event', 'note', 'mentor']);",
+    "new": "'ready', 'leader', 'event', 'note', 'mentor']);",
     "tests": [
       "test/partytravel.test.js"
     ]
@@ -551,8 +551,8 @@
   {
     "name": "PT-call-off-a-departed-round",
     "file": "src/systems/partyTravel.js",
-    "old": "if (trip && trip.go == null) { trip = null; host.poseDirty(); return 'You call off the journey.'; }",
-    "new": "if (trip) { trip = null; host.poseDirty(); return 'You call off the journey.'; }",
+    "old": "if (trip && trip.go == null) { trip = null; host.poseDirty(); host.mid('You call off the journey.'); return 'You call off the journey.'; }",
+    "new": "if (trip) { trip = null; host.poseDirty(); host.mid('You call off the journey.'); return 'You call off the journey.'; }",
     "tests": [
       "test/partytravel.test.js"
     ]
@@ -587,7 +587,7 @@
   {
     "name": "PT-host-no-map-offer",
     "file": "src/scenes/world.js",
-    "old": "    if (!gotoPlace && partyTravel?.mapOffer()) return;\n",
+    "old": "    if (!gotoPlace && partyTravel?.mapOffer()) return false;\n",
     "new": "",
     "tests": [
       "test/partytravel.test.js"

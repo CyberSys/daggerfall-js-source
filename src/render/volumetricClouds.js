@@ -1338,6 +1338,25 @@ uniform float uDread;     // EVENT1: the live event's grade, 0 = none
 out vec4 outColor;
 const float PI = 3.14159265;
 ${DREAD_GLSL}
+// CLOUD-SQUARE (FIELD BUGS 2026-10-01 #3): "Clouds in the distance sometimes look square". A map texel is a third of
+// a degree (two thirds on the low tier) - 6 to 23 screen pixels - and each was marched from its own jittered start,
+// so a far cloud a few texels across, magnified by one bilinear tap, was a cluster of soft squares. A cubic B-spline
+// over the same texels, in four bilinear taps: the texel grid no longer shows, and the jitter between neighbours
+// is smoothed with it. The map wraps round in azimuth and clamps at its rows, as the one tap did.
+vec4 mapBicubic(vec2 uv) {
+  vec2 size = vec2(textureSize(uMap, 0));
+  vec2 st = uv * size - 0.5;
+  vec2 i = floor(st), f = st - i;
+  vec2 f2 = f * f, f3 = f2 * f;
+  vec2 w0 = (1.0 - 3.0 * f + 3.0 * f2 - f3) / 6.0;
+  vec2 w1 = (4.0 - 6.0 * f2 + 3.0 * f3) / 6.0;
+  vec2 w2 = (1.0 + 3.0 * f + 3.0 * f2 - 3.0 * f3) / 6.0;
+  vec2 w3 = f3 / 6.0;
+  vec2 g0 = w0 + w1, g1 = w2 + w3;
+  vec2 t0 = (i - 0.5 + w1 / g0) / size, t1 = (i + 1.5 + w3 / g1) / size;
+  return g0.y * (g0.x * texture(uMap, t0) + g1.x * texture(uMap, vec2(t1.x, t0.y)))
+       + g1.y * (g0.x * texture(uMap, vec2(t0.x, t1.y)) + g1.x * texture(uMap, t1));
+}
 void main() {
   vec3 ray = normalize(vec3(vNdc.x * uTanHalfFov * uAspect, vNdc.y * uTanHalfFov, 1.0));
   float cp = cos(uPitch), sp = sin(uPitch);
@@ -1360,7 +1379,7 @@ void main() {
   if (el <= -${HORIZON_SKIRT}) discard;
   float az = atan(dir.x, dir.z);
   vec2 uv = vec2(az / (2.0 * PI), max(el, 0.0) / (0.5 * PI));   // DSH1: the bottom row over the skirt
-  vec4 c = texture(uMap, uv);
+  vec4 c = mapBicubic(uv);   // CLOUD-SQUARE: never one bilinear tap - a texel is 6 to 23 screen pixels
   // WEATHER3d: the distant strike lights its own cloud and nothing else - the cone its disc fills from here, soft at
   // the rim - on the cloud's own radiance (c.rgb carries its opacity), so clear sky in that direction stays dark
   float bolt = uBolt.w * smoothstep(uBoltCos, mix(uBoltCos, 1.0, 0.6), dot(dir, uBolt.xyz));

@@ -316,7 +316,7 @@ test('MAC1 I: the render eye pays a grounded step out over STEP_SMOOTH_TAU; the 
 test('AUDIT 65 XL-4: the third-person focal rides the SMOOTHED feet, and no host hands mwView player.pos', () => {
   // MAC1 I low-passed the render EYE and EV1 interpolated it, but the
   // Morrowind camera builds its third-person focal out of `feet`
-  // alone (mwCamera.js:198-233) and every host handed it the raw
+  // alone (mwCamera.js:224-259) and every host handed it the raw
   // stepped `player.pos` - so BOTH fixes were bypassed the moment the
   // player scrolled out of his own head, in all four hosts. feetAt is
   // eyeAt's positional half; the hosts pass that instead.
@@ -355,7 +355,7 @@ test('AUDIT 65 XL-4: the third-person focal rides the SMOOTHED feet, and no host
   };
   assert.ok(stepZ(1 / 144, (m) => m.feetAt()) < stepZ(1 / 144, (m) => m.pos) * 0.6,
     'at 144 Hz the render feet translate smoothly where the stepped feet quantise');
-  // The focal's own ceiling probe (mwCamera.js:207-217) casts from
+  // The focal's own ceiling probe (mwCamera.js:233-243) casts from
   // this height, so the filter may never run away from the capsule
   // the collider actually keeps under the ceiling: it is clamped to
   // STEP_OFFSET and in practice stays well inside it.
@@ -502,16 +502,18 @@ test('MAC1 J: the pause door relocks the pointer inside the resume gesture, and 
     // and the ARM is what gets built and asked.
     assert.match(text, /openPauseFlow\(\(w\) => townTalk\.showOverlay\(w\), \{\n\s*at: pauseAt,[^\n]*\n\s*\.\.\.pauseDoorHooks\(\),/, `${file}: the door spreads its bag`);
     const hooks = mountLiteral(text, 'const pauseDoorHooks = () => (', { opts: {}, requestLook: s.requestLook, canvas: `CANVAS-${file}` });
-    assert.equal(typeof hooks.relock, 'function', `${file}: its own pause door hands pauseDoor.js:158 a relock`);
+    assert.equal(typeof hooks.relock, 'function', `${file}: its own pause door hands pauseDoor.js:162 a relock`);
     hooks.relock();
     assert.deepEqual(s.seen, [`CANVAS-${file}`], `${file}: ...and it relocks THIS host's canvas`);
   }
 
   // (3) the INTERIOR pause door - ONE literal fed by TWO host bags, and
-  // the bag is where MAC1's miss actually lived.
+  // the bag is where MAC1's miss actually lived. ESC-BOOK: the door spreads its bag arm (`interiorPauseHooks`, a
+  // building's F5 page is handed the same) - held here, and the ARM is what gets built and asked.
+  assert.match(modes, /openPauseFlow\(\(w\) => \{ interiorOverlay = w; \}, \{\n\s*at: pauseAt,[^\n]*\n\s*\.\.\.interiorPauseHooks\(\),/, 'the interior door spreads its bag arm');
   for (const [file, text] of OUT) {
     const s = spy();
-    const hooks = mountLiteral(modes, 'openPauseFlow((w) => { interiorOverlay = w; }, ', { opts: {}, host: hostBagOf(text, { requestLook: s.requestLook, canvas: `CANVAS-${file}` }) });
+    const hooks = mountLiteral(modes, 'const interiorPauseHooks = () => (', { opts: {}, host: hostBagOf(text, { requestLook: s.requestLook, canvas: `CANVAS-${file}` }) });
     assert.equal(typeof hooks.relock, 'function',
       `${file}: worldModes' interior pause reads host.relock, so THIS host's createWorldModes bag must carry it`);
     hooks.relock();

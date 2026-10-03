@@ -11,19 +11,21 @@
 //   - an UNIDENTIFIED item says "Powers unknown.";
 //   - otherwise each legacy enchantment is one line: the power's name off
 //     DFU's `itemPowers` list, a space, and its parameter off the list
-//     that power's arm names.
+//     that power's arm names - or, for the three CastWhen*, the SPELL.
 //
 // The lists are DFU's own English strings (Internal_Strings: itemPowers,
 // extraSpellPtsTimes, ...) - this box's words, which are NOT always the
 // enchantment picker's (the picker says "During Winter", the box says
-// "during Winter"). The spell, creature and skill names are the ones the
-// picker already carries (enchantmentCatalogue), which ARE the same
-// strings DFU reads at those three arms.
+// "during Winter"). The creature and skill names are the ones the picker
+// already carries (enchantmentCatalogue, skills.js), which ARE the
+// strings DFU reads at those arms. The spell is NOT the picker's: see
+// castSpellName (FB 2026-09-29).
 
 import { ENCHANTMENT_TYPES as T } from '../formats/magicDef.js';
 import { enchantmentParamName } from './enchantmentCatalogue.js';
 import { SKILL_NAMES } from './skills.js';
 import { localizedText, localizedTextList } from './textManager.js';   // L10N3d: DFU's Internal_Strings, read in the player's language
+import { spellRecordOfIndex } from './loot.js';   // FB 2026-09-29: the SPELLS.STD registry loadMagicRegistries sets
 
 /** Internal_Strings `itemPowers`, indexed by EnchantmentTypes - read
  *  where MagicPowers reads it (:291). */
@@ -61,7 +63,23 @@ export const POWERS_UNKNOWN_TEXT = 'Powers unknown.';
 /** The artifact descriptions: 8700 + ArtifactsSubTypes. */
 export const ARTIFACT_POWERS_TEXT_BASE = 8700;
 
-const typeName = (type) => Object.keys(T).find((k) => T[k] === type) ?? '';
+/** THE CastWhen* ARM'S SPELL (:345-363). MagicPowers walks the WHOLE of
+ *  SPELLS.STD (DaggerfallSpellReader.ReadSpellsFile) for the record
+ *  whose index is the param and prints GetLocalizedSpellName - it never
+ *  asks which spells the item maker OFFERS for that power. This arm used
+ *  to ask exactly that (enchantmentParamName over the power's own list),
+ *  and MAGIC.DEF's *%it of Featherweight* is CastWhenUsed at spell 37,
+ *  Slowfalling, which the maker offers only as Cast When Held: every one
+ *  minted read "Cast when used: ERROR" (FB 2026-09-29, a Mark). The
+ *  table is the registry the hosts' loadMagicRegistries sets (exterior,
+ *  world and dungeonContext boot it; worldModes' interiors run inside
+ *  the first two). Until it lands - a boot, a headless suite - the
+ *  catalogue answers: its three CastWhen* lists are SPELLS.STD's own
+ *  names by the same ids, and an id is one spell whichever power lists
+ *  it. '' when neither knows the id, which is MagicPowers' "ERROR". */
+const CAST_WHEN_KEYS = Object.freeze(['CastWhenUsed', 'CastWhenHeld', 'CastWhenStrikes']);
+const castSpellName = (id) => spellRecordOfIndex(id)?.name
+  || CAST_WHEN_KEYS.map((k) => enchantmentParamName(k, id)).find(Boolean) || '';
 
 /**
  * MagicPowers, as the lines the box shows (one per power).
@@ -91,7 +109,7 @@ export function magicPowersLines(item, { identified = true, lines = null } = {})
     if (e.type === T.SoulBound && e.param !== -1) out.push(first + enchantmentParamName('SoulBound', e.param));
     else if (list) out.push(first + (list[e.param] ?? ''));
     else if (e.type === T.EnhancesSkill) out.push(first + (SKILL_NAMES[e.param] ?? ''));
-    else if (e.type <= T.CastWhenStrikes) out.push(first + (enchantmentParamName(typeName(e.type), e.param) || 'ERROR'));
+    else if (e.type <= T.CastWhenStrikes) out.push(first + (castSpellName(e.param) || 'ERROR'));
     else out.push(first);
   }
   return out.map((t) => t.trimEnd());

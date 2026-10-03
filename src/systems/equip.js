@@ -45,6 +45,11 @@ export const equipOf = (entity) => (entity.equip ??= createEquipTable());
 export const equipTableOf = (entity) => equipOf(entity).slots;
 
 export const getEquipSlot = (entity, item) => equipOf(entity).getEquipSlot(numeric(item));
+/** RARITY-WEAR (FIELD BUGS 2026-10-01, Cruor: a King's Mark "spawn[ed] as wands, they cannot be equipped"): WHETHER ANY
+ *  SLOT COULD EVER TAKE THE ITEM - GetEquipSlot asked of an empty table. A Wand answers no (GetJewelleryEquipSlot's
+ *  None - equipRules.js has no row for 140), so a tier rolled on one is read by nothing: the affix fold and a Held
+ *  enchantment read worn pieces alone. */
+export const wearableItem = (item) => !!item && createEquipTable().getEquipSlot(numeric(item)) !== EQUIP_SLOTS.None;
 
 /** UnequipItem(slot): clears the slot + the item's mark. */
 /** CH3 (AUDIT 23 characters-13), REBUILT AT FX1 (F128): the SWAP
@@ -254,15 +259,15 @@ export function equipItem(entity, item) {
   const unequipped = [];
   // AUDIT 68 S27-ht-equip-midswap: the leavers and the arrival are ONE act, told once when the table has settled
   oneEquipAct(() => {
-    const un = (s) => { const it = unequipSlot(entity, s); if (it) unequipped.push(it); };
-    if (item.group === 'Weapons' && getItemHands(item) === ITEM_HANDS.Both) {
-      un(EQUIP_SLOTS.LeftHand); un(EQUIP_SLOTS.RightHand);   // 2H clears both hands
+    // AC-COMPARE: THE LEAVERS ARE ONE LAW, wearLeavers' (below): EquipItem's three unequip arms
+    // (ItemEquipTable.cs:117-137) - a two-hander clears both hands, a shield bumps a held two-hander, the
+    // destination's occupant swaps out (alwaysEquip) - in their own order. The enhanced pack's card reads the same
+    // list to say what a wear would replace, so it cannot name a piece this act leaves on, or miss one it takes off.
+    // Read once, before the first goes: the arms are exclusive (a two-hander is never LeftOnly), so the shield's look
+    // at the right hand sees what the old arm saw.
+    for (const s of wearLeavers(entity, item, slot)) {
+      const it = unequipSlot(entity, s); if (it) unequipped.push(it);
     }
-    if (getItemHands(item) === ITEM_HANDS.LeftOnly) {
-      const right = slots[EQUIP_SLOTS.RightHand];
-      if (right && getItemHands(right) === ITEM_HANDS.Both) un(EQUIP_SLOTS.RightHand);   // a shield bumps a held 2H
-    }
-    un(slot);   // swap the occupant out (alwaysEquip)
     item.equipSlot = slot;
     slots[slot] = item;
     updateEquippedArmorValues(entity, item, true);   // U8h: the armor table subtracts
@@ -326,10 +331,10 @@ export function fillEquipTable(slots, items) {
  *  SUPERSEDED, not pending. S3d shipped the real roll -
  *  systems/startingGear.js:74 assignStartingGear (ItemHelper's
  *  AssignStartingGear), run on both creation paths at
- *  chargenSession.js:141 (?class= headless) and :233 (the wizard) -
+ *  chargenSession.js:142 (?class= headless) and :235 (the wizard) -
  *  and the guard below (`entity.equip || items.length`) makes this a
  *  no-op for any character that went through either. What is left is
- *  residue at the two host calls (world.js:3834, exterior.js:1286):
+ *  residue at the two host calls (world.js:5297, exterior.js:1316):
  *  a chargenDone entity whose bag AND equip table are both empty
  *  still takes a free dagger here. Deleting the calls is a behaviour
  *  change, so it waits for a slice that owns one. */
@@ -344,6 +349,25 @@ export function seedStartingEquipment(entity) {
   // two lights left (survival/items.js startingProvisions; the mod's
   // own OnStartGame kit, plus the port's fire). Casual and Hard alone, by decision (Mac, 2026-09-23: "No, not off.. theres no reason to have it in off" - SURV-KIT, withdrawn).
   if (survivalOn()) for (const it of startingProvisions()) entity.items.push(it);
+}
+
+/** AC-COMPARE (FIELD BUGS 2026-09-29d): WHAT A WEAR TAKES OFF - EquipItem's three unequip arms
+ *  (ItemEquipTable.cs:117-137), in its own order, as the slots they empty: a two-hander clears both hands (:117-122),
+ *  a LeftOnly piece - a shield, or a bow under BowLeftHandWithSwitching - bumps a two-hander held right (:125-131), and
+ *  the destination's occupant swaps out (alwaysEquip, :134-137). ONE LAW: equipItem takes off exactly these, and the
+ *  enhanced pack's card reads them to say what a wear would replace before it is worn. `slot` is getEquipSlot's
+ *  answer, computed once by the caller (the DFU order); None takes nothing off. A slot may repeat (a two-hander's own
+ *  hand) and an empty one takes nothing off. Pure: the table is read, never written. */
+export function wearLeavers(entity, item, slot = getEquipSlot(entity, item)) {
+  if (!item || slot === EQUIP_SLOTS.None) return [];
+  const out = [];
+  if (item.group === 'Weapons' && getItemHands(item) === ITEM_HANDS.Both) out.push(EQUIP_SLOTS.LeftHand, EQUIP_SLOTS.RightHand);   // 2H clears both hands
+  if (getItemHands(item) === ITEM_HANDS.LeftOnly) {
+    const right = equipTableOf(entity)[EQUIP_SLOTS.RightHand];
+    if (right && getItemHands(right) === ITEM_HANDS.Both) out.push(EQUIP_SLOTS.RightHand);   // a shield bumps a held 2H
+  }
+  out.push(slot);   // swap the occupant out (alwaysEquip)
+  return out;
 }
 
 // ---- U8h: ARMOR VALUES (DaggerfallEntity.UpdateEquippedArmorValues
@@ -427,6 +451,10 @@ export function updateEquippedArmorValues(entity, item, equipping) {
  *  inverse of SLOT_BODY_PART's seven pairs; None for anything else. */
 const BODY_PART_SLOT = new Map([...SLOT_BODY_PART].map(([slot, part]) => [part, slot]));
 export const slotForBodyPart = (part) => BODY_PART_SLOT.get(part) ?? EQUIP_SLOTS.None;
+/** AC-COMPARE: GetBodyPartForEquipSlot (DaggerfallUnityItem.cs:1131-1153) itself - SLOT_BODY_PART's seven pairs, and
+ *  BodyParts.None (-1) for any other slot. The enhanced pack's worn map finds the part each of its panels stands for
+ *  through it, to show that part's armour where the classic doll shows its label. */
+export const bodyPartForSlot = (slot) => SLOT_BODY_PART.get(slot) ?? -1;
 
 /** DaggerfallUnityItem.LowerCondition + ItemBreaks (:1170-1214).
  *  C-slice (AUDIT 23 combat-1): breaking clamps at 0, speaks the
@@ -443,6 +471,59 @@ export const slotForBodyPart = (part) => BODY_PART_SLOT.get(part) ?? EQUIP_SLOTS
  *  itemInfo.js imports this module, so it cannot import that back); the
  *  line names the item by it, and by the canonical name without one. */
 const PLURAL_BREAK_TEMPLATES = new Set([103, 104, 108]);   // Armor.Gauntlets, Greaves, Boots
+
+/** THE SCALE ON A BLOW'S WEAR - 1, Daggerfall Unity's own. BALANCE1
+ *  (2026-09-27) set it to 0.6 because the default game wore gear through
+ *  the combat overhaul's wear module (~2.8x DFU on a weapon per landed
+ *  hit, ~15x on armour) and Roleplay Realism's equipDamage (armour x5).
+ *  WEAR-VANILLA (2026-10-01, the repair triage: "Disable the modded
+ *  feature that increases durability loss. Vanilla values work fine")
+ *  turned those modules off by default (modSettings.js) and this back to
+ *  1, so a blow wears what DFU's DamageEquipment says. The seam stays on
+ *  every blow's path - DFU's, the two mods' (a player may still turn them
+ *  on offline) and a duel's - for the economy's tuning; an enchantment's
+ *  charge, a torch's burn and survival's rust are not blows. */
+export const CONDITION_WEAR_SCALE = 1;
+let _wearScale = CONDITION_WEAR_SCALE;
+/** TEST SEAM: any scale, for the pins of the roll below (balance1.test.js);
+ *  a scale of 1 draws no roll, so a scripted DFU roll sequence stays DFU's.
+ *  No argument puts the port's scale back. */
+export function _wearScaleForTests(scale = CONDITION_WEAR_SCALE) { _wearScale = scale; }
+
+/** WEAR-TWICE (2026-10-02, the field, of the economy triage: "maybe we overdid it too much. Good changes all around but
+ *  I still want there to be some challenge"; asked which lever, "Faster wear"): THE PORT'S OWN WEAR IS TWICE DFU'S. A
+ *  blow's DamageEquipment amount - (10 x damage + 50) / 100, the 20% floor roll's 1 included - is doubled where DFU's
+ *  member wears gear (formulas.js damageEquipment: the overhaul's core and DFU's own) and on a duel's blade
+ *  (scenes/world.js). At DFU's own rate (WEAR-VANILLA) a steel longsword lost about 6.5% of itself to a hundred swings
+ *  and armour hardly wore, so wear put no pressure on an outing - the economy arc's friction ("the pressure to return
+ *  is capacity, supplies and wear, never price", 06-Systems/Economy-Arc.md). The mods' own wear modules, which a
+ *  player may turn on offline, keep their own amounts; repairs keep REPAIR-RATE's third. A whole number, so it draws
+ *  no roll. A departure (Ledger A, WEAR-TWICE).
+ *  WEAR-ONE (2026-10-02, Mac: "we need to buff gear durability because its really bad"; asked how much, "Daggerfall's
+ *  rate (1x)"): TWICE WAS TOO MUCH - a 50-point dagger or bow broke in about 25 landed blows, and every blow cost at
+ *  least 2 (the doubling came after the 20% floor roll's 1). The multiple is 1 again: DFU's own amount. The seam stays,
+ *  so a later tuning is one number. [SUPERSEDES WEAR-TWICE's 2.] */
+export const DFU_WEAR_MULTIPLE = 1;
+let _dfuMultiple = DFU_WEAR_MULTIPLE;
+/** TEST SEAM: the files that pin DFU's DamageEquipment verbatim run it at 1, beside the scale's own seam above
+ *  (wear_vanilla.test.js pins the port's 1 - WEAR-ONE). No argument puts the port's back. */
+export function _dfuWearMultipleForTests(m = DFU_WEAR_MULTIPLE) { _dfuMultiple = m; }
+/** WEAR-TWICE: a blow's DFU amount as the port wears it - the multiple, then the scale (blowWear). */
+export const dfuBlowWear = (amount, rolls = Math.random) => (amount > 0 ? blowWear(amount * _dfuMultiple, rolls) : amount);
+
+/** A blow's wear on the port's scale. The amounts are small (a blade's is
+ *  0-2 a hit), so under a fractional scale the fraction is ROLLED rather
+ *  than rounded: a 1-point wear at 0.6 costs 1 on 60% of blows, where
+ *  rounding would cost 1 on every blow (no change) and flooring none (no
+ *  wear). The average is the scale's exactly, and a whole amount - every
+ *  amount at the scale of 1 - draws no roll. */
+export function blowWear(amount, rolls = Math.random) {
+  if (!(amount > 0)) return amount;
+  const x = amount * _wearScale;
+  const n = Math.floor(x);
+  return x > n && rolls() < x - n ? n + 1 : n;
+}
+
 export function lowerCondition(item, amount, owner = null, say = null, removeFrom = null, nameOf = null) {
   mintCondition(item);
   if ((item.maxCondition ?? 0) <= 0) return false;   // no condition to lower: the frozen stand-ins and 0-hitPoint templates cannot break

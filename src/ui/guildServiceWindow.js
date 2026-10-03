@@ -49,14 +49,14 @@
 // because a member panel drops Join and because Spymaster's S and
 // SellMagicItems' S sit under a Talk that is T, never colliding.
 
-import { loadImg, nativeMetrics, drawImg, shadowText, DEFAULT_TEXT_COLOR } from './nativePanel.js';
+import { loadImg, nativeMetrics, drawImg, drawRect, shadowText, DEFAULT_TEXT_COLOR } from './nativePanel.js';
 import { drawScreenDimBackdrop } from './chargenArt.js';
 import { audio } from '../systems/audio.js';   // F141: the ButtonClick roster
 import { SOUND } from '../systems/soundClips.js';
 import { layoutMessageBox, drawMessageBox, messageBoxHit, MB_BUTTONS, latchBoxRows } from './messageBox.js';
 import { noticeFrame, noticeRelease } from './enhancedNotice.js';   // ENH-NOTICE2: the window's own click-anywhere box, as the enhanced panel
 import { drawText, measureText } from './text.js';
-import { serviceLabel, serviceShortcutButton } from '../systems/guildServiceFlow.js';
+import { serviceLabel, serviceShortcutButton, isServiceBox } from '../systems/guildServiceFlow.js';
 import { firstHotkey } from '../systems/dialogShortcuts.js';   // A8: the DaggerfallShortcut table
 
 /** mainPanel.Size (:124) - and the size of both IMGs. */
@@ -75,6 +75,15 @@ export const GUILD_RECTS = Object.freeze({
 
 /** serviceLabel.Position (:135) inside the service button. */
 export const SERVICE_LABEL_OFFSET_Y = 1;
+/** LOOT9 (the Loot arc, bible/06-Systems/Loot-Arc.md section 11): THE REFORGE'S ROW - the Mages Guild's Identify NPC
+ *  offers a fourth press, the Reforge's window (ui/reforgeDoor.js), when its host hands `hooks.reforge`. DFU's 130x51
+ *  art has no room for it, so this one row is the port's own, drawn under the panel in the parchment's dark (the
+ *  classic skin's one port-drawn row; the Enhanced Plus face lists it beside the service - ui/enhancedPorts.js), and
+ *  its key is F. Panel-relative, as the four are. */
+export const REFORGE_RECT = Object.freeze([5, 53, 120, 10]);
+export const REFORGE_ROW = 'Reforge';
+export const REFORGE_KEY = 'KeyF';
+const REFORGE_ROW_BG = Object.freeze([0.16, 0.11, 0.06, 0.92]);
 
 let _art = null;
 /** BOX1: the test seam every other art-gated window carries. */
@@ -126,7 +135,7 @@ export class GuildServiceWindow {
       // said nothing. A null return means the handler DISPATCHED
       // (the film window replaced this one in the overlay slot).
       const next = b.onYes?.();
-      if (next?.rows) this.boxes.unshift({ ...next });
+      if (isServiceBox(next)) this.boxes.unshift({ ...next });
     } else if (button === MB_BUTTONS.No) b.onNo?.();
     if (b.closesWindow) this._close();
     // G6: ClickAnywhereToClose + OnClose (:436-437). The Spymaster's
@@ -139,6 +148,13 @@ export class GuildServiceWindow {
   _push(box) { if (box) this.boxes.push(box); }
 
   _close() { this.done = true; noticeRelease(this); this.hooks.onClose?.(); }
+
+  /** LOOT9: the Reforge's row - a dispatch closes the popup, as a service's does; a box stands on it. */
+  _reforge() {
+    const r = this.hooks.reforge?.();
+    if (isServiceBox(r)) { this._push({ ...r, closesWindow: !!r.closesWindow }); return; }
+    if (r?.dispatched) this._close();
+  }
 
   _join() {
     // JoinButton_OnMouseClick (:497-525): the popup CLOSES first, then
@@ -156,7 +172,7 @@ export class GuildServiceWindow {
     // A refusal is a box on this window (DFU keeps the popup open for
     // both refusals, :314-328); a dispatch closes it (every arm of the
     // switch calls CloseWindow first).
-    if (r?.rows) { this._push({ ...r, closesWindow: !!r.closesWindow }); return; }
+    if (isServiceBox(r)) { this._push({ ...r, closesWindow: !!r.closesWindow }); return; }   // STATION-ROWS
     if (r?.dispatched) this._close();
   }
 
@@ -180,7 +196,8 @@ export class GuildServiceWindow {
       ...(serviceBtn ? [serviceBtn] : []),              // Buttons.None -> no accelerator at all
       'GuildsExit',
     ];
-    const hit = firstHotkey(buttons, code, e);
+    const reforgeKey = !!this.hooks.reforge && code === REFORGE_KEY;   // LOOT9: the Reforge's row, its key F - the one sound below
+    const hit = reforgeKey ? 'Reforge' : firstHotkey(buttons, code, e);
     if (hit === null) return;
     // F141 on the KEYBOARD side too: Talk/Service/Exit each play
     // ButtonClick in their OnKeyboardEvent's KeyDown arm (:299, :460,
@@ -196,6 +213,7 @@ export class GuildServiceWindow {
       // no CloseWindow, exactly like the click arm below.
       case 'GuildsTalk': this.hooks.onTalk?.(); return;
       case 'GuildsExit': this._close(); return;
+      case 'Reforge': this._reforge(); return;   // LOOT9
       default: this._service();   // whichever of the nineteen service buttons hit
     }
   }
@@ -226,6 +244,7 @@ export class GuildServiceWindow {
     if (inRect(GUILD_RECTS.talk, vx, vy)) { audio.playOneShot(SOUND.ButtonClick, 1); this.hooks.onTalk?.(); return true; }
     if (inRect(GUILD_RECTS.service, vx, vy)) { audio.playOneShot(SOUND.ButtonClick, 1); this._service(); return true; }
     if (inRect(GUILD_RECTS.exit, vx, vy)) { audio.playOneShot(SOUND.ButtonClick, 1); this._close(); return true; }
+    if (this.hooks.reforge && inRect(REFORGE_RECT, vx, vy)) { audio.playOneShot(SOUND.ButtonClick, 1); this._reforge(); return true; }   // LOOT9
     return false;
   }
 
@@ -250,6 +269,11 @@ export class GuildServiceWindow {
     drawText(renderer, font, label,
       m.ox + (PANEL_X + sx + Math.round((sw - lw) / 2)) * m.s,
       m.oy + (PANEL_Y + sy + SERVICE_LABEL_OFFSET_Y) * m.s, m.s, DEFAULT_TEXT_COLOR);
+    if (this.hooks.reforge) {   // LOOT9: the Reforge's row, under DFU's panel
+      const [rx, ry, rw, rh] = REFORGE_RECT;
+      drawRect(renderer, m, PANEL_X + rx, PANEL_Y + ry, rw, rh, REFORGE_ROW_BG);
+      shadowText(renderer, font, REFORGE_ROW, m, PANEL_X + rx, PANEL_Y + ry + 2, { align: 'center', w: rw });
+    }
     const top = this.top;
     if (noticeFrame(this, top && top.buttons !== 'YesNo' ? latchBoxRows(top, this.hooks.rows) : null)) { this._box = null; return; }   // ENH-NOTICE2
     if (top) {

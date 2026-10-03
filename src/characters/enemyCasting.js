@@ -185,7 +185,7 @@ export class EnemyCaster {
     // landing an interrupted blow DFU would have cancelled. Reachable
     // where ResetMeleeTimer floors: player level ~22+ at low reflexes.
     if (canAct && ai.inSight && ai.detected && ai.giveUpTimer > 0
-        && attack.meleeTimer === 0 && dist <= MELEE_DISTANCE) {
+        && attack.meleeTimer === 0 && dist <= MELEE_DISTANCE && ai._tacStrike !== false) {   // TACT2: a touch spell is a blow - it waits its turn
       const sp = pickTouchSpell(ent, playerEntity, this.rolls);
       // EnemyMotor.cs:619-628: SetReadySpell is the LAST term of
       // DoTouchSpell's `&&` chain and ResetMeleeTimer runs INSIDE the
@@ -250,8 +250,10 @@ export class EnemyCaster {
       // nor the yaw gate touches the selection: outside 22.5 degrees
       // DFU turns to face and still stands off (:603-604).
       if (!idle || !withinYaw(ai.yaw, dx, dz, SPELL_YAW_DEG)) continue;
+      if (ai._tacShoot === false) continue;   // TACT2: no ranged token - it waits its turn (unset with the switch off)
       if (this.rolls() >= RANGED_SPELL_CHANCE) continue;
       decision = { spell: this.selectedSpell, touch: false };
+      ai._tacShot = (ai._tacShot ?? 0) + 1;   // AUDIT TACT A2: a ranged spell spends the ranged token as a shot does
     }
     return decision;
   }
@@ -327,7 +329,7 @@ export function castEnemySpell(f, spell, {
     // wrong under both models, and off by up to a metre against the
     // 4.0-radius OverlapSphere, which flips rim membership.
     explodeAt?.([f.ai.feet[0], casterTransformY, f.ai.feet[2]], spell, f.entity.level, playerFeet,
-      { entity: f.entity, sinks: foeSinks(f) }, { excludeFoe: f, playerHeight });
+      { entity: f.entity, sinks: foeSinks(f), foe: f }, { excludeFoe: f, playerHeight });   // AUDIT NAV2 F56: the wrapper carries its foe, as a missile's does (hostMagic.js missileCaster) - the engine asks it whose blast this is, and a crewman's passes the player and the crew by
     return true;
   }
   fireMissile?.(from, spell, f.entity.level, f, aimAt);

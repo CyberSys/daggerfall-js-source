@@ -86,8 +86,8 @@
   {
     "name": "QP-stranger-stands-them",
     "file": "src/scenes/exteriorFoes.js",
-    "old": "      if (qt && !_questShare?.accepts?.(from, qt)) { if (f) removePuppet(f); continue; }",
-    "new": "",
+    "old": "      if (qt && !_questShare?.accepts?.(from, qt) && !(heirIsMe(r) && _questShare?.partyPeer?.(from))) {   // QUEST-PARTY: a party's quest foes stand at its members alone",
+    "new": "      if (false) {   // QUEST-PARTY: a party's quest foes stand at its members alone",
     "tests": ["test/questparty.test.js"]
   },
   {
@@ -107,8 +107,8 @@
   {
     "name": "QP-pending-forgets-its-quest",
     "file": "src/scenes/exteriorFoes.js",
-    "old": "      _pupPending.set(key, { ...r, _site: site, _deep: deep, _quest: qt });",
-    "new": "      _pupPending.set(key, { ...r, _site: site, _deep: deep });",
+    "old": "      _pupPending.set(key, { ...r, _site: site, _deep: deep, _quest: qt, _raid: raidKey, _camp: campTags.get(r.i) ?? null });",
+    "new": "      _pupPending.set(key, { ...r, _site: site, _deep: deep, _raid: raidKey, _camp: campTags.get(r.i) ?? null });",
     "tests": ["test/questparty.test.js"]
   },
   {
@@ -135,7 +135,7 @@
   {
     "name": "QP-no-kill-credit",
     "file": "src/scenes/exteriorFoes.js",
-    "old": "    if (f._pupQuest) _questShare?.onPuppetDied?.(f._pupQuest);",
+    "old": "    if (f._pupQuest) _questShare?.onPuppetDied?.(f._pupQuest, f.puppet, f.seq);",
     "new": "",
     "tests": ["test/questparty.test.js"]
   },

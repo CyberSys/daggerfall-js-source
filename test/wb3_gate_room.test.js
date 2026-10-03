@@ -10,11 +10,11 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
 import {
-  newFight, joinFight, applyHit, stepBrain, stateOf, earned, earnedBy, topDealers, pickTarget, attacksFor, chooseAttack, windupOf,
+  newFight, joinFight, applyHit, stepBrain, stateOf, earned, earnedBy, topDealers, damageChart, pickTarget, attacksFor, chooseAttack, windupOf,
   keepInCourt, dpsRef, clampLv, COURT_CENTRE, COURT_R, BOSS_R, BOSS_REACH_R, BOSS_SPEED, BRAIN_TICK_MS, CHECKPOINT_MS, OPENING_MS,
   STATE_SEND_MS, HP_SEND_MS, SHIELD_MS, PHASE_AT, PHASE3_WINDUP, BOSS_TTK_S, BUCKET_RATE_X, BUCKET_DEPTH_X, HIT_CAP_X,
   GATE_HIT_HZ_MAX, MELEE_REACH, POSE_SLACK, HIT_KINDS, ATTACKS, ATTACK_BY_ID, THREAT_PICK, RECEIPT_SHARE, STOOD_SHARE,
-  GATE_FIGHTERS_MAX, LV_MAX, TARGET_HOLD_MS, TURN_BREATH_MS, wrapYaw,
+  GATE_FIGHTERS_MAX, LV_MAX, TARGET_HOLD_MS, TURN_BREATH_MS, wrapYaw, profileOf, COURTS, CROSS_WARD_MAX_MS,
 } from '../src/net/gateBrain.js';
 import { mintReceipt, verifyReceipt, readReceipt, receiptValid, importReceiptKey, RECEIPT_V, RECEIPT_MAX, RECEIPT_TTL_S } from '../src/net/gateReceipt.js';
 import { mintToken, verifyToken, _b64url } from '../src/net/identityToken.js';
@@ -115,7 +115,8 @@ test('WB3 brain: the kill - at zero the fight stamps its fall once (when, the th
   f.hp = 1;
   t += 300;
   applyHit(f, 's3', 50, 0, near, t);
-  assert.deepEqual(f.fell, { at: t, top: ['P2', 'P4', 'P1'], n: 4 });
+  assert.deepEqual(f.fell, { at: t, top: ['P2', 'P4', 'P1'], n: 4, dm: damageChart(f) });   // GATE-UX: and its damage chart (test/gateux_gate.test.js)
+  assert.deepEqual(f.fell.dm.map((r) => r.n), ['P2', 'P4', 'P1', 'P3'], 'every part, ranked - the last blow too');
   assert.equal(f.hp, 0);
   assert.equal(applyHit(f, 's1', 50, 0, near, t + 500), 0, 'a blow on the fallen');
   assert.equal(f.fell.at, t, 'and the fall is stamped once');
@@ -163,7 +164,10 @@ test('WB3 brain: the attacks\' tables - every attack\'s wind-up long enough to r
     assert.equal(windupOf(a, 2), a.windup);
   }
   assert.equal(windupOf(ATTACKS.wrath, 3), ATTACKS.wrath.windup);
-  assert.deepEqual(ATTACK_BY_ID.map((a) => a.id), [0, 1, 2, 3, 4, 5, 6, 7, 8], 'WBX5: the leap, the meteor and the spokes join the six');
+  // WB9b/c: nor the bound's across the fire nor Dagon's Reckoning's - each is its turn's own, the same in every phase
+  assert.equal(windupOf(ATTACKS.cross, 3), ATTACKS.cross.windup);
+  assert.equal(windupOf(ATTACKS.reckon, 3), ATTACKS.reckon.windup);
+  assert.deepEqual(ATTACK_BY_ID.map((a) => a.id), [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10], 'WBX5: the leap, the meteor and the spokes join the six; WB9b/c: the bound and the Reckoning');
   assert.deepEqual(attacksFor(1, 1, 0).map((a) => a.key), ['cleave'], 'phase one, close, nobody inside the slam');
   assert.deepEqual(attacksFor(1, -1, 1).map((a) => a.key), ['cleave', 'slam'], 'a player inside his body is in reach of everything close');
   assert.deepEqual(attacksFor(1, 1, 1).map((a) => a.key), ['cleave', 'slam']);
@@ -190,32 +194,41 @@ test('WB3 brain: the phases - at 66% and 33% he roars (`ph`), stands shielded SH
   f.hp = f.max * PHASE_AT[0];
   f.pos = [6, -4];
   const out = stepBrain(f, T0 + 5000, bodies, seeded(1));
-  assert.deepEqual(out.find((o) => o.k === 'ph'), { k: 'ph', n: 2, until: T0 + 5000 + SHIELD_MS });
-  // WBX5: THE TURN IS A SEQUENCE - the leap into the court's heart with the roar, then the nova from there
+  // WB9b: the ward holds through the bound and the wait in the next court - CROSS_WARD_MAX_MS at most
+  assert.deepEqual(out.find((o) => o.k === 'ph'), { k: 'ph', n: 2, until: T0 + 5000 + CROSS_WARD_MAX_MS });
+  // WBX5: THE TURN IS A SEQUENCE - WB9b: the bound across the fire to the next court's heart with the roar, the wait
+  // there for a challenger to cross, then the nova from its heart
   const leap = out.find((o) => o.k === 'atk');
-  assert.equal(leap.a, ATTACKS.leap.id, 'the turn opens with the leap');
-  assert.deepEqual(leap.tg, [[0, 0]], 'into the court\'s heart');
-  assert.equal(applyHit(f, 's1', 10, 0, { x: 6, z: -1 }, T0 + 5000 + SHIELD_MS - 1), 0, 'blows glance');   // at his side before the leap has carried him
-  assert.ok(applyHit(f, 's1', 10, 0, { x: 6, z: -1 }, T0 + 5000 + SHIELD_MS) > 0, 'and land again');
+  assert.equal(leap.a, ATTACKS.cross.id, 'the turn opens with the bound');
+  assert.deepEqual(leap.tg, [[...COURTS[1]]], 'into the next court\'s heart');
+  assert.equal(applyHit(f, 's1', 10, 0, { x: 6, z: -1 }, T0 + 5000 + SHIELD_MS), 0, 'blows glance through the bound');   // at his side before it has carried him
   let t = f.atk.until;
-  assert.ok(!stepBrain(f, t, bodies, seeded(1)).some((o) => o.k === 'atk'), 'a breath after the leap');
-  assert.deepEqual(f.pos, [0, 0], 'he came down where it landed');
-  const nova = stepBrain(f, t + TURN_BREATH_MS, bodies, seeded(1)).find((o) => o.k === 'atk');
+  assert.ok(!stepBrain(f, t, bodies, seeded(1)).some((o) => o.k === 'atk'), 'a breath after the bound');
+  assert.deepEqual(f.pos, [...COURTS[1]], 'he came down where it landed');
+  assert.ok(!stepBrain(f, t + TURN_BREATH_MS, bodies, seeded(1)).some((o) => o.k === 'atk' || o.k === 'ph'), 'nobody has crossed: he waits, warded');
+  const over = (k) => bodies.map((b) => body(b.sub, COURTS[k][0] + b.x, COURTS[k][1] + b.z));
+  const arrive = stepBrain(f, t + 2 * TURN_BREATH_MS, over(1), seeded(1));
+  assert.deepEqual(arrive.find((o) => o.k === 'ph'), { k: 'ph', n: 2, until: t + 2 * TURN_BREATH_MS + SHIELD_MS }, 'a challenger crosses: the ward holds SHIELD_MS more');
+  const nova = stepBrain(f, t + 3 * TURN_BREATH_MS, over(1), seeded(1)).find((o) => o.k === 'atk');
   assert.equal(nova.a, ATTACKS.nova.id, 'the nova as the ward breaks');
-  assert.deepEqual([nova.x, nova.z], [0, 0], 'from the heart');
+  assert.deepEqual([nova.x, nova.z], [...COURTS[1]], 'from the heart');
+  assert.ok(applyHit(f, 's1', 10, 0, { x: COURTS[1][0] + 3, z: COURTS[1][1] }, t + 3 * TURN_BREATH_MS + SHIELD_MS) > 0, 'and blows land again');
   f.atk = null; f.hp = f.max * PHASE_AT[1];
-  const o3 = stepBrain(f, T0 + 20000, bodies, seeded(1));
+  const o3 = stepBrain(f, T0 + 20000, over(1), seeded(1));
   assert.equal(f.phase, 3);
-  assert.equal(o3.find((o) => o.k === 'atk').a, ATTACKS.leap.id, 'the leap again');
-  t = f.atk.until; stepBrain(f, t, bodies, seeded(1));
-  const sp1 = stepBrain(f, t + TURN_BREATH_MS, bodies, seeded(1)).find((o) => o.k === 'atk');
+  const b3 = o3.find((o) => o.k === 'atk');
+  assert.equal(b3.a, ATTACKS.cross.id, 'the bound again');
+  assert.deepEqual(b3.tg, [[...COURTS[2]]], 'to the last court');
+  t = f.atk.until; stepBrain(f, t, over(2), seeded(1));
+  assert.ok(stepBrain(f, t + TURN_BREATH_MS, over(2), seeded(1)).some((o) => o.k === 'ph'), 'the challengers already over: the wait is a breath');
+  const sp1 = stepBrain(f, t + 2 * TURN_BREATH_MS, over(2), seeded(1)).find((o) => o.k === 'atk');
   assert.equal(sp1.a, ATTACKS.spokes.id, 'then the spokes');
-  t = f.atk.until; stepBrain(f, t, bodies, seeded(1));
-  const sp2 = stepBrain(f, t + TURN_BREATH_MS, bodies, seeded(1)).find((o) => o.k === 'atk');
+  t = f.atk.until; stepBrain(f, t, over(2), seeded(1));
+  const sp2 = stepBrain(f, t + TURN_BREATH_MS, over(2), seeded(1)).find((o) => o.k === 'atk');
   assert.equal(sp2.a, ATTACKS.spokes.id, 'and the four between them');
   assert.ok(Math.abs(wrapYaw(sp2.yw - sp1.yw) - Math.PI / 4) < 0.02, `turned an eighth: ${sp1.yw} -> ${sp2.yw}`);
   assert.ok(Math.abs(sp2.yw) <= Math.PI + 1e-9, 'a facing the wire admits');
-  t = f.atk.until; stepBrain(f, t, bodies, seeded(1));
+  t = f.atk.until; stepBrain(f, t, over(2), seeded(1));
   assert.equal(f.queue.length, 0, 'the turn is done');
   // phase three's Hellfire over three living players: five points at most a volley, two volleys
   const g = fightOf([10, 10, 10]);
@@ -311,7 +324,8 @@ test('WB3 brain: the checkpoint - the fight is plain numbers and strings, so the
   assert.deepEqual(copy, f);
   for (let t = T0 + 20000; t < T0 + 40000; t += 250) assert.deepEqual(stepBrain(copy, t, bodies, seeded(t)), stepBrain(f, t, bodies, seeded(t)));
   const st = stateOf(f);
-  assert.deepEqual(Object.keys(st).sort(), ['atk', 'b', 'd', 'fell', 'h', 'k', 'm', 'mv', 'n', 'ph', 'sh', 'wr', 'wrath', 'x', 'yw', 'z']);
+  assert.deepEqual(Object.keys(st).sort(), ['atk', 'b', 'ct', 'cx', 'd', 'fell', 'h', 'k', 'm', 'md', 'mv', 'n', 'op', 'ph', 'rk', 'sh', 'su', 'wr', 'wrath', 'x', 'xa', 'yw', 'z']);   // WB8b: his marks; WB9b/c: his court, the walkways laid, the crystals, the stun, the next Reckoning; WB13e: the opening's end
+  assert.equal(st.op, f.startedAt + OPENING_MS, 'WB13e: his wake, on every screen');
   assert.deepEqual(validGateOut(st), { ...st }, 'and the wire takes it whole');
   assert.ok(keepInCourt(100, 0)[0] === BOSS_REACH_R);
   assert.equal(HP_SEND_MS, BRAIN_TICK_MS, 'the health at most once a beat');
@@ -381,13 +395,13 @@ test('WB3 receipt: the relay\'s key from its secret - PKCS8 in base64 (the accou
 // ═══ THE WIRE ════════════════════════════════════════════════════════════════════════════════════════════════════
 
 test('WB3 wire: the client says two things - `in` with a level claim, `hit` with a sequence, a damage and a kind - projected field by field, after a hello alone; the room says its closed list of kinds, each bounded; the first relay that runs a boss room is GATE_RELAY_MIN (mutants: an extra field carried; a damage past the wire\'s bound; a refusal word invented)', () => {
-  assert.deepEqual(GATE_KINDS, ['in', 'hit', 'spent']);   // AUDIT WBX S1: and the hub's `spent`
+  assert.deepEqual(GATE_KINDS, ['in', 'hit', 'spent', 'site', 'xhit', 'ahit', 'heal']);   // AUDIT WBX S1: and the hub's `spent`; DISCORD-GATES: and its `site`; WB9c: a blow on a crystal; WB11b: on one of his host; GATE-HEAL: what healed me
   // AUDIT WBX R7: the brain's law on `in` (a whole number, carried when said); AUDIT WBX S1: a day spent, whole
   assert.deepEqual(validGateIn({ k: 'in', lv: 12, bv: GATE_BRAIN_V }), { k: 'in', lv: 12, bv: GATE_BRAIN_V });
   assert.deepEqual(validGateIn({ k: 'in', lv: 12, bv: 1.5 }), { k: 'in', lv: 12 });
   assert.deepEqual(validGateIn({ k: 'spent', d: 514, x: 1 }), { k: 'spent', d: 514 });
   for (const bad of [{ k: 'spent' }, { k: 'spent', d: -1 }, { k: 'spent', d: 1.5 }]) assert.equal(validGateIn(bad), null);
-  assert.deepEqual(GATE_OUT_KINDS, ['st', 'mv', 'atk', 'hp', 'ph', 'wrath', 'fell', 'rcpt', 'no']);
+  assert.deepEqual(GATE_OUT_KINDS, ['st', 'mv', 'atk', 'hp', 'ph', 'wrath', 'fell', 'rcpt', 'no', 'fed', 'cx', 'cxh', 'cxb', 'stun', 'ad', 'amv', 'aatk', 'ah', 'adie']);   // WB8b: a Soul-Hungry Warden's feeding; WB9c: the crystals and the stun; WB11b: his host
   assert.deepEqual(validGateIn({ k: 'in', lv: 12, x: 1 }), { k: 'in', lv: 12 });
   assert.deepEqual(validGateIn({ k: 'hit', q: 3, d: 12.5, r: 2, extra: true }), { k: 'hit', q: 3, d: 12.5, r: 2 });
   for (const bad of [{ k: 'in' }, { k: 'in', lv: 0 }, { k: 'in', lv: GATE_LV_WIRE_MAX + 1 }, { k: 'in', lv: 1.5 }, { k: 'hit', q: -1, d: 1, r: 0 }, { k: 'hit', q: 1, d: 0, r: 0 },
@@ -402,7 +416,7 @@ test('WB3 wire: the client says two things - `in` with a level claim, `hit` with
   assert.equal(validGateOut({ k: 'hp', h: 11, m: 10 }), null, 'health past its maximum');
   assert.deepEqual(validGateOut({ k: 'atk', i: 1, a: 3, at: 5000, x: 0, z: 0, yw: 0, tg: [[1, 2]] }).tg, [[1, 2]]);
   assert.equal(validGateOut({ k: 'atk', i: 1, a: 3, at: 5000, x: 0, z: 0, yw: 0, tg: Array.from({ length: 11 }, () => [0, 0]) }), null);
-  assert.equal(validGateOut({ k: 'mv', x: 0, z: 0, tx: 99, tz: 0, v: 3.2, at: 5 }), null, 'off the court');
+  assert.equal(validGateOut({ k: 'mv', x: 0, z: 0, tx: 199, tz: 0, v: 3.2, at: 5 }), null, 'off the court');   // WB9b: the three courts' bound
   assert.deepEqual(validGateOut({ k: 'fell', at: 9, top: ['A', 'B', 'C', 'D'], n: 4, d: 3 }), { k: 'fell', at: 9, top: ['A', 'B', 'C'], n: 4, d: 3 });
   assert.equal(validGateOut({ k: 'rcpt', r: 'v1.abc.def' }), null);
   assert.equal(relaySupportsGate('world109'), false);
@@ -473,7 +487,7 @@ test('WB3 relay: THE JOIN - `in` answers the whole state to the one who said it,
     await r.hello(a, 'peer-0001', at(0, 4)); await r.hello(b, 'peer-0002', at(3, 4));
     await say(a, { k: 'in', lv: 10, bv: GATE_BRAIN_V });
     const st = gates(a, 'st')[0];
-    assert.equal(st.d, DAY); assert.equal(st.b, gateBossOf(DAY).id); assert.equal(st.n, 1); assert.equal(st.m, BOSS_TTK_S * dpsRef(10));
+    assert.equal(st.d, DAY); assert.equal(st.b, gateBossOf(DAY).id); assert.equal(st.n, 1); assert.equal(st.m, BOSS_TTK_S * dpsRef(10) * profileOf(r.room._fight).hpX);   // WB11a: the day's marks moved with the nine-trial rotation - a Colossal Warden's share is a quarter more
     assert.equal(gates(b).length, 0, 'the state went to its asker alone');
     assert.equal(r.alarm.at, now() + BRAIN_TICK_MS);
     assert.ok(r.room._fight.players['acct-peer-0001'], 'the fight knows the account the token verified');
@@ -503,9 +517,9 @@ test('WB3 relay: A BLOW - believed as far as the brain allows from where the soc
     assert.equal(f.hp, full, 'from the dead');
     await r.pose(a, at(0, 3));
     await say(a, { k: 'hit', q: 4, d: 10, r: 0 });
-    assert.equal(f.hp, full - 10);
+    assert.equal(f.hp, full - 10 * profileOf(f).hitX, 'the blow as his marks take it (WB8b: Unyielding\'s lighter)');
     await tick(1);
-    assert.deepEqual(gates(a, 'hp').at(-1), { t: 'gate', k: 'hp', h: full - 10, m: f.max });
+    assert.deepEqual(gates(a, 'hp').at(-1), { t: 'gate', k: 'hp', h: Math.round(full - 10 * profileOf(f).hitX), m: f.max });
     // a flood of frames that are not junk - the meter's own strikes close it
     for (let i = 0; i < GATE_HZ_MAX + DROP_STRIKES_MAX + 2; i++) await say(a, { k: 'in', lv: 10, bv: GATE_BRAIN_V });
     assert.ok(a.closed, 'a flood of `in` is struck out by the gate meter');
@@ -580,7 +594,7 @@ test('WB3 relay: NO KEY - the fight and its receipts run the same, unsigned (the
     const a = r.connect(); await r.hello(a, 'peer-0001', at(0, 3));
     await say(a, { k: 'in', lv: 10, bv: GATE_BRAIN_V });
     await tick(20);
-    const hp = r.room._fight.hp - 10;
+    const hp = r.room._fight.hp - 10 * profileOf(r.room._fight).hitX;   // WB8b: the day's marks
     await say(a, { k: 'hit', q: 1, d: 10, r: 0 });
     await tick(Math.ceil(CHECKPOINT_MS / BRAIN_TICK_MS) + 1);
     r.wake();

@@ -40,10 +40,12 @@ export const HOVER_MAX = 6;
  * `loot:` and `corpse:` are the dungeon's RDB piles and its bodies,
  * `droppedLoot:` is what a player left on the floor, and `foeCorpse:`
  * and `guardCorpse:` are the two above-ground bodies; `dwFish:` is Iliac
- * Puddle No More's fish, a DaggerfallLoot of one item (DW-E3). A key whose
- * prefix is not here draws as a name.
+ * Puddle No More's fish, a DaggerfallLoot of one item (DW-E3); `spoil:` is a
+ * piece of the Burning Court's spoils on its floor, a pile of one (WB9f - the
+ * gold beside it is `spoilGold:`, a name). A key whose prefix is not here
+ * draws as a name.
  */
-export const ITEMISED_KEYS = Object.freeze(['loot:', 'corpse:', 'droppedLoot:', 'foeCorpse:', 'guardCorpse:', 'dwFish:']);
+export const ITEMISED_KEYS = Object.freeze(['loot:', 'corpse:', 'droppedLoot:', 'foeCorpse:', 'guardCorpse:', 'dwFish:', 'spoil:']);
 
 /** Does this key open a list, or only a name? */
 export const keyItemises = (key) => typeof key === 'string' && ITEMISED_KEYS.some((p) => key.startsWith(p));
@@ -259,9 +261,13 @@ export function resolveHover(hit, { name = null, contents = null } = {}) {
   const renowned = (f) => { if (Number.isSafeInteger(named.renown) && named.renown > 0) f.renown = named.renown; return f; };
   if (acts.length) {
     const f = frame(key, 'actions', named.title, named.subs ?? [], acts.map((a) => ({
-      name: a.disabled ? `${a.label} (${a.why || 'not now'})` : a.label, id: a.id, disabled: !!a.disabled, stack: 0, rarity: null, item: null,
+      // PROF-MENU: a refusal whose label already says it ('Red Rose - gathered today') carries an EMPTY reason - no
+      // "(not now)" after it; an absent one still says that
+      name: a.disabled ? (a.why === '' ? a.label : `${a.label} (${a.why || 'not now'})`) : a.label, id: a.id, disabled: !!a.disabled, stack: 0, rarity: null, item: null,
     })));
     if (named.actionsUnlit) f.startUnlit = true;
+    // BOAT-MENU: a namer may light a row other than the top first (a boat's: the box under the crosshair's own verb)
+    else if (Number.isInteger(named.actionsStart) && named.actionsStart > 0 && named.actionsStart < acts.length) f.startRow = named.actionsStart;
     return renowned(f);
   }
   const f = frame(key, 'name', named.title, named.subs ?? []);
@@ -318,15 +324,17 @@ export function nextSelection(prev, frame, delta = 0) {
   const d = Number.isFinite(delta) ? Math.trunc(delta) : 0;
   // AUDIT DISC7 A2: a list that starts UNLIT (a player's verbs) opens at -1 and the wheel steps onto it
   const floor = frame.startUnlit ? -1 : 0;
+  // BOAT-MENU: where a new key's list starts - its `startRow` when it names one, else the floor
+  const start = Number.isInteger(frame.startRow) && frame.startRow < rows ? frame.startRow : floor;
   // AUDIT DISC7 A3: a row with an id keeps ITS row when the list changes under it (a request sent drops a verb and
   // the one below slid into the lit slot - the next click pressed a verb nobody chose); a row gone clamps as before
-  let row = floor;   // a new key starts at the top (or unlit) whatever the nudge
+  let row = start;   // a new key starts at the top (or unlit, or its start row) whatever the nudge
   if (prev && prev.key === frame.key) {
     const at = prev.id != null ? frame.rows.findIndex((r) => r.id === prev.id) : -1;
     // AUDIT MERGE-PLUS A1: and a lit row WITH an id that is gone lights no neighbour - HOME2's "Buy it" bought, the
     // owner's rows came in and "Who may enter" was clamped into its slot, so the next click turned the house over to
     // the party unasked. It starts again where the list starts (or unlit); a row with no id (a pile's) clamps as before.
-    row = prev.id != null && at < 0 ? floor : Math.max(floor, Math.min(rows - 1, (at >= 0 ? at : prev.row) + d));
+    row = prev.id != null && at < 0 ? start : Math.max(floor, Math.min(rows - 1, (at >= 0 ? at : prev.row) + d));
   }
   const id = row >= 0 ? frame.rows[row]?.id : undefined;
   return id != null ? { key: frame.key, row, id } : { key: frame.key, row };

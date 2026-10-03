@@ -110,10 +110,11 @@
   {
     "name": "log-step-time-not-saved",
     "file": "src/systems/quest/quest.js",
-    "old": "    this.activeLogMessages.set(stepID, { stepID, messageID, time: this.nowSeconds?.() ?? 0 });",
+    "old": "    this.activeLogMessages.set(stepID, { stepID, messageID, time: this.worldSeconds?.() ?? 0 });",
     "new": "    this.activeLogMessages.set(stepID, { stepID, messageID });",
     "tests": [
       "test/auditquests_linkage.test.js"
-    ]
+    ],
+    "note": "TIME3 (PIN MOVED): the step's time is stamped on the event clock (worldSeconds) now; re-aimed by content."
   }
 ]

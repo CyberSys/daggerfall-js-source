@@ -223,7 +223,7 @@ test('AUDIT PSCALE1 the dungeon, mounted: a layout foe is as tough as the player
   j.healFoe(lf, 20); assert.equal(lf.entity.health, 113, 'a joiner\'s copy is the host\'s to heal - unweighed until the record');
   // the blow and the arrow at me: weighed where the damage is declared, so the flash and the cry read what I took
   const S = strip(D);
-  assert.match(S, /const dmg = _weighHit\(f, foeDeps\.calculateAttackDamage\(f\.entity, foeDeps\.playerEntity, \{/, 'the blow');
+  assert.match(S, /const dmg = (?:blowScaled\(f\.ai, )?_weighHit\(f, foeDeps\.calculateAttackDamage\(f\.entity, foeDeps\.playerEntity, \{/, 'the blow');
   assert.match(S, /const dmg = foeDeps && shooter \? _weighHit\(shooter, foeDeps\.calculateAttackDamage\(shooter\.entity, playerEntity, \{/, 'the arrow');
   const melee = S.slice(S.indexOf('function resolveFoeMelee('), S.indexOf('function collisionTriggers('));
   assert.deepEqual(melee.match(/hurtPlayer\([^)]*\)/g), ['hurtPlayer(dmg)'], 'the blow lands the weighed number');
@@ -245,7 +245,7 @@ test('AUDIT PSCALE1 the count\'s other readers: the outdoor roll counts the part
   assert.equal(size({ online: { status: 'open', room: 'dungeon:m7' }, partyNear: () => [] }), 1, 'a dungeon room counts no strangers - a fight there weighs its fighters');
   assert.equal(size({ online: { status: 'connecting', room: 'world:3,12' }, partyNear: () => mates }), 1, 'a room not open');
   assert.equal(size({ online: { status: 'open', room: 'world:3,12' }, partyNear: () => new Array(9).fill({ feet: [1, 0, 1] }) }), 8, 'never past the seats');
-  assert.match(strip(W), /setRenownKillHandler\(\(foe\) => \{ const party = 1 \+ \(partyNear\(\)\?\.length \?\? 0\); const xp = renownPartyXp\(renownKillXp\(renownFoeLevel\(foe\), renownNow\), Number\.isInteger\(foe\?\._fightN\) \? Math\.min\(party, foe\._fightN\) : party\); renownTracker\.earn\(xp\); sigilDrinks\(xp\); \}\);/, 'PLAY-4: the bonus');
+  assert.match(strip(W), /setRenownKillHandler\(\(foe\) => \{ const party = 1 \+ \(partyNear\(\)\?\.length \?\? 0\); const xp = renownPartyXp\(renownKillXp\(renownFoeLevel\(foe\), renownNow\), Number\.isInteger\(foe\?\._fightN\) \? Math\.min\(party, foe\._fightN\) : party\); renownTracker\.earn\(xp\); sigilDrinks\(xp\); seatEdicts\.campCleared\(foe\?\.site\)\.catch\(\(\) => \{\}\); \}\);/, 'PLAY-4: the bonus');   // SEAT1d (PIN MOVED): a Bounty's camp claimed after
   assert.ok(!/partySize: \(\) => partySize\(\)/.test(strip(W)), 'no pool or mode is handed the roll\'s count for a fight');
   assert.ok(!/partySize:/.test(strip(read('src/scenes/worldModes.js'))), 'nor the dungeon');
 });
@@ -259,7 +259,12 @@ function stands(over = {}) {
     modes: { mode: 'exterior' }, span: 1, amGroupRollOwner, online: { id: 'mac-0002' }, player: { feetAt: () => [0, 0, 0], isPlayerSwimming: false },
     partyNear: () => [], walkMode: true, playerSpawned: true, intermittentEnemySpawn: () => ({ mobileType: over.mobileType ?? 7 }), _lastEncMinutes: 0,
     playerEntity: { isResting: false, level: 1 }, _musicInLocationRect: () => false, maps: { getClimateIndex: () => 0 }, playerTravelPixel: () => ({ x: 0, y: 0 }),
-    SOLITARY_TYPES, partyExtraFoes, partySize: () => 1, _standEncounterFoe: (hit) => out.push(hit.mobileType), playerFeet: [0, 0, 0], ...over,
+    SOLITARY_TYPES, partyExtraFoes, partySize: () => 1, effectiveLevel: (e) => e?.level ?? 1,   // SOFTCAP2: mentor mode's level, a leaf read
+    _standEncounterFoe: (hit) => out.push(hit.mobileType), playerFeet: [0, 0, 0],
+    revenantToReturn: () => null, now: 0,   // REVENANT: none due here (the tick's minute, above this slice)
+    sharedClockOn: () => false, worldMinutes: () => 0,   // LIVED1: the spawn roll's sky (the world's clock online)
+    spawns: true,   // AUDIT LIVED1b P1: the loop's own parameter - a solo tick asks for its wanderers
+    ...over,
   }, '}');
   return out;
 }
@@ -288,20 +293,26 @@ test('AUDIT PSCALE1 a camp or a pack grows by its own members, mounted - one mor
   const at = t.indexOf('const _standCampEncounter = (hit, feet) => {');
   assert.ok(at > 0, 'the camp stand is found');
   const fn = balanced(t, at + 'const _standCampEncounter = '.length, '{', '}');
-  const camp = (n) => {
+  const cm = t.indexOf('const campMembers = (types) =>');   // OW6: the growth's one home, lifted with the stand
+  assert.ok(cm > 0, 'the members\' grower is found');
+  const campMembersSrc = t.slice(cm, t.indexOf(';', cm) + 1);
+  const camp = (n, mobileTypes = [10, 11, 12]) => {
     const stood = [];
-    const standCamp = mount('', {
+    const standCamp = mount(campMembersSrc, {
       placeFoeEnv: () => ({}), collider: {}, cam: { yaw: 0 }, fieldOfView: () => 1, entityOccupancy: () => () => false, _placingPool: () => [], campAnchorSpot: () => ({ x: 20, y: 0, z: 0 }),   // CAMP-FAR: main's anchor, a hundred metres out
-      LOOSE_FOE_PLACE_ATTEMPTS: 1, placeFoeFreely: () => ({ x: 1, y: 0, z: 1 }), _inAnyLocationRect: () => false, _nearRoad: () => false, _overDeepWater: () => false, CAMP_ROAD_CLEAR_M: 4, _nextCampId: 1,   // ROADS-CLEAR: no road here
-      partyGroupMembers, partySize: () => n, ENEMY_BASICS: {},
-      exteriorFoes: { spawnFoe: (mobileType) => { stood.push(mobileType); return Promise.resolve(null); } },
+      LOOSE_FOE_PLACE_ATTEMPTS: 1, placeFoeFreely: () => ({ x: 1, y: 0, z: 1 }), _inAnyLocationRect: () => false, _nearRoad: () => false, _overDeepWater: () => false, CAMP_ROAD_CLEAR_M: 4,   // ROADS-CLEAR: no road here
+      partyGroupMembers, partySize: () => n, MAX_ACTIVE_ENCOUNTER_FOES, ENEMY_BASICS: {},
+      exteriorFoes: { newCampId: () => 1, spawnFoe: (mobileType) => { stood.push(mobileType); return Promise.resolve(null); } },   // OW6: the pool's counter
     }, `return (hit, feet) => ${fn.slice(fn.indexOf('{'))};`);
-    standCamp({ mobileTypes: [10, 11, 12], minDistance: 14, maxDistance: 26, spacing: 3, alertRadius: 9 }, [0, 0, 0]);
+    standCamp({ mobileTypes, minDistance: 14, maxDistance: 26, spacing: 3, alertRadius: 9 }, [0, 0, 0]);
     return stood;
   };
   assert.deepEqual(camp(1), [10, 11, 12], 'alone, the camp as it rolled');
   assert.deepEqual(camp(5), [10, 11, 12, 10, 11], 'five: two more, from its own in order');
   assert.deepEqual(camp(8), [10, 11, 12, 10, 11, 12], 'eight: three more');
+  // OW6: a roaming band's warband of six met by a full party grows to the POOL's bound and no further - nine never stood
+  assert.deepEqual(camp(8, [20, 21, 22, 23, 24, 25]), [20, 21, 22, 23, 24, 25, 20, 21], 'six and a full party: eight, the pool\'s bound');
+  assert.equal(MAX_ACTIVE_ENCOUNTER_FOES, 8);
 });
 
 test('AUDIT PSCALE1 COUNT-3: a stand in flight holds its spot - the pool names the feet crossing spawnFoe\'s awaits, and the camp and the wanderer place against them (mutants: the pending feet unexported, the placing pool without them)', async () => {

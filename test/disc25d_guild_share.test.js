@@ -39,14 +39,15 @@ test('DISC25-D: a guild quest refused to a non-member names the guild - a temple
   assert.equal(shareRefusalText({ reason: 'guild' }), SHARE_REFUSAL_TEXT.guild);
   assert.equal(shareRefusalText({ reason: 'nonsense' }), null);
   // and the receiver's line is built from it
-  assert.match(rd('src/scenes/world.js'), /const why = shareRefusalText\(result\);/);
+  assert.match(rd('src/scenes/world.js'), /const why = shareRefusalText\(result, quest\.data\?\.build \?\? null\);/);   // SHARE-MEND: and the sender's build, for a skew
   assert.doesNotMatch(rd('src/scenes/world.js'), /const why = SHARE_REFUSAL_TEXT\[result\.reason\];/);
 });
 
 test('DISC25-D: the Online pane says what the shared clock does to a quest - and no longer that the quest clocks stand still', () => {
   const menu = rd('src/ui/enhancedMenu.js');
   assert.doesNotMatch(menu, /the quest clocks stand still/, 'false since WORLD7: quest clocks count played time');
-  assert.match(menu, /a quest that waits for an hour of the day waits for that hour of the world\. Quest timers run while you play\./);
-  // the law the sentence says: online a quest clock charges played time (WORLD7), and a rest moves no world time
+  assert.match(menu, /a quest that waits for a time of day waits for the world\\u2019s[^.]*\. Your character also keeps their own time[^.]*\. Your wounds[^.]*loans and repairs run on it\. Quests online have no time limits[^.]*\./);   // LIVED1: the character's own time, said between; TIMEFREE: and the quests off it
+  // the law the sentence says: online a quest clock charges the time lived one played step at most (WORLD7) and the
+  // time raised whole (TIME3), and a rest moves no world time
   assert.match(rd('src/systems/quest/clock.js'), /export const PLAYED_STEP_MAX_SECONDS = 30 \* 60;/);
 });

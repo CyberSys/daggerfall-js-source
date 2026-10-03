@@ -19,7 +19,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, readdirSync } from 'node:fs';
 import {
-  ACTIONS, DEFAULT_BINDINGS, HIDDEN_ACTIONS, MOD_ACTIONS, ACTION_GROUPS, KEYBINDS_VERSION,
+  ACTIONS, DEFAULT_BINDINGS, DEFAULT_SHARES, HIDDEN_ACTIONS, MOD_ACTIONS, ACTION_GROUPS, KEYBINDS_VERSION,
   createBindings, resetDefaults, loadKeyBinds, serializeKeyBinds, migrateKeyBinds, getBinding, actionForCode,
   setBinding, actionLive, actionLabel, loadOrCreateBindings,
 } from '../src/systems/inputActions.js';
@@ -47,6 +47,14 @@ test('KB1 laws 1 and 3: every action is in one Controls group or hidden, no defa
   assert.deepEqual(codes.filter((c, i) => codes.indexOf(c) !== i), [], 'one key, one action');
   const shipped = new Map(DEFAULT_BINDINGS.map(([c, a]) => [a, c]));
   for (const a of HIDDEN_ACTIONS) assert.ok(!shipped.has(a), `${a} is hidden and ships no key`);
+  // HELM-KEYS: a default SHARE ships its key beside its partner, the key's owner - never a second owner (law 3 holds
+  // for owners), only onto the partner's own default, and only between a helm's action and one never live at a helm
+  for (const [code, action, partner] of DEFAULT_SHARES) {
+    assert.equal(DEFAULT_BINDINGS.find(([c]) => c === code)?.[1], partner, `${action} shares ${code} with its owner`);
+    assert.ok(!shipped.has(action), `${action} owns no second key`);
+    shipped.set(action, code);
+  }
+  assert.deepEqual(DEFAULT_SHARES.map(([, a, p]) => [a, p]), [['BoatSailUp', 'ActChoice'], ['Professions', 'BoatSailDown']], 'the pairs: the helm\'s more sail and an herb patch\'s choice; CLASSIC-PAGES\' Professions key and the helm\'s less sail');
   for (const [vendor, rows] of Object.entries(MOD_ACTIONS)) {
     const grp = ACTION_GROUPS.find((g) => g.mod === vendor);
     assert.ok(grp, `${vendor} has its own Controls group`);
@@ -283,7 +291,7 @@ test('KB1 law 6: a mod key the player SAVED is carried into the registry; a ship
     store.set('dfjs-mod-settings', JSON.stringify({
       'handheld-torches': { 'Handling.ToggleLightInput': 'L', 'Handling.ManualDropInput': 'Tab', 'Throwing.ThrowTorchInput': 'None' },
       'eye-of-the-beholder': { 'Camera.SwitchShoulder': 'B' },
-      'travel-options': { 'RoadsIntegration.FollowPathsKey': 6, 'RoadsIntegration.FollowPathsCustomKeyBind': 'Semicolon' },
+      'travel-options': { 'RoadsIntegration.FollowPathsKey': 6, 'RoadsIntegration.FollowPathsCustomKeyBind': 'ScrollLock' },   // a key no default holds (CSA-D gave Semicolon to Come Sail Away's lanterns, CSA-E End to its sails)
       'horse-cart-and-cargo': { 'Hotkeys.QuickMountDismount': 'Keypad5' },
     }));
     const s = createBindings();
@@ -297,7 +305,7 @@ test('KB1 law 6: a mod key the player SAVED is carried into the registry; a ship
     assert.equal(getBinding(s, 'TorchThrow'), null, 'None: they had cleared it');
     assert.ok(s.removedPrimary.has('TorchThrow'), '...and it is marked, so the autofill does not bring it back');
     assert.equal(getBinding(s, 'ShoulderSwitch'), 'KeyB', 'B was shipped - the default (also B) stands');
-    assert.equal(getBinding(s, 'FollowPaths'), 'Semicolon', 'past the six, the custom bind');
+    assert.equal(getBinding(s, 'FollowPaths'), 'ScrollLock', 'past the six, the custom bind');
     assert.equal(getBinding(s, 'HorseMount'), 'Numpad5');
     assert.ok(moved.includes('TorchToggleLight on KeyL') && moved.includes('TorchThrow unbound'));
   } finally {

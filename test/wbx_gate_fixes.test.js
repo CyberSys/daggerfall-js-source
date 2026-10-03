@@ -20,19 +20,24 @@ import { readFileSync } from 'node:fs';
 
 import { Renderer } from '../src/render/renderer.js';
 import { buildGateModel, GATE_HEIGHT, ARCH_Y0 } from '../src/world/gateModel.js';
-import { buildCourtModel, courtToDungeon, portalDoor, PORTAL_AFTER_MS, PORTAL_RISE_MS, PORTAL_DROP, COURT_TEXT, EXIT_H } from '../src/world/gateArena.js';
+import { buildCourtModel, courtToDungeon, portalDoor, PORTAL_AFTER_MS, PORTAL_RISE_MS, PORTAL_DROP, COURT_TEXT, EXIT_H, EXIT_Z, EXIT_HALF_W, courtExitDoor, courtDoorAabb, courtFloorTris, COURT_DOOR_DEPTH } from '../src/world/gateArena.js';
+import { doorWorldAabb } from '../src/player/enterExit.js';
+import { pickActivatableHit, RAY_DISTANCE, DOOR_ACTIVATION_DISTANCE } from '../src/player/activate.js';
+import { Collider } from '../src/player/collider.js';
+import { EYE_HEIGHT } from '../src/player/motor.js';
+import { identity } from '../src/world/mat4.js';
 import { buildDeadlandsLand, buildShardModel } from '../src/world/deadlandsLand.js';
 import {
-  ATTACKS, ATTACK_BY_ID, POOLS, POOL_TICK_MS, PHASE_NAMES, PHASE_TURN, BOSS_R, COURT_R, BOSS_REACH_R, COURT_CENTRE, newFight, joinFight, stepBrain,
+  ATTACKS, ATTACK_BY_ID, POOLS, POOL_TICK_MS, PHASE_NAMES, PHASE_TURN, COURTS, BOSS_R, COURT_R, BOSS_REACH_R, COURT_CENTRE, newFight, joinFight, stepBrain,
   windupOf, wrapYaw, PHASE_AT,
 } from '../src/net/gateBrain.js';
 import { inAttack, spokeLanes, landingPools, poolUnder, strikeDamage, blowOf, strikeVerdict } from '../src/net/gateStrike.js';
 import { telegraphShape, telegraphField, markShape, poolShapes, TELEGRAPH_KIND, TELEGRAPH_FS, BOSS_MARK_R, BOSS_MARK_CHEVRON_LEN, BOSS_MARK_CHEVRON_HALF_W } from '../src/render/gateTelegraph.js';
 import { bossPlace, bossHop, bossAct, bossStandIn, bossLookOf, LEAP_AIR_MS, LEAP_HEIGHT, ATTACK_COLORS, POOL_COLOR, WARD_COLOR, BOSS_CUES, QUAKE_ON } from '../src/world/gateBoss.js';
-import { createGateCourt, COURT_PHASE_TEXT, COURT_STRIKE_TEXT, MARK_COLOR, COURT_ROUND_MS } from '../src/scenes/gateCourt.js';
+import { createGateCourt, courtPhaseCard, COURT_STRIKE_TEXT, MARK_COLOR, COURT_ROUND_MS } from '../src/scenes/gateCourt.js';
 import { GATE_STATE_EMPTY } from '../src/net/gateLink.js';
 import { bossBarModel, BOSS_BAR_TEXT } from '../src/ui/gateBossBar.js';
-import { createSpoilsPool, iconSize, SPOILS_ICON_ARCHIVE, SPOILS_TAKE_AFTER_MS, SPOILS_TAKE_M, SPOILS_ICON_MAX_M, SPOILS_ICON_M_PER_PX } from '../src/scenes/spoilsPool.js';
+import { createSpoilsPool, iconSize, SPOILS_ICON_ARCHIVE, SPOILS_ICON_MAX_M, SPOILS_ICON_M_PER_PX } from '../src/scenes/spoilsPool.js';
 import { lineHeight } from '../src/render/spoilsGlow.js';
 import { itemIconKey, itemIconColor32 } from '../src/ui/itemIconColor32.js';
 import { setCourtRules, regenBarred } from '../src/systems/courtRules.js';
@@ -56,16 +61,16 @@ function seeded(seed = 1) {
 function court({ feet = [0, 0, 0], health = 100, maxHealth = 100, save = 100 } = {}) {
   const link = { st: GATE_STATE_EMPTY, state() { return this.st; } };
   const clock = { t: 0 };
-  const struck = [], said = [], home = [], doors = [], traps = [];
+  const struck = [], said = [], doors = [], traps = [];
   const me = { health, maxHealth, level: 12 };
   const pos = { feet };
   const c = createGateCourt({
     renderer: null, gl: null, link, now: () => clock.t,
     feet: () => (pos.feet ? courtToDungeon(pos.feet[0], pos.feet[1] ?? 0, pos.feet[2]) : null), player: () => me, save: () => save,
     strike: (dmg, how) => { struck.push([dmg, how]); me.health -= dmg; }, say: (t) => said.push(t),
-    wayHome: () => home.push(clock.t), portalDoor: (d) => doors.push(d), soulTrap: (t) => traps.push(t),
+    portalDoor: (d) => doors.push(d), soulTrap: (t) => traps.push(t),
   });
-  return { c, link, clock, struck, said, home, doors, traps, me, pos };
+  return { c, link, clock, struck, said, doors, traps, me, pos };
 }
 const at = (h, t, st) => { if (st) h.link.st = st; h.clock.t = t; h.c.frame(); };
 
@@ -99,7 +104,7 @@ test('WBX1 the one index type: createMesh uploads 32-bit elements whatever the m
 
 // ═══ WBX2 ═══════════════════════════════════════════════════════════════════════════════════════════════════════════
 
-test('WBX2 the portal home: nothing while he stands or falls; PORTAL_AFTER_MS into his fall it stands where he fell and rises over PORTAL_RISE_MS; its door is laid once and its rising said once; walking through its fire takes the way home - and nothing before it has risen, nothing for the dead (mutants: the portal at the court\'s centre; the door laid every frame; the walk-through unrisen)', () => {
+test('WBX2 the portal home: nothing while he stands or falls; PORTAL_AFTER_MS into his fall it stands where he fell and rises over PORTAL_RISE_MS; its door is laid once and its rising said once - the door\'s PRESS is the way home; SS3 ("Oblivion gate exit on touch prevents looting"): its fire is never walked through, rising or risen, because it stands where his spoils land (mutants: the portal at the court\'s centre; the door laid every frame)', () => {
   const h = court({ feet: [3, 0, 3] });
   const fell = state({ x: 6, z: -4, fell: { at: 50000, top: ['Mac'], n: 2 } });
   at(h, 49000, state({ x: 6, z: -4 }));
@@ -116,24 +121,16 @@ test('WBX2 the portal home: nothing while he stands or falls; PORTAL_AFTER_MS in
   at(h, 50000 + PORTAL_AFTER_MS + PORTAL_RISE_MS / 2, fell);
   assert.ok(Math.abs(h.c.portal().rise - 0.5) < 1e-9, 'rising');
   assert.equal(h.doors.length, 1, 'laid once'); assert.equal(h.said.length, 1, 'said once');
-  // through it before it has risen: nothing
-  h.pos.feet = [6, 0, -4 + 1]; at(h, 50000 + PORTAL_AFTER_MS + 600, fell);
-  h.pos.feet = [6, 0, -4 - 1]; at(h, 50000 + PORTAL_AFTER_MS + 700, fell);
-  assert.deepEqual(h.home, [], 'not through a fire still rising');
-  // risen: the step through its plane, inside the opening, is the way home
+  // SS3: through it while it rises, and through it risen - back and forth, inside the opening: the portal stands, its
+  // door laid once. A player going for the spoils where he fell walks through its fire and stays in the court; the
+  // court takes no way home at all (the seams test's pins), and the press is the way out (the press test below)
   const T = 50000 + PORTAL_AFTER_MS + PORTAL_RISE_MS;
-  h.pos.feet = [6, 0, -4 + 1]; at(h, T, fell);
-  assert.deepEqual(h.home, []);
-  h.pos.feet = [6, 0, -4 - 1]; at(h, T + 50, fell);
-  assert.deepEqual(h.home, [T + 50], 'through the fire, home');
-  // beside it (outside the opening), nothing
-  const b = court({ feet: [6 + 8, 0, -4 + 1] });
-  at(b, T, fell); b.pos.feet = [6 + 8, 0, -4 - 1]; at(b, T + 50, fell);
-  assert.deepEqual(b.home, [], 'past the opening\'s edge');
-  // the dead walk nowhere
-  const d = court({ feet: [6, 0, -4 + 1], health: 0 });
-  at(d, T, fell); d.pos.feet = [6, 0, -4 - 1]; at(d, T + 50, fell);
-  assert.deepEqual(d.home, []);
+  for (const [i, t] of [50000 + PORTAL_AFTER_MS + 600, 50000 + PORTAL_AFTER_MS + 700, T, T + 50, T + 100, T + 150].entries()) {
+    h.pos.feet = [6, 0, -4 + (i % 2 ? -1 : 1)];
+    at(h, t, fell);
+  }
+  assert.ok(h.c.portal(), 'it stands, walked through or not');
+  assert.equal(h.doors.length, 1, 'its door laid once');
   // a court come to late says nothing of it
   const late = court();
   at(late, 50000 + PORTAL_AFTER_MS + PORTAL_RISE_MS + 5000, fell);
@@ -146,16 +143,52 @@ test('WBX2 the portal home: nothing while he stands or falls; PORTAL_AFTER_MS in
   assert.equal(PORTAL_DROP, ARCH_Y0, 'the fire\'s foot on the floor');
 });
 
-test('WBX2 the seams: the court is handed the way home and the door; the way home is one door (gateWayHome) - the bridge\'s membrane and the portal both - through the fire and never for the dead; the portal is drawn with the gate\'s own fire pass', () => {
+test('WBX2 the seams: the court is handed the portal\'s door, and (SS3) no way home of its own - the portal is never walked through; the way home is one door (gateWayHome), the bridge\'s membrane and the portal both, PRESSED through the court\'s exit doors - through the fire and never for the dead; the portal is drawn with the gate\'s own fire pass (mutants: SS3: the court handed a way home again)', () => {
   const w = read('src/scenes/world.js');
-  assert.match(w, /wayHome: \(\) => \{ modes\?\.gateWayHome\?\.\(\); \},/);
+  assert.doesNotMatch(w, /wayHome:/, 'SS3: the court takes no way home');
   assert.match(w, /portalDoor: \(door\) => \{ modes\?\.dungeonCtx\?\.exitDoors\?\.push\?\.\(door\); \},/);
   const wm = read('src/scenes/worldModes.js');
-  assert.match(wm, /if \(isGateArena\(dungeonLoc\)\) \{ gateWayHome\(\); return true; \}/, 'the bridge\'s membrane');
-  assert.match(wm, /\n    gateWayHome,   \/\/ WBX2/);
+  assert.match(wm, /if \(isGateArena\(dungeonLoc\)\) \{ gateWayHome\(\); return true; \}/, 'the exit door\'s press - the bridge\'s membrane and the portal alike');
+  assert.doesNotMatch(wm, /\n    gateWayHome,/, 'and nobody outside the modes calls it');
   const gc = read('src/scenes/gateCourt.js');
+  assert.doesNotMatch(gc, /wayHome/, 'SS3: the court has no way home to take');
   assert.match(gc, /portalPass\.draw\(\[\{ origin: portal\.origin, yaw: 0, open: 1, fade: portal\.rise, spin \}\], proj, view, eye, seconds, fog\);/);
   assert.match(gc, /portalPass = new GatePassRenderer\(gl, profile\);/);
+});
+
+test('AUDIT SS the court\'s two ways home are PRESSED where their fire stands - the ray, the court\'s real floor collider and its exit targets as worldModes builds them: looking at the portal from 0.6 to 3 m before it, or at the bridge\'s membrane from 1.5 m, the press takes it within the door\'s reach; looking away it does not, and past the reach it says too far. The square a dungeon door pads to (4.9 m across) swallowed every press from 0.6 to 2.4 m before the portal - SS3 made the press its only way through (mutants: the court\'s exits in the padded square; the fire\'s box too deep)', () => {
+  const collider = new Collider();
+  const tris = courtFloorTris();
+  collider.addMesh('wb:court', tris, Uint32Array.from({ length: tris.length / 3 }, (_, i) => i), identity());
+  const fell = [6, -4];
+  const doors = [courtExitDoor(), portalDoor(fell)];
+  assert.ok(doors.every((d) => d.court === true), 'both are the court\'s');
+  // worldModes' own targets (pinned at their one line)
+  assert.match(read('src/scenes/worldModes.js'), /key: `exit:\$\{i\}`, aabb: d\.court \? courtDoorAabb\(d\) : doorWorldAabb\(d\), distance: RAY_DISTANCE, reach: DOOR_ACTIVATION_DISTANCE/);
+  const targetsOf = (aabbOf) => doors.map((d, i) => ({ key: `exit:${i}`, aabb: aabbOf(d), distance: RAY_DISTANCE, reach: DOOR_ACTIVATION_DISTANCE }));
+  const targets = targetsOf((d) => (d.court ? courtDoorAabb(d) : doorWorldAabb(d)));
+  const press = (ts, feetCourt, dir) => {
+    const f = courtToDungeon(feetCourt[0], 0, feetCourt[1]);
+    const hit = pickActivatableHit([f[0], f[1] + EYE_HEIGHT, f[2]], dir, ts, collider);
+    return !hit ? null : hit.distance > hit.reach ? `far:${hit.key}` : hit.key;
+  };
+  const level = [0, 0, -1], down20 = [0, -Math.sin(Math.PI / 9), -Math.cos(Math.PI / 9)];
+  for (const back of [0.6, 1.2, 2.0, 2.4, 3.0]) {
+    assert.equal(press(targets, [fell[0], fell[1] + back], level), 'exit:1', `${back} m before the portal, looking at it`);
+    assert.equal(press(targets, [fell[0], fell[1] + back], down20), 'exit:1', `${back} m, looking a little down`);
+  }
+  assert.equal(press(targets, [fell[0], fell[1] + 1.2], [0, 0, 1]), null, 'looking away: nothing');
+  assert.equal(press(targets, [fell[0], fell[1] + 5], level), 'far:exit:1', 'past the reach: too far, as any door says');
+  assert.equal(press(targets, [0, EXIT_Z - 1.5], [0, 0, 1]), 'exit:0', 'the bridge\'s membrane, 1.5 m before it');
+  // the padded square swallowed the press before the portal (the finding, kept as its measure)
+  const padded = targetsOf(doorWorldAabb);
+  assert.equal(press(padded, [fell[0], fell[1] + 1.2], level), null, 'in the padded square: nothing');
+  // the fire's own box: the opening's width and height, a hand either side of its plane
+  const box = courtDoorAabb(doors[1]);
+  const [x, y, z] = courtToDungeon(fell[0], 0, fell[1]);
+  assert.equal(COURT_DOOR_DEPTH, 0.3);
+  assert.deepEqual(box.min.map((v) => +v.toFixed(3)), [x - EXIT_HALF_W, y, z - COURT_DOOR_DEPTH].map((v) => +v.toFixed(3)));
+  assert.deepEqual(box.max.map((v) => +v.toFixed(3)), [x + EXIT_HALF_W, y + EXIT_H, z + COURT_DOOR_DEPTH].map((v) => +v.toFixed(3)));
 });
 
 // ═══ WBX3 ═══════════════════════════════════════════════════════════════════════════════════════════════════════════
@@ -163,7 +196,7 @@ test('WBX2 the seams: the court is handed the way home and the door; the way hom
 /** A floor at y 0, as the collider's ray answers it. */
 const floor = (from, dir, len) => { if (dir[1] >= 0) return null; const t = from[1] / -dir[1]; return t <= len ? { dist: t, normal: [0, 1, 0] } : null; };
 
-test('WBX3 each piece is itself on the floor: an item stands as its own picture (the pack\'s, uploaded under the pool\'s pseudo-archive, keyed by the picture), gold keeps its pile; its line leaves the top of its sprite; a resting piece is taken only SPOILS_TAKE_AFTER_MS after it came to rest (mutants: the pile for every piece; the line from the floor; the take at once)', async () => {
+test('WBX3 each piece is itself on the floor: an item stands as its own picture (the pack\'s, uploaded under the pool\'s pseudo-archive, keyed by the picture), gold keeps its pile; its line leaves the top of its sprite; a resting piece is taken only when pressed - GATE-UX: never underfoot (mutants: the pile for every piece; the line from the floor; the take underfoot)', async () => {
   const uploads = [], batches = [], destroyed = [], taken = [];
   const clock = { t: 0 };
   const feet = { at: null };
@@ -198,30 +231,13 @@ test('WBX3 each piece is itself on the floor: an item stands as its own picture 
   const q = createSpoilsPool({ renderer, gl: null, ray: floor, now: () => clock.t, take: () => {}, iconOf: async () => icon });
   assert.match(read('src/scenes/spoilsPool.js'), /root: \[f\.fly\.pos\[0\], f\.fly\.pos\[1\] \+ f\.h, f\.fly\.pos\[2\]\]/, 'the line\'s root is the sprite\'s crown');
   void q; void pass;
-  // the take: not before it has rested SPOILS_TAKE_AFTER_MS, then as the feet pass over it
+  // GATE-UX: the take is the press's alone - feet on a piece long rested take nothing, the press takes it
   const piece = st.pieces.find((x) => x.kind === 'item');
   feet.at = [piece.pos[0], piece.pos[1], piece.pos[2]];
-  const restAt = clock.t;   // every piece has rested well before now - take them
-  clock.t += 16; p.frame();
-  assert.ok(taken.length >= 1, 'taken, long rested');
-  // a fresh spew: my feet on the first piece the moment it rests - it waits SPOILS_TAKE_AFTER_MS, then it is taken
-  const taken2 = [];
-  const clock2 = { t: 0 };
-  let stand = null;
-  const fresh = createSpoilsPool({ renderer, gl: null, ray: floor, feet: () => stand, now: () => clock2.t, take: (x) => taken2.push(x), iconOf: null });
-  fresh.spew({ day: 901, seed: 5, level: 3, at: [0, 0.05, 0], bearing: 0 });
-  let firstRest = null;
-  for (let i = 0; i < 400 && firstRest === null; i++) {
-    clock2.t += 16; fresh.frame();
-    const first = fresh.state().pieces.find((x) => x.rest);
-    if (first) { firstRest = clock2.t; stand = [first.pos[0], first.pos[1], first.pos[2]]; }
-  }
-  assert.ok(firstRest !== null, 'a piece came to rest');
-  while (clock2.t + 16 < firstRest + SPOILS_TAKE_AFTER_MS) { clock2.t += 16; fresh.frame(); }
-  assert.deepEqual(taken2, [], 'under my feet, but not taken before it has rested SPOILS_TAKE_AFTER_MS');
-  for (let i = 0; i < 4; i++) { clock2.t += 16; fresh.frame(); }
-  assert.ok(taken2.length >= 1, 'taken once it has rested SPOILS_TAKE_AFTER_MS');
-  void restAt; void SPOILS_TAKE_M;
+  for (let i = 0; i < 200; i++) { clock.t += 16; p.frame(); }
+  assert.deepEqual(taken, [], 'underfoot, long rested, never taken');
+  assert.equal(p.pick(p.targets()[0].key), true);
+  assert.equal(taken.length, 1, 'pressed, taken');
 });
 
 test('WBX3 the picture, the burst and the pieces\' words: the icon\'s key is its archive, record and dye; a page with no canvas has none; the burst says the spoils are this player\'s alone; AUDIT FINAL F3 the swatch the classic arm dyes (main\'s DYE-ICON) in the key and the ask, the pack\'s own law - a Regalia piece on the court\'s floor was drawn in the base metal (mutants: two dyes one key; the burst unsaid; the swatch out of the floor\'s key; the floor asked undyed)', async () => {
@@ -234,8 +250,9 @@ test('WBX3 the picture, the burst and the pieces\' words: the icon\'s key is its
   assert.equal(await itemIconColor32(null), null);
   assert.equal(await itemIconColor32({ templateIndex: 101 }), null, 'node has no canvas - the pile stands');
   const gc = read('src/scenes/gateCourt.js');
-  assert.match(gc, /if \(spoils\.spew\(\{[^\n]*\}\)\) say\(COURT_STRIKE_TEXT\.spilled\(bossOf\(s\)\.name\)\);/);
-  assert.match(COURT_STRIKE_TEXT.spilled('Valkynaz Ruhn'), /yours alone/);
+  assert.match(gc, /if \(spoils\.spew\(\{[^\n]*\}\)\) \{[^\n]*\n\s*say\(claims\.x === 'rite' \? COURT_STRIKE_TEXT\.spilledRite\(\) : COURT_STRIKE_TEXT\.spilled\(\)\);/);   // AUDIT WB12d (D20): the rite's ember by its own
+  assert.match(COURT_STRIKE_TEXT.spilled(), /^Your spoils/, 'WB13b: "Your" says they are no one else\'s');
+  assert.match(COURT_STRIKE_TEXT.spilledRite(), /^Your ember/);
   assert.match(read('src/scenes/world.js'), /iconOf: \(item\) => itemIconColor32\(item, \{ identity: playerEntity \}\),/);   // AUDIT WBX S6: drawn for its wearer
   assert.ok(lineHeight('artifact') > lineHeight('legendary'));
 });
@@ -332,7 +349,7 @@ test('WBX5 the burning ground: Hellfire leaves a pool under each mark, the Meteo
   assert.equal(h.struck.length, 1, 'no bite before a tick of standing in it');
   at(h, 10001 + POOL_TICK_MS);
   const bite = Math.trunc(strikeDamage(POOLS.hellfire.pct, 200, POOLS.hellfire.base) * 50 / 100);
-  assert.deepEqual(h.struck[1], [bite, { fire: true, name: COURT_STRIKE_TEXT.burning }], 'a bite, fire through my throw');
+  assert.deepEqual(h.struck[1], [bite, { fire: true, el: 'fire', name: COURT_STRIKE_TEXT.burning }], 'a bite, fire through my throw');
   at(h, 10001 + POOL_TICK_MS + 500);
   assert.equal(h.struck.length, 2, 'once a tick');
   // AUDIT WBX F8: a step out shorter than a tick keeps the fire's count - a frame out each second was never bitten
@@ -353,26 +370,28 @@ test('WBX5 the burning ground: Hellfire leaves a pool under each mark, the Meteo
 
 test('WBX5 the phases: named, and each turn a sequence - the leap into the court\'s heart, then the Flame Nova (the Burning Court) or the spokes and the four between them (Dagon\'s Champion); the new attacks their phase\'s own; no attack faster than before (Mac: "I dont think making mechanics faster is the play") (mutants: the nova at the roar; the spokes in phase two)', () => {
   assert.deepEqual(PHASE_NAMES, ['The Warden', 'The Burning Court', "Dagon's Champion"]);
-  assert.deepEqual(PHASE_TURN[2].map((e) => e.a), ['leap', 'nova']);
-  assert.deepEqual(PHASE_TURN[3].map((e) => e.a), ['leap', 'spokes', 'spokes']);
-  assert.ok(PHASE_TURN[2][0].centre && PHASE_TURN[3][0].centre, 'each opens at the heart');
-  assert.ok(Math.abs(PHASE_TURN[3][2].turn - Math.PI / 4) < 1e-12, 'the four between them');
+  // WB9b: each turn opens with the bound to the next court's heart and a wait there for a challenger to cross
+  assert.deepEqual(PHASE_TURN[2].map((e) => e.a ?? e.wait), ['cross', 'arrive', 'nova']);
+  assert.deepEqual(PHASE_TURN[3].map((e) => e.a ?? e.wait), ['cross', 'arrive', 'spokes', 'spokes']);
+  assert.ok(PHASE_TURN[2][0].court === 1 && PHASE_TURN[3][0].court === 2, 'each bounds to the next court\'s heart');
+  assert.ok(Math.abs(PHASE_TURN[3][3].turn - Math.PI / 4) < 1e-12, 'the four between them');
   assert.equal(ATTACKS.leap.phase, 2); assert.equal(ATTACKS.meteor.phase, 2); assert.equal(ATTACKS.spokes.phase, 3);
   for (const k of ['cleave', 'slam', 'charge', 'hellfire', 'nova']) assert.equal(windupOf(ATTACKS[k], 1), { cleave: 1400, slam: 1600, charge: 1200, hellfire: 2000, nova: 2200 }[k], `${k}: its wind-up as it was`);
   // the brain, whole: a fight crossing both lines walks the sequences
   const f = newFight(8, 0, 10_000_000, 'ruhn');
   assert.ok(joinFight(f, 'a', 'A', 20, 0, true));
-  const bodies = [{ sub: 'a', x: 0, z: 6, dead: false }];
+  // the fighter follows him over each walkway as it is laid (WB9b - the brain waits for one in his new court)
+  const bodies = () => [{ sub: 'a', x: COURTS[f.court][0], z: COURTS[f.court][1] + 6, dead: false }];
   f.nextAt = 0; f.pos = [5, 5];
   f.hp = f.max * PHASE_AT[0];
   const seen = [];
   const rng = seeded(11);
-  for (let t = 100; t < 30000; t += 50) for (const o of stepBrain(f, t, bodies, rng)) if (o.k === 'atk' || o.k === 'ph') seen.push(o.k === 'ph' ? `ph${o.n}` : ATTACK_BY_ID[o.a].key);
-  assert.deepEqual(seen.slice(0, 3), ['ph2', 'leap', 'nova'], 'the ward breaks: the leap, then the nova');
+  for (let t = 100; t < 30000; t += 50) for (const o of stepBrain(f, t, bodies(), rng)) if (o.k === 'atk' || o.k === 'ph') seen.push(o.k === 'ph' ? `ph${o.n}` : ATTACK_BY_ID[o.a].key);
+  assert.deepEqual(seen.slice(0, 4), ['ph2', 'cross', 'ph2', 'nova'], 'the ward breaks: the bound, a challenger crosses after him, then the nova');
   f.hp = f.max * PHASE_AT[1];
   const seen3 = [];
-  for (let t = 30000; t < 60000; t += 50) for (const o of stepBrain(f, t, bodies, rng)) if (o.k === 'atk' || o.k === 'ph') seen3.push(o.k === 'ph' ? `ph${o.n}` : ATTACK_BY_ID[o.a].key);
-  assert.ok(seen3.join(',').includes('ph3,leap,spokes,spokes'), `Dagon's Champion: ${seen3.slice(0, 6).join(',')}`);
+  for (let t = 30000; t < 60000; t += 50) for (const o of stepBrain(f, t, bodies(), rng)) if (o.k === 'atk' || o.k === 'ph') seen3.push(o.k === 'ph' ? `ph${o.n}` : ATTACK_BY_ID[o.a].key);
+  assert.ok(seen3.join(',').includes('ph3,cross,ph3,spokes,spokes'), `Dagon's Champion: ${seen3.slice(0, 6).join(',')}`);
   assert.ok(Math.abs(wrapYaw(3 * Math.PI)) <= Math.PI + 1e-9 && Math.abs(wrapYaw(7.5)) <= Math.PI + 1e-9, 'a turned facing stays one the wire admits');
 });
 
@@ -393,11 +412,13 @@ test('WBX5 the leap on the screen: he stands through its wind-up, crosses the ai
   const h = court();
   at(h, 1000, state({ phase: 1 }));
   at(h, 2000, state({ phase: 2 }));
-  assert.ok(h.said.includes(COURT_PHASE_TEXT[2]), 'the turn said');
-  assert.match(COURT_PHASE_TEXT[3], /Dagon's Champion/);
+  const turn = h.c.state().beat;
+  assert.deepEqual([turn?.kind, turn?.kicker, turn?.main, turn?.sub], ['phase', 'II', courtPhaseCard(2).main, courtPhaseCard(2).sub], 'the turn shown (WB13e: its card)');
+  assert.match(courtPhaseCard(3).main, /Dagon's Champion/);
+  // GATE-UX: the bar no longer says the phase under his health (test/gateux_gate.test.js) - the turn is still said
   const bar = bossBarModel(state({ phase: 2 }), 5000, { name: 'Valkynaz Ruhn', title: 'Warden' });
-  assert.equal(bar.phaseName, BOSS_BAR_TEXT.phase(2));
-  assert.equal(BOSS_BAR_TEXT.phase(3), `III - ${PHASE_NAMES[2]}`);
+  assert.equal(bar.phaseName, undefined);
+  assert.equal(BOSS_BAR_TEXT.phase, undefined);
   assert.ok(relayVersionAtLeast(114), `the brain's law moved: ${RELAY_VERSION}`);
 });
 
@@ -465,11 +486,11 @@ test('WBX7 the soul trap on him: kept on the relay\'s clock for its rounds (a tr
 
 test('WBX7 the seams: a soul trap meets him (hostMagic), the dungeon context lays it through applySpell and hands its chance and rounds to the court (onBossTrap, through the mode machine), the host rolls it with the port\'s own attemptSoulTrap and says its words', () => {
   const hm = read('src/scenes/hostMagic.js');
-  assert.match(hm, /!\(duelSpellOf\(sp\) \|\| \(sp\.effects \?\? \[\]\)\.some\(\(e\) => e && isSoulTrapEffect\(e\)\)\)/);
+  assert.match(hm, /!\(duelSpellOf\(sp\) \|\| \(sp\.effects \?\? \[\]\)\.some\(\(e\) => e && isSoulTrapEffect\(e\)\) \|\| spellSways\(sp\)\)/);   // WB8a: and a sway, which meets him to be refused
   const dc = read('src/scenes/dungeonContext.js');
   assert.match(dc, /const trapFx = \(sp\.effects \?\? \[\]\)\.filter\(\(e\) => e && isSoulTrapEffect\(e\)\);/);
   assert.match(dc, /if \(trap\) laid = !!opts\.onBossTrap\?\.\(\{ chance: trap\.chance, rounds: \(trap\.roundsRemaining \?\? 0\) \+ 1 \}\);/);
-  assert.match(dc, /if \(!harm\) return laid;/, 'a trap alone still reaches him');
+  assert.match(dc, /if \(!harm\) return laid \|\| sways;/, 'a trap alone still reaches him (WB8a: and a sway alone is spent on him)');
   assert.match(read('src/scenes/worldModes.js'), /onBossTrap: \(trap\) => !!host\.onBossTrap\?\.\(trap\),/);
   const w = read('src/scenes/world.js');
   assert.match(w, /onBossTrap: \(trap\) => !!gateCourt\?\.trapped\(trap\),/);

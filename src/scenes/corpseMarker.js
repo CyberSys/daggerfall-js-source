@@ -54,6 +54,7 @@
 // it, so the port does the same. What the window restores is the
 // CHOICE, which is the half that was missing.
 
+import { championName, properName } from '../systems/champions.js';   // LOOT7: a champion's death line names it
 import { getBool } from '../systems/settings.js';   // AUDIT 28 W1: DisableEnemyDeathAlert
 import { floorLanding } from '../player/enterExit.js';
 import { billboardSize } from '../world/rmbFlats.js';
@@ -79,7 +80,7 @@ export const ARROW_TEMPLATE_INDEX = 131;
  */
 export async function mintCorpseMarker({
   renderer, getTexture, uploadRecordFrame, collider = null,
-  corpseTexture, feet, fallbackSize = null, stillDead = () => true,
+  corpseTexture, feet, fallbackSize = null, stillDead = () => true, sizeScale = 1,   // ELITE FOES: an elite's body lies larger
 }) {
   if (!corpseTexture) return null;
   const { archive, record } = corpseTexture;
@@ -103,7 +104,8 @@ export async function mintCorpseMarker({
     ? floorLanding(collider, [feet[0], feet[1] + 0.1, feet[2]])
     : [feet[0], feet[1], feet[2]];
   uploadRecordFrame(archive, record, 0);
-  const size = billboardSize(t, record) ?? fallbackSize;
+  const size0 = billboardSize(t, record) ?? fallbackSize;
+  const size = sizeScale !== 1 && size0 ? { ...size0, w: size0.w * sizeScale, h: size0.h * sizeScale } : size0;   // ELITE FOES
   const batch = renderer.createBillboardBatch(archive, record, size, [[pos[0], pos[1], pos[2]]]);
   // FA1 slice 3: a BARE record plus a frame FIELD - the draw builds
   // `record#frame`, so the record must not carry one already.
@@ -140,11 +142,11 @@ export function raiseEnemyDeath(entity, opts = {}) {
   }
 }
 
-export function sayEnemyDied(say, mobileType) {
+export function sayEnemyDied(say, mobileType, entity = null) {
   // AUDIT 28 W1: the gate the comment above quotes was never read - the
   // setting sat `stored` while every kill spoke. GetBool, as :82.
   if (getBool('GUI', 'DisableEnemyDeathAlert')) return null;
-  const name = enemyDisplayName(mobileType);
+  const name = properName(entity) ?? championName(entity, enemyDisplayName(mobileType));   // LOOT7: a champion by its name; AUDIT WB12d (D2): the Summoner by his
   if (!name) return null;
   const line = localizedText('thingJustDied', '%s just died.').replaceAll('%s', getLocalizedEnemyName(mobileType, name));
   say?.(line);

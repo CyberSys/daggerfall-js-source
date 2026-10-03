@@ -373,8 +373,8 @@
   {
     "name": "avoid-does-not-resume",
     "file": "src/systems/travelOptions.js",
-    "old": "      if (st.destinationName != null) resumeTravel();\n      else followPath();",
-    "new": "      if (false) resumeTravel();",
+    "old": "      else if (st.destinationName != null) resumeTravel();\n      else followPath();",
+    "new": "      else if (false) resumeTravel();",
     "tests": [
       "test/to1_travelOptions.test.js"
     ]
@@ -400,8 +400,8 @@
   {
     "name": "ports-null-is-a-port",
     "file": "src/systems/travelPorts.js",
-    "old": "  if (mapId == null || !Number.isFinite(mapId)) return false;",
-    "new": "  if (mapId == null || !Number.isFinite(mapId)) return true;",
+    "old": "  if (mapId == null || !Number.isFinite(mapId)) return false;\n  return PORT_SET.has(maskMapId(mapId));",
+    "new": "  if (mapId == null || !Number.isFinite(mapId)) return true;\n  return PORT_SET.has(maskMapId(mapId));",
     "tests": [
       "test/to1_travelOptions.test.js"
     ]
@@ -708,8 +708,8 @@
   {
     "name": "to-online-the-journey-stands-down-again",
     "file": "src/scenes/world.js",
-    "old": "    if (!travelOptions) return false;\n    if (coords) travelOptions.beginTravelToCoords",
-    "new": "    if (!travelOptions || sharedClockOn()) return false;\n    if (coords) travelOptions.beginTravelToCoords",
+    "old": "    if (!travelOptions) return false;\n    // OW-ONLY",
+    "new": "    if (!travelOptions || sharedClockOn()) return false;\n    // OW-ONLY",
     "tests": [
       "test/to1_travelOptions.test.js"
     ]
@@ -889,7 +889,7 @@
   {
     "name": "g2-frame-net-below-the-gate",
     "file": "src/scenes/world.js",
-    "old": "    if (travelControlUI?.isShowing && (modes?.mode ?? 'exterior') !== 'exterior') travelControlUI.closeWindow();\n    if (!travelControlUI?.isShowing && worldTimeScale() !== 1) resetTimeScale();",
+    "old": "    if (travelControlUI?.isShowing && (modes?.mode ?? 'exterior') !== 'exterior') travelControlUI.closeWindow();\n    if (!travelControlUI?.isShowing && worldTimeScale() !== 1 && !csaHoldsTimeScale() && !tvWalkHoldsTimeScale()) resetTimeScale();   // CSA-G: a scale the helm's time keys set has no panel behind it either; TV-WASD: nor the Overworld keys' travel",
     "new": "",
     "tests": [
       "test/to1_travelOptions.test.js"
@@ -926,8 +926,8 @@
   {
     "name": "j1-rain-falls-through-the-journey",
     "file": "src/scenes/world.js",
-    "old": "      if (!_travelWeatherOff && !_dwPrecipOff) {\n        precip.draw(precipShown, proj, view, new Float32Array(cam.pos), camRight, now / 1000);",
-    "new": "      if (!_dwPrecipOff) {\n        precip.draw(precipShown, proj, view, new Float32Array(cam.pos), camRight, now / 1000);",
+    "old": "      if (!_travelWeatherOff && !_dwPrecipOff) {\n        precip.draw(precipShown, proj, view, new Float32Array(wxEye), camRight, now / 1000);",
+    "new": "      if (!_dwPrecipOff) {\n        precip.draw(precipShown, proj, view, new Float32Array(wxEye), camRight, now / 1000);",
     "tests": [
       "test/to1_travelOptions.test.js"
     ]
@@ -1153,8 +1153,8 @@
   {
     "name": "to-online-the-teleport-line-sits-over-a-walked-ride",
     "file": "src/ui/travelPopUp.js",
-    "old": "    if (this.noWorldTime() && !this.walkedTrip) shadowText(renderer, font, ONLINE_TRAVEL_LINE,",
-    "new": "    if (this.noWorldTime()) shadowText(renderer, font, ONLINE_TRAVEL_LINE,",
+    "old": "    if (this.noWorldTime() && !this.walkedTrip) ONLINE_TRAVEL_ROWS.forEach(",
+    "new": "    if (this.noWorldTime()) ONLINE_TRAVEL_ROWS.forEach(",
     "tests": [
       "test/to1_travelOptions.test.js"
     ]

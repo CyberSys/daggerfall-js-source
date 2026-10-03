@@ -157,8 +157,8 @@
   {
     "name": "D25A-up-down-swapped",
     "file": "src/ui/automapSheet.js",
-    "old": "name: inside ? '' : `${up ? 'up' : 'down'} to ${sheets[to]?.label ?? ''}`,",
-    "new": "name: inside ? '' : `${up ? 'down' : 'up'} to ${sheets[to]?.label ?? ''}`,",
+    "old": "        name: inside ? '' : listed(to) ? `${up ? 'up' : 'down'} to ${sheets[to]?.label ?? ''}` : `${up ? 'up' : 'down'} - not explored yet`,",
+    "new": "        name: inside ? '' : listed(to) ? `${up ? 'down' : 'up'} to ${sheets[to]?.label ?? ''}` : `${up ? 'up' : 'down'} - not explored yet`,",
     "tests": [
       "test/disc25a_dungeon_map.test.js"
     ]
@@ -166,7 +166,7 @@
   {
     "name": "D25A-stair-not-pressed",
     "file": "src/ui/automapSheet.js",
-    "old": "      if (stair?.cross) setFloor(stair.to);",
+    "old": "      if (stair?.cross && stair.known) setFloor(stair.to);",
     "new": "      if (false) setFloor(stair.to);",
     "tests": [
       "test/disc25a_dungeon_map.test.js"
@@ -175,7 +175,7 @@
   {
     "name": "D25A-stair-not-named",
     "file": "src/ui/automapSheet.js",
-    "old": "      if (stair) return { label: stair.cross ? `Stairs ${stair.name}` : 'Stairs up', cursor: stair.cross ? 'pointer' : '' };\n",
+    "old": "      if (stair) return { label: stair.cross ? `Stairs ${stair.name}` : 'Stairs up', cursor: stair.cross && stair.known ? 'pointer' : '' };\n",
     "new": "",
     "tests": [
       "test/disc25a_dungeon_map.test.js"
@@ -283,8 +283,8 @@
   {
     "name": "D25A-hint-always-the-bay",
     "file": "src/ui/heldMap.js",
-    "old": "    if (hint) hint.textContent = this._sheet?.hint?.() ?? MAP_HINT;",
-    "new": "    if (hint) hint.textContent = MAP_HINT;",
+    "old": "    const text = this._sheet?.hint?.() ?? MAP_HINT;",
+    "new": "    const text = MAP_HINT;",
     "tests": [
       "test/disc25a_dungeon_map.test.js"
     ]
@@ -553,7 +553,7 @@
   {
     "name": "D25D-host-reads-the-old-table",
     "file": "src/scenes/world.js",
-    "old": "      const why = shareRefusalText(result);   // DISC25-D: a guild refusal names the guild",
+    "old": "      const why = shareRefusalText(result, quest.data?.build ?? null);   // DISC25-D: a guild refusal names the guild",
     "new": "      const why = SHARE_REFUSAL_TEXT[result.reason];",
     "tests": [
       "test/disc25d_guild_share.test.js"

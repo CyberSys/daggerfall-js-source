@@ -71,7 +71,7 @@ function rayTri(o, d, a, b, c) {
   const q = cross(s, e1), v = dot(d, q) * inv; if (v < 0 || u + v > 1) return null;
   const t = dot(e2, q) * inv; return t >= 0 ? t : null;
 }
-/** A bucket with every home: fine (a 2-unit rock), coarse (a 3,000-unit hill), the short list (a 100,000-unit one). */
+/** A bucket with both homes: fine (a 2-unit rock), wide (a 3,000-unit hill and a 100,000-unit one, the giant's scale). */
 function wideScene() {
   const c = new Collider();
   const u = ico();
@@ -92,7 +92,7 @@ test('AUDIT BRANCH (WoD) B1: the Mountains layouts\' giant rock files NOTHING on
     c.addMesh('k', new Float32Array([r, 0, 0, -r / 2, 0, r * 0.866, -r / 2, 0, -r * 0.866]), new Uint32Array([0, 1, 2]), objectMatrix([g.pos.x, g.pos.y, g.pos.z], g.rot, g.scale));
     const b = c._buckets.get('k');
     assert.equal(b.grid.size, 0, `r ${r}: the fine grid never sees it`);
-    assert.equal(b.coarse.size + b.huge.length, 1, `r ${r}: one home - the coarse grid within its cap, else the short list`);
+    assert.equal(b.wide.length, 1, `r ${r}: one home - one entry in the wide list, however wide (OW-WOD-LAG: the tree over them, not a grid)`);
   }
   // every shipped layout, a 1-unit stand-in under each model: bounded, whatever it scales
   const tet = { positions: new Float32Array([1, 1, 1, -1, -1, 1, -1, 1, -1, 1, -1, -1]), indices: new Uint32Array([0, 1, 2, 0, 3, 1, 0, 2, 3, 1, 3, 2]) };
@@ -103,18 +103,17 @@ test('AUDIT BRANCH (WoD) B1: the Mountains layouts\' giant rock files NOTHING on
     for (const o of lp.obj) if (o.type === 0) c.addMesh('k', tet.positions, tet.indices, objectMatrix([o.pos.x, o.pos.y, o.pos.z], o.rot, o.scale));
     const b = c._buckets.get('k');
     if (!b) continue;
-    let n = b.huge.length;
+    let n = b.wide.length;
     for (const cell of b.grid.values()) n += cell.length;
-    for (const cell of b.coarse.values()) n += cell.length;
     worst = Math.max(worst, n);
   }
   assert.ok(worst < 100000, `the worst layout files ${worst} entries (the giant alone filed millions)`);
 });
 
-test('AUDIT BRANCH (WoD) B1: the same triangles are found - rays and sphere queries over all three homes agree with brute force', () => {
+test('AUDIT BRANCH (WoD) B1: the same triangles are found - rays and sphere queries over both homes agree with brute force (OW-WOD-LAG: the wide ones through their tree)', () => {
   const c = wideScene();
   const b = c._buckets.get('k');
-  assert.ok(b.grid.size && b.coarse.size && b.huge.length, 'the scene fills every home');
+  assert.ok(b.grid.size && b.wide.length, 'the scene fills both homes: the fine grid and the wide list (OW-WOD-LAG: its tree)');
   let rayMiss = 0, rayHits = 0;
   for (let i = 0; i < 800; i++) {
     const tri = b.tris[Math.floor(rnd() * b.tris.length)];
@@ -383,6 +382,10 @@ function host({ online = null, removeSiteFoes = () => {} } = {}) {
     buildingDoors: [], doorGeneration: 0, droppedTorches: { collectPixel: () => {} }, cityGuards: { collectPixel: () => {} },
     deepWaters: null,   // DW-B: destroyPixel hands a pixel's seafloor back to the Deep Waters host - none in this rig
     dwDecor: null,   // DW-E2: and its seafloor's decorations to theirs - none in this rig either
+    _dwRubble: new Map(), _dwRubbleCarry: new Map(), _dwGuards: new Map(), dwFreeRubble: () => {},   // DW-E5 / AUDIT DW-F: the sunken loot's rubble and the wrecks' guards leave with a pixel - none in this rig
+    oceanHoles: null,   // OH-B: and its pit to There's a Hole in the Bottom of the Ocean's host - none in this rig
+    gatherHost: null,   // PROF1/PROF2: destroyPixel tells the gathering host its pixel's nodes went - none in this rig
+    seatEdicts: { bountyAt: () => false },   // SEAT1d: a Bounty's camp yields double - none in this rig
   };
   const names = Object.keys(env);
   const body = `${SLICE.wodCode}\n${SLICE.dpCode}\n

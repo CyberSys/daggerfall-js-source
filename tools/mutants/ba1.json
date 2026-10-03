@@ -38,7 +38,7 @@
   {
     "name": "leather-clanks",
     "file": "src/systems/betterAmbience.js",
-    "old": "  if (chest && (chest.material ?? ARMOR_MATERIAL.Leather) !== ARMOR_MATERIAL.Leather) return true;",
+    "old": "  if (chest && rriNativeMaterialValue(chest) !== ARMOR_MATERIAL.Leather) return true;",
     "new": "  if (chest) return true;",
     "tests": [
       "test/ba1_betterambience.test.js"
@@ -337,8 +337,8 @@
   {
     "name": "host-world-no-shake",
     "file": "src/scenes/world.js",
-    "old": "const view = betterAmbience.view(lookAt(mwv.eye, [mwv.eye[0] + fwd[0], mwv.eye[1] + fwd[1], mwv.eye[2] + fwd[2]], [0, 1, 0]));",
-    "new": "const view = lookAt(mwv.eye, [mwv.eye[0] + fwd[0], mwv.eye[1] + fwd[1], mwv.eye[2] + fwd[2]], [0, 1, 0]);",
+    "old": "const view = betterAmbience.view(lookAt(mwv.eye, [mwv.eye[0] + viewFwd[0], mwv.eye[1] + viewFwd[1], mwv.eye[2] + viewFwd[2]], [0, 1, 0]));",
+    "new": "const view = lookAt(mwv.eye, [mwv.eye[0] + viewFwd[0], mwv.eye[1] + viewFwd[1], mwv.eye[2] + viewFwd[2]], [0, 1, 0]);",
     "tests": [
       "test/ba1_betterambience.test.js"
     ]

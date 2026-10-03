@@ -17,6 +17,7 @@ import { survivalInfoTokens, itemInfoRows } from '../src/systems/itemInfo.js';
 import { TavernWindow } from '../src/ui/tavernWindow.js';
 import { NOT_ENOUGH_GOLD_ID } from '../src/systems/tavern.js';
 import { setPref, _resetForTests } from '../src/systems/uiPrefs.js';
+import { CLIMATES } from '../src/formats/mapsFile.js';   // MENU-CLIMATE (FIELD BUGS 2026-09-30, PIN MOVED): the menus read by the enum's names
 
 // ═══ SURV5 (2026-09-18): WHAT THE PLAYER IS TOLD, AND THE TAVERN ═══
 //
@@ -29,8 +30,11 @@ const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const read = (p) => readFileSync(join(root, p), 'utf8');
 
 test('SURV5: the menus - the mod\'s keys by climate (five of its six carried), three tiers by quality, breakfast from six to ten and a closed kitchen at five; every dish priced; the bay drinks the south\'s', () => {
-  assert.deepEqual(Object.keys(MENU_KEY_BY_CLIMATE).map(Number), [224, 225, 226, 227, 228, 229, 230, 231, 232, 233]);
-  assert.equal(menuKeyFor(232), 'n'); assert.equal(menuKeyFor(225), 's'); assert.equal(menuKeyFor(229), 'se'); assert.equal(menuKeyFor(227), 'ne'); assert.equal(menuKeyFor(230), 'b'); assert.equal(menuKeyFor(999), 'n');
+  // MENU-CLIMATE (FIELD BUGS 2026-09-30, PIN MOVED): the keys are the CLIMATES enum's, 223-232 (were 224-233, one up), and
+  // each read by its name - the numbers 229, 227 and 230 were the Swamp, the Mountain and the Subtropics of the old table,
+  // and are the Subtropics, the Rainforest and the Mountain Woods of the real enum (test/fb0930_cc_menuclimate.test.js)
+  assert.deepEqual(Object.keys(MENU_KEY_BY_CLIMATE).map(Number), [223, 224, 225, 226, 227, 228, 229, 230, 231, 232]);
+  assert.equal(menuKeyFor(CLIMATES.Woodlands), 'n'); assert.equal(menuKeyFor(CLIMATES.Desert), 's'); assert.equal(menuKeyFor(CLIMATES.Swamp), 'se'); assert.equal(menuKeyFor(CLIMATES.Mountain), 'ne'); assert.equal(menuKeyFor(CLIMATES.Subtropical), 'b'); assert.equal(menuKeyFor(999), 'n');
   assert.deepEqual([menuTier(1), menuTier(5), menuTier(6), menuTier(12), menuTier(13), menuTier(20)], ['low', 'low', 'mid', 'mid', 'high', 'high']);
   assert.equal(breakfastHours(6), true); assert.equal(breakfastHours(9), true); assert.equal(breakfastHours(10), true, 'the mod\'s hour <= 10 (AUDIT SURV D)'); assert.equal(breakfastHours(11), false); assert.equal(KITCHEN_CLOSED_HOUR, 5);
   for (const key of ['n', 'ne', 'se', 's', 'b']) {
@@ -69,7 +73,8 @@ test('SURV5: the meal and the drink - the mod\'s marker law (too full under the 
   assert.equal(far.lastAte, 2000 - NEED.PECKISH_AT + 200, 'past worth + 240 the marker starts four hours back');
   const d = { ...newSurvival(0), thirst: 60, drunk: 0 };
   assert.deepEqual(tavernDrink(d, 0, { endurance: 50 }), { text: TAVERN_MENU_TEXT.fortified, blackout: false, minutes: DRINK_MINUTES }); assert.equal(DRINK_MINUTES, 15);
-  assert.equal(d.thirst, 20, 'a drink quenches forty'); assert.equal(d.drunk, 0, 'a soft drink counts nothing');
+  // TAVERN-DRINK (FIELD BUGS 2026-09-30, PIN MOVED): 20 -> 0 - a tavern drink quenches the thirst whole, whatever its kind (test/fb0930_cc_drink.test.js)
+  assert.equal(d.thirst, 0, 'a drink quenches the thirst whole'); assert.equal(d.drunk, 0, 'a soft drink counts nothing');
   assert.equal(tavernDrink(d, 35, { endurance: 50 }).text, TAVERN_MENU_TEXT.gettingDrunk); assert.equal(d.drunk, 35);
   d.drunk = 41; assert.equal(tavernDrink(d, 0, { endurance: 50 }).text, TAVERN_MENU_TEXT.veryDrunk, 'past endurance - 10');
   const b = tavernDrink(d, 10, { endurance: 50 });
@@ -177,14 +182,14 @@ test('SURV5: by source - the four hosts chain the third box, the enhanced HUD ca
     // What each host still owes is this arc's own half: the mod's
     // switch, the world's minutes, the vampirism and the endurance,
     // fed as SURV5's own bag or withheld as null when the mod is off.
-    assert.match(read(f), /survival: survivalOn\(\) \? \{ minutes: Math\.floor\(worldMinutes\(\)\), vampire: !!liveVampirism\(playerEntity\), endurance: liveStat\(playerEntity, 'endurance'\) \} : null,/, `${f}: the third box`);
+    assert.match(read(f), /survival: survivalOn\(\) \? \{ minutes: Math\.floor\(ownMinutes\(\)\), vampire: !!liveVampirism\(playerEntity\), endurance: liveStat\(playerEntity, 'endurance'\) \} : null,/, `${f}: the third box (LIVED1: on the character's own clock)`);
   }
   // ...and the ONE place it becomes rows, so the page cannot be dropped
   // by a host that forgets it.
   assert.match(read('src/ui/statusBox.js'), /if \(survival\) rows\.push\('', \.\.\.survivalStatusRows\(entity, survival\.minutes, survival\)\);/);
   const hud = read('src/ui/enhancedHud.js');
   // UI3: the needs are the status widget's tiles - a felt need amber, one that costs red
-  assert.match(hud, /const needs = survivalOn\(\) \? survivalHudChips\(vitals, Math\.floor\(worldMinutes\(\)\), \{ vampire: !!liveVampirism\(vitals\), endurance: liveStat\(vitals, 'endurance'\) \}\) : \[\];/);
+  assert.match(hud, /const needs = survivalOn\(\) \? survivalHudChips\(vitals, Math\.floor\(ownMinutes\(\)\), \{ vampire: !!liveVampirism\(vitals\), endurance: liveStat\(vitals, 'endurance'\) \}\) : \[\];/);
   assert.match(hud, /const all = statusTiles\(\{ spells, powers, afflictions: afflictionRows\(vitals\), needs \}\);/);
   assert.match(read('src/ui/enhancedStyle.js'), /\.hst-cell\.danger \{/);
   const wm = read('src/scenes/worldModes.js');

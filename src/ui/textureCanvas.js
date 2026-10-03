@@ -33,6 +33,7 @@
 // `scenes/dataSource.js`, which is the port's one data door.
 // ═══════════════════════════════════════════════════════════════════
 
+import { dfmodGeneration } from '../systems/dfmodTextures.js';   // DFMOD1-E: the icon cache keys on the attached-mod set
 import { bitmapCanvas, color32Canvas, fitCanvas } from './bitmapCanvas.js';
 import { clampDpr, ICON_CAP } from './iconFit.js';   // UI1: the fit law's numbers, for requestFittedPicture's key
 // SURV-ART: the DOM door needs the VENDOR arm the GL door already has
@@ -51,6 +52,7 @@ export { texName };
 const archives = new Map();   // archive -> Promise<TextureFile|null>
 const icons = new Map();      // `${archive}_${record}_${scale}` -> dataURL | null
 const waiting = new Map();    // UI1: the same key -> the screens waiting on it, while it is in flight
+const settling = new Map();   // DECOR-MODFLATS: the same key -> a promise kept while it is in flight, settled as it lands or misses
 let palettePromise = null;
 
 /** UI1: THE SCREENS WAITING ON ONE PICTURE - each told once when it lands. A Set, so a screen asking on every repaint
@@ -126,8 +128,12 @@ const iconKey = (archive, record, scale, dye, dyeTarget) => {
  * when a cold record lands so the screen can repaint itself. A record
  * that is already cached fires nothing, so a repaint cannot loop.
  */
+let _iconsGen = -1;   // DFMOD1-E: the attached-mod set the icon cache was drawn from
 export function requestIcon(archive, record, { scale = 2, onReady = null, dye = null, dyeTarget = null } = {}) {
   if (!Number.isInteger(archive) || !Number.isInteger(record) || record < 0) return null;
+  // DFMOD1-E: an icon drawn before the attached texture mods landed (or changed) is not the answer after - the
+  // cache is dropped whole when the set changes, and every icon is asked again
+  if (_iconsGen !== dfmodGeneration()) { icons.clear(); _iconsGen = dfmodGeneration(); }
   const token = dyeToken(dye);
   const key = iconKey(archive, record, scale, dye, dyeTarget);
   // UI1: EVERY SCREEN THAT ASKS WHILE IT IS IN FLIGHT HEARS IT LAND, not the first alone. A slot's fitted picture is
@@ -146,8 +152,10 @@ export function requestIcon(archive, record, { scale = 2, onReady = null, dye = 
   icons.set(key, null);
   const wake = new Set(onReady ? [onReady] : []);
   waiting.set(key, wake);
-  const landed = (url) => { icons.set(key, url); waiting.delete(key); wakeAll(wake); };
-  const missed = () => { waiting.delete(key); };   // a miss is cached as the null above, and wakes no one
+  /** @type {() => void} */ let settle = () => {};
+  settling.set(key, new Promise((res) => { settle = res; }));   // DECOR-MODFLATS: what loadIcon waits on
+  const landed = (url) => { icons.set(key, url); waiting.delete(key); settling.delete(key); settle(); wakeAll(wake); };
+  const missed = () => { waiting.delete(key); settling.delete(key); settle(); };   // a miss is cached as the null above, and wakes no one
   // SURV-ART: THE VENDOR ARM, FIRST. An archive that exists only as the
   // port's own art (Climates & Calories' 532-539) has no file behind
   // `texName`, so the classic arm below fetched nothing, warned, and
@@ -207,7 +215,7 @@ export function requestIcon(archive, record, { scale = 2, onReady = null, dye = 
       console.warn(`[icons] ${texName(archive)} record ${record} would not draw`, e);
     }
     });
-  });
+  }).catch((e) => { missed(); console.warn(`[icons] ${archive}_${record} would not draw`, e); });   // DECOR-MODFLATS: a throw settles it too
   return null;
 }
 
@@ -250,12 +258,12 @@ async function fitUrl(url, opts) {
  * SYNCHRONOUS for requestIcon's reason: a screen that rebuilds its DOM cannot await inside a render.
  * `trim: false` (UI2) fits the whole picture, margin and all - a spell icon's square.
  * @param {string} name @param {(onReady: (() => void)|null) => string|null} ask
- * @param {{ box: number, dpr?: number, cap?: number, trim?: boolean, onReady?: (() => void)|null }} opts
+ * @param {{ box: number, dpr?: number, cap?: number, trim?: boolean, snap?: boolean, onReady?: (() => void)|null }} opts
  */
-export function requestFittedPicture(name, ask, { box, dpr = 1, cap = ICON_CAP, trim = true, onReady = null } = /** @type {any} */ ({})) {
+export function requestFittedPicture(name, ask, { box, dpr = 1, cap = ICON_CAP, trim = true, snap = true, onReady = null } = /** @type {any} */ ({})) {
   if (!(box > 0) || typeof ask !== 'function') return null;
   const r = clampDpr(dpr);
-  const key = `${name}@${box}x${r}c${cap}${trim ? '' : 'w'}`;
+  const key = `${name}@${box}x${r}c${cap}${trim ? '' : 'w'}${snap ? '' : 'nosnap'}`;
   if (fitted.has(key)) { hear(fitWaiting.get(key), onReady); return fitted.get(key); }
   fitted.set(key, null);
   while (fitted.size > FIT_CACHE_MAX) {
@@ -268,7 +276,7 @@ export function requestFittedPicture(name, ask, { box, dpr = 1, cap = ICON_CAP, 
   const make = () => {
     const url = ask(null);
     if (!url) { fitWaiting.delete(key); return; }
-    fitUrl(url, { box, dpr: r, cap, trim }).then((pic) => {
+    fitUrl(url, { box, dpr: r, cap, trim, snap }).then((pic) => {
       fitWaiting.delete(key);
       if (!pic) return;
       fitted.set(key, pic);
@@ -329,15 +337,21 @@ export function showFitted(img, pic) {
 }
 
 /** Test seam, and the door a host would use to warm a list up front.
- *  Resolves to the data URL or null - never throws. */
+ *  Resolves to the data URL or null - never throws.
+ *
+ *  DECOR-MODFLATS (2026-09-27, Discord: "Above #49 decorations stopped working. Most sprites decorations are invisable
+ *  above this number"): IT WAITS FOR THE PICTURE, landed or missed. It waited for the classic archive's read and four
+ *  turns after it - time enough for a classic record, whose drawing is synchronous once the file is read, and for a
+ *  replacement already decoded. A MOD's picture (Detailed Ships' 1210 and 1230, the port's DET stand-ins past 10000)
+ *  has no classic file, whose read fails at once, and decodes in its own time - so the answer was read before it
+ *  landed, the decorate panel kept "none to be had" for it, and the catalogue's decorations past its classic ones
+ *  stood without pictures. */
 export async function loadIcon(archive, record, { scale = 2, dye = null, dyeTarget = null } = {}) {
   const already = requestIcon(archive, record, { scale, dye, dyeTarget });
   if (already) return already;
-  await getArchive(archive);
-  // DW3: the replacement arm awaits the record's decode before the
-  // classic arm runs, so give it those turns too
-  for (let i = 0; i < 4; i++) await Promise.resolve();
-  return icons.get(iconKey(archive, record, scale, dye, dyeTarget)) ?? null;
+  const key = iconKey(archive, record, scale, dye, dyeTarget);
+  await settling.get(key);   // in flight: until it lands or misses; a miss already known: at once
+  return icons.get(key) ?? null;
 }
 
 // ── U59: THE PAPERDOLL, FOR A SCREEN MADE OF NODES ───────────────
@@ -365,8 +379,11 @@ let dollCache = null;   // { version, scale, url }
  * are either composed or they are not, and the caller asks again on
  * its next repaint.
  */
-export function paperDollDataUrl(pixels, { scale = 3 } = {}) {
+export function paperDollDataUrl(pixels, { scale: asked = 3 } = {}) {
   if (!pixels?.rgba) return null;
+  // DFMOD4: `scale` is the size asked for in CLASSIC doll pixels; a composite already `density` texels per doll pixel
+  // (a texture mod's 4x doll) is scaled by what is left, so its detail reaches the screen rather than being blocked up
+  const scale = Math.max(1, Math.round(asked / (pixels.density ?? 1)));
   if (dollCache && dollCache.version === pixels.version && dollCache.scale === scale) return dollCache.url;
   try {
     const canvas = document.createElement('canvas');

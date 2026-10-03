@@ -11,8 +11,8 @@
   {
     "name": "HOME1-claim-cap-unread",
     "file": "server-account/src/homes.js",
-    "old": "player.id, character, HOME_CAP).run();",
-    "new": "player.id, character, HOME_CAP + 1).run();",
+    "old": "price, nowS, paid, player.id, character, HOME_CAP);",
+    "new": "price, nowS, paid, player.id, character, HOME_CAP + 1);",
     "tests": [
       "test/home1.test.js"
     ]
@@ -38,8 +38,8 @@
   {
     "name": "HOME1-claim-repeat-refused",
     "file": "server-account/src/homes.js",
-    "old": "  if (row && row.player === player.id && row.char_id === character) return { ok: true, repeat: true, home: homeOf(row) };\n",
-    "new": "",
+    "old": "held.char_id === claim.character ? { ok: true, repeat: true,",
+    "new": "held.char_id === claim.character && false ? { ok: true, repeat: true,",
     "tests": [
       "test/home1.test.js"
     ]
@@ -47,8 +47,8 @@
   {
     "name": "HOME1-claim-repeat-any-character",
     "file": "server-account/src/homes.js",
-    "old": "if (row && row.player === player.id && row.char_id === character)",
-    "new": "if (row && row.player === player.id)",
+    "old": "held.player === player.id && held.char_id === claim.character ?",
+    "new": "held.player === player.id ?",
     "tests": [
       "test/home1.test.js"
     ]
@@ -65,8 +65,8 @@
   {
     "name": "HOME1-release-anyones",
     "file": "server-account/src/homes.js",
-    "old": "DELETE FROM homes WHERE map_id = ? AND building_key = ? AND player = ? RETURNING price",
-    "new": "DELETE FROM homes WHERE map_id = ? AND building_key = ? AND ? IS NOT NULL RETURNING price",
+    "old": "DELETE FROM homes WHERE map_id = ? AND building_key = ? AND player = ? AND guild_id IS NULL RETURNING price",
+    "new": "DELETE FROM homes WHERE map_id = ? AND building_key = ? AND ? IS NOT NULL AND guild_id IS NULL RETURNING price",
     "tests": [
       "test/home1.test.js"
     ]
@@ -236,7 +236,7 @@
   {
     "name": "HOME1-two-asks-in-flight",
     "file": "src/systems/onlineHomes.js",
-    "old": "    const flying = asking.get(id);\n    if (flying) return flying;\n",
+    "old": "    const flying = asking.get(id);\n    // FB1001 (LOOK-STALE, HOMES-FORCE): a forced ask is asked AFTER the flight it finds - never answered by it (ASYNC\n    // NEVER DROPS): that flight set out before whatever forced this one (a look painted, a room rented), and its answer\n    // does not hold it. The one exception is a forced flight that set out after my last write: its answer is the one asked\n    if (flying) return !force || (forcedFlight.has(id) && askedAt.get(id) === writesTo(id)) ? flying : afterFlight(id, flying);\n",
     "new": "",
     "tests": [
       "test/home1.test.js"
@@ -281,8 +281,8 @@
   {
     "name": "HOME1-the-claims-character",
     "file": "src/systems/onlineHomes.js",
-    "old": "const r = await api.claim({ mapId: id, buildingKey, region, character: me, price });",
-    "new": "const r = await api.claim({ mapId: id, buildingKey, region, character: null, price });",
+    "old": "const r = await api.claim({ mapId: id, buildingKey, region, character: me, price, ...(realm ? { realm } : {}) });",
+    "new": "const r = await api.claim({ mapId: id, buildingKey, region, character: null, price, ...(realm ? { realm } : {}) });",
     "tests": [
       "test/home1.test.js"
     ]
@@ -308,8 +308,8 @@
   {
     "name": "HOME1-the-service-asked-short-of-gold",
     "file": "src/systems/onlineHomes.js",
-    "old": "    if (!afford(price)) return { ok: false, error: 'gold' };\n    const r = await homes.claim(",
-    "new": "    const r = await homes.claim(",
+    "old": "    if (!afford(price)) return { ok: false, error: 'gold' };\n    if (realm) {",
+    "new": "    if (realm) {",
     "tests": [
       "test/home1.test.js"
     ]
@@ -484,8 +484,8 @@
   {
     "name": "HOME1-the-registry-built-offline",
     "file": "src/scenes/world.js",
-    "old": "  const onlineHomes = params.has('online')\n",
-    "new": "  const onlineHomes = true\n",
+    "old": "  const homesApi = params.has('online')",
+    "new": "  const homesApi = true",
     "tests": [
       "test/home1.test.js"
     ]

@@ -65,7 +65,7 @@
   {
     "name": "WB4b-the-sequence-not-advancing",
     "file": "src/scenes/gateCourt.js",
-    "old": "send({ q: ++blowSeq, d: dmg, r })",
+    "old": "send({ q: blowQ('b'), d: dmg, r })",
     "new": "send({ q: blowSeq, d: dmg, r })",
     "tests": [
       "test/wb4b_gate_blows.test.js"
@@ -74,8 +74,8 @@
   {
     "name": "WB4b-the-number-unrounded",
     "file": "src/scenes/gateCourt.js",
-    "old": "      const dmg = Math.round(d);",
-    "new": "      const dmg = d;",
+    "old": "      if (!fromHisCourt(s, t)) return false;   // AUDIT WB9 (brain F1): the relay takes no blow from outside the court he fights in\n      const dmg = Math.round(d);",
+    "new": "      if (!fromHisCourt(s, t)) return false;   // AUDIT WB9 (brain F1): the relay takes no blow from outside the court he fights in\n      const dmg = d;",
     "tests": [
       "test/wb4b_gate_blows.test.js"
     ]
@@ -137,7 +137,7 @@
   {
     "name": "WB4b-a-heal-reaches-him",
     "file": "src/scenes/hostMagic.js",
-    "old": "    if (!bossMark || !castAtBoss || !sp || !(duelSpellOf(sp) || (sp.effects ?? []).some((e) => e && isSoulTrapEffect(e)))) return [];",
+    "old": "    if (!bossMark || !castAtBoss || !sp || !(duelSpellOf(sp) || (sp.effects ?? []).some((e) => e && isSoulTrapEffect(e)) || spellSways(sp))) return [];",
     "new": "    if (!bossMark || !castAtBoss || !sp) return [];",
     "tests": [
       "test/wb4b_gate_blows.test.js"

@@ -51,12 +51,14 @@ test('A6: the constants ARE the C# numbers - the table every pin below stands on
   assert.equal(SWIM_HEIGHT, 0.30, ':57 controllerSwimHeight');
   assert.equal(SWIM_HORSE_DISPLACEMENT, 0.30, ':58 controllerSwimHorseDisplacement');
   assert.equal(HEIGHT_TIMER_SLOW, 0.4, ':72 timerSlow');
-  // The two swim EYE levels are the port's own law, not DFU literals -
-  // DFU derives camSwimLevel from controllerSwimHeight/2 - eyeHeight
-  // (:110), the port sits 0.1 below the capsule top like its crouch and
-  // stand levels. Pinned as the port's arithmetic over DFU's numbers.
-  assert.equal(SWIM_EYE_HEIGHT, 0.20, 'controllerSwimHeight 0.30, less the port\'s 0.1');
-  assert.equal(SWIM_RIDE_EYE_HEIGHT, 0.50, '0.30 + 0.30, less the port\'s 0.1');
+  // SWIM-EYE (FIELD BUGS 2026-10-02c): the two swim EYE levels are DFU's -
+  // DoSinking's camera target is ControllerHeightChange's controller.height
+  // / 2f (:417, :477-480) over the controller's centre, and a controller
+  // under 2 * radius is a sphere whose centre stands its radius (0.35) over
+  // the feet. They were the port's 0.1 under a 0.30 top - 0.20, inside the
+  // sphere's foot, and the swim bounce took the eye under the ground.
+  assert.ok(Math.abs(SWIM_EYE_HEIGHT - 0.50) < 1e-12, '0.35 + 0.30 / 2');
+  assert.ok(Math.abs(SWIM_RIDE_EYE_HEIGHT - 0.65) < 1e-12, '0.35 + (0.30 + 0.30) / 2');
   // FrictionMotor.HeadDipHandling
   assert.equal(HEAD_DIP_RAY_DISTANCE, 0.5, ':121 raySampleDistance');
   assert.equal(HEAD_DIP_CLEARANCE, -0.28, ':122 clearanceAdjustment');
@@ -352,11 +354,11 @@ test('A6 swim: OnExteriorWater sinks the capsule to 0.30 at once and lerps the e
   // The camera is the half that takes time: prevCamLevel -> the swim
   // level across camTimer / timerSlow.
   const t = DT / 0.4;   // timerSlow (:72)
-  assert.ok(near(m.eye[1] - m.pos[1], EYE_HEIGHT + (0.20 - EYE_HEIGHT) * t, 1e-9));
+  assert.ok(near(m.eye[1] - m.pos[1], EYE_HEIGHT + (0.50 - EYE_HEIGHT) * t, 1e-9));
 
   for (let f = 0; f < 30; f++) m.update(DT, still(), 0);
   assert.equal(m.heightAction, null, 'timerResetAction ends it past timerSlow');
-  assert.ok(near(m.eye[1] - m.pos[1], 0.20), '0.30 - 0.1, the port\'s own eye law');
+  assert.ok(near(m.eye[1] - m.pos[1], 0.50), 'SWIM-EYE: controller.height / 2 over the sphere\'s centre, 0.15 + 0.35 (:477-480)');
 });
 
 test('A6 swim: leaving the water unsinks, and the two clocks are the SLOW one', () => {
@@ -385,7 +387,7 @@ test('A6 swim: a MOUNTED swimmer carries the horse displacement, capsule and eye
   m.update(DT, still(), 0);
   assert.ok(near(m.height, 0.30 + 0.30), 'controllerSwimHorseDisplacement (:58, :296)');
   for (let f = 0; f < 30; f++) m.update(DT, still(), 0);
-  assert.ok(near(m.eye[1] - m.pos[1], 0.50), '0.60 - 0.1');
+  assert.ok(near(m.eye[1] - m.pos[1], 0.65), 'SWIM-EYE: 0.60 / 2 over the sphere\'s centre, 0.30 + 0.35');
 });
 
 test('A6 swim: the sink CLEARS the crouch, and while sunk the crouch key is refused', () => {
@@ -460,7 +462,7 @@ test('A6 freeze: the freeze block sits BELOW the cancel block and ABOVE the prob
   const cancel = body.indexOf('if (this.cancelMovement) {');
   const freeze = body.indexOf('if (this.freezeMotor > 0) {');
   const probeNote = body.indexOf("A6 - PlayerMoveScanner's OTHER TWO probes belong HERE");
-  const climb = body.indexOf('if (this._climbStep(dt, input, yaw)) return;');
+  const climb = body.indexOf('this._climbStep(dt, input, yaw)) return;');   // CLIMB2: the classic climb's call, off the enhanced lane
   assert.ok(cancel > 0 && freeze > cancel, 'PlayerMotor.FixedUpdate :286-307');
   assert.ok(probeNote > freeze && probeNote < climb, ':308-309 sits between the freeze and the climb return');
 });

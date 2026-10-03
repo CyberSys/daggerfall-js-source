@@ -33,7 +33,10 @@ import { trs } from '../src/world/mat4.js';
 const SRC = readFileSync(new URL('../src/player/collider.js', import.meta.url), 'utf8');
 /** collider.js's own constants, read from it rather than written twice */
 const constant = (name) => Number(new RegExp(`^const ${name} = (\\d+);`, 'm').exec(SRC)[1]);
-const CELL = constant('CELL'), COARSE = constant('COARSE'), FINE_CELLS_MAX = constant('FINE_CELLS_MAX'), COARSE_CELLS_MAX = constant('COARSE_CELLS_MAX');
+const CELL = constant('CELL'), FINE_CELLS_MAX = constant('FINE_CELLS_MAX');
+/** The coarse grid's two numbers at e9dd612e7 - OW-WOD-LAG retired that grid for a tree over the wide faces, and the old
+ *  filing below is still the witness of which faces are WIDE (the ones it filed coarse or on the short list). */
+const COARSE = 64, COARSE_CELLS_MAX = 1024;
 
 /** addMesh's filing at e9dd612e7 (the triangles, the bounds, the fine grid, the coarse grid, the short list) */
 function oldFiling(positions, indices, m) {
@@ -131,17 +134,19 @@ test('PERF-EXT25: every bucket files every triangle in the cells the old string-
     w.huge.push(...o.huge.map((t) => t + base));
   }
   const decode = (k) => { assert.equal(typeof k, 'number', `a cell key is a number (${JSON.stringify(k)})`); const hi = Math.floor(k / 0x200000); return `${hi - 0x100000},${k - hi * 0x200000 - 0x100000}`; };
-  let fine = 0, coarse = 0, huge = 0;
+  let fine = 0, wide = 0;
   for (const [key, w] of want) {
     const b = c._buckets.get(key);
-    assert.deepEqual(b.tris, w.tris, `${key}: the same triangles, in the same order`);
+    assert.deepEqual(b.tris.map((t) => t.slice(0, 3)), w.tris, `${key}: the same triangles, in the same order`);
     assert.deepEqual([b.min, b.max], [w.min, w.max], `${key}: the same bounds`);
     assert.deepEqual(new Map([...b.grid].map(([k, v]) => [decode(k), v])), w.grid, `${key}: the fine grid, cell for cell`);
-    assert.deepEqual(new Map([...b.coarse].map(([k, v]) => [decode(k), v])), w.coarse, `${key}: the coarse grid, cell for cell`);
-    assert.deepEqual(b.huge, w.huge, `${key}: the short list`);
-    fine += b.grid.size; coarse += b.coarse.size; huge += b.huge.length;
+    // OW-WOD-LAG: the wide faces - every one the old filing put on the coarse grid or the short list - each once, in the
+    // order they went in (the tree over them is built from this list)
+    const oldWide = [...new Set([...[...w.coarse.values()].flat(), ...w.huge])].sort((x, y) => x - y);
+    assert.deepEqual(b.wide, oldWide, `${key}: the wide faces, once each`);
+    fine += b.grid.size; wide += b.wide.length;
   }
-  assert.ok(fine > 1000 && coarse > 10 && huge >= 1, `every home is exercised (${fine} fine cells, ${coarse} coarse, ${huge} on the short list)`);
+  assert.ok(fine > 1000 && wide >= 2, `both homes are exercised (${fine} fine cells, ${wide} wide faces)`);
 });
 
 test('PERF-EXT25 (a guard, not a pin - true on the base by design): every query finds what a walk of EVERY triangle finds - the lookups read the cells the filing wrote, fine and coarse, across cell boundaries either side of zero', () => {
@@ -162,9 +167,9 @@ test('PERF-EXT25 (a guard, not a pin - true on the base by design): every query 
   const real = build(), all = build();
   for (const b of all._buckets.values()) {
     const every = { get: () => b.tris.map((_, i) => i), size: 1 };
-    b.grid = every; b.coarse = every; b.huge = [];
+    b.grid = every; b.wide = [];   // OW-WOD-LAG: every triangle through the fine walk; no tree
   }
-  assert.ok([...real._buckets.values()].some((b) => b.coarse.size > 0), 'the scene files wide faces on the coarse grid');
+  assert.ok([...real._buckets.values()].some((b) => b.wide.length > 0), 'the scene files wide faces (OW-WOD-LAG: the tree\'s)');
   let hits = 0, n = 0;
   for (let x = -140; x <= 200; x += 6.1) for (let z = -50; z <= 150; z += 7.9) {
     for (const [dx, dz] of [[0, 0], [0.61, 0.23]]) {
@@ -207,5 +212,5 @@ test('PERF-EXT25: the key is one-to-one over the cells a map can hold, and every
   assert.doesNotMatch(SRC, /const k = `\$\{/, 'none is filed');
   assert.doesNotMatch(SRC, /for \(const v of \[a, b, c\]\)/, 'and no fourth array is made a triangle for its bounds');
   const lookups = SRC.match(/\.(grid|coarse)\.get\(cellKey\(/g) || [];
-  assert.equal(lookups.length, 4, 'the four lookups: the point query\'s fine and coarse 3x3, the ray\'s coarse DDA, the ray\'s fine DDA');
+  assert.equal(lookups.length, 4, 'the four lookups: the point query\'s fine 3x3 and the ray\'s fine DDA (OW-WOD-LAG: the wide faces are the tree\'s, no grid); FIELD BUGS 2026-10-02 ROCK-FREE\'s hull overlap over its radius\'s cells and the line up from her centre (partsHolding)');
 });

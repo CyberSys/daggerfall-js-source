@@ -19,10 +19,10 @@
 // reads a render/ one, for two numbers the sky and the land must share.
 // Not a DFU member. Ledger A (WB).
 import { faces, spike, GATE_ARCHIVE, GATE_STONE_RECORD } from './gateModel.js';
-import { courtToDungeon, COURT_ARCHIVE, COURT_FLOOR_RECORD, LAVA_Y } from './gateArena.js';
+import { courtToDungeon, courtSpireAxes, SPIRE_BASE_W, COURT_ARCHIVE, COURT_FLOOR_RECORD, LAVA_Y } from './gateArena.js';
 import { seededRng } from '../systems/wind.js';
 import { SIGIL_TOWER, DEAD_CLOCK_PERIOD } from '../render/deadlands.js';
-import { COURT_R } from '../net/gateBrain.js';
+import { COURT_R, COURTS, WALKS, WALK_HALF_W } from '../net/gateBrain.js';   // WB9b: the three courts and the walkways the land keeps clear of
 
 /** The islands: how many, how near and how far (metres from the court's centre). */
 export const ISLAND_COUNT = 12;
@@ -38,6 +38,39 @@ export const SHARD_RISE = Object.freeze([3, 16]);
 export const SHARD_WINDOW = 0.8;
 /** The seed the land is drawn from. */
 export const LAND_SEED = 0xdead1a;
+/** WB9b: the shards hanging round each of the two courts past the first (its own SHARD_COUNT are WB6b's). */
+export const SHARD_COUNT_FAR = 4;
+/** WB9b: how far the land keeps from the courts' rims and the walkways' sides, metres - an island's rock or a shard's
+ *  hanging stone never stands over a floor, nor leans into a walkway. */
+export const LAND_CLEAR_M = 12;
+
+/** WB9b: how far (x, z) stands from the nearest court's rim or walkway's side (negative inside one) - leaving out court
+ *  `own` (a shard's own court: its ring is WB6b's, SHARD_RING about that court's centre). Pure. */
+export function floorGap(x, z, own = -1) {
+  let g = Infinity;
+  COURTS.forEach(([cx, cz], k) => { if (k !== own) g = Math.min(g, Math.hypot(x - cx, z - cz) - COURT_R); });
+  for (const w of WALKS) {
+    const t = Math.max(0, Math.min(w.len, (x - w.ax) * w.ux + (z - w.az) * w.uz));
+    g = Math.min(g, Math.hypot(x - (w.ax + w.ux * t), z - (w.az + w.uz * t)) - WALK_HALF_W);
+  }
+  return g;
+}
+
+/** WB9b: a shard's reach about its centre at size 1 (buildShardModel's widest stone, with its tilt), and the least gap it
+ *  keeps from a rim spire. */
+export const SHARD_REACH = 1.1;
+export const SHARD_SPIRE_GAP_M = 1.6;
+/** WB9b: how far a shard of `size` hung at (x, z) keeps from court `k`'s spires (the nearest, across the floor's plane -
+ *  never less than the gap in the air it bobs and turns in). Pure. */
+export function spireGap(x, z, size, k) {
+  let g = Infinity;
+  for (const sp of courtSpireAxes(k)) {
+    const vx = sp.t[0] - sp.b[0], vz = sp.t[2] - sp.b[2], l2 = vx * vx + vz * vz;
+    const h = l2 > 0 ? Math.max(0, Math.min(1, ((x - sp.b[0]) * vx + (z - sp.b[2]) * vz) / l2)) : 0;
+    g = Math.min(g, Math.hypot(x - (sp.b[0] + vx * h), z - (sp.b[2] + vz * h)) - SPIRE_BASE_W * Math.SQRT2 - SHARD_REACH * size);
+  }
+  return g;
+}
 
 const azOf = (x, z) => Math.atan2(x, -z);   // render/deadlands.js deadAzimuth: 0 toward the boss from the arrival
 const wrapPi = (a) => a - 2 * Math.PI * Math.floor((a + Math.PI) / (2 * Math.PI));
@@ -53,7 +86,11 @@ export function deadlandsIslands() {
     let az = ((i + 0.5) / ISLAND_COUNT) * Math.PI * 2 - Math.PI + (rolls() - 0.5) * 0.35;
     const off = wrapPi(az - SIGIL_TOWER.az);
     if (Math.abs(off) < TOWER_WINDOW) az = SIGIL_TOWER.az + Math.sign(off || 1) * (TOWER_WINDOW + 0.05);
-    const d = ISLAND_NEAR + rolls() * (ISLAND_FAR - ISLAND_NEAR);
+    let d = ISLAND_NEAR + rolls() * (ISLAND_FAR - ISLAND_NEAR);
+    // WB9b: an island rolled over a court or a walkway is pushed on out along its bearing until it stands clear (its
+    // widest rock at most 1.35 of its drawn radius - the mound's jitter and the spires' lean)
+    const rMax = (9 + 12) * (0.6 + 0.4 + 0.35) * 1.35;
+    while (floorGap(Math.sin(az) * d, -Math.cos(az) * d) < rMax + LAND_CLEAR_M && d < ISLAND_FAR + 120) d += 8;
     const x = Math.sin(az) * d, z = -Math.cos(az) * d;
     const scale = 0.6 + 0.4 * ((d - ISLAND_NEAR) / (ISLAND_FAR - ISLAND_NEAR)) + rolls() * 0.35;   // the further, the larger - they must read over the fog
     const r = (9 + rolls() * 12) * scale;
@@ -139,16 +176,42 @@ export function deadlandsShards() {
     if (Math.abs(offTower) < SHARD_WINDOW) az = SIGIL_TOWER.az + Math.sign(offTower || 1) * (SHARD_WINDOW + 0.1);   // the arrival's sightline to the tower stays clear
     if (Math.abs(wrapPi(az - Math.PI)) < 0.45) az += 0.6;   // not over the bridge the players came by (+z is azimuth PI)
     const d = SHARD_RING[0] + rolls() * (SHARD_RING[1] - SHARD_RING[0]);
-    out.push({
-      x: Math.sin(az) * d, z: -Math.cos(az) * d,
-      y: SHARD_RISE[0] + rolls() * (SHARD_RISE[1] - SHARD_RISE[0]),
-      size: 2.5 + rolls() * 3.5,
-      tilt: (rolls() - 0.5) * 0.35,
-      bob: 0.6 + rolls() * 1.1,
-      bobTurns: 40 + Math.floor(rolls() * 40),     // a bob every 7.5 to 15 s
-      spinTurns: (1 + Math.floor(rolls() * 3)) * (rolls() < 0.5 ? -1 : 1),
-      phase: rolls(),
-    });
+    // (the rest of its rolls drawn now, in WB6b's order - the stone is the same, only where it hangs may move)
+    const y = SHARD_RISE[0] + rolls() * (SHARD_RISE[1] - SHARD_RISE[0]);
+    const size = 2.5 + rolls() * 3.5;
+    const tilt = (rolls() - 0.5) * 0.35;
+    const bob = 0.6 + rolls() * 1.1;
+    const bobTurns = 40 + Math.floor(rolls() * 40);     // a bob every 7.5 to 15 s
+    const spinTurns = (1 + Math.floor(rolls() * 3)) * (rolls() < 0.5 ? -1 : 1);
+    const phase = rolls();
+    // WB9b: never over a walkway or the courts past the first - turned on round the court until it is clear of them, and
+    // still of the tower's window, the bridge and the rim's spires (a shard already clear stands where WB6b hung it)
+    const off = (a) => Math.abs(wrapPi(a - SIGIL_TOWER.az)) < SHARD_WINDOW || Math.abs(wrapPi(a - Math.PI)) < 0.45
+      || floorGap(Math.sin(a) * d, -Math.cos(a) * d, 0) < LAND_CLEAR_M || (a !== az0 && spireGap(Math.sin(a) * d, -Math.cos(a) * d, size, 0) < SHARD_SPIRE_GAP_M);
+    const az0 = az;
+    for (let turn = 0; turn < 48 && off(az); turn++) az += 0.13;
+    out.push({ x: Math.sin(az) * d, z: -Math.cos(az) * d, y, size, tilt, bob, bobTurns, spinTurns, phase });
+  }
+  // WB9b: and SHARD_COUNT_FAR round each court past the first - the same stone hanging over the fire about the Burning
+  // Court and Dagon's Champion's, clear of every floor and walkway
+  for (let k = 1; k < COURTS.length; k++) {
+    const far = seededRng((LAND_SEED ^ 0x0b0b ^ (k * 0x9e37)) >>> 0), [cx, cz] = COURTS[k];
+    for (let i = 0; i < SHARD_COUNT_FAR; i++) {
+      let az = ((i + 0.5) / SHARD_COUNT_FAR) * Math.PI * 2 + (far() - 0.5) * 0.6;
+      const d = SHARD_RING[0] + far() * (SHARD_RING[1] - SHARD_RING[0]);
+      const y = SHARD_RISE[0] + far() * (SHARD_RISE[1] - SHARD_RISE[0]);
+      const size = 2.5 + far() * 3.5;
+      const tilt = (far() - 0.5) * 0.35;
+      const bob = 0.6 + far() * 1.1;
+      const bobTurns = 40 + Math.floor(far() * 40);
+      const spinTurns = (1 + Math.floor(far() * 3)) * (far() < 0.5 ? -1 : 1);
+      const phase = far();
+      const at = (a) => [cx + Math.sin(a) * d, cz - Math.cos(a) * d];
+      const off = (a) => { const [x, z] = at(a); return floorGap(x, z, k) < LAND_CLEAR_M || spireGap(x, z, size, k) < SHARD_SPIRE_GAP_M; };
+      for (let turn = 0; turn < 48 && off(az); turn++) az += 0.13;
+      const [x, z] = at(az);
+      out.push({ x, z, y, size, tilt, bob, bobTurns, spinTurns, phase });
+    }
   }
   return out;
 }

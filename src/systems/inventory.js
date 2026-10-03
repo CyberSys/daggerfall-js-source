@@ -239,6 +239,9 @@ export function stacksWith(a, b) {
     (a.material ?? 0) === (b.material ?? 0) &&
     (a.message ?? 0) === (b.message ?? 0) &&
     (a.potionRecipeKey ?? 0) === (b.potionRecipeKey ?? 0) &&
+    // PROF12 (the port's own field, Ledger A): a Potent potion stacks only with one of its own share - a Potent Healing and
+    // a plain one are two potions
+    (a.potent ?? 0) === (b.potent ?? 0) &&
     (a.timeForItemToDisappear ?? 0) === (b.timeForItemToDisappear ?? 0) &&
     // AUDIT MERGE-PLUS C4 (LOCK1 - the port's own field, Ledger A): a locked stack merges only with a locked one. Thirty
     // locked arrows stowed in a wagon holding five came out as thirty-five unlocked, and dropped.
@@ -260,7 +263,9 @@ export function stacksWith(a, b) {
  *  false for one (DaggerfallUnityItem.cs:681-694). */
 export function addItem(list, item, position = 'back') {
   for (const held of list) {
-    if (stacksWith(held, item)) {
+    // BOOK-SPLIT: FindExistingStack's first term, `checkItem != item` (:708) - a record already in the list is not its
+    // own stack-mate, or re-adding it doubles its count
+    if (held !== item && stacksWith(held, item)) {
       held.stackCount = (held.stackCount ?? 1) + (item.stackCount ?? 1);
       return held;
     }
@@ -298,22 +303,35 @@ export function addItem(list, item, position = 'back') {
  * of except the group and the template index.
  *
  * The port spread the source record instead, which is a different item
- * in four ways that matter: per-item CONDITION rode along (a stack
- * worn to 3 split into two stacks worth 3), ENCHANTMENTS were
+ * in two ways that matter: per-item CONDITION rode along (a stack
+ * worn to 3 split into two stacks worth 3), and ENCHANTMENTS were
  * duplicated by reference - the item maker splits ONE off a stack to
  * enchant precisely so the rest stay plain, and a shared array would
- * have enchanted the whole stack - and `message` and `potionRecipeKey`
- * came with it, which stacksWith reads as identity. DFU's split is a
- * fresh item, so a Paintings split would draw its own picture; nothing
- * stackable is a painting, but SetItem's law is stated whole here
- * because the next reader will ask.
+ * have enchanted the whole stack. DFU's split is a fresh item, so a
+ * Paintings split would draw its own picture; nothing stackable is a
+ * painting, but SetItem's law is stated whole here because the next
+ * reader will ask.
+ *
+ * BOOK-SPLIT (2026-09-29, Janome on Discord: books put up for sale
+ * "would appear under the wrong title", and taken back off the counter
+ * seemed to "duplicate them") - THE IDENTITY RIDES THE SPLIT, a
+ * Port-Ledger A departure. CreateItem knows a group and a template and
+ * nothing else, so DFU's own split zeroes the three terms
+ * FindExistingStack reads as identity beside them (:708-713): a book's
+ * id (`message` - its title, and the file price CreateBook minted it
+ * at: a book split off "A Tale of Kieran x3" was book 0, "The First
+ * Scroll of Baan Dar", at the template's 2500 gold), a potion's recipe
+ * (and the price and picture its setter wrote - a split potion was an
+ * empty bottle) and a conjured stack's expiry (a split arrow outlived
+ * its spell). The pick keeps all three and what they priced; the rest
+ * is still the fresh mint.
  *
  * The two mint terms the port keeps one home for - condition
  * (mintCondition) and the Paintings message (rollPaintingMessage) -
  * are called by name rather than respelled.
  *
  * ROAD-Ar R5 - THE REMAINDER, RESTATED. A2 recorded two surviving
- * inline re-spellings of this member (equip.js:249 and
+ * inline re-spellings of this member (equip.js:254 and
  * potionMakerWindow.js:169, both on paths where nothing stackable is
  * equippable) and missed a THIRD, which was the one on the main path:
  * itemTransfer._applyTransfer's partial arm, reached by every
@@ -323,11 +341,17 @@ export function addItem(list, item, position = 'back') {
  * The recorded remainder is therefore equip.js and potionMakerWindow.js
  * ONLY - if a third appears, it is new.
  */
+/** BOOK-SPLIT: the stacks whose identity set their price at the mint - a book (CreateBook's `value = bookFile.Price`)
+ *  and a potion (the PotionRecipeKey setter's price and picture, DaggerfallUnityItem.cs:387-399; IsPotion, :352-355). */
+const splitPricedByIdentity = (stack) =>
+  stack.group === 'Books' || (stack.group === 'UselessItems1' && stack.templateIndex === GLASS_BOTTLE_TEMPLATE);
+
 export function splitStack(list, stack, numberToPick, { rolls = Math.random } = {}) {
   const count = stack?.stackCount ?? 1;
   if (count <= 1 || numberToPick < 1 || numberToPick > count || !list.includes(stack)) return null;
   if (numberToPick === count) return stack;
   const template = templateByIndex(stack.templateIndex);
+  const priced = splitPricedByIdentity(stack);   // BOOK-SPLIT: a book's file price, a potion's recipe price
   const picked = mintCondition({
     group: stack.group,
     templateIndex: stack.templateIndex,
@@ -335,12 +359,19 @@ export function splitStack(list, stack, numberToPick, { rolls = Math.random } = 
     material: 0,                                  // nativeMaterialValue = 0
     flags: 0,
     variant: 0,                                   // currentVariant = 0
-    value: template?.basePrice ?? 0,              // value = itemTemplate.basePrice
+    value: priced ? (stack.value ?? template?.basePrice ?? 0) : (template?.basePrice ?? 0),   // value = itemTemplate.basePrice; BOOK-SPLIT: the identity's price
     enchantmentPoints: template?.enchantmentPoints,
-    message: stack.group === 'Paintings' ? rollPaintingMessage(rolls) : 0,
+    message: stack.group === 'Paintings' ? rollPaintingMessage(rolls) : (stack.message ?? 0),   // BOOK-SPLIT: the book's id rides the split
     stackCount: numberToPick,
   });
+  // BOOK-SPLIT: FindExistingStack's other two identity terms (:708-713) - the potion's recipe (and the picture its
+  // setter wrote) and the conjured expiry
+  if (stack.potionRecipeKey) picked.potionRecipeKey = stack.potionRecipeKey;
+  if (stack.potent) picked.potent = stack.potent;   // PROF12: and its Potent share
+  if (priced && stack.worldTextureRecord != null) picked.worldTextureRecord = stack.worldTextureRecord;
+  if (stack.timeForItemToDisappear) picked.timeForItemToDisappear = stack.timeForItemToDisappear;
   if (stack.locked === true) picked.locked = true;   // AUDIT MERGE-PLUS C4: the part split off keeps the stack's lock
+  if (stack.bound === true) picked.bound = true;   // AUDIT SS: and its binding (systems/itemBound.js) - never the Broker's price, which a dismantle pays out of
   list.push(picked);                              // AddItem(noStack: true)
   stack.stackCount = count - numberToPick;
   return picked;
@@ -485,9 +516,19 @@ export function takeOneInto(entity, fromList, item) {
   if (isGoldPieces(item)) addGoldPieces(entity, item.stackCount ?? 1);
   else {
     entity.items = entity.items || [];
-    addItem(entity.items, item);
+    addItem(entity.items, item); tellTaken(item);   // LOOT8: a piece taken into the pack - a body's bulk take, a peer's grant
   }
   return item;
+}
+/** LOOT8 (the Loot arc, bible/06-Systems/Loot-Arc.md section 10): NAMED listeners told of every piece the player TAKES
+ *  out of a container into the pack, once it has landed - the loot window's and quick loot's take (itemTransfer.js
+ *  applyTransfer's `toPlayer`), a body's bulk take and a peer's grant (takeOneInto) - never gold. A name re-registered
+ *  replaces, `null` removes; an answer is ignored, a throw swallowed (a listener is not the take's problem). */
+const _takeListeners = new Map();
+export function registerTakeListener(name, fn) { if (typeof fn === 'function') _takeListeners.set(name, fn); else _takeListeners.delete(name); }
+export function tellTaken(item) {
+  if (!item) return;   // gold never gets here: both takes spend a pile into the counter before they would tell
+  for (const fn of _takeListeners.values()) { try { fn(item); } catch { /* a listener is not the take's problem */ } }
 }
 
 /** Leather armor weight AS CODED in DFU (audit F13): the Erisceres

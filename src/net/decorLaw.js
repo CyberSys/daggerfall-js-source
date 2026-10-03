@@ -25,6 +25,7 @@
 // degrees, its scale, an optional light, whether it holds things, and
 // the gold it cost (half of which comes back when it is removed).
 // ═══════════════════════════════════════════════════════════════════
+import { PROVENANCE_RE, makerName } from './recipeLaw.js';   // PROF4: a crafted piece's id and mark, one home
 
 /** How many pieces one home holds - a room full of furniture, not a frame-rate. */
 export const DECOR_CAP = 200;
@@ -32,9 +33,14 @@ export const DECOR_CAP = 200;
 export const DECOR_ID_RE = /^[A-Za-z0-9_-]{1,24}$/;
 /** ARCH3D model ids run to six digits; TEXTURE records below 512, and archives below 512 - DECOR2c: or the port's own
  *  past them (Roleplay & Realism's weapons and armour, 513 to 526; Climates & Calories', 532 to 539), so a mounted
- *  weapon of theirs shows its own picture. */
+ *  weapon of theirs shows its own picture.
+ *  DECOR-MODFLATS (2026-09-27, Discord: "Above #49 decorations stopped working. Most sprites decorations are invisable
+ *  above this number"): or a MOD's, to five digits. The catalogue is read out of the world's own blocks, and the ships
+ *  Detailed Ships lays in them carry its own flats (archives 1210 and 1230) and the DET flats the port stands in (10009
+ *  to 10027) - "Decoration 49" onward, numbered after the classic ones. The bound refused every one: the piece being
+ *  placed was never a piece, so its picture never stood and Place did nothing. */
 export const DECOR_MODEL_MAX = 999_999;
-export const DECOR_ARCHIVE_MAX = 999;
+export const DECOR_ARCHIVE_MAX = 99_999;
 export const DECOR_RECORD_MAX = 511;
 /** How far from the building's origin a piece may stand, on each axis, in metres - wider than any interior. */
 export const DECOR_POS_MAX = 256;
@@ -73,14 +79,21 @@ export const DECOR_ARTIFACT_UNKNOWN = 255;
  * and draws from its own data: the template `t`, and what makes it that item - its group `g` (Daggerfall's ItemGroups
  * number: a plant's name hangs on it), its material `m`, variant `v`, artifact `a` and message `p` (a painting's
  * picture, a book's title) - each null when it has none. Or null.
+ *
+ * PROF4 (bible/06-Systems/Professions-Arc.md 25): a crafted piece's provenance id `pv` (net/recipeLaw.js), and with it
+ * its maker's mark `mk` - the one text a descriptor carries, and online the account service's own: it writes `mk` from
+ * its `products` row (the owner's, the template's) and nothing a client sent (server-account/src/decor.js). Each is
+ * absent when the piece has none.
  */
 export function decorItemOf(raw) {
   if (!raw || typeof raw !== 'object') return null;
-  const { t, g = null, m = null, v = null, a = null, p = null } = raw;
+  const { t, g = null, m = null, v = null, a = null, p = null, pv = null, mk = null } = raw;
   const small = (x, max) => x === null || (Number.isSafeInteger(x) && x >= 0 && x <= max);
   if (!Number.isSafeInteger(t) || t < 0 || t > DECOR_TEMPLATE_MAX) return null;
   if (!small(g, 63) || !small(m, 0xffff) || !small(v, 255) || !small(a, 255) || !small(p, 0xffff)) return null;
-  return { t, g, m, v, a, p };
+  if (pv !== null && (typeof pv !== 'string' || !PROVENANCE_RE.test(pv))) return null;
+  if (mk !== null && makerName(mk) !== mk) return null;
+  return { t, g, m, v, a, p, ...(pv ? { pv } : {}), ...(pv && mk ? { mk } : {}) };
 }
 
 /** DECOR2b: Daggerfall's ItemGroups.Furniture - the furnisher's pieces, whose shape the owner chooses among the
@@ -103,6 +116,17 @@ export function decorIsMount(piece) {
   const it = piece?.item;
   if (!it || piece.model != null || !Array.isArray(piece.flat)) return false;
   return (it.g === DECOR_WEAPONS_GROUP && it.t !== DECOR_ARROW_TEMPLATE) || it.g === DECOR_ARMOR_GROUP;
+}
+
+/** DECOR-FLIP (2026-09-27, Discord: "Some sprites flipped (allow rotation)"): A FLAT TURNED HALF ROUND FACES THE OTHER
+ *  WAY. A billboard turns to the eye whatever its record says, so the one turn a picture has is WHICH WAY it faces:
+ *  turned more than a quarter either way (the placement's own turn, kept in the record's yaw as a model's is), it is
+ *  drawn mirrored - a sprite that faced left faces right. A mount hangs by its own frame (its turn is its spin on the
+ *  surface) and a model turns in earnest; neither mirrors. */
+export function decorFlatMirrored(piece) {
+  if (!piece || piece.model != null || !Array.isArray(piece.flat) || decorIsMount(piece)) return false;
+  const yaw = Number(piece.rot?.[0]);
+  return Number.isFinite(yaw) && Math.abs(yaw) > 90;
 }
 
 /** DECOR2c: how far a mount hangs off its surface, in metres - the blood marks' own hair (combat/bloodDecals.js
@@ -164,20 +188,40 @@ export function decorLightOf(raw) {
   return { color: color.map((c) => round(c, 3)), range: round(range, 2), intensity: round(intensity, 2) };
 }
 
+/** HOME-STATIONS (2026-09-27, Discord - Tabitha: "CRAFTABLE / PURCHASABLE CRAFT / GUILD STATIONS [Spellmaking, Alchemy,
+ *  Enchanting] FOR HOMES / SHIPS"): the three crafts a placed piece may be made to serve - the guilds' own makers
+ *  (DFU's MakePotions, MakeSpells and MakeMagicItems services), at home. */
+export const DECOR_STATIONS = Object.freeze(['alchemy', 'spells', 'enchant', 'forge', 'workbench', 'loom', 'mason', 'jeweller']);   // PROF2: the forge - smelting at home (bible/06-Systems/Professions-Arc.md 23); PROF4: the workbench (25); PROF7: the loom and tanning rack (29); PROF11: the mason's bench (professionLaw MASON_FEE); PROF10: the jeweller's bench (JEWEL_FEE)
+/** What a station costs to make, once - a licence for the craft in that piece, not the piece's own price (`paid`), so
+ *  nothing of it comes back when the piece is removed or the room sold. STATION-FEES (2026-09-27, Discord: "Make
+ *  crafting stations in interiors way more expensive"): ten times the first pass (5,000, 10,000 and 20,000) - a
+ *  guild's maker at home is a hall's worth of gold, not an afternoon's. */
+export const DECOR_STATION_FEES = Object.freeze({ alchemy: 50_000, spells: 100_000, enchant: 200_000, forge: 50_000, workbench: 50_000, loom: 50_000, mason: 50_000, jeweller: 50_000 });   // PROF2: a forge as the alchemy station; PROF4: a workbench as the forge; PROF7: a loom as the workbench; PROF11: a mason's bench as the loom; PROF10: a jeweller's bench as the mason's
+/** The guild service each craft opens - the same maker windows the Mages Guild and the temples offer (worldModes.js
+ *  openServiceFlow's destinations). PROF2: the forge is no guild's - it opens the Stores' forge (ui/profPages.js);
+ *  PROF4: nor the workbench - the Stores' workbench; PROF7: nor the loom - the Stores' loom; PROF11: nor the mason's
+ *  bench - the Stores' bench; PROF10: nor the jeweller's bench. */
+export const DECOR_STATION_SERVICES = Object.freeze({ alchemy: 'guildServicePotionMaker', spells: 'guildServiceSpellMaker', enchant: 'guildServiceItemMaker' });
+/** A station's name, as the panel and the room say it. */
+export const DECOR_STATION_NAMES = Object.freeze({ alchemy: 'Alchemy station', spells: 'Spellmaking station', enchant: 'Enchanting station', forge: 'Forge', workbench: 'Workbench', loom: 'Loom', mason: 'Mason\'s bench', jeweller: 'Jeweller\'s bench' });   // PROF11; PROF10
+
 /**
  * WHERE a piece stands and what it cost - the half a move may change - projected and rounded (a millimetre, a tenth
- * of a degree; `rot` is [yaw, pitch, roll]), or null. `light` null is no light; `storage` whether it holds things.
+ * of a degree; `rot` is [yaw, pitch, roll]), or null. `light` null is no light; `storage` whether it holds things;
+ * HOME-STATIONS: `station` the craft it serves (DECOR_STATIONS), carried only when it serves one - a piece holds
+ * things or serves a craft, never both (one press, one thing it does).
  */
 export function decorPlaceOf(raw) {
   if (!raw || typeof raw !== 'object') return null;
-  const { pos, rot, scale, light = null, storage = false, paid } = raw;
+  const { pos, rot, scale, light = null, storage = false, paid, station = null } = raw;
   if (!triple(pos, DECOR_POS_MAX) || !triple(rot, 180)) return null;
   if (!fin(scale) || scale < DECOR_SCALE_MIN || scale > DECOR_SCALE_MAX) return null;
   if (typeof storage !== 'boolean') return null;
+  if (station !== null && (!DECOR_STATIONS.includes(station) || storage)) return null;
   if (!Number.isSafeInteger(paid) || paid < 0 || paid > DECOR_PRICE_MAX) return null;
   const lit = light === null ? null : decorLightOf(light);
   if (light !== null && !lit) return null;
-  return { pos: pos.map((v) => round(v, 3)), rot: rot.map((v) => round(v, 1)), scale: round(scale, 3), light: lit, storage, paid };
+  return { pos: pos.map((v) => round(v, 3)), rot: rot.map((v) => round(v, 1)), scale: round(scale, 3), light: lit, storage, paid, ...(station ? { station } : {}) };
 }
 
 /** A WHOLE piece - its id, what it is, where it stands - projected, or null. DECOR2a: the owner's own item costs
@@ -187,7 +231,7 @@ export function decorPieceOf(raw) {
   if (typeof raw?.id !== 'string' || !DECOR_ID_RE.test(raw.id)) return null;
   const what = decorWhatOf(raw);
   const place = decorPlaceOf(raw);
-  if (!what || !place || (what.item && (place.paid !== 0 || place.storage))) return null;
+  if (!what || !place || (what.item && (place.paid !== 0 || place.storage || place.station))) return null;   // HOME-STATIONS: one's own item serves no craft
   return { id: raw.id, ...what, ...place };
 }
 
@@ -263,4 +307,37 @@ export function decorHiddenOf(raw) {
     seen.add(k);
   }
   return [...seen].sort();
+}
+
+// ═══ HOME-YARD (2026-09-30) — PIECES OUTSIDE A HOME, ON ITS OWN LOT ══
+//
+// Asked: "allowing for prop placement on the outside within the limits of
+// their house". A yard's piece is a piece of decor standing OUTSIDE its
+// home: one of the catalogue's (never one's own item - a thing left in the
+// street is no thing kept), holding nothing, serving no craft and giving no
+// light (an outdoor lamp is the town's), its place from the building's own
+// origin outdoors - the building's position in its town, the same on every
+// client (scenes/homeYards.js). The LOT - the building's footprint and a
+// margin round it, clear of every other building - is the client's to
+// measure (the service has no town to measure it in); the law's bound is
+// the lot's widest.
+
+/** How many pieces one yard holds - a garden's worth, never a town's. */
+export const DECOR_YARD_CAP = 60;
+/** How far from the building's origin a yard's piece may stand, on each axis, metres - past any lot. */
+export const DECOR_YARD_POS_MAX = 48;
+/** The most pieces one town's yards answer at once. */
+export const DECOR_YARDS_TOWN_MAX = 2_000;
+
+/** A yard piece's place, projected (decorPlaceOf's), or null - one that holds things, serves a craft, gives light or
+ *  stands past the yard's bound is no yard's. */
+export function decorYardPlaceOf(raw) {
+  const pl = decorPlaceOf(raw);
+  if (!pl || pl.storage || pl.station || pl.light) return null;
+  return pl.pos.every((v) => Math.abs(v) <= DECOR_YARD_POS_MAX) ? pl : null;
+}
+/** A whole yard piece (decorPieceOf's), or null - one's own item stands in no yard. */
+export function decorYardPieceOf(raw) {
+  const p = decorPieceOf(raw);
+  return p && !p.item && decorYardPlaceOf(p) ? p : null;
 }

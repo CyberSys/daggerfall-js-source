@@ -58,7 +58,7 @@ export function createGlyphFace(family, { raster = FACE_RASTER, page = FACE_PAGE
   };
   const newPage = () => {
     const canvas = makeCanvas(page, page);
-    const ctx = canvas?.getContext('2d');
+    const ctx = canvas?.getContext('2d', { willReadFrequently: true });   // FIELD 2026-09-27 (main's buildSdfFace): the page is read back at each upload
     if (!ctx) return null;
     dress(ctx);
     const p = { canvas, ctx, x: PAD, y: PAD, rowH: 0, dirty: false, tex: null, uploads: 0 };

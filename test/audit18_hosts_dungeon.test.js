@@ -34,6 +34,8 @@ import { swingSoundFor, SOUND } from '../src/systems/soundClips.js';
 import { readSpellsStd } from '../src/formats/spellsStd.js';
 import { createCityGuards } from '../src/scenes/cityGuards.js';
 import { PlayerWeapon } from '../src/combat/playerWeapon.js';
+import { FATIGUE_DRAIN_SCALE } from '../src/systems/statMods.js';   // BALANCE1: exertion's scale on DFU's losses
+const charged = (loss, mult = 1) => Math.trunc(loss * mult * FATIGUE_DRAIN_SCALE);   // BALANCE1: DFU's loss x the multiplier x exertion's scale, truncated once
 
 const ARENA2 = process.env.ARENA2_PATH;
 const skipReal = !ARENA2 || !existsSync(ARENA2)
@@ -172,7 +174,7 @@ test('audit18 sweep: all three spawn sites run the one shared equip chain', () =
     if (name === 'hostCombat.js') continue;   // the one shared home
     assert.equal(/assignEnemyEquipment\(|\bequipEnemy\(/.test(src), false, `${name} keeps a private copy of the equip chain`);
   }
-  assert.match(hostSrc('hostCombat.js'), /^  const eq = equipEnemy\(entity, mobileType, player\.level, rolls, \{ player \}\);$/m, 'the seam runs the shared chain (RRI2: the player rides in for a mod\'s assigner)');
+  assert.match(hostSrc('hostCombat.js'), /^  const eq = equipEnemy\(entity, mobileType, effectiveLevel\(player\), rolls, \{ player \}\);   \/\/ SOFTCAP2/m, 'the seam runs the shared chain (RRI2: the player rides in for a mod\'s assigner)');
 });
 
 // ---------------------------------------------------------------
@@ -353,7 +355,14 @@ const makePlayer = () => ({
 
 test('guards audit18: the watch spawns EQUIPPED, and its loot rolls the PLAYER gender', { skip: skipReal }, async () => {
   const player = makePlayer();
-  const g = createCityGuards(makeDeps(() => 0.9, player));
+  // MOD: deterministic rolls, as the five-monsters pin above takes. The
+  // loot rebalance (Handoff-FixPackage2.md) keeps each worn piece on a
+  // humanoid's corpse only on a roll under a quarter, off the pool's own
+  // stream - and 0.9 missed every piece, so this ARENA2-gated pin read an
+  // empty body. What it reads is the equip chain reaching the corpse, not
+  // the 75% cut itself (the watch has no loot table and no map chance, so
+  // the kit is the only thing that can be on it).
+  const g = createCityGuards(makeDeps(() => 0, player));
   await g.spawnCityGuards(true, {
     playerFeet: [0, 0, 0], playerFwd: [0, 0, 1],
     pool: [{ pos: [5, 0, 5], fwdYaw: 0, guard: true, disable: () => {} }],
@@ -364,7 +373,13 @@ test('guards audit18: the watch spawns EQUIPPED, and its loot rolls the PLAYER g
   assert.ok(e.items.length > 0, 'the equipment is on the corpse');
   // the loot call must not hard-code a gender any more
   assert.equal(/gender: 'male'/.test(hostSrc('cityGuards.js')), false);
-  assert.ok(/gender: playerEntity\.gender/.test(hostSrc('cityGuards.js')));
+  // RF2: the table roll moved into the one seam, so the watch's half of
+  // the law is handing hostCombat.spawnEnemyLoot the PLAYER entity - the
+  // seam's half (its generateItems reads player.gender) is pinned by
+  // 'enemy loot rolls the PLAYER gender at both dungeon spawn sites'
+  // below, which CI runs.
+  assert.match(hostSrc('cityGuards.js'), /spawnEnemyLoot\(entity, GUARD_MOBILE_TYPE, basics, playerEntity[,)]/,
+    'the watch rolls its loot on the PLAYER entity');
 });
 
 test('guards audit18: a connecting swing tallies the weapon skill AND CriticalStrike (the fatigue is the host\'s - wave 42)', { skip: skipReal }, async () => {
@@ -534,14 +549,14 @@ test('audit18 sweep: enemy cast cost is priced off the PLAYER skills', () => {
 test('audit18 sweep: enemy loot rolls the PLAYER gender at both dungeon spawn sites', () => {
   // RF2: both arms hand the PLAYER entity to the one seam, whose table roll reads its gender
   const src = hostSrc('dungeonContext.js');
-  assert.equal((src.match(/spawnEnemyLoot\(entity, e\.mobileType, basics, D\.playerEntity, eliteLootOpts\(e\)\)/g) ?? []).length, 2);
+  assert.equal((src.match(/spawnEnemyLoot\(entity, e\.mobileType, basics, D\.playerEntity, \{ \.\.\.eliteLootOpts\(e\), where: 'dungeon' \}\)/g) ?? []).length, 2);
   assert.equal(/generateItems\([^)]*gender: e\.gender/.test(src), false);
-  assert.match(hostSrc('hostCombat.js'), /generateItems\(enemyLootTableKey\(mobileType, basics\?\.lootTableKey \?\? '-'\), \{ level: player\.level, gender: player\.gender \}, undefined, \{ itemChanceScale, mobileType \}\)/, 'the PLAYER\'s gender, LootTables.cs:212/:229/:237');
+  assert.match(hostSrc('hostCombat.js'), /generateItems\(enemyLootTableKey\(mobileType, basics\?\.lootTableKey \?\? '-'\), \{ level: effectiveLevel\(player\), gender: player\.gender \}, undefined, \{ itemChanceScale, mobileType \}\)/, 'the PLAYER\'s gender (SOFTCAP2: at the mentor\'s level), LootTables.cs:212/:229/:237');
 });
 
 test('audit18 sweep: the swing fatigue and the tally arm are wired into the dungeon rig', () => {
   const src = hostSrc('dungeonContext.js');
-  assert.equal((src.match(/drainFatigue\(SWING_WEAPON_FATIGUE_LOSS\)/g) ?? []).length, 2,
+  assert.equal((src.match(/drainFatigue\(SWING_FATIGUE_COST\)/g) ?? []).length, 2,   // BALANCE1: DFU's swing loss on exertion's scale
     'the melee swing and the bow release');
   assert.equal((src.match(/tallySwingSkills\(playerEntity, playerWeapon\.weapon\)/g) ?? []).length, 2);
   assert.ok(/const hitEnemy = resolvePlayerHit\(/.test(src), 'the tally arm needs hitEnemy');
@@ -572,18 +587,21 @@ test('audit18 sweep: the Athleticism fatigue multiplier is applied and truncated
     });
     return drained;
   };
-  assert.equal(runTick(1.0, { running: false, swimming: false }), 11, 'Default');
-  assert.equal(runTick(0.9, { running: false, swimming: false }), 9, 'Default with Athleticism');
-  assert.equal(runTick(1.0, { running: true, swimming: false }), 88, 'Running');
-  assert.equal(runTick(0.9, { running: true, swimming: false }), 79, 'Running with Athleticism');
+  // BALANCE1: each is DFU's loss x the multiplier x exertion's scale, truncated once (charged)
+  assert.equal(runTick(1.0, { running: false, swimming: false }), charged(11), 'Default');
+  assert.equal(runTick(0.9, { running: false, swimming: false }), charged(11, 0.9), 'Default with Athleticism');
+  assert.equal(runTick(1.0, { running: true, swimming: false }), charged(88), 'Running');
+  assert.equal(runTick(0.9, { running: true, swimming: false }), charged(88, 0.9), 'Running with Athleticism');
   // F044: and the enchantment's arm, which had no reachable value
   // before - 0.8 is only ever produced FOR an Athleticism career.
-  assert.equal(runTick(0.8, { running: false, swimming: false }), 8, 'Default with Improved Athleticism');
-  assert.equal(runTick(0.8, { running: true, swimming: false }), 70, 'Running with Improved Athleticism');
+  assert.equal(runTick(0.8, { running: false, swimming: false }), charged(11, 0.8), 'Default with Improved Athleticism');
+  assert.equal(runTick(0.8, { running: true, swimming: false }), charged(88, 0.8), 'Running with Improved Athleticism');
   // AUDIT 23 (C6): the jump edge drains its own 11 x multiplier in the
   // SAME tick (PlayerEntity.cs:427), on top of the minute's band.
-  assert.equal(runTick(1.0, { running: false, swimming: false, jumped: true }), 22, 'jump + minute');
-  assert.equal(runTick(0.9, { running: false, swimming: false, jumped: true }), 18, 'jump truncates after its multiply too');
+  assert.equal(runTick(1.0, { running: false, swimming: false, jumped: true }), charged(11) + charged(11), 'jump + minute');
+  assert.equal(runTick(0.9, { running: false, swimming: false, jumped: true }), charged(11, 0.9) + charged(11, 0.9), 'jump truncates after its multiply too');
+  // (the pre-merge audit 0927b: x0.8 tells a truncated jump from a rounded one at this scale - 6.6 is 6, not 7)
+  assert.equal(runTick(0.8, { running: false, swimming: false, jumped: true }), charged(11, 0.8) + charged(11, 0.8), 'and at x0.8');
   // PlayerEntity.cs:405 casts to int AFTER the multiply: 11 -> 9, 88 -> 79, 44 -> 39
   assert.equal(Math.trunc(11 * 0.9), 9);
   assert.equal(Math.trunc(88 * 0.9), 79);

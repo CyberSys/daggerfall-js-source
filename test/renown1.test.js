@@ -1,9 +1,10 @@
 // RENOWN1 (2026-09-24, Mac: "What if the leveling system was something seperate unique to online but compatible"; asked:
 // the online health and magicka "On top" of Daggerfall's, a long "Grind", offline earning "No" - "Plus having their
 // level appear on the left side of character name and profile main menu + ingame profile"): THE RENOWN,
-// DRIVEN. The curve and the rules (net/renown.js); the service's track over the real migrations - the hour's bound
-// the ACCOUNT's across its characters and spent in one statement, the tracks' bound, the cap (server-account/src/
-// renownTracks.js) - and its routes and the token's `lv`; the token's and the order's law (a renown order never passes at
+// DRIVEN. The curve and the rules (net/renown.js - RENOWN-ACCOUNT's three quarters of every source); the service's
+// track over the real migrations - one a CHARACTER (RENOWN-CHAR, where RENOWN-ACCOUNT made it one an account), the
+// hour's bound the ACCOUNT's across its characters and spent in one statement, the tracks' bound, the cap
+// (server-account/src/renownTracks.js; test/renown_char.test.js holds the character's own law) - and its routes and the token's `lv`; the token's and the order's law (a renown order never passes at
 // the mute's door); the relay stamping the level beside the name and taking a renown order only from the account it
 // names; the client session reading both; the tracker's one rule for a kill (a foe pays whoever struck last, if a blow
 // of mine is recent) and its report; the online layer on top of the live maximums and never in a save; and the level
@@ -21,7 +22,7 @@ import { ROUTES, OPEN_ROUTES } from '../server-account/src/service.js';
 import {
   RENOWN_MAX, RENOWN_XP_MAX, renownXpFor, renownForXp, renownProgress, renownProgressText, renownText,
   renownKillXp, renownQuestXp, renownPartyXp, renownBonus, RENOWN_XP_REPORT_MAX, RENOWN_XP_HOUR_MAX, RENOWN_TRACKS_MAX, RENOWN_REPORT_MS,
-  RENOWN_KILL_XP_PER_LEVEL, RENOWN_KILL_LEVEL_MAX, RENOWN_PARTY_COUNT_MAX, RENOWN_HP_PER_LEVEL, RENOWN_MP_PER_LEVEL,
+  RENOWN_KILL_XP_PER_LEVEL, RENOWN_KILL_LEVEL_MAX, RENOWN_PARTY_COUNT_MAX, RENOWN_HP_PER_LEVEL, RENOWN_MP_PER_LEVEL, renownRate,
 } from '../src/net/renown.js';
 import {
   claimsValid, mintToken, verifyToken, orderValid, mintOrder, mintRenownOrder, verifyOrder, renownIssuable, ORDER_KINDS,
@@ -40,6 +41,7 @@ import { RemotePlayers } from '../src/net/remotePlayers.js';
 import { profileView, createProfileWindow } from '../src/ui/profileWindow.js';
 import { accountCard } from '../src/ui/enhancedAccount.js';
 import { AccountFlow } from '../src/ui/accountFlow.js';
+import { ACCEPTED } from '../src/net/legalLaw.js';   // TERMS1: a request that makes an account carries the versions ticked
 
 const src = (p) => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8');
 const { subtle } = globalThis.crypto;
@@ -106,15 +108,15 @@ test('RENOWN1 the curve: EverQuest\'s shape in integers - level 2 at 100, 10 at 
   for (const bad of [0, 51, 1.5, '12', null, undefined]) assert.equal(renownText(bad), null, `${bad} is no level`);
 });
 
-test('RENOWN1 the rules: a kill is ten to its foe\'s level (clamped 1..30), a quest 100 + 40 a character level, a party adds 10% a head beyond the first up to its eight seats; the online bonus is 3 health and 2 magicka a level past the first - level 1 adds nothing, level 50 adds 147 and 98 (mutants: a party that SPLITS the kill; the bonus from level 0; a clamp unread)', () => {
-  // RENOWN3 reads both against the character's Renown; at the cap's Renown nothing is read lower, so these are the
-  // RENOWN1 rules themselves (test/renown3.test.js holds the ceiling)
-  assert.equal(renownKillXp(1, RENOWN_MAX), 10);
-  assert.equal(renownKillXp(20, RENOWN_MAX), 200);
-  assert.equal(renownKillXp(0, RENOWN_MAX), RENOWN_KILL_XP_PER_LEVEL, 'a foe with no level is a level-1 foe');
-  assert.equal(renownKillXp(99, RENOWN_MAX), RENOWN_KILL_XP_PER_LEVEL * RENOWN_KILL_LEVEL_MAX);
-  assert.equal(renownQuestXp(1, RENOWN_MAX), 140);
-  assert.equal(renownQuestXp(10, RENOWN_MAX), 500);
+test('RENOWN1 the rules: a kill is ten to its foe\'s level (clamped 1..30) and a quest 100 + 40 a character level at the full rate - RENOWN-ACCOUNT pays three quarters of both (7.5 a foe level, 75 + 30 a character level); a party adds 10% a head beyond the first up to its eight seats; the online bonus is 3 health and 2 magicka a level past the first - level 1 adds nothing, level 50 adds 147 and 98 (mutants: a party that SPLITS the kill; the bonus from level 0; a clamp unread)', () => {
+  // RENOWN3 reads both against the Renown; at the cap's Renown nothing is read lower, so these are the RENOWN1 rules
+  // themselves at RENOWN-ACCOUNT's rate (test/renown3.test.js holds the ceiling, test/renown_account.test.js the rate)
+  assert.equal(renownKillXp(1, RENOWN_MAX), 7);
+  assert.equal(renownKillXp(20, RENOWN_MAX), 150);
+  assert.equal(renownKillXp(0, RENOWN_MAX), renownRate(RENOWN_KILL_XP_PER_LEVEL), 'a foe with no level is a level-1 foe');
+  assert.equal(renownKillXp(99, RENOWN_MAX), renownRate(RENOWN_KILL_XP_PER_LEVEL * RENOWN_KILL_LEVEL_MAX));
+  assert.equal(renownQuestXp(1, RENOWN_MAX), 105);
+  assert.equal(renownQuestXp(10, RENOWN_MAX), 375);
   assert.equal(renownQuestXp(99, RENOWN_MAX), renownQuestXp(30, RENOWN_MAX));
   assert.equal(renownPartyXp(100, 1), 100, 'alone: the kill');
   assert.equal(renownPartyXp(100, 4), 130, 'four in the room: MORE a head, never a share');
@@ -125,7 +127,7 @@ test('RENOWN1 the rules: a kill is ten to its foe\'s level (clamped 1..30), a qu
   assert.deepEqual(renownBonus(50), { hp: 147, mp: 98 });
   assert.deepEqual(renownBonus(99), renownBonus(50));
   assert.equal(RENOWN_XP_REPORT_MAX, 5000);
-  assert.equal(RENOWN_XP_HOUR_MAX, 20000);
+  assert.equal(RENOWN_XP_HOUR_MAX, 15000, 'RENOWN-ACCOUNT: a quarter off the 20,000, as every source');
 });
 
 // ── THE SERVICE ─────────────────────────────────────────────────────
@@ -137,10 +139,10 @@ test('RENOWN1 the track: one row a character, the level DERIVED from its total; 
   assert.deepEqual(r, { character: 'char-aaaa', xp: 150, level: 2, credited: 150, rose: true });
   r = await reportRenownXp({ db, nowS: T0 + 1 }, P, { character: 'char-aaaa', xp: 50 });
   assert.deepEqual(r, { character: 'char-aaaa', xp: 200, level: 2, credited: 50, rose: false }, 'no new level, no rise');
-  // the hour, across two characters: 200 + 5000*3 + (the rest) = RENOWN_XP_HOUR_MAX
-  for (let i = 0; i < 3; i++) assert.equal((await reportRenownXp({ db, nowS: T0 + 2 + i }, P, { character: 'char-bbbb', xp: 5000 })).credited, 5000);
+  // the hour, across two characters: 200 + 5000*2 + (the rest) = RENOWN_XP_HOUR_MAX (15,000 since RENOWN-ACCOUNT)
+  for (let i = 0; i < 2; i++) assert.equal((await reportRenownXp({ db, nowS: T0 + 2 + i }, P, { character: 'char-bbbb', xp: 5000 })).credited, 5000);
   r = await reportRenownXp({ db, nowS: T0 + 9 }, P, { character: 'char-bbbb', xp: 5000 });
-  assert.equal(r.credited, RENOWN_XP_HOUR_MAX - 200 - 15000, 'the rest of the ACCOUNT\'s hour, not a fresh allowance for a second character');
+  assert.equal(r.credited, RENOWN_XP_HOUR_MAX - 200 - 10000, 'the rest of the ACCOUNT\'s hour, not a fresh allowance for a second character');
   r = await reportRenownXp({ db, nowS: T0 + 10 }, P, { character: 'char-aaaa', xp: 100 });
   assert.deepEqual([r.credited, r.xp], [0, 200], 'the hour is spent: credited nothing, answered');
   r = await reportRenownXp({ db, nowS: T0 + 3600 }, P, { character: 'char-aaaa', xp: 100 });
@@ -172,7 +174,7 @@ test('RENOWN1 the service\'s refusals and the race: a character id outside the s
   for (let i = 0; i < RENOWN_TRACKS_MAX; i++) db._raw.prepare('INSERT INTO renown_tracks (player, char_id, xp, created_at, updated_at) VALUES (?, ?, 0, ?, ?)').run(P.id, `char-${String(i).padStart(4, '0')}`, T0, T0);
   assert.deepEqual(await reportRenownXp({ db, nowS: T0 }, P, { character: 'char-new1', xp: 10 }), { error: 'renown-full' });
   assert.equal((await reportRenownXp({ db, nowS: T0 }, P, { character: 'char-0003', xp: 10 })).credited, 10, 'a character it already keeps still earns');
-  // the race: two reports at once against 20,000 - between them, exactly what the hour has left
+  // the race: two reports at once against 15,000 - between them, exactly what the hour has left
   const R = await player(db);
   const both = await Promise.all([15000, 15000].map((xp, i) => reportRenownXp({ db, nowS: T0 + 60 }, R, { character: `char-rac${i}`, xp: Math.min(xp, RENOWN_XP_REPORT_MAX) })));
   const more = await Promise.all([1, 2, 3].map(() => reportRenownXp({ db, nowS: T0 + 61 }, R, { character: 'char-rac0', xp: RENOWN_XP_REPORT_MAX })));
@@ -202,7 +204,7 @@ test('RENOWN1 the worker: /v1/renown/xp behind a session, the account the sessio
   t.mock.method(Date, 'now', () => clock);
   const { call, kp } = await stand();
   assert.ok(ROUTES.has('/v1/renown/xp') && !OPEN_ROUTES.has('/v1/renown/xp'));
-  const me = (await call('POST', '/v1/auth/guest', {})).body;
+  const me = (await call('POST', '/v1/auth/guest', { ...ACCEPTED })).body;
   assert.equal((await call('POST', '/v1/renown/xp', { character: 'char-aaaa', xp: 10 })).status, 401, 'a stranger earns nothing');
   assert.equal((await call('POST', '/v1/renown/xp', { character: 'char-aaaa', xp: 0 }, me.secret)).status, 400);
   // the token before any XP: level 1 for a named character; no level for none
@@ -228,10 +230,12 @@ test('RENOWN1 the worker: /v1/renown/xp behind a session, the account the sessio
   tok = (await call('POST', '/v1/auth/token', { character: 'char-aaaa' }, me.secret)).body;
   assert.equal(tok.level, 9);
   assert.equal((await verifyToken(tok.token, pub, { subtle, nowS: T0 })).claims.lv, 9);
+  tok = (await call('POST', '/v1/auth/token', { character: 'char-bbbb' }, me.secret)).body;
+  assert.equal((await verifyToken(tok.token, pub, { subtle, nowS: T0 })).claims.lv, 1, 'RENOWN-CHAR: another character of the account is its own track - RENOWN-ACCOUNT signed the account\'s in');
   const acct = (await call('GET', '/v1/account', undefined, me.secret)).body.account;
   assert.deepEqual(acct.renown.map((x) => [x.character, x.name, x.xp, x.level]), [['char-aaaa', 'Mara', 5001, 9]]);
   assert.equal(RENOWN_CARD_TRACKS, 5);
-  assert.match(src('server-account/wrangler.toml'), /ACCOUNT_VERSION = "acct15"/);   // acct9 on the branch; main's FOUNDER2 took acct9; WB5b's gates closed moved it on (acct11); BASE-HIDE (acct12); RENOWN4 and GUILD1c (acct13 - acct11 and acct12 on their branch); SHADOW-FANG (acct14 - acct12 on its branch); FOUNDER3 (acct15)
+  assert.match(src('server-account/wrangler.toml'), /ACCOUNT_VERSION = "acct70"/);   // AUDIT PROF-541 moved it on last (acct70: the Alchemy audit's fixes, the hall door set by rank alone - hallEntry; a jewel's first craft its piece and base's; no migration); PROF12 before it (acct69: Alchemy's brew, the Apothecaries' counter, a Transmuter's transmutations, Disenchanting, the Apothecary opened; migration 0070); PROF10 before it (acct68: the jeweller's bench's pieces and the jeweller's hand, a Lapidary's cracked gem; no migration); PROF9 before it (acct67: the fire's dishes and a dish's cook's hand, migration 0069; acct67 past another branch's acct66); GUILD-YARD before it (acct65: a guild hall's outside and yard, its keepers'; no migration); AUDIT 529 before it (acct64: SIEGE-VOID's route and migration 0067, STANDING-TREND's standing rows, the void's audit); GLYPH-WEAR before it (acct63); WB12d moved it on (acct62 - acct46 on its branch, past main's acct46-acct61); SEAT2b part two before it (acct61); AUDIT-SEATS, PROF11 and SEAT2b before it (acct60 - the Seats arc's fourteen renumbered past main's PATREON-LINK and part four (acct45, acct46) at the merge); SEASON1 part three before it (acct59); SEASON1 part two, the banner ribbon before it (acct58); SEASON1 part two, the client's before it (acct57); SEASON1 part two, the economy before it (acct56); SEASON1 part two before it (acct55); SEASON1 part one before it (acct54); CROWN2 before it (acct53); CROWN1 part two before it (acct52); CROWN1 before it (acct51); SEAT2a part three before it (acct50); SEAT2a before it (acct49); SEAT1d before it (acct48); GUILD1d, GUILD1e and SEAT1a before it (acct47 - acct44, then acct45, on their branch, which MARKET-ANY and PATREON-LINK took first); part four before it (acct46: ANY-HOUR, HERB-XP); PATREON-LINK before it (acct45); MARKET-ANY before it (acct44); SCALE1 before it (acct43); REALM-GZIP before it (acct42); PROF8 before it (acct41); GOLD-MARKET before it (acct40); PINE-SHARE before it (acct39); WB9g before it (acct38: the Broker's insignia); HOUSING before it (acct37); the PROF7 merge before it (acct36, past main's FIELD BUGS 2026-09-30 acct33); AUDIT 32 S1 before it (acct35); AUDIT 32 before it (acct34); PROF7 before it (acct33); PROF-DELETE before it (acct32); RENOWN-CHAR before it (acct31: Renown a character's again); MERGE 2 before it (acct30: the professions branch - acct22 to acct29 on its branch, never deployed - past main's acct23); HOUSE-LOSS and RESTORE moved it on (acct23 - acct20, then acct21 and acct22, on their branch, which TERMS1, PENITENT and REALM-DOOR took first). acct9 on the branch; main's FOUNDER2 took acct9; WB5b's gates closed moved it on (acct11); BASE-HIDE (acct12); RENOWN4 and GUILD1c (acct13 - acct11 and acct12 on their branch); SHADOW-FANG (acct14 - acct12 on its branch); FOUNDER3 (acct15); FOUNDER3 (acct15), then HOME-STATIONS (acct16 - acct15 on its branch)
   assert.match(src('.github/workflows/account-deploy.yml'), /- "src\/net\/renown\.js"/, 'the Worker bundles the curve, so a change to it deploys');
 });
 
@@ -244,7 +248,7 @@ test('RENOWN1 the token and the order: `lv` optional and within 1..50 when there
   assert.ok(claimsValid({ ...id, lv: 50 }));
   for (const lv of [0, 51, 1.5, '9', null]) assert.equal(claimsValid({ ...id, lv }), false, `lv ${lv}`);
   assert.equal(renownIssuable(12), true);
-  assert.deepEqual([...ORDER_KINDS], ['mute', 'renown', 'guild', 'guildout']);   // GUILD1c: a character's guild now, and a member or a guild gone
+  assert.deepEqual([...ORDER_KINDS], ['mute', 'renown', 'guild', 'guildout', 'siege']);   // GUILD1c: a character's guild now, and a member or a guild gone   // SEAT2a: a battle's pass (PIN MOVED)
   const lvOrder = { o: 'renown', s: 'acct-mara', lv: 9, i: T0, e: T0 + 30 };
   assert.ok(orderValid(lvOrder));
   assert.equal(orderValid({ ...lvOrder, mu: 0 }), false, 'a renown order carrying a mute is neither');
@@ -277,7 +281,7 @@ test('RENOWN1 the wire: `badged` stamps `lv` beside the badge only within the bo
   assert.deepEqual(parseClient('{"t":"renown","order":"v1.a.b"}', { hasHello: false }), { error: 'renown before hello' });
   assert.deepEqual(parseClient('{"t":"renown"}', { hasHello: true }), { error: 'bad renown' });
   assert.deepEqual(parseClient(JSON.stringify({ t: 'renown', order: 'x'.repeat(1025) }), { hasHello: true }), { error: 'bad renown' });
-  assert.equal(RELAY_VERSION, 'world119');   // AUDIT SET moved it on last (world119 - world117 on its branch, renumbered past main's SHADOW-FANG (world117) and OWN1 + INVIS-NET (world118) at the merge: the dungeon foe record carries `v`, the joiner whose blow killed it); OWN1 + INVIS-NET moved it on before (world118 - world114 on its branch, renumbered past main's world114-117: the own lane and the pose's concealment bits); SHADOW-FANG's badge vocabulary moved it on (world117 - world114 on its branch, world116 at its first merge; main's Oblivion Gate WBX took world116 first); the Oblivion Gate's WBX5, AUDIT WBX and AUDIT WBX2 moved it on (world116 - world114 on its branch, renumbered past main's Enhanced Plus patch (world114) and GUILD1c (world115)); GUILD1c moved it on (world115 - world113 on its branch; the Enhanced Plus patch's pose fields took world114 first); WB3 and AUDIT WB moved it on (world113 - world110 and world111 on their branch); PARTY-TRAVEL before them (world112); RENOWN1 was world111 - world108 on the branch; main's HT-WAIST-NET, PROFILE2/SKIN2 and EVENT1 took world108-110
+  assert.equal(RELAY_VERSION, 'world154');   // BROKER-CAGE moved it on last (world154: the rite word says every one of the faithful fell, and the hub says the Broker cage open); REVENANT-WIRE moved it on (world153: the foe record carries a revenant's name, nm, and a beaten one's kneel, burning and oath, yd/ex/sp); GLYPH-WEAR moved it on (world152); WB12 moved it on (world151: Dagon's Breach - its words in the omen's lines and the herald's posts, the faithful's rite - main's CLIMB5 and CLIMB6, FRIENDS-SYNC, ELITE FOES and the Seats arc took world141-world150 first); before it SEAT2b part two (b) moved it on (world150: the works in battle); SEASON1 part two, the banner ribbon moved it on (world149: the banner ribbon - the Seats arc's six relays renumbered past main's HERALD, LOOT7, WB11 and CLIMB5 (world138-world141) at the merge); CROWN1 part two moved it on (world148: the Royal Tourney); SEAT2a moved it on (world147: the siege battle); PVP-REF moved it on (world146: the refereed siege room); SEAT1c moved it on (world145: the seats' titles and glyphs - five generic title ids, a `ts` claim beside them, four glyphs); SEAT1b moved it on (world144: the Watch's tick - a `watch` frame carrying a `k1` receipt the relay signs, net/watchReceipt.js); ELITE FOES moved it on (world143: the foe record carries an elite foe, z, so a puppet stands as one); before it FRIENDS-SYNC moved it on (world142: the hub account is the signed-in player - the token subject - and a browser profile list is merged into it once); before it CLIMB5 and CLIMB6 moved it on (world141: the pose's climb - `cl`, `cw` and a move's `ck`, `cy`, `cd`); before it WB11 moved it on (world140: the host of the Legion-Lord - the `ahit` blow on one of it, the words `ad`, `amv`, `aatk`, `ah` and `adie` of the room, `lg` in the state, `a` in a chart row, the brain law 5; GATE-HEAL's `heal` and a chart row's `hl` with it - main's HERALD and LOOT7 took world138 and world139 first); before it LOOT7 moved it on (world139: the street foe record field `cp`, a champion trait - HERALD took world138 first); before it HERALD moved it on (world138: `herald` joins the titles and glyphs a token carries, the Patreon tier between Disciple and Hierophant); before it KEPT-KILL moved it on (world137: the party pose field `qk`, the kills of quest foes a member held for a partner, counted by every copy of the quest); before it GATE-UX moved it on (world136: the damage chart made at the kill - every challenger and their part, ranked, on the `fell` word of the court and on the fall in the state (`dm`)); before it WB9 moved it on (world135: the three courts of the Warden and the Reckoning of Dagon - his court and the walkways laid in the state (`ct`, `xa`), the crystals, their breaking and the stun (`cx`, `cxh`, `cxb`, `stun`, `su`, `rk`) and a blow on a crystal (`xhit`), judged and fanned by the relay - main's PARTY-MAP took world134 first); before it PARTY-MAP moved it on (world134: the `amap` frame, the automap rows a Shared Cartography caster reveals, to the party alone); before it SOFTCAP1 moved it on (world133: the party pose `cl`, a member character level for mentor mode); before it STRIKE-SHARED moved it on (world132: the strike spell on a hit and the trapper on a dead foe, both read by the clients alone); before it MERGE 2 moved it on (world131: the professions branch, BOUNTY1 + AUDIT 28 - `bq` and `lv` on the party pose, `k`, `a` and `t` on a bounty row - world125 on its branch, never deployed, a number VOICE1 took on main); before it REALM-DOOR moved it on (world130: the door refuses a token the account service signed as naming no realm character); before it PENITENT's badge vocabulary (world129); before it WB8 moved it on (world128: marks on the gate state, the fed word - world126 on its branch, never deployed, renumbered past OW6L at the merge); before it OW6L (world127: the overworld ledger of a cell, the ow frame - never world125 (VOICE1, reverted) nor world126 (DISCORD-GATES on its branch)); before it TV8 (world124: the party's Overworld walk - world123 on its branch, renumbered past THE MERGE's); before it THE MERGE (world123: the raids, the gates and Discord - world122 to world126 on their branch, never deployed - one relay past main's TV3); before it TV3 (world122: a region's traveller marks); ONE-SEAT before it (world121 - world119, then world120, on its branch, renumbered past main's AUDIT SET (world119) and PARTY-BUFFS + REST-OPT (world120) at the merges: a hub hello's claim - one tab of an account online); before it PARTY-BUFFS + REST-OPT + the batch audit (world120 - world119, world120 and world121 on their branch, renumbered past main AUDIT SET at the merge: fx, rs and nr on the party pose, TRADE_REV_MAX and REST_OPT_RELAY_MIN named); before it AUDIT SET (world119 - world117 on its branch, renumbered past main's SHADOW-FANG (world117) and OWN1 + INVIS-NET (world118) at the merge: the dungeon foe record carries `v`, the joiner whose blow killed it); OWN1 + INVIS-NET moved it on before (world118 - world114 on its branch, renumbered past main's world114-117: the own lane and the pose's concealment bits); SHADOW-FANG's badge vocabulary moved it on (world117 - world114 on its branch, world116 at its first merge; main's Oblivion Gate WBX took world116 first); the Oblivion Gate's WBX5, AUDIT WBX and AUDIT WBX2 moved it on (world116 - world114 on its branch, renumbered past main's Enhanced Plus patch (world114) and GUILD1c (world115)); GUILD1c moved it on (world115 - world113 on its branch; the Enhanced Plus patch's pose fields took world114 first); WB3 and AUDIT WB moved it on (world113 - world110 and world111 on their branch); PARTY-TRAVEL before them (world112); RENOWN1 was world111 - world108 on the branch; main's HT-WAIST-NET, PROFILE2/SKIN2 and EVENT1 took world108-110
   assert.equal(RENOWN_RELAY_MIN, 111);
   assert.equal(relaySupportsRenown('world111'), true);
   assert.equal(relaySupportsRenown('world110'), false);
@@ -449,10 +453,10 @@ test('RENOWN1 a foe you fought: it pays once when it dies within RENOWN_ASSIST_M
   _resetRenownKillsForTests();
   // THE DOORS: my blow stamps and every death asks - in both foe pools, a copy's death included; the watch never
   const ex = src('src/scenes/exteriorFoes.js'), dg = src('src/scenes/dungeonContext.js'), cg = src('src/scenes/cityGuards.js');
-  assert.match(ex, /if \(f\.dead\) return;[^\n]*\n\s+if \(fromPlayer && !peer\) renownFoeStruck\(f\);/, 'the outdoor door stamps my blow before a puppet\'s divert');
+  assert.match(ex, /if \(f\.dead[^\n]*\) return;[^\n]*\n\s+if \(fromPlayer && !peer\) renownFoeStruck\(f\);/, 'the outdoor door stamps my blow before a puppet\'s divert');   // PIN MOVED (AUDIT NAV2 F55): the dead check carries the shipmate's guard now - a blow that lands nothing stamps nothing
   assert.match(ex, /f\.dead = true;\n(?:\s+if \(fromPlayer && !peer\) reportPlayerKill\([^\n]*\n)?\s+renownFoeDied\(f\);\s+\/\/ RENOWN1: whoever struck last/);   // SET2: the kill told as mine may stand between
   assert.match(ex, /function puppetDie\(f\) \{[\s\S]{0,400}?f\.dead = true;\n\s+renownFoeDied\(f\);/, 'an owner\'s foe that fell');
-  assert.match(dg, /if \(foe\.dead\) return;\n\s+if \(fromPlayer && !peer\) renownFoeStruck\(foe\);/, 'the dungeon door stamps a joiner\'s blow before the divert');
+  assert.match(dg, /if \(foe\.dead[^\n]*\) return;[^\n]*\n\s+if \(fromPlayer && !peer\) renownFoeStruck\(foe\);/, 'the dungeon door stamps a joiner\'s blow before the divert');   // PIN MOVED (CREW-COMPANIONS): the dead check carries the companion's guard, as the outdoor door's carries the shipmate's
   assert.match(dg, /foe\.dead = true;\n(?:\s+if \(fromPlayer && !peer\) reportPlayerKill\([^\n]*\n)?\s+renownFoeDied\(foe\);/);   // SET2: as above
   assert.match(dg, /if \(r\.d === 1\) \{ if \(!f\.dead\) \{[^}]*renownFoeDied\(f\); \}/, 'a joiner\'s copy that the host\'s frame says fell');
   assert.doesNotMatch(cg, /renownFoe/, 'the city watch pays nothing: the law calls it murder');
@@ -492,7 +496,7 @@ test('RENOWN1 the tracker: nothing is earned while not earning (offline); a repo
   // the world host's wiring (pinned by source: the host is not driveable in node)
   const w = src('src/scenes/world.js');
   assert.match(w, /const renownTracker = onlineOn \? createRenownTracker\(/, 'never built offline');
-  assert.match(w, /setRenownKillHandler\(\(foe\) => \{ const party = 1 \+ \(partyNear\(\)\?\.length \?\? 0\); const xp = renownPartyXp\(renownKillXp\(renownFoeLevel\(foe\), renownNow\), Number\.isInteger\(foe\?\._fightN\) \? Math\.min\(party, foe\._fightN\) : party\); renownTracker\.earn\(xp\); sigilDrinks\(xp\); \}\);/, 'a kill with my party in the room counted - AUDIT PSCALE1 PLAY-4: no more of it than fought a shared foe');
+  assert.match(w, /setRenownKillHandler\(\(foe\) => \{ const party = 1 \+ \(partyNear\(\)\?\.length \?\? 0\); const xp = renownPartyXp\(renownKillXp\(renownFoeLevel\(foe\), renownNow\), Number\.isInteger\(foe\?\._fightN\) \? Math\.min\(party, foe\._fightN\) : party\); renownTracker\.earn\(xp\); sigilDrinks\(xp\); seatEdicts\.campCleared\(foe\?\.site\)\.catch\(\(\) => \{\}\); \}\);/, 'a kill with my party in the room counted - AUDIT PSCALE1 PLAY-4: no more of it than fought a shared foe');   // SEAT1d (PIN MOVED): a Bounty's camp claimed after
   assert.match(w, /const xp = renownQuestXp\(playerEntity\.level, renownNow\);[^\n]*\n\s*renownTracker\.earn\(xp\);/, 'a quest by the character\'s level (RENOWN3: read against its Renown)');
   assert.match(w, /renownQuestEnded\?\.\(q\);/, 'the bridge\'s end reaches it');
   assert.match(w, /if \(!q\?\.questSuccess\) return;/, 'a failure pays nothing');

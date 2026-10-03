@@ -122,8 +122,9 @@ function withPane(fn) {
 
 const keyBtn = (view, action) => find(view.body, 'ctl-key').find((b) => b.dataset.action === action);
 /** KB1: a key NO default holds. The fixtures used KeyG as their free key; KB1 gave G to Handheld Torches' drop (one
- *  key, one action - every letter is somebody's now), and a taken key asks before it binds. */
-const FREE = 'Semicolon';
+ *  key, one action - every letter is somebody's now), and a taken key asks before it binds. CSA-D: and Semicolon, the
+ *  next one it used, is Come Sail Away's lantern key now; CSA-E: and End its sails'. */
+const FREE = 'ScrollLock';
 const answer = (view, yes) => find(view.body, 'act').find((b) => b.textContent === (yes ? 'Yes' : 'No')).onclick();
 const clearBtn = (view, action) => {
   const row = find(view.body, 'ctl-row').find((r) => one(r, 'ctl-key').dataset.action === action);
@@ -207,7 +208,7 @@ test('KB1: the pane draws the standard\'s groups - every action once, the two DF
   assert.equal(new Set(all).size, all.length, 'no action in two groups');
   assert.deepEqual([...all, ...HIDDEN_ACTIONS].sort(), [...ACTIONS].sort(), 'every action is in a group, or hidden');
   assert.deepEqual([...HIDDEN_ACTIONS], ['ToggleConsole', 'Slide'], 'hidden: DFU\'s console key (no console) and Slide (read by nothing in DFU either)');
-  assert.deepEqual(ACTION_GROUPS.filter((g) => g.mod).map((g) => g.mod), ['handheld-torches', 'eye-of-the-beholder', 'travel-options', 'horse-cart-and-cargo']);
+  assert.deepEqual(ACTION_GROUPS.filter((g) => g.mod).map((g) => g.mod), ['handheld-torches', 'eye-of-the-beholder', 'travel-options', 'horse-cart-and-cargo', 'come-sail-away']);   // CSA-D: the helm's two keys
   const torches = 'handheld-torches';
   const was = modSetting(torches, 'Enabled');
   try {
@@ -361,16 +362,16 @@ test('MAC-K1: arming from a click cannot itself be the bound BUTTON, but the nex
   });
 });
 
-test('MAC-K1: a FOURTH button is not a binding, and the capture stays armed for one that is', () => {
-  // mouseCode answers null past the third button (ui/input.js's
-  // MOUSE_CODES is three long, as Unity's KeyCode list is). A thumb
+test('MAC-K1: a SIXTH button is not a binding, and the capture stays armed for one that is', () => {
+  // mouseCode answers null past the fifth button (ui/input.js's
+  // MOUSE_CODES is five long since VOICE1, kept for VIEW-TOGGLE - Unity's Mouse0-Mouse4, the side buttons the bindings'). A thumb
   // button must not silently bind nothing and end the capture - the
   // row would go blank and the player would never know why.
   withPane(({ doc, view }) => {
     keyBtn(view, 'Jump').onclick();
     const down = doc.listeners.find((l) => l.type === 'mousedown');
-    down.fn({ button: 3, preventDefault() {}, stopPropagation() {} });
-    assert.equal(captureArmed(), 'Jump', 'the fourth button is not a KeyCode: the capture waits on');
+    down.fn({ button: 5, preventDefault() {}, stopPropagation() {} });
+    assert.equal(captureArmed(), 'Jump', 'the sixth button is not a KeyCode: the capture waits on');
     assert.equal(currentDict(controlsStaging()).get('Jump'), 'Space', 'and nothing was written');
     down.fn({ button: 0, preventDefault() {}, stopPropagation() {} });
     answer(view, true);   // KB1: the left button is the activate's - asked, then given

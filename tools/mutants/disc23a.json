@@ -11,7 +11,7 @@
   {
     "name": "D23A-every-storey",
     "file": "src/ui/automapSheet.js",
-    "old": "      if (sheetAt(f, m.feet[1]) !== index) continue;\n",
+    "old": "      if (!solidOn && sheetAt(f, m.feet[1]) !== index) continue;\n",
     "new": "",
     "tests": [
       "test/disc23a_party_plans.test.js"
@@ -20,8 +20,8 @@
   {
     "name": "D23A-plan-y-with-z",
     "file": "src/ui/automapSheet.js",
-    "old": "      const [x, z] = toPlan(m.feet[0], m.feet[2]);\n      out.push({ x, z, yaw: m.yaw, name: m.name });",
-    "new": "      const [x, z] = toPlan(m.feet[0], m.feet[2]);\n      out.push({ x, z: -z, yaw: m.yaw, name: m.name });",
+    "old": "      out.push({ x, z, y: m.feet[1], yaw: m.yaw, name: m.name });",
+    "new": "      out.push({ x, z: -z, y: m.feet[1], yaw: m.yaw, name: m.name });",
     "tests": [
       "test/disc23a_party_plans.test.js"
     ]
@@ -38,8 +38,8 @@
   {
     "name": "D23A-breathes-only-here",
     "file": "src/ui/automapSheet.js",
-    "old": "    breathes() { return !!entranceHere() || readPartyBodies(deps.party).length > 0; },",
-    "new": "    breathes() { return !!entranceHere() || partyHere().length > 0; },",
+    "old": "    breathes() { return !!entranceHere() || readPartyBodies(deps.party).length > 0 || hoverRow != null || hoverNote != null || (solidOn && (!!(hoverStair || hoverButton) || solidBlitted)); },   // EM3-3D fix: a scaled blit is redrawn once the zoom rests   // EM3-3D: a hovered stair's name and a hovered button are inked on the beat",
+    "new": "    breathes() { return !!entranceHere() || partyHere().length > 0 || hoverRow != null || hoverNote != null || (solidOn && (!!(hoverStair || hoverButton) || solidBlitted)); },   // EM3-3D fix: a scaled blit is redrawn once the zoom rests   // EM3-3D: a hovered stair's name and a hovered button are inked on the beat",
     "tests": [
       "test/disc23a_party_plans.test.js"
     ]
@@ -74,8 +74,8 @@
   {
     "name": "D23A-town-never-breathes",
     "file": "src/ui/townSheet.js",
-    "old": "    breathes() { return readPartyBodies(deps.party).length > 0; },",
-    "new": "    breathes() { return false; },",
+    "old": "      return readPartyBodies(deps.party).length > 0 || (!!deps.homesVersion",
+    "new": "      return false || (!!deps.homesVersion",
     "tests": [
       "test/disc23a_party_plans.test.js"
     ]

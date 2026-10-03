@@ -42,6 +42,7 @@ import { requestLook } from '../player/pointerLock.js';   // MAC1: the relock ri
 import { BookReaderWindow } from './bookReader.js';
 import { BookFile } from '../formats/bookFile.js';
 import { getBookFileName } from '../systems/books.js';
+import { openPortBook } from '../systems/portBooks.js';   // WB12c: the port's own books, read before any file
 import { setBookAuthor } from '../systems/itemInfo.js';   // IM1: the %ba cache
 import { openLocalizedBookFile } from '../systems/localizedBook.js';   // L10N3f: LocalizedBook.OpenBookFile's first arm
 
@@ -61,29 +62,32 @@ export function createBookReaderWindow(bookFile) {
  *  boxes). showReader swaps the host's overlay to the built window. */
 export function makeOpenBookHook({ fetchBytes, showReader }) {
   return async (item, onFail) => {
-    const name = getBookFileName(item?.message ?? -1);
-    if (!name) { onFail?.(); return; }
+    const port = openPortBook(item?.message ?? -1);
+    const name = port ? null : getBookFileName(item?.message ?? -1);
+    if (!port && !name) { onFail?.(); return; }
     // L10N3f - LocalizedBook.OpenBookFile (LocalizedBook.cs:61-72): the
     // language's -LOC book first, and the BOK file only where it has
     // none - so a translated book never fetches the classic one. Its
     // author feeds the %ba cache as the file's does below: a running
     // game keeps the language it began in (L10N1b), so the cache speaks
-    // the language BookAuthor would read first (:165-169).
-    const localized = openLocalizedBookFile(name);
+    // the language BookAuthor would read first (:165-169). The port's
+    // own books (WB12c) have no classic file and no -LOC one.
+    const localized = name ? openLocalizedBookFile(name) : null;
     if (localized) {
       setBookAuthor(item?.message, localized.author);
       showReader(createBookReaderWindow(localized));
       return;
     }
     try {
-      const bookFile = new BookFile();
-      bookFile.load(await fetchBytes(name), name);
+      let bookFile = port;
+      if (bookFile) await null;   // WB12c: after the pack's close, as a fetched file lands - never inside its hand-off (EB4)
+      else { bookFile = new BookFile(); bookFile.load(await fetchBytes(name), name); }
       // IM1: the file's author line feeds the %ba cache - DFU reads it
       // at info time (BookAuthor :162-183); the port's read is here.
       setBookAuthor(item?.message, bookFile.author);
       showReader(createBookReaderWindow(bookFile));
     } catch (e) {
-      console.warn(`[book] ${name} failed to open:`, e?.message ?? e);
+      console.warn(`[book] ${name ?? item?.message} failed to open:`, e?.message ?? e);
       onFail?.();
     }
   };

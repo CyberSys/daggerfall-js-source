@@ -41,6 +41,15 @@ export function convertTilemap(tilemapData) {
   return out;
 }
 
+/** The byte the conversion above never writes (the tileset has 56
+ *  records: 55 << 2 | 3 is 223 at the most) - Iliac Puddle No More's
+ *  clipped texel, its (255, 0, 255, 0) Color32 mark in the port's R8UI
+ *  TileMap. world/deepWaterCap.js writes it; the terrain program's clip
+ *  variant discards it (render/renderer.js terrainClipFs, FAR-CLIP1). Its
+ *  one home is here, where both reach it: the renderer already reads this
+ *  module, and must not read the cap's (whose closure takes the bake). */
+export const CLIP_SENTINEL = 255;
+
 /** FD1 - StreamingWorld.PlayerTileMapIndex (StreamingWorld.cs:345):
  *  `playerTerrain.TileMap[...].r / 4`, where `.r` is what the job
  *  above writes. So the index is the CONVERTED byte >> 2, which is:
@@ -142,6 +151,106 @@ export function surfaceHeightAt(heightmapData, lx, lz, stride = 1) {
 }
 
 /**
+ * GRASS-LIT2 (2026-10-02): THE GROUND'S NORMAL WHERE A BLADE STANDS - the
+ * drawn surface's own, as the terrain's fragment stage receives it: the
+ * stride-1 grid's vertex normals (buildTerrainGrid's central differences,
+ * ghost rows and all) interpolated over the triangle under (lx, lz), cut on
+ * surfaceHeightAt's diagonal, then normalised as TERRAIN_FS normalises
+ * vNormal. Written into `out` - the placer asks it once a blade.
+ * @param {Float32Array} normals the pixel's stride-1 grid normals, vertex (xi, zi) at (zi * 129 + xi) * 3
+ * @param {number} lx pixel-local x, 0..TERRAIN_SIZE
+ * @param {number} lz pixel-local z, 0..TERRAIN_SIZE
+ * @param {number[]|Float32Array} [out]
+ * @returns {number[]|Float32Array} the unit normal [x, y, z]
+ */
+export function surfaceNormalAt(normals, lx, lz, out = [0, 0, 0]) {
+  const g = HEIGHTMAP_DIMENSION;
+  const quad = TERRAIN_SIZE / (g - 1);
+  const last = g - 2;
+  const qx = Math.max(0, Math.min(last, Math.floor(lx / quad)));
+  const qz = Math.max(0, Math.min(last, Math.floor(lz / quad)));
+  const ax = lx / quad - qx, az = lz / quad - qz;
+  const i00 = (qz * g + qx) * 3, i10 = i00 + 3, i01 = i00 + g * 3, i11 = i01 + 3;
+  let l2 = 0;
+  for (let c = 0; c < 3; c++) {
+    const n00 = normals[i00 + c], n10 = normals[i10 + c], n01 = normals[i01 + c], n11 = normals[i11 + c];
+    // the diagonal runs (x,z)-(x+1,z+1): az >= ax is the i0,i2,i3 half (surfaceHeightAt's)
+    const v = az >= ax ? n00 + az * (n01 - n00) + ax * (n11 - n01) : n00 + ax * (n10 - n00) + az * (n11 - n10);
+    out[c] = v; l2 += v * v;
+  }
+  const l = Math.sqrt(l2) || 1;
+  out[0] /= l; out[1] /= l; out[2] /= l;
+  return out;
+}
+
+/** Unity's heightmap: kMaxHeight steps to a terrain's full height (terrainSampleHeightAt, below). */
+export const UNITY_HEIGHTMAP_MAX_HEIGHT = 32766;
+/** A normalized height as Unity's heightmap holds it: its step, 0 to kMaxHeight. */
+export const unityHeightmapStep = (h) => Math.round(Math.min(1, Math.max(0, h)) * UNITY_HEIGHTMAP_MAX_HEIGHT);
+/** One step's height: the streamed terrain's size.y (MaxTerrainHeight x TerrainScale) over kMaxHeight, a float. */
+const UNITY_HEIGHT_PER_STEP = Math.fround((MAX_TERRAIN_HEIGHT * STREAMING_TERRAIN_SCALE) / UNITY_HEIGHTMAP_MAX_HEIGHT);
+
+/**
+ * FIELD-CSA2 (2026-09-29, the Discord through Mac: "I can't get my boat to
+ * work", "Ports are bugged for player boats"): TERRAIN.SAMPLEHEIGHT, AT THE
+ * PRECISION UNITY HOLDS A HEIGHTMAP IN.
+ *
+ * DFU hands each terrain its heights as floats (DaggerfallTerrain's
+ * TerrainData.SetHeights over MapPixelData's normalized samples), and Unity
+ * does not keep the floats: a TerrainData heightmap holds each height as a
+ * 16-bit step, kMaxHeight (32766) of them to the terrain's full height - the
+ * scale Unity's terrain tools write as 32766/65535 on the heightmap's 16-bit
+ * texture. Terrain.SampleHeight reads those steps: GetInterpolatedHeight over
+ * the quad's two triangles, cut on the drawn ground's own diagonal (above),
+ * the terrain's height over kMaxHeight a step.
+ *
+ * A step is 1923.75 / 32766 = 0.0587 m, nothing to anything that stands on
+ * the ground. It is everything to a law whose line IS the sea: the sampler
+ * clamps the whole sea to the ocean elevation (27.2 x 1.25 = 34 m over the
+ * terrain), and Come Sail Away reads a boat's node as water, with Iliac
+ * Puddle No More on, when `SampleHeight(node) < 34` (its WaterLevel). Unity's
+ * flat sea is 579.105 steps, held as 579 - 33.994 m, under the line. The
+ * drawn ground's floats read 34.000001 m, never under it: on the port every
+ * node of every boat on the open sea read land, no boat rowed or raised a
+ * sail, and the Overworld's crossing found no water to launch on. The trap
+ * WATER1 found in the tile job, where the reference's float32 held the line
+ * and a double missed it (terrainTiles.js generateTileData).
+ *
+ * The step is Unity's; whether its SetHeights rounds a height to the step or
+ * truncates it is in no source the port has, and the port rounds. The sea is
+ * step 579 either way (579.105); the two readings part only for a height in
+ * the upper half of a step, 2.9 cm.
+ *
+ * @param {Float32Array} heightmapData sample(x, z) = data[x*hDim+z], normalized
+ * @param {number} lx pixel-local x, 0..TERRAIN_SIZE
+ * @param {number} lz pixel-local z, 0..TERRAIN_SIZE
+ * @param {number} [stride] the ring class this pixel is drawn at - its quads, as the drawn ground's
+ * @returns {number} the height over the terrain's own y, a float
+ */
+export function terrainSampleHeightAt(heightmapData, lx, lz, stride = 1) {
+  const f = Math.fround;
+  const hDim = HEIGHTMAP_DIMENSION;
+  const quad = (TERRAIN_SIZE / (hDim - 1)) * stride;
+  const last = (hDim - 1) / stride - 1;        // the last quad's index
+  const at = (x, z) => unityHeightmapStep(heightmapData[Math.max(0, Math.min(hDim - 1, x)) * hDim
+    + Math.max(0, Math.min(hDim - 1, z))]);
+  const qx = Math.max(0, Math.min(last, Math.floor(lx / quad)));
+  const qz = Math.max(0, Math.min(last, Math.floor(lz / quad)));
+  const u = f(lx / quad - qx), v = f(lz / quad - qz);
+  const x0 = qx * stride, z0 = qz * stride, x1 = x0 + stride, z1 = z0 + stride;
+  const z00 = at(x0, z0), z11 = at(x1, z1);
+  let h;
+  if (u > v) {
+    const z10 = at(x1, z0);   // Unity's z01: one quad along x
+    h = f(f(z00 + f((z10 - z00) * u)) + f((z11 - z10) * v));
+  } else {
+    const z01 = at(x0, z1);   // Unity's z10: one quad along z
+    h = f(f(z00 + f((z11 - z01) * u)) + f((z01 - z00) * v));
+  }
+  return f(h * UNITY_HEIGHT_PER_STEP);
+}
+
+/**
  * NATURE-GROUND (2026-09-26, Ilvi on the Discord: "I encountered a lot of
  * floating sprites across Illiac Bay"): HOW FAR THE DRAWN GROUND AT
  * (lx, lz) LIES OFF A LOCATION'S PLANE - up (+) or down (-). A location
@@ -161,6 +270,35 @@ export function surfaceHeightAt(heightmapData, lx, lz, stride = 1) {
  */
 export function groundOffPlane(heightmapData, avg, lx, lz) {
   return surfaceHeightAt(heightmapData, lx, lz) - Math.fround(avg) * (MAX_TERRAIN_HEIGHT * STREAMING_TERRAIN_SCALE);
+}
+
+/** WOD-BUSH: the share of a box's footprint, each side, left out of the ground read - a bush's foot is its middle. */
+export const GROUND_UNDER_INSET = 0.25;
+
+/**
+ * WOD-BUSH (2026-10-01, Mac: "World of daggerfall bush props float above the
+ * ground in bandit camps"): THE LOWEST DRAWN GROUND UNDER A BOX - over the
+ * middle of its footprint (GROUND_UNDER_INSET off each side), read at its
+ * corners, its centre lines and every sample line that crosses it, so no
+ * quad under it is skipped. The footprint is held to the pixel: the ground
+ * past its edge is the neighbour's, which this pixel does not hold.
+ * @param {Float32Array} heightmapData the pixel's blended samples
+ * @param {ArrayLike<number>} box [minX, minY, minZ, maxX, maxY, maxZ], pixel-local
+ * @returns {number} world height
+ */
+export function lowestGroundUnder(heightmapData, box) {
+  const cell = TERRAIN_SIZE / (HEIGHTMAP_DIMENSION - 1);
+  const clamp = (v) => Math.max(0, Math.min(TERRAIN_SIZE, v));
+  const span = (lo, hi) => {
+    const a = clamp(lo + (hi - lo) * GROUND_UNDER_INSET), b = clamp(hi - (hi - lo) * GROUND_UNDER_INSET);
+    const out = [a, (a + b) / 2, b];
+    for (let g = Math.ceil(a / cell) * cell; g < b; g += cell) out.push(g);
+    return out;
+  };
+  const xs = span(box[0], box[3]), zs = span(box[2], box[5]);
+  let low = Infinity;
+  for (const x of xs) for (const z of zs) low = Math.min(low, surfaceHeightAt(heightmapData, x, z));
+  return low;
 }
 
 /**

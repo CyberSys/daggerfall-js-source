@@ -1552,7 +1552,7 @@ Slices, each behind its own `features.js` row:
    `1 - BLOOD_F0`, `EL_WET_STRENGTH`, both absorption triplets - so any
    of them set to a round number was a runtime landmine under exactly
    the dials the record invites a reader to tune. The house already had
-   the answer: `glslFloat` (airPass.js:246), which the lantern loop has
+   the answer: `glslFloat` (airPass.js:249), which the lantern loop has
    used since EL5. Eleven interpolations routed through it, both lanes.
    Pinned by driving the shader build at an integral value, which is the
    only way to catch this - a text pin on the built string reads whatever
@@ -1668,3 +1668,100 @@ one-way one, so the pin drives the splash until it has enough.
 **The lesson:** the pin that measures is worth more than the change it
 measures. Doubling the cell count *looked* like the fix, and the number
 said it wasn't.
+
+## BLOOD5 — the starburst, and blood you can watch land
+
+Mac sent a shot of a corpse ringed by a perfect starburst: "the blood
+splatter is too perfect of a circle ... more variety, and less perfect
+patterns ... make it where blood droplets emit and fall on the exact
+locations where the texture will be."
+
+### The wheel had two spokes to it
+
+`sprayOffset` laid drop *i* at *i/n* of the circle, wobbling inside its
+own slot, so random angles wouldn't clump. BLOOD2a then stretched each
+drop along its travel, which is outward from the body, by how far it
+flew (`streakFor`). An even turn plus radial streaks is a wheel, and it
+was the same wheel at every body.
+
+**The pattern** (`bloodDecals.js` `sprayPattern`) is now one to three
+lobes:
+- The main lobe points the way the swing threw the blood, or anywhere
+  when the hit was not thrown.
+- A drop's angle is its lobe's plus a normal spread, and SPRAY_STRAY of
+  the drops go any way at all.
+- Its reach is between SPRAY_NEAR of the radius and the radius, biased
+  outward, and a few flyers carry past it.
+- Its size is skewed (`sprayScale`): many small drops, a few large.
+
+The draws that pick positions are mixed with a golden-ratio sequence,
+so a spray never piles onto one spot even under a generator held still.
+Drop zero is still the body's own spot at scale one.
+
+**The stretch** of a drop that flies is `impactStretch`: one over the
+sine of the angle it came down at, which is the law a bloodstain analyst
+reads backwards. Most drops fall steeply and land round. Only the fast,
+flat, far-flung few streak. `streakFor` stays for marks laid without a
+flight.
+
+### The drops fly, on arcs that are solved rather than simulated
+
+Every drop but the pool leaves the wound and arcs under gravity, and its
+mark is laid the frame it arrives (`bloodMarks.js`). The rays still
+decide where a drop lands: the floor under it, the wall between, the
+ceiling over it. The flight is `dropArc`, which solves the launch and
+the flight time *T* so the arc ends on that landing:
+- a floor drop leaves with a flick of DROP_LAUNCH;
+- a ceiling drop leaves at DROP_CEILING_SPARE of the speed it needs, so
+  it is still rising when it lands;
+- a wall's run starts at the wound's height.
+
+`dropAt` reads the arc in closed form every frame. It costs no ray after
+the blow's own, and the droplet cannot miss its own mark: the
+unclamped arc reaches the landing at *T*, and a pin holds that.
+
+The pool does not fly. "A hit stains where it happened" has been the law
+since BLOOD1a.
+
+The droplets are one billboard batch of MAX_FLYING quads, built on the
+first flight and kept for the pool's life. A billboard quad cannot be
+blanked, so each spare quad sits on a live droplet. The pass is a
+cutout, so the same quad drawn twice gives the same pixels. The
+droplet's art is the port's own (`bloodDropletArt`): a 16-texel bead
+with a tail and a glint, with no shadow.
+
+Flight is enabled by the hosts' bag (`bloodDecalDeps.flight`). A pin's
+own bag, a renderer that can't draw billboards, or a full batch lands
+the mark at once, as before.
+
+### The shapes are grown
+
+The pool, spatter and streak cells are now signed distance fields at 128
+texels a cell (ATLAS_SIZE 1024):
+- blobs, tapered runs and droplets are joined by a smooth minimum;
+- edges are roughened by domain-warped fractal value noise (`bloodNoise`);
+- thickness is how far inside the edge a texel sits, so every rim still
+  feathers to nothing and the BLOOD3 depth pin holds.
+
+The drip and print cells are unchanged.
+
+A pin measures how un-round the cells are: perimeter squared over 4π
+times the area. A disc scores under one. Every pool scores above 1.2,
+every spatter above 3.5 and every streak above 1.8, and no two cells of
+a kind match.
+
+The sheet takes about four times the work of the 64-texel one, so
+`atlasBuilder` builds it one cell per step and `prewarmBloodAtlas` runs
+those steps in the browser's idle time. `bloodAtlas()` finishes whatever
+the prewarm left. The bytes are the same however the build was stepped.
+
+### What the mutants bought
+
+Three of eighteen survived the first run:
+- an arc solved short of its landing: `dropAt`'s clamp hid it by snapping
+  the drop onto the mark at the last frame;
+- a ceiling drop thrown too weakly to reach;
+- a spray whose reach ignored the sequence under a still generator.
+
+All three are pinned now, against the unclamped arc and against the
+reach.

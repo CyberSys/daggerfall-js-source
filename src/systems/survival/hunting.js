@@ -25,9 +25,10 @@
 // THE OVERHAUL: the mod skipped the clock an hour behind a box; the
 // port's event is REAL-TIME (Mac's brief) - a Yes/No prompt, then a
 // busy page that runs its game minutes at HUNT_WAIT_PER_HOUR real
-// seconds an hour (ui/huntWindow.js), then the outcome box. Offline
-// the minutes then pass on the clock; online the clock is nobody's
-// (WORLD5) and the wait alone is the cost. The beast stands when the
+// seconds an hour (ui/huntWindow.js), then the outcome box. The minutes
+// then pass on the character's clock - the one clock offline, their own
+// online (LIVED1; AUDIT LIVED1 K: this said "online the clock is
+// nobody's"). The beast stands when the
 // box closes, not under it - a foe keeps its clock under a window
 // (WINFOE1) and would have had the first blow free.
 //
@@ -106,12 +107,17 @@ export function beastFor(climate, rolls = Math.random) {
  * The minute's roll. `s` is the survival record (the cooldown rides it
  * as `huntAt`, saved with the rest). Returns the event { climate, kind }
  * or null. The host asks once a game minute.
+ *
+ * SEA-HUNT (2026-09-29, Mac: "hunting notifications appear when sailing"): `afloat` - the player at a helm, on a
+ * boat's or a ship's deck, or in the water - rolls nothing. The mod's own gate asks the player outdoors and not
+ * swimming, which was the whole of "on land" before Come Sail Away put a deck under them; and the climate cannot say
+ * it either, since the coast's first sea pixels read as the land's (terrainHelper.js dilateCoastalClimate).
  */
 export function huntRoll(s, {
-  minute = 0, luck = 50, winter = false, outdoors = true, inLocationRect = false, night = false, enemiesNear = false, resting = false, climateIndex = 232,
+  minute = 0, luck = 50, winter = false, outdoors = true, afloat = false, inLocationRect = false, night = false, enemiesNear = false, resting = false, climateIndex = 232,
 } = {}, rolls = Math.random) {
   const climate = HUNT_CLIMATE[climateIndex];
-  if (!climate || !outdoors || inLocationRect || night || enemiesNear || resting) return null;
+  if (!climate || !outdoors || afloat || inLocationRect || night || enemiesNear || resting) return null;
   if (minute < (s?.huntAt ?? 0)) return null;
   const chance = (1 + luckMod(luck)) / (winter ? HUNT_ODDS.winter : HUNT_ODDS.summer);
   if (rolls() >= chance) return null;

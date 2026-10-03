@@ -191,7 +191,7 @@ test('TERRAIN-SCALE1: the scene cache keeps what it is handed - its frame, its s
 test('TERRAIN-SCALE1: an interior caches its floor in the BUILDING\'s frame - DFU\'s localPosition - and a legacy raw entry is stood again on today\'s ground', () => {
   assert.match(MODES, /const o = buildingOrigin\(\);\n    const droppedPiles = interiorDropped\.snapshotScene\(\)\.map\(\(p\) => \(\{ \.\.\.p, pos: \[p\.pos\[0\] - o\[0\], p\.pos\[1\] - o\[1\], p\.pos\[2\] - o\[2\]\] \}\)\);/);
   assert.match(MODES, /const droppedTorches = interiorTorches\.snapshot\(\(p\) => \[p\[0\] - o\[0\], p\[1\] - o\[1\], p\[2\] - o\[2\]\]\);/, 'the torches too');
-  assert.match(MODES, /return \{ lootContainers, actionDoors, droppedPiles, droppedTorches, decor, decorItems, decorOwn, hiddenBase, frame: 'building', terrainScale: STREAMING_TERRAIN_SCALE \};/);
+  assert.match(MODES, /return \{ lootContainers, actionDoors, droppedPiles, droppedTorches, decor, decorItems, decorOwn, hiddenBase, frame: 'building', terrainScale: STREAMING_TERRAIN_SCALE, guildShelves \};/);   // GUILD-SHELF: the day's guild shelves ride with it
   assert.match(MODES, /interiorTorches\.restore\(data\.droppedTorches, place\);/);
   assert.match(MODES, /const m = exteriorDoor\?\.matrix;\n    return m \? \[m\[12\], m\[13\], m\[14\]\] : \[0, 0, 0\];/, 'every door of a building carries the building\'s own matrix');
   assert.match(MODES, /const place = data\.frame === 'building'\n      \? \(p\) => \[p\[0\] \+ o\[0\], p\[1\] \+ o\[1\], p\[2\] \+ o\[2\]\]\n      : \(p\) => \[p\[0\], host\.restandSceneHeight \? host\.restandSceneHeight\(p\[1\], p\[0\], p\[2\], was\) : p\[1\], p\[2\]\];/);
@@ -217,7 +217,7 @@ function pump({ publish = false } = {}) {
   const hums = [];
   const env = { built, renderer, collider, buildingDoors, doorGeneration: 0, hums,
     // DW-D: DeepWaterRuntime's location-load count rides a location's build - none here
-    locationIndex: new Map(), spawnedDungeonAt: () => null, dwLocationLoadBegan: () => {}, dwLocationLoadEnded: () => {} };
+    locationIndex: new Map(), spawnedDungeonAt: () => null, _locationToBuild: () => null, dwLocationLoadBegan: () => {}, dwLocationLoadEnded: () => {} };   // AUDIT OW5b D2: the build's one ask
   const body = `${WORLD.slice(i, j)}
     async function buildPixelNow(px, py) {
       const key = px + ',' + py;

@@ -88,7 +88,10 @@ test('RP1: the world host passes its live PlayerGPS read; the dev hosts keep the
   assert.match(world, /regionIndex: \(\) => _questRegionIndex\(\),/,
     'the world host hands the same CurrentRegionIndex read its quest bridge uses');
   // ...and it is the SAME getter, not a second implementation of it
-  assert.match(world, /const _questRegionIndex = \(\) => \{[\s\S]*?maps\.getRegionIndexAt\(px\.x, px\.y\)/);
+  // FIELD 2026-09-27: a hoisted DECLARATION - townTalk's load reads it across bootWorld's `await loadQuestPack()`,
+  // where a const was still in its dead zone ("[town] FACTION.TXT unavailable: Cannot access 'Ut' ...")
+  assert.match(world, /function _questRegionIndex\(\) \{[\s\S]*?maps\.getRegionIndexAt\(px\.x, px\.y\)/);
+  assert.doesNotMatch(world, /const _questRegionIndex = /, 'never a const again: its readers run before the line');
   // the exterior dev host builds exactly one location and cannot stream
   // out of it, so its number is correct and must not be churned into a
   // getter for symmetry's sake.

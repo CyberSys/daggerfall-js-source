@@ -50,6 +50,7 @@ import { resolveHover, frameSignature } from '../systems/worldHover.js';
 import { foldQuickLoot, quickLootRow, quickLootStats, resetQuickLoot, quickLootOn } from '../systems/quickLoot.js';
 import { setClassicLootFrame } from '../systems/classicLootFrame.js';   // DISC22-C: the classic panel's frame, a leaf hud.js can read   // QUICK-LOOT B3: the highlight is the FEATURE's - this draws it and frees it, it does not own it; QUICK-LOOT-STATS: and the lit row's own numbers
 import { bodyStackMark, resetBodyStack } from '../player/lootStack.js';   // LOOT-STACK: the plaque counts the pile the pick noted
+import { armDrawWatchdog, disarmDraw } from './drawWatchdog.js'; import { destroyPickupFeed, clearPickupFeed } from './pickupFeed.js';   // DISC29-D: the watchdog counts frames, not milliseconds; PICKUP-FEED: the take's cards, freed with this teardown
 
 /** The gap in CSS pixels between the cross's lower arm tip and the
  *  plaque's top edge. Large enough that the two never read as one
@@ -181,6 +182,25 @@ export function plaqueAnchor(canvas) {
   return {
     x: (canvas.width / 2) / dpr,
     top: (crosshairCentreY(canvas.height, largeHudHeight) + CROSSHAIR_ARM * scale) / dpr + PLAQUE_GAP,
+  };
+}
+
+/**
+ * PROF-RETICLE (2026-10-01, Mac: "use the mechanics on something that doesnt cover the screen"): WHERE THE CROSSHAIR'S
+ * MIDDLE IS, in CSS pixels, and the lens's focal length in them - `focal`, so an angle off the look `a` stands
+ * `focal * tan(a)` from the middle, as the world draws it (the frame's perspective over the world's viewport: the canvas
+ * under the docked large HUD, the crosshair's own middle). `fovRad` the vertical field of view (viewSettings
+ * fieldOfView, radians). Null off a canvas. The plaqueAnchor arithmetic, the reticle's own point.
+ */
+export function reticleAnchor(canvas, fovRad) {
+  if (!canvas?.width || !canvas?.height) return null;
+  const { largeHudHeight } = hudReticle(canvas);
+  const dpr = canvas.clientWidth > 0 ? canvas.width / canvas.clientWidth : 1;
+  const viewH = Math.max(1, canvas.height - largeHudHeight) / dpr;
+  return {
+    x: (canvas.width / 2) / dpr,
+    y: crosshairCentreY(canvas.height, largeHudHeight) / dpr,
+    focal: viewH / 2 / Math.tan(Math.max(0.1, Number(fovRad) || 1.13) / 2),
   };
 }
 
@@ -342,8 +362,9 @@ export function hideWorldPlaque() {
   // plaque down twice and, in a test, hold the event loop open past the
   // run. The watchdog itself nulls the handle before it calls here, so
   // this is a no-op on that path.
-  _cancel(_watchdog);
+  disarmDraw(_watchdog);
   _watchdog = null;
+  clearPickupFeed();   // PICKUP-FEED: the take's cards come down by every door the plaque does - an overlay over the world, a held frame (AUDIT 64 F37: a DOM face stays painted unless told)
   foldQuickLoot(null);   // AUDIT DISC7 A8: a plaque taken down by any door takes its highlight with it
   setClassicLootFrame(null);   // DISC22-C: and the classic panel's frame with it
   if (!node) return;
@@ -384,8 +405,9 @@ export function showWorldPlaque(frame, anchor = null) {
   // still painted over a game that has stopped. A DOM overlay stays
   // painted unless it is told otherwise (AUDIT 64 F37); nothing else in
   // this module can tell it once the frames stop coming.
-  _cancel(_watchdog);
-  _watchdog = _schedule(() => { _watchdog = null; hideWorldPlaque(); }, PLAQUE_WATCHDOG_MS);
+  // DISC29-D: a frame that came and went without a draw, never a frame slower than the timer (ui/drawWatchdog.js)
+  disarmDraw(_watchdog);
+  _watchdog = armDrawWatchdog(PLAQUE_WATCHDOG_MS, () => { _watchdog = null; hideWorldPlaque(); }, { schedule: _schedule, cancel: _cancel });
   if (anchor && (anchor.x !== lastX || anchor.top !== lastTop)) {
     lastX = anchor.x; lastTop = anchor.top;
     n.style.setProperty('--wp-x', `${anchor.x.toFixed(1)}px`);
@@ -542,7 +564,7 @@ export function destroyWorldPlaque() {
   // AUDIT-WH2 L3-F2: EVERY ALLOCATION HAS AN OWNER, and a pending timer
   // is one. Freed first: a watchdog that fired after the node was gone
   // would be harmless but a watchdog left pending holds a test run open.
-  _cancel(_watchdog);
+  disarmDraw(_watchdog);
   _watchdog = null;
   try { node?.remove(); } catch { /* already gone */ }
   node = null;
@@ -565,6 +587,10 @@ export function destroyWorldPlaque() {
   // LOOT-STACK: and the pile's note with it, for the same reason - it
   // names bodies in the world this teardown is unmaking.
   resetBodyStack();
+  // PICKUP-FEED: and the take's cards (ui/pickupFeed.js) - a DOM face
+  // with a clock of its own, fed by the take this plaque lights, and
+  // the hosts' one teardown for quick loot is this function.
+  destroyPickupFeed();
 }
 
 /** For tests. */

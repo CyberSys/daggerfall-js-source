@@ -36,15 +36,18 @@
 // ═══════════════════════════════════════════════════════════════════
 
 import { guestName, isHandleShaped, isGuestShaped } from './guestName.js';
-import { wardrobeOf, equipRefusal, canModerate } from './titles.js';   // ACC3: what a player holds, wears and is true of - all four derived
+import { wardrobeOf, equipRefusal, canModerate, auraRefusal, glyphRefusal, glyphsHidden } from './titles.js';   // ACC3: what a player holds, wears and is true of - all four derived; WB9g: and the aura worn
+import { insigniaById, insigniaHeld } from '../../src/net/insignia.js';   // WB9g: the Broker's insignia - one law both ends
 import { ID_RE, nameIsIssuable } from '../../src/net/identityToken.js';
 import { PLAY_GRACE_S } from '../../src/net/playClock.js';   // ACC4: the widest gap one beat may credit - one home both ends
 import { MUTE_MAX_MIN } from '../../src/net/moderation.js';   // MOD1: the longest mute - the command and the service agree in one place
 import { verifyReceipt } from '../../src/net/gateReceipt.js';   // WB5b: the relay's kill receipt, verified with its public half
+import { TERMS_VERSION, PRIVACY_VERSION, LEGAL_VERSION_RE } from '../../src/net/legalLaw.js';   // TERMS1: the documents a new account agrees to - one home both ends
 import {
   hashPassword, verifyPassword, needsRehash, passwordRefusal,
   mintRecoveryCode, codeForHashing,
 } from './password.js';
+import { seatRegionOk } from '../../src/net/townSeatLaw.js';   // SEAT1b: a gate claim's region
 
 /** A session's raw secret, in bytes. 32 bytes of CSPRNG is the whole
  *  of the credential; nothing about the player is encoded in it. */
@@ -53,6 +56,11 @@ export const SECRET_BYTES = 32;
  *  year, because a player who opens the game twice a year is still that
  *  player and their friends list is still theirs. */
 export const SESSION_IDLE_S = 365 * 24 * 60 * 60;
+/** SCALE1 (2026-09-30, the scaling audit - Mac: "set the stage for a larger player base"): HOW STALE `last_seen` MAY
+ *  GROW before a request writes it again. Every authenticated call wrote both rows, two of its three D1 writes, and
+ *  D1 has one writer for the whole service. Nothing reads the column finer than this: the idle bound is a year, and
+ *  the device list orders by it. */
+export const SESSION_TOUCH_S = 10 * 60;
 
 const b64url = (bytes) => {
   let bin = '';
@@ -113,10 +121,13 @@ export function accountKind(row) {
  * A NEW PLAYER. Mints the id, the generated name and the device's first
  * session, and hands back the one and only copy of the raw secret.
  *
+ * TERMS1: `legal` is what its player agreed to - the route has already
+ * refused anybody who did not (`legalRefusal`), and the row keeps it.
+ *
  * @param {{db: any, subtle: SubtleCrypto, rand: (b: Uint8Array) => void, nowS: number}} env
- * @param {{deviceLabel?: string|null}} [opts]
+ * @param {{deviceLabel?: string|null, legal?: {terms: string, privacy: string}|null}} [opts]
  */
-export async function createGuest({ db, subtle, rand, nowS }, { deviceLabel = null } = {}) {
+export async function createGuest({ db, subtle, rand, nowS }, { deviceLabel = null, legal = null } = {}) {
   if (!Number.isSafeInteger(nowS)) throw new TypeError('createGuest needs an integer epoch-seconds clock');
   const id = mintId(rand);
   const name = guestName(rand);
@@ -134,8 +145,8 @@ export async function createGuest({ db, subtle, rand, nowS }, { deviceLabel = nu
   // has broken, which is worth a 500 because nothing else would be
   // trustworthy either.
   if (!nameIsIssuable(name) || !isGuestShaped(name)) throw new Error(`guestName produced an unusable name: ${name}`);
-  await db.prepare('INSERT INTO players (id, handle, handle_lc, guest_name, created_at, last_seen) VALUES (?, NULL, NULL, ?, ?, ?)')
-    .bind(id, name, nowS, nowS).run();
+  await db.prepare('INSERT INTO players (id, handle, handle_lc, guest_name, created_at, last_seen, terms_version, privacy_version, legal_accepted_at) VALUES (?, NULL, NULL, ?, ?, ?, ?, ?, ?)')
+    .bind(id, name, nowS, nowS, ...legalColumns(legal, nowS)).run();
   const session = await openSession({ db, subtle, rand, nowS }, id, deviceLabel);
   return { id, name, kind: 'guest', ...session };
 }
@@ -214,10 +225,18 @@ export async function resolveSession({ db, subtle, nowS }, secret) {
   // derivable. It is still written because a column that silently stops
   // being maintained is worse than one that costs a write, and dropping
   // it is a migration rather than an audit's business.
-  if (Number.isSafeInteger(nowS)) {
+  //
+  // SCALE1: ONLY WHEN IT HAS GONE STALE (SESSION_TOUCH_S), and both rows
+  // in one round trip. It was written on every call - two of the three
+  // writes every authenticated request paid before its own work, on a
+  // database with one writer.
+  const stale = !Number.isSafeInteger(session.last_seen) || nowS - session.last_seen >= SESSION_TOUCH_S;
+  if (Number.isSafeInteger(nowS) && stale) {
     try {
-      await db.prepare('UPDATE sessions SET last_seen = ? WHERE id = ?').bind(nowS, session.id).run();
-      await db.prepare('UPDATE players SET last_seen = ? WHERE id = ?').bind(nowS, player.id).run();
+      await db.batch([
+        db.prepare('UPDATE sessions SET last_seen = ? WHERE id = ?').bind(nowS, session.id),
+        db.prepare('UPDATE players SET last_seen = ? WHERE id = ?').bind(nowS, player.id),
+      ]);
     } catch { /* cosmetic: the caller is authorised either way */ }
   }
   return { player, session };
@@ -365,6 +384,78 @@ export async function equipTitle({ db, nowS }, player, env, title) {
   return { ok: true, ...wardrobeOf({ ...player, title }, env, nowS) };
 }
 
+/**
+ * WB9g - WEAR ONE AURA, OR NONE. equipTitle's law at the feet: refused against what the player HOLDS, derived now (a
+ * bought aura is held because the row records the sale); `null` takes it off and is always allowed. Answers the
+ * wardrobe after the write.
+ */
+export async function equipAura({ db, nowS }, player, env, aura) {
+  const why = auraRefusal(aura, player);
+  if (why) return { error: why };
+  await db.prepare('UPDATE players SET aura = ?, last_seen = ? WHERE id = ?').bind(aura, nowS, player.id).run();
+  return { ok: true, ...wardrobeOf({ ...player, aura }, env, nowS) };
+}
+
+/**
+ * GLYPH-WEAR - SHOW ONE GLYPH, OR HIDE IT. Mac: "players can also equip/unequip their glyphs". Refused for a glyph
+ * that is not true of the player now (`not-held`), as a title is. `on` true shows it, false hides it. The stored
+ * list is rewritten from what is hidden now, so a lapsed glyph drops out of it on the next write. Answers the
+ * wardrobe after the write.
+ */
+export async function equipGlyph({ db, nowS }, player, env, glyph, on) {
+  const why = glyphRefusal(glyph, player, env, nowS);
+  if (why) return { error: why };
+  const off = glyphsHidden(player, env, nowS).filter((g) => g !== glyph);
+  if (!on) off.push(glyph);
+  const glyphs_off = off.join(' ') || null;
+  await db.prepare('UPDATE players SET glyphs_off = ?, last_seen = ? WHERE id = ?').bind(glyphs_off, nowS, player.id).run();
+  return { ok: true, ...wardrobeOf({ ...player, glyphs_off }, env, nowS) };
+}
+
+/** WB9g: what the account's own closed gates could still pay for - one Sigil Stone a gate closed (gate_kills, WB5b),
+ *  less what its insignia already cost (`insignia_spent`). Never below 0. WB12d: a row's own `stones` - two with the
+ *  faithful's rite broken, one for the rite alone (migration 0066). */
+export async function insigniaPurse({ db }, player) {
+  const r = await db.prepare('SELECT COALESCE(SUM(stones), 0) AS n FROM gate_kills WHERE account = ?1').bind(player.id).first();
+  const spent = Number.isSafeInteger(player?.insignia_spent) ? player.insignia_spent : 0;
+  return Math.max(0, Number(r?.n ?? 0) - spent);
+}
+
+/**
+ * WB9g - THE BROKER'S SALE OF A PIECE OF INSIGNIA (src/net/insignia.js INSIGNIA), recorded for the account. Refused:
+ * `no-insignia` (not an offer), `guest` (a guest row is one storage clear from gone - ACC3's founder reasoning - and the
+ * gate records nothing for one either, claimGate), `owned`, and `short` when the account's closed gates less what its
+ * insignia already cost cannot pay the price (`purse` says what they can). ONE UPDATE is the sale: the id joins the
+ * column and the price the spend only where the row does not hold it yet and its gates still cover it - so two sales
+ * pressed at once cannot both spend the same stones, nor one piece be bought twice. The client takes the stones from
+ * the pack; this is the half no client can skip. Answers the wardrobe after the write and the purse left.
+ * @param {{ db: any, nowS: number }} ctx
+ */
+export async function buyInsignia({ db, nowS }, player, env, id) {
+  const offer = insigniaById(id);
+  if (!offer) return { error: 'no-insignia' };
+  if (!player?.handle) return { error: 'guest' };
+  if (insigniaHeld(player.insignia).includes(offer.id)) return { error: 'owned' };
+  // AUDIT WB9 (insignia F3): the id APPENDED to the column the UPDATE matches, not written over it from the row read
+  // before - two sales of two pieces at once each read the column empty, and the second wrote its id alone over the
+  // first's: both paid for, one held (the id's shape is the law's own, insigniaWith's: space-separated, in sale order)
+  const row = await db.prepare(
+    `UPDATE players SET insignia = CASE WHEN COALESCE(insignia, '') = '' THEN ?2 ELSE insignia || ' ' || ?2 END,
+       insignia_spent = insignia_spent + ?3, last_seen = ?4
+     WHERE id = ?1
+       AND (' ' || COALESCE(insignia, '') || ' ') NOT LIKE ('% ' || ?2 || ' %')
+       AND (SELECT COALESCE(SUM(stones), 0) FROM gate_kills WHERE account = ?1) - insignia_spent >= ?3
+     RETURNING insignia, insignia_spent`,
+  ).bind(player.id, offer.id, offer.price, nowS).first();
+  if (!row) {
+    const now = await db.prepare('SELECT * FROM players WHERE id = ?').bind(player.id).first();
+    if (insigniaHeld(now?.insignia).includes(offer.id)) return { error: 'owned' };
+    return { error: 'short', purse: await insigniaPurse({ db }, now ?? player), price: offer.price };
+  }
+  const after = { ...player, insignia: row.insignia, insignia_spent: row.insignia_spent };
+  return { ok: true, bought: offer.id, ...wardrobeOf(after, env, nowS), purse: await insigniaPurse({ db }, after) };
+}
+
 /** A handle a player asks for, judged before anything is written: one
  *  word by shape (so it can never read as a guest's two), and a name
  *  the wire would carry unchanged (so the token can name it). Returns
@@ -378,6 +469,48 @@ export function handleRefusal(handle) {
   if (!nameIsIssuable(h)) return 'refused';     // NAME-F1/F2, at entry
   return null;
 }
+
+/**
+ * TERMS1 — DID THIS PLAYER TICK THE DOCUMENTS THIS SERVICE HOLDS?
+ *
+ * "I wanna make sure these need to be reviewed and checked off by
+ * players before creating an account". The Create account form sends the
+ * Terms of Service and Privacy Policy versions its player ticked
+ * (src/net/legalLaw.js), and the two routes that make an account ask
+ * this before anything is written: `/v1/auth/guest` opens the row and
+ * `/v1/auth/register` names it. No other route makes one.
+ *
+ * THREE REFUSALS, because a player needs three different sentences.
+ * `terms-unaccepted`: a box unticked, or an answer that is not a
+ * version. `terms-stale`: dated versions that are not these - a player
+ * who ticked text this service no longer holds (an old tab, a cached
+ * build), who must reload to read the current text rather than tick a
+ * box they already ticked.
+ *
+ * AUDIT PRE-MERGE 0929 T1: AND A REQUEST THAT NAMES NEITHER DOCUMENT is
+ * a game from before the boxes - the form never sends one, since its own
+ * check stops a press with a box unticked - and a game that old has no
+ * sentence for either word above: it said "The account service had a
+ * problem. Try again." at every press, for ever, and the desktop app's
+ * reload brings back the same bundled game. It is answered in the word
+ * every shipped build renders as "The game may need updating"
+ * (accountClient.js REFUSALS `not-found`), which is the truth.
+ */
+export function legalRefusal(body) {
+  const terms = body?.terms, privacy = body?.privacy;
+  if (terms === TERMS_VERSION && privacy === PRIVACY_VERSION) return null;
+  if (terms === undefined && privacy === undefined) return { error: 'not-found' };
+  const dated = (v) => typeof v === 'string' && LEGAL_VERSION_RE.test(v);
+  if (dated(terms) && dated(privacy)) return { error: 'terms-stale' };
+  return { error: 'terms-unaccepted' };
+}
+
+/** TERMS1: what a row keeps of an agreement - the two versions and the
+ *  moment - or three NULLs. ONLY THE CURRENT VERSIONS ARE WRITTEN, whoever
+ *  calls: a row that says its player agreed to text this service does not
+ *  hold is a record of something that did not happen. */
+const legalColumns = (legal, nowS) =>
+  (legal && !legalRefusal(legal) ? [legal.terms, legal.privacy, nowS] : [null, null, null]);
 
 // ── ACC1c: USERNAME, PASSWORD, AND THE ONE WAY BACK IN ──────────────
 
@@ -447,8 +580,14 @@ export async function clearRate({ db }, key) {
  * which is the property ACC0 has been protecting since it opened.
  *
  * Returns `{ recoveryCode }` - THE ONLY TIME IT IS EVER READABLE.
+ *
+ * TERMS1: `legal` is the agreement ticked on the form that named it,
+ * which the route has already required (`legalRefusal`) - written with
+ * the name, so an account made before the boxes existed carries one from
+ * the moment it registers. It never ERASES one: a caller that passes
+ * none leaves the row's own.
  */
-export async function register({ db, subtle, rand, nowS }, playerId, { handle, password }) {
+export async function register({ db, subtle, rand, nowS }, playerId, { handle, password, legal = null }) {
   const hRefusal = handleRefusal(handle);
   if (hRefusal) return { error: `handle-${hRefusal}` };
   const pRefusal = passwordRefusal(password);
@@ -469,8 +608,10 @@ export async function register({ db, subtle, rand, nowS }, playerId, { handle, p
     // authority on whether this row is still a guest's, by the same law
     // - two registrations of one guest (two devices) both passed the
     // SELECT above, both answered a recovery code, and the first's was dead.
-    wrote = await db.prepare('UPDATE players SET handle = ?, handle_lc = ?, password = ?, recovery_hash = ?, registered_at = ? WHERE id = ? AND handle IS NULL')
-      .bind(handle, handle.toLowerCase(), pw, rc, nowS, playerId).run();
+    wrote = await db.prepare('UPDATE players SET handle = ?, handle_lc = ?, password = ?, recovery_hash = ?, registered_at = ?, '
+      + 'terms_version = COALESCE(?, terms_version), privacy_version = COALESCE(?, privacy_version), legal_accepted_at = COALESCE(?, legal_accepted_at) '
+      + 'WHERE id = ? AND handle IS NULL')
+      .bind(handle, handle.toLowerCase(), pw, rc, nowS, ...legalColumns(legal, nowS), playerId).run();
   } catch (e) {
     // THE UNIQUE INDEX IS THE AUTHORITY ON WHETHER A NAME IS TAKEN, not
     // a SELECT before the write - two registrations in the same instant
@@ -690,30 +831,49 @@ export async function reportDuelLoss({ db, nowS }, loser, winner) {
 // the row), so the client keeps the receipt and claims it again then,
 // inside the receipt's week.
 
-/** An account's gates: `{ closed }`, counted off the rows. */
+/** An account's gates: `{ closed }`, counted off the rows - WB12d: a rite's own row is no breach closed. */
 export async function gateRecordOf({ db }, playerId) {
-  const r = await db.prepare('SELECT COUNT(*) AS n FROM gate_kills WHERE account = ?1').bind(playerId).first();
+  const r = await db.prepare("SELECT COUNT(*) AS n FROM gate_kills WHERE account = ?1 AND earned != 'rite'").bind(playerId).first();
   return { closed: Number(r?.n ?? 0) };
 }
 
 /**
  * THE CLAIM: `receipt` verified with the relay's public half and naming `player`, one row a (day, account). Answers
- * `{ recorded: true, closed }`, `{ recorded: false, why: 'claimed' | 'guest', closed }`, or `{ error }` -
+ * `{ recorded: true, day, stones, closed }` (WB12d: `stones` the row's embers, `rite` on a receipt of the rite alone,
+ * `struck` beside a Drakes strike), `{ recorded: false, why: 'claimed', stones, closed }` (AUDIT WB12d A1: the row's
+ * embers, a fighter's `r` made good), `{ recorded: false, why: 'guest', closed }`, or `{ error }` -
  * `no-gate-key` (this service holds no public half), `receipt` (not a receipt the relay signed, or expired - `why`
  * says which rung), `not-yours` (another account's).
  * @param {{ db: any, nowS: number, subtle: SubtleCrypto }} ctx
  * @param {{ id: string, handle?: string|null }} player the session's account
  * @param {unknown} receipt @param {CryptoKey|null} publicKey
  */
-export async function claimGate({ db, nowS, subtle }, player, receipt, publicKey) {
+export async function claimGate({ db, nowS, subtle }, player, receipt, publicKey, { strike = null, region = null } = {}) {
   if (!publicKey) return { error: 'no-gate-key' };
   const v = await verifyReceipt(receipt, publicKey, { subtle, nowS });
   if (!v.ok) return { error: 'receipt', why: v.why };
   const c = v.claims;
   if (c.s !== player.id) return { error: 'not-yours' };
   if (!player.handle) return { recorded: false, why: 'guest', ...(await gateRecordOf({ db }, player.id)) };
-  const r = await db.prepare('INSERT OR IGNORE INTO gate_kills (day, account, boss, earned, at) VALUES (?1, ?2, ?3, ?4, ?5)')
-    .bind(c.d, player.id, c.b, c.x, nowS).run();
+  // WB12d: the row's embers - an ember more for the faithful's rite broken (`r`); a rite's own receipt is one.
+  // SEAT1b (Seats-Arc 4.2): with the region the claiming client derived for the kill's day - the day's region is the one
+  // at least three of its claims agree on (seatInfluence.js), null where the claim named none, and on the rite's own
+  // row, which is no kill
+  const embers = c.r === 1 ? 2 : 1;
+  const kill = db.prepare('INSERT OR IGNORE INTO gate_kills (day, account, boss, earned, at, region, stones) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)')
+    .bind(c.d, player.id, c.b, c.x, nowS, c.x !== 'rite' && seatRegionOk(region) ? region : null, embers);
+  // MARKS1 / AUDIT 28 M4: the gate's Marks (marks.js gateStrikeStatement) IN THE SAME BATCH as the row - one transaction,
+  // so a strike that fails takes the row with it and the retry claims afresh; `strike` null where Marks are not this
+  // account's, and the row is written alone. WB12d: the rite alone is no breach closed - no strike
+  const stmt = c.x === 'rite' ? null : strike?.(c.d) ?? null;
+  const [r, m] = stmt ? await db.batch([kill, stmt]) : [await kill.run(), null];
   const recorded = Number(r?.meta?.changes ?? 0) > 0;
-  return recorded ? { recorded, ...(await gateRecordOf({ db }, player.id)) } : { recorded, why: 'claimed', ...(await gateRecordOf({ db }, player.id)) };
+  const struck = Number(m?.meta?.changes ?? 0) > 0;
+  if (recorded) return { recorded, day: c.d, stones: embers, ...(c.x === 'rite' ? { rite: true } : {}), ...(stmt ? { struck } : {}), ...(await gateRecordOf({ db }, player.id)) };
+  // AUDIT WB12d (A1): A FIGHTER'S `r` COUNTED AT ONE EMBER - a service from before acct62 took the receipt as a plain one
+  // and kept its row - is made good when the receipt is claimed again (the game keeps an `r` receipt until a service
+  // that answers its embers has counted it). One row a (day, account), one receipt a kill: the row is this receipt's
+  if (c.r === 1) await db.prepare("UPDATE gate_kills SET stones = 2 WHERE day = ?1 AND account = ?2 AND stones = 1 AND earned != 'rite'").bind(c.d, player.id).run();
+  const row = await db.prepare('SELECT stones FROM gate_kills WHERE day = ?1 AND account = ?2').bind(c.d, player.id).first();
+  return { recorded, why: 'claimed', ...(Number.isSafeInteger(row?.stones) ? { stones: row.stones } : {}), ...(await gateRecordOf({ db }, player.id)) };
 }

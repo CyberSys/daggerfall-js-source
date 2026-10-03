@@ -270,12 +270,14 @@ test('DW-C: the world host - the fog\'s presentation drives the surfaces\' _Deep
   assert.match(w, /const underwater = !!_dwFogP\?\.under;/);
   assert.match(w, /renderer\.beginFrame\(proj, view, sunDirection\(minute\), WORLD_FRAME\);[^\n]*\n\s*meterFor\(renderer\.gl\)\?\.markCpu\('bodies'\);[^\n]*\n\s*if \(deepWaters\) \{ _dwNowMs = now; beginDeepWatersFrame\(minute\); \}/);
   assert.match(w, /if \(f\.underwater\) renderer\.setWaterFog\(distanceFogUniforms\(/);
-  assert.match(w, /\n {4}sky\.draw\(cam\.yaw, cam\.pitch/, 'the sky is drawn under the sea too - the fog closes it');
+  assert.match(w, /\n {4}sky\.draw\(tvf \? tvf\.yaw : cam\.yaw, tvf \? tvf\.pitch : cam\.pitch/, 'the sky is drawn under the sea too - the fog closes it');   // TV1: turned to the travel view's eye
   assert.match(w, /renderer\.setClearColor\(SKY_CLEAR\);/);
   const ring = w.indexOf('farRing.draw(view, {');
   const skyFog = w.indexOf('if (deepWaters) dwRender.drawSkyFog();');
   assert.ok(skyFog > ring && skyFog < w.indexOf('const wu = waterUniforms({'), 'after the ring, before the first blend');
   assert.match(w, /if \(wisps && wd\.on && wispsOn\(\) && !_dwAirOff\) \{/);
   assert.match(w, /if \(boltsGl && boltFrame\.bolts\.length && !_dwAirOff\) \{/);
-  assert.match(w, /const _dwPrecipOff = _dwAirOff \|\| \(!!dwPlayer && walkMode && !!player\.isPlayerSwimming && !player\.waterWalking\);/);
+  // PIN MOVED (PUDDLE-RAIN, FIELD BUGS 2026-10-01 #1): DW-D's swimmer arm is gone - the water over the eye alone hides
+  // what falls (test/fb1001_puddlerain.test.js)
+  assert.match(w, /const _dwPrecipOff = _dwAirOff;/);
 });

@@ -10,8 +10,15 @@
 // region-conditions update, which is why the call rides beside
 // regionPowerUpdate in worldTick) DFU rolls the NON-cure quest, and
 // every 84 days (120960) the CURE quest. Both walks run on absolute
-// classic minutes, so a fortnight of prison or travel catches up
-// exactly as DFU's `for (i < minutesPassed)` does.
+// classic minutes, over whatever span the tick walks: offline a
+// fortnight of prison or travel catches up exactly as DFU's
+// `for (i < minutesPassed)` does. LIVED1 (AUDIT LIVED1 K): online both
+// walks run on the CHARACTER's own clock, which a sentence, a journey or
+// the vampire's fortnight moves exactly as offline - so those spans are
+// walked too - and which stands while the player is away or dead, so a
+// 38- or 84-day minute is rolled when the character lives it, never
+// across an absence or a death. [SUPERSEDES AUDIT DISC28 TM-3's walk of
+// the dead span and the "no such fortnight" online.]
 //
 // THE ROLLS ARE EACH CURSE'S OWN, verbatim:
 //  - werewolf/wereboar: CURE only (the base StartQuest is empty) -
@@ -41,7 +48,7 @@ export const VAMPIRISM_CURE_QUEST = '$CUREVAM';
 export const VAMPIRE_INITIAL_QUEST = 'P0A01L00';
 
 // { startQuest(name), startQuestObject(quest), findQuests(name) ->
-//   array, tombstoneQuestsByName(name), tombstoneQuestsByPrefix(p),
+//   array, activeQuestNames() -> names (TIMEFREE), tombstoneQuestsByName(name), tombstoneQuestsByPrefix(p),
 //   getVampireClanQuest(clanFactionId, level) -> quest|null (the
 //   host reads the clan rep itself - it owns the faction store) }
 let _host = null;
@@ -94,6 +101,20 @@ export function startRacialOverrideQuest(entity, isCureQuest, { rolls = Math.ran
   }
 
   return null;
+}
+
+/** TIMEFREE (2026-10-02, Mac: online quests "to not use time"): online the curse's quests do not wait 38 and 84 days
+ *  of the character's time - 76 and 168 hours of play. Each arm rolls on the quest clocks' short wait instead (twenty-
+ *  four of the character's minutes, about two real minutes of play) whenever it has nothing running: no P0 quest for
+ *  the vampire's initiation and clan line, no cure quest for either cure - so they come one at a time, never stacked. */
+export const ONLINE_RACIAL_INTERVAL_MINUTES = 24;
+const CURE_QUESTS = Object.freeze([LYCANTHROPY_CURE_QUEST, VAMPIRISM_CURE_QUEST]);
+/** TIMEFREE: whether the arm (`isCureQuest`) has nothing running - the host's live quests (none answers false: no
+ *  host, no arm). */
+export function racialArmIdle(isCureQuest) {
+  const live = _host?.activeQuestNames?.();
+  if (!Array.isArray(live)) return false;
+  return !live.some((n) => (isCureQuest ? CURE_QUESTS.includes(n) : String(n).startsWith(VAMPIRE_QUEST_PREFIX)));
 }
 
 /** EndVampireQuests (:375-386): the cure tombstones EVERY active

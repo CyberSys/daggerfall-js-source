@@ -15,11 +15,11 @@
 // save and mutates rep in place, and both halves are here now. The
 // rep deltas landed with S25's systems/factionRep.js (changeReputation
 // :116, propagateReputationChange :165) and are driven by court.js
-// :181, quest/quest.js:347's QuestSuccessRep/FailureRep, quest/
-// actions.js:2070 and guildServiceActions.js:206. The save arc carries
-// them: save.js:478 snapshotFactionRep writes and :379
+// :181, quest/quest.js:355's QuestSuccessRep/FailureRep, quest/
+// actions.js:2090 and guildServiceActions.js:206. The save arc carries
+// them: save.js:505 snapshotFactionRep writes and :379
 // restoreFactionRep reads back INTO the store the loader rebuilt from
-// FACTION.TXT (the AUDIT 20 note at save.js:722). The live FactionFile
+// FACTION.TXT (the AUDIT 20 note at save.js:807). The live FactionFile
 // dict is still the working state - what round-trips is the mutable
 // columns, a recorded departure from FactionData_v2's whole-dictionary
 // write.
@@ -28,6 +28,7 @@ import { SOCIAL_GROUP_COUNT, FACTION_TYPES, SOCIAL_GROUPS, GUILD_GROUPS } from '
 import { racialSuppressCrime } from './lycanthropy.js';   // V4: SuppressCrime's inline gate (court.js imports this module)
 import { CRIMES } from './crimes.js';   // GUARD1: the enum's leaf home - reachable from BOTH sides of the court/talk cycle
 import { tallyCrimeGuildRequirements } from './crimeGuilds.js';   // CG2: a leaf, so this module can reach it
+import { dressTempleBonus } from './clothingStanding.js';   // DRESS1 (2026-09-30, Discord): the temple half of the clothing reaction, a leaf
 import { calculatePickpocketingChance, dice100 } from '../combat/formulas.js';
 import { skillValue, tallySkill, SKILLS } from './skills.js';
 import { addGoldPieces } from './inventory.js';   // E4: the pinched purse lands in the counter
@@ -285,13 +286,14 @@ export function ensureReactionState(entity) {
   return entity;
 }
 
-/** TalkManager.GetReactionToPlayer, verbatim. */
+/** TalkManager.GetReactionToPlayer, verbatim - plus DRESS1's temple term (a port addition, see clothingStanding.js). */
 export function getReactionToPlayer(faction, player) {
   ensureReactionState(player);
   let reaction = faction.rep + player.biographyReactionMod;
   const sgroup = faction.sgroup;
   if (sgroup >= 0 && sgroup < player.reactionMods.length) reaction += player.reactionMods[sgroup];
   if (sgroup >= 0 && sgroup < player.sGroupReputations.length) reaction += player.sGroupReputations[sgroup];
+  reaction += dressTempleBonus(faction, player);   // DRESS1 (2026-09-30, Discord "temple-specific robes with a positive buff for that temple faction"): a port addition, 0 unless priest(ess) robes are worn and the faction is a Temple
   return reaction;
 }
 

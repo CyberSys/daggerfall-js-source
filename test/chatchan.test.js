@@ -13,6 +13,7 @@ import { readFileSync } from 'node:fs';
 import {
   SOCIAL_ROOM, CHAT_ROOMS, CHAT_REGION_COUNT, CHAT_REGION_PREFIX, CHAT_LINE_CHANNELS, CHAN_RELAY_MIN, PARTY_CHAT_ROOM_HZ_MAX, CHAT_ROOM_HZ_MAX,
   CHAT_HZ_MAX, CAST_BURST_MAX, chatRegionRoom, isChatRoom, isSocialRoom, relaySupportsChannels, parseClient, RELAY_VERSION, DROP_STRIKES_MAX,
+  PARTY_MAX, SEAT_ELSEWHERE,
 } from '../src/net/wire.js';
 import {
   ChatLog, CHAT_TABS, CHAT_SAY_RANGE, CHAT_PEEK, CHAT_REGION_HOLD_MS, isOocText, oocText, inEarshot, localLineHeard, nextRegionRoom,
@@ -81,17 +82,23 @@ async function partyOfTwo({ act, join, tick }) {
   return { a, b, c, pid };
 }
 
-test('CHAT-CHAN relay: a party\'s line is heard by the party alone - every tab of each member, the sender\'s own echo the receipt - and a line naming no channel is everyone\'s as it always was (mutants: the party line fanned to the room; the sender left out of the fan; a stranger hearing it; the channel word dropped off the line)', () => withHub(async (h) => {
+// FRIENDS-SYNC (FIELD BUGS 2026-10-01 part five): the hub account is the token's subject, and ONE-SEAT keeps one hub tab a
+// subject - so "every tab of each member" is the one tab the member's seat stands as. b's second tab is now a second
+// device's CLAIM: it closes the first, and the party's line reaches the tab that holds the seat, never the closed one.
+test('CHAT-CHAN relay: a party\'s line is heard by the party alone - the tab each member\'s seat stands as, the sender\'s own echo the receipt - and a line naming no channel is everyone\'s as it always was (mutants: the party line fanned to the room; the sender left out of the fan; a stranger hearing it; the channel word dropped off the line)', () => withHub(async (h) => {
   const { a, b, c } = await partyOfTwo(h);
-  const b2 = await h.join('b', '2');   // b's second tab: an account's every socket is the account's
+  const b2 = h.r.connect(); await h.r.hello(b2, 'peer-b2', null, { name: 'b', acct: 'acct-b', asecret: 'secret-of-acct-b', cl: 1 }); h.tick(10);   // b on a second device: a claim
+  assert.equal(b.closed?.reason, SEAT_ELSEWHERE, 'the claim closed b\'s first tab');
+  assert.equal(b2.att.party, a.att.party, 'and the seat is the claiming tab\'s');
   for (const ws of [a, b, c, b2]) ws.sent.length = 0;
   await h.say(a, 'to the party', 'party'); h.tick();
-  for (const [ws, who] of [[a, 'a, the echo'], [b, 'b'], [b2, 'b\'s other tab']]) {
+  for (const [ws, who] of [[a, 'a, the echo'], [b2, 'b, on the tab its seat stands as']]) {
     assert.deepEqual(chats(ws).map((m) => [m.id, m.name, m.text, m.ch]), [['peer-a', 'a', 'to the party', 'party']], who);
   }
+  assert.equal(chats(b).length, 0, 'the closed tab hears nothing');
   assert.equal(chats(c).length, 0, 'c is in no party with a: nothing');
   await h.say(c, 'hello everyone'); h.tick();
-  for (const ws of [a, b, c, b2]) assert.deepEqual(chats(ws).at(-1).text, 'hello everyone', 'a line naming no channel fans to the room');
+  for (const ws of [a, c, b2]) assert.deepEqual(chats(ws).at(-1).text, 'hello everyone', 'a line naming no channel fans to the room');
   assert.equal(chats(c).at(-1).ch, undefined, 'and says no channel');
 }));
 
@@ -144,21 +151,28 @@ test('CHAT-CHAN relay: the parties\' budget is their own - a party line never sp
   assert.ok(arm.indexOf("if (ch === 'party')") >= 0 && arm.indexOf("if (ch === 'party')") < arm.indexOf('tokenGate(this._roomChat'), 'and the room\'s is spent only after the party arm has returned');
 }));
 
-test('CHAT-CHAN relay: the parties\' own budget HOLDS - eight seats at three tabs each, two lines a tab inside one instant, and the hub fans PARTY_CHAT_ROOM_HZ_MAX of them and drops the rest without a strike (mutants: the party budget left unchecked)', () => withHub(async (h) => {
-  const names = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'k'];
-  const first = [];
-  for (const n of names) first.push(await h.join(n));
-  for (const n of names.slice(1)) { await h.act(first[0], { k: 'party.invite', peer: `peer-${n}` }); h.tick(); }
-  const pid = first[0].att.party;
-  for (let i = 1; i < names.length; i++) { await h.act(first[i], { k: 'party.accept', party: pid }); h.tick(); }
-  const tabs = [...first];
-  for (const n of names) for (const t of ['2', '3']) tabs.push(await h.join(n, t));
-  assert.ok(tabs.every((ws) => ws.att.party === pid), 'every tab of every seat sits in the party');
+// FRIENDS-SYNC (FIELD BUGS 2026-10-01 part five): eight seats at three tabs each was 24 sockets in ONE party; one hub
+// tab a subject (the hub account is the token's subject, ONE-SEAT) makes that 8 - under the budget - so the 24 sockets
+// are three full parties now. The budget is the hub's, over every party at once, which is what this pins.
+test('CHAT-CHAN relay: the parties\' own budget HOLDS - three parties of eight seats, two lines a seat inside one instant, and the hub fans PARTY_CHAT_ROOM_HZ_MAX of them across the parties - each line to its whole party - and drops the rest without a strike (mutants: the party budget left unchecked)', () => withHub(async (h) => {
+  const parties = [];
+  for (const p of ['p', 'q', 'r']) {
+    const seats = [];
+    for (let i = 0; i < PARTY_MAX; i++) seats.push(await h.join(`${p}${i}`));
+    for (let i = 1; i < PARTY_MAX; i++) { await h.act(seats[0], { k: 'party.invite', peer: `peer-${p}${i}` }); h.tick(); }
+    const pid = seats[0].att.party;
+    for (let i = 1; i < PARTY_MAX; i++) { await h.act(seats[i], { k: 'party.accept', party: pid }); h.tick(); }
+    assert.ok(pid && seats.every((ws) => ws.att.party === pid), `every seat of party ${p} sits in it`);
+    parties.push(seats);
+  }
+  const tabs = parties.flat();
   h.tick(5000);
   for (const ws of tabs) ws.sent.length = 0;
   for (const ws of tabs) for (let i = 0; i < CHAT_HZ_MAX; i++) await h.say(ws, `line ${i}`, 'party');
   assert.ok(tabs.length * CHAT_HZ_MAX > PARTY_CHAT_ROOM_HZ_MAX, 'more said than the budget');
-  for (const ws of [tabs[0], tabs.at(-1)]) assert.equal(chats(ws).length, PARTY_CHAT_ROOM_HZ_MAX, 'the budget, fanned whole to every tab');
+  assert.ok(PARTY_MAX * CHAT_HZ_MAX < PARTY_CHAT_ROOM_HZ_MAX, 'and one party alone could not spend it - the budget is the hub\'s, over every party');
+  for (const seats of parties) assert.ok(seats.every((ws) => chats(ws).length === chats(seats[0]).length), 'each line fanned whole to its party');
+  assert.equal(parties.reduce((n, seats) => n + chats(seats[0]).length, 0), PARTY_CHAT_ROOM_HZ_MAX, 'the budget, and not a line more');
   assert.ok(tabs.every((ws) => !ws.closed && (ws.meters.cdrops ?? 0) === 0), 'a line over the budget is dropped, and nobody is struck for it');
 }));
 
@@ -513,7 +527,7 @@ test('CHAT-CHAN host: the commands are tested in their order - the host\'s own f
   assert.match(send, /if \(\(tabId === 'party' \|\| tabId === 'region'\) && chanOld\(\)\) return why\(CHAN_OLD_RELAY_TEXT\);/);
   assert.match(send, /if \(tabId === 'local'\) return online\?\.sendChat\(text, \{ me \}\) \?\? false;/);
   assert.match(send, /if \(!social\?\.party\) return why\(NO_PARTY_TEXT\);\s*return socialLink\(\)\?\.sendChat\(text, \{ ch: 'party', me \}\) \?\? false;/);
-  assert.match(w, /const chatRegionFrame = \(now\) => \{\s*const link = chatLinks\?\.get\('region'\);\s*if \(!link \|\| !chatLinks\.get\('world'\)\?\.chanOk\) return;/, 'never before the welcome says region rooms open');
+  assert.match(w, /const chatRegionFrame = \(now\) => \{\s*if \(seatOut\(\)\) return;[^\n]*\s*const link = chatLinks\?\.get\('region'\);\s*if \(!link \|\| !chatLinks\.get\('world'\)\?\.chanOk\) return;/, 'never before the welcome says region rooms open');
   assert.match(w, /const room = nextRegionRoom\(_regionHold, chatRegionRoom\(index\), chatLog\.tab\('region'\)\.room, now\);/);
   assert.match(w, /chatLog\.setRoom\('region', room, place\);\s*link\.join\(room\);\s*chatLog\.push\('region', \{ text: regionJoinedText\(place\), system: true \}\);/);
   assert.match(w, /const index = _questRegionIndex\(\);/, 'PlayerGPS.CurrentRegionIndex - the politic map\'s word, the quests\' own');

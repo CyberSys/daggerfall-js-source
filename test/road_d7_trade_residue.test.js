@@ -219,7 +219,7 @@ test('D7: the host opens the native Repair screen when the art is up, keyed when
   assert.match(body, /return showRepairList\(0, ctx\);/, 'the keyed arm swallows its window');
   // and the window is handed the two collections the mode needs
   assert.match(wm, /otherItems: \(\) => \(playerEntity\.otherItems \?\?= \[\]\),/);
-  assert.match(wm, /repairItems: \(\) => repairJobsAt\(playerEntity, b\.buildingKey \?\? 0, Math\.floor\(worldMinutes\(\)\)\),/);
+  assert.match(wm, /repairItems: \(\) => repairJobsAt\(playerEntity, b\.buildingKey \?\? 0, Math\.floor\(ownMinutes\(\)\)\),/);   // LIVED1: a repair runs on the character's own clock
 });
 
 test('D7: the booked job carries this shop\'s key and CalculateItemRepairTime', () => {

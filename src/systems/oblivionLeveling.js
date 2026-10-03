@@ -116,6 +116,18 @@ export function levelingSettings(r = null) {
   });
 }
 
+/** LEVEL-ONLINE (2026-09-30, Mac: "Do not allow people to use daggerfall leveling in online. Characters currently
+ *  using it online can keep it."): THE ONE LAW for the system a NEW character is born with. Online, Daggerfall's
+ *  leveling is not offered - a character made (or imported from a classic save) on the online page levels the
+ *  Oblivion way whatever was asked for; offline the request stands. It is applied where a character is BORN
+ *  (finishChargen, the `?class=` skip, the classic-save import) and never where one is LOADED, so a character already
+ *  levelling the Daggerfall way online keeps it: the save is the law (usesVirtueLeveling). */
+export const DAGGERFALL_LEVELING_OFFLINE_ONLY = true;
+export function newCharacterLevelingSystem(requested, { online = false } = {}) {
+  const want = requested === LEVELING_VIRTUE ? LEVELING_VIRTUE : LEVELING_CLASSIC;
+  return online && DAGGERFALL_LEVELING_OFFLINE_ONLY ? LEVELING_VIRTUE : want;
+}
+
 /** THE ONE READER of the character's answer. A save written before
  *  this slice carries no field and reads as classic, which is the
  *  port's own law and the safe side of the fork. */
@@ -188,6 +200,13 @@ export function addSkillProgress(entity, skillId, s) {
   entity.levelProgress = progress + added;
   return added;
 }
+
+/** THE BAR AS A SCREEN READS IT: the character's progress, held to
+ *  0..LEVELUP_TOTAL. One home for every readout of it - the Ascension's
+ *  crown draws it out of the total, the classic sheet's Level box as a
+ *  percent (LEVEL-PCT, 2026-09-28: that box printed the skill sum's
+ *  fraction for a character this bar levels). */
+export const levelBarProgress = (entity) => Math.max(0, Math.min(LEVELUP_TOTAL, entity?.levelProgress ?? 0));
 
 /** The virtue system's CheckForLevelUp: the bar is full. Sets the same
  *  `readyToLevelUp` flag the DFU path sets, so every host's existing

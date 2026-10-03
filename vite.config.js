@@ -47,8 +47,16 @@ function arena2DevServer() {
         if (!/^[A-Za-z0-9._-]+$/.test(name)) return next();
         let path = join(root, onDisk(name));
         // B1: books live in ARENA2/BOOKS/ - a flat BOK*.TXT name falls
-        // back to the subfolder (still no separators in the URL name).
-        if (!isFile(path) && /^BOK\d+\.TXT$/i.test(name)) path = join(root, 'BOOKS', name);
+        // back to the subfolder (still no separators in the URL name),
+        // the folder and the file found whatever the disk calls them, as
+        // app/main.cjs finds them: DFU's own folder is "books"
+        // (BookFile.cs:27), and a literal 'BOOKS' 404'd every book on Linux.
+        if (!isFile(path) && /^BOK\d+\.TXT$/i.test(name)) {
+          const books = join(root, onDisk('BOOKS'));
+          let file = name;
+          try { file = readdirSync(books).find((f) => f.toUpperCase() === name.toUpperCase()) ?? name; } catch { /* no books folder */ }
+          path = join(books, file);
+        }
         if (!isFile(path)) {
           res.statusCode = 404;
           return res.end('not found');
@@ -158,6 +166,11 @@ export default defineConfig({
         // verify-deploy read `main-*.js`).
         landing: 'index.html',
         main: 'play/index.html',
+        // TERMS1: the Terms of Service and the Privacy Policy - documents,
+        // as the landing page is one, and the pages the Create account form
+        // links to (src/net/legalLaw.js TERMS_URL and PRIVACY_URL).
+        terms: 'terms/index.html',
+        privacy: 'privacy/index.html',
         viewer: 'viewer.html',
         sky: 'sky.html',   // ES1: the enhanced sky lab
         water: 'water.html', // WATER1: the enhanced water lab (src/tools/waterLab.js)

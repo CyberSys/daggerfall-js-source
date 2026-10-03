@@ -54,10 +54,29 @@ workers_dev = true
 [observability]
 enabled = true
 
+# SCALE1 (2026-09-30, the scaling audit): EVERY REQUEST COUNTED - route,
+# method, status, a refusal's word, wall ms and the D1 statements it ran
+# - to Workers Analytics Engine (src/metrics.js says what each field is
+# and how to query it). The dataset is created by its first write; no
+# player is identified in any point. A Worker without the binding serves
+# exactly as before.
+[[analytics_engine_datasets]]
+binding = "METRICS"
+dataset = "daggerfall_accounts"
+
+# SCALE1: SMART PLACEMENT. A request here makes its D1 round trips one
+# after another - a checkpoint seven, a harvest up to seventeen, a
+# market read about twenty - and each pays the distance between the
+# Worker and the database. Cloudflare runs the Worker where that sum is
+# least (near the database) once it has seen the traffic; a Worker with
+# no bindings to reach would stay at the edge.
+[placement]
+mode = "smart"
+
 [vars]
 # Answered by /health so a deploy that did not happen cannot look like
 # one that did. Kept in step with ACCOUNT_VERSION in src/service.js.
-ACCOUNT_VERSION = "acct15"
+ACCOUNT_VERSION = "acct70"
 # WB5b: THE RELAY'S PUBLIC HALF, GATE_PUBLIC_KEY - the key an Oblivion
 # Gate's kill receipts verify with (src/net/gateReceipt.js) - is NOT a
 # var here. GATE-KEYS (2026-09-26): the account deploy mints the pair
@@ -98,7 +117,10 @@ DEVELOPER_HANDLES = "Lattymoy,trashBattery,LostMyLeg,Tabby"
 # listed here. Asynian is the first (Mac, 2026-09-22: "Username is
 # Asynian"). Taking a handle off revokes the shield on the next token
 # and the commands on the next call.
-MODERATOR_HANDLES = "Asynian"
+# MOD2 (2026-10-02, Mac: "give tabbyvish the moderator title/glyph for
+# ingame"): the second, with the same shield and commands. MOD3 (same
+# day, Mac: "Also add Starempire42 as a moderator"): the third.
+MODERATOR_HANDLES = "Asynian,tabbyvish,Starempire42"
 # TITLE-N (2026-09-24, Mac): the Dungeon Master - the orange title, the
 # die beside the name, and /dm's orange line (the relay reads the right
 # off the `dm` glyph in the signed token, as /red reads `dev`). "This
@@ -107,8 +129,13 @@ DUNGEON_MASTER_HANDLES = "SquidKamer"
 # TITLE-N: the three Patreon tiers, lowest first - each list grants its
 # title and its glyph. Dutchess and Satranath are the first Disciples (Mac); a tier that
 # lapses is a handle taken off, gone from that player's next token.
+# PATREON-LINK (2026-10-01): a patron no longer needs a line here - they
+# link their own Patreon from the account card, and PATREON_TIERS below
+# grants the tier their pledge pays for. These lists stay for the titles
+# Mac grants by name (a comp, a patron who will not link).
 # 2026-09-26, Mac: "Grant Flylighter the disciple title/glyph".
-DISCIPLE_HANDLES = "Dutchess,Satranath,Skibbster,Flylighter"
+# 2026-09-29, Mac: "Add valenvalarys as a disciple ingame".
+DISCIPLE_HANDLES = "Dutchess,Satranath,Skibbster,Flylighter,valenvalarys"
 # 2026-09-25, Mac: "Add SirMcMobdon as an Apostle ingame title/glyph";
 # 2026-09-26, Mac: "SirMcMobdon gets a brand new title/glyph. Remove them
 # from Apostle" - the list is empty again, and the grant is the line below.
@@ -119,6 +146,71 @@ HIEROPHANT_HANDLES = ""
 # player's. The same law as the tiers: a handle here grants the title and
 # the glyph, and taking it off takes both on the next token.
 SHADOW_FANG_HANDLES = "SirMcMobdon"
+# MARKS1 (PROF0 20): Marks open by this switch - "off", "dev" (the DEVELOPER_HANDLES alone) or "on". Shipped at "dev":
+# the currency is struck and spent by the developers first, and opened to everyone by this one line.
+# SWITCH-ON (2026-09-29, Mac: "Fuck it lets switch everything on"): "on" - Marks are everyone's.
+MARKS_OPEN = "on"
+# NOTICE1 (PROF0 20): the Notice Board by this switch - "off", "dev" (the DEVELOPER_HANDLES alone) or "on". Shipped
+# at "dev": the developers read and pin first; everyone else's rumour boards stayed DFU's until this line said "on".
+# BOARD-ON (2026-09-29, Mac's choice: "Board now, rest after fixes"): "on" - the board is everyone's; its Work and
+# Market tabs stay the professions' and the Marks' (a tab shows only while PROFESSIONS_OPEN and MARKS_OPEN let the
+# account in), so they open with those two lines below.
+BOARD_OPEN = "on"
+# PROF1 (PROF0 20): the professions by this switch - "off", "dev" (the DEVELOPER_HANDLES alone) or "on". Shipped at
+# "dev": the developers gather, store and fill Court writs first; opened to everyone by this one line.
+# SWITCH-ON (2026-09-29, Mac: "Fuck it lets switch everything on"): "on" - the professions and, with Marks and the
+# board, the market are everyone's, after PROF-SAVE and PROF-DELETE.
+PROFESSIONS_OPEN = "on"
+# SEAT1a (SEAT0 18: "The account service's config gains SEATS_OPEN (off, dev, on). At dev only accounts with the dev
+# glyph see seats, so each slice is played on the live servers before anyone else sees it"): the seats by this switch.
+# Shipped at "dev": the developers witness the seats, see the map's rings and the arrival lines first; opened to
+# everyone by this one line.
+SEATS_OPEN = "on"
+# SEASON1 (SEAT0 9.1, 18): the seat week Season 0 - the four-week open beta - begins (townSeatLaw.js seasonOf); 8-week
+# Seasons follow, each ending at its last Turning with its titles and the soft reset, and Season 0's end wipes the seats.
+# Empty: no Season is counted (every once-a-Season rule keeps its 8-week stand-in). Set it, to a week not yet past, when
+# the seats open to everyone - never move it once a Season has begun.
+SEASON_ZERO_WEEK = "2"
+# PENITENT (2026-09-29, Mac: "This new custom title/glyph is for the user
+# Diggleborf", whose ask it is: "Looking to do a Trinimac themed one, so
+# maybe "Penitent" for the title starting gold and ending a sky blue", with
+# a sketch for the glyph): Penitent - the gold-to-sky title and the sword in
+# its lozenge beside the name, one player's. The same law as the tiers: a
+# handle here grants the title and the glyph, and taking it off takes both
+# on the next token.
+PENITENT_HANDLES = "Diggleborf"
+# HERALD (2026-10-01, Mac: "Herald doesnt exist ingame yet" - "you'll need
+# to develop the herald title/glyph"): Herald - the azure title and the
+# herald's trumpet with its banner beside the name, the Patreon tier
+# between Disciple and Hierophant. Its patrons hold it by their pledge
+# (PATREON_TIERS below); a handle here grants the title and the glyph by
+# name, as every list above does. Empty: nobody by name yet.
+HERALD_HANDLES = ""
+# PATREON-LINK (2026-10-01, Mac: "With patron and having to manually hand
+# out titles. Im running into a workflow where its really hard to keep up
+# with it"; asked, "Patreon auto-link"): A PATRON'S TITLE FOLLOWS THEIR
+# PLEDGE. A registered player presses Link Patreon on the account card,
+# and the tier their pledge pays for is a title they hold - upgraded,
+# downgraded and lapsed by Patreon's webhook (server-account/src/patreon.js).
+#
+# PATREON_CLIENT_ID is the Patreon API client's id - not a secret (it is in
+# every authorize URL). Mac's client (2026-10-01). The card offers no link
+# until the deploy has put the client's secret beside it - empty here is
+# off too. The two secrets are NOT here and must never be: the deploy puts
+# PATREON_CLIENT_SECRET and PATREON_WEBHOOK_SECRET from the repository's
+# own secrets (.github/workflows/account-deploy.yml), as it puts the keys.
+PATREON_CLIENT_ID = "xyF8_xJg78YwVgT0xRhs6uhPVeAdOzJu7_dcpaGqvqH-5DNdbLp-gugahtfgH-Ui"
+# Which Patreon tier grants which title: "<tier id>:<title>", comma-
+# separated, the titles disciple, apostle, herald and hierophant. A tier's id is
+# the number in its Join link on the Patreon page (`rid=`). A tier not
+# listed grants nothing; changing a line here moves every patron of that
+# tier on their next token, with nothing walked.
+# Mac's tiers (2026-10-01: "some titles dont have titles/glyphs ingame.
+# Heriophant is custom and Herald doesnt exist ingame yet. Supporter doesnt
+# recieve a title/glyph"): Disciple (29666211) is mapped, and Herald
+# (29666234) since HERALD gave it its title in the game. Supporter
+# (29701293) holds none; Hierophant (29666221) is custom, granted by name.
+PATREON_TIERS = "29666211:disciple,29666234:herald"
 
 [[d1_databases]]
 binding = "DB"

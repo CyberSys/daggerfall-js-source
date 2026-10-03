@@ -101,7 +101,7 @@ test('PARTY8-B: the health digits are DRAWN only under half - written for every 
   assert.equal(bran.where.className, 'dfparty-where', 'and the place line carries when they were last seen');
   assert.equal(bran.where.textContent, 'Last online 1 min ago');
   // the sheet: the digits sit at the head's right edge in the health's own red, and `off` is display: none
-  assert.match(PARTY_CSS, /\.dfparty-hp \{ margin-left: auto; flex: none; font-size: 10px; line-height: 1\.2; color: #e2554c;/);
+  assert.match(PARTY_CSS, /\.dfparty-hp \{ margin-left: auto; flex: none; font-size: 11px; line-height: 1\.2; color: #e2554c;/);
   assert.match(PARTY_CSS, /\.dfparty-hp\.off \{ display: none; \}/);
   assert.match(PARTY_CSS, /\.dfparty-num \{ display: none; \}/, 'the bars\' own digits stay undrawn (PARTY8)');
 });
@@ -208,7 +208,8 @@ test('PARTY8-B: the sheet - no plate behind a card (no border, fill, blur or rad
   panel.render({});
   const bran = panel.cardFor('acct-Bran');
   const body = bran.node.children[1];
-  assert.deepEqual(body.children.map((c) => c.className), ['dfparty-head', 'dfparty-bars', 'dfparty-where off']);
+  // PARTY-BUFFS: the effects row sits between the bars and the place, drawn only while the member has any
+  assert.deepEqual(body.children.map((c) => c.className), ['dfparty-head', 'dfparty-bars', 'dfparty-fx off', 'dfparty-where off']);
   assert.deepEqual(body.children[0].children.map((c) => c.className), ['dfparty-name', 'dfparty-lead off', 'dfparty-hp blank']);
   assert.deepEqual(body.children[1].children.map((c) => c.className), ['dfparty-vital health', 'dfparty-thin']);
   assert.deepEqual(body.children[1].children[1].children.map((c) => c.className), ['dfparty-vital fatigue', 'dfparty-vital magicka']);

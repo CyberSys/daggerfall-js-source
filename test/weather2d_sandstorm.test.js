@@ -161,7 +161,7 @@ test('WEATHER2d the sand: the wisps\' program in the sand\'s look - tan, dense, 
 });
 
 test('WEATHER2d the hosts: the sand renderer built on the enhanced lane, the sand drawn before the rain\'s branch on the front\'s intensity as a foreign pass, and the rain program never built for it', () => {
-  for (const [name, s, eye] of [['world', rd('src/scenes/world.js'), 'cam.pos'], ['exterior', rd('src/scenes/exterior.js'), 'eye']]) {
+  for (const [name, s, eye] of [['world', rd('src/scenes/world.js'), 'wxEye'], ['exterior', rd('src/scenes/exterior.js'), 'eye']]) {   // PIN MOVED (OW-WEATHER, FIELD BUGS 2026-10-01 #9): the world host's eye is the view's (test/fb1001_overworld.test.js)
     assert.match(s, /const sand = sky\.enhanced \? new WindWispsRenderer\(renderer\.gl, SAND_LOOK\) : null;/, `${name}: built at boot`);
     assert.match(s, /if \(precipMode && precipMode !== 'sand' && !precip\) precip = new PrecipitationRenderer\(renderer\.gl, precipOpts\);/, `${name}: the rain program is not the sand's`);
     const i = s.indexOf("if (precipShown === 'sand') {");

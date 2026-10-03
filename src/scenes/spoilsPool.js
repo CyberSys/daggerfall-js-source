@@ -3,9 +3,9 @@
 // torch works) and have a sort of rarity glow attached to it"): THE SPOILS ON THE COURT'S FLOOR - one player's share of a
 // fallen boss (systems/gateSpoils.js rollSpoils, off the relay's receipt), spewed out of his chest piece by piece
 // (world/gateSpew.js - the thrown torch's own flight), each landing with the torch's own clatter, and at rest standing
-// in its tier's beam (render/spoilsGlow.js) with a Rare-or-better's light and chime. Walked over, a piece goes into the
-// pack; leaving the court gathers whatever is still on the floor. Design: bible/11-Multiplayer/World-Bosses.md
-// section 7.
+// in its tier's beam (render/spoilsGlow.js) with a Rare-or-better's light and chime. Pressed, a piece goes into the
+// pack (GATE-UX: no longer walked over - below); leaving the court gathers whatever is still on the floor. Design:
+// bible/11-Multiplayer/World-Bosses.md section 7.
 //
 // SEEN BY THIS PLAYER ALONE, and never sent: every other player's spoils are their own seed's, on their own screen.
 //
@@ -51,22 +51,37 @@
 // pillaged by others before I could ever realise boss died" - the spoils are this player's alone, and a fighter
 // standing where they fell had walked over them in the second they landed).
 //
+// RAID4b (2026-09-28): A TOWN'S THANKS COME THROUGH THIS DOOR TOO (systems/raidSpoils.js) - a pool of their own, made
+// with their own KEYS (so a town's receipts never push a boss's out of the list of those spent) and handed their own
+// roll and words at the grant; the crash's door asks their record by its own key. Its "day" is the raid's
+// (raidSpoilsDay - a string), and it tells the hub nothing: no `onSpent` (the hub never kept a raid's receipt).
+//
+// WB9f (2026-09-30, Mac: "Improve the loot drops that emit on his death and have them spread out more. The player should
+// be able to inspect and pick up the ground item, not just walk over it"): THE SPOILS, SPREAD AND HANDLED. The burst
+// throws each piece its own slot of a wider fan, kept on the court's floor (world/gateSpew.js keepLaunch, off the
+// court's `keep` the burst hands in); and a resting piece is an ACTIVATION TARGET - `spoil:<i>` for an item (a pile of
+// one, so the plaque lists it with its tier and, under quick loot's stats, what it is), `spoilGold:<i>` for the gold -
+// that the press takes into the pack (`pick`), the hosts' ladder naming it (`nameOf`) and the plaque reading it
+// (`contentsOf`). Walking over a piece still takes it. Each piece's rest is told to the court (`frame(onRest)`), which
+// throws its tier's sparks where it lands.
+//
+// GATE-UX (2026-10-01, Mac: "Loot at the end can still be walked over and picked up"): THE PRESS IS THE ONLY HAND. A
+// piece on the floor is taken when it is pressed (`pick`) and no other way - a fighter crossing the court to the one
+// they wanted swept up every piece in their path, unlooked at. WBX3's wait after a piece came to rest (SPOILS_TAKE_AFTER_MS)
+// and the walk-over's reach (SPOILS_TAKE_M) went with it; leaving the court still gathers what is left (`gather`).
+//
 // Not a DFU member. Ledger A (WB).
-import { rollSpoils } from '../systems/gateSpoils.js';
+import { rollSpoils, nameEmbers, sigilStone } from '../systems/gateSpoils.js';
 import { seededRng } from '../systems/wind.js';
-import { spewLaunches, spewPiece, flySpew } from '../world/gateSpew.js';
+import { spewLaunches, spewPiece, flySpew, keepLaunch, floorRayAt } from '../world/gateSpew.js';
 import { SpoilsGlowRenderer, tierColour } from '../render/spoilsGlow.js';   // WBX3: the loot line
 import { RARITIES } from '../systems/lootRarity.js';
 import { RANDOM_TREASURE_ARCHIVE, RANDOM_TREASURE_ICONS, validLootItem } from '../systems/loot.js';
 import { billboardSize } from '../world/rmbFlats.js';
 import { SOUND } from '../systems/soundClips.js';
 import { CLIPS } from '../systems/handheldTorches.js';
+import { RAY_DISTANCE, TREASURE_ACTIVATION_DISTANCE } from '../player/activate.js';   // WB9f: a piece is pressed as a loot pile is
 
-/** A resting piece is taken when the player's feet come within this of it (metres, across the floor). */
-export const SPOILS_TAKE_M = 1.3;
-/** WBX3: ...and no sooner than this after it came to rest - a piece landing under a fighter's feet is seen before it is
- *  taken. */
-export const SPOILS_TAKE_AFTER_MS = 1500;
 /** WBX3: an item's picture stands this many metres a texel tall on the floor, and never taller than the most. */
 export const SPOILS_ICON_M_PER_PX = 0.022;
 export const SPOILS_ICON_MAX_M = 1.1;
@@ -78,6 +93,14 @@ export function iconSize(width, height) {
   const k = Math.min(SPOILS_ICON_M_PER_PX, SPOILS_ICON_MAX_M / Math.max(1, width, height));
   return { w: Math.max(1, width) * k, h: Math.max(1, height) * k };
 }
+/** WB9f: THE PRESS - the keys a resting piece is pressed by (an item's is itemised: the plaque lists it), and the
+ *  half-width of its box about where it rests and the least height of it (a flat coin pile is still a thing to aim at).
+ *  It is won at the ray's reach and taken at DFU's TreasureActivationDistance - the loot piles' own
+ *  (dungeonContext.js lootTargets): too far, and the ladder says so. */
+export const SPOIL_KEY = 'spoil:';
+export const SPOIL_GOLD_KEY = 'spoilGold:';
+export const SPOIL_BOX_HALF_M = 0.45;
+export const SPOIL_BOX_MIN_H = 0.5;
 /** The glow rises over this long once a piece rests. */
 export const SPOILS_RISE_MS = 400;
 /** A Rare-or-better resting piece's light: its reach and its strength. */
@@ -85,6 +108,8 @@ export const SPOILS_LIGHT = Object.freeze({ range: 5, k: 1.3, up: 0.6 });
 /** The device's record of spoils no save holds yet, and of the last day whose spoils left him. */
 export const SPOILS_STORE_KEY = 'wb5.spoils';
 export const SPOILS_DAY_KEY = 'wb5.spoilsDay';
+/** RAID4b: the two as a pool is made with them - a boss's; a town's thanks keep their own (raidSpoils.js). */
+export const SPOILS_KEYS = Object.freeze({ store: SPOILS_STORE_KEY, day: SPOILS_DAY_KEY });
 /** The Sigil Stone glows as the rarest thing there is. */
 export const SIGIL_TIER = 'artifact';
 
@@ -93,22 +118,30 @@ export const SPOILS_TEXT = Object.freeze({
   gold: (n) => `You take ${n} gold pieces.`,
   item: (name, tier) => (tier && tier !== 'common' ? `You take ${name} (${RARITIES[tier]?.label ?? tier}).` : `You take ${name}.`),
   gathered: 'The spoils of the Burning Court are in your pack.',
+  goldName: (n) => `${n} Gold Pieces`,   // WB9f: the pile's name on the plaque
   granted: 'Your share of the Burning Court\'s spoils is in your pack.',   // AUDIT WB A2: a receipt that came outside its court
+  rite: 'An ember from the broken rite is in your pack.',   // WB12d: a receipt of the rite alone
 });
 
 /**
  * One player's spoils as the floor holds them - in the order they leave him: the three graded pieces (the Rare-or-better
  * first), the Sigil Stone, then the gold. Each carries its tier (the glow's) and the treasure flat the seed dresses it in.
+ * WB12d: `claims`, the receipt's - the faithful's rite alone (`x` 'rite') pays its ember and nothing else; the rite
+ * broken too (`r`) an ember more, after the first. A receipt with neither is what it always was, piece for piece.
  * Pure.
- * @param {number} seed @param {number} level
+ * @param {number} seed @param {number} level @param {{ x?: string, r?: number }|null} [claims]
  */
-export function spoilsList(seed, level) {
-  const s = rollSpoils(seed, level);
+export function spoilsList(seed, level, claims = null) {
   const look = seededRng((seed ^ 0x5eed) >>> 0);
   const flat = () => RANDOM_TREASURE_ICONS[Math.floor(look() * RANDOM_TREASURE_ICONS.length)];
+  if (claims?.x === 'rite') return [{ kind: 'item', item: sigilStone(), tier: SIGIL_TIER, record: flat() }];
+  const s = rollSpoils(seed, level);
+  const pieces = s.pieces.map((p) => ({ kind: 'item', item: p.item, tier: p.tier, record: flat() }));
+  const ember = { kind: 'item', item: s.sigil, tier: SIGIL_TIER, record: flat() };
   return [
-    ...s.pieces.map((p) => ({ kind: 'item', item: p.item, tier: p.tier, record: flat() })),
-    { kind: 'item', item: s.sigil, tier: SIGIL_TIER, record: flat() },
+    ...pieces,
+    ember,
+    ...(claims?.r === 1 ? [{ ...ember, item: sigilStone() }] : []),
     { kind: 'gold', gold: s.gold, tier: 'common', record: flat() },
   ];
 }
@@ -158,6 +191,7 @@ export const savedSince = (saves, who, at) => who != null && [...(saves ?? [])].
 function keptPiece(p) {
   if (p?.kind === 'gold') return Number.isSafeInteger(p.gold) && p.gold > 0 ? { ...p } : null;
   const item = p?.kind === 'item' ? validLootItem(p.item) : null;
+  if (item) nameEmbers([item]);   // WB12a: a stone a crash record kept under its old name lands as a Deadlands Ember
   return item ? { ...p, item } : null;
 }
 
@@ -166,12 +200,15 @@ function keptPiece(p) {
  * one does; a save since the burst holds them, and the record is cleared; another character's record waits for them.
  * Answers how many pieces it handed over.
  * @param {{ get: (k: string) => any, remove: (k: string) => void, set?: (k: string, v: any) => void }} store @param {(piece: any) => void} take
- * @param {{ who?: string|null, saves?: Iterable<any>, onHanded?: ((rec: any) => void)|null }} [opts] this character's id, the
- *   save slots' infos, and who is told of each record of this build handed over (the pool's `adopt` - its next save clears it)
+ * @param {{ who?: string|null, saves?: Iterable<any>, onHanded?: ((rec: any) => void)|null, key?: string, inSave?: readonly string[]|null }} [opts] this character's id,
+ *   the save slots' infos, who is told of each record of this build handed over (the pool's `adopt` - its next save
+ *   clears it), (RAID4b) the key the records are kept under - a boss's by default - and (AUDIT RESCUE-SAVE A1) the
+ *   records the loaded save's pack already holds: a realm save the device kept (systems/realmSaves.js openRealmBoot
+ *   `held`) was composed holding them, so they are adopted and never handed again; the next save that lands clears them
  */
-export function recoverSpoils(store, take, { who = null, saves = [], onHanded = null } = {}) {
+export function recoverSpoils(store, take, { who = null, saves = [], onHanded = null, key = SPOILS_STORE_KEY, inSave = null } = {}) {
   let v = null;
-  try { v = store.get(SPOILS_STORE_KEY); } catch { v = null; }
+  try { v = store.get(key); } catch { v = null; }
   if (!v) return 0;
   const infos = [...(saves ?? [])];
   const all = recordsOf(v), left = [];
@@ -182,12 +219,14 @@ export function recoverSpoils(store, take, { who = null, saves = [], onHanded = 
     // AUDIT WBX S3: a record of this build is cleared by the save that holds it (the pool's `saved`) - never by a clock;
     // an older build's keeps the old rule, the slots' realTime against its own
     if (rec.v !== SPOILS_RECORD_V && savedSince(infos, rec.who ?? who, rec.at)) continue;   // a save since holds them: it goes
+    // AUDIT RESCUE-SAVE A1: the loaded save already holds them - adopted, so the save that lands clears the record
+    if (rec.v === SPOILS_RECORD_V && inSave?.includes(rec.id)) { left.push(rec); onHanded?.(rec); continue; }
     for (const p of rec.pieces) { const q = keptPiece(p); if (q) { take(q); n++; } }
     left.push(rec);   // and it stays until a save does
     if (rec.v === SPOILS_RECORD_V) onHanded?.(rec);   // in the pack now: the next save of its character clears it
   }
   if (left.length !== all.length || !Array.isArray(v)) {
-    try { if (left.length) store.set?.(SPOILS_STORE_KEY, left); else store.remove(SPOILS_STORE_KEY); } catch { /* the pack has them either way */ }
+    try { if (left.length) store.set?.(key, left); else store.remove(key); } catch { /* the pack has them either way */ }
   }
   return n;
 }
@@ -197,32 +236,47 @@ export function recoverSpoils(store, take, { who = null, saves = [], onHanded = 
  *   renderer?: any, gl?: any, getTexture?: ((archive: number) => Promise<any>)|null,
  *   uploadRecordFrame?: ((archive: number, record: number, frame: number) => void)|null, audio?: any,
  *   ray: (from: number[], dir: number[], len: number) => ({dist: number, normal?: number[]}|null),
- *   feet?: () => number[]|null, now: () => number,
+ *   now: () => number,
  *   take: (piece: any) => void, say?: (text: string) => void,
  *   store?: { get: (k: string) => any, set: (k: string, v: any) => void, remove: (k: string) => void, hold?: (k: string, v: any) => void, persisted?: (k: string) => boolean }|null,
  *   who?: () => string|null, wall?: () => number,
  *   iconOf?: ((item: any) => Promise<{key: string, width: number, height: number, colors: ArrayLike<number>}|null>)|null,
- *   onSpent?: (day: number) => void,
+ *   onSpent?: (day: number) => void, keys?: { store: string, day: string }, recordsMax?: number, itemName?: ((item: any) => string)|null,
  * }} deps
  *   AUDIT WBX S1: `onSpent` is told each day whose receipt is spent here and safe (its record on the device, or a save
  *   holding its pieces) - and again whenever a spent one is offered - so the hub forgets its kept copy.
  *   WBX3: `iconOf` answers an item's own picture - the pack's (color32 order, and a `key` naming the picture: two pieces
  *   that look alike share one upload) - or null when it has none; without it every piece keeps its treasure pile.
+ *   RAID4b: `keys` the device keys its records and its spent receipts go under (SPOILS_KEYS, a boss's, by default).
+ *   AUDIT RAID R8a: `recordsMax` the crash records it keeps (SPOILS_RECORDS_MAX - a boss's one a day; a town's thanks
+ *   come many a session, and a ninth unsaved pushed the first's pieces out of the crash's reach).
+ *   WB9f: `itemName` an item's word on the plaque (the host's - systems/worldTooltips.js lootPileName, the loot piles'
+ *   own), when a resting piece is under the crosshair.
  */
 export function createSpoilsPool({
   renderer = null, gl = null, getTexture = null, uploadRecordFrame = null, audio = null,
-  ray, feet = () => null, now, take, say = () => {}, store = null, who = () => null, wall = () => Date.now(), iconOf = null,
-  onSpent = () => {},
+  ray, now, take, say = () => {}, store = null, who = () => null, wall = () => Date.now(), iconOf = null,
+  onSpent = () => {}, keys = SPOILS_KEYS, recordsMax = SPOILS_RECORDS_MAX, itemName = (item) => item?.name ?? 'Something',
 }) {
+  const STORE_KEY = keys.store, DAY_KEY = keys.day;   // RAID4b: a town's thanks keep their own
   let glow = null;
   try { if (gl) glow = new SpoilsGlowRenderer(gl); } catch (e) { console.warn('[gate] the spoils\' glow would not build', e?.message ?? e); glow = null; }
   /** the spew under way: its day, when it began, where it left from; each piece's flight, rest and batch */
   let rec = null, t0 = 0, from = null, launches = [];
+  /** AUDIT WB9 (spoils F1): what the pieces fly over - the world's ray, and under a kept throw the floor it was kept to
+   *  besides: the collider takes no hit nearer than a tenth of a millimetre (player/collider.js rayTriangle), so a step
+   *  begun that close above the floor missed it and the next began under it - about one kill in fifty let a piece fall
+   *  through the court, where keepLaunch had flown it to a rest over the plane */
+  let flyRay = ray;
   /** WBX3: `sprite` the piece's own picture once it has loaded ({record, w, h} under SPOILS_ICON_ARCHIVE), 'none' when it
    *  has none (gold, a picture that would not load) - then the treasure pile stands; `batchIcon` what its batch wears.
-   *  @type {Array<{ piece: any, fly: any, left: boolean, restAt: number, taken: boolean, batch: any, sprite: any, batchIcon: boolean, h: number }>} */
+   *  WB9f: `target` its activation target, made at its rest.
+   *  @type {Array<{ piece: any, fly: any, left: boolean, restAt: number, taken: boolean, batch: any, sprite: any, batchIcon: boolean, h: number, target: any }>} */
   let floor = [];
   let lastT = 0, tex = null, texLoading = null;
+  /** WB9f: the resting pieces' activation targets (AUDIT WB D10: one list, refilled; each piece's target made once, at
+   *  its rest - a resting piece never moves) */
+  const _targets = [];
 
   const keep = (k, v) => { try { store?.set(k, v); } catch { /* the floor still holds them */ } };
   const read = (k) => { try { return store?.get(k) ?? null; } catch { return null; } };
@@ -239,7 +293,7 @@ export function createSpoilsPool({
    *  build's single day spent for anyone). */
   function spentOn(day, acct) {
     if (spentHere.has(spentKey(day, acct))) return true;
-    const kept = read(SPOILS_DAY_KEY);
+    const kept = read(DAY_KEY);
     return kept === day || (Array.isArray(kept) && (kept.includes(spentKey(day, acct)) || kept.includes(spentKey(day, '*'))));
   }
   /** AUDIT WBX2 M6: whether THIS account spent them - the only spend the hub is told of again. An older build's mark
@@ -247,23 +301,23 @@ export function createSpoilsPool({
    *  had the spoils of, on every device. */
   function spentBy(day, acct) {
     if (spentHere.has(spentKey(day, acct))) return true;
-    const kept = read(SPOILS_DAY_KEY);
+    const kept = read(DAY_KEY);
     return Array.isArray(kept) && kept.includes(spentKey(day, acct));
   }
   /** The receipt spent, here and on the device, and its pieces kept as rolled until a save holds them. AUDIT WBX S5: the
    *  record FIRST, and the device's mark no surer than it; AUDIT WBX S1: the hub told once it is safe. Answers the
    *  record's id. */
-  function spend(day, acct, list) {
+  function spend(day, acct, list, owner = who()) {
     spentHere.add(spentKey(day, acct));
-    const w = who(), at = wall();
+    const w = owner, at = wall();
     const id = `${day}:${w ?? ''}:${at}`;
-    const recs = recordsOf(read(SPOILS_STORE_KEY)).filter((r) => r && !(r.day === day && r.who === w));
-    keep(SPOILS_STORE_KEY, [...recs, { v: SPOILS_RECORD_V, id, day, at, who: w, pieces: list }].slice(-SPOILS_RECORDS_MAX));
-    const durable = store?.persisted?.(SPOILS_STORE_KEY) ?? true;
-    const kept = read(SPOILS_DAY_KEY);
+    const recs = recordsOf(read(STORE_KEY)).filter((r) => r && !(r.day === day && r.who === w));
+    keep(STORE_KEY, [...recs, { v: SPOILS_RECORD_V, id, day, at, who: w, pieces: list }].slice(-recordsMax));
+    const durable = store?.persisted?.(STORE_KEY) ?? true;
+    const kept = read(DAY_KEY);
     const marks = [...(Array.isArray(kept) ? kept : Number.isSafeInteger(kept) ? [spentKey(kept, '*')] : []), spentKey(day, acct)].slice(-SPOILS_SPENT_MAX);
-    if (durable) { keep(SPOILS_DAY_KEY, marks); said(day); }
-    else { try { store?.hold?.(SPOILS_DAY_KEY, marks); } catch { /* the session's own set holds it */ } ackOnSave.set(id, { day, acct }); }
+    if (durable) { keep(DAY_KEY, marks); said(day); }
+    else { try { store?.hold?.(DAY_KEY, marks); } catch { /* the session's own set holds it */ } ackOnSave.set(id, { day, acct }); }
     return id;
   }
 
@@ -315,19 +369,34 @@ export function createSpoilsPool({
     if (spewId && floor.every((g) => g.taken)) { held.set(spewId, { who: who(), day: rec?.day }); spewId = null; }   // AUDIT WBX S3: all of it in the pack
   }
 
+  /** WB9f: the floor's piece a key names - resting, not yet taken - or null. */
+  function pieceAt(key) {
+    if (typeof key !== 'string' || !floor.length) return null;
+    const gold = key.startsWith(SPOIL_GOLD_KEY);
+    if (!gold && !key.startsWith(SPOIL_KEY)) return null;
+    const i = Number(key.slice(gold ? SPOIL_GOLD_KEY.length : SPOIL_KEY.length));
+    const f = Number.isInteger(i) ? floor[i] : null;
+    if (!f || f.taken || !f.fly.rest || (f.piece.kind === 'gold') !== gold) return null;
+    return f;
+  }
+
   return {
     /**
      * THE BURST: the spoils of `day` for this player (the receipt's `seed`, the player's `level`) leave his chest `at`
      * (the dungeon's frame) toward `bearing` (the angle from him to the player). Once a day, on this device: a day
      * already spent is nothing. The pieces as rolled go into the device's record the moment they leave him.
+     * WB9f: `keep` the court's floor they must come to rest on (`{ centre, r, floorY }` - world/gateSpew.js keepLaunch).
      */
-    spew({ day, seed, level, at, bearing, acct = '' }) {
+    spew({ day, seed, level, at, bearing, acct = '', keep = null, claims = null }) {
       if (spentOn(day, acct)) { if (spentBy(day, acct)) said(day); return false; }   // AUDIT WBX S1: spent - said so again, for a hub that missed it
       rec = { day };
       t0 = now(); lastT = t0; from = [...at];
-      const list = spoilsList(seed >>> 0, Math.max(1, level | 0));
+      const list = spoilsList(seed >>> 0, Math.max(1, level | 0), claims);   // WB12d: the receipt's rite
       launches = spewLaunches(seededRng(((seed >>> 0) ^ 0x5a5a) >>> 0), list.length, bearing);
-      floor = list.map((piece, i) => ({ piece, fly: spewPiece(from, launches[i]), left: false, restAt: 0, taken: false, batch: null, sprite: null, batchIcon: false, h: 0 }));
+      if (keep) launches = launches.map((l) => keepLaunch(from, l, keep));   // WB9f: every piece rests on the court's floor
+      const plane = keep && Number.isFinite(keep.floorY) ? floorRayAt(keep.floorY) : null;
+      flyRay = plane ? (a, d, l) => ray?.(a, d, l) ?? plane(a, d, l) : ray;   // AUDIT WB9 (spoils F1): flown over the floor they were kept to
+      floor = list.map((piece, i) => ({ piece, fly: spewPiece(from, launches[i]), left: false, restAt: 0, taken: false, batch: null, sprite: null, batchIcon: false, h: 0, target: null }));
       spewId = spend(day, acct, list);
       loadTex();
       for (const f of floor) askSprite(f);   // WBX3: each item's own picture, asked for while the first pieces are still in the air
@@ -335,66 +404,114 @@ export function createSpoilsPool({
     },
     /** AUDIT WB A2: THE SPOILS WITH NO FLOOR - a receipt that came while its court was not this player's to stand in
      *  (cast out before the kill, gone, told by the hub's next hello): the same pieces, straight into the pack, said
-     *  once. Once a receipt, as the burst is; answers whether they were given. */
-    grant({ day, seed, level, acct = '' }) {
+     *  once. Once a receipt, as the burst is; answers whether they were given. RAID4b: `roll` answers the pieces instead
+     *  (a town's thanks - raidSpoils.js raidSpoilsList), asked only for a receipt not yet spent, and `text` is said. */
+    grant({ day, seed, level, acct = '', roll = null, text = SPOILS_TEXT.granted, owner = undefined, kept = null, claims = null }) {
       if (spentOn(day, acct)) { if (spentBy(day, acct)) said(day); return false; }   // AUDIT WBX S1: spent - said so again
-      const list = spoilsList(seed >>> 0, Math.max(1, level | 0));
+      const list = typeof roll === 'function' ? roll() : spoilsList(seed >>> 0, Math.max(1, level | 0), claims);   // RAID4b: a town's thanks roll their own; WB12d: the receipt's rite
+      // AUDIT RAID R4: ANOTHER CHARACTER'S - the one that fought for them, when another stands here: kept on the device
+      // as a crash's record is (never in this pack), and the crash's door hands them over when that character stands up
+      if (owner !== undefined && owner !== who()) { spend(day, acct, list, owner); if (kept) say(kept); return true; }
       const id = spend(day, acct, list);
       for (const piece of list) take(piece);
       held.set(id, { who: who(), day });   // AUDIT WBX S3: in the pack - the next save holds them
-      say(SPOILS_TEXT.granted);
+      say(text);
       return true;
+    },
+    /** AUDIT ONLINE2 F3 (AUDIT RAID R8d): A SAVE WAS LOADED for `whoLoaded` (systems/saveSlots.js onSlotLoaded): the pack
+     *  is that save's, so the pieces this pool held in the old one are not in it - their records are let go of here, and
+     *  kept on the device until the crash's door hands them again (it asks at the load). Answers how many it let go. */
+    loaded(whoLoaded) {
+      let n = 0;
+      for (const [id, h] of held) if (h.who === whoLoaded) { held.delete(id); n++; }
+      return n;
     },
     /** AUDIT WBX S3: records the crash's door handed over at boot (recoverSpoils' `onHanded`) - their pieces are in the
      *  pack, and the next save of their character clears them. */
     adopt(recOrId) { const r = typeof recOrId === 'string' ? { id: recOrId } : recOrId; if (r?.id) held.set(r.id, { who: r.who ?? who(), day: r.day }); },
+    /** REALM P1.3: the records of `whoSaved` whose pieces are in the pack NOW - what a realm checkpoint composed at this
+     *  moment holds, handed back to `saved` when it lands (a realm save lands later than it is made). */
+    heldIds(whoSaved) { return [...held].filter(([, h]) => h.who === whoSaved).map(([id]) => id); },
     /** AUDIT WBX S3: A SAVE LANDED for character `whoSaved` (systems/saveSlots.js onSlotSaved): every record of theirs
      *  whose pieces are in the pack is held by it - cleared from the device, its receipt's mark made fast, and (AUDIT
-     *  WBX S1) said spent to the hub if it was not yet. Answers how many were cleared. */
-    saved(whoSaved) {
+     *  WBX S1) said spent to the hub if it was not yet. Answers how many were cleared. REALM P1.3: a realm checkpoint
+     *  names the records it was composed holding (`only`, from heldIds), since it lands after pieces may have come in. */
+    saved(whoSaved, only = null) {
       if (whoSaved == null || !held.size) return 0;
-      const ids = new Set([...held].filter(([, h]) => h.who === whoSaved).map(([id]) => id));
+      const ids = new Set([...held].filter(([id, h]) => h.who === whoSaved && (!only || only.includes(id))).map(([id]) => id));
       if (!ids.size) return 0;
-      const all = recordsOf(read(SPOILS_STORE_KEY));
+      const all = recordsOf(read(STORE_KEY));
       const left = all.filter((r) => !(r && ids.has(r.id)));
-      if (left.length !== all.length) { if (left.length) keep(SPOILS_STORE_KEY, left); else { try { store?.remove(SPOILS_STORE_KEY); } catch { /* nothing to lose */ } } }
+      if (left.length !== all.length) { if (left.length) keep(STORE_KEY, left); else { try { store?.remove(STORE_KEY); } catch { /* nothing to lose */ } } }
       for (const id of ids) {
         held.delete(id);
         const a = ackOnSave.get(id);
         if (a) {
           ackOnSave.delete(id);
-          const kept = read(SPOILS_DAY_KEY);
-          keep(SPOILS_DAY_KEY, [...(Array.isArray(kept) ? kept : []), spentKey(a.day, a.acct)].filter((v, i, xs) => xs.indexOf(v) === i).slice(-SPOILS_SPENT_MAX));
+          const kept = read(DAY_KEY);
+          keep(DAY_KEY, [...(Array.isArray(kept) ? kept : []), spentKey(a.day, a.acct)].filter((v, i, xs) => xs.indexOf(v) === i).slice(-SPOILS_SPENT_MAX));
           said(a.day);
         }
       }
       return all.length - left.length;
     },
-    /** One frame: the pieces leave on their schedule, fly, clatter and rest; a resting piece under the player's feet is
-     *  taken. */
-    frame() {
+    /** One frame: the pieces leave on their schedule, fly, clatter and rest - and stay where they rest until pressed
+     *  (GATE-UX: never taken underfoot). WB9f: `onRest(pos, tier, kind)` is told of each piece the frame it comes to
+     *  rest (the court's sparks). */
+    frame(onRest = null) {
       if (!rec) return;
       const t = now(), dt = Math.max(0, Math.min(0.1, (t - lastT) / 1000));
       lastT = t;
       loadTex();
-      const f0 = feet();
       floor.forEach((f, i) => {
         if (f.taken) return;
         if (!f.left) { if (t - t0 < launches[i].at) return; f.left = true; }
         if (!f.fly.rest) {
-          const what = flySpew(f.fly, dt, ray);
+          const what = flySpew(f.fly, dt, flyRay);
           if (what === 'bounce' || what === 'rest') audio?.play3d?.(CLIPS.drop, [...f.fly.pos], 1, { maxDistance: 24 });
           if (f.fly.rest) {
             f.restAt = t;
             if ((RARITIES[f.piece.tier]?.rank ?? 0) >= RARITIES.rare.rank) audio?.play3d?.(SOUND.MakeItem, [...f.fly.pos], 1, { maxDistance: 30 });   // the rare chime (corpseMarker.js playRareDrop's own)
+            try { onRest?.(f.fly.pos, f.piece.tier, f.piece.kind); } catch { /* a spark is not the spoils' problem */ }   // WB9f
           }
         }
         const b = batchOf(f);
         if (b) { b.origin[0] = f.fly.pos[0]; b.origin[1] = f.fly.pos[1]; b.origin[2] = f.fly.pos[2]; }
-        // WBX3: seen before it is taken - a piece may be walked over only SPOILS_TAKE_AFTER_MS after it came to rest
-        if (f.fly.rest && t - f.restAt >= SPOILS_TAKE_AFTER_MS && f0 && Math.hypot(f.fly.pos[0] - f0[0], f.fly.pos[2] - f0[2]) <= SPOILS_TAKE_M && Math.abs(f.fly.pos[1] - f0[1]) < 2) takeOne(f);
       });
     },
+    /**
+     * WB9f: THE RESTING PIECES AS THE RAY SEES THEM - `{ key, aabb, distance, reach }`, the loot piles' own shape
+     * (dungeonContext.js lootTargets): a box over the piece's picture, won at the ray's reach and taken at the
+     * treasure's. A piece in the air, or taken, is no target. AUDIT WB D10: an empty floor makes nothing, and a full
+     * one refills one list.
+     */
+    targets() {
+      if (!floor.length) return NONE;
+      _targets.length = 0;
+      floor.forEach((f, i) => {
+        if (f.taken || !f.left || !f.fly.rest) return;
+        if (!f.target) {
+          const [x, y, z] = f.fly.pos, h = Math.max(SPOIL_BOX_MIN_H, f.h || 0);
+          f.target = { key: `${f.piece.kind === 'gold' ? SPOIL_GOLD_KEY : SPOIL_KEY}${i}`, aabb: { min: [x - SPOIL_BOX_HALF_M, y, z - SPOIL_BOX_HALF_M], max: [x + SPOIL_BOX_HALF_M, y + h, z + SPOIL_BOX_HALF_M] }, distance: RAY_DISTANCE, reach: TREASURE_ACTIVATION_DISTANCE };
+        } else if (f.h > 0) f.target.aabb.max[1] = f.target.aabb.min[1] + Math.max(SPOIL_BOX_MIN_H, f.h);   // the picture landed after the pile: its box follows
+        _targets.push(f.target);
+      });
+      return _targets;
+    },
+    /** WB9f: a piece's word under the crosshair - an item's own name (the host's `itemName`) and its tier below it, the
+     *  gold as a sum - or null for a key that is not a resting piece's. */
+    nameOf(key) {
+      const f = pieceAt(key);
+      if (!f) return null;
+      if (f.piece.kind === 'gold') return { title: SPOILS_TEXT.goldName(f.piece.gold) };
+      const label = f.piece.tier && f.piece.tier !== 'common' ? RARITIES[f.piece.tier]?.label : null;
+      return { title: itemName(f.piece.item), subs: label ? [label] : [] };
+    },
+    /** WB9f: what an item's key holds, for the plaque's list - the one item - or null. */
+    contentsOf(key) { const f = pieceAt(key); return f && f.piece.kind === 'item' ? [f.piece.item] : null; },
+    /** WB9f: THE PRESS - the piece a key names into the pack, and said; false when it is not there. GATE-UX: the only
+     *  way a piece leaves the floor short of leaving the court. */
+    pick(key) { const f = pieceAt(key); if (!f) return false; takeOne(f); return true; },
     /** The pieces, for the host's billboard pass (AUDIT WB D10: an empty floor - the court's every frame but a kill's -
      *  makes nothing). */
     batches: () => (floor.length ? floor.filter((f) => f.batch && !f.taken && f.left).map((f) => f.batch) : NONE),

@@ -23,7 +23,8 @@
 // ═══════════════════════════════════════════════════════════════════
 
 import FISH_TEMPLATES_JSON from '../../vendor/iliac-puddle-no-more/ItemTemplates.json' with { type: 'json' };
-import { registerCustomTemplates, setItemFields, mintCondition } from './itemTemplates.js';
+import { registerCustomTemplates, setItemFields, mintCondition, registerCustomItemGroup } from './itemTemplates.js';   // CSA-H: DeepWaters.Init's RegisterCustomItem group, on the shelves' one table (FORAGE1's one home)
+import { modSetting, modLatchedOn } from './modSettings.js';
 import { addVendorTextures, decodePng } from './textureReplacement.js';
 import { PASSIVE_FISH_SPECIES, isFishTemplateIndex, speciesOfTemplate, restoreIconAspect } from '../world/passiveFish.js';
 
@@ -37,6 +38,13 @@ export const DEEP_WATERS_FISH_TEMPLATES = Object.freeze(FISH_TEMPLATES_JSON.map(
   ...t, worldTextureArchive: fishIconArchive(t.index), worldTextureRecord: 0,
 })));
 registerCustomTemplates(DEEP_WATERS_FISH_TEMPLATES);
+// CSA-H (found porting Come Sail Away's shelves): DeepWaters.Init registers each fish's row with RegisterCustomItem(
+// index, (ItemGroups)9, null) - no class, but the GROUP - so DFU's shelf loop (DaggerfallLoot.cs:255-287) stocks the
+// fish at their rarity 20: only in a quality-20 shop that sells UselessItems2, at chanceMod x 5 / 100 each. The port
+// had never put them on that table.
+// AUDIT PRE-MERGE 0928 S4: while the mod is loaded for the world - the world host's answer at its mount (the sea is built
+// then or not at all), the switch as it stands only where no host latched it
+for (const t of DEEP_WATERS_FISH_TEMPLATES) registerCustomItemGroup(t.index, FISH_GROUP, () => modLatchedOn('iliac-puddle-no-more') ?? modSetting('iliac-puddle-no-more', 'Enabled') === true);
 
 /** A fish's own drawn picture's URL (the vendored Flats/<name>.png). */
 export const fishPictureUrl = (name) => new URL(`../../vendor/iliac-puddle-no-more/Flats/${name}.png`, import.meta.url).href;

@@ -36,22 +36,14 @@
     ]
   },
   {
-    "name": "WBX2-through-a-fire-still-rising",
-    "file": "src/scenes/gateCourt.js",
-    "old": "    if (!f || !e || !(e.health > 0) || portal.rise < 1) { portalLz = null; return; }",
-    "new": "    if (!f || !e || !(e.health > 0)) { portalLz = null; return; }",
-    "tests": [
-      "test/wbx_gate_fixes.test.js"
-    ]
-  },
-  {
     "name": "WBX3-the-take-at-once",
     "file": "src/scenes/spoilsPool.js",
-    "old": "        if (f.fly.rest && t - f.restAt >= SPOILS_TAKE_AFTER_MS && f0 && Math.hypot(",
-    "new": "        if (f.fly.rest && f0 && Math.hypot(",
+    "old": "        if (f.taken || !f.left || !f.fly.rest) return;",
+    "new": "        if (f.taken || !f.left) return;",
     "tests": [
-      "test/wbx_gate_fixes.test.js"
-    ]
+      "test/wb9f_gate_spoils.test.js"
+    ],
+    "why": "GATE-UX: the walk-over's wait is gone - a piece is no target until it rests"
   },
   {
     "name": "WBX3-the-line-from-the-floor",
@@ -102,7 +94,7 @@
   {
     "name": "WBX5-the-nova-at-the-roar",
     "file": "src/net/gateBrain.js",
-    "old": "  2: Object.freeze([Object.freeze({ a: 'leap', centre: true }), Object.freeze({ a: 'nova' })]),",
+    "old": "  2: Object.freeze([Object.freeze({ a: 'cross', court: 1 }), Object.freeze({ wait: 'arrive' }), Object.freeze({ a: 'nova' })]),",
     "new": "  2: Object.freeze([Object.freeze({ a: 'nova' })]),",
     "tests": [
       "test/wbx_gate_fixes.test.js",
@@ -112,8 +104,8 @@
   {
     "name": "WBX5-the-spokes-in-phase-two",
     "file": "src/net/gateBrain.js",
-    "old": "pct: 0.40, base: 10, el: 'fire', aim: 'self', phase: 3, range: 40, w: 2, minGap: 0 }),",
-    "new": "pct: 0.40, base: 10, el: 'fire', aim: 'self', phase: 2, range: 40, w: 2, minGap: 0 }),",
+    "old": "pct: 0.52, base: 14, el: 'fire', aim: 'self', phase: 3, range: 40, w: 2, minGap: 0 }),",
+    "new": "pct: 0.52, base: 14, el: 'fire', aim: 'self', phase: 2, range: 40, w: 2, minGap: 0 }),",
     "tests": [
       "test/wbx_gate_fixes.test.js",
       "test/wb3_gate_room.test.js"
@@ -158,7 +150,7 @@
   {
     "name": "WBX5-the-turn-unsaid",
     "file": "src/scenes/gateCourt.js",
-    "old": " if (COURT_PHASE_TEXT[s.phase]) say(COURT_PHASE_TEXT[s.phase]); }",
+    "old": " const c = courtPhaseCard(s.phase); if (c) beat = { kind: 'phase', at: t, until: t + TITLE_HOLD_MS, ...c }; }",
     "new": " }",
     "tests": [
       "test/wbx_gate_fixes.test.js"
@@ -214,6 +206,15 @@
     "file": "src/scenes/gateCourt.js",
     "old": "      if (trapMark && t < trapMark.until) trapMark.until += rounds * COURT_ROUND_MS;",
     "new": "      if (trapMark && t < trapMark.until) trapMark = { chance, until: trapMark.until + rounds * COURT_ROUND_MS };",
+    "tests": [
+      "test/wbx_gate_fixes.test.js"
+    ]
+  },
+  {
+    "name": "SS3-the-court-handed-a-way-home-again",
+    "file": "src/scenes/gateCourt.js",
+    "old": "  portalDoor: layPortalDoor = () => {}, soulTrap = () => {},",
+    "new": "  wayHome = () => {}, portalDoor: layPortalDoor = () => {}, soulTrap = () => {},",
     "tests": [
       "test/wbx_gate_fixes.test.js"
     ]

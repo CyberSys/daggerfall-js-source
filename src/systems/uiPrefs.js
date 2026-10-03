@@ -13,7 +13,8 @@ const STORAGE_KEY = 'dagger.ui.v1';
  *  can be told from one written after it. Bumping it does NOT re-run
  *  the adoption below - that reads the stamp's ABSENCE. */
 const SHELF_STAMP = '_rev';
-const SHELF_REV = 1;
+/** HB-LYCFREE: rev 2 is the shelf written since the hotbar became the default - see loadPrefs. */
+const SHELF_REV = 2;
 /** PREF1: the keys whose default the port changed after shelves had
  *  already materialised the old one, adopted once on an unstamped
  *  shelf. A key joins this list only when the old stored value cannot
@@ -40,6 +41,17 @@ export const PREF_DEFAULTS = Object.freeze({
   // the player answered, so it asks no more.
   language: 'en',
   languageOffered: false,
+  // HUD-MOVE (2026-10-01, Mac: "make chat, hp mana stamina bar segment and all the element moveable and add a reset UI
+  // and lock UI in the settings (lock should be on by default)"): the Enhanced Plus HUD's own layout. `hudLocked` is the
+  // lock (on: nothing moves, the HUD is pointer-transparent as ever); `hudLayout` is { id: { x, y } }, each piece's
+  // nudge in screen pixels from where the sheet stands it (ui/hudLayout.js). null is every piece where the sheet puts it.
+  hudLocked: true,
+  hudLayout: null,
+  // HUD-MOVE (Mac: "an option to move the magicka, health and fatigue bar separately"): off, the three bars move as
+  // one piece; on, each moves on its own.
+  hudBarsSplit: false,
+  // HUD-SNAP: while moving a piece, its edges and centre catch on the other pieces' and the screen's
+  hudSnap: true,
   // FOEBAR1 (2026-09-17, Mac, from a friend's pictures): the target bar's
   // face - 'bar' is the plain track under the compass, 'blade' the
   // twin-bladed picture whose fill recedes toward its hub. The port's own,
@@ -58,6 +70,7 @@ export const PREF_DEFAULTS = Object.freeze({
   // PLUS2: Enhanced Plus's colours - a ui/enhancedFrame.js PLUS_THEMES id; 'slate' is the kit as it ships.
   plusTheme: 'slate',  plusCursor: true,   // PLUS6: the gauntlet cursor - off gives the system pointer back
   plusItemHover: true,   // PLUS7: the inventory's hover card - off keeps the right-click menu, drops the card
+  packPhoneDoll: false,   // PACK-PHONE (FIELD BUGS 2026-09-30): the pack's body on a phone - hidden until the header's Body shows it
   // PADPLUS1: the Plus controller - the crossbar ('auto' while a pad is connected, 'on', 'off'), run as a toggle on
   // the Run button, and the version of the one-time layout move already made (ui/plusPad.js)
   plusCrossbar: 'auto', plusToggleRun: true, plusPadLayout: 0,
@@ -94,6 +107,19 @@ export const PREF_DEFAULTS = Object.freeze({
   touchGyroSensitivity: 1,   // 1 = a degree of phone is a degree of camera
   touchHaptics: true,        // a short vibration on a button, an armed swipe and a lock
   touchFullscreen: true,     // the first touch asks for fullscreen and a landscape lock where the browser allows it
+  // TOUCH-BUTTONS (2026-09-27): the corner's three slots, from the corner in (ui/touchButtons.js) - TI1's two, and
+  // TOUCH-HOLD's Interact (2026-10-01 part four: the professions' E, which a phone never had)
+  touchButton1: 'Jump',
+  touchButton2: 'ReadyWeapon',
+  touchButton3: 'Interact',
+  // SPELL-GIFT (2026-09-27): whether a player OUTSIDE my party may cast the stranger's list of spells on me (Heal,
+  // Regenerate, Cure, Fortify, Shield, resistances, Jumping, Water Breathing - systems/allyCast.js). On: Tabitha's ask.
+  acceptStrangerSpells: true,
+  restWithParty: true,   // REST-OPT: off - I rest alone, and the party rests without me
+  // PROF1 (bible/06-Systems/Professions-Arc.md 5.1, 22): GENTLE ACTS - an accessibility choice, the port's own: every
+  // profession's act completes at a plain result, with no clean bonus and no bruise. Set on the Professions page.
+  gentleActs: false,
+  showToTravellers: true,   // TV3: off - the region's travellers do not see where I am (my party always does)
   // MWA4 (2026-09-25): `mwArms` (MWA1's arms switch) is retired - the attached Morrowind files are the switch, and
   // Remove data the off (combat/weaponRig.js autoBuildArms, ui/enhancedMenu.js morrowindCard). A stored value is
   // read by nothing.
@@ -171,6 +197,13 @@ export function loadPrefs() {
             if (p[k] !== undefined && p[k] !== PREF_DEFAULTS[k]) _prefs[k] = PREF_DEFAULTS[k];
           }
         }
+        // HB-LYCFREE (2026-09-30, Mac: "want to make the hotbar the default on option"): THE HOTBAR BECAME THE
+        // DEFAULT on `quickbarStyle`, and a shelf written before it stored nothing there - 'quickbar' was the default
+        // and this shelf writes no default. A player who turned the quick slots Off stored `quickslots: false` alone,
+        // and the new default would put a bar up over that answer; a shelf older than rev 2 holding it keeps the
+        // diamond's style, and so stays Off. Diamond was the old default and left no trace: it moves to the hotbar
+        // with everyone who never chose.
+        if ((p[SHELF_STAMP] ?? 0) < 2 && p.quickbarStyle === undefined && p.quickslots === false) _prefs.quickbarStyle = 'quickbar';
         // EE1: a shelf written before Enhanced Environments existed
         // carries only the old sky answer. It becomes the new key's,
         // ONCE - only when the new key is absent - so a player who has

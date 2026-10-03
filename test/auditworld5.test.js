@@ -18,12 +18,18 @@
 // stand-down word (C10), the welcome's clock stamped as it is built (C11),
 // the pane's copy (C12), the install at the top of the boot (C13), the
 // cautious heal offline only (C14).
+//
+// LIVED1 (2026-09-29, Mac: "We need a better system for time online instead of a band aid fix") re-aims the pins
+// whose laws it retired, each in its own place: the claim is the character's and moves no world reading (C1), an
+// arrival moves nothing of the character's (C3, C4), the collapse pays its hour in full (C6), the session hands its
+// minutes alone (C7, C8), the sentence refills in both lanes (C9), the pane says the character's own time (C12), the
+// cautious heal is the trip's nights online too (C14). What each held and still holds is kept beside it.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { relayVersionAtLeast } from './relayVersion.mjs';
 import { CLASSIC_GAME_START_TIME, MINUTES_PER_DAY } from '../src/systems/gameDate.js';
-import { worldMinutes, setWorldMinutes, setSharedClock, alignEntityClocks, resetMagicRoundMarker, tickPlayerMinutes, claimMagicRounds } from '../src/systems/worldTick.js';
+import { worldMinutes, setWorldMinutes, setSharedClock, alignEntityClocks, resetMagicRoundMarker, tickPlayerMinutes, claimMagicRounds, ownMinutes, setOwnMinutes, advanceOwnMinutes } from '../src/systems/worldTick.js';
 import { setSharedWeather, resetWeatherSim, rollClimateWeathersForDay, weatherForClimate, ZONE_CLIMATES, tickWeather, currentWeatherEnum, weatherJumpStamp, evolveClimateWeathers, setWeatherEvolution, WEATHER_ENUM, setWeatherMapLaw } from '../src/systems/weatherSim.js';
 import { RestSession, MINUTES_PER_TICK, REST_WAIT_PER_HOUR, LOITER_WAIT_PER_HOUR } from '../src/systems/restSession.js';
 import { exhaustionOutcome } from '../src/systems/rest.js';
@@ -36,25 +42,26 @@ const sinks = () => ({ hurt() {}, heal() {}, drainMagicka() {}, restoreMagicka()
 const restDeps = (over = {}) => { const d = { minutes: 0, ends: [], vitals: 0, advanceMinutes(n, end) { d.minutes += n; d.ends.push(end); }, tickVitals() { d.vitals++; return false; }, enemiesNearby: () => false, fullyHealed: () => false, dead: () => false, ...over }; return d; };
 const offline = () => { setSharedClock(null); resetMagicRoundMarker(); setWorldMinutes(CLASSIC_GAME_START_TIME); };
 
-test('AUDIT WORLD5 C1: the dungeon\'s rest arm claims its own window under the shared clock and the tick does not run it again - the claim moves the tick\'s last reading, so the backstop that takes a reading behind the marker for a load never fires on a rested night', () => {
+test('AUDIT WORLD5 C1 (LIVED1: the claim is the character\'s): the dungeon\'s rest arm claims its own window on the character\'s clock and the tick does not run it again - and no claim moves the world\'s reading, which is the world\'s', () => {
   let clock = CLASSIC_GAME_START_TIME + 3 * MINUTES_PER_DAY + 100;
   const entity = tickEntity();
   try {
     setSharedClock(() => clock);
+    setOwnMinutes(clock); entity.lastGameMinutes = Math.floor(clock);
     alignEntityClocks(entity, worldMinutes());
-    // the rest's sub-tick: ten of the world's minutes passed, the arm claims [start, end) itself (dungeonContext _restAdvance)
-    clock += 10.4;
-    const end = clock; const start = Math.floor(end) - 10;
+    resetMagicRoundMarker(Math.floor(ownMinutes()));
+    // the rest's sub-tick (dungeonContext _restAdvance): the character's clock takes ten minutes, the arm claims them
+    const start = Math.floor(ownMinutes()); advanceOwnMinutes(10); const end = ownMinutes();
     assert.equal(claimMagicRounds(start, end).rounds, 10, 'the arm\'s own claim: the rested ten minutes');
     // the next frame's tick, a moment later
     clock += 0.2;
     const r = tickPlayerMinutes({ entity, classicMinutes: 0, dt: 0.016, sinks: sinks(), rolls: () => 0.5 });
-    assert.equal(r.rounds, 0, 'the tick owes nothing the arm already ran - before C1 it re-anchored on its stale reading and ran the ten again');
+    assert.equal(r.rounds, 0, 'the tick owes nothing the arm already ran');
     clock += 2;
-    assert.equal(tickPlayerMinutes({ entity, classicMinutes: 0, dt: 0.016, sinks: sinks(), rolls: () => 0.5 }).rounds, 2, 'and the clock\'s next two minutes are the tick\'s');
+    assert.equal(tickPlayerMinutes({ entity, classicMinutes: 0, dt: 0.016, sinks: sinks(), rolls: () => 0.5 }).rounds, 2, 'and the world\'s next two minutes are the character\'s two');
   } finally { offline(); }
   const wt = rd('src/systems/worldTick.js');
-  assert.match(wt, /if \(_sharedClock && nextFloor > \(_sharedLastTick \?\? -Infinity\)\) _sharedLastTick = nextFloor;/, 'the claim moves the reading, at the broker');
+  assert.doesNotMatch(wt, /_sharedLastTick = nextFloor/, 'the broker counts the character\'s minutes and moves no world reading');
 });
 
 test('AUDIT WORLD5 C2: a source that steps BACKWARDS re-anchors the tick\'s reading instead of freezing every tick until the clock catches its old self up; and the world host runs the arrival again when the relay\'s correction moves the clock by more than a second', () => {
@@ -71,13 +78,15 @@ test('AUDIT WORLD5 C2: a source that steps BACKWARDS re-anchors the tick\'s read
     clock += 2;
     assert.equal(tickPlayerMinutes({ entity, classicMinutes: 0, dt: 0.016, sinks: sinks(), rolls: () => 0.5 }).rounds, 2, 'the tick runs from the re-anchored reading - before C2 it froze for the hundred minutes');
   } finally { offline(); }
-  assert.match(rd('src/systems/worldTick.js'), /if \(_sharedClock\(\) < classicMinutes\) classicMinutes = _sharedClock\(\);/, 'the re-anchor');
+  assert.match(rd('src/systems/worldTick.js'), /if \(reading < worldFrom\) worldFrom = reading;/, 'the re-anchor');
   const w = rd('src/scenes/world.js');
-  assert.match(w, /online\.onClock = \(offsetMs\) => \{ const was = _sharedOffsetMs; _sharedOffsetMs = offsetMs; if \(Math\.abs\(offsetMs - was\) > 1000\) \{ const before = playerEntity\.lastGameMinutes; onlineArrival\(\); if \(Number\.isFinite\(before\)\) shiftSurvival\(playerEntity, Math\.floor\(worldMinutes\(\)\) - Math\.floor\(before\)\); alignSurvival\(playerEntity, Math\.floor\(worldMinutes\(\)\), Math\.floor\(worldMinutes\(\)\)\); \} \};/, 'a correction over a second is an arrival');
-  assert.match(w, /const onlineArrival = \(\) => \{ alignEntityClocks\(playerEntity, worldMinutes\(\)\); rollClimateWeathersForDay\(worldMinutes\(\)\); refreshSeason\(worldMinutes\(\)\); \};\s*onlineArrival\(\);/, 'the same arrival the session\'s start runs');
+  // LIVED1: the arrival re-anchors the world's reading and moves nothing of the character's, so a correction needs no shift of its own
+  assert.match(w, /online\.onClock = \(offsetMs\) => \{ const was = _sharedOffsetMs; _sharedOffsetMs = offsetMs; (?:_sharedClockHeard = true; )?if \(Math\.abs\(offsetMs - was\) > 1000\) onlineArrival\(\); (?:hearSharedClock\(\); )?\};/, 'a correction over a second is an arrival');
+  // TIME1: the arrival's season is the SKY's; the markers and the weather's roll stay the event clock's
+  assert.match(w, /const onlineArrival = \(\) => \{ alignEntityClocks\(playerEntity, worldMinutes\(\)\); rollClimateWeathersForDay\(worldMinutes\(\)\); refreshSeason\(skyMinutes\(\)\); \};[^\n]*\s*onlineArrival\(\);/, 'the same arrival the session\'s start runs');
 });
 
-test('AUDIT WORLD5 C3: the alignment is a SHIFT of every marker the save carries by the distance from the save\'s clock to the world\'s - a room keeps its hours, a loan its week, a summoned item what it had left, a skill check that was due is due now; a "last" marker never lands ahead of now; a zero stays zero; a fresh character moves nothing; a hole in the effects list is not a curse', () => {
+test('AUDIT WORLD5 C3 (LIVED1: an arrival moves nothing of the character\'s): every marker a save carries is on the character\'s own clock, which stood while they were away - so a room keeps its hours, a loan its week, a summoned item what it had left and a skill check that was due is due, by the markers standing where they were; a young world or an old one alike; a fresh character starts its day marker at its own clock', () => {
   const save = CLASSIC_GAME_START_TIME + 60 * MINUTES_PER_DAY + 500;   // the save's own clock: sixty days in
   const day = (m) => Math.floor(m / MINUTES_PER_DAY);
   const mk = () => ({
@@ -87,8 +96,7 @@ test('AUDIT WORLD5 C3: the alignment is a SHIFT of every marker the save carries
     bankAccounts: [{ regionIndex: 0, loanTotal: 500, loanDueDate: save + 5000 }, { regionIndex: 1, loanTotal: 0, loanDueDate: 0 }],
     rentedRooms: [{ expiryMinutes: save + 1200 }],
     items: [{ timeForItemToDisappear: save + 30 }, { timeForItemToDisappear: 0 }],
-    // MAC-BUG3: a REPAIR JOB is a deadline like the loan and the room,
-    // and it lives in a collection this walk had never looked at.
+    // MAC-BUG3: a REPAIR JOB is a deadline like the loan and the room - on the character's clock, it is simply in tune
     otherItems: [
       { name: 'Steel Cuirass', currentCondition: 1843, maxCondition: 6144, repairData: { buildingKey: 4242, timeStarted: save - 200, repairTime: 4 * MINUTES_PER_DAY } },
       { name: 'not in repair', repairData: { buildingKey: 0, timeStarted: 0, repairTime: 0 } },
@@ -98,53 +106,28 @@ test('AUDIT WORLD5 C3: the alignment is a SHIFT of every marker the save carries
   });
   for (const [label, now] of [['a young world, the save far ahead of it', save - 30 * MINUTES_PER_DAY], ['an old world, the save far behind it', save + 375 * MINUTES_PER_DAY + 17]]) {
     const e = mk();
+    const before = JSON.parse(JSON.stringify(e));
     try {
       setSharedClock(() => now);
-      assert.equal(alignEntityClocks(e, worldMinutes()), true, label);
-      const d = now - save;
-      assert.equal(e.lastGameMinutes, now, label);
-      assert.equal(e.lastSkillCheckTime, save - 100 + d, `${label}: the skill check keeps its distance`);
-      assert.equal(e.timeOfLastSkillTraining, save - 2000 + d);
-      assert.equal(e.lastEnemyAlertTime, save - 30 + d);
-      assert.equal(e.timeForThievesGuildLetter, save + 700 + d, 'a letter due in 700 minutes is due in 700 minutes');
-      assert.equal(e.timeForDarkBrotherhoodLetter, 0, 'no letter stays no letter');
-      assert.equal(e.activeEffects[0].lastDay, day(now), 'the disease ticked today, in the world\'s calendar');
-      assert.equal(e.activeEffects[1].lastMinute, save - 5 + d);
-      assert.equal(e.activeEffects[3].lastTimeFed, save - 60 + d, 'the vampire fed an hour ago');
-      assert.equal(liveVampirism(e).lastTimeFed, save - 60 + d, 'through the accessor, past the hole');
-      assert.equal(e.bankAccounts[0].loanDueDate, save + 5000 + d, 'the loan is due when it was due');
-      assert.equal(e.bankAccounts[1].loanDueDate, 0, 'no loan, no date');
-      assert.equal(e.rentedRooms[0].expiryMinutes, save + 1200 + d, 'the room keeps its twenty hours');
-      assert.equal(e.items[0].timeForItemToDisappear, save + 30 + d, 'the summoned item its half hour');
-      assert.equal(e.items[1].timeForItemToDisappear, 0, 'an item that never disappears still never does');
-      // MAC-BUG3 (2026-09-20, Mac: "repairing items doesn't work. he
-      // just takes your gold and doesn't actually repair anything...
-      // when online, at least"). The smith's job is dated by the same
-      // clock `isRepairFinished` reads back, so a world behind the save
-      // never reached the due time and the item was never handed over -
-      // a player paying gold and getting nothing. Two collections were
-      // missing from this walk entirely, not just one field.
-      assert.equal(e.otherItems[0].repairData.timeStarted, save - 200 + d, 'the armour at the smith keeps its place in the queue');
-      assert.equal(e.otherItems[1].repairData.timeStarted, 0, 'a zero timeStarted is DFU\'s "not in repair" sentinel and stays zero');
-      assert.equal(e.wagonItems[0].timeForItemToDisappear, save + 90 + d, 'and the WAGON is a collection too');
-      // the whole point, stated as the player sees it: the job is due
-      // the same distance away as it was before the clock moved
-      assert.equal((e.otherItems[0].repairData.timeStarted + e.otherItems[0].repairData.repairTime) - now,
-        (save - 200 + 4 * MINUTES_PER_DAY) - save, 'four days out before, four days out after');
-      assert.equal(e.guildMemberships.mortal.FightersGuild.lastRankChange, day(now) - 3, 'the rank changed three days ago');
-      assert.equal(now - e.lastSkillCheckTime, 100, 'the skill check is a hundred minutes old on the world\'s clock - before C3 an old save in a young world read it as days in the future and raised nothing for real days');
+      setOwnMinutes(save);   // the load restores the character's clock (save.js)
+      assert.equal(alignEntityClocks(e, worldMinutes(), { worldLeft: save }), true, label);
+      assert.deepEqual(JSON.parse(JSON.stringify(e)), before, `${label}: nothing of the character's moved - every marker, every collection`);
+      assert.equal(ownMinutes(), save, `${label}: the character's clock stands where the save left it`);
+      assert.equal(e.rentedRooms[0].expiryMinutes - ownMinutes(), 1200, 'the room keeps its twenty hours');
+      assert.equal(e.bankAccounts[0].loanDueDate - ownMinutes(), 5000, 'the loan is due when it was due');
+      assert.equal((e.otherItems[0].repairData.timeStarted + e.otherItems[0].repairData.repairTime) - ownMinutes(), 4 * MINUTES_PER_DAY - 200, 'the armour at the smith keeps its place in the queue');
+      assert.equal(ownMinutes() - e.lastSkillCheckTime, 100, 'the skill check is a hundred minutes old on the character\'s clock, a young world or an old');
+      assert.equal(day(ownMinutes()) - e.guildMemberships.mortal.FightersGuild.lastRankChange, 3, 'the rank changed three of the character\'s days ago');
     } finally { offline(); }
   }
-  // a "last" marker never lands ahead of now: a save whose last check was ahead of its own day marker
-  const e = { ...tickEntity(), lastGameMinutes: save, lastSkillCheckTime: save + 50 };
-  try { setSharedClock(() => save + 10); alignEntityClocks(e, worldMinutes()); assert.equal(e.lastSkillCheckTime, save + 10); } finally { offline(); }
-  // a fresh character: no day marker to measure from - the "last" markers are stamped to now, the deadlines untouched, zero stays zero
+  // a fresh character: no day marker - it starts at the character's own clock, and nothing else is touched
   const fresh = { ...tickEntity(), lastGameMinutes: undefined, lastSkillCheckTime: 0, rentedRooms: [{ expiryMinutes: 99 }] };
   try { setSharedClock(() => save); alignEntityClocks(fresh, worldMinutes()); assert.equal(fresh.lastSkillCheckTime, 0); assert.equal(fresh.rentedRooms[0].expiryMinutes, 99); assert.equal(fresh.lastGameMinutes, save); } finally { offline(); }
   assert.equal(liveVampirism({ activeEffects: [null, { kind: 'racialOverride', racial: 'vampirism' }] })?.racial, 'vampirism', 'the accessor steps over a hole');
+  assert.doesNotMatch(rd('src/systems/worldTick.js'), /function (?:spanShifts|carryOwnEffectClocks)\(/, 'the shift and its walk are gone - no list of markers to forget');
 });
 
-test('AUDIT WORLD5 C4: a LOAD under the shared clock is an arrival through save.js\'s one door - the restored markers shifted to the world\'s time and the day\'s sky rolled from the shared day, over the clock and the sky the save carried', () => {
+test('AUDIT WORLD5 C4 (LIVED1): a LOAD under the shared clock is an arrival through save.js\'s one door - the character\'s clock restored from the save and nothing of theirs shifted, and the day\'s sky rolled from the shared day over the sky the save carried', () => {
   resetWeatherSim(); setWeatherMapLaw(false);   // WEATHER3b: the day-roll machine's pin - on the map's lane the map is the sky and this machine stands down (weather3b pins that)
   const saved = CLASSIC_GAME_START_TIME + 2 * MINUTES_PER_DAY;
   // a date whose shared roll is not sunny for the desert, so the drain is visible
@@ -159,15 +142,17 @@ test('AUDIT WORLD5 C4: a LOAD under the shared clock is an arrival through save.
     const fresh = { items: [], stats: {} };
     const extras = restorePlayer(fresh, snap);
     assert.equal(extras.classicMinutes, saved, 'the save\'s clock rides out as it always did (and the host\'s write of it is refused)');
-    assert.equal(fresh.lastGameMinutes, Math.floor(now), 'the day marker is the world\'s, not the save\'s');
-    assert.equal(fresh.lastSkillCheckTime, saved - 100 + (Math.floor(now) - saved), 'shifted, with the rest');
-    assert.equal(fresh.rentedRooms[0].expiryMinutes, saved + 600 + (Math.floor(now) - saved));
+    assert.equal(ownMinutes(), saved, 'LIVED1: the save\'s clock is the character\'s own, restored as it stood');
+    assert.equal(snap.worldMinutes, Math.floor(now), 'and an online save carries the world\'s minute it left at beside it');
+    assert.equal(fresh.lastGameMinutes, saved, 'the day marker is the character\'s, not the world\'s');
+    assert.equal(fresh.lastSkillCheckTime, saved - 100, 'not shifted: the character\'s clock stood while they were away');
+    assert.equal(fresh.rentedRooms[0].expiryMinutes, saved + 600, 'the room keeps its ten hours of the character\'s time');
     assert.equal(currentWeatherEnum(), WEATHER_ENUM.snow, 'the saved sky stands until the first exterior frame drains the day\'s array');
     assert.equal(tickWeather(now, ZONE_CLIMATES[0]), true, 'and that frame applies the shared day\'s roll over it');
     assert.equal(currentWeatherEnum(), weatherForClimate(ZONE_CLIMATES[0]));
     assert.notEqual(currentWeatherEnum(), WEATHER_ENUM.snow);
   } finally { offline(); resetWeatherSim(); setWeatherMapLaw(false); }
-  assert.match(rd('src/systems/save.js'), /resetMagicRoundMarker\(Math\.floor\(snap\.classicMinutes \?\? 0\)\);\s*(?:\/\/[^\n]*\n\s*)*if \(sharedClockOn\(\)\) \{ alignEntityClocks\(entity, worldMinutes\(\)\); rollClimateWeathersForDay\(worldMinutes\(\)\); \}/, 'the one door every host loads through');
+  assert.match(rd('src/systems/save.js'), /resetMagicRoundMarker\(Math\.floor\(snap\.classicMinutes \?\? 0\)\);\s*(?:\/\/[^\n]*\n\s*)*if \(sharedClockOn\(\)\) \{\s*(?:\/\/[^\n]*\n\s*)*const own = Math\.floor\(snap\.classicMinutes \?\? 0\), at = worldMinutes\(\);\s*(?:\/\/[^\n]*\n\s*)*const left = [^\n]*\n\s*setOwnMinutes\(own\);\s*if \(!Number\.isFinite\(snap\.worldMinutes\)\) clampMarkersAheadOf\(entity, own\);[^\n]*\n\s*alignEntityClocks\(entity, at\);\s*rollClimateWeathersForDay\(Math\.floor\(at\)\);/, 'the one door every host loads through (AUDIT LIVED1b F1: at the unfloored reading; P4: its absence paid once the relay\'s clock is heard)');
 });
 
 test('AUDIT WORLD5 C5: the shared roll is THE DAY\'S - stamped at the day\'s first minute, so a joiner\'s drain at noon is a jump and a midnight roll\'s is a front; and the evolution replays from the day\'s first hour, so a client that joined at noon carries the sky the one that stood under it since midnight does', () => {
@@ -205,24 +190,22 @@ test('AUDIT WORLD5 C5: the shared roll is THE DAY\'S - stamped at the day\'s fir
   assert.equal((rd('src/systems/weatherSim.js').match(/_rolledAtMinutes = stampRoll\(nowMinutes\);/g) ?? []).length, 2, 'the day roll and the boot\'s lazy roll');
 });
 
-test('AUDIT WORLD5 C6: online the collapse\'s hour cannot be charged, so it is not paid twice in one - the fatigue hour every collapse (it stands the player up), the health and the magicka once per WORLD hour; offline every collapse costs its hour and pays in full', () => {
+test('AUDIT WORLD5 C6 (LIVED1): every collapse costs its hour and pays it in full, online as offline - the host\'s RaiseTime moves the character\'s own clock, so the hour is charged; the fatal arms untouched', () => {
   const P = () => ({ isPlayer: true, level: 5, maxHealth: 50, maxMagicka: 40, fatigue: 0, stats: { strength: 50, endurance: 50, willpower: 50 }, skills: 30, career: {} });
-  let clock = CLASSIC_GAME_START_TIME + 7 * MINUTES_PER_DAY + 30;
+  const clock = CLASSIC_GAME_START_TIME + 7 * MINUTES_PER_DAY + 30;
   const e = P();
   try {
     setSharedClock(() => clock);
     const first = exhaustionOutcome({ entity: e });
-    assert.ok(first.kind === 'rest' && first.health > 0 && first.magicka > 0 && first.fatigue > 0, 'the first collapse of the hour pays');
+    assert.ok(first.kind === 'rest' && first.health > 0 && first.magicka > 0 && first.fatigue > 0, 'a collapse pays');
     const again = exhaustionOutcome({ entity: e });
-    assert.deepEqual([again.kind, again.health, again.magicka, again.fatigue > 0], ['rest', 0, 0, true], 'the same hour: the fatigue hour and nothing else');
-    clock += 60;
-    assert.ok(exhaustionOutcome({ entity: e }).health > 0, 'the next world hour pays again');
+    assert.deepEqual([again.kind, again.health, again.magicka], [first.kind, first.health, first.magicka], 'the same world hour: the second collapse pays in full too - its hour is the character\'s, charged');
   } finally { offline(); }
   const o = P();
   assert.ok(exhaustionOutcome({ entity: o }).health > 0 && exhaustionOutcome({ entity: o }).health > 0, 'offline: every collapse, in full');
   assert.deepEqual(exhaustionOutcome({ entity: P(), enemiesNearby: true }).kind, 'death', 'the fatal arms untouched');
+  assert.doesNotMatch(rd('src/systems/rest.js'), /lastExhaustionHour/, 'no once-a-world-hour gate');
 });
-
 test('AUDIT WORLD5 C7 (RESTX2: on the timer, every mode): a session COVERED loses the real time it covers, keeping less than one sub-tick, and a leap of the shared clock (a hidden tab) is NOT a leap of the session - the timer alone paces it, so every hourly check reads a frame of its own by construction', () => {
   // C7 was written on the shared clock (one sub-tick a FRAME across a
   // leap); RESTX1 narrowed it to loiter; RESTX2 (2026-09-17) retired
@@ -245,7 +228,7 @@ test('AUDIT WORLD5 C7 (RESTX2: on the timer, every mode): a session COVERED lose
   assert.equal(d.minutes, 10, 'uncovered: the covered hour is LOST, not banked');
   s.tick(sub);
   assert.equal(d.minutes, 20, 'the remainder under one sub-tick was kept, as the timer keeps its fraction');
-  assert.deepEqual(d.ends, [8010, 8020], 'the session\'s own sim-minutes, seeded at 8000: the clock\'s 605-minute leap is not in them');
+  assert.deepEqual(d.ends, [undefined, undefined], 'LIVED1: the session hands the host its minutes alone - the host\'s clock is the character\'s, and the world\'s 605-minute leap is not in them');
   // the hidden tab: the clock leapt three hours; the session owes nothing for it
   let foes = false;
   const d2 = restDeps({ sharedMinutes: () => clock, enemiesNearby: () => foes });
@@ -260,33 +243,34 @@ test('AUDIT WORLD5 C7 (RESTX2: on the timer, every mode): a session COVERED lose
   assert.equal(result?.enemyBroke, true, 'the first hour\'s check saw the foe and broke the rest');
 });
 
-test('AUDIT WORLD5 C8 (RESTX2): the sub-tick\'s own span rides to the host - its end: online the session\'s local sim-minute (the shared reading at the first sub-tick, ten a sub-tick from there); null offline - and the dungeon\'s rest arm reads its spawn window and its broker window off it, not off a clock it is refused', () => {
-  let clock = 5000.4;
+test('AUDIT WORLD5 C8 (LIVED1): the sub-tick\'s minutes ride to the host alone, online as offline, and the dungeon\'s rest arm reads its spawn window and its broker window off the character\'s own clock, which it moves', () => {
+  const clock = 5000.4;
   const d = restDeps({ sharedMinutes: () => clock });
   const s = new RestSession('timed', 2, d);
   const sub = REST_WAIT_PER_HOUR / MINUTES_PER_TICK;
-  s.tick(sub); clock += 300; s.tick(sub);
-  assert.deepEqual(d.ends, [5010, 5020], 'each sub-tick\'s end: the seed floored, ten apart - two distinct windows; the clock moving between them is not read');
+  s.tick(sub); s.tick(sub);
+  assert.deepEqual([d.minutes, d.ends], [20, [undefined, undefined]], 'two sub-ticks, ten minutes each, no session counter handed over');
   const off = restDeps();
   const so = new RestSession('timed', 2, off);
   so.tick(sub);
-  assert.deepEqual(off.ends, [null], 'offline the host reads its own clock');
-  assert.match(rd('src/systems/restSession.js'), /this\.deps\.advanceMinutes\(MINUTES_PER_TICK, online \? this\._onlineSimMinutes : null\);/);
+  assert.deepEqual([off.minutes, off.ends], [10, [undefined]], 'offline the same');
+  assert.match(rd('src/systems/restSession.js'), /this\.deps\.advanceMinutes\(MINUTES_PER_TICK\);/);
   const dc = rd('src/scenes/dungeonContext.js');
-  const i = dc.indexOf('const _restAdvance = (n, sharedEnd = null) => {');
+  const i = dc.indexOf('const _restAdvance = (n) => {');
   const arm = dc.slice(i, dc.indexOf('\n  };', i));
   assert.ok(i > 0 && arm.length > 200);
-  assert.ok(arm.includes('const end = sharedEnd ?? classicMinutesRef.value + n;') && arm.includes('const start = Math.floor(end) - n;'), 'the span from the session');
+  assert.ok(arm.includes('const end = classicMinutesRef.value + n;') && arm.includes('const start = Math.floor(end) - n;') && arm.includes('advanceOwnMinutes(n);'), 'the span off the character\'s clock, which the arm moves (TIME3: a raise, counted)');
   assert.ok(arm.includes('const _w = claimMagicRounds(start, end);'), 'the broker window off the same span');
   assert.ok(arm.includes('gameMinutes: start + l + 1,'), 'and the spawner offered each of its ten minutes once');
-  assert.match(dc, /advanceMinutes: \(n, sharedEnd\) => _restAdvance\(n, sharedEnd\),/);
+  assert.match(dc, /advanceMinutes: \(n\) => _restAdvance\(n\),/);
+  assert.match(dc, /const classicMinutesRef = \{\s*get value\(\) \{ return ownMinutes\(\); \},\s*set value\(v\) \{ setOwnMinutes\(v\); \},\s*\};/, 'the dungeon\'s one clock view is the character\'s');
 });
-
-test('AUDIT WORLD5 by source: the sentence refills nothing online (C9), exterior.js says the stand-down (C10), the welcome\'s clock is stamped as it is built and the relay says which one it is (C11), the pane says the clock (C12), the install is the boot\'s first act (C13), the cautious heal is the trip\'s nights (C14)', () => {
+test('AUDIT WORLD5 by source: the sentence refills in both lanes (C9; LIVED1: its days are served on the prisoner\'s own clock), exterior.js says the stand-down (C10), the welcome\'s clock is stamped as it is built and the relay says which one it is (C11), the pane says the clock (C12), the install is the boot\'s first act (C13), the cautious heal is the trip\'s nights (C14)', () => {
   const af = rd('src/scenes/arrestFlow.js');
-  assert.match(af, /playerEntity\.inPrison = false;\s*(?:\/\/[^\n]*\n\s*)*if \(!sharedClockOn\(\)\) fillVitalSigns\(playerEntity\);/, 'C9: the days are the refill\'s price, and online there are none');
-  assert.equal((af.match(/if \(!sharedClockOn\(\)\) fillVitalSigns\(playerEntity\);/g) ?? []).length, 1, 'the sentence\'s refill alone is gated');
-  assert.ok((af.match(/^\s*fillVitalSigns\(playerEntity\);/gm) ?? []).length >= 2, 'the rescue\'s and the acquittal\'s refills stand - neither costs a day offline either');
+  assert.match(af, /playerEntity\.inPrison = false;\s*(?:\/\/[^\n]*\n\s*)*fillVitalSigns\(playerEntity\);/, 'C9 (LIVED1): the days are the refill\'s price, and online they are served on the prisoner\'s own clock');
+  assert.doesNotMatch(af, /sharedClockOn/, 'the sentence is gated on nothing - it is served in both lanes');
+  assert.ok((af.match(/^\s*fillVitalSigns\(playerEntity\);/gm) ?? []).length >= 3, 'the sentence\'s, the rescue\'s and the acquittal\'s refills');
+  assert.match(af, /advanceDays = \(days\) => advanceOwnMinutes\(days \* MINUTES_PER_DAY\),/, 'the days are the prisoner\'s own');
   assert.match(rd('src/scenes/exterior.js'), /questClockStepMax: \(\) => \(sharedClockOn\(\) \? PLAYED_STEP_MAX_SECONDS : Infinity\),/, 'C10 (WORLD7\'s word: the same as world.js\'s)');
   // SRV-N appended `v` after it, so the stamp is no longer the last field.
   // What C11 is about is unchanged and is what is matched: Date.now() is
@@ -296,13 +280,14 @@ test('AUDIT WORLD5 by source: the sentence refills nothing online (C9), exterior
   assert.match(rd('server/src/index.js'), /"now":\$\{Date\.now\(\)\},"v":/, 'C11: not the hello\'s start, four awaits earlier');
   assert.ok(relayVersionAtLeast(66), 'C11: the relay bumped, and has not gone backwards since (SRV-N: asked monotonically - five pins used to retype one moving number)');
   // DISC25-D: the last clause ("the quest clocks stand still") had been false since WORLD7 - they count played time
-  assert.match(rd('src/ui/enhancedMenu.js'), /The clock and the sky are the world\\'s and run on real time: a rest, a trip, a sentence or a lesson takes none of it, so a quest that waits for an hour of the day waits for that hour of the world\. Quest timers run while you play\./, 'C12');
+  assert.match(rd('src/ui/enhancedMenu.js'), /The world\\u2019s clock and sky run on real time: resting, travelling, jail time or training don\\u2019t move them, so a quest that waits for a time of day waits for the world\\u2019s, and a full moon holds a lycanthrope for its night alone\. Your character also keeps their own time: it runs while you play, resting, travelling, jail time and training use it, and it stops while you are logged off\./, 'C12 (LIVED1: and the character\'s own time; AUDIT LIVED1b U8: logged off, not away; TIME2: the full moon\'s night)');
   const w = rd('src/scenes/world.js');
-  const install = w.indexOf("if (params.has('online')) { setSharedClock(() => sharedClassicMinutes(Date.now() + _sharedOffsetMs), (m) => wallMsForClassicMinutes(m) - _sharedOffsetMs); setSharedWeather(true); }");
+  const install = w.indexOf("if (params.has('online')) { setSharedClock(() => sharedClassicMinutes(Date.now() + _sharedOffsetMs), (m) => wallMsForClassicMinutes(m) - _sharedOffsetMs, { sky: () => skyClassicMinutes(Date.now() + _sharedOffsetMs), skyWall: (m) => wallMsForSkyMinutes(m) - _sharedOffsetMs }); setSharedWeather(true); }");   // TIME1: and the sky beside it
   const boot = w.indexOf('export async function bootWorld(');
-  const season = w.indexOf('let season = seasonPin ?? climateSeasonFromMinutes(worldMinutes());');
+  const season = w.indexOf('let season = seasonPin ?? climateSeasonFromMinutes(skyMinutes());');   // TIME1: the sky's season
   assert.ok(boot > 0 && install > boot && season > install, 'C13: installed before the first read of the clock (the season)');
   assert.ok(!w.slice(boot, install).split('\n').some((l) => !l.trim().startsWith('//') && l.includes('worldMinutes()')), 'C13: nothing between the boot\'s door and the install reads the clock');
-  assert.match(w, /if \(opts\.speedCautious && !sharedClockOn\(\)\) \{/, 'C14');
+  assert.match(w, /if \(opts\.speedCautious\) \{/, 'C14 (LIVED1): the heal is the trip\'s nights, and online they are the character\'s own');
+  assert.match(w, /setSyntheticTimeIncrease\(true\); playerTicker\.advance\(computed\.minutes\);/, 'and the trip\'s days are advanced online too');
   assert.match(rd('bible/06-Systems/Online-Arc.md'), /## AUDIT WORLD5 \(2026-09-13\)/, 'the record');
 });

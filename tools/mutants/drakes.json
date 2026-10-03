@@ -1,0 +1,93 @@
+[
+  {
+    "name": "DRAKES-the-old-name-back",
+    "file": "src/net/marksLaw.js",
+    "old": "toLocaleString('en-US')} silver`;",
+    "new": "toLocaleString('en-US')} ${n === 1 ? 'Mark' : 'Marks'}`;",
+    "tests": [
+      "test/drakes.test.js"
+    ]
+  },
+  {
+    "name": "DRAKES-one-drakes",
+    "file": "src/net/marksLaw.js",
+    "old": "toLocaleString('en-US')} silver`;",
+    "new": "toLocaleString('en-US')} ${n === 1 ? 'silver' : 'silvers'}`;",
+    "tests": [
+      "test/drakes.test.js"
+    ]
+  },
+  {
+    "name": "DRAKES-the-bank-button-old",
+    "file": "src/ui/enhancedPorts.js",
+    "old": "'Sell silver'",
+    "new": "'Sell Marks'",
+    "tests": [
+      "test/drakes.test.js"
+    ]
+  },
+  {
+    "name": "DRAKES-the-account-card-old",
+    "file": "src/ui/enhancedAccount.js",
+    "old": "row('Silver', marksText",
+    "new": "row('Marks', marksText",
+    "tests": [
+      "test/drakes.test.js"
+    ]
+  },
+  {
+    "name": "DRAKES-the-treasury-old",
+    "file": "src/ui/socialPanel.js",
+    "old": "'dfsocial-sec', 'Silver treasury'",
+    "new": "'dfsocial-sec', 'Marks treasury'",
+    "tests": [
+      "test/drakes.test.js"
+    ]
+  },
+  {
+    "name": "DRAKES-a-refusal-old",
+    "file": "src/net/accountClient.js",
+    "old": "'marks-short': 'You do not hold that much silver.',",
+    "new": "'marks-short': 'You do not hold that many Marks.',",
+    "tests": [
+      "test/drakes.test.js"
+    ]
+  },
+  {
+    "name": "DRAKES-a-market-label-old",
+    "file": "src/ui/marketTab.js",
+    "old": "const unitWord = gold ? 'gold' : 'silver';",
+    "new": "const unitWord = gold ? 'gold' : 'Marks';",
+    "tests": [
+      "test/drakes.test.js"
+    ]
+  },
+  {
+    "name": "DRAKES-a-work-label-old",
+    "file": "src/ui/workTab.js",
+    "old": "labelled('Pay (silver)', pay)",
+    "new": "labelled('Pay (Marks)', pay)",
+    "tests": [
+      "test/drakes.test.js"
+    ]
+  },
+  {
+    "name": "DRAKES-a-host-line-old",
+    "file": "src/scenes/world.js",
+    "old": "counter for ${r.data.marks} silver.` } : { ok: false, text: accountRefusalText(r?.error) };\n      },\n    } : null;",
+    "new": "counter for ${r.data.marks} Marks.` } : { ok: false, text: accountRefusalText(r?.error) };\n      },\n    } : null;",
+    "tests": [
+      "test/drakes.test.js"
+    ],
+    "note": "PROF12 (PIN MOVED): re-aimed by content."
+  },
+  {
+    "name": "DRAKES-the-gate-line-old",
+    "file": "src/net/marksBook.js",
+    "old": "The counting-houses strike it for two breaches a day.",
+    "new": "The counting-houses strike Marks for two breaches a day.",
+    "tests": [
+      "test/drakes.test.js"
+    ]
+  }
+]

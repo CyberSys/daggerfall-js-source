@@ -47,19 +47,26 @@ export const buildingLockValue = (quality) => Math.trunc((quality ?? 0) / 2);
  *   holidayId                     - getHolidayId's answer (shops close
  *                                   on Suns Rest, :1296-1299)
  *   isHouseOwned(buildingKey)     - DaggerfallBankManager.IsHouseOwned
- *                                   (H1 WIRED IT: banking.js:176 over
+ *                                   (H1 WIRED IT: banking.js:177 over
  *                                   playerEntity.houses, handed in at
- *                                   scenes/worldModes.js:4565, so
+ *                                   scenes/worldModes.js:4994, so
  *                                   :69 - PlayerActivate.cs:1261-1262,
  *                                   the ladder's first test - now has
  *                                   a real answer instead of false)
- *   isActiveQuestBuilding(building) - the siteLinks walk (:1315-1329)
+ *   isActiveQuestBuilding(building) - PlayerActivate.IsActiveQuestBuilding
+ *                                   (:1315-1329): every Place of every
+ *                                   incomplete quest (QuestMachine.
+ *                                   GetAllActiveQuestSites), House1-House6
+ *                                   by default - the host asks the
+ *                                   machine's member. AUDIT DISC28 QS-D:
+ *                                   not the site links, which only a
+ *                                   placement makes (DISC28-I).
  *   guildForBuilding(factionId)   - -> { hallAccessAnytime, isMember }
  *                                   booleans resolved by the host's
  *                                   guild layer (Guild.HallAccessAnytime
  *                                   / IsMember)
  *   ownsShip                      - DaggerfallBankManager.OwnsShip
- *                                   (D6 WIRED IT: banking.js:296 over
+ *                                   (D6 WIRED IT: banking.js:300 over
  *                                   playerEntity.ownedShip, handed in
  *                                   at scenes/worldModes.js's
  *                                   buildingIsUnlocked call. The key
@@ -201,7 +208,7 @@ export function classicBuildingOpen(buildingType, hour) {
  * Offline they are identical. Online, and only for a shop, a closure is
  * covered by ONLINE_SHIFT. Suns Rest is part of the classic shop closure,
  * so it is covered by the same policy rather than becoming a real-time
- * two-hour outage (a game day is 120 real minutes at TimeScale 12).
+ * outage (a sky day is 60 real minutes online since TIME1 and SKY-SLOW; it was 120).
  *
  * `online` is injectable for node tests. Production defaults to the shared
  * clock standing (worldTick.sharedClockOn) - the one predicate every

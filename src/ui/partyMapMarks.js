@@ -75,6 +75,35 @@ export const PARTY_OFFLINE_CSS = hex(PARTY_OFFLINE_DOT_RGB);
 /** What a legend calls the mark, said once so both maps and the tests agree. */
 export const PARTY_LEGEND_TEXT = 'Party member';
 
+/** TV3 (bible/06-Systems/Travel-View.md): THE REGION'S TRAVELLERS on the map - the travel view's own verdigris, a
+ *  smaller ring than a party member's (they are strangers, and a party member's mark must stay the one that reads
+ *  first), and the legend's word. */
+export const TRAVELLER_MARK_CSS = '#4e7f72';
+export const TRAVELLER_LEGEND_TEXT = 'Traveller';
+/**
+ * TV3: the host's travellers ({id, name, px, py, fx, fy, tv} rows - systems/travellerMarks.js's book, the host's
+ * `travellers` dep), as marks placed within their pixel to the mark's own 256th: `x`/`y` in map pixels (y counts
+ * south, the fraction counts north, so it is turned round). OWS1: `ship` - the host's word that the row's traveller
+ * is at sea (isShipMark: their mark's way), drawn as a ship.
+ * @returns {Array<{id:string, name:string, x:number, y:number, journey:boolean, ship:boolean}>}
+ */
+export function readTravellerMarks(travellers, size = BAY) {
+  const rows = typeof travellers === 'function' ? travellers() : null;
+  if (!Array.isArray(rows)) return [];
+  const width = size?.width ?? BAY.width, height = size?.height ?? BAY.height;
+  const out = [];
+  for (const r of rows) {
+    if (!r || typeof r.id !== 'string') continue;
+    const px = Math.floor(Number(r.px)), py = Math.floor(Number(r.py));
+    if (!Number.isFinite(px) || !Number.isFinite(py) || px < 0 || py < 0 || px >= width || py >= height) continue;
+    const fx = Math.min(255, Math.max(0, Number(r.fx) || 0)), fy = Math.min(255, Math.max(0, Number(r.fy) || 0));
+    out.push({ id: r.id, name: String(r.name ?? '').trim() || TRAVELLER_LEGEND_TEXT, x: px + (fx + 0.5) / 256, y: py + 1 - (fy + 0.5) / 256, journey: !!r.tv, ship: r.ship === true });
+  }
+  return out;
+}
+/** TV3: what moves a traveller's mark - the pixel's 256th and the name; a key a poll compares. */
+export const travellerMarksKey = (marks) => marks.map((m) => `${m.id}:${m.x.toFixed(3)},${m.y.toFixed(3)},${m.journey ? 1 : 0},${m.ship ? 1 : 0},${m.name}`).join('|');   // OWS1: a traveller putting to sea is drawn again
+
 /**
  * @typedef {{ acct: string|null, name: string, px: number, py: number, in: number, loc: string,
  *             online: boolean, leader: boolean }} PartyMark
@@ -182,4 +211,40 @@ export function readPartyBodies(party) {
     out.push({ acct: r.acct ?? null, name: String(r.name ?? '').trim() || PARTY_LEGEND_TEXT, feet: [x, y, z], yaw: Number.isFinite(yaw) ? yaw : 0 });
   }
   return out;
+}
+
+/**
+ * COMPASS-PARTY (2026-09-27, Discord - Ashley: "being able to see where party members are on compass? - just lil green
+ * marks that point in that direction"; Satranath: "Party members show up on the map but not compass"): THE POINTS THE
+ * COMPASS MARKS, in the scene's own XZ - the frame the Detect markers are measured in (ui/hud.js compassMarkerLerp).
+ *
+ * A mate whose BODY this client draws is marked where it stands (`bodies`, the plans' own dep - readPartyBodies). The
+ * rest are marked only OUTDOORS (`here`, my travel pixel; indoors it is null and the bodies are the whole answer - a
+ * building or a dungeon has no bearing to the open country), where their pose says: the leader's own feet
+ * (`wx`,`wz` - the world pose's frame, which only a leader in the open air sends; `fromWorld` turns them into this
+ * scene's) or the middle of their map pixel (`pixelCentre`). A mate in MY pixel whose body I do not draw - in a
+ * building here, or not yet streamed in - is no mark: the middle of the town is not where they are. An offline seat
+ * and a seat whose first pose has not landed are no mark either (SOC6's law: "not yet" is the truth).
+ *
+ * @param {{ bodies?: (() => any[])|null, others?: any[], here?: {x: number, y: number}|null,
+ *           fromWorld?: ((wx: number, wz: number) => number[])|null, pixelCentre?: ((px: number, py: number) => number[])|null }} [o]
+ * @returns {number[][]} one [x, z] per mark
+ */
+export function partyCompassPoints({ bodies = null, others = [], here = null, fromWorld = null, pixelCentre = null } = {}) {
+  const out = [];
+  const drawn = new Set();
+  for (const b of readPartyBodies(bodies)) {
+    if (b.acct) drawn.add(b.acct);
+    out.push([b.feet[0], b.feet[2]]);
+  }
+  if (!here) return out;
+  for (const m of Array.isArray(others) ? others : []) {
+    const p = m?.p;
+    if (!p || m.online === false || drawn.has(m.acct)) continue;
+    if (!Number.isInteger(p.px) || !Number.isInteger(p.py)) continue;
+    if (p.in === 0 && Number.isFinite(p.wx) && Number.isFinite(p.wz) && fromWorld) { out.push(fromWorld(p.wx, p.wz)); continue; }
+    if (p.px === here.x && p.py === here.y) continue;
+    if (pixelCentre) out.push(pixelCentre(p.px, p.py));
+  }
+  return out.filter((q) => Array.isArray(q) && Number.isFinite(q[0]) && Number.isFinite(q[1]));
 }

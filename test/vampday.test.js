@@ -1,7 +1,7 @@
 // VAMP-DAY (2026-09-26, Mac: "do vampires have a negative??? seems they have no negative aspect bug or feature???
 // instead of constant damage taken they should get reduced stats in day and get the bonus at night"; asked, "Day -20 /
 // night +20"): THE PORT'S DEPARTURE from VampirismEffect. The sun no longer burns a vampire; the curse's stat
-// advantages are the night's, and from 06:00 to 18:00 - wherever the vampire stands - the same stats are 20 down. A
+// advantages are the night's, and from 06:00 to 18:00 - in the sun, never indoors (FIELD BUGS 2026-10-01b) - the same stats are 20 down. A
 // day never zeroes a stat (a live 0 kills - killIfAnyLiveStatZero). The skills' +30, holy ground's burn, the feeding
 // and the rest it gates, and the travel rules stay DFU's.
 import './modsOff.js';
@@ -9,7 +9,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   createVampirismCurse, vampirismMagicRound, vampireStatMod, liveRaceTemplate, racialFastTravelBlock, racialRestBlock,
-  VAMPIRE_STATS, VAMPIRE_STAT_MOD, VAMPIRE_SKILL_MOD, SUNLIGHT_TRAVEL_TEXT, NOT_SATED_TEXT_ID,
+  VAMPIRE_STATS, VAMPIRE_STAT_MOD, VAMPIRE_SKILL_MOD, SUNLIGHT_TRAVEL_TEXT, VAMPIRE_HOOD_TEXT, NOT_SATED_TEXT_ID,
 } from '../src/systems/vampirism.js';
 import { VAMPIRE_CLANS } from '../src/systems/infection.js';
 import { liveStat, killIfAnyLiveStatZero, REFRESH_MODS_DELAY } from '../src/systems/statMods.js';
@@ -95,7 +95,7 @@ test('VAMP-DAY: the sheet no longer lists damage from sunlight - holy places it 
   const race = liveRaceTemplate(v);
   assert.equal(race.specialAbilities & SPECIAL_ABILITY_BITS.sunDamage, 0, 'no sun on the sheet');
   assert.equal(race.specialAbilities & SPECIAL_ABILITY_BITS.holyDamage, SPECIAL_ABILITY_BITS.holyDamage);
-  assert.deepEqual(racialFastTravelBlock(v, at(12)), { text: SUNLIGHT_TRAVEL_TEXT }, 'no fast travel by day');
+  assert.deepEqual(racialFastTravelBlock(v, at(12)), { text: SUNLIGHT_TRAVEL_TEXT, hint: VAMPIRE_HOOD_TEXT }, 'no fast travel by day - bare-headed (VAMP-HOOD)');
   assert.equal(racialFastTravelBlock(v, at(22)), null);
   assert.deepEqual(racialRestBlock(v, at(19) + MINUTES_PER_DAY + 1), { textId: NOT_SATED_TEXT_ID }, 'an unfed vampire cannot rest');
 });

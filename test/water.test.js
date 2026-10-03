@@ -206,7 +206,8 @@ test('WATER1: the renderer - one program, the deck\'s shadow key, and a draw sta
     assert.ok(body.includes(`this.${k}`), `the ground's ${k}`);
   }
   assert.match(body, /gl\.enable\(gl\.BLEND\);\s*\n\s*gl\.blendFunc\(gl\.SRC_ALPHA, gl\.ONE_MINUS_SRC_ALPHA\);\s*\n\s*gl\.depthMask\(false\);\s*\n\s*gl\.disable\(gl\.CULL_FACE\);/, 'drawWater\'s state');
-  assert.match(body, /gl\.enable\(gl\.POLYGON_OFFSET_FILL\);\s*\n\s*gl\.polygonOffset\(0, -2\);\s*\n\s*gl\.depthFunc\(gl\.LEQUAL\);/, 'nudged toward the eye in window depth by the constant term only (WATER-AUDIT M3: a slope factor pulled the water over a far shore), and equal is the surface');
+  // FIELD BUGS 2026-09-29 (the sea) #4: the offset is the sea's surface film's, from the one table (render/waterSurface.js WATER_LAYER_UNITS, -2)
+  assert.match(body, /gl\.enable\(gl\.POLYGON_OFFSET_FILL\);\s*\n\s*gl\.polygonOffset\(0, WATER_LAYER_UNITS\.surface\);[^\n]*\n\s*gl\.depthFunc\(gl\.LEQUAL\);/, 'nudged toward the eye in window depth by the constant term only (WATER-AUDIT M3: a slope factor pulled the water over a far shore), and equal is the surface');
   // WATER-AUDIT (M2): the ground's point lights and indirect light reach the water
   assert.match(body, /gl\.uniform1i\(L\.pointCount, count\);[\s\S]*?gl\.uniform4fv\(L\.indirect, this\._indirect\);\s*\n\s*gl\.uniform3fv\(L\.indirectColor, this\._indirectColor\);/);
   assert.match(body, /gl\.uniform1i\(L\.tileDim, tileDim\);/, 'WATER-AUDIT (L2): the tilemap\'s own side, not a hardcoded 127');
@@ -225,13 +226,13 @@ test('WATER1: both exterior hosts - the gate, the has-water skip, and the slot a
   assert.match(w, /px, py, terrain, water, tilemapTex,/, 'carried on the built pixel');
   const restride = w.slice(w.indexOf('  function restrideTerrain(p, stride'));   // PERF-EXT26: it takes the worker's grid too
   assert.match(restride.slice(0, restride.indexOf('\n  }\n')), /if \(p\.water\) \{ renderer\.destroyWaterSurface\(p\.water\); p\.water = null; \}[\s\S]*?renderer\.destroyMesh\(p\.terrain\);[\s\S]*?p\.water = waterIndices \? renderer\.createWaterSurface\(p\.terrain, waterIndices\) : null;/);
-  assert.equal((w.match(/renderer\.destroyWaterSurface\(p\.water\)/g) || []).length, 2, 'the restride and the eviction');
+  assert.equal((w.match(/renderer\.destroyWaterSurface\(p\.water\)/g) || []).length, 3, 'the restride, the eviction, and the Deep Waters cap\'s TileMap (DW-F: the clipped and repainted tiles take the sheet with them)');
   assert.match(w, /p\._visible = pixelVisible;/, 'the pixel gate\'s verdict, kept for the pass');
   const slot = w.indexOf('    if (waterOn) {\n      const wu = waterUniforms(');
   assert.ok(slot > 0, 'the pass exists');
   assert.ok(slot > w.indexOf('renderer.drawTerrain(p.terrain, pixelMatrix,'), 'after the ground');
   assert.ok(slot > w.lastIndexOf('renderer.drawMesh(millParts.rotor, mountRotor(multiply(pixelMatrix, w.local)'), 'after the last opaque model of the pixel loop');
-  assert.ok(slot < w.indexOf('renderer.drawBillboards(allBatches, camRight, UP_Y);'), 'before the first flat');
+  assert.ok(slot < w.indexOf('renderer.drawBillboards(allBatches, camRight, bbUp);'), 'before the first flat');   // TV1: the flats lean to the travel view's eye (bbUp)
   assert.match(w, /const wu = waterUniforms\(\{ seconds: now \/ 1000, wind: windNow, rain: precipMode === 'rain' \|\| precipMode === 'storm' \? fx\.intensity : 0, sky: sky\.waterSky\(\) \}\);/,
     'the clock, the eased wind the mills take, the front\'s rain, the dome\'s colours');
   // PERF-EXT13: the visible water pixels are collected - each pixel's water, its matrix, its ground array and its

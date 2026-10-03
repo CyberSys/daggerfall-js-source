@@ -131,11 +131,11 @@ test('INVIS-NET by source: the host packs my concealment onto every pose; on the
   const w = rd('src/scenes/world.js');
   const arm = w.slice(w.indexOf('    const arm = {\n      mv,'), w.indexOf('};   // the wire\'s move bit'));
   assert.match(arm, /\n\s*cv: concealBits\(playerEntity\) \|\| undefined,/, 'the arm spread into every pose');
-  assert.match(w, /const drawable = online\.drawable\(\);\n\s*peerCastVisuals\(drawable\);[^\n]*\n(?:[^\n]*\n){0,4}?\s*const seen = \[\];\n\s*for \(const d of drawable\) \{\n\s*const look = peerDraw\(d\.shown\?\.cv \| 0, veilOn, _veilT, d\.id\);\n\s*if \(look\.kind === 'hidden'\) \{ _hiddenPeers\.add\(d\.id\); continue; \}/, 'the cast off every peer, the draw off the seen - a concealed peer hidden where the look says so (the classic lane)');
+  assert.match(w, /const drawable = isCellRoom\(online\.room\) && csaOn\(\) \? csaAboard\.glue\(online\.drawable\(\), [^\n]*\) : online\.drawable\(\);[^\n]*\n\s*peerCastVisuals\(drawable\);[^\n]*\n(?:[^\n]*\n){0,4}?\s*const seen = \[\];\n\s*for \(const d of drawable\) \{\n\s*const look = peerDraw\(d\.shown\?\.cv \| 0, veilOn, _veilT, d\.id\);\n\s*if \(look\.kind === 'hidden'\) \{ _hiddenPeers\.add\(d\.id\); continue; \}/, 'the cast off every peer, the draw off the seen - a concealed peer hidden where the look says so (the classic lane)');
   assert.match(w, /peerRiders\.sync\(seen, onlineToScene,/);
   assert.match(w, /const afoot = seen\.filter\(/);
   assert.match(w, /peerWalkers\.sync\(seen, onlineToScene,/);
-  assert.match(w, /remotePlayers\.sync\(drawable, onlineToScene, \{[^\n]*conceal: veilOf, hidden: \(id\) => _hiddenPeers\.has\(id\) \}\);/, 'the sprite and the name pass - every peer HEARD, the hidden drawn nowhere (AUDIT pre-merge I-G)');
+  assert.match(w, /remotePlayers\.sync\(drawable, onlineToScene, \{[^\n]*conceal: veilOf, hidden: \(id\) => _hiddenPeers\.has\(id\)(?:, grow: tvGrow)? \}\);/, 'the sprite and the name pass - every peer HEARD, the hidden drawn nowhere (AUDIT pre-merge I-G)');
   assert.doesNotMatch(w, /(?:peerRiders|peerWalkers)\.sync\(drawable,/, 'nothing draws off the whole list any more (the sprite pass hears it, and skips the hidden itself)');
   // the merge with main's PEERLIGHT2: a Light spell's candle (a sprite and its light) hangs before a player DRAWN here -
   // off the whole list, the classic lane's invisible player walked behind a floating candle
@@ -161,10 +161,11 @@ test('AUDIT pre-merge I-G executed: a peer the classic lane stands nowhere is st
 
 test('AUDIT pre-merge I-A + I-E + I-F by source: a building\'s sheet opens the building\'s pack; the maps mark the party drawn here; the Nearby list and the page\'s readers skip a concealed player (the F key\'s law)', () => {
   const w = rd('src/scenes/world.js'), m = rd('src/scenes/worldModes.js');
-  assert.match(w, /const makeCharSheetWindow = \(\{ inventory = null \} = \{\}\) => createCharSheetWindow\(\{[\s\S]*?inventory: inventory \?\? \(\(\) => \(inventoryDoorReady\(\) \? makeInventoryWindow\(\) : null\)\),/);
+  assert.match(w, /const makeCharSheetWindow = \(\{ inventory = null, pause = null \} = \{\}\) => createCharSheetWindow\(\{[\s\S]*?inventory: inventory \?\? \(\(\) => \(inventoryDoorReady\(\) \? makeInventoryWindow\(\) : null\)\),/);   // ESC-BOOK: and the building's own pause bag
   assert.match(w, /makeCharSheet: \(doors\) => \(charSheetDoorReady\(\) \? makeCharSheetWindow\(doors\) : null\),/);
-  assert.match(m, /const interiorSheetDoors = \(\) => \(\{ inventory: \(\) => interiorInventory\(\) \}\);/);
-  assert.equal((m.match(/host\.makeCharSheet\?\.\(interiorSheetDoors\(\)\)/g) ?? []).length, 3, 'the level-up arm, the F5 page\'s sheet key and the sheet key');
+  assert.match(m, /const interiorSheetDoors = \(\) => \(\{ inventory: \(\) => interiorInventory\(\), pause: \(\) => interiorPauseHooks\(\) \}\);/);   // ESC-BOOK: the F5 page's Pack is the bag's, and the bag is the building's
+  assert.equal((m.match(/host\.makeCharSheet\?\.\(interiorSheetDoors\(\)\)/g) ?? []).length, 2, 'the level-up arm and the one sheet door (AUDIT 27h A1: F5, the pause bag\'s crossover and the pack\'s F5 all take openInteriorSheet)');
+  assert.equal((m.match(/openInteriorSheet\b/g) ?? []).length, 4, 'its definition and its three takers - the pack, the pause bag, F5');
   assert.doesNotMatch(m, /host\.makeCharSheet\?\.\(\)/, 'none left on the street\'s pack');
   assert.match(w, /const partyOnMaps = \(\) => partyNear\(\)\.filter\(\(m\) => !_hiddenPeers\.has\(m\.id\)\);/);
   assert.match(w, /townParty: \(\) => partyOnMaps\(\)\.map\(/, 'the town map');

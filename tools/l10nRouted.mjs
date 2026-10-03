@@ -98,6 +98,7 @@ export function routedWords(root = ROOT) {
         out.push({ file, line, via, key: str(a), en, collection: collectionOf(c), loose: !inFn });
       } else if ((via === 'localizedStrings' || via === 'localizedTable') && a?.type === 'ObjectExpression') {
         for (const p of a.properties) {
+          if (via === 'localizedTable' && /FunctionExpression$/.test(p.value?.type ?? '')) continue;   // the port's own line beside DFU's - its words are a `t` call's, read off by l10nExtract
           const pair = via === 'localizedTable' && p.value?.type === 'ArrayExpression' ? p.value.elements : null;
           const key = via === 'localizedTable' ? str(pair?.[0]) : (p.key.name ?? String(p.key.value));
           out.push({ file, line: p.loc.start.line, via, key, en: str(via === 'localizedTable' ? pair?.[1] : p.value), collection: collectionOf(b), loose: false });

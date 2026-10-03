@@ -2,8 +2,8 @@
 // place). These initial values are the PRE-CHARGEN state only:
 // createCharacter (systems/chargen) rolls the real career the first
 // time a chargen-running context boots, and every host runs it
-// through systems/chargenSession.js - dungeonContext.js:2280,
-// world.js:4009, exterior.js:1392 and applyHeadlessChargen for the
+// through systems/chargenSession.js - dungeonContext.js:2558,
+// world.js:5517, exterior.js:1422 and applyHeadlessChargen for the
 // test room (AUDIT 23).
 //
 // NOT A GAP (recorded): the stand-ins below - flat skills 30,
@@ -37,9 +37,9 @@ export const playerEntity = {
   // armor; equip subtracts material*5 - the classic law makes an
   // UNARMORED player far easier to hit than the old armor:0 scalar)
   armorValues: [100, 100, 100, 100, 100, 100, 100],
-  skills: 30,       // the header's stand-in, and a HANDLED shape: permanentSkillValue (skills.js:92) returns a numeric `skills` whole, so no reader ever indexes it
+  skills: 30,       // the header's stand-in, and a HANDLED shape: permanentSkillValue (skills.js:98) returns a numeric `skills` whole, so no reader ever indexes it
   stats: { strength: 50, agility: 50, luck: 50 },
-  fatigue: 3200,    // (Str 50 + End 0) x 64 over the stand-in stats above - maxFatigue's own arithmetic (statMods.js:169), no dropped term; applyCharacter re-derives it from the rolled stats (S15)
+  fatigue: 3200,    // (Str 50 + End 0) x 64 over the stand-in stats above - maxFatigue's own arithmetic (statMods.js:170), no dropped term; applyCharacter re-derives it from the rolled stats (S15)
   items: [],        // the inventory (S2); gold rides as a Currency stack
   // THE ONE CONSTRUCTION SEAM, sixth occurrence (U24). DFU's
   // PlayerEntity is constructed WITH its skill-use counters, and
@@ -67,7 +67,7 @@ export const playerEntity = {
   // took the member back out, so the ABSENT state became reachable
   // after a boot load or a classic import and the eleven-wide
   // guarantee AUDIT 63 F6 bought had to come from the constructor
-  // instead. The three `??=` mints downstream (enchantments.js:677
+  // instead. The three `??=` mints downstream (enchantments.js:681
   // and :825, artifactEffects.js:153) and talk.js's
   // ensureReactionState stay as the belt to this brace.
   reactionMods: new Array(SOCIAL_GROUP_COUNT).fill(0),
@@ -105,6 +105,15 @@ export function setDeathPresenter(fn) {
   const prev = _deathPresenter;
   _deathPresenter = fn ?? null;
   return prev;
+}
+
+/** DEATH-KEPT (FIELD BUGS 2026-09-30b): the live presenter asked again for a death already raised - a player at zero
+ *  whose screen a window took (a direct write over the host's slot, a replace over the stack's top). Not a blow: the
+ *  door below consulted the saves, the shield and AvoidDeath on the transition, once. False (nothing asked) alive. */
+export function presentPlayerDeath(entity = playerEntity) {
+  if (!(entity.health <= 0)) return false;
+  _deathPresenter?.(entity);
+  return true;
 }
 
 // AUDIT 26 F117: GuildManager.AvoidDeath, consulted by SetHealth at
@@ -177,10 +186,34 @@ export function damageShieldPool(entity, dmg) {
  * first.
  */
 let _damageVeto = null;
+const _staff = { god: false, fly: false };   // STAFF1: the staff's switches (setStaffPowers, below) - declared above their readers (BOOT-TDZ)
 export function registerPlayerDamageVeto(fn) { _damageVeto = typeof fn === 'function' ? fn : null; }
 /** For a caller that needs to know a blow would be withheld before it
  *  spends anything on delivering one. */
-export const playerDamageWithheld = () => { try { return !!_damageVeto?.(); } catch { return false; } };
+export const playerDamageWithheld = () => { if (_staff.god) return true; try { return !!_damageVeto?.(); } catch { return false; } };   // STAFF1: /god withholds every blow at the veto's own door
+
+/** STAFF1 (net/staffCommands.js): THE STAFF'S OWN TWO SWITCHES - /god (no blow delivered: the veto's door above, so a
+ *  caller asking before it spends a blow is told too) and /fly (levitation without the spell: every host's motor-flag
+ *  write ORs `staffFly()` beside the Levitate effect). The typer's alone, never saved, never sent. */
+export function setStaffPowers({ god, fly } = {}) { if (typeof god === 'boolean') _staff.god = god; if (typeof fly === 'boolean') _staff.fly = fly; }
+export const staffPowers = () => ({ ..._staff });
+export const staffFly = () => _staff.fly;
+/** AUDIT-SEATS G5 (Seats-Arc 6.1: "Teleport, Recall and Levitate do nothing in a siege room"): THE WARD ON THE LEVITATE
+ *  EFFECT, registered by the host that knows where the player stands (scenes/world.js - a siege's own room): while it
+ *  answers true, the motor-flag write reads the effect as lifting nothing - inside that ONE write (scenes/shared.js
+ *  applyMotorEffectFlags), never a second: the motor cancels a step on every change of the flag. The staff's /fly is
+ *  the typer's own and is not warded. A ward that throws wards nothing. */
+let _levitateWard = null;
+export function registerLevitateWard(fn) { _levitateWard = typeof fn === 'function' ? fn : null; }
+export const levitateWarded = () => { try { return !!_levitateWard?.(); } catch { return false; } };
+/** AUDIT-SEATS G4 (Seats-Arc 6.6: "a free camera over the town"; 19: "a free camera (WASD, the mouse, the pad's
+ *  sticks)"): A SPECTATOR'S FLIGHT, registered by the host that knows who watches a battle from its room (scenes/
+ *  world.js): while it answers true, the motor-flag write lifts the body as the staff's /fly does - the motor's own
+ *  levitation, so the keys, the mouse and the pad's sticks move it and the float keys raise and lower it; the host puts
+ *  the spectator back where it stood when the watching ends. A flight that throws lifts nothing. */
+let _freeFlight = null;
+export function registerFreeFlight(fn) { _freeFlight = typeof fn === 'function' ? fn : null; }
+export const freeFlight = () => { try { return !!_freeFlight?.(); } catch { return false; } };
 
 /** DUEL1: THE DUEL'S WORD THAT ITS PLAYER FELL, registered by the host that runs the duel (scenes/world.js - the duel
  *  law's `fell`) and reached through `duelSpare`, the `spare` every duel-sourced blow passes (the opponent's strike, the

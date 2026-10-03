@@ -322,8 +322,8 @@ test('ACC3b: a peer WEARS THE NEWEST HELLO\'S badge, including none - and the cl
   // wearing a grant the relay has stopped vouching for, which is the
   // same stored-fact trap ACC3a took out of the service.
   const src = rd('src/net/online.js');
-  assert.match(src, /const \{ title, glyphs \} = readBadge\(p\);/, 'the peer is built through the one reader');
-  assert.match(src, /\(\{ title: p\.title, glyphs: p\.glyphs \} = readBadge\(m\)\);/, 'and a second hello replaces it');
+  assert.match(src, /const \{ title, glyphs, ts = null \} = readBadge\(p\);/, 'the peer is built through the one reader (SEAT1c: with a seat title\'s claim)');
+  assert.match(src, /\(\{ title: p\.title, glyphs: p\.glyphs, ts: p\.ts = null \} = readBadge\(m\)\);/, 'and a second hello replaces it (SEAT1c: a seat title\'s claim with it, including none)');
   assert.match(src, /this\._known\.set\(id, \{ name: p\.name, title: p\.title, glyphs: p\.glyphs,[^}]* look: p\.look \}\);/, 'the remembered introduction keeps it, so a socket blip does not strip a title');   // MOD1: `sub` rides beside it
   assert.doesNotMatch(src, /title: m\.title/, 'nothing takes a badge off a frame without the check');
 });

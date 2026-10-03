@@ -168,7 +168,7 @@
   {
     "name": "A7-replaced-socket-never-leaves",
     "file": "server/src/index.js",
-    "old": "if (isSocialRoom(a.key) && b.acct && b.acct !== m.acct) {",
+    "old": "if (isSocialRoom(a.key) && b.acct && b.acct !== (m.acct ? (who.subject || m.acct) : null)) {",
     "new": "if (false) {",
     "tests": [
       "test/auditsoc.test.js"
@@ -360,8 +360,8 @@
   {
     "name": "B6-every-surface-relocks",
     "file": "src/scenes/world.js",
-    "old": "const surfaceClose = (name) => { pointerSurfaces.delete(name); if (!pointerSurfaces.size && !gamePaused()) requestLook(canvas); };",
-    "new": "const surfaceClose = (name) => { pointerSurfaces.delete(name); if (!gamePaused()) requestLook(canvas); };",
+    "old": "const surfaceClose = (name) => { pointerSurfaces.delete(name); if (!pointerSurfaces.size && !gamePaused()) { if (travelView?.active)",
+    "new": "const surfaceClose = (name) => { pointerSurfaces.delete(name); if (!gamePaused()) { if (travelView?.active)",
     "tests": [
       "test/soc3_socialpanel.test.js",
       "test/chat1.test.js"
@@ -370,8 +370,8 @@
   {
     "name": "B4-F-under-the-mode-gate",
     "file": "src/scenes/world.js",
-    "old": "if (!townTalk.overlayActive && act === 'SocialInteract' && socialMenuCanOpen() && socialInteract()) { e.preventDefault(); return true; }",
-    "new": "if (false && act === 'SocialInteract' && socialMenuCanOpen() && socialInteract()) { e.preventDefault(); return true; }",
+    "old": "if (!townTalk.overlayActive && !travelView?.active && act === 'SocialInteract' && socialMenuCanOpen() && socialInteract()) { e.preventDefault(); return true; }",
+    "new": "if (false && !travelView?.active && act === 'SocialInteract' && socialMenuCanOpen() && socialInteract()) { e.preventDefault(); return true; }",
     "tests": [
       "test/soc5_interact.test.js"
     ]
@@ -433,8 +433,8 @@
   {
     "name": "C9-touch-button-ungated",
     "file": "src/ui/touch.js",
-    "old": "if (hooks.socialInteract) button('\u263a',",
-    "new": "button('\u263a',",
+    "old": "if (hooks.socialInteract) socialBtn = button('\u263a',",
+    "new": "socialBtn = button('\u263a',",
     "tests": [
       "test/soc5_interact.test.js",
       "test/audit39_uicore.test.js"
@@ -488,8 +488,8 @@
   {
     "name": "C6-hud-on-the-fps-counter",
     "file": "src/ui/partyPanel.js",
-    "old": "top: calc(92px + env(safe-area-inset-top, 0px));",
-    "new": "top: calc(40px + env(safe-area-inset-top, 0px));",
+    "old": "top: calc(92px + var(--dfquest-h, 0px) + env(safe-area-inset-top, 0px));",
+    "new": "top: calc(40px + var(--dfquest-h, 0px) + env(safe-area-inset-top, 0px));",
     "tests": [
       "test/soc4_partyhud.test.js"
     ]

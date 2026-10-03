@@ -20,11 +20,12 @@
   {
     "name": "WB5b-counted-twice",
     "file": "server-account/src/accounts.js",
-    "old": "'INSERT OR IGNORE INTO gate_kills (day, account, boss, earned, at) VALUES (?1, ?2, ?3, ?4, ?5)'",
-    "new": "'INSERT OR REPLACE INTO gate_kills (day, account, boss, earned, at) VALUES (?1, ?2, ?3, ?4, ?5)'",
+    "old": "'INSERT OR IGNORE INTO gate_kills (day, account, boss, earned, at, region, stones) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)'",
+    "new": "'INSERT OR REPLACE INTO gate_kills (day, account, boss, earned, at, region, stones) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)'",
     "tests": [
       "test/wb5b_gate_claim.test.js"
-    ]
+    ],
+    "note": "SEAT1b (PIN MOVED): re-aimed by content - the report names its region, the gate claim its region and character. WB12d (re-aimed at its merge): the row's `stones` beside SEAT1b's `region`."
   },
   {
     "name": "WB5b-no-key-no-refusal",
@@ -47,8 +48,8 @@
   {
     "name": "WB5b-the-account-view-without-gates",
     "file": "server-account/src/index.js",
-    "old": ", gates: await gateRecordOf(ctx, who.player.id), renown:",
-    "new": ", renown:",
+    "old": ", gates: await gateRecordOf(ctx, who.player.id), raids:",
+    "new": ", raids:",
     "tests": [
       "test/wb5b_gate_claim.test.js"
     ]
@@ -56,8 +57,8 @@
   {
     "name": "WB5b-the-record-without-gates",
     "file": "server-account/src/index.js",
-    "old": ", gates: await gateRecordOf(ctx, body.id) }, 200, origin);",
-    "new": " }, 200, origin);",
+    "old": ", gates: await gateRecordOf(ctx, body.id), raids:",
+    "new": ", raids:",
     "tests": [
       "test/wb5b_gate_claim.test.js"
     ]
@@ -101,8 +102,8 @@
   {
     "name": "WB5b-the-unsigned-kept",
     "file": "src/net/gateClaims.js",
-    "old": "c && c.signed && c.e > nowS()",
-    "new": "c && c.e > nowS()",
+    "old": "c && c.signed && (t == null || c.e > t)",
+    "new": "c && (t == null || c.e > t)",
     "tests": [
       "test/wb5b_gate_claim.test.js"
     ]
@@ -146,7 +147,7 @@
   {
     "name": "WB5b-the-count-unsaid",
     "file": "src/net/gateClaims.js",
-    "old": "          if (n != null) { onClosed(n); say(GATE_CLAIM_TEXT.recorded(n)); }",
+    "old": "          if (n != null) { onClosed(n); say(answer.data.rite === true ? GATE_CLAIM_TEXT.rite : GATE_CLAIM_TEXT.recorded(n)); }",
     "new": "          if (n != null) { onClosed(n); }",
     "tests": [
       "test/wb5b_gate_claim.test.js"
@@ -155,11 +156,12 @@
   {
     "name": "WB5b-a-knock-with-no-session",
     "file": "src/net/accountClient.js",
-    "old": "    claim: async (receipt) => { const i = io(); return i ? claimGateReceipt(i, receipt) : { ok: false, error: 'no-session' }; },",
-    "new": "    claim: async (receipt) => claimGateReceipt({ fetch, base: serviceBase(storage), secret: null }, receipt),",
+    "old": "    claim: async (receipt, extra = null) => { const i = io(); return i ? claimGateReceipt(i, receipt, extra) : { ok: false, error: 'no-session' }; },",
+    "new": "    claim: async (receipt, extra = null) => claimGateReceipt({ fetch, base: serviceBase(storage), secret: null }, receipt, extra),",
     "tests": [
       "test/wb5b_gate_claim.test.js"
-    ]
+    ],
+    "note": "SEAT1b (PIN MOVED): re-aimed by content - the report names its region, the gate claim its region and character. WB12d (re-aimed at its merge): the row's `stones` beside SEAT1b's `region`."
   },
   {
     "name": "WB5b-the-hook-never-called",
@@ -173,8 +175,8 @@
   {
     "name": "WB5b-a-strangers-nought-said",
     "file": "src/ui/profileWindow.js",
-    "old": "  return Number.isSafeInteger(n) && n > 0 ? `Gates closed: ${n}` : null;",
-    "new": "  return Number.isSafeInteger(n) && n >= 0 ? `Gates closed: ${n}` : null;",
+    "old": "  return Number.isSafeInteger(n) && n > 0 ? `Breaches closed: ${n}` : null;",
+    "new": "  return Number.isSafeInteger(n) && n >= 0 ? `Breaches closed: ${n}` : null;",
     "tests": [
       "test/wb5b_gate_claim.test.js"
     ]
@@ -209,7 +211,7 @@
   {
     "name": "WB5b-no-account-card-row",
     "file": "src/ui/enhancedAccount.js",
-    "old": "      if (gates) row('Gates closed', gates);\n",
+    "old": "      if (gates) row('Breaches closed', gates);",
     "new": "",
     "tests": [
       "test/wb5b_gate_claim.test.js"

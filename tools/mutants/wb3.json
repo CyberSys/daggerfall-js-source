@@ -2,8 +2,8 @@
   {
     "name": "WB3-the-share-off-the-claim",
     "file": "src/net/gateBrain.js",
-    "old": "  const share = BOSS_TTK_S * dpsRef(level);",
-    "new": "  const share = BOSS_TTK_S * dpsRef(LV_MAX);",
+    "old": "  const share = BOSS_TTK_S * dpsRef(level) * profileOf(f).hpX;",
+    "new": "  const share = BOSS_TTK_S * dpsRef(LV_MAX) * profileOf(f).hpX;",
     "tests": [
       "test/wb3_gate_room.test.js"
     ]
@@ -11,8 +11,8 @@
   {
     "name": "WB3-the-bucket-rate-off-the-claim",
     "file": "src/net/gateBrain.js",
-    "old": "p.bucket + (Math.max(0, now - p.bucketAt) / 1000) * BUCKET_RATE_X * ref);",
-    "new": "p.bucket + (Math.max(0, now - p.bucketAt) / 1000) * BUCKET_RATE_X * dpsRef(LV_MAX));",
+    "old": "  // the damage: WB8b's Unyielding lightens it, then it is capped a blow, then the bucket\n  const ref = dpsRef(p.lv);\n  p.bucket = Math.min(BUCKET_DEPTH_X * ref, p.bucket + (Math.max(0, now - p.bucketAt) / 1000) * BUCKET_RATE_X * ref);",
+    "new": "  // the damage: WB8b's Unyielding lightens it, then it is capped a blow, then the bucket\n  const ref = dpsRef(p.lv);\n  p.bucket = Math.min(BUCKET_DEPTH_X * ref, p.bucket + (Math.max(0, now - p.bucketAt) / 1000) * BUCKET_RATE_X * dpsRef(LV_MAX));",
     "tests": [
       "test/wb3_gate_room.test.js"
     ]
@@ -20,8 +20,8 @@
   {
     "name": "WB3-the-one-blow-cap-lifted",
     "file": "src/net/gateBrain.js",
-    "old": "  const got = Math.max(0, Math.min(d, HIT_CAP_X * ref, p.bucket, f.hp));",
-    "new": "  const got = Math.max(0, Math.min(d, p.bucket, f.hp));",
+    "old": "  const got = Math.max(0, Math.min(want, HIT_CAP_X * ref, p.bucket, f.hp));",
+    "new": "  const got = Math.max(0, Math.min(want, p.bucket, f.hp));",
     "tests": [
       "test/wb3_gate_room.test.js"
     ]
@@ -65,8 +65,8 @@
   {
     "name": "WB3-no-blow-rate",
     "file": "src/net/gateBrain.js",
-    "old": "  if (p.rate < 1) return 0;",
-    "new": "  if (p.rate < 0) return 0;",
+    "old": "  if (!spendBlow(p, now, seq, 'b')) return 0;",
+    "new": "",
     "tests": [
       "test/wb3_gate_room.test.js"
     ]
@@ -74,10 +74,11 @@
   {
     "name": "WB3-a-blow-from-off-the-court",
     "file": "src/net/gateBrain.js",
-    "old": "  if (Math.hypot(pose.x, pose.z) > COURT_R + POSE_SLACK) return 0;",
-    "new": "  if (Math.hypot(pose.x, pose.z) > COURT_R * 3 + POSE_SLACK) return 0;",
+    "old": "  if (!onFloor(pose.x, pose.z, f.xa, now, POSE_SLACK)) return 0;",
+    "new": "  if (!onFloor(pose.x, pose.z, f.xa, now, POSE_SLACK * 30)) return 0;",
     "tests": [
-      "test/wb3_gate_room.test.js"
+      "test/wb3_gate_room.test.js",
+      "test/audit_wb11.test.js"
     ]
   },
   {
@@ -92,8 +93,8 @@
   {
     "name": "WB3-the-top-unordered",
     "file": "src/net/gateBrain.js",
-    "old": "    .sort((a, b) => b.dealt - a.dealt || a.joinedAt - b.joinedAt)",
-    "new": "    .sort((a, b) => a.joinedAt - b.joinedAt)",
+    "old": "  return Object.values(f.players).filter((q) => q.dealt > 0)\n    .sort((a, b) => b.dealt - a.dealt || a.joinedAt - b.joinedAt)",
+    "new": "  return Object.values(f.players).filter((q) => q.dealt > 0)\n    .sort((a, b) => a.joinedAt - b.joinedAt)",
     "tests": [
       "test/wb3_gate_room.test.js"
     ]
@@ -110,8 +111,8 @@
   {
     "name": "WB3-no-opening",
     "file": "src/net/gateBrain.js",
-    "old": "    pos: [0, 0], yaw: 0, move: null, atk: null, lastA: -1, nextAt: now + OPENING_MS, seq: 0,",
-    "new": "    pos: [0, 0], yaw: 0, move: null, atk: null, lastA: -1, nextAt: now, seq: 0,",
+    "old": "    pos: [0, 0], yaw: 0, move: null, atk: null, lastA: -1, runA: 0, freeAt: 0, nextAt: now + OPENING_MS, seq: 0,",
+    "new": "    pos: [0, 0], yaw: 0, move: null, atk: null, lastA: -1, runA: 0, freeAt: 0, nextAt: now, seq: 0,",
     "tests": [
       "test/wb3_gate_room.test.js"
     ]
@@ -164,7 +165,7 @@
   {
     "name": "WB3-no-shield-on-the-roar",
     "file": "src/net/gateBrain.js",
-    "old": "    f.shieldUntil = now + SHIELD_MS;",
+    "old": "    f.shieldUntil = now + P.shieldMs;",
     "new": "    f.shieldUntil = now;",
     "tests": [
       "test/wb3_gate_room.test.js"
@@ -182,8 +183,8 @@
   {
     "name": "WB3-phase-three-cuts-the-wrath",
     "file": "src/net/gateBrain.js",
-    "old": "(phase >= 3 && atk.id !== ATTACKS.wrath.id ? ",
-    "new": "(phase >= 3 ? ",
+    "old": "(phase >= 3 && atk.id !== ATTACKS.wrath.id && atk.id !== ATTACKS.reckon.id",
+    "new": "(phase >= 3 && atk.id !== ATTACKS.reckon.id",
     "tests": [
       "test/wb3_gate_room.test.js"
     ]
@@ -200,7 +201,7 @@
   {
     "name": "WB3-no-threat-pick",
     "file": "src/net/gateBrain.js",
-    "old": "  if (rng() < THREAT_PICK) {",
+    "old": "  if (rng() < profileOf(f).threatPick) {",
     "new": "  if (rng() < 0) {",
     "tests": [
       "test/wb3_gate_room.test.js"
@@ -236,8 +237,8 @@
   {
     "name": "WB3-a-dead-target-kept",
     "file": "src/net/gateBrain.js",
-    "old": "    let target = f.target ? bodies.find((b) => b.sub === f.target && !b.dead) ?? null : null;",
-    "new": "    let target = f.target ? bodies.find((b) => b.sub === f.target) ?? null : null;",
+    "old": "  const here = bodies.filter((b) => !b.dead && f.players[b.sub] && inCourt(b.x, b.z, f.court, POSE_SLACK));",
+    "new": "  const here = bodies.filter((b) => f.players[b.sub] && inCourt(b.x, b.z, f.court, POSE_SLACK));",
     "tests": [
       "test/wb3_gate_room.test.js"
     ]
@@ -425,8 +426,8 @@
   {
     "name": "WB3-the-dead-strike",
     "file": "server/src/index.js",
-    "old": "    applyHit(f, a.sub, m.d, m.r, a.pose && !a.pose.dd ? this._courtOf(a.pose) : null, now);",
-    "new": "    applyHit(f, a.sub, m.d, m.r, a.pose ? this._courtOf(a.pose) : null, now);",
+    "old": "      applyHit(f, a.sub, m.d, m.r, a.pose && !a.pose.dd ? this._courtOf(a.pose) : null, now, m.q);",
+    "new": "      applyHit(f, a.sub, m.d, m.r, a.pose ? this._courtOf(a.pose) : null, now, m.q);",
     "tests": [
       "test/wb3_gate_room.test.js"
     ]
@@ -488,8 +489,8 @@
   {
     "name": "WB3-no-receipt-without-a-key",
     "file": "server/src/index.js",
-    "old": "      try { f.rc[sub] = await mintReceipt(",
-    "new": "      if (!key) continue;\n      try { f.rc[sub] = await mintReceipt(",
+    "old": "      try { f.rc[sub] = await mintReceipt({ d: f.day, b: f.boss, s: sub, c: rand32(), x: earnedBy(f, sub)",
+    "new": "      if (!key) continue;\n      try { f.rc[sub] = await mintReceipt({ d: f.day, b: f.boss, s: sub, c: rand32(), x: earnedBy(f, sub)",
     "tests": [
       "test/wb3_gate_room.test.js"
     ]

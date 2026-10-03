@@ -91,6 +91,47 @@ export const trackGain = () => (musicMuted ? 0 : getFloat('Controls', 'MusicVolu
 export const SONG_LEVEL_MAX = 4;
 export const songLevel = (song) => (Number.isFinite(song?.level) && song.level > 0 ? Math.min(SONG_LEVEL_MAX, song.level) : 1);
 
+/** WB10a (2026-09-30, Mac: "make it more loud, just feel like its too quite"): A SONG'S OWN PRESS - a song may carry
+ *  `press`, a compressor it is played through, and how far its output is carried after it (`out`). The level alone
+ *  had gone as far as it could: WBX9's score stood a decibel under the clip at the highest MusicVolume, its drums'
+ *  peaks 15 dB over its body, so a louder song had to be a PRESSED one - its peaks held down and the whole of it raised
+ *  (systems/gateScore.js SCORE_PRESS; tools/gateScoreProbe.mjs measures both). The chain: the song's level (the drive
+ *  into the press), the compressor, `out`, the press's CEILING, the fader. Every song MIDI.BSA holds carries none and
+ *  never meets one. Each field is held to its range - the Web Audio compressor's for threshold (dB), knee (dB), ratio,
+ *  attack and release (seconds); `out` to (0, PRESS_OUT_MAX]; the ceiling to [PRESS_CEILING_MIN, 0] dBFS, the clip
+ *  itself when none is named. A song with none, or with a press that is not an object, is null. Pure. */
+export const PRESS_OUT_MAX = 8;
+export const PRESS_CEILING_MIN = -24;
+export const PRESS_RANGE = Object.freeze({
+  threshold: [-100, 0, -24], knee: [0, 40, 6], ratio: [1, 20, 8], attack: [0, 1, 0.003], release: [0, 1, 0.25], out: [0, PRESS_OUT_MAX, 1],
+  ceiling: [PRESS_CEILING_MIN, 0, 0],
+});
+/** WB10a: THE CEILING - the most a pressed song can reach at the speakers at the HIGHEST MusicVolume, in dBFS: a soft
+ *  clip (`ceilingCurve`, the hyperbolic tangent) whose top stands there, so a compressor's overshoot on a drum's first
+ *  milliseconds rounds off under it rather than clipping - never past the ceiling by construction, not by measurement
+ *  alone. What reaches it at half the ceiling comes out within a decibel of itself. How far the curve's input reaches,
+ *  in the tangent's own units: tanh(3) is 0.995, so the curve's ends are the ceiling. */
+export const CEILING_DRIVE = 3;
+export function songPress(song) {
+  const p = song?.press;
+  if (!p || typeof p !== 'object') return null;
+  const out = {};
+  for (const [k, [lo, hi, dflt]] of Object.entries(PRESS_RANGE)) out[k] = Number.isFinite(p[k]) ? Math.min(hi, Math.max(lo, p[k])) : dflt;
+  if (!(out.out > 0)) out.out = PRESS_RANGE.out[2];
+  return out;
+}
+/** WB10a: the ceiling in the song's own amplitude (before the music's master, MUSIC_GAIN at the highest MusicVolume). */
+export const ceilingAmplitude = (dbfs) => Math.pow(10, dbfs / 20) / MUSIC_GAIN;
+let _ceilingCurve = null;
+/** WB10a: the soft clip's curve, over the WaveShaper's [-1, 1]: tanh(CEILING_DRIVE u), odd, rising, its ends at
+ *  +-tanh(CEILING_DRIVE). Made once. */
+export function ceilingCurve(n = 2049) {
+  if (_ceilingCurve && _ceilingCurve.length === n) return _ceilingCurve;
+  const c = new Float32Array(n);
+  for (let i = 0; i < n; i++) c[i] = Math.tanh(CEILING_DRIVE * ((2 * i) / (n - 1) - 1));
+  return (_ceilingCurve = c);
+}
+
 /** Lead given to a loop's new origin. It must be SMALLER than the
  *  lookahead: the re-pump schedules [now, now + lookahead), so a lead of a
  *  full lookahead makes that window exactly empty and the repeat starts a
@@ -225,6 +266,8 @@ export class SongPlayer {
     this._master = null;
     this._fader = null;   // DISC20-B: built with the master
     this._level = null;   // WBX9: built with the master
+    this._press = null;   // WB10a: built the first time a song asks for one
+    this._levelTo = null;   // WB10a: where the level runs - the fader, or the press
     this._destination = destination;
   }
 
@@ -240,6 +283,39 @@ export class SongPlayer {
     this._level = this.ctx.createGain();   // WBX9: the song's own level, under the fader
     this._level.gain.value = 1;
     this._level.connect(this._fader);
+    this._levelTo = this._fader;
+  }
+
+  /** WB10a: the level through the song's press (songPress), or straight to the fader - rewired only when that changes,
+   *  so a song without one plays through exactly the graph it always did. The press: the compressor, `out` (its gain
+   *  carrying the signal into the curve's [-1, 1] as well), the ceiling's soft clip, the ceiling's amplitude, the fader.
+   *  The press is built once, its curve with it (every press shares the one), and only its settings move song by song.
+   *  A context with no compressor or no shaper plays the song unpressed. */
+  _routePress(press) {
+    if (!this._level) return;
+    let to = this._fader;
+    if (press && typeof this.ctx.createDynamicsCompressor === 'function' && typeof this.ctx.createWaveShaper === 'function') {
+      if (!this._press) {
+        const comp = this.ctx.createDynamicsCompressor(), out = this.ctx.createGain(), shaper = this.ctx.createWaveShaper(), top = this.ctx.createGain();
+        shaper.curve = ceilingCurve();
+        shaper.oversample = '4x';   // the clip's harmonics folded back under the audible band, not into it
+        comp.connect(out);
+        out.connect(shaper);
+        shaper.connect(top);
+        top.connect(this._fader);
+        this._press = { comp, out, shaper, top };
+      }
+      const { comp, out, shaper, top } = this._press;
+      for (const k of ['threshold', 'knee', 'ratio', 'attack', 'release']) comp[k].value = press[k];
+      const ceil = ceilingAmplitude(press.ceiling);
+      out.gain.value = press.out / (ceil * CEILING_DRIVE);
+      top.gain.value = ceil;
+      to = comp;
+    }
+    if (this._levelTo === to) return;
+    try { this._level.disconnect(); } catch { /* nothing connected */ }
+    this._level.connect(to);
+    this._levelTo = to;
   }
 
   /** DISC20-B: ramp the fader to `level` over `seconds` (see rampFader). */
@@ -262,6 +338,7 @@ export class SongPlayer {
     this.stop();
     this._ensureMaster();
     if (this._level) this._level.gain.value = songLevel(song);   // WBX9: the song's own level - 1 for every song but the ones that carry one
+    this._routePress(songPress(song));   // WB10a: and its press - none for every song but the ones that carry one
     this.song = song;
     // Computed once per song, not per window: the pedal map is a pure
     // function of the event list and the scheduler re-enters constantly.

@@ -39,10 +39,10 @@ import { HOW_MANY_ITEMS, SPLIT_INPUT_MAX, parseSplitAmount, splitRequired } from
 import { InputMessageBoxWindow } from './inputMessageBox.js';   // DISC25-F: ...pushed as CM5 pushes it for the pack
 import { audio } from '../systems/audio.js';
 import { SOUND } from '../systems/soundClips.js';
-import { layoutMessageBox, drawMessageBox, messageBoxHit, MB_BUTTONS } from './messageBox.js';
+import { layoutMessageBox, drawMessageBox, messageBoxHit, MB_BUTTONS, fitBoxRows } from './messageBox.js';
 import {
   MODE_ACTION_ART, SELL_GOLD_ART, modeActionArt,
-  tradeCost, getTradePrice, tradeDecision, sellProceeds,
+  tradeCost, getTradePrice, tradeDecision, sellProceeds, creditRows, creditRefusalRows,
   localListAccepts, localClickDecision, doesntNeedIdentifyText, letterOfCreditText,
   MAGIC_ITEMS_CANNOT_BE_REPAIRED_TEXT_ID, DOES_NOT_NEED_TO_BE_REPAIRED_TEXT_ID,
 } from '../systems/tradeModes.js';
@@ -66,6 +66,7 @@ import { expandGuildMacros } from '../systems/guildServiceActions.js';
 import { firstName } from '../systems/talkSession.js';   // MACRO-4: %pct's shop arm
 import { firstHotkey } from '../systems/dialogShortcuts.js';   // A8: the DaggerfallShortcut table
 import { lockRefuses, lockedText } from '../systems/itemLock.js';   // AUDIT MERGE-PLUS C3: the player's lock holds at this counter too
+import { isBound, boundText } from '../systems/itemBound.js';   // SS4: and so does a binding
 import { itemLongName } from '../systems/itemInfo.js';   // AUDIT MERGE-PLUS C3: the refusal names the piece
 
 /** A8: the mode action button's Hotkey is chosen by the WINDOW MODE
@@ -479,10 +480,13 @@ export class NativeTradeWindow {
     });
   }
 
+  /** ItemCollection.Transfer (:473-480): out of `from`, then AddItem into `to` - a lot rejoins its own stack there, as
+   *  every DFU click-back and ClearSelectedItems do. BOOK-SPLIT: a `push` left a book taken back off the counter as a
+   *  second row beside its own stack. A quest item goes to the front (DoTransferItem's order, :1573-1579). */
   _move(item, from, to) {
     const i = from.indexOf(item);
     if (i >= 0) from.splice(i, 1);
-    to.push(item);
+    addItem(to, item, item?.questItem ? 'front' : 'dontCare');
   }
 
   /** AUDIT UXB1 F4: goods put back on the shelf rejoin their stack - ItemCollection.AddItem's merge (inventory.js
@@ -542,6 +546,12 @@ export class NativeTradeWindow {
     // port's own); a repair or an identify still takes it, because it comes back
     if ((this.mode === 'Sell' || this.mode === 'SellMagic') && lockRefuses(item, 'sell')) {
       this.box = { rows: [{ text: lockedText(itemLongName(item, { getQuest: this.hooks.getQuest ?? null })), center: true }], buttons: null };
+      return true;
+    }
+    // SS4: a BOUND piece is not put up for sale on this skin either (systems/itemBound.js); a repair or an identify still
+    // takes it, because it comes back
+    if ((this.mode === 'Sell' || this.mode === 'SellMagic') && isBound(item)) {
+      this.box = { rows: [{ text: boundText(itemLongName(item, { getQuest: this.hooks.getQuest ?? null })), center: true }], buttons: null };
       return true;
     }
     const refused = isSummoned(item) || questTransferRefused(item, {
@@ -750,9 +760,13 @@ export class NativeTradeWindow {
     this.done = true;
   }
 
+  /** AUDIT SS: a host's teardown (a death, a building left, a load - worldModes.js `dispose?.()` over its windows) is
+   *  an exit too: OnPop's ClearSelectedItems puts back what is staged, which a window with no dispose stranded. */
+  dispose() { if (!this.done) this._close(); }
+
   /** DoModeAction -> ShowTradePopup (:954-998, :1100-1134). */
   _modeAction() {
-    const { cost, modeActionEnabled } = this.cost();
+    const { cost, modeActionEnabled, pieces } = this.cost();
     if (!modeActionEnabled) return;          // DFU disables the button outright
     // AUDIT 39 F144: DoModeAction opens on the SPELL (:955-995) and
     // ShowTradePopup is its ELSE. The spell pays in magicka, rolls per
@@ -762,11 +776,17 @@ export class NativeTradeWindow {
     // false, which leaves the lot staged as DFU's early return does).
     if (this.hooks.usingIdentifySpell) { this._castIdentifySpell(); return; }
     const ctx = this.hooks.priceCtx?.() ?? {};
-    const price = getTradePrice(this.mode, cost, ctx.quality ?? 0, ctx.skills ?? {});
+    const price = getTradePrice(this.mode, cost, ctx.quality ?? 0, ctx.skills ?? {}, pieces);   // FB0929: a purchase asks a gold a piece at least
     const d = tradeDecision(this.mode, { cost, tradePrice: price, gold: this.hooks.gold() });
     if (d.kind === 'notEnoughGold') {
+      // SHIP-CREDIT (Mac: "Buy on credit"): a boat the purse falls short of, offered on the bank's credit - or why not
+      const credit = this.mode === 'Buy' ? this.hooks.credit?.([...this.stagedForCost], price) ?? null : null;
+      if (credit?.kind === 'credit') {
+        this.box = { rows: creditRows(credit, price, this.hooks.gold?.() ?? 0), buttons: 'YesNo', price, cost, onYes: () => this._confirm(price, credit) };
+        return;
+      }
       // the two records CONCATENATED into one click-anywhere box
-      this.box = { rows: d.textIds.flatMap((id) => this._rows(id, price)), buttons: null };
+      this.box = { rows: [...d.textIds.flatMap((id) => this._rows(id, price)), ...(credit?.kind === 'refuse' ? creditRefusalRows(credit, credit.lines) : [])], buttons: null };
       return;
     }
     this.box = { rows: this._rows(d.textId, price), buttons: 'YesNo', price, cost, onYes: () => this._confirm(price) };
@@ -789,11 +809,11 @@ export class NativeTradeWindow {
   }
 
   /** ConfirmTrade_OnButtonClick's Yes arm (:1027-1092). */
-  _confirm(price) {
+  _confirm(price, credit = null) {
     const selling = this.mode === 'Sell' || this.mode === 'SellMagic';
     const proceeds = selling
       ? sellProceeds(price, this.hooks.weight?.() ?? {})
-      : null;
+      : credit;   // SHIP-CREDIT: a purchase on the bank's credit
     this.hooks.commit?.(this.mode, [...this.stagedForCost], price, proceeds);
     // D7 - ConfirmTrade clears PER MODE, and two of the four clear
     // nothing at all (:1027-1090). Buy does `PlayerEntity.Items
@@ -1036,7 +1056,7 @@ export class NativeTradeWindow {
     // why this draws last and the window is not closed to show it.
     if (this.box) {
       const buttons = this.box.buttons === 'YesNo' ? [MB_BUTTONS.Yes, MB_BUTTONS.No] : [];
-      this._boxLayout = layoutMessageBox(font, this.box.rows, buttons);
+      this._boxLayout = layoutMessageBox(font, fitBoxRows(font, this.box.rows), buttons);   // SS5: a long row wraps on the screen
       drawMessageBox(renderer, m, font, this._boxLayout);
     } else this._boxLayout = null;
     if (this.inputBox) this.inputBox.draw(renderer, canvas, font);   // DISC25-F: the pushed how-many box, over the panel

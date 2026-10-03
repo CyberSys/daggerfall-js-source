@@ -47,8 +47,8 @@
   {
     "name": "RENOWN1-kill-level-unclamped",
     "file": "src/net/renown.js",
-    "old": "export const renownKillXp = (foeLevel, renown = null) => RENOWN_KILL_XP_PER_LEVEL * Math.min(clampInt(foeLevel, 1, RENOWN_KILL_LEVEL_MAX), renownCeiling(renown));",
-    "new": "export const renownKillXp = (foeLevel, renown = null) => RENOWN_KILL_XP_PER_LEVEL * Math.min(clampInt(foeLevel, 0, 999), renownCeiling(renown));",
+    "old": "export const renownKillXp = (foeLevel, renown = null) => renownRate(RENOWN_KILL_XP_PER_LEVEL * Math.min(clampInt(foeLevel, 1, RENOWN_KILL_LEVEL_MAX), renownCeiling(renown)));",
+    "new": "export const renownKillXp = (foeLevel, renown = null) => renownRate(RENOWN_KILL_XP_PER_LEVEL * Math.min(clampInt(foeLevel, 0, 999), renownCeiling(renown)));",
     "tests": [
       "test/renown1.test.js"
     ]
@@ -245,11 +245,12 @@
   {
     "name": "RENOWN1-refusal-retried-forever",
     "file": "src/net/renownTracker.js",
-    "old": "    if (PERMANENT.has(r?.error)) { stopped = true; held = null; pending = 0; try { onStop(r.error); } catch { /* the stop stands */ } }",
-    "new": "    if (PERMANENT.has(r?.error)) { held = null; pending = 0; try { onStop(r.error); } catch { /* the stop stands */ } }",
+    "old": "    if (PERMANENT.has(r?.error)) { stopped = true; held = null; pend.clear(); try { onStop(r.error); } catch { /* the stop stands */ } }",
+    "new": "    if (PERMANENT.has(r?.error)) { held = null; pend.clear(); try { onStop(r.error); } catch { /* the stop stands */ } }",
     "tests": [
       "test/renown1.test.js"
-    ]
+    ],
+    "note": "SEAT1b (PIN MOVED): re-aimed by content - the report names its region, the gate claim its region and character."
   },
   {
     "name": "RENOWN1-layer-in-the-stored-health",
@@ -380,7 +381,7 @@
   {
     "name": "RENOWN1-character-unnamed",
     "file": "src/net/accountClient.js",
-    "old": "secret: session.secret }, typeof named === 'string' && named ? named : null);",
+    "old": "secret: session.secret }, named);",
     "new": "secret: session.secret }, null);",
     "tests": [
       "test/renown1.test.js"

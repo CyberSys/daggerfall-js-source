@@ -86,7 +86,7 @@ import { skillValue, SKILLS } from '../systems/skills.js';
 import { RACES } from '../systems/races.js';
 import { SPECIAL_ABILITY_BITS } from '../systems/specialAdvantages.js';
 import { WEAPONS, weaponMinDamage, weaponMaxDamage, weaponSkillUsed } from '../characters/weapons.js';
-import { equipTableOf, lowerCondition, slotForBodyPart, EQUIP_SLOTS, weaponProficiencyFlag } from '../systems/equip.js';
+import { equipTableOf, lowerCondition, blowWear, slotForBodyPart, EQUIP_SLOTS, weaponProficiencyFlag } from '../systems/equip.js';
 import { SHIELD_PARTS, isShieldTemplate, itemArmorValue } from '../systems/armorMaterials.js';
 import { conditionPercentage, itemLongName, shownItemName } from '../systems/itemInfo.js';   // L10N3e: and the short name, as shown
 import { effectiveUnitWeightInKg } from '../systems/inventory.js';
@@ -100,6 +100,7 @@ import {
   registerFormulaOverride, handToHandMinDamage, handToHandMaxDamage,
   WEAPON_MATERIAL_MODIFIER, enemyEntityGroup, careerAttackModifier, ENEMY_GROUPS, dice100,
   materialIneffectiveText, successfulBackstabText,
+  damageEquipment,   // WEAR-VANILLA: DFU's DamageEquipment, the core's wear while the wear module is off
 } from './formulas.js';
 import { meanerMonstersOn } from './pcaaoMeanerMonsters.js';
 import { RR_VENDOR, rrAdjustWeaponHitChanceMod, rrAdjustWeaponAttackDamage } from '../systems/rrRealism.js';   // AUDIT 68 S08-pcaao-archery-duplicate: RR's two archery members, one export
@@ -653,28 +654,28 @@ export const pcaaoFades = (item) => isEnchantedItem(item) && !stampedTier(item);
 /** LowerCondition(amount, owner, collection): the PLAYER's enchanted
  *  piece, under the fading module, is REMOVED from the pack when it
  *  breaks; everything else breaks as DFU's does. */
-function wear(item, owner, amount, modules, say) {
+function wear(item, owner, amount, modules, say, rolls = Math.random) {
   const removeFrom = modules.fadingEnchantedItems && isPlayer(owner) && pcaaoFades(item) ? (owner.items ?? null) : null;   // RARE-BREAK1
-  lowerCondition(item, amount, owner, say, removeFrom, shownItemName);   // L10N3e: the broken line names it as shown
+  lowerCondition(item, blowWear(amount, rolls), owner, say, removeFrom, shownItemName);   // BALANCE1: the mod's amount, on the port's wear scale; L10N3e: the broken line names it as shown
 }
 /** ApplyConditionDamageThroughWeaponDamage: armour takes the damage
  *  (a shield as is, a piece doubled); a weapon takes `10 * damage /
  *  50`, a 40% roll turning 0 into 1, and a bow its own tier's wear. */
 export function pcaaoApplyConditionDamageThroughWeaponDamage(item, owner, damage, bluntWep, shtbladeWep, missileWep, wepEqualize, modules, rolls, say) {
   if (isArmorGroup(item)) {
-    wear(item, owner, isShield(item) ? damage : damage * 2, modules, say);
+    wear(item, owner, isShield(item) ? damage : damage * 2, modules, say, rolls);
     return;
   }
   let amount = int(10 * damage / 50);
   if (amount === 0 && dice100(40, rolls())) amount = 1;
   if (missileWep) amount = pcaaoSpecificWeaponConditionDamage(item, amount, wepEqualize);
-  wear(item, owner, amount, modules, say);
+  wear(item, owner, amount, modules, say, rolls);
 }
 /** ApplyConditionDamageThroughUnarmedDamage: a fist wears only
  *  armour - a shield half of it, a piece all of it. */
-export function pcaaoApplyConditionDamageThroughUnarmedDamage(item, owner, damage, modules, say) {
+export function pcaaoApplyConditionDamageThroughUnarmedDamage(item, owner, damage, modules, say, rolls = Math.random) {
   if (!isArmorGroup(item)) return;
-  wear(item, owner, isShield(item) ? int(damage / 2) : damage, modules, say);
+  wear(item, owner, isShield(item) ? int(damage / 2) : damage, modules, say, rolls);
 }
 
 /** WarningMessagePlayerEquipmentCondition: the player's gear speaks
@@ -817,7 +818,7 @@ export function pcaaoDamageEquipment(attacker, target, damage, weapon, struckBod
       const div = F(F(armorMod * F(shieldBlockSuccess ? 0.4 : 0.2)) + 1);
       d = Math.ceil(F((d + liveStrength) / div));
       startItemCondPer = conditionPercentage(struck);
-      pcaaoApplyConditionDamageThroughUnarmedDamage(struck, target, d, modules, say);
+      pcaaoApplyConditionDamageThroughUnarmedDamage(struck, target, d, modules, say, rolls);
       if (isPlayer(target)) pcaaoWarningMessagePlayerEquipmentCondition(struck, startItemCondPer, say);
     }
     return false;
@@ -1034,6 +1035,7 @@ export function pcaaoAttackDamage(attacker, target, {
     const b = AIAttacker.basics ?? {};
     if (int(((b.minDamage ?? 0) + (b.maxDamage ?? 0)) / 2) > wepAvg) weapon = null;
   }
+  const struckWith = weapon;   // WEAR-VANILLA: the weapon the blow is struck with - never a monster's stand-in below
   if (weapon) {
     if (modules.softMaterialRequirements) {
       if ((target.minMetalToHit ?? -1) > weapon.material) {
@@ -1159,7 +1161,10 @@ export function pcaaoAttackDamage(attacker, target, {
   // num2, weapon, num10)` - the static, not FormulaHelper's), so the
   // overhaul always wears gear its way, PRE-reduction, whatever the
   // equipmentDamageEnhanced switch registered for DFU's own path.
-  pcaaoDamageEquipment(attacker, target, damage, weapon, struckBodyPart, { rolls, say, modules });
+  // WEAR-VANILLA (2026-10-01, the repair triage: "Disable the modded feature that increases durability loss. Vanilla
+  // values work fine"): A DEPARTURE - only while that module is on. Off (the port's default, modSettings.js), the blow
+  // wears what FormulaHelper's DamageEquipment says, below the reduction.
+  if (modules.equipmentDamageEnhanced) pcaaoDamageEquipment(attacker, target, damage, weapon, struckBodyPart, { rolls, say, modules });
   if (AITarget && isMonster(AITarget)) {
     if (!pcaaoArmorStruckVerification(target, struckBodyPart)) damage = pcaaoPercentageReductionCalculationForMonsters(attacker, target, damage, bluntWep, naturalDamResist);
     else if (unarmedAttack) damage = pcaaoArmorDamageReductionWithUnarmed(attacker, target, damage, struckBodyPart, naturalDamResist, modules);
@@ -1169,6 +1174,15 @@ export function pcaaoAttackDamage(attacker, target, {
   } else if (weaponAttack) {
     damage = pcaaoArmorDamageReductionWithWeapon(attacker, target, damage, weapon, struckBodyPart, naturalDamResist, modules);
   }
+  // WEAR-VANILLA, the module off: FormulaHelper's DamageEquipment (formulas.js damageEquipment, Roleplay Realism's slot
+  // inside it), with the weapon the blow was struck with - a monster's stand-in is the overhaul's device, so a claw
+  // wears no armour, as in DFU - and (AUDIT ECON W1) by the damage that WENT THROUGH, after the reduction above. DFU's
+  // armour turns a blow aside and the blow wears nothing; the overhaul's lets nearly every blow land and takes its
+  // share off it instead, so the share it took wears nothing either. Fed the damage before the reduction, gear wore 1.3
+  // to 2.5 times DFU's rate a swing (a level-20 player in Daedric lost 2.5 times DFU's armour to a Knight's swing);
+  // after it, 0.7 to 1.2 times. The duel reads its blow the same way (scenes/world.js, the defender's own damage). The
+  // rest of the overhaul - the hit, the damage, the reduction - is untouched.
+  if (!modules.equipmentDamageEnhanced) damageEquipment(attacker, target, damage, struckWith, struckBodyPart, { rolls, say });
   // The Ring of Namira's payload (the C# dispatches it here for an
   // enemy's blow on the player) is the port's struck hook at the tail
   // of formulas.calculateAttackDamage, fed this very damage.
@@ -1193,6 +1207,9 @@ export function installPcaao({ read = null, other = null } = {}) {
     if (!m.armorHitFormulaRedone) return undefined;
     return pcaaoAttackDamage(attacker, target, { ...opts, modules: m });
   });
+  // AC-COMPARE: the table the core above draws a blow's part from (pcaaoAttackDamage's pcaaoStruckBodyPart), on the
+  // core's own switch - a reader that weighs the parts (the enhanced pack's overall armour) follows the core in force
+  registerFormulaOverride('struckBodyPartTable', () => (modules().armorHitFormulaRedone ? PCAAO_BODY_PARTS : undefined));
   // AUDIT PCO1: InitMod's archery arm registers AdjustWeaponHitChanceMod
   // and AdjustWeaponAttackDamage on FormulaHelper whatever the armour
   // module says, so DFU's STOCK CalculateAttackDamage bends a bow's hit
@@ -1209,6 +1226,7 @@ export function uninstallPcaao() {
   registerFormulaOverride('damageModifier', null);
   registerFormulaOverride('damageEquipment', null);
   registerFormulaOverride('calculateAttackDamage', null);
+  registerFormulaOverride('struckBodyPartTable', null);   // AC-COMPARE
   registerFormulaOverride('adjustWeaponHitChanceMod', null);
   registerFormulaOverride('adjustWeaponAttackDamage', null);
 }
