@@ -11,6 +11,9 @@
 // `me.recent`): the Records page the account's (its note, its record, its last bouts - a rated bout's rating in its line),
 // no purses chip in the header, and the Leaderboards' fastest Grand Champion with the realm's Hall of Champions under it
 // (test/arena4b_window.test.js holds the law).
+// ARENA5: and YOUR LADDER REPLAY on the Records page - the save keeps three of its bouts (systems/arenaReplay.js), each
+// row the records keep carrying Watch the replay: inside the window at every width, and its press the host's
+// (`act('replay', { i })`); test/arena5_replay.test.js holds the law.
 //
 //     node tools/arenaWindowProbe.mjs
 import { createServer } from 'vite';
@@ -37,6 +40,7 @@ for (const [W, H, width] of [[1440, 900, 'desktop'], [800, 600, 'narrow'], [390,
     const BK = await import('/src/systems/arenaBook.js');
     const AL = await import('/src/systems/arenaLadder.js');
     const AB = await import('/src/systems/arenaBoard.js');
+    const RP = await import('/src/systems/arenaReplay.js');   // ARENA5
     const { mountArenaWindow } = await import('/src/ui/arenaWindow.js');
     document.body.innerHTML = '';
     document.body.style.cssText = 'margin:0;background:repeating-linear-gradient(45deg,#2a2721 0 14px,#231f1a 14px 28px);height:100vh';
@@ -44,6 +48,7 @@ for (const [W, H, width] of [[1440, 900, 'desktop'], [800, 600, 'narrow'], [390,
     const gm = 523530 - (523530 % 1440) + 196 * 1440 + 12 * 60;
     let ladder = AL.newArenaLadder();
     let league = LG.joinBanner(LG.newArenaLeague(), 'red', gm - 60 * 1440).league;
+    let replays = [];   // ARENA5
     league.laurel = { banner: 'red', season: 405 };
     const opps = ['Mirabelle Ashfield', 'Gorlak gro-Mazgulbarz', 'Uthyrick Kingston', 'The Grizzly Bear', 'Senna Varo', 'Peristair Kingfield', 'Tozca of Totambu'];
     for (let i = 0; i < 9; i++) {
@@ -51,6 +56,12 @@ for (const [W, H, width] of [[1440, 900, 'desktop'], [800, 600, 'narrow'], [390,
       const next = AL.nextLadderBout(ladder);
       ladder = AL.ladderAfter(ladder, { won, how: won ? 'fall' : 'yield', purse: won ? next.purse : 0 }).ladder;
       league = LG.leagueAfterBout(league, { gameMinutes: gm - (40 - i * 4) * 1440, tier: next.tier, label: next.label, opp: opps[i % opps.length], won, how: won ? (i % 2 ? 'judges' : 'fall') : 'yield', purse: won ? next.purse : 0, champion: next.champion });
+      // ARENA5: the last three bouts kept for their replays (a few seconds each - the window reads only their rows)
+      if (i >= 6) {
+        const R = RP.newRecording({ t0: 0, at: gm - (40 - i * 4) * 1440, next, sides: ['red', null], fighters: [{ id: 'you', name: 'Aldric', side: 0, mobile: 145, health: 90, maxHealth: 90 }, { id: 'f0', name: opps[i % opps.length], side: 1, mobile: 138, health: 40, maxHealth: 40 }] });
+        for (let k = 0; k <= 30; k++) RP.recordTick(R, k * 100, [[-6 + k * 0.1, 0, 1.57], [6 - k * 0.1, 0, -1.57]]);
+        replays = RP.keepReplay(replays, RP.finishRecording(R, { side: won ? 0 : 1, how: 'fall' }));
+      }
     }
     const ex0 = AL.exhibitionFor(gm - 26 * 60);
     let book = BK.placeWager(league.book, ex0, 0, 100, { gold: 1000, gameMinutes: gm - 26 * 60 }).book;
@@ -60,11 +71,12 @@ for (const [W, H, width] of [[1440, 900, 'desktop'], [800, 600, 'narrow'], [390,
     book = { ...book, wagers: book.wagers.filter((w) => w.hour !== ex1.hour) };   // the hour's still open to wager on
     league = { ...league, book };
     window.__arena = { gm, ladder, league };
+    window.__acts = [];
     const host = document.createElement('div');
     document.body.append(host);
     window.__arenaView = mountArenaWindow(host, {
-      board: () => AB.arenaBoard({ ladder, league, gameMinutes: gm, name: 'Aldric Wyndbrooke-Varnell', atGate: true, gold: 640, healthShare: 1 }),
-      act: () => ({ ok: true, text: 'Taken - 50 gold on Gorlak gro-Mazgul at 7 to 4. Good luck to you.' }),
+      board: () => AB.arenaBoard({ ladder, league, gameMinutes: gm, name: 'Aldric Wyndbrooke-Varnell', atGate: true, gold: 640, healthShare: 1, replays }),
+      act: (k, d) => { window.__acts.push([k, d]); return { ok: true, text: 'Taken - 50 gold on Gorlak gro-Mazgul at 7 to 4. Good luck to you.' }; },
     });
     await new Promise((res) => setTimeout(res, 120));
   });
@@ -138,6 +150,20 @@ for (const [W, H, width] of [[1440, 900, 'desktop'], [800, 600, 'narrow'], [390,
     check(`${tag} pixel face, its tab chosen`, /Pixelify/.test(r.font) && r.tabsRole && r.selected === pg, `${r.font.slice(0, 30)} ${r.selected}`);
     check(`${tag} the kit's carved frame`, r.border, '');
     check(`${tag} words on the page`, r.words > 40, String(r.words));
+    if (pg === 'records' && !online) {
+      // ARENA5: the three kept bouts each carry Watch the replay, inside the window; pressed, the host's word with its record
+      const rp = await page.evaluate(async () => {
+        const shell = document.querySelector('.aw-shell');
+        const win = shell.querySelector('.aw-win').getBoundingClientRect();
+        const presses = [...shell.querySelectorAll('.aw-boutacts .aw-act[data-act="replay"]')];
+        const inWin = presses.every((b) => { const r = b.getBoundingClientRect(); return r.left >= win.left - 1 && r.right <= win.right + 1 && r.height >= 20; });
+        window.__acts.length = 0;
+        presses[0]?.click();
+        await new Promise((res) => setTimeout(res, 30));
+        return { n: presses.length, inWin, acts: window.__acts.slice(), label: presses[0]?.textContent ?? '' };
+      });
+      check(`${tag} Watch the replay on the three kept bouts, inside the window, pressed to the host`, rp.n === 3 && rp.inWin && rp.acts.length === 1 && rp.acts[0][0] === 'replay' && rp.acts[0][1].i === 0 && rp.label === 'Watch the replay', JSON.stringify(rp));
+    }
     if (online) {
       const o = await page.evaluate(() => {
         const shell = document.querySelector('.aw-shell');

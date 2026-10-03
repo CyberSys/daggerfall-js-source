@@ -59,6 +59,11 @@ test('ARENA5 the recording: ten ticks a second, the feet a tenth of a metre and 
   // health logged only when its share moves
   assert.deepEqual(rec.hp0, [255, 255]);
   assert.ok(rec.hp.length > 0 && rec.hp.length % 3 === 0 && rec.hp.filter((_, i) => i % 3 === 1).every((i) => i === 1), 'only the hurt fighter\'s');
+  // a jump past a byte's reach (a fighter set down twenty metres off): the stream catches up a tick later, closed on its own
+  // output - an open loop would leave the decode short of it for good
+  const J = RP.newRecording({ t0: 0, fighters: F2.slice(0, 1) });
+  for (const [k, x] of [[0, 0], [1, 20], [2, 20], [3, 20]]) RP.recordTick(J, k * 100, [[x, 0, 0]]);
+  assert.deepEqual(RP.decodePoses(RP.finishRecording(J)).map((p) => p[0][0]), [0, 127, 200, 200]);
   // a long frame's missed ticks carry the pose; past the cap it stops
   const L = RP.newRecording({ t0: 0, fighters: F2.slice(0, 1) });
   RP.recordTick(L, 1000, [[1, 1, 0]]);

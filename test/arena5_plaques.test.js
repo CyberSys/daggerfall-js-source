@@ -78,11 +78,13 @@ test('ARENA5 the row keeps to the wall: no plaque over a doorway or past a corne
   const door = hallPlaquePlan([0, 1, 0], roomRay(ROOM, [{ wall: 'z+', lo: 1.5, hi: 2.5 }]));
   const xs = door.plaques.map((p) => p.pos[0]);
   assert.ok(!xs.some((x) => x >= 1.5 - 1e-9 && x <= 2.5 + 1e-9), 'nothing hung in the doorway');
-  assert.ok(xs.includes(1) && xs.includes(3), 'either side of it');
+  assert.deepEqual(xs, [-5, -4, -3, -2, -1, 0, 1, 3, 4, 5], 'either side of it, every one on the wall');
+  assert.ok(door.plaques.every((p) => p.pos.every(Number.isFinite) && Math.abs(p.pos[2] - (2 - PLAQUE_OFF_M)) < 1e-9), 'none hung out past the doorway');
   // a narrow room: the corners close the row
   const narrow = hallPlaquePlan([0, 1, 0], roomRay({ x: [-1.6, 1.6], y: [0, 4], z: [-3, 1] }));
   assert.deepEqual(narrow.plaques.map((p) => p.pos[0]), [-1, 0, 1], 'three fit between the corners');
   assert.equal(hallPlaquePlan([0, 1, 0], () => Infinity), null, 'no floor under her');
+  assert.equal(hallPlaquePlan([0, 1, 0], (o, d) => (d[1] < 0 ? Infinity : 2)), null, 'walls round her but no floor');
   assert.equal(hallPlaquePlan([0, 1, 0], (o, d) => (d[1] < 0 ? 1 : Infinity)), null, 'no wall near her');
   assert.equal(hallPlaquePlan(null, roomRay(ROOM)), null);
   assert.equal(hallPlaquePlan([0, 1, 0], null), null);

@@ -1223,8 +1223,9 @@ export const ARENA_WINDOW_CSS = `/* ── ARENA3: THE ARENA WINDOW ── */
 .aw-bouttail { display: flex; flex-direction: column; align-items: flex-end; gap: 1px; font-size: 11px; color: var(--mute); white-space: nowrap; }
 .aw-bp { color: var(--brass-hi); }
 .aw-bpts { color: #d9f0a8; }
-/* ARENA5: a kept bout's Watch the replay, under its row */
-.aw-boutacts { grid-column: 2 / -1; display: flex; justify-content: flex-end; }
+/* ARENA5: a kept bout's Watch the replay, under its row - a small press, so a kept row stays a row */
+.aw-boutacts { grid-column: 2 / -1; display: flex; justify-content: flex-end; margin-top: -4px; }
+body .aw-shell .aw-boutacts .act { min-width: 0; padding: 3px 12px; font-size: 12px; }
 .aw-wagerlist { list-style: none; margin: 8px 0 0; padding: 0; display: flex; flex-direction: column; gap: 3px; font-size: 13px; }
 .aw-wl { padding: 3px 8px; border-left: 2px solid #3a352a; }
 .aw-wl.s-won { border-left-color: var(--brass); color: var(--brass-hi); }

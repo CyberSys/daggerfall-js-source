@@ -182,7 +182,7 @@ test('ARENA5 the crowd in your colour, driven: a ladder bout under the Red washe
   assert.equal(w3.has(CROWD_WASH.red.join(',')), false);
 });
 
-test('ARENA5 a relay\'s watched pair washes each half by the banner the hall billed (relayBanners\' law, read through it) (mutant: ARENA5-CROWD-NOT-WASHED)', async () => {
+test('ARENA5 a relay\'s watched pair washes each half by the banner the hall billed (relayBanners\' law, read through it) - and a relay\'s watched bout has its crowd at all (mutants: ARENA5-CROWD-NOT-WASHED, ARENA5-RELAY-CROWD-THROWS)', async () => {
   const r = rig({ name: 'Sola', health: 50, maxHealth: 50 });
   r.A.setStage(r.stage);
   r.A.startRelay({ o: '0123456789abcdef', kind: 'pvp', me: '', banners: { p0: 'blue', p1: 'red' } });
