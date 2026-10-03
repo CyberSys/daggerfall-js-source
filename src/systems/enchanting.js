@@ -46,7 +46,7 @@ import { ARMOR_MATERIAL } from './armorMaterials.js';
 import { WEAPON_MATERIALS } from '../characters/weapons.js';
 import { customItemClass } from './rriItems.js';   // RRI1: GetEnchantmentPower is a virtual the armor classes answer
 import { enchantGold } from '../net/alchemyLaw.js';   // PROF12: Enchanting's layer - the gold with the rank's share off
-import { recipeById, jewelPoints, JEWEL_HAND_GOLDSMITH, JEWEL_HAND_GEMCUTTER } from '../net/recipeLaw.js';   // AUDIT PROF10 J1: the most a crafted piece's recipe mints
+import { recipeById, jewelPoints } from '../net/recipeLaw.js';   // AUDIT PROF10 J1: the most a crafted piece's recipe mints
 import { enchantmentSettings } from './enchantmentCatalogue.js';   // AUDIT PROF10 J2: a crafted piece's own enchantments, costed as the maker costs a row
 import { ENCHANTMENT_TYPES } from '../formats/magicDef.js';   // and their classic type back to the catalogue's key
 
@@ -120,11 +120,11 @@ export const armorEnchantmentMultiplier = (material) =>
 export function craftedJewelPoints(item) {
   const r = craftedJewelRecipe(item);
   if (!r || !Number.isSafeInteger(item.enchantmentPoints) || item.enchantmentPoints < 0) return null;
-  // AUDIT PROF10 J1: never more than its recipe could have minted - the template's and the most a jeweller's hand adds
-  // (a Goldsmith's Silver, a Gemcutter's gem): a piece forged over the wire or in a save carries no budget of its own
+  // AUDIT PROF10 J1: never more than its recipe could have minted - the template's and the share its jeweller's hand adds
+  // (a Goldsmith's Silver, a Gemcutter's gem): a piece forged over the wire or in a save carries no budget of its own.
+  // AUDIT PROF-541 J6: the piece's OWN hand (written at its mint, smithItems.js setJewel) - no hand, no hand's share
   const tpl = templateByIndex(r.templateIndex)?.enchantmentPoints ?? 0;
-  const most = Math.max(...[null, JEWEL_HAND_GOLDSMITH, JEWEL_HAND_GEMCUTTER].map((hand) => jewelPoints(r, tpl, hand)));
-  return Math.min(item.enchantmentPoints, most);
+  return Math.min(item.enchantmentPoints, jewelPoints(r, tpl, item.hand ?? null));
 }
 /** AUDIT PROF10 J1: a CRAFTED piece of jewellery's recipe - DFU's Jewellery with the service's 16-hex provenance, its
  *  record a jeweller's (recipeLaw JEWELCRAFTING_RECIPES) of the very template it is - or null for every other item. */
@@ -134,6 +134,11 @@ export function craftedJewelRecipe(item) {
   return r?.kind === 'jewel' && r.templateIndex === item.templateIndex ? r : null;
 }
 const TYPE_KEY = Object.freeze(Object.fromEntries(Object.entries(ENCHANTMENT_TYPES).map(([k, v]) => [v, k])));
+/** AUDIT PROF-541 J4: what a row costs the item maker - the catalogue's (enchantmentSettings), by its classic type or
+ *  its key - or null where the catalogue cannot cost it. A crafted piece's Rare roll is drawn among those its points hold. */
+export function enchantmentRowCost(e) {
+  return enchantmentSettings(TYPE_KEY[e?.type] ?? e?.type, e?.param)?.enchantCost ?? null;
+}
 /**
  * AUDIT PROF10 J2 (DECIDED, Mac: "Item maker can add to it" - bible/06-Systems/Professions-Arc.md 36): THE ENCHANTMENTS A
  * CRAFTED PIECE KEEPS in the item maker. DFU's maker refuses any enchanted item (AddFilteredItem :415-443), so a

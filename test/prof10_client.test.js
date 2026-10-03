@@ -27,7 +27,9 @@ import { enchantmentSettings } from '../src/systems/enchantmentCatalogue.js';
 import { ENCHANTMENT_TYPES } from '../src/systems/enchantments.js';
 import { ItemMakerWindow, itemMakerFilter, ITEM_RECTS } from '../src/ui/itemMakerWindow.js';
 import { validLootItem } from '../src/systems/loot.js';
-import { rarityEligible } from '../src/systems/lootRarity.js';
+import { rarityEligible, RARE_FLAVOURS } from '../src/systems/lootRarity.js';
+import { PORT_SPECS } from '../src/ui/enhancedPorts.js';   // AUDIT PROF-541 J3: the Enhanced+ skin's item maker
+import { enchantmentRowCost } from '../src/systems/enchanting.js';   // AUDIT PROF-541 J4
 import {
   setProfessionsPages, drawStoresPage, drawProfessionsPage, resetProfPages, setDownProfAct, profActUnderWay, _jewelForTests, _cookForTests,
   PROF_STATIONS, stationColdLine, JEWEL_COLD_LINE, FACET_DOWN_LINE, jewelRecipes, jewelPointsLine,
@@ -483,11 +485,15 @@ test('PROF10 wiring: the jeweller\'s bench a Pawn Shop\'s or a Gem Store\'s (ope
 
 // ─── AUDIT PROF10 (2026-10-03): THE ITEM MAKER'S BUDGET ──────────────
 
-test('AUDIT PROF10 J1: a crafted piece\'s own points only where its record is a jeweller\'s of its very template, and never past the most that recipe mints (its template\'s and the most a hand adds) - a ring forged over the wire with two billion carries a Goldsmith\'s 1,980; an honest Goldsmith\'s and Gemcutter\'s their own; one under its most its own', () => {
+test('AUDIT PROF10 J1: a crafted piece\'s own points only where its record is a jeweller\'s of its very template, and never past what that recipe mints in its own hand (AUDIT PROF-541 J6: the hand kept on the piece) - a ring forged over the wire with two billion carries a plain Silver Ring\'s 1,800 (a Goldsmith\'s 1,980); an honest Goldsmith\'s and Gemcutter\'s their own; one under its most its own', () => {
   const forged = { ...mintPiece({ recipe: 'ring:silver', quality: 1, seed: 1 }, PROV), enchantmentPoints: 2_000_000_000 };
   const wire = validLootItem(JSON.parse(JSON.stringify(forged)));
   assert.equal(wire.enchantmentPoints, 2_000_000_000, 'the wire carries the field as it came');
-  assert.deepEqual([craftedJewelPoints(wire), itemEnchantmentPower(wire)], [1980, 1980], 'a Silver Ring\'s most: a Goldsmith\'s, Gold\'s +10%');
+  assert.deepEqual([wire.hand, craftedJewelPoints(wire), itemEnchantmentPower(wire)], [undefined, 1800, 1800], 'a Silver Ring of no hand: its template\'s, Silver\'s +0%');
+  const smithWire = validLootItem(JSON.parse(JSON.stringify({ ...mintPiece({ recipe: 'ring:silver', quality: 1, seed: 1, hand: 1 }, PROV), enchantmentPoints: 2_000_000_000 })));
+  assert.deepEqual([smithWire.hand, craftedJewelPoints(smithWire)], [1, 1980], 'a Goldsmith\'s: Gold\'s +10%, its hand carried');
+  assert.equal(validLootItem(JSON.parse(JSON.stringify({ ...forged, hand: 7 }))), null, 'a hand out of its bounds: the record refused (itemFields.js)');
+  assert.deepEqual([mintPiece({ recipe: 'ring:silver', quality: 1, seed: 1, hand: 2 }, PROV).hand, mintPiece({ recipe: 'ring:gold', quality: 1, seed: 1, hand: 1 }, PROV).hand], [undefined, undefined], 'a hand its recipe does not take is never kept');
   assert.deepEqual([craftedJewelRecipe(wire)?.id, craftedJewelRecipe({ ...wire, recipe: undefined }), craftedJewelRecipe({ ...wire, recipe: 'longsword:iron' }), craftedJewelRecipe({ ...wire, recipe: 'mark:gold:jade' }), craftedJewelRecipe({ ...wire, recipe: 'ring:nope' })],
     ['ring:silver', null, null, null, null], 'a jeweller\'s record of its own template, or none');
   assert.equal(itemEnchantmentPower({ ...wire, recipe: undefined }), 1800, 'no record: its template\'s, as any ring');
@@ -560,4 +566,68 @@ test('AUDIT PROF10 J2 (DECIDED, Mac: "Item maker can add to it"): DFU\'s item ma
   applyEnchantments(plain, [talent]);
   assert.deepEqual(plain.enchantments.map((e) => [e.type, e.param]), [[ENCHANTMENT_TYPES.ImprovesTalents, 0]]);
   assert.match(src('src/ui/itemMakerWindow.js'), /if \(!keptEnchantments\(item\) \|\| item\.group === 'UselessItems2'\) return false;/);
+});
+
+// ─── AUDIT PROF-541 (2026-10-03) ─────────────────────────────────────
+
+test('AUDIT PROF-541 J3: the Enhanced+ item maker draws the lists as the classic window does - a crafted piece\'s kept rows at their head, muted, with no act (never removed, as a forced row is), the player\'s own after them removable; the probe seam clicks the rows as drawn', () => {
+  const mw = mintPiece({ recipe: 'mark:platinum:diamond', quality: MASTERWORK, seed: 1, maker: 'X' }, PROV);
+  const player = { goldPieces: 100_000, items: [mw] };
+  const w = new ItemMakerWindow({ player, packItems: () => player.items });
+  w.tab = 'ClothingAndMisc';
+  w._selectItem(mw);
+  const talent = enchantmentSettings('ImprovesTalents', 0);
+  w.powers = [talent];
+  const rowsOf = (v) => {
+    const found = [];
+    const walk = (b) => { if (!b || typeof b !== 'object') return; if (b.type === 'rows') found.push(b); for (const k of ['blocks', 'cols']) for (const x of (b[k] ?? []).flat()) walk(x); };
+    walk({ blocks: v.blocks });
+    return Object.fromEntries(found.map((b) => [b.key, b.items]));
+  };
+  const rows = rowsOf(PORT_SPECS.itemMaker.view(w));
+  assert.deepEqual(rows.pow.map((r) => [r.label, r.muted, r.act === null]), [['Cast When Held', true, true], ['Improves Talents', false, false]], 'the kept row first, muted, no act; the player\'s own after it');
+  assert.equal(rows.pow[0].hint, 'The piece\'s own');
+  assert.deepEqual(rows.side, []);
+  rows.pow[1].act();
+  assert.deepEqual([w.powers, keptEnchantments(mw).length], [[], 1], 'the player\'s own row removed; the piece\'s stays');
+  assert.match(src('src/scenes/worldModes.js'), /const row = itemMakerRowLayout\(w\._lists\(\)\[which === 'powers' \? 'powers' : 'sideEffects'\]\)/);
+});
+
+test('AUDIT PROF-541 J4: a Masterwork jewel\'s Rare roll is one its points hold - a first draw over them drawn again among those that fit (every draw that fit stands as its seed made it); a Cloth Amulet\'s 660 never carries Tongues\' 1,590; still the seed\'s', () => {
+  const costs = RARE_FLAVOURS.Jewellery.map((f) => enchantmentRowCost(f));
+  assert.ok(costs.some((c) => c > 1040) && costs.every((c) => Number.isSafeInteger(c)), 'the group holds flavours past a small piece\'s points');
+  let rolled = 0;
+  const seen = new Set();
+  for (const recipe of ['clothamulet:linen:ruby', 'clothamulet:linen:jade', 'mark:silver:ruby', 'bracer:silver']) {
+    for (let seed = 0; seed < 120; seed++) {
+      const it = mintPiece({ recipe, quality: MASTERWORK, seed }, PROV);
+      assert.equal(it.rarity, 'rare');
+      const cost = enchantmentRowCost(it.enchantments[0]);
+      assert.ok(cost <= it.enchantmentPoints && cost <= itemEnchantmentPower(it), `${recipe} seed ${seed}: ${cost} within ${it.enchantmentPoints}`);
+      assert.equal(asMinted(it), true);
+      assert.deepEqual(mintPiece({ recipe, quality: MASTERWORK, seed }, PROV).enchantments, it.enchantments, 'the seed\'s, again');
+      if (recipe === 'clothamulet:linen:ruby') seen.add(`${it.enchantments[0].type}:${it.enchantments[0].param}`);
+      rolled++;
+    }
+  }
+  assert.equal(rolled, 480);
+  assert.equal(seen.size, costs.filter((c) => c <= 660).length, 'every flavour a Cloth Amulet holds still drawn');
+  // a piece every flavour fits: the seed's draw untouched (the J2 pin's Shadow Form stands)
+  assert.deepEqual(mintPiece({ recipe: 'mark:platinum:diamond', quality: MASTERWORK, seed: 1 }, PROV).enchantments, [{ type: ENCHANTMENT_TYPES.CastWhenHeld, param: 45 }]);
+});
+
+test('AUDIT PROF-541 J5: a Wand rolls no Magic or Rare (no slot: lootRarity.js rarityEligible), so its bench promises no Masterwork\'s enchantment - every other piece\'s does', () => {
+  const wand = mintPiece({ recipe: 'wand:ironwood:ruby', quality: MASTERWORK, seed: 1 }, PROV);
+  assert.deepEqual([wand.rarity, wand.enchantments ?? []], [undefined, []]);
+  stubPages({ rank: 100, held: { 'plank:ironwood': 2 } });
+  const page = pageOf();
+  try {
+    page.family('Wand').onclick();
+    page.recipe('Ironwood Ruby Wand').onclick();
+    assert.match(page.text(), /enchantment points \(\+\d+%\)\. The item maker spends them\./);
+    assert.doesNotMatch(page.text(), /Masterwork's own enchantment/);
+    page.family('Ring').onclick();
+    page.recipe('Silver Ruby Ring').onclick();
+    assert.match(page.text(), /The item maker spends them, beside a Masterwork's own enchantment\./);
+  } finally { page.done(); setProfessionsPages(null); }
 });

@@ -29,6 +29,10 @@
 ### Fixes
 - **A Masterwork piece can now be enchanted further.** Its magic property used to keep it out of the item maker, so its points went unused. The item maker now takes any piece you crafted along with the enchantment it already has. That enchantment stays on the piece and cannot be removed, and its cost counts against the piece's points. You can add more enchantments while the total fits. Other enchanted items are still refused, as in Daggerfall.
 - **A piece's enchantment points can't go past what its recipe makes.** A tampered piece no longer brings an impossible budget to the item maker.
+- **A Masterwork piece's own enchantment now always fits its points.** A small piece (a Cloth Amulet, a Mark) could roll an enchantment that cost more than the piece holds, leaving nothing to spend - it now rolls one that fits.
+- **The Enhanced+ item maker shows a crafted piece's own enchantment** at the top of its list, greyed out, as the classic window does. Before, it was invisible though its cost still counted.
+- **The bench no longer promises a Wand a Masterwork enchantment** - Wands do not roll one.
+- **A piece remembers the jeweller's hand that made it** (a Goldsmith's Silver, a Gemcutter's gem), so its points are capped at its own recipe's, not at the most any jeweller could have given it.
 
 ---
 

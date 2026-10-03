@@ -139,6 +139,9 @@ export const ITEM_FIELDS = Object.freeze({
   // 3.3; survival/food.js rotFoodDay); and a Chef's feast, which lasts half again (recipeLaw dishHand) - true, or absent
   noRot: bool(),
   chef: bool(),
+  // AUDIT PROF-541 J6: a crafted piece of jewellery's jeweller's hand (recipeLaw JEWEL_HAND_*: 1 a Goldsmith's Silver, 2 a
+  // Gemcutter's gem) - the share its points' cap allows (enchanting.js craftedJewelPoints), or absent
+  hand: int({ min: 1, max: 2 }),
   // PROF12: a Potent potion, brewed at an alchemy station (net/alchemyLaw.js) - its share of magnitude, 25 (a Master
   // Alchemist's 40), or absent
   potent: int({ min: 25, max: 40 }),

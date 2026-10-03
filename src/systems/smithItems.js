@@ -80,7 +80,9 @@ import {
   recipeById, QUALITY_EFFECTS, TOOL_LIFE, MASTERWORK, REPAIR_KIT_TEMPLATE, KIT_REPAIR, FIELD_KIT_REPAIR, KIT_CEILING, INGOT_MATERIAL, ARMOR_PLATE,
   ARMOR_CHAIN, PROVENANCE_RE, makerName, QUALITY_NAMES,
   jewelPoints, jewelPointsPct,   // PROF10: a piece of jewellery's points and its worth
+  jewelHandOk,   // AUDIT PROF-541 J6: the hand a piece keeps, one its recipe takes
 } from '../net/recipeLaw.js';
+import { enchantmentRowCost } from './enchanting.js';   // AUDIT PROF-541 J4: a Rare roll the piece's points hold
 import { minedMaterial } from '../net/professionLaw.js';
 import { weaponOfMaterial, armorOfMaterial, createWeapon } from '../combat/enemyEquipment.js';
 import { setItemFields, mintCondition, templateByIndex, registerItemUseHandler, conditionPercentage } from './itemTemplates.js';   // AUDIT ECON R2: the card's own percentage
@@ -134,6 +136,7 @@ function setJewel(item, r, hand) {
   const word = base?.name ?? '';
   item.name = word && typeof item.name === 'string' && item.name.includes(word) ? item.name.replace(word, r.name) : r.name;
   item.enchantmentPoints = jewelPoints(r, base?.enchantmentPoints ?? 0, hand);
+  if (jewelHandOk(r, hand)) item.hand = hand;   // AUDIT PROF-541 J6: the jeweller's hand kept on the piece - its points' cap its own (enchanting.js craftedJewelPoints)
   const gem = r.gem ? templateByIndex(minedMaterial(r.gem)?.templateIndex ?? -1)?.basePrice ?? 0 : 0;
   item.value = Math.max(1, Math.round((Number.isFinite(item.value) ? item.value : base?.basePrice ?? 0) + ((base?.basePrice ?? 0) * jewelPointsPct(r, hand)) / 100) + gem);
 }
@@ -193,7 +196,9 @@ export function mintPiece({ recipe, quality, seed, maker = null, marked = false,
         : r.kind === 'jewel' ? jewelItem(r)   // PROF10: DFU's jewellery
           : armorOfMaterial(r.templateIndex, r.material);   // PROF7: leather armour at Leather (0)
     const eff = QUALITY_EFFECTS[q];
-    if (eff.rarity && rarityEligible(item)) { applyRarity(item, eff.rarity, seededRng(seed >>> 0)); item.isIdentified = true; }
+    // AUDIT PROF-541 J4: a jewel's Rare roll one its points hold (a Cloth Amulet's 660 never carries Tongues' 1,590)
+    const fits = r.kind === 'jewel' ? ((f) => (enchantmentRowCost(f) ?? Infinity) <= jewelPoints(r, templateByIndex(r.templateIndex)?.enchantmentPoints ?? 0, hand)) : null;
+    if (eff.rarity && rarityEligible(item)) { applyRarity(item, eff.rarity, seededRng(seed >>> 0), null, { fits }); item.isIdentified = true; }
     item.maxCondition = item.currentCondition = Math.max(1, Math.round(item.maxCondition * eff.condition));
     if (eff.weight !== 1) item.weightInKg = Math.round(unitWeightInKg({ ...item, weightInKg: undefined }) * eff.weight * 100) / 100;
     if (q === MASTERWORK && mark) item.name = templateByIndex(r.templateIndex)?.name ?? item.name;   // the mark is its name (itemNameParts)

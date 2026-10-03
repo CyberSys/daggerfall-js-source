@@ -1311,7 +1311,7 @@
   {
     "name": "AUDIT-PROF10-J1-no-cap",
     "file": "src/systems/enchanting.js",
-    "old": "return Math.min(item.enchantmentPoints, most);",
+    "old": "return Math.min(item.enchantmentPoints, jewelPoints(r, tpl, item.hand ?? null));",
     "new": "return item.enchantmentPoints;",
     "tests": [
       "test/prof10_client.test.js"
@@ -1320,26 +1320,26 @@
   {
     "name": "AUDIT-PROF10-J1-cap-max",
     "file": "src/systems/enchanting.js",
-    "old": "return Math.min(item.enchantmentPoints, most);",
-    "new": "return Math.max(item.enchantmentPoints, most);",
+    "old": "return Math.min(item.enchantmentPoints, jewelPoints(r, tpl, item.hand ?? null));",
+    "new": "return Math.max(item.enchantmentPoints, jewelPoints(r, tpl, item.hand ?? null));",
     "tests": [
       "test/prof10_client.test.js"
     ]
   },
   {
-    "name": "AUDIT-PROF10-J1-no-goldsmith-hand",
+    "name": "AUDIT-PROF-541-J6-hand-ignored",
     "file": "src/systems/enchanting.js",
-    "old": "[null, JEWEL_HAND_GOLDSMITH, JEWEL_HAND_GEMCUTTER].map",
-    "new": "[null, JEWEL_HAND_GEMCUTTER].map",
+    "old": "jewelPoints(r, tpl, item.hand ?? null)",
+    "new": "jewelPoints(r, tpl, null)",
     "tests": [
       "test/prof10_client.test.js"
     ]
   },
   {
-    "name": "AUDIT-PROF10-J1-no-gemcutter-hand",
+    "name": "AUDIT-PROF-541-J6-goldsmith-assumed",
     "file": "src/systems/enchanting.js",
-    "old": "[null, JEWEL_HAND_GOLDSMITH, JEWEL_HAND_GEMCUTTER].map",
-    "new": "[null, JEWEL_HAND_GOLDSMITH].map",
+    "old": "jewelPoints(r, tpl, item.hand ?? null)",
+    "new": "jewelPoints(r, tpl, item.hand ?? 1)",
     "tests": [
       "test/prof10_client.test.js"
     ]
@@ -1437,8 +1437,108 @@
   {
     "name": "AUDIT-PROF10-J2-bench-words",
     "file": "src/ui/profPages.js",
-    "old": ". The item maker spends them, beside a Masterwork's own enchantment.`));",
-    "new": ". The item maker spends them.`));",
+    "old": ", beside a Masterwork\\'s own enchantment'}.`));",
+    "new": "'}.`));",
+    "tests": [
+      "test/prof10_client.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-PROF-541-J3-port-own-rows-only",
+    "file": "src/ui/enhancedPorts.js",
+    "old": "items: enchantRows(w, shown.powers) }",
+    "new": "items: enchantRows(w, w.powers) }",
+    "tests": [
+      "test/prof10_client.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-PROF-541-J3-kept-row-removable",
+    "file": "src/ui/enhancedPorts.js",
+    "old": "act: forced || kept ? null",
+    "new": "act: forced ? null",
+    "tests": [
+      "test/prof10_client.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-PROF-541-J3-kept-row-loud",
+    "file": "src/ui/enhancedPorts.js",
+    "old": "muted: forced || kept,",
+    "new": "muted: forced,",
+    "tests": [
+      "test/prof10_client.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-PROF-541-J3-probe-own-rows",
+    "file": "src/scenes/worldModes.js",
+    "old": "itemMakerRowLayout(w._lists()[which === 'powers' ? 'powers' : 'sideEffects'])",
+    "new": "itemMakerRowLayout(which === 'powers' ? w.powers : w.sideEffects)",
+    "tests": [
+      "test/prof10_client.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-PROF-541-J4-no-fit",
+    "file": "src/systems/smithItems.js",
+    "old": "seededRng(seed >>> 0), null, { fits })",
+    "new": "seededRng(seed >>> 0), null, {})",
+    "tests": [
+      "test/prof10_client.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-PROF-541-J4-first-draw-stands",
+    "file": "src/systems/lootRarity.js",
+    "old": "  if (typeof fits !== 'function' || fits(first)) return first;",
+    "new": "  return first;",
+    "tests": [
+      "test/prof10_client.test.js",
+      "test/lr1_lootrarity.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-PROF-541-J4-redraw-from-all",
+    "file": "src/systems/lootRarity.js",
+    "old": "return ok.length ? pick(ok, rolls) : first;",
+    "new": "return ok.length ? pick(all, rolls) : first;",
+    "tests": [
+      "test/prof10_client.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-PROF-541-J5-wand-promised",
+    "file": "src/ui/profPages.js",
+    "old": "r.product === 'wand' ? ''",
+    "new": "r.product === 'wands' ? ''",
+    "tests": [
+      "test/prof10_client.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-PROF-541-J6-hand-unkept",
+    "file": "src/systems/smithItems.js",
+    "old": "if (jewelHandOk(r, hand)) item.hand = hand;",
+    "new": "if (false) item.hand = hand;",
+    "tests": [
+      "test/prof10_client.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-PROF-541-J6-any-hand-kept",
+    "file": "src/systems/smithItems.js",
+    "old": "if (jewelHandOk(r, hand)) item.hand = hand;",
+    "new": "if (hand) item.hand = hand;",
+    "tests": [
+      "test/prof10_client.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-PROF-541-J6-field-unbounded",
+    "file": "src/systems/itemFields.js",
+    "old": "  hand: int({ min: 1, max: 2 }),",
+    "new": "  hand: int(),",
     "tests": [
       "test/prof10_client.test.js"
     ]

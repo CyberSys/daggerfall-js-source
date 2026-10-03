@@ -21,9 +21,9 @@ import { validCastData } from '../src/net/wire.js';
 import { allyCastFrame, allyCastSpell } from '../src/systems/allyCast.js';
 import { applySpell, removeBundleNamed } from '../src/systems/effects.js';
 import { liveStat } from '../src/systems/statMods.js';
-import { liveBundles } from '../src/systems/mysticism.js';
+import { liveBundles, canEndBundle, endBundle } from '../src/systems/mysticism.js';
 import { mintPiece, mintPieces, craftedText, asMinted, COOK_KEPT_TEXT } from '../src/systems/smithItems.js';
-import { mintDish, dishUse, feedEffect, dishStaminaFactor, setFeastShare, installCooking, feastSharedLine, DISH_STAMINA_KIND, isDish, isPartyDishSpell } from '../src/systems/cookItems.js';
+import { mintDish, dishUse, feedEffect, dishStaminaFactor, setFeastShare, installCooking, feastSharedLine, DISH_STAMINA_KIND, isDish, isPartyDishSpell, takeFeastGift, renewDish } from '../src/systems/cookItems.js';
 import { DISH_TEMPLATE_ROWS, DISH_FOODS } from '../src/systems/profTemplates.js';
 import { materialLabel, withdrawIntoPack } from '../src/systems/profItems.js';
 import { templateByIndex } from '../src/systems/itemTemplates.js';
@@ -450,7 +450,7 @@ test('PROF9 wiring: the fire is any lit one (the street\'s camps and braziers, a
   assert.match(w, /fieldCook: \(\) => fieldCookNow\(\),   \/\/ PROF9: a Field Cook's kit keeps its charge\n/);
   assert.match(w, /const fieldCookNow = \(\) => profBook\?\.state\?\.open === true && profBook\.track\('cooking'\)\?\.specs\?\.\[50\] === 'field-cook';/);
   assert.match(w, /fieldCook: \(\) => fieldCookNow\(\),   \/\/ PROF9: a Field Cook's kit keeps its charge underground too/);
-  assert.match(w, /setFeastShare\(\(spell\) => \{\n\s+if \(!online \|\| online\.status !== 'open' \|\| !social\?\.party\) return \[\];[\s\S]{0,200}if \(!social\.isPartyPeer\(peer\.id\)\) continue;\n\s+if \(online\.sendCast\?\.\(allyCastFrame\(spell, DISH_LEVEL, peer\.id\)\)\) out\.push/);
+  assert.match(w, /setFeastShare\(\(spell\) => \{\n\s+if \(!online \|\| online\.status !== 'open' \|\| !social\?\.party\) return \[\];\n\s+const out = \[\];\n\s+for \(const peer of peersNear\(\) \?\? \[\]\) \{[^\n]*\n\s+if \(!social\.isPartyPeer\(peer\.id\)\) continue;\n\s+if \(online\.sendCast\?\.\(allyCastFrame\(spell, DISH_LEVEL, peer\.id\)\)\) out\.push/);   // PIN MOVED (AUDIT PROF-541 K5): the mates in sight
   const m = src('src/scenes/worldModes.js');
   assert.match(m, /cookFireHere\(\) \{\n\s+if \(mode === 'interior'\) return interiorCamps\.fireNear\(player\.pos\) \? COOK_FIRE : null;\n\s+if \(mode === 'dungeon'\) return dungeonCtx\?\.cookFire\?\.\(\) === true \? COOK_FIRE : null;\n\s+return null;/);
   assert.match(m, /fieldCook: \(\) => host\.fieldCook\?\.\(\) === true,/);
@@ -491,7 +491,7 @@ test('AUDIT PROF9 K1: a Butcher-Provisioner\'s meat carries both marks and never
   assert.deepEqual([rotFoodDay([butcher.items], 0, always), rotFoodDay([butcher.items], 1, always), rotFoodDay([butcher.items], 2, always)], [1, 0, 1], 'rolled every other day');
 });
 
-test('AUDIT PROF9 K2: a feast a party mate shares RENEWS mine as one eaten does - my bundles of its name taken off before the gift lands (scenes/world.js online.onCast, a mate\'s alone), so its rounds never add up; a dish\'s name is a feast\'s only for the party\'s dish', () => {
+test('AUDIT PROF9 K2: a feast a party mate shares RENEWS mine as one eaten does - my bundles of its name taken off before the gift lands (scenes/world.js online.onCast, a mate\'s alone: cookItems.js takeFeastGift), so its rounds never add up; a dish\'s name is a feast\'s only for the party\'s dish', () => {
   assert.deepEqual([isPartyDishSpell('Feast of the Hearth'), isPartyDishSpell(dishOf('stew').name), isPartyDishSpell(dishOf('tart').name), isPartyDishSpell('Heal'), isPartyDishSpell(null)], [true, false, false, false, false]);
   const me = { items: [], stats: { ...STATS }, activeEffects: [] };
   feedEffect(me, dishOf('feast'));
@@ -499,17 +499,100 @@ test('AUDIT PROF9 K2: a feast a party mate shares RENEWS mine as one eaten does 
   // the mate's share, as onCast lays it on
   const frame = validCastData(allyCastFrame(dishSpell(dishOf('feast'), HAND_CHEF), DISH_LEVEL, 'peer-0001'));
   const gift = allyCastSpell(frame.spell);
-  if (isPartyDishSpell(gift.name)) while (removeBundleNamed(me, gift.name)) { /* the arm's own loop */ }
+  assert.equal(takeFeastGift(me, gift, frame.level, true), true, 'a mate\'s longer feast lands');
   applySpell(gift, frame.level, me, {}, () => 0.5, null, { allyCast: true });
   assert.deepEqual([liveStat(me, 'strength'), liveStat(me, 'willpower'), liveBundles(me).length], [55, 55, 1], 'renewed, never stacked');
   assert.deepEqual([...new Set(me.activeEffects.map((a) => a.roundsRemaining))], [2159], 'the Chef\'s day and a half, not added to mine');
-  // and eaten again over the gift: renewed again
+  // and a plain one eaten over the gift: the Chef's longer one stands (AUDIT PROF-541 K4)
   feedEffect(me, dishOf('feast'));
-  assert.deepEqual([liveStat(me, 'strength'), liveBundles(me).length], [55, 1]);
-  // the arm: in online.onCast before the gift is laid on, a mate's alone - never in the frame's own arms
+  assert.deepEqual([liveStat(me, 'strength'), liveBundles(me).length, [...new Set(me.activeEffects.map((a) => a.roundsRemaining))]], [55, 1, [2159]]);
+  // any other spell passes untouched
+  assert.equal(takeFeastGift(me, { name: 'Heal', effects: [] }, 30, false), true);
+  // the arm: in online.onCast before the gift is laid on - never in the frame's own arms
   const w = src('src/scenes/world.js');
-  assert.match(w, /online\.onCast = \(id, d\) => \{\n(?:[^\n]*\n){1,20}?      if \(mate && isPartyDishSpell\(spell\.name\)\) while \(removeBundleNamed\(playerEntity, spell\.name\)\) \{[^\n]*\}\n      if \(loud\) townTalk\.say\(allyCastTargetLine\(who, spell\.name\)\);\n      const before = playerEntity\.health;\n      magic\.applySpellToPlayer\(spell, d\.level, null, \{ allyCast: true, strangerCast: !mate \}\);/);
-  assert.equal(w.match(/isPartyDishSpell\(/g).length, 1, 'called once, there');
+  assert.match(w, /online\.onCast = \(id, d\) => \{\n(?:[^\n]*\n){1,20}?      const spell = allyCastSpell\(d\?\.spell, \{ stranger: !mate \}\);\n      if \(!spell\) return;\n      if \(!takeFeastGift\(playerEntity, spell, d\.level, mate\)\) return;[^\n]*\n(?:[^\n]*\n){1,8}?      magic\.applySpellToPlayer\(spell, d\.level, null, \{ allyCast: true, strangerCast: !mate \}\);/);   // PIN MOVED (AUDIT PROF-541 K3/K4): cookItems.js takeFeastGift
+  assert.equal(w.match(/takeFeastGift\(/g).length, 1, 'called once, there');
   const frameAt = w.indexOf('const onlineFrame = (now, dt) => {');
-  assert.ok(frameAt > 0 && !w.slice(frameAt, w.indexOf('\n  };', frameAt)).includes('isPartyDishSpell'), 'not in onlineFrame');
+  assert.ok(frameAt > 0 && !w.slice(frameAt, w.indexOf('\n  };', frameAt)).includes('takeFeastGift'), 'not in onlineFrame');
+});
+
+// ─── AUDIT PROF-541 (2026-10-03) ─────────────────────────────────────
+
+test('AUDIT PROF-541 K3: a feast is a party mate\'s gift alone - a stranger\'s "Feast of the Hearth" (the stranger\'s list lets Fortify Attribute through) is dropped before it lands, never stacked onto the standing feast (2,879 rounds)', () => {
+  const me = { items: [], stats: { ...STATS }, activeEffects: [] };
+  const frame = validCastData(allyCastFrame(dishSpell(dishOf('feast'), null), DISH_LEVEL, 'peer-0002'));
+  const mate = allyCastSpell(frame.spell);
+  assert.equal(takeFeastGift(me, mate, frame.level, true), true);
+  applySpell(mate, frame.level, me, {}, () => 0.5, null, { allyCast: true });
+  const stranger = allyCastSpell(frame.spell, { stranger: true });
+  assert.ok(stranger, 'the stranger\'s list would carry it');
+  assert.equal(takeFeastGift(me, stranger, frame.level, false), false, 'a stranger\'s feast dropped');
+  assert.deepEqual([liveStat(me, 'strength'), liveBundles(me).length, [...new Set(me.activeEffects.map((a) => a.roundsRemaining))]], [55, 1, [1439]], 'the party\'s day, as it was');
+  // what it did before: laid on beside the ally's feast, its rounds added
+  const was = { items: [], stats: { ...STATS }, activeEffects: [] };
+  applySpell(mate, frame.level, was, {}, () => 0.5, null, { allyCast: true });
+  applySpell(stranger, frame.level, was, {}, () => 0.5, null, { allyCast: true });
+  assert.ok(was.activeEffects.some((a) => a.roundsRemaining > 2000), 'like-kind stacking (effects.js) - why it is dropped');
+});
+
+test('AUDIT PROF-541 K4: a dish renewed is never shortened - a standing bundle with as many rounds left keeps them, the incoming skipped (a Chef\'s feast is not cut by a plain one eaten or shared); a shorter one standing is renewed', () => {
+  const me = { items: [], stats: { ...STATS }, activeEffects: [] };
+  feedEffect(me, dishOf('feast'), HAND_CHEF);
+  const rounds = () => [...new Set(me.activeEffects.map((a) => a.roundsRemaining))];
+  assert.deepEqual(rounds(), [2159]);
+  assert.deepEqual(feedEffect(me, dishOf('feast')), [], 'a plain feast eaten: nothing laid on');
+  assert.deepEqual([rounds(), liveBundles(me).length], [[2159], 1], 'the Chef\'s stands');
+  const frame = validCastData(allyCastFrame(dishSpell(dishOf('feast'), null), DISH_LEVEL, 'peer-0003'));
+  assert.equal(takeFeastGift(me, allyCastSpell(frame.spell), frame.level, true), false, 'a mate\'s plain feast skipped');
+  assert.deepEqual(rounds(), [2159]);
+  // run down below a plain feast's day: renewed by one
+  for (const a of me.activeEffects) a.roundsRemaining = 1000;
+  assert.equal(takeFeastGift(me, allyCastSpell(frame.spell), frame.level, true), true);
+  assert.deepEqual(me.activeEffects, [], 'the standing feast taken off for the renewal');
+  feedEffect(me, dishOf('stew'));
+  for (const a of me.activeEffects) a.roundsRemaining = 120;
+  assert.equal(renewDish(me, dishOf('stew').name, 120), false, 'as many left as the incoming: kept');
+  assert.equal(renewDish(me, dishOf('stew').name, 121), true, 'fewer: renewed');
+  assert.deepEqual(me.activeEffects, []);
+});
+
+test('AUDIT PROF-541 K5: a feast is shared with the party mates in sight at the table (peersNear - the stranger\'s gift\'s own law), never every party peer in the room and its halo cells; only those whose send went named', () => {
+  const w = src('src/scenes/world.js');
+  assert.match(w, /setFeastShare\(\(spell\) => \{\n\s+if \(!online \|\| online\.status !== 'open' \|\| !social\?\.party\) return \[\];\n\s+const out = \[\];\n\s+for \(const peer of peersNear\(\) \?\? \[\]\) \{[^\n]*\n\s+if \(!social\.isPartyPeer\(peer\.id\)\) continue;\n\s+if \(online\.sendCast\?\.\(allyCastFrame\(spell, DISH_LEVEL, peer\.id\)\)\) out\.push\(peerName\(peer\.id\) \?\? 'a party member'\);/);
+});
+
+test('AUDIT PROF-541 K6: the Orchard Tart\'s stamina is the player\'s to end, as every other dish (BUFF-END: mysticism.js ENDABLE_KINDS)', () => {
+  const me = { items: [], stats: { ...STATS }, activeEffects: [] };
+  feedEffect(me, dishOf('tart'));
+  const [tart] = liveBundles(me);
+  assert.equal(tart.entries[0].kind, DISH_STAMINA_KIND);
+  assert.equal(canEndBundle(tart), true);
+  assert.equal(endBundle(me, tart.bundleId), dishOf('tart').name);
+  assert.deepEqual([me.activeEffects.length, dishStaminaFactor(me)], [0, 1], 'ended');
+});
+
+test('AUDIT PROF-541 K7: the fire\'s XP line says what the service pays - the town Apothecary\'s steps in it (recipeLaw cookXp\'s `steps`, the host\'s cookSteps), a plain line where there are none', () => {
+  stubPages({ rank: 100, over: { cookSteps: () => 2 } });
+  let page = pageOf();
+  try {
+    page.dish('Hunter\'s Stew (northern').onclick();
+    assert.match(page.text(), /every pan taken off done is a clean pan, 350 Cooking XP to a plain dish's 280 - the town's Apothecary's 2 steps in both\./);
+    page.done();
+    stubPages({ rank: 100, over: { cookSteps: () => 1 } });
+    page = pageOf();
+    page.dish('Hunter\'s Stew (northern').onclick();
+    assert.match(page.text(), /a clean pan, 280 Cooking XP to a plain dish's 210 - the town's Apothecary's step in both\./);
+    page.done();
+    stubPages({ rank: 100, over: { cookSteps: () => 0 } });
+    page = pageOf();
+    page.dish('Hunter\'s Stew (northern').onclick();
+    assert.match(page.text(), /a clean pan, half again its 140 Cooking XP\./);
+  } finally { page.done(); setProfessionsPages(null); }
+  assert.match(src('src/scenes/world.js'), /cookSteps: \(\) => \{ const hall = seatHere\(_musicLoc\?\.mapTableData\?\.mapId\); return hall && hall\.holder\?\.guild\?\.id === \(guildBook\?\.guild\?\.id \?\? null\) \? stationSteps\('cooking', hall\.forts \?\? \{\}\) : 0; \},/);
+});
+
+test('AUDIT PROF-541 K8: a Brew pressed while another craft holds the one-craft latch (profBook.js prof-busy) says the hands are busy, not that a brew is in the cauldron', () => {
+  const w = src('src/scenes/world.js');
+  assert.match(w, /r\?\.error === 'prof-busy' \? 'Your hands are busy with another craft\.' : accountRefusalText\(r\?\.error\)/);
+  assert.doesNotMatch(w, /Your last brew is still in the cauldron/);
 });
