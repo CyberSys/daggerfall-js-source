@@ -7,6 +7,10 @@
 // sideways and the page never scrolling sideways, its words in the pixel face, and every tab a `role="tab"`.
 // test/arena3_window.test.js holds the window's law on a fake page; this photographs what a fake cannot.
 // Photographs to SHOT_DIR (default tools/shots/, ignored).
+// ARENA4b: and THE WINDOW ONLINE over a realm's board (the service's `/v1/arena/board`, with the account's `me.record` and
+// `me.recent`): the Records page the account's (its note, its record, its last bouts - a rated bout's rating in its line),
+// no purses chip in the header, and the Leaderboards' fastest Grand Champion with the realm's Hall of Champions under it
+// (test/arena4b_window.test.js holds the law).
 //
 //     node tools/arenaWindowProbe.mjs
 import { createServer } from 'vite';
@@ -64,8 +68,46 @@ for (const [W, H, width] of [[1440, 900, 'desktop'], [800, 600, 'narrow'], [390,
     });
     await new Promise((res) => setTimeout(res, 120));
   });
-  for (const [pg, sub] of PAGES) {
-    const tag = `${width}-${skin}-${pg}${sub ? `-${sub}` : ''}`;
+  for (const [pg, sub, online] of [...PAGES, ['records', null, 'online'], ['boards', 'fast', 'online']]) {
+    const tag = `${width}-${skin}-${pg}${sub ? `-${sub}` : ''}${online ? '-online' : ''}`;
+    if (online && !(await page.evaluate(() => !!window.__online))) {
+      // ARENA4b: the window remounted over a realm's board - the account's record and last bouts, the realm's Hall
+      await page.evaluate(async () => {
+        const AB = await import('/src/systems/arenaBoard.js');
+        const { mountArenaWindow } = await import('/src/ui/arenaWindow.js');
+        const L = await import('/src/net/arenaLaw.js');
+        window.__arenaView.unmount();
+        const atS = (n, d) => L.ARENA_SEASON_EPOCH_S + (n - 1) * L.ARENA_SEASON_S + (d - 1) * 86400 + 3600;
+        const climb = (n) => L.arenaLadderOf(Array.from({ length: n }, (_, k) => ({ tier: Math.floor(k / 4), bout: k % 4 })), { wins: n, losses: 3, best: 5 });
+        const recent = [
+          { at: atS(4, 12), kind: 'pvp', won: true, how: 'fall', rating: { before: 1000, after: 1016 }, rated: true, opponent: { name: 'Gorlak gro-Mazgulbarz' }, points: 2 },
+          { at: atS(4, 11), kind: 'pve', tier: 2, step: 3, won: true, how: 'yield', points: 3 },
+          { at: atS(4, 11), kind: 'pve', tier: 2, step: 1, won: false, how: 'judges', points: 0 },
+          { at: atS(4, 10), kind: 'pvp', won: null, how: 'draw', rated: false, opponent: { name: 'Peristair Kingfield' }, points: 0 },
+          { at: atS(4, 9), kind: 'pvp', won: true, how: 'forfeit', rating: { before: 990, after: 1000 }, opponent: { name: 'Trististyr Hearthsly' }, points: 2 },
+          { at: atS(3, 50), kind: 'pve', tier: 9, step: 3, won: false, how: 'fall', points: 0 },
+        ];
+        const board = {
+          season: 4, day: 12, endsAt: 0, champion: { name: 'Mirabelle Ashfield', title: null, glyphs: ['laurel'] },
+          pvp: { rows: [{ rank: 1, name: 'Mirabelle Ashfield', rating: 1140, wins: 9, losses: 2, draws: 1, bouts: 12 }], pinned: { rank: 6, name: 'Aldric Wyndbrooke-Varnell', rating: 1016, wins: 2, losses: 1, draws: 1, bouts: 4, you: true }, total: 9 },
+          pve: { rows: [{ rank: 1, name: 'Mirabelle Ashfield', reached: 40, losses: 4 }], pinned: null, total: 1 },
+          fast: { rows: [{ rank: 1, name: 'Mirabelle Ashfield', days: 9, at: atS(2, 30) }, { rank: 2, name: 'Uthyrick Kingston', days: 21, at: atS(4, 3) }], pinned: null, total: 2 },
+          team: { standings: { red: 31, blue: 44 }, last: { season: 3, red: 90, blue: 41, winner: 'red' }, laurel: 'red', members: { red: 3, blue: 4 }, rosters: { red: { rows: [{ rank: 1, name: 'Aldric Wyndbrooke-Varnell', points: 7, wins: 5, banner: 'red', you: true }], pinned: null, total: 1 }, blue: { rows: [], pinned: null, total: 0 } } },
+          hall: [{ name: 'Uthyrick Kingston', at: atS(4, 3) }, { name: 'Mirabelle Ashfield', at: atS(2, 30) }, { name: 'Senna Varo of the Iliac Bay Fighters', at: atS(1, 40) }],
+          me: { ladder: climb(10), pvp: { rating: 1016, wins: 2, losses: 1, draws: 1, bouts: 4 }, rank: 6, banner: 'red', points: 7, grand: false, champion: false,
+            record: { pveWins: 31, pveLosses: 5, pvpWins: 12, pvpLosses: 7, pvpDraws: 2, best: 9 }, recent },
+        };
+        const { ladder, league, gm } = window.__arena;
+        const host = document.createElement('div');
+        document.body.append(host);
+        window.__online = true;
+        window.__arenaView = mountArenaWindow(host, {
+          board: () => AB.arenaBoard({ ladder, league, gameMinutes: gm, name: 'Aldric Wyndbrooke-Varnell', atGate: true, gold: 640, healthShare: 1, online: { board, hall: { status: 'open', queue: 'idle', live: [] } } }),
+          act: () => ({ ok: true, text: '' }),
+        });
+        await new Promise((res) => setTimeout(res, 120));
+      });
+    }
     const r = await page.evaluate(async ([pg, sub]) => {
       const shell = document.querySelector('.aw-shell');
       const tab = [...shell.querySelectorAll('.aw-tab')].find((t) => t.dataset.page === pg);
@@ -96,8 +138,25 @@ for (const [W, H, width] of [[1440, 900, 'desktop'], [800, 600, 'narrow'], [390,
     check(`${tag} pixel face, its tab chosen`, /Pixelify/.test(r.font) && r.tabsRole && r.selected === pg, `${r.font.slice(0, 30)} ${r.selected}`);
     check(`${tag} the kit's carved frame`, r.border, '');
     check(`${tag} words on the page`, r.words > 40, String(r.words));
+    if (online) {
+      const o = await page.evaluate(() => {
+        const shell = document.querySelector('.aw-shell');
+        const win = shell.querySelector('.aw-win').getBoundingClientRect();
+        const hall = shell.querySelector('.aw-hall');
+        const inWin = (n) => { const b = n.getBoundingClientRect(); return b.left >= win.left - 1 && b.right <= win.right + 1; };
+        return {
+          purse: !!shell.querySelector('.aw-purse'), note: !!shell.querySelector('.aw-body > .aw-online'),
+          rows: shell.querySelectorAll('.aw-bout').length, rated: shell.querySelector('.aw-bout .aw-bt')?.textContent ?? '',
+          hall: hall ? [...hall.querySelectorAll('.aw-mini li')].map((li) => li.textContent) : null, hallIn: hall ? inWin(hall) : false,
+        };
+      });
+      check(`${tag} no purses chip online`, !o.purse, '');
+      if (pg === 'records') check(`${tag} the account's record: its note, its last bouts, a rated bout's rating`, o.note && o.rows === 6 && /rating 1016 \(\+16\)/.test(o.rated), `${o.rows} rows, "${o.rated}"`);
+      else check(`${tag} the realm's Hall under the fastest Grand Champion, inside the window`, !!o.hall && o.hall.length === 3 && o.hallIn && /Season 4/.test(o.hall[0]), JSON.stringify(o.hall));
+    }
     await page.screenshot({ path: `${OUT}/arena-window-${tag}.png` });
   }
+  await page.evaluate(() => { window.__online = false; });
   await page.close();
 }
 check('no page errors', errors.length === 0, errors.slice(0, 3).join(' | '));

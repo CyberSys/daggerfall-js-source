@@ -456,7 +456,7 @@ test('S41 re-entrancy: the exhaustion collapse re-enters the tick, and one midni
   //
   // The port's hosts implement that RaiseTime as playerTicker.advance(60)
   // fired from inside sinks.drainFatigue (shared.js:921 ->
-  // exterior.js:1127, world.js:3296), which re-enters tickPlayerMinutes
+  // exterior.js:1125, world.js:3294), which re-enters tickPlayerMinutes
   // from inside its own fatigue band. With the marker assigned
   // unconditionally the nested tick left it an hour AHEAD, the outer
   // frame's own setWorldMinutes then reset the clock BELOW it, and the

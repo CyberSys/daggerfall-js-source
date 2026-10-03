@@ -19,6 +19,10 @@
 // what it does is the host's (`deps.act(kind, data)` - watch, fight, wager): this file draws and asks. Every word is
 // set as text, never as markup - a fighter's name is the save's.
 //
+// ARENA4b: ONLINE the window draws the realm's Hall of Champions under the fastest Grand Champion (`hallCard`), the
+// Records page says the record is the account's (`m.online`), and the header carries the purses won only when there is
+// one to say (never a 0 - the realm keeps none).
+//
 // Not a DFU member. Ledger A (ARENA).
 
 import { closeOnOutsideTap } from './enhancedOverlays.js';
@@ -147,6 +151,8 @@ export function mountArenaWindow(host, deps) {
     if (h.laurel) id.append(chip(W().laurelMark, 'aw-laurel'));
     if (h.rating) id.append(chip(h.rating, 'aw-rating'));   // ARENA4: online, the season's rating and rank
     if (h.rank) id.append(chip(h.rank, `aw-rankchip${h.champion ? ' champ' : ''}`));
+    // ARENA4b: the purses won (the design's header) - left out when there is none to say, never a 0 (online the realm keeps none)
+    if (Number.isSafeInteger(h.purses) && h.purses > 0) id.append(chip(W().gold(h.purses), 'aw-purse'));
     id.append(el('span', 'aw-rec', h.record));
   }
 
@@ -399,10 +405,25 @@ export function mountArenaWindow(host, deps) {
     if (bd.rows.length) card.append(table(bd.cols, bd.rows, bd.pinned));
     if (bd.empty) card.append(el('p', 'aw-empty', bd.empty));
     body.append(card);
+    if (boardPicked === 'fast' && m.hall) body.append(hallCard(m.hall));   // ARENA4b: online, the realm's Hall under its fastest
+  }
+  /** ARENA4b: THE REALM'S HALL OF CHAMPIONS - every Grand Champion of the realm, the newest first, each with its season
+   *  (systems/arenaBoard.js hallBoardOnline): the banner card's short list, a name and its season a line. */
+  function hallCard(h) {
+    const card = el('section', 'aw-card aw-hall');
+    card.append(el('h3', null, h.title), el('p', 'aw-boardsub', h.sub));
+    if (h.rows.length) {
+      const ol = el('ol', 'aw-mini aw-hallrows');
+      for (const r of h.rows) { const li = el('li', r.you ? 'you' : null); li.append(el('span', 'aw-n', r.name), el('span', 'aw-pts', r.season)); ol.append(li); }
+      card.append(ol);
+    }
+    if (h.empty) card.append(el('p', 'aw-empty', h.empty));
+    return card;
   }
 
   // ── RECORDS ─────────────────────────────────────────────────────────────────────────────────────────────
   function renderRecords(m) {
+    if (m.online) body.append(el('p', 'aw-line aw-online', m.online));   // ARENA4b: online, the account's record - not the save's
     const stats = el('div', 'aw-stats');
     for (const s of m.stats) { const t = el('div', 'aw-stat'); t.append(el('span', 'k', s.k), el('span', 'v', s.v)); stats.append(t); }
     body.append(stats);
@@ -416,9 +437,9 @@ export function mountArenaWindow(host, deps) {
       li.dataset.banner = b.banner ?? '';
       const res = chip(b.result, `aw-res ${b.won ? 'won' : b.draw ? 'draw' : 'lost'}`);
       const what = el('div', 'aw-boutwhat');
-      what.append(el('span', 'aw-bo', b.opp), el('span', 'aw-bt', `${b.tier} - ${b.label}${b.how ? `, ${b.how}` : ''}`));
+      what.append(el('span', 'aw-bo', b.opp), el('span', 'aw-bt', `${b.tier}${b.label ? ` - ${b.label}` : ''}${b.how ? `, ${b.how}` : ''}`));
       const tail = el('div', 'aw-bouttail');
-      tail.append(el('span', 'aw-bd', b.when));
+      if (b.when) tail.append(el('span', 'aw-bd', b.when));
       if (b.purse > 0) tail.append(el('span', 'aw-bp', W().gold(b.purse)));
       if (b.points > 0) tail.append(el('span', 'aw-bpts', W().pointsWord(b.points)));
       li.append(res, what, tail);

@@ -39,15 +39,13 @@ import { arenaScoreSongs, ARENA_SCORE_SILENCE } from '../systems/arenaScore.js';
 import { drawArenaHud } from '../ui/arenaHud.js';   // ARENA2: the versus bar, the crowd's meter, the clock
 import { setPlayerBout } from '../characters/enemyTargets.js';   // ARENA2: the bout team's player arm
 import { exhibitionFor, nextLadderBout, arenaLadderRestore, practiceBout } from '../systems/arenaLadder.js';   // ARENA2: the hour's exhibition, the ladder's next bout
-import { heraldChoice } from '../systems/arenaHerald.js';   // ARENA2: the Herald's choice at the gate
-import { createArenaGate, nearArenaGate } from './arenaGate.js';
+import { createArenaGate, nearArenaGate } from './arenaGate.js';   // ARENA3; ARENA4b: the Herald's choice and the pause door's banner too
 import { createArenaOnline } from './arenaOnline.js';   // ARENA4: the arena online - the hall, a relay's bout, the boards and the receipts
 import { arenaBoutRoom } from '../net/arenaLaw.js';   // ARENA4: a bout's room
 import { accountArena } from '../net/accountClient.js';   // ARENA4: the arena's records on the account service
 import { fighterIdentity } from '../systems/arenaFighters.js';   // ARENA4: the relay's fighters billed by the bout's seed
 import { bossStandIn } from '../world/gateBoss.js';   // ARENA4: my opponent's stand-in for the formulas
 import { closeArenaDoor } from '../ui/arenaDoor.js';   // ARENA4: the window goes when a bout calls
-import { rollLeague } from '../systems/arenaLeague.js';   // ARENA3: the banner worn (the pause window's Arena door)   // ARENA3: the recruiters (and the bookmaker) at the gate
 import { cityFloorCentre } from '../world/arenaFloor.js';   // ARENA2: the city floor's sand, in its block's frame
 import { ARENA_TEXT } from '../systems/arenaText.js';   // ARENA1: the Daggerfall Bank's letter
 import { moveArenaRecords, arenaHomeFor, emptyArenaScene } from '../systems/arenaMove.js';   // ARENA1: a deed whose house the arena took, moved once; ARENA4b: and an online home, by its owner's client
@@ -8368,9 +8366,9 @@ export async function bootWorld(canvas, renderer, params, status) {
   /** THE HERALD'S CHOICE (systems/arenaHerald.js): watch, fight, the fighters' hall, leave - answered here, the
    *  instance and the undercroft through the mode machine. True: his choice is up. */
   function arenaHerald() {
-    const ladder = arenaLadderRestore(playerEntity.arenaLadder);
     const sand = arenaBouts.stageKind() === 'city' ? arenaBouts.onSand() : null;
-    const ch = heraldChoice({ gameMinutes: worldMinutes(), cityBout: sand, ladder, healthShare: (playerEntity.health ?? 0) / Math.max(1, playerEntity.maxHealth ?? 1), league: playerEntity.arenaLeague });   // ARENA3: and the banner
+    // ARENA4b: through the gate (scenes/arenaGate.js heraldChoice) - online the account's climb and banner, not the save's
+    const ch = arenaGate.heraldChoice({ cityBout: sand, healthShare: (playerEntity.health ?? 0) / Math.max(1, playerEntity.maxHealth ?? 1), league: playerEntity.arenaLeague });   // ARENA3: and the banner
     townTalk.showOverlay(new ChoiceWindow({ lines: ch.lines, options: ch.options.map((o) => ({ code: o.code, label: o.label ?? undefined, action: () => arenaHeraldAct(o.act) })) }));
     return true;
   }
@@ -9096,7 +9094,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   // and dungeonContext.js:2930 mounts the same one, gated on
   // `opts.enchantCtx !== false` because setDefaultEnchantCtx is a
   // session singleton and EC1 already routes THIS host's mount into
-  // that context through modes.dungeonCtx - so worldModes.js:6950
+  // that context through modes.dungeonCtx - so worldModes.js:6951
   // passes false beside its `chargen: false` and only the standalone
   // ?dungeon route mounts its own. S40 filled isResting
   // in - the sentence that stood here said it "stays absent above
@@ -13328,7 +13326,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     openPack: () => { const w = makeInventoryWindow(); if (w) townTalk.showOverlay(w); return !!w; },   // DISC10-E L3: a refused pack is null
     openSpellbook: () => { const w = makeSpellbookWindow(); if (w) townTalk.showOverlay(w); return !!w; },
     openChronicle: () => { const w = makeJournalWindow('notebook'); if (w) townTalk.showOverlay(w); return !!w; },
-    openArena: () => arenaGate.openWindow('team'), arenaJoined: () => !!rollLeague(playerEntity.arenaLeague, worldMinutes()).team,   // ARENA3: the Arena window, once a banner is worn
+    openArena: () => arenaGate.openWindow('team'), arenaJoined: () => arenaGate.joined(),   // ARENA3: the Arena window, once a banner is worn (ARENA4b: online the account's)
     quickSave: worldQuickSave,
     quickLoad: worldQuickLoad,
     relock: () => requestLook(canvas),   // MAC1: the pointer comes back with the resume gesture (ui/pauseDoor.js)
@@ -14754,7 +14752,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   // exterior -> the townTalk overlay, interior OR dungeon -> the mode
   // machine's slot. U43-ii shipped the dungeon half: showQuestBox
   // offers the window to `modes.showQuestOverlay` below, and
-  // worldModes answers it in BOTH modes (worldModes.js:10596-10660 -
+  // worldModes answers it in BOTH modes (worldModes.js:10597-10661 -
   // dungeon routes to dungeonCtx.showOverlay), so a dungeon popup is
   // shown rather than logged loudly and dropped.
   // AUDIT 24 (wave 21): DaggerfallMessageBox.Show() is a
@@ -21669,7 +21667,8 @@ export async function bootWorld(canvas, renderer, params, status) {
     arenaRecruiter: (role) => arenaGate.recruiter(role),   // ARENA3: the Red and Blue Banners' recruiters
     arenaBookmaker: () => arenaGate.bookmaker(),   // ARENA3: the bookmaker's stall
     makeArenaWindow: (page) => arenaGate.windowOverlay(page),   // ARENA3: the Arena window for another mode's slot (an interior's, a dungeon's)
-    arenaJoined: () => !!rollLeague(playerEntity.arenaLeague, worldMinutes()).team,
+    arenaJoined: () => arenaGate.joined(),   // ARENA4b: online the account's banner, offline the save's
+    arenaHall: () => arenaGate.hall(),   // ARENA4b: the Keeper of the Hall reads the realm's wall online
     // ARENA-FIX 4: the training pit's practice bout (the Pit Master's choice, scenes/worldModes.js) - a sparring fighter
     // of my tier on the pit's stage; refused while a bout of mine stands
     arenaPractice: () => {

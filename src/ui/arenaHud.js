@@ -20,6 +20,15 @@
 // `.arena-team` mark, its colour the sheet's): mine in a ladder bout when I fight under one, and an exhibition's two
 // fighters, the Red Banner's against the Blue's (scenes/arenaBouts.js boutTeams). The house's fighters wear none.
 //
+// ARENA4b: THE STANDS' TWO PRESSES (Mac, 2026-10-02: "During fights, the crowd is present and can cheer/boo you") - a
+// spectator in the stands of a relay's bout (scenes/arenaBouts.js startRelay, `me` '') may Cheer or Boo: two touch-sized
+// presses under the plate and two keys (STANDS_KEYS - the + and - keys, which no game action holds), each the host's
+// door (`drawArenaHud`'s `cheer`), shut while the relay's allowance runs (the model's `stands.ready`, scenes/arenaBouts.js
+// CHEER_GAP_MS). The one part of the HUD that takes a press, and only while I watch: its row its own (`.arena-stands`,
+// pointer-events its buttons' alone, a press swallowed so it is never a swing), the readout under it still hidden from a
+// screen reader while the presses are not; the keys heard only while the row stands, never in a field nor with a
+// modifier, never one another window took first. The kit's button role dresses them on Plus (ui/enhancedFrame.js).
+//
 // Not a DFU member. Ledger A (ARENA).
 
 import { ARENA_TEXT } from '../systems/arenaText.js';
@@ -32,6 +41,9 @@ export const ARENA_HUD_TOP = '58px';
 export const ARENA_HUD_WIDTH = 560;
 /** The most fighters a side lists (a Grand Melee's opponents three, a two-against-one's two). */
 export const HUD_ROWS_MAX = 3;
+/** ARENA4b: the stands' keys (`KeyboardEvent.code`): Cheer and Boo - the + and the - of the main row, which no default
+ *  binding holds (systems/inputActions.js DEFAULT_BINDINGS; the keypad's two are Eye of the Beholder's and the boat's). */
+export const STANDS_KEYS = Object.freeze({ Equal: 1, Minus: -1 });
 
 const clamp01 = (x) => (x < 0 ? 0 : x > 1 ? 1 : x);
 
@@ -41,8 +53,10 @@ const clamp01 = (x) => (x < 0 ? 0 : x > 1 ? 1 : x);
  * `bark` the crowd's last shout (systems/arenaCrowd.js crowdBark), shown under its meter while it rings.
  * `{ phase, left: Row[], right: Row[], timer, crowd: { frac, band, word } | null (`quiet`: no crowd), stamina, hint, bark }` - each
  * Row `{ id, name, frac, out, you, tag, banner, team }`. ARENA3: `teams` each fighter's banner by id ('red' | 'blue'). Pure.
+ * ARENA4b: `stands` `{ ready }` while I watch a relay's bout from the stands (null otherwise): the model's `stands`
+ * `{ cheer, boo, cheerKey, booKey, ready }` - the two presses' words, their keys, whether the allowance lets one now.
  */
-export function arenaHudModel(bout, crowd, now, { you = null, stamina = null, bark = '', quiet = false, teams = null } = {}) {
+export function arenaHudModel(bout, crowd, now, { you = null, stamina = null, bark = '', quiet = false, teams = null, stands = null } = {}) {
   if (!bout || bout.phase === 'done' || !Array.isArray(bout.fighters)) return null;
   const mine = you != null ? bout.fighters.find((f) => f.id === String(you)) ?? null : null;
   const leftSide = mine ? mine.side : bout.fighters[0].side;
@@ -66,6 +80,7 @@ export function arenaHudModel(bout, crowd, now, { you = null, stamina = null, ba
     stamina: mine && Number.isFinite(stamina) ? Math.round(clamp01(/** @type {number} */ (stamina)) * 1000) / 1000 : null,
     hint: mine && live && !mine.out && fighterShare(mine) <= YIELD_SHARE ? ARENA_TEXT.hud.yieldHint : '',
     bark: typeof bark === 'string' ? bark : '',
+    stands: stands && !mine && !quiet ? { cheer: ARENA_TEXT.online.cheer, boo: ARENA_TEXT.online.boo, cheerKey: ARENA_TEXT.online.cheerKey, booKey: ARENA_TEXT.online.booKey, ready: !!stands.ready } : null,
   };
 }
 
@@ -119,13 +134,46 @@ export const ARENA_HUD_CSS = `${PIXELIFY_FIVE_FACE}
 .arena-hud.touch .arena-bark { font-size: 15px; }
 .arena-hud.touch .arena-tag, .arena-hud.touch .arena-out, .arena-hud.touch .arena-crowd, .arena-hud.touch .arena-stam { font-size: 12px; }
 .arena-hud.touch .arena-timer { font-size: 18px; }
+.arena-stands { display: flex; justify-content: center; gap: 10px; margin-top: 6px; }
+.arena-shout { pointer-events: auto; display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 36px;
+  min-width: 96px; padding: 4px 12px; font: inherit; font-size: 13px; letter-spacing: 0.06em; color: #efe8d6; cursor: pointer;
+  background: rgba(12,14,18,0.82); border: 2px solid #5a5446; text-shadow: inherit; }
+.arena-shout:hover:not([disabled]), .arena-shout:focus-visible { border-color: #c08a3e; }
+.arena-shout[disabled] { opacity: 0.55; cursor: default; }
+.arena-shout[data-shout="boo"] { border-color: #6b3a32; }
+.arena-key { font-size: 10px; padding: 0 4px; border: 1px solid #5a5446; opacity: 0.85; }
+.arena-hud.touch .arena-shout { min-height: 48px; min-width: 120px; font-size: 15px; }
+.arena-hud.touch .arena-key { display: none; }
 @media (max-width: 640px) { .arena-row { gap: 6px; } .arena-plate { padding: 5px 6px; } .arena-crowd-word { min-width: 0; } }
 @media (prefers-reduced-motion: reduce) { .arena-fill { transition: none; } }
 `;
 
 let root = null, parts = null;
 let shown = null;
-const fresh = () => ({ vis: '', rows: { left: [], right: [] }, timer: '', stam: -2, crowd: -1, word: '', bark: '', hint: '', touch: null });
+const fresh = () => ({ vis: '', rows: { left: [], right: [] }, timer: '', stam: -2, crowd: -1, word: '', bark: '', hint: '', touch: null, stands: '', standsReady: false });
+/** ARENA4b: the stands' door now (the last draw's `cheer`) and the window whose keys are heard while the presses stand. */
+let cheerDoor = null, keyWin = null;
+/** A press of the stands (1 cheer, -1 boo): the host's door, while the row stands and the allowance lets one. */
+function shout(dir) {
+  if (!shown?.standsReady || typeof cheerDoor !== 'function') return false;
+  return cheerDoor(dir) === true;
+}
+/** The stands' keys: + cheers and - boos, heard only while the presses stand - never in a text field, never with a
+ *  modifier or a held repeat, never a key another window already took. */
+function onStandsKey(e) {
+  if (!e || e.defaultPrevented || e.repeat || e.ctrlKey || e.metaKey || e.altKey) return;
+  const dir = STANDS_KEYS[e.code];
+  if (!dir) return;
+  const t = e.target;
+  if (t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(String(t.tagName ?? '')))) return;
+  if (shout(dir)) e.preventDefault?.();
+}
+/** The stands' keys heard (`on`) or let go. */
+function listenKeys(on, doc) {
+  const win = doc?.defaultView ?? globalThis;
+  if (on && !keyWin && typeof win?.addEventListener === 'function') { keyWin = win; win.addEventListener('keydown', onStandsKey); }
+  else if (!on && keyWin) { keyWin.removeEventListener?.('keydown', onStandsKey); keyWin = null; }
+}
 
 function build(doc) {
   if (doc.getElementById && !doc.getElementById(ARENA_HUD_STYLE_ID)) {
@@ -174,10 +222,48 @@ function build(doc) {
   const bark = part('div', 'arena-bark');
   const hint = part('div', 'arena-hint');
   plate.append(row, stam, crowd);   // the fight, my stamina and the crowd on one plate
-  root.append(plate, bark, hint);
+  // ARENA4b: THE STANDS' PRESSES - built hidden, shown only while I watch a relay's bout; the readout's parts carry their
+  // own aria-hidden, so while the row stands (the root's lifted) the presses are the one part a screen reader meets
+  const stands = part('div', 'arena-stands');
+  stands.style.display = 'none';
+  const swallow = (e) => { e?.stopPropagation?.(); };   // a press on the row is the row's - never a swing, never the pointer's lock
+  stands.onpointerdown = swallow; stands.onmousedown = swallow; stands.ontouchstart = swallow; stands.oncontextmenu = swallow;
+  const press = (dir, kind) => {
+    const b = part('button', 'arena-shout');
+    b.setAttribute('type', 'button');
+    b.dataset.shout = kind;
+    const said = part('span', 'arena-shout-word'), key = part('span', 'arena-key');
+    key.setAttribute('aria-hidden', 'true');
+    b.append(said, key);
+    b.onclick = (e) => { e?.stopPropagation?.(); shout(dir); };
+    stands.append(b);
+    return { b, said, key };
+  };
+  const cheer = press(1, 'cheer'), boo = press(-1, 'boo');
+  for (const n of [plate, bark, hint]) n.setAttribute('aria-hidden', 'true');
+  root.append(plate, bark, hint, stands);
   (doc.body ?? doc.documentElement)?.append(root);
-  parts = { L: L.rows, R: R.rows, timer, stam, stamFill, crowd, crowdFill, word, bark, hint };
+  parts = { L: L.rows, R: R.rows, timer, stam, stamFill, crowd, crowdFill, word, bark, hint, stands, cheer, boo };
   shown = fresh();
+}
+
+/** ARENA4b: the stands' row for `m` (null: not in the stands of a relay's bout, or no door handed) - written on change. */
+function writeStands(m, door) {
+  cheerDoor = m ? door : null;
+  shown.standsReady = !!m?.ready;
+  const key = m ? `${m.cheer}|${m.boo}|${m.cheerKey}|${m.booKey}|${m.ready}` : '';
+  if (key === shown.stands) return;
+  const was = shown.stands;
+  shown.stands = key;
+  if (!m) { parts.stands.style.display = 'none'; root.setAttribute('aria-hidden', 'true'); return; }
+  if (!was) { parts.stands.style.display = ''; root.removeAttribute('aria-hidden'); }
+  for (const [p, said, k, code] of [[parts.cheer, m.cheer, m.cheerKey, '='], [parts.boo, m.boo, m.booKey, '-']]) {
+    if (p.said.textContent !== said) p.said.textContent = said;
+    if (p.key.textContent !== k) p.key.textContent = k;
+    p.b.setAttribute('aria-label', `${said} (${k})`);
+    p.b.setAttribute('aria-keyshortcuts', code);
+    if (m.ready) p.b.removeAttribute('disabled'); else p.b.setAttribute('disabled', '');
+  }
 }
 
 function writeRows(list, rows, was) {
@@ -201,8 +287,10 @@ function writeRows(list, rows, was) {
   });
 }
 
-/** Draw the HUD for a model (null hides it); `hidden` the HUD's own hide, `touch` a touch screen's sizes. */
-export function drawArenaHud(model, { hidden = false, touch = false, doc = globalThis.document } = {}) {
+/** Draw the HUD for a model (null hides it); `hidden` the HUD's own hide, `touch` a touch screen's sizes. ARENA4b:
+ *  `cheer` the stands' door (`(dir) => boolean`, 1 cheer, -1 boo - scenes/arenaBouts.js), the presses drawn while the
+ *  model carries `stands` and a door is handed. */
+export function drawArenaHud(model, { hidden = false, touch = false, doc = globalThis.document, cheer = null } = {}) {
   const want = !hidden && !!model;
   if (!root) {
     if (!want || !doc?.createElement) return;
@@ -210,6 +298,9 @@ export function drawArenaHud(model, { hidden = false, touch = false, doc = globa
   }
   const vis = want ? 'on' : 'off';
   if (vis !== shown.vis) { shown.vis = vis; root.style.display = want ? '' : 'none'; }
+  const standing = want && !!model?.stands && typeof cheer === 'function';
+  writeStands(standing ? model.stands : null, cheer);
+  listenKeys(standing, doc);
   if (!want || !model) return;
   if (touch !== shown.touch) { shown.touch = touch; root.classList.toggle('touch', !!touch); }
   writeRows(model.left, parts.L, shown.rows.left);
@@ -232,8 +323,9 @@ export function drawArenaHud(model, { hidden = false, touch = false, doc = globa
   if (model.hint !== shown.hint) { shown.hint = model.hint; parts.hint.textContent = model.hint; }
 }
 
-/** The page is going (a test's reset): the node leaves with it. */
+/** The page is going (a test's reset): the node leaves with it, and the stands' keys. */
 export function destroyArenaHud() {
+  listenKeys(false, null);
   root?.remove?.();
-  root = null; parts = null; shown = null;
+  root = null; parts = null; shown = null; cheerDoor = null;
 }

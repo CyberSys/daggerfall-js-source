@@ -183,11 +183,12 @@
   {
     "name": "ARENA3-QUIT-UNASKED",
     "file": "src/scenes/arenaGate.js",
-    "old": "        choice(quitAsk(banner), (b) => {\n          if (b !== 'quit') return;",
-    "new": "        ((cb) => cb('quit'))((b) => {\n          if (b !== 'quit') return;",
+    "old": "        choice(quitAsk(banner), (b) => {\n          if (b !== 'quit') return;\n          const r = quitBanner(league(), gm());",
+    "new": "        ((cb) => cb('quit'))((b) => {\n          if (b !== 'quit') return;\n          const r = quitBanner(league(), gm());",
     "tests": [
       "test/arena3_teams.test.js"
-    ]
+    ],
+    "note": "ARENA4b (re-aimed by content): the online recruiter asks again too (recruiterOnline) - this one aims at the offline quit by its save write."
   },
   {
     "name": "ARENA3-JOIN-NO-WINDOW",
@@ -219,20 +220,22 @@
   {
     "name": "ARENA3-WINDOW-ANYWHERE",
     "file": "src/scenes/arenaGate.js",
-    "old": "      if (!atGate) return { ok: false, text: ARENA_TEXT.window.whyGate };\n      const onLadder",
-    "new": "      const onLadder",
+    "old": "      if (!atGate) return { ok: false, text: ARENA_TEXT.window.whyGate };\n      const on = online();",
+    "new": "      const on = online();",
     "tests": [
       "test/arena3_window.test.js"
-    ]
+    ],
+    "note": "ARENA4b (re-aimed by content): the window's Fight reads the gate's online() first now."
   },
   {
     "name": "ARENA3-FIGHT-HURT",
     "file": "src/scenes/arenaGate.js",
-    "old": "if (kind === 'fight' && (!nextLadderBout(onLadder) || (P.health ?? 0) / Math.max(1, P.maxHealth ?? 1) < FIGHT_HEALTH_MIN))",
-    "new": "if (kind === 'fight' && !nextLadderBout(onLadder))",
+    "old": "      if (kind === 'fight' && (P.health ?? 0) / Math.max(1, P.maxHealth ?? 1) < FIGHT_HEALTH_MIN) return { ok: false, text: ARENA_TEXT.window.whyHurt };\n",
+    "new": "",
     "tests": [
       "test/arena3_window.test.js"
-    ]
+    ],
+    "note": "ARENA4b (re-aimed by content): the finished ladder says its own line now (ARENA_TEXT.herald.ladderDone), so the hurt refusal stands alone and this mutant deletes it."
   },
   {
     "name": "ARENA3-GATE-FAR",
@@ -480,11 +483,12 @@
   {
     "name": "ARENA3-DRIVER-NO-TEAMS",
     "file": "src/scenes/arenaBouts.js",
-    "old": "    if (ladder) { const team = leagueNow()?.team; if (team) out[YOU] = team; return out; }",
+    "old": "    if (ladder) { const R = realmNow(), team = R ? R.banner : leagueNow()?.team; if (team) out[YOU] = team; return out; }",
     "new": "    if (ladder) return out;",
     "tests": [
       "test/arena3_teams.test.js"
-    ]
+    ],
+    "note": "ARENA4b (re-aimed by content): online the ladder's banner is the account's (realmNow)."
   },
   {
     "name": "ARENA3-DRIVER-NO-RECORD",

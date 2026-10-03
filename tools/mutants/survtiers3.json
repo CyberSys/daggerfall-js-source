@@ -432,8 +432,8 @@
   {
     "name": "SURVTIERS3-the-kit-cite-world-seed-rots",
     "file": "src/systems/equip.js",
-    "old": "(world.js:5345, exterior.js:1340)",
-    "new": "(world.js:5344, exterior.js:1340)",
+    "old": "(world.js:5343, exterior.js:1338)",
+    "new": "(world.js:5342, exterior.js:1338)",
     "tests": [
       "test/citedrift.test.js"
     ],
@@ -451,8 +451,8 @@
   {
     "name": "SURVTIERS3-the-gear-cite-world-seed-rots",
     "file": "src/systems/startingGear.js",
-    "old": "world.js:5345 and exterior.js:1340 seed it",
-    "new": "world.js:5344 and exterior.js:1340 seed it",
+    "old": "world.js:5343 and exterior.js:1338 seed it",
+    "new": "world.js:5342 and exterior.js:1338 seed it",
     "tests": [
       "test/citedrift.test.js"
     ],
@@ -470,12 +470,12 @@
   {
     "name": "SURVTIERS3-the-rest-window-cite-input-rots",
     "file": "src/ui/restWindow.js",
-    "old": "exterior.js:3335, ui/input.js:922)",
-    "new": "exterior.js:3335, ui/input.js:525)",
+    "old": "exterior.js:3333, ui/input.js:922)",
+    "new": "exterior.js:3333, ui/input.js:525)",
     "tests": [
       "test/citedrift.test.js"
     ],
-    "note": "THE PROF7 MERGE (PIN MOVED): re-aimed by content to the cite the merge's citeMerge moved (main's #471 and PROF7 together); FIELD BUGS 2026-09-30's shift before it. TIME1 (PIN MOVED): its world.js and exterior.js cites shifted by citeShift; re-aimed by content. MERGE OF MAIN (#538) INTO THE TACTICS ARC (PIN MOVED): re-aimed by content to the cite citeMerge moved."
+    "note": "THE PROF7 MERGE (PIN MOVED): re-aimed by content to the cite the merge's citeMerge moved (main's #471 and PROF7 together); FIELD BUGS 2026-09-30's shift before it. TIME1 (PIN MOVED): its world.js and exterior.js cites shifted by citeShift; re-aimed by content. MERGE OF MAIN (#538) INTO THE TACTICS ARC (PIN MOVED): re-aimed by content to the cite citeMerge moved. ARENA4b (PIN MOVED): re-aimed by content to the cite citeShift moved (exterior.js and world.js lost the Herald's old imports)."
   },
   {
     "name": "SURVTIERS3-the-mirror-overrides-tickVitals",

@@ -125,6 +125,7 @@ export const FRAME_ROLES = {
     'body .bounty-shell .act',   // BOUNTY1: Take, Give up, Share, Close, Take the reward
     'body .notice-shell .act',   // NOTICE1: Pin a note, Pin it up, Report, Take it down, Close
     'body .aw-shell .act',   // ARENA3: the Arena window's tabs, Watch, Wager, Fight, the stakes, Close
+    'body .arena-shout',   // ARENA4b: the stands' Cheer and Boo under the versus bar (ui/arenaHud.js)
     // PLUS3: the trade counter and the tavern panel (and the merchant/repair popup, which shares
     // .tavern-shell) never picked up a scoped role - their `.act` buttons fell through to the bare
     // base rule (flat outline, no bevel), which is the "still looks native" the shelf and the

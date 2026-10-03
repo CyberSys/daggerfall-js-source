@@ -847,7 +847,7 @@
    "file": "src/scenes/exterior.js",
    "has": "playerEntity, gameMinutes: () => worldMinutes(), showOverlay",
    "clock": "event",
-   "why": "ARENA3: the gate's hour - the bookmaker's book and the Herald's doors"
+   "why": "ARENA3: the gate's hour - the bookmaker's book and the Herald's doors; ARENA4b: and, through the gate, the Herald's choice at the hour and the banner the pause window's door reads (scenes/arenaGate.js heraldChoice / joined)"
   },
   {
    "file": "src/scenes/exterior.js",
@@ -855,12 +855,6 @@
    "clock": "event",
    "why": "ARENA2: the hour's exhibition on the city's sand",
    "count": 2
-  },
-  {
-   "file": "src/scenes/exterior.js",
-   "has": "const ch = heraldChoice({ gameMinutes: worldMinutes()",
-   "clock": "event",
-   "why": "ARENA2: the Herald's choice at the hour"
   },
   {
    "file": "src/scenes/world.js",
@@ -872,33 +866,13 @@
    "file": "src/scenes/world.js",
    "has": "playerEntity, gameMinutes: () => worldMinutes(), showOverlay",
    "clock": "event",
-   "why": "ARENA3: the gate's hour - the bookmaker's book and the Herald's doors"
+   "why": "ARENA3: the gate's hour - the bookmaker's book and the Herald's doors; ARENA4b: and, through the gate, the Herald's choice at the hour and the banner the pause window's door reads (scenes/arenaGate.js heraldChoice / joined)"
   },
   {
    "file": "src/scenes/world.js",
    "has": "const ex = exhibitionFor(worldMinutes());",
    "clock": "event",
    "why": "ARENA2: the hour's exhibition on the city's sand",
-   "count": 2
-  },
-  {
-   "file": "src/scenes/world.js",
-   "has": "const ch = heraldChoice({ gameMinutes: worldMinutes()",
-   "clock": "event",
-   "why": "ARENA2: the Herald's choice at the hour"
-  },
-  {
-   "file": "src/scenes/exterior.js",
-   "has": "arenaJoined: () => !!rollLeague(playerEntity.arenaLeague, worldMinutes()).team,",
-   "clock": "event",
-   "why": "ARENA3: a banner joined this season - the pause window's door",
-   "count": 2
-  },
-  {
-   "file": "src/scenes/world.js",
-   "has": "arenaJoined: () => !!rollLeague(playerEntity.arenaLeague, worldMinutes()).team,",
-   "clock": "event",
-   "why": "ARENA3: a banner joined this season - the pause window's door",
    "count": 2
   },
   {
