@@ -13,7 +13,7 @@ overdoing it"*. His calls, asked the same day:
 | Griefing | How is it done today? | **Guards blocking doors** - guards clump in a doorway so nobody can get in or out |
 | Blows | How many new telegraphed attacks? | **One or two, tier-based** - small wind-up attacks on tougher foes only, used sparingly, always readable and dodgeable |
 
-**Status: ALL FOUR BUILT 2026-10-02 - TACT3, TACT1, TACT2, TACT4 (Mac: anti-grief first); records at the foot. Not yet looked at on a real install.**
+**Status: ALL FOUR BUILT 2026-10-02 - TACT3, TACT1, TACT2, TACT4 (Mac: anti-grief first); records at the foot. TACT5 (the same day): the first field report - foes walking backwards, archers kiting in circles, too hard - fixed. Not yet looked at on a real install.**
 
 ## Where it stands (measured on the code, 2026-10-02)
 
@@ -242,3 +242,57 @@ proven unchanged by a seeded run against the pre-TACT tree (same hash, same 440 
   are at once; only the navmesh waits. D11 the cover's broad phase built a string a cell a ray - numeric keys, no
   allocation a test. `tools/foeTelegraphProbe.mjs` now holds the fog and the tilt too (14 held).
 - Pins `test/audittact.test.js` (32); mutants `tools/mutants/audittact.json` (47), all dead. The four slices' own lists re-run over the fixes.
+
+## TACT5 - THE FIRST FIELD REPORT (2026-10-02, the Enhanced AI switch on)
+
+The #general channel, through Mac (a screenshot): lumin, *"New monster AI is painful."* - *"Yes...a little too hard I
+think. The archers that just keep kiting you in a circle"*; maya, *"They keep walking backwards"*.
+
+**Why.** Every TACT2 pin drove a player who stood still; the field's player chases. The brain moved a foe along
+`_tacDir` while it kept facing its target, so every step away played the front view's walk going the other way, and
+four of its rules stepped away from a player who pressed:
+- a WAITING foe inside the ring's near edge stepped back to the ring - for as long as the player kept coming, so a foe
+  without a token could be chased round the room and never fought;
+- the RECOVER beat walked back to the ring for its whole 0.8-1.6 s, the player following;
+- a hurt foe BACKED OFF every time a quarter of its health went in 3 s - every two blows on a weak foe;
+- a shooter KITED from 6 m to 7 m whenever a target came inside 6 m, again and again, with no cap (caught, it kept
+  backing and never swung - its back-step is not a swing's yaw); a shooter WITHOUT a ranged token held a ring at 5.75 m,
+  inside its own bow band's near edge, and circled the player toward its slot.
+
+**The fix** (`ai/tactics.js`, the table's FEEDBACK rows):
+- **Pressed, it fights.** A target inside the ring's near edge (reach + 0.9 m) has walked up to the foe: it is open, as
+  a turned back is - the foe engages without a token. The tokens ration who comes IN, never who answers.
+- **A hop, not a retreat.** After its blow a holder backs out for at most `RECOVER_HOP` (0.4 s), then holds its ground
+  through the rest of the beat. `holdRing` backs out only while a back-step lasts (`backUntil`); spent, it stands.
+- **A foe walks the way it faces.** A hurt foe's retreat and an archer's kite `walkAway`: turn first (in place, 0.35
+  rad a classic tick, the brain's square-up rate), step only within `WALK_FACE_DEG` (45) of the way, at the old 0.7 of a
+  walk. Turned away, the foe is out of its own 180-degree sight; the walk is held to its end (`away`) and for
+  `FACE_BACK` (1 s) after it to turn round, rather than the classic motor turning it back each tick (a 0.35 rad
+  oscillation on the FOV edge, found on the first run).
+- **Backing off once a cooldown.** `BACKOFF_COOLDOWN` (10 s) between back-offs.
+- **One kite a cooldown.** A shooter inside 6 m - token or not; the token is the shot's - walks out one burst of at most
+  `KITE_MAX` (2 s); reaching 7 m it turns back and stands off; caught (the burst's clock) or cornered (the wall) it
+  fights hand to hand, and it kites again only `KITE_COOLDOWN` (8 s) after a burst ended. Inside the band with its kite
+  spent it is a MELEE fighter (DFU's own fallback - a bow foe out of its band walks in) and takes the melee board's
+  turns; past 6 m it is an archer again.
+- **No ring for a shooter.** Without a ranged token it stands off (the classic stand-off, its fire held); it never
+  circles. A token of the kind a foe no longer fights as is handed back (a shooter that fought hand to hand kept its
+  melee token for good).
+- **The motor** (`characters/enemyMotor.js _walkStep`): a brain step met by a wall also stops the walk for the rest of
+  the classic tick - the next fixed steps walked on the way the foe FACED, which, turned to walk away, is into the wall,
+  and started a classic detour along it.
+
+Unchanged: the token counts, the patience, the strike window's other rules, fleeing, the telegraphed blows; with the
+switch off, DFU's motor to the bit (TACT2's five-foe pin).
+
+- Pins `test/tact5_feedback.test.js` (8): a waiting foe walked up to fights within 1.2 s and gives at most a hop a
+  blow; pressed, a holder never backs past its hop; a hurt foe walks away facing its way, never backwards, once a
+  cooldown; a chased archer kites once, facing its way, then fights hand to hand and hands its melee token back past
+  the band; an archer walked up to without a token never circles (its slot pinned a quarter turn round, the case that
+  circled); one walled in is cornered by the wall (not the clock) without a detour along it; one left alone walks out
+  past the edge and shoots, never walking back in. All 8 red on the TACT head.
+  `test/tact2.test.js`'s source pin follows the motor line.
+- Mutants `tools/mutants/tact5.json` (13), all dead; `tact2.json` and `audittact.json` records re-aimed at the moved
+  lines (and two audit records widened to the new pins, which kill them where the audit's alone no longer can); the
+  four TACT lists re-run, 161 dead.
+- Patch notes `PATCH-NOTES-Foes-That-Stand-and-Fight.md`. Not looked at on a real install yet.
