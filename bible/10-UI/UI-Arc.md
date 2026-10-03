@@ -10150,7 +10150,7 @@ to the wrong code.
   so the edge was a silent no-op and one press glued a slider to the
   pointer for the rest of the popup's life, with the runaway value then
   written by the grid's save. `ControlsWindow.release()` forwards it now,
-  the ROAD-E E1 shape `ui/itemMakerWindow.js:205` has carried since
+  the ROAD-E E1 shape `ui/itemMakerWindow.js:210` has carried since
   Wave E, and it is `HorizontalSlider.cs:148-154`'s else arm.
 - **The wheel arm was dead.** `sliderScroll` ported MouseScrollUp/Down
   (:180-190) with no caller anywhere. `MouseControlsWindow.wheel(dir)`
