@@ -148,7 +148,7 @@ test('OW-TOGGLE host: the switch is read LIVE - flipped mid-game, the next ask a
 
 /** world.js's governor, mounted from its own source (as test/tv_wasd.test.js mounts it): `let tvHeld` through travelViewGovern. */
 function mountGovernor(env) {
-  const from = WORLD.indexOf('  let tvHeld = null;');
+  const from = WORLD.indexOf('  let tvFoeRate = ');   // ENEMY-PACE: the near-enemies pace and its floor ride in front of tvHeld
   const fn = WORLD.indexOf('  function travelViewGovern(dt) {', from);
   const end = WORLD.indexOf('\n  }\n', fn) + 4;
   assert.ok(from >= 0 && fn > from && end > fn, 'the governor\'s source');

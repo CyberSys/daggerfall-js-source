@@ -264,14 +264,25 @@ export const LUCK_PER_POINT = 2;
 /** The three thresholds, per mille, for one source at one luck. LOOT5: `find` multiplies the Legendary threshold - the
  *  source's OWN chance, past its cap but never past the Rare threshold (the ladder never inverts): Foxglove's Fortune's
  *  Favour, and LOOT8's drought. */
-export function rarityChances({ kind = 'corpse', tier = 0, boss = false, luck = 50, qualityMult = 1, find = 1 } = {}) {
+export function rarityChances({ kind = 'corpse', tier = 0, boss = false, luck = 50, qualityMult = 1, find = 1, weights = RARITY_WEIGHTS, legendaryTier = null, legendaryQuality = null, ladder = 1 } = {}) {   // FOE-CAP: `weights` a source's own table (systems/foeLootCap.js, a plain foe's); CHAMP-LOOT: `legendaryTier`/`legendaryQuality` the Legendary threshold's own source (a champion's)
   // ELITE: `qualityMult` scales the whole ladder (1.2 = every tier 20% likelier), caps unchanged
   const mult = (boss ? SOURCE_MULT.boss : (SOURCE_MULT[kind] ?? 1)) * (Number.isFinite(qualityMult) && qualityMult > 0 ? qualityMult : 1);
   const luckMod = (Math.max(0, Math.min(100, luck | 0)) - 50) * LUCK_PER_POINT;
   const at = (w) => Math.max(0, Math.min(w.cap, (w.base + w.perTier * Math.max(0, tier)) * mult + luckMod));
-  const magic = at(RARITY_WEIGHTS.magic);
-  const rare = Math.min(magic, at(RARITY_WEIGHTS.rare));
-  const legendary = Math.min(rare, at(RARITY_WEIGHTS.legendary) * (Number.isFinite(find) && find > 0 ? find : 1));
+  const W = weights?.magic && weights?.rare && weights?.legendary ? weights : RARITY_WEIGHTS;
+  // CHAMP-LOOT: `ladder` scales the Magic and Rare thresholds AFTER their caps - half a capped boss's is still half
+  const lad = Number.isFinite(ladder) && ladder > 0 ? ladder : 1;
+  const magic = at(W.magic) * lad;
+  const rare = Math.min(magic, at(W.rare) * lad);
+  // CHAMP-LOOT: a source may read its Legendary threshold off a tier and a quality of its own (the champion's: its Magic
+  // and Rare at half a plain foe's, its Legendary as LOOT7 left it) - never past the Rare threshold, as ever
+  const legAt = (w) => {
+    if (legendaryTier == null && legendaryQuality == null) return at(w);
+    const lt = Number.isFinite(legendaryTier) ? legendaryTier : tier;
+    const lm = (boss ? SOURCE_MULT.boss : (SOURCE_MULT[kind] ?? 1)) * (Number.isFinite(legendaryQuality) && legendaryQuality > 0 ? legendaryQuality : 1);
+    return Math.max(0, Math.min(w.cap, (w.base + w.perTier * Math.max(0, lt)) * lm + luckMod));
+  };
+  const legendary = Math.min(rare, legAt(W.legendary) * (Number.isFinite(find) && find > 0 ? find : 1));
   return { magic, rare, legendary };
 }
 
@@ -1170,9 +1181,21 @@ export function reforgeAffix(item, index, rolls = Math.random) {
   item.value = (Number.isFinite(item.value) ? item.value : itemBaseValue(item)) - affixesWorth([old]) + affixesWorth([line]);
   return line;
 }
-/** LOOT7 (bible/06-Systems/Loot-Arc.md section 9): what a CHAMPION adds to its corpse's source - four tiers, and its
- *  quality half again (its Rare-or-better guarantee is the spawn seam's: scenes/hostCombat.js ensureChampionLoot). */
-export const CHAMPION_SOURCE = Object.freeze({ tier: 4, quality: 1.5 });
+/** LOOT7 (bible/06-Systems/Loot-Arc.md section 9): what a CHAMPION's corpse source is over a plain foe's - its Legendary
+ *  threshold two tiers more and a quarter again (`tier`, `quality`), its Magic and Rare at half (`ladder`, CHAMP-LOOT). */
+export const CHAMPION_SOURCE = Object.freeze({ tier: 2, quality: 1.25, ladder: 0.5 });
+/** CHAMP-LOOT (2026-10-03, Mac: "champions should have half the rates what elite drop the legendary rate are good
+ *  already", then "no more champion guaranteed rare"): a champion's own pieces roll Magic and Rare at half a plain foe's
+ *  thresholds (`ladder`), its Legendary threshold the one LOOT7 gave it (`tier`, `quality`); nothing is forced onto its
+ *  body. */
+/** CHAMP-LOOT: a champion's corpse source over its plain one - the one home both the door and the tests read. */
+export const championSource = (source, qualityMult = 1) => ({
+  ...source,
+  qualityMult,
+  ladder: CHAMPION_SOURCE.ladder,
+  legendaryTier: source.tier + CHAMPION_SOURCE.tier,
+  legendaryQuality: qualityMult * CHAMPION_SOURCE.quality,
+});
 /** LR4 (the audit): THE CORPSE DOOR. A foe's list carries its WORN kit
  *  too (hostCombat.equipEnemy pushes every equipped piece into
  *  entity.items and onto the equip table, writing no equipSlot), so the
@@ -1183,14 +1206,14 @@ export const CHAMPION_SOURCE = Object.freeze({ tier: 4, quality: 1.5 });
  *  list it is handed - so the find landed on the copy and was thrown away with it: no body ever kept one (the
  *  Thunderlock's "tier-4 corpse, about 1 in 700"; 0 of 20,000 level-12 champions' bodies, where the list door kept 111).
  *  What the roll added past the carried pieces goes onto the body. */
-export function rollCorpseLoot(entity, basics, { rolls = Math.random, luck = 50, qualityMult = 1 } = {}) {
+export function rollCorpseLoot(entity, basics, { rolls = Math.random, luck = 50, qualityMult = 1, weights = null } = {}) {   // FOE-CAP: `weights` the plain foe's ladder (systems/foeLootCap.js)
   if (!lootRarityOn() || !entity) return entity?.items ?? [];
   const worn = new Set(entity.equip ? equipTableOf(entity).filter(Boolean) : []);
   const loot = (entity.items ?? []).filter((it) => it && !worn.has(it));
   const carried = loot.length;
   const source = corpseSource(basics, entity.level, entity.mobileType);   // LOOT6: its family
   const champ = typeof entity.champion === 'string' && entity.champion !== '';   // LOOT7: a champion is a stronger source
-  rollLootRarity(loot, { ...source, tier: source.tier + (champ ? CHAMPION_SOURCE.tier : 0), qualityMult: qualityMult * (champ ? CHAMPION_SOURCE.quality : 1) }, { rolls, luck });
+  rollLootRarity(loot, champ ? championSource(source, qualityMult) : { ...source, qualityMult, ...(weights ? { weights } : {}) }, { rolls, luck });   // CHAMP-LOOT: a champion's own source (half an elite's); FOE-CAP: a plain foe's ladder
   if (loot.length > carried) (entity.items ??= []).push(...loot.slice(carried));   // LOOT7-CHECK CORPSE-FIND: the find onto the body
   return entity.items;
 }

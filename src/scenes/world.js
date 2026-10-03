@@ -21,7 +21,7 @@ import { WodSpawner, WOD_LOOT_LOCATION_INDEX, WOD_LOOT_ALIGN } from '../world/wo
 import { wodSiteId, yieldsTo } from '../world/wodShared.js';   // WOD7: a camp's marker, shared online
 import { alignBillboardToGround, alignControllerToGround } from '../world/groundAlign.js';   // WOD3: SpawnLoot's drop; CSA-D: BoardBoat's AlignControllerToGround
 import { PRIVATEERS_HOLD_BLOCK, HOLD_MODELS, HOLD_FLATS, holdModelMatrix, holdFireLights, rollHoldFoes } from '../world/wodPrivateersHold.js';   // WOD4: the camp at Privateer's Hold
-import { rollLootRarity, pileSource, dungeonRarityTier, stampWonWeapons } from '../systems/lootRarity.js';   // WOD3: LR1 over the camps' piles; SIGIL1: their weapons' sigils
+import { rollLootRarity, pileSource, dungeonRarityTier, dungeonFamily, stampWonWeapons } from '../systems/lootRarity.js';   // WOD3: LR1 over the camps' piles; SIGIL1: their weapons' sigils
 import { revenantToReturn, revenantSpawnOptions, revenantPresence, takeRevenantNotice, revenantSay, releaseRevenantStand, revenantRecord, revenantMomentEvent } from '../systems/revenant.js';   // REVENANT: who comes back, and what the player is told
 import { SKY_CLEAR } from '../render/renderer.js'; import { centreFromFeet } from '../characters/enemyAnchor.js';   // REVIEW 2026-09-05: one line, so the cites below it hold
 import { Arch3dFile } from '../formats/arch3dFile.js';
@@ -122,6 +122,7 @@ import { createBloodMarks } from '../combat/bloodMarks.js';   // BLOOD1a: the ri
 import { preloadRestArt } from '../ui/restWindow.js';   // S40: rest above ground   // D3: REST00I0/01I0/02I0
 import { createRestWindow } from '../ui/restDoor.js';   // the enhanced/native fork, same law as ui/tradeDoor.js
 import { ActionTextBox } from '../ui/actionText.js';   // AUDIT 23 (C5)
+import { isTombstoneModel, searchKey, searchCooldownLeft, markSearched, SEARCHED_TEXT, rollSearchOutcome, pickSearchUndead, rollSearchElite, searchMessage, mintSearchFind, setSearchClock, SEARCH_FOES_PER_PLAYER, SEARCH_FOE_SPACING } from '../systems/searchables.js';   // SEARCH1: a graveyard's headstones
 import { toggleStatusReadout } from '../ui/statusBox.js';   // STATUS-LIVE: the Status readout, one composer for all four hosts
 import { statusReadoutTakesAction } from '../systems/statusReadout.js';   // STATUS-LIVE: ...and the yield this host's own key ladder owes, which never reaches routeAction
 import { maxFatigue, FATIGUE_MULTIPLIER, liveStat, STAT_KEYS_ORDER } from '../systems/statMods.js';   // AUDIT 23 (C5); AUDIT SOC B5: the party pose's fatigue in the digits a sheet shows
@@ -3619,6 +3620,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     const pixelSprings = []; // SURV3: the mod's water sources - fountains and wells (212: 0, 2, 8, 9; 85: 0), the dry fountain (212: 3), the troughs (41220-41222) - pixel-local {pos, dry}
     const pixelNpcFlats = []; // AUDIT 26 (F019): the flats RMBLayout stands as StaticNPCs, pixel-local
     const pixelBoards = [];   // the block's BULLETIN BOARDS (model 41739), pixel-local boxes
+    const pixelGraves = [];   // SEARCH1: a Graveyard location's headstones (systems/searchables.js isTombstoneModel), pixel-local boxes
     const light210 = await getTexture(LIGHTS_ARCHIVE);
     const lightSize = (record) =>
       billboardSize(light210, record);
@@ -3802,6 +3804,7 @@ export async function bootWorld(canvas, renderer, params, status) {
           // pixel keeps the boards it stood - pixel-local, like its
           // NPCs and lights - and the activation ray reads that list.
           if (isBulletinBoard(placed.modelIdNum)) pixelBoards.push({ box, local });   // SEAT1a: and its matrix - a seat's pennant faces as the board does
+          if (dfLocation?.mapTableData?.locationType === LOCATION_TYPES.Graveyard && isTombstoneModel(placed.modelIdNum)) pixelGraves.push({ box, n: pixelGraves.length });   // SEARCH1: numbered in the build's own order - the same stone, the same key, every visit
           // AUDIT 64 F14: ...and the CITY GATES, stood standalone for
           // exactly the same reason (RMBLayout.cs:857) so
           // DaggerfallCityGate can ride them (:959-963) and swap the
@@ -4323,6 +4326,7 @@ export async function bootWorld(canvas, renderer, params, status) {
       npcs: pixelNpcs,   // AUDIT 26 (F019): RMBLayout's street StaticNPCs, pixel-local
       npcBatches: [], npcQuestPass: false,   // E3: their billboards (a subset of `batches`) and the one-shot SetupIndividualStaticNPC latch
       boards: pixelBoards,   // the block's bulletin boards (41739), pixel-local boxes
+      graves: pixelGraves,   // SEARCH1: a graveyard's headstones, pixel-local boxes
       cityGates: pixelGates,   // AUDIT 64 F14: DaggerfallCityGate's placements (446/447), ticked each frame
       buildings: pixelBuildings,   // AUDIT 64 F11: RMBLayout's StaticBuildings, pixel-local boxes
       locBlocks,   // T3d: the Where-is directory's block scan
@@ -9309,10 +9313,10 @@ export async function bootWorld(canvas, renderer, params, status) {
   // ?dungeon host RAN every CastWhenUsed / CastWhenStrikes / SoulBound
   // / affinity arm against no ctx at all. They are optional-chained, so
   // it WAS silent. WAVE D closed it: the body is scenes/hostEnchant.js
-  // and dungeonContext.js:2950 mounts the same one, gated on
+  // and dungeonContext.js:2956 mounts the same one, gated on
   // `opts.enchantCtx !== false` because setDefaultEnchantCtx is a
   // session singleton and EC1 already routes THIS host's mount into
-  // that context through modes.dungeonCtx - so worldModes.js:7051
+  // that context through modes.dungeonCtx - so worldModes.js:7061
   // passes false beside its `chargen: false` and only the standalone
   // ?dungeon route mounts its own. S40 filled isResting
   // in - the sentence that stood here said it "stays absent above
@@ -12013,7 +12017,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     // so an F9 pressed inside a shop recorded the street's sheath and
     // hand. The mode host answers for the rig that is actually drawn
     // and null outside interior mode (the dungeon owns its own
-    // composer, dungeonContext.js:8118), so exterior mode and a
+    // composer, dungeonContext.js:8285), so exterior mode and a
     // pre-seam mode host compose exactly as before, per field.
     const wp = modes?.weaponPose?.() ?? null;
     const snap = snapshotPlayer(playerEntity, {
@@ -15079,7 +15083,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   // exterior -> the townTalk overlay, interior OR dungeon -> the mode
   // machine's slot. U43-ii shipped the dungeon half: showQuestBox
   // offers the window to `modes.showQuestOverlay` below, and
-  // worldModes answers it in BOTH modes (worldModes.js:10739-10803 -
+  // worldModes answers it in BOTH modes (worldModes.js:10749-10813 -
   // dungeon routes to dungeonCtx.showOverlay), so a dungeon popup is
   // shown rather than logged loudly and dropped.
   // AUDIT 24 (wave 21): DaggerfallMessageBox.Show() is a
@@ -15093,6 +15097,52 @@ export async function bootWorld(canvas, renderer, params, status) {
   // only its tail. `push()` unshifts to the front, which is exactly
   // PushWindow.
   let _questBoxWin = null;
+  // ── SEARCH1 (systems/searchables.js): A GRAVEYARD'S HEADSTONE, searched ─────────────────────────────────────────
+  // Two in three find nothing; the last third is a find or the dead, half each. The box is clicked away first: the
+  // foe stands, or the find opens, only from its onClose (ui/actionText.js). Info mode reads the stone instead (GRAVE1).
+  setSearchClock(() => worldMinutes());
+  function activateGrave(g, mode = 'grab') {
+    if (!g) return false;
+    if (mode === 'info') { townTalk.say(randomEpitaph()); return true; }
+    const key = searchKey(g.loc, g.key);
+    const now = worldMinutes();
+    if (searchCooldownLeft(key, now) > 0) { setMidScreenText(SEARCHED_TEXT); return true; }
+    markSearched(key, now);
+    const outcome = rollSearchOutcome({ graveyard: true });
+    const level = effectiveLevel(playerEntity);
+    let rows, onClose = null;
+    if (outcome === 'foe') {
+      const type = pickSearchUndead(level);
+      const elite = rollSearchElite();
+      const count = SEARCH_FOES_PER_PLAYER * (1 + partyNear().length);   // SEARCH1-PARTY: two for every player of the party here
+      rows = searchMessage('tombstone', 'foe', { foeName: enemyDisplayName(type) ?? 'creature', elite, count });
+      onClose = () => {
+        // a ring about the stone, opening toward the player (a graveyard is open ground - no room to run out of)
+        const feet = player.pos;
+        const c = [(g.min[0] + g.max[0]) / 2, Math.min(g.min[1], feet[1]), (g.min[2] + g.max[2]) / 2];
+        const half = Math.max(g.max[0] - g.min[0], g.max[2] - g.min[2]) / 2;
+        const toward = Math.atan2(feet[0] - c[0], feet[2] - c[2]);
+        for (let n = 0; n < count; n++) {
+          const a = toward + (n % 2 ? 1 : -1) * Math.ceil(n / 2) * (Math.PI / 5);
+          const r = half + 0.7 + Math.floor(n / 10) * SEARCH_FOE_SPACING;
+          const at = [c[0] + Math.sin(a) * r, c[1] + 0.05, c[2] + Math.cos(a) * r];
+          exteriorFoes.spawnFoe(type, at, { yaw: Math.atan2(-(feet[0] - at[0]), -(feet[2] - at[2])), feetGiven: true, loose: true, eliteFoe: elite && n === 0 })
+            .catch((e) => console.warn('[search] a grave\'s foe would not stand', e));
+        }
+      };
+    } else if (outcome === 'loot') {
+      const items = mintSearchFind('tombstone', { level, gender: playerEntity.gender, tier: dungeonRarityTier(18), family: dungeonFamily(18), luck: liveStat(playerEntity, 'luck') });   // a Cemetery's tier and family (DFRegion.DungeonTypes 18)
+      rows = searchMessage('tombstone', 'loot');
+      onClose = () => {
+        const pile = droppedLoot.dropPile(items, dropFeet(), `${playerTravelPixel().x},${playerTravelPixel().y}`);
+        if (!pile) return;
+        const w = makeInventoryWindow({ onClose: () => droppedLoot.releaseEmptied(), loot: droppedLootHooks(pile) });
+        if (w) townTalk.showOverlay(w);   // a refused pack is null - the find stays on the ground
+      };
+    } else rows = searchMessage('tombstone', 'nothing');
+    townTalk.showOverlay(new ActionTextBox(rows, { onClose }));
+    return true;
+  }
   /** RW1 / FORAGE4: a quest's reward, given - its pile minted on the ground the player stands on now and opened, or,
    *  while a quest box is being read, opened when that box closes (GivePc's OnClose). */
   const giveReward = (dfItem) => {
@@ -22312,6 +22362,17 @@ export async function bootWorld(canvas, renderer, params, status) {
     // raycast (PlayerActivate.cs:314, :393-398), so the box has to be
     // in the frame the ray is cast in. pickActivatable takes
     // {min,max}; the pixel keeps the 6-array the culling box uses.
+    /** SEARCH1: a graveyard's headstones, through the same live floating-origin translation the boards ride. */
+    graveTargets: () => {
+      const out = [];
+      for (const p of built.values()) {
+        if (!p.graves?.length) continue;
+        const t = state.pixelTranslation(p.px, p.py);
+        for (const g of p.graves) out.push({ min: [g.box[0] + t[0], g.box[1] + t[1], g.box[2] + t[2]], max: [g.box[3] + t[0], g.box[4] + t[1], g.box[5] + t[2]], loc: `g${p.px},${p.py}`, key: String(g.n) });
+      }
+      return out;
+    },
+    activateGrave: (g, mode) => activateGrave(g, mode),   // SEARCH1
     boardTargets: () => {
       const out = [];
       for (const p of built.values()) {
@@ -24242,6 +24303,12 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     _slowWas = why;
   }
   const travelGovernor = createLoadGovernor({ max: MAX_TIME_SCALE });
+  // ENEMY-PACE (the player: "a second time multiplier for when you're near an enemy"): the slowest pace the clock runs at
+  // with enemies near - the enemies' cap still eases a journey down toward them, but never under this. The panel's second
+  // stepper sets it, and shows only while the enemies hold the clock
+  let tvFoeRate = 5;
+  const foeLadder = (n, up) => up ? (n >= 5 ? n + 5 : n + 1) : (n > 5 ? n - 5 : Math.max(1, n - 1));
+  const foeFloor = (cap, want) => Math.min(want, Math.max(cap, Math.min(tvFoeRate, travelControlUI?.accelerationLimit() || MAX_TIME_SCALE)));
   let tvHeld = null;   // the rate the governor holds the clock to, while it holds it under the spinner's
   // OW6: and why - 'load' (TV2's ground), 'foes' (an enemy near), 'ground' (the view down: AUDIT OW4 J5's walking pace - AUDIT
   // OW5 G1, the bar saying which; its tvHeldGround is this word now)
@@ -24285,7 +24352,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
       // the classic skin's journey on the ground, and First-Person Travel's (OW-TOGGLE): the mod's own ask, under the
       // enemies' cap alone (no view, no ground to watch) - nothing near, it is the ask handed back whole. Never over the
       // helm's own time step: Come Sail Away holds the clock then (AUDIT OW5 G5's law, whose restore asks this rate)
-      const rate = csaHoldsTimeScale() ? null : Math.min(travelAsked, foes.cap);
+      const rate = csaHoldsTimeScale() ? null : foeFloor(foes.cap, travelAsked);
       if (rate != null && worldTimeScale() !== rate) setWorldTimeScale(rate);
       tvHeld = rate != null && rate < travelAsked ? rate : null;
       tvHeldWhy = tvHeld != null ? 'foes' : null;
@@ -24319,10 +24386,11 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     const unbuilt = uc.n;
     const want = journey ? travelAsked : walk;   // AUDIT TV A2: what the mod asked - never the spinner past the mod's own cap; TV-WASD: or the keys' travel
     const load = travelGovernor.step(dt, { unbuilt, requested: want });
-    const rate = Math.min(load, foes.cap);   // OW6: the ground's cap and the enemies', the lower
+    const foeCap = foeFloor(foes.cap, want);   // ENEMY-PACE: the enemies' cap, never under the player's near-enemy pace
+    const rate = Math.min(load, foeCap);   // OW6: the ground's cap and the enemies', the lower
     if (worldTimeScale() !== rate) setWorldTimeScale(rate);
     tvHeld = rate < want ? rate : null;
-    tvHeldWhy = tvHeld == null ? null : foes.cap < load ? 'foes' : 'load';
+    tvHeldWhy = tvHeld == null ? null : foeCap < load ? 'foes' : 'load';
     journeySlowSaid(tvHeldWhy);
     tvWalking = journey ? 0 : walk;
   }
@@ -27125,6 +27193,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
           following: !travelOptions?.destinationName,
           accel: travelControlUI?.timeAcceleration ?? 1,
           held: tvHeld,   // TV2: the travel view's cap, while it holds the clock under the spinner
+          foeRate: tvFoeRate,   // ENEMY-PACE
           heldWhy: tvHeldWhy,   // AUDIT OW5 G1: and why; OW6: the land loading, an enemy near, or the view down (its ground)
           message: travelControlUI?.message ?? '',
           minutesLeft: travelOptions?.minutesLeft ?? null,   // AUDIT-TO1 L5: the popup's estimate, run down on the world clock
@@ -27137,6 +27206,8 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
           exit: () => travelControlUI?.cancelWindow(),
           faster: () => travelControlUI?.faster(),
           slower: () => travelControlUI?.slower(),
+          foeFaster: () => { tvFoeRate = Math.min(travelControlUI?.accelerationLimit() || MAX_TIME_SCALE, foeLadder(tvFoeRate, true)); },   // never past the general spinner's own limit
+          foeSlower: () => { tvFoeRate = foeLadder(tvFoeRate, false); },
         });
       } else hideEnhancedTravelControl();
     } else {

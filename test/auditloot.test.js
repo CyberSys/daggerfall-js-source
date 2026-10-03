@@ -31,7 +31,6 @@ import { mintPiece, asMinted } from '../src/systems/smithItems.js';
 import { lootBlow, wornPowers, _resetLootPowersForTests } from '../src/systems/lootPowers.js';
 import { equipItem, equipTableOf } from '../src/systems/equip.js';
 import { welkyndShards } from '../src/systems/gateSpoils.js';
-import { ensureChampionLoot } from '../src/scenes/hostCombat.js';
 import { withDom } from './invdrag.mjs';
 import { mountReforgeWindow, REFORGE_SKIN_STYLE_ID } from '../src/ui/reforgeWindow.js';
 import { REFORGE_CSS } from '../src/ui/enhancedPlusStyle.js';
@@ -223,16 +222,3 @@ test('AUDIT LOOT F8: every Legendary a power - the Thunderlock\'s Last Lock too,
   assert.ok(CX.imprintChoices(rareOf(createWeapon(120, 1))).some((r) => r.id === 'the-last-lock'), 'its power a found one to imprint');
 });
 
-test('AUDIT LOOT F9: a champion\'s Rare takes the door\'s last pass - its chance at a line that does something, the spawn\'s last draws', () => {
-  on();
-  try {
-    LR._setProcForTests({ magic: 1000, rare: 1000 });
-    const minted = ensureChampionLoot({ champion: 'mighty', items: [] }, 10, lcg(3));
-    assert.equal(minted.rarity, 'rare');
-    assert.ok(minted.affixes.some(LR.isProcAffix), 'a minted Rare, a proc line');
-    const promoted = ensureChampionLoot({ champion: 'mighty', items: [createWeapon(120, 1)] }, 10, lcg(4));
-    assert.ok(promoted.rarity === 'rare' && promoted.affixes.some(LR.isProcAffix), 'a promoted one too');
-    LR._setProcForTests({ magic: 0, rare: 0 });
-    assert.ok(!ensureChampionLoot({ champion: 'mighty', items: [] }, 10, lcg(3)).affixes.some(LR.isProcAffix), 'the pass\'s own chance, nothing more');
-  } finally { LR._setProcForTests(null); }
-});

@@ -29,7 +29,7 @@ test('RF2: spawnEnemyLoot runs SetEnemyCareer\'s chain in DFU\'s order - the tab
   _resetForTests();
   const orc = 7;   // Orc: a loot table AND an equipment variant
   const e = foe();
-  const items = spawnEnemyLoot(e, orc, { ...ENEMY_BASICS[orc], mapChance: 100 }, player, { rolls: () => 0 });   // a sure map, to see WHERE it lands
+  const items = spawnEnemyLoot(e, orc, { ...ENEMY_BASICS[orc], mapChance: 100, level: 21 }, player, { rolls: () => 0 });   // a sure map, to see WHERE it lands; FOE-CAP: at a boss's level, which the cap leaves whole, so the chain shows
   assert.equal(items, e.items);
   const worn = equipTableOf(e).filter(Boolean);
   assert.ok(worn.length > 0, 'the kit is on');
@@ -72,7 +72,7 @@ test('RF2: one seam, one home - each host calls it once per spawn branch and non
   // arguments: the humanoid item-chance scale and the dead creature's own
   // mobileType into generateItems (lootThemes.js reads it), and `rolls` into
   // equipEnemy so its worn-gear drop is on the caller's stream too.
-  assert.match(hc, /export function spawnEnemyLoot\(entity, mobileType, basics, player, \{ rolls = Math\.random, lootDropMult = 1, lootQualityMult = 1, where = null \} = \{\}\) \{\n  const itemChanceScale = \(isHumanoid\(entity\) \? HUMANOID_LOOT_ITEM_SCALE : 1\) \* lootDropMult;\n  entity\.items = generateItems\(enemyLootTableKey\(mobileType, basics\?\.lootTableKey \?\? '-'\), \{ level: effectiveLevel\(player\), gender: player\.gender \}, undefined, \{ itemChanceScale, mobileType \}\);\n  const eq = equipEnemy\(entity, mobileType, effectiveLevel\(player\), rolls, \{ player \}\);   \/\/ SOFTCAP2: a mentor's foes carry the GROUP's loot and gear\n  addEnemyLootExtras\(entity\.items, basics, rolls\);\n[\s\S]{0,900}?\n  rollCorpseLoot\(entity, basics, \{ rolls, luck: liveStat\(player, 'luck'\), qualityMult: lootQualityMult \}\);\n  if \(championOf\(entity\)\) ensureChampionLoot\(entity, effectiveLevel\(player\), rolls\);[^\n]*\n  return entity\.items;\n\}/, 'the chain, in DFU\'s order, the port\'s arm last (LOOT7: a champion\'s guarantee the arm\'s own last word)');
+  assert.match(hc, /export function spawnEnemyLoot\(entity, mobileType, basics, player, \{ rolls = Math\.random, lootDropMult = 1, lootQualityMult = 1, where = null \} = \{\}\) \{\n  const itemChanceScale = \(isHumanoid\(entity\) \? HUMANOID_LOOT_ITEM_SCALE : 1\) \* lootDropMult;\n  entity\.items = generateItems\(enemyLootTableKey\(mobileType, basics\?\.lootTableKey \?\? '-'\), \{ level: effectiveLevel\(player\), gender: player\.gender \}, undefined, \{ itemChanceScale, mobileType \}\);\n  const eq = equipEnemy\(entity, mobileType, effectiveLevel\(player\), rolls, \{ player \}\);   \/\/ SOFTCAP2: a mentor's foes carry the GROUP's loot and gear\n  addEnemyLootExtras\(entity\.items, basics, rolls\);\n[\s\S]{0,1600}?\n  rollCorpseLoot\(entity, basics, \{ rolls, luck: liveStat\(player, 'luck'\), qualityMult: lootQualityMult, weights: plain\?\.plainLadder \? PLAIN_FOE_RARITY_WEIGHTS : null \}\);\n  capFoeLoot\(entity\);\n  return entity\.items;\n\}/, 'the chain, in DFU\'s order, the port\'s arm last (FOE-CAP: the cap its last word; CHAMP-LOOT: no champion Rare forced)');
   for (const [f, n] of [['src/scenes/dungeonContext.js', 2], ['src/scenes/exteriorFoes.js', 1], ['src/scenes/cityGuards.js', 1]]) {
     const src = read(f);
     assert.equal((src.match(/^\s*spawnEnemyLoot\(entity, /gm) ?? []).length, n, `${f}: once per branch`);

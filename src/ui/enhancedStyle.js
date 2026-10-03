@@ -2677,6 +2677,13 @@ html.plus-pad-prompts-visible .px-over > .px-stage:not(.px-acctstage):not(.px-ti
 .travelpanel-speed { display: flex; flex-direction: column; justify-content: center; gap: 2px;
   padding: 7px 14px; border-left: 1px solid rgba(192,138,62,0.25); }
 .travelpanel-stepper { display: flex; align-items: center; gap: 6px; }
+/* ENEMY-PACE: the second clock, under the first - only while enemies hold the journey (the node's hidden attribute takes it away) */
+.travelpanel-foe { display: flex; flex-direction: column; align-items: inherit; gap: 3px; margin-top: 8px; }
+.travelpanel-foe[hidden] { display: none; }
+.travelpanel-foe > .travelpanel-label { white-space: nowrap; }
+.travelpanel-foeaccel { color: #d9a441; }
+.travelpanel.foes .travelpanel-msg { top: calc(var(--tp-top, 66px) + 148px); }
+.travelpanel.foes .travelpanel-junction { top: calc(var(--tp-top, 66px) + 156px); }
 .travelpanel-accel { font-family: var(--display); font-size: 19px; min-width: 46px; text-align: center; color: var(--brass); }
 .travelpanel-accel.held { font-size: 15px; min-width: 84px; color: #d9a441; }   /* TV2: held while the land loads */
 .travelpanel-step { pointer-events: auto; width: 22px; height: 22px; line-height: 1;
@@ -2750,9 +2757,12 @@ html.plus-pad-prompts-visible .px-over > .px-stage:not(.px-acctstage):not(.px-ti
   border: 0; box-shadow: none; background: none; }
 #travel-view .tview-dock .travelpanel-dest { flex: 1 1 100%; min-width: 0; max-width: none; padding: 9px 12px 5px; }
 #travel-view .tview-dock .travelpanel-name { display: block; font-size: 16px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-#travel-view .tview-dock .travelpanel-speed { flex: 0 0 auto; flex-direction: row; align-items: center; gap: 8px; padding: 3px 0 9px 12px; }
+#travel-view .tview-dock .travelpanel-speed { flex: 0 0 auto; flex-direction: column; align-items: flex-start; justify-content: center; gap: 0; padding: 3px 0 9px 12px; }
 #travel-view .tview-dock .travelpanel-speed > .travelpanel-label { display: none; }
-#travel-view .tview-dock .travelpanel-acts { flex: 1 1 auto; display: flex; justify-content: flex-end; gap: 6px; padding: 3px 12px 9px 8px; }
+/* ENEMY-PACE: the clock on the left (its near-enemies stepper under it while enemies hold the clock), Camp ABOVE Exit on the right */
+#travel-view .tview-dock .travelpanel-acts { flex: 0 0 auto; margin-left: auto; display: flex; flex-direction: column; align-items: stretch; justify-content: center; gap: 6px; padding: 3px 12px 9px 8px; }
+#travel-view .tview-dock .travelpanel-acts .travelpanel-act { min-width: 78px; text-align: center; }
+#travel-view .tview-dock .travelpanel-foe { margin-top: 6px; }
 #travel-view .tview-dock .travelpanel-act[data-act="map"] { display: none; }
 #travel-view .tview-dock .travelpanel-act { padding: 5px 9px; }
 #travel-view .tview-dock > .travelpanel-msg { position: absolute; right: 0; left: auto; top: auto; bottom: calc(100% + 10px); transform: none;
@@ -3284,6 +3294,14 @@ html.plus-pad-prompts-visible .px-over > .px-stage:not(.px-acctstage):not(.px-ti
 .sb-shell .sb-nums { display: flex; flex-wrap: wrap; gap: 6px 14px; margin: 4px 0 0 26px; }
 .sb-shell .sb-num { color: var(--brass); font-size: 12px; letter-spacing: 0.1em;
   font-variant-numeric: tabular-nums; text-shadow: 2px 2px 0 rgba(0,0,0,0.8); }
+/* SB-ICON: the icon grid under the spell's buttons - the spell maker's picker, in the book. 12 to a row, as the classic grid. */
+.sb-shell .sb-icons { display: grid; grid-template-columns: repeat(auto-fill, minmax(44px, 1fr)); gap: 6px; margin: 16px 0 0; max-height: 260px; overflow-y: auto; padding: 8px; border: 2px solid rgba(125,116,96,0.35); background: rgba(0,0,0,0.25); }
+.sb-shell .sb-icon { pointer-events: auto; display: grid; place-items: center; width: 100%; aspect-ratio: 1; min-height: 40px; padding: 0; cursor: pointer; background: rgba(43,50,59,0.9); border: 2px solid rgba(125,116,96,0.45); }
+.sb-shell .sb-icon img { width: 32px; height: 32px; image-rendering: pixelated; }
+.sb-shell .sb-icon:hover, .sb-shell .sb-icon:focus-visible { outline: none; border-color: var(--verdigris); }
+.sb-shell .sb-icon.on { border-color: var(--brass); background: rgba(192,138,62,0.28); }
+.sb-shell .sb-iconnum { font-size: 11px; color: var(--dim); }
+.sb-shell .sb-iconbtn.on { color: var(--brass); }
 .sb-shell .sb-rename { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; margin: 16px 0 0; }
 .sb-shell .sb-renamelabel { color: #9c937d; font-size: 12px; letter-spacing: 0.14em;
   text-transform: uppercase; }

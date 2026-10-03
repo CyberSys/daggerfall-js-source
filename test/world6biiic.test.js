@@ -125,7 +125,7 @@ test('WORLD6b-iii(c): a pile larger than one frame is granted in parts - the fir
   const rat = await bob.spawnFoe(0, [12, 0, 12], { feetGiven: true });
   const one = generateItems('M', { level: 10, gender: 'male' }, () => 0.99)[0];
   const fat = { ...one, customEnchantments: [], name: 'x'.repeat(120) };
-  rat.entity.items = Array.from({ length: 60 }, () => ({ ...fat, notes: 'y'.repeat(120) }));
+  rat.entity.items = Array.from({ length: 60 }, () => ({ ...fat, notes: 'y'.repeat(120) })); delete rat.entity.lootCap;   // FOE-CAP: a body with no cap (a boss's) - a plain rat's would carry three
   bob.damageFoe(rat, 9999, [10, 0, 10]);
   assert.equal(bob.applyHit('mac-0001', { to: 'bob-0002', k: 'world:3,12', i: rat.seq, take: 1 }), true);
   const g = bobHits[0];
