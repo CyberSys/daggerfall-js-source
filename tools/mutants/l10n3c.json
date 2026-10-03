@@ -11,7 +11,7 @@
   {"name":"L10N3c-table-overwritten","file":"src/systems/quest/localizedQuest.js","old":"        if (!table.has(k)) table.set(k, text);   // AddEntry only where GetEntry found none","new":"        table.set(k, text);","tests":["test/l10n3c.test.js"]},
   {"name":"L10N3c-cache-never-stale","file":"src/systems/quest/localizedQuest.js","old":"  if (_revision !== textRevision()) { _parsed.clear(); _revision = textRevision(); }\n","new":"","tests":["test/l10n3c.test.js"]},
   {"name":"L10N3c-name-case-kept","file":"src/systems/quest/localizedQuest.js","old":"const questKey = (questName) => String(questName ?? '').replace(/\\.txt$/i, '').toUpperCase();","new":"const questKey = (questName) => String(questName ?? '');","tests":["test/l10n3c.test.js"]},
-  {"name":"L10N3c-getmessage-own-source","file":"src/systems/quest/quest.js","old":"    if (lines) result.loadMessage(messageID, lines);\n","new":"","tests":["test/l10n3c.test.js"]},
+  {"name":"L10N3c-getmessage-own-source","file":"src/systems/quest/quest.js","old":"    if (lines) result.localize(lines);","new":"    if (false) result.localize(lines);","tests":["test/l10n3c.test.js"]},
   {"name":"L10N3c-schedule-name-kept","file":"src/systems/quest/machine.js","old":"    localizeDisplayName(quest);   // L10N3c\n","new":"","tests":["test/l10n3c.test.js"]},
-  {"name":"L10N3c-displayname-always","file":"src/systems/quest/machine.js","old":"  if (name) quest.displayName = name;","new":"  quest.displayName = name;","tests":["test/l10n3c.test.js"]}
+  {"name":"L10N3c-displayname-always","file":"src/systems/quest/quest.js","old":"    this.displayName = name || this.ownDisplayName;","new":"    this.displayName = name;","tests":["test/l10n3c.test.js"]}
 ]

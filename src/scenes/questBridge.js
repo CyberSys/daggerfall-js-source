@@ -198,6 +198,7 @@ export const QUEST_CTX_CONTRACT = Object.freeze([
   'getReputation', 'getTotalGold', 'giveItemToPlayer', 'hasQuestTopics',
   'isPlayerInTown', 'isPlayerInsideCastle', 'makeEnemiesHostile',
   'makeHeldQuestItemsPermanent', 'makePcDiseased', 'midDateTimeString',
+  'noteMinutes', 'notePlace',   // L10N5: a notebook header's render data
   'offerReward', 'onQuestEnded', 'onQuestStarted', 'ownMinutes', 'partySize', 'playSong',
   'playSound', 'playVideo', 'playerEntity', 'playerHasItem',
   'playerRaceName', 'questClockStepMax', 'questFoeInstances', 'questWhere',   // GUIDE4: the host's two questions for the lens's look
@@ -240,6 +241,8 @@ export function createQuestBridge(ctx, { label = 'host' } = {}) {
     dateTimeString: () => ctx.dateTimeString?.() ?? '',
     midDateTimeString: () => ctx.midDateTimeString?.() ?? '',
     cityName: () => ctx.cityName?.() ?? '',
+    nowMinutes: () => ctx.noteMinutes?.(),   // L10N5: a header's render data - optional seams, a host without them files text alone
+    place: () => ctx.notePlace?.() ?? null,
   });
 
   let questLists = null;

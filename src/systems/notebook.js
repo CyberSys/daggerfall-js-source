@@ -26,9 +26,20 @@
 //   dateTimeString()    - DaggerfallDateTime.Now.DateTimeString()
 //   midDateTimeString() - Now.MidDateTimeString() (the quest header)
 //   cityName()          - MacroHelper.CityName (the note header's %cn)
+//   nowMinutes()        - L10N5: the classic minute the header's date is of
+//   place()             - L10N5: where the note is written, as ids - { mapId, name } or { region, name }
+//
+// L10N5: A HEADER RECORDS WHAT IT SAYS. DFU files the date header as text, in the language of the moment, and so did the
+// port. A header now carries its render data beside its text - a note's minute and place, a finished quest's file
+// name, own DisplayName, outcome and minute - and the save carries that data in fields of the port's own beside DFU's
+// line lists, so a load draws each header again in the language of the load. An entry's BODY stays as written: a
+// note is the player's own words, and a finished quest's log was expanded against resources the quest no longer has
+// (Localization-Arc.md, L10N5).
 
 import { graphemesOf } from './graphemes.js';   // JOURNAL1: a long run is cut between the reader's characters
-import { localizedStrings } from './textManager.js';   // L10N3d: DFU's Internal_Strings, read in the player's language
+import { localizedStrings, getLocalizedLocationName, getLocalizedRegionName } from './textManager.js';   // L10N3d: DFU's Internal_Strings, read in the player's language
+import { dateFromClassicMinutes, dateTimeString, midDateTimeString } from './gameDate.js';   // L10N5: a header's date drawn again
+import { localizedQuestDisplayName } from './quest/localizedQuest.js';   // L10N5: a finished quest named in the language
 
 export const MAX_LINE_LENGTH = 70;         // PlayerNotebook.MaxLineLenth
 export const MAX_MESSAGE_COUNT = 50;
@@ -50,6 +61,26 @@ const EN = localizedStrings({
   quest: 'Quest',
 });
 const format = (tpl, ...args) => tpl.replace(/\{(\d)\}/g, (_, i) => String(args[i]));
+
+/** L10N5: where a note was written, as the language names it - a location by its MapId, else the region by its index;
+ *  the canonical name where the language has none. */
+const shownPlace = (p) => (p.mapId != null ? getLocalizedLocationName(p.mapId, p.name ?? '') : getLocalizedRegionName(p.region, () => p.name ?? ''));
+
+/** L10N5: a header's render data, if it is one - a note's `{ kind: 'note', at, place }` or a finished quest's
+ *  `{ kind: 'quest', quest, name, success, at }` (anything else is no header data, and its text stands). */
+export function headerData(h) {
+  if (!h || typeof h !== 'object' || !Number.isFinite(h.at)) return null;
+  if (h.kind === 'note' && h.place && typeof h.place === 'object') return h;
+  if (h.kind === 'quest') return h;
+  return null;
+}
+
+/** L10N5: a header's words from its render data, in the current language - the shapes PlayerNotebook writes them in. */
+export function renderHeader(h) {
+  if (h.kind === 'note') return format(EN.noteHeader, dateTimeString(dateFromClassicMinutes(h.at)), shownPlace(h.place));
+  const name = (h.quest && localizedQuestDisplayName(h.quest)) || h.name || EN.quest;
+  return format(EN.finishQuestHeader, name, h.success ? EN.completedQuest : EN.endedQuest, midDateTimeString(dateFromClassicMinutes(h.at)));
+}
 
 const NOTHING = Object.freeze({ formatting: 'nothing', text: '' });
 const NEWLINE = Object.freeze({ formatting: 'newline', text: '' });
@@ -111,10 +142,10 @@ export class PlayerNotebook {
   }
 
   _createNote() {
-    return [
-      { formatting: 'highlight', text: format(EN.noteHeader, this.deps.dateTimeString?.() ?? '', this.deps.cityName?.() ?? '') },
-      NOTHING,
-    ];
+    const header = { formatting: 'highlight', text: format(EN.noteHeader, this.deps.dateTimeString?.() ?? '', this.deps.cityName?.() ?? '') };
+    const render = headerData({ kind: 'note', at: this.deps.nowMinutes?.(), place: this.deps.place?.() });
+    if (render) header.render = render;   // L10N5: what the header says, for a load to draw it again
+    return [header, NOTHING];
   }
 
   // ---- messages (the unsaved ring) ----
@@ -203,7 +234,7 @@ export class PlayerNotebook {
     // which now names nothing live, goes.
     if (quest?.uid != null) this.unhideQuest(quest.uid);
     const questName = quest.displayName || EN.quest;
-    let entry = this._createFinishedQuest(questName, quest.questSuccess);
+    let entry = this._createFinishedQuest(questName, quest.questSuccess, quest);
     for (const msg of messages) {
       for (const token of msg.getTextTokens()) entry.push(token);
       entry.push(NEWLINE);
@@ -216,12 +247,14 @@ export class PlayerNotebook {
     this.finishedQuests.push(entry);
   }
 
-  _createFinishedQuest(questName, success) {
+  _createFinishedQuest(questName, success, quest = null) {
     const status = success ? EN.completedQuest : EN.endedQuest;
-    return [
-      { formatting: 'highlight', text: format(EN.finishQuestHeader, questName, status, this.deps.midDateTimeString?.() ?? '') },
-      NOTHING,
-    ];
+    const header = { formatting: 'highlight', text: format(EN.finishQuestHeader, questName, status, this.deps.midDateTimeString?.() ?? '') };
+    // L10N5: the quest by its file and its own DisplayName (L10N5's ownDisplayName - never a translation's), for a load
+    const own = quest ? (quest.ownDisplayName !== undefined ? quest.ownDisplayName : quest.displayName) : null;
+    const render = headerData({ kind: 'quest', quest: quest?.questName ?? null, name: own || null, success: !!success, at: this.deps.nowMinutes?.() });
+    if (render) header.render = render;
+    return [header, NOTHING];
   }
 
   // ---- save, load & clear ----
@@ -242,6 +275,9 @@ export class PlayerNotebook {
     return {
       notebookEntries: this.notes.map(convertEntry),
       finishedQuestEntries: this.finishedQuests.map(convertEntry),
+      // L10N5: each entry's header render data, by entry - the port's own fields, written only when a header has some
+      ...headerField('noteHeaders', this.notes),
+      ...headerField('finishedQuestHeaders', this.finishedQuests),
       // JOURNAL-CLEAN: the port's own field beside DFU's two - written only when something is hidden, so a save with
       // nothing hidden is the shape it always was.
       ...(this.hiddenQuests.length ? { hiddenQuestIds: [...this.hiddenQuests] } : {}),
@@ -250,8 +286,8 @@ export class PlayerNotebook {
 
   /** RestoreNotebookData (:308-315). */
   restoreSaveData(data) {
-    this.notes = (data.notebookEntries ?? []).map(convertLines);
-    this.finishedQuests = (data.finishedQuestEntries ?? []).map(convertLines);
+    this.notes = redrawHeaders((data.notebookEntries ?? []).map(convertLines), data.noteHeaders);
+    this.finishedQuests = redrawHeaders((data.finishedQuestEntries ?? []).map(convertLines), data.finishedQuestHeaders);
     // JOURNAL-CLEAN: an older save carries no list and hides nothing; a malformed one is read for what it holds.
     const hidden = Array.isArray(data.hiddenQuestIds) ? data.hiddenQuestIds : [];
     this.hiddenQuests = [...new Set(hidden.filter((id) => typeof id === 'string' || Number.isFinite(id)).map(String))];
@@ -310,6 +346,23 @@ export function wrapLinesIntoNote(note, str, formatting) {
   }
   note.push({ formatting, text: ' ' + str });
   note.push(NOTHING);
+}
+
+/** L10N5: `{ [name]: [render data or null, by entry] }`, or nothing when no entry's header has any. */
+function headerField(name, entries) {
+  const list = entries.map((e) => (e[0]?.formatting === 'highlight' && e[0].render) || null);
+  return list.some(Boolean) ? { [name]: list } : {};
+}
+
+/** L10N5: each restored entry's header drawn again from its render data, in the language of the load; an entry with
+ *  none (an older save, a host that names no place) keeps the text it was filed with. */
+function redrawHeaders(entries, headers) {
+  if (!Array.isArray(headers)) return entries;
+  entries.forEach((e, i) => {
+    const h = headerData(headers[i]);
+    if (h && e[0]?.formatting === 'highlight') e[0] = { formatting: 'highlight', text: renderHeader(h), render: h };
+  });
+  return entries;
 }
 
 function convertEntry(entry) {

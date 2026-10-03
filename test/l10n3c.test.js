@@ -117,6 +117,6 @@ test('L10N3c by source: both parse doors take the -LOC DisplayName, GetMessage a
   const machine = rd('src/systems/quest/machine.js');
   assert.match(machine, /localizeDisplayName\(quest\);   \/\/ L10N3c\n\s+this\.questsToInvoke\.push\(quest\);/, 'scheduleQuest');
   assert.match(machine, /return localizeDisplayName\(this\.parser\.parse\(lines, factionId,/, 'parseQuestForLists');
-  assert.match(rd('src/systems/quest/quest.js'), /const lines = localizedQuestMessage\(this\.questName, messageID\);\n\s+if \(lines\) result\.loadMessage\(messageID, lines\);/);
+  assert.match(rd('src/systems/quest/quest.js'), /const lines = localizedQuestMessage\(this\.questName, messageID\);\n\s+if \(lines\) result\.localize\(lines\);/);   // L10N5: read in place, the quest's own kept
   assert.match(rd('src/scenes/questBridge.js'), /getLocalizedQuestDisplayName: \(questName\) => localizedQuestDisplayName\(questName\),/);
 });

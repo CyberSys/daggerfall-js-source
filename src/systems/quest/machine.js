@@ -359,8 +359,7 @@ const BEHAVIOUR_SWEEP_MIN = 64;
 /** L10N3c: ParseQuest's tail (QuestMachine.cs:676-678) - a quest the current language has a -LOC file for takes that
  *  file's DisplayName (ParseLocalizedQuestText, GetLocalizedQuestDisplayName). Answers the quest. */
 function localizeDisplayName(quest) {
-  const name = quest ? localizedQuestDisplayName(quest.questName) : '';
-  if (name) quest.displayName = name;
+  if (quest) quest.localizeDisplayName(localizedQuestDisplayName(quest.questName));   // L10N5: its own name kept for the save
   return quest;
 }
 
@@ -1053,6 +1052,7 @@ export class QuestMachine {
       try {
         const quest = new Quest({ ...clocks, actionFactory: this._actionFactory, hooks: this._buildHooks(), questClockStepMax: () => this.deps.questClockStepMax?.() ?? Infinity });   // WORLD7: the clocks charge played time online
         quest.restoreSaveData(questData, this._saveResolvers());
+        localizeDisplayName(quest);   // L10N5: the save holds the quest's own name; the language names it again
         if (this.quests.has(quest.uid)) throw new Error('An item with the same key has already been added.');
         this.quests.set(quest.uid, quest);
       } catch (e) {

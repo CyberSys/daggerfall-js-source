@@ -15620,6 +15620,9 @@ export async function bootWorld(canvas, renderer, params, status) { handHeroGend
     // L10N3e: MacroHelper.CityName as it is shown (PlayerNotebook.cs:114) - the location by its MapId
     // (MacroHelper.cs:571), else the region by its index (:573); the header is written in the language of the moment
     cityName: () => { const loc = _questLoc(); return loc?.name != null ? getLocalizedLocationName(loc.mapTableData?.mapId, loc.name) : getLocalizedRegionName(_questRegionIndex(), () => questWorld.currentRegionName()); },
+    // L10N5: what a header records, for a load to draw it in its own language - the minute, and the place as ids
+    noteMinutes: () => skyMinutes(),
+    notePlace: () => { const loc = _questLoc(); return loc?.name != null ? { mapId: loc.mapTableData?.mapId ?? null, name: loc.name } : { region: _questRegionIndex(), name: questWorld.currentRegionName() }; },
   }, { label: 'world.js' });
   // WA1: Warm Ashes - Ships' quest action, registered as its Awake registers it [IL_0303] - on the machine this host
   // builds, before any save's quests are restored (a restored "Leave Ship" resolves its type through the registry).

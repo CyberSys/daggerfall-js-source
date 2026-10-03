@@ -3734,6 +3734,8 @@ export async function bootExterior(canvas, renderer, params, status) {
     dateTimeString: () => dateTimeString(dateFromClassicMinutes(skyMinutes())),   // TIME1: the date the player sees
     midDateTimeString: () => midDateTimeString(dateFromClassicMinutes(skyMinutes())),
     cityName: () => getLocalizedLocationName(dfLocation.mapTableData?.mapId, dfLocation.name ?? locationName),   // L10N3e: MacroHelper.CityName as it is shown (PlayerNotebook.cs:114, MacroHelper.cs:571) - this host always stands in its location
+    noteMinutes: () => skyMinutes(),   // L10N5: what a header records, for a load to draw it in its own language
+    notePlace: () => ({ mapId: dfLocation.mapTableData?.mapId ?? null, name: dfLocation.name ?? locationName }),
     addHUDText: (t) => townTalk.say(t),
     // The tokens arrive ALREADY expanded and already chunked - Quest.cs:785.
     showPopup: (_q, tokens) => { const rows = tokensToRows(tokens); if (rows.length) showQuestBox({ rows }); },
