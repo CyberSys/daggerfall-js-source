@@ -136,13 +136,13 @@ test('IS1: restoreInterior - the identity trio, buildingKey disambiguation, the 
 
 test('IS1: the load path never caches the dying scene', () => {
   const modes = read('src/scenes/worldModes.js');
-  assert.match(modes, /forceExitToExterior\(\{ cacheScene = true \} = \{\}\)/,
-    'quest teleports keep the Teleport.cs:145-148 caching default');
+  assert.match(modes, /forceExitToExterior\(\{ cacheScene = true, load = false \} = \{\}\)/,
+    'quest teleports keep the Teleport.cs:145-148 caching default');   // AUDIT REST II H1 (PIN MOVED): and a load says so itself
   assert.match(modes, /if \(cacheScene\) cacheInteriorScene\(\);/,
     'the load alone opts out - by then the entity cache is the SAVE’s own');
   const world = read('src/scenes/world.js');
   const body = world.slice(world.indexOf('async function worldQuickLoad'), world.indexOf('function applyPose'));
-  const atExit = body.indexOf('modes?.forceExitToExterior({ cacheScene: false })');
+  const atExit = body.indexOf('modes?.forceExitToExterior({ cacheScene: false, load: true })');   // AUDIT REST II H1 (PIN MOVED): the load says so itself
   const atTeleport = body.indexOf('await _teleportToPixel');
   assert.ok(atExit > -1 && atTeleport > atExit,
     'RespawnPlayer destroys the standing interior FIRST (:453-459), and without serializing it (:464)');

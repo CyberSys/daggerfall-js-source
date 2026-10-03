@@ -11993,11 +11993,11 @@ export async function bootWorld(canvas, renderer, params, status) {
           const from = ohSaved?.Active && Number.isFinite(ohSaved.PitMapX) && Number.isFinite(ohSaved.PitMapY) ? { x: ohSaved.PitMapX, y: ohSaved.PitMapY } : pixel;
           const wake = undergroundWakeSpot(maps.getRegion(maps.getRegionIndexAt(from.x, from.y))?.mapTable ?? [], from);
           await _teleportToPixel(wake.mapPixel.x, wake.mapPixel.y, null, { modEvent: 'load', reposition: REPOSITION.RandomStartMarker });
-          standOuterCamps(); carrySavedFires();   // AUDIT REST II H5 + H6: woken outside - my fires come with me
           // WOD6 (audit): a load all the same - SaveLoadManager.OnLoad, last, at the landed player
           { const s = walkMode && playerSpawned; const f = s ? player.pos : cam.pos; wodOnLoad([f[0], f[1] + (s ? player.height / 2 : 0), f[2]]); }
           townTalk.say(undergroundWakeText(wake.kind));
           csaElsewhere = true;
+          standOuterCamps(); carrySavedFires();   // AUDIT REST II H5 + H6: woken outside - my fires come with me
         } else {
           _wodInside = true;   // WOD6: a dungeon save lands inside - no marker hears this load
           await _teleportToPixel(pixel.x, pixel.y, null, { modEvent: 'load' });   // SIB2: SaveLoadManager.OnLoad

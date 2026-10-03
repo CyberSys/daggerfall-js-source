@@ -8043,8 +8043,8 @@ export function createWorldModes(host) {
     crownHall = null;   // CROWN-HALL: the throne room's pieces leave with the castle
     host.horseCart?.()?.handleExteriorTransition();   // HCC: OnTransitionExterior / OnTransitionDungeonExterior [IL_9ae4] - the interior access closes, the following horse resumes
     setMode('exterior');
-    if (carried) say(CAMP_TEXT.carriedOut);   // AUDIT REST II H4: on the HUD that is up now - the dungeon's went with it
     host.unlockOn?.();   // AUDIT 62 F16/F28: the lock never outlives a mode change
+    if (carried) say(CAMP_TEXT.carriedOut);   // AUDIT REST II H4: on the HUD that is up now - the dungeon's went with it
     destroyWorldPlaque();   // WORLD-HOVER: a DOM overlay stays painted unless it is told otherwise (AUDIT 64 F37) - and the exterior arm is not the plaque's host, so it has no frame in which to hide it
     host.applyWeaponPose?.(pose);   // JAN1: the exterior rig takes the pair the dungeon rig held
     {   // RR1: OnTransitionToDungeonExterior_ExtinguishLight (RoleplayRealism.cs:633-640) - by day, the lit light is doused with its own box
@@ -11206,8 +11206,8 @@ export function createWorldModes(host) {
       player.collider = baseCollider();
       host.horseCart?.()?.handleExteriorTransition();   // HCC: a load or a teleport out is an exterior transition too
       setMode('exterior');
-      if (carried) say(CAMP_TEXT.carriedOut);   // AUDIT REST II H4: on the HUD that is up now - the dungeon's went with it
       host.unlockOn?.();   // AUDIT 62 F16/F28: the lock never outlives a mode change
+      if (carried) say(CAMP_TEXT.carriedOut);   // AUDIT REST II H4: on the HUD that is up now - the dungeon's went with it
       destroyWorldPlaque();   // WORLD-HOVER: a DOM overlay stays painted unless it is told otherwise (AUDIT 64 F37) - and the exterior arm is not the plaque's host, so it has no frame in which to hide it
       if (pose) host.applyWeaponPose?.(pose);   // JAN1: the exterior rig takes the pair the live rig held
       // AUDIT 63r F30: NO PlayerTeleportedIntoDungeon CLEAR HERE. The

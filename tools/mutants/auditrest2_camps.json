@@ -84,8 +84,8 @@
   {
     "name": "AUDITREST2-H4-the-walk-out-never-says",
     "file": "src/scenes/worldModes.js",
-    "old": "    setMode('exterior');\n    if (carried) say(CAMP_TEXT.carriedOut);",
-    "new": "    setMode('exterior');\n    void carried;",
+    "old": "the lock never outlives a mode change\n    if (carried) say(CAMP_TEXT.carriedOut);",
+    "new": "the lock never outlives a mode change\n    void carried;",
     "tests": [
       "test/auditrest2_camps.test.js"
     ]
@@ -93,8 +93,8 @@
   {
     "name": "AUDITREST2-H4-the-teleport-never-says",
     "file": "src/scenes/worldModes.js",
-    "old": "      setMode('exterior');\n      if (carried) say(CAMP_TEXT.carriedOut);",
-    "new": "      setMode('exterior');\n      void carried;",
+    "old": "the lock never outlives a mode change\n      if (carried) say(CAMP_TEXT.carriedOut);",
+    "new": "the lock never outlives a mode change\n      void carried;",
     "tests": [
       "test/auditrest2_camps.test.js"
     ]

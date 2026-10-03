@@ -93,9 +93,9 @@ test('AUDIT REST II H3: a dungeon rest tends my Campfire through the night - its
 test('AUDIT REST II H4: "You take your Campfire with you." is said where it can be seen - packed quiet, then said on the HUD that is up once the mode is outside, on the walk out and on a teleport; a load says nothing (mutants: said into the dying dungeon; never said outside)', () => {
   const wm = rd('src/scenes/worldModes.js');
   const walk = wm.slice(wm.indexOf('function exitDungeonNow() {'), wm.indexOf('host.applyWeaponPose?.(pose);', wm.indexOf('function exitDungeonNow() {')));
-  assert.match(walk, /const carried = dungeonCtx\.camps\?\.packOwnFires\?\.\(\{ quiet: true \}\) \?\? 0;[\s\S]*\n {4}setMode\('exterior'\);\n {4}if \(carried\) say\(CAMP_TEXT\.carriedOut\);/);
-  const forced = wm.slice(wm.indexOf('forceExitToExterior({ cacheScene = true, load = false } = {}) {'), wm.indexOf('host.unlockOn?.();', wm.indexOf('forceExitToExterior({ cacheScene = true, load = false } = {}) {')));
-  assert.match(forced, /let carried = 0;[\s\S]*\n {6}setMode\('exterior'\);\n {6}if \(carried\) say\(CAMP_TEXT\.carriedOut\);/);
+  assert.match(walk, /const carried = dungeonCtx\.camps\?\.packOwnFires\?\.\(\{ quiet: true \}\) \?\? 0;[\s\S]*\n {4}setMode\('exterior'\);\n {4}host\.unlockOn\?\.\(\);[^\n]*\n {4}if \(carried\) say\(CAMP_TEXT\.carriedOut\);/);
+  const forced = wm.slice(wm.indexOf('forceExitToExterior({ cacheScene = true, load = false } = {}) {'), wm.indexOf('climbFeel.reset();', wm.indexOf('forceExitToExterior({ cacheScene = true, load = false } = {}) {')));
+  assert.match(forced, /let carried = 0;[\s\S]*\n {6}setMode\('exterior'\);\n {6}host\.unlockOn\?\.\(\);[^\n]*\n {6}if \(carried\) say\(CAMP_TEXT\.carriedOut\);/);
   // the pool: quiet packs and says nothing; the default still says it once
   _resetForTests(); setPref('survival', true); setWorldMinutes(1000);
   for (const [quiet, want] of [[true, 0], [false, 1]]) {
@@ -124,7 +124,7 @@ test('AUDIT REST II H5: a load that does not enter the dungeon carries my Campfi
   const branch = w.slice(w.indexOf("} else if (String(extras.locationKey ?? '').startsWith('dungeon:')) {"), w.indexOf("} else if (extras.locationKey && extras.locationKey !== 'world') {"));
   assert.match(branch, /const carrySavedFires = \(\) => \{\n\s+const items = packSavedFires\(extras\.world\?\.camps\);\n\s+if \(!items\.length\) return;\n\s+\(playerEntity\.items \?\?= \[\]\)\.push\(\.\.\.items\);\n\s+townTalk\.say\(CAMP_TEXT\.carriedOut\);/);
   assert.match(branch, /\n\s+if \(!pixel\) \{ standOuterCamps\(\); carrySavedFires\(\); \}/, 'a dungeon this world cannot find');
-  assert.match(branch, /REPOSITION\.RandomStartMarker \}\);\n\s+standOuterCamps\(\); carrySavedFires\(\);/, 'the online wake at a temple');
+  assert.match(branch, /townTalk\.say\(undergroundWakeText\(wake\.kind\)\);\n\s+csaElsewhere = true;\n\s+standOuterCamps\(\); carrySavedFires\(\);/, 'the online wake at a temple');
   assert.match(branch, /\n\s+if \(!entered\) carrySavedFires\(\);/, 'a dungeon with no entrance here');
   assert.equal((branch.match(/carrySavedFires\(\)/g) ?? []).length, 3, 'three arms - and never the arm that enters (the dungeon stands them)');
 });
