@@ -102,8 +102,8 @@ test('AUDIT PRE-MERGE 1003 O1 the healers on a relay\'s sand: a players\' bout r
     step(1000); await H.fire();
     const o = lastOf(hA, 'of').o;
     await word(H, hA, { k: 'y', o }); await word(H, hB, { k: 'y', o });
-    const go = readArenaOut(lastOf(hA, 'go'));
-    const R = W.room(arenaBoutRoom(o));
+    const go = readArenaOut(lastOf(hA, 'go'));   // AUDIT PRE-MERGE 1003 S7: the bout's room is the go's, minted there - never the offer's
+    const R = W.room(arenaBoutRoom(go.o));
     R.env.GATE_SIGNING_KEY = await signingKey();
     const b = R.connect();
     await R.hello(b, 'fight-brann', { x: C[0] + 6, y: 0.3, z: C[2], yaw: 0, pitch: 0, mv: 0 }, { name: 'Brann', kind: 'linked', tokenSub: 'acct-brann', lv: 30 });
@@ -123,7 +123,7 @@ test('AUDIT PRE-MERGE 1003 O1 the healers on a relay\'s sand: a players\' bout r
     A.model();
     hall.onArena(go);
     await settled();
-    S.room = arenaBoutRoom(o);
+    S.room = arenaBoutRoom(go.o);
     const pump = () => S.pump((w, room) => A.word(w, room));
     A.tick(); await S.flush(); pump();
     const toFight = callMs({ fighters: [0, 0] }) + 300 + COUNT_MS + 600;
