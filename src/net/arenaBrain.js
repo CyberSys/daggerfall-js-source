@@ -326,6 +326,15 @@ export function stepBout(st, now, rng = Math.random) {
   }
   const b = st.b;
   if (b.phase === 'walk') for (const x of b.fighters) if (!x.atMark) boutAtMarks(b, x.id, now);
+  // AUDIT PRE-MERGE 1003b S9: BOTH PLAYERS OF A PLAYERS' BOUT GONE - no contest. The forfeit below counted the Red out
+  // first, so two fighters gone together (a shared connection, the relay's own blip) handed the Blue a win neither fought
+  // for; with both gone ARENA_GONE_MS into a live fight the bout is void, nothing kept (a ladder's one player gone is
+  // still its forfeit - a void there would be a loss walked away from)
+  if (boutLive(b) && st.kind === 'pvp' && st.f.length === 2 && st.f.every((x) => st.gone[x.id] != null && now - st.gone[x.id] >= ARENA_GONE_MS)) {
+    st.phase = 'void';
+    words.push({ k: 'no', m: 'no contest' });
+    return words;
+  }
   // A FORFEIT: a player gone (no socket) ARENA_GONE_MS into a live fight is out, and the bout goes on without them
   if (boutLive(b)) for (const x of st.f) {
     const g = st.gone[x.id];
@@ -445,7 +454,7 @@ export const boutFinished = (st) => st.phase === 'void' || (!!st.b && st.b.phase
 
 /** A session opened by its host (a registered account - the room's to ask): the host its first member. Pure. */
 export function openSession({ code, host, now }) {
-  const S = { v: 1, code, host: host.sub, hostName: host.name, at: now, hostGoneAt: null, members: {}, kicked: [], hist: [], red: null, blue: null, bout: null };
+  const S = { v: 1, code, host: host.sub, hostName: host.name, at: now, hostGoneAt: null, members: {}, kicked: [], hist: [], red: null, blue: null, bout: null, locked: false };
   S.members[host.sub] = { id: 'm1', name: host.name, guest: false, title: host.title ?? null, banner: bannerClaim(host.banner), seen: now };
   return S;
 }
@@ -469,6 +478,7 @@ export function sessionJoin(S, who, now, here = () => false, keep = []) {
   if (S.kicked.includes(who.sub)) return { no: 'removed' };
   let me = S.members[who.sub];
   if (!me) {
+    if (S.locked) return { no: 'locked' };   // AUDIT PRE-MERGE 1003b S4: locked to newcomers - a member coming back is let in
     if (Object.keys(S.members).length >= ARENA_PRIVATE_MEMBERS_MAX) {
       const gone = Object.entries(S.members).filter(([sub]) => sub !== S.host && !here(sub) && !keep.includes(sub)).sort((a, b) => a[1].seen - b[1].seen)[0];
       if (!gone) return { no: 'session full' };
@@ -552,5 +562,6 @@ export function sessionWord(S, sub, here, st = null) {
     r: idOf(S.red), b: idOf(S.blue), o: standing ? standing.o : '', ph,
     f: standing && standing.f.every((x) => idOf(x.sub)) ? standing.f.map((x) => idOf(x.sub)) : [],
     hist: [...S.hist].reverse().map((h) => [h.red, h.blue, h.winner === 0 || h.winner === 1 ? h.winner : -1, h.how]),
+    lo: S.locked ? 1 : 0,   // AUDIT PRE-MERGE 1003b S4
   };
 }

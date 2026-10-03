@@ -1098,6 +1098,9 @@ export const ARENA_WINDOW_CSS = `/* ── ARENA3: THE ARENA WINDOW ── */
 .aw-empty { margin: 8px 0 0; font-size: 13px; color: var(--mute); font-style: italic; }
 .aw-cards { display: grid; gap: 12px; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); }
 .aw-bout-card.k-exhibition { grid-column: 1 / -1; }
+/* AUDIT PRE-MERGE 1003b U1: a private session's card spans the page too - in one 300 px cell its member rows gave the
+   three presses every pixel and the names none (48 of 62 names 0 px wide at 1280) */
+.aw-bout-card.k-session { grid-column: 1 / -1; }
 .aw-tierline { margin: -4px 0 8px; font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--mute); }
 .aw-versus { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); align-items: stretch; gap: 10px; }
 .aw-fighter { display: flex; flex-direction: column; gap: 3px; min-width: 0; padding: 10px 12px; border: 1px solid #3a352a; background: rgba(5,6,8,0.4); }
@@ -1147,17 +1150,25 @@ export const ARENA_WINDOW_CSS = `/* ── ARENA3: THE ARENA WINDOW ── */
 .aw-privcode { margin: 8px 0 2px; font-size: 26px; letter-spacing: 0.3em; font-variant-numeric: tabular-nums; color: var(--brass-hi);
   text-shadow: 1px 1px 0 #050608; overflow-wrap: anywhere; }
 .aw-privmembers { list-style: none; margin: 8px 0 0; padding: 0; display: flex; flex-direction: column; gap: 4px; max-height: 260px; overflow-y: auto; }
-.aw-privm { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px 10px; align-items: center; padding: 5px 8px;
+.aw-privm { display: grid; grid-template-columns: minmax(12ch, 1fr) auto; gap: 4px 10px; align-items: center; padding: 5px 8px;   /* AUDIT PRE-MERGE 1003b U1: a name keeps twelve characters */
   border-left: 2px solid #3a352a; background: rgba(5,6,8,0.38); }
 .aw-privm.red { border-left-color: var(--red, #c23a2b); }
 .aw-privm.blue { border-left-color: var(--blue, #3768b8); }
 .aw-privm.me .aw-fn { color: var(--brass-hi); }
 .aw-privwho { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 6px; min-width: 0; }
 .aw-privrole { font-size: 11px; }
-.aw-privm .aw-acts { margin: 0; }
+.aw-privm .aw-acts { margin: 0; justify-content: flex-end; }
+.aw-privm .aw-act { min-width: 0; }
+/* AUDIT PRE-MERGE 1003b U4: a session's press shut by aria-disabled (it keeps the focus) looks shut, as a disabled one */
+.aw-act[aria-disabled="true"] { opacity: 0.4; cursor: not-allowed; }
+/* AUDIT PRE-MERGE 1003b U10: what a screen reader reads and nobody sees */
+.aw-sr { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+.aw-privcode { position: relative; }
 .aw-privresults { list-style: none; margin: 0; padding: 0; }
 .aw-privjoin { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 10px 0 0; }
-.aw-privinput { min-width: 0; width: 11ch; padding: 6px 8px; font: inherit; font-size: 16px; letter-spacing: 0.2em; text-transform: uppercase;
+.aw-privlabel { font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--mute); }   /* AUDIT PRE-MERGE 1003b U11 */
+.aw-privinput::placeholder { letter-spacing: normal; text-transform: none; }
+.aw-privinput { min-width: 0; width: 15ch; padding: 6px 8px; font: inherit; font-size: 16px; letter-spacing: 0.2em; text-transform: uppercase;
   color: #efe0b8; background: rgba(5,6,8,0.6); border: 1px solid #5a4a2a; }
 .aw-privinput:focus-visible { outline: 2px solid var(--brass-hi); outline-offset: 1px; }
 @media (max-width: 520px) { .aw-privm { grid-template-columns: minmax(0, 1fr); } .aw-privcode { font-size: 22px; } }

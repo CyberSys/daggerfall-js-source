@@ -191,8 +191,8 @@
   {
     "name": "ARENA4b-EX-ROSTER",
     "file": "server/src/index.js",
-    "old": "      if (isArenaFloorRoom(a.key)) for (let i = others.length - 1; i >= 0; i--) if (!others[i].af) others.splice(i, 1);",
-    "new": "      if (false) for (let i = others.length - 1; i >= 0; i--) if (!others[i].af) others.splice(i, 1);",
+    "old": "      if (isArenaFloorRoom(a.key)) for (let i = others.length - 1; i >= 0; i--) if (!others[i].af || unseen) others.splice(i, 1);",
+    "new": "      if (false) for (let i = others.length - 1; i >= 0; i--) if (!others[i].af || unseen) others.splice(i, 1);",
     "tests": [
       "test/arena4b_exhibition.test.js"
     ]

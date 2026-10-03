@@ -5431,6 +5431,8 @@ body:has(.travelpanel-junction.show) .qtrack { visibility: hidden; }
    screen too narrow for both - 1100 and under, the bar's half and the card's 268 from the edge - where the bar stood on
    the card on every phone and up to 1024 */
 @media (max-width: 1100px) { body:has(.arena-hud.on) .qtrack { visibility: hidden; } }
+/* AUDIT PRE-MERGE 1003b M2: and inside retro mode's pillarbox, by the picture's width (enhancedHud.js wearUiPillar) */
+:root[data-ui-narrow] body:has(.arena-hud.on) .qtrack { visibility: hidden; }
 /* AUDIT GUIDE U10: under forced colours a background image goes; the card keeps a plate of the system's own */
 @media (forced-colors: active) { .qtrack { background-color: Canvas; } }
 .qtrack-head { display: flex; justify-content: flex-end; align-items: baseline; gap: 6px; }

@@ -1023,7 +1023,7 @@
   {
     "name": "ARENA4-BOARD-WATCH",
     "file": "src/systems/arenaBoard.js",
-    "old": "acts: [{ act: 'spectate', label: W().watch, why: busy ? O().whyBusy : null }],",
+    "old": "acts: [{ act: 'spectate', label: W().watch, why: busy ? busyWhy : null }],",
     "new": "acts: [],",
     "tests": [
       "test/arena4_client.test.js"

@@ -29,8 +29,8 @@
   {
     "name": "ARENA4b-MIR-PLAYERS-CALL",
     "file": "src/scenes/arenaBouts.js",
-    "old": "if (C.relay && !C.next && !C.ex) { say(ARENA_TEXT.call.players); break; }",
-    "new": "if (C.relay && !C.next) { say(ARENA_TEXT.call.players); break; }",
+    "old": "if (C.relay && !C.next && !C.ex) { say(C.relay.casual ? ARENA_TEXT.call.casual : ARENA_TEXT.call.players); break; }",
+    "new": "if (C.relay && !C.next) { say(C.relay.casual ? ARENA_TEXT.call.casual : ARENA_TEXT.call.players); break; }",
     "tests": [
       "test/arena4b_mirror.test.js"
     ]

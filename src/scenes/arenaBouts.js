@@ -614,7 +614,7 @@ export function createArenaBouts(deps) {
     const say = (line) => { if (near > 0.3) deps.say?.(line); };
     switch (e.k) {
       case 'call':
-        if (C.relay && !C.next && !C.ex) { say(ARENA_TEXT.call.players); break; }   // ARENA4: a bout between players (ARENA4b: the relay's exhibition is called as one)
+        if (C.relay && !C.next && !C.ex) { say(C.relay.casual ? ARENA_TEXT.call.casual : ARENA_TEXT.call.players); break; }   // ARENA4: a bout between players (ARENA4b: the relay's exhibition is called as one) - AUDIT PRE-MERGE 1003b S6: a casual one (the casual queue's, a private session's) never called "rated"
         say(C.practice ? ARENA_TEXT.undercroft.practiceCall : C.ladder ? (C.next.grand ? ARENA_TEXT.call.grand : C.next.champion ? ARENA_TEXT.call.champion(C.next.tierName) : C.next.free ? ARENA_TEXT.call.melee : ARENA_TEXT.call.ladder(C.next.tierName, C.next.label)) : ARENA_TEXT.call.exhibition);
         break;
       case 'crier': {
@@ -834,9 +834,11 @@ export function createArenaBouts(deps) {
     /** @type {Record<string, string>} */
     const out = {};
     for (const [id, b] of Object.entries(C.relay.banners ?? {})) if (b === 'red' || b === 'blue') out[id] = b;
-    if (C.you && (R?.banner === 'red' || R?.banner === 'blue')) out[C.you] = R.banner;
+    // AUDIT PRE-MERGE 1003b C4: a private session's sides are its own - the Red's and the Blue's (`fixed`), never my realm
+    // banner over my side (Alva of the Blue Banner picked Red drew both sides blue on her own screen), nor the realm's laurel
+    if (C.you && !C.relay.fixed && (R?.banner === 'red' || R?.banner === 'blue')) out[C.you] = R.banner;
     C.teams = out;
-    laurelOf(C, R?.laurel ?? null, out);
+    laurelOf(C, C.relay.fixed ? null : R?.laurel ?? null, out);
   }
   /** ARENA4b: MY CHEER (`dir` 1) OR BOO (-1) from the stands of a relay's bout - one each CHEER_GAP_MS - sent through the
    *  bout's session (`send.cheer`, scenes/arenaOnline.js) and heard by my own crowd at once, by the stands' own law

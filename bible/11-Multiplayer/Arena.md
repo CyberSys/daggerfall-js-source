@@ -227,8 +227,8 @@ names, banners, health; your stamina), the **crowd meter**, the **timer**, the H
   row a bout, both ratings), team membership and season; leaderboards counted from rows (`/v1/arena/board`).
 - **The relay version** - one bump for the whole online slice (new frames, the arena brain, the titles and the
   glyph), so it costs one reconnect.
-- **Private sessions** (ARENA6 - the record below) - a host's own room, `arena:p<code>`: members join by a six-letter
-  code, the host picks the Red and the Blue and calls their bout (casual, refereed, every fighter equally whole), the
+- **Private sessions** (ARENA6 - the record below) - a host's own room, `arena:p<code>`: members join by a six-character
+  code (letters and digits), the host picks the Red and the Blue and calls their bout (casual, refereed, every fighter equally whole), the
   rest watch from the stands.
 
 ## Recorded, not built (named so they are not mistaken for missing)
@@ -873,55 +873,96 @@ The owner: *"I also want to add a way to simply host private matches. In this ca
 later today and I want them to be able to open a session where people can join, watch, participate, and allow the host
 of the session to choose who is fighting and who is in the crowd."* Decided with the owner: **every fighter of a
 session's bout equally whole** (not by level); **registered accounts fight, guests watch**; the host is a registered
-account. Online only (a session is the relay's); nothing of the offline game changes.
+account. Online only (a session is the relay's); nothing of the offline game changes. Read again before it merged by
+AUDIT PRE-MERGE 1003b (`01-Overview/Audit-PreMerge-1003.md`, its second pass) - what that pass changed is written in
+below, each at its place, and listed at the end.
 
-**The room.** `arena:p<code>` (`net/arenaLaw.js` `arenaPrivateRoom`, `ARENA_PRIVATE_ROOM_RE`): six of
-`ARENA_PRIVATE_CODE_ALPHABET` - no I, L, O, 0 or 1, so a code read off a stream is typed right
-(`privateCodeTyped` takes it upper-cased, its spaces and dashes gone). A fresh code is drawn on the host's screen from
-the CSPRNG (`arenaPrivateCode`, a byte at or past 248 thrown back so no letter is likelier). The room is an arena floor
-room (`isArenaFloorRoom`): the screen enters the floor's instance as it does for any bout (`arenaFloorRoomOf('p<code>')`),
-its sand holds the two fighters, its stands everyone else - no body drawn, no pose fanned.
+**The room.** `arena:p<code>` (`net/arenaLaw.js` `arenaPrivateRoom`, `ARENA_PRIVATE_ROOM_RE`): six characters of
+`ARENA_PRIVATE_CODE_ALPHABET` - letters and the digits 2-9, no I, L, O, 0 or 1, so a code read off a stream is typed
+right (`privateCodeTyped` takes it upper-cased, its spaces and dashes gone). A fresh code is drawn on the host's screen
+from the CSPRNG (`arenaPrivateCode`, a byte at or past 248 thrown back so no letter is likelier). The room is an arena
+floor room (`isArenaFloorRoom`): the screen enters the floor's instance as it does for any bout
+(`arenaFloorRoomOf('p<code>')`), its sand holds the two fighters, its stands everyone else - no body drawn, no pose
+fanned. The floor is the session's members' (1003b R4): a socket in the room that is no member (a stranger with the
+code, a member removed) is drawn no fighter, hears no pose, is welcomed to a roster of nobody, and neither speaks to the
+session's room chat nor overhears it; a socket made a member is shown the sand then (`_sessionShow`). Its door
+(1003b R2): a floor room's hello gate is spent after the token, by account - a member or a fighter waits on itself
+alone, anyone else on the stands' bucket - so tokenless hellos never shut it. A socket replaced by its own reconnect
+keeps the seat or the place on the sand it held (1003b R5).
 
 **The session** (`net/arenaBrain.js` `openSession` / `sessionJoin` / `sessionPick` / `sessionGoFighters` / `sessionKick`
 / `sessionWord`; `server/src/index.js` `_sessionWord` and its helpers; kept in the room's storage, `arenasession`):
 - `ps open` - the first registered account's opens it and hosts it (a guest's: `host guest`; another's on an open
-  session: `taken`). `ps join` - a member back, or a newcomer while it has room; a removed account is refused for the
-  session's life (`removed`). At most `ARENA_PRIVATE_MEMBERS_MAX` members (the stands' 60 and the two on the sand); a
-  newcomer to a full one takes the place of the member longest gone, never of one here (`session full` otherwise).
-- The host's alone (`host only` to a member, `not member` to anyone else): `pick` the Red and/or the Blue (member ids;
-  a guest cannot be picked - `guest fighter` - nor one member on both sides, nor a member not here; never while a bout
-  stands - `bout on`), `go` (both picked and here), `void` (the bout ends with no result, nothing kept), `kick` (the
-  member told `removed`, taken off the sand or out of the stands, refused again; a fighter's bout voided), `close`.
+  session: `taken`). `ps join` - a member back, or a newcomer while it has room and is not locked; a removed account is
+  refused for the session's life (`removed`). At most `ARENA_PRIVATE_MEMBERS_MAX` members (the stands' 60 and the two on
+  the sand); a newcomer to a full one takes the place of the member longest gone, never of one here (`session full`
+  otherwise). A member's repeated join changes nothing and is answered to it alone - no write, no fan - and a member's
+  changing joins are taken `ARENA_PRIVATE_JOIN_HZ` (1) a second, two at once (1003b R1).
+- The host's alone (`host only` to a member, `removed` to one the host removed, `not member` to anyone else): `pick` the
+  Red and/or the Blue (member ids; a guest cannot be picked - `guest fighter` - nor one member on both sides, nor a
+  member not here; never while a bout stands - `bout on`), `go` (both picked and here), `void` (the bout ends with no
+  result, nothing kept - only while it has no result; after it, `has result`), `kick` (the member told `removed`, its
+  body said gone to every screen, taken off the sand or out of the stands, refused again; a fighter's bout void while it
+  has no result), `lock` (1003b S4: no newcomer while locked - `locked` - a member coming back always let in; a removal
+  is the account's, and a guest account is a press away, so the lock is what keeps a removed guest out), `close`.
 - Every change is every member's `pss` word - the code, the host's name, the members as `m1`, `m2` ... (never an
-  account's id) with their name, guest, here, title and banner, the picks, the bout standing and its phase, and the last
-  `ARENA_PRIVATE_HIST_MAX` (20) results.
+  account's id) with their name, guest, here, title and banner, the picks, the bout standing and its phase, the last
+  `ARENA_PRIVATE_HIST_MAX` (20) results, and `lo` the lock.
 - **The bout** the host calls is the casual players' bout (ARENA4b), refereed by PVP-REF as every relay bout is - no
   receipt, no rating, nothing kept by the realm, never on the hall's list (`priv`) - with every fighter
   `ARENA_PRIVATE_VITALITY` (360, a rated bout's level-30 vitality - the middle of the 302-420 a rated bout spans) whole
-  whatever their levels (`openBout`'s `equal`). Finished, it is kept `ARENA_PRIVATE_KEEP_MS` (5 s) past the healers,
-  then cleared: the fighters back to the stands, the session back to choosing, the result in its list.
+  whatever their levels (`openBout`'s `equal`). Its result enters the session's results the moment it is in; the bout is
+  kept `ARENA_PRIVATE_KEEP_MS` (5 s) past the healers (`doneAt`, 1003b R7), then cleared: the fighters back to the
+  stands, the session back to choosing. Both fighters of a players' bout gone `ARENA_GONE_MS` together is no contest -
+  void, `no contest`, nothing kept (1003b S9; a ladder's one player gone is still its forfeit).
 - **Its ends**: the host's `close` (`closed`); its host gone `ARENA_PRIVATE_HOST_GONE_MS` (15 min - a blink or a walk to
   the gate keeps it) or its life out, `ARENA_PRIVATE_LIFE_MS` (8 h) (`ended`; `privateSessionOver`, armed on the room's
   alarm). Every member's screen leaves the floor's instance on the word.
 
 **The client** (`scenes/arenaOnline.js` `enterSession` / `sessionTick` / `sessionState` / `sessionAct`;
 `systems/arenaBoard.js sessionCard`; `ui/arenaWindow.js`; `scenes/arenaGate.js` routes the `priv*` presses). The Arena
-window's Bouts tab carries a **Private session** card: out of one, *Host a session* (a registered account's) and a code
-box with *Join*; in one, its code spelled large (and letter by letter for a screen reader) to read out, the members
-with each one's role (Host, Red, Blue, Guest, Away) and, to the host, *Red* / *Blue* / *Remove* by each name and
-*Start bout* / *End bout (no result)* / *Close session*; a member's *Leave session*; the recent results. A fighter picked
-is stood on the made level's own arrival mark for the side (`worldModes.js standOnArenaMark` - Red the ladder's, Blue
-the rival's) and back to the stands when it clears; the relay mirror (ARENA4b's) draws the bout, banners red and blue.
-In a session the queue and the casual challenge wait (`You are in a private session`); the pause menu's Arena opens on
-the session. Host and Join are pressed outdoors (the floor's door is the exterior's); pressed indoors, the press says so
-(`privOutdoors`) and nothing is held. The relay's version: world155 (one deploy with the rest of the arc).
+window's Bouts tab carries a **Private session** card - first on the page while in one (1003b U6), spanning it (U1):
+out of one, *Host a session* (a registered account's) and a labelled code box with *Join* (and *Rejoin session <code>*
+for a session this screen stepped out of - C8 - with the last word the session said, a wrong code's included - U3/U8);
+in one, its code spelled large (and letter by letter for a screen reader, in a span it reads - U10) to read out, the
+members with each one's role in words (You, Host, Red, Blue, Guest, Away) and their own banner's pennant and, to the
+host, *Make Red* / *Make Blue* / *Remove* on every row, each that cannot be pressed now saying why and keeping the
+keyboard's focus (`aria-disabled`, a `data-focus` key a press - U4), and *Start bout* / *End bout (no result)* / *Lock
+session* / *Close session*; a member's *Leave session*; the session's last word (a refusal the relay sent - U3); the
+recent results in words, a draw a draw (U9/S7). A fighter called (the host's Start bout) is taken out of the window
+(C5) and stood on the made level's own arrival mark for the side (`worldModes.js standOnArenaMark` - Red the ladder's,
+Blue the rival's), and back to the stands when the bout clears - or is void for an opponent who never came (C1) - healed
+by the healers' heal whenever the bout is let go before them (a void, a removal, a close, the seat lost - C2); the relay
+mirror (ARENA4b's) draws the bout under the session's own Red and Blue, never a realm banner or laurel over a side (C4),
+and the Herald calls it a friendly bout, nothing counted (S6). A screen standing in a session's room with no session
+on it (its seat taken back after another tab's, a slow floor) adopts the session (C3). A refusal that ends it here
+(`closed`, `ended`, `removed`, `no session`, `taken`, `host guest`, `session full`, `locked` - C6) takes the screen out
+of the floor. In a session the queue and the casual challenge wait (`You are in a private session`); queued, Host and
+Join wait for the queue (U7); the pause menu's Arena opens on the session. Host and Join are pressed outdoors (the
+floor's door is the exterior's); pressed indoors, the press says so (`privOutdoors`) and nothing is held. The floor's
+way out lands before the Herald, or - the Herald not streamed in, a session joined away from Daggerfall - back where the
+floor was entered (`arenaFrom`, C7). The relay's version: world155 (one deploy with the rest of the arc).
+
+**The four hosts.** `scenes/world.js` WIRED (the online half handed the instance's mark, its way out and the healers'
+heal - `standOnMark` / `leaveFloor` / `heal`; the pause window's Arena door and the modes' `makeArenaWindow` /
+`arenaJoined` open on the session's page). `scenes/worldModes.js` WIRED (`standOnArenaMark`, `leaveArenaFloor`, the
+floor's `arenaFrom`; the floor's instance is its dungeon arm). `scenes/dungeonContext.js` needs nothing (the instance's
+pause door is `opts.makeArenaWindow`, world.js's, through worldModes.js). `scenes/exterior.js` FLAGGED: it mounts no
+arena online (its arena gate has no `online`), so it draws no session card; private sessions are ?world's alone, as the
+rest of the arena online is.
 
 **Tests.** `test/arena6_private.test.js` (10): the relay over fake sockets and fake objects - the door and the code,
 the session opened, the host's words and their refusals, the bout with equal health refereed and kept, void, kick, the
-host's absence and the session's ends, the seats, the wire both ways; the client end to end on the real Room (two
-screens: host, join by code, pick, go, both screens' bout, the result listed); the client's refusals and the card; the
-hosts' seams. Mutants: `tools/mutants/arena6.json` (31, all dead).
+host's absence and the session's ends, the seats, the wire both ways (the lock and its words); the client end to end on
+the real Room (two screens: host, join by code, pick, go, both screens' bout, the host's void sending both fighters back
+to the stands, Close taking both screens out of the instance); the client's refusals and the card; the hosts' seams.
+AUDIT PRE-MERGE 1003b's: `test/audit1003b_relay.test.js` (11), `test/audit1003b_client.test.js` (10 - fourteen as run, C2 four ways),
+`test/audit1003b_ui.test.js` (5 - the window mounted). Mutants: `tools/mutants/arena6.json`, `tools/mutants/audit1003b.json`
+(the counts in Testing.md's rows).
 
 **Not done / open.** A session's bout is one against one (the tournament's own format - brackets, rounds - is the
 host's to run by hand). No spectating a session from outside it: the code is the door. The session lives in its room's
-storage, so a deploy of the relay mid-session ends nothing but reconnects every member (one reconnect).
+storage, so a deploy of the relay mid-session ends nothing but reconnects every member (one reconnect). A blow's damage
+is still the fighter's own claim, capped by the weapon and material it claims (PVP-REF's law, ARENA4): the health is
+equal, a modified client can always strike at the cap. Seats are a socket's: one account's two tabs in the stands take
+two (ONE-SEAT keeps two tabs online apart). Tab still closes the window (PX28b's house rule - the owner's call).

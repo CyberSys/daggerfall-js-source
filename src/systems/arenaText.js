@@ -114,6 +114,7 @@ export const ARENA_TEXT = F({
     grand: 'For the title of Grand Champion of the Arena of Daggerfall!',
     melee: 'A Grand Melee - every fighter for themselves!',
     players: 'A rated bout between fighters of the realm!',   // ARENA4: a bout between players, refereed
+    casual: 'A friendly bout between fighters of the realm - nothing on it is counted!',   // AUDIT PRE-MERGE 1003b S6: a casual one
     fighter: (name, home) => (home ? `From ${home} - ${name}!` : `${name}!`),
     versus: 'Against...',
     marks: 'Fighters, to your marks!',
@@ -534,7 +535,7 @@ export const ARENA_TEXT = F({
     // host calls who fights (the casual bout's law, every fighter equally whole)
     privTitle: 'Private session',
     privTitleIn: (code) => `Private session ${code}`,
-    privState: F({ none: 'Host or join', host: 'You host', member: 'In the stands' }),
+    privState: F({ none: 'Host or join', host: 'You host', member: 'In the stands', fighter: 'On the sand' }),   // AUDIT PRE-MERGE 1003b U7: a fighter is on the sand
     privLine: 'Host a session: share its code, then choose who fights and who watches. Nothing counts.',
     privHost: 'Host a session',
     privJoin: 'Join',
@@ -545,12 +546,22 @@ export const ARENA_TEXT = F({
     privIn: 'You are in a private session',
     privShare: (code) => `Share this code: ${code}`,
     privWaitHost: 'Waiting for the host to choose the next bout.',
-    privPicks: (red, blue) => `Next: ${red || '-'} (Red) against ${blue || '-'} (Blue).`,
+    privPicks: (red, blue) => `Next: ${red || 'not picked yet'} (Red) against ${blue || 'not picked yet'} (Blue).`,   // AUDIT PRE-MERGE 1003b U9: never a bare dash
     privOn: (red, blue) => `On the sand: ${red} (Red) against ${blue} (Blue).`,
     privMembers: (n) => `${n} in the session`,
-    privRole: F({ host: 'Host', red: 'Red', blue: 'Blue', guest: 'Guest', away: 'Away' }),
-    privMakeRed: 'Red',
-    privMakeBlue: 'Blue',
+    privRole: F({ host: 'Host', red: 'Red', blue: 'Blue', guest: 'Guest', away: 'Away', you: 'You' }),   // AUDIT PRE-MERGE 1003b U10: your own row in words
+    privMakeRed: 'Make Red',   // AUDIT PRE-MERGE 1003b U9: the press, never the chip's own word
+    privMakeBlue: 'Make Blue',
+    privIsRed: 'Already the Red',
+    privIsBlue: 'Already the Blue',
+    privAwayWhy: 'Not here now',
+    privGuestWhy: 'A guest watches - it cannot fight',
+    privHasResult: 'The bout has its result - it ends on its own',   // AUDIT PRE-MERGE 1003b R8/S1
+    privLock: 'Lock session',   // AUDIT PRE-MERGE 1003b S4: the host's lock
+    privUnlock: 'Unlock session',
+    privLocked: 'Locked - nobody new can join. Members who step away can still come back.',
+    privRejoin: (code) => `Rejoin session ${code}`,   // AUDIT PRE-MERGE 1003b C8
+    privQueued: 'Leave the queue first',   // AUDIT PRE-MERGE 1003b U7
     privRemove: 'Remove',
     privStart: 'Start bout',
     privVoid: 'End bout (no result)',
@@ -560,7 +571,12 @@ export const ARENA_TEXT = F({
     privBoutOn: 'A bout is on',
     privNoBout: 'No bout is on',
     privResults: 'Recent results',
-    privResult: (red, blue, winner, how) => (winner === 0 ? `${red} (Red) beat ${blue} (Blue)${how ? ` - ${how}` : ''}` : winner === 1 ? `${blue} (Blue) beat ${red} (Red)${how ? ` - ${how}` : ''}` : `${red} (Red) and ${blue} (Blue) - no result`),
+    // AUDIT PRE-MERGE 1003b U9/S7: how in words (the Records page's own), and a judges' draw a draw - never "no result", the
+    // words of a bout the host ended (which the results never keep)
+    privResult: (red, blue, winner, how) => {
+      const by = ({ yield: 'by a yield', fall: 'by a fall', ringout: 'by ring-out', judges: 'on the judges\' word', forfeit: 'by forfeit' })[how] ?? '';
+      return winner === 0 ? `${red} (Red) beat ${blue} (Blue)${by ? ` ${by}` : ''}` : winner === 1 ? `${blue} (Blue) beat ${red} (Red)${by ? ` ${by}` : ''}` : `${red} (Red) and ${blue} (Blue) drew - the judges could not part them`;
+    },
     privEntering: (code) => `To the arena - session ${code}.`,
     privOutdoors: 'The arena is reached from outdoors. Step outside and try again.',   // the floor's door refused
     privToSand: 'The host calls you to the sand!',

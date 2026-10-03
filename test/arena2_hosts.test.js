@@ -52,7 +52,7 @@ test('ARENA2 hosts - worldModes.js: the Herald, the instance, its gates and its 
   assert.match(M, /if \(hit\.arenaFloor\) standArenaFloor\(ctx\);/);
   assert.match(M, /arena: hit\.arenaFloor \?\? null,/);
   assert.match(M, /if \(isArenaFloor\(dungeonLoc\)\) \{ if \(host\.arenaHolds\?\.\(\)\) \{ setMidScreenText\(ARENA_TEXT\.refuse\.door\); return true; \} return exitDungeonNow\(\); \}/, 'the gates shut while my bout stands');
-  assert.match(M, /dungeonReturn\.arena \? host\.arenaLanding\?\.\(\) \?\? null/);
+  assert.match(M, /dungeonReturn\.arena \? host\.arenaLanding\?\.\(\) \?\? dungeonReturn\.arenaFrom \?\? null/);   // AUDIT PRE-MERGE 1003b C7: or back where the floor was entered
   assert.match(M, /playerSpare: \(\) => host\.arenaPlayerSpare\?\.\(\) \?\? null,/);
   assert.match(M, /if \(isArenaFloor\(dungeonLoc\)\) renderer\.setLighting\(new Float32Array\(ARENA_FLOOR_AMBIENT\), 0\);/);
   assert.match(M, /if \(isArenaFloor\(dungeonLoc\)\) applyFog\(renderer, dungeonFog\(!!renderer\.lightingLane, ARENA_FLOOR_FOG\)\);/);

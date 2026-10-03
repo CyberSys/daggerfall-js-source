@@ -2,8 +2,8 @@
   {
     "name": "AUDIT1003-S1-a-seated-socket-counted-again",
     "file": "server/src/index.js",
-    "old": "const j = m.r === 's' && cur.asp && !fighterOfSub(st, a.sub) ? { role: 's' } : joinBout(st, a.sub, m.r, now);",
-    "new": "const j = joinBout(st, a.sub, m.r, now);",
+    "old": "      const j = again ? { role: 's' } : joinBout(st, a.sub, m.r, now);",
+    "new": "      const j = joinBout(st, a.sub, m.r, now);",
     "tests": [
       "test/audit1003_server.test.js"
     ]
@@ -11,8 +11,8 @@
   {
     "name": "AUDIT1003-S1-a-seated-socket-not-answered-again",
     "file": "server/src/index.js",
-    "old": "const j = m.r === 's' && cur.asp && !fighterOfSub(st, a.sub) ? { role: 's' } : joinBout(st, a.sub, m.r, now);",
-    "new": "if (m.r === 's' && cur.asp && !fighterOfSub(st, a.sub)) return;\n      const j = joinBout(st, a.sub, m.r, now);",
+    "old": "      const j = again ? { role: 's' } : joinBout(st, a.sub, m.r, now);",
+    "new": "      if (again) return;\n      const j = joinBout(st, a.sub, m.r, now);",
     "tests": [
       "test/audit1003_server.test.js"
     ]

@@ -47,7 +47,7 @@
   {
     "name": "AUDIT1003-O2-FIGHTER-BOUT-KEPT",
     "file": "src/scenes/arenaOnline.js",
-    "old": "yieldEarly : ARENA_NO_TEXT[w.m] ?? w.m); if (over) endBout();",
+    "old": "yieldEarly : ARENA_NO_TEXT[w.m] ?? w.m); if (over) { if (bout.priv) letGoPriv(true); else endBout(); }",
     "new": "yieldEarly : ARENA_NO_TEXT[w.m] ?? w.m);",
     "tests": [
       "test/audit1003_online.test.js"
@@ -65,8 +65,8 @@
   {
     "name": "AUDIT1003-O2-VOID-KEPT",
     "file": "src/scenes/arenaOnline.js",
-    "old": "(w.m === 'no bout' || w.m === 'void')",
-    "new": "w.m === 'no bout'",
+    "old": "(w.m === 'no bout' || w.m === 'void' || w.m === 'no contest')",
+    "new": "(w.m === 'no bout' || w.m === 'no contest')",
     "tests": [
       "test/audit1003_online.test.js"
     ]
@@ -320,8 +320,8 @@
   {
     "name": "AUDIT1003-O9-PICTURE-KEPT",
     "file": "src/scenes/arenaOnline.js",
-    "old": "    hall = { ...HALL_EMPTY };\n    closeCity();\n    closeAsk();\n    endBout();",
-    "new": "    closeCity();\n    closeAsk();\n    endBout();",
+    "old": "    hall = { ...HALL_EMPTY };\n    closeCity();\n    closeAsk();\n    if (bout?.priv) letGoPriv(false); else endBout();",
+    "new": "    closeCity();\n    closeAsk();\n    if (bout?.priv) letGoPriv(false); else endBout();",
     "tests": [
       "test/audit1003_online.test.js"
     ]
@@ -338,8 +338,8 @@
   {
     "name": "AUDIT1003-O9-ASK-KEPT",
     "file": "src/scenes/arenaOnline.js",
-    "old": "    closeCity();\n    closeAsk();\n    endBout();",
-    "new": "    closeCity();\n    endBout();",
+    "old": "    closeCity();\n    closeAsk();\n    if (bout?.priv) letGoPriv(false); else endBout();",
+    "new": "    closeCity();\n    if (bout?.priv) letGoPriv(false); else endBout();",
     "tests": [
       "test/audit1003_online.test.js"
     ]
@@ -347,7 +347,7 @@
   {
     "name": "AUDIT1003-O9-BOUT-KEPT",
     "file": "src/scenes/arenaOnline.js",
-    "old": "    closeAsk();\n    endBout();\n    sess = null;",
+    "old": "    closeAsk();\n    if (bout?.priv) letGoPriv(false); else endBout();   // AUDIT PRE-MERGE 1003b C2: a session's fighter healed as it goes\n    sess = null;",
     "new": "    closeAsk();\n    sess = null;",
     "tests": [
       "test/audit1003_online.test.js"

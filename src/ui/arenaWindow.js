@@ -147,14 +147,18 @@ export function mountArenaWindow(host, deps) {
   /** A press that may not be pressed, said: disabled, its reason as its title and under it. AUDIT PRE-MERGE 1003 U14:
    *  `what` names which of its kind it is (a replay's bout, a bout on the sand) - its words first (WCAG 2.5.3), so the
    *  three Watch the replay presses are three names. */
-  const press = (a, onPress, cls = '', what = '') => {
+  /** AUDIT PRE-MERGE 1003b U4: `soft` - a press shut by `aria-disabled` (U15's way: a keyboard's press that shuts it keeps
+   *  its focus - Start bout pressed dropped the focus to the page), `quiet` - its reason in its name and title alone (a
+   *  member row's three presses), and `a.key` its `data-focus`, so a redraw finds it again by who it is for. */
+  const press = (a, onPress, cls = '', what = '', { soft = false, quiet = false } = {}) => {
     const wrap = el('span', 'aw-press');
     const b = button(`aw-act${cls ? ` ${cls}` : ''}`, a.label, () => { if (!a.why) onPress(); });
     b.dataset.act = a.act;
+    if (a.key) b.dataset.focus = a.key;
     const named = what ? `${a.label} - ${what}` : a.label;
-    if (a.why) { b.setAttribute('disabled', ''); b.setAttribute('title', a.why); b.setAttribute('aria-label', `${named}: ${a.why}`); } else if (what) b.setAttribute('aria-label', named);
+    if (a.why) { b.setAttribute(soft ? 'aria-disabled' : 'disabled', soft ? 'true' : ''); b.setAttribute('title', a.why); b.setAttribute('aria-label', `${named}: ${a.why}`); } else if (what) b.setAttribute('aria-label', named);
     wrap.append(b);
-    if (a.why) wrap.append(el('span', 'aw-why', a.why));
+    if (a.why && !quiet) wrap.append(el('span', 'aw-why', a.why));
     return wrap;
   };
   const chip = (text, cls = '') => el('span', `aw-chip${cls ? ` ${cls}` : ''}`, text);
@@ -238,8 +242,12 @@ export function mountArenaWindow(host, deps) {
       }
       // ARENA6: A PRIVATE SESSION'S CODE - large, to be read off a stream and typed (its letters spelled to a screen reader)
       if (c.kind === 'session' && c.code) {
-        const code = el('p', 'aw-privcode', c.code);
-        code.setAttribute('aria-label', `${ARENA_TEXT.online.privCodeLabel}: ${c.code.split('').join(' ')}`);
+        // AUDIT PRE-MERGE 1003b U10: the spelled code in a span a reader reads (a paragraph may not be named); the large
+        // letters hidden from it, so the code is said once, letter by letter
+        const code = el('p', 'aw-privcode');
+        const shown = el('span', null, c.code);
+        shown.setAttribute('aria-hidden', 'true');
+        code.append(shown, el('span', 'aw-sr', `${ARENA_TEXT.online.privCodeLabel}: ${c.code.split('').join(' ')}`));
         card.append(code);
       }
       for (const l of c.lines ?? []) card.append(el('p', 'aw-line', l));
@@ -247,7 +255,7 @@ export function mountArenaWindow(host, deps) {
         const acts = el('div', 'aw-acts');
         for (const a of c.acts) {
           if (a.act === 'wager') acts.append(press(a, () => { wagerOpen = !wagerOpen; wagerSide = null; wagerStake = null; render(); }, wagerOpen ? 'on' : ''));
-          else acts.append(press(a, () => doAct(/** @type {any} */ (a.act), { hour: c.hour }), a.act === 'fight' || a.act === 'queue' || a.act === 'accept' || a.act === 'privHost' || a.act === 'privGo' ? 'primary' : ''));
+          else acts.append(press(a, () => doAct(/** @type {any} */ (a.act), a.data ?? { hour: c.hour }), a.act === 'fight' || a.act === 'queue' || a.act === 'accept' || a.act === 'privHost' || a.act === 'privGo' ? 'primary' : '', '', { soft: c.kind === 'session' }));   // AUDIT PRE-MERGE 1003b: a press's own data (the lock's, a rejoin's code); a session's presses keep the focus (U4)
         }
         card.append(acts);
       }
@@ -270,12 +278,12 @@ export function mountArenaWindow(host, deps) {
       for (const x of c.members) {
         const li = el('li', `aw-privm${x.red ? ' red' : ''}${x.blue ? ' blue' : ''}${x.me ? ' me' : ''}`);
         const who = el('div', 'aw-privwho');
-        who.append(pennant(x.red ? 'red' : x.blue ? 'blue' : x.banner), el('span', 'aw-fn', x.name));
+        who.append(pennant(x.banner), el('span', 'aw-fn', x.name));   // AUDIT PRE-MERGE 1003b U10: the member's own banner - the side is its chip's
         for (const r of x.roles) who.append(chip(r, 'aw-privrole'));
         li.append(who);
         if (x.acts.length) {
           const acts = el('div', 'aw-acts');
-          for (const a of x.acts) acts.append(press(a, () => doAct(/** @type {any} */ (a.act), a.data), '', x.name));
+          for (const a of x.acts) acts.append(press(a, () => doAct(/** @type {any} */ (a.act), a.data), '', x.name, { soft: true, quiet: true }));   // AUDIT PRE-MERGE 1003b U4
           li.append(acts);
         }
         ul.append(li);
@@ -290,20 +298,28 @@ export function mountArenaWindow(host, deps) {
     }
     if (c.join) {
       const form = el('div', 'aw-privjoin');
+      // AUDIT PRE-MERGE 1003b U11: a label a sighted player sees (the placeholder was the only one, clipped to "SIX LET"),
+      // the phone's keyboard asked for capitals and a Go key, room for a pasted " K7P - X2A ", and Enter mid-composition
+      // (an IME's) left to the composition
+      const label = /** @type {HTMLLabelElement} */ (el('label', 'aw-privlabel', c.join.field));
       const input = /** @type {HTMLInputElement} */ (el('input', 'aw-privinput'));
       input.type = 'text';
+      input.id = 'aw-priv-code';
+      label.htmlFor = input.id;
       input.value = privCode;
-      input.maxLength = 9;
+      input.maxLength = 16;
       input.autocomplete = 'off';
       input.spellcheck = false;
+      input.setAttribute('autocapitalize', 'characters');
+      input.setAttribute('autocorrect', 'off');
+      input.setAttribute('enterkeyhint', 'go');
       input.placeholder = c.join.hint;
-      input.setAttribute('aria-label', c.join.field);
       input.dataset.focus = 'aw-priv-code';
       input.addEventListener('input', () => { privCode = input.value.toUpperCase(); });
       const join = () => doAct('privJoin', { code: privCode });
-      input.addEventListener('keydown', (e) => { if (e.key === 'Enter' && !c.join.why) { e.preventDefault(); join(); } });
+      input.addEventListener('keydown', (e) => { if (e.key === 'Enter' && !e.isComposing && !c.join.why) { e.preventDefault(); join(); } });
       if (c.join.why) input.disabled = true;
-      form.append(input, press({ act: 'privJoin', label: c.join.label, why: c.join.why }, join));
+      form.append(label, input, press({ act: 'privJoin', label: c.join.label, why: c.join.why, key: 'aw-priv-join' }, join));
       out.push(form);
     }
     return out;

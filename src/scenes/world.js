@@ -14942,7 +14942,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   // exterior -> the townTalk overlay, interior OR dungeon -> the mode
   // machine's slot. U43-ii shipped the dungeon half: showQuestBox
   // offers the window to `modes.showQuestOverlay` below, and
-  // worldModes answers it in BOTH modes (worldModes.js:10687-10751 -
+  // worldModes answers it in BOTH modes (worldModes.js:10692-10756 -
   // dungeon routes to dungeonCtx.showOverlay), so a dungeon popup is
   // shown rather than logged loudly and dropped.
   // AUDIT 24 (wave 21): DaggerfallMessageBox.Show() is a
@@ -18105,6 +18105,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     guest: () => storedSession(appStorage())?.kind === 'guest',
     struck: (d) => { if (d > 0) { flashPlayerDamage(d); playPlayerVoice(audio, playerPainVoice(playerEntity, d)); } },
     myHealth: (hp) => { if (playerEntity.health > 0) { playerEntity.health = hp; surfacePlayer(); } },
+    heal: arenaHeal,   // AUDIT PRE-MERGE 1003b C2: a session's bout let go before its healers - healed all the same
     inBout: () => arenaBouts.holds(),
     // ARENA4b: A WON BOUT'S RENOWN - the fighting character's (its receipt kept with it), adopted only while it is the one
     // standing here (RENOWN-CHAR, as a raid's is), by the one plan every Renown answer takes (net/renownTracker.js

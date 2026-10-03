@@ -281,17 +281,18 @@ const billed = (b) => (b ? { name: b.n ?? b.name ?? '', rating: b.r ?? b.rating 
 /** THE BOUTS PAGE'S ONLINE CARDS: the bouts on the sand to watch (the hall's list - each with its fighters and how many
  *  watch, and Watch), and the challenge (the queue's state, the offer and its clock, the presses it allows). `hall`
  *  net/arenaLink.js's hall state; `me` the service's own of this account. */
-export function onlineCards({ hall, me, guest = false, busy = false, now = 0 }) {
+export function onlineCards({ hall, me, guest = false, busy = false, inSession = false, now = 0 }) {
+  const busyWhy = inSession ? O().privIn : O().whyBusy;   // AUDIT PRE-MERGE 1003b U7: in a session, said as one
   const live = (hall?.live ?? []).map((b) => ({
     o: b.o, kind: b.kind, title: b.kind === 'ex' ? O().liveExhibition(ARENA_TEXT.tiers[b.tier ?? 0] ?? '') : b.kind === 'pve' ? O().liveLadder(ARENA_TEXT.tiers[b.tier ?? 0] ?? '') : b.u === 1 ? O().liveCasual : O().livePlayers,   // ARENA4b: a casual bout listed as one   // ARENA4b: the hour's exhibition, the relay's
-    a: billed(b.a), b: billed(b.b), watching: O().watching(b.sp ?? 0), acts: [{ act: 'spectate', label: W().watch, why: busy ? O().whyBusy : null }],
+    a: billed(b.a), b: billed(b.b), watching: O().watching(b.sp ?? 0), acts: [{ act: 'spectate', label: W().watch, why: busy ? busyWhy : null }],
   }));
   const players = {
     key: 'players', kind: 'players', title: O().liveTitle, state: String(live.length), fighters: [], live,
     acts: [], lines: [live.length ? O().liveLine(live.length) : O().noLive],
   };
   const st = hall?.status !== 'open' ? 'off' : hall.queue ?? 'idle';
-  const why = st === 'off' ? O().whyOffline : guest ? O().whyGuest : busy ? O().whyBusy : null;
+  const why = st === 'off' ? O().whyOffline : guest ? O().whyGuest : busy ? busyWhy : null;
   /** @type {string[]} */
   const lines = [O().challengeLine];
   if (me?.pvp) lines.push(O().ratingLine(me.pvp.rating, me.pvp.wins, me.pvp.losses));
@@ -310,55 +311,80 @@ export function onlineCards({ hall, me, guest = false, busy = false, now = 0 }) 
   return [players, challenge];
 }
 
+/** AUDIT PRE-MERGE 1003b U6: the session's card on the Bouts page - first while this screen is in it, else last. */
+function placeSession(cards, c) { if (c.code) cards.unshift(c); else cards.push(c); }
+/** AUDIT PRE-MERGE 1003b U7: whether the hall holds me queued or offered a bout. */
+const queuedOf = (hall) => hall?.queue === 'queued' || hall?.queue === 'offer';
 /**
  * ARENA6: THE PRIVATE SESSION'S CARD (scenes/arenaOnline.js sessionView): out of one, Host a session and Join with a
  * code; in one, its code to share, who fights now or who is picked, its members - each with what it is (Host, Red, Blue,
  * Guest, Away) and, to the host alone, the presses that make it the Red or the Blue (a member here and registered, while
  * no bout is on) or remove it - the host's Start bout, End bout and Close session (a member's Leave), and its recent
- * results. `busy` a bout or a queue of this screen's (a session waits for it).
+ * results. `busy` a bout of this screen's, `queued` the hall's queue or offer (a session waits for either). AUDIT PRE-MERGE
+ * 1003b: every row's presses stand still (U4), the lock (S4), the last word (U3), the rejoin (C8).
  */
-export function sessionCard(v, { guest = false, busy = false } = {}) {
+export function sessionCard(v, { guest = false, busy = false, queued = false } = {}) {
   const T = O();
   if (!v?.in) {
+    // AUDIT PRE-MERGE 1003b U7: queued, Host and Join say why they wait; U3/U8: the last word the session said (a wrong
+    // code, a removal, its end) stands on the card; C8: a session stepped out of (the host through the gates) offers its
+    // code again
+    const wait = busy ? T.whyBusy : queued ? T.privQueued : null;
+    const lines = [T.privLine];
+    if (v?.word) lines.push(v.word);
+    /** @type {Array<{ act: string, label: string, why: string|null, data?: any }>} */
+    const acts = [{ act: 'privHost', label: T.privHost, why: guest ? T.privHostGuest : wait }];
+    if (v?.back) acts.push({ act: 'privJoin', label: T.privRejoin(v.back), why: wait, data: { code: v.back } });
     return {
-      key: 'session', kind: 'session', title: T.privTitle, state: T.privState.none, fighters: [], lines: [T.privLine],
-      acts: [{ act: 'privHost', label: T.privHost, why: guest ? T.privHostGuest : busy ? T.whyBusy : null }],
-      join: { label: T.privJoin, field: T.privCodeLabel, hint: T.privCodeHint, why: busy ? T.whyBusy : null },
+      key: 'session', kind: 'session', title: T.privTitle, state: T.privState.none, fighters: [], lines, acts,
+      join: { label: T.privJoin, field: T.privCodeLabel, hint: T.privCodeHint, why: wait },
     };
   }
   const w = v.state;
-  const head = { key: 'session', kind: 'session', title: T.privTitleIn(v.code), state: v.host ? T.privState.host : T.privState.member, fighters: [], code: v.code };
-  if (!w) return { ...head, lines: [T.privShare(v.code)], acts: [{ act: 'privLeave', label: T.privLeave, why: null }], members: [], results: [] };
+  const head = { key: 'session', kind: 'session', title: T.privTitleIn(v.code), state: /** @type {string} */ (v.host ? T.privState.host : T.privState.member), fighters: [], code: v.code };
+  if (!w) return { ...head, lines: [T.privShare(v.code), ...(v.word ? [v.word] : [])], acts: [{ act: 'privLeave', label: T.privLeave, why: null }], members: [], results: [] };
   const host = w.h === 1;
   const name = (id) => w.m.find((x) => x[0] === id)?.[1] ?? '';
   const on = !!w.o && w.ph !== 'done' && w.ph !== 'void';
+  // AUDIT PRE-MERGE 1003b R8/S1: a bout with its result is no bout to end "with no result" - from the end to the healers
+  const decided = on && (w.ph === 'end' || w.ph === 'verdict' || w.ph === 'heal');
   const lines = [T.privShare(v.code)];
   if (on && w.f.length === 2) lines.push(T.privOn(name(w.f[0]), name(w.f[1])));
   else { lines.push(T.privWaitHost); if (w.r || w.b) lines.push(T.privPicks(name(w.r), name(w.b))); }
   lines.push(T.privMembers(w.m.length));
+  if (w.lo) lines.push(T.privLocked);   // AUDIT PRE-MERGE 1003b S4
+  if (v.word) lines.push(v.word);   // AUDIT PRE-MERGE 1003b U3: the relay's answer to the last press, in the window
   const members = w.m.map(([id, n, guestOf, here, , banner]) => {
     const roles = [];
+    if (id === w.me) roles.push(T.privRole.you);   // AUDIT PRE-MERGE 1003b U10: your own row, in words
     if (id === w.hm) roles.push(T.privRole.host);
     if (id === w.r) roles.push(T.privRole.red);
     if (id === w.b) roles.push(T.privRole.blue);
     if (guestOf) roles.push(T.privRole.guest);
     if (!here) roles.push(T.privRole.away);
-    /** @type {Array<{ act: string, label: string, why: string|null, data: any }>} */
+    // AUDIT PRE-MERGE 1003b U4: A ROW'S PRESSES STAND STILL - to the host, Make Red, Make Blue and Remove on every row (none
+    // to remove on its own), each that may not be pressed now saying why. A picked member's own press was dropped, so the
+    // row's presses moved at every pick and a redraw put the keyboard on the next member's: Enter on "Make Red - Brann"
+    // then Enter again picked the host
+    /** @type {Array<{ act: string, label: string, why: string|null, data: any, key: string }>} */
     const acts = [];
-    if (host && !on && here && !guestOf) {
-      if (id !== w.r) acts.push({ act: 'privPick', label: T.privMakeRed, why: null, data: { r: id } });
-      if (id !== w.b) acts.push({ act: 'privPick', label: T.privMakeBlue, why: null, data: { b: id } });
+    if (host) {
+      const no = on ? T.privBoutOn : !here ? T.privAwayWhy : guestOf ? T.privGuestWhy : null;
+      acts.push({ act: 'privPick', label: T.privMakeRed, why: no ?? (id === w.r ? T.privIsRed : null), data: { r: id }, key: `aw-priv-${id}-r` });
+      acts.push({ act: 'privPick', label: T.privMakeBlue, why: no ?? (id === w.b ? T.privIsBlue : null), data: { b: id }, key: `aw-priv-${id}-b` });
+      if (id !== w.hm) acts.push({ act: 'privKick', label: T.privRemove, why: null, data: { m: id }, key: `aw-priv-${id}-kick` });
     }
-    if (host && id !== w.hm) acts.push({ act: 'privKick', label: T.privRemove, why: null, data: { m: id } });
     return { id, name: n, me: id === w.me, banner: banner || null, red: id === w.r, blue: id === w.b, roles, acts };
   });
+  if (on && w.f.includes(w.me)) head.state = T.privState.fighter;   // AUDIT PRE-MERGE 1003b U7
   const acts = host
     ? [
-      { act: 'privGo', label: T.privStart, why: on ? T.privBoutOn : !(w.r && w.b) ? T.privNoPicks : null },
-      { act: 'privVoid', label: T.privVoid, why: on ? null : T.privNoBout },
-      { act: 'privClose', label: T.privClose, why: null },
+      { act: 'privGo', label: T.privStart, why: on ? T.privBoutOn : !(w.r && w.b) ? T.privNoPicks : null, key: 'aw-priv-go' },
+      { act: 'privVoid', label: T.privVoid, why: !on ? T.privNoBout : decided ? T.privHasResult : null, key: 'aw-priv-void' },
+      { act: 'privLock', label: w.lo ? T.privUnlock : T.privLock, why: null, data: { l: w.lo ? 0 : 1 }, key: 'aw-priv-lock' },
+      { act: 'privClose', label: T.privClose, why: null, key: 'aw-priv-close' },
     ]
-    : [{ act: 'privLeave', label: T.privLeave, why: null }];
+    : [{ act: 'privLeave', label: T.privLeave, why: null, key: 'aw-priv-leave' }];
   return { ...head, lines, acts, members, results: w.hist.map(([r, b, win, how]) => T.privResult(r, b, win, how)) };
 }
 
@@ -556,8 +582,10 @@ export function arenaBoard(o) {
   const on = o.online?.board ? o.online : null;
   if (!on) {
     const m = { header: arenaHeader(o), bouts: boutsPage(o), ladder: ladderPage(o), team: teamPage(o), boards: boardsPage(o), records: recordsPage(o), rules: rulesPage() };
-    if (o.online) m.bouts.cards = m.bouts.cards.map((c) => (c.kind === 'players' ? onlineCards({ hall: o.online.hall, me: null, guest: !!o.online.guest, busy: !!o.online.busy, now: o.online.now ?? 0 })[0] : c));
-    if (o.online?.session) m.bouts.cards.push(sessionCard(o.online.session, { guest: !!o.online.guest, busy: !!o.online.busy && !o.online.session.in }));   // ARENA6
+    if (o.online) m.bouts.cards = m.bouts.cards.map((c) => (c.kind === 'players' ? onlineCards({ hall: o.online.hall, me: null, guest: !!o.online.guest, busy: !!o.online.busy, inSession: !!o.online.inSession, now: o.online.now ?? 0 })[0] : c));
+    // ARENA6 (AUDIT PRE-MERGE 1003b U6: in a session its card leads the page - the pause menu's Arena opened on the page's
+    // top, the card 2.6 screens down on a phone)
+    if (o.online?.session) placeSession(m.bouts.cards, sessionCard(o.online.session, { guest: !!o.online.guest, busy: !!o.online.busy && !o.online.session.in, queued: queuedOf(o.online.hall) }));
     // ARENA4b: online before the realm's board is in, the climb is not the save's - the ladder's Fight waits for it - and
     // neither is the record: the Records page says the realm's is on its way (the save's wagers kept), no purses chip
     if (o.online) {
@@ -571,10 +599,10 @@ export function arenaBoard(o) {
   const bouts = boutsPage(oo);
   const cards = [];
   for (const c of bouts.cards) {
-    if (c.kind === 'players') cards.push(...onlineCards({ hall: on.hall, me: on.board.me, guest: !!on.guest, busy: !!on.busy, now: on.now ?? 0 }));
+    if (c.kind === 'players') cards.push(...onlineCards({ hall: on.hall, me: on.board.me, guest: !!on.guest, busy: !!on.busy, inSession: !!on.inSession, now: on.now ?? 0 }));
     else cards.push(c);
   }
-  if (on.session) cards.push(sessionCard(on.session, { guest: !!on.guest, busy: !!on.busy && !on.session.in }));   // ARENA6: the private session's card
+  if (on.session) placeSession(cards, sessionCard(on.session, { guest: !!on.guest, busy: !!on.busy && !on.session.in, queued: queuedOf(on.hall) }));   // ARENA6: the private session's card (AUDIT PRE-MERGE 1003b U6: first while in one)
   bouts.cards = cards;
   const ladder = ladderPage(oo);
   ladder.online = O().ladderOnline;

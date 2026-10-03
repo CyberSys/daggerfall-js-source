@@ -6,7 +6,8 @@
 // Worker's door, the session opened, joined, picked, its casual bout refereed with equal health and kept in its results,
 // voided, a member removed, the host's absence and the session's ends, the seat cap, the hall's list; the wire both ways;
 // the client over the real modules (scenes/arenaOnline.js driving scenes/arenaBouts.js's relay mirror on a real Room);
-// the window (ui/arenaWindow.js over systems/arenaBoard.js); and the hosts' seams. Design: bible/11-Multiplayer/Arena.md,
+// the window's model (systems/arenaBoard.js sessionCard and arenaBoard - the window itself is mounted in
+// test/audit1003b_ui.test.js); and the hosts' seams. Design: bible/11-Multiplayer/Arena.md,
 // the ARENA6 record.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -60,7 +61,7 @@ async function walk(R, step, ms) { for (let t = 0; t < ms; t += ARENA_TICK_MS) {
 
 // ═══ THE RELAY ════════════════════════════════════════════════════════════════════════════════════════════════════════
 
-test('ARENA6 the door and the code: the Worker opens `arena:p<code>` for a code of the unambiguous alphabet and no other; a private room is an arena floor room; a fresh code is six of the alphabet, drawn without bias; a typed code is upper-cased (mutants: the alphabet with an O, an I, a 1 or a 0; the code\'s length; a private room not a floor room; the Worker refusing it; the floor\'s room for a code missing)', async () => {
+test('ARENA6 the door and the code: the Worker opens `arena:p<code>` for a code of the unambiguous alphabet and no other; a private room is an arena floor room; a fresh code is six of the alphabet, drawn without bias; a typed code is upper-cased (mutants: the alphabet with an O, an I, a 1 or a 0; the code\'s length; a private room not a floor room; the Worker refusing it; the floor\'s room for a code missing; the code biased)', async () => {
   const env = { ROOMS: { idFromName: (n) => n, get: () => ({ fetch: async () => new Response('x') }) } };
   const at = (k) => worker.fetch(new Request(`https://relay.invalid/room/${k}`), env);
   assert.equal((await at(ROOM)).status, 426, 'a private session\'s room: a socket only');
@@ -342,9 +343,10 @@ test('ARENA6 the wire: a session word in is projected and junk refused - only it
   assert.deepEqual(validArenaIn({ k: 'ps', a: 'pick', r: 'm3', b: '' }), { k: 'ps', a: 'pick', r: 'm3', b: '' });
   assert.deepEqual(validArenaIn({ k: 'ps', a: 'kick', m: 'm12' }), { k: 'ps', a: 'kick', m: 'm12' });
   assert.deepEqual(validArenaIn({ k: 'ps', a: 'go', r: 'm1' }), { k: 'ps', a: 'go' });
-  for (const bad of [{ k: 'ps', a: 'host' }, { k: 'ps' }, { k: 'ps', a: 'pick' }, { k: 'ps', a: 'pick', r: 'acct-alva' }, { k: 'ps', a: 'pick', r: 'm0' }, { k: 'ps', a: 'pick', b: 7 }, { k: 'ps', a: 'kick' }, { k: 'ps', a: 'kick', m: '' }, { k: 'ps', a: 'kick', m: 'm1000' }]) assert.equal(validArenaIn(bad), null, JSON.stringify(bad));
+  assert.deepEqual(validArenaIn({ k: 'ps', a: 'lock', l: 1 }), { k: 'ps', a: 'lock', l: 1 });   // AUDIT PRE-MERGE 1003b S4
+  for (const bad of [{ k: 'ps', a: 'host' }, { k: 'ps' }, { k: 'ps', a: 'pick' }, { k: 'ps', a: 'pick', r: 'acct-alva' }, { k: 'ps', a: 'pick', r: 'm0' }, { k: 'ps', a: 'pick', b: 7 }, { k: 'ps', a: 'kick' }, { k: 'ps', a: 'kick', m: '' }, { k: 'ps', a: 'kick', m: 'm1000' }, { k: 'ps', a: 'lock' }, { k: 'ps', a: 'lock', l: 2 }]) assert.equal(validArenaIn(bad), null, JSON.stringify(bad));
   assert.deepEqual(parseClient(JSON.stringify({ t: 'arena', k: 'ps', a: 'close' }), { hasHello: true }), { t: 'arena', k: 'ps', a: 'close' });
-  const pss = { k: 'pss', c: CODE, hn: 'Hela', hm: 'm1', h: 1, me: 'm1', m: [['m1', 'Hela', 0, 1, 'sprout', ''], ['m2', 'Alva', 0, 0, '', 'red'], ['m3', 'Gull', 1, 1, '', '']], r: 'm2', b: 'm1', o: '0123456789abcdef', ph: 'fight', f: ['m2', 'm1'], hist: [['Alva', 'Hela', 1, 'yield'], ['Hela', 'Gull', -1, 'judges']] };
+  const pss = { k: 'pss', c: CODE, hn: 'Hela', hm: 'm1', h: 1, me: 'm1', m: [['m1', 'Hela', 0, 1, 'sprout', ''], ['m2', 'Alva', 0, 0, '', 'red'], ['m3', 'Gull', 1, 1, '', '']], r: 'm2', b: 'm1', o: '0123456789abcdef', ph: 'fight', f: ['m2', 'm1'], hist: [['Alva', 'Hela', 1, 'yield'], ['Hela', 'Gull', -1, 'judges']], lo: 0 };   // AUDIT PRE-MERGE 1003b S4: `lo` the lock
   assert.deepEqual(validArenaOut(pss), pss);
   assert.deepEqual(readArenaOut({ t: 'arena', ...pss }), pss);
   const bad = (over) => validArenaOut({ ...pss, ...over });
@@ -353,9 +355,9 @@ test('ARENA6 the wire: a session word in is projected and junk refused - only it
     ['a member of five fields', { m: [['m1', 'Hela', 0, 1, '']] }], ['an account as a member id', { m: [['acct-x', 'X', 0, 1, '', '']] }], ['a member\'s title not a title', { m: [['m1', 'H', 0, 1, 'Sir <b>', '']] }],
     ['a banner of no banner', { m: [['m1', 'H', 0, 1, '', 'green']] }], ['too many members', { m: Array.from({ length: ARENA_PRIVATE_MEMBERS_MAX + 1 }, (_, i) => [`m${i + 1}`, 'X', 0, 1, '', '']) }],
     ['a bout id not one', { o: 'xyz' }], ['a phase not one', { ph: 'brawl' }], ['one fighter', { f: ['m2'] }], ['too many results', { hist: Array.from({ length: ARENA_PRIVATE_HIST_MAX + 1 }, () => ['A', 'B', 0, 'fall']) }],
-    ['a winner of three', { hist: [['A', 'B', 2, 'fall']] }],
+    ['a winner of three', { hist: [['A', 'B', 2, 'fall']] }], ['a lock not a bit', { lo: 2 }], ['no lock', { lo: undefined }],
   ]) assert.equal(bad(over), null, what);
-  for (const m of ['host guest', 'taken', 'no session', 'removed', 'session full', 'host only', 'not member', 'not here', 'guest fighter', 'same fighter', 'bout on', 'no picks', 'voided', 'closed', 'ended']) {
+  for (const m of ['host guest', 'taken', 'no session', 'removed', 'session full', 'host only', 'not member', 'not here', 'guest fighter', 'same fighter', 'bout on', 'no picks', 'voided', 'closed', 'ended', 'locked', 'has result', 'no contest']) {   // AUDIT PRE-MERGE 1003b: the lock's, the result's, both gone
     assert.ok(typeof ARENA_NO_TEXT[m] === 'string' && ARENA_NO_TEXT[m].length > 8 && ARENA_NO_TEXT[m].length <= 90, `"${m}" said`);
     assert.deepEqual(validArenaOut({ k: 'no', m }), { k: 'no', m });
   }
@@ -400,7 +402,7 @@ function screen(R, ws, name, { guest = false, outdoors = true } = {}) {
   return { P, D, S, A, doors, said, async beat() { A.tick(); await S.flush(); S.pump((w, room) => A.word(w, room)); } };
 }
 
-test('ARENA6 THE CLIENT, END TO END on the real Room: Host a session enters the floor\'s instance as its room and opens it; Join with a typed code joins it; the host picks and calls the bout - each fighter\'s screen brought down to its side\'s mark and its mirror a fighter\'s, every fighter ARENA_PRIVATE_VITALITY whole; the window draws the host\'s presses to the host alone; the host\'s void sends the fighters back to the stands; Close session takes every screen out of the instance (mutants: the session\'s word never said; a pss not kept; the fighter left in the stands; the fighters left on the sand; the session\'s end not leaving)', async () => {
+test('ARENA6 THE CLIENT, END TO END on the real Room: Host a session enters the floor\'s instance as its room and opens it; Join with a typed code joins it; the host picks and calls the bout - each fighter\'s screen brought down to its side\'s mark and its mirror a fighter\'s, every fighter ARENA_PRIVATE_VITALITY whole; the window draws the host\'s presses to the host alone; the host\'s void sends the fighters back to the stands; Close session takes every screen out of the instance (mutants: the session\'s word never said; a pss not kept; the fighter left in the stands; the fighters left on the sand; the session\'s end not leaving; a bad code sent; the host\'s presses on a member\'s card)', async () => {
   await onClock(async ({ step }) => {
     const W = fakeRooms();
     const R = W.room(arenaPrivateRoom('AAAAAA'));
@@ -468,7 +470,7 @@ test('ARENA6 THE CLIENT, END TO END on the real Room: Host a session enters the 
   });
 });
 
-test('ARENA6 the client\'s refusals and the card out of a session: a guest\'s Host is refused (a guest may join to watch); in a session the challenge waits; the card offers Host and Join with its field; the floor\'s door refused (indoors) says so and holds nothing (mutants: a guest hosting; the queue pressed in a session; the card without its join; the refusal unsaid)', async () => {
+test('ARENA6 the client\'s refusals and the card out of a session: a guest\'s Host is refused (a guest may join to watch); in a session the challenge waits; the card offers Host and Join with its field; the floor\'s door refused (indoors) says so and holds nothing (mutants: a guest hosting; the queue pressed in a session; the card without its join; the refusal unsaid; the card missing before the board; the session held)', async () => {
   const W = fakeRooms();
   const R = W.room(arenaPrivateRoom('AAAAAA'));
   const gw = R.connect();

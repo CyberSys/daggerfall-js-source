@@ -203,3 +203,106 @@ service; S6's race was made with injected latency on node:sqlite, not D1's own i
 The relay is world155 (undeployed; its row hashed again in place over S's and O's law). The account service is acct72,
 past main's SILVER-WAYS (acct71), with migrations 0073-0075 past main's 0072 (M1). The relay deploys first (the
 account service waits for it to serve world155 before minting `cl`, the arena's titles and the laurel).
+
+## The second pass - AUDIT PRE-MERGE 1003b (2026-10-03)
+
+The owner, before the push: *"We're going to do one last deep audit on everything before we push this. It needs to be
+perfection."* What the first pass had never read: ARENA6 (private sessions, `11-Multiplayer/Arena.md` - built after
+it, for a streamer's tournament the same day), the merge of main's #551 (FIELD BUGS 2026-10-03) and #555 (REL7), and the
+branch's commits after `5c8aa2852`. The tree was frozen at `bfe0893b7` (the full suite's two reds on the merged tree
+fixed first: Mod-Registry's vendor count, taken from main in the merge, and DE2's pitch count, which met ARENA6's
+`standOnArenaMark`), and six lenses read it, each in a worktree of its own at that commit, each reproducing what it
+reported with the repo's own code:
+
+- **R** the relay and the law of a session - authority, the door, seats, storage and the alarm, the bout, the wire, load;
+- **C** the client's state machine and the hosts' seams - every way into a session and out of one, the races;
+- **U** the card in the window - every state, the keyboard (the game's keys against the code box: SOUND, no host acts on a
+  typed key), a screen reader, a phone, forced colours, measured in Chromium;
+- **S** the stream itself - a tournament run on the real Room with 82 real client screens, eight bouts, drops, a removal,
+  the cap, a wake, every invariant checked each beat;
+- **M** the merges - #551/#555 re-run hunk by hunk, its semantics against the arena, the versions and the deploy;
+- **D** the record and the patch notes - every claim against the code.
+
+Beside them the regression sweep: every arena, audit, TACT2 and WD3 mutant list on the frozen tree - 1,037 dead, the 19
+alive the 19 that need the player's ARENA2 data, each `why` naming it (18 of `arena2triage.json`, and
+`ARENAFIX-RAMPS-UNREGISTERED`). The lenses reported 63 findings, 54 once the ones two lenses shared are written once;
+four were high. Each was checked against the code, pinned by a test that FAILED on the frozen tree for the finding's
+reason (`test/audit1003b_relay.test.js` 11, `_client` 10, `_ui` 5; `arena6_private`'s wire test and TACT2's archer pin
+strengthened), and mutation-proven (`tools/mutants/audit1003b.json` 50, all dead; `arena6.json` 62, all dead - 31 of them
+the mutants its titles named that no record held, D1; `tact2.json` 26). Each fix carries an `AUDIT PRE-MERGE 1003b <ID>`
+comment.
+
+**The relay** (`server/src/index.js`, `src/net/arenaBrain.js`, `src/net/arenaLaw.js`)
+
+| ID | Sev | Finding | Fix |
+|---|---|---|---|
+| R1, S3 | high | A MEMBER'S JOIN WAS A MEGAPHONE. Every `ps join` - a guest in the stands, at the arena gate's sixteen words a second - wrote the session and fanned the whole of it to every member: at 62 members 9,920 frames and 19 MB in ten seconds from one socket, 18-36 ms of the room's time a word (half of it `_sessionHere` listing the room per member per recipient). Related: a seated socket's repeated `in` forced a write each. | A join that changes nothing is answered to its asker alone, unwritten; a member's changing joins are taken `ARENA_PRIVATE_JOIN_HZ` a second (two at once), past it answered alone; `_sessionHere` lists the room once; a repeated seat writes nothing. |
+| R2 | high | TWELVE TOKENLESS HELLOS SHUT THE SESSION'S DOOR. A floor room spent its hello gate before the token (AUDIT-SEATS R3's fault, fixed for battle rooms alone): anyone with the code read off the stream held every newcomer, and a fighter whose socket blinked - a forfeit at `ARENA_GONE_MS` - out with 1013. | A floor room's gate is spent after the token, by account (`_battleHelloGate`): a member or a fighter waits on itself alone, anyone else on the stands' bucket. |
+| R8, S1 | high | "NO RESULT" FOR A BOUT THE RESULTS KEPT. End bout (no result), or a fighter removed, pressed in the verdict - a host's natural reaction to a disputed finish - told everyone the bout was voided while the session's results kept the win. | Only a bout with no result is voided; after it the host's press is answered `has result`, and the card says so before it is pressed. |
+| R3, S8 | med | A FIGHTER REMOVED STOOD ON THE SAND. The kick cleared its `af` before the clear, which says `leave` for `af` sockets alone. | Its body is said gone to every screen first. |
+| R4, S8 | med | THE FLOOR WAS ANYONE'S WHO HAD THE CODE. A stranger in the room, or a member removed who kept its socket, was drawn the fighters (their `join`, look and every pose) and the welcome's roster, and its room chat reached every member (and theirs it). | A session's floor is its members': no fighter, pose, roster or room chat to or from a non-member; a socket made a member is shown the sand then (`_sessionShow`). |
+| R5 | med | A RECONNECT TOOK A SECOND SEAT. A socket replaced by its own reconnect loses its id before its close, so its seat was never freed and the new socket's `in` took another - a full session's sixty, gone a blip at a time. | The replaced socket's place (seat, sand) is the new one's. |
+| R6, S2 | med | A ROOM WOKEN WHOSE FIRST WORD WAS A CLOSE TOLD EVERYONE NO BOUT STOOD - `_arenaLeave` fanned the session before reading the bout; both fighters' screens stood themselves back in the stands while the relay fought on. | The bout is read first. |
+| S4 | med | A REMOVAL WAS AN ACCOUNT'S, AND A GUEST IS ONE PRESS AWAY - a removed guest was back in seconds as a new guest, and nothing kept a stream's trolls out. | The host's **Lock session** (`ps lock`): no newcomer while locked (`locked`), a member coming back always let in; `lo` on the wire. |
+| R7, S10 | low | THE KEEP WAS SPENT BEFORE IT BEGAN - counted from the result, the healers' seven seconds outran its five; the record said "past the healers". | Counted from the bout's first finished beat (`doneAt`). |
+| S9 | low | BOTH FIGHTERS GONE TOGETHER HANDED THE BLUE A FORFEIT WIN (the Red counted out first). | Both players of a players' bout gone is no contest: void, `no contest`, nothing kept (a ladder's one player gone is still its forfeit). |
+
+**The client** (`src/scenes/arenaOnline.js`, `arenaBouts.js`, `worldModes.js`, `world.js`)
+
+| ID | Sev | Finding | Fix |
+|---|---|---|---|
+| C1 | med | THE FIGHTER WHO CAME WAS LEFT ON THE SAND when its opponent never did (a tab in the background) - the void let the mirror go, and the next `pss` found no bout of its to send back. | A session's bout let go sends its fighter to the stands. |
+| C2 | med | A BOUT ENDED BEFORE ITS HEALERS LEFT ITS FIGHTER HURT (a void, a removal, a close, the seat lost) - and nobody rests on the floor. | The healers' heal (`heal`, world.js's `arenaHeal`) whenever a session's bout of mine is let go. |
+| C3 | med | A SCREEN IN A SESSION'S ROOM WITH NO SESSION (its seat taken back after another tab's; a floor slower than `BOUT_ARRIVE_MS`) was listed here, picked, and deaf - the bout void, the other fighter stranded. | The room's session is adopted; never a room left on purpose. |
+| C4 | med | A SESSION FIGHTER'S OWN SIDE IN ITS REALM BANNER'S COLOUR (Alva of the Blue Banner, picked Red, saw both sides blue), the realm's laurel favouring a side. | A session's sides are fixed (`fixed`): no realm banner, no laurel. |
+| C5, U2 | med | A FIGHTER CALLED STAYED UNDER THE WINDOW - the host who picked themselves pressed Start inside it, paused through the call and the count. | Out of the window before the mark. |
+| C6, S5 | med | A NEWCOMER REFUSED (`session full`) STOOD ON IN THE FLOOR holding a session it was not in. | `session full` and `locked` end it here: said, and out of the floor. |
+| C7 | med (traced) | THE FLOOR'S WAY OUT LANDED NOWHERE away from Daggerfall: before the Herald, who stands only where the colosseum is streamed in - a session joined in Wayrest came out at the floor's own coordinates read in Wayrest's frame. | The floor remembers where it was entered (`arenaFrom`) and lands there when no Herald stands. Unseen in a booted world (no ARENA2 here). |
+| C8 | low | A HOST WHO STEPPED OUT LOST THE CODE - Host drew a new one while the old session held everyone. | The card offers **Rejoin session <code>**. |
+| S6 | low | THE HERALD CALLED EVERY PLAYERS' BOUT "A RATED BOUT" - a session's and the casual queue's. | A casual bout is called as one. |
+
+**The card** (`src/systems/arenaBoard.js`, `src/ui/arenaWindow.js`, `src/ui/enhancedPlusStyle.js`, `src/systems/arenaText.js`)
+
+| ID | Sev | Finding | Fix |
+|---|---|---|---|
+| U1 | high | THE HOST'S MEMBER LIST SHOWED NO NAMES at 721 px and wider - the card in one 300 px cell, the three presses taking every pixel (48 of 62 names 0 px wide at 1280). | The card spans the page; a name keeps twelve characters. Measured whole at 768-1920 px on both skins. |
+| U3, U8 | med | THE SESSION'S WORDS WENT TO THE CHAT ALONE - under the window's scrim, outside a screen reader's hearing; `no bout` was dropped; a wrong code lost the code and its reason with the window. | The session's last word stands on the card, a wrong code's too. |
+| U4 | med | THE KEYBOARD JUMPED ROWS. A picked member's press was dropped, so a redraw put the focus on the next member's: Enter on "Red - Brann", then Enter again, picked the host; Remove's focus fell to the next member; Start's to the page. | Every row's presses stand still (Make Red, Make Blue, Remove), one that cannot be pressed shut by `aria-disabled` with its reason, each keyed by `data-focus`. |
+| U6 | low | IN A SESSION ITS CARD WAS LAST, 2.6 screens down on a phone. | First while in one. |
+| U7 | low | WRONG REASONS: queued, Host and Join said "You are in a bout"; in a session so did Find a match and Watch; a fighter's chip said "In the stands". | Each said as what it is (`privQueued`, `privIn`, "On the sand"). |
+| U9, S7 | low | RESULTS IN THE RELAY'S WORDS ("- yield"), A DRAW AS "NO RESULT" (the void's words), "against - (Blue)", presses named as their chips. | "by a yield", "drew - the judges could not part them", "not picked yet", Make Red / Make Blue. |
+| U10 | low | YOUR ROW BY COLOUR ALONE; A PICKED MEMBER'S PENNANT NAMED FOR THE SIDE; THE SPELLED CODE A NAME ON A PARAGRAPH. | A You chip; the member's own banner on its pennant; the code spelled in a span a reader reads. |
+| U11 | low | THE CODE BOX'S ONLY LABEL ITS PLACEHOLDER (clipped), NO CAPITALS ASKED OF A PHONE, A NINE-CHARACTER BOX, ENTER MID-COMPOSITION JOINING. | A visible label, `autocapitalize` / `enterkeyhint` / `autocorrect`, sixteen characters, the composition's Enter its own. |
+
+**The merges** (f1f56f5b7, and after)
+
+| ID | Sev | Finding | Fix |
+|---|---|---|---|
+| M2 | low | #551 INSET THE QUEST CARD INTO RETRO MODE'S PICTURE, AND U4'S 1100 PX READ THE WINDOW'S - at 1366x768 in 4:3 the card overlapped the versus bar 36x54 px. | The picture's width read (`data-ui-narrow`, enhancedHud.js `wearUiPillar`). |
+| M3 | low | TACT2'S RELAXED PIN (aaf5423fb) COULD NOT CATCH TOKENS NEVER TAKEN AGAIN - an archer that shot once and never took a token survived 20 runs of 20. | Six seconds, the last three frames' best both tokens; the mutant in `tact2.json`. |
+| M1 | low | TWO CITES THE MERGE LEFT WRONG in Field-Bugs-2026-09-24 (`online.js`, `worldModes.js`), in a paragraph already stale on both sides. | The paragraph's every cite re-aimed. |
+| M4, D7, D8, D9, D20 | low | THE PR DESCRIPTION: "the last three merges" (four), "number-only conflicts in cites" (two were counts), a stale Verification, a deploy line without ARENA6. | Rewritten. |
+
+**The record** (lens D): D1 (above); D2 the arena6 test's "the result listed" (it voids); D3 `ui/arenaWindow.js` claimed
+tested and mounted nowhere (now `test/audit1003b_ui.test.js`); D4 Home.md's index; D5/C9 the ARENA6 record's four hosts;
+D6 arenaGate's "from anywhere online"; D10-D13 "six-letter", the refusal words, "picked" for "called", the keep's order;
+D14-D15 a JSDoc's `busy`, tick's stranded doc; D16-D19 the patch notes (the alphabet "read aloud", the box's name, the
+host's way back, a session's bouts not on the list); D21 the Ledger's ARENA6 (written into the arena's row, so no Ledger
+line moves). And acct72's note names main's HALL-GOLD, which landed under acct71 unbumped (M, pre-existing).
+
+**Not changed, and why**
+- **Tab closes the Arena window** (U5) - PX28b's house rule (Mac: "Tab should also minimize any open UI menus"); a
+  keyboard host moves between the session's presses only inside one Tab press. The owner's call.
+- **A blow's damage is the fighter's own claim**, capped by the weapon and material it claims (PVP-REF's law, ARENA4): the
+  health is equal, a modified client can strike at the cap. Pre-existing; recorded in the ARENA6 record.
+- **One account's two tabs in the stands take two seats** (R5's second half) - ONE-SEAT keeps two tabs online apart;
+  recorded.
+- **Older stale cites** the merge carried unchanged (153 suspected by M's trace - `Audit-59.md:26` and the like - and
+  D's `dungeonContext.js:3232`, `exterior.js:4221`): wrong on both sides before the merge, not covered by citedrift;
+  each needs `citeShift` from its sentence's own commit. Not this pass's.
+
+**What it could not see.** A booted world (no ARENA2): C7's landing and the session's marks are traced and pinned by
+source, not walked; nothing ran against a deployed relay.
+
+**The deploy.** Unchanged in shape: world155 (its row hashed again in place over this pass's relay law), acct72 (its note
+now naming HALL-GOLD), migrations 0073-0075; one push to main deploys the relay, then the account service, then the site.

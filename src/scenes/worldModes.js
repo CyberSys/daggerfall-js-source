@@ -35,7 +35,7 @@ import { climbRigInput } from '../player/climbPose.js';   // CLIMB6: the body's 
 import { spaceAcross, clearDoorways, doorSpotsNear, actionDoorSpots, spacingSkips } from '../characters/foeSpacing.js';   // TACT3: the crowd and the door
 import { drawableBlows } from '../ai/foeBlows.js';   // TACT4
 import { tacticsNow } from '../ai/tactics.js';   // TACT4: the brain's clock
-import { startRestGroundedCheck, TELEPORT_FREEZE_S, motionBagOf, afloatMessageStep, CANNOT_FLOAT_HUD_SECONDS } from '../player/motor.js';   // S40: the rest gate's grounded input; A6: DaggerfallAction.Teleport's physics settle; WW2: the one motion bag; DW-D: the dungeon arm's afloat line
+import { startRestGroundedCheck, TELEPORT_FREEZE_S, motionBagOf, afloatMessageStep, CANNOT_FLOAT_HUD_SECONDS, CAPSULE_HEIGHT } from '../player/motor.js';   // S40: the rest gate's grounded input; A6: DaggerfallAction.Teleport's physics settle; WW2: the one motion bag; DW-D: the dungeon arm's afloat line
 import { signalAutomapReset } from '../ui/automapWindow.js';   // ROAD-C c2/S9: the M window inside a building
 import { createAutomapWindow, preloadAutomapArt, automapDoorReady } from '../ui/automapDoor.js';   // EM3: the skin fork
 import { automapDungeonKey, getDungeonAutomap } from '../systems/automap.js';   // ROAD-C c2/S9: Automap.cs:2362-2379's read of the dungeon dictionary
@@ -7408,7 +7408,11 @@ export function createWorldModes(host) {
     const city = host.arenaCity?.() ?? null;
     const dfLocation = arenaFloorLocation({ kind, city, bout });   // ARENA4: `bout` the relay's bout - the instance is its room
     // ARENA5: the bout's banners hung on its sides' halves (scenes/arenaBouts.js floorBanners)
-    const hit = { dfLocation, blocksFile: arenaFloorBlocks(blocks, kind, host.arenaFloorBanners?.() ?? null), arenaFloor: kind, climateBase: 2, season: 0, group: 'arena:floor', door: null, dfBlock: null, recordIndex: -1 };
+    // AUDIT PRE-MERGE 1003b C7: where this floor was entered from - its way out lands before the Herald (arenaLanding),
+    // and the Herald stands only where Daggerfall's colosseum is streamed in: a private session joined in Wayrest came
+    // out at the floor's own coordinates read in Wayrest's frame. The place the player stood is its way back then
+    const from = { pos: [player.pos[0], player.pos[1] + CAPSULE_HEIGHT / 2, player.pos[2]], normal: [Math.sin(cam.yaw), 0, Math.cos(cam.yaw)] };
+    const hit = { dfLocation, blocksFile: arenaFloorBlocks(blocks, kind, host.arenaFloorBanners?.() ?? null), arenaFloor: kind, arenaFrom: from, climateBase: 2, season: 0, group: 'arena:floor', door: null, dfBlock: null, recordIndex: -1 };
     return tryEnterDungeon(hit, [], { preferEnterMarker: false });
   }
   /** ARENA6: A PRIVATE SESSION'S FIGHTER, MOVED IN THE INSTANCE - called down from the stands to its side's mark
@@ -8000,6 +8004,7 @@ export function createWorldModes(host) {
           e.group === hit.group && e.door.doorType === DOOR_TYPE.DUNGEON_ENTRANCE),
         gate: hit.gateArena ?? null,   // WB3b: the way home lands at the gate, not at a door
         arena: hit.arenaFloor ?? null,   // ARENA2: the floor's way out lands before the Herald
+        arenaFrom: hit.arenaFrom ?? null,   // AUDIT PRE-MERGE 1003b C7: or, with no Herald streamed in, where it was entered from
       };
       // DE1: WHICH DFU MEMBER THIS IS. Walking in through the door is
       // TransitionDungeonInterior, which uses the START marker and
@@ -8294,7 +8299,7 @@ export function createWorldModes(host) {
   const dungeonPose = () => weaponPoseOf(dungeonCtx?.weaponRig?.()?.playerWeapon ?? null);
   /** WB3b: where a dungeon's exit lands - the entrance door the player came in by (PositionPlayerToDungeonExit), or,
    *  out of the Burning Court, before its gate (the host's gateLanding - world/gateArena.js gateLandingFor). */
-  const returnLanding = () => (dungeonReturn.gate ? host.gateLanding?.(dungeonReturn.gate) ?? null : dungeonReturn.arena ? host.arenaLanding?.() ?? null : dungeonEntranceLanding(dungeonReturn.candidates.map((e) => e.door)));   // ARENA2: out of the floor, before the Herald
+  const returnLanding = () => (dungeonReturn.gate ? host.gateLanding?.(dungeonReturn.gate) ?? null : dungeonReturn.arena ? host.arenaLanding?.() ?? dungeonReturn.arenaFrom ?? null : dungeonEntranceLanding(dungeonReturn.candidates.map((e) => e.door)));   // ARENA2: out of the floor, before the Herald (AUDIT PRE-MERGE 1003b C7: or back where it was entered)
   function exitDungeonNow() {
     unleveledLootPreTransition();   // UL1: OnPreTransition (TransitionDungeonExterior) - and NO OnTransitionExterior here, bug for bug
     // Verbatim PositionPlayerToDungeonExit; the camera faces the normal.

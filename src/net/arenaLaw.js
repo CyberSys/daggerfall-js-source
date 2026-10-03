@@ -391,6 +391,9 @@ export const ARENA_PRIVATE_HIST_MAX = 20;
 /** A finished bout of a session is kept this long past the healers ('done') before the session is back to choosing -
  *  the verdict and the healers are seen by then; the fighters go back to the stands as it clears. */
 export const ARENA_PRIVATE_KEEP_MS = 5_000;
+/** AUDIT PRE-MERGE 1003b R1: a member's joins that change the session, a second (two at once) - past it a join is answered
+ *  to its asker alone, unchanged, and fanned to nobody. A screen joins once a room opens; this is a megaphone's cap. */
+export const ARENA_PRIVATE_JOIN_HZ = 1;
 /** The accounts a session has removed, at most (the oldest forgotten past it). */
 export const ARENA_PRIVATE_KICKED_MAX = 256;
 /** EVERY FIGHTER OF A SESSION'S BOUT IS THIS WHOLE (the owner's call: equal health, not by level) - the vitality a rated
@@ -399,8 +402,9 @@ export const ARENA_PRIVATE_KICKED_MAX = 256;
 export const ARENA_PRIVATE_VITALITY = 360;
 /** A session's member on the wire - `m1`, `m2` ... (the smallest number free): never an account's id. */
 export const ARENA_MEMBER_ID_RE = /^m[1-9]\d{0,2}$/;
-/** A session word's acts (`ps`): open (its host's first), join, and the host's own - pick, go, void, kick, close. */
-export const ARENA_PS_ACTS = Object.freeze(['open', 'join', 'pick', 'go', 'void', 'kick', 'close']);
+/** A session word's acts (`ps`): open (its host's first), join, and the host's own - pick, go, void, kick, close, and
+ *  (AUDIT PRE-MERGE 1003b S4) lock: no newcomer while it is locked, a member coming back always let in. */
+export const ARENA_PS_ACTS = Object.freeze(['open', 'join', 'pick', 'go', 'void', 'kick', 'close', 'lock']);
 /** The session's end, by its clock: `'life'` its life out, `'host'` its host gone ARENA_PRIVATE_HOST_GONE_MS, or null.
  *  `S` the session (`at` when it opened, `hostGoneAt` when its host's last socket left, null while here). Pure. */
 export function privateSessionOver(S, now) {
@@ -432,7 +436,7 @@ export const ARENA_IN_KINDS = Object.freeze(['q', 'x', 'y', 'n', 'ls', 'in', 'hi
  *          out (I leave)
  *   ARENA6, a private session's room: ps (`a` - ARENA_PS_ACTS: open / join with `bn` my banner (bannerClaim, cosmetic),
  *          pick `r` the Red and/or `b` the Blue (a member id - ARENA_MEMBER_ID_RE - or '' for none), go, void, kick `m`
- *          a member id, close)
+ *          a member id, close, lock `l` 1 locked or 0 open - AUDIT PRE-MERGE 1003b S4)
  * @param {any} m
  */
 export function validArenaIn(m) {
@@ -477,6 +481,7 @@ export function validArenaIn(m) {
         return out;
       }
       if (m.a === 'kick') return typeof m.m === 'string' && ARENA_MEMBER_ID_RE.test(m.m) ? { k: 'ps', a: 'kick', m: m.m } : null;
+      if (m.a === 'lock') return m.l === 0 || m.l === 1 ? { k: 'ps', a: 'lock', l: m.l } : null;   // AUDIT PRE-MERGE 1003b S4
       return out;
     }
     default: return null;
@@ -539,7 +544,7 @@ function evOk(e) {
  *          I host it, `me` my member id, `m` its members `[[id, name, guest 0|1, here 0|1, title|'', banner|'']]`, `r` / `b`
  *          the Red and the Blue picked (ids, or ''), `o` the bout standing (its id, or '') with `ph` its phase and `f` its
  *          two fighters' ids, `hist` its recent results `[[red's name, blue's name, the winner 0 red / 1 blue / -1 none,
- *          how]]`) - never an account's id
+ *          how]]`, AUDIT PRE-MERGE 1003b S4: `lo` 1 when its host has locked it to newcomers) - never an account's id
  * @param {any} m
  */
 export function validArenaOut(m) {
@@ -641,7 +646,8 @@ export function validArenaOut(m) {
         if (!Array.isArray(r) || r.length !== 4 || !nameOk(r[0]) || !nameOk(r[1]) || int(r[2], -1, 1) == null || typeof r[3] !== 'string' || r[3].length > 12) return null;
         hist.push([r[0], r[1], r[2], r[3]]);
       }
-      return { k: 'pss', c: m.c, hn: m.hn, hm: m.hm, h: m.h, me: m.me, m: members, r: m.r, b: m.b, o: m.o, ph: m.ph, f: [...m.f], hist };
+      if (m.lo !== 0 && m.lo !== 1) return null;   // AUDIT PRE-MERGE 1003b S4
+      return { k: 'pss', c: m.c, hn: m.hn, hm: m.hm, h: m.h, me: m.me, m: members, r: m.r, b: m.b, o: m.o, ph: m.ph, f: [...m.f], hist, lo: m.lo };
     }
     default: return null;
   }
@@ -659,12 +665,14 @@ export const ARENA_NO_TEXT = Object.freeze({
   'seats full': 'The stands are full.',
   'not yours': 'That bout is not yours to fight.',
   void: 'The bout is void - a fighter never came to the sand.',
+  'no contest': 'The bout is void - both fighters left the sand.',   // AUDIT PRE-MERGE 1003b S9
   // ARENA6: a private session's
   'host guest': 'Only a registered account can host a private session.',
   taken: 'That code is already in use - host again for a new one.',
   'no session': 'No private session has that code.',
   removed: 'The host removed you from this session.',
   'session full': 'That private session is full.',
+  locked: 'That private session is locked - the host is letting nobody new in.',   // AUDIT PRE-MERGE 1003b S4
   'host only': 'Only the session\'s host can do that.',
   'not member': 'Join the session first.',
   'not here': 'That fighter is not here.',
@@ -673,6 +681,7 @@ export const ARENA_NO_TEXT = Object.freeze({
   'bout on': 'A bout is on - end it first.',
   'no picks': 'Pick a Red and a Blue first.',
   voided: 'The host ended the bout - no result.',
+  'has result': 'That bout has its result - it ends on its own.',   // AUDIT PRE-MERGE 1003b R8/S1: End bout after the result
   closed: 'The host closed the session.',
   ended: 'The private session has ended.',
 });
