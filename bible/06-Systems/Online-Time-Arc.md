@@ -362,7 +362,7 @@ The machine gets two clocks where DFU has one: `nowSeconds` becomes the characte
   fired and its edge kept (AUDIT TIME; the edge in the second round, or the next tick re-fired the task and
   restarted its waves), and a wave's interval and count stay this holder's.
 
-### 6.3c Quest timers on the world's clock (QCLOCK-WORLD, 2026-10-02) [SUPERSEDES 6.3b, and 6.3a's raise charged whole]
+### 6.3c Quest timers on the world's clock (QCLOCK-WORLD, 2026-10-02) [SUPERSEDES 6.3b, and 6.3a's raise charged whole] [its DELAYS SUPERSEDED BY 6.3d]
 
 Mac: "Before we merge. I want to go back to the quest timer tied to the online world clock instead of the changes we
 just made". Asked which: TIME3's (a rest spends a quest's days) or the shared world clock's, played time only -
@@ -387,6 +387,37 @@ nothing, the same mechanics driven by lived play), `test/world7.test.js`, `test/
 `test/auditworld78.test.js` (the charge's source); `ui/enhancedMenu.js` says it at the door. `tools/mutants/time3.json`
 re-aimed (61, all dead): TIME3's law back - the raise charged whole - is a mutant now.
 
+### 6.3d Quest waits on the short wait (REST8, 2026-10-03) [SUPERSEDES 6.3c's delays on played time; 6.3b's DELAY HALF RESTORED]
+
+`Rest-Arc.md` section 8, OPEN 12 (Mac's call: option A). QCLOCK-WORLD's audit measured the waits a rest can no longer
+skip online (121 of them: median 0.3 h of play, p90 24.3 h, the main quest's letters 20-26 h each), and under REST a
+night is a raise, which 6.3c charges nothing. So 6.3b's reading comes back for its delays, and its freeze does not:
+
+- **The reading is 6.3b's, as AUDIT TIMEFREE left it** (`quest/clock.js` `clockIsDeadline`, `isDeadline`, the hand
+  tables `ONLINE_DEADLINES` and `ONLINE_CLOSINGS`, the "at once" clocks, the run-time half and `startedAfterSuccess`):
+  262 deadlines, 137 delays over the 399 vendored clocks - and REST8 R1's correction: T3 reads `end quest` by what the
+  end ALONE sets off, and now the reward that clears it the same way, so K0C00Y02's gold ("you only have =2mondung_
+  days") and S0000502's Direnni tower ("will wait inside for =towertime_ days"), which ended unpaid two minutes in
+  under 6.3b's reading, are deadlines: 264 and 135, the main quest's deadlines 31, listed and pinned.
+- **Online a delay lands on the short wait** (`Clock.waitsShort`): its remainder is cut once to `ONLINE_DELAY_SECONDS`
+  (24 minutes of the character's clock) and then charged as 6.3c charges any clock - the lived step, never a raise -
+  so it lands after about two real minutes of play, and a night spends none of it. Its `=x_` count reads "a few"; the
+  journal walk (`scenes/questBridge.js questLog`) skips it, so no surface counts a letter down.
+- **Online a deadline is 6.3c's, untouched**: played world time, DFU's end (armed at nothing, it fires at once, as
+  offline - 6.3b's T7 guard went with the freeze); its count, "Time remains", the rail and the herald's urgency stand.
+- **The crime-guild letter** is due 24 of the character's minutes after the tally (`crimeGuilds.js`
+  `CRIME_GUILD_LETTER_ONLINE_MINUTES`); **the curse quests** roll every 24 of them while their arm has nothing running
+  (`racialQuests.js` `ONLINE_RACIAL_INTERVAL_MINUTES`, `racialArmIdle`; `worldTick.js runCalendarArms`), not every 38 and
+  84 days.
+- **Kept as 6.3c has them:** a taken bounty lapses and shows its time; a letter waits for town and the sky's morning;
+  `daily from` windows on the sky; spawn intervals, QAE RaiseTime and TrainPc's hours as pacing.
+- **The edge**: a deadline read as a delay fires its end two minutes in, as under 6.3b; a delay read as a deadline only
+  waits its played days now (6.3b froze it). The pins guard the first: `test/rest8_questwaits.test.js` (6.3b's file,
+  re-aimed - every vendored clock ticked past the short wait online: all 135 delays land, not one of the 264 deadlines
+  is cut) and `test/rest8_audit_timefree.test.js` (AUDIT TIMEFREE's, and R1's). Campaigns `tools/mutants/rest8.json`
+  (22) and `tools/mutants/rest8_audit_timefree.json` (14), all dead.
+- Offline: none of it. DFU's clock, whole.
+
 ### 6.4 Weather keeps its pace
 
 The six zones roll and evolve on the event clock's days and hours, as today: a roll every two real
@@ -401,7 +432,7 @@ temple's cure days and Heart's Day keep their share of the year, in shorter, mor
 year number climbs about 49 a real year. TIME1 reads every date reader its census finds for one that
 counts years, before the years run faster.
 
-### 6.3b Quests are not time (TIMEFREE, 2026-10-02) [SUPERSEDES 6.3a's countdowns online] [SUPERSEDED BY 6.3c - REVERTED]
+### 6.3b Quests are not time (TIMEFREE, 2026-10-02) [SUPERSEDES 6.3a's countdowns online] [SUPERSEDED BY 6.3c - REVERTED] [its DELAY HALF RESTORED BY 6.3d - the reading, the short wait, the curse arms and the crime-guild letters; the freeze, the walk's blackout, the any-hour letters and the bounties' never-lapse stay reverted]
 
 Mac: "we recently adjusted quest timing for online and im really getting tired of it ... Is there a way we can overhaul
 online quests to not use time and edit anything questwise to make since that depends on time?" Asked what a waiting step
@@ -634,3 +665,8 @@ terms; 9 is new and not built.
 - 2026-10-02: SKY-SLOW. The 48 sky zoomed by; the not-yet-live row was replaced with TimeScale 24 (a day every real
   hour, midnight on the hour UTC) at the aligned instant 2026-10-03T17:07:30Z. The Online pane's sentence, the patch
   notes and the pins (`test/time1_sky.test.js`, `test/time2_moon.test.js`, `test/time4_words.test.js`) moved with it.
+- 2026-10-03: REST8 (6.3d, `Rest-Arc.md` section 8, OPEN 12 option A): 6.3b's delay half restored on 6.3c's clock -
+  the reading and its two tables whole, a delay cut once to the short wait, a deadline on played time; the crime-guild
+  letters and the curse arms on the short wait; R1: K0C00Y02's gold and S0000502's tower read as the deadlines they
+  are. `test/rest8_questwaits.test.js`, `test/rest8_audit_timefree.test.js`, `tools/mutants/rest8.json` (22) and
+  `tools/mutants/rest8_audit_timefree.json` (14), all dead.

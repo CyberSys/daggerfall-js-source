@@ -389,6 +389,52 @@ played hours. Three ways out (OPEN 12):
   two hours). Diegetic, and the same classifier is needed.
 - **C - both.** The short wait, and a night ends a delay at once.
 
+**REST8 built (2026-10-03): option A** (OPEN 12, Mac's call: the recommendation). TIMEFREE's delay half is back on
+QCLOCK-WORLD's clock, online only - the gate is the quest hooks' `sharedClock`, TIMEFREE's own (`quest/clock.js`
+`questWaitsShort`, its `questTimeFree` renamed for what it gates now); offline nothing changes.
+
+- **The reading, whole.** `clockIsDeadline` (`reached`, `readsAsDeadline`, `startersOf`, `closes`), the hand tables
+  `ONLINE_DEADLINES` (the cure quests' hunters, U0C00Y00's escape, M0B11Y18's mark, Brisienna's month) and
+  `ONLINE_CLOSINGS` (R0C11Y03), the "at once" clocks (`declaredAtOnce`), the run-time half (`isDeadline`: a task-started
+  deadline closes on the short wait once the quest is a success, unless started after it - `startedAfterSuccess`,
+  saved). Restored line for line from commits a075cbdd6 and 6611f0188, every hand-audited classification kept but the
+  two R1 corrects: 264 deadlines, 135 delays over the 399 vendored clocks, the main quest's 31 deadlines (the audit's 30
+  and S0000502's tower) listed and pinned.
+- **R1 - two deadlines the audit read as delays.** T3 reads `end quest` by what the end ALONE sets off, but the reward
+  that clears it was read over the whole conditional reach. Two clocks fell between: K0C00Y02's gold ("you only have
+  =2mondung_ days": `when _2mondung_ and not _mggold_` ends it unpaid; the pay needs a brick returned first - TIMEFREE's
+  test called it "two months") and S0000502's Direnni tower, the main quest's ("my master will wait inside for
+  =towertime_ days": `when _towertime_ and not _goout_` ends it; the reward needs the item found with him). Both were
+  delays, so online each quest ended unpaid two minutes in - under TIMEFREE, which shipped, too. `readsAsDeadline`
+  reads the reward alone now, T3's own rule; over the corpus it moves those two and nothing else (checked: every other
+  delay whose end alone ends the quest is a closing, an "at once" clock or `ONLINE_CLOSINGS`'s; no other delay's end
+  alone costs a standing but that table's R0C11Y03).
+- **A delay** (`Clock.waitsShort`: online and not a deadline) has its remainder cut once to `ONLINE_DELAY_SECONDS` (24
+  minutes of the character's clock) at the tick, then is charged as any clock - QCLOCK-WORLD's played step, never a
+  raise, so a night spends none of it either: it lands after about two real minutes of play. The journal's live read
+  makes the same cut (QT-LIVE1's one arithmetic). Its `=x_` count reads "a few", and the journal walk skips it (no
+  "Time remains" for a letter).
+- **A deadline** is QCLOCK-WORLD's untouched: played world time, DFU's end - armed at nothing, it fires on its first
+  tick as offline (AUDIT TIMEFREE T7's frozen guard went with the freeze). Its count, its "Time remains", the rail and
+  the herald's urgency stand.
+- **The crime-guild letters and the curse arms** take the short wait (`CRIME_GUILD_LETTER_ONLINE_MINUTES`;
+  `ONLINE_RACIAL_INTERVAL_MINUTES` with `racialArmIdle`, which reads the world host's live quests through the racial
+  host's `activeQuestNames` - one line in `src/scenes/world.js`). **Out, as QCLOCK-WORLD has them:** a taken bounty
+  lapses and shows its time; a letter waits for the sky's morning.
+- **The edge, as built.** Measured against what each misreading costs: a deadline read as a delay fires its end - a
+  failure - two minutes in (as it did under TIMEFREE, whose delays were cut the same); a delay read as a deadline now
+  only waits its played days, where TIMEFREE froze it for ever. So the one harmful misreading is the first - R1 found
+  two - and it is what the pins guard: the split, both tables, the 31 main-quest deadlines, and every vendored clock
+  ticked online past the short wait - all 135 delays landed, not one of the 264 deadlines cut
+  (`test/rest8_questwaits.test.js`).
+- **Pins:** `test/rest8_questwaits.test.js` (TIMEFREE's file re-aimed: the freeze assertions now "runs on played
+  time"), `test/rest8_audit_timefree.test.js` (AUDIT TIMEFREE's and AUDIT TIMEFREE II's, re-aimed the same way; T7
+  retired with the freeze; R1's two, ticked). Campaigns `tools/mutants/rest8.json` (22) and
+  `tools/mutants/rest8_audit_timefree.json` (14), all dead; `tools/mutants/qtlive1.json`'s one moved record re-aimed.
+  `Online-Time-Arc.md` 6.3d is the law's page. The Online pane's sentence is REST9's (the words), and still says
+  QCLOCK-WORLD's (true of a deadline, silent on a delay); the unreleased QCLOCK-WORLD patch notes had the four lines
+  REST8 made false corrected (a wait, the countdowns, the day counts, the curse and guild letters).
+
 ---
 
 ## 9. Online - what the wire, the relay and the service need
@@ -523,6 +569,7 @@ brazier does today), and the consumables. The night interval, the single ambush 
     retired online.
 12. **Quest waits.** Recommended: **A** - TIMEFREE's audited delay half (a wait lands after about two real minutes of
     play online), deadlines on played world time, and the crime-guild letters and curse arms on the short wait.
+    [ANSWERED AND BUILT 2026-10-03: A, as recommended (REST8, section 8).]
 13. **The consumables.** Recommended: **the seven in section 6** at those numbers; the candle's craft (Carpentry's wax
     or Masonry) Mac's pick.
 14. **Loitering online.** Recommended: **retired** - the sky runs on real time, so a loiter waits for nothing online.
@@ -535,3 +582,5 @@ brazier does today), and the consumables. The night interval, the single ambush 
 
 - 2026-10-02: proposed (this page). Built on QCLOCK-WORLD (`Online-Time-Arc.md` 6.3c) and its audit's measure of the
   waits; it supersedes nothing yet.
+- 2026-10-03: REST8 - quest waits, option A (section 8's as-built note; `Online-Time-Arc.md` 6.3d): TIMEFREE's delay
+  half restored on QCLOCK-WORLD's clock, its deadlines left on played time; R1, two misread deadlines corrected.

@@ -52,11 +52,12 @@
   {
     "name": "QT-LIVE1-running-clock-answers-the-field-when-disabled-check-inverted",
     "file": "src/systems/quest/clock.js",
-    "old": "    if (!this.clockEnabled || this.clockFinished) return this.remainingTimeInSeconds;\n    return Math.max(0,",
-    "new": "    if (this.clockEnabled && !this.clockFinished) return this.remainingTimeInSeconds;\n    return Math.max(0,",
+    "old": "    if (!this.clockEnabled || this.clockFinished) return this.remainingTimeInSeconds;\n    if (this.waitsShort)",
+    "new": "    if (this.clockEnabled && !this.clockFinished) return this.remainingTimeInSeconds;\n    if (this.waitsShort)",
     "tests": [
       "test/qtlive1.test.js"
-    ]
+    ],
+    "note": "REST8 (PIN MOVED): re-aimed by content - the delay's short-wait read now stands between the check and the charge."
   },
   {
     "name": "QT-LIVE1-walk-reads-the-stale-field",
