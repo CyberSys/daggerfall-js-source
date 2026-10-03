@@ -22,7 +22,7 @@ import { patchSeams } from '../src/world/arch3dSeams.js';
 import { doorWorldPosition } from '../src/player/enterExit.js';
 import { multiply, trs } from '../src/world/mat4.js';
 import { placeFoeEnv, entityOccupancy } from '../src/scenes/questFoeHost.js';
-import { placeFoeFreely } from '../src/systems/quest/sceneMount.js';
+import { placeFoeFreely, PLACE_FOE_DEFAULTS } from '../src/systems/quest/sceneMount.js';
 import { SPAWNER_ARMS } from '../src/systems/encounters.js';
 import { runRestNight, ambushNight } from '../src/systems/restAct.js';
 import { REST_TEXT, MINUTES_PER_TICK } from '../src/systems/restSession.js';
@@ -102,20 +102,24 @@ const AsyncFunction = (async () => {}).constructor;
 const mountAsync = (body, state) => new AsyncFunction('__s', `with (__s) { ${body} }`)(scoped(state));
 
 const HIT = { mobileType: 5, ...SPAWNER_ARMS.dungeonRest };
+/** AUDIT REST III (lens F4): the placement's dice, seeded - Math.random found no spot outside the ward in a 40 m hall
+ *  about once in 3000 calls, and the file failed for nothing about once in 700 runs. */
+const seeded = (seed = 1) => () => { seed = (seed * 16807) % 2147483647; return (seed - 1) / 2147483646; };
 /** A joiner's rest doors over a real collider: the ask, its latch, the host's placement - the context's own source. */
-function joinerDoors({ col, feet = [2, 0, 0], fires = [[0, 0, 0]], wire = true, ambush = () => false } = {}) {
+function joinerDoors({ col, feet = [2, 0, 0], fires = [[0, 0, 0]], wire = true, ambush = () => false, seed = 1 } = {}) {
   const asked = [], ambushes = [];
   const state = {
     opts: { selfId: () => 'me', onActions: (d) => { asked.push(d); return wire; } },
     _authority: false, lastPlayerFeet: feet, _motorYaw: 0, _locationKey: 'dungeon:7',
-    collider: col, foes: [], placeFoeEnv, entityOccupancy, placeFoeFreely, fieldOfView: () => (65 * Math.PI) / 180,
+    collider: col, foes: [], placeFoeEnv: ((rolls) => (o) => placeFoeEnv({ ...o, rolls }))(seeded(seed)), entityOccupancy, placeFoeFreely, fieldOfView: () => (65 * Math.PI) / 180,
     sharedClockOn: () => true, inFireWard, dungeonFires: fires,
     ambushNight: () => { ambushes.push(1); return ambush(); },
     _spawnEncounter: () => assert.fail('a joiner stands no foe of its own'),
   };
   const doors = mount(`
-    ${['REST_ASK_WAIT_MS', 'ENCOUNTER_PLACE_ATTEMPTS', 'q2', 'q3', 'onlineRoom', 'encounterSpot', 'restEncounter', 'roomEncounterComing'].map(optional).join('\n')}
+    ${['REST_ASK_WAIT_MS', 'REST_ASK_GAP_MS', 'ENCOUNTER_PLACE_ATTEMPTS', 'q2', 'q3', 'onlineRoom', 'encounterSpot', 'restEncounter', 'roomEncounterComing'].map(optional).join('\n')}
     let _restAskAt = null;
+    ${optional('_restAskSentAt')}
     return { restEncounter, roomEncounterComing };
   `, state);
   return { ...doors, asked, ambushes };
@@ -130,7 +134,9 @@ test('AUDIT REST II F1: a joiner asks the host only for a foe the host can stand
   const big = joinerDoors({ col: collider(hall(20)) });   // a 40 m hall: spots outside the ward
   big.restEncounter(HIT);
   assert.equal(big.asked.length, 1, 'a spot stands outside the ward: the host is asked');
-  assert.deepEqual(big.asked[0].rs, { t: 5, lo: HIT.minDistance, hi: HIT.maxDistance, v: 0, f: [2, 0, 0], y: 0 });
+  const { s: bigSpot, ...bigAsk } = big.asked[0].rs;
+  assert.deepEqual(bigAsk, { t: 5, lo: HIT.minDistance, hi: HIT.maxDistance, v: 0, f: [2, 0, 0], y: 0 });
+  assert.ok(Array.isArray(bigSpot) && !inFireWard([[0, 0, 0]], { x: bigSpot[0], y: bigSpot[1], z: bigSpot[2] }), 'and names the spot it found, outside the ward (AUDIT III E1)');
   // offline there is no ward (AUDIT REST-PARTY C1) - and a fire nowhere near is no ward either
   const far = joinerDoors({ col: collider(hall(10)), fires: [[400, 0, 0]] });
   far.restEncounter(HIT);
@@ -172,9 +178,77 @@ test('AUDIT REST II F1 (A1\'s latch, the joiner\'s): the ask breaks a night runn
 test('AUDIT REST II F1 by source: the host\'s stand and the joiner\'s ask read ONE placement (encounterSpot), the ward inside it', () => {
   const spot = optional('encounterSpot');
   assert.match(spot, /spot = placeFoeFreely\(env, \{ minDistance, maxDistance, lineOfSightCheck \}\);\n      if \(spot && sharedClockOn\(\) && inFireWard\(dungeonFires, spot\)\) spot = null;/);
-  assert.match(optional('_spawnEncounter'), /const spot = encounterSpot\(\{ minDistance, maxDistance, lineOfSightCheck \}, feet, yaw\);[^\n]*\n    if \(!spot\) return null;\n    ambushNight\(\);/);
-  assert.match(optional('restEncounter'), /if \(!encounterSpot\(hit, feet, _motorYaw\)\) return null;[^\n]*\n    if \(opts\.onActions\?\.\(/);
+  assert.match(optional('_spawnEncounter'), /const spot = \(asked && askedSpotStands\(asked, \{ minDistance, maxDistance \}, feet\)\) \|\| encounterSpot\(\{ minDistance, maxDistance, lineOfSightCheck \}, feet, yaw\);[^\n]*\n    if \(!spot\) return null;\n    ambushNight\(\);/);   // AUDIT III E1 re-aim: the joiner's spot first
+  assert.match(optional('restEncounter'), /const spot = encounterSpot\(hit, feet, _motorYaw\);\n    if \(!spot\) return null;[^\n]*\n/);   // AUDIT III E1 re-aim: the spot kept, for the ask
   assert.equal((D.match(/placeFoeFreely\(env, \{ minDistance, maxDistance, lineOfSightCheck \}\)/g) ?? []).length, 1, 'one placement, not a copy');
+});
+
+/** The host's half over the same collider - a joiner's ask answered by the context's own source; where its foe stands. */
+function hostDoors({ col, fires = [[0, 0, 0]], foes = [] } = {}) {
+  const stood = [];
+  const state = {
+    opts: { selfId: () => 'host' }, _authority: true, collider: col, foes, placeFoeEnv: ((rolls) => (o) => placeFoeEnv({ ...o, rolls }))(seeded(97)), entityOccupancy, placeFoeFreely, PLACE_FOE_DEFAULTS,
+    fieldOfView: () => (65 * Math.PI) / 180, sharedClockOn: () => true, inFireWard, dungeonFires: fires,
+    ambushNight: () => false, ENEMY_BASICS: { 5: {} }, foeDeps: {}, lastPlayerFeet: null, _motorYaw: 0,
+    _ctxDead: false, _sharedSeq: 0, _sharedById: new Map(),
+    buildFoeAt: async (rec) => { stood.push([rec.x, rec.y, rec.z]); return { ai: {} }; },
+  };
+  const doors = mount(`
+    ${['REST_ASK_GAP_MS', 'REST_ASK_BAND_MAX', 'REST_ASK_SPOT_SLACK', 'HIT_POS_MAX', 'ENCOUNTER_PLACE_ATTEMPTS', 'onlineRoom', 'encounterSpot', 'askedSpotStands', '_spawnEncounter', '_askAt', 'roomEncounterAsked'].map(optional).join('\n')}
+    return { roomEncounterAsked };
+  `, state);
+  return { ...doors, stood };
+}
+
+test('AUDIT REST III E1: the host stands a joiner\'s encounter on the spot the joiner\'s placement found - one trial, not two: in a fire room 26 m across, where the two trials disagreed about half the time, every ask stands its foe where the joiner saw it', () => {
+  const col = collider(hall(13));   // the fire in its middle, the joiner 2 m from it: about half the ring's spots inside the ward
+  let asks = 0;
+  for (let i = 0; i < 300; i++) {
+    const j = joinerDoors({ col, seed: i + 1 });
+    j.restEncounter(HIT);
+    if (!j.asked.length) continue;
+    asks++;
+    const { rs } = j.asked[0];
+    const h = hostDoors({ col });
+    assert.equal(h.roomEncounterAsked(`peer${i}`, rs), true);
+    assert.deepEqual(h.stood, [rs.s], 'the host stands the foe it was asked for, on the joiner\'s spot - never nothing, never elsewhere');
+  }
+  assert.ok(asks > 60 && asks < 240, `a room the two trials split in (${asks} asks of 300)`);
+});
+
+test('AUDIT REST III E1: the joiner\'s spot is held to what the placement asks of a spot - a forged one (out of the band, through a wall, floating, in the ward, on a foe) is not stood; the host searches for itself, as before', () => {
+  const m = hall(20);
+  m.quad([5, 0, -20], [5, 0, 20], [5, 6, 20], [5, 6, -20]);   // a partition across the hall at x 5
+  const walled = collider(m), open40 = collider(hall(20));
+  const ask = (s) => ({ t: 5, lo: HIT.minDistance, hi: HIT.maxDistance, v: 0, f: [0, 0, 0], y: 0, s });
+  const at = (h, s) => h.stood.some((p) => p[0] === s[0] && p[1] === s[1] && p[2] === s[2]);
+  const far = [[400, 0, 0]];
+  const good = hostDoors({ col: open40, fires: far });
+  assert.equal(good.roomEncounterAsked('a', ask([-12, 1.25, 0])), true);
+  assert.deepEqual(good.stood, [[-12, 1.25, 0]], 'an honest spot: stood where it was found');
+  for (const [why, col, s, over] of [
+    ['past the band', open40, [-0.5, 1.25, -19.9 - 1], {}],
+    ['inside the band\'s near edge', open40, [-3, 1.25, 0], {}],
+    ['through a wall', walled, [12, 1.25, 0], {}],
+    ['floating', open40, [-12, 4.25, 0], {}],
+    ['in a fire\'s ward', open40, [-12, 1.25, 0], { fires: [[-14, 0, 0]] }],
+    ['on a foe', open40, [-12, 1.25, 0], { foes: [{ ai: { feet: [-12, 0, 0.2] } }] }],
+  ]) {
+    const h = hostDoors({ col, fires: far, ...over });
+    assert.equal(h.roomEncounterAsked('b', ask(s)), true, `${why}: the ask itself is a rest's`);
+    assert.equal(at(h, s), false, `${why}: not stood there`);
+  }
+});
+
+test('AUDIT REST III E1: a joiner asks no oftener than the host answers - inside the host\'s gap (and the wire\'s wait) no ask and no break; past it, the ask', () => {
+  const j = joinerDoors({ col: collider(hall(20)), fires: [[400, 0, 0]] });
+  j.restEncounter(HIT);
+  assert.equal(j.asked.length, 1);
+  j.roomEncounterComing();
+  j.restEncounter(HIT);
+  assert.equal(j.asked.length, 1, 'the host would refuse it (REST_ASK_GAP_MS) - so it is not asked');
+  assert.deepEqual(j.ambushes, [1], 'and breaks nothing');
+  assert.equal(j.roomEncounterComing(), false);
 });
 
 test('AUDIT REST II F2: a palace stands no fire - its castle block\'s none (AUDIT REST) and its other blocks\' none; its blocks count for nothing', () => {

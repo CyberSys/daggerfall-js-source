@@ -1,0 +1,72 @@
+[
+  {
+    "name": "AUDITREST3-E1-the-host-searches-again",
+    "file": "src/scenes/dungeonContext.js",
+    "old": "const spot = (asked && askedSpotStands(asked, { minDistance, maxDistance }, feet)) || encounterSpot({ minDistance, maxDistance, lineOfSightCheck }, feet, yaw);",
+    "new": "const spot = encounterSpot({ minDistance, maxDistance, lineOfSightCheck }, feet, yaw);",
+    "tests": ["test/auditrest2_fires.test.js"]
+  },
+  {
+    "name": "AUDITREST3-E1-the-ask-names-no-spot",
+    "file": "src/scenes/dungeonContext.js",
+    "old": "y: q3(_motorYaw), s: [q2(spot.x), q2(spot.y), q2(spot.z)] } })) {",
+    "new": "y: q3(_motorYaw) } })) {",
+    "tests": ["test/auditrest2_fires.test.js", "test/restsync.test.js"]
+  },
+  {
+    "name": "AUDITREST3-E1-the-host-drops-the-spot",
+    "file": "src/scenes/dungeonContext.js",
+    "old": "shared: true, asked: s })",
+    "new": "shared: true, asked: null })",
+    "tests": ["test/auditrest2_fires.test.js"]
+  },
+  {
+    "name": "AUDITREST3-E1-any-distance",
+    "file": "src/scenes/dungeonContext.js",
+    "old": "if (!(d >= minDistance - e && d <= maxDistance + e) || d < e) return null;",
+    "new": "if (d < e) return null;",
+    "tests": ["test/auditrest2_fires.test.js"]
+  },
+  {
+    "name": "AUDITREST3-E1-through-walls",
+    "file": "src/scenes/dungeonContext.js",
+    "old": "    if (collider.raycastHit(o, [dx / d, 0, dz / d], d).dist < d - e) return null;\n",
+    "new": "",
+    "tests": ["test/auditrest2_fires.test.js"]
+  },
+  {
+    "name": "AUDITREST3-E1-floating",
+    "file": "src/scenes/dungeonContext.js",
+    "old": "    if (!(Math.abs(collider.raycastHit(s, [0, -1, 0], C.maxFloorDistance).dist - C.separationDistance) <= e)) return null;\n",
+    "new": "",
+    "tests": ["test/auditrest2_fires.test.js"]
+  },
+  {
+    "name": "AUDITREST3-E1-on-a-foe",
+    "file": "src/scenes/dungeonContext.js",
+    "old": "if (collider.sphereOverlaps(s, C.overlapSphereRadius) || entityOccupancy((f) => f.ai?.feet, () => foes, feet)(p, C.overlapSphereRadius)) return null;",
+    "new": "if (collider.sphereOverlaps(s, C.overlapSphereRadius)) return null;",
+    "tests": ["test/auditrest2_fires.test.js"]
+  },
+  {
+    "name": "AUDITREST3-E1-in-the-ward",
+    "file": "src/scenes/dungeonContext.js",
+    "old": "    if (sharedClockOn() && inFireWard(dungeonFires, p)) return null;\n    return p;",
+    "new": "    return p;",
+    "tests": ["test/auditrest2_fires.test.js"]
+  },
+  {
+    "name": "AUDITREST3-E1-no-gap-at-the-joiner",
+    "file": "src/scenes/dungeonContext.js",
+    "old": "    if (Date.now() - _restAskSentAt < REST_ASK_GAP_MS + REST_ASK_WAIT_MS) return null;",
+    "new": "",
+    "tests": ["test/auditrest2_fires.test.js", "test/restsync.test.js"]
+  },
+  {
+    "name": "AUDITREST3-E1-the-ask-unstamped",
+    "file": "src/scenes/dungeonContext.js",
+    "old": "      _restAskSentAt = Date.now();\n",
+    "new": "",
+    "tests": ["test/auditrest2_fires.test.js", "test/restsync.test.js"]
+  }
+]

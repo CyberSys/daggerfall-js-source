@@ -192,7 +192,7 @@ import { snapshotPlayer, restorePlayer, composeSessionState, restoreSessionState
 import { saveSlot, loadSlot, quickLoadSlot, QUICK_SAVE_NAME, requestScreenshot, slotLoaded } from '../systems/saveSlots.js';   // SAV4: the quicksave is a SLOT named QuickSave; SS1: the shot arms here, the HOST loop delivers it
 import { bindQuestFoeHost, placeFoeEnv, entityOccupancy } from './questFoeHost.js';
 import { validQuestTags, questMarkerYields, QUEST_PUPPETS_MAX, validLooseSeqs, companionNames } from './exteriorFoes.js';   // QUEST-PARTY phase 3c: the party's quest words and the marker's law, one home   // B1: quest foes ride this pool   // RE1: the placement ring's env over this host's collider
-import { placeFoeFreely } from '../systems/quest/sceneMount.js';   // RE1: FoeSpawner.PlaceFoeFreely, the one home
+import { placeFoeFreely, PLACE_FOE_DEFAULTS } from '../systems/quest/sceneMount.js';   // RE1: FoeSpawner.PlaceFoeFreely, the one home; AUDIT III E1: its numbers, a joiner's spot held to them
 import { dungeonQuestSpawnSpots } from '../systems/quest/place.js';   // FIELD BUGS 29h (BOUNTY-LAIR)
 import { fieldOfView } from '../ui/viewSettings.js';   // RE1: the ring needs the view cone the LOS arm avoids
 import { dungeonKey } from '../systems/songManager.js';
@@ -306,6 +306,9 @@ export const REST_ASK_WAIT_MS = 15000;
 export const REST_ASK_GAP_MS = 20000;
 /** REST-SYNC: the widest band an ask may name - IntermittentEnemySpawn's dungeon arm is 20 (encounters.js). */
 export const REST_ASK_BAND_MAX = 64;
+/** AUDIT III E1: how far a joiner's spot may sit off what the placement could have found - the ask's 0.01 rounding of
+ *  the feet and the spot, and a ray's grazing, never a room's worth. */
+export const REST_ASK_SPOT_SLACK = 0.05;
 /** REST-SYNC: the most shared encounters one frame carries (the standing first) - a rest spawns one; past any honest room. */
 export const SHARED_FOES_MAX = 32;
 /** AUDIT FINAL F7: how long a death's record names the joiner whose blow it was (roomRecord's `v`) - two of the stream's
@@ -2360,6 +2363,25 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     }
     return spot;
   }
+  /** AUDIT III E1: THE SPOT A JOINER'S PLACEMENT FOUND, STOOD WHERE IT HOLDS. F1 had the joiner run encounterSpot before
+   *  it asked, and the host ran it again - two trials of the same dice, so in a fire room 24-30 m across the joiner
+   *  asked where the host then stood nothing (its night broken for nothing, F1 again by chance) and kept quiet where the
+   *  host would have stood one. The ask carries the joiner's spot (`rs.s`) and the host stands its foe there - held to
+   *  what the placement asks of a spot it finds: inside the band round the feet, no wall between (the ring's own
+   *  ray), a floor its separation under it, open space (the collider and the room's foes), and online outside a fire's
+   *  ward. Null where it fails, and the host searches for itself as before. */
+  function askedSpotStands(s, { minDistance, maxDistance }, feet) {
+    const C = PLACE_FOE_DEFAULTS, e = REST_ASK_SPOT_SLACK;
+    const o = [feet[0], feet[1] + 0.9, feet[2]];
+    const dx = s[0] - o[0], dz = s[2] - o[2], d = Math.hypot(dx, dz);
+    if (!(d >= minDistance - e && d <= maxDistance + e) || d < e) return null;
+    if (collider.raycastHit(o, [dx / d, 0, dz / d], d).dist < d - e) return null;
+    if (!(Math.abs(collider.raycastHit(s, [0, -1, 0], C.maxFloorDistance).dist - C.separationDistance) <= e)) return null;
+    const p = { x: s[0], y: s[1], z: s[2] };
+    if (collider.sphereOverlaps(s, C.overlapSphereRadius) || entityOccupancy((f) => f.ai?.feet, () => foes, feet)(p, C.overlapSphereRadius)) return null;
+    if (sharedClockOn() && inFireWard(dungeonFires, p)) return null;
+    return p;
+  }
   /** RE1: the rest interruption, stood through DFU's own placement.
    *
    *  This used to walk EIGHT COMPASS POINTS at minDistance and take
@@ -2377,10 +2399,10 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
    *  asleep is allowed to be standing over you when you wake. The band
    *  and the flag both ride in on the hit; encounters.js carries them
    *  per arm because they are the spawner's arguments. */
-  async function _spawnEncounter({ mobileType, minDistance, maxDistance, lineOfSightCheck }, { feet = lastPlayerFeet, yaw = _motorYaw, shared = false } = {}) {   // REST-SYNC: a joiner's feet when the host stands it by them; `shared` the room's
+  async function _spawnEncounter({ mobileType, minDistance, maxDistance, lineOfSightCheck }, { feet = lastPlayerFeet, yaw = _motorYaw, shared = false, asked = null } = {}) {   // REST-SYNC: a joiner's feet when the host stands it by them; `shared` the room's; AUDIT III E1: `asked` the joiner's spot
     if (!feet || !foeDeps) return null;
     if (!ENEMY_BASICS[mobileType]) return null;
-    const spot = encounterSpot({ minDistance, maxDistance, lineOfSightCheck }, feet, yaw);   // AUDIT REST II F1: the one placement, the joiner's ask's too
+    const spot = (asked && askedSpotStands(asked, { minDistance, maxDistance }, feet)) || encounterSpot({ minDistance, maxDistance, lineOfSightCheck }, feet, yaw);   // AUDIT REST II F1: the one placement, the joiner's ask's too; AUDIT III E1: the spot the joiner's found, where it holds
     if (!spot) return null;
     ambushNight();   // AUDIT REST-PARTY A1: a night running now (restAct.js runRestNight) breaks at its next sub-tick - the foe stands after the awaits below
     // FinalizeFoe (FoeSpawner.cs:210-226): a flier hangs 1.5 above the
@@ -2408,13 +2430,17 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
    *  at its next sub-tick (ambushNight), as the host's own encounter breaks the host's - it no longer runs on to the
    *  hour's check rolling again; a paced window (no night running) breaks at that check, as before. */
   let _restAskAt = null;
+  let _restAskSentAt = -Infinity;
   function restEncounter(hit) {
     if (!onlineRoom()) return _spawnEncounter(hit);
     if (_authority) return _spawnEncounter(hit, { shared: true });
     const feet = lastPlayerFeet;
     if (!feet) return null;
-    if (!encounterSpot(hit, feet, _motorYaw)) return null;   // AUDIT REST II F1: no spot the host would stand - no ask, no break
-    if (opts.onActions?.({ k: _locationKey, rs: { t: hit.mobileType, lo: hit.minDistance, hi: hit.maxDistance, v: hit.lineOfSightCheck ? 1 : 0, f: [q2(feet[0]), q2(feet[1]), q2(feet[2])], y: q3(_motorYaw) } })) {
+    const spot = encounterSpot(hit, feet, _motorYaw);
+    if (!spot) return null;   // AUDIT REST II F1: no spot the host would stand - no ask, no break
+    if (Date.now() - _restAskSentAt < REST_ASK_GAP_MS + REST_ASK_WAIT_MS) return null;   // AUDIT III E1: the host's gap (roomEncounterAsked), and the wire's wait on top - an ask it would refuse is no ask, and no break
+    if (opts.onActions?.({ k: _locationKey, rs: { t: hit.mobileType, lo: hit.minDistance, hi: hit.maxDistance, v: hit.lineOfSightCheck ? 1 : 0, f: [q2(feet[0]), q2(feet[1]), q2(feet[2])], y: q3(_motorYaw), s: [q2(spot.x), q2(spot.y), q2(spot.z)] } })) {   // AUDIT III E1: `s` - the spot found, the host's to stand
+      _restAskSentAt = Date.now();
       if (!ambushNight()) _restAskAt = Date.now();   // AUDIT REST II F1: A1's latch - a night running breaks at its next sub-tick; a paced window at the hour
     }
     return null;
@@ -2438,7 +2464,8 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     const now = Date.now();
     if (now - (_askAt.get(id) ?? -Infinity) < REST_ASK_GAP_MS) return false;
     _askAt.set(id, now);
-    _spawnEncounter({ mobileType: t, minDistance: lo, maxDistance: hi, lineOfSightCheck: rs.v === 1 }, { feet: f, yaw: Number.isFinite(rs.y) ? rs.y : 0, shared: true })
+    const s = Array.isArray(rs.s) && rs.s.length === 3 && rs.s.every((v) => Number.isFinite(v) && Math.abs(v) <= HIT_POS_MAX) ? [rs.s[0], rs.s[1], rs.s[2]] : null;   // AUDIT III E1: the joiner's spot (a client a build behind sends none)
+    _spawnEncounter({ mobileType: t, minDistance: lo, maxDistance: hi, lineOfSightCheck: rs.v === 1 }, { feet: f, yaw: Number.isFinite(rs.y) ? rs.y : 0, shared: true, asked: s })
       .catch((e) => console.error('[online] a joiner\'s rest encounter could not stand:', e));
     return true;
   }

@@ -170,11 +170,17 @@ test('AUDIT REST II H8: a General Store sells two to four Campfires, on the coun
     assert.deepEqual(counts.slice(1), [0, 0, 0], `online ${online}, C&C ${cc}: the other shelves none`);
     assert.ok(counts[0] >= 2 && counts[0] <= 4, `online ${online}, C&C ${cc}: the counter two to four (${counts[0]})`);
   }
-  // the draw stays on a shelf without them: the same rolls give the same rest of the shelf
-  const seq = (a) => { let i = 0; return () => a[i++ % a.length]; };
+  // the draw stays on a shelf without them: the same rolls give the same rest of the shelf, and take as many draws -
+  // counted, and at a low quality too, where the gear's dice follow the count (AUDIT III B1: at quality 10 both
+  // short-circuit, no draw follows, and a skipped draw went unseen)
   const R = [0.3, 0.7, 0.1, 0.9, 0.5, 0.2, 0.8, 0.4];
-  const names = (on) => provisionsStock(10, seq(R), { campfires: on }).filter((it) => it.templateIndex !== TEMPLATE.Campfire).map((it) => it.templateIndex);
-  assert.deepEqual(names(false), names(true));
+  const run = (quality, on) => {
+    let i = 0;
+    const names = provisionsStock(quality, () => R[i++ % R.length], { campfires: on })
+      .filter((it) => it.templateIndex !== TEMPLATE.Campfire).map((it) => it.templateIndex);
+    return { names, draws: i };
+  };
+  for (const quality of [1, 4, 10]) assert.deepEqual(run(quality, false), run(quality, true), `quality ${quality}`);
 });
 
 test('AUDIT REST II H9: "Bring online" keeps a supply left with a repairer offline too - the counter\'s list crosses with the character (save.js otherItems), so customs strips it there as from the pack, the wagon and the stashes (mutant: the counter unread)', () => {
