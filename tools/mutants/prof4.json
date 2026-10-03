@@ -175,8 +175,8 @@
   {
     "name": "PROF4-linen-held-back",
     "file": "src/net/professionLaw.js",
-    "old": "export const NO_PACK_FORM = Object.freeze(['work:ram']);",
-    "new": "export const NO_PACK_FORM = Object.freeze(['work:ram', 'cloth:linen']);",
+    "old": "export const NO_PACK_FORM = Object.freeze(['work:ram', 'essence:arcane']);",
+    "new": "export const NO_PACK_FORM = Object.freeze(['work:ram', 'essence:arcane', 'cloth:linen']);",
     "tests": [
       "test/prof4_law.test.js",
       "test/prof4_service.test.js"

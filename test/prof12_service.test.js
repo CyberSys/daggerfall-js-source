@@ -175,7 +175,7 @@ test('PROF12 service: an herb picked unbruised is counted beside the Stores (a b
 
 // ─── THE APOTHECARIES' COUNTER (4.5) AND THE TRANSMUTER (3.3) ────────
 
-test('PROF12 service: the Apothecaries\' counter sells its sixteen into the Stores, bought, for silver burnt (Ichor 4 a measure, Unicorn Horn 40); a Transmuter\'s three Tin and a Mercury make one Copper at the station (bought in, bought out; no XP) - refused to all others (403, nothing spent)', async () => {
+test('PROF12 service: the Apothecaries\' counter sells its sixteen into the Stores, bought, for silver burnt (Ichor 4 a measure, Unicorn Horn 40); a Transmuter\'s two Tin and a Mercury make one Copper at the station (AUDIT PROF12 E3; bought in, bought out; no XP) - refused to all others (403, nothing spent)', async () => {
   const s = await stand();
   const mac = await s.registered('Mac');
   s.fund(mac, 100);
@@ -185,17 +185,17 @@ test('PROF12 service: the Apothecaries\' counter sells its sixteen into the Stor
   const horn = await s.call('/v1/prof/stock', { character: mac.character, material: 'reagent:unicorn-horn', qty: 2, rid: rid() }, mac.secret);
   assert.deepEqual([horn.status, horn.body.marks, s.balance(mac)], [200, 80, 8]);
   const smelt = (count = 1) => s.call('/v1/prof/smelt', { character: mac.character, recipe: 'transmute:tin', count, rid: rid() }, mac.secret);
-  s.give(mac, 'metal:tin', 'own', 6);
+  s.give(mac, 'metal:tin', 'own', 4);
   s.give(mac, 'metal:mercury', 'own', 2);
   s.setXp(mac, 'alchemy', xpForRank(100), { spec100: 'master-alchemist' });
   const no = await smelt();
   assert.deepEqual([no.status, no.body], [403, { error: 'prof-transmuter' }]);
-  assert.deepEqual([s.stores(mac, 'metal:tin'), s.stores(mac, 'metal:mercury')], [[['own', 6]], [['own', 2]]], 'nothing spent');
+  assert.deepEqual([s.stores(mac, 'metal:tin'), s.stores(mac, 'metal:mercury')], [[['own', 4]], [['own', 2]]], 'nothing spent');
   s.setXp(mac, 'alchemy', xpForRank(100), { spec100: 'transmuter' });
   const yes = await smelt();
   assert.equal(yes.status, 200, JSON.stringify(yes.body));
   assert.deepEqual([yes.body.own, yes.body.bought, yes.body.xp, yes.body.track], [1, 0, 0, null]);
-  assert.deepEqual([s.stores(mac, 'metal:tin'), s.stores(mac, 'metal:mercury'), s.stores(mac, 'metal:copper')], [[['own', 3]], [['own', 1]], [['own', 1]]]);
+  assert.deepEqual([s.stores(mac, 'metal:tin'), s.stores(mac, 'metal:mercury'), s.stores(mac, 'metal:copper')], [[['own', 2]], [['own', 1]], [['own', 1]]], 'two Tin and a Mercury: one Copper');
   s.give(mac, 'metal:mercury', 'bought', 1);
   const b = await smelt();
   assert.deepEqual([b.body.own, b.body.bought, s.stores(mac, 'metal:copper')], [0, 1, [['bought', 1], ['own', 1]]], 'a bought Mercury: a bought Copper');
@@ -204,7 +204,7 @@ test('PROF12 service: the Apothecaries\' counter sells its sixteen into the Stor
 
 // ─── DISENCHANTING (9.3) ─────────────────────────────────────────────
 
-test('PROF12 service: a Gold Ruby Ring disenchanted - its record\'s 2,160 points 21 Arcane Essence, own (its maker\'s, never sold), Enchanting XP 5 x 1 x 21; the piece\'s row gone; asked twice one; asked again under a new id, no piece; a Disenchanter\'s twice and 5 x 4 x 21 at 50', async () => {
+test('PROF12 service: a Gold Ruby Ring disenchanted - its record\'s 2,160 points 21 Arcane Essence, own (its maker\'s, never sold), Enchanting XP 5 x 3 x 21 (the ring\'s tier - AUDIT PROF12 E2); the piece\'s row gone; asked twice one; asked again under a new id, no piece; a Disenchanter\'s twice and the same 5 x 3 x 21 at 50', async () => {
   const s = await stand();
   const mac = await s.registered('Mac');
   s.setXp(mac, 'jewelcrafting', xpForRank(25));
@@ -212,17 +212,17 @@ test('PROF12 service: a Gold Ruby Ring disenchanted - its record\'s 2,160 points
   const id = rid();
   const r = await s.disenchant(mac, pv, id);
   assert.equal(r.status, 200, JSON.stringify(r.body));
-  assert.deepEqual([r.body.provenance, r.body.recipe, r.body.points, r.body.essence, r.body.origin, r.body.xp], [pv, 'ring:gold:ruby', 2160, 21, 'own', 105]);
-  assert.deepEqual([r.body.track.profession, r.body.track.xp, r.body.store], ['enchanting', 105, { material: 'essence:arcane', own: 21, bought: 0 }]);
+  assert.deepEqual([r.body.provenance, r.body.recipe, r.body.points, r.body.essence, r.body.origin, r.body.xp], [pv, 'ring:gold:ruby', 2160, 21, 'own', 315]);
+  assert.deepEqual([r.body.track.profession, r.body.track.xp, r.body.store], ['enchanting', 315, { material: 'essence:arcane', own: 21, bought: 0 }]);
   assert.equal(s.product(pv), null, 'the piece is gone');
   const again = await s.disenchant(mac, pv, id);
-  assert.deepEqual([again.body.repeat, again.body.essence, s.stores(mac, 'essence:arcane'), s.xpOf(mac, 'enchanting')], [true, 21, [['own', 21]], 105]);
+  assert.deepEqual([again.body.repeat, again.body.essence, s.stores(mac, 'essence:arcane'), s.xpOf(mac, 'enchanting')], [true, 21, [['own', 21]], 315]);
   const gone = await s.disenchant(mac, pv);
   assert.deepEqual([gone.status, gone.body], [404, { error: 'prof-no-piece' }]);
   s.setXp(mac, 'enchanting', xpForRank(50), { spec50: 'disenchanter' });
   const pv2 = await s.craft(mac, 'ring:gold:ruby');
   const d = await s.disenchant(mac, pv2);
-  assert.deepEqual([d.body.essence, d.body.xp, s.stores(mac, 'essence:arcane')], [42, 420, [['own', 63]]], 'a Disenchanter\'s two an Essence; XP on the one');
+  assert.deepEqual([d.body.essence, d.body.xp, s.stores(mac, 'essence:arcane')], [42, 315, [['own', 63]]], 'a Disenchanter\'s two an Essence; XP on the one, the piece\'s tier');
   // a Gemcutter's gemmed ring carries its hand's points (+30%: 2,340) into the disenchant, from the service's own row
   s.setXp(mac, 'jewelcrafting', xpForRank(50), { spec50: 'gemcutter' });
   const cut = await s.craft(mac, 'ring:gold:ruby');
@@ -261,4 +261,71 @@ test('PROF12 service: what may not be disenchanted - another\'s piece (403), a l
   s.raw.prepare("UPDATE products SET bought_with = 'gold' WHERE provenance = ?").run(other);
   assert.equal((await s.disenchant(mac, other)).body.origin, 'gold');
   assert.deepEqual(s.stores(mac, 'essence:arcane'), [['bought', 42], ['gold', 21]]);
+});
+
+// ─── AUDIT PROF12 (2026-10-03): E1, E2, A1 ───────────────────────────
+
+const DF = 17;
+const HUBS = { [DF]: [207, 212] };
+
+test('AUDIT PROF12 E1 service: Arcane Essence never leaves the Stores for the pack - the withdrawal refused (409 prof-no-pack-form) whatever its origin, nothing moved; a reagent of the same family still withdraws', async () => {
+  const s = await stand();
+  const mac = await s.registered('Mac');
+  s.give(mac, 'essence:arcane', 'own', 18);
+  s.give(mac, 'essence:arcane', 'bought', 2);
+  for (const qty of [1, 18, 20]) {
+    const w = await s.call('/v1/stores/withdraw', { character: mac.character, material: 'essence:arcane', qty, rid: rid() }, mac.secret);
+    assert.deepEqual([w.status, w.body], [409, { error: 'prof-no-pack-form' }], `${qty}`);
+  }
+  assert.deepEqual(s.stores(mac, 'essence:arcane'), [['bought', 2], ['own', 18]], 'nothing moved');
+  s.give(mac, 'reagent:ichor', 'bought', 2);
+  const ok = await s.call('/v1/stores/withdraw', { character: mac.character, material: 'reagent:ichor', qty: 2, rid: rid() }, mac.secret);
+  assert.deepEqual([ok.status, ok.body.qty, s.stores(mac, 'reagent:ichor')], [200, 2, []], 'the Apothecaries\' goods are DFU\'s own ingredients, and go');
+});
+
+test('AUDIT PROF12 E2 service: a disenchant\'s Enchanting XP is the PIECE\'s tier - a Silver Ring\'s tier 1, quartered at Enchanting 40 (the rank\'s own tier 4 was four times it); Linen Plain Robes, made wholly of the counter\'s goods, give their Essence and no XP', async () => {
+  const s = await stand();
+  const mac = await s.registered('Mac');
+  s.setXp(mac, 'enchanting', xpForRank(39));
+  const a = await s.disenchant(mac, await s.craft(mac, 'ring:silver'));
+  assert.equal(a.status, 200, JSON.stringify(a.body));
+  assert.ok(a.body.essence > 0);
+  assert.equal(a.body.xp, 5 * 1 * a.body.essence, 'rank 39 works tier 3: tier 1 is not more than two below');
+  s.setXp(mac, 'enchanting', xpForRank(40));
+  const b = await s.disenchant(mac, await s.craft(mac, 'ring:silver'));
+  assert.deepEqual([b.body.essence, b.body.xp], [a.body.essence, Math.floor((5 * 1 * a.body.essence) / 4)], 'rank 40 works tier 4: a tier-1 piece quartered');
+  s.setXp(mac, 'enchanting', 0);
+  const robes = await s.disenchant(mac, await s.craft(mac, 'garment-163:linen'));
+  assert.equal(robes.status, 200, JSON.stringify(robes.body));
+  assert.deepEqual([robes.body.essence, robes.body.xp, s.xpOf(mac, 'enchanting')], [7, 0, 0], 'the counter\'s Linen buys Essence, never Enchanting');
+  assert.deepEqual(s.stores(mac, 'essence:arcane'), [['own', 2 * a.body.essence + 7]]);
+});
+
+test('AUDIT PROF12 A1 service: the unbruised count never outlives its herbs - a withdrawal to the pack, a dish\'s craft and a market listing each clamp it to the own units left, so a later bruised herb is never reckoned unbruised; a brew still reckons and spends its own', async () => {
+  const s = await stand();
+  const mac = await s.registered('Mac');
+  const setUnbruised = (m, q) => s.raw.prepare('INSERT INTO prof_unbruised (player, char_id, material, qty) VALUES (?, ?, ?, ?) ON CONFLICT (player, char_id, material) DO UPDATE SET qty = excluded.qty').run(mac.id, mac.character, m, q);
+  // the audit's probe: one herb picked unbruised, withdrawn - then a bruised one brewed
+  s.give(mac, 'p1:16', 'own', 1); setUnbruised('p1:16', 1);
+  const w = await s.call('/v1/stores/withdraw', { character: mac.character, material: 'p1:16', qty: 1, rid: rid() }, mac.secret);
+  assert.equal(w.status, 200, JSON.stringify(w.body));
+  assert.equal(s.unbruised(mac, 'p1:16'), 0, 'the withdrawal took the count with the herb');
+  s.cauldron(mac, HEALING, 'own');
+  const b = await s.brew(mac, 'healing', HEALING);
+  assert.deepEqual([b.status, b.body.unbruised], [200, 0], 'a bruised herb is not reckoned unbruised');
+  // a dish's craft (spendStatements): two unbruised Root Bulbs, one cooked - one left, and its count
+  s.give(mac, 'p1:13', 'own', 1); setUnbruised('p1:13', 2);
+  await s.craft(mac, 'stew:north');   // gives one more Root Bulb and cooks one
+  assert.deepEqual([s.stores(mac, 'p1:13'), s.unbruised(mac, 'p1:13')], [[['own', 1]], 1]);
+  // a market listing of own herbs
+  s.fund(mac, 100);
+  s.give(mac, 'p1:9', 'own', 3); setUnbruised('p1:9', 3);
+  const l = await s.call('/v1/market/list', { character: mac.character, region: DF, kind: 'material', material: 'p1:9', units: 2, price: 5, hubs: HUBS, rid: rid() }, mac.secret);
+  assert.equal(l.status, 200, JSON.stringify(l.body));
+  assert.deepEqual([s.stores(mac, 'p1:9'), s.unbruised(mac, 'p1:9')], [[['own', 1]], 1], 'listed: two gone, one unbruised left');
+  // a brew of two own unbruised: it reckons one, spends one, and the count is the other's
+  s.give(mac, 'p1:16', 'own', 2); setUnbruised('p1:16', 2);
+  for (const k of HEALING.slice(1)) s.give(mac, k, 'own', 1);
+  const c = await s.brew(mac, 'healing', HEALING);
+  assert.deepEqual([c.status, c.body.unbruised, s.unbruised(mac, 'p1:16'), s.stores(mac, 'p1:16')], [200, 1, 1, [['own', 1]]], 'reckoned before the spends: the count is the herb still held');
 });

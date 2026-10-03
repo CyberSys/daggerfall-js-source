@@ -407,8 +407,8 @@
   {
     "name": "PROF12-disenchant-xp-flat",
     "file": "src/net/alchemyLaw.js",
-    "old": "DISENCHANT_XP * topTierOf(rank) * (",
-    "new": "DISENCHANT_XP * 1 * (",
+    "old": "  const xp = DISENCHANT_XP * tier * (",
+    "new": "  const xp = DISENCHANT_XP * 1 * (",
     "tests": [
       "test/prof12_law.test.js",
       "test/prof12_service.test.js"
@@ -630,10 +630,10 @@
     ]
   },
   {
-    "name": "PROF12-transmute-in-two",
+    "name": "PROF12-transmute-in-three",
     "file": "src/net/professionLaw.js",
-    "old": "export const TRANSMUTE_IN = 3;",
-    "new": "export const TRANSMUTE_IN = 2;",
+    "old": "export const TRANSMUTE_IN = 2;",
+    "new": "export const TRANSMUTE_IN = 3;",
     "tests": [
       "test/prof12_law.test.js",
       "test/prof12_service.test.js"
@@ -851,8 +851,8 @@
   {
     "name": "PROF12-svc-brew-no-spend",
     "file": "server-account/src/alchemy.js",
-    "old": "    ...inputs.flatMap((inp) => spendStatements(db, {\n      player: player.id, character, materialSql: '?3', qtySql: '?4', guard: decided, binds: [inp.key, inp.n, rid, nonce],\n    })),\n    // the unbruised",
-    "new": "    // the unbruised",
+    "old": "    // the cauldron out of the Stores, each bought first\n    ...inputs.flatMap((inp) => spendStatements(db, {\n      player: player.id, character, materialSql: '?3', qtySql: '?4', guard: decided, binds: [inp.key, inp.n, rid, nonce],\n    })),\n",
+    "new": "",
     "tests": [
       "test/prof12_service.test.js"
     ]
@@ -915,8 +915,8 @@
   {
     "name": "PROF12-svc-dis-xp-doubled",
     "file": "server-account/src/alchemy.js",
-    "old": "  const xp = disenchantXp(rank, base);",
-    "new": "  const xp = disenchantXp(rank, essence);",
+    "old": "  const xp = disenchantXp(r, rank, base);",
+    "new": "  const xp = disenchantXp(r, rank, essence);",
     "tests": [
       "test/prof12_service.test.js"
     ]
@@ -1171,7 +1171,7 @@
   {
     "name": "PROF12-drink-host-drops",
     "file": "src/scenes/hostMagic.js",
-    "old": "      const bundle = potent ? { ...plain, effects: plain.effects.map((e) => potentEffect(e, potent)) } : plain;",
+    "old": "      const bundle = potent ? { ...plain, effects: plain.effects.map((e) => potentEffect(e, potent, effectiveLevel(playerEntity))) } : plain;",
     "new": "      const bundle = plain;",
     "tests": [
       "test/prof12_client.test.js"
@@ -1391,6 +1391,283 @@
     "new": "  provenance TEXT NOT NULL CHECK (length(provenance) = 16),",
     "tests": [
       "test/prof12_service.test.js"
+    ]
+  },
+  {
+    "name": "PROF12-E1-essence-to-pack",
+    "file": "src/net/professionLaw.js",
+    "old": "export const NO_PACK_FORM = Object.freeze(['work:ram', 'essence:arcane']);",
+    "new": "export const NO_PACK_FORM = Object.freeze(['work:ram']);",
+    "tests": [
+      "test/prof12_law.test.js",
+      "test/prof12_service.test.js"
+    ]
+  },
+  {
+    "name": "PROF12-E1-svc-withdraw-door",
+    "file": "server-account/src/professions.js",
+    "old": "  if (!withdrawable(key)) return { error: 'prof-no-pack-form' };",
+    "new": "  if (false) return { error: 'prof-no-pack-form' };",
+    "tests": [
+      "test/prof12_service.test.js"
+    ]
+  },
+  {
+    "name": "PROF12-E1-page-offers-withdraw",
+    "file": "src/ui/profPages.js",
+    "old": "    if (withdrawable(pick.material)) bar.append(qty, go);",
+    "new": "    bar.append(qty, go);",
+    "tests": [
+      "test/prof12_client.test.js"
+    ]
+  },
+  {
+    "name": "PROF12-E1-page-essence-line",
+    "file": "src/ui/profPages.js",
+    "old": "pick.family === 'essences' ? ESSENCE_STAYS_LINE : pick.family === 'siege'",
+    "new": "pick.family === 'siege'",
+    "tests": [
+      "test/prof12_client.test.js"
+    ]
+  },
+  {
+    "name": "PROF12-E1-refusal-words",
+    "file": "src/net/accountClient.js",
+    "old": "  'prof-no-pack-form': 'That stays in the Stores - it never goes to the pack.',",
+    "new": "  'prof-no-pack-form': 'That stays at the bench until its own craft is practised.',",
+    "tests": [
+      "test/prof12_client.test.js"
+    ]
+  },
+  {
+    "name": "PROF12-E2-rank-tier",
+    "file": "src/net/alchemyLaw.js",
+    "old": "  const tier = /** @type {number} */ (r?.tier);",
+    "new": "  const tier = topTierOf(rank);",
+    "tests": [
+      "test/prof12_law.test.js",
+      "test/prof12_service.test.js"
+    ]
+  },
+  {
+    "name": "PROF12-E2-never-quartered",
+    "file": "src/net/alchemyLaw.js",
+    "old": "  return tier < topTierOf(rank) - 2 ? Math.floor(xp / 4) : xp;",
+    "new": "  return xp;",
+    "tests": [
+      "test/prof12_law.test.js",
+      "test/prof12_service.test.js"
+    ]
+  },
+  {
+    "name": "PROF12-E2-quartered-one-below",
+    "file": "src/net/alchemyLaw.js",
+    "old": "  return tier < topTierOf(rank) - 2 ? Math.floor(xp / 4) : xp;",
+    "new": "  return tier < topTierOf(rank) - 1 ? Math.floor(xp / 4) : xp;",
+    "tests": [
+      "test/prof12_law.test.js",
+      "test/prof12_service.test.js"
+    ]
+  },
+  {
+    "name": "PROF12-E2-counter-pays",
+    "file": "src/net/alchemyLaw.js",
+    "old": "  if (!firstCraftPays(/** @type {any} */ (r)) || !Number.isSafeInteger(r?.tier)) return 0;",
+    "new": "  if (!r || !Number.isSafeInteger(r?.tier)) return 0;",
+    "tests": [
+      "test/prof12_law.test.js",
+      "test/prof12_service.test.js"
+    ]
+  },
+  {
+    "name": "PROF12-E2-page-no-recipe",
+    "file": "src/ui/profPages.js",
+    "old": "disenchantXp(recipeById(pc.recipe), rank, base)",
+    "new": "disenchantXp(recipeById('longsword:iron'), rank, base)",
+    "tests": [
+      "test/prof12_client.test.js"
+    ]
+  },
+  {
+    "name": "PROF12-E2-world-no-recipe",
+    "file": "src/scenes/world.js",
+    "old": ", recipe: it.recipe };   // AUDIT PROF12 E2: its recipe, the XP's tier",
+    "new": " };",
+    "tests": [
+      "test/prof12_client.test.js"
+    ]
+  },
+  {
+    "name": "PROF12-A1-spend-no-clamp",
+    "file": "server-account/src/professions.js",
+    "old": "    unbruisedClamp(db, { player, character, materialSql, guard, binds }),   // AUDIT PROF12 A1\n",
+    "new": "",
+    "tests": [
+      "test/prof12_service.test.js"
+    ]
+  },
+  {
+    "name": "PROF12-A1-origins-no-clamp",
+    "file": "server-account/src/professions.js",
+    "old": "  out.push(unbruisedClamp(db, { player, character, materialSql, guard, binds }));   // AUDIT PROF12 A1\n",
+    "new": "",
+    "tests": [
+      "test/prof12_service.test.js"
+    ]
+  },
+  {
+    "name": "PROF12-A1-clamp-any-origin",
+    "file": "server-account/src/professions.js",
+    "old": "WHERE s.player = ?1 AND s.char_id = ?2 AND s.material = ${materialSql} AND s.origin = 'own'), 0))",
+    "new": "WHERE s.player = ?1 AND s.char_id = ?2 AND s.material = ${materialSql} AND s.origin = 'bought'), 0))",
+    "tests": [
+      "test/prof12_service.test.js"
+    ]
+  },
+  {
+    "name": "PROF12-A1-brew-reckons-after",
+    "file": "server-account/src/alchemy.js",
+    "old": "    // the unbruised herbs it reckoned, spent with it - AUDIT PROF12 A1: before the cauldron leaves, so the spends' clamp\n    // (professions.js unbruisedClamp: never more than the own units still held) reads the count already lowered\n    ...reckoned.map((u) => db.prepare(`UPDATE prof_unbruised SET qty = MAX(0, qty - ?4)\n      WHERE player = ?1 AND char_id = ?2 AND material = ?3 AND EXISTS (SELECT 1 FROM prof_brews WHERE player = ?1 AND rid = ?5 AND n = ?6)`)\n      .bind(player.id, character, u.key, u.n, rid, nonce)),\n    // the cauldron out of the Stores, each bought first\n    ...inputs.flatMap((inp) => spendStatements(db, {\n      player: player.id, character, materialSql: '?3', qtySql: '?4', guard: decided, binds: [inp.key, inp.n, rid, nonce],\n    })),\n",
+    "new": "    ...inputs.flatMap((inp) => spendStatements(db, {\n      player: player.id, character, materialSql: '?3', qtySql: '?4', guard: decided, binds: [inp.key, inp.n, rid, nonce],\n    })),\n    ...reckoned.map((u) => db.prepare(`UPDATE prof_unbruised SET qty = MAX(0, qty - ?4)\n      WHERE player = ?1 AND char_id = ?2 AND material = ?3 AND EXISTS (SELECT 1 FROM prof_brews WHERE player = ?1 AND rid = ?5 AND n = ?6)`)\n      .bind(player.id, character, u.key, u.n, rid, nonce)),\n",
+    "tests": [
+      "test/prof12_service.test.js"
+    ]
+  },
+  {
+    "name": "PROF12-A2-key-no-potent",
+    "file": "src/systems/quickslots.js",
+    "old": "item.aetheric ?? '', item.potent ?? ''].join('|');",
+    "new": "item.aetheric ?? ''].join('|');",
+    "tests": [
+      "test/prof12_client.test.js",
+      "test/quickslots.test.js"
+    ]
+  },
+  {
+    "name": "PROF12-A3-magnitude-always",
+    "file": "src/net/alchemyLaw.js",
+    "old": "  if (!magnitudeDefault(out)) {\n",
+    "new": "  if (true) {\n",
+    "tests": [
+      "test/prof12_law.test.js"
+    ]
+  },
+  {
+    "name": "PROF12-A3-lasts-always",
+    "file": "src/net/alchemyLaw.js",
+    "old": "  if (!magnitudeDefault(out)) {\n",
+    "new": "  if (false) {\n",
+    "tests": [
+      "test/prof12_law.test.js"
+    ]
+  },
+  {
+    "name": "PROF12-A3-no-chance",
+    "file": "src/net/alchemyLaw.js",
+    "old": "  if (chanceOwn(out)) out.chanceBase = raise(out.chanceBase, out.chanceMod, out.chancePerLevel, false);\n",
+    "new": "",
+    "tests": [
+      "test/prof12_law.test.js"
+    ]
+  },
+  {
+    "name": "PROF12-A3-chance-everywhere",
+    "file": "src/net/alchemyLaw.js",
+    "old": "  if (chanceOwn(out)) out.chanceBase = raise(",
+    "new": "  out.chanceBase = raise(",
+    "tests": [
+      "test/prof12_law.test.js"
+    ]
+  },
+  {
+    "name": "PROF12-A3-no-duration-clamp",
+    "file": "src/net/alchemyLaw.js",
+    "old": "    if (min1 && mult < 1) mult = 1;",
+    "new": "",
+    "tests": [
+      "test/prof12_law.test.js"
+    ]
+  },
+  {
+    "name": "PROF12-A3-duration-floored",
+    "file": "src/net/alchemyLaw.js",
+    "old": "    return base + Math.round(((base + plus * mult) * pct) / 100);",
+    "new": "    return base + Math.floor(((base + plus * mult) * pct) / 100);",
+    "tests": [
+      "test/prof12_law.test.js"
+    ]
+  },
+  {
+    "name": "PROF12-A3-lasts-one-field",
+    "file": "src/net/alchemyLaw.js",
+    "old": "export const magnitudeDefault = (s) => POTENT_FIELDS.every((f) => (s?.[f] ?? 1) === 1);",
+    "new": "export const magnitudeDefault = (s) => (s?.magnitudeBaseLow ?? 1) === 1;",
+    "tests": [
+      "test/prof12_law.test.js"
+    ]
+  },
+  {
+    "name": "PROF12-A3-potion-lasts-never",
+    "file": "src/net/alchemyLaw.js",
+    "old": "export const potentLasts = (potion) => !!potion && magnitudeDefault(RECIPE_BY_ID.get(potion.id)?.settings ?? {});",
+    "new": "export const potentLasts = (potion) => !!potion && magnitudeDefault(potion);",
+    "tests": [
+      "test/prof12_law.test.js",
+      "test/prof12_client.test.js"
+    ]
+  },
+  {
+    "name": "PROF12-A3-drink-no-level",
+    "file": "src/scenes/hostMagic.js",
+    "old": "potentEffect(e, potent, effectiveLevel(playerEntity))",
+    "new": "potentEffect(e, potent)",
+    "tests": [
+      "test/prof12_client.test.js"
+    ]
+  },
+  {
+    "name": "PROF12-A3-brewed-words",
+    "file": "src/systems/alchemyItems.js",
+    "old": "(potentLasts(p) ? ` (lasts ${data.potent}% longer)` :",
+    "new": "(false ? ` (lasts ${data.potent}% longer)` :",
+    "tests": [
+      "test/prof12_client.test.js"
+    ]
+  },
+  {
+    "name": "PROF12-A3-page-words",
+    "file": "src/ui/profPages.js",
+    "old": ": potentLasts(potion) ? `lasts ${pct}% longer` :",
+    "new": ": false ? `lasts ${pct}% longer` :",
+    "tests": [
+      "test/prof12_client.test.js"
+    ]
+  },
+  {
+    "name": "PROF12-A3-page-station-words",
+    "file": "src/ui/profPages.js",
+    "old": "const what = !potion ? `+${pct}% magnitude or duration` :",
+    "new": "const what = !potion ? `+${pct}% magnitude` :",
+    "tests": [
+      "test/prof12_client.test.js"
+    ]
+  },
+  {
+    "name": "PROF12-E3-card-three",
+    "file": "src/net/professionLaw.js",
+    "old": "spec('transmuter', 'Transmuter', 'Two of a DFU metal and a Mercury make one of the next up.')",
+    "new": "spec('transmuter', 'Transmuter', 'Three of a DFU metal make one of the next up.')",
+    "tests": [
+      "test/prof12_law.test.js"
+    ]
+  },
+  {
+    "name": "PROF12-E3-page-three",
+    "file": "src/ui/profPages.js",
+    "old": "turns two of a metal and a Mercury into one of the next",
+    "new": "turns three of a metal and a Mercury into one of the next",
+    "tests": [
+      "test/prof12_client.test.js"
     ]
   }
 ]

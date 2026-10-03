@@ -12,14 +12,16 @@
 // own `potent` field (itemFields.js - its share, 25 or a Master
 // Alchemist's 40): its name says so (itemInfo.js itemNameParts), its
 // magnitudes are raised as it is drunk (scenes/hostMagic.js drinkPotion,
-// alchemyLaw potentEffect), it stacks only with its own share
+// alchemyLaw potentEffect - AUDIT PROF12 A3: its duration, and its chance
+// where it has one, for the fourteen whose magnitude is DFU's default),
+// it stacks only with its own share
 // (inventory.js), and - DECIDED - it is worth its share more.
 //
 // No provenance: a potion is DFU's own consumable and stacks; it is no
 // crafted piece the market mints again (NOT YET - Professions-Arc 37).
 // ═══════════════════════════════════════════════════════════════════
 import { createPotion } from './loot.js';
-import { potionById, potentOk } from '../net/alchemyLaw.js';
+import { potionById, potentOk, potentLasts } from '../net/alchemyLaw.js';
 
 /** What the station says of a brew whose answer did not come (smithItems.js's kept words' shape). */
 export const BREW_KEPT_TEXT = 'The cauldron bubbled, but no word came back - the brew is kept, and bottled when the word comes.';
@@ -42,11 +44,12 @@ export function brewItems(data) {
   return out;
 }
 
-/** What a brew says: "You brewed 2 Potent Potions of Healing (+20 Alchemy XP)". */
+/** What a brew says: "You brewed 2 Potent Potions of Healing (+25% magnitude)" - AUDIT PROF12 A3: a potion whose
+ *  magnitude is DFU's default "(lasts 25% longer)" (alchemyLaw potentLasts). */
 export function brewedText(data) {
   const p = potionById(data?.potion);
   if (!p) return 'You brewed nothing.';
   const n = Number.isSafeInteger(data?.count) ? data.count : 1;
   const potent = potentOk(data?.potent);
-  return `You brewed ${n === 1 ? 'a' : n} ${potent ? 'Potent ' : ''}${n === 1 ? 'Potion' : 'Potions'} of ${p.name}${potent ? ` (+${data.potent}% magnitude)` : ''}`;
+  return `You brewed ${n === 1 ? 'a' : n} ${potent ? 'Potent ' : ''}${n === 1 ? 'Potion' : 'Potions'} of ${p.name}${potent ? (potentLasts(p) ? ` (lasts ${data.potent}% longer)` : ` (+${data.potent}% magnitude)`) : ''}`;
 }

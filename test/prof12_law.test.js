@@ -13,12 +13,14 @@ import {
   POTIONS, POTION_PRICE_TIERS, potionTier, potionById, ingredientKeys, keyTemplate, brewSpends, brewKeys, brewFirstPays, brewCount, potentChance,
   potentPct, potentOk, potentEffect, POTENT, brewXp, templatePoints, piecePoints, essenceOf, ESSENCE_POINTS, disenchantXp, DISENCHANT_XP,
   enchantDiscountPct, enchantGold, ENCHANT_DISCOUNT,
+  potentLasts, magnitudeDefault,   // AUDIT PROF12 A3
 } from '../src/net/alchemyLaw.js';
 import {
   REAGENTS, APOTHECARY_STOCK, COUNTER_ONLY, ARCANE_ESSENCE, ALCHEMY_FEE, ENCHANT_FEE, TRANSMUTE_RECIPES, TRANSMUTE_LADDER, TRANSMUTER, workSpecOk,
   smeltRecipe, stockOf, materialOf, MATERIAL_FAMILIES, gemTierOfPrice, PLANT_GROUP_TEMPLATES, SPECIALISATIONS, specOk,
+  NO_PACK_FORM, withdrawable, topTierOf, TRANSMUTE_IN,   // AUDIT PROF12 E1, E2, E3
 } from '../src/net/professionLaw.js';
-import { recipeById, cookXp, FIRST_CRAFT_XP } from '../src/net/recipeLaw.js';
+import { recipeById, cookXp, FIRST_CRAFT_XP, firstCraftPays } from '../src/net/recipeLaw.js';
 import { GROUP_TEMPLATE_INDICES } from '../src/systems/itemTemplatesData.js';
 
 const TEMPLATES = JSON.parse(readFileSync(new URL('../src/characters/itemTemplates.json', import.meta.url), 'utf8'));
@@ -126,13 +128,13 @@ test('PROF12 law: THE BREW - its potions (one below Journeyman, two at it, a Bre
   assert.deepEqual([brewXp(h, 0), brewXp(h, 0, true), brewXp(inv, 70), brewXp(h, 55)], [20, 20 + FIRST_CRAFT_XP, 120, 5], 'a tier-1 brew past rank 55 quartered');
 });
 
-test('PROF12 law: THE TRANSMUTER (3.3; 4.1: "Mercury (Alchemy\'s Transmuter)") - three of a metal and a Mercury make one of the next up the ladder (Tin, Copper, Silver, Gold, Platinum) at the alchemy station, no XP, its door the choice at 100; the Transmuter\'s card chosen', () => {
+test('PROF12 law: THE TRANSMUTER (3.3; 4.1: "Mercury (Alchemy\'s Transmuter)"; AUDIT PROF12 E3, Mac: "2 + Mercury -> 1") - two of a metal and a Mercury make one of the next up the ladder (Tin, Copper, Silver, Gold, Platinum) at the alchemy station, no XP, its door the choice at 100; the Transmuter\'s card chosen', () => {
   assert.deepEqual(TRANSMUTE_LADDER, ['metal:tin', 'metal:copper', 'metal:silver', 'metal:gold', 'metal:platinum']);
   assert.deepEqual(TRANSMUTE_RECIPES.map((r) => [r.id, r.out, r.inputs.map((i) => [i.key, i.n]), r.station, r.xp, r.per]), [
-    ['transmute:tin', 'metal:copper', [['metal:tin', 3], ['metal:mercury', 1]], 'alchemy', null, 1],
-    ['transmute:copper', 'metal:silver', [['metal:copper', 3], ['metal:mercury', 1]], 'alchemy', null, 1],
-    ['transmute:silver', 'metal:gold', [['metal:silver', 3], ['metal:mercury', 1]], 'alchemy', null, 1],
-    ['transmute:gold', 'metal:platinum', [['metal:gold', 3], ['metal:mercury', 1]], 'alchemy', null, 1],
+    ['transmute:tin', 'metal:copper', [['metal:tin', 2], ['metal:mercury', 1]], 'alchemy', null, 1],
+    ['transmute:copper', 'metal:silver', [['metal:copper', 2], ['metal:mercury', 1]], 'alchemy', null, 1],
+    ['transmute:silver', 'metal:gold', [['metal:silver', 2], ['metal:mercury', 1]], 'alchemy', null, 1],
+    ['transmute:gold', 'metal:platinum', [['metal:gold', 2], ['metal:mercury', 1]], 'alchemy', null, 1],
   ]);
   assert.deepEqual(TRANSMUTER, { profession: 'alchemy', rank: 100, id: 'transmuter' });
   const r = smeltRecipe('transmute:gold');
@@ -144,14 +146,15 @@ test('PROF12 law: THE TRANSMUTER (3.3; 4.1: "Mercury (Alchemy\'s Transmuter)") -
   assert.deepEqual(SPECIALISATIONS.enchanting[100].map((s) => s.id), ['soulbinder', 'runecaster']);
 });
 
-test('PROF12 law: DISENCHANTING (9.3) - the points a piece carried its DFU template\'s budget (itemTemplates.json), a jewel\'s its own (Gold and a gem: 2,160), a dish\'s, a carving\'s and a tool\'s none; an Essence a hundred, a Disenchanter\'s two; XP 5 x the rank\'s tier an Essence before the doubling', () => {
+test('PROF12 law: DISENCHANTING (9.3) - the points a piece carried its DFU template\'s budget (itemTemplates.json), a jewel\'s its own (Gold and a gem: 2,160), a dish\'s, a carving\'s and a tool\'s none; an Essence a hundred, a Disenchanter\'s two; XP 5 x the PIECE\'s tier an Essence before the doubling (AUDIT PROF12 E2)', () => {
   assert.deepEqual([templatePoints(120), templatePoints(135), templatePoints(685), templatePoints(1600)], [tpl(120).enchantmentPoints, 1800, 0, 0]);
   assert.deepEqual([piecePoints(recipeById('longsword:mithril')), piecePoints(recipeById('ring:gold:ruby')), piecePoints(recipeById('ring:silver'), 1), piecePoints(recipeById('stew:north')), piecePoints(recipeById('column:stone')), piecePoints(recipeById('woodaxe:iron')), piecePoints(null)],
     [600, 2160, 1980, 0, 0, 0, 0]);
   assert.equal(ESSENCE_POINTS, 100);
   assert.deepEqual([essenceOf(2160), essenceOf(2160, true), essenceOf(99), essenceOf(600), essenceOf(-5), essenceOf('x')], [21, 42, 0, 6, 0, 0]);
   assert.equal(DISENCHANT_XP, 5);
-  assert.deepEqual([disenchantXp(0, 21), disenchantXp(50, 21), disenchantXp(100, 21), disenchantXp(0, 0), disenchantXp(0, 1.5)], [105, 420, 735, 0, 0]);
+  const ring = recipeById('ring:gold:ruby');
+  assert.deepEqual([disenchantXp(ring, 0, 21), disenchantXp(ring, 69, 21), disenchantXp(ring, 70, 21), disenchantXp(ring, 0, 0), disenchantXp(ring, 0, 1.5), disenchantXp(null, 0, 21)], [315, 315, 78, 0, 0, 0]);
 });
 
 test('PROF12 law: ENCHANTING\'S LAYER (9.3: "cost -10% at Journeyman, -20% at Master (Efficient -5% more)") - the share off the item maker\'s gold by the rank, an Efficient\'s at 50 more; the gold rounded up, none asked none off', () => {
@@ -166,4 +169,59 @@ test('PROF12 law: THE APOTHECARY\'S STEP for a dish (DECIDED: a dish takes no qu
   assert.deepEqual([0, 10, 25, 40, 55, 70, 90, 100].map((r) => cookXp(r)), [20, 40, 60, 80, 100, 120, 140, 140]);
   assert.deepEqual([0, 55, 100].map((r) => cookXp(r, { clean: true })), [30, 150, 210]);
   assert.equal(cookXp(0, { steps: -3 }), 20);
+});
+
+// ─── AUDIT PROF12 (2026-10-03): E1, E2, A3, E3 ───────────────────────
+
+test('AUDIT PROF12 E1 law: Arcane Essence has no pack form (NO_PACK_FORM) - it sold to any shop at 32 gold a unit; the Apothecaries\' sixteen beside it in the Essences\' family still withdraw', () => {
+  assert.deepEqual([...NO_PACK_FORM], ['work:ram', ARCANE_ESSENCE.key]);
+  assert.equal(withdrawable('essence:arcane'), false);
+  for (const r of REAGENTS) assert.equal(withdrawable(r.key), true, r.key);
+});
+
+test('AUDIT PROF12 E2 law: a disenchant\'s XP is 5 x THE PIECE\'s recipe tier an Essence (craftXp\'s rule, never the rank\'s tier), quartered more than two tiers below the rank\'s top, and none for a piece made wholly of the counter\'s goods (firstCraftPays)', () => {
+  const silver = recipeById('ring:silver'), gold = recipeById('ring:gold:ruby'), mithril = recipeById('longsword:mithril'), robes = recipeById('garment-163:linen');
+  assert.deepEqual([silver.tier, gold.tier, mithril.tier, robes.tier], [1, 3, 5, 1]);
+  assert.deepEqual([0, 39, 40, 100].map((r) => disenchantXp(silver, r, 18)), [90, 90, 22, 22], 'a Silver Ring\'s 18: full to rank 39, a quarter from 40 (tier 4 works)');
+  assert.deepEqual([0, 89, 90, 100].map((r) => disenchantXp(mithril, r, 6)), [150, 150, 150, 150], 'a Mithril piece is never more than two below');
+  assert.deepEqual([0, 50, 100].map((r) => disenchantXp(robes, r, 7)), [0, 0, 0], 'the counter\'s Linen: Essence, never XP');
+  assert.equal(firstCraftPays(robes), false);
+  for (const r of [silver, gold, mithril]) assert.equal(disenchantXp(r, 0, 10), 5 * r.tier * 10, r.id);
+  for (const rank of [0, 40, 70, 100]) for (const r of [silver, gold, mithril]) {
+    assert.equal(disenchantXp(r, rank, 4), r.tier < topTierOf(rank) - 2 ? Math.floor((5 * r.tier * 4) / 4) : 5 * r.tier * 4, `${r.id} at ${rank}`);
+  }
+});
+
+test('AUDIT PROF12 A3 law (Mac: "Potent lasts longer"): the fourteen potions whose magnitude is DFU\'s default have their DURATION raised by the share - and their chance where it is their own - the six with a magnitude keep theirs; a Resist Fire lasts 25% (a Master Alchemist\'s 40%) longer', () => {
+  const lasts = POTIONS.filter(potentLasts).map((p) => p.id);
+  assert.deepEqual(lasts, ['resistFire', 'resistFrost', 'resistShock', 'resistPoison', 'slowFalling', 'waterBreathing', 'chameleonForm', 'invisibility', 'shadowForm', 'cureDisease', 'curePoison', 'freeAction', 'levitation', 'waterWalking']);
+  assert.deepEqual(POTIONS.filter((p) => !potentLasts(p)).map((p) => p.id), ['purification', 'orcStrength', 'stamina', 'healing', 'healTrue', 'restorePower']);
+  assert.equal(potentLasts(null), false);
+  assert.deepEqual([magnitudeDefault({}), magnitudeDefault({ magnitudeBaseLow: 5 }), magnitudeDefault({ magnitudeBaseLow: 1, magnitudeLevelHigh: 1 })], [true, false, true]);
+  const effectOf = (id) => potions.potionBundle(potionById(id).key).effects[0];
+  // RESIST FIRE at level 10: 11 rounds - 14 Potent (+25%), 15 a Master Alchemist's (+40%); its 110% chance raised the same
+  const fire = effectOf('resistFire');
+  const [p25, p40] = [potentEffect(fire, 25, 10), potentEffect(fire, 40, 10)];
+  assert.deepEqual([effects.rollDuration(fire, 10), effects.rollDuration(p25, 10), effects.rollDuration(p40, 10)], [11, 14, 15]);
+  assert.deepEqual([effects.chanceValue(fire, 10), effects.chanceValue(p25, 10), effects.chanceValue(p40, 10)], [110, 138, 154]);
+  assert.deepEqual([p25.magnitudeBaseLow, p25.magnitudeLevelHigh, p25.durationMod, p25.durationPerLevel], [1, 1, 1, 1], 'nothing else moves');
+  assert.deepEqual([effects.rollDuration(potentEffect(fire, 25, 1), 1), effects.rollDuration(potentEffect(fire, 25, 0), 0)], [3, 3], 'a level-1 drinker\'s 2 rounds 3 (the half rounds up); DFU\'s clamp of the multiplier at 1 kept');
+  // INVISIBILITY has no chance of its own: its duration alone
+  const inv = effectOf('invisibility');
+  const pi = potentEffect(inv, 25, 10);
+  assert.deepEqual([effects.rollDuration(pi, 10), effects.chanceValue(pi, 10), pi.chanceBase], [14, effects.chanceValue(inv, 10), inv.chanceBase]);
+  // CURE DISEASE (an instant effect): its own chance raised
+  const cure = effectOf('cureDisease');
+  assert.deepEqual([effects.chanceValue(cure, 5), effects.chanceValue(potentEffect(cure, 25, 5), 5)], [51, 64]);
+  // HEALING keeps its magnitude law, its duration untouched
+  const heal = effectOf('healing');
+  const ph = potentEffect(heal, 25, 10);
+  assert.deepEqual([ph.magnitudeBaseLow, ph.magnitudeLevelBase, ph.durationBase, ph.chanceBase], [6, 11, heal.durationBase, heal.chanceBase]);
+  assert.equal(potentEffect(fire, 30, 10), fire, 'a share no brew makes moves nothing');
+});
+
+test('AUDIT PROF12 E3 law (Mac: "2 + Mercury -> 1"): the Transmuter\'s recipe is two of a metal and a Mercury for one of the next, and its card says so', () => {
+  assert.equal(TRANSMUTE_IN, 2);
+  for (const r of TRANSMUTE_RECIPES) assert.deepEqual(r.inputs.map((i) => i.n), [2, 1], r.id);
+  assert.equal(SPECIALISATIONS.alchemy[100].find((sp) => sp.id === 'transmuter')?.text, 'Two of a DFU metal and a Mercury make one of the next up.');
 });

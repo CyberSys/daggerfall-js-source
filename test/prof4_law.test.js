@@ -100,7 +100,7 @@ test('PROF4 law: the forge burns a log to a Charcoal (a Charcoal Burner two) and
   assert.ok(SMITH_STOCK.every((x) => x.counter === 'smith'));
   assert.deepEqual(STOCKS.map((x) => x.key).slice(0, 7), ['leather:cured', 'plank:oak', 'plank:pine', 'wood:charcoal', 'cloth:linen', 'cloth:linen', 'cloth:wool']);   // PROF5: the Weavers' counter's two after them; PIN MOVED (PROF12): the Apothecaries' sixteen after those
   assert.equal(stockOf('cloth:linen').counter, 'furnisher');
-  assert.deepEqual([...NO_PACK_FORM], ['work:ram']);   // PROF5: Wool Bolt beside the Linen; PROF7 moved it: every one has its template now; SEAT2b part two (PIN MOVED): a Ram Kit's road is the writ's
+  assert.deepEqual([...NO_PACK_FORM], ['work:ram', 'essence:arcane']);   // AUDIT PROF12 E1 (PIN MOVED): Arcane Essence the Stores'; PROF5: Wool Bolt beside the Linen; PROF7 moved it: every one has its template now; SEAT2b part two (PIN MOVED): a Ram Kit's road is the writ's
   assert.deepEqual(['leather:cured', 'cloth:linen', 'hide:bear', 'plank:oak', 'log:teak', 'wood:charcoal', 'ingot:iron'].map(withdrawable), [true, true, true, true, true, true, true]);
 });
 

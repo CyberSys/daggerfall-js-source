@@ -142,8 +142,8 @@
   {
     "name": "PROF7-a-hide-held-back",
     "file": "src/net/professionLaw.js",
-    "old": "export const NO_PACK_FORM = Object.freeze(['work:ram']);",
-    "new": "export const NO_PACK_FORM = Object.freeze(['work:ram', 'hide:bear']);",
+    "old": "export const NO_PACK_FORM = Object.freeze(['work:ram', 'essence:arcane']);",
+    "new": "export const NO_PACK_FORM = Object.freeze(['work:ram', 'essence:arcane', 'hide:bear']);",
     "tests": [
       "test/prof7_law.test.js"
     ]

@@ -175,7 +175,7 @@ export const SPECIALISATIONS = Object.freeze({
     50: pair(spec('brewer', 'Brewer', '3 potions a brew at Journeyman.'),
       spec('distiller', 'Distiller', 'Potent chance +10%.')),
     100: pair(spec('master-alchemist', 'Master Alchemist', 'Potent is +40%, not +25%.'),
-      spec('transmuter', 'Transmuter', 'Three of a DFU metal make one of the next up.')),
+      spec('transmuter', 'Transmuter', 'Two of a DFU metal and a Mercury make one of the next up.')),
   }),
   enchanting: Object.freeze({
     50: pair(spec('efficient', 'Efficient', 'A further -5% cost.'),
@@ -679,8 +679,10 @@ export const stockOf = (key) => STOCKS.find((s) => s.key === key) ?? null;
 export const STOCK_MAX = 100;
 /** The materials with no pack form - none since PROF7, which registered the hides', the leathers' and the cloth's
  *  templates (PROF4 the planks' and Charcoal's before it), until SEAT2b part two made the Ram Kit: a siege work never
- *  leaves the Stores but by a Siege Camp's writ. */
-export const NO_PACK_FORM = Object.freeze(['work:ram']);   // SEAT2b part two: a siege work's road is the writ's (RAM_KIT)
+ *  leaves the Stores but by a Siege Camp's writ. AUDIT PROF12 E1: nor does Arcane Essence - in the pack it sold to any
+ *  shop at its DFU worth (32 gold), a gold faucet a ring's 18 Essence deep and a silver-to-gold road around the Bank's
+ *  rate; its uses are the Stores' (the market, Runecaster's roll to come), and it stays where they read it. */
+export const NO_PACK_FORM = Object.freeze(['work:ram', 'essence:arcane']);   // SEAT2b part two: a siege work's road is the writ's (RAM_KIT); AUDIT PROF12 E1: Arcane Essence's the Stores'
 /** Whether the Stores may give a material to the pack. */
 export const withdrawable = (key) => !NO_PACK_FORM.includes(key);
 const MINED = new Map([...METALS, ...ORES, ...INGOTS, ...STONES, ...GEMS, SIEGE_GEM, PEARL, ...WOOD_TEMPLATES, ...HIDE_TEMPLATES, ...PARTS, ...MASONRY_TEMPLATES, RAM_KIT, ...REAGENTS, ARCANE_ESSENCE].map((m) => [m.key, m]));   // PROF7: the hides, leathers, cloth and a body's DFU parts; PROF8: the sea's Pearl; AUDIT-SEATS: the Siege-cracked Gem; PROF11: the bench's Mortar; SEAT2b part two: the Ram Kit; PROF12: the Apothecaries' sixteen and Arcane Essence
@@ -877,16 +879,17 @@ export const MASON_RECIPES = Object.freeze([
   masonWork('cut:stone', CUT_STONE.key, [[ROUGH_STONE.key, CUT_RATIO]], ROUGH_STONE.tier, { more: QUARRYMAN }),
   masonWork('mix:mortar', MORTAR.key, [['metal:sulphur', 1], ['metal:lead', 1], [ROUGH_STONE.key, 5]], MORTAR.tier, { per: MORTAR_BATCH }),
 ]);
-/** PROF12 (3.3: "Transmuter - three of a DFU metal make one of the next up (Tin, Copper, Silver, Gold, Platinum)"; 4.1:
- *  "Mercury (Alchemy's Transmuter)"): the ladder, in its order. */
+/** PROF12 (3.3: "Transmuter - two of a DFU metal and a Mercury make one of the next up (Tin, Copper, Silver, Gold,
+ *  Platinum)" - AUDIT PROF12 E3; 4.1: "Mercury (Alchemy's Transmuter)"): the ladder, in its order. */
 export const TRANSMUTE_LADDER = Object.freeze(['metal:tin', 'metal:copper', 'metal:silver', 'metal:gold', 'metal:platinum']);
 /** The Transmuter - Alchemy's choice at 100 - the one door to a transmutation (`spec`, smeltAtForge's `prof-transmuter`). */
 export const TRANSMUTER = Object.freeze({ profession: 'alchemy', rank: 100, id: 'transmuter' });
-/** Three of a metal a transmutation takes, and the Mercury that turns them (4.1). */
-export const TRANSMUTE_IN = 3;
+/** Two of a metal a transmutation takes, and the Mercury that turns them (4.1) - AUDIT PROF12 E3 (Mac: "2 + Mercury -> 1"):
+ *  Mac's choice, 2026-10-03, over 3.3's three - a Mercury and two of a metal make one of the next. */
+export const TRANSMUTE_IN = 2;
 export const TRANSMUTE_MERCURY = 1;
 /**
- * PROF12: THE TRANSMUTATIONS - a work at the alchemy station (`station: 'alchemy'`), the forge's shape: three of a metal and
+ * PROF12: THE TRANSMUTATIONS - a work at the alchemy station (`station: 'alchemy'`), the forge's shape: two of a metal and
  * one Mercury make one of the next up the ladder, a unit of work at a time (SMELT_MAX a request). DECIDED: the Mercury is
  * 4.1's ("Mercury (Alchemy's Transmuter)") - the metal that turns the others, spent once a transmutation; no XP (`xp: null`):
  * a Transmuter stands at 100, where the track is full; and the door is the choice at 100 (`spec`), asked by the service

@@ -331,7 +331,7 @@ export const REFUSALS = Object.freeze({
   'node-taken': 'You have already gathered here today.',
   'bad-material': 'The Stores do not keep that.',
   'bad-recipe': 'The forge knows no such work.',   // PROF2
-  'prof-no-pack-form': 'That stays at the bench until its own craft is practised.',   // PROF3: the smith's stock
+  'prof-no-pack-form': 'That stays in the Stores - it never goes to the pack.',   // PROF3: the smith's stock; now a siege work and (AUDIT PROF12 E1) Arcane Essence
   'prof-busy': 'The anvil is still ringing from your last work.',   // PROF3: one craft at a time
   'prof-later': 'That is made when the sieges come.',   // PROF4: the Ram Kit (PROF0 25)
   // PROF7: Hunting's day - the account's, every character's together (PROF0 6)

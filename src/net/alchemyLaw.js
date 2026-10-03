@@ -27,7 +27,7 @@ import { POTION_RECIPES, potionRecipeKey, potionKeyFromCauldron } from '../syste
 import {
   TIER_RANKS, PLANT_GROUP_TEMPLATES, METALS, GEMS, PEARL, PARTS, REAGENTS, COUNTER_ONLY, topTierOf, JOURNEYMAN_RANK, PROF_RANK_MAX,
 } from './professionLaw.js';
-import { craftXp, jewelPoints } from './recipeLaw.js';
+import { craftXp, jewelPoints, firstCraftPays } from './recipeLaw.js';   // AUDIT PROF12 E2: a disenchant's XP the piece's recipe's
 import TEMPLATES_JSON from '../characters/itemTemplates.json' with { type: 'json' };   // DFU's ItemTemplates.txt verbatim - each template's enchantment budget
 
 // ─── THE BREW (9.3) ──────────────────────────────────────────────────
@@ -137,12 +137,45 @@ export const potentOk = (pct) => pct === POTENT.pct || pct === POTENT.masterPct;
 /** A Potent potion's magnitudes (DFU's EffectSettings' four magnitude fields - potions.js potionBundle's settings): each
  *  raised by the share, rounded; nothing else of the bundle moves. */
 export const POTENT_FIELDS = Object.freeze(['magnitudeBaseLow', 'magnitudeBaseHigh', 'magnitudeLevelBase', 'magnitudeLevelHigh']);
-export function potentEffect(effect, pct) {
+/** AUDIT PROF12 A3: whether settings carry DFU's DEFAULT magnitude - every one of the four fields 1 (DefaultEffectSettings,
+ *  potions.js; a recipe's `settings` name only what differs) - the fourteen potions whose effect has no magnitude to raise
+ *  (the Resists, Slow Falling, Water Breathing, Chameleon Form, Invisibility, Shadow Form, the Cures, Free Action,
+ *  Levitation, Water Walking). */
+export const magnitudeDefault = (s) => POTENT_FIELDS.every((f) => (s?.[f] ?? 1) === 1);
+/** AUDIT PROF12 A3: whether settings name a CHANCE of their own (any of the three away from DFU's default 1) - the Resists',
+ *  the Cures' and Free Action's - an effect that has one. */
+const CHANCE_FIELDS = Object.freeze(['chanceBase', 'chanceMod', 'chancePerLevel']);
+const chanceOwn = (s) => CHANCE_FIELDS.some((f) => (s?.[f] ?? 1) !== 1);
+/**
+ * A POTENT POTION AS IT IS DRUNK (9.3: "+25% magnitude"): its four magnitude fields raised by the share, rounded. AUDIT
+ * PROF12 A3 (Mac, 2026-10-03: "Potent lasts longer"): an effect whose magnitude is DFU's default (magnitudeDefault) has none
+ * to raise - +25% of 1 rounds to 1, and the fourteen such potions' Potent did nothing - so its DURATION is raised by the
+ * same share instead, and its CHANCE where it has one of its own (chanceOwn): each the rounds or the percent DFU would give
+ * at `casterLevel` (effects.js rollDuration and chanceValue, verbatim), the share of it added to the base, rounded - the
+ * settings stay whole numbers, as DFU's are. Nothing else of the bundle moves.
+ */
+export function potentEffect(effect, pct, casterLevel = 1) {
   if (!effect || !potentOk(pct)) return effect;
   const out = { ...effect };
-  for (const f of POTENT_FIELDS) if (Number.isFinite(out[f])) out[f] = Math.round((out[f] * (100 + pct)) / 100);
+  if (!magnitudeDefault(out)) {
+    for (const f of POTENT_FIELDS) if (Number.isFinite(out[f])) out[f] = Math.round((out[f] * (100 + pct)) / 100);
+    return out;
+  }
+  const level = Number.isFinite(casterLevel) ? Math.max(0, casterLevel) : 1;
+  const raise = (base, plus, per, min1) => {
+    if (!Number.isFinite(base) || !Number.isFinite(plus)) return base;
+    let mult = Math.floor(level / Math.max(1, Number(per) || 1));
+    if (min1 && mult < 1) mult = 1;   // rollDuration's clamp (DFU SetDuration); chanceValue has none
+    return base + Math.round(((base + plus * mult) * pct) / 100);
+  };
+  out.durationBase = raise(out.durationBase, out.durationMod, out.durationPerLevel, true);
+  if (chanceOwn(out)) out.chanceBase = raise(out.chanceBase, out.chanceMod, out.chancePerLevel, false);
   return out;
 }
+const RECIPE_BY_ID = new Map(/** @type {any[]} */ (POTION_RECIPES).map((r) => [r.name, r]));
+/** AUDIT PROF12 A3: whether a potion's Potent lasts longer (its magnitude DFU's default) rather than raising its magnitude -
+ *  the station's and the brew's words. */
+export const potentLasts = (potion) => !!potion && magnitudeDefault(RECIPE_BY_ID.get(potion.id)?.settings ?? {});
 /** A brew's XP (3.2: "a craft 20 x tier x units, +500 the first time a recipe is made"): a brew is one unit, whatever it
  *  makes (a Brewer's third potion earns nothing more, as a Cook's second serving does not, PROF9), at its potion's tier,
  *  quartered more than two tiers below the rank's top. */
@@ -172,13 +205,22 @@ export const ESSENCE_POINTS = 100;
 export const DISENCHANTER = 'disenchanter';
 export const essenceOf = (points, disenchanter = false) => Math.floor(Math.max(0, Number(points) || 0) / ESSENCE_POINTS) * (disenchanter ? 2 : 1);
 /**
- * A DISENCHANT's ENCHANTING XP. DECIDED: 9.3 says Enchanting's XP comes from what the service sees, and names no number;
- * Enchanting has no recipe ladder, so its XP follows the rank (Mac's PROF8 law, as Masonry's and Cooking's): 5 x the rank's
- * own tier an Essence the piece yields before a Disenchanter's doubling - a ring's 18 Essence 90 XP to a Novice, 630 to a
- * Master - the piece's budget the measure of the work.
+ * A DISENCHANT's ENCHANTING XP. DECIDED: 9.3 says Enchanting's XP comes from what the service sees, and names no number:
+ * 5 an Essence the piece yields before a Disenchanter's doubling, x THE PIECE's tier - its recipe's, as a craft's XP is
+ * (recipeLaw craftXp) - QUARTERED more than two tiers below the rank's top, and NONE for a piece made wholly of goods only a
+ * counter sells (recipeLaw firstCraftPays). AUDIT PROF12 E2: it was the RANK's tier, never quartered, so the counter's
+ * Linen (its robes and cloaks) bought Enchanting to Master for 992 silver - the cheapest track of all; the piece's
+ * own tier makes a ring's Essence the jeweller's work it was, and a Master's old Silver Ring the quarter a Master's old
+ * craft is. A Gold Ruby Ring's 21 Essence: 315 XP below rank 70, 78 past it.
+ * @param {{ tier: number, inputs: readonly { key: string }[] }|null} r the piece's recipe (recipeLaw recipeById)
  */
 export const DISENCHANT_XP = 5;
-export const disenchantXp = (rank, essence) => DISENCHANT_XP * topTierOf(rank) * (Number.isSafeInteger(essence) && essence > 0 ? essence : 0);
+export function disenchantXp(r, rank, essence) {
+  if (!firstCraftPays(/** @type {any} */ (r)) || !Number.isSafeInteger(r?.tier)) return 0;
+  const tier = /** @type {number} */ (r?.tier);
+  const xp = DISENCHANT_XP * tier * (Number.isSafeInteger(essence) && essence > 0 ? essence : 0);
+  return tier < topTierOf(rank) - 2 ? Math.floor(xp / 4) : xp;
+}
 
 // ─── ENCHANTING'S LAYER OVER THE ITEM MAKER (9.3) ────────────────────
 

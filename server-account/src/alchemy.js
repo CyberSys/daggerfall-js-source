@@ -63,7 +63,8 @@ async function brewAnswer(db, player, row, nowS, extra = {}) {
  * hall's; its share +25, a Master Alchemist's +40. The potions a brew makes: brewCount (1; 2 at Journeyman, a Brewer's 3;
  * 3 at Master). XP 20 x the potion's tier, +500 the character's first of it (not for one made wholly of the Apothecaries'
  * goods - brewFirstPays), under the crafter's limit. Decided by the brew's own INSERT: every input held (never gold's).
- * Then the inputs out (bought first), the unbruised count down by what it reckoned, the XP in. The potions are the
+ * Then the unbruised count down by what it reckoned, the inputs out (bought first - the count clamped to the own units
+ * left, AUDIT PROF12 A1), the XP in. The potions are the
  * client's to mint on the answer (DFU's own potion, potions.js's key; a Potent one carries its share).
  */
 export async function brewAtStation(ctx, player, env, { character, potion: id, keys, rid, seat = null } = {}) {
@@ -118,14 +119,15 @@ export async function brewAtStation(ctx, player, env, { character, potion: id, k
         f, ?12, ?13
       FROM (SELECT CASE WHEN EXISTS (SELECT 1 FROM prof_brews WHERE player = ?1 AND char_id = ?2 AND potion = ?4) THEN 0 ELSE 1 END AS f)
       WHERE ${held.join(' AND ')}`).bind(...binds),
+    // the unbruised herbs it reckoned, spent with it - AUDIT PROF12 A1: before the cauldron leaves, so the spends' clamp
+    // (professions.js unbruisedClamp: never more than the own units still held) reads the count already lowered
+    ...reckoned.map((u) => db.prepare(`UPDATE prof_unbruised SET qty = MAX(0, qty - ?4)
+      WHERE player = ?1 AND char_id = ?2 AND material = ?3 AND EXISTS (SELECT 1 FROM prof_brews WHERE player = ?1 AND rid = ?5 AND n = ?6)`)
+      .bind(player.id, character, u.key, u.n, rid, nonce)),
     // the cauldron out of the Stores, each bought first
     ...inputs.flatMap((inp) => spendStatements(db, {
       player: player.id, character, materialSql: '?3', qtySql: '?4', guard: decided, binds: [inp.key, inp.n, rid, nonce],
     })),
-    // the unbruised herbs it reckoned, spent with it
-    ...reckoned.map((u) => db.prepare(`UPDATE prof_unbruised SET qty = MAX(0, qty - ?4)
-      WHERE player = ?1 AND char_id = ?2 AND material = ?3 AND EXISTS (SELECT 1 FROM prof_brews WHERE player = ?1 AND rid = ?5 AND n = ?6)`)
-      .bind(player.id, character, u.key, u.n, rid, nonce)),
     // the XP the decision credited, under the crafter's limit
     db.prepare(`INSERT INTO prof_tracks (player, char_id, profession, xp, updated_at)
       SELECT ?1, ?2, 'alchemy', MIN(?4, xp), ?5 FROM prof_brews WHERE player = ?1 AND rid = ?3 AND n = ?6
@@ -164,7 +166,8 @@ async function disenchantAnswer(db, player, row, nowS, extra = {}) {
  * whose points make no Essence (`prof-no-essence`), a full Stores (`stores-full`). The Essence's origin: OWN where this
  * character made it and nobody bought it (PROF0 7: "Essence from an own provenance item (one this character made, never
  * sold)"), GOLD where it was bought with gold (GOLD-MARKET's wall), else BOUGHT. Enchanting XP: alchemyLaw disenchantXp (5
- * x the rank's tier an Essence before the doubling), under the crafter's limit. The client takes the piece out of its pack
+ * x the PIECE's recipe's tier an Essence before the doubling, quartered more than two tiers below the rank's top, none for a
+ * piece made wholly of the counter's goods - AUDIT PROF12 E2), under the crafter's limit. The client takes the piece out of its pack
  * on the answer.
  */
 export async function disenchantPiece(ctx, player, env, { character, provenance, rid } = {}) {
@@ -188,7 +191,7 @@ export async function disenchantPiece(ctx, player, env, { character, provenance,
   if (essence < 1) return { error: 'prof-no-essence' };
   const origin = p.bought_with === 'gold' ? 'gold' : p.char_id === character && p.bought_with == null ? 'own' : 'bought';
   const cap = craftXpCap('enchanting', ranks);
-  const xp = disenchantXp(rank, base);
+  const xp = disenchantXp(r, rank, base);   // AUDIT PROF12 E2: the piece's recipe's tier, quartered; none for the counter's goods alone
   const nonce = mintId(rand);
   const decided = 'EXISTS (SELECT 1 FROM prof_disenchants WHERE player = ?1 AND rid = ?2 AND n = ?3)';
   await db.batch([

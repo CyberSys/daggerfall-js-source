@@ -143,7 +143,7 @@ function computeKey(item) {
     ? JSON.stringify(item.customEnchantments) : '';
   const affixes = Array.isArray(item.affixes) && item.affixes.length ? JSON.stringify(item.affixes) : '';
   return [item.group ?? '', item.templateIndex ?? '', item.material ?? '', item.potionRecipeKey ?? '',
-    item.legendary ?? '', ench, custom, affixes, item.aetheric ?? ''].join('|');   // SET6: an Aetheric piece's record, as a Legendary's
+    item.legendary ?? '', ench, custom, affixes, item.aetheric ?? '', item.potent ?? ''].join('|');   // SET6: an Aetheric piece's record, as a Legendary's; AUDIT PROF12 A2: a Potent potion's share (set at the mint - the cache holds), so a slot and its count keep Potent and plain apart
 }
 
 /** What a consumable slot takes: a potion or a drug - the two arms of

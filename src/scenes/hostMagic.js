@@ -1232,8 +1232,9 @@ export function createPlayerMagic({
     drinkPotion(recipeKey, potent = 0) {
       const plain = potionBundle(recipeKey);
       if (!plain) return null;
-      // PROF12: a Potent potion (an alchemy station's brew) lays its share on every magnitude (alchemyLaw potentEffect)
-      const bundle = potent ? { ...plain, effects: plain.effects.map((e) => potentEffect(e, potent)) } : plain;
+      // PROF12: a Potent potion (an alchemy station's brew) lays its share on every magnitude (alchemyLaw potentEffect) -
+      // AUDIT PROF12 A3: on its duration (and chance) where its magnitude is DFU's default, at the drinker's level
+      const bundle = potent ? { ...plain, effects: plain.effects.map((e) => potentEffect(e, potent, effectiveLevel(playerEntity))) } : plain;
       applySpellToPlayer(bundle, effectiveLevel(playerEntity), null,
         { bypassSavingThrows: true, bypassChance: true });
       audio.playOneShotId(SPELL_CAST_SOUND[bundle.element] ?? SPELL_CAST_SOUND[4], 1);   // AUDIT 58: the same ID door

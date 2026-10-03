@@ -8724,7 +8724,7 @@ export async function bootWorld(canvas, renderer, params, status) {
           .map((it) => {
             const r = recipeById(it.recipe);
             const points = r?.kind === 'jewel' && Number.isSafeInteger(it.enchantmentPoints) ? it.enchantmentPoints : piecePoints(r);
-            return { provenance: it.provenance, name: itemLongName(it), points, essence: essenceOf(points, profBook?.track('enchanting')?.specs?.[50] === DISENCHANTER) };
+            return { provenance: it.provenance, name: itemLongName(it), points, essence: essenceOf(points, profBook?.track('enchanting')?.specs?.[50] === DISENCHANTER), recipe: it.recipe };   // AUDIT PROF12 E2: its recipe, the XP's tier
           }).filter((x) => x.essence > 0),
         disenchant: async (provenance) => {
           const f = modes?.enchantHere?.() ?? null;

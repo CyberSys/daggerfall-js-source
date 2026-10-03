@@ -141,7 +141,7 @@ Marks** and a week's wait.
 | Outfitting | **Tailor** - clothing +1 step / **Leatherworker** - leather armour +1 step | **Couturier** - two-colour dyes / **Saddler** - a wagon upgrade (Horse Cart and Cargo) of +100 kg |
 | Carpentry | **Bowyer** - bows and arrows +1 step / **Joiner** - furniture at half the planks | **Siegewright** - Rams +50% vitality; siege works a day sooner / **Master Joiner** - furniture carries the maker's mark |
 | Masonry | **Quarryman** - Rough Stone cuts 1:1, not 2:1 / **Builder** - fortification projects need 10% less stone | **Fortifier** - once a Season a seat's Walls skip their drop on capture / **Sculptor** - stone decor pieces |
-| Alchemy | **Brewer** - 3 potions a brew at Journeyman / **Distiller** - Potent chance +10% | **Master Alchemist** - Potent is +40%, not +25% / **Transmuter** - three of a DFU metal make one of the next up (Tin, Copper, Silver, Gold, Platinum) |
+| Alchemy | **Brewer** - 3 potions a brew at Journeyman / **Distiller** - Potent chance +10% | **Master Alchemist** - Potent is +40%, not +25% / **Transmuter** - two of a DFU metal and a Mercury make one of the next up (Tin, Copper, Silver, Gold, Platinum) (AUDIT PROF12 E3, Mac's choice - section 37) |
 | Enchanting | **Efficient** - a further -5% cost / **Disenchanter** - Arcane Essence x2 | **Soulbinder** - filled soul gems give +10% points / **Runecaster** - a Masterwork's property chosen from three |
 | Cooking | **Cook** - +1 serving a dish / **Field Cook** - a campfire without a Campfire Kit's charge | **Chef** - feasts last +50% / **Provisioner** - rations and dishes never spoil |
 | Jewelcrafting | **Gemcutter** - a set gem adds +10% enchantment points / **Goldsmith** - Silver counts as Gold | **Master Jeweller** - jewellery Masterwork chance +5% / **Lapidary** - Siege-cracked Gems set as any gem |
@@ -2937,22 +2937,41 @@ Seats-Arc 7.5). What sections 1, 2, 3.3, 4.1, 4.3, 4.5, 9.3 and 9.4 left open fo
   createPotion: its key, price and bottle) carrying the port's **`potent`** field (itemFields: 25 or 40): **named so**
   ("Potent Potion of Healing", itemInfo itemNameParts), **stacked only with its own share** (inventory.js; a split keeps it),
   **drunk at its share** - every magnitude of DFU's bundle raised by it, rounded (`potentEffect`, `hostMagic.js`
-  drinkPotion; the three hosts hand the share on) - and, DECIDED, **worth its share more**.
+  drinkPotion; the three hosts hand the share on) - and, DECIDED, **worth its share more**. DECIDED (AUDIT PROF12 A3 - Mac,
+  2026-10-03: **"Potent lasts longer"**): fourteen of the twenty carry DFU's **default magnitude** (every magnitude field 1 -
+  the Resists, Slow Falling, Water Breathing, Chameleon Form, Invisibility, Shadow Form, the Cures, Free Action, Levitation,
+  Water Walking), and +25% of 1 rounds to 1 - their Potent did nothing. For those, Potent raises the **duration** by the
+  same share instead (25%, a Master Alchemist's 40%), and the **chance** where the recipe names one of its own (the
+  Resists', the Cures', Free Action's): the rounds (DFU's `rollDuration`) or the percent (`chanceValue`) at the drinker's
+  level, the share of it added to the base, rounded - so the settings stay whole numbers, as DFU's are (`magnitudeDefault`,
+  `potentLasts`; `hostMagic.js` hands the level on). A Resist Fire drunk at level 10 lasts 14 rounds, not 11 (15 a Master
+  Alchemist's). The six with a magnitude (Purification, Orc Strength, Stamina, Healing, Heal True, Restore Power) keep the
+  magnitude law; the worth's rise is unchanged. The brew's word and the station say which ("lasts 25% longer" or "+25%
+  magnitude"; before a potion is picked, "+25% magnitude or duration").
+- **A quick slot keeps Potent and plain apart** (AUDIT PROF12 A2): `quickslots.js` computeKey carries the `potent` share, so
+  a slot holding Potent Resist Fire uses and counts the Potent ones, not the plain ones beside them.
 - **THE UNBRUISED HERB** (4.3; 5.2: "an unbruised herb (+5% Alchemy Potent chance each)"). FOUND: the Stores keep a unit's
   origin and nothing else (7). DECIDED: an uncommon or rare herb picked with the steady hand clean (every one an
   Apothecary's Friend's) is **counted beside the Stores** at the harvest (`prof_unbruised`, migration 0070); a brew counts
   at most the **own units it spends** of that herb (bought ones are spent first - nobody's steady hand) and at most the
-  count, and spends the count with it. A common herb has no moment and never counts.
+  count, and spends the count with it. A common herb has no moment and never counts. DECIDED (AUDIT PROF12 A1): **the count
+  never outlives its herbs** - only a brew lowered it, so an unbruised herb withdrawn to the pack, listed on the market,
+  delivered to a writ or deposited with a guild left its count standing, and a later bruised own herb was reckoned
+  unbruised. Every spend of own units (`professions.js` spendStatements and spendOrigins - every route's one door) now
+  clamps `prof_unbruised` to the own units of that material still held (`unbruisedClamp`, under the spend's own guard);
+  the brew lowers its reckoning **before** its spends, so the clamp reads it already lowered.
 - **The Apothecaries' counter** (4.5: "the supplier's second ... the sixteen ... at a fifth of DFU's price in Marks, rounded
   up"; `professionLaw.js` REAGENTS, APOTHECARY_STOCK). The sixteen - exactly the ingredients the twenty need and no
   gathering yields (pinned) - each DFU's own item in its own group, at 4.5's prices (pinned to `itemTemplates.json`), the
   smith's stock's route (`/v1/prof/stock`): **bought**, a Marks sink, never own, never gathered (COUNTER_ONLY). DECIDED:
   their Stores family is the **Essences'** (8's filter; no new one), their tier their price's. On the Market tab beside the
   Weavers' (`ui/marketTab.js`), and **at the station** where a cauldron is short of one (the forge's Charcoal's shape).
-- **The Transmuter** (3.3: "three of a DFU metal make one of the next up (Tin, Copper, Silver, Gold, Platinum)"; 4.1:
-  "Mercury (Alchemy's Transmuter)"; `professionLaw.js` TRANSMUTE_RECIPES). DECIDED: a **work at the alchemy station** on
-  the smelt's route - **three of a metal and one Mercury** make one of the next up, own only where every unit that went in
-  was; its door the choice at 100 (`prof-transmuter`, 403, before anything moves); **no XP** (a Transmuter's track is full).
+- **The Transmuter** (3.3: "two of a DFU metal and a Mercury make one of the next up (Tin, Copper, Silver, Gold,
+  Platinum)"; 4.1: "Mercury (Alchemy's Transmuter)"; `professionLaw.js` TRANSMUTE_RECIPES). DECIDED: a **work at the alchemy
+  station** on the smelt's route - **two of a metal and one Mercury** make one of the next up, own only where every unit
+  that went in was; its door the choice at 100 (`prof-transmuter`, 403, before anything moves); **no XP** (a Transmuter's
+  track is full). DECIDED (AUDIT PROF12 E3 - Mac, 2026-10-03: **"2 + Mercury -> 1"**): 3.3 said three of a metal, and the
+  Mercury 4.1 names was laid on beside them; Mac chose two and the Mercury (`TRANSMUTE_IN` 2) - 3.3's table says so now.
 - **ENCHANTING'S LAYER** (9.3: "cost -10% at Journeyman, -20% at Master (Efficient -5% more) - a discount on the player's
   own item, which cheats no one"; `enchantDiscountPct`, `enchantGold`). Online, the professions this account's, DFU's item
   maker asks its gold with the rank's share off (`enchanting.js` enchantDecision's `discountPct`, the window's
@@ -2971,9 +2990,18 @@ Seats-Arc 7.5). What sections 1, 2, 3.3, 4.1, 4.3, 4.5, 9.3 and 9.4 left open fo
   when another's (`prof-not-yours`), listed, on the road or set down in a home (`prof-piece-busy`). **Arcane Essence**
   (680, 4.8): registered on Ectoplasm's picture, undyed (Mortar's finding); DECIDED tier 3, 4 Marks. Its origin: **own**
   where this character made the piece and nobody bought it (7), **gold** where gold bought it (10.8's wall), else **bought**.
-- **Enchanting's XP** (9.3: "comes only from what the service sees"). DECIDED - XP FOLLOWS THE RANK (Mac's PROF8 law;
-  Enchanting has no recipe ladder): **5 x the rank's own tier an Essence** the piece yields before a Disenchanter's doubling
-  (a Gold Ruby Ring's 21 Essence 105 XP to a Novice), under the crafter's limit.
+  DECIDED (AUDIT PROF12 E1): **Arcane Essence never leaves the Stores** (`NO_PACK_FORM`, beside the Ram Kit) - withdrawn,
+  it sold to any shop at its DFU worth (32 gold a unit): a Silver Ring came apart into 18 Essence and some 306 gold, a gold
+  faucet and a silver-to-gold road around the Bank's rate and cap. Its uses read the Stores (the market; Runecaster's roll
+  to come). The service refuses the withdrawal (`prof-no-pack-form`, 409 - its words now "That stays in the Stores - it
+  never goes to the pack."), and the Stores page offers no Withdraw for it, its line saying it stays.
+- **Enchanting's XP** (9.3: "comes only from what the service sees"). DECIDED (AUDIT PROF12 E2, replacing "XP follows the
+  rank"): **5 x the PIECE's recipe tier an Essence** the piece yields before a Disenchanter's doubling, **quartered** more
+  than two tiers below the rank's top (craftXp's rule), and **none for a piece made wholly of goods only a counter sells**
+  (`firstCraftPays` - the Weavers' Linen and Wool), under the crafter's limit (`alchemyLaw.js` disenchantXp(recipe, rank,
+  essence)). At the rank's own tier, never quartered, Enchanting was the cheapest track of all - 992 silver of counter Linen
+  to Master. A Gold Ruby Ring's 21 Essence: 315 XP below rank 70, 78 from it; a Silver Ring's 18: 90, and 22 from rank 40;
+  Linen Plain Robes' 7: none. The station says each piece's XP by its recipe (the streaming world hands the recipe on).
 - **THE APOTHECARY OPENED** (Seats-Arc 7.5: "members in Alchemy, Cooking, Jewelcrafting here: +1 step"; `fortLaw.js`
   APOTHECARY_OPEN - AUDIT SEATS-2 L5's gate, opened now its three stations stand). A holder's member crafting in its town
   (`seat`, the Forge's and the Workshop's route - `professions.js` seatStepsFor) takes **a step a tier**, each profession its
@@ -2998,10 +3026,19 @@ Seats-Arc 7.5). What sections 1, 2, 3.3, 4.1, 4.3, 4.5, 9.3 and 9.4 left open fo
   Masterwork's property chosen of three, 5 Essence a Rare roll) - chosen, their effects to come with that slice (the
   Masterwork's Essence spend is a Smithing change); **a potion on the market** (a potion stacks and carries no provenance -
   it trades by TRADE1 as any loot); the item maker's **material multiplier** in Disenchanting's points (above); the
-  station's **unbruised word per herb** on the page (the count is the service's; the page says the +5 a herb).
-- **Pinned**: `test/prof12_law.test.js` (9), `test/prof12_service.test.js` (6, through the real Worker),
-  `test/prof12_client.test.js` (8), `test/prof12_apothecary.test.js` (4, the Apothecary through the real Worker). Mutants:
-  `tools/mutants/prof12.json` (147, all dead). Patch notes: `PATCH-NOTES-Alchemy.md`; the Apothecary's in `PATCH-NOTES-Seats-Finished.md`.
+  station's **unbruised word per herb** on the page (the count is the service's; the page says the +5 a herb). **AUDIT
+  PROF12 E5** (LOW) - ACCEPTED: the same trust boundary as a market listing's; moot now Arcane Essence never reaches the
+  pack (E1).
+- **Audited** (2026-10-03, AUDIT PROF12 - the economy's and Alchemy's lanes; acct69, changed in place, no migration): **E1**
+  (HIGH) Arcane Essence withdrawn sold to shops for 32 gold a unit - it stays in the Stores now, the service refusing the
+  withdrawal and the page offering none; **E2** (MED) Enchanting's XP by the rank's tier, never quartered - by the piece's
+  tier now, quartered, none for the counter's goods alone; **A1** (LOW) the unbruised count outlived its herbs - clamped at
+  every own-unit spend; **A2** (LOW) a quick slot took Potent and plain for one kind - the share is in its key; **A3** Potent
+  did nothing for fourteen potions - they last longer (Mac's choice); **E3** the Transmuter's three of a metal - two and a
+  Mercury (Mac's choice); **E5** (LOW) accepted (NOT YET, above). Each pinned (eleven tests), 30 mutants added, all dead.
+- **Pinned**: `test/prof12_law.test.js` (13), `test/prof12_service.test.js` (9, through the real Worker),
+  `test/prof12_client.test.js` (12), `test/prof12_apothecary.test.js` (4, the Apothecary through the real Worker). Mutants:
+  `tools/mutants/prof12.json` (177, all dead). Patch notes: `PATCH-NOTES-Alchemy.md`; the Apothecary's in `PATCH-NOTES-Seats-Finished.md`.
 
 ## Appendix A - a day of a gatherer
 

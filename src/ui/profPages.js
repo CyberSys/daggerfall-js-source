@@ -55,7 +55,7 @@ import {
   ALCHEMY_FEE, ENCHANT_FEE, TRANSMUTE_RECIPES, TRANSMUTER, APOTHECARY_STOCK,   // PROF12: the alchemy and enchanting stations
 } from '../net/professionLaw.js';
 import {
-  POTIONS, brewKeys, brewSpends, brewCount, potentChance, potentPct, brewXp, brewFirstPays, ingredientKeys, DISTILLER, POTENT,
+  POTIONS, brewKeys, brewSpends, brewCount, potentChance, potentPct, potentLasts, brewXp, brewFirstPays, ingredientKeys, DISTILLER, POTENT,
   enchantDiscountPct, DISENCHANTER, disenchantXp, essenceOf,
 } from '../net/alchemyLaw.js';   // PROF12: Alchemy's brew, Enchanting's layer and Disenchanting
 import {
@@ -64,6 +64,7 @@ import {
   COOKING_RECIPES, dishOf, dishEffectText, dishHand, craftCount, cookXp, panCount, panWindow, HAND_PROVISIONER,   // PROF9: the fire's dishes and the pan
   JEWELCRAFTING_RECIPES, JEWEL_PIECES, jewelBases, jewelHand, jewelPointsPct, jewelPoints, takesCracked, masterworkSpec, facetCount,
   facetWindow, LAPIDARY, JEWEL_HAND_GOLDSMITH, JEWEL_HAND_GEMCUTTER, craftXp, gemWord,   // PROF10: the jeweller's pieces and the facet
+  recipeById,   // AUDIT PROF12 E2: a disenchant's XP is its piece's recipe's tier
 } from '../net/recipeLaw.js';
 import { createStitchAct } from '../systems/stitchAct.js';
 import { createChiselAct } from '../systems/chiselAct.js';   // PROF11
@@ -117,8 +118,8 @@ import { getPref, setPref } from '../systems/uiPrefs.js';
  * @property {(potion: string, keys: string[]) => Promise<{ ok: boolean, text: string }>} [brew]   PROF12: a brew, its potions
  *   into the pack and its fee paid
  * @property {() => ({ kind: 'shop'|'home', fee: number }|null)} [enchanter]   PROF12: the enchanting station the player stands at
- * @property {() => Array<{ provenance: string, name: string, points: number, essence: number }>} [disenchantable]   PROF12: the
- *   pack's crafted pieces an enchanting station may take apart, each its Essence
+ * @property {() => Array<{ provenance: string, name: string, points: number, essence: number, recipe?: string }>} [disenchantable]   PROF12: the
+ *   pack's crafted pieces an enchanting station may take apart, each its Essence (AUDIT PROF12 E2: and its recipe, the XP's tier)
  * @property {(provenance: string) => Promise<{ ok: boolean, text: string }>} [disenchant]   PROF12: a piece taken apart
  */
 let _provider = /** @type {ProfPagesProvider|null} */ (null);
@@ -261,6 +262,8 @@ function purseShort(station, who, per) {
 export const STOCK_STAYS_LINE = 'It stays at the bench: the anvil and the workbench spend it, and it comes to the pack once its own craft is practised.';   // PROF4: a counter's good with no pack form - none since PROF7 registered them all (NO_PACK_FORM empty), kept for a material to come
 /** SEAT2b part two: what a siege work (the Ram Kit) says in place of a withdrawal - its road is a Siege Camp's writ. */
 export const SIEGE_STAYS_LINE = 'A siege work stays in the Stores: a writ for your guild\'s Siege Camp carries it to the siege, delivered at a Notice Board\'s Work tab.';
+/** AUDIT PROF12 E1: what Arcane Essence says in place of a withdrawal - it never goes to the pack (NO_PACK_FORM). */
+export const ESSENCE_STAYS_LINE = 'Arcane Essence stays in the Stores: it never goes to the pack, and it is sold on the Market tab from here.';
 /**
  * AUDIT 32 P12: ESCAPE SETS AN ACT DOWN before it closes the window (AUDIT 31's law: Escape closes a form before the
  * window) - the heat, the plane or the stitch under way let go, nothing spent, and said. It closed the pause window, and
@@ -556,11 +559,11 @@ export function drawStoresPage(detail, rerender, kit) {
       _stores.word = res?.text ?? null;
       rerender();
     };
-    bar.append(qty, go);
+    if (withdrawable(pick.material)) bar.append(qty, go);   // AUDIT PROF12 E1: no Withdraw offered for a material with no pack form
     detail.append(bar);
     detail.append(el('p', 'px-note', withdrawable(pick.material)
       ? 'Withdrawn, a material is an item in your pack and never goes back into the Stores. Writs are delivered at a Notice Board\'s Work tab.'
-      : pick.family === 'siege' ? SIEGE_STAYS_LINE : STOCK_STAYS_LINE));   // SEAT2b part two: a siege work's road
+      : pick.family === 'essences' ? ESSENCE_STAYS_LINE : pick.family === 'siege' ? SIEGE_STAYS_LINE : STOCK_STAYS_LINE));   // SEAT2b part two: a siege work's road
     if ((pick.gold | 0) > 0) detail.append(el('p', 'px-note', GOLD_GOODS_LINE));
   }
   if (_stores.word) detail.append(el('p', 'prof-word', _stores.word));
@@ -1991,16 +1994,20 @@ function drawJewellerBench(detail, rerender, { el, divider }) {
 export const ALCHEMY_AWAY_LINE = `Alchemy is brewed at an alchemy station: an Alchemist's (${ALCHEMY_FEE} gold a brew), or your own home's. Your potions go to your pack.`;
 /** Tests: the station's state. */
 export const _alchemyForTests = () => _alchemy;
-/** The potion line a brew's chance says: "Potent 30% (+25% magnitude)". */
-export function potentLine(rank, specs, unbruised = 0) {
+/** The potion line a brew's chance says: "Potent 30% (+25% magnitude)" - AUDIT PROF12 A3: a potion whose magnitude is DFU's
+ *  default "(lasts 25% longer)" (alchemyLaw potentLasts), and the station's line, no potion picked, "(+25% magnitude or
+ *  duration)". */
+export function potentLine(rank, specs, unbruised = 0, potion = null) {
   const c = potentChance(rank, { distiller: specs?.[50] === DISTILLER, unbruised });
-  return `Potent ${c}% (+${potentPct(specs?.[100] ?? null)}% magnitude)`;
+  const pct = potentPct(specs?.[100] ?? null);
+  const what = !potion ? `+${pct}% magnitude or duration` : potentLasts(potion) ? `lasts ${pct}% longer` : `+${pct}% magnitude`;
+  return `Potent ${c}% (${what})`;
 }
 /**
  * PROF12: THE ALCHEMY STATION - DFU's twenty (alchemyLaw POTIONS, its own order), each its rank (its price's tier), the
  * chosen one's cauldron as the Stores hold it (an herb's group the one held more of - brewKeys), what a brew makes (1-3
  * potions) and its Potent chance, the XP; Brew (no act - 9.4: "DFU's windows stay 1:1"); an ingredient the Apothecaries
- * sell, bought where it is short (4.5); and a Transmuter's transmutations (three of a metal and a Mercury into the next).
+ * sell, bought where it is short (4.5); and a Transmuter's transmutations (two of a metal and a Mercury into the next).
  * Only at an alchemy station: an Alchemist's, its fee a brew, or the player's own home's.
  * @param {HTMLElement} detail @param {() => void} rerender @param {{ el: Function, divider: (w: string) => HTMLElement }} kit
  */
@@ -2049,7 +2056,7 @@ function drawAlchemyStation(detail, rerender, { el, divider }) {
       box.append(line);
     }
     const gathered = potion.ingredients.filter((t) => ingredientKeys(t).some((k) => k.startsWith('p'))).length;
-    box.append(el('p', 'px-note', `${n === 1 ? 'A potion' : `${n} potions`} a brew. ${potentLine(rank, specs)}${gathered ? ` - and +${POTENT.unbruised}% for each of its herbs you picked unbruised` : ''}. ${brewXp(potion, rank, false)} Alchemy XP${brewFirstPays(potion) ? `, and ${brewXp(potion, rank, true) - brewXp(potion, rank, false)} the first time` : ''}.`));
+    box.append(el('p', 'px-note', `${n === 1 ? 'A potion' : `${n} potions`} a brew. ${potentLine(rank, specs, 0, potion)}${gathered ? ` - and +${POTENT.unbruised}% for each of its herbs you picked unbruised` : ''}. ${brewXp(potion, rank, false)} Alchemy XP${brewFirstPays(potion) ? `, and ${brewXp(potion, rank, true) - brewXp(potion, rank, false)} the first time` : ''}.`));
     const ready = rank >= potion.rank && spends.length > 0 && spends.every((i) => held(i.key) >= i.n) && !_alchemy.crafting && !short;
     const go = el('button', 'act primary', _alchemy.crafting ? 'Brewing...' : 'Brew');
     go.type = 'button';
@@ -2063,10 +2070,10 @@ function drawAlchemyStation(detail, rerender, { el, divider }) {
     box.append(go);
     detail.append(box);
   }
-  // A TRANSMUTER'S TRANSMUTATIONS (3.3): three of a metal and a Mercury into the next up the ladder
+  // A TRANSMUTER'S TRANSMUTATIONS (3.3; AUDIT PROF12 E3): two of a metal and a Mercury into the next up the ladder
   if (p.smelt) {
     if (specs[100] === TRANSMUTER.id) workRows(detail, rerender, el, TRANSMUTE_RECIPES, _alchemy, 'Transmute', 'Transmuting...', (id, k) => /** @type {any} */ (p.smelt)(id, k), short);
-    else detail.append(el('p', 'px-note', 'A Transmuter - Alchemy\'s choice at 100 - turns three of a metal and a Mercury into one of the next: Tin, Copper, Silver, Gold, Platinum.'));
+    else detail.append(el('p', 'px-note', 'A Transmuter - Alchemy\'s choice at 100 - turns two of a metal and a Mercury into one of the next: Tin, Copper, Silver, Gold, Platinum.'));
   }
   detail.append(el('p', 'px-note', 'Herbs come from the wilderness (Herbalism), metals and gems from the veins, the Pearl from the sea, a body\'s parts from Hunting; the rest from the Apothecaries\' counter. Your potions go to your pack.'));
   if (_alchemy.word) detail.append(el('p', 'prof-word', _alchemy.word));
@@ -2105,7 +2112,7 @@ function drawEnchantingStation(detail, rerender, { el, divider }) {
   for (const pc of pieces) {
     const row = el('div', 'prof-smelt');
     const base = essenceOf(pc.points);
-    row.append(el('b', null, pc.name), el('span', 'prof-split', `${pc.points.toLocaleString('en-US')} points - ${pc.essence} Arcane Essence, +${disenchantXp(rank, base)} Enchanting XP${specs[50] === DISENCHANTER ? ' (a Disenchanter\'s two)' : ''}`));
+    row.append(el('b', null, pc.name), el('span', 'prof-split', `${pc.points.toLocaleString('en-US')} points - ${pc.essence} Arcane Essence, +${disenchantXp(recipeById(pc.recipe), rank, base)} Enchanting XP${specs[50] === DISENCHANTER ? ' (a Disenchanter\'s two)' : ''}`));
     const armed = _enchant.armed === pc.provenance;
     const b = el('button', 'act', _enchant.busy && armed ? 'Taking it apart...' : armed ? 'Press again: it is gone' : 'Disenchant');
     b.type = 'button';

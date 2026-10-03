@@ -146,8 +146,8 @@
   {
     "name": "SEAT2b2-ramkit-to-the-pack",
     "file": "src/net/professionLaw.js",
-    "old": "export const NO_PACK_FORM = Object.freeze(['work:ram']);",
-    "new": "export const NO_PACK_FORM = Object.freeze([]);",
+    "old": "export const NO_PACK_FORM = Object.freeze(['work:ram', 'essence:arcane']);",
+    "new": "export const NO_PACK_FORM = Object.freeze(['essence:arcane']);",
     "tests": [
       "test/seat2b_peace_law.test.js"
     ]

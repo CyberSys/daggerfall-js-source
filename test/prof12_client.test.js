@@ -31,6 +31,7 @@ import { templateByIndex } from '../src/systems/itemTemplates.js';
 import '../src/systems/profTemplates.js';
 import {
   setProfessionsPages, drawStoresPage, drawProfessionsPage, resetProfPages, enchantGoldPct, _alchemyForTests, ALCHEMY_AWAY_LINE, ENCHANT_AWAY_LINE,
+  ESSENCE_STAYS_LINE,   // AUDIT PROF12 E1
 } from '../src/ui/profPages.js';
 import { setPref } from '../src/systems/uiPrefs.js';
 import { utcDay } from '../src/net/marksLaw.js';
@@ -89,7 +90,7 @@ test('PROF12 DONE WHEN: a Healing brewed at an Alchemist\'s from the Stores\' Re
     },
     stock: async (key, qty, counter) => { const r = await book.stock(key, qty); return r.ok ? { ok: true, text: `Bought from the ${counter}.` } : { ok: false, text: accountRefusalText(r.error) }; },
     enchanter: () => ({ kind: 'shop', fee: ENCHANT_FEE }),
-    disenchantable: () => player.items.filter((it) => it.provenance).map((it) => ({ provenance: it.provenance, name: itemLongName(it), points: 2160, essence: 21 })),
+    disenchantable: () => player.items.filter((it) => it.provenance).map((it) => ({ provenance: it.provenance, name: itemLongName(it), points: 2160, essence: 21, recipe: it.recipe })),
     disenchant: async (pv) => {
       const r = await book.disenchant(pv);
       if (r.ok) player.items = player.items.filter((it) => it.provenance !== pv);
@@ -99,7 +100,7 @@ test('PROF12 DONE WHEN: a Healing brewed at an Alchemist\'s from the Stores\' Re
   const page = pageOf();
   try {
     assert.match(page.text(), /The Alchemy Station/);
-    assert.match(page.text(), /The alchemist's station - 50 gold a brew\. Alchemy 0 \(Novice\): a potion a brew; Potent 0% \(\+25% magnitude\), \+5% for each herb you picked unbruised\./);
+    assert.match(page.text(), /The alchemist's station - 50 gold a brew\. Alchemy 0 \(Novice\): a potion a brew; Potent 0% \(\+25% magnitude or duration\), \+5% for each herb you picked unbruised\./);
     assert.equal(page.recipe('Healing').textContent, 'Healingwants its ingredients');
     assert.equal(page.recipe('Invisibility').textContent, 'Invisibilityrank 70');
     page.recipe('Healing').onclick();
@@ -129,7 +130,7 @@ test('PROF12 DONE WHEN: a Healing brewed at an Alchemist\'s from the Stores\' Re
     assert.equal((await book.refresh({ force: true })).ok, true);
     page.draw();
     page.recipe('Healing').onclick();
-    assert.match(page.text(), /Alchemy 100 \(Master\): 3 potions a brew; Potent 20% \(\+40% magnitude\)/);
+    assert.match(page.text(), /Alchemy 100 \(Master\): 3 potions a brew; Potent 20% \(\+40% magnitude or duration\)/);
     await steered(0x00, async () => { page.button('Brew').onclick(); await settle(_alchemyForTests()); });
     const potent = player.items.find((it) => it.potent === 40);
     assert.deepEqual([potent?.stackCount ?? 1, potent?.value, itemLongName(potent)], [3, 70, 'Potent Potion of Healing'], 'three, stacked apart from the plain one; worth its share more');
@@ -141,12 +142,12 @@ test('PROF12 DONE WHEN: a Healing brewed at an Alchemist\'s from the Stores\' Re
     player.items.push({ group: 'Jewellery', templateIndex: 135, provenance: made.body.pieces[0].provenance, recipe: 'ring:gold:ruby', name: 'Gold Ruby Ring', enchantmentPoints: 2160 });
     page.draw();
     assert.match(page.text(), /The Enchanting Station.*The guild's enchanter - 50 gold a piece\. Enchanting 0 \(Novice\)\./);
-    assert.match(page.text(), /2,160 points - 21 Arcane Essence, \+105 Enchanting XP/);
+    assert.match(page.text(), /2,160 points - 21 Arcane Essence, \+315 Enchanting XP/);   // AUDIT PROF12 E2: 5 x the Gold ring's tier 3 x 21
     page.button('Disenchant').onclick();
     assert.ok(page.button('Press again: it is gone'), 'pressed once: armed, nothing asked');
     page.button('Press again: it is gone').onclick();
     for (let i = 0; i < 40 && book.held('essence:arcane') === 0; i++) await new Promise((r) => setTimeout(r, 5));
-    assert.deepEqual([book.held('essence:arcane'), book.track('enchanting').xp, player.items.some((it) => it.provenance)], [21, 105, false]);
+    assert.deepEqual([book.held('essence:arcane'), book.track('enchanting').xp, player.items.some((it) => it.provenance)], [21, 315, false]);
   } finally { page.done(); setProfessionsPages(null); }
 });
 
@@ -169,14 +170,14 @@ function stubPages({ alchemy = null, enchanter = null, alchemyTrack = { rank: 0,
     book, name: (k) => k, withdraw: async () => ({ ok: true, text: '' }), purse: () => 1000,
     alchemy: () => alchemy, brew: async (p, k) => { calls.push(['brew', p, k]); return { ok: true, text: 'brewed' }; },
     smelt: async (id, n) => { calls.push(['smelt', id, n]); return { ok: true, text: 'turned' }; },
-    enchanter: () => enchanter, disenchantable: () => [{ provenance: 'aaaaaaaaaaaaaaaa', name: 'Iron Longsword', points: 600, essence: 6 }],
+    enchanter: () => enchanter, disenchantable: () => [{ provenance: 'aaaaaaaaaaaaaaaa', name: 'Iron Longsword', points: 600, essence: 6, recipe: 'longsword:iron' }],
     disenchant: async (pv) => { calls.push(['disenchant', pv]); return { ok: true, text: 'apart' }; },
     ...over,
   });
   return { calls, held };
 }
 
-test('PROF12 pages: The Alchemy Station - away, the word; at a home\'s, no fee; DFU\'s twenty by their price\'s ranks; a cauldron filled from the herb group held more of; Brew asks the potion and its keys; the brews a rank makes; a Transmuter\'s transmutations (three of a metal and a Mercury), none for another', async () => {
+test('PROF12 pages: The Alchemy Station - away, the word; at a home\'s, no fee; DFU\'s twenty by their price\'s ranks; a cauldron filled from the herb group held more of; Brew asks the potion and its keys; the brews a rank makes; a Transmuter\'s transmutations (two of a metal and a Mercury - AUDIT PROF12 E3), none for another', async () => {
   stubPages();
   let page = pageOf();
   assert.ok(page.text().includes(ALCHEMY_AWAY_LINE));
@@ -194,14 +195,14 @@ test('PROF12 pages: The Alchemy Station - away, the word; at a home\'s, no fee; 
   page.button('Brew').onclick();
   await settle(_alchemyForTests());
   assert.deepEqual(calls, [['brew', 'healing', ['p2:16', 'reagent:troll-blood', 'reagent:elixir-vitae', 'metal:mercury']]]);
-  assert.match(page.text(), /A Transmuter - Alchemy's choice at 100 - turns three of a metal and a Mercury/);
+  assert.match(page.text(), /A Transmuter - Alchemy's choice at 100 - turns two of a metal and a Mercury/);
   assert.equal(page.button('Transmute'), null);
   page.done();
   const { calls: calls2 } = stubPages({ alchemy: { kind: 'shop', fee: ALCHEMY_FEE }, alchemyTrack: { rank: 100, specs: { 50: 'distiller', 100: 'transmuter' } }, held: { 'metal:tin': 3, 'metal:mercury': 1 } });
   page = pageOf();
-  assert.match(page.text(), /Alchemy 100 \(Master\): 3 potions a brew; Potent 30% \(\+25% magnitude\)/, 'Master\'s 20 and a Distiller\'s 10');
-  assert.match(page.text(), /metal:copper3 metal:tin \(3\) \+ 1 metal:mercury \(1\)/, 'Tin to Copper, its inputs as the Stores hold them');
-  assert.match(page.text(), /metal:silver3 metal:copper \(0\) \+ 1 metal:mercury \(1\)/);
+  assert.match(page.text(), /Alchemy 100 \(Master\): 3 potions a brew; Potent 30% \(\+25% magnitude or duration\)/, 'Master\'s 20 and a Distiller\'s 10');
+  assert.match(page.text(), /metal:copper2 metal:tin \(3\) \+ 1 metal:mercury \(1\)/, 'Tin to Copper, its inputs as the Stores hold them');
+  assert.match(page.text(), /metal:silver2 metal:copper \(0\) \+ 1 metal:mercury \(1\)/);
   const go = page.button('Transmute');
   assert.equal(go.disabled, false);
   go.onclick();
@@ -219,7 +220,7 @@ test('PROF12 pages: The Enchanting Station - away, the word; at a Mages Guild ha
   const { calls } = stubPages({ enchanter: { kind: 'shop', fee: ENCHANT_FEE }, enchantingTrack: { rank: 100, specs: { 50: 'efficient', 100: null } } });
   page = pageOf();
   assert.match(page.text(), /The guild's enchanter - 50 gold a piece\. Enchanting 100 \(Master\): the item maker's gold 25% less\./);
-  assert.match(page.text(), /Iron Longsword600 points - 6 Arcane Essence, \+210 Enchanting XP/);
+  assert.match(page.text(), /Iron Longsword600 points - 6 Arcane Essence, \+7 Enchanting XP/, 'AUDIT PROF12 E2: the Iron sword\'s tier 1, quartered at a Master\'s 7 - 30 / 4');
   assert.equal(enchantGoldPct(), 25, 'a Master\'s 20 and an Efficient\'s 5');
   // the item maker's window reads the share: its gold label and the gold it asks
   const player = { items: [], gold: 0, goldPieces: 0 };
@@ -288,7 +289,7 @@ test('PROF12 items: a brew\'s potions are DFU\'s own (createPotion - its key, pr
   const e = bundle.effects[0];
   assert.deepEqual([e.magnitudeBaseLow, e.magnitudeLevelBase], [5, 9]);
   const src0 = src('src/scenes/hostMagic.js');
-  assert.match(src0, /drinkPotion\(recipeKey, potent = 0\) \{\n\s*const plain = potionBundle\(recipeKey\);\n\s*if \(!plain\) return null;\n[^\n]*\n\s*const bundle = potent \? \{ \.\.\.plain, effects: plain\.effects\.map\(\(e\) => potentEffect\(e, potent\)\) \} : plain;/);
+  assert.match(src0, /drinkPotion\(recipeKey, potent = 0\) \{\n\s*const plain = potionBundle\(recipeKey\);\n\s*if \(!plain\) return null;\n[^\n]*(?:\s*\/\/[^\n]*\n)+\s*const bundle = potent \? \{ \.\.\.plain, effects: plain\.effects\.map\(\(e\) => potentEffect\(e, potent, effectiveLevel\(playerEntity\)\)\) \} : plain;/);
   const drunk = [];
   const bag = [{ ...potent[0], stackCount: 1 }];
   useItem(bag[0], bag, { drinkPotion: (key, share) => { drunk.push([key, share]); return 'Healing'; } });
@@ -371,4 +372,79 @@ test('PROF12 wiring: the alchemy station an Alchemist\'s (open for trade) or a h
   assert.match(src('server-account/src/service.js'), /'\/v1\/prof\/brew', '\/v1\/prof\/disenchant',/);
   assert.match(src('src/ui/profPages.js'), /drawJewellerBench\(detail, rerender, kit\);   \/\/ PROF10\n\s*drawAlchemyStation\(detail, rerender, kit\);   \/\/ PROF12\n\s*drawEnchantingStation\(detail, rerender, kit\);   \/\/ PROF12/);
   assert.equal(POTENT.pct, 25);
+});
+
+// ─── AUDIT PROF12 (2026-10-03): E1, E2, A2, A3 ───────────────────────
+
+test('AUDIT PROF12 E1 client: the Stores page offers no Withdraw for Arcane Essence - its line says it stays, and the service\'s refusal is worded; a reagent beside it in the Essences still withdraws', () => {
+  stubPages();
+  _stubBook.state.stores.set('essence:arcane', { material: 'essence:arcane', own: 18, bought: 0 });
+  _stubBook.state.stores.set('reagent:ichor', { material: 'reagent:ichor', own: 0, bought: 2 });
+  const page = pageOf();
+  const card = (k) => page.buttonStarting(k);
+  try {
+    card('essence:arcane').onclick();
+    assert.equal(page.button('Withdraw to pack'), null, 'no Withdraw at all');
+    assert.ok(page.text().includes(ESSENCE_STAYS_LINE));
+    assert.doesNotMatch(page.text(), /Withdrawn, a material is an item in your pack/);
+    card('reagent:ichor').onclick();
+    assert.ok(page.button('Withdraw to pack'), 'a reagent goes to the pack');
+    assert.equal(page.button('Withdraw to pack').disabled, false);
+    assert.equal(page.text().includes(ESSENCE_STAYS_LINE), false);
+  } finally { page.done(); setProfessionsPages(null); }
+  assert.match(accountRefusalText('prof-no-pack-form'), /stays in the Stores/);
+});
+
+test('AUDIT PROF12 E2 client: the Enchanting Station says a piece\'s XP by its recipe\'s tier (a Gold ring\'s 3, a Master\'s Iron sword quartered, the counter\'s Linen none), and the streaming world hands each piece its recipe', async () => {
+  const pieces = [
+    { provenance: 'aaaaaaaaaaaaaaaa', name: 'Gold Ruby Ring', points: 2160, essence: 21, recipe: 'ring:gold:ruby' },
+    { provenance: 'bbbbbbbbbbbbbbbb', name: 'Linen Plain Robes', points: 700, essence: 7, recipe: 'garment-163:linen' },
+    { provenance: 'cccccccccccccccc', name: 'Iron Longsword', points: 600, essence: 6, recipe: 'longsword:iron' },
+  ];
+  stubPages({ enchanter: { kind: 'home', fee: 0 }, enchantingTrack: { rank: 0, specs: { 50: null, 100: null } }, over: { disenchantable: () => pieces } });
+  let page = pageOf();
+  assert.match(page.text(), /Gold Ruby Ring2,160 points - 21 Arcane Essence, \+315 Enchanting XP/);
+  assert.match(page.text(), /Linen Plain Robes700 points - 7 Arcane Essence, \+0 Enchanting XP/);
+  assert.match(page.text(), /Iron Longsword600 points - 6 Arcane Essence, \+30 Enchanting XP/);
+  page.done();
+  stubPages({ enchanter: { kind: 'home', fee: 0 }, enchantingTrack: { rank: 100, specs: { 50: null, 100: null } }, over: { disenchantable: () => pieces } });
+  page = pageOf();
+  assert.match(page.text(), /Gold Ruby Ring2,160 points - 21 Arcane Essence, \+78 Enchanting XP/, 'tier 3 at a Master\'s 7: quartered');
+  page.done();
+  setProfessionsPages(null);
+  assert.match(src('src/scenes/world.js'), /essence: essenceOf\(points, profBook\?\.track\('enchanting'\)\?\.specs\?\.\[50\] === DISENCHANTER\), recipe: it\.recipe \}/);
+});
+
+test('AUDIT PROF12 A2 client: a quick slot keeps a Potent potion and a plain one of the same recipe apart - two kinds, and the HUD\'s count each its own', async () => {
+  const { quickslotKey, assignQuickslot, resolveConsumable, clearQuickslots } = await import('../src/systems/quickslots.js');
+  clearQuickslots();
+  const [plain] = brewItems({ potion: 'resistFire', count: 1, potent: 0 });
+  const [potent] = brewItems({ potion: 'resistFire', count: 1, potent: 25 });
+  const [master] = brewItems({ potion: 'resistFire', count: 1, potent: 40 });
+  assert.notEqual(quickslotKey(plain), quickslotKey(potent));
+  assert.notEqual(quickslotKey(potent), quickslotKey(master));
+  assert.equal(quickslotKey(potent), quickslotKey(brewItems({ potion: 'resistFire', count: 1, potent: 25 })[0]), 'two Potent of one share: one kind');
+  const pack = [{ ...plain, stackCount: 3 }, { ...potent, stackCount: 2 }];
+  const entity = { items: pack };
+  assignQuickslot('c1', pack[1]);
+  assignQuickslot('c2', pack[0]);
+  assert.deepEqual([resolveConsumable(entity, 'c1').count, resolveConsumable(entity, 'c1').item.potent], [2, 25], 'the Potent slot counts the Potent');
+  assert.deepEqual([resolveConsumable(entity, 'c2').count, resolveConsumable(entity, 'c2').item.potent], [3, undefined], 'the plain slot the plain');
+  clearQuickslots();
+});
+
+test('AUDIT PROF12 A3 client (Mac: "Potent lasts longer"): a Potent potion whose magnitude is DFU\'s default says it lasts longer - the brew\'s word and the station\'s line; one with a magnitude its share of magnitude; the station\'s line before a potion is picked both', () => {
+  assert.equal(brewedText({ potion: 'resistFire', count: 1, potent: 25 }), 'You brewed a Potent Potion of Resist Fire (lasts 25% longer)');
+  assert.equal(brewedText({ potion: 'invisibility', count: 3, potent: 40 }), 'You brewed 3 Potent Potions of Invisibility (lasts 40% longer)');
+  assert.equal(brewedText({ potion: 'healing', count: 1, potent: 25 }), 'You brewed a Potent Potion of Healing (+25% magnitude)');
+  assert.equal(brewedText({ potion: 'resistFire', count: 1, potent: 0 }), 'You brewed a Potion of Resist Fire');
+  stubPages({ alchemy: { kind: 'home', fee: 0 }, alchemyTrack: { rank: 100, specs: { 50: null, 100: 'master-alchemist' } } });
+  const page = pageOf();
+  try {
+    assert.match(page.text(), /Alchemy 100 \(Master\): 3 potions a brew; Potent 20% \(\+40% magnitude or duration\)/);
+    page.recipe('Resist Fire').onclick();
+    assert.match(page.text(), /3 potions a brew\. Potent 20% \(lasts 40% longer\)/);
+    page.recipe('Healing').onclick();
+    assert.match(page.text(), /3 potions a brew\. Potent 20% \(\+40% magnitude\)/);
+  } finally { page.done(); setProfessionsPages(null); }
 });
