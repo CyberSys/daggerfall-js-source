@@ -5,7 +5,7 @@
 // The Loot arc (bible/06-Systems/Loot-Arc.md section 9; Mac: "Do you
 // wanna turn this into an arc and do all of the above?" - "Champion foes.
 // Single named foes with visible traits (Fiery, Swift, Vampiric) and a
-// guaranteed Rare"). About one foe in twenty of level 3 or more stands as
+// guaranteed Rare"). About one foe in fourteen of level 3 or more stands as
 // a CHAMPION with one TRAIT: twice its health and its blows a quarter
 // harder, its trait on top, its name the trait's and its own, and a Rare
 // or better ALWAYS on its body (scenes/hostCombat.js spawnEnemyLoot).
@@ -31,8 +31,9 @@ import { KNIGHT_CITY_WATCH } from '../characters/mobileTypes.js';
 import { enemyDisplayName } from '../characters/enemyBasics.js';   // LOOT7-CHECK CHAMP-SAID: the name the death line says
 import { popupMessage } from './notify.js';   // LOOT7-CHECK CHAMP-SAID: DaggerfallUI.PopupMessage, the live host's line
 
-/** Per mille of the foes that may be one that stand as a champion. */
-export const CHAMPION_PER_MILLE = 50;
+/** Per mille of the foes that may be one that stand as a champion (CHAMP-RATE, 2026-10-03, Mac: "buff champion rates
+ *  slightly": 70, was 50 - about one in fourteen, was one in twenty). */
+export const CHAMPION_PER_MILLE = 70;
 /** A champion is a foe of this level or more. */
 export const CHAMPION_MIN_LEVEL = 3;
 /** Every champion: its health times this, its blows times this. */
