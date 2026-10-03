@@ -107,7 +107,7 @@ export const matchBand = (waitMs) => Math.min(MATCH_BAND_MAX, MATCH_BAND_START +
  * offer again yet - and ARENA4b: like with like, a casual bout's seeker (`casual`) only with another (Arena.md 7: "A
  * casual bout (unranked) may run"), so nobody sent to a rated bout meets one who asked for none. `queue`
  * `[{ sub, rating, at, casual? }]`. Pure.
- * @param {ReadonlyArray<{ sub: string, rating: number, at: number }>} queue
+ * @param {ReadonlyArray<{ sub: string, rating: number, at: number, casual?: boolean }>} queue
  * @param {number} now
  * @param {(a: string, b: string) => boolean} [apart]
  * @returns {Array<[any, any]>}
