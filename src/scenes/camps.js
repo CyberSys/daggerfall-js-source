@@ -532,7 +532,7 @@ export function createCamps({
   function destroyAll() {
     for (const c of camps) unmount(c);
     camps.length = 0;
-    _bedroll = null;   // REST6: a spot, not a camp - it stays where it was laid
+    _bedroll = null;   // REST6: a spot, not a camp - the scene's teardown takes it up
     _owners.clear();
   }
   /** The streaming host's sweep: a camp on an evicted pixel goes with it - it comes back from the scene cache. */

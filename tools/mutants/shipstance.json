@@ -336,8 +336,8 @@
   {
     "name": "HUD-tag-line-unwritten",
     "file": "src/ui/navalHud.js",
-    "old": "    set('line', tagLine(t), (v) => { slot.line.textContent = v; });",
-    "new": "    set('line', tagLine(t), () => {});",
+    "old": "    set('line', t.detail ? tagLine(t) : '', (v) => { slot.line.textContent = v; });",
+    "new": "    set('line', t.detail ? tagLine(t) : '', () => {});",
     "tests": [
       "test/shipstance.test.js"
     ]

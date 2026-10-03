@@ -18,7 +18,12 @@
 //     strikes.
 //   - BACKING OFF. A foe that loses a share of its health in a short window backs out of reach and circles before it
 //     comes back. A coward (an animal, a thief's kind of class) at low health runs (DFU's flee).
-//   - KITING. A shooter with a ranged token backs away from a target closing inside its stand-off band.
+//   - KITING. A shooter backs away from a target closing inside its stand-off band - one burst, then it fights.
+//   - FEEDBACK (2026-10-02, lumin: "New monster AI is painful... a little too hard. The archers that just keep kiting you
+//     in a circle"; maya: "They keep walking backwards"): nobody backpedals after a target that presses it. A waiting
+//     foe the target walks up to fights; the step back after a blow is a hop; a hurt foe or a kiting archer turns and
+//     WALKS away (a foe walks the way it faces), at most once a cooldown; a shooter without a token stands off, never
+//     circles.
 //
 // One registry of tokens, by target: the local player is one key, every other target its own object.
 
@@ -53,6 +58,12 @@ export const TACT = Object.freeze({
   KITE_IN: 6,                // a shooter with a token backs off a target inside DFU's own bow band's near edge (MIN_RANGED_DISTANCE)...
   KITE_OUT: 7,               // ...until it stands this far off (AUDIT TACT A1: past the band's edge, never jittering on it)
   KITE_CORNERED: 3,          // a shooter whose step back meets a wall fights hand to hand this long (s)
+  KITE_MAX: 2,               // FEEDBACK: one kiting burst lasts at most this long (s) - caught, it fights hand to hand...
+  KITE_COOLDOWN: 8,          // ...and it kites again only this long after its last burst ended (s)
+  RECOVER_HOP: 0.4,          // FEEDBACK: after its blow a holder backs out at most this long (s), then holds its ground
+  BACKOFF_COOLDOWN: 10,      // FEEDBACK: a hurt foe backs off at most once in this long (s)
+  WALK_FACE_DEG: 45,         // FEEDBACK: a foe walking away turns first, and steps only once it faces within this of its way
+  FACE_BACK: 1,              // FEEDBACK: ...and at the walk's end has this long to turn back and face its target (s)
   RANGED_LEASE: 5,           // a ranged token held this long without a shot is handed on (s)
   BACKOFF_GAP: 2,            // a foe backing off stands this far past the ring
   BACK_TURNED_DEG: 110,      // the target's facing this far from the foe: its back is turned
@@ -158,14 +169,18 @@ export function tacticsStep(ai, dx, dz) {
   ai._tacSpeed = 1;
   if (!tacticsSwitchOn()) { if (ai._tac) releaseTactics(ai); ai._tac = null; ai._tacStrike = undefined; ai._tacShoot = undefined; return false; }
   const now = clock();
-  const s = ai._tac ?? (ai._tac = { key: null, kind: 'melee', state: 'wait', until: 0, slot: Math.random() * Math.PI * 2, hp: [], fled: false, seen: now, swung: 0, shot: 0, kiting: false, meleeUntil: 0, leased: 0 });
+  const s = ai._tac ?? (ai._tac = { key: null, kind: 'melee', state: 'wait', until: 0, slot: Math.random() * Math.PI * 2, hp: [], fled: false, seen: now, swung: 0, shot: 0, kiting: false, meleeUntil: 0, leased: 0, kiteUntil: 0, kiteReady: 0, backUntil: 0, backoffReady: 0, faceUntil: 0 });
   // AUDIT TACT D1/A3: a step it did not decide - knocked back, paralysed, held - is the MOTOR's word (`_tacSkipped`,
   // set when it could not act), never a gap on any clock: a slow frame is not a knock
   const skipped = !!ai._tacSkipped;
   ai._tacSkipped = false;
   s.seen = now;
   const dist = ai._dist;
-  const fighting = ai.inSight && ai.detected && Number.isFinite(dist) && dist <= (shooter(ai) ? TACT.SHOOT_RANGE : TACT.ENGAGE_RANGE) && !ai.follow;
+  // FEEDBACK: a foe walking away has turned its back on its target, out of its own 180-degree sight - the walk is the
+  // brain's, held to its end (a kite's burst, a back-off's beat), not handed to the classic motor to turn it round
+  // (and through the turn back to face it after, a second at most)
+  const away = s.key != null && (s.kiting || s.state === 'backoff' || now < (s.faceUntil ?? 0));
+  const fighting = (ai.inSight || away) && ai.detected && Number.isFinite(dist) && dist <= (shooter(ai) ? TACT.SHOOT_RANGE : TACT.ENGAGE_RANGE) && !ai.follow;
   const key = fighting ? targetKey(ai) : null;
   ai._tacStrike = undefined; ai._tacShoot = undefined;
   // TACT4: a wind-up, once begun, is committed - it lands where it was aimed whether or not the target stays in sight
@@ -174,7 +189,10 @@ export function tacticsStep(ai, dx, dz) {
   if (!fighting) return false;
   const b = board(key);
   prune(b, now);
-  s.kind = shooter(ai) && now >= s.meleeUntil ? 'ranged' : 'melee';   // AUDIT TACT A1: a cornered shooter fights hand to hand a while
+  // AUDIT TACT A1: a cornered shooter fights hand to hand a while. FEEDBACK: so does one inside its bow band's near edge
+  // whose kite is spent - DFU's own fallback, a bow foe out of its band is a melee fighter - until the kite is back
+  s.kind = shooter(ai) && now >= s.meleeUntil && (dist >= TACT.KITE_IN || s.kiting || now >= (s.kiteReady ?? 0)) ? 'ranged' : 'melee';
+  if (s.kind === 'ranged') b.melee.delete(ai); else b.ranged.delete(ai);   // FEEDBACK: a token of the kind it no longer fights as is handed back
   if (!b.waiting.has(ai) && !b.melee.has(ai) && !b.ranged.has(ai)) b.waiting.set(ai, now);
 
   // health: the window's losses, and the coward's run
@@ -191,8 +209,9 @@ export function tacticsStep(ai, dx, dz) {
       ai.flee(from, TACT.FLEE_SECONDS);
       return true;
     }
-    if (s.hp.length > 1 && (s.hp[0][1] - v.health) / v.maxHealth >= TACT.HURT_SHARE && s.state !== 'backoff') {
+    if (s.hp.length > 1 && (s.hp[0][1] - v.health) / v.maxHealth >= TACT.HURT_SHARE && s.state !== 'backoff' && now >= (s.backoffReady ?? 0)) {
       s.state = 'backoff'; s.until = now + TACT.BACKOFF; s.hp.length = 0;
+      s.backUntil = s.until; s.backoffReady = now + TACT.BACKOFF_COOLDOWN;   // FEEDBACK: once a cooldown
       b.melee.delete(ai); b.ranged.delete(ai); b.waiting.set(ai, now);
     }
   }
@@ -205,9 +224,13 @@ export function tacticsStep(ai, dx, dz) {
   }
   if (s.state === 'swing' && now >= s.until) {
     s.state = 'recover'; s.until = now + TACT.RECOVER_MIN + Math.random() * (TACT.RECOVER_MAX - TACT.RECOVER_MIN);
+    s.backUntil = now + TACT.RECOVER_HOP;   // FEEDBACK: a hop out, not a retreat
     b.melee.delete(ai); b.waiting.set(ai, now);
   }
-  if ((s.state === 'recover' || s.state === 'backoff') && now >= s.until) s.state = 'wait';
+  if ((s.state === 'recover' || s.state === 'backoff') && now >= s.until) {
+    if (s.state === 'backoff') s.faceUntil = now + TACT.FACE_BACK;   // FEEDBACK: it turns back to face the fight
+    s.state = 'wait';
+  }
 
   const reach = ai.stopDistance ?? 2.25;
   const ring = reach + TACT.RING_GAP;
@@ -225,32 +248,36 @@ export function tacticsStep(ai, dx, dz) {
     const has = take(b, 'ranged', ai, now, TACT.RANGED_TOKENS);
     if (has && !had) s.leased = now;
     ai._tacShoot = has;
-    if (has) {
-      // AUDIT TACT A1: inside the bow band's near edge it backs out, past the edge, and only then stands to shoot
-      if (s.kiting ? dist < TACT.KITE_OUT : dist < TACT.KITE_IN) {
-        if (ai._tacBlocked) {   // a wall behind it: cornered, it fights hand to hand
-          ai._tacBlocked = false; s.kiting = false; s.meleeUntil = now + TACT.KITE_CORNERED;
-          b.ranged.delete(ai); b.waiting.set(ai, now);
-          return false;
-        }
-        s.kiting = true;
-        ai._tacDir = [-ux, -uz]; ai._tacSpeed = TACT.STEP_SPEED; ai.moving = true; face();
-        return true;
+    // AUDIT TACT A1: inside the bow band's near edge it backs out, past the edge, and only then stands to shoot.
+    // FEEDBACK: with or without a token (the token is the shot's, not the step's), it turns and walks out, one burst of
+    // at most KITE_MAX - caught, or a wall at its back, and it fights hand to hand until its kite is back
+    if (s.kiting ? dist < TACT.KITE_OUT : dist < TACT.KITE_IN) {
+      if (!s.kiting) { s.kiting = true; s.kiteUntil = now + TACT.KITE_MAX; }
+      if (ai._tacBlocked || now >= s.kiteUntil) {   // a wall behind it: cornered, it fights hand to hand
+        ai._tacBlocked = false; s.kiting = false; s.meleeUntil = now + TACT.KITE_CORNERED; s.kiteReady = now + TACT.KITE_COOLDOWN; s.faceUntil = now + TACT.FACE_BACK;
+        b.ranged.delete(ai); b.waiting.set(ai, now);
+        return false;
       }
-      s.kiting = false;
-      return false;   // the classic stand-off and shot
+      return walkAway(ai, -ux, -uz, TACT.STEP_SPEED);
     }
-    s.kiting = false;
-    return holdRing(ai, s, b, ux, uz, dist, ring + 2, now, face);
+    if (s.kiting) { s.kiting = false; s.kiteReady = now + TACT.KITE_COOLDOWN; s.faceUntil = now + TACT.FACE_BACK; }
+    ai._tacBlocked = false;
+    if (!ai.inSight && now < s.faceUntil) { face(); ai.moving = false; return true; }   // FEEDBACK: out past the edge, it turns back to shoot
+    // FEEDBACK: no ring for a shooter - with a token the classic stand-off and shot, without one the stand-off alone
+    // (it holds its fire), never circling the target
+    return false;
   }
   ai._tacBlocked = false;
 
   // melee
   const backTurned = key === LOCAL && _me && backTurnedOn(ai);
-  if (s.state === 'wait' && (take(b, 'melee', ai, now, TACT.MELEE_TOKENS) || (backTurned && dist <= ring + TACT.RING_SLACK))) {
+  // FEEDBACK: a target inside the ring's near edge has walked up to a foe that keeps off it - pressed, it fights back
+  // rather than backpedalling ahead of it; the tokens ration who comes IN, never who answers
+  const open = (backTurned && dist <= ring + TACT.RING_SLACK) || dist < ring - TACT.RING_SLACK;
+  if (s.state === 'wait' && (take(b, 'melee', ai, now, TACT.MELEE_TOKENS) || open)) {
     s.state = 'engage';
   }
-  if (s.state === 'engage' && !b.melee.has(ai) && !backTurned) s.state = 'wait';
+  if (s.state === 'engage' && !b.melee.has(ai) && !open) s.state = 'wait';
   // TACT4: a telegraphed blow - a holder in reach of the tier, its cooldown spent, nobody else winding up near me
   if (s.state === 'engage' && b.melee.has(ai) && key === LOCAL && _me && dist <= reach + 0.5 && ai.canAct !== false && now >= (s.blowReady ?? 0)) {   // AUDIT TACT: a token holder's, never an opportunist's
     const ent = ai.vitals?.();
@@ -269,6 +296,16 @@ export function tacticsStep(ai, dx, dz) {
   // would be walked back in to the moment it got there
   const hold = s.state === 'backoff' ? ring + TACT.BACKOFF_GAP : ring;
   return holdRing(ai, s, b, ux, uz, dist, hold, now, face);
+}
+
+/** FEEDBACK: walk the way it faces - turn toward `wx, wz` first (in place, as the classic motor turns), then step. */
+function walkAway(ai, wx, wz, speed) {
+  ai.yaw = turnToward(ai.yaw, wx, wz);
+  let d = Math.atan2(wx, wz) - ai.yaw;
+  d = Math.atan2(Math.sin(d), Math.cos(d));
+  if (Math.abs(d) > TACT.WALK_FACE_DEG * Math.PI / 180) { ai.moving = false; return true; }
+  ai._tacDir = [wx, wz]; ai._tacSpeed = speed; ai.moving = true;
+  return true;
 }
 
 /** TACT4: the wind-up's turn - broken by a knock or a paralysis (a step the motor did not let the brain decide), else
@@ -294,11 +331,16 @@ function windupTurn(ai, s, now, skipped) {
   return true;
 }
 
-/** Hold the ring: step in or out to it, else circle round toward the foe's own slot. */
+/** Hold the ring: step in or out to it, else circle round toward the foe's own slot. FEEDBACK: out only while its
+ *  back-step lasts (a hop after a blow, facing; a hurt foe's retreat, walked facing its way) - then it holds its ground. */
 function holdRing(ai, s, b, ux, uz, dist, ring, now, face) {
+  if (dist < ring - TACT.RING_SLACK && now < (s.backUntil ?? 0)) {
+    if (s.state === 'backoff') return walkAway(ai, -ux, -uz, TACT.STEP_SPEED);
+    face(); ai._tacDir = [-ux, -uz]; ai._tacSpeed = TACT.STEP_SPEED; ai.moving = true; return true;
+  }
   face();
   if (dist > ring + TACT.RING_SLACK) return false;   // the classic advance brings it to the ring
-  if (dist < ring - TACT.RING_SLACK) { ai._tacDir = [-ux, -uz]; ai._tacSpeed = TACT.STEP_SPEED; ai.moving = true; return true; }
+  if (dist < ring - TACT.RING_SLACK) { ai.moving = false; return true; }   // FEEDBACK: its back-step spent, it stands
   // round the ring toward the slot: the angle of this foe about the target against its slot
   s.slot += TACT.SLOT_TURN * 0.0625;
   const here = Math.atan2(-ux, -uz);

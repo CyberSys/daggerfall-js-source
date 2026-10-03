@@ -1973,7 +1973,7 @@ export class EnemyAI {
         // The translation is the ELSE arm (:989-996) - a blocked foe
         // does not move this step at all, it picks a way round. Gravity
         // is separate (ApplyGravity, :167) and still applies.
-        if (this._tacDir) { this._tacDir = null; this._tacBlocked = true; }   // TACT2: a wall or a drop behind it: it stands its ground (AUDIT TACT A1: and the brain hears of it)
+        if (this._tacDir) { this._tacDir = null; this._tacBlocked = true; this.moving = false; }   // TACT2: a wall or a drop behind it: it stands its ground (AUDIT TACT A1: and the brain hears of it; TACT5: for the rest of the classic tick too - never walked on the way it faces, into a detour)
         else this._findDetour(dir2d);
       } else {
         const k = this._tacDir ? this._tacSpeed : 1;

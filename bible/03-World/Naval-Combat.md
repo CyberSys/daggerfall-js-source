@@ -472,7 +472,7 @@ them, and no captain takes them for a contact.
   of the eye and past NAVAL_TAG_NEAR (nearer, she fills the view), NAVAL_TAG_MAX of them nearest first (the host's
   `tags`): her name in her trade's colour (a hostile ship's red), her hull's bar, her state in the card's words
   (Colours struck, Taken, Boarded, Going down - none while she sails: her red says hostile; SHIP-STANCE, below: a
-  friendly ship's bar green, and SHIP-TAGS' second line within TAG_DETAIL_M), the card's ship ringed - TAG_LIFT over her highest spar as she stands, so it settles as she
+  friendly ship's bar green, and SHIP-TAGS' second line within TAG_DETAIL_M on the one tag SHIP-CLUTTER picks, no tag drawn over another), the card's ship ringed - TAG_LIFT over her highest spar as she stands, so it settles as she
   goes down. The world projects them through the frame's own matrices behind a sight cache of their own (the peers'
   names' law, NAME1) and hides them under every window, a pause, the HUD hidden and the travel view (`navalTags`);
   the readout's tag layer wears them (`drawNavalTags`: one node a slot, moved, never rebuilt, at the HUD's scale,
@@ -1620,8 +1620,8 @@ tags and card, SHIP-LIFE's harbours and NAV-R's shared clock.
   hostile ship's red as before, "Hostile" in red; a pirate not after me now is neither (her bar red still: no lawful
   flag); a struck ship is neither (the card read a struck ship provoked once hostile, her tag never did). The blow
   forgotten, she is friendly again.
-- **SHIP-TAGS** (`navalHost.js boundOf`, `ui/navalHud.js tagLine`). Within TAG_DETAIL_M (400 m) of the eye a tag reads
-  a second line under her name: her class (a crown's by her crown, "Wayrest War Galley") and where she is bound -
+- **SHIP-TAGS** (`navalHost.js boundOf`, `ui/navalHud.js tagLine`). Within TAG_DETAIL_M (400 m) of the eye the one tag
+  SHIP-CLUTTER picks (below) reads a second line under her name: her class (a crown's by her crown, "Wayrest War Galley") and where she is bound -
   moored at, leaving, patrolling off or bound for a harbour by its town's name (the world hands the name with the
   port's footprint, `navalHarbourNear`), a lane's packet bound for her next port or lying off it, a relief coming to
   your aid, a voyage out of the harbours bound out to sea; nothing while she fights or runs, nor struck. Past
@@ -1631,6 +1631,15 @@ tags and card, SHIP-LIFE's harbours and NAV-R's shared clock.
   your aid (A11: she read "bound out to sea"); a packet leaving a harbour with no name reads her lane's next port
   (A16); another player's packet, known by her seed, reads her lane along her own leg (A22, below), and another's ship
   lying still at a berth of a harbour I know reads moored at it (A9: both read nothing).
+- **SHIP-CLUTTER** (FIELD BUGS 2026-10-02c, `01-Overview/Field-Bugs-2026-10-02c.md`; `ui/navalHud.js layoutNavalTags`,
+  `navalTagBox`; `scenes/world.js navalTags`). Off a harbour every tag stood on its own spar and every one within
+  TAG_DETAIL_M read its second line - five names through five lines (Discord: "an overabundance of ship text on the
+  high seas"). The tags are laid before they are worn: ONE second line - the card's ship's, else the tag nearest the
+  crosshair (the world strip's middle, handed in as `focus`) within TAG_FOCUS_PX (140 px at the HUD's scale), else none
+  (with no `focus` handed in, the nearest ship's); and NO TAG OVER ANOTHER - laid the line's ship first, then the
+  hostile, then the nearest, a tag whose box (read off its words, the 11px face's advances measured in Chromium) would
+  come within TAG_CLEAR (3 px) of one laid is not drawn that frame, and one left out needs TAG_HOLD (8 px) more to come
+  back. `test/shipclutter.test.js`.
 - **SHIP-FADE** (`navalHost.js retire`, `fadeStep`; `scenes/comeSailAwayPool.js`; `render/orderedDither.js
   DISSOLVE_GLSL`, `render/renderer.js setDissolve`, `render/enhancedLighting.js EL_MESH_FS`). A
   ship let go by her range was dropped where she sailed - the director's past DESPAWN_BEYOND, a raider past

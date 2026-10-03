@@ -176,8 +176,11 @@ test('ECV1: the billboard shader declares uConceal and draws each mode - the rip
   const fs = r.slice(r.indexOf('const BB_FS = `'), r.indexOf('`;', r.indexOf('const BB_FS = `')))
     .replace(/\$\{SHADE_DARK\}/g, String(SHADE_DARK));
   assert.match(fs, /uniform vec4 uConceal;/);
-  assert.match(fs, /if \(uConceal\.x == 1\.0\) \{\s*\n\s*uv\.x \+= sin\(vUV\.y \* 28\.0 \+ uConceal\.z \* 7\.0 \+ uConceal\.w\) \* 0\.008;\s*\n\s*if \(uv\.x < 0\.0 \|\| uv\.x > 1\.0\) discard;/, 'chameleon ripples, and never samples past the sprite\'s edge into the REPEAT wrap');
-  assert.match(fs, /vec4 tex = (?:\(uv\.x < 0\.0 \|\| uv\.x > 1\.0 \|\| uv\.y < 0\.0 \|\| uv\.y > 1\.0\) \? vec4\(0\.0\) : )?texture\(uTex, uv\);/, 'the rippled UV is what samples');   // ELITE FOES: past the sprite (an elite's widened quad) is empty
+  // SPRITE-GRAD (FIELD BUGS 2026-10-02c): the ripple's reach past the edge is masked AFTER the sample, not discarded
+  // before it - a sample under a non-uniform branch or past a discard picks an undefined mip level
+  assert.match(fs, /if \(uConceal\.x == 1\.0\) uv\.x \+= sin\(vUV\.y \* 28\.0 \+ uConceal\.z \* 7\.0 \+ uConceal\.w\) \* 0\.008;/, 'chameleon ripples');
+  assert.match(fs, /vec4 tex = texture\(uTex, uv\);/, 'the rippled UV is what samples');
+  assert.match(fs, /if \(uv\.x < 0\.0 \|\| uv\.x > 1\.0 \|\| uv\.y < 0\.0 \|\| uv\.y > 1\.0\) tex = vec4\(0\.0\);/, 'and never past the sprite\'s edge into the REPEAT wrap');   // ELITE FOES: past the sprite (an elite's widened quad) is empty
   assert.match(fs, /texture\(uEmissionTex, uv\)/, 'the emission map too');
   assert.match(fs, /if \(tex\.a < \(\(uSpectral == 1 \|\| uConceal\.x > 0\.0\) \? 0\.1 : 0\.5\)\) (?:discard;|\{)/, 'the concealed pass takes the blended threshold');   // ELITE FOES: the cut-out may draw an elite's rim first
   assert.match(fs, /if \(uEliteGlow != 0\.0 && uConceal\.x == 0\.0(?: && uDissolve\.x <= 0\.0)?\)/, 'ELITE FOES: a concealed foe draws no rim');   // PIN MOVED (the revenant audit): nor one dissolving

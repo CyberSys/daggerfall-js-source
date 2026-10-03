@@ -71,7 +71,7 @@ test('SHIP-STANCE FRIENDLY UNTIL PROVOKED, by the real host: a merchantman and a
 test('SHIP-STANCE THE GREEN BAR: a friendly ship\'s tag is marked `friendly` and its bar\'s fill is green by the HUD\'s own CSS (CREW_GREEN) - a hostile ship\'s red as it was, and the mark never on a ship that is hostile; the card\'s hull green, its state "Friendly" in green, "Hostile" in red', () => {
   destroyNavalHud();
   const pt = (o = {}) => ({ id: 'a:1', name: 'The Gilded Cog', faction: 'merchant', hostile: false, friendly: true, hull: 0.9, state: 'afloat', boarded: false, target: false, distance: 150, x: 400, y: 200, ...o });
-  drawNavalTags([pt(), pt({ id: 'b:2', name: 'The Black Kraken', faction: 'pirate', hostile: true, friendly: false }), pt({ id: 'c:3', hostile: true, friendly: true }), pt({ id: 'd:4', faction: 'pirate', friendly: false })], { scale: 1, reach: 700 });
+  drawNavalTags([pt(), pt({ id: 'b:2', name: 'The Black Kraken', faction: 'pirate', hostile: true, friendly: false, x: 700 }), pt({ id: 'c:3', hostile: true, friendly: true, x: 1000 }), pt({ id: 'd:4', faction: 'pirate', friendly: false, x: 1300 })], { scale: 1, reach: 700 });   // SHIP-CLUTTER: apart, or one covers the rest
   const [layer] = byClass(globalThis.document.body, 'dfnaval-tags');
   assert.deepEqual(byClass(layer, 'dfnaval-tag').map((x) => x.className), ['dfnaval-tag merchant friendly', 'dfnaval-tag pirate hostile', 'dfnaval-tag merchant hostile', 'dfnaval-tag pirate']);
   assert.ok(NAVAL_HUD_CSS.includes(`.dfnaval-tag.friendly .dfnaval-tag-bar > i { background: linear-gradient(180deg, #b8ffb8 0 1px, ${CREW_GREEN} 1px); }`), 'the friendly bar: green');

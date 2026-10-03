@@ -906,6 +906,8 @@ export function drawNavalHud(model, { covered = false, doc = globalThis.document
 let tagRoot = null;
 /** @type {any[]} */
 let tagSlots = [];
+/** SHIP-CLUTTER: the ids a frame's layout left out (TAG_HOLD). */
+let tagHeld = new Set();
 /** A tag's state in words - the card's for a ship out of reach (going down, taken, boarded, her colours struck) - and
  *  none while she sails: her red says hostile. */
 export function tagState(t) {
@@ -921,14 +923,74 @@ export function tagLine(t) {
 }
 /** A tag's opacity by her distance: whole to `from` (TAG_FADE_FROM), TAG_FADE_TO at the tags' `reach`. */
 export const tagAlpha = (d, reach, from = TAG_FADE_FROM) => 1 - (1 - TAG_FADE_TO) * Math.max(0, Math.min(1, ((d ?? 0) - from) / Math.max(1, reach - from)));
+/** SHIP-CLUTTER (2026-10-02, Discord: "The sea screen shows an overabundance of ship text on the high seas"): every
+ *  tag stood on its own spar with nothing between them, and each within TAG_DETAIL_M read its second line - off a
+ *  harbour five ships' names and five "Wayrest Navy Cutter - patrolling off Joyous Light of Akatosh" ran through each
+ *  other into one smear. `layoutNavalTags` now lays them:
+ *   - ONE second line: the card's ship's, else the tag nearest the crosshair (`focus`) within TAG_FOCUS_PX - looked
+ *     at, a ship says what she is; with no crosshair handed in, the nearest ship's;
+ *   - NO TAG OVER ANOTHER: laid the line's ship first, then the hostile, then the nearest, a tag whose box would
+ *     touch one already laid (TAG_CLEAR apart) is not drawn this frame; one left out last frame needs TAG_HOLD more
+ *     room to come back, so a bobbing view never flickers it at the edge.
+ *  A tag's box is read off its words (`navalTagBox`: the 11px face's advances measured on the game's own page in
+ *  Chromium - an uppercase name 7.5 px a letter at its 0.08em, a line 7.3 at its 0.06em; a state the name's with its
+ *  wider 0.1em - each rounded up), never off the page in a frame (the bubbles' law, crewSayBox). */
+export const TAG_FOCUS_PX = 140;
+export const TAG_NAME_CHAR_W = 7.6;
+export const TAG_LINE_CHAR_W = 7.4;
+export const TAG_STATE_CHAR_W = 7.9;
+export const TAG_TEXT_H = 13;
+export const TAG_ROW_GAP = 2;
+export const TAG_BAR_H = 4;
+export const TAG_CLEAR = 3;
+export const TAG_HOLD = 8;
+/** A tag's box in CSS px at the HUD's `scale`, her point at its foot's middle (the sheet's translate(-50%, -100%)):
+ *  her name, her line when `detail`, her bar, her state. */
+export function navalTagBox(t, detail = false, scale = 1) {
+  const line = detail ? tagLine(t) : '', state = tagState(t);
+  const w = Math.max(String(t.name ?? '').length * TAG_NAME_CHAR_W, line.length * TAG_LINE_CHAR_W, state.length * TAG_STATE_CHAR_W, NAVAL_TAG_BAR_W) * scale;
+  const rows = 1 + (line ? 1 : 0) + (state ? 1 : 0);
+  const h = (rows * (TAG_TEXT_H + TAG_ROW_GAP) + TAG_BAR_H) * scale;
+  return { left: t.x - w / 2, right: t.x + w / 2, top: t.y - h, bottom: t.y };
+}
+/** The tags as drawn (SHIP-CLUTTER): the ones that stand clear of each other, in the order handed in, each with
+ *  `detail` - whether her second line is read. `held` is the ids left out last frame (TAG_HOLD). */
+export function layoutNavalTags(points, { scale = 1, focus = null, held = null } = {}) {
+  const list = (points ?? []).filter(Boolean);
+  let lead = list.find((t) => t.target) ?? null;
+  if (!lead && focus) {
+    let best = TAG_FOCUS_PX * scale;
+    for (const t of list) {
+      const d = Math.hypot(t.x - focus.x, t.y - focus.y);
+      if (d <= best) { best = d; lead = t; }
+    }
+  } else if (!lead) {
+    for (const t of list) if (!lead || (t.distance ?? Infinity) < (lead.distance ?? Infinity)) lead = t;
+  }
+  const rank = (t) => (t === lead ? 0 : t.hostile ? 1 : 2);
+  const order = [...list].sort((a, b) => rank(a) - rank(b) || (a.distance ?? Infinity) - (b.distance ?? Infinity));
+  const placed = [], keep = new Map();
+  for (const t of order) {
+    const detail = t === lead && tagLine(t) !== '';
+    const b = navalTagBox(t, detail, scale);
+    const pad = (TAG_CLEAR + (held?.has(t.id) ? TAG_HOLD : 0)) * scale;
+    if (placed.some((q) => b.left - pad < q.right && b.right + pad > q.left && b.top - pad < q.bottom && b.bottom + pad > q.top)) continue;
+    placed.push(b);
+    keep.set(t, detail);
+  }
+  return list.filter((t) => keep.has(t)).map((t) => ({ ...t, detail: keep.get(t) }));
+}
 /**
  * The tags over the sea's ships (the host's `tags`, projected by the world onto the screen - `x`, `y` the point over
  * her highest spar in CSS px): her name in her trade's colour (a hostile ship's red), her hull, her state - the card's
  * ship ringed - at the HUD's `scale`, fading with her distance to the tags' `reach`. One node a slot, moved, never
- * rebuilt (the names' discipline); `covered` (a window, a pause, the HUD hidden) hides them all.
+ * rebuilt (the names' discipline); `covered` (a window, a pause, the HUD hidden) hides them all. SHIP-CLUTTER: laid
+ * clear of each other first (layoutNavalTags), one second line, read for the ship nearest the crosshair at `focus`.
  */
-export function drawNavalTags(points, { covered = false, doc = globalThis.document, scale = 1, reach = 700 } = {}) {
-  const want = covered ? [] : points ?? [];
+export function drawNavalTags(points, { covered = false, doc = globalThis.document, scale = 1, reach = 700, focus = null } = {}) {
+  const want = covered ? [] : layoutNavalTags(points, { scale, focus, held: tagHeld });
+  const drawn = new Set(want.map((t) => t.id));
+  tagHeld = new Set((covered ? [] : points ?? []).filter((t) => t && !drawn.has(t.id)).map((t) => t.id));
   if (!tagRoot) {
     if (!want.length || !doc?.createElement) return;
     injectSheets(doc);
@@ -952,7 +1014,7 @@ export function drawNavalTags(points, { covered = false, doc = globalThis.docume
     const set = (key, v, write) => { if (slot.k[key] !== v) { slot.k[key] = v; write(v); } };
     set('cls', `dfnaval-tag ${t.faction}${t.hostile ? ' hostile' : ''}${t.friendly && !t.hostile ? ' friendly' : ''}${t.target ? ' target' : ''}`, (v) => { slot.n.className = v; });
     set('name', t.name, (v) => { slot.name.textContent = v; });
-    set('line', tagLine(t), (v) => { slot.line.textContent = v; });
+    set('line', t.detail ? tagLine(t) : '', (v) => { slot.line.textContent = v; });
     set('hull', pct(t.hull), (v) => { slot.fill.style.width = `${v}%`; });
     set('state', tagState(t), (v) => { slot.state.textContent = v; });
     set('at', `translate(${Math.round(t.x)}px, ${Math.round(t.y)}px) scale(${scale}) translate(-50%, -100%)`, (v) => { slot.n.style.transform = v; });
@@ -1059,5 +1121,5 @@ export function destroyNavalHud() {
   root?.remove?.();
   root = null; parts = null; shown = {}; touchBrace = false; loss = null; hudClock = 0;
   tagRoot?.remove?.();
-  tagRoot = null; tagSlots = []; crewSlots = []; saySlots = []; sayMemory = crewSayMemory();
+  tagRoot = null; tagSlots = []; tagHeld = new Set(); crewSlots = []; saySlots = []; sayMemory = crewSayMemory();
 }
