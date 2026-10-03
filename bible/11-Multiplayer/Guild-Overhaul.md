@@ -4,7 +4,7 @@ The port's own (DFU's guilds are its factions; a player's guild is GUILD1's, `06
 GUILD1e). Four parts: **GUILD2a** a new name for a price, **GUILD2b** the guild's vault and who may use it, **GUILD2c**
 arms worth choosing that every banner draws, and **GUILD2d** the Guild tab in pages. The laws are
 `src/net/guildLaw.js`, `src/net/guildVaultLaw.js` and `src/net/heraldryLaw.js`; the service is
-`server-account/src/guilds.js` and `server-account/src/guildVault.js` (migration `0074_guild_overhaul.sql`); the client
+`server-account/src/guilds.js` and `server-account/src/guildVault.js` (migration `0077_guild_overhaul.sql`); the client
 `src/net/guildBook.js`, `src/ui/socialPanel.js` and `src/ui/heraldryArt.js`.
 
 ## Asked
