@@ -2,8 +2,8 @@
   {
     "name": "BOOT2-the-cursor-takes-the-helper-from-the-hud-again",
     "file": "src/ui/cursor.js",
-    "old": "import { bitmapToColor32 } from '../formats/color32Order.js';",
-    "new": "import { bitmapToColor32 } from './hud.js';",
+    "old": "import { APP_ROOT } from '../systems/appRoot.js';",
+    "new": "import { APP_ROOT } from '../systems/appRoot.js';\nimport { drawHud } from './hud.js';",
     "tests": [
       "test/boot2.test.js"
     ]

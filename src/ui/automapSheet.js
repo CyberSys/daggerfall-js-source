@@ -60,7 +60,7 @@ import {
   paintPlanStatic, paintPlanOverlay, floorStripLayout, floorStripHit, paintFloorStrip, paintFloorStripParty, paintStairs,
 } from './inkAutomap.js';
 import { stripFont, STRIP } from './mapStrip.js';
-import { createDungeonInk, SLICE_ABOVE, rowMesh } from './inkDungeonGL.js';
+import { dungeonInkFor, SLICE_ABOVE, rowMesh } from './inkDungeonGL.js';   // GL-LEAK: the page's one ink
 import { INK_RGB as FLOOR_INK_RGB } from './inkMap.js';
 const NAME_FACE_CSS = "'Cormorant', Georgia, serif";   // EM3-3D: the classic map's way, drawn
 // EM3-3D: the same plan in the round, when the player has the solid map on (ui/mapSkin.js dungeonMap3dOn)
@@ -926,10 +926,10 @@ export function createAutomapSheet(deps = {}) {
     // EM3-3D (Mac: "just make it like the classic dungeon 3d map but in this drawn style"): the dungeon's OWN
     // geometry, every revealed model, back faces unseen and sliced over the player's head, as DFU's 3D automap -
     // inked by the GPU. The cell model below stays for a page with no WebGL2 (and for the pins).
-    if (glInk === undefined) glInk = createDungeonInk(ctx?.canvas?.ownerDocument ?? null);
+    if (glInk === undefined || glInk?.lost?.()) glInk = dungeonInkFor(ctx?.canvas?.ownerDocument ?? null);   // GL-LEAK: the page's one ink, not a context per open (a lost one built anew)
     if (glInk && f.bounds) {
       const r = rec();
-      glInk.setMesh(`${r?.revealed?.size ?? 0}|${f.rows.length}`, rowsIn(f.model, r?.revealed ?? null));
+      glInk.setMesh(`${r?.revealed?.size ?? 0}|${f.rows.length}`, rowsIn(f.model, r?.revealed ?? null), solids);   // GL-LEAK: this sheet's rows (the ink is the page's)
       const ox0 = f.origin[0], oz1 = f.origin[1];
       const dpr = env.dpr ?? 1;
       const img = glInk.render({

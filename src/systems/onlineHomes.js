@@ -43,7 +43,7 @@ import {
 import { RENT_VERB, rentRowLabel, rentTenantLabel } from './homeRent.js';   // HOME-RENT: the door's rows for a room to rent
 import { BUILDING_TYPES, isResidence } from '../world/buildingNames.js';
 import { DEED_SELL_MULT, CROSSED_DEED_LINES } from './banking.js';
-import { guildTagText } from '../net/guildLaw.js';   // GUILD1d: a hall's tag, as a name wears it
+import { guildTagText, GUILD_MOVE_MAX } from '../net/guildLaw.js';   // GUILD1d: a hall's tag, as a name wears it; HALL-GOLD: a deposit's cap, said
 import { GUILD_HALL_ENTRIES, GUILD_HALL_ENTRY_WORDS, guildHallPrice } from '../net/hallLaw.js';   // GUILD1d: a guild's hall
 import { heraldryOf } from '../net/heraldryLaw.js';   // GUILD1d: a hall's heraldry, off the town's answer
 
@@ -216,7 +216,15 @@ export const hallOfferLabel = (price, guild) => `G - buy it for ${guild?.name ??
 export const hallNextEntry = (entry) => GUILD_HALL_ENTRIES[(Math.max(0, GUILD_HALL_ENTRIES.indexOf(entry)) + 1) % GUILD_HALL_ENTRIES.length];
 /** GUILD1d: the hall bought and refused at its door, in words. */
 export const hallBoughtLine = (name) => `This house is the hall of ${name} now. Its members may walk in; its Officers may furnish it.`;
-export const hallShortLine = (cost) => `The treasury needs ${cost} gold put in by realm characters to buy this hall.`;
+/** HALL-GOLD (FIELD BUGS 2026-10-03, from the Patreon chat: "we have the cash, began with putting it all in guild bank,
+ *  but then when we went to buy it says whats above ... so went and took all out and put in in bank thinking it meant it
+ *  had to be within the realm ... that took all night to figure out"): THE TWO REFUSALS, EACH ITS OWN WORDS. Both read
+ *  "The treasury needs N gold put in by realm characters" - "the realm" read as a place, so the gold went to a bank
+ *  account, which never pays for a hall - and neither said which guard held. A treasury short of the price, and one that
+ *  holds it but not enough of it counted (halls.js buyHall: `treasury` and `realm_gold`, guild-treasury-short and -old). */
+const gold = (n) => Number(n).toLocaleString('en-US');
+export const hallShortLine = (cost) => `The guild's treasury holds less than ${gold(cost)} gold. Put it in at the Guild tab's Treasury (Social, then Guild), at most ${gold(GUILD_MOVE_MAX)} at a time - gold in a bank account does not pay for a hall.`;
+export const hallOldGoldLine = (cost) => `The treasury holds less than ${gold(cost)} gold that realm characters put in - only that gold buys a hall. Gold put in before the realm, or by a character outside it, stays in the treasury but does not count.`;
 /** AUDIT GUILD1d A6/A7: a hall's cupboard to its members, and a hall's own words for a drop (anyone's) and a spell (a
  *  visitor's - its members cast in it). */
 export const HALL_CHEST_TITLE = "The Guild's Chest";

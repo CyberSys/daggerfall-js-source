@@ -300,7 +300,7 @@ import { groupCamps } from '../world/campShared.js';   // OW6: the camps on the 
 import { travellerMarkOf, travellerWorldOf, travellerDue, createTravellerBook, isShipMark } from '../systems/travellerMarks.js';   // TV3: the region's travellers; OWS1: at sea, a ship
 import { RainCurtainsRenderer, curtainsOf, CURTAIN_FOOT_MARGIN_M } from '../render/rainCurtains.js';   // TV4: the weather's curtains, stood in the world for the view
 import { RANGE_PIXELS as TV_BODY_RANGE } from '../net/wire.js';   // TV3: within the pose range a traveller is their body, not a mark
-import { quickLootWheel, quickLootTake, quickLootArm, plaqueActionFor, plaqueActionSelection, plaqueLightFirst, plaqueStep } from '../systems/quickLoot.js'; import { showPickups } from '../ui/pickupFeed.js';   // QUICK-LOOT B4: the wheel, the take, and the two keys that arm what the next activate means; PICKUP-FEED: what a take moved, as cards (the take's `took`)
+import { quickLootWheel, quickLootTake, quickLootArm, plaqueActionFor, plaqueActionSelection, plaqueLightFirst, plaqueStep } from '../systems/quickLoot.js'; import { showPickups, showHaul } from '../ui/pickupFeed.js'; import { claimHauls } from '../ui/haulCards.js';   // QUICK-LOOT B4: the wheel, the take, and the two keys that arm what the next activate means; PICKUP-FEED: what a take moved, as cards (the take's `took`)
 import { lootPile } from '../player/lootStack.js';   // LOOT-STACK: the pile under the reticle, as the loot window's tabs
 import { composeContents } from '../systems/worldHover.js';   // WORLD-HOVER: the contents ladder's one law (AUDIT-WH H3)
 import { mobilePersonName, lootPileName } from '../systems/worldTooltips.js';   // WORLD-HOVER H2: MobilePersonNPC.NameNPC (.cs:299-302); M5: a dropped pile's word (.cs:534-548), outdoors too
@@ -3193,6 +3193,10 @@ export async function bootWorld(canvas, renderer, params, status) {
    *  suppression reads (0.25) - where a land camp does not stand: the chunk roll asked only the PLAYER's feet, and the
    *  anchor's ground answered the carved seabed. */
   const _overDeepWater = (x, z) => { const c = dwPlayer?.rawColumnAt?.(x, z); return !!c && c.depth >= 0.25; };
+  // BOUNTY-ROCK (FIELD BUGS 2026-10-03, Flylight: "Bounty packs can spawn inside rocks"): a spot on the terrain's floor
+  // that stands INSIDE a World of Daggerfall rock or mountain (the collider's own point-in-solid, half a metre up off the
+  // ground) - where a pack, a camp or a band was pitched, the ring law and the terrain both blind to it
+  const _inRock = (x, y, z) => !!collider?.insideSolid?.([x, y + 0.5, z]);
   const _deepSuppressesSpawns = () => !!dwPlayer?.inOrAboveDeepWater(walkMode && playerSpawned ? player.pos : cam.pos, cam.pos[1], 0.25);
   let _dwBreathTimer = 0;
   let _dwLastForward = 0;   // DW-D: last frame's InputManager.Vertical, for the driver's shore exit
@@ -8680,7 +8684,7 @@ export async function bootWorld(canvas, renderer, params, status) {
         renderer, getTexture, uploadRecord, billboardSize, flatBatchAabb,
         built: () => built, pixelTranslation: (x, y, out) => state.pixelTranslation(x, y, out),
         pixelInfo: (x, y) => { try { return { climate: maps.getClimateIndex(x, y), region: maps.getRegionIndexAt(x, y) }; } catch { return null; } }, settled: (pos) => { const wc = state.worldCoords(pos), p = worldCoordToMapPixel(wc.x, wc.z), loc = locationIndex.get(`${p.x},${p.y}`); return !!loc?.exterior?.exteriorData && isPlayerInTown(loc.mapTableData?.locationType, { mustBeInLocationRect: true, mustBeOutside: true, inLocationRect: isInLocationRect(wc.x, wc.z, locationWorldRect(loc, p.x, p.y)), inside: false }); },   // SETTLE-STAND: the acts' own settlement check (Foraging's 'town'), asked of a node's place
-        nowMs: () => Date.now() + _sharedOffsetMs,
+        nowMs: () => Date.now() + _sharedOffsetMs, haul: (entries) => showHaul(entries),   // HAUL-CARDS: a harvest's goods and XP as one card (the enhanced skin's)
         eye: () => ({ pos: cam.pos, dir: [Math.sin(cam.yaw) * Math.cos(cam.pitch), Math.sin(cam.pitch), Math.cos(cam.yaw) * Math.cos(cam.pitch)] }),
         // AUDIT 29 C1: a node seen - the eye's ray to it through the place's collider (the street's, or the dungeon's own)
         clear: (from, to, underground) => {
@@ -9084,7 +9088,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   // and dungeonContext.js:2897 mounts the same one, gated on
   // `opts.enchantCtx !== false` because setDefaultEnchantCtx is a
   // session singleton and EC1 already routes THIS host's mount into
-  // that context through modes.dungeonCtx - so worldModes.js:6867
+  // that context through modes.dungeonCtx - so worldModes.js:6869
   // passes false beside its `chargen: false` and only the standalone
   // ?dungeon route mounts its own. S40 filled isResting
   // in - the sentence that stood here said it "stays absent above
@@ -9298,6 +9302,7 @@ export async function bootWorld(canvas, renderer, params, status) {
       if (anchor && _nearRoad([anchor.x, anchor.y, anchor.z], (hit.spacing ?? 0) + CAMP_ROAD_CLEAR_M)) anchor = null;   // ROADS-CLEAR: pitched off the road, its whole ring clear of it
       if (anchor && _overDeepWater(anchor.x, anchor.z)) anchor = null;   // AUDIT (pre-merge) P4: never on the carved seabed - a player on the shore rolled land camps 100-150 m out, under the sea
       if (anchor && hit.spotOk && !hit.spotOk(anchor.x, anchor.z)) anchor = null;   // BOUNTY-FARM-CLEAR: the caller's own ground law (never inside a farm building)
+      if (anchor && _inRock(anchor.x, anchor.y, anchor.z)) anchor = null;   // BOUNTY-ROCK: never pitched inside a rock
     }
     if (!anchor) return null;   // AUDIT OW3 T7-1: whether it stood (null: nobody) - a band's contact tries another bearing
     const campId = exteriorFoes.newCampId();   // OW6: the pool's one counter - a camp an heir takes over never shares my number
@@ -9325,6 +9330,7 @@ export async function bootWorld(canvas, renderer, params, status) {
         if (spot && _nearRoad([spot.x, spot.y, spot.z], CAMP_ROAD_CLEAR_M)) spot = null;   // ROADS-CLEAR: nor on a road
         if (spot && _overDeepWater(spot.x, spot.z)) spot = null;   // AUDIT (pre-merge) P4: nor a member in the water
         if (spot && hit.spotOk && !hit.spotOk(spot.x, spot.z)) spot = null;   // BOUNTY-FARM-CLEAR: nor a member inside a building
+        if (spot && _inRock(spot.x, spot.y, spot.z)) spot = null;   // BOUNTY-ROCK: nor a member inside a rock
       }
       if (!spot) continue;
       placed++;
@@ -9389,7 +9395,8 @@ export async function bootWorld(canvas, renderer, params, status) {
       (a, r) => applyClimate(a, r, getWorldClimateSettings(maps.getClimateIndex(p.px, p.py)).climateType, p.season), pipeline),
     spotOk: (x, z, r) => {
       const y = collider.heightAt?.(x, z) ?? 0;
-      return !_inAnyLocationRect([x, y, z]) && !_nearRoad([x, y, z], r) && !_overDeepWater(x, z);
+      return !_inAnyLocationRect([x, y, z]) && !_nearRoad([x, y, z], r) && !_overDeepWater(x, z)
+        && !_inRock(x, y, z);   // BOUNTY-ROCK: no farmstead raised inside a rock
     },
     feet: () => (walkMode && playerSpawned ? player.feetAt() : cam.pos),
     mode: () => _mode(),
@@ -9491,6 +9498,7 @@ export async function bootWorld(canvas, renderer, params, status) {
       if (!Number.isFinite(y)) continue;
       if (_inAnyLocationRect([x, y, z]) || _nearRoad([x, y, z], 8) || _overDeepWater(x, z)) continue;
       if (bountyFarms?.occupied?.(x, z, 8)) continue;   // AUDIT 28 B13: never among a standing farm's buildings
+      if (_inRock(x, y, z)) continue;   // BOUNTY-ROCK: the trail's spot never inside a rock (a spot there stood nobody, on every retry)
       return [x, y, z];
     }
     return null;
@@ -13214,7 +13222,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     toggleAutomap: () => toggleExteriorAutomap(),
     openTravelMap: () => toggleTravelMap(),
     /** AUDIT 58 (f2/hosts): THE SHEATH PANEL'S DOOR - the eleventh
-     *  panel of the large HUD (ui/hudLarge.js:238), which until now
+     *  panel of the large HUD (ui/hudLarge.js:239), which until now
      *  answered in ONE host of four. HUDLarge.cs:477-484's
      *  SheathPanel_OnMouseClick calls
      *  GameManager.Instance.WeaponManager.ToggleSheath() - a SINGLETON
@@ -14497,7 +14505,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   // exterior -> the townTalk overlay, interior OR dungeon -> the mode
   // machine's slot. U43-ii shipped the dungeon half: showQuestBox
   // offers the window to `modes.showQuestOverlay` below, and
-  // worldModes answers it in BOTH modes (worldModes.js:10417-10481 -
+  // worldModes answers it in BOTH modes (worldModes.js:10419-10483 -
   // dungeon routes to dungeonCtx.showOverlay), so a dungeon popup is
   // shown rather than logged loudly and dropped.
   // AUDIT 24 (wave 21): DaggerfallMessageBox.Show() is a
@@ -17628,7 +17636,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     nowS: relayNowS,
     store: _spoilsStore,
     say: (text) => chatNotice(text),
-    onMarks: (marks, data) => marksBook?.claimLines(data ?? { marks }, 'gate') ?? null,   // MARKS1: the gate's Marks, struck as it is counted; SILVER-WAYS: and the guild's deed
+    onMarks: (marks, data) => { showHaul(claimHauls(data ?? { marks }, 'gate')); return marksBook?.claimLines(data ?? { marks }, 'gate') ?? null; },   // MARKS1: the gate's Marks, struck as it is counted; SILVER-WAYS: and the guild's deed
   }) : null;
   /** RAID4: THE RAID RECEIPTS THIS DEVICE CARRIES TO THE ACCOUNT SERVICE (net/raidClaims.js) - each town the relay
    *  signed my defence of, kept with the character that fought it until the service has counted it and paid its
@@ -17642,7 +17650,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     store: _spoilsStore,
     say: (text) => chatNotice(text),
     onSpoils: (entry) => grantRaidSpoils(entry),   // AUDIT RAID R4: the town's thanks, once a raid and account - the service's word
-    onMarks: (data) => marksBook?.claimLines(data, 'raid') ?? null,   // SILVER-WAYS: the town's silver, the guild's deed, the contracts that paid
+    onMarks: (data) => { showHaul(claimHauls(data, 'raid')); return marksBook?.claimLines(data, 'raid') ?? null; },   // SILVER-WAYS: the town's silver, the guild's deed, the contracts that paid
     onRecorded: (data) => {
       if (data?.renown?.character !== characterIdOf(playerEntity)) return;   // RENOWN-CHAR: the fighting character's track, adopted only by that character
       const a = renownAnswer({ ...data.renown, order: data.order ?? null }, data.renown.credited ?? 0, renownSaid);
@@ -26060,7 +26068,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     // layer, because a talk window is a modal above the vitals.
     // AUDIT 39: THE CALL IS UNCONDITIONAL. drawHud runs the damage
     // flash and the enhanced DOM HUD ABOVE its own `!art` return
-    // (hud.js:452-480) because neither reads ARENA2 - "a player whose
+    // (hud.js:453-481) because neither reads ARENA2 - "a player whose
     // HUD art failed to load still has vitals". Wrapping the whole
     // call in `if (hudArt)` inverted that: hudArt starts null and is
     // filled by a fire-and-forget load whose failure leaves it null

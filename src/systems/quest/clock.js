@@ -227,6 +227,28 @@ function closes(quest, name) {
   return false;
 }
 
+/** What a QUIET close does: the quest ended, a kept item made the player's, the questor let go - nothing said, nothing
+ *  sent, no standing touched. */
+const QUIET_CLOSE = new Set(['EndQuest', 'MakePermanent', 'DropAsQuestor']);
+
+/** BODYGUARD-CLOSE (FIELD BUGS 2026-10-03, AverageDoggo: "Assassins killed, gold rewarded thanked for my help but quest
+ *  remains uncompleted"): A START-UP CLOSING. A clock the start-up block started is the quest's lifetime, kept a
+ *  deadline through a success the start-up block itself hands over (A0C41Y18's finger and gold, its 1001 days). But
+ *  when the start-up block settles nothing - the success, if it comes, is a later task's - and the clock's end is a
+ *  QUIET close, that end is the only `end quest` a script that pays and never closes has: A0C01Y01 (The Bodyguard)
+ *  pays on `when _clickqgiver_ and _slain_` and ends only on `_timer_`, a day and three hours after the offer. Frozen
+ *  online, it stood paid and open for ever. The run-time half is the Clock's `isDeadline`, as T1's: still a deadline
+ *  until the quest is a success. An end that costs a standing or says or sends anything (R0C10Y01's -20 beside its own
+ *  `_delay_`, A0C10Y05's "too late" line) is a loss even then, and stays frozen. */
+function closesStartUp(quest, name) {
+  const startUp = [...(quest.tasks?.keys() ?? [])].filter((tn) => /^\d+$/.test(tn));
+  const starts = (tn) => quest.tasks.get(tn)?.actions.some((a) => a.constructor?.typeName === 'StartStopTimer' && a.isStartTimer && a.targetSymbol?.name === name);
+  if (!startUp.some(starts)) return false;
+  if (startUp.some((tn) => reached(quest, tn, { conditional: false }).settles)) return false;
+  const end = reached(quest, name, { conditional: false });
+  return end.types.has('EndQuest') && !end.lowers && [...end.types].every((t) => QUIET_CLOSE.has(t));
+}
+
 /** TIMEFREE: whether `clock` is a deadline (see above) as the script reads - the run-time half aside. Answers false for
  *  a clock with no name or no quest. */
 export function clockIsDeadline(quest, clock) {
@@ -338,7 +360,8 @@ export class Clock extends QuestResource {
    *  `train pc` set it), no clock is a loss any more, and a deadline a task started is the script closing the quest -
    *  S0000009's two days after the contact, whose reward a `when` on the same click pays. A clock the start-up block
    *  started stays a deadline: A0C41Y18 is a success from its first lines and keeps its finger and its gold for its
-   *  1001 days, as DFU does. AUDIT TIMEFREE T5: and so does one started AFTER the success - a new limit, not a close:
+   *  1001 days, as DFU does - but for a start-up closing (closesStartUp, BODYGUARD-CLOSE: the start-up block settles
+   *  nothing and the end only closes; The Bodyguard's `_timer_`). AUDIT TIMEFREE T5: and so does one started AFTER the success - a new limit, not a close:
    *  M0B11Y18 pays for the raid, then offers the traitor's hunt and "will wait =gettraitor_ days"; closed on the
    *  success, that hunt ended a couple of minutes after the player took it. */
   get isDeadline() {
@@ -349,7 +372,7 @@ export class Clock extends QuestResource {
       this._deadline = (ONLINE_DEADLINES[q?.questName] ?? []).includes(name)
         || (!(ONLINE_CLOSINGS[q?.questName] ?? []).includes(name) && !atOnce && clockIsDeadline(q, this));
       this._closesOnSuccess = this._deadline && !(ONLINE_DEADLINES[q?.questName] ?? []).includes(name)
-        && !!q?.tasks && startersOf(q, name).length > 0;
+        && !!q?.tasks && (startersOf(q, name).length > 0 || closesStartUp(q, name));   // BODYGUARD-CLOSE: a start-up closing too
     }
     return this._deadline && !(this._closesOnSuccess && q?.questSuccess && !this.startedAfterSuccess);
   }

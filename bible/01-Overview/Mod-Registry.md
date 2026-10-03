@@ -4,7 +4,7 @@
 > left as it wrote them.** They were true of the fifteen rows that
 > existed on 2026-09-15 and they are the record of what putting those
 > rows side by side found. The live numbers are derived, not written:
-> `vendor/` holds 42 directories and 24 of their READMEs still carry an
+> `vendor/` holds 43 directories and 24 of their READMEs still carry an
 > unfilled permission line, each shown as `RECORD OPEN` in the table
 > (THE MERGE of main into the professions branch, 2026-09-28, counted them again: FORAGE1's
 > `foraging`, the thirty-eighth on its branch, is the forty-second - Harbinger451's Foraging, Mac's
@@ -108,6 +108,7 @@ not the date the slice shipped, where those differ.
 | `foraging` | manifest, the twelve item templates, the compiled script byte for byte and its IL dump (`il/`, the port's law - the bundle carries no C# source), the quest list and its 22 quests verbatim (`Quests/` - the port's six fixes: four quest-text patches in a table in its own module (Q7, Q8, Q9, Q13), Q10 and Q11 in its own code; never an edit here - AUDIT 28 corrected "five fixes are a patch table"), the author's seven textures as PNG, the shipped readme | Harbinger451 | 1.7 | shipped zip `Foraging_1260_1.7` (Nexus 1260 by its name); the rules off the DLL's IL (`tools/ilDump.py`), Quest Actions Extension's four actions restated off its repository (`Jagget/QuestActionsExtension` @ `56a407e`) | granted (Mac handed the zip over 2026-09-28: "Heres this for life skills"; "Yes, permission") - **RECORD OPEN** | FORAGE1-FORAGE2 | 2026-09-28 | `06-Systems/Foraging.md` |
 | `dfu-books` | data | Daggerfall Unity (Interkarma and contributors) | - | `Assets/Resources/books.txt` @ `81e89e90` | MIT | route (a) | 2026-08-20 | `10-UI/UI-Arc.md` |
 | `dfu-icons` | the sixteen interaction-mode icons (four sets x steal/grab/info/talk) | Daggerfall Unity (Interkarma and contributors) | - | `Assets/Resources/Icons` @ `2343305d` | MIT | HUD-ICON1 | 2026-09-24 | `01-Overview/Port-Ledger.md` |
+| `dfu-cursor` | the default cursor, Cursor2.png (the 32x32 blue arrow, ProjectSettings' defaultCursor) | Daggerfall Unity (Interkarma and contributors) | - | `Assets/Resources/Cursor2.png` @ `2343305d` | MIT | CLASSIC-CURSOR | 2026-10-03 | `01-Overview/Field-Bugs-2026-10-03.md` |
 | `dfu-quests` | data | Daggerfall Unity (Interkarma and contributors) | - | `Assets/StreamingAssets/{Quests,Tables}` @ `81e89e90` | MIT | route (a) | 2026-08-20 | `06-Systems/Quest-Arc.md` |
 | `dfu-settings` | data | Daggerfall Unity (Interkarma and contributors) | - | `defaults.ini.txt` + `Text/GameSettings.txt` @ `81e89e90` | MIT | route (a) | 2026-08-20 | `10-UI/Settings-Screen-Spec.md` |
 | `dfu-text` | data | Daggerfall Unity (Interkarma and contributors) | - | `Text/Master Localization CSV Files/Internal_RSC.csv` @ `master`, fetched 2026-09-18 | MIT | route (a) | 2026-09-18 | `01-Overview/Mac-Bugs-U.md` |
