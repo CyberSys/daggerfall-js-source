@@ -152,7 +152,7 @@ test('SURV4: by source - the four hosts name their kind, the three rolls carry t
   const w = read('src/scenes/world.js'), x = read('src/scenes/exterior.js'), dc = read('src/scenes/dungeonContext.js'), wm = read('src/scenes/worldModes.js');
   // AUDIT SURV-TIERS: the place reads the WORLD's fire (camps.js fireNear - in every tier; `byFire` is what this
   // player may use, which Off hides), and an interior's hearth is a camp's rest as a brazier is outdoors
-  assert.match(w, /restKind: \(\) => \(camps\.fireNear\(walkMode && playerSpawned \? player\.pos : cam\.pos\) \? 'camp' : 'rough'\),/);
+  assert.match(w, /restKind: \(\) => \(_restFromBed \? 'bed' : camps\.fireNear\(walkMode && playerSpawned \? player\.pos : cam\.pos\) \? 'camp' : 'rough'\),/);   // AUDIT REST-PARTY A3: a pressed bed first
   assert.match(x, /restKind: \(\) => \(camps\.fireNear\(walkMode \? player\.pos : cam\.pos\) \? 'camp' : 'rough'\),/);
   assert.match(dc, /restKind: \(\) => \(_fpFeet && camps\.fireNear\(_fpFeet\) \? 'camp' : 'rough'\),/);
   assert.match(wm, /restKind: \(\) => \{ const p = interiorRestPlaceHere\(\); return p\.houseOwned \|\| p\.isShip \|\| !!p\.room \? 'bed' : interiorCamps\.fireNear\(player\.pos\) \? 'camp' : 'rough'; \},/);

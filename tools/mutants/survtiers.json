@@ -563,11 +563,12 @@
   {
     "name": "SURVTIERS-the-rest-place-reads-the-shown-fire",
     "file": "src/scenes/world.js",
-    "old": "restKind: () => (camps.fireNear(walkMode && playerSpawned",
-    "new": "restKind: () => (camps.byFire(walkMode && playerSpawned",
+    "old": "restKind: () => (_restFromBed ? 'bed' : camps.fireNear(walkMode && playerSpawned",
+    "new": "restKind: () => (_restFromBed ? 'bed' : camps.byFire(walkMode && playerSpawned",
     "tests": [
       "test/surv4_rest.test.js"
-    ]
+    ],
+    "note": "AUDIT REST-PARTY (PIN MOVED): a pressed bed answers first now (A3)."
   },
   {
     "name": "SURVTIERS-the-interiors-hearth-is-bare-ground",

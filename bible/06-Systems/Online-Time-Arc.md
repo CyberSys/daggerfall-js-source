@@ -413,7 +413,7 @@ night is a raise, which 6.3c charges nothing. So 6.3b's reading comes back for i
   `daily from` windows on the sky; spawn intervals, QAE RaiseTime and TrainPc's hours as pacing.
 - **The edge**: a deadline read as a delay fires its end two minutes in, as under 6.3b; a delay read as a deadline only
   waits its played days now (6.3b froze it). The pins guard the first: `test/rest8_questwaits.test.js` (6.3b's file,
-  re-aimed - every vendored clock ticked past the short wait online: all 135 delays land, not one of the 264 deadlines
+  re-aimed - every vendored clock ticked past the short wait online: all 133 delays land, not one of the 266 deadlines (AUDIT REST-PARTY D1/D2: 264 and 135 as REST8 built it)
   is cut) and `test/rest8_audit_timefree.test.js` (AUDIT TIMEFREE's, and R1's). Campaigns `tools/mutants/rest8.json`
   (22) and `tools/mutants/rest8_audit_timefree.json` (14), all dead.
 - Offline: none of it. DFU's clock, whole.

@@ -118,7 +118,7 @@ test('SURV3: cooking - the raw foods alone; cooked a stage nearer fresh, one off
 });
 
 test('SURV3: by the fire - within four of a LIT fire, anyone\'s; the eye\'s words and the menu\'s rows', () => {
-  const lit = newCamp({ id: 'a', owner: 'x', kind: CAMP_KIND.Fire, pos: [0, 0, 0], now: 0 });
+  const lit = { ...newCamp({ id: 'a', owner: 'x', kind: CAMP_KIND.Fire, pos: [0, 0, 0], now: 0 }), fuel: true };   // AUDIT REST-PARTY B5: a Campfire (placeCampItem marks its fuel) - an old kit's fire offers no pick-up
   const cold = newCamp({ id: 'b', owner: 'x', kind: CAMP_KIND.Tent, pos: [10, 0, 0], now: -FIRE_MINUTES, wear: 5 });
   assert.equal(BY_FIRE_REACH, 4);
   assert.equal(nearestFire([lit, cold], [3.9, 0, 0], 10), lit);

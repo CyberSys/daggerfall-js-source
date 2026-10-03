@@ -133,7 +133,8 @@ export function clockCounts(quest, clock) {
  * The reading is the script's own tasks: what the end does, what starts from it, what a `when` reads of it, and who
  * started the clock; the run-time half is the quest's success (Clock isDeadline). AUDIT TIMEFREE read all 399 vendored
  * clocks by hand (262 deadlines, 137 delays) and its two hand tables below stand as it left them; REST8's own read found
- * two deadlines the reading called delays (R1, readsAsDeadline: K0C00Y02's gold, S0000502's tower) - 264 and 135 now,
+ * two deadlines the reading called delays (R1, readsAsDeadline: K0C00Y02's gold, S0000502's tower) - 264 and 135 then;
+ * AUDIT REST-PARTY D2 two more, by hand (ONLINE_DEADLINES: N0B00Y17's scholar, K0C30Y03's guard) - 266 and 133 now,
  * the main quest's deadlines 31. THE EDGE: a deadline read as a delay fires its end - a failure - two minutes in (as
  * under TIMEFREE, whose delays were cut the same); a delay read as a deadline now only waits its played days, where
  * TIMEFREE froze it for ever. The one harmful misreading is the first (R1's two were it), so the pins hold the split,
@@ -257,13 +258,26 @@ export function clockIsDeadline(quest, clock) {
  *  deadline; a delay, it sent "you are late" two minutes after the invitation. (Not a rule: S0000011's `_S.11_` has the
  *  same shape - a letter and a long clock - and its letter is the main quest's next page.) Deadlines, by hand.
  *  REST8: the table matters more than it did - read as delays, the hunters would come and the mark would leave two
- *  minutes in; as deadlines they keep their played days. */
+ *  minutes in; as deadlines they keep their played days.
+ *  AUDIT REST-PARTY D2: two more of the mark's class - someone who LEAVES, and what only they held goes with them:
+ *  N0B00Y17's `_time2_` ("I'll expect you back here within =time2_ days. Please be prompt." - its end hides the scholar,
+ *  and the `_scholarreward_` the ingredients buy goes with him) and K0C30Y03's `_S.13_` (a day or two after the banker
+ *  is asked, the guard who knows where the patsy hides leaves town - "_guard_ has left" - and his lead with him). Read as
+ *  delays, the scholar and the guard were gone two minutes after the player was sent off.
+ *  AUDIT REST-PARTY D1: and one the reading DOES call a deadline, here for the run-time half: B0B81Y02's `_S.30_`, the
+ *  180 days to find the artifact (`end quest`) the map read in the lich's lair starts. The knight's `give pc nothing`
+ *  (`_success_`: the lich's death reported, the quest a success but not over) can come after the map is read, and a
+ *  task started the clock - so isDeadline read the success as the quest closing, and online the artifact hunt ended two
+ *  minutes after the knight's word. An entry here is never a closing (isDeadline: `_closesOnSuccess` skips the table). */
 export const ONLINE_DEADLINES = Object.freeze({
   $CUREWER: Object.freeze(['huntstart']),
   $CUREVAM: Object.freeze(['huntstart']),
   U0C00Y00: Object.freeze(['escapetime']),
   M0B11Y18: Object.freeze(['S.05']),
   _BRISIEN: Object.freeze(['remindpc']),
+  N0B00Y17: Object.freeze(['time2']),   // AUDIT REST-PARTY D2: the scholar's "Please be prompt"
+  K0C30Y03: Object.freeze(['S.13']),   // AUDIT REST-PARTY D2: the guard's lead
+  B0B81Y02: Object.freeze(['S.30']),   // AUDIT REST-PARTY D1: the artifact hunt, through the knight's reward
 });
 
 /** AUDIT TIMEFREE T1: the closing after a FAILURE the reading cannot tell from a story beat (a starter that costs a
@@ -278,6 +292,11 @@ export const ONLINE_CLOSINGS = Object.freeze({
 /** REST8: whether the quest's DELAYS take the short wait - online (the shared clock standing), the quest's own word.
  *  TIMEFREE's `questTimeFree`, named for what it gates now: a deadline online is time, played. */
 export const questWaitsShort = (quest) => !!quest?.hooks?.sharedClock?.();
+
+/** Clock.cs's travel arm (setResource): flag&16, or the flag&1 HACK - bit 0, a range, and a zero time. AUDIT REST-PARTY
+ *  D3: one predicate for the parse and for a restore from a save older than the "at once" mark, which has no
+ *  declaration to read - only the flag, the range and the starting time the save kept. */
+const travelArmed = (flag, maxRange, seconds) => (flag & 16) === 16 || ((flag & 1) === 1 && maxRange > 0 && seconds === 0);
 
 export class Clock extends QuestResource {
   constructor(parentQuest, line = null) {
@@ -294,7 +313,7 @@ export class Clock extends QuestResource {
     this.travelTimePending = false;   // Q1: the flag&16 / flag&1-hack arms pend Place resolution (Q3)
     this._deadline = null;   // REST8 (TIMEFREE's reading): asked on first need (isDeadline)
     this._closesOnSuccess = false;   // AUDIT TIMEFREE T1: a task started it, so a success makes it a closing
-    this.declaredAtOnce = false;   // AUDIT TIMEFREE T3: `Clock _x_ 00:00`, no travel arm (setResource)
+    this.declaredAtOnce = false;   // AUDIT TIMEFREE T3: `Clock _x_ 00:00`, no travel arm (setResource; saved - AUDIT REST-PARTY D3)
     this.startedAfterSuccess = false;   // AUDIT TIMEFREE T5: started once the quest was already a success (saved)
     if (line !== null) this.setResource(line);
   }
@@ -338,7 +357,7 @@ export class Clock extends QuestResource {
 
     // flag&16: 2.5x cautious travel time of the quest's Places; the
     // flag&1 + maxRange>0 + zero-time HACK forces the same check.
-    if ((this.flag & 16) === 16 || ((this.flag & 1) === 1 && this.maxRange > 0 && clockTimeInSeconds === 0)) {
+    if (travelArmed(this.flag, this.maxRange, clockTimeInSeconds)) {
       this.declaredAtOnce = false;   // (a travel clock: 2.5 trips, not "at once")
       const travel = this.parentQuest?.travelSeconds?.();
       if (travel != null) clockTimeInSeconds = travel;
@@ -366,6 +385,8 @@ export class Clock extends QuestResource {
       const atOnce = this.declaredAtOnce && !/^_2.*_$/.test(this.symbol?.original ?? '');   // (a `_2place_` clock's zero is its trip, StartTimer's)
       this._deadline = (ONLINE_DEADLINES[q?.questName] ?? []).includes(name)
         || (!(ONLINE_CLOSINGS[q?.questName] ?? []).includes(name) && !atOnce && clockIsDeadline(q, this));
+      // AUDIT REST-PARTY D1/D4: never a table entry - the hand's word stands through the success (B0B81Y02's artifact
+      // hunt outlives the knight's reward), and until D4 nothing failed when the exemption went
       this._closesOnSuccess = this._deadline && !(ONLINE_DEADLINES[q?.questName] ?? []).includes(name)
         && !!q?.tasks && startersOf(q, name).length > 0;
     }
@@ -518,6 +539,7 @@ export class Clock extends QuestResource {
       clockEnabled: this.clockEnabled,
       clockFinished: this.clockFinished,
       startedAfterSuccess: this.startedAfterSuccess,   // AUDIT TIMEFREE T5 (the port's; absent from a save before it - false)
+      declaredAtOnce: this.declaredAtOnce,   // AUDIT REST-PARTY D3 (the port's; a restore has no declaration to read)
     };
   }
 
@@ -536,6 +558,13 @@ export class Clock extends QuestResource {
     this.clockEnabled = dataIn.clockEnabled;
     this.clockFinished = dataIn.clockFinished;
     this.startedAfterSuccess = dataIn.startedAfterSuccess === true;   // AUDIT TIMEFREE T5
+    // AUDIT REST-PARTY D3: the "at once" mark rides the save. A restored clock is built bare (Quest.restoreSaveData) and
+    // has no declaration to read, so it came back false and S0000106's start-up favour (`Clock _delay_ 00:00`) read as a
+    // deadline after every load, a party member's copy and a resync. A save from before the mark: the parse's own
+    // predicate over what the save kept - a zero starting time and no travel arm. All 399 vendored clocks read the same
+    // either way; only a two-value range drawn at zero (`00:00 01:00`) could differ, and no script declares one.
+    this.declaredAtOnce = typeof dataIn.declaredAtOnce === 'boolean' ? dataIn.declaredAtOnce
+      : this.startingTimeInSeconds === 0 && !travelArmed(this.flag, this.maxRange, 0);
     this.travelTimePending = false;
   }
 }

@@ -6,7 +6,10 @@
   a Bedroll. Out in the open with none of these, the rest window says "Find a fire or a bed to rest." In town, resting
   outside is still illegal: the window says so, and no guard is called.
 - **Hold still for six seconds.** The rest window shows a short bar instead of the hours. Press Stop or Esc and
-  nothing happens. If an enemy comes, the rest is broken as before.
+  nothing happens. If an enemy comes, the rest is broken as before, and so is it if you are hurt while you hold or
+  the fire you rest by goes out.
+- **Monsters can still find you in the night.** If one turns up while you sleep, you wake at once to fight it, with
+  only the hours you slept behind you.
 - **A night passes at once.** When the bar fills you sleep a whole night: eight hours on your character's own clock,
   in one step. Spells wear off, hunger and sleep work as they did for eight hours of rest, and a rented room's night
   is used.
@@ -14,7 +17,8 @@
   The status bar shows a **Rested** tile with the minutes left until the next night.
 - **A night at a fire, a tent or a bed heals you fully.** A Bedroll is a rough night, and so is a guild hall's floor
   with Climates & Calories: in Hard it heals less and you wake stiff.
-- **Rooms count nights.** A room rented for three days gives three nights.
+- **Rooms count nights.** A room rented for three days gives three nights. If your room runs out partway through a
+  night, you only get the hours you slept.
 - **A Campfire you leave burning in a dungeon comes out with you,** with the fuel it has left.
 - **The loiter option is gone online.** The sky runs on real time, so waiting for it does nothing.
 - **Offline play is unchanged.** You rest as in Daggerfall, for as many hours as you choose.
@@ -37,8 +41,8 @@
   palace has none.
 - They are the same in every player's game, never go out and can't be picked up. They light the room around them,
   you can cook at them, and online you can rest at them.
-- **No wandering monster appears within 15 metres of one.** A monster that was already in the dungeon can still walk
-  up.
+- **Online, no wandering monster appears within 15 metres of one.** A monster that was already in the dungeon can
+  still walk up. (Offline, resting is as in Daggerfall, so monsters can still find you there.)
 - They show on the compass in yellow, and on the held dungeon map (the enhanced map) once you've seen the spot.
 - They appear offline too, as places to cook and warm up.
 
@@ -46,7 +50,12 @@
 - **No more votes.** Online, when a party member sleeps a night at a rest point, everyone in the party within 15
   metres who has "Rest with my party" on sleeps that night too, each with their own healing. Only the player who
   rested can be ambushed.
-- If you're fighting, swimming, in a menu or already resting, you're skipped, and told so.
+- **You sleep by their fire.** Standing near the party member who rested is enough: you sleep as well as they do,
+  not as if you were on the bare ground.
+- If you're fighting, swimming, in a menu or already resting, you're skipped, and told so. If you're in the same
+  place but further than 15 metres away, you're told that you missed the night.
+- **In taverns, temples and guild halls everyone rests for themselves,** as before - nobody is pulled into another
+  member's night there.
 - **/ready now just says how a party rests online.**
 - **Other players never stop you resting at a fire or a bed.** On a Bedroll the old rule stays: other players
   nearby stop you.
@@ -62,12 +71,16 @@
   your need for sleep.
 - **Meditation Candle** (3 uses): light it, then rest. You kneel for six seconds and get half your magicka back.
 - **Waking Salts** (3 uses): for an hour, being tired, drowsy or exhausted has no effect. You still get more tired,
-  and two more hours of tiredness hit you when it wears off.
+  and two more hours of tiredness hit you when it wears off. You can't take another dose until the first wears off.
 - **Sleeping Draught**: your next night sleeps as well as a bed, even on the ground.
 - **Offline** (with Climates & Calories) General Stores and Alchemists sell them, and dungeon piles and enemies
   sometimes carry an Ember Jar or a Tonic. **Online they arrive in the next update.** This update teaches every
-  game what they are first, so nobody on an older version loses one in a trade or a shared chest.
+  game what they are first, so nobody on an older version loses one in a trade or a shared chest. A character you
+  bring online keeps these supplies on the offline copy for now, and the realm says so.
 
 ## Quest waits
 - **Online, a quest that only makes you wait moves on after a couple of minutes of play:** a letter, a meeting, a
   "come back in three days". Deadlines still run on the world's clock while you play, as the quest timer notes say.
+- Three quests' timers are deadlines after all and keep their full time: the artifact hunt in "The Lost Artifact"
+  (it no longer ends a couple of minutes after the knight's reward), the scholar's errand ("Please be prompt") and
+  the banker's lead to the guard.

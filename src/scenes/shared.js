@@ -54,7 +54,7 @@ import { killIfAnyLiveStatZero } from '../systems/statMods.js';   // AUDIT 24 (w
 import { hasSpecialAbility, SPECIAL_ABILITY, healthRecoveryRate, fatigueRecoveryRate, spellPointRecoveryRate, restIgnoresNoRegen } from '../systems/rest.js';
 import { entityImprovedAthleticism } from '../systems/enchantments.js';   // AUDIT 26 F044: the ImprovesTalents fatigue arm   // the rested hour's three rates, one home for every host (V5 + S40, same line from two lanes)
 import { getPreventedRestMessage } from '../systems/restSession.js';
-import { nightDue, nightRealMinutesLeft, stampNight, runRestNight, topUpRest, spendRoomNight, heardNight, REST_CHANNEL_SECONDS, REST_ACT_TEXT } from '../systems/restAct.js';   // REST1: the rest act online
+import { nightDue, nightRealMinutesLeft, stampNight, runRestNight, topUpRest, spendRoomNight, heardNight, REST_CHANNEL_SECONDS, REST_ACT_TEXT, NIGHT_HOURS } from '../systems/restAct.js';   // REST1: the rest act online
 import { registerPreventRestCondition } from '../systems/restSession.js';   // SURV7: the survival rest gate's seam
 import { survivalFeed, installSurvivalGate } from '../systems/survival/env.js';   // SURV7: the needs' feed and the gate, composed from the entity   // ROAD-B B5: TickRest's per-frame poll (:357-360, :407-410)
 import { createNearbyScan, updateNearbyObjects, detectedMarkers, hasLiveDetector } from '../systems/nearbyObjects.js';   // X4: the Detect scan
@@ -2309,7 +2309,8 @@ export function createRestDeps(entity, opts = {}) {
   // SAME object `setResting` itself reads from - not a sibling copy of it. Cleared the moment resting turns off,
   // so an override always belongs to exactly the one session it was set for and can never bleed into this same
   // entity's next real rest.
-  let _restKindOverride = null, _draughtFrom = null;   // REST6: the own minute a Sleeping Draught's night began (spent by a night slept through)
+  let _restKindOverride = null, _draughtFrom = null;
+  let _spot = REST_KIND.Rough;   // AUDIT REST-PARTY: the rest's own spot at its open, before a Draught makes it a bed's - the party sleeps the spot   // REST6: the own minute a Sleeping Draught's night began (spent by a night slept through)
   const out = {
     // PlayerEntity.IsResting / IsLoitering (:268, :284, :789, :285).
     // Every host owes these identically - they are entity flags, not
@@ -2330,6 +2331,7 @@ export function createRestDeps(entity, opts = {}) {
         _rules = survivalRules();   // SURV-TIERS: the tier read beside the place prices it (restHour, stiffen, the asks)
         _place = (_restKindOverride ?? restKind)();
         _kind = _rules ? _place : REST_KIND.Bed; _roughHours = 0;
+        _spot = _place;   // AUDIT REST-PARTY: where the rest was opened - a pressed bed's flag lasts only the press, and a fire spends its fuel through the night
         // REST6: a Sleeping Draught makes a rough night a bed's - its yield, its sleep rate, no stiff morning - and is spent
         // by any rest of DRAUGHT_SPENT_MINUTES under it (AUDIT REST F3: a fire or a tent prices as a bed already)
         if (_rules && _place === REST_KIND.Rough && draughtTaken(entity) && (!sharedClockOn() || nightDue(entity, ownMinutes()))) { _place = REST_KIND.Bed; _kind = REST_KIND.Bed; _draughtFrom = ownMinutes(); }
@@ -2422,14 +2424,19 @@ export function createRestDeps(entity, opts = {}) {
     return { textId: null, text: text ?? REST_ACT_TEXT.shortRest, enemyBroke: false, died: false };
   };
   out.snuffCandle = () => snuffCandle();
+  out.placeKind = () => restKind();   // AUDIT REST-PARTY: where I stand, as a rest prices it - a carried night sleeps the better of it and the rester's
   out.restNight = ({ rentedHours = -1, carried = false } = {}) => {   // REST5: `carried` - a party member's night, mine to sleep but not to pass on
+    const spot = carried ? null : _spot;   // AUDIT REST-PARTY: where the night is slept, as the open read it - before the night spends a fire's fuel, and a pressed bed's flag gone with its press
     const { result, hours } = runRestNight(out, { rentedHours });
     if (hours > 0) stampNight(entity, ownMinutes());
-    if (!result?.died && !result?.enemyBroke && !result?.prevented) {
+    // AUDIT REST-PARTY A4: a room that runs out mid-night ends a night short of its hours - they keep what they gave, as a
+    // broken night does: no top-up, no fuel, no party carried into a whole night for the hour the landlord allowed
+    const cut = !!result?.rentExpired && hours < NIGHT_HOURS;
+    if (!result?.died && !result?.enemyBroke && !result?.prevented && !cut) {
       topUpRest(entity, _kind, _rules, { night: true, maxFatigueOf: maxFatigue });
       if (!result?.rentExpired) spendRoomNight(out.restPlace?.()?.room ?? null);
       out.onNightSlept?.();   // REST2: your own camp's charge (scenes/camps.js spendNightNear)
-      if (!carried) heardNight();   // REST5: the party's pose says a night was slept (world.js)
+      if (!carried) heardNight(spot);   // REST5: the party's pose says a night was slept (world.js) - AUDIT REST-PARTY: and where
     }
     surfacePlayer();
     return result;

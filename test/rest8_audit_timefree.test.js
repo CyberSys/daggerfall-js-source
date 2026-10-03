@@ -118,6 +118,7 @@ test('REST8 / AUDIT TIMEFREE T3: `end quest` is a loss only when the end ALONE s
   const favour = parse('S0000106');
   assert.equal(favour.resources.get('delay').declaredAtOnce, true, '`Clock _delay_ 00:00`');
   assert.equal(kind(favour, 'delay'), 'delay', 'the start-up favour lands at once');
+  assert.equal(favour.resources.get('delay').getSaveData().declaredAtOnce, true, 'AUDIT REST-PARTY D3: and the mark rides the save (the round trip: test/auditrestparty_quests.test.js)');
   const travel = parse('S0000010').resources.get('itemindung');
   assert.equal(travel.declaredAtOnce, false, '`00:00 0 flag 17 range 0 2` is a trip, not "at once"');
   assert.equal(travel.isDeadline, true);

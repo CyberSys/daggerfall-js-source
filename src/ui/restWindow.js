@@ -65,7 +65,7 @@ import { layoutMessageBox, drawMessageBox, messageBoxHit, messageBoxArtLoaded, M
 import { noticeFrame, noticeRelease } from './enhancedNotice.js';   // ENH-NOTICE2: the window's own click-anywhere box, as the enhanced panel
 import { isEnhanced } from '../systems/uiSkin.js';   // CLK4: the enhanced skin's rest is a veil, not a wall
 import { dateFromClassicMinutes } from '../systems/gameDate.js';
-import { REST_ACT_TEXT } from '../systems/restAct.js';   // REST1: the act's words   // OL2: the world's clock, read for the counter page
+import { REST_ACT_TEXT, ambushNight, actAtChannelEnd } from '../systems/restAct.js';   // REST1: the act's words   // AUDIT REST-PARTY A2: and the night it runs   // OL2: the world's clock, read for the counter page
 
 /** CLK4 (the Clock arc): on the ENHANCED skin the resting page is a
  *  translucent veil over the world instead of DFU's opaque black, so
@@ -237,7 +237,7 @@ export class RestWindow {
     // (InputManager.cs:634-637) - so the opening release is already
     // spent when DFU's window first runs, and :193's bare `GetKeyUp`
     // is safe there. Every host here opens on the key DOWN
-    // (world.js:13382, exterior.js:3201, ui/input.js:922), and that same
+    // (world.js:13385, exterior.js:3201, ui/input.js:922), and that same
     // key's release is then routed straight into the freshly mounted
     // window, so the release door needs the deferral DFU gives every
     // window whose open edge IS the down: DaggerfallAutomapWindow.cs
@@ -281,6 +281,7 @@ export class RestWindow {
     this._moveToBed();
     this.mode = 'act';
     this.state = 'channel';
+    this._actHealth = this.deps.vitals?.()?.health;   // AUDIT REST-PARTY A5: a blow while holding interrupts
   }
 
   /** REST1: the channel held to its end - an enemy in reach (or a spawn latched while holding) is the enemies line;
@@ -292,7 +293,9 @@ export class RestWindow {
       this._end({ textId: REST_TEXT.enemiesNearby, enemyBroke: true, died: false });
       return;
     }
-    const r = this._act.meditate ? this.deps.restMeditate?.() : this._act.night ? this.deps.restNight?.({ rentedHours: this._remainingHoursRented }) : this.deps.restShort?.();
+    const act = actAtChannelEnd(this._act, this.deps.restAct?.() ?? null, this._actHealth, this.deps.vitals?.()?.health);   // AUDIT REST-PARTY A5: the point asked again
+    if (!act) { this._end({ textId: null, text: REST_ACT_TEXT.interrupted, enemyBroke: false, died: false }); return; }
+    const r = act.meditate ? this.deps.restMeditate?.() : act.night ? this.deps.restNight?.({ rentedHours: this._remainingHoursRented }) : this.deps.restShort?.();
     this._end(r ?? { textId: REST_TEXT.wakeUp, enemyBroke: false, died: false });
   }
 
@@ -682,7 +685,7 @@ export class RestWindow {
    *  it and hands it over at _start. */
   abortForEnemySpawn() {
     if (this.session) this.session.abortForEnemySpawn();
-    else this._pendingEnemySpawn = true;
+    else if (!ambushNight()) this._pendingEnemySpawn = true;   // AUDIT REST-PARTY A2: online the act's night has no session here - it is restAct.js's, run in one call, and a quest's CreateFoe inside it is heard there
   }
 
   _end(result) {

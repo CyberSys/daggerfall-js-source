@@ -219,7 +219,10 @@ export function createCamps({
   function feedFire(item, list) {
     const feet = camera?.()?.feet;
     const t = now();
-    const placed = feet ? camps.find((c) => mine(c) && c.rec.kind === CAMP_KIND.Fire && !c.rec.jar && within(c.rec.pos, feet, BY_FIRE_REACH)) : null;
+    const placed = feet ? camps.find((c) => mine(c) && c.rec.kind === CAMP_KIND.Fire && !c.rec.jar && !!c.rec.fuel && within(c.rec.pos, feet, BY_FIRE_REACH)) : null;   // AUDIT REST-PARTY B5: never an old save's kit fire
+    // AUDIT REST-PARTY B5: a kit holds what its own maxCondition says - an old save's five-use kit fed to eight read 160% and
+    // sold for it (RRI's condition price); full is its own cap, never the new item's
+    const capOf = (it) => Math.min(CAMPFIRE_USES, it.maxCondition ?? CAMPFIRE_USES);
     const packed = (entity?.items ?? []).filter((it) => isCampfireKit(it)).sort((a, b) => (a.currentCondition ?? 0) - (b.currentCondition ?? 0))[0] ?? null;
     const take = () => { if ((item.stackCount ?? 1) > 1) item.stackCount -= 1; else { const i = (list ?? []).indexOf(item); if (i >= 0) list.splice(i, 1); } };
     if (placed && (placed.rec.wear | 0) < CAMPFIRE_USES) {
@@ -229,8 +232,8 @@ export function createCamps({
       say(REST_ITEM_TEXT.firewoodFed(placed.rec.wear));
       return true;
     }
-    if (packed && (packed.currentCondition ?? 0) < CAMPFIRE_USES) {
-      packed.currentCondition = Math.min(CAMPFIRE_USES, (packed.currentCondition ?? 0) + FIREWOOD_NIGHTS);
+    if (packed && (packed.currentCondition ?? 0) < capOf(packed)) {
+      packed.currentCondition = Math.min(capOf(packed), (packed.currentCondition ?? 0) + FIREWOOD_NIGHTS);
       take();
       say(REST_ITEM_TEXT.firewoodFed(packed.currentCondition));
       return true;
@@ -285,7 +288,8 @@ export function createCamps({
     const feet = camera?.()?.feet;
     if (!feet) return;
     for (const c of camps) {
-      if (!mine(c) || c.rec.kind !== CAMP_KIND.Tent || (c.rec.wear | 0) <= 0 || !fireLit(c.rec, t) || !within(c.rec.pos, feet, BY_FIRE_REACH)) continue;
+      const tended = c.rec.kind === CAMP_KIND.Tent || (c.rec.kind === CAMP_KIND.Fire && !!c.rec.fuel);   // AUDIT REST-PARTY B2: and my own Campfire - an offline night moves the world's minutes, so one lit before the rest burned out under its sleeper, who woke beside a cold fire and spent no charge (spendNightNear asks a lit one): the fuel was free offline
+      if (!mine(c) || !tended || (c.rec.wear | 0) <= 0 || !fireLit(c.rec, t) || !within(c.rec.pos, feet, BY_FIRE_REACH)) continue;
       if ((c.rec.litUntil ?? 0) - t > FIRE_MINUTES - 60) continue;   // tended within the hour: one word on the wire an hour, not a frame
       c.rec.litUntil = t + FIRE_MINUTES;
       onChanged?.();
@@ -578,7 +582,7 @@ export function createCamps({
     let n = 0;
     for (let i = camps.length - 1; i >= 0; i--) {
       const c = camps[i];
-      if (!mine(c) || c.rec.kind !== CAMP_KIND.Fire || c.rec.jar) continue;
+      if (!mine(c) || c.rec.kind !== CAMP_KIND.Fire || c.rec.jar || !c.rec.fuel) continue;   // AUDIT REST-PARTY B5: nor an old save's kit fire - it goes with the dungeon, as it always did
       const r = packCamp(c.rec);
       if (r.item && entity) { (entity.items ??= []).push(r.item); n++; }
       drop(c);
@@ -611,6 +615,23 @@ export function createCamps({
     _owners.set(owner, { at: nowMs });
     return true;
   }
+  /** AUDIT REST-PARTY B3: A PEER'S FIRE GONE COLD, ITS OWNER NOWHERE HERE - a dungeon room's memory of a player who left
+   *  it (a tab closed underground; an exit packs its own since). REST2 made a Campfire cold, not gone, and AUDIT REST F12
+   *  left a peer's fire to its owner's word, so a ghost stood in the room's memory for every later joiner for ever. Lit,
+   *  it is a fire anyone may rest at till its minute; cold, only its owner could relight it. A present owner's cold
+   *  fire stands. Answers how many went. */
+  function sweepColdAbsent(alive) {
+    if (!alive?.has) return 0;
+    const t = now();
+    let n = 0;
+    for (let i = camps.length - 1; i >= 0; i--) {
+      const c = camps[i];
+      if (c.owner == null || alive.has(c.owner) || c.rec.kind !== CAMP_KIND.Fire || fireLit(c.rec, t)) continue;
+      drop(c);
+      n++;
+    }
+    return n;
+  }
   /** An owner gone from the room, or quiet past staleMs, takes their camps with them. */
   function sweepOwners(alive, nowMs, staleMs = 0) {
     for (const [owner, o] of [..._owners]) {
@@ -623,7 +644,7 @@ export function createCamps({
   return {
     placeItem, tick, batches, lights, draw, targets, hoverName, activate, openMenu, openCook, byFire, fireNear, spendNightNear,
     restPointAt, bedrollNear, packOwnFires,   // REST6; AUDIT REST F1
-    destroyAll, dropOwn, collectPixel, offsetAll, snapshot, restore, wireRecords, applyOwner, sweepOwners,
+    destroyAll, dropOwn, collectPixel, offsetAll, snapshot, restore, wireRecords, applyOwner, sweepOwners, sweepColdAbsent,
     get camps() { return camps; }, own,
   };
 }

@@ -20,11 +20,12 @@
  {
   "name": "REST5-a-carried-night-is-passed-on",
   "file": "src/scenes/shared.js",
-  "old": "      if (!carried) heardNight();",
-  "new": "      heardNight();",
+  "old": "      if (!carried) heardNight(spot);",
+  "new": "      heardNight(spot);",
   "tests": [
    "test/rest5_partynight.test.js"
-  ]
+  ],
+  "note": "AUDIT REST-PARTY (PIN MOVED): the night is heard with its spot."
  },
  {
   "name": "REST5-the-vote-stands-online",
@@ -74,40 +75,45 @@
  },
  {
   "name": "REST5-my-switch-ignored",
-  "file": "src/scenes/world.js",
-  "old": "      if (!restsWithParty() || !nearRestMembers().some((n) => n.acct === m.acct)) continue;",
-  "new": "      if (!nearRestMembers().some((n) => n.acct === m.acct)) continue;",
+  "file": "src/systems/partyRestLaw.js",
+  "old": "  if (!withParty || resterAlone || exempt || dead) return null;",
+  "new": "  if (resterAlone || exempt || dead) return null;",
   "tests": [
-   "test/rest5_partynight.test.js"
-  ]
+   "test/rest5_partynight.test.js",
+   "test/auditrestparty.test.js"
+  ],
+  "note": "AUDIT REST-PARTY (PIN MOVED): the decision lifted into systems/partyRestLaw.js and run on a table; re-aimed by content."
  },
  {
   "name": "REST5-a-stale-night-carries",
-  "file": "src/scenes/world.js",
-  "old": " || now - at > PARTY_NIGHT_FRESH_MS || !isNightStamp(at)) continue;",
-  "new": " || !isNightStamp(at)) continue;",
+  "file": "src/systems/partyRestLaw.js",
+  "old": " && now - at <= freshMs && !!isNight;",
+  "new": " && !!isNight;",
   "tests": [
-   "test/rest5_partynight.test.js"
+   "test/rest5_partynight.test.js",
+   "test/auditrestparty.test.js"
   ],
-  "note": "AUDIT REST (PIN MOVED): re-aimed by content."
+  "note": "AUDIT REST-PARTY (PIN MOVED): the decision lifted into systems/partyRestLaw.js and run on a table; re-aimed by content."
  },
  {
   "name": "REST5-a-busy-member-is-pulled-in",
   "file": "src/scenes/world.js",
-  "old": "    if (playerEntity.isResting || townTalk.overlay || mirrorRestRefused()) {",
-  "new": "    if (playerEntity.isResting) {",
+  "old": "        busy: () => playerEntity.isResting || playerEntity.isLoitering || !!townTalk.overlay || mirrorRestRefused(),",
+  "new": "        busy: () => playerEntity.isResting,",
   "tests": [
    "test/rest5_partynight.test.js"
-  ]
+  ],
+  "note": "AUDIT REST-PARTY (PIN MOVED): the decision lifted into systems/partyRestLaw.js and run on a table; re-aimed by content."
  },
  {
   "name": "REST5-the-follower-sleeps-loud",
   "file": "src/scenes/world.js",
-  "old": "    quietNights(() => {\n      bag.setResting(true);",
-  "new": "    ((f) => f())(() => {\n      bag.setResting(true);",
+  "old": "    quietNights(() => {\n      if (kind) bag.overrideRestKind?.(() => kind);",
+  "new": "    ((f) => f())(() => {\n      if (kind) bag.overrideRestKind?.(() => kind);",
   "tests": [
    "test/rest5_partynight.test.js"
-  ]
+  ],
+  "note": "AUDIT REST-PARTY (PIN MOVED): the decision lifted into systems/partyRestLaw.js and run on a table; re-aimed by content."
  },
  {
   "name": "REST5-the-carried-night-passes-on",

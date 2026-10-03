@@ -194,13 +194,15 @@ const packOf = (entity) => (Array.isArray(entity?.items) ? entity.items : []);
  *  the kind (what a use consumes) and the count of every one. Null
  *  when the slot is unassigned; a GHOST (item null, count 0) when the
  *  kind is assigned and the pack holds none. */
+/** AUDIT REST-PARTY B7: a record that carries charges (a condition with a maximum) and has none left. */
+const spentCharges = (it) => (it.maxCondition ?? 0) > 0 && (it.currentCondition ?? 0) <= 0;
 export function resolveConsumable(entity, slot) {
   const e = state[slot];
   if (!e) return null;
   let item = null; let count = 0;
   for (const it of packOf(entity)) {
     if (quickslotKey(it) !== e.key) continue;
-    if (!item) item = it;
+    if (!item || (spentCharges(item) && !spentCharges(it))) item = it;   // AUDIT REST-PARTY B7: a charged kind (a Campfire, a Bedroll) answers with one that has charges left - an empty Campfire stays in the pack by design, and pressed first it was the one handed to the ground and refused
     count += Math.max(0, it.stackCount ?? 1);
   }
   // AUDIT CONTRIB H2: the LIT one of the kind first - using a light is lighting that record, and pressing the kind

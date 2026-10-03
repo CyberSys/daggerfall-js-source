@@ -165,11 +165,12 @@
  {
   "name": "HEARTH1-the-dungeon-stops-collecting-so-a-bowl-of-fire-underground-is-scenery-again",
   "file": "src/scenes/dungeonContext.js",
-  "old": "        dungeonHearths.push({ x: f.x + b.originX, y: f.y, z: f.z + b.originZ, foot: size ? f.y - size.h / 2 : undefined, w: size?.w, h: size?.h });",
+  "old": "        dungeonHearths.push({ x: f.x + b.originX, y: f.y, z: f.z + b.originZ, foot: size ? f.y - size.h / 2 : undefined, w: size?.w, h: size?.h, lawFoot: lawSize ? f.y - lawSize.h / 2 : undefined });",
   "new": "",
   "tests": [
    "test/hearth1_worldfires.test.js"
-  ]
+  ],
+  "note": "AUDIT REST-PARTY C7 (PIN MOVED): the row carries the law's classic foot too."
  },
  {
   "name": "HEARTH1-the-interiors-byFire-goes-back-to-a-hard-false",

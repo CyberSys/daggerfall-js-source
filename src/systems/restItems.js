@@ -28,7 +28,7 @@ import { registerCustomTemplates, registerItemUseHandler, templateByIndex, mintC
 import { ICON_TWIGS } from '../net/professionLaw.js';
 import { isOnlinePage } from './onlineLane.js';
 import { survivalOn } from './survival/switch.js';
-import { survivalOf, sleepStage, WAKING_DEBT_HOURS } from './survival/needs.js';
+import { survivalOf, sleepStage, wakingHeld, WAKING_DEBT_HOURS } from './survival/needs.js';
 import { ownMinutes } from './worldTick.js';
 import { maxFatigue } from './statMods.js';
 import { registerTabledLootHandler, registerEnemyLootExtra } from './loot.js';
@@ -99,6 +99,7 @@ export const REST_ITEM_TEXT = Object.freeze({
   saltsNotTired: 'You are not weary enough to need the salts.',
   saltsArcOff: 'The salts sting your nose. You were not tired.',
   saltsEnd: 'The salts wear off, and your weariness comes back all at once.',
+  saltsHeld: 'The last of the salts is still in you.',   // AUDIT REST-PARTY B6
   draught: 'You drink the draught. Tonight you will sleep as soundly as in a bed.',
   draughtHeld: 'You have already taken a draught for tonight.',
   // the placed three (scenes/camps.js)
@@ -108,6 +109,7 @@ export const REST_ITEM_TEXT = Object.freeze({
   firewoodFed: (n) => `You feed the fire. It has ${n} ${n === 1 ? 'night' : 'nights'} of fuel.`,
   firewoodFull: 'Your Campfire has all the fuel it can take.',
   firewoodNone: 'You have no Campfire to feed.',
+  notOnline: 'This cannot be used in the realm yet.',   // AUDIT REST-PARTY B4
 });
 
 /** Each item's card lines (systems/itemInfo.js builds the name and the weight around them). */
@@ -161,6 +163,7 @@ export function useSalts(item, list, entity, now = ownMinutes()) {
   if (!survivalOn() || !entity) return { kind: 'text', text: REST_ITEM_TEXT.saltsArcOff };
   const s = survivalOf(entity, now);
   if (sleepStage(s.sleepDebt ?? 0) === 'rested') return { kind: 'text', text: REST_ITEM_TEXT.saltsNotTired };   // AUDIT REST F9: the stage, not the debt
+  if (wakingHeld(s, now)) return { kind: 'text', text: REST_ITEM_TEXT.saltsHeld };   // AUDIT REST-PARTY B6: one hour at a time - three taken at once held three hours and landed ONE hour's debt (needs.js landWakingDebt lands once), and at the debt's cap none
   s.wakingUntil = Math.max(s.wakingUntil ?? 0, now) + SALTS_MINUTES;
   spendCharge(item, list);
   return { kind: 'text', text: REST_ITEM_TEXT.salts };
@@ -200,13 +203,23 @@ export function meditate(entity) {
 /** A kneel stopped, or another rest begun: the candle goes back to the pack unspent. */
 export const snuffCandle = () => { _candle = null; };
 
-registerItemUseHandler(REST_ITEM.Bedroll, (item) => ({ kind: 'pitchCamp', item }));
-registerItemUseHandler(REST_ITEM.EmberJar, (item) => ({ kind: 'placeFire', item }));
-registerItemUseHandler(REST_ITEM.Firewood, (item) => ({ kind: 'placeFire', item }));
-registerItemUseHandler(REST_ITEM.Tonic, (item, list, { entity } = {}) => useTonic(item, list, entity));
-registerItemUseHandler(REST_ITEM.Candle, (item, list) => useCandle(item, list));
-registerItemUseHandler(REST_ITEM.Salts, (item, list, { entity } = {}) => useSalts(item, list, entity));
-registerItemUseHandler(REST_ITEM.Draught, (item, list, { entity } = {}) => useDraught(item, list, entity));
+/** AUDIT REST-PARTY B4: ONLINE, NONE IS USED WHILE ITS SOURCES ARE SHUT (REST_ITEMS_ONLINE). Customs keeps them offline
+ *  now (realmCustoms.js), but a door customs never closed - an older realm save, a trade from a build that sold them -
+ *  had them in hand and working online: a laid Bedroll a rest point, a Tonic a draught. The card offers no Use
+ *  (`usable`, useItem.js usableItem) and a hotbar press is told why; offline as ever. */
+const restItemsShut = () => isOnlinePage() && !REST_ITEMS_ONLINE;
+const offlineUse = (fn) => {
+  const h = (item, list, ctx) => (restItemsShut() ? { kind: 'text', text: REST_ITEM_TEXT.notOnline } : fn(item, list, ctx));
+  h.usable = () => !restItemsShut();
+  return h;
+};
+registerItemUseHandler(REST_ITEM.Bedroll, offlineUse((item) => ({ kind: 'pitchCamp', item })));
+registerItemUseHandler(REST_ITEM.EmberJar, offlineUse((item) => ({ kind: 'placeFire', item })));
+registerItemUseHandler(REST_ITEM.Firewood, offlineUse((item) => ({ kind: 'placeFire', item })));
+registerItemUseHandler(REST_ITEM.Tonic, offlineUse((item, list, ctx) => useTonic(item, list, ctx?.entity)));   // AUDIT REST-PARTY T1: the ladder's ctx (useItem.js), as foragingInstall.js reads it - a `{}` default typed the deploy's tsc red
+registerItemUseHandler(REST_ITEM.Candle, offlineUse((item, list) => useCandle(item, list)));
+registerItemUseHandler(REST_ITEM.Salts, offlineUse((item, list, ctx) => useSalts(item, list, ctx?.entity)));
+registerItemUseHandler(REST_ITEM.Draught, offlineUse((item, list, ctx) => useDraught(item, list, ctx?.entity)));
 
 // ---- the shelves and the piles -------------------------------------------------------------------------------------
 /** A General Store's and an Alchemist's REST shelf: the counts (inclusive ranges), a better shop a few more. */

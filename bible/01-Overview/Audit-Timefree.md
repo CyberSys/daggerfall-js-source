@@ -9,7 +9,7 @@
 > it (T1-T6; 262 deadlines, 137 delays; the main quest's 30 deadlines) but two: REST8 R1 found T3's `alone` reading
 > stopped short of the reward, and K0C00Y02's gold ("you only have =2mondung_ days") and S0000502's Direnni tower ("will
 > wait inside for =towertime_ days") - read as delays here, each ended its quest unpaid two minutes in - are deadlines
-> (264 and 135; the main quest's 31). Online a delay lands on the short wait, and a
+> (264 and 135; the main quest's 31 - 266 and 133 since AUDIT REST-PARTY D1/D2, `06-Systems/Rest-Arc.md`). Online a delay lands on the short wait, and a
 > deadline is no longer frozen - it runs on QCLOCK-WORLD's played time and fires as DFU's. So T7 (the frozen guard) is
 > retired with the freeze, and the run-time half (T1, T5) now decides whether a task-started deadline closes on the
 > short wait or keeps its played days. The seams below that read "no clock online" are a delay's now: a deadline keeps

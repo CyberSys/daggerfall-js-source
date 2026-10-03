@@ -20,11 +20,13 @@
  {
   "name": "AUDITREST-F1-the-jar-comes-out-too",
   "file": "src/scenes/camps.js",
-  "old": "      if (!mine(c) || c.rec.kind !== CAMP_KIND.Fire || c.rec.jar) continue;",
-  "new": "      if (!mine(c) || c.rec.kind !== CAMP_KIND.Fire) continue;",
+  "old": "      if (!mine(c) || c.rec.kind !== CAMP_KIND.Fire || c.rec.jar || !c.rec.fuel) continue;",
+  "new": "      if (!mine(c) || c.rec.kind !== CAMP_KIND.Fire || !c.rec.fuel) continue;",
   "tests": [
    "test/auditrest.test.js"
-  ]
+  ],
+  "equivalent": true,
+  "why": "AUDIT REST-PARTY B5: an Ember Jar's fire has no fuel of its own, so the fuel term already keeps it in the dungeon; `c.rec.jar` is kept as the named reason."
  },
  {
   "name": "AUDITREST-F3-the-draught-at-a-fire",
@@ -83,20 +85,22 @@
  {
   "name": "AUDITREST-F7-the-mark-ignored",
   "file": "src/scenes/world.js",
-  "old": " || now - at > PARTY_NIGHT_FRESH_MS || !isNightStamp(at)) continue;",
-  "new": " || now - at > PARTY_NIGHT_FRESH_MS) continue;",
+  "old": "      if (!nightMoved(seen, at, now, nightKindOf(at) !== null)) continue;",
+  "new": "      if (!nightMoved(seen, at, now, true)) continue;",
   "tests": [
    "test/rest5_partynight.test.js"
-  ]
+  ],
+  "note": "AUDIT REST-PARTY (PIN MOVED): the decision lifted into systems/partyRestLaw.js and run on a table; re-aimed by content."
  },
  {
   "name": "AUDITREST-F7-the-mark-wrong",
   "file": "src/systems/restAct.js",
-  "old": "export const nightStamp = (t) => Math.floor(t / 1000) * 1000 + PARTY_NIGHT_MARK;",
-  "new": "export const nightStamp = (t) => t;",
+  "old": "export const nightStamp = (t, kind = REST_KIND.Camp) => Math.floor(t / 1000) * 1000 + markOf(kind);",
+  "new": "export const nightStamp = (t, kind = REST_KIND.Camp) => t;",
   "tests": [
    "test/rest5_partynight.test.js"
-  ]
+  ],
+  "note": "AUDIT REST-PARTY (PIN MOVED): the stamp takes its kind."
  },
  {
   "name": "AUDITREST-F8-a-worn-tent-stokes",

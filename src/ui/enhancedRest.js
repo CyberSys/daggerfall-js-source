@@ -19,7 +19,7 @@ import { normalizeCode } from '../systems/dialogShortcuts.js';   // AUDIT PARTY-
 import { getBinding } from '../systems/inputActions.js';
 import { bindings } from './input.js';   // B5: the live InputManager registry, as restWindow.js reads it
 import { restClockLine } from './restWindow.js';   // AUDIT LIVED1 O (U3): the classic window's clock line, one home for its words
-import { REST_ACT_TEXT } from '../systems/restAct.js';   // REST1: the act's words
+import { REST_ACT_TEXT, ambushNight, actAtChannelEnd } from '../systems/restAct.js';   // REST1: the act's words   // AUDIT REST-PARTY A2: and the night it runs
 
 const el = (tag, cls, text) => {
   const n = document.createElement(tag);
@@ -84,7 +84,7 @@ export function mountEnhancedRest(hostEl, deps, ignoreAllocatedBed = false) {
   deps.setResting?.(true);
   overlay.abortForEnemySpawn = () => {
     if (overlay.session) overlay.session.abortForEnemySpawn();
-    else overlay._pendingEnemySpawn = true;
+    else if (!ambushNight()) overlay._pendingEnemySpawn = true;   // AUDIT REST-PARTY A2: the act's night is restAct.js's own session, run in one call - a quest foe stood inside it breaks it there
   };
   const isTop = () => (deps.topWindow ? deps.topWindow() === overlay : true);
   // REST1 (bible/06-Systems/Rest-Arc.md): online the card opens on the ACT - restWindow.js's own law, the same three
@@ -188,6 +188,7 @@ export function mountEnhancedRest(hostEl, deps, ignoreAllocatedBed = false) {
     moveToBed();
     overlay.mode = 'act';
     overlay.state = 'channel';
+    overlay._actHealth = deps.vitals?.()?.health;   // AUDIT REST-PARTY A5: a blow while holding interrupts
   }
   /** REST1: the channel held to its end - enemies, or the night, or the short rest. */
   function finishAct() {
@@ -197,7 +198,9 @@ export function mountEnhancedRest(hostEl, deps, ignoreAllocatedBed = false) {
       overlay._end({ textId: REST_TEXT.enemiesNearby, enemyBroke: true, died: false });
       return;
     }
-    const r = act.meditate ? deps.restMeditate?.() : act.night ? deps.restNight?.({ rentedHours: overlay._remainingHoursRented }) : deps.restShort?.();
+    const at = actAtChannelEnd(act, deps.restAct?.() ?? null, overlay._actHealth, deps.vitals?.()?.health);   // AUDIT REST-PARTY A5: the point asked again
+    if (!at) { overlay._end({ textId: null, text: REST_ACT_TEXT.interrupted, enemyBroke: false, died: false }); return; }
+    const r = at.meditate ? deps.restMeditate?.() : at.night ? deps.restNight?.({ rentedHours: overlay._remainingHoursRented }) : deps.restShort?.();
     overlay._end(r ?? { textId: REST_TEXT.wakeUp, enemyBroke: false, died: false });
   }
   function channelCard() {

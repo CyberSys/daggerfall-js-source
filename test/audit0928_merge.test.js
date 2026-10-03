@@ -124,6 +124,7 @@ function context({ authority, self }) {
     playerEntity: {}, _wallNow: () => 1000, _sharedFoe: () => false, fightN: () => 1,
     placeFoeEnv: (o) => o, entityOccupancy: () => () => false, fieldOfView: () => 1.2, placeFoeFreely: () => ({ x: 6, y: 0, z: 6 }),
     inFireWard, dungeonFires: [],   // REST3: the spawn's ward (a free name there, the law's own import), no fire placed here
+    sharedClockOn: () => false, ambushNight: () => false,   // AUDIT REST-PARTY C1/A1: the ward online's alone, and a night running told of the stand - free names there too
     performance: { now: () => 0 },
   };
   const api = mount(CTX_BODY, state);

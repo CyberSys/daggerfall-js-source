@@ -169,7 +169,9 @@ import { PLAYED_STEP_MAX_SECONDS } from '../systems/quest/clock.js';   // WORLD7
 import { mintQuestFoeWave, placeFoeEnv, entityOccupancy, questFoeGender, reviveQuestBehaviour, heldSpots, holdSpotWhile, questBoxHoldsFoes, questShareTag, sharedQuestFoe, partnerStandsQuestFoes, questBehaviourFor, adoptsOrphanQuestFoe, isPrivateQuestFoe, KeptKillLedger, creditKeptKills } from './questFoeHost.js';   // B1   // AUDIT 63r F24: SerializableEnemy.cs:206-217's quest-link arm, the one home both hosts use
 import { ENEMY_BASICS } from '../characters/enemyBasics.js';   // MERGE: FinalizeFoe's Flying lift reads the behaviour flag
 import { intermittentEnemySpawn, setEnemyAlert, areEnemiesNearby, foeHostile, quietNights } from '../systems/encounters.js';   // OW6: foeHostile, the one hostility gate   // REST5: a carried night wakes to no ambush
-import { nightDue, setNightListener, nightStamp, isNightStamp, REST_ACT_TEXT } from '../systems/restAct.js';   // REST5: the party's night
+import { nightDue, setNightListener, nightStamp, nightKindOf, REST_ACT_TEXT } from '../systems/restAct.js';   // REST5: the party's night   // AUDIT REST-PARTY: and where it was slept
+import { nightMoved, carriedNightAction, carriedRestKind } from '../systems/partyRestLaw.js';   // AUDIT REST-PARTY: the party's night, pinned by execution
+import { ambushNight } from '../systems/restAct.js';   // AUDIT REST-PARTY A1: a resting encounter stood breaks the night that rolled it
 import { createStandingWatch, installLegalNotices } from './standingHost.js';   // REP1: the watch's stop; REP5: the law's notices
 import { SPAWNER_ARMS } from '../systems/encounters.js';   // SURV6: the hunt's beast stands on the wilderness arm
 import { skillValue } from '../systems/skills.js';   // SURV6: the hunter's four skills
@@ -8886,7 +8888,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   // ?dungeon host RAN every CastWhenUsed / CastWhenStrikes / SoulBound
   // / affinity arm against no ctx at all. They are optional-chained, so
   // it WAS silent. WAVE D closed it: the body is scenes/hostEnchant.js
-  // and dungeonContext.js:2938 mounts the same one, gated on
+  // and dungeonContext.js:2937 mounts the same one, gated on
   // `opts.enchantCtx !== false` because setDefaultEnchantCtx is a
   // session singleton and EC1 already routes THIS host's mount into
   // that context through modes.dungeonCtx - so worldModes.js:6859
@@ -9063,6 +9065,7 @@ export async function bootWorld(canvas, renderer, params, status) {
       });
     }
     if (!spot) return null;
+    ambushNight();   // AUDIT REST-PARTY A1: a night running now (restAct.js runRestNight) breaks at its next sub-tick - spawnFoe stands the foe after its awaits
     const fly = (ENEMY_BASICS[hit.mobileType]?.behaviour ?? 'General') === 'Flying';
     const stood = exteriorFoes.spawnFoe(hit.mobileType, [spot.x, fly ? spot.y + 1.5 : spot.y, spot.z], {
       yaw: Math.atan2(feet[0] - spot.x, feet[2] - spot.z),   // LookAt player
@@ -10008,7 +10011,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     // AUDIT PARTY-REST: where the sleeper stands, not where this bag was built - a follower's mirror inherits this
     // bag in a dungeon or a building too (partyRestMirrorDeps), and RapidHealing's InLight/InDarkness rate reads it.
     inside: () => (modes?.mode ?? 'exterior') !== 'exterior',
-    restKind: () => (camps.fireNear(walkMode && playerSpawned ? player.pos : cam.pos) ? 'camp' : 'rough'),   // SURV4: a lit fire near is the sleep; the window alone is rough (AUDIT SURV-TIERS: the world's fire, in every tier)
+    restKind: () => (_restFromBed ? 'bed' : camps.fireNear(walkMode && playerSpawned ? player.pos : cam.pos) ? 'camp' : 'rough'),   // AUDIT REST-PARTY A3: a bed pressed (a ship's) prices as the bed it is named - it slept rough in Hard: half the night, stiff, two ambush asks a minute   // SURV4: a lit fire near is the sleep; the window alone is rough (AUDIT SURV-TIERS: the world's fire, in every tier)
     // REST1: online the rest point - a bed pressed (a ship's, CSA-J's) or a lit fire in reach; the open road alone is none
     restPoint: () => (_restFromBed ? { kind: 'bed', where: null } : camps.restPointAt(walkMode && playerSpawned ? player.pos : cam.pos)),   // REST6: a fire, or the Bedroll laid
     onNightSlept: () => camps.spendNightNear(walkMode && playerSpawned ? player.pos : cam.pos),   // REST2: a night at your own camp spends a charge
@@ -14287,7 +14290,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   // exterior -> the townTalk overlay, interior OR dungeon -> the mode
   // machine's slot. U43-ii shipped the dungeon half: showQuestBox
   // offers the window to `modes.showQuestOverlay` below, and
-  // worldModes answers it in BOTH modes (worldModes.js:10411-10475 -
+  // worldModes answers it in BOTH modes (worldModes.js:10412-10476 -
   // dungeon routes to dungeonCtx.showOverlay), so a dungeon popup is
   // shown rather than logged loudly and dropped.
   // AUDIT 24 (wave 21): DaggerfallMessageBox.Show() is a
@@ -17974,7 +17977,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   const socialActText = (k, who) => (k === 'friend.request' ? `Friend request sent to ${who}`
     : k === 'party.invite' ? `Party invite sent to ${who}`
       : k === 'friend.remove' ? `${who} is no longer your friend` : 'Sent');
-  /** PARTY-REST1: RestWindow's own `mode` string ('loiter'|'timed'|'full', restWindow.js:661) to the wire's small
+  /** PARTY-REST1: RestWindow's own `mode` string ('loiter'|'timed'|'full', restWindow.js:664) to the wire's small
    *  numbers (net/wire.js validPartyPose: 0/1/2) - the one place the three hosts' restState getters (worldModes.js,
    *  dungeonContext.js) and this host's own outdoor overlay converge, so the mapping is written once. */
   const partyRestModeCode = (mode) => (mode === 'timed' ? 1 : mode === 'full' ? 2 : 0);
@@ -18452,7 +18455,10 @@ export async function bootWorld(canvas, renderer, params, status) {
   // rest) - and wakes to no ambush (encounters.js quietNights: only the rester rolls). A member mid-fight, swimming,
   // in a window or resting already is skipped and told, never refused. No relay bump: an older client reads the stamp
   // as its own "a rest just happened" cooldown, at worst.
-  const PARTY_NIGHT_FRESH_MS = 30_000;   // a stamp older than this when it is first seen moving is a night long over
+  // AUDIT REST-PARTY (2026-10-03): the decision is systems/partyRestLaw.js's now (nightMoved, carriedNightAction,
+  // carriedRestKind), run on a table there - a tavern, temple or guild hall carries nobody (TAVERN-REST1/GUILD-REST1),
+  // a carried night is slept at the rester's spot or my own, whichever is better (PARTY-REST4's per-request), the dead
+  // are not told they slept, and a mate who rests a night here beyond the party's reach is said once (PARTY-REST-FAR1).
   const hostRestDeps = () => {
     const mode = modes?.mode ?? 'exterior';
     return mode === 'interior' ? modes?.restDeps?.() ?? null : mode === 'dungeon' ? modes?.dungeonCtx?.restDeps?.() ?? null : outdoorRestDeps;
@@ -18467,26 +18473,38 @@ export async function bootWorld(canvas, renderer, params, status) {
       const at = stampOf(m.p?.restStartedAt, now);
       const seen = _nightSeen.get(m.acct);
       _nightSeen.set(m.acct, at);
-      if (seen === undefined || !at || at === seen || now - at > PARTY_NIGHT_FRESH_MS || !isNightStamp(at)) continue;   // AUDIT REST F7: a night's, never an older build's open
-      if (!restsWithParty() || !nearRestMembers().some((n) => n.acct === m.acct)) continue;
-      sleepCarriedNight(m.name || 'A party member');
+      if (!nightMoved(seen, at, now, nightKindOf(at) !== null)) continue;   // AUDIT REST F7: a night's, never an older build's open
+      const present = memberPresent(m);
+      const dead = playerEntity.health <= 0 || !!modes?.deathUp?.();
+      const act = carriedNightAction({
+        withParty: restsWithParty(), resterAlone: restsAlone(m), exempt: !!modes?.insidePartyRestExempt, dead,
+        near: present && nearAccount(m.acct, m.p),
+        here: present && samePlace(myPartyLocation(), { px: m.p.px, py: m.p.py, in: m.p.in, bk: m.p.bk }),
+        busy: () => playerEntity.isResting || playerEntity.isLoitering || !!townTalk.overlay || mirrorRestRefused(),
+      });
+      if (!act) continue;
+      const name = m.name || 'A party member';
+      if (act === 'far') setMidScreenText(REST_ACT_TEXT.carriedFar(name), 4);   // PARTY-REST-FAR1's word and its four seconds, said once a night
+      else if (act === 'busy') setMidScreenText(REST_ACT_TEXT.carriedSkipped(name), 4);
+      else sleepCarriedNight(name, nightKindOf(at));
       return;   // one night a frame
     }
   };
-  const sleepCarriedNight = (name) => {
-    if (playerEntity.isResting || townTalk.overlay || mirrorRestRefused()) { setMidScreenText(REST_ACT_TEXT.carriedSkipped(name), 4); return; }
+  const sleepCarriedNight = (name, theirs) => {
     const bag = hostRestDeps();
     if (!bag?.restNight) return;
     const night = nightDue(playerEntity, ownMinutes());
+    const kind = carriedRestKind(bag.placeKind?.() ?? null, theirs);   // AUDIT REST-PARTY: by their fire, not on the ground beside it
     let r = null;
     quietNights(() => {
+      if (kind) bag.overrideRestKind?.(() => kind);   // read by the open below; the close clears it (createRestDeps setResting)
       bag.setResting(true);
       try { r = night ? bag.restNight({ carried: true }) : bag.restShort(); } finally { bag.setResting(false); }
     });
     if (night && !r?.died && !r?.enemyBroke) bag.onRestFinished?.();   // the night's skill raise, as the window's close gives it
     setMidScreenText(night ? REST_ACT_TEXT.carried(name) : REST_ACT_TEXT.carriedShort(name), 5);
   };
-  setNightListener(() => { if (social && sharedClockOn()) { _partyRestJustStartedAt = nightStamp(social.now()); _partyComposedAt = -Infinity; } });
+  setNightListener((kind) => { if (social && sharedClockOn()) { _partyRestJustStartedAt = nightStamp(social.now(), kind ?? undefined); _partyComposedAt = -Infinity; } });
   const partyRestHere = () => !sharedClockOn() && !!social?.party && !modes?.insidePartyRestExempt && restTogether();   // REST-OPT: resting alone is a rest of my own
   const partyRestGate = () => {
     if (!social?.party) return null;
@@ -18804,7 +18822,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   // now the ONE place the tally ever reaches chat at all, so it has to announce every transition, the first
   // included, or nobody but the presser would ever see "someone wants to rest" show up.
   const _partyRestVoteTrackTick = () => {
-    if (!social?.party || modes?.insidePartyRestExempt || !restTogether()) { _partyRestVoteLastReady = null; _partyRestVoteOrigin = null; return; }   // REST-OPT: resting alone, the tally is not mine
+    if (!social?.party || modes?.insidePartyRestExempt || !restTogether() || sharedClockOn()) { _partyRestVoteLastReady = null; _partyRestVoteOrigin = null; return; }   // REST-OPT: resting alone, the tally is not mine   // AUDIT REST-PARTY: online there is no vote to count (REST5)
     const now = performance.now();
     if (now - _partyRestVoteTrackAt < 1000) return;
     _partyRestVoteTrackAt = now;

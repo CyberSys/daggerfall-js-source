@@ -2,12 +2,12 @@
  {
   "name": "REST3-a-brazier-by-the-door-gets-a-second-fire",
   "file": "src/world/dungeonFires.js",
-  "old": "  if (!existing.some((q) => d2(q, from) < SQ(DFIRE.entranceM))) {",
-  "new": "  if (true) {",
+  "old": "  const doorFire = existing.some((q) => d2(q, from) < reach);",
+  "new": "  const doorFire = false;",
   "tests": [
    "test/rest3_dungeonfires.test.js"
   ],
-  "note": "AUDIT REST (PIN MOVED): re-aimed by content."
+  "note": "AUDIT REST (PIN MOVED): re-aimed by content. AUDIT REST-PARTY (PIN MOVED): C2/C5 lifted the door's test into `doorFire` (a layout fire by the door, or nearer it than any clear candidate); re-aimed by content."
  },
  {
   "name": "REST3-the-spread-ignores-the-spacing",
@@ -149,11 +149,12 @@
  {
   "name": "REST3-the-dungeon-forgets-the-ward",
   "file": "src/scenes/dungeonContext.js",
-  "old": "      if (spot && inFireWard(dungeonFires, spot)) spot = null;",
-  "new": "",
+  "old": "inFireWard(dungeonFires, spot)) spot = null;",
+  "new": "false) spot = null;",
   "tests": [
    "test/rest3_dungeonfires.test.js"
-  ]
+  ],
+  "note": "AUDIT REST-PARTY (PIN MOVED): C1 gated the line online (sharedClockOn() before the ward); re-aimed by content at the ward's own call."
  },
  {
   "name": "REST3-a-placed-fire-is-only-a-fire",

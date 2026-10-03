@@ -1685,10 +1685,10 @@ export function createWorldModes(host) {
    *  billboard is CENTRE-anchored, so the base ends up ON the marker
    *  inside a building and half a height BELOW it inside a dungeon.
    *  This port's billboard shader is BOTTOM-anchored (position = base,
-   *  the C11 law dungeonContext.js:2239 states), so the same visual
+   *  the C11 law dungeonContext.js:2237 states), so the same visual
    *  result needs the shift on the DUNGEON side - which is exactly the
    *  shift the dungeon's own RDB flats already take
-   *  (dungeonContext.js:2124, `y - size.h / 2`), and which a building's
+   *  (dungeonContext.js:2122, `y - size.h / 2`), and which a building's
    *  flats correctly do not (interiorContext.js passes its centers
    *  straight through).
    *
@@ -8024,6 +8024,7 @@ export function createWorldModes(host) {
     unleveledLootPreTransition();   // UL1: OnPreTransition (TransitionDungeonExterior) - and NO OnTransitionExterior here, bug for bug
     // Verbatim PositionPlayerToDungeonExit; the camera faces the normal.
     const landing = returnLanding();   // WB3b: before the gate, out of the court
+    dungeonCtx.camps?.packOwnFires?.();   // AUDIT REST-PARTY B3: before the room's memory goes
     const pose = dungeonPose();
     host.onDungeonLeave?.();   // WORLD1: the room's memory goes out while the dungeon still stands
     teardownDungeonQuestFlats();   // B2: OnDestroy for the quest stands, before the batch teardown
@@ -8816,7 +8817,7 @@ export function createWorldModes(host) {
           // AUDIT 39r: and the FLASH, which this arm was copied without.
           // An arrow reaches the player through BowDamage ->
           // ApplyDamageToPlayer -> SendDamageToPlayer, the same door as
-          // a blow (world.js:15180's own wave-46 note); the interior
+          // a blow (world.js:15183's own wave-46 note); the interior
           // MELEE hit already flashes inside exteriorFoes, so only this
           // arm - which applies its own damage - was missing it.
           flashPlayerDamage(dmg);   // BA1: RemoveHealth carries the amount
@@ -11177,6 +11178,10 @@ export function createWorldModes(host) {
         _insideTavern = false;   // ROAD-B B4: PlayerEnterExit.cs:874, the same latch on the teleport/load arm
         _insidePartyRestExempt = false;   // TAVERN-REST1/GUILD-REST1: cleared on the same teleport/load arm as the tavern latch above
       }
+      // AUDIT REST-PARTY B1 + B3: my own fires leave before the room's memory does (the leave hook below publishes it). A
+      // teleport carries a Campfire out (AUDIT REST F1); a LOAD drops it - the pack is already the save's (restorePlayer,
+      // above this call), and the save stands its own fires, so packing here minted a second Campfire on every quickload
+      if (dungeonCtx) { if (cacheScene) dungeonCtx.camps?.packOwnFires?.(); else dungeonCtx.camps?.dropOwn?.(); }
       if (dungeonCtx) {
         host.onDungeonLeave?.();   // WORLD1: a load or a teleport out is a leave too
         teardownDungeonQuestFlats();
@@ -11486,7 +11491,7 @@ export function createWorldModes(host) {
      *  (world.js's, this file's `interiorWeapon` :538, dungeonContext's
      *  and exterior.js's - which this seam does not reach: that host has no save path at all, its charter exterior.js:3497-3519), and IS1 routed the inside-a-building save to
      *  the WORLD host's composer - which reads its own exterior rig
-     *  unconditionally (world.js:11500). So an F9 pressed in a shop
+     *  unconditionally (world.js:11503). So an F9 pressed in a shop
      *  recorded the street's sheath and hand, and the load wrote them
      *  back into the street's rig; the rig actually in the player's
      *  hands was in no envelope at all.
@@ -11525,7 +11530,7 @@ export function createWorldModes(host) {
       if (interiorOverlay instanceof DeathScreen) { interiorOverlay.restoreView(); interiorOverlay = null; }
     },
     /** The restore half - and NOT gated on the mode, deliberately.
-     *  worldQuickLoad calls forceExitToExterior FIRST (world.js:11615)
+     *  worldQuickLoad calls forceExitToExterior FIRST (world.js:11618)
      *  and only re-enters the building at :4217, so the mode at apply
      *  time is whatever the LOAD landed in, not whatever the SAVE was
      *  taken in: an outdoor save loaded while the player was indoors
@@ -11535,7 +11540,7 @@ export function createWorldModes(host) {
      *
      *  FLAG ONLY and presence-gated - both laws now stated once, in
      *  combat/playerWeapon.js's applyWeaponPose, with the citation.
-     *  HARD2c: this used to spell them out, and named `world.js:10493`
+     *  HARD2c: this used to spell them out, and named `world.js:10496`
      *  and `dungeonContext.js:8043` for its two sibling copies - lines
      *  that had moved to :4418 and :5457. Three copies of a two-line
      *  law, and even the comment pointing between them had gone stale. */

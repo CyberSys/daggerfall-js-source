@@ -231,9 +231,9 @@ export function needGlyph(chip) {
 /**
  * The widget's tiles, in the order the foot row read them: the spells (mine, then others'), the set powers, the
  * poisons and diseases, the needs.
- * @param {{ spells?: any[], powers?: any[], afflictions?: any[], needs?: any[] }} lists - `spells` ui/enhancedHud.js
+ * @param {{ spells?: any[], powers?: any[], afflictions?: any[], needs?: any[], rested?: { minutes: number }|null }} lists - `spells` ui/enhancedHud.js
  *   effectRows, `powers` the host's set chips (systems/sigilSetPowers.js setHudChips), `afflictions` afflictionRows,
- *   `needs` survivalHudChips
+ *   `needs` survivalHudChips, `rested` REST1's night interval (its real minutes left)
  * @returns {StatusTile[]}
  */
 export function statusTiles({ spells = [], powers = [], afflictions = [], needs = [], rested = null } = {}) {

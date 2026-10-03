@@ -71,7 +71,7 @@ test('REST2 a night spends one charge; the last leaves the Campfire cold, standi
 });
 
 test('REST2 the rows: rest and cook at any fire; your cold Campfire with fuel relights; yours picks up; a friend\'s rests and cooks only', () => {
-  const lit = newCamp({ id: 'a', kind: CAMP_KIND.Fire, pos: [0, 0, 0], now: 0, wear: 5 });
+  const lit = { ...newCamp({ id: 'a', kind: CAMP_KIND.Fire, pos: [0, 0, 0], now: 0, wear: 5 }), fuel: true };   // AUDIT REST-PARTY B5: a Campfire's own fuel (placeCampItem marks it)
   assert.deepEqual(campMenu(lit, 10, true).map((r) => r.key), ['rest', 'cook', 'pack']);
   assert.equal(campMenu(lit, 10, true).at(-1).text, CAMP_TEXT.menuPickUp);
   assert.deepEqual(campMenu(lit, 10, false).map((r) => r.key), ['rest', 'cook']);

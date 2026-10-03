@@ -54,7 +54,9 @@ test('REST3 the candidates: start, enter, treasure and quest markers (199), fixe
 test('REST3 the floor and the rules: a flat floor within 4 m, half a metre over the water, 3 m from a door, 8 m from an enemy on its storey, and room to sit', () => {
   const c = (k, water = -Infinity) => ({ pos: [k * 20, 1, 0], water });   // twenty metres apart: each rule its own candidate
   const probe = {
-    floor: (p) => (p[0] === 20 ? null : p[0] === 40 ? { y: 0, ny: 0.8 } : { y: 0, ny: 1 }),
+    // AUDIT REST-PARTY (PIN MOVED): the ramp's face under the marker alone - C3's ring asks eight points round it, two
+    // of them on x = 40, and a ramp along that whole line was refused by the ring whatever the centre's own test said
+    floor: (p) => (p[0] === 20 ? null : p[0] === 40 && p[2] === 0 ? { y: 0, ny: 0.8 } : { y: 0, ny: 1 }),
     room: (p) => p[0] !== 140,
   };
   const kept = landCandidates([c(1), c(2), c(3), c(4, 0), c(5), c(6), c(7), c(8)], { probe, doors: [[100, 0, 2]], enemies: [[120, 0, 7], [160, 20, 0]] });
@@ -159,7 +161,7 @@ test('REST3 by source: the dungeon places them after its geometry and before its
   assert.match(dc, /dungeonHearths\.push\(\{ x: p\[0\], y: cy, z: p\[2\], foot: p\[1\], w: size\.w, h: size\.h, placed: true \}\);/);
   assert.match(dc, /lights\.push\(\{ x: p\[0\], y: p\[1\] \+ FIRE_LIGHT_UP, z: p\[2\], range: FIRE_LIGHT_RANGE \}\);/);
   assert.match(dc, /torches\.push\(\{ pos: \[p\[0\], cy, p\[2\]\], handle: null \}\);/);
-  assert.match(dc, /if \(spot && inFireWard\(dungeonFires, spot\)\) spot = null;/);
+  assert.match(dc, /if \(spot && [^\n]*inFireWard\(dungeonFires, spot\)\) spot = null;/);   // AUDIT REST-PARTY (PIN MOVED): the spawn asks the ward - C1's online gate before it is C1's own pin
   assert.match(dc, /fires: dungeonFires,/);
   assert.match(dc, /withFireMarks\(opts\.nodeMarks\?\.\(playerFeet\) \?\? null, dungeonFires, playerFeet\)/);
   assert.match(rd('src/ui/automapDoor.js'), /fires: deps\.fires \?\? null,/);

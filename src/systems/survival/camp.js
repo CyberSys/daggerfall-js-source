@@ -206,7 +206,7 @@ export function placeCampItem(item, list, { now = 0, owner = null, feet = [0, 0,
 /** PACK a camp: the gear back with its wear (a tent) - REST2: and a Campfire back with its charges. Returns { item, text }. */
 export function packCamp(camp) {
   const tent = camp?.kind === CAMP_KIND.Tent;
-  if (!tent && camp?.kind !== CAMP_KIND.Fire) return { item: null, text: CAMP_TEXT.stamped };
+  if (!tent && (camp?.kind !== CAMP_KIND.Fire || !camp.fuel)) return { item: null, text: CAMP_TEXT.stamped };   // AUDIT REST-PARTY B5: a fire with no fuel of its own (a kit's, an Ember Jar's) is stamped out, never minted into a Campfire
   const item = createSurvivalItem(tent ? TEMPLATE.CampingEquipment : TEMPLATE.Campfire);
   if (item) item.currentCondition = Math.max(0, Math.min(item.maxCondition ?? camp.wear, camp.wear | 0));
   return { item, text: tent ? CAMP_TEXT.packed : CAMP_TEXT.pickedUp };
@@ -258,7 +258,7 @@ export function campMenu(camp, now, mine) {
   const rows = [{ key: 'rest', text: CAMP_TEXT.menuRest }, { key: 'cook', text: CAMP_TEXT.menuCook }];
   if (camp.kind === CAMP_KIND.Tent && !fireLit(camp, now) && (camp.wear | 0) > 0) rows.push({ key: 'stoke', text: CAMP_TEXT.menuStoke });
   if (camp.kind === CAMP_KIND.Fire && mine && !camp.jar && !fireLit(camp, now) && (camp.wear | 0) > 0) rows.push({ key: 'stoke', text: CAMP_TEXT.menuRelight });
-  if (mine && !camp.jar) rows.push({ key: 'pack', text: camp.kind === CAMP_KIND.Tent ? CAMP_TEXT.menuPack : CAMP_TEXT.menuPickUp });
+  if (mine && !camp.jar && (camp.kind === CAMP_KIND.Tent || !!camp.fuel)) rows.push({ key: 'pack', text: camp.kind === CAMP_KIND.Tent ? CAMP_TEXT.menuPack : CAMP_TEXT.menuPickUp });   // AUDIT REST-PARTY B5: never an old save's kit fire (no fuel of its own: AUDIT REST F12 - it burns away as it always did; picked up, it was a second Campfire from nothing)
   return rows;
 }
 

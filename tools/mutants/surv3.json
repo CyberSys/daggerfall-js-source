@@ -85,12 +85,12 @@
   {
     "name": "SURV3-anyone-may-pack-your-camp",
     "file": "src/systems/survival/camp.js",
-    "old": "  if (mine && !camp.jar) rows.push({ key: 'pack',",
-    "new": "  if (!camp.jar) rows.push({ key: 'pack',",
+    "old": "  if (mine && !camp.jar && (camp.kind === CAMP_KIND.Tent || !!camp.fuel)) rows.push({ key: 'pack',",
+    "new": "  if (!camp.jar && (camp.kind === CAMP_KIND.Tent || !!camp.fuel)) rows.push({ key: 'pack',",
     "tests": [
       "test/surv3_camps.test.js"
     ],
-    "note": "REST6 (PIN MOVED): re-aimed by content."
+    "note": "AUDIT REST-PARTY (PIN MOVED): the row asks fuel of a fire too."
   },
   {
     "name": "SURV3-a-dead-kit-fire-stands-for-ever",

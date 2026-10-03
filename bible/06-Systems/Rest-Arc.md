@@ -400,7 +400,7 @@ QCLOCK-WORLD's clock, online only - the gate is the quest hooks' `sharedClock`, 
   `ONLINE_CLOSINGS` (R0C11Y03), the "at once" clocks (`declaredAtOnce`), the run-time half (`isDeadline`: a task-started
   deadline closes on the short wait once the quest is a success, unless started after it - `startedAfterSuccess`,
   saved). Restored line for line from commits a075cbdd6 and 6611f0188, every hand-audited classification kept but the
-  two R1 corrects: 264 deadlines, 135 delays over the 399 vendored clocks, the main quest's 31 deadlines (the audit's 30
+  two R1 corrects: 264 deadlines, 135 delays over the 399 vendored clocks (AUDIT REST-PARTY D1/D2 made it 266 and 133, below), the main quest's 31 deadlines (the audit's 30
   and S0000502's tower) listed and pinned.
 - **R1 - two deadlines the audit read as delays.** T3 reads `end quest` by what the end ALONE sets off, but the reward
   that clears it was read over the whole conditional reach. Two clocks fell between: K0C00Y02's gold ("you only have
@@ -427,7 +427,7 @@ QCLOCK-WORLD's clock, online only - the gate is the quest hooks' `sharedClock`, 
   failure - two minutes in (as it did under TIMEFREE, whose delays were cut the same); a delay read as a deadline now
   only waits its played days, where TIMEFREE froze it for ever. So the one harmful misreading is the first - R1 found
   two - and it is what the pins guard: the split, both tables, the 31 main-quest deadlines, and every vendored clock
-  ticked online past the short wait - all 135 delays landed, not one of the 264 deadlines cut
+  ticked online past the short wait - all 135 delays landed, not one of the 264 deadlines cut (266 and 133 since AUDIT REST-PARTY)
   (`test/rest8_questwaits.test.js`).
 - **Pins:** `test/rest8_questwaits.test.js` (TIMEFREE's file re-aimed: the freeze assertions now "runs on played
   time"), `test/rest8_audit_timefree.test.js` (AUDIT TIMEFREE's and AUDIT TIMEFREE II's, re-aimed the same way; T7
@@ -633,6 +633,67 @@ Mac: "Go" - every recommendation of section 15 taken. Slices REST1-REST6 and RES
   rest window's own). Not verifiable here: the fires on the real dungeons (no ARENA2 in this container -
   `tools/dungeonFireProbe.mjs` reports them) and a spot on a room's roof between storeys (the collider's rays are
   two-sided; the ceiling and wall rays are the guard).
+- **AUDIT REST-PARTY** (2026-10-03, the arc audited again with the party rest adapted to the night - four lenses: the
+  act and the ambush, the Campfire and the supplies, the dungeon fires, the quest waits; the party by hand.
+  `test/auditrestparty.test.js`, `auditrestparty_camps.test.js`, `auditrestparty_quests.test.js`,
+  `auditrestparty_fires.test.js`; `tools/mutants/auditrestparty*.json`, every mutant dead).
+  - **The party's night** (2.6), its decision lifted into `src/systems/partyRestLaw.js` (`nightMoved`,
+    `carriedNightAction`, `carriedRestKind`) and run on a table - REST5 had pinned it by regexes alone. P1: it carried
+    members in a tavern, temple or guild hall, where TAVERN-REST1/GUILD-REST1 had taken the party's rest out (indoors
+    "near" is the building, so one member's rented bed slept everyone in the house, a room's night spent or a bed got
+    free) - nobody is carried there now. P2: a carried member slept their OWN spot, and a fire's reach is 4 m where the
+    party's is 15, so a mate at 5 m woke "You slept poorly" in Casual (the default) and at 17 of 60 and stiff in Hard
+    beside a rester who woke full - PARTY-REST4's per-request ("party member MUST heal their health near the leader")
+    undone. The night's stamp now says where it was slept (`restAct.js` `PARTY_NIGHT_MARKS`: one millisecond mark a
+    rest kind, read off the open - an older build's window open lands on one three times in a thousand; still no relay
+    bump), and a carried member sleeps the better of it and their own (`carriedRestKind`; a Sleeping Draught is its
+    drinker's, never the party's). P3: a dead member was told they slept. P4: PARTY-REST-FAR1's word comes back online -
+    a mate who rests a night in the same place beyond 15 m is said once ("Ada rested a night without you - come within 15
+    m of them to rest with the party."). P5: the vote's tally no longer counts online, where there is no vote.
+  - **The ambush (REST4) never broke a night online - A1, the arc's worst.** Every host stands its resting encounter
+    asynchronously (its art awaited), and the night ran as one synchronous call, so no foe joined a pool inside it: a
+    night a hit rolled (a wilderness night about 85% of the time, a dungeon with the alert up two in three) was slept to
+    its end - healed whole, stamped, the party carried - with the foe arriving after the wake, and every later sub-tick
+    rolled again (two foes standing at the wake on average). "As built"'s "the break landing at the hour it falls" was
+    true only of the tests, which flipped `enemiesNearby` by hand. A host now says so the moment the spot is found
+    (`restAct.js` `ambushNight`, the session's own OnEncounter latch - DFU's AbortRestForEnemySpawn), and the night is
+    ticked a sub-tick a call, so it breaks with "enemies nearby" at the sub-tick the hit fell in, its hours counted,
+    nothing more rolled, nobody carried. A2: a quest's CreateFoe inside the night reaches it too (both windows). A3: a
+    pressed bed outdoors (a ship's) is priced as the bed it is named. A4: a room that runs out mid-night is no whole
+    night - no top-up, no fuel, nobody carried. A5: the channel held to its end asks the point again: a fire, tent or
+    Bedroll gone, or a blow taken while holding, interrupts ("Your rest is interrupted."); a night that came due while
+    holding is a night. Kept, as readings: a broken night still stamps the interval it slept into; the dungeon's own
+    `_restAdvance` is not retired (section 7's last paragraph) - the night walks it through that host's advance, which
+    runs every census row; the world tick's day blocks catch up on the frame after the wake.
+  - **The Campfire and the supplies.** B1: a load out of a dungeon packed my standing Campfire into the pack the save
+    had just restored - a second Campfire on every quickload; a load drops it now (the save stands its own), a leave or
+    a teleport still packs it. B2: offline a night moves the world's minutes, so my Campfire burned out under its
+    sleeper and spent no charge (the fuel was free offline) - it is tended through a camp night as a tent is. B3: my fire
+    is put away BEFORE the room's memory is published (it stood in the dungeon for every later joiner), and a peer's cold
+    fire whose owner has left the room is swept each frame. B4: customs carried REST6's supplies into the realm, usable -
+    customs keeps them with the offline character now and says so, and online none is used while
+    `REST_ITEMS_ONLINE` is off. B5: an old save's kit fire (no fuel of its own) offered "Pick up" and minted a Campfire
+    from nothing - it is stamped out, as before REST; Firewood feeds a kit to its own maximum (an old five-use kit read
+    160%). B6: the Waking Salts one hour at a time (three taken at once held three hours and landed one hour's debt).
+    B7: the hotbar's Campfire is one with fuel.
+  - **The dungeon fires.** C1: the 15 m ward is online's alone - offline the rest is DFU's, ambushes and all (OPEN 8).
+    C2: an entrance fire stands 25 m clear of the layout's own fires, and one nearer the door than any candidate is the
+    entrance's; C5: and it counts toward N (an elite with a brazier at its door places none of its own). C3: 4.2's
+    "no stairs, no ramps" is kept now - `ny` 0.99 and eight samples 0.5 m out within 5 cm (a stair tread is flat). C4:
+    the floor ray reads every bucket and keeps a spot only over the dungeon's own mesh (a lift over a shaft put its fire
+    in the pit). C6: `tools/dungeonFireProbe.mjs` reads the doors and the fires as the host does
+    (`dungeonFires.js` `fireLayoutInputs`, the host's own call). C7: the law read a hearth's foot off `billboardSize`,
+    which applies a texture mod's XML scale - a modded client could stand other fires; it reads the classic record's
+    (`lawFoot`). Not verifiable here, as before: the real dungeons (the
+    5 cm tolerance on a cave's floor is the probe's question - run it with ARENA2_PATH).
+  - **The quest waits.** D1: B0B81Y02's `_S.30_` - the artifact hunt, task-started by the lich's map before the
+    knight's reward - read as a closing once the quest was a success, so online the hunt ended two minutes after the
+    reward; `ONLINE_DEADLINES` holds it. D2: N0B00Y17's `_time2_` (the scholar's "Please be prompt") and K0C30Y03's
+    `_S.13_` (the guard's lead) are deadlines the script reading calls delays, R1's class: 266 deadlines and 133 delays
+    now. D3: `declaredAtOnce` rides the save (S0000106's delay read as a deadline after a load). D4: the exemption that
+    keeps a table entry from closing on success is pinned.
+  - **The type check was red** (`npm run types`, which the deploy runs): two `{}`-defaulted use-handler contexts and the
+    Rested tile's input undeclared.
 - **REST7 - crafting: NOT BUILT, deliberately.** The recipes are a source like the shelves, so they could not open
   before `REST_ITEMS_ONLINE` does; adding them now changes the account service's bundle (an `acct` bump) for rows that
   stay shut. They ride the release that turns the switch on, with the shelves.
@@ -646,3 +707,6 @@ Mac: "Go" - every recommendation of section 15 taken. Slices REST1-REST6 and RES
 - 2026-10-03: BUILT (Mac: "Go"). REST1 + REST2, REST3, REST5, REST6 and REST8 committed in that order, origin/main
   merged in; REST7 deferred with the online switch (As built). The patch notes:
   `PATCH-NOTES-Resting-at-Rest-Points.md`.
+- 2026-10-03: AUDIT REST-PARTY (As built): the party rest adapted to the night (the tavern's exemption, the rester's
+  spot, the far word), the ambush that never broke a night online, and every lens's findings fixed, pinned and
+  mutation-proven.

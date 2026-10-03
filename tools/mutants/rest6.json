@@ -149,11 +149,13 @@
  {
   "name": "REST6-the-jar-picked-up",
   "file": "src/systems/survival/camp.js",
-  "old": "  if (mine && !camp.jar) rows.push",
-  "new": "  if (mine) rows.push",
+  "old": "  if (mine && !camp.jar && (camp.kind === CAMP_KIND.Tent || !!camp.fuel)) rows.push",
+  "new": "  if (mine && (camp.kind === CAMP_KIND.Tent || !!camp.fuel)) rows.push",
   "tests": [
    "test/rest6_consumables.test.js"
-  ]
+  ],
+  "equivalent": true,
+  "why": "AUDIT REST-PARTY B5: an Ember Jar's fire has no fuel of its own (camp.js placeCampItem), so the fuel term already keeps its row out; `!camp.jar` is kept as the named reason."
  },
  {
   "name": "REST6-the-jar-never-swept",
