@@ -182,8 +182,8 @@
   {
     "name": "BOATMENU-start-top",
     "file": "src/systems/csaBoatMenu.js",
-    "old": "  if (box == null) return 0;\n  const verb",
-    "new": "  if (true) return 0;\n  const verb",
+    "old": "  if (box == null) return 0;\n  if (box === 'door'",
+    "new": "  if (true) return 0;\n  if (box === 'door'",
     "tests": [
       "test/boatmenu.test.js"
     ]

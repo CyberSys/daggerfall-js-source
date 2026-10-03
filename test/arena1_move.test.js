@@ -98,7 +98,7 @@ test('ARENA1 move: every other record keyed there names no building - a room at 
   // a quest site there is chosen again (Place.reseatMovedSite asks recordStands); an inside save stands outside
   assert.match(read('src/systems/quest/place.js'), /if \(sd\?\.siteType !== SITE_TYPES\.Building \|\| !\(sd\.buildingKey > 0\) \|\| recordStands\(sd\)\) return false;/);
   assert.match(read('src/systems/layoutPins.js'), /if \(_displaced\(rec\)\) return false;\n\s*return layoutsMatch\(rec\.layout, layoutStampOfMapId\(rec\.mapId\)\);/);
-  assert.match(read('src/scenes/worldModes.js'), /if \(d\.buildingKey && arenaRecordDisplaced\(\{ mapId: questSceneCtx\?\.\(\)\?\.mapId \?\? 0, buildingKey: d\.buildingKey \}\)\) \{/);
+  assert.match(read('src/scenes/worldModes.js'), /if \(!cabin && d\.buildingKey && arenaRecordDisplaced\(\{ mapId: questSceneCtx\?\.\(\)\?\.mapId \?\? 0, buildingKey: d\.buildingKey \}\)\) \{/);
   const w = read('src/scenes/world.js');
   assert.match(w, /if \(!homeLayoutsOnline\) moveArenaDeed\(\);/, 'offline, before the pins are read');
   assert.match(w, /notice: \(\) => \{ const show = \(\) => \{ try \{ townTalk\.showOverlay\(new ActionTextBox\(\[\.\.\.ARENA_TEXT\.deedMoved\]\)\); \}/);

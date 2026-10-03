@@ -294,6 +294,9 @@ test('FB1001 YARD-STALE: the town\'s yards read before the owner\'s writes and a
   await r.ghostAt(CHAIR_MODEL, 0, -5);
   assert.equal(await r.tool.commit(), true, 'the second piece');
   await r.removeVia(first);
+  // Wait for the removal's service write, not a fixed number of scheduler turns.
+  const removedBy = performance.now() + 5000;
+  while (rows().some((p) => p.pos[2] === 5) && performance.now() < removedBy) await r.frames(1);
   r.tool.close();
   await r.frames(2);
   const zs = () => r.yards.here().yard.pool.list().map((p) => p.pos[2]);

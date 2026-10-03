@@ -12,7 +12,7 @@ const WORLD = readFileSync(new URL('../src/scenes/world.js', import.meta.url), '
 const lineOf = (head) => { const i = WORLD.indexOf(head); assert.ok(i >= 0, head); return WORLD.slice(i, WORLD.indexOf('\n', i)); };
 
 test('FIELD-RAID-FT: with no room open (a fast travel between rooms) the raid\'s peersInTown is nobody, not a crash; with one open, the peers in the town\'s rect', () => {
-  assert.match(WORLD, /const peersNear = \(\) => \{\n\s*if \(!online \|\| !online\.room \|\| online\.status !== 'open'\) return null;/, 'peersNear answers null between rooms');
+  assert.match(WORLD, /const peersNear = \(\{ presenceOnly = false \} = \{\}\) => \{\n\s*if \(!online \|\| !online\.room \|\| online\.status !== 'open'\) return null;/, 'peersNear answers null between rooms');
   const seam = lineOf('    peersInTown: () =>').trim().replace(/,\s*\/\/.*$/, '').replace(/,$/, '');
   const make = (peers) => new Function('peersNear', '_foeInTownRect', `return ({ ${seam} }).peersInTown;`)(() => peers, (f) => f.ai.feet[0] < 10);
   assert.deepEqual(make(null)(), [], 'the room closed: nobody in town');

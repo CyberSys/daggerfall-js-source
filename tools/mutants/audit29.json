@@ -195,7 +195,7 @@
   {
     "name": "AUDIT29-C1-every-press-a-read",
     "file": "src/net/profBook.js",
-    "old": "      if (_refresh) return _refresh;\n",
+    "old": "      if (_refresh?.key === key) return _refresh.promise;\n",
     "new": "",
     "tests": [
       "test/audit29_client.test.js"

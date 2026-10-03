@@ -100,7 +100,7 @@ export function magicPowersLines(item, { identified = true, lines = null } = {})
     if (!e || e.type === T.None || e.type === 65535 || e.type == null) break;
     const first = `${ITEM_POWERS[e.type] ?? ''} `;
     const list = PARAM_LISTS[e.type];
-    if (e.type === T.SoulBound && e.param !== -1) out.push(first + enchantmentParamName('SoulBound', e.param));
+    if (e.type === T.SoulBound && e.param !== -1) out.push(first + enchantmentParamName('SoulBound', e.param) + (item.soulBoundReleased ? ' (released)' : ''));
     else if (list) out.push(first + (list[e.param] ?? ''));
     else if (e.type === T.EnhancesSkill) out.push(first + (SKILL_NAMES[e.param] ?? ''));
     else if (e.type <= T.CastWhenStrikes) out.push(first + (castSpellName(e.param) || 'ERROR'));

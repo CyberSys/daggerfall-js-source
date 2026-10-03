@@ -65,8 +65,8 @@
   {
     "name": "AUDIT-BRANCH-H3-post-skipped",
     "file": "src/scenes/world.js",
-    "old": "      if (hccPostDue) hccRuntimeOn()?.handlePostFastTravel();",
-    "new": "      void hccPostDue;",
+    "old": "try { if (hccPostDue) hccRuntimeOn()?.handlePostFastTravel(); }",
+    "new": "try { void hccPostDue; }",
     "tests": [
       "test/audit_hcc_branch.test.js"
     ]

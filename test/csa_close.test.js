@@ -453,7 +453,7 @@ test('CSA-J (the audit): the load\'s doors - OnStartLoad ahead of the save\'s pl
   assert.match(w, /else \{ _wodInside = false; townTalk\.say\('\(the dungeon has no entrance here[^\n]*\n\s+if \(!entered\) csaElsewhere = true;/);
   assert.match(w, /return rec && rec\.currentBoat >= 0 \? \{ \.\.\.modData, \[COME_SAIL_AWAY_VENDOR\]: \{ \.\.\.rec, currentBoat: -1 \} \} : modData;/);
   assert.match(w, /ohAbyss\?\.onRespawnerComplete\(\);[^\n]*\n\s+if \(csaRuntime\) await csa\.preload\(\);[^\n]*\n\s+if \(csaElsewhere\) extras\.modData = csaHelmLeft\(extras\.modData\);[^\n]*\n(?:\s*\/\/[^\n]*\n)*\s+const hccRecord = extras\.modData\?\.\[HCC_VENDOR\] \?\? null;\n\s+if \(hccRecord\) hccRuntime\.restoreSaveData\(hccRecord\);\n\s+restoreModSaveRecords\(extras\.modData, csaModLoadFailed\);/, 'both before the mod loop (and HCC\'s restore, which reads the same record set)');
-  assert.match(w, /const paused = gamePaused\(\) \|\| _loading;/);
+  assert.match(w, /const paused = gamePaused\(\) \|\| _loading \|\| _partyArrivalPending;/);
   assert.match(w, /const csaOn = \(\) => _csaOnAtLoad;/);
   assert.match(w, /root: csaRuntime\?\.state\?\.parentedObjects\?\.get\(f\.ai\)\?\.boat\?\.GameObject \?\? null \}\);/);
   assert.match(w, /const c = \(v\) => Math\.max\(0, Math\.min\(TERRAIN_SIZE, v\)\); return terrainSampleHeightAt\(p\.samples, c\(q\[0\] - o\[0\]\), c\(q\[2\] - o\[2\]\), p\._stride \?\? 1\);/);   // FIELD-CSA2: the clamp stands; the height is Unity's heightmap's (terrainSurface.js terrainSampleHeightAt)

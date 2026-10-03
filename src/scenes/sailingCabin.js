@@ -1,0 +1,64 @@
+// SAILING-CABINS: adapt the bank-ship layout to the existing interior transition.
+import { cabinBlockName, readSailingCabin, cabinEntryRefusal, hasSailingCabin, CABIN_REFUSAL } from '../systems/sailingCabin.js';
+import { deckPose, localOf, worldOf } from './comeSailAwayAboard.js';
+import { BUILDING_TYPES } from '../world/buildingNames.js';
+import { trs } from '../world/mat4.js';
+
+export function sailingCabinEntry(blocks, saved, fromNative) {
+  const cabin = readSailingCabin(saved);
+  if (!cabin || typeof fromNative !== 'function') return null;
+  const dfBlock = blocks.getBlockByName(cabinBlockName(cabin.hull));
+  if (!dfBlock?.rmbBlock?.subRecords?.[0]?.interior) return null;
+  const origin = fromNative(cabin.origin);
+  if (!Array.isArray(origin) || origin.length !== 3 || !origin.every(Number.isFinite)) return null;
+  // Keep the room axis-aligned on EVERY visit. Existing furniture and loose-item
+  // caches are relative to the building origin, so the boat's yaw must not rotate it.
+  const door = { matrix: trs(...origin, 0, 0, 0), blockIndex: dfBlock.index, recordIndex: 0, doorIndex: 0,
+    centre: { x: 0, y: 0, z: 0 } };   // a logical entry anchor, never a rendered or clickable exterior door
+  const hit = { dfBlock, recordIndex: 0, door, climateBase: 2, season: 0, sailingCabin: cabin };
+  const building = { buildingType: BUILDING_TYPES.Ship, buildingKey: -cabin.uid, regionIndex: -1,
+    name: 'Ship cabin', factionId: 0, quality: 0, insideOpenShop: false };
+  return { hit, entries: [hit], building, cabin };
+}
+
+/** The world supplies its existing sailing state and interior transition. This
+ * adapter owns only the cabin visit: it never spawns a boat or takes its helm. */
+export function createSailingCabinAccess(deps) {
+  let entering = false;
+  const boatFor = (c) => deps.boats().find((b) => b.uid === c.uid && b.hull === c.hull && hasSailingCabin(b) && deps.nearby(b));
+  const reason = (boat) => !deps.available() ? CABIN_REFUSAL.unavailable : cabinEntryRefusal(boat, {
+    boats: deps.boats(), sailing: deps.sailing(), disembarking: deps.disembarking(),
+    aboard: deps.aboard(boat),
+  });
+  return {
+    reason,
+    fromNative: deps.fromNative,
+    canRestore(saved, savedBoat = undefined) {
+      const c = readSailingCabin(saved);
+      return deps.available() && !!c && (savedBoat === undefined ? !!boatFor(c)
+        : !!savedBoat && savedBoat.UID === c.uid && savedBoat.Hull === c.hull && !savedBoat.inside);
+    },
+    async enter(boat) {
+      if (entering || deps.mode() !== 'exterior' || deps.busy()) return false;
+      const no = reason(boat);
+      if (no) { deps.say(no); return false; }
+      const cabin = readSailingCabin({ v: 1, uid: boat.uid, hull: boat.hull,
+        origin: deps.toNative(boat.GameObject.position), deck: localOf(deckPose(boat), deps.feet()), yaw: deps.yaw() });
+      if (!cabin) return false;
+      entering = true;
+      try {
+        const entered = !!(await deps.enterInterior(cabin));
+        if (!entered) deps.say(CABIN_REFUSAL.unavailable);
+        return entered;
+      }
+      catch (e) { deps.log?.(e); deps.say(CABIN_REFUSAL.unavailable); return false; }
+      finally { entering = false; }
+    },
+    returnToDeck(saved, owner = null) {
+      const c = readSailingCabin(saved);
+      const boat = c && (owner ? deps.peerBoat?.(owner, c.uid) : boatFor(c));
+      if (boat && owner && !deps.boardPeer?.(boat)) return null;
+      return boat ? { position: worldOf(deckPose(boat), c.deck), yaw: c.yaw } : null;
+    },
+  };
+}

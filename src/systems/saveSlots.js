@@ -232,19 +232,37 @@ export function saveSlot(characterName, saveName, snap, { screenshot = null, sto
     dateAndTime: { gameTime: Math.floor(snap.classicMinutes ?? 0), realTime: now },
     dfuVersion: BUILD_TAG,
   };
+  let previous = null;
   try {
-    storage.setItem(SAVE_DATA_PREFIX + key, JSON.stringify(snap));
+    // Serialize and read all old values before touching the slot. A failed overwrite must retain
+    // its checkpoint, card and thumbnail together, including when the final metadata write fails.
+    const payload = JSON.stringify(snap);
+    const metadata = JSON.stringify(saveInfo);
+    previous = [SAVE_DATA_PREFIX, SAVE_SHOT_PREFIX, SAVE_INFO_PREFIX].map((prefix) => {
+      const name = prefix + key;
+      return [name, storage.getItem(name)];
+    });
+    storage.setItem(SAVE_DATA_PREFIX + key, payload);
     if (screenshot) storage.setItem(SAVE_SHOT_PREFIX + key, screenshot);
     else storage.removeItem(SAVE_SHOT_PREFIX + key);   // an overwrite without a capture drops the stale picture
-    storage.setItem(SAVE_INFO_PREFIX + key, JSON.stringify(saveInfo));
+    storage.setItem(SAVE_INFO_PREFIX + key, metadata);
     for (const fn of _slotSaved) { try { fn(characterId, key); } catch (e) { console.warn('[saveSlots] a save listener failed', e?.message ?? e); } }   // AUDIT WBX S3
     return { ok: true, key };
   } catch (err) {
     console.warn('[saveSlots] save write failed:', err?.name ?? err);
-    // A half-written NEW slot must not linger as an orphan; an
-    // overwritten slot keeps whatever survived (its info still names
-    // the old write's data - the blob is one key, so it is whole).
-    try { if (!saveInfoOf(key, storage)) { storage.removeItem(SAVE_DATA_PREFIX + key); storage.removeItem(SAVE_SHOT_PREFIX + key); } } catch { /* storage gone */ }
+    // Shrink/remove replacements before restoring values that need more space. A larger new
+    // thumbnail can otherwise prevent the old payload fitting back into a full storage quota.
+    // Leave untouched keys alone, including the metadata whose write was refused.
+    for (const expanding of [false, true]) {
+      for (const [name, value] of previous ?? []) {
+        try {
+          const current = storage.getItem(name);
+          if (current === value || ((value?.length ?? 0) > (current?.length ?? 0)) !== expanding) continue;
+          if (value === null) storage.removeItem(name);
+          else storage.setItem(name, value);
+        } catch (rollbackError) { console.warn('[saveSlots] rollback failed:', rollbackError?.name ?? rollbackError); }
+      }
+    }
     return { ok: false, key };
   }
 }

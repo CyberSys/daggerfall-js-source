@@ -406,18 +406,27 @@ const PROMPT_ID = 'plus-pad-prompts';
 const PROMPT_CSS = `
 #${PROMPT_ID} { position: fixed; left: 50%; bottom: calc(10px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%);
   z-index: 39; display: none; gap: 14px; align-items: center; padding: 6px 14px; pointer-events: none;
+  width: max-content; max-width: calc(100vw - 24px); box-sizing: border-box; flex-wrap: wrap; justify-content: center;
   background: linear-gradient(180deg, rgba(34,31,26,0.94), rgba(14,13,11,0.94));
   border: 2px solid; border-color: #b08a4a #5c4526 #3a2c18 #8a6c3c; box-shadow: 0 0 0 1px #000, 0 6px 18px rgba(0,0,0,0.55);
   ${PIXEL_FONT_CSS} font-size: 13px; line-height: 1; letter-spacing: 0.06em; color: #ece3c8;   /* FONT3: --pixel-font was never declared, so this was bare Pixelify - no Silkscreen five, smoothed, ligatures on */
   text-shadow: 1px 1px 0 #000; white-space: nowrap; }
 #${PROMPT_ID}.on { display: flex; }
-#${PROMPT_ID} .pp { display: inline-flex; align-items: center; gap: 5px; }
-#${PROMPT_ID} .pp img { width: 22px; height: 22px; display: block; }
+#${PROMPT_ID} .pp { display: inline-flex; align-items: center; gap: 5px; max-width: 100%; min-width: 0; }
+#${PROMPT_ID} .pp > span { min-width: 0; white-space: normal; overflow-wrap: anywhere; line-height: 1.25; }
+#${PROMPT_ID} .pp img { flex-shrink: 0; width: 22px; height: 22px; display: block; }
 #${PROMPT_ID} .pp img + img { margin-left: -2px; }
 .plus-pad-hover { outline: 2px solid #e8c374 !important; outline-offset: 1px; box-shadow: 0 0 0 4px rgba(232,195,116,0.25) !important; }
 @media (max-width: 640px) { #${PROMPT_ID} { gap: 9px; padding: 5px 9px; font-size: 11px; } #${PROMPT_ID} .pp img { width: 18px; height: 18px; } }
 `;
-let promptEl = null, promptSig = '';
+let promptEl = null, promptSig = '', promptObserver = null;
+function promptClearance() {
+  const d = doc(), on = !!promptEl?.classList?.contains('on');
+  const top = promptEl?.getBoundingClientRect?.().top;
+  const pixels = on && Number.isFinite(top) ? Math.max(0, Math.ceil((globalThis.innerHeight ?? 0) - top)) : 0;
+  d?.documentElement?.style?.setProperty?.('--plus-pad-clearance', `${pixels}px`);
+  d?.documentElement?.classList?.toggle?.('plus-pad-prompts-visible', on);
+}
 function promptNode() {
   const d = doc();
   if (!d?.body) return null;
@@ -429,6 +438,11 @@ function promptNode() {
   promptEl.id = PROMPT_ID;
   promptEl.setAttribute('aria-hidden', 'true');
   d.body.append(promptEl);
+  promptObserver?.disconnect();
+  if (typeof globalThis.ResizeObserver === 'function') {
+    promptObserver = new globalThis.ResizeObserver(promptClearance);
+    promptObserver.observe(promptEl);
+  }
   return promptEl;
 }
 /** The prompts for a window up under a live pad: [codes[], words] pairs. Pure, for the pin. */
@@ -460,6 +474,7 @@ export function showPrompts(rows, family = 'xbox') {
     p.append(d_el('span', null, words));
     n.append(p);
   }
+  promptClearance();
 }
 function d_el(tag, cls, text) { const e = doc().createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; }
 

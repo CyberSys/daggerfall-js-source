@@ -3299,6 +3299,12 @@ warning - and left four things open. DECIDED here (the record's, at Mac's instru
   strike's refusal (`motherlode-full`, `-found`, `-closed`) taught the client nothing - now learned, the pixel stood
   again. **D3**-**D6** as above. **D7** the frame's costs: the account read once a second, the compass's list and marks
   its own.
+- **Identity follow-up** (2026-10-03, Bugs update audit; local candidate, not deployed): a delayed Motherlode read
+  is applied only to the account and character that requested it. A Watch receipt is checked against the current
+  account at receipt arrival and at the strike, even within the frame's one-second account cache. This prevents a
+  departed account's found marker or receipt from being used by its successor. The server's signed-receipt checks
+  are unchanged. `test/motherlode_identity_regression.test.js` reproduces both identity races and pins the fixes;
+  the frame cache remains in use. Native account switching and live multiplayer acceptance remain open.
 - **As built**: `src/net/motherlodeLaw.js`, `src/net/motherlodeBook.js`, `server-account/src/motherlodes.js`,
   `server-account/migrations/0072_motherlodes.sql`, `src/scenes/mineHost.js`, `src/scenes/gatherHost.js` (`restandAt`),
   `src/net/profBook.js` (`watch`), `src/net/accountClient.js` (`motherlodes`, the refusals), `src/scenes/world.js`; acct71 (acct66 on its branch).
