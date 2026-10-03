@@ -194,8 +194,8 @@
   {
     "name": "REL6-25-the-tag-being-cut-is-its-own-previous",
     "file": "scripts/desktopRelease.mjs",
-    "old": "notes = pullRequestNotesSince(previousReleaseTag(a));",
-    "new": "notes = pullRequestNotesSince(previousReleaseTag(b));",
+    "old": "  if (cmd === 'notes') {\n    let notes;\n    try {\n      notes = pullRequestNotesSince(previousReleaseTag(a));",
+    "new": "  if (cmd === 'notes') {\n    let notes;\n    try {\n      notes = pullRequestNotesSince(previousReleaseTag(b));",
     "tests": ["test/rel4_release.test.js"],
     "note": "Every release would read the merges since itself - none."
   },
