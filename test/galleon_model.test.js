@@ -12,7 +12,7 @@ import { createHash } from 'node:crypto';
 import { bakeGalleon, galleonJson, toBoat, SOURCE_FBX, OUT, FRAME, ROLES } from '../tools/bakeGalleon.mjs';
 import {
   galleonPrefab, GALLEON_PREFAB_ID, GALLEON_HULL_NODE, MEASURED, HELM, GUN, GALLEON_BATTERIES, HATCH_OPEN_DEG, LID_OPEN_DEG,
-  WHEEL_TURNS, RUDDER_DEG, faceSkin, companionGeometry,
+  WHEEL_TURNS, RUDDER_DEG, faceSkin, companionGeometry, DRIVE_TRIGGER_AT,
 } from '../src/world/galleonModel.js';
 import { SAILS } from '../src/world/galleonRig.js';
 import {
@@ -278,7 +278,11 @@ test('GALLEON HER HELM: a wheel on the castle\'s roof before the helmsman\'s pla
   const { s, boat } = placed();
   const wheel = nodeNamed(boat, 'HelmWheel'), rudder = nodeNamed(boat, 'HelmRudder');
   assert.ok(wheel && rudder && wheel.parent === boat.RudderObject && rudder.parent === boat.RudderObject, 'both under her RudderObject');
-  assert.deepEqual([...boat.DriveTrigger.parent.localPosition], [...HELM.hub], 'the helm\'s trigger at the wheel');
+  // PIN MOVED (AUDIT GALLEON-2 PF7, 2026-10-03): the helm's trigger over the wheel and its binnacle - its metre's cube
+  // 0.25 m forward of the hub, the hub inside it (at the hub, the binnacle's collider stood out of its fore face and took
+  // the activation ray from forward of the wheel)
+  assert.deepEqual([...boat.DriveTrigger.parent.localPosition], [...DRIVE_TRIGGER_AT], 'the helm\'s trigger at the wheel');
+  assert.ok(DRIVE_TRIGGER_AT[0] === HELM.hub[0] && DRIVE_TRIGGER_AT[1] === HELM.hub[1] && Math.abs(DRIVE_TRIGGER_AT[2] - HELM.hub[2]) <= 0.3, 'the hub inside its cube');
   assert.deepEqual([...boat.DrivePosition.localPosition], [...HELM.stand]);
   // PIN MOVED (AUDIT GALLEON P1, 2026-10-02): DrivePosition is where Come Sail Away pins the helmsman's capsule CENTRE
   // (world.js csaSetPlayerPosition: his feet half a height under it), so it stands half a capsule over her roof - on

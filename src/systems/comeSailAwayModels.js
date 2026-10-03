@@ -86,7 +86,9 @@ export const soundUrl = (/** @type {string} */ name) => new URL(`../../vendor/co
  * The five files, fetched. NEVER TRAPS: a file that will not load is the
  * mod's boats missing, never the scene - the answer is null and it says
  * so once. GALLEON: and the new galleon's model at `galleonUrl` (null for
- * none) - missing, hull 2 is the mod's own galleon, said once.
+ * none) - missing, hull 2 is the mod's own galleon, said once. AUDIT
+ * GN2-PF4: fetched beside the five (it was asked for once all five had
+ * come - a whole fetch later).
  * @returns {Promise<ReturnType<typeof comeSailAwayModels> | null>}
  */
 export async function loadComeSailAwayModels(fetchFn = globalThis.fetch, urls = CSA_MODEL_URLS, log = console, galleonUrl = GALLEON_MODEL_URL) {
@@ -97,15 +99,16 @@ export async function loadComeSailAwayModels(fetchFn = globalThis.fetch, urls = 
       if (!r || !r.ok) throw new Error(`${url}: ${r?.status ?? 'no answer'}`);
       return binary ? new Uint8Array(await r.arrayBuffer()) : r.json();
     };
-    const [prefabs, meshes, bin, materials, animation] = await Promise.all([
-      get(urls.prefabs, false), get(urls.meshes, false), get(urls.bin, true), get(urls.materials, false), get(urls.animation, false),
+    // GALLEON: her answer is her own - her model failing never fails the five, and is said only once they stand
+    const hers = galleonUrl ? get(galleonUrl, false).then((json) => ({ ok: true, json, error: null }), (error) => ({ ok: false, json: null, error })) : null;
+    const [prefabs, meshes, bin, materials, animation, her] = await Promise.all([
+      get(urls.prefabs, false), get(urls.meshes, false), get(urls.bin, true), get(urls.materials, false), get(urls.animation, false), hers,
     ]);
     // GALLEON: the new galleon over hull 2 - and, its model not answering, the mod's own galleon, said once (a ship
     // missing her new timbers still sails as the old one; never no ship)
     let galleon = null;
-    if (galleonUrl) {
-      try { galleon = await get(galleonUrl, false); } catch (e) { log?.warn?.('[come-sail-away] the new galleon did not load - hull 2 stands as the mod\'s own galleon', e); }
-    }
+    if (her && !her.ok) log?.warn?.('[come-sail-away] the new galleon did not load - hull 2 stands as the mod\'s own galleon', her.error);
+    else if (her) galleon = her.json;
     try { return comeSailAwayModels({ prefabs, meshes, bin, materials, animation, galleon }); } catch (e) {
       if (!galleon) throw e;
       log?.warn?.('[come-sail-away] the new galleon would not build - hull 2 stands as the mod\'s own galleon', e);
@@ -130,7 +133,7 @@ export function comeSailAwayModels({ prefabs, meshes, bin, materials, animation,
   const decoded = new Map();
   let prefabTable = prefabs.prefabs, components = prefabs.components, meshTable = meshes, anim = animation;
   if (galleon) {
-    const g = galleonPrefab(galleon, prefabs);
+    const g = galleonBuilt(galleon, prefabs);
     prefabTable = { ...prefabs.prefabs, [String(GALLEON_PREFAB_ID)]: g.prefab };
     components = [...prefabs.components, ...g.components];
     meshTable = { ...meshes };
@@ -159,6 +162,21 @@ export function comeSailAwayModels({ prefabs, meshes, bin, materials, animation,
       return g;
     },
   };
+}
+
+/** AUDIT GN2-PF4: HER PREFAB, BUILT ONCE A PROCESS. galleonPrefab is a long task (150-340 ms, bakedPartGeometry 126 of
+ *  it) and every world scene's pool loads the models anew, so it is built once and held: keyed by her bake's sha256 (her
+ *  source's hash), served again only for the same bake to the byte over the same mod table - a bake edited under the same
+ *  hash builds anew (the loader's broken-model pin). What it holds is read, never written: a boat instances her tree and
+ *  components by copy (world/prefabNode.js instantiatePrefab), and her meshes are drawn, baked and stood on, never changed
+ *  (test/auditgalleon2_prefab.test.js PF4). */
+let _built = null;   // { sha256, bake, base, old, built }
+function galleonBuilt(galleon, prefabs) {
+  const bake = JSON.stringify(galleon), base = prefabs.components.length, old = JSON.stringify(prefabs.prefabs[String(GALLEON_PREFAB_ID)] ?? null);
+  if (_built && _built.sha256 === galleon.sha256 && _built.bake === bake && _built.base === base && _built.old === old) return _built.built;
+  const built = galleonPrefab(galleon, prefabs);
+  _built = { sha256: galleon.sha256, bake, base, old, built };
+  return built;
 }
 
 /**

@@ -19,8 +19,8 @@ import { createSeaShip, stepCaptain, windShare, WIND_RATED, CHASE_MARGIN, __boar
 import { HULL, hullBuild, classById } from '../src/systems/naval/navalShips.js';
 import { createComeSailAwayPool } from '../src/scenes/comeSailAwayPool.js';
 import { Boat } from '../src/systems/comeSailAwayBoat.js';
-import { GALLEON_ARCHIVE, GALLEON_TEX_SIZE, TEX, BANDS } from '../src/world/galleonArt.js';
-import { isVendorArchive, vendorRecordCount } from '../src/systems/textureReplacement.js';
+import { GALLEON_ARCHIVE, GALLEON_TEX_SIZE, TEX, BANDS, _resetGalleonArt } from '../src/world/galleonArt.js';
+import { isVendorArchive, vendorRecordCount, clearVendorTextures } from '../src/systems/textureReplacement.js';
 import { findHarbour, createWaterGrid, stepErrand, STALL_S, DETOUR_M, ARRIVE_EASE_M, ARRIVE_SAILS } from '../src/systems/naval/shipLife.js';
 
 const near = (a, b, eps, what) => assert.ok(Math.abs(a - b) <= eps, `${what}: ${a} vs ${b}`);
@@ -130,6 +130,10 @@ test('AUDIT GALLEON T4(b): the pool puts every picture of hers on the texture do
   };
   const texture = () => ({ recordCount: 100, getSize: () => ({ width: 40, height: 64 }), getScale: () => ({ width: 0, height: 0 }) });
   const pipeline = { getTexture: async () => texture(), uploadRecord() {}, getGpuMesh: async (id) => ({ classic: id }) };
+  // AUDIT GN2-TS10: as a process that never loaded her stands - a galleon pool loaded earlier in the process (any pool
+  // test before this one) had put her on the door and spent the once of her registration
+  clearVendorTextures();
+  _resetGalleonArt();
   assert.equal(isVendorArchive(GALLEON_ARCHIVE), false, 'not on the door before her model loads');
   const pool = createComeSailAwayPool({ renderer, pipeline, fetchFn: fileFetch, log: { warn() {} } });
   assert.equal(await pool.preload(), true);
