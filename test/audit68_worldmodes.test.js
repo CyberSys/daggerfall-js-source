@@ -173,7 +173,7 @@ test('AUDIT 68 X3-transition-build-race: every door build is re-validated before
   assert.match(dungeon, /if \(!live\(\)\) \{ abandonContext\(ctx\); return false; \}/, 'and so does the dungeon build');
   assert.match(WM, /async function enterInteriorCore\(hit, entries, restore = null\) \{\s*const link = host\.linkedBankCabin\?\.\(\);\n\s*if \(!hit\.sailingCabin && !restore && link && SHIP_INTERIOR_MAP_IDS\[link\.type\] === questSceneCtx\?\.\(\)\?\.mapId\) return host\.enterLinkedBankCabin\?\.\(\) \?\? false;\n\s*return gatedTransition\(/);
   assert.match(WM, /async function tryEnterDungeon\(hit, entries, \{ preferEnterMarker = false, fromLoad = false \} = \{\}\) \{\s*return gatedTransition\(/);   // MAP-KEEP: and the load's arm rides it
-  assert.match(slice(WM, 'forceExitToExterior({ cacheScene = true } = {}) {', 'const wasInside'), /transitionGate\.abort\(\);/, 'the forced exit abandons a pending build');
+  assert.match(slice(WM, 'forceExitToExterior({ cacheScene = true, load = false } = {}) {', 'const wasInside'), /transitionGate\.abort\(\);/, 'the forced exit abandons a pending build');
   const w = rd('src/scenes/world.js');
   assert.match(slice(w, 'async function _teleportToPixel(', 'refreshSeason('), /modes\?\.abortTransition\?\.\(\);/, 'every teleport, travel, recall and load landing moves the world');
   const load = slice(w, 'async function worldQuickLoad(', 'const extras = restorePlayer(');
@@ -190,7 +190,7 @@ test('AUDIT 68 S23-dungeon-commit-before-await: nothing fallible is awaited betw
 });
 
 test('AUDIT 68 X3-ba-forceexit-rain: the forced exit raises the exterior transition both real doors raise', () => {
-  const force = slice(WM, 'forceExitToExterior({ cacheScene = true } = {}) {', 'get interiorCollider()');
+  const force = slice(WM, 'forceExitToExterior({ cacheScene = true, load = false } = {}) {', 'get interiorCollider()');
   const tail = force.slice(force.indexOf('AUDIT 63r F30'));
   assert.match(tail, /if \(wasInside\) \{\s*immersiveFootsteps\.onTransitionExterior\(\);\s*betterAmbience\.onTransition\(null\);\s*\}/,
     'a Recall, a quest teleport or a load out of a building left the indoor rain loop playing in the street');

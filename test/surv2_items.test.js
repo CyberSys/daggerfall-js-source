@@ -45,8 +45,8 @@ test('SURV2: the twelve templates register above DFU\'s 288 and answer through t
   assert.equal(apple.custom, true);
   assert.deepEqual([apple.worldTextureArchive, apple.worldTextureRecord, apple.baseWeight, apple.hitPoints, apple.basePrice], [213, 1, 0.1, 90, 1], 'the mod\'s own row');
   assert.equal(templateByIndex(TEMPLATE.Rations).stackable, true);
-  assert.equal(templateByIndex(TEMPLATE.Campfire).name, 'Campfire Kit');
-  assert.equal(templateByIndex(TEMPLATE.Campfire).hitPoints, CAMPFIRE_USES, 'a kit is five fires');
+  assert.equal(templateByIndex(TEMPLATE.Campfire).name, 'Campfire');   // REST2: the Campfire, a tool rather than a kit of matches
+  assert.equal(templateByIndex(TEMPLATE.Campfire).hitPoints, CAMPFIRE_USES, 'REST2: eight nights of fuel');
   assert.equal(templateByIndex(TEMPLATE.CampingEquipment).hitPoints, CAMPING_USES);
   assert.equal(templateByIndex(5).name, 'Turquoise', 'DFU\'s own table is untouched');
   assert.equal(templateByIndex(300), null, 'a hole stays a hole');
@@ -191,13 +191,13 @@ test('SURV2: the general store shelves provisions after the horse and cart, and 
   assert.ok(items.every((i) => i.name && i.value != null), 'every row minted with a name and a value');
   const poor = provisionsStock(1, () => 0.9);
   assert.ok(!poor.some((i) => i.templateIndex === TEMPLATE.CampingEquipment), 'a poor store on a bad roll has no camping gear');
-  assert.equal(poor.filter((i) => i.templateIndex === TEMPLATE.Campfire).length, 3, 'but fire kits');
+  assert.equal(poor.filter((i) => i.templateIndex === TEMPLATE.Campfire).length, 4, 'but Campfires - REST2: two to four, the rest\'s own tool');
   const kit = startingProvisions();
   assert.deepEqual(kit.map((i) => i.templateIndex), [TEMPLATE.Rations, TEMPLATE.Waterskin, TEMPLATE.CampingEquipment, TEMPLATE.Campfire]);
   assert.equal(kit[0].stackCount, 2);
   assert.equal(waterIn(kit[1]), 2.0);
   assert.equal(kit[2].currentCondition, CAMPING_USES / 2, 'worn gear');
-  assert.equal(kit[3].currentCondition, 2);
+  assert.equal(kit[3].currentCondition, CAMPFIRE_USES, 'REST2: a full Campfire, not two lights of a kit');
   const e = { items: [] };
   seedStartingEquipment(e);
   assert.ok(e.items.some((i) => i.templateIndex === 113), 'the dagger');
@@ -275,7 +275,7 @@ test('SURV2: by source - the pipeline stands a vendor archive in, the weight law
   assert.match(pipe, /if \(isVendorArchive\(archive\)\) \{\s*\n\s*await preloadTextureArchive\(archive\)\.catch\(\(\) => \{\}\);\s*\n\s*const v = vendorTextureStandIn\(archive\);/, 'no TEXTURE file is fetched for the port\'s own archives');
   assert.match(read('src/systems/inventory.js'), /if \(Number\.isFinite\(item\.water\) && item\.water > 0\) base \+= item\.water;/);
   assert.match(read('src/systems/useItem.js'), /if \(isSurvivalItem\(item\)\) out = useSurvivalItem\(item, collection, \{ entity, now: nowMinute, rolls, currentDay: Math\.trunc\(nowMinute \/ 1440\), inflict: inflictDisease, rules: survivalRules\(\) \?\? SURVIVAL_RULES\.casual \}\);\s*\n[\s\S]*?else if \(isBook\(item\)\)/);   // SURV-TIERS: the live tier decides the meal's sickness (AUDIT SURV-TIERS: Off eats as Casual - never sickened)
-  assert.match(read('src/systems/shopStock.js'), /if \(survivalOn\(\)\) for \(const it of provisionsStock\(quality, rolls\)\) items\.push\(it\);/);
+  assert.match(read('src/systems/shopStock.js'), /if \(survivalOn\(\)\) for \(const it of provisionsStock\(quality, rolls, \{ campfires: shelfIndex === 0 \}\)\) items\.push\(it\);/);   // AUDIT REST II H8 (PIN MOVED): the Campfires on the counter's shelf alone
   assert.match(read('src/systems/equip.js'), /if \(survivalOn\(\)\) for \(const it of startingProvisions\(\)\) entity\.items\.push\(it\);/);
   // CORPSE-FOOD (2026-09-23, Mac: "It needs to be accessible with people with it on"): offline the one switch; online
   // the body's food is the room's (survival/switch.js corpseFoodOn - survtiers3 drives it)

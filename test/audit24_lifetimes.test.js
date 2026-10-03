@@ -132,7 +132,7 @@ test('audit24 lifetimes: the sky panorama cache is BOUNDED', () => {
 
 test('audit24 lifetimes: forceExitToExterior tears the quest stands down like the real door', () => {
   const src = read('src/scenes/worldModes.js');
-  const force = bodyOf(src, 'forceExitToExterior({ cacheScene = true } = {}) {');   // IS1 grew the load-path opt-out
+  const force = bodyOf(src, 'forceExitToExterior({ cacheScene = true, load = false } = {}) {');   // IS1 grew the load-path opt-out
   assert.match(force, /teardownQuestFlats\(\);[\s\S]{0,120}interiorCtx\.destroy\(\)/,
     'the stands leave the context BEFORE destroy - otherwise the next teardown double-frees them');
   assert.match(force, /questBridge\?\.onExteriorTransition\(\)/,
@@ -211,7 +211,7 @@ test('audit24: the three quest settings are LIVE reads, not hardcoded falses', a
   // could flip a switch that reached nothing: adult quests were
   // filtered out whatever ChildGuard said (questLists.js:203), the
   // guild list-box arm was unreachable (offerFlow.js:156), and the
-  // journal's clocks never counted down (clock.js:389). The settings
+  // journal's clocks never counted down (clock.js:457). The settings
   // tier map's own both-ways gate now covers them; this pins the
   // BEHAVIOUR the tier map cannot see.
   const { setValue, _resetForTests } = await import('../src/systems/settings.js');
