@@ -394,11 +394,14 @@ skip online (121 of them: median 0.3 h of play, p90 24.3 h, the main quest's let
 night is a raise, which 6.3c charges nothing. So 6.3b's reading comes back for its delays, and its freeze does not:
 
 - **The reading is 6.3b's, as AUDIT TIMEFREE left it** (`quest/clock.js` `clockIsDeadline`, `isDeadline`, the hand
-  tables `ONLINE_DEADLINES` and `ONLINE_CLOSINGS`, the "at once" clocks, the run-time half and `startedAfterSuccess`):
-  262 deadlines, 137 delays over the 399 vendored clocks - and REST8 R1's correction: T3 reads `end quest` by what the
-  end ALONE sets off, and now the reward that clears it the same way, so K0C00Y02's gold ("you only have =2mondung_
-  days") and S0000502's Direnni tower ("will wait inside for =towertime_ days"), which ended unpaid two minutes in
-  under 6.3b's reading, are deadlines: 264 and 135, the main quest's deadlines 31, listed and pinned.
+  table `ONLINE_DEADLINES` - its closings table, `ONLINE_CLOSINGS`, RETIRED by AUDIT REST II, below - the "at once"
+  clocks, the run-time half and `startedAfterSuccess`): 262 deadlines, 137 delays over the 399 vendored clocks - and
+  REST8 R1's correction: T3 reads `end quest` by what the end ALONE sets off, and now the reward that clears it the same
+  way, so K0C00Y02's gold ("you only have =2mondung_ days") and S0000502's Direnni tower ("will wait inside for
+  =towertime_ days"), which ended unpaid two minutes in under 6.3b's reading, are deadlines: 264 and 135 as REST8 built
+  it, the main quest's deadlines 31. AUDIT REST-PARTY D2's two by hand made it 266 and 133 (D1's artifact hunt was a
+  deadline already - its entry is for the run-time half), and AUDIT REST II's three 269 and 130, the main quest's
+  deadlines 32, listed and pinned.
 - **Online a delay lands on the short wait** (`Clock.waitsShort`): its remainder is cut once to `ONLINE_DELAY_SECONDS`
   (24 minutes of the character's clock) and then charged as 6.3c charges any clock - the lived step, never a raise -
   so it lands after about two real minutes of play, and a night spends none of it. Its `=x_` count reads "a few"; the
@@ -409,13 +412,31 @@ night is a raise, which 6.3c charges nothing. So 6.3b's reading comes back for i
   `CRIME_GUILD_LETTER_ONLINE_MINUTES`); **the curse quests** roll every 24 of them while their arm has nothing running
   (`racialQuests.js` `ONLINE_RACIAL_INTERVAL_MINUTES`, `racialArmIdle`; `worldTick.js runCalendarArms`), not every 38 and
   84 days.
-- **Kept as 6.3c has them:** a taken bounty lapses and shows its time; a letter waits for town and the sky's morning;
+- **Kept as 6.3c has them:** a taken bounty lapses and shows its time (AUDIT REST II Q3: one held through 6.3b's
+  never-lapse runs from the first online tick after the update, once - below); a letter waits for town and the sky's morning;
   `daily from` windows on the sky; spawn intervals, QAE RaiseTime and TrainPc's hours as pacing.
 - **The edge**: a deadline read as a delay fires its end two minutes in, as under 6.3b; a delay read as a deadline only
   waits its played days now (6.3b froze it). The pins guard the first: `test/rest8_questwaits.test.js` (6.3b's file,
-  re-aimed - every vendored clock ticked past the short wait online: all 133 delays land, not one of the 266 deadlines (AUDIT REST-PARTY D1/D2: 264 and 135 as REST8 built it)
-  is cut) and `test/rest8_audit_timefree.test.js` (AUDIT TIMEFREE's, and R1's). Campaigns `tools/mutants/rest8.json`
+  re-aimed - every vendored clock ticked past the short wait online: all 130 delays land, not one of the 269 deadlines
+  is cut; 264 and 135 as REST8 built it, then AUDIT REST-PARTY D2's two and AUDIT REST II's three) and `test/rest8_audit_timefree.test.js` (AUDIT TIMEFREE's, and R1's). Campaigns `tools/mutants/rest8.json`
   (22) and `tools/mutants/rest8_audit_timefree.json` (14), all dead.
+- **AUDIT REST II (2026-10-03) - THE RULE, decided:** a clock the quest's own text presents to the player as a TIME
+  LIMIT - a window to act, to return, to fetch something before it is lost - is a deadline, kept at its days of played
+  time online; a clock that only makes the player WAIT is a delay. The reading is the script's guess at it and
+  `ONLINE_DEADLINES` corrects it where the guess is wrong. Q1: R0C11Y03's `_2ndparton_`, AUDIT TIMEFREE's one hand
+  closing, is the time to come back for the reward after the heart is delivered ("if you're not back in =2ndparton_
+  days, %g may forget you even left") - cut to the short wait, the quest failed (-30, unpaid) two minutes after a
+  correct delivery. The reading calls it a deadline; `ONLINE_CLOSINGS` is retired with it (a closing misread as a
+  deadline now only waits its played days - no freeze to stand open for ever - and no other clock needed it). Q2:
+  S0000011's `_S.01_` ("Time is of the essence. I'm sure Gortwog will not wait long." - its end the Necromancers' theft
+  of the chapter) and O0B00Y12's `_S.01_` ("It needs to be in ___contact1_ as soon as possible" - its end the contact
+  gone and the smugglers' assassins sent) are deadlines by hand; the whole corpus was swept once for the shape (a delay
+  whose end moves, hides, kills, sends or closes something) and every verdict is pinned - C0B00Y01's contact and
+  priest, the Ripper's and the Slayer's victims, the letters and the arrivals stay delays (their text names no limit,
+  or names another clock's). Q3: a bounty held through 6.3b's never-lapse carried a `takenAt` days behind the world's
+  clock and lapsed, kills and all, on the first tick after the update - the ledger saves a version (`bountyBoard.js`
+  `BOUNTY_LEDGER_VERSION`), and an older ledger's held rows run from now once, online (`restampNeverLapsed`; offline
+  untouched). Pins `test/auditrest2_quests.test.js`; campaign `tools/mutants/auditrest2_quests.json` (18, all dead).
 - Offline: none of it. DFU's clock, whole.
 
 ### 6.4 Weather keeps its pace
@@ -451,7 +472,7 @@ does online: "Short real wait"; asked whether the bounties, the curse quests and
   (T1), as is, at run time, a task-started deadline once the quest is a success, unless it was started after the
   success (a new limit - T5). Penalties the reading cannot see are deadlines by hand (`ONLINE_DEADLINES`: the cure
   quests' hunters, U0C00Y00's escape, M0B11Y18's mark leaving, Brisienna's month - T6), and one closing after a
-  failure is a delay by hand (`ONLINE_CLOSINGS`: R0C11Y03). Of the 399 vendored clocks, 262 are deadlines and 137
+  failure is a delay by hand (`ONLINE_CLOSINGS`: R0C11Y03 - a misreading, retired by AUDIT REST II, 6.3d). Of the 399 vendored clocks, 262 are deadlines and 137
   delays; the main quest's 30 deadlines are listed and pinned (`test/timefree.test.js`, `test/audit_timefree.test.js` - DELETED by 6.3c).
 - **Online a deadline never runs out**: charged nothing, its sample still moving, so a quest taken offline resumes it
   where it stood. QFAIL-FREE stays as the net under anything else that ends a quest unfinished.
@@ -669,3 +690,7 @@ terms; 9 is new and not built.
   letters and the curse arms on the short wait; R1: K0C00Y02's gold and S0000502's tower read as the deadlines they
   are. `test/rest8_questwaits.test.js`, `test/rest8_audit_timefree.test.js`, `tools/mutants/rest8.json` (22) and
   `tools/mutants/rest8_audit_timefree.json` (14), all dead.
+- 2026-10-03: AUDIT REST II, the quest clocks (6.3d): THE RULE decided - a time limit the text sets is a deadline;
+  R0C11Y03's return a deadline and `ONLINE_CLOSINGS` retired; S0000011's chapter and O0B00Y12's drop deadlines by hand;
+  269 and 130, the main quest's 32; the bounties held through 6.3b's never-lapse re-stamped once online.
+  `test/auditrest2_quests.test.js`, `tools/mutants/auditrest2_quests.json` (18, all dead).
