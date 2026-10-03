@@ -246,7 +246,9 @@ export const FORT_EFFECT_WORDS = Object.freeze({
   shrine: (t) => `Standing +${shrineStanding(t)} a week, +${shrineGateInfluence(t)} influence for each gate felled in the region`,
   forge: (t) => `members smithing here ${t === 1 ? 'a quality step' : `${t} quality steps`} better`,
   workshop: (t) => `members' carpentry, outfitting and masonry here ${t === 1 ? 'a quality step' : `${t} quality steps`} better`,
-  apothecary: (t) => `members' alchemy, cooking and jewelcrafting here ${t === 1 ? 'a quality step' : `${t} quality steps`} better`,
+  // AUDIT PROF12 P1: a step each its own - a piece of jewellery's quality (the Forge's law), a dish's XP half again
+  // (recipeLaw cookXp), a brew's Potent chance +10 (alchemyLaw POTENT.apothecary)
+  apothecary: (t) => `members' jewellery here ${t === 1 ? 'a quality step' : `${t} quality steps`} better, their dishes ${t === 1 ? 'half again' : t === 2 ? 'twice' : `${(2 + t) / 2} times`} the XP, their brews +${10 * t}% Potent chance`,
   harbour: () => 'a port for the holder\'s members',
 });
 /**

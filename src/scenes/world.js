@@ -376,7 +376,7 @@ import { essenceOf, piecePoints, DISENCHANTER } from '../net/alchemyLaw.js';   /
 import { facetBand } from '../net/recipeLaw.js';   // PROF10: the facet's attribute band
 import { panBand, DISH_LEVEL } from '../net/recipeLaw.js';   // PROF9: the pan's attribute band; a feast's level at the table
 import { COOK_FIRE } from '../net/professionLaw.js';   // PROF9: the fire Cooking is done at - any lit one, no fee
-import { setFeastShare } from '../systems/cookItems.js';   // PROF9: a feast shared with the party at the table
+import { setFeastShare, isPartyDishSpell } from '../systems/cookItems.js';   // PROF9: a feast shared with the party at the table
 import { hasSkillet } from '../systems/survival/camp.js';   // PROF9: C&C's Skillet widens the pan's window
 import { allyCastFrame } from '../systems/allyCast.js';   // PROF9: a feast reaches a party mate as ALLY-CAST's gift
 import { questActionsExtensionTemplates } from '../systems/quest/questActionsExtension.js';   // FORAGE1: QAE's four actions, which Foraging's quests say
@@ -16334,6 +16334,7 @@ export async function bootWorld(canvas, renderer, params, status) {
       const loud = mate || !(t - (_strangerCastSaid.get(id) ?? -Infinity) < STRANGER_CAST_SAY_MS);
       if (loud && !mate) _strangerCastSaid.set(id, t);
       const who = peerName(id) ?? (mate ? 'A party member' : 'Another player');
+      if (mate && isPartyDishSpell(spell.name)) while (removeBundleNamed(playerEntity, spell.name)) { /* AUDIT PROF9 K2: a mate's feast renews mine, as one eaten does (cookItems.js feedEffect) - never stacked */ }
       if (loud) townTalk.say(allyCastTargetLine(who, spell.name));
       const before = playerEntity.health;
       magic.applySpellToPlayer(spell, d.level, null, { allyCast: true, strangerCast: !mate });   // AUDIT SPELL-GIFT B6: a stranger's Cure leaves an infection be

@@ -16,14 +16,14 @@ import { standService, T0, sessionStorageOf } from './accountDb.mjs';
 import { accountProf, SESSION_KEY, accountRefusalText } from '../src/net/accountClient.js';
 import { createProfBook } from '../src/net/profBook.js';
 import { xpForRank, PROF_XP_MAX, COOK_FIRE } from '../src/net/professionLaw.js';
-import { recipeById, DISH_LEVEL, PAN_ACT, panWindow, dishOf, HAND_CHEF } from '../src/net/recipeLaw.js';
+import { recipeById, DISH_LEVEL, PAN_ACT, panWindow, dishOf, HAND_CHEF, dishSpell } from '../src/net/recipeLaw.js';
 import { validCastData } from '../src/net/wire.js';
 import { allyCastFrame, allyCastSpell } from '../src/systems/allyCast.js';
-import { applySpell } from '../src/systems/effects.js';
+import { applySpell, removeBundleNamed } from '../src/systems/effects.js';
 import { liveStat } from '../src/systems/statMods.js';
 import { liveBundles } from '../src/systems/mysticism.js';
 import { mintPiece, mintPieces, craftedText, asMinted, COOK_KEPT_TEXT } from '../src/systems/smithItems.js';
-import { mintDish, dishUse, feedEffect, dishStaminaFactor, setFeastShare, installCooking, feastSharedLine, DISH_STAMINA_KIND, isDish } from '../src/systems/cookItems.js';
+import { mintDish, dishUse, feedEffect, dishStaminaFactor, setFeastShare, installCooking, feastSharedLine, DISH_STAMINA_KIND, isDish, isPartyDishSpell } from '../src/systems/cookItems.js';
 import { DISH_TEMPLATE_ROWS, DISH_FOODS } from '../src/systems/profTemplates.js';
 import { materialLabel, withdrawIntoPack } from '../src/systems/profItems.js';
 import { templateByIndex } from '../src/systems/itemTemplates.js';
@@ -473,4 +473,43 @@ test('PROF9 wiring: the fire is any lit one (the street\'s camps and braziers, a
   assert.match(svc, /const hand = dishHand\(r, specs\[100\]\) \?\? jewelHand\(r, specs\[50\]\);/);   // PIN MOVED (PROF10): or a jeweller's hand
   assert.match(src('server-account/migrations/0069_cooking.sql'), /ALTER TABLE products ADD COLUMN hand INTEGER CHECK \(hand IS NULL OR hand IN \(1, 2\)\);/);
   assert.equal(recipeById('feast:hearth').profession, 'cooking');
+});
+
+// ─── AUDIT PROF9 (2026-10-03) ────────────────────────────────────────
+
+test('AUDIT PROF9 K1: a Butcher-Provisioner\'s meat carries both marks and never spoils - never spoiling asked before half the pace; a Butcher\'s alone still half as fast', () => {
+  const always = () => 0.999;
+  const both = { items: [] };
+  withdrawIntoPack(both, 'food:meat', 1, true, { slowRot: true, noRot: true });
+  const meat = both.items[0];
+  assert.deepEqual([meat.slowRot, meat.noRot], [true, true]);
+  let spoiled = 0;
+  for (let d = 0; d < 40; d++) spoiled += rotFoodDay([both.items], d, always);
+  assert.deepEqual([spoiled, meat.foodStage ?? 0], [0, 0], 'forty days, never a stage');
+  const butcher = { items: [] };
+  withdrawIntoPack(butcher, 'food:meat', 1, true, { slowRot: true });
+  assert.deepEqual([rotFoodDay([butcher.items], 0, always), rotFoodDay([butcher.items], 1, always), rotFoodDay([butcher.items], 2, always)], [1, 0, 1], 'rolled every other day');
+});
+
+test('AUDIT PROF9 K2: a feast a party mate shares RENEWS mine as one eaten does - my bundles of its name taken off before the gift lands (scenes/world.js online.onCast, a mate\'s alone), so its rounds never add up; a dish\'s name is a feast\'s only for the party\'s dish', () => {
+  assert.deepEqual([isPartyDishSpell('Feast of the Hearth'), isPartyDishSpell(dishOf('stew').name), isPartyDishSpell(dishOf('tart').name), isPartyDishSpell('Heal'), isPartyDishSpell(null)], [true, false, false, false, false]);
+  const me = { items: [], stats: { ...STATS }, activeEffects: [] };
+  feedEffect(me, dishOf('feast'));
+  assert.deepEqual([liveStat(me, 'strength'), liveBundles(me).length], [55, 1], 'my own feast');
+  // the mate's share, as onCast lays it on
+  const frame = validCastData(allyCastFrame(dishSpell(dishOf('feast'), HAND_CHEF), DISH_LEVEL, 'peer-0001'));
+  const gift = allyCastSpell(frame.spell);
+  if (isPartyDishSpell(gift.name)) while (removeBundleNamed(me, gift.name)) { /* the arm's own loop */ }
+  applySpell(gift, frame.level, me, {}, () => 0.5, null, { allyCast: true });
+  assert.deepEqual([liveStat(me, 'strength'), liveStat(me, 'willpower'), liveBundles(me).length], [55, 55, 1], 'renewed, never stacked');
+  assert.deepEqual([...new Set(me.activeEffects.map((a) => a.roundsRemaining))], [2159], 'the Chef\'s day and a half, not added to mine');
+  // and eaten again over the gift: renewed again
+  feedEffect(me, dishOf('feast'));
+  assert.deepEqual([liveStat(me, 'strength'), liveBundles(me).length], [55, 1]);
+  // the arm: in online.onCast before the gift is laid on, a mate's alone - never in the frame's own arms
+  const w = src('src/scenes/world.js');
+  assert.match(w, /online\.onCast = \(id, d\) => \{\n(?:[^\n]*\n){1,20}?      if \(mate && isPartyDishSpell\(spell\.name\)\) while \(removeBundleNamed\(playerEntity, spell\.name\)\) \{[^\n]*\}\n      if \(loud\) townTalk\.say\(allyCastTargetLine\(who, spell\.name\)\);\n      const before = playerEntity\.health;\n      magic\.applySpellToPlayer\(spell, d\.level, null, \{ allyCast: true, strangerCast: !mate \}\);/);
+  assert.equal(w.match(/isPartyDishSpell\(/g).length, 1, 'called once, there');
+  const frameAt = w.indexOf('const onlineFrame = (now, dt) => {');
+  assert.ok(frameAt > 0 && !w.slice(frameAt, w.indexOf('\n  };', frameAt)).includes('isPartyDishSpell'), 'not in onlineFrame');
 });

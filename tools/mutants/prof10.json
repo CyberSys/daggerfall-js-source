@@ -827,8 +827,8 @@
   {
     "name": "PROF10-maker-any-group",
     "file": "src/systems/enchanting.js",
-    "old": "(item?.group === 'Jewellery' && /^[0-9a-f]{16}$/.test(",
-    "new": "(/^[0-9a-f]{16}$/.test(",
+    "old": "item?.group !== 'Jewellery' || !/^[0-9a-f]{16}$/.test(",
+    "new": "!/^[0-9a-f]{16}$/.test(",
     "tests": [
       "test/prof10_client.test.js"
     ]
@@ -836,8 +836,8 @@
   {
     "name": "PROF10-maker-any-provenance",
     "file": "src/systems/enchanting.js",
-    "old": "&& /^[0-9a-f]{16}$/.test(item.provenance ?? '') &&",
-    "new": "&&",
+    "old": "|| !/^[0-9a-f]{16}$/.test(item.provenance ?? '') ||",
+    "new": "||",
     "tests": [
       "test/prof10_client.test.js"
     ]
@@ -845,8 +845,8 @@
   {
     "name": "PROF10-maker-negative-points",
     "file": "src/systems/enchanting.js",
-    "old": "Number.isSafeInteger(item.enchantmentPoints) && item.enchantmentPoints >= 0 ?",
-    "new": "Number.isSafeInteger(item.enchantmentPoints) ?",
+    "old": "|| item.enchantmentPoints < 0) return null;",
+    "new": ") return null;",
     "tests": [
       "test/prof10_client.test.js"
     ]
@@ -1286,6 +1286,159 @@
     "file": "src/scenes/world.js",
     "old": "{ clean, heartwood, dye, cracked, fee:",
     "new": "{ clean, heartwood, dye, fee:",
+    "tests": [
+      "test/prof10_client.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-PROF10-J1-any-recipe-kind",
+    "file": "src/systems/enchanting.js",
+    "old": "return r?.kind === 'jewel' && r.templateIndex === item.templateIndex ? r : null;",
+    "new": "return r ? r : null;",
+    "tests": [
+      "test/prof10_client.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-PROF10-J1-any-template",
+    "file": "src/systems/enchanting.js",
+    "old": "return r?.kind === 'jewel' && r.templateIndex === item.templateIndex ? r : null;",
+    "new": "return r?.kind === 'jewel' ? r : null;",
+    "tests": [
+      "test/prof10_client.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-PROF10-J1-no-cap",
+    "file": "src/systems/enchanting.js",
+    "old": "return Math.min(item.enchantmentPoints, most);",
+    "new": "return item.enchantmentPoints;",
+    "tests": [
+      "test/prof10_client.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-PROF10-J1-cap-max",
+    "file": "src/systems/enchanting.js",
+    "old": "return Math.min(item.enchantmentPoints, most);",
+    "new": "return Math.max(item.enchantmentPoints, most);",
+    "tests": [
+      "test/prof10_client.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-PROF10-J1-no-goldsmith-hand",
+    "file": "src/systems/enchanting.js",
+    "old": "[null, JEWEL_HAND_GOLDSMITH, JEWEL_HAND_GEMCUTTER].map",
+    "new": "[null, JEWEL_HAND_GEMCUTTER].map",
+    "tests": [
+      "test/prof10_client.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-PROF10-J1-no-gemcutter-hand",
+    "file": "src/systems/enchanting.js",
+    "old": "[null, JEWEL_HAND_GOLDSMITH, JEWEL_HAND_GEMCUTTER].map",
+    "new": "[null, JEWEL_HAND_GOLDSMITH].map",
+    "tests": [
+      "test/prof10_client.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-PROF10-J2-filter-refuses-crafted",
+    "file": "src/ui/itemMakerWindow.js",
+    "old": "if (!keptEnchantments(item) || item.group === 'UselessItems2') return false;",
+    "new": "if (item.enchantments?.length || item.group === 'UselessItems2') return false;",
+    "tests": [
+      "test/prof10_client.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-PROF10-J2-kept-any-enchanted",
+    "file": "src/systems/enchanting.js",
+    "old": "  if (!craftedJewelRecipe(item)) return null;\n  const out = [];",
+    "new": "  const out = [];",
+    "tests": [
+      "test/prof10_client.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-PROF10-J2-kept-skips-uncostable",
+    "file": "src/systems/enchanting.js",
+    "old": "    if (!row) return null;\n    out.push({ ...row, kept: true });",
+    "new": "    if (!row) continue;\n    out.push({ ...row, kept: true });",
+    "tests": [
+      "test/prof10_client.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-PROF10-J2-kept-never-forced",
+    "file": "src/systems/enchanting.js",
+    "old": "const parent = typeof e?.parentEnchantment === 'string' ? e.parentEnchantment : 0;",
+    "new": "const parent = 0;",
+    "tests": [
+      "test/prof10_client.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-PROF10-J2-decision-kept-free",
+    "file": "src/systems/enchanting.js",
+    "old": "const cost = totalEnchantmentCost(powers, sideEffects) + enchantmentListCost(keptEnchantments(item) ?? []);",
+    "new": "const cost = totalEnchantmentCost(powers, sideEffects);",
+    "tests": [
+      "test/prof10_client.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-PROF10-J2-label-kept-free",
+    "file": "src/ui/itemMakerWindow.js",
+    "old": "totalEnchantmentCost(this.powers, this.sideEffects) + enchantmentListCost(keptEnchantments(this.selected) ?? []), itemEnchantmentPower",
+    "new": "totalEnchantmentCost(this.powers, this.sideEffects), itemEnchantmentPower",
+    "tests": [
+      "test/prof10_client.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-PROF10-J2-apply-overwrites",
+    "file": "src/systems/enchanting.js",
+    "old": "item.enchantments = [...kept, ...applied.map(",
+    "new": "item.enchantments = [...applied.map(",
+    "tests": [
+      "test/prof10_client.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-PROF10-J2-kept-row-removable",
+    "file": "src/ui/itemMakerWindow.js",
+    "old": "if (hit && !hit.entry.kept && (hit.entry.parentEnchantment ?? 0) === 0) this._removeRow(hit.entry);",
+    "new": "if (hit && (hit.entry.parentEnchantment ?? 0) === 0) this._removeRow(hit.entry);",
+    "tests": [
+      "test/prof10_client.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-PROF10-J2-guard-own-rows",
+    "file": "src/ui/itemMakerWindow.js",
+    "old": "      item: this.selected, powers: all.powers, sideEffects: all.sideEffects,\n    });\n    if (d.kind === 'refuse')",
+    "new": "      item: this.selected, powers: this.powers, sideEffects: this.sideEffects,\n    });\n    if (d.kind === 'refuse')",
+    "tests": [
+      "test/prof10_client.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-PROF10-J2-lists-no-kept",
+    "file": "src/ui/itemMakerWindow.js",
+    "old": "return { powers: [...k.powers, ...this.powers], sideEffects: [...k.sideEffects, ...this.sideEffects] };",
+    "new": "return { powers: this.powers, sideEffects: this.sideEffects };",
+    "tests": [
+      "test/prof10_client.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-PROF10-J2-bench-words",
+    "file": "src/ui/profPages.js",
+    "old": ". The item maker spends them, beside a Masterwork's own enchantment.`));",
+    "new": ". The item maker spends them.`));",
     "tests": [
       "test/prof10_client.test.js"
     ]

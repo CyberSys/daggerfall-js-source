@@ -33,7 +33,7 @@
 // earns nothing - the service never sees it.
 // ═══════════════════════════════════════════════════════════════════
 import {
-  recipeById, dishOf, dishMinutes, DISH_TEMPLATES, DISH_ICON, HAND_CHEF, HAND_PROVISIONER, PROVENANCE_RE, makerName, dishSpell,
+  recipeById, dishOf, dishMinutes, DISHES, DISH_TEMPLATES, DISH_ICON, HAND_CHEF, HAND_PROVISIONER, PROVENANCE_RE, makerName, dishSpell,
 } from '../net/recipeLaw.js';
 import { setItemFields, mintCondition, registerItemUseHandler } from './itemTemplates.js';
 import { eatFood } from './survival/items.js';
@@ -110,6 +110,11 @@ export function feedEffect(entity, d, hand = null, rolls = Math.random) {
 /** The Tart's stamina (scenes/shared.js fatigueLossMultiplierFor): a minute's drain's multiplier - 1 / 1.2 while a
  *  `dishStamina` entry stands, else 1. */
 export const dishStaminaFactor = (entity) => ((entity?.activeEffects ?? []).some((a) => a.kind === DISH_STAMINA_KIND && !a.ended && a.roundsRemaining > 0) ? 1 / DISH_STAMINA_DIVISOR : 1);
+
+/** AUDIT PROF9 K2: whether a spell is a FEAST's - a party dish's record by its name (a mate's share of it arrives through
+ *  ALLY-CAST's frame as `name: d.name`). The receiver takes its standing bundles of that name off first (world.js
+ *  online.onCast), so a feast shared renews as one eaten does and its rounds never add up. */
+export const isPartyDishSpell = (name) => typeof name === 'string' && DISHES.some((d) => d.effect.party === true && d.name === name);
 
 /** The host's share of a feast with the party at the table (world.js, online): `(spell, name) => [names shared with]`. */
 let _share = /** @type {((spell: any, name: string) => string[])|null} */ (null);

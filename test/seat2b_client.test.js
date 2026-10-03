@@ -28,7 +28,7 @@ test('SEAT2b THE WORKS\' WORDS: a tier and what it does; a project and what it s
     'shrine: Standing +2 a week, +100 influence for each gate felled in the region',
     'forge: members smithing here 2 quality steps better',
     'workshop: members\' carpentry, outfitting and masonry here 2 quality steps better',
-    'apothecary: members\' alchemy, cooking and jewelcrafting here 2 quality steps better',
+    'apothecary: members\' jewellery here 2 quality steps better, their dishes twice the XP, their brews +20% Potent chance',
     'harbour: a port for the holder\'s members',
   ]);
   assert.deepEqual([FORT_EFFECT_WORDS.watchtowers(1), FORT_EFFECT_WORDS.forge(1), FORT_EFFECT_WORDS.market(1)],

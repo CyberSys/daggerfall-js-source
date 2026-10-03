@@ -1178,5 +1178,71 @@
     "tests": [
       "test/prof9_client.test.js"
     ]
+  },
+  {
+    "name": "AUDIT-PROF9-K1-slow-rot-first",
+    "file": "src/systems/survival/food.js",
+    "old": "    if (item.noRot === true) continue;\n",
+    "new": "    if (item.noRot === true && item.slowRot !== true) continue;\n",
+    "tests": [
+      "test/prof9_client.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-PROF9-K2-any-dish-a-feast",
+    "file": "src/systems/cookItems.js",
+    "old": "DISHES.some((d) => d.effect.party === true && d.name === name)",
+    "new": "DISHES.some((d) => d.name === name)",
+    "tests": [
+      "test/prof9_client.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-PROF9-K2-feast-stacks",
+    "file": "src/scenes/world.js",
+    "old": "      if (mate && isPartyDishSpell(spell.name)) while (removeBundleNamed(playerEntity, spell.name))",
+    "new": "      if (false && mate && isPartyDishSpell(spell.name)) while (removeBundleNamed(playerEntity, spell.name))",
+    "tests": [
+      "test/prof9_client.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-PROF9-K2-stranger-renews",
+    "file": "src/scenes/world.js",
+    "old": "      if (mate && isPartyDishSpell(spell.name)) while (removeBundleNamed(playerEntity, spell.name))",
+    "new": "      if (isPartyDishSpell(spell.name)) while (removeBundleNamed(playerEntity, spell.name))",
+    "tests": [
+      "test/prof9_client.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-PROF12-P1-apothecary-old-words",
+    "file": "src/net/fortLaw.js",
+    "old": "`members' jewellery here ${t === 1 ? 'a quality step' : `${t} quality steps`} better, their dishes",
+    "new": "`members' alchemy, cooking and jewelcrafting here ${t === 1 ? 'a quality step' : `${t} quality steps`} better, their dishes",
+    "tests": [
+      "test/prof12_client.test.js",
+      "test/seat2b_client.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-PROF12-P1-dish-xp-words",
+    "file": "src/net/fortLaw.js",
+    "old": "t === 2 ? 'twice' :",
+    "new": "t === 2 ? 'half again' :",
+    "tests": [
+      "test/prof12_client.test.js",
+      "test/seat2b_client.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-PROF12-P1-potent-words",
+    "file": "src/net/fortLaw.js",
+    "old": "their brews +${10 * t}% Potent chance",
+    "new": "their brews +${5 * t}% Potent chance",
+    "tests": [
+      "test/prof12_client.test.js",
+      "test/seat2b_client.test.js"
+    ]
   }
 ]

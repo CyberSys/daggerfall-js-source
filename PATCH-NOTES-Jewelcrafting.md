@@ -26,6 +26,10 @@
   - What a Gemcutter or a Goldsmith gave a piece stays with it, whoever owns it.
 - **The Professions page** lists Jewelcrafting as practised.
 
+### Fixes
+- **A Masterwork piece can now be enchanted further.** Its magic property used to keep it out of the item maker, so its points went unused. The item maker now takes any piece you crafted along with the enchantment it already has. That enchantment stays on the piece and cannot be removed, and its cost counts against the piece's points. You can add more enchantments while the total fits. Other enchanted items are still refused, as in Daggerfall.
+- **A piece's enchantment points can't go past what its recipe makes.** A tampered piece no longer brings an impossible budget to the item maker.
+
 ---
 
 ### For the team
