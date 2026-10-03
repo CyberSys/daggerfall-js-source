@@ -182,5 +182,43 @@
     "tests": [
       "test/auditrest3.test.js"
     ]
+  },
+  {
+    "name": "AUDITREST3-C1-the-debt-never-asked",
+    "file": "src/systems/partyRestLaw.js",
+    "old": "(now - rec.answered >= gapMs || !!(typeof due === 'function' ? due() : due))",
+    "new": "(now - rec.answered >= gapMs)",
+    "tests": [
+      "test/auditrest3.test.js"
+    ]
+  },
+  {
+    "name": "AUDITREST3-C1-always-owed",
+    "file": "src/systems/partyRestLaw.js",
+    "old": "(now - rec.answered >= gapMs || !!(typeof due === 'function' ? due() : due))",
+    "new": "(now - rec.answered >= gapMs || true)",
+    "tests": [
+      "test/auditrest3.test.js",
+      "test/auditrest2_party.test.js"
+    ]
+  },
+  {
+    "name": "AUDITREST3-C1-the-debt-asked-first",
+    "file": "src/systems/partyRestLaw.js",
+    "old": "(now - rec.answered >= gapMs || !!(typeof due === 'function' ? due() : due))",
+    "new": "(!!(typeof due === 'function' ? due() : due) || now - rec.answered >= gapMs)",
+    "tests": [
+      "test/auditrest3.test.js"
+    ]
+  },
+  {
+    "name": "AUDITREST3-C1-the-host-asks-no-debt",
+    "file": "src/scenes/world.js",
+    "old": ", isNightStamp, () => nightDue(playerEntity, ownMinutes()))) continue;",
+    "new": ", isNightStamp)) continue;",
+    "tests": [
+      "test/auditrest3.test.js",
+      "test/auditrest2_party.test.js"
+    ]
   }
 ]

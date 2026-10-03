@@ -247,7 +247,7 @@ test('AUDIT REST II P5: a member\'s stamp is asked for its mark only once it has
   assert.equal(calls, 0, 'no key array made a call');
   const w = rd('src/scenes/world.js');
   const carry = w.slice(w.indexOf('const carryPartyNight = () => {'), w.indexOf('const sleepCarriedNight = (name, theirs) => {'));
-  assert.match(carry, /\n      if \(!_nightWatch\.moved\(m\.acct, !!m\.p, at, now, isNightStamp\)\) continue;/, 'the predicate itself, asked by the law');
+  assert.match(carry, /\n      if \(!_nightWatch\.moved\(m\.acct, !!m\.p, at, now, isNightStamp, \(\) => nightDue\(playerEntity, ownMinutes\(\)\)\)\) continue;/, 'the predicate itself, asked by the law (AUDIT REST III C1 re-aim: and my clock\'s debt, asked by it too)');
   assert.equal((carry.match(/nightKindOf\(/g) ?? []).length, 1, 'the kind read once, for the night slept');
 });
 

@@ -100,3 +100,21 @@ test('AUDIT REST III D1: a held bounty\'s day moves with the lane - brought onli
   assert.equal(early.modData[BOUNTY_VENDOR].held[0].takenAt, 0, 'never below the calendar\'s start');
   assert.equal(early.modData[BOUNTY_VENDOR].paidAt.s, 0);
 });
+
+test('AUDIT REST III C1: a night my own clock owes me is carried inside the party\'s minute - the party just off the road (the journey moved the clock, the next night due at once), a mate who rests 45 s after the first night sleeps me; a short rest still waits the minute out, and the debt is asked only of a move the minute holds back (mutants: the debt never asked; always owed)', async () => {
+  const { createNightWatch, PARTY_NIGHT_GAP_MS } = await import('../src/systems/partyRestLaw.js');
+  const w = createNightWatch();
+  const t0 = 1_000_000;
+  assert.equal(w.moved('a', true, t0 - 5000, t0, true), false, 'the first sight is a baseline');
+  let asked = 0;
+  const due = (v) => () => { asked++; return v; };
+  assert.equal(w.moved('a', true, t0 + 1000, t0 + 1000, true, due(false)), true, 'the first night: carried');
+  assert.equal(asked, 0, 'outside the minute the debt is never asked');
+  assert.equal(w.moved('a', true, t0 + 46_000, t0 + 46_000, true, due(false)), false, 'inside the minute, owed nothing: a short rest waits');
+  assert.equal(w.moved('a', true, t0 + 47_000, t0 + 47_000, true, due(true)), true, 'inside the minute, a night owed: carried');
+  assert.equal(asked, 2);
+  assert.equal(w.moved('a', true, t0 + 47_000, t0 + 47_500, true, due(true)), false, 'never the same stamp twice (P2\'s mark)');
+  assert.equal(asked, 2, 'nor asked of a stamp that did not move');
+  assert.equal(w.moved('a', true, t0 + 48_000 + PARTY_NIGHT_GAP_MS, t0 + 48_000 + PARTY_NIGHT_GAP_MS, true), true, 'past the minute, as before');
+  assert.match(rd('src/scenes/world.js'), /_nightWatch\.moved\(m\.acct, !!m\.p, at, now, isNightStamp, \(\) => nightDue\(playerEntity, ownMinutes\(\)\)\)/, 'the host asks its own clock');
+});

@@ -19267,7 +19267,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     _nightWatch.keep(others);   // AUDIT REST II P2: a mate who left the party is a first sight when they come back
     for (const m of others) {
       const at = stampOf(m.p?.restStartedAt, now);
-      if (!_nightWatch.moved(m.acct, !!m.p, at, now, isNightStamp)) continue;   // AUDIT REST F7: a night's, never an older build's open - AUDIT REST II: over the mark, once a minute, the mark asked last
+      if (!_nightWatch.moved(m.acct, !!m.p, at, now, isNightStamp, () => nightDue(playerEntity, ownMinutes()))) continue;   // AUDIT REST F7: a night's, never an older build's open - AUDIT REST II: over the mark, once a minute, the mark asked last - AUDIT REST III C1: a night my clock owes me inside the minute
       const present = memberPresent(m);
       const dead = playerEntity.health <= 0 || !!modes?.deathUp?.();
       const act = carriedNightAction({

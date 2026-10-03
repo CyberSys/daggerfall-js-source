@@ -168,9 +168,13 @@ export function restAloneText(mineOn) {
 //    mirror online, is said again for a mate resting in the same place beyond the party's 15 m).
 /** How long a moved night stamp is a night to answer: one older than this when first seen moving is long over. */
 export const PARTY_NIGHT_FRESH_MS = 30_000;
-/** AUDIT REST II P1: the least time between two moves of ONE member's night stamp that are answered. An honest pair of
- *  nights is ten real minutes apart at the least (the six-second channel, then the night interval), so a minute never
- *  holds back a night anyone slept - it holds back a pose that says a new night every second. */
+/** AUDIT REST II P1: the least time between two moves of ONE member's night stamp that are answered - it holds back a
+ *  pose that says a new night every second. AUDIT REST III C1: but never a night MY clock owes me. P1 read an honest
+ *  pair of nights as ten real minutes apart at the least, and it is not: a journey, a guild's training, a quest's
+ *  RaiseTime or an arrest moves the character's clock, and the next night is due at once (restAct.js nightDue) - a mate
+ *  who rested 45 s after the first night, the party just off the road, slept nobody (the mark rose, the move went
+ *  unanswered for good). The night interval bounds my nights whatever a pose says, so a night due is answered inside
+ *  the gap; a short rest and the far, busy and town words still wait it out. */
 export const PARTY_NIGHT_GAP_MS = 60_000;
 
 /** Whether a party mate's night stamp `at` (read through stampOf) is a NEW night to answer: over `high`, the HIGHEST
@@ -200,12 +204,12 @@ export function createNightWatch({ freshMs = PARTY_NIGHT_FRESH_MS, gapMs = PARTY
   return {
     /** Whether `acct`'s stamp `at` (stampOf, against the shared clock `now`) is a move to answer now. `posed` - a pose
      *  stands for them this frame (the hub's offline seat has none, and says nothing of their nights). `isNight` as
-     *  nightMoved's. */
-    moved(acct, posed, at, now, isNight) {
+     *  nightMoved's. `due` (AUDIT REST III C1) - whether MY night is due, asked only of a move the gap holds back. */
+    moved(acct, posed, at, now, isNight, due = false) {
       if (!posed) return false;
       const rec = marks.get(acct);
       if (!rec) { marks.set(acct, { high: at, answered: -Infinity }); return false; }
-      const move = nightMoved(rec.high, at, now, isNight, freshMs) && now - rec.answered >= gapMs;
+      const move = nightMoved(rec.high, at, now, isNight, freshMs) && (now - rec.answered >= gapMs || !!(typeof due === 'function' ? due() : due));
       if (at > rec.high) rec.high = at;
       if (move) rec.answered = now;
       return move;
