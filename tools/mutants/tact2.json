@@ -224,5 +224,14 @@
     "tests": [
       "test/tact2.test.js"
     ]
+  },
+  {
+    "name": "TACT2-token-never-taken-again",
+    "file": "src/ai/tactics.js",
+    "old": "    const has = take(b, 'ranged', ai, now, TACT.RANGED_TOKENS);",
+    "new": "    const has = !s.shot && take(b, 'ranged', ai, now, TACT.RANGED_TOKENS);",
+    "tests": [
+      "test/tact2.test.js"
+    ]
   }
 ]
