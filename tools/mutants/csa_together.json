@@ -11,8 +11,8 @@
   {
     "name": "CSAK-wire-m-always",
     "file": "src/systems/comeSailAwayWire.js",
-    "old": "return underWay ? { b, m } : { b };",
-    "new": "return { b, m };",
+    "old": "  const rec = underWay ? { b, m } : { b };",
+    "new": "  const rec = { b, m };",
     "tests": [
       "test/csa_together.test.js"
     ]
@@ -83,7 +83,7 @@
   {
     "name": "CSAK-wire-key-no-way",
     "file": "src/systems/comeSailAwayWire.js",
-    "old": "export const csaRecordKey = (rec) => (rec ? JSON.stringify(rec.m ? [rec.b, rec.m] : rec.b) : '');",
+    "old": "export const csaRecordKey = (rec) => (rec ? JSON.stringify(rec.m || rec.n ? [rec.b, rec.m ?? null, rec.n ?? null] : rec.b) : '');",
     "new": "export const csaRecordKey = (rec) => (rec ? JSON.stringify(rec.b) : '');",
     "tests": [
       "test/csa_together.test.js",

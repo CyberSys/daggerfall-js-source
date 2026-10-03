@@ -1,9 +1,11 @@
 // @ts-check
 // ═══════════════════════════════════════════════════════════════════
 // PROF1 (2026-09-28, Mac: "actual UI integration for life skills") -
-// THE PROFESSIONS AND STORES PAGES of the character sheet: two pages on
-// the pause window's Stats rail (ui/enhancedMenu.js), beside Character,
-// Attributes and Skills - the sheet's own bones (bible/06-Systems/
+// THE PROFESSIONS AND STORES PAGES of the character sheet: the
+// Professions page on the pause window's Stats rail (ui/enhancedMenu.js),
+// beside Character, Attributes and Skills, and the Stores page on its
+// Holdings rail (HOLDINGS, 2026-10-03, moved it there with the other
+// things the player holds) - the sheet's own bones (bible/06-Systems/
 // Professions-Arc.md 8, 21, 22). Online only, and only while the
 // professions are this account's: the host registers its book here
 // (`setProfessionsPages`), and a page with nothing behind it is never

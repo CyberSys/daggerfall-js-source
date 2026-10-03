@@ -488,7 +488,7 @@
   {
     "name": "SC-world-pack-gated",
     "file": "src/scenes/world.js",
-    "old": "      packDeed: (item) => { addItem((playerEntity.items ??= []), item); surfacePlayer(); return () => playerEntity.items; },",
+    "old": "      packDeed: (item) => { titleDeed(item, { port: null }); return () => fleetBook(); },",
     "new": "      packDeed: (item) => { navalGiveItems([item], null); return () => playerEntity.items; },",
     "tests": [
       "test/shipclaim.test.js"

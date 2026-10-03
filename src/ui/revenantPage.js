@@ -1,6 +1,7 @@
 // @ts-check
 // REVENANT-PAGE (2026-10-02, Mac: "Definitely finish this with love. Any new UI elements need to be enhanced UI plus"):
-// THE REVENANTS PAGE on the Enhanced pause menu's Stats rail (ui/enhancedMenu.js pauseStats) - every foe that has earned
+// THE REVENANTS PAGE on the Enhanced pause menu's Holdings rail (ui/enhancedMenu.js pauseHoldings; HOLDINGS moved it off
+// the Stats rail, 2026-10-03) - every foe that has earned
 // the character's name (systems/revenant.js), the living first, strongest first: its portrait in a sunk well with its
 // rank on a chip, its name and what it is, what it has done to you, when it will come, and its deeds in order; then
 // the FALLEN, greyed and struck through, with the day each fell. A character with none is told how one is made.

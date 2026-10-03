@@ -629,8 +629,13 @@ export function createComeSailAwayRuntime(deps) {
     const b = cur();
     const hurt = f(Math.max(0, Math.min(1, Number(deps.wayScale?.(state.sailPosition !== 0) ?? 1))));
     if (state.sailPosition === 0) return f(f(f(f(HANDLING.moveSpeedOar * handlingMod('OarMoveSpeed')) * state.boatCargoMod) * f(b.modifierMoveSpeedOar)) * hurt);
-    return f(f(f(f(HANDLING.moveSpeedSail * handlingMod('SailMoveSpeed')) * state.boatCargoMod) * f(b.modifierMoveSpeedSail)) * hurt);
+    return f(f(f(f(f(HANDLING.moveSpeedSail * handlingMod('SailMoveSpeed')) * state.boatCargoMod) * f(b.modifierMoveSpeedSail)) * hurt) * rigOf(b));
   }
+  /** HOLDINGS (the port's own - bible/03-World/Holdings.md): her Rigging refit, her way under sail and its coming on
+   *  (`deps.refit`, the Fleet's; the mod has none) - read where the rates are read, never written into the prefab's
+   *  modifiers a variant's change walks again. Oars are her hands', never her rig's. */
+  const refitOf = (b) => (b ? deps.refit?.(b) ?? null : null);
+  const rigOf = (b) => { const k = Number(refitOf(b)?.speed); return Number.isFinite(k) && k > 0 ? f(k) : 1; };
   /** HELM-WAY: the responsive helm is the host's to hand (`deps.handling`); none handed is the mod to the letter. */
   const handed = () => !!deps.handling && isResponsive(deps.handling());
   // AUDIT NAV2 F14: the hand is taken ONCE A HELM SESSION - at StartSailing, let go when she stops sailing (off a helm it
@@ -654,7 +659,7 @@ export function createComeSailAwayRuntime(deps) {
       return f(f(f(HANDLING.moveAccelOar * handlingMod('OarMoveAcceleration')) * state.boatCargoMod) * f(b.modifierMoveAccelerationOar));
     }
     if (state.sailPosition === 1) {
-      return f(f(f(f(f(HANDLING.moveAccelSail * handlingMod('SailMoveAcceleration')) * vMagnitude(state.windVectorCurrent)) * state.boatCargoMod) * f(b.modifierMoveAccelerationSail)) * (responsive() ? HELM_WAY.sailAccel : 1));
+      return f(f(f(f(f(f(HANDLING.moveAccelSail * handlingMod('SailMoveAcceleration')) * vMagnitude(state.windVectorCurrent)) * state.boatCargoMod) * f(b.modifierMoveAccelerationSail)) * (responsive() ? HELM_WAY.sailAccel : 1)) * rigOf(b));   // HOLDINGS: her Rigging
     }
     return f(f(f(f(HANDLING.moveAccelSail * handlingMod('SailMoveAcceleration')) * state.boatCargoMod) * f(b.modifierMoveAccelerationSail)) * (responsive() ? HELM_WAY.coast : 1));
   }
@@ -836,7 +841,9 @@ export function createComeSailAwayRuntime(deps) {
     // a hull with no Cargo modifier (the Carrack) divides by zero: 0 at any weight, NaN at none - kept by the mod's own
     // handling; HELM-WAY: the responsive helm gives it the largest hold the mod gave any hull (CARGO_HOLD_MISSING)
     const hold = !(boat.modifierCargoThreshold > 0) && responsive() ? CARGO_HOLD_MISSING : boat.modifierCargoThreshold;
-    state.boatCargoMod = mathfClamp(f(2 - f(num / f(f(Number(setting('Cargo.CargoThreshold', 500))) * f(hold)))), 0, 1);
+    // HOLDINGS: her Hold refit - the threshold her load is weighed against, times it (`deps.refit`, the Fleet's)
+    const holdK = Number(refitOf(boat)?.cargo);
+    state.boatCargoMod = mathfClamp(f(2 - f(num / f(f(f(Number(setting('Cargo.CargoThreshold', 500))) * f(hold)) * (Number.isFinite(holdK) && holdK > 0 ? f(holdK) : 1)))), 0, 1);
     if (state.lastWeight !== num) {
       state.lastWeight = num;
       if (state.boatCargoMod < 0.5) deps.midScreenText("You're going to need a bigger boat", 3);
@@ -1740,7 +1747,7 @@ export function createComeSailAwayRuntime(deps) {
         val.weightInKg = f(val.weightInKg + weight);
         state.PackedCargoes.set(key, val3);
       }
-      if (deed) removeItem(deps.items.player(), deed);   // SHIP-PACK: her deed goes with her
+      if (deed && !inBook(deed)) removeItem(deps.items.player(), deed);   // SHIP-PACK: her deed goes with her - HOLDINGS: a title in the Fleet's book stays there (her parts are her, the book her papers)
       deps.items.addToPlayer(val);   // AddItem(val, AddPosition.Back)
     }
     boat.MapPixel = null;
@@ -1749,8 +1756,13 @@ export function createComeSailAwayRuntime(deps) {
     if (i >= 0) state.AllBoats.splice(i, 1);
     return true;
   }
-  /** SHIP-PACK: a deed in the player's pack by its number (the host's pack, `deps.items.player`), or null. */
-  const deedInPack = (uid) => (deps.items?.player?.() ?? []).find((it) => it?.templateIndex === BOAT_DEED_TEMPLATE && it.UID === uid) ?? null;
+  /** SHIP-PACK: a deed in the player's pack by its number (the host's pack, `deps.items.player`), or null. HOLDINGS
+   *  (bible/03-World/Holdings.md): or her title in the Fleet's book (`deps.items.titles` - systems/fleet.js), where a
+   *  deed is kept now: every law that asked the pack for her deed finds it there. */
+  const deedInPack = (uid) => (deps.items?.player?.() ?? []).find((it) => it?.templateIndex === BOAT_DEED_TEMPLATE && it.UID === uid)
+    ?? (deps.items?.titles?.() ?? []).find((it) => it?.templateIndex === BOAT_DEED_TEMPLATE && it.UID === uid) ?? null;
+  /** HOLDINGS: whether a deed is the book's (a title), not the pack's. */
+  const inBook = (deed) => (deps.items?.titles?.() ?? []).includes(deed);
   /** SHIP-PACK: whether a ship waits on her deed to be picked up - crewed, placed by a deed (her number on her), and that
    *  deed not in the pack. A boat no item placed (number 0) packs without one. */
   const deedMissing = (boat) => !!boat?.crewed && !!boat.uid && deedInPack(boat.uid) == null;
@@ -2129,6 +2141,53 @@ export function createComeSailAwayRuntime(deps) {
     StopPlacing();
     return placed;
   }
+  /**
+   * HOLDINGS (the port's own - bible/03-World/Holdings.md): A SHIP CALLED TO THE PLAYER from the Fleet page. Her boat
+   * stood at `position`, her bow along `direction`: moved there if she stands anywhere (RepositionBoat - a deed used at a
+   * port moved her so), else placed from her title (`title`, the Fleet's deed, out of `titles` - LaunchFromDeed's two
+   * halves, so a small boat's title is spent on placing as the mod spends its deed, and her laid-up hold comes back
+   * aboard). Never the boat at the helm, nor one another player stands on. What the click would have been placing is let
+   * go. Says nothing - the page says it. Answers the boat, or null.
+   */
+  function SummonBoat(uid, title, titles, position, direction, terrain = null) {
+    const boat = GetPlacedBoatWithUID(uid);
+    if (boat) {
+      if (boat === state.CurrentBoat || (deps.passengersAboard?.(boat) ?? 0) > 0) return null;
+      if (state.placing) StopPlacing();
+      RepositionBoat(boat, [...position], [...direction], terrain);
+      return boat;
+    }
+    if (state.placing) StopPlacing();
+    return title ? LaunchFromDeed(title, titles, position, direction, terrain) : null;
+  }
+  /**
+   * HOLDINGS: A SHIP SENT AWAY - laid up at a port. PackBoat's whole with no item made (her title in the Fleet's book
+   * stands for her): her hold moved into PackedCargoes under her number (placed again, takePlaceItem brings it back
+   * aboard), her boat gone from the world. Refused for the boat at the helm, one another player stands on, and a boat
+   * with no number (nothing could call her back). Answers whether she was laid up.
+   */
+  function LayUpBoat(boat) {
+    if (!boat?.uid || boat === state.CurrentBoat || (deps.passengersAboard?.(boat) ?? 0) > 0) return false;
+    if (boat.Cargo.Items.length > 0) {
+      const key = cargoKey(boat.uid);
+      const kept = state.PackedCargoes.get(key) ?? [];
+      transferAll(boat.Cargo.Items, kept);   // onto what a pick-up left under her number (emptied and kept), never past it
+      state.PackedCargoes.set(key, kept);
+    }
+    boat.MapPixel = null;
+    deps.pool.remove(boat);
+    const i = state.AllBoats.indexOf(boat);
+    if (i >= 0) state.AllBoats.splice(i, 1);
+    return true;
+  }
+  /** HOLDINGS: a laid-up ship's hold, by her number - the list, live: made (empty, under her number) where none is, so a
+   *  store the yard puts in it, or a refit takes out of it, is hers. An empty entry under her own number is what a
+   *  pick-up refills and a placing empties (PackBoat, takePlaceItem). */
+  const laidUpHold = (uid) => {
+    const key = cargoKey(uid);
+    if (!state.PackedCargoes.has(key)) state.PackedCargoes.set(key, []);
+    return state.PackedCargoes.get(key);
+  };
   /** PlaceBoat(Boat, Vector3, Vector3, Terrain) (6171-6178). */
   function PlaceBoatOnTerrain(newBoat, position, direction, terrain = null) {
     SpawnBoat(newBoat);
@@ -2167,7 +2226,11 @@ export function createComeSailAwayRuntime(deps) {
         transferAll(value, boat.Cargo.Items);   // ItemCollection.TransferAll: stacked as AddItem stacks, the packed collection emptied and kept
       }
       if (!boat.crewed) removeItem(state.placeItemCollection, state.placeItem);
-      else if (state.placeItem.templateIndex === BOAT_PARTS_TEMPLATE) swapItem(state.placeItemCollection, state.placeItem, mintDeed(boat.hull, boat.variant, state.placeItem.UID, state.placeItem.value));   // SHIP-PACK: her deed back
+      else if (state.placeItem.templateIndex === BOAT_PARTS_TEMPLATE) {
+        // HOLDINGS: her title is the Fleet's book's (made there if it is not) - her parts are spent, as a small boat's are
+        if (deps.items?.retitle?.(boat, state.placeItem)) removeExact(state.placeItemCollection, state.placeItem);
+        else swapItem(state.placeItemCollection, state.placeItem, mintDeed(boat.hull, boat.variant, state.placeItem.UID, state.placeItem.value));   // SHIP-PACK: her deed back
+      }
     }
   }
 
@@ -2903,6 +2966,7 @@ export function createComeSailAwayRuntime(deps) {
     CanSail, IsBeached, IsNodeOnWater, CanTurnLeft, CanTurnRight, ResetTimeScale,
     LaunchFromParts, nodeReadingAt,   // OWS2: the Overworld's crossing - a launch aimed by the journey, and the node's law it probes with
     LaunchFromDeed,   // SHIP-CLAIM: a claimed prize's deed, her boat stood where she lies
+    SummonBoat, LayUpBoat, laidUpHold,   // HOLDINGS: the Fleet page's summon and send away, and a laid-up hold
     activate, OnStartLoad, OnPreFastTravel, OnPostFastTravel, OnPlayerDeath, OnNewMagicRound,
     UpdateWind, OnNewHour, OnWeatherChange,
     GetSailPower, ToggleSails, RaiseSails, LowerSails, ToggleSquareSails, HasLargeSquareSailWithGaff,
@@ -2967,6 +3031,15 @@ function swapItem(list, item, by) {
   let i = l.indexOf(item);
   if (i < 0 && item?.UID != null) i = l.findIndex((it) => it?.UID === item.UID && it?.templateIndex === item.templateIndex);
   if (i >= 0) l.splice(i, 1, by);
+}
+/** HOLDINGS: `item` out of the list - itself, else the one of its template and UID (a ship's parts and her deed share
+ *  her number, and removeItem's UID alone would take whichever came first). */
+function removeExact(list, item) {
+  const l = typeof list === 'function' ? list() : list;
+  if (!l) return;
+  let i = l.indexOf(item);
+  if (i < 0 && item?.UID != null) i = l.findIndex((it) => it?.UID === item.UID && it?.templateIndex === item.templateIndex);
+  if (i >= 0) l.splice(i, 1);
 }
 function removeItem(list, item) {
   const l = typeof list === 'function' ? list() : list;

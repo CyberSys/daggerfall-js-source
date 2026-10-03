@@ -625,8 +625,8 @@
   {
     "name": "NAV1H-the-share-unread-sail",
     "file": "src/systems/comeSailAway.js",
-    "old": "f(b.modifierMoveSpeedSail)) * hurt);",
-    "new": "f(b.modifierMoveSpeedSail)));",
+    "old": "f(b.modifierMoveSpeedSail)) * hurt) * rigOf(b));",
+    "new": "f(b.modifierMoveSpeedSail))) * rigOf(b));",
     "tests": [
       "test/csa_wind.test.js"
     ]

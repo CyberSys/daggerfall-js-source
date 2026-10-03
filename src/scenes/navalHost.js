@@ -69,7 +69,7 @@ import { lawOf, createNotoriety, crownRegion, notorietyLevel, WITNESS_RANGE, KNI
 import { drawHold, flotsamKeys, choiceEffect, choiceOffer, holdTier, CHOICES, prizeDeedValue, SALVAGE_LOT, isSalvage, salvageOf } from '../systems/naval/navalPlunder.js';
 import { mintStores } from '../systems/naval/navalStores.js';   // SALVAGE: a wreck's stores, minted as the yard's are
 import { mintDeed } from '../systems/comeSailAwayItems.js';   // SHIP-CLAIM: a claimed prize's deed, the shelf's own mint
-import { yardOffer, yardAll, fieldMend, FIELD_QUIET_S, FIELD_REFLOAT, YARD_PRICE, provisionOffer, seaRepair, wantsRepair, paidDamage, STORE_POINTS, STORES_STOCK, storesToWhole, SEA_REPAIR_UNDER_FIRE } from '../systems/naval/navalYard.js';
+import { yardOffer, yardAll, fieldMend, FIELD_QUIET_S, FIELD_REFLOAT, YARD_PRICE, provisionOffer, seaRepair, wantsRepair, paidDamage, STORE_POINTS, STORES_STOCK, storesToWhole, SEA_REPAIR_UNDER_FIRE, FIELD_MEND_CAP } from '../systems/naval/navalYard.js';
 import { createCompanions, companionRows } from '../systems/naval/crewCompanions.js';   // CREW-COMPANIONS
 import { createShipCrew, reloadScaleOf, mendScaleOf, handsBonusOf, crewCard, CREW_ORDERS, ORDER_TEXT, spiritsOf, LOOKOUT_ROLE } from '../systems/naval/shipCrew.js';   // SHIP-CREW
 import { crewRoster, playerCrewCount } from '../systems/naval/crewLife.js';   // AUDIT NAV1: the shipwright, the mending at sea
@@ -534,11 +534,18 @@ export function createNavalHost(deps) {
   /** AUDIT CC-A5: nobody of hers ashore (never mutated). */
   const NO_HANDS_AWAY = new Set();
   let companions = createCompanions(null, deps.packedItems ?? null);   // CREW-COMPANIONS: the party ashore (crewCompanions.js), saved beside the crews - COMPANION-KIT: their packs through the save's item codec
+  /** HOLDINGS (bible/03-World/Holdings.md): her build as her refits make it - her Hull refit's share on her hull's and
+   *  her canvas's whole (`deps.refit`, the Fleet's ledger by her number; a boat with none, her hull's own). */
+  function refitBuild(boat) {
+    const b = hullBuild(boat.hull);
+    const k = Number(boat?.uid ? deps.refit?.(boat)?.hull : 1);
+    return Number.isFinite(k) && k > 1 ? { ...b, hullHp: Math.round(b.hullHp * k), sailHp: Math.round(b.sailHp * k) } : b;
+  }
   function myBoatState(boat) {
     if (!boat) return null;
     const keyed = boat.uid ? boatState.get(boat.uid) : boatStateByObj.get(boat);
     if (keyed) return keyed;
-    const b = hullBuild(boat.hull);
+    const b = refitBuild(boat);
     const st = {
       damage: createShipDamage({ hullHp: b.hullHp, sailHp: b.sailHp, crew: b.crew, player: true }),
       guns: null,
@@ -761,6 +768,7 @@ export function createNavalHost(deps) {
     const hurt = shotDamage(gun, zone, { roll: random() });
     if (fire) hurt.fire = fire;
     const byMe = isMine(e.shooter);
+    if (byMe && e.type !== 'blast') gunsRefit(hurt, e.shooter);   // HOLDINGS: her Guns refit - her balls' harm, never a barrel's
     const stray = byMe && !target.owner && strayOnAlly(target, hurt, myId());   // SEA-EASE: an aid struck in the melee
     if (byMe && !stray) chargePlayer('fire', target);
     if (byMe) target.myBlowAt = clock;
@@ -771,6 +779,15 @@ export function createNavalHost(deps) {
       return;
     }
     strike(target, hurt, byMe ? myId() : e.shooter, undefined, stray);
+  }
+  /** HOLDINGS: a ball of a boat of mine bettered by her Guns refit (`deps.refit`, the Fleet's) - its hull's and canvas's
+   *  harm; the men it takes as the gun takes them. */
+  function gunsRefit(hurt, shooter) {
+    const uid = Number(String(shooter).slice(MY_BOAT.length + 1));
+    const k = Number(uid > 0 ? deps.refit?.({ uid })?.guns : 1);
+    if (!(Number.isFinite(k) && k > 1)) return;
+    if (Number.isFinite(hurt.hull)) hurt.hull *= k;
+    if (Number.isFinite(hurt.sail)) hurt.sail *= k;
   }
   /** SEA-EASE: whether a player's ball on this ship is a stray on an aid - a crown's ship afloat, fighting a pirate,
    *  not at odds with them, and what they have struck her for still under ALLY_STRAY_SHARE of her hull (counted here). */
@@ -2102,6 +2119,61 @@ export function createNavalHost(deps) {
   /** The shipwright's window over the world. */
   function openYard(boat) { return !!deps.openYard?.(yardModel(boat)); }
 
+  // ── HOLDINGS: a ship of mine as the Fleet page reads her and works her, wherever she lies (bible/03-World/Holdings.md) ─
+  // `boat` is a boat of mine standing in the world (shown or not), or a laid-up ship's stand-in - `{ uid, hull, crewed,
+  // Cargo: { Items } }`, her hold the laid-up one (scenes/fleetHost.js) - so her state is the one her number keeps here.
+  /** Her state as the page draws it: her hull, canvas and crew against her whole, a wreck, a fire, her stores. */
+  function fleetStatus(boat) {
+    const st = myBoatState(boat);
+    if (!st) return null;
+    const d = st.damage;
+    return { hull: d.hull, maxHull: d.maxHull, sail: d.sail, maxSail: d.maxSail, crew: d.crew, maxCrew: d.maxCrew, wrecked: d.state === SHIP_STATES.wrecked,
+      fire: d.fire > 0, stores: deps.stores?.count?.(boat) ?? 0, inFight: !!st.inFight, morale: boat.crewed ? st.crew.morale : null, barrels: st.guns.barrels, wants: wantsRepair(d) };
+  }
+  /**
+   * HOLDINGS: REPAIRS MADE AWAY (Mac: "option to repair if theres crew (even if youre away)") - what QUICK-REPAIRS'
+   * hands do over the quiet, done at once where she lies: her hull and canvas mended free to FIELD_MEND_CAP of each
+   * whole (the free mending's own reach), the rest paid out of her carpenter's stores by seaRepair's law (her hull first,
+   * her spare work spent first, then a store STORE_POINTS of work at a time), her fires put out and a wreck refloated. A
+   * crewed ship with a hand aboard only, and never one fighting. Answers `{ ok, text, spent }`.
+   */
+  function repairAway(boat) {
+    const st = myBoatState(boat);
+    if (!st) return { ok: false, text: 'No such ship of yours.', spent: 0 };
+    const d = st.damage;
+    if (!boat.crewed) return { ok: false, text: 'She has no crew to make her repairs.', spent: 0 };
+    if (d.crew <= 0) return { ok: false, text: 'She has no hands aboard to make her repairs - hire them at a shipwright.', spent: 0 };
+    if (st.inFight) return { ok: false, text: 'Her hands are fighting her, not mending her.', spent: 0 };
+    if (!wantsRepair(d) && !(d.fire > 0)) return { ok: false, text: 'She needs no repairs.', spent: 0 };
+    const free = { hull: Math.max(0, d.maxHull * FIELD_MEND_CAP - d.hull), sail: d.maxSail > 0 ? Math.max(0, d.maxSail * FIELD_MEND_CAP - d.sail) : 0 };
+    d.repair({ hull: free.hull, sail: free.sail, crew: 0 }, { refloat: FIELD_REFLOAT });
+    const stores = deps.stores?.count?.(boat) ?? 0;
+    const r = seaRepair(d, 1e9, { crewed: true, crewShare: 1, budget: st.credit + stores * STORE_POINTS });
+    let spent = 0;
+    if (r.hull > 0 || r.sail > 0) {
+      d.repair({ hull: r.hull, sail: r.sail, crew: 0 }, { refloat: FIELD_REFLOAT });
+      st.credit -= r.work;
+      while (st.credit < -1e-9 && deps.stores?.spend?.(boat)) { st.credit += STORE_POINTS; spent++; }
+      st.credit = Math.max(0, st.credit);
+    }
+    const mate = mateOf(boat, st), who = mate ? `${mate}: ` : '';
+    const paid = spent ? ` ${spent === 1 ? 'One store' : `${spent} stores`} spent.` : '';
+    if (!wantsRepair(d)) return { ok: true, text: `${who}She's sound, Captain.${paid}`, spent };
+    return { ok: true, text: `${who}We've mended what we can, Captain - she needs carpenter's stores for the rest.${paid}`, spent };
+  }
+  /** HOLDINGS: her state built again on her refitted whole - her hurts kept as the share of it they were (a refit
+   *  never heals her nor hurts her), her spare work, her crew and her powder as they were. A record still waiting for her
+   *  needs nothing: it is read on her new whole when she stands (savedHurts, by its share). */
+  function refitBoat(boat) {
+    const st = boat?.uid ? boatState.get(boat.uid) : null;
+    if (!st) return;
+    const { credit, inFight, repairing } = st;
+    boatState.delete(boat.uid);
+    pendingBoats.set(boat.uid, { ...savedRecord(st.damage, st.hull, 0), barrels: st.guns.barrels, mates: st.crew.snapshot() });
+    const now = myBoatState(boat);
+    now.credit = credit; now.inFight = inFight; now.repairing = repairing;
+  }
+
   /** My gun crews' skill for a volley: PLAYER_SKILL at a full crew (or none to thin), less as they thin. */
   const crewSkill = (boat, st) => (boat.crewed ? PLAYER_SKILL_THIN + (PLAYER_SKILL - PLAYER_SKILL_THIN) * st.damage.crewShare() : PLAYER_SKILL);
 
@@ -2838,14 +2910,15 @@ export function createNavalHost(deps) {
     drop(entry);
     deps.board?.redeck?.(hers, boat);
     const name = s.names?.name ?? 'She';
-    deps.say?.(boat.crewed ? `${name} is yours - her deed is in your pack. She has no crew: hire hands at a shipwright.` : `${name} is yours - she lies where you took her.`, 5);
+    // HOLDINGS: her title to the Fleet's book (the world host's packDeed), never the pack
+    deps.say?.(boat.crewed ? `${name} is yours - her title is in your Fleet ledger (Holdings). She has no crew: hire hands at a shipwright.` : `${name} is yours - she lies where you took her.`, 5);
     if (captor) returnAboard(captor);
     return true;
   }
   /** SHIP-CLAIM: whether a prize can be claimed - mine to settle, and Come Sail Away here to place her. */
   const claimable = (entry) => !entry.owner && typeof csa()?.LaunchFromDeed === 'function' && typeof deps.board?.mintUid === 'function' && typeof deps.board?.packDeed === 'function';
   /** SHIP-CLAIM: what claiming her makes of her, in the window's words. */
-  const claimDetail = (entry) => (entry.boat?.crewed ? `Keep her as your own ${HULL_NAMES[entry.ship.hull]}: her deed to your pack, her hold aboard her. She has no crew.`
+  const claimDetail = (entry) => (entry.boat?.crewed ? `Keep her as your own ${HULL_NAMES[entry.ship.hull]}: her title to your Fleet ledger, her hold aboard her. She has no crew.`
     : `Keep her as your own ${HULL_NAMES[entry.ship.hull]} where she lies, her hold aboard her.`);
 
   /** Back over the rail onto your own deck - AUDIT NAV1 (B11): and at her helm, as Black Flag hands you the wheel when
@@ -3131,6 +3204,24 @@ export function createNavalHost(deps) {
     return null;
   }
   const atBerth = (ship) => !!berthOf(ship);
+  /** HOLDINGS (bible/03-World/Holdings.md): the berth a ship of mine is brought round to from the Fleet page - of the
+   *  harbours I know, the free one (berthFree's, and no boat of mine lying at it) nearest the player: its place on the
+   *  sea's top and her bow along it. Null: no harbour known here, or every berth taken. */
+  function freeBerth() {
+    const f = deps.feet?.();
+    if (!f) return null;
+    let best = null, bestD = Infinity;
+    for (const h of harbours.values()) {
+      const berths = h.harbour?.berths ?? [];
+      for (let i = 0; i < berths.length; i++) {
+        const b = berths[i];
+        if (!berthFree(h.key, i) || myBoats().some((m) => Math.hypot(m.GameObject.position[0] - b.pos[0], m.GameObject.position[2] - b.pos[1]) <= BERTH_SNAP_M)) continue;
+        const d = Math.hypot(b.pos[0] - f[0], b.pos[1] - f[2]);
+        if (d < bestD) { bestD = d; best = { position: [b.pos[0], deps.seaY(), b.pos[1]], direction: forwardOfYaw(b.yaw), harbour: h.name ?? null }; }
+      }
+    }
+    return best;
+  }
   /** A hull's water grid, made once for the scene as it stands. */
   function gridOf(hull) {
     let g = grids.get(hull);
@@ -4029,6 +4120,8 @@ export function createNavalHost(deps) {
 
   return {
     frame, attackInput, cancelAim, holdFire, activate, hudModel, drawFrame, lights, offsetAll, clear, stowPlunder, aimEye, wayScale, sailRefused, brake,
+    fleetStatus, repairAway, refitBoat, openYard, freeBerth,   // HOLDINGS: the Fleet page's (scenes/fleetHost.js) - with giveOrder and hostileNear, below
+    boatInPlay: () => boatInPlay(),
     word, applyWord, sweepOwners, applyPeerHit, dropOwner, clearPeers,
     /** AUDIT NAV2 F3/F9: another player's boat at sea as their word says her - her crew's share and whether she
      *  fights (her crew at battle on every screen) - or null (no word, or an older build's). AUDIT WK-W12: and her work,

@@ -1,0 +1,344 @@
+[
+  {
+    "name": "HOLD-send-away-nothing-out-sent",
+    "file": "src/systems/horseCart.js",
+    "old": "    if (!transportOut()) return { ok: false, text: HCC_TEXT.alreadyAway };",
+    "new": "    if (false) return { ok: false, text: HCC_TEXT.alreadyAway };",
+    "tests": [
+      "test/holdings.test.js"
+    ]
+  },
+  {
+    "name": "HOLD-send-away-from-the-saddle",
+    "file": "src/systems/horseCart.js",
+    "old": "    if (tm().get() !== TRANSPORT.Foot) return { ok: false, text: HCC_TEXT.sendAwayDismount };",
+    "new": "    if (false) return { ok: false, text: HCC_TEXT.sendAwayDismount };",
+    "tests": [
+      "test/holdings.test.js"
+    ]
+  },
+  {
+    "name": "HOLD-send-away-the-hitched-record",
+    "file": "src/systems/horseCart.js",
+    "old": "    const r = resolvePersistenceEnabledState(TRANSPORT.Foot, hasCart, hasHorse);",
+    "new": "    const r = resolvePersistenceEnabledState(TRANSPORT.Cart, hasCart, hasHorse);",
+    "tests": [
+      "test/holdings.test.js"
+    ]
+  },
+  {
+    "name": "HOLD-send-away-indoors",
+    "file": "src/systems/horseCart.js",
+    "old": "    if (pee().isPlayerInside() || tm().isOnShip()) return { ok: false, text: HCC_TEXT.sendAwayOutdoorsOnly };",
+    "new": "    if (tm().isOnShip()) return { ok: false, text: HCC_TEXT.sendAwayOutdoorsOnly };",
+    "tests": [
+      "test/holdings.test.js"
+    ]
+  },
+  {
+    "name": "HOLD-the-hotkey-says-nothing",
+    "file": "src/systems/horseCart.js",
+    "old": "  function handleSummonTransport() { say(summonTransport().text); }",
+    "new": "  function handleSummonTransport() { summonTransport(); }",
+    "tests": [
+      "test/holdings.test.js"
+    ]
+  },
+  {
+    "name": "HOLD-rename-keeps-nothing",
+    "file": "src/systems/horseCart.js",
+    "old": "    wagonState.HorseName = resolveHorseNameInput(horseName(), input);",
+    "new": "    wagonState.HorseName = String(input ?? '');",
+    "tests": [
+      "test/holdings.test.js"
+    ]
+  },
+  {
+    "name": "HOLD-stores-landing-on-stats",
+    "file": "src/ui/enhancedMenu.js",
+    "old": "  else if (PROF_HOLD_SECTIONS.some(([id]) => id === at)) { pauseTab = 'holdings'; holdSec = at; }",
+    "new": "  else if (PROF_HOLD_SECTIONS.some(([id]) => id === at)) { pauseTab = 'stats'; holdSec = at; }",
+    "tests": [
+      "test/holdings.test.js"
+    ]
+  },
+  {
+    "name": "HOLD-stats-rail-keeps-the-stores",
+    "file": "src/ui/enhancedMenu.js",
+    "old": "const statsSections = () => [...STATS_SECTIONS, ...(profPagesShown() ? PROF_STATS_SECTIONS : [])];",
+    "new": "const statsSections = () => [...STATS_SECTIONS, ...(profPagesShown() ? PROF_PAGE_SECTIONS : [])];",
+    "tests": [
+      "test/holdings.test.js"
+    ]
+  },
+  {
+    "name": "HOLD-the-stable-words-classic",
+    "file": "src/ui/holdingsPages.js",
+    "old": "    else horse = { state: 'Stabled', tone: 'is-away',",
+    "new": "    else horse = { state: 'With you', tone: 'is-away',",
+    "tests": [
+      "test/holdings.test.js"
+    ]
+  },
+  {
+    "name": "FLEET-name-unfiltered",
+    "file": "src/systems/fleet.js",
+    "old": "  return v.ok ? { ok: true, name: s, reason: null } : { ok: false, name: '', reason: v.reason ?? 'That name will not do.' };",
+    "new": "  return { ok: true, name: s, reason: null };",
+    "tests": [
+      "test/fleet.test.js"
+    ]
+  },
+  {
+    "name": "FLEET-name-unbounded",
+    "file": "src/systems/fleet.js",
+    "old": "  s = s.replace(/\\s+/g, ' ').trim().slice(0, SHIP_NAME_MAX).trim();",
+    "new": "  s = s.replace(/\\s+/g, ' ').trim().slice(0, SHIP_NAME_MAX + 8).trim();",
+    "tests": [
+      "test/fleet.test.js"
+    ]
+  },
+  {
+    "name": "FLEET-refit-one-tier",
+    "file": "src/systems/fleet.js",
+    "old": "  const at = (id) => Math.round((1 + tierOf(rec, id) * (lineOf(id)?.per ?? 0)) * 10000) / 10000;",
+    "new": "  const at = (id) => Math.round((1 + Math.min(1, tierOf(rec, id)) * (lineOf(id)?.per ?? 0)) * 10000) / 10000;",
+    "tests": [
+      "test/fleet.test.js"
+    ]
+  },
+  {
+    "name": "FLEET-cost-unscaled",
+    "file": "src/systems/fleet.js",
+    "old": "  const k = HULL_UPGRADE_SCALE[hull] ?? 1;",
+    "new": "  const k = 1;",
+    "tests": [
+      "test/fleet.test.js"
+    ]
+  },
+  {
+    "name": "FLEET-materials-part-taken",
+    "file": "src/systems/fleet.js",
+    "old": "  if (materialCount(lists, kind) < n) return false;",
+    "new": "  if (materialCount(lists, kind) < 0) return false;",
+    "tests": [
+      "test/fleet.test.js"
+    ]
+  },
+  {
+    "name": "FLEET-loan-due-unread",
+    "file": "src/systems/fleet.js",
+    "old": "  if (!a || !(a.loanTotal > 0) || a.loanDueDate !== c.due) return null;",
+    "new": "  if (!a || !(a.loanTotal > 0)) return null;",
+    "tests": [
+      "test/fleet.test.js"
+    ]
+  },
+  {
+    "name": "FLEET-loan-total-unread",
+    "file": "src/systems/fleet.js",
+    "old": "  if (!a || !(a.loanTotal > 0) || a.loanDueDate !== c.due) return null;",
+    "new": "  if (!a || a.loanDueDate !== c.due) return null;",
+    "tests": [
+      "test/fleet.test.js"
+    ]
+  },
+  {
+    "name": "FLEET-title-left-in-the-pack",
+    "file": "src/systems/fleet.js",
+    "old": "  if (from) { const i = from.indexOf(deed); if (i >= 0) from.splice(i, 1); }",
+    "new": "  if (false) { const i = from.indexOf(deed); if (i >= 0) from.splice(i, 1); }",
+    "tests": [
+      "test/fleet.test.js"
+    ]
+  },
+  {
+    "name": "FLEET-parts-swap-for-a-pack-deed",
+    "file": "src/systems/comeSailAway.js",
+    "old": "        if (deps.items?.retitle?.(boat, state.placeItem)) removeExact(state.placeItemCollection, state.placeItem);",
+    "new": "        if (false) removeExact(state.placeItemCollection, state.placeItem);",
+    "tests": [
+      "test/fleet.test.js"
+    ]
+  },
+  {
+    "name": "FLEET-summon-never-moves",
+    "file": "src/systems/comeSailAway.js",
+    "old": "    const boat = GetPlacedBoatWithUID(uid);\n    if (boat) {\n      if (boat === state.CurrentBoat",
+    "new": "    const boat = GetPlacedBoatWithUID(uid);\n    if (false) {\n      if (boat === state.CurrentBoat",
+    "tests": [
+      "test/fleet.test.js"
+    ]
+  },
+  {
+    "name": "FLEET-laid-up-hold-lost",
+    "file": "src/systems/comeSailAway.js",
+    "old": "      transferAll(boat.Cargo.Items, kept);   // onto what a pick-up left under her number",
+    "new": "      boat.Cargo.Items.length = 0;   // onto what a pick-up left under her number",
+    "tests": [
+      "test/fleet.test.js"
+    ]
+  },
+  {
+    "name": "FLEET-laid-up-hold-not-kept",
+    "file": "src/systems/comeSailAway.js",
+    "old": "    if (!state.PackedCargoes.has(key)) state.PackedCargoes.set(key, []);",
+    "new": "    if (!state.PackedCargoes.has(key)) return [];",
+    "tests": [
+      "test/fleet.test.js"
+    ]
+  },
+  {
+    "name": "FLEET-rigging-unread",
+    "file": "src/systems/comeSailAway.js",
+    "old": "f(b.modifierMoveSpeedSail)) * hurt) * rigOf(b));",
+    "new": "f(b.modifierMoveSpeedSail)) * hurt));",
+    "tests": [
+      "test/fleet.test.js"
+    ]
+  },
+  {
+    "name": "FLEET-hold-unread",
+    "file": "src/systems/comeSailAway.js",
+    "old": "(Number.isFinite(holdK) && holdK > 0 ? f(holdK) : 1)",
+    "new": "1",
+    "tests": [
+      "test/fleet.test.js"
+    ]
+  },
+  {
+    "name": "FLEET-wire-n-always",
+    "file": "src/systems/comeSailAwayWire.js",
+    "old": "  return named ? { ...rec, n } : rec;",
+    "new": "  return { ...rec, n };",
+    "tests": [
+      "test/fleet.test.js"
+    ]
+  },
+  {
+    "name": "FLEET-wire-name-unread-by-law",
+    "file": "src/systems/comeSailAwayWire.js",
+    "old": "  const v = shipNameVerdict(raw);\n  return v.ok ? v.name : '';",
+    "new": "  return raw;",
+    "tests": [
+      "test/fleet.test.js"
+    ]
+  },
+  {
+    "name": "FLEET-hull-refit-unread",
+    "file": "src/scenes/navalHost.js",
+    "old": "    return Number.isFinite(k) && k > 1 ? { ...b, hullHp: Math.round(b.hullHp * k), sailHp: Math.round(b.sailHp * k) } : b;",
+    "new": "    return b;",
+    "tests": [
+      "test/fleet.test.js"
+    ]
+  },
+  {
+    "name": "FLEET-guns-refit-on-barrels",
+    "file": "src/scenes/navalHost.js",
+    "old": "    if (byMe && e.type !== 'blast') gunsRefit(hurt, e.shooter);",
+    "new": "    if (byMe) gunsRefit(hurt, e.shooter);",
+    "tests": [
+      "test/fleet.test.js"
+    ]
+  },
+  {
+    "name": "FLEET-away-no-free-mending",
+    "file": "src/scenes/navalHost.js",
+    "old": "    d.repair({ hull: free.hull, sail: free.sail, crew: 0 }, { refloat: FIELD_REFLOAT });",
+    "new": "    void free;",
+    "tests": [
+      "test/fleet.test.js"
+    ]
+  },
+  {
+    "name": "FLEET-away-unpaid",
+    "file": "src/scenes/navalHost.js",
+    "old": "    const r = seaRepair(d, 1e9, { crewed: true, crewShare: 1, budget: st.credit + stores * STORE_POINTS });",
+    "new": "    const r = seaRepair(d, 1e9, { crewed: true, crewShare: 1, budget: Infinity });",
+    "tests": [
+      "test/fleet.test.js"
+    ]
+  },
+  {
+    "name": "FLEET-refit-heals-her",
+    "file": "src/scenes/navalHost.js",
+    "old": "    pendingBoats.set(boat.uid, { ...savedRecord(st.damage, st.hull, 0), barrels: st.guns.barrels, mates: st.crew.snapshot() });",
+    "new": "    void savedRecord;",
+    "tests": [
+      "test/fleet.test.js"
+    ]
+  },
+  {
+    "name": "FLEET-berth-taken-by-mine",
+    "file": "src/scenes/navalHost.js",
+    "old": "        if (!berthFree(h.key, i) || myBoats().some(",
+    "new": "        if (!berthFree(h.key, i) || [].some(",
+    "tests": [
+      "test/fleet.test.js"
+    ]
+  },
+  {
+    "name": "FLEET-refit-on-a-loan",
+    "file": "src/scenes/fleetHost.js",
+    "old": "    const refit = loan ? `She was bought",
+    "new": "    const refit = false ? `She was bought",
+    "tests": [
+      "test/fleet.test.js"
+    ]
+  },
+  {
+    "name": "FLEET-refit-at-sea",
+    "file": "src/scenes/fleetHost.js",
+    "old": "      : !atPort ? 'Ships are refitted at a port.'",
+    "new": "      : false ? 'Ships are refitted at a port.'",
+    "tests": [
+      "test/fleet.test.js"
+    ]
+  },
+  {
+    "name": "FLEET-refit-unpaid",
+    "file": "src/scenes/fleetHost.js",
+    "old": "      deps.pay?.(row.next.gold);",
+    "new": "      void row;",
+    "tests": [
+      "test/fleet.test.js"
+    ]
+  },
+  {
+    "name": "FLEET-summon-from-anywhere",
+    "file": "src/scenes/fleetHost.js",
+    "old": "      : !atPort ? 'Your ships are brought round to a port - go to one.'",
+    "new": "      : false ? 'Your ships are brought round to a port - go to one.'",
+    "tests": [
+      "test/fleet.test.js"
+    ]
+  },
+  {
+    "name": "FLEET-a-small-boat-sails-alone",
+    "file": "src/scenes/fleetHost.js",
+    "old": "      : !crewed && at.where !== 'here' ? 'She has no crew to sail her to a port - go to her.'",
+    "new": "      : false ? 'She has no crew to sail her to a port - go to her.'",
+    "tests": [
+      "test/fleet.test.js"
+    ]
+  },
+  {
+    "name": "FLEET-laid-up-title-spent",
+    "file": "src/scenes/fleetHost.js",
+    "old": "      retitle(uid);   // a small boat's title, spent on her placing, made again",
+    "new": "      void uid;   // a small boat's title, spent on her placing, made again",
+    "tests": [
+      "test/fleet.test.js"
+    ]
+  },
+  {
+    "name": "FLEET-bought-deed-into-the-pack",
+    "file": "src/scenes/worldModes.js",
+    "old": "titleDeed(it, { from: playerEntity.items, port: town",
+    "new": "titleDeed(it, { from: null, port: town",
+    "tests": [
+      "test/fleet.test.js"
+    ]
+  }
+]
