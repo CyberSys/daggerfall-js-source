@@ -572,11 +572,11 @@ export const ARENA_MOVE_TRIES = 3;
  * `mapId` Daggerfall's, `character` the one playing; `pick(fromKey, held)` the new house's summary (`{ buildingKey,
  * name }`) or null; `nameOf(key)` a building's name; `realm` the host's realm act (`{ act }`) or null; `emptyScene(from,
  * to)` empties the old home's scene into the new one's and answers arenaMove.js emptyArenaScene's `{ own, crate, ... }`;
- * the hooks the host's, each optional: `giveOwn(items)`, `credit(gold)` (the Daggerfall bank account), `discover(key)`,
+ * the hooks the host's, each optional: `giveOwn(items)`, `credit(gold)` (the Daggerfall bank account), `discover(key, hall)`,
  * `notice(lines)`, `note(text)`, `say(line)`. Answers every move handled, `{ from, to, refund, hall, made }`.
  * @param {{ homes: any, api: any, mapId: number, character: string|null, pick: (from: number, held: Set<number>) => ({ buildingKey: number }|null),
  *   nameOf?: (key: number) => string, realm?: { act: (o: any) => Promise<any> }|null, emptyScene?: (from: number, to: number) => any,
- *   hooks?: { giveOwn?: (items: any[]) => void, credit?: (gold: number) => void, discover?: (key: number) => void,
+ *   hooks?: { giveOwn?: (items: any[]) => void, credit?: (gold: number) => void, discover?: (key: number, hall: boolean) => void,
  *     notice?: (lines: readonly string[]) => void, note?: (text: string) => void, say?: (line: string) => void } }} o
  */
 export async function moveArenaHomes({ homes, api, mapId, character, pick, nameOf = () => '', realm = null, emptyScene, hooks = {} }) {
@@ -595,7 +595,7 @@ export async function moveArenaHomes({ homes, api, mapId, character, pick, nameO
   const announce = async (m, made) => {
     if (said.has(m.from)) return;
     said.add(m.from);
-    hooks.discover?.(m.to);
+    hooks.discover?.(m.to, m.hall);   // a hall is its guild's, never discovered as anyone's residence
     const name = nameOf(m.to) || 'a house in Daggerfall';
     hooks.notice?.(m.hall ? ARENA_TEXT.homeMove.hallMoved : ARENA_TEXT.deedMoved);
     hooks.note?.((m.hall ? ARENA_TEXT.homeMove.hallNote : ARENA_TEXT.deedMovedNote).replace('%s', name));

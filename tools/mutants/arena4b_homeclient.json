@@ -54,6 +54,15 @@
     ]
   },
   {
+    "name": "ARENA4B-HALL-RESIDENCE",
+    "file": "src/systems/onlineHomes.js",
+    "old": "hooks.discover?.(m.to, m.hall);",
+    "new": "hooks.discover?.(m.to, false);",
+    "tests": [
+      "test/arena4b_homeclient.test.js"
+    ]
+  },
+  {
     "name": "ARENA4B-TAKEN-UNHELD",
     "file": "src/systems/onlineHomes.js",
     "old": "      held.add(to.buildingKey);\n",

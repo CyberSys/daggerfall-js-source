@@ -11951,7 +11951,7 @@ export async function bootWorld(canvas, renderer, params, status) {
         emptyScene: (from, to) => emptyArenaScene(scenes, homeSceneName(now.mapId, from), homeSceneName(now.mapId, to)),
         hooks: {
           giveOwn: arenaGiveOwn, credit: arenaRefund,
-          discover: (key) => { now.forgetCell(); const b = now.summaries.find((x) => x.buildingKey === key); if (b) discoverBuilding(now.locId, b, `${playerEntity.name ?? ''}'s residence`); },
+          discover: (key, hall) => { now.forgetCell(); const b = now.summaries.find((x) => x.buildingKey === key); if (b) discoverBuilding(now.locId, b, hall ? null : `${playerEntity.name ?? ''}'s residence`); },   // a hall found, never named a residence
           notice: (lines) => { const show = () => { try { townTalk.showOverlay(new ActionTextBox([...lines])); } catch { setTimeout(show, 500); } }; show(); },
           note: (text) => questBridge?.notebook?.addNote(text),
           say: (line) => townTalk.say(line),

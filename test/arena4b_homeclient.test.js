@@ -33,7 +33,7 @@ function savedScenes() {
   return scenes;
 }
 const hooksInto = (log) => ({
-  giveOwn: (items) => log.own.push(...items), credit: (g) => log.gold.push(g), discover: (k) => log.found.push(k),
+  giveOwn: (items) => log.own.push(...items), credit: (g) => log.gold.push(g), discover: (k, hall) => log.found.push(hall ? [k, 'hall'] : k),
   notice: (lines) => log.notice.push([...lines]), note: (t) => log.notes.push(t), say: (l) => log.said.push(l),
 });
 const newLog = () => ({ own: [], gold: [], found: [], notice: [], notes: [], said: [] });
@@ -91,7 +91,7 @@ test('ARENA4b the boot\'s move, headless: the town read, my home in the cell pic
   assert.deepEqual(out, [{ from: OLD, to, refund: 700, hall: false, made: true }]);
 });
 
-test('ARENA4b a house taken under the pick is picked again past it, a hall moves with no record and no gold to the keeper, a move read again or answered as a repeat pays nothing (mutants: the taken key not held; a hall\'s refund credited; an unread move credited; a repeat credited)', async () => {
+test('ARENA4b a house taken under the pick is picked again past it, a hall moves with no record and no gold to the keeper and is named nobody\'s residence, a move read again or answered as a repeat pays nothing (mutants: the taken key not held; a hall\'s refund credited; a hall named a residence; an unread move credited; a repeat credited)', async () => {
   // taken: the first house answered somebody's - the town's answer not caught up yet - and the next pick goes past it
   const town = new Map([[OLD, { buildingKey: OLD, mine: true, character: 'r-me' }]]);
   const homes = { ensure: async () => true, homesIn: () => new Map(town) };
@@ -136,6 +136,7 @@ test('ARENA4b a house taken under the pick is picked again past it, a hall moves
   assert.equal(hposted[0].realm, undefined);
   assert.deepEqual(hlog.gold, [], 'the treasury took it - not the keeper');
   assert.deepEqual(hlog.notice, [[...ARENA_TEXT.homeMove.hallMoved]], 'the hall\'s own letter');
+  assert.deepEqual(hlog.found, [[hposted[0].to, 'hall']], 'found, and named nobody\'s residence');
   // a move made before and never read: emptied again, said, read - never paid again
   const scenes = savedScenes();
   const ulog = newLog();
