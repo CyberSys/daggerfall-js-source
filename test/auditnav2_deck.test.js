@@ -279,10 +279,12 @@ test('AUDIT NAV2 F34 RAISED DECKS, JOINED AND KEPT: PIN MOVED (GALLEON, 2026-10-
   // deck (piece 0), so every case above stood on piece 0 and the leash's piece went unread (four records survived): a
   // foe in her great cabin (piece 1, under her castle at 6.2) stepping out through her castle's front (z -10, no floor
   // of hers) is put back on his cabin's edge at z -11.41 - never onto her main deck before it, nor her castle's roof
-  // over him - and one standing in it keeps his floor (his own height read: her roof is the cabin cell's open deck)
+  // over him - and one standing in it keeps his floor (his own height read: her roof is the cabin cell's open deck).
+  // PIN MOVED (AUDIT GALLEON-2 DK3, 2026-10-03): through her front at x 1.5, beside her door - her doorway at x 0 is a
+  // way through it now (navalDeck.js `ajar`), the point this pin stepped him to (0, -10) a floor of it
   const inCabin = stand([0, 6.2, -14]), stays = stand([0.5, 6.2, -15]);
   for (let i = 0; i < 2; i++) { w.navalCarry(); w.navalLeash(); }
-  inCabin.ai.feet = outOfDeck(m, [0, 6.2, -10]);
+  inCabin.ai.feet = outOfDeck(m, [1.5, 6.2, -10]);
   w.navalLeash();
   const out = intoDeck(m, inCabin.ai.feet);
   assert.ok(Math.abs(out[2] - -11.41) < 0.01 && Math.abs(out[1] - 6.202) < 0.01 && d.pieceAt(out[0], out[2], out[1]) === d.pieceAt(0, -14, 6.2), `back on her cabin's edge: ${out.map((v) => v.toFixed(3))}`);

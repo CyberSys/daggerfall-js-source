@@ -7100,7 +7100,10 @@ export async function bootWorld(canvas, renderer, params, status) {
    *  body on it has. Its points are the leash's own, made once. AUDIT NAV2 F34: EACH ON THE PIECE IT STANDS ON - the
    *  floor under it nearest its own height (her deck, a stair's tread over it, her forecastle, her poop over her
    *  cabin), and one off every floor back onto the piece it last stood on: a body on her forecastle was dragged 2.5 m
-   *  down onto her main deck, one on her poop 3.2 m down and 4.3 m across - a player there out of every boarder's reach. */
+   *  down onto her main deck, one on her poop 3.2 m down and 4.3 m across - a player there out of every boarder's reach.
+   *  AUDIT GALLEON-2: MEASURED OFF THE FLOOR IT LAST STOOD ON (DK2: her open piece holds two levels in a cell, and the
+   *  body's height of the moment set the Carrack's walks 2-3 m between them), and a body on a shut cover or in a
+   *  doorway of hers let be (DK1, DK3: no boarder crossed her cargo doors or went through a door). */
   const _leashLocal = [0, 0, 0];
   function navalLeash() {
     for (const f of _deckBodies) {
@@ -7112,9 +7115,9 @@ export async function bootWorld(canvas, renderer, params, status) {
       if (!feet || !deck?.count) continue;
       const local = navalWorldToDeck(boat, feet, _leashLocal);
       const floor = deck.heightAt(local[0], local[2], local[1]);
-      if (!(Math.abs(local[1] - floor) <= DECK_STEP)) {   // off her deck (NaN off its cells: never within)
-        const was = f.deckLocal, piece = was ? Math.max(0, deck.pieceAt(was[0], was[2], was[1])) : 0, own = deck.heightAt(local[0], local[2], local[1], piece);   // AUDIT GN-D1: a floor of the piece it last stood on, from any height (navalDeck.js heightAt)
-        if (Number.isNaN(own)) deck.clamp(local[0], local[2], local, piece); else local[1] = own;   // AUDIT GN-D1: else that piece's edge - NEVER ONTO ANOTHER PIECE'S FLOOR MORE THAN A STEP OFF
+      if (!(Math.abs(local[1] - floor) <= DECK_STEP) && !(Math.abs(local[1] - deck.ajarAt(local[0], local[2], local[1])) <= DECK_STEP)) {   // off her deck (NaN off its cells: never within) - AUDIT GN2-DK1/DK3: and off what her parts that open stand over or in (a shut cover, a doorway: navalDeck.js ajarAt)
+        const was = f.deckLocal, piece = was ? deck.pieceAt(was[0], was[2], was[1], DECK_STEP) : 0;   // AUDIT GN-D1: the piece it last stood on - AUDIT GN2-DK3: -1, any, where it stood on none of hers (a cover, a doorway)
+        deck.keep(local[0], local[2], was ? was[1] : local[1], piece, local);   // AUDIT GN2-DK2: that piece's floor nearest the one it LAST stood on, else its cells at that level, else its edge (navalDeck.js keep) - NEVER ONTO ANOTHER PIECE'S FLOOR, NOR A LEVEL OF ITS OWN A FLIGHT OFF
         navalDeckToWorld(boat, local, feet);
       }
       const kept = f.deckLocal ??= [0, 0, 0];   // where the carry takes it from next frame

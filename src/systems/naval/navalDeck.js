@@ -43,6 +43,10 @@
 // down on her main deck's own floor across from where it stood, or on the floor of hers it already stands on (`land`).
 // A wall marks a cell with its own height there, never its whole triangle's - her deck is the same however her faces
 // are cut (D-wall); a floor to stand aboard on looks up; and her open deck is one walk.
+// AUDIT GALLEON-2 (2026-10-03): the floors her parts that open stand over or in - a shut cover's top, a doorway a door's
+// leaf alone walls, the margin either side - are baked beside her deck (`ajar`): what standing aboard reads and the
+// leash lets a body stand on (DK1, DK3), never her walk; and the leash keeps a body to its piece's floor nearest the one
+// it last stood on (`keep`, DK2: her open piece holds two levels in a cell since D-wall).
 
 import { STEP_OFFSET } from '../../player/motor.js';   // AUDIT NAV2 F34: the motors' own step
 
@@ -126,6 +130,11 @@ export function buildDeck(meshes, extent, { cell = DECK_CELL, inset = DECK_INSET
    *  a point, so its footprint marks every cell it crosses (a mast's 0.4 m between two cells' centres, a cabin's side) -
    *  AUDIT GN-D-wall: with its own height within the cell (`wallFace`), never the whole triangle's */
   const walls = Array.from({ length: nx * nz }, () => []);
+  /** @type {number[][]} AUDIT GN2-DK3: such walls of a part that opens and shuts (a door's leaf), kept apart - a wall to
+   *  her deck as any (`cand`, `bench`), and a floor one alone walls a doorway's (`doors`, her `ajar`) */
+  const leaves = Array.from({ length: nx * nz }, () => []);
+  /** @type {number[][]} AUDIT GN2-DK1: such a part's faces looking up, as it stands shut (a hatch's cover, a cargo door) */
+  const lids = Array.from({ length: nx * nz }, () => []);
   /** @type {number[][]} GALLEON (2026-10-01): the flat faces' heights at the midpoint of the side each cell shares with
    *  its +x neighbour (`midX`) and its +z neighbour (`midZ`) - the tread between two cells' centres (`linked`) */
   const midX = Array.from({ length: nx * nz }, () => []), midZ = Array.from({ length: nx * nz }, () => []);
@@ -160,7 +169,8 @@ export function buildDeck(meshes, extent, { cell = DECK_CELL, inset = DECK_INSET
   // floors whose cells hold no wall between a step and a head over them (her side under her deck at the galleon's
   // entry ports and bow, a stair's stringer over a head under the Carrack's half deck, her forecastle's bulkhead head)
   // or walls a face's edges missed (a mast's partner, a bulwark's foot): the galleon 828 -> 838, the Carrack 433 ->
-  // 511, the Large Galley 4013 -> 4016, the mod's galleon 714 -> 750, the boats as they were. The bake 0.6-3.5 ms
+  // 511, the Large Galley 4013 -> 4016, the mod's galleon 690 -> 727 (AUDIT GN2-DK4: over her own extent, the pool's -
+  // 714 -> 750 was over the new galleon's), the boats as they were. The bake 0.6-3.5 ms
   // dearer a hull (the Large Galley's 18 -> 21.5 ms); a 2 cm sampling of each face would visit 35-117 million points.
   const CUT = Array.from({ length: 5 }, () => new Float64Array(24));
   /** The `n` corners of `src` (x, y, z each) cut to where `sign` * (p[axis] - v) >= 0, into `dst`; how many it keeps. */
@@ -178,8 +188,9 @@ export function buildDeck(meshes, extent, { cell = DECK_CELL, inset = DECK_INSET
     }
     return m / 3;
   };
-  /** AUDIT GN-D-wall: a near-vertical triangle into `walls` - each cell it stands over, its own [bottom, top] there. */
-  const wallFace = (ax, ay, az, bx, by, bz, cx, cy, cz) => {
+  /** AUDIT GN-D-wall: a near-vertical triangle into `into` (`walls`; AUDIT GN2-DK3: a leaf's `leaves`) - each cell it
+   *  stands over, its own [bottom, top] there. */
+  const wallFace = (into, ax, ay, az, bx, by, bz, cx, cy, cz) => {
     const [T, R, U, C, D] = CUT;
     T[0] = ax; T[1] = ay; T[2] = az; T[3] = bx; T[4] = by; T[5] = bz; T[6] = cx; T[7] = cy; T[8] = cz;
     const k0 = Math.max(0, Math.floor((Math.min(az, bz, cz) - minZ) / cell)), k1 = Math.min(nz - 1, Math.floor((Math.max(az, bz, cz) - minZ) / cell));
@@ -196,7 +207,7 @@ export function buildDeck(meshes, extent, { cell = DECK_CELL, inset = DECK_INSET
         if (m < 1) continue;
         let bottom = Infinity, top = -Infinity;
         for (let q = 1; q < m * 3; q += 3) { if (D[q] < bottom) bottom = D[q]; if (D[q] > top) top = D[q]; }
-        walls[k * nx + i].push(bottom, top);
+        into[k * nx + i].push(bottom, top);
       }
     }
   };
@@ -209,15 +220,16 @@ export function buildDeck(meshes, extent, { cell = DECK_CELL, inset = DECK_INSET
       const nX = uy * vz - uz * vy, nY = uz * vx - ux * vz, nZ = ux * vy - uy * vx;
       const len = Math.hypot(nX, nY, nZ);
       if (!(len > 1e-12)) continue;
-      if (Math.abs(nY) < WALL_NY * len) { wallFace(ax, ay, az, bx, by, bz, cx, cy, cz); continue; }
+      if (Math.abs(nY) < WALL_NY * len) { wallFace(moves ? leaves : walls, ax, ay, az, bx, by, bz, cx, cy, cz); continue; }
       // AUDIT GN-D7: A PART THAT OPENS IS NO FLOOR. A hatch's cover, a door - a part the mod's Door Controller swings
       // (`moves`: the pool's, a collider with a DoorTrigger under it) - stands in her deck as the walls it raises shut
       // (a door's leaf across its doorway: her great cabin stays a room of its own) and never as a floor: shut, the
       // new galleon's two covers were 44 cells of her deck at 6.378 over her hatchways (the Carrack's cargo doors 80 at
       // 3.639 over her hold), and open they are holes - 208 of the 552 walks between her 24 main-deck spots crossed
-      // one, her crew's hatch stood on one, and the leash stood a body fallen down one on the air over it
-      if (moves) continue;
+      // one, her crew's hatch stood on one, and the leash stood a body fallen down one on the air over it. AUDIT GN2-DK1:
+      // its faces looking up as it stands shut are its `lids` - what standing aboard reads, and the leash; never her walk
       const isFlat = Math.abs(nY) >= DECK_FLAT * len;
+      if (moves && !(isFlat && nY > 0)) continue;
       const i0 = Math.max(0, Math.floor((Math.min(ax, bx, cx) - minX) / cell - 0.5)), i1 = Math.min(nx - 1, Math.ceil((Math.max(ax, bx, cx) - minX) / cell - 0.5));
       const k0 = Math.max(0, Math.floor((Math.min(az, bz, cz) - minZ) / cell - 0.5)), k1 = Math.min(nz - 1, Math.ceil((Math.max(az, bz, cz) - minZ) / cell - 0.5));
       const det = (bz - cz) * (ax - cx) + (cx - bx) * (az - cz);
@@ -231,6 +243,7 @@ export function buildDeck(meshes, extent, { cell = DECK_CELL, inset = DECK_INSET
           const l3 = 1 - l1 - l2;
           if (l1 < -1e-9 || l2 < -1e-9 || l3 < -1e-9) continue;
           const y = l1 * ay + l2 * by + l3 * cy;
+          if (moves) { lids[k * nx + i].push(y); continue; }
           surf[k * nx + i].push(y);
           if (isFlat) { flat[k * nx + i].push(y); if (nY > 0) upFlat[k * nx + i].push(y); }
         }
@@ -238,7 +251,7 @@ export function buildDeck(meshes, extent, { cell = DECK_CELL, inset = DECK_INSET
       // AUDIT GN-D8: a TREAD is a face looking up - the flat class reads |n.y|, so a tread's underside (or a beam's)
       // a step from two floors joined them as well as its top; her side's midpoints read upward faces alone (every
       // join on every hull rests on a tread's top today, its underside beside it - the bakes unchanged)
-      if (isFlat && nY > 0) {
+      if (isFlat && nY > 0 && !moves) {
         flatAt(midX, 1, 0.5, nx - 1, nz, ax, ay, az, bx, by, bz, cx, cy, cz, det);
         flatAt(midZ, 0.5, 1, nx, nz - 1, ax, ay, az, bx, by, bz, cx, cy, cz, det);
       }
@@ -262,16 +275,21 @@ export function buildDeck(meshes, extent, { cell = DECK_CELL, inset = DECK_INSET
   };
   // each cell's candidate floors: a flat face with DECK_HEADROOM clear to the next surface above it, and no wall in the
   // cell rising more than a tread off it within a head's height (a coaming, a stair's riser, the hull's side below are
-  // no wall to it)
+  // no wall to it). AUDIT GN2-DK3: a door's leaf a wall to it as any (her great cabin a room of its own) - and a floor
+  // a leaf alone walls, looking up, a doorway's (`doors`)
+  /** Whether a wall of `w` (a cell's `walls` or `leaves`) rises more than a tread off floor `y` within a head's height. */
+  const rises = (w, y) => { for (let q = 0; q < w.length; q += 2) if (w[q + 1] > y + DECK_STEP && w[q] < y + DECK_HEADROOM) return true; return false; };
+  /** @type {number[][]} */
+  const doors = Array.from({ length: nx * nz }, () => []);
   /** @type {number[][]} */
   const cand = surf.map((all, j) => {
     const out = [];
-    const w = walls[j];
     for (const y of flat[j]) {
       let clear = true;
       for (const o of all) if (o > y + 1e-3 && o < y + DECK_HEADROOM) { clear = false; break; }
-      for (let q = 0; clear && q < w.length; q += 2) if (w[q + 1] > y + DECK_STEP && w[q] < y + DECK_HEADROOM) clear = false;
-      if (clear && !out.some((q) => Math.abs(q - y) < 1e-3)) out.push(y);
+      if (!clear || rises(walls[j], y)) continue;
+      if (rises(leaves[j], y)) { if (upFlat[j].some((u) => Math.abs(u - y) < 1e-3) && !doors[j].some((q) => Math.abs(q - y) < 1e-3)) doors[j].push(y); continue; }
+      if (!out.some((q) => Math.abs(q - y) < 1e-3)) out.push(y);
     }
     return out.sort((q, r) => r - q);
   });
@@ -312,11 +330,13 @@ export function buildDeck(meshes, extent, { cell = DECK_CELL, inset = DECK_INSET
       if (s <= floor + DECK_STEP || s > floor + DECK_BENCH || !flat[c].includes(s)) return false;
       seat = true;
     }
-    const w = walls[c];
-    for (let q = 0; q < w.length; q += 2) {
-      if (!(w[q + 1] > floor + DECK_STEP && w[q] < floor + DECK_HEADROOM)) continue;
-      if (w[q] <= floor + DECK_STEP || w[q + 1] > floor + DECK_BENCH) return false;
-      seat = true;
+    for (let pass = 0; pass < 2; pass++) {   // her walls, and a leaf's (AUDIT GN2-DK3: kept apart, a wall as any)
+      const w = pass ? leaves[c] : walls[c];
+      for (let q = 0; q < w.length; q += 2) {
+        if (!(w[q + 1] > floor + DECK_STEP && w[q] < floor + DECK_HEADROOM)) continue;
+        if (w[q] <= floor + DECK_STEP || w[q + 1] > floor + DECK_BENCH) return false;
+        seat = true;
+      }
     }
     return seat;
   };
@@ -495,6 +515,42 @@ export function buildDeck(meshes, extent, { cell = DECK_CELL, inset = DECK_INSET
     for (const q of cand[j]) for (let n = 0; n < up.length; n++) if (Math.abs(up[n] - q) < 1e-3) { floorY.push(q); break; }
   }
   floorAt[N] = floorY.length;
+  // AUDIT GN2-DK1/DK3: HER PARTS THAT OPEN, AJAR - floors beside her deck and never of it (D7: her walk, her spots and
+  // a landing never on one), what standing aboard reads (`under`) and what the leash lets a body stand on (world.js
+  // navalLeash). A part's faces looking up as it stands shut (`lids`: DK1 - the Carrack's cargo doors, 4 x 5 m mid her
+  // main deck and spawned shut, were a hole: 600 of the 1575 points on them read ashore, and a boarder pressing across
+  // them was held 2.48 m off a player there); a floor of hers at her main deck or over it a door's leaf alone walls
+  // (`doors`: DK3 - no boarder went through a door of hers, one chasing a player in the new galleon's great cabin stood
+  // 4.59 m off him at her castle's front; the motor's collider holds a shut door); and the margin her inset kept off
+  // each - a floor of hers it took, beside one and within DECK_JOIN of it, `inset` cells out. The deck cannot know a
+  // part's state (her Animator's, each boat's), so a lid stands as it stands shut: over an open hatchway a body is a
+  // lid's for the frames it falls a step (DECK_STEP) and the leash's after. Every hull's deck the bake it was (y, more,
+  // floors, flights); the bake 1-2.5 ms dearer a hull (the least of 30: the galleon's 6.4 -> 7.5, the Carrack's 7.5 -> 9)
+  const ajarAt = new Int32Array(N + 1), ajarY = [];
+  {
+    const sets = Array.from({ length: N }, () => []);
+    const add = (j, h) => { if (sets[j].some((q) => Math.abs(q - h) < 1e-3)) return false; sets[j].push(h); return true; };
+    let front = [];
+    for (let j = 0; j < N; j++) {
+      for (const h of lids[j]) if (add(j, h)) front.push(j, h);
+      for (const h of doors[j]) if (h >= main - LEVEL_BIN && add(j, h)) front.push(j, h);
+    }
+    for (let pass = 0; pass < inset && front.length; pass++) {
+      const next = [];
+      for (let q = 0; q < front.length; q += 2) {
+        const j = front[q], h = front[q + 1], i = j % nx, k = (j - i) / nx;
+        for (let dk = -1; dk <= 1; dk++) for (let di = -1; di <= 1; di++) {
+          const ii = i + di, kk = k + dk;
+          if ((!di && !dk) || ii < 0 || kk < 0 || ii >= nx || kk >= nz) continue;
+          const c = kk * nx + ii;
+          for (let a = at[c]; a < at[c + 1]; a++) if (!s.live[a] && Math.abs(lv[a] - h) <= DECK_JOIN && add(c, lv[a])) next.push(c, lv[a]);
+        }
+      }
+      front = next;
+    }
+    for (let j = 0; j < N; j++) { ajarAt[j] = ajarY.length; for (const h of sets[j]) ajarY.push(h); }
+    ajarAt[N] = ajarY.length;
+  }
   // GALLEON: her open deck's flights, for the walk - each side two of its cells share that only a tread joins (past
   // DECK_JOIN), bit 1 a cell's +x side, bit 2 its +z
   let flights = null;
@@ -503,7 +559,7 @@ export function buildDeck(meshes, extent, { cell = DECK_CELL, inset = DECK_INSET
     if ((j + 1) % nx && Math.abs(y[j + 1] - y[j]) > DECK_JOIN && linked(j, j + 1, y[j], y[j + 1])) (flights ??= new Uint8Array(N))[j] |= 1;
     if (j + nx < N && Math.abs(y[j + nx] - y[j]) > DECK_JOIN && linked(j, j + nx, y[j], y[j + nx])) (flights ??= new Uint8Array(N))[j] |= 2;
   }
-  return deckOf({ cell, minX, minZ, nx, nz, y, more: { at: moreAt, y: Float32Array.from(moreY), piece: Int32Array.from(morePiece) }, floors: { at: floorAt, y: Float32Array.from(floorY) }, flights });
+  return deckOf({ cell, minX, minZ, nx, nz, y, more: { at: moreAt, y: Float32Array.from(moreY), piece: Int32Array.from(morePiece) }, floors: { at: floorAt, y: Float32Array.from(floorY) }, flights, ajar: { at: ajarAt, y: Float32Array.from(ajarY) } });
 }
 
 const _levels = new WeakMap();
@@ -528,13 +584,15 @@ const NO_SPOTS = Object.freeze([]);
  * than her open deck's own a cell (a cell's from `at`, each its `piece` - 0 her open deck, from 1 her others), and F36
  * `floors`, every floor of hers at any level (GN-D-wall: looking up) - neither in a grid made of `y` alone. GALLEON: `flights`, the sides of
  * her open deck's cells a flight's tread joins (bit 1 a cell's +x side, bit 2 its +z) - none in a grid made of `y`.
+ * AUDIT GN2-DK1/DK3: `ajar`, the floors her parts that open stand over or in (a shut cover's top, a doorway a leaf alone
+ * walls, the margin either side) - none in a grid made of `y`.
  * @param {{ cell: number, minX: number, minZ: number, nx: number, nz: number, y: Float32Array,
  *   more?: { at: Int32Array, y: Float32Array, piece: Int32Array } | null, floors?: { at: Int32Array, y: Float32Array } | null,
- *   flights?: Uint8Array | null }} g
+ *   flights?: Uint8Array | null, ajar?: { at: Int32Array, y: Float32Array } | null }} g
  */
 export function deckOf(g) {
   const { cell, minX, minZ, nx, nz, y } = g;
-  const more = g.more ?? null, floors = g.floors ?? null, flights = g.flights ?? null;
+  const more = g.more ?? null, floors = g.floors ?? null, flights = g.flights ?? null, ajar = g.ajar ?? null;
   /** GALLEON: whether a walk steps from cell `j` to `n` beside it - within DECK_JOIN, or (a side's neighbour) over a
    *  flight's tread (`flights`). */
   const steps = (j, n) => {
@@ -555,28 +613,41 @@ export function deckOf(g) {
     if (more) for (let n = more.at[j]; n < more.at[j + 1]; n++) if (more.piece[n] === p) return more.y[n];
     return NaN;
   };
+  /** AUDIT GN2-DK2: of piece `p`'s floors in cell `j` the one nearest `h` - her open deck's (0) its top floor and those
+   *  of it under that (`more`'s, her deck under her stair), every piece's for -1 - or NaN. */
+  const floorNear = (j, p, h) => {
+    let best = p > 0 ? NaN : y[j], d = Number.isNaN(best) ? Infinity : Math.abs(best - h);
+    if (more) for (let n = more.at[j]; n < more.at[j + 1]; n++) {
+      if (p >= 0 && more.piece[n] !== p) continue;
+      const e = Math.abs(more.y[n] - h);
+      if (e < d) { d = e; best = more.y[n]; }
+    }
+    return best;
+  };
   let pieces = 1;
   if (more) for (let n = 0; n < more.piece.length; n++) if (more.piece[n] >= pieces) pieces = more.piece[n] + 1;
   /** The deck cell whose square lies nearest `(x, z)`, -1 for none: rings out from the point's own cell (clamped onto
    *  the grid), stopping once no farther ring can hold a nearer square - ring r + 1 lies r cells off at the least.
    *  AUDIT NAV2 F34: a cell of piece `ringPiece`'s (her open deck's, 0, unless asked). AUDIT GN-D2/D4: whose floor
    *  stands within `ringBand` (DECK_STEP) of `ringLevel` when one is asked - her main deck's (`mainLevel`: her
-   *  lookout's bow; a landing over her rail her main deck's own floor, DECK_FLOOR), never a raised deck. */
-  let ringBest = -1, ringD = Infinity, qx = 0, qz = 0, ringPiece = 0, ringLevel = NaN, ringBand = DECK_STEP;
+   *  lookout's bow; a landing over her rail her main deck's own floor, DECK_FLOOR), never a raised deck. AUDIT GN2-DK2:
+   *  `ringNear`, of the piece's floors in a cell the one nearest the level (`floorNear` - her deck under her stair too,
+   *  every piece's for -1), that floor `ringH` (the leash's, `keep`). */
+  let ringBest = -1, ringD = Infinity, qx = 0, qz = 0, ringPiece = 0, ringLevel = NaN, ringBand = DECK_STEP, ringNear = false, ringH = NaN;
   const visit = (i, k) => {
     if (i < 0 || k < 0 || i >= nx || k >= nz) return;
     const j = k * nx + i;
-    const h = ringPiece ? levelOf(j, ringPiece) : y[j];
+    const h = ringNear ? floorNear(j, ringPiece, ringLevel) : ringPiece ? levelOf(j, ringPiece) : y[j];
     if (Number.isNaN(h) || Math.abs(h - ringLevel) > ringBand) return;   // (no level asked: NaN, never over)
     const x0 = minX + i * cell, z0 = minZ + k * cell;
     const dx = qx < x0 ? x0 - qx : qx > x0 + cell ? qx - x0 - cell : 0;
     const dz = qz < z0 ? z0 - qz : qz > z0 + cell ? qz - z0 - cell : 0;
     const d = dx * dx + dz * dz;
-    if (d < ringD) { ringD = d; ringBest = j; }
+    if (d < ringD) { ringD = d; ringBest = j; ringH = h; }
   };
-  const nearestCell = (x, z, p = 0, level = NaN, band = DECK_STEP) => {
+  const nearestCell = (x, z, p = 0, level = NaN, band = DECK_STEP, near = false) => {
     if (!count || p >= pieces) return -1;
-    ringBest = -1; ringD = Infinity; qx = x; qz = z; ringPiece = p > 0 ? p : 0; ringLevel = level ?? NaN; ringBand = band;
+    ringBest = -1; ringD = Infinity; qx = x; qz = z; ringPiece = near ? p : p > 0 ? p : 0; ringLevel = level ?? NaN; ringBand = band; ringNear = near;
     const ci = Math.min(nx - 1, Math.max(0, Math.floor((x - minX) / cell)));
     const ck = Math.min(nz - 1, Math.max(0, Math.floor((z - minZ) / cell)));
     const far = Math.max(ci, nx - 1 - ci, ck, nz - 1 - ck);
@@ -680,27 +751,54 @@ export function deckOf(g) {
       if (j < 0) return NaN;
       const p = piece == null ? -1 : Math.max(0, piece);   // -1: every piece's
       if (h == null || !more) return p > 0 ? NaN : y[j];
-      let best = p > 0 ? NaN : y[j], d = Number.isNaN(best) ? Infinity : Math.abs(best - h);
-      for (let n = more.at[j]; n < more.at[j + 1]; n++) {
-        if (p >= 0 && more.piece[n] !== p) continue;
-        const e = Math.abs(more.y[n] - h);
-        if (e < d) { d = e; best = more.y[n]; }
-      }
-      return best;
+      return floorNear(j, p, h);
     },
     /** AUDIT NAV2 F34: the piece whose floor under `(x, z)` stands nearest `h` - 0 her open deck, from 1 her others (her
-     *  poop, a cabin) - or -1 off every floor of hers there. @param {number} x @param {number} z @param {number} h */
-    pieceAt(x, z, h) {
+     *  poop, a cabin) - or -1 off every floor of hers there. AUDIT GN2-DK3: -1 too where that floor lies more than `band`
+     *  off `h` - a body on no floor of hers (a shut cover, a doorway: `ajar`). @param {number} x @param {number} z
+     *  @param {number} h @param {number} [band] */
+    pieceAt(x, z, h, band = Infinity) {
       const j = cellOf(x, z);
       if (j < 0) return -1;
       let best = Number.isNaN(y[j]) ? -1 : 0, d = best < 0 ? Infinity : Math.abs(y[j] - h);
       if (more) for (let n = more.at[j]; n < more.at[j + 1]; n++) { const e = Math.abs(more.y[n] - h); if (e < d) { d = e; best = more.piece[n]; } }
+      return d <= band ? best : -1;
+    },
+    /** AUDIT GN2-DK1/DK3: of the floors her parts that open stand over or in under `(x, z)` (`ajar`: a shut cover's top,
+     *  a doorway, the margin either side) the one nearest `h`, or NaN - never her deck's (`heightAt`).
+     *  @param {number} x @param {number} z @param {number} h */
+    ajarAt(x, z, h) {
+      const j = ajar ? cellOf(x, z) : -1;
+      if (j < 0) return NaN;
+      let best = NaN, d = Infinity;
+      for (let n = ajar.at[j]; n < ajar.at[j + 1]; n++) { const e = Math.abs(ajar.y[n] - h); if (e < d) { d = e; best = ajar.y[n]; } }
       return best;
+    },
+    /**
+     * AUDIT GN2-DK2: where the leash (world.js navalLeash) puts a body off every floor at `(x, z)` (her frame) that last
+     * stood at height `ref` on `piece` (-1: on none of hers - a shut cover, a doorway - and any piece's): that piece's
+     * floor there nearest `ref` when it lies within FLIGHT_JOIN of it (a tread a frame's step up, her deck under her
+     * stair); else the nearest point of that piece's cells holding a floor within FLIGHT_JOIN of `ref`, at that floor;
+     * else its edge at any level (`clamp`). NEVER A LEVEL OF ITS PIECE MORE THAN A FLIGHT OFF WHERE ONE LIES WITHIN: her
+     * open piece holds two levels in a cell since D-wall (her deck under the Carrack's forecastle beside her walk, piece
+     * 0), and its floor nearest the body's height of the moment, or its edge at any level, set a walk 2-3 m onto the other
+     * (the Carrack's 124 of 32904 walks over her floors at her main deck or over it, 6 of 8 across her forecastle stair's
+     * top treads, 185 of 914 standing points under it; the mod's galleon's 43 of 19880 - none before D-wall). `[x, y, z]`
+     * into `out`; null for a hull with no deck (`out` untouched).
+     * @param {number} x @param {number} z @param {number} ref @param {number} [piece] @param {number[]} [out]
+     */
+    keep(x, z, ref, piece = 0, out = [0, 0, 0]) {
+      const p = piece < 0 ? -1 : piece, c = cellOf(x, z), own = c < 0 ? NaN : floorNear(c, p, ref);
+      if (Math.abs(own - ref) <= FLIGHT_JOIN) { out[0] = x; out[1] = own; out[2] = z; return out; }
+      const j = nearestCell(x, z, p, ref, FLIGHT_JOIN, true);
+      if (j >= 0) { const h = ringH; squareOf(j, x, z, out, 0); out[1] = h; return out; }
+      return deck.clamp(x, z, out, Math.max(0, p));
     },
     /**
      * AUDIT NAV2 F36: whether a floor of hers - any, at any level: her decks, her hold, a galley's rowers', a rail's top
      * - stands under a point: within `reach` of `(x, z)` (her frame), no more than a step over `h` and no more than a
-     * head's room under it (feet up on her rail, a gun, a crate). Standing aboard her.
+     * head's room under it (feet up on her rail, a gun, a crate). Standing aboard her. AUDIT GN2-DK1: a shut cover's top
+     * too (`ajar` - the Carrack's cargo doors read 600 of their 1575 points ashore).
      * @param {number} x @param {number} z @param {number} h @param {number} [reach]
      */
     under(x, z, h, reach = 0) {
@@ -712,6 +810,7 @@ export function deckOf(g) {
           const dx = x < x0 ? x0 - x : x > x0 + cell ? x - x0 - cell : 0, dz = z < z0 ? z0 - z : z > z0 + cell ? z - z0 - cell : 0;
           if (dx * dx + dz * dz > rr) continue;
           const j = k * nx + i;
+          if (ajar) for (let n = ajar.at[j]; n < ajar.at[j + 1]; n++) if (ajar.y[n] >= lo && ajar.y[n] <= hi) return true;   // AUDIT GN2-DK1: a shut cover stood on
           if (floors) { for (let n = floors.at[j]; n < floors.at[j + 1]; n++) if (floors.y[n] >= lo && floors.y[n] <= hi) return true; continue; }
           if (y[j] >= lo && y[j] <= hi) return true;
           if (more) for (let n = more.at[j]; n < more.at[j + 1]; n++) if (more.y[n] >= lo && more.y[n] <= hi) return true;

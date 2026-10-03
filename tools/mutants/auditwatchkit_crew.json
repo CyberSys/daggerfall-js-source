@@ -470,8 +470,8 @@
   {
     "name": "GALLEON-hatch-whole-deck",
     "file": "src/systems/naval/crewLife.js",
-    "old": "  const mainExt = deck?.y && deck.count ? deckExtentZ(deck, main) : null;",
-    "new": "  const mainExt = ext;",
+    "old": "deck.nearest?.(0, mainExt ? (mainExt[0] + mainExt[1]) / 2 : 0)",
+    "new": "deck.nearest?.(0, deck.y ? (deckExtentZ(deck)[0] + deckExtentZ(deck)[1]) / 2 : 0)",
     "tests": [
       "test/auditwatchkit_crew.test.js"
     ]

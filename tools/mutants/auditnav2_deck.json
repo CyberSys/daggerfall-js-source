@@ -155,8 +155,8 @@
   {
     "name": "AUDIT-NAV2-F34-leash-off-its-piece",
     "file": "src/scenes/world.js",
-    "old": "piece = was ? Math.max(0, deck.pieceAt(was[0], was[2], was[1])) : 0,",
-    "new": "piece = 0,",
+    "old": "piece = was ? deck.pieceAt(was[0], was[2], was[1], DECK_STEP) : 0;",
+    "new": "piece = 0;",
     "tests": [
       "test/auditnav2_deck.test.js"
     ]
@@ -185,14 +185,15 @@
     "old": "      const j = nearestCell(x, z, piece, level);",
     "new": "      const j = nearestCell(x, z, 0, level);",
     "tests": [
-      "test/auditnav2_deck.test.js"
+      "test/auditnav2_deck.test.js",
+      "test/auditgalleon_deck.test.js"
     ]
   },
   {
     "name": "AUDIT-NAV2-F34-pieceAt-open-alone",
     "file": "src/systems/naval/navalDeck.js",
-    "old": "if (e < d) { d = e; best = more.piece[n]; } }\n      return best;",
-    "new": "if (e < d) { d = e; best = 0; } }\n      return best;",
+    "old": "if (e < d) { d = e; best = more.piece[n]; } }\n      return d <= band ? best : -1;",
+    "new": "if (e < d) { d = e; best = 0; } }\n      return d <= band ? best : -1;",
     "tests": [
       "test/auditnav2_deck.test.js"
     ]
