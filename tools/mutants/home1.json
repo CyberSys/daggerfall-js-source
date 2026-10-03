@@ -2,11 +2,12 @@
   {
     "name": "HOME1-claim-a-guest-owns",
     "file": "server-account/src/homes.js",
-    "old": "  if (accountKind(player) !== 'linked') return { error: 'homes-need-account' };\n  if (!homeMapIdOk(mapId)",
-    "new": "  if (!homeMapIdOk(mapId)",
+    "old": "  if (accountKind(player) !== 'linked') return { error: 'homes-need-account' };\n  if (!homeMapIdOk(mapId) || !homeBuildingKeyOk(buildingKey)",
+    "new": "  if (!homeMapIdOk(mapId) || !homeBuildingKeyOk(buildingKey)",
     "tests": [
       "test/home1.test.js"
-    ]
+    ],
+    "note": "ARENA4b (PIN MOVED, re-aimed by content): homes.js arenaMoveHome asks the same guest's question first - aimed at the claim's, whose next line reads `buildingKey`."
   },
   {
     "name": "HOME1-claim-cap-unread",
@@ -155,11 +156,12 @@
   {
     "name": "HOME1-taken-not-a-conflict",
     "file": "server-account/src/index.js",
-    "old": "r.error === 'home-taken' || r.error === 'home-cap' ? 409",
-    "new": "r.error === 'home-cap' ? 409",
+    "old": "r.error === 'home-taken' || r.error === 'home-cap' || r.error === 'home-arena' ? 409",
+    "new": "r.error === 'home-cap' || r.error === 'home-arena' ? 409",
     "tests": [
       "test/home1.test.js"
-    ]
+    ],
+    "note": "ARENA4b (PIN MOVED, re-aimed by content): the claim's 409s carry `home-arena` (the arena stands there)."
   },
   {
     "name": "HOME1-client-claim-route-misspelt",

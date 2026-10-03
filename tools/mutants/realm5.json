@@ -221,10 +221,11 @@
   {
     "name": "REALM5-host-hand-to-hand",
     "file": "src/scenes/world.js",
-    "old": "      realm: realmSession ? { act: (o) => realmGoldAct({ session: realmSession, checkpoint: () => onlineCheckpoint(), ...o }) } : null,",
-    "new": "      realm: null,",
+    "old": "(realmSaves.js realmGoldAct)\n      realm: realmSession ? { act: (o) => realmGoldAct({ session: realmSession, checkpoint: () => onlineCheckpoint(), ...o }) } : null,",
+    "new": "(realmSaves.js realmGoldAct)\n      realm: null,",
     "tests": [
       "test/realm5.test.js"
-    ]
+    ],
+    "note": "ARENA4b (PIN MOVED, re-aimed by content): world.js moveArenaHomesOnline hands the same act - aimed at the guild book's own by the comment over it."
   }
 ]
