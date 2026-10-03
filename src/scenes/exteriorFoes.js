@@ -22,6 +22,7 @@ import { lycanthropeAttackVoice } from '../systems/lycanthropy.js';   // V4: the
 import { copyEffectEntry } from '../systems/save.js';   // AUDIT 26 F216: the caster-stripping effect copy, one home
 import { EnemyAI, isBackFacing, withinYaw, MELEE_DISTANCE, foeFrameDt } from '../characters/enemyMotor.js';   // AUDIT WORLD6b-iii(a) B4: the puppet's cast is read against the owner's own bands
 import { spaceFoes } from '../characters/foeSpacing.js';   // FOE-SPACING: the pack keeps apart
+import { blowConnects, blowScaled } from '../ai/foeBlows.js';   // TACT4
 import { runTargetMachine, isPlayerTarget, isLocalPlayerTarget, isPeerTarget, resetAllyTeamOnPlayerAttack, PLAYER_TARGET, PEER_CAST_TARGET, targetAimPoint, enemyArrowOrigin, enemyTransformPoint, arrowAimDirection, wireRecipient, bumpAtkCount, staticTeamOf } from '../characters/enemyTargets.js';   // AUDIT WATCH1: the wire's spellings, one home   // WORLD6b-ii: the local player told from a peer, the peer told from a foe   // MT-ii   // ROAD-H H1/H1b: the ONE arrow loose point and the crouch dip
 import { FALL_DAMAGE_THRESHOLD, FALL_HP_PER_METRE, CAPSULE_HEIGHT } from '../player/motor.js';   // CH3: the shared fall formula
 import { SOUND, hitSoundFor, ENEMY_HIT_VOLUME } from '../systems/soundClips.js';   // CH3: the FallDamage clip; WORLD6b: a peer's blow rung at the owner
@@ -360,7 +361,7 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
   // CENTRE, and `hitDist` what AlignControllerToGround's ray found below
   // it (null: nothing within 3); the drop needs the capsule the sprite
   // sizes, so it lands once the sprite has.
-  async function spawnFoe(mobileType, pos, { gender: forcedGender = null, yaw = null, questBehaviour = null, allied = false, feetGiven = false, replacing = false, puppet = null, seq = null, level = null, placed = false, groundAlign = null, site = null, loose = false, transformY = null, team = null, transient = false, managed = false, questMarker = false, champion = undefined, revenant = null } = {}) {   // LOOT7: `champion` - a puppet's owner's word or a save's trait (null none); unsaid, an encounter's own roll
+  async function spawnFoe(mobileType, pos, { gender: forcedGender = null, yaw = null, questBehaviour = null, allied = false, feetGiven = false, replacing = false, puppet = null, seq = null, level = null, placed = false, groundAlign = null, site = null, loose = false, transformY = null, team = null, transient = false, managed = false, questMarker = false, champion = undefined, revenant = null, eliteFoe = undefined } = {}) {   // LOOT7: `champion` - a puppet's owner's word or a save's trait (null none); unsaid, an encounter's own roll
     // WORLD6b: a puppet is not this cap's. AUDIT 68 review (R-scenes-loose-foe-squad-capped): nor is a `loose` stand -
     // CreateFoeSpawner's (a summoning punishment, RR's expulsion squad, a Rose's Daedroth) stands however many it is
     // told in one loop, and DFU caps none of them; the cap is the encounter rolls'
@@ -393,7 +394,8 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
       // summoning's squad), or anything on a location's ground. Off Math.random, not this pool's `rolls`, so the
       // encounter's own dice are not moved. ELITE-RARITY: and only past the gate - none while one stands near (mine or
       // a peer's), none within the gap of my last (overworldEliteAllowed, asked before the roll).
-      if (!puppet && !allied && !questBehaviour && !replacing && !team && !loose && !inLocation() && elitesAllowed({ onlinePage: isOnlinePage(), inRoom: _net != null })
+      if (eliteFoe === true && !allied) promoteEliteFoe(entity);   // a saved foe's classification, restored before its HP/items overlay - never re-rolled
+      else if (eliteFoe === undefined && !puppet && !allied && !questBehaviour && !replacing && !team && !loose && !inLocation() && elitesAllowed({ onlinePage: isOnlinePage(), inRoom: _net != null })
         && (revenant ? revenant.elite : (overworldEliteAllowed({ now: _eliteMinute(), lastAt: _lastEliteAt, liveElites: foes.filter((f) => !f.dead && f.entity?.eliteFoe).length }) && rollOverworldElite(Math.random)))
         && promoteEliteFoe(entity) && !revenant) _lastEliteAt = _eliteMinute();   // REVENANT: a returning revenant stands as what it was - an elite's glow where elites stand, never a fresh roll, and outside the gap   // ONLINE ONLY
       // SOFTCAP5: THE WILDS ARE AN AREA TOO - the dungeons' law, with the wilderness's share (22% by day, 44% at night):
@@ -466,7 +468,7 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
         // the target in sight stands off instead of closing.
         hasBowAttack: hasBowAttack(basics),
         canCastRangedSpell: () => caster?.canCastRangedSpell() ?? false,   // D9: SelectedSpell, from the caster stood below
-        hasMagickaToCast: () => hasMagickaToCast(entity),   // GetDestination's own term (:539-540)
+        hasMagickaToCast: () => hasMagickaToCast(entity), vitals: () => entity,   // GetDestination's own term (:539-540); TACT2: the brain reads its health
       });
       pending.feet = ai.feet;   // AUDIT 39: the AI's copy is the live array from here
       const attack = new EnemyAttack({ liveSpeed: () => liveStat(entity, 'speed'), playerLevel: () => effectiveLevel(playerEntity), reflexes: playerEntity.reflexes, rolls });   // AUDIT 39: EnemyAttack.cs:69-72, ditto
@@ -1061,9 +1063,9 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
     const hdx = playerFeet[0] - f.ai.feet[0], hdz = playerFeet[2] - f.ai.feet[2];
     const wpn = chooseEnemyWeapon(f.entity.weapon, ENEMY_BASICS[f.mobileType]);
     const mid = [f.ai.feet[0], f.ai.feet[1] + 0.9, f.ai.feet[2]];
-    if (meleeHitConnects(f.ai._dist, f.ai.inSight, withinYaw(f.ai.yaw, hdx, hdz, MELEE_HIT_YAW_DEG))) {
+    if (blowConnects(f.ai, meleeHitConnects(f.ai._dist, f.ai.inSight, withinYaw(f.ai.yaw, hdx, hdz, MELEE_HIT_YAW_DEG)))) {   // TACT4: a telegraphed blow's shape decides, not the reach
       tallySkill(playerEntity, SKILLS.Dodging, 1);
-      const dmg = partyHit(calculateAttackDamage(f.entity, playerEntity, {
+      const dmg = blowScaled(f.ai, partyHit(calculateAttackDamage(f.entity, playerEntity, {
         weapon: wpn,
         // AUDIT 24 (wave 30): THE SPECIAL-ATTACK RIDER, which this
         // pool never passed. FormulaHelper's monster branch calls
@@ -1089,7 +1091,7 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
         }),
         onInflictPoison: (att, tgt, pt) => inflictPoison(playerEntity, pt, false, { currentMinute: Math.floor(currentMinute()) }),
         say,
-      }), f);   // PSCALE1: harder for the party beside me
+      }), f));   // PSCALE1: harder for the party beside me; TACT4: a telegraphed blow's weight
       // AUDIT 24 (wave 39): EnemyAttack.cs:406 -
       // `PlayerObject.SendMessage("RemoveHealth", damage)` - which
       // is ShowPlayerDamage.Flash's trigger. An enemy's BLOW
@@ -1943,6 +1945,7 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
         // rewrite - came back on its species' static row and turned on
         // the player, with MeleeAttackFriendlyProtection gone with it.
         team: f.entity.team, mobileTeam: f.entity.mobileTeam,
+        eliteFoe: !!f.entity.eliteFoe,   // a saved foe is never re-rolled on load
         champion: f.entity.champion ?? null,   // LOOT7: a champion is saved one, and comes back one - never rolled again
         // AUDIT 63 F29: WabbajackActive (:124, restored :172) - the
         // once-per-creature latch WabbajackEffect.cs:69 refuses on.
@@ -1988,7 +1991,7 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
       // owns one hands it in; a host without one restores plain foes.
       const questBehaviour = (sf.questResource && reviveQuestBehaviour)
         ? (reviveQuestBehaviour(sf.questResource) ?? null) : null;
-      spawnFoe(sf.mobileType, [lx, sf.y + yOffset, lz], { gender: sf.gender, feetGiven: true, questBehaviour, placed: !!sf.placed, champion: sf.champion ? championIndex(sf.champion) : null }).then((f) => {   // REVIEW 2026-09-05: the snapshot holds FEET - a flyer must not take the centre drop twice
+      spawnFoe(sf.mobileType, [lx, sf.y + yOffset, lz], { gender: sf.gender, feetGiven: true, questBehaviour, placed: !!sf.placed, eliteFoe: sf.eliteFoe === true, champion: sf.champion ? championIndex(sf.champion) : null }).then((f) => {   // REVIEW 2026-09-05: the snapshot holds FEET - a flyer must not take the centre drop twice
         if (!f) return;
         if (typeof sf.site === 'string') f.site = sf.site;   // WOD7: a shared camp's foe keeps riding for its site
         if (sf.questMarker === true) f._questMarker = true;   // AUDIT (pre-merge) F1
@@ -2754,6 +2757,11 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
     if (_pupIndex.get(origin) === f) _pupIndex.delete(origin);
     f.puppet = null; f._pupMine = false; f._pup = null; f.seq = _nextSeq++;   // the owner's streamed state goes with the owner
     f._pupYield = false; f._pupExec = null; f._pupSpare = null;   // AUDIT (2026-10-02): its owner's judgement too - it stands as itself
+    // A streamed copy has no decision driver. Its new owner must resume casting from the existing spell state.
+    if (!f.caster && f.entity?.spells?.length) {
+      f.caster = new EnemyCaster(f.entity, rolls);
+      f.ai.canCastRangedSpell = () => f.caster.canCastRangedSpell();
+    }
     // QUEST-PARTY phase 2: a shared quest's foe becomes MY quest's - bound to my own copy's Foe, so its injury and its
     // death are my quest's own word from here (and it rides to the party as mine). AUDIT (the pre-merge audit, Q3): a
     // copy that holds no such quest keeps its partner's word (`_keptTag`) - it took it as a plain foe, which rode to

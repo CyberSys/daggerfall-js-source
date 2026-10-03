@@ -9,6 +9,9 @@
 // and the frame loop.
 
 import { walkModeOn, bindWalkMode } from '../player/walkMode.js';   // PADWALK: walk mode, one button on and off
+import { noteLocalPlayer, tacticsNow, tickTactics } from '../ai/tactics.js';   // TACT2/TACT4; AUDIT TACT: the clock's tick
+import { foeFrameDt } from '../characters/enemyMotor.js';   // AUDIT TACT: the foes' own step, for the brain's clock
+import { drawableBlows } from '../ai/foeBlows.js';   // TACT4
 import { iilActive, iilDungeonLights, iilTorch, iilSyncLane } from '../systems/improvedInteriorLighting.js';   // IIL1
 import { Arch3dFile } from '../formats/arch3dFile.js';
 import { WORLD_FRAME } from '../render/renderer.js';   // AUDIT-EL F5
@@ -49,6 +52,7 @@ import { jumpSpeedMultiplier, isEnhancedJumping } from '../systems/skills.js';  
 import { pickFoe,   // TI1: the lock-on pick
   pickActivatableHit,   // AUDIT 63 F33 (review): the pick hands its distance back so the enemy arm can lose to a nearer target   // WORLD-HOVER: the LIST comes off the context's one seam now
   RAY_DISTANCE, TOO_FAR_AWAY_TEXT,   // AUDIT 65 MC-2: the ONE reach the foe arm competes at (DFU's one ray), and the refusal each handler speaks for itself
+  doorDistanceOf,   // AUDIT TACT C7: the door behind a peaceful guard
 } from '../player/activate.js';
 // AUDIT 63 F33: PlayerActivate.ActivateMobileEnemy (:800-841) - the
 // standalone dungeon's copy of the living-foe arm.
@@ -148,7 +152,7 @@ export async function bootDungeon(canvas, renderer, params, status) {
       motorState: () => (_motorRef ? { eyeLevel: _motorRef.eye[1] - _motorRef.pos[1], capsule: _motorRef.height } : null),
       placePlayer: placeLoadedPlayer,   // DIAL-LOAD: the host's load law, for every load the context runs - not routeKey's alone
       // MAC1 J: this host's canvas, for the pause door's relock. The
-      // context owns none of its own (dungeonContext.js:7980), so each
+      // context owns none of its own (dungeonContext.js:7995), so each
       // dungeon host hands its own in and the resume gesture carries
       // the pointer back with it (ui/pauseDoor.js:143-167).
       relock: () => requestLook(canvas) });
@@ -276,6 +280,7 @@ export async function bootDungeon(canvas, renderer, params, status) {
     const _enemyArm = (reach, nearerThan = Infinity) => tryMobileEnemyActivate(eye, dir, ctx.foes, ctx.collider,
       reach, getInteractionMode(), playerEntity, {
         nearerThan,
+        doorBehind: doorDistanceOf(eye, dir, targets, ctx.collider),   // AUDIT TACT C7: a peaceful guard is no door
         hud: (t) => ctx.hudSay?.(t),
         modal: (t) => ctx.hudBox?.(String(t).split('\n')),
         makeEnemiesHostile: () => ctx.makeAreaHostile?.(),
@@ -1107,6 +1112,9 @@ export async function bootDungeon(canvas, renderer, params, status) {
     ctx.flatAnims.tick(dt);   // FA1: whoever draws the flats runs their clock
     // (the blood pool's clock runs inside ctx.drawFoes now - both dungeon
     // hosts call it, so neither can forget it; 2026-08-27)
+    noteLocalPlayer(player.pos, [Math.sin(cam.yaw), 0, Math.cos(cam.yaw)]);   // TACT2: where I stand and face
+    tickTactics(foeFrameDt(dt));   // AUDIT TACT D10/A3: the brain's clock is the foes' own step
+    renderer.drawFoeTelegraphs?.(drawableBlows(tacticsNow(), player.pos));   // TACT4: a foe's wind-up on the ground
     ctx.bloodMarks?.draw?.(camRight, UP_Y);   // BLOOD1 AUDIT 3: the context's ring, drawn by THIS host beside the level's flats and under them - it used to ride drawFoes' gate, so a cleared level drew no blood at all
     renderer.drawBillboards([...ctx.billboardBatches, ...ctx.campBatches(), ...ctx.torchBatches()], camRight, UP_Y);   // HT1: the dropped torches on the same pass
     // AUDIT 23 (hosts-9 = audio-3) - SongManager.cs:193: Update() runs

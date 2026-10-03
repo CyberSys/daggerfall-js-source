@@ -97,7 +97,7 @@ test('bare hands, bows, and the critical model', () => {
   assert.ok(o.damageMult > 1);
 });
 
-test('the striking weapon is the right hand\'s, else the left\'s, else nothing', () => {
+test('the striking weapon defaults to the right hand, or nothing', () => {
   const w = longsword();
   const slots = []; slots[EQUIP_SLOTS.RightHand] = w;
   assert.equal(strikingWeaponOf({ equip: { slots } }), w);

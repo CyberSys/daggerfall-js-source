@@ -4417,7 +4417,7 @@ room exists.
 
 **The boundary that makes that safe is `_layoutFoes`** - the dungeon
 host's index of where the layout's own run ends. Every foe past it "is
-this player's own" (`dungeonContext.js:1372`, AUDIT WORLD B2): a quest
+this player's own" (`dungeonContext.js:1378`, AUDIT WORLD B2): a quest
 foe is minted above it, never streamed, never puppet-ised by the room's
 authority switch, and never touched by a joiner's stream. So a joiner's
 quest foe really does spawn and really can be killed by the player whose
@@ -4786,7 +4786,7 @@ with a marked top-left pixel on its last row).
 
 *"During online play, certain enemies cant be damaged."*
 
-`src/scenes/worldModes.js:7571` read, on one physical line:
+`src/scenes/worldModes.js:7575` read, on one physical line:
 
 ```js
 useMagicItem: (item) => host.useMagicItem?.(item),   // HT1: the torch keys onFoeHit: (hit) => host.onFoeHit?.(hit),   // WORLD2: a puppet's blow goes to the host
@@ -4801,7 +4801,7 @@ appended its own note to the end of the line that already carried
 **Why that is an invulnerable enemy.** Online, a joiner applies no local
 damage to a layout foe - `damageFoe`'s non-authority arm hands the blow
 to the room's host through `opts.onFoeHit?.(...)` and RETURNS
-(`dungeonContext.js:5578`). With the property missing that call is a
+(`dungeonContext.js:5591`). With the property missing that call is a
 no-op on `undefined`: no damage, no frame, no warning, nothing on the
 console. Every layout foe in every online dungeon absorbed every blow
 from everyone but the room's authority, for eight slices, in silence.
@@ -4928,9 +4928,9 @@ arrival, that is not rare. The blow is dropped instead.
   foe's maul, and your own Daedroth all do literally nothing to a
   puppet. The first two are WORLD2's law on purpose; the third is a gap
   in it.
-- **A foe's blast on a puppet is credited to ME.** `world.js:8863` and
+- **A foe's blast on a puppet is credited to ME.** `world.js:8875` and
   `:2925` pass `foeSinks: (f) => enchantFoeSinks(f)`, dropping the
-  provenance argument `applySpellToFoe` hands them (`hostMagic.js:474`)
+  provenance argument `applySpellToFoe` hands them (`hostMagic.js:475`)
   - the same shape AUDIT WORLD6b-iii(a) B2 fixed one layer down.
   Threading it touches four hosts.
 - **A building interior streams no foes at all.** `makeInteriorFoes`
@@ -10444,6 +10444,18 @@ migration (the look's column and the yard's flag stand on every homes row alread
 Pinned: `test/guild_yard.test.js` (9); re-aimed `test/guild1d_service.test.js` (a hall's yard stands) and the
 ACCOUNT_VERSION pins (`acct65`). `tools/mutants/guild_yard.json` (17, all dead); `guild1d.json`'s hall-yard record now
 a palace's (equivalent, as before), `housing.json`'s and `fb1001_yard.json`'s re-aimed by content.
+
+- **Audited** (2026-10-02, AUDIT GUILD-YARD; `acct66`, no migration): the town names a hall's `keeper` as OWNS keeps it -
+  of the rank AND a realm character (`homesInTown`'s `me_realm`; a local character of an Officer's rank had a decorator
+  every write of which was refused) (Y1); between two kept lots (a home's owner who keeps the hall beside it) the
+  decorator opens the lot under the feet before one only near, then the one whose house stands nearest - never the
+  first the town stood (`ownYardHere`, C1); the painted word is read before the write, a hall's failure "The hall could
+  not be painted." (`paintAct`, C2); a rank moved (the guild book's refresh, `guildHall.info` - not an online frame's
+  arm) reads the town again forced, as `onHall` does (C3); a hall's yard says "inside the hall" and "The hall's yard
+  already holds..." (`YARD_IN_HALL`, `decorWhyNot`'s `hall`). `test/guild_yard.test.js` (15, six new); the
+  `guild_yard.json` mutants 29, all dead (the audit's three survivors - the tool's `where`, OWNS's home without its
+  character, the hall's word for every yard refusal - among them); `guild1d.json`'s palace record renamed
+  (`GUILD1d-the-palace-yard-refused-only-in-the-write`, equivalent as before).
 
 ### GUILD1e - a guild's own board
 

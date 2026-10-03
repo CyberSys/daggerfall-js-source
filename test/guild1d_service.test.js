@@ -152,7 +152,7 @@ test('GUILD1d who may walk in: an Officer opens the hall to anyone or keeps it t
   assert.equal(homeMayEnter(bySven), false);
 });
 
-test('GUILD1d a hall\'s DECOR: its Officers furnish it off their own records and a Recruit may not; its pieces are the catalogue\'s alone (GUILD-YARD: its yard stands); half of a piece taken out or shrunk goes into the guild\'s treasury, never to the keeper\'s purse (mutants: OWNS\'s keepers; the item and yard refusals; the half to the record; the ledger\'s kind)', async (t) => {
+test('GUILD1d a hall\'s DECOR: its Officers furnish it off their own records and a Recruit may not; its pieces are the catalogue\'s alone (GUILD-YARD: its yard stands); half of a piece taken out or shrunk goes into the guild\'s treasury, never to the keeper\'s purse (mutants: OWNS\'s keepers; the item refusal - a yard\'s is a palace\'s alone now; the half to the record; the ledger\'s kind)', async (t) => {
   t.mock.method(Date, 'now', () => T0 * 1000);
   const { svc, gm, officer, recruit, view, raw } = await stood();
   assert.equal((await svc.call('/v1/guilds/hall/buy', { character: gm.character, ...HALL }, gm.secret)).status, 200);

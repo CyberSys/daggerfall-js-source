@@ -33,6 +33,7 @@ import { addItem } from '../systems/inventory.js';
 import { orbArchiveFor, ORB_RECORD, noteOrbColour, ORB_SCALE } from '../characters/thunderlockIds.js';   // FIELD-GUN14: what this weapon's shot LOOKS like - the leaf, so no cycle   // FIELD-GUN17: ...and what colour it is, sampled the one moment the texture is in hand   // FIELD-GUN18: ...and how big it is drawn
 import { playerWeaponHitEntity } from '../systems/worldTick.js';   // DISC10-D H1: OnWeaponHitEntity's one dispatcher (worldTick never reaches this module - no cycle)
 import { sparedByPlayer } from './friendlyFire.js';   // SHIPMATES: the player's shaft passes their own crew by
+import { coverDistance, coverStep } from '../ai/cover.js';   // TACT1: billboards are cover; AUDIT TACT B5: met by touch
 
 export const ARROW_MODEL_ID = 99800;
 
@@ -131,11 +132,13 @@ export class ArrowFlight {
       if (m.age > MISSILE_LIFESPAN_S) { m.dead = true; continue; }
       const step = MISSILE_SPEED * dt;
       const { unit, reach } = missileReach(m.dir, step);   // ROAD-H tail: displacement.magnitude + ColliderRadius along the NORMALISED direction (DaggerfallMissile.cs:333 builds the displacement, :337 casts it - an ARROW always takes that Raycast arm, never the :339 SphereCast) - a crouch-dipped shaft carries |dir| > 1
-      const hit = c ? c.raycast(m.pos, unit, reach) : Infinity;
-      if (Number.isFinite(hit) && hit <= reach) { m.dead = true; continue; }   // met geometry: the arrow is LOST (DFU)
-      m.pos[0] += m.dir[0] * step;
-      m.pos[1] += m.dir[1] * step;
-      m.pos[2] += m.dir[2] * step;
+      // TACT1: a tree, a crate - cover stops a shaft; AUDIT TACT B5: by touch, the bodies before it tested first
+      const cs = c ? coverStep(coverDistance(c, m.pos, unit, reach), c.raycast(m.pos, unit, reach), reach, reach - step * Math.hypot(m.dir[0], m.dir[1], m.dir[2]), step * Math.hypot(m.dir[0], m.dir[1], m.dir[2])) : null;
+      if (cs && Number.isFinite(cs.stop)) { m.dead = true; continue; }   // met geometry: the arrow is LOST (DFU)
+      const adv = cs ? step * cs.advance : step;
+      m.pos[0] += m.dir[0] * adv;
+      m.pos[1] += m.dir[1] * adv;
+      m.pos[2] += m.dir[2] * adv;
       // FIELD-GUN14: the flat follows AFTER the advance, so what is
       // drawn is where the shot IS rather than where it was a step
       // ago. The mesh lane gets this for free - `arrowMatrix(m.pos)`
@@ -237,7 +240,7 @@ export class ArrowFlight {
  *
  * WAVE D: four bodies became FOUR CALLERS. dungeonContext.js's
  * `m.fromPlayer` block - the arm this function was extracted FROM -
- * now calls it (dungeonContext.js:3295), so the copy that survived
+ * now calls it (dungeonContext.js:3304), so the copy that survived
  * the extraction is gone. It was not a harmless copy: it still
  * splashed at the arrow tip, the exact bug AUDIT 39r/R16 fixed here.
  * DaggerfallMissile.cs:681-687 routes an arrow into
