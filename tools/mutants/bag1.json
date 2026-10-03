@@ -65,11 +65,12 @@
   {
     "name": "BAG1-a-deposit-takes-the-pack-first",
     "file": "src/systems/materialsBag.js",
-    "old": "  for (const list of [bagItemsOf(entity), entity?.items ?? []]) {",
-    "new": "  for (const list of [entity?.items ?? [], bagItemsOf(entity)]) {",
+    "old": "  for (const list of [bagItemsOf(entity), entity?.items ?? [], entity?.wagonItems ?? []]) {",
+    "new": "  for (const list of [entity?.items ?? [], bagItemsOf(entity), entity?.wagonItems ?? []]) {",
     "tests": [
       "test/bag1_client.test.js"
-    ]
+    ],
+    "note": "AUDIT BAG1 + GUILD2 (PIN MOVED): re-aimed by content - the take reads the wagon last (B6)."
   },
   {
     "name": "BAG1-a-quest-item-a-material",
@@ -164,11 +165,12 @@
   {
     "name": "BAG1-a-refused-deposit-kept",
     "file": "src/net/profBook.js",
-    "old": "    try { d.back(); } catch",
-    "new": "    try { void d; } catch",
+    "old": "        if (back) back();",
+    "new": "        if (back) void back;",
     "tests": [
       "test/bag1_client.test.js"
-    ]
+    ],
+    "note": "AUDIT BAG1 + GUILD2 (PIN MOVED): re-aimed by content - the give-back is this page's undo, or a reload's mint (B17)."
   },
   {
     "name": "BAG1-a-shortfall-moved-in-part",
@@ -353,7 +355,7 @@
   {
     "name": "AUDIT-BAG1-B4-no-kind-names-one",
     "file": "src/scenes/gatherHost.js",
-    "old": "      ...(materialOf(a) ? { material: materialOf(a) } : {}),\n",
+    "old": "      ...(actMaterial(a) ? { material: actMaterial(a) } : {}),\n",
     "new": "",
     "tests": [
       "test/bag1_client.test.js"

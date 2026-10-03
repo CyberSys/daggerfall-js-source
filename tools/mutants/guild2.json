@@ -57,11 +57,12 @@
   {
     "name": "GUILD2c-field2-unfilled",
     "file": "src/ui/heraldryArt.js",
-    "old": "  const parted = h?.division ? `<path d=\"${divisionPath(h.division, BANNER_BOX.w, BANNER_BOX.h)}\"",
-    "new": "  const parted = h?.division && false ? `<path d=\"${divisionPath(h.division, BANNER_BOX.w, BANNER_BOX.h)}\"",
+    "old": "  const divD = h?.division ? divisionPath(h.division, BANNER_BOX.w, BANNER_BOX.h) : '';",
+    "new": "  const divD = h?.division && false ? divisionPath(h.division, BANNER_BOX.w, BANNER_BOX.h) : '';",
     "tests": [
       "test/guild2_client.test.js"
-    ]
+    ],
+    "note": "AUDIT BAG1 + GUILD2 (PIN MOVED): re-aimed by content - the banner's division path is one const now (G11)."
   },
   {
     "name": "GUILD2-the-strip-offers-the-stores-offline",
@@ -102,11 +103,12 @@
   {
     "name": "GUILD2b-the-town-unread",
     "file": "src/ui/socialPanel.js",
-    "old": "    const reach = g.pack?.reach?.() !== false;",
-    "new": "    const reach = true;",
+    "old": "    const reachNow = () => g.pack?.reach?.() !== false;",
+    "new": "    const reachNow = () => true;",
     "tests": [
       "test/guild2_client.test.js"
-    ]
+    ],
+    "note": "AUDIT BAG1 + GUILD2 (PIN MOVED): re-aimed by content - the town read live (M1)."
   },
   {
     "name": "GUILD2b-grants-to-an-officer",

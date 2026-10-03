@@ -410,11 +410,12 @@
   {
     "name": "PROF1-46-a-kept-harvest-never-lapses",
     "file": "src/net/profBook.js",
-    "old": "          if (lapsed) { drop(h.rid, key); onAnswer(h, { ok: false, error: 'lapsed' }); continue; }",
-    "new": "",
+    "old": "          if (lapsed) {",
+    "new": "          if (false) {",
     "tests": [
       "test/prof1_client.test.js"
-    ]
+    ],
+    "note": "AUDIT BAG1 + GUILD2 (PIN MOVED): re-aimed by content - a lapse is a block now (a carried harvest is asked once first, B1)."
   },
   {
     "name": "PROF1-47-a-withdrawal-minted-on-silence",

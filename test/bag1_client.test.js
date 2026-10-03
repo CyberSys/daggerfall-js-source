@@ -13,7 +13,7 @@ import { createProfBook, PROF_QUEUE_MS } from '../src/net/profBook.js';
 import {
   BAG_TEMPLATE, BAG_KG_LIMIT, BAG_BASE_PRICE, BAG_ROW, BAG_CAPACITY, BAG_WORDS, CARRIED_MAX, goodsWhere, madeWhere,
 } from '../src/net/bagLaw.js';
-import { leftWords, materialOf } from '../src/scenes/gatherHost.js';
+import { leftWords, actMaterial } from '../src/scenes/gatherHost.js';
 import { survivalMinute } from '../src/systems/survival/needs.js';
 import { mountEnhancedInventory } from '../src/ui/enhancedInventory.js';
 import { withDom } from './invdrag.mjs';
@@ -430,10 +430,10 @@ test('BAG1 (AUDIT B6/B7): the wagon\'s are held and taken last; food in the bag 
 });
 
 test('BAG1 (AUDIT B4/B5): every gathering kind names the material its goods are, so the held count is said; a withdrawal\'s goods with no room come into the pack, over its weight (by source; mutants: no kind named one)', () => {
-  assert.equal(materialOf({ material: 'log:oak' }), 'log:oak');
-  assert.equal(materialOf({ material: (info) => herbKey(9, info.region), info: { region: 21 } }), herbKey(9, 21), 'a herb\'s by its region');
-  assert.equal(materialOf({ harvest: 'food' }), null, 'the Basket\'s roll: none');
-  assert.match(src('src/scenes/gatherHost.js'), /\.\.\.\(materialOf\(a\) \? \{ material: materialOf\(a\) \} : \{\}\)/);
+  assert.equal(actMaterial({ material: 'log:oak' }), 'log:oak');
+  assert.equal(actMaterial({ material: (info) => herbKey(9, info.region), info: { region: 21 } }), herbKey(9, 21), 'a herb\'s by its region');
+  assert.equal(actMaterial({ harvest: 'food' }), null, 'the Basket\'s roll: none');
+  assert.match(src('src/scenes/gatherHost.js'), /\.\.\.\(actMaterial\(a\) \? \{ material: actMaterial\(a\) \} : \{\}\)/);
   assert.match(src('src/scenes/herbHost.js'), /plan\.harvest === 'herbs' \? \{ material: \(info\) => herbKey\(p\.herb, info\?\.region \?\? 0\) \}/);
   assert.match(src('src/scenes/treeHost.js'), /material: n\.material,/);
   assert.match(src('src/scenes/mineHost.js'), /n\.what === 'boulder' \? \{\} : \{ material: n\.material \}/);

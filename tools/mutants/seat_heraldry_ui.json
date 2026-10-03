@@ -38,8 +38,8 @@
  {
   "name": "HS-shield-device-field",
   "file": "src/ui/heraldryArt.js",
-  "old": "${deviceSvg(h.device, ink, field)}</g>`\n    + `<path d=\"${SHIELD_CLOTH}\" fill=\"none\" stroke=\"#000\"",
-  "new": "${deviceSvg(h.device, field, ink)}</g>`\n    + `<path d=\"${SHIELD_CLOTH}\" fill=\"none\" stroke=\"#000\"",
+  "old": "+ deviceLayers(h.device, ink, field, `translate(${d.x} ${d.y}) scale(${d.scale})`, divD ? { id: `${clip}d`, hex: heraldryColourOf(h.field2)?.hex } : null)\n    + `<path d=\"${SHIELD_CLOTH}\" fill=\"none\" stroke=\"#000\"",
+  "new": "+ deviceLayers(h.device, field, ink, `translate(${d.x} ${d.y}) scale(${d.scale})`, divD ? { id: `${clip}d`, hex: heraldryColourOf(h.field2)?.hex } : null)\n    + `<path d=\"${SHIELD_CLOTH}\" fill=\"none\" stroke=\"#000\"",
   "tests": [
    "test/seat_heraldry_ui.test.js"
   ]
@@ -645,12 +645,12 @@
  {
   "name": "H4-key-no-arms",
   "file": "src/ui/travelViewHud.js",
-  "old": "|${h ? `${h.field}/${h.border}/${h.device}` : ''}`;",
+  "old": "|${h ? heraldryKey(h) : ''}`;",
   "new": "`;",
   "tests": [
    "test/seat_heraldry_ui.test.js"
   ],
-  "note": "New arms keep the old sprite."
+  "note": "New arms keep the old sprite. AUDIT BAG1 + GUILD2 (PIN MOVED): re-aimed by content - the badge keyed by heraldryKey (G12)."
  },
  {
   "name": "H4-host-handoff",
@@ -685,11 +685,11 @@
  {
   "name": "H4-device-ink",
   "file": "src/ui/heraldryArt.js",
-  "old": "ink = p.bg ? field : inkHex;",
-  "new": "ink = inkHex;",
+  "old": "drawDevice(ctx, P, h.device, inkHex, field, SHIELD_DEVICE, div, f2);",
+  "new": "drawDevice(ctx, P, h.device, inkHex, inkHex, SHIELD_DEVICE, div, f2);",
   "tests": [
    "test/seat_heraldry_ui.test.js"
   ],
-  "note": "The device's holes in the border colour."
+  "note": "The device's holes in the border colour. AUDIT BAG1 + GUILD2 (PIN MOVED): re-aimed by content - the shield's device drawn by drawDevice (G11)."
  }
 ]

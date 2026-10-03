@@ -347,10 +347,11 @@
   {
     "name": "GUILD1d-hole-in-the-device-colour",
     "file": "src/ui/heraldryArt.js",
-    "old": "else { ctx.fillStyle = p.bg ? field : ink; ctx.fill(path); }",
-    "new": "else { ctx.fillStyle = ink; ctx.fill(path); }",
+    "old": "drawDevice(ctx, P, h.device, ink, field, BANNER_DEVICE, div, f2);",
+    "new": "drawDevice(ctx, P, h.device, ink, ink, BANNER_DEVICE, div, f2);",
     "tests": [
       "test/guild1d_client.test.js"
-    ]
+    ],
+    "note": "AUDIT BAG1 + GUILD2 (PIN MOVED): re-aimed by content - the banner's device drawn by drawDevice (G11)."
   }
 ]

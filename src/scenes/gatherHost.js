@@ -140,7 +140,7 @@ export function storesLine(d) {
 }
 /** AUDIT BAG1 B4: the material a kind's act names for its goods (`material`: a key, or one of the act's ground - a
  *  herb's is its region's), or null where the service rolls it (the Basket's food, a boulder's stone). */
-export function materialOf(a) {
+export function actMaterial(a) {
   const m = typeof a?.material === 'function' ? a.material(a.info) : a?.material;
   return typeof m === 'string' && m ? m : null;
 }
@@ -575,7 +575,7 @@ export function createGatherHost(deps) {
       at: Math.floor(deps.nowMs() / 1000), ...((typeof a.ask === 'function' ? a.ask() : a.ask) ?? {}),   // AUDIT SILVER-WAYS D5: a kind's ask may be asked at the act's end
       // AUDIT BAG1 B4: the material the act's goods are, where the kind knows it - the book reads what the bag and the pack
       // hold of it (`held`); no kind named one, and no carried harvest ever cut the count to the pack
-      ...(materialOf(a) ? { material: materialOf(a) } : {}),
+      ...(actMaterial(a) ? { material: actMaterial(a) } : {}),
     }).then((r) => answered(a, r, before), () => {});
   }
   /** A harvest's answer said: the Stores, the XP, a gem, a rank's rise; a refusal in words; a kept one once. */
