@@ -183,6 +183,7 @@ import { createMarksBook } from '../net/marksBook.js';   // MARKS1: the account'
 import { createNoticeBook, parseNoteCommand, planNoteAnswer, NOTE_LETTER_LOST } from '../net/noticeBook.js';   // NOTICE1: this device's Notice Boards - a town's board read, a note pinned
 import { createNoticeOverlay, closeNoticeDoor, noticeDoorOpen } from '../ui/noticeDoor.js';   // NOTICE1: the board's window, through its one door
 import { createProfBook } from '../net/profBook.js';   // PROF1: this character's professions - its Stores, its day, its harvests kept until answered
+import { createMotherlodeBook } from '../net/motherlodeBook.js';   // PROF2b: the day's Motherlodes - read, warned of, their Watch receipts kept
 import { createProfHud } from '../ui/profHud.js';   // PROF1: the prompt, the act's meter, the toasts, the day's chip, the rank's banner
 import { createGatherHost } from './gatherHost.js'; import { rockFootprint } from '../world/terrainNature.js';   // PROF1/PROF2: the gathering professions in the streaming world - the nodes, the target, the act
 import { herbKind } from './herbHost.js';   // PROF1: Herbalism's patches, a kind in it
@@ -1321,6 +1322,17 @@ export async function bootWorld(canvas, renderer, params, status) {
    *  read before its line is a dead zone, whatever `?.` says). The pixels built before it stand their nodes when the
    *  state is first read. */
   let gatherHost = null;
+  /** PROF2b (bible/06-Systems/Professions-Arc.md 38): THE DAY'S MOTHERLODES on this device (net/motherlodeBook.js) -
+   *  today's three as the service said them, warned of in the chat ten minutes ahead (a Motherlode Sense's thirty), the
+   *  relay's Watch receipts kept for a strike, and a change of standing handed to the gathering host to stand its pixel
+   *  again. Online, with the professions' book. */
+  const motherlodeDoor = profBook ? accountProf({ fetch: (u, i) => globalThis.fetch(u, i), storage: appStorage() }) : null;
+  const motherlodeBook = motherlodeDoor ? createMotherlodeBook({
+    door: motherlodeDoor, character: () => characterIdOf(playerEntity), me: () => motherlodeDoor.account(),
+    nowS: () => Math.floor((Date.now() + _sharedOffsetMs) / 1000),
+    say: (text) => chatNotice(text), regionName: (r) => REGION_NAMES[r] ?? 'the Iliac Bay', oreName: (m) => materialLabel(m).replace(/ Ore$/, ''),
+    onChange: (l) => gatherHost?.restandAt(l.x, l.y),
+  }) : null;
   /** PROF7: the stamped bodies where the player is (scenes/huntHost.js bodiesOf) - the gather host's, once it is built. */
   let huntBodies = () => [];
   /** PROF7: the station a recipe's profession is crafted at - the anvil (Smithing's), the workbench (Carpentry's, PROF4),
@@ -8598,7 +8610,7 @@ export async function bootWorld(canvas, renderer, params, status) {
       // dungeon's take
       const openHuntLoot = (key) => (key.startsWith('foeCorpse:') ? openBodyLoot(key) : modes?.dungeonCtx?.takeLoot(key, getInteractionMode()));
       gatherHost = createGatherHost({
-        book: profBook, hud, kinds: [herbKind({ book: profBook }), mineKind({ book: profBook }),
+        book: profBook, hud, kinds: [herbKind({ book: profBook }), mineKind({ book: profBook, lodes: motherlodeBook, marks: marksBook }),   // PROF2b: and the Motherlodes
           treeKind({ book: profBook, renderer, flatBatchAabb, getTexture, billboardSize, uploadRecord }),   // PROF4: Logging's trees
           huntKind({ book: profBook, bodies: () => huntBodies(), openLoot: openHuntLoot }),   // PROF7: Hunting's bodies
           // PROF8: Fishing's casts - the net in its water, the pixel and its ground the player stands in, the game clock's
@@ -16447,7 +16459,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     online.onGate = (g) => gateLink?.word(g);   // WB3b: the court's room's word about its boss
     online.onRaid = (f, room) => raidRelayWord(f, room);   // RAID3: a town cell's word about its raid - the ledger, the cleanse, my receipt
     online.onRite = (w) => riteHost?.onBroken(w);   // WB12d: the hub's broken rite
-    online.onWatch = (r) => seatBook?.keepWatch(r);   // SEAT1b: the Watch's tick, kept where it stands in a seat's pixel
+    online.onWatch = (r) => { seatBook?.keepWatch(r); motherlodeBook?.watch(r); };   // SEAT1b: the Watch's tick, kept where it stands in a seat's pixel; PROF2b: and where it stands on a Motherlode's
     // SEAT2a part four: A SIEGE'S BATTLE - its words to the session; a step refused or a rise at the camp moves me there
     // (the ground's own height to settle - the motor stands me on it); my receipt carried to the service
     if (seatBook) {
@@ -17550,7 +17562,9 @@ export async function bootWorld(canvas, renderer, params, status) {
     const c = readReceipt(r);
     let site = null;
     try { site = c && _gateScan ? findGateSite(c.d, _gateScan) : null; } catch { site = null; }
-    return site ? { region: site.region, character: characterIdOf(playerEntity) } : null;
+    const character = characterIdOf(playerEntity);
+    // SILVER-WAYS: the claiming character always - its guild's deed asks it, where the scan has not found the region
+    return site ? { region: site.region, character } : character ? { character } : null;
   };
   const gateClaims = params.has('online') ? createGateClaims({
     claim: (r) => _accountGates.claim(r, gateSeatWord(r)),
@@ -17558,7 +17572,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     nowS: relayNowS,
     store: _spoilsStore,
     say: (text) => chatNotice(text),
-    onMarks: (marks) => marksBook?.strikeLine(marks) ?? null,   // MARKS1: the gate's Marks, struck as it is counted
+    onMarks: (marks, data) => marksBook?.claimLines(data ?? { marks }, 'gate') ?? null,   // MARKS1: the gate's Marks, struck as it is counted; SILVER-WAYS: and the guild's deed
   }) : null;
   /** RAID4: THE RAID RECEIPTS THIS DEVICE CARRIES TO THE ACCOUNT SERVICE (net/raidClaims.js) - each town the relay
    *  signed my defence of, kept with the character that fought it until the service has counted it and paid its
@@ -17572,6 +17586,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     store: _spoilsStore,
     say: (text) => chatNotice(text),
     onSpoils: (entry) => grantRaidSpoils(entry),   // AUDIT RAID R4: the town's thanks, once a raid and account - the service's word
+    onMarks: (data) => marksBook?.claimLines(data, 'raid') ?? null,   // SILVER-WAYS: the town's silver, the guild's deed, the contracts that paid
     onRecorded: (data) => {
       if (data?.renown?.character !== characterIdOf(playerEntity)) return;   // RENOWN-CHAR: the fighting character's track, adopted only by that character
       const a = renownAnswer({ ...data.renown, order: data.order ?? null }, data.renown.credited ?? 0, renownSaid);
@@ -17779,6 +17794,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     gateClaims?.tick();   // WB5b: what the account service has not counted yet, offered again on its own clock
     if (gateOmen) reportGateSite();   // DISCORD-GATES: where the gate stands, to the hub
     raidClaims?.tick();   // RAID4: and the raids' receipts, on theirs
+    if (profBook?.state.open === true) { try { motherlodeBook?.tick({ sense: profBook.track('mining').specs?.[100] === 'motherlode-sense' }); } catch (e) { console.warn('[motherlode] frame', e?.message ?? e); } }   // PROF2b: the day's Motherlodes read, warned of and stood
     if (seatBook?.claimWatchDue()) seatBook.claimWatch();   // SEAT1b: the Watch's kept ticks, claimed a claim's worth or ten minutes at a time   // AUDIT-SEATS C12: asked in sync first - no Promise a frame
     { const g = guildBook?.guild?.id ?? null; if (g && seatBook?.towersDue(g)) seatBook.towers(g, (t) => townTalk.say(t, 6)).catch(() => {}); }   // SEAT2b part two (7.5): the Watchtowers' word to a holder's member, ten minutes apart
     seatBook?.redTick();   // CROWN2: the seats' list read again for the server's red lines
@@ -18402,7 +18418,22 @@ export async function bootWorld(canvas, renderer, params, status) {
   /** The professions' marks on the compass - every node standing near (NODE-MARKS) and a Tracker's animals, each in its
    *  profession's colour (ui/nodeMarks.js nodeCompassPoints); `feet` the dungeon's own, handed by its frame. NODE-MARKS:
    *  the same nodes lit where they stand (render/nodeGlow.js), after each mode's opaque world through the veiled bodies' hook. */
-  const professionMarks = (feet = enchantFeet()) => nodeCompassPoints(nodeMarksAt(feet), trackerAnimals());
+  /** PROF2b: THE MOTHERLODES STANDING, wherever they are - each on the compass at its pixel's heart, in Mining's colour,
+   *  from any distance (the gathering host marks it where it stands once its pixel is near); on the street alone. */
+  const _lodeMarks = [], _lodesUp = [], _lodeTr = [0, 0, 0], _lodePool = [];   // AUDIT SILVER-WAYS D7: a frame's marks made of these alone
+  const motherlodeMarks = () => {
+    _lodeMarks.length = 0;
+    if (!motherlodeBook || profBook?.state.open !== true || _mode() !== 'exterior') return _lodeMarks;
+    for (const l of motherlodeBook.standingAll(_lodesUp)) {
+      const tr = state.pixelTranslation(l.x, l.y, _lodeTr), m = _lodePool[_lodeMarks.length] ??= { profession: 'mining', at: [0, 0, 0], d: 0, reach: 1 };
+      m.at[0] = tr[0] + TERRAIN_SIZE / 2; m.at[1] = tr[1]; m.at[2] = tr[2] + TERRAIN_SIZE / 2; _lodeMarks.push(m);
+    }
+    return _lodeMarks;
+  };
+  const professionMarks = (feet = enchantFeet()) => {
+    const near = nodeMarksAt(feet), far = motherlodeMarks();
+    return nodeCompassPoints(far.length ? [...(near ?? []), ...far] : near, trackerAnimals());   // PROF2b: the far Motherlodes beside the near nodes
+  };
   const nodeGlowPass = createNodeGlowPass(renderer);   // NODE-MARKS: kindled node by node, built at idle; never in a building (nodeMarksAt) nor under the travel view (the hook's own gate)
   /** COMPASS-PARTY (2026-09-27, Discord - Ashley: "being able to see where party members are on compass? - just lil
    *  green marks that point in that direction"): the party on MY compass, in this scene's XZ (ui/partyMapMarks.js

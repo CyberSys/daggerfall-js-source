@@ -178,6 +178,14 @@ shas, which is the one thing that must not be published). The
 previous repository was kept private under another name. If a sha
 cited anywhere fails to resolve, that is why, and Mac holds the map.
 
+PATCH NOTES LIVE ON THE PULL REQUEST (REL6, 2026-10-01, Mac: "somehow
+refrain from patch notes filling up the codebase"). A change players
+will notice says so in its pull request's description, under `## Patch
+notes: <title>` - the template asks, the release reads it there
+(`scripts/desktopRelease.mjs notes`), and the published release is the
+archive. Never commit a patch-notes file: 147 piled up at the root, each
+read once, and `test/rel4_release.test.js` now fails the suite on one.
+
 ## Sections
 
 - `01-Overview/` - vision, port doctrine, phase plan, Port-Ledger (departures/quirks/unported)
