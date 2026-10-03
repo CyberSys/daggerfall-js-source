@@ -173,8 +173,8 @@
   {
     "name": "PT-audit-host-seat-dropped",
     "file": "src/scenes/world.js",
-    "old": "      floor: (pos) => floorLanding(collider, pos, BESIDE_LEVEL * 2, BESIDE_LEVEL),\n    }, seat);",
-    "new": "      floor: (pos) => floorLanding(collider, pos, BESIDE_LEVEL * 2, BESIDE_LEVEL),\n    });",
+    "old": "return partyArrivalBeside([lx, w.y + state.compensation[1], lz], collider, seat, tvSeaY() - 0.1);",
+    "new": "return partyArrivalBeside([lx, w.y + state.compensation[1], lz], collider, 0, tvSeaY() - 0.1);",
     "tests": [
       "test/partytravel.test.js"
     ]

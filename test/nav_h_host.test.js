@@ -318,7 +318,8 @@ test('NAV-H the save: each boat of mine by its deed\'s UID (its hurts and barrel
   assert.deepEqual(Object.keys(d.boats), ['42']);
   // PIN MOVED (SHIP-CREW, SEA-REPAIR): her crew as people (`mates`) and her store part-spent (`credit`) beside her hurts
   const { mates, credit, ...hurts } = d.boats[42];
-  assert.deepEqual(hurts, { hull: 100, sail: 50, crew: 10, fire: 0, state: 'afloat', barrels: 1 });
+  assert.deepEqual(hurts, { ...h.host._myState(h.boat).damage.saveData(), barrels: 1 });
+  assert.ok(hurts.hull > 100 && hurts.hull < 101, 'fractional crew repairs are persisted');
   assert.equal(credit, 0);
   assert.equal(mates.hands.length, 2, 'her two hands on deck, named');
   assert.deepEqual(d.notoriety, { Wayrest: 40 });

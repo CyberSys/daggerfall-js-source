@@ -247,11 +247,13 @@
   {
     "name": "AUDIT-SILVER-WAYS-D6-account-unread",
     "file": "src/net/motherlodeBook.js",
-    "old": "return w && w.s === meNow() && motherlodeWatchOk(",
-    "new": "return w && motherlodeWatchOk(",
+    "old": "      const m = meNow(true);\n      const w = watches.get(`${x},${y}`);",
+    "new": "      const m = meNowV;\n      const w = watches.get(`${x},${y}`);",
     "tests": [
-      "test/auditsilver_client.test.js"
-    ]
+      "test/auditsilver_client.test.js",
+      "test/motherlode_identity_regression.test.js"
+    ],
+    "note": "Bugs update reconciliation 2026-10-03: re-aimed by the current source law; forced Watch identity refresh, cached frame reads, receipt ownership/expiry, and actual host seed citations remain independently killable. The action now refreshes identity before fetching the receipt, clearing old receipts; mutate that refresh rather than removing its redundant subject comparison."
   },
   {
     "name": "AUDIT-SILVER-WAYS-D6-kept-for-return",
@@ -265,11 +267,12 @@
   {
     "name": "AUDIT-SILVER-WAYS-D7-account-each-frame",
     "file": "src/net/motherlodeBook.js",
-    "old": "    if (t - meAt < MOTHERLODE_ME_MS) return meNowV;\n",
+    "old": "    if (!force && t - meAt < MOTHERLODE_ME_MS) return meNowV;\n",
     "new": "",
     "tests": [
       "test/auditsilver_client.test.js"
-    ]
+    ],
+    "note": "Bugs update reconciliation 2026-10-03: re-aimed by the current source law; forced Watch identity refresh, cached frame reads, receipt ownership/expiry, and actual host seed citations remain independently killable."
   },
   {
     "name": "AUDIT-SILVER-WAYS-D7-list-a-frame",

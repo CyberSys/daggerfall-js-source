@@ -376,7 +376,7 @@ test('PROF12 wiring: the alchemy station an Alchemist\'s (open for trade) or a h
   assert.match(w, /alchemySteps: \(\) => alchemyHall\(\)\.steps,/, 'AUDIT PROF-541 B4: the station\'s line says the steps the service adds');
   assert.match(w, /if \(typeof data\?\.potion === 'string'\) \{\n\s*const potions = brewItems\(data\);/);
   assert.match(w, /const f = \(alch \? modes\?\.alchemyHere\?\.\(\) : mason \?/);
-  assert.match(w, /r = await profBook\.disenchant\(provenance\);\n\s*if \(r\?\.ok\) takeOut\(\);/);
+  assert.match(w, /r = await profBook\.disenchant\(provenance\);\n\s*if \(r\?\.ok && here\(\) && !r\.elsewhere\) takeOut\(\);/);
   assert.match(w, /if \(at >= 0\) out = \{ piece: playerEntity\.items\.splice\(at, 1\)\[0\], at \};/);
   const idx = src('server-account/src/index.js');
   assert.match(idx, /'\/v1\/prof\/brew': \(\) => brewAtStation\(ctx, who\.player, env, body\),/);
@@ -529,7 +529,7 @@ test('AUDIT PROF-541 B2 client: a realm character\'s disenchant names where its 
   await wire.disenchant('char-1', 'aaaaaaaaaaaaaaaa', 'rid-2');
   assert.deepEqual(bodies.map((b) => b.realm ?? null), [at, null], 'the record where it stands, on the wire - and none for another character');
   const w = src('src/scenes/world.js');
-  assert.match(w, /call: \(at\) => \{ if \(!asked\) \{ asked = true; takeOut\(\); \} return out \? profBook\.disenchant\(provenance, at\) : Promise\.resolve\(\{ ok: false, error: 'prof-piece-gone' \}\); \},/);
+  assert.match(w, /call: \(at\) => \{ if \(!here\(\)\) return Promise\.resolve\(\{ ok: false, error: 'elsewhere', elsewhere: true \}\); if \(!asked\) \{ asked = true; takeOut\(\); \} return out \? profBook\.disenchant\(provenance, at\) : Promise\.resolve\(\{ ok: false, error: 'prof-piece-gone' \}\); \},/);
   assert.match(w, /if \(r\?\.error === 'prof-no-piece' && r\?\.why === 'disenchanted' && takeOut\(\)\)/);
 });
 

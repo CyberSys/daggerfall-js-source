@@ -65,8 +65,8 @@
   {
     "name": "SHARE-MEND-receiver-reads-slim",
     "file": "src/systems/questShare.js",
-    "old": "  const safe = takeLocalItems(local, fullShareMarkers(data));",
-    "new": "  const safe = takeLocalItems(local, data);",
+    "old": "takeLocalActions(local, fullShareMarkers(data))",
+    "new": "takeLocalActions(local, data)",
     "tests": [
       "test/sharemend.test.js"
     ]

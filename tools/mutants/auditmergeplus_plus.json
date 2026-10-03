@@ -11,7 +11,7 @@
   {
     "name": "AUDIT-MERGE-PLUS-B1-the-per-frame-law-never-written",
     "file": "src/scenes/world.js",
-    "old": "    sceneToOnline = overworld ? campToWire : (q) => [q[0], shedY ? q[1] - state.compensation[1] : q[1], q[2]];   // AUDIT MERGE-PLUS B1\n",
+    "old": "    sceneToOnline = nativeFrame ? campToWire : (q) => [q[0], shedY ? q[1] - state.compensation[1] : q[1], q[2]];   // AUDIT MERGE-PLUS B1\n",
     "new": "",
     "tests": [
       "test/auditmergeplus_plus.test.js"

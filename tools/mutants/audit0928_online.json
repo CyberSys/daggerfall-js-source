@@ -57,8 +57,8 @@
   {
     "name": "A0928-O3-built-in-the-handler",
     "file": "src/scenes/comeSailAwayPeers.js",
-    "old": "    live.set(owner, { boats: r.boats, toScene, at: nowMs, dirty: true, age: 0 });\n    return true;",
-    "new": "    live.set(owner, { boats: r.boats, toScene, at: nowMs, dirty: false, age: 0 });\n    realign(owner, live.get(owner)); buildOne();\n    return true;",
+    "old": "    live.set(owner, { boats: r.boats, cabin: !!r.cabin, toScene, at: nowMs, dirty: true, age: 0 });\n    return true;",
+    "new": "    live.set(owner, { boats: r.boats, cabin: !!r.cabin, toScene, at: nowMs, dirty: false, age: 0 });\n    realign(owner, live.get(owner)); buildOne();\n    return true;",
     "tests": [
       "test/audit0928_online.test.js",
       "test/csa_online.test.js"
@@ -112,8 +112,8 @@
   {
     "name": "A0928-O3-reuse-by-slot-alone",
     "file": "src/scenes/comeSailAwayPeers.js",
-    "old": "if (had[j].hull === l.boats[i].hull) pairs.push(",
-    "new": "if (had[j].hull === l.boats[i].hull && had[j].slot === i) pairs.push(",
+    "old": "if (had[j].hull !== l.boats[i].hull) continue;",
+    "new": "if (had[j].hull !== l.boats[i].hull || had[j].slot !== i) continue;",
     "tests": [
       "test/audit0928_online.test.js"
     ]

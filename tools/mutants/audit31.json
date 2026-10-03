@@ -403,7 +403,7 @@
   {
     "name": "AUDIT31-book-writs-unslotted",
     "file": "src/net/profBook.js",
-    "old": "      const wk = `${slot()}|${region}`;",
+    "old": "      const wk = `${owner}|${region}`;",
     "new": "      const wk = `${region}`;",
     "tests": [
       "test/audit31_client.test.js"

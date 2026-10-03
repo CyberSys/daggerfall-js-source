@@ -268,9 +268,9 @@ test('AUDIT 21 F1: doing the sentence refunds BOTH channels, not just legal', { 
   const afterSentence = peopleRep();
 
   assert.equal(afterCrime, start - 10, 'the crime costs the People half the legal loss');
-  assert.equal(afterSentence, afterCrime + 4, 'and the sentence refunds (half - 1) / 2');
+  assert.equal(afterSentence, afterCrime + 5, 'REP2: a served Murder refunds half the People charge');
   // The legal channel too, so a fix to one side cannot hide the other.
-  assert.equal(player.legalRep[region], -20 + 9);
+  assert.equal(player.legalRep[region], -20 + 10, 'REP2: a served Murder leaves half the legal mark');
 });
 
 test('AUDIT 21 F3: legal reputation is CLAMPED, and drifts back over time', () => {

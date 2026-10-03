@@ -86,7 +86,7 @@ export const PROF_CLOSED_RECHECK_MS = 300_000;
  *  the service held for its maintenance minute (RESTORE's 503, answered before any route - the act never reached it). */
 const RETRY = Object.freeze(['offline', 'server', 'rate', 'maintenance']);
 /** The answers that say nothing about the act's row - kept, and asked again once there is a session. */
-const WAIT = Object.freeze(['no-session', 'auth']);
+const WAIT = Object.freeze(['no-session', 'auth', 'elsewhere']);
 /** The answers that say the professions are not this account's now. */
 const SHUT = Object.freeze(['prof-closed', 'prof-need-account']);
 const keptAnswer = (r) => RETRY.includes(r?.error) || WAIT.includes(r?.error);
@@ -178,10 +178,11 @@ export function createProfBook({ door, storage = null, character = () => null, n
   };
 
   /** One ask, up to PROF_TRIES times with a wait between; the service's no is final at once. */
-  async function ask(fn) {
+  async function ask(fn, key = slot()) {
     let r = null;
     for (let i = 0; i < PROF_TRIES; i++) {
       if (i > 0) await sleep(jittered(PROF_RETRY_MS[Math.min(i - 1, PROF_RETRY_MS.length - 1)]));
+      if (key !== slot()) return { ok: false, error: 'elsewhere', elsewhere: true };
       try { r = await fn(); } catch { r = { ok: false, error: 'offline' }; }
       if (r?.ok || !ASK_AGAIN_NOW.includes(r?.error)) return r;   // SCALE1: `rate` and `maintenance` go back kept, to the pump
     }
@@ -296,18 +297,21 @@ export function createProfBook({ door, storage = null, character = () => null, n
       if (!c) return { ok: false, error: 'prof-character' };
       // AUDIT 29 C1: one read at a time, shared by every press; an unanswered read not asked again inside its backoff
       // (the pages asked every draw, and a read that failed left them stale - a loop that starved the tab)
-      if (_refresh) return _refresh;
       const key = `${account() ?? ''}|${c}`;
+      if (_refresh?.key === key) return _refresh.promise;
       if (!force && _lastRead.key === key && !_lastRead.r?.ok && now() - _lastRead.at < PROF_REFRESH_BACKOFF_MS) return _lastRead.r;
-      _refresh = (async () => {
-        const r = await ask(() => door.state(c));
+      const read = { key, promise: null };
+      _refresh = read;
+      read.promise = (async () => {
+        const r = await ask(() => door.state(c), key);
+        if (key !== slot()) return { ok: false, error: 'elsewhere', elsewhere: true };
         if (r?.ok) apply(r.data);
         else shutBy(r);
         state.readAt = now();
         _lastRead = { at: state.readAt, key, r };
         return r;
-      })().finally(() => { _refresh = null; });
-      return _refresh;
+      })().finally(() => { if (_refresh === read) _refresh = null; });
+      return read.promise;
     },
     /** Whether the state read is stale: another account or character now, or another UTC day - a day the service
      *  answered otherwise not again inside the backoff (AUDIT 29 C1); a shut switch only after its recheck (C8). */
@@ -357,10 +361,12 @@ export function createProfBook({ door, storage = null, character = () => null, n
       if (_pixelsBusy || state.open === false) return [];
       const c = character();
       const day = dayOf(now());
+      const owner = slot();
       const want = (list ?? []).filter(([x, y]) => { const p = pixels.get(pixelKey(x, y)); return p?.day !== day || p.stale === true; }).slice(0, PROF_PIXELS_MAX);   // GROUND-STALE: and one a harvest answered on
       if (!c || !want.length) return [];
       _pixelsBusy = (async () => {
         const r = await ask(() => door.pixels(c, want));
+        if (owner !== slot()) return [];
         if (!r?.ok) { shutBy(r); return []; }
         const changed = [];
         for (const p of r.data?.pixels ?? []) {
@@ -389,8 +395,10 @@ export function createProfBook({ door, storage = null, character = () => null, n
       const c = character();
       if (!c) return false;
       const day = dayOf(now());
+      const owner = slot();
       _pixelsBusy = (async () => {
         const r = await ask(() => door.pixels(c, [], [id]));
+        if (owner !== slot()) return [];
         if (!r?.ok) { shutBy(r); return []; }
         const d = (r.data?.dungeons ?? []).find((x) => x.id === id);
         const before = dungeons.get(id);
@@ -445,12 +453,14 @@ export function createProfBook({ door, storage = null, character = () => null, n
           const ranks = new Map([...state.tracks].map(([p, t]) => [p, t.rank]));
           if (lapsed) {
             // AUDIT BAG1 B1: a carried harvest that landed with its answer lost is counted, and only its answer mints the
-            // items - let go unasked, the count held units the pack never got. Asked once: the service answers a landed
-            // harvest whatever its age (its row); one that never landed is refused, and let go as lapsed
+            // items - let go unasked, the count held units the pack never got. Asked still: the service answers a landed
+            // harvest whatever its age (its row); one that never landed is refused, and let go as lapsed. No word yet (the
+            // network, the service, another character up - the DFO integration's `elsewhere`): kept, asked again
             if (h.carry === true) {
               const r = await send(h, key);
               if (r.ok && !r.elsewhere) { onAnswer(h, r, ranks.get(r?.data?.track?.profession) ?? 0); continue; }
-              if (r.elsewhere) continue;
+              if (r.kept || r.elsewhere || r.error === 'elsewhere') continue;
+              onAnswer(h, { ok: false, error: 'lapsed' }); continue;   // refused: `send` let it go
             }
             drop(h.rid, key); onAnswer(h, { ok: false, error: 'lapsed' }); continue;
           }
@@ -633,15 +643,19 @@ export function createProfBook({ door, storage = null, character = () => null, n
     async disenchant(provenance, realm = null) {
       const c = character();
       if (!c) return { ok: false, error: 'prof-character' };
-      const key = `disenchant|${slot()}|${provenance}`;
+      const origin = slot();
+      const key = `disenchant|${origin}|${provenance}`;
       const m = idFor(key, PROF_QUEUE_MS);
       if (m.promise) return m.promise;
       m.promise = (async () => {
         // AUDIT PROF-541 B2: a realm act asks once - the realm act asks again itself, reading a record one on as the act landed
-        const once = () => door.disenchant(c, provenance, m.id, realm);
+        const once = () => origin === slot()
+          ? door.disenchant(c, provenance, m.id, realm)
+          : Promise.resolve({ ok: false, error: 'elsewhere', elsewhere: true });
         const r = realm ? await Promise.resolve().then(once).catch(() => ({ ok: false, error: 'offline' })) : await ask(once);
         m.promise = null;
-        if (!keptAnswer(r)) ids.delete(key);
+        if (!keptAnswer(r) && r?.error !== 'elsewhere') ids.delete(key);
+        if (origin !== slot()) return { ...r, elsewhere: true };
         if (r?.ok) { applyStore(r.data?.store); applyTrack(r.data?.track); } else shutBy(r);
         return r;
       })();
@@ -652,13 +666,15 @@ export function createProfBook({ door, storage = null, character = () => null, n
     async stock(material, qty) {
       const c = character();
       if (!c) return { ok: false, error: 'prof-character' };
-      const key = `stock|${slot()}|${material}|${qty}`;
+      const owner = slot();
+      const key = `stock|${owner}|${material}|${qty}`;
       const m = idFor(key, PROF_QUEUE_MS);
       if (m.promise) return m.promise;
       m.promise = (async () => {
         const r = await ask(() => door.stock(c, material, qty, m.id));
         m.promise = null;
         if (!keptAnswer(r)) ids.delete(key);
+        if (owner !== slot()) return { ok: false, error: 'elsewhere', elsewhere: true };
         if (r?.ok) { applyStore(r.data?.store); if (Number.isSafeInteger(r.data?.balance)) state.marks = r.data.balance; } else shutBy(r);
         return r;
       })();
@@ -672,11 +688,13 @@ export function createProfBook({ door, storage = null, character = () => null, n
     async writs(region, { force = false } = {}) {
       const c = character();
       // AUDIT 31 B7: the list is this account's and character's (PROF6's "yours", its guild, its balance) - kept per slot
-      const wk = `${slot()}|${region}`;
+      const owner = slot();
+      const wk = `${owner}|${region}`;
       const hit = writCache.get(wk);
       if (!force && hit && now() - hit.at < PROF_WRITS_CACHE_MS) return { data: hit.data, error: hit.error, stale: false };
       const g = writGen;
       const r = c ? await ask(() => door.writs(c, region)) : { ok: false, error: 'prof-character' };
+      if (owner !== slot()) return { data: null, error: 'elsewhere', stale: true };
       if (g !== writGen) return book.writs(region, { force: true });   // an act answered while it was read: read again
       if (r?.ok) {
         writCache.set(wk, { at: now(), data: r.data, error: null });
@@ -696,7 +714,9 @@ export function createProfBook({ door, storage = null, character = () => null, n
     async deliver(writId, region, card = null) {
       const c = character();
       if (!c) return { ok: false, error: 'prof-character' };
-      const m = idFor(`deliver|${slot()}|${writId}`);
+      const owner = slot();
+      const key = `deliver|${owner}|${writId}`;
+      const m = idFor(key);
       if (m.promise) return m.promise;
       m.promise = (async () => {
         // BAG1: the writ's units the Stores lack, from the bag and the pack first - a Court writ is filled from the Stores
@@ -706,7 +726,8 @@ export function createProfBook({ door, storage = null, character = () => null, n
         if (!ready.ok) { m.promise = null; return { ok: false, error: ready.error ?? 'materials-short' }; }
         const r = await ask(() => door.deliver(c, writId, m.id));
         m.promise = null;
-        if (!keptAnswer(r)) ids.delete(`deliver|${slot()}|${writId}`);
+        if (!keptAnswer(r)) ids.delete(key);
+        if (owner !== slot()) return { ok: false, error: 'elsewhere', elsewhere: true };
         if (r?.ok) {
           applyStore(r.data?.store);
           applyTrack(r.data?.track);
@@ -730,7 +751,8 @@ export function createProfBook({ door, storage = null, character = () => null, n
     async smelt(recipe, count, { clean = false } = {}) {
       const c = character();
       if (!c) return { ok: false, error: 'prof-character' };
-      const key = `smelt|${slot()}|${recipe}|${count}`;
+      const owner = slot();
+      const key = `smelt|${owner}|${recipe}|${count}`;
       const m = idFor(key, PROF_QUEUE_MS);
       if (m.promise) return m.promise;
       m.promise = (async () => {
@@ -741,6 +763,7 @@ export function createProfBook({ door, storage = null, character = () => null, n
         const r = await ask(() => door.smelt(c, recipe, count, m.id, clean === true));
         m.promise = null;
         if (!keptAnswer(r)) ids.delete(key);
+        if (owner !== slot()) return { ok: false, error: 'elsewhere', elsewhere: true };
         if (r?.ok) { for (const s of r.data?.stores ?? []) applyStore(s); applyTrack(r.data?.track); } else shutBy(r);
         // BAG1: AND WHAT IT MADE INTO THE BAG OR THE PACK - as much as fits; the rest stays in the Stores, said
         if (r?.ok && carry && work) r.data.put = await carryOut(work.out, (Number(r.data.own) || 0) + (Number(r.data.bought) || 0));
@@ -757,13 +780,15 @@ export function createProfBook({ door, storage = null, character = () => null, n
       const c = character();
       if (!c) return { ok: false, error: 'prof-character' };
       const from = this.track(profession).specs?.[rank] ?? null;
-      const key = `spec|${slot()}|${profession}|${rank}|${spec}|${from ?? ''}`;
+      const owner = slot();
+      const key = `spec|${owner}|${profession}|${rank}|${spec}|${from ?? ''}`;
       const m = idFor(key, PROF_QUEUE_MS);
       if (m.promise) return m.promise;
       m.promise = (async () => {
         const r = await ask(() => door.spec(c, profession, rank, spec, from, m.id));
         m.promise = null;
         if (!keptAnswer(r)) ids.delete(key);
+        if (owner !== slot()) return { ok: false, error: 'elsewhere', elsewhere: true };
         if (r?.ok) applyTrack(r.data?.track);
         else {
           shutBy(r);
@@ -777,6 +802,7 @@ export function createProfBook({ door, storage = null, character = () => null, n
 
   /** A kept harvest's one ask: answered (the state moved), refused (let go), or kept for the pump. */
   async function send(h, key) {
+    if (key !== slot()) return { ok: false, error: 'elsewhere', kept: true };
     const body = {
       character: h.character, node: h.node, kind: h.kind, climate: h.climate, region: h.region, act: h.act, at: h.at, rid: h.rid,
       ...(h.foe === undefined ? {} : { foe: h.foe }),   // PROF7: the foe a body is (PROF0 6: the client's claim)
@@ -875,7 +901,7 @@ export function createProfBook({ door, storage = null, character = () => null, n
   async function craftOne(w, key, mint) {
     const r = await ask(() => (w.brew === true   // PROF12: a brew kept as a craft is
       ? door.brew(w.character, w.recipe, w.keys, w.rid, Number.isSafeInteger(w.seat) ? w.seat : null)
-      : door.craft(w.character, w.recipe, w.clean, w.name, w.rid, w.heartwood === true, Number.isInteger(w.dye) ? w.dye : null, Number.isSafeInteger(w.seat) ? w.seat : null, w.cracked === true)));   // PROF10: the cracked gem
+      : door.craft(w.character, w.recipe, w.clean, w.name, w.rid, w.heartwood === true, Number.isInteger(w.dye) ? w.dye : null, Number.isSafeInteger(w.seat) ? w.seat : null, w.cracked === true)), key);   // PROF10: the cracked gem
     // AUDIT 32 B5: heard after a switch, the craft waits kept for its own character's settle - asked again there, the
     // service's row answers the same pieces into the right pack
     if (key !== slot()) return { ok: false, error: 'elsewhere', kept: true };
@@ -911,7 +937,7 @@ export function createProfBook({ door, storage = null, character = () => null, n
    *  among those still out), with the count as last heard. AUDIT BAG1 B17: let go by the tab that hears the answer - read
    *  and removed in one turn before anything is given back (AUDIT 29 C5's law), so two tabs give back once. */
   async function askDeposit(d, key) {
-    const r = await ask(() => door.deposit(d.character, d.material, d.qty, heldNow(d.material), d.order, d.id, seenNow(d.material)));
+    const r = await ask(() => door.deposit(d.character, d.material, d.qty, heldNow(d.material), d.order, d.id, seenNow(d.material)), key);
     if (keptAnswer(r) || r?.error === 'prof-rate') return { ok: false, error: r?.error ?? 'offline', kept: true };
     if (key !== slot()) return { ok: false, error: 'elsewhere', kept: true };   // its own character's settle hears it again
     const kept = keptOf(key);
@@ -943,7 +969,7 @@ export function createProfBook({ door, storage = null, character = () => null, n
   async function settleOne(w, key, mint) {
     // AUDIT BAG1 B2: held read at the ask, with the count as last heard (a withdrawal kept from before the audit: its own)
     const r = await ask(() => door.withdraw(w.character, w.material, w.qty, w.rid, w.carry === true
-      ? (carry ? { held: heldNow(w.material), seen: seenNow(w.material) } : { held: w.held | 0 }) : null));
+      ? (carry ? { held: heldNow(w.material), seen: seenNow(w.material) } : { held: w.held | 0 }) : null), key);
     if (key !== slot()) return { ok: false, kept: true, text: '' };   // AUDIT 32 B5: its own character's settle mints it
     const kept = keptOf(key);
     if (r?.ok) {

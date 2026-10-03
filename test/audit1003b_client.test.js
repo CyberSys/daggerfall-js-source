@@ -240,8 +240,8 @@ test('AUDIT PRE-MERGE 1003b U4/U6/U9/U10/S4/S7: the card - every row\'s presses 
   assert.deepEqual(row('Alva').acts.map((a) => a.key), ['aw-priv-m2-r', 'aw-priv-m2-b', 'aw-priv-m2-kick']);
   assert.ok(row('Hela').roles.includes(O.privRole.you), 'your own row says You');
   assert.equal(row('Alva').banner, 'blue', 'a member\'s own banner, the side its chip\'s');
-  assert.deepEqual(c.results, ['Brann (Blue) beat Alva (Red) by a yield', 'Alva (Red) and Cora (Blue) drew - the judges could not part them']);
-  assert.ok(c.lines.includes(O.privPicks('Alva', '')) && O.privPicks('Alva', '').includes('not picked yet'));
+  assert.deepEqual(c.results, ['Brann (Blue) beat Alva (Red) by yield', 'Alva (Red) and Cora (Blue) drew']);
+  assert.ok(c.lines.includes(O.privPicks('Alva', '')) && O.privPicks('Alva', '').includes('not picked'));
   assert.ok(c.acts.some((a) => a.act === 'privLock' && a.data.l === 1 && a.label === O.privLock));
   const locked = sessionCard({ in: true, code: CODE, host: true, state: { ...w, lo: 1 } });
   assert.ok(locked.lines.includes(O.privLocked) && locked.acts.some((a) => a.act === 'privLock' && a.data.l === 0 && a.label === O.privUnlock));

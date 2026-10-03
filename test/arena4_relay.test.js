@@ -64,7 +64,7 @@ test('ARENA4 the door and the wire: the Worker opens the hall and a bout\'s room
   assert.equal(arenaBlowCap({ r: ARENA_HIT.Melee, w: 123, m: 9 }), 2 * (21 + 6 + 20), 'a Daedric dai-katana, a critical\'s double');
   assert.equal(arenaBlowCap({ r: ARENA_HIT.Spell }), 60);
   assert.equal(arenaBlowCap({ r: ARENA_HIT.Melee }), 2 * (41 + 20), 'ARENA5: a bare hand\'s most (DFU\'s past the softcap) and the modifiers\' room, doubled');
-  assert.equal(RELAY_VERSION, 'world157');   // GUILD2 moved it on (world157, no wire change); HOTFIX 1003f moved it on (world156: every arena floor draws everyone in it); world155 was ARENA4's - world142 on its branch, renumbered past main's world154 at the merge
+  assert.equal(RELAY_VERSION, 'world160');   // world142 on its branch, renumbered past main's world154 at the merge; GUILD2 moved it on (world160, no wire change)
   assert.equal(relaySupportsArena('world154'), false, 'main\'s FRIENDS-SYNC through BROKER-CAGE took world142-154 and open no arena room');
   assert.equal(relaySupportsArena('world142'), false);
   assert.equal(relaySupportsArena('world155'), true);

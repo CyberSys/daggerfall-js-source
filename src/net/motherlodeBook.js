@@ -76,9 +76,9 @@ export function createMotherlodeBook({ door, character, me, nowS, onChange = () 
   const turnMs = Math.floor(Math.max(0, Math.min(1, rand())) * MOTHERLODE_TURN_SPREAD_MS);
   /** AUDIT SILVER-WAYS D7: the account, read again once a MOTHERLODE_ME_MS; D6: another account's receipts let go */
   let meNowV = /** @type {string|null} */ (null), meAt = -Infinity;
-  function meNow() {
+  function meNow(force = false) {
     const t = nowMs();
-    if (t - meAt < MOTHERLODE_ME_MS) return meNowV;
+    if (!force && t - meAt < MOTHERLODE_ME_MS) return meNowV;
     meAt = t;
     const m = me() ?? null;
     if (m !== meNowV) { meNowV = m; watches.clear(); }
@@ -104,12 +104,16 @@ export function createMotherlodeBook({ door, character, me, nowS, onChange = () 
   async function read() {
     const c = character();
     if (!c || busy) return null;
+    const m = meNow(true);
     busy = true;
     askedAt = nowMs();
     try {
       let r;
       try { r = await door.motherlodes(c); } catch { r = { ok: false, error: 'offline' }; }
-      readMe = meNow(); readChar = c;
+      // A request belongs to the account and character that started it. A late
+      // answer must not pin their found marker to whoever is signed in now.
+      if (meNow(true) !== m || character() !== c) return null;
+      readMe = m; readChar = c;
       if (!r?.ok) { readAt = nowMs() - MOTHERLODE_READ_MS + MOTHERLODE_RETRY_MS; return r; }
       readAt = nowMs();
       const d = r.data ?? {};
@@ -157,7 +161,7 @@ export function createMotherlodeBook({ door, character, me, nowS, onChange = () 
     /** A Watch receipt the relay handed this socket - kept, the newest for its pixel, where it is this account's. */
     watch(r) {
       const c = readWatchReceipt(r);
-      if (!c || !c.signed || c.s !== meNow()) return false;
+      if (!c || !c.signed || c.s !== meNow(true)) return false;
       const k = `${c.x},${c.y}`;
       if ((watches.get(k)?.i ?? -Infinity) >= c.i) return false;
       watches.delete(k);
@@ -170,8 +174,10 @@ export function createMotherlodeBook({ door, character, me, nowS, onChange = () 
      *  again at its end, so a receipt that arrived during a long act is the one sent) - or null: the relay has not seen
      *  this account there lately. AUDIT SILVER-WAYS D6: this account's alone, whoever signed in since. */
     watchFor(x, y, aheadS = MOTHERLODE_ACT_S) {
+      // Keep frame reads cached, but recheck identity at the actual action.
+      const m = meNow(true);
       const w = watches.get(`${x},${y}`);
-      return w && w.s === meNow() && motherlodeWatchOk(w.i, nowS() + Math.max(0, aheadS)) ? w.r : null;
+      return w && w.s === m && motherlodeWatchOk(w.i, nowS() + Math.max(0, aheadS)) ? w.r : null;
     },
     /** The Motherlodes standing on pixel (`px`, `py`) now, for this account - the host stands them. */
     standingOn(px, py) {

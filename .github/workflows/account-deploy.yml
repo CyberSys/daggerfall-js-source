@@ -44,6 +44,9 @@ on:
     paths:
       - "server-account/**"
       - "src/net/identityToken.js"
+      - "src/net/staffTeleport.js"
+      - "src/net/privateInterior.js"
+      - "src/net/boatIdentity.js"
       - "src/net/handleShape.js"
       - "src/net/letterLaw.js"
       - "src/net/nameFilter.js"

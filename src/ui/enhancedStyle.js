@@ -33,7 +33,7 @@
    string the game pays for only when a screen is mounted. */
 import { PIXELIFY_FIVE_FACE, PIXEL_STACK, PIXEL_FONT_CSS } from './pixelifyFive.js';   // FIX-D: Silkscreen's five ahead of Pixelify Sans
 import { badgeCss } from './playerBadge.js';   // ACC3c: one rule per title and per glyph, walked out of the vocabulary - the card writes a class and the skin carries the colour
-import { PLUS_CSS, PLUS_STYLE_ID, applyPlusTheme } from './enhancedPlusStyle.js';   // PLUS1: the Enhanced Plus sheet, laid over this one
+import { STONE_WORD, PLUS_CSS, PLUS_STYLE_ID, applyPlusTheme } from './enhancedPlusStyle.js';   // PLUS1: the Enhanced Plus sheet, laid over this one
 import { installPlusCursor } from './plusCursor.js';   // PLUS7: the gauntlet cursor
 import { installWindowMotion } from './windowMotion.js';   // PLUS1/WM1: windows unfold and fold - Enhanced Plus only
 import { isEnhancedPlus } from '../systems/uiSkin.js';   // PLUS1: the Plus sheet is laid only under Plus
@@ -2156,7 +2156,7 @@ ${badgeCss()}
 /* PX1b: THREE ZONES - build left, the skin toggle dead center, About
    the bottom-right box. A grid, because flex space-between centers the
    middle child only when the outer two happen to weigh the same. */
-.px-foot { position: absolute; left: 0; right: 0; bottom: 0;
+.px-foot { position: absolute; left: 0; right: 0; bottom: 0; pointer-events: none;
   display: grid; grid-template-columns: 1fr auto 1fr; align-items: end;
   padding: 12px 16px; font-size: 15px; letter-spacing: 0.12em;
   text-transform: uppercase; color: #9c937d;
@@ -2167,7 +2167,7 @@ ${badgeCss()}
 /* The About box: the ONE box on the boxless face, which is what makes
    it read as a plaque rather than a menu row. 2px border in whole
    pixels, gold on hover by the same pair. */
-.px-about { font: inherit; font-size: 16px; letter-spacing: 0.14em; text-indent: 0.14em;
+.px-about { pointer-events: auto; font: inherit; font-size: 16px; letter-spacing: 0.14em; text-indent: 0.14em;
   text-transform: uppercase; color: #d8cfae; cursor: pointer;
   justify-self: end; min-height: 44px; padding: 8px 18px;
   background: rgba(10,12,17,0.55); border: 2px solid #7d7460;
@@ -2422,7 +2422,22 @@ ${badgeCss()}
    foot stacks two rows only where width also runs out. */
 @media (max-height: 560px), (max-width: 480px) {
   .px-stage { justify-content: flex-start; padding: 7dvh 24px 132px; overflow-y: auto; }
+  /* Keep the ordinary pause panel above the clock; its body remains the scroller. */
+  .px-over > .px-stage:not(.px-acctstage):not(.px-timersstage) > .px-win { max-height: calc(100dvh - max(7dvh, 64px) - 64px); }
 }
+/* Inventory and Spellbook own direct window shells. Keep their controls above the measured controller legend. */
+html.plus-pad-prompts-visible .pack-shell,
+html.plus-pad-prompts-visible .sb-shell { box-sizing: border-box;
+  padding-bottom: calc(var(--plus-pad-clearance, 0px) + 8px); }
+html.plus-pad-prompts-visible .pack-shell > .pack-win,
+html.plus-pad-prompts-visible .sb-shell > .px-win {
+  max-height: calc(100dvh - var(--plus-pad-clearance, 0px) - 8px); }
+/* B12.01 + controller legend: reserve the measured wrapped bar, then the existing calendar row. */
+html.plus-pad-prompts-visible .px-clock { bottom: calc(var(--plus-pad-clearance, 0px) + 12px); }
+html.plus-pad-prompts-visible .px-over > .px-stage:not(.px-acctstage):not(.px-timersstage) {
+  padding-bottom: calc(var(--plus-pad-clearance, 0px) + 64px); }
+html.plus-pad-prompts-visible .px-over > .px-stage:not(.px-acctstage):not(.px-timersstage) > .px-win {
+  max-height: calc(100dvh - max(7dvh, 64px) - var(--plus-pad-clearance, 0px) - 64px); }
 /* AUDIT TIMERS1 UI-1: the timers window's stage is not the pause stage - two classes, so the rule above (one class,
    later) cannot take its padding and pin the window to the left; centred, its own padding, its list the one scroll.
    UI-2: and over the game on a short screen the pause window stands clear of the corner marks (the profile and the
@@ -4793,6 +4808,23 @@ ${badgeCss()}
    media block, so every base selector above is one class. */
 @media (max-width: 720px) { .wplaque { max-width: 88vw; --wp-pad-x: 12px; padding: 8px var(--wp-pad-x); }
   .wplaque-row, .wplaque-title { font-size: 13px; } .wplaque-sub { font-size: 11px; } }
+
+/* Action lists can grow with cabin and crew verbs. Bound the whole panel, including its title;
+   worldPlaque keeps the keyboard/wheel selection visible without adding a second input handler. */
+.wplaque.has-actions { box-sizing: border-box; min-width: 0; width: max-content;
+  max-width: min(${PLAQUE_MAX_W}px, calc(100vw - 24px));
+  max-height: calc(100vh - var(--wp-top, 55%) - 12px);
+  max-height: calc(100dvh - var(--wp-top, 55%) - 12px); }
+.wplaque.on.has-actions { display: flex; flex-direction: column; }
+.wplaque.has-actions > :not(.wplaque-list) { flex-shrink: 0; }
+.wplaque.has-actions .wplaque-acts { position: relative; min-height: 0; max-height: none;
+  margin-left: calc(-1 * var(--wp-pad-x)); margin-right: calc(-1 * var(--wp-pad-x));
+  padding-left: var(--wp-pad-x); padding-right: var(--wp-pad-x);
+  overflow-y: hidden; overflow-x: hidden; }
+.wplaque.has-actions .wplaque-row { overflow-wrap: anywhere; }
+/* Action plaques retain the active theme's original translucent world surface and use its readable body-text role. */
+.wplaque.has-actions:not(.tone-private) .wplaque-title, .wplaque.has-actions .wplaque-row { color: var(--bone); }
+:root[data-plus-theme="stone"] .wplaque.has-actions:not(.tone-private) .wplaque-title, :root[data-plus-theme="stone"] .wplaque.has-actions .wplaque-row { color: ${STONE_WORD}; }
 
 /* ── PX21a: THE TRANSPORT STRIP - retired (PLUS-DEAD, 2026-09-26): Mount and Cart are a split cell of the worn grid
    (PLUS11), and the strip plain Enhanced drew went with it. */

@@ -125,7 +125,7 @@ test('AUDIT WORLD6a B7: the memory\'s stamp is twelve base-36 digits and a dash,
   assert.equal(relay.mintSharedStamp, mintSharedStamp);
 });
 
-test('AUDIT WORLD6a by source: the settle asks the stack (A3), the keyed shop fallback claims and a stale row buys nothing (A4), a restock is said at the window (A5), an owned house or any ship keeps no room (A6/B6), the first act in a new building pends (A7), a building\'s foes frame is no dungeon heartbeat (B8)', () => {
+test('AUDIT WORLD6a by source: the settle asks the stack (A3), the keyed shop fallback claims and a stale row buys nothing (A4), a restock is said at the window (A5), an owned house or any ship keeps no shared loot room (A6/B6; STAFF-TP adds private presence), the first act in a new building pends (A7), a building\'s foes frame is no dungeon heartbeat (B8)', () => {
   const m = rd('src/scenes/worldModes.js');
   assert.match(m, /if \(interiorWindows\.containsWindow\(s\.openWin\) && !s\.openWin\.done\) return;/, 'A3');
   assert.match(m, /if \(si >= 0\) interiorLootOpened\(`shelf:\$\{si\}`, interiorOverlay, \{ fresh \}\);/, 'A4: claimed');
@@ -135,8 +135,8 @@ test('AUDIT WORLD6a by source: the settle asks the stack (A3), the keyed shop fa
   assert.match(m, /const at = shelf\.items\.indexOf\(it\);\s*if \(at < 0\) return undefined;[\s\S]{0,500}?shelf\.items\.splice\(at, 1\);/, 'A4: a row the shelf no longer holds');
   assert.equal((m.match(/interiorPublishLoot\(key\);   \/\/ WORLD6a: the new day's stock/g) ?? []).length, 0, 'A5: no restock is said at the roll');
   assert.match(m, /function interiorLootOpened\(key, win, \{ fresh = false \} = \{\}\) \{[\s\S]*?interiorPublishLoot\(canon, \{ claim: !fresh \}\);/, 'A5: said at the window, a fresh roll not a claim');
-  assert.match(m, /const owned = b\?\.buildingType === BUILDING_TYPES\.Ship \|\| \(!interiorHome && isHouseOwned\(/, 'B6: any ship');   // HOME1 re-aim: an online home keeps its room (home1.test.js)
-  assert.match(m, /buildingKey: _intShared\?\.owned \? 0 : \(interiorBuilding\?\.buildingKey \?\? 0\)/, 'A6: no room at all');
+  assert.match(m, /const owned = !!privateVisitRoom \|\| b\?\.buildingType === BUILDING_TYPES\.Ship \|\| \(!interiorHome && isHouseOwned\(/, 'B6: any ship');   // HOME1 re-aim: an online home keeps its room (home1.test.js)
+  assert.match(m, /_intShared\?\.owned \? \{ private: true, privateRoom: privateVisitRoom \}/, 'A6: private presence only, no shared loot room');
   const w = rd('src/scenes/world.js');
   assert.match(w, /const _actRoom = \(\) => !!\(online && \(isWorldRoom\(online\.room\) \|\| isWorldRoom\(_onlineKey\)\)\);/, 'A7');
   assert.match(w, /online\.onFoes = \(id, data\) => \{\s*if \(isCellRoom\(online\.room\)\) \{[\s\S]*?if \(modes\?\.applyDungeonFoes\?\.\(id, data\) && modes\?\.mode === 'dungeon'\) _foesInAt = performance\.now\(\);/, 'B8 (WORLD6b: the cell\'s arm ahead of it)');

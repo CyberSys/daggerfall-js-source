@@ -102,7 +102,10 @@ function fakeDoc({ rects = null, w = 1280, h = 720 } = {}) {
   const doc = { defaultView: win, fonts: null };
   const rectReads = { n: 0 };
   const box = (r) => { rectReads.n++; return r ?? { width: 0, height: 0 }; };
-  if (rects) doc.querySelectorAll = () => (rects.others ?? []).map((r) => ({ getBoundingClientRect: () => box(r) }));
+  // These lightweight boxes model only the furniture query. Returning them for the HUD
+  // editor's unrelated selectors caused a timing-dependent crash when its sweep became due.
+  if (rects) doc.querySelectorAll = (selector) => selector === '.hud-top, .hud-bottom, .hud-quick, .travelpanel-bar, .travelpanel-junction, .dftouch-btn, .qtrack'
+    ? (rects.others ?? []).map((r) => ({ getBoundingClientRect: () => box(r) })) : [];
   const mk = (tag) => {
     const n = {
       tagName: tag.toUpperCase(), className: '', textContent: '', id: '', children: [], style: { setProperty() {} }, ownerDocument: doc,

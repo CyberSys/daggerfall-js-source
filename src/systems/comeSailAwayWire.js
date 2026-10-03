@@ -49,7 +49,7 @@ const int = (v, lo, hi) => Number.isInteger(v) && v >= lo && v <= hi;
  */
 export function csaWireRecord(view, toWire = (p) => p) {
   if (!Array.isArray(view)) return null;
-  const b = [], m = [];
+  const b = [], m = [], u = [];
   let underWay = false;
   for (const v of view) {
     if (b.length >= CSA_WIRE_BOATS_MAX) break;
@@ -63,19 +63,21 @@ export function csaWireRecord(view, toWire = (p) => p) {
     const way = [r2(at[0] - p[0]), r2(at[2] - p[2]), Number.isFinite(v.turn) ? r2(v.turn) : 0];
     if (way[0] || way[1] || way[2]) underWay = true;
     m.push(way);
+    u.push(Number.isSafeInteger(v.uid) && v.uid > 0 ? v.uid : 0);
   }
   if (!b.length) return null;
-  return underWay ? { b, m } : { b };
+  return { b, ...(underWay ? { m } : {}), ...(u.some(Boolean) ? { u } : {}) };
 }
 
 /**
  * A peer's word through the door: shape, a known hull and variant, bounds, a unit quaternion, the sail bits and two
  * flags. Anything else is null - the record is dropped whole.
- * @returns {{ boats: { hull:number, variant:number, position:number[], rotation:number[], sails:number, helm:boolean, light:boolean }[] } | null}
+ * @returns {{ boats: { hull:number, variant:number, position:number[], rotation:number[], sails:number, helm:boolean, light:boolean }[], cabin?:boolean } | null}
  */
 export function validCsaRecord(raw) {
   if (!raw || typeof raw !== 'object' || Array.isArray(raw) || !Array.isArray(raw.b)) return null;
-  if (raw.b.length < 1 || raw.b.length > CSA_WIRE_BOATS_MAX) return null;
+  if ((raw.b.length < 1 && raw.cabin !== 1) || raw.b.length > CSA_WIRE_BOATS_MAX) return null;
+  if (raw.u !== undefined && (!Array.isArray(raw.u) || raw.u.length !== raw.b.length || raw.u.some((u) => !Number.isSafeInteger(u) || u < 0) || new Set(raw.u.filter(Boolean)).size !== raw.u.filter(Boolean).length)) return null;
   // CSA-K: the way, when it is said, is a place for each boat - its two speeds and its turn, finite and a boat's
   const m = raw.m;
   if (m !== undefined) {
@@ -99,11 +101,15 @@ export function validCsaRecord(raw) {
     if ((w[10] !== 0 && w[10] !== 1) || (w[11] !== 0 && w[11] !== 1)) return null;
     const boat = { hull: w[0], variant: w[1], position: p, rotation: q.map((v) => v / len), sails: w[9], helm: w[10] === 1, light: w[11] === 1 };
     if (m !== undefined) { const way = m[boats.length]; boat.velocity = [way[0], 0, way[1]]; boat.turn = way[2]; }   // CSA-K
+    if (raw.u?.[boats.length]) boat.uid = raw.u[boats.length];
     boats.push(boat);
   }
-  return { boats };
+  // A cabin keeps its owner's fleet on the exterior stream; only the player is below deck.
+  if (raw.cabin !== undefined && raw.cabin !== 1) return null;
+  if (raw.cabin === 1 && boats.some((b) => b.helm || b.velocity?.some((v) => v !== 0) || b.turn)) return null;
+  return { boats, ...(raw.cabin === 1 ? { cabin: true } : {}) };
 }
 
 /** A change key, so a frame carries the record only when the word moved (the full frame always does). CSA-K: the way
  *  is in it, so a boat brought up short is said at once (its readers stop leading it). */
-export const csaRecordKey = (rec) => (rec ? JSON.stringify(rec.m ? [rec.b, rec.m] : rec.b) : '');
+export const csaRecordKey = (rec) => (rec ? JSON.stringify(rec.u || rec.cabin ? [rec.b, rec.m ?? null, rec.u ?? null, rec.cabin ?? null] : rec.m ? [rec.b, rec.m] : rec.b) : '');
