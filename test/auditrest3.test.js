@@ -79,3 +79,24 @@ test('AUDIT REST III A1: the world host\'s one home stands the save\'s camps out
   stand({ world: { outerCamps: [row] }, terrainScale: 1 });
   assert.deepEqual(calls[1][1], [{ id: 'me:1:1', pos: [100, 'y5@10,20/1', 200] }], 'another ground: re-stood');
 });
+
+test('AUDIT REST III D1: a held bounty\'s day moves with the lane - brought online, a bounty taken half an hour before keeps its day and its kills (the world months ahead of the offline calendar lapsed it, kills and all, on the first tick); taken offline again, the same; the minute a bounty was paid moves with it (mutants: the rows left on the old clock; the paid minutes left)', async () => {
+  const { onlineCopyOf, offlineCopyOf, BOUNTY_RECORD_VENDOR } = await import('../src/systems/offlineCopy.js');
+  const { BOUNTY_VENDOR, lapseBounties, bountyMinutesLeft, BOUNTY_LIFETIME_MINUTES } = await import('../src/systems/bountyBoard.js');
+  assert.equal(BOUNTY_RECORD_VENDOR, BOUNTY_VENDOR, 'the record\'s own name');
+  const own = 523530, world = 865550;
+  const snap = { classicMinutes: own, modData: { [BOUNTY_VENDOR]: { held: [{ id: 'b1', takenAt: own - 30, killed: 2 }], paid: [], dropped: [], paidAt: { s1: own - 600 }, droppedKilled: {}, v: 2 } } };
+  const on = onlineCopyOf(snap, world).modData[BOUNTY_VENDOR];
+  assert.equal(on.held[0].takenAt, world - 30, 'taken half an hour before the click, on the world\'s clock');
+  assert.equal(on.paidAt.s1, world - 600);
+  assert.deepEqual(lapseBounties(on, world), [], 'nothing lapses on the first tick');
+  assert.equal(on.held[0].killed, 2);
+  assert.equal(bountyMinutesLeft(on.held[0], world), BOUNTY_LIFETIME_MINUTES - 30);
+  assert.equal(snap.modData[BOUNTY_VENDOR].held[0].takenAt, own - 30, 'the offline slot keeps its own');
+  const back = offlineCopyOf({ classicMinutes: own, worldMinutes: world, modData: { [BOUNTY_VENDOR]: on } }).modData[BOUNTY_VENDOR];
+  assert.equal(back.held[0].takenAt, own - 30, 'and back on the character\'s clock');
+  assert.equal(back.paidAt.s1, own - 600);
+  const early = onlineCopyOf({ classicMinutes: 900, modData: { [BOUNTY_VENDOR]: { held: [{ id: 'b2', takenAt: 100, killed: 0 }], paidAt: { s: 50 } } } }, 10);
+  assert.equal(early.modData[BOUNTY_VENDOR].held[0].takenAt, 0, 'never below the calendar\'s start');
+  assert.equal(early.modData[BOUNTY_VENDOR].paidAt.s, 0);
+});

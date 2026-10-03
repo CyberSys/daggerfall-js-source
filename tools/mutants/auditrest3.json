@@ -146,5 +146,41 @@
     "tests": [
       "test/auditrest2_camps.test.js"
     ]
+  },
+  {
+    "name": "AUDITREST3-D1-the-rows-left-on-the-old-clock",
+    "file": "src/systems/offlineCopy.js",
+    "old": "for (const h of Array.isArray(ledger?.held) ? ledger.held : []) if (h && Number.isFinite(h.takenAt)) h.takenAt = Math.max(0, h.takenAt + delta);",
+    "new": "void ledger;",
+    "tests": [
+      "test/auditrest3.test.js"
+    ]
+  },
+  {
+    "name": "AUDITREST3-D1-the-paid-minutes-left",
+    "file": "src/systems/offlineCopy.js",
+    "old": "if (Number.isSafeInteger(paidAt[k])) paidAt[k] = Math.max(0, paidAt[k] + delta);",
+    "new": "void k;",
+    "tests": [
+      "test/auditrest3.test.js"
+    ]
+  },
+  {
+    "name": "AUDITREST3-D1-a-day-before-the-calendar",
+    "file": "src/systems/offlineCopy.js",
+    "old": "h.takenAt = Math.max(0, h.takenAt + delta);",
+    "new": "h.takenAt = h.takenAt + delta;",
+    "tests": [
+      "test/auditrest3.test.js"
+    ]
+  },
+  {
+    "name": "AUDITREST3-D1-a-paid-minute-before-the-calendar",
+    "file": "src/systems/offlineCopy.js",
+    "old": "paidAt[k] = Math.max(0, paidAt[k] + delta);",
+    "new": "paidAt[k] = paidAt[k] + delta;",
+    "tests": [
+      "test/auditrest3.test.js"
+    ]
   }
 ]
