@@ -12107,7 +12107,7 @@ export async function bootWorld(canvas, renderer, params, status) {
           notice: (lines) => { const show = () => { try { townTalk.showOverlay(new ActionTextBox([...lines])); } catch { setTimeout(show, 500); } }; show(); },
           note: (text) => questBridge?.notebook?.addNote(text),
           say: (line) => townTalk.say(line),
-          checkpoint: () => onlineCheckpoint(),   // the emptied scene in the save before the move is said read
+          checkpoint: () => onlineCheckpointLanded(),   // the emptied scene in the save before the move is said read - AUDIT PRE-MERGE 1003 O10: the realm's answer to its put, not the hand-over
         },
       });
       for (const m of moved) console.log(`[arena] the online home ${m.from} moved to ${m.to}${m.made ? '' : ' (read again)'}`);
@@ -14193,12 +14193,12 @@ export async function bootWorld(canvas, renderer, params, status) {
    *  makes to the pack (checkpointedTradePack). Refused where the exit save is, and while a duel is in play. Answers
    *  whether it wrote. */
   let _checkpointAt = -Infinity;
-  const onlineCheckpoint = () => {
+  const onlineCheckpoint = ({ sink = null } = {}) => {   // AUDIT PRE-MERGE 1003 O10: `sink` a realm save's sink of the caller's (onlineCheckpointLanded)
     if (!checkpointAllowed({ online: !!online, spawned: playerSpawned, seatOut: seatOut(), duel: !!duelMgr?.duel, walkWaiting: ownWalkWaiting(playerEntity) })) return false;   // AUDIT LIVED1b S1
     _checkpointAt = performance.now();
     try {
       // REALM P1.3: a realm character's checkpoint is ONE, the service's - the composer's sink sends it, no slot is written
-      if (realmSession) return realmCheckpoint();
+      if (realmSession) return realmCheckpoint({ sink });
       const names = exitAutosaveNames(playerEntity, { deathUp: townTalk.overlay instanceof DeathScreen || !!modes?.deathUp?.() });
       for (const saveName of names) {
         if (modes) modes?.quickSaveNow(saveName, { quiet: true });   // `?.` inside the test: audit24 wave37's gate above the declaration is all-or-nothing
@@ -14209,13 +14209,27 @@ export async function bootWorld(canvas, renderer, params, status) {
   };
   /** REALM P1.3: THE REALM'S CHECKPOINT - the character composed by the standing host and handed to the session by the
    *  composer's sink. Refused as the exit save is on the death screen: a dead character is never the realm's save. */
-  function realmCheckpoint() {
+  function realmCheckpoint({ sink = null } = {}) {
     if (!realmSession || realmSession.lost) return false;
     if (townTalk.overlay instanceof DeathScreen || modes?.deathUp?.() || !(playerEntity.health > 0)) return false;
     // AUDIT REALM2 M5: the composer's own answer - a save it refused (the court, the Ocean Holes descent) is no checkpoint,
     // and a trade's hold (realmTradeEscrow's `=== false`) must not begin over the older record the service holds
-    return !!(modes ? modes?.quickSaveNow(QUICK_SAVE_NAME, { quiet: true }) : worldQuickSave(QUICK_SAVE_NAME, { quiet: true }));   // `?.` even inside the ternary: audit24 wave37's gate above the declaration is all-or-nothing
+    const opts = sink ? { quiet: true, sink } : { quiet: true };   // AUDIT PRE-MERGE 1003 O10: a caller's sink, to hear the put's answer
+    return !!(modes ? modes?.quickSaveNow(QUICK_SAVE_NAME, opts) : worldQuickSave(QUICK_SAVE_NAME, opts));   // `?.` even inside the ternary: audit24 wave37's gate above the declaration is all-or-nothing
   }
+  /** AUDIT PRE-MERGE 1003 O10: A CHECKPOINT THAT LANDED - for a door that must not say a thing done before the save that
+   *  holds it is the realm's (systems/onlineHomes.js moveArenaHomes: a displaced home's move said read). A realm
+   *  character's checkpoint answers the realm's word on the PUT that carried it (the composer's sink - scenes/shared.js
+   *  realmSaveSink, `{ ok }`), not the save handed over: `onlineCheckpoint` answers true the moment the save is handed to
+   *  the session, the put still out - refused, or the page gone first, it left the record's old scene full and the move
+   *  read, the case the ARENA4b record says the order prevents. False when refused outright; a slot's answer at once. */
+  const onlineCheckpointLanded = () => {
+    const into = realmSession ? realmSaveSink() : null;
+    if (!into) return onlineCheckpoint();
+    let put = null;
+    if (!onlineCheckpoint({ sink: (snap) => { put = into(snap); return put; } })) return false;
+    return put ?? false;
+  };
   /** REALM P1.3: THE CHARACTER IS NO LONGER THIS TAB'S (another tab or device joined it, it was deleted, the account
    *  signed out): to the door, with the reason - a realm character never plays on offline. */
   function realmLost(why) {
@@ -20824,6 +20838,9 @@ export async function bootWorld(canvas, renderer, params, status) {
     try { duelLeaveNow(); } catch { /* no duel built, none to end */ }
     online?.supersede();
     for (const link of chatLinks?.values?.() ?? []) link.supersede();
+    // AUDIT PRE-MERGE 1003 O9: and the arena's own rooms (scenes/arenaOnline.js leaveAll) - its hall's socket kept this tab
+    // in the relay's queue, showed it the offer and sent it to the sand offline; its exhibition's and its verdict's too
+    try { arenaOnline?.leaveAll(); } catch (e) { console.warn('[online] leaving the arena\'s rooms', e?.message ?? e); }
     travellerBook.clear(); travellerSent.last = null;   // AUDIT TV C5: offline, nobody is seen travelling - and the next seat's room holds nothing of mine
     exteriorFoes.clearPuppets(); modes?.clearOwnPuppets?.(); _foesRoom = null;
     // AUDIT ONESEAT H5: and the others' camps and their cells' kept teams, which the frame's tail prunes - a frame this

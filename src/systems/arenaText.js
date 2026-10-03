@@ -506,6 +506,7 @@ export const ARENA_TEXT = F({
     goingLine: (name) => `To the sand! ${name} is on the way.`,
     ratingLine: (r, w, l) => `Your season rating is ${r} - ${w} won, ${l} lost.`,
     whyOffline: 'Online only',
+    hallWait: 'The hall is a moment away - press again.',   // AUDIT PRE-MERGE 1003 O4: online, the hall's socket still opening
     whyGuest: 'Registered accounts only',
     whyBusy: 'You are in a bout',
     whyQueued: 'You are seeking a match',

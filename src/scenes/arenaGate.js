@@ -107,7 +107,15 @@ export function createArenaGate(deps) {
   const liveHour = () => deps.liveHour?.() ?? null;
   /** ARENA4: the arena online while it is live, else null. */
   const online = () => { const o = deps.online?.() ?? null; return o?.live?.() ? o : null; };
-  const begun = () => !!deps.begun?.();
+  /** Whether the hour's bout has had the word - the book on it shut. AUDIT PRE-MERGE 1003 O3: online, also once this
+   *  screen has HEARD its fight begin or its verdict (scenes/arenaOnline.js exhibitionBegun): the host's `begun` reads the
+   *  mirror standing here, which goes home after the healers or as the player steps indoors - and the book, open 20 game
+   *  minutes, took a wager on the side the relay had already named, settled by the verdict kept here. */
+  const begun = () => {
+    if (deps.begun?.()) return true;
+    const ex = exhibitionFor(gm());
+    return !!ex && !!online()?.exhibitionBegun?.(ex.hour);
+  };
   /** The book written back into the league. */
   const setBook = (book) => { P.arenaLeague = { ...league(), book }; };
 

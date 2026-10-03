@@ -849,9 +849,17 @@ export function createArenaBouts(deps) {
           // MY HEALTH IS THE RELAY'S: its share of my whole, on my own scale, never under the breath of life
           const [hp, max] = mine;
           const h = Math.max(1, Math.round((hp / Math.max(1, max)) * Math.max(1, P.maxHealth ?? 1)));
-          if (h < (P.health ?? h)) C.relay.struck?.(Math.round((P.health ?? h) - h));
-          C.relay.myHealth?.(h, P.maxHealth ?? h);
-          C.lastHealth = h;
+          // AUDIT PRE-MERGE 1003 O1: once the healers have come no word brings my health DOWN again - the relay's `hp`
+          // rode with the heal carrying the bout's END health (its law heals nobody; net/arenaBrain.js now heals at the
+          // word, and this holds against any word after it): the loser was healed, struck for the difference and set
+          // back to 1. A word that lifts me stands (a fighter back on the sand mid-heal hears the healed `hp`, its heal
+          // event missed); the blow that ends the fight is still felt - its `hp` comes on the end's own beat
+          const healed = C.b.phase === 'heal' || C.b.phase === 'done';
+          if (!(healed && h < (P.health ?? h))) {
+            if (h < (P.health ?? h)) C.relay.struck?.(Math.round((P.health ?? h) - h));
+            C.relay.myHealth?.(h, P.maxHealth ?? h);
+            C.lastHealth = h;
+          }
         }
         break;
       }
@@ -941,9 +949,10 @@ export function createArenaBouts(deps) {
     }
     if (Number.isFinite(C.doneAt) && t - C.doneAt >= CROWD_STAYS_MS && C.stage?.kind === 'city') { dismiss(); return; }   // ARENA4b: the city's crowd goes home, as this screen's own bout's
     const bark = t - C.barkAt < BARK_SHOWN_MS ? C.bark : '';
-    // ARENA4b: in the stands, the two presses (Cheer, Boo) under the plate - shut while the allowance runs
-    const stands = C.you ? null : { ready: t - C.cheerAt >= CHEER_GAP_MS };
-    deps.drawHud?.(near > 0 ? arenaHudModel(C.b, C.crowd, t, { you: C.you, stamina: o.stamina ?? null, bark, quiet: false, teams: C.teams, stands }) : null, { hidden: !!o.hidden, touch: !!o.touch, cheer: C.you ? null : cheerDoor });
+    // ARENA4b: in the stands, the two presses (Cheer, Boo) under the plate - shut while the allowance runs. AUDIT PRE-MERGE
+    // 1003 O7: and only with a door behind them (`send.cheer`) - never two presses that answer nothing
+    const stands = C.you || typeof C.relay.send?.cheer !== 'function' ? null : { ready: t - C.cheerAt >= CHEER_GAP_MS };
+    deps.drawHud?.(near > 0 ? arenaHudModel(C.b, C.crowd, t, { you: C.you, stamina: o.stamina ?? null, bark, quiet: false, teams: C.teams, stands }) : null, { hidden: !!o.hidden, touch: !!o.touch, cheer: stands ? cheerDoor : null });
     crowdFrame(C, t);
   }
   /** THE VERDICT of a relay's bout: the Herald's words; a ladder win's purse (the relay refereed it - the account's climb
@@ -981,13 +990,17 @@ export function createArenaBouts(deps) {
    * watched from the stands (startRelay, `me` '') on the city's sand or the floor's instance, carrying the hour's
    * exhibition (`ex` - net/arenaExhibition.js exhibitionFor) so the window, the Herald, the book and the music read it as
    * the hour's: its Red against its Blue on the versus bar, the exhibition's call, the purse's bark and - at its verdict -
-   * the bookmaker told what the relay decided (`exhibitionVerdict`, the local bout's own door).
-   * @param {{ o: string, ex: any, names?: (i: number, mobile: number) => any, onEnd?: (r: any) => void }} p
+   * the bookmaker told what the relay decided (`exhibitionVerdict`, the local bout's own door). AUDIT PRE-MERGE 1003 O7:
+   * `send.cheer` the stands' shout, the host's door.
+   * @param {{ o: string, ex: any, names?: (i: number, mobile: number) => any, onEnd?: (r: any) => void, send?: { cheer?: (dir: number) => boolean } }} p
    */
   function startExhibitionRelay(p) {
     const ex = p.ex;
+    // AUDIT PRE-MERGE 1003 O7: the stands' shout is the one door back (`send.cheer`, the host's - the bout's room from the
+    // floor, the city's socket on the sand); no blow and no yield from the stands. It was `{}`: the presses drawn, every
+    // press refused
     const C = startRelay(/** @type {any} */ ({
-      ...p, kind: 'ex', me: '', next: null, send: {},
+      ...p, kind: 'ex', me: '', next: null, send: { cheer: p.send?.cheer },
       onEnd: (r) => {
         if (cur === C && r.side !== null) { C.bark = ARENA_TEXT.purse.won(EXHIBITION_PURSE); C.barkAt = now(); }
         deps.exhibitionVerdict?.(ex.hour, r.side);   // the bookmaker settles by the relay's verdict
