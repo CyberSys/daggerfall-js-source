@@ -437,7 +437,7 @@ are the **narrowed remainders** Wave D recorded rather than shipped
   named exactly: a jump to an anchor on ANOTHER map pixel, which is
   `_teleportToPixel`'s - the streamer's - and there is no streamer here.
   Its refusal names the reason instead of eating the cast.*
-- ~~**`src/scenes/exterior.js:2085`** - PX3: this test host mounts no
+- ~~**`src/scenes/exterior.js:1959`** - PX3: this test host mounts no
   quest bridge, so the pause window's Quests tab says so.~~ **SHIPPED
   (QX1, 2026-09-03).** *The triage's premise - "this file has no bridge
   at all and constructs no quest machine" - was a missing construction,
@@ -693,9 +693,9 @@ could see the others' closures until the squash, which is how "leaving
   narrowed the header and **E3** built the console host they needed.
 
 Five of the sites that survived Wave E only MOVED, and `Home.md` was
-regenerated onto the new sites: ~~`exterior.js:1644` -> `:1332`~~
+regenerated onto the new sites: ~~`exterior.js:1619` -> `:1307`~~
 (**CLOSED at TP2**: the Recall interim narrowed to the one arm this host
-cannot take, `exterior.js:2107`), ~~`exterior.js:2157` -> `:1727`~~
+cannot take, `exterior.js:1981`), ~~`exterior.js:2031` -> `:1702`~~
 (**CLOSED at QX1**: this host took the quest bridge, so the pause window's
 Quests tab has a machine to read), ~~`world.js:7363` -> `:7389`~~
 (**CLOSED at the ship landing**), ~~`worldModes.js:2053` -> `:1923`~~
