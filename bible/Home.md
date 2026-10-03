@@ -185,8 +185,9 @@ notes: <title>` - the template asks, the release reads it there
 (`scripts/desktopRelease.mjs notes`), and the published release is the
 archive. Never commit a patch-notes file: 147 piled up at the root, each
 read once, and `test/rel4_release.test.js` now fails the suite on one.
-A description fixed after its release was cut reaches it by running
-`.github/workflows/release-notes.yml` with the release's tag (REL7).
+A description fixed after its release was cut reaches it on its own:
+editing a merged pull request's description has
+`.github/workflows/release-notes.yml` rewrite that release's notes (REL7).
 
 ## Sections
 

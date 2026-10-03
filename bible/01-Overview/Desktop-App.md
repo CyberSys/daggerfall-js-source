@@ -215,20 +215,29 @@ R2-C4 findings were about it), its fixtures and twenty-two mutant
 records; `tools/mutants/rel6.json`, 31, all dead.
 
 **REL7 (2026-10-03, Mac: "I need you to do this auto"): A PUBLISHED
-RELEASE'S NOTES, READ AGAIN.** The publish job reads the notes once, as it
-runs. app-v0.1.5767 (#547 and #548) went out as "Fixes and improvements.":
-#547's notes had been a PATCH-NOTES file REL6 deleted, and reached its
-description a minute after the job had read it. A published release is
-never re-cut, but its TEXT can be written again:
-`.github/workflows/release-notes.yml`, run by hand with the release's tag,
-checks that tag out, reads the notes of the pull requests between the
-previous release and it again (`desktopRelease.mjs renotes`, which refuses
-a checkout that is not the tag), and patches the release's body - the
-notes above GitHub's generated list, which stays; no file of the release
-is touched. The launcher shows the new notes the next time it reads the
-releases. A description fixed after its merge reaches its release this
-way. `test/rel7_renotes.test.js` (3), `tools/mutants/rel7.json` (10, all
-dead).
+RELEASE'S NOTES, READ AGAIN - ON THEIR OWN.** The publish job reads the
+notes once, as it runs. app-v0.1.5767 (#547 and #548) went out as "Fixes
+and improvements.": #547's notes had been a PATCH-NOTES file REL6
+deleted, and reached its description a minute after the job had read it.
+A published release is never re-cut, but its TEXT can be written again:
+`.github/workflows/release-notes.yml` runs when a pull request MERGED into
+the default branch has its DESCRIPTION edited (pull_request_target,
+`edited`; a title is not notes, an open pull request is nothing) or by
+hand with a tag. It finds the first release whose tag contains the merge
+(a version sort - app-v0.1.9 before app-v0.1.10; none yet is nothing to
+do, as the publish job still to come reads the description as it is),
+reads the notes of the pull requests between the previous release and
+that tag again (`desktopRelease.mjs renotes`: main's script, the tag's
+history - the first cut checked the tag out, and app-v0.1.5767's own
+script had no `renotes`), and patches the release's body: the notes above
+GitHub's generated list, which stays; no file of the release is touched.
+pull_request_target's token writes, so nothing checks out or runs a pull
+request's code; a description is read through the API, and only one the
+repository's own people opened is printed. The launcher shows the new
+notes the next time it reads the releases. The dispatch from a Claude
+session is refused (403, no actions: write); an edit to the description
+is the door. `test/rel7_renotes.test.js` (3), `tools/mutants/rel7.json`
+(15, all dead).
 
 
 `.github/workflows/release-desktop.yml` cuts a release through any
