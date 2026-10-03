@@ -46,6 +46,7 @@ import { DEED_SELL_MULT, CROSSED_DEED_LINES } from './banking.js';
 import { guildTagText } from '../net/guildLaw.js';   // GUILD1d: a hall's tag, as a name wears it
 import { GUILD_HALL_ENTRIES, GUILD_HALL_ENTRY_WORDS, guildHallPrice } from '../net/hallLaw.js';   // GUILD1d: a guild's hall
 import { heraldryOf } from '../net/heraldryLaw.js';   // GUILD1d: a hall's heraldry, off the town's answer
+import { layoutStampOfMapId, CLASSIC_LAYOUT } from './layoutPins.js';   // WD3: a home is bought in its town's layout
 
 /** How long a town's answer is believed before a door asks again. */
 export const HOME_TOWN_TTL_MS = 60_000;
@@ -372,10 +373,10 @@ export function createOnlineHomes({ api, character = () => null, now = () => Dat
   const refused = (r) => ({ ok: false, error: r?.error ?? 'server', ...(Number.isSafeInteger(r?.seq) ? { seq: r.seq } : {}) });
   const realmOf = (r) => (r?.data?.realm ? { data: { realm: r.data.realm } } : {});
 
-  async function claim({ mapId, buildingKey, region, price, realm = null }) {
+  async function claim({ mapId, buildingKey, region, price, realm = null, layout = null }) {
     const id = idOf(mapId);
     const me = character();
-    const r = await api.claim({ mapId: id, buildingKey, region, character: me, price, ...(realm ? { realm } : {}) });
+    const r = await api.claim({ mapId: id, buildingKey, region, character: me, price, ...(realm ? { realm } : {}), layout: layout || null });   // WD3 (AUDIT WD3 B2): always said - null is Daggerfall's own
     if (r?.ok) {
       const had = towns.get(id)?.homes.get(buildingKey);
       wrote(id, buildingKey, { buildingKey, owner: had?.owner ?? '', entry: r.data?.home?.entry ?? HOME_ENTRY_DEFAULT, mine: true, character: me });
@@ -458,6 +459,10 @@ export async function buyOnlineHome(homes, { mapId, buildingKey, region, price, 
   out.add(key);
   try {
     if (!afford(price)) return { ok: false, error: 'gold' };
+    // WD3: the layout this town stands in for the room - the service keeps it for the town's first home, and every
+    // client stands the town so from then on (net/homeLaw.js); Daggerfall's own sends none
+    const stamp = layoutStampOfMapId(mapId);
+    const layout = stamp && stamp !== CLASSIC_LAYOUT ? stamp : null;
     if (realm) {
       // REALM P2.2b: the claim and the record's payment are one write on the service - the purse pays at once and gets it
       // back on a refusal (systems/realmSaves.js realmGoldAct); there is no claim to give back
@@ -466,11 +471,11 @@ export async function buyOnlineHome(homes, { mapId, buildingKey, region, price, 
         // AUDIT REALM: a claim answered as the house already this character's (`repeat`) moved no gold on the record - the
         // purse's reserve comes back, or the next checkpoint would write the price paid twice
         apply: (/** @type {any} */ res) => { if (res?.repeat) refund?.(price); },
-        call: (/** @type {any} */ at) => homes.claim({ mapId, buildingKey, region, price, realm: at }),
+        call: (/** @type {any} */ at) => homes.claim({ mapId, buildingKey, region, price, realm: at, layout }),
       });
       return r?.ok ? { ok: true } : { ok: false, error: r?.error ?? 'server' };
     }
-    const r = await homes.claim({ mapId, buildingKey, region, price });
+    const r = await homes.claim({ mapId, buildingKey, region, price, layout });
     if (!r.ok) return r;
     if (!afford(price)) {
       await homes.release(mapId, buildingKey);

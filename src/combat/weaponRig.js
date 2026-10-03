@@ -295,9 +295,9 @@ export async function autoBuildArms(entity, { dataCount = morrowindDataCount, me
  *                     The note that hosts without a HUD text layer
  *                     pass console is retired: every call site hands
  *                     over a real one - hudText.add
- *                     (dungeonContext.js:3325), townTalk.say
- *                     (exterior.js:2196, world.js:8718) and
- *                     worldModes' own interior sink (worldModes.js:515,
+ *                     (dungeonContext.js:3358), townTalk.say
+ *                     (exterior.js:2328, world.js:8925) and
+ *                     worldModes' own interior sink (worldModes.js:524,
  *                     which warns to console only where a host mounts
  *                     no townTalk at all), so the empty default below
  *                     is unreached,
