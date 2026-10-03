@@ -48,6 +48,9 @@ export const REST_ACT_TEXT = Object.freeze({
   channelBed: 'Resting...',
   nextNight: (minutes) => `A night can pass again in ${minutes} ${minutes === 1 ? 'minute' : 'minutes'}.`,
   rested: 'Rested',
+  carried: (name) => `${name} rests here, and you rest with them through the night.`,   // REST5: a member's night, carried
+  carriedShort: (name) => `${name} rests here, and you rest a while with them.`,
+  carriedSkipped: (name) => `${name} rests here - you are too busy to rest with them.`,
 });
 
 /** Whether a night may pass now: none yet, the interval run out, or a clock behind the stamp (a load from another
@@ -107,3 +110,10 @@ export function spendRoomNight(room) {
   if (!room || !Number.isFinite(room.expiryMinutes)) return;
   room.expiryMinutes -= ROOM_DAY_MINUTES - NIGHT_MINUTES;
 }
+
+/** REST5 (bible/06-Systems/Rest-Arc.md 2.6): THE NIGHT IS HEARD. A host that shares the night (world.js, the party's
+ *  pose) listens here; createRestDeps' restNight calls it after a night slept whole - never a carried one (a member's
+ *  night carried for me is theirs, and is not passed on again). One listener: the page has one party. */
+let _nightListener = null;
+export function setNightListener(fn) { const prev = _nightListener; _nightListener = typeof fn === 'function' ? fn : null; return prev; }
+export const heardNight = () => { _nightListener?.(); };

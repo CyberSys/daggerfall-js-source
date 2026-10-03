@@ -77,8 +77,9 @@
     "tests": [
       "test/ovh4_partyrest.test.js"
     ],
-    "old": "const partyRestHere = () => !!social?.party && !modes?.insidePartyRestExempt && restTogether();",
-    "new": "const partyRestHere = () => !!social?.party && restTogether();"
+    "old": "const partyRestHere = () => !sharedClockOn() && !!social?.party && !modes?.insidePartyRestExempt && restTogether();",
+    "new": "const partyRestHere = () => !sharedClockOn() && !!social?.party && restTogether();",
+    "note": "REST5 (PIN MOVED): re-aimed by content."
   },
   {
     "name": "OVH4-outdoor-unsaid",

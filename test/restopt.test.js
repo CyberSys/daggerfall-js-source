@@ -45,7 +45,7 @@ test('REST-OPT the host: the pose says `nr`; resting alone opens a rest of my ow
   assert.match(W, /\.\.\.\(!restsWithParty\(\) \|\| \(_restAloneNight && playerEntity\.isResting\) \? \{ nr: 1 \} : \{\}\),/);
   assert.match(W, /const restTogether = \(\) => partyRestsTogether\(restsWithParty\(\), social\?\.party \?\? null, !!social\?\.leads\?\.\(\)\);/);
   assert.match(W, /const nearRestMembers = \(from = player\.feetAt\(\)\) => nearPartyMembers\(from\)\.filter\(\(m\) => !restsAlone\(m\)\);/);
-  assert.match(W, /const partyRestHere = \(\) => !!social\?\.party && !modes\?\.insidePartyRestExempt && restTogether\(\);/);
+  assert.match(W, /const partyRestHere = \(\) => !sharedClockOn\(\) && !!social\?\.party && !modes\?\.insidePartyRestExempt && restTogether\(\);/);
   const gate = W.slice(W.indexOf('  const partyRestGate = () => {'), W.indexOf('  const partyRestGate = () => {') + 6000);
   assert.match(gate, /if \(!social\?\.party\) return null;\n    if \(!restTogether\(\)\) return null;/);
   assert.match(gate, /const nearHere = nearRestMembers\(\);/);

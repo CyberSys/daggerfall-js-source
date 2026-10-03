@@ -54,7 +54,7 @@ import { killIfAnyLiveStatZero } from '../systems/statMods.js';   // AUDIT 24 (w
 import { hasSpecialAbility, SPECIAL_ABILITY, healthRecoveryRate, fatigueRecoveryRate, spellPointRecoveryRate, restIgnoresNoRegen } from '../systems/rest.js';
 import { entityImprovedAthleticism } from '../systems/enchantments.js';   // AUDIT 26 F044: the ImprovesTalents fatigue arm   // the rested hour's three rates, one home for every host (V5 + S40, same line from two lanes)
 import { getPreventedRestMessage } from '../systems/restSession.js';
-import { nightDue, nightRealMinutesLeft, stampNight, runRestNight, topUpRest, spendRoomNight, REST_CHANNEL_SECONDS, REST_ACT_TEXT } from '../systems/restAct.js';   // REST1: the rest act online
+import { nightDue, nightRealMinutesLeft, stampNight, runRestNight, topUpRest, spendRoomNight, heardNight, REST_CHANNEL_SECONDS, REST_ACT_TEXT } from '../systems/restAct.js';   // REST1: the rest act online
 import { registerPreventRestCondition } from '../systems/restSession.js';   // SURV7: the survival rest gate's seam
 import { survivalFeed, installSurvivalGate } from '../systems/survival/env.js';   // SURV7: the needs' feed and the gate, composed from the entity   // ROAD-B B5: TickRest's per-frame poll (:357-360, :407-410)
 import { createNearbyScan, updateNearbyObjects, detectedMarkers, hasLiveDetector } from '../systems/nearbyObjects.js';   // X4: the Detect scan
@@ -2406,13 +2406,14 @@ export function createRestDeps(entity, opts = {}) {
   out.restAct = () => (sharedClockOn()
     ? { point: restPoint?.() ?? null, night: nightDue(entity, ownMinutes()), channelSeconds: REST_CHANNEL_SECONDS }
     : null);
-  out.restNight = ({ rentedHours = -1 } = {}) => {
+  out.restNight = ({ rentedHours = -1, carried = false } = {}) => {   // REST5: `carried` - a party member's night, mine to sleep but not to pass on
     const { result, hours } = runRestNight(out, { rentedHours });
     if (hours > 0) stampNight(entity, ownMinutes());
     if (!result?.died && !result?.enemyBroke && !result?.prevented) {
       topUpRest(entity, _kind, _rules, { night: true, maxFatigueOf: maxFatigue });
       if (!result?.rentExpired) spendRoomNight(out.restPlace?.()?.room ?? null);
       out.onNightSlept?.();   // REST2: your own camp's charge (scenes/camps.js spendNightNear)
+      if (!carried) heardNight();   // REST5: the party's pose says a night was slept (world.js)
     }
     surfacePlayer();
     return result;

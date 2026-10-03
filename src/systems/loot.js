@@ -18,7 +18,7 @@
 // (setMagicItemTemplates), and EVERY host that can generate loot now
 // loads it: scenes/shared.js:136-139 (loadMagicRegistries) feeds the
 // module table this file reads, called from dungeonContext.js:1677,
-// world.js:5294 and exterior.js:1329 - interiors run inside those hosts
+// world.js:5295 and exterior.js:1329 - interiors run inside those hosts
 // and read the same table. What is left is the data-absent boot, and
 // that is DFU's own answer rather than a stand-in: shared.js:147
 // records it, the category simply stays empty.

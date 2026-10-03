@@ -168,7 +168,8 @@ import { placeFoeFreely, PLACE_FOE_DEFAULTS } from '../systems/quest/sceneMount.
 import { PLAYED_STEP_MAX_SECONDS } from '../systems/quest/clock.js';   // WORLD7: the quest clocks' played step online
 import { mintQuestFoeWave, placeFoeEnv, entityOccupancy, questFoeGender, reviveQuestBehaviour, heldSpots, holdSpotWhile, questBoxHoldsFoes, questShareTag, sharedQuestFoe, partnerStandsQuestFoes, questBehaviourFor, adoptsOrphanQuestFoe, isPrivateQuestFoe, KeptKillLedger, creditKeptKills } from './questFoeHost.js';   // B1   // AUDIT 63r F24: SerializableEnemy.cs:206-217's quest-link arm, the one home both hosts use
 import { ENEMY_BASICS } from '../characters/enemyBasics.js';   // MERGE: FinalizeFoe's Flying lift reads the behaviour flag
-import { intermittentEnemySpawn, setEnemyAlert, areEnemiesNearby, foeHostile } from '../systems/encounters.js';   // OW6: foeHostile, the one hostility gate
+import { intermittentEnemySpawn, setEnemyAlert, areEnemiesNearby, foeHostile, quietNights } from '../systems/encounters.js';   // OW6: foeHostile, the one hostility gate   // REST5: a carried night wakes to no ambush
+import { nightDue, setNightListener, REST_ACT_TEXT } from '../systems/restAct.js';   // REST5: the party's night
 import { createStandingWatch, installLegalNotices } from './standingHost.js';   // REP1: the watch's stop; REP5: the law's notices
 import { SPAWNER_ARMS } from '../systems/encounters.js';   // SURV6: the hunt's beast stands on the wilderness arm
 import { skillValue } from '../systems/skills.js';   // SURV6: the hunter's four skills
@@ -11508,7 +11509,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     // so an F9 pressed inside a shop recorded the street's sheath and
     // hand. The mode host answers for the rig that is actually drawn
     // and null outside interior mode (the dungeon owns its own
-    // composer, dungeonContext.js:8015), so exterior mode and a
+    // composer, dungeonContext.js:8016), so exterior mode and a
     // pre-seam mode host compose exactly as before, per field.
     const wp = modes?.weaponPose?.() ?? null;
     const snap = snapshotPlayer(playerEntity, {
@@ -18401,10 +18402,57 @@ export async function bootWorld(canvas, renderer, params, status) {
    *  (TAVERN-REST1/GUILD-REST1, every member sleeps for themselves there). The same two questions partyRestGate asks
    *  before it asks the party anything; ui/restDoor.js reads it (the rest deps' `partyRest`) to open the party card
    *  on either skin. */
-  const partyRestHere = () => !!social?.party && !modes?.insidePartyRestExempt && restTogether();   // REST-OPT: resting alone is a rest of my own
+  // REST5 (2026-10-03, bible/06-Systems/Rest-Arc.md 2.6; OPEN 11 and 15): ONLINE THE NIGHT CARRIES THE PARTY. The vote,
+  // the gather and the mirrors retire online (partyRestGate and partyRestHere answer nothing there, and
+  // markPartyRestSpent stamps no start - the stamp is the night's):
+  // a rest is an act at a rest point, and when a member sleeps a NIGHT through to its end, the pose's `restStartedAt`
+  // - already on the wire, on the shared clock - is stamped with it (setNightListener; createRestDeps' restNight calls
+  // it, never for a carried night). Every member within 15 m who keeps "Rest with my party" on (nearRestMembers: here,
+  // the same place, not resting alone) sees the stamp move and sleeps the same night in the same step, through their
+  // OWN host's bag - their own clock, their own rest kind and yield, their own night interval (inside it, a short
+  // rest) - and wakes to no ambush (encounters.js quietNights: only the rester rolls). A member mid-fight, swimming,
+  // in a window or resting already is skipped and told, never refused. No relay bump: an older client reads the stamp
+  // as its own "a rest just happened" cooldown, at worst.
+  const PARTY_NIGHT_FRESH_MS = 30_000;   // a stamp older than this when it is first seen moving is a night long over
+  const hostRestDeps = () => {
+    const mode = modes?.mode ?? 'exterior';
+    return mode === 'interior' ? modes?.restDeps?.() ?? null : mode === 'dungeon' ? modes?.dungeonCtx?.restDeps?.() ?? null : outdoorRestDeps;
+  };
+  /** A rest point everyone may use - a fire, a tent, a bed; never a Bedroll, which keeps the stranger rule. */
+  const publicRestPoint = () => { const pt = hostRestDeps()?.restAct?.()?.point; return !!pt && pt.where !== 'bedroll'; };
+  const _nightSeen = new Map();   // acct -> the night stamp last seen on that member's pose (the first sight a baseline)
+  const carryPartyNight = () => {
+    if (!social?.party) { _nightSeen.clear(); return; }
+    const now = social.now();
+    for (const m of social.others()) {
+      const at = stampOf(m.p?.restStartedAt, now);
+      const seen = _nightSeen.get(m.acct);
+      _nightSeen.set(m.acct, at);
+      if (seen === undefined || !at || at === seen || now - at > PARTY_NIGHT_FRESH_MS) continue;
+      if (!restsWithParty() || !nearRestMembers().some((n) => n.acct === m.acct)) continue;
+      sleepCarriedNight(m.name || 'A party member');
+      return;   // one night a frame
+    }
+  };
+  const sleepCarriedNight = (name) => {
+    if (playerEntity.isResting || townTalk.overlay || mirrorRestRefused()) { setMidScreenText(REST_ACT_TEXT.carriedSkipped(name), 4); return; }
+    const bag = hostRestDeps();
+    if (!bag?.restNight) return;
+    const night = nightDue(playerEntity, ownMinutes());
+    let r = null;
+    quietNights(() => {
+      bag.setResting(true);
+      try { r = night ? bag.restNight({ carried: true }) : bag.restShort(); } finally { bag.setResting(false); }
+    });
+    if (night && !r?.died && !r?.enemyBroke) bag.onRestFinished?.();   // the night's skill raise, as the window's close gives it
+    setMidScreenText(night ? REST_ACT_TEXT.carried(name) : REST_ACT_TEXT.carriedShort(name), 5);
+  };
+  setNightListener(() => { if (social && sharedClockOn()) { _partyRestJustStartedAt = social.now(); _partyComposedAt = -Infinity; } });
+  const partyRestHere = () => !sharedClockOn() && !!social?.party && !modes?.insidePartyRestExempt && restTogether();   // REST-OPT: resting alone is a rest of my own
   const partyRestGate = () => {
     if (!social?.party) return null;
     if (!restTogether()) return null;   // REST-OPT: I (or the leader) rest alone - my rest is my own, as in a tavern
+    if (sharedClockOn()) return null;
     // ONLINE-REST1 (2026-09-21, per-request: "what we are working with here is online mode only. the
     // partyrest feature should not be used in classic and offline enhanced"): the whole consensus/mirror
     // mechanic is an ONLINE-only feature - `social?.party` above already excludes offline (both skins: `social`
@@ -18611,7 +18659,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     // about waiting for THIS SAME round; this one is about not starting a DIFFERENT one moments after
     // finishing), and the chat tracker (`_partyRestVoteTrackTick`) skips announcing anything at all while it
     // is recent, rather than mistaking my own momentary "not ready" for a fresh partial vote.
-    _partyRestJustStartedAt = social.now();
+    if (!sharedClockOn()) _partyRestJustStartedAt = social.now();
     _partyRestStartWaived = false;   // PARTY-REST29: a fresh grant cools down again
     _cancelSeen = snapshotCancels(social.others());   // AUDIT PARTY-REST: a request already in flight is not aimed at this rest
     _restAloneNight = !restTogether();   // REST-OPT (AUDIT C3): a night granted as my own stays my own - a leader who turns the switch back on mid-night pulls nobody into it
@@ -18656,6 +18704,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   const strangerRestGate = () => {
     const mode = modes?.mode ?? 'exterior';
     if (mode === 'interior') return null;   // taverns, shops, guild halls - walls already do this job
+    if (sharedClockOn() && publicRestPoint()) return null;   // REST5 (OPEN 15): a rest point is public - a stranger never blocks a rest at a fire or a bed; a Bedroll keeps the rule
     const radius = mode === 'dungeon' ? STRANGER_REST_BLOCK_RADIUS_DUNGEON : STRANGER_REST_BLOCK_RADIUS;
     const near = peersNear();
     if (!near?.length) return null;
@@ -18834,6 +18883,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     // PARTY-REST15: runs from EVERY near member's own client now, each pushing its own local notice - see
     // this function's own doc comment above for why that's safe (no leader restriction needed anymore).
     _partyRestVoteTrackTick();
+    if (sharedClockOn()) { carryPartyNight(); return; }   // REST5: online a member's night carries me - no mirror, no vote (carryPartyNight)
     const ov = townTalk.overlay;
     const mirroring = !!(ov?.isRestWindow && ov.isPartyRestMirror);
     if (mirroring && ov.state !== 'resting') return;   // already finishing on its own (the wake message shown, refused, ...) - townTalk's own drain closes it; leave it be
