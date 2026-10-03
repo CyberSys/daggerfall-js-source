@@ -135,7 +135,11 @@ test('AUDIT REST-PARTY the words: a night out of reach says whose and how far', 
 test('AUDIT REST-PARTY by source: the follow tick hands the law its readings, sleeps at the carried kind, says the far word, and the vote\'s tally is shut online', () => {
   const w = rd('src/scenes/world.js');
   assert.match(w, /here: present && samePlace\(myPartyLocation\(\), \{ px: m\.p\.px, py: m\.p\.py, in: m\.p\.in, bk: m\.p\.bk \}\),/, 'the same place, for the far word');
-  assert.match(w, /const dead = playerEntity\.health <= 0 \|\| !!modes\?\.deathUp\?\.\(\);/, 'dead, or the death screen up');
+  // AUDIT REST II P9 (PIN MOVED): this pin read the whole file, and PARTY-REST-FAR1's own copy of the line satisfied it -
+  // `const dead = false;` here survived every test. It reads carryPartyNight's own body now, the line handed to the law
+  const carry = w.slice(w.indexOf('const carryPartyNight = () => {'), w.indexOf('const sleepCarriedNight = (name, theirs) => {'));
+  assert.ok(carry.length > 200, 'carryPartyNight, before sleepCarriedNight');
+  assert.match(carry, /\n      const dead = playerEntity\.health <= 0 \|\| !!modes\?\.deathUp\?\.\(\);\n      const act = carriedNightAction\(\{\n        withParty: restsWithParty\(\), resterAlone: restsAlone\(m\), exempt: !!modes\?\.insidePartyRestExempt, dead,\n/, 'dead, or the death screen up - handed to the law');
   assert.match(w, /if \(act === 'far'\) setMidScreenText\(REST_ACT_TEXT\.carriedFar\(name\), 4\);/);
   assert.match(w, /else sleepCarriedNight\(name, nightKindOf\(at\)\);/, 'the rester\'s spot, off their stamp');
   assert.match(w, /const kind = carriedRestKind\(bag\.placeKind\?\.\(\) \?\? null, theirs\);/);

@@ -65,7 +65,7 @@ import { layoutMessageBox, drawMessageBox, messageBoxHit, messageBoxArtLoaded, M
 import { noticeFrame, noticeRelease } from './enhancedNotice.js';   // ENH-NOTICE2: the window's own click-anywhere box, as the enhanced panel
 import { isEnhanced } from '../systems/uiSkin.js';   // CLK4: the enhanced skin's rest is a veil, not a wall
 import { dateFromClassicMinutes } from '../systems/gameDate.js';
-import { REST_ACT_TEXT, ambushNight, actAtChannelEnd } from '../systems/restAct.js';   // REST1: the act's words   // AUDIT REST-PARTY A2: and the night it runs   // OL2: the world's clock, read for the counter page
+import { REST_ACT_TEXT, ambushNight, actAtChannelEnd, channelBroken } from '../systems/restAct.js';   // REST1: the act's words   // AUDIT REST-PARTY A2: and the night it runs   // OL2: the world's clock, read for the counter page
 
 /** CLK4 (the Clock arc): on the ENHANCED skin the resting page is a
  *  translucent veil over the world instead of DFU's opaque black, so
@@ -777,7 +777,9 @@ export class RestWindow {
 
   tick(dt) {
     // REST1: the channel counts real seconds and lands at its end
-    if (this.state === 'channel') { this._actT += dt; if (this._actT >= this._act.channelSeconds) this._finishAct(); return; }
+    // AUDIT REST II P8: and ends the moment the hold is broken - a foe stood or in reach, a blow taken - through the end
+    // check itself, so its lines are the end's and no night lands early
+    if (this.state === 'channel') { this._actT += dt; if (this._actT >= this._act.channelSeconds || channelBroken(this._act, this._pendingEnemySpawn, () => this.deps.enemiesNearby?.(), this._actHealth, this.deps.vitals?.()?.health)) this._finishAct(); return; }
     if (this.state !== 'resting') return;
     const r = this.session.tick(dt);
     if (r) this._end(r);

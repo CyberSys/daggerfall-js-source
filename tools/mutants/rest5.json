@@ -87,13 +87,13 @@
  {
   "name": "REST5-a-stale-night-carries",
   "file": "src/systems/partyRestLaw.js",
-  "old": " && now - at <= freshMs && !!isNight;",
-  "new": " && !!isNight;",
+  "old": " && now - at <= freshMs && !!(typeof isNight === 'function' ? isNight(at) : isNight);",
+  "new": " && !!(typeof isNight === 'function' ? isNight(at) : isNight);",
   "tests": [
    "test/rest5_partynight.test.js",
    "test/auditrestparty.test.js"
   ],
-  "note": "AUDIT REST-PARTY (PIN MOVED): the decision lifted into systems/partyRestLaw.js and run on a table; re-aimed by content."
+  "note": "AUDIT REST II (PIN MOVED): nightMoved asks the mark lazily (P5); re-aimed by content."
  },
  {
   "name": "REST5-a-busy-member-is-pulled-in",

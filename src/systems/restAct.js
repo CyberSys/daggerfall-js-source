@@ -26,6 +26,7 @@
 
 import { RestSession, REST_TEXT, REST_WAIT_PER_HOUR, MINUTES_PER_TICK } from './restSession.js';
 import { restCost, REST_KIND } from './survival/rest.js';
+import { roomRemainingHours } from './tavern.js';   // AUDIT REST II P6: an old save's room, its nights read off its hours
 
 /** A night: DFU's customary eight hours, on the character's own clock. */
 export const NIGHT_HOURS = 8;
@@ -36,8 +37,6 @@ export const NIGHT_INTERVAL_MINUTES = 120;
 export const OWN_MINUTES_PER_REAL_MINUTE = 12;
 /** The act's hold, in real seconds: long enough to need safety, short enough not to bore. */
 export const REST_CHANNEL_SECONDS = 6;
-/** A day of a rented room, in the character's minutes - a night online spends one. */
-export const ROOM_DAY_MINUTES = 24 * 60;
 
 export const REST_ACT_TEXT = Object.freeze({
   noPoint: 'Find a fire or a bed to rest.',
@@ -54,6 +53,7 @@ export const REST_ACT_TEXT = Object.freeze({
   carriedShort: (name) => `${name} rests here, and you rest a while with them.`,
   carriedSkipped: (name) => `${name} rests here - you are too busy to rest with them.`,
   carriedFar: (name) => `${name} rested a night without you - come within 15 m of them to rest with the party.`,   // AUDIT REST-PARTY: PARTY-REST-FAR1's word, online
+  carriedTown: (name) => `${name} rests here - it is illegal to camp in town.`,   // AUDIT REST II P4: the act's own town law, for a member it would carry
 });
 
 /** Whether a night may pass now: none yet, the interval run out, or a clock behind the stamp (a load from another
@@ -88,6 +88,13 @@ export function stampNight(entity, ownNow) {
  * session's own OnEncounter latch (DFU's AbortRestForEnemySpawn), and the night is ticked a sub-tick a call so the
  * latch is read before the next ten minutes roll: the night breaks with DFU's "enemies nearby" at the sub-tick the
  * hit fell in, its hours slept counted.
+ *
+ * AUDIT REST II P7: AND ON THE LAST SUB-TICK. The latch is read at the START of a tick, and the tick that stands a foe
+ * in its LAST sub-tick's advance goes on to finish the night's last hour in the same call - the foe not yet in any
+ * pool, so the hour's own check finds nobody, and the night ended "You wake up." with the latch never read: healed
+ * whole, stamped, fuel spent, the party carried, the foe at the wake. A night that ends with the latch set is the
+ * enemies' break, as it would have been one sub-tick sooner (EndRest's ladder: the enemy break first) - unless it
+ * already ended as one, or in death. Only the act's night runs here; the paced window's session is DFU's, untouched.
  */
 let _night = null;
 export function runRestNight(deps, { rentedHours = -1, hours = NIGHT_HOURS } = {}) {
@@ -99,7 +106,12 @@ export function runRestNight(deps, { rentedHours = -1, hours = NIGHT_HOURS } = {
   // a night is hours * 6 sub-ticks; the guard is twice that, so a float that falls a sub-tick short each call still
   // finishes, and a session that never answers cannot hang the frame
   try { for (let i = 0; r === null && i < hours * 12 + 8; i++) r = s.tick(step); } finally { _night = outer; }
-  return { result: r ?? s._finish(REST_TEXT.wakeUp), hours: s.totalHours };
+  r = r ?? s._finish(REST_TEXT.wakeUp);
+  if (s._abortEnemySpawn && !r.died && !r.enemyBroke) {   // AUDIT REST II P7: a foe stood in the night's last sub-tick
+    deps.onEnemyBreak?.();
+    r = { textId: REST_TEXT.enemiesNearby, enemyBroke: true, died: false };
+  }
+  return { result: r, hours: s.totalHours };
 }
 /** AUDIT REST-PARTY A1: a host has stood a resting encounter - the night running now (runRestNight) breaks at its next
  *  sub-tick. Answers whether a night heard it; with none running (offline's paced window, which hears the stood foe
@@ -123,6 +135,18 @@ export function actAtChannelEnd(opened, now, hpAtOpen, hpNow) {
   return { ...opened, night: now ? !!now.night : !!opened?.night };   // the point it opened on, the interval read now
 }
 
+/** AUDIT REST II P8: THE HOLD IS BROKEN WHILE IT IS HELD. The channel asked for enemies and a blow only at its END, and
+ *  online the world runs under the window - so a foe that struck in the first second had the rest of the six (ten on a
+ *  Bedroll) for free blows while the modal window held the player still. The notes promise "the rest is broken ... if
+ *  you are hurt while you hold". Asked every frame of the channel, in the end check's own order: a foe stood while
+ *  holding (`pending`, the window's latch), one in reach (`enemiesNearby`, asked only then), a blow since the open
+ *  (`hpAtOpen`/`hpNow` - never a candle's kneel, which actAtChannelEnd lets finish hurt). True ends the channel now,
+ *  through the end check itself - so the lines are its lines, and a night is never landed early. */
+export function channelBroken(opened, pending, enemiesNearby, hpAtOpen, hpNow) {
+  if (pending || enemiesNearby?.()) return true;
+  return !opened?.meditate && Number.isFinite(hpAtOpen) && Number.isFinite(hpNow) && hpNow < hpAtOpen;
+}
+
 /** Whether the tier prices a rest of this kind whole (a bed, a fire, Casual's rough, the arc off). */
 export const restPricedWhole = (kind, rules) => !rules || (restCost(kind, rules)?.recovery ?? 1) >= 1;
 
@@ -140,11 +164,28 @@ export function topUpRest(entity, kind, rules, { night = true, maxFatigueOf = (e
   if (Number.isFinite(entity.maxMagicka)) entity.magicka = fill(entity.magicka, entity.maxMagicka, frac);
 }
 
-/** A rented room's night: the night's eight hours already ran off its expiry; the rest of the day goes with them, so a
- *  day rented is a night slept (the arc's OPEN 10). A room with less than a day left is simply spent. */
-export function spendRoomNight(room) {
+/** AUDIT REST II P6: A ROOM COUNTS NIGHTS (the arc's OPEN 10, section 5: "a room rented for N days buys N nights ... and
+ *  the room also lapses after N days lived, whichever comes first"). The night spent was a day off the room's expiry:
+ *  its eight hours ran it down while slept and sixteen more went at the wake, so the play between nights spent the
+ *  same days again - three days rented with an hour of play between nights gave two nights, not three. The nights are
+ *  counted on the room (`nights`, tavern.js rentRoom: the days at renting, and each extension's), a night spends one,
+ *  and the expiry is left to the days lived, through the sweep as before. An old save's room carries no count: it is
+ *  read once, here, as the days its hours left make (ceil(hours / 24)) - asked as the night begins (createRestDeps'
+ *  restNight), so the night's own eight hours do not shorten it. */
+export function roomNightsLeft(room, nowMinutes) {
+  if (!room) return 0;
+  if (!Number.isFinite(room.nights)) {
+    const h = roomRemainingHours(room, nowMinutes);
+    room.nights = Number.isFinite(h) ? Math.max(0, Math.ceil(h / 24)) : 0;
+  }
+  return room.nights;
+}
+/** A rented room's night slept: one of its nights spent; the last one spent, the room is over now - its expiry brought
+ *  to `nowMinutes`, so CanRest finds no room and the sweep (tavern.js removeExpiredRooms) takes it as it takes any. */
+export function spendRoomNight(room, nowMinutes) {
   if (!room || !Number.isFinite(room.expiryMinutes)) return;
-  room.expiryMinutes -= ROOM_DAY_MINUTES - NIGHT_MINUTES;
+  room.nights = Math.max(0, roomNightsLeft(room, nowMinutes) - 1);
+  if (room.nights === 0 && Number.isFinite(nowMinutes)) room.expiryMinutes = Math.min(room.expiryMinutes, Math.floor(nowMinutes));
 }
 
 /** REST5 (bible/06-Systems/Rest-Arc.md 2.6): THE NIGHT IS HEARD. A host that shares the night (world.js, the party's
@@ -156,6 +197,25 @@ let _nightListener = null;
 export function setNightListener(fn) { const prev = _nightListener; _nightListener = typeof fn === 'function' ? fn : null; return prev; }
 export const heardNight = (kind = null) => { _nightListener?.(kind); };
 
+/** AUDIT REST II P3: A NIGHT SLEPT WHOLE - the session ended on its own: not in death, not broken by a foe, not cut by a
+ *  prevent-rest condition (RestSession _prevented), not ended by a room's end (_finish's rentExpired) - whatever the
+ *  shape answers, the night was not slept to its end. */
+export const nightWhole = (r) => !!r && !r.died && !r.enemyBroke && !r.prevented && !r.rentExpired;
+
+/** AUDIT REST II P3: WHAT A CARRIED NIGHT SAYS AND GIVES. The party's night (world.js sleepCarriedNight) said "you rest
+ *  with them through the night" and ran the night's skill raise for any night that was neither death nor a foe's break
+ *  - so a night cut at its second hour by a quest's prevent-rest condition said it was slept through, the condition's
+ *  own words dropped, and raised skills for it. `night` - a night was due (else the short rest's line); `r` - the
+ *  bag's result; `endLines` - the host's TEXT.RSC reader (createRestDeps endLines). A night slept whole says so and
+ *  raises; one that was not says its own line (none in death: the death screen owns it) and raises nothing. */
+export function carriedNightEnd(name, night, r, endLines = null) {
+  if (!night) return { raise: false, text: REST_ACT_TEXT.carriedShort(name) };
+  if (nightWhole(r)) return { raise: true, text: REST_ACT_TEXT.carried(name) };
+  if (!r || r.died) return { raise: false, text: null };
+  const own = r.text ?? (endLines?.(r.textId) ?? []).join(' ');
+  return { raise: false, text: own || null };
+}
+
 /** AUDIT REST F7: A NIGHT'S STAMP IS MARKED. The party's night rides the pose's `restStartedAt` (REST5, no relay bump),
  *  and an older build stamps that same field when its rest window OPENS - so a mate on an older build who opened the
  *  window, chose an hour or walked away from it would have carried every newer member into a whole night. A night's
@@ -165,13 +225,16 @@ export const heardNight = (kind = null) => { _nightListener?.(kind); };
  *  (partyRestLaw.js carriedRestKind) - still with no relay bump: the field and its bounds are the wire's already. A
  *  kind the table does not know stamps as a fire's. */
 export const PARTY_NIGHT_MARKS = Object.freeze({ [REST_KIND.Rough]: 775, [REST_KIND.Camp]: 776, [REST_KIND.Bed]: 777 });
+/** AUDIT REST II P5: the marks' kinds, read once - the party's watch asks of a stamp every frame, and a key array a call
+ *  was an allocation a member a frame. */
+const NIGHT_KINDS = Object.freeze(Object.keys(PARTY_NIGHT_MARKS));
 const markOf = (kind) => (typeof kind === 'string' && Object.hasOwn(PARTY_NIGHT_MARKS, kind) ? PARTY_NIGHT_MARKS[kind] : PARTY_NIGHT_MARKS[REST_KIND.Camp]);
 export const nightStamp = (t, kind = REST_KIND.Camp) => Math.floor(t / 1000) * 1000 + markOf(kind);
 /** The rest kind a night's stamp names, or null for a stamp that is no night's. */
 export const nightKindOf = (t) => {
   if (!Number.isFinite(t)) return null;
   const ms = ((t % 1000) + 1000) % 1000;
-  for (const kind of Object.keys(PARTY_NIGHT_MARKS)) if (PARTY_NIGHT_MARKS[kind] === ms) return kind;
+  for (const kind of NIGHT_KINDS) if (PARTY_NIGHT_MARKS[kind] === ms) return kind;
   return null;
 };
 export const isNightStamp = (t) => nightKindOf(t) !== null;

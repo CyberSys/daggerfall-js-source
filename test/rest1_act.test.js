@@ -66,11 +66,16 @@ test('REST1 the yield: a bed or a fire, Casual\'s rough or the arc off end full;
   assert.deepEqual([short.health, short.fatigue, short.magicka], [30, 300, 21], 'Hard\'s rough short rest: half of what is missing');
 });
 
-test('REST1 a rented room\'s night: the night\'s eight hours ran off its expiry, the rest of the day goes with them - a day rented is a night slept', () => {
-  const room = { expiryMinutes: 10_000 };
-  spendRoomNight(room);
-  assert.equal(room.expiryMinutes, 10_000 - (24 * 60 - 480));
-  spendRoomNight(null);   // no room: nothing
+// AUDIT REST II (PIN MOVED): a night spent sixteen hours more off the room's expiry, and the play between nights spent
+// the same days again (three days rented, an hour of play between nights: two nights). A room counts NIGHTS now
+// (restAct.js spendRoomNight) - test/auditrest2_party.test.js P6 runs them through a real bag.
+test('REST1 a rented room\'s night: a day rented is a night slept - one of the room\'s nights spent, its expiry left to the days lived; the last spent, the room is over', () => {
+  const room = { expiryMinutes: 10_000, nights: 2 };
+  spendRoomNight(room, 5_000);
+  assert.deepEqual([room.nights, room.expiryMinutes], [1, 10_000], 'the expiry is the days lived, untouched');
+  spendRoomNight(room, 5_600.5);
+  assert.deepEqual([room.nights, room.expiryMinutes], [0, 5_600], 'the last night spent: over now');
+  spendRoomNight(null, 5_000);   // no room: nothing
 });
 
 test('REST1 the night is the timed rest\'s own session in one call: forty-eight sub-ticks of ten minutes, a quest tick each, the vitals each hour - the same calls, in the same order, as an eight-hour rest paced over its timer', () => {

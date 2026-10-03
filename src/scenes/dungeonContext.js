@@ -8438,6 +8438,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
      *  (AbortRestForEnemySpawn; the session answers enemies-nearby on
      *  its next tick). */
     abortRestForEnemySpawn() {
+      ambushNight();   // AUDIT REST II P3: the act's night first - a carried night has no window, and a quest box over the window holds the slot
       if (activeOverlay?.isRestWindow) activeOverlay.abortForEnemySpawn?.();
     },
     tickOverlay(dt) {

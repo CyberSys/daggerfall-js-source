@@ -60,6 +60,7 @@ import { buildInteriorContext, seedInteriorTreasure } from './interiorContext.js
 import { INTERIOR_SHELL_BUCKET } from './decorBase.js';   // HOME-DOORS: a doorway is an opening in the shell's walls   // AUDIT 63 F22: AddFlats' RandomTreasure arm lives with the walk that finds its markers
 import { advanceMachinery, mountMachineryChild, machineryChildPos, MILL_SOUND } from '../world/windmills.js';   // WM4b: the machinery's moving parts; WM4c: its hum
 import { buildDungeonContext } from './dungeonContext.js';
+import { ambushNight } from '../systems/restAct.js';   // AUDIT REST II P3: a quest's CreateFoe reaches the act's night, window or none
 import { createTransitionGate } from './transitionGate.js';   // AUDIT 68 X3-transition-build-race: the door builds, serial and cancellable
 import { bowDamageArrow } from '../combat/enemyEquipment.js';   // MAC-N1: the recovered shaft is CreateWeapon's arrow, value and all
 import { DOOR_TYPE } from '../world/meshReader.js';
@@ -11086,6 +11087,7 @@ export function createWorldModes(host) {
      *  that stood here saying dungeon mode is the only mode with a
      *  rest window was true until this slice and is not now. */
     raiseOnEncounterEvent() {
+      ambushNight();   // AUDIT REST II P3: the act's night first (restAct.js) - a carried night has no window, and a quest box over the window holds the slot below
       if (mode === 'dungeon') { dungeonCtx?.abortRestForEnemySpawn?.(); return; }
       if (interiorOverlay?.isRestWindow) { interiorOverlay.abortForEnemySpawn?.(); return; }
       // ...and the OUTER host's slot, which is where an outdoor rest

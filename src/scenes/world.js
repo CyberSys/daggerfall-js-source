@@ -169,8 +169,8 @@ import { PLAYED_STEP_MAX_SECONDS } from '../systems/quest/clock.js';   // WORLD7
 import { mintQuestFoeWave, placeFoeEnv, entityOccupancy, questFoeGender, reviveQuestBehaviour, heldSpots, holdSpotWhile, questBoxHoldsFoes, questShareTag, sharedQuestFoe, partnerStandsQuestFoes, questBehaviourFor, adoptsOrphanQuestFoe, isPrivateQuestFoe, KeptKillLedger, creditKeptKills } from './questFoeHost.js';   // B1   // AUDIT 63r F24: SerializableEnemy.cs:206-217's quest-link arm, the one home both hosts use
 import { ENEMY_BASICS } from '../characters/enemyBasics.js';   // MERGE: FinalizeFoe's Flying lift reads the behaviour flag
 import { intermittentEnemySpawn, setEnemyAlert, areEnemiesNearby, foeHostile, quietNights } from '../systems/encounters.js';   // OW6: foeHostile, the one hostility gate   // REST5: a carried night wakes to no ambush
-import { nightDue, setNightListener, nightStamp, nightKindOf, REST_ACT_TEXT } from '../systems/restAct.js';   // REST5: the party's night   // AUDIT REST-PARTY: and where it was slept
-import { nightMoved, carriedNightAction, carriedRestKind } from '../systems/partyRestLaw.js';   // AUDIT REST-PARTY: the party's night, pinned by execution
+import { nightDue, setNightListener, nightStamp, nightKindOf, isNightStamp, carriedNightEnd, REST_ACT_TEXT } from '../systems/restAct.js';   // REST5: the party's night   // AUDIT REST-PARTY: and where it was slept   // AUDIT REST II: the mark asked lazily (P5), and what a carried night says (P3)
+import { createNightWatch, carriedNightAction, carriedRestKind } from '../systems/partyRestLaw.js';   // AUDIT REST-PARTY: the party's night, pinned by execution   // AUDIT REST II P1/P2: its watch
 import { ambushNight } from '../systems/restAct.js';   // AUDIT REST-PARTY A1: a resting encounter stood breaks the night that rolled it
 import { createStandingWatch, installLegalNotices } from './standingHost.js';   // REP1: the watch's stop; REP5: the law's notices
 import { SPAWNER_ARMS } from '../systems/encounters.js';   // SURV6: the hunt's beast stands on the wilderness arm
@@ -18673,15 +18673,18 @@ export async function bootWorld(canvas, renderer, params, status) {
   };
   /** A rest point everyone may use - a fire, a tent, a bed; never a Bedroll, which keeps the stranger rule. */
   const publicRestPoint = () => { const pt = hostRestDeps()?.restAct?.()?.point; return !!pt && pt.where !== 'bedroll'; };
-  const _nightSeen = new Map();   // acct -> the night stamp last seen on that member's pose (the first sight a baseline)
+  // AUDIT REST II (2026-10-03): a member's stamp is watched by partyRestLaw.js's night watch - over its high-water mark,
+  // at most one move a minute answered, a missing pose leaving the mark where it was, a mate who left forgotten (P1/P2);
+  // the mark asked only of a stamp that moved (P5); the act's town law asked of a member it would carry (P4).
+  const _nightWatch = createNightWatch();   // acct -> the highest night stamp seen on that member's pose, and when one was last answered
   const carryPartyNight = () => {
-    if (!social?.party) { _nightSeen.clear(); return; }
+    if (!social?.party) { _nightWatch.clear(); return; }
     const now = social.now();
-    for (const m of social.others()) {
+    const others = social.others();
+    _nightWatch.keep(others);   // AUDIT REST II P2: a mate who left the party is a first sight when they come back
+    for (const m of others) {
       const at = stampOf(m.p?.restStartedAt, now);
-      const seen = _nightSeen.get(m.acct);
-      _nightSeen.set(m.acct, at);
-      if (!nightMoved(seen, at, now, nightKindOf(at) !== null)) continue;   // AUDIT REST F7: a night's, never an older build's open
+      if (!_nightWatch.moved(m.acct, !!m.p, at, now, isNightStamp)) continue;   // AUDIT REST F7: a night's, never an older build's open - AUDIT REST II: over the mark, once a minute, the mark asked last
       const present = memberPresent(m);
       const dead = playerEntity.health <= 0 || !!modes?.deathUp?.();
       const act = carriedNightAction({
@@ -18689,11 +18692,13 @@ export async function bootWorld(canvas, renderer, params, status) {
         near: present && nearAccount(m.acct, m.p),
         here: present && samePlace(myPartyLocation(), { px: m.p.px, py: m.p.py, in: m.p.in, bk: m.p.bk }),
         busy: () => playerEntity.isResting || playerEntity.isLoitering || !!townTalk.overlay || mirrorRestRefused(),
+        town: () => !!hostRestDeps()?.restPlace?.()?.inTownOutside,   // AUDIT REST II P4: the act's own first refusal (restWindow.js _openAct)
       });
       if (!act) continue;
       const name = m.name || 'A party member';
       if (act === 'far') setMidScreenText(REST_ACT_TEXT.carriedFar(name), 4);   // PARTY-REST-FAR1's word and its four seconds, said once a night
       else if (act === 'busy') setMidScreenText(REST_ACT_TEXT.carriedSkipped(name), 4);
+      else if (act === 'town') setMidScreenText(REST_ACT_TEXT.carriedTown(name), 4);
       else sleepCarriedNight(name, nightKindOf(at));
       return;   // one night a frame
     }
@@ -18709,8 +18714,11 @@ export async function bootWorld(canvas, renderer, params, status) {
       bag.setResting(true);
       try { r = night ? bag.restNight({ carried: true }) : bag.restShort(); } finally { bag.setResting(false); }
     });
-    if (night && !r?.died && !r?.enemyBroke) bag.onRestFinished?.();   // the night's skill raise, as the window's close gives it
-    setMidScreenText(night ? REST_ACT_TEXT.carried(name) : REST_ACT_TEXT.carriedShort(name), 5);
+    // AUDIT REST II P3: a night slept whole says so and raises the night's skills, as the window's close gives it; one a
+    // foe broke, a prevent-rest condition cut or a room's end stopped says its own line and raises nothing
+    const end = carriedNightEnd(name, night, r, bag.endLines);
+    if (end.raise) bag.onRestFinished?.();
+    if (end.text) setMidScreenText(end.text, 5);
   };
   setNightListener((kind) => { if (social && sharedClockOn()) { _partyRestJustStartedAt = nightStamp(social.now(), kind ?? undefined); _partyComposedAt = -Infinity; } });
   const partyRestHere = () => !sharedClockOn() && !!social?.party && !modes?.insidePartyRestExempt && restTogether();   // REST-OPT: resting alone is a rest of my own
@@ -21305,6 +21313,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     // window wherever it is mounted - and an outdoor rest is exactly
     // where a quest CreateFoe wave lands beside a sleeping player.
     abortRestForEnemySpawn: () => {
+      ambushNight();   // AUDIT REST II P3: the act's night first - a carried night has no window, and a quest box over the window holds this slot
       if (townTalk.overlay?.isRestWindow) townTalk.overlay.abortForEnemySpawn?.();
     },
     // U43: and the other two windows the INTERIOR host answers keys

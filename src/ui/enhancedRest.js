@@ -19,7 +19,7 @@ import { normalizeCode } from '../systems/dialogShortcuts.js';   // AUDIT PARTY-
 import { getBinding } from '../systems/inputActions.js';
 import { bindings } from './input.js';   // B5: the live InputManager registry, as restWindow.js reads it
 import { restClockLine } from './restWindow.js';   // AUDIT LIVED1 O (U3): the classic window's clock line, one home for its words
-import { REST_ACT_TEXT, ambushNight, actAtChannelEnd } from '../systems/restAct.js';   // REST1: the act's words   // AUDIT REST-PARTY A2: and the night it runs
+import { REST_ACT_TEXT, ambushNight, actAtChannelEnd, channelBroken } from '../systems/restAct.js';   // REST1: the act's words   // AUDIT REST-PARTY A2: and the night it runs
 
 const el = (tag, cls, text) => {
   const n = document.createElement(tag);
@@ -494,7 +494,8 @@ export function mountEnhancedRest(hostEl, deps, ignoreAllocatedBed = false) {
   overlay.draw = () => { /* DOM, not canvas */ };
   overlay.tick = (dt) => {
     // REST1: the channel counts real seconds and lands at its end
-    if (overlay.state === 'channel') { _actT += dt; if (_actT >= act.channelSeconds) finishAct(); else updateChannel(); return; }
+    // AUDIT REST II P8: and ends the moment the hold is broken - restWindow.js's own law, the end check's own lines
+    if (overlay.state === 'channel') { _actT += dt; if (_actT >= act.channelSeconds || channelBroken(act, overlay._pendingEnemySpawn, () => deps.enemiesNearby?.(), overlay._actHealth, deps.vitals?.()?.health)) finishAct(); else updateChannel(); return; }
     if (overlay.state !== 'resting' || !overlay.session) return;
     const r = overlay.session.tick(dt);
     if (r) { overlay._end(r); return; }

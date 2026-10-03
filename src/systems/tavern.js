@@ -149,8 +149,12 @@ export function rentRoom(rooms, { room, days, nowMinutes, mapId, buildingKey, na
   if (sceneCache) {
     addPermanentScene(sceneCache, interiorSceneName(mapId ?? room?.mapId, buildingKey ?? room?.buildingKey));
   }
+  // AUDIT REST II P6 (bible/06-Systems/Rest-Arc.md section 5, OPEN 10): online a room counts NIGHTS - the days rented,
+  // and an extension's days on top (restAct.js spendRoomNight spends them; the expiry is still the days lived, DFU's).
+  // Offline nothing reads the count: DFU's rest window counts the hours down, as it always has.
   if (room) {
     room.expiryMinutes += 24 * 60 * days;
+    if (Number.isFinite(room.nights)) room.nights += days;   // an old save's room (no count) reads its nights off its hours at its next night
     return room;
   }
   const fresh = {
@@ -159,6 +163,7 @@ export function rentRoom(rooms, { room, days, nowMinutes, mapId, buildingKey, na
     buildingKey,
     allocatedBedIndex: Math.floor(rolls() * Math.max(1, bedCount)),
     expiryMinutes: nowMinutes + 24 * 60 * days,
+    nights: days,
   };
   rooms.push(fresh);
   return fresh;

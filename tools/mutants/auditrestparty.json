@@ -47,38 +47,43 @@
  {
   "name": "AUDITRESTPARTY-busy-ignored",
   "file": "src/systems/partyRestLaw.js",
-  "old": "  return (typeof busy === 'function' ? busy() : busy) ? 'busy' : 'carry';",
-  "new": "  return 'carry';",
+  "old": "  if (typeof busy === 'function' ? busy() : busy) return 'busy';",
+  "new": "  if (false) return 'busy';",
   "tests": [
    "test/auditrestparty.test.js"
-  ]
+  ],
+  "note": "AUDIT REST II (PIN MOVED): carriedNightAction asks the town's law after the rest gate (P4); re-aimed by content."
  },
  {
   "name": "AUDITRESTPARTY-busy-thunk-never-called",
   "file": "src/systems/partyRestLaw.js",
-  "old": "  return (typeof busy === 'function' ? busy() : busy) ? 'busy' : 'carry';",
-  "new": "  return busy === true ? 'busy' : 'carry';",
+  "old": "  if (typeof busy === 'function' ? busy() : busy) return 'busy';",
+  "new": "  if (busy === true) return 'busy';",
   "tests": [
    "test/auditrestparty.test.js"
-  ]
+  ],
+  "note": "AUDIT REST II (PIN MOVED): carriedNightAction asks the town's law after the rest gate (P4); re-aimed by content."
  },
  {
   "name": "AUDITRESTPARTY-first-sight-carries",
   "file": "src/systems/partyRestLaw.js",
-  "old": "  return seen !== undefined && !!at && at !== seen && now - at <= freshMs && !!isNight;",
-  "new": "  return !!at && at !== seen && now - at <= freshMs && !!isNight;",
+  "old": "      if (!rec) { marks.set(acct, { high: at, answered: -Infinity }); return false; }",
+  "new": "      if (!rec) { marks.set(acct, { high: -Infinity, answered: -Infinity }); return this.moved(acct, posed, at, now, isNight); }",
   "tests": [
-   "test/auditrestparty.test.js"
-  ]
+   "test/auditrestparty.test.js",
+   "test/auditrest2_party.test.js"
+  ],
+  "note": "AUDIT REST II (PIN MOVED): the first sight's baseline is the night watch's (partyRestLaw.js createNightWatch) - nightMoved's own guard was redundant once it read over the mark (no stamp stands over an unset one); re-aimed by content."
  },
  {
   "name": "AUDITRESTPARTY-the-mark-ignored-in-the-law",
   "file": "src/systems/partyRestLaw.js",
-  "old": "  return seen !== undefined && !!at && at !== seen && now - at <= freshMs && !!isNight;",
-  "new": "  return seen !== undefined && !!at && at !== seen && now - at <= freshMs;",
+  "old": "  return !!at && at > high && now - at <= freshMs && !!(typeof isNight === 'function' ? isNight(at) : isNight);",
+  "new": "  return !!at && at > high && now - at <= freshMs;",
   "tests": [
    "test/auditrestparty.test.js"
-  ]
+  ],
+  "note": "AUDIT REST II (PIN MOVED): nightMoved reads over the high-water mark and asks the mark lazily; re-aimed by content."
  },
  {
   "name": "AUDITRESTPARTY-the-rester-s-spot-ignored",
@@ -119,11 +124,12 @@
  {
   "name": "AUDITRESTPARTY-the-kind-read-back-wrong",
   "file": "src/systems/restAct.js",
-  "old": "  for (const kind of Object.keys(PARTY_NIGHT_MARKS)) if (PARTY_NIGHT_MARKS[kind] === ms) return kind;",
-  "new": "  for (const kind of Object.keys(PARTY_NIGHT_MARKS)) if (PARTY_NIGHT_MARKS[kind] === ms) return REST_KIND.Camp;",
+  "old": "  for (const kind of NIGHT_KINDS) if (PARTY_NIGHT_MARKS[kind] === ms) return kind;",
+  "new": "  for (const kind of NIGHT_KINDS) if (PARTY_NIGHT_MARKS[kind] === ms) return REST_KIND.Camp;",
   "tests": [
    "test/auditrestparty.test.js"
-  ]
+  ],
+  "note": "AUDIT REST II (PIN MOVED): nightKindOf reads a frozen key array (P5); re-aimed by content."
  },
  {
   "name": "AUDITRESTPARTY-the-spot-read-after-the-fuel",

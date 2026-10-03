@@ -168,23 +168,74 @@ export function restAloneText(mineOn) {
 //    mirror online, is said again for a mate resting in the same place beyond the party's 15 m).
 /** How long a moved night stamp is a night to answer: one older than this when first seen moving is long over. */
 export const PARTY_NIGHT_FRESH_MS = 30_000;
+/** AUDIT REST II P1: the least time between two moves of ONE member's night stamp that are answered. An honest pair of
+ *  nights is ten real minutes apart at the least (the six-second channel, then the night interval), so a minute never
+ *  holds back a night anyone slept - it holds back a pose that says a new night every second. */
+export const PARTY_NIGHT_GAP_MS = 60_000;
 
-/** Whether a party mate's night stamp `at` (read through stampOf) is a NEW night to answer: seen before (`seen`
- *  undefined is the first sight, a baseline), moved since, no older than `freshMs`, and `isNight` (a night's mark -
- *  an older build's rest-window open is no night: AUDIT REST F7). */
-export function nightMoved(seen, at, now, isNight, freshMs = PARTY_NIGHT_FRESH_MS) {
-  return seen !== undefined && !!at && at !== seen && now - at <= freshMs && !!isNight;
+/** Whether a party mate's night stamp `at` (read through stampOf) is a NEW night to answer: over `high`, the HIGHEST
+ *  of their stamps seen so far (AUDIT REST II P1: a stamp that is merely DIFFERENT from the last one, an older one
+ *  replayed, is no night; and no stamp stands over an unset mark - `high` undefined, the first sight, is a baseline),
+ *  no older than `freshMs`, and `isNight` (a night's mark - an older build's rest-window open is no night: AUDIT REST
+ *  F7). `isNight` may be a predicate of the stamp, asked only once the cheap tests pass (AUDIT REST II P5: every
+ *  member, every frame). */
+export function nightMoved(high, at, now, isNight, freshMs = PARTY_NIGHT_FRESH_MS) {
+  return !!at && at > high && now - at <= freshMs && !!(typeof isNight === 'function' ? isNight(at) : isNight);
 }
 
-/** What a moved night asks of me: 'carry' - sleep it with them; 'busy' - too busy, skipped and told; 'far' - told they
- *  rested a night here beyond the party's reach; null - nothing at all. Nothing when my rest is my own (`withParty`
- *  off), theirs is theirs (`resterAlone`, their `nr`), I stand in a tavern, temple or guild hall (`exempt` -
- *  TAVERN-REST1/GUILD-REST1: every member sleeps for themselves there), or I am dead. `busy` is asked only of a
- *  member who would be carried. */
-export function carriedNightAction({ withParty, resterAlone, exempt, dead, near, here, busy }) {
+/** AUDIT REST II P1/P2: THE NIGHT WATCH - per member, the HIGH-WATER MARK of their night stamps and the shared-clock
+ *  moment a move of it was last answered. Before it, world.js kept the LAST stamp seen and answered any marked stamp
+ *  that differed from it inside the freshness window, so nothing limited how often one mate's pose put the party to
+ *  sleep: a forged pose (the hub admits two a second, the relay bounds the field only from below) slept every mate in
+ *  reach once a second - a night whenever the interval lapsed, a short rest otherwise, a forged bed's mark healing a
+ *  Hard character whole on bare ground - and two replayed stamps taking turns did the same; and one honest night was
+ *  slept twice when the rester's connection blipped (the hub lists the seat with no pose, the watcher read 0, the
+ *  reopened socket sent the same stamp again), as it was by a mate who left, rested alone and rejoined within the
+ *  window. Now a stamp is a night only over the mark, a missing pose neither sets nor lowers it, a member's moves are
+ *  answered at most once a PARTY_NIGHT_GAP_MS (every answer - a night, a short rest, the far word, the busy word -
+ *  one per move answered), and a member who leaves the party is forgotten (`keep`), so their return is a first sight. */
+export function createNightWatch({ freshMs = PARTY_NIGHT_FRESH_MS, gapMs = PARTY_NIGHT_GAP_MS } = {}) {
+  /** @type {Map<string, { high: number, answered: number }>} */
+  const marks = new Map();
+  return {
+    /** Whether `acct`'s stamp `at` (stampOf, against the shared clock `now`) is a move to answer now. `posed` - a pose
+     *  stands for them this frame (the hub's offline seat has none, and says nothing of their nights). `isNight` as
+     *  nightMoved's. */
+    moved(acct, posed, at, now, isNight) {
+      if (!posed) return false;
+      const rec = marks.get(acct);
+      if (!rec) { marks.set(acct, { high: at, answered: -Infinity }); return false; }
+      const move = nightMoved(rec.high, at, now, isNight, freshMs) && now - rec.answered >= gapMs;
+      if (at > rec.high) rec.high = at;
+      if (move) rec.answered = now;
+      return move;
+    },
+    /** Forget every member not among `members` (party rows): one who left is a first sight when they come back. */
+    keep(members) {
+      for (const acct of marks.keys()) {
+        let here = false;
+        for (const m of members) if (m?.acct === acct) { here = true; break; }
+        if (!here) marks.delete(acct);
+      }
+    },
+    clear() { marks.clear(); },
+    /** The mark held for `acct` (undefined before the first sight) - for the tests. */
+    highOf: (acct) => marks.get(acct)?.high,
+  };
+}
+
+/** What a moved night asks of me: 'carry' - sleep it with them; 'busy' - too busy, skipped and told; 'town' - I stand
+ *  inside town limits outdoors, where the act itself refuses a rest (AUDIT REST II P4: DFU's vagrancy, the act's own
+ *  first refusal), skipped and told; 'far' - told they rested a night here beyond the party's reach; null - nothing at
+ *  all. Nothing when my rest is my own (`withParty` off), theirs is theirs (`resterAlone`, their `nr`), I stand in a
+ *  tavern, temple or guild hall (`exempt` - TAVERN-REST1/GUILD-REST1: every member sleeps for themselves there), or I
+ *  am dead. `busy`, then `town`, is asked only of a member who would be carried - restDecision's gate before the
+ *  window's CanRest, the act's order. */
+export function carriedNightAction({ withParty, resterAlone, exempt, dead, near, here, busy, town }) {
   if (!withParty || resterAlone || exempt || dead) return null;
   if (!near) return here ? 'far' : null;
-  return (typeof busy === 'function' ? busy() : busy) ? 'busy' : 'carry';
+  if (typeof busy === 'function' ? busy() : busy) return 'busy';
+  return (typeof town === 'function' ? town() : town) ? 'town' : 'carry';
 }
 
 /** The rest kinds (survival/rest.js REST_KIND), worst to best: a bed and a fire price alike today, a bed ranked above

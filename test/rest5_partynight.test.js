@@ -76,7 +76,9 @@ test('REST5 by source: online the vote, the party card and the spend answer noth
   // test/auditrestparty.test.js); here, that the follow tick hands it the right readings
   assert.match(w, /withParty: restsWithParty\(\), resterAlone: restsAlone\(m\), exempt: !!modes\?\.insidePartyRestExempt, dead,/, 'my switch, theirs, the tavern\'s exemption, my death');
   assert.match(w, /near: present && nearAccount\(m\.acct, m\.p\),/, 'the member here, near');
-  assert.match(w, /if \(!nightMoved\(seen, at, now, nightKindOf\(at\) !== null\)\) continue;/, 'a first sight is a baseline; a stale stamp no night; AUDIT REST F7: an older build\'s open no night');
+  // AUDIT REST II (PIN MOVED): the stamp is watched now (partyRestLaw.js createNightWatch - over the member's high-water
+  // mark, one move a minute answered, the mark asked lazily), run on a table in test/auditrest2_party.test.js
+  assert.match(w, /if \(!_nightWatch\.moved\(m\.acct, !!m\.p, at, now, isNightStamp\)\) continue;/, 'a first sight is a baseline; a stale stamp no night; AUDIT REST F7: an older build\'s open no night');
   assert.match(w, /busy: \(\) => playerEntity\.isResting \|\| playerEntity\.isLoitering \|\| !!townTalk\.overlay \|\| mirrorRestRefused\(\),/, 'mid-fight, swimming, a window, resting already: skipped and told');
   assert.match(w, /else if \(act === 'busy'\) setMidScreenText\(REST_ACT_TEXT\.carriedSkipped\(name\), 4\);/);
   assert.match(w, /quietNights\(\(\) => \{\n      if \(kind\) bag\.overrideRestKind\?\.\(\(\) => kind\);[^\n]*\n      bag\.setResting\(true\);\n      try \{ r = night \? bag\.restNight\(\{ carried: true \}\) : bag\.restShort\(\); \} finally \{ bag\.setResting\(false\); \}/, 'my own bag, my own interval, no ambush');

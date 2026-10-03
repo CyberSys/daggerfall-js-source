@@ -85,12 +85,12 @@
  {
   "name": "AUDITREST-F7-the-mark-ignored",
   "file": "src/scenes/world.js",
-  "old": "      if (!nightMoved(seen, at, now, nightKindOf(at) !== null)) continue;",
-  "new": "      if (!nightMoved(seen, at, now, true)) continue;",
+  "old": "      if (!_nightWatch.moved(m.acct, !!m.p, at, now, isNightStamp)) continue;",
+  "new": "      if (!_nightWatch.moved(m.acct, !!m.p, at, now, true)) continue;",
   "tests": [
    "test/rest5_partynight.test.js"
   ],
-  "note": "AUDIT REST-PARTY (PIN MOVED): the decision lifted into systems/partyRestLaw.js and run on a table; re-aimed by content."
+  "note": "AUDIT REST II (PIN MOVED): the follow tick reads the member's stamp through partyRestLaw.js's night watch (P1/P2); re-aimed by content."
  },
  {
   "name": "AUDITREST-F7-the-mark-wrong",
