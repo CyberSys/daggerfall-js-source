@@ -31,7 +31,7 @@ import { attachGamepad } from '../ui/gamepadInput.js';   // GP1: the pad speaks 
 import { BlocksFile } from '../formats/blocksFile.js';
 import { bindWorldDataBlocks } from '../formats/worldDataReplacement.js';   // RR3b
 import { isClimateFreeModel, NO_CLIMATE_REMAP } from '../world/customModels.js';   // ARENA1: RuntimeMaterials' ApplyClimate 0 - the colosseum wears its own pictures
-import { isUndercroftDoor, undercroftLocation, isArenaUndercroft, isArenaCity, inArenaCell, ARENA_REGION, ARENA_LOCATION, ARENA_BLOCK, ARENA_GATE_PEOPLE } from '../world/arenaCity.js';   // ARENA1: the undercroft's stair and its record, the city's cell; ARENA2: the colosseum's block in a built pixel, the Herald's place
+import { isUndercroftDoor, undercroftLocation, isArenaUndercroft, isArenaCity, inArenaCell, ARENA_REGION, ARENA_LOCATION, ARENA_BLOCK, ARENA_GATE_PEOPLE, arenaTownLandmark } from '../world/arenaCity.js';   // ARENA1: the undercroft's stair and its record, the city's cell; ARENA2: the colosseum's block in a built pixel, the Herald's place; ARENA-MAP: its name on the town map
 import { isFurnishing } from '../systems/decorFurnish.js';   // ARENA2: a moved house's furniture back among the furnishings
 import { createArenaBouts } from './arenaBouts.js';   // ARENA2: the bout on this screen - its law over real bodies, its crowd, its HUD
 import { createArenaSound } from '../systems/arenaSound.js';   // ARENA2: the crowd, heard - built from DAGGER.SND's own voices
@@ -47,7 +47,7 @@ import { accountArena } from '../net/accountClient.js';   // ARENA4: the arena's
 import { fighterIdentity } from '../systems/arenaFighters.js';   // ARENA4: the relay's fighters billed by the bout's seed
 import { bossStandIn } from '../world/gateBoss.js';   // ARENA4: my opponent's stand-in for the formulas
 import { closeArenaDoor, arenaDoorOpen } from '../ui/arenaDoor.js'; import { createArenaSessionButton } from '../ui/arenaSessionButton.js';   // HOTFIX 1003f: the session's button on the screen   // ARENA4: the window goes when a bout calls
-import { cityFloorCentre, standsRail } from '../world/arenaFloor.js';   // ARENA2: the city floor's sand, in its block's frame
+import { cityFloorCentre, standsRail, SAND_R } from '../world/arenaFloor.js';   // ARENA2: the city floor's sand, in its block's frame
 import { ARENA_TEXT } from '../systems/arenaText.js';   // ARENA1: the Daggerfall Bank's letter
 import { moveArenaRecords, arenaHomeFor, emptyArenaScene } from '../systems/arenaMove.js';   // ARENA1: a deed whose house the arena took, moved once; ARENA4b: and an online home, by its owner's client
 import { loadModWorldData, ensureWorldDataPack, worldDataPacksMissing } from './modWorldData.js';   // RR3b; WD3: a pack a save's pins let in
@@ -13377,7 +13377,7 @@ export async function bootWorld(canvas, renderer, params, status) {
       locationName: dfLoc.name,
       locationId: locId,
       gridW: dfLoc.exterior.exteriorData.width, gridH: dfLoc.exterior.exteriorData.height,
-      blocks: b.locBlocks.map((bl) => ({ x: bl.x, y: bl.y, autoMap: bl.dfBlock?.rmbBlock?.fldHeader?.autoMapData })),
+      blocks: b.locBlocks.map((bl) => ({ x: bl.x, y: bl.y, autoMap: bl.dfBlock?.rmbBlock?.fldHeader?.autoMapData, landmark: arenaTownLandmark(bl.dfBlock) })),   // ARENA-MAP: the Arena's name (world/arenaCity.js)
       playerPos: () => local,
       // the marker law is DFU's modulo of the MAP PIXEL frame, so the
       // window needs the location's origin inside that pixel back
@@ -18169,7 +18169,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   function arenaRivalBody() {
     const b = arenaOnline?.bout(), r = arenaBouts.relay();
     if (!b || b.kind !== 'pvp' || !r || !r.me) return null;
-    const ring = arenaBouts.ring(), me = player.feetAt(), vsName = b.vs?.n ?? null, onSand = (peersNear() ?? []).filter((p) => p?.feet && (!ring || (Math.hypot(p.feet[0] - ring.centre[0], p.feet[2] - ring.centre[2]) <= ring.radius + 1.5 && Math.abs(p.feet[1] - ring.centre[1]) < 2))).sort((x, y) => Math.hypot(x.feet[0] - me[0], x.feet[2] - me[2]) - Math.hypot(y.feet[0] - me[0], y.feet[2] - me[2])); const peer = onSand.find((p) => vsName && online?.peers?.get?.(p.id)?.name === vsName) ?? onSand[0];   // HOTFIX 1003j (live: "PVP isn't working. Players arent taking damage now"): world156 draws the stands, so the room's first peer was often a watcher - my blows met a body standing where a spectator stood; my opponent is the one on the sand inside my ring (by name, else the nearest)
+    const sand = modes?.arenaFloorStage?.()?.centre?.() ?? null, me = player.feetAt(), vsName = b.vs?.n ?? null, onSand = (peersNear() ?? []).filter((p) => p?.feet && (!sand || (Math.hypot(p.feet[0] - sand[0], p.feet[2] - sand[2]) <= SAND_R && Math.abs(p.feet[1] - sand[1]) < 2))).sort((x, y) => Math.hypot(x.feet[0] - me[0], x.feet[2] - me[2]) - Math.hypot(y.feet[0] - me[0], y.feet[2] - me[2])); const peer = onSand.find((p) => vsName && online?.peers?.get?.(p.id)?.name === vsName) ?? onSand[0];   // HOTFIX 1003j (live: "PVP isn't working. Players arent taking damage now"): world156 draws the stands, so the room's first peer was often a watcher - my blows met a body standing where a spectator stood; my opponent is the one on the sand (by name, else the nearest) - HOTFIX 1003k: the floor's sand, never the bout driver's ring (a ladder bout's alone: null in every bout between players, so the filter fell through to the nearest peer, a watcher's whenever one stood nearer)
     if (!peer?.feet) return null;
     if (!_arenaRivalEntity) { _arenaRivalEntity = bossStandIn({ mobile: 0 }, b.vs?.n ?? 'Your opponent'); _arenaRivalEntity.armor = 100; _arenaRivalEntity.armorValues = new Array(7).fill(100); _arenaRivalEntity.skills = 0; _arenaRivalEntity.spareGear = true; }
     _arenaRivalEntity.name = b.vs?.n ?? _arenaRivalEntity.name;
@@ -22016,7 +22016,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     arenaBusy: () => arenaBouts.holds() || !!arenaBouts.pending(),
     arenaPlayerSpare: () => arenaBouts.playerSpare(),
     arenaHolds: () => arenaBouts.holds(),
-    arenaFloorBanners: () => arenaBouts.floorBanners(),   // ARENA5: the banners the floor's instance hangs for the bout asked
+    arenaFloorBanners: () => arenaBouts.floorBanners(), drawSky: (yaw, pitch, fov, aspect, vp) => { sky.draw(yaw, pitch, fov, aspect, vp); renderer.markForeignPass(); },   // ARENA5: the banners the floor's instance hangs for the bout asked; HOTFIX 1003l: the sky over the arena's floor (its programs ran behind the renderer's shadows)
     arenaLanding: () => {
       const at = arenaHeraldAt();
       if (!at) return null;

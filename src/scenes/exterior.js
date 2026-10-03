@@ -280,7 +280,7 @@ import { STREAMING_TERRAIN_SCALE } from '../world/terrainSampler.js';   // TERRA
 import { locationWorldRect } from '../world/streamingWorld.js';   // TP2: the native frame this host's origin stands at
 import { GLOBAL_SCALE, DOOR_TYPE } from '../world/meshReader.js';   // TP2: scene units <-> native world units; ARENA1: the undercroft's stair
 import { isClimateFreeModel, NO_CLIMATE_REMAP } from '../world/customModels.js';   // ARENA1: the colosseum wears its own pictures
-import { isUndercroftDoor, isArenaCity, undercroftLocation, ARENA_BLOCK, ARENA_GATE_PEOPLE } from '../world/arenaCity.js';   // ARENA1: the undercroft below the city; ARENA-FIX 12: the colosseum's block and its Herald
+import { isUndercroftDoor, isArenaCity, undercroftLocation, ARENA_BLOCK, ARENA_GATE_PEOPLE, arenaTownLandmark } from '../world/arenaCity.js';   // ARENA1: the undercroft below the city; ARENA-FIX 12: the colosseum's block and its Herald; ARENA-MAP: its name on the town map
 import { createArenaBouts } from './arenaBouts.js';   // ARENA-FIX 12: THE FOUR HOSTS - the bout driver on this host too
 import { createArenaSound } from '../systems/arenaSound.js';
 import { drawArenaHud } from '../ui/arenaHud.js';
@@ -3127,7 +3127,7 @@ export async function bootExterior(canvas, renderer, params, status) {
         locationName: dfLocation.name ?? locationName,
         locationId: locId,
         gridW: loc.width, gridH: loc.height,
-        blocks: loc.blocks.map((bl) => ({ x: bl.x, y: bl.y, autoMap: bl.dfBlock?.rmbBlock?.fldHeader?.autoMapData })),
+        blocks: loc.blocks.map((bl) => ({ x: bl.x, y: bl.y, autoMap: bl.dfBlock?.rmbBlock?.fldHeader?.autoMapData, landmark: arenaTownLandmark(bl.dfBlock) })),   // ARENA-MAP: the Arena's name (world/arenaCity.js)
         playerPos: () => (walkMode ? [...player.pos] : [...cam.pos]),
         // this host lays the location at the map pixel's own origin, so
         // the location frame IS the tile frame DFU's modulo needs
