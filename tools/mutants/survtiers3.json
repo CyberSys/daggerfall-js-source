@@ -131,7 +131,8 @@
     "old": "    const tended = c.rec.kind === CAMP_KIND.Tent || (c.rec.kind === CAMP_KIND.Fire && !!c.rec.fuel);",
     "new": "    const tended = true;",
     "tests": [
-      "test/survtiers3.test.js"
+      "test/survtiers3.test.js",
+      "test/auditrestparty_camps.test.js"
     ],
     "note": "AUDIT REST-PARTY (PIN MOVED): a Campfire with fuel is tended now (B2); a kit fire still is not."
   },

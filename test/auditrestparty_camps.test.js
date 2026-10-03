@@ -63,6 +63,21 @@ test('AUDIT REST-PARTY B2: offline, a night at my own Campfire keeps it lit thro
   assert.equal(p.spendNightNear([0, 1, 0]), true, 'lit at the wake, so the night is paid');
   assert.equal(rec.wear, before - 1);
   assert.match(rd('src/scenes/camps.js'), /const tended = c\.rec\.kind === CAMP_KIND\.Tent \|\| \(c\.rec\.kind === CAMP_KIND\.Fire && !!c\.rec\.fuel\);/);
+  // and a fire with no fuel of its own - an old save's kit fire with uses on its record, an Ember Jar's - burns its own span
+  _resetForTests(); setPref('survival', true); setWorldMinutes(2000);
+  const sleeper = { items: [], isResting: true, restKind: 'camp' };
+  const old = pool(sleeper);
+  old.restore([{ id: 'me:9:1990', kind: 'fire', pos: [0, 1, 0], yaw: 0, litUntil: 2010, wear: 3, placedAt: 1990 }]);
+  old.tick(0.1);
+  assert.equal(old.camps[0].rec.litUntil, 2010, 'an old kit fire is not stoked by a rest beside it');
+  const jar = createRestItem(REST_ITEM.EmberJar);
+  const holder = { items: [jar], isResting: false, restKind: null };
+  const jp = pool(holder);
+  assert.equal(jp.placeItem(jar, holder.items), true);
+  const until = jp.camps[0].rec.litUntil;
+  holder.isResting = true; holder.restKind = 'camp';
+  setWorldMinutes(2100); jp.tick(0.1);
+  assert.equal(jp.camps[0].rec.litUntil, until, 'nor an Ember Jar\'s one night');
 });
 
 test('AUDIT REST-PARTY B3: a peer\'s fire gone cold whose owner is not in the room is swept; a lit one stands, and a present owner\'s cold one stands', () => {
