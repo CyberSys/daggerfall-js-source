@@ -238,8 +238,8 @@ export const HALL_BOARD_COLD = "The guild's board cannot be read now.";
  *  cannot be read (offline, the seats shut). */
 export const HALL_OF_RECORDS_TEXT = 'Hall of Records';
 export const HALL_OF_RECORDS_SHUT = 'The Hall of Records cannot be read now.';
-/** GUILD1d: a hall's chest pressed where the Guild tab cannot open. */
-export const HALL_CHEST_SHUT = "The guild's chest holds the guild Stores - open the Guild tab of the Social panel to reach them.";
+/** GUILD1d: a hall's chest pressed where the Guild tab cannot open. GUILD2b: the chest is the guild's vault now. */
+export const HALL_CHEST_SHUT = "The guild's chest is the guild's vault - open the Guild tab of the Social panel to reach it.";
 
 /** Who may enter after `entry`, a press on the row: only me, my party, anyone, my guild, and round again. */
 export const homeNextEntry = (entry) => HOME_ENTRIES[(Math.max(0, HOME_ENTRIES.indexOf(entry)) + 1) % HOME_ENTRIES.length];

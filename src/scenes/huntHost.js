@@ -32,7 +32,7 @@
 import { bodyKey, utcDayOfMs } from '../net/nodeLaw.js';
 import {
   hideOfFoe, tierOpen, TIER_RANKS, knifeBand, SKINNING_KNIFE, KNIFE_CHECKS, KNIFE_REFUSALS, HIDES_PER_DAY, HIGH_HIDES_PER_DAY,
-  HIGH_HIDE_TIER, TRACKER_M, KNIFE_WHERE, KNIFE_WHERE_WORDS, TRACE_ACT, storesFullIn,
+  HIGH_HIDE_TIER, TRACKER_M, KNIFE_WHERE, KNIFE_WHERE_WORDS, TRACE_ACT, storesFullIn, fullWordsIn,
 } from '../net/professionLaw.js';
 import { enemyDisplayName } from '../characters/enemyBasics.js';
 import { createTraceAct } from '../systems/traceAct.js';
@@ -133,9 +133,9 @@ const foeName = (mobileType) => enemyDisplayName(mobileType) ?? 'body';
  * pick: the body's loot, the press handed on. `where` - the knife's ground refusal (KNIFE_WHERE_WORDS), or null;
  * `steep` - the body lies under the player's feet, its line below the look's reach (AUDIT 32 H7).
  * @param {{ body: any, taken: boolean, counting: boolean, rank: number, storesFull: (key: string) => boolean,
- *   hides: number, high: number, loot?: boolean, where?: string|null, steep?: boolean }} o
+ *   hides: number, high: number, loot?: boolean, where?: string|null, steep?: boolean, fullWords?: string }} o
  */
-export function huntPlan({ body, taken, counting, rank, storesFull, hides, high, loot = false, where = null, steep = false }) {
+export function huntPlan({ body, taken, counting, rank, storesFull, hides, high, loot = false, where = null, steep = false, fullWords = 'Stores full' }) {   // BAG1: `fullWords` the book's
   const name = foeName(body.foe);
   const harvest = 'hide';
   const verb = `Skin the ${name}`;
@@ -148,7 +148,7 @@ export function huntPlan({ body, taken, counting, rank, storesFull, hides, high,
   if (hides >= HIDES_PER_DAY) return { harvest, verb, rest: `${rankWord} - ${hides} of ${HIDES_PER_DAY} hides today`, ready: false, full: true };
   if (body.tier >= HIGH_HIDE_TIER && high >= HIGH_HIDES_PER_DAY) return { harvest, verb, rest: `${high} of ${HIGH_HIDES_PER_DAY} rare hides today`, ready: false, full: true };
   if (!tierOpen(rank, body.tier)) return { harvest, verb, rest: `needs Hunting ${TIER_RANKS[body.tier - 1]}`, ready: false, needsRank: TIER_RANKS[body.tier - 1] };
-  if (storesFull(body.hide)) return { harvest, verb, rest: `Stores full - ${materialLabel(body.hide)}`, ready: false };
+  if (storesFull(body.hide)) return { harvest, verb, rest: `${fullWords} - ${materialLabel(body.hide)}`, ready: false };
   return { harvest, verb, rest: rankWord, ready: true };
 }
 
@@ -182,7 +182,7 @@ export function huntKind({ book, bodies, openLoot = null }) {
       const hunt = book.state.hunt ?? { hides: 0, high: 0 };
       const plan = huntPlan({
         body: b, taken: book.taken(b.key, 'hide'), counting: book.counting(b.key, 'hide'), rank: rank('hunting'),
-        storesFull: (key) => storesFullIn(book, key), hides: hunt.hides ?? 0, high: hunt.high ?? 0,   // STORES-ROOM: every origin, as the service counts
+        storesFull: (key) => storesFullIn(book, key), fullWords: fullWordsIn(book), hides: hunt.hides ?? 0, high: hunt.high ?? 0,   // STORES-ROOM: every origin, as the service counts
         where: actChecksRefusal(KNIFE_WHERE, KNIFE_WHERE_WORDS),   // AUDIT 32 H4: a settlement or the sea - E the loot's
         steep: Number.isFinite(pitch) && pitch < BODY_STEEPEST_DEG,   // AUDIT 32 H7: stood over, its line out of the look's reach
       });

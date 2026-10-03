@@ -38,8 +38,8 @@
  {
   "name": "HS-shield-device-field",
   "file": "src/ui/heraldryArt.js",
-  "old": "${deviceSvg(h.device, border, field)}</g>`\n    + `<path",
-  "new": "${deviceSvg(h.device, field, border)}</g>`\n    + `<path",
+  "old": "${deviceSvg(h.device, ink, field)}</g>`\n    + `<path d=\"${SHIELD_CLOTH}\" fill=\"none\" stroke=\"#000\"",
+  "new": "${deviceSvg(h.device, field, ink)}</g>`\n    + `<path d=\"${SHIELD_CLOTH}\" fill=\"none\" stroke=\"#000\"",
   "tests": [
    "test/seat_heraldry_ui.test.js"
   ]
@@ -685,8 +685,8 @@
  {
   "name": "H4-device-ink",
   "file": "src/ui/heraldryArt.js",
-  "old": "ink = p.bg ? field : border;",
-  "new": "ink = border;",
+  "old": "ink = p.bg ? field : inkHex;",
+  "new": "ink = inkHex;",
   "tests": [
    "test/seat_heraldry_ui.test.js"
   ],

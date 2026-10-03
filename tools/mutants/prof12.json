@@ -1432,8 +1432,8 @@
   {
     "name": "PROF12-E1-page-essence-line",
     "file": "src/ui/profPages.js",
-    "old": "pick.family === 'essences' ? ESSENCE_STAYS_LINE : pick.family === 'siege'",
-    "new": "pick.family === 'siege'",
+    "old": "(pick.family === 'essences' ? ESSENCE_STAYS_LINE : pick.family === 'siege' ? SIEGE_STAYS_LINE : STOCK_STAYS_LINE);",
+    "new": "(pick.family === 'siege' ? SIEGE_STAYS_LINE : STOCK_STAYS_LINE);",
     "tests": [
       "test/prof12_client.test.js"
     ]
@@ -1526,8 +1526,8 @@
   {
     "name": "PROF12-A1-clamp-any-origin",
     "file": "server-account/src/professions.js",
-    "old": "WHERE s.player = ?1 AND s.char_id = ?2 AND s.material = ${materialSql} AND s.origin = 'own'), 0))",
-    "new": "WHERE s.player = ?1 AND s.char_id = ?2 AND s.material = ${materialSql} AND s.origin = 'bought'), 0))",
+    "old": "AND s.material = ${materialSql} AND s.origin = 'own'), 0)\n      + COALESCE((SELECT c.qty",
+    "new": "AND s.material = ${materialSql} AND s.origin = 'bought'), 0)\n      + COALESCE((SELECT c.qty",
     "tests": [
       "test/prof12_service.test.js"
     ]

@@ -936,6 +936,7 @@ export class NativeInventoryWindow {
         getQuest: this.hooks.getQuest ?? null,
         groundRefusal: groundRefusalOf(this.hooks, { usingWagon: this.usingWagon, chooseOne: this.chooseOne }),   // HOUSE-DROP: a floor that refuses a drop
         capacity: storeCapacityOf(this.hooks, { usingWagon: this.usingWagon, chooseOne: this.chooseOne }),   // COMPANION-WEIGHT: a companion's pack takes what fits
+        bagLoaded: (this.hooks.entity?.bagItems?.length ?? 0) > 0,   // BAG1: a loaded Materials Bag never leaves the pack
       });
       if (!plan.ok) { this._refuse(plan.refusal); return; }
       // AUDIT 26 F156: the map interception (:1471-1478) - the reveal

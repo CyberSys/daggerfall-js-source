@@ -405,11 +405,11 @@ export function mountNoticeBoard(host, deps) {
       const full = (work.book.state.writs?.today ?? 0) >= (work.book.state.writs?.max ?? 3);
       const b = button('primary notice-take', 'Take', () => takeWrit(w));
       b.disabled = busy || workBusy || held < w.qty || full;   // AUDIT 31 B10: nor while a guild writ's or a commission's act is out
-      if (held < w.qty) b.title = 'Your Stores do not hold enough';
+      if (held < w.qty) b.title = work.book.carrying?.() ? 'You do not hold enough, in your Stores and your bag' : 'Your Stores do not hold enough';   // BAG1
       else if (full) b.title = 'You have filled all the Court writs a day allows';
       take.append(b);
     }
-    take.append(el('span', null, `${held.toLocaleString('en-US')} in your Stores`));
+    take.append(el('span', null, `${held.toLocaleString('en-US')} ${work.book.carrying?.() ? 'held' : 'in your Stores'}`));   // BAG1: the Stores' and what is carried
     li.append(take, el('span', 'notice-seal', ''));
     return li;
   }

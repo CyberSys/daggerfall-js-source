@@ -76,7 +76,8 @@ test('DISC21-A: a save made since - the questions\' dagger at 0 with no maxCondi
   assert.deepEqual(WEARABLE_GROUPS, ['Weapons', 'Armor', 'MensClothing', 'WomensClothing', 'Jewellery']);
   // the load door runs it over the pack, the wagon and the repairer's shelf - and (AUDIT PRE-MERGE 0929 D3) every list
   // of the character's own things the save carries beside them, the one walk DISC29-B's name repair takes
-  assert.match(rd('src/systems/save.js'), /const repairLists = \[entity\.items, entity\.wagonItems, entity\.otherItems, \.\.\.stashedItemLists\(snap\)\];[\s\S]*?for \(const list of repairLists\) \{\s+const n = repairUnmintedConditions\(list\);/);
+  // BAG1 (PIN MOVED): the Materials Bag's list is repaired with the rest (bible/06-Systems/Materials-Bag.md)
+  assert.match(rd('src/systems/save.js'), /const repairLists = \[entity\.items, entity\.wagonItems, entity\.bagItems, entity\.otherItems, \.\.\.stashedItemLists\(snap\)\];[\s\S]*?for \(const list of repairLists\) \{\s+const n = repairUnmintedConditions\(list\);/);
   const snap = JSON.parse(JSON.stringify(snapshotPlayer(P(), { classicMinutes: 100 })));
   snap.sceneCache = { scenes: [{ sceneName: 'DaggerfallInterior [MapID=1, BuildingKey=2]', lootContainers: [{ items: [{ ...stuck, UID: 7 }] }] }] };
   const r = {};

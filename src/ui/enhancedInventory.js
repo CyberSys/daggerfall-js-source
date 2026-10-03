@@ -114,7 +114,10 @@ import {
   openState, remoteTarget, planWagonToggle, hasCart, hasHorse, transportItem,
   groundRefusalOf,   // HOUSE-DROP: the host's word against the ground
   storeCapacityOf,   // COMPANION-WEIGHT: a storage's own weight limit
+  planBagToggle, hasMaterialsBag,   // BAG1: the Materials Bag, a list beside the wagon's
 } from '../systems/inventorySession.js';
+import { bagStoreRefusal } from '../systems/materialsBag.js';   // BAG1: only materials go in the bag
+import { BAG_KG_LIMIT } from '../net/bagLaw.js';
 import { entityMaxEncumbrance } from '../combat/formulas.js';   // AUDIT 26: PlayerEntity.MaxEncumbrance, enchantment allowance and all
 import { liveStat } from '../systems/statMods.js';
 import { conditionWord, conditionPercentage, itemNameParts, itemLongName, itemDamageLine, itemArmourLine, itemHandsLine } from '../systems/itemInfo.js';   // RF6: the long name's two parts, ResolveItemLongName's arms once
@@ -303,11 +306,13 @@ export function equippedModel(entity = {}) {
  *  the port's; which claim is showing is inventorySession's. */
 export const REMOTE_TITLE = Object.freeze({
   wagon: 'Wagon', reward: 'Choose one', container: 'Loot', storage: 'Storage', ground: 'Ground', fate: 'Fate',
+  bag: 'Materials Bag',   // BAG1
 });
 /** What moving an item THERE is called. A verb per destination,
  *  because "Transfer" tells the player nothing about where. */
 export const STOW_LABEL = Object.freeze({
   wagon: 'Stow in wagon', reward: 'Stow', container: 'Put back', storage: 'Store', ground: 'Drop',
+  bag: 'Put in bag',   // BAG1
 });
 /** GOLD-DROP: what giving gold THERE is called - the pack's gold button and its field's submit, by destination (AUDIT GOLD-DROP 3: no reward tray - it never offers the button). */
 const GOLD_VERB = Object.freeze({ wagon: 'Stow', container: 'Drop', storage: 'Store', ground: 'Drop' });
@@ -325,7 +330,7 @@ export function remoteModel(deps = {}, state = {}) {
   // REVENANT-FATE: a beaten revenant's choice - this window's remote side with no list of items, called by its name
   if (deps.fate) return { kind: 'fate', title: deps.fate.name ?? REMOTE_TITLE.fate, items: [], count: 0, weight: 0, capacity: null, pile: null };
   const items = (remoteTarget(deps, state) ?? []).filter(Boolean);
-  const kind = state.usingWagon ? 'wagon'
+  const kind = state.usingBag ? 'bag' : state.usingWagon ? 'wagon'   // BAG1: in remoteTarget's own order
     : state.chooseOne ? 'reward'
       : deps.loot ? (deps.loot.storage === true ? 'storage' : 'container') : 'ground';   // SHIP-STORE: the player's own storage
   return {
@@ -337,7 +342,7 @@ export function remoteModel(deps = {}, state = {}) {
     // ItemHelper.WagonKgLimit is DFU's only capacity a remote list has -
     // the ground and a corpse hold anything; COMPANION-WEIGHT: a
     // companion's pack carries what a person of his strength can.
-    capacity: kind === 'wagon' ? WAGON_KG_LIMIT : (storeCapacityOf(deps, state)?.kg ?? null),
+    capacity: kind === 'wagon' ? WAGON_KG_LIMIT : kind === 'bag' ? BAG_KG_LIMIT : (storeCapacityOf(deps, state)?.kg ?? null),   // BAG1: the bag's 300
     // LOOT-STACK: the bodies piled with this one, as tabs
     // (player/lootStack.js lootPile) - on the body's own frame only, never
     // over the wagon or a reward tray the same session can show.
@@ -841,7 +846,7 @@ function stowIntent(item) {
     remote: remote.items, usingWagon: session.usingWagon, chooseOne: session.chooseOne,
     dryRun: true,   // as canStow's own note says: the quest rung WRITES, and a label must not
     groundRefusal: groundRefusalOf(deps, session),   // HOUSE-DROP
-    capacity: storeCapacityOf(deps, session),   // COMPANION-WEIGHT
+    capacity: storeCapacityOf(deps, session), bagLoaded: (deps.entity?.bagItems?.length ?? 0) > 0,   // COMPANION-WEIGHT
   });
   // A refusal that speaks is still worth releasing on - the player gets
   // the sentence. One that cannot speak is shown as refused and does
@@ -1420,7 +1425,7 @@ function canStow(item) {
     remote: remote.items, usingWagon: session.usingWagon, chooseOne: session.chooseOne,
     dryRun: true,
     groundRefusal: groundRefusalOf(deps, session),   // HOUSE-DROP
-    capacity: storeCapacityOf(deps, session),   // COMPANION-WEIGHT
+    capacity: storeCapacityOf(deps, session), bagLoaded: (deps.entity?.bagItems?.length ?? 0) > 0,   // COMPANION-WEIGHT
   });
   return plan.ok || !!plan.refusal.text;
 }
@@ -1429,7 +1434,7 @@ function canStow(item) {
  *  reason: the quest rung writes) - or 0 where it would move nothing, or is a map's interception rather than a move. */
 function splitMax(item, dir) {
   const plan = dir === 'store'
-    ? planStore(item, { remote: remote.items, usingWagon: session.usingWagon, chooseOne: session.chooseOne, dryRun: true, groundRefusal: groundRefusalOf(deps, session), capacity: storeCapacityOf(deps, session) })
+    ? planStore(item, { remote: remote.items, usingWagon: session.usingWagon, chooseOne: session.chooseOne, dryRun: true, groundRefusal: groundRefusalOf(deps, session), capacity: storeCapacityOf(deps, session), bagLoaded: (deps.entity?.bagItems?.length ?? 0) > 0 })
     : planTake(item, {
       bag: deps.items?.() ?? [], entity: deps.entity, mode: 'remove',
       chooseOne: session.chooseOne, usingWagon: session.usingWagon, dryRun: true,
@@ -1472,19 +1477,21 @@ function stow(item) {
     notice = boundText(itemLongName(item, { getQuest: deps.getQuest ?? null }));
     return render();
   }
+  // BAG1: the bag takes materials alone - ahead of the ladder, and it speaks
+  if (remote?.kind === 'bag') { const no = bagStoreRefusal(item); if (no) return refuse(no); }
   const to = remoteTarget(deps, sessionState());
   const plan = planStore(item, {
     remote: to, usingWagon: session.usingWagon, chooseOne: session.chooseOne,
     getQuest: deps.getQuest ?? null,
     groundRefusal: groundRefusalOf(deps, session),   // HOUSE-DROP: a floor that refuses a drop
-    capacity: storeCapacityOf(deps, session),   // COMPANION-WEIGHT: a companion's pack takes what fits
+    capacity: storeCapacityOf(deps, session), bagLoaded: (deps.entity?.bagItems?.length ?? 0) > 0,   // COMPANION-WEIGHT: a companion's pack takes what fits
   });
   if (!plan.ok) return refuse(plan.refusal);
   // AUDIT INV2 B-F2: THE MAP IS AN INTERCEPTION, not a transfer. AUDIT
   // 26 F156: planStore answers `{ ok: true, map: true }` for a
   // MiscItems.Map - the reveal runs, the paper is consumed, nothing
   // lands in the destination. The classic window routes it
-  // (nativeInventory.js:945) and this one did not, so dragging a
+  // (nativeInventory.js:946) and this one did not, so dragging a
   // treasure map out of the pack dropped the paper on the floor and
   // revealed nothing.
   if (plan.map) { use(item, deps.items?.() ?? []); return; }
@@ -1494,7 +1501,7 @@ function stow(item) {
   if (amount == null) { notice = HOW_MANY_ITEMS(plan.amount); render(); return; }
   // MAC-O6: the same cue this window's `take()` gained - storing (selling,
   // banking, dropping into a wagon or a pile) is a transfer too, and
-  // planStore already hands back the sound (itemTransfer.js:256), unread
+  // planStore already hands back the sound (itemTransfer.js:261), unread
   // until now.
   audio.playOneShot(plan.sound === 'gold' ? SOUND.GoldPieces : SOUND.ButtonClick, 1);   // SND1: a take always sounds - the click, or the gold
   // PX24 (Mac: an action taken closes the tooltip): the transfer
@@ -1503,7 +1510,7 @@ function stow(item) {
   // again on the other side, and a tip that stays open after every
   // press is the quirk being fixed.
   // AUDIT INV2 B-F1: THE ENTITY AND THE PROVENANCE RIDE, as they do at
-  // the classic window's own call (nativeInventory.js:951). Without them
+  // the classic window's own call (nativeInventory.js:952). Without them
   // `clearLightSourceOnLeave` - AUDIT 26 F157's first statement inside
   // applyTransfer - is a no-op, so a LIT TORCH dropped on the ground
   // went on lighting the player from where it lay. INV2 made that a
@@ -1532,7 +1539,7 @@ function take(item) {
   });
   if (!plan.ok) return refuse(plan.refusal);
   // AUDIT INV2 B-F2: the map is an interception in EITHER direction
-  // (itemTransfer.js:278, "F156: either direction") - taking one off a
+  // (itemTransfer.js:283, "F156: either direction") - taking one off a
   // pile reveals and consumes it, exactly as stowing one does. The
   // classic window routes both; this one routed neither.
   if (plan.map) { use(item, remoteTarget(deps, sessionState())); return; }
@@ -1540,7 +1547,7 @@ function take(item) {
   if (amount == null) { notice = HOW_MANY_ITEMS(plan.amount); render(); return; }
   // MAC-O6 (report: "looting gold/items makes no sound"): DoTransferItem's
   // own cue (:1569 gold's clink, :1583 everything else), which the classic
-  // window plays (nativeInventory.js:971) and this one never did - the ONLY
+  // window plays (nativeInventory.js:972) and this one never did - the ONLY
   // difference between the two windows' calls to planTake/applyTransfer was
   // that this one dropped `plan.sound` on the floor. Played here, ahead of
   // the gold interception below, exactly as DFU's own PlayOneShot sits
@@ -1588,7 +1595,20 @@ function toggleWagon() {
   const plan = planWagonToggle(deps, session);
   if (!plan.ok) return refuse(plan.refusal);
   session.usingWagon = plan.usingWagon;
+  if (plan.usingWagon) session.usingBag = false;   // BAG1: one second list at a time
   // The selection belonged to the list that just went away.
+  if (side === 'remote') { picked = null; side = 'local'; }
+  refresh();
+  render();
+}
+
+/** BAG1: THE BAG BUTTON (inventorySession.js planBagToggle) - the wagon button's, for the Materials Bag. */
+function toggleBag() {
+  notice = null;
+  const plan = planBagToggle(deps, session);
+  if (!plan.ok) return refuse(plan.refusal);
+  session.usingBag = plan.usingBag;
+  session.usingWagon = plan.usingWagon;
   if (side === 'remote') { picked = null; side = 'local'; }
   refresh();
   render();
@@ -1603,7 +1623,7 @@ function dropGold(text) {
   const plan = planDropGold(text, {
     carried: goldAmount(player), usingWagon: session.usingWagon, remote: to,
     groundRefusal: groundRefusalOf(deps, session),   // HOUSE-DROP
-    capacity: storeCapacityOf(deps, session),   // COMPANION-WEIGHT
+    capacity: storeCapacityOf(deps, session), bagLoaded: (deps.entity?.bagItems?.length ?? 0) > 0,   // COMPANION-WEIGHT
   });
   if (plan.notice) notice = plan.notice;
   else if (!plan.ok && plan.refusal?.reason === 'ground') notice = plan.refusal.text;   // HOUSE-DROP: the floor's refusal is said
@@ -2512,6 +2532,12 @@ function remoteCol() {
     b.onclick = toggleWagon;
     acts.append(b);
   }
+  // BAG1: THE BAG BUTTON, by the wagon's own rule - there only with a bag in the pack
+  if (hasMaterialsBag(deps.items?.() ?? [])) {
+    const b = el('button', `act${session.usingBag ? ' primary' : ''}`, session.usingBag ? 'Close bag' : 'Materials Bag');
+    b.onclick = toggleBag;
+    acts.append(b);
+  }
   // MAC-M2 B (2026-09-16, Mac: "Remove the gold and pack buttons from
   // the looting menu"): THE LOOT WINDOW IS FOR TAKING, and its bar
   // carries the wagon and nothing else.
@@ -3380,7 +3406,7 @@ function render() {
     // the TRAY, not the choice. The wagon, opened beside a tray, still takes gold and keeps it, as DFU's DropGoldPopup
     // does (it has no choose-one check) - though no ITEM may go there while a choice is up (planStore's chooseOnePile,
     // DFU's `!chooseOne` Remove arm).
-    const giving = remote?.kind !== 'reward';
+    const giving = remote?.kind !== 'reward' && remote?.kind !== 'bag';   // BAG1: gold is no material - never into the bag
     if (giving) {
       const verb = `${GOLD_VERB[remote?.kind] ?? 'Drop'} gold`;   // never the bare verb an item's Store or Drop carries
       const give = el('button', `act goldbtn${goldEntry != null ? ' primary' : ''}`, verb);
@@ -3626,6 +3652,7 @@ export function mountEnhancedInventory(hostEl, d = {}) {
   const open = openState(d);
   session = {
     usingWagon: open.usingWagon,
+    usingBag: false,   // BAG1: the bag opens on its button
     allowDungeonWagonAccess: open.allowDungeonWagonAccess,
     chooseOne: open.chooseOne,
     // AUDIT HCC I2: Horse Cart and Cargo's granted exit request - the wagon button's later click asks the dungeon-exit

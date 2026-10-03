@@ -36,6 +36,7 @@
 // the item's texture record, or the cart's model), falling back to two
 // letters when that picture is unavailable, and never blocks on it.
 
+import { BAG_WORDS } from '../net/bagLaw.js';   // BAG1
 import { itemLine, linePicture, markItemFrame, wearBar } from './enhancedInventory.js';   // RF6/MW-D38: one item model, read by both packs; RARITY-UI: one frame marker; WEAR-UI: one wear bar
 import { SLOT_BOX } from './iconFit.js';   // UI1: the row's picture box
 import { fittedImg } from './textureCanvas.js';   // UI1: the fitted picture's element
@@ -201,6 +202,7 @@ function quotePriceFor(item, side) {
     allowMagicRepairs: deps.allowMagicRepairs ?? false,
     usingIdentifySpell: deps.usingIdentifySpell ?? false,
     wagonLoaded: (deps.entity?.wagonItems ?? []).length > 0,
+    bagLoaded: (deps.entity?.bagItems ?? []).length > 0,   // BAG1: the Materials Bag holding anything
     usedWagon: (deps.entity?.items ?? []).find(
       (i) => i.group === 'Transportation' && i.templateIndex === SMALL_CART_TEMPLATE) ?? null,
   });
@@ -227,6 +229,7 @@ function refuse(refusal) {
     undamaged: rows(DOES_NOT_NEED_TO_BE_REPAIRED_TEXT_ID),
     notRepairable: [{ text: CANNOT_BE_REPAIRED_TEXT, center: true }],
     identified: [{ text: DOESNT_NEED_IDENTIFY, center: true }],
+    bagLoaded: [{ text: BAG_WORDS.notEmpty, center: true }],   // BAG1: a Materials Bag holding anything
   }[refusal] ?? [];
   box = { rows: text.length ? text : [{ text: '...', center: true }], buttons: null };
   render();
@@ -306,6 +309,7 @@ function canTransferSelected() {
       allowMagicRepairs: deps.allowMagicRepairs ?? false,
       usingIdentifySpell: deps.usingIdentifySpell ?? false,
       wagonLoaded: (deps.entity?.wagonItems ?? []).length > 0,
+      bagLoaded: (deps.entity?.bagItems ?? []).length > 0,   // BAG1: the Materials Bag holding anything
       usedWagon: (deps.entity?.items ?? []).find(
         (i) => i.group === 'Transportation' && i.templateIndex === SMALL_CART_TEMPLATE) ?? null,
     });
@@ -333,6 +337,7 @@ function pickLocal(item) {
     allowMagicRepairs: deps.allowMagicRepairs ?? false,
     usingIdentifySpell: deps.usingIdentifySpell ?? false,
     wagonLoaded: (deps.entity?.wagonItems ?? []).length > 0,
+    bagLoaded: (deps.entity?.bagItems ?? []).length > 0,   // BAG1: the Materials Bag holding anything
     usedWagon: (deps.entity?.items ?? []).find(
       (i) => i.group === 'Transportation' && i.templateIndex === SMALL_CART_TEMPLATE) ?? null,
   });
@@ -398,6 +403,7 @@ function splitMaxOf(item, side) {
     allowMagicRepairs: deps.allowMagicRepairs ?? false,
     usingIdentifySpell: deps.usingIdentifySpell ?? false,
     wagonLoaded: (deps.entity?.wagonItems ?? []).length > 0,
+    bagLoaded: (deps.entity?.bagItems ?? []).length > 0,   // BAG1: the Materials Bag holding anything
     usedWagon: (deps.entity?.items ?? []).find(
       (i) => i.group === 'Transportation' && i.templateIndex === SMALL_CART_TEMPLATE) ?? null,
   });

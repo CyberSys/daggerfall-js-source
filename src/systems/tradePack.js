@@ -12,6 +12,7 @@
 //     Sigil Stone is never handed to another player - and a peer's lot carrying one is refused whole, below), and a
 //     Come Sail Away boat's deed or parts (AUDIT REALM2 T1: the realm's own law, net/realmTradeLaw.js BOAT_TEMPLATES);
 //   - weight is systems/inventory.js's own arithmetic against combat/formulas.js entityMaxEncumbrance.
+import { isBagItem } from '../net/bagLaw.js';   // BAG1
 import { validLootList } from './loot.js';
 import { itemLongName } from './itemInfo.js';   // MARKET-ANY: a pack piece named as the pack names it
 import { goodRefusal, GOOD_REFUSAL_WORDS } from '../net/marketLaw.js';   // MARKET-ANY: what may list from the pack
@@ -23,6 +24,9 @@ import { isBound, BOUND_TRADE_TEXT } from './itemBound.js';   // SS1: a bound pi
 import { BOAT_TEMPLATES } from '../net/realmTradeLaw.js';   // AUDIT REALM2 T1: nor a boat's deed or parts - what they stand for stays in the giver's save
 
 /** Why an item may not be put on the table, or null. Words a player can act on. */
+/** BAG1: the Materials Bag stays with its owner - a list of its own rides with it (systems/materialsBag.js), which no
+ *  trade moves; every General Store sells another. */
+export const BAG_TRADE_TEXT = 'Your Materials Bag stays with you. Every General Store sells one.';
 export function tradeRefusal(item) {
   if (!item) return 'That is not an item.';
   if (isEquipped(item)) return 'Unequip that first.';
@@ -31,6 +35,7 @@ export function tradeRefusal(item) {
   if (isGoldPieces(item)) return 'Offer gold with the gold box.';
   if (isBound(item)) return BOUND_TRADE_TEXT;   // SS1
   if (BOAT_TEMPLATES.includes(item.templateIndex)) return 'Boat deeds and boat parts cannot be traded.';   // AUDIT REALM2 T1
+  if (isBagItem(item)) return BAG_TRADE_TEXT;   // BAG1: the bag is its owner's
   return null;
 }
 

@@ -313,8 +313,8 @@
   {
     "name": "AUDIT31-svc-reclaim-keeps",
     "file": "server-account/src/guilds.js",
-    "old": "    AND treasury = 0 AND NOT EXISTS (SELECT 1 FROM guild_marks WHERE guild_id = guilds.id AND balance > 0) AND NOT ${guildKeepsSql('guilds.id')}`)",
-    "new": "`)",
+    "old": "    AND treasury = 0 AND NOT EXISTS (SELECT 1 FROM guild_marks WHERE guild_id = guilds.id AND balance > 0) AND NOT ${guildKeepsSql('guilds.id')}`).bind(key, t).run();",
+    "new": "`).bind(key, t).run();",
     "tests": [
       "test/audit31_service.test.js"
     ]

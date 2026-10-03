@@ -52,7 +52,9 @@ import {
 } from './professionLaw.js';   // PROF1: the bounds its refusals name; PROF7: Hunting's day
 import {
   GUILD_FOUND_RENOWN, GUILD_MEMBERS_MAX, GUILD_NAME_MIN, GUILD_NAME_MAX, GUILD_RANK_NAME_MAX, GUILD_MOVE_MAX,
-} from './guildLaw.js';   // GUILD1: the bounds its refusals name
+  GUILD_RENAME_GOLD,
+} from './guildLaw.js';   // GUILD1: the bounds its refusals name; GUILD2a: a new name's price
+import { GUILD_VAULT_SLOTS, GUILD_VAULT_HALL_SLOTS } from './guildVaultLaw.js';   // GUILD2b: the vault's shelf, in its refusal's own sentence
 import { MARKET_PRICE_MAX, MARKET_UNITS_MAX, MARKET_LISTINGS_MAX, MARKET_ORDERS_MAX, AUCTION_BID_MAX } from './marketLaw.js';   // PROF5: the bounds its refusals name
 import { GUILD_WRITS_MAX, GUILD_STORES_MAX, COMMISSIONS_MAX, COMMISSIONS_FOR_MAX, WRIT_POSTS_MAX, WRIT_OPS_MAX, GUILD_CONTRACTS_MAX, CONTRACT_PAY_MAX, CONTRACT_DEEDS_MAX } from './writLaw.js';   // PROF6: the bounds its refusals name; SILVER-WAYS: a contract's
 import { RENOWN_TRACKS_MAX } from './renown.js';   // RENOWN1: the tracks' bound, in its refusal's own sentence (RENOWN-CHAR: back with the tracks)
@@ -328,6 +330,12 @@ export const REFUSALS = Object.freeze({
   'prof-spec-taken': 'A specialisation was chosen there already. Look again.',
   'stores-full': `Your Stores hold ${STORES_MAX.toLocaleString('en-US')} of that already.`,
   'stores-short': 'Your Stores do not hold that many.',
+  // BAG1: what is carried - the service's count of it at its bound, or a pack and bag holding fewer than a deposit asks
+  'carried-full': `You carry ${STORES_MAX.toLocaleString('en-US')} of that already - put some in your Stores first.`,
+  'carried-short': 'You do not carry that many that you gathered or took from your Stores.',
+  'bad-held': 'Your pack could not be counted - try again.',
+  'materials-short': 'You do not have that many - in your Stores, your Materials Bag and your pack together.',
+  'bad-deposit-order': 'That cannot be put in the Stores that way.',
   'node-taken': 'You have already gathered here today.',
   'bad-material': 'The Stores do not keep that.',
   'bad-recipe': 'The forge knows no such work.',   // PROF2
@@ -467,6 +475,25 @@ export const REFUSALS = Object.freeze({
   'hall-item': 'A guild hall holds furniture from the catalogue alone - your own things stay yours.',
   'hall-yard': 'A palace\'s grounds cannot be furnished - only its Charter Room.',   // GUILD-YARD: a guild hall's yard is its keepers'; a palace's grounds stand none
   'bad-heraldry': 'Choose two different colours - Ash only as the border - and one device.',
+  // GUILD2a (bible/11-Multiplayer/Guild-Overhaul.md): a new name for a price (server-account/src/guilds.js renameGuild)
+  'guild-rename-same': 'That is already the guild\'s name and tag.',
+  'guild-name-word': 'A guild\'s name and tag may not carry a word the realm keeps out of names.',
+  'guild-rename-soon': 'The guild took a new name too lately. It may take another a fortnight after the last.',
+  'guild-rename-siege': 'The guild is named in a siege or a Tourney this week. It cannot take a new name until the battle is over.',
+  'guild-rename-gold': `A new name costs ${GUILD_RENAME_GOLD.toLocaleString('en-US')} gold from the treasury - gold realm characters put in - and the treasury does not hold that much of it.`,
+  'guild-rename-moved': 'The guild changed while it was being renamed - the treasury moved, or the guild was handed on. Nothing was paid. Look again.',
+  // GUILD2b: the vault (server-account/src/guildVault.js)
+  'guild-vault-rank': 'The guildmaster has not given you that at the guild\'s vault.',
+  'guild-vault-limit': 'You have taken as many pieces from the vault today as the guildmaster allows. Try again tomorrow.',
+  'guild-vault-full': `The guild's vault is full - ${GUILD_VAULT_SLOTS} pieces, and ${GUILD_VAULT_HALL_SLOTS} more with a guild hall.`,
+  'guild-vault-empty': 'That piece is no longer in the vault.',
+  'guild-vault-moved': 'The vault or your pack changed while you were using it. Nothing moved. Look again.',
+  'guild-vault': 'Empty the guild\'s vault first.',
+  'vault-goods': 'That piece cannot go in the vault - your pack no longer holds it, or it is one that stays with its owner (a quest item, a summoned thing, the Materials Bag).',
+  'bad-vault-item': 'The account service could not read that piece.',
+  'bad-vault-count': 'That is more than the stack holds.',
+  'bad-vault-slot': 'The account service could not tell which piece that is.',
+  'bad-vault-grant': 'The account service could not read that grant.',
   'heraldry-same': 'That is already your guild\'s heraldry.',
   'heraldry-moved': 'The guild\'s heraldry changed meanwhile. Look again.',
   'heraldry-drakes': `Changing the heraldry costs ${HERALDRY_CHANGE_DRAKES} silver from the guild's silver treasury, and it holds less.`,
@@ -1095,6 +1122,13 @@ export function accountGuilds({ fetch, storage }) {
     hallSell: (character) => post('/v1/guilds/hall/sell', { character }),
     hallEntry: (character, entry) => post('/v1/guilds/hall/entry', { character, entry }),
     heraldry: (character, heraldry, rid = null) => post('/v1/guilds/heraldry', { character, heraldry, ...(rid ? { rid } : {}) }),
+    // GUILD2 (bible/11-Multiplayer/Guild-Overhaul.md): a new name for a price; the vault - read, a piece put in and taken
+    // out on the realm record where it stands (`realm`), the guildmaster's grants
+    rename: (character, name, tag) => post('/v1/guilds/rename', { character, ...(name ? { name } : {}), ...(tag ? { tag } : {}) }),
+    vault: (character) => post('/v1/guilds/vault', { character }),
+    vaultPut: ({ character, realm, pick, item, count }) => post('/v1/guilds/vault/put', { character, realm, pick, item, count }),
+    vaultTake: ({ character, realm, slot, count = null, at = null }) => post('/v1/guilds/vault/take', { character, realm, slot, ...(count == null ? {} : { count }), ...(at == null ? {} : { at }) }),
+    vaultGrant: (character, member, level, limit = 0) => post('/v1/guilds/vault/grant', { character, member, level, limit }),
   };
 }
 
@@ -1215,7 +1249,9 @@ export function accountProf({ fetch, storage, waitMs = ACCOUNT_ACT_WAIT_MS }) {
     pixels: (character, pixels, dungeons = []) => post('/v1/prof/pixels', { character, pixels, dungeons }),   // PROF2: the dungeon stood in
     harvest: (req) => post('/v1/prof/harvest', req),
     spec: (character, profession, rank, spec, from, rid) => post('/v1/prof/spec', { character, profession, rank, spec, from, rid }),   // AUDIT 29 A15: `from`, the choice the client saw standing
-    withdraw: (character, material, qty, rid) => post('/v1/stores/withdraw', { character, material, qty, rid }),
+    // BAG1: `carry` - the units counted as carried, into the bag or the pack - with what the client holds of it (`held`)
+    withdraw: (character, material, qty, rid, carry = null) => post('/v1/stores/withdraw', { character, material, qty, rid, ...(carry ? { carry: true, held: carry.held } : {}) }),
+    deposit: (character, material, qty, held, order, rid) => post('/v1/stores/deposit', { character, material, qty, held, order, rid }),   // BAG1: carried units into the Stores
     smelt: (character, recipe, count, rid, clean = false) => post('/v1/prof/smelt', { character, recipe, count, rid, ...(clean === true ? { clean: true } : {}) }),   // PROF2: the forge; PROF11: the mason's bench, `clean` the chisel's report
     craft: (character, recipe, clean, name, rid, heartwood = false, dye = null, seat = null, cracked = false) => post('/v1/prof/craft', { character, recipe, clean, name, rid, heartwood, ...(dye == null ? {} : { dye }), ...(seat == null ? {} : { seat }), ...(cracked === true ? { cracked: true } : {}) }),   // SEAT2b part two: `seat` the held town the station stands in   // PROF3: the anvil - `clean` the act's report, `name` the maker's mark; PROF4: the workbench, `heartwood` for a plank; PROF7: the loom, a garment's `dye`; PROF10: the jeweller's bench, `cracked` a Lapidary's Siege-cracked Gem for the gem
     stock: (character, material, qty, rid) => post('/v1/prof/stock', { character, material, qty, rid }),   // PROF3: the smith's stock

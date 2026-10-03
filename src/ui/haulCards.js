@@ -64,13 +64,14 @@ const heldOf = (store) => (store && typeof store === 'object' ? Number(store.own
 
 /** ONE GOOD INTO THE STORES, as a card's data: its material's name (the count's plural, at the card's count), tier,
  *  picture and the Stores' count after it. `key` makes two of it one card - the feed adds the counts. */
-export function storesHaul(key, qty, { held = null, name = null, sub = null } = {}) {
+export function storesHaul(key, qty, { held = null, name = null, sub = null, where = 'Stores' } = {}) {   // BAG1: `where` the count's word
   const n = Math.trunc(Number(qty) || 0);
   if (typeof key !== 'string' || n <= 0) return null;
   const m = material(key);
   return {
     key: `stores\u0002${key}${name ? `\u0002${name}` : ''}`, haul: 'stores', material: key, count: n, name, sub,
     rarity: tierRarity(m?.tier ?? null), image: materialImage(key), held: Number.isSafeInteger(held) ? held : null,
+    where: where === 'Carried' ? 'Carried' : 'Stores',   // BAG1: a carried harvest's count is what the character carries
     hold: HAUL_HOLD_MS, adds: ['count'], latest: ['held'],
   };
 }
@@ -84,7 +85,10 @@ export function storesHaul(key, qty, { held = null, name = null, sub = null } = 
  */
 export function harvestHauls(d, { name = null, note = null } = {}) {
   if (!d || typeof d !== 'object' || typeof d.material !== 'string') return [];
-  const main = storesHaul(d.material, d.qty, { held: heldOf(d.store), name, sub: name ? `as ${materialCountLabel(d.material, Number(d.qty) || 1)}` : null });
+  // BAG1: a carried harvest's counts are the service's carried count of each thing, said as carried
+  const carried = d.carry === true;
+  const where = carried ? 'Carried' : 'Stores';
+  const main = storesHaul(d.material, d.qty, { held: heldOf(carried ? d.carried : d.store), name, sub: name ? `as ${materialCountLabel(d.material, Number(d.qty) || 1)}` : null, where });
   if (!main) return [];
   const profession = d.track?.profession ?? null;
   const xp = Math.trunc(Number(d.xp) || 0);
@@ -111,8 +115,8 @@ export function harvestHauls(d, { name = null, note = null } = {}) {
   const out = [main];
   // AUDIT HAUL-CARDS B1: "a gem" only for a gem - a tree's `gem` is its Heartwood, a body's its DFU part (a Big Tooth);
   // B3: each find its own Stores count, as the answer carries it (`gemStore`, `extraStore`)
-  if (d.gem) { const g = storesHaul(d.gem, 1, { held: heldOf(d.gemStore), sub: material(d.gem)?.family === 'gems' ? 'a gem' : null }); if (g) out.push(g); }
-  if (d.extra) { const x = storesHaul(d.extra, Number(d.extraQty) || 1, { held: heldOf(d.extraStore) }); if (x) out.push(x); }
+  if (d.gem) { const g = storesHaul(d.gem, 1, { held: heldOf(carried ? d.gemCarried : d.gemStore), sub: material(d.gem)?.family === 'gems' ? 'a gem' : null, where }); if (g) out.push(g); }
+  if (d.extra) { const x = storesHaul(d.extra, Number(d.extraQty) || 1, { held: heldOf(carried ? d.extraCarried : d.extraStore), where }); if (x) out.push(x); }
   return out;
 }
 
@@ -177,7 +181,7 @@ export function haulWords(l) {
   const name = l.name ?? materialCountLabel(l.material, l.count);
   const row = l.xp > 0 ? { text: `+${num(l.xp)} ${professionName(l.profession)} XP`, fill: Math.max(0, Math.min(1, Number(l.progress) || 0)), end: l.rank ? `${l.rank}` : '' } : null;
   return {
-    head: l.head ?? '', plus: `+${num(l.count)}`, name, sub: l.sub ?? '', tag: Number.isSafeInteger(l.held) ? `Stores ${num(l.held)}` : 'Stores', end: '', row,
+    head: l.head ?? '', plus: `+${num(l.count)}`, name, sub: l.sub ?? '', tag: Number.isSafeInteger(l.held) ? `${l.where ?? 'Stores'} ${num(l.held)}` : (l.where ?? 'Stores'), end: '', row,   // BAG1: 'Carried 41'
     lode: l.lode ? { silver: l.silver > 0 ? `+${num(l.silver)} silver` : '', held: l.silver > 0 && Number.isSafeInteger(l.balance) ? `you hold ${num(l.balance)}` : '', miners: l.miners ?? '' } : null,
   };
 }

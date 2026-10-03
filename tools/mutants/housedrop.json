@@ -23,15 +23,15 @@
   {
     "name": "HOUSE-session-wagon-refused",
     "file": "src/systems/inventorySession.js",
-    "old": "  if (state.usingWagon || state.chooseOne) return null;",
-    "new": "  if (state.chooseOne) return null;",
+    "old": "  if (state.usingWagon || state.usingBag || state.chooseOne) return null;",
+    "new": "  if (state.usingBag || state.chooseOne) return null;",
     "tests": ["test/housedrop.test.js"]
   },
   {
     "name": "HOUSE-session-merchant-refused",
     "file": "src/systems/inventorySession.js",
-    "old": "  if (state.usingWagon || state.chooseOne) return null;",
-    "new": "  if (state.usingWagon) return null;",
+    "old": "  if (state.usingWagon || state.usingBag || state.chooseOne) return null;",
+    "new": "  if (state.usingWagon || state.usingBag) return null;",
     "tests": ["test/housedrop.test.js"]
   },
   {

@@ -347,8 +347,8 @@
   {
     "name": "GUILD1d-hole-in-the-device-colour",
     "file": "src/ui/heraldryArt.js",
-    "old": "else { ctx.fillStyle = p.bg ? field : border; ctx.fill(path); }",
-    "new": "else { ctx.fillStyle = border; ctx.fill(path); }",
+    "old": "else { ctx.fillStyle = p.bg ? field : ink; ctx.fill(path); }",
+    "new": "else { ctx.fillStyle = ink; ctx.fill(path); }",
     "tests": [
       "test/guild1d_client.test.js"
     ]

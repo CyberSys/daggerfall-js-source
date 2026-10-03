@@ -36,7 +36,8 @@
 import { mintId, overRate } from './accounts.js';
 import { marksOpenFor, balanceOf } from './marks.js';
 import { gatePublicKey } from './signing.js';
-import { profAsks, profShut, profDice, trackRow, trackView, profTodayOf, storeOf } from './professions.js';
+import { profAsks, profShut, profDice, trackRow, trackView, profTodayOf, storeOf, carriedOf, clampStatements } from './professions.js';   // BAG1: the carried count
+import { CARRIED_MAX, heldOk } from '../../src/net/bagLaw.js';
 import { MARKS_MAX, utcDay } from '../../src/net/marksLaw.js';
 import {
   STORES_MAX, PROF_OPS_MAX, PROF_OPS_WINDOW_S, HARVEST_LATE_S, HARVEST_EARLY_S, PROF_XP_MAX, rankOfXp, harvestXp, glintsMax,
@@ -138,6 +139,7 @@ async function strikeAnswer({ db }, player, env, row, nowS, extra = {}, rankBefo
     node: motherlodeKey(day, Number(row.k)), kind: 'ore', material: row.material, qty: Number(row.qty), xp: Number(row.xp),
     track: t, today: (await profTodayOf(db, row.player, row.char_id, day)).mining ?? 0,
     store: await storeOf(db, row.player, row.char_id, row.material),
+    ...(Number(row.carry) === 1 ? { carry: true, carried: await carriedOf(db, row.player, row.char_id, row.material) } : {}),   // BAG1: into the bag or the pack
     ...(await strikeMarks(db, player, env, row, line)),
     lode: { struck: Number(n?.n ?? 0), strikers: MOTHERLODE_STRIKERS },
   };
@@ -154,6 +156,10 @@ export async function strikeMotherlode(ctx, player, env, body = {}) {
   const { db, nowS, rand, subtle } = ctx;
   const { character, node, kind, act, at, rid, watch } = body ?? {};
   const refused = profAsks(player, { character, rid });
+  // BAG1: a carrying client's ore lands in its bag or pack - the carried count, cut first to what it holds - as a vein's
+  const carry = body?.carry === true;
+  const heldNow = carry && heldOk(body?.held) ? body.held : null;
+  const T = carry ? 'prof_carried' : 'prof_stores';
   if (refused) return refused;
   const prior = await db.prepare('SELECT * FROM motherlode_strikes WHERE player = ?1 AND rid = ?2').bind(player.id, rid).first();
   if (prior) return strikeAnswer(ctx, player, env, prior, nowS, { repeat: true });   // before the switch: a strike made is a strike answered
@@ -186,22 +192,23 @@ export async function strikeMotherlode(ctx, player, env, body = {}) {
   const xp = harvestXp(MOTHERLODE_TIER, rank, clean);
   const nonce = mintId(rand);
   const mine = 'player = ?1 AND rid = ?2 AND n = ?3';
-  const stored = 'COALESCE((SELECT SUM(qty) FROM prof_stores WHERE player = ?1 AND char_id = ?4 AND material = l.material), 0)';
+  const stored = `COALESCE((SELECT SUM(qty) FROM ${T} WHERE player = ?1 AND char_id = ?4 AND material = l.material), 0)`;
   const silver = marksOpenFor(player, env);
   await db.batch([
+    ...(heldNow != null ? clampStatements(db, { player: player.id, character, binds: [lode.material, heldNow] }) : []),   // BAG1
     // THE DECISION: the Motherlode standing at the act's end, its twenty, the account's one today (the key), the Stores'
     // room - the ore cut to it - and the XP to what the track can take
-    db.prepare(`INSERT OR IGNORE INTO motherlode_strikes (day, k, player, char_id, material, qty, xp, watch, at, rid, n)
+    db.prepare(`INSERT OR IGNORE INTO motherlode_strikes (day, k, player, char_id, material, qty, xp, watch, at, rid, n, carry)
       SELECT ?5, ?6, ?1, ?4, l.material, MIN(?7, ?8 - ${stored}),
-        MAX(0, MIN(?9, ?10 - COALESCE((SELECT xp FROM prof_tracks WHERE player = ?1 AND char_id = ?4 AND profession = 'mining'), 0))), ?11, ?12, ?2, ?3
+        MAX(0, MIN(?9, ?10 - COALESCE((SELECT xp FROM prof_tracks WHERE player = ?1 AND char_id = ?4 AND profession = 'mining'), 0))), ?11, ?12, ?2, ?3, ?14
       FROM motherlodes l
       WHERE l.day = ?5 AND l.k = ?6 AND ?12 >= l.opens_at AND ?12 < l.closes_at
         AND (SELECT COUNT(*) FROM motherlode_strikes WHERE day = ?5 AND k = ?6) < ?13
         AND ?8 - ${stored} >= 1`)
-      .bind(player.id, rid, nonce, character, day, m.k, qty, STORES_MAX, xp, PROF_XP_MAX, `${c.s}:${c.c}:${c.i}`, at, MOTHERLODE_STRIKERS),
-    db.prepare(`INSERT INTO prof_stores (player, char_id, material, origin, qty)
+      .bind(player.id, rid, nonce, character, day, m.k, qty, carry ? CARRIED_MAX : STORES_MAX, xp, PROF_XP_MAX, `${c.s}:${c.c}:${c.i}`, at, MOTHERLODE_STRIKERS, carry ? 1 : 0),
+    db.prepare(`INSERT INTO ${T} (player, char_id, material, origin, qty)
       SELECT player, char_id, material, 'own', qty FROM motherlode_strikes WHERE ${mine}
-      ON CONFLICT (player, char_id, material, origin) DO UPDATE SET qty = prof_stores.qty + excluded.qty`).bind(player.id, rid, nonce),
+      ON CONFLICT (player, char_id, material, origin) DO UPDATE SET qty = ${T}.qty + excluded.qty`).bind(player.id, rid, nonce),
     db.prepare(`INSERT INTO prof_tracks (player, char_id, profession, xp, updated_at)
       SELECT player, char_id, 'mining', MIN(?4, xp), ?5 FROM motherlode_strikes WHERE ${mine}
       ON CONFLICT (player, char_id, profession) DO UPDATE SET xp = MIN(?4, prof_tracks.xp + excluded.xp), updated_at = excluded.updated_at`)
@@ -220,5 +227,5 @@ export async function strikeMotherlode(ctx, player, env, body = {}) {
   if (await db.prepare('SELECT 1 FROM motherlode_strikes WHERE day = ?1 AND player = ?2').bind(day, player.id).first()) return { error: 'motherlode-found' };
   const n = await db.prepare('SELECT COUNT(*) AS n FROM motherlode_strikes WHERE day = ?1 AND k = ?2').bind(day, m.k).first();
   if (Number(n?.n ?? 0) >= MOTHERLODE_STRIKERS) return { error: 'motherlode-full' };
-  return { error: 'stores-full', material: lode.material };
+  return { error: carry ? 'carried-full' : 'stores-full', material: lode.material };   // BAG1
 }

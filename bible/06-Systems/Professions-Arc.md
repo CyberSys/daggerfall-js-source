@@ -44,6 +44,12 @@ src/net/nodeLaw.js (the nodes). Appendix B lists them in one place.
    Honour's Spoils of War (4.7), and Disenchanting's Essence from a provenance item (9.3). Nothing else - no pack item,
    however it was come by. **Every Stores unit carries its origin** (section 7): **own** (this character's harvest or
    craft) or **bought** (everything else); only own units raise a seat's influence at their value (section 11).
+   **RESTATED BY BAG1** (2026-10-03, `Materials-Bag.md`; Mac: "instead of the current go straight into your storage"):
+   a harvest goes into the Materials Bag or the pack now, and what the service handed to a save may come BACK into the
+   Stores - exactly that, and nothing else. The service COUNTS what it handed out (`prof_carried`, by origin), cuts the
+   count to what the client says it holds before every act that reads it, never raises it, and moves into the Stores
+   only counted units. A pack item the service never handed out - a save-edited one, a looted one - is held and never
+   counted: it still never enters the Stores. The guarantee stands; the door opens one way more, for the service's own.
 4. **THE NODES ARE THE CLOCK'S.** Which nodes exist today is a pure function of the UTC day and the map pixel, as the
    Oblivion Gate's site is (`src/net/gateLaw.js`); **yields are rolled by the service**, never the client.
 5. **THE HANDS DO THE WORK** - DECIDED (Mac: "Active player involvement"). Every harvest is an act the player plays
@@ -470,7 +476,9 @@ GATHER-OW (2026-10-02, Mac: "allow them to appear in the overworld without being
   the code says **`profStores`** (tables `prof_stores`, `guild_prof_stores`) - FACT, `src/systems/features.js`
   already exports a `STORES` (the three preference stores), and one word must not name two things.
 - **The Stores tab** (section 8) is the only place a Stores material is seen. Moving to the pack is allowed (one-way, law 3);
-  a pack item never moves into the Stores.
+  a pack item never moves into the Stores. BAG1 (`Materials-Bag.md`): a unit the service handed out and still counts
+  as carried moves back (law 3, restated); the Stores are **kept in town** - put in and taken out in any town, read
+  anywhere - and a harvest goes into the Materials Bag or the pack, never straight into them.
 - **Origin.** Every unit is **own** or **bought** - or, GOLD-MARKET (10.8), **gold**: bought on the market with gold,
   which goes to the pack or back on the market for gold and to nothing else. Own: this character's harvest (section 6), a craft whose every input
   was own (section 9), Disenchanting's Essence from an own provenance item (one this character made, never sold), a
@@ -513,7 +521,8 @@ laid out for the phone's touch layer as for the desktop.
   cards (choose one), the unlocks by rank (tiers, recipes), today's harvests, and "Crafts above Journeyman: 1 of 2".
 - **The Stores tab**: a grid of materials with counts, each count split own / bought on its card; filters (Ores and
   Metals, Wood, Herbs, Food, Hides and Cloth, Stone, Gems, Essences, Spoils of War), a search box, sort by tier, name or count; a material's actions - **Withdraw to
-  pack** (a quantity), and at a Notice Board **List** and **Deliver to a writ**.
+  pack** (a quantity), and at a Notice Board **List** and **Deliver to a writ**. BAG1 (`Materials-Bag.md` 4): what is
+  carried beside each count; **Take out** (into the bag, then the pack), **Put in** and **Put everything in** - in town.
 - **A station**: left, the recipe list (filters: Can make now, All known, by tier); centre, the recipe - its inputs
   (have / need, from the Stores), the product as an item card, a bar of its quality odds (9.2); buttons **Craft**
   (plays the act, 9.4), **Quick craft**, **Craft x N** (quick, up to 10); right, the act's panel while it plays.
@@ -1011,6 +1020,7 @@ of Makers; commissions; regional prices to haul between; and every seat on the m
 | A modified client fakes a craft | The service crafts; the client only receives (9.1) |
 | A modified client plays a perfect act | Capped at one quality step and +50% yield, never past the rank (5.1) |
 | A save-edited item enters the economy | The Stores are one-way (law 3); only a provenance id's owner lists it, one listing at a time (10.2, 18) |
+| A save-edited or looted material deposited from the Materials Bag | Only the service's carried count moves into the Stores, cut to what the pack holds and never raised (law 3 restated; `Materials-Bag.md` 5) |
 | Fake gold buys the market | The market is in Marks (10.5); a gold listing is a realm character's alone, bought off its record on the service in the sale's own batch, and what gold bought never becomes Marks (10.8) |
 | Marks inflate | Faucets only from witnessed acts, each capped; the weekly report; the Bank's spread and every fee burn |
 | Bots farm nodes | Per-character nodes, daily caps, travel |
@@ -3302,6 +3312,13 @@ warning - and left four things open. DECIDED here (the record's, at Mac's instru
   Pinned: `test/prof2b_motherlode.test.js` (6), `test/prof2b_client.test.js` (7); `tools/mutants/prof2b.json` (32, all
   dead). AUDIT 29 A17's two pins moved (the Sense chosen as any). The audit's: `test/auditsilver_service.test.js` (C1-C3),
   `test/auditsilver_client.test.js` (D1-D7), `tools/mutants/auditsilver.json`.
+
+## 39. BAG1 - the Materials Bag, as built (BUILT 2026-10-03)
+
+Its own page: `Materials-Bag.md`. A bag bought at every General Store online (about 500 gold), carried as the wagon is
+(300 kg, materials only); every harvest into it, then the pack, the rest left where it was gathered; the Stores kept in
+town, put in and taken out there; law 3 restated over the service's carried count (section 1); a station's shortfall
+put in from what is carried before it spends.
 
 ## Appendix A - a day of a gatherer
 

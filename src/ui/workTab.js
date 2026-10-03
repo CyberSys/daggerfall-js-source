@@ -201,7 +201,7 @@ export function createWorkTab(w, ui) {
       n.min = '1'; n.max = String(most);
       const go = button('primary notice-take work-deliver', `Deliver ${count(units())}`, () => {
         const u = units();
-        return act(() => w.writs.supply({ region: w.region, writ: x.id, units: u }),
+        return act(() => w.writs.supply({ region: w.region, writ: x.id, units: u, material: x.material }),   // BAG1: the material, so what is carried goes in first
           (d) => `Delivered ${count(u)} ${w.countName(x.material, u)}: ${paidText(d?.fill?.pay ?? 0, d?.fill?.tax ?? 0)}.`);
       });
       why(go, busyWhy());

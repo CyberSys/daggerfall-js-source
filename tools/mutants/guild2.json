@@ -1,0 +1,160 @@
+[
+  {
+    "name": "GUILD2a-an-officer-renames",
+    "file": "src/net/guildLaw.js",
+    "old": "  rename: Object.freeze([0]),",
+    "new": "  rename: Object.freeze([0, 1]),",
+    "tests": [
+      "test/guild2_client.test.js",
+      "test/guild1.test.js"
+    ]
+  },
+  {
+    "name": "GUILD2a-no-fortnight",
+    "file": "src/net/guildLaw.js",
+    "old": "export const GUILD_RENAME_COOLDOWN_S = 14 * 24 * 3600;",
+    "new": "export const GUILD_RENAME_COOLDOWN_S = 0;",
+    "tests": [
+      "test/guild2_client.test.js"
+    ]
+  },
+  {
+    "name": "GUILD2b-the-guildmaster-limited",
+    "file": "src/net/guildVaultLaw.js",
+    "old": "if (rank === GUILD_RANK_MASTER || !grant",
+    "new": "if (!grant",
+    "tests": [
+      "test/guild2_client.test.js"
+    ]
+  },
+  {
+    "name": "GUILD2b-the-limit-unread",
+    "file": "src/net/guildVaultLaw.js",
+    "old": "(s.limit === 0 || (takenToday | 0) < s.limit)",
+    "new": "true",
+    "tests": [
+      "test/guild2_client.test.js"
+    ]
+  },
+  {
+    "name": "GUILD2c-the-device-lost-on-the-second-colour",
+    "file": "src/net/heraldryLaw.js",
+    "old": "  if (ink === field || (parted && ink === field2)) return null;",
+    "new": "  if (ink === field) return null;",
+    "tests": [
+      "test/guild2_client.test.js"
+    ]
+  },
+  {
+    "name": "GUILD2c-the-plain-key-moved",
+    "file": "src/net/heraldryLaw.js",
+    "old": "  return h.division || h.charge ? `${base}|",
+    "new": "  return true ? `${base}|",
+    "tests": [
+      "test/guild2_client.test.js"
+    ]
+  },
+  {
+    "name": "GUILD2c-field2-unfilled",
+    "file": "src/ui/heraldryArt.js",
+    "old": "  const parted = h?.division ? `<path d=\"${divisionPath(h.division, BANNER_BOX.w, BANNER_BOX.h)}\"",
+    "new": "  const parted = h?.division && false ? `<path d=\"${divisionPath(h.division, BANNER_BOX.w, BANNER_BOX.h)}\"",
+    "tests": [
+      "test/guild2_client.test.js"
+    ]
+  },
+  {
+    "name": "GUILD2-the-strip-offers-the-stores-offline",
+    "file": "src/ui/socialPanel.js",
+    "old": "    ...(g.profStores?.writs && g.profStores.open?.() === true ? [['stores', 'Stores']] : []),",
+    "new": "    ['stores', 'Stores'],",
+    "tests": [
+      "test/guild2_client.test.js"
+    ]
+  },
+  {
+    "name": "GUILD2a-rename-in-one-press",
+    "file": "src/ui/socialPanel.js",
+    "old": "        : liveBtn('Rename', of, { run: () => arm('rename') }));",
+    "new": "        : liveBtn('Rename', of, { run: () => { const t = typed(); guildDo(g.rename(t.name, t.tag), ''); } }));",
+    "tests": [
+      "test/guild2_client.test.js"
+    ]
+  },
+  {
+    "name": "GUILD2a-the-gold-unread",
+    "file": "src/ui/socialPanel.js",
+    "old": "              : Number(v.hallGold ?? 0) < GUILD_RENAME_GOLD ? ",
+    "new": "              : false ? ",
+    "tests": [
+      "test/guild2_client.test.js"
+    ]
+  },
+  {
+    "name": "GUILD2b-take-offered-to-a-depositor",
+    "file": "src/ui/socialPanel.js",
+    "old": "    const mayTake = vaultMayTake(st, st?.taken ?? 0);",
+    "new": "    const mayTake = vaultMayPut(st);",
+    "tests": [
+      "test/guild2_client.test.js"
+    ]
+  },
+  {
+    "name": "GUILD2b-the-town-unread",
+    "file": "src/ui/socialPanel.js",
+    "old": "    const reach = g.pack?.reach?.() !== false;",
+    "new": "    const reach = true;",
+    "tests": [
+      "test/guild2_client.test.js"
+    ]
+  },
+  {
+    "name": "GUILD2b-grants-to-an-officer",
+    "file": "src/ui/socialPanel.js",
+    "old": "    const mayGrant = guildMay(me, 'vaultGrant');",
+    "new": "    const mayGrant = guildMay(me, 'invite');",
+    "tests": [
+      "test/guild2_client.test.js"
+    ]
+  },
+  {
+    "name": "GUILD2b-the-reserve-never-undone",
+    "file": "src/net/guildBook.js",
+    "old": "        return () => { if (whole) { if (!list.includes(item)) list.splice(Math.min(at, list.length), 0, item); } else item.stackCount += n; this.pack.changed(); };",
+    "new": "        return () => {};",
+    "tests": [
+      "test/guild2_client.test.js"
+    ]
+  },
+  {
+    "name": "GUILD2b-the-taken-piece-unminted",
+    "file": "src/net/guildBook.js",
+    "old": "if (rec) { this.pack.add(rec); this.pack.changed(); }",
+    "new": "if (rec) { this.pack.changed(); }",
+    "tests": [
+      "test/guild2_client.test.js"
+    ]
+  },
+  {
+    "name": "GUILD2b-svc-the-daily-limit",
+    "file": "server-account/src/guildVault.js",
+    "old": "  if (!vaultMayTake(standing, takenToday(me ?? a.me, nowS))) return { error: 'guild-vault-limit' };",
+    "new": "",
+    "tests": [
+      "test/guild2_service.test.js"
+    ],
+    "equivalent": true,
+    "why": "The early read is a fast path: the take's own batch decides the day's count (guild_members' UPDATE guarded by the limit, then mustChange), and the catch says guild-vault-limit off a fresh read - so a take past the limit is still refused whole. A race of the same character past both is stopped a third time by the realm record's seq."
+  },
+  {
+    "name": "GUILD2a-svc-the-fortnight",
+    "file": "server-account/src/guilds.js",
+    "old": "  if (!guildRenameOpen(renamedAt, nowS)) return { error: 'guild-rename-soon', at: guildRenameAt(renamedAt) };",
+    "new": "",
+    "tests": [
+      "test/guild2_service.test.js"
+    ],
+    "equivalent": true,
+    "why": "The early read is a fast path: the rename's batch is guarded by renamed_at + the fortnight itself, and the catch says guild-rename-soon off a fresh read - a rename inside the fortnight is still refused whole, nothing paid."
+  }
+]

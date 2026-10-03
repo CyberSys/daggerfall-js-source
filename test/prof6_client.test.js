@@ -221,7 +221,8 @@ test('PROF6 the Work tab: this region\'s guild writs under the guild blue (Deliv
   const before = reads();
   go.click();
   await ticks();
-  assert.deepEqual(calls.at(-1), ['supply', { region: DF, writ: 'W1', units: 40 }]);
+  // BAG1 (PIN MOVED): and the writ's material, so the host puts in what the Stores lack of it from the bag and the pack first
+  assert.deepEqual(calls.at(-1), ['supply', { region: DF, writ: 'W1', units: 40, material: 'log:oak' }]);
   assert.ok(reads() > before, 'the list read again');
   assert.match(host.textContent, /Delivered 40 Oak Logs: 114 silver struck to your account \(6 silver tax taken\)\./, 'AUDIT 31 U13: never "114 less 6"');
   // the commission for me: Fill with the piece picked, and Decline
@@ -361,7 +362,7 @@ test('PROF6 the Guild tab: the guild Stores read once, each material\'s count an
   const doc = { ...document, createElement: (t) => Object.assign(document.createElement(t), { dataset: {} }) };
   doc.head.dataset ??= {}; doc.body.dataset ??= {};
   const panel = createSocialPanel({ social: new SocialState({ acct: 'acct-a' }), guild: book, doc, win: { addEventListener() {}, removeEventListener() {} }, overlay: () => false, touch: false });
-  panel.openGuild();
+  panel.openGuild('stores');   // GUILD2 (PIN MOVED): the guild Stores are the Guild tab's Stores page
   await ticks(6); panel.render(); await ticks(6); panel.render();
   const t = panel.root.textContent;
   assert.match(t, /Guild Stores/);

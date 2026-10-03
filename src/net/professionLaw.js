@@ -235,9 +235,14 @@ export const NODE_PROFESSIONS = Object.freeze({ herb: 'herbalism', vein: 'mining
  *  with gold the prompt said ready, the act played, the tool wore, and the service said `stores-full`. `book` the
  *  client's (its `store`, its caps; a book that keeps no origins answers by `held`). */
 export function storesFullIn(book, material) {
+  // BAG1: a carrying book's harvest is the bag's or the pack's - full when neither has room for one more, or the service's
+  // carried count of it is at its bound (net/profBook.js carryFull)
+  if (book.carrying?.() === true) return book.carryFull(material);
   const s = book.store?.(material) ?? { own: book.held(material) };
   return (s.own | 0) + (s.bought | 0) + (s.gold | 0) >= (book.state?.caps?.stores ?? STORES_MAX);
 }
+/** BAG1: a node's prompt when the goods have nowhere to go - the Stores (an older book's), or the bag and the pack. */
+export const fullWordsIn = (book) => (book?.carrying?.() === true ? 'No room in your bag or pack' : 'Stores full');
 /** One withdrawal to the pack, at most. */
 export const WITHDRAW_MAX = 200;
 /** Professions writes an account may make an hour (a harvest, a withdrawal, a delivery, a choice each count). */

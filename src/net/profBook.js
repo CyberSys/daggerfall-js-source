@@ -26,10 +26,24 @@
 // for the act's row - every refusal but the network's, the service's own
 // fault, the account's rate and a missing session.
 //
+// BAG1 (bible/06-Systems/Materials-Bag.md): A CARRYING BOOK - one handed
+// `carry`, the host's hands on the Materials Bag and the pack (systems/
+// materialsBag.js) - asks every harvest and withdrawal as carried: the
+// units are the service's count, and the items are minted into the bag
+// or the pack ONCE, by the tab that lets the kept act go (AUDIT 29 C5's
+// law). What a station, a craft, a brew or a Court writ may spend is
+// the Stores' and what the character carries and still holds; the
+// shortfall is put in the Stores first (a deposit, the items taken out
+// and given back on a refusal), so the station's own route spends the
+// Stores as it always has.
+//
 // Pure - the door, the storage, the clock and the ids are handed in - so
 // the pins drive it without a network.
 // ═══════════════════════════════════════════════════════════════════
-import { HARVEST_LATE_S, HIDES_PER_DAY, HIGH_HIDES_PER_DAY, HAULS_PER_DAY, NODE_PROFESSIONS } from './professionLaw.js';   // PROF8: the day's forty hauls
+import { HARVEST_LATE_S, HIDES_PER_DAY, HIGH_HIDES_PER_DAY, HAULS_PER_DAY, NODE_PROFESSIONS, smeltRecipe } from './professionLaw.js';   // PROF8: the day's forty hauls; BAG1: a work's inputs
+import { CARRIED_MAX, DEPOSIT_MAX, carriedUsable, carriedTotal, clampCarried } from './bagLaw.js';   // BAG1: what a character carries, counted
+import { recipeById, recipeInputs } from './recipeLaw.js';   // BAG1: a craft's inputs, moved in from the bag first
+import { potionById, brewSpends } from './alchemyLaw.js';   // BAG1: a brew's
 import { pixelKey, parseNodeKey } from './nodeLaw.js';
 import { accountRefusalText } from './accountClient.js';
 import { ASK_AGAIN_NOW, jittered } from './backoff.js';   // SCALE1: asks again spread out, and never at once into a minute's refusal
@@ -83,7 +97,14 @@ const dayOf = (ms) => Math.floor(ms / 86_400_000);
  *   sleep?: (ms: number) => Promise<void>,
  * }} deps `character` the character this device plays now; `now` the shared clock's wall time (ms)
  */
-export function createProfBook({ door, storage = null, character = () => null, now = () => Date.now(), rid = () => mintProfRid(), sleep = (ms) => new Promise((r) => setTimeout(r, ms)) }) {
+/**
+ * @typedef {{ held: (key: string) => number, room: (key: string) => number,
+ *   mint: (key: string, n: number) => { bag: number, pack: number, left: number },
+ *   take: (key: string, n: number) => { taken: number, back: () => void } }} CarryHands
+ *   BAG1: the host's hands on the bag and the pack - what they hold of a material, how many more fit, the units minted
+ *   into them (the bag first), and the units taken out of them with the undo that puts them back.
+ */
+export function createProfBook({ door, storage = null, character = () => null, now = () => Date.now(), rid = () => mintProfRid(), sleep = (ms) => new Promise((r) => setTimeout(r, ms)), carry = /** @type {CarryHands|null} */ (null) }) {
   const state = {
     /** whether the professions are this account's: true, false, or null not yet asked */
     open: /** @type {boolean|null} */ (null),
@@ -97,6 +118,8 @@ export function createProfBook({ door, storage = null, character = () => null, n
     today: /** @type {Record<string, number>} */ ({}),
     taken: new Set(),
     stores: new Map(),
+    /** BAG1: the service's carried count, by material - every unit it handed to the bag or the pack (bagLaw.js) */
+    carried: new Map(),
     writs: { today: 0, max: 3 },
     caps: /** @type {any} */ (null),
     /** PROF3: the account's Marks as the smith's stock last answered them, or null */
@@ -111,6 +134,8 @@ export function createProfBook({ door, storage = null, character = () => null, n
     closed: new Map(),
   };
   const account = () => { try { return door.account?.() ?? null; } catch { return null; } };
+  /** BAG1: the carried count as far as the bag and the pack still hold it (bagLaw.js clampCarried). */
+  const clampedCarried = (m) => { const c = state.carried.get(m) ?? { own: 0, bought: 0 }; return carry ? clampCarried(c, carry.held(m)) : c; };
   const slot = () => `${account() ?? ''}|${character() ?? ''}`;
 
   // ─── THE KEPT ACTS ─────────────────────────────────────────────────
@@ -159,6 +184,13 @@ export function createProfBook({ door, storage = null, character = () => null, n
     if ((s.own | 0) + (s.bought | 0) + gold > 0) state.stores.set(s.material, { material: s.material, own: s.own | 0, bought: s.bought | 0, ...(gold > 0 ? { gold } : {}) });
     else state.stores.delete(s.material);
   };
+  /** BAG1: a carried count as the service said it, in the Stores' shape. */
+  const applyCarried = (c) => {
+    if (!c || typeof c.material !== 'string') return;
+    const gold = c.gold | 0;
+    if ((c.own | 0) + (c.bought | 0) + gold > 0) state.carried.set(c.material, { material: c.material, own: c.own | 0, bought: c.bought | 0, ...(gold > 0 ? { gold } : {}) });
+    else state.carried.delete(c.material);
+  };
   function apply(data) {
     state.open = true;
     state.reread = false;   // REFUSALS-LEARNED: read
@@ -171,6 +203,8 @@ export function createProfBook({ door, storage = null, character = () => null, n
     state.taken = new Set(Array.isArray(data?.taken) ? data.taken : []);
     state.stores = new Map();
     for (const s of data?.stores ?? []) applyStore(s);
+    state.carried = new Map();
+    for (const c of data?.carried ?? []) applyCarried(c);   // BAG1
     if (data?.writs) state.writs = { today: data.writs.today | 0, max: data.writs.max | 0 };
     state.caps = data?.caps ?? null;
     applyHunt(data?.hunt);
@@ -226,6 +260,11 @@ export function createProfBook({ door, storage = null, character = () => null, n
   const sending = new Set();
   let _withdrawBusy = null;
   let _craftBusy = null;   // PROF3: one craft at a time, asked or settled
+  let _depositBusy = false;   // BAG1: one deposit at a time
+  /** BAG1: the deposits whose answer never came - their items kept out of the bag and the pack, asked again with the same
+   *  id at the next settle, given back only on the service's own refusal (an honest client fails toward loss, never a
+   *  copy: a deposit that landed and lost its answer, given back, would be the units in the Stores AND in the pack). */
+  const pendingDeposits = [];
 
   const book = {
     state,
@@ -264,11 +303,27 @@ export function createProfBook({ door, storage = null, character = () => null, n
     track(profession) { return state.tracks.get(profession) ?? { profession, xp: 0, rank: 0, specs: { 50: null, 100: null }, respec: null }; },
     /** One material's count in the Stores, own and bought (GOLD-MARKET: and `gold`, bought with gold, where held). */
     store(material) { return state.stores.get(material) ?? { material, own: 0, bought: 0 }; },
-    /** What a station, a craft or a writ may spend of it - never what gold bought (GOLD-MARKET's wall). */
-    held(material) { const s = this.store(material); return s.own + s.bought; },
+    /** What a station, a craft or a writ may spend of it - never what gold bought (GOLD-MARKET's wall). BAG1: the Stores'
+     *  and, for a carrying book, what the character carries and still holds (bagLaw.js carriedUsable) - a craft puts the
+     *  shortfall in the Stores before it spends (`ensureInStores`). */
+    held(material) { return this.storesHeld(material) + this.carriedUsable(material); },
+    /** BAG1: what the Stores alone may spend of it - the Stores page's, and every act that reads the Stores alone. */
+    storesHeld(material) { const s = this.store(material); return s.own + s.bought; },
+    /** BAG1: whether this book carries (a host handed it the bag and the pack) - every harvest and withdrawal is then
+     *  the bag's or the pack's, never the Stores'. */
+    carrying() { return !!carry; },
+    /** BAG1: the service's carried count of a material, as it last said it. */
+    carried(material) { return state.carried.get(material) ?? { material, own: 0, bought: 0 }; },
+    /** BAG1: what of the carried count a station may use - as far as the bag and the pack still hold it, never gold's. */
+    carriedUsable(material) { return carry ? carriedUsable(this.carried(material), carry.held(material)) : 0; },
+    /** BAG1: whether one more unit of a material has nowhere to go - neither the bag nor the pack has room, or the
+     *  service's count of it is at its bound (professionLaw.js storesFullIn asks it of a carrying book). */
+    carryFull(material) { return !carry || carry.room(material) < 1 || carriedTotal(clampedCarried(material)) >= CARRIED_MAX; },
     /** AUDIT 30 U1: a material's count as another book heard it from the service (the market's answers - a listing's
      *  units out, a purchase or a cancel in, a fill, a delivery landed) - one count, whoever asked. */
     applyStore(s) { if (state.open === true && state.character === character()) applyStore(s); },
+    /** BAG1: a carried count another book heard (none yet - the deposit's and the withdrawal's are this book's own). */
+    applyCarried(c) { if (state.open === true && state.character === character()) applyCarried(c); },
 
     // ─── THE PIXELS ─────────────────────────────────────────────────
     /** A streamed pixel's witnessed state today, or null not yet asked. */
@@ -337,7 +392,11 @@ export function createProfBook({ door, storage = null, character = () => null, n
       const key = slot();
       const c = character();
       if (!c) return { ok: false, error: 'prof-character' };
-      const h = { ...req, character: c, rid: rid(), queuedAt: now(), tries: 0, nextAt: 0 };
+      // BAG1: a carrying book's harvest is the bag's or the pack's - `held` what they hold of the material, where the host
+      // names it (a Basket's food is the service's roll: none), so the count is cut to the truth first
+      const { material: named = null, ...ask0 } = req ?? {};
+      const h = { ...ask0, character: c, rid: rid(), queuedAt: now(), tries: 0, nextAt: 0,
+        ...(carry ? { carry: true, ...(typeof named === 'string' ? { held: carry.held(named) } : {}) } : {}) };
       const kept = keptOf(key);
       kept.harvests.push(h);
       writeKept(kept, key);
@@ -382,7 +441,9 @@ export function createProfBook({ door, storage = null, character = () => null, n
       const c = character();
       if (!c || !account()) return { ok: false, text: accountRefusalText('no-session') };
       _withdrawBusy = (async () => {
-        const w = { rid: rid(), material, qty, character: c };
+        // BAG1: a carrying book's withdrawal is counted as carried - with what the bag and the pack hold of it now, kept
+        // with the withdrawal so an ask after a lost answer says the same
+        const w = { rid: rid(), material, qty, character: c, ...(carry ? { carry: true, held: carry.held(material) } : {}) };
         const kept = keptOf(key);
         kept.withdrawals.push(w);
         writeKept(kept, key);
@@ -396,6 +457,7 @@ export function createProfBook({ door, storage = null, character = () => null, n
       if (_withdrawBusy) return [];
       const key = slot();
       const out = [];
+      await settleDeposits();   // BAG1
       _withdrawBusy = (async () => {
         for (const w of keptOf(key).withdrawals) out.push(await settleOne(w, key, mint));
         return out;
@@ -413,6 +475,58 @@ export function createProfBook({ door, storage = null, character = () => null, n
     },
     get pendingWithdrawals() { return keptOf().withdrawals.length; },
 
+    // ─── BAG1: A DEPOSIT - WHAT IS CARRIED, INTO THE STORES ────────
+    /**
+     * `qty` carried units of `material` into the Stores, each origin as it was (server-account/src/professions.js
+     * depositStores): the items taken out of the bag and then the pack first, `held` what they held before, the request
+     * asked; given back on the service's refusal. An answer that never comes keeps them out and asks again at the next
+     * settle (pendingDeposits). `order` 'all' (the Stores page's Put in) or 'spend' (a craft's shortfall - never gold's).
+     * @returns {Promise<{ ok: boolean, data?: any, error?: string, kept?: boolean }>}
+     */
+    async deposit(material, qty, { order = 'all' } = {}) {
+      if (!carry) return { ok: false, error: 'bad-held' };
+      const c = character();
+      if (!c || !account()) return { ok: false, error: 'no-session' };
+      if (!Number.isSafeInteger(qty) || qty < 1 || qty > DEPOSIT_MAX) return { ok: false, error: 'bad-qty' };
+      if (_depositBusy) return { ok: false, error: 'prof-busy' };
+      _depositBusy = true;
+      try {
+        const held = carry.held(material);
+        const took = carry.take(material, qty);
+        if (took.taken < qty) { took.back(); return { ok: false, error: 'carried-short' }; }
+        const d = { id: rid(), character: c, material, qty, held, order, back: took.back, key: slot() };
+        return await askDeposit(d);
+      } finally { _depositBusy = false; }
+    },
+    /** BAG1: how many deposits wait on the service's answer, their items out of the bag. */
+    get pendingDeposits() { return pendingDeposits.length; },
+    /**
+     * BAG1: A STATION'S, A CRAFT'S OR A WRIT'S SHORTFALL PUT IN THE STORES FIRST - for each input `{ key, n }` (summed by
+     * key), what the Stores lack of `n` deposited from what is carried (`spend`: bought first, never gold's), so the act's
+     * own route spends the Stores as it always has. A carried count that cannot cover a shortfall moves nothing and
+     * answers `stores-short`; a deposit refused answers its refusal. A book that does not carry answers `ok` at once.
+     * @param {{ key: string, n: number }[]|null|undefined} inputs
+     */
+    async ensureInStores(inputs) {
+      if (!carry || !Array.isArray(inputs)) return { ok: true, moved: 0 };
+      const need = new Map();
+      for (const i of inputs) if (i && typeof i.key === 'string' && i.n > 0) need.set(i.key, (need.get(i.key) ?? 0) + i.n);
+      // every shortfall covered before any moves, so a craft refused for one input moves none of the others
+      for (const [k, n] of need) if (n - this.storesHeld(k) > this.carriedUsable(k)) return { ok: false, error: 'materials-short', material: k };
+      let moved = 0;
+      for (const [k, n] of need) {
+        let left = n - this.storesHeld(k);
+        while (left > 0) {
+          const q = Math.min(left, DEPOSIT_MAX);
+          const r = await this.deposit(k, q, { order: 'spend' });
+          if (!r?.ok) return { ok: false, error: r?.error ?? 'offline', material: k, kept: r?.kept === true };
+          left -= q;
+          moved += q;
+        }
+      }
+      return { ok: true, moved };
+    },
+
     // ─── A CRAFT AT THE ANVIL (PROF3) ───────────────────────────────
     /**
      * A recipe made at the anvil (net/recipeLaw.js): `clean` the heat's report (the service lays one step on it at most),
@@ -428,6 +542,10 @@ export function createProfBook({ door, storage = null, character = () => null, n
       const c = character();
       if (!c || !account()) return { ok: false, error: 'no-session' };
       _craftBusy = (async () => {
+        // BAG1: what the Stores lack, from the bag and the pack first - the anvil's route spends the Stores
+        const r0 = recipeById(recipe);
+        const ready = r0 ? await book.ensureInStores(recipeInputs(r0, { heartwood: heartwood === true, joiner: book.track(r0.profession ?? 'smithing').specs?.[50] === 'joiner', cracked: cracked === true })) : { ok: true };
+        if (!ready.ok) return { ok: false, error: ready.error ?? 'materials-short', material: ready.material, kept: ready.kept };
         const w = { rid: rid(), recipe, clean: clean === true, name: typeof name === 'string' ? name : null, character: c, heartwood: heartwood === true,   // PROF4: a Heartwood for a plank
           fee: Number.isSafeInteger(fee) && fee > 0 ? fee : 0, ...(Number.isInteger(dye) ? { dye } : {}),   // PROF7: a garment's dye
           ...(Number.isSafeInteger(seat) && seat >= 0 ? { seat } : {}),   // SEAT2b part two: the held town the station stands in (its crafting halls' steps)
@@ -455,6 +573,9 @@ export function createProfBook({ door, storage = null, character = () => null, n
       const c = character();
       if (!c || !account()) return { ok: false, error: 'no-session' };
       _craftBusy = (async () => {
+        // BAG1: the cauldron's herbs the Stores lack, from the bag and the pack first
+        const ready = await book.ensureInStores(brewSpends(potionById(potion), keys));
+        if (!ready.ok) return { ok: false, error: ready.error ?? 'materials-short', material: ready.material, kept: ready.kept };
         const w = { rid: rid(), brew: true, recipe: potion, keys: Array.isArray(keys) ? [...keys] : [], character: c,
           fee: Number.isSafeInteger(fee) && fee > 0 ? fee : 0, ...(Number.isSafeInteger(seat) && seat > -1 ? { seat } : {}) };
         const kept = keptOf(key);
@@ -536,6 +657,10 @@ export function createProfBook({ door, storage = null, character = () => null, n
       const m = idFor(`deliver|${slot()}|${writId}`);
       if (m.promise) return m.promise;
       m.promise = (async () => {
+        // BAG1: the writ's units the Stores lack, from the bag and the pack first - a Court writ is filled from the Stores
+        const asked = writCache.get(`${slot()}|${region}`)?.data?.writs?.find((x) => x.id === writId) ?? null;
+        const ready = asked ? await book.ensureInStores([{ key: asked.material, n: asked.qty }]) : { ok: true };
+        if (!ready.ok) { m.promise = null; return { ok: false, error: ready.error ?? 'materials-short' }; }
         const r = await ask(() => door.deliver(c, writId, m.id));
         m.promise = null;
         if (!keptAnswer(r)) ids.delete(`deliver|${slot()}|${writId}`);
@@ -566,10 +691,16 @@ export function createProfBook({ door, storage = null, character = () => null, n
       const m = idFor(key, PROF_QUEUE_MS);
       if (m.promise) return m.promise;
       m.promise = (async () => {
+        // BAG1: the work's inputs the Stores lack, from the bag and the pack first
+        const work = smeltRecipe(recipe);
+        const ready = work ? await book.ensureInStores(work.inputs.map((i) => ({ key: i.key, n: i.n * count }))) : { ok: true };
+        if (!ready.ok) { m.promise = null; return { ok: false, error: ready.error ?? 'materials-short', material: ready.material }; }
         const r = await ask(() => door.smelt(c, recipe, count, m.id, clean === true));
         m.promise = null;
         if (!keptAnswer(r)) ids.delete(key);
         if (r?.ok) { for (const s of r.data?.stores ?? []) applyStore(s); applyTrack(r.data?.track); } else shutBy(r);
+        // BAG1: AND WHAT IT MADE INTO THE BAG OR THE PACK - as much as fits; the rest stays in the Stores, said
+        if (r?.ok && carry && work) r.data.put = await carryOut(work.out, (Number(r.data.own) || 0) + (Number(r.data.bought) || 0));
         return r;
       })();
       return m.promise;
@@ -607,6 +738,7 @@ export function createProfBook({ door, storage = null, character = () => null, n
       character: h.character, node: h.node, kind: h.kind, climate: h.climate, region: h.region, act: h.act, at: h.at, rid: h.rid,
       ...(h.foe === undefined ? {} : { foe: h.foe }),   // PROF7: the foe a body is (PROF0 6: the client's claim)
       ...(typeof h.watch === 'string' ? { watch: h.watch } : {}),   // PROF2b: a Motherlode's - the relay's Watch receipt for its pixel
+      ...(h.carry === true ? { carry: true, ...(Number.isSafeInteger(h.held) ? { held: h.held } : {}) } : {}),   // BAG1: into the bag or the pack
     };
     let r;
     sending.add(h.rid);
@@ -616,7 +748,14 @@ export function createProfBook({ door, storage = null, character = () => null, n
     const here = key === slot();
     if (r?.ok && !here) { drop(h.rid, key); return { ok: true, data: r.data, elsewhere: true }; }
     if (r?.ok) {
+      // BAG1: THE ITEMS ARE MINTED ONCE, by the tab that lets the kept harvest go - read and let go in one turn, BEFORE the
+      // items are made (AUDIT 29 C5's law, the withdrawal's): a second tab settling the same kept harvest finds it gone
+      const had = keptOf(key).harvests.some((x) => x.rid === h.rid);
       drop(h.rid, key);
+      if (r.data?.carry === true) {
+        applyCarried(r.data.carried); applyCarried(r.data.gemCarried); applyCarried(r.data.extraCarried);
+        if (had && carry) r.data.put = mintHarvest(r.data);
+      }
       state.taken.add(`${h.node}|${h.kind}`);
       staleGround(h.node);   // GROUND-STALE: this harvest may be the witness that confirmed its ground
       applyStore(r.data?.store);
@@ -655,6 +794,23 @@ export function createProfBook({ door, storage = null, character = () => null, n
     if (r?.error === 'prof-hunt-high') state.hunt = { ...(state.hunt ?? { hides: 0, high: 0 }), high: Math.max(state.hunt?.high ?? 0, state.caps?.highHides ?? HIGH_HIDES_PER_DAY) };
     return { ok: false, error: r?.error ?? 'server' };
   }
+  /** BAG1: a carried harvest's goods into the bag or the pack - the material, a gem, a second find - each minted by the
+   *  host's hands; `{ bag, pack, left }` summed, for the words (a unit with no room was left where it was gathered: the
+   *  service's count of it falls to the truth at the next act that reads it). */
+  function mintHarvest(d) {
+    const out = { bag: 0, pack: 0, left: 0 };
+    const add = (k, n) => {
+      if (typeof k !== 'string' || !(n > 0)) return;
+      let got = null;
+      try { got = carry?.mint(k, n) ?? null; } catch (e) { console.warn('[prof] a harvest would not mint', e); }
+      if (!got) { out.left += n; return; }
+      out.bag += got.bag; out.pack += got.pack; out.left += got.left;
+    };
+    add(d.material, Number(d.qty) || 0);
+    if (d.gem) add(d.gem, 1);
+    if (d.extra) add(d.extra, Number(d.extraQty) || 1);
+    return out;
+  }
   function drop(id, key) {
     const kept = keptOf(key);
     kept.harvests = kept.harvests.filter((x) => x.rid !== id);
@@ -686,9 +842,43 @@ export function createProfBook({ door, storage = null, character = () => null, n
     shutBy(r);
     return { ok: false, error: r?.error ?? 'server' };
   }
+  /** BAG1: units of a material a station made, out of the Stores into the bag or the pack - as many as fit - by a
+   *  carrying withdrawal of the book's own (its kept act, minted once). `{ bag, pack, stored }`: how many went where,
+   *  and how many stayed in the Stores. */
+  async function carryOut(material, n) {
+    const out = { bag: 0, pack: 0, stored: n };
+    const fit = Math.min(n, carry?.room(material) ?? 0, 200);
+    if (!(fit > 0)) return out;
+    const r = await book.withdraw(material, fit, (k, q) => { const got = carry?.mint(k, q); if (got) { out.bag += got.bag; out.pack += got.pack; out.stored -= got.bag + got.pack; } });
+    return r?.ok ? out : { bag: 0, pack: 0, stored: n };
+  }
+  /** BAG1: a deposit's ask - answered (the Stores and the count moved), refused (its items given back), or kept out and
+   *  pending, asked again with the same id. */
+  async function askDeposit(d) {
+    const r = await ask(() => door.deposit(d.character, d.material, d.qty, d.held, d.order, d.id));
+    const i = pendingDeposits.indexOf(d);
+    if (r?.ok) {
+      if (i >= 0) pendingDeposits.splice(i, 1);
+      if (d.key === slot()) { applyStore(r.data?.store); applyCarried(r.data?.carried); }
+      return r;
+    }
+    if (keptAnswer(r) || r?.error === 'prof-rate') {
+      if (i < 0) pendingDeposits.push(d);
+      return { ok: false, error: r?.error ?? 'offline', kept: true };
+    }
+    if (i >= 0) pendingDeposits.splice(i, 1);
+    try { d.back(); } catch (e) { console.warn('[prof] a deposit would not give back', e); }
+    shutBy(r);
+    if (r?.error === 'carried-short' || r?.error === 'stores-full') state.reread = true;   // the counts moved elsewhere: read again
+    return r ?? { ok: false, error: 'server' };
+  }
+  /** BAG1: the deposits whose answers never came, asked again - this account's and character's only. */
+  async function settleDeposits() {
+    for (const d of [...pendingDeposits]) if (d.key === slot()) await askDeposit(d);
+  }
   /** A kept withdrawal's ask: minted and let go on an answer, let go on a refusal, kept on silence. */
   async function settleOne(w, key, mint) {
-    const r = await ask(() => door.withdraw(w.character, w.material, w.qty, w.rid));
+    const r = await ask(() => door.withdraw(w.character, w.material, w.qty, w.rid, w.carry === true ? { held: w.held | 0 } : null));
     if (key !== slot()) return { ok: false, kept: true, text: '' };   // AUDIT 32 B5: its own character's settle mints it
     const kept = keptOf(key);
     if (r?.ok) {
@@ -698,6 +888,7 @@ export function createProfBook({ door, storage = null, character = () => null, n
       kept.withdrawals = kept.withdrawals.filter((x) => x.rid !== w.rid);
       writeKept(kept, key);   // let go BEFORE the items are made: a mint that threw is never a second mint
       applyStore(r.data?.store);
+      applyCarried(r.data?.carried);   // BAG1
       if (!had) return { ok: true, text: '', material: w.material, qty: 0, elsewhere: true };
       try { mint(r.data?.material ?? w.material, Number.isSafeInteger(r.data?.qty) ? r.data.qty : w.qty); } catch (e) { console.warn('[prof] a withdrawal would not mint', e); }
       return { ok: true, text: '', material: w.material, qty: r.data?.qty ?? w.qty };

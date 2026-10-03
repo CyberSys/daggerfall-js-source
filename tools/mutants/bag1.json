@@ -1,0 +1,209 @@
+[
+  {
+    "name": "BAG1-clamp-own-first",
+    "file": "src/net/bagLaw.js",
+    "old": "export const CLAMP_ORDER = Object.freeze(['gold', 'bought', 'own']);",
+    "new": "export const CLAMP_ORDER = Object.freeze(['own', 'bought', 'gold']);",
+    "tests": [
+      "test/bag1_service.test.js"
+    ]
+  },
+  {
+    "name": "BAG1-gold-spent-at-a-station",
+    "file": "src/net/bagLaw.js",
+    "old": "export const carriedSpendable = (c) => (c?.own | 0) + (c?.bought | 0);",
+    "new": "export const carriedSpendable = (c) => (c?.own | 0) + (c?.bought | 0) + (c?.gold | 0);",
+    "tests": [
+      "test/bag1_service.test.js"
+    ]
+  },
+  {
+    "name": "BAG1-clamp-raises",
+    "file": "server-account/src/professions.js",
+    "old": "SET qty = qty - MIN(qty, MAX(0, ${total} - ?4))",
+    "new": "SET qty = qty - MIN(qty, ${total} - ?4)",
+    "tests": [
+      "test/bag1_service.test.js"
+    ]
+  },
+  {
+    "name": "BAG1-harvest-into-the-stores",
+    "file": "server-account/src/professions.js",
+    "old": "  const T = carry ? 'prof_carried' : 'prof_stores';",
+    "new": "  const T = 'prof_stores';",
+    "tests": [
+      "test/bag1_service.test.js"
+    ]
+  },
+  {
+    "name": "BAG1-deposit-past-the-count",
+    "file": "server-account/src/professions.js",
+    "old": "      WHERE ${movable} >= ?5\n",
+    "new": "      WHERE 1\n",
+    "tests": [
+      "test/bag1_service.test.js"
+    ]
+  },
+  {
+    "name": "BAG1-the-pack-first",
+    "file": "src/systems/materialsBag.js",
+    "old": "    if (hasBag(entity.items) && canHoldAmount(1, kg, BAG_KG_LIMIT, bagWeight(entity)) >= 1) { addItem(bagItemsOf(entity), item, 'back'); out.bag++; continue; }\n",
+    "new": "",
+    "tests": [
+      "test/bag1_client.test.js"
+    ]
+  },
+  {
+    "name": "BAG1-the-bag-past-its-limit",
+    "file": "src/systems/materialsBag.js",
+    "old": "canHoldAmount(1, kg, BAG_KG_LIMIT, bagWeight(entity)) >= 1)",
+    "new": "canHoldAmount(1, kg, BAG_KG_LIMIT * 2, bagWeight(entity)) >= 1)",
+    "tests": [
+      "test/bag1_client.test.js"
+    ]
+  },
+  {
+    "name": "BAG1-a-deposit-takes-the-pack-first",
+    "file": "src/systems/materialsBag.js",
+    "old": "  for (const list of [bagItemsOf(entity), entity?.items ?? []]) {",
+    "new": "  for (const list of [entity?.items ?? [], bagItemsOf(entity)]) {",
+    "tests": [
+      "test/bag1_client.test.js"
+    ]
+  },
+  {
+    "name": "BAG1-a-quest-item-a-material",
+    "file": "src/systems/materialsBag.js",
+    "old": "  if (!item || item.questItem || isSummoned(item)",
+    "new": "  if (!item || isSummoned(item)",
+    "tests": [
+      "test/bag1_client.test.js"
+    ]
+  },
+  {
+    "name": "BAG1-the-bag-a-floor",
+    "file": "src/systems/inventorySession.js",
+    "old": "  if (state.usingWagon || state.usingBag || state.chooseOne) return null;",
+    "new": "  if (state.usingWagon || state.chooseOne) return null;",
+    "tests": [
+      "test/bag1_client.test.js"
+    ]
+  },
+  {
+    "name": "BAG1-a-loaded-bag-dropped",
+    "file": "src/systems/itemTransfer.js",
+    "old": "  if (bagLoaded && isBagItem(item)) return { ok: false, refusal: REFUSAL.bagLoaded };",
+    "new": "  void bagLoaded;",
+    "tests": [
+      "test/bag1_client.test.js"
+    ]
+  },
+  {
+    "name": "BAG1-a-loaded-bag-sold",
+    "file": "src/systems/tradeModes.js",
+    "old": "      if (isBagItem(item) && bagLoaded) return { kind: 'refuse', refusal: 'bagLoaded' };",
+    "new": "      if (isBagItem(item) && false) return { kind: 'refuse', refusal: 'bagLoaded' };",
+    "tests": [
+      "test/bag1_client.test.js"
+    ]
+  },
+  {
+    "name": "BAG1-the-bag-traded",
+    "file": "src/systems/tradePack.js",
+    "old": "  if (isBagItem(item)) return BAG_TRADE_TEXT;",
+    "new": "  void BAG_TRADE_TEXT;",
+    "tests": [
+      "test/bag1_client.test.js"
+    ]
+  },
+  {
+    "name": "BAG1-shelved-offline",
+    "file": "src/systems/shopStock.js",
+    "old": "    if (isOnlinePage() && !ownsBag) add(",
+    "new": "    if (!ownsBag) add(",
+    "tests": [
+      "test/bag1_client.test.js"
+    ]
+  },
+  {
+    "name": "BAG1-a-second-bag",
+    "file": "src/systems/shopStock.js",
+    "old": "    if (isOnlinePage() && !ownsBag) add(",
+    "new": "    if (isOnlinePage()) add(",
+    "tests": [
+      "test/bag1_client.test.js"
+    ]
+  },
+  {
+    "name": "BAG1-the-list-unsaved",
+    "file": "src/systems/save.js",
+    "old": "  snap.bagItems = (entity.bagItems ?? []).map((it) => ({ ...it }));",
+    "new": "  snap.bagItems = [];",
+    "tests": [
+      "test/bag1_client.test.js"
+    ]
+  },
+  {
+    "name": "BAG1-the-realm-blind-to-it",
+    "file": "src/net/realmGoldLaw.js",
+    "old": ", ...lists(snap?.wagonItems), ...lists(snap?.bagItems), ...lists(snap?.items)];",
+    "new": ", ...lists(snap?.wagonItems), ...lists(snap?.items)];",
+    "tests": [
+      "test/bag1_client.test.js"
+    ]
+  },
+  {
+    "name": "BAG1-minted-by-both-tabs",
+    "file": "src/net/profBook.js",
+    "old": "        if (had && carry) r.data.put = mintHarvest(r.data);",
+    "new": "        if (carry) r.data.put = mintHarvest(r.data);",
+    "tests": [
+      "test/bag1_client.test.js"
+    ]
+  },
+  {
+    "name": "BAG1-a-refused-deposit-kept",
+    "file": "src/net/profBook.js",
+    "old": "    try { d.back(); } catch",
+    "new": "    try { void d; } catch",
+    "tests": [
+      "test/bag1_client.test.js"
+    ]
+  },
+  {
+    "name": "BAG1-a-shortfall-moved-in-part",
+    "file": "src/net/profBook.js",
+    "old": "      for (const [k, n] of need) if (n - this.storesHeld(k) > this.carriedUsable(k)) return { ok: false, error: 'materials-short', material: k };\n",
+    "new": "",
+    "tests": [
+      "test/bag1_client.test.js"
+    ]
+  },
+  {
+    "name": "BAG1-a-shortfall-spends-gold",
+    "file": "src/net/profBook.js",
+    "old": "const r = await this.deposit(k, q, { order: 'spend' });",
+    "new": "const r = await this.deposit(k, q, { order: 'all' });",
+    "tests": [
+      "test/bag1_client.test.js"
+    ]
+  },
+  {
+    "name": "BAG1-full-read-off-the-stores",
+    "file": "src/net/professionLaw.js",
+    "old": "  if (book.carrying?.() === true) return book.carryFull(material);\n",
+    "new": "",
+    "tests": [
+      "test/bag1_client.test.js"
+    ]
+  },
+  {
+    "name": "BAG1-the-bag-a-cart",
+    "file": "src/net/bagLaw.js",
+    "old": "export const isBagItem = (item) => item?.templateIndex === BAG_TEMPLATE && item?.group === 'UselessItems2';",
+    "new": "export const isBagItem = (item) => item?.templateIndex === BAG_TEMPLATE;",
+    "tests": [
+      "test/bag1_client.test.js"
+    ]
+  }
+]

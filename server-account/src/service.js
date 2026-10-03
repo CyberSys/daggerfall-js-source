@@ -181,6 +181,9 @@ export const ROUTES = new Set([
   '/v1/guilds/hall/buy', '/v1/guilds/hall/sell', '/v1/guilds/hall/entry', '/v1/guilds/heraldry',
   // GUILD1e: a guild's own board (guildBoard.js) - read, pinned to and taken down by its members
   '/v1/guilds/board', '/v1/guilds/board/pin', '/v1/guilds/board/take-down',
+  // GUILD2 (bible/11-Multiplayer/Guild-Overhaul.md): a new name for a price (guilds.js), and the vault - read, a piece put
+  // in and taken out on the realm record, the guildmaster's grants (guildVault.js)
+  '/v1/guilds/rename', '/v1/guilds/vault', '/v1/guilds/vault/put', '/v1/guilds/vault/take', '/v1/guilds/vault/grant',
   // SEAT1a: the seats' witnessed registry (townSeats.js) - the confirmed seats, a seat witnessed, a developer's strike
   '/v1/seats/list', '/v1/seats/witness', '/v1/seats/strike',
   // SEAT1b: influence (seatInfluence.js) - a guild's pledge, a seat's standings, the Watch's receipts, Tribute
@@ -220,6 +223,8 @@ export const ROUTES = new Set([
   '/v1/prof/state', '/v1/prof/pixels', '/v1/prof/harvest', '/v1/prof/spec', '/v1/prof/smelt', '/v1/prof/craft', '/v1/prof/stock', '/v1/stores/withdraw', '/v1/writs/list', '/v1/writs/deliver',
   // PROF12: the alchemy station's brew and an enchanting station's disenchant (alchemy.js) - the same doors
   '/v1/prof/brew', '/v1/prof/disenchant',
+  // BAG1: a deposit - carried units into the Stores (professions.js depositStores), the same door
+  '/v1/stores/deposit',
   // PROF2b: today's Motherlodes (a strike rides /v1/prof/harvest, its node naming it)
   '/v1/prof/motherlodes',
   // PROF6: guild writs (posted, supplied, withdrawn, the Officers' budget), commissions (posted, fulfilled, cancelled,

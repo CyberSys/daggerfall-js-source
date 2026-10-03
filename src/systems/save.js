@@ -325,6 +325,8 @@ export function snapshotPlayer(entity, { position = null, pose = null, classicMi
   // W-slice: the cart's own 750kg collection (PlayerEntity.WagonItems
   // - SerializablePlayer carries wagonItems beside items).
   snap.wagonItems = (entity.wagonItems ?? []).map((it) => ({ ...it }));
+  // BAG1: the Materials Bag's own list (systems/materialsBag.js), beside the wagon's
+  snap.bagItems = (entity.bagItems ?? []).map((it) => ({ ...it }));
   // DECOR2b: what the furnisher delivered and is not standing in a room - the character's own, never carried
   snap.furnishings = (entity.furnishings ?? []).map((it) => ({ ...it }));
   // R1: PlayerEntity.OtherItems - the in-repair collection
@@ -649,6 +651,7 @@ export function restorePlayer(entity, snap, spellsByIndex = null) {
   entity.career = snap.career ? { ...snap.career } : entity.career;
   entity.items = snap.items.map((it) => setItemFields(it));   // JAN1: SetItem's two writes on every item in (a copy, as before)
   entity.wagonItems = (snap.wagonItems ?? []).map((it) => setItemFields(it));   // W-slice (pre-W saves restore empty); JAN1: set on the way in
+  entity.bagItems = (snap.bagItems ?? []).map((it) => setItemFields(it));   // BAG1: a save written before holds none
   entity.furnishings = (snap.furnishings ?? []).map((it) => setItemFields(it));   // DECOR2b: a save written before holds none
   entity.otherItems = (snap.otherItems ?? []).map((it) => setItemFields(it));   // R1: the in-repair collection (pre-R1 saves restore empty); JAN1: set on the way in
   // AUDIT PRE-MERGE 0929 D3: THE LOAD'S ITEM REPAIRS REACH EVERY LIST THE SAVE CARRIES - the pack, the wagon and the
@@ -657,7 +660,7 @@ export function restorePlayer(entity, snap, spellsByIndex = null) {
   // Come Sail Away's boats and cargoes), repaired in the save itself before the scene cache is restored from it and
   // before the world and the mods' data go back to their hosts. A piece kept in a house chest loaded with the name its
   // make had lost, and kept it once carried out - "pieces you already have are renamed when you load".
-  const repairLists = [entity.items, entity.wagonItems, entity.otherItems, ...stashedItemLists(snap)];
+  const repairLists = [entity.items, entity.wagonItems, entity.bagItems, entity.otherItems, ...stashedItemLists(snap)];   // BAG1: and the bag's
   // DISC21-A: a biography item was minted with no condition until DISC21, and Roleplay & Realism wore the questions'
   // ebony dagger to 20% of nothing - broken, and undamaged to the repairer. Minted now, by the law it missed.
   for (const list of repairLists) {
@@ -1183,6 +1186,7 @@ export function removeAllOrphanedItems(entity, getQuest) {
   let count = 0;
   count += removeOrphanedItems(entity, entity.items, getQuest);
   count += removeOrphanedItems(entity, entity.wagonItems, getQuest);
+  count += removeOrphanedItems(entity, entity.bagItems ?? [], getQuest);   // BAG1: the port's own list, beside DFU's three
   count += removeOrphanedItems(entity, entity.otherItems, getQuest);
   if (count > 0) console.log(`Removed ${count} orphaned items.`);
   return count;

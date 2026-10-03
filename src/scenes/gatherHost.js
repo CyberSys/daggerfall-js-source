@@ -61,6 +61,7 @@ import { materialCountLabel } from '../systems/profItems.js';
 import { accountRefusalText } from '../net/accountClient.js';
 import { DEFAULT_ACTIVATION_DISTANCE } from '../player/activate.js';
 import { harvestHauls } from '../ui/haulCards.js';   // HAUL-CARDS: a harvest's goods and XP as one card, on the enhanced skin
+import { BAG_WORDS, goodsWhere } from '../net/bagLaw.js';   // BAG1: where the goods went
 import { nodeMarkCss } from '../ui/nodeMarks.js';   // GATHER-OW: a group's glyph in its profession's compass colour
 
 /** A node answers E within DFU's activation distance, and within this many degrees of the look. */
@@ -135,12 +136,14 @@ export function storesLine(d) {
   if (d.gem) { const g = materialCountLabel(d.gem, 1); goods.push(`${/^[aeiou]/i.test(g) ? 'an' : 'a'} ${g}`); }
   if (d.extra) { const n = Number(d.extraQty) || 1; goods.push(`${n > 1 ? `${n} ` : ''}${materialCountLabel(d.extra, n)}`); }
   const said = goods.length > 1 ? `${goods.slice(0, -1).join(', ')} and ${goods[goods.length - 1]}` : goods[0];
-  return `+${said} to your Stores`;
+  return `+${said} ${goodsWhere(d)}`;
 }
+
 /** GATHER-SAID: where the Stores are, said with a session's first harvest - the goods are never in the pack.
  *  CLASSIC-PAGES: on either skin, by the Professions key the player has it bound to (`key`, its label; none bound, the
  *  pause menu's page). */
-export const storesWhereLine = (key) => `Gathered goods go to your Stores, not your pack: ${key ? `${key} opens your Stores page` : 'the pause menu\'s Stores page'}.`;
+export const storesWhereLine = (key, carrying = false) => (carrying ? BAG_WORDS.where   // BAG1: into the bag, or the pack while there is none
+  : `Gathered goods go to your Stores, not your pack: ${key ? `${key} opens your Stores page` : 'the pause menu\'s Stores page'}.`);
 /** GATHER-SAID: an act that ended before its end - let go, walked off, a window over it, the dungeon left - nothing asked. */
 export const ACT_STOPPED_LINE = 'The gathering stopped before its end - nothing was taken.';
 /** A harvest the service did not answer, kept and asked again (net/profBook.js PROF_QUEUE_MS: ten minutes). */
@@ -576,8 +579,10 @@ export function createGatherHost(deps) {
       let hauled = false;
       try { hauled = live && deps.haul?.(harvestHauls(d, { name: k?.haulName?.(d) ?? null, note })) === true; } catch { hauled = false; }
       if (!hauled) hud.toast(k?.storesLine ? k.storesLine(d) : storesLine(d), { keep: true });   // GATHER-SAID: the goods in one line, outlasting the rest; PROF4's Resin, PROF7's butchery in it; PROF8's species
-      if (!storesSaid) { storesSaid = true; hud.toast(storesWhereLine(deps.keyLabel?.('Professions') ?? '')); }
+      if (!storesSaid) { storesSaid = true; hud.toast(storesWhereLine(deps.keyLabel?.('Professions') ?? '', d.carry === true)); }
       if (!hauled) hud.toast(`+${d.xp} ${professionName(profession)} XP${note}`);
+      // BAG1: what found no room in the bag or the pack is said even where the card said the goods - the card counts what came
+      if (hauled && d.carry === true && (d.put?.left ?? 0) > 0) hud.toast(`${d.put.left} ${materialCountLabel(d.material, d.put.left)} left where gathered: no room in your bag or pack.`);
       const after = d.track?.rank ?? before;
       if (after > before) {
         hud.toast(`${professionName(profession)} ${before} -> ${after}`);

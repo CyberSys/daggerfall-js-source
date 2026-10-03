@@ -905,6 +905,10 @@ as it was that day (a row keeps the name and tag alone) - and only where the gui
 too (a reused tag shows no new arms on an old guild's lines). DECIDED: the book reader draws text alone, so the Hall of
 Records names the arms in words - each guild a line names, in the line's order. A Moderators' void is about the holder
 it restored, else none. The Overworld's name face frames the tag with the shield too, drawn on its canvas.
+GUILD2c (2026-10-03, `Guild-Overhaul.md`; Mac: "a proper choosable insignia that also plays with guild banners"): forty
+devices (sixteen more - the guilds' own trades and creeds), a field divided eight ways with a second colour, and the
+device in a colour of its own; arms that carry neither are GUILD1d's three keys exactly, and every face above draws the
+rest. Chosen on the Guild tab's Arms page from pictures, not lists.
 
 ### 8.2 The guild hall (GUILD1d)
 
@@ -1293,8 +1297,9 @@ Every law in Home.md's Process section, and what it demands of this arc:
   still owed out of (a battle's contracts, an Edict's escrow, a Royal Tourney's prize), the titles and Honours earned,
   and the red lines stay; the beta crowns no one.
 - **Patch notes** for every slice, in the house style (the pull request's `## Patch notes`, Discord-sized, player-facing).
-- **Moderation.** Guild names and tags pass the name filter they already pass; heraldry is a fixed palette and fixed
-  devices, so nothing offensive can be drawn on a banner. Moderators (MOD1) may **void a siege** (`/siege void`) - a
+- **Moderation.** Guild names and tags pass the name filter they already pass - TRUE SINCE GUILD2a (2026-10-03,
+  `Guild-Overhaul.md`): neither ever had, only the chat called it; a founding and a rename pass it now, the name word by
+  word; heraldry is a fixed palette and fixed devices, so nothing offensive can be drawn on a banner. Moderators (MOD1) may **void a siege** (`/siege void`) - a
   history row, the holder keeping the seat - when a fight was won by an exploit found after it. BUILT (VOID,
   2026-10-02; Online-Arc SIEGE-VOID): `/siege void <seat key>` (`net/townSeatBook.js` parseSiegeCommand, never guarded on
   the client) asks `POST /v1/seats/siege/void` (`server-account/src/seatSiege.js` voidSiege) - a moderator's or a

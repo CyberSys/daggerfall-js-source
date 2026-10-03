@@ -46,11 +46,24 @@ export const HERALDRY_COLOURS = Object.freeze([
 ]);
 /** The unheld ring's colour (Seats-Arc 3.4): a guild's border only, never its field. */
 export const HERALDRY_UNHELD = 'ash';
-/** The twenty-four devices, in the record's order - each a silhouette of ui/heraldryArt.js. */
+/** The devices, in the record's order - each a silhouette of ui/heraldryArt.js: GUILD1d's twenty-four, then GUILD2c's
+ *  sixteen (bible/11-Multiplayer/Guild-Overhaul.md) - the guilds' own trades and creeds: the thieves' key and dagger, the
+ *  sailors' anchor and ship, the mages' book and flame, the knights' horse and crossed swords, the smiths' anvil. */
 export const HERALDRY_DEVICES = Object.freeze([
   'wolf', 'bear', 'boar', 'stag', 'lion', 'eagle', 'raven', 'dragon', 'serpent', 'fish', 'tower', 'gate',
   'crown', 'sword', 'axe', 'hammer', 'bow', 'shield', 'sun', 'moon', 'star', 'eye', 'rose', 'tree',
+  'skull', 'key', 'anchor', 'ship', 'horse', 'spider', 'hand', 'flame', 'scales', 'book', 'chalice', 'dagger',
+  'owl', 'bat', 'swords', 'anvil',
 ]);
+/** GUILD2c: THE FIELD'S DIVISIONS - plain (one colour, GUILD1d's every banner), or parted in two by a line: down the
+ *  middle (per pale), across it (per fess), corner to corner (per bend, per bend sinister), in four (quarterly), by an
+ *  inverted V (per chevron) or an X (per saltire). A divided field's second colour is `field2`. */
+export const HERALDRY_DIVISIONS = Object.freeze(['plain', 'pale', 'fess', 'bend', 'bend-sinister', 'quarterly', 'chevron', 'saltire']);
+/** Each division's words. */
+export const HERALDRY_DIVISION_NAMES = Object.freeze({
+  plain: 'Plain', pale: 'Per pale', fess: 'Per fess', bend: 'Per bend', 'bend-sinister': 'Per bend sinister',
+  quarterly: 'Quarterly', chevron: 'Per chevron', saltire: 'Per saltire',
+});
 /** What a change after the first costs, in Drakes from the guild's Drake treasury - burnt. */
 export const HERALDRY_CHANGE_DRAKES = 500;
 
@@ -58,37 +71,69 @@ export const HERALDRY_CHANGE_DRAKES = 500;
 const COLOUR = new Map(HERALDRY_COLOURS.map((c) => [c.key, c]));
 /** @type {Set<string>} */
 const DEVICE = new Set(HERALDRY_DEVICES);
+/** @type {Set<string>} */
+const DIVISION = new Set(HERALDRY_DIVISIONS);
 
 /** A colour's record by its key, or null. */
 export const heraldryColourOf = (key) => (typeof key === 'string' ? COLOUR.get(key) ?? null : null);
 
 /**
  * A HERALDRY, projected: `{ field, border, device }` - the field any colour but Ash, the border any colour but the
- * field's, the device one of the twenty-four - or null for anything else. What the service keeps and every face draws.
+ * field's, the device one of the devices - or null for anything else. What the service keeps and every face draws.
+ * GUILD2c: and, where the arms carry them, `division` (not plain) with its second colour `field2` (any but Ash and the
+ * field's), and `charge` - the device's own colour where it is not the border's (GUILD1d's device wears the border's).
+ * The device must stand out from every colour of the field it lies on: never the field's, never a divided field's
+ * second. Arms that carry neither are exactly GUILD1d's three keys - every stored heraldry, banner and pin unmoved.
  */
 export function heraldryOf(raw) {
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null;
-  const { field, border, device } = /** @type {any} */ (raw);
+  const { field, border, device, division = 'plain', field2 = null, charge = null } = /** @type {any} */ (raw);
   if (!heraldryColourOf(field) || !heraldryColourOf(border) || typeof device !== 'string' || !DEVICE.has(device)) return null;
   if (field === HERALDRY_UNHELD || field === border) return null;
-  return Object.freeze({ field, border, device });
+  if (typeof division !== 'string' || !DIVISION.has(division)) return null;
+  const parted = division !== 'plain';
+  if (parted ? !heraldryColourOf(field2) || field2 === HERALDRY_UNHELD || field2 === field : field2 != null) return null;
+  if (charge != null && (!heraldryColourOf(charge) || charge === field)) return null;
+  const ink = charge ?? border;
+  if (ink === field || (parted && ink === field2)) return null;
+  const out = /** @type {any} */ ({ field, border, device });
+  if (parted) { out.division = division; out.field2 = field2; }
+  if (charge != null && charge !== border) out.charge = charge;
+  return Object.freeze(out);
 }
+/** GUILD2c: the device's colour - its `charge`, else the border's. */
+export const heraldryInk = (h) => h?.charge ?? h?.border ?? null;
 
 /** Whether two heraldries are the same (null is none). */
 export const heraldrySame = (a, b) => {
   const x = heraldryOf(a), y = heraldryOf(b);
-  return !!x && !!y ? x.field === y.field && x.border === y.border && x.device === y.device : !x && !y;
+  return !!x && !!y
+    ? x.field === y.field && x.border === y.border && x.device === y.device
+      && (x.division ?? 'plain') === (y.division ?? 'plain') && (x.field2 ?? null) === (y.field2 ?? null) && (x.charge ?? null) === (y.charge ?? null)
+    : !x && !y;
 };
 
 /** A device's name in words - "Wolf". */
 export const heraldryDeviceName = (device) => (typeof device === 'string' && DEVICE.has(device) ? device[0].toUpperCase() + device.slice(1) : '');
 
-/** A heraldry in words: "Azure bordered Gold, a Wolf" - or '' for none. */
+/** A heraldry in words: "Azure bordered Gold, a Wolf" - or '' for none. GUILD2c: a divided field first ("Per pale Azure
+ *  and Gold, bordered Sable, a Wolf"), a device's own colour after it ("a Wolf Argent"). */
 export function heraldryText(raw) {
   const h = heraldryOf(raw);
   if (!h) return '';
   const device = heraldryDeviceName(h.device);
-  return `${heraldryColourOf(h.field)?.name} bordered ${heraldryColourOf(h.border)?.name}, ${/^[AEIOU]/.test(device) ? 'an' : 'a'} ${device}`;
+  const name = (k) => heraldryColourOf(k)?.name;
+  const charged = `${/^[AEIOU]/.test(device) ? 'an' : 'a'} ${device}${h.charge ? ` ${name(h.charge)}` : ''}`;
+  if (h.division) return `${HERALDRY_DIVISION_NAMES[h.division]} ${name(h.field)} and ${name(h.field2)}, bordered ${name(h.border)}, ${charged}`;
+  return `${name(h.field)} bordered ${name(h.border)}, ${charged}`;
+}
+/** GUILD2c: a heraldry's one spelling as a key - a banner's texture, a draft's identity: GUILD1d's `field|border|device`
+ *  for plain arms (every texture already cached keeps its key), the division, the second colour and the charge after. */
+export function heraldryKey(raw) {
+  const h = heraldryOf(raw);
+  if (!h) return '';
+  const base = `${h.field}|${h.border}|${h.device}`;
+  return h.division || h.charge ? `${base}|${h.division ?? 'plain'}|${h.field2 ?? ''}|${h.charge ?? ''}` : base;
 }
 
 // ─── SEASON1 part two (2026-10-01, Mac: "Finish the seats"; "Continue"; "Hurry up"): THE BANNER RIBBON ─────────────
