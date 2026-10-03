@@ -601,6 +601,8 @@ export function createGatherHost(deps) {
   return {
     /** A pixel built: its nodes stood. */
     onBuilt(entry) { if (entry) stand(entry); },
+    /** PROF2b: a pixel's nodes stood again, where it is built - a Motherlode risen on it, gone or spent. */
+    restandAt(px, py) { restandAt(px, py); },
     /** A pixel torn down: its batches went with it (they are in its list); forgotten here. */
     onDestroyed(entry) {
       if (!entry) return;

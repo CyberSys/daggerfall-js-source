@@ -54,7 +54,7 @@ import {
   GUILD_FOUND_RENOWN, GUILD_MEMBERS_MAX, GUILD_NAME_MIN, GUILD_NAME_MAX, GUILD_RANK_NAME_MAX, GUILD_MOVE_MAX,
 } from './guildLaw.js';   // GUILD1: the bounds its refusals name
 import { MARKET_PRICE_MAX, MARKET_UNITS_MAX, MARKET_LISTINGS_MAX, MARKET_ORDERS_MAX, AUCTION_BID_MAX } from './marketLaw.js';   // PROF5: the bounds its refusals name
-import { GUILD_WRITS_MAX, GUILD_STORES_MAX, COMMISSIONS_MAX, COMMISSIONS_FOR_MAX, WRIT_POSTS_MAX, WRIT_OPS_MAX } from './writLaw.js';   // PROF6: the bounds its refusals name
+import { GUILD_WRITS_MAX, GUILD_STORES_MAX, COMMISSIONS_MAX, COMMISSIONS_FOR_MAX, WRIT_POSTS_MAX, WRIT_OPS_MAX, GUILD_CONTRACTS_MAX, CONTRACT_PAY_MAX, CONTRACT_DEEDS_MAX } from './writLaw.js';   // PROF6: the bounds its refusals name; SILVER-WAYS: a contract's
 import { RENOWN_TRACKS_MAX } from './renown.js';   // RENOWN1: the tracks' bound, in its refusal's own sentence (RENOWN-CHAR: back with the tracks)
 import { HERALDRY_CHANGE_DRAKES } from './heraldryLaw.js';   // GUILD1d: a change's cost, in its refusal's own sentence
 
@@ -430,7 +430,20 @@ export const REFUSALS = Object.freeze({
   'guild-stores-short': 'The guild Stores do not hold that many.',
   'guild-stores': 'Empty the guild Stores first.',
   'guild-writs': 'Withdraw the guild\'s writs first.',
-  'guild-writ-escrow': 'A withdrawn writ\'s pay is still waiting to go back to the silver treasury, which is full. Take silver out of the treasury first.',   // AUDIT 31 A15
+  'guild-writ-escrow': 'A withdrawn writ\'s or contract\'s pay is still waiting to go back to the silver treasury, which is full. Take silver out of the treasury first.',   // AUDIT 31 A15; SILVER-WAYS: or a contract's
+  // PROF2b: a Motherlode's strike
+  'motherlode-closed': 'The Motherlode is not standing now - it has not broken ground yet, or it has gone.',
+  'motherlode-watch': 'The Watch did not see you on the Motherlode\'s ground. Stand on it a moment and strike again.',
+  'motherlode-found': 'You have found your Motherlode today. Another breaks ground tomorrow.',
+  'motherlode-full': 'Its twenty miners have struck it. The Motherlode is spent.',
+  // SILVER-WAYS: guild contracts
+  'guild-contracts': 'Withdraw the guild\'s contracts first.',
+  'guild-contracts-max': `A guild may have ${GUILD_CONTRACTS_MAX} contracts posted at once.`,
+  'contract-kind': 'A guild contract pays for towns defended.',
+  'contract-pay': `A contract pays 1 to ${CONTRACT_PAY_MAX} silver a defender.`,
+  'contract-deeds': `A contract pays 1 to ${CONTRACT_DEEDS_MAX} defenders.`,
+  'contract-gone': 'That contract is no longer posted.',
+  'no-contract': 'There is no such contract.',
   // GUILD1d (Seats-Arc 8): the guild hall and the heraldry (server-account/src/halls.js)
   'guild-hall-have': 'Your guild already has a hall. Sell it first to buy another.',
   'guild-hall-none': 'Your guild has no hall.',
@@ -1195,6 +1208,7 @@ export function accountProf({ fetch, storage, waitMs = ACCOUNT_ACT_WAIT_MS }) {
     stock: (character, material, qty, rid) => post('/v1/prof/stock', { character, material, qty, rid }),   // PROF3: the smith's stock
     writs: (character, region) => post('/v1/writs/list', { character, region }),
     deliver: (character, id, rid) => post('/v1/writs/deliver', { character, id, rid }),
+    motherlodes: (character) => post('/v1/prof/motherlodes', { character }),   // PROF2b: today's three (a strike rides `harvest`)
   };
 }
 
@@ -1240,6 +1254,8 @@ export function accountWrits({ fetch, storage, waitMs = ACCOUNT_ACT_WAIT_MS }) {
     stores: (character) => post('/v1/stores/guild', { character }),
     deposit: (req) => post('/v1/stores/guild-deposit', req),
     withdrawStores: (req) => post('/v1/stores/guild-withdraw', req),
+    contract: (req) => post('/v1/writs/contract', req),   // SILVER-WAYS: a guild contract posted, and withdrawn
+    withdrawContract: (req) => post('/v1/writs/contract-withdraw', req),
   };
 }
 

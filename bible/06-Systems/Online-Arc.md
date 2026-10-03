@@ -4928,7 +4928,7 @@ arrival, that is not rare. The blow is dropped instead.
   foe's maul, and your own Daedroth all do literally nothing to a
   puppet. The first two are WORLD2's law on purpose; the third is a gap
   in it.
-- **A foe's blast on a puppet is credited to ME.** `world.js:8783` and
+- **A foe's blast on a puppet is credited to ME.** `world.js:8795` and
   `:2925` pass `foeSinks: (f) => enchantFoeSinks(f)`, dropping the
   provenance argument `applySpellToFoe` hands them (`hostMagic.js:474`)
   - the same shape AUDIT WORLD6b-iii(a) B2 fixed one layer down.
@@ -10482,6 +10482,76 @@ Pinned: `test/guild1e_service.test.js` (5), `test/guild1e_client.test.js` (5); r
 `test/notice1.test.js` (a recruitment note's guild carries its heraldry) and `test/guild1d_client.test.js` (the hall's
 powers). `tools/mutants/guild1e.json` (30, all dead); four older records re-aimed (DECOR1c's visitor, PROF5's hidden
 market twice, NOTICE1's cache aimed at the town read alone).
+
+### SILVER-WAYS - silver outside the crafts: a town defended, the day's combat cap, guild deeds, guild contracts
+
+(2026-10-03, Mac: "With the introduction of guilds. I want to talk about how we can make silver obtainable and balanced
+outside of crafting and auch, and if it should be tied to renoun"; the proposal answered; then "Do it, plus we need to
+build motherloads" - the Motherlodes are `06-Systems/Professions-Arc.md` 35, PROF2b.) One deploy of the account service
+(`acct66`, migrations `0069_silver_ways.sql` and `0070_motherlodes.sql`); no relay change.
+
+**What was found (FACT).** Silver's faucets were the Court writs (gathering's: about 67 a writ, three a day), the gate's
+receipts (50, two a UTC day), Siege Honours and an Incursion's second half - the Motherlodes stood in the faucet table
+and nowhere in code. A non-crafting player of the economy model's "regular" week (1.5 gates) struck about 75 silver a
+week against a gatherer's 700-850, while the guilds the seats ask silver of (a palace's 8,000 and 2,500 a week, a crown's
+80,000 and 15,000, every fortification tier about 79,000) had their fighters' play worth nothing to them. The relay
+signs a raid's cleanse (`w1`, RAID3) and the service counts it once a raid and account (RAID4) - and it struck no
+silver; nor did gates three to twelve of a day.
+
+**Renown is not a faucet (DECIDED, with Mac's "Do it" on the proposal).** A kill's and a quest's Renown is the client's
+report, bounded by the hour (15,000 XP an account - Seats-Arc's "20,000" was stale, corrected there); silver struck
+from it would be silver a modified client prints, the one thing marksLaw.js says a Mark is not. Renown is a character's
+(up to 60 tracks an account) and its curve is steep, so level rewards would pay alts and run dry for veterans. Renown
+keeps its own work - influence (1 per 20 XP, 400 a week), the guild's founding, sigils - and a silver payout is never
+scaled by it: a forged level would be paid more for every honest receipt.
+
+- **A TOWN DEFENDED STRIKES SILVER** - the `raid` faucet: 30 to the account, in the raid claim's own batch and by its
+  own row (raids.js claimRaid's `strike`; marks.js raidStrikeStatement), its line `raid:<key>` - one raid, one strike,
+  whatever asks. RAID-ROLL holds what a receipt is (the day's roll, the relay's count and pose window); the cap is the
+  rest.
+- **THE DAY'S COMBAT CAP** - the gates' and the raids' together, 150 an account a UTC day (`MARKS_COMBAT`), where the
+  gate's two a day stood: three gates, or five raids, or a mix; the day's last strike pays what the day has left of it
+  (`combatStrike` - 20 of a raid at 130), never nothing for a few short. The gate's strike is the same statement
+  (marks.js combatStrikeStatement - `gate:<day>` as ever); a Daedric Incursion's second half is the gate line's own
+  amount, outside the cap. The card's day: `today.combat` and `combatMax` (`gateMax` retired - no client read it). The
+  weekly report counts the accounts at the combat cap (`capped.combat`, where `capped.gate` stood).
+- **GUILD DEEDS** - the `guild-deed` faucet, into a guild's treasury, never an account's: when three of a guild's
+  accounts - each claiming with a character seven days in the guild - have claimed the same raid (`raid:<key>`) or gate
+  (`gate:<game day>`), 25 silver; once an event a guild (the line `deed:<event>`, the guild its actor), at most four a
+  guild a UTC day - a deed the day's cap refused is struck by the next member's claim of that event. The mark and the
+  strike ride the claim's own batch, by its own row (marks.js deedStatements; `guild_deed_marks`). One account is one
+  mark, however many of its characters are in the guild. A gate's claim now names the claiming character whether or
+  not the scan found the gate's region (`scenes/world.js` gateSeatWord). The claim's answer says it (`deed`: the
+  amount and the guild); the Guild tab's treasury line reads "completed a guild deed".
+- **GUILD CONTRACTS** - a guild writ for DEEDS (`server-account/src/contracts.js`, `writLaw.js` GUILD CONTRACTS): a
+  Guildmaster's, or an Officer's within the ONE writ budget it shares with their writs (`officerSpentSql` - a contract
+  is no way round the budget), `pay` 1-50 silver for each of 1-500 defenders of a raid in a region, held from the
+  treasury (`contract-escrow`), seven days, five open a guild. A counted raid's claim in that region is paid by up to
+  three of its contracts, the best-paying first, in the claim's own batch, keyed on the claim's nonce
+  (`guild_contract_pays`, one a contract, raid and account), less the market's 5% tax on the contract's running total
+  (a writ's, AUDIT 30 L6), never to an account any of whose characters may post or withdraw that guild's contracts,
+  never past the defender's cap; drawn down, filled and closed at its last deed. Withdrawn, or past its seventh day on
+  anyone's Work read, what is left goes home (`contract-return`). A guild with one standing - or its pay still on the
+  way home - does not disband. It mints nothing. RAIDS ONLY, DECIDED: a raid's region is in its key, read against the
+  day's roll by the relay; a gate's is still the claiming client's word until three claims agree, and a contract paid
+  on one account's word would be one account's to empty. Routes `/v1/writs/contract`, `/v1/writs/contract-withdraw`;
+  the board's contracts ride `/v1/writs/list` (`contracts`, `yoursContracts`, `contractPost`). The Work tab's cards,
+  "Yours" rows and post form (`ui/workTab.js`), every bound said before the press.
+- **What the player reads.** A counted raid says its town's line, then "30 silver struck to your account", a guild
+  deed it completed and each contract that paid it (net/marksBook.js claimLines, said by net/raidClaims.js and
+  net/gateClaims.js); a capped claim names the day's 150 for breaches closed and towns defended.
+- **The economy.** The ceiling an account strikes from combat a day rose by 50 (100 to 150); a combat-only regular's
+  week from about 75 to about 375 (half a gatherer's); deeds at most 700 a guild a week (a palace's upkeep is 2,500).
+  The model's own 1.00 left out more sinks (forts, Festivals, heraldry, Tribute, respecs) than faucets (Honours,
+  Motherlodes), so the room was there; the weekly report names `raid`, `guild-deed` and `motherlode` each, and PROF0
+  16's four-week rule steers by them.
+- **Pinned**: `test/silverways_service.test.js` (8), `test/silverways_client.test.js` (6);
+  `tools/mutants/silverways.json` (31, all dead). PIN MOVED: marks1 (the gate's cap, the report's cap, the mint sweep,
+  the wiring), audit28_marks (M4, M10, M11), prof5_law (the mint kinds), wb12a_breach_words (the capped line),
+  seat1b_client (the gate's word, the Watch's hand-off), raid4_rewards (unchanged answers without the silver hooks),
+  accountworker (the schema), the version pins (acct66). Mutant records re-aimed by content: marks1 (five), audit28 M4,
+  auditguild1d R5, drakes, prof6 (four), audit31 (two), gatekeys, nodemarks, survtiers3 (two), fb1001_boulders,
+  fb1001_ground.
 
 ## THE SEATS (SEAT1a onwards, 2026-09-30, Mac: "Finish the seats"; asked what a Right of Siege does while no siege exists: "Or we could go ahead and do sieges") - `11-Multiplayer/Seats-Arc.md`, built in its section 13 order
 

@@ -108,7 +108,11 @@ export const GUILD_HERALDRY_NONE_TEXT = 'Your guild has no heraldry yet.';
 /** GUILD1d: a treasury ledger line's verb - a deposit and a withdrawal, and the hall's own moves (0043's `moved_kind`). */
 export const GUILD_LEDGER_WORDS = Object.freeze({ deposit: 'put in', withdraw: 'took out', hall: 'bought the hall for', 'hall-sale': 'sold the hall for', 'hall-piece': 'took down a hall piece - back into the treasury:' });
 /** AUDIT GUILD1d R5: a Drakes ledger line's verb - a heraldry changed is the treasury paying, never a deposit. */
-export const GUILD_MARKS_LEDGER_WORDS = Object.freeze({ deposit: 'put in', withdraw: 'took out', heraldry: 'changed the heraldry for' });
+export const GUILD_MARKS_LEDGER_WORDS = Object.freeze({
+  deposit: 'put in', withdraw: 'took out', heraldry: 'changed the heraldry for',
+  // SILVER-WAYS: a guild deed (its third member names it), a contract's pay put up, and what came home of it
+  deed: 'completed a guild deed:', contract: 'put up a contract of', 'contract-return': 'came home with',
+});
 /** AUDIT GUILD1d R13: the hall's sale in words - the service's own sum (the deed share and its pieces' half). */
 export const guildHallSoldText = (r) => `The hall is sold. ${Number(r?.data?.back ?? 0).toLocaleString('en-US')} gold went back into the treasury.`;
 /** GUILD1d: where a hall stands, in words. */
