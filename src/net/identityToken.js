@@ -360,6 +360,8 @@ export function claimsValid(c, { maxTtlS = MAX_TTL_S } = {}) {
   // ARENA4: the account's arena rating this season (net/arenaLaw.js - the hall queues by it): absent from a service before
   // it and from a guest's token; present, a whole number on the rating's scale
   if (c.ar !== undefined && !(Number.isSafeInteger(c.ar) && c.ar >= ARENA_RATING_MIN && c.ar <= ARENA_RATING_MAX)) return false;
+  // ARENA4b: the realm character's own level (its tile's) - absent from a service before it and for any other character
+  if (c.cl !== undefined && !(Number.isSafeInteger(c.cl) && c.cl >= 1 && c.cl <= 1000)) return false;
   if (!Number.isSafeInteger(c.i) || !Number.isSafeInteger(c.e)) return false;
   if (c.e <= c.i) return false;                 // a token that is born dead
   if (c.e - c.i > maxTtlS) return false;        // a minter that got greedy
@@ -370,7 +372,7 @@ export function claimsValid(c, { maxTtlS = MAX_TTL_S } = {}) {
  * MINT. The account service's half - it holds the private key and
  * nothing else does.
  *
- * @param {{s:string, n:string, k:'guest'|'linked', t?:string, ts?:number[], g?:string[], mu?:number, lv?:number, gi?:string, gt?:string, gm?:string, rc?:0|1, au?:string, rb?:number[], gx?:string[], ar?:number}} who
+ * @param {{s:string, n:string, k:'guest'|'linked', t?:string, ts?:number[], g?:string[], mu?:number, lv?:number, gi?:string, gt?:string, gm?:string, rc?:0|1, au?:string, rb?:number[], gx?:string[], ar?:number, cl?:number}} who
  * @param {CryptoKey} privateKey  an Ed25519 private key
  * @param {{subtle: SubtleCrypto, nowS: number, ttlS?: number}} env
  * @returns {Promise<string>}
@@ -393,6 +395,7 @@ export async function mintToken(who, privateKey, { subtle, nowS, ttlS = MAX_TTL_
   if (who?.rb !== undefined) claims.rb = who.rb;   // SEASON1 part two: only while a Season's ribbon is worn - none, the bytes as before
   if (who?.gx !== undefined && who.gx.length) claims.gx = who.gx;   // GLYPH-WEAR: only while a glyph is taken off - a player hiding none mints the bytes they always did
   if (who?.ar !== undefined) claims.ar = who.ar;   // ARENA4: only for a registered account - a guest mints the bytes it always did
+  if (who?.cl !== undefined) claims.cl = who.cl;   // ARENA4b: only for a realm character - any other mints the bytes it always did
   // A BAD CLAIM SET IS REFUSED AT THE MINTER. The verifier would refuse
   // it too, but at the player's machine, where the only thing anyone
   // learns is that online is broken.

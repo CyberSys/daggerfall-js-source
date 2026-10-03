@@ -174,6 +174,9 @@ export const ROUTES = new Set([
   // WD3: every town that holds a home and the layout it keeps (homes.js homeLayouts) - read by every session at its
   // online boot, so the room stands each such town as its homes were bought in it
   '/v1/homes/layouts',
+  // ARENA4b: a home the arena displaced (homes.js arenaMoveHome) - moved by its owner's client to the house it picked, the
+  // moves its character has not read, and one read
+  '/v1/homes/arena-move', '/v1/homes/arena-moves', '/v1/homes/arena-seen',
   // GUILD1: the guilds (guilds.js) - a character's own guild and the account's invitations read by any session (a
   // guest's reads nothing); the rest change one, an account's alone.
   '/v1/guilds/mine', '/v1/guilds/invites', '/v1/guilds/found', '/v1/guilds/invite', '/v1/guilds/answer', '/v1/guilds/leave',

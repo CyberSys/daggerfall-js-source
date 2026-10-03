@@ -28,7 +28,10 @@
 // left / 20 s) of condition) - where ARENA2 had let it burn out. A camp is no house's.
 //
 // Online homes are the account service's (ARENA4): the service moves each home row in one migration - see
-// bible/11-Multiplayer/Arena.md "ARENA1 record". Every other record keyed to the cell (a rented room, a repair
+// bible/11-Multiplayer/Arena.md "ARENA1 record". [ARENA4b: the owner's CLIENT picks the new house - `arenaHomeFor`, this
+// file's own pick over the buildings an online home may be - since the service holds no town's records; the service
+// carries the row (server-account/src/homes.js arenaMoveHome) and the client empties the old scene by `emptyArenaScene`
+// (systems/onlineHomes.js moveArenaHomes).] Every other record keyed to the cell (a rented room, a repair
 // ticket, a quest site, an inside save, a Recall anchor) needs no move: layoutPins.recordStands answers false for it
 // (world/arenaCity.js arenaRecordDisplaced) and each system's own law for a building that is not there takes it.
 
@@ -36,6 +39,7 @@ import { inArenaCell, arenaRecordDisplaced, ARENA_REGION } from '../world/arenaC
 import { interiorSceneName, cacheScene, containsPermanentScene, addPermanentScene, removePermanentScene } from './sceneCache.js';
 import { isResidence } from '../world/buildingNames.js';
 import { templateByIndex } from './itemTemplates.js';   // ARENA-FIX 11: a torch left burning, back into an item
+import { homeCandidate } from './onlineHomes.js';   // ARENA4b: the buildings an online home may be
 
 /** The market's generator (banking.js housesForSale), seeded by what names this move. */
 function pick(n, mapId, oldKey) {
@@ -60,6 +64,18 @@ export function arenaHouseFor({ mapId, oldKey, oldType }, summaries, { held = ne
   let list = free.filter((s) => s.buildingType === oldType);
   if (!list.length) list = free.filter((s) => isResidence(s.buildingType));
   return list.length ? list[pick(list.length, mapId, oldKey)] : null;
+}
+
+/**
+ * ARENA4b: THE HOUSE AN ONLINE HOME THE ARENA DISPLACED MOVES TO - the offline move's own pick (arenaHouseFor: the old
+ * house's type first, any residence when none is free, by the market's generator seeded by the map id and the old key)
+ * over the buildings an online home may be (systems/onlineHomes.js homeCandidate - the offline fallback would admit a
+ * House2 a guild owns, which online never sells), `held` every key of the town a home holds (the service's town answer)
+ * and `isActiveQuestBuilding` the market's own exclusion. The owner's client picks, in the town as the homes' layout stands
+ * it; the service checks the keys (server-account/src/homes.js arenaMoveHome). Pure; null for none.
+ */
+export function arenaHomeFor(o, summaries, opts = {}) {
+  return arenaHouseFor(o, (summaries ?? []).filter((s) => homeCandidate(s)), opts);
 }
 
 /** The key of the new house's first container in its scene (scenes/worldModes.js restoreInteriorScene's `container:i`). */

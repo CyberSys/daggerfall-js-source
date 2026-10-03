@@ -108,7 +108,10 @@ test('ARENA2 move: the move gives the owner\'s things back and pays the bank thr
 
 test('ARENA2 move: the hosts\' doors - furniture to the furnishings, the rest to the pack, the gold to Daggerfall\'s account; a house with no chest gets a crate', () => {
   const w = rd('src/scenes/world.js');
-  assert.match(w, /giveOwn: \(items\) => \{ for \(const it of items\) \{ if \(isFurnishing\(it\)\) \(playerEntity\.furnishings \?\?= \[\]\)\.push\(it\); else addItem\(playerEntity\.items \?\?= \[\], it\); \} \},/);
+  // ARENA4b (PIN MOVED): the two doors are named once (world.js arenaGiveOwn, arenaRefund) and handed by the offline deed's
+  // move and the online home's alike (moveArenaHomesOnline) - the same bodies, a function's now
+  assert.match(w, /function arenaGiveOwn\(items\) \{ for \(const it of items\) \{ if \(isFurnishing\(it\)\) \(playerEntity\.furnishings \?\?= \[\]\)\.push\(it\); else addItem\(playerEntity\.items \?\?= \[\], it\); \} \}/);
+  assert.match(w, /giveOwn: arenaGiveOwn,\n\s+refund: arenaRefund,/);
   assert.match(w, /const a = playerEntity\.bankAccounts\[goldRegion\(playerEntity\.bankAccounts, ARENA_REGION\)\] \?\? null;/);
   const m = rd('src/scenes/worldModes.js');
   assert.match(m, /if \(!target && c\.crate && c\.items\?\.length\) \{\n\s+const o = buildingOrigin\(\), f = player\.pos;\n\s+data\.droppedPiles = \[\.\.\.\(data\.droppedPiles \?\? \[\]\), \{ pos: \[f\[0\] - o\[0\], f\[1\] - o\[1\], f\[2\] - o\[2\]\], items: c\.items\.map\(\(it\) => \(\{ \.\.\.it \}\)\) \}\];/);

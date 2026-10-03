@@ -57,6 +57,7 @@ import { MARKET_PRICE_MAX, MARKET_UNITS_MAX, MARKET_LISTINGS_MAX, MARKET_ORDERS_
 import { GUILD_WRITS_MAX, GUILD_STORES_MAX, COMMISSIONS_MAX, COMMISSIONS_FOR_MAX, WRIT_POSTS_MAX, WRIT_OPS_MAX } from './writLaw.js';   // PROF6: the bounds its refusals name
 import { RENOWN_TRACKS_MAX } from './renown.js';   // RENOWN1: the tracks' bound, in its refusal's own sentence (RENOWN-CHAR: back with the tracks)
 import { HERALDRY_CHANGE_DRAKES } from './heraldryLaw.js';   // GUILD1d: a change's cost, in its refusal's own sentence
+import { ARENA_TEXT } from '../systems/arenaText.js';   // ARENA4b: the arena's refusals, in its own frozen table
 
 /** WHERE THE SERVICE IS. Its own constant beside the relay's
  *  DEFAULT_SERVER (net/online.js), because they are two Workers and
@@ -211,6 +212,10 @@ export const REFUSALS = Object.freeze({
   'bad-room': 'The account service could not read that room.',
   'home-tenants': 'Somebody is renting a room in your home. It cannot be sold or deleted until their days run out.',
   'home-rent-due': 'Rent is waiting to be collected at your home. Collect it first.',
+  // ARENA4b: a home the arena displaced (homes.js arenaMoveHome), and a house of its block an old build would buy
+  'home-arena': ARENA_TEXT.homeMove.arena,
+  'home-unmoved': ARENA_TEXT.homeMove.unmoved,
+  'home-changed': ARENA_TEXT.homeMove.changed,
   // HOME-LOOK: an online home's outside (server-account/src/homes.js setHomeLook)
   'bad-look': 'The account service could not read that look. The game may need updating.',
   // DECOR1: an online home's decor (server-account/src/decor.js)
@@ -981,7 +986,8 @@ export function accountRaids({ fetch, storage }) {
 export function accountArena({ fetch, storage, waitMs = ACCOUNT_ACT_WAIT_MS }) {
   const post = waitedPost({ fetch, storage }, waitMs);
   return {
-    claim: (receipt) => post('/v1/arena/claim', { receipt }),
+    // ARENA4b: and the character that fought it (its `name` for the track) - a won bout's Renown is that character's
+    claim: (receipt, character = null, name = null) => post('/v1/arena/claim', { receipt, ...(character ? { character } : {}), ...(name ? { name } : {}) }),
     board: () => post('/v1/arena/board', {}),
     team: (banner) => post('/v1/arena/team', { banner: banner ?? null }),
     me: () => storedSession(storage)?.id ?? null,
@@ -1040,6 +1046,11 @@ export function accountHomes({ fetch, storage }) {
     collectRent: ({ mapId, buildingKey, character, realm = null }) => post('/v1/homes/rooms/collect', { mapId, buildingKey, character, ...(realm ? { realm } : {}) }),
     // HOME-LOOK: how a home looks outside, painted by its owner (null: the town's own)
     look: ({ mapId, buildingKey, character, look = null }) => post('/v1/homes/look', { mapId, buildingKey, character, look }),
+    // ARENA4b: a home the arena displaced, moved to the house this client picked (its record named when the pieces' refund
+    // comes onto it); the moves this character has not read; and one read
+    arenaMove: ({ mapId, from, to, character, realm = null }) => post('/v1/homes/arena-move', { mapId, from, to, character, ...(realm ? { realm } : {}) }),
+    arenaMoves: (character) => post('/v1/homes/arena-moves', { character }),
+    arenaSeen: (mapId, from) => post('/v1/homes/arena-seen', { mapId, from }),
   };
 }
 

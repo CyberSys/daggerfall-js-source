@@ -50,7 +50,7 @@ import { closeArenaDoor } from '../ui/arenaDoor.js';   // ARENA4: the window goe
 import { rollLeague } from '../systems/arenaLeague.js';   // ARENA3: the banner worn (the pause window's Arena door)   // ARENA3: the recruiters (and the bookmaker) at the gate
 import { cityFloorCentre } from '../world/arenaFloor.js';   // ARENA2: the city floor's sand, in its block's frame
 import { ARENA_TEXT } from '../systems/arenaText.js';   // ARENA1: the Daggerfall Bank's letter
-import { moveArenaRecords } from '../systems/arenaMove.js';   // ARENA1: a deed whose house the arena took, moved once
+import { moveArenaRecords, arenaHomeFor, emptyArenaScene } from '../systems/arenaMove.js';   // ARENA1: a deed whose house the arena took, moved once; ARENA4b: and an online home, by its owner's client
 import { loadModWorldData, ensureWorldDataPack, worldDataPacksMissing } from './modWorldData.js';   // RR3b; WD3: a pack a save's pins let in
 import { configureLayoutPins, layoutRecordsOf, pinsFrom, setLayoutPins, stampLayout, layoutStampOfPixel, HOME_LAYOUTS_WAIT_MS, HOME_LAYOUTS_RETRIES, PINS_DROPPED_LINE } from '../systems/layoutPins.js';   // WD3: a town keeps the layout a save's things were made in
 import { DFPalette } from '../formats/dfPalette.js';
@@ -514,7 +514,7 @@ import { deriveTownSeats, seatAtMapId } from '../systems/townSeats.js';   // SEA
 import { createTownSeatBook, parseSeatCommand, parseSiegeCommand } from '../net/townSeatBook.js';   // SEAT1a: the seats open, confirmed, witnessed   // VOID: a moderator's /siege void
 import { seatArrivalLine, seatHallOf, seatBannerOf, boardTithePct } from '../net/townSeatLaw.js';   // SEAT1a: the seat's arrival line; SEAT-HALL: whose hall a palace is; CROWN-HALL: the throne room's banners; AUDIT SEATS-3 D3: a board's Tithe
 import { hallMay } from '../net/hallLaw.js';   // SEAT-HALL: a palace's keepers are a hall's
-import { createOnlineHomes } from '../systems/onlineHomes.js';   // HOME1: the account service's homes, one town at a time
+import { createOnlineHomes, moveArenaHomes, homeSceneName } from '../systems/onlineHomes.js';   // HOME1: the account service's homes, one town at a time; ARENA4b: the ones the arena displaced, moved
 import { townBoardRows, townHomeRows } from '../ui/townMapMarks.js';   // TOWN-MARKS: the Notice Boards and the player housing on the town map
 import { setSigilOnline, setSigilRenown } from '../systems/sigil.js';   // SIGIL1: a weapon won online carries a sigil, woken by my Renown
 import { setSetsDueling, setsDueling, drinkWorn, setSetsWearer } from '../systems/sigilSets.js';   // SET2: the duel's word - sets sleep in one; SET4: the drink, whole; SET5: the wearer a tooltip reads
@@ -1198,6 +1198,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   let _pinsGen = 0;
   let _pinsDroppedSaid = false;   // AUDIT WD3 B6   // AUDIT WD3 R3: the latest applyLayoutPins - an older one overtaken sets nothing
   let _homeLayoutsAsk = homesApi ? homesApi.layouts().catch(() => null) : null;
+  let _arenaHomesAsked = false;   // ARENA4b: the online homes the arena displaced, moved once a boot (moveArenaHomesOnline) - here, above the boot's first landing
   // HOME-LOOK (2026-09-30, asked: "The ability to choose the texture for the roof, walls, door, windows, etc"): A PLAYER'S
   // HOME IS DRAWN OUT OF ITS PIXEL'S MERGE, with its OWN texture table - the pixel's climate swaps and its owner's look
   // over them (world/homeLook.js) - so a look that lands, or changes, repaints it where it stands (refreshHomeLooks). A
@@ -11829,6 +11830,7 @@ export async function bootWorld(canvas, renderer, params, status) {
       if (!set) return;   // overtaken by a later answer, which marks it
       _homeLayoutsApplied = true;
       modes?.homeLayoutsLanded?.();   // AUDIT WD3 R7: a home's room the player stands in is furnished now
+      void moveArenaHomesOnline();   // ARENA4b: Daggerfall stands in its homes' layout now - a home the arena displaced is picked in it
     }).catch((e) => {
       console.warn('[layout] the homes\' towns:', e?.message ?? e);
       _serverLayoutRecords = null;   // not applied: asked again
@@ -11862,31 +11864,50 @@ export async function bootWorld(canvas, renderer, params, status) {
   /** ARENA1 (Mac: "Move them to a new house"): a deed whose house stood in Daggerfall's cell (4,3) - where the arena
    *  stands now, in every layout - moved once to a house of its kind in the city, with everything in it
    *  (systems/arenaMove.js). Offline only; an online home is the account service's (ARENA4). */
+  /** ARENA1 / ARENA4b: DAGGERFALL AS IT STANDS NOW for a move out of the arena's cell - its buildings (the arena's cell
+   *  holds none), its map id, the type the old block gave a key, its place in the discoveries - or null where the city
+   *  stands no arena (a read of it that failed). One read for the offline deed and the online home alike. */
+  function arenaCityNow() {
+    const city = maps.getLocation(ARENA_REGION, ARENA_LOCATION);
+    const ed = city?.exterior?.exteriorData;
+    if (!ed?.arenaTook) return null;
+    const list = [];
+    for (let y = 0; y < ed.height; y++) for (let x = 0; x < ed.width; x++) {
+      const dfBlock = blocks.getBlockByName(maps.getRmbBlockName(city, x, y));
+      if (dfBlock) list.push({ dfBlock, x, y });
+    }
+    const summaries = buildingSummaries(city.exterior.buildings, list, { locationIndex: city.locationIndex, locationName: city.name, regionName: city.regionName });
+    const took = blocks.getBlockByName(ed.arenaTook);
+    const locId = `${city.regionIndex}:${city.name}`;
+    return {
+      city, summaries, mapId: city.mapTableData.mapId, locId,
+      oldTypeOf: (key) => took?.rmbBlock?.fldHeader?.buildingDataList?.[key & 0xff]?.buildingType ?? null,
+      // the cell's discovered buildings are forgotten whatever the save holds - the cell has none to find now
+      forgetCell: () => { for (const b of discoveredBuildings(locId)) if (inArenaCell(b.buildingKey)) undiscoverBuilding(locId, b.buildingKey); },
+    };
+  }
+  /** ARENA2 / ARENA4b: what stood in a moved house, back where it lives - the owner's own things (furniture among the
+   *  furnishings, the rest in the pack), and the catalogue's placed pieces paid back whole into the city's bank account. */
+  function arenaGiveOwn(items) { for (const it of items) { if (isFurnishing(it)) (playerEntity.furnishings ??= []).push(it); else addItem(playerEntity.items ??= [], it); } }
+  function arenaRefund(gold) {
+    playerEntity.bankAccounts ??= createBankAccounts(BANK_REGION_COUNT);
+    const a = playerEntity.bankAccounts[goldRegion(playerEntity.bankAccounts, ARENA_REGION)] ?? null;
+    if (a) a.accountGold = (Number.isFinite(a.accountGold) ? a.accountGold : 0) + gold; else addGold(playerEntity, gold);
+  }
   function moveArenaDeed() {
     try {
-      const city = maps.getLocation(ARENA_REGION, ARENA_LOCATION);
-      const ed = city?.exterior?.exteriorData;
-      if (!ed?.arenaTook) return null;
-      const list = [];
-      for (let y = 0; y < ed.height; y++) for (let x = 0; x < ed.width; x++) {
-        const dfBlock = blocks.getBlockByName(maps.getRmbBlockName(city, x, y));
-        if (dfBlock) list.push({ dfBlock, x, y });
-      }
-      const summaries = buildingSummaries(city.exterior.buildings, list, { locationIndex: city.locationIndex, locationName: city.name, regionName: city.regionName });
-      const mapId = city.mapTableData.mapId;
+      const now = arenaCityNow();
+      if (!now) return null;
+      const { summaries, mapId, locId, forgetCell } = now;
       const held = new Set([
         ...(playerEntity.rentedRooms ?? []).filter((r) => r?.mapId === mapId).map((r) => r.buildingKey),
         ...(questBridge?.machine?.getAllActiveQuestSites?.() ?? []).filter((q) => q?.mapId === mapId).map((q) => q.buildingKey),
         ...(playerEntity.otherItems ?? []).map((it) => it?.repairData).filter((d) => d?.mapId === mapId).map((d) => d.buildingKey),
       ]);
-      const took = blocks.getBlockByName(ed.arenaTook);
-      const locId = `${city.regionIndex}:${city.name}`;
-      // the cell's discovered buildings are forgotten whatever the save holds - the cell has none to find now
-      const forgetCell = () => { for (const b of discoveredBuildings(locId)) if (inArenaCell(b.buildingKey)) undiscoverBuilding(locId, b.buildingKey); };
       forgetCell();
       const moved = moveArenaRecords({
         houses: playerEntity.houses, summaries, held, scenes: (playerEntity.sceneCache ??= createSceneCache()),   // _sceneCache's own law - that const is declared after the boot walk reaches here
-        oldTypeOf: (key) => took?.rmbBlock?.fldHeader?.buildingDataList?.[key & 0xff]?.buildingType ?? null,
+        oldTypeOf: now.oldTypeOf,
         isActiveQuestBuilding: (b) => !!questBridge?.machine?.isActiveQuestBuilding?.(mapId, b.buildingKey, b.buildingType),
       }, {
         undiscoverCell: forgetCell,
@@ -11895,17 +11916,52 @@ export async function bootWorld(canvas, renderer, params, status) {
         notice: () => { const show = () => { try { townTalk.showOverlay(new ActionTextBox([...ARENA_TEXT.deedMoved])); } catch { setTimeout(show, 500); } }; show(); },
         // ARENA2: what stood in the old house - the owner's own things back where they live (furniture among the
         // furnishings, the rest in the pack), the catalogue's placed pieces paid back whole into the city's bank account
-        giveOwn: (items) => { for (const it of items) { if (isFurnishing(it)) (playerEntity.furnishings ??= []).push(it); else addItem(playerEntity.items ??= [], it); } },
-        refund: (gold) => {
-          playerEntity.bankAccounts ??= createBankAccounts(BANK_REGION_COUNT);
-          const a = playerEntity.bankAccounts[goldRegion(playerEntity.bankAccounts, ARENA_REGION)] ?? null;
-          if (a) a.accountGold = (Number.isFinite(a.accountGold) ? a.accountGold : 0) + gold; else addGold(playerEntity, gold);
-        },
+        giveOwn: arenaGiveOwn,
+        refund: arenaRefund,
       });
       if (moved) console.log(`[arena] the deed to house ${moved.from} moved to ${moved.to} (${moved.name})`);
       return moved;
     } catch (e) {
       console.warn('[arena] the displaced deed could not be moved:', e?.message ?? e);
+      return null;
+    }
+  }
+  /** ARENA4b (Mac: "Move them to a new house"): ONLINE, A HOME OF THIS CHARACTER'S (or a guild hall it keeps) IN
+   *  DAGGERFALL'S CELL (4,3), moved by this client - picked here by the offline move's rule over the city as its homes'
+   *  layout stands it (systems/arenaMove.js arenaHomeFor), carried by the account service (server-account/src/homes.js
+   *  arenaMoveHome) inside a realm act, its old scene emptied into the new house as the offline deed's is, the bank's
+   *  letter and the notebook's line (systems/onlineHomes.js moveArenaHomes). Once a boot, after the homes' towns land and
+   *  once the world stands (its checkpoint can write): before that a realm act's checkpoint would refuse. */
+  async function moveArenaHomesOnline() {
+    if (_arenaHomesAsked || !onlineHomes || !homesApi) return null;
+    _arenaHomesAsked = true;
+    for (let i = 0; !(playerSpawned && modes) && i < 240; i++) await new Promise((r) => { setTimeout(r, 250); });   // `modes` is declared far below: read only once the world stands
+    try {
+      const now = arenaCityNow();
+      const me = characterIdOf(playerEntity);
+      if (!now || !me || !playerSpawned) return null;
+      const scenes = (playerEntity.sceneCache ??= createSceneCache());
+      const moved = await moveArenaHomes({
+        homes: onlineHomes, api: homesApi, mapId: now.mapId >>> 0, character: me,
+        realm: realmSession ? { act: (o) => realmGoldAct({ ...o, session: realmSession, checkpoint: () => onlineCheckpoint() }) } : null,
+        pick: (from, held) => arenaHomeFor({ mapId: now.mapId, oldKey: from, oldType: now.oldTypeOf(from) }, now.summaries, {
+          held, isActiveQuestBuilding: (b) => !!questBridge?.machine?.isActiveQuestBuilding?.(now.mapId, b.buildingKey, b.buildingType),
+        }),
+        nameOf: (key) => now.summaries.find((b) => b.buildingKey === key)?.name ?? '',
+        emptyScene: (from, to) => emptyArenaScene(scenes, homeSceneName(now.mapId, from), homeSceneName(now.mapId, to)),
+        hooks: {
+          giveOwn: arenaGiveOwn, credit: arenaRefund,
+          discover: (key, hall) => { now.forgetCell(); const b = now.summaries.find((x) => x.buildingKey === key); if (b) discoverBuilding(now.locId, b, hall ? null : `${playerEntity.name ?? ''}'s residence`); },   // a hall found, never named a residence
+          notice: (lines) => { const show = () => { try { townTalk.showOverlay(new ActionTextBox([...lines])); } catch { setTimeout(show, 500); } }; show(); },
+          note: (text) => questBridge?.notebook?.addNote(text),
+          say: (line) => townTalk.say(line),
+          checkpoint: () => onlineCheckpoint(),   // the emptied scene in the save before the move is said read
+        },
+      });
+      for (const m of moved) console.log(`[arena] the online home ${m.from} moved to ${m.to}${m.made ? '' : ' (read again)'}`);
+      return moved;
+    } catch (e) {
+      console.warn('[arena] the displaced online home could not be moved:', e?.message ?? e);
       return null;
     }
   }
@@ -17855,6 +17911,19 @@ export async function bootWorld(canvas, renderer, params, status) {
     struck: (d) => { if (d > 0) { flashPlayerDamage(d); playPlayerVoice(audio, playerPainVoice(playerEntity, d)); } },
     myHealth: (hp) => { if (playerEntity.health > 0) { playerEntity.health = hp; surfacePlayer(); } },
     inBout: () => arenaBouts.holds(),
+    // ARENA4b: A WON BOUT'S RENOWN - the fighting character's (its receipt kept with it), adopted only while it is the one
+    // standing here (RENOWN-CHAR, as a raid's is), by the one plan every Renown answer takes (net/renownTracker.js
+    // renownAnswer): the bar, the level, the order carried to the rooms, the rise said once
+    character: () => characterIdOf(playerEntity),
+    characterName: () => (typeof playerEntity?.name === 'string' ? playerEntity.name : null),
+    onRenown: (d) => {
+      if (d?.renown?.character !== characterIdOf(playerEntity)) return;
+      const a = renownAnswer({ ...d.renown, order: d.order ?? null }, d.renown.credited ?? 0, renownSaid);
+      if (a.xp !== null) renownXpAdopt(a.xp);
+      if (a.level !== null) renownAdopt(a.level);
+      if (a.order) online?.sendRenownOrder?.(a.order, a.level);
+      if (a.announce !== null) { renownSaid = a.announce; townTalk.say(`Your Renown is now ${a.announce}.`); }
+    },
   });
   /** ARENA4: MY OPPONENT on a relay's sand, as a body my blows meet (scenes/dungeonContext.js arenaRivalBody): the one
    *  body the bout's room draws (the stands have none), its stand-in for the formulas - unarmoured, every blow's number

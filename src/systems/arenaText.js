@@ -37,6 +37,30 @@ export const ARENA_TEXT = F({
   ]),
   /** The notebook's line for the same move (`%s` the new house's name). */
   deedMovedNote: 'The Daggerfall Bank moved my deed to %s - the arena stands where my old house was.',
+  /** ARENA4b: AN ONLINE HOME THE ARENA DISPLACED (server-account/src/homes.js arenaMoveHome, systems/onlineHomes.js
+   *  moveArenaHomes) - its owner hears the bank's letter above and the notebook's line; these are the rest: the pieces
+   *  bought from the catalogue paid back whole, a guild hall's letter (its keepers'), a room whose tenant the move
+   *  carried, and the service's refusals (net/accountClient.js REFUSALS reads them). */
+  homeMove: F({
+    refund: (gold) => `Your catalogue pieces went with the old house: ${gold} gold to the Daggerfall Bank.`,
+    hallMoved: F([
+      'A letter from the Daggerfall Bank:',
+      '',
+      'By order of the Court, the block where your guild\'s hall stood',
+      'is cleared for the Arena of Daggerfall.',
+      'The hall now stands in another house of the city.',
+      'What the treasury paid for its pieces is back in the treasury.',
+    ]),
+    hallNote: 'The Daggerfall Bank moved our guild\'s hall to %s - the arena stands where the old one was.',
+    /** The notebook's `%s` for a house whose name the city does not give. */
+    aHouse: 'a house in Daggerfall',
+    tenants: (n) => (n === 1 ? 'A tenant\'s room moved with it - its days run on, then it is offered to nobody.'
+      : `${n} tenants' rooms moved with it - their days run on, then they are offered to nobody.`),
+    roomMoved: (n) => `Room ${n} (moved with the house - offered to nobody once its days run out)`,
+    arena: 'The Arena of Daggerfall stands where that house was. It is nobody\'s to buy.',
+    unmoved: 'That home stands outside the arena\'s block, so it does not need moving.',
+    changed: 'Your home changed while it was moved. It is moved the next time you come online.',
+  }),
 
   /** ARENA-FIX 2: THE GATE'S PEOPLE BY THEIR OFFICE (world/arenaCity.js ARENA_GATE_PEOPLE `role`) - the name on the
    *  hover plaque, in "You see ..." and in the talk window, never a name drawn from the city's bank: a crier, a
