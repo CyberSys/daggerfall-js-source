@@ -396,7 +396,8 @@ export const REFUSALS = Object.freeze({
   'market-gold-realm': 'Gold changes hands on the market only between characters of the online realm.',
   'market-currency': 'That listing is priced in the other currency. Look again.',
   'market-gold-goods': 'What you bought with gold goes to your pack or back on the market for gold - never for silver, to a station, a craft or a writ.',
-  'market-drakes-goods': 'What you bought with silver sells for silver. Only what you gathered, made or bought with gold sells for gold.',
+  // AUDIT PROF-541 R2-S3 (Mac: B7's wider wall kept, its word made plain): a piece made of goods a counter sold for silver is silver's
+  'market-drakes-goods': 'Goods bought with silver, and pieces made with them, sell only for silver. What you gathered, or made of your own or gold-bought goods, sells for gold.',
   'market-gold-none': 'Your sales hold no gold for you just now.',
   'market-gold-full': 'The seller cannot hold any more gold from the market just now.',
   // MARKET-ANY: a piece from the pack

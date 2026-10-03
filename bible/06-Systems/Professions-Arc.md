@@ -859,7 +859,10 @@ buyer had.
 - **The wall** (law 8 kept): goods bought with gold are the Stores' third origin, and a piece bought with gold is
   marked; they go to the pack or back on the market for gold, and to nothing else - no station, craft, Court or guild
   writ, guild Stores, buy-order fill or Marks listing. And goods bought with Marks never list for gold, or the market
-  would be a way round the Bank's daily cap and spread (10.5).
+  would be a way round the Bank's daily cap and spread (10.5). AUDIT PROF-541 R2-S3 (Mac: B7's wider wall kept, its
+  word made plain): a crafted piece made with any goods a counter sold for Marks is a Marks piece (`products.bought_with`,
+  B7) and sells only for Marks - from its maker's listing or, R2-S2, from another account's pack (`market.js` listGood,
+  `market-drakes-goods`) alike; the refusal says "Goods bought with silver, and pieces made with them, sell only for silver".
 - **As built**: `06-Systems/Online-Arc.md` GOLD-MARKET (acct40, `0041_gold_market.sql`).
 
 ## 11. Writs - the Work tab
@@ -2051,7 +2054,7 @@ As built:
   is now staged (Bob's decision waits while Cid's whole bid lands); `MARKS1-13` aimed at `0025_marks.sql`'s trigger,
   which `0032_market.sql` rebuilt, and survived since PROF5 - re-aimed at the live one, dead.
 - **Pinned**: `test/prof5b_law.test.js` (3), `test/prof5b_service.test.js` (5), `test/prof5b_client.test.js` (4);
-  `tools/mutants/prof5b.json`, 40 mutants, 35 dead and five recorded equivalent (the raise's floor of a Mark, which the
+  `tools/mutants/prof5b.json`, 44 mutants (AUDIT PROF-541 R2-S4's four among them), 39 dead and five recorded equivalent (the raise's floor of a Mark, which the
   ceiling of 5% of a whole Mark already gives; the post's Masterwork guard, the cancel's standing-bid word, the bid's
   leader word and its low word - each an early refusal whose decision asks the same). AUDIT 31 R5: the last two were
   NOT equivalent - the early words come before the courier's road, so a leader's bid under the next, or a low bid from
@@ -2832,7 +2835,7 @@ three). What sections 3.2, 3.3, 4.8, 9.3 and 9.4 left open for PROF9, DECIDED he
   (`profPages.js`, the host's `cookSteps`; `recipeLaw.js` cookXp). **K8** - a Brew pressed while another craft holds the
   one-craft latch says "Your hands are busy with another craft.".
 - **Pinned**: `test/prof9_law.test.js` (9), `test/prof9_service.test.js` (5, through the real Worker),
-  `test/prof9_client.test.js` (17). Mutants: `tools/mutants/prof9.json` (143, all dead). Patch notes:
+  `test/prof9_client.test.js` (17). Mutants: `tools/mutants/prof9.json` (146, all dead - AUDIT PROF-541 R2-S7's three among them). Patch notes:
   `PATCH-NOTES-Cooking.md`.
 
 ## 36. PROF10 - Jewelcrafting, as built (BUILT 2026-10-02)
@@ -2978,7 +2981,10 @@ Seats-Arc 7.5). What sections 1, 2, 3.3, 4.1, 4.3, 4.5, 9.3 and 9.4 left open fo
   Cook's law), quartered more than two tiers below, **+500 the first** - not for a cauldron wholly of the counter's goods
   (Water Breathing, Levitation: AUDIT 32 S1's law).
 - **The potions a brew makes** (9.3: "2 potions at Journeyman and 3 at Master (Brewer 3 at Journeyman)"): DECIDED **one
-  below Journeyman** - DFU's own maker's one a mix.
+  below Journeyman** - DFU's own maker's one a mix. AUDIT PROF-541 R2-S1: **one at any rank** for a potion wholly of the
+  Apothecaries' goods (Water Breathing, Levitation - `brewCount`'s `potion`, `!brewFirstPays`): the counter's silver (a
+  fifth of DFU's price) brewed into three potions sold online at half the shop's was gold past the Bank's rate and cap
+  (11 silver to 165 gold); the station says it.
 - **POTENT** (9.3: "+25% magnitude, named so, at 10% at Expert and 20% at Master, +5% an unbruised herb"; `potentChance`).
   Rolled by the service, **once a brew** (DECIDED: one cauldron, its potions Potent together or not); the rank's own chance none below Expert (AUDIT PROF-541 D1: the rest add at any rank - an unbruised herb, a Distiller's from 50, the town's Apothecary).
   The **Distiller** +10 (3.3); the **Master Alchemist**'s share +40, not +25. DECIDED: an unbruised herb's +5 holds **at any
@@ -3100,9 +3106,18 @@ Seats-Arc 7.5). What sections 1, 2, 3.3, 4.1, 4.3, 4.5, 9.3 and 9.4 left open fo
   piece crafted of the counter's goods was `own`, its Essence own and listed for gold over the wall - bought with Drakes
   now (`products.bought_with` 'marks', read before the spends), its Essence bought; **B8** (LOW) Disenchant pressable past
   the Stores' room - shut, the room said. Pinned (nine tests), 23 mutants added, all dead; nine re-aimed by content (prof12, prof3, prof9, guild_yard, gatekeys).
+- **Audited a second round** (2026-10-03, AUDIT PROF-541 R2 - acct70, no migration): **S1** (HIGH) a cauldron wholly of
+  the Apothecaries' goods brewed a rank's two or three potions - silver into gold past the Bank (above) - one now;
+  **S2** (MED) a Marks piece listed for gold from another account's pack - refused (`market-drakes-goods`); **S3** the
+  refusal's words: a piece made of counter goods is silver's (10.8); **S4** (LOW) a disenchanted piece's auctions and bids
+  vanished from "My listings" (an inner join on its deleted row) - left joined, named by its disenchant's recipe; **S5**
+  (LOW) a Ram Kit's origin was read before the craft's batch - read in its own INSERT now, as B7's; **S6** (LOW) arrows
+  (no provenance in the pack, never listed) disenchanted - refused (`prof-no-essence`, `pieceListable`); **S7** (LOW) a
+  dish's 500 paid twice, north and south - once a dish (`firstCraftKey`, J7's "once per piece and base"); **S8** the
+  service's route list. Pinned in eight tests, 19 mutants added, all dead; four re-aimed by content (prof12, seat2b_peace).
 - **Pinned**: `test/prof12_law.test.js` (15), `test/prof12_service.test.js` (13, through the real Worker),
   `test/prof12_client.test.js` (16), `test/prof12_apothecary.test.js` (4, the Apothecary through the real Worker). Mutants:
-  `tools/mutants/prof12.json` (200: 199 dead, and PROF12-spends-no-hash recorded equivalent - B1's ingredient comparison holds everything DFU's hash refused). Patch notes: `PATCH-NOTES-Alchemy.md`; the Apothecary's in `PATCH-NOTES-Seats-Finished.md`.
+  `tools/mutants/prof12.json` (206: 205 dead - AUDIT PROF-541 R2's six among them - and PROF12-spends-no-hash recorded equivalent - B1's ingredient comparison holds everything DFU's hash refused). Patch notes: `PATCH-NOTES-Alchemy.md`; the Apothecary's in `PATCH-NOTES-Seats-Finished.md`.
 
 ## Appendix A - a day of a gatherer
 

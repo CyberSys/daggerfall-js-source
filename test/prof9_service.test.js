@@ -48,7 +48,7 @@ async function stand(extra = {}) {
 
 // ─── A DISH (9.3) ────────────────────────────────────────────────────
 
-test('PROF9 service: a Hunter\'s Stew at the fire - its Raw Meat, Mushroom and Root Bulb out of the Stores (bought first), one piece with its signed record, no quality, its maker; Cooking XP 20 at rank 0 and the first time\'s 500, credited; asked twice one, nothing moved; the next stew no 500, a clean pan half again', async () => {
+test('PROF9 service: a Hunter\'s Stew at the fire - its Raw Meat, Mushroom and Root Bulb out of the Stores (bought first), one piece with its signed record, no quality, its maker; Cooking XP 20 at rank 0 and the first time\'s 500, credited; asked twice one, nothing moved; the next stew no 500, a clean pan half again; the southern Stew the same dish - no 500 (AUDIT PROF-541 R2-S7)', async () => {
   const s = await stand();
   const mac = await s.registered('Mac');
   s.stock(mac, STEW, 3);
@@ -76,6 +76,18 @@ test('PROF9 service: a Hunter\'s Stew at the fire - its Raw Meat, Mushroom and R
   assert.deepEqual((await s.cook(mac, 'stew:north')).body, { error: 'stores-short' }, 'the Root Bulb gone');
   assert.equal(s.xpOf(mac, 'cooking'), 520 + 20 + 30);
   assert.deepEqual((await s.cook(mac, 'stew:south')).body, { error: 'stores-short' }, 'the southern Root Bulb is its own material');
+  // AUDIT PROF-541 R2-S7: the southern Stew is the same dish - its first no 500 (Mac's J7: once per piece and base); a
+  // Supper, another dish, its own 500 - north first, then south none
+  s.give(mac, 'p2:13', 'own', 1);
+  s.stock(mac, [['food:meat', 2], ['food:mushroom', 1]]);
+  const south = await s.cook(mac, 'stew:south');
+  assert.deepEqual([south.status, south.body.first, south.body.xp], [200, false, 20], 'the southern Stew: no 500');
+  s.stock(mac, [['food:fish', 2], ['food:egg', 1], ['p2:9', 1]], 2);
+  s.give(mac, 'p1:9', 'own', 1);
+  const supN = await s.cook(mac, 'supper:north');
+  assert.deepEqual([supN.status, supN.body.first, supN.body.xp], [200, true, 20 + FIRST_CRAFT_XP], 'a Supper: its own 500');
+  const supS = await s.cook(mac, 'supper:south');
+  assert.deepEqual([supS.status, supS.body.first, supS.body.xp], [200, false, 40], 'the southern Supper: none (the rank\'s tier 2 now - 20 x 2)');
   assert.match(ACCOUNT_VERSION, /^acct70$/   /* PIN MOVED (PROF10, PROF12, AUDIT PROF-541): the live version */);
 });
 

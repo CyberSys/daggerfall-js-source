@@ -677,10 +677,12 @@ export const firstCraftPays = (r) => !!r && !(r.inputs.length > 0 && r.inputs.ev
 /**
  * AUDIT PROF-541 J7 (Mac, 2026-10-03: "Once per piece and base"): what a first craft is counted by - a jewel's piece and
  * base (`ring:gold`, whichever gem is set first: its nine gems' 500 each had first crafts alone carry a fresh jeweller to
- * rank 44), every other recipe its own id. Null for no recipe.
+ * rank 44), every other recipe its own id. Null for no recipe. AUDIT PROF-541 R2-S7: a dish its own dish (`stew`, the
+ * product), whichever herb's way it is cooked - the Stew, the Supper and the Tart each one dish under two ids (north,
+ * south), whose 500 paid twice.
  * @param {Recipe|null} r
  */
-export const firstCraftKey = (r) => (!r ? null : r.kind === 'jewel' ? r.id.split(':').slice(0, 2).join(':') : r.id);
+export const firstCraftKey = (r) => (!r ? null : r.kind === 'jewel' ? r.id.split(':').slice(0, 2).join(':') : r.kind === 'dish' ? r.product : r.id);
 /** The pieces a craft makes: one, a Quartermaster's kit two (3.3); PROF9: a Cook's dish two (3.3: "+1 serving a dish" -
  *  a choice at 50). */
 export const craftCount = (r, spec100, spec50 = null) => ((r.kind === 'kit' && spec100 === 'quartermaster') || (r.kind === 'dish' && spec50 === COOK) ? 2 : 1);

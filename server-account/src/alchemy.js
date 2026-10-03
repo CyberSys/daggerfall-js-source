@@ -29,6 +29,7 @@ import {
 } from '../../src/net/alchemyLaw.js';
 import { prepareRealmRecord, realmActFirst, recordMovedOf, mustChange, dropObjects, dropIfUnnamed } from './realm.js';   // AUDIT PROF-541 B2: a realm character's piece out of its record
 import { takeTradeGoods, tradeableRecord } from '../../src/net/realmTradeLaw.js';   // AUDIT PROF-541 B2: as MARKET-ANY's listGood takes a record's piece
+import { pieceListable } from '../../src/net/marketLaw.js';   // AUDIT PROF-541 R2-S6: what the market lists is what disenchants
 
 const HERB_RE = /^p[12]:\d+$/;
 
@@ -63,7 +64,7 @@ async function brewAnswer(db, player, row, nowS, extra = {}) {
  * POTENT is rolled here, once a brew: the rank's chance (10 at Expert, 20 at Master), +5 an unbruised herb the brew spends
  * (prof_unbruised, its units reckoned against the OWN units spent - bought ones are spent first), a Distiller's +10, the
  * hall's; its share +25, a Master Alchemist's +40. The potions a brew makes: brewCount (1; 2 at Journeyman, a Brewer's 3;
- * 3 at Master). XP 20 x the potion's tier, +500 the character's first of it (not for one made wholly of the Apothecaries'
+ * 3 at Master - AUDIT PROF-541 R2-S1: one whatever the rank for a potion wholly of the Apothecaries' goods). XP 20 x the potion's tier, +500 the character's first of it (not for one made wholly of the Apothecaries'
  * goods - brewFirstPays), under the crafter's limit. Decided by the brew's own INSERT: every input held (never gold's).
  * Then the unbruised count down by what it reckoned, the inputs out (bought first - the count clamped to the own units
  * left, AUDIT PROF12 A1), the XP in. The potions are the
@@ -102,7 +103,7 @@ export async function brewAtStation(ctx, player, env, { character, potion: id, k
   // AUDIT PROF-541 B3: a Cure of DFU's default magnitude is never Potent (alchemyLaw potentAble: an instant, its chance
   // bypassed as it is drunk) - the die still cast first, so the dice after it fall as they did
   const potent = dice(rand) * 100 < chance && potentAble(potion) ? potentPct(specs[100]) : 0;
-  const count = brewCount(rank, specs[50]);
+  const count = brewCount(rank, specs[50], potion);   // AUDIT PROF-541 R2-S1: the counter's goods alone one potion
   const xp = brewXp(potion, rank, false);
   const nonce = mintId(rand);
   // ?1 player ?2 character ?3 rid ?4 potion ?5 keys ?6 count ?7 potent ?8 unbruised ?9 steps ?10 xp ?11 the first time's
@@ -167,7 +168,8 @@ async function disenchantAnswer(db, player, row, nowS, extra = {}) {
  * own record of it, never the client's word), a Disenchanter's twice (3.3), into the Stores, and is gone: its `products`
  * row deleted in the same batch, so it lists, auctions and answers a commission no more. Refused: no such piece
  * (`prof-no-piece`), another's (`prof-not-yours`), one listed, on the road or standing in a home (`prof-piece-busy`), one
- * whose points make no Essence (`prof-no-essence`), a full Stores (`stores-full`). The Essence's origin: OWN where this
+ * whose points make no Essence or of a family the market lists not (`prof-no-essence` - AUDIT PROF-541 R2-S6: arrows, a
+ * quiver's stack with no provenance in the pack), a full Stores (`stores-full`). The Essence's origin: OWN where this
  * character made it and nobody bought it (PROF0 7: "Essence from an own provenance item (one this character made, never
  * sold)"), GOLD where it was bought with gold (GOLD-MARKET's wall), else BOUGHT. Enchanting XP: alchemyLaw disenchantXp (5
  * x the PIECE's recipe's tier an Essence before the doubling, quartered more than two tiers below the rank's top, none for a
@@ -198,6 +200,7 @@ export async function disenchantPiece(ctx, player, env, { character, provenance,
   if (!p) return { error: 'prof-no-piece', ...(await db.prepare('SELECT 1 FROM prof_disenchants WHERE player = ?1 AND provenance = ?2').bind(player.id, provenance).first() ? { why: 'disenchanted' } : {}) };   // AUDIT PROF-541 B2
   if (p.owner !== player.id) return { error: 'prof-not-yours' };
   const r = recipeById(p.recipe);
+  if (!pieceListable(p.recipe)) return { error: 'prof-no-essence' };   // AUDIT PROF-541 R2-S6: arrows (marketLaw pieceListable) - no piece the pack holds by its record
   const points = piecePoints(r, p.hand == null ? null : Number(p.hand));
   const { ranks, rank, specs } = await tracksOf(db, player.id, character, 'enchanting', nowS);
   const base = essenceOf(points);

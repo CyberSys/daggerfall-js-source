@@ -279,6 +279,7 @@ test('GOLD-MARKET refusals: every new word the service says has its sentence', (
     assert.notEqual(accountRefusalText(w), accountRefusalText('no-such-word-at-all'), `${w} has words`);
   }
   assert.match(accountRefusalText('market-gold-goods'), /pack or back on the market for gold/);
+  assert.match(accountRefusalText('market-drakes-goods'), /^Goods bought with silver, and pieces made with them, sell only for silver\./, 'AUDIT PROF-541 R2-S3: a piece made of counter goods is silver\'s, in words');
 });
 
 // ─── THE WIRING ──────────────────────────────────────────────────────

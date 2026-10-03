@@ -2034,7 +2034,7 @@ function drawAlchemyStation(detail, rerender, { el, divider }) {
   const specs = track?.specs ?? {};
   const n = brewCount(rank, specs[50]);
   const steps = p.alchemySteps?.() ?? 0;   // AUDIT PROF-541 B4: the town's Apothecary
-  detail.append(el('p', 'px-note', `${station.kind === 'shop' ? `The alchemist's station - ${station.fee} gold a brew.` : 'Your alchemy station.'} Alchemy ${rank} (${rankName(rank)}): ${n === 1 ? 'a potion' : `${n} potions`} a brew; ${potentLine(rank, specs, 0, null, steps)}${steps > 0 ? ` (the Apothecary's +${POTENT.apothecary * steps}% with it)` : ''}, +${POTENT.unbruised}% for each herb you picked unbruised.`));
+  detail.append(el('p', 'px-note', `${station.kind === 'shop' ? `The alchemist's station - ${station.fee} gold a brew.` : 'Your alchemy station.'} Alchemy ${rank} (${rankName(rank)}): ${n === 1 ? 'a potion' : `${n} potions`} a brew; ${potentLine(rank, specs, 0, null, steps)}${steps > 0 ? ` (the Apothecary's +${POTENT.apothecary * steps}% with it)` : ''}, +${POTENT.unbruised}% for each herb you picked unbruised.${n > 1 ? ' A potion wholly of the Apothecaries\' goods brews one.' : ''}`));   // AUDIT PROF-541 R2-S1
   const short = purseShort(station, 'alchemist', 'a brew');
   if (short) detail.append(el('p', 'px-note prof-short', short));
   const held = (k) => book.held(k);
@@ -2065,7 +2065,8 @@ function drawAlchemyStation(detail, rerender, { el, divider }) {
       box.append(line);
     }
     const gathered = potentAble(potion) ? potion.ingredients.filter((t) => ingredientKeys(t).some((k) => k.startsWith('p'))).length : 0;   // AUDIT PROF-541 B3: a cure's herbs add nothing
-    box.append(el('p', 'px-note', `${n === 1 ? 'A potion' : `${n} potions`} a brew. ${potentLine(rank, specs, 0, potion, steps)}${gathered ? ` - and +${POTENT.unbruised}% for each of its herbs you picked unbruised` : ''}. ${brewXp(potion, rank, false)} Alchemy XP${brewFirstPays(potion) ? `, and ${brewXp(potion, rank, true) - brewXp(potion, rank, false)} the first time` : ''}.`));
+    const made = brewCount(rank, specs[50], potion);   // AUDIT PROF-541 R2-S1: the counter's goods alone brew one
+    box.append(el('p', 'px-note', `${made === 1 ? 'A potion' : `${made} potions`} a brew. ${potentLine(rank, specs, 0, potion, steps)}${gathered ? ` - and +${POTENT.unbruised}% for each of its herbs you picked unbruised` : ''}. ${brewXp(potion, rank, false)} Alchemy XP${brewFirstPays(potion) ? `, and ${brewXp(potion, rank, true) - brewXp(potion, rank, false)} the first time` : ''}.`));
     const ready = rank >= potion.rank && spends.length > 0 && spends.every((i) => held(i.key) >= i.n) && !_alchemy.crafting && !short;
     const go = el('button', 'act primary', _alchemy.crafting ? 'Brewing...' : 'Brew');
     go.type = 'button';

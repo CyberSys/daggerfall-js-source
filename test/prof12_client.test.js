@@ -180,7 +180,7 @@ function stubPages({ alchemy = null, enchanter = null, alchemyTrack = { rank: 0,
   return { calls, held };
 }
 
-test('PROF12 pages: The Alchemy Station - away, the word; at a home\'s, no fee; DFU\'s twenty by their price\'s ranks; a cauldron filled from the herb group held more of; Brew asks the potion and its keys; the brews a rank makes; a Transmuter\'s transmutations (two of a metal and a Mercury - AUDIT PROF12 E3), none for another', async () => {
+test('PROF12 pages: The Alchemy Station - away, the word; at a home\'s, no fee; DFU\'s twenty by their price\'s ranks; a cauldron filled from the herb group held more of; Brew asks the potion and its keys; the brews a rank makes (the Apothecaries\' goods alone one - AUDIT PROF-541 R2-S1); a Transmuter\'s transmutations (two of a metal and a Mercury - AUDIT PROF12 E3), none for another', async () => {
   stubPages();
   let page = pageOf();
   assert.ok(page.text().includes(ALCHEMY_AWAY_LINE));
@@ -198,6 +198,12 @@ test('PROF12 pages: The Alchemy Station - away, the word; at a home\'s, no fee; 
   page.button('Brew').onclick();
   await settle(_alchemyForTests());
   assert.deepEqual(calls, [['brew', 'healing', ['p2:16', 'reagent:troll-blood', 'reagent:elixir-vitae', 'metal:mercury']]]);
+  // AUDIT PROF-541 R2-S1: a Brewer's three - but the Apothecaries' goods alone brew one, and the station says so
+  assert.match(page.text(), /3 potions a brew\. Potent 0%/, 'the Healing\'s three');
+  assert.match(page.text(), /picked unbruised\. A potion wholly of the Apothecaries' goods brews one\./);
+  page.recipe('Levitation').onclick();
+  assert.match(page.text(), /A potion a brew\. Potent 0%/, 'Levitation\'s cauldron is the counter\'s alone: one');
+  page.recipe('Healing').onclick();
   assert.match(page.text(), /A Transmuter - Alchemy's choice at 100 - turns two of a metal and a Mercury/);
   assert.equal(page.button('Transmute'), null);
   page.done();

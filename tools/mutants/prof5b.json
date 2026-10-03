@@ -374,5 +374,45 @@
     "tests": [
       "test/prof5b_client.test.js"
     ]
+  },
+  {
+    "name": "PROF541-R2-S4-mine-auctions-left",
+    "file": "server-account/src/market.js",
+    "old": "      FROM market_auctions a LEFT JOIN products p ON p.provenance = a.provenance\n      WHERE a.seller",
+    "new": "      FROM market_auctions a JOIN products p ON p.provenance = a.provenance\n      WHERE a.seller",
+    "tests": [
+      "test/prof5b_service.test.js"
+    ],
+    "note": "AUDIT PROF-541 R2-S4: a disenchanted piece's auction kept."
+  },
+  {
+    "name": "PROF541-R2-S4-mine-bids-left",
+    "file": "server-account/src/market.js",
+    "old": "JOIN market_auctions a ON a.id = b.auction LEFT JOIN products p ON p.provenance = a.provenance",
+    "new": "JOIN market_auctions a ON a.id = b.auction JOIN products p ON p.provenance = a.provenance",
+    "tests": [
+      "test/prof5b_service.test.js"
+    ],
+    "note": "AUDIT PROF-541 R2-S4: its bids kept."
+  },
+  {
+    "name": "PROF541-R2-S4-gone-recipe",
+    "file": "server-account/src/market.js",
+    "old": "const GONE_RECIPE_SQL = 'COALESCE(p.recipe, (SELECT recipe FROM prof_disenchants WHERE provenance = a.provenance)) AS recipe';",
+    "new": "const GONE_RECIPE_SQL = 'p.recipe';",
+    "tests": [
+      "test/prof5b_service.test.js"
+    ],
+    "note": "AUDIT PROF-541 R2-S4: named by its disenchant's recipe."
+  },
+  {
+    "name": "PROF541-R2-S4-bid-provenance",
+    "file": "server-account/src/market.js",
+    "old": "p.material AS dfu_material, a.provenance\n",
+    "new": "p.material AS dfu_material, p.provenance\n",
+    "tests": [
+      "test/prof5b_service.test.js"
+    ],
+    "note": "AUDIT PROF-541 R2-S4: the bid's piece the auction's provenance."
   }
 ]

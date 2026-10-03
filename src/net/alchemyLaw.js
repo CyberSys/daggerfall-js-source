@@ -113,8 +113,12 @@ export const brewFirstPays = (potion) => !!potion && !potion.ingredients.every((
  *  Master Alchemist ("Potent is +40%, not +25%") and the Transmuter (professionLaw TRANSMUTER) its two at 100. */
 export const BREWER = 'brewer', DISTILLER = 'distiller', MASTER_ALCHEMIST = 'master-alchemist';
 /** THE POTIONS A BREW MAKES (9.3: "2 potions at Journeyman and 3 at Master (Brewer 3 at Journeyman)"): DECIDED one below
- *  Journeyman - DFU's own maker's one a mix. */
-export function brewCount(rank, spec50 = null) {
+ *  Journeyman - DFU's own maker's one a mix. AUDIT PROF-541 R2-S1: `potion` the brew's - one made wholly of goods only a
+ *  counter sells (!brewFirstPays: Water Breathing, Levitation) makes ONE whatever the rank or the Brewer, else the
+ *  Apothecaries' silver (a fifth of DFU's price) brewed into three potions sold online at half the shop's would be gold
+ *  past the Bank (11 silver to 165 gold). */
+export function brewCount(rank, spec50 = null, potion = null) {
+  if (potion && !brewFirstPays(potion)) return 1;
   if (rank >= PROF_RANK_MAX) return 3;
   if (rank >= JOURNEYMAN_RANK) return spec50 === BREWER ? 3 : 2;
   return 1;

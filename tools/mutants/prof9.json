@@ -1336,5 +1336,36 @@
     "tests": [
       "test/prof9_client.test.js"
     ]
+  },
+  {
+    "name": "PROF541-R2-S7-dish-key",
+    "file": "src/net/recipeLaw.js",
+    "old": "r.kind === 'dish' ? r.product : r.id);",
+    "new": "r.kind === 'dish' ? r.id : r.id);",
+    "tests": [
+      "test/prof9_law.test.js",
+      "test/prof9_service.test.js"
+    ],
+    "note": "AUDIT PROF-541 R2-S7: a dish's first craft its dish's."
+  },
+  {
+    "name": "PROF541-R2-S7-dish-prefix",
+    "file": "server-account/src/professions.js",
+    "old": "  const keyed = r.kind === 'jewel' || r.kind === 'dish';",
+    "new": "  const keyed = r.kind === 'jewel';",
+    "tests": [
+      "test/prof9_service.test.js"
+    ],
+    "note": "AUDIT PROF-541 R2-S7: the dish's key asked by its prefix."
+  },
+  {
+    "name": "PROF541-R2-S7-plain-ring-prefix",
+    "file": "server-account/src/professions.js",
+    "old": "  const keyed = r.kind === 'jewel' || r.kind === 'dish';",
+    "new": "  const keyed = firstCraftKey(r) !== r.id;",
+    "tests": [
+      "test/prof10_service.test.js"
+    ],
+    "note": "AUDIT PROF-541 R2-S7: a plain ring's key its own id, its gems' base all the same."
   }
 ]
