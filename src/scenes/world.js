@@ -1209,7 +1209,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   let _pinsDroppedSaid = false;   // AUDIT WD3 B6   // AUDIT WD3 R3: the latest applyLayoutPins - an older one overtaken sets nothing
   let _homeLayoutsAsk = homesApi ? homesApi.layouts().catch(() => null) : null;
   let _arenaHomesAsked = false;   // ARENA4b: the online homes the arena displaced, moved once a boot (moveArenaHomesOnline) - here, above the boot's first landing
-  let playerSpawned = false;   // HOTFIX 1003: here, above the boot's first landing - moveArenaHomesOnline reads it when the homes' towns land, which can be before the boot walk reached its old line (a TDZ ReferenceError live)
+  let playerSpawned = false, _bootLoaded = false;   // HOTFIX 1003: here, above the boot's first landing - moveArenaHomesOnline reads it when the homes' towns land, which can be before the boot walk reached its old line (a TDZ ReferenceError live)
   // HOME-LOOK (2026-09-30, asked: "The ability to choose the texture for the roof, walls, door, windows, etc"): A PLAYER'S
   // HOME IS DRAWN OUT OF ITS PIXEL'S MERGE, with its OWN texture table - the pixel's climate swaps and its owner's look
   // over them (world/homeLook.js) - so a look that lands, or changes, repaints it where it stands (refreshHomeLooks). A
@@ -12109,11 +12109,11 @@ export async function bootWorld(canvas, renderer, params, status) {
   async function moveArenaHomesOnline() {
     if (_arenaHomesAsked || !onlineHomes || !homesApi) return null;
     _arenaHomesAsked = true;
-    for (let i = 0; !(playerSpawned && modes) && i < 240; i++) await new Promise((r) => { setTimeout(r, 250); });   // `modes` is declared far below: read only once the world stands
+    for (let i = 0; !(playerSpawned && modes && _bootLoaded && !_loading) && i < 1200; i++) await new Promise((r) => { setTimeout(r, 250); });   // `modes` is declared far below: read only once the world stands
     try {
       const now = arenaCityNow();
-      const me = characterIdOf(playerEntity);
-      if (!now || !me || !playerSpawned) return null;
+      if (!playerSpawned || !_bootLoaded || _loading) { _arenaHomesAsked = false; return null; }   // HOTFIX 1003d: never the boot's stand-in character (characterIdOf mints one) - asked again at the next landing
+      const me = characterIdOf(playerEntity); if (!now || !me) return null;
       const scenes = (playerEntity.sceneCache ??= createSceneCache());
       const moved = await moveArenaHomes({
         homes: onlineHomes, api: homesApi, mapId: now.mapId >>> 0, character: me,
@@ -22132,7 +22132,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     // entrance - into whatever the structure stands on.
     if (entered) playerSpawned = true;
   }
-  if (testRoomOffline) townTalk.say(TEST_ROOM_OFFLINE_TEXT);   // AUDIT SET D4: said once the world stands, the character loaded
+  _bootLoaded = true; if (testRoomOffline) townTalk.say(TEST_ROOM_OFFLINE_TEXT);   // HOTFIX 1003d: the boot's character loaded (moveArenaHomesOnline waits for it)   // AUDIT SET D4: said once the world stands, the character loaded
   if (realmRefused) townTalk.say(REALM_OFFLINE_TEXT);   // REALM P1.3: an online boot with no realm character plays offline, and says so
   if (realmBoot?.restored && realmBoot.missed) townTalk.say(REALM_RESTORED_TEXT);   // RESCUE-SAVE: the device's copy of a save the realm refused or never answered, played on (AUDIT A8: an ordinary close's, silently)
   for (const line of reclaimLines(realmGiven)) townTalk.say(line);   // RESTORE: what came back, said once the world stands

@@ -214,10 +214,14 @@ test('ARENA4b the host: world.js moves the online homes once a boot, after the h
   assert.ok(/_homeLayoutsApplied = true;[\s\S]{0,300}void moveArenaHomesOnline\(\);/.test(landing), 'after the pins stand - the town in its homes\' layout');
   assert.ok(w.indexOf('let _arenaHomesAsked = false;') < w.indexOf('const landing = takeHomeLayouts(heard);'), 'the flag stands before the boot\'s first landing reads it');
   const fn = w.slice(w.indexOf('async function moveArenaHomesOnline('), w.indexOf('async function moveArenaHomesOnline(') + 4000);
-  assert.ok(fn.includes('!(playerSpawned && modes)'), 'once the world stands - its checkpoint can write');
+  assert.ok(fn.includes('!(playerSpawned && modes && _bootLoaded && !_loading)'), 'once the world stands - its checkpoint can write - and the boot\'s own character is loaded');
+  // HOTFIX 1003d: before the boot's save is read, characterIdOf mints a stand-in id that owns nothing - the move asked
+  // for it, found nothing, and never asked again that boot
+  assert.ok(fn.indexOf('if (!playerSpawned || !_bootLoaded || _loading) { _arenaHomesAsked = false; return null; }') < fn.indexOf('const me = characterIdOf(playerEntity);'), 'the character read only once the boot\'s is loaded');
+  assert.ok(/_bootLoaded = true; if \(testRoomOffline\)/.test(w) && w.indexOf('_bootLoaded = true;') > w.indexOf('await worldQuickLoad({ ...bootLoadPick, snap });'), 'marked after the boot\'s load');
   // HOTFIX 1003 (live on daggerfalljs.dev: "can't access lexical declaration before initialization"): the homes' towns land
   // before the boot walk reached `let playerSpawned`'s old line, and the wait above read it in its dead zone
-  assert.ok(w.indexOf('let playerSpawned = false;') < w.indexOf('const landing = takeHomeLayouts(heard);'), 'the world-stands flag declared before the boot\'s first landing reads it');
+  assert.ok(w.indexOf('let playerSpawned = false, _bootLoaded = false;') > 0 && w.indexOf('let playerSpawned = false, _bootLoaded = false;') < w.indexOf('const landing = takeHomeLayouts(heard);'), 'the world-stands flag declared before the boot\'s first landing reads it');
   assert.ok(fn.includes('arenaHomeFor({ mapId: now.mapId, oldKey: from, oldType: now.oldTypeOf(from) }, now.summaries'), 'the offline rule over the city as it stands');
   assert.ok(fn.includes('emptyArenaScene(scenes, homeSceneName(now.mapId, from), homeSceneName(now.mapId, to))'), 'the online home\'s own scene');
   assert.ok(fn.includes('realmGoldAct({ ...o, session: realmSession, checkpoint: () => onlineCheckpoint() })'), 'inside the realm\'s act');
