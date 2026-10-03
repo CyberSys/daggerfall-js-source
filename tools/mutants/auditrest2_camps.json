@@ -265,11 +265,12 @@
   {
     "name": "AUDITREST2-H11-the-full-word-lost",
     "file": "src/scenes/camps.js",
-    "old": "say(placed || kits.length ? REST_ITEM_TEXT.firewoodFull : REST_ITEM_TEXT.firewoodNone);",
-    "new": "say(placed ? REST_ITEM_TEXT.firewoodFull : REST_ITEM_TEXT.firewoodNone);",
+    "old": "say(near.length || kits.length ? REST_ITEM_TEXT.firewoodFull : REST_ITEM_TEXT.firewoodNone);",
+    "new": "say(near.length ? REST_ITEM_TEXT.firewoodFull : REST_ITEM_TEXT.firewoodNone);",
     "tests": [
       "test/auditrest2_camps.test.js"
-    ]
+    ],
+    "note": "AUDIT REST III B3 (PIN MOVED): the fires in reach are a list now; re-aimed by content."
   },
   {
     "name": "AUDITREST2-H12-the-cold-arm-off",

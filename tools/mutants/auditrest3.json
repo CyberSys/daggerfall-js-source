@@ -310,5 +310,35 @@
     "tests": [
       "test/auditrest3.test.js"
     ]
+  },
+  {
+    "name": "AUDITREST3-B3-room-unasked",
+    "file": "src/scenes/camps.js",
+    "old": "const placed = near.filter((c) => (c.rec.wear | 0) < CAMPFIRE_USES).sort(",
+    "new": "const placed = near.filter((c) => true).sort(",
+    "tests": [
+      "test/auditrest3.test.js",
+      "test/auditrest2_camps.test.js"
+    ]
+  },
+  {
+    "name": "AUDITREST3-B3-the-first-found",
+    "file": "src/scenes/camps.js",
+    "old": ".sort((a, b) => (a.rec.wear | 0) - (b.rec.wear | 0))[0] ?? null;",
+    "new": "[0] ?? null;",
+    "tests": [
+      "test/auditrest3.test.js",
+      "test/auditrest2_camps.test.js"
+    ]
+  },
+  {
+    "name": "AUDITREST3-B3-the-full-word-lost",
+    "file": "src/scenes/camps.js",
+    "old": "say(near.length || kits.length ? REST_ITEM_TEXT.firewoodFull",
+    "new": "say(kits.length ? REST_ITEM_TEXT.firewoodFull",
+    "tests": [
+      "test/auditrest3.test.js",
+      "test/auditrest2_camps.test.js"
+    ]
   }
 ]

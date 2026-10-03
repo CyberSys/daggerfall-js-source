@@ -225,7 +225,10 @@ export function createCamps({
   function feedFire(item, list) {
     const feet = camera?.()?.feet;
     const t = now();
-    const placed = feet ? camps.find((c) => mine(c) && c.rec.kind === CAMP_KIND.Fire && !c.rec.jar && !!c.rec.fuel && within(c.rec.pos, feet, BY_FIRE_REACH)) : null;   // AUDIT REST-PARTY B5: never an old save's kit fire
+    const near = feet ? camps.filter((c) => mine(c) && c.rec.kind === CAMP_KIND.Fire && !c.rec.jar && !!c.rec.fuel && within(c.rec.pos, feet, BY_FIRE_REACH)) : [];   // AUDIT REST-PARTY B5: never an old save's kit fire
+    // AUDIT REST III B3: the emptiest of mine in reach WITH ROOM, as H11 has the pack's - four may stand, and the first
+    // found took the stick only to refuse it ("all the fuel it can take") while a cold one beside it had none left
+    const placed = near.filter((c) => (c.rec.wear | 0) < CAMPFIRE_USES).sort((a, b) => (a.rec.wear | 0) - (b.rec.wear | 0))[0] ?? null;
     // AUDIT REST-PARTY B5: a kit holds what its own maxCondition says - an old save's five-use kit fed to eight read 160% and
     // sold for it (RRI's condition price); full is its own cap, never the new item's
     const capOf = (it) => Math.min(CAMPFIRE_USES, it.maxCondition ?? CAMPFIRE_USES);
@@ -234,7 +237,7 @@ export function createCamps({
     // and took the stick only to refuse it ("all the fuel it can take") while the Campfire beside it had room
     const packed = kits.filter((it) => (it.currentCondition ?? 0) < capOf(it)).sort((a, b) => (a.currentCondition ?? 0) - (b.currentCondition ?? 0))[0] ?? null;
     const take = () => { if ((item.stackCount ?? 1) > 1) item.stackCount -= 1; else { const i = (list ?? []).indexOf(item); if (i >= 0) list.splice(i, 1); } };
-    if (placed && (placed.rec.wear | 0) < CAMPFIRE_USES) {
+    if (placed) {
       placed.rec.wear = Math.min(CAMPFIRE_USES, (placed.rec.wear | 0) + FIREWOOD_NIGHTS);
       if (!fireLit(placed.rec, t)) { stokeFire(placed.rec, t); if (_fire && !placed.batch) mountFire(placed); }
       take(); onChanged?.();
@@ -247,7 +250,7 @@ export function createCamps({
       say(REST_ITEM_TEXT.firewoodFed(packed.currentCondition));
       return true;
     }
-    say(placed || kits.length ? REST_ITEM_TEXT.firewoodFull : REST_ITEM_TEXT.firewoodNone);
+    say(near.length || kits.length ? REST_ITEM_TEXT.firewoodFull : REST_ITEM_TEXT.firewoodNone);
     return false;
   }
   /** The Bedroll laid: where a camp could stand (a fire's law - so in a dungeon too), on the ground ahead, and the rest

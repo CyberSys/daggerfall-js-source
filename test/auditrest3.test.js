@@ -156,3 +156,35 @@ test('AUDIT REST III B4: the line "Your rest supplies will stay..." is said of t
   const own = { level: 1, goldPieces: 0, items: [createRestItem(REST_ITEM.Tonic)], wagonItems: [], bankAccounts: [], sceneCache: { scenes: [{ lootContainers: [chest] }] } };
   assert.equal(applyCustoms(own).restKept, 2, 'the pack\'s and the chest the character filled');
 });
+
+test('AUDIT REST III B3: Firewood feeds the emptiest of my Campfires in reach that has room - a full one found first no longer takes the stick only to refuse it while a cold one beside it is empty (relit); all of them full still says full (mutants: room unasked; the first found; the full word lost)', async () => {
+  const { setPref } = await import('../src/systems/uiPrefs.js');
+  const { setWorldMinutes } = await import('../src/systems/worldTick.js');
+  const { createCamps } = await import('../src/scenes/camps.js');
+  const { createSurvivalItem } = await import('../src/systems/survival/items.js');
+  const { TEMPLATE } = await import('../src/systems/survival/food.js');
+  const { createRestItem, REST_ITEM, REST_ITEM_TEXT } = await import('../src/systems/restItems.js');
+  const { fireLit } = await import('../src/systems/survival/camp.js');
+  setPref('survival', true); setWorldMinutes(1000);
+  const said = [];
+  const entity = { items: [createSurvivalItem(TEMPLATE.Campfire), createSurvivalItem(TEMPLATE.Campfire), createSurvivalItem(TEMPLATE.Campfire)] };
+  const p = createCamps({
+    entity, camera: () => ({ feet: [0, 1, 0], yaw: 0 }), collider: () => ({ raycast: (o, d, m) => (d[1] < 0 && m >= o[1] ? o[1] : null) }),
+    place: () => ({}), say: (l) => said.push(l), openRest: () => {}, showOverlay: () => {},
+  });
+  for (let i = 0; i < 3; i++) p.placeItem(entity.items[0], entity.items);
+  assert.equal(p.camps.length, 3, 'three of mine stand in reach');
+  const [full, half, cold] = p.camps;
+  full.rec.wear = 8; half.rec.wear = 5; cold.rec.wear = 0; cold.rec.litUntil = 0;
+  const wood = createRestItem(REST_ITEM.Firewood); wood.stackCount = 3;
+  entity.items.push(wood);
+  assert.equal(p.placeItem(wood, entity.items), true);
+  assert.deepEqual([full.rec.wear, half.rec.wear, cold.rec.wear], [8, 5, 3], 'the empty cold one took it');
+  assert.ok(fireLit(cold.rec, 1000), 'and was relit');
+  assert.equal(p.placeItem(wood, entity.items), true);
+  assert.deepEqual([full.rec.wear, half.rec.wear, cold.rec.wear], [8, 5, 6], 'the emptiest again');
+  half.rec.wear = 8; cold.rec.wear = 8;
+  assert.equal(p.placeItem(wood, entity.items), false);
+  assert.equal(said.at(-1), REST_ITEM_TEXT.firewoodFull, 'every one full: the full word');
+  assert.equal(wood.stackCount, 1, 'and the stick kept');
+});

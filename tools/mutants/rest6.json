@@ -197,11 +197,12 @@
  {
   "name": "REST6-firewood-ignores-the-placed-fire",
   "file": "src/scenes/camps.js",
-  "old": "    if (placed && (placed.rec.wear | 0) < CAMPFIRE_USES) {",
-  "new": "    if (false) {",
+  "old": "    if (placed) {\n      placed.rec.wear",
+  "new": "    if (false) {\n      placed.rec.wear",
   "tests": [
    "test/rest6_consumables.test.js"
-  ]
+  ],
+  "note": "AUDIT REST III B3 (PIN MOVED): the room is asked where the fire is chosen; re-aimed by content."
  },
  {
   "name": "REST6-the-bedroll-in-town",
