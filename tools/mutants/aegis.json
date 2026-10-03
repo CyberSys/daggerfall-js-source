@@ -1,0 +1,292 @@
+[
+  {
+    "name": "AEGIS-the-gradient-turned-round",
+    "file": "src/ui/playerBadge.js",
+    "old": "  aegis: Object.freeze([OBLIVION_VOID, OBLIVION_VIOLET, OBLIVION_LILAC]),",
+    "new": "  aegis: Object.freeze([OBLIVION_LILAC, OBLIVION_VIOLET, OBLIVION_VOID]),",
+    "tests": [
+      "test/aegis.test.js"
+    ],
+    "note": "Light into the void: the reverse read as a bare name over a night sky and was lost on snow."
+  },
+  {
+    "name": "AEGIS-glyph-in-another-colour",
+    "file": "src/ui/playerBadge.js",
+    "old": "  aegis: TITLE_RGBA.aegis,             // AEGIS:",
+    "new": "  aegis: TITLE_RGBA.apostle,             // AEGIS:",
+    "tests": [
+      "test/aegis.test.js"
+    ],
+    "note": "The pillars and the ring in the Apostle's periwinkle: the two halves of one grant drift apart."
+  },
+  {
+    "name": "AEGIS-the-edge-dropped",
+    "file": "src/ui/playerBadge.js",
+    "old": "  aegis: Object.freeze([0, 0, 0, 1]),   // AEGIS: its lilac end is bright",
+    "new": "  // aegis: its lilac end is bright",
+    "tests": [
+      "test/aegis.test.js"
+    ],
+    "note": "No edge: the lilac end edged in its own violet."
+  },
+  {
+    "name": "AEGIS-a-mark-another-glyph-has",
+    "file": "src/ui/playerBadge.js",
+    "old": "  aegis: 'O',         // AEGIS:",
+    "new": "  aegis: '@',         // AEGIS:",
+    "tests": [
+      "test/aegis.test.js"
+    ],
+    "note": "The classic face would draw the Arena Champion's laurel beside Sureme's name."
+  },
+  {
+    "name": "AEGIS-the-glyph-filled",
+    "file": "src/ui/playerBadge.js",
+    "old": "laurel: true, aegis: true });",
+    "new": "laurel: true, aegis: false });",
+    "tests": [
+      "test/aegis.test.js"
+    ],
+    "note": "Filled, the pillars and the ring are one blot."
+  },
+  {
+    "name": "AEGIS-the-middle-pillar-short",
+    "file": "src/ui/playerBadge.js",
+    "old": "aegis: 'M8 0.9V10.9M3",
+    "new": "aegis: 'M8 7.2V10.9M3",
+    "tests": [
+      "test/aegis.test.js"
+    ],
+    "note": "The middle pillar no taller than the sides: the reference's risen middle gone."
+  },
+  {
+    "name": "AEGIS-the-ring-off-the-pillars",
+    "file": "src/ui/playerBadge.js",
+    "old": "M3 10.2A5 2.6 0 1 0 13 10.2A5 2.6 0 1 0 3 10.2",
+    "new": "M4 10.2A4 2.6 0 1 0 12 10.2A4 2.6 0 1 0 4 10.2",
+    "tests": [
+      "test/aegis.test.js"
+    ],
+    "note": "The side pillars no longer stand at the ring's ends."
+  },
+  {
+    "name": "AEGIS-the-tendrils-over-the-ring",
+    "file": "src/ui/playerBadge.js",
+    "old": "'M4.4 12.9Q2.2 13.2 0.3 14.6",
+    "new": "'M4.4 9.9Q2.2 13.2 0.3 14.6",
+    "tests": [
+      "test/aegis.test.js"
+    ],
+    "note": "The void's mass climbing over the aegis it should hang beneath."
+  },
+  {
+    "name": "AEGIS-the-wards-button-in-the-fire",
+    "file": "src/ui/playerBadge.js",
+    "old": "oblivionward: 'aegis' });",
+    "new": "oblivionward: 'gatebreaker' });",
+    "tests": [
+      "test/aegis.test.js"
+    ],
+    "note": "The Oblivion Ward's button on the card painted in Dagon's fire."
+  },
+  {
+    "name": "AEGIS-the-list-renamed",
+    "file": "server-account/src/titles.js",
+    "old": "  aegis: 'AEGIS_HANDLES',",
+    "new": "  aegis: 'HERALD_HANDLES',",
+    "tests": [
+      "test/aegis.test.js"
+    ],
+    "note": "The title read off the Herald's list: Sureme holds nothing."
+  },
+  {
+    "name": "AEGIS-the-ward-without-the-list",
+    "file": "server-account/src/titles.js",
+    "old": "export const TIER_AURA = Object.freeze({ aegis: 'oblivionward' });",
+    "new": "export const TIER_AURA = Object.freeze({});",
+    "tests": [
+      "test/aegis.test.js"
+    ],
+    "note": "The list grants the title and the glyph and no aura."
+  },
+  {
+    "name": "AEGIS-the-brokers-first",
+    "file": "server-account/src/titles.js",
+    "old": "  for (const [t, a] of Object.entries(TIER_AURA)) if (holdsTier(t, player, env) && !held.includes(a)) held.push(a);\n  for (const a of insigniaKeys(player?.insignia, 'aura')) if (!held.includes(a)) held.push(a);",
+    "new": "  for (const a of insigniaKeys(player?.insignia, 'aura')) if (!held.includes(a)) held.push(a);\n  for (const [t, a] of Object.entries(TIER_AURA)) if (holdsTier(t, player, env) && !held.includes(a)) held.push(a);",
+    "tests": [
+      "test/aegis.test.js"
+    ],
+    "note": "The Broker's auras offered before the list's."
+  },
+  {
+    "name": "AEGIS-the-wardrobe-without-the-config",
+    "file": "server-account/src/titles.js",
+    "old": "  auras: aurasHeld(player, env),   // AEGIS:",
+    "new": "  auras: aurasHeld(player),   // AEGIS:",
+    "tests": [
+      "test/aegis.test.js"
+    ],
+    "note": "The account card's answer never lists the ward."
+  },
+  {
+    "name": "AEGIS-not-sureme",
+    "file": "server-account/wrangler.toml",
+    "old": "AEGIS_HANDLES = \"Sureme\"",
+    "new": "AEGIS_HANDLES = \"Diggleborf\"",
+    "tests": [
+      "test/aegis.test.js"
+    ],
+    "note": "Granted to the wrong player."
+  },
+  {
+    "name": "AEGIS-the-mint-without-the-config",
+    "file": "server-account/src/index.js",
+    "old": "          au: auraWorn(who.player, env),",
+    "new": "          au: auraWorn(who.player),",
+    "tests": [
+      "test/aegis.test.js"
+    ],
+    "note": "The token never signs the ward: Sureme wears it on the card and nobody sees it."
+  },
+  {
+    "name": "AEGIS-the-aura-door-without-the-config",
+    "file": "server-account/src/accounts.js",
+    "old": "  const why = auraRefusal(aura, player, env);",
+    "new": "  const why = auraRefusal(aura, player);",
+    "tests": [
+      "test/aegis.test.js"
+    ],
+    "note": "The aura door refuses Sureme the ward they hold."
+  },
+  {
+    "name": "AEGIS-the-vocabulary-without-the-ward",
+    "file": "src/net/identityToken.js",
+    "old": "export const AURAS = Object.freeze(['dagonfire', 'oblivionward']);",
+    "new": "export const AURAS = Object.freeze(['dagonfire']);",
+    "tests": [
+      "test/aegis.test.js"
+    ],
+    "note": "The relay refuses Sureme's token."
+  },
+  {
+    "name": "AEGIS-a-gap-in-the-ring",
+    "file": "src/render/auraRing.js",
+    "old": "  vec3 col = inked(dr, 0.016) * (breath + 0.8 * scribe)",
+    "new": "  vec3 col = inked(dr, 0.016) * (breath + 0.8 * scribe) * step(0.05, fract(a / TAU))",
+    "tests": [
+      "test/aegis.test.js"
+    ],
+    "note": "A broken ring: Sureme asked for a full circle."
+  },
+  {
+    "name": "AEGIS-the-claws-on-the-axes",
+    "file": "src/render/auraRing.js",
+    "old": "  float su = a / TAU * ${WARD_SIGILS.toFixed(1)};",
+    "new": "  float su = (a - TAU / 8.0) / TAU * ${WARD_SIGILS.toFixed(1)};",
+    "tests": [
+      "test/aegis.test.js"
+    ],
+    "note": "The claws off the diagonals, where the first reference has its marks."
+  },
+  {
+    "name": "AEGIS-the-centre-mist-unfaded",
+    "file": "src/render/auraRing.js",
+    "old": "mist * 0.55 * smoothstep(0.08, 0.38, r) * ",
+    "new": "mist * 0.55 * ",
+    "tests": [
+      "test/aegis.test.js"
+    ],
+    "note": "The polar mist drawn to the centre, where it pinches into spokes."
+  },
+  {
+    "name": "AEGIS-the-sweep-dropped",
+    "file": "src/render/auraRing.js",
+    "old": "  return col * wardDrawn(fract(a / TAU + 0.5)) * (1.0 - smoothstep",
+    "new": "  return col * (1.0 - smoothstep",
+    "tests": [
+      "test/aegis.test.js"
+    ],
+    "note": "Kindling only brightens: the ward is no longer drawn round."
+  },
+  {
+    "name": "AEGIS-a-rounded-rate",
+    "file": "src/render/auraRing.js",
+    "old": "const hzGlsl = (hz) => { const per = Math.round(1 / hz); return Math.abs(per * hz - 1) < 1e-12 ? `/ ${per.toFixed(1)}` : `* ${hz}`; };",
+    "new": "const hzGlsl = (hz) => `* ${hz.toFixed(4)}`;",
+    "tests": [
+      "test/aegis.test.js"
+    ],
+    "note": "Rates written rounded: the ward steps at the clock's wrap."
+  },
+  {
+    "name": "AEGIS-the-ward-drawn-as-fire",
+    "file": "src/render/auraRing.js",
+    "old": "  if (uAura == 1) {",
+    "new": "  if (uAura == 2) {",
+    "tests": [
+      "test/aegis.test.js"
+    ],
+    "note": "The ward's wearers burn with Dagon's fire."
+  },
+  {
+    "name": "AEGIS-the-kind-never-set",
+    "file": "src/render/auraRing.js",
+    "old": "      gl.uniform1i(U.uAura, look.kind);\n",
+    "new": "",
+    "tests": [
+      "test/aegis.test.js"
+    ],
+    "note": "Every wearer drawn in whatever look the last one left."
+  },
+  {
+    "name": "AEGIS-the-fires-ring-for-all",
+    "file": "src/render/auraRing.js",
+    "old": "      gl.uniform1f(U.uRingR, look.ringR); gl.uniform1f(U.uFlameH, look.flameH);",
+    "new": "      gl.uniform1f(U.uRingR, AURA_RING_R); gl.uniform1f(U.uFlameH, look.flameH);",
+    "tests": [
+      "test/aegis.test.js"
+    ],
+    "note": "The ward drawn at the fire's narrower ring."
+  },
+  {
+    "name": "AEGIS-the-wards-violet-drifted",
+    "file": "src/render/auraRing.js",
+    "old": "violet: Object.freeze([0.698, 0.302, 1])",
+    "new": "violet: Object.freeze([0.616, 0.486, 0.941])",
+    "tests": [
+      "test/aegis.test.js"
+    ],
+    "note": "The ward in the Apostle's periwinkle, not the title's violet."
+  },
+  {
+    "name": "AEGIS-the-script-repeating",
+    "file": "src/render/auraRing.js",
+    "old": "export const WARD_SCRIPT = Object.freeze([25, 38, 51, 12, 19, 40, 61, 18, 33, 15, 52, 10]);",
+    "new": "export const WARD_SCRIPT = Object.freeze([25, 38, 25, 38, 25, 38, 25, 38, 25, 38, 25, 38]);",
+    "tests": [
+      "test/aegis.test.js"
+    ],
+    "note": "A pattern, not writing."
+  },
+  {
+    "name": "AEGIS-the-veil-to-the-knees",
+    "file": "src/render/auraRing.js",
+    "old": "export const WARD_WALL_H = 0.42;",
+    "new": "export const WARD_WALL_H = 0.8;",
+    "tests": [
+      "test/aegis.test.js"
+    ],
+    "note": "A wall higher than the fire's flames: a cage, not a ward."
+  },
+  {
+    "name": "AEGIS-a-look-off-the-prototype",
+    "file": "src/render/auraRing.js",
+    "old": "Object.hasOwn(AURA_LOOK, aura) ? AURA_LOOK[aura]",
+    "new": "aura in AURA_LOOK ? AURA_LOOK[aura]",
+    "tests": [
+      "test/aegis.test.js"
+    ],
+    "note": "A word off the prototype ('constructor') drawn with no look."
+  }
+]
