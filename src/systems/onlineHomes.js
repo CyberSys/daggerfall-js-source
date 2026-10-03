@@ -561,7 +561,10 @@ async function sellOut(homes, { mapId, buildingKey, credit, realm }) {
 //      (the act's closing checkpoint holds it - worldModes.js sellHomeAt's law): the owner's own things back to the pack
 //      or the furnishings, the chests and the floor into the new house's chest, the refund into the Daggerfall bank;
 //   3. the Daggerfall Bank's letter (ARENA_TEXT.deedMoved, a hall's its own), the notebook's line, the lines for a
-//      refund and a carried tenancy - and the move said read (`seen_at`).
+//      refund and a carried tenancy - and the move said read (`seen_at`) once a checkpoint holds the emptied scene: a
+//      hall's move and a move read again empty it outside any realm act, so a page gone before the next checkpoint would
+//      have left the record's old scene full and the move read - its things in a scene nothing opens. A checkpoint
+//      refused leaves the move unread, and the next boot empties the record's scene again (1.).
 // Offline is unchanged (arenaMove.js moveArenaRecords).
 
 /** How many houses a move is posted to before it waits for the next boot (one taken under each pick). */
@@ -573,11 +576,13 @@ export const ARENA_MOVE_TRIES = 3;
  * name }`) or null; `nameOf(key)` a building's name; `realm` the host's realm act (`{ act }`) or null; `emptyScene(from,
  * to)` empties the old home's scene into the new one's and answers arenaMove.js emptyArenaScene's `{ own, crate, ... }`;
  * the hooks the host's, each optional: `giveOwn(items)`, `credit(gold)` (the Daggerfall bank account), `discover(key, hall)`,
- * `notice(lines)`, `note(text)`, `say(line)`. Answers every move handled, `{ from, to, refund, hall, made }`.
+ * `notice(lines)`, `note(text)`, `say(line)`, `checkpoint()` (the save written now - false when refused). Answers every
+ * move handled, `{ from, to, refund, hall, made }`.
  * @param {{ homes: any, api: any, mapId: number, character: string|null, pick: (from: number, held: Set<number>) => ({ buildingKey: number }|null),
  *   nameOf?: (key: number) => string, realm?: { act: (o: any) => Promise<any> }|null, emptyScene?: (from: number, to: number) => any,
  *   hooks?: { giveOwn?: (items: any[]) => void, credit?: (gold: number) => void, discover?: (key: number, hall: boolean) => void,
- *     notice?: (lines: readonly string[]) => void, note?: (text: string) => void, say?: (line: string) => void } }} o
+ *     notice?: (lines: readonly string[]) => void, note?: (text: string) => void, say?: (line: string) => void,
+ *     checkpoint?: () => boolean } }} o
  */
 export async function moveArenaHomes({ homes, api, mapId, character, pick, nameOf = () => '', realm = null, emptyScene, hooks = {} }) {
   const out = [];
@@ -591,17 +596,17 @@ export async function moveArenaHomes({ homes, api, mapId, character, pick, nameO
     if (credit && !m.hall && m.refund > 0) hooks.credit?.(m.refund);
     return e;
   };
-  /** The letter, the notebook, the lines - once a move - and the move said read. */
+  /** The letter, the notebook, the lines - once a move - and the move said read once the save holds it (3.). */
   const announce = async (m, made) => {
     if (said.has(m.from)) return;
     said.add(m.from);
     hooks.discover?.(m.to, m.hall);   // a hall is its guild's, never discovered as anyone's residence
-    const name = nameOf(m.to) || 'a house in Daggerfall';
+    const name = nameOf(m.to) || ARENA_TEXT.homeMove.aHouse;
     hooks.notice?.(m.hall ? ARENA_TEXT.homeMove.hallMoved : ARENA_TEXT.deedMoved);
     hooks.note?.((m.hall ? ARENA_TEXT.homeMove.hallNote : ARENA_TEXT.deedMovedNote).replace('%s', name));
     if (made && !m.hall && m.refund > 0) hooks.say?.(ARENA_TEXT.homeMove.refund(m.refund));
     if (made && m.tenancies > 0) hooks.say?.(ARENA_TEXT.homeMove.tenants(m.tenancies));
-    await api.arenaSeen(mapId, m.from);
+    if (hooks.checkpoint?.() !== false) await api.arenaSeen(mapId, m.from);
     out.push({ from: m.from, to: m.to, refund: m.refund, hall: m.hall, made });
   };
   const moveOf = (d) => ({ from: d.from, to: d.to, refund: Number.isSafeInteger(d.refund) && d.refund > 0 ? d.refund : 0, hall: d.hall === true, tenancies: Number.isSafeInteger(d.tenancies) ? d.tenancies : 0 });

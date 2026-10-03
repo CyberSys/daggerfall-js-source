@@ -52,6 +52,8 @@ export const ARENA_TEXT = F({
       'What the treasury paid for its pieces is back in the treasury.',
     ]),
     hallNote: 'The Daggerfall Bank moved our guild\'s hall to %s - the arena stands where the old one was.',
+    /** The notebook's `%s` for a house whose name the city does not give. */
+    aHouse: 'a house in Daggerfall',
     tenants: (n) => (n === 1 ? 'A tenant\'s room moved with it - its days run on, then it is offered to nobody.'
       : `${n} tenants' rooms moved with it - their days run on, then they are offered to nobody.`),
     roomMoved: (n) => `Room ${n} (moved with the house - offered to nobody once its days run out)`,

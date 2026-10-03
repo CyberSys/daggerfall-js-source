@@ -91,7 +91,7 @@ test('ARENA4b the boot\'s move, headless: the town read, my home in the cell pic
   assert.deepEqual(out, [{ from: OLD, to, refund: 700, hall: false, made: true }]);
 });
 
-test('ARENA4b a house taken under the pick is picked again past it, a hall moves with no record and no gold to the keeper and is named nobody\'s residence, a move read again or answered as a repeat pays nothing (mutants: the taken key not held; a hall\'s refund credited; a hall named a residence; an unread move credited; a repeat credited)', async () => {
+test('ARENA4b a house taken under the pick is picked again past it, a hall moves with no record and no gold to the keeper and is named nobody\'s residence, a move read again or answered as a repeat pays nothing, and is said read only once a checkpoint holds its emptied scene (mutants: the taken key not held; a hall\'s refund credited; a hall named a residence; read with the checkpoint refused; an unread move credited; a repeat credited)', async () => {
   // taken: the first house answered somebody's - the town's answer not caught up yet - and the next pick goes past it
   const town = new Map([[OLD, { buildingKey: OLD, mine: true, character: 'r-me' }]]);
   const homes = { ensure: async () => true, homesIn: () => new Map(town) };
@@ -141,15 +141,23 @@ test('ARENA4b a house taken under the pick is picked again past it, a hall moves
   const scenes = savedScenes();
   const ulog = newLog();
   const useen = [];
+  const unreadApi = { arenaMoves: async () => ({ ok: true, data: { moves: [{ mapId: DF, from: OLD, to: key(5, 6, 2), refund: 700, movedAt: T0 }] } }), arenaMove: async () => assert.fail('nothing to post'), arenaSeen: async (m, f) => { useen.push(f); return { ok: true }; } };
+  // emptied outside any act: said read only once a checkpoint holds the emptied scene - a refused one leaves it unread,
+  // and the next boot empties the record's old scene again
+  await moveArenaHomes({
+    homes: { ensure: async () => true, homesIn: () => new Map() }, mapId: DF, character: 'r-me', pick, api: unreadApi,
+    emptyScene: () => null, hooks: { ...hooksInto(newLog()), checkpoint: () => false },
+  });
+  assert.deepEqual(useen, [], 'a checkpoint refused: unread');
   const out = await moveArenaHomes({
-    homes: { ensure: async () => true, homesIn: () => new Map() }, mapId: DF, character: 'r-me', pick,
-    api: { arenaMoves: async () => ({ ok: true, data: { moves: [{ mapId: DF, from: OLD, to: key(5, 6, 2), refund: 700, movedAt: T0 }] } }), arenaMove: async () => assert.fail('nothing to post'), arenaSeen: async (m, f) => { useen.push(f); return { ok: true }; } },
-    emptyScene: (from, to) => emptyArenaScene(scenes, homeSceneName(DF, from), homeSceneName(DF, to)), hooks: hooksInto(ulog),
+    homes: { ensure: async () => true, homesIn: () => new Map() }, mapId: DF, character: 'r-me', pick, api: unreadApi,
+    emptyScene: (from, to) => emptyArenaScene(scenes, homeSceneName(DF, from), homeSceneName(DF, to)),
+    hooks: { ...hooksInto(ulog), checkpoint: () => { assert.equal(restoreCachedScene(scenes, homeSceneName(DF, OLD)), null, 'the save written with the old scene emptied'); useen.push('saved'); return true; } },
   });
   assert.deepEqual(ulog.gold, [], 'the move\'s batch paid the record the join read');
   assert.deepEqual(ulog.own, [{ name: 'Lute' }], 'the old scene emptied now');
   assert.deepEqual(ulog.said, [], 'no refund said again');
-  assert.deepEqual(useen, [OLD]);
+  assert.deepEqual(useen, ['saved', OLD], 'the save written, then the move read');
   assert.deepEqual(out.map((m) => m.made), [false]);
 });
 
@@ -200,16 +208,17 @@ test('ARENA4b a room the move carried, as the client reads it: kept with no poin
   assert.equal(homeBedIsMine({ tenant: 100 + 86400 }, 100), true, 'the bed reads the tenancy, never the point');
 });
 
-test('ARENA4b the host: world.js moves the online homes once a boot, after the homes\' towns land and the world stands - picked by arenaHomeFor in the city as it stands, emptied by emptyArenaScene from the old OnlineHome scene into the new, inside the realm\'s act; offline unchanged (mutants: the call dropped from the landing; the flag declared after the boot\'s first landing)', () => {
+test('ARENA4b the host: world.js moves the online homes once a boot, after the homes\' towns land and the world stands - picked by arenaHomeFor in the city as it stands, emptied by emptyArenaScene from the old OnlineHome scene into the new, inside the realm\'s act; offline unchanged (mutants: the call dropped from the landing; the checkpoint unhanded; the flag declared after the boot\'s first landing)', () => {
   const w = read('src/scenes/world.js');
   const landing = w.slice(w.indexOf('function takeHomeLayouts('), w.indexOf('function askHomeLayoutsAgain('));
   assert.ok(/_homeLayoutsApplied = true;[\s\S]{0,300}void moveArenaHomesOnline\(\);/.test(landing), 'after the pins stand - the town in its homes\' layout');
   assert.ok(w.indexOf('let _arenaHomesAsked = false;') < w.indexOf('const landing = takeHomeLayouts(heard);'), 'the flag stands before the boot\'s first landing reads it');
-  const fn = w.slice(w.indexOf('async function moveArenaHomesOnline('), w.indexOf('async function moveArenaHomesOnline(') + 3200);
+  const fn = w.slice(w.indexOf('async function moveArenaHomesOnline('), w.indexOf('async function moveArenaHomesOnline(') + 4000);
   assert.ok(fn.includes('!(playerSpawned && modes)'), 'once the world stands - its checkpoint can write');
   assert.ok(fn.includes('arenaHomeFor({ mapId: now.mapId, oldKey: from, oldType: now.oldTypeOf(from) }, now.summaries'), 'the offline rule over the city as it stands');
   assert.ok(fn.includes('emptyArenaScene(scenes, homeSceneName(now.mapId, from), homeSceneName(now.mapId, to))'), 'the online home\'s own scene');
   assert.ok(fn.includes('realmGoldAct({ session: realmSession, checkpoint: () => onlineCheckpoint(), ...o })'), 'inside the realm\'s act');
   assert.ok(fn.includes('credit: arenaRefund') && fn.includes('giveOwn: arenaGiveOwn'), 'the offline move\'s own doors');
+  assert.ok(fn.includes('checkpoint: () => onlineCheckpoint(),'), 'the save written before a move is said read');
   assert.ok(/if \(!homeLayoutsOnline\) moveArenaDeed\(\);/.test(w), 'offline, the deed\'s move as before');
 });

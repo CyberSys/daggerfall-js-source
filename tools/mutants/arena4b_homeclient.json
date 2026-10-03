@@ -83,8 +83,17 @@
   {
     "name": "ARENA4B-SEEN-UNASKED",
     "file": "src/systems/onlineHomes.js",
-    "old": "    await api.arenaSeen(mapId, m.from);\n",
-    "new": "\n",
+    "old": "!== false) await api.arenaSeen(mapId, m.from);",
+    "new": "!== false) void m;",
+    "tests": [
+      "test/arena4b_homeclient.test.js"
+    ]
+  },
+  {
+    "name": "ARENA4B-SEEN-UNSAVED",
+    "file": "src/systems/onlineHomes.js",
+    "old": "if (hooks.checkpoint?.() !== false) await api.arenaSeen(mapId, m.from);",
+    "new": "hooks.checkpoint?.(); await api.arenaSeen(mapId, m.from);",
     "tests": [
       "test/arena4b_homeclient.test.js"
     ]
@@ -112,6 +121,15 @@
     "file": "src/scenes/world.js",
     "old": "      void moveArenaHomesOnline();   // ARENA4b",
     "new": "      // ARENA4b",
+    "tests": [
+      "test/arena4b_homeclient.test.js"
+    ]
+  },
+  {
+    "name": "ARENA4B-HOST-CHECKPOINT",
+    "file": "src/scenes/world.js",
+    "old": "          checkpoint: () => onlineCheckpoint(),   // the emptied scene in the save before the move is said read\n",
+    "new": "",
     "tests": [
       "test/arena4b_homeclient.test.js"
     ]

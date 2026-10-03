@@ -11955,6 +11955,7 @@ export async function bootWorld(canvas, renderer, params, status) {
           notice: (lines) => { const show = () => { try { townTalk.showOverlay(new ActionTextBox([...lines])); } catch { setTimeout(show, 500); } }; show(); },
           note: (text) => questBridge?.notebook?.addNote(text),
           say: (line) => townTalk.say(line),
+          checkpoint: () => onlineCheckpoint(),   // the emptied scene in the save before the move is said read
         },
       });
       for (const m of moved) console.log(`[arena] the online home ${m.from} moved to ${m.to}${m.made ? '' : ' (read again)'}`);
