@@ -78,6 +78,17 @@ test('mwnpc: assembly - named head/hair, sex-matched skins, honest missing list'
   assert.deepEqual(PART_BONES.hand, ['left hand', 'right hand']);
 });
 
+test('mwnpc: beast skeleton fallback wins over sex, while explicit MODL wins over both', () => {
+  const esm = parseEsm(ESM);
+  esm.races.get('testrace').beast = true;
+  const npc = esm.npcs.get('test npc f');
+  npc.model = null;
+  assert.equal(assembleNpc(esm, npc.id).animFile, 'meshes\\base_animkna.nif');
+  npc.model = 'fixture\\custom.nif';
+  assert.equal(assembleNpc(esm, npc.id).animFile, 'meshes\\fixture\\custom.nif');
+});
+
+
 test('mwnpc: an unknown NPC or race throws with the name', () => {
   const esm = parseEsm(ESM);
   assert.throws(() => assembleNpc(esm, 'nobody'), /no NPC_ "nobody"/);
@@ -116,10 +127,14 @@ test('mwesm: retail Morrowind.esm parses; fargoth assembles to meshes that exist
     'every assembled mesh path exists in the retail archive',
   );
   assert.equal(a.animFile, 'meshes\\base_anim.nif');
-  // And a beast race walks its own skeleton.
-  const beastNpc = [...esm.npcs.values()].find((n) => esm.races.get(n.race)?.beast && !n.model);
+  // Retail beast NPCs explicitly name MODL (base_animKnA.nif); none in
+  // the original master has an empty model. Verify those real bytes.
+  const beastNpc = [...esm.npcs.values()].find((n) => esm.races.get(n.race)?.beast);
   assert.ok(beastNpc, 'retail has beast NPCs');
-  assert.equal(assembleNpc(esm, beastNpc.id).animFile, 'meshes\\base_animkna.nif');
+  assert.equal(beastNpc.model.toLowerCase(), 'base_animkna.nif');
+  const beastAnim = assembleNpc(esm, beastNpc.id).animFile;
+  assert.equal(beastAnim, `meshes\\${beastNpc.model}`);
+  assert.ok(bsa.has(normalizeBsaPath(beastAnim)), 'retail beast skeleton exists');
 });
 
 

@@ -21,6 +21,8 @@
 //   lean    - { pitch, roll } radians the spine bends, spread over its bones (toward the wall, over a top);
 //   hands   - { L, R }: { at, fingers, palm, w, pole, curl, shrug } - the wrist's point, the way the fingers point and the
 //             palm faces, the limb's own weight, the elbow's way, the fingers' curl (radians), the clavicle's share;
+//             releaseAtReach opts vaults into letting go before full extension; reachAt preserves physical distance
+//             when first-person screen projection instead asks the hand to take a nearby point on a ray.
 //   feet    - { L, R }: { at, toe, w, pole } - the ankle's point, the way the toes point, the weight, the knee's way;
 //   look    - { at, w }: the point the head turns to.
 // Bones are found by name, case-blind, as the rig resolves every other (rule 16): the Bip01 chain, else the part-attach
@@ -275,12 +277,20 @@ function restAxes(skeleton, ref) {
 /** A limb's arm: the clavicle's share toward the hold, the two-bone reach, the hand turned to the hold and its fingers
  *  curled over it. */
 function poseArm(skeleton, pose, mats, bones, limb, side, h, w) {
-  const k = clamp01((h.w ?? 1) * w);
+  let k = clamp01((h.w ?? 1) * w);
   if (!(k > 0) || limb.upper == null || limb.fore == null || limb.hand == null || !(h.at || h.ray)) return;
   if (h.ray) h = { ...h, at: onRay(at(mats, limb.upper), limbReach(mats, limb) * RAY_REACH, h.ray) };
   const S = at(mats, limb.upper), E = at(mats, limb.fore), W = at(mats, limb.hand);
   const a = len(sub(E, S)), b = len(sub(W, E));
   if (!(a > 1e-6 && b > 1e-6)) return;
+  // VAULT-HANDS: as the body clears the obstacle, release its planted hand before full extension. Measure on the
+  // posed bones (after the body's lean/fit), so race scales and animation poses use their own reach. Blend the whole
+  // hand influence, including elbow, palm and fingers, back to the clip; never chase an unreachable stone.
+  if (h.releaseAtReach) {
+    const t = clamp01((len(sub(h.reachAt ?? h.at, S)) / (a + b) - 0.8) / 0.18);
+    k *= 1 - t * t * (3 - 2 * t);
+    if (!(k > 0)) return;
+  }
   // the weight eases the reach from where the clip holds the wrist to the hold, and the elbow's way from the clip's
   const target = lerp3(W, h.at, k);
   const clipElbow = norm(sub(E, add(S, scale(norm(sub(W, S)), dot(sub(E, S), norm(sub(W, S)))))));
@@ -492,7 +502,7 @@ export function climbRequestToRig(wq, { feet, yaw, unitsPerMetre, weight = 1, he
   const vec = (v) => [(v[0] * r[0] + v[2] * r[2]) * U / weight, (v[0] * f[0] + v[2] * f[2]) * U / weight, v[1] * U / height];
   const pt = (p) => vec(sub(p, feet));
   const dir = (v) => (v ? norm(vec(v)) : null);
-  const limbOf = (h) => (h && h.at && h.w > 0 ? { at: pt(h.at), fingers: dir(h.fingers), palm: dir(h.palm), toe: dir(h.toe), pole: dir(h.pole), w: h.w, curl: h.curl, shrug: h.shrug, hang: h.hang } : null);
+  const limbOf = (h) => (h && h.at && h.w > 0 ? { at: pt(h.at), fingers: dir(h.fingers), palm: dir(h.palm), toe: dir(h.toe), pole: dir(h.pole), w: h.w, curl: h.curl, shrug: h.shrug, hang: h.hang, releaseAtReach: h.releaseAtReach } : null);
   return {
     w: wq.w,
     offset: wq.offset ? vec(wq.offset) : null,
@@ -509,9 +519,11 @@ export function climbRequestToRig(wq, { feet, yaw, unitsPerMetre, weight = 1, he
  * its hold stands ON SCREEN. The arm pass is the rig's own lens (`lensFov`, `lensPitch` - fpArm's draw) laid over the
  * world's (`eye`, `yaw`, `pitch`, `fov` - the frame's), so a hold is matched by its place in the picture: its offsets
  * across and up the view scaled by the two lenses' ratio. The arm takes the point on its ray it reaches (RAY_REACH).
- * Ways map through the same frame. `rigEye` is the camera node's rig-space point the lens stands at. Pure.
+ * Ways map through the same frame. `rigEye` is the camera node's rig-space point the lens stands at. Vaults also
+ * carry the actual world hold in rig units (`unitsPerMetre`), without the lens ratio: a ray alone discards distance
+ * and would let the hand keep chasing a stone far below the rising body. Pure.
  */
-export function climbRequestToFirstPerson(wq, { eye, yaw, pitch = 0, fov, lensFov, lensPitch = 0, rigEye }) {
+export function climbRequestToFirstPerson(wq, { eye, yaw, pitch = 0, fov, lensFov, lensPitch = 0, rigEye, unitsPerMetre }) {
   if (!wq || !(wq.w > 0) || !eye || !rigEye) return null;
   const cp = Math.cos(pitch), sp = Math.sin(pitch), cy = Math.cos(yaw), sy = Math.sin(yaw);
   const fw = [sy * cp, sp, cy * cp], rw = [cy, 0, -sy], uw = [-sy * sp, cp, -cy * sp];   // the world view's frame
@@ -519,12 +531,19 @@ export function climbRequestToFirstPerson(wq, { eye, yaw, pitch = 0, fov, lensFo
   const cl = Math.cos(lensPitch), sl = Math.sin(lensPitch);
   const R = [1, 0, 0], F = [0, cl, sl], Up = [0, -sl, cl];   // the arm lens's frame in the rig (forward +Y, up +Z)
   // a world way, across/up/ahead of the world view, as the same share of the arm lens's picture
-  const lensVec = (v) => { const x = dot(v, rw) * k, y = dot(v, uw) * k, z = dot(v, fw); return add(add(scale(R, x), scale(Up, y)), scale(F, z)); };
+  const lensVec = (v, ratio = k) => { const x = dot(v, rw) * ratio, y = dot(v, uw) * ratio, z = dot(v, fw); return add(add(scale(R, x), scale(Up, y)), scale(F, z)); };
   const limbOf = (h) => {
     if (!(h && h.at && h.w > 0)) return null;
     const d = sub(h.at, eye);
-    if (dot(d, fw) <= 0.05) return null;   // a hold behind the eye: the arm is not asked for it
-    return { ray: { from: rigEye.slice(), dir: norm(lensVec(d)) }, fingers: h.fingers ? norm(lensVec(h.fingers)) : null, palm: h.palm ? norm(lensVec(h.palm)) : null, pole: h.pole ? norm(lensVec(h.pole)) : null, w: h.w, curl: h.curl, shrug: 0 };
+    const ahead = dot(d, fw);
+    if (ahead <= 0.05) return null;   // a hold behind the eye: the arm is not asked for it
+    // A vault's grip fades before crossing the eye plane, instead of snapping off at the cull. Its physical reach
+    // is measured separately from the screen ray, which always picks a point near the arm regardless of distance.
+    const approach = h.releaseAtReach ? clamp01((ahead - 0.05) / 0.2) : 1;
+    const grip = approach * approach * (3 - 2 * approach);
+    return { ray: { from: rigEye.slice(), dir: norm(lensVec(d)) }, fingers: h.fingers ? norm(lensVec(h.fingers)) : null, palm: h.palm ? norm(lensVec(h.palm)) : null, pole: h.pole ? norm(lensVec(h.pole)) : null, w: h.w * grip, curl: h.curl, shrug: 0,
+      ...(h.releaseAtReach && unitsPerMetre > 0 ? { releaseAtReach: true, reachAt: add(rigEye, scale(lensVec(d, 1), unitsPerMetre)) } : {}),
+    };
   };
   const hands = { L: limbOf(wq.hands?.L), R: limbOf(wq.hands?.R) };
   return hands.L || hands.R ? { w: wq.w, hands } : null;

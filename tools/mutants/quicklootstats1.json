@@ -132,8 +132,8 @@
   {
     "name": "the-side-falls-out-of-the-repaint-signature",
     "file": "src/ui/worldPlaque.js",
-    "old": "  const sig = `${frameSignature(frame)}|${quickLootRow(frame)}|${statsSide(lastX, globalThis.innerWidth ?? 0)}`;",
-    "new": "  const sig = `${frameSignature(frame)}|${quickLootRow(frame)}`;",
+    "old": "  const sig = `${frameSignature(frame)}|${quickLootRow(frame)}|${statsSide(lastX, globalThis.innerWidth ?? 0)}|${actionLayout}`;",
+    "new": "  const sig = `${frameSignature(frame)}|${quickLootRow(frame)}|${actionLayout}`;",
     "tests": [
       "test/quicklootstats.test.js",
       "test/worldhover.test.js"

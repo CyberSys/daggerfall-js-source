@@ -157,7 +157,7 @@ export function shimmyGait(travel, stride, centre, width) {
 }
 
 /** A limb's slot in the frame's answer. */
-const limb = () => ({ at: null, fingers: null, palm: null, toe: null, w: 0, pole: null, curl: 0, shrug: 0, hang: 0 });
+const limb = () => ({ at: null, fingers: null, palm: null, toe: null, w: 0, pole: null, curl: 0, shrug: 0, hang: 0, releaseAtReach: false });
 
 /**
  * The climb, a frame at a time, for one body. `update(dt, c)` takes the climb's snapshot (climbRigInput for the own
@@ -512,6 +512,9 @@ export class ClimbPose {
       h.curl = 0.15;
       h.pole = norm(add(scale(fr.n, 0.8), scale(fr.right, 0.3 * lat)));
       h.w = smooth(t / 0.12) * (1 - smooth((t - 0.55) / 0.25));
+      // The capsule rises above the top before this clock lets go. Both modelled views must also release when their
+      // own shoulder can no longer reach the world hold; the first-person map retains its distance beside the ray.
+      h.releaseAtReach = true;
     }
     for (const s of ['L', 'R']) {
       const lat = s === 'R' ? 1 : -1;

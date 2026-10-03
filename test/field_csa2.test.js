@@ -223,7 +223,8 @@ test('FIELD-CSA2 on the retail data: the open Bay south of Daggerfall (209, 216)
   const mapDict = buildMapDict(maps);
   smoothLocationNeighbourhood(mapDict, woods);   // the boot's own repair (world.js), before any pixel streams
   // world.js's own csaIsPortTown, mounted: Daggerfall (207, 213) is a port by its byte
-  const isPortTown = new Function('travelLocationSummaryAt', 'mapDict', 'maps', `${constOf('  const csaIsPortTown = (x, y) => {')}\nreturn csaIsPortTown;`)(locationSummaryAt, mapDict, maps);
+  const { hasPortFor } = await import('../src/systems/travelPorts.js');
+  const isPortTown = new Function('travelLocationSummaryAt', 'mapDict', 'maps', 'hasPortFor', `${constOf('  const csaIsPortTown = (x, y) => {')}\nreturn csaIsPortTown;`)(locationSummaryAt, mapDict, maps, hasPortFor);
   assert.equal(isPortTown(207, 213), true, 'Daggerfall is a port');
   // the Bay a pixel off the coast: every sample the sea's clamp (seen live too, the roads' pass and all: 34.000001
   // under the whole hull, the Small Ship's nodes [1, 1, 1, 1, 1] before the fix and [0, 0, 0, 0, 0] after)

@@ -183,7 +183,7 @@ test('WD3 online, a building\'s room is its layout\'s (AUDIT WD3 B3) - the layou
   }
   assert.equal(roomKeyFor({ host: 'world', mode: 'interior', mapId: TOWN, buildingKey: bk }), `interior:m${TOWN}.${bk}`, 'Daggerfall\'s own, as before');
   const M = src('src/scenes/worldModes.js');
-  assert.match(M, /layout: _visitLayout \} : null\),/, 'the room identity carries the visit\'s layout');
+  assert.match(M, /kind: 'interior', buildingKey: interiorBuilding\?\.buildingKey \?\? 0, layout: _visitLayout,/, 'the room identity carries the visit\'s layout');
   assert.match(M, /_visitLayout = visitLayoutNow\(\);/);
   assert.match(src('src/scenes/world.js'), /layout: ident\?\.layout \?\? null,/);
 });

@@ -178,6 +178,9 @@
 // ACC0 chose two Workers so that account work would NOT cost this; the
 // token seam is the one piece that has to be paid for, and it is paid
 // once here rather than a little at a time.
+import { routeStaffTeleport } from './staffTeleport.js';
+import { privateInteriorOf, privateInteriorAdmits } from '../../src/net/privateInterior.js';
+import { isStaff } from '../../src/net/staffCommands.js';
 import { verifyToken, verifyOrder, importPublicKeyB64, MAX_TTL_S, ORDER_TTL_S, renownIssuable } from '../../src/net/identityToken.js';   // MOD1: and the mute order, checked with the same key
 /** ACC1d/F8: the most spent signatures one room remembers. Every entry
  *  expires within MAX_TTL_S and the hello gate bounds how fast they can
@@ -297,6 +300,7 @@ export default {
     if (url.pathname === '/health') return json({ ok: true, service: 'daggerfall-online', version: RELAY_VERSION, t: Date.now() });
     const key = roomOf(url.pathname);
     if (!key || (key.startsWith('chat:') && !isChatRoom(key))) return json({ error: 'no such room' }, 404);   // AUDIT CHAT A1: no object is minted for a channel the port does not run
+    if (key.startsWith('owned:') && !privateInteriorOf(key)) return json({ error: 'no such private room' }, 404);
     // WB3: a gate's room stands only inside its day's window - no object is minted for a gate the clock did not raise
     // (AUDIT CHAT A1's law, for a key a client could otherwise mint at will: `gate:<any day>`)
     if (key.startsWith('gate:') && !(isGateRoom(key) && gateHolds(gateDayOfRoom(key), Date.now()))) return json({ error: 'the gate is closed' }, 404);
@@ -494,6 +498,7 @@ export class Room {
     if (path === ARENA_INTERNAL_OPEN) return this._arenaOpenInternal(request);   // ARENA4: the hall opening a matched bout's room
     if (path === ARENA_INTERNAL_LIVE) return this._arenaLiveInternal(request);   // ARENA4: a bout telling the hall it stands (or is done)
     const key = roomOf(new URL(request.url).pathname);
+    if (!key || (key.startsWith('owned:') && !privateInteriorOf(key))) return json({ error: 'no such private room' }, 404);
     // AUDIT WB A1: A SEAT IS A HELLO'S. A socket that opened and never said hello kept its seat for as long as it stood
     // open, so one page's loop could fill a room with silence and every player after it was refused 'room full' - a
     // gate's court included, for its whole day. Each socket is stamped as it opens; a full room first closes the silent
@@ -1271,6 +1276,9 @@ export class Room {
       // attachment), so a refused hello leaves nothing behind - a tokenless one planted a secret that refused the owner
       const who = await this._named(m, now);
       if (who.error) { this._refuse(ws, who.error); return; }
+      if (a.key.startsWith('owned:') && !await privateInteriorAdmits(a.key, who.subject, isStaff(who.glyphs))) {
+        this._refuse(ws, 'private room'); return;
+      }
       // WB3: A GATE'S ROOM ADMITS ONLY INSIDE ITS DAY'S WINDOW, asked before anything is written (the token's law just
       // above): a newcomer while the gate is open and its boss stands, a fighter already in the fight (a reconnect, a
       // player cast out and back) until the wrath's end. The Worker refused the key outside the window already; this is
@@ -1882,6 +1890,19 @@ export class Room {
       if (!bytes.pass) { meters.abytes = { bytes: mine.bucket.bytes + cost, at: now }; return; }   // refilled, not charged
       meters.abytes = mine.bucket;
       for (const [other] of listeners) this._send(other, out);
+      return;
+    }
+    if (m.t === 'stp') {
+      const now = Date.now();
+      if (!this._spend(ws, now, (b, t) => tokenGate(b, t, 4, 8), 'tpbucket', 'tpdrops', 'too many teleport requests')) return;
+      if (!isSocialRoom(a.key)) { this._junk(ws); return; }
+      const budget = tokenGate(this._roomStaffTp, now, SOCIAL_ROOM_HZ_MAX);
+      this._roomStaffTp = budget.bucket;
+      if (!budget.pass) {
+        if (m.k === 'ask') this._send(ws, JSON.stringify({ t: 'stp', k: 'result', nonce: m.nonce, error: 'busy' }));
+        return;
+      }
+      routeStaffTeleport(this, ws, a, m, now);
       return;
     }
     if (m.t === 'social') {

@@ -140,7 +140,7 @@ test('the exits and the arrivals stand the player, they do not drop them', () =>
   const wm = src('src/scenes/worldModes.js');
   // The building exit and the dungeon exit both go through the law,
   // with the terrain read off the collider they are about to stand on.
-  assert.match(wm, /player\.spawn\(landing\[0\], repositionFeetY\(player\.collider\.heightAt\(landing\[0\], landing\[2\]\), landing\[1\]\), landing\[2\]\)/,
+  assert.match(wm, /player\.spawn\(landing\[0\], cabinLanding \? landing\[1\] : repositionFeetY\(player\.collider\.heightAt\(landing\[0\], landing\[2\]\), landing\[1\]\), landing\[2\]\)/,
     'building exit: feet from the door centre');
   assert.match(wm, /player\.spawn\(landing\.pos\[0\], repositionFeetY\(player\.collider\.heightAt\(landing\.pos\[0\], landing\.pos\[2\]\), landing\.pos\[1\]\), landing\.pos\[2\]\)/,
     'dungeon exit: the same law');

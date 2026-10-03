@@ -100,7 +100,7 @@ test('HC1: a shelf-set model in an OWNED house is MakeHouseContainer, not a shop
 
 test('HC1: the host answers houseOwned at BUILD, off the bank registry (:816)', () => {
   const wm = src('scenes/worldModes.js');
-  assert.ok(wm.includes('const houseOwned = !!building && (home ? home.own : isHouseOwned(playerEntity.houses ?? [], building.regionIndex ?? 0, building.buildingKey));'),   // AUDIT 68 S23-failed-entry-stale-building: the door's record, before the host commits it. HOME1 re-aim: online, the service's list decides where it names the building (home1.test.js)
+  assert.ok(wm.includes('const houseOwned = !!restore?.privateRoom || !!hit.sailingCabin || (!!building && (home ? home.own : isHouseOwned(playerEntity.houses ?? [], building.regionIndex ?? 0, building.buildingKey)));'),   // AUDIT 68 S23-failed-entry-stale-building: the door's record, before the host commits it. HOME1 re-aim: online, the service's list decides where it names the building (home1.test.js)
     'the host owns the registry and evaluates at BUILD');
   assert.ok(wm.includes('setupStaticNpc, houseOwned, peopleVisible,'),
     'the answer rides the opts into buildInteriorContext - the peopleVisible idiom');

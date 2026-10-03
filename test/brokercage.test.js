@@ -65,7 +65,7 @@ test('BROKER-CAGE the wire: the rite word\'s `c` 0 or 1, a word from before it 0
   // THE MERGE (2026-10-02): world153 is main's REVENANT-WIRE, a relay that never says `cl` - read as the cage's, its every
   // screen would wait on a word it never hears and keep her caged; the cage's own relay is world154
   assert.equal(CAGE_RELAY_MIN, 154);
-  assert.deepEqual(['world152', 'world153', 'world154', 'world155', 'acct62', null, 154].map(relaySupportsCage), [false, false, true, true, false, false, false]);
+  assert.deepEqual(['world152', 'world153', 'world154', 'world157', 'acct62', null, 154].map(relaySupportsCage), [false, false, true, true, false, false, false]);
 });
 
 /** The rite's host on a fake world (test/wb12d_rite_world.test.js's rig, cut down): its foes a list, its words recorded. */

@@ -350,7 +350,7 @@ test('SHIP-CLAIM kept by both saves: the naval save holds her hurts and her empt
   const csaSave = JSON.parse(JSON.stringify(h.rt.getSaveData()));
   const rec = navalSave.boats[uid];
   assert.ok(rec, 'her record by her UID');
-  assert.deepEqual([rec.hull, rec.sail, rec.crew, rec.state, rec.mates.hands], [Math.round(st.damage.hull), Math.round(st.damage.sail), 0, SHIP_STATES.afloat, []]);
+  assert.deepEqual([rec.hull, rec.sail, rec.crew, rec.state, rec.mates.hands], [st.damage.hull, st.damage.sail, 0, SHIP_STATES.afloat, []]);
   assert.ok(csaSave.placedBoats.some((p) => p.UID === uid && p.Hull === 2));
   // a new game loads it
   const g = await claimSea({ save: navalSave });
@@ -362,7 +362,7 @@ test('SHIP-CLAIM kept by both saves: the naval save holds her hurts and her empt
   closeV(quatRotate(back.GameObject.rotation, [0, 0, 1]), forwardOfYaw(was.yaw), 1e-5, 'heading as she lay');
   assert.deepEqual(back.Cargo.Items.map((it) => it.name), was.hold, 'her hold aboard her');
   const st2 = g.host._myState(back);
-  assert.deepEqual([st2.damage.hull, st2.damage.sail, st2.damage.crew, st2.crew.hands.length], [Math.round(st.damage.hull), Math.round(st.damage.sail), 0, 0]);
+  assert.deepEqual([st2.damage.hull, st2.damage.sail, st2.damage.crew, st2.crew.hands.length], [st.damage.hull, st.damage.sail, 0, 0]);
 });
 
 test('SHIP-CLAIM a harbour\'s ship claimed is not stood at her berth again today - she is mine where I took her (SHIP-LIFE\'s roll notes her gone, as one that sailed); the rest stand again (mutants: her berth kept)', async () => {

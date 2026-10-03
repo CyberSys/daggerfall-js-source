@@ -61,7 +61,13 @@ test('AUDIT WORLD A: the relay - a large frame is the host\'s memory or nothing,
   await r.raw(b, WORLD_PREFIX + 'x'.repeat(MAX_FRAME_BYTES));
   assert.equal(b.closed, null, 'a non-host\'s large frame: ignored'); assert.equal(ofType(b, 'error').length, 0, 'and never parsed - the junk after the prefix never errs');
   assert.ok(b.meters.bucket, 'but metered: the pose bucket was spent on it');
-  let n = 0; while (!b.closed && n++ < 400) await r.raw(b, WORLD_PREFIX + 'x'.repeat(100));
+  // This is a burst, not 400 requests spread over a loaded runner's wall time.
+  // Freeze only the burst so scheduling delays cannot refill the rate bucket.
+  const realNow = Date.now, burstAt = Date.now();
+  try {
+    Date.now = () => burstAt;
+    let n = 0; while (!b.closed && n++ < 400) await r.raw(b, WORLD_PREFIX + 'x'.repeat(100));
+  } finally { Date.now = realNow; }
   assert.deepEqual(b.sent.at(-1), { t: 'error', m: 'too many poses' }, 'A1: a stream of them strikes the socket out like a pose flood');
   await r.raw(a, WORLD_PREFIX + 'x'.repeat(100));
   assert.deepEqual(a.sent.at(-1), { t: 'error', m: 'not JSON' }, 'the host\'s own is parsed - and its junk is terminal');

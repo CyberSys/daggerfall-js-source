@@ -60,8 +60,17 @@ export const swornPlace = () => (companionsWithYou() < COMPANION_SLOTS ? 'with' 
 /** AUDIT (2026-10-02): when a resting one is fit - never more than a rest away. The record outlives a load, and an older
  *  save's clock stands earlier than the minute the fall was stamped on: its eight hours read as days. */
 export function restUntil(r, now) {
-  const until = r?.companion?.until ?? 0;
-  return Number.isFinite(now) && until - now > REVENANT_REST_MIN ? now + REVENANT_REST_MIN : until;
+  let until = r?.companion?.until ?? 0;
+  if (stateOf(r) === 'resting' && Number.isFinite(now) && until - now > REVENANT_REST_MIN) {
+    until = now + REVENANT_REST_MIN;
+    r.companion.until = until;
+    // Keep the correction in the save and device mirror. Merely clamping the returned value
+    // moves the eight-hour deadline forward on every frame and never completes that rest.
+    if (_player && r.id && revenantRecord(_player, r.id) === r) {
+      revenantCompanionUpdate(_player, r.id, (c) => { c.until = until; });
+    }
+  }
+  return until;
 }
 /** AUDIT (2026-10-02): a sworn one's body held back a moment (wall ms) - the kneeling one still gathering into its portal
  *  as the oath is given: the layer stood the companion beside it, two of it for the oath's length. */

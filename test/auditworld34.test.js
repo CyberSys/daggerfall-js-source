@@ -37,6 +37,13 @@ const at = (px, pz) => ({ x: px * PIXEL_UNITS + 10, y: 0, z: pz * PIXEL_UNITS + 
 const ofType = (ws, t) => ws.sent.filter((m) => m.t === t);
 const PRIVATEERS_HOLD = 187853213;
 const quiet = (fn) => { const info = console.info, warn = console.warn; console.info = () => {}; console.warn = () => {}; try { return fn(); } finally { console.info = info; console.warn = warn; } };
+const until = async (ready, label) => {
+  const deadline = Date.now() + 5000;
+  while (!ready()) {
+    assert.ok(Date.now() < deadline, `${label}: timed out waiting for the real relay response`);
+    await new Promise((resolve) => setTimeout(resolve, 5));
+  }
+};
 
 test('AUDIT WORLD34 A1 (THE ROOT): the world-room law admits a REAL map id - every one of the port\'s own fourteen main-story ids, Privateer\'s Hold first - at both ends of the wire, and still refuses everything that is not one', () => {
   assert.equal(isMainStoryDungeon(PRIVATEERS_HOLD), true, 'the port\'s own table knows Privateer\'s Hold by this number');
@@ -89,13 +96,16 @@ test('AUDIT WORLD34 A1 executed: two real sessions through the real Room in Priv
       ws.open();
       return { s, ws, server, seen };
     };
-    const a = link('aaaa-0001'); await new Promise((f) => setTimeout(f, 25));
-    const b = link('bbbb-0002'); await new Promise((f) => setTimeout(f, 25));
+    const a = link('aaaa-0001'); await until(() => a.s.host === 'aaaa-0001', 'first welcome');
+    const b = link('bbbb-0002'); await until(() => b.s.host === 'aaaa-0001', 'second welcome');
     assert.equal(a.s.host, 'aaaa-0001', 'a hosts'); assert.equal(b.s.host, 'aaaa-0001', 'b is told');
     assert.deepEqual([...b.s.peers.keys()], ['aaaa-0001'], 'presence: b sees a');
-    const foes = a.s.sendFoes({ n: 1, k: 'dungeon:1', f: [{ i: 0, h: 5 }] }); await new Promise((f) => setTimeout(f, 25));
-    const act = b.s.sendAct({ k: 'dungeon:1', a: [{ key: 'act:1:2', state: 'forward', t: 1 }] }); await new Promise((f) => setTimeout(f, 25));
-    const world = a.s.sendWorld({ locationKey: 'dungeon:1', stamp: 'a', world: { foes: [], actions: [] } }); await new Promise((f) => setTimeout(f, 25));
+    const foes = a.s.sendFoes({ n: 1, k: 'dungeon:1', f: [{ i: 0, h: 5 }] });
+    if (foes) await until(() => b.seen.foes.length > 0, 'foe fan');
+    const act = b.s.sendAct({ k: 'dungeon:1', a: [{ key: 'act:1:2', state: 'forward', t: 1 }] });
+    if (act) await until(() => a.seen.acts.length > 0, 'action fan');
+    const world = a.s.sendWorld({ locationKey: 'dungeon:1', stamp: 'a', world: { foes: [], actions: [] } });
+    if (world) await until(() => r.store.has('world:meta'), 'world memory');
     return { foes, act, world, bFoes: b.seen.foes.length, aActs: a.seen.acts.length, stored: r.store.has('world:meta'), peers: b.s.peers.size };
   };
   const real = await run(`dungeon:m${PRIVATEERS_HOLD}`);

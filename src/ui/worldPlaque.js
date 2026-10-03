@@ -207,6 +207,7 @@ export function reticleAnchor(canvas, fovRad) {
 function paint(n, f, sel = -1, stats = []) {
   n.textContent = '';
   n.classList.toggle('has-list', f.kind === 'items' || f.kind === 'actions');
+  n.classList.toggle('has-actions', f.kind === 'actions');
   // UXB1-N: the namer's tone colours the title (a private-property container's, enhancedStyle.js .tone-private)
   n.classList.toggle('tone-private', f.tone === 'private');
   const title = document.createElement('div');
@@ -426,7 +427,8 @@ export function showWorldPlaque(frame, anchor = null) {
   // still would otherwise leave the panel off the screen edge it was
   // laid out against.
   const stats = quickLootStats(frame);
-  const sig = `${frameSignature(frame)}|${quickLootRow(frame)}|${statsSide(lastX, globalThis.innerWidth ?? 0)}`;
+  const actionLayout = frame?.kind === 'actions' ? `${lastTop}|${globalThis.innerWidth ?? 0}|${globalThis.innerHeight ?? 0}` : '';
+  const sig = `${frameSignature(frame)}|${quickLootRow(frame)}|${statsSide(lastX, globalThis.innerWidth ?? 0)}|${actionLayout}`;
   if (sig === shownSig) return;
   shownSig = sig;
   if (!frame) {
@@ -439,6 +441,15 @@ export function showWorldPlaque(frame, anchor = null) {
   }
   paint(n, frame, quickLootRow(frame), stats);
   n.classList.add('on');
+  // Keep the selected action readable in the bounded list; selection and activation stay with quickLoot.
+  const list = n.querySelector?.('.wplaque-acts');
+  const selected = list?.querySelector('.sel');
+  if (selected) {
+    const top = selected.offsetTop;
+    const bottom = top + selected.offsetHeight;
+    if (top < list.scrollTop) list.scrollTop = top;
+    else if (bottom > list.scrollTop + list.clientHeight) list.scrollTop = bottom - list.clientHeight;
+  }
 }
 
 /**

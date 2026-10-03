@@ -2353,7 +2353,7 @@ export function createComeSailAwayRuntime(deps) {
   const inDungeon = () => deps.isPlayerInsideDungeon?.() ?? true;
   function UpdateBoatVisibility() {
     if (state.AllBoats.length < 1) return;
-    if (deps.isPlayerInside()) {
+    if (deps.isPlayerInside() && !deps.keepExteriorBoats?.()) {
       for (const allBoat of state.AllBoats) {
         const cur = deps.currentMapPixel();
         if (allBoat.inside && inDungeon() && allBoat.MapPixel.X === cur.X && allBoat.MapPixel.Y === cur.Y) {
@@ -2381,7 +2381,7 @@ export function createComeSailAwayRuntime(deps) {
   /** UpdateBoatVisibility(Boat) (3784-3818): the one boat, never destroyed; its nodes read whatever it decided. */
   function UpdateBoatVisibilityOf(boat) {
     if (boat == null) return;
-    if (deps.isPlayerInside()) {
+    if (deps.isPlayerInside() && !deps.keepExteriorBoats?.()) {
       const cur = deps.currentMapPixel();
       if (boat.inside && inDungeon() && boat.MapPixel.X === cur.X && boat.MapPixel.Y === cur.Y) {
         if (!boat.GameObject.activeSelf) setBoatActive(boat, true);

@@ -12,6 +12,7 @@
 // mid-flight Move-door tween fields (Ledger C) and cross-location
 // travel-on-load. Versioned envelope; a mismatch refuses loudly.
 
+import { readBankCabinLink } from '../net/boatIdentity.js';
 import { clampLegalReputations } from './court.js';   // AUDIT 23 (C4)
 import { defineLiveMaxMagicka, defineLiveMaxHealth } from './chargen.js';   // AUDIT 39: the live MaxMagicka accessor, on the LOAD arm too; DISC10-E L4: and MaxHealth's
 import { rebuildEquipState, isEquipped, unequipSlot } from './equip.js';   // AUDIT 17e C1   // AUDIT 63 F28: RemoveItem takes an EQUIPPED item off the doll on its way out
@@ -179,7 +180,7 @@ export const newSkillsRecentlyRaised = () => [0, 0];
  *  Masque of Clavicus buffed five social groups instead of eleven for
  *  the life of that character. Dropping the member costs nothing:
  *  enchantmentMagicRound clears the player's array at the head of
- *  every magic round (enchantments.js:852, DFU's ClearReactionMods at
+ *  every magic round (enchantments.js:862, DFU's ClearReactionMods at
  *  PlayerEntity.cs:1567-1570) and the folds re-apply it in the same
  *  pass, off worldTick.js:401 - so a load lands DFU's own shape, the
  *  live mods left standing until the next DoMagicRound re-derives
@@ -347,6 +348,7 @@ export function snapshotPlayer(entity, { position = null, pose = null, classicMi
   snap.bankAccounts = (entity.bankAccounts ?? []).map((a) => ({ ...a }));
   snap.houses = (entity.houses ?? []).map((h) => ({ ...h }));
   snap.ownedShip = entity.ownedShip ?? -1;
+  snap.boatCabinLink = readBankCabinLink(entity.boatCabinLink);
   if (entity.shipCrossed === true) snap.shipCrossed = true;   // RESTORE: a ship that came through customs, which the realm's bank never buys back (banking.js)
   snap.loanAmnesty = Number.isSafeInteger(entity.loanAmnesty) ? entity.loanAmnesty : LOAN_AMNESTY;   // LOAN-AMNESTY: which amnesty this character has had - a character never restored from an older save is born after the last
   // TR4: SerializablePlayer.cs:180 - the BOARDING MEMORY is saved
@@ -701,6 +703,7 @@ export function restorePlayer(entity, snap, spellsByIndex = null) {
   entity.sceneCache = restoreSceneCache(createSceneCache(), snap.sceneCache);   // P1
   entity.houses = snap.houses?.length ? snap.houses.map((h) => ({ ...h })) : createHouses(entity.bankAccounts.length);   // JAN1: the same law for the house registry (H1 mints it beside the accounts)
   entity.ownedShip = snap.ownedShip ?? -1;
+  entity.boatCabinLink = readBankCabinLink(snap.boatCabinLink);
   if (snap.shipCrossed === true) entity.shipCrossed = true; else delete entity.shipCrossed;   // RESTORE: its customs mark, or none
   entity.loanAmnesty = Number.isSafeInteger(snap.loanAmnesty) ? snap.loanAmnesty : 0;   // LOAN-AMNESTY: a save from before the first amnesty has had none
   entity.boardShipPosition = snap.boardShipPosition ?? null;   // TR4 (:425)

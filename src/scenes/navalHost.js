@@ -3901,7 +3901,7 @@ export function createNavalHost(deps) {
   function getSaveData() {
     const boats = {};
     for (const [uid, rec] of pendingBoats) boats[uid] = rec;
-    for (const [uid, st] of boatState) boats[uid] = { ...st.damage.snapshot(), barrels: st.guns.barrels, mates: st.crew.snapshot(), credit: st.credit };   // SHIP-CREW (`mates`: the damage's own `crew` is her count), SEA-REPAIR
+    for (const [uid, st] of boatState) boats[uid] = { ...st.damage.saveData(), barrels: st.guns.barrels, mates: st.crew.snapshot(), credit: st.credit };   // SHIP-CREW (`mates`: the damage's own `crew` is her count), SEA-REPAIR
     return { v: NAVAL_SAVE_VERSION, boats, notoriety: notoriety.snapshot(), day: lastDecayDay, raids: [...raidUids], party: companions.snapshot() };   // CREW-COMPANIONS: `party`
   }
   function restoreSaveData(r) {

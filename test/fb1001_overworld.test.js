@@ -186,7 +186,7 @@ test('OW-PEERS: a doll and a Morrowind body grown too - the doll\'s size, reach 
   const w = rd('src/scenes/world.js');
   assert.match(w, /const peerGrow = \(f\) => \{ const e = travelView\?\.active \? travelView\.eye : null; return e \? tvOwnGrow\(Math\.hypot\(e\[0\] - f\[0\], e\[1\] - f\[1\], e\[2\] - f\[2\]\)\) : 1; \};/);
   assert.match(w, /const tvGrow = travelView\?\.active \? peerGrow : null;/);
-  for (const re of [/peerRiders\.sync\(seen, [^\n]*, grow: tvGrow \}\);/, /peerWalkers\.sync\(seen, [^\n]*, grow: tvGrow \}\);/, /remotePlayers\.sync\(drawable, [^\n]*, grow: tvGrow \}\);/]) assert.match(w, re);
+  for (const re of [/peerRiders\.sync\(seen, [^\n]*, grow: tvGrow \}\);/, /peerWalkers\.sync\(seen, [^\n]*, grow: tvGrow \}\);/, /remotePlayers\.sync\(visiblePeers, [^\n]*, grow: tvGrow \}\);/]) assert.match(w, re);
   assert.match(w, /drawPeerBodies\(proj, view, mwv\.eye, tvf \? tvFace : null\);/, 'the bodies take the view\'s face (its lean)');
   assert.match(rd('src/net/peerBodies.js'), /if \(this\._planesOk\) \{ if \(!this\._sees\(b, 0, g\)\) continue; \}/, 'and are culled by their grown reach');
 });
