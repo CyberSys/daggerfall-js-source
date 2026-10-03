@@ -376,7 +376,7 @@ import { essenceOf, piecePoints, DISENCHANTER } from '../net/alchemyLaw.js';   /
 import { facetBand } from '../net/recipeLaw.js';   // PROF10: the facet's attribute band
 import { panBand, DISH_LEVEL } from '../net/recipeLaw.js';   // PROF9: the pan's attribute band; a feast's level at the table
 import { COOK_FIRE } from '../net/professionLaw.js';   // PROF9: the fire Cooking is done at - any lit one, no fee
-import { setFeastShare, isPartyDishSpell } from '../systems/cookItems.js';   // PROF9: a feast shared with the party at the table
+import { setFeastShare, takeFeastGift } from '../systems/cookItems.js';   // PROF9: a feast shared with the party at the table
 import { hasSkillet } from '../systems/survival/camp.js';   // PROF9: C&C's Skillet widens the pan's window
 import { allyCastFrame } from '../systems/allyCast.js';   // PROF9: a feast reaches a party mate as ALLY-CAST's gift
 import { questActionsExtensionTemplates } from '../systems/quest/questActionsExtension.js';   // FORAGE1: QAE's four actions, which Foraging's quests say
@@ -8700,6 +8700,9 @@ export async function bootWorld(canvas, renderer, params, status) {
         fire: () => cookFireHere(),
         panBand: () => panBand({ intelligence: liveStat(playerEntity, 'intelligence'), personality: liveStat(playerEntity, 'personality') }),
         skillet: () => hasSkillet(playerEntity?.items),
+        // AUDIT PROF-541 K7: the town Apothecary's steps a dish's XP takes here - the seat the craft below sends (where my
+        // guild holds the town; professions.js seatStepsFor asks the Charter again), so the fire's line says the XP the service pays
+        cookSteps: () => { const hall = seatHere(_musicLoc?.mapTableData?.mapId); return hall && hall.holder?.guild?.id === (guildBook?.guild?.id ?? null) ? stationSteps('cooking', hall.forts ?? {}) : 0; },
         // PROF10 (bible/06-Systems/Professions-Arc.md 9.3, 9.4): THE JEWELLER'S BENCH the player stands at, and the facet's band
         jeweller: () => modes?.jewellerHere?.() ?? null,
         // PROF12 (bible/06-Systems/Professions-Arc.md 9.3, 37): THE ALCHEMY STATION the player stands at (an Alchemist's, its
@@ -8713,7 +8716,7 @@ export async function bootWorld(canvas, renderer, params, status) {
           const hall = seatHere(_musicLoc?.mapTableData?.mapId);
           const seat = hall && hall.holder?.guild?.id === (guildBook?.guild?.id ?? null) && stationSteps('alchemy', hall.forts ?? {}) > 0 ? hall.key : null;
           const r = await profBook.brew(potion, keys, { fee: f.fee > 0 ? f.fee : 0, seat }, profMintCraft);
-          if (!r?.ok) return { ok: false, text: r?.kept ? BREW_KEPT_TEXT : r?.error === 'prof-busy' ? 'Your last brew is still in the cauldron.' : accountRefusalText(r?.error) };
+          if (!r?.ok) return { ok: false, text: r?.kept ? BREW_KEPT_TEXT : r?.error === 'prof-busy' ? 'Your hands are busy with another craft.' : accountRefusalText(r?.error) };
           const paid = f.fee > 0 && !r.elsewhere;
           return { ok: true, text: `${brewedText(r.data)} (+${r.data.xp} Alchemy XP)${paid ? `, and paid the alchemist ${f.fee} gold` : ''}.` };
         },
@@ -8781,7 +8784,7 @@ export async function bootWorld(canvas, renderer, params, status) {
       setFeastShare((spell) => {
         if (!online || online.status !== 'open' || !social?.party) return [];
         const out = [];
-        for (const peer of online.peers.values()) {
+        for (const peer of peersNear() ?? []) {   // AUDIT PROF-541 K5: the mates at the table - in sight, as a stranger's gift is (online.onCast), never the whole room and its halo
           if (!social.isPartyPeer(peer.id)) continue;
           if (online.sendCast?.(allyCastFrame(spell, DISH_LEVEL, peer.id))) out.push(peerName(peer.id) ?? 'a party member');
         }
@@ -16358,11 +16361,11 @@ export async function bootWorld(canvas, renderer, params, status) {
       if (!mate && !(peersNear() ?? []).some((p) => p.id === id)) return;
       const spell = allyCastSpell(d?.spell, { stranger: !mate });
       if (!spell) return;
+      if (!takeFeastGift(playerEntity, spell, d.level, mate)) return;   // AUDIT PROF-541 K3/K4: a feast a party mate's alone (a stranger's stacked onto ours), renewing mine - never shortening it (AUDIT PROF9 K2: never stacked)
       const t = performance.now();
       const loud = mate || !(t - (_strangerCastSaid.get(id) ?? -Infinity) < STRANGER_CAST_SAY_MS);
       if (loud && !mate) _strangerCastSaid.set(id, t);
       const who = peerName(id) ?? (mate ? 'A party member' : 'Another player');
-      if (mate && isPartyDishSpell(spell.name)) while (removeBundleNamed(playerEntity, spell.name)) { /* AUDIT PROF9 K2: a mate's feast renews mine, as one eaten does (cookItems.js feedEffect) - never stacked */ }
       if (loud) townTalk.say(allyCastTargetLine(who, spell.name));
       const before = playerEntity.health;
       magic.applySpellToPlayer(spell, d.level, null, { allyCast: true, strangerCast: !mate });   // AUDIT SPELL-GIFT B6: a stranger's Cure leaves an infection be

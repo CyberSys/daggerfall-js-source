@@ -2806,8 +2806,8 @@ three). What sections 3.2, 3.3, 4.8, 9.3 and 9.4 left open for PROF9, DECIDED he
 - **The service** is **acct67** (acct66 another branch's at the same time - the two must not collide); migration
   **`0069_cooking.sql`**: `products.hand` (`CHECK` 1 or 2). No route added: a dish is `/v1/prof/craft`'s; the market's
   pieces answer their `hand`.
-- **Not built, named**: the dishes' tint (above); the Tart's "regained" (above); the feast's share is the room's party,
-  not the table's metres (a mate across the town is fed too - the room is the relay's own measure).
+- **Not built, named**: the dishes' tint (above); the Tart's "regained" (above); the feast's share is the party in
+  sight (AUDIT PROF-541 K5, below), not the table's metres.
 - **Audited** (2026-10-03, AUDIT PROF9): **K1** - a Butcher who is also a Provisioner carries meat with both marks
   (`slowRot`, `noRot`), and C&C's day asked the Butcher's half pace first and never reached the Provisioner's "never
   spoils": DECIDED, **never spoiling outranks half the pace** - `survival/food.js` rotFoodDay asks `noRot` first. **K2** - a
@@ -2817,8 +2817,20 @@ three). What sections 3.2, 3.3, 4.8, 9.3 and 9.4 left open for PROF9, DECIDED he
   before the gift is laid on (`cookItems.js` isPartyDishSpell, the party dish's record by its name). And the Apothecary's
   words on the Seat tab (`fortLaw.js` FORT_EFFECT_WORDS, AUDIT PROF12 P1) now say a dish's step as it is - half again the
   XP a tier, never a quality step (Seats-Arc 7.5).
+- **Audited again** (2026-10-03, AUDIT PROF-541): **K3** - K2's renewal asked a mate's cast alone, and a stranger's
+  "Feast of the Hearth" (the stranger's list carries Fortify Attribute) landed beside the party's feast and added its rounds
+  to it (`effects.js` like-kind stacking - 2,879 rounds): DECIDED, **a feast is a party mate's gift alone** - the receiver
+  drops a stranger's (`cookItems.js` takeFeastGift, asked in `world.js` online.onCast before the gift is laid on). **K4** -
+  a renewal took off a standing feast with more rounds left than the one arriving (a Chef's day and a half cut to a day):
+  DECIDED, **a renewal never shortens** - a standing bundle with as many rounds left stands and the incoming is skipped,
+  eaten or shared (`cookItems.js` renewDish, feedEffect's and takeFeastGift's). **K5** - the share went to every party peer
+  in the room and its halo cells: it goes to the **party mates in sight** (`world.js` setFeastShare over peersNear - the
+  stranger's gift's own law), naming only those whose send went. **K6** - the Tart's `dishStamina` is a kind the player may
+  end (`mysticism.js` ENDABLE_KINDS). **K7** - the fire's XP line counts the town Apothecary's steps as the service does
+  (`profPages.js`, the host's `cookSteps`; `recipeLaw.js` cookXp). **K8** - a Brew pressed while another craft holds the
+  one-craft latch says "Your hands are busy with another craft.".
 - **Pinned**: `test/prof9_law.test.js` (9), `test/prof9_service.test.js` (5, through the real Worker),
-  `test/prof9_client.test.js` (11). Mutants: `tools/mutants/prof9.json` (133, all dead). Patch notes:
+  `test/prof9_client.test.js` (17). Mutants: `tools/mutants/prof9.json` (143, all dead). Patch notes:
   `PATCH-NOTES-Cooking.md`.
 
 ## 36. PROF10 - Jewelcrafting, as built (BUILT 2026-10-02)
@@ -2908,8 +2920,19 @@ Mac: **"2 and 4"** (2026-10-02: the Apothecary waits on Alchemy, Cooking and Jew
   filters, shown at the head of its list in the forced colour, **never removed**, costing no gold; enchanted, the new rows
   land after them (`applyEnchantments` - the kept rows' created payloads not run again). Every other enchanted item is
   refused as DFU refuses it. The bench says so ("The item maker spends them, beside a Masterwork's own enchantment.").
+- **Audited again** (2026-10-03, AUDIT PROF-541): **J3** - the Enhanced+ skin's item maker built its lists from the
+  player's own rows, so a crafted piece's kept enchantments were invisible while their cost counted: it draws the lists
+  as the classic window does (`enhancedPorts.js` itemMaker over `_lists()`), a kept row muted with no act, as a forced
+  row (and the probe seam clicks the rows as drawn). **J4** - a Masterwork's Rare roll drew from all of Jewellery's
+  flavours (150 to 1,590) whatever the piece's points (660 a Cloth Amulet's), and most small pieces rolled over budget:
+  DECIDED, **the roll is one the piece's points hold** - a first draw that does not fit is drawn again among those that do
+  (`lootRarity.js` applyRarity's `fits`, `smithItems.js` mintPiece; `enchanting.js` enchantmentRowCost), so every draw that
+  fit stands as its seed made it. **J5** - a Wand rolls no Magic or Rare (no slot - `rarityEligible`), so its bench says
+  only "The item maker spends them.". **J6** - J1's cap took the most over every hand, the minted hand not stored: the
+  jeweller's hand is **written on the piece** (`hand`, 1 or 2, `itemFields.js`; a hand its recipe takes alone) and the
+  cap is that hand's (`craftedJewelPoints`) - no hand, no hand's share.
 - **Pinned**: `test/prof10_law.test.js` (10), `test/prof10_service.test.js` (6, through the real Worker),
-  `test/prof10_client.test.js` (10). Mutants: `tools/mutants/prof10.json` (153, all dead). Patch notes:
+  `test/prof10_client.test.js` (13). Mutants: `tools/mutants/prof10.json` (164, all dead). Patch notes:
   `PATCH-NOTES-Jewelcrafting.md`.
 
 ## 37. PROF12 - Alchemy and the Enchanting layer, as built (BUILT 2026-10-02)

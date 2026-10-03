@@ -614,8 +614,8 @@
   {
     "name": "PROF9-effect-stacks",
     "file": "src/systems/cookItems.js",
-    "old": "while (removeBundleNamed(entity, d.name)) {",
-    "new": "while (removeBundleNamed(entity, `${d.name}!`)) {",
+    "old": "while (removeBundleNamed(entity, name)) {",
+    "new": "while (removeBundleNamed(entity, `${name}!`)) {",
     "tests": [
       "test/prof9_client.test.js"
     ]
@@ -1199,18 +1199,18 @@
   },
   {
     "name": "AUDIT-PROF9-K2-feast-stacks",
-    "file": "src/scenes/world.js",
-    "old": "      if (mate && isPartyDishSpell(spell.name)) while (removeBundleNamed(playerEntity, spell.name))",
-    "new": "      if (false && mate && isPartyDishSpell(spell.name)) while (removeBundleNamed(playerEntity, spell.name))",
+    "file": "src/systems/cookItems.js",
+    "old": "  return renewDish(entity, spell.name, Math.max(0,",
+    "new": "  return true || renewDish(entity, spell.name, Math.max(0,",
     "tests": [
       "test/prof9_client.test.js"
     ]
   },
   {
-    "name": "AUDIT-PROF9-K2-stranger-renews",
-    "file": "src/scenes/world.js",
-    "old": "      if (mate && isPartyDishSpell(spell.name)) while (removeBundleNamed(playerEntity, spell.name))",
-    "new": "      if (isPartyDishSpell(spell.name)) while (removeBundleNamed(playerEntity, spell.name))",
+    "name": "AUDIT-PROF-541-K3-stranger-feast",
+    "file": "src/systems/cookItems.js",
+    "old": "  if (!mate) return false;\n",
+    "new": "",
     "tests": [
       "test/prof9_client.test.js"
     ]
@@ -1243,6 +1243,97 @@
     "tests": [
       "test/prof12_client.test.js",
       "test/seat2b_client.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-PROF-541-K3-arm-every-feast-a-mates",
+    "file": "src/scenes/world.js",
+    "old": "      if (!takeFeastGift(playerEntity, spell, d.level, mate)) return;",
+    "new": "      if (!takeFeastGift(playerEntity, spell, d.level, true)) return;",
+    "tests": [
+      "test/prof9_client.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-PROF-541-K4-shortens",
+    "file": "src/systems/cookItems.js",
+    "old": "a.roundsRemaining >= rounds)) return false;",
+    "new": "a.roundsRemaining >= rounds && false)) return false;",
+    "tests": [
+      "test/prof9_client.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-PROF-541-K4-equal-renews",
+    "file": "src/systems/cookItems.js",
+    "old": "a.roundsRemaining >= rounds)) return false;",
+    "new": "a.roundsRemaining > rounds)) return false;",
+    "tests": [
+      "test/prof9_client.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-PROF-541-K4-eaten-shortens",
+    "file": "src/systems/cookItems.js",
+    "old": "  if (!renewDish(entity, d.name, rounds)) return [];",
+    "new": "  if (!renewDish(entity, d.name, Infinity)) return [];",
+    "tests": [
+      "test/prof9_client.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-PROF-541-K5-whole-room",
+    "file": "src/scenes/world.js",
+    "old": "        for (const peer of peersNear() ?? []) {",
+    "new": "        for (const peer of online.peers.values()) {",
+    "tests": [
+      "test/prof9_client.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-PROF-541-K6-tart-not-endable",
+    "file": "src/systems/mysticism.js",
+    "old": "  DISH_STAMINA_KIND,   // AUDIT PROF-541 K6:",
+    "new": "  // AUDIT PROF-541 K6:",
+    "tests": [
+      "test/prof9_client.test.js",
+      "test/buffend.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-PROF-541-K7-steps-unsaid",
+    "file": "src/ui/profPages.js",
+    "old": "Cooking XP to a plain dish's ${cookXp(rank, { steps })}",
+    "new": "Cooking XP to a plain dish's ${cookXp(rank)}",
+    "tests": [
+      "test/prof9_client.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-PROF-541-K7-steps-unread",
+    "file": "src/ui/profPages.js",
+    "old": "const steps = Math.max(0, Math.trunc(Number(p.cookSteps?.()) || 0));",
+    "new": "const steps = 0;",
+    "tests": [
+      "test/prof9_client.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-PROF-541-K7-host-alchemy-steps",
+    "file": "src/scenes/world.js",
+    "old": "stationSteps('cooking', hall.forts ?? {}) : 0; },",
+    "new": "stationSteps('alchemy', hall.forts ?? {}) : 0; },",
+    "tests": [
+      "test/prof9_client.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-PROF-541-K8-brew-words",
+    "file": "src/scenes/world.js",
+    "old": "'Your hands are busy with another craft.'",
+    "new": "'Your last brew is still in the cauldron.'",
+    "tests": [
+      "test/prof9_client.test.js"
     ]
   }
 ]

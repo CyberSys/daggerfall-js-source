@@ -24,6 +24,12 @@
 - **A feast shared by a party member now refreshes yours instead of stacking.** If you've eaten a feast, one shared with you replaces its bonus, the same as eating it again.
 - **Food that is both a Butcher's and a Provisioner's never spoils.** It used to spoil at the Butcher's half pace.
 - **The Apothecary's line on the Seat tab now says what each tier does:** jewellery a quality step better, dishes half again the XP, and brews +10% Potent chance (at tier 2: two steps, twice the XP, +20%).
+- **A feast only comes from your party.** A feast cast at you by a player outside your party is ignored - it used to add its whole day onto the one you had.
+- **A shorter feast never cuts a longer one short.** If the feast you have has more time left (a Chef's day and a half), eating or being shared a plain one leaves it as it is.
+- **A feast is shared with the party members at the table**, the ones you can see - not party members elsewhere in the town.
+- **The Orchard Tart's stamina can be ended** from the buff row, like every other dish.
+- **The fire's XP line counts the town's Apothecary** where your guild holds the town, so it shows the XP you actually get.
+- **Pressing Brew while another craft is under way** now says your hands are busy with another craft (it said your last brew was still in the cauldron).
 
 ---
 

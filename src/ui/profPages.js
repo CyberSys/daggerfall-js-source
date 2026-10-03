@@ -112,6 +112,7 @@ import { getPref, setPref } from '../systems/uiPrefs.js';
  *   brazier - within C&C's reach of its flame), or null
  * @property {() => number} [panBand]   PROF9: the pan's attribute band (recipeLaw panBand)
  * @property {() => boolean} [skillet]   PROF9: whether the pack holds C&C's Skillet (the pan's window half again)
+ * @property {() => number} [cookSteps]   AUDIT PROF-541 K7: the town Apothecary's steps a dish's XP takes here (0 where my guild holds no hall)
  * @property {() => ({ kind: 'shop'|'home', fee: number }|null)} [jeweller]   PROF10: the jeweller's bench the player stands at
  * @property {() => number} [facetBand]   PROF10: the facet's attribute band (recipeLaw facetBand)
  * @property {() => ({ kind: 'shop'|'home', fee: number }|null)} [alchemy]   PROF12: the alchemy station the player stands at
@@ -1725,8 +1726,9 @@ function drawCookFire(detail, rerender, { el, divider }) {
     }
     const hand = dishHand(r, specs[100]);
     const serves = craftCount(r, specs[100], specs[50]);
+    const steps = Math.max(0, Math.trunc(Number(p.cookSteps?.()) || 0));   // AUDIT PROF-541 K7: the town Apothecary's steps where my guild holds it
     box.append(el('p', 'px-note', `${dishEffectText(dishOf(r.id), hand)}.${hand === HAND_PROVISIONER ? ' Yours never spoil.' : ''}`));
-    box.append(el('p', 'px-note', `${serves > 1 ? 'Two servings (a Cook\'s)' : 'One serving'}, into your pack. ${panCount(r)} pans; every pan taken off done is a clean pan, half again its ${cookXp(rank)} Cooking XP.`));
+    box.append(el('p', 'px-note', `${serves > 1 ? 'Two servings (a Cook\'s)' : 'One serving'}, into your pack. ${panCount(r)} pans; every pan taken off done is a clean pan, ${steps > 0 ? `${cookXp(rank, { clean: true, steps })} Cooking XP to a plain dish's ${cookXp(rank, { steps })} - the town's Apothecary's ${steps === 1 ? 'step' : `${steps} steps`} in both` : `half again its ${cookXp(rank)} Cooking XP`}.`));   // AUDIT PROF-541 K7: the XP the service pays (cookXp's steps)
     const ready = recipeOpen(r, rank, specs) && craftable(r, held) && !_cook.crafting && !_cook.act && !elsewhere;
     const go = el('button', 'act primary', _cook.crafting ? 'At the fire...' : 'Cook');
     go.type = 'button';
@@ -1918,7 +1920,7 @@ function drawJewellerBench(detail, rerender, { el, divider }) {
       box.append(line);
     }
     const hand = jewelHand(r, specs[50]);
-    box.append(el('p', 'px-note', `${jewelPointsLine(r, hand)}${hand === JEWEL_HAND_GOLDSMITH ? ' - a Goldsmith\'s Silver, counted as Gold' : hand === JEWEL_HAND_GEMCUTTER ? ' - a Gemcutter\'s gem' : ''}. The item maker spends them, beside a Masterwork's own enchantment.`));   // AUDIT PROF10 J2: it takes a crafted piece with its Rare roll (itemMakerWindow.js itemMakerFilter)
+    box.append(el('p', 'px-note', `${jewelPointsLine(r, hand)}${hand === JEWEL_HAND_GOLDSMITH ? ' - a Goldsmith\'s Silver, counted as Gold' : hand === JEWEL_HAND_GEMCUTTER ? ' - a Gemcutter\'s gem' : ''}. The item maker spends them${r.product === 'wand' ? '' : ', beside a Masterwork\'s own enchantment'}.`));   // AUDIT PROF10 J2: it takes a crafted piece with its Rare roll (itemMakerWindow.js itemMakerFilter); AUDIT PROF-541 J5: a Wand rolls none (lootRarity.js rarityEligible: no slot)
     if (recipeOpen(r, rank)) {
       const odds = qualityOdds(rank - r.rank, { masterwright: masterworkSpec(specs[100]) });
       box.append(el('p', 'px-note', `Your rank ${rank}, margin ${rank - r.rank}: ${odds.map((o, q) => (o ? `${QUALITY_NAMES[q]} ${o}` : null)).filter(Boolean).join(' | ')}. A clean facet is a step better; ${craftXp(r.tier, rank, false)} Jewelcrafting XP.`));

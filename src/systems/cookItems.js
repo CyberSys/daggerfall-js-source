@@ -41,7 +41,7 @@ import { foodName } from './survival/food.js';
 import { survivalOn, survivalRules } from './survival/switch.js';
 import { SURVIVAL_RULES } from './survival/difficulty.js';
 import { inflictDisease } from './diseases.js';
-import { assignModBundle, removeBundleNamed } from './effects.js';
+import { assignModBundle, removeBundleNamed, rollDuration } from './effects.js';
 import { PROF_ITEM_GROUP } from './profTemplates.js';
 
 /** The Tart's effect's kind (9.3: "stamina regained +20%"): the port's own - no DFU effect lengthens a stamina. */
@@ -82,8 +82,8 @@ export const handOfDish = (item) => (item?.chef === true ? HAND_CHEF : item?.noR
  */
 export function feedEffect(entity, d, hand = null, rolls = Math.random) {
   if (!entity || !d) return [];
-  while (removeBundleNamed(entity, d.name)) { /* every bundle of the dish's name - renewed, never stacked */ }
   const rounds = dishMinutes(d, hand);
+  if (!renewDish(entity, d.name, rounds)) return [];   // AUDIT PROF-541 K4: renewed, never stacked - and never shortened
   const stats = Object.entries(d.effect.stats ?? {});
   if (!stats.length) {
     const e = assignModBundle(entity, { name: d.name, kind: DISH_STAMINA_KIND, rounds, sinks: {}, rolls });
@@ -115,6 +115,25 @@ export const dishStaminaFactor = (entity) => ((entity?.activeEffects ?? []).some
  *  ALLY-CAST's frame as `name: d.name`). The receiver takes its standing bundles of that name off first (world.js
  *  online.onCast), so a feast shared renews as one eaten does and its rounds never add up. */
 export const isPartyDishSpell = (name) => typeof name === 'string' && DISHES.some((d) => d.effect.party === true && d.name === name);
+
+/** AUDIT PROF-541 K4: A DISH RENEWED, NEVER SHORTENED - the standing bundles of its name taken off before `rounds` more
+ *  are laid on (renewed, never stacked), unless one has as many rounds left already (a Chef's day and a half is not cut
+ *  to a plain feast's day by a second eaten or a mate's shared): then it stands and the incoming is skipped. Answers
+ *  whether the incoming may land. */
+export function renewDish(entity, name, rounds) {
+  if ((entity?.activeEffects ?? []).some((a) => a.bundleId != null && !a.ended && a.bundleName === name && a.roundsRemaining >= rounds)) return false;
+  while (removeBundleNamed(entity, name)) { /* every bundle of the dish's name - renewed, never stacked */ }
+  return true;
+}
+/** AUDIT PROF-541 K3/K4: WHAT A FEAST'S GIFT DOES (world.js online.onCast, before the cast lands): a spell that is no
+ *  party dish's passes untouched (true); a feast from a STRANGER is dropped (false - a feast is the party's at the table,
+ *  and a stranger's landed beside my party's own, its rounds added to it: effects.js like-kind stacking); a party mate's
+ *  renews mine (renewDish, its rounds the cast's own at `level`) - dropped when mine has as many left. */
+export function takeFeastGift(entity, spell, level, mate) {
+  if (!isPartyDishSpell(spell?.name)) return true;
+  if (!mate) return false;
+  return renewDish(entity, spell.name, Math.max(0, ...(spell.effects ?? []).map((e) => rollDuration(e, level))));
+}
 
 /** The host's share of a feast with the party at the table (world.js, online): `(spell, name) => [names shared with]`. */
 let _share = /** @type {((spell: any, name: string) => string[])|null} */ (null);

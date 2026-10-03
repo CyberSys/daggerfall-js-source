@@ -398,8 +398,8 @@
   {
     "name": "PROF3-piece-rarity-random",
     "file": "src/systems/smithItems.js",
-    "old": "applyRarity(item, eff.rarity, seededRng(seed >>> 0))",
-    "new": "applyRarity(item, eff.rarity, Math.random)",
+    "old": "applyRarity(item, eff.rarity, seededRng(seed >>> 0), null, { fits })",
+    "new": "applyRarity(item, eff.rarity, Math.random, null, { fits })",
     "tests": [
       "test/prof3_client.test.js"
     ]
