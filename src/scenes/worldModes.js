@@ -7681,6 +7681,7 @@ export function createWorldModes(host) {
           horseCart: () => host.horseCart?.() ?? null,   // HCC: the wagon's storage access at a dungeon exit is the runtime's word
           horseCartSave: () => host.horseCartSave?.() ?? null,   // AUDIT HCC H3: the mod's record, for the dungeon's own save
           outerCampsSave: () => host.outerCampsSave?.() ?? null,   // AUDIT REST II H6: the camps outside, for the dungeon's own save
+          outerCampsLoad: (extras) => host.outerCampsLoad?.(extras),   // AUDIT REST III A1: and the save's stood again by its own load
           horseCartLoad: (rec) => host.horseCartLoad?.(rec),   // AUDIT HCC H3: and its own load
           // WA1 / OH-D: every registered mod's record rides the dungeon's own save and comes back on its own load, as
           // HCC's does - the host handed these two over and they stopped here, so a dungeon save carried no mod's record

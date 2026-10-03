@@ -2,11 +2,12 @@
   {
     "name": "AUDITREST2-F1-the-joiner-asks-blind",
     "file": "src/scenes/dungeonContext.js",
-    "old": "    if (!encounterSpot(hit, feet, _motorYaw)) return null;",
-    "new": "    if (false) return null;",
+    "old": "const spot = encounterSpot(hit, feet, _motorYaw);\n    if (!spot) return null;",
+    "new": "const spot = encounterSpot(hit, feet, _motorYaw) ?? { x: feet[0], y: feet[1], z: feet[2] };\n    if (!spot) return null;",
     "tests": [
       "test/auditrest2_fires.test.js"
-    ]
+    ],
+    "note": "AUDIT REST III E1 (PIN MOVED): re-aimed by content - the ask names the spot its placement found, the host stands it there."
   },
   {
     "name": "AUDITREST2-F1-the-placement-forgets-the-ward",
@@ -20,11 +21,12 @@
   {
     "name": "AUDITREST2-F1-the-host-reads-another-placement",
     "file": "src/scenes/dungeonContext.js",
-    "old": "    const spot = encounterSpot({ minDistance, maxDistance, lineOfSightCheck }, feet, yaw);",
-    "new": "    const spot = placeFoeFreely(placeFoeEnv({ collider, playerFeet: [feet[0], feet[1] + 0.9, feet[2]], playerYawRad: yaw, fovDegrees: 65 }), { minDistance, maxDistance, lineOfSightCheck });",
+    "old": "|| encounterSpot({ minDistance, maxDistance, lineOfSightCheck }, feet, yaw);",
+    "new": "|| placeFoeFreely(placeFoeEnv({ collider, playerFeet: [feet[0], feet[1] + 0.9, feet[2]], playerYawRad: yaw, fovDegrees: 65 }), { minDistance, maxDistance, lineOfSightCheck });",
     "tests": [
       "test/auditrest2_fires.test.js"
-    ]
+    ],
+    "note": "AUDIT REST III E1 (PIN MOVED): re-aimed by content - the ask names the spot its placement found, the host stands it there."
   },
   {
     "name": "AUDITREST2-F1-the-joiner-sleeps-on-to-the-hour",

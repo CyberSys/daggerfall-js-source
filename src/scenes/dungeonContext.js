@@ -8360,6 +8360,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
       opts.modSaveLoad?.(extras.modData ?? null);   // WA1: the registered mods' records (or their NewSaveData), as a world load restores them
       opts.horseCartLoad?.(extras.modData?.['horse-cart-and-cargo'] ?? null);   // AUDIT HCC H3: OnStartLoad, then RestoreSaveData - the same-dungeon load is a load too
       this.restoreSaved(extras, setPlayerPos);
+      opts.outerCampsLoad?.(extras);   // AUDIT REST III A1: the camps I left outside, the save's - the world host's dungeon load stands them, and this one never did (a Campfire placed after the save stood beside the pack's restored one; one picked up after it was lost)
       opts.modLoaded?.();   // CSA-J (the audit): SaveLoadManager.OnLoad once the load has landed (:1554)
     },
     /** MAC6 #1: the load's second half - everything after restorePlayer

@@ -5844,6 +5844,24 @@ export async function bootWorld(canvas, renderer, params, status) {
   // named once for the three that need them: the save, the load, and the teleport that re-anchors the frame under the pool
   const campToNatives = (pos) => { const wc = state.worldCoords(pos); return [wc.x, pos[1] - state.compensation[1], wc.z]; };
   const campFromNatives = (p) => { const [lx, lz] = state.localFromWorld(p[0], p[2]); return [lx, p[1] + state.compensation[1], lz]; };
+  /** AUDIT REST II H6: THE CAMPS I LEFT STANDING OUTSIDE ride a dungeon save too (outerCampsSave, in natives) and a load
+   *  stands the save's, as the world branch does - without it a Campfire placed after the save stood beside the pack's
+   *  restored one (two), and a fresh page lost every camp outside. A save from before carries none, and what stands,
+   *  stands. AUDIT REST III A1: ONE HOME, for both loads that land underground - the world host's (worldQuickLoad's
+   *  dungeon branch) and the dungeon's own, the same dungeon's F9 (dungeonContext quickLoad, through outerCampsLoad),
+   *  which never stood them: there the duplicate and the loss H6 named were still whole. */
+  function standSavedOuterCamps(extras) {
+    const outer = extras?.world?.outerCamps;
+    if (!Array.isArray(outer)) return;
+    const savedScale = scaleOf(extras.terrainScale);   // TERRAIN-SCALE1: each stood again on today's ground, as the world branch's
+    const rows = savedScale === STREAMING_TERRAIN_SCALE ? outer : outer.map((r) => {
+      const p = r?.pos;
+      if (!Array.isArray(p)) return r;
+      const [x, z] = state.localFromWorld(p[0], p[2]);
+      return { ...r, pos: [p[0], restandHeight(p[1], x, z, savedScale), p[2]] };
+    });
+    camps.dropOwn(); camps.restore(rows, campFromNatives);
+  }
   // HCC (2026-09-23, Mac: "Next mod I want to implement 1 to 1 and also enhance its online integration
   // functionality") - HORSE CART AND CARGO. The machine is systems/horseCart.js (TrailingWagonRuntime, off the IL);
   // this host hands it its seams below and the pool (scenes/horseCartPool.js) draws what it says, answers its physics
@@ -12400,21 +12418,9 @@ export async function bootWorld(canvas, renderer, params, status) {
         // RestorePosition after it (SerializablePlayer.cs:441-454). The
         // envelope names its pixel now (dungeonContext's composer); one
         // from before it did is found by its id across the index.
-        // AUDIT REST II H6: the camps I left standing OUTSIDE ride a dungeon save too (the world host's, in natives) and
-        // a load stands the save's, as the world branch does - without it a Campfire placed after the save stood beside
-        // the pack's restored one (two), and a fresh page lost every camp outside. A save from before carries none.
-        const standOuterCamps = () => {
-          const outer = extras.world?.outerCamps;
-          if (!Array.isArray(outer)) return;
-          const savedScale = scaleOf(extras.terrainScale);   // TERRAIN-SCALE1: each stood again on today's ground, as the world branch's
-          const rows = savedScale === STREAMING_TERRAIN_SCALE ? outer : outer.map((r) => {
-            const p = r?.pos;
-            if (!Array.isArray(p)) return r;
-            const [x, z] = state.localFromWorld(p[0], p[2]);
-            return { ...r, pos: [p[0], restandHeight(p[1], x, z, savedScale), p[2]] };
-          });
-          camps.dropOwn(); camps.restore(rows, campFromNatives);
-        };
+        // AUDIT REST II H6: the camps I left standing OUTSIDE ride a dungeon save too, and a load stands the save's
+        // (standSavedOuterCamps - AUDIT REST III A1: the one home, the dungeon's own load's too)
+        const standOuterCamps = () => standSavedOuterCamps(extras);
         // AUDIT REST II H5: a load that does not enter the dungeon carries my Campfires out of it (packSavedFires) - the
         // save stood them there, and the restored pack has none
         const carrySavedFires = () => {
@@ -21931,6 +21937,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     onPreTransition: () => { const n = handOverFoes(); if (n) console.info(`[foes] handed ${n} foe(s) at the door`); },   // AUDIT PSCALE1 NET-3: a door out of the open country hands my foes to the players outside
     horseCartSave: () => hccRuntime.getSaveData(),   // AUDIT HCC H3: the record a dungeon save carries (DFU's per-mod slot, whatever the switch says)
     outerCampsSave: () => camps.snapshot(campToNatives),   // AUDIT REST II H6: my camps standing outside, for a dungeon's own save
+    outerCampsLoad: (extras) => standSavedOuterCamps(extras),   // AUDIT REST III A1: and the save's stood again by the dungeon's own load
     horseCartLoad: (rec) => { hccRuntime.handleStartLoad(); if (rec) hccRuntime.restoreSaveData(rec); },   // AUDIT HCC H3: a same-dungeon load's OnStartLoad and RestoreSaveData
     modSaveRecords: () => modSaveRecords(),   // WA1: the records a dungeon save carries beside HCC's
     // CSA-J (the audit): the same-dungeon load's three doors - SaveLoadManager's OnStartLoad AHEAD of the save's player

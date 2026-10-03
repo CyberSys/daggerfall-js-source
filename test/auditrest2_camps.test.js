@@ -135,8 +135,11 @@ test('AUDIT REST II H6: a dungeon save carries the camps I left standing outside
   const w = rd('src/scenes/world.js');
   assert.match(w, /outerCampsSave: \(\) => camps\.snapshot\(campToNatives\),/);
   const branch = w.slice(w.indexOf("} else if (String(extras.locationKey ?? '').startsWith('dungeon:')) {"), w.indexOf("} else if (extras.locationKey && extras.locationKey !== 'world') {"));
-  assert.match(branch, /const outer = extras\.world\?\.outerCamps;\n\s+if \(!Array\.isArray\(outer\)\) return;/, 'a save from before stands nothing new');
-  assert.match(branch, /camps\.dropOwn\(\); camps\.restore\(rows, campFromNatives\);/);
+  // AUDIT REST III A1 (RE-AIMED): the stand has one home now, the dungeon's own load's too - standSavedOuterCamps
+  const stand = w.slice(w.indexOf('function standSavedOuterCamps(extras) {'), w.indexOf('camps.dropOwn(); camps.restore(rows, campFromNatives);') + 60);
+  assert.match(stand, /const outer = extras\?\.world\?\.outerCamps;\n\s+if \(!Array\.isArray\(outer\)\) return;/, 'a save from before stands nothing new');
+  assert.match(stand, /camps\.dropOwn\(\); camps\.restore\(rows, campFromNatives\);/);
+  assert.match(branch, /const standOuterCamps = \(\) => standSavedOuterCamps\(extras\);/);
   assert.match(branch, /\n\s+if \(!entered\) carrySavedFires\(\);[^\n]*\n\s+standOuterCamps\(\);/, 'the arm that enters - in or out');
   assert.equal((branch.match(/standOuterCamps\(\)/g) ?? []).length, 3, 'every arm: lost, woken, entered');
   // the merge the load relies on: dropOwn then restore stands the save's own and nothing of the page's
