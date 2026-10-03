@@ -95,6 +95,9 @@ export const ARENA_TEXT = F({
     /** The refusals said in his box, beside the choice that cannot be taken. */
     noWatch: 'No bout on the sand right now - come back on the hour.',
     noFight: 'You are in no state to fight. Rest first, then come back.',
+    // AUDIT PRE-MERGE 1003 B3: the hour's bout has had its word here - it is not fought again from its call
+    underWay: 'It is under way - watch it from where you stand.',
+    watchSeen: 'You have seen this hour\'s bout begin - the next is on the hour.',
     /** A player struck an exhibition fighter: the first time a warning, after it the watch. */
     intrude: 'Hold! That fighter is in a bout. Strike again and the watch will have you.',
     intrudeCrime: 'Guards! Seize that brawler!',
@@ -339,7 +342,10 @@ export const ARENA_TEXT = F({
     whyClosed: 'The book on this bout is closed.',
     whyPlaced: 'Your wager on this bout is placed.',
     whyGold: 'You need 10 gold to wager.',
-    whyRefused: F({ none: 'No bout this hour.', closed: 'The book on this bout is closed.', placed: 'Your wager on this bout is placed.', stake: 'Wagers run from 10 to 1000 gold.', gold: 'You do not have that much gold.' }),
+    // AUDIT PRE-MERGE 1003 B4: a favourite shorter than his shortest price (1 to 5) is not laid
+    noPrice: 'no price',
+    notLaid: (name) => `No price on ${name} - too short a favourite for my book.`,
+    whyRefused: F({ none: 'No bout this hour.', closed: 'The book on this bout is closed.', placed: 'Your wager on this bout is placed.', stake: 'Wagers run from 10 to 1000 gold.', gold: 'You do not have that much gold.', price: 'He lays no price on that fighter.' }),
   }),
 
   // ── THE ARENA WINDOW (ARENA3; ui/arenaWindow.js, systems/arenaBoard.js) ───────────────────────────────────────
@@ -473,6 +479,8 @@ export const ARENA_TEXT = F({
         'Watch it from the street or from the stands. Do not strike a fighter in a bout.',
         'The bookmaker by the gate takes wagers until the fight begins - 10 to 1000 gold.',
         'A winning wager pays the price he gave. A draw returns the stake.',
+        // AUDIT PRE-MERGE 1003 B3/B4: a bout walked away from is the house's; a favourite too short is not laid
+        'Leave a bout after the word and he keeps your stake. He lays nothing under 1 to 5.',
         'Collect what you won at his stall. He pays in person, never by letter.',
       ]) }),
     ]),

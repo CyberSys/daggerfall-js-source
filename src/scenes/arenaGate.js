@@ -36,6 +36,7 @@ import { nextLadderBout, arenaLadderRestore } from '../systems/arenaLadder.js';
 import { FIGHT_HEALTH_MIN } from '../systems/arenaHerald.js';
 import { createArenaOverlay, closeArenaDoor } from '../ui/arenaDoor.js';
 import { bookRestore, houseOutcome } from '../systems/arenaBook.js';   // ARENA4b: online the relay's verdict settles, the house's only for an hour it never ran
+import { bookSaw } from '../systems/arenaBook.js';   // AUDIT PRE-MERGE 1003 B3: an hour seen here is not fought again
 
 /** How near the Herald the Arena window's Watch, Fight and Wager may be pressed, metres (the gate and its plaza). */
 export const AT_GATE_M = 60;
@@ -171,9 +172,10 @@ export function createArenaGate(deps) {
    *  and `league` the host's (the player's share of health, the save's league - read offline only). */
   function heraldChoice({ cityBout = null, healthShare = (P.health ?? 0) / Math.max(1, P.maxHealth ?? 1), league = P.arenaLeague } = {}) {
     const on = online();
-    if (!on) return heraldChoiceOf({ gameMinutes: gm(), cityBout, ladder: arenaLadderRestore(P.arenaLadder), healthShare, league, replays: arenaReplaysRestore(P.arenaReplays).length });   // ARENA5: the last bout kept, offered again
+    const fought = watchRefusal(exhibitionFor(gm())?.hour) != null;   // AUDIT PRE-MERGE 1003 B3: no Watch for an hour seen here
+    if (!on) return heraldChoiceOf({ gameMinutes: gm(), cityBout, ladder: arenaLadderRestore(P.arenaLadder), healthShare, league, replays: arenaReplaysRestore(P.arenaReplays).length, fought });   // ARENA5: the last bout kept, offered again
     const climb = on.climb?.() ?? null;
-    const ch = heraldChoiceOf({ gameMinutes: gm(), cityBout, ladder: climb, healthShare, league: null });
+    const ch = heraldChoiceOf({ gameMinutes: gm(), cityBout, ladder: climb, healthShare, league: null, fought });
     if (!climb) {
       const H = ARENA_TEXT.herald;
       const next = ch.next ? H.ladderNext(ch.next.tierName, ch.next.label) : null;
@@ -239,6 +241,17 @@ export function createArenaGate(deps) {
       else if (v) book = bookVerdict(book, w.hour, v.side);
     }
     setBook(settleBook(book, -Infinity).book);
+  }
+  /**
+   * AUDIT PRE-MERGE 1003 B3: WATCH REFUSED for the exhibition of `hour` once it has had its word on this screen - its bout
+   * past the word here (`begun`, its hour the one standing), or its verdict (or its leaving) kept by the book: the
+   * Herald's Watch dismissed that bout and asked the hour again on the floor's instance, from its call, both fighters
+   * whole - a verdict seen twice. The relay's exhibition is one bout whoever watches it (online Watch joins its room), so
+   * never then. The Herald's line, or null - both hosts ask before Watch dismisses anything.
+   */
+  function watchRefusal(hour) {
+    if (hour == null || online()?.exhibitions?.()) return null;
+    return (begun() && liveHour() === hour) || bookSaw(league().book, hour) ? ARENA_TEXT.herald.watchSeen : null;
   }
   /** THE VERDICT SEEN of the exhibition of `hour` (the driver's - scenes/arenaBouts.js `exhibitionVerdict`): a wager on it
    *  is settled by what was seen. */
@@ -317,6 +330,8 @@ export function createArenaGate(deps) {
     }
     if (kind === 'watch' || kind === 'fight') {
       if (!atGate) return { ok: false, text: ARENA_TEXT.window.whyGate };
+      const seen = kind === 'watch' ? watchRefusal(exhibitionFor(gm())?.hour) : null;   // AUDIT PRE-MERGE 1003 B3: refused at the press
+      if (seen) return { ok: false, text: seen };
       const on = online();
       const onLadder = on ? on.climb?.() ?? null : P.arenaLadder;   // ARENA4: online the climb is the account's
       if (kind === 'fight' && on && !onLadder) return { ok: false, text: ARENA_TEXT.online.climbWait };   // ARENA4b: and waited for
@@ -334,6 +349,7 @@ export function createArenaGate(deps) {
   }
 
   return { recruiter, bookmaker, wager, settle, verdictSeen, board, windowAct, windowOverlay, heraldChoice, hall, joined, openWindow: (page) => openWindow?.(page) ?? false,
+    watchRefusal,   // AUDIT PRE-MERGE 1003 B3: both hosts' Watch asks it first
     plaques,   // ARENA5: the Hall of Champions' plaques
   };
 }

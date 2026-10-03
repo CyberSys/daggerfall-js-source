@@ -122,10 +122,12 @@ level: the colosseum, its tiers and its crowd, built on its own (`world/arenaFlo
 left to the gate - so two bouts never share a floor, the city cell never fills with fights, and an online bout is
 its own relay room (`arena:<id>` - built as `arena:b<id>`, and the hour's exhibition `arena:x<hour>`, ARENA4/ARENA4b).
 
-**The bout.** Every bout runs one law (`systems/arenaBout.js`, pure, clock injected): the Herald's call and the
+**The bout.** Every bout runs one law (`systems/arenaBout.js`, pure, clock injected - on this screen the world's, held
+while a window pauses the game and a frame clamped as the foes' own, AUDIT PRE-MERGE 1003 B1): the Herald's call and the
 fighters' walk to their marks; **3 - 2 - 1 - Fight!**; the fight (no doors, no rest, no travel - the duel's law); the
 end - a **yield** (at 15% health a fighter may yield; an AI does by its temper), a **fall** (the 1 HP floor - nobody
-dies on the arena's sand; `hurtPlayer`'s `spare`, and a new foe floor), a **ring-out** (carried off the sand past
+dies on the arena's sand; `hurtPlayer`'s `spare`, held from the word to the healers - AUDIT PRE-MERGE 1003 B5 - and a
+new foe floor), a **ring-out** (carried off the sand past
 the clamp's slack), or the **time limit** (3 minutes; then the judges - damage dealt, hits landed, fewer misses);
 the Herald's verdict; healing to full (the duel's own); the purse.
 
@@ -536,11 +538,15 @@ the test) and names the banner you fight under, or the laurel.
 **The bookmaker** (`src/systems/arenaBook.js`). An exhibition fighter's record (6 to 35 bouts) and form come from the
 bout's own seed; its strength is its level (the tier's, or Daggerfall's own for a beast) and its form; the chances are
 the two strengths apart. The price is the fair price less the house's tenth, rounded DOWN the bookmaker's ladder of 40
-prices ("5 to 6" on an even bout, 1 to 5 the shortest, 10 to 1 the longest); a winning stake pays itself and the price
+prices ("5 to 6" on an even bout, 1 to 5 the shortest, 10 to 1 the longest - a favourite shorter than 1 to 5 is laid no
+price at all, AUDIT PRE-MERGE 1003 B4); a winning stake pays itself and the price
 in whole gold. One wager a bout, 10 to 1000 gold (DFU's payment law - coins, then letters of credit), taken while the
 bout is open and until the fight's word. Settled by the verdict seen on this screen (the driver's `exhibitionVerdict`),
 or - nobody here saw it - by the house's seeded record by the same chances once its hour is out (never while its bout
-stands here); a draw returns the stake. Winnings wait at the stall ("C - Collect your 175 gold"): he pays in person.
+stands here); a draw returns the stake. A bout of this screen's walked away from after its word, its verdict unsaid, is
+the house's - the stake lost whichever fighter led (a fall already standing is its verdict); the book on an hour seen
+here, to its verdict or left, takes no wager after, and the Herald's Watch does not fight it again (AUDIT PRE-MERGE 1003
+B3). Winnings wait at the stall ("C - Collect your 175 gold"): he pays in person.
 
 **The Arena window** (`src/ui/arenaWindow.js` over `src/systems/arenaBoard.js`; `src/ui/arenaDoor.js`, the Reforge's
 door's shape). Bouts (the hour's exhibition or the next - the Red's fighter against the Blue's, each with pennant, home,

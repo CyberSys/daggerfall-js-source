@@ -8421,6 +8421,7 @@ export async function bootWorld(canvas, renderer, params, status) {
       const ex = exhibitionFor(worldMinutes());
       if (!ex) return;
       if (arenaOnline?.exhibitions?.()) { arenaBouts.dismiss(); arenaOnline.watchExhibition(ex); return; }   // ARENA4b: the relay's bout, from the stands of its room
+      const no = arenaGate.watchRefusal(ex.hour); if (no) { townTalk.say(no); return; }   // AUDIT PRE-MERGE 1003 B3: an hour seen here is never fought again from its call
       _arenaHourRun = ex.hour;
       arenaBouts.dismiss();
       arenaBouts.ask({ where: 'floor', kind: 'exhibition', ex });
