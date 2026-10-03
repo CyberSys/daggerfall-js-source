@@ -18102,7 +18102,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     notice: (lines) => { for (const l of lines) townTalk.say(l); },
     names: (seed) => (i, mobile) => fighterIdentity(seed, i, mobile),
     level: () => playerEntity.level ?? 1,   // ARENA4b: my level alone on a ladder bout's `in` - the relay's vitality is the token's signed level, no health of mine is said
-    guest: () => storedSession(appStorage())?.kind === 'guest',
+    guest: () => storedSession(appStorage())?.kind === 'guest', signedIn: () => !!storedSession(appStorage()),   // HOTFIX 1003f: a private session's Host and Join want an account held
     struck: (d) => { if (d > 0) { flashPlayerDamage(d); playPlayerVoice(audio, playerPainVoice(playerEntity, d)); } },
     myHealth: (hp) => { if (playerEntity.health > 0) { playerEntity.health = Math.max(1, hp); surfacePlayer(); } },   // HOTFIX 1003f (live: "it shouldnt kick players after a bout"): the relay's 0 is a fall, never a death - the death screen took the loser out of the floor; the healers come
     heal: arenaHeal,   // AUDIT PRE-MERGE 1003b C2: a session's bout let go before its healers - healed all the same

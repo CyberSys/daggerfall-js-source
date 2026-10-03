@@ -191,20 +191,25 @@
   {
     "name": "ARENA4b-EX-ROSTER",
     "file": "server/src/index.js",
-    "old": "      if (isArenaFloorRoom(a.key)) for (let i = others.length - 1; i >= 0; i--) if (!others[i].af || unseen) others.splice(i, 1);",
-    "new": "      if (false) for (let i = others.length - 1; i >= 0; i--) if (!others[i].af || unseen) others.splice(i, 1);",
+    "old": "      if (isArenaPrivateRoom(a.key)) for (let i = others.length - 1; i >= 0; i--) if (unseen ||",
+    "new": "      if (isArenaFloorRoom(a.key)) for (let i = others.length - 1; i >= 0; i--) if (unseen ||",
     "tests": [
-      "test/arena4b_exhibition.test.js"
-    ]
+      "test/arena4b_exhibition.test.js",
+      "test/arena4_relay.test.js",
+      "test/hotfix1003_stands.test.js"
+    ],
+    "note": "HOTFIX 1003f (re-aimed by content): every floor's roster names everyone in it now; the filter is a private session's alone. This mutant runs it over every floor - an exhibition's or a bout's welcome draws nobody again."
   },
   {
     "name": "ARENA4b-EX-JOIN-SAID",
     "file": "server/src/index.js",
-    "old": "      if (isArenaFloorRoom(a.key)) return;   // ARENA4: said at the `in`",
-    "new": "      if (false) return;   // ARENA4: said at the `in`",
+    "old": "      if (unseen) return;   // HOTFIX 1003f",
+    "new": "      if (isArenaFloorRoom(a.key)) return;   // HOTFIX 1003f",
     "tests": [
-      "test/arena4b_exhibition.test.js"
-    ]
+      "test/arena4b_exhibition.test.js",
+      "test/hotfix1003_stands.test.js"
+    ],
+    "note": "HOTFIX 1003f (re-aimed by content): a floor's hello is said to the room now (a private session's stranger's to nobody). This mutant is ARENA4's old silence: a watcher's hello said to nobody."
   },
   {
     "name": "ARENA4b-EX-WORDS-JUNK",
