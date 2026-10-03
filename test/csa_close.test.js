@@ -442,7 +442,7 @@ test('CSA-J (the audit): the load\'s doors - OnStartLoad ahead of the save\'s pl
   assert.match(w, /modStartLoad: \(\) => \{ crewAshore\.clear\(\); (?:(?:revenantAshore\.clear|clearSworn)\(\); )?if \(csaRuntime\) csaCall\(\(\) => csaRuntime\.OnStartLoad\(\)\); \},[^\n]*\n\s+modSaveLoad: \(modData\) => \{ restoreModSaveRecords\(modData, csaModLoadFailed\); \},[^\n]*\n\s+modLoaded: \(\) => \{ if \(csaRuntime\) csaCall\(\(\) => csaRuntime\.OnLoad\(\)\); \},/);
   const d = src('scenes/dungeonContext.js');
   assert.match(d, /opts\.modStartLoad\?\.\(\);[^\n]*\n\s+const extras = restorePlayer\(playerEntity, snap, spellsByIndex\);/);
-  assert.match(d, /this\.restoreSaved\(extras, setPlayerPos\);\n\s+opts\.modLoaded\?\.\(\);/);
+  assert.match(d, /this\.restoreSaved\(extras, setPlayerPos\);\n\s+(?:opts\.outerCampsLoad\?\.\(extras\);[^\n]*\n\s+)?opts\.modLoaded\?\.\(\);/);   // AUDIT REST III A1 (RE-AIMED): the save's camps outside stand before OnLoad, the load's own
   const m = src('scenes/worldModes.js');
   assert.match(m, /modStartLoad: \(\) => host\.modStartLoad\?\.\(\),/);
   assert.match(m, /modLoaded: \(\) => host\.modLoaded\?\.\(\),/);

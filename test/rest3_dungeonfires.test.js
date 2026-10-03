@@ -160,7 +160,7 @@ test('REST3 by source: the dungeon places them after its geometry and before its
   assert.ok(at(/collider\.addMesh\('dungeon', cpu\.positions, cpu\.indices, matrix\);/) < place);
   assert.ok(place < at(/for \(const \[key, centers\] of flatGroups\) \{/));
   assert.ok(place < at(/const flicker = new CityLightAnimator\(lights\.length/));
-  assert.match(dc, /dungeonHearths\.push\(\{ x: p\[0\], y: cy, z: p\[2\], foot: p\[1\], w: size\.w, h: size\.h, placed: true \}\);/);
+  assert.match(dc, /dungeonHearths\.push\(\{ x: p\[0\], y: cy, z: p\[2\], foot: p\[1\], w: size\.w, h: size\.h, placed: true, archive, record \}\);/);   // AUDIT REST III E4 (RE-AIMED): the placed row names its flat
   assert.match(dc, /lights\.push\(\{ x: p\[0\], y: p\[1\] \+ FIRE_LIGHT_UP, z: p\[2\], range: FIRE_LIGHT_RANGE \}\);/);
   assert.match(dc, /torches\.push\(\{ pos: \[p\[0\], cy, p\[2\]\], handle: null \}\);/);
   assert.match(dc, /if \(spot && [^\n]*inFireWard\(dungeonFires, spot\)\) spot = null;/);   // AUDIT REST-PARTY (PIN MOVED): the spawn asks the ward - C1's online gate before it is C1's own pin

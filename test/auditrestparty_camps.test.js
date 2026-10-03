@@ -206,5 +206,5 @@ test('AUDIT REST-PARTY C7: the fires\' law reads a hearth\'s CLASSIC foot - a te
   const { existing } = fireLayoutInputs([], [{ x: 1, y: 3, z: 2, foot: 2.2, lawFoot: 2.5 }, { x: 4, y: 3, z: 5, foot: 2.2 }, { x: 0, y: 1, z: 0, foot: 0, placed: true }]);
   assert.deepEqual(existing, [[1, 2.5, 2], [4, 2.2, 5]], 'the law\'s foot first; a placed fire is the law\'s own');
   assert.match(rd('src/scenes/dungeonContext.js'), /const lawSize = t && f\.record < t\.recordCount \? classicBillboardSize\(t, f\.record\) : null;/);
-  assert.match(rd('src/scenes/dungeonContext.js'), /lawFoot: lawSize \? f\.y - lawSize\.h \/ 2 : undefined \}\);/);
+  assert.match(rd('src/scenes/dungeonContext.js'), /lawFoot: lawSize \? f\.y - lawSize\.h \/ 2 : undefined, archive: f\.archive, record: f\.record \}\);/);   // AUDIT REST III E4 (RE-AIMED): and the row names its flat
 });
