@@ -64,6 +64,16 @@ test('HOTFIX 1003j: my opponent on a relay\'s sand is the body inside my ring, b
   const w = readFileSync(new URL('../src/scenes/world.js', import.meta.url), 'utf8');
   const fn = w.slice(w.indexOf('function arenaRivalBody()'), w.indexOf('function arenaRivalBody()') + 2000);
   assert.ok(!fn.includes('const peer = (peersNear() ?? [])[0];'), 'never the first peer the room holds');
-  assert.match(fn, /Math\.hypot\(p\.feet\[0\] - ring\.centre\[0\], p\.feet\[2\] - ring\.centre\[2\]\) <= ring\.radius \+ 1\.5 && Math\.abs\(p\.feet\[1\] - ring\.centre\[1\]\) < 2/, 'on the sand, inside my ring');
+  // HOTFIX 1003k: the floor's sand - arenaBouts.ring() is a ladder bout's alone (holds: `cur.ladder`), null between players
+  assert.match(fn, /const sand = modes\?\.arenaFloorStage\?\.\(\)\?\.centre\?\.\(\) \?\? null/, 'the floor\'s own sand');
+  assert.match(fn, /Math\.hypot\(p\.feet\[0\] - sand\[0\], p\.feet\[2\] - sand\[2\]\) <= SAND_R && Math\.abs\(p\.feet\[1\] - sand\[1\]\) < 2/, 'on the sand, at its height - never up in the stands');
+  assert.ok(!fn.includes('arenaBouts.ring()'), 'never the ladder\'s ring');
   assert.match(fn, /const peer = onSand\.find\(\(p\) => vsName && online\?\.peers\?\.get\?\.\(p\.id\)\?\.name === vsName\) \?\? onSand\[0\];/, 'by name, else the nearest');
+});
+
+test('HOTFIX 1003l: the arena\'s floor draws the world\'s sky - after the opaque level, before the flats, the renderer told its programs ran (live: "the private sessions are missing the sky") (mutants: no sky; the shadows not told)', () => {
+  const m = readFileSync(new URL('../src/scenes/worldModes.js', import.meta.url), 'utf8');
+  assert.match(m, /drawArenaWall\(\); if \(isArenaFloor\(dungeonLoc\)\) host\.drawSky\?\.\(cam\.yaw, cam\.pitch/, 'the floor, and only the floor');
+  const w = readFileSync(new URL('../src/scenes/world.js', import.meta.url), 'utf8');
+  assert.match(w, /drawSky: \(yaw, pitch, fov, aspect, vp\) => \{ sky\.draw\(yaw, pitch, fov, aspect, vp\); renderer\.markForeignPass\(\); \}/, 'the sky drawn, the renderer\'s shadows told');
 });
