@@ -26,7 +26,7 @@
 - **Ladder:** the ten tiers, where you stand, every opponent and champion, the purses and the title each tier gives.
 - **Team:** your banner, the season's standing against the other, the laurel, your points, and your banner's top ten.
 - **Leaderboards:** the highest tier, the fastest Grand Champion and the banners season by season, with your own row pinned below the top ten. Online, the realm's boards and its Hall of Champions (see **Online** below).
-- **Records:** your wins, losses, yields, falls, streaks and purses, your last twenty bouts and your wagers. Your last three ladder bouts can be watched again from here (see **Replays** below).
+- **Records:** your wins, losses, yields, falls, streaks and purses, your last twenty bouts and your wagers. Offline, your last three ladder bouts can be watched again from here (see **Replays** below).
 - **Rules:** the arena's rules in plain words.
 
 ## The bookmaker
@@ -41,7 +41,7 @@
 - Your banner shows on the character sheet beside your arena title and record.
 
 ## The bouts
-- **Exhibitions:** every hour from 8 in the morning until 10 at night, two fighters meet on the arena's sand. Stand near the colosseum and you'll see the bout, hear the crowd and see the fight on your screen. The same hour always brings the same two fighters.
+- **Exhibitions:** every hour from 8 in the morning to 9 at night, two fighters meet on the arena's sand. Stand near the colosseum and you'll see the bout, hear the crowd and see the fight on your screen. The same hour always brings the same two fighters.
 - **The Ladder:** ten tiers, from **The Pit** to **The Grand Melee**. Win three bouts in a tier and you face its **Tier Champion**; beat the champion and you climb, and the arena gives you a title. Tier 5's champion is two Warriors at once, Tier 6 throws you to the beasts, Tier 9 is two against one, and Tier 10 is a free-for-all melee before the **Grand Champion**.
 - Your opponents don't grow with you. The ladder is a fixed mountain.
 - **Nobody dies on the sand.** At 1 health you go down and the bout is over. Badly hurt (15% health or less)? Sheathe your weapon to yield. Fighters can also be carried out of the ring, and after three minutes the judges decide: damage dealt, then hits landed, then fewer misses.
@@ -50,7 +50,7 @@
 - While your bout is on, you can't rest, travel or leave through the gates.
 - Your progress, titles and record are saved with your character. Your arena title and record show on the character sheet.
 - Strike an exhibition fighter and the Herald will warn you once. Do it again and the watch comes for you.
-- **Replays:** your last three ladder bouts are kept with your character. Ask the Herald (**R - Watch your last bout again**) or press **Watch the replay** on the Records page, at the arena's gate, and you watch the bout again from the terrace, with the crowd, the Herald and the verdict. A replay pays and counts nothing, and you can leave it whenever you like. (In a replay you appear as a fighter of your class.)
+- **Replays:** your last three ladder bouts are kept with your character. Ask the Herald (**R - Watch your last bout again**) or press **Watch the replay** on the Records page, at the arena's gate, and you watch the bout again from the terrace, with the crowd, the Herald and the verdict. A replay pays and counts nothing, and you can leave it whenever you like. (In a replay you appear as a fighter of your class.) Replays are kept offline only: online the realm keeps its own records.
 
 ## The crowd
 - The tiers fill with Daggerfall's own people: the gesturing man, dancers and musicians, courtiers and nobles. Big bouts draw hundreds.
