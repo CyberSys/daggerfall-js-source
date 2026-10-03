@@ -22,6 +22,8 @@ import { readFileSync } from 'node:fs';
 import { Renderer, WORLD_FRAME } from '../src/render/renderer.js';
 import { EL_LANE, EL_MESH_FS, EL_TERRAIN_FS, EL_CHAR_FS, EL_BB_FS } from '../src/render/enhancedLighting.js';
 import { SHADOW_POINT_CASTERS, SHADOW_LO_SIZE, SHADOW_LO_STEP, SHADOW_LO_REBUILDS, SHADOW_LO_UNIT, SHADOW_GLSL, shadowFarFor } from '../src/render/shadowPass.js';
+import { SHADOW_TUNING } from '../src/render/shadowPass.js';
+SHADOW_TUNING.override = false;   // these tests pin the old rebuild cap
 
 const rd = (p) => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8');
 const I = new Float32Array([1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1]);
@@ -145,22 +147,22 @@ test('DISC15: a changed static set redraws at most SHADOW_LO_REBUILDS lo maps a 
 test('DISC15: THE DOOR - the first frame through the door drops the street\'s records (no map is drawn from them), the tier runs from the next on the room\'s own, and a host that does not ask never has it (mutants: the flag sticky; the street\'s records replayed for the tavern\'s lamps)', () => {
   const t = tavern();
   const draw = () => t.r.drawMesh(t.room, I, null);
-  const L = t.lamps(12);
+  const L = t.lamps(16);   // FLICKER-FIX: sixteen - past the twelve
   // the street: never asks
   t.frame(draw, L, false);
   const street = t.frame(draw, L, false);
   assert.equal(street.loSlots, 0, 'a host that does not ask has no lo tier');
-  assert.ok(street.casterOf.slice(0, 12).some((k) => k === -1), 'past the eight, no map - the street as it was');
+  assert.ok(street.casterOf.slice(0, 16).some((k) => k === -1), 'past the twelve, no map - the street as it was');
   // through the door: this frame asks, the last did not - the street's records are no room's
   const entry = t.frame(draw, L, true);
   assert.equal(entry.records, 0, 'the entry frame replays nothing of the street');
   assert.equal(entry.loSlots, 0); assert.equal(entry.facesDrawn, 0);
   const second = t.frame(draw, L, true);
-  assert.equal(second.loSlots, 12, 'the second frame: every lamp, from the room\'s own records');
+  assert.equal(second.loSlots, 16, 'the second frame: every lamp, from the room\'s own records');
   // out again: the tier stops the frame the host stops asking
   const out = t.frame(draw, L, false);
   assert.equal(out.loSlots, 0);
-  assert.ok(out.casterOf.slice(0, 12).every((k) => k < SHADOW_POINT_CASTERS));
+  assert.ok(out.casterOf.slice(0, 16).every((k) => k < SHADOW_POINT_CASTERS));
 });
 
 test('DISC15: the hand\'s light is -2 in either tier (MAC-T1), and the storm\'s flash takes no lo slot (F11) - the pick\'s own two laws (mutant: the lo tier handing the carried torch a map)', () => {
@@ -200,7 +202,7 @@ test('DISC15: the shaders read either tier - the lit loop and the flat through c
   // it from the live range (loFarOf) - the caster table's word carries it above the slot's byte (casterWord)
   assert.doesNotMatch(SHADOW_GLSL, /loFarOf/, 'no far derived from the live range');
   for (const w of [15, 18, 20, 7.5, 5, 12, 16]) assert.equal(Math.ceil(Math.fround(w) / 4) * 4, shadowFarFor(Math.fround(w)), `the far of a range ${w}`);
-  assert.match(SHADOW_GLSL, /int s = k & 255;\n\s+return s < 8 \? pointShadowAt\(s, wp, n\) : pointShadowLoAt\(s - 8, float\(k >> 8\) \* 4\.0, L, wp, n\);/, 'below the eight a 512 slot, past it a lo one at the word\'s far');
+  assert.match(SHADOW_GLSL, /int s = k & 255;\n\s+return s < 12 \? pointShadowAt\(s, wp, n\) : pointShadowLoAt\(s - 12, float\(k >> 8\) \* 4\.0, L, wp, n\);/, 'below the twelve a 512 slot, past it a lo one at the word\'s far');
   assert.match(SHADOW_GLSL, /float t = 1\.5 \/ 256\.0;/, 'the lo kernel a texel and a half of a 256 face');
   for (const [name, fs] of [['mesh', EL_MESH_FS], ['terrain', EL_TERRAIN_FS], ['char', EL_CHAR_FS]]) {
     assert.match(fs, /float sh = k >= 0 \? casterShadowAt\(k, uPointLights\[i\], wp, n\)/, `${name}: either tier`);

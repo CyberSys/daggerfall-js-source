@@ -8,6 +8,7 @@
 // FormulaHelper.cs, DaggerfallUnityItem.cs, PlayerActivate.cs
 // (MIT, Daggerfall Workshop).
 
+import { plainFoeLootRule, capFoeLoot, PLAIN_FOE_RARITY_WEIGHTS } from '../systems/foeLootCap.js';   // FOE-CAP: a plain foe's cap and ladder
 import { SKILLS, tallySkill, skillValue, SKILL_NAMES } from '../systems/skills.js';
 import { effectiveLevel } from '../systems/mentorMode.js';   // SOFTCAP2: mentor mode - the level the world is built around
 import { vampireAttackVoice } from '../systems/vampirism.js';   // V5: GetCustomRaceGenderAttackSoundData
@@ -124,31 +125,13 @@ export function spawnEnemyLoot(entity, mobileType, basics, player, { rolls = Mat
   // (above) does not, and a foe's cuirass is worn either way.
   if (conditionBasedPricesOn()) randomConditionLootItems([...new Set([...entity.items, ...(eq?.worn ?? [])])], rolls);
   enemyLootSpawned.raise({ mobileType, lootTableKey: enemyLootTableKey(mobileType, basics?.lootTableKey ?? '-'), items: entity.items, worn: eq?.worn ?? [], where });   // OH-E: ...and every other subscriber, in the one list (the worn set is Items' too, as above)
-  rollCorpseLoot(entity, basics, { rolls, luck: liveStat(player, 'luck'), qualityMult: lootQualityMult });
-  if (championOf(entity)) ensureChampionLoot(entity, effectiveLevel(player), rolls);   // LOOT7: a champion always carries a Rare or better
+  // FOE-CAP (systems/foeLootCap.js): a plain foe - no title, no boss - rolls the plain ladder (outside an Elite Dungeon)
+  // and carries at most its cap, gold included; the stamp rides the entity so the death's handlers are capped too
+  const plain = plainFoeLootRule(entity, basics);
+  if (plain) entity.lootCap = plain.cap;
+  rollCorpseLoot(entity, basics, { rolls, luck: liveStat(player, 'luck'), qualityMult: lootQualityMult, weights: plain?.plainLadder ? PLAIN_FOE_RARITY_WEIGHTS : null });
+  capFoeLoot(entity);
   return entity.items;
-}
-/** LOOT7 (the Loot arc, bible/06-Systems/Loot-Arc.md section 9): A CHAMPION ALWAYS CARRIES A RARE OR BETTER - when its
- *  own roll found none, its most valuable piece that could be (a plain one, or one the ladder made Magic) is made Rare;
- *  carrying none, a weapon (never ammunition) or a piece of armour at its level is minted onto it and made Rare. Never
- *  its worn kit (LR4's law: the sword it swings stays DFU's). AUDIT LOOT F9: the Rare it makes takes the door's last
- *  pass (LOOT4's chance at a line that does something), which its corpse door ran before it - the last draws of the
- *  spawn. Answers the piece, or null. */
-export function ensureChampionLoot(entity, level, rolls = Math.random) {
-  if (!lootRarityOn() || !entity) return null;
-  const worn = new Set(entity.equip ? equipTableOf(entity).filter(Boolean) : []);
-  const loot = (entity.items ?? []).filter((it) => it && !worn.has(it));
-  if (loot.some((it) => rarityRank(it) >= RARITIES.rare.rank)) return null;
-  let piece = loot.filter((it) => rarityEligible(it) || it.rarity === 'magic').sort((a, b) => (b.value ?? 0) - (a.value ?? 0))[0] ?? null;
-  if (!piece) {
-    if (rolls() < 0.5) { piece = createRandomWeapon(level, rolls); for (let n = 0; n < 32 && isAmmunition(piece); n++) piece = createRandomWeapon(level, rolls); }
-    else piece = createRandomArmor(level, rolls);
-    if (!piece || isAmmunition(piece)) return null;
-    piece.untaken = true; (entity.items ??= []).push(piece);   // LOOT8: a found piece, counted at its take
-  }
-  applyRarity(piece, 'rare', rolls);
-  lastPass([piece], rolls);
-  return piece;
 }
 
 // ---- EnemyEntity.SetEnemyCareer, the equipment chain (EnemyEntity.cs:330-347) ----

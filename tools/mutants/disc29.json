@@ -382,7 +382,7 @@
   {
     "name": "DISC29-E-card-lamps-by-eye",
     "file": "src/render/shadowPass.js",
-    "old": "      const selfNear = selfAt ? nearestRank(casters, L, selfAt, rank, this._selfHeld, this._selfHeldN) < SHADOW_NEAR_CASTERS : near;",
+    "old": "      const selfNear = selfAt ? (SHADOW_TUNING.steady || nearestRank(casters, L, selfAt, rank, this._selfHeld, this._selfHeldN) < SHADOW_NEAR_CASTERS) : near;",
     "new": "      const selfNear = near;",
     "tests": [
       "test/disc29_lamps.test.js"
@@ -391,8 +391,8 @@
   {
     "name": "DISC29-E-card-lamps-not-every-frame",
     "file": "src/render/shadowPass.js",
-    "old": "      const due = near || selfNear || (this.frameNo + k) % SHADOW_FAR_CASTER_EVERY === 0;",
-    "new": "      const due = near || (this.frameNo + k) % SHADOW_FAR_CASTER_EVERY === 0;",
+    "old": "      const due = SHADOW_TUNING.steady || near || selfNear || (this.frameNo + k) % SHADOW_FAR_CASTER_EVERY === 0;",
+    "new": "      const due = SHADOW_TUNING.steady || near || (this.frameNo + k) % SHADOW_FAR_CASTER_EVERY === 0;",
     "tests": [
       "test/disc29_lamps.test.js"
     ]
