@@ -46,6 +46,8 @@ import {
 } from '../../src/net/arenaLaw.js';
 import { displayName } from './accounts.js';
 import { titleWorn, glyphsOf } from './titles.js';
+import { renownQuestXp } from '../../src/net/renown.js';   // ARENA4b: a bout's Renown, sized as quests are
+import { reportRenownXp, renownTrackOf, renownCharacterOk } from './renownTracks.js';   // ARENA4b: credited through the renown law's own door
 
 /** The service's doors that read a badge (a token's mint, the account's wardrobe, an equip): the arena's honours ride the
  *  row there and nowhere else (two reads - one an index lookup, one kept a minute). */
@@ -58,6 +60,54 @@ export const ARENA_HALL_MAX = 20;
  *  minutes, so a laurel is at most six behind the board. */
 export const ARENA_CHAMPION_CACHE_S = 60;
 const GRAND_TIER = ARENA_TIERS - 1;
+
+// ═══ ARENA4b (2026-10-03) - A BOUT'S RENOWN ═══════════════════════════════════════════════════════════════════════════
+//
+// Arena.md 2: "Purses in gold ... Online, renown too, within the renown law's own hourly cap". A ladder WIN and a rated
+// WIN between players pay Renown to the character the claim names, through the renown law's own door
+// (renownTracks.js reportRenownXp: the report's bound, the account's hour, the track's cap - a bout the hour has spent
+// pays nothing more and is still counted), keyed by the bout's id as the report's `rid`. THE SCALE - a bout is a fight
+// sized like a quest, so it pays as one (net/renown.js renownQuestXp: 75 and 30 a level at RENOWN-ACCOUNT's rate, read
+// no higher than three levels over the character's Renown - RENOWN3's ceiling, so a high Daggerfall level does not blow
+// through it): a ladder bout one quest at its TIER's level (the design table's top level of each tier, 3, 5, ... 21 -
+// ARENA_RENOWN_TIER_LEVEL), a tier's champion two, the Grand Champion three (a raid's RENOWN_RAID_QUESTS); a rated win
+// between players one quest at the ladder's top quest level, read against the winner's Renown alike. Measured: at Renown
+// 30 a tier-1 bout pays 165, a tier-10 bout 705, the Grand Champion 2,115, a rated players' win 975; at Renown 1 every
+// bout past the Pit pays 195 and the Grand Champion 585 - the ceiling's whole point. The most a claim asks is far under a
+// report's 5,000. A loss, a draw and a bout kept unrated (the pair's day) pay none: two friends trading wins earn
+// nothing on each other. ONCE AN ACCOUNT: a bout between players is one row whoever claims it first, so the winner may
+// claim second - the right to its Renown is its own row (`arena_renown`, migration 0071), taken before the credit.
+
+/** A ladder tier's level for its Renown - the design table's top level of each tier (Arena.md 2: 1-3, 3-5, ... 20+). */
+export const ARENA_RENOWN_TIER_LEVEL = (tier) => 2 * Math.max(0, Math.min(ARENA_TIERS - 1, Math.trunc(Number(tier) || 0))) + 3;
+/** How many quests a bout's win is worth: a ladder bout 1, a tier's champion 2, the Grand Champion 3, a rated players' 1. */
+export const ARENA_RENOWN_QUESTS = Object.freeze({ bout: 1, champion: 2, grand: 3, pvp: 1 });
+/** The quest level a rated players' win is read at - the ladder's top (net/renown.js RENOWN_QUEST_LEVEL_MAX). */
+const ARENA_RENOWN_PVP_LEVEL = 30;
+/** Daggerfall's region - where every bout is fought; a war-guild's influence counts its Renown there (SEAT1b). */
+export const ARENA_RENOWN_REGION = 17;
+/** A won bout's Renown XP at Renown `renown`: `{ kind: 'ladder', tier, step }` or `{ kind: 'pvp' }`. Pure. */
+export function arenaRenownXp(bout, renown = 1) {
+  if (bout?.kind === 'pvp') return ARENA_RENOWN_QUESTS.pvp * renownQuestXp(ARENA_RENOWN_PVP_LEVEL, renown);
+  const q = bout?.step === ARENA_TIER_BOUTS ? (bout.tier === GRAND_TIER ? ARENA_RENOWN_QUESTS.grand : ARENA_RENOWN_QUESTS.champion) : ARENA_RENOWN_QUESTS.bout;
+  return q * renownQuestXp(ARENA_RENOWN_TIER_LEVEL(bout?.tier), renown);
+}
+/**
+ * A WON BOUT'S RENOWN, CREDITED ONCE: the bout's row in `arena_renown` taken for this account, then the report - the
+ * renown law's answer (`{ character, xp, level, credited, rose, max?, repeat? }`), or null: no character named (a build
+ * before ARENA4b), the bout's Renown this account's already, or the track refused (its row given back).
+ */
+async function arenaRenownFor(ctx, player, boutId, bout, { character = null, name = null } = {}) {
+  const { db, nowS } = ctx;
+  if (!renownCharacterOk(character)) return null;
+  const xp = arenaRenownXp(bout, (await renownTrackOf(ctx, player.id, character))?.level ?? 1);
+  if (!(xp > 0)) return null;
+  const took = await db.prepare('INSERT OR IGNORE INTO arena_renown (bout, player, char_id, xp, at) VALUES (?1, ?2, ?3, ?4, ?5)').bind(boutId, player.id, character, xp, nowS).run();
+  if (!(Number(took?.meta?.changes ?? 0) > 0)) return null;
+  const r = await reportRenownXp(ctx, player, { character, xp, name, rid: boutId });
+  if (r.error) { await db.prepare('DELETE FROM arena_renown WHERE bout = ?1 AND player = ?2').bind(boutId, player.id).run(); return null; }
+  return r;
+}
 
 /** The points a ladder win gives its banner: a bout 1, a tier's champion 3, the Grand Champion 10. */
 const pvePoints = (tier, step) => (step === ARENA_TIER_BOUTS ? (tier === GRAND_TIER ? ARENA_TEAM_POINTS.grand : ARENA_TEAM_POINTS.champion) : ARENA_TEAM_POINTS.bout);
@@ -156,11 +206,14 @@ export async function arenaMemberOf({ db }, playerId) {
  * players' one names it as one of its two. Answers `{ recorded: true, ... }`, `{ recorded: false, why }` (`claimed` - this
  * bout is kept already; `guest`; `order` - a win that is not the account's next bout), or `{ error }` - `no-gate-key`,
  * `receipt` (`why` the rung), `not-yours`.
+ * ARENA4b: `fighter` - the character the claim names (`character`, its `name` for the track) - is paid the bout's Renown
+ * when the kept bout is the account's win (a ladder win, a rated players' win), once an account: the answer's `renown`.
  * @param {{ db: any, nowS: number, subtle: SubtleCrypto }} ctx
  * @param {any} player the session's account
  * @param {unknown} receipt @param {CryptoKey|null} publicKey
+ * @param {{ character?: unknown, name?: unknown }} [fighter]
  */
-export async function claimArena(ctx, player, receipt, publicKey) {
+export async function claimArena(ctx, player, receipt, publicKey, fighter = {}) {
   const { nowS, subtle } = ctx;
   if (!publicKey) return { error: 'no-gate-key' };
   const v = await verifyArenaReceipt(receipt, publicKey, { subtle, nowS });
@@ -170,8 +223,12 @@ export async function claimArena(ctx, player, receipt, publicKey) {
   if (!player.handle) return { recorded: false, why: 'guest' };
   const season = arenaSeasonOf(c.i);
   const member = await arenaMemberOf(ctx, player.id);
-  if (c.a === 'l') return claimLadder(ctx, player, c, season, member?.banner ?? null);
-  return claimPlayers(ctx, player, c, season);
+  const r = c.a === 'l' ? await claimLadder(ctx, player, c, season, member?.banner ?? null) : await claimPlayers(ctx, player, c, season);
+  // ARENA4b: the bout kept is the caller's win - counted now, or counted before (a players' bout another claimed first)
+  const won = c.a === 'l' ? (r.recorded ? r.won : r.why === 'claimed' && c.r === 1) : r.result === 'won' && r.rated === true;
+  if (!won) return r;
+  const renown = await arenaRenownFor(ctx, player, c.j, c.a === 'l' ? { kind: 'ladder', tier: c.q, step: c.u } : { kind: 'pvp' }, fighter);
+  return renown ? { ...r, renown } : r;
 }
 
 async function claimLadder(ctx, player, c, season, banner) {
@@ -273,6 +330,64 @@ async function bannerRoster({ db }, season, banner) {
     WHERE p IS NOT NULL GROUP BY p ORDER BY points DESC, wins DESC, p ASC`).bind(season, banner).all()).results ?? [];
 }
 
+// ── THE RECORDS PAGE (ARENA4b) ───────────────────────────────────────────────────────────────
+/** The bouts `me.recent` carries, newest first. */
+export const ARENA_RECENT_MAX = 20;
+/**
+ * ARENA4b: AN ACCOUNT'S BOUTS FOR THE RECORDS PAGE (Arena.md 5: "your bouts: wins, losses, yields, falls, best streak,
+ * purses; the last twenty bouts"), from its own rows - the ladder's and the players' - in one shape another stream
+ * renders, so it is EXACTLY this: `recent` newest first, at most ARENA_RECENT_MAX, each `{ at, kind: 'pve'|'pvp',
+ * tier?, step?, won: true|false|null (null a draw), how, rating?: { before, after }, rated?, opponent?: <player id>,
+ * points }` (the opponent's id is named by the board's own `named` before it goes out; a deleted account none) - the
+ * points the team law's (a ladder win under a banner by its step, a rated players' win under one two, else 0) - and
+ * `record` `{ pveWins, pveLosses, pvpWins, pvpLosses, pvpDraws, best }`, every bout the account has fought (a players'
+ * bout kept unrated is still fought), `best` the longest run of wins over both in time order (a loss or a draw ends one).
+ */
+export async function arenaRecordsOf({ db }, me) {
+  const pve = (await db.prepare(`SELECT tier, step, won, how, banner, at, rowid AS k FROM arena_pve WHERE player = ?1 ORDER BY at DESC, rowid DESC LIMIT ?2`)
+    .bind(me, ARENA_RECENT_MAX).all()).results ?? [];
+  const pvp = (await db.prepare(`SELECT a, b, result, how, ra0, rb0, ra1, rb1, rated, banner_a, banner_b, at, rowid AS k FROM arena_pvp
+      WHERE a = ?1 OR b = ?1 ORDER BY at DESC, rowid DESC LIMIT ?2`).bind(me, ARENA_RECENT_MAX).all()).results ?? [];
+  const rows = [
+    ...pve.map((r) => ({
+      at: Number(r.at), src: 0, k: Number(r.k),
+      bout: { at: Number(r.at), kind: 'pve', tier: Number(r.tier), step: Number(r.step), won: r.won === 1, how: r.how, points: r.won === 1 && r.banner ? pvePoints(Number(r.tier), Number(r.step)) : 0 },
+    })),
+    ...pvp.map((r) => {
+      const side = r.a === me ? 0 : 1;
+      const won = r.result === 2 ? null : r.result === side;
+      const rated = r.rated === 1;
+      const banner = side === 0 ? r.banner_a : r.banner_b;
+      const other = side === 0 ? r.b : r.a;
+      return {
+        at: Number(r.at), src: 1, k: Number(r.k),
+        bout: {
+          at: Number(r.at), kind: 'pvp', won, how: r.how,
+          rating: { before: Number(side === 0 ? r.ra0 : r.rb0), after: Number(side === 0 ? r.ra1 : r.rb1) }, rated,
+          ...(other ? { opponent: other } : {}), points: rated && won === true && banner ? ARENA_TEAM_POINTS.pvp : 0,
+        },
+      };
+    }),
+  ].sort((x, y) => y.at - x.at || y.src - x.src || y.k - x.k).slice(0, ARENA_RECENT_MAX);
+  const t = await db.prepare(`SELECT
+      (SELECT COALESCE(SUM(won), 0) FROM arena_pve WHERE player = ?1) AS pw, (SELECT COALESCE(SUM(1 - won), 0) FROM arena_pve WHERE player = ?1) AS pl,
+      (SELECT COALESCE(SUM(CASE WHEN (a = ?1 AND result = 0) OR (b = ?1 AND result = 1) THEN 1 ELSE 0 END), 0) FROM arena_pvp WHERE a = ?1 OR b = ?1) AS vw,
+      (SELECT COALESCE(SUM(CASE WHEN (a = ?1 AND result = 1) OR (b = ?1 AND result = 0) THEN 1 ELSE 0 END), 0) FROM arena_pvp WHERE a = ?1 OR b = ?1) AS vl,
+      (SELECT COALESCE(SUM(CASE WHEN result = 2 THEN 1 ELSE 0 END), 0) FROM arena_pvp WHERE a = ?1 OR b = ?1) AS vd`).bind(me).first();
+  // the best run: every bout in time order (the ladder's first at one second, then each table's own order), a group
+  // number that steps at each bout not won - a run of wins is one group's wins
+  const best = await db.prepare(`WITH fought AS (
+      SELECT at, 0 AS src, rowid AS k, won AS w FROM arena_pve WHERE player = ?1
+      UNION ALL SELECT at, 1, rowid, CASE WHEN (a = ?1 AND result = 0) OR (b = ?1 AND result = 1) THEN 1 ELSE 0 END FROM arena_pvp WHERE a = ?1 OR b = ?1),
+    runs AS (SELECT w, SUM(1 - w) OVER (ORDER BY at, src, k ROWS UNBOUNDED PRECEDING) AS g FROM fought)
+    SELECT COALESCE(MAX(n), 0) AS best FROM (SELECT COUNT(*) AS n FROM runs WHERE w = 1 GROUP BY g)`).bind(me).first();
+  const n = (v) => Number(v ?? 0) || 0;
+  return {
+    recent: rows.map((r) => r.bout),
+    record: { pveWins: n(t?.pw), pveLosses: n(t?.pl), pvpWins: n(t?.vw), pvpLosses: n(t?.vl), pvpDraws: n(t?.vd), best: n(best?.best) },
+  };
+}
+
 // ── THE BOARD ────────────────────────────────────────────────────────────────────────────────
 /** Players by id, with the badge each wears now (titles.js, with its arena honours). */
 async function namesOf({ db }, ids, env, nowS, honours) {
@@ -334,7 +449,9 @@ export async function arenaBoardOf(ctx, player, env) {
   const fastB = topWithMe(fast, me);
   const teams = Object.fromEntries(ARENA_BANNERS.map((b) => [b, topWithMe(rosters[b].map((r) => ({ player: r.player, points: Number(r.points), wins: Number(r.wins), banner: b })), me)]));
   const hall = grandRows.slice(0, ARENA_HALL_MAX).map((r) => ({ player: r.player, at: Number(r.at) }));
-  const ids = [...pvp.rows, pvp.pinned, ...pve.rows, pve.pinned, ...fastB.rows, fastB.pinned, ...teams.red.rows, teams.red.pinned, ...teams.blue.rows, teams.blue.pinned, ...hall, champion ? { player: champion } : null].filter(Boolean).map((r) => r.player);
+  const records = me ? await arenaRecordsOf(ctx, me) : null;   // ARENA4b: the Records page's bouts and tallies
+  const ids = [...pvp.rows, pvp.pinned, ...pve.rows, pve.pinned, ...fastB.rows, fastB.pinned, ...teams.red.rows, teams.red.pinned, ...teams.blue.rows, teams.blue.pinned, ...hall, champion ? { player: champion } : null,
+    ...(records?.recent ?? []).map((b) => (b.opponent ? { player: b.opponent } : null))].filter(Boolean).map((r) => r.player);
   const names = await namesOf(ctx, ids, env, nowS, honours);
   // an account's id stays the service's: a row says its name, its badge and whether it is the caller's
   const named = (r) => { if (!r) return null; const { player: id, ...rest } = r; return { ...rest, ...(names.get(id) ?? { name: '', title: null, glyphs: [] }) }; };
@@ -346,6 +463,9 @@ export async function arenaBoardOf(ctx, player, env) {
     banner, left: member?.left_banner ?? null, leftSeason: member?.left_season ?? null,
     points: banner ? (roster.find((r) => r.player === me) ? Number(roster.find((r) => r.player === me).points) : 0) : 0,
     grand: honours.grands.has(me), champion: champion === me,
+    // ARENA4b: the Records page - the last twenty bouts (an opponent by name and badge, never by id) and the tallies
+    recent: records.recent.map((b) => (b.opponent ? { ...b, opponent: names.get(b.opponent) ?? { name: '', title: null, glyphs: [] } } : b)),
+    record: records.record,
   } : null;
   return {
     season, day: arenaSeasonDay(nowS), endsAt: arenaSeasonEndsS(season),

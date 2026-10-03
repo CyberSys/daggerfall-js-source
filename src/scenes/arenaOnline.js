@@ -48,7 +48,7 @@ export const hitKindOf = (kind) => (kind === 'arrow' ? ARENA_HIT.Shaft : kind ==
  *   enterFloor: (kind: string, o: string, side?: number) => Promise<boolean>|boolean, closeWindow?: () => void,
  *   say?: (line: string) => void, notice?: (lines: string[]) => void, names?: (seed: number) => (i: number, mobile: number) => any,
  *   level?: () => number, maxHealth?: () => number, guest?: () => boolean, struck?: (d: number) => void, myHealth?: (hp: number, max: number) => void,
- *   inBout?: () => boolean,
+ *   inBout?: () => boolean, character?: () => (string|null), characterName?: () => (string|null), onRenown?: (data: any) => void,
  * }} deps
  */
 export function createArenaOnline(deps) {
@@ -64,9 +64,11 @@ export function createArenaOnline(deps) {
   /** The bout this screen is going to or stands in: `{ o, kind: 'pvp'|'pve'|'watch', side, tier, bout, next, sent }`. */
   let bout = null;
   const claims = createArenaClaims({
-    claim: (r) => deps.account.claim(r), store: deps.store ?? null, me: () => deps.account.me?.() ?? null,
+    claim: (r, c, n) => deps.account.claim(r, c, n), store: deps.store ?? null, me: () => deps.account.me?.() ?? null,
     onCounted: (d) => { counted(d); askBoard(true); },
     onGuest: () => say(O.guest),
+    // ARENA4b: the fighter a receipt is kept with (its bout's Renown is that character's), and the Renown an answer pays
+    character: () => deps.character?.() ?? null, name: () => deps.characterName?.() ?? null, onRenown: (d) => deps.onRenown?.(d),
   });
 
   /** Is the arena online here: a session open on a relay that opens its rooms. */
