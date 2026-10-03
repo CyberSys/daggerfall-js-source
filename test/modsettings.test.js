@@ -202,6 +202,6 @@ test('the Mods pane puts each creator\'s name in the mod title (Mac, 2026-09-08)
   for (const [vendor, mod] of Object.entries(MOD_SETTINGS)) assert.ok(typeof mod.author === 'string' && mod.author.length > 0, `${vendor}: an author`);
   // FT14: the pane's h3 is gone with the pane - the creator's name rides the TILE's title now,
   // which is the same string built once in features.js modFeature and shown wherever the row is.
-  assert.match(readFileSync('src/systems/features.js', 'utf8'), /title: `\$\{mod\.title\} by \$\{mod\.author\}`,/,
+  assert.match(readFileSync('src/systems/features.js', 'utf8'), /get title\(\) \{ return t\('features\.mod\.title', '\{title\} by \{author\}', \{ title: mod\.title, author: mod\.author \}\); \},/,
     'the title carries the name');
 });

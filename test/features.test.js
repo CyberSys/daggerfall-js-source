@@ -259,7 +259,7 @@ test('FT15: every note is one or two sentences, and the panel stays under its bu
   // description itself rather than adding a short-note override, so there is no
   // second copy to drift (test/ft9_mods.test.js holds the equality; this holds the why)
   const src = readFileSync('src/systems/features.js', 'utf8');
-  assert.match(src, /note: mod\.keys\.Enabled\.description,/, 'modFeature takes no note of its own');
+  assert.match(src, /get note\(\) \{ return mod\.keys\.Enabled\.description; \},/, 'modFeature takes no note of its own');
 });
 
 // FT16 (2026-09-15, Mac: "make the new feature UI elements have the same transparent

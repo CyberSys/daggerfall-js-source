@@ -844,7 +844,7 @@ test('HT1: the rig runs the component beside the widget - one per rig, the pool 
   assert.match(rig, /handheld,\s*\/\/ HT1/);
   assert.match(rd('src/systems/lycanthropy.js'), /export const isTransformedLycanthrope = \(entity\) => isTransformedNow\(entity\);/);
   assert.match(rd('src/systems/playerTorch.js'), /const o = lanternAtWaist\(entity\?\.lightSource\) \? \(_waistOverride \?\? LANTERN_HIP\) : \(_offsetOverride \?\? TORCH_OFFSET\);/);   // HT-WAIST: a lantern at the waist lights from the hip
-  assert.match(rd('src/systems/features.js'), /modFeature\('handheld-torches', 'Takes effect at once\.', '\w+'\)/);
+  assert.match(rd('src/systems/features.js'), /modFeature\('handheld-torches', \(\) => t\('features\.effect\.atOnce', 'Takes effect at once\.'\), '\w+'\)/);
   // GUARD1 (2026-09-15): this line USED to read `/160 modules/`. It was
   // a hand-written copy of a number `audit18_bible_docs.test.js` (U42)
   // already DERIVES from the directory, so it said nothing U42 does not
