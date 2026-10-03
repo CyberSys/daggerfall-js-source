@@ -288,6 +288,7 @@ import {
 import { guildHallPrice, GUILD_HALL_ENTRY_WORDS } from '../net/hallLaw.js';   // GUILD1d: what a hall costs, in its refusal's words; who may walk in
 import { SEAT_HALL_DECOR_CAP, SEAT_HALL_CLEAR_M, SEAT_HALL_TEXT } from '../net/townSeatLaw.js';   // SEAT-HALL: the palace as the holder's hall
 import { crownRulerFactionId, crownRulerHere, crownHallPlan, CROWN_HALL_TEXT } from '../systems/crownHall.js';   // CROWN-HALL: the castle as the crown's holder's hall
+import { hallPlaquePlan, PLAQUE_MODEL, PLAQUE_BARE_MODEL } from '../world/arenaPlaques.js';   // ARENA5: the Hall of Champions' plaque wall
 import { bannerKeyOf } from './hallBanners.js';   // CROWN-HALL: the throne room's cloth, keyed as the street's
 import { HOME_ENTRIES, homePriceOk, rentCost, rentDaysLeft } from '../net/homeLaw.js';
 // HOME-RENT: a home's rooms, rented at its door and offered, priced and collected in its owner's decorator
@@ -535,7 +536,7 @@ export function createWorldModes(host) {
    *
    * AUDIT-WH H5. Three hover arms wrote `.Name` - the C# property, as
    * the mod's own source spells it (.cs:764, :725, :777) - and the
-   * record these hosts mint spells it `name` (exterior.js:4022 hands
+   * record these hosts mint spells it `name` (exterior.js:4033 hands
    * `dfLocation`, world.js hands `_questLoc()`; both are the port's
    * location record). `.Name` on it is `undefined`, so all three arms
    * fell to `''`, and `staticDoorName` answers NULL on an empty
@@ -3777,6 +3778,58 @@ export function createWorldModes(host) {
     for (const p of h.pieces) renderer.drawMesh(p.gpu, p.matrix, null);
     const heraldry = crownHere()?.heraldry ?? null;
     if (heraldry && h.banners.length) host.drawDungeonBanners?.({ ...frame, banners: h.banners.map((b, i) => ({ ...b, key: bannerKeyOf(heraldry), heraldry, phase: i })) });
+  }
+  // ── ARENA5: THE HALL OF CHAMPIONS' PLAQUE WALL (world/arenaPlaques.js) ─────────────────────────────────────────
+  /** The wall hung for this undercroft visit - `{ ctx, loc, plaques: [{ key, k, matrix, aabb }], gpu: { cut, bare }, names,
+   *  namesAt }` - or null. */
+  let arenaWall = null;
+  /** The names are read again this often while the wall stands (the realm's board may come in after the stair), ms. */
+  const ARENA_WALL_NAMES_MS = 10_000;
+  /** STAND THE WALL at the undercroft's mount (CROWN-HALL's shape): the row measured about the Keeper in the level's own
+   *  collider (hallPlaquePlan), the two plaques asked of the pipeline, kept only while the same visit stands. */
+  async function standArenaWall(ctx, loc) {
+    arenaWall = null;
+    if (!isArenaUndercroft(loc) || !ctx?.arenaHall) return;
+    const plan = hallPlaquePlan(ctx.arenaHall, (o, d, m) => ctx.collider?.raycast?.(o, d, m) ?? Infinity);
+    if (!plan?.plaques.length) return;
+    const cut = await getGpuMesh(PLAQUE_MODEL), bare = await getGpuMesh(PLAQUE_BARE_MODEL);
+    const cpu = cpuModels.get(PLAQUE_BARE_MODEL);
+    if (!cut || !bare || !cpu || dungeonCtx !== ctx || dungeonLoc !== loc) return;   // a visit left meanwhile hangs nothing
+    const plaques = plan.plaques.map((p) => {
+      const matrix = trs(p.pos[0], p.pos[1], p.pos[2], 0, p.yawDeg, 0);
+      return { key: `plaque:${p.k}`, k: p.k, matrix, aabb: worldAabb(cpu.positions, matrix) };
+    });
+    arenaWall = { ctx, loc, plaques, gpu: { cut, bare }, names: host.arenaHallPlaques?.() ?? [], namesAt: performance.now() };
+  }
+  const arenaWallLive = () => (arenaWall && arenaWall.ctx === dungeonCtx && arenaWall.loc === dungeonLoc ? arenaWall : null);
+  /** The champions the wall names now (scenes/arenaGate.js plaques - the save's offline, the realm's online), read again
+   *  when stale or `fresh` (a press reads the wall as it stands). */
+  function arenaWallNames(w, fresh = false) {
+    const t = performance.now();
+    if (fresh || t - w.namesAt >= ARENA_WALL_NAMES_MS) { w.names = host.arenaHallPlaques?.() ?? w.names; w.namesAt = t; }
+    return w.names;
+  }
+  /** DRAWN on the dungeon's own pass, opaque: a champion's plaque for each name, the bare board after them. */
+  function drawArenaWall() {
+    const w = arenaWallLive();
+    if (!w) return;
+    const n = arenaWallNames(w).length;
+    for (const p of w.plaques) renderer.drawMesh(p.k < n ? w.gpu.cut : w.gpu.bare, p.matrix, null);
+  }
+  /** A plaque's name on the hover plaque: its champion's, or the bare board's. */
+  function plaqueName(key) {
+    const w = arenaWallLive();
+    if (!w) return null;
+    const c = arenaWallNames(w)[Number(String(key).split(':')[1])];
+    return { title: c ? ARENA_TEXT.undercroft.plaqueTitle(c.name) : ARENA_TEXT.undercroft.plaqueBare };
+  }
+  /** PRESSED: the plaque reads its champion - name, banner, season, Grand Champion - or the stone's waiting line. */
+  function readPlaque(key) {
+    const w = arenaWallLive();
+    if (!w) return;
+    const c = arenaWallNames(w, true)[Number(String(key).split(':')[1])];
+    const U = ARENA_TEXT.undercroft;
+    say(c ? U.plaqueLine(c.name, c.banner ? ARENA_TEXT.teams.the[c.banner] ?? '' : '', c.season) : U.hallNone);
   }
   /** CROWN-HALL: PRESSED - the roster board the holder's notes to its members (GUILD1e's board), the chest its Stores
    *  (GUILD1d's chest); to anyone else each says whose it is. */
@@ -7345,7 +7398,8 @@ export function createWorldModes(host) {
     if (mode !== 'exterior' || !(playerEntity.health > 0)) return false;
     const city = host.arenaCity?.() ?? null;
     const dfLocation = arenaFloorLocation({ kind, city, bout });   // ARENA4: `bout` the relay's bout - the instance is its room
-    const hit = { dfLocation, blocksFile: arenaFloorBlocks(blocks, kind), arenaFloor: kind, climateBase: 2, season: 0, group: 'arena:floor', door: null, dfBlock: null, recordIndex: -1 };
+    // ARENA5: the bout's banners hung on its sides' halves (scenes/arenaBouts.js floorBanners)
+    const hit = { dfLocation, blocksFile: arenaFloorBlocks(blocks, kind, host.arenaFloorBanners?.() ?? null), arenaFloor: kind, climateBase: 2, season: 0, group: 'arena:floor', door: null, dfBlock: null, recordIndex: -1 };
     return tryEnterDungeon(hit, [], { preferEnterMarker: false });
   }
   /** ARENA2: the Herald's "Go down to the fighters' hall" - the undercroft's own door (the colosseum's 43600 stair,
@@ -7765,7 +7819,7 @@ export function createWorldModes(host) {
           hudMessageSink: (t) => questBridge?.notebook?.addMessage(t),
           // MAC1 J: and the relock the dungeon's pause door needs, on
           // the same threading - the context owns no canvas of its own
-          // (dungeonContext.js:8116), so the OUTER host's one rides in.
+          // (dungeonContext.js:8117), so the OUTER host's one rides in.
           // This is the most-played pause door of the six: world.js
           // gates its own Escape ladder on exterior mode, so underground
           // the key falls to routeKey -> ui/input.js:847 -> the
@@ -7838,6 +7892,9 @@ export function createWorldModes(host) {
       // CROWN-HALL (7.2): the throne room's roster board and Stores chest, while the crown is held
       ctx.addActivationTargets(() => crownHallLive()?.pieces.map((p) => ({ key: p.key, aabb: p.aabb, distance: RAY_DISTANCE, reach: DEFAULT_ACTIVATION_DISTANCE })) ?? NO_TARGETS);
       ctx.addActivationNamer((key) => (key === 'crown:board' ? { title: CROWN_HALL_TEXT.board } : key === 'crown:chest' ? { title: CROWN_HALL_TEXT.chest } : null));
+      // ARENA5: the Hall of Champions' plaques, each its champion's (or the bare board's) - both halves together
+      ctx.addActivationTargets(() => arenaWallLive()?.plaques.map((p) => ({ key: p.key, aabb: p.aabb, distance: RAY_DISTANCE, reach: DEFAULT_ACTIVATION_DISTANCE })) ?? NO_TARGETS);
+      ctx.addActivationNamer((key) => (typeof key === 'string' && key.startsWith('plaque:') ? plaqueName(key) : null));
       // AUDIT 64 F13: THE DUNGEON'S STATIC NPCs. RDBLayout.AddFlat gives
       // an NPC-archive flat (334/346/357/175-184) a StaticNPC
       // (RDBLayout.cs:1226-1231) and DaggerfallBillboard.cs:318-319/:343-349
@@ -7955,6 +8012,7 @@ export function createWorldModes(host) {
       dungeonLoc = dfLocation;
       host.profDungeonEntered?.(ctx);   // PROF2: the day's veins on this dungeon's walls (bible/06-Systems/Professions-Arc.md 23)
       standCrownHall(ctx, dfLocation).catch(() => {});   // CROWN-HALL: the throne room's pieces, about its ruler
+      standArenaWall(ctx, dfLocation).catch(() => {});   // ARENA5: the Hall of Champions' plaque wall, about its Keeper
       player.collider = ctx.collider;
       player.spawn(spawn[0], spawn[1], spawn[2]);
       cam.pos = player.eyeAt();   // EV1: the interpolated render eye
@@ -8132,6 +8190,7 @@ export function createWorldModes(host) {
     if (key.startsWith('spoil')) { quickLootSpend(); host.takeSpoil?.(key); return true; }   // AUDIT WB9 (spoils F2): a P or J that armed this press is spent on it
     if (key.startsWith('records:')) { openCastleRecords(); return true; }   // AUDIT-SEATS: a crown's Hall of Records, in its castle
     if (key.startsWith('crown:')) { openCrownPiece(key); return true; }   // CROWN-HALL: the throne room's board and chest
+    if (key.startsWith('plaque:')) { readPlaque(key); return true; }   // ARENA5: a plaque in the Hall of Champions reads its champion
     // U26: droppedLoot: is the player's own pile - the same three-way
     // arm the standalone dungeon scene carries, kept in step here.
     if (key.startsWith('loot:') || key.startsWith('corpse:') || key.startsWith('droppedLoot:') || key.startsWith('droppedTorch:') || key.startsWith('camp:') || key.startsWith('hearth:')) {   // AUDIT-WH2 L2-F1: hearth: - HEARTH1's fourth host, stood and named down here since it shipped and never answered
@@ -8853,6 +8912,7 @@ export function createWorldModes(host) {
       for (const d of dungeonCtx.dynamicDraws) renderer.drawMesh(d.gpu, d.object.matrix, dungeonCtx.texRemap);
       host.drawModeMeshes?.();   // CSA-C: a boat on the dungeon's water
       drawCrownHall({ proj, view, eye: mwv.eye });   // CROWN-HALL: the throne room's board, chest and banners - opaque, before the flats
+      drawArenaWall();   // ARENA5: the Hall of Champions' plaques - opaque, before the flats
       if (isGateArena(dungeonLoc)) host.drawGateBackdrop?.({ proj, view, eye: mwv.eye });   // WB6a: the Deadlands' sea and sky - after the court's solid geometry, so they burn only where they show (PERF2's law), before its flats, so a flat blended over the sky lands on it
       dungeonCtx.flatAnims.tick(dt);   // FA1
       renderer.drawFoeTelegraphs?.(drawableBlows(tacticsNow(), player.pos));   // TACT4: a foe's wind-up on the ground
@@ -9004,7 +9064,7 @@ export function createWorldModes(host) {
           // AUDIT 39r: and the FLASH, which this arm was copied without.
           // An arrow reaches the player through BowDamage ->
           // ApplyDamageToPlayer -> SendDamageToPlayer, the same door as
-          // a blow (world.js:15652's own wave-46 note); the interior
+          // a blow (world.js:15661's own wave-46 note); the interior
           // MELEE hit already flashes inside exteriorFoes, so only this
           // arm - which applies its own damage - was missing it.
           flashPlayerDamage(dmg);   // BA1: RemoveHealth carries the amount
@@ -9946,7 +10006,7 @@ export function createWorldModes(host) {
   addEventListener('mousedown', (e) => {
     // AUDIT-MACK F2: THIS HOST DOES NOT FEED THE HELD SET, and MAC-K1
     // briefly made it. `keys` is not this host's - it arrives on the
-    // host bag (`exterior.js:4084`, `world.js`'s twin), and the OUTER
+    // host bag (`exterior.js:4095`, `world.js`'s twin), and the OUTER
     // host's own mousedown writes `keys.add(mouseCode(e.button))`
     // UNGATED, before any mode test, on a listener that is never
     // removed. So the three button codes were already in the Set while
@@ -11674,9 +11734,9 @@ export function createWorldModes(host) {
      *  .cs:175-176 writes `weaponDrawn`/`usingLeftHand` off it,
      *  :420-421 restores them onto it. The port has FOUR PlayerWeapons
      *  (world.js's, this file's `interiorWeapon` :538, dungeonContext's
-     *  and exterior.js's - which this seam does not reach: that host has no save path at all, its charter exterior.js:3629-3651), and IS1 routed the inside-a-building save to
+     *  and exterior.js's - which this seam does not reach: that host has no save path at all, its charter exterior.js:3638-3660), and IS1 routed the inside-a-building save to
      *  the WORLD host's composer - which reads its own exterior rig
-     *  unconditionally (world.js:11713). So an F9 pressed in a shop
+     *  unconditionally (world.js:11722). So an F9 pressed in a shop
      *  recorded the street's sheath and hand, and the load wrote them
      *  back into the street's rig; the rig actually in the player's
      *  hands was in no envelope at all.
@@ -11715,7 +11775,7 @@ export function createWorldModes(host) {
       if (interiorOverlay instanceof DeathScreen) { interiorOverlay.restoreView(); interiorOverlay = null; }
     },
     /** The restore half - and NOT gated on the mode, deliberately.
-     *  worldQuickLoad calls forceExitToExterior FIRST (world.js:12042)
+     *  worldQuickLoad calls forceExitToExterior FIRST (world.js:12051)
      *  and only re-enters the building at :4217, so the mode at apply
      *  time is whatever the LOAD landed in, not whatever the SAVE was
      *  taken in: an outdoor save loaded while the player was indoors
@@ -11725,8 +11785,8 @@ export function createWorldModes(host) {
      *
      *  FLAG ONLY and presence-gated - both laws now stated once, in
      *  combat/playerWeapon.js's applyWeaponPose, with the citation.
-     *  HARD2c: this used to spell them out, and named `world.js:10703`
-     *  and `dungeonContext.js:8128` for its two sibling copies - lines
+     *  HARD2c: this used to spell them out, and named `world.js:10712`
+     *  and `dungeonContext.js:8129` for its two sibling copies - lines
      *  that had moved to :4418 and :5457. Three copies of a two-line
      *  law, and even the comment pointing between them had gone stale. */
     applyWeaponPose(pose) {

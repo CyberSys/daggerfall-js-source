@@ -19,9 +19,11 @@ export const FIGHT_HEALTH_MIN = 0.5;
 /**
  * ARENA3: `window` - the host opens the Arena window ("A - The Arena window"); `league` the banners' record
  * (systems/arenaLeague.js) - he names the banner you fight under, and the laurel when you wear it.
- * @param {{ gameMinutes: number, cityBout?: { a: string, b: string } | null, ladder?: any, healthShare?: number, window?: boolean, league?: any }} o
+ * ARENA5: `replays` how many of the save's ladder bouts the records keep (systems/arenaReplay.js) - the last one is
+ * offered to watch again ("R - Watch your last bout again").
+ * @param {{ gameMinutes: number, cityBout?: { a: string, b: string } | null, ladder?: any, healthShare?: number, window?: boolean, league?: any, replays?: number }} o
  */
-export function heraldChoice({ gameMinutes, cityBout = null, ladder = null, healthShare = 1, window = true, league = null }) {
+export function heraldChoice({ gameMinutes, cityBout = null, ladder = null, healthShare = 1, window = true, league = null, replays = 0 }) {
   const H = ARENA_TEXT.herald;
   const lines = [];
   const hour = Math.floor(Math.max(0, gameMinutes) / 60);
@@ -42,9 +44,11 @@ export function heraldChoice({ gameMinutes, cityBout = null, ladder = null, heal
   if (title) lines.push(H.title(title));
   const team = league ? rollLeague(league, gameMinutes).team : null;
   if (team) lines.push(laurelWorn(league, gameMinutes) ? ARENA_TEXT.teams.laurelYou : ARENA_TEXT.teams.under(ARENA_TEXT.teams.the[team]));   // ARENA3
+  if (replays > 0) lines.push(ARENA_TEXT.replay.heraldLine);   // ARENA5
   const options = [];
   if (canWatch) options.push({ code: 'KeyW', label: H.watch, act: 'watch' });
   if (next && fit) options.push({ code: 'KeyF', label: H.fight, act: 'fight' });
+  if (replays > 0) options.push({ code: 'KeyR', label: ARENA_TEXT.replay.herald, act: 'replay' });   // ARENA5: your ladder replay, the newest
   if (window) options.push({ code: 'KeyA', label: H.window, act: 'window' });   // ARENA3: the Arena window's first door
   options.push({ code: 'KeyH', label: H.hall, act: 'hall' });
   options.push({ code: 'KeyL', label: H.leave, act: 'leave' });

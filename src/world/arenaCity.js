@@ -33,6 +33,7 @@ import { LOCATION_TYPES, DUNGEON_TYPES } from '../formats/mapsFile.js';
 import { registerCustomModel } from './customModels.js';
 import { ARENA_TEXT } from '../systems/arenaText.js';
 import { ARENA_MODEL_ID, buildArenaModel, withStairRamps, sealArenaSeams } from './arenaModel.js';
+import { registerArenaPlaques } from './arenaPlaques.js';   // ARENA5: the Hall of Champions' plaque wall
 import ARENA_BLOCK_JSON from '../../vendor/daggerfall-arena/Arena/ARENADAG.RMB.json' with { type: 'json' };
 import UNDERCROFT_JSON from '../../vendor/daggerfall-arena/Arena/undercroft.json' with { type: 'json' };
 import ARENA_MODEL_INDEX from '../../vendor/daggerfall-arena/Models/864102.json' with { type: 'json' };
@@ -268,6 +269,7 @@ export function installArena({ readBin = null, log = console } = {}) {
   registerPortBlock(ARENA_BLOCK, arenaBlockJson(), ARENA_BLOCK_INDEX);
   registerLocationEdit(standArenaInLocation);
   configureLayoutPins({ recordDisplaced: (rec) => arenaRecordDisplaced(rec) });
+  registerArenaPlaques();   // ARENA5: the Hall of Champions' plaques (world/arenaPlaques.js), down in the undercroft
   const read = readBin ?? (async () => {
     const r = await globalThis.fetch(ARENA_MODEL_BIN_URL);
     if (!r?.ok) throw new Error(`${ARENA_MODEL_BIN_URL}: ${r?.status ?? 'no answer'}`);

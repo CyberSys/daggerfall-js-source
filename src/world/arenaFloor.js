@@ -57,6 +57,31 @@ const FLAT_HALF_H = Object.freeze({ '210:15': 0.95, '210:17': 0.62, '210:19': 1.
  *  world/dungeonLights.js) - the braziers the brightest. */
 const FLAT_LIGHT_R = Object.freeze({ '210:15': 160, '210:17': 150, '210:19': 260, '210:27': 170 });
 
+/**
+ * ARENA5: THE BANNERS' HANGINGS (Arena.md 3: a team gives "its colours on your ladder bouts (your banners on your side of
+ * the floor, ...)"; the ARENA3 record left them waiting on "hangings the floor's instance does not stand").
+ *
+ * DAGGERFALL'S BANNERS ARE MODELS, NOT FLATS. No flat archive of TEXTURE.175-216 holds a banner, a flag or a tapestry;
+ * they are ARCH3D's tapestry run, 42500..42571 (DFU's RDBLayout minTapestryID..maxTapestryID - world/rdbLayout.js
+ * MIN_TAPESTRY_ID: collider-free cloth). Kamer hung twenty of them on the tiers' rail round the sand, every one facing it
+ * (42512, 42513, 42514 - World of Daggerfall's own catalogue calls 42512 "Flag" and 42514 "Flower Banner Long",
+ * vendor/world-of-daggerfall/Scripts/LocationHelper.cs; the bundle survey's "seating tiers" misread them) and one over
+ * the south box (42548). So the banners of a bout hang at HIS hang points: every one of his ring on a bannered side's half
+ * of the floor (past HANG_HALF_M of the middle line, either way along the floor's long axis - side 0 west, side 1 east,
+ * systems/arenaFighters.js boutMarks) is taken down and that banner's own cloth hung in its place, turned as his was; the
+ * banners over the middle line and the box stay his.
+ *
+ * WHICH CLOTH. The Blue's is 42558, the one classic banner a peer's catalogue names by its colour ("Banner_Blue_Large",
+ * the same LocationHelper.cs). No catalogue in the tree names a red one; the Red's is 42557, the large banner beside it in
+ * ARCH3D's run (hung as wall cloth in a Roleplay & Realism interior, vendor/roleplay-realism/WorldData), so the two banners
+ * hang the same size and shape and differ in colour - recorded to be looked at by eye: a classic record that does not read
+ * red is one number here to change.
+ */
+export const KAMER_BANNERS = Object.freeze([42512, 42513, 42514]);
+export const ARENA_BANNER_MODEL = Object.freeze({ red: 42557, blue: 42558 });
+/** A ring banner this far or more from the floor's middle line (metres, along its long axis) is its side's to hang. */
+export const HANG_HALF_M = 6;
+
 const colosseumRecord = (block = ARENA_BLOCK_JSON) => block.RmbBlock.Misc3dObjectRecords.find((o) => Number(o.ModelIdNum) === ARENA_MODEL_ID);
 /** THE FLOOR CENTRE in the made level's frame (metres): the colosseum's place with its sand taken off. */
 export function floorCentre(block = ARENA_BLOCK_JSON) {
@@ -118,11 +143,22 @@ const NO_MODEL = { xRotation: 0, yRotation: 0, zRotation: 0, modelIndex: 0, trig
 const NO_FLAT = { position: 0, textureBitfield: 0, textureArchive: 0, textureRecord: 0, flags: 0, magnitude: 0, soundIndex: 0, factionOrMobileId: 0, nextObjectOffset: -1, action: 0 };
 const res = (o = {}) => ({ modelResource: { ...NO_MODEL, actionResource: action0() }, flatResource: { ...NO_FLAT }, lightResource: { unknown1: 0, unknown2: 0, radius: 0 }, ...o });
 
+/** ARENA5: the cloth a ring banner of Kamer's hangs for a bout - `banners` `{ west, east }` (scenes/arenaBouts.js
+ *  floorBanners): its side's banner's (ARENA_BANNER_MODEL) when it hangs on a bannered half, else his own. Pure. */
+export function hangingModel(o, banners, block = ARENA_BLOCK_JSON) {
+  const id = Number(o.ModelIdNum);
+  if (!banners || !KAMER_BANNERS.includes(id)) return id;
+  const dx = (o.XPos - colosseumRecord(block).XPos) * GLOBAL_SCALE;
+  const b = dx <= -HANG_HALF_M ? banners.west : dx >= HANG_HALF_M ? banners.east : null;
+  return b === 'red' || b === 'blue' ? ARENA_BANNER_MODEL[b] : id;
+}
+
 /**
  * THE MADE BLOCK: ARENADAG.RMB's models, its light flats (each a flat and a light) and the start marker of `kind`, as
- * BlocksFile.getBlock hands an RDB over. Pure (the vendored block in).
+ * BlocksFile.getBlock hands an RDB over. Pure (the vendored block in). ARENA5: `banners` `{ west, east }` - the bout's
+ * banners hung on their sides' halves (hangingModel); the block is made at each entry, so they follow the bout.
  */
-export function arenaFloorBlock(kind = 'ladder', block = ARENA_BLOCK_JSON) {
+export function arenaFloorBlock(kind = 'ladder', block = ARENA_BLOCK_JSON, banners = null) {
   const rmb = block.RmbBlock;
   /** @type {any[]} */
   const modelReferenceList = [];
@@ -130,7 +166,7 @@ export function arenaFloorBlock(kind = 'ladder', block = ARENA_BLOCK_JSON) {
   const objects = [];
   let pos = 1;
   for (const o of rmb.Misc3dObjectRecords) {
-    const id = Number(o.ModelIdNum);
+    const id = hangingModel(o, banners, block);
     if (id === 43600) continue;   // the undercroft's stair is the city's
     if (!refOf.has(id)) { refOf.set(id, modelReferenceList.length); modelReferenceList.push({ modelId: String(id), modelIdNum: id, description: 'ARN' }); }
     objects.push({
@@ -165,8 +201,8 @@ export function arenaFloorBlock(kind = 'ladder', block = ARENA_BLOCK_JSON) {
 
 /** THE BLOCKS FILE the floor is laid from: the real one, answering one name more (world/gateArena.js gateArenaBlocks'
  *  law). */
-export function arenaFloorBlocks(real, kind = 'ladder') {
-  const made = arenaFloorBlock(kind);
+export function arenaFloorBlocks(real, kind = 'ladder', banners = null) {
+  const made = arenaFloorBlock(kind, ARENA_BLOCK_JSON, banners);   // ARENA5: the bout's banners hung
   return {
     getBlockIndex: (name) => (name === ARENA_FLOOR_BLOCK ? ARENA_FLOOR_BLOCK_INDEX : real ? real.getBlockIndex(name) : -1),
     getBlock: (i) => (i === ARENA_FLOOR_BLOCK_INDEX ? made : real ? real.getBlock(i) : null),

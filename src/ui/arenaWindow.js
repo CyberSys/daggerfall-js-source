@@ -69,7 +69,7 @@ function injectSkin(doc = document) {
  * @param {HTMLElement} host
  * @param {{
  *   board: () => any,
- *   act?: (kind: 'watch'|'fight'|'wager'|'queue'|'casual'|'unqueue'|'accept'|'decline'|'spectate', data?: any) => ({ ok: boolean, text?: string } | void),
+ *   act?: (kind: 'watch'|'fight'|'wager'|'queue'|'casual'|'unqueue'|'accept'|'decline'|'spectate'|'replay', data?: any) => ({ ok: boolean, text?: string } | void),
  *   page?: string, onExit?: (() => void) | null,
  * }} deps `board` systems/arenaBoard.js arenaBoard's model, built fresh at each render; `act` the host's doors
  */
@@ -443,6 +443,8 @@ export function mountArenaWindow(host, deps) {
       if (b.purse > 0) tail.append(el('span', 'aw-bp', W().gold(b.purse)));
       if (b.points > 0) tail.append(el('span', 'aw-bpts', W().pointsWord(b.points)));
       li.append(res, what, tail);
+      // ARENA5: a bout the records keep - Watch the replay (the host's, refused away from the gate)
+      if (b.replay) { const acts = el('div', 'aw-boutacts'); acts.append(press(b.replay, () => doAct('replay', { i: b.replay.i }))); li.append(acts); }
       ol.append(li);
     }
     card.append(ol);

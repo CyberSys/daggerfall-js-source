@@ -20,11 +20,13 @@ import {
 import { fighterIdentity } from './arenaFighters.js';
 import {
   rollLeague, leagueStandings, leagueRoster, laurelWorn, laurelBanner, rosterGrandChampions, seasonDayOf, BANNERS,
+  seasonOf,   // ARENA5: the season this save's own Grand Champion took the title in, for the Hall's plaque
 } from './arenaLeague.js';
 import { exhibitionCard, bookLines } from './arenaBook.js';
 import { enemyDisplayName, ENEMY_BASICS } from '../characters/enemyBasics.js';
 import { dateFromClassicMinutes, MONTH_NAMES, MINUTES_PER_DAY } from './gameDate.js';
 import { arenaSeasonOf, arenaSeasonDay } from '../net/arenaLaw.js';   // ARENA4b: the realm's season a row was taken in
+import { arenaReplaysRestore } from './arenaReplay.js';   // ARENA5: the Records page's Watch the replay
 
 /** The window's pages, in their order on the tab bar. */
 export const ARENA_PAGES = Object.freeze(['bouts', 'ladder', 'team', 'boards', 'records', 'rules']);
@@ -240,7 +242,7 @@ export function boardsPage({ ladder, league, gameMinutes, name }) {
 // ── RECORDS ──────────────────────────────────────────────────────────────────────────────────────────────────
 /** THE RECORDS PAGE: your record on the sand - wins, losses, yields, falls, ring-outs, the streak and the best, the
  *  purses, the champions beaten - and the last twenty bouts, newest first; and your wagers with the bookmaker. */
-export function recordsPage({ ladder, league, gameMinutes }) {
+export function recordsPage({ ladder, league, gameMinutes, replays = [], atGate = true }) {
   const L = arenaLadderRestore(ladder);
   const G = rollLeague(league, gameMinutes);
   const r = L.record;
@@ -253,10 +255,17 @@ export function recordsPage({ ladder, league, gameMinutes }) {
     { k: W().stat.purses, v: W().gold(r.purses) }, { k: W().stat.champions, v: String(L.champs.filter(Boolean).length) },
   ];
   const how = (b) => (b.how === 'draw' ? W().how.draw : W().how[b.how] ?? '');
+  // ARENA5: a bout the records keep (systems/arenaReplay.js - the record fought at the same game minute and tier) carries
+  // its press, Watch the replay, refused away from the gate as Watch is
+  const kept = arenaReplaysRestore(replays);
+  const replayOf = (b) => {
+    const i = kept.findIndex((r) => r.at === b.at && (r.next?.tier ?? -1) === b.tier);
+    return i < 0 ? null : { act: 'replay', label: ARENA_TEXT.replay.press, i, why: atGate ? '' : W().whyGate };
+  };
   const bouts = G.bouts.map((b) => ({
     when: arenaDate(b.at), tier: ARENA_TEXT.tiers[b.tier], label: b.grand ? ARENA_TEXT.grandLabel : b.champion ? ARENA_TEXT.champLabel : b.label,
     opp: b.opp || W().fighter, result: b.how === 'draw' ? W().drew : b.won ? W().wonWord : W().lostWord, won: b.won, draw: b.how === 'draw', how: how(b),
-    purse: b.purse, points: b.points, banner: b.team,
+    purse: b.purse, points: b.points, banner: b.team, replay: replayOf(b),
   }));
   return { stats, bouts, title: ladderTitle(L), titles: ladderTitles(L), empty: bouts.length ? '' : W().noBouts, wagers: bookLines(G, gameMinutes) };
 }
@@ -361,6 +370,34 @@ export function hallLinesOnline(board, name) {
     for (const h of realm) lines.push(O().hallTheirAt(h.name, seasonOfRow(h, board)));
   }
   return lines;
+}
+
+/**
+ * ARENA5: THE HALL'S PLAQUES (world/arenaPlaques.js - the wall in the undercroft): one a Grand Champion, the newest first,
+ * at most `max`. Offline this save's (Arena.md 1: "every Grand Champion this save") - its own (the player, the banner the
+ * title was won under, the season it was taken in: the league's `grandAt`) among the banners' fighters who took the title
+ * (systems/arenaLeague.js rosterGrandChampions - their name and home, their banner, their season), by season; online
+ * (`board` - the service's) the realm's: every account the board's `hall` names, with the season it was cut in, no banner
+ * (the realm's hall carries none). `[{ name, banner, season }]` - `season` the words ("3E 406", "Season 2"). Pure.
+ * @param {{ ladder?: any, league?: any, gameMinutes?: number, name?: string, board?: any, max?: number }} o
+ */
+export function hallPlaques({ ladder = null, league = null, gameMinutes = 0, name = '', board = null, max = 10 } = {}) {
+  /** @type {{ name: string, banner: string|null, season: string, at: number }[]} */
+  const out = [];
+  if (board) {
+    for (const h of Array.isArray(board.hall) ? board.hall : []) if (h && typeof h.name === 'string' && h.name) out.push({ name: h.name, banner: null, season: O().seasonShort(seasonOfRow(h, board)), at: 0 });
+    return out.slice(0, Math.max(0, max)).map(({ at, ...p }) => p);
+  }
+  const L = arenaLadderRestore(ladder);
+  const G = rollLeague(league, gameMinutes);
+  if (L.grand) {
+    const year = Number.isFinite(G.grandAt) ? seasonOf(G.grandAt) : G.season;
+    const won = G.bouts.find((b) => b.grand && b.won);
+    out.push({ name: name || W().you, banner: (won ? won.team : G.team) ?? null, season: W().seasonShort(year), at: year + 0.5 });   // mine first in my season
+  }
+  for (const c of rosterGrandChampions(league, gameMinutes)) out.push({ name: `${c.name} of ${c.home}`, banner: c.banner ?? null, season: W().seasonShort(c.season), at: c.season });
+  out.sort((a, b) => b.at - a.at);
+  return out.slice(0, Math.max(0, max)).map(({ at, ...p }) => p);
 }
 
 /** THE LEADERBOARDS ONLINE, boardsPage's shape over the service's board: the realm's climb, its fastest Grand Champions,

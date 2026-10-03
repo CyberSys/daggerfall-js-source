@@ -39,6 +39,7 @@ import { arenaScoreSongs, ARENA_SCORE_SILENCE } from '../systems/arenaScore.js';
 import { drawArenaHud } from '../ui/arenaHud.js';   // ARENA2: the versus bar, the crowd's meter, the clock
 import { setPlayerBout } from '../characters/enemyTargets.js';   // ARENA2: the bout team's player arm
 import { exhibitionFor, nextLadderBout, arenaLadderRestore, practiceBout } from '../systems/arenaLadder.js';   // ARENA2: the hour's exhibition, the ladder's next bout
+import { arenaReplaysRestore } from '../systems/arenaReplay.js';   // ARENA5: your ladder replay
 import { createArenaGate, nearArenaGate } from './arenaGate.js';   // ARENA3; ARENA4b: the Herald's choice and the pause door's banner too
 import { createArenaOnline } from './arenaOnline.js';   // ARENA4: the arena online - the hall, a relay's bout, the boards and the receipts
 import { arenaFloorRoomOf } from '../net/arenaLaw.js';   // ARENA4: a bout's room (ARENA4b: or the hour's exhibition's)
@@ -8363,7 +8364,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     const inDungeon = (modes?.mode ?? 'exterior') === 'dungeon';
     const rig = inDungeon ? modes?.dungeonCtx?.weaponRig?.() : weaponRig;
     arenaBouts.frame(gamePaused() ? 0 : dt, {
-      playerFeet: player.pos, sheathed: rig?.playerWeapon ? !!rig.playerWeapon.sheathed : null,
+      playerFeet: player.pos, playerYaw: cam.yaw, sheathed: rig?.playerWeapon ? !!rig.playerWeapon.sheathed : null,   // ARENA5: my facing, for the replay
       stamina: (playerEntity.fatigue ?? 0) / Math.max(1, maxFatigue(playerEntity)),
       hidden: gamePaused() || !!townTalk.hudHidden, touch: isTouchDevice(),
     });
@@ -8399,6 +8400,14 @@ export async function bootWorld(canvas, renderer, params, status) {
       modes?.enterArenaFloor?.('ladder');
     } else if (a === 'hall') modes?.enterArenaUndercroft?.();
     else if (a === 'window') arenaGate.openWindow('bouts');   // ARENA3
+    else if (a === 'replay' || String(a).startsWith('replay:')) {
+      // ARENA5: YOUR LADDER REPLAY (systems/arenaReplay.js) - a bout the records keep (the newest, or the Records page's
+      // pick), watched from the stands of the floor's instance
+      const rec = arenaReplaysRestore(playerEntity.arenaReplays)[Number(String(a).split(':')[1] ?? 0) || 0];
+      if (!rec) return;
+      arenaBouts.dismiss();
+      if (arenaBouts.askReplay(rec)) modes?.enterArenaFloor?.('watch');
+    }
   }
 
   // The classic catch-up loop (PlayerEntity.Update:486-492): per
@@ -9101,7 +9110,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   // and dungeonContext.js:2935 mounts the same one, gated on
   // `opts.enchantCtx !== false` because setDefaultEnchantCtx is a
   // session singleton and EC1 already routes THIS host's mount into
-  // that context through modes.dungeonCtx - so worldModes.js:6951
+  // that context through modes.dungeonCtx - so worldModes.js:7004
   // passes false beside its `chargen: false` and only the standalone
   // ?dungeon route mounts its own. S40 filled isResting
   // in - the sentence that stood here said it "stays absent above
@@ -11723,7 +11732,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     // so an F9 pressed inside a shop recorded the street's sheath and
     // hand. The mode host answers for the rig that is actually drawn
     // and null outside interior mode (the dungeon owns its own
-    // composer, dungeonContext.js:8100), so exterior mode and a
+    // composer, dungeonContext.js:8101), so exterior mode and a
     // pre-seam mode host compose exactly as before, per field.
     const wp = modes?.weaponPose?.() ?? null;
     const snap = snapshotPlayer(playerEntity, {
@@ -14759,7 +14768,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   // exterior -> the townTalk overlay, interior OR dungeon -> the mode
   // machine's slot. U43-ii shipped the dungeon half: showQuestBox
   // offers the window to `modes.showQuestOverlay` below, and
-  // worldModes answers it in BOTH modes (worldModes.js:10597-10661 -
+  // worldModes answers it in BOTH modes (worldModes.js:10657-10721 -
   // dungeon routes to dungeonCtx.showOverlay), so a dungeon popup is
   // shown rather than logged loudly and dropped.
   // AUDIT 24 (wave 21): DaggerfallMessageBox.Show() is a
@@ -21676,6 +21685,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     makeArenaWindow: (page) => arenaGate.windowOverlay(page),   // ARENA3: the Arena window for another mode's slot (an interior's, a dungeon's)
     arenaJoined: () => arenaGate.joined(),   // ARENA4b: online the account's banner, offline the save's
     arenaHall: () => arenaGate.hall(),   // ARENA4b: the Keeper of the Hall reads the realm's wall online
+    arenaHallPlaques: () => arenaGate.plaques(),   // ARENA5: the names on the Hall's plaque wall (the save's, online the realm's)
     // ARENA-FIX 4: the training pit's practice bout (the Pit Master's choice, scenes/worldModes.js) - a sparring fighter
     // of my tier on the pit's stage; refused while a bout of mine stands
     arenaPractice: () => {
@@ -21686,6 +21696,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     arenaBusy: () => arenaBouts.holds() || !!arenaBouts.pending(),
     arenaPlayerSpare: () => arenaBouts.playerSpare(),
     arenaHolds: () => arenaBouts.holds(),
+    arenaFloorBanners: () => arenaBouts.floorBanners(),   // ARENA5: the banners the floor's instance hangs for the bout asked
     arenaLanding: () => {
       const at = arenaHeraldAt();
       if (!at) return null;

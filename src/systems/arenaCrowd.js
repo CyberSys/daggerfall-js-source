@@ -231,6 +231,33 @@ export const CROWD_PEOPLE = Object.freeze({
   nobles: Object.freeze([[183, 0], [183, 1], [183, 4], [185, 0], [185, 1], [185, 5], [185, 6], [185, 7], [185, 8]]),
   commoners: Object.freeze([[182, 1], [182, 2], [182, 3], [182, 4], [182, 5], [182, 6], [182, 7], [182, 8], [182, 9], [182, 10], [182, 11], [182, 12], [182, 13], [182, 14], [182, 15], [182, 16], [182, 17], [182, 18], [182, 19], [182, 20], [184, 0], [184, 1], [184, 2], [184, 3], [184, 4], [184, 5], [184, 6], [184, 7]]),
 });
+
+// ── THE BANNERS' HALVES (ARENA5) ────────────────────────────────────────────────────────────────────────────
+// Arena.md 3: a team gives "its colours on your ladder bouts (your banners on your side of the floor, the crowd's half in
+// your colour)". The tiers part down the floor's short axis: the WEST half (x < 0 in the floor's frame) is side 0's - the
+// side a ladder fighter's mark and gate are on (systems/arenaFighters.js boutMarks) - the EAST half side 1's. A half whose
+// side fights under a banner wears a soft WASH of its colours: a multiplier the billboard pass takes after both maps are
+// sampled (render/renderer.js BB_FS `uBatchTint`, render/enhancedLighting.js EL_BB_FS), the colour the banners' own lore
+// names (ARENA_TEXT.teams.lore - the Red's crimson and gold, the Blue's azure and silver), held near white so a face still
+// reads as a face and the torchlight still lights it.
+/** The wash each banner gives its half of the tiers, [r, g, b] (display colour, multiplied in). */
+export const CROWD_WASH = Object.freeze({ red: Object.freeze([1, 0.8, 0.74]), blue: Object.freeze([0.78, 0.86, 1]) });
+/** Which half of the tiers a seat sits in: 0 the west (side 0's), 1 the east (side 1's). Pure. */
+export const crowdHalfOf = (x) => (x < 0 ? 0 : 1);
+/** The wash for a banner, or null (no banner, an unknown one: the flat as it is). Pure. */
+export const crowdWash = (banner) => (banner === 'red' || banner === 'blue' ? CROWD_WASH[banner] : null);
+/** EACH HALF'S BANNER from the bout's fighters (`[{ id, side }]`) and their banners (`teams` by fighter id - the driver's
+ *  own `C.teams`, which its laurel and realm law fill): a half takes the banner of the first of its side's fighters to
+ *  wear one; a side past the second (a Grand Melee's third and fourth) has no half. `[west, east]`. Pure. */
+export function crowdHalves(fighters, teams) {
+  const out = /** @type {[string|null, string|null]} */ ([null, null]);
+  for (const f of fighters ?? []) {
+    const b = teams?.[f.id];
+    if ((f.side === 0 || f.side === 1) && out[f.side] == null && (b === 'red' || b === 'blue')) out[f.side] = b;
+  }
+  return out;
+}
+
 /** Who sits where: `n` seats' people, by the seed - a third gesturers (they cheer), a sprinkle of entertainers on the
  *  lower terrace, the nobles and courtiers at the best seats (nearest the sand's middle), the rest commoners. `seats`
  *  `[{ x, y, z, best }]`. Pure. */
