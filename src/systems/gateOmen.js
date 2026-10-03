@@ -20,7 +20,7 @@
 import { gateAt, gatePhase, gateCountdown, countdownText, countdownWords, gateMarked, gateStands, gateBossOf, gateModsOf, riseLine, wrathLine, marksLine, GATE_OPEN_MINUTE, GATE_SEAL_MINUTE, GATE_WRATH_MINUTE, GATE_DAY_MINUTES, GATE_COLLAPSE_MS, PIXEL_M } from '../net/gateLaw.js';
 import { gateModsWords } from '../net/gateMods.js';   // WB8c: tonight's marks on the card
 import { GATE_TOWN_MAX_PX } from './gateSite.js';
-import { RITE_OMEN_LINE } from '../net/gateRite.js';
+import { RITE_OMEN_LINE, cageStands } from '../net/gateRite.js';   // BROKER-CAGE: the Broker's cage, omen to midnight
 
 // TIME1 (bible/06-Systems/Online-Time-Arc.md section 7): THE GATE SAYS REAL TIMES ALONE. Its schedule is the EVENT
 // clock's (net/gateLaw.js, unchanged: a gate every two real hours, its phases the same real minutes), and the sky the
@@ -155,6 +155,7 @@ export function createGateOmen({ now, site, say, localTime = () => null, fellAt 
   let riteDay = null;   // WB12d: the day whose rite was said (once, beside its omen or its rise)
   let readyAt = null, settled = false; // when the host was first ready (the relay's clock), and whether its settle is over
   let cache = { day: null, site: null };
+  let cage = null;   // BROKER-CAGE: the last site the cage was asked for - made once a site
   const siteOf = (day) => {
     if (cache.day !== day) cache = { day, site: site(day) ?? null };
     return cache.site;
@@ -219,6 +220,17 @@ export function createGateOmen({ now, site, say, localTime = () => null, fellAt 
       const [x, z] = gateSceneXZ(c.site, pixelTranslation(c.site.px, c.site.py));
       const weight = gateSkyWeight(c.t, now(), fellAt(c.t.day), Math.hypot(eye[0] - x, eye[2] - z));
       return weight > 0 ? { weight, x, z } : null;
+    },
+    /** BROKER-CAGE: THE BROKER'S SITE - the breach the clock is about, `{day, px, py}`, from its omen to the Wrath's
+     *  midnight (net/gateRite.js cageStands): a Warden fallen early takes the gate (its phase `gone`, no site in
+     *  `current`), never her - so the site is read off the day. Null outside it, or before the first frame. */
+    cageSite() {
+      const c = current;
+      if (!c?.t || !cageStands(c.t.day, now())) return null;
+      const s = c.site ?? siteOf(c.t.day);
+      if (!s) return null;
+      if (cage?.day !== c.t.day || cage.px !== s.px || cage.py !== s.py) cage = Object.freeze({ day: c.t.day, px: s.px, py: s.py });
+      return cage;
     },
     /** Where the gate stands, for the compass and the gate's own pool (WB2): its pixel and its spot in it, its phase,
      *  its times and the relay's word of its fall (the pool times the rise and the collapse by them), while it stands. */

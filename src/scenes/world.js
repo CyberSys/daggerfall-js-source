@@ -214,7 +214,7 @@ import { gateScanner, findGateSite, gateSeaPixel, politicClaimed } from '../syst
 import { createGatePool, GATE_TEXT } from './gatePool.js';   // WB2: the gate the world stands - its stone, its fire and beacon, its collider and its door
 import { createRiteHost, RITE_TEXT } from './riteHost.js';   // WB12d: the faithful's rite - its circle, its smoke, its faithful, its word and its chest
 import { RANDOM_TREASURE_ARCHIVE } from '../systems/lootDataTables.js';   // WB12d: the casket's pile, undrawn
-import { createSigilBroker } from './sigilBrokerPool.js';   // SET7: the Sigil Broker beside the gate - her body, her box and name, her press
+import { createSigilBroker } from './sigilBrokerPool.js';   // SET7: the Sigil Broker - her body, her box and name, her press; BROKER-CAGE: caged at the faithful's circle
 import { createBrokerOverlay, closeBrokerDoor } from '../ui/brokerDoor.js';   // SET7: her window, a lazy chunk behind its door
 import { brokerStock, brokerDay, brokerBought, makeBrokerSale, spendableStonesIn, lockedStonesIn, stoneCount, insigniaSale, stonesText } from '../systems/sigilBroker.js';   // SET7: the day's stock, the record, the sale   // SS1: the stones counted over their stacks
 import { drawGateBanner } from '../ui/gateBanner.js';
@@ -336,7 +336,7 @@ import { shipTransition, REPOSITION, isOnShip, shipMemory, shipRestorePos } from
 import { createMountRig } from '../player/mountRig.js';   // MAC-K3: the mount surface, one home for this host and the fixed-city one
 import { worldViewportRect, largeHudWorldAspect } from '../ui/hudLarge.js';   // ROAD-E E5: ViewportChanger - the docked bar shrinks the world pass (RETRO1: and retro mode's aspect correction pillarboxes it)
 import { createLockOn, LOCK_PICK_DISTANCE } from '../player/lockOn.js';   // TI1: touch lock-on
-import { rayDirFromScreen, projectToScreen, ndcFromScreen } from '../player/tapRay.js';   // TI1: the finger's ray and the dot
+import { rayDirFromScreen, projectToScreen, ndcFromScreen, worldRectPx } from '../player/tapRay.js';   // TI1: the finger's ray and the dot
 import { isRiding } from '../systems/transport.js';   // TR2: is there a mount under us
 import { useItem } from '../systems/useItem.js';   // UI1: MagicItemPicker_OnItemPicked's two arms
 import { isEnchanted } from '../systems/inventory.js';   // UI1: the use path's enchanted test
@@ -536,7 +536,7 @@ import { parseChatLine, HELP_LINES, CHAT_GREETING_TEXT, unknownCommandText, empt
 import { partyRosterSource, localRosterSource, guildRosterSource } from '../net/roster.js';   // CHAT-CHAN: the Party and Local tabs' composed lists
 import { partyCompassPoints } from '../ui/partyMapMarks.js';   // COMPASS-PARTY: the party's points on the compass
 import { SocialState, accountId, accountSecret } from '../net/social.js';   // SOC2: the friends and the party, as the hub says them; the account the hub's hello carries; SOC3: and the two colours a name wears in the DOM - my party's green, a friend's blue
-import { SOCIAL_ROOM, PARTY_SEND_MS, chatRegionRoom } from '../net/wire.js';   // CHAT-CHAN: a region's channel
+import { SOCIAL_ROOM, PARTY_SEND_MS, chatRegionRoom, relaySupportsRite, relaySupportsCage } from '../net/wire.js';   // CHAT-CHAN: a region's channel
 import { cellRoomOfWire } from '../net/wire.js';   // HCC-PARK: the cell a parked team's anchor stands in
 import { GATE_BRAIN_V } from '../net/wire.js';   // AUDIT WBX R7: the brain's law this client knows, said on every `in`
 import { characterIdOf } from '../systems/characterId.js';   // AUDIT HCC-PARK: my parked team is my CHARACTER's (the relay keys it by the account and this)
@@ -3290,12 +3290,12 @@ export async function bootWorld(canvas, renderer, params, status) {
    *  AUDIT-FIELD F7: A FLOOR, NOT THE WHOLE DISTANCE. The first cut
    *  called 64 "more than the fastest accelerated step", which is true
    *  of a fixed physics STEP and false of a FRAME: the motor moves
-   *  `speed * min(dt, MAX_FRAME_DT) * scale` in one go (motor.js:1432),
+   *  `speed * min(dt, MAX_FRAME_DT) * scale` in one go (motor.js:1442),
    *  and the frame that hitches is exactly the frame in which the
    *  streamer is behind. A horse at the shipped default limit of sixty
    *  covers ~65 units in a 10 fps frame and ~120 at the mod's ceiling of
    *  a hundred - past a 64-unit probe, off the built world, and once the
-   *  motor is airborne `airControl` is false (motor.js:3106) so zeroing
+   *  motor is airborne `airControl` is false (motor.js:3116) so zeroing
    *  the drive on the NEXT frame no longer steers: the fall is already
    *  paid for. `travelLookahead` measures the frame that is about to
    *  run instead, and keeps 64 as its floor. */
@@ -7483,7 +7483,8 @@ export async function bootWorld(canvas, renderer, params, status) {
       if (shipSight.blocked(player.collider, eye, t.id, t.point)) continue;
       points.push({ ...t, x: at.x, y: at.y });
     }
-    drawNavalTags(points, { covered, scale: enhancedHudScale(), reach: NAVAL_TAG_RANGE });
+    const r = worldRectPx(rect, w, h);   // SHIP-CLUTTER: the crosshair - the world strip's middle - picks the one tag that reads her line
+    drawNavalTags(points, { covered, scale: enhancedHudScale(), reach: NAVAL_TAG_RANGE, focus: { x: r.x + r.w / 2, y: r.y + r.h / 2 } });
   }
   /** SHIPMATES (2026-09-29, Mac: "Ally crew member's should have green health bars above their head"): THE CREW'S BARS -
    *  every shipmate (combat/friendlyFire.js isShipmate: mine on a deck, a room's its owner names) within CREW_BAR_RANGE,
@@ -7983,7 +7984,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   const _hoverNamers = [
     (key) => gatherHost?.hoverName?.(key) ?? null,   // PROF-MENU: a profession node, its acts the plaque's rows
     (key) => gatePool?.hoverName(key) ?? null,   // WB2: the Oblivion Gate, and its countdown
-    (key) => sigilBroker?.hoverName(key) ?? null,   // SET7: the Sigil Broker beside it
+    (key) => sigilBroker?.hoverName(key) ?? null,   // SET7: the Sigil Broker (BROKER-CAGE: caged at the faithful's circle)
     (key) => riteHost?.hoverName(key) ?? null,   // WB12d: the faithful's chest - its own keys, and its pile's before the piles' word
     (key) => camps.hoverName?.(key) ?? null,
     (key) => droppedTorches.hoverName?.(key) ?? null,
@@ -12244,7 +12245,24 @@ export async function bootWorld(canvas, renderer, params, status) {
   // the INDOOR hosts, and the mod's own follow key refuses indoors
   // (TravelOptionsMod.cs:1439-1440, `PlayerEnterExit.IsPlayerInside`).
   // The journey is an exterior thing and lives with the exterior.
-  const travelOptionsSettings = readTravelOptionsSettings();
+  let travelOptionsSettings = readTravelOptionsSettings();
+  /** TO-LIVE (2026-10-02, Discord: "Whether or not I have the first setting for the Travel Options mod switched on or
+   *  off, both cautious and reckless travel initiate time accelerated travel ... requires a relog"): THE MOD'S LIVE
+   *  KEYS, READ AGAIN AS THEY CHANGE. The bag was read once here, so the tile's "Cautiously" dial (and Inns, Only From
+   *  Ports, Location Pause, Avoid Obstacles) answered the world's load all session. On a change of any mod's settings
+   *  (modSettingsGeneration) the bag is read afresh with the restart half carried from this load's
+   *  (systems/travelOptions.js TRAVEL_OPTIONS_RESTART_KEYS) and handed to the mod - its maps read it on their next
+   *  open, its journey on its next frame. The mod's switch itself stays the load's (AUDIT PRE-MERGE 0928 U7). */
+  const travelOptionsBoot = travelOptionsSettings;
+  let _travelOptionsGen = modSettingsGeneration();
+  function refreshTravelOptionsSettings() {
+    const g = modSettingsGeneration();
+    if (g === _travelOptionsGen) return;
+    _travelOptionsGen = g;
+    travelOptionsSettings = readTravelOptionsSettings(modSetting, travelOptionsBoot);
+    if (travelOptions) travelOptions.settings = travelOptionsSettings;
+    travelControlUI?.setAccelerationLimit(travelOptionsSettings.accelerationLimit);   // the panel's limit, the tile's dial
+  }
   const travelOptionsOn = modSetting(TRAVEL_OPTIONS_VENDOR, 'Enabled');
   latchModLoaded(TRAVEL_OPTIONS_VENDOR, travelOptionsOn);   // AUDIT PRE-MERGE 0928 U7: the journey is made now or not at all - its Follow Paths key answers the same (systems/inputActions.js actionLive)
   const travelJunctionMap = travelOptionsOn && travelOptionsSettings.roadsJunctionMap
@@ -12603,7 +12621,7 @@ export async function bootWorld(canvas, renderer, params, status) {
       // map need. Every one is guarded on the other side - with
       // Travel Options off `travelOptions` answers null and the map is
       // DFU's own, whole.
-      travelOptions: () => travelOptions,
+      travelOptions: () => { refreshTravelOptionsSettings(); return travelOptions; },   // TO-LIVE: the live keys as they stand at the map's open
       // AUDIT-TO1 D1: PlayerGPS.CurrentLocation's MapId (null in open
       // wilderness, the C#'s !Loaded) and TransportManager.IsOnShip - the
       // two reads IsNotAtPort / HasNoOceanTravel need and never had.
@@ -13202,6 +13220,15 @@ export async function bootWorld(canvas, renderer, params, status) {
   /** PEERMENU1: the peer whose menu the bind opened (their verbs are on the plaque), or null - declared up here so the
    *  plaque's namer (below) never reads it before it exists. */
   let peerMenuFor = null;
+  /** KEY-BOOT (2026-10-02, Discord "Keypress while loading/logging in": "all i did was turn the volume up via Fn + F11
+   *  keys ... just had to reload the game"): THE WORLD'S KEYS WAIT FOR THE WORLD. This listener stands from here, but
+   *  the boot goes on to await (the quest pack, the first pixel's people) for seconds behind the loading screen, and
+   *  the ladder's arms read bindings made after those awaits - `socialMenuCanOpen` first, on every key - so a key in
+   *  that window (any key: the volume, F11, a pad's button) threw "ReferenceError: Cannot access '..' before
+   *  initialization" into the crash banner, which stood over the whole session. Until the boot is past its last await
+   *  (where the title loses its loading step), a key fills the held ring (its keyup clears it) and acts on nothing; a
+   *  window's own keys (townTalk, above the ladder) are its as ever. */
+  let _worldKeysLive = false;
   addEventListener('keydown', (e) => {
     if (peerMenuReader && !isTextEntryTarget(e.target)) peerMenuReader.down(e.code, e.repeat);   // PEERMENU1: hears the key, never eats it (a tap of E still interacts)
     // FIX-E: QUICKLOAD WORKS FROM UNDER ANY OVERLAY - the death screen's
@@ -13299,6 +13326,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     // AUDIT UXB1 F1: ...until a WINDOW comes up - a pausing one (bindCursorToggle's own predicate) or a pointer surface
     // (the chat, the friends panel, the F-menu: they pause nothing, and take keys). The keys are its from there: a key
     // shared by two windows' doors opens the first, not both stacked, and nothing after a door is done behind it.
+    if (!_worldKeysLive) return;   // KEY-BOOT: the ladder's arms read bindings the boot has not reached yet
     const windowUp = () => gamePaused() || (modes?.modalWindowUp?.() ?? false) || pointerSurfaces.size > 0;
     const upBefore = windowUp();
     const pass = acts.length ? acts : [null];
@@ -17822,12 +17850,17 @@ export async function bootWorld(canvas, renderer, params, status) {
     loot: { seed: (items, feet, pixelKey) => droppedLoot.seedPile(items, feet, { archive: RANDOM_TREASURE_ARCHIVE, record: 0 }, null, pixelKey, { unsaved: true, drawn: false }), keyOf: (p) => `droppedLoot:${p.id}` },   // the casket is its picture, and its name
     level: () => playerEntity.level ?? 1,
   }) : null;
-  /** SET7: THE SIGIL BROKER (scenes/sigilBrokerPool.js) - beside the gate while it stands whole, online alone as the gate
-   *  is: her body, her post, her box and her name, and the press that opens her window (ui/brokerDoor.js). The stock is
+  /** SET7: THE SIGIL BROKER (scenes/sigilBrokerPool.js) - BROKER-CAGE: caged at the faithful's circle from the omen to
+   *  midnight, and free once every one of them fell (scenes/riteHost.js isCleared), online alone as the gate is: her
+   *  body, her cage, her post, her box and her name, and the press that opens her window (ui/brokerDoor.js). The stock is
    *  the UTC day's of the shared clock (systems/sigilBroker.js), minted once a day and read by the window; the sale is
    *  the law's, made on the pack - the unlocked stones out, a fresh mint of the piece in, the offer marked - behind the
    *  pack's own carry gate (itemTransfer.js planTake), and it clinks as every concluded deal does (nativeTrade.js). */
   const _brokerNow = () => Date.now() + _sharedOffsetMs;
+  /** AUDIT BROKER-CAGE C4, C6: whether the relay keeps the faithful's rite, and says the cage open, as its last welcome
+   *  named it (onRelayVersion) - null until one has, so she is caged until it is known (the omen waits on the hub's
+   *  welcome all the same). */
+  let _relayKeepsRite = null, _relayKeepsCage = null;
   let _brokerStock = null;
   const brokerStockNow = () => {
     const day = brokerDay(_brokerNow());
@@ -17835,7 +17868,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     return _brokerStock.offers;
   };
   const brokerBuy = (offer) => {
-    if (!sigilBroker?.stands() || _mode() !== 'exterior') return { ok: false, reason: 'gone' };   // a window left open on a gate that fell sells nothing - nor one carried off the street (AUDIT SET W2)
+    if (!sigilBroker?.stands() || _mode() !== 'exterior') return { ok: false, reason: 'gone' };   // a window left open as midnight took her sells nothing, nor one on her cage - nor one carried off the street (AUDIT SET W2)
     playerEntity.items = playerEntity.items || [];
     const sale = makeBrokerSale(offer, {
       items: playerEntity.items, day: brokerDay(_brokerNow()),
@@ -17925,16 +17958,21 @@ export async function bootWorld(canvas, renderer, params, status) {
     });
     if (win) townTalk.showOverlay(win);
   };
-  const sigilBroker = gatePool ? createSigilBroker({
+  const sigilBroker = gateOmen ? createSigilBroker({
     renderer, getTexture, uploadRecordFrame, collider: () => collider,
-    place: () => gatePool.place(),   // AUDIT SET W5: the gate's place itself, not a state record made every frame to read one field of
-    heightAt: (x, z) => heightAt(x, z),
+    site: () => gateOmen.cageSite(),   // BROKER-CAGE: the breach the clock is about, omen to midnight - a Warden fallen early never takes her
+    pixelTranslation: (px, py, out) => state.pixelTranslation(px, py, out),
+    heightAt: (x, z) => surfaceAt(x, z),   // the drawn triangles' height, as the faithful's circle stands on (no ground: her pixel not built)
     now: _brokerNow,
+    // BROKER-CAGE: every one of the faithful fallen - AUDIT BROKER-CAGE C6: the hub's word where the relay says it, my own
+    // eyes before it; AUDIT BROKER-CAGE C4: or no faithful at all (a relay before the rite stands none - no captors, no cage)
+    freed: (day, px, py) => _relayKeepsRite === false || !!riteHost?.isCleared(day, px, py, _relayKeepsCage !== true),
+    freedAt: (day, px, py) => riteHost?.clearedAt(day, px, py) ?? NaN,   // AUDIT BROKER-CAGE C8: a cage the hub opened before I saw it shut neither swings nor speaks
     feet: () => (walkMode && playerSpawned ? player.feetAt() : null),
     cam: () => cam.pos,
     say: (text) => townTalk.say(text),   // AUDIT SET W4: her words to the HUD's lines, as every static NPC's Info says (worldModes presentNpcInfoText - DFU's AddHUDText)
     open: openBroker,
-    gone: () => closeBrokerDoor(),   // the gate fell under her open window: it is shut, and she says so
+    gone: () => closeBrokerDoor(),   // midnight took her from under her open window: it is shut, and she says so
   }) : null;
   /** WB1: the compass's mark - the gate's spot in THIS scene, while the gate stands and the player is in its ring. */
   // GUIDE5: a quest target's place to its map pixel (the held map's own goto law) - AUDIT GUIDE O3: through the host's
@@ -19526,7 +19564,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   // chat line, including `ui/nameLayer.js`'s BUBBLE1 speech-bubble treatment over the sender's own character.
   // See `_partyRestVoteTrackTick`'s own doc comment (this file, above) for the replacement: every near
   // member's own client now watches the shared pose data and pushes its own local, bubble-free `chatNotice`.
-  const onRelayVersion = (v) => { if (relayVersionSeen(v) === 'changed') chatNotice(RELAY_RESTART_TEXT); };
+  const onRelayVersion = (v) => { _relayKeepsRite = relaySupportsRite(v); _relayKeepsCage = relaySupportsCage(v); if (relayVersionSeen(v) === 'changed') chatNotice(RELAY_RESTART_TEXT); };   // AUDIT BROKER-CAGE C4, C6: and whether it keeps the rite and the cage
   // SRV-N: THE BUILD POLL. The relay moves by hand and rarely; the client
   // moves on every merge, which is what "whenever we push" actually is
   // for this project. Nothing tells a tab held open across a deploy that
@@ -23295,6 +23333,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     },
   });
   const lookGate = makeLookGate(canvas);
+  _worldKeysLive = true;   // KEY-BOOT: past the boot's last await - every binding the key ladder reads stands now
   const _frameToken = claimFrame();   // P0: this session owns the loop until someone claims after it
   status(null);   // FB0930-TITLE: the boot is done - the window loses its last loading step
   function frame(now) {
@@ -23737,6 +23776,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
         if (travelOptions) {
           const followDown = travelFollowPressed();
           travelNavFrame.dt = dt;   // TRAVEL-NAV1: the frame the steering's reach is measured over
+          refreshTravelOptionsSettings();   // TO-LIVE: a dial turned mid-journey reaches it
           const report = travelOptions.update({
             topWindowIsTravelUI: !!travelControlUI?.isShowing && !townTalk.overlayActive,
             topWindowAllowsTravel: townTalk.overlay === _travelMap,   // the mod's `DfTravelMapWindow` exception (:1351)
@@ -24216,7 +24256,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
           const _hccPick = pickActivatableHit(cam.pos, useFwd, hcc.targets(), collider);   // HCC: the parked wagon's box, the following team's, the standing horse's (RegisterCustomActivation at 3.2), the same one ray
           const _springPick = pickActivatableHit(cam.pos, useFwd, springTargets(), collider);   // SURV3: a fountain, a well, a trough
           const _gatePick = gatePool ? pickActivatableHit(cam.pos, useFwd, [...gatePool.targets(), ...(riteHost?.targets() ?? [])], collider) : null;   // WB2: an Oblivion Gate's fire; WB12d: and the faithful's casket, on its ray
-          const _brokerPick = sigilBroker ? pickActivatableHit(cam.pos, useFwd, sigilBroker.targets(), collider) : null;   // SET7: the Sigil Broker beside it
+          const _brokerPick = sigilBroker ? pickActivatableHit(cam.pos, useFwd, sigilBroker.targets(), collider) : null;   // SET7: the Sigil Broker (BROKER-CAGE: in her cage, its whole her box)
           const _csaBoatPick = csaActivationPick(cam.pos, useFwd);   // CSA-D: a boat's box or hull (RegisterCustomActivation 112400-112406 at 3.2), the same one ray
           // HARD2: the race is ONE law now (player/activationRace.js) - the
           // body against the pile, the torch against both and the door,
@@ -24830,7 +24870,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
 
     // WB2: the gate stood for this frame - before the lights (its fire lights the ground) and the world pass (its stone)
     try { if (gatePool?.frame(dt)) warmGateVeil(); } catch (e) { console.warn('[gate] pool', e?.message ?? e); }   // AUDIT WB D5: a gate stands - the step's veil is built ahead
-    try { sigilBroker?.frame(dt); } catch (e) { console.warn('[broker] pool', e?.message ?? e); }   // SET7: the Broker stands where the gate stood her
+    try { sigilBroker?.frame(dt); } catch (e) { console.warn('[broker] pool', e?.message ?? e); }   // SET7: the Broker stands where the clock stands her - BROKER-CAGE: in her cage at the faithful's circle
     try { riteHost?.frame(); } catch (e) { console.warn('[rite] host', e?.message ?? e); }   // WB12d: the faithful's circle, before the lights (its braziers light the ground)
     // Lanterns on 17:00-08:00, flickering verbatim; pixel-local lights
     // placed under the current compensation, nearest 16 to the camera.
@@ -24897,6 +24937,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     drawPeerBodies(proj, view, mwv.eye, tvf ? tvFace : null);   // MWBODY1: the others' bodies, the same pass; OW-PEERS: grown under the Overworld
     mwViewDrawWagon(renderer);   // EOTB-IL: the cart, when the transport is the cart
     riteHost?.draw(renderer, null, mwv.eye);   // WB12d: the faithful's circle and their tents - AUDIT WB12d (G6): its sigil from near the eye alone
+    sigilBroker?.draw(renderer);   // BROKER-CAGE: the Sigil Broker's cage beside it, and its door
     gatePool?.draw(renderer);   // WB2: the Oblivion Gate's stone
     camps.draw(renderer);   // SURV3: the tents, the cart's own pass
     hcc.draw(renderer);   // HCC: the trailing / parked / following wagon and its cargo, mine and the peers' (the horses ride the flats' pass)

@@ -62,3 +62,33 @@ for (const failure of ['null', 'rejected']) test(`a ${failure} Summoner spawn re
     assert.equal(attempts.filter(c => c === RITE_SUMMONER_CAREER).length, 2);
   } finally { host.destroyAll(); restoreModSaveRecords({}); }
 });
+
+// THE MERGE (#534 B01 x BROKER-CAGE): a failed slot waits for its retry past survivors() - and the hub's word that every
+// one of the faithful fell (the Broker's cage open) ends it, never stood after the cage opened
+test('a failed Summoner slot is never retried once the hub says the cage open', async () => {
+  restoreModSaveRecords({});
+  const day = 700, times = gateTimes(day), [x, z] = riteLocalOf(day);
+  let now = times.omenAt + 60000;
+  const list = [], attempts = [];
+  const host = createRiteHost({
+    now: () => now, omen: () => ({ site: { day, px: 300, py: 200, near: 'Audit town' } }),
+    pixelTranslation: () => [0, 0, 0], groundAt: () => 0, feet: () => [x, 0, z], online: () => true,
+    foes: {
+      spawn: async (career, at, opts) => {
+        attempts.push(career);
+        if (career === RITE_SUMMONER_CAREER) return null;
+        const f = { mobileType: career, site: opts.site, ai: { feet: [at[0], 0, at[1]] }, entity: { health: 50, maxHealth: 50 } };
+        list.push(f); return f;
+      },
+      list: () => list, campId: () => 7, drop() {}, remove(f) { list.splice(list.indexOf(f), 1); },
+    },
+  });
+  try {
+    host.frame(); await new Promise(setImmediate); host.frame();
+    assert.equal(attempts.filter(c => c === RITE_SUMMONER_CAREER).length, 1);
+    host.onBroken({ k: 'cl', d: day, px: 300, py: 200, at: now });
+    now += RITE_RESTAND_MS + 1;
+    host.frame(); await new Promise(setImmediate); host.frame();
+    assert.equal(attempts.filter(c => c === RITE_SUMMONER_CAREER).length, 1, 'the cage is open: the failed Summoner is not stood again');
+  } finally { host.destroyAll(); restoreModSaveRecords({}); }
+});

@@ -44,7 +44,7 @@ export const VITALS_CSS = `
    whole pixel, every shade a hard stop, nothing blurred - but built
    the way the classic's carved chrome is: a stone bevel lit from the
    top left, a brass clasp at each end, the fill banded like a painted
-   sprite rather than flat, and a pale
+   sprite rather than flat, and a faint
    chunk that stands where the bar WAS after a hit before it drains.
    The outer box is the same 24px it was, so the quickslot diamond's
    "22 + 32 * scale" line still clears it at every scale. Each vital
@@ -72,9 +72,12 @@ export const VITALS_CSS = `
    no stray sliver. */
 .hud-vital .hud-fill::after { content: ''; position: absolute; top: 0; bottom: 0; right: 0;
   width: min(2px, 100%); background: var(--v-hi); opacity: 0.85; }
+/* GHOST-DIM (2026-10-02, Discord "Fatigue Bar": "the pending change on the fatigue bar is white ... Please lower the
+   opacity for the damaged part of the bar"): the strip where the bar WAS is the bar's own body tone, faint - it was
+   its palest tone under a cream line at 0.55, which on fatigue's mint read as a white bar still full. Lost reads as
+   lost: darker than any band of the fill, never brighter. */
 .hud-vital .hud-ghost { position: absolute; inset: 0; width: 0; display: block; z-index: -1;
-  background: linear-gradient(180deg, #fff6e4 0 2px, var(--v-hi) 2px 17px, var(--v-lite) 17px 100%);
-  opacity: 0.55; }
+  background: var(--v-body); opacity: 0.35; }
 /* the brass clasps, one at each end, the full height of the frame so
    they add nothing to the row's box */
 .hud-vital::before, .hud-vital::after { content: ''; position: absolute; top: 0; bottom: 0; z-index: 2;

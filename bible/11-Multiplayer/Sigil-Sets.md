@@ -211,8 +211,10 @@ role, every sentence above, the sigil's notes. `01-Overview/Field-Bugs-2026-09-2
 
 ## 7. The Sigil Broker - Sigil Stones buy the day's stock (SET7)
 
-A Daedra trader (the game has no Dremora sprite; a Daedra Seducer stands in) waits beside each Oblivion Gate for as long
-as it stands. The stock is the DAY's (UTC, the shared clock's), minted from the day alone, so every player in the Bay
+A Daedra trader (the game has no Dremora sprite; a Daedra Seducer stands in) is held at each breach's faithful's
+circle - BROKER-CAGE (2026-10-02, Mac: "she should be present at the site in a jailed gate, and the gate opens after all
+the enemies are cleared"): caged from the omen, freed when every one of the faithful falls before the breach opens, and
+standing until the Wrath's midnight either way (`11-Multiplayer/World-Bosses.md` section 19 E). The stock is the DAY's (UTC, the shared clock's), minted from the day alone, so every player in the Bay
 sees the same pieces; it turns over at midnight UTC. It takes only Sigil Stones - the gate's own trophy, one a kill -
 and each character may buy each offer once that day. The stones STACK, with their own kind alone, and are BOUND: never
 traded between players (SS1), nor dropped or put in a container (SS3).
@@ -268,8 +270,10 @@ gold - a stone's only worth is at its own vendor.
 - A Test Room character plays offline (AUDIT SET D4): the room hands its character every Legendary and the Regalia
   whole, to look at. Its saves carry the mark; the Online pane's button is dead for it, saying why; a boot that would
   bring it online by any URL boots it offline and says so.
-- Stones won in a court are spent at the next gate: the gate collapses at the Warden's fall, and the Broker goes
-  with it.
+- Stones won in a court are spent the same night only where the rite was cleared: her cage opens only by the faithful
+  falling, every one, before the breach opens (BROKER-CAGE); freed, she stands until midnight - a Warden fallen early
+  no longer takes her. Where the faithful passed into the breach she stays caged that night, and the stones wait for
+  the next breach.
 - The raiding parties' sets (6b) come from a town defended online, at a relay that keeps raids (RAID3), and from
   nothing else: offline, a town's cleanse pays RAID1's reputation alone.
 - A Sigil Stone is bound (SS1, SS3, SS4), and so is every piece the Broker sells (SS4): it is never traded, dropped,
@@ -510,6 +514,10 @@ name the new calls; three MERGE-PLUS C8 mutants and SET3's import mutant are re-
 - **Found on the way**: the gate's plaque never showed - `gatePool.hoverName` answered a bare string, and the hover's
   ladder takes the first answer with a `title`; it answers `{ title: 'Oblivion Gate', subs: ['Opens in 4:12'] }` now
   ("Sealed" after 22:00).
+
+BROKER-CAGE (2026-10-02) moved her: caged at the faithful's circle from the omen to midnight, free once every one of
+them fell (`11-Multiplayer/World-Bosses.md` section 19 E). Where she stands, her box, her press and her leaving above
+are SET7's as built; the cage's are that section's.
 
 Pinned: `test/set7_broker.test.js` (8) and `test/set7_broker_world.test.js` (9); `tools/mutants/set7.json` (56, all
 dead); the probe `tools/brokerProbe.mjs` (221 checks: the REAL renderer drawing her beside a standing gate from three
