@@ -10,7 +10,7 @@
 -- fighter comes with it's own title. Being the #1 pvp arena player comes
 -- with it's own temporary title/glyph". Design:
 -- bible/11-Multiplayer/Arena.md "7. Online" - "account-service tables
--- (migration 0072 - 0047 on its branch, 0070 at the merge onto main past its 0047-0068, renumbered again past PROF9's and PROF12's 0069_cooking and 0070_alchemy at the second): ladder results (one row a tier won), PvP results (one
+-- (migration 0074 - 0047 on its branch, 0070 at the merge onto main past its 0047-0068, 0072 past PROF9's and PROF12's 0069_cooking and 0070_alchemy at the second, renumbered again past SILVER-WAYS' and PROF2b's 0071_silver_ways and 0072_motherlodes at the third): ladder results (one row a tier won), PvP results (one
 -- row a bout, both ratings), team membership and season; leaderboards
 -- counted from rows (/v1/arena/board)".
 --
