@@ -80,7 +80,7 @@ import { installDiverseWeaponsIcons } from '../combat/diverseWeaponsIcons.js';
 import { installRoleplayRealismItems } from '../systems/rriInstall.js';
 import { installDetailedShipsArt } from '../systems/detailedShips.js';   // DS1: Detailed Ships' pictures and xml scales
 import { installWarmAshesShips } from '../systems/warmAshesShips.js';   // WA1: Warm Ashes - Ships' quest list and save slot
-import { installRestItemLoot, litCandle, meditate, snuffCandle, draughtTaken, spendDraught, DRAUGHT_NIGHT_MINUTES } from '../systems/restItems.js';   // REST6: the seven that fill the gaps
+import { installRestItemLoot, litCandle, meditate, snuffCandle, draughtTaken, spendDraught, DRAUGHT_SPENT_MINUTES } from '../systems/restItems.js';   // REST6: the seven that fill the gaps
 import { installForaging } from '../systems/foragingInstall.js';   // FORAGE1: Foraging's quest list, tools, foods, pictures and console command
 import { installSmithing } from '../systems/smithItems.js';   // PROF3: the Repair Kit's use
 import { installHealingSupply } from '../systems/healingSupply.js';   // POTION-COMMON: Potions of Healing in the loot
@@ -2330,9 +2330,9 @@ export function createRestDeps(entity, opts = {}) {
         _rules = survivalRules();   // SURV-TIERS: the tier read beside the place prices it (restHour, stiffen, the asks)
         _place = (_restKindOverride ?? restKind)();
         _kind = _rules ? _place : REST_KIND.Bed; _roughHours = 0;
-        // REST6: a Sleeping Draught makes the night a bed's - its yield, its sleep rate, no stiff morning - and is spent
-        // by a night slept through (DRAUGHT_NIGHT_MINUTES on the character's clock): a stopped channel or a nap keeps it
-        if (_rules && _place !== REST_KIND.Bed && draughtTaken(entity) && (!sharedClockOn() || nightDue(entity, ownMinutes()))) { _place = REST_KIND.Bed; _kind = REST_KIND.Bed; _draughtFrom = ownMinutes(); }
+        // REST6: a Sleeping Draught makes a rough night a bed's - its yield, its sleep rate, no stiff morning - and is spent
+        // by any rest of DRAUGHT_SPENT_MINUTES under it (AUDIT REST F3: a fire or a tent prices as a bed already)
+        if (_rules && _place === REST_KIND.Rough && draughtTaken(entity) && (!sharedClockOn() || nightDue(entity, ownMinutes()))) { _place = REST_KIND.Bed; _kind = REST_KIND.Bed; _draughtFrom = ownMinutes(); }
         _roughCarry = { health: 0, fatigue: 0, magicka: 0 };   // PARTY-REST10: a fresh sleep owes nothing to whatever the last one banked
       }
       // SURV4: rough hours rested are a stiff morning (STIFF_HOURS of speed and agility) on the way out - an interrupted
@@ -2348,7 +2348,7 @@ export function createRestDeps(entity, opts = {}) {
       // PARTY-REST4b: an override is good for exactly one session - the moment THIS session's resting flag drops,
       // forget it, so a later real rest (this same entity choosing to actually rest for themselves) never
       // silently inherits a stale kind broadcast by whoever they last mirrored.
-      if (!b) { _restKindOverride = null; if (_draughtFrom != null && ownMinutes() - _draughtFrom >= DRAUGHT_NIGHT_MINUTES) spendDraught(entity); _draughtFrom = null; }
+      if (!b) { _restKindOverride = null; if (_draughtFrom != null && ownMinutes() - _draughtFrom >= DRAUGHT_SPENT_MINUTES) spendDraught(entity); _draughtFrom = null; }
     },
     setLoitering: (b) => { entity.isLoitering = !!b; },
     // THE PASS-THROUGH IS LOAD BEARING, and it is here because a review
@@ -2411,7 +2411,7 @@ export function createRestDeps(entity, opts = {}) {
   // REST6: a lit Meditation Candle makes the next rest its kneel, online or off (restMeditate); a Bedroll's point names
   // its own longer channel.
   out.restAct = () => {
-    if (litCandle()) return { point: { kind: 'candle', where: 'candle' }, night: false, meditate: true, channelSeconds: REST_CHANNEL_SECONDS };
+    if (litCandle(entity)) return { point: { kind: 'candle', where: 'candle' }, night: false, meditate: true, channelSeconds: REST_CHANNEL_SECONDS };
     if (!sharedClockOn()) return null;
     const point = restPoint?.() ?? null;
     return { point, night: nightDue(entity, ownMinutes()), channelSeconds: point?.channelSeconds ?? REST_CHANNEL_SECONDS };

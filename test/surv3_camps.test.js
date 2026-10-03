@@ -53,8 +53,8 @@ test('SURV3: where a camp may go - not indoors, not in town, not with foes near,
 });
 
 test('SURV3: the fire - eight hours from the lighting or the stoking; a tent stokes - REST2: and a Campfire relights while it has fuel; no camp burns away, a cold one stands', () => {
-  const tent = newCamp({ id: 't', kind: CAMP_KIND.Tent, pos: [0, 0, 0], now: 1000 });
-  const fire = newCamp({ id: 'f', kind: CAMP_KIND.Fire, pos: [0, 0, 0], now: 1000 });
+  const tent = newCamp({ id: 't', kind: CAMP_KIND.Tent, pos: [0, 0, 0], now: 1000, wear: 5 });
+  const fire = { ...newCamp({ id: 'f', kind: CAMP_KIND.Fire, pos: [0, 0, 0], now: 1000 }), fuel: true };   // a Campfire's (placeCampItem marks it)
   assert.equal(tent.litUntil, 1000 + FIRE_MINUTES); assert.equal(FIRE_MINUTES, 480);
   assert.equal(fireLit(tent, 1479), true); assert.equal(fireLit(tent, 1480), false);
   assert.equal(stokeFire(tent, 1200), true); assert.equal(tent.litUntil, 1480 + FIRE_MINUTES, 'stoked from the later of its end and now');
@@ -64,6 +64,10 @@ test('SURV3: the fire - eight hours from the lighting or the stoking; a tent sto
   assert.equal(stokeFire(fire, 1200), true, 'REST2: with fuel it relights');
   assert.equal(campExpired(fire, 1479), false); assert.equal(campExpired(fire, 99999), false, 'REST2: a cold Campfire stands for its owner');
   assert.equal(campExpired(tent, 99999), false, 'a tent stands cold');
+  // AUDIT REST F8: a tent worn through stokes no more; F12: an old save's kit fire (no fuel of its own) goes cold and is swept
+  assert.equal(stokeFire({ ...tent, wear: 0, litUntil: 0 }, 5000), false, 'a worn-through tent');
+  const kit = newCamp({ id: 'k', kind: CAMP_KIND.Fire, pos: [0, 0, 0], now: 1000 });
+  assert.equal(campExpired(kit, 1479), false); assert.equal(campExpired(kit, 1480), true, 'an old kit fire burns away');
 });
 
 test('SURV3: placing - the gear pitches a tent and leaves the pack with its wear; REST2: a Campfire lights and leaves the pack with its charges, and neither spends a use at the placing (a night does); four camps at most', () => {
@@ -115,7 +119,7 @@ test('SURV3: cooking - the raw foods alone; cooked a stage nearer fresh, one off
 
 test('SURV3: by the fire - within four of a LIT fire, anyone\'s; the eye\'s words and the menu\'s rows', () => {
   const lit = newCamp({ id: 'a', owner: 'x', kind: CAMP_KIND.Fire, pos: [0, 0, 0], now: 0 });
-  const cold = newCamp({ id: 'b', owner: 'x', kind: CAMP_KIND.Tent, pos: [10, 0, 0], now: -FIRE_MINUTES });
+  const cold = newCamp({ id: 'b', owner: 'x', kind: CAMP_KIND.Tent, pos: [10, 0, 0], now: -FIRE_MINUTES, wear: 5 });
   assert.equal(BY_FIRE_REACH, 4);
   assert.equal(nearestFire([lit, cold], [3.9, 0, 0], 10), lit);
   assert.equal(nearestFire([lit, cold], [4.1, 0, 0], 10), null);

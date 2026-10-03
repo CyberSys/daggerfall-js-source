@@ -7,7 +7,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { intermittentEnemySpawn, quietNights } from '../src/systems/encounters.js';
-import { setNightListener, heardNight, REST_ACT_TEXT } from '../src/systems/restAct.js';
+import { setNightListener, heardNight, REST_ACT_TEXT, nightStamp, isNightStamp, PARTY_NIGHT_MARK } from '../src/systems/restAct.js';
 import { createRestDeps } from '../src/scenes/shared.js';
 import { setSharedClock, setOwnMinutes, advanceOwnMinutes } from '../src/systems/worldTick.js';
 
@@ -44,10 +44,20 @@ test('REST5 the night is heard: a night slept whole calls the listener; a carrie
   } finally { setNightListener(prev); setSharedClock(null); }
 });
 
+test('AUDIT REST F7: a night\'s stamp is marked - the shared clock\'s second with 777 for its milliseconds; an older build\'s open (any other millisecond) is no night', () => {
+  assert.equal(PARTY_NIGHT_MARK, 777);
+  assert.equal(nightStamp(5_000_123), 5_000_777);
+  assert.equal(nightStamp(5_000_999), 5_000_777, 'never more than the mark past the second');
+  assert.equal(isNightStamp(5_000_777), true);
+  assert.equal(isNightStamp(5_000_776), false);
+  assert.equal(isNightStamp(null), false);
+});
+
 test('REST5 the words: carried, carried short, skipped - each names the member', () => {
   assert.equal(REST_ACT_TEXT.carried('Ada'), 'Ada rests here, and you rest with them through the night.');
   assert.equal(REST_ACT_TEXT.carriedShort('Ada'), 'Ada rests here, and you rest a while with them.');
   assert.equal(REST_ACT_TEXT.carriedSkipped('Ada'), 'Ada rests here - you are too busy to rest with them.');
+  assert.equal(REST_ACT_TEXT.noVote, 'Online there is no vote: rest at a fire, a tent or a bed, and your party within 15 m rests with you.');
 });
 
 test('REST5 by source: online the vote, the party card and the spend answer nothing; strangers never block at a public rest point; the follow tick carries the night through the mode\'s own bag, quietly, its stamp the pose\'s restStartedAt', () => {
@@ -59,10 +69,11 @@ test('REST5 by source: online the vote, the party card and the spend answer noth
   assert.match(w, /const publicRestPoint = \(\) => \{ const pt = hostRestDeps\(\)\?\.restAct\?\.\(\)\?\.point; return !!pt && pt\.where !== 'bedroll'; \};/, 'a Bedroll keeps the stranger rule');
   assert.match(w, /_partyRestVoteTrackTick\(\);\n    if \(sharedClockOn\(\)\) \{ carryPartyNight\(\); return; \}/, 'the follow tick carries the night online');
   assert.match(w, /if \(!restsWithParty\(\) \|\| !nearRestMembers\(\)\.some\(\(n\) => n\.acct === m\.acct\)\) continue;/, 'my switch, and the member here, near and not resting alone');
-  assert.match(w, /if \(seen === undefined \|\| !at \|\| at === seen \|\| now - at > PARTY_NIGHT_FRESH_MS\) continue;/, 'a first sight is a baseline; a stale stamp no night');
+  assert.match(w, /if \(seen === undefined \|\| !at \|\| at === seen \|\| now - at > PARTY_NIGHT_FRESH_MS \|\| !isNightStamp\(at\)\) continue;/, 'a first sight is a baseline; a stale stamp no night; AUDIT REST F7: an older build\'s open no night');
   assert.match(w, /if \(playerEntity\.isResting \|\| townTalk\.overlay \|\| mirrorRestRefused\(\)\) \{ setMidScreenText\(REST_ACT_TEXT\.carriedSkipped\(name\), 4\); return; \}/, 'mid-fight, swimming, a window, resting already: skipped and told');
   assert.match(w, /quietNights\(\(\) => \{\n      bag\.setResting\(true\);\n      try \{ r = night \? bag\.restNight\(\{ carried: true \}\) : bag\.restShort\(\); \} finally \{ bag\.setResting\(false\); \}/, 'my own bag, my own interval, no ambush');
-  assert.match(w, /setNightListener\(\(\) => \{ if \(social && sharedClockOn\(\)\) \{ _partyRestJustStartedAt = social\.now\(\); _partyComposedAt = -Infinity; \} \}\);/, 'the stamp is the night\'s, sent at once');
+  assert.match(w, /setNightListener\(\(\) => \{ if \(social && sharedClockOn\(\)\) \{ _partyRestJustStartedAt = nightStamp\(social\.now\(\)\); _partyComposedAt = -Infinity; \} \}\);/, 'the stamp is the night\'s, marked, sent at once');
+  assert.match(w, /if \(!social\?\.party\) \{ chatLog\.push\(tabId, \{ text: NO_PARTY_TEXT, system: true \}\); return true; \} if \(sharedClockOn\(\)\) \{ chatLog\.push\(tabId, \{ text: REST_ACT_TEXT\.noVote, system: true \}\); return true; \}/, 'AUDIT REST: /ready online says there is no vote');
   assert.match(w, /return mode === 'interior' \? modes\?\.restDeps\?\.\(\) \?\? null : mode === 'dungeon' \? modes\?\.dungeonCtx\?\.restDeps\?\.\(\) \?\? null : outdoorRestDeps;/);
   assert.match(rd('src/scenes/worldModes.js'), /restDeps: \(\) => interiorRestDeps,/);
   assert.match(rd('src/scenes/dungeonContext.js'), /restDeps: \(\) => _restDeps,/);

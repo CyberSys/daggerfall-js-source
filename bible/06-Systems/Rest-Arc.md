@@ -594,7 +594,8 @@ Mac: "Go" - every recommendation of section 15 taken. Slices REST1-REST6 and RES
   the same odds as one roll at `1 - (1 - p)^480`, the break landing at the hour it falls, as an ambush mid-night.
   `restNightAt` rides the save; a rented room's day is a night (`spendRoomNight`).
 - **REST2 - the Campfire** (`src/systems/survival/camp.js`, `src/scenes/camps.js`, `src/systems/survival/items.js`): as
-  section 3.
+  section 3 - the Pawn Shop's 0-2 and the online half price for a Campfire and Firewood came with AUDIT REST
+  (`shopStock.js`, `tradeModes.js`); the port's taverns keep no shelf, so a tavern sells none.
 - **REST3 - dungeon fires** (`src/world/dungeonFires.js`; `tools/dungeonFireProbe.mjs` for the real dungeons, which
   this tree's container cannot read - run it with ARENA2_PATH). As section 4, with these readings: N counts the
   non-border blocks (a border block is a cap of rock, not a room); a 6 m height band stands in for 4.2's storey
@@ -613,6 +614,25 @@ Mac: "Go" - every recommendation of section 15 taken. Slices REST1-REST6 and RES
   Alchemist's and the Ember Jar the General Store's. **Online every source is shut** - `REST_ITEMS_ONLINE` is false for
   this release (section 6's last rule: the templates ship a release before any shelf, pile, foe or recipe carries
   them); offline the shelves and the piles carry them with Climates & Calories.
+- **AUDIT REST** (2026-10-03, an independent pass over REST1-REST6; `test/auditrest.test.js`, `tools/mutants/auditrest.json`).
+  Fixed: a Campfire left standing in a dungeon was lost at the exit - the dungeon keeps nothing of mine, so it now comes
+  back into the pack with its fuel (`camps.js` packOwnFires; an Ember Jar's goes with the dungeon); the Draught makes
+  only a ROUGH night a bed's (a fire or a tent prices as one already, and a tent's fire stays tended) and is spent by
+  any rest of an hour under it (an offline nap had kept it for ever); a lit Candle is the pack's (sold, dropped or a
+  load since, no kneel - and no other copy spent); an offline loiter of six hours spent a night of fuel - a loiter is
+  no night; an older build stamps `restStartedAt` when its rest window OPENS, which would have carried newer members
+  into a whole night - a night's stamp now carries a mark (the second's 777th millisecond, restAct.js nightStamp) an
+  older build's open meets one time in a thousand; a worn-through tent no longer stokes or stands as a fire; the Salts
+  read the sleep stage (a Rested debt refused them); the laid Bedroll follows a recentre and the pack (a load leaves
+  no phantom); an old save's kit fire (no fuel of its own: `camp.fuel` marks a Campfire) burns away as it always did;
+  the dungeon fires compare squared distances in plain arithmetic (Math.hypot's last bit differs between engines, and a
+  tie must be the same tie on every client) and stand in no palace's block; the words - "Rest with my party", /ready
+  online, the Online pane, an Ember Jar's last night, the patch notes. Kept, as readings: a guild hall's rest is a
+  rough night with Climates & Calories (SURV4's own law; 2.1's table listed it under Bed - the notes now say so); a
+  quest box raised during a night no longer pauses it (the night is one step; the box waits at the wake, over the
+  rest window's own). Not verifiable here: the fires on the real dungeons (no ARENA2 in this container -
+  `tools/dungeonFireProbe.mjs` reports them) and a spot on a room's roof between storeys (the collider's rays are
+  two-sided; the ceiling and wall rays are the guard).
 - **REST7 - crafting: NOT BUILT, deliberately.** The recipes are a source like the shelves, so they could not open
   before `REST_ITEMS_ONLINE` does; adding them now changes the account service's bundle (an `acct` bump) for rows that
   stay shut. They ride the release that turns the switch on, with the shelves.

@@ -110,6 +110,8 @@ export const CAMP_TEXT = Object.freeze({
   relit: 'You relight the fire.',
   noFuel: 'Your campfire has no fuel left.',
   outOfFuel: 'Your campfire burns the last of its fuel.',
+  embersOut: 'The embers die out.',   // AUDIT REST: an Ember Jar's one night
+  carriedOut: 'You take your Campfire with you.',   // AUDIT REST F1: leaving a dungeon with yours standing
   campWorn: 'Your camping equipment wears through.',
   fuelLeft: (n) => `${n} ${n === 1 ? 'night' : 'nights'} of fuel`,
 });
@@ -150,14 +152,14 @@ export const fireLit = (camp, now) => Number.isFinite(camp?.litUntil) && now < c
  *  fuel (a charge left) - a cold one with none waits for Firewood. */
 export function stokeFire(camp, from) {
   if (!camp) return false;
-  if (camp.kind === CAMP_KIND.Fire && (camp.wear | 0) <= 0) return false;
+  if ((camp.wear | 0) <= 0) return false;   // REST2: no fuel, no fire - AUDIT REST F8: and a worn-through tent's neither
   camp.litUntil = Math.max(camp.litUntil ?? 0, from) + FIRE_MINUTES;
   return true;
 }
 /** REST2: NO CAMP BURNS AWAY. A Campfire that burns down goes cold and stands, its charges intact, for its owner to
  *  relight or pick up; a tent stands cold as it always did. [SUPERSEDES SURV3's kit fire, gone at its minute.] A
  *  peer's camps still go with their owner (scenes/camps.js sweepOwners). */
-export const campExpired = (camp, now) => !!camp?.jar && !fireLit(camp, now);   // REST6: an Ember Jar's fire goes with its embers
+export const campExpired = (camp, now) => camp?.kind === CAMP_KIND.Fire && !camp.fuel && !fireLit(camp, now);   // REST6: a fire with no fuel of its own - an Ember Jar's, AUDIT REST F12: an old save's kit fire - goes with its embers
 
 /** REST2: a night its owner slept at it spends one charge (a Campfire's fuel, a tent's wear). A Campfire whose last
  *  charge is spent goes cold. Answers { spent, empty } - nothing at all for a camp with none to spend. */
@@ -165,7 +167,7 @@ export function spendCampNight(camp, now) {
   if (!camp || (camp.wear | 0) <= 0) return { spent: false, empty: true };
   camp.wear = (camp.wear | 0) - 1;
   const empty = camp.wear <= 0;
-  if (empty && camp.kind === CAMP_KIND.Fire) camp.litUntil = now;
+  if (empty) camp.litUntil = now;   // AUDIT REST F8: the last night leaves a tent cold too - nothing left to stoke
   return { spent: true, empty };
 }
 
@@ -194,6 +196,7 @@ export function placeCampItem(item, list, { now = 0, owner = null, feet = [0, 0,
     if ((item.stackCount ?? 1) > 1) item.stackCount -= 1; else { const j = Array.isArray(list) ? list.indexOf(item) : -1; if (j >= 0) list.splice(j, 1); }
     return { ok: true, text: REST_ITEM_TEXT.emberLit, camp, spent: true };
   }
+  if (kind === CAMP_KIND.Fire) camp.fuel = true;   // AUDIT REST F12: a Campfire's own fuel - cold, it stands (an old save's kit fire, none, is swept)
   const i = Array.isArray(list) ? list.indexOf(item) : -1;
   if (i >= 0) list.splice(i, 1);
   const text = kind === CAMP_KIND.Tent ? CAMP_TEXT.pitched : CAMP_TEXT.lit;
@@ -253,7 +256,7 @@ export function campInfoText(camp, now, mine) {
  *  fuel; pack your tent, or pick your Campfire up. The keys are the plaque's action ids (REST2: the loot plaque's rows). */
 export function campMenu(camp, now, mine) {
   const rows = [{ key: 'rest', text: CAMP_TEXT.menuRest }, { key: 'cook', text: CAMP_TEXT.menuCook }];
-  if (camp.kind === CAMP_KIND.Tent && !fireLit(camp, now)) rows.push({ key: 'stoke', text: CAMP_TEXT.menuStoke });
+  if (camp.kind === CAMP_KIND.Tent && !fireLit(camp, now) && (camp.wear | 0) > 0) rows.push({ key: 'stoke', text: CAMP_TEXT.menuStoke });
   if (camp.kind === CAMP_KIND.Fire && mine && !camp.jar && !fireLit(camp, now) && (camp.wear | 0) > 0) rows.push({ key: 'stoke', text: CAMP_TEXT.menuRelight });
   if (mine && !camp.jar) rows.push({ key: 'pack', text: camp.kind === CAMP_KIND.Tent ? CAMP_TEXT.menuPack : CAMP_TEXT.menuPickUp });
   return rows;

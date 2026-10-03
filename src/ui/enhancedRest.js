@@ -117,7 +117,7 @@ export function mountEnhancedRest(hostEl, deps, ignoreAllocatedBed = false) {
   const moveToBed = () => { if (overlay._allocatedBed != null && !ignoreAllocatedBed) deps.moveToBed?.(overlay._allocatedBed); };
   overlay._end = (result) => {
     if (result.rentExpired) deps.onRentExpired?.();
-    if ((overlay.session?.totalHours ?? 0) >= 6) deps.onNightSlept?.();   // REST2: a night slept spends your own camp's charge, as restWindow.js
+    if (overlay.mode !== 'loiter' && (overlay.session?.totalHours ?? 0) >= 6) deps.onNightSlept?.();   // REST2: a night slept spends your own camp's charge, as restWindow.js
     overlay._endLines = result.text ? [result.text, ...(result.extra ? [result.extra] : [])] : (deps.endLines?.(result.textId) ?? ['You wake up.']);   // REST1: a short rest says when a night may pass again
     if (result.died || !overlay._endLines?.length) { close(); deps.onRestFinished?.(); return; }
     overlay.state = 'ended';

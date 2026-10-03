@@ -56,11 +56,12 @@
  {
   "name": "REST6-the-salts-wasted-on-the-rested",
   "file": "src/systems/restItems.js",
-  "old": "  if ((s.sleepDebt ?? 0) <= 0) return { kind: 'text', text: REST_ITEM_TEXT.saltsNotTired };\n",
+  "old": "  if (sleepStage(s.sleepDebt ?? 0) === 'rested') return { kind: 'text', text: REST_ITEM_TEXT.saltsNotTired };",
   "new": "",
   "tests": [
    "test/rest6_consumables.test.js"
-  ]
+  ],
+  "note": "AUDIT REST (PIN MOVED): re-aimed by content."
  },
  {
   "name": "REST6-the-salts-hold-nothing",
@@ -92,11 +93,12 @@
  {
   "name": "REST6-the-draught-never-spent",
   "file": "src/scenes/shared.js",
-  "old": "if (_draughtFrom != null && ownMinutes() - _draughtFrom >= DRAUGHT_NIGHT_MINUTES) spendDraught(entity);",
-  "new": "if (_draughtFrom != null && ownMinutes() - _draughtFrom >= DRAUGHT_NIGHT_MINUTES) {}",
+  "old": "if (_draughtFrom != null && ownMinutes() - _draughtFrom >= DRAUGHT_SPENT_MINUTES) spendDraught(entity);",
+  "new": "if (_draughtFrom != null && ownMinutes() - _draughtFrom >= DRAUGHT_SPENT_MINUTES) {}",
   "tests": [
    "test/rest6_consumables.test.js"
-  ]
+  ],
+  "note": "AUDIT REST (PIN MOVED): re-aimed by content."
  },
  {
   "name": "REST6-the-draught-does-nothing",
@@ -137,11 +139,12 @@
  {
   "name": "REST6-the-candle-kneel-is-dfus-window",
   "file": "src/scenes/shared.js",
-  "old": "    if (litCandle()) return { point: { kind: 'candle', where: 'candle' }, night: false, meditate: true, channelSeconds: REST_CHANNEL_SECONDS };\n",
+  "old": "    if (litCandle(entity)) return { point: { kind: 'candle', where: 'candle' }, night: false, meditate: true, channelSeconds: REST_CHANNEL_SECONDS };\n",
   "new": "",
   "tests": [
    "test/rest6_consumables.test.js"
-  ]
+  ],
+  "note": "AUDIT REST (PIN MOVED): re-aimed by content."
  },
  {
   "name": "REST6-the-jar-picked-up",
@@ -155,11 +158,12 @@
  {
   "name": "REST6-the-jar-never-swept",
   "file": "src/systems/survival/camp.js",
-  "old": "export const campExpired = (camp, now) => !!camp?.jar && !fireLit(camp, now);",
+  "old": "export const campExpired = (camp, now) => camp?.kind === CAMP_KIND.Fire && !camp.fuel && !fireLit(camp, now);",
   "new": "export const campExpired = () => false;",
   "tests": [
    "test/rest6_consumables.test.js"
-  ]
+  ],
+  "note": "AUDIT REST (PIN MOVED): re-aimed by content."
  },
  {
   "name": "REST6-the-jar-burns-a-day",
@@ -254,10 +258,11 @@
  {
   "name": "REST6-the-draught-spent-by-a-stopped-rest",
   "file": "src/scenes/shared.js",
-  "old": "if (_draughtFrom != null && ownMinutes() - _draughtFrom >= DRAUGHT_NIGHT_MINUTES) spendDraught(entity);",
+  "old": "if (_draughtFrom != null && ownMinutes() - _draughtFrom >= DRAUGHT_SPENT_MINUTES) spendDraught(entity);",
   "new": "if (_draughtFrom != null) spendDraught(entity);",
   "tests": [
    "test/rest6_consumables.test.js"
-  ]
+  ],
+  "note": "AUDIT REST (PIN MOVED): re-aimed by content."
  }
 ]

@@ -256,7 +256,7 @@ export function createCamps({
     openRest?.(null);
     return true;
   }
-  const bedrollNear = (pos) => !!_bedroll && !!pos && (_bedroll.list ?? []).includes(_bedroll.item) && within(_bedroll.pos, pos, BY_FIRE_REACH);
+  const bedrollNear = (pos) => !!_bedroll && !!pos && (entity?.items ?? []).includes(_bedroll.item) && within(_bedroll.pos, pos, BY_FIRE_REACH);   // AUDIT REST F10: still in THIS pack (a load replaces it)
   /** The host's rest point here (REST1's restPoint, REST6's Bedroll): a lit fire in reach, else the Bedroll laid. */
   const restPointAt = (pos) => (fireNear(pos) ? { kind: 'camp', where: 'fire' }
     : bedrollNear(pos) ? { kind: 'rough', where: 'bedroll', channelSeconds: BEDROLL_CHANNEL_SECONDS } : null);
@@ -267,7 +267,7 @@ export function createCamps({
     tendWhileResting(t);
     for (let i = camps.length - 1; i >= 0; i--) {
       const c = camps[i];
-      if (campExpired(c.rec, t)) { drop(c); if (c.owner == null) onChanged?.(); continue; }
+      if (c.owner == null && campExpired(c.rec, t)) { drop(c); onChanged?.(); continue; }   // AUDIT REST F12: mine - a peer's goes with its owner's word
       if (c.batch) {
         if (!fireLit(c.rec, t)) { unmount(c); continue; }   // embers: no flame
         if (c.anim) c.batch.frame = c.anim.tick(dt);
@@ -285,7 +285,7 @@ export function createCamps({
     const feet = camera?.()?.feet;
     if (!feet) return;
     for (const c of camps) {
-      if (!mine(c) || c.rec.kind !== CAMP_KIND.Tent || !fireLit(c.rec, t) || !within(c.rec.pos, feet, BY_FIRE_REACH)) continue;
+      if (!mine(c) || c.rec.kind !== CAMP_KIND.Tent || (c.rec.wear | 0) <= 0 || !fireLit(c.rec, t) || !within(c.rec.pos, feet, BY_FIRE_REACH)) continue;
       if ((c.rec.litUntil ?? 0) - t > FIRE_MINUTES - 60) continue;   // tended within the hour: one word on the wire an hour, not a frame
       c.rec.litUntil = t + FIRE_MINUTES;
       onChanged?.();
@@ -421,7 +421,7 @@ export function createCamps({
     }
     const r = spendCampNight(best.rec, now());
     if (!r.spent) return false;
-    if (r.empty) { say(best.rec.kind === CAMP_KIND.Fire ? CAMP_TEXT.outOfFuel : CAMP_TEXT.campWorn); if (best.rec.kind === CAMP_KIND.Fire) unmount(best); }
+    if (r.empty) { say(best.rec.jar ? CAMP_TEXT.embersOut : best.rec.kind === CAMP_KIND.Fire ? CAMP_TEXT.outOfFuel : CAMP_TEXT.campWorn); unmount(best); }
     onChanged?.();
     return true;
   }
@@ -543,6 +543,7 @@ export function createCamps({
   function offsetAll(offset) {
     const [dx, dy, dz] = offset;
     for (const c of camps) { c.rec.pos[0] += dx; c.rec.pos[1] += dy; c.rec.pos[2] += dz; if (c.batch) remount(c); }
+    if (_bedroll) { _bedroll.pos[0] += dx; _bedroll.pos[1] += dy; _bedroll.pos[2] += dz; }   // AUDIT REST F10: the laid spot rides the origin too
   }
   /** This player's own camps for the save and the scene cache, in the host's frame. */
   const snapshot = (toWorld = (p) => p) => own().map((rec) => { const p = toWorld(rec.pos); return { ...rec, pos: [p[0], p[1], p[2]] }; });
@@ -556,7 +557,7 @@ export function createCamps({
       const n = /^[^:]+:(\d+)(?::|$)/.exec(String(r.id ?? ''));
       if (n) _nextId = Math.max(_nextId, Number(n[1]));
       const p = fromWorld(r.pos);
-      stand({ id: String(r.id ?? `me:${++_nextId}`), owner: r.owner ?? null, kind: r.kind, pos: [p[0], p[1], p[2]], yaw: Number(r.yaw) || 0, litUntil: Number.isFinite(r.litUntil) ? r.litUntil : null, wear: r.wear | 0, placedAt: r.placedAt ?? null, ...(r.jar === true ? { jar: true } : {}) });   // REST6: an Ember Jar's fire stays one
+      stand({ id: String(r.id ?? `me:${++_nextId}`), owner: r.owner ?? null, kind: r.kind, pos: [p[0], p[1], p[2]], yaw: Number(r.yaw) || 0, litUntil: Number.isFinite(r.litUntil) ? r.litUntil : null, wear: r.wear | 0, placedAt: r.placedAt ?? null, ...(r.jar === true ? { jar: true } : {}), ...(r.fuel === true ? { fuel: true } : {}) });   // REST6: an Ember Jar's fire stays one; AUDIT REST F12: a Campfire its own fuel
       if (own().length >= CAMPS_PER_OWNER) break;
     }
   }
@@ -569,6 +570,21 @@ export function createCamps({
    */
   function dropOwn() {
     for (let i = camps.length - 1; i >= 0; i--) if (mine(camps[i])) drop(camps[i]);
+    _bedroll = null;   // AUDIT REST F10
+  }
+  /** AUDIT REST F1: leaving a scene that keeps nothing of mine (a dungeon): my own Campfires back into the pack with the
+   *  fuel they have, said once - never an Ember Jar's. Answers how many. */
+  function packOwnFires() {
+    let n = 0;
+    for (let i = camps.length - 1; i >= 0; i--) {
+      const c = camps[i];
+      if (!mine(c) || c.rec.kind !== CAMP_KIND.Fire || c.rec.jar) continue;
+      const r = packCamp(c.rec);
+      if (r.item && entity) { (entity.items ??= []).push(r.item); n++; }
+      drop(c);
+    }
+    if (n) { say(CAMP_TEXT.carriedOut); onChanged?.(); }
+    return n;
   }
 
   // ---- ONLINE ----
@@ -606,7 +622,7 @@ export function createCamps({
 
   return {
     placeItem, tick, batches, lights, draw, targets, hoverName, activate, openMenu, openCook, byFire, fireNear, spendNightNear,
-    restPointAt, bedrollNear,   // REST6
+    restPointAt, bedrollNear, packOwnFires,   // REST6; AUDIT REST F1
     destroyAll, dropOwn, collectPixel, offsetAll, snapshot, restore, wireRecords, applyOwner, sweepOwners,
     get camps() { return camps; }, own,
   };

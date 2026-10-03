@@ -119,9 +119,9 @@ test('REST6 the Draught: taken once a night; the next night (the interval run ou
 });
 
 test('REST6 the Candle: lit from the pack, the next rest is its kneel - a six-second channel, offline too - and the kneel ends with half the magicka and a use; stopped, it stays unspent', () => {
-  const e = { magicka: 0, maxMagicka: 40 };
   const candle = createRestItem(REST_ITEM.Candle);
   const list = [candle];
+  const e = { magicka: 0, maxMagicka: 40, items: list };
   const r = useCandle(candle, list);
   assert.deepEqual([r.text, r.closesWindow], [REST_ITEM_TEXT.candleLit, true]);
   const deps = createRestDeps(e, { endLines: () => null });
@@ -152,7 +152,7 @@ test('REST6 the Ember Jar: a one-night fire for 180 minutes, one off the stack; 
   assert.deepEqual(campMenu(r.camp, 300, true).map((x) => x.key), ['rest', 'cook'], 'and no relight');
   assert.equal(campExpired(r.camp, 279), false);
   assert.equal(campExpired(r.camp, 280), true, 'swept with its embers');
-  assert.equal(campExpired(newCamp({ id: 'c', kind: CAMP_KIND.Fire, pos: [0, 0, 0], now: 0, wear: 0 }), 10_000), false, 'a Campfire stands cold');
+  assert.equal(campExpired({ ...newCamp({ id: 'c', kind: CAMP_KIND.Fire, pos: [0, 0, 0], now: 0, wear: 0 }), fuel: true }, 10_000), false, 'a Campfire stands cold');
 });
 
 function pool(entity, said = [], opened = []) {
@@ -240,8 +240,8 @@ test('REST6 by source: the windows kneel by the candle, the hosts\' rest points 
   const shared = rd('src/scenes/shared.js');
   assert.ok(shared.indexOf('  installRestItemLoot();') > shared.indexOf('  installForaging();'), 'after Foraging\'s hooks');
   assert.match(shared, /installHealingSupply\(\);[^\n]*\n  installRestItemLoot\(\);/, 'and the healing supply\'s: the last draw on a pile');
-  assert.match(shared, /if \(_rules && _place !== REST_KIND\.Bed && draughtTaken\(entity\) && \(!sharedClockOn\(\) \|\| nightDue\(entity, ownMinutes\(\)\)\)\) \{ _place = REST_KIND\.Bed; _kind = REST_KIND\.Bed; _draughtFrom = ownMinutes\(\); \}/);
-  assert.match(shared, /if \(_draughtFrom != null && ownMinutes\(\) - _draughtFrom >= DRAUGHT_NIGHT_MINUTES\) spendDraught\(entity\); _draughtFrom = null;/);
+  assert.match(shared, /if \(_rules && _place === REST_KIND\.Rough && draughtTaken\(entity\) && \(!sharedClockOn\(\) \|\| nightDue\(entity, ownMinutes\(\)\)\)\) \{ _place = REST_KIND\.Bed; _kind = REST_KIND\.Bed; _draughtFrom = ownMinutes\(\); \}/);
+  assert.match(shared, /if \(_draughtFrom != null && ownMinutes\(\) - _draughtFrom >= DRAUGHT_SPENT_MINUTES\) spendDraught\(entity\); _draughtFrom = null;/);
   assert.match(rd('src/systems/itemInfo.js'), /if \(isSurvivalItem\(item\) \|\| isRestItem\(item\)\) record = survivalInfoTokens\(item\);/);
   assert.match(rd('src/ui/enhancedInventory.js'), /survival: isSurvivalItem\(item\) \|\| isRestItem\(item\) \?/);
 });

@@ -53,8 +53,8 @@ test('REST2 placing spends nothing: the Campfire leaves the pack and its charges
 });
 
 test('REST2 a night spends one charge; the last leaves the Campfire cold, standing; it relights while it has fuel; picked up it comes back with what is left', () => {
-  const camp = newCamp({ id: 'me:1', kind: CAMP_KIND.Fire, pos: [0, 0, 0], now: 0, wear: 2 });
-  assert.equal(campExpired(camp, 10_000), false, 'no camp burns away');
+  const camp = { ...newCamp({ id: 'me:1', kind: CAMP_KIND.Fire, pos: [0, 0, 0], now: 0, wear: 2 }), fuel: true };
+  assert.equal(campExpired(camp, 10_000), false, 'no Campfire burns away');
   assert.deepEqual(spendCampNight(camp, 50), { spent: true, empty: false });
   assert.equal(camp.wear, 1);
   assert.deepEqual(spendCampNight(camp, 60), { spent: true, empty: true });
@@ -132,8 +132,8 @@ test('REST2 by source: the hosts hand the plaque\'s lit row to the camps and spe
   assert.match(rd('src/scenes/dungeonContext.js'), /camps\.activate\(key, mode, plaqueActionFor\(key\)\)/);
   for (const f of ['src/scenes/world.js', 'src/scenes/exterior.js', 'src/scenes/dungeonContext.js']) assert.match(rd(f), /onNightSlept: \(\) => camps\.spendNightNear\(/, f);
   assert.match(rd('src/scenes/shared.js'), /out\.onNightSlept\?\.\(\);/);
-  assert.match(rd('src/ui/restWindow.js'), /if \(\(this\.session\?\.totalHours \?\? 0\) >= 6\) this\.deps\.onNightSlept\?\.\(\);/);
-  assert.match(rd('src/ui/enhancedRest.js'), /if \(\(overlay\.session\?\.totalHours \?\? 0\) >= 6\) deps\.onNightSlept\?\.\(\);/);
+  assert.match(rd('src/ui/restWindow.js'), /if \(this\.mode !== 'loiter' && \(this\.session\?\.totalHours \?\? 0\) >= 6\) this\.deps\.onNightSlept\?\.\(\);/, 'AUDIT REST F5: a loiter is no night');
+  assert.match(rd('src/ui/enhancedRest.js'), /if \(overlay\.mode !== 'loiter' && \(overlay\.session\?\.totalHours \?\? 0\) >= 6\) deps\.onNightSlept\?\.\(\);/);
   assert.match(rd('src/systems/startingGear.js'), /else if \(sharedClockOn\(\)\) \{ const it = startingCampfire\(\);/);
   assert.match(rd('src/systems/shopStock.js'), /else if \(sharedClockOn\(\)\) for \(const it of campfireStock\(rolls\)\) items\.push\(it\);/);
 });

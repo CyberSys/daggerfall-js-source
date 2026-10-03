@@ -28,7 +28,7 @@ import { registerCustomTemplates, registerItemUseHandler, templateByIndex, mintC
 import { ICON_TWIGS } from '../net/professionLaw.js';
 import { isOnlinePage } from './onlineLane.js';
 import { survivalOn } from './survival/switch.js';
-import { survivalOf, WAKING_DEBT_HOURS } from './survival/needs.js';
+import { survivalOf, sleepStage, WAKING_DEBT_HOURS } from './survival/needs.js';
 import { ownMinutes } from './worldTick.js';
 import { maxFatigue } from './statMods.js';
 import { registerTabledLootHandler, registerEnemyLootExtra } from './loot.js';
@@ -53,7 +53,7 @@ export const CANDLE_USES = 3;
 export const SALTS_MINUTES = 60;
 export const SALTS_DEBT_HOURS = WAKING_DEBT_HOURS;   // the law's (survival/needs.js landWakingDebt)
 export const SALTS_USES = 3;
-export const DRAUGHT_NIGHT_MINUTES = 360;   // a night slept through: DFU's six hours, the REST2 offline night's measure
+export const DRAUGHT_SPENT_MINUTES = 60;   // AUDIT REST F3: an hour's rest under it spends it - a stopped channel keeps it
 
 const row = (index, name, baseWeight, hitPoints, basePrice, rarity, icon, stackable) => Object.freeze({
   index, name, baseWeight, hitPoints, capacityOrTarget: 0, basePrice, enchantmentPoints: 0, rarity, variants: 0,
@@ -160,7 +160,7 @@ export function useTonic(item, list, entity, now = ownMinutes()) {
 export function useSalts(item, list, entity, now = ownMinutes()) {
   if (!survivalOn() || !entity) return { kind: 'text', text: REST_ITEM_TEXT.saltsArcOff };
   const s = survivalOf(entity, now);
-  if ((s.sleepDebt ?? 0) <= 0) return { kind: 'text', text: REST_ITEM_TEXT.saltsNotTired };
+  if (sleepStage(s.sleepDebt ?? 0) === 'rested') return { kind: 'text', text: REST_ITEM_TEXT.saltsNotTired };   // AUDIT REST F9: the stage, not the debt
   s.wakingUntil = Math.max(s.wakingUntil ?? 0, now) + SALTS_MINUTES;
   spendCharge(item, list);
   return { kind: 'text', text: REST_ITEM_TEXT.salts };
@@ -180,15 +180,16 @@ export const spendDraught = (entity) => { if (entity?.survival) entity.survival.
 
 // ---- THE CANDLE: lit from the pack, knelt by through the rest key -------------------------------------------------
 let _candle = null;   // { item, list } - the candle lit, waiting for the rest's channel (createRestDeps' restAct)
-/** The candle the next rest kneels by, or null. */
-export const litCandle = () => _candle;
+/** The candle the next rest kneels by, or null - AUDIT REST F4: only while it is still in `entity`'s pack (sold, dropped,
+ *  stored or a load since, it is out). */
+export const litCandle = (entity = null) => (_candle && (!entity || (entity.items ?? []).includes(_candle.item)) ? _candle : null);
 export function useCandle(item, list) {
   _candle = { item, list };
   return { kind: 'text', text: REST_ITEM_TEXT.candleLit, closesWindow: true };
 }
 /** The kneel held to its end: magicka, one use. Answers the wake text. */
 export function meditate(entity) {
-  const c = _candle;
+  const c = litCandle(entity);
   _candle = null;
   if (!c || !entity) return null;
   const max = entity.maxMagicka ?? 0;

@@ -169,7 +169,7 @@ import { PLAYED_STEP_MAX_SECONDS } from '../systems/quest/clock.js';   // WORLD7
 import { mintQuestFoeWave, placeFoeEnv, entityOccupancy, questFoeGender, reviveQuestBehaviour, heldSpots, holdSpotWhile, questBoxHoldsFoes, questShareTag, sharedQuestFoe, partnerStandsQuestFoes, questBehaviourFor, adoptsOrphanQuestFoe, isPrivateQuestFoe, KeptKillLedger, creditKeptKills } from './questFoeHost.js';   // B1   // AUDIT 63r F24: SerializableEnemy.cs:206-217's quest-link arm, the one home both hosts use
 import { ENEMY_BASICS } from '../characters/enemyBasics.js';   // MERGE: FinalizeFoe's Flying lift reads the behaviour flag
 import { intermittentEnemySpawn, setEnemyAlert, areEnemiesNearby, foeHostile, quietNights } from '../systems/encounters.js';   // OW6: foeHostile, the one hostility gate   // REST5: a carried night wakes to no ambush
-import { nightDue, setNightListener, REST_ACT_TEXT } from '../systems/restAct.js';   // REST5: the party's night
+import { nightDue, setNightListener, nightStamp, isNightStamp, REST_ACT_TEXT } from '../systems/restAct.js';   // REST5: the party's night
 import { createStandingWatch, installLegalNotices } from './standingHost.js';   // REP1: the watch's stop; REP5: the law's notices
 import { SPAWNER_ARMS } from '../systems/encounters.js';   // SURV6: the hunt's beast stands on the wilderness arm
 import { skillValue } from '../systems/skills.js';   // SURV6: the hunter's four skills
@@ -16629,7 +16629,7 @@ export async function bootWorld(canvas, renderer, params, status) {
           // AUDIT PARTY-REST (2026-09-23): the chat's vote keeps the Rest key's own law (PARTY-REST26) - a member
           // answers the leader's round and never opens one - and is stamped on the SHARED clock: `readyAt` rides
           // the pose (world95) so every reader judges the vote's freshness alike. Un-readying is always allowed.
-          if (!social?.party) { chatLog.push(tabId, { text: NO_PARTY_TEXT, system: true }); return true; }
+          if (!social?.party) { chatLog.push(tabId, { text: NO_PARTY_TEXT, system: true }); return true; } if (sharedClockOn()) { chatLog.push(tabId, { text: REST_ACT_TEXT.noVote, system: true }); return true; }   // AUDIT REST: online there is no vote (REST5)
           if (!restTogether()) { chatLog.push(tabId, { text: restAloneText(restsWithParty()), system: true }); return true; }   // REST-OPT
           if (!_partyRestReady && !social.leads() && !partyRoundActive()) { chatLog.push(tabId, { text: 'Only the leader can start a resting vote.', system: true }); return true; }
           _partyRestReady = !_partyRestReady;
@@ -18467,7 +18467,7 @@ export async function bootWorld(canvas, renderer, params, status) {
       const at = stampOf(m.p?.restStartedAt, now);
       const seen = _nightSeen.get(m.acct);
       _nightSeen.set(m.acct, at);
-      if (seen === undefined || !at || at === seen || now - at > PARTY_NIGHT_FRESH_MS) continue;
+      if (seen === undefined || !at || at === seen || now - at > PARTY_NIGHT_FRESH_MS || !isNightStamp(at)) continue;   // AUDIT REST F7: a night's, never an older build's open
       if (!restsWithParty() || !nearRestMembers().some((n) => n.acct === m.acct)) continue;
       sleepCarriedNight(m.name || 'A party member');
       return;   // one night a frame
@@ -18486,7 +18486,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     if (night && !r?.died && !r?.enemyBroke) bag.onRestFinished?.();   // the night's skill raise, as the window's close gives it
     setMidScreenText(night ? REST_ACT_TEXT.carried(name) : REST_ACT_TEXT.carriedShort(name), 5);
   };
-  setNightListener(() => { if (social && sharedClockOn()) { _partyRestJustStartedAt = social.now(); _partyComposedAt = -Infinity; } });
+  setNightListener(() => { if (social && sharedClockOn()) { _partyRestJustStartedAt = nightStamp(social.now()); _partyComposedAt = -Infinity; } });
   const partyRestHere = () => !sharedClockOn() && !!social?.party && !modes?.insidePartyRestExempt && restTogether();   // REST-OPT: resting alone is a rest of my own
   const partyRestGate = () => {
     if (!social?.party) return null;

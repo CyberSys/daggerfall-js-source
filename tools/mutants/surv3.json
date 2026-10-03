@@ -11,21 +11,22 @@
   {
     "name": "REST2-a-campfire-with-no-fuel-relights",
     "file": "src/systems/survival/camp.js",
-    "old": "  if (camp.kind === CAMP_KIND.Fire && (camp.wear | 0) <= 0) return false;\n",
+    "old": "  if ((camp.wear | 0) <= 0) return false;   // REST2: no fuel, no fire - AUDIT REST F8: and a worn-through tent's neither\n",
     "new": "",
     "tests": [
       "test/rest2_campfire.test.js"
-    ]
+    ],
+    "note": "AUDIT REST (PIN MOVED): re-aimed by content."
   },
   {
     "name": "REST2-a-burnt-down-campfire-is-swept-away",
     "file": "src/systems/survival/camp.js",
-    "old": "export const campExpired = (camp, now) => !!camp?.jar && !fireLit(camp, now);",
+    "old": "export const campExpired = (camp, now) => camp?.kind === CAMP_KIND.Fire && !camp.fuel && !fireLit(camp, now);",
     "new": "export const campExpired = (camp, now) => camp?.kind === CAMP_KIND.Fire && !fireLit(camp, now);",
     "tests": [
       "test/rest2_campfire.test.js"
     ],
-    "note": "REST6 (PIN MOVED): re-aimed by content."
+    "note": "REST6 (PIN MOVED): re-aimed by content. AUDIT REST (PIN MOVED): re-aimed by content."
   },
   {
     "name": "REST2-a-placed-campfire-stays-in-the-pack",
@@ -94,11 +95,13 @@
   {
     "name": "SURV3-a-dead-kit-fire-stands-for-ever",
     "file": "src/scenes/camps.js",
-    "old": "      if (campExpired(c.rec, t)) { drop(c); if (c.owner == null) onChanged?.(); continue; }",
+    "old": "      if (c.owner == null && campExpired(c.rec, t)) { drop(c); onChanged?.(); continue; }",
     "new": "",
     "tests": [
+      "test/auditrest.test.js",
       "test/surv3_camps.test.js"
-    ]
+    ],
+    "note": "AUDIT REST (PIN MOVED): re-aimed by content."
   },
   {
     "name": "SURV3-the-pixel-sweep-leaves-the-camp",

@@ -47,6 +47,7 @@ export const REST_ACT_TEXT = Object.freeze({
   channel: (where) => `Resting by the ${where}...`,
   channelBed: 'Resting...',
   meditating: 'Meditating by the candle...',   // REST6: the Meditation Candle's kneel
+  noVote: 'Online there is no vote: rest at a fire, a tent or a bed, and your party within 15 m rests with you.',   // AUDIT REST: /ready online
   nextNight: (minutes) => `A night can pass again in ${minutes} ${minutes === 1 ? 'minute' : 'minutes'}.`,
   rested: 'Rested',
   carried: (name) => `${name} rests here, and you rest with them through the night.`,   // REST5: a member's night, carried
@@ -118,3 +119,12 @@ export function spendRoomNight(room) {
 let _nightListener = null;
 export function setNightListener(fn) { const prev = _nightListener; _nightListener = typeof fn === 'function' ? fn : null; return prev; }
 export const heardNight = () => { _nightListener?.(); };
+
+/** AUDIT REST F7: A NIGHT'S STAMP IS MARKED. The party's night rides the pose's `restStartedAt` (REST5, no relay bump),
+ *  and an older build stamps that same field when its rest window OPENS - so a mate on an older build who opened the
+ *  window, chose an hour or walked away from it would have carried every newer member into a whole night. A night's
+ *  stamp is the shared clock's second with PARTY_NIGHT_MARK for its milliseconds; an older build's open lands on it
+ *  one time in a thousand. */
+export const PARTY_NIGHT_MARK = 777;
+export const nightStamp = (t) => Math.floor(t / 1000) * 1000 + PARTY_NIGHT_MARK;
+export const isNightStamp = (t) => Number.isFinite(t) && ((t % 1000) + 1000) % 1000 === PARTY_NIGHT_MARK;

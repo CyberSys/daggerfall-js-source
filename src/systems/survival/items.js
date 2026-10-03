@@ -250,9 +250,9 @@ export function startingProvisions() {
 /** REST2 (bible/06-Systems/Rest-Arc.md section 3): ONLINE THE CAMPFIRE IS THE REST'S, NOT THE ARC'S. A rest online is
  *  an act at a fire or a bed (systems/restAct.js), so with the arc Off a General Store still stocks two to four, and a
  *  new character still sets out with one. */
-export function campfireStock(rolls = Math.random) {
+export function campfireStock(rolls = Math.random, lo = 2, hi = 4) {   // AUDIT REST: a Pawn Shop's 0-2 (Rest-Arc.md section 3)
   const out = [];
-  for (let i = 2 + Math.floor(rolls() * 3); i > 0; i--) out.push(createSurvivalItem(TEMPLATE.Campfire));
+  for (let i = lo + Math.floor(rolls() * (hi - lo + 1)); i > 0; i--) out.push(createSurvivalItem(TEMPLATE.Campfire));
   return out.filter(Boolean);
 }
 export const startingCampfire = () => createSurvivalItem(TEMPLATE.Campfire);

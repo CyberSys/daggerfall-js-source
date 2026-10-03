@@ -63,7 +63,7 @@ export function fireCandidates(blocks) {
   const out = [];
   (blocks ?? []).forEach((b, bi) => {
     const lay = b?.layout;
-    if (!lay) return;
+    if (!lay || lay.castleBlock) return;   // AUDIT REST: a palace's block is a court, never a camp
     const water = Number.isFinite(lay.waterLevel) && lay.waterLevel !== WATER_NONE ? -lay.waterLevel * GLOBAL_SCALE : -Infinity;
     for (const m of lay.markers ?? []) {
       if (!isFireMarker(m)) continue;
@@ -91,9 +91,13 @@ export function dungeonStart(blocks) {
 /** Every enemy marker, in the dungeon's frame. */
 export const enemyMarks = (blocks) => (blocks ?? []).flatMap((b) => (b?.layout?.markers ?? []).filter(isEnemyMarker).map((m) => [m.x + b.originX, m.y, m.z + b.originZ]));
 
-const d2 = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]);
+// AUDIT REST: every measure the choice compares is a SQUARED distance in plain arithmetic - Math.hypot's last bit differs
+// between engines (and with its arguments' order), and a tie the hash breaks only on exact equality must be the same tie
+// on every client. Thresholds are squared to match.
+const d2 = (a, b) => { const x = a[0] - b[0], y = a[1] - b[1], z = a[2] - b[2]; return x * x + y * y + z * z; };
 /** The deep fire's measure: 3D, height counted twice. */
-const deep = (a, b) => Math.hypot(a[0] - b[0], 2 * (a[1] - b[1]), a[2] - b[2]);
+const deep = (a, b) => { const x = a[0] - b[0], y = 2 * (a[1] - b[1]), z = a[2] - b[2]; return x * x + y * y + z * z; };
+const SQ = (m) => m * m;
 
 /** The rays read the dungeon's own mesh (its 'dungeon' bucket) - never a door's or a platform's (PROF2's veins' rule,
  *  AUDIT 29 C3: a closed door's bucket exists only while shut, and the next stand would move the fire). */
@@ -138,8 +142,8 @@ export function landCandidates(cands, { probe, doors = [], enemies = [] } = {}) 
     if (!f || !Number.isFinite(f.y) || !(f.ny > DFIRE.flatNy)) continue;
     const pos = [c.pos[0], f.y, c.pos[2]];
     if (pos[1] < c.water + DFIRE.dryM) continue;
-    if (doors.some((d) => d2(d, pos) < DFIRE.doorM)) continue;
-    if (enemies.some((e) => Math.hypot(e[0] - pos[0], e[2] - pos[2]) < DFIRE.enemyM && Math.abs(e[1] - pos[1]) < DFIRE.storeyM)) continue;
+    if (doors.some((d) => d2(d, pos) < SQ(DFIRE.doorM))) continue;
+    if (enemies.some((e) => SQ(e[0] - pos[0]) + SQ(e[2] - pos[2]) < SQ(DFIRE.enemyM) && Math.abs(e[1] - pos[1]) < DFIRE.storeyM)) continue;
     if (!probe?.room?.(pos)) continue;
     out.push({ ...c, pos });
   }
@@ -157,12 +161,12 @@ export function chooseFires(valid, { seed = 0, existing = [], start = null, coun
   if (!pool.length || count <= 0) return [];
   const better = (a, b, sa, sb) => (sa !== sb ? sa > sb : a.tie < b.tie);
   const take = (c) => { chosen.push(c); pool.splice(pool.indexOf(c), 1); };
-  const clearOf = (p, list, m) => list.every((q) => d2(q, p) >= m);
+  const clearOf = (p, list, m) => list.every((q) => d2(q, p) >= SQ(m));
   // 1. the entrance fire - unless the layout already stands one by the door in
   const from = start ?? pool.find((c) => c.start)?.pos ?? pool[0].pos;
-  if (!existing.some((q) => d2(q, from) < DFIRE.entranceM)) {
+  if (!existing.some((q) => d2(q, from) < SQ(DFIRE.entranceM))) {
     const near = (list) => list.reduce((best, c) => (!best || better(c, best, -d2(c.pos, from), -d2(best.pos, from)) ? c : best), null);
-    const inReach = pool.filter((c) => d2(c.pos, from) <= DFIRE.entranceM);
+    const inReach = pool.filter((c) => d2(c.pos, from) <= SQ(DFIRE.entranceM));
     const first = near(inReach.length ? inReach : pool.filter((c) => c.start)) ?? near(pool);
     if (first) take(first);
   }
@@ -190,7 +194,7 @@ export function chooseFires(valid, { seed = 0, existing = [], start = null, coun
 
 /** THE WARD: is a spawn's spot (`{ x, y, z }`) within DFIRE.wardM of a placed fire? The bonfire's promise, not a
  *  guarantee - a layout foe can still walk up. */
-export const inFireWard = (fires, spot) => !!spot && (fires ?? []).some((q) => Math.hypot(q[0] - spot.x, q[1] - spot.y, q[2] - spot.z) < DFIRE.wardM);
+export const inFireWard = (fires, spot) => !!spot && (fires ?? []).some((q) => SQ(q[0] - spot.x) + SQ(q[1] - spot.y) + SQ(q[2] - spot.z) < SQ(DFIRE.wardM));
 
 /**
  * The whole law in one call, for the scene: `blocks` the layout's, `probe` the collider's answers, `doors` the

@@ -693,7 +693,7 @@ export class RestWindow {
     // does not), and DFU calls RemoveExpiredRentedRooms right there -
     // the landlord clears the room as the player wakes.
     if (result.rentExpired) this.deps.onRentExpired?.();
-    if ((this.session?.totalHours ?? 0) >= 6) this.deps.onNightSlept?.();   // REST2: a night slept (six hours, RaiseSkills' own night) spends your own camp's charge
+    if (this.mode !== 'loiter' && (this.session?.totalHours ?? 0) >= 6) this.deps.onNightSlept?.();   // REST2: a night slept (six hours, RaiseSkills' own night) spends your own camp's charge
     this.endLines = result.died ? null
       : (result.text ? [result.text, ...(result.extra ? [result.extra] : [])] : (this.deps.endLines?.(result.textId) ?? null));   // REST1: a short rest says when a night may pass again
     if (result.died || !this.endLines) {

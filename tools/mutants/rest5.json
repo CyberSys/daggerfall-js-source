@@ -84,11 +84,12 @@
  {
   "name": "REST5-a-stale-night-carries",
   "file": "src/scenes/world.js",
-  "old": "      if (seen === undefined || !at || at === seen || now - at > PARTY_NIGHT_FRESH_MS) continue;",
-  "new": "      if (seen === undefined || !at || at === seen) continue;",
+  "old": " || now - at > PARTY_NIGHT_FRESH_MS || !isNightStamp(at)) continue;",
+  "new": " || !isNightStamp(at)) continue;",
   "tests": [
    "test/rest5_partynight.test.js"
-  ]
+  ],
+  "note": "AUDIT REST (PIN MOVED): re-aimed by content."
  },
  {
   "name": "REST5-a-busy-member-is-pulled-in",

@@ -2,8 +2,8 @@
 
 ## Online, a rest is something you do at a fire, a tent or a bed
 - **Rest at a rest point.** Online you rest at a lit fire (your Campfire, a friend's, a tent's, a brazier or a
-  dungeon's campfire), at a bed (a rented room, your house, a ship's cabin, a guild hall that allows it), or on a
-  Bedroll. Out in the open with none of these, the rest window says "Find a fire or a bed to rest." In town, resting
+  dungeon's campfire), at a bed (a rented room, your house, a ship's cabin), in a guild hall that lets you rest, or on
+  a Bedroll. Out in the open with none of these, the rest window says "Find a fire or a bed to rest." In town, resting
   outside is still illegal: the window says so, and no guard is called.
 - **Hold still for six seconds.** The rest window shows a short bar instead of the hours. Press Stop or Esc and
   nothing happens. If an enemy comes, the rest is broken as before.
@@ -12,15 +12,17 @@
   is used.
 - **One night every ten minutes of play.** Resting again sooner is a short rest: it heals you, and no time passes.
   The status bar shows a **Rested** tile with the minutes left until the next night.
-- **A night at a fire, a tent or a bed heals you fully.** A Bedroll is a rough night: in Hard it heals less and you
-  wake stiff.
+- **A night at a fire, a tent or a bed heals you fully.** A Bedroll is a rough night, and so is a guild hall's floor
+  with Climates & Calories: in Hard it heals less and you wake stiff.
 - **Rooms count nights.** A room rented for three days gives three nights.
+- **A Campfire you leave burning in a dungeon comes out with you,** with the fuel it has left.
 - **The loiter option is gone online.** The sky runs on real time, so waiting for it does nothing.
 - **Offline play is unchanged.** You rest as in Daggerfall, for as many hours as you choose.
 
 ## The Campfire is a tool you keep
 - **Online, every new character starts with a Campfire,** and General Stores sell two to four, whether or not
-  Climates & Calories is on. (Offline the Campfire is part of Climates & Calories, as before.)
+  Climates & Calories is on. Pawn Shops have up to two. Online a Campfire costs half, as a potion does. (Offline
+  the Campfire is part of Climates & Calories, as before.)
 - **It has eight nights of fuel.** Placing it costs nothing. A night you sleep at your own Campfire uses one night of
   fuel. A friend sleeping at your fire costs you nothing.
 - **It doesn't burn away.** When it burns down it goes cold and stays where it is. Relight it while it has fuel, or
@@ -31,12 +33,13 @@
 
 ## Campfires in dungeons
 - **Every dungeon has campfires of its own**: one near the entrance, one deep inside, and more in between, at least
-  80 metres apart. A small dungeon has two, a large one up to seven. An elite dungeon has half as many.
+  80 metres apart. A small dungeon has one or two, a large one up to seven. An elite dungeon has half as many. A
+  palace has none.
 - They are the same in every player's game, never go out and can't be picked up. They light the room around them,
   you can cook at them, and online you can rest at them.
 - **No wandering monster appears within 15 metres of one.** A monster that was already in the dungeon can still walk
   up.
-- They show on the compass in yellow, and on the dungeon map once you've seen the spot.
+- They show on the compass in yellow, and on the held dungeon map (the enhanced map) once you've seen the spot.
 - They appear offline too, as places to cook and warm up.
 
 ## Resting as a party
@@ -44,6 +47,7 @@
   metres who has "Rest with my party" on sleeps that night too, each with their own healing. Only the player who
   rested can be ambushed.
 - If you're fighting, swimming, in a menu or already resting, you're skipped, and told so.
+- **/ready now just says how a party rests online.**
 - **Other players never stop you resting at a fire or a bed.** On a Bedroll the old rule stays: other players
   nearby stop you.
 
@@ -63,3 +67,7 @@
 - **Offline** (with Climates & Calories) General Stores and Alchemists sell them, and dungeon piles and enemies
   sometimes carry an Ember Jar or a Tonic. **Online they arrive in the next update.** This update teaches every
   game what they are first, so nobody on an older version loses one in a trade or a shared chest.
+
+## Quest waits
+- **Online, a quest that only makes you wait moves on after a couple of minutes of play:** a letter, a meeting, a
+  "come back in three days". Deadlines still run on the world's clock while you play, as the quest timer notes say.
