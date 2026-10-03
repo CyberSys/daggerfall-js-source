@@ -211,8 +211,12 @@ test('AUDIT SILVER-WAYS B1: a claim reads past the contracts it may be paid by -
     }
     return batch(list);
   };
-  const [x, y] = await Promise.all(pair.map((w) => s.raid(w, raidKey(DF, 70))));
+  const both = await Promise.all(pair.map((w) => s.raid(w, raidKey(DF, 70))));
   db.prepare = prepare; db.batch = batch;
+  // which of the two reaches its write first is the scheduler's (a claim's own awaits before its read) - the first is the
+  // one the three best paid, whichever player it was; the law is that the other is paid by the next, read past them
+  // (it read the 50 for Xan always, and failed a run in three where Yve's claim wrote first)
+  const [x, y] = both[0].body.contracts.some((c) => c.contract === next.body.contract.id) ? [both[1], both[0]] : both;
   assert.deepEqual(x.body.contracts.map((c) => c.pay + c.tax), [50, 50, 50], 'the first: the three best, each its last deed');
   assert.deepEqual(y.body.contracts.map((c) => c.contract), [next.body.contract.id], 'the second: the next, read past the three');
   assert.ok(s.addsUp());
