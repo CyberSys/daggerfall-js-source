@@ -105,7 +105,7 @@ let MARK_EPOCH = 0;
  *  origin and result its rays write through (raycastHit does not keep either past its return). */
 const CAP_SPOKES = [0, 0, 1, 0, -1, 0, 0, 1, 0, -1, 1, 1, 1, -1, -1, 1, -1, -1];
 const CAP_ORIGIN = [0, 0, 0];
-const CAP_HIT = { dist: Infinity, key: null, normal: [0, 0, 0] };
+const CAP_HIT = { dist: Infinity, key: null, normal: [0, 0, 0], back: false };
 function rayMarks(bucket) {
   let m = bucket.rayMark;
   if (!m || m.length < bucket.tris.length) {
@@ -846,6 +846,10 @@ export class Collider {
     // faces hit (as above), so the sign follows the approach side.
     let normal = null;
     let nx = 0, ny = 0, nz = 0;
+    // AUDIT REST II F4: `back` - the ray struck the face's BACK, its own winding's normal turned away from the ray's
+    // source (the answer's normal is flipped to face the ray, so it cannot say). A downward ray on a ceiling's top is
+    // one: dungeonFires.js colliderFireProbe reads a floor by it.
+    let back = false;
     if (bestTri) {
       const [a, b, c] = bestTri;
       nx = (b[1] - a[1]) * (c[2] - a[2]) - (b[2] - a[2]) * (c[1] - a[1]);
@@ -858,15 +862,17 @@ export class Collider {
       }
       const l = Math.hypot(nx, ny, nz) || 1;
       nx /= l; ny /= l; nz /= l;
-      if (nx * dirW[0] + ny * dirW[1] + nz * dirW[2] > 0) { nx = -nx; ny = -ny; nz = -nz; }
+      back = nx * dirW[0] + ny * dirW[1] + nz * dirW[2] > 0;
+      if (back) { nx = -nx; ny = -ny; nz = -nz; }
       if (!out) normal = [nx, ny, nz];
     }
     if (out) {   // TRAVEL-NAV1: the caller's own result, written in place
       out.dist = best; out.key = bestKey;
       out.normal[0] = nx; out.normal[1] = ny; out.normal[2] = nz;
+      out.back = back;
       return out;
     }
-    return { dist: best, key: bestKey, normal };
+    return { dist: best, key: bestKey, normal, back };
   }
 
   /**

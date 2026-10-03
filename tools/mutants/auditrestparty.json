@@ -229,11 +229,12 @@
  {
   "name": "AUDITRESTPARTY-B3-the-room-never-swept",
   "file": "src/scenes/dungeonContext.js",
-  "old": "if (peers) camps.sweepColdAbsent(new Set(peers.map((q) => q?.id))); }",
-  "new": "}",
+  "old": "    if (peers) camps.sweepColdAbsent(new Set(peers.map((q) => q?.id)));\n  }",
+  "new": "  }",
   "tests": [
    "test/auditrestparty_camps.test.js"
-  ]
+  ],
+  "note": "AUDIT REST II (PIN MOVED): F9 moved the frame's sweep into sweepColdPeers (once a second, while a peer's camp stands); re-aimed by content at the same call - the room never swept."
  },
  {
   "name": "AUDITRESTPARTY-B4-customs-lets-them-in",

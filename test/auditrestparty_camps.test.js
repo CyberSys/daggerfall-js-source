@@ -92,7 +92,11 @@ test('AUDIT REST-PARTY B3: a peer\'s fire gone cold whose owner is not in the ro
   assert.equal(p.sweepColdAbsent(new Set(['here'])), 1);
   assert.deepEqual(p.camps.map((c) => c.owner).sort(), ['gone-lit', 'here']);
   assert.equal(p.sweepColdAbsent(null), 0, 'no roster read: nothing swept');
-  assert.match(rd('src/scenes/dungeonContext.js'), /camps\.tick\(dt\);[^\n]*\n    if \(onlineRoom\(\)\) \{ const peers = opts\.peers\?\.\(\); if \(peers\) camps\.sweepColdAbsent\(new Set\(peers\.map\(\(q\) => q\?\.id\)\)\); \}/, 'each frame, against the room\'s peers');
+  // AUDIT REST II F9 (PIN MOVED): the frame's sweep is sweepColdPeers - the same sweep against the room's peers, read at
+  // most once a second and only while a peer's camp stands (test/auditrest2_fires.test.js runs it)
+  const dc = rd('src/scenes/dungeonContext.js');
+  assert.match(dc, /camps\.tick\(dt\);[^\n]*\n    sweepColdPeers\(dt\);/, 'each frame, the sweep');
+  assert.match(dc, /    if \(!onlineRoom\(\)\) return;\n[\s\S]{0,200}?const peers = opts\.peers\?\.\(\);\n    if \(peers\) camps\.sweepColdAbsent\(new Set\(peers\.map\(\(q\) => q\?\.id\)\)\);\n  \}/, 'online, against the room\'s peers');
 });
 
 test('AUDIT REST-PARTY B4: customs keeps the supplies offline while their sources are shut, and says so; online none is used, offline as ever', () => {

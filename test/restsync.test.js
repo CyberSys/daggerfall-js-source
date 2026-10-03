@@ -63,6 +63,10 @@ function restDoors(over = {}) {
     _authority: true, lastPlayerFeet: [1.234, 2, 3.456], _motorYaw: 0.5, _locationKey: 'dungeon:7', _restAskAt: null,
     _askAt: new Map(), ENEMY_BASICS: { 5: {}, 9: {} }, clock: 1000,
     _spawnEncounter: (hit, o) => { spawned.push([hit, o]); return Promise.resolve(null); },
+    // AUDIT REST II F1 (RE-AIMED): a joiner asks only where the host's own placement finds a spot outside a fire's ward
+    // (encounterSpot), and a night running hears the ask at once (ambushNight) - here a spot stands and no night runs
+    // (a paced window), so these doors keep their own question; test/auditrest2_fires.test.js asks the others
+    encounterSpot: () => ({ x: 9, y: 0, z: 9 }), ambushNight: () => false,
     ...over,
   };
   state.Date = { now: () => state.clock };

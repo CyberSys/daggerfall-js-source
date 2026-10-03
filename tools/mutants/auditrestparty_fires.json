@@ -138,10 +138,11 @@
  {
   "name": "AUDITRESTPARTY-C6-the-probe-keeps-clear-of-every-door-face",
   "file": "tools/dungeonFireProbe.mjs",
-  "old": "  const { doors, existing } = fireLayoutInputs(blocks, layoutHearths(blocks, sizeOf));\n  const inner",
-  "new": "  const { existing } = fireLayoutInputs(blocks, layoutHearths(blocks, sizeOf));\n  const doors = blocks.flatMap((b) => (b.layout.exitDoors ?? []).map((d) => [d.matrix[12] + b.originX, d.matrix[13], d.matrix[14] + b.originZ]));\n  const inner",
+  "old": "  const { doors, existing } = fireLayoutInputs(blocks, layoutHearths(blocks, sizeOf));\n  const plan",
+  "new": "  const { existing } = fireLayoutInputs(blocks, layoutHearths(blocks, sizeOf));\n  const doors = blocks.flatMap((b) => (b.layout.exitDoors ?? []).map((d) => [d.matrix[12] + b.originX, d.matrix[13], d.matrix[14] + b.originZ]));\n  const plan",
   "tests": [
    "test/auditrestparty_fires.test.js"
-  ]
+  ],
+  "note": "AUDIT REST II (PIN MOVED): the tool's report is the law's one call now (dungeonFirePlan - F2/F5/F6), so the line after the inputs is the plan; re-aimed by content, every door face read as an exit."
  }
 ]

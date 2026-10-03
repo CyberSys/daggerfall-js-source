@@ -22,18 +22,21 @@ const at = (x, y = 0, z = 0, start = false) => ({ pos: [x, y, z], start, water: 
 const mk = (record, x, z, y = 0.5) => ({ record, x, y, z });
 const open = { floor: () => ({ y: 0, ny: 1 }), room: () => true };   // a flat open floor at y 0 everywhere
 
-/** Triangles: quads and boxes into one { positions, indices } (a model, or a bucket's mesh). */
+/** Triangles: quads and boxes into one { positions, indices } (a model, or a bucket's mesh).
+ *  AUDIT REST II F4 (FIXTURE RE-WOUND): a box's top and a hall's floor are wound to look UP, as a real mesh's floor is
+ *  (its front - the face the world pass draws, renderer.js frontFace - toward the room). They were wound looking down,
+ *  which the collider could not tell apart until F4's back-face rule: a floor wound down now reads as a ceiling's top. */
 function mesh() {
   const positions = [], indices = [];
   const quad = (a, b, c, d) => { const n = positions.length / 3; positions.push(...a, ...b, ...c, ...d); indices.push(n, n + 1, n + 2, n, n + 2, n + 3); };
   const box = (x0, y0, z0, x1, y1, z1) => {
-    quad([x0, y1, z0], [x1, y1, z0], [x1, y1, z1], [x0, y1, z1]); quad([x0, y0, z0], [x1, y0, z0], [x1, y0, z1], [x0, y0, z1]);
+    quad([x0, y1, z0], [x0, y1, z1], [x1, y1, z1], [x1, y1, z0]); quad([x0, y0, z0], [x1, y0, z0], [x1, y0, z1], [x0, y0, z1]);
     quad([x0, y0, z0], [x1, y0, z0], [x1, y1, z0], [x0, y1, z0]); quad([x0, y0, z1], [x1, y0, z1], [x1, y1, z1], [x0, y1, z1]);
     quad([x0, y0, z0], [x0, y0, z1], [x0, y1, z1], [x0, y1, z0]); quad([x1, y0, z0], [x1, y0, z1], [x1, y1, z1], [x1, y1, z0]);
   };
   /** A hall `2h` square and `t` high, centred on the origin: floor, ceiling, four walls. */
   const hall = (h, t) => {
-    quad([-h, 0, -h], [h, 0, -h], [h, 0, h], [-h, 0, h]); quad([-h, t, -h], [h, t, -h], [h, t, h], [-h, t, h]);
+    quad([-h, 0, -h], [-h, 0, h], [h, 0, h], [h, 0, -h]); quad([-h, t, -h], [h, t, -h], [h, t, h], [-h, t, h]);
     quad([-h, 0, -h], [h, 0, -h], [h, t, -h], [-h, t, -h]); quad([-h, 0, h], [h, 0, h], [h, t, h], [-h, t, h]);
     quad([-h, 0, -h], [-h, 0, h], [-h, t, h], [-h, t, -h]); quad([h, 0, -h], [h, 0, h], [h, t, h], [h, t, -h]);
   };
@@ -84,16 +87,16 @@ test('AUDIT REST-PARTY C5: a brazier by the door counts toward N - N - 1 placed 
   assert.ok(withB.every((p) => (p[0] - 8) ** 2 + (p[2] - 8) ** 2 >= DFIRE.spacingM ** 2), 'none by the brazier');
   const elite = placeDungeonFires({ ...base, elite: true });
   assert.equal(elite.length, 2);
-  assert.deepEqual(elite[0], [5, 0, 5], 'an elite\'s first is the entrance\'s');
+  assert.deepEqual(elite[0], [5 + DFIRE.ringM, 0, 5], 'an elite\'s first is the entrance\'s');   // AUDIT REST II F3 (PIN MOVED): on the start's ring, 2 m out - never on the start, where the player appears
   const eliteB = placeDungeonFires({ ...base, elite: true, existing: brazier });
   assert.deepEqual(eliteB, [elite[1]], 'the brazier is the entrance\'s, the deep fire the other');
   // an elite of one with a brazier at its door: the brazier is the one
   const small = row(4);   // 3 inner -> N 2, an elite 1
   assert.equal(placeDungeonFires({ blocks: small, probe: open, seed: 5, elite: true }).length, 1);
   assert.deepEqual(placeDungeonFires({ blocks: small, probe: open, seed: 5, elite: true, existing: brazier }), []);
-  // a brazier far from the door is not the entrance's: the full count, the entrance fire on the start
+  // a brazier far from the door is not the entrance's: the full count, the entrance fire by the start
   const far = placeDungeonFires({ ...base, existing: [[RDB_SIDE * 6, 0, 30]] });
-  assert.deepEqual(far[0], [5, 0, 5]);
+  assert.deepEqual(far[0], [5 + DFIRE.ringM, 0, 5]);   // AUDIT REST II F3 (PIN MOVED): the start's ring, 2 m out
 });
 
 test('AUDIT REST-PARTY C3: a stair\'s tread and a ramp are no floor - the floor sampled half a metre round on eight bearings, level to 5 cm, flat past 0.99', () => {
@@ -108,7 +111,7 @@ test('AUDIT REST-PARTY C3: a stair\'s tread and a ramp are no floor - the floor 
   for (const deg of [20, 7]) {
     const rm = mesh(); rm.hall(15, 8);
     const tan = Math.tan((deg * Math.PI) / 180);
-    rm.quad([-4, 0, 0], [4, 0, 0], [4, tan * 10, 10], [-4, tan * 10, 10]);
+    rm.quad([-4, 0, 0], [-4, tan * 10, 10], [4, tan * 10, 10], [4, 0, 0]);   // AUDIT REST II F4 (FIXTURE RE-WOUND): the ramp's face looks up
     const rp = colliderFireProbe(collider(['dungeon', rm]));
     const f = rp.floor([0, tan * 5 + 0.3, 5]);
     assert.ok(Math.abs(f.y - tan * 5) < 1e-6, `${deg}: the ray lands on the ramp`);
@@ -177,7 +180,7 @@ test('AUDIT REST-PARTY C6: tools/dungeonFireProbe.mjs stands what the game stand
   const r = probeFires(col, blocks, { seed: 3, sizeOf });
   assert.equal(r.braziers, 1);
   assert.equal(r.valid, 1, 'the start marker kept beside a door face that is not an exit; the lift\'s marker refused');
-  assert.deepEqual(r.fires, [[5, 0, 5]]);
+  assert.deepEqual(r.fires, [[5 + DFIRE.ringM, 0, 5]]);   // AUDIT REST II F3 (PIN MOVED): the start's ring, 2 m out - where the door face that is no exit stands
   // the game's own call over the same inputs, read the game's way, stands the same fires
   const { doors, existing } = fireLayoutInputs(blocks, layoutHearths(blocks, sizeOf));
   assert.deepEqual(placeDungeonFires({ blocks, probe: colliderFireProbe(col), doors, existing, seed: 3 }), r.fires);

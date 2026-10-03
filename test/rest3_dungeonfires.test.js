@@ -70,7 +70,7 @@ function room({ ceiling = true } = {}) {
   const v = [], idx = [];
   const quad = (a, b, cc, d) => { const n = v.length / 3; v.push(...a, ...b, ...cc, ...d); idx.push(n, n + 1, n + 2, n, n + 2, n + 3); };
   const H = 10, T = 4;
-  quad([-H, 0, -H], [H, 0, -H], [H, 0, H], [-H, 0, H]);   // floor
+  quad([-H, 0, -H], [-H, 0, H], [H, 0, H], [H, 0, -H]);   // floor - AUDIT REST II F4 (FIXTURE RE-WOUND): looking up, as a real mesh's floor (it was wound down, which F4 reads as a ceiling's top)
   if (ceiling) quad([-H, T, -H], [H, T, -H], [H, T, H], [-H, T, H]);
   quad([-H, 0, -H], [H, 0, -H], [H, T, -H], [-H, T, -H]); quad([-H, 0, H], [H, 0, H], [H, T, H], [-H, T, H]);
   quad([-H, 0, -H], [-H, 0, H], [-H, T, H], [-H, T, -H]); quad([H, 0, -H], [H, 0, H], [H, T, H], [H, T, -H]);
@@ -95,9 +95,11 @@ test('REST3 the choice: the entrance fire by the start, the deep fire at the far
   const blocks = row(12);   // 11 inner blocks -> round(11 / 3) = 4
   const fires = placeDungeonFires({ blocks, probe: open, seed: 1234 });
   assert.equal(fires.length, 4);
-  assert.deepEqual(fires[0], [5, 0, 5], 'the entrance fire on the start marker');
+  // AUDIT REST II F3 (PIN MOVED): a marker's fire stands on its ring, 2 m out (the first bearing, +x) - on the start
+  // marker it stood on the player's own way in, the defect this pin used to hold
+  assert.deepEqual(fires[0], [5 + DFIRE.ringM, 0, 5], 'the entrance fire by the start marker');
   const far = Math.max(...fireCandidates(blocks).map((c) => c.pos[0]));
-  assert.equal(fires[1][0], far, 'the deep fire at the far end');
+  assert.equal(fires[1][0], far + DFIRE.ringM, 'the deep fire at the far end');
   for (let i = 0; i < fires.length; i++) for (let j = i + 1; j < fires.length; j++) assert.ok(Math.hypot(fires[i][0] - fires[j][0], fires[i][2] - fires[j][2]) >= DFIRE.spacingM);
   assert.deepEqual(placeDungeonFires({ blocks, probe: open, seed: 1234 }), fires, 'deterministic');
   // a brazier by the door: no entrance fire is added - the layout's own is it
@@ -154,7 +156,7 @@ test('REST3 the compass: a fire within reach in the flame\'s yellow, under the n
 test('REST3 by source: the dungeon places them after its geometry and before its batches and lights, as 210/1 flats, torches, lights and hearths; never in the Burning Court; the ward in the spawn; the map and the compass', () => {
   const dc = rd('src/scenes/dungeonContext.js');
   const at = (re) => { const m = dc.search(re); assert.ok(m >= 0, String(re)); return m; };
-  const place = at(/const dungeonFires = isGateArena\(dfLocation\) \? \[\] : placeDungeonFires\(\{/);
+  const place = at(/const firePlan = isGateArena\(dfLocation\) \? null : dungeonFirePlan\(\{/);   // AUDIT REST II F5 (PIN MOVED): the law's plan - its fires and the layout fire it took for the entrance's
   assert.ok(at(/collider\.addMesh\('dungeon', cpu\.positions, cpu\.indices, matrix\);/) < place);
   assert.ok(place < at(/for \(const \[key, centers\] of flatGroups\) \{/));
   assert.ok(place < at(/const flicker = new CityLightAnimator\(lights\.length/));

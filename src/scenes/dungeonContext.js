@@ -19,7 +19,7 @@ import { quickslotHand } from '../ui/quickslotTags.js';   // DISC21-C: an empty 
 import { lycanthropeAttackVoice, lycanthropeMoveSound } from '../systems/lycanthropy.js';   // V4: the beast's attack voice; LM1: the 4-20s move-sound loop; DISC10-E L3: the inventory refusal moved INTO the window door
 import { layoutDungeon, isDungeonExitDoor } from '../world/dungeonLayout.js';
 import { isGateArena, COURT_TEXT } from '../world/gateArena.js';   // WB3b: the Burning Court - what the Deadlands will not allow
-import { placeDungeonFires, colliderFireProbe, inFireWard, DUNGEON_FIRE_FLAT, fireLayoutInputs } from '../world/dungeonFires.js';   // REST3: the dungeon's own campfires
+import { dungeonFirePlan, colliderFireProbe, inFireWard, DUNGEON_FIRE_FLAT, fireLayoutInputs } from '../world/dungeonFires.js';   // REST3: the dungeon's own campfires
 import { withFireMarks } from '../ui/nodeMarks.js';   // REST3: the campfires on the compass
 import { expandMacros } from '../systems/talkSession.js';   // MACRO1: the global symbols every TEXT.RSC box passes through (MacroHelper)
 import { executeConsoleCommand } from '../systems/consoleCommands.js';   // E3: the probe door runs the real database
@@ -900,19 +900,20 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
   // warmth, drying, cooking, the camp rest kind and, online, a rest point, with no new law. Every client of the dungeon
   // casts the same rays over the same layout, so nothing rides the wire. Offline too (OPEN 8: a hearth; the rest stays
   // DFU's). Never in the Burning Court. Permanent - never cold, never picked up - and a 15 m ward (_spawnEncounter).
-  const dungeonFires = isGateArena(dfLocation) ? [] : placeDungeonFires({
+  const firePlan = isGateArena(dfLocation) ? null : dungeonFirePlan({
     blocks: dungeon.blocks,
     probe: colliderFireProbe(collider),   // the rays, the law's own (world/dungeonFires.js) - the probe tool casts the same
     ...fireLayoutInputs(dungeon.blocks, dungeonHearths),   // AUDIT REST-PARTY C6: the law's doors and fires, read as tools/dungeonFireProbe.mjs reads them
     seed: dfLocation?.dungeon?.recordElement?.header?.locationId ?? 0,
     elite: !!dfLocation?.elite,
   });
-  if (dungeonFires.length) {
+  const placedFires = firePlan?.fires ?? [];
+  if (placedFires.length) {
     const { archive, record } = DUNGEON_FIRE_FLAT;
     const t = await getTexture(archive);
     const size = t && record < t.recordCount ? billboardSize(t, record) : null;
-    if (!size) dungeonFires.length = 0;
-    for (const p of dungeonFires) {
+    if (!size) placedFires.length = 0;
+    for (const p of placedFires) {
       const cy = p[1] + size.h / 2;   // an RDB flat's y is its centre - the batch stands it down half a height
       const key = `${archive}_${record}`;
       if (!flatGroups.has(key)) flatGroups.set(key, []);
@@ -922,6 +923,21 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
       lights.push({ x: p[0], y: p[1] + FIRE_LIGHT_UP, z: p[2], range: FIRE_LIGHT_RANGE });
       dungeonHearths.push({ x: p[0], y: cy, z: p[2], foot: p[1], w: size.w, h: size.h, placed: true });
     }
+  }
+  // AUDIT REST II F5: THE FIRES THAT KEEP A CAMPFIRE'S PROMISES - the ward (encounterSpot), the compass (withFireMarks)
+  // and the held map (`fires`) read this list: the law's placed fires, and the layout's own fire it took for the
+  // entrance's (AUDIT REST-PARTY C5 - it counts toward N, so it stands for a fire the law did not place). Read only the
+  // placed list, a dungeon whose brazier stood by the door had no warded, marked fire at its entrance at all.
+  const dungeonFires = firePlan?.doorFire ? [firePlan.doorFire, ...placedFires] : placedFires;
+  /** AUDIT REST II F8: THE ABYSS PUTS THE FIRES OUT. There's a Hole in the Bottom of the Ocean floods a dungeon after
+   *  it is built (WaterizeDungeon) and takes every light fixture with it (RemoveDungeonLightFixtures - the 210/1 batch
+   *  the placed fires burn in among them, so their flames and lights went), on every way in (the pit, a Recall, a
+   *  load). The fires stayed: hearths under the water, marked on the compass and the map, warding. They go with their
+   *  flames - the placed hearths (the list's tail, pushed last at the build), and every mark and ward. */
+  function dropDungeonFires() {
+    const first = dungeonHearths.findIndex((h) => h?.placed);
+    if (first >= 0) dungeonHearths.length = first;
+    dungeonFires.length = 0;
   }
 
   // Enemies (C3): the classic selection over this dungeon's markers -
@@ -2275,6 +2291,28 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
    *  cannot find a spot in a sealed room does not spin. The same bound
    *  the enchantment stander uses. */
   const ENCOUNTER_PLACE_ATTEMPTS = 12;
+  /** AUDIT REST II F1: THE SPOT A RESTING ENCOUNTER STANDS ON, ONE HOME - DFU's placement (PlaceFoeFreely, bounded at
+   *  ENCOUNTER_PLACE_ATTEMPTS) round `feet` looking `yaw`, online never inside a fire's ward; null where none is found.
+   *  The host stands its foe here (_spawnEncounter, below), and a joiner asks the host for one only where this finds a
+   *  spot on the joiner's own collider (restEncounter) - every client stands the same fires, so a ward the host would
+   *  refuse every spot of is a ward the joiner sees. */
+  function encounterSpot({ minDistance, maxDistance, lineOfSightCheck }, feet, yaw) {
+    const env = placeFoeEnv({
+      collider,
+      // the cast origin is the controller centre, as every other
+      // consumer of the ring has it
+      playerFeet: [feet[0], feet[1] + 0.9, feet[2]],
+      playerYawRad: yaw,
+      fovDegrees: fieldOfView() * 180 / Math.PI,   // fieldOfView() answers RADIANS
+      isOccupied: entityOccupancy((f) => f.ai?.feet, () => foes, feet),
+    });
+    let spot = null;
+    for (let i = 0; i < ENCOUNTER_PLACE_ATTEMPTS && !spot; i++) {
+      spot = placeFoeFreely(env, { minDistance, maxDistance, lineOfSightCheck });
+      if (spot && sharedClockOn() && inFireWard(dungeonFires, spot)) spot = null;   // AUDIT REST-PARTY C1: online alone - offline the fires are cooking and camp points and the rest is DFU's (Rest-Arc.md section 11, OPEN 8), its ambushes with it   // REST3: a placed fire's ward (OPEN 9) - no wandering spawn stands within 15 m; the next attempt
+    }
+    return spot;
+  }
   /** RE1: the rest interruption, stood through DFU's own placement.
    *
    *  This used to walk EIGHT COMPASS POINTS at minDistance and take
@@ -2295,20 +2333,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
   async function _spawnEncounter({ mobileType, minDistance, maxDistance, lineOfSightCheck }, { feet = lastPlayerFeet, yaw = _motorYaw, shared = false } = {}) {   // REST-SYNC: a joiner's feet when the host stands it by them; `shared` the room's
     if (!feet || !foeDeps) return null;
     if (!ENEMY_BASICS[mobileType]) return null;
-    const env = placeFoeEnv({
-      collider,
-      // the cast origin is the controller centre, as every other
-      // consumer of the ring has it
-      playerFeet: [feet[0], feet[1] + 0.9, feet[2]],
-      playerYawRad: yaw,
-      fovDegrees: fieldOfView() * 180 / Math.PI,   // fieldOfView() answers RADIANS
-      isOccupied: entityOccupancy((f) => f.ai?.feet, () => foes, feet),
-    });
-    let spot = null;
-    for (let i = 0; i < ENCOUNTER_PLACE_ATTEMPTS && !spot; i++) {
-      spot = placeFoeFreely(env, { minDistance, maxDistance, lineOfSightCheck });
-      if (spot && sharedClockOn() && inFireWard(dungeonFires, spot)) spot = null;   // AUDIT REST-PARTY C1: online alone - offline the fires are cooking and camp points and the rest is DFU's (Rest-Arc.md section 11, OPEN 8), its ambushes with it   // REST3: a placed fire's ward (OPEN 9) - no wandering spawn stands within 15 m; the next attempt
-    }
+    const spot = encounterSpot({ minDistance, maxDistance, lineOfSightCheck }, feet, yaw);   // AUDIT REST II F1: the one placement, the joiner's ask's too
     if (!spot) return null;
     ambushNight();   // AUDIT REST-PARTY A1: a night running now (restAct.js runRestNight) breaks at its next sub-tick - the foe stands after the awaits below
     // FinalizeFoe (FoeSpawner.cs:210-226): a flier hangs 1.5 above the
@@ -2327,14 +2352,24 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
   /** REST-SYNC: THE REST'S ENCOUNTER - the player's own offline; online the ROOM's: the host stands it shared, and a
    *  joiner asks the host to stand it by the joiner's feet (the act frame's `rs`: the species, the band, the sight
    *  test, the feet and the yaw), its own rest breaking at the next hour's check (enemiesNearby) as DFU's does. An ask
-   *  the wire refuses stands nothing and breaks nothing - never a foe only its asker can see, which was the report. */
+   *  the wire refuses stands nothing and breaks nothing - never a foe only its asker can see, which was the report.
+   *  AUDIT REST II F1: AND ASKS ONLY FOR A FOE THE HOST CAN STAND. The ask broke the joiner's night whatever the host did
+   *  with it, and the host refuses every spot inside a fire's 15 m ward - in a room that ward fills, every one: the
+   *  joiner woke to fight nothing while the host, resting at the same fire, slept on. So the joiner runs the host's own
+   *  placement first (encounterSpot: the same ring, the same ward, its own collider, the fires every client stands) and
+   *  asks only where a spot stands outside the ward. And A1's latch is the joiner's too: a night running hears the ask
+   *  at its next sub-tick (ambushNight), as the host's own encounter breaks the host's - it no longer runs on to the
+   *  hour's check rolling again; a paced window (no night running) breaks at that check, as before. */
   let _restAskAt = null;
   function restEncounter(hit) {
     if (!onlineRoom()) return _spawnEncounter(hit);
     if (_authority) return _spawnEncounter(hit, { shared: true });
     const feet = lastPlayerFeet;
     if (!feet) return null;
-    if (opts.onActions?.({ k: _locationKey, rs: { t: hit.mobileType, lo: hit.minDistance, hi: hit.maxDistance, v: hit.lineOfSightCheck ? 1 : 0, f: [q2(feet[0]), q2(feet[1]), q2(feet[2])], y: q3(_motorYaw) } })) _restAskAt = Date.now();
+    if (!encounterSpot(hit, feet, _motorYaw)) return null;   // AUDIT REST II F1: no spot the host would stand - no ask, no break
+    if (opts.onActions?.({ k: _locationKey, rs: { t: hit.mobileType, lo: hit.minDistance, hi: hit.maxDistance, v: hit.lineOfSightCheck ? 1 : 0, f: [q2(feet[0]), q2(feet[1]), q2(feet[2])], y: q3(_motorYaw) } })) {
+      if (!ambushNight()) _restAskAt = Date.now();   // AUDIT REST II F1: A1's latch - a night running breaks at its next sub-tick; a paced window at the hour
+    }
     return null;
   }
   /** REST-SYNC: my ask is on its way - the rest it came from breaks at the next hour's check, once. */
@@ -3480,6 +3515,24 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     let n = 0;
     for (const [owner, recs] of byOwner) if (camps.applyOwner(owner, recs)) n += recs.length;
     return n;
+  }
+  /** AUDIT REST II F9: AUDIT REST-PARTY B3's sweep (a room's cold fire whose owner has left goes with them) without a
+   *  roster minted every frame. The frame asked opts.peers - world.js peersNear, a fresh array and a fresh pose for
+   *  every peer - and built a Set of their ids, sixty times a second in every online dungeon, whether or not a peer's
+   *  fire stood. Now at most once a COLD_SWEEP_S, and only while a peer's camp stands here (an owner on it: mine carry
+   *  none); a fire goes a second later than it did, never wrongly. `dt` the frame's. */
+  const COLD_SWEEP_S = 1;
+  let _coldSweepT = 0;
+  function sweepColdPeers(dt) {
+    _coldSweepT += dt;
+    if (_coldSweepT < COLD_SWEEP_S) return;
+    _coldSweepT = 0;
+    if (!onlineRoom()) return;
+    let peerCamp = false;
+    for (const c of camps.camps) if (c.owner != null) { peerCamp = true; break; }
+    if (!peerCamp) return;
+    const peers = opts.peers?.();
+    if (peers) camps.sweepColdAbsent(new Set(peers.map((q) => q?.id)));
   }
   const weaponRig = createWeaponRig({
     // EM-BUG1: HANDS HOLDING A MAP ARE NOT ALSO HOLDING A SWORD.
@@ -6291,7 +6344,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     hitEffects.bleedPlayer(dt, playerFeet, playerEntity);   // BLOOD2e: and the player's own blood, at the feet
     droppedTorches.tick(dt);   // HT1: the burn, the flight, the flames
     camps.tick(dt);   // SURV3: the fires burn down
-    if (onlineRoom()) { const peers = opts.peers?.(); if (peers) camps.sweepColdAbsent(new Set(peers.map((q) => q?.id))); }   // AUDIT REST-PARTY B3: a room's cold fire whose owner left the room goes with them
+    sweepColdPeers(dt);   // AUDIT REST-PARTY B3: a room's cold fire whose owner left the room goes with them (AUDIT REST II F9: once a second, while a peer's camp stands)
     // PX21c / WORLD-HOVER: THE HOVER PLAQUE, from the frame function
     // both dungeon hosts already call - the splash clock's reasoning,
     // one slice on. It runs the SAME pick the take runs, so it cannot
@@ -7541,6 +7594,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
         }
         for (const t of torches) { t.handle?.stop(); t.handle = null; }
         torches.length = 0;
+        if (isFixture(DUNGEON_FIRE_FLAT.archive, DUNGEON_FIRE_FLAT.record)) dropDungeonFires();   // AUDIT REST II F8: the placed fires' flame is a fixture - the fires go with it
       },
     },
     /** WATER-D1: the host names the climate ground archive whose record 0

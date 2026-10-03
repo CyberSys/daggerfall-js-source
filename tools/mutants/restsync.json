@@ -29,11 +29,12 @@
   {
     "name": "RESTSYNC-a-refused-ask-breaks-the-rest",
     "file": "src/scenes/dungeonContext.js",
-    "old": " y: q3(_motorYaw) } })) _restAskAt = Date.now();",
-    "new": " y: q3(_motorYaw) } }) || true) _restAskAt = Date.now();",
+    "old": " y: q3(_motorYaw) } })) {",
+    "new": " y: q3(_motorYaw) } }) || true) {",
     "tests": [
       "test/restsync.test.js"
-    ]
+    ],
+    "note": "AUDIT REST II (PIN MOVED): F1 made the sent ask's arm a block (a night running hears it at once - ambushNight - and only a paced window latches the hour); re-aimed by content at the ask's own test, the refused ask still let through."
   },
   {
     "name": "RESTSYNC-the-ask-breaks-every-hour",
