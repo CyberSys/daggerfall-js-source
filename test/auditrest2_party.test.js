@@ -5,7 +5,8 @@
 //     stamps taking turns: 11) - partyRestLaw.js's night watch: a per-member high-water mark, one move a minute;
 //  P2 one honest night carried twice across the rester's connection blip, and a mate who left, rested alone and
 //     rejoined carried you - the mark is not lowered by a missing pose, and a member who leaves is forgotten;
-//  P3 a carried night cut by a prevent-rest condition or a room's end said "through the night" and raised skills -
+//  P3 a carried night cut by a prevent-rest condition said "through the night" (AUDIT REST III C2/C3: no room's end
+//     reaches a carried night, and every rest's close raises, as the rester's window gives it) -
 //     restAct.js carriedNightEnd; and a quest's CreateFoe reached only an open rest WINDOW, so a carried night (no
 //     window) and a night under a quest box slept through it - every host's encounter route tells the night first;
 //  P4 the carry never asked the act's town law - carriedNightAction's 'town', with its own line;
@@ -140,17 +141,18 @@ test('AUDIT REST II P2: one honest night is carried once across the rester\'s co
   assert.equal(g.watch.highOf('C'), undefined);
 });
 
-test('AUDIT REST II P3: what a carried night says and gives - a night slept whole says so and raises; one a foe broke, a condition cut or a room ended says its own line and raises nothing; in death, nothing; a short rest its own line', () => {
+test('AUDIT REST II P3: what a carried night says and gives - a night slept whole says so; one a foe broke or a condition cut says its own line; in death, nothing; a short rest its own line - and (AUDIT REST III C3, RE-AIMED) every rest that ran raises, as the window\'s close gives the rester on each of EndRest\'s arms; a rest that never ran, nothing', () => {
   const lines = (id) => [`line ${id}`, 'more'];
   assert.deepEqual(carriedNightEnd('Ada', true, { textId: REST_TEXT.wakeUp, enemyBroke: false, died: false }, lines), { raise: true, text: REST_ACT_TEXT.carried('Ada') });
-  assert.deepEqual(carriedNightEnd('Ada', true, { textId: REST_TEXT.enemiesNearby, enemyBroke: true, died: false }, lines), { raise: false, text: `line ${REST_TEXT.enemiesNearby} more` });
-  assert.deepEqual(carriedNightEnd('Ada', true, { textId: null, text: 'You cannot rest now.', prevented: true, enemyBroke: false, died: false }, lines), { raise: false, text: 'You cannot rest now.' });
-  assert.deepEqual(carriedNightEnd('Ada', true, { textId: null, text: 'The room is gone.', rentExpired: true, enemyBroke: false, died: false }, lines), { raise: false, text: 'The room is gone.' });
-  assert.deepEqual(carriedNightEnd('Ada', true, { textId: null, enemyBroke: false, died: true }, lines), { raise: false, text: null });
-  assert.deepEqual(carriedNightEnd('Ada', true, { textId: REST_TEXT.enemiesNearby, enemyBroke: true, died: false }, () => null), { raise: false, text: null }, 'no line to say, nothing said');
-  assert.deepEqual(carriedNightEnd('Ada', false, { text: REST_ACT_TEXT.shortRest }, lines), { raise: false, text: REST_ACT_TEXT.carriedShort('Ada') });
+  assert.deepEqual(carriedNightEnd('Ada', true, { textId: REST_TEXT.enemiesNearby, enemyBroke: true, died: false }, lines), { raise: true, text: `line ${REST_TEXT.enemiesNearby} more` });
+  assert.deepEqual(carriedNightEnd('Ada', true, { textId: null, text: 'You cannot rest now.', prevented: true, enemyBroke: false, died: false }, lines), { raise: true, text: 'You cannot rest now.' });
+  assert.deepEqual(carriedNightEnd('Ada', true, { textId: null, enemyBroke: false, died: true }, lines), { raise: true, text: null }, 'death\'s arm raises too (restWindow.js: "Dropping the raise here lost a whole night\'s advancement")');
+  assert.deepEqual(carriedNightEnd('Ada', true, null, lines), { raise: false, text: null }, 'a night that never ran');
+  assert.deepEqual(carriedNightEnd('Ada', false, null, lines), { raise: false, text: REST_ACT_TEXT.carriedShort('Ada') }, 'nor a short rest');
+  assert.deepEqual(carriedNightEnd('Ada', true, { textId: REST_TEXT.enemiesNearby, enemyBroke: true, died: false }, () => null), { raise: true, text: null }, 'no line to say, nothing said');
+  assert.deepEqual(carriedNightEnd('Ada', false, { text: REST_ACT_TEXT.shortRest }, lines), { raise: true, text: REST_ACT_TEXT.carriedShort('Ada') });
   assert.equal(nightWhole({ textId: REST_TEXT.wakeUp }), true);
-  for (const k of ['died', 'enemyBroke', 'prevented', 'rentExpired']) assert.equal(nightWhole({ [k]: true }), false, k);
+  for (const k of ['died', 'enemyBroke', 'prevented']) assert.equal(nightWhole({ [k]: true }), false, k);   // AUDIT REST III C2: a carried night meets no room's end
   assert.equal(nightWhole(null), false);
 });
 
@@ -167,7 +169,7 @@ function carried(e, over = {}) {
   return { r, end, raised };
 }
 
-test('AUDIT REST II P3: a carried night a quest\'s prevent-rest condition cut at its second hour no longer says it was slept through, keeps the condition\'s words, and raises nothing; a quest\'s CreateFoe inside a carried night (no window) breaks it', () => {
+test('AUDIT REST II P3: a carried night a quest\'s prevent-rest condition cut at its second hour no longer says it was slept through, and keeps the condition\'s words (AUDIT REST III C3, RE-AIMED: and raises, as the rester\'s window does on that arm); a quest\'s CreateFoe inside a carried night (no window) breaks it', () => {
   setPref('survival', SURVIVAL_STORED.casual);
   setOwnMinutes(400_000);
   let minutes = 0, cut = false;
@@ -176,8 +178,8 @@ test('AUDIT REST II P3: a carried night a quest\'s prevent-rest condition cut at
   try {
     const { r, end, raised } = carried(sleeper(), { advanceMinutes: (n) => { advanceOwnMinutes(n); minutes += n; if (minutes >= 120) cut = true; } });
     assert.equal(r.prevented, true);
-    assert.deepEqual(end, { raise: false, text: 'You cannot rest now.' }, 'before: "Ada rests here, and you rest with them through the night."');
-    assert.equal(raised, 0, 'no skill raise for a night cut short');
+    assert.deepEqual(end, { raise: true, text: 'You cannot rest now.' }, 'before: "Ada rests here, and you rest with them through the night."');
+    assert.equal(raised, 1, 'the close\'s raise, as the rester\'s window gives it on the condition\'s arm');
   } finally { unregisterPreventRestCondition(cond); }
   // the hosts' encounter routes tell the act's night first - here, a quest's tick inside the carried night raising it
   setOwnMinutes(500_000);
@@ -185,8 +187,8 @@ test('AUDIT REST II P3: a carried night a quest\'s prevent-rest condition cut at
   const e = sleeper();
   const { r, end, raised } = carried(e, { advanceMinutes: (n) => advanceOwnMinutes(n), tickQuests: () => { if (++sub === 20) ambushNight(); } });
   assert.equal(r.enemyBroke, true, 'the carried night hears the foe');
-  assert.deepEqual(end, { raise: false, text: `line ${REST_TEXT.enemiesNearby}` });
-  assert.equal(raised, 0);
+  assert.deepEqual(end, { raise: true, text: `line ${REST_TEXT.enemiesNearby}` });   // AUDIT REST III C3 (RE-AIMED): the foe's arm raises, as the rester's
+  assert.equal(raised, 1);
   assert.ok(e.health < 60, 'no whole night\'s yield');
 });
 

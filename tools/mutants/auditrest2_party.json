@@ -113,35 +113,14 @@
  {
   "name": "AUDITREST2-P-P3-a-cut-night-is-whole",
   "file": "src/systems/restAct.js",
-  "old": "!r.enemyBroke && !r.prevented && !r.rentExpired;",
-  "new": "!r.enemyBroke && !r.rentExpired;",
+  "old": "!r.enemyBroke && !r.prevented;",
+  "new": "!r.enemyBroke;",
   "tests": [
    "test/auditrest2_party.test.js",
    "test/auditrestparty.test.js",
    "test/rest5_partynight.test.js"
-  ]
- },
- {
-  "name": "AUDITREST2-P-P3-a-room-s-end-is-whole",
-  "file": "src/systems/restAct.js",
-  "old": "!r.enemyBroke && !r.prevented && !r.rentExpired;",
-  "new": "!r.enemyBroke && !r.prevented;",
-  "tests": [
-   "test/auditrest2_party.test.js",
-   "test/auditrestparty.test.js",
-   "test/rest5_partynight.test.js"
-  ]
- },
- {
-  "name": "AUDITREST2-P-P3-a-broken-night-raises",
-  "file": "src/systems/restAct.js",
-  "old": "  return { raise: false, text: own || null };",
-  "new": "  return { raise: true, text: own || null };",
-  "tests": [
-   "test/auditrest2_party.test.js",
-   "test/auditrestparty.test.js",
-   "test/rest5_partynight.test.js"
-  ]
+  ],
+  "note": "AUDIT REST III C2 (PIN MOVED): the unreachable room's end left nightWhole; re-aimed by content."
  },
  {
   "name": "AUDITREST2-P-P3-its-own-line-dropped",
@@ -157,13 +136,14 @@
  {
   "name": "AUDITREST2-P-P3-a-death-said-as-a-night",
   "file": "src/systems/restAct.js",
-  "old": "  if (!r || r.died) return { raise: false, text: null };",
-  "new": "  if (!r) return { raise: false, text: null };",
+  "old": "  if (!r || r.died) return { raise, text: null };",
+  "new": "  if (!r) return { raise, text: null };",
   "tests": [
    "test/auditrest2_party.test.js",
    "test/auditrestparty.test.js",
    "test/rest5_partynight.test.js"
-  ]
+  ],
+  "note": "AUDIT REST III C3 (PIN MOVED): every arm raises now; re-aimed by content - death still says nothing."
  },
  {
   "name": "AUDITREST2-P-P3-world-raises-anyway",

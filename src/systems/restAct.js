@@ -198,22 +198,28 @@ export function setNightListener(fn) { const prev = _nightListener; _nightListen
 export const heardNight = (kind = null) => { _nightListener?.(kind); };
 
 /** AUDIT REST II P3: A NIGHT SLEPT WHOLE - the session ended on its own: not in death, not broken by a foe, not cut by a
- *  prevent-rest condition (RestSession _prevented), not ended by a room's end (_finish's rentExpired) - whatever the
- *  shape answers, the night was not slept to its end. */
-export const nightWhole = (r) => !!r && !r.died && !r.enemyBroke && !r.prevented && !r.rentExpired;
+ *  prevent-rest condition (RestSession _prevented) - whatever the shape answers, the night was not slept to its end.
+ *  AUDIT REST III C2: no room's end - a carried night, the one this reads, is slept with no room (createRestDeps
+ *  restNight's rentedHours -1, and a tavern carries nobody), so _finish's rentExpired never stands on it. */
+export const nightWhole = (r) => !!r && !r.died && !r.enemyBroke && !r.prevented;
 
 /** AUDIT REST II P3: WHAT A CARRIED NIGHT SAYS AND GIVES. The party's night (world.js sleepCarriedNight) said "you rest
- *  with them through the night" and ran the night's skill raise for any night that was neither death nor a foe's break
- *  - so a night cut at its second hour by a quest's prevent-rest condition said it was slept through, the condition's
- *  own words dropped, and raised skills for it. `night` - a night was due (else the short rest's line); `r` - the
- *  bag's result; `endLines` - the host's TEXT.RSC reader (createRestDeps endLines). A night slept whole says so and
- *  raises; one that was not says its own line (none in death: the death screen owns it) and raises nothing. */
+ *  with them through the night" for any night that was neither death nor a foe's break - so a night cut at its second
+ *  hour by a quest's prevent-rest condition said it was slept through, the condition's own words dropped. `night` - a
+ *  night was due (else the short rest's line); `r` - the bag's result; `endLines` - the host's TEXT.RSC reader
+ *  (createRestDeps endLines). A night slept whole says so; one that was not says its own line (none in death: the
+ *  death screen owns it). AUDIT REST III C3: AND EVERY ONE RAISES. P3 took the raise from a night cut short, and the
+ *  port's own law is the other way: closing the rest is THE advancement moment on every one of EndRest's arms, the
+ *  foe's, the condition's and death's included (DaggerfallRestWindow.cs's OnClose - restWindow.js, enhancedRest.js),
+ *  and a short rest's close as well - so the rester beside me raised and I did not. A rest that never ran raises
+ *  nothing. */
 export function carriedNightEnd(name, night, r, endLines = null) {
-  if (!night) return { raise: false, text: REST_ACT_TEXT.carriedShort(name) };
-  if (nightWhole(r)) return { raise: true, text: REST_ACT_TEXT.carried(name) };
-  if (!r || r.died) return { raise: false, text: null };
+  const raise = !!r;
+  if (!night) return { raise, text: REST_ACT_TEXT.carriedShort(name) };
+  if (nightWhole(r)) return { raise, text: REST_ACT_TEXT.carried(name) };
+  if (!r || r.died) return { raise, text: null };
   const own = r.text ?? (endLines?.(r.textId) ?? []).join(' ');
-  return { raise: false, text: own || null };
+  return { raise, text: own || null };
 }
 
 /** AUDIT REST F7: A NIGHT'S STAMP IS MARKED. The party's night rides the pose's `restStartedAt` (REST5, no relay bump),

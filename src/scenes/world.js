@@ -19297,8 +19297,8 @@ export async function bootWorld(canvas, renderer, params, status) {
       bag.setResting(true);
       try { r = night ? bag.restNight({ carried: true }) : bag.restShort(); } finally { bag.setResting(false); }
     });
-    // AUDIT REST II P3: a night slept whole says so and raises the night's skills, as the window's close gives it; one a
-    // foe broke, a prevent-rest condition cut or a room's end stopped says its own line and raises nothing
+    // AUDIT REST II P3: a night slept whole says so; one a foe broke or a prevent-rest condition cut says its own line -
+    // AUDIT REST III C3: and each raises the skills, as the window's close gives the rester (EndRest's every arm)
     const end = carriedNightEnd(name, night, r, bag.endLines);
     if (end.raise) bag.onRestFinished?.();
     if (end.text) setMidScreenText(end.text, 5);
