@@ -47,11 +47,13 @@
   {
     "name": "AUDIT1003b-R3-KICKED-FIGHTER-UNSAID",
     "file": "server/src/index.js",
-    "old": "        if (b.af) { const out = JSON.stringify({ t: 'leave', id: b.id }); for (const [o2, b2] of [...this._all()]) if (o2 !== w && b2.id) this._send(o2, out); }\n",
+    "old": "        if (b.af || b.shown) { const out = JSON.stringify({ t: 'leave', id: b.id }); for (const [o2, b2] of [...this._all()]) if (o2 !== w && b2.id) this._send(o2, out); }\n",
     "new": "",
     "tests": [
-      "test/audit1003b_relay.test.js"
-    ]
+      "test/audit1003b_relay.test.js",
+      "test/hotfix1003_stands.test.js"
+    ],
+    "note": "HOTFIX 1003f (re-aimed by content): the removed member's body is said gone from the stands as from the sand (`b.shown`)."
   },
   {
     "name": "AUDIT1003b-R4-JOIN-TO-ALL",
@@ -59,8 +61,10 @@
     "old": "if (other !== ws && b.id && (!S || S.members[b.sub])) this._send(other, join);",
     "new": "if (other !== ws && b.id) this._send(other, join);",
     "tests": [
-      "test/audit1003b_relay.test.js"
-    ]
+      "test/audit1003b_relay.test.js",
+      "test/hotfix1003_stands.test.js"
+    ],
+    "note": "HOTFIX 1003f (moved by content): the fighter's join at its `in` is gone (its body is said at its hello, a member's at its join), so this text names the hello's own join now - a member's hello (a reconnect) said to the members alone; test/hotfix1003_stands.test.js holds it from a stranger."
   },
   {
     "name": "AUDIT1003b-R4-POSES-TO-ALL",
@@ -74,11 +78,12 @@
   {
     "name": "AUDIT1003b-R4-ROSTER-TO-ALL",
     "file": "server/src/index.js",
-    "old": "if (!others[i].af || unseen) others.splice(i, 1);",
-    "new": "if (!others[i].af) others.splice(i, 1);",
+    "old": "if (unseen || !S?.members?.[others[i].sub]) others.splice(i, 1);",
+    "new": "if (!S?.members?.[others[i].sub]) others.splice(i, 1);",
     "tests": [
       "test/audit1003b_relay.test.js"
-    ]
+    ],
+    "note": "HOTFIX 1003f (re-aimed by content): a private session's roster is its members here, and a stranger's is nobody; this mutant gives the stranger the members."
   },
   {
     "name": "AUDIT1003b-R4-STRANGER-SPEAKS",
@@ -366,7 +371,7 @@
   {
     "name": "AUDIT1003b-U9-DRAW-NO-RESULT",
     "file": "src/systems/arenaText.js",
-    "old": ": `${red} (Red) and ${blue} (Blue) drew - the judges could not part them`;",
+    "old": ": `${red} (Red) and ${blue} (Blue) drew`;",
     "new": ": `${red} (Red) and ${blue} (Blue) - no result`;",
     "tests": [
       "test/audit1003b_client.test.js"

@@ -91,6 +91,19 @@ city), so the city's castle dungeon is untouched. Its people are fighters at res
 caged beasts of the beast tiers; it holds the ladder's training pit (an unranked bout against a dummy-fighter) and
 the Hall of Champions - a plaque wall naming every Grand Champion this save (offline) or this realm (online).
 
+**On the town map (ARENA-MAP, 2026-10-03, the owner, live: "Arena doesn't show on town map").** Both town maps draw a
+cell off its block's own 64 x 64 automap bytes and name only the buildings of the location's list. Kamer's automap
+draws the bowl in byte 117 - BuildingTypes.Special1 + 1, "never displayed on automap" (the classic window shows it in
+its Extra and All views alone, the enhanced sheet never) - and the colosseum is no building, so the cell read as empty
+street with no name. The block served now carries `arenaAutoMap` (`world/arenaCity.js`): the bowl's pixels inside the
+colosseum's own box and off its sand take a guild hall's byte, so both maps draw the walls and the stands as they draw
+the guilds and temples (the temple quarter's colour), a ring round the sand - which keeps Kamer's 117, an open court as
+a temple's courtyard is. The navgrid asks nonzero alone, so nothing walks differently. And the block's row on the town
+map carries a landmark (`arenaTownLandmark`, handed by both exterior hosts): "Arena", lettered at the colosseum's place
+by the building plates' own law (`ui/exteriorAutomapWindow.js` buildPlates, `ui/townSheet.js` named), always - there is
+no door to discover it by and no record to rename. `scenes/worldModes.js` and `scenes/dungeonContext.js` open no town
+map. Tests: `test/arena_townmap.test.js` (4); mutants: `tools/mutants/arena_map.json` (14, all dead).
+
 **What it displaces (Mac: "Move them to a new house").** GEMSAL03 stood 19 buildings - a tavern, two gem stores,
 fifteen houses and a house of the Academics. With ARENADAG.RMB laid no building has a key in cell (4,3), so every
 record keyed there is moved, once, at the first load that stands the arena (offline) and once by the service
@@ -248,6 +261,7 @@ names, banners, health; your stamina), the **crowd meter**, the **timer**, the H
 | **ARENA4b** (SHIPPED 2026-10-03 - the record below) | the online half finished: the relay's exhibition, the ladder's trust (`cl`), the players' blows, the banners billed, the stands' cheer, the realm's Hall and Records, the laurel online, the gate online, a bout's Renown, the displaced online homes, the casual bout | the relay over fake sockets, the service over node:sqlite, the client headless, the UI probes |
 | **ARENA5** (SHIPPED 2026-10-03 - the record below) | the audit: every slice re-read against this page, the probes, the mutants; and what it found unbuilt - the banners on the sand, the Hall's plaque wall, your ladder replay | the mutant lists of every slice, the UI probes, the browser list in its record |
 | **ARENA6** (SHIPPED 2026-10-03 - the record below) | private sessions: a host opens a session under a code, members join by it, the host picks who fights and calls the bout, everyone else watches; equal health; accounts fight, guests watch | the relay over fake sockets, the client end to end on the real Room, the window's model |
+| **ARENA-COPY** (2026-10-03 - the record below) | the plain-words pass: every line and press of the arena's own text said short and plain | the words pin (`test/arena2_hud.test.js`), the suites that name the lines |
 
 ## ARENA1 record (2026-10-02) - SHIPPED
 
@@ -646,8 +660,9 @@ signed receipt. A fighter gone from a live fight past 15 s forfeits; a matched b
 LADDER ON THE RELAY: the fighter's own `in` opens a ladder bout against the relay's fighters (`ARENA_LADDER_SPEC`, the
 game's ladder row for row, pinned: Tier 5's champion two Warriors on one side, the beast tier's bodies, Tier 9 two
 against one, Tier 10's Grand Melee every fighter a side, then the Iron Atronach), who walk at the fighter, telegraph and
-land by the relay's word. THE STANDS: a spectator takes a seat with no body (60 a bout), seen by no fighter, seeing the
-whole bout.
+land by the relay's word. THE STANDS: a spectator takes a seat (60 a bout) and sees the whole bout - a body on every
+screen in the room, the fighters' and the other spectators', as they are on its own (HOTFIX 1003f; ARENA4 drew the
+fighters alone, and every watcher stood in an empty arena).
 
 **The client** (`src/net/arenaLink.js` the hall's fold and the mirror of a relay's bout in the bout law's own shape;
 `src/net/arenaClaims.js` the receipts carried - kept a week, offered for the signed-in account alone, retried every five
@@ -882,10 +897,13 @@ below, each at its place, and listed at the end.
 right (`privateCodeTyped` takes it upper-cased, its spaces and dashes gone). A fresh code is drawn on the host's screen
 from the CSPRNG (`arenaPrivateCode`, a byte at or past 248 thrown back so no letter is likelier). The room is an arena
 floor room (`isArenaFloorRoom`): the screen enters the floor's instance as it does for any bout
-(`arenaFloorRoomOf('p<code>')`), its sand holds the two fighters, its stands everyone else - no body drawn, no pose
-fanned. The floor is the session's members' (1003b R4): a socket in the room that is no member (a stranger with the
-code, a member removed) is drawn no fighter, hears no pose, is welcomed to a roster of nobody, and neither speaks to the
-session's room chat nor overhears it; a socket made a member is shown the sand then (`_sessionShow`). Its door
+(`arenaFloorRoomOf('p<code>')`), its sand holds the two fighters, its stands everyone else - every member a body drawn
+to every other, its pose fanned to them (HOTFIX 1003f, live: "people join and are alone" - the stands drew nobody). The
+floor is the session's members' (1003b R4): a socket in the room that is no member (a stranger with the code, a member
+removed) is drawn to nobody and drawn nobody, hears no pose and its own reaches nobody, is welcomed to a roster of
+nobody, and neither speaks to the session's room chat nor overhears it; a socket made a member is shown every member
+here then and shown to each (`_sessionShow`); a member gone, removed or the session ended is said gone to the others
+(`_sessionUnshow` at the end), and a fighter back in the stands when its bout clears stays drawn. Its door
 (1003b R2): a floor room's hello gate is spent after the token, by account - a member or a fighter waits on itself
 alone, anyone else on the stands' bucket - so tokenless hellos never shut it. A socket replaced by its own reconnect
 keeps the seat or the place on the sand it held (1003b R5).
@@ -939,9 +957,11 @@ on it (its seat taken back after another tab's, a slow floor) adopts the session
 (`closed`, `ended`, `removed`, `no session`, `taken`, `host guest`, `session full`, `locked` - C6) takes the screen out
 of the floor. In a session the queue and the casual challenge wait (`You are in a private session`); queued, Host and
 Join wait for the queue (U7); the pause menu's Arena opens on the session. Host and Join are pressed outdoors (the
-floor's door is the exterior's); pressed indoors, the press says so (`privOutdoors`) and nothing is held. The floor's
+floor's door is the exterior's); pressed indoors, the press says so (`privOutdoors`) and nothing is held. They want an
+account held and the socket open (HOTFIX 1003f: `privSignIn` otherwise - a tokenless hello is refused at the relay's
+door, ACC1g, and the floor stood empty around a player who was not online). The floor's
 way out lands before the Herald, or - the Herald not streamed in, a session joined away from Daggerfall - back where the
-floor was entered (`arenaFrom`, C7). The relay's version: world155 (one deploy with the rest of the arc).
+floor was entered (`arenaFrom`, C7). The relay's version: world155 (one deploy with the rest of the arc); HOTFIX 1003f's stands, world156.
 
 **The four hosts.** `scenes/world.js` WIRED (the online half handed the instance's mark, its way out and the healers'
 heal - `standOnMark` / `leaveFloor` / `heal`; the pause window's Arena door and the modes' `makeArenaWindow` /
@@ -958,7 +978,8 @@ the real Room (two screens: host, join by code, pick, go, both screens' bout, th
 to the stands, Close taking both screens out of the instance); the client's refusals and the card; the hosts' seams.
 AUDIT PRE-MERGE 1003b's: `test/audit1003b_relay.test.js` (11), `test/audit1003b_client.test.js` (10 - fourteen as run, C2 four ways),
 `test/audit1003b_ui.test.js` (5 - the window mounted). Mutants: `tools/mutants/arena6.json`, `tools/mutants/audit1003b.json`
-(the counts in Testing.md's rows).
+(the counts in Testing.md's rows). HOTFIX 1003f's: `test/hotfix1003_stands.test.js` (3), `tools/mutants/hotfix1003f.json`
+(10), and the records whose laws it turned re-aimed by content (arena4.json, arena4b_exhibition.json, audit1003b.json).
 
 **Not done / open.** A session's bout is one against one (the tournament's own format - brackets, rounds - is the
 host's to run by hand). No spectating a session from outside it: the code is the door. The session lives in its room's
@@ -966,3 +987,23 @@ storage, so a deploy of the relay mid-session ends nothing but reconnects every 
 is still the fighter's own claim, capped by the weapon and material it claims (PVP-REF's law, ARENA4): the health is
 equal, a modified client can always strike at the cap. Seats are a socket's: one account's two tabs in the stands take
 two (ONE-SEAT keeps two tabs online apart). Tab still closes the window (PX28b's house rule - the owner's call).
+
+## ARENA-COPY record (2026-10-03) - the plain-words pass
+
+The owner: "Do a comprehensive pass on any overexplained text and button text. Ensure simplicity and easy
+understanding. Don't let it seem like AI." Words only - no key, signature, template parameter or behaviour changed.
+
+**What was said again.** `src/systems/arenaText.js` (ARENA_TEXT: the Herald's, recruiters' and bookmaker's choices and
+lines, the refusals, the notices, the window's pages and presses, the online cards and the private session's lines, the
+Rules). The house
+rules for them: a press is one to three words, a verb first where it acts ("Host", "Join", "Leave", "Find match",
+"Place bet", "Cancel bout", "Replay"); a line is one short sentence, with no clause hung on " - ", no semicolon, no
+hedge and no word about the machinery ("relay", "socket", "the realm keeps..."); a refusal still says what is wrong.
+The crowd's barks, the Herald's calls on the sand, the verdicts, the tiers, titles and epithets kept their voice. The
+bookmaker's "wager" is a "bet" on every press and line. `ui/arenaWindow.js`, `ui/arenaHud.js`,
+`ui/arenaSessionButton.js` and `systems/arenaBoard.js` draw these words and needed none of their own changed.
+
+**Tests.** The suites that pinned a line by its words now pin the new words (`arena2_hud`, `arena3_book`,
+`arena3_window`, `arena5_plaques`, `arena_fix`, `audit1003b_client`); no test added or removed. Mutant records whose
+text moved re-aimed by content (`audit1003_ui.json` AUDIT-1003-U10-lapsed-unsaid, `audit1003b.json`
+AUDIT1003b-U9-DRAW-NO-RESULT; both dead).

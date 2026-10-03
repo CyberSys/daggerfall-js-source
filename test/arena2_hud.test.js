@@ -198,7 +198,7 @@ test('ARENA2 words: one frozen table, every line plain - no long dash, no engine
   assert.deepEqual(ARENA_TEXT.count, ['3', '2', '1', 'Fight!']);
   assert.equal(ARENA_TEXT.verdict.yield('Aldo', 'Bran'), 'Bran yields! The bout goes to Aldo.');
   assert.equal(ARENA_TEXT.verdict.judges('Aldo'), 'Time! The judges give it to Aldo.');
-  assert.equal(ARENA_TEXT.purse.won(50), 'The purse - 50 gold.');
+  assert.equal(ARENA_TEXT.purse.won(50), 'Purse: 50 gold.');
   assert.equal(ARENA_TEXT.hud.timeLeft(65), '1:05');
   assert.equal(ARENA_TEXT.titles.length, 10);
   assert.equal(ARENA_TEXT.titles[9], 'Grand Champion');
