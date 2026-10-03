@@ -456,7 +456,7 @@ const PAST_AUTO = new Set([
   'canvas:MainTopsail x canvas:MainGaff', 'canvas:MainTopsail x halyard', 'canvas:MainTopsail x gaff', 'yard:MainTopsail x halyard',
   'canvas:MainGaff x shroud:main:-1', 'canvas:MainGaff x shroud:main:1', 'canvas:MainGaff x ratline:main:-1', 'canvas:MainGaff x ratline:main:1',
   'halyard x shroud:main:-1', 'halyard x shroud:main:1', 'halyard x running:MainTopsailBracePort', 'halyard x running:MainTopsailBraceStarboard',
-  'shroud:main:-1 x running:MainGaffSheet', 'shroud:main:1 x running:MainGaffSheet', 'ratline:main:-1 x running:MainGaffSheet', 'ratline:main:1 x running:MainGaffSheet',
+  'shroud:main:-1 x running:MainGaffSheet', 'shroud:main:1 x running:MainGaffSheet', 'ratline:main:1 x running:MainGaffSheet',   // AUDIT GALLEON-2 RG7: not 'ratline:main:-1 x running:MainGaffSheet', which never met
   'canvas:MainGaff x running:ForeTopsailBracePort', 'canvas:MainGaff x running:ForeTopsailBraceStarboard',
   'shroud:fore:-1 x running:ForeCourseBracePort', 'shroud:fore:1 x running:ForeCourseBraceStarboard',
 ]);
@@ -480,6 +480,13 @@ test('AUDIT GALLEON R4 nothing of her rig meets what it is not made fast to at a
   assert.deepEqual(autoBad, [], 'clear at every trim the auto-trim sets');
   assert.deepEqual(unnamed, [], 'past the auto-trim, no clash but the ones named');
   assert.deepEqual([...through], [], 'nothing of her rig through her');
+});
+
+test('AUDIT GALLEON-2 RG7: every pair PAST_AUTO names clashes past the auto-trim - a name that never clashes would let a new clash on that pair pass unseen (\'ratline:main:-1 x running:MainGaffSheet\' was named and never met: 20 names, 19 clashing) (mutants: a stale name)', (t) => {
+  const clashing = new Set(sweep().rows.filter((r) => r.past.c <= 0).map(pairKey));
+  const stale = [...PAST_AUTO].filter((k) => !clashing.has(k));
+  t.diagnostic(`${PAST_AUTO.size} names, ${[...PAST_AUTO].filter((k) => clashing.has(k)).length} clashing`);
+  assert.deepEqual(stale, [], 'every name a clash');
 });
 
 test('AUDIT GALLEON R5/G9 her rig\'s hit boxes follow her trim: each square sail\'s rides its yard\'s boom and her gaff sail\'s its gaff\'s (rigBoxesOf turns each about its mast\'s axis by its boom\'s own rotation), her jib\'s three lie along its luff, leech and foot - every point of her set canvas inside one at every trim to the manual 45 and the gaff\'s 90, at any Wind, heeled; each box three quarters and more canvas across its face; the chain shot\'s band over her roof; a Large Boat\'s, a galley\'s and a Carrack\'s boxes as they stood (they stood still: 261,913 of 517,720 points of her set canvas lay outside every one) (mutants: the boom unread, the pivot dropped, a box home, the gaff\'s box on a yard\'s boom, the jib\'s one box, its boxes square or pitched the wrong way, a topsail bellied as the course, the band under her roof)', async (t) => {

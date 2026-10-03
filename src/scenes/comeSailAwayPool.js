@@ -47,7 +47,7 @@ import { GLOBAL_SCALE } from '../world/meshReader.js';
 import { multiply, identity } from '../world/mat4.js';
 import { spherePlanes, sphereInPlanes, transformSphere } from '../render/bounds.js';   // AUDIT NAV1 (#13): the boats culled as the world's meshes are
 import { cullDisabled } from '../render/frustum.js';
-import { mat4FromQuatPosScale } from '../world/quat.js';
+import { mat4FromQuatPosScale, quatRotateInto } from '../world/quat.js';
 import { colliderPoses, boxColliderTriangles, invertAffine, BUILTIN_COLLIDER_MESHES } from '../world/prefabColliders.js';   // DECK-WALK: a hull's colliders at rest
 import { buildDeck } from '../systems/naval/navalDeck.js';   // DECK-WALK: her walkable deck
 import { hullBuild, setGalleonStanding } from '../systems/naval/navalShips.js';   // AUDIT GN-G4: and hull 2's build follows the hull that stands
@@ -118,6 +118,10 @@ export const CULL_DETAIL_PX = 1;
  *  frames running a part's chain reads the same before it is merged. */
 export const STILL_MIN = 2;
 export const STILL_FRAMES = 20;
+/** AUDIT GN2-RG1: how far (metres; a rotation column's unit) an every-frame holder's bone may stand from where it stood
+ *  at its last bake and the bake still stand - a millimetre, under the float noise of a ship 2 km off and a twenty-eighth
+ *  of her rope's radius. */
+export const RIG_STILL_M = 0.001;
 
 export function createComeSailAwayPool({ renderer = null, pipeline = null, fetchFn = null, log = console } = {}) {
   /** @type {any} */ let models = null;
@@ -136,7 +140,8 @@ export function createComeSailAwayPool({ renderer = null, pipeline = null, fetch
   const _cullPv = new Float32Array(16), _cullPlanes = new Float32Array(24), _cullSphere = new Float32Array(4), _cullBox = new Float32Array(6);
   const meshes = new Map();      // rendererModelKey -> gpu mesh | null
   const meshLoads = new Map();   // in flight
-  const bakes = new Map();       // FixDeformations script -> { gpu, positions, normals, loading }
+  const bakes = new Map();       // FixDeformations script -> { gpu, positions, normals, loading, rig? (AUDIT GN2-RG1) }
+  const _rigV = [0, 0, 0];
   const flats = new Map();       // billboard object -> batch
   const warned = new Set();
   const warnOnce = (k, ...a) => { if (warned.has(k)) return; warned.add(k); log?.warn?.(...a); };
@@ -341,9 +346,14 @@ export function createComeSailAwayPool({ renderer = null, pipeline = null, fetch
     return null;
   }
 
-  /** FixDeformations.LateUpdate over one holder: the timer, and on its frame the bake written to the GPU. */
+  /** FixDeformations.LateUpdate over one holder: the timer, and on its frame the bake written to the GPU. AUDIT GN2-RG1:
+   *  a holder `everyFrame` (the new galleon's running rope - world/galleonRig.js BAKE, read on by systems/
+   *  comeSailAwayBoat.js) bakes on every frame the game runs, never paused (the timer never counts then) - on the tenth
+   *  of a second a rope from a swinging spar to her deck was drawn where both stood at its last bake, its end 1.2-1.7 m
+   *  off its spar at the auto-trim's 100 degrees a second - and not again while its bones stand where they did at its
+   *  last bake (`rigStill`: a moored boat's rope, a sea ship's, her booms home - the same mesh, no upload). */
   function lateUpdateHolder(script, holder, dt) {
-    if (!fixDeformationsTick(script, dt)) return;
+    if (script.everyFrame ? !(dt > 0) : !fixDeformationsTick(script, dt)) return;
     const skinnedNode = holder.parent;
     const smr = script.skinnedMeshRenderer;
     const g = models.geometry(smr.m_Mesh?.mesh);
@@ -352,7 +362,9 @@ export function createComeSailAwayPool({ renderer = null, pipeline = null, fetch
     const boneWorld = bones.map((b) => (b ? b.worldMatrix() : null));
     let k = bakes.get(script);
     if (!k) { k = { gpu: null, positions: new Float32Array(g.vertexCount * 3), normals: new Float32Array(g.vertexCount * 3), loading: false }; bakes.set(script, k); }
-    bakeSkinnedMesh(g, boneWorld, g.bindPoses, { position: skinnedNode.position, rotation: skinnedNode.rotation }, k.positions);
+    const pose = { position: skinnedNode.position, rotation: skinnedNode.rotation };
+    if (script.everyFrame && rigStill(k, boneWorld, pose)) return;
+    bakeSkinnedMesh(g, boneWorld, g.bindPoses, pose, k.positions);
     recalculateNormals(k.positions, g.indices, g.subMeshes, k.normals);
     script.bakedMesh = k;
     if (k.gpu) { renderer.updateMeshVertices(k.gpu, k.positions, k.normals); return; }
@@ -368,6 +380,28 @@ export function createComeSailAwayPool({ renderer = null, pipeline = null, fetch
       k.gpu = renderer.createMesh({ ...model, positions: k.positions.slice(), normals: k.normals.slice() });
       renderer.updateMeshVertices(k.gpu, k.positions, k.normals);   // the newest bake, if one ran while it loaded
     })().catch((e) => warnOnce('bake', '[come-sail-away] a sail bake failed to upload', e));
+  }
+
+  /** AUDIT GN2-RG1: does an every-frame holder's every bone stand against its renderer (its matrix with the renderer's
+   *  position and rotation undone, the bake's own frame) within RIG_STILL_M of where it stood at the holder's last bake?
+   *  Not: this frame's is kept, for the bake it asks. */
+  function rigStill(k, boneWorld, pose) {
+    const n = boneWorld.length * 12;
+    if (!k.rig || k.rig.length !== n) { k.rig = new Float64Array(n); k.rigNow = new Float64Array(n); k.rigBaked = false; }
+    const q = pose.rotation, p = pose.position, back = [-q[0], -q[1], -q[2], q[3]], v = _rigV, now = k.rigNow;
+    let still = k.rigBaked;
+    for (let b = 0; b < boneWorld.length; b++) {
+      const m = boneWorld[b];
+      if (!m) { k.rigBaked = false; return false; }
+      for (let c = 0; c < 4; c++) {
+        if (c < 3) quatRotateInto(back, m[c * 4], m[c * 4 + 1], m[c * 4 + 2], v);
+        else quatRotateInto(back, m[12] - p[0], m[13] - p[1], m[14] - p[2], v);
+        for (let j = 0; j < 3; j++) { const o = b * 12 + c * 3 + j; now[o] = v[j]; if (Math.abs(v[j] - k.rig[o]) > RIG_STILL_M) still = false; }
+      }
+    }
+    if (still) return true;
+    k.rig.set(now); k.rigBaked = true;
+    return false;
   }
 
   /**

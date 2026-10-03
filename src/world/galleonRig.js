@@ -22,27 +22,33 @@
 // A SAIL IS SKINNED AS THE MOD'S ARE (world/skinnedBake.js): one bone per grid point - a grid of them under the sail's
 // Bones node, each of the canvas's two faces' vertices on its point's bone (AUDIT GN-R15: 72 bones for a square sail's
 // 144 vertices) - so a clip can stand every corner of the canvas where it should be, and FixDeformations bakes the cloth
-// where the bones are each tenth of a second. Its clips are positions only: STOWED (furled against its yard, brailed to
-// its mast, or rolled down its stay), and Unstowed with the wind at -1 (taken aback, or bellied to port), 0 (hanging)
-// and +1 (full, or bellied to starboard) - the jib's two more at -0.5 and +0.5, the Staysail Controller's five Winds, six
-// clips in all (AUDIT GN-R15) - the blend tree mixes them by Wind, and a CrossFade from one state to the other walks
-// every bone between them, so a sail falls from its yard as it is set. Every sail's grid runs from its head (row 0) to
-// its foot, so its picture stands upright on it (AUDIT GN-R13).
+// where the bones are each tenth of a second, each of her five canvases on a frame of its own (AUDIT GN2-RG9: BAKE
+// below). Its clips are positions only: STOWED (furled against its yard, brailed to its mast, or rolled down its stay),
+// and Unstowed with the wind at -1 (taken aback, or bellied to port), 0 (hanging) and +1 (full, or bellied to
+// starboard) - the jib's two more at -0.5 and +0.5, the Staysail Controller's five Winds, six clips in all (AUDIT
+// GN-R15) - the blend tree mixes them by Wind, and a CrossFade from one state to the other walks every bone between
+// them, so a sail falls from its yard as it is set. AUDIT GN2-TS6: Left and Right as the mod's own sails of each kind
+// have them (a Large Square's Left its "Unstowed Backward"; a Large Gaff's and a Large Staysail's Left to port). Every
+// sail's grid runs from its head (row 0) to its foot, so its picture stands upright on it (AUDIT GN-R13).
 //
 // THE ROPE: shrouds with their ratlines and deadeyes on channels outside her rail, the stays fore and aft, backstays,
 // the bowsprit's bobstay - still in her frame, a mesh each for each mast's shrouds, the stays, the backstays and the
 // flagstaff (AUDIT GN-R15: not one mesh) - a yard's lifts and the gaff's peak halyard in its spar's mesh under its boom,
 // so they swing with it, and the running rope that moves: each yard's braces, the fore course's and the jib's sheets
 // and the gaff's mainsheet (AUDIT GN-R15: one course), every one a two-bone skinned rope from a bone on the moving spar
-// or the sail's own clew to one on her deck, so it follows the trim and the sail's set the way the canvas does. Every
-// rope's end lies on what it is made fast to - a masthead, a spar, her bulwark's or her castle rail's top, her deck,
-// her stem (AUDIT GN-R7) - and none passes through canvas, spar or her hull at any trim the auto-trim sets (AUDIT
-// GN-R2..R4).
+// or the sail's own clew to one on her deck, baked EVERY FRAME (AUDIT GN2-RG1: on FixDeformations' tenth of a second a
+// rope with one end on a swinging spar and the other on her deck was drawn where both stood at its last bake - its end
+// trailed its spar 1.2-1.7 m at the auto-trim's 100 degrees a second, 4.99 m through a gybe), so it follows the trim
+// and the sail's set; a sheet hangs under its own sail, so a sail struck from sight takes its sheets with it (AUDIT
+// GN2-RG2). Every rope's end lies on what it is made fast to - a masthead, a spar, her bulwark's or her castle rail's
+// top, her deck, her stem (AUDIT GN-R7) - on every frame it is drawn, and none passes through canvas, spar or her hull
+// at any trim the auto-trim sets (AUDIT GN-R2..R4).
 //
 // Not a DFU member. Ledger A (GALLEON).
 import { MeshBench, prism, rope, box, sub, add, scl, len, norm, lerp3, sagging } from './galleonMesh.js';
 import { TEX, GALLEON_TILE } from './galleonArt.js';
 import { pathHash } from './unityAnimator.js';
+import { FIX_DEFORMATIONS_INTERVAL } from './skinnedBake.js';
 
 /**
  * Where the rig stands (the boat's frame, metres). AUDIT GN-R10/R15: the masts are measured off the bake itself
@@ -106,6 +112,17 @@ export const YARD_R = Object.freeze([0.17, 0.08]);
 export const HEAD_OFF = 0.02;
 export const HEAD_TURN = 20 * Math.PI / 180;
 export const FURL_R = 0.13;
+
+/**
+ * AUDIT GN2-RG1/RG9: HOW HER SKINNED RENDERERS BAKE - a `BakeCadence` on the renderer's node, which Come Sail Away's walk
+ * reads onto its FixDeformations holder (systems/comeSailAwayBoat.js; the mod's own boats carry none: a tenth of a second
+ * from nought, as the C# times them). Her running rope every frame (`everyFrame`: scenes/comeSailAwayPool.js, never
+ * while the game is paused, nor again while its bones stand where they did at its last bake); each canvas on the mod's
+ * tenth of a second from its own `timer` - the k-th sail's k fifths of the interval - so her five bake on frames of
+ * their own (her five canvases and eleven ropes baked on one frame together: 277-279 us at once).
+ */
+export const BAKE = Object.freeze({ rope: Object.freeze({ everyFrame: true }), canvasTimer: (k) => Math.fround(k * FIX_DEFORMATIONS_INTERVAL / SAILS.length) });
+const bakeCadence = (o) => ({ type: 'BakeCadence', ...o });
 
 const nodeOf = (name, { p = [0, 0, 0], r = [0, 0, 0, 1], s = [1, 1, 1], c = [], kids = [], active = true } = {}) => ({ name, active, layer: 0, tag: 0, position: [...p], rotation: [...r], scale: [...s], components: c, children: kids });
 const constClip = (name, curves, length = 0, loop = true) => ({ name, start: 0, stop: length, sampleRate: 60, loop, wrapMode: 0, denseRate: 60, denseBegin: 0, events: [], curves });
@@ -486,7 +503,7 @@ export function buildRig(cx) {
     const key = `galleon:sail:${sailKey}`;
     cx.mesh(key, geometry);
     const texChild = nodeOf(`${cx.archive}_${TEX.canvas}`);   // ApplyGameTextures' slot 0: the canvas
-    const meshNode = nodeOf(meshName, { kids: [texChild] });
+    const meshNode = nodeOf(meshName, { c: [cx.comp(bakeCadence({ timer: BAKE.canvasTimer(SAILS.findIndex((x) => x.key === sailKey)) }))], kids: [texChild] });   // AUDIT GN2-RG9
     cx.skinned(meshNode, key, bones, bonesNode, [{ material: 'galleon-canvas' }]);
     const clipName = (pose) => `galleon2/${sailKey} ${pose}`;
     const curvesOf = (grid2) => grid2.map((p, k) => posCurve(`${bonesName}/B${k}`, p));
@@ -505,13 +522,14 @@ export function buildRig(cx) {
     return { sail, bones, bonesNode };
   };
   /** A running rope: a two-bone skinned line between two nodes' points (`a` on node A, `b` on node B, each a bone
-   *  placed at its node's local point). */
-  const running = (name, a, b) => {
+   *  placed at its node's local point), its mesh in the frame of the node it hangs under (`at`, where that node's frame
+   *  stands in hers at rest - AUDIT GN2-RG2: a sheet's, its sail's), baked every frame (AUDIT GN2-RG1). */
+  const running = (name, a, b, at = [0, 0, 0]) => {
     const meshName = `${name}Line`;
     const key = `galleon:rope:${name}`;
-    const geometry = ropeGeometry(a.world, b.world, 0.028);
+    const geometry = ropeGeometry(sub(a.world, at), sub(b.world, at), 0.028);
     cx.mesh(key, geometry);
-    const meshNode = nodeOf(meshName, { kids: [nodeOf(`${cx.archive}_${TEX.rope}`)] });
+    const meshNode = nodeOf(meshName, { c: [cx.comp(bakeCadence({ ...BAKE.rope }))], kids: [nodeOf(`${cx.archive}_${TEX.rope}`)] });
     cx.skinned(meshNode, key, [a.bone, b.bone], null, [{ material: 'galleon-rope' }], true);
     return meshNode;
   };
@@ -533,7 +551,7 @@ export function buildRig(cx) {
     const armS = nodeOf(`${s.key}YardArmStarboard`, { p: [s.yardSpan / 2 - 0.2, 0, d] });
     const boom = nodeOf(boomName, { p: [0, s.yardY, m.z], kids: [sail, yard, armP, armS] });   // the sail FIRST: the auto-trim reads the boom's first child
     kids.push(boom);
-    squareSails[s.key] = { s, boom, bones, armP, armS, d };
+    squareSails[s.key] = { s, boom, sail, bones, armP, armS, d };
   }
   // the gaff mainsail on its boom
   const g = SAILS.find((x) => x.kind === 'gaff');
@@ -566,22 +584,25 @@ export function buildRig(cx) {
       kids.push(running(`${s.key}Brace${side > 0 ? 'Starboard' : 'Port'}`, { bone: arm, world: local(boom, arm) }, foot));
     }
   }
-  // the fore course's sheets, from its two clews (its foot's corner bones) aft to her bulwark
+  // the fore course's sheets, from its two clews (its foot's corner bones) aft to her bulwark - AUDIT GN2-RG2: each under
+  // the course itself (its node at its boom's own place), so a course struck from sight takes them with it (under her
+  // hull they were drawn ending 4.4 m under its yard, in the air)
   {
-    const { boom, bones } = squareSails.ForeCourse;
+    const { boom, sail, bones } = squareSails.ForeCourse;
     const [NU, NV] = GRID.square;
     for (const [k, side] of [[(NV - 1) * NU, -1], [NV * NU - 1, 1]]) {
       const foot = deckBone(`ForeCourseSheetBelay${side > 0 ? 'Starboard' : 'Port'}`, sided(BELAYS.courseSheet, side));
-      kids.push(running(`ForeCourseSheet${side > 0 ? 'Starboard' : 'Port'}`, { bone: bones[k], world: add(boom.position, bones[k].position) }, foot));
+      sail.children.push(running(`ForeCourseSheet${side > 0 ? 'Starboard' : 'Port'}`, { bone: bones[k], world: add(boom.position, bones[k].position) }, foot, boom.position));
     }
   }
   // the gaff's mainsheet, from its boom's end down to her main deck at the castle's foot
   kids.push(running('MainGaffSheet', { bone: gEnd, world: local(gBoom, gEnd) }, deckBone('MainGaffSheetBelay', [...BELAYS.mainSheet])));
-  // the jib's sheets, from its clew (its foot's after corner: the last row's last bone) to her bulwark either side
+  // the jib's sheets, from its clew (its foot's after corner: the last row's last bone) to her bulwark either side -
+  // AUDIT GN2-RG2: under the jib (its node in her own frame), so a jib struck from sight takes them with it
   {
     const [NU, NV] = GRID.stay;
     const clewBone = jib.bones[NV * NU - 1];
-    for (const side of [-1, 1]) kids.push(running(`JibSheet${side > 0 ? 'Starboard' : 'Port'}`, { bone: clewBone, world: clewBone.position }, deckBone(`JibSheetBelay${side > 0 ? 'Starboard' : 'Port'}`, sided(BELAYS.jibSheet, side))));
+    for (const side of [-1, 1]) jib.sail.children.push(running(`JibSheet${side > 0 ? 'Starboard' : 'Port'}`, { bone: clewBone, world: clewBone.position }, deckBone(`JibSheetBelay${side > 0 ? 'Starboard' : 'Port'}`, sided(BELAYS.jibSheet, side))));
   }
   return { kids, clips, overrides };
 }

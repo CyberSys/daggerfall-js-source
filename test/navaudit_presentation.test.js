@@ -1123,9 +1123,10 @@ test('AUDIT NAV1 (the presentation) HER HURTS SEEN, her smoke and her planks (#1
   long.g.run(TIMBER_LIFE * 1.5 - 5 + 0.2, 0.5);
   assert.equal(alive().length, 0, 'gone by half again TIMBER_LIFE');
   assert.equal((await strike('heavy', 3)).planks.length, TIMBER_PER_HIT + 1, 'a heavy ball one more');
-  // PIN MOVED (GALLEON, 2026-10-01): the new galleon's main topsail, 13.2 to 19 m up amidships. PIN MOVED (AUDIT GALLEON
-  // R5/G9): its box is its canvas, hung forward of her main mast 0.42 to 1.44 m forward of her middle - the ball through
-  // it there; at her middle (0) a ball meets her main mast, aft of the canvas, and no box
+  // PIN MOVED (GALLEON, 2026-10-01): the new galleon's main topsail amidships - its canvas 13.27 m (its foot) to 17.59 m
+  // (furled on its yard) up in her frame, its box 13.27 to 17.82 (AUDIT GALLEON-2 RG8: not "13.2 to 19"). PIN MOVED
+  // (AUDIT GALLEON R5/G9): its box is its canvas, hung forward of her main mast 0.42 to 1.44 m forward of her middle -
+  // the ball through it there; at her middle (0) a ball meets her main mast, aft of the canvas, and no box
   const rig = await strike('long', 16, 0.9);
   assert.ok(rig.shreds.length > 0 && rig.planks.length === 0, 'through her canvas: shreds, no planks');
 });
