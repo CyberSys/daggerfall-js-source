@@ -340,5 +340,95 @@
     "tests": [
       "test/fleet.test.js"
     ]
+  },
+  {
+    "name": "CR-two-first-mates",
+    "file": "src/systems/naval/shipCrew.js",
+    "old": "      if (role === FIRST_MATE) for (const o of hands) if (o !== h && o.role === FIRST_MATE) o.role = 'Deckhand';",
+    "new": "      if (false) for (const o of hands) if (o !== h && o.role === FIRST_MATE) o.role = 'Deckhand';",
+    "tests": [
+      "test/crewroles.test.js"
+    ]
+  },
+  {
+    "name": "CR-anyone-a-bard",
+    "file": "src/systems/naval/shipCrew.js",
+    "old": "      const bard = role === 'Bard' && h.mobile === MOBILE.Bard;",
+    "new": "      const bard = role === 'Bard';",
+    "tests": [
+      "test/crewroles.test.js"
+    ]
+  },
+  {
+    "name": "CR-posts-unkept",
+    "file": "src/systems/naval/crewLife.js",
+    "old": "    if (post && rng() < POST_SHARE) {",
+    "new": "    if (post && rng() < 0) {",
+    "tests": [
+      "test/crewroles.test.js"
+    ]
+  },
+  {
+    "name": "CR-a-post-from-afar",
+    "file": "src/systems/naval/crewLife.js",
+    "old": "      if (Math.hypot(m.pos[0] - post.at[0], m.pos[2] - post.at[2]) > POST_REACH && walkTo(m, post.at)) return;",
+    "new": "      if (Math.hypot(m.pos[0] - post.at[0], m.pos[2] - post.at[2]) > POST_REACH * 30 && walkTo(m, post.at)) return;",
+    "tests": [
+      "test/crewroles.test.js"
+    ]
+  },
+  {
+    "name": "CR-guns-unmanned",
+    "file": "src/systems/naval/crewLife.js",
+    "old": "            const gun = roles[m.i] === 'Gunner' ? postOf(m) : null;",
+    "new": "            const gun = null;",
+    "tests": [
+      "test/crewroles.test.js"
+    ]
+  },
+  {
+    "name": "CR-posts-overlap",
+    "file": "src/systems/naval/crewLife.js",
+    "old": "        if (q && !taken.some((t) => Math.hypot(t[0] - q[0], t[2] - q[2]) < POST_APART)) { taken.push(q); return q; }",
+    "new": "        if (q) { taken.push(q); return q; }",
+    "tests": [
+      "test/crewroles.test.js"
+    ]
+  },
+  {
+    "name": "CR-mate-the-first-aboard",
+    "file": "src/scenes/navalHost.js",
+    "old": "    return (aboard.find((h) => h.role === FIRST_MATE) ?? aboard[0])?.name ?? null;",
+    "new": "    return aboard[0]?.name ?? null;",
+    "tests": [
+      "test/crewroles.test.js"
+    ]
+  },
+  {
+    "name": "CR-roles-unsent",
+    "file": "src/scenes/navalHost.js",
+    "old": "      const roles = boat.crewed ? st.crew.hands.map((h) => h.role) : null;",
+    "new": "      const roles = null;",
+    "tests": [
+      "test/crewroles.test.js"
+    ]
+  },
+  {
+    "name": "CR-world-roles-unset",
+    "file": "src/scenes/world.js",
+    "old": "      _crewCtx.roles = ship.mine?.roles ?? null;",
+    "new": "      _crewCtx.roles = null;",
+    "tests": [
+      "test/crewroles.test.js"
+    ]
+  },
+  {
+    "name": "CR-every-list-a-bard",
+    "file": "src/ui/fleetPage.js",
+    "old": "    for (const role of [...CREW_ROLES, ...(h.bard ? ['Bard'] : [])]) {",
+    "new": "    for (const role of [...CREW_ROLES, 'Bard']) {",
+    "tests": [
+      "test/crewroles.test.js"
+    ]
   }
 ]

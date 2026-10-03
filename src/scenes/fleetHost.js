@@ -22,7 +22,8 @@ import {
 import { HULL_NAMES, HULL_PRICES } from '../systems/comeSailAwayBoat.js';
 import { TERRAIN_EDGE } from '../systems/comeSailAway.js';
 import { batteriesOf } from '../systems/naval/navalShips.js';
-import { CREW_ORDERS } from '../systems/naval/shipCrew.js';
+import { CREW_ORDERS, CREW_ROLES } from '../systems/naval/shipCrew.js';
+import { MOBILE } from '../systems/naval/navalBoarding.js';
 
 /** The hulls whose prefab carries a live `Crewed` node (Come Sail Away's Small Ship, Large Galley and Carrack - the
  *  Rowboat's is inactive): a ship with hands, who sail her to a port and mend her where she lies. */
@@ -131,6 +132,7 @@ export function createFleetHost(deps) {
     return { summon, away, repair, yard, refit, st, loan };
   }
 
+  const n0 = () => naval();
   /** THE MODEL: a row a ship, the ones at hand first (sailing, here, laid up, away, packed), each by her name. */
   function model() {
     sweep();
@@ -146,6 +148,8 @@ export function createFleetHost(deps) {
         value: Number.isFinite(rec.value) ? rec.value : HULL_PRICES[rec.hull], where: at.where, metres: b.metres, way: b.way,
         port: rec.port?.name ?? null, crewed: CREWED_HULLS.includes(rec.hull), guns: hasGuns(rec.hull),
         status: why.st, upgrades: { ...rec.upgrades }, loan: why.loan,
+        // HOLDINGS: her named hands and their posts (a laid-up ship's signed on here), a Bard's calling his to keep
+        hands: CREWED_HULLS.includes(rec.hull) && at.boat ? (n0()?.crewHands?.(at.boat) ?? []).map((h) => ({ name: h.name, role: h.role, bard: h.mobile === MOBILE.Bard, fights: h.fights | 0 })) : [],
         can: { summon: why.summon, away: why.away, repair: why.repair, yard: why.yard, refit: why.refit },
       });
     }
@@ -188,6 +192,13 @@ export function createFleetHost(deps) {
       if (!v.ok) return said(false, v.reason);
       deps.changed?.();
       return said(true, v.name ? `She is the ${v.name} now.` : `She is called by her hull again: ${shipLabel(rec)}.`);
+    }
+    if (verb === 'role') {
+      // HOLDINGS: a hand of hers given a post (shipCrew.js assign) - wherever she lies; her First Mate answers for her
+      if (!CREWED_HULLS.includes(rec.hull) || !at.boat) return said(false, 'She has no crew.');
+      if (!arg || !(/** @type {readonly string[]} */ (CREW_ROLES).includes(arg.role) || arg.role === 'Bard')) return said(false, 'No such post aboard her.');
+      const r2 = n?.assignRole?.(at.boat, arg.name, arg.role) ?? { ok: false, text: 'Not here.' };
+      return said(r2.ok, r2.text);
     }
     if (verb === 'summon') {
       if (why.summon) return said(false, why.summon);

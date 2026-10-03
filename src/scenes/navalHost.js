@@ -71,7 +71,7 @@ import { mintStores } from '../systems/naval/navalStores.js';   // SALVAGE: a wr
 import { mintDeed } from '../systems/comeSailAwayItems.js';   // SHIP-CLAIM: a claimed prize's deed, the shelf's own mint
 import { yardOffer, yardAll, fieldMend, FIELD_QUIET_S, FIELD_REFLOAT, YARD_PRICE, provisionOffer, seaRepair, wantsRepair, paidDamage, STORE_POINTS, STORES_STOCK, storesToWhole, SEA_REPAIR_UNDER_FIRE, FIELD_MEND_CAP } from '../systems/naval/navalYard.js';
 import { createCompanions, companionRows } from '../systems/naval/crewCompanions.js';   // CREW-COMPANIONS
-import { createShipCrew, reloadScaleOf, mendScaleOf, handsBonusOf, crewCard, CREW_ORDERS, ORDER_TEXT, spiritsOf, LOOKOUT_ROLE } from '../systems/naval/shipCrew.js';   // SHIP-CREW
+import { createShipCrew, reloadScaleOf, mendScaleOf, handsBonusOf, crewCard, CREW_ORDERS, ORDER_TEXT, spiritsOf, LOOKOUT_ROLE, FIRST_MATE } from '../systems/naval/shipCrew.js';   // SHIP-CREW
 import { crewRoster, playerCrewCount } from '../systems/naval/crewLife.js';   // AUDIT NAV1: the shipwright, the mending at sea
 import { createBoarding, berthPose, musterOf, crewTeamOf, handsOf, repelPartyOf, raidQuestOf, raidQuestWon, raidQuestRetreated, boardingWon, BOARD_RANGE, BOARD_SPEED, ABANDON_RANGE, HAND, SURRENDER_SHARE, CREW_PER_HAND } from '../systems/naval/navalBoarding.js';
 import { navalWireRecord, validNavalRecord, navalHitData, validNavalHit, NAVAL_SHARE_RADIUS, NAVAL_VOLLEY_KEEP_MS, NAVAL_GEN_MAX, NAVAL_WIRE_VOLLEYS, NAVAL_WIRE_SPENT, TRAFFIC_DEFAULT } from '../systems/naval/navalWire.js';
@@ -2018,7 +2018,8 @@ export function createNavalHost(deps) {
   /** AUDIT CC-D8: the hand who answers for her - her First Mate, or the first of her crew aboard while he walks ashore. */
   const mateOf = (boat, st) => {
     const away = boat?.uid ? companions.awayOf(boat.uid) : null;
-    return st.crew.hands.find((h) => !away?.has(h.name))?.name ?? null;
+    const aboard = st.crew.hands.filter((h) => !away?.has(h.name));
+    return (aboard.find((h) => h.role === FIRST_MATE) ?? aboard[0])?.name ?? null;   // HOLDINGS: the hand made her First Mate first
   };
   /** QUICK-REPAIRS: `auto` - her hands at the repairs on their own once the fight is over, paid for past the free
    *  mending's cap alone (navalYard.js paidDamage; no order to stand down; a word once, aboard the boat in play, when the
@@ -2160,6 +2161,23 @@ export function createNavalHost(deps) {
     const paid = spent ? ` ${spent === 1 ? 'One store' : `${spent} stores`} spent.` : '';
     if (!wantsRepair(d)) return { ok: true, text: `${who}She's sound, Captain.${paid}`, spent };
     return { ok: true, text: `${who}We've mended what we can, Captain - she needs carpenter's stores for the rest.${paid}`, spent };
+  }
+  /** HOLDINGS: her hands as the Fleet page's Crew panel reads them - her roster made to match her deck first (crewStep's
+   *  own sync, said to nobody: a laid-up ship's hands are signed on before she ever stands), each as the save keeps him. */
+  function crewHands(boat) {
+    const st = myBoatState(boat);
+    if (!st || !boat.crewed) return [];
+    if (playerCrewCount(boat.hull, st.damage.crew) !== st.crew.hands.length) {
+      st.crew.sync(crewRoster({ hull: boat.hull, seed: (deps.crewSeed?.(boat) ?? boat.uid ?? 1) >>> 0, crew: st.damage.crew }));
+      st.mustered = true;
+    }
+    return st.crew.hands.map((h) => ({ ...h }));
+  }
+  /** HOLDINGS: a hand of hers given a post (shipCrew.js assign) - answers `{ ok, text }`. */
+  function assignRole(boat, name, role) {
+    const st = myBoatState(boat);
+    if (!st || !boat.crewed) return { ok: false, text: 'She has no crew.' };
+    return st.crew.assign(name, role);
   }
   /** HOLDINGS: her state built again on her refitted whole - her hurts kept as the share of it they were (a refit
    *  never heals her nor hurts her), her spare work, her crew and her powder as they were. A record still waiting for her
@@ -4120,7 +4138,7 @@ export function createNavalHost(deps) {
 
   return {
     frame, attackInput, cancelAim, holdFire, activate, hudModel, drawFrame, lights, offsetAll, clear, stowPlunder, aimEye, wayScale, sailRefused, brake,
-    fleetStatus, repairAway, refitBoat, openYard, freeBerth,   // HOLDINGS: the Fleet page's (scenes/fleetHost.js) - with giveOrder and hostileNear, below
+    fleetStatus, repairAway, refitBoat, openYard, freeBerth, crewHands, assignRole,   // HOLDINGS: the Fleet page's (scenes/fleetHost.js) - with giveOrder and hostileNear, below
     boatInPlay: () => boatInPlay(),
     word, applyWord, sweepOwners, applyPeerHit, dropOwner, clearPeers,
     /** AUDIT NAV2 F3/F9: another player's boat at sea as their word says her - her crew's share and whether she
@@ -4269,7 +4287,8 @@ export function createNavalHost(deps) {
       const work = boat.crewed && st.crew.order === CREW_ORDERS.repair ? 1 : workOf(st.damage);
       // AUDIT WK-W10: the hand her card names Lookout keeps her bow - his roster place (the crew's members stand in it)
       const lookout = st.crew.hands.findIndex((h) => h.role === LOOKOUT_ROLE);
-      return { crew: st.damage.crew, battle: aiming || crewAlarm(), toward, order: boat.crewed ? st.crew.order : CREW_ORDERS.stand, sings: !boat.crewed || st.crew.sings(), line: () => (boat.crewed ? st.crew.line() : null), repairing: !!st.repairing, work, call, lookout };
+      const roles = boat.crewed ? st.crew.hands.map((h) => h.role) : null;   // HOLDINGS: each at his role's post
+      return { crew: st.damage.crew, battle: aiming || crewAlarm(), toward, order: boat.crewed ? st.crew.order : CREW_ORDERS.stand, sings: !boat.crewed || st.crew.sings(), line: () => (boat.crewed ? st.crew.line() : null), repairing: !!st.repairing, work, call, lookout, roles };
     },
     /** SHIP-CREW: a hand of a boat of mine by where he stands in her roster - his name, or null. */
     crewName: (boat, i) => (boat?.crewed ? myBoatState(boat)?.crew.nameOf(i) ?? null : null),

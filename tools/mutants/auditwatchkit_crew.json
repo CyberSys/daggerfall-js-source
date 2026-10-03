@@ -20,8 +20,8 @@
   {
     "name": "WK-W1-lookout-talked-off-his-way",
     "file": "src/systems/naval/crewLife.js",
-    "old": "|| o === chanty?.leader || o === lookout) continue;",
-    "new": "|| o === chanty?.leader) continue;",
+    "old": "|| o === chanty?.leader || o === lookout || atPost(o)) continue;",
+    "new": "|| o === chanty?.leader || atPost(o)) continue;",
     "tests": [
       "test/auditwatchkit_crew.test.js"
     ]

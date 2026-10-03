@@ -14,6 +14,7 @@
 
 import { holdingsProvider, ensureHoldingsStyle, holdingArt, holdingMeter, farWords } from './holdingsPages.js';
 import { SHIP_NAME_MAX, UPGRADE_LINES } from '../systems/fleet.js';
+import { CREW_ROLES } from '../systems/naval/shipCrew.js';
 
 export const FLEET_PAGE_SECTIONS = Object.freeze([Object.freeze(['fleet', 'Fleet'])]);
 /** Come Sail Away's two items' pictures: a deed's (209/5) for a ship whose title is held, her parts' (212/11) packed. */
@@ -25,7 +26,7 @@ export const fleetPageShown = () => !!holdingsProvider()?.fleet;
 
 const fleet = () => holdingsProvider()?.fleet ?? null;
 let _said = null;   // { uid, ok, text } - the last act's word, under its card
-let _open = null;   // { uid, panel: 'refit'|'rename' } - the one panel open
+let _open = null;   // { uid, panel: 'refit'|'rename'|'crew' } - the one panel open
 let _draft = '';
 
 /** Where she is, as a chip's word and a line. Pure. */
@@ -77,6 +78,34 @@ function refitPanel(el, s, rerender, act) {
       t.append(acts);
     }
     box.append(t);
+  }
+  return box;
+}
+
+/** HOLDINGS: her named hands, each with his post - a list of CREW_ROLES (and a Bard's calling, his) to give him another.
+ *  Each keeps his post's place on her deck (crewLife.js ROLE_POSTS); her Lookout her bow; one First Mate, who answers. */
+function crewPanel(el, s, act) {
+  const box = el('div', 'hld-text');
+  if (!s.hands?.length) { box.append(el('span', 'hld-sub', 'She has no hands aboard - hire them at a shipwright.')); return box; }
+  box.append(el('span', 'hld-sub', 'Each keeps his post on her deck: her First Mate by the helm, her Bosun at the mainmast, her Carpenter by the hatch, her Cook at the galley, her Gunners at the guns, her Lookout at the bow.'));
+  for (const h of s.hands) {
+    const row = el('div', 'hld-refit hld-hand');
+    const head = el('div', 'hld-head');
+    head.append(el('span', 'hld-name', h.name), el('span', 'hld-state', h.role));
+    row.append(head);
+    if (h.fights) row.append(el('span', 'hld-sub', `${h.fights} fight${h.fights === 1 ? '' : 's'} won`));
+    const pick = /** @type {HTMLSelectElement} */ (el('select', 'hld-field hld-select'));
+    pick.setAttribute('aria-label', `${h.name}'s post`);
+    for (const role of [...CREW_ROLES, ...(h.bard ? ['Bard'] : [])]) {
+      const o = /** @type {HTMLOptionElement} */ (el('option', null, role));
+      o.value = role;
+      if (role === h.role) o.selected = true;
+      pick.append(o);
+    }
+    pick.value = h.role;
+    pick.onchange = () => act('role', { name: h.name, role: pick.value });
+    row.append(pick);
+    box.append(row);
   }
   return box;
 }
@@ -137,8 +166,9 @@ function shipCard(el, s, { rerender, meter, door }) {
   if (s.where !== 'packed' && s.where !== 'away') acts.append(button(el, 'Shipwright', c.yard, () => act('yard')));
   acts.append(button(el, _open?.uid === s.uid && _open.panel === 'refit' ? 'Close refits' : 'Refit', null, () => { _open = _open?.uid === s.uid && _open.panel === 'refit' ? null : { uid: s.uid, panel: 'refit' }; rerender(); }));
   acts.append(button(el, 'Rename', null, () => { _open = { uid: s.uid, panel: 'rename' }; _draft = s.name ?? ''; _said = null; rerender(); }));
+  if (s.crewed && s.where !== 'packed') acts.append(button(el, _open?.uid === s.uid && _open.panel === 'crew' ? 'Close crew' : 'Crew', null, () => { _open = _open?.uid === s.uid && _open.panel === 'crew' ? null : { uid: s.uid, panel: 'crew' }; rerender(); }));
   text.append(acts);
-  if (_open?.uid === s.uid) text.append(_open.panel === 'refit' ? refitPanel(el, s, rerender, act) : renamePanel(el, s, rerender, act));
+  if (_open?.uid === s.uid) text.append(_open.panel === 'refit' ? refitPanel(el, s, rerender, act) : _open.panel === 'crew' ? crewPanel(el, s, act) : renamePanel(el, s, rerender, act));
   item.append(text);
   return item;
 }

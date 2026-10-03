@@ -2,7 +2,7 @@
   {
     "name": "SC-role-mate",
     "file": "src/systems/naval/shipCrew.js",
-    "old": "(i === 0 ? 'First Mate' : mobile === MOBILE.Bard ? 'Bard' : ROLES[dealt % ROLES.length])",
+    "old": "(i === 0 ? FIRST_MATE : mobile === MOBILE.Bard ? 'Bard' : ROLES[dealt % ROLES.length])",
     "new": "(mobile === MOBILE.Bard ? 'Bard' : ROLES[dealt % ROLES.length])",
     "tests": [
       "test/shipcrew.test.js"

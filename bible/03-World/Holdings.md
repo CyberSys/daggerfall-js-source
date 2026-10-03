@@ -151,7 +151,40 @@ unnamed fleet's record is the older build's to the letter, and a renamed boat is
 takes each name through the same law; a bad `n` never drops the boats, a refused name reads as none, and an older
 reader ignores the key (`systems/comeSailAwayWire.js`; `scenes/comeSailAwayPeers.js` `nameAt`).
 
-## 7. Files, tests
+## 8. Crew roles
+
+Mac: *"Named crew companions should be able to be assigned to certain roles, and be positioned accordingly to their
+role"*. A crewed ship's card has a **Crew** panel: her named hands, each with his post, and a list to give him another
+(`systems/naval/shipCrew.js` `assign`): `CREW_ROLES` - First Mate, Bosun, Gunner, Carpenter, Lookout, Cook, Deckhand - and
+a Bard's calling, which only a Bard keeps and is given back. She has one First Mate: the one she had stands down to
+Deckhand. Her roster is signed on for the panel where she has never stood (a laid-up ship's - `navalHost.js`
+`crewHands`, crewStep's own sync said to nobody), and her posts ride her crew's record in the save.
+
+**WHERE EACH STANDS** (`systems/naval/crewLife.js` ROLE_POSTS, `postOf`) - on her main deck, each a place of its own
+(POST_APART from every other post and from her hatch, where the watch goes below):
+
+| Role | Post |
+|---|---|
+| First Mate | aft, by her helm, facing forward |
+| Bosun | amidships before her mainmast, facing forward |
+| Carpenter | beside her hatch, facing it |
+| Cook | forward, at her galley's stove, facing aft |
+| Gunner | at her guns along her waist - starboard, port, in turn, three a side - facing out over the rail |
+| Lookout | her bow (SHIP-WATCH, as ever - the first named Lookout) |
+| Deckhand, Bard | where they will (a Bard leads the songs by his calling) |
+
+A second holder of a post stands beside the first. An idle hand with a post goes back to it most of the time
+(POST_SHARE 0.8) and stands there longer (POST_STAND), facing his work; the rest are his own - a job, a talk, a walk -
+and nobody draws a man at his post into a talk. Under fire her Gunners hold their own guns while the rest run from post
+to post; a muster takes every hand to the rail, the night every hand but the watch below, her colours struck every post
+left, as before. With no roles handed in - the sea's ships, another player's - the crew walks where it will, as it did.
+Measured over five minutes on the Small Ship's deck: a hand at his post 40-94% of the time, the same crew with no roles
+at those places 0-3%.
+
+**HER FIRST MATE ANSWERS FOR HER** (`navalHost.js` `mateOf`): the hand made First Mate, aboard, speaks her repairs' words
+and her orders' answers; with none aboard, her first hand aboard as before.
+
+## 9. Files, tests
 
 `systems/fleet.js`, `scenes/fleetHost.js`, `ui/holdingsPages.js`, `ui/fleetPage.js`; seams in `systems/horseCart.js`,
 `systems/comeSailAway.js` (SummonBoat, LayUpBoat, laidUpHold, the book's seams, the refits' reads),
@@ -160,4 +193,5 @@ reader ignores the key (`systems/comeSailAwayWire.js`; `scenes/comeSailAwayPeers
 
 `test/holdings.test.js` (the tab, the Stable, the runtime's summon and send away), `test/fleet.test.js` (the ledger, the
 book under Come Sail Away's real runtime, the refits on the helm and the sea, the away repairs, the host half's every act
-and refusal, the word's names, the page).
+and refusal, the word's names, the page), `test/crewroles.test.js` (the posts given, their places on the deck and the
+crew keeping them against a no-roles control, the First Mate's voice, the Crew panel); `tools/mutants/holdings.json`.
