@@ -459,6 +459,7 @@ export function createArenaBouts(deps) {
    * One frame: the bodies read into the law (their health, their feet, my blows taken, my sheathing), the law's clock,
    * its events heard (the crowd, the Herald, the sound), the HUD drawn, the crowd's people moved. `o.playerFeet` my feet
    * in the stage's frame, `o.sheathed` my weapon put away, `o.stamina` my fatigue's share, `o.hidden` the HUD hidden.
+   * ARENA5: `o.playerYaw` my view's yaw (my facing in the replay's recording).
    */
   function frame(dt, o = {}) {
     const C = cur;

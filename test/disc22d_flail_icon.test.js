@@ -50,7 +50,7 @@ test('DISC22-D: the classic list draws the Steel Light Flail, with the icons obj
     drawScreenQuad(tex) { drawn.push(tex.k); },
   };
   const pipe = createDataPipeline({ renderer, arch: null, palette: null, fetch: async (n) => { throw new Error(`no ARENA2 here: ${n}`); } });
-  // world.js:9807, exterior.js:2744, dungeonContext.js:2014/2733, worldModes.js:2609/5046/5062 - no preload hook
+  // world.js:9816, exterior.js:2753, dungeonContext.js:2014/2733, worldModes.js:2610/5099/5115 - no preload hook
   const draw = makeIconDrawer({ getTexture: pipe.getTexture, uploadRecord: pipe.uploadRecord, textures: renderer.textures });
   const m = { ox: 0, oy: 0, s: 1 };
   draw(renderer, m, flail(), [0, 0, 60, 200], 0);
