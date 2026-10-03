@@ -214,6 +214,22 @@ file-diff reader (`addedNotes`; Audit-Install's L1-1, L3-3, R2-C1 and
 R2-C4 findings were about it), its fixtures and twenty-two mutant
 records; `tools/mutants/rel6.json`, 31, all dead.
 
+**REL7 (2026-10-03, Mac: "I need you to do this auto"): A PUBLISHED
+RELEASE'S NOTES, READ AGAIN.** The publish job reads the notes once, as it
+runs. app-v0.1.5767 (#547 and #548) went out as "Fixes and improvements.":
+#547's notes had been a PATCH-NOTES file REL6 deleted, and reached its
+description a minute after the job had read it. A published release is
+never re-cut, but its TEXT can be written again:
+`.github/workflows/release-notes.yml`, run by hand with the release's tag,
+checks that tag out, reads the notes of the pull requests between the
+previous release and it again (`desktopRelease.mjs renotes`, which refuses
+a checkout that is not the tag), and patches the release's body - the
+notes above GitHub's generated list, which stays; no file of the release
+is touched. The launcher shows the new notes the next time it reads the
+releases. A description fixed after its merge reaches its release this
+way. `test/rel7_renotes.test.js` (3), `tools/mutants/rel7.json` (10, all
+dead).
+
 
 `.github/workflows/release-desktop.yml` cuts a release through any
 of three doors: pushing a tag shaped `app-v*`, a workflow_dispatch
