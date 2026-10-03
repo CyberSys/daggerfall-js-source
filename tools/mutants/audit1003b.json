@@ -371,7 +371,7 @@
   {
     "name": "AUDIT1003b-U9-DRAW-NO-RESULT",
     "file": "src/systems/arenaText.js",
-    "old": ": `${red} (Red) and ${blue} (Blue) drew - the judges could not part them`;",
+    "old": ": `${red} (Red) and ${blue} (Blue) drew`;",
     "new": ": `${red} (Red) and ${blue} (Blue) - no result`;",
     "tests": [
       "test/audit1003b_client.test.js"
