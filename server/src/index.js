@@ -1411,13 +1411,14 @@ export class Room {
       // Selecting first fixes the breach and the waste together: at most ROSTER_MAX keys are ever asked for, and an
       // awake object usually asks for none, because `_looks` already holds what every hello said (the `who` path
       // has read it that way since AUDIT WORLD6b-iii(e) B1 - the hello path just never did).
-      // ARENA4: A BOUT'S ROOM DRAWS ITS FIGHTERS ALONE - a spectator has no body (Seats-Arc 6.6), so the roster is the
-      // sockets on the sand, and a hello's join is said when its `in` puts it there (_boutWord), never here
-      // ARENA4b: the hour's exhibition's too - its sand is the relay's two, so its roster is nobody
-      // AUDIT PRE-MERGE 1003b R4: and a private session's sand is shown to its members alone - a stranger with the code, or
-      // a member removed, is welcomed to a room that draws nobody (its join shows it the sand: `_sessionShow`)
+      // HOTFIX 1003f (2026-10-03, live: "people join and are alone"; the owner: "Everyone should be shown. Nobody should be
+      // invisible."): A FLOOR DRAWS EVERYONE IN IT - a bout's room and the hour's exhibition's roster every socket here, the
+      // stands as the sand (ARENA4 drew the fighters alone, so every watcher stood in an empty arena, seen by nobody).
+      // AUDIT PRE-MERGE 1003b R4 stands: a private session's floor is its members' - a member is welcomed to the members
+      // here, a stranger with the code or a member removed to a room that draws nobody (its join shows it all: `_sessionShow`)
       const unseen = isArenaPrivateRoom(a.key) && !this._attach(ws)?.shown;
-      if (isArenaFloorRoom(a.key)) for (let i = others.length - 1; i >= 0; i--) if (!others[i].af || unseen) others.splice(i, 1);
+      const S = isArenaPrivateRoom(a.key) ? await this._sessionOf() : null;
+      if (isArenaPrivateRoom(a.key)) for (let i = others.length - 1; i >= 0; i--) if (unseen || !S?.members?.[others[i].sub]) others.splice(i, 1);
       const near = rosterFor(battle ? others.map((b) => this._drawn(b, a.key)) : others, m.id, m.pose);   // AUDIT-SEATS T2: in a battle room, a spectator's place is said to nobody
       const missing = near.filter((b) => !this._looks.has(b.id)).map((b) => lookKey(b.id));
       const fetched = missing.length ? await this.state.storage.get(missing) : new Map();
@@ -1455,9 +1456,9 @@ export class Room {
         const parks = (await this._parkList(now)).filter((e) => e.sub !== sub).map((e) => this._parkPublic(e));
         if (!this._send(ws, JSON.stringify({ t: 'parks', now, data: parks }))) return;
       }
-      if (isArenaFloorRoom(a.key)) return;   // ARENA4: said at the `in`, for a fighter alone (ARENA4b: an exhibition has none)
+      if (unseen) return;   // HOTFIX 1003f: a floor's hello said as anyone's - a private session's stranger's to nobody (a member's join says it: `_sessionShow`)
       const join = JSON.stringify(badged({ t: 'join', id: m.id, name: who.name, look: m.look, pose: this._drawn({ sub: who.subject, pose: m.pose }, a.key).pose }, who));   // AUDIT-SEATS T2: and a spectator's join stands it nowhere
-      for (const [other, b] of [...this._all()]) if (other !== ws && b.id) this._send(other, join);
+      for (const [other, b] of [...this._all()]) if (other !== ws && b.id && (!S || S.members[b.sub])) this._send(other, join);   // AUDIT PRE-MERGE 1003b R4: a member's to the members alone
       return;
     }
     if (m.t === 'world') {
@@ -2097,12 +2098,11 @@ export class Room {
       // or a fighter's before its `in`) keeps its camera on its own attachment and is drawn to nobody: the fan below said
       // its every pose, and the fighters drew sixty spectators among them
       if (step === 'eye') return;
-      // ARENA4: a bout's room - a fighter's pose is the referee's (its speed checked, its place the reach's), and a
-      // spectator's reaches nobody: the stands have no bodies
+      // ARENA4: a bout's room - a fighter's pose is the referee's (its speed checked, its place the reach's); HOTFIX 1003f: a
+      // spectator's is fanned as anyone's - the stands are bodies (a private session's stranger's reaches nobody, below)
       if (isArenaFloorRoom(a.key) && m.t === 'pose') {   // ARENA4b: in an exhibition's room no socket is ever on the sand
         const cur = this._attach(ws);
-        if (!cur.af) return;
-        try { const st = await this._boutOf(); if (st && cur.afid) poseOf(st, cur.afid, m.p.x, m.p.z, now); } catch (e) { console.warn('[arena] pose', e?.message ?? e); }
+        if (cur.af) { try { const st = await this._boutOf(); if (st && cur.afid) poseOf(st, cur.afid, m.p.x, m.p.z, now); } catch (e) { console.warn('[arena] pose', e?.message ?? e); } }
       }
       const out = JSON.stringify({ t: 'pose', id: a.id, p: m.p });
       // SLAM1: the fan is BOUNDED. A room's cost was N senders times N listeners, and the range cull does not help
@@ -2125,6 +2125,7 @@ export class Room {
       // sends a second, beside the 59,000 the moving case already pays.
       const heard = [];
       const S = isArenaPrivateRoom(a.key) ? await this._sessionOf() : null;   // AUDIT PRE-MERGE 1003b R4: a session's sand moves for its members alone
+      if (isArenaPrivateRoom(a.key) && !S?.members?.[a.sub]) return;   // HOTFIX 1003f: and its stands - a stranger's pose reaches nobody
       for (const [other, b] of [...this._all()]) {
         if (other === ws || !b.id || (S && !S.members[b.sub])) continue;
         if (inRange(a.key ?? '', m.p, b.pose)) heard.push([other, b]);
@@ -2690,11 +2691,8 @@ export class Room {
       if (j.no) { this._arenaSend(ws, { k: 'no', m: j.no }); return; }
       if (j.role === 'f') {
         this._setAttach(ws, { ...cur, af: 1, afid: j.id, asp: 0 });
-        // the fighter comes onto the sand: its body said to the room now (the hello said nothing)
-        const look = this._looks.get(cur.id) ?? (await this.state.storage.get(lookKey(cur.id))) ?? null;
-        const join = JSON.stringify(badged({ t: 'join', id: cur.id, name: cur.name, look, pose: cur.pose }, cur));
-        const S = st.priv ? await this._sessionOf() : null;   // AUDIT PRE-MERGE 1003b R4: a session's sand shown to its members alone
-        if (!cur.af) for (const [other, b] of [...this._all()]) if (other !== ws && b.id && (!S || S.members[b.sub])) this._send(other, join);
+        // HOTFIX 1003f: the fighter's body was said at its hello (a session's member's at its join) as every body on the
+        // floor is - its `in` says nothing new (ARENA4 said it here, its hello having said nothing)
         // ARENA6: a session's fighter comes from the stands to its mark (its client stands it there) - the mark is its
         // place, never the terrace its socket last said (net/arenaBrain.js seatOnMark); a fighter back mid-fight keeps its own
         if (!(st.priv && seatOnMark(st, j.id, now)) && cur.pose) poseOf(st, j.id, cur.pose.x, cur.pose.z, now);
@@ -2880,16 +2878,30 @@ export class Room {
     this._sessionSig = sig;
     for (const [ws, b] of [...this._all()]) if (ws !== gone && b.id && S.members[b.sub]) this._arenaSend(ws, sessionWord(S, b.sub, here, st));
   }
-  /** AUDIT PRE-MERGE 1003b R4: A SOCKET MADE A MEMBER IS SHOWN THE SAND - the fighters on it now, as the welcome shows a
-   *  member's (its hello, a stranger's then, drew nobody). Once a socket. */
+  /** AUDIT PRE-MERGE 1003b R4: A SOCKET MADE A MEMBER IS SHOWN THE FLOOR, as the welcome shows a member's (its hello, a
+   *  stranger's then, drew nobody). Once a socket. HOTFIX 1003f: every member here - the stands as the sand - shown to it,
+   *  and it to each of them (it showed the fighters alone, and a joiner stood in an empty arena, seen by nobody). */
   async _sessionShow(ws) {
     const cur = this._attach(ws);
     if (!cur || cur.shown) return;
     this._setAttach(ws, { ...cur, shown: 1 });
+    const S = await this._sessionOf();
+    const lookOf = async (id) => this._looks.get(id) ?? (await this.state.storage.get(lookKey(id))) ?? null;
+    const mine = JSON.stringify(badged({ t: 'join', id: cur.id, name: cur.name, look: await lookOf(cur.id), pose: cur.pose }, cur));
     for (const [other, b] of [...this._all()]) {
-      if (other === ws || !b.id || !b.af) continue;
-      const look = this._looks.get(b.id) ?? (await this.state.storage.get(lookKey(b.id))) ?? null;
-      this._send(ws, JSON.stringify(badged({ t: 'join', id: b.id, name: b.name, look, pose: b.pose }, b)));
+      if (other === ws || !b.id || !S?.members?.[b.sub]) continue;
+      this._send(ws, JSON.stringify(badged({ t: 'join', id: b.id, name: b.name, look: await lookOf(b.id), pose: b.pose }, b)));
+      this._send(other, mine);
+    }
+  }
+  /** HOTFIX 1003f: THE SESSION OVER, ITS FLOOR DRAWS NOBODY - every socket it showed said gone to every other screen and
+   *  shown again only by a next session's join (`_sessionShow`), so no ghost stands on a screen that stays. */
+  _sessionUnshow() {
+    for (const [ws, b] of [...this._all()]) {
+      if (!b.id || !b.shown) continue;
+      const out = JSON.stringify({ t: 'leave', id: b.id });
+      for (const [o2, b2] of [...this._all()]) if (o2 !== ws && b2.id) this._send(o2, out);
+      this._setAttach(ws, { ...b, shown: 0 });
     }
   }
   /** AUDIT PRE-MERGE 1003b R2: whether an account has its own place on this floor - a private session's member, a bout's
@@ -2902,12 +2914,11 @@ export class Room {
   }
   /** A word to every member's socket here (a refusal or an end said to all). */
   _sessionSay(S, w) { for (const [ws, b] of [...this._all()]) if (b.id && S.members[b.sub]) this._arenaSend(ws, w); }
-  /** THE BOUT LET GO: every socket off the sand and out of the stands (a fighter's body taken off the others' screens -
-   *  it is a body in the stands again, drawn to nobody), the bout forgotten. */
+  /** THE BOUT LET GO: every socket off the sand and out of the stands, the bout forgotten. HOTFIX 1003f: a fighter's body
+   *  stays on the members' screens - a body in the stands again, drawn as every member is (its client walks it up). */
   async _sessionDropBout() {
     for (const [ws, b] of [...this._all()]) {
       if (!b.id) continue;
-      if (b.af) { const out = JSON.stringify({ t: 'leave', id: b.id }); for (const [o2, b2] of [...this._all()]) if (o2 !== ws && b2.id) this._send(o2, out); }
       if (b.af || b.asp || b.afid) this._setAttach(ws, { ...b, af: 0, afid: null, asp: 0 });
     }
     this._bout = null;
@@ -2925,6 +2936,7 @@ export class Room {
    *  record gone. Each member's screen leaves the room (the floor's instance) on the word. */
   async _sessionEnd(S, why) {
     this._sessionSay(S, { k: 'no', m: why });
+    this._sessionUnshow();   // HOTFIX 1003f
     await this._sessionDropBout();
     this._session = null;
     await this._sessionSave();
@@ -3028,16 +3040,16 @@ export class Room {
       let seats = 0;
       for (const [w, b] of [...this._all()]) {
         if (!b.id || b.sub !== k.sub) continue;
-        // AUDIT PRE-MERGE 1003b R3/S8: a fighter's body said gone to every other screen first - its `af` cleared below,
-        // the bout's clear (_sessionDropBout) said `leave` for the other fighter alone, and the removed one stood on the
-        // sand on every screen until its socket closed
-        if (b.af) { const out = JSON.stringify({ t: 'leave', id: b.id }); for (const [o2, b2] of [...this._all()]) if (o2 !== w && b2.id) this._send(o2, out); }
+        // AUDIT PRE-MERGE 1003b R3/S8: a fighter's body said gone to every other screen first - its `af` cleared below, and
+        // the removed one stood on the sand on every screen until its socket closed; HOTFIX 1003f: a member's in the stands
+        // too (`shown` cleared below - it is drawn to nobody now, and sees nobody)
+        if (b.af || b.shown) { const out = JSON.stringify({ t: 'leave', id: b.id }); for (const [o2, b2] of [...this._all()]) if (o2 !== w && b2.id) this._send(o2, out); }
         // TOLD, AND TAKEN OUT OF THE BOUT - never closed by the relay: a close here is the presence session's whole socket
         // (net/online.js reads a policy close as final - the player offline, not just out of the session); the screen
         // leaves the room on the word, and every word of its after this is refused (`removed`)
         this._arenaSend(w, { k: 'no', m: 'removed' });
         if (b.asp && st) { leaveSeat(st); seats++; }
-        if (b.af || b.asp || b.afid) this._setAttach(w, { ...b, af: 0, afid: null, asp: 0 });
+        if (b.af || b.asp || b.afid || b.shown) this._setAttach(w, { ...b, af: 0, afid: null, asp: 0, shown: 0 });
       }
       if (seats && st) this._boutFan([{ k: 'sp', n: st.spectators }]);
       if (st && st.f.some((x) => x.sub === k.sub)) { await this._sessionClear(S, now); return; }

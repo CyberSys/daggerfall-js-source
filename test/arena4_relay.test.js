@@ -64,7 +64,7 @@ test('ARENA4 the door and the wire: the Worker opens the hall and a bout\'s room
   assert.equal(arenaBlowCap({ r: ARENA_HIT.Melee, w: 123, m: 9 }), 2 * (21 + 6 + 20), 'a Daedric dai-katana, a critical\'s double');
   assert.equal(arenaBlowCap({ r: ARENA_HIT.Spell }), 60);
   assert.equal(arenaBlowCap({ r: ARENA_HIT.Melee }), 2 * (41 + 20), 'ARENA5: a bare hand\'s most (DFU\'s past the softcap) and the modifiers\' room, doubled');
-  assert.equal(RELAY_VERSION, 'world156');   // world142 on its branch, renumbered past main's world154 at the merge; GUILD2 moved it on (world156, no wire change)
+  assert.equal(RELAY_VERSION, 'world157');   // GUILD2 moved it on (world157, no wire change); HOTFIX 1003f moved it on (world156: every arena floor draws everyone in it); world155 was ARENA4's - world142 on its branch, renumbered past main's world154 at the merge
   assert.equal(relaySupportsArena('world154'), false, 'main\'s FRIENDS-SYNC through BROKER-CAGE took world142-154 and open no arena room');
   assert.equal(relaySupportsArena('world142'), false);
   assert.equal(relaySupportsArena('world155'), true);
@@ -231,7 +231,7 @@ test('ARENA4 PVP-REF: a matched bout runs the bout law on the relay - both on th
   void down;
 }));
 
-test('ARENA4 the stands: a spectator takes a seat with no body - the fighters never see it, it sees them and the whole bout, its cheer is fanned; sixty seats (mutants: the spectator drawn to the fighters; its pose fanned; the seats unbounded; sixty changed; a stranger let onto the sand)', async () => onClock(async ({ step }) => {
+test('ARENA4 the stands: a spectator takes a seat - HOTFIX 1003f: a body the fighters see, as it sees them - and the whole bout, its cheer is fanned; sixty seats (mutants: the spectator drawn to nobody; its pose to nobody; the seats unbounded; sixty changed; a stranger let onto the sand)', async () => onClock(async ({ step }) => {
   const W = fakeRooms();
   const { R, a, b } = await matched(W, step);
   const s = R.connect();
@@ -243,10 +243,10 @@ test('ARENA4 the stands: a spectator takes a seat with no body - the fighters ne
   await word(R, s, { k: 'in', r: 'f' });
   assert.equal(last(s, 'no').m, 'not yours', 'ARENA5: and is let onto nobody\'s sand');
   assert.equal(last(a, 'sp').n, 1);
-  assert.ok(!a.sent.some((m) => m.t === 'join' && m.id === 'seat-sola'), 'the fighters never see the stands');
+  assert.ok(a.sent.some((m) => m.t === 'join' && m.id === 'seat-sola'), 'HOTFIX 1003f: the fighters see the stands - a spectator\'s hello is said to the room');
   const seen = a.sent.length;
   await pose(R, s, C[0] + 1, C[2] - 21);
-  assert.equal(a.sent.slice(seen).filter((m) => m.t === 'pose').length, 0, 'a spectator\'s pose reaches nobody');
+  assert.ok(a.sent.slice(seen).some((m) => m.t === 'pose' && m.id === 'seat-sola'), 'HOTFIX 1003f: a spectator\'s pose reaches the fighters');
   await pose(R, a, C[0] - 5, C[2]);
   assert.ok(s.sent.some((m) => m.t === 'pose' && m.id === 'fight-alva'), 'a fighter\'s reaches the stands');
   await word(R, s, { k: 'ch', c: 1 });
