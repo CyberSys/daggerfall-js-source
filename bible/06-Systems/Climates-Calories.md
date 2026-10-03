@@ -90,9 +90,11 @@ One record on the entity: `lastAte` (a classic minute), `thirst`
 the whole per-minute law; `runSurvivalMinutes` walks a span capped at
 two days; `alignSurvival` is WORLD5's law for these markers (a player
 away longer than a day comes back fed, watered and rested rather than
-charged). Stages: hunger peckish at 240 minutes, hungry at 720,
-starving at 1440 (then -2 to seven stats a day and rations eaten by
-themselves); thirst thirsty 50, parched 80, dehydrated 100 (fatigue
+charged). Stages: hunger peckish at 240 minutes, hungry at 720 (a sack
+of rations in the pack eaten by itself - RATIONS-HUNGRY, 2026-10-03, Mac:
+"With C&C let it auto consume any rations in inventory when hungry"; it
+waited for starving before, `needs.js` `AUTO_EAT_STAGES`), starving at
+1440 (then -2 to seven stats a day, and a sack eaten as at hungry); thirst thirsty 50, parched 80, dehydrated 100 (fatigue
 taxes, then stats, then health at 120 - SURV-THIRST1's departure: the
 mod asked for heat too and the port does not); sleep tired 4, drowsy 8,
 exhausted 12 (the debt grows past sixteen hours awake; a bed pays 1.5
@@ -1622,3 +1624,19 @@ and said nothing on the way out. Six changes, each a declared departure (Port-Le
   counts at half its warmth before the wet eats it; the cold and armour unchanged.
 - **WARM-SAID** (`needs.js`): leaving a red temperature stage says "You are cooling down." or "You are warming up.",
   and a soaking dried says "You have dried off." - once a recovery; the improving stages stay silent (the third pass).
+
+## RATIONS-HUNGRY - A SACK EATEN AT HUNGRY (2026-10-03)
+
+Mac: "With C&C let it auto consume any rations in inventory when hungry". The port already ate a sack of rations by
+itself, but only once the player was STARVING (1440 minutes without a meal): twelve hours of Hungry first, with a sack
+in the pack, then a day's starving fatigue and, on Hard, its stat loss on the way. Now the sack is eaten the minute the
+player turns HUNGRY (720), and at Starving too (a pack filled after the player turned Hungry). `needs.js`
+`AUTO_EAT_STAGES` (`['hungry', 'starving']`), read in `survivalMinute`'s hunger step, so every host and every jump has it
+(a rest, a journey: the walk eats one each time it turns Hungry, never more than the pack holds). Unchanged: rations
+alone (template 531, the pack - not a wagon), a sack a full meal (`eatRations`: fed at once), "You eat some rations.",
+never for a vampire, nothing with a host's `autoEat` off; Peckish is not a stage it eats at - a rumble, and a sack is a
+full meal. The Hungry line is not said over food: the sack is eaten before the stage is noted. Not a 1:1 port - the
+mod's DLL is not in the tree, and the starving auto-eat was already written up as the port's own; both tiers alike.
+
+`test/rationshungry.test.js` (2); `test/surv1_model.test.js`'s sleep test eats a sack twelve hours into its rest;
+`tools/mutants/rationshungry.json` (4, all dead).

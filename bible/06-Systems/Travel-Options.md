@@ -366,6 +366,25 @@ must be assigned there, never re-declared. Mutants
    down. It is false over a walked one, so both skins now gate it off
    `walkedTrip` / `t.walked`; that branch already carries the mod's own
    `MsgPlayerControlled` and an hours:minutes estimate.
+
+   **TRAVEL-ONLINE** (2026-10-03, Mac: *"Remove instant travel
+   online"*). The fallback this item kept was still reachable from three
+   switches: the mod off (online it was the player's, MODS-ONLINE-2), and
+   either of the two dials that send a Cautious or an Inns trip down the
+   journey (TO-LIVE put both on the tile) - each turned every such trip
+   back into the teleport. All three are the ROOM's now
+   (`systems/onlineLane.js` `ONLINE_ROOM_MOD_KEYS`, at the shipped
+   defaults: `Enabled`, `CautiousTravel.PlayerControlledCautiousTravel`,
+   `StopAtInnsTravel.PlayerControlledInnsTravel`), so online
+   `isPlayerControlledTravel` answers yes for every land trip whatever
+   the player's store says, and the Mods pane locks the three with their
+   own reason ("every trip is travelled, and no one arrives
+   instantly"). Offline every switch is the player's, as before. Not
+   touched: a ship's passage (the mod has no voyage, and the islands are
+   reached no other way) and a party's journey to its leader - both
+   DFU's fast travel by design - nor the Mages Guild's teleport and
+   Recall, which are spells and services, not trips. `test/travelonline.test.js`
+   (2); `tools/mutants/travelonline.json` (4, all dead).
 10. **A message box over the journey PAUSES it rather than interrupting
     it** (AUDIT-TO1 H1). DFU's `DaggerfallUI.MessageBox` pushes a window,
     so the mod's own help (`:1005-1014`) trips the "any other window"

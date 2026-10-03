@@ -13046,15 +13046,17 @@ stands owns it, else the lowest living, online holder on its pixel; the hunt's k
 pays every holder of that hunt who held it before the clear - a peer's word paying gold into the save, FLAGGED there by
 name. Until the branch reaches main (and with it the relay's deploy) a bounty is hunted alone.
 
-## DEATH-PENALTY (2026-09-24, Mac: "add deathpenalty 25% of the gold you have with you"; "online mode only ofc"; "and it should be shown in the death screen") - an online death costs a quarter of the purse
+## DEATH-PENALTY (2026-09-24, Mac: "add deathpenalty 25% of the gold you have with you"; "online mode only ofc"; "and it should be shown in the death screen") - an online death costs a tenth of the purse
 
 THE HOLDINGS ARC above left "the gold lost on death (the original pillars 5 and 6)" out with respawning at a hub
-("That'll be a seperate idea"). This is Mac's later word on the gold, and it stands; the hub respawn stays out. A Ledger A departure (AN ONLINE DEATH COSTS A QUARTER OF THE PURSE).
+("That'll be a seperate idea"). This is Mac's later word on the gold, and it stands; the hub respawn stays out. A Ledger A departure (AN ONLINE DEATH COSTS A TENTH OF THE PURSE).
 
 - **Why online alone**: offline a death ends the run (`endRunToTitleMenu` - the video, the title, F11 for the last
   save), so there is no purse that goes on. Online a death RESPAWNS the player (D-ONLINE1), and that was free.
-- **What** (`src/systems/deathPenalty.js`): a quarter of the purse (`goldPieces`, the counter), rounded down in the
-  player's favour - three coins lose nothing, a hundred lose twenty-five. Not the bank (keeping gold there is the
+- **What** (`src/systems/deathPenalty.js`): a tenth of the purse (`goldPieces`, the counter), rounded down in the
+  player's favour - nine coins lose nothing, a hundred lose ten. **DEATH-TENTH** (2026-10-03, Mac: "Reduce gold loss
+  on death"): it was a quarter, Mac's first 25%; `DEATH_GOLD_FRACTION` 0.25 to 0.1, nothing else moved (the screen's
+  statement, the cap at the purse, the Resurrect's reprieve, the four lines - each carries the amount, none a share). Not the bank (keeping gold there is the
   trade-off the penalty exists to make) and not letters of credit. No switch: an online rule a player could turn off
   would be none.
 - **Where**: `respawnOnlinePlayer` (`scenes/world.js`), once a death - the `_respawning` latch is what makes it once -
@@ -13062,7 +13064,7 @@ THE HOLDINGS ARC above left "the gold lost on death (the original pillars 5 and 
   claimed N gold from your purse."
 - **The death screen** reads the loss once, and STATES it (`stateDeathLoss`): the respawn takes exactly what the screen
   said, capped at the purse (AUDIT 28 B5: the purse CAN change while the player lies dead - a mate's bounty clear pays
-  the dead - and the respawn took a quarter of the bigger purse). A party member's Resurrect withdraws it and says the
+  the dead - and the respawn took its share of the bigger purse). A party member's Resurrect withdraws it and says the
   gold is spared - a rescue is no respawn. The fixed city and the standalone dungeon never respawn online, and their
   screens say so (`online: false`): no countdown, no loss. The classic face adds "DEATH CLAIMS N GOLD" under the hold;
   the Enhanced face puts one of four lines (Mac's wording, each carrying the amount - "1 coin scatters" for one, never
@@ -13071,7 +13073,7 @@ THE HOLDINGS ARC above left "the gold lost on death (the original pillars 5 and 
   words.
 
 `test/deathpenalty.test.js` (5); `test/donline1_respawn.test.js` and `test/risestuck.test.js` allow the line;
-`tools/mutants/bounty1.json` DEATH-PENALTY-1 to 5, dead.
+`tools/mutants/bounty1.json` DEATH-PENALTY-1 to 5, dead (DEATH-TENTH re-aimed the first: a fifth, not a tenth).
 
 ## NOTICE1 (2026-09-28, Mac: "The new notice board should be a physical object that houses quests, the player auction house, etc"; "Go") - the Notice Board
 

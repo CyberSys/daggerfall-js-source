@@ -127,13 +127,13 @@ test('AUDIT 28 B5: the respawn takes what the death screen said, capped at the p
   const me = { goldPieces: 100 };
   stateDeathLoss(25);
   me.goldPieces = 300;   // a mate's bounty clear paid me while I lay dead
-  assert.equal(applyDeathPenalty(me), 25, 'the screen\'s 25, not a quarter of 300');
+  assert.equal(applyDeathPenalty(me), 25, 'the screen\'s 25, not a tenth of 300');
   assert.equal(me.goldPieces, 275);
   assert.equal(statedDeathLoss(), null, 'spent');
   stateDeathLoss(80);
   const poor = { goldPieces: 30 };
   assert.equal(applyDeathPenalty(poor), 30, 'never more than the purse');
-  assert.equal(applyDeathPenalty({ goldPieces: 40 }), 10, 'no word: a quarter of the purse');
+  assert.equal(applyDeathPenalty({ goldPieces: 40 }), 4, 'no word: a tenth of the purse');
   const w = src('src/scenes/world.js');
   const rez = w.slice(w.indexOf('function resurrectInPlace(rez) {'), w.indexOf('\n  }', w.indexOf('function resurrectInPlace(rez) {')));
   assert.match(rez, /stateDeathLoss\(null\);/, 'a rescue withdraws the loss');

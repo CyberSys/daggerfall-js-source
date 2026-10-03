@@ -180,9 +180,9 @@
     ]
   },
   {
-    "name": "DEATH-PENALTY-1-a-fifth-not-a-quarter",
+    "name": "DEATH-PENALTY-1-a-fifth-not-a-tenth",
     "file": "src/systems/deathPenalty.js",
-    "old": "export const DEATH_GOLD_FRACTION = 0.25;",
+    "old": "export const DEATH_GOLD_FRACTION = 0.1;",
     "new": "export const DEATH_GOLD_FRACTION = 0.2;",
     "tests": [
       "test/deathpenalty.test.js",

@@ -6,7 +6,8 @@
 // save), so there is no continuing purse to take from. Online, a death
 // RESPAWNS you (D-ONLINE1) - half health, the nearest safe place - and
 // that is free, which is the gap this closes: the fall now costs a
-// quarter of the coin you were carrying.
+// tenth of the coin you were carrying (a quarter until 2026-10-03, Mac:
+// "Reduce gold loss on death").
 //
 // "WITH YOU" IS THE PURSE. player.goldPieces is the counter (systems/
 // inventory.js, E4). Not the bank account (the bank is where a careful
@@ -14,12 +15,12 @@
 // and not letters of credit (paper, and deductGold's own order treats it
 // separately).
 //
-// ROUNDED DOWN, in the player's favour: 3 gold loses nothing, 100 loses 25.
+// ROUNDED DOWN, in the player's favour: 9 gold loses nothing, 100 loses 10.
 // There is no switch: an online rule the player could turn off would be no
 // rule, and offline nothing reads it.
 import { goldPiecesOf } from './inventory.js';
 
-export const DEATH_GOLD_FRACTION = 0.25;
+export const DEATH_GOLD_FRACTION = 0.1;
 
 /** What a purse of `gold` loses to a death. Any input that is not a usable count loses nothing. */
 export function deathGoldLoss(gold) {
@@ -29,7 +30,7 @@ export function deathGoldLoss(gold) {
 
 /**
  * AUDIT 28 B5: THE LOSS THE DEATH SCREEN SAID. The screen reads it once, as the player falls; the respawn takes THAT -
- * never a quarter of a purse that grew while the player lay dead (a party mate's bounty clear pays the dead too) -
+ * never a share of a purse that grew while the player lay dead (a party mate's bounty clear pays the dead too) -
  * capped at what the purse holds. A Resurrect spares it: the screen's word is for the respawn, and a rescue is none.
  * One player a page, so one statement a page; null when no screen has spoken since the last respawn.
  */
@@ -39,7 +40,7 @@ export function stateDeathLoss(lost) { _stated = Number.isSafeInteger(lost) && l
 /** What the screen said, if it has spoken since the last respawn (a test's seam, and the Resurrect's line). */
 export const statedDeathLoss = () => _stated;
 
-/** Takes the penalty off the player's purse - the loss the death screen said, if it spoke, else a quarter of the purse
+/** Takes the penalty off the player's purse - the loss the death screen said, if it spoke, else a tenth of the purse
  *  now - never more than the purse holds. Returns the gold lost (0 when there was none to take). */
 export function applyDeathPenalty(player) {
   if (!player) return 0;

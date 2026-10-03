@@ -454,7 +454,7 @@ import { raidersNear, raiderAt, raiderSight, chaseStep as raiderChaseStep, pixel
 import { RAIDER_LEAD_S } from '../systems/naval/navalRaiders.js';   // NAV-R: a raider ship steers its seeded course this far on
 import { setRaidingPartiesHost, raidFrame as raidingPartiesFrame, raidState, raidingPartiesOn, raidTypeName as raidKindName, raidDefendingHere, outOfSight as raidOutOfSight, raidWireWord, raidPeerWord, raidRelayWord, raidTownsFor, RAID_SPAWN_MIN_DISTANCE, RAID_SPAWN_MAX_DISTANCE } from '../systems/raidingParties.js';   // RAID1: World Events - Raiding Parties, the towns' raids
 import { modSaveRecords, restoreModSaveRecords, newGameModSaveRecords, registerModSaveData } from '../systems/modSaveData.js';   // WA1: DFU's per-mod save slot, for the mods after HCC; OH-D: Ocean Holes' OceanHoleSaveData
-import { applyDeathPenalty, deathPenaltyText, stateDeathLoss, statedDeathLoss } from '../systems/deathPenalty.js';   // DEATH-PENALTY: an online death costs a quarter of the purse
+import { applyDeathPenalty, deathPenaltyText, stateDeathLoss, statedDeathLoss } from '../systems/deathPenalty.js';   // DEATH-PENALTY: an online death costs a tenth of the purse
 import { createBountyHost } from './bountyHost.js';   // BOUNTY1: the town's bounty boards - the hunts, their packs, their purse
 import { createBountyFarms, farmSpotLocal, pickFarm } from './bountyFarms.js';   // BOUNTY-FARM: a farm on a farm bounty's pixel, while it is held
 import { questBoardIndices } from '../systems/bountyBoard.js';   // BOUNTY1: which of a town's boards post bounties (half)

@@ -1,0 +1,34 @@
+[
+  {
+    "name": "TRAVEL-ONLINE-1-the-mod-the-player's",
+    "file": "src/systems/onlineLane.js",
+    "old": "  'travel-options': Object.freeze({\n    Enabled: true,\n",
+    "new": "  'travel-options': Object.freeze({\n",
+    "tests": ["test/travelonline.test.js", "test/modsonline.test.js"],
+    "note": "Travel Options off online would be fast travel - the teleport - for every trip."
+  },
+  {
+    "name": "TRAVEL-ONLINE-2-cautiously-the-player's",
+    "file": "src/systems/onlineLane.js",
+    "old": "    'CautiousTravel.PlayerControlledCautiousTravel': true,\n    'StopAtInnsTravel.PlayerControlledInnsTravel': true,\n  }),",
+    "new": "    'StopAtInnsTravel.PlayerControlledInnsTravel': true,\n  }),",
+    "tests": ["test/travelonline.test.js", "test/modsonline.test.js"],
+    "note": "Cautiously's dial off online would teleport a cautious trip."
+  },
+  {
+    "name": "TRAVEL-ONLINE-3-inns-the-player's",
+    "file": "src/systems/onlineLane.js",
+    "old": "    'CautiousTravel.PlayerControlledCautiousTravel': true,\n    'StopAtInnsTravel.PlayerControlledInnsTravel': true,\n  }),",
+    "new": "    'CautiousTravel.PlayerControlledCautiousTravel': true,\n  }),",
+    "tests": ["test/travelonline.test.js", "test/modsonline.test.js"],
+    "note": "Inns' dial off online would teleport a trip that stops at inns."
+  },
+  {
+    "name": "TRAVEL-ONLINE-4-the-wrong-reason",
+    "file": "src/ui/enhancedMenu.js",
+    "old": "ONLINE_TRAVEL_VENDORS.includes(vendor) ? ONLINE_TRAVEL_NOTE : ONLINE_SHARED_NOTE);",
+    "new": "ONLINE_SHARED_NOTE);",
+    "tests": ["test/travelonline.test.js", "test/modsonline.test.js"],
+    "note": "The locked travel switches would say a dungeon's monsters are the reason."
+  }
+]

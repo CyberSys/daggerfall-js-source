@@ -1,5 +1,6 @@
 // DEATH-PENALTY (2026-09-24, Mac: "add deathpenalty 25% of the gold you have with you" -
-// "online mode only ofc" - "and it should be shown in the death screen").
+// "online mode only ofc" - "and it should be shown in the death screen"). DEATH-TENTH (2026-10-03, Mac: "Reduce gold
+// loss on death"): a tenth of the purse.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -7,21 +8,22 @@ import { DEATH_GOLD_FRACTION, DEATH_PENALTY_LINES, deathGoldLoss, applyDeathPena
 
 const read = (p) => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8');
 
-test('a quarter of the purse, rounded down in the player\'s favour', () => {
-  assert.equal(DEATH_GOLD_FRACTION, 0.25);
-  assert.equal(deathGoldLoss(100), 25);
-  assert.equal(deathGoldLoss(1001), 250);
-  assert.equal(deathGoldLoss(3), 0);
+test('a tenth of the purse, rounded down in the player\'s favour', () => {
+  assert.equal(DEATH_GOLD_FRACTION, 0.1);
+  assert.equal(deathGoldLoss(100), 10);
+  assert.equal(deathGoldLoss(1009), 100);
+  assert.equal(deathGoldLoss(10), 1);
+  assert.equal(deathGoldLoss(9), 0);
   assert.equal(deathGoldLoss(0), 0);
   for (const bad of [NaN, undefined, null, -50, Infinity]) assert.equal(deathGoldLoss(bad), 0, String(bad));
 });
 
 test('the penalty comes off the purse counter and answers what it took', () => {
   const p = { goldPieces: 400, items: [{ templateIndex: 0, value: 5000 }] };
-  assert.equal(applyDeathPenalty(p), 100);
-  assert.equal(p.goldPieces, 300);
+  assert.equal(applyDeathPenalty(p), 40);
+  assert.equal(p.goldPieces, 360);
   assert.equal(p.items[0].value, 5000, 'letters of credit are not "with you" gold - untouched');
-  assert.equal(applyDeathPenalty({ goldPieces: 2 }), 0);
+  assert.equal(applyDeathPenalty({ goldPieces: 9 }), 0);
   assert.equal(applyDeathPenalty(null), 0);
   assert.equal(deathPenaltyText(100), 'Death claimed 100 gold from your purse.');
   assert.equal(deathPenaltyText(0), '');

@@ -1793,7 +1793,7 @@ const ONLINE_LOCK_NOTE = 'Always on online: the shared world uses every enhancem
 /** MODS-ONLINE-2: the Mods pane's own line. The lane's note (above)
  *  is about the PORT's switches and was wrong over the tiles the
  *  moment a mod stopped being forced. */
-const ONLINE_MODS_NOTE = 'Most mods are your choice online. A few are set for everyone in the room so everyone plays on the same ground by the same rules: the ones that change the ground (Basic Roads, World of Daggerfall, Detailed Ships, Iliac Puddle No More\u2019s sea and depth, and There\u2019s a Hole in the Bottom of the Ocean), and every setting of Meaner Monsters, the Combat and Armor Overhaul, Unleveled Loot, Roleplay & Realism, Roleplay & Realism: Items and Oblivion leveling (who stands behind a counter and which leveling your character uses stay yours).';
+const ONLINE_MODS_NOTE = 'Most mods are your choice online. A few are set for everyone in the room so everyone plays on the same ground by the same rules: the ones that change the ground (Basic Roads, World of Daggerfall, Detailed Ships, Iliac Puddle No More\u2019s sea and depth, and There\u2019s a Hole in the Bottom of the Ocean), and every setting of Meaner Monsters, the Combat and Armor Overhaul, Unleveled Loot, Roleplay & Realism, Roleplay & Realism: Items and Oblivion leveling (who stands behind a counter and which leveling your character uses stay yours). Travel Options is on for everyone, so every trip is travelled.';
 const ONLINE_GROUND_NOTE = 'Set for everyone online: it changes the ground itself (roads, camp sites, the shared ship deck, the seafloor and its pits), and everyone in a room has to stand on the same ground. Your own choice comes back offline.';
 /** WOD1: the vendors whose room-owned switch is the GROUND's - the two
  *  that write terrain heights (roads' beds, World of Daggerfall's sites). */
@@ -1818,7 +1818,10 @@ const ONLINE_SETTING_NOTE = 'Set for everyone online: everyone uses the same smi
 /** RAID2: a world event the room shares - its own reason, not the ground's, the ruleset's or a host's foes'. */
 const ONLINE_WORLD_EVENT_VENDORS = Object.freeze(['world-events-raiding-parties']);
 const ONLINE_WORLD_EVENT_NOTE = 'On for everyone online: a raid is shared, so everyone in the town fights the same raiders and every kill counts for all. Your own choice comes back offline.';
-const onlineLockNote = (vendor, key) => (ONLINE_GROUND_VENDORS.includes(vendor) || ONLINE_GROUND_KEYS[vendor]?.includes(key) ? ONLINE_GROUND_NOTE : ONLINE_RULESET_KEYS[vendor]?.includes(key) ? ONLINE_RULESET_NOTE : ONLINE_WORLD_EVENT_VENDORS.includes(vendor) ? ONLINE_WORLD_EVENT_NOTE : ONLINE_SHARED_NOTE);
+/** TRAVEL-ONLINE: Travel Options' three room switches - the mod and its two journey dials - and their own reason. */
+const ONLINE_TRAVEL_VENDORS = Object.freeze(['travel-options']);
+const ONLINE_TRAVEL_NOTE = 'On for everyone online: every trip is travelled, and no one arrives instantly. Your own choice comes back offline.';
+const onlineLockNote = (vendor, key) => (ONLINE_GROUND_VENDORS.includes(vendor) || ONLINE_GROUND_KEYS[vendor]?.includes(key) ? ONLINE_GROUND_NOTE : ONLINE_RULESET_KEYS[vendor]?.includes(key) ? ONLINE_RULESET_NOTE : ONLINE_WORLD_EVENT_VENDORS.includes(vendor) ? ONLINE_WORLD_EVENT_NOTE : ONLINE_TRAVEL_VENDORS.includes(vendor) ? ONLINE_TRAVEL_NOTE : ONLINE_SHARED_NOTE);
 /** REALM P0.2: a key the room owns only because its mod is owned whole wears the balance note; a key the room table names keeps its own. */
 const modLockNote = (vendor, key) => (!Object.hasOwn(ONLINE_ROOM_MOD_KEYS[vendor] ?? {}, key) && onlineWholeModKey(vendor, key, undefined, { offline: true }) ? ONLINE_BALANCE_NOTE : onlineLockNote(vendor, key));
 /** REALM P0.2: a DIAL the room owns online - its steppers and buttons answer nothing, and say why. */
