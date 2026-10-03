@@ -240,7 +240,7 @@ test('AUDIT GALLEON B1 A CUT THAT DOES NOT TILE IS REFUSED BY NAME: the bake nev
   assert.equal(MESH.tilingFault(bulged, [[3, 4, 0], [0, 1, 2], [0, 2, 3]]), null);
 });
 
-test('AUDIT GALLEON B1 THE PORT OF BLENDER\'S FILL ON HAND-MADE FACES: answers derived from mesh_tessellate and BLI_polyfill_calc step by step - a convex pentagon and hexagon clip even ([4,0,1] [1,2,3] [1,3,4]), flat or standing; a dart quad flips to its 1-3 diagonal, a square does not; a notched heptagon whose notch lies ON the first two ears\' diagonals (a corner on an edge blocks); a folded rectangle that needs the tangential pass; a tangential corner 0 the convex pass skips; and, in the 2D fill alone, the desperate mode (from where the search began, forward, the first corner not concave, else that corner), the bounding box, the sweep and the re-signing of a cut ear\'s neighbours on faces with coincident corners (mutants: each of those)', () => {
+test('AUDIT GALLEON B1 THE PORT OF BLENDER\'S FILL ON HAND-MADE FACES: answers derived from mesh_tessellate and BLI_polyfill_calc step by step - a convex pentagon and hexagon clip even ([4,0,1] [1,2,3] [1,3,4]), flat or standing; a dart quad flips to its 1-3 diagonal, a square does not; a notched heptagon whose notch lies ON the first two ears\' diagonals (a corner on an edge blocks); a folded rectangle that needs the tangential pass; a tangential corner 0 the convex pass skips; and, in the 2D fill alone, the desperate mode (from where the search began, forward, the first corner not concave, else that corner), the walk\'s bounds (AUDIT GN2-BK1: Blender 5.1\'s, a corner\'s own point asked before any box), the sweep and the re-signing of a cut ear\'s neighbours on faces with coincident corners (mutants: each of those)', () => {
   const flat = (xy) => xy.map(([x, y]) => [x, y, 0]);
   const T = (pts) => MESH.blenderTessellate(pts);
   // a convex face: every corner convex, no corner asked; ear 0, then two on (clip even), the last three
@@ -259,22 +259,27 @@ test('AUDIT GALLEON B1 THE PORT OF BLENDER\'S FILL ON HAND-MADE FACES: answers d
   // corner 0 tangential: the convex pass passes it by (#103913), corner 1 cut first
   assert.deepEqual(T(flat([[1, 0], [2, 0], [2, 2], [0, 2], [0, 0]])), [[0, 1, 2], [2, 3, 4], [0, 2, 4]]);
   // projected the right way round: the negated normal makes a face wound about it positive for the fill
+  // AUDIT GN2-BK2: cross_poly_v2 as math_geom.cc sums it, (prev.x - cur.x) * (cur.y + prev.y) - polyfill_prepare's
+  // coords_sign 1 is cross_poly_v2 <= 0
   const proj = MESH.blenderProject(flat([[0, 0], [4, 0], [4, 2], [0, 2]]));
   let crossPoly = 0;
-  for (let i = 0; i < 4; i++) { const p = proj[(i + 3) % 4], c = proj[i]; crossPoly += (c[0] - p[0]) * (c[1] + p[1]); }
-  assert.ok(crossPoly > 0, 'cross_poly_v2 >= 0, as BLI_polyfill_calc is told');
+  for (let i = 0; i < 4; i++) { const p = proj[(i + 3) % 4], c = proj[i]; crossPoly += (p[0] - c[0]) * (c[1] + p[1]); }
+  assert.ok(crossPoly < 0, 'cross_poly_v2 <= 0: coords_sign 1, as BLI_polyfill_calc is told');
   const F = (xy) => MESH.blenderPolyfill(xy);
   // wound the other way in the fill's plane: every corner concave, desperate every cut - each time the corner the search
   // began at (the first from 0; then, cut 0 and two on, corner 2 concave so 3, sweeping back)
   assert.deepEqual(F([[0, 0], [4, 0], [4, 2], [2, 3], [0, 2]]), [[4, 0, 1], [2, 3, 4], [1, 2, 4]]);
   // desperate with a tangential corner the first not concave: corner 0 concave, 1 tangential (every corner on a line
-  // or on another corner, so every ear blocked)
-  assert.deepEqual(F([[0, 2], [0, 1], [0, 2], [0, 2], [2, 0]]), [[0, 1, 2], [0, 2, 3], [0, 3, 4]]);
+  // or on another corner, so every ear blocked); AUDIT GN2-BK1: then desperate again - ear 2's three corners stand on one
+  // point, and 5.1's point test passes any corner the walk reaches against a triangle of no extent (5.0's box let it
+  // go, [0,2,3]) - from corner 4, where the sweep turned back: tangential, cut
+  assert.deepEqual(F([[0, 2], [0, 1], [0, 2], [0, 2], [2, 0]]), [[0, 1, 2], [3, 4, 0], [0, 2, 3]]);
   // desperate while sweeping back: forward from corner 3 the first not concave is 5 (backward it would be 1)
   assert.deepEqual(F([[0, 0], [1, 0], [1, 2], [0, 1], [1, 1], [1, 2]]), [[5, 0, 1], [4, 5, 1], [3, 4, 1], [1, 2, 3]]);
-  // the bounding box: at the second cut corner 0's tangential ear lies on y = 3 over x 0..2, so corner 2 at x 3, on its
-  // line, stands outside its box and does not block it
-  assert.deepEqual(F([[1, 3], [0, 3], [3, 3], [2, 3], [3, 0]]), [[3, 4, 0], [3, 0, 1], [1, 2, 3]]);
+  // AUDIT GN2-BK1: no bounding box asked of a corner (5.1's walk asks each node's own point first): at the second cut
+  // corner 0's tangential ear lies on y = 3 over x 0..2, and corner 2 at x 3, on its line past its end, is reached and
+  // blocks it - every ear blocked, desperate from corner 2, where the sweep turned back (5.0 asked the box, and cut ear 0)
+  assert.deepEqual(F([[1, 3], [0, 3], [3, 3], [2, 3], [3, 0]]), [[3, 4, 0], [1, 2, 3], [0, 1, 3]]);
   // the sweep: after ear 0, corner 2 is concave, so the search starts at 3 and runs BACK - to ear 1
   assert.deepEqual(F([[3, 3], [3, 0], [0, 2], [0, 1], [3, 3]]), [[4, 0, 1], [4, 1, 2], [2, 3, 4]]);
   // a cut ear's neighbours re-signed: corner 0 turns tangential after ear 1, and is the next tangential ear
@@ -456,7 +461,7 @@ test('AUDIT GALLEON B3 THE BAKE MAKES NOTHING OF ITS OWN: every baked vertex is 
     });
   }
   t.diagnostic(`${flatTris} triangles of no area, each on three corners Mac drew on one line`);
-  assert.ok(flatTris <= 13, `no more triangles of no area than Blender's cut lays (${flatTris})`);
+  assert.equal(flatTris, 11, 'as many triangles of no area as Blender 5.1.1\'s cut lays (AUDIT GN2-BK1: 5.0.1\'s laid 13)');
 });
 
 // ── B4: the bake's own fills are gone ─────────────────────────────────────────────────────────────────────────────────
