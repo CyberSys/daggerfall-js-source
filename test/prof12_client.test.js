@@ -16,7 +16,9 @@ import { standService, T0, sessionStorageOf } from './accountDb.mjs';
 import { accountProf, SESSION_KEY, accountRefusalText } from '../src/net/accountClient.js';
 import { createProfBook } from '../src/net/profBook.js';
 import { xpForRank, ALCHEMY_FEE, ENCHANT_FEE, stockOf } from '../src/net/professionLaw.js';
-import { potionById, POTENT, enchantGold } from '../src/net/alchemyLaw.js';
+import { potionById, POTENT, enchantGold, potentChance } from '../src/net/alchemyLaw.js';
+import { FORT_EFFECT_WORDS, STATION_PROFESSIONS } from '../src/net/fortLaw.js';
+import { cookXp } from '../src/net/recipeLaw.js';
 import { potionRecipeKey, potionBundle, POTION_RECIPES } from '../src/systems/potions.js';
 import { brewItems, brewedText, BREW_KEPT_TEXT } from '../src/systems/alchemyItems.js';
 import { POTION_TEMPLATE_INDEX } from '../src/systems/loot.js';
@@ -447,4 +449,15 @@ test('AUDIT PROF12 A3 client (Mac: "Potent lasts longer"): a Potent potion whose
     page.recipe('Healing').onclick();
     assert.match(page.text(), /3 potions a brew\. Potent 20% \(\+40% magnitude\)/);
   } finally { page.done(); setProfessionsPages(null); }
+});
+
+
+// ─── AUDIT PROF12 (2026-10-03) ───────────────────────────────────────
+
+test('AUDIT PROF12 P1: the Apothecary\'s words say each profession\'s step as the law gives it - a piece of jewellery a quality step a tier, a dish half again the XP (twice at tier 2: recipeLaw cookXp), a brew +10% Potent chance a tier (alchemyLaw potentChance) - never a quality step for a dish or a brew', () => {
+  assert.equal(FORT_EFFECT_WORDS.apothecary(1), 'members\' jewellery here a quality step better, their dishes half again the XP, their brews +10% Potent chance');
+  assert.equal(FORT_EFFECT_WORDS.apothecary(2), 'members\' jewellery here 2 quality steps better, their dishes twice the XP, their brews +20% Potent chance');
+  assert.deepEqual([1, 2].map((t) => cookXp(50, { steps: t }) / cookXp(50)), [1.5, 2], 'the XP the words say');
+  assert.deepEqual([1, 2].map((t) => potentChance(75, { steps: t }) - potentChance(75)), [POTENT.apothecary, 2 * POTENT.apothecary], 'the Potent chance the words say');
+  assert.deepEqual(STATION_PROFESSIONS.apothecary, ['alchemy', 'cooking', 'jewelcrafting']);
 });

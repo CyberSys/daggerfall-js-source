@@ -1918,7 +1918,7 @@ function drawJewellerBench(detail, rerender, { el, divider }) {
       box.append(line);
     }
     const hand = jewelHand(r, specs[50]);
-    box.append(el('p', 'px-note', `${jewelPointsLine(r, hand)}${hand === JEWEL_HAND_GOLDSMITH ? ' - a Goldsmith\'s Silver, counted as Gold' : hand === JEWEL_HAND_GEMCUTTER ? ' - a Gemcutter\'s gem' : ''}. The item maker spends them.`));
+    box.append(el('p', 'px-note', `${jewelPointsLine(r, hand)}${hand === JEWEL_HAND_GOLDSMITH ? ' - a Goldsmith\'s Silver, counted as Gold' : hand === JEWEL_HAND_GEMCUTTER ? ' - a Gemcutter\'s gem' : ''}. The item maker spends them, beside a Masterwork's own enchantment.`));   // AUDIT PROF10 J2: it takes a crafted piece with its Rare roll (itemMakerWindow.js itemMakerFilter)
     if (recipeOpen(r, rank)) {
       const odds = qualityOdds(rank - r.rank, { masterwright: masterworkSpec(specs[100]) });
       box.append(el('p', 'px-note', `Your rank ${rank}, margin ${rank - r.rank}: ${odds.map((o, q) => (o ? `${QUALITY_NAMES[q]} ${o}` : null)).filter(Boolean).join(' | ')}. A clean facet is a step better; ${craftXp(r.tier, rank, false)} Jewelcrafting XP.`));

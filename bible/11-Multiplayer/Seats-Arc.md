@@ -744,7 +744,11 @@ the Forge's and the Workshop's route - `server-account/src/professions.js` seatS
 jewellery** a quality step (the Forge's law, nothing past Masterwork). DECIDED, a **dish** - which takes no quality - its XP
 half again a step (the clean pan's own step, Professions-Arc 35; `recipeLaw.js` cookXp). DECIDED, a **brew** its Potent
 chance +10 a step (`alchemyLaw.js` potentChance; the brew carries its town as a craft does). Nobody else's, no other town's,
-no other hall's. Pinned through the real Worker: `test/prof12_apothecary.test.js`.
+no other hall's. Pinned through the real Worker: `test/prof12_apothecary.test.js`. AUDITED (2026-10-03, AUDIT PROF12 P1):
+the Seat tab's line for it said every tier made "members' alchemy, cooking and jewelcrafting here" a quality step better -
+true of jewellery alone; it says each profession's own now (`fortLaw.js` FORT_EFFECT_WORDS): "members' jewellery here a
+quality step better, their dishes half again the XP, their brews +10% Potent chance" (tier 2: two steps, twice the XP,
++20%).
 
 ### 7.6 Edicts
 

@@ -108,11 +108,12 @@ export function rotFoodDay(collections, rotDay = 0, rolls = Math.random) {
     if (!foodOf(item) || foodOf(item).keeps == null) continue;
     if (!Number.isFinite(item.rotDay)) item.rotDay = rotDay;
     const kept = Math.max(0, rotDay - item.rotDay);
+    // PROF9: a Provisioner's provisions never spoil (PROF0 3.3) - the dishes they cook and the foods they take from the Stores.
+    // AUDIT PROF9 K1: asked FIRST - a Butcher-Provisioner's meat carries both marks, and never spoiling outranks half the pace
+    if (item.noRot === true) continue;
     // PROF7: a Butcher's meat spoils half as fast (PROF0 3.3) - the same days at half the pace: rolled every other day,
     // aged half its days
     if (item.slowRot === true) { if (kept % 2 === 1) continue; if (rotRoll(item, Math.floor(kept / 2), rolls)) n++; continue; }
-    // PROF9: a Provisioner's provisions never spoil (PROF0 3.3) - the dishes they cook and the foods they take from the Stores
-    if (item.noRot === true) continue;
     if (rotRoll(item, kept, rolls)) n++;
   }
   return n;

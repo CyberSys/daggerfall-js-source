@@ -20,6 +20,11 @@
 - **The Professions page** lists Cooking as practised.
 - Cooking a Raw Fish over a fire from your pack still works as before - it is a plain meal and gives no Cooking XP.
 
+### Fixes
+- **A feast shared by a party member now refreshes yours instead of stacking.** If you've eaten a feast, one shared with you replaces its bonus, the same as eating it again.
+- **Food that is both a Butcher's and a Provisioner's never spoils.** It used to spoil at the Butcher's half pace.
+- **The Apothecary's line on the Seat tab now says what each tier does:** jewellery a quality step better, dishes half again the XP, and brews +10% Potent chance (at tier 2: two steps, twice the XP, +20%).
+
 ---
 
 ### For the team

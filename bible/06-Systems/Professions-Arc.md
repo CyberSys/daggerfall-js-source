@@ -2808,8 +2808,17 @@ three). What sections 3.2, 3.3, 4.8, 9.3 and 9.4 left open for PROF9, DECIDED he
   pieces answer their `hand`.
 - **Not built, named**: the dishes' tint (above); the Tart's "regained" (above); the feast's share is the room's party,
   not the table's metres (a mate across the town is fed too - the room is the relay's own measure).
+- **Audited** (2026-10-03, AUDIT PROF9): **K1** - a Butcher who is also a Provisioner carries meat with both marks
+  (`slowRot`, `noRot`), and C&C's day asked the Butcher's half pace first and never reached the Provisioner's "never
+  spoils": DECIDED, **never spoiling outranks half the pace** - `survival/food.js` rotFoodDay asks `noRot` first. **K2** - a
+  feast a party mate shares arrived as an ordinary ALLY-CAST gift, so it STACKED with the mate's own feast and its rounds
+  added up: DECIDED, **a feast shared renews as one eaten does** - the receiver (`world.js` online.onCast, a mate's cast
+  alone - a stranger's gift of the same name lands as any stranger's) takes its standing bundles of the feast's name off
+  before the gift is laid on (`cookItems.js` isPartyDishSpell, the party dish's record by its name). And the Apothecary's
+  words on the Seat tab (`fortLaw.js` FORT_EFFECT_WORDS, AUDIT PROF12 P1) now say a dish's step as it is - half again the
+  XP a tier, never a quality step (Seats-Arc 7.5).
 - **Pinned**: `test/prof9_law.test.js` (9), `test/prof9_service.test.js` (5, through the real Worker),
-  `test/prof9_client.test.js` (9). Mutants: `tools/mutants/prof9.json` (126, all dead). Patch notes:
+  `test/prof9_client.test.js` (11). Mutants: `tools/mutants/prof9.json` (133, all dead). Patch notes:
   `PATCH-NOTES-Cooking.md`.
 
 ## 36. PROF10 - Jewelcrafting, as built (BUILT 2026-10-02)
@@ -2886,8 +2895,21 @@ Mac: **"2 and 4"** (2026-10-02: the Apothecary waits on Alchemy, Cooking and Jew
 - **Not built, named**: the Apothecary's quality steps still wait on Alchemy (`fortLaw.js` APOTHECARY_OPEN); 4.1's mining
   tiers of the precious metals stand as Mining's alone (the ladder above); 4.8 names no jeweller's template - the pieces
   are DFU's own, their pictures DFU's.
+- **Audited** (2026-10-03, AUDIT PROF10): **J1** - the item maker trusted any piece of Jewellery's own `enchantmentPoints`
+  where it carried a 16-hex provenance, so a piece forged over the wire or in a save brought two billion points to it:
+  `craftedJewelPoints` now asks **a jeweller's record of the piece's very template** (`craftedJewelRecipe`: its `recipe` a
+  `jewel`, its template the recipe's) and takes **never more than that recipe mints** - its template's and the most a
+  jeweller's hand adds (a Goldsmith's Silver, a Gemcutter's gem; `jewelPoints`). **J2** - a Masterwork piece rolls a Rare
+  enchantment, and DFU's item maker refuses any enchanted item (AddFilteredItem), so its points could never be spent.
+  DECIDED (Mac: **"Item maker can add to it"**): the item maker **takes a crafted piece of jewellery with the enchantments
+  it carries** (`enchanting.js` keptEnchantments, `itemMakerWindow.js` itemMakerFilter) - each kept row costed as the maker
+  costs a row (the catalogue's, never a cost the item says of itself; a bound soul's forced row forced still), counted
+  against the piece's points (`enchantDecision`, the "used/available" label) and in the ten-row guard and the picker's
+  filters, shown at the head of its list in the forced colour, **never removed**, costing no gold; enchanted, the new rows
+  land after them (`applyEnchantments` - the kept rows' created payloads not run again). Every other enchanted item is
+  refused as DFU refuses it. The bench says so ("The item maker spends them, beside a Masterwork's own enchantment.").
 - **Pinned**: `test/prof10_law.test.js` (10), `test/prof10_service.test.js` (6, through the real Worker),
-  `test/prof10_client.test.js` (8). Mutants: `tools/mutants/prof10.json` (136, all dead). Patch notes:
+  `test/prof10_client.test.js` (10). Mutants: `tools/mutants/prof10.json` (153, all dead). Patch notes:
   `PATCH-NOTES-Jewelcrafting.md`.
 
 ## 37. PROF12 - Alchemy and the Enchanting layer, as built (BUILT 2026-10-02)
