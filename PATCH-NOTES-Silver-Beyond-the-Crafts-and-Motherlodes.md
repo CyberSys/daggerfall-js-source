@@ -44,8 +44,8 @@
 ---
 
 ### For the team: deploy order
-1. Apply migrations **`0069_silver_ways.sql`** and **`0070_motherlodes.sql`** to production D1 and deploy the account
-   service (**`acct66`**). The deploy workflow does both.
+1. Apply migrations **`0071_silver_ways.sql`** and **`0072_motherlodes.sql`** to production D1 and deploy the account
+   service (**`acct71`**). The deploy workflow does both.
 2. Then ship the client.
 
 No relay change: Motherlodes use the relay's existing Watch receipt. An older service refuses contracts and Motherlode

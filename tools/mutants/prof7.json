@@ -142,8 +142,8 @@
   {
     "name": "PROF7-a-hide-held-back",
     "file": "src/net/professionLaw.js",
-    "old": "export const NO_PACK_FORM = Object.freeze(['work:ram']);",
-    "new": "export const NO_PACK_FORM = Object.freeze(['work:ram', 'hide:bear']);",
+    "old": "export const NO_PACK_FORM = Object.freeze(['work:ram', 'essence:arcane']);",
+    "new": "export const NO_PACK_FORM = Object.freeze(['work:ram', 'essence:arcane', 'hide:bear']);",
     "tests": [
       "test/prof7_law.test.js"
     ]
@@ -470,20 +470,22 @@
   {
     "name": "PROF7-market-mine-undyed",
     "file": "server-account/src/market.js",
-    "old": "p.marked, p.dye, p.template, p.material AS dfu_material\n      FROM market_listings l LEFT JOIN products p",
-    "new": "p.marked, p.template, p.material AS dfu_material\n      FROM market_listings l LEFT JOIN products p",
+    "old": "p.marked, p.dye, p.hand, p.template, p.material AS dfu_material\n      FROM market_listings l LEFT JOIN products p",
+    "new": "p.marked, p.hand, p.template, p.material AS dfu_material\n      FROM market_listings l LEFT JOIN products p",
     "tests": [
       "test/prof7_service.test.js"
-    ]
+    ],
+    "note": "PROF9 (RE-AIMED by content): the fire's code beside it."
   },
   {
     "name": "PROF7-market-crafted-undyed",
     "file": "server-account/src/market.js",
-    "old": "p.marked, p.dye, p.template, p.material AS dfu_material\n      FROM market_listings l JOIN products p",
-    "new": "p.marked, p.template, p.material AS dfu_material\n      FROM market_listings l JOIN products p",
+    "old": "p.marked, p.dye, p.hand, p.template, p.material AS dfu_material\n      FROM market_listings l JOIN products p",
+    "new": "p.marked, p.hand, p.template, p.material AS dfu_material\n      FROM market_listings l JOIN products p",
     "tests": [
       "test/prof7_service.test.js"
-    ]
+    ],
+    "note": "PROF9 (RE-AIMED by content): the fire's code beside it."
   },
   {
     "name": "PROF7-index-hunt-cap-400",
@@ -1002,11 +1004,12 @@
   {
     "name": "PROF7-pages-hunting-unpractised",
     "file": "src/ui/profPages.js",
-    "old": "const PRACTISED = Object.freeze(['herbalism', 'mining', 'hunting', 'fishing', 'logging', 'smithing', 'outfitting', 'carpentry', 'masonry']);   // PROF8: Fishing; PROF11: Masonry",
-    "new": "const PRACTISED = Object.freeze(['herbalism', 'mining', 'fishing', 'logging', 'smithing', 'outfitting', 'carpentry', 'masonry']);   // PROF8: Fishing; PROF11: Masonry",
+    "old": "const PRACTISED = Object.freeze(['herbalism', 'mining', 'hunting', 'fishing', 'logging', 'smithing', 'outfitting', 'carpentry', 'masonry', 'cooking', 'jewelcrafting', 'alchemy', 'enchanting']);",
+    "new": "const PRACTISED = Object.freeze(['herbalism', 'mining', 'fishing', 'logging', 'smithing', 'outfitting', 'carpentry', 'masonry', 'cooking', 'jewelcrafting', 'alchemy', 'enchanting']);",
     "tests": [
       "test/prof7_client.test.js"
-    ]
+    ],
+    "note": "PROF9 (RE-AIMED by content): the fire's code beside it. PROF12 (PIN MOVED): re-aimed by content."
   },
   {
     "name": "PROF7-pages-smithing-unlocks-swallowed",
@@ -1058,8 +1061,8 @@
   {
     "name": "PROF7-no-loom-station",
     "file": "src/net/decorLaw.js",
-    "old": "export const DECOR_STATIONS = Object.freeze(['alchemy', 'spells', 'enchant', 'forge', 'workbench', 'loom', 'mason']);",
-    "new": "export const DECOR_STATIONS = Object.freeze(['alchemy', 'spells', 'enchant', 'forge', 'workbench', 'mason']);",
+    "old": "export const DECOR_STATIONS = Object.freeze(['alchemy', 'spells', 'enchant', 'forge', 'workbench', 'loom', 'mason', 'jeweller']);",
+    "new": "export const DECOR_STATIONS = Object.freeze(['alchemy', 'spells', 'enchant', 'forge', 'workbench', 'mason', 'jeweller']);",
     "tests": [
       "test/prof7_law.test.js",
       "test/homestations.test.js"
@@ -1068,8 +1071,8 @@
   {
     "name": "PROF7-loom-licence-cheap",
     "file": "src/net/decorLaw.js",
-    "old": "workbench: 50_000, loom: 50_000, mason: 50_000 });",
-    "new": "workbench: 50_000, loom: 5_000, mason: 50_000 });",
+    "old": "workbench: 50_000, loom: 50_000, mason: 50_000, jeweller: 50_000 });",
+    "new": "workbench: 50_000, loom: 5_000, mason: 50_000, jeweller: 50_000 });",
     "tests": [
       "test/prof7_law.test.js",
       "test/homestations.test.js"
@@ -1087,11 +1090,12 @@
   {
     "name": "PROF7-world-butcher-fresh",
     "file": "src/scenes/world.js",
-    "old": "{ slowRot: key === 'food:meat' && profBook?.track('hunting')?.specs?.[100] === 'butcher' }",
-    "new": "{ slowRot: false }",
+    "old": "{ slowRot: key === 'food:meat' && profBook?.track('hunting')?.specs?.[100] === 'butcher', noRot:",
+    "new": "{ slowRot: false, noRot:",
     "tests": [
       "test/prof7_client.test.js"
-    ]
+    ],
+    "note": "PROF9 (RE-AIMED by content): the fire's code beside it."
   },
   {
     "name": "PROF7-world-dungeon-bodies-street",

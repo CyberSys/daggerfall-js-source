@@ -2,7 +2,7 @@
 // ═══════════════════════════════════════════════════════════════════
 // PROF2b (2026-10-03, Mac: "plus we need to build motherloads") - THE
 // MOTHERLODES, AS THE SERVICE KEEPS THEM (bible/06-Systems/Professions-Arc.md
-// 6 and 35; the law both ends read is src/net/motherlodeLaw.js).
+// 6 and 38; the law both ends read is src/net/motherlodeLaw.js).
 //
 // ═══ THE DAY'S THREE, PICKED ONCE ════════════════════════════════════
 //

@@ -238,7 +238,7 @@ test('REVENANT THE HOSTS: the open world\'s pool rolls the flee once under a fif
   assert.match(x, /if \(f\.entity\.revenant && !f\._taunted && f\.ai\.inSight && \(isLocalPlayerTarget\(f\.ai\.target\) \|\| !f\.ai\._armedTargeting\)/, 'the taunt, once a return');
   assert.match(x, /if \(f\.entity\?\.revenant\) \{ const nr = revenantSlain\(playerEntity, f\.entity\); if \(nr && !peer\) revenantSay\(revenantSlainEvent\(nr, playerEntity\?\.name, \{ archive: f\.archive \}\), say\); \}/, 'slain at last');
   const spawn = x.slice(x.indexOf('async function spawnFoe('), x.indexOf('const gender = MobileUnit.resolveGender'));
-  assert.match(spawn, /revenant \? revenant\.elite : \(overworldEliteAllowed\(\{[^}]*\}\) && rollOverworldElite\(Math\.random\)\)/, 'an elite stands as one again, never a fresh roll (nor the fresh roll\'s gate, ELITE-RARITY)');
+  assert.match(spawn, /revenant \? revenant\.elite : rollOverworldElite\(Math\.random\)\)/, 'an elite stands as one again, never a fresh roll');
   assert.match(spawn, /revenant \? \(revenant\.trait \? championIndex\(revenant\.trait\) : null\)/, 'its trait, never a fresh one');
   const iApply = spawn.indexOf('applyRevenant(entity, revenant)'), iLoot = spawn.indexOf('spawnEnemyLoot(entity');
   assert.ok(iApply > spawn.indexOf('applyChampion(entity') && iApply < iLoot, 'its rank over its trait, before its loot');

@@ -234,14 +234,16 @@ const TAB_WORDS = Object.freeze({ WeaponsAndArmor: 'Weapons & armor', MagicItems
 const enchantRows = (w, list) => list.map((e) => {
   const secondary = enchantmentParams(e.type).length > 0 && e.param !== PARAM_NONE ? enchantmentParamName(e.type, e.param) : '';
   const forced = (e.parentEnchantment ?? 0) !== 0;
-  return { label: enchantmentName(e.type), sub: secondary, muted: forced, hint: forced ? 'Added with its power' : 'Remove',
-    act: forced ? null : () => w._removeRow(e) };
+  const kept = e.kept === true;   // AUDIT PROF-541 J3: a crafted piece's own row (itemMakerWindow.js _lists) - shown, costed, never removed
+  return { label: enchantmentName(e.type), sub: secondary, muted: forced || kept, hint: kept ? 'The piece\'s own' : forced ? 'Added with its power' : 'Remove',
+    act: forced || kept ? null : () => w._removeRow(e) };
 });
 const itemMaker = {
   kind: 'itemmaker',
   view(w) {
     const L = w.labels();
     const sel = w.selected;
+    const shown = w._lists();   // AUDIT PROF-541 J3: the lists as the classic window draws them - a crafted piece's kept rows at their head
     return {
       title: 'Item Enchanter', sub: sel ? `Enchanting ${w.itemName || itemName(sel)}` : 'Choose an item to enchant', size: 'wide',
       blocks: [
@@ -257,9 +259,9 @@ const itemMaker = {
             { type: 'field', label: 'Name', value: w.itemName, placeholder: sel ? itemName(sel) : '', button: { label: 'Rename', disabled: !sel, act: at(w, ITEM_RECTS.nameItem) } },
           ] },
           { type: 'cols', cols: [
-            [{ type: 'rows', title: 'Powers', key: 'pow', maxHeight: 170, empty: 'No powers yet.', items: enchantRows(w, w.powers) },
+            [{ type: 'rows', title: 'Powers', key: 'pow', maxHeight: 170, empty: 'No powers yet.', items: enchantRows(w, shown.powers) },
               { type: 'actions', layout: 'row', items: [{ label: 'Add power', act: at(w, ITEM_RECTS.powersButton), disabled: !sel }] }],
-            [{ type: 'rows', title: 'Side effects', key: 'side', maxHeight: 170, empty: 'No side effects.', items: enchantRows(w, w.sideEffects) },
+            [{ type: 'rows', title: 'Side effects', key: 'side', maxHeight: 170, empty: 'No side effects.', items: enchantRows(w, shown.sideEffects) },
               { type: 'actions', layout: 'row', items: [{ label: 'Add side effect', act: at(w, ITEM_RECTS.sideEffectsButton), disabled: !sel }] }],
           ] }],
         ] },

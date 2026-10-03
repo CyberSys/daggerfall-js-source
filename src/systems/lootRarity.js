@@ -937,7 +937,7 @@ export const affixesWorth = (affixes) => (affixes ?? []).reduce((n, a) => n + (A
  *  enchantment. Common leaves the item as DFU minted it; so does any
  *  tier the ladder does not roll (SET6: an Aetheric piece is a fixed
  *  record, minted whole by systems/aetheric.js - never a roll). */
-export function applyRarity(item, tier, rolls = Math.random, legendaryPool = null, { family = null } = {}) {
+export function applyRarity(item, tier, rolls = Math.random, legendaryPool = null, { family = null, fits = null } = {}) {
   if (!item || !ROLLED_TIERS.includes(tier)) return item;
   let affixes;
   let enchantment = null;
@@ -952,13 +952,22 @@ export function applyRarity(item, tier, rolls = Math.random, legendaryPool = nul
   } else {
     affixes = rollAffixes(item, tier, rolls);
     item.name = rarityName(item, tier, affixes);
-    if (tier === 'rare') enchantment = pick(RARE_FLAVOURS[item.group] ?? RARE_FLAVOURS.Jewellery, rolls);
+    if (tier === 'rare') enchantment = rareFlavour(RARE_FLAVOURS[item.group] ?? RARE_FLAVOURS.Jewellery, rolls, fits);
   }
   item.rarity = tier;
   item.affixes = affixes;
   if (enchantment) item.enchantments = [{ type: enchantment.type, param: enchantment.param }];
   item.value = itemBaseValue(item) + affixesWorth(affixes) + (enchantment ? RARE_ENCHANT_WORTH : 0);
   return item;
+}
+/** A Rare's flavour, drawn from its group's. AUDIT PROF-541 J4: `fits` (a crafted piece's - smithItems.js mintPiece: the
+ *  points the piece carries) draws again, among the flavours that fit, a first draw that does not - so every draw that
+ *  fit stands as its seed made it, and what fits is still drawn evenly. */
+function rareFlavour(all, rolls, fits = null) {
+  const first = pick(all, rolls);
+  if (typeof fits !== 'function' || fits(first)) return first;
+  const ok = all.filter(fits);
+  return ok.length ? pick(ok, rolls) : first;
 }
 /** What a Rare's flavour enchantment adds to its price - a flat sum,
  *  not DFU's per-effect cost table, because that table prices a

@@ -562,7 +562,8 @@ export function itemNameParts(item, { getQuest = null, differentiatePlantIngredi
   // with a real provenance - the tooltip's and DECOR's own tests
   if ((item?.quality === 4 || item?.marked === true) && typeof item.maker === 'string' && item.maker && makerName(item.maker) === item.maker
     && typeof item.provenance === 'string' && PROVENANCE_RE.test(item.provenance)) return { name: `${item.maker}'s ${material ? `${material} ` : ''}${base}`, material: '' };
-  if (isPotion(item)) return { name: potionMacroName(item) ?? base, material };
+  // PROF12: a Potent potion (an alchemy station's brew, net/alchemyLaw.js) is named so (9.3: "+25% magnitude, named so")
+  if (isPotion(item)) return { name: `${Number.isInteger(item.potent) && item.potent > 0 ? 'Potent ' : ''}${potionMacroName(item) ?? base}`, material };
   const signoff = questLetterName(item, getQuest);
   if (signoff) return { name: signoff, material: '' };
   return { name: base + soulTrapNameSuffix(item, enemyDisplayName), material };

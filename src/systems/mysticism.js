@@ -63,6 +63,7 @@ import { EFFECT_FLAGS } from './spellcast.js';
 import { isSilencedEffect, BUFF_START_TEXT, WATER_WALKING_SILENT_KIND, BUFF_KINDS } from './effects.js';   // BUFF-END: the duration buffs are the kinds a player may end
 import { hasArtifactSubtype, ARTIFACTS } from './artifactEffects.js';   // ROAD-U: ContainsEnchantment, the way SoulTrap.cs asks
 import { setEnchantmentEffectDoors } from './enchantments.js';   // AUDIT 63 F14: SoulBound's Enchanted arm reaches RemoveFilledTrap through the doors bag (this leaf cannot be imported BY enchantments.js - effects.js sits between them)
+import { DISH_STAMINA_KIND } from './cookItems.js';   // AUDIT PROF-541 K6: the Orchard Tart's stamina, a dish the player may end as the others
 
 /** The ten, with the classic key DFU registers and which of the three
  *  cost axes each supports. `chance` and `duration` cost pairs are
@@ -312,6 +313,7 @@ export const ENDABLE_KINDS = Object.freeze(new Set([
   'shield', 'fortifyAttribute', 'regenerate', 'elementalResistance',
   'spellAbsorption', 'spellReflection', 'spellResistance', 'comprehendLanguages',
   'healHealth', 'healFatigue', 'healSpellPoints', 'healAttribute',
+  DISH_STAMINA_KIND,   // AUDIT PROF-541 K6: the Tart's (cookItems.js feedEffect) - the other dishes are Fortify Attribute's
   ...Object.values(BUFF_KINDS).filter((k) => k !== 'silenced'),
 ]));
 /** Whether a live bundle (liveBundles') is the player's to end. */

@@ -3,7 +3,7 @@
 // service's half (server-account/src/motherlodes.js: the day's three picked once and kept; a strike through the
 // harvest's route, the relay's Watch receipt on the Motherlode's pixel, an Apprentice's Mining, the twenty, the
 // account's one a day, the ore into the Stores, the XP, the 10 silver), driven through the real Worker over
-// node:sqlite with every migration applied (test/accountDb.mjs). bible/06-Systems/Professions-Arc.md 6, 35.
+// node:sqlite with every migration applied (test/accountDb.mjs). bible/06-Systems/Professions-Arc.md 6, 38.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 

@@ -376,7 +376,7 @@ export function useItem(item, collection, {
     // DrinkPotion's own guard is `PotionRecipeKey == 0` (:906), so a
     // bottle naming no recipe is drunk and does nothing, exactly as
     // here.
-    const drank = drinkPotion ? drinkPotion(item.potionRecipeKey ?? 0) : null;
+    const drank = drinkPotion ? drinkPotion(item.potionRecipeKey ?? 0, Number.isInteger(item.potent) ? item.potent : 0) : null;   // PROF12: a Potent potion's share
     out = drank ? { kind: 'potion', potion: drank } : { kind: 'potion', pending: true };
   }
 
@@ -444,7 +444,7 @@ export function useItem(item, collection, {
     // ItemCollection.GetItem verbatim now, allowQuestItem: false
     // included (:1791) - the port grew quest items (item.questItem,
     // read at :211) and inventory.getItem already ports that filter
-    // (inventory.js:394), so a quest lantern is invisible to the oil
+    // (inventory.js:398), so a quest lantern is invisible to the oil
     // exactly as it is in DFU and the bottle refuses instead.
     const lantern = getItem(bag ?? [], 'UselessItems2', TEMPLATES.Lantern, { allowQuestItem: false });
     const oil = item.currentCondition ?? 0;

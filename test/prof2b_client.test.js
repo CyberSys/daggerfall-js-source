@@ -3,7 +3,7 @@
 // rising said once, the relay's Watch receipts kept the newest a pixel and this account's alone, a strike's answer
 // heard), the mining host's half (scenes/mineHost.js: where a Motherlode stands on its pixel, its heap, its plan, its
 // act refused with no Watch and carrying it with one, its silver said), the professions' book carrying the receipt to
-// the service, and the world host's seams by source. bible/06-Systems/Professions-Arc.md 35.
+// the service, and the world host's seams by source. bible/06-Systems/Professions-Arc.md 38.
 import './chargenDom.mjs';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';

@@ -27,9 +27,23 @@
 - **The guild gets the half back.** Take a yard piece down, or shrink it, and half of what it cost goes into the guild's treasury - never into the pocket of whoever took it down. Sell the hall and its yard goes with it, half of each piece's cost paid back to the treasury along with the hall's own share.
 - **Members and visitors look, they don't touch.** Ranks below Officer, and anyone outside the guild, see the hall's colours and its yard but cannot change them.
 
+## The Apothecary (online)
+- **The Apothecary can be raised.** A seat's holder can now build the Apothecary from the seat's board, as any other work (tier 1: 100 Cut Stone, 100 Oak Planks and 1,000 silver from the treasury; tier 2: 200 Cut Stone, 20 Pearls and 2,500 silver). It waited on Alchemy, Cooking and Jewelcrafting - all three are open now.
+- **What it does, a tier at a time, for the holder's members working in its town:**
+  - **Jewelcrafting:** a piece comes one quality step better - as the Forge does for a smith.
+  - **Cooking:** a dish takes no quality, so the step is in the cooking: half again the Cooking XP of the dish (a clean pan in a tier 2 Apothecary's town earns two and a half times the plain dish's).
+  - **Alchemy:** +10% chance a brew comes out Potent.
+- Only the holding guild's members get it, and only in that town.
+
 ## Fixes
 - **Voiding a revolt before it is fought no longer saves the Charter.** It now lapses, exactly as it would have at the Turning had nobody put the revolt down.
 - **A voided capture gives back the holder's building projects.** Anything the defenders were building when their seat fell starts again where it was, with the materials it held taken back from the seat's stockpile - the silver they spent on it is no longer lost. A voided revolt that stood does the same, and brings back the holder's Edict for next week.
 - **A guild that gave up its seat before the siege no longer gets it back from a void.** The capturer loses the seat, and it stands unheld, as it did before the battle.
 - **Voiding a held siege fought before this update leaves the holder's Standing alone** instead of taking off more than the battle gave.
 - **A void can no longer land after the Turning.** Once a battle's week has been reckoned, `/siege void` says so: "That battle's week is settled - its Turning has reckoned it, and it can no longer be voided."
+- **Your home beside your guild's hall opens the right yard.** If you own a home and keep the guild hall next door, Decorate now opens the yard you are standing in - the one whose building is nearest - instead of whichever the town happened to list first.
+- **"Your guild's hall is painted."** Painting the hall and walking off before the answer came back no longer says "Your house"; and if the paint fails, it says the hall could not be painted.
+- **A promotion or demotion reaches the hall sooner.** Made an Officer (or no longer one), the hall's decorator follows as soon as the game next reads your guild - opening the Guild tab, for one, or walking up to the hall's door - instead of up to a minute after that.
+- **Only characters who can decorate the hall get its decorator.** An Officer playing a local (offline) character is no longer shown a hall's yard decorator whose every piece would be refused.
+- **...but they still choose who may enter.** That Officer's hall door still offers **Who may enter**, as it did before - only decorating needs a realm character.
+- **The hall's yard speaks of the hall.** A piece placed inside the building now says "That is inside the hall", and a full yard says "The hall's yard already holds 60 pieces." - not "your house" or "your yard".

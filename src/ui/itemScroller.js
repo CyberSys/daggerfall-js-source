@@ -22,6 +22,7 @@ import { thumbSpan, drawScrollThumb, VerticalScrollBar, dragScrollIndex } from '
 import { itemLongName } from '../systems/itemInfo.js';
 import { rarityTint, rarityLines } from '../systems/lootRarity.js';   // LR1: the cell's tier tint and the tooltip's tier lines   // D7: ResolveItemLongName, the tooltip's text
 import { pieceLines } from '../net/recipeLaw.js';   // PROF3: a crafted piece's quality and maker, above its powers
+import { craftedJewelPoints } from '../systems/enchanting.js';   // AUDIT PROF-541 R2-C4: a jewel's points as the item maker reads them
 import { bookTitle } from '../systems/books.js';         // D7: GetBookTitle, the Books arm
 import { ToolTip } from './toolTip.js';                  // D7: itemButtons[i].ToolTip = toolTip (:340)
 import { isSummoned } from '../systems/inventory.js';    // AUDIT 64 F53: IsSummoned, the handler's third arm
@@ -388,7 +389,7 @@ export function scrollerToolTipText(item, { getQuest = null, books = true } = {}
   if (books && item.group === 'Books' && !item.artifact) return bookTitle(item.message ?? -1) ?? long;
   // LR1: the tier and the affix lines under the name, one per row (the
   // tooltip splits on \r); nothing with the switch off or for Common.
-  const lines = [...pieceLines(item), ...rarityLines(item)];   // PROF3: a crafted piece's quality and maker first
+  const lines = [...pieceLines(item, craftedJewelPoints(item)), ...rarityLines(item)];   // PROF3: a crafted piece's quality and maker first
   return lines.length ? [long, ...lines].join('\r') : long;
 }
 

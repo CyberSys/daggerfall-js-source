@@ -77,7 +77,9 @@
 //   POST /v1/prof/harvest { character, node, kind, climate, region, act, at, rid, foe? } -> { ok, material, qty, xp, track, today, store, gem?, extra?, extraQty?, hunt? } | { repeat, ... }   (PROF7: a body's `foe`, no ground)
 //   POST /v1/prof/spec { character, profession, rank, spec, rid }      -> { ok, track, marks?, balance? }
 //   POST /v1/prof/smelt { character, recipe, count, clean?, rid }      -> { ok, recipe, count, own, bought, xp, first?, clean?, track, stores } | { repeat, ... }   (PROF2; PROF4 the burns and saws; PROF7 the loom's cures and weave - a weave's `track` null; PROF11 the mason's bench's cut and mix - `clean` the chisel's, `first` its 500)
-//   POST /v1/prof/craft { character, recipe, clean, name?, heartwood?, dye?, rid } -> { ok, recipe, quality, count, seed, maker, marked, xp, first, heartwood, dye, pieces, track, stores } | { repeat, ... }   (PROF3 the anvil; PROF4 the workbench; PROF7 the loom and a garment's `dye`; PROF11 the Sculptor's stone decor)
+//   POST /v1/prof/craft { character, recipe, clean, name?, heartwood?, dye?, cracked?, rid } -> { ok, recipe, quality, count, seed, maker, marked, xp, first, heartwood, dye, hand?, pieces, track, stores } | { repeat, ... }   (PROF3 the anvil; PROF4 the workbench; PROF7 the loom and a garment's `dye`; PROF11 the Sculptor's stone decor; PROF9 the fire's dishes and a dish's `hand`; PROF10 the jeweller's bench - a piece's `hand`, a Lapidary's `cracked` gem)
+//   POST /v1/prof/brew { character, potion, keys, seat?, rid } -> { ok, potion, keys, count, potent, unbruised, steps, xp, first, track, stores } | { repeat, ... }   (PROF12: Alchemy's brewing act - DFU's own recipe law on the Stores' cauldron; Potent rolled, the Apothecary's steps)
+//   POST /v1/prof/disenchant { character, provenance, rid, realm? } -> { ok, provenance, recipe, points, essence, origin, xp, track, store, realm? } | { repeat, ... } | { error: 'prof-no-piece', why? }   (PROF12: a crafted piece into Arcane Essence, gone; AUDIT PROF-541 B2: a realm character's out of its record - `realm` where it stands, `realm.seq` the record's new sequence, `why: 'disenchanted'` a piece this account's disenchant took)
 //   POST /v1/prof/stock { character, material, qty, rid }             -> { ok, ... } | { repeat, ... }   (PROF3 the smith's stock; PROF4 the furnisher's; PROF5 the Weavers')
 //   POST /v1/stores/withdraw { character, material, qty, rid }         -> { ok, material, qty, store } | { repeat, ... }
 //   POST /v1/writs/list { character, region }                          -> { region, day, endsAt, writs, today }
@@ -174,6 +176,7 @@ import { decorOf, placeDecor, moveDecor, removeDecor, hideDecorBase, yardsOf } f
 import { gateStrikeStatement, gateStrikeAnswer, raidStrikeStatement, combatStrikeAnswer, raidStrikeRid, deedStatements, deedAnswer, deedEvent, marksOf, marksCardOf, exchangeMarks, depositGuildMarks, withdrawGuildMarks, marksReport } from './marks.js';   // MARKS1: the server's currency; SILVER-WAYS: a raid's silver and a guild's deeds
 import { readBoard, pinNote, takeDownNote, reportNote, moderateNote, postNotice, removeNotice } from './board.js';   // NOTICE1: the Notice Board
 import { profState, profPixels, harvestNode, chooseSpec, withdrawStores, smeltAtForge, craftAtAnvil, buyStock, listWrits, deliverWrit } from './professions.js';   // PROF1: the professions; PROF2: the forge; PROF3: the anvil and the smith's stock
+import { brewAtStation, disenchantPiece } from './alchemy.js';   // PROF12: Alchemy's brew, Enchanting's disenchant
 import {
   writBoard, postGuildWrit, supplyGuildWrit, withdrawGuildWrit, setWritBudget, postCommission, fulfilCommission, cancelCommission, declineCommission,
   guildStores, depositGuildStores, withdrawGuildStores,
@@ -321,6 +324,12 @@ const PROF_STATUS = Object.freeze({
   'prof-hunt-cap': 409, 'prof-hunt-high': 409, 'prof-foe': 400, 'prof-dye': 400,   // PROF7: Hunting's day (30 hides, 3 of tiers 5-6), a body no knife skins, a dye asked of what takes none
   'prof-fish-cap': 409,   // PROF8: Fishing's day (40 hauls an account)
   'prof-sculptor': 403,   // PROF11: the stone decor is a Sculptor's - a skill's door, as the rank's
+  'prof-lapidary': 403,   // PROF10: a Siege-cracked Gem is set as a gem by a Lapidary alone - a skill's door, as the Sculptor's
+  // PROF12: a transmutation is a Transmuter's (a skill's door); a cauldron DFU's law answers with no such potion, a bad piece's id;
+  // no such piece, another's; one listed, on the road or set down; one that makes no Essence
+  'prof-transmuter': 403, 'bad-brew': 400, 'bad-piece': 400, 'prof-no-piece': 404, 'prof-not-yours': 403, 'prof-piece-busy': 409, 'prof-no-essence': 409,
+  // AUDIT PROF-541 B2: a realm character's disenchant moves its record - a piece the record does not hold, and the record's own words
+  'prof-piece-gone': 409, 'realm-needed': 400, lease: 409, seq: 409, 'no-realm-character': 404, 'no-data': 404, 'no-storage': 503,
   'node-taken': 409, 'writ-taken': 409, 'writ-expired': 409, 'writ-cap': 409, 'marks-full': 409, 'marks-short': 409, 'prof-respec-pending': 409,
   'prof-rate': 429,
   // PROF6: guild writs, commissions and the guild Stores
@@ -1067,6 +1076,8 @@ const service = {
           '/v1/prof/spec': () => chooseSpec(ctx, who.player, env, body),
           '/v1/prof/smelt': () => smeltAtForge(ctx, who.player, env, body),   // PROF2
           '/v1/prof/craft': () => craftAtAnvil(ctx, who.player, env, body),   // PROF3: the anvil; PROF4: the workbench
+          '/v1/prof/brew': () => brewAtStation(ctx, who.player, env, body),   // PROF12: the alchemy station's brew
+          '/v1/prof/disenchant': () => disenchantPiece({ ...ctx, bucket: env.SAVES }, who.player, env, body),   // PROF12: an enchanting station's disenchant; AUDIT PROF-541 B2: a realm character's record, in R2
           '/v1/prof/stock': () => buyStock(ctx, who.player, env, body),   // PROF3: the smith's stock; PROF4: the furnisher's
           '/v1/stores/withdraw': () => withdrawStores(ctx, who.player, env, body),
           // PROF6: the Court's writs, and beside them this board's guild writs and commissions (writs.js writBoard)
@@ -1091,7 +1102,8 @@ const service = {
         }[path];
         if (!act) return no('not-found', 404, origin);
         const r = await act();
-        if ('error' in r) return no(r.error, PROF_STATUS[r.error] ?? 400, origin);
+        // AUDIT PROF-541 B2: a realm record's sequence (a checkpoint's own word) and a refusal's `why` ride with it
+        if ('error' in r) return json({ error: r.error, ...(typeof r.why === 'string' ? { why: r.why } : {}), ...(r.error === 'seq' && Number.isSafeInteger(r.seq) ? { seq: r.seq } : {}) }, PROF_STATUS[r.error] ?? 400, origin);
         if (r.renown?.rose) {
           const key = await signingKey(env, subtle);
           return json({ ...r, order: key ? await mintRenownOrder({ s: who.player.id, lv: r.renown.level }, key, { subtle, nowS }) : null }, 200, origin);

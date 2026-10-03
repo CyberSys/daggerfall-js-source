@@ -146,8 +146,8 @@
   {
     "name": "SEAT2b2-ramkit-to-the-pack",
     "file": "src/net/professionLaw.js",
-    "old": "export const NO_PACK_FORM = Object.freeze(['work:ram']);",
-    "new": "export const NO_PACK_FORM = Object.freeze([]);",
+    "old": "export const NO_PACK_FORM = Object.freeze(['work:ram', 'essence:arcane']);",
+    "new": "export const NO_PACK_FORM = Object.freeze(['essence:arcane']);",
     "tests": [
       "test/seat2b_peace_law.test.js"
     ]
@@ -310,20 +310,22 @@
   {
     "name": "SEAT2b2-siege-a-piece",
     "file": "server-account/src/professions.js",
-    "old": "  const siege = r.kind === 'siege';\n  let siegeOrigin",
-    "new": "  const siege = false;\n  let siegeOrigin",
+    "old": "  const siege = r.kind === 'siege';\n",
+    "new": "  const siege = false;\n",
     "tests": [
       "test/seat2b_peace_service.test.js"
-    ]
+    ],
+    "note": "AUDIT PROF-541 R2-S5 (RE-AIMED): siegeOrigin gone."
   },
   {
     "name": "SEAT2b2-siege-always-own",
     "file": "server-account/src/professions.js",
-    "old": "siegeOrigin = 'bought';",
-    "new": "siegeOrigin = 'own';",
+    "old": "THEN 'bought' ELSE 'own' END, count FROM prof_crafts",
+    "new": "THEN 'own' ELSE 'own' END, count FROM prof_crafts",
     "tests": [
       "test/seat2b_peace_service.test.js"
-    ]
+    ],
+    "note": "AUDIT PROF-541 R2-S5 (RE-AIMED): the origin in the kit's INSERT."
   },
   {
     "name": "SEAT2b2-siege-room-unasked",
@@ -454,8 +456,8 @@
   {
     "name": "SEAT2b2-book-seat-unkept",
     "file": "src/net/profBook.js",
-    "old": "...(Number.isSafeInteger(seat) && seat >= 0 ? { seat } : {}) };",
-    "new": "};",
+    "old": "...(Number.isSafeInteger(seat) && seat >= 0 ? { seat } : {}),   // SEAT2b part two",
+    "new": "// SEAT2b part two",
     "tests": [
       "test/seat2b_peace_client.test.js"
     ]
@@ -472,8 +474,8 @@
   {
     "name": "SEAT2b2-door-seat-unposted",
     "file": "src/net/accountClient.js",
-    "old": ", ...(seat == null ? {} : { seat }) }),",
-    "new": " }),",
+    "old": ", ...(seat == null ? {} : { seat }), ...(cracked === true",
+    "new": ", ...(cracked === true",
     "tests": [
       "test/seat2b_peace_client.test.js"
     ]

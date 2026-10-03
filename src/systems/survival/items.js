@@ -147,26 +147,7 @@ export const SURVIVAL_USE_TEXT = Object.freeze({
  */
 export function useSurvivalItem(item, collection, { entity = null, now = 0, rolls = Math.random, currentDay = 0, onContract = null, inflict = null, rules = undefined } = {}) {
   if (!isSurvivalItem(item)) return null;
-  const list = Array.isArray(collection) ? collection : null;
-  const takeOne = () => {
-    if (!list) return;
-    if ((item.stackCount ?? 1) > 1) item.stackCount -= 1;
-    else { const i = list.indexOf(item); if (i >= 0) list.splice(i, 1); }
-  };
-  if (isFood(item)) {
-    const s = entity ? survivalOf(entity, now) : { lastAte: now - 10000, thirst: 0, notes: {} };
-    const luck = entity?.stats?.luck ?? 50;
-    const r = eatLaw(item, { lastAte: s.lastAte, now, luck, rolls, rules });   // SURV-TIERS: the tier's sickness (Hard's when none)
-    const name = foodName(item);
-    if (!r.ok) return { kind: 'notEaten', text: r.reason === 'putrid' ? SURVIVAL_USE_TEXT.putrid(name) : r.reason === 'not hungry' ? SURVIVAL_USE_TEXT.notHungry(name) : 'Nothing happens.' };
-    s.lastAte = r.lastAte;
-    s.thirst = Math.max(0, (s.thirst ?? 0) - (r.thirstRelief ?? 0));
-    takeOne();
-    if (entity && r.sick) sickenFromMeal(entity, r.sick, { inflict, rolls, currentDay, onContract });
-    const rations = item.templateIndex === TEMPLATE.Rations;
-    const text = rations ? (list && !list.includes(item) ? `${SURVIVAL_USE_TEXT.rations} ${SURVIVAL_USE_TEXT.emptySack}` : SURVIVAL_USE_TEXT.rations) : `${SURVIVAL_USE_TEXT.ate(name)} ${SURVIVAL_USE_TEXT.feel(r.feel)}`;
-    return { kind: 'ate', text, satiety: r.satiety, sick: r.sick };
-  }
+  if (isFood(item)) return eatFood(item, collection, { entity, now, rolls, currentDay, onContract, inflict, rules });
   if (isWaterskin(item)) {
     const r = drinkFrom(item);
     if (!r.ok) return { kind: 'empty', text: SURVIVAL_USE_TEXT.emptySkin };
@@ -181,6 +162,31 @@ export function useSurvivalItem(item, collection, { entity = null, now = 0, roll
   if (isCampfireKit(item)) return { kind: 'placeFire', item };
   if (isSkillet(item)) return { kind: 'info', text: SURVIVAL_USE_TEXT.skillet };
   return { kind: 'none' };
+}
+
+/**
+ * EAT one food off `collection` - the eating law's (food.js eatLaw), the needs it meets, the meal's sickness, its words.
+ * PROF9: its own export, so a food another arc makes (Cooking's dishes, food.js registerFoods) is eaten by THIS law,
+ * imported, never typed again (systems/cookItems.js). Answers useItem.js's shape: { kind: 'ate' | 'notEaten', text }.
+ */
+export function eatFood(item, collection, { entity = null, now = 0, rolls = Math.random, currentDay = 0, onContract = null, inflict = null, rules = undefined } = {}) {
+  if (!isFood(item)) return null;
+  const list = Array.isArray(collection) ? collection : null;
+  const s = entity ? survivalOf(entity, now) : { lastAte: now - 10000, thirst: 0, notes: {} };
+  const luck = entity?.stats?.luck ?? 50;
+  const r = eatLaw(item, { lastAte: s.lastAte, now, luck, rolls, rules });   // SURV-TIERS: the tier's sickness (Hard's when none)
+  const name = foodName(item);
+  if (!r.ok) return { kind: 'notEaten', text: r.reason === 'putrid' ? SURVIVAL_USE_TEXT.putrid(name) : r.reason === 'not hungry' ? SURVIVAL_USE_TEXT.notHungry(name) : 'Nothing happens.' };
+  s.lastAte = r.lastAte;
+  s.thirst = Math.max(0, (s.thirst ?? 0) - (r.thirstRelief ?? 0));
+  if (list) {
+    if ((item.stackCount ?? 1) > 1) item.stackCount -= 1;
+    else { const i = list.indexOf(item); if (i >= 0) list.splice(i, 1); }
+  }
+  if (entity && r.sick) sickenFromMeal(entity, r.sick, { inflict, rolls, currentDay, onContract });
+  const rations = item.templateIndex === TEMPLATE.Rations;
+  const text = rations ? (list && !list.includes(item) ? `${SURVIVAL_USE_TEXT.rations} ${SURVIVAL_USE_TEXT.emptySack}` : SURVIVAL_USE_TEXT.rations) : `${SURVIVAL_USE_TEXT.ate(name)} ${SURVIVAL_USE_TEXT.feel(r.feel)}`;
+  return { kind: 'ate', text, satiety: r.satiety, sick: r.sick };
 }
 
 /** A water source: fill every skin, quench the thirst, say what happened. */
