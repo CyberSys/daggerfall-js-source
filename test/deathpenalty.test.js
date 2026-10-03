@@ -41,7 +41,7 @@ test('it is taken by BOTH online respawn paths, once, and never by the offline e
 test('the death screen shows the loss - online only, and only when there is one', () => {
   const ds = read('src/ui/deathScreen.js');
   assert.match(ds, /this\.goldLoss = this\.online \? deathGoldLoss\(goldPiecesOf\(entity\)\) : 0;/);
-  assert.match(ds, /if \(this\.goldLoss > 0\) \{[\s\S]*?DEATH CLAIMS \$\{this\.goldLoss\} GOLD/, 'classic face');
+  assert.match(ds, /if \(this\.goldLoss > 0\) \{[\s\S]*?'DEATH CLAIMS \{gold\} GOLD', \{ gold: this\.goldLoss \}/, 'classic face');
   const en = read('src/ui/enhancedDeath.js');
   assert.match(en, /const lossLine = screen\.goldLoss > 0 \? \(screen\.goldLossLine \|\| deathPenaltyLine\(screen\.goldLoss\)\) : '';/);
   assert.match(en, /el\('p', `dth-line\$\{lossLine \? ' dth-lossline' : ''\}`, lossLine \|\| \(online/, 'it takes the tagline\'s place and wears its font');

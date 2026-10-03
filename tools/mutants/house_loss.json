@@ -134,8 +134,8 @@
   {
     "name": "HOUSE-LOSS-the-door-never-undoes",
     "file": "src/ui/enhancedMenu.js",
-    "old": "row.customs && save.unfinished ? { label: 'Undo bringing in'",
-    "new": "false ? { label: 'Undo bringing in'",
+    "old": "row.customs && save.unfinished ? { label: t('menu.realm.undo', 'Undo bringing in')",
+    "new": "false ? { label: t('menu.realm.undo', 'Undo bringing in')",
     "tests": [
       "test/house_loss.test.js"
     ]

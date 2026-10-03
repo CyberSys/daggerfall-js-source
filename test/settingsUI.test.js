@@ -182,8 +182,8 @@ test('SO1: the settings pane is organised - the port\'s rows sit in the categori
   // tier is a group: live flat, the other two folded with a count, remembered on the shelf
   assert.match(menu, /for \(const key of keys\) if \(drawsFlat\(key\)\) \{ const r = settingRow\(key\); if \(r\) out\.push\(r\); \}/);   // FT13: a moved key answers nothing; FPS-VSYNC: drawsFlat is live, or read at the app's next start
   assert.match(menu, /function drawsFlat\(key\) \{ const t = tierOf\(key\); return t === 'live' \|\| t === 'restart'; \}/);
-  assert.match(menu, /const TIER_GROUPS = Object\.freeze\(\[\s*\n\s*\['stored', 'Saved for later'/);
-  assert.match(menu, /\['unavailable', 'Not available here'/);
+  assert.match(menu, /const TIER_GROUPS = Object\.freeze\(\[[^\n]*\n\s*\['stored', \(\) => t\('menu\.settings\.storedTitle', 'Saved for later'\)/);
+  assert.match(menu, /\['unavailable', \(\) => t\('menu\.settings\.unavailableTitle', 'Not available here'\)/);
   assert.match(menu, /const open = isOpen\(catId, tier\);[\s\S]*?headBtn\.onclick = \(\) => \{ setOpen\(catId, tier, !open\); render\(\); \};/, 'the fold is the shelf\'s open map');
   assert.match(menu, /el\('span', 'count', String\(keys\.length\)\)/, 'the heading counts');
   assert.match(menu, /if \(open\) \{\s*\n\s*const body = el\('div', 'group-body'\);/, 'a folded group draws no rows - and its heading still says how many');

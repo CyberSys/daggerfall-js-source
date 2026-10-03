@@ -7,6 +7,7 @@ import { createIntroLandscape } from './introLandscape.js';
 import { introFrameAt, introEase, INTRO_CREDITS, TITLE_READY_TIME, MENU_FADE_SECONDS } from './introCue.js';
 import { PIXELIFY_FIVE_FACE, PIXEL_FONT_CSS } from './pixelifyFive.js';   // FONT3: the film's words in the enhanced face
 import { injectEnhancedFonts } from './enhancedStyle.js';   // FONT3: the one request, made when the film mounts
+import { t } from '../systems/textManager.js';   // L10N4: the film's words in the player's language
 
 export const INTRO_CREDIT_URLS = Object.freeze({
   interkarma: new URL('../assets/intro/interkarma.webp', import.meta.url).href,
@@ -70,7 +71,7 @@ export async function runIntro({ theme, onReveal, doc = document, freezeAt = nul
   const win = doc.defaultView;
   const reduced = win.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
   const host = make(doc, 'section'); host.id = 'intro';
-  host.setAttribute('aria-label', 'Daggerfall Online introduction');
+  host.setAttribute('aria-label', t('menu.intro.aria', 'Daggerfall Online introduction'));
   const style = make(doc, 'style'); style.textContent = STYLE; host.append(style);
   injectEnhancedFonts(doc);   // FONT3: the film's words are the skin's face - ask for it now, not when the menu mounts
   const film = make(doc, 'div', 'intro-film');
@@ -84,7 +85,7 @@ export async function runIntro({ theme, onReveal, doc = document, freezeAt = nul
     const credit = make(doc, 'div', 'intro-credit'); credit.dataset.credit = entry.key;
     credit.setAttribute('aria-hidden', 'true');
     const image = make(doc, 'img'); image.src = INTRO_CREDIT_URLS[entry.key];
-    image.alt = entry.key === 'interkarma' ? 'Interkarma — Daggerfall Unity' : 'Nexus Mods';
+    image.alt = entry.key === 'interkarma' ? 'Interkarma — Daggerfall Unity' : 'Nexus Mods';   // L10N4: names, as their own logos say them
     credit.append(make(doc, 'p', null, entry.caption), image);
     credits.set(entry.key, credit); images.push(decodedImage(image)); film.append(credit);
   }
@@ -93,7 +94,7 @@ export async function runIntro({ theme, onReveal, doc = document, freezeAt = nul
   images.push(decodedImage(logo).then((ok) => { if (!ok) title.append(make(doc, 'h1', 'intro-title-fallback', 'Daggerfall Online')); }));
   const light = make(doc, 'div', 'intro-light'); film.append(title, light);
   const gate = make(doc, 'div', 'intro-gate');
-  const begin = make(doc, 'button', 'intro-begin', 'Begin'); begin.type = 'button'; begin.disabled = true;
+  const begin = make(doc, 'button', 'intro-begin', t('menu.intro.begin', 'Begin')); begin.type = 'button'; begin.disabled = true;
   // MAC: the gate is the BUTTON and nothing else - no kicker, no title, no
   // rule. The film says which game this is, and says it better than a line of
   // small caps over it. `status` stays as a node because it is the live region
@@ -101,10 +102,10 @@ export async function runIntro({ theme, onReveal, doc = document, freezeAt = nul
   // sound), but it is off the picture: read aloud, never drawn. The one
   // message a player must SEE - the score failing to load - was never this
   // line's, it is the footer's.
-  const status = make(doc, 'p', 'intro-status', 'Preparing the journey…'); status.setAttribute('role', 'status');
+  const status = make(doc, 'p', 'intro-status', t('menu.intro.preparing', 'Preparing the journey…')); status.setAttribute('role', 'status');
   gate.append(begin, status);
-  const skip = make(doc, 'button', 'intro-skip', 'Skip intro'); skip.type = 'button';
-  const next = make(doc, 'button', 'intro-continue', 'Tap to continue'); next.type = 'button'; next.hidden = true;
+  const skip = make(doc, 'button', 'intro-skip', t('menu.intro.skip', 'Skip intro')); skip.type = 'button';
+  const next = make(doc, 'button', 'intro-continue', t('menu.intro.tapContinue', 'Tap to continue')); next.type = 'button'; next.hidden = true;
   // MAC: no wordmark in the letterbox - the logo says it, and says it better.
   // The element stays because it is the FAILURE surface: if the score cannot
   // load, beginPlayback writes its truthful card here. Empty until then.
@@ -169,19 +170,19 @@ export async function runIntro({ theme, onReveal, doc = document, freezeAt = nul
     // The assets may still be loading behind this tap; prepare() below is the
     // same promise the setup path awaits, so the film opens the moment it is
     // ready rather than asking the player to find the button a second time.
-    status.textContent = 'Opening…';
+    status.textContent = t('menu.intro.opening', 'Opening…');
     const unlocked = await theme.unlock();
     await decoded;
     const loaded = await theme.prepare();
     if (over || transitionAt !== null) return;
     if (!loaded) {
       fallbackTime = TITLE_READY_TIME + 1; gate.hidden = true; phase = 'hold';
-      footer.textContent = 'Music couldn’t load. You can still continue.';
+      footer.textContent = t('menu.intro.musicFailed', 'Music couldn’t load. You can still continue.');
       return;
     }
     if (!unlocked || !theme.start()) {
       phase = resuming ? 'paused' : 'ready'; begin.disabled = false;
-      begin.textContent = resuming ? 'Resume' : 'Begin'; status.textContent = 'Tap anywhere to enable sound.';
+      begin.textContent = resuming ? t('menu.intro.resume', 'Resume') : t('menu.intro.begin', 'Begin'); status.textContent = t('menu.intro.enableSound', 'Tap anywhere to enable sound.');
       return;
     }
     phase = 'playing'; gate.hidden = true; status.textContent = '';
@@ -228,7 +229,7 @@ export async function runIntro({ theme, onReveal, doc = document, freezeAt = nul
       // MAC: the gate has no heading to re-word any more, and does not need
       // one - the button itself says Resume, which is the whole affordance.
       phase = 'paused'; gate.hidden = false;
-      begin.disabled = false; begin.textContent = 'Resume'; status.textContent = 'Tap anywhere to resume the music and film.';
+      begin.disabled = false; begin.textContent = t('menu.intro.resume', 'Resume'); status.textContent = t('menu.intro.resumeHint', 'Tap anywhere to resume the music and film.');
     }
     if (phase === 'paused' && theme.context?.state === 'running') { phase = 'playing'; gate.hidden = true; }
     const showFilm = ['playing', 'hold', 'paused', 'transition'].includes(phase) || freezeAt !== null;
@@ -295,7 +296,7 @@ export async function runIntro({ theme, onReveal, doc = document, freezeAt = nul
       await Promise.all([musicReady, decoded]);
       if (!over && transitionAt === null && phase === 'preparing') {
         phase = 'ready'; begin.disabled = false;
-        status.textContent = reduced ? 'Tap anywhere to begin. Reduced motion is on.' : 'Tap anywhere to begin. Sound on for the full experience.';
+        status.textContent = reduced ? t('menu.intro.readyReduced', 'Tap anywhere to begin. Reduced motion is on.') : t('menu.intro.ready', 'Tap anywhere to begin. Sound on for the full experience.');
         if (freezeAt !== null) { phase = 'playing'; gate.hidden = true; }
         else begin.focus({ preventScroll: true });
       }

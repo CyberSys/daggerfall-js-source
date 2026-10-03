@@ -259,10 +259,10 @@ test('MAC-G: the sheet carries the list, and the pause page draws it', () => {
   const menu = read('src/ui/enhancedMenu.js');
   assert.match(menu, /\['skills', 'Skills'\], \['specials', 'Advantages'\], \['standing', 'Standing'\]/);
   assert.match(menu, /specials: statsSpecials/);
-  assert.match(menu, /\[\['advantage', 'Advantages'\], \['disadvantage', 'Disadvantages'\]\]/);
+  assert.match(menu, /\[\['advantage', t\('pause\.stats\.advantages', 'Advantages'\)\], \['disadvantage', t\('pause\.specials\.disadvantages', 'Disadvantages'\)\]\]/);
   // the SOURCE tag, because Resistance To Magic from the blood and from
   // the class are different facts about a re-rollable character
-  assert.match(menu, /r\.source === 'race' \? \(m\.race \|\| 'Race'\) : \(m\.career \|\| 'Class'\)/);
+  assert.match(menu, /r\.source === 'race' \? \(m\.race \|\| t\('pause\.specials\.race', 'Race'\)\) : \(m\.career \|\| t\('pause\.specials\.class', 'Class'\)\)/);
   assert.match(read('src/ui/enhancedStyle.js'), /\.px-stat \.v\.px-src \{ font-size: 13px;/);
 });
 

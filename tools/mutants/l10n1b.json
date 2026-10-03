@@ -16,7 +16,7 @@
   {"name": "L10N1b-english-loaded", "file": "src/scenes/localeData.js", "old": "if (!f || f.code === BASE_LOCALE) continue;", "new": "if (!f) continue;", "tests": ["test/l10n1b.test.js"]},
   {"name": "L10N1b-failure-no-english", "file": "src/scenes/localeData.js", "old": "    setLocale(BASE_LOCALE);\n    applyDocumentLanguage(BASE_LOCALE);\n    return BASE_LOCALE;", "new": "    return BASE_LOCALE;", "tests": ["test/l10n1b.test.js"]},
   {"name": "L10N1b-row-in-pause", "file": "src/ui/enhancedMenu.js", "old": "if (!pause) out.push(languageRow());", "new": "out.push(languageRow());", "tests": ["test/l10n1b.test.js"]},
-  {"name": "L10N1b-door-untranslated", "file": "src/ui/enhancedMenu.js", "old": "document.createTextNode(railLabel(label))", "new": "document.createTextNode(label)", "tests": ["test/l10n1b.test.js"]},
+  {"name": "L10N1b-door-untranslated", "file": "src/ui/enhancedMenu.js", "old": "document.createTextNode(railLabel(label)), el('span', 'px-c'", "new": "document.createTextNode(label), el('span', 'px-c'", "tests": ["test/l10n1b.test.js"]},
   {"name": "L10N1b-rail-untranslated", "file": "src/ui/enhancedMenu.js", "old": "b.append(el('span', 'rk', railLabel(label)));", "new": "b.append(el('span', 'rk', label));", "tests": ["test/l10n1b.test.js"]},
   {"name": "L10N1b-rail-english-drifts", "file": "src/ui/enhancedMenu.js", "old": "  new: () => t('menu.rail.new', 'New Game'),", "new": "  new: () => t('menu.rail.new', 'New game'),", "tests": ["test/l10n1b.test.js"]},
   {"name": "L10N1b-offer-in-english", "file": "src/ui/enhancedMenu.js", "old": "if (!code || !localeTable(code, 'Port_Strings')?.has('lang.offer')) return null;", "new": "if (!code) return null;", "tests": ["test/l10n1b.test.js"]},

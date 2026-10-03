@@ -11,7 +11,7 @@
   {
     "name": "CLASSICPAGES-closed-opens-anyway",
     "file": "src/ui/pauseDoor.js",
-    "old": "    if (!profPagesShown()) { hudText(PROF_PAGES_CLOSED_LINE); return null; }\n",
+    "old": "    if (!profPagesShown()) { hudText(profPagesClosedLine()); return null; }\n",
     "new": "",
     "tests": [
       "test/classicpages.test.js"
@@ -20,7 +20,7 @@
   {
     "name": "CLASSICPAGES-closed-unsaid",
     "file": "src/ui/pauseDoor.js",
-    "old": "    if (!profPagesShown()) { hudText(PROF_PAGES_CLOSED_LINE); return null; }",
+    "old": "    if (!profPagesShown()) { hudText(profPagesClosedLine()); return null; }",
     "new": "    if (!profPagesShown()) { return null; }",
     "tests": [
       "test/classicpages.test.js"

@@ -369,10 +369,11 @@ export function skyDayWords(nowMs = Date.now(), localTime = (ms) => new Date(ms)
   const midnight = wallMsForSkyMinutes(Math.ceil(skyClassicMinutes(turn) / 1440) * 1440);
   const m0 = ((localMinute(midnight) % 60) + 60) % 60;
   const at = (m) => { const v = ((m % 60) + 60) % 60; return `:${String(Math.floor(v)).padStart(2, '0')}${v % 1 ? ':30' : ''}`; };
-  const day = `${m0 === 0 ? 'midnight falls on the hour' : `midnight falls at ${at(m0)}`}, and dusk at ${at(m0 + 45)}`;
+  // L10N4: one sentence, one pattern - the midnight's two shapes are a select inside it, never a glued fragment
+  const day = { onHour: m0 === 0 ? 'yes' : 'no', midnight: at(m0), dusk: at(m0 + 45) };
   return nowMs >= turn
-    ? `A day in the world is an hour of real time: ${day}.`
-    : `A day in the world is two hours of real time until ${localTime(turn)}; from then on it is an hour: ${day}.`;
+    ? t('menu.online.skyDay', 'A day in the world is an hour of real time: {onHour, select, yes {midnight falls on the hour} other {midnight falls at {midnight}}}, and dusk at {dusk}.', day)
+    : t('menu.online.skyDayUntil', 'A day in the world is two hours of real time until {turn}; from then on it is an hour: {onHour, select, yes {midnight falls on the hour} other {midnight falls at {midnight}}}, and dusk at {dusk}.', { ...day, turn: localTime(turn) });
 }
 
 export function takePickedSaveKey() { const k = _pickedSaveKey; _pickedSaveKey = null; return k; }
@@ -398,7 +399,7 @@ function saveOf(entry) {
     characterName: entry.info?.characterName ?? snap.name ?? '',
     characterId: entry.info?.characterId ?? null,   // CHARID1
     dateAndTime: entry.info?.dateAndTime ?? null,   // FIELD 2026-09-27: when this device saved the slot - a later save in the backup is told from it
-    name: snap.name || 'Unnamed',
+    name: snap.name || t('menu.save.unnamed', 'Unnamed'),
     // TILE1: the identity the PORTRAIT needs, and it was already in the
     // envelope - S3c/U9 put `race`, `gender` and `faceIndex` on the
     // save when the identity started riding it. Nothing new is stored;
@@ -503,14 +504,14 @@ function cloudFor(save, { restore = false } = {}) {
       // loss the restore exists to prevent. A push over a newer backup asks twice here too, as it does on the line.
       const act = cloudWhy?.slot === slot ? cloudWhy.act : 'push';
       if (act === 'restore') {
-        if (restore && newerBackup(card, save.dateAndTime)) line.actions.push({ label: 'Try again', onClick: () => restoreBackup(save, card) });
-      } else if (act === 'delete') line.actions.push({ label: 'Try again', onClick: () => removeBackup(save) });
-      else if (newerBackup(card, save.dateAndTime)) line.actions.push(guardedPush(save, 'Try again'));
-      else line.actions.push({ label: 'Try again', onClick: () => backUp(save) });
+        if (restore && newerBackup(card, save.dateAndTime)) line.actions.push({ label: t('menu.cloud.tryAgain', 'Try again'), onClick: () => restoreBackup(save, card) });
+      } else if (act === 'delete') line.actions.push({ label: t('menu.cloud.tryAgain', 'Try again'), onClick: () => removeBackup(save) });
+      else if (newerBackup(card, save.dateAndTime)) line.actions.push(guardedPush(save, t('menu.cloud.tryAgain', 'Try again')));
+      else line.actions.push({ label: t('menu.cloud.tryAgain', 'Try again'), onClick: () => backUp(save) });
       break;
     }
     case 'saved':
-      line.actions.push({ label: 'Back up again', onClick: () => backUp(save) });
+      line.actions.push({ label: t('menu.cloud.backUpAgain', 'Back up again'), onClick: () => backUp(save) });
       // ═══ AUDIT-312 F1: THE DELETE HAD NO DOOR ═══════════════════
       //
       // The route existed (DELETE /v1/saves/…), `removeCloudSlot`
@@ -530,8 +531,8 @@ function cloudFor(save, { restore = false } = {}) {
       // destroys anything. The armed slot is cleared by the press, by
       // arming a different tile, and by the next visit to the menu.
       line.actions.push(cloudArm === slot
-        ? { label: 'Delete backup?', primary: true, onClick: () => removeBackup(save) }
-        : { label: 'Delete backup', onClick: () => { cloudArm = slot; render(); } });
+        ? { label: t('menu.cloud.deleteBackupAsk', 'Delete backup?'), primary: true, onClick: () => removeBackup(save) }
+        : { label: t('menu.cloud.deleteBackup', 'Delete backup'), onClick: () => { cloudArm = slot; render(); } });
       break;
     case 'newer':
       // ═══ FIELD 2026-09-27 (Masta_Fu): A NEWER BACKUP CAN COME BACK ═══
@@ -550,13 +551,13 @@ function cloudFor(save, { restore = false } = {}) {
       // the others still name the newer backup and guard the upload.
       if (restore) {
         line.actions.push(cloudArm === `restore|${save.key}`
-          ? { label: 'Replace with backup?', primary: true, onClick: () => restoreBackup(save, card) }
-          : { label: 'Restore backup', primary: true, onClick: () => { cloudArm = `restore|${save.key}`; render(); } });
+          ? { label: t('menu.cloud.replaceWithBackup', 'Replace with backup?'), primary: true, onClick: () => restoreBackup(save, card) }
+          : { label: t('menu.cloud.restoreBackup', 'Restore backup'), primary: true, onClick: () => { cloudArm = `restore|${save.key}`; render(); } });
       }
-      line.actions.push(guardedPush(save, 'Back up again'));
+      line.actions.push(guardedPush(save, t('menu.cloud.backUpAgain', 'Back up again')));
       break;
     default:   // 'none'
-      line.actions.push({ label: 'Back up', onClick: () => backUp(save) });
+      line.actions.push({ label: t('menu.cloud.backUp', 'Back up'), onClick: () => backUp(save) });
   }
   return line;
 }
@@ -565,7 +566,7 @@ function cloudFor(save, { restore = false } = {}) {
  *  Armed by this LOCAL copy's key (the pre-merge audit 0927b B5): two local copies of one slot are two presses. */
 function guardedPush(save, label) {
   return cloudArm === `push|${save.key}`
-    ? { label: 'Replace newer backup?', onClick: () => { cloudArm = null; backUp(save); } }
+    ? { label: t('menu.cloud.replaceNewer', 'Replace newer backup?'), onClick: () => { cloudArm = null; backUp(save); } }
     : { label, onClick: () => { cloudArm = `push|${save.key}`; render(); } };
 }
 
@@ -642,8 +643,8 @@ function cloudForCard(card) {
   // surface that could ever free it. Same word, same two presses.
   if (state.state === 'only') {
     line.actions.push(cloudArm === slot
-      ? { label: 'Delete backup?', primary: true, onClick: () => removeBackup(card) }
-      : { label: 'Delete backup', onClick: () => { cloudArm = slot; render(); } });
+      ? { label: t('menu.cloud.deleteBackupAsk', 'Delete backup?'), primary: true, onClick: () => removeBackup(card) }
+      : { label: t('menu.cloud.deleteBackup', 'Delete backup'), onClick: () => { cloudArm = slot; render(); } });
   }
   return line;
 }
@@ -711,12 +712,12 @@ function cloudOnlyGrid(saves) {
   const cards = cloudOnly(cloudCards, saves);
   if (!cards.length) return null;
   const box = el('div', 'svcloudonly');
-  box.append(el('h4', null, cards.length === 1 ? 'One save is only in your backup' : `${cards.length} saves are only in your backup`));
+  box.append(el('h4', null, t('menu.cloud.onlyInBackup', '{n, plural, =1 {One save is only in your backup} other {# saves are only in your backup}}', { n: cards.length })));
   // THE ONE LINE OF PROSE THIS GRID GETS, because without it the
   // heading is a statement and not an instruction: a player looking at
   // a character they cannot press Load on needs to be told what the
   // button does before they press it.
-  box.append(el('p', 'meta', 'Download one to bring it back to this device.'));
+  box.append(el('p', 'meta', t('menu.cloud.downloadHint', 'Download one to bring it back to this device.')));
   const grid = el('div', 'svgrid');
   for (const card of cards) {
     grid.append(saveTile(document, saveFromCard(card, dateFromClassicMinutes, dateString), {
@@ -726,7 +727,7 @@ function cloudOnlyGrid(saves) {
       // none of them is a look), so the well draws the character's
       // initial - TILE1's own no-face arm, reached honestly.
       actions: [{
-        label: 'Download',
+        label: t('menu.cloud.download', 'Download'),
         primary: true,
         disabled: cloudBusy === slotKeyOf(card),
         onClick: () => download(card),
@@ -745,7 +746,7 @@ function savedGame() {
   const date = Number.isFinite(snap.classicMinutes) ? dateFromClassicMinutes(snap.classicMinutes) : null;   // AUDIT LIVED1 E (S5/U4's card; AUDIT LIVED1b T13 corrected the cite): a card is a LOCAL slot's, and a local slot plays offline on its one clock - the date it loads at, as the classic window and the cloud cards say
   return {
     key: entry.key,
-    name: snap.name || 'Unnamed',
+    name: snap.name || t('menu.save.unnamed', 'Unnamed'),
     career: snap.career?.name ?? null,
     level: snap.level ?? null,
     health: snap.health, maxHealth: snap.maxHealth,
@@ -774,12 +775,12 @@ function savedGame() {
 // they come to disagree about which of those a player is shown. Both
 // helpers are lifted verbatim out of paneContinue, so that pane draws
 // exactly what it drew before.
-const saveLine = (save) => [save.career, save.level ? `level ${save.level}` : null,
+const saveLine = (save) => [save.career, save.level ? t('menu.save.level', 'level {level}', { level: save.level }) : null,
   save.when, save.hour].filter(Boolean).join(' · ');
 
 const saveStats = (save) => [
-  ['Health', save.maxHealth ? `${save.health} / ${save.maxHealth}` : save.health],
-  ['Gold', save.gold != null ? save.gold.toLocaleString() : null],
+  [localizedText('health', 'Health'), save.maxHealth ? `${save.health} / ${save.maxHealth}` : save.health],
+  [t('menu.save.gold', 'Gold'), save.gold != null ? save.gold.toLocaleString() : null],
 ];
 
 function stats(pairs) {
@@ -826,7 +827,7 @@ function confirmCard() {
   c.append(el('p', 'meta', confirming.body));
   c.append(acts([
     { label: confirming.label, primary: true, onClick: () => { const f = confirming.onYes; confirming = null; f(); render(); } },
-    { label: 'Cancel', onClick: () => { confirming = null; render(); } },
+    { label: localizedText('cancel', 'Cancel'), onClick: () => { confirming = null; render(); } },
   ]));
   return c;
 }
@@ -850,15 +851,15 @@ const head = (title) => {
 function paneContinue(body) {
   const save = savedGame();
   if (!save) {
-    body.append(empty('No game in progress', 'Quicksave with F9 and it appears here.'));
-    body.append(acts([{ label: 'Start a new game', primary: true, onClick: () => go('new') }]));
+    body.append(empty(t('menu.continue.none', 'No game in progress'), t('menu.continue.noneHint', 'Quicksave with F9 and it appears here.')));
+    body.append(acts([{ label: t('menu.continue.startNew', 'Start a new game'), primary: true, onClick: () => go('new') }]));
     return;
   }
   const c = el('div', 'card');
   c.append(el('h3', null, save.name));
   c.append(el('p', 'meta', saveLine(save)));
   c.append(stats(saveStats(save)));
-  c.append(acts([{ label: 'Continue', primary: true, onClick: () => onAction('continue') }]));
+  c.append(acts([{ label: t('menu.continue.play', 'Continue'), primary: true, onClick: () => onAction('continue') }]));
   body.append(c);
 }
 
@@ -870,13 +871,13 @@ function paneContinue(body) {
 // settings key's clothes (systems/settings.js:94-99).
 function paneNew(body) {
   const c = el('div', 'card');
-  c.append(el('h3', null, 'A new character'));
-  c.append(el('p', 'meta', 'Race, class, biography, face, skills.'));
-  c.append(acts([{ label: 'Begin', primary: true, onClick: () => onAction('new') }]));
+  c.append(el('h3', null, t('menu.new.title', 'A new character')));
+  c.append(el('p', 'meta', t('menu.new.blurb', 'Race, class, biography, face, skills.')));
+  c.append(acts([{ label: t('menu.act.begin', 'Begin'), primary: true, onClick: () => onAction('new') }]));
   body.append(c);
 
   const opts = el('div', 'card');
-  opts.append(el('h3', null, 'Where you wake up'));
+  opts.append(el('h3', null, t('menu.new.wake', 'Where you wake up')));
   for (const key of ['Startup/StartInDungeon', 'Startup/StartCellX', 'Startup/StartCellY']) {
     put(opts, settingRow(key, { compact: true }));
   }
@@ -892,8 +893,8 @@ function paneNew(body) {
 function paneBegin(body) {
   const c = el('div', 'card');
   c.append(el('h3', null, 'Daggerfall'));
-  c.append(el('p', 'meta', 'The classic start: the title, the intro and Daggerfall\u2019s original menu (Load Game, Start New Game, Exit).'));
-  c.append(acts([{ label: 'Begin', primary: true, onClick: () => onAction('begin') }]));
+  c.append(el('p', 'meta', t('menu.begin.blurb', 'The classic start: the title, the intro and Daggerfall\u2019s original menu (Load Game, Start New Game, Exit).')));
+  c.append(acts([{ label: t('menu.act.begin', 'Begin'), primary: true, onClick: () => onAction('begin') }]));
   body.append(c);
 }
 
@@ -905,19 +906,19 @@ function paneBegin(body) {
 // it IS the boot, the same shape Continue's card takes.
 function paneTest(body) {
   const intro = el('div', 'card');
-  intro.append(el('h3', null, 'The test room'));
-  intro.append(el('p', 'meta',
+  intro.append(el('h3', null, t('menu.test.title', 'The test room')));
+  intro.append(el('p', 'meta', t('menu.test.blurb',
     'A prebuilt character in the ordinary world, with one of every weapon, a full suit of '
     + 'armor across materials, all four shields and a change of clothes already in the pack. '
     + 'Equip through the inventory as usual; the paperdoll, the sprite weapons and - with '
     + 'Morrowind data attached - the first- and third-person body all follow the equip table '
-    + 'live. Scroll to switch views. Nothing here is saved over your real game.'));
+    + 'live. Scroll to switch views. Nothing here is saved over your real game.')));
   body.append(intro);
   for (const p of TEST_PRESETS) {
     const c = el('div', 'card');
     c.append(el('h3', null, p.label));
     c.append(el('p', 'meta', p.blurb));
-    c.append(acts([{ label: `Enter as the ${p.label}`, primary: true, onClick: () => onAction(`test:${p.id}`) }]));
+    c.append(acts([{ label: t('menu.test.enterAs', 'Enter as the {preset}', { preset: p.label }), primary: true, onClick: () => onAction(`test:${p.id}`) }]));
     body.append(c);
   }
   // TSR4: the ride - one more door through the SAME `test:<id>` choice,
@@ -925,28 +926,28 @@ function paneTest(body) {
   const ride = el('div', 'card');
   ride.append(el('h3', null, TEST_RIDE.label));
   ride.append(el('p', 'meta', TEST_RIDE.blurb));
-  ride.append(acts([{ label: 'Ride out', primary: true, onClick: () => onAction(`test:${TEST_RIDE.id}`) }]));
+  ride.append(acts([{ label: t('menu.test.rideOut', 'Ride out'), primary: true, onClick: () => onAction(`test:${TEST_RIDE.id}`) }]));
   body.append(ride);
   // FIELD BUGS 2026-09-29 (the sea) #5 (Mac: "Add a ship combat test menu option"): the sea battle - the same
   // `test:<id>` door, a helm on the open Bay and a pirate standing in (systems/testRoom.js TEST_SEA)
   const sea = el('div', 'card');
   sea.append(el('h3', null, TEST_SEA.label));
   sea.append(el('p', 'meta', TEST_SEA.blurb));
-  sea.append(acts([{ label: 'Set sail', primary: true, onClick: () => onAction(`test:${TEST_SEA.id}`) }]));
+  sea.append(acts([{ label: t('menu.test.setSail', 'Set sail'), primary: true, onClick: () => onAction(`test:${TEST_SEA.id}`) }]));
   body.append(sea);
   // LR3: the loot ladder - one of everything Loot rarity can mint, in
   // the pack, through the same `test:<id>` door.
   const loot = el('div', 'card');
   loot.append(el('h3', null, TEST_LOOT.label));
   loot.append(el('p', 'meta', TEST_LOOT.blurb));
-  loot.append(acts([{ label: 'Enter with the ladder', primary: true, onClick: () => onAction(`test:${TEST_LOOT.id}`) }]));
+  loot.append(acts([{ label: t('menu.test.enterLadder', 'Enter with the ladder'), primary: true, onClick: () => onAction(`test:${TEST_LOOT.id}`) }]));
   body.append(loot);
   // FT12 (Mac, 2026-09-14: "move the test the outdoors to the test room
   // tab"): the outdoors test door lives with the other test doors. It
   // was the last row of the Enhanced category of Settings, which is off
   // the rail now - every switch it held is the Features home's.
   const outdoors = el('div', 'card');
-  outdoors.append(el('h3', null, 'The outdoors'));
+  outdoors.append(el('h3', null, t('menu.test.outdoors', 'The outdoors')));
   outdoors.append(outdoorsTestRow());
   body.append(outdoors);
 }
@@ -1066,10 +1067,10 @@ function paneOnline(body) {
   const who = storedSession(appStorage());
   if (!who) {
     const c = el('div', 'card');
-    c.append(el('p', 'meta bad', 'Online needs an account, so no one else can use your name. Playing as a guest takes one click and no email.'));
+    c.append(el('p', 'meta bad', t('menu.online.needsAccount', 'Online needs an account, so no one else can use your name. Playing as a guest takes one click and no email.')));
     const go = el('button', 'act primary');
     go.type = 'button';
-    go.textContent = 'Sign in or continue as guest';
+    go.textContent = t('menu.online.signIn', 'Sign in or continue as guest');
     // THE WINDOW LIVES AT THE DOOR (ACC1f) and this sends the player
     // there rather than growing a second home for it here.
     go.onclick = () => { section = 'home'; accountOpen = true; render(); };
@@ -1081,7 +1082,7 @@ function paneOnline(body) {
   // asked once a visit - and a character is played from here and nowhere else.
   body.append(realmCard(who));
   if (!saves.length) {
-    body.append(empty('No saved games', 'An offline character the realm knew before it opened can be brought in from here, once.'));
+    body.append(empty(t('menu.saves.none', 'No saved games'), t('menu.online.noSaves', 'An offline character the realm knew before it opened can be brought in from here, once.')));
     body.append(onlineSyncCard());   // UXB1-E: the rules can come home before a character goes out
     return;
   }
@@ -1089,12 +1090,12 @@ function paneOnline(body) {
   // character's own face on them - and the press is customs, not a boot: the realm settles its loans and caps what it
   // carries (systems/realmCustoms.js) on a copy, the service makes the realm character, and it appears above to play.
   // The offline character stays exactly what it was.
-  body.append(el('h4', null, 'Bring an offline character in (once)'));
+  body.append(el('h4', null, t('menu.online.bringHeading', 'Bring an offline character in (once)')));
   body.append(tileGrid(saves, (save) => ({
     current: false,
     actions: [{
       // AUDIT SET D4: a Test Room character's button says why it is dead (the boot refuses it whatever door it comes by)
-      label: save.testRoom ? 'Test Room: offline only' : 'Bring online',
+      label: save.testRoom ? t('menu.online.testRoomOffline', 'Test Room: offline only') : t('menu.online.bring', 'Bring online'),
       // ACC1g: signed out is a DEAD button with the reason one card up,
       // not a live one that fails at the service.
       disabled: !who || save.testRoom,
@@ -1119,8 +1120,9 @@ function paneOnline(body) {
   // agreeing to are still on the surface they enter through, where a
   // page in the bible cannot reach them.
   const foot = el('div', 'card svonlinefoot');
-  foot.append(el('p', 'meta', 'Everyone plays their own save, and you can see and talk to each other anywhere. Dungeons and buildings are shared: enemies, doors, levers and every chest, shelf or cupboard someone has opened are the same for everyone, and stay that way. In towns and the wilds you share who is around: what one player meets, everyone nearby sees and can fight, and those monsters can hurt you too. ' + skyDayWords() + ' The world\u2019s clock and sky run on real time: resting, travelling, jail time or training don\u2019t move them, so a quest that waits for a time of day waits for the world\u2019s, and a full moon holds a lycanthrope for its night alone. Your character also keeps their own time: it runs while you play, resting, travelling, jail time and training use it, and it stops while you are logged off. Your wounds, spells, hunger, diseases, curses, guild ranks, rented rooms, loans and repairs run on it. Quests online have no time limits: none fails because time ran out, a bounty never lapses, and a quest that would make you wait days (a letter, a meeting) moves on after a minute or two of play. Every enhancement is on for everyone in the shared world, but your UI is your own, with chat, friends, the party and trading in their own panels. Most mods stay your choice online. A few are the room\u2019s: the ones that change the ground, the ones that change monsters and loot, and the rules everyone plays by. The Mods page marks each one.'));   // AUDIT WORLD5 C12: the shared clock, said at the door; OL1: the lane, said at the door
-  foot.append(field('Relay', 'onlineServer', DEFAULT_SERVER, 200));
+  // L10N4: ONE pattern, the sky's sentence an argument in it (skyDayWords is itself routed)
+  foot.append(el('p', 'meta', t('menu.online.rules', 'Everyone plays their own save, and you can see and talk to each other anywhere. Dungeons and buildings are shared: enemies, doors, levers and every chest, shelf or cupboard someone has opened are the same for everyone, and stay that way. In towns and the wilds you share who is around: what one player meets, everyone nearby sees and can fight, and those monsters can hurt you too. {skyDay} The world\u2019s clock and sky run on real time: resting, travelling, jail time or training don\u2019t move them, so a quest that waits for a time of day waits for the world\u2019s, and a full moon holds a lycanthrope for its night alone. Your character also keeps their own time: it runs while you play, resting, travelling, jail time and training use it, and it stops while you are logged off. Your wounds, spells, hunger, diseases, curses, guild ranks, rented rooms, loans and repairs run on it. Quests online have no time limits: none fails because time ran out, a bounty never lapses, and a quest that would make you wait days (a letter, a meeting) moves on after a minute or two of play. Every enhancement is on for everyone in the shared world, but your UI is your own, with chat, friends, the party and trading in their own panels. Most mods stay your choice online. A few are the room\u2019s: the ones that change the ground, the ones that change monsters and loot, and the rules everyone plays by. The Mods page marks each one.', { skyDay: skyDayWords() })));   // AUDIT WORLD5 C12: the shared clock, said at the door; OL1: the lane, said at the door
+  foot.append(field(t('menu.online.relay', 'Relay'), 'onlineServer', DEFAULT_SERVER, 200));
   body.append(foot);
   body.append(onlineSyncCard());   // UXB1-E: under the rules it copies
 }
@@ -1129,7 +1131,7 @@ function paneOnline(body) {
  *  played, copied to offline or deleted from here; a new one born online; and what the last act said. */
 function realmCard(who) {
   const box = el('div', 'svrealm');
-  box.append(el('h4', null, 'Your online characters'));
+  box.append(el('h4', null, t('menu.realm.heading', 'Your online characters')));
   for (const w of realmWords) box.append(el('p', 'meta', w));
   if (!who) return box;
   if (!realmAsked) {
@@ -1142,7 +1144,7 @@ function realmCard(who) {
       render();
     }).catch(() => {});
   }
-  if (realmRows == null) { box.append(el('p', 'meta', 'Asking the realm...')); return box; }
+  if (realmRows == null) { box.append(el('p', 'meta', t('menu.realm.asking', 'Asking the realm...'))); return box; }
   if (realmRows.length) {
     const grid = el('div', 'svgrid');
     for (const row of realmRows) {
@@ -1150,19 +1152,19 @@ function realmCard(who) {
       grid.append(saveTile(document, save, {
         face: loadFace(save, { scale: 2, copy: true }),
         actions: [
-          { label: save.unfinished ? 'Never saved' : 'Play', primary: true, disabled: realmBusy || save.unfinished, onClick: () => { _pickedRealmId = row.id; onAction('online'); } },
-          { label: 'Copy to offline', disabled: realmBusy || save.unfinished, onClick: () => copyToOffline(row) },
+          { label: save.unfinished ? t('menu.realm.neverSaved', 'Never saved') : t('menu.realm.play', 'Play'), primary: true, disabled: realmBusy || save.unfinished, onClick: () => { _pickedRealmId = row.id; onAction('online'); } },
+          { label: t('menu.realm.copyOffline', 'Copy to offline'), disabled: realmBusy || save.unfinished, onClick: () => copyToOffline(row) },
           // HOUSE-LOSS (2026-09-29, Mac: "GarySoup lost his house and furniture"): a character brought in whose first save
           // never landed is UNDONE, never deleted - its delete took the home customs had carried, and it could never come
           // in again. The undo gives back its home, its guild place and its customs (realm.js undoRealm).
-          row.customs && save.unfinished ? { label: 'Undo bringing in', disabled: realmBusy, onClick: () => ask(`Undo bringing ${row.name} in?`, `${row.name} never finished coming into the realm - its first save never landed. Undoing takes it out and gives everything back: its home, its guild place and its one customs, so the offline character can be brought online again. To finish instead, press Bring online on it below.`, 'Undo', () => realmAct(() => realmUndo(realmIoNow(), row.id), [`${row.name} is out of the realm and customs is undone: its home and guild place are back with the offline character. Bring it online again when you are ready.`])) }
-            : { label: 'Delete character', disabled: realmBusy, onClick: () => ask(`Delete ${row.name}?`, 'An online character deleted is gone from the realm for good - its Renown, its professions and their Stores, its home and its guild place with it. A copy you made offline stays.', 'Delete', () => realmAct(() => realmDelete(realmIoNow(), row.id), [`${row.name} is gone from the realm.`])) },
+          row.customs && save.unfinished ? { label: t('menu.realm.undo', 'Undo bringing in'), disabled: realmBusy, onClick: () => ask(t('menu.realm.undoAsk', 'Undo bringing {name} in?', { name: row.name }), t('menu.realm.undoBody', '{name} never finished coming into the realm - its first save never landed. Undoing takes it out and gives everything back: its home, its guild place and its one customs, so the offline character can be brought online again. To finish instead, press Bring online on it below.', { name: row.name }), t('menu.realm.undoYes', 'Undo'), () => realmAct(() => realmUndo(realmIoNow(), row.id), () => [t('menu.realm.undone', '{name} is out of the realm and customs is undone: its home and guild place are back with the offline character. Bring it online again when you are ready.', { name: row.name })])) }
+            : { label: t('menu.realm.delete', 'Delete character'), disabled: realmBusy, onClick: () => ask(t('menu.realm.deleteAsk', 'Delete {name}?', { name: row.name }), t('menu.realm.deleteBody', 'An online character deleted is gone from the realm for good - its Renown, its professions and their Stores, its home and its guild place with it. A copy you made offline stays.'), t('menu.realm.deleteYes', 'Delete'), () => realmAct(() => realmDelete(realmIoNow(), row.id), () => [t('menu.realm.deleted', '{name} is gone from the realm.', { name: row.name })])) },
         ],
       }));
     }
     box.append(grid);
-  } else box.append(el('p', 'meta', 'No online characters yet. Make one, or bring one of yours in below.'));
-  box.append(acts([{ label: 'New online character', primary: !realmRows.length, disabled: realmBusy || realmRows.length >= realmMax, onClick: () => onAction('online-new') }]));
+  } else box.append(el('p', 'meta', t('menu.realm.none', 'No online characters yet. Make one, or bring one of yours in below.')));
+  box.append(acts([{ label: t('menu.realm.new', 'New online character'), primary: !realmRows.length, disabled: realmBusy || realmRows.length >= realmMax, onClick: () => onAction('online-new') }]));
   return box;
 }
 const realmIoNow = () => realmIo({ fetch: (...a) => globalThis.fetch(...a), storage: appStorage() });
@@ -1183,7 +1185,7 @@ function bringOnline(save) {
   const trial = JSON.parse(JSON.stringify(snap));
   const leveling = crossLeveling(trial);   // LEVEL-ONLINE: a Daggerfall-levelling character comes in on Oblivion's bar - said first
   const preview = [...(leveling ? [LEVELING_CROSS_LINE.before] : []), ...customsLines(applyCustoms(trial), { before: true })];
-  return ask(`Bring ${save.name} online?`, preview.join(' '), 'Bring online', () => { customsNow(save); });
+  return ask(t('menu.online.bringAsk', 'Bring {name} online?', { name: save.name }), preview.join(' '), t('menu.online.bring', 'Bring online'), () => { customsNow(save); });
 }
 /** REALM P1.5: CUSTOMS - the local save read, customs applied to a COPY (the offline character is untouched), the realm
  *  character made from it once (the service refuses one never online, and a second try), its first save the copy. */
@@ -1203,7 +1205,7 @@ function customsNow(save) {
     copy.characterId = made.data.id;
     const put = await realmPut(io, made.data.id, { lease: made.data.lease, seq: 1, summary: realmSummaryOf(copy) }, JSON.stringify(copy), { gzip: made.data.gzip === true });   // REALM-GZIP: a long offline life comes in packed
     return put.ok ? { ok: true, lines: [...(leveling ? [LEVELING_CROSS_LINE.after] : []), ...customsLines(report)] } : put;
-  }, (r) => [...r.lines, `${save.name} is in the realm now. Play them from above.`]);
+  }, (r) => [...r.lines, t('menu.realm.broughtIn', '{name} is in the realm now. Play them from above.', { name: save.name })]);
 }
 /** REALM P1.4: COPY TO OFFLINE - the realm's save read and written as a NEW offline character (a new id), a slot like
  *  any other. Nothing played on the copy ever goes back: the Online door loads only from the service. */
@@ -1218,7 +1220,7 @@ function copyToOffline(row) {
     snap.characterId = mintCharacterId();
     const r = saveSlot(snap.name || row.name, 'Copied from the realm', snap, { storage: appStorage() });
     return r.ok ? { ok: true } : { ok: false, error: 'no-room' };
-  }, [`${row.name} is copied to offline - a new offline character. Nothing played on it comes back to the realm.`]);
+  }, () => [t('menu.realm.copied', '{name} is copied to offline - a new offline character. Nothing played on it comes back to the realm.', { name: row.name })]);
 }
 
 // UXB1-E (2026-09-25, the UX backlog: "Add a 'sync from server' option so players can ensure their offline play
@@ -1228,11 +1230,15 @@ function copyToOffline(row) {
 export const ONLINE_SYNC_TITLE = 'Sync from server';
 export const ONLINE_SYNC_NOTE = 'Play offline by the same rules as online. Some settings are fixed online; this sets yours to match. They are the same on every server, and everything else stays your choice.';
 export const ONLINE_SYNC_SAME = 'Your offline game already plays by the online rules.';
-const syncWord = (v) => (v === true || /^true$/i.test(String(v)) ? 'On' : v === false || /^false$/i.test(String(v)) ? 'Off' : String(v));
+/** L10N4: the card's words in the player's language - the English constants above stay what the tests compare. */
+export const onlineSyncTitle = () => t('menu.sync.title', ONLINE_SYNC_TITLE);
+export const onlineSyncNote = () => t('menu.sync.note', ONLINE_SYNC_NOTE);
+export const onlineSyncSame = () => t('menu.sync.same', ONLINE_SYNC_SAME);
+const syncWord = (v) => (v === true || /^true$/i.test(String(v)) ? t('menu.toggle.on', 'On') : v === false || /^false$/i.test(String(v)) ? t('menu.toggle.off', 'Off') : String(v));
 export function onlineSyncCard() {
   const card = el('div', 'card svsync');
-  card.append(el('h3', null, ONLINE_SYNC_TITLE));
-  card.append(el('p', 'meta', ONLINE_SYNC_NOTE));
+  card.append(el('h3', null, onlineSyncTitle()));
+  card.append(el('p', 'meta', onlineSyncNote()));
   const plan = onlineSyncPlan() ?? [];
   const differ = plan.filter((r) => !r.same);
   const acts = el('div', 'acts');
@@ -1245,18 +1251,18 @@ export function onlineSyncCard() {
       list.append(li);
     }
     card.append(list);
-    const go = el('button', 'act primary svsync-go', `Sync ${differ.length} setting${differ.length === 1 ? '' : 's'}`);
+    const go = el('button', 'act primary svsync-go', t('menu.sync.go', '{n, plural, one {Sync # setting} other {Sync # settings}}', { n: differ.length }));
     go.type = 'button';
     go.onclick = () => { applyOnlineSync(plan); render(); };
     acts.append(go);
   } else {
-    card.append(el('p', 'meta svsync-same', ONLINE_SYNC_SAME));
+    card.append(el('p', 'meta svsync-same', onlineSyncSame()));
   }
   const last = lastOnlineSync();
   if (last?.rows?.length) {
-    const undo = el('button', 'act svsync-undo', 'Undo sync');
+    const undo = el('button', 'act svsync-undo', t('menu.sync.undo', 'Undo sync'));
     undo.type = 'button';
-    undo.title = `Puts back the ${last.rows.length} setting${last.rows.length === 1 ? '' : 's'} the last sync changed`;
+    undo.title = t('menu.sync.undoTip', '{n, plural, one {Puts back the # setting the last sync changed} other {Puts back the # settings the last sync changed}}', { n: last.rows.length });
     undo.onclick = () => { undoOnlineSync(); render(); };
     acts.append(undo);
   }
@@ -1271,8 +1277,8 @@ function paneLoad(body) {
   // a live online session.
   const locked = hooks.loadingPrevented?.();
   if (locked) {
-    body.append(empty('Loading is disabled during online play.',
-      'Leave the shared world to load a save; other players are relying on this session staying put.'));
+    body.append(empty(t('menu.load.onlineLocked', 'Loading is disabled during online play.'),
+      t('menu.load.onlineLockedWhy', 'Leave the shared world to load a save; other players are relying on this session staying put.')));
     return;
   }
   // SLOTS1: EVERY restorable slot, most recent first - the classic
@@ -1301,9 +1307,9 @@ function paneLoad(body) {
       // ...and the destructive one still asks, and takes THIS slot
       // alone.
       { label: localizedText('deleteSave', 'Delete'), onClick: () => ask(
-        'Delete this save',
-        `Deleting ${save.name}'s "${save.saveName}" cannot be undone.`,
-        'Delete',
+        t('menu.load.deleteTitle', 'Delete this save'),
+        t('menu.load.deleteBody', 'Deleting {name}\'s "{slot}" cannot be undone.', { name: save.name, slot: save.saveName }),
+        localizedText('deleteSave', 'Delete'),
         () => { try { deleteSave(save.key); } catch { /* storage disabled */ } render(); },
       ) },
     ],
@@ -1321,10 +1327,10 @@ function paneLoad(body) {
   // line ends "Save a game and every slot of it appears here", which
   // told a player with a shelf full of backups that they had none -
   // which is the very sentence this slice exists to stop being shown.
-  if (!saves.length && !onlyCloud) body.append(empty('No saved games', 'Save a game and every slot of it appears here.'));
+  if (!saves.length && !onlyCloud) body.append(empty(t('menu.saves.none', 'No saved games'), t('menu.load.noneHint', 'Save a game and every slot of it appears here.')));
   if (mode === 'pause' && typeof hooks.quickLoad !== 'function') {
-    body.append(empty('Not from here',
-      'This part of the game has no load door. Reach a saved game from the main menu instead.'));
+    body.append(empty(t('menu.load.notHere', 'Not from here'),
+      t('menu.load.notHereWhy', 'This part of the game has no load door. Reach a saved game from the main menu instead.')));
   }
   body.append(transferCard(saves.length));
 }
@@ -1341,19 +1347,19 @@ function paneLoad(body) {
 let _transferNote = null;
 function transferCard(count) {
   const c = el('div', 'card');
-  c.append(el('span', 'tag grey', 'Move saves'));
-  c.append(el('h3', null, 'Between the website and the app'));
+  c.append(el('span', 'tag grey', t('menu.transfer.tag', 'Move saves')));
+  c.append(el('h3', null, t('menu.transfer.title', 'Between the website and the app')));
   const shell = globalThis.daggerShell;
   c.append(el('p', 'meta', shell?.savesPath
-    ? `This app keeps your saves as files in ${shell.savesPath}. Export them as one zip to carry to the website, or import a zip the website exported.`
-    : 'The website keeps your saves in this browser. Export them as one zip to carry to the desktop app or another browser, or import a zip the app or another browser exported.'));
+    ? t('menu.transfer.app', 'This app keeps your saves as files in {path}. Export them as one zip to carry to the website, or import a zip the website exported.', { path: shell.savesPath })
+    : t('menu.transfer.web', 'The website keeps your saves in this browser. Export them as one zip to carry to the desktop app or another browser, or import a zip the app or another browser exported.')));
   if (_transferNote) { c.append(el('p', 'meta', _transferNote)); _transferNote = null; }
   const zipIn = el('input'); zipIn.type = 'file'; zipIn.accept = '.zip,application/zip'; zipIn.style.display = 'none';
   const dirIn = el('input'); dirIn.type = 'file'; dirIn.setAttribute('webkitdirectory', ''); dirIn.multiple = true; dirIn.style.display = 'none';
   const done = (slots, r) => {
     const n = r.imported.length;
-    _transferNote = !slots.length ? 'No saves in that selection. Pick the zip an Export made, or a Saves folder holding SAVE0, SAVE1, ...'
-      : `Imported ${n} save${n === 1 ? '' : 's'}${r.skipped ? `, ${r.skipped} already here` : ''}${r.failed ? `, ${r.failed} could not be written` : ''}.`;
+    _transferNote = !slots.length ? t('menu.transfer.noneIn', 'No saves in that selection. Pick the zip an Export made, or a Saves folder holding SAVE0, SAVE1, ...')
+      : t('menu.transfer.imported', 'Imported {n, plural, one {# save} other {# saves}}{skipped, plural, =0 {} other {, # already here}}{failed, plural, =0 {} other {, # could not be written}}.', { n, skipped: r.skipped || 0, failed: r.failed || 0 });
     render();
   };
   zipIn.onchange = async () => {
@@ -1362,7 +1368,7 @@ function transferCard(count) {
       const { readZipEntries } = await import('../scenes/dataSource.js');   // the port's own reader, methods 0 and 8
       const slots = collectSlots(await readZipEntries(f, { pick: (names) => names.filter((n) => slotPathOf(n)) }));
       done(slots, importSlots(slots, appStorage()));
-    } catch (err) { _transferNote = `Could not read ${f.name}: ${err?.message ?? err}`; render(); }
+    } catch (err) { _transferNote = t('menu.transfer.readFailed', 'Could not read {file}: {error}', { file: f.name, error: err?.message ?? err }); render(); }
   };
   dirIn.onchange = async () => {
     const slots = collectSlots(await entriesFromFiles([...(dirIn.files ?? [])]));
@@ -1370,17 +1376,17 @@ function transferCard(count) {
   };
   c.append(zipIn, dirIn);
   c.append(acts([
-    { label: 'Export all saves', primary: true, disabled: !count, onClick: () => {
+    { label: t('menu.transfer.export', 'Export all saves'), primary: true, disabled: !count, onClick: () => {
       const zip = exportSavesZip(appStorage());
-      if (!zip) { _transferNote = 'Nothing to export.'; render(); return; }
+      if (!zip) { _transferNote = t('menu.transfer.nothing', 'Nothing to export.'); render(); return; }
       const a = document.createElement('a');
       a.href = URL.createObjectURL(new Blob([zip], { type: 'application/zip' }));
       a.download = TRANSFER_ZIP_NAME;
       a.click();
       setTimeout(() => URL.revokeObjectURL(a.href), 30000);
     } },
-    { label: 'Import a zip', onClick: () => zipIn.click() },
-    { label: 'Import a Saves folder', onClick: () => dirIn.click() },
+    { label: t('menu.transfer.importZip', 'Import a zip'), onClick: () => zipIn.click() },
+    { label: t('menu.transfer.importFolder', 'Import a Saves folder'), onClick: () => dirIn.click() },
   ]));
   return c;
 }
@@ -1406,7 +1412,7 @@ function paneSave(body) {
   const prevented = hooks.savingPrevented?.() || typeof hooks.quickSave !== 'function';
   if (prevented) {
     body.append(empty(localizedText('cannotSaveNow', 'You cannot save now.'),
-      'This part of the game holds no save door. Step back outside and the quicksave returns.'));
+      t('menu.save.notHereWhy', 'This part of the game holds no save door. Step back outside and the quicksave returns.')));
     return;
   }
   // SLOTS1 (Mac: "multiple save slots"): a save is (character, slot
@@ -1419,10 +1425,10 @@ function paneSave(body) {
   const myId = hooks.playerId?.() ?? null;   // CHARID1: the slots the press can overwrite are THIS character's, by id - a namesake's are not
   const mine = savedGames().filter((s) => (myId ? s.characterId === myId : s.characterName === me));
   const c = el('div', 'card');
-  c.append(el('span', 'tag', 'Save as'));
-  c.append(el('h3', null, me || 'Your character'));
+  c.append(el('span', 'tag', t('menu.save.tag', 'Save as')));
+  c.append(el('h3', null, me || t('menu.save.yourCharacter', 'Your character')));
   const wrap = el('label', 'field');
-  wrap.append(el('span', 'fieldlabel', 'Slot name'));
+  wrap.append(el('span', 'fieldlabel', t('menu.save.slotName', 'Slot name')));
   const input = el('input');
   input.type = 'text'; input.maxLength = 32; input.placeholder = QUICK_SAVE_NAME; input.value = _saveNameDraft || QUICK_SAVE_NAME;
   wrap.append(input);
@@ -1434,7 +1440,7 @@ function paneSave(body) {
   const describe = () => {
     const name = input.value.trim() || QUICK_SAVE_NAME;
     const save = mine.find((s) => s.saveName.localeCompare(name, undefined, { sensitivity: 'accent' }) === 0) ?? null;
-    line.textContent = save ? `Overwrites "${save.saveName}" - ${saveLine(save)}` : `A new slot, "${name}".`;
+    line.textContent = save ? t('menu.save.overwrites', 'Overwrites "{slot}" - {line}', { slot: save.saveName, line: saveLine(save) }) : t('menu.save.newSlot', 'A new slot, "{slot}".', { slot: name });
     numbers.replaceChildren(); if (save) numbers.append(stats(saveStats(save)));
   };
   input.oninput = () => { _saveNameDraft = input.value; describe(); };
@@ -1453,7 +1459,7 @@ function paneSave(body) {
   // nobody is about to touch.
   const grid = tileGrid(mine, (save) => ({
     current: save.saveName.localeCompare(input.value.trim() || QUICK_SAVE_NAME, undefined, { sensitivity: 'accent' }) === 0,
-    actions: [{ label: 'Overwrite', primary: true, onClick: () => { _pickedSaveName = save.saveName; onAction('save'); } }],
+    actions: [{ label: t('menu.save.overwrite', 'Overwrite'), primary: true, onClick: () => { _pickedSaveName = save.saveName; onAction('save'); } }],
   }));
   body.append(grid);
 }
@@ -1476,19 +1482,20 @@ function paneSave(body) {
 function paneExit(body) {
   const save = savedGame();
   const c = el('div', 'card');
-  c.append(el('h3', null, 'Back to the main menu'));
-  c.append(el('p', 'meta', "A browser tab cannot close itself, so the port's door out is the "
-    + 'front door - the same unwind the death sequence uses.'));
-  c.append(stats([['Last save', save ? saveLine(save) : 'none']]));
+  c.append(el('h3', null, t('menu.exit.title', 'Back to the main menu')));
+  c.append(el('p', 'meta', t('menu.exit.blurb', "A browser tab cannot close itself, so the port's door out is the "
+    + 'front door - the same unwind the death sequence uses.')));
+  c.append(stats([[t('menu.exit.lastSave', 'Last save'), save ? saveLine(save) : t('menu.exit.none', 'none')]]));
   c.append(acts([{
-    label: 'Leave this game',
+    label: t('menu.exit.leave', 'Leave this game'),
     primary: true,
     onClick: () => ask(
-      'Leave this game',
+      t('menu.exit.leave', 'Leave this game'),
       save
-        ? `Anything since ${save.when ?? 'the last save'} is lost. The quicksave itself is untouched.`
-        : 'Nothing has been saved in this game, so all of it is lost.',
-      'Exit',
+        ? (save.when != null ? t('menu.exit.lostSince', 'Anything since {when} is lost. The quicksave itself is untouched.', { when: save.when })
+          : t('menu.exit.lostSinceLast', 'Anything since the last save is lost. The quicksave itself is untouched.'))
+        : t('menu.exit.allLost', 'Nothing has been saved in this game, so all of it is lost.'),
+      t('menu.exit.yes', 'Exit'),
       () => onAction('exit'),
     ),
   }]));
@@ -1539,7 +1546,7 @@ function paneSettings(pane) {
   // what it is - see systems/uiSkin.js), the live store keys flat, and
   // the two folded tiers with their counts (categoryRows).
   const rows = categoryRows(category);
-  if (!rows.length && category !== 'controls') list.append(empty('Nothing here yet', 'This category has no keys.'));
+  if (!rows.length && category !== 'controls') list.append(empty(t('menu.settings.emptyTitle', 'Nothing here yet'), t('menu.settings.empty', 'This category has no keys.')));
   for (const r of rows) list.append(r);
   // FT16 (Mac: "the control menu option needs to be within settings"):
   // THE KEY BINDINGS ARE THE CONTROLS CATEGORY. They were a rail door
@@ -1549,12 +1556,12 @@ function paneSettings(pane) {
   // The store keys come first because they are few and the ones a hand
   // reaches for mid-session; the grid follows under its own head.
   if (category === 'controls') {
-    list.append(pxDivider('Key bindings'));
+    list.append(pxDivider(t('menu.settings.keyBindings', 'Key bindings')));
     paneControls(list, { render });
   }
 
   const detail = el('div', 'detail');
-  const close = el('button', 'sheet-close', 'Close');
+  const close = el('button', 'sheet-close', t('menu.sheet.close', 'Close'));
   close.onclick = () => { sheetOpen = false; confirming = null; render(); };
   detail.append(close);
   detail.append(confirming ? confirmCard() : (pickedKey ? helpCard(pickedKey) : categoryCard()));
@@ -1596,18 +1603,18 @@ function paneQuickSettings(pane) {
     list.append(pxDivider(cat.title));
     for (const r of port) list.append(r);
   }
-  if (!any) list.append(empty('Nothing live here yet', 'No setting has an in-game consumer in this build.'));
+  if (!any) list.append(empty(t('menu.settings.noLiveTitle', 'Nothing live here yet'), t('menu.settings.noLive', 'No setting has an in-game consumer in this build.')));
   // FT16: the condensed pause settings has no category rail, so the
   // bindings ride the end of the one scroll. Dropping them here would
   // be FIX-F's bug again - "the row whose absence was the bug" - just
   // one level down.
-  list.append(pxDivider('Key bindings'));
+  list.append(pxDivider(t('menu.settings.keyBindings', 'Key bindings')));
   paneControls(list, { render });
-  list.append(el('p', 'px-note', 'Every setting lives on the main menu\u2019s Settings.'));
+  list.append(el('p', 'px-note', t('menu.settings.allOnMenu', 'Every setting lives on the main menu\u2019s Settings.')));
   panes.append(list);
 
   const detail = el('div', 'detail');
-  const close = el('button', 'sheet-close', 'Close');
+  const close = el('button', 'sheet-close', t('menu.sheet.close', 'Close'));
   close.onclick = () => { sheetOpen = false; confirming = null; render(); };
   detail.append(close);
   detail.append(confirming ? confirmCard() : (pickedKey ? helpCard(pickedKey) : el('div')));
@@ -1626,12 +1633,12 @@ function categoryCard() {
   const d = el('div', 'dcard');
   d.append(el('h3', null, cat.title));
   d.append(el('p', null, cat.blurb));
-  const b = el('button', 'act', 'Reset everything to defaults');
+  const b = el('button', 'act', t('menu.settings.reset', 'Reset everything to defaults'));
   b.onclick = () => ask(
-    'Reset Everything',
-    'Put every setting back the way Daggerfall Unity ships it. '
-    + 'Your UI Overhaul and text size are not settings and are left alone.',
-    'Reset',
+    t('menu.settings.resetTitle', 'Reset Everything'),
+    t('menu.settings.resetBody', 'Put every setting back the way Daggerfall Unity ships it. '
+    + 'Your UI Overhaul and text size are not settings and are left alone.'),
+    t('menu.settings.resetYes', 'Reset'),
     () => { resetToDefaults(); _eff = null; },
   );
   d.append(b);
@@ -1742,7 +1749,7 @@ function settingRow(key, { compact = false, home = false } = {}) {
     ctl.append(val);
     for (const [dir, glyph] of [[-1, '\u2039'], [1, '\u203a']]) {
       const b = el('button', 'step', glyph);
-      b.setAttribute('aria-label', `${dir < 0 ? 'less' : 'more'} ${labelOf(key)}`);
+      b.setAttribute('aria-label', dir < 0 ? t('menu.settings.less', 'less {name}', { name: labelOf(key) }) : t('menu.settings.more', 'more {name}', { name: labelOf(key) }));
       // shift is the COARSE step settingsLaw already defines - a
       // volume slider that moves in 5% steps is 20 presses of patience
       // without it.
@@ -1839,19 +1846,32 @@ const ONLINE_SETTING_NOTE = 'Set for everyone online: everyone uses the same smi
 /** RAID2: a world event the room shares - its own reason, not the ground's, the ruleset's or a host's foes'. */
 const ONLINE_WORLD_EVENT_VENDORS = Object.freeze(['world-events-raiding-parties']);
 const ONLINE_WORLD_EVENT_NOTE = 'On for everyone online: a raid is shared, so everyone in the town fights the same raiders and every kill counts for all. Your own choice comes back offline.';
+/** L10N4: the notes above in the player's language. Each constant stays the English identity the ladders below hand
+ *  round (and the pins read); a note is turned into words where it is shown (noteText). */
+const NOTE_TEXT = new Map([
+  [ONLINE_LOCK_NOTE, () => t('menu.online.lockNote', ONLINE_LOCK_NOTE)],
+  [ONLINE_MODS_NOTE, () => t('menu.online.modsNote', ONLINE_MODS_NOTE)],
+  [ONLINE_GROUND_NOTE, () => t('menu.online.groundNote', ONLINE_GROUND_NOTE)],
+  [ONLINE_SHARED_NOTE, () => t('menu.online.sharedNote', ONLINE_SHARED_NOTE)],
+  [ONLINE_RULESET_NOTE, () => t('menu.online.rulesetNote', ONLINE_RULESET_NOTE)],
+  [ONLINE_BALANCE_NOTE, () => t('menu.online.balanceNote', ONLINE_BALANCE_NOTE)],
+  [ONLINE_SETTING_NOTE, () => t('menu.online.settingNote', ONLINE_SETTING_NOTE)],
+  [ONLINE_WORLD_EVENT_NOTE, () => t('menu.online.worldEventNote', ONLINE_WORLD_EVENT_NOTE)],
+]);
+const noteText = (note) => NOTE_TEXT.get(note)?.() ?? note;
 const onlineLockNote = (vendor, key) => (ONLINE_GROUND_VENDORS.includes(vendor) || ONLINE_GROUND_KEYS[vendor]?.includes(key) ? ONLINE_GROUND_NOTE : ONLINE_RULESET_KEYS[vendor]?.includes(key) ? ONLINE_RULESET_NOTE : ONLINE_WORLD_EVENT_VENDORS.includes(vendor) ? ONLINE_WORLD_EVENT_NOTE : ONLINE_SHARED_NOTE);
 /** REALM P0.2: a key the room owns only because its mod is owned whole wears the balance note; a key the room table names keeps its own. */
 const modLockNote = (vendor, key) => (!Object.hasOwn(ONLINE_ROOM_MOD_KEYS[vendor] ?? {}, key) && onlineWholeModKey(vendor, key, undefined, { offline: true }) ? ONLINE_BALANCE_NOTE : onlineLockNote(vendor, key));
 /** REALM P0.2: a DIAL the room owns online - its steppers and buttons answer nothing, and say why. */
 function lockDial(ctl, note) {
-  for (const b of ctl.querySelectorAll('button')) { b.disabled = true; b.setAttribute('aria-disabled', 'true'); b.title = note; }
-  ctl.title = note;
+  for (const b of ctl.querySelectorAll('button')) { b.disabled = true; b.setAttribute('aria-disabled', 'true'); b.title = noteText(note); }
+  ctl.title = noteText(note);
 }
 function lockOnline(b, main, { note = ONLINE_LOCK_NOTE, value = true } = {}) {
-  b.textContent = value ? 'On (online)' : 'Off (online)';
+  b.textContent = value ? t('menu.online.lockedOn', 'On (online)') : t('menu.online.lockedOff', 'Off (online)');
   b.classList.toggle('primary', !!value);
   b.disabled = true;
-  b.title = note;
+  b.title = noteText(note);
   b.setAttribute('aria-disabled', 'true');
   if (main) main.onclick = null;
 }
@@ -1867,7 +1887,7 @@ function prefRow(key, name, note, { onChange = null, home = false } = {}) {
   main.onclick = () => { setPref(key, !on); onChange?.(!on); render(); };
   row.append(main);
   const ctl = el('div', 'ctl');
-  const b = el('button', `act${on ? ' primary' : ''}`, on ? 'On' : 'Off');
+  const b = el('button', `act${on ? ' primary' : ''}`, on ? t('menu.toggle.on', 'On') : t('menu.toggle.off', 'Off'));
   b.classList.add('rowact');   // AUDIT UI: sized by the sheet, so the coarse-pointer rule can reach it
   b.setAttribute('aria-pressed', String(on));
   b.onclick = () => { setPref(key, !on); onChange?.(!on); render(); };
@@ -1913,7 +1933,7 @@ function choiceRow(key, name, note, tiers, { home = false, read = null, write = 
   const ctl = el('div', 'ctl');
   const b = el('button', 'act rowact', tiers[at][1]);
   b.onclick = step;
-  if (onlineForcedPref(key) !== undefined) { lockOnline(b, main); b.textContent = `${tiers[at][1]} (online)`; }   // OL1: the outdoors row reads the lane's forced answer and names its tier under the lock
+  if (onlineForcedPref(key) !== undefined) { lockOnline(b, main); b.textContent = t('menu.online.lockedTier', '{tier} (online)', { tier: tiers[at][1] }); }   // OL1: the outdoors row reads the lane's forced answer and names its tier under the lock
   ctl.append(b, el('span', 'tier live'));
   row.append(ctl);
   return row;
@@ -2068,7 +2088,7 @@ function slotChoiceRow(key, name, note, choices, current) {
 function hudScaleRow() {
   const row = el('div', 'row');
   const main = el('div', 'row-main');
-  main.append(el('div', 'row-name', 'Gameplay HUD scale'), el('div', 'row-note', 'The size of the compass, health bars and effect icons. Takes effect at once.'));
+  main.append(el('div', 'row-name', t('menu.hud.scale', 'Gameplay HUD scale')), el('div', 'row-note', t('menu.hud.scaleNote', 'The size of the compass, health bars and effect icons. Takes effect at once.')));
   row.append(main);
   const ctl = el('div', 'ctl');
   const val = el('span', 'val', `${hudScaleNow().toFixed(2)}\u00d7`);
@@ -2093,14 +2113,14 @@ function hudLayoutRows() {
   const lockRow = el('div', 'row');
   const main = el('button', 'row-main');
   const locked = hudLocked();
-  main.append(el('div', 'row-name', 'Lock UI'), el('div', 'row-note', locked
-    ? 'On: the HUD stays where it is. Turn it off (or press Alt+U in game) to move the health bars, hotbar, chat, compass, Overworld panel and the rest.'
-    : 'Off: in play, free the mouse and drag any outlined piece. Double-click a piece to put it back. Lock it again (or press Alt+U) when you are done.'));
+  main.append(el('div', 'row-name', t('menu.hud.lock', 'Lock UI')), el('div', 'row-note', locked
+    ? t('menu.hud.lockOn', 'On: the HUD stays where it is. Turn it off (or press Alt+U in game) to move the health bars, hotbar, chat, compass, Overworld panel and the rest.')
+    : t('menu.hud.lockOff', 'Off: in play, free the mouse and drag any outlined piece. Double-click a piece to put it back. Lock it again (or press Alt+U) when you are done.')));
   const flip = () => { setHudLocked(!hudLocked()); render(); };
   main.onclick = flip;
   lockRow.append(main);
   const ctl = el('div', 'ctl');
-  const b = el('button', `act rowact${locked ? ' primary' : ''}`, locked ? 'On' : 'Off');
+  const b = el('button', `act rowact${locked ? ' primary' : ''}`, locked ? t('menu.toggle.on', 'On') : t('menu.toggle.off', 'Off'));
   b.setAttribute('aria-pressed', String(locked));
   b.onclick = flip;
   ctl.append(b, el('span', 'tier live'));
@@ -2110,14 +2130,14 @@ function hudLayoutRows() {
   const barsRow = el('div', 'row');
   const bmain = el('button', 'row-main');
   const split = hudBarsSplit();
-  bmain.append(el('div', 'row-name', 'Move bars separately'), el('div', 'row-note', split
-    ? 'On: the health, magicka and fatigue bars each move on their own while the UI is unlocked.'
-    : 'Off: the health, magicka and fatigue bars move together as one piece.'));
+  bmain.append(el('div', 'row-name', t('menu.hud.splitBars', 'Move bars separately')), el('div', 'row-note', split
+    ? t('menu.hud.splitBarsOn', 'On: the health, magicka and fatigue bars each move on their own while the UI is unlocked.')
+    : t('menu.hud.splitBarsOff', 'Off: the health, magicka and fatigue bars move together as one piece.')));
   const bflip = () => { setHudBarsSplit(!hudBarsSplit()); render(); };
   bmain.onclick = bflip;
   barsRow.append(bmain);
   const bctl = el('div', 'ctl');
-  const bb = el('button', `act rowact${split ? ' primary' : ''}`, split ? 'On' : 'Off');
+  const bb = el('button', `act rowact${split ? ' primary' : ''}`, split ? t('menu.toggle.on', 'On') : t('menu.toggle.off', 'Off'));
   bb.setAttribute('aria-pressed', String(split));
   bb.onclick = bflip;
   bctl.append(bb, el('span', 'tier live'));
@@ -2125,11 +2145,11 @@ function hudLayoutRows() {
 
   const resetRow = el('div', 'row');
   const rmain = el('div', 'row-main');
-  rmain.append(el('div', 'row-name', 'Reset UI'), el('div', 'row-note', 'Puts every HUD piece you moved back in its usual place.'));
+  rmain.append(el('div', 'row-name', t('menu.hud.reset', 'Reset UI')), el('div', 'row-note', t('menu.hud.resetNote', 'Puts every HUD piece you moved back in its usual place.')));
   resetRow.append(rmain);
   const rctl = el('div', 'ctl');
-  const rb = el('button', 'act rowact', 'Reset');
-  rb.onclick = () => { resetHudLayout(); rb.textContent = 'Done'; setTimeout(() => { rb.textContent = 'Reset'; }, 1200); };
+  const rb = el('button', 'act rowact', t('menu.hud.resetGo', 'Reset'));
+  rb.onclick = () => { resetHudLayout(); rb.textContent = t('menu.hud.resetDone', 'Done'); setTimeout(() => { rb.textContent = t('menu.hud.resetGo', 'Reset'); }, 1200); };
   rctl.append(rb, el('span', 'tier live'));
   resetRow.append(rctl);
   return [lockRow, barsRow, resetRow];
@@ -2140,18 +2160,21 @@ function hudLayoutRows() {
 function outdoorsTestRow() {
   const test = el('div', 'row');
   const testMain = el('div', 'row-main');
-  testMain.append(el('div', 'row-name', 'Test the outdoors'));
-  testMain.append(el('div', 'row-note', 'Pick a season and a weather, and drop into a random town. A test door: it stores nothing, and it names the town in the console.'));
+  testMain.append(el('div', 'row-name', t('menu.test.outdoorsName', 'Test the outdoors')));
+  testMain.append(el('div', 'row-note', t('menu.test.outdoorsNote', 'Pick a season and a weather, and drop into a random town. A test door: it stores nothing, and it names the town in the console.')));
   const testCtl = el('div', 'ctl');
   const seasonSel = el('select', 'act');
   // Daggerfall has three ARCHIVE seasons (winter, rain, summer),
   // and the field has a CALENDAR. A season here is both: the archive
   // the world dresses in; the day is sent for any test that wants it.
   const SEASONS = [['winter', 'winter', 0], ['spring', 'rain', 90], ['summer', 'summer', 180], ['fall', 'summer', 300]];
-  for (const [label, , day] of SEASONS) { const o = el('option', '', label); o.value = String(day); seasonSel.append(o); }
+  // L10N4: what the two lists SAY; each option's value stays the id the world's door reads
+  const SEASON_TEXT = { winter: () => t('menu.test.season.winter', 'winter'), spring: () => t('menu.test.season.spring', 'spring'), summer: () => t('menu.test.season.summer', 'summer'), fall: () => t('menu.test.season.fall', 'fall') };
+  const WEATHER_TEXT = { sunny: () => t('menu.test.weather.sunny', 'sunny'), cloudy: () => t('menu.test.weather.cloudy', 'cloudy'), overcast: () => t('menu.test.weather.overcast', 'overcast'), fog: () => t('menu.test.weather.fog', 'fog'), rain: () => t('menu.test.weather.rain', 'rain'), thunder: () => t('menu.test.weather.thunder', 'thunder'), snow: () => t('menu.test.weather.snow', 'snow') };
+  for (const [label, , day] of SEASONS) { const o = el('option', '', SEASON_TEXT[label]()); o.value = String(day); seasonSel.append(o); }
   const weatherSel = el('select', 'act');
-  for (const wn of ['sunny', 'cloudy', 'overcast', 'fog', 'rain', 'thunder', 'snow']) { const o = el('option', '', wn); o.value = wn; weatherSel.append(o); }
-  const go = el('button', 'act primary', 'Spawn');
+  for (const wn of ['sunny', 'cloudy', 'overcast', 'fog', 'rain', 'thunder', 'snow']) { const o = el('option', '', WEATHER_TEXT[wn]()); o.value = wn; weatherSel.append(o); }
+  const go = el('button', 'act primary', t('menu.test.spawn', 'Spawn'));
   go.type = 'button';
   go.addEventListener('click', () => {
     // the menu already lives at /play/: same page, the world's doors set
@@ -2174,58 +2197,58 @@ function portRowsControls() {
   const out = [];
   if (!isTouchDevice()) return out;
   const times = (v) => `${v.toFixed(2)}\u00d7`;
-  out.push(stepRow('touchLookSensitivity', 'Look sensitivity',
-    'How far a thumb\u2019s drag turns the camera, on top of the mouse sensitivity in Controls. '
-    + 'A drag is measured against the screen\u2019s height, so the same sweep turns the same on any phone.',
+  out.push(stepRow('touchLookSensitivity', t('menu.touch.look', 'Look sensitivity'),
+    t('menu.touch.lookNote', 'How far a thumb\u2019s drag turns the camera, on top of the mouse sensitivity in Controls. '
+    + 'A drag is measured against the screen\u2019s height, so the same sweep turns the same on any phone.'),
     { min: 0.25, max: 4, step: 0.25, fmt: times }));
-  out.push(prefRow('touchAnalogStick', 'Analog stick',
-    'The stick\u2019s throw is your speed: a little is a walk, most of the way is a run. '
-    + 'Off is the eight-way stick - any push is a full step.'));
+  out.push(prefRow('touchAnalogStick', t('menu.touch.analog', 'Analog stick'),
+    t('menu.touch.analogNote', 'The stick\u2019s throw is your speed: a little is a walk, most of the way is a run. '
+    + 'Off is the eight-way stick - any push is a full step.')));
   // the anchor is a two-way choice, not a switch: a row whose button names the OTHER option
   {
     const fixed = getPref('touchStickAnchor') === 'fixed';
     const row = el('div', 'row');
     const main = el('button', 'row-main');
-    main.append(el('div', 'row-name', 'Stick position'));
+    main.append(el('div', 'row-name', t('menu.touch.stick', 'Stick position')));
     main.append(el('div', 'row-note', fixed
-      ? 'Fixed: the stick sits bottom-left and waits for your thumb.'
-      : 'Floating: the stick appears wherever your thumb lands on the left half.'));
+      ? t('menu.touch.stickFixedNote', 'Fixed: the stick sits bottom-left and waits for your thumb.')
+      : t('menu.touch.stickFloatNote', 'Floating: the stick appears wherever your thumb lands on the left half.')));
     const flip = () => { setPref('touchStickAnchor', fixed ? 'float' : 'fixed'); render(); };
     main.onclick = flip;
     row.append(main);
     const ctl = el('div', 'ctl');
-    const b = el('button', 'act rowact', fixed ? 'Fixed' : 'Floating');
+    const b = el('button', 'act rowact', fixed ? t('menu.touch.stickFixed', 'Fixed') : t('menu.touch.stickFloat', 'Floating'));
     b.onclick = flip;
     ctl.append(b, el('span', 'tier live'));
     row.append(ctl);
     out.push(row);
   }
-  out.push(prefRow('touchGyroLook', 'Gyro aim',
-    'Turn the phone to turn the camera, a degree for a degree, on top of the drag - fine aim without lifting a thumb. '
-    + 'iPhones ask permission for motion the first time.', {
+  out.push(prefRow('touchGyroLook', t('menu.touch.gyro', 'Gyro aim'),
+    t('menu.touch.gyroNote', 'Turn the phone to turn the camera, a degree for a degree, on top of the drag - fine aim without lifting a thumb. '
+    + 'iPhones ask permission for motion the first time.'), {
     // iOS grants motion only from a user gesture - this click is one.
     onChange: (on) => { if (on) { try { globalThis.DeviceMotionEvent?.requestPermission?.()?.catch?.(() => {}); } catch { /* not iOS */ } } },
   }));
-  out.push(stepRow('touchGyroSensitivity', 'Gyro sensitivity',
-    'Degrees of camera per degree of phone.',
+  out.push(stepRow('touchGyroSensitivity', t('menu.touch.gyroSensitivity', 'Gyro sensitivity'),
+    t('menu.touch.gyroSensitivityNote', 'Degrees of camera per degree of phone.'),
     { min: 0.25, max: 4, step: 0.25, fmt: times }));
-  out.push(prefRow('touchHaptics', 'Haptics',
-    'A short pulse on a button, when a held finger arms a swing, and when a lock lands. Phones that can.'));
+  out.push(prefRow('touchHaptics', t('menu.touch.haptics', 'Haptics'),
+    t('menu.touch.hapticsNote', 'A short pulse on a button, when a held finger arms a swing, and when a lock lands. Phones that can.')));
   // TOUCH-BUTTONS (2026-09-27, Discord: "I haven't been able to remap the android "buttons" on the bottom right of the
   // screen. I would much rather use a button to attack"): the corner's three slots, right to left. Changed here while
   // playing, the corner is re-laid as soon as no finger holds one of its buttons.
   {
     const choices = touchButtonChoices();
-    const slotNames = ['Corner button', 'Second button', 'Third button'];
+    const slotNames = [t('menu.touch.slot1', 'Corner button'), t('menu.touch.slot2', 'Second button'), t('menu.touch.slot3', 'Third button')];
     TOUCH_BUTTON_SLOTS.forEach((slot, i) => {
       out.push(slotChoiceRow(slot, slotNames[i],
-        i === 0 ? 'The bottom-right buttons, from the corner in. Attack swings (or casts a readied spell) with one press - the swipe still works too.' : null,
+        i === 0 ? t('menu.touch.slotNote', 'The bottom-right buttons, from the corner in. Attack swings (or casts a readied spell) with one press - the swipe still works too.') : null,
         choices, () => touchButtonSlots(getPref)[i].id));
     });
   }
-  out.push(prefRow('touchFullscreen', 'Fullscreen on touch',
-    'The first touch asks the browser for fullscreen and a landscape lock. Where the browser will not '
-    + '(Safari on iPhone), add the game to the home screen instead - it opens fullscreen from there.'));
+  out.push(prefRow('touchFullscreen', t('menu.touch.fullscreen', 'Fullscreen on touch'),
+    t('menu.touch.fullscreenNote', 'The first touch asks the browser for fullscreen and a landscape lock. Where the browser will not '
+    + '(Safari on iPhone), add the game to the home screen instead - it opens fullscreen from there.')));
   return out.filter(Boolean);   // FT13: a pref that lives on the home draws nothing
 }
 
@@ -2244,24 +2267,24 @@ function portRowsInterface({ pause = false } = {}) {
     const blade = getPref('foeBarStyle') === 'blade';
     const row = el('div', 'row');
     const main = el('button', 'row-main');
-    main.append(el('div', 'row-name', 'Target bar'));
+    main.append(el('div', 'row-name', t('menu.hud.foeBar', 'Target bar')));
     main.append(el('div', 'row-note', blade
-      ? 'Blade: the twin blades under the compass recede toward their hub as the foe\u2019s health falls.'
-      : 'Bar: the plain track under the compass. Takes effect at once.'));
+      ? t('menu.hud.foeBarBladeNote', 'Blade: the twin blades under the compass recede toward their hub as the foe\u2019s health falls.')
+      : t('menu.hud.foeBarBarNote', 'Bar: the plain track under the compass. Takes effect at once.')));
     const flip = () => { setPref('foeBarStyle', blade ? 'bar' : 'blade'); render(); };
     main.onclick = flip;
     row.append(main);
     const ctl = el('div', 'ctl');
-    const b = el('button', 'act rowact', blade ? 'Blade' : 'Bar');
+    const b = el('button', 'act rowact', blade ? t('menu.hud.foeBarBlade', 'Blade') : t('menu.hud.foeBarBar', 'Bar'));
     b.onclick = flip;
     ctl.append(b, el('span', 'tier live'));
     row.append(ctl);
     out.push(row);
   }
-  out.push(prefRow('showFps', 'FPS counter',
-    'Frames a second in the top-right corner, with the frame\u2019s milliseconds and the slowest frame of the '
-    + 'last second. Takes effect at once. ?fps in the address bar forces it on for a probe.'));
-  if (!pause) out.push(prefRow('skipStartVideo', SKIP_START_VIDEO_NAME, SKIP_START_VIDEO_NOTE));   // UXB1-A: read at launch, so the front door's alone - as the skin's
+  out.push(prefRow('showFps', t('menu.hud.fps', 'FPS counter'),
+    t('menu.hud.fpsNote', 'Frames a second in the top-right corner, with the frame\u2019s milliseconds and the slowest frame of the '
+    + 'last second. Takes effect at once. ?fps in the address bar forces it on for a probe.')));
+  if (!pause) out.push(prefRow('skipStartVideo', skipStartVideoName(), skipStartVideoNote()));   // UXB1-A: read at launch, so the front door's alone - as the skin's
   return out.filter(Boolean);   // FT13
 }
 
@@ -2271,6 +2294,9 @@ export const SKIP_START_VIDEO_NAME = 'Skip start video';
 export const SKIP_START_VIDEO_NOTE = 'Open straight onto the main menu, without the opening film (on the classic skin, '
   + 'without the splash video before the title too). The menu\u2019s music still plays. Takes effect the next time '
   + 'the game starts.';
+/** L10N4: the row's words in the player's language (the constants stay the English the pins read). */
+export const skipStartVideoName = () => t('menu.skipVideo.name', SKIP_START_VIDEO_NAME);
+export const skipStartVideoNote = () => t('menu.skipVideo.note', SKIP_START_VIDEO_NOTE);
 
 /** QREPAIR (2026-09-24, Mac: "Add a quest refresh option to settings" - "Repair active quests"): THE GAME CATEGORY'S
  *  PORT ROW. The repair runs over a game in play, so its door is the PAUSE's settings (the host hands
@@ -2282,23 +2308,27 @@ export const QUEST_REPAIR_NOTE = 'Puts back the people, items, foes and map mark
 export const QUEST_REPAIR_AWAY = 'In a game: open Settings from the pause menu.';
 export const QUEST_REPAIR_ASK = 'Puts back the people, items, foes and map marks your active quests are missing. '
   + 'Nothing a quest did on purpose is undone, and your progress is kept.';
+/** L10N4: the repair's words in the player's language (the constants stay the English the pins read). */
+const questRepairNote = () => t('menu.questRepair.note', QUEST_REPAIR_NOTE);
+const questRepairAway = () => t('menu.questRepair.away', QUEST_REPAIR_AWAY);
+const questRepairAsk = () => t('menu.questRepair.ask', QUEST_REPAIR_ASK);
 function portRowsGame({ pause = false } = {}) {
   const can = pause && typeof hooks?.repairQuests === 'function';
   const row = el('div', 'row');
   if (!can) row.dataset.live = '0';
   const main = el('div', 'row-main');
-  main.append(el('div', 'row-name', 'Repair active quests'));
-  main.append(el('div', 'row-note', can ? (questRepairSaid ?? QUEST_REPAIR_NOTE) : QUEST_REPAIR_AWAY));
+  main.append(el('div', 'row-name', t('menu.questRepair.name', 'Repair active quests')));
+  main.append(el('div', 'row-note', can ? (questRepairSaid ?? questRepairNote()) : questRepairAway()));
   row.append(main);
   const ctl = el('div', 'ctl');
-  const b = el('button', 'act rowact', 'Repair');
+  const b = el('button', 'act rowact', t('menu.questRepair.go', 'Repair'));
   if (!can) b.disabled = true;
   b.onclick = () => {
     if (!can) return;
-    ask('Repair Active Quests', QUEST_REPAIR_ASK, 'Repair', () => {
+    ask(t('menu.questRepair.title', 'Repair Active Quests'), questRepairAsk(), t('menu.questRepair.go', 'Repair'), () => {
       let r = null;
       try { r = hooks.repairQuests(); } catch { r = null; }
-      questRepairSaid = r?.text ?? 'The repair could not run here.';
+      questRepairSaid = r?.text ?? t('menu.questRepair.failed', 'The repair could not run here.');
     });
   };
   ctl.append(b, el('span', `tier ${can ? 'live' : 'unavailable'}`));
@@ -2321,9 +2351,9 @@ function portRows(catId, opts = {}) {
  *  rest with one press. The fold is remembered per category on the
  *  prefs shelf (uiPrefs isOpen/setOpen), which is what the shelf's
  *  `open` map was made for. */
-const TIER_GROUPS = Object.freeze([
-  ['stored', 'Saved for later', 'Kept in the file and written back exactly as DFU would; nothing in this build reads it yet.'],
-  ['unavailable', 'Not available here', 'Fixed by the browser or by a choice the port made. Each row says what you get instead.'],
+const TIER_GROUPS = Object.freeze([   // L10N4: each group's title and blurb read when drawn, in the player's language
+  ['stored', () => t('menu.settings.storedTitle', 'Saved for later'), () => t('menu.settings.storedBlurb', 'Kept in the file and written back exactly as DFU would; nothing in this build reads it yet.')],
+  ['unavailable', () => t('menu.settings.unavailableTitle', 'Not available here'), () => t('menu.settings.unavailableBlurb', 'Fixed by the browser or by a choice the port made. Each row says what you get instead.')],
 ]);
 
 function tierGroup(catId, tier, title, blurb, keys) {
@@ -2351,7 +2381,7 @@ function categoryRows(catId) {
   for (const key of keys) if (drawsFlat(key)) { const r = settingRow(key); if (r) out.push(r); }
   for (const [tier, title, blurb] of TIER_GROUPS) {
     const ks = keys.filter((k) => tierOf(k) === tier);
-    if (ks.length) out.push(tierGroup(catId, tier, title, blurb, ks));
+    if (ks.length) out.push(tierGroup(catId, tier, title(), blurb(), ks));
   }
   return out;
 }
@@ -2366,19 +2396,24 @@ const liveCount = (catId) => portRows(catId).filter((r) => r.dataset?.live !== '
 /** MWA4: what the Morrowind files do, in the card's one line. */
 export const MW_CARD_LINE = 'Your own Morrowind files (Morrowind.bsa and Morrowind.esm, with Tribunal and Bloodmoon if you have them) '
   + 'draw your character in 3D. They stay in this browser.';
+/** L10N4: the card's line in the player's language (MW_CARD_LINE stays the English the pins read). */
+export const mwCardLine = () => t('menu.mw.line', MW_CARD_LINE);
 /** MWA4: the arms' state in words - the one row the card keeps beside the data count. */
 export function morrowindArmsLine(armState) {
-  if (armState?.active) return 'On';
+  if (armState?.active) return t('menu.toggle.on', 'On');
   const reason = armState?.reason ?? 'not built';
-  return reason === 'not built' || reason === 'unloaded' ? 'Builds when you play' : reason;   // a refusal says why (MWDIAG)
+  return reason === 'not built' || reason === 'unloaded' ? t('menu.mw.buildsLater', 'Builds when you play') : reason;   // a refusal says why (MWDIAG)
 }
 /** MWA4: what did not work, in words - and nothing when everything did. */
 export function morrowindTroubleLines(armState) {
   const out = [];
-  if (armState?.notes?.length) out.push(`Not in the arms: ${armState.notes.join('; ')}`);
-  if (armState?.third && !armState.third.ok) out.push(`Third person refused - ${armState.third.stage}: ${armState.third.error}`);
+  if (armState?.notes?.length) out.push(t('menu.mw.notInArms', 'Not in the arms: {notes}', { notes: armState.notes.join('; ') }));
+  if (armState?.third && !armState.third.ok) out.push(t('menu.mw.thirdRefused', 'Third person refused - {stage}: {error}', { stage: armState.third.stage, error: armState.third.error }));
   const e = armState?.esm;
-  if (e && !e.raceIsThere) out.push(`Your files carry no "${e.raceWanted}" body (they have: ${e.racesFound.join(', ') || 'none'}).`);
+  if (e && !e.raceIsThere) {
+    out.push(e.racesFound.length ? t('menu.mw.noBody', 'Your files carry no "{race}" body (they have: {found}).', { race: e.raceWanted, found: e.racesFound.join(', ') })
+      : t('menu.mw.noBodyNone', 'Your files carry no "{race}" body (they have: none).', { race: e.raceWanted }));
+  }
   return out;
 }
 /** The Morrowind assets card, at the head of the features list (MW-IMPORT, MW-D8, MWA1, MWA4). `count` and
@@ -2398,11 +2433,11 @@ export function morrowindCard({ count = morrowindDataCount(), armState = fpArm.s
   // left it, and Weapon Sheathing's switch is its own tile's. What did not work still says why (MWDIAG: the reason
   // belongs on the card, next to the button that produced it) - and only then.
   const mw = el('div', 'card');
-  mw.append(el('h3', null, 'Morrowind assets'));
-  mw.append(el('p', 'meta', MW_CARD_LINE));
+  mw.append(el('h3', null, t('menu.mw.title', 'Morrowind assets')));
+  mw.append(el('p', 'meta', mwCardLine()));
   mw.append(stats([
-    ['Data', count ? `${count} archive${count === 1 ? '' : 's'} attached` : 'none attached'],
-    ...(count ? [['Arms', morrowindArmsLine(armState)]] : []),
+    [t('menu.mw.data', 'Data'), t('menu.mw.archives', '{n, plural, =0 {none attached} one {# archive attached} other {# archives attached}}', { n: count || 0 })],
+    ...(count ? [[t('menu.mw.arms', 'Arms'), morrowindArmsLine(armState)]] : []),
   ]));
   const attach = async () => {
     const ds = await import('../scenes/dataSource.js');
@@ -2415,14 +2450,14 @@ export function morrowindCard({ count = morrowindDataCount(), armState = fpArm.s
     }
     render();
   };
-  const actions = [{ label: 'Attach data', primary: !count, onClick: attach }];
+  const actions = [{ label: t('menu.mw.attach', 'Attach data'), primary: !count, onClick: attach }];
   // MWA2 (2026-09-16): the door that removes the data itself - the one off there is now. Routed through the same
   // confirm-before-destroy pattern as Delete Save.
   if (count) {
-    actions.push({ label: 'Remove data', onClick: () => ask(
-      'Remove Morrowind data',
-      'This clears the Morrowind files from this browser and unloads the arms. You can attach them again later.',
-      'Remove',
+    actions.push({ label: t('menu.mw.remove', 'Remove data'), onClick: () => ask(
+      t('menu.mw.removeTitle', 'Remove Morrowind data'),
+      t('menu.mw.removeBody', 'This clears the Morrowind files from this browser and unloads the arms. You can attach them again later.'),
+      t('menu.packs.removeYes', 'Remove'),
       async () => {
         fpArm.unload();
         const ds = await import('../scenes/dataSource.js');
@@ -2443,26 +2478,26 @@ export function morrowindCard({ count = morrowindDataCount(), armState = fpArm.s
  *  applies - this only decides between the two for a peer standing in neither. */
 function peerSpritesCard() {
   const c = el('div', 'card');
-  c.append(el('h3', null, 'Other players'));
-  c.append(el('p', 'meta',
+  c.append(el('h3', null, t('menu.peers.title', 'Other players')));
+  c.append(el('p', 'meta', t('menu.peers.blurb',
     'Players without a Morrowind body are drawn as the Eye of the Beholder sprite they picked, or, without one, '
-    + 'as their class (a Warrior looks like a Warrior, a Mage like a Mage), moving as they move.'));   // DISC23-B: the chosen set first, the class only for a player without one
-  c.append(prefRow('peerClassSprites', 'Animated sprite', 'On: the sprite above. Off: the paperdoll.', { home: true }));
-  c.append(prefRow('peerAttackSounds', 'Attack sounds', 'On: hear other players\u2019 weapon swings. Off: silent, no matter how close.', { home: true }));   // PEER-FS1: the two peer-sound switches, beside the sprite one
-  c.append(prefRow('peerFootsteps', 'Footstep sounds', 'On: hear other players\u2019 footsteps as they walk. Off: silent, no matter how close.', { home: true }));
+    + 'as their class (a Warrior looks like a Warrior, a Mage like a Mage), moving as they move.')));   // DISC23-B: the chosen set first, the class only for a player without one
+  c.append(prefRow('peerClassSprites', t('menu.peers.sprite', 'Animated sprite'), t('menu.peers.spriteNote', 'On: the sprite above. Off: the paperdoll.'), { home: true }));
+  c.append(prefRow('peerAttackSounds', t('menu.peers.attack', 'Attack sounds'), t('menu.peers.attackNote', 'On: hear other players\u2019 weapon swings. Off: silent, no matter how close.'), { home: true }));   // PEER-FS1: the two peer-sound switches, beside the sprite one
+  c.append(prefRow('peerFootsteps', t('menu.peers.footsteps', 'Footstep sounds'), t('menu.peers.footstepsNote', 'On: hear other players\u2019 footsteps as they walk. Off: silent, no matter how close.'), { home: true }));
   // SPELL-GIFT (2026-09-27, Tabitha: "Allow casting of buffs on players outside party"): the receiver's say
-  c.append(prefRow('acceptStrangerSpells', 'Spells from strangers',
-    'On: players outside your party can cast healing and protective spells on you - Heal, Regenerate, Cure, Fortify, '
-    + 'Shield, Spell Absorption, the resistances, Jumping and Water Breathing, nothing else. Off: only your party can.', { home: true }));
+  c.append(prefRow('acceptStrangerSpells', t('menu.peers.spells', 'Spells from strangers'),
+    t('menu.peers.spellsNote', 'On: players outside your party can cast healing and protective spells on you - Heal, Regenerate, Cure, Fortify, '
+    + 'Shield, Spell Absorption, the resistances, Jumping and Water Breathing, nothing else. Off: only your party can.'), { home: true }));
   // REST-OPT (2026-09-27, Tabitha: "Allow party members to choose not to rest with their party")
-  c.append(prefRow('restWithParty', 'Rest with my party',
-    'On: in a party your rest is the party\u2019s - a vote, and everyone near sleeps together. Off: you rest on your own, '
-    + 'and the party rests without you. A leader who turns it off leaves everyone to rest for themselves.', { home: true }));
+  c.append(prefRow('restWithParty', t('menu.peers.rest', 'Rest with my party'),
+    t('menu.peers.restNote', 'On: in a party your rest is the party\u2019s - a vote, and everyone near sleeps together. Off: you rest on your own, '
+    + 'and the party rests without you. A leader who turns it off leaves everyone to rest for themselves.'), { home: true }));
   // TV3 (2026-09-28, bible/06-Systems/Travel-View.md): being SEEN - the region's travellers see where you are
-  c.append(prefRow('showToTravellers', 'Show me to travellers in my region',
-    'On: when you are outdoors, players in your region see you on the overworld and the map, and you see them. '
+  c.append(prefRow('showToTravellers', t('menu.peers.show', 'Show me to travellers in my region'),
+    t('menu.peers.showNote', 'On: when you are outdoors, players in your region see you on the overworld and the map, and you see them. '
     + 'Off: only your party and players nearby know where you are, and you still see those who show themselves. '
-    + 'Nothing is shared from indoors except with your party. Kept on this device.', { home: true }));   // AUDIT DEEP2 C5: the party pose rides from indoors too
+    + 'Nothing is shared from indoors except with your party. Kept on this device.'), { home: true }));   // AUDIT DEEP2 C5: the party pose rides from indoors too
   return c;
 }
 
@@ -2473,26 +2508,26 @@ function peerSpritesCard() {
  *  as files, each listed with its own Remove. */
 function packsCard() {
   const c = el('div', 'card');
-  c.append(el('h3', null, 'Replacement packs'));
-  c.append(el('p', 'meta', 'Your own music (a folder of tracks named as DFU\u2019s replacement music expects), sounds, texture packs and Daggerfall Unity texture mods (.dfmod), stored in this browser like ARENA2. Nothing uploads.'));
+  c.append(el('h3', null, t('menu.packs.title', 'Replacement packs')));
+  c.append(el('p', 'meta', t('menu.packs.blurb', 'Your own music (a folder of tracks named as DFU\u2019s replacement music expects), sounds, texture packs and Daggerfall Unity texture mods (.dfmod), stored in this browser like ARENA2. Nothing uploads.')));
   let mods = attachedDfmods();
-  c.append(el('p', 'meta', `Music files supplied: ${replacementCount()} \u00b7 Texture files supplied: ${textureReplacementCount()} \u00b7 Sound files supplied: ${soundReplacementCount()}`));   // the row reports what the pick covers
+  c.append(el('p', 'meta', t('menu.packs.supplied', 'Music files supplied: {music} \u00b7 Texture files supplied: {textures} \u00b7 Sound files supplied: {sounds}', { music: replacementCount(), textures: textureReplacementCount(), sounds: soundReplacementCount() })));   // the row reports what the pick covers
   c.append(stats([
-    ['Texture mods', mods.length ? `${mods.length} attached \u00b7 ${bundleTextureCount()} textures in use` : 'none'],
+    [t('menu.packs.textureMods', 'Texture mods'), mods.length ? t('menu.packs.textureModsAttached', '{n} attached \u00b7 {inUse} textures in use', { n: mods.length, inUse: bundleTextureCount() }) : t('menu.packs.none', 'none')],
   ]));
   /** A removal behind the confirm; a storage failure is logged and costs nothing else. */
-  const remove = (label, title, body, run) => ({ label, onClick: () => ask(title, body, 'Remove', async () => {
+  const remove = (label, title, body, run) => ({ label, onClick: () => ask(title, body, t('menu.packs.removeYes', 'Remove'), async () => {
     try { await run(await import('../scenes/dataSource.js')); } catch (err) { console.warn(`[packs] ${title.toLowerCase()} failed: ${err?.message ?? err}`); }
     render();
   }) });
-  const later = ' It takes full effect the next time an area loads.';
+  // L10N4: "It takes full effect the next time an area loads." closes two of the sentences below - each its own whole pattern
   c.append(acts([
-    { label: 'Attach music pack', onClick: async () => { const ds = await import('../scenes/dataSource.js'); await ds.pickMusicFolder(); render(); } },
-    ...(replacementCount() > 0 ? [remove('Remove music pack', 'Remove music pack', 'This clears your music files from this browser; Daggerfall\u2019s own songs play again. A sound pack stays.', (d) => d.clearStoredMusic())] : []),
-    { label: 'Attach sound pack', onClick: async () => { const ds = await import('../scenes/dataSource.js'); await ds.pickSoundFolder(); render(); } },   // SNDREP1
-    ...(soundReplacementCount() > 0 ? [remove('Remove sound pack', 'Remove sound pack', 'This clears your sound files from this browser; Daggerfall\u2019s own sounds play again. A music pack stays.', (d) => d.clearStoredSounds())] : []),
-    { label: 'Attach texture pack', onClick: async () => { const ds = await import('../scenes/dataSource.js'); await ds.pickTextureFolder(); render(); } },
-    ...(textureReplacementCount() > 0 ? [remove('Remove texture pack', 'Remove texture pack', `This clears the loose texture files (a folder pick) from this browser. Attached .dfmod texture mods stay.${later}`, (d) => d.clearStoredTexturePack())] : []),
+    { label: t('menu.packs.attachMusic', 'Attach music pack'), onClick: async () => { const ds = await import('../scenes/dataSource.js'); await ds.pickMusicFolder(); render(); } },
+    ...(replacementCount() > 0 ? [remove(t('menu.packs.removeMusic', 'Remove music pack'), t('menu.packs.removeMusic', 'Remove music pack'), t('menu.packs.removeMusicBody', 'This clears your music files from this browser; Daggerfall\u2019s own songs play again. A sound pack stays.'), (d) => d.clearStoredMusic())] : []),
+    { label: t('menu.packs.attachSound', 'Attach sound pack'), onClick: async () => { const ds = await import('../scenes/dataSource.js'); await ds.pickSoundFolder(); render(); } },   // SNDREP1
+    ...(soundReplacementCount() > 0 ? [remove(t('menu.packs.removeSound', 'Remove sound pack'), t('menu.packs.removeSound', 'Remove sound pack'), t('menu.packs.removeSoundBody', 'This clears your sound files from this browser; Daggerfall\u2019s own sounds play again. A music pack stays.'), (d) => d.clearStoredSounds())] : []),
+    { label: t('menu.packs.attachTexture', 'Attach texture pack'), onClick: async () => { const ds = await import('../scenes/dataSource.js'); await ds.pickTextureFolder(); render(); } },
+    ...(textureReplacementCount() > 0 ? [remove(t('menu.packs.removeTexture', 'Remove texture pack'), t('menu.packs.removeTexture', 'Remove texture pack'), t('menu.packs.removeTextureBody', 'This clears the loose texture files (a folder pick) from this browser. Attached .dfmod texture mods stay. It takes full effect the next time an area loads.'), (d) => d.clearStoredTexturePack())] : []),
   ]));
   // IIL3 (Mac: "add a button for attach lighting mod, so players arent confused"): THE LIGHTING MOD HAS ITS OWN
   // SECTION. It is a .dfmod like the texture mods and rides the same store, but it carries no picture - listed among
@@ -2500,42 +2535,42 @@ function packsCard() {
   // is switched (the Modded lighting row in Features).
   const lighting = mods.filter(isIilMod);
   mods = mods.filter((m) => !isIilMod(m));
-  c.append(el('h3', null, 'Lighting mod'));
-  c.append(el('p', 'meta', 'Improved Interior Lighting (ShortBeard, or BlazeBlue32\u2019s fixed version): warm, flickering lights in buildings and dungeons, fireplace lights and a warm torch - with shadows if you choose. Pick its .dfmod file (inside the download\u2019s Mods folder). Switch it in Features \u2192 Sight \u2192 Modded lighting.'));
+  c.append(el('h3', null, t('menu.packs.lighting', 'Lighting mod')));
+  c.append(el('p', 'meta', t('menu.packs.lightingBlurb', 'Improved Interior Lighting (ShortBeard, or BlazeBlue32\u2019s fixed version): warm, flickering lights in buildings and dungeons, fireplace lights and a warm torch - with shadows if you choose. Pick its .dfmod file (inside the download\u2019s Mods folder). Switch it in Features \u2192 Sight \u2192 Modded lighting.')));
   for (const m of lighting) {
     const row = el('div', 'card');
     row.append(el('p', null, `${m.title}${m.version ? ` ${m.version}` : ''}${m.author ? ` \u00b7 ${m.author}` : ''}`));
-    row.append(el('p', 'meta', m.error ? `Not working: ${m.error}.` : 'Attached.'));
-    row.append(acts([remove('Remove', `Remove ${m.title}`, `This clears ${m.title} from this browser; the lighting goes back to what it was.`, (d) => d.removeStoredDfmod(m.key))]));
+    row.append(el('p', 'meta', m.error ? t('menu.packs.notWorking', 'Not working: {error}.', { error: m.error }) : t('menu.packs.attached', 'Attached.')));
+    row.append(acts([remove(t('menu.packs.removeYes', 'Remove'), t('menu.packs.removeMod', 'Remove {mod}', { mod: m.title }), t('menu.packs.removeLightingBody', 'This clears {mod} from this browser; the lighting goes back to what it was.', { mod: m.title }), (d) => d.removeStoredDfmod(m.key))]));
     c.append(row);
   }
-  if (!lighting.length) c.append(acts([{ label: 'Attach lighting mod', primary: true, onClick: async () => { const ds = await import('../scenes/dataSource.js'); await ds.pickLightingModFiles(); render(); } }]));
+  if (!lighting.length) c.append(acts([{ label: t('menu.packs.attachLighting', 'Attach lighting mod'), primary: true, onClick: async () => { const ds = await import('../scenes/dataSource.js'); await ds.pickLightingModFiles(); render(); } }]));
   // DFMOD1: the texture mods, one row each
-  c.append(el('h3', null, 'Texture mods (.dfmod)'));
+  c.append(el('h3', null, t('menu.packs.dfmods', 'Texture mods (.dfmod)')));
   // DFMOD2: two mods that dress the same things (DREAM and DREAM 90s side by side) cost memory twice for one picture
   const sameTitle = (t) => String(t ?? '').replace(/\b90s\b/i, '').replace(/\s+/g, ' ').trim().toLowerCase();
   const seen = new Map();
   for (const m of mods) { const k = sameTitle(m.title); seen.set(k, (seen.get(k) ?? 0) + 1); }
-  if ([...seen.values()].some((n) => n > 1)) c.append(el('p', 'meta', 'Two versions of the same mod are attached (for example DREAM and DREAM 90s). Only one of them shows for each texture and both use memory - remove one.'));
-  c.append(el('p', 'meta', 'Daggerfall Unity texture mods - DREAM\u2019s sprites, NPCs, mobs, paperdoll, portraits, backgrounds and world textures, and mods like them. Pick the .dfmod files themselves; you can pick several at once. Mod scripts do not run.'));
+  if ([...seen.values()].some((n) => n > 1)) c.append(el('p', 'meta', t('menu.packs.twoVersions', 'Two versions of the same mod are attached (for example DREAM and DREAM 90s). Only one of them shows for each texture and both use memory - remove one.')));
+  c.append(el('p', 'meta', t('menu.packs.dfmodsBlurb', 'Daggerfall Unity texture mods - DREAM\u2019s sprites, NPCs, mobs, paperdoll, portraits, backgrounds and world textures, and mods like them. Pick the .dfmod files themselves; you can pick several at once. Mod scripts do not run.')));
   for (const m of mods) {
     const row = el('div', 'card');
     row.append(el('p', null, `${m.title}${m.version ? ` ${m.version}` : ''}${m.author ? ` \u00b7 ${m.author}` : ''}`));
-    row.append(el('p', 'meta', `${m.textures} textures in the bundle`));
-    if (m.error) row.append(el('p', 'meta', `Not working: ${m.error}.`));   // DFMOD2: said where the Remove is
-    row.append(acts([remove('Remove', `Remove ${m.title}`, `This clears ${m.title} from this browser.${later}`, (d) => d.removeStoredDfmod(m.key))]));
+    row.append(el('p', 'meta', t('menu.packs.inBundle', '{n} textures in the bundle', { n: m.textures })));
+    if (m.error) row.append(el('p', 'meta', t('menu.packs.notWorking', 'Not working: {error}.', { error: m.error })));   // DFMOD2: said where the Remove is
+    row.append(acts([remove(t('menu.packs.removeYes', 'Remove'), t('menu.packs.removeMod', 'Remove {mod}', { mod: m.title }), t('menu.packs.removeModBody', 'This clears {mod} from this browser. It takes full effect the next time an area loads.', { mod: m.title }), (d) => d.removeStoredDfmod(m.key))]));
     c.append(row);
   }
   // DFMOD2: TEXTURE DETAIL - the longest side a mod's picture is decoded at (a smaller mip past it). Full-resolution
   // packs (DREAM's HD set) are gigabytes of pixels; 512 keeps them several times Daggerfall's own and inside memory
   const cap = dfmodMaxSize();
-  const detailLabel = Number.isFinite(cap) ? `${cap} px` : 'full';
+  const detailLabel = Number.isFinite(cap) ? t('menu.packs.detailPx', '{px} px', { px: cap }) : t('menu.packs.detailFull', 'full');
   const nextDetail = () => { const i = DFMOD_DETAIL.indexOf(Number.isFinite(cap) ? cap : 0); return DFMOD_DETAIL[(i + 1) % DFMOD_DETAIL.length]; };
-  c.append(el('p', 'meta', `Texture detail: ${detailLabel}. Higher looks sharper and takes more memory and loading time; \u201cfull\u201d can run out of memory with HD packs. A change applies to areas loaded after it.`));
+  c.append(el('p', 'meta', t('menu.packs.detailNote', 'Texture detail: {detail}. Higher looks sharper and takes more memory and loading time; \u201cfull\u201d can run out of memory with HD packs. A change applies to areas loaded after it.', { detail: detailLabel })));
   c.append(acts([
-    { label: `Texture detail: ${detailLabel}`, onClick: () => { setPref('dfmodTextureDetail', nextDetail()); render(); } },
-    { label: 'Add texture mods', primary: !mods.length, onClick: async () => { const ds = await import('../scenes/dataSource.js'); await ds.pickDfmodFiles(); render(); } },
-    ...(mods.length > 1 ? [remove('Remove all texture mods', 'Remove all texture mods', `This clears every attached .dfmod texture mod from this browser.${later}`, (d) => d.clearStoredDfmods())] : []),
+    { label: t('menu.packs.detail', 'Texture detail: {detail}', { detail: detailLabel }), onClick: () => { setPref('dfmodTextureDetail', nextDetail()); render(); } },
+    { label: t('menu.packs.addDfmods', 'Add texture mods'), primary: !mods.length, onClick: async () => { const ds = await import('../scenes/dataSource.js'); await ds.pickDfmodFiles(); render(); } },
+    ...(mods.length > 1 ? [remove(t('menu.packs.removeAllDfmods', 'Remove all texture mods'), t('menu.packs.removeAllDfmods', 'Remove all texture mods'), t('menu.packs.removeAllDfmodsBody', 'This clears every attached .dfmod texture mod from this browser. It takes full effect the next time an area loads.'), (d) => d.clearStoredDfmods())] : []),
   ]));
   return c;
 }
@@ -2544,9 +2579,9 @@ function packsCard() {
  *  sound whether it is the classic one or a sound pack's replacement. */
 function nightSoundsCard() {
   const c = el('div', 'card');
-  c.append(el('h3', null, 'Night sounds'));
-  c.append(prefRow('nightCrickets', 'Crickets', 'On: the crickets chirp outdoors on clear nights. Off: silent.', { home: true }));
-  c.append(prefRow('distantHowl', 'Distant howl', 'On: the far-off howl near graveyards. Off: silent.', { home: true }));
+  c.append(el('h3', null, t('menu.night.title', 'Night sounds')));
+  c.append(prefRow('nightCrickets', t('menu.night.crickets', 'Crickets'), t('menu.night.cricketsNote', 'On: the crickets chirp outdoors on clear nights. Off: silent.'), { home: true }));
+  c.append(prefRow('distantHowl', t('menu.night.howl', 'Distant howl'), t('menu.night.howlNote', 'On: the far-off howl near graveyards. Off: silent.'), { home: true }));
   return c;
 }
 
@@ -2566,12 +2601,12 @@ function nightSoundsCard() {
 // the 360-key scroll the tiles replace, and features.js MOD_CURATED
 // carries the reasoning and the door back for a key that earns one.
 function modsFooter(body) {
-  if (isOnlinePage()) body.append(el('p', 'meta', ONLINE_MODS_NOTE));   // MODS-ONLINE-2: said once, under the tiles - and it says what is actually true of the MODS pane
+  if (isOnlinePage()) body.append(el('p', 'meta', noteText(ONLINE_MODS_NOTE)));   // MODS-ONLINE-2: said once, under the tiles - and it says what is actually true of the MODS pane
   body.append(peerSpritesCard()); // 2026-09-17: other players' look, without a Morrowind body of their own
   body.append(packsCard());       // SO1/M-EXT: the packs' door, off the launcher
   body.append(nightSoundsCard()); // SNDREP1: crickets and howl, on or off
   const c = el('div', 'card');
-  c.append(el('h3', null, "Daggerfall Unity\u2019s own mod system"));
+  c.append(el('h3', null, t('menu.mods.dfuSystem', "Daggerfall Unity\u2019s own mod system")));
   for (const key of ['Enhancements/LypyL_ModSystem', 'Enhancements/AssetInjection',
     'Enhancements/CompressModdedTextures', 'Experimental/CustomBooksImport']) {
     put(c, settingRow(key));
@@ -2663,7 +2698,7 @@ function modRow(vendor, key, def, { name = null, note = null, home = false } = {
     ctl.append(step(-1, '\u2039'), val, step(1, '\u203a'));
   } else {
     const on = modSetting(vendor, key);
-    const b = el('button', 'act rowact', on ? 'On' : 'Off');
+    const b = el('button', 'act rowact', on ? t('menu.toggle.on', 'On') : t('menu.toggle.off', 'Off'));
     if (on) b.classList.add('primary');
     b.onclick = () => { setModSetting(vendor, key, !modSetting(vendor, key)); render(); };
     const ground = onlineModSetting(vendor, key);   // MODS-ONLINE-2: the road switches the room's ground depends on; REALM P0.2: and every key of a balance mod the room owns whole
@@ -2730,7 +2765,7 @@ export function tileStates(f) {   // FT18: exported for the All off pins, which 
       return { labels: c.tiers.map(([, l]) => l), at, locked,
         set: (i) => (c.write ?? ((v) => setPref(c.key, v)))(c.tiers[i][0]) };
     }
-    return { labels: ['Off', 'On'], at: getPref(c.key) ? 1 : 0, locked,
+    return { labels: ['Off', 'On'], shown: toggleWords(), at: getPref(c.key) ? 1 : 0, locked,
       set: (i) => { setPref(c.key, i === 1); TILE_AFTER[c.key]?.(); } };
   }
   if (c.store === 'settings') {
@@ -2738,7 +2773,7 @@ export function tileStates(f) {   // FT18: exported for the All off pins, which 
     const raw = effective()[sec]?.[k];
     const w = widgetFor(c.key);
     if (w === 'switch') {
-      return { labels: ['Off', 'On'], at: raw === 'True' ? 1 : 0, locked: false,
+      return { labels: ['Off', 'On'], shown: toggleWords(), at: raw === 'True' ? 1 : 0, locked: false,
         set: (i) => write(c.key, i === 1 ? 'True' : 'False') };
     }
     if (w === 'enum' && ENUM_LAW[c.key]?.encode === 'index') {
@@ -2753,10 +2788,13 @@ export function tileStates(f) {   // FT18: exported for the All off pins, which 
   }
   // a vendored mod's Enabled - the player's online too (MODS-ONLINE-2), but for the road switches the room's ground depends on
   const on = modSetting(c.vendor, c.key) === true || modSetting(c.vendor, c.key) === 'True';
-  return { labels: ['Off', 'On'], at: on ? 1 : 0,
+  return { labels: ['Off', 'On'], shown: toggleWords(), at: on ? 1 : 0,
     locked: onlineForcedModSetting(c.vendor, c.key) !== undefined,
     set: (i) => setModSetting(c.vendor, c.key, i === 1) };
 }
+/** L10N4: what a two-state bar SHOWS for its law's ['Off', 'On'] - the labels stay the law's words (All off, the
+ *  switch reading and Restore find Off by them), the shown words are the player's language. */
+const toggleWords = () => [t('menu.toggle.off', 'Off'), t('menu.toggle.on', 'On')];
 
 /** DISC23-C: the segment that turns a feature off is the one that SAYS so. */
 export const OFF_LABEL = 'Off';
@@ -2816,7 +2854,7 @@ function segBar(st, label) {
     if (st.locked) {
       b.disabled = true;
       b.setAttribute('aria-disabled', 'true');
-      b.title = ONLINE_LOCK_NOTE;
+      b.title = noteText(ONLINE_LOCK_NOTE);
     } else {
       b.onclick = (e) => { e.stopPropagation(); st.set(i); render(); };
     }
@@ -2835,25 +2873,25 @@ let featureOpen = null;
 export function featureTile(f) {
   const c = resolveControl(f);
   const st = tileStates(f);
-  const t = el('div', `ft-tile${featureSel === f.id ? ' sel' : ''}`);
-  t.dataset.fid = f.id;   // FT18: the search hides tiles by it
-  t.dataset.on = st && barReading(st).on ? '1' : '0';
-  if (st?.locked) t.dataset.locked = '1';
-  t.tabIndex = 0;
-  const show = () => { featureSel = f.id; paintRail(); for (const n of document.querySelectorAll('.ft-tile')) n.classList.toggle('sel', n === t); };
-  t.onmouseenter = show;
-  t.onfocus = show;
-  t.onclick = show;
+  const tile = el('div', `ft-tile${featureSel === f.id ? ' sel' : ''}`);
+  tile.dataset.fid = f.id;   // FT18: the search hides tiles by it
+  tile.dataset.on = st && barReading(st).on ? '1' : '0';
+  if (st?.locked) tile.dataset.locked = '1';
+  tile.tabIndex = 0;
+  const show = () => { featureSel = f.id; paintRail(); for (const n of document.querySelectorAll('.ft-tile')) n.classList.toggle('sel', n === tile); };
+  tile.onmouseenter = show;
+  tile.onfocus = show;
+  tile.onclick = show;
 
-  t.append(el('div', 'ft-tile-name', f.title));
+  tile.append(el('div', 'ft-tile-name', f.title));
   const meta = el('div', 'ft-tile-meta');
   for (const k of KIND_ORDER) if (f.kinds.includes(k)) meta.append(el('span', `kind ${k}`, KINDS[k].label));
-  if (st?.locked) meta.append(el('span', 'ft-tile-lock', 'online'));
-  t.append(meta);
+  if (st?.locked) meta.append(el('span', 'ft-tile-lock', t('menu.features.onlineLock', 'online')));
+  tile.append(meta);
 
   // the control, or the row's own builder when it is not a bar
-  if (st) t.append(segBar(st, f.title));
-  else t.append(featureRow(f));
+  if (st) tile.append(segBar(st, f.title));
+  else tile.append(featureRow(f));
 
   // the drawer's door: a mod's modules and dials.
   //
@@ -2876,12 +2914,12 @@ export function featureTile(f) {
       b.type = 'button';
       b.setAttribute('aria-expanded', String(open));
       b.append(el('span', `ft-tile-car${open ? ' open' : ''}`, '\u203a'), document.createTextNode(' '
-        + [mods.length ? `${mods.length} modules` : '', dials.length ? `${dials.length} dials` : '',
-          keys.length ? `${keys.length} keys` : '']
+        + [mods.length ? t('menu.features.modules', '{n, plural, other {# modules}}', { n: mods.length }) : '', dials.length ? t('menu.features.dials', '{n, plural, other {# dials}}', { n: dials.length }) : '',
+          keys.length ? t('menu.features.keys', '{n, plural, other {# keys}}', { n: keys.length }) : '']
           .filter(Boolean).join(' \u00b7 ')));
       b.onclick = (e) => { e.stopPropagation(); featureOpen = open ? null : f.id; render(); };
-      t.append(b);
-      if (open) t.append(featureDrawer(vendor, mods, dials, keys));
+      tile.append(b);
+      if (open) tile.append(featureDrawer(vendor, mods, dials, keys));
     }
   }
   // FT18: a condensed row's PARTS - the switches and the choice it folded in (the blood's three, the wind's two, the
@@ -2894,15 +2932,17 @@ export function featureTile(f) {
     b.setAttribute('aria-expanded', String(open));
     b.append(el('span', `ft-tile-car${open ? ' open' : ''}`, '\u203a'), document.createTextNode(` ${parts.map((pt) => pt.label).join(' \u00b7 ')}`));
     b.onclick = (e) => { e.stopPropagation(); featureOpen = open ? null : f.id; render(); };
-    t.append(b);
-    if (open) t.append(featurePartsDrawer(parts));
+    tile.append(b);
+    if (open) tile.append(featurePartsDrawer(parts));
   }
-  return t;
+  return tile;
 }
 
 /** UXB1-F (2026-09-25, the UX backlog: "Show keybinds for game features, even if they cannot be changed there (Drop
  *  torch/summon horse/summon cart)"): the tile's door to where its keys ARE changed - Settings, Controls. */
 export const FEATURE_KEYS_NOTE = 'Keys are changed in Settings \u203a Controls.';
+/** L10N4: the note in the player's language (FEATURE_KEYS_NOTE stays the English the pins read). */
+export const featureKeysNote = () => t('menu.features.keysNote', FEATURE_KEYS_NOTE);
 function openControls() {
   category = 'controls';
   go('settings');
@@ -2921,7 +2961,7 @@ function featurePartsDrawer(parts) {
       const b = el('button', 'ft-mchip', pt.label);
       b.type = 'button';
       b.setAttribute('aria-pressed', String(on));
-      if (onlineForcedPref(pt.key) !== undefined) { b.disabled = true; b.title = ONLINE_LOCK_NOTE; }
+      if (onlineForcedPref(pt.key) !== undefined) { b.disabled = true; b.title = noteText(ONLINE_LOCK_NOTE); }
       else b.onclick = () => { setPref(pt.key, !on); render(); };
       box.append(b);
     }
@@ -2945,6 +2985,8 @@ export const FEATURES_RESTORE_PREF = 'featuresRestore';
 export const ALL_OFF_ASK = 'Every mod and enhancement goes to Off, or to Daggerfall\u2019s own where a row has no Off. '
   + 'Restore puts back what you had. Choices that are never off, like the grass\u2019s style, stay as they are, and '
   + 'online the rows the room decides stay on.';
+/** L10N4: the confirm's body in the player's language (ALL_OFF_ASK stays the English the pins read). */
+export const allOffAsk = () => t('menu.features.allOffAsk', ALL_OFF_ASK);
 /** The moves All off makes: every tile not already at its classic segment and not locked. */
 export function allOffPlan(list = FEATURES) {
   const plan = [];
@@ -2992,7 +3034,7 @@ function featureDrawer(vendor, mods, dials, keys = []) {
   // UXB1-F: a mod's keys, first - read-only here (KB1 bound them in Controls, where a clash can be seen), in the live
   // bindings, with the one press that goes to where they change.
   if (keys.length) {
-    d.append(el('div', 'ft-drawer-label', 'Keys'));
+    d.append(el('div', 'ft-drawer-label', t('menu.features.keysLabel', 'Keys')));
     for (const k of keys) {
       const row = el('div', 'row ft-keyrow');
       const main = el('div', 'row-main');
@@ -3003,14 +3045,14 @@ function featureDrawer(vendor, mods, dials, keys = []) {
       row.append(ctl);
       d.append(row);
     }
-    const to = el('button', 'act ft-keys-to', 'Change in Controls');
+    const to = el('button', 'act ft-keys-to', t('menu.features.toControls', 'Change in Controls'));
     to.type = 'button';
-    to.title = FEATURE_KEYS_NOTE;
+    to.title = featureKeysNote();
     to.onclick = () => openControls();
     d.append(to);
   }
   if (mods.length) {
-    d.append(el('div', 'ft-drawer-label', 'Modules'));
+    d.append(el('div', 'ft-drawer-label', t('menu.features.modulesLabel', 'Modules')));
     const box = el('div', 'ft-chipset');
     for (const key of mods) {
       const on = modSetting(vendor, key) === true;
@@ -3023,7 +3065,7 @@ function featureDrawer(vendor, mods, dials, keys = []) {
     d.append(box);
   }
   if (dials.length) {
-    d.append(el('div', 'ft-drawer-label', 'Dials'));
+    d.append(el('div', 'ft-drawer-label', t('menu.features.dialsLabel', 'Dials')));
     for (const key of dials) d.append(modRow(vendor, key, MOD_SETTINGS[vendor].keys[key], { home: true }));
   }
   return d;
@@ -3038,26 +3080,26 @@ function paintRail(rail = document.getElementById('ft-rail')) {
   if (!rail) return;
   const f = FEATURES.find((x) => x.id === featureSel) ?? null;
   rail.textContent = '';
-  if (!f) { rail.append(el('p', 'meta', 'Point at a tile to read what it does.')); return; }
+  if (!f) { rail.append(el('p', 'meta', t('menu.features.pointAt', 'Point at a tile to read what it does.'))); return; }
   const c = resolveControl(f);
-  rail.append(el('div', 'ft-rail-k', 'Selected'));
+  rail.append(el('div', 'ft-rail-k', t('menu.features.selected', 'Selected')));
   rail.append(el('h3', null, f.title));
   if (f.note) rail.append(el('p', 'ft-rail-note', f.note));
   if (f.effect) rail.append(el('p', 'ft-rail-effect', f.effect));
   const kv = el('dl', 'ft-rail-kv');
   const pair = (k, v) => { kv.append(el('dt', null, k), el('dd', null, v)); };
-  pair('Stored', c.store === 'prefs' ? 'Port preferences'
-    : c.store === 'mods' ? `${MOD_SETTINGS[c.vendor].title}\u2019s own modsettings`
-      : 'Daggerfall Unity settings.ini');
+  pair(t('menu.features.stored', 'Stored'), c.store === 'prefs' ? t('menu.features.storedPrefs', 'Port preferences')
+    : c.store === 'mods' ? t('menu.features.storedMod', '{mod}\u2019s own modsettings', { mod: MOD_SETTINGS[c.vendor].title })
+      : t('menu.features.storedIni', 'Daggerfall Unity settings.ini'));
   const rv = c.store === 'mods' ? c.vendor
     : (Array.isArray(c.also) ? c.also.find((a) => a.store === 'mods')?.vendor : null) ?? null;
   if (rv) {
     const n = Object.keys(MOD_SETTINGS[rv].keys).length;
     const shown = 1 + modModules(rv).length + modDials(rv).length;
-    pair('Settings', `${shown} of ${n} shown \u2013 the rest keep the mod\u2019s own values`);
+    pair(t('menu.features.settings', 'Settings'), t('menu.features.shownOf', '{shown} of {n} shown \u2013 the rest keep the mod\u2019s own values', { shown, n }));
     // UXB1-F: and its keys, where a player reading about the mod is already looking
     const keys = modKeyRows(rv, bindings());
-    if (keys.length) pair('Keys', `${keys.map((k) => `${k.label}: ${k.key}`).join(' \u00b7 ')} \u2013 ${FEATURE_KEYS_NOTE}`);
+    if (keys.length) pair(t('menu.features.keysLabel', 'Keys'), t('menu.features.keysList', '{keys} \u2013 {note}', { keys: keys.map((k) => `${k.label}: ${k.key}`).join(' \u00b7 '), note: featureKeysNote() }));
   }
   rail.append(kv);
 }
@@ -3073,7 +3115,7 @@ function paneFeatures(body) {
     b.onclick = () => { featureKind = kind; render(); };
     return b;
   };
-  chips.append(chip(null, 'All', counts.all));
+  chips.append(chip(null, t('menu.features.all', 'All'), counts.all));
   for (const k of KIND_ORDER) chips.append(chip(k, KINDS[k].label, counts[k]));
   body.append(chips);
   // FT18: the search (Mac: "Add search bar to mods/enhancements in the ingame pause menu") and All off beside it.
@@ -3082,25 +3124,25 @@ function paneFeatures(body) {
   const tools = el('div', 'ft-tools');
   const search = el('input', 'ft-search');
   search.type = 'search';
-  search.placeholder = 'Search features';
-  search.setAttribute('aria-label', 'Search features');
+  search.placeholder = t('menu.features.search', 'Search features');
+  search.setAttribute('aria-label', t('menu.features.search', 'Search features'));
   search.value = featureQuery;
   tools.append(search);
   const kept = getPref(FEATURES_RESTORE_PREF);
   tools.append(acts([
-    { label: 'All off', onClick: () => ask('Turn Everything Off', ALL_OFF_ASK, 'All off', () => { featuresAllOff(); }) },
-    ...(kept && typeof kept === 'object' ? [{ label: 'Restore', onClick: () => { featuresRestore(); render(); } }] : []),
+    { label: t('menu.features.allOff', 'All off'), onClick: () => ask(t('menu.features.allOffTitle', 'Turn Everything Off'), allOffAsk(), t('menu.features.allOff', 'All off'), () => { featuresAllOff(); }) },
+    ...(kept && typeof kept === 'object' ? [{ label: t('menu.features.restore', 'Restore'), onClick: () => { featuresRestore(); render(); } }] : []),
   ]));
   body.append(tools);
   if (!FEATURES.length) {
-    body.append(empty('Nothing here yet',
-      'Every enhanceable feature is moving here, one at a time, each audited before it moves. '
-      + 'Until then the port\u2019s own switches are under Settings \u203a Enhanced and the mods\u2019 under Mods.'));
+    body.append(empty(t('menu.settings.emptyTitle', 'Nothing here yet'),
+      t('menu.features.empty', 'Every enhanceable feature is moving here, one at a time, each audited before it moves. '
+      + 'Until then the port\u2019s own switches are under Settings \u203a Enhanced and the mods\u2019 under Mods.')));
     return;
   }
   const rows = filterFeatures(FEATURES, featureKind);
   if (!rows.length) {
-    body.append(empty(`No ${KINDS[featureKind].label} rows yet`, KINDS[featureKind].blurb));
+    body.append(empty(t('menu.features.noneOfKind', 'No {kind} rows yet', { kind: KINDS[featureKind].label }), KINDS[featureKind].blurb));
     return;
   }
   // FT14: two panes - the tiles, grouped by what they change, and the
@@ -3125,7 +3167,7 @@ function paneFeatures(body) {
     main.append(grid);
     shownGroups.push({ head, grid, gn, tiles });
   }
-  const none = el('p', 'meta ft-none', 'Nothing here matches that. Try a shorter word, or the mod\u2019s author.');
+  const none = el('p', 'meta ft-none', t('menu.features.noMatch', 'Nothing here matches that. Try a shorter word, or the mod\u2019s author.'));
   main.append(none);
   /** FT18: hide what the query does not find - a tile, and a group left with none; the group's count is what shows. */
   const applyQuery = () => {
@@ -3165,7 +3207,7 @@ function overhaulPicture(p, o, inUse) {
   const pack = p.id === 'ui' ? UI_PACKS[o.pack] : null;
   if (pack) {
     const img = el('img');
-    img.alt = `${o.name}: the inventory`;
+    img.alt = t('menu.ovh.packAlt', '{look}: the inventory', { look: o.name });
     img.loading = 'lazy';
     img.src = packUrl(pack, 'Img/INVE00I0.IMG.png');
     pic.append(img);
@@ -3174,7 +3216,7 @@ function overhaulPicture(p, o, inUse) {
     em.append(el('small', null, p.title.replace(/ Overhaul$/, '')));
     pic.append(em);
   }
-  if (inUse) pic.append(el('span', 'look-badge', 'In use'));
+  if (inUse) pic.append(el('span', 'look-badge', t('menu.ovh.inUse', 'In use')));
   return pic;
 }
 function overhaulPanel(p) {
@@ -3207,7 +3249,7 @@ function overhaulPanel(p) {
   const arrow = (d, glyph, word) => {
     const b = el('button', 'look-arrow', glyph);
     b.type = 'button';
-    b.setAttribute('aria-label', `${word} ${p.title.toLowerCase()} look`);
+    b.setAttribute('aria-label', word(p.title.toLowerCase()));
     b.disabled = n < 2;
     b.onclick = (e) => { e.stopPropagation(); go(d); };
     return b;
@@ -3218,15 +3260,15 @@ function overhaulPanel(p) {
   const dots = el('div', 'look-dots');
   p.options.forEach((x, i) => dots.append(el('span', `look-dot${i === at ? ' at' : ''}${x === cur ? ' on' : ''}`)));
   mid.append(dots);
-  nav.append(arrow(-1, '‹', 'Previous'), mid, arrow(1, '›', 'Next'));
+  nav.append(arrow(-1, '‹', (panel) => t('menu.ovh.previous', 'Previous {panel} look', { panel })), mid, arrow(1, '›', (panel) => t('menu.ovh.next', 'Next {panel} look', { panel })));
   card.append(nav, el('p', 'look-blurb', o.blurb));
   // PLUS2: ENHANCED PLUS'S COLOURS - offered on its own card while it is the look in use (they are its surfaces, and
   // they change at once, no reload). One swatch per stone; the chosen one is pressed.
   if (p.id === 'ui' && o.id === 'enhanced-plus' && o === cur) {
     const row = el('div', 'look-colours');
     row.setAttribute('role', 'group');
-    row.setAttribute('aria-label', 'Enhanced Plus colour');
-    row.append(el('span', 'look-colours-label', 'UI colour'));   // Mac, 2026-09-29
+    row.setAttribute('aria-label', t('menu.ovh.plusColour', 'Enhanced Plus colour'));
+    row.append(el('span', 'look-colours-label', t('menu.ovh.uiColour', 'UI colour')));   // Mac, 2026-09-29
     const now = plusTheme();
     for (const [id, th] of Object.entries(PLUS_THEMES)) {
       const b = el('button', 'look-colour');
@@ -3243,9 +3285,9 @@ function overhaulPanel(p) {
     // PLUS6: the gauntlet cursor, on or off - worn at once
     const crow = el('div', 'look-colours');
     crow.setAttribute('role', 'group');
-    crow.setAttribute('aria-label', 'Enhanced Plus cursor');
-    crow.append(el('span', 'look-colours-label', 'Cursor'));
-    for (const [on, label] of [[true, 'Gauntlet'], [false, 'System']]) {
+    crow.setAttribute('aria-label', t('menu.ovh.plusCursor', 'Enhanced Plus cursor'));
+    crow.append(el('span', 'look-colours-label', t('menu.ovh.cursor', 'Cursor')));
+    for (const [on, label] of [[true, t('menu.ovh.cursorGauntlet', 'Gauntlet')], [false, t('menu.ovh.cursorSystem', 'System')]]) {
       const b = el('button', 'look-colour', label);
       b.type = 'button';
       b.setAttribute('aria-pressed', String(plusCursorOn() === on));
@@ -3256,9 +3298,9 @@ function overhaulPanel(p) {
     // PLUS7: the inventory's hover card, on or off (the right-click menu stays either way)
     const hrow = el('div', 'look-colours');
     hrow.setAttribute('role', 'group');
-    hrow.setAttribute('aria-label', 'Item info on hover');
-    hrow.append(el('span', 'look-colours-label', 'Item info on hover'));
-    for (const [on, label] of [[true, 'On'], [false, 'Off']]) {
+    hrow.setAttribute('aria-label', t('menu.ovh.itemHover', 'Item info on hover'));
+    hrow.append(el('span', 'look-colours-label', t('menu.ovh.itemHover', 'Item info on hover')));
+    for (const [on, label] of [[true, t('menu.toggle.on', 'On')], [false, t('menu.toggle.off', 'Off')]]) {
       const b = el('button', 'look-colour', label);
       b.type = 'button';
       b.setAttribute('aria-pressed', String((getPref('plusItemHover') !== false) === on));
@@ -3268,7 +3310,7 @@ function overhaulPanel(p) {
     card.append(hrow);
     card.append(plusControllerRows());   // PADPLUS1
   }
-  const use = el('button', 'act primary look-use', o === cur ? 'In use' : `Use ${o.name}`);
+  const use = el('button', 'act primary look-use', o === cur ? t('menu.ovh.inUse', 'In use') : t('menu.ovh.use', 'Use {look}', { look: o.name }));
   use.type = 'button';
   use.disabled = o === cur;
   use.onclick = () => {
@@ -3277,7 +3319,7 @@ function overhaulPanel(p) {
     render();
   };
   card.append(use);
-  if (!cur) card.append(el('p', 'look-note', 'Custom: your own mix from Features. Using a look sets every switch it covers.'));
+  if (!cur) card.append(el('p', 'look-note', t('menu.ovh.custom', 'Custom: your own mix from Features. Using a look sets every switch it covers.')));
   const forced = isOnlinePage() && p.online ? p.online : null;
   card.append(el('p', 'look-note', forced ? `${p.effect} ${forced}` : p.effect));
   return card;
@@ -3302,11 +3344,11 @@ function plusControllerRows() {
     return r;
   };
   const xb = ['on', 'off'].includes(getPref('plusCrossbar')) ? getPref('plusCrossbar') : 'auto';
-  wrap.append(row('Controller crossbar', [['auto', 'Auto'], ['on', 'On'], ['off', 'Off']], xb, (v) => setPref('plusCrossbar', v)));
-  wrap.append(row('Left stick run', [[true, 'Toggle'], [false, 'Hold']], getPref('plusToggleRun') !== false, (v) => setPref('plusToggleRun', v)));
+  wrap.append(row(t('menu.pad.crossbar', 'Controller crossbar'), [['auto', t('menu.pad.auto', 'Auto')], ['on', t('menu.toggle.on', 'On')], ['off', t('menu.toggle.off', 'Off')]], xb, (v) => setPref('plusCrossbar', v)));
+  wrap.append(row(t('menu.pad.stickRun', 'Left stick run'), [[true, t('menu.pad.toggle', 'Toggle')], [false, t('menu.pad.hold', 'Hold')]], getPref('plusToggleRun') !== false, (v) => setPref('plusToggleRun', v)));
   const fam = livePadFamily() ?? 'xbox';
   const legend = el('div', 'look-padlegend');
-  legend.setAttribute('aria-label', 'Controller layout');
+  legend.setAttribute('aria-label', t('menu.pad.layout', 'Controller layout'));
   for (const [codes, word] of plusPadLegend(liveBindings())) {
     const it = el('div', 'look-paditem');
     for (const c of codes) { const im = el('img'); im.src = hdGlyphSvg(fam, c, { size: 40 }) ?? ''; im.alt = hdGlyphName(fam, c); it.append(im); }
@@ -3315,7 +3357,7 @@ function plusControllerRows() {
   }
   wrap.append(legend);
   // PADPLUS10: the separate window - buttons, the d-pad's tap and hold, the sticks' sensitivity
-  const binds = el('button', 'act primary look-padbinds', 'Controller bindings\u2026');
+  const binds = el('button', 'act primary look-padbinds', t('menu.pad.bindings', 'Controller bindings\u2026'));
   binds.type = 'button';
   binds.onclick = (e) => {
     e.stopPropagation();
@@ -3323,7 +3365,7 @@ function plusControllerRows() {
     globalThis.addEventListener?.('plus-padbinds-closed', () => render(), { once: true });   // the legend shows what was set
   };
   wrap.append(binds);
-  const reset = el('button', 'act look-padreset', 'Reset controller layout');
+  const reset = el('button', 'act look-padreset', t('menu.pad.reset', 'Reset controller layout'));
   reset.type = 'button';
   reset.onclick = (e) => { e.stopPropagation(); resetPlusPadLayout(liveBindings()); resetPlusDpad(); render(); };   // PADPLUS10: and the d-pad's tap/hold
   wrap.append(reset);
@@ -3386,15 +3428,15 @@ function featureRow(f) {
 function paneAbout(body) {
   const c = el('div', 'card');
   c.append(el('h3', null, 'Daggerfall Online'));   // the public name (BR1, BR4); project-dagger is the repo
-  c.append(el('p', 'meta', 'An open-source reimplementation of The Elder Scrolls II: Daggerfall.'));
+  c.append(el('p', 'meta', t('menu.about.tagline', 'An open-source reimplementation of The Elder Scrolls II: Daggerfall.')));
   c.append(stats([
-    ['Build', BUILD_TAG],
-    ['Interface', currentOption(OVERHAUL_PANELS.find((p) => p.id === 'ui'))?.name ?? SKIN_NAMES[uiSkin()]],   // PLUS1; MENU-TOGGLE: the UI Overhaul worn, by its card's name (GrimoireUI is the classic skin with a pack)
-    ['Settings', `${Object.values(DEFAULTS).reduce((n, s2) => n + Object.keys(s2).length, 0)} keys`],
+    [t('menu.about.build', 'Build'), BUILD_TAG],
+    [t('menu.about.interface', 'Interface'), currentOption(OVERHAUL_PANELS.find((p) => p.id === 'ui'))?.name ?? SKIN_NAMES[uiSkin()]],   // PLUS1; MENU-TOGGLE: the UI Overhaul worn, by its card's name (GrimoireUI is the classic skin with a pack)
+    [t('menu.about.settings', 'Settings'), t('menu.about.keys', '{n, plural, other {# keys}}', { n: Object.values(DEFAULTS).reduce((n, s2) => n + Object.keys(s2).length, 0) })],
   ]));
   body.append(c);
   body.append(creditsCard());
-  body.append(empty('Exit', 'A browser tab cannot close itself. Close it yourself; the quicksave survives.'));
+  body.append(empty(t('menu.about.exit', 'Exit'), t('menu.about.exitNote', 'A browser tab cannot close itself. Close it yourself; the quicksave survives.')));
 }
 
 // CR1: THE CREDITS (Mac, 2026-08-30). Rendered from ui/credits.js, the
@@ -3404,20 +3446,20 @@ function paneAbout(body) {
 // take their own heading, with the terms the work is carried under.
 function creditsCard() {
   const c = el('div', 'card credits');
-  c.append(el('h3', null, 'Credits'));
-  c.append(el('p', 'meta', 'What this port is built on, and the mods carried in it with their authors\' permission.'));
+  c.append(el('h3', null, t('menu.credits.title', 'Credits')));
+  c.append(el('p', 'meta', t('menu.credits.blurb', 'What this port is built on, and the mods carried in it with their authors\' permission.')));
   const group = (heading, rows) => {
     c.append(el('h4', 'credits-head', heading));
     for (const r of rows) {
       const row = el('div', 'credit');
       const title = el('div', 'credit-title');
       title.append(el('span', 'credit-name', r.version ? `${r.title} ${r.version}` : r.title));
-      title.append(el('span', 'credit-by', `by ${r.author}`));
+      title.append(el('span', 'credit-by', t('menu.credits.by', 'by {author}', { author: r.author })));
       row.append(title);
       row.append(el('p', 'credit-what', r.what));
       const foot = [];
       if (r.terms) foot.push(r.terms);
-      if (r.contact) foot.push(`Contact: ${r.contact}.`);
+      if (r.contact) foot.push(t('menu.credits.contact', 'Contact: {contact}.', { contact: r.contact }));
       if (foot.length) row.append(el('p', 'credit-terms', foot.join(' ')));
       if (r.link) {
         const a = el('a', 'credit-link', r.link.replace(/^https?:\/\//, ''));
@@ -3427,8 +3469,8 @@ function creditsCard() {
       c.append(row);
     }
   };
-  group('Built on', CREDITS.builtOn);
-  group('Mods', CREDITS.mods);
+  group(t('menu.credits.builtOn', 'Built on'), CREDITS.builtOn);
+  group(t('menu.credits.mods', 'Mods'), CREDITS.mods);
   return c;
 }
 
@@ -3556,7 +3598,7 @@ function renderHome() {
   stage.append(rule);
 
   const menu = el('nav', 'px-menu');
-  menu.setAttribute('aria-label', 'Main menu');
+  menu.setAttribute('aria-label', t('menu.home.aria', 'Main menu'));
   // PX1b: About leaves the center list for the corner box below - the
   // list is what a player DOES, the box is who made it. The SECTION
   // still exists on the shell rail untouched, so the rail-hole pin and
@@ -3614,8 +3656,8 @@ function renderHome() {
 function appendPxFoot(home) {
   const foot = el('div', 'px-foot');
   const build = el('span', 'px-build');
-  build.append(document.createTextNode('build '), el('span', null, BUILD_TAG));
-  const about = el('button', 'px-about', 'About');
+  build.append(document.createTextNode(`${t('menu.foot.build', 'build')} `), el('span', null, BUILD_TAG));
+  const about = el('button', 'px-about', RAIL_TEXT.about());
   about.onclick = () => go('about');
   foot.append(build, about);   // MENU-TOGGLE: the skin pair that stood between them is retired
   home.append(foot);
@@ -3623,6 +3665,20 @@ function appendPxFoot(home) {
 
 // ── PX3: THE PAUSE WINDOW ────────────────────────────────────────
 const PAUSE_TABS = Object.freeze([['quests', 'Quests'], ['stats', 'Stats'], ['system', 'System']]);
+/** L10N4: the pause window's tab and page words in the player's language, by id - the tables keep the English ids'
+ *  labels; a page another module adds (the professions', the revenants', the companions') shows its own label. */
+const PAUSE_TEXT = Object.freeze({
+  quests: () => t('pause.tab.quests', 'Quests'),
+  stats: () => t('pause.tab.stats', 'Stats'),
+  system: () => t('pause.tab.system', 'System'),
+  character: () => t('pause.stats.character', 'Character'),
+  attributes: () => localizedText('helpAttributes', 'Attributes'),
+  skills: () => localizedText('helpSkills', 'Skills'),
+  specials: () => t('pause.stats.advantages', 'Advantages'),
+  standing: () => t('pause.stats.standing', 'Standing'),
+  effects: () => t('pause.stats.effects', 'Effects'),
+});
+const pauseLabel = (id, label) => PAUSE_TEXT[id]?.() ?? label;
 // The token formattings that carry a journal line - questJournal's own
 // counted set (DaggerfallQuestJournalWindow.cs:658-662 via its :322).
 
@@ -3633,7 +3689,7 @@ function pauseWindow() {
   const tabs = el('div', 'px-tabs');
   for (const [id, label] of PAUSE_TABS) {
     const b = el('button', id === pauseTab ? 'on' : null);
-    b.append(el('span', 'px-c', '\u25c6'), document.createTextNode(label), el('span', 'px-c', '\u25c6'));
+    b.append(el('span', 'px-c', '\u25c6'), document.createTextNode(pauseLabel(id, label)), el('span', 'px-c', '\u25c6'));
     b.onclick = () => { if (id !== 'system') discardControlsStaging(); pauseTab = id; render(); };
     tabs.append(b);
   }
@@ -3678,7 +3734,7 @@ function pauseSystem(body) {
   const rail = el('div', 'px-qrail');
   for (const [id, label] of SYSTEM_PANES) {
     const b = el('button', `px-qrow${id === sysSec && !RAIL_ACTS[id] ? ' on' : ''}`);
-    b.append(el('span', 'px-c', '\u25c6'), document.createTextNode(label));
+    b.append(el('span', 'px-c', '\u25c6'), document.createTextNode(railLabel(label)));   // L10N4: the rail's own words
     b.onclick = RAIL_ACTS[id] ? () => onAction(RAIL_ACTS[id])
       : () => {
         // FIX-F: leaving the Controls pane without CONTINUE DISCARDS -
@@ -3726,6 +3782,9 @@ const STATS_SECTIONS = Object.freeze([
 // (formats/factionFile.js:23-27; talk.js seeds the array) - the enum
 // slots past Underworld are DFU's own placeholders and stay unlisted.
 const SOCIAL_GROUP_NAMES = Object.freeze(['Commoners', 'Merchants', 'Scholars', 'Nobility', 'Underworld']);
+/** L10N4: the five groups' names as DFU keys them (Internal_Strings commoners..underworld), in the player's language. */
+const socialGroupNames = () => [localizedText('commoners', 'Commoners'), localizedText('merchants', 'Merchants'),
+  localizedText('scholars', 'Scholars'), localizedText('nobility', 'Nobility'), localizedText('underworld', 'Underworld')];
 
 /** A whole-pixel meter: 2px frame, flat fill, no easing. */
 function pxMeter(now, max, tone) {
@@ -3776,7 +3835,7 @@ function pauseStats(body) {
   if (!offRail && !statsSections().some(([id]) => id === statsSec)) statsSec = 'character';
   for (const [id, label] of statsSections()) {
     const b = el('button', `px-qrow${id === statsSec ? ' on' : ''}`);
-    b.append(el('span', 'px-c', '\u25c6'), document.createTextNode(label));
+    b.append(el('span', 'px-c', '\u25c6'), document.createTextNode(pauseLabel(id, label)));
     b.onclick = () => { statsSec = id; render(); };
     rail.append(b);
   }
@@ -3801,7 +3860,7 @@ function pauseStats(body) {
   // appears ONLY when the host handed one over, because a button that
   // opens nothing is PX14's drawn door.
   const doors = statsSec === 'master' ? [] : [   // SOFTCAP6: the Master Skills page carries none of the sheet's doors
-    ['Pack', hooks.openPack], ['Spellbook', hooks.openSpellbook], ['Chronicle', hooks.openChronicle],
+    [t('pause.door.pack', 'Pack'), hooks.openPack], [t('pause.door.spellbook', 'Spellbook'), hooks.openSpellbook], [t('pause.door.chronicle', 'Chronicle'), hooks.openChronicle],
   ].filter(([, fn]) => typeof fn === 'function');
   if (doors.length) {
     const row = el('div', 'px-sheetdoors');
@@ -3835,14 +3894,14 @@ function pauseStats(body) {
   // resumes nor hands off; the page's own button comes back to Skills. A count on the button when a choice is waiting.
   const masterDoor = m.master ? (() => {
     const n = m.master.candidates?.length ?? 0;
-    const b = el('button', n ? 'act primary' : 'act', n ? `Master Skills (${n})` : 'Master Skills');
+    const b = el('button', n ? 'act primary' : 'act', n ? t('pause.door.masterCount', 'Master Skills ({n})', { n }) : t('pause.master.title', 'Master Skills'));
     b.onclick = () => { statsSec = 'master'; _masterNote = null; render(); };
     return b;
   })() : null;
   if (statsSec !== 'master' && (typeof hooks.openAscend === 'function' || masterDoor)) {
     const row = el('div', 'px-sheetdoors');
     if (typeof hooks.openAscend === 'function') {
-      const b = el('button', 'act', 'Ascend');
+      const b = el('button', 'act', t('pause.door.ascend', 'Ascend'));
       b.onclick = () => hooks.openAscend();
       row.append(b);
     }
@@ -3857,17 +3916,18 @@ function pauseStats(body) {
  *  in the skin's blood, fatigue in bone, magicka in verdigris. */
 function statsCharacter(detail, m) {
   const head2 = el('div', 'px-qname');
-  head2.append(el('span', 'px-qwing'), el('h3', null, m.name || 'Adventurer'), el('span', 'px-qwing px-flip'));
+  head2.append(el('span', 'px-qwing'), el('h3', null, m.name || t('pause.stats.adventurer', 'Adventurer')), el('span', 'px-qwing px-flip'));
   detail.append(head2);
   const meta = el('div', 'px-qmeta');
-  meta.append(el('span', 'px-qkind', `${m.race}${m.career ? ` ${m.career}` : ''} \u00b7 Level ${m.level}`));
+  meta.append(el('span', 'px-qkind', m.career ? t('pause.stats.kindCareer', '{race} {career} \u00b7 Level {level}', { race: m.race, career: m.career, level: m.level })
+    : t('pause.stats.kind', '{race} \u00b7 Level {level}', { race: m.race, level: m.level })));
   detail.append(meta);
-  detail.append(meterRow('Health', m.health.now, m.health.max, 'blood'));
-  detail.append(meterRow('Fatigue', m.fatigue.now, m.fatigue.max, ''));
-  detail.append(meterRow('Magicka', m.magicka.now, m.magicka.max, 'verdigris'));
-  detail.append(pxDivider('Burden'));
+  detail.append(meterRow(localizedText('health', 'Health'), m.health.now, m.health.max, 'blood'));
+  detail.append(meterRow(localizedText('fatigue', 'Fatigue'), m.fatigue.now, m.fatigue.max, ''));
+  detail.append(meterRow(localizedText('magicka', 'Magicka'), m.magicka.now, m.magicka.max, 'verdigris'));
+  detail.append(pxDivider(t('pause.stats.burden', 'Burden')));
   const g = el('div', 'px-statgrid');
-  for (const [label, v] of [['Gold', String(m.gold)], ['Encumbrance', `${m.encumbrance.now} / ${m.encumbrance.max}`]]) {
+  for (const [label, v] of [[t('menu.save.gold', 'Gold'), String(m.gold)], [t('pause.stats.encumbrance', 'Encumbrance'), `${m.encumbrance.now} / ${m.encumbrance.max}`]]) {
     const r = el('div', 'px-stat');
     r.append(el('span', 'k', label), el('span', 'v', v));
     g.append(r);
@@ -3880,22 +3940,22 @@ function statsCharacter(detail, m) {
  *  kinds that only help - never a held item's, a duel's or anything harmful). The door that needs no freed mouse: a
  *  pad, a finger, a player who never presses Enter. The HUD's right-click is its twin (ui/enhancedHud.js). */
 function statsEffects(detail) {
-  detail.append(pxDivider('Active spells'));
+  detail.append(pxDivider(t('pause.effects.title', 'Active spells')));
   const bundles = liveBundles(playerEntity).filter((b) => b.showIcon);
   if (!bundles.length) {
-    detail.append(el('p', 'px-note', 'No spells are on you.'));
+    detail.append(el('p', 'px-note', t('pause.effects.none', 'No spells are on you.')));
     return;
   }
   for (const b of bundles) {
     const r = el('div', 'px-stat px-effect');
     const held = b.bundleType === 'HeldMagicItem';
     const rounds = maxRoundsRemaining(b);
-    r.append(el('span', 'k', String(b.name ?? '').replace(/^!+/, '') || 'A spell'),
-      el('span', 'v px-src', held ? 'While held' : `${rounds} round${rounds === 1 ? '' : 's'}`));
+    r.append(el('span', 'k', String(b.name ?? '').replace(/^!+/, '') || t('pause.effects.aSpell', 'A spell')),
+      el('span', 'v px-src', held ? t('pause.effects.whileHeld', 'While held') : t('pause.effects.rounds', '{n, plural, one {# round} other {# rounds}}', { n: rounds })));
     if (canEndBundle(b)) {
-      const end = el('button', 'act', 'End');
+      const end = el('button', 'act', t('pause.effects.end', 'End'));
       end.type = 'button';
-      end.title = 'End this spell now';
+      end.title = t('pause.effects.endTip', 'End this spell now');
       end.onclick = () => { endBundle(playerEntity, b.bundleId); render(); };
       r.append(end);
     }
@@ -3905,9 +3965,9 @@ function statsEffects(detail) {
 
 /** ATTRIBUTES: the eight, each with a meter on the classic 100. */
 function statsAttributes(detail, m) {
-  detail.append(pxDivider('Attributes'));
+  detail.append(pxDivider(localizedText('helpAttributes', 'Attributes')));
   for (const a of m.attributes) {
-    detail.append(meterRow(a.key[0].toUpperCase() + a.key.slice(1), a.value, 100, ''));
+    detail.append(meterRow(localizedText(a.key, a.key[0].toUpperCase() + a.key.slice(1)), a.value, 100, ''));   // L10N4: DFU's own attribute keys (strength..luck)
   }
 }
 
@@ -3926,12 +3986,12 @@ function statsMaster(detail, m) {
   // of the sheet's doors on it). One short line of what it is; then the three career groups, each with its slots as
   // pips and every one of its skills as a row: mastered (gold, its climb on the gold bar), ready (a Master button that
   // asks first), or not yet (why, in a word). Offline the switch stands at the foot.
-  const back = acts([{ label: '\u2039 Skills', onClick: () => { statsSec = 'skills'; _masterNote = null; render(); } }]);
+  const back = acts([{ label: `\u2039 ${localizedText('helpSkills', 'Skills')}`, onClick: () => { statsSec = 'skills'; _masterNote = null; render(); } }]);
   back.classList.add('px-master-back');
-  detail.append(back, pxDivider('Master Skills'));
+  detail.append(back, pxDivider(t('pause.master.title', 'Master Skills')));
   const lead = !ms.on
-    ? (ms.switchable ? 'Off \u2013 your skills stop at 100, as in Daggerfall.' : 'Off.')
-    : 'Choose the skills that may climb past 100, up to 200. A choice is permanent.';
+    ? (ms.switchable ? t('pause.master.offClassic', 'Off \u2013 your skills stop at 100, as in Daggerfall.') : t('pause.master.off', 'Off.'))
+    : t('pause.master.on', 'Choose the skills that may climb past 100, up to 200. A choice is permanent.');
   detail.append(el('div', 'px-master-lead', lead));
   if (_masterNote) detail.append(el('div', 'px-master-note', _masterNote));
   for (const g of ms.groups) {
@@ -3939,16 +3999,16 @@ function statsMaster(detail, m) {
     const head = el('div', 'px-mhead');
     const pips = el('span', 'px-pips');
     for (let k = 0; k < g.max; k++) pips.append(el('span', k < g.used ? 'px-pip on' : 'px-pip', k < g.used ? '\u25c6' : '\u25c7'));
-    head.append(el('span', 'px-mname', g.label), pips, el('span', 'px-mcount', `${g.used} of ${g.max} chosen`));
+    head.append(el('span', 'px-mname', g.label), pips, el('span', 'px-mcount', t('pause.master.chosen', '{used} of {max} chosen', { used: g.used, max: g.max })));
     card.append(head);
     for (const sk of g.skills) {
       const row = el('div', sk.mastered ? 'px-mrow2 is-mastered' : sk.candidate ? 'px-mrow2 is-ready' : 'px-mrow2');
       const top = el('div', 'px-mtop');
       top.append(el('span', 'k', `${sk.mastered ? '\u25c6 ' : ''}${sk.name}`), el('span', 'v', String(sk.value)));
       const side = el('div', 'px-mside');
-      if (sk.mastered) side.append(el('span', 'px-mtag gold', sk.value >= 200 ? 'Mastered \u00b7 200' : 'Mastered'));
+      if (sk.mastered) side.append(el('span', 'px-mtag gold', sk.value >= 200 ? t('pause.master.masteredFull', 'Mastered \u00b7 200') : t('pause.master.mastered', 'Mastered')));
       else if (sk.candidate) {
-        const b = el('button', 'act primary px-mbtn', 'Master');
+        const b = el('button', 'act primary px-mbtn', t('pause.master.master', 'Master'));
         b.onclick = () => askCard(sk.rows, () => { _masterNote = ms.master(sk.id).text; render(); });
         side.append(b);
       } else side.append(el('span', 'px-mtag', sk.why));
@@ -3962,11 +4022,11 @@ function statsMaster(detail, m) {
   if (ms.switchable) {   // offline only - online it is always on
     const flip = () => { _masterNote = ms.toggle().text; render(); };
     const foot = acts([{
-      label: ms.on ? 'Turn off Master Skills' : 'Activate Master Skills', primary: !ms.on,
+      label: ms.on ? t('pause.master.turnOff', 'Turn off Master Skills') : t('pause.master.activate', 'Activate Master Skills'), primary: !ms.on,
       onClick: () => {
         if (ms.blocked) { _masterNote = ms.blocked; render(); return; }
         if (ms.on) { flip(); return; }
-        askCard(['Activate Master Skills?', '', 'Dangerous dungeons will send stronger enemies,', 'and points past 100 are slow to earn.', 'You can turn it off here at any time.'], flip);
+        askCard([t('pause.master.askTitle', 'Activate Master Skills?'), '', ...t('pause.master.askBody', 'Dangerous dungeons will send stronger enemies,\nand points past 100 are slow to earn.\nYou can turn it off here at any time.').split('\n')], flip);
       },
     }]);
     foot.classList.add('px-master-foot');
@@ -3993,11 +4053,11 @@ function askCard(lines, onYes) {
   const close = () => { removeEventListener('keydown', onKey, true); back.remove(); };
   addEventListener('keydown', onKey, true);
   const bar = acts([
-    { label: 'Yes', onClick: () => { close(); onYes(); } },
-    { label: 'No', primary: true, onClick: close },
+    { label: t('pause.ask.yes', 'Yes'), onClick: () => { close(); onYes(); } },
+    { label: t('pause.ask.no', 'No'), primary: true, onClick: close },
   ]);
   bar.classList.add('yesnobox-acts');
-  const hint = el('div', 'notice-hint', 'Y yes · N or Enter no');
+  const hint = el('div', 'notice-hint', t('pause.ask.hint', 'Y yes · N or Enter no'));
   card.append(rows, bar, hint);
   back.append(card);
   document.body.append(back);
@@ -4014,7 +4074,7 @@ function statsSkills(detail, m) {
       const r = el('div', 'px-skill');
       const top = el('div', 'px-mtop');
       const mastered = !!m.master?.isMastered?.(id);   // SOFTCAP4: a mastered skill wears the diamond, in gold
-      top.append(el('span', mastered ? 'k px-mastered' : 'k', `${mastered ? '\u25c6 ' : ''}${SKILL_NAMES[id] ?? `Skill ${id}`}`), el('span', 'v', m.skillText ? m.skillText(id) : String(m.skill(id))));
+      top.append(el('span', mastered ? 'k px-mastered' : 'k', `${mastered ? '\u25c6 ' : ''}${SKILL_NAMES[id] ?? t('pause.skills.unknown', 'Skill {id}', { id })}`), el('span', 'v', m.skillText ? m.skillText(id) : String(m.skill(id))));
       // SOFTCAP1/6: 0..100 as ever, and under a MASTERED skill the gold 100..200 bar (its track shows from the moment
       // of mastery, empty at 100) - the one mark this pane carries of it
       r.append(top, skillMeter(m.skillBase ? m.skillBase(id) : m.skill(id), mastered));   // SOFTCAP7: the bars climb the TRAINED value
@@ -4035,7 +4095,7 @@ function statsSkills(detail, m) {
   const more = el('button', 'px-qrow px-disclose');
   const miscCount = m.groups[3]?.ids.length ?? 0;
   more.append(el('span', 'px-c', '\u25c6'),
-    document.createTextNode(statsAllSkills ? 'Hide miscellaneous' : `Show ${miscCount} miscellaneous skills`));
+    document.createTextNode(statsAllSkills ? t('pause.skills.hideMisc', 'Hide miscellaneous') : t('pause.skills.showMisc', 'Show {n} miscellaneous skills', { n: miscCount })));
   more.onclick = () => { statsAllSkills = !statsAllSkills; render(); };
   detail.append(more);
 }
@@ -4057,18 +4117,18 @@ function statsSkills(detail, m) {
 function statsSpecials(detail, m) {
   const rows = m.specials ?? [];
   if (!rows.length) {
-    detail.append(pxDivider('Advantages'));
-    detail.append(el('p', 'px-note', 'No special advantages or disadvantages.'));
+    detail.append(pxDivider(t('pause.stats.advantages', 'Advantages')));
+    detail.append(el('p', 'px-note', t('pause.specials.none', 'No special advantages or disadvantages.')));
     return;
   }
-  for (const [kind, title] of [['advantage', 'Advantages'], ['disadvantage', 'Disadvantages']]) {
+  for (const [kind, title] of [['advantage', t('pause.stats.advantages', 'Advantages')], ['disadvantage', t('pause.specials.disadvantages', 'Disadvantages')]]) {
     const list = rows.filter((r) => r.kind === kind);
     if (!list.length) continue;
     detail.append(pxDivider(title));
     for (const r of list) {
       const row = el('div', 'px-stat');
       row.append(el('span', 'k', r.label));
-      row.append(el('span', 'v px-src', r.source === 'race' ? (m.race || 'Race') : (m.career || 'Class')));
+      row.append(el('span', 'v px-src', r.source === 'race' ? (m.race || t('pause.specials.race', 'Race')) : (m.career || t('pause.specials.class', 'Class'))));
       detail.append(row);
     }
   }
@@ -4082,11 +4142,12 @@ function statsSpecials(detail, m) {
 const signedRep = (v) => el('span', `v${v > 0 ? ' won' : v < 0 ? ' bad' : ''}`, v > 0 ? `+${v}` : String(v));
 
 function statsStanding(detail) {
-  detail.append(pxDivider('Reputation'));
+  detail.append(pxDivider(t('pause.standing.reputation', 'Reputation')));
   const reps = playerEntity.sGroupReputations ?? [];
+  const groupNames = socialGroupNames();
   for (let i = 0; i < SOCIAL_GROUP_NAMES.length; i++) {
     const r = el('div', 'px-stat');
-    r.append(el('span', 'k', SOCIAL_GROUP_NAMES[i]), signedRep(reps[i] ?? 0));
+    r.append(el('span', 'k', groupNames[i]), signedRep(reps[i] ?? 0));
     detail.append(r);
   }
   statsDress(detail, playerEntity);
@@ -4100,15 +4161,16 @@ function statsStanding(detail) {
 export function dressLine(entity) {
   const d = dressStanding(entity);
   const parts = [];
-  for (let i = 0; i < SOCIAL_GROUP_NAMES.length; i++) if (d.groups[i]) parts.push(`${SOCIAL_GROUP_NAMES[i]} ${d.groups[i] > 0 ? '+' : ''}${d.groups[i]}`);
-  if (d.temple) parts.push(`Temples ${d.temple > 0 ? '+' : ''}${d.temple}`);
+  const groupNames = socialGroupNames();
+  for (let i = 0; i < SOCIAL_GROUP_NAMES.length; i++) if (d.groups[i]) parts.push(`${groupNames[i]} ${d.groups[i] > 0 ? '+' : ''}${d.groups[i]}`);
+  if (d.temple) parts.push(t('pause.standing.temples', 'Temples {mod}', { mod: `${d.temple > 0 ? '+' : ''}${d.temple}` }));
   return parts.join(', ');
 }
 export function statsDress(detail, entity) {
   const line = dressLine(entity);
   if (!line) return;
   const r = el('div', 'px-stat px-dress');
-  r.append(el('span', 'k', 'Dress'), el('span', 'v', line));
+  r.append(el('span', 'k', t('pause.standing.dress', 'Dress')), el('span', 'v', line));
   detail.append(r);
 }
 
@@ -4116,10 +4178,10 @@ export function statsDress(detail, entity) {
 export function statsLaw(detail, entity, { worldNow = trustedWorldMinutes() } = {}) {   // AUDIT REP F2
   const rows = lawRows(entity, worldNow);
   if (!rows.length) return;
-  detail.append(pxDivider('The law'));
+  detail.append(pxDivider(t('pause.law.title', 'The law')));
   for (const w of rows) {
     const r = el('div', 'px-stat px-law');
-    r.append(el('span', 'k', w.region), el('span', 'v px-rank', w.note ? `${w.word} - ${w.note}` : w.word), signedRep(w.rep));
+    r.append(el('span', 'k', w.region), el('span', 'v px-rank', w.note ? t('pause.law.wordNote', '{word} - {note}', { word: w.word, note: w.note }) : w.word), signedRep(w.rep));
     detail.append(r);
   }
 }
@@ -4135,11 +4197,12 @@ export function lawRows(entity, worldNow) {
     const left = banishmentLeft(entity, i, worldNow);
     if (rep === 0 && left === 0) continue;
     const days = Math.ceil(left / 1440);
-    const term = Number.isFinite(left) ? `, ${days} day${days === 1 ? '' : 's'} left` : '';
-    // the price of each: a pardon at the region's temple, a stop's fine on the street
-    const note = left !== 0 ? `banished${term} (a pardon: ${pardonPrice(entity, i)} gold)`
-      : rep < KNOWN_CRIMINAL_BELOW ? `known to the watch (a stop: ${challengeFine(entity, i, { worldNow })} gold)` : '';
-    out.push({ region: REGION_NAMES[i] ?? `Region ${i}`, rep, word: legalStandingWord(rep), note });
+    // the price of each: a pardon at the region's temple, a stop's fine on the street (L10N4: each note one pattern)
+    const note = left !== 0 ? (Number.isFinite(left)
+      ? t('pause.law.banishedDays', 'banished, {days, plural, one {# day} other {# days}} left (a pardon: {gold} gold)', { days, gold: pardonPrice(entity, i) })
+      : t('pause.law.banished', 'banished (a pardon: {gold} gold)', { gold: pardonPrice(entity, i) }))
+      : rep < KNOWN_CRIMINAL_BELOW ? t('pause.law.known', 'known to the watch (a stop: {gold} gold)', { gold: challengeFine(entity, i, { worldNow }) }) : '';
+    out.push({ region: REGION_NAMES[i] ?? t('pause.law.region', 'Region {i}', { i }), rep, word: legalStandingWord(rep), note });
   }
   return out.sort((a, b) => a.rep - b.rep);
 }
@@ -4152,15 +4215,15 @@ export function lawRows(entity, worldNow) {
  *  skins cannot disagree about a guild. An empty book says what record
  *  19 says rather than drawing an empty section. */
 export function statsGuilds(detail, entity) {
-  detail.append(pxDivider('Guilds'));
+  detail.append(pxDivider(t('pause.guilds.title', 'Guilds')));
   const book = affiliations(entity);
   if (!book.length) {
-    detail.append(el('p', 'px-note', 'You have no affiliations.'));
+    detail.append(el('p', 'px-note', t('pause.guilds.none', 'You have no affiliations.')));
     return;
   }
   for (const a of book) {
     const r = el('div', 'px-stat px-guild');
-    r.append(el('span', 'k', a.affiliation), el('span', 'v px-rank', a.probation ? `${a.title} - on probation` : a.title), signedRep(a.rep));   // REP6
+    r.append(el('span', 'k', a.affiliation), el('span', 'v px-rank', a.probation ? t('pause.guilds.probation', '{title} - on probation', { title: a.title }) : a.title), signedRep(a.rep));   // REP6
     detail.append(r);
   }
 }
@@ -4205,7 +4268,7 @@ export function questTimerWords(log, key) {
   const r = questRail(log ?? { active: [], finished: [] });
   const q = [...r.active, ...r.hidden].find((row) => row.key === key);   // JOURNAL-CLEAN: a hidden quest shown is still timed
   if (!q || q.clockSeconds == null) return null;
-  return { text: `Time remains: ${remainWords(q.clockSeconds)}`, urgent: q.clockSeconds < QUEST_URGENT_SECONDS };
+  return { text: t('pause.journal.timeRemains', 'Time remains: {left}', { left: remainWords(q.clockSeconds) }), urgent: q.clockSeconds < QUEST_URGENT_SECONDS };
 }
 
 /** The journal rendered once when it opened and again on a click, so
@@ -4286,7 +4349,7 @@ function latestPlace(sel) {
  *  F5 logbook's flat seam); a host without the hook says so. */
 function pauseQuests(body) {
   if (!hooks.questLog) {
-    body.append(el('p', 'px-note', 'The journal is not wired into this place yet.'));
+    body.append(el('p', 'px-note', t('pause.journal.notWired', 'The journal is not wired into this place yet.')));
     return;
   }
   // MAC-K2: THE WALK IS ui/questRail.js's now, because the chronicle
@@ -4299,7 +4362,7 @@ function pauseQuests(body) {
   // nothing.
   const clean = hooks.journalClean?.() ?? null;
   if (!active.length && !finished.length && !hidden.length) {
-    body.append(el('p', 'px-note', 'No active quests.'));
+    body.append(el('p', 'px-note', t('pause.journal.none', 'No active quests.')));
     return;
   }
   const shown = questShowHidden ? hidden : [];
@@ -4346,12 +4409,12 @@ function pauseQuests(body) {
     if (items.length) railList(items, cls);
     else rail.append(el('div', 'px-qnone', '\u2014'));
   };
-  section('Main Quests', mains, '', true);
-  section('Side Quests', sides, '');
+  section(t('pause.journal.main', 'Main Quests'), mains, '', true);
+  section(t('pause.journal.side', 'Side Quests'), sides, '');
   // JOURNAL-CLEAN: the hidden quests, drawn only when asked for, under their own heading - and the toggle that asks,
   // which names how many are hidden so a tidied journal never looks like quests were lost.
-  if (questShowHidden && hidden.length) section('Hidden', hidden, ' done');
-  section('Archived', finished, ' done');
+  if (questShowHidden && hidden.length) section(t('pause.journal.hidden', 'Hidden'), hidden, ' done');
+  section(t('pause.journal.archived', 'Archived'), finished, ' done');
   const railAct = (label, onclick) => {
     const b = el('button', 'px-qrow done', label);
     b.style.cssText = 'font-size:12px;margin-top:6px';
@@ -4360,7 +4423,7 @@ function pauseQuests(body) {
   };
   if (clean && finished.length) {
     const armed = journalCleanArmed === 'clear';
-    railAct(armed ? 'Click again to clear archive' : `Clear archive (${finished.length})`, () => {
+    railAct(armed ? t('pause.journal.clearArmed', 'Click again to clear archive') : t('pause.journal.clear', 'Clear archive ({n})', { n: finished.length }), () => {
       if (journalCleanArmed !== 'clear') { journalCleanArmed = 'clear'; render(); return; }
       journalCleanArmed = null;
       clean.clearFinished?.();
@@ -4369,7 +4432,7 @@ function pauseQuests(body) {
     });
   }
   if (hidden.length) {
-    railAct(questShowHidden ? `Hide hidden (${hidden.length})` : `Show hidden (${hidden.length})`, () => {
+    railAct(questShowHidden ? t('pause.journal.hideHidden', 'Hide hidden ({n})', { n: hidden.length }) : t('pause.journal.showHidden', 'Show hidden ({n})', { n: hidden.length }), () => {
       questShowHidden = !questShowHidden;
       if (!questShowHidden && hidden.some((q) => q.key === questSel)) questSel = null;
       render();
@@ -4393,7 +4456,7 @@ function pauseQuests(body) {
       if (sel.clockSeconds != null) {
         // Under a game day the words go URGENT gold.
         const urgent = sel.clockSeconds < QUEST_URGENT_SECONDS;
-        const timer = el('span', `px-qtimer${urgent ? ' urgent' : ''}`, `Time remains: ${remainWords(sel.clockSeconds)}`);
+        const timer = el('span', `px-qtimer${urgent ? ' urgent' : ''}`, t('pause.journal.timeRemains', 'Time remains: {left}', { left: remainWords(sel.clockSeconds) }));
         meta.append(timer);
         armQuestTimer(timer, sel.key);
       }
@@ -4412,12 +4475,12 @@ function pauseQuests(body) {
       const acts = el('div', 'px-qacts');
       acts.style.cssText = 'display:flex;gap:8px;justify-content:flex-end;margin:6px 0 8px';
       if (bountyQuestShareable(sel.id)) {
-        const sh = el('button', 'act', 'Share with party');
+        const sh = el('button', 'act', t('pause.journal.share', 'Share with party'));
         sh.onclick = () => { shareBountyQuest(sel.id); render(); };
         acts.append(sh);
       }
       const armed = bountyAbandonArmed === sel.id;
-      const ab = el('button', 'act', armed ? 'Click again to abandon' : 'Abandon bounty');
+      const ab = el('button', 'act', armed ? t('pause.journal.abandonArmed', 'Click again to abandon') : t('pause.journal.abandon', 'Abandon bounty'));
       ab.onclick = () => {
         if (bountyAbandonArmed !== sel.id) { bountyAbandonArmed = sel.id; render(); return; }
         bountyAbandonArmed = null;
@@ -4436,7 +4499,7 @@ function pauseQuests(body) {
       acts.style.cssText = 'display:flex;gap:8px;justify-content:flex-end;margin:6px 0 8px';
       if (sel.entries && sel.id != null) {
         const isHidden = hidden.some((q) => q.key === sel.key);
-        const hb = el('button', 'act', isHidden ? 'Unhide' : 'Hide from journal');
+        const hb = el('button', 'act', isHidden ? t('pause.journal.unhide', 'Unhide') : t('pause.journal.hide', 'Hide from journal'));
         hb.onclick = () => {
           if (isHidden) clean.unhide?.(sel.id);
           else { clean.hide?.(sel.id); questSel = null; }
@@ -4446,7 +4509,7 @@ function pauseQuests(body) {
       } else if (!sel.entries) {
         const index = Number(String(sel.key).slice(2));
         const armed = journalCleanArmed === sel.key;
-        const rb = el('button', 'act', armed ? 'Click again to remove' : 'Remove');
+        const rb = el('button', 'act', armed ? t('pause.journal.removeArmed', 'Click again to remove') : t('pause.journal.remove', 'Remove'));
         rb.onclick = () => {
           if (journalCleanArmed !== sel.key) { journalCleanArmed = sel.key; render(); return; }
           journalCleanArmed = null;
@@ -4466,7 +4529,7 @@ function pauseQuests(body) {
       for (const line of latest) desc.append(el('p', null, line));
       detail.append(desc);
       if (sel.entries.length > 1) {
-        detail.append(pxDivider('Journal'));
+        detail.append(pxDivider(t('pause.journal.title', 'Journal')));
         const offered = latestPlace(sel);   // GUIDE2: the place the where line above already offers
         for (let i = sel.entries.length - 2; i >= 0; i--) {
           const e = el('div', 'px-qentry');
@@ -4485,7 +4548,8 @@ function pauseQuests(body) {
     } else {
       // Archived: the verdict line, then the filed record.
       const verdict = sel.success == null ? null
-        : `${sel.success ? 'Completed' : 'Ended'}${sel.when ? ` at ${sel.when}` : ''}`;
+        : sel.when ? (sel.success ? t('pause.journal.completedAt', 'Completed at {when}', { when: sel.when }) : t('pause.journal.endedAt', 'Ended at {when}', { when: sel.when }))
+          : (sel.success ? t('pause.journal.completed', 'Completed') : t('pause.journal.ended', 'Ended'));
       if (verdict) detail.append(el('p', `px-qverdict${sel.success ? ' won' : ''}`, verdict));
       const desc = el('div', 'px-qdesc');
       for (const line of sel.lines) {
@@ -4548,7 +4612,7 @@ function renderInto() {
   // (onKey); this is the one a finger can see.
   const homeMark = el('button', 'brand-home');
   homeMark.type = 'button';
-  homeMark.setAttribute('aria-label', 'Daggerfall Online — main menu');
+  homeMark.setAttribute('aria-label', t('menu.home.homeAria', 'Daggerfall Online — main menu'));
   homeMark.append(brandMark());
   homeMark.onclick = () => go('home');
   h1.append(homeMark);
@@ -4568,7 +4632,7 @@ function renderInto() {
   side.append(rail);
 
   const foot = el('div', 'foot');
-  foot.append(document.createTextNode('build '));
+  foot.append(document.createTextNode(`${t('menu.foot.build', 'build')} `));
   foot.append(el('span', null, BUILD_TAG));
   side.append(foot);
 
@@ -4580,7 +4644,7 @@ function renderInto() {
     pane.style.overflow = 'hidden';
     paneSettings(pane);
   } else {
-    pane.append(head(sections.find((l) => idOf(l) === section)));
+    pane.append(head(railLabel(sections.find((l) => idOf(l) === section))));   // L10N4: the rail's own word for the pane
     const body = el('div', 'body');
     if (confirming) body.append(confirmCard());
     else {

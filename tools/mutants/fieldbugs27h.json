@@ -308,8 +308,8 @@
   {
     "name": "BUFF-END-stats-end-any",
     "file": "src/ui/enhancedMenu.js",
-    "old": "    if (canEndBundle(b)) {\n      const end = el('button', 'act', 'End');",
-    "new": "    if (b) {\n      const end = el('button', 'act', 'End');",
+    "old": "    if (canEndBundle(b)) {\n      const end = el('button', 'act', t('pause.effects.end', 'End'));",
+    "new": "    if (b) {\n      const end = el('button', 'act', t('pause.effects.end', 'End'));",
     "tests": [
       "test/buffend.test.js"
     ]

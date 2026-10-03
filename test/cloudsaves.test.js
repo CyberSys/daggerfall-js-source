@@ -816,7 +816,7 @@ test('ACC2c: the DOWNLOAD reaches a player - the pane, the act and the one sente
   assert.match(menu, /import \{[^}]*\bpullSlot\b[^}]*\} from '\.\.\/systems\/cloudSaves\.js'/);
   assert.match(menu, /function download\(card\) \{\s*runCloud\(card, \(io\) => pullSlot\(io, appStorage\(\), card\), 'download'\);/,
     'Download pulls - and through `runCloud`, so it is busy under its own slot and its refusal is the service\'s own word');
-  assert.match(menu, /label: 'Download',\s*primary: true,/);
+  assert.match(menu, /label: t\('menu\.cloud\.download', 'Download'\),\s*primary: true,/);
 
   // ONE PANE. Load's job is getting a game back; Online brings a
   // character in to play NOW and cannot use a save that is not here,
@@ -827,7 +827,7 @@ test('ACC2c: the DOWNLOAD reaches a player - the pane, the act and the one sente
 
   // "NO SAVED GAMES" IS FALSE WHEN THE ACCOUNT HAS SOME, and that
   // sentence is the one this slice exists to stop being shown.
-  assert.match(load, /if \(!saves\.length && !onlyCloud\) body\.append\(empty\('No saved games'/);
+  assert.match(load, /if \(!saves\.length && !onlyCloud\) body\.append\(empty\(t\('menu\.saves\.none', 'No saved games'\)/);
 
   // THE SET DIFFERENCE IS NOT WRITTEN HERE (AUDIT-312 F3): the menu
   // asks systems/cloudSaves.js, which a pin can drive.
@@ -839,10 +839,10 @@ test('ACC2c: the DOWNLOAD reaches a player - the pane, the act and the one sente
   // cloud-only slot held its share of SAVES_MAX with no surface that
   // could ever release it. Same word, same two presses.
   const forCard = menu.slice(menu.indexOf('function cloudForCard'), menu.indexOf('/** ONE LADDER FOR BOTH ACTS'));
-  assert.match(forCard, /label: 'Delete backup\?', primary: true, onClick: \(\) => removeBackup\(card\)/);
+  assert.match(forCard, /label: t\('menu\.cloud\.deleteBackupAsk', 'Delete backup\?'\), primary: true, onClick: \(\) => removeBackup\(card\)/);
   assert.match(forCard, /cloudArm = slot; render\(\);/, 'and it arms first - one press cannot destroy anything');
   assert.match(forCard, /local: false,/, 'the state is cloudStateOf\'s own, not a second ladder written here');
-  assert.doesNotMatch(forCard, /label: 'Back up/, 'nothing offers to push a slot this device does not have');
+  assert.doesNotMatch(forCard, /label: (t\('[^']*', )?'Back up/, 'nothing offers to push a slot this device does not have');
 });
 
 // ════════════════════════════════════════════════════════════════════
@@ -999,17 +999,17 @@ test('FIELD 2026-09-27: the menu names a newer backup and asks twice before eith
   assert.match(menu, /localTime: save\.dateAndTime,/, 'and the state is asked with it');
   const newer = menu.slice(menu.indexOf("    case 'newer':"), menu.indexOf("    default:   // 'none'"));
   assert.ok(newer.length > 0, 'the menu answers the state');
-  assert.match(newer, /if \(restore\) \{\s*line\.actions\.push\(cloudArm === `restore\|\$\{save\.key\}`\s*\? \{ label: 'Replace with backup\?', primary: true, onClick: \(\) => restoreBackup\(save, card\) \}\s*: \{ label: 'Restore backup', primary: true, onClick: \(\) => \{ cloudArm = `restore\|\$\{save\.key\}`; render\(\); \} \}\);/,
+  assert.match(newer, /if \(restore\) \{\s*line\.actions\.push\(cloudArm === `restore\|\$\{save\.key\}`\s*\? \{ label: t\('menu\.cloud\.replaceWithBackup', 'Replace with backup\?'\), primary: true, onClick: \(\) => restoreBackup\(save, card\) \}\s*: \{ label: t\('menu\.cloud\.restoreBackup', 'Restore backup'\), primary: true, onClick: \(\) => \{ cloudArm = `restore\|\$\{save\.key\}`; render\(\); \} \}\);/,
     'Restore arms on the first press and restores on the second - armed by THIS local copy');
-  assert.match(newer, /line\.actions\.push\(guardedPush\(save, 'Back up again'\)\);/);
-  assert.match(menu, /function guardedPush\(save, label\) \{\s*return cloudArm === `push\|\$\{save\.key\}`\s*\? \{ label: 'Replace newer backup\?', onClick: \(\) => \{ cloudArm = null; backUp\(save\); \} \}\s*: \{ label, onClick: \(\) => \{ cloudArm = `push\|\$\{save\.key\}`; render\(\); \} \};\s*\}/,
+  assert.match(newer, /line\.actions\.push\(guardedPush\(save, t\('menu\.cloud\.backUpAgain', 'Back up again'\)\)\);/);
+  assert.match(menu, /function guardedPush\(save, label\) \{\s*return cloudArm === `push\|\$\{save\.key\}`\s*\? \{ label: t\('menu\.cloud\.replaceNewer', 'Replace newer backup\?'\), onClick: \(\) => \{ cloudArm = null; backUp\(save\); \} \}\s*: \{ label, onClick: \(\) => \{ cloudArm = `push\|\$\{save\.key\}`; render\(\); \} \};\s*\}/,
     'the older save goes over the newer backup only on a second press');
   // B1: TRY AGAIN IS THE ACT THAT FAILED, and a push over a newer backup still asks twice
   const bad = menu.slice(menu.indexOf("    case 'bad': {"), menu.indexOf("    case 'saved':"));
   assert.match(bad, /const act = cloudWhy\?\.slot === slot \? cloudWhy\.act : 'push';/);
-  assert.match(bad, /if \(act === 'restore'\) \{\s*if \(restore && newerBackup\(card, save\.dateAndTime\)\) line\.actions\.push\(\{ label: 'Try again', onClick: \(\) => restoreBackup\(save, card\) \}\);\s*\}/);
-  assert.match(bad, /else if \(act === 'delete'\) line\.actions\.push\(\{ label: 'Try again', onClick: \(\) => removeBackup\(save\) \}\);/);
-  assert.match(bad, /else if \(newerBackup\(card, save\.dateAndTime\)\) line\.actions\.push\(guardedPush\(save, 'Try again'\)\);/);
+  assert.match(bad, /if \(act === 'restore'\) \{\s*if \(restore && newerBackup\(card, save\.dateAndTime\)\) line\.actions\.push\(\{ label: t\('menu\.cloud\.tryAgain', 'Try again'\), onClick: \(\) => restoreBackup\(save, card\) \}\);\s*\}/);
+  assert.match(bad, /else if \(act === 'delete'\) line\.actions\.push\(\{ label: t\('menu\.cloud\.tryAgain', 'Try again'\), onClick: \(\) => removeBackup\(save\) \}\);/);
+  assert.match(bad, /else if \(newerBackup\(card, save\.dateAndTime\)\) line\.actions\.push\(guardedPush\(save, t\('menu\.cloud\.tryAgain', 'Try again'\)\)\);/);
   assert.match(menu, /function runCloud\(save, call, act = 'push'\) \{/);
   assert.match(menu, /if \(!r\.ok\) cloudWhy = \{ slot, key: save\?\.key, error: r\.error, act \};/, 'the refusal remembers its act, and its copy');
   // a RESTORE's refusal is its one copy's - a twin under the same slot is not offered a one-press restore over itself

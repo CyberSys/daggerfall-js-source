@@ -85,7 +85,7 @@ test('AUDIT SET D4: a Test Room character stays offline - the mark rides its sav
   // the Online pane: the tile's button is dead and says why
   const M = strip(read('src/ui/enhancedMenu.js'));
   assert.match(M, /testRoom: snap\.testRoom === true,/);
-  assert.match(M, /label: save\.testRoom \? 'Test Room: offline only' : 'Bring online',/);   // REALM P1.5: the Online pane's local tile brings a character in through customs
+  assert.match(M, /label: save\.testRoom \? t\('menu\.online\.testRoomOffline', 'Test Room: offline only'\) : t\('menu\.online\.bring', 'Bring online'\),/);   // REALM P1.5: the Online pane's local tile brings a character in through customs
   assert.match(M, /disabled: !who \|\| save\.testRoom,/);
 });
 

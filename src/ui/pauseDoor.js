@@ -57,6 +57,7 @@ import { playerEntity } from '../characters/playerEntity.js';   // the shared en
 import { usesVirtueLeveling } from '../systems/oblivionLeveling.js';   // ORL1: which bar the Ascension reads
 import { profPagesShown, PROF_PAGE_SECTIONS } from './profPages.js';   // CLASSIC-PAGES: the professions' two pages, on either skin
 import { hudText } from '../systems/notify.js';
+import { t } from '../systems/textManager.js';   // L10N4: the professions' closed line in the player's language
 import {
   openClassicPauseFlow,
   pauseArtLoaded,
@@ -177,6 +178,8 @@ export function pauseMenuAct(hooks, close) {
 /** CLASSIC-PAGES: what a door pressed for a professions page says when the pages are not this account's (offline, the
  *  professions' switch closed, the book not read yet). */
 export const PROF_PAGES_CLOSED_LINE = 'Your professions are kept online: your Professions and Stores open while you play online.';
+/** L10N4: the line in the player's language (PROF_PAGES_CLOSED_LINE stays the English the pins read). */
+export const profPagesClosedLine = () => t('pause.profPagesClosed', PROF_PAGES_CLOSED_LINE);
 /** Whether a door's landing page is one of the professions' own (the Professions key's, a station's). */
 export const profPageAt = (at) => PROF_PAGE_SECTIONS.some(([id]) => id === at);
 
@@ -195,7 +198,7 @@ export const profPageAt = (at) => PROF_PAGE_SECTIONS.some(([id]) => id === at);
  */
 export function openPauseFlow(show, hooks = {}) {
   if (profPageAt(hooks.at)) {
-    if (!profPagesShown()) { hudText(PROF_PAGES_CLOSED_LINE); return null; }
+    if (!profPagesShown()) { hudText(profPagesClosedLine()); return null; }
     if (typeof document !== 'undefined') return enhancedPauseOverlay(show, hooks);
   }
   // `document` is the second half of the test for the reason

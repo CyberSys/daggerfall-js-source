@@ -230,7 +230,7 @@ test('INTRO-FIELD: the gate is the BEGIN button and nothing drawn beside it - th
   // 2. THE STATUS LINE IS SPOKEN, NOT DRAWN. It stays a node because it
   // is the live region a screen reader is owed, and because it is what
   // says the tap enables sound - but it takes no space on the picture.
-  assert.match(src, /const status = make\(doc, 'p', 'intro-status', 'Preparing the journey…'\); status\.setAttribute\('role', 'status'\);/,
+  assert.match(src, /const status = make\(doc, 'p', 'intro-status', t\('menu\.intro\.preparing', 'Preparing the journey…'\)\); status\.setAttribute\('role', 'status'\);/,
     'still a role=status live region');
   const rule = src.match(/\.intro-status\{([^}]*)\}/);
   assert.ok(rule, 'and it still has a rule of its own');
@@ -241,13 +241,13 @@ test('INTRO-FIELD: the gate is the BEGIN button and nothing drawn beside it - th
   // 3. THE ONE MESSAGE A PLAYER MUST SEE IS NOT THIS LINE'S. The score
   // failing to load writes the FOOTER, which is still drawn - hiding the
   // status must never have hidden a real failure.
-  assert.match(src, /footer\.textContent = 'Music couldn’t load\. You can still continue\.';/);
-  assert.doesNotMatch(src, /status\.textContent = '[^']*(couldn|failed|error)/i, 'no failure is routed to the clipped line');
+  assert.match(src, /footer\.textContent = t\('menu\.intro\.musicFailed', 'Music couldn’t load\. You can still continue\.'\);/);
+  assert.doesNotMatch(src, /status\.textContent = (t\('[^']*', )?'[^']*(couldn|failed|error)/i, 'no failure is routed to the clipped line');
 
   // 4. AND THE BUTTON STILL CARRIES BOTH ITS WORDS, since the heading it
   // used to be re-worded beside is gone.
-  assert.match(src, /begin\.textContent = resuming \? 'Resume' : 'Begin';/);
-  assert.match(src, /begin\.disabled = false; begin\.textContent = 'Resume';/, 'a suspended film says Resume on the button itself');
+  assert.match(src, /begin\.textContent = resuming \? t\('menu\.intro\.resume', 'Resume'\) : t\('menu\.intro\.begin', 'Begin'\);/);
+  assert.match(src, /begin\.disabled = false; begin\.textContent = t\('menu\.intro\.resume', 'Resume'\);/, 'a suspended film says Resume on the button itself');
 
   // The probe aimed its "tap anywhere that is not a control" at the
   // kicker's box. With the kicker gone it aims at the button's own top.

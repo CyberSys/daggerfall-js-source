@@ -205,7 +205,7 @@ test('QREPAIR the door, by source: every host\'s pause hands repairQuests off it
   const menu = rd('src/ui/enhancedMenu.js');
   assert.match(menu, /if \(catId === 'game'\) return portRowsGame\(opts\);/);
   assert.match(menu, /const can = pause && typeof hooks\?\.repairQuests === 'function';/, 'live only in a game\'s pause');
-  assert.match(menu, /ask\('Repair Active Quests', QUEST_REPAIR_ASK, 'Repair', \(\) => \{/, 'confirmed first');
-  assert.match(menu, /main\.append\(el\('div', 'row-note', can \? \(questRepairSaid \?\? QUEST_REPAIR_NOTE\) : QUEST_REPAIR_AWAY\)\);/, 'the door\'s row says where it lives');
+  assert.match(menu, /ask\(t\('menu\.questRepair\.title', 'Repair Active Quests'\), questRepairAsk\(\), t\('menu\.questRepair\.go', 'Repair'\), \(\) => \{/, 'confirmed first');
+  assert.match(menu, /main\.append\(el\('div', 'row-note', can \? \(questRepairSaid \?\? questRepairNote\(\)\) : questRepairAway\(\)\)\);/, 'the door\'s row says where it lives');
   assert.match(menu, /const liveCount = \(catId\) => portRows\(catId\)\.filter\(\(r\) => r\.dataset\?\.live !== '0'\)\.length/, 'and a greyed row is not counted as working');
 });

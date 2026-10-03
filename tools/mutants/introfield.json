@@ -38,8 +38,8 @@
  {
   "name": "INTROFIELD-the-score-failure-is-routed-to-the-clipped-line",
   "file": "src/ui/introScreen.js",
-  "old": "      footer.textContent = 'Music couldn’t load. You can still continue.';",
-  "new": "      status.textContent = 'Music couldn’t load. You can still continue.';",
+  "old": "      footer.textContent = t('menu.intro.musicFailed', 'Music couldn’t load. You can still continue.');",
+  "new": "      status.textContent = t('menu.intro.musicFailed', 'Music couldn’t load. You can still continue.');",
   "tests": [
    "test/intro.test.js"
   ]
@@ -47,8 +47,8 @@
  {
   "name": "INTROFIELD-the-button-never-says-Resume",
   "file": "src/ui/introScreen.js",
-  "old": "      begin.disabled = false; begin.textContent = 'Resume'; status.textContent = 'Tap anywhere to resume the music and film.';",
-  "new": "      begin.disabled = false; status.textContent = 'Tap anywhere to resume the music and film.';",
+  "old": "      begin.disabled = false; begin.textContent = t('menu.intro.resume', 'Resume'); status.textContent = t('menu.intro.resumeHint', 'Tap anywhere to resume the music and film.');",
+  "new": "      begin.disabled = false; status.textContent = t('menu.intro.resumeHint', 'Tap anywhere to resume the music and film.');",
   "tests": [
    "test/intro.test.js"
   ]

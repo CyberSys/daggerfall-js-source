@@ -258,7 +258,7 @@ test('U51: the saved game is rendered from one place', () => {
   const src = read('src/ui/enhancedMenu.js');
   assert.match(src, /^const saveLine = \(save\) =>/m);
   assert.match(src, /^const saveStats = \(save\) =>/m);
-  const joins = [...src.matchAll(/level \$\{save\.level\}/g)];
+  const joins = [...src.matchAll(/'level \{level\}', \{ level: save\.level \}/g)];
   assert.equal(joins.length, 1, 'the character line is written once');
   const health = [...src.matchAll(/save\.maxHealth \? /g)];
   assert.equal(health.length, 1, 'and so are the numbers');
@@ -451,7 +451,7 @@ test('EE13: the Enhanced pane offers a season/weather test that spawns in a rand
   const menu = read('src/ui/enhancedMenu.js');
   const from = menu.indexOf('function outdoorsTestRow(');   // SO1: the door was a row of the Enhanced category; FT12: it is the Test Room's
   const pane = menu.slice(from, menu.indexOf('\n}', from));
-  assert.match(pane, /el\('div', 'row-name', 'Test the outdoors'\)/, 'the row exists');
+  assert.match(pane, /el\('div', 'row-name', t\('menu\.test\.outdoorsName', 'Test the outdoors'\)\)/, 'the row exists');
   // EE14: a season is both an archive and a day - the game has three
   // archive seasons and the field has a calendar, and 'spring' as a bare
   // name was a pin that ignored it

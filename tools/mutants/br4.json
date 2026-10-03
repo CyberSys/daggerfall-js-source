@@ -47,8 +47,8 @@
   {
     "name": "BR4-intro-aria-old-name",
     "file": "src/ui/introScreen.js",
-    "old": "host.setAttribute('aria-label', 'Daggerfall Online introduction');",
-    "new": "host.setAttribute('aria-label', 'Daggerfall Enhanced introduction');",
+    "old": "host.setAttribute('aria-label', t('menu.intro.aria', 'Daggerfall Online introduction'));",
+    "new": "host.setAttribute('aria-label', t('menu.intro.aria', 'Daggerfall Enhanced introduction'));",
     "tests": [
       "test/brand.test.js"
     ]

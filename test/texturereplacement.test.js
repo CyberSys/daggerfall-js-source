@@ -208,9 +208,9 @@ test('texture: registration rides the ONE bootstrap, and the row reports it', ()
   // page's packs card offers BOTH picks as buttons and reports what
   // each pick covers, as the window's row did (M-EXT/M-TEX).
   const w = src('ui/enhancedMenu.js');
-  assert.match(w, /label: 'Attach music pack'[\s\S]{0,200}pickMusicFolder\(\)/);
-  assert.match(w, /label: 'Attach texture pack'[\s\S]{0,200}pickTextureFolder\(\)/);
-  assert.match(w, /Texture files supplied: \$\{textureReplacementCount\(\)\}/);
+  assert.match(w, /label: t\('menu\.packs\.attachMusic', 'Attach music pack'\)[\s\S]{0,200}pickMusicFolder\(\)/);
+  assert.match(w, /label: t\('menu\.packs\.attachTexture', 'Attach texture pack'\)[\s\S]{0,200}pickTextureFolder\(\)/);
+  assert.match(w, /Texture files supplied: \{textures\}[^\n]*textures: textureReplacementCount\(\)/);
   // both stores exist and the upgrade creates what is MISSING
   const d = src('scenes/dataSource.js');
   // R6 RE-AIMED THIS, as M-TEX re-aimed it before: a fourth domain

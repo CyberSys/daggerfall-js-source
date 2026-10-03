@@ -369,9 +369,9 @@ test('PX22: the rail is three named sections, always - Main, Side, Archived', ()
   const at = src.indexOf('const mains = active.filter');
   const fn = src.slice(at, src.indexOf('wrap.append(rail);', at));
   // One helper, three calls, in order - not a conditional pair.
-  assert.match(fn, /section\('Main Quests', mains, '', true\);/);
-  assert.match(fn, /section\('Side Quests', sides, ''\);/);
-  assert.match(fn, /section\('Archived', finished, ' done'\);/);
+  assert.match(fn, /section\(t\('pause\.journal\.main', 'Main Quests'\), mains, '', true\);/);
+  assert.match(fn, /section\(t\('pause\.journal\.side', 'Side Quests'\), sides, ''\);/);
+  assert.match(fn, /section\(t\('pause\.journal\.archived', 'Archived'\), finished, ' done'\);/);
   assert.ok(fn.indexOf("'Main Quests'") < fn.indexOf("'Side Quests'"), 'main above side');
   assert.ok(fn.indexOf("'Side Quests'") < fn.indexOf("'Archived'"), 'archived last');
   // PX5's conditional is gone, and so is the bare word "Quests" for
@@ -415,7 +415,7 @@ test('PX22: a quest is filed under its kind, never TITLED by it', () => {
   // The archive is NOT split by kind, and that is the data's shape: the
   // notebook's filed header keeps only the display name, so the
   // questName is gone by the time a quest is filed.
-  assert.match(src, /section\('Archived', finished, ' done'\);/);
+  assert.match(src, /section\(t\('pause\.journal\.archived', 'Archived'\), finished, ' done'\);/);
   assert.doesNotMatch(src, /finished\.filter\(\(q\) => q\.main\)/);
 });
 
@@ -438,7 +438,7 @@ test('PX22: the timer PX5 designed is still there, and only when there is one', 
   // the detail. A quest with no clock gets neither.
   assert.match(src, /if \(q\.clockSeconds != null\) b\.append\(el\('span', 'px-qtimed', '\\u25c6'\)\);/);
   assert.match(src, /if \(sel\.clockSeconds != null\) \{/);
-  assert.match(src, /Time remains: \$\{remainWords\(sel\.clockSeconds\)\}/);
+  assert.match(src, /'Time remains: \{left\}', \{ left: remainWords\(sel\.clockSeconds\) \}/);
   // URGENT below one GAME DAY - the threshold in seconds, not a guess.
   // GUIDE1: the number has one home (ui/questRail.js), shared with the
   // quest lens's `urgent` news, so the gold line and the notice cannot
@@ -479,7 +479,7 @@ test('PX25: the Stats page carries the doors, and only the ones a host handed ov
   const src = read('src/ui/enhancedMenu.js');
   const at = src.indexOf('function pauseStats(body)');
   const fn = src.slice(at, src.indexOf('\nfunction ', at + 10));
-  assert.match(fn, /\['Pack', hooks\.openPack\], \['Spellbook', hooks\.openSpellbook\], \['Chronicle', hooks\.openChronicle\],/);
+  assert.match(fn, /\[t\('pause\.door\.pack', 'Pack'\), hooks\.openPack\], \[t\('pause\.door\.spellbook', 'Spellbook'\), hooks\.openSpellbook\], \[t\('pause\.door\.chronicle', 'Chronicle'\), hooks\.openChronicle\],/);
   // A button that opens nothing is PX14's drawn door, so each appears
   // only when its hook is a function - the exterior host has no
   // journal maker and its Chronicle button never draws, which is the

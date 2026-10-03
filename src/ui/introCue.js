@@ -15,6 +15,8 @@
 // different recording (164.3335s, not 164.5202s) carrying the same
 // arrangement. Its cloud break is still 11.712s; its 19s beat moved one
 // analysis hop earlier than the old master's, and the cue moved with it.
+import { t } from '../systems/textManager.js';   // L10N4: the credits' captions in the player's language
+
 export const TITLE_IMPACT_TIME = 230016 / 12000;
 export const CLOUD_REVEAL_TIME = 11.712;
 export const TITLE_ENTER_TIME = TITLE_IMPACT_TIME - 0.78;
@@ -30,9 +32,10 @@ const unit = (x) => Math.max(0, Math.min(1, x));
 export const introEase = (x) => { const k = unit(x); return k * k * k * (k * (k * 6 - 15) + 10); };
 const between = (t, a, b) => introEase((t - a) / (b - a));
 
+// L10N4: each caption is read when the film draws it, in the player's language (a getter - the table is built at load)
 export const INTRO_CREDITS = Object.freeze([
-  { key: 'interkarma', caption: 'Built on the work of', start: 1.25, up: 2.25, out: 4.55, end: 5.3 },
-  { key: 'nexus', caption: 'With the modding community of', start: 5.65, up: 6.6, out: 8.5, end: 9.3 },
+  Object.freeze({ key: 'interkarma', get caption() { return t('menu.intro.creditInterkarma', 'Built on the work of'); }, start: 1.25, up: 2.25, out: 4.55, end: 5.3 }),
+  Object.freeze({ key: 'nexus', get caption() { return t('menu.intro.creditNexus', 'With the modding community of'); }, start: 5.65, up: 6.6, out: 8.5, end: 9.3 }),
 ]);
 
 export function introCreditOpacity(credit, time) {

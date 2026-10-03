@@ -50,8 +50,8 @@
   {
     "name": "A312-7-the-delete-does-not-ask-twice",
     "file": "src/ui/enhancedMenu.js",
-    "old": "      line.actions.push(cloudArm === slot\n        ? { label: 'Delete backup?', primary: true, onClick: () => removeBackup(save) }\n        : { label: 'Delete backup', onClick: () => { cloudArm = slot; render(); } });",
-    "new": "      line.actions.push({ label: 'Delete backup', onClick: () => removeBackup(save) });",
+    "old": "      line.actions.push(cloudArm === slot\n        ? { label: t('menu.cloud.deleteBackupAsk', 'Delete backup?'), primary: true, onClick: () => removeBackup(save) }\n        : { label: t('menu.cloud.deleteBackup', 'Delete backup'), onClick: () => { cloudArm = slot; render(); } });",
+    "new": "      line.actions.push({ label: t('menu.cloud.deleteBackup', 'Delete backup'), onClick: () => removeBackup(save) });",
     "tests": ["test/savetile.test.js"],
     "note": "The one button in this menu that destroys something, one mis-press from a backup that is gone - beside `Back up again`, which is the button next to it."
   },

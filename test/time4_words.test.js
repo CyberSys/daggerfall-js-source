@@ -38,7 +38,7 @@ test('TIME4 the Online pane says the sky\'s day as it is when the pane opens: tw
   const ev = skyClassicMinutes(SWITCH.fromMs - 3_600_000 * 4) - skyClassicMinutes(SWITCH.fromMs - 3_600_000 * 6);
   assert.ok(Math.abs(ev - 1440) < 1e-6, 'two real hours, a day, before it');
   const menu = rd('src/ui/enhancedMenu.js');
-  assert.match(menu, /can hurt you too\. ' \+ skyDayWords\(\) \+ ' The world\\u2019s clock and sky run on real time/, 'the paragraph opens its clock with the sentence');
+  assert.match(menu, /can hurt you too\. \{skyDay\} The world\\u2019s clock and sky run on real time[^\n]*\{ skyDay: skyDayWords\(\) \}/, 'the paragraph opens its clock with the sentence');
   assert.match(menu, /a full moon holds a lycanthrope for its night alone\./, 'TIME2, said at the door');
   assert.match(menu, /loans and repairs run on it\. Quests online have no time limits: none fails because time ran out, a bounty never lapses, and a quest that would make you wait days \(a letter, a meeting\) moves on after a minute or two of play\./, 'TIMEFREE, said at the door (TIME3 said the quest timers ran on it)');
 });
