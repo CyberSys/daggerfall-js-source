@@ -438,7 +438,10 @@ GATHER-OW (2026-10-02, Mac: "allow them to appear in the overworld without being
   characters** to strike it, each finding **10 Marks** besides the ore. A strike counts only from a socket the relay
   holds in the Motherlode pixel's cell room (a client's position is its own claim, so this is a bound, not a proof),
   and an account takes at most **one Motherlode a day**. A Motherlode, like a dungeon vein, keeps no hours: it may
-  be struck by night.
+  be struck by night. PROF2b (BUILT 2026-10-03, section 38) DECIDED what this left open: the pixel is one the witnesses
+  had confirmed before the day began (the service holds no map), the hub's warning is every client's own off the
+  shared clock (the gate omen's way - no relay change), the relay's socket check is its Watch receipt (`k1`) for the
+  Motherlode's own pixel, and a strike asks Mining 25, not tier 6's 90.
 - **Hunting cannot be witnessed** - FACT, a foe's life and death are its spawner's client's alone ("A FOE IS ITS
   SPAWNER'S: the spawner steps it and streams it, everyone else in the cell puppets it", WORLD6b, `src/net/wire.js`;
   AUDIT 28 replaced a quotation that is nowhere in the tree). So Hunting is the one bounded profession: at most **30 hides a day** an account, of which
@@ -488,7 +491,7 @@ GATHER-OW (2026-10-02, Mac: "allow them to appear in the overworld without being
 ## 8. The interface
 
 DECIDED (Mac: "actual UI integration for life skills"). Everything is drawn in the Enhanced Plus UI - the one UI
-since MENU-TOGGLE and PLUS-DEAD (`PATCH-NOTES-One-UI-Choice.md`) - in its brass and bone, scaled by the UI scale,
+since MENU-TOGGLE and PLUS-DEAD - in its brass and bone, scaled by the UI scale,
 laid out for the phone's touch layer as for the desktop.
 
 - **The prompt**: bottom centre above the hotbar - "[E] Chop Oak - Logging 34". **The hover** (World Tooltips):
@@ -744,16 +747,19 @@ save's" - GUILD1), so anything paid in purse gold can be paid by a client that n
 | Faucet | Amount | Cap |
 |---|---|---|
 | Court writs (section 11) | their pay | 3 an account a day |
-| Oblivion Gate receipts | 50 a receipt (100 under a Daedric Incursion, SEAT0 9.3) | **2 a UTC day** an account - FACT, a gate rises every game day, twelve a real day, and `gate_kills` keys on the game day, so the gate's own law allows twelve |
+| Oblivion Gate receipts | 50 a receipt (100 under a Daedric Incursion, SEAT0 9.3) | ~~**2 a UTC day** an account~~ SILVER-WAYS: the day's **combat cap**, 150 an account a UTC day with the raids' (below) - FACT, a gate rises every game day, twelve a real day, and `gate_kills` keys on the game day, so the gate's own law allows twelve |
+| Towns defended (SILVER-WAYS) | 30 a raid's receipt (RAID3's `w1`, counted once a raid and account - RAID4) | the day's **combat cap** with the gates': 150 an account a UTC day, the day's last strike what it has left |
+| Guild deeds (SILVER-WAYS) | 25 into the guild's treasury, never an account's | where 3 of a guild's accounts - each a character 7 days in it - claimed one raid or one gate; 4 a guild a UTC day |
 | Siege Honours (SEAT0 6.8) | 50 / 25 | one a siege |
-| Motherlodes | 10 a find | 1 an account a day (3 Motherlodes a day server-wide) |
+| Motherlodes (PROF2b - BUILT, section 38) | 10 a find | 1 an account a day (3 Motherlodes a day server-wide, 20 strikers each) |
 
 - **Where Marks go** (the sinks): listing fees, sales taxes, the burnt part of couriers, seat claim fees and
   upkeep, Tribute (SEAT0 4.2: burnt), Festivals, heraldry, fortification projects, respecialisation, the Board's
   counters (4.5), the Bank's exchange.
 - **What only moves them**: the market, buy orders, player-posted writs, the Tithe (and Conscription and a vassal's
   share of it), guild deposits and withdrawals, sellsword contracts, a Bounty's payouts and the Royal Tourney's prize
-  (SEAT0 7.6, from the holder's treasury).
+  (SEAT0 7.6, from the holder's treasury) - and SILVER-WAYS' **guild contracts** (a guild's pay to each defender of a
+  raid in a region, escrowed from its treasury, less the 5% tax: `06-Systems/Online-Arc.md` SILVER-WAYS).
 - **The one mint outside the faucets**: a developer's strike of a held seat refunds its burnt claim fee (SEAT0 16) -
   in the ledger, by the dev glyph alone.
 - **Marks and gold**: Marks **sell for gold** at any Bank of the Empire counter, **1 Mark for 8 gold** (a spread that
@@ -1000,7 +1006,8 @@ of Makers; commissions; regional prices to haul between; and every seat on the m
 | **PROF5** - SHIPPED 2026-09-29 (at `dev`, section 26) | The Market tab: listings, regional markets, couriers, buy orders, history; the Weavers' counter | A crafted Mithril Longsword listed in one region is bought from another by courier and reaches its buyer's pack, its owner moved. Needs MARKS1, NOTICE1, PROF3 (all shipped) |
 | **PROF5b** - SHIPPED 2026-09-29 (at `dev`, section 27) | Timed auctions for Masterworks: the Auctions view, bids escrowed, the last two minutes' two, settled on read | A Masterwork posted in Daggerfall is bid on from Wayrest and Daggerfall, the outbid escrow returned, and at its end the winner's piece is theirs, the seller paid less the tax. Needs PROF5 (shipped) |
 | **PROF6** - SHIPPED 2026-09-29 (at `dev`, section 28) | Writs: guild writs and the guild Stores, commissions and the note's button (built); seat writs with SEAT2b (AUDIT-SEATS: it said SEAT1b), bounties with SEAT1d's Edicts | A Guildmaster's writ delivered by an outsider and a member into the guild Stores, an Officer's posted within the week's budget and refused past it (AUDIT 31 R12: this row said an Officer's writ was delivered); a commission through a crafter's note filled with a piece of their make and in the poster's pack. Seat writs need SEAT1b |
-| **PROF6b** | Found and writ-only recipes (9.1): the Recipe Scroll (695), the found recipes named, a guild's posted recipe reward | Needs a witnessed roll for loot's 1 in 500, and PROF2b's Motherlode for its 1 in 20 |
+| **PROF2b** - BUILT 2026-10-03 (section 38) | The Motherlodes (section 6): three a UTC day on witnessed ground, twenty strikers each, 10 silver and 4-9 of a tier-6 ore, the relay's Watch on the pixel; the warning; the compass from anywhere; Motherlode Sense unlocked. Gate-touched ground (4.7) is still to come: a gate receipt carries no pixel | An Apprentice miner warned ten minutes ahead, walks to the Wrothgarian Mountains, strikes the Motherlode with the Watch's word and finds Orichalcum and 10 silver |
+| **PROF6b** | Found and writ-only recipes (9.1): the Recipe Scroll (695), the found recipes named, a guild's posted recipe reward | Needs a witnessed roll for loot's 1 in 500, and the Motherlode's 1 in 20 (PROF2b built - its roll is PROF6b's) |
 | **PROF7** - SHIPPED 2026-09-30 (live, section 29) | Hunting (the trace), the Skinning Knife (603: its template, its online shelves - law 6's exception, for 603); Outfitting | A bear felled by the player's own blow skinned online, its hides cured and sewn into a Leather Helm in the pack; a shirt in the dye its sewer chose. Needs FORAGE1-2 (shipped: the shelves' registry) |
 | **PROF8** - BUILT 2026-09-30 (section 30) | Fishing with the net (the throw, the tug, the haul) | A haul of Raw Fish from a river, its species named; a Pearl at sea on confirmed ground; forty hauls an account a day. Needs FORAGE1-2 (shipped: the net, and the three-valued water state in both exterior hosts) |
 | **PROF9** - BUILT 2026-10-02 (section 35) | Cooking | A Hunter's Stew cooked with a clean pan at a fire from the Stores' Raw Meat, Mushroom and Root Bulb, into the pack, eaten for Endurance +5 two hours; a Chef's Feast of the Hearth shared with the party at the table; a Provisioner's dish that never spoils. Needs PROF7 (Raw Meat), PROF8 (Raw Fish), PROF1 (the herbs and the Basket's foods) and C&C's fires |
@@ -2511,7 +2518,7 @@ asked). What sections 5.2, 6 and 3.3 left open for PROF8, DECIDED here, and what
   lane - the act's `hand` is none, as the Basket's); no splash is played at the tug (no splash clip is wired for an act);
   peers do not see the throw (5.1's pose activity field is none of the acts' yet).
 - **Pinned**: `test/prof8_law.test.js` (7), `test/prof8_service.test.js` (3, through the real Worker), `test/prof8_client
-  .test.js` (12). Mutants: `tools/mutants/prof8.json` (34, all dead). Patch notes: `PATCH-NOTES-Fishing.md`.
+  .test.js` (12). Mutants: `tools/mutants/prof8.json` (34, all dead).
 
 ## 31. NODE-MARKS - every node on the compass, and its glow, as built (BUILT 2026-10-01)
 
@@ -2567,8 +2574,7 @@ and nothing in the world set a node apart from the ground about it. DECIDED here
   own switch does).
 - **Pinned**: `test/nodemarks.test.js` (19); `tools/nodeGlowProbe.mjs` compiles, links and draws the glow in a real WebGL2
   context over a stand-in node and wall, and through the world host's own pass with the renderer's typed camera, and
-  reads the frame back (14 checks). Mutants: `tools/mutants/nodemarks.json` (58, all dead). Patch notes:
-  `PATCH-NOTES-Nodes-on-the-Compass.md`.
+  reads the frame back (14 checks). Mutants: `tools/mutants/nodemarks.json` (58, all dead).
 
 ### AUDIT NODE-MARKS (2026-10-01, Mac: "Audit this")
 
@@ -2717,8 +2723,7 @@ PROF11, DECIDED here, and what was found (FACT):
 - **The pages**: the Stores page's Mason's Bench; Masonry practised on the Professions page; a work's XP said as its own
   profession's (FOUND: it said Smithing's).
 - **Pinned**: `test/prof11_law.test.js` (11), `test/prof11_service.test.js` (7, through the real Worker),
-  `test/prof11_client.test.js` (7). Mutants: `tools/mutants/prof11.json` (138, all dead). Patch notes:
-  `PATCH-NOTES-Masonry.md`.
+  `test/prof11_client.test.js` (7). Mutants: `tools/mutants/prof11.json` (138, all dead).
 
 ## 35. PROF9 - Cooking, as built (BUILT 2026-10-02)
 
@@ -2850,8 +2855,7 @@ three). What sections 3.2, 3.3, 4.8, 9.3 and 9.4 left open for PROF9, DECIDED he
   tests; the hall door's gate is `onlineHomes.js` hallEntryTurnable, the row's and the press's. Pinned (four tests), 17
   mutants added, all dead; seven re-aimed (prof9, guild_yard, guild1d).
 - **Pinned**: `test/prof9_law.test.js` (9), `test/prof9_service.test.js` (5, through the real Worker),
-  `test/prof9_client.test.js` (21). Mutants: `tools/mutants/prof9.json` (162, all dead - AUDIT PROF-541 R2-S7's three among them). Patch notes:
-  `PATCH-NOTES-Cooking.md`.
+  `test/prof9_client.test.js` (21). Mutants: `tools/mutants/prof9.json` (162, all dead - AUDIT PROF-541 R2-S7's three among them).
 
 ## 36. PROF10 - Jewelcrafting, as built (BUILT 2026-10-02)
 
@@ -2954,8 +2958,7 @@ Mac: **"2 and 4"** (2026-10-02: the Apothecary waits on Alchemy, Cooking and Jew
   jeweller's hand is **written on the piece** (`hand`, 1 or 2, `itemFields.js`; a hand its recipe takes alone) and the
   cap is that hand's (`craftedJewelPoints`) - no hand, no hand's share.
 - **Pinned**: `test/prof10_law.test.js` (10), `test/prof10_service.test.js` (7, through the real Worker),
-  `test/prof10_client.test.js` (13). Mutants: `tools/mutants/prof10.json` (166, all dead). Patch notes:
-  `PATCH-NOTES-Jewelcrafting.md`.
+  `test/prof10_client.test.js` (13). Mutants: `tools/mutants/prof10.json` (166, all dead).
 
 ## 37. PROF12 - Alchemy and the Enchanting layer, as built (BUILT 2026-10-02)
 
@@ -3132,7 +3135,79 @@ Seats-Arc 7.5). What sections 1, 2, 3.3, 4.1, 4.3, 4.5, 9.3 and 9.4 left open fo
   service's route list. Pinned in eight tests, 19 mutants added, all dead; four re-aimed by content (prof12, seat2b_peace).
 - **Pinned**: `test/prof12_law.test.js` (15), `test/prof12_service.test.js` (13, through the real Worker),
   `test/prof12_client.test.js` (16), `test/prof12_apothecary.test.js` (4, the Apothecary through the real Worker). Mutants:
-  `tools/mutants/prof12.json` (206: 205 dead - AUDIT PROF-541 R2's six among them - and PROF12-spends-no-hash recorded equivalent - B1's ingredient comparison holds everything DFU's hash refused). Patch notes: `PATCH-NOTES-Alchemy.md`; the Apothecary's in `PATCH-NOTES-Seats-Finished.md`.
+  `tools/mutants/prof12.json` (206: 205 dead - AUDIT PROF-541 R2's six among them - and PROF12-spends-no-hash recorded equivalent - B1's ingredient comparison holds everything DFU's hash refused).
+
+## 38. PROF2b - the Motherlodes, as built (BUILT 2026-10-03)
+
+Mac: **"plus we need to build motherloads"** (beside SILVER-WAYS, `06-Systems/Online-Arc.md`). Section 6 named them -
+three a day, the first twenty, 10 Marks, one an account a day, the relay's socket in the pixel's cell room, the hub's
+warning - and left four things open. DECIDED here (the record's, at Mac's instruction), and what was found (FACT):
+
+- **Where they rise - witnessed ground.** FACT: the service holds no map; it knows a pixel's climate and region only as
+  three accounts confirmed them (SEAT0 3.2, nodeLaw `witnessedFact`). DECIDED: the day's first read picks the day's
+  three from the pixels confirmed BEFORE the day began - a set the day cannot change - by `hash(MOTHERLODE_SALT, day, k)`
+  over them in one order (y, then x), the Mountain, MountainWoods, Desert and Desert2 pixels first and every vein-bearing
+  one where those are fewer than three; and keeps them (`motherlodes`, migration 0072 - 0070 on its branch). A realm nobody has walked has
+  none; the next read asks again. Its ore is its region's signature where that is a tier-6 ore (Sentinel's Ebony, the
+  Wrothgarian Mountains' and Orsinium's Orichalcum, Balfiera's Adamantium), else one of the three by the day's roll.
+  `src/net/motherlodeLaw.js` `motherlodeSites`, `server-account/src/motherlodes.js` `motherlodesOf`.
+- **When.** Each in its own third of the UTC day, rising within its third's first six hours on a whole minute, standing
+  two hours or until its twenty have struck it - so every part of the world's day sees one.
+- **The warning - every client's own.** FACT: the hub pushes nothing on a clock today; the gate's omen is each client's
+  own off the shared clock (`systems/gateOmen.js`). DECIDED: the same - `net/motherlodeBook.js` reads the day's three
+  (`/v1/prof/motherlodes`: their pixels, ores, hours, strikers and this account's find) on arrival, every five minutes,
+  at the UTC day's turn and for another character, says the warning in the chat ten minutes ahead (a Motherlode Sense's
+  thirty) and the rising once, each once a session. No relay change, no relay deploy.
+- **The relay's word - the Watch.** FACT: the relay already signs, every two minutes an account moves in a town's cell,
+  a `k1` receipt naming the account and the map pixel its pose stands in (SEAT1b, `net/watchReceipt.js`), for any cell
+  room - the client's seat book kept only a seat's. DECIDED: that is section 6's socket check, and tighter (the pixel,
+  not the cell): the Motherlodes' book keeps the newest receipt of each pixel (this account's, signed, eight pixels), a
+  strike begun carries the Motherlode pixel's (`ask.watch`, riding the harvest through `net/profBook.js`), and the
+  service counts the strike only for a receipt of this account on the Motherlode's pixel issued within ten minutes before
+  the act's end and no later than it, give the clocks' thirty seconds (`motherlodeWatchOk` - AUDIT SILVER-WAYS C1). None
+  yet: no act ("The Watch has not seen you on the Motherlode's ground lately. Walk about on it a moment" - the relay marks
+  a pose that moved in its last five minutes, every two minutes; AUDIT SILVER-WAYS D3). The receipt is asked again at the
+  act's end, the newest standing then (D5), and only ever this account's (D6).
+  A pose is the client's claim, so this is a bound, not a proof (section 6) - the twenty and the one a day are the rest.
+- **The rank - an Apprentice's.** Section 6 says "a tier-6 vein"; tier 6 asks Mining 90 (TIER_RANKS), which nobody on a
+  realm days old holds, and a Motherlode is the realm's event - its contest is the clock and the twenty. DECIDED: the act
+  is tier 6's (seven points, its glints bound as a vein's), the XP tier 6's, and a strike asks Mining 25.
+- **The strike.** Through `/v1/prof/harvest`, its node `mlode:<day>:<k>` (index.js hands it to `strikeMotherlode`), so
+  the client's kept-harvest pipeline - the queue, the pump, the toasts, the rank's rise - is the vein's. One statement
+  decides: the Motherlode standing at the act's end, its twenty, the account's one a UTC day (`motherlode_strikes`' key),
+  the Stores' room; its 4-6 ore (half again clean) into the Stores as the character's own, the XP to Mining, and the
+  `motherlode` faucet's 10 silver to the account (its line `motherlode:<day>` - once a day), each by the strike's own
+  nonce. None of the day's sixty harvests is spent. Refusals: `motherlode-closed`, `motherlode-watch`, `motherlode-found`,
+  `motherlode-full`, `prof-rank`, `stores-full`.
+- **Where it stands.** `scenes/mineHost.js` `standMotherlodes`: at the foot of the rock piece nearest its pixel's heart,
+  clear of the pixel's veins and boulders by NODE_SPACING_M, else on the stone nearest its heart, else where nature
+  stands there, else the nearest place outside its pixel's town that holds one (AUDIT SILVER-WAYS D4 - a town over the
+  heart stood it nowhere); a heap of seven of its ore's flats at 3.3 (a vein's three at 2.2), glowing, on the compass from 400 m
+  (`MOTHERLODE_MARK`) - and from anywhere on the street while it stands, a Mining mark at its pixel's heart
+  (`scenes/world.js` `motherlodeMarks`). A rising, a going, a twentieth striker and this account's find each stand its
+  pixel again (`gatherHost.restandAt`).
+- **Motherlode Sense** (Mining 100) is chosen as any specialisation now (`later` struck; the Professions page's card
+  no longer says "Comes with the Motherlodes").
+- **Not here, named**: gate-touched ground (4.7 - a gate receipt still carries no pixel); the Motherlode's Recipe Scroll
+  (1 in 20, PROF6b's roll); the four hosts: the Motherlodes stand in the streaming world alone (`scenes/world.js` - the
+  one gathering host); `scenes/exterior.js` has no gathering host (prof2_client pins it), `scenes/worldModes.js` and
+  `scenes/dungeonContext.js` stand no Motherlode - one is never underground or indoors (FLAGGED by name, as PROF2's veins).
+- **Audited** (2026-10-03, AUDIT SILVER-WAYS - `06-Systems/Online-Arc.md` holds the record): **C1** the Watch had a floor
+  and no ceiling - an act told as ended inside the two hours, sent after them, carried a receipt the relay issued after
+  the Motherlode had gone; now no later than the act's end. **C2** a strike made while silver was shut, answered again
+  once it opened, said the purse was full; now it says no silver. **C3** a day that picked fewer than three kept no mark,
+  so every read and every strike read the whole witnessed ground again - the day's mark is kept (`motherlode_days`, none
+  among the marks), and its picks are written only under the mark their own read made. **D1** the day's turn was asked
+  every frame while its read failed - now once a retry, at each device's own moment in a ninety-second spread. **D2** a
+  strike's refusal (`motherlode-full`, `-found`, `-closed`) taught the client nothing - now learned, the pixel stood
+  again. **D3**-**D6** as above. **D7** the frame's costs: the account read once a second, the compass's list and marks
+  its own.
+- **As built**: `src/net/motherlodeLaw.js`, `src/net/motherlodeBook.js`, `server-account/src/motherlodes.js`,
+  `server-account/migrations/0072_motherlodes.sql`, `src/scenes/mineHost.js`, `src/scenes/gatherHost.js` (`restandAt`),
+  `src/net/profBook.js` (`watch`), `src/net/accountClient.js` (`motherlodes`, the refusals), `src/scenes/world.js`; acct71 (acct66 on its branch).
+  Pinned: `test/prof2b_motherlode.test.js` (6), `test/prof2b_client.test.js` (7); `tools/mutants/prof2b.json` (32, all
+  dead). AUDIT 29 A17's two pins moved (the Sense chosen as any). The audit's: `test/auditsilver_service.test.js` (C1-C3),
+  `test/auditsilver_client.test.js` (D1-D7), `tools/mutants/auditsilver.json`.
 
 ## Appendix A - a day of a gatherer
 
@@ -3160,7 +3235,7 @@ At dusk the hub warns of a Motherlode in the Wrothgarian foothills in ten minute
 | Daily caps | 60 harvests a gathering profession a character (the Basket's among Herbalism's), and 120 an account (AUDIT 29 - a character is an id the client names); 4 dungeon veins an account in dungeons nobody has vouched for (AUDIT 29); Fishing 40 hauls an account; Hunting 30 hides an account, 3 of tiers 5-6 |
 | Node tiers | 40 / 25 / 15 / 10 / 6 / 4 % |
 | Dungeon veins | 1-4 a day |
-| Motherlodes | 3 a day, 20 characters, 10 Marks, one an account a day, 10 (30) minutes' warning; no hours |
+| Motherlodes | 3 a day, 20 characters, 10 Marks, one an account a day, 10 (30) minutes' warning; no hours. PROF2b: each in its own third of the UTC day within its first six hours, standing 2 h; Mining 25; tier 6's act; 4-6 ore, half again clean; a Watch receipt of the pixel issued within 10 minutes of the act's end; the mountains' and the deserts' confirmed pixels first |
 | Yields | tree 2-4, vein 2-3, herb 1-3, Basket 1 / 1-2 / 1-3, hide 1, haul 1-2, boulder 3-5; order: base, act (x1.5 at most), march +25%, Tide, school +1 (Netter +2); a fraction is a chance |
 | Act bound | one quality step, +50% yield |
 | Foraging's checks | inside, settlement, sea, foe near, encumbered (FORAGE0 14.3); ~~daylight 07:00-17:59~~ RETIRED (ANY-HOUR, 2026-10-01: no act keeps hours, the service refuses none) |
@@ -3210,7 +3285,8 @@ At dusk the hub warns of a Motherlode in the Wrothgarian foothills in ten minute
 | Auctions (PROF5b) | Masterworks only; 24 h; opening bid 1-1,000,000 Marks, a bid up to 10,000,000 (the Marks cap); the next bid the opening, else the standing bid + max(1, ceil(5%)); a bid within 120 s of the end adds 120 s, as often as bids come; fee a listing's on the opening, tax a sale's on the winning bid; among the account's 30; twenty closed a read |
 | A piece's wear (PROF5) | its condition over its most, in thousandths (1-1,000); the buyer's piece minted at that share, at least 1; read "worn to N%", 99 at most (AUDIT 30) |
 | Marks | ~10 gold of play; balance cap 10,000,000; Bank: 1 Mark -> 8 gold, 300 a day |
-| Faucets | Court writs 3 a day (from PROF1); gate 50 a receipt, 2 a UTC day; Honours 50 / 25; Motherlode 10, one a day |
+| Faucets | Court writs 3 a day (from PROF1); gate 50 a receipt, raid 30 a receipt, together at most 150 a UTC day an account (SILVER-WAYS - the gate was 2 a day); a guild deed 25 to the treasury, 3 accounts of 7 days on one raid or gate, 4 a guild a day; Honours 50 / 25; Motherlode 10, one a day |
+| Guild contracts (SILVER-WAYS) | raids alone; 1-50 silver a defender, 1-500 defenders, 7 days, 5 open a guild, 3 paid a claim (the best first); the Officers' one writ budget; the 5% running tax; never the posting guild's Officers or Guildmaster |
 | Court writs | 6 x max(1, ceil(active / 100)) a region a day, witnessed materials only, 10-50 units, pay x 1.2, Renown 25 x tier x units / 10 at three quarters (MERGE 2), the account's |
 | Writ influence | own units at their value, from a 7-day member bound to the guild; bought at Tribute's rate in its cap; counter goods never; a Siege Camp spent at the Turning (a Ram Kit to the siege it won, the rest burnt) |
 | Player notes | 3 an account, 7 days; 30 a board |

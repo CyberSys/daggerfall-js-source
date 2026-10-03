@@ -950,14 +950,14 @@ does the pack's USE arm.
                         worldModes.js:2517 (the factory) and :1904 (a
                         HAND-ROLLED second one, 342 lines below it in
                         the same file),
-                        dungeonContext.js:1280, world.js:4872,
+                        dungeonContext.js:1280, world.js:4884,
                         exterior.js:2646. It is the only window TWO
                         enhanced screens already push - the sheet's
                         button and the pack's USE hand-off, whose
                         close-then-hand-over ordering U55 got
                         backwards. No law needs extracting first.
     THE LOGBOOK         THREE sites: charSheetNav.js:53,
-    / NOTEBOOK          world.js:12945, dungeonContext.js:8542. A seam
+    / NOTEBOOK          world.js:12957, dungeonContext.js:8542. A seam
                         wants making, as U52's and U53's did.
     HISTORY             ONE site (charSheetNav.js:61), and it reads
                         only the entity's backStory. The small one.
@@ -8794,7 +8794,7 @@ mutations, 4 dead.
 
 PX24 (Mac: "with the logbook and history, I want them as one detailed
 UI"): THE CHRONICLE. Two classic windows built at four sites -
-questJournal.js from charSheetNav:53, world.js:5330 and
+questJournal.js from charSheetNav:53, world.js:5342 and
 dungeonContext.js, playerHistory.js from charSheetNav:61 - become ONE
 seam (ui/chronicleDoor.js, the U52/U53/PX23 shape a sixth time) and,
 on the enhanced skin, ONE WINDOW.
@@ -10674,9 +10674,9 @@ re-resolved the `exterior.js` half of a three-file sentence and left the
 `ExteriorAutomapWindow` construction, `:4101` on a `locationName:`
 field). Both halves are now read by `test/citedrift.test.js` - the
 existing entries only ever captured the exterior number, which is how
-the other half went stale unnoticed. (The rest cite named `world.js:13404`,
+the other half went stale unnoticed. (The rest cite named `world.js:13416`,
 the first of the host's TWO identical `act === 'Rest'` arms; ROAD-H H5
-deleted the second and the cite is `world.js:13410` now.)
+deleted the second and the cite is `world.js:13422` now.)
 
 ## AUDIT 62 F24/F25 - THE SENTINEL SWEEP WAS TWO WINDOWS SHORT (2026-09-07)
 
@@ -15575,9 +15575,9 @@ whether an entry MATCHES and asserts nothing.
 Following it out was worse than the symptom. Five Ledger rows cite a
 PAIR - `` `world.js:N`, `exterior.js:M` `` - and the table captured `M`
 alone. So `M` was re-resolved at every wave for a year and `N` was never
-read: `world.js:10896` named a line that is 8950, `:1803` one that is
+read: `world.js:10908` named a line that is 8950, `:1815` one that is
 1215, `:1094` one that is 2194, `:3903` one that is 3066, `:3920` one
-that is 8907. `world.js:10630-10662` and `dungeonContext.js:1812` were
+that is 8907. `world.js:10642-10674` and `dungeonContext.js:1812` were
 stale the same way. Seven numbers re-resolved BY CONTENT, every
 uncaptured half de-baked to `\d+`, and eight new entries added so every
 number in a pair is captured. The half nobody reads cannot rot in
@@ -18663,7 +18663,7 @@ gradient and its padding `14px 16px 16px`; with the fix, none and `0px`.
   three windows draw none of them; no board sheet (the board's, the professions', the bounty board's, the classic
   skin's) names one, and the classic sheet keeps every rule of the board's window and nothing else; the toasts' sheet
   names none of the board's. `audit31_tabs` and `audit30_client` follow the new classes. Mutants:
-  `tools/mutants/toast_split.json` (18, all dead). Patch notes: `PATCH-NOTES-Notifications-Fixed.md`.
+  `tools/mutants/toast_split.json` (18, all dead).
 
 ## FONT3 - THE ENHANCED FACE, READABLE AND EVERYWHERE (2026-10-02, Mac: "So I want to improve the readability of our ingame font as im recieving a lot of complaints, additionally we need to ensure everything recieves our enhanced font")
 
@@ -18763,7 +18763,7 @@ shelf's labels. Pins: `test/font3_readable.test.js` (9: the pair and the trio's 
 tokens, the recovery code's reason, THE FLOOR over all 25 sheets, the dim's contrast and order, the named surfaces,
 the dungeon line, the text layer over a fake document, the prison label mounted and taken down). Followed:
 `test/audit39_uicore.test.js` (the touch layer's order), `test/audit0928_input.test.js` (the map seam's new free
-name). Patch notes: `PATCH-NOTES-Readable-Text.md`.
+name).
 
 ## TIMERS1 - THE HOURGLASS: EVERY SHARED MOMENT, COUNTED DOWN (2026-10-02, Mac: "we need to create a new unique UI element for reset times like the Sunday wars, oblivion gates, town raids, and anything else so the player can keep track of when things are and watch countdowns. Im thinking maybe an enhanced plus button on the pause menu next to the profile icon")
 
@@ -18803,4 +18803,4 @@ its rows scroll inside it. AUDIT TIMERS1 (`01-Overview/Audit-Timers1.md`) then d
 the live pause face online (no relay or ARENA2 here). Pins: `test/timers1.test.js`
 (9: the gate, the seat week, the battles, the raids and the two days, the order, the words, the window over a fake
 document - drawn, moved, a row gone, offline said - the hourglass and its placing, the wiring through all the hosts);
-`test/outsideTap.test.js` (the fourth scrim, the hourglass in the keep list). Patch notes: `PATCH-NOTES-Timers.md`.
+`test/outsideTap.test.js` (the fourth scrim, the hourglass in the keep list).
