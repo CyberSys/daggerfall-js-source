@@ -350,7 +350,7 @@ export async function homeLayouts({ db }) {
 // home of the town holds left out) - because this service holds no town's records (the doctrine: no ARENA2 in the tree).
 // THE SAME TRUST AS A CLAIM (claimHome): the service cannot see that the key names a house, any more than it sees a
 // claim's; it checks what it can - the old key a home of the caller's in the arena's cell, the new one in the same town,
-// outside the cell, a key's shape, and nobody's - and the move once (`home_moves`, migration 0073 - 0071 before the second merge onto main).
+// outside the cell, a key's shape, and nobody's - and the move once (`home_moves`, migration 0075 - 0071 before the second merge onto main, 0073 before the third).
 //
 // WHAT MOVES IS THE OFFLINE LAW'S (arenaMove.js emptyArenaScene): the furniture's places are the old building's frame and
 // fit no other, so the room is emptied, never carried. The ROW goes whole - every column (HOME_MOVE_CARRIED) - with its

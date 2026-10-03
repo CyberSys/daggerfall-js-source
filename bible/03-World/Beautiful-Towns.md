@@ -121,7 +121,7 @@ a shared quest's - would name two buildings.
 
 Every online home bought before WD3 was bought in Daggerfall's own towns. The
 account service keeps the layout each home's town was bought in
-(`homes.layout`, migration `0071_home_layout.sql` - 0046 on its branch, 0069 at the first merge onto main, 0071 past PROF9's and PROF12's 0069_cooking and 0070_alchemy at the second; NULL is Daggerfall's own -
+(`homes.layout`, migration `0073_home_layout.sql` - 0046 on its branch, 0069 at the first merge onto main, 0071 past PROF9's and PROF12's 0069_cooking and 0070_alchemy at the second, 0073 past SILVER-WAYS' 0071_silver_ways and PROF2b's 0072_motherlodes at the third; NULL is Daggerfall's own -
 exactly the layout every existing home was bought in). A claim stores the
 layout its client's town stands in. A town that already holds a home keeps its
 first home's layout: a claim from a client whose town stands in another layout
@@ -147,7 +147,7 @@ the look painted, the yard and the rooms let stay in the building they were
 made for. A deed that crosses back through customs carries its town's layout
 with it (`systems/realmCustoms.js`).
 
-Deploy the account service (migration `0046`) before the client: an older
+Deploy the account service (migration `0073_home_layout.sql`, `acct72`) before the client: an older
 service drops the claim's layout and answers no `/v1/homes/layouts`, and the
 client would ask on until it does.
 
