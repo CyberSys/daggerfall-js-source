@@ -653,11 +653,12 @@ ${FLAT_DISSOLVE_GLSL}
 out vec4 outColor;
 void main() {
   vec2 uv = vUV;
-  if (uConceal.x == 1.0) {
-    uv.x += sin(vUV.y * 28.0 + uConceal.z * 7.0 + uConceal.w) * 0.008;
-    if (uv.x < 0.0 || uv.x > 1.0) discard;
-  }
-  vec4 tex = (uv.x < 0.0 || uv.x > 1.0 || uv.y < 0.0 || uv.y > 1.0) ? vec4(0.0) : texture(uTex, uv);   // ELITE FOES: the widened quad's margin is empty
+  if (uConceal.x == 1.0) uv.x += sin(vUV.y * 28.0 + uConceal.z * 7.0 + uConceal.w) * 0.008;
+  // SPRITE-GRAD (render/renderer.js BB_FS): both maps sampled before any branch or discard - a mip level picked
+  // inside non-uniform control flow is undefined, and on Apple's GPUs it drew a dark box round every flat
+  vec4 tex = texture(uTex, uv);
+  vec3 emissionTexel = texture(uEmissionTex, uv).rgb;
+  if (uv.x < 0.0 || uv.x > 1.0 || uv.y < 0.0 || uv.y > 1.0) tex = vec4(0.0);   // ELITE FOES: the widened quad's margin is empty; ECV1: nor the ripple's reach past the edge
   if (tex.a < ((uSpectral == 1 || uConceal.x > 0.0) ? 0.1 : 0.5)) {
     // ELITE FOES: the rim and the embers, bright enough in linear light for the bloom to catch
     if (uEliteGlow != 0.0 && uConceal.x == 0.0 && uDissolve.x <= 0.0) {   // negative: an elite's corpse - the rim alone; DISSOLVE: none round a body burning away or through a portal
@@ -668,7 +669,7 @@ void main() {
     discard;
   }
   if (dissolveGone(uv)) discard;   // DISSOLVE: burnt away, or not yet through its portal
-  vec3 emission = elDecode(texture(uEmissionTex, uv).rgb);
+  vec3 emission = elDecode(emissionTexel);   // SPRITE-GRAD: sampled above the cut
   vec3 albedo = max(elDecode(tex.rgb) - emission, vec3(0.0));
   vec3 base = vBBBase + vec3(0.0, 0.5, 0.0);   // EL2: the shadow is read a half unit up the sprite's base, once for the whole flat
   // PERF-SUN2: a flat has no normal, so there is no n.L to gate on - but
