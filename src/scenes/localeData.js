@@ -15,12 +15,18 @@ import { LOCALE_CATALOG, localeFileOf, resolveLocale, localeForBrowser, catalogL
 import { getPref } from '../systems/uiPrefs.js';
 import { installLocaleFaces } from '../ui/localeFaces.js';   // L10N2: the classic fonts' faces for the language
 import { createGlyphFace } from '../ui/glyphFace.js';   // L10N3b: a pack's own font, grown as DFU's is
-import { PACK_KIND } from '../systems/translationPacks.js';
+import { PACK_KIND, classifyPackFile } from '../systems/translationPacks.js';
 import * as packStore from './translationStore.js';   // L10N3b: the packs the player installed
 import '../systems/grammar/frenchGrammar.js';   // L10N3g: the French pack's grammar processor (MIT), chosen for French
 
 const IN_BROWSER = typeof window !== 'undefined';
 const FILES = IN_BROWSER ? import.meta.glob('../../locales/*/*.csv', { query: '?raw', import: 'default' }) : {};
+// L10N6: the packs the tree BUNDLES (locales/<tag>/pack/ - tools/l10nPack.mjs holds what one must carry), only where an
+// author's terms allow it. Their text is a lazy chunk like the drafts; a font is fetched by its URL; PACK.json (who made
+// it, on what terms) is read at once, for the Language row and the About pane's credits.
+const BUNDLED_TEXT = IN_BROWSER ? import.meta.glob(['../../locales/*/pack/**/*.csv', '../../locales/*/pack/**/*.txt'], { query: '?raw', import: 'default' }) : {};
+const BUNDLED_FONTS = IN_BROWSER ? import.meta.glob(['../../locales/*/pack/**/*.ttf', '../../locales/*/pack/**/*.otf'], { query: '?url', import: 'default' }) : {};
+const BUNDLED_META = IN_BROWSER ? import.meta.glob('../../locales/*/pack/PACK.json', { eager: true, import: 'default' }) : {};
 
 /** A glob's locale files by tag - `locales/<tag>/<table>.csv` -> [{ table, load }] - English left out: it is the
  *  code's. */
@@ -36,10 +42,34 @@ export function indexLocaleFiles(glob) {
 }
 let byCode = indexLocaleFiles(FILES);
 
+/** L10N6: the bundled packs by tag - `locales/<tag>/pack/...` -> { meta, files: [{ kind, name, load, font }] }. A file
+ *  the classifier does not read is left (tools/l10nPack.mjs refuses one in the tree); a pack with no PACK.json is no
+ *  pack (nothing credits it, so nothing loads it). English has none: English is the game's own. */
+export function indexBundledPacks({ text = {}, fonts = {}, meta = {} } = {}) {
+  const out = new Map();
+  const at = (path) => /locales\/([^/]+)\/pack\/(.+)$/.exec(String(path).replace(/\\/g, '/'));
+  for (const [path, m] of Object.entries(meta)) {
+    const hit = at(path);
+    if (hit && hit[1] !== BASE_LOCALE && m && typeof m === 'object') out.set(hit[1], { meta: m, files: [] });
+  }
+  for (const [glob, font] of [[text, false], [fonts, true]]) {
+    for (const [path, load] of Object.entries(glob)) {
+      const hit = at(path);
+      const pack = hit && out.get(hit[1]);
+      const f = pack && classifyPackFile(hit[2]);
+      if (f && (font === (f.kind === PACK_KIND.FONT))) pack.files.push({ ...f, load, font });
+    }
+  }
+  return out;
+}
+let _bundled = indexBundledPacks({ text: BUNDLED_TEXT, fonts: BUNDLED_FONTS, meta: BUNDLED_META });
+/** L10N6: the bundled pack's record for `code` (its PACK.json), or null. */
+export const bundledPackFor = (code) => _bundled.get(code)?.meta ?? null;
+
 /** L10N3b: the installed packs, by tag - read from the store at boot and after every install or removal. */
 let _packs = new Map();
 /** Whether the game holds text for `code`: the build's (English and the pseudo-locale always), or an installed pack. */
-export const hasLocaleText = (code) => code === BASE_LOCALE || code === PSEUDO_LOCALE || byCode.has(code) || (_packs.has(code) && !!catalogLocale(code));
+export const hasLocaleText = (code) => code === BASE_LOCALE || code === PSEUDO_LOCALE || byCode.has(code) || ((_packs.has(code) || _bundled.has(code)) && !!catalogLocale(code));
 
 let _registered = false;
 /** The catalog's languages whose text the game holds, told to the text core once - each with its installed pack's
@@ -47,12 +77,12 @@ let _registered = false;
 export function registerLocales() {
   if (_registered) return;
   _registered = true;
-  for (const info of LOCALE_CATALOG) if (hasLocaleText(info.code)) registerLocale({ ...info, pack: _packs.get(info.code) ?? null });
+  for (const info of LOCALE_CATALOG) if (hasLocaleText(info.code)) registerLocale({ ...info, pack: _packs.get(info.code) ?? null, bundled: bundledPackFor(info.code) });
 }
 /** L10N3b: read the installed packs again, and tell the text core. */
 export async function refreshPacks() {
   _packs = await packStore.installedPacks();
-  for (const info of LOCALE_CATALOG) if (hasLocaleText(info.code)) registerLocale({ ...info, pack: _packs.get(info.code) ?? null });
+  for (const info of LOCALE_CATALOG) if (hasLocaleText(info.code)) registerLocale({ ...info, pack: _packs.get(info.code) ?? null, bundled: bundledPackFor(info.code) });
   return _packs;
 }
 /** The installed pack's record for `code`, or null. */
@@ -78,13 +108,11 @@ async function packFontFace(tag, name, bytes) {
   }
 }
 
-/** Put `tag`'s installed pack to use: its string tables patched over the build's drafts (a person's translation
- *  outranks a machine's - StringTablePatcher's overwrite), its fonts registered as DFU registers a localized font, the
- *  rest kept for the readers that ask. */
-async function applyPack(tag) {
-  if (!_packs.has(tag)) return;
-  const text = new Map();
-  for (const f of await packStore.packFiles(tag)) {
+/** One pack's files put to use: its string tables patched over what stands (a person's translation outranks a
+ *  machine's - StringTablePatcher's overwrite), its fonts registered as DFU registers a localized font, the rest kept
+ *  in `text` for the readers that ask. */
+async function patchPackFiles(tag, files, text) {
+  for (const f of files) {
     if (f.kind === PACK_KIND.TABLE) {
       const rows = loadStringTableCsv(f.data);
       if (rows) patchLocaleTable(tag, f.name, rows);
@@ -95,6 +123,31 @@ async function applyPack(tag) {
       text.set(`${f.kind}:${f.name}`, f.data);
     }
   }
+}
+/** L10N6: a bundled pack's files, loaded - text raw, a font's bytes fetched from its URL. A font is fetched only where
+ *  a FontFace can take it, and one that will not fetch is left: the language's own face stands, its text still loads. */
+async function bundledFiles(tag) {
+  const pack = _bundled.get(tag);
+  if (!pack) return [];
+  const files = pack.files.filter((f) => !f.font || typeof globalThis.FontFace === 'function');
+  return (await Promise.all(files.map(async (f) => {
+    const got = await f.load();
+    if (!f.font) return { kind: f.kind, name: f.name, data: got };
+    try {
+      return { kind: f.kind, name: f.name, data: await (await fetch(got)).arrayBuffer() };
+    } catch (err) {
+      console.warn(`[text] the bundled pack's ${f.name} did not fetch - the language's own face stands:`, err?.message ?? err);
+      return null;
+    }
+  }))).filter(Boolean);
+}
+/** Put `tag`'s packs to use over the build's drafts: the bundled pack (L10N6), then the one the player installed
+ *  (L10N3b) over both - the player's own choice is the last word. */
+async function applyPack(tag) {
+  if (!_packs.has(tag) && !_bundled.has(tag)) return;
+  const text = new Map();
+  await patchPackFiles(tag, await bundledFiles(tag), text);
+  if (_packs.has(tag)) await patchPackFiles(tag, await packStore.packFiles(tag), text);
   setLocaleDocuments(tag, text);
 }
 
@@ -104,7 +157,7 @@ const _loaded = new Map();   // tag -> the promise of its tables patched in
 export function loadLocaleText(code) {
   const jobs = [];
   for (const tag of localeChain(code)) {
-    if (!byCode.has(tag) && !_packs.has(tag)) continue;
+    if (!byCode.has(tag) && !_packs.has(tag) && !_bundled.has(tag)) continue;
     if (!_loaded.has(tag)) {
       _loaded.set(tag, Promise.all((byCode.get(tag) ?? []).map(async ({ table, load }) => {
         const rows = loadStringTableCsv(await load());
@@ -189,8 +242,9 @@ export async function initLocale(params = null, { languages = browserLanguages()
 
 /** Tests: the files of `glob` (path -> loader, as Vite's glob gives them) in place of the build's, nothing registered
  *  or loaded yet. */
-export function _useLocaleFilesForTests(glob) {
+export function _useLocaleFilesForTests(glob, bundled = {}) {
   byCode = indexLocaleFiles(glob);
+  _bundled = indexBundledPacks(bundled);   // L10N6: { text, fonts, meta }, as the build's three globs give them
   _registered = false;
   _loaded.clear();
   _packs = new Map();
