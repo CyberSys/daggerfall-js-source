@@ -305,7 +305,13 @@ carried the movement term and a constant zero for the look. It is a
 quieter bug than the other three only because `Modules.Inertia` is off by
 default; with it on the shield leaned when you walked and never when you
 turned, which is half the module. Pin: *SW1-LOOK*, which also reads the
-clone's positional access so it cannot pass on a name nobody uses.
+clone's positional access so it cannot pass on a name nobody uses. And
+WIDGET-LOOK (FIELD BUGS 2026-10-03, `01-Overview/Field-Bugs-2026-10-03.md`):
+the look is handed in DFU's own axes (`lookSettings.dfuLookAxes`), not the
+camera's radians, which swayed it a fourteenth of the mod's measure; and
+WIDGET-RECOIL: PCAAO's core (on by default) hands back the part it rolls
+(`onStruck`), so "Attack On Shield" - the default condition - is asked of a
+real part, never -1.
 
 **What the audit CLEARED.** `uploadTexture('img', 'sw:<index>', img)`
 matches its three first-person peers exactly, mips and all.

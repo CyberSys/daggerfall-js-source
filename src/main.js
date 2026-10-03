@@ -50,11 +50,14 @@ import { publishBootParams, BOOT_DOOR_KEYS } from './systems/onlineLane.js';   /
 // renames chunks, so a page held open across one is holding a map of a
 // build that is gone. Recoverable, and the law of that is its own file.
 import { staleChunkAction, RELOAD_KEY, STALE_CHUNK_TEXT } from './systems/staleChunk.js';
+import { loseGlContext, onPageGone, releaseGlContexts } from './render/glRelease.js';   // GL-LEAK: a leaf - the entry's reach is unchanged
 
 async function boot() {
   installFramePacer();   // FPS-VSYNC: first, before any loop asks for a frame - a no-op but in the app with the wait lifted
+  installCursor();   // CLASSIC-CURSOR: DFU's own arrow on the classic skin, from the first frame - it needs no game data
   const canvas = document.getElementById('c');
   const renderer = new Renderer(canvas);
+  onPageGone(() => { pageGoing = true; loseGlContext(renderer.gl); });   // GL-LEAK: the game's own context, let go as the page goes
   renderer.setRetroSource(retroFrameConfig);   // RETRO1: DFU's retro mode - asked once per world frame, so the settings screen's change lands on the next
   renderer.setRenderScaleSource(renderScaleSetting);   // PERF-SCALE: the world's share of the window's pixels - asked once per world frame, and retro wins
   const params = new URLSearchParams(location.search);
@@ -94,8 +97,6 @@ async function boot() {
   let _data = null;
   const ensureData = () => (_data ??= (async () => {
     await ensureArena2();
-    // The classic pointer for every surface (fire-and-forget; never traps).
-    installCursor(getBytes);
   })());
   // M-EXT: ?music opens the replacement-music pick. It goes through
   // ensureData() FIRST and not around it: the picker needs the same
@@ -406,6 +407,14 @@ function crashOverlay(msg) {
   return el;
 }
 
+// GL-LEAK (FIELD BUGS 2026-10-03, Swololo: "GPU memory leaks that do not lower down even after closing the tab"): every
+// GL context the page holds - the game's, the held map's ink, the gate's veil, the intro's - let go AS THE PAGE GOES
+// (render/glRelease.js), not when a collector reaches its canvas: on Firefox the context lives in the GPU process. Not
+// for a page the browser keeps to come back to (`persisted` - the back-forward cache, which world.js's own pagehide
+// keeps working); the unload guard's question is answered before pagehide fires.
+let pageGoing = false;
+addEventListener('pagehide', (e) => { if (!e.persisted) releaseGlContexts(); });
+
 addEventListener('error', (e) => crashOverlay(crashText(e.error, e) || e.message));
 addEventListener('unhandledrejection', (e) => crashOverlay(`unhandled rejection\n${crashText(e.reason)}`));
 
@@ -416,6 +425,7 @@ addEventListener('unhandledrejection', (e) => crashOverlay(`unhandled rejection\
 // cause must read as signal, never as silent black).
 document.getElementById('c')?.addEventListener('webglcontextlost', (e) => {
   e.preventDefault();
+  if (pageGoing) return;   // GL-LEAK: let go on purpose as the page goes - no "context lost" over a closing tab
   const el = crashOverlay('graphics context lost (usually memory pressure on phones)\n\ntap here to reload');
   // AUDIT 68 S02-contextlost-tap-dead: PL3 made the report click-through,
   // so the promised tap fell to the dead canvas. This one takes taps, and

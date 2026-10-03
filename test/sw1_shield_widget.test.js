@@ -648,7 +648,10 @@ test('SW1-LOOK: the frame’s look reaches the shield as the ARRAY it is, or Ine
   const rig = readFileSync('src/combat/weaponRig.js', 'utf8');
   const feed = rig.slice(rig.indexOf('if (shieldOn()) shield.lateUpdate({'));
   const body = feed.slice(0, feed.indexOf('\n        });'));
-  assert.match(body, /look: \{ x: look\?\.\[0\] \?\? 0, y: look\?\.\[1\] \?\? 0,/, 'indexed, as the clone reads it');
+  // WIDGET-LOOK (FIELD BUGS 2026-10-03): indexed off the frame's look converted to DFU's axes (dfuLookAxes answers the
+  // same [yaw, pitch] array)
+  assert.match(body, /look: \{ x: lookAxes\[0\], y: lookAxes\[1\],/, 'indexed, as the clone reads it');
+  assert.match(rig, /const lookAxes = dfuLookAxes\(look\);/);
   assert.doesNotMatch(body, /look\?\.x/, 'and never by a name the value does not carry');
   // not vacuous: the clone really does read it positionally. The
   // module moved to weaponWidgetMotion.js on 2026-09-19 (the gun lab

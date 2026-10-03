@@ -154,10 +154,10 @@ export function shouldMarkLatest(tag, currentLatest) {
 
 const git = (args) => execFileSync('git', args, { encoding: 'utf8', maxBuffer: 16 * 1024 * 1024 }).trim();
 
-/** The release tag before `tag` in this checkout's history, or null. */
-export function previousReleaseTag(tag, run = git) {
+/** The release tag before `tag` in the history of `at` (HEAD, or REL7 the tag itself), or null. */
+export function previousReleaseTag(tag, run = git, at = 'HEAD') {
   try {
-    return run(['describe', '--tags', '--abbrev=0', '--match', 'app-v*', '--exclude', tag, 'HEAD']) || null;
+    return run(['describe', '--tags', '--abbrev=0', '--match', 'app-v*', '--exclude', tag, at]) || null;
   } catch {
     return null;
   }
@@ -165,14 +165,15 @@ export function previousReleaseTag(tag, run = git) {
 
 /**
  * The pull requests merged from `from` (the previous release's tag) to
- * HEAD, newest first, by number: every commit on the first-parent line
- * that is GitHub's "Merge pull request #N" or a squash's "... (#N)",
- * once. A commit pushed straight to the branch names none.
+ * `to` (HEAD, or REL7 the release's own tag), newest first, by number:
+ * every commit on the first-parent line that is GitHub's "Merge pull
+ * request #N" or a squash's "... (#N)", once. A commit pushed straight to
+ * the branch names none.
  */
-export function pullRequestsSince(from, run = git) {
+export function pullRequestsSince(from, run = git, to = 'HEAD') {
   if (!from) return [];
   const numbers = new Set();
-  for (const subject of run(['log', '--first-parent', '--format=%s', `${from}..HEAD`]).split('\n')) {
+  for (const subject of run(['log', '--first-parent', '--format=%s', `${from}..${to}`]).split('\n')) {
     const m = /^Merge pull request #(\d+)\b/.exec(subject) ?? /\(#(\d+)\)\s*$/.exec(subject);
     if (m) numbers.add(Number(m[1]));
   }
@@ -281,9 +282,9 @@ const repository = () => process.env.GITHUB_REPOSITORY || new URL(RELEASES_URL).
  * With no previous release there is nothing to read since, and the body
  * says "fixes and improvements" rather than every note ever written.
  */
-export function pullRequestNotesSince(from, { run = git, api = githubApi, repo = repository(), log = console.error } = {}) {
+export function pullRequestNotesSince(from, { run = git, api = githubApi, repo = repository(), log = console.error, to = 'HEAD' } = {}) {
   const notes = [];
-  for (const pr of pullRequestsSince(from, run)) {
+  for (const pr of pullRequestsSince(from, run, to)) {
     const got = api(`repos/${repo}/pulls/${pr}`);
     if (!got?.merged_at) {
       log(`#${pr} is no merged pull request in ${repo} - no notes from it`);
@@ -321,15 +322,14 @@ function main(argv) {
     process.stdout.write(composeReleaseNotes(notes));
     return 0;
   }
-  // REL7: the pull requests between the previous release and <tag> are the
-  // ones read, so HEAD must BE the tag (release-notes.yml checks it out).
+  // REL7: the pull requests between the previous release and <tag> ITSELF,
+  // whatever is checked out - release-notes.yml runs this from main, and a
+  // release's own commit may predate this command.
   if (cmd === 'renotes') {
     let notes;
     try {
-      const head = git(['rev-parse', 'HEAD']);
-      const tagged = git(['rev-parse', `${a}^{commit}`]);
-      if (head !== tagged) throw new Error(`HEAD is ${head}, not ${a} (${tagged})`);
-      notes = pullRequestNotesSince(previousReleaseTag(a));
+      try { git(['rev-parse', '--verify', '--quiet', `refs/tags/${a}^{commit}`]); } catch { throw new Error(`no tag ${a} in this checkout`); }
+      notes = pullRequestNotesSince(previousReleaseTag(a, git, a), { to: a });
     } catch (e) {
       console.error(`the notes could not be read - the release is left as it is: ${String(e?.stderr || e?.message || e).trim()}`);
       return 1;

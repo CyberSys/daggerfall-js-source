@@ -61,6 +61,7 @@ import {
   LOOT_DPAD, HELM_DPAD, plusDpadByCode, NEXT_MODE, plusStickSens, scaleStick, plusBindCapturing, lootPrompts, quickActApi, cycleTab, spatialStep, scrollAt, domTargetAt, domPointer, domHoverChange, interactiveAt, markHover, showPrompts, windowPrompts, activeTabStrip,
 } from './plusPad.js';
 import { GAUNTLET_POINT, GAUNTLET_PRESS } from './plusCursor.js';
+import { dfuCursorUrl } from './cursor.js';   // CLASSIC-CURSOR: the pad's arrow is DFU's controllerCursorImage, the mouse's own
 import { overlayOpen } from './enhancedOverlays.js';   // PADPLUS2: the enhanced doors' registry - a DOM window is up
 import { getInt, getBool } from '../systems/settings.js';
 import { quickLootSelection, quickLootWheel } from '../systems/quickLoot.js';   // PADPLUS6: the loot plaque's list, on the d-pad   // PADPLUS2: the swing mode decides the stroke
@@ -106,7 +107,10 @@ const MOUSE_CODE_OF_UI = Object.freeze({ LeftClick: 'Mouse0', RightClick: 'Mouse
 const DOM_BUTTON_OF_UI = Object.freeze({ LeftClick: 0, MiddleClick: 1, RightClick: 2 });
 /** controllerCursorWidth / Height (:138-139). */
 export const CURSOR_SIZE = 32;
-const CURSOR_SVG = 'data:image/svg+xml;utf8,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32"><path d="M4 2 L4 26 L10 20 L15 30 L19 28 L14 18 L22 18 Z" fill="#fff" stroke="#000" stroke-width="1.5" stroke-linejoin="round"/></svg>');
+/** CLASSIC-CURSOR (FIELD BUGS 2026-10-03): `controllerCursorImage` (InputManager :40, drawn at :569) is DFU's default
+ *  cursor's own texture - Cursor2.png, the mouse's arrow (ui/cursor.js) - in the 32x32 rect above. A white SVG arrow
+ *  of the port's own stood in for it. */
+const CURSOR_ART = dfuCursorUrl();
 
 function defaultMakeEvent(type, init) {
   const Ctor = type.startsWith('pointer') && typeof globalThis.PointerEvent === 'function' ? globalThis.PointerEvent : globalThis.MouseEvent;
@@ -200,7 +204,7 @@ export function attachGamepad(canvas, hooks = {}, { getPads = null, dispatch = s
     if (typeof document === 'undefined' || !document.body) return;
     if (on && !cursorEl) {
       cursorEl = document.createElement('div');
-      cursorEl.style.cssText = `position:fixed;left:0;top:0;width:${CURSOR_SIZE}px;height:${CURSOR_SIZE}px;pointer-events:none;z-index:6;background:url("${CURSOR_SVG}") no-repeat;display:none`;
+      cursorEl.style.cssText = `position:fixed;left:0;top:0;width:${CURSOR_SIZE}px;height:${CURSOR_SIZE}px;pointer-events:none;z-index:6;background:url("${CURSOR_ART}") no-repeat;image-rendering:pixelated;display:none`;
       document.body.appendChild(cursorEl);
     }
     if (!cursorEl) return;
@@ -212,7 +216,7 @@ export function attachGamepad(canvas, hooks = {}, { getPads = null, dispatch = s
       cursorEl.style.zIndex = plusNow ? '2147483001' : '6';
       cursorEl.style.width = plusNow ? '31px' : `${CURSOR_SIZE}px`;
       cursorEl.style.height = plusNow ? '32px' : `${CURSOR_SIZE}px`;
-      cursorEl.style.backgroundImage = `url("${plusNow ? GAUNTLET_POINT : CURSOR_SVG}")`;
+      cursorEl.style.backgroundImage = `url("${plusNow ? GAUNTLET_POINT : CURSOR_ART}")`;
     }
     if (plusNow) {
       const pressed = Object.values(cursorHeld).some(Boolean);

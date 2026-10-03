@@ -54,22 +54,15 @@ test('CURSOR-EDGE: every gauntlet frame the page wears is at most 32 DIP a side,
   assert.match(pad, new RegExp(`style\\.height = plusNow \\? '${ph}px'`));
 });
 
-test('CURSOR-EDGE: the classic arrow is cropped to what it draws and scaled only as far as 32 DIP allows', async () => {
-  const { MAX_CURSOR_DIP, cursorScale, drawnExtent } = await import('../src/ui/cursor.js');
+test('CURSOR-EDGE / CLASSIC-CURSOR: the classic arrow - DFU\'s Cursor2.png - is at most 32 DIP a side as it is worn, at 1x (mutant: a density or a scale put on it)', async () => {
+  const { MAX_CURSOR_DIP, classicCursorCss } = await import('../src/ui/cursor.js');
   assert.equal(MAX_CURSOR_DIP, 32);
-  assert.equal(typeof cursorScale, 'function', 'ui/cursor.js exports its sizing law');
-  assert.equal(cursorScale(16, 16), 2, 'an arrow that fits keeps its 2x');
-  assert.equal(cursorScale(32, 16), 1, 'a 32-wide one stays 1x - 64 px went to the OS arrow within 64 px of the right edge');
-  assert.equal(cursorScale(20, 9), 1);
-  for (const [w, h] of [[8, 8], [16, 16], [17, 3], [32, 16], [32, 32]]) assert.ok(Math.max(w, h) * cursorScale(w, h) <= 32, `${w}x${h}`);
-  // the hotspot is (0,0), so the crop keeps the top-left and drops the empty right and foot
-  const w = 32, h = 16, px = new Uint8ClampedArray(w * h * 4);
-  px[(10 * w + 13) * 4 + 3] = 255;   // the furthest drawn pixel: x 13, y 10
-  assert.deepEqual(drawnExtent(px, w, h), [14, 11]);
-  assert.deepEqual(drawnExtent(new Uint8ClampedArray(w * h * 4), w, h), [w, h], 'nothing drawn keeps the whole image');
-  const src = read('src/ui/cursor.js');
-  assert.match(src, /cursorScale\(/, 'installCursor sizes the canvas through cursorScale');
-  assert.doesNotMatch(src, /width \* SCALE|height \* SCALE/, 'no fixed 2x past 32 DIP');
+  const png = readFileSync(join(root, 'public/art/dfu-cursor/Cursor2.png'));
+  assert.equal(png.toString('latin1', 12, 16), 'IHDR');
+  const [w, h] = [png.readUInt32BE(16), png.readUInt32BE(20)];
+  assert.ok(w <= MAX_CURSOR_DIP && h <= MAX_CURSOR_DIP, `${w}x${h}`);
+  const css = classicCursorCss('https://x/art/dfu-cursor/Cursor2.png');
+  assert.doesNotMatch(css, /image-set|\dx\b/, 'worn at 1x - a 2x density would ask 64 DIP');
 });
 
 /** CSS with every `@supports not selector(::-webkit-scrollbar) { ... }` block taken out. */

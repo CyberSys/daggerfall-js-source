@@ -6,43 +6,31 @@
 //   UI2 the unscoped dress turned a touch screen's invisible overlay scrollbar into a standing 10 px bar (the front
 //       page 915 px wide to 905) - for a pointer device only now;
 //   UI3 the classic arrow's sizing was pinned by its source text alone (a fixed 2x again, the whole image drawn, the
-//       full size, a moved hotspot all passed) - pinned on the real canvas path;
+//       full size, a moved hotspot all passed) - pinned on the real canvas path; CLASSIC-CURSOR (FIELD BUGS 2026-10-03)
+//       made the arrow DFU's own Cursor2.png, laid as a rule, so the pin reads the rule;
 //   UI4 ORBIT-FREE's leftward drift, the freeing move's own along-lock travel and a fresh drag's clean start - unpinned.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { installCursor } from '../src/ui/cursor.js';
+import { installCursor, CLASSIC_CURSOR_STYLE_ID } from '../src/ui/cursor.js';
 import { ENHANCED_CSS } from '../src/ui/enhancedStyle.js';
 import { HeldMapWindow } from '../src/ui/heldMap.js';
 import { CLIMATES } from '../src/formats/mapsFile.js';
 
-/** installCursor over a fake document and canvas; `arrowW` wide, from (0,0), in a headerless 32x16 CURSOR.IMG. */
-async function install(arrowW, head = []) {
-  const canvases = [], draws = [];
-  globalThis.ImageData = class { constructor(d, w, h) { Object.assign(this, { data: d, width: w, height: h }); } };
-  globalThis.document = {
-    head: { append: (el) => head.push(el) }, getElementById: (id) => head.find((e) => e.id === id) ?? null, documentElement: { style: {} },
-    createElement: () => {
-      const c = { width: 0, height: 0, style: {}, toDataURL: () => 'data:image/png;base64,AA', getContext: () => ({ putImageData() {}, drawImage: (...a) => draws.push(a), imageSmoothingEnabled: true }) };
-      canvases.push(c); return c;
-    },
-  };
-  try {
-    const img = new Uint8Array(512);
-    for (let y = 0; y < 16; y++) for (let x = 0; x < arrowW; x++) if (x <= y + arrowW - 16) img[y * 32 + x] = 1;
-    const pal = new Uint8Array(776); pal.set([255, 255, 255], 8 + 3);
-    const bytes = async (n) => (n === 'CURSOR.IMG' ? img : pal);
-    const ok = await installCursor(bytes);
-    const first = { ok, out: canvases[1], draw: draws.at(-1), css: globalThis.document.documentElement.style.cursor };
-    await installCursor(bytes);
-    return first;
-  } finally { delete globalThis.document; delete globalThis.ImageData; }
+/** installCursor over a fake document (CLASSIC-CURSOR, FIELD BUGS 2026-10-03: DFU's own arrow, laid as a rule - no game
+ *  data, no canvas). */
+function install(head = [], opts = { classic: true }) {
+  const doc = { head: { append: (el) => head.push(el) }, getElementById: (id) => head.find((e) => e.id === id) ?? null, createElement: () => ({}) };
+  const ok = installCursor(doc, opts);
+  installCursor(doc, opts);
+  return { ok, head };
 }
 
-test('AUDIT UI1: the classic cursor brings its own scrollbar dress - once, unscoped, for a pointer device - so the classic skin\'s chat and panels keep the arrow over their bars (mutant: none laid)', async () => {
-  const head = [];
-  assert.ok((await install(11, head)).ok);
-  assert.equal(head.length, 1, 'laid once, however often the cursor is installed');
-  const css = head[0].textContent;
+test('AUDIT UI1: the classic cursor brings its own scrollbar dress - once, unscoped, for a pointer device - so the classic skin\'s chat and panels keep the arrow over their bars (mutant: none laid)', () => {
+  const { ok, head } = install();
+  assert.ok(ok);
+  const bars = head.filter((e) => /::-webkit-scrollbar/.test(e.textContent));
+  assert.equal(bars.length, 1, 'laid once, however often the cursor is installed');
+  const css = bars[0].textContent;
   assert.match(css, /@media \(any-pointer: fine\)\s*\{\s*::-webkit-scrollbar\s*\{[^}]*width:\s*\d+px/);
   assert.doesNotMatch(css, /scrollbar-(color|width)\s*:/, 'never the standard pair, which turns the dress off');
 });
@@ -53,14 +41,16 @@ test('AUDIT UI2: the enhanced sheet\'s unscoped dress is a pointer device\'s - a
   assert.doesNotMatch(outside, /(^|\})\s*::-webkit-scrollbar\s*\{[^}]*width/m, 'no other unscoped width');
 });
 
-test('AUDIT UI3: the classic arrow on the real canvas path - cropped to what it draws, at most 32 DIP a side, its hotspot (0,0) (mutants: a fixed 2x; the whole image drawn; the full size; the hotspot moved)', async () => {
-  const a = await install(11);
-  assert.ok(a.ok);
-  assert.deepEqual([a.out.width, a.out.height], [22, 32], 'an 11 x 16 arrow at 2x');
-  assert.deepEqual(a.draw.slice(1, 5), [0, 0, 11, 16], 'the source rect is the drawn extent from (0,0)');
-  assert.match(a.css, /^url\(.+\) 0 0, auto$/);
-  const b = await install(20);
-  assert.deepEqual([b.out.width, b.out.height], [20, 16], 'a 20-wide arrow stays 1x - 2x would be 40');
+test('AUDIT UI3 / CLASSIC-CURSOR: the classic arrow is DFU\'s own default cursor, its hotspot (0,0), worn over every element (a panel\'s own pointer never shows the OS hand), a text field\'s caret and a pad-hidden canvas apart; once; not on Enhanced Plus (mutants: the hotspot moved; the rule not !important; the caret lost; laid on Plus)', () => {
+  const { ok, head } = install();
+  assert.ok(ok);
+  const rules = head.filter((e) => e.id === CLASSIC_CURSOR_STYLE_ID);
+  assert.equal(rules.length, 1, 'laid once');
+  const css = rules[0].textContent;
+  assert.match(css, /html, html \*, html \*::before, html \*::after \{ cursor: url\("[^"]*art\/dfu-cursor\/Cursor2\.png"\) 0 0, auto !important; \}/);
+  assert.match(css, /html canvas\[style\*="cursor: none"\] \{ cursor: none !important; \}/);
+  assert.match(css, /html textarea, html \[contenteditable="true"\] \{ cursor: text !important; \}/);
+  assert.deepEqual(install([], { classic: false }), { ok: false, head: [] }, 'Enhanced Plus wears its gauntlet');
 });
 
 /** test/fb1001_orbitfree.test.js's rig, but ONE window across several drags. */

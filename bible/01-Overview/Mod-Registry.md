@@ -4,7 +4,7 @@
 > left as it wrote them.** They were true of the fifteen rows that
 > existed on 2026-09-15 and they are the record of what putting those
 > rows side by side found. The live numbers are derived, not written:
-> `vendor/` holds 45 directories and 26 of their READMEs still carry an
+> `vendor/` holds 43 directories and 24 of their READMEs still carry an
 > unfilled permission line, each shown as `RECORD OPEN` in the table
 > (ARENA1, 2026-10-02: Kamer's `daggerfall-arena`, the forty-fifth - his permission relayed by Mac
 > and written in its README, so the open count stands;
@@ -115,6 +115,7 @@ not the date the slice shipped, where those differ.
 | `beautiful-cities` | manifest verbatim, and every world-data file - 410 cities and 611 RMB blocks, 388 of them composites - as the author's EDIT of the player's own `MAPS.BSA` and `BLOCKS.BSA`, in one pack (`WorldDataPack/`, WD3), every piece the author copied out of Daggerfall named by reference (`$c`: its classic block's index and its path in the block, the block checked by name, `classicNames` - the sha256 only the builder's way to find it; AUDIT PRE-MERGE 1003 WD3) and never carried; not the bundle's eighteen bed prefabs (null-referenced, no meshes in this bundle at all, recoloured classic bedclothes): the port draws Daggerfall's own beds under bedclothes recoloured in code, and its own stand-ins for every peer piece it can (`src/world/townStandIns.js`) | carademono | 0.5.0 | shipped `.7z` `Beautiful_Cities_of_Daggerfall-720-0-5-0-1749441603`; `tools/worldDataPackBuild.mjs` checks every file rebuilds the author's sha256 through the runtime's reader | granted (Mac handed the archive over 2026-10-01: "We have permission") - **RECORD OPEN** | WD3 | 2026-10-01 | `03-World/Beautiful-Towns.md` |
 | `dfu-books` | data | Daggerfall Unity (Interkarma and contributors) | - | `Assets/Resources/books.txt` @ `81e89e90` | MIT | route (a) | 2026-08-20 | `10-UI/UI-Arc.md` |
 | `dfu-icons` | the sixteen interaction-mode icons (four sets x steal/grab/info/talk) | Daggerfall Unity (Interkarma and contributors) | - | `Assets/Resources/Icons` @ `2343305d` | MIT | HUD-ICON1 | 2026-09-24 | `01-Overview/Port-Ledger.md` |
+| `dfu-cursor` | the default cursor, Cursor2.png (the 32x32 blue arrow, ProjectSettings' defaultCursor) | Daggerfall Unity (Interkarma and contributors) | - | `Assets/Resources/Cursor2.png` @ `2343305d` | MIT | CLASSIC-CURSOR | 2026-10-03 | `01-Overview/Field-Bugs-2026-10-03.md` |
 | `dfu-quests` | data | Daggerfall Unity (Interkarma and contributors) | - | `Assets/StreamingAssets/{Quests,Tables}` @ `81e89e90` | MIT | route (a) | 2026-08-20 | `06-Systems/Quest-Arc.md` |
 | `dfu-settings` | data | Daggerfall Unity (Interkarma and contributors) | - | `defaults.ini.txt` + `Text/GameSettings.txt` @ `81e89e90` | MIT | route (a) | 2026-08-20 | `10-UI/Settings-Screen-Spec.md` |
 | `dfu-text` | data | Daggerfall Unity (Interkarma and contributors) | - | `Text/Master Localization CSV Files/Internal_RSC.csv` @ `master`, fetched 2026-09-18 | MIT | route (a) | 2026-09-18 | `01-Overview/Mac-Bugs-U.md` |

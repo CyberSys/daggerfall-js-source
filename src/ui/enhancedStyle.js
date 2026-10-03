@@ -3200,7 +3200,7 @@ ${badgeCss()}
    lane (systems/onlineLane.js), so this line is never seen in any
    other face. Brass rather than the popup's yellow: it is the machine
    talking, not the game. */
-.hudstatus { position: fixed; left: calc(8px + env(safe-area-inset-left, 0px));
+.hudstatus { position: fixed; left: calc(8px + var(--ui-pillar, 0px) + env(safe-area-inset-left, 0px));   /* RETRO-UI */
   top: calc(8px + env(safe-area-inset-top, 0px)); z-index: 4; pointer-events: none;
   max-width: min(420px, 60vw); font-size: 13px; letter-spacing: 0.04em;
   font-family: ${PIXEL_STACK}; -webkit-font-smoothing: none;
@@ -5307,7 +5307,7 @@ button.lv-note.lv-clickable:hover, button.lv-note.lv-clickable:focus-visible {
    eight toasts and a box spilled the last toast off the screen); the
    boxes stand first, so what is lost is the newest toast. */
 .notice-stack {
-  position: fixed; right: 0; top: 50%; transform: translateY(-50%);
+  position: fixed; right: var(--ui-pillar, 0px); top: 50%; transform: translateY(-50%);   /* RETRO-UI: at the picture's edge, inside retro mode's pillarbox */
   z-index: 31; pointer-events: none;
   display: flex; flex-direction: column; align-items: flex-end; gap: 10px;
   max-width: min(520px, 70vw); max-height: 90vh; overflow: hidden;
@@ -5403,7 +5403,7 @@ button.lv-note.lv-clickable:hover, button.lv-note.lv-clickable:focus-visible {
    A touch screen keeps the party list's 76; a phone takes it under the
    compass and the foe blade; a short screen keeps the title and the time. */
 .qtrack {
-  position: fixed; right: calc(8px + env(safe-area-inset-right, 0px)); top: calc(92px + env(safe-area-inset-top, 0px));
+  position: fixed; right: calc(8px + var(--ui-pillar, 0px) + env(safe-area-inset-right, 0px)); top: calc(92px + env(safe-area-inset-top, 0px));   /* RETRO-UI */
   z-index: 5; pointer-events: none; box-sizing: border-box; width: 260px; max-width: calc(100vw - 16px);
   display: flex; flex-direction: column; gap: 2px; padding: 5px 10px 6px 18px; text-align: right;
   /* AUDIT GUIDE U9: the toast's own plate (0.82) - at 0.6 the dim rows fell under 4.5:1 over a bright sky or snow */
