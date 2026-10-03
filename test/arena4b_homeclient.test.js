@@ -217,8 +217,8 @@ test('ARENA4b the host: world.js moves the online homes once a boot, after the h
   assert.ok(fn.includes('!(playerSpawned && modes)'), 'once the world stands - its checkpoint can write');
   assert.ok(fn.includes('arenaHomeFor({ mapId: now.mapId, oldKey: from, oldType: now.oldTypeOf(from) }, now.summaries'), 'the offline rule over the city as it stands');
   assert.ok(fn.includes('emptyArenaScene(scenes, homeSceneName(now.mapId, from), homeSceneName(now.mapId, to))'), 'the online home\'s own scene');
-  assert.ok(fn.includes('realmGoldAct({ session: realmSession, checkpoint: () => onlineCheckpoint(), ...o })'), 'inside the realm\'s act');
+  assert.ok(fn.includes('realmGoldAct({ ...o, session: realmSession, checkpoint: () => onlineCheckpoint() })'), 'inside the realm\'s act');
   assert.ok(fn.includes('credit: arenaRefund') && fn.includes('giveOwn: arenaGiveOwn'), 'the offline move\'s own doors');
-  assert.ok(fn.includes('checkpoint: () => onlineCheckpoint(),'), 'the save written before a move is said read');
+  assert.ok(fn.includes('checkpoint: () => onlineCheckpoint(),   // the emptied scene in the save'), 'the save written before a move is said read');
   assert.ok(/if \(!homeLayoutsOnline\) moveArenaDeed\(\);/.test(w), 'offline, the deed\'s move as before');
 });

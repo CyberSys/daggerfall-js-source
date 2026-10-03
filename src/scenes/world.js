@@ -11943,7 +11943,7 @@ export async function bootWorld(canvas, renderer, params, status) {
       const scenes = (playerEntity.sceneCache ??= createSceneCache());
       const moved = await moveArenaHomes({
         homes: onlineHomes, api: homesApi, mapId: now.mapId >>> 0, character: me,
-        realm: realmSession ? { act: (o) => realmGoldAct({ session: realmSession, checkpoint: () => onlineCheckpoint(), ...o }) } : null,
+        realm: realmSession ? { act: (o) => realmGoldAct({ ...o, session: realmSession, checkpoint: () => onlineCheckpoint() }) } : null,
         pick: (from, held) => arenaHomeFor({ mapId: now.mapId, oldKey: from, oldType: now.oldTypeOf(from) }, now.summaries, {
           held, isActiveQuestBuilding: (b) => !!questBridge?.machine?.isActiveQuestBuilding?.(now.mapId, b.buildingKey, b.buildingType),
         }),
