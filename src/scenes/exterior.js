@@ -3985,6 +3985,7 @@ export async function bootExterior(canvas, renderer, params, status) {
     makeArenaWindow: (page) => arenaGate.windowOverlay(page),   // ARENA3: the Arena window for another mode's slot (an interior's, a dungeon's)
     arenaJoined: () => arenaGate.joined(),   // ARENA4b: online the account's banner, offline the save's
     arenaHall: () => arenaGate.hall(),   // ARENA4b: the Keeper of the Hall reads the realm's wall online
+    arenaHallPlaques: () => arenaGate.plaques(),   // ARENA5: the names on the Hall's plaque wall (the save's, online the realm's)
     arenaPractice: () => {
       if (arenaBouts.holds() || arenaBouts.pending()) return false;
       arenaBouts.ask({ where: 'pit', kind: 'practice', next: practiceBout(playerEntity.arenaLadder) });
@@ -3993,6 +3994,7 @@ export async function bootExterior(canvas, renderer, params, status) {
     arenaBusy: () => arenaBouts.holds() || !!arenaBouts.pending(),
     arenaPlayerSpare: () => arenaBouts.playerSpare(),
     arenaHolds: () => arenaBouts.holds(),
+    arenaFloorBanners: () => arenaBouts.floorBanners(),   // ARENA5: the banners the floor's instance hangs for the bout asked
     arenaLanding: () => {
       const at = arenaHeraldAt();
       if (!at) return null;

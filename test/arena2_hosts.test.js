@@ -46,7 +46,8 @@ test('ARENA2 hosts - world.js: the crowd drawn in both passes, the music held, t
 
 test('ARENA2 hosts - worldModes.js: the Herald, the instance, its gates and its air, the way out before the Herald', () => {
   assert.match(M, /if \(!info && arenaGatePersonOf\(pn\)\?\.role === 'herald'\) \{ if \(!host\.arenaHerald\?\.\(\)\)/);
-  assert.match(M, /const hit = \{ dfLocation, blocksFile: arenaFloorBlocks\(blocks, kind\), arenaFloor: kind,/);
+  // ARENA5: the blocks file is made with the bout's banners hung (test/arena5_banners.test.js pins the host's half)
+  assert.match(M, /const hit = \{ dfLocation, blocksFile: arenaFloorBlocks\(blocks, kind, host\.arenaFloorBanners\?\.\(\) \?\? null\), arenaFloor: kind,/);
   assert.match(M, /if \(hit\.arenaFloor\) standArenaFloor\(ctx\);/);
   assert.match(M, /arena: hit\.arenaFloor \?\? null,/);
   assert.match(M, /if \(isArenaFloor\(dungeonLoc\)\) \{ if \(host\.arenaHolds\?\.\(\)\) \{ setMidScreenText\(ARENA_TEXT\.refuse\.door\); return true; \} return exitDungeonNow\(\); \}/, 'the gates shut while my bout stands');

@@ -37,6 +37,7 @@ import { rollLeague, leagueAfterBout, laurelWorn, laurelBanner, LAUREL_FAVOUR } 
 import { mirrorOf, mirrorEvents, mirrorHealth, walkAt, walkDone } from '../net/arenaLink.js';
 import { ARENA_PUPPET_OWNER, ARENA_CHEER_MS } from '../net/arenaLaw.js';   // ARENA4: a bout the relay runs, mirrored here; ARENA4b: the stands' allowance
 import { crowdShout } from '../systems/arenaCrowd.js';   // ARENA4: the stands' own cheers and boos, heard on every screen
+import { crowdHalves, crowdHalfOf, crowdWash } from '../systems/arenaCrowd.js';   // ARENA5: the crowd's half in a banner's colours
 
 /** ARENA-FIX 10: A CRIT is the formula's own critical-strike roll (combat/formulas.js calculateAttackDamage's notes,
  *  told through `observeAttackResolution` and matched to the blow the damage door hears - `attackResolved` below).
@@ -234,6 +235,33 @@ export function createArenaBouts(deps) {
     if (!P || !Number.isFinite(gm)) return;
     if (C.ladder) { if (laurelWorn(P.arenaLeague, gm)) C.crowd.favour[YOU] = Math.min(1, (C.crowd.favour[YOU] ?? 0) + LAUREL_FAVOUR); return; }
     laurelOf(C, laurelBanner(P.arenaLeague, gm), C.teams);
+  }
+  /**
+   * ARENA5: THE BANNERS THE FLOOR HANGS (Arena.md 3: "your banners on your side of the floor") for the bout asked for the
+   * floor's instance - the host asks while it lays the instance (scenes/worldModes.js enterArenaFloor, world/arenaFloor.js
+   * arenaFloorBlock), after the bout was asked and before its stage stands. `{ west, east }`: side 0's banner and side
+   * 1's, each 'red', 'blue' or null - a ladder bout mine on the west (the save's banner offline, the realm's online -
+   * boutTeams' own law), an exhibition the Red against the Blue, a relay's bout each player's (mine the realm's, my
+   * rival's or a watched pair's as the hall billed them - relayBanners' law), or the sides a bout hands in (`sides`, a
+   * replay's recorded pair). Nothing for a bout of no banner, the pit's, or none asked.
+   */
+  function floorBanners() {
+    const p = pending?.where === 'floor' ? pending : null;
+    const none = { west: null, east: null };
+    if (!p) return none;
+    const ok = (b) => (b === 'red' || b === 'blue' ? b : null);
+    if (p.relay) {
+      const r = p.relay;
+      if (Array.isArray(r.sides)) return { west: ok(r.sides[0]), east: ok(r.sides[1]) };
+      const out = { west: null, east: null };
+      const put = (id, b) => { const m = /^p([01])$/.exec(String(id)); if (m && ok(b)) out[m[1] === '0' ? 'west' : 'east'] = ok(b); };
+      for (const [id, b] of Object.entries(r.banners ?? {})) put(id, b);
+      if (r.me) put(r.me, realmNow()?.banner);
+      return out;
+    }
+    if (p.kind === 'exhibition') return { west: 'red', east: 'blue' };
+    if (p.kind === 'ladder') { const R = realmNow(); return { west: ok(R ? R.banner : leagueNow()?.team), east: null }; }
+    return none;
   }
   /** The laurel's favour (+LAUREL_FAVOUR) to each fighter of `teams` in the laurel's banner `won`. */
   function laurelOf(C, won, teams) {
@@ -554,12 +582,22 @@ export function createArenaBouts(deps) {
     if (!r?.createBillboardBatch || !deps.getTexture || !stage?.heightAt) return;
     const c = stage.centre();
     const seats = crowdSeats((x, z) => { const h = stage.heightAt(c[0] + x, c[2] + z); return Number.isFinite(h) ? h - c[1] : null; });
-    const n = crowdCount({ kind: C.ladder ? 'ladder' : 'exhibition', tier: C.ladder ? C.next.tier : C.ex.tier, champion: C.ladder && C.next.champion, grand: C.ladder && C.next.grand });
+    // ARENA5: by the bout's ladder step where it has one (a ladder bout, a relay's ladder bout, a replay of one), else an
+    // exhibition's house - a relay's bout between players, and one watched, have neither `next` nor `ex`, and read here
+    // `C.next.tier` / `C.ex.tier` threw before the first await: the stands of a relay's bout stood empty
+    const nx = C.next;
+    const n = crowdCount({ kind: nx ? 'ladder' : 'exhibition', tier: nx ? nx.tier : C.ex?.tier ?? 0, champion: !!nx?.champion, grand: !!nx?.grand });
     const sat = seatPeople(pickSeats(seats, n, seededRng(arenaHash(C.seed, 3))), seededRng(arenaHash(C.seed, 4)));
+    // ARENA5: THE CROWD'S HALF IN YOUR COLOUR (Arena.md 3) - each half of the tiers whose side fights under a banner
+    // (systems/arenaCrowd.js crowdHalves, over the banners this bout's own law gave its fighters - boutTeams, relayBanners)
+    // is batched apart and washed in its colours; a bout under no banner keeps one batch a picture and phase, as before
+    const halves = crowdHalves(C.b?.fighters ?? C.roster, C.teams);
+    const split = !!(halves[0] || halves[1]);
     const groups = new Map();
     for (const s of sat) {
-      const k = `${s.archive}:${s.record}:${s.phase < 0.5 ? 0 : 1}`;
-      if (!groups.has(k)) groups.set(k, { archive: s.archive, record: s.record, half: s.phase < 0.5 ? 0 : 1, at: [] });
+      const side = split ? crowdHalfOf(s.x) : 0;
+      const k = `${s.archive}:${s.record}:${s.phase < 0.5 ? 0 : 1}:${side}`;
+      if (!groups.has(k)) groups.set(k, { archive: s.archive, record: s.record, half: s.phase < 0.5 ? 0 : 1, tint: split ? crowdWash(halves[side]) : null, at: [] });
       groups.get(k).at.push([s.x, s.y, s.z]);
     }
     const batches = [];
@@ -570,6 +608,7 @@ export function createArenaBouts(deps) {
       const size = sizeOf(tex, g.record, CROWD_SCALE[g.archive]);
       const frames = Math.max(1, tex?.getFrameCount?.(g.record) ?? 1);
       const batch = r.createBillboardBatch(g.archive, g.record, size, g.at);
+      if (g.tint) batch.tint = g.tint;   // ARENA5: its half's wash (render/renderer.js uBatchTint)
       batches.push({ batch, archive: g.archive, record: g.record, frames, half: g.half, origin: [0, 0, 0], size, uploaded: new Set() });
     }
     if (cur !== C) { for (const x of batches) r.destroyBillboardBatch?.(x.batch); return; }
@@ -856,6 +895,7 @@ export function createArenaBouts(deps) {
     setStage, ask, start, dismiss, frame, batches, playerSpare, holds, attackResolved, playerSwing,
     startRelay, relayWord,   // ARENA4: a bout the relay runs
     cheer,   // ARENA4b: my cheer or boo from the stands of a relay's bout
+    floorBanners,   // ARENA5: the banners the floor's instance hangs for the bout asked for it
     /** ARENA4b: the realm's banners' source while online (`() => ({ banner, laurel }) | null`), scenes/arenaOnline.js's. */
     setRealm: (fn) => { realmOf = typeof fn === 'function' ? fn : null; },
     /** ARENA4: the relay's bout standing here - its id, my fighter id ('' in the stands), its kind - or null. */

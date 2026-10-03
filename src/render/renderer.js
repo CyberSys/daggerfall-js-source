@@ -536,6 +536,7 @@ uniform float uHitFlash;  // HITFLASH1: a body struck, 0..1 (batch.hitFlash)
 uniform float uEliteGlow;  // ELITE FOES: the glow's pulse, 0 off (batch.eliteGlow)
 uniform float uEliteTime;  // ELITE FOES: seconds, for the embers
 uniform vec4 uDissolve;  // DISSOLVE: x the share gone (0 whole, 1 gone), yzw the edge's colour (systems/dissolve.js)
+uniform vec3 uBatchTint;  // ARENA5: the batch's own wash (batch.tint), white for every flat but the arena crowd's half in a banner's colours
 uniform vec3 uTint; // time-of-day: ambient (+ the moon's half); VC4: the sun's half rides uBBSun so a cloud's shadow can take it
 uniform vec3 uBBSun;
 uniform int uPointCount;
@@ -610,6 +611,9 @@ void main() {
   float iD = length(uIndirect.xyz - vBBWorld);
   float iAtt = clamp(1.0 - iD / max(uIndirect.w, 1e-4), 0.0, 1.0);
   vec3 lit = albedo * (uTint + uBBSun * cloudShadowAt(vBBWorld) + pointAcc + iAtt * iAtt * uIndirectColor) + emission;   // VC4
+  // ARENA5: the batch's wash, multiplied in after both maps were sampled above the cut (SPRITE-GRAD's law) and once the
+  // flat is lit - white leaves every other flat as it was
+  lit *= uBatchTint;
   // ECV1: a shade is its silhouette - the lit colour pulled to black;
   // every concealed draw takes the visual's opacity over the texel's.
   // AUDIT 65 PN-3: SHADE_DARK itself (keep it a decimal - GLSL will not
@@ -1421,6 +1425,7 @@ export class Renderer {
     this._bbColumnOn = 0;   // LA-COST1 x DW-F: the billboard program's uColumnOn as last sent (the frame block resets it)
     this._bbTipOn = false;   // PROF4: the billboard program's uTip as last sent - a falling tree's (the frame block resets it)
     this._bbDissolveOn = false;   // DISSOLVE: the billboard program's uDissolve as last sent (the frame block resets it)
+    this._bbTintOn = false;   // ARENA5: the billboard program's uBatchTint as last sent - a washed batch's (the frame block resets it to white)
     this._dwCamFwd = new Float32Array(3);
     this._fogColor = new Float32Array([0, 0, 0]);
     this._camPos = new Float32Array(3);
@@ -1976,6 +1981,7 @@ export class Renderer {
     this.bbUEliteTime = gl.getUniformLocation(this.bbProgram, 'uEliteTime');   // ELITE FOES: the embers' clock
     this.bbUElitePad = gl.getUniformLocation(this.bbProgram, 'uElitePad');   // ELITE FOES: the widened quad
     this.bbUTint = gl.getUniformLocation(this.bbProgram, 'uTint');
+    this.bbUBatchTint = gl.getUniformLocation(this.bbProgram, 'uBatchTint');   // ARENA5: a batch's own wash
     this.bbUSun = gl.getUniformLocation(this.bbProgram, 'uBBSun');   // VC4
     this.bbUPointCount = gl.getUniformLocation(this.bbProgram, 'uPointCount');
     this.bbUPointLights = gl.getUniformLocation(this.bbProgram, 'uPointLights');
@@ -5051,7 +5057,7 @@ void main() { vec4 t = texture(uTex, vUV); if (t.a < 0.5) discard; outColor = ve
     return {
       vao, indexCount: count * 6, archive, record, size, buffers: [vb, ib], origin: null, frame: null, bounds, _quads: count, _dyn: !!dynamic,
       _place: count > 1 && !dynamic ? placementGrid(centers) : null,
-      _box: undefined, sway: undefined, tip: undefined, conceal: undefined, hitFlash: undefined, eliteGlow: undefined, eliteTime: undefined, elitePad: undefined, dissolve: undefined, noShadow: undefined, selfCard: undefined, _dead: undefined, _moveScratch: undefined, dwColumn: undefined,
+      _box: undefined, sway: undefined, tip: undefined, conceal: undefined, hitFlash: undefined, eliteGlow: undefined, eliteTime: undefined, elitePad: undefined, dissolve: undefined, tint: undefined, noShadow: undefined, selfCard: undefined, _dead: undefined, _moveScratch: undefined, dwColumn: undefined,
       _bbKey: undefined, _bbKeyId: undefined, _bbKeyRecord: undefined, _bbKeyFrame: undefined, _bbKeyArchive: undefined,
       _shGen: undefined, _shAx: NaN, _shAy: NaN, _shAz: NaN, _shSeen: undefined, _shOx: NaN, _shOy: NaN, _shOz: NaN, _shFrame: undefined,
       _shRec: undefined, _shFlip: undefined, _shDyn: undefined, _shSway: undefined, _shMovedAt: undefined, _shId: undefined,
@@ -5785,6 +5791,8 @@ void main() { vec4 t = texture(uTex, vUV); if (t.a < 0.5) discard; outColor = ve
       this._bbTipOn = false;
       gl.uniform4f(this.bbUDissolve, 0, 0, 0, 0);   // DISSOLVE: every flat whole until a burning one says otherwise - the shadow below is only true if this is sent
       this._bbDissolveOn = false;
+      gl.uniform3f(this.bbUBatchTint, 1, 1, 1);   // ARENA5: every flat unwashed until a washed batch says otherwise
+      this._bbTintOn = false;
       if (this._dwColumn && bc.uColumnOn) {
         const dw = this._dwColumn, v = this._view;
         this._dwCamFwd[0] = -v[2]; this._dwCamFwd[1] = -v[6]; this._dwCamFwd[2] = -v[10];   // the camera's forward: minus the view's third row
@@ -5876,6 +5884,8 @@ void main() { vec4 t = texture(uTex, vUV); if (t.a < 0.5) discard; outColor = ve
       if (eg !== 0) gl.uniform1f(this.bbUEliteTime, (performance.now() / 1000) % 3600);   // the embers' and the corpses' pulse clock (one clock, every elite batch)
       const dv = b.dissolve;   // DISSOLVE: a body burning away or gathering through a portal ([share, r, g, b]); every other batch whole
       if (dv || this._bbDissolveOn) { gl.uniform4f(this.bbUDissolve, dv ? dv[0] : 0, dv ? dv[1] : 0, dv ? dv[2] : 0, dv ? dv[3] : 0); this._bbDissolveOn = !!dv; }
+      const tn = b.tint;   // ARENA5: a batch's wash ([r, g, b]); every other batch white - sent when a washed batch comes or goes
+      if (tn || this._bbTintOn) { gl.uniform3f(this.bbUBatchTint, tn ? tn[0] : 1, tn ? tn[1] : 1, tn ? tn[2] : 1); this._bbTintOn = !!tn; }
       this._bindVao(b.vao);
       gl.drawElements(gl.TRIANGLES, b.indexCount, gl.UNSIGNED_INT, 0);
       this.stats.draws++;

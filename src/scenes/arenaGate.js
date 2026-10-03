@@ -29,7 +29,8 @@ import { bookmakerChoice, stakeChoice, placeWager, settleBook, bookVerdict, coll
 import { exhibitionFor } from '../systems/arenaLadder.js';
 import { fighterIdentity } from '../systems/arenaFighters.js';
 import { totalGoldAmount, deductGold, addGold } from '../systems/court.js';
-import { arenaBoard, hallLinesOnline } from '../systems/arenaBoard.js';
+import { arenaBoard, hallLinesOnline, hallPlaques } from '../systems/arenaBoard.js';
+import { PLAQUE_MAX } from '../world/arenaPlaques.js';   // ARENA5: the wall's cap
 import { nextLadderBout, arenaLadderRestore } from '../systems/arenaLadder.js';
 import { FIGHT_HEALTH_MIN } from '../systems/arenaHerald.js';
 import { createArenaOverlay, closeArenaDoor } from '../ui/arenaDoor.js';
@@ -186,6 +187,17 @@ export function createArenaGate(deps) {
     else void Promise.resolve(on.fetchBoard?.() ?? null).then(show, () => show(null));
     return true;
   }
+  /** ARENA5: THE HALL'S PLAQUES (world/arenaPlaques.js, both hosts' `arenaHallPlaques` - scenes/worldModes.js hangs the
+   *  wall): offline this save's Grand Champions, online the realm's (the board the window last fetched; asked when it is
+   *  not in, and until it comes the wall stands bare - never the save's names as the realm's). systems/arenaBoard.js
+   *  hallPlaques' `[{ name, banner, season }]`. */
+  function plaques() {
+    const on = online();
+    if (!on) return hallPlaques({ ladder: P.arenaLadder, league: P.arenaLeague, gameMinutes: gm(), name: P.name ?? '', max: PLAQUE_MAX });
+    const b = on.board?.() ?? null;
+    if (!b) on.refresh?.();
+    return b ? hallPlaques({ board: b, max: PLAQUE_MAX }) : [];
+  }
   /** WHETHER A BANNER IS WORN - the pause window's Arena door (both hosts' `arenaJoined`): offline the save's league;
    *  online the account's banner (the board's `me.banner` - the board asked when it is not yet in). */
   function joined() {
@@ -282,5 +294,7 @@ export function createArenaGate(deps) {
     return createArenaOverlay({ page, board: () => board(), act: (k, d) => windowAct(k, d) });
   }
 
-  return { recruiter, bookmaker, wager, settle, verdictSeen, board, windowAct, windowOverlay, heraldChoice, hall, joined, openWindow: (page) => openWindow?.(page) ?? false };
+  return { recruiter, bookmaker, wager, settle, verdictSeen, board, windowAct, windowOverlay, heraldChoice, hall, joined, openWindow: (page) => openWindow?.(page) ?? false,
+    plaques,   // ARENA5: the Hall of Champions' plaques
+  };
 }

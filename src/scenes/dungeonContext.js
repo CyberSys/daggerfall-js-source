@@ -7840,6 +7840,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     removeLooseFoe,   // CREW-COMPANIONS: a companion out of the room with no corpse
     arenaPit: _undercroftHall?.pit ?? null,   // ARENA-FIX 4: the training pit's centre (scenes/worldModes.js arenaPitStage)
     arenaPitAxis: _undercroftHall?.pitAxis ?? null,   // ...and its passage's way
+    arenaHall: _undercroftHall?.hall ?? null,   // ARENA5: the Hall of Champions' place - its plaque wall hangs about it (scenes/worldModes.js standArenaWall)
     spawnLooseFoe,   // SD1: the same chain with no quest behaviour bound - the enchant ctx's spawner
     questSpawnSpots: () => dungeonQuestSpawnSpots(dungeon.blocks),   // FIELD BUGS 29h (BOUNTY-LAIR): where DFU stands a quest's foe here
     replaceFoe: replaceFoeInPool,   // AUDIT 58 (review): the hosted route's enchant mount routes the Wabbajack here by pool membership

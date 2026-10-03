@@ -243,6 +243,12 @@ export const ARENA_TEXT = F({
     hallNotYou: 'Your name is not cut here yet.',
     hallTheirs: 'The Grand Champions of the Arena:',
     hallTheir: (year, who, banner) => `3E ${year} - ${who}, for ${banner}`,
+    /** ARENA5: the plaque wall (world/arenaPlaques.js) - a plaque's name on the hover plaque, and what its press reads
+     *  (`banner` the banner's name inside a sentence, or empty; `season` its words); a plaque with no name cut in it says
+     *  the stone's own `hallNone`. */
+    plaqueTitle: (name) => `${name}, Grand Champion`,
+    plaqueBare: 'An empty plaque',
+    plaqueLine: (name, banner, season) => `${name} - Grand Champion of the Arena of Daggerfall${banner ? `, for ${banner}` : ''}, ${season}.`,
   }),
 
   // ── THE BANNERS (ARENA3; systems/arenaLeague.js) ────────────────────────────────────────────────────────────
