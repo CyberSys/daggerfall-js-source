@@ -64,6 +64,7 @@ test('ARENA4b the stands\' presses on the HUD: carried only for a watcher of a r
   assert.deepEqual([one(cheer, 'arena-shout-word').textContent, one(cheer, 'arena-key').textContent], [O.cheer, O.cheerKey]);
   assert.deepEqual([one(boo, 'arena-shout-word').textContent, one(boo, 'arena-key').textContent], [O.boo, O.booKey]);
   assert.equal(cheer.attrs['aria-label'], `${O.cheer} (${O.cheerKey})`);
+  assert.equal(cheer.attrs['aria-disabled'], undefined);   // AUDIT PRE-MERGE 1003 U15: shut by aria-disabled, never disabled (the focus kept)
   assert.equal(cheer.attrs.disabled, undefined);
   let stopped = 0;
   cheer.onclick({ stopPropagation: () => stopped++ });
@@ -86,7 +87,8 @@ test('ARENA4b the stands\' presses on the HUD: carried only for a watcher of a r
   assert.deepEqual(pressed, [1, -1, 1, -1], 'a field, a modifier, a held key, another window\'s key, a walk: none');
   // the allowance: shut, the press and the key dead
   drawArenaHud(arenaHudModel(b, crowd, t, { stands: { ready: false } }), { doc: dom.doc, cheer: door });
-  assert.equal(cheer.attrs.disabled, '');
+  assert.equal(cheer.attrs['aria-disabled'], 'true', 'shut - AUDIT PRE-MERGE 1003 U15: by aria-disabled');
+  assert.equal(cheer.attrs.disabled, undefined, 'never disabled - a disabled press lets the keyboard\'s focus fall to the page');
   cheer.onclick({});
   key('Equal');
   assert.deepEqual(pressed, [1, -1, 1, -1], 'shut while the allowance runs');

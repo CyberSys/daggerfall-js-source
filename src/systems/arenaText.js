@@ -358,6 +358,7 @@ export const ARENA_TEXT = F({
     recordLine: (w, l) => `${w} won, ${l} lost`,
     wl: (w, l) => `${w}-${l}`,
     gold: (n) => `${n} gold`,
+    pursesWon: (n) => `Purses won: ${n} gold`,   // AUDIT PRE-MERGE 1003 U12: the header's chip says what it counts
     days: (n) => `${n} day${n === 1 ? '' : 's'}`,
     cleared: (n, tier) => `Tier ${n}, ${tier}`,
     allTen: 'All ten tiers taken',
@@ -381,6 +382,7 @@ export const ARENA_TEXT = F({
     purseLine: (gold) => `The purse - ${gold} gold, more if the crowd loves you.`,
     watch: 'Watch',
     wager: 'Wager',
+    placeWager: 'Place wager',   // AUDIT PRE-MERGE 1003 U14: the wager's own press, never a second "Wager"
     fight: 'Fight',
     back: (name) => `Back ${name}`,
     vs: 'vs',
@@ -422,6 +424,7 @@ export const ARENA_TEXT = F({
     }),
     rank: 'Rank',
     name: 'Fighter',
+    season: 'Season',   // AUDIT PRE-MERGE 1003 U11: the banners' board's first column - its rows are seasons, not fighters
     // Records
     stat: F({
       wins: 'Won', losses: 'Lost', share: 'Win share', yields: 'Yielded', falls: 'Fell', ringouts: 'Ring-outs', streak: 'Streak',
@@ -502,7 +505,9 @@ export const ARENA_TEXT = F({
     challengeLine: 'A real fighter of the realm, matched to your season rating.',
     queuedLine: (band, n) => `Seeking a fighter within ${band} of your rating - ${n} in the hall.`,
     offerLine: (name, rating) => `${name} (rating ${rating}) will meet you on the sand.`,
-    offerClock: (s) => `Accept within ${s} seconds.`,
+    // AUDIT PRE-MERGE 1003 U10: "1 second"; and at 0 the offer is gone - the hall lapses it on its next beat (server
+    // _hallTick), so the window says so and offers no Accept that could not land
+    offerClock: (s) => (s > 0 ? `Accept within ${s} second${s === 1 ? '' : 's'}.` : 'The offer has lapsed.'),
     goingLine: (name) => `To the sand! ${name} is on the way.`,
     ratingLine: (r, w, l) => `Your season rating is ${r} - ${w} won, ${l} lost.`,
     whyOffline: 'Online only',

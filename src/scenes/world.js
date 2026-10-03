@@ -8316,7 +8316,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     now: () => performance.now(), playerEntity, setPlayerBout,
     say: (l) => setMidScreenText(l, 2.6),
     notice: (lines) => { for (const l of lines) townTalk.say(l); },
-    sound: arenaSound, drawHud: (m, o) => drawArenaHud(m, o),
+    sound: arenaSound, drawHud: (m, o) => drawArenaHud(m, { ...o, hidden: !!o?.hidden || !hudRenderEnabled() }),   // AUDIT PRE-MERGE 1003 U8: the HUD's toggle (F10) takes the versus bar, the crowd's meter and the stands' presses with every other HUD surface (ui/hud.js)
     renderer, getTexture, uploadRecordFrame,
     pay: (g) => addGold(playerEntity, g),
     heal: arenaHeal,
