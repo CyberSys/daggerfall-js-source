@@ -425,8 +425,8 @@
   {
     "name": "ONESEAT-H6-duel-kept",
     "file": "src/scenes/world.js",
-    "old": "    try { duelLeaveNow(); } catch { /* no duel built, none to end */ }\n    online?.supersede();",
-    "new": "    online?.supersede();",
+    "old": "    try { duelLeaveNow(); } catch { /* no duel built, none to end */ }\n    staffTeleportClient?.cancel();\n    cabinLink.close();\n    online?.supersede();",
+    "new": "    staffTeleportClient?.cancel();\n    cabinLink.close();\n    online?.supersede();",
     "tests": [
       "test/oneseat.test.js"
     ]

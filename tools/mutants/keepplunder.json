@@ -94,8 +94,8 @@
   {
     "name": "KEEPPLUNDER-fast-travel-unwired",
     "file": "src/scenes/world.js",
-    "old": "    navalStow();   // KEEP-PLUNDER: stowed into her hold before the fast travel packs her",
-    "new": "    // KEEP-PLUNDER: stowed into her hold before the fast travel packs her",
+    "old": "navalStow();   // stow cargo before a successful journey packs the helm",
+    "new": "// cargo stow removed",
     "tests": [
       "test/keepplunder.test.js"
     ]

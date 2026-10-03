@@ -178,7 +178,8 @@ test('AUDIT C4-C6: the rest never reads longer than a rest (an older save\'s clo
   const rec = N.revenantRecord(me, r.id);
   rec.companion.state = 'resting'; rec.companion.until = 10000;
   assert.equal(RC.restUntil(rec, 5000), 5000 + RC.REVENANT_REST_MIN, 'an older clock: never more than a rest away');
-  assert.equal(RC.restUntil(rec, 9900), 10000);
+  assert.equal(RC.restUntil(rec, 5240), 5480, 'the corrected deadline stays fixed as the clock advances');
+  assert.equal(RC.restUntil(rec, 9900), 5480, 'an elapsed rest is not extended again');
   rec.companion.state = 'with'; rec.companion.until = null;
   const party = RC.revenantParty();
   RC.holdSworn(r.id, 60000);

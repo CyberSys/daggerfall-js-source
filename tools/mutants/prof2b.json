@@ -195,12 +195,12 @@
   {
     "name": "PROF2b-cli-watch-anyones",
     "file": "src/net/motherlodeBook.js",
-    "old": "if (!c || !c.signed || c.s !== meNow()) return false;",
+    "old": "if (!c || !c.signed || c.s !== meNow(true)) return false;",
     "new": "if (!c || !c.signed) return false;",
     "tests": [
       "test/prof2b_client.test.js"
     ],
-    "note": "AUDIT SILVER-WAYS (PIN MOVED): re-aimed by content to the code the audit's fix left (the Watch both ways, the receipt asked at the act's end and this account's alone, the tax reckoned in the batch)."
+    "note": "AUDIT SILVER-WAYS (PIN MOVED): re-aimed by content to the code the audit's fix left (the Watch both ways, the receipt asked at the act's end and this account's alone, the tax reckoned in the batch). Bugs update reconciliation 2026-10-03: re-aimed by the current source law; forced Watch identity refresh, cached frame reads, receipt ownership/expiry, and actual host seed citations remain independently killable."
   },
   {
     "name": "PROF2b-cli-watch-older-over-newer",
@@ -214,12 +214,12 @@
   {
     "name": "PROF2b-cli-watch-stale-carried",
     "file": "src/net/motherlodeBook.js",
-    "old": "return w && w.s === meNow() && motherlodeWatchOk(w.i, nowS() + Math.max(0, aheadS)) ? w.r : null;",
-    "new": "return w && w.s === meNow() ? w.r : null;",
+    "old": "return w && w.s === m && motherlodeWatchOk(w.i, nowS() + Math.max(0, aheadS)) ? w.r : null;",
+    "new": "return w && w.s === m ? w.r : null;",
     "tests": [
       "test/prof2b_client.test.js"
     ],
-    "note": "AUDIT SILVER-WAYS (PIN MOVED): re-aimed by content to the code the audit's fix left (the Watch both ways, the receipt asked at the act's end and this account's alone, the tax reckoned in the batch)."
+    "note": "AUDIT SILVER-WAYS (PIN MOVED): re-aimed by content to the code the audit's fix left (the Watch both ways, the receipt asked at the act's end and this account's alone, the tax reckoned in the batch). Bugs update reconciliation 2026-10-03: re-aimed by the current source law; forced Watch identity refresh, cached frame reads, receipt ownership/expiry, and actual host seed citations remain independently killable."
   },
   {
     "name": "PROF2b-cli-find-unheard",

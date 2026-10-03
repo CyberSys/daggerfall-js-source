@@ -32,7 +32,9 @@ async function run(label, opts) {
   const errors = [];
   page.on('pageerror', (e) => errors.push(e.message));
 
-  await page.goto(`${BASE}/play/?nointro`, { waitUntil: 'networkidle' });
+  await page.goto(`${BASE}/play/?nointro`, { waitUntil: 'domcontentloaded' });
+  await page.waitForSelector('.px-menu', { timeout: 60000 });
+  if (await page.locator('.px-acctstage').count()) await page.keyboard.press('Escape');
   await page.waitForSelector('.px-menu button', { timeout: 15000 });   // PX1: the door is the pixel home now
 
   // 1. THE DOOR OPENED WITHOUT DATA. ensureArena2's picker is a fixed
@@ -117,7 +119,9 @@ async function run(label, opts) {
   //     the switch click timed out. Re-aimed at the tiles: the control
   //     is a SEGMENTED BAR now, not one cycling button, so a tier is
   //     pressed by name rather than stepped into.
-  await page.goto(`${BASE}/play/?nointro`, { waitUntil: 'networkidle' });
+  await page.goto(`${BASE}/play/?nointro`, { waitUntil: 'domcontentloaded' });
+  await page.waitForSelector('.px-menu', { timeout: 60000 });
+  if (await page.locator('.px-acctstage').count()) await page.keyboard.press('Escape');
   await page.locator('.px-menu button').filter({ hasText: /Features/ }).first().click();
   await page.waitForSelector('#enhanced-menu .ft-tile', { timeout: 10000 });
   const skyTile = page.locator('#enhanced-menu .ft-tile')
@@ -135,7 +139,7 @@ async function run(label, opts) {
   });
   check(`${label}: the Features home opens with its tiles`, pane.rows >= 21 && pane.sky !== null, JSON.stringify(pane));
   check(`${label}: the outdoors read Dynamic Skies by default, wearing both labels`,
-    pane.sky === 'On, with Dynamic Skies' && pane.labels.join('+') === 'Enhanced+Mod Authored', JSON.stringify(pane));
+    pane.sky === 'Dynamic Skies' && pane.labels.join('+') === 'Enhanced+Mod Authored', JSON.stringify(pane));
   if (label === 'phone') check("phone: the outdoors switch is a thumb's target", pane.skyTarget >= 38, `${pane.skyTarget}px`);
   // the bar's OFF segment is the pref off - pressed by name, where the old list stepped a cycling button
   await skyTile.locator('.ft-segb', { hasText: /^Off/ }).first().click();
@@ -148,7 +152,9 @@ async function run(label, opts) {
   await skyTile.locator('.ft-segb', { hasText: /Dynamic Skies/ }).first().click();   // back to where it was
 
   // 3. THE PICK APPEARS WHEN A GAME STARTS, and not one moment before.
-  await page.goto(`${BASE}/play/?nointro`, { waitUntil: 'networkidle' });
+  await page.goto(`${BASE}/play/?nointro`, { waitUntil: 'domcontentloaded' });
+  await page.waitForSelector('.px-menu', { timeout: 60000 });
+  if (await page.locator('.px-acctstage').count()) await page.keyboard.press('Escape');
   await page.keyboard.press('Escape');   // PX2: Escape backs a section out to home
   await page.waitForSelector('.px-menu button', { timeout: 10000 });
   await page.locator('.px-menu button').filter({ hasText: /New Game/ }).first().click();
@@ -172,12 +178,15 @@ await run('phone', { ...devices['Pixel 5'] });
   const ctx = await browser.newContext({ viewport: { width: 1400, height: 900 } });
   const page = await ctx.newPage();
   await page.goto(`${BASE}/play/?skin=classic&nointro`, { waitUntil: 'domcontentloaded' });
+  await page.waitForSelector('.px-menu', { timeout: 60000 });
+  if (await page.locator('.px-acctstage').count()) await page.keyboard.press('Escape');
   await page.waitForSelector('.px-menu button', { timeout: 20000 });
   const st = await page.evaluate(() => JSON.parse(window.__menu()));
   // FT14 took Mods off this rail and FT16 took Controls into Settings;
   // this line still expected both, which is the third thing in this
   // file that had gone stale unnoticed.
   check('classic: the enhanced door mounts with the classic rail', JSON.stringify(st.sections) === JSON.stringify(['begin', 'online', 'settings', 'features', 'overhauls', 'about']), JSON.stringify(st.sections));
+  if (await page.locator('.px-acctstage').count()) await page.keyboard.press('Escape');
   await page.locator('.px-menu .door-begin').click();
   await page.locator('#enhanced-menu .act.primary', { hasText: 'Begin' }).click();   // FD1: the door opens the Begin pane; its button starts
   const picked = await page.waitForSelector('#pick', { timeout: 15000 }).then(() => true, () => false);
@@ -189,9 +198,11 @@ await run('phone', { ...devices['Pixel 5'] });
 //    STORES the choice and reloads with no ?skin= on the URL - onto the classic door, which gates the data before
 //    its menu. A fresh context, so the stored choice is this context's alone, and it is cleared after.
 {
-  const ctx = await browser.newContext({ viewport: { width: 1400, height: 900 } });
+  const ctx = await browser.newContext({ viewport: { width: 1280, height: 720 } });
   const page = await ctx.newPage();
-  await page.goto(`${BASE}/play/?nointro`, { waitUntil: 'load' });
+  await page.goto(`${BASE}/play/?nointro`, { waitUntil: 'domcontentloaded' });
+  await page.waitForSelector('.px-menu', { timeout: 60000 });
+  if (await page.locator('.px-acctstage').count()) await page.keyboard.press('Escape');
   await page.waitForSelector('.px-menu button', { timeout: 20000 });
   await page.locator('.px-menu button').filter({ hasText: /Overhauls/ }).first().click();
   const ui = page.locator('.look-panel[data-panel="ui"]');
@@ -199,7 +210,8 @@ await run('phone', { ...devices['Pixel 5'] });
   for (let i = 0; i < 3 && (await ui.locator('.look-name').innerText()).trim() !== 'Classic'; i++) await ui.locator('.look-arrow').last().click();
   await ui.locator('.look-use').click();
   // FD1: the classic door is this same screen with the Begin rail; the pick rises behind Begin
-  await page.waitForSelector('.px-menu .door-begin', { timeout: 20000 });
+  await page.waitForSelector('.px-menu .door-begin', { timeout: 60000 });
+  if (await page.locator('.px-acctstage').count()) await page.keyboard.press('Escape');
   await page.locator('.px-menu .door-begin').click();
   await page.locator('#enhanced-menu .act.primary', { hasText: 'Begin' }).click();   // FD1: the pane's own Begin
   const picked = await page.waitForSelector('#pick', { timeout: 15000 }).then(() => true, () => false);

@@ -26,6 +26,8 @@
 // walks moves as the owner's does, at an even speed, and not in five surges a second. Each boat's frame keeps the pose
 // it had before it (`was`), and a step past the snap - a teleport, a new boat - is marked `jumped`: the host carries
 // whoever stands on the deck by the pose's change, never across a jump.
+// SAILING-CABINS: a below-deck owner keeps streaming their fleet. On owner loss,
+// a locally occupied hull is retained stationary until its passenger steps off.
 import { validCsaRecord, CSA_WIRE_BOATS_MAX } from '../systems/comeSailAwayWire.js';
 import { Boat, boatAnimators, animatorOf, setLights } from '../systems/comeSailAwayBoat.js';
 import { stowSail } from '../systems/comeSailAway.js';
@@ -63,6 +65,18 @@ const sceneWay = (w, toScene) => {
  */
 export function createComeSailAwayPeers({ pool, selfId = () => null, log = console }) {
   let enabled = true;
+  /** @type {(boat: any) => boolean} */
+  let keepAboard = () => false;
+  // A disconnected owner cannot remove the deck under a passenger. Keep only
+  // occupied local hulls, stationary, until that passenger steps off. These
+  // safety copies are never published or made into owned/sailable boats.
+  const retained = new Map();
+  function retire(owner, slot, s) {
+    if (enabled && keepAboard(s.boat)) {
+      retained.set(s.boat, { owner, slot, boat: s.boat, hull: s.hull, variant: s.variant,
+        position: [...s.boat.GameObject.position], rotation: [...s.boat.GameObject.rotation], wire: [...s.wire] });
+    } else pool.remove(s.boat);
+  }
   /** @type {((owner: string) => any) | null} 'hidden', a concealed look, or null (AUDIT PRE-MERGE 0928 O4) */
   let peerLook = null;
   /** owner -> { boats, toScene, at, dirty }: the live word, in the wire frame */
@@ -78,7 +92,7 @@ export function createComeSailAwayPeers({ pool, selfId = () => null, log = conso
   const said = new Set();
 
   function drop(owner) {
-    for (const s of shown.get(owner) ?? []) if (s) pool.remove(s.boat);
+    for (const [slot, s] of (shown.get(owner) ?? []).entries()) if (s) retire(owner, slot, s);
     shown.delete(owner);
   }
   /** AUDIT PRE-MERGE 0928 O1: a peer's boat that throws is that owner's loss alone - their word and boats, said once. */
@@ -93,20 +107,33 @@ export function createComeSailAwayPeers({ pool, selfId = () => null, log = conso
   /** The word's places matched with what stands: a boat of the same hull, nearest to its new place first (the same boat
    *  a place or a pack moved along the list), its variant set as SetBoatVariant sets it; the rest go. Builds nothing. */
   function realign(owner, l) {
-    const had = (shown.get(owner) ?? []).filter(Boolean);
+    const held = [...retained.values()].filter((s) => s.owner === owner).map((s) => ({
+      ...s, wire: [...s.wire], shown: [...s.position], turn: [...s.rotation], helm: false, light: !!s.boat.LightOn,
+    }));
+    const had = [...(shown.get(owner) ?? []).filter(Boolean), ...held];
     const next = new Array(l.boats.length).fill(null);
     const pairs = [];
     for (let i = 0; i < l.boats.length; i++) {
-      for (let j = 0; j < had.length; j++) if (had[j].hull === l.boats[i].hull) pairs.push([dist2(had[j].wire, l.boats[i].position), had[j].slot === i ? 0 : 1, i, j]);
+      for (let j = 0; j < had.length; j++) {
+        if (had[j].hull !== l.boats[i].hull) continue;
+        if (l.boats[i].uid && had[j].boat.uid && l.boats[i].uid !== had[j].boat.uid) continue;
+        const d = dist2(had[j].wire, l.boats[i].position);
+        if (keepAboard(had[j].boat) && dist2(had[j].boat.GameObject.position, l.toScene(l.boats[i].position)) > CSA_PEER_SNAP_M * CSA_PEER_SNAP_M) continue;
+        pairs.push([d, had[j].slot === i ? 0 : 1, i, j]);
+      }
     }
     pairs.sort((a, b) => a[0] - b[0] || a[1] - b[1] || a[2] - b[2] || a[3] - b[3]);
     const taken = new Set();
     for (const [, , i, j] of pairs) if (!next[i] && !taken.has(j)) { next[i] = had[j]; taken.add(j); }
-    for (let j = 0; j < had.length; j++) if (!taken.has(j)) pool.remove(had[j].boat);
+    for (let j = 0; j < had.length; j++) {
+      if (taken.has(j)) retained.delete(had[j].boat);
+      else if (!retained.has(had[j].boat)) retire(owner, had[j].slot, had[j]);
+    }
     shown.set(owner, next);
     for (let i = 0; i < next.length; i++) {
       const s = next[i], w = l.boats[i];
       if (!s) continue;
+      s.boat.uid = w.uid ?? 0;
       s.slot = i; s.wire = w.position;
       if (s.variant !== w.variant) { pool.setVariant(s.boat, w.variant); s.variant = w.variant; }
     }
@@ -126,7 +153,7 @@ export function createComeSailAwayPeers({ pool, selfId = () => null, log = conso
       const w = l.boats[i];
       try {
         const boat = pool.spawnPeerNow(new Boat(w.hull, w.variant));
-        if (boat) boat.peerKey = `${owner}:${i}`;   // LIVING CREW: whose, and which - her crew's seed (scenes/navalCrew.js)
+        if (boat) { boat.peerKey = `${owner}:${i}`; boat.uid = w.uid ?? 0; }   // LIVING CREW: whose, and which - her crew's seed (scenes/navalCrew.js)
         if (boat) list[i] = { boat, hull: w.hull, variant: w.variant, wire: w.position, slot: i, shown: null, turn: null, helm: false, light: false };
       } catch (e) { fail(owner, e); }
       return;
@@ -182,6 +209,10 @@ export function createComeSailAwayPeers({ pool, selfId = () => null, log = conso
 
   /** One frame: the builds' buckets refilled, each moved word matched to what stands, ONE build, then each boat posed. */
   function frame(dt) {
+    for (const [boat, s] of retained) {
+      if (!enabled || !keepAboard(boat)) { retained.delete(boat); pool.remove(boat); continue; }
+      boat.GameObject.position = [...s.position]; boat.GameObject.rotation = [...s.rotation];
+    }
     const ms = Math.max(0, dt) * 1000;
     for (const l of live.values()) l.age += Math.max(0, dt);   // CSA-K: each word's age on the real clock, which leads it
     for (const [owner, b] of buckets) {
@@ -211,7 +242,7 @@ export function createComeSailAwayPeers({ pool, selfId = () => null, log = conso
     const r = raw == null ? null : validCsaRecord(raw);
     if (!r) { live.delete(owner); drop(owner); return raw == null; }
     if (!buckets.has(owner)) buckets.set(owner, { tokens: CSA_PEER_BUILD_BURST });
-    live.set(owner, { boats: r.boats, toScene, at: nowMs, dirty: true, age: 0 });
+    live.set(owner, { boats: r.boats, cabin: !!r.cabin, toScene, at: nowMs, dirty: true, age: 0 });
     return true;
   }
   /** An owner gone from the room, or quiet past staleMs, takes their boats with them (its bucket stays until full). */
@@ -227,15 +258,26 @@ export function createComeSailAwayPeers({ pool, selfId = () => null, log = conso
     live.clear();
     buckets.clear();
     for (const owner of [...shown.keys()]) drop(owner);
+    for (const [boat] of retained) if (!enabled || !keepAboard(boat)) { retained.delete(boat); pool.remove(boat); }
   }
   /** The floating origin moved: the eased places move with the world (the words are converted every frame anyway). */
   function rebase(offset) {
+    for (const s of retained.values()) s.position = s.position.map((v, i) => v + offset[i]);
     for (const list of shown.values()) for (const s of list) if (s?.shown) s.shown = [s.shown[0] + offset[0], s.shown[1] + offset[1], s.shown[2] + offset[2]];
   }
   function setEnabled(v) { enabled = !!v; if (!enabled) clearPeers(); }
 
   return {
     applyOwner, sweepOwners, clearPeers, rebase, frame, setEnabled,
+    setKeepAboard(fn) { keepAboard = typeof fn === 'function' ? fn : () => false; },
+    boatByUid(owner, uid) {
+      const l = live.get(owner), list = shown.get(owner);
+      const wire = l?.boats.find((b) => b.uid === uid);
+      // A network frame can reorder slots before the next render realigns them.
+      // Resolve the shown hull's identity too; never borrow that slot's old boat.
+      return wire ? list?.find((s) => s?.boat.uid === uid && s.hull === wire.hull)?.boat ?? null : null;
+    },
+    isBelowDeck: (owner) => !!live.get(owner)?.cabin,
     /** NAV-H: the boats other players stand at their helms, where each is and how it moves - the sea's contacts
      *  (scenes/navalHost.js): a pirate hunts them as it hunts mine. A boat that stands nowhere (a hidden owner's) is
      *  nobody's contact. */
@@ -256,17 +298,22 @@ export function createComeSailAwayPeers({ pool, selfId = () => null, log = conso
     setPeerLook(fn) { peerLook = typeof fn === 'function' ? fn : null; },
     get enabled() { return enabled; },
     /** What stands, owner by owner, place by place (null: waiting for its build) - a probe's and the tests' reading. */
-    shown: () => [...shown].map(([owner, list]) => ({ owner, boats: list.map((s) => (s ? { hull: s.hull, variant: s.variant, position: s.shown ? [...s.shown] : null, boat: s.boat } : null)) })),
+    shown: () => [...[...shown].map(([owner, list]) => ({ owner, boats: list.map((s) => (s ? { hull: s.hull, variant: s.variant, position: s.shown ? [...s.shown] : null, boat: s.boat } : null)) })),
+      ...[...retained.values()].map((s) => ({ owner: s.owner, boats: [{ hull: s.hull, variant: s.variant, position: [...s.position], boat: s.boat }] }))],
     /** CSA-K: the boat standing for an owner's place in their word, or null. */
-    boatAt: (owner, slot) => shown.get(owner)?.[slot]?.boat ?? null,
+    boatAt: (owner, slot) => [...retained.values()].find((s) => s.owner === owner && s.slot === slot)?.boat ?? shown.get(owner)?.[slot]?.boat ?? null,
     /** CSA-K: where a boat of a peer's stands in their word - `{ owner, slot }` - or null (not a peer's, or gone). */
     placeOf(boat) {
+      const held = retained.get(boat);
+      if (held) return { owner: held.owner, slot: held.slot };
       for (const [owner, list] of shown) for (let i = 0; i < list.length; i++) if (list[i]?.boat === boat) return { owner, slot: i };
       return null;
     },
     /** CSA-K: the pose a boat of a peer's will stand at after the next frame of `dt` (a reader's online frame runs
      *  before the peers' frame, and places a passenger on the deck where it will be drawn) - or null. */
     poseAhead(boat, dt) {
+      const held = retained.get(boat);
+      if (held) return { position: [...held.position], rotation: [...held.rotation] };
       for (const [owner, list] of shown) {
         const l = live.get(owner);
         if (!l) continue;
@@ -282,6 +329,11 @@ export function createComeSailAwayPeers({ pool, selfId = () => null, log = conso
     /** CSA-K: a boat's move this frame - its root's pose before the frame and after - or null where there is none to
      *  carry anyone by: a boat just built, a snap (a teleport), or no boat of a peer's. */
     moveOf(boat) {
+      const held = retained.get(boat);
+      if (held) {
+        const pose = { position: [...held.position], rotation: [...held.rotation] };
+        return { before: pose, after: pose };
+      }
       for (const list of shown.values()) {
         for (const s of list) {
           if (s?.boat !== boat) continue;

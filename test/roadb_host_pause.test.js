@@ -207,7 +207,7 @@ test('ROAD-tail SWEEP: no host re-derives the pause - windowStack.paused() is th
     const text = src(f);
     assert.equal((text.match(/townTalk\.overlayActive \|\| \(modes\?\.overlayHeld \?\? false\)/g) ?? []).length, 1,
       `${f}: the composition is written once`);
-    assert.match(text, /const gamePaused = \(\) => townTalk\.overlayActive \|\| \(modes\?\.overlayHeld \?\? false\);/,
+    assert.match(text, /const gamePaused = \(\) => (?:staffTeleportHeld \|\| )?townTalk\.overlayActive \|\| \(modes\?\.overlayHeld \?\? false\);/,
       `${f}: ...and that one place is the host's pause reader`);
     assert.ok((text.match(/\bgamePaused\(\)/g) ?? []).length >= 6, `${f}: which its gates read`);
   }

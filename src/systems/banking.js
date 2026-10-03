@@ -327,6 +327,7 @@ export const shipCameraDist = (ship) => (ship >= 0 ? SHIP_CAMERA_DIST[ship] : 0)
  * mapId/buildingKey0 pair (:103-110).
  */
 export function assignShipToPlayer(player, shipType, { addPermanentScene = null } = {}) {
+  if (player.ownedShip !== shipType) delete player.boatCabinLink;
   player.ownedShip = shipType;
   delete player.shipCrossed;   // RESTORE: a ship bought is the buyer's own, whatever crossed customs before it
   if (shipType !== SHIP_TYPES.None) addPermanentScene?.(shipType);
@@ -336,7 +337,7 @@ export function assignShipToPlayer(player, shipType, { addPermanentScene = null 
 /** ResetShip (:128) - `ownedShip = ShipType.None` and nothing else: the
  *  permanent scenes stay listed, as they do in DFU. WA1: Warm Ashes -
  *  Ships takes back the ship it lends with this. */
-export function resetShip(player) { player.ownedShip = SHIP_TYPES.None; delete player.shipCrossed; }
+export function resetShip(player) { player.ownedShip = SHIP_TYPES.None; delete player.boatCabinLink; delete player.shipCrossed; }
 
 /**
  * PurchaseShip (:467-486). The ladder is PurchaseHouse's, with one
@@ -376,7 +377,7 @@ export function sellShip(accounts, regionIndex, player, { removePermanentScene =
   const price = shipSellPrice(ship);
   accounts[goldRegion(accounts, regionIndex, online)].accountGold += price;   // EMPIRE-ACCOUNT: online, into the Empire's account
   removePermanentScene?.(ship);
-  player.ownedShip = SHIP_TYPES.None;
+  player.ownedShip = SHIP_TYPES.None; delete player.boatCabinLink;
   delete player.shipCrossed;
   return { kind: 'sold', price };
 }
@@ -1055,7 +1056,7 @@ export function bankingStatusRows(accounts, { regionName = () => '', dueText = n
 //    the permanent-scene set, so housesForSale, allocateHouseToPlayer
 //    and sellHouse above are live; H2/H4 brought the BUY UI itself -
 //    DaggerfallBankPurchasePopUp is ui/bankPurchaseWindow.js
-//    (BankPurchaseWindow :102), mounted at scenes/worldModes.js:3188
+//    (BankPurchaseWindow :102), mounted at scenes/worldModes.js:3195
 //    openPurchase with drawBankModelPreview (:1938) as the dedicated
 //    3D model panel, and ui/bankWindow.js:292-305 routes BUY HOUSE's
 //    'pick' into it (a host without the window still falls back to

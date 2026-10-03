@@ -385,7 +385,7 @@ test('WD3 a record whose town stands in another layout is honoured, never misrea
   assert.equal(findRentedRoom([room], 1001, 0x777, false), null, 'never a bed in a building that is no inn');
   assert.equal(recordStands({ buildingKey: 5 }), true, 'a record naming no town stands as Daggerfall read it');
   const M = src('src/scenes/worldModes.js');
-  assert.match(M, /if \(layoutLocationKeyOfMapId\(questSceneCtx\?\.\(\)\?\.mapId \?\? 0\) != null && !layoutsMatch\(saved\.layout, visitLayoutNow\(\)\)\) \{\n {8}console\.warn\('\[layout\] the building was left in another layout of this town - standing outside'\);\n {8}return false;/);
+  assert.match(M, /if \(!cabin && layoutLocationKeyOfMapId\(questSceneCtx\?\.\(\)\?\.mapId \?\? 0\) != null && !layoutsMatch\(saved\.layout, visitLayoutNow\(\)\)\) \{\n {8}console\.warn\('\[layout\] the building was left in another layout of this town - standing outside'\);\n {8}return false;/);
   assert.match(M, /room: findRentedRoom\(playerEntity\.rentedRooms \?\? \[\], mapId, buildingKey, b\?\.buildingType === BUILDING_TYPES\.Tavern\),/);
   assert.match(src('src/scenes/world.js'), /restoreInterior\?\.\(a\.interior \? \{ \.\.\.a\.interior, layout: a\.layout \} : a\.interior, anchorLanding\(a\)\)/, 'an anchor carries the layout it was set in');
 });

@@ -1376,8 +1376,8 @@
   {
     "name": "AUDIT-WB12d-the-stepped-down-forgets",
     "file": "src/net/online.js",
-    "old": "since: this._now(), raidOk: this.raidOk, riteOk: this.riteOk };",
-    "new": "since: this._now() };",
+    "old": "raidOk: this.raidOk, riteOk: this.riteOk, foeInventoryOk: this.foeInventoryOk",
+    "new": "foeInventoryOk: this.foeInventoryOk",
     "tests": [
       "test/wb12d_rite_world.test.js"
     ]

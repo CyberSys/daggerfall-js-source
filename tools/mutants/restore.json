@@ -51,8 +51,8 @@
   {
     "name": "RESTORE-A-a-reset-ship-keeps-the-mark",
     "file": "src/systems/banking.js",
-    "old": "export function resetShip(player) { player.ownedShip = SHIP_TYPES.None; delete player.shipCrossed; }",
-    "new": "export function resetShip(player) { player.ownedShip = SHIP_TYPES.None; }",
+    "old": "export function resetShip(player) { player.ownedShip = SHIP_TYPES.None; delete player.boatCabinLink; delete player.shipCrossed; }",
+    "new": "export function resetShip(player) { player.ownedShip = SHIP_TYPES.None; delete player.boatCabinLink; }",
     "tests": [
       "test/restore.test.js"
     ]

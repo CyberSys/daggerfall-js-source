@@ -1,3 +1,6 @@
+import { giveNavalItems } from '../src/systems/naval/navalTransfer.js';
+import { goldStack } from '../src/systems/inventory.js';
+import { mintStores } from '../src/systems/naval/navalStores.js';
 // AUDIT WATCH-KIT (2026-10-01, Mac: "Just want to audit this to make sure it's perfection") - the audit of PR #502
 // (SHIP-WATCH, COMPANION-KIT; bible/01-Overview/Audit-Watch-Kit.md). This suite pins the HOSTS' side of the companions
 // (lenses U and P): another player's companion by his own name, the cards off the ship's plate while I sail, the panel
@@ -134,14 +137,14 @@ test('AUDIT WK-P5 a companion\'s pack is never thrown away: with no boat of his 
   assert.deepEqual(calls, [{ n: 6, boat: 42, force: false }]);
   assert.ok(s.log.say.some((t) => t === 'Olaf\'s pack is stowed in the hold.'));
   // the world's door: gold into the purse, the rest past the gate when forced
-  const give = new Function('playerEntity', 'planTake', 'addItem', 'addGoldPieces', 'isGoldPieces', 'surfacePlayer', `return ${lift(WORLD, 'const navalGiveItems = (items, boat, { force = false } = {}) => {')};`);
-  const me = { items: [], goldPieces: 10 };
-  const fn = give(me, () => ({ ok: false }), (bag, it) => bag.push(it), (e, n) => { e.goldPieces += n; }, (it) => it.gold === true, () => {});
-  const gold = { gold: true, stackCount: 500 };
-  assert.deepEqual(fn([gold, { name: 'Claymore' }], null), { left: [{ name: 'Claymore' }], over: 0 }, 'unforced: what will not go is answered');
+  const give = new Function('playerEntity', 'giveNavalItems', 'surfacePlayer', `return ${lift(WORLD, 'const navalGiveItems = (items, boat, { force = false } = {}) => {')};`);
+  const me = { items: [], goldPieces: 10, stats: { strength: 1 }, activeEffects: [] };
+  const fn = give(me, giveNavalItems, () => {});
+  const gold = goldStack(500), stores = mintStores(100);
+  assert.deepEqual(fn([gold, stores], null), { left: [stores], over: 0 }, 'unforced: what will not go is answered');
   assert.equal(me.goldPieces, 510, 'his gold in my purse');
   assert.ok(!me.items.includes(gold));
-  assert.deepEqual(fn([{ name: 'Axe' }], null, { force: true }), { left: [], over: 1 });
-  assert.ok(me.items.some((it) => it.name === 'Axe'), 'past the gate');
+  assert.deepEqual(fn([stores], null, { force: true }), { left: [], over: 1 });
+  assert.equal(me.items[0].stackCount, 100, 'past the gate');
   assert.match(HOST, /const mine = rest\.length \? deps\.board\?\.giveItems\?\.\(rest, null, \{ force: true \}\) \?\? null : null;/);
 });

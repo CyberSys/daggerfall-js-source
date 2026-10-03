@@ -546,8 +546,18 @@ const REGISTRY = new Map([
    *  the owner's own pack. */
   [T.SoulBound, {
     flags: PAYLOAD.Enchanted | PAYLOAD.Breaks,
-    enchanted({ param, entity, collection }) { _fx.removeFilledTrap?.(collection ?? entity?.items, param); },
-    breaks({ param, ctx }) { if (param >= 0) ctx?.spawnFoe?.(param); },
+    enchanted({ param, entity, collection, item }) {
+      // Only a newly consumed soul may rearm an existing binding; repairing the item cannot.
+      if (_fx.removeFilledTrap?.(collection ?? entity?.items, param)) delete item.soulBoundReleased;
+    },
+    breaks({ param, item, ctx }) {
+      if (!(param >= 0) || item.soulBoundReleased) return;
+      // Magic repairs keep the item. Consume its release BEFORE calling the host: repeated wear, reentrant
+      // callbacks and later repair/break cycles must not spawn the same soul again. The item field survives
+      // saves and transfers. Other enchantments and non-Soulbound items keep their existing break behavior.
+      item.soulBoundReleased = true;
+      ctx?.spawnFoe?.(param);
+    },
   }],
   /** ItemDeteriorates.cs - MagicRound: -1 condition every 4 rounds.
    *  Params (:112-117) are AllTheTime = 0, InSunlight = 1,

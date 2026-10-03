@@ -91,6 +91,7 @@ export const ITEM_FIELDS = Object.freeze({
   customEnchantments: list(validEnchantment),
   poisonType: int({ min: -1 }),
   trappedSoulType: int(),
+  soulBoundReleased: bool(),       // a Soulbound item's break release is spent; repair does not refill it
   timeForItemToDisappear: int({ min: 0 }),
   timeHealthLeechLastUsed: int({ min: 0 }),
   timeEffectsLastRerolled: int({ min: 0 }),

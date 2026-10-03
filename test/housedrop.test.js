@@ -80,7 +80,7 @@ test('HOUSE-DROP executed: a light dropped or thrown on a floor that refuses it 
 
 test('HOUSE-DROP by source: the building\'s refusal is a VISITOR\'s in someone else\'s online home alone; the windows ask it, gold too; the close hands anything that slipped through back to the pack; the rig hands it to the torches', () => {
   const wm = rd('src/scenes/worldModes.js');
-  assert.match(wm, /const visitorDropRefusal = \(\) => \(interiorHome && !interiorHome\.own && mode === 'interior' \? \(interiorHome\.hall \? HALL_DROP_TEXT : HOME_VISITOR_DROP_TEXT\) : null\);/, 'the owner, an offline house and every other building are untouched (AUDIT GUILD1d A7: a hall, the guild\'s, in its own word)');
+  assert.match(wm, /const visitorDropRefusal = \(\) => \(mode === 'interior' && privateVisitRoom \? HOME_VISITOR_DROP_TEXT : interiorHome && !interiorHome\.own && mode === 'interior' \? \(interiorHome\.hall \? HALL_DROP_TEXT : HOME_VISITOR_DROP_TEXT\) : null\);/, 'private staff visits also refuse drops; the owner and other buildings retain their own rules');
   assert.match(wm, /const no = visitorDropRefusal\(\);\n\s*if \(no\) \{ for \(const it of \[\.\.\.items\]\) takeOneInto\(playerEntity, items, it\); say\(no\); return null; \}/, 'the belt at the close: back to the pack, gold to the counter');
   assert.match(wm, /dropRefusal: \(\) => visitorDropRefusal\(\),\n/, 'the window asks');
   assert.match(wm, /dropRefusal: \(\) => visitorDropRefusal\(\),   \/\/ HOUSE-DROP: and a light/, 'and the rig');

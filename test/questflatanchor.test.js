@@ -61,7 +61,7 @@ test('questflatanchor: a DUNGEON quest flat drops half a height, a BUILDING one 
     'and the dungeon stand is');
   // The shift is the same one the scene's own static flats take.
   const d = rd('src/scenes/dungeonContext.js');
-  assert.match(d, /const based = centers\.map\(\(\[x, y, z\]\) => \[x, y - size\.h \/ 2, z\]\);/,
+  assert.match(d, /const based = centers\.map\(\(p\) => Object\.assign\(\[p\[0\], p\[1\] - size\.h \/ 2, p\[2\]\], \{ noCover: !!p\.noCover \}\)\);/,
     "the dungeon's RDB flats shift by the same half height - a quest flat in the same scene cannot differ");
 });
 

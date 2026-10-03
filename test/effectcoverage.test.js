@@ -31,7 +31,7 @@ import { readFileSync, readdirSync, existsSync } from 'node:fs';
 import { join, relative, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { applySpell } from '../src/systems/effects.js';
+import { applySpell, BUFF_KINDS, MAGIC_ONLY_KEYS } from '../src/systems/effects.js';
 import { dfuFile } from './dfuRoot.mjs';   // PY1: DFU_PATH, then the in-tree sparse clone
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -143,7 +143,7 @@ test('EF1: every DFU classic key REACHES a family - the library has no gap', { s
     'these effect families exist in Daggerfall Unity and fall through applySpell to out.skipped');
 });
 
-test('EF1: and NO key outside DFU\'s set is answered - the sweep both ways', { skip: noDfu }, () => {
+test('EF1: and NO undeclared key outside DFU\'s set is answered - the sweep both ways', { skip: noDfu }, () => {
   // THE ARM THAT CAUGHT GROUP 43. The whole 256x256 classic key space,
   // driven through the real dispatcher; the set that does not skip must
   // be EXACTLY DFU's. An arm that widens past its own family shows up
@@ -157,9 +157,12 @@ test('EF1: and NO key outside DFU\'s set is answered - the sweep both ways', { s
       if (handles(g, s)) extra.push(`${g},${s}`);
     }
   }
-  assert.deepEqual(extra, [],
-    'applySpell claims these keys, but no Daggerfall Unity effect class defines them - an arm\n'
-    + 'is testing its effect GROUP without its subgroup (the shape of the Teleport defect EF1 fixed)');
+  // PARTY-MAP's documented port-only key is a named Magic-only buff, not a widened group.
+  // The complete 256x256 sweep still rejects every other non-DFU key.
+  assert.equal(BUFF_KINDS['46,255'], 'sharedCartography');
+  assert.ok(MAGIC_ONLY_KEYS.has('46,255'));
+  assert.deepEqual(extra, ['46,255'],
+    'only declared Shared Cartography extends DFU; no widened effect group is admitted');
 });
 
 // ── EF1c: THE SENTENCES THE LIBRARY OUTGREW ─────────────────────────

@@ -10,7 +10,7 @@ import { mintCondition } from '../src/systems/itemTemplates.js';
 import { dateString, daySuffix } from '../src/systems/gameDate.js';
 import { BUILDING_TYPES } from '../src/world/buildingNames.js';
 import { checkBuildingTypeInSkipList } from '../src/systems/topicTree.js';
-import { MAGIC_ONLY_KEYS } from '../src/systems/effects.js';
+import { MAGIC_ONLY_KEYS, BUFF_KINDS } from '../src/systems/effects.js';
 import { dfuFile } from './dfuRoot.mjs';   // PY1: DFU_PATH, then the in-tree sparse clone
 
 const rd = (f) => readFileSync(new URL(`../${f}`, import.meta.url), 'utf8');
@@ -177,7 +177,10 @@ test('audit24 systems: MAGIC_ONLY_KEYS is REGENERATED from the effect classes, n
   const port = new Set(MAGIC_ONLY_KEYS);
   const extra = [...port].filter((k) => !magicOnly.has(k)).sort();
   const missing = [...magicOnly].filter((k) => !port.has(k)).sort();
-  assert.deepEqual(extra, [], 'the port claims magic-only for effects whose AllowedElements is not Magic');
+  // PARTY-MAP is an explicitly documented port-only extension (Port-Ledger, spell registry).
+  // Keep the reference comparison exact: this one named Magic-only buff, no other extras.
+  assert.equal(BUFF_KINDS['46,255'], 'sharedCartography');
+  assert.deepEqual(extra, ['46,255'], 'only declared Shared Cartography extends DFU magic-only keys');
   assert.deepEqual(missing, [], 'the port misses effects whose AllowedElements IS Magic');
   // ...and the seven the hand-picked list had missed are in it
   for (const k of ['14,255', '25,255', '26,255', '27,255', '28,255', '30,255', '31,255']) {

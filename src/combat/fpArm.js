@@ -3194,7 +3194,7 @@ export function createFpArm() {
     const node = built.arm.mats.get(built.cameraRef);
     if (!node) return null;
     const rigEye = [node.t[0] + fpOffset[0], node.t[1] + fpOffset[1], node.t[2] + fpOffset[2]];
-    return climbRequestToFirstPerson(cw, { eye: cam.pos, yaw: cam.yaw || 0, pitch: cam.pitch || 0, fov: fieldOfView(), lensFov: FP_FIELD_OF_VIEW, lensPitch: followCam ? 0 : (cam.pitch || 0), rigEye });
+    return climbRequestToFirstPerson(cw, { eye: cam.pos, yaw: cam.yaw || 0, pitch: cam.pitch || 0, fov: fieldOfView(), lensFov: FP_FIELD_OF_VIEW, lensPitch: followCam ? 0 : (cam.pitch || 0), rigEye, unitsPerMetre: MW_UNITS_PER_METER });
   }
   function torchVisible() {
     if (!torchLit || !built || !built.ok) return false;
