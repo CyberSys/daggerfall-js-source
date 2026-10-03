@@ -192,6 +192,8 @@ test('AUDIT REST II F2: a palace stands no fire - its castle block\'s none (AUDI
   const r = PROBE.probeFires(new Collider(() => -Infinity), palace.map((b) => ({ ...b, layout: { ...b.layout, placements: [], flats: [] } })), { seed: 42 });
   assert.equal(r.wanted, 0);
   assert.deepEqual(r.fires, []);
+  // and the host stands none in the Burning Court or on the Arena's sand (#545's made level, its rest refused there)
+  assert.match(D, /\n {2}const firePlan = isGateArena\(dfLocation\) \|\| isArenaFloor\(dfLocation\) \? null : dungeonFirePlan\(\{/);
 });
 
 test('AUDIT REST II F3: no fire stands on a loot pile, a quest marker or the player\'s way in - each at least 1.5 m clear of every such marker; the start\'s fire on its ring, 2 m out', () => {
@@ -299,7 +301,7 @@ async function hostFires({ hearths, blocks, size = { w: 1, h: 2 } }) {
   const fnEnd = D.indexOf('\n  }\n', D.indexOf(endMark)) + 4;
   const body = at >= 0 && D.indexOf(endMark) > at ? D.slice(at, fnEnd) : '';
   const state = {
-    isGateArena: () => false, dungeonFirePlan: DF.dungeonFirePlan, placeDungeonFires, colliderFireProbe: () => open, collider: null,
+    isGateArena: () => false, isArenaFloor: () => false, dungeonFirePlan: DF.dungeonFirePlan, placeDungeonFires, colliderFireProbe: () => open, collider: null,
     fireLayoutInputs, dungeon: { blocks }, dfLocation: { dungeon: { recordElement: { header: { locationId: 1234 } } } },
     DUNGEON_FIRE_FLAT: DF.DUNGEON_FIRE_FLAT, getTexture: async () => ({ recordCount: 30 }), billboardSize: () => size,
     flatGroups: new Map(), torches: [], iilLightFlats: [], lights: [], billboardBatches: [], FIRE_LIGHT_UP: 1, FIRE_LIGHT_RANGE: 12,

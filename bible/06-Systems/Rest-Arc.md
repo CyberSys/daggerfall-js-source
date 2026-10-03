@@ -592,7 +592,7 @@ Mac: "Go" - every recommendation of section 15 taken. Slices REST1-REST6 and RES
   in reach, or a spawn latched while holding), not a per-frame poll. **The ambush (REST4) is not a separate draw:** the
   night is one synchronous RestSession, so the per-minute rolls run inside it at the price the SURV-TIERS audit set -
   the same odds as one roll at `1 - (1 - p)^480`, the break landing at the hour it falls, as an ambush mid-night.
-  `restNightAt` rides the save; a rented room's day is a night (`spendRoomNight`).
+  `restNightAt` rides the save; a rented room's day is a night (`spendRoomNight`) [AUDIT REST II P6: rooms count nights].
 - **REST2 - the Campfire** (`src/systems/survival/camp.js`, `src/scenes/camps.js`, `src/systems/survival/items.js`): as
   section 3 - the Pawn Shop's 0-2 and the online half price for a Campfire and Firewood came with AUDIT REST
   (`shopStock.js`, `tradeModes.js`); the port's taverns keep no shelf, so a tavern sells none.
@@ -702,6 +702,83 @@ Mac: "Go" - every recommendation of section 15 taken. Slices REST1-REST6 and RES
     its two callers counted. REST2's online-Campfire `else` left AUDITSURV's chargen-provisions mutant unparseable;
     re-aimed. Eight more live on main as well (AUDIT-REALM-L1F3's three, PROF4's two, PROF11, QS4, SURVART-4): not the
     arc's.
+- **AUDIT REST II** (2026-10-03, Mac: "After this lets do a comprehensive audit. This needs to be perfection" - eight
+  lenses over the whole pull request: the act and the night, the party's night, the Campfire and the supplies, the
+  dungeon fires, the quest clocks, the four hosts and the frame, what the player is told, the merges and the tests;
+  every finding verified before it was fixed, each fix pinned red first and mutation-proven: `test/auditrest2_camps.test.js`,
+  `auditrest2_party.test.js`, `auditrest2_quests.test.js`, `auditrest2_fires.test.js`; `tools/mutants/auditrest2_*.json`).
+  - **The Campfire's lifecycle (H).** H1, AUDIT REST-PARTY B1's own regression: a Recall or an anchor teleport out of a
+    dungeon passes `cacheScene` false (a dungeon caches nothing, Teleport.cs), as the load does, so B1's load arm
+    dropped the standing Campfire - gone for good; the load says so itself now (`forceExitToExterior`'s `load`), and a
+    dropped fire is told to the room. H2: a building's hearth's "Rest here" did nothing online and opened the cooking
+    list offline - the interior pool rests, and its click carries the plaque's lit row, as the other hosts'. H3: B2 was
+    not fixed underground - the dungeon's frame is held under the rest window, so its tick never tended my fire, and
+    offline a dungeon night was free; the rest's own advance tends it (`camps.tend`). H4: "You take your Campfire with
+    you." was said into the dungeon's HUD as it was torn down - said on the HUD that is up once outside. H5: an online
+    logoff underground (the 2-minute checkpoint, the tab closed) woke at a temple and the placed Campfire was lost; a
+    load that does not enter the dungeon carries the save's fires out (`survival/camp.js` packSavedFires). H6: a dungeon
+    save carried none of the camps standing outside - a quickload duplicated a Campfire placed after the save, a fresh
+    page lost them; the save carries them (`world.outerCamps`) and every dungeon load stands the save's. H7: any repair
+    counter refilled a Campfire's eight nights for less than one Firewood - the Campfire, the Bedroll, the Candle and the
+    Salts are `isNotRepairable`. H8: a General Store stocked two to four Campfires on EVERY shelf model (sixteen in a
+    store of four) - the counter's shelf alone, each shelf's later draws unmoved. H9: customs missed a supply left with a
+    repairer. H10: a Candle lit from the wagon said "lit" and never knelt - refused with words. H11: Firewood picked a
+    full old five-use kit before a Campfire with room. H12: online a cold camp offered a Rest that refused with the wrong
+    words - it goes, and Relight or Stoke leads. H13: "Campfire" as the item names it; Firewood's card; "rest supplies";
+    an Ember Jar's fire hovers as itself. H14: no offline shelf sells the Bedroll (online's rest point - offline every
+    rest is DFU's). H15: the Salts' hold on the exhausted drain pinned by behaviour (the source pin's clause was optional).
+  - **The party's night and the act (P).** P1: nothing limited how often one mate's stamp carried the party - any
+    marked stamp that differed from the last seen, inside the 30 s window, was a night (the relay bounds the field from
+    below alone), so a forged pose slept every mate in reach once a second, a forged bed mark healing a Hard character
+    whole on bare ground; `partyRestLaw.js` createNightWatch keeps each member's high-water mark and answers a move over
+    it at most once a PARTY_NIGHT_GAP_MS (a minute - two honest nights are ten apart), the far and busy lines included.
+    P2: a connection blip carried one night twice - a missing pose neither sets nor lowers the mark, and a mate who left
+    is forgotten (`keep`). P3: a carried night cut by a prevent-rest condition or a room's end said "through the night"
+    and raised skills - `restAct.js` carriedNightEnd/nightWhole; and every host's encounter route calls ambushNight()
+    first, so a quest's CreateFoe reaches a carried night and one under a quest box (A2's gap). P4: a member inside town
+    limits was carried into a night there - 'town', the act's own law, with its own line. P5: the mark is read only off a
+    moved stamp, through a frozen key array. P6: rooms count nights (`tavern.js` rentRoom's `nights`, an extension's
+    added; `spendRoomNight` spends one, the last ends the room; an old save's room reads ceil(hours / 24) once) - three
+    days with an hour of play between nights had given two; the days lived still lapse it. P7: a foe stood in the
+    night's LAST sub-tick still gave a whole night - runRestNight reads the latch after its loop. P8: the hold is broken
+    the moment it is hurt, a foe is in reach or the latch is set (`channelBroken`, both skins), never only at its end.
+    P9: the death pin was a copy's (PARTY-REST-FAR1's line) - it reads carryPartyNight's own body.
+  - **The quest clocks (Q).** THE RULE (decided): a clock the quest's own text presents as a time limit is a
+    deadline, kept at its days of played time online; a clock that only makes the player wait is a delay. Q1: R0C11Y03's
+    `_2ndparton_`, AUDIT TIMEFREE's one hand closing, was the time to come back for the reward after a correct delivery -
+    cut to the short wait, "The Heartless Daedra" failed (-30, unpaid) two minutes after the heart was delivered; the
+    reading calls it a deadline, and `ONLINE_CLOSINGS` is retired with its entry. Q2: S0000011's chapter ("Time is of the
+    essence") and O0B00Y12's drop ("as soon as possible") are deadlines by hand; the corpus swept once (49 clocks, every
+    verdict pinned) - 269 deadlines, 130 delays, the main quest's 32. Q3: bounties held through TIMEFREE's never-lapse
+    lapsed on the first tick after the update - the ledger saves a version, and an older ledger's rows run from now,
+    once, online. Q4: no text says a deadline "stays frozen". Q5: the `actions.js` cites, off by one, corrected by
+    content.
+  - **The dungeon fires (F).** F1: a joiner's rest asked the host for an encounter its 15 m ward then refused at
+    every spot (a 20 m fire room refused 2000 of 2000), and the night broke for nothing - the joiner runs the host's own
+    placement (`dungeonContext.js` encounterSpot) and asks only where a spot stands outside the ward; a sent ask breaks
+    a running night at its next sub-tick (ambushNight). F2: a palace stands no fire (any castle block - layoutFireCount).
+    F3: no fire within 1.5 m of a start, enter, treasure, quest or fixed-treasure marker - a marker's fire stands on the
+    first spot of a fixed ring 2 m out that keeps every rule. F4: a floor looks up - the collider says when a ray struck
+    a face's back (`raycastHit` `back`; its face normal is the world pass's wound normal, which the game draws only
+    facing the eye), so a room's roof between storeys is no floor; and a second level ring 1.4 m out, so a tabletop,
+    plinth or ledge is no hearth. F5: the layout brazier taken for the entrance's fire carries the ward, the compass's
+    mark and the map's (`dungeonFirePlan` doorFire). F6: the probe tool reads patchSeams'd models. F7: an exit door is
+    measured from its face's centre. F8: the drowned abyss puts the placed fires out with the light fixtures. F9: the
+    cold-fire sweep reads the room at most once a second, and only while a peer's camp stands. The room's chest rays are
+    literals now (no Math.sin/cos). And the merge of main's #545: no fire on the Arena's sand (a made level, its rest
+    refused). Not verifiable here: the real dungeons (the probe, with ARENA2_PATH).
+  - **The tests and the merges (L8).** The time3_quests row had lost QCLOCK-WORLD's sentence in the first merge of main
+    and said the opposite of its suite (restored); two survtiers3 records' provenance notes (restored); a struck
+    renderer cite moved with no cause (main's again); the Field Cook's jar mutant, killed only by a record the game never
+    writes (equivalent, its test's jar the real shape); Testing.md's counts and REST2's re-aims.
+  - **What the player is told (L7).** The patch notes, rewritten against the code sentence by sentence: the Bedroll and
+    the other supplies arrive online later (and offline the Bedroll is not sold); the offline changes named (the
+    Campfire's 40, a tent's wear by the night, a ship's bed as a bed); rooms count nights; a quest day of two real hours
+    beside the sky's one; the curse and guild quests' short wait already live; PLAIN-LOOT and NEED-TIER, which this
+    branch carries and no note announced, have their own section.
+  - **Left open, said:** a forged pose can still be answered once a minute (a short rest, to a forger's own mates); the
+    room's words still quote hours (tavern windows); the punishment daedra of 40C00Y00 `_S.22_` stay a delay (no limit
+    in its text) where the cure quests' hunters are deadlines by hand - THE RULE read literally.
 - **REST7 - crafting: NOT BUILT, deliberately.** The recipes are a source like the shelves, so they could not open
   before `REST_ITEMS_ONLINE` does; adding them now changes the account service's bundle (an `acct` bump) for rows that
   stay shut. They ride the release that turns the switch on, with the shelves.
@@ -742,3 +819,8 @@ Mac: "Go" - every recommendation of section 15 taken. Slices REST1-REST6 and RES
   Field Cook had before REST. No relay or account-service change: the service validates the spec's id, and its
   description is the client's (`net/professionLaw.js`, "A night at your own Campfire spends no fuel."). The dead
   `keep` option leaves placeCampItem. Pinned in `test/prof9_client.test.js` (the law and the pool), seven mutants dead.
+- 2026-10-03: AUDIT REST II (As built, "AUDIT REST II"): eight lenses, every finding verified and fixed, pinned red
+  first and mutation-proven - the Campfire's lifecycle (H1-H15), the party's night and the act (P1-P9), the quest
+  clocks (Q1-Q5, THE RULE), the dungeon fires (F1-F9), the tests and merges, and what the player is told.
+- 2026-10-03: origin/main merged in (#545 the Arena of Daggerfall and Beautiful Villages and Cities): 293 hunks cites
+  alone, nine by hand keeping both sides; one interplay closed - no dungeon fire on the Arena's sand.

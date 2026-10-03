@@ -932,8 +932,9 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
   // its own (the camps' range), a light billboard to Improved Interior Lighting, and a hearth in `dungeonHearths` -
   // warmth, drying, cooking, the camp rest kind and, online, a rest point, with no new law. Every client of the dungeon
   // casts the same rays over the same layout, so nothing rides the wire. Offline too (OPEN 8: a hearth; the rest stays
-  // DFU's). Never in the Burning Court. Permanent - never cold, never picked up - and a 15 m ward (_spawnEncounter).
-  const firePlan = isGateArena(dfLocation) ? null : dungeonFirePlan({
+  // DFU's). Never in the Burning Court, nor on the Arena's sand (ARENA2: a made level, its rest refused - the merge of
+  // main's #545, AUDIT REST II). Permanent - never cold, never picked up - and a 15 m ward (_spawnEncounter).
+  const firePlan = isGateArena(dfLocation) || isArenaFloor(dfLocation) ? null : dungeonFirePlan({
     blocks: dungeon.blocks,
     probe: colliderFireProbe(collider),   // the rays, the law's own (world/dungeonFires.js) - the probe tool casts the same
     ...fireLayoutInputs(dungeon.blocks, dungeonHearths),   // AUDIT REST-PARTY C6: the law's doors and fires, read as tools/dungeonFireProbe.mjs reads them
