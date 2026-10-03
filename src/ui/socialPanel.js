@@ -132,6 +132,7 @@ export function armsWhy(h) {
   const ink = h.charge ?? h.border;
   if (ink === h.field || (h.division && h.division !== 'plain' && ink === h.field2)) return 'a device that stands out from the field';
   if (h.division && h.division !== 'plain' && (h.field2 === h.field || h.field2 === HERALDRY_UNHELD)) return 'two different field colours, never Ash';
+  if (h.division && h.division !== 'plain' && h.field2 === h.border) return 'a border unlike either field colour';   // AUDIT GUILD2 G13
   return 'arms the law allows';
 }
 /** AUDIT SILVER-WAYS A3: the day's guild deeds, as the Guild tab says them (marksLaw.js MARKS_FAUCETS.deed). */

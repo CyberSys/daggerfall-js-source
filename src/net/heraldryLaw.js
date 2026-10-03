@@ -93,6 +93,9 @@ export function heraldryOf(raw) {
   if (typeof division !== 'string' || !DIVISION.has(division)) return null;
   const parted = division !== 'plain';
   if (parted ? !heraldryColourOf(field2) || field2 === HERALDRY_UNHELD || field2 === field : field2 != null) return null;
+  // AUDIT GUILD2 G13: nor the border's - a border is the field's edge (`field === border` refused above), and one of the
+  // second colour ran into that half of the field, the cloth's edge gone along it
+  if (parted && field2 === border) return null;
   if (charge != null && (!heraldryColourOf(charge) || charge === field)) return null;
   const ink = charge ?? border;
   if (ink === field || (parted && ink === field2)) return null;
@@ -113,8 +116,10 @@ export const heraldrySame = (a, b) => {
     : !x && !y;
 };
 
-/** A device's name in words - "Wolf". */
-export const heraldryDeviceName = (device) => (typeof device === 'string' && DEVICE.has(device) ? device[0].toUpperCase() + device.slice(1) : '');
+/** AUDIT GUILD2 G14: the devices named as no single word says them - "a Swords" read as no heraldry does. */
+const DEVICE_NAMES = Object.freeze({ swords: 'Pair of Swords', scales: 'Pair of Scales' });
+/** A device's name in words - "Wolf", "Pair of Swords". */
+export const heraldryDeviceName = (device) => (typeof device === 'string' && DEVICE.has(device) ? DEVICE_NAMES[device] ?? device[0].toUpperCase() + device.slice(1) : '');
 
 /** A heraldry in words: "Azure bordered Gold, a Wolf" - or '' for none. GUILD2c: a divided field first ("Per pale Azure
  *  and Gold, bordered Sable, a Wolf"), a device's own colour after it ("a Wolf Argent"). */

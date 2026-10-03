@@ -282,5 +282,50 @@
     "tests": [
       "test/guild2_client.test.js"
     ]
+  },
+  {
+    "name": "AUDIT-GUILD2-G11-a-hole-the-first-colour-svg",
+    "file": "src/ui/heraldryArt.js",
+    "old": "    return p.bg ? `${one}<g clip-path",
+    "new": "    return false ? `${one}<g clip-path",
+    "tests": [
+      "test/guild2_client.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-GUILD2-G11-a-hole-the-first-colour-canvas",
+    "file": "src/ui/heraldryArt.js",
+    "old": "    if (p.bg && div && f2) {",
+    "new": "    if (false) {",
+    "tests": [
+      "test/guild2_client.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-GUILD2-G12-a-swatch-keyed-by-three",
+    "file": "src/ui/heraldrySwatch.js",
+    "old": "  const key = h ? heraldryKey(h) : '';",
+    "new": "  const key = h ? `${h.field}/${h.border}/${h.device}` : '';",
+    "tests": [
+      "test/guild2_client.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-GUILD2-G13-a-border-of-the-second-colour",
+    "file": "src/net/heraldryLaw.js",
+    "old": "  if (parted && field2 === border) return null;",
+    "new": "",
+    "tests": [
+      "test/guild2_client.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-GUILD2-G14-a-swords",
+    "file": "src/net/heraldryLaw.js",
+    "old": "DEVICE_NAMES[device] ?? device[0]",
+    "new": "device[0]",
+    "tests": [
+      "test/guild2_client.test.js"
+    ]
   }
 ]

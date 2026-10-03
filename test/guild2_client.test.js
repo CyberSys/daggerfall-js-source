@@ -16,6 +16,7 @@ import {
 } from '../src/net/heraldryLaw.js';
 import { DEVICES_DRAWN, divisionPath, bannerSvg, shieldSvg, drawBanner, BANNER_CLOTH } from '../src/ui/heraldryArt.js';
 import { bannerKeyOf } from '../src/scenes/hallBanners.js';
+import { paintSwatch } from '../src/ui/heraldrySwatch.js';
 import { GuildBook } from '../src/net/guildBook.js';
 import {
   createSocialPanel, GUILD_RENAME_COST_TEXT, guildRenameSoonText, GUILD_VAULT_REACH_TEXT, GUILD_VAULT_EMPTY_TEXT, armsWhy,
@@ -404,6 +405,50 @@ test('GUILD2b the Members page: the guildmaster sets each member\'s standing at 
   const officer = await tab(view({ rank: 1, members: [{ ...members[0], you: false }, { member: 'm2', name: 'Mara', rank: 1, joinedAt: 1, you: true }, members[1]] }), {}, 'members');
   assert.equal(find(officer.panel.root, 'dfsocial-grant').length, 0);
   assert.ok(texts(officer.panel.root).includes('Member - Puts in'), 'but reads them');
+});
+
+test('GUILD2c (AUDIT G11-G14): a hole shows the field beneath it - both colours of a divided one, in the parts\' own order - and plain arms draw as GUILD1d\'s did; every cache keyed by the whole arms; a border never the second colour; a pair named as one (mutants: the hole in the first colour alone; a swatch keyed by three; a border of the second colour; "a Swords")', () => {
+  const owl = { field: 'azure', border: 'gold', device: 'owl', division: 'pale', field2: 'crimson' };
+  for (const svg of [bannerSvg(owl), shieldSvg(owl)]) {
+    const id = /<clipPath id="([^"]+d)">/.exec(svg)?.[1];
+    assert.ok(id, 'the division\'s own clip');
+    assert.ok(svg.includes(`<g clip-path="url(#${id})"><g transform=`), 'a hole painted again inside the division\'s part');
+    assert.ok(svg.split(`clip-path="url(#${id})"`).length - 1 >= 4, 'each of the owl\'s holes');
+    assert.ok(/clip-path="url\(#[^"]+d\)"><g transform="[^"]+"><path d="[^"]+" fill="#b3262e"\/>/.test(svg), 'in the second colour');
+  }
+  // plain arms: one device group, no division clip - the picture GUILD1d cached
+  const plain = bannerSvg(WOLF);
+  assert.equal(plain.split('<g transform=').length - 1, 1);
+  assert.ok(!/<clipPath id="[^"]+d">/.test(plain));
+  // the canvas: a hole filled in the first colour, then clipped to the division and filled in the second, in order
+  const calls = [];
+  globalThis.Path2D = class { constructor(d) { this.d = d; } };
+  const ctx = new Proxy({}, {
+    get: (o, k) => (k in o ? o[k] : (...a) => { calls.push([k, a[0]?.d ?? null, o.fillStyle]); }),
+    set: (o, k, v) => { o[k] = v; return true; },
+  });
+  drawBanner(ctx, { ...owl, device: 'key' }, 64);
+  delete globalThis.Path2D;
+  const after = calls.slice(calls.findIndex((c) => c[0] === 'stroke'));
+  const hole = after.findIndex((c) => c[0] === 'fill' && c[2] === '#3b6fd8');
+  assert.ok(hole > 0, 'the key\'s bow in the first colour');
+  assert.deepEqual(after.slice(hole + 1).filter((c) => c[0] === 'clip' || c[0] === 'fill').slice(0, 2).map((c) => [c[0], c[0] === 'fill' ? c[2] : c[1]]),
+    [['clip', divisionPath('pale', 100, 300)], ['fill', '#b3262e']], 'then again in the second, inside the division');
+  // G12: a swatch painted again when only the division or the device's colour changed
+  const img = { style: {}, src: '', alt: '', title: '' };
+  paintSwatch(img, WOLF);
+  const first = img.src;
+  paintSwatch(img, { ...WOLF, division: 'pale', field2: 'sable', charge: 'argent' });
+  assert.notEqual(img.src, first);
+  assert.equal(img.alt, heraldryText({ ...WOLF, division: 'pale', field2: 'sable', charge: 'argent' }));
+  for (const f of ['src/ui/nameLayer.js', 'src/ui/travelViewHud.js']) assert.match(src(f), /heraldryKey\((arms|h)\)/, f);
+  // G13
+  assert.equal(heraldryOf({ ...owl, field2: 'gold', charge: 'argent' }), null, 'a border of the second colour, the device its own');
+  assert.equal(armsWhy({ ...owl, field2: 'gold', charge: 'argent' }), 'a border unlike either field colour');
+  assert.ok(heraldryOf({ ...owl, field2: 'sable', charge: 'argent' }), 'and one unlike both stands');
+  // G14
+  assert.equal(heraldryText({ field: 'azure', border: 'gold', device: 'swords' }), 'Azure bordered Gold, a Pair of Swords');
+  assert.equal(heraldryText({ field: 'azure', border: 'gold', device: 'scales', charge: 'argent' }), 'Azure bordered Gold, a Pair of Scales Argent');
 });
 
 test('GUILD2c the Arms page: the guildmaster\'s choices are pictures - the division a tile each, drawn on the draft\'s own colours; the colours swatches, the ones the law refuses shut; the device a tile of forty; the device\'s own colour; the banner, the shield and the tag as they will stand (mutants: a refused colour offered; the second colour row on a plain field)', async () => {
