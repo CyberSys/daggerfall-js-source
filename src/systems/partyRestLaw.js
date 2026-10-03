@@ -205,7 +205,7 @@ export function createNightWatch({ freshMs = PARTY_NIGHT_FRESH_MS, gapMs = PARTY
     /** Whether `acct`'s stamp `at` (stampOf, against the shared clock `now`) is a move to answer now. `posed` - a pose
      *  stands for them this frame (the hub's offline seat has none, and says nothing of their nights). `isNight` as
      *  nightMoved's. `due` (AUDIT REST III C1) - whether MY night is due, asked only of a move the gap holds back. */
-    moved(acct, posed, at, now, isNight, due = false) {
+    moved(acct, posed, at, now, isNight, due = /** @type {boolean | (() => boolean)} */ (false)) {
       if (!posed) return false;
       const rec = marks.get(acct);
       if (!rec) { marks.set(acct, { high: at, answered: -Infinity }); return false; }
