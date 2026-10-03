@@ -15,7 +15,9 @@
 //     GN-G2/G3: A BALL LEAVES ONLY THROUGH AN OPEN PORT: a gun fired before it is out (a quick click with no lay before
 //     the release, another player's volley read before her lay, a long frame of a fast sea) stands out at its shot and
 //     its shutter snaps open - it kicked back from where it stood in, its ball bursting out of a shut port.
-//   AT REST: the guns run in to load and the shutters close.
+//   AT REST: the guns run in to load and the shutters close. AUDIT GN2-GN2: a boat laid or fired is stepped on until
+//     she is, whether or not the caller still names her (another player's boat moored out of her helm stood frozen with
+//     her guns out and her shutters up); AUDIT GN2-GN5: `clear` stands every one at rest at once (the sea gone).
 //
 // It reads nothing but node names and moves nothing but those nodes (the gun's local position along its own +x; the
 // shutter's Opened), so a hull without them is left alone. Pure but for those nodes: the clock is the caller's.
@@ -48,12 +50,14 @@ export function recoilAt(t) {
 }
 
 /**
- * The gun deck for every ship it is shown: `lay(boat, side, now)`, `fired(boat, side, index, now)`, `step(boats, now)`.
- * Each boat's nodes are found once (by name, under its tree) and kept while its tree is the same.
+ * The gun deck for every ship it is shown: `lay(boat, side, now)`, `fired(boat, side, index, now)`, `step(boats, now)`,
+ * `clear()`. Each boat's nodes are found once (by name, under its tree) and kept while its tree is the same.
  */
 export function createGalleonGunDeck() {
   /** boat -> { sides: { starboard: rig, port: rig } } (rig: { guns: node[], lids: node[], laidUntil, firedAt: number[] }) */
   const rigs = new WeakMap();
+  /** AUDIT GN2-GN2: every boat laid or fired and not yet at rest - each step stands her too, until she is. */
+  const settling = new Set();
   let lastNow = 0;
   function rigOf(boat) {
     if (!boat?.GameObject) return null;
@@ -72,50 +76,76 @@ export function createGalleonGunDeck() {
     rigs.set(boat, r);
     return any ? r : null;
   }
+  /** A boat's shutters and guns as `now` stands them, its guns run `dt` on - and whether she is at rest (nothing laid,
+   *  every gun run in, no kick left to haul). */
+  function stand(r, now, dt) {
+    let rest = true;
+    for (const [side, s] of Object.entries(r.sides)) {
+      const laid = now < s.laidUntil;
+      if (laid) rest = false;
+      for (const lid of s.lids) {
+        const a = lid?.getComponent?.('Animator')?.animator;
+        if (a && a.GetBool('Opened') !== laid) a.SetBool('Opened', laid);
+      }
+      s.guns.forEach((g, i) => {
+        if (!g) return;
+        const want = laid ? RUN_OUT_X : RUN_IN_X;
+        const x = s.x[i];
+        s.x[i] = x < want ? Math.min(want, x + RUN_SPEED * dt) : Math.max(want, x - RUN_SPEED * dt);
+        const kick = recoilAt(now - s.firedAt[i]);
+        if (s.x[i] !== RUN_IN_X || kick > 0) rest = false;
+        const sign = side === 'starboard' ? 1 : -1;
+        const at = sign * (s.x[i] - kick);
+        if (g.localPosition[0] !== at) g.localPosition = [at, g.localPosition[1], g.localPosition[2]];
+      });
+    }
+    return rest;
+  }
   return {
     /** A side laid (or run out) now: its shutters open and its guns run out until HOLD_S past `now`. */
     lay(boat, side, now) {
       const s = rigOf(boat)?.sides?.[side];
-      if (s) s.laidUntil = Math.max(s.laidUntil, now + HOLD_S);
+      if (s) { s.laidUntil = Math.max(s.laidUntil, now + HOLD_S); settling.add(boat); }
     },
     /** A gun of a side fired now (its index in the battery): it kicks back, and the side is laid. */
     fired(boat, side, index, now) {
       const s = rigOf(boat)?.sides?.[side];
       if (!s) return;
       s.laidUntil = Math.max(s.laidUntil, now + HOLD_S);
+      settling.add(boat);
       if (!(index >= 0 && index < s.firedAt.length)) return;
       s.firedAt[index] = now;
-      // AUDIT GN-G2/G3: out and open as it fires - the kick starts from the port
+      // AUDIT GN-G2/G3: out and open as it fires - the kick starts from the port. AUDIT GN2-PF1: the snap taken at once -
+      // her Animators ran this frame before the shot (world.js: csaUpdate's animate and csaPeers.frame, then navalFrame),
+      // and a Play left for their next update stood the shutter at 0-27 deg as its ball left
       if (s.x[index] < RUN_OUT_X) s.x[index] = RUN_OUT_X;
       const a = s.lids[index]?.getComponent?.('Animator')?.animator;
-      if (a) { a.SetBool('Opened', true); a.Play(OPENED_STATE); }
+      if (a) { a.SetBool('Opened', true); a.Play(OPENED_STATE); a.update(0); }
     },
-    /** Every boat's shutters and guns as `now` stands them. */
+    /** Every boat's shutters and guns as `now` stands them - those named, and every one still settling. */
     step(boats, now) {
       // AUDIT GN-G7: the step is the clock's own - a fast sea's long frame (Come Sail Away's time scale, 0.5 s) runs the
       // guns as far as its time does (clamped to 0.25 s, a captain's volley came with them 0.35 m short of the port)
       const dt = Math.max(0, now - lastNow);
       lastNow = now;
-      for (const boat of boats) {
+      const seen = new Set();
+      for (const boat of [...boats, ...settling]) {
+        if (seen.has(boat)) continue;
+        seen.add(boat);
+        const r = rigOf(boat);
+        if (!r || stand(r, now, dt)) settling.delete(boat);
+      }
+    },
+    /** AUDIT GN2-GN5: every boat at rest at once - the sea gone (the Naval arc off, a transition), no step to come: no lay
+     *  held, no kick, her guns run in and her shutters told to shut (her own Animators close them). */
+    clear() {
+      for (const boat of settling) {
         const r = rigOf(boat);
         if (!r) continue;
-        for (const [side, s] of Object.entries(r.sides)) {
-          const laid = now < s.laidUntil;
-          for (const lid of s.lids) {
-            const a = lid?.getComponent?.('Animator')?.animator;
-            if (a && a.GetBool('Opened') !== laid) a.SetBool('Opened', laid);
-          }
-          s.guns.forEach((g, i) => {
-            if (!g) return;
-            const want = laid ? RUN_OUT_X : RUN_IN_X;
-            const x = s.x[i];
-            s.x[i] = x < want ? Math.min(want, x + RUN_SPEED * dt) : Math.max(want, x - RUN_SPEED * dt);
-            const sign = side === 'starboard' ? 1 : -1;
-            const at = sign * (s.x[i] - recoilAt(now - s.firedAt[i]));
-            if (g.localPosition[0] !== at) g.localPosition = [at, g.localPosition[1], g.localPosition[2]];
-          });
-        }
+        for (const s of Object.values(r.sides)) { s.laidUntil = -Infinity; s.firedAt.fill(-Infinity); s.x.fill(RUN_IN_X); }
+        stand(r, lastNow, 0);
       }
+      settling.clear();
     },
     /** A probe's reading: a boat's sides as they stand ({ laid, guns: [x...], open: [bool...] }), or null. */
     read(boat, now = lastNow) {

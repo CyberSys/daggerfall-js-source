@@ -88,6 +88,7 @@ import { FADE_FLATS } from './comeSailAwayPool.js';   // AUDIT BAY A13/A14: what
 import { intoDeck, mainLevel, DECK_STEP } from '../systems/naval/navalDeck.js';   // AUDIT NAV2 F36: the feet in her deck's frame (aboardShip)
 import { CAPSULE_RADIUS } from '../player/motor.js';   // AUDIT GN-D3: aboard under her main deck, a body's own reach (standsOn)
 import { createGalleonGunDeck } from '../systems/naval/galleonGunDeck.js';   // GALLEON: her shutters and guns at work
+import { timeScale } from '../systems/timeScale.js';   // AUDIT GN2-GN3: the real clock another player's word comes on
 
 /** The record's name in the save's per-mod slot (systems/modSaveData.js) - the port's own, as the Sigil Broker's is. */
 export const NAVAL_SAVE_VENDOR = 'NavalCombat';
@@ -394,7 +395,8 @@ export const AIM_CAM_TAU = 0.22;
 /** ...and stops this far (m) short of another ship's side on its way out from the ports. */
 export const AIM_CAM_CLEAR = 1.2;
 /** AUDIT GN-G3: how long (s) another player's word keeps her broadside laid on my screen - longer than the full frame
- *  her word is said again by (net/online.js FOES_FULL_MS, 2 s), so a lay held still is never dropped between words. */
+ *  her word is said again by (net/online.js FOES_FULL_MS, 2 s), so a lay held still is never dropped between words.
+ *  AUDIT GN2-GN3: real seconds, as that frame is - on my sea's clock Come Sail Away's time scale made 2 s ten at x5. */
 export const PEER_LAY_S = 3;
 
 /** A boat's hull as an oriented box in the world: its MeshCollider's own bounds through its MeshObject (null before
@@ -479,6 +481,9 @@ export function createNavalHost(deps) {
   /** GALLEON: every galleon's gun deck in play - her shutters opened and her guns run out as a broadside is laid, each
    *  gun kicked back as it fires (systems/naval/galleonGunDeck.js; a hull without the nodes is left alone). */
   const galleonGuns = createGalleonGunDeck();
+  /** AUDIT GN2-GN3: the real clock (s) - my sea's at one (world.js naval.frame(dt * worldTimeScale())) - that another
+   *  player's lay is held on, her word coming on it. */
+  let realClock = 0;
   let enabled = true;
 
   // ── the sea's ships ──────────────────────────────────────────────────────────────────────────────────────────────
@@ -686,16 +691,21 @@ export function createNavalHost(deps) {
 
   /** A peer's volley, flown here from its word: drawn, and a ball that strikes MY boat - an AI's - is mine to take. */
   function fireFromWord(owner, v, toScene) {
-    const pos = toScene(v.pos);
-    const pose = { position: pos, rotation: quatOfYaw(v.yaw), velocity: v.vel, hull: v.hull };
+    const shooter = v.shooter >= 0 ? `${owner}:${v.shooter}` : `peer:${owner}`;
+    const boat = boatOfShooter(shooter);
+    // AUDIT GN2-GN4: from her ports as drawn here - her drawn root, set back by her way over the volley's age to where it
+    // stood as the balls left (they fly on from there, `since`) - not her word's pose: her shutters and guns are the drawn
+    // copy's, gliding on between her words (PUPPET-GLIDE, csaPeers' ease), and the flash stood up to 1.16 m off them
+    const drawn = boat?.GameObject, back = Math.max(0, (v.age ?? 0) / 1000);
+    const pos = drawn ? drawn.position.map((x, k) => x - v.vel[k] * back) : toScene(v.pos);
+    const pose = { position: pos, rotation: drawn ? drawn.rotation : quatOfYaw(v.yaw), velocity: v.vel, hull: v.hull };
     const solution = aimSolution(pose, v.side, null, deps.seaY(), { range: 1 });
     if (!solution) return;
     if (solution.barrel) return;
     // the lay the shooter used, not a range this client would pick
     const g = GUNS[solution.gun];
     solution.elevation = clamp(v.elevation, g.minEl * NAVAL_DEG, g.maxEl * NAVAL_DEG);
-    const shooter = v.shooter >= 0 ? `${owner}:${v.shooter}` : `peer:${owner}`;
-    const launches = volleyLaunches(heeled(solution, pose, boatOfShooter(shooter)), v.seed, { skill: v.skill, carry: v.vel });
+    const launches = volleyLaunches(heeled(solution, pose, boat), v.seed, { skill: v.skill, carry: v.vel });
     shots.fireVolley({ id: `${owner}:${v.id}`, shooter, launches, resolve: false, side: v.side, owner, since: (v.age ?? 0) / 1000 });   // AUDIT NAV1 (online #15): as far along as she is
   }
 
@@ -2998,6 +3008,7 @@ export function createNavalHost(deps) {
     // AUDIT NAV1: the sea keeps the world's time. A frame's time - Come Sail Away's time scale's too - is stepped in
     // FRAME_STEP_S steps (FRAME_STEPS_MAX at most; a longer stall drops the rest), and the hulls are posed once after
     const total = paused ? 0 : Math.min(Math.max(0, dt), FRAME_STEP_S * FRAME_STEPS_MAX);
+    if (!paused) realClock += Math.max(0, dt) / timeScale();   // AUDIT GN2-GN3: the frame's own, unscaled
     const seaY = deps.seaY();
     const boat = myBoat();
     const st = boat ? myBoatState(boat) : null;
@@ -3049,9 +3060,10 @@ export function createNavalHost(deps) {
       if (!p.boat) continue;
       decks.push(p.boat);
       // AUDIT GN-G3: another player's lay, from her word - while her word is fresh (it is said again at least every
-      // full frame, net/online.js FOES_FULL_MS 2 s)
+      // full frame, net/online.js FOES_FULL_MS 2 s). AUDIT GN2-GN3: on the real clock that frame is - on my sea's at x5
+      // her still lay lapsed between two words (laid 165 frames of 360)
       const self = peerSelf.get(p.id);
-      if (self?.laid?.length && clock - self.at <= PEER_LAY_S) for (const side of self.laid) if (side === 'starboard' || side === 'port') galleonGuns.lay(p.boat, side, clock);
+      if (self?.laid?.length && realClock - self.real <= PEER_LAY_S) for (const side of self.laid) if (side === 'starboard' || side === 'port') galleonGuns.lay(p.boat, side, clock);
     }
     galleonGuns.step(decks, clock);
     // the word's memory of the last moments
@@ -3548,7 +3560,7 @@ export function createNavalHost(deps) {
       // own is a player's, never mine to take (no fight between players at sea)
       shots.dropBarrel({ id: `${owner}:${b.id}`, shooter: b.shooter >= 0 ? `${owner}:${b.shooter}` : `peer:${owner}`, pos: toScene(b.pos), resolve: false, owner });
     }
-    peerSelf.set(owner, { law: rec.law, me: rec.me, traffic: rec.traffic, at: clock, boat: rec.boat, laid: rec.laid });   // AUDIT GN-G3: her lay
+    peerSelf.set(owner, { law: rec.law, me: rec.me, traffic: rec.traffic, at: clock, real: realClock, boat: rec.boat, laid: rec.laid });   // AUDIT GN-G3: her lay (GN2-GN3: said when, really)
     applyCasks(owner, rec.casks, toScene);
     // AUDIT BAY A18: the packets they have seen spent - none stood again here, and said on in my word
     for (const sd of rec.spent ?? []) noteSpent(sd);
@@ -3930,6 +3942,7 @@ export function createNavalHost(deps) {
     flashes.length = 0;
     aiming = false; aim = null; aimHit = null; heaveTo = null; wayIn = [];
     for (const [b, f] of [...myFires]) douseMine(b, f);
+    galleonGuns.clear();   // AUDIT GN2-GN5: every gun deck at rest - the sea's frame steps none while the arc is off
     if (boarding) {
       const quest = boarding.quest;
       for (const f of boarding.foes) deps.board?.removeFoe?.(f.handle);

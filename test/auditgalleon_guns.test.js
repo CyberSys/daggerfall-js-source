@@ -9,6 +9,8 @@
 //   G6 her draft in the routing table is her keel's;
 //   G7 a fast sea's long frame runs her guns out as far as its time does;
 //   G8 my look lays no battery while it reloads.
+// AUDIT GALLEON-2 (2026-10-03): G2's and G3's frames run in world.js's order, the Animators before the sea (PF1); G5's
+// captain heeled 8 deg and each ball held to its heeled muzzle's height (TS3: her own heel there was inside the slack).
 import './modsOff.js';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -26,6 +28,7 @@ import { PEER_LAY_S } from '../src/scenes/navalHost.js';
 import { navalWireRecord, validNavalRecord } from '../src/systems/naval/navalWire.js';
 import { Boat, animatorOf } from '../src/systems/comeSailAwayBoat.js';
 import { createComeSailAwayPool } from '../src/scenes/comeSailAwayPool.js';
+import { quatRotate } from '../src/world/quat.js';
 
 const WORLD = readFileSync(new URL('../src/scenes/world.js', import.meta.url), 'utf8');
 /** Her hull's own triangles, as baked (her side's half-breadth under a point: tools/galleonLidFit.mjs). */
@@ -106,11 +109,14 @@ test('AUDIT GALLEON G1: every gunport shutter on both her sides stands outboard 
 });
 
 /** A boat's starboard battery fired by a quick click (`holdS` of lay before the release) - each gun's x and its
- *  shutter's turn on the frame its own ball leaves (my shots shake my deck once a ball: the k-th shake is gun k's). */
+ *  shutter's turn on the frame its own ball leaves (my shots shake my deck once a ball: the k-th shake is gun k's).
+ *  PIN MOVED (AUDIT GALLEON-2 PF1): a frame in world.js's order - csaUpdate (Come Sail Away's animate: my boats'
+ *  Animators) and then navalFrame; the host ran first here, an order the game never runs, and a Play left for the
+ *  Animators' next update passed. */
 function quickClick(h, holdS) {
   const nodes = nodesOf(h.boat);
   const anims = animatorsOf(h.boat);
-  const frame = (dt) => { h.host.frame(dt); for (const a of anims) a.update(dt); };
+  const frame = (dt) => { for (const a of anims) a.update(dt); h.host.frame(dt); };
   frame(0.1); frame(0.1);
   h.view.look = { origin: [0, 5, 0], dir: [1, -0.05, 0] };
   h.host.attackInput(true);
@@ -148,11 +154,13 @@ async function pair() {
     peerBoats: () => [{ id: 'a', pos: [0, 0, 0], vel: [0, 0, 0], speed: 0, hull: HULL.SmallShip, yaw: 0, boat: aOnB }] });
   B.view.feet = [30, 0, 0];
   const animsB = animatorsOf(aOnB), animsA = animatorsOf(A.boat);
-  /** A frame of both; A's word handed to B (older: without `g`, as an older build says it) */
+  /** A frame of both; A's word handed to B (older: without `g`, as an older build says it). PIN MOVED (AUDIT
+   *  GALLEON-2 PF1): in world.js's order - each world's Animators (csaUpdate: animate, csaPeers.frame), then its sea */
   const tick = ({ send = true, older = false } = {}) => {
-    A.host.frame(1 / 30); B.host.frame(1 / 30);
     for (const a of animsA) a.update(1 / 30);
+    A.host.frame(1 / 30);
     for (const a of animsB) a.update(1 / 30);
+    B.host.frame(1 / 30);
     if (!send) return;
     const w = A.host.word((p) => p);
     if (!w) return;
@@ -284,24 +292,44 @@ test('AUDIT GALLEON G5: a captain\'s ball leaves her port as she sails, in a fas
   const B = h.host._sea.get(h.host.spawnShip('pirateBrig', { range: 200, bearing: 0, temper: 'bold' }));
   A.ship.pos = [-130, 0, 700]; B.ship.pos = [130, 0, 700];
   A.ship.yaw = Math.PI / 2 - 0.5; B.ship.yaw = 1.5 * Math.PI + 0.4;
-  const off = [];
+  // AUDIT GALLEON-2 TS3: each heeled 8 deg (her own heel in this duel stood under 3.7 deg - 0.38 m at a muzzle, inside
+  // the plan's 0.6 m slack, so a captain's balls from her upright root passed): her hull laid over before each frame,
+  // as the frame's captain fires through it (her pose after it lays her again)
+  const ROLL = new Map([[A, 8], [B, -8]]);
+  const lay = () => { for (const [e, deg] of ROLL) if (e.boat?.MeshObject) e.boat.MeshObject.localRotation = [0, 0, Math.sin((deg * Math.PI) / 360), Math.cos((deg * Math.PI) / 360)]; };
+  /** A muzzle (the root's frame) through her hull as it lies: her MeshObject's turn about its own place. */
+  const heeledAt = (boat, m) => {
+    const lp = boat.MeshObject.localPosition;
+    const h = quatRotate(boat.MeshObject.localRotation, [m[0] - lp[0], m[1] - lp[1], m[2] - lp[2]]);
+    return [h[0] + lp[0], h[1] + lp[1], h[2] + lp[2]];
+  };
+  const off = [], rise = [], tilt = [];
   const play = h.deps.audio.play3d;
   h.deps.audio.play3d = (k, p, v, o) => {
-    // each report in the root's frame of the ship that fired it, as she fires it: off the nearest of her muzzles
-    if (k === 'naval:cannon') for (const { ship: sh } of [A, B]) {
+    // each report in the root's frame of the ship that fired it, as she fires it: off the nearest of her heeled muzzles
+    // in plan (a ripple step's way along her course), and at its height through her heel (none of her way's)
+    if (k === 'naval:cannon') for (const { ship: sh, boat } of [A, B]) {
+      if (!boat?.MeshObject) continue;
       const c = Math.cos(sh.yaw), sn = Math.sin(sh.yaw), dx = p[0] - sh.pos[0], dz = p[2] - sh.pos[2];
-      const x = c * dx - sn * dz, z = sn * dx + c * dz;
-      const e = Math.min(...ships.batteriesOf(sh.hull).flatMap((b) => b.muzzles).map((g) => Math.hypot(x - g[0], z - g[2])));
-      if (e < 6) off.push(e);
+      const x = c * dx - sn * dz, z = sn * dx + c * dz, y = p[1] - boat.GameObject.position[1];
+      let best = null;
+      for (const g of ships.batteriesOf(sh.hull).flatMap((b) => b.muzzles)) {
+        const w = heeledAt(boat, g), e = Math.hypot(x - w[0], z - w[2]);
+        if (!best || e < best.e) best = { e, dy: Math.abs(y - w[1]), lean: Math.abs(w[1] - g[1]) };
+      }
+      if (best.e < 6) { off.push(best.e); rise.push(best.dy); tilt.push(best.lean); }
     }
     return play(k, p, v, o);
   };
   for (let t = 0; t < 120 && off.length < 30; t += 0.5) {
+    lay();
     h.host.frame(0.5);
     h.view.feet = [(A.ship.pos[0] + B.ship.pos[0]) / 2, 0, (A.ship.pos[2] + B.ship.pos[2]) / 2];
   }
   assert.ok(off.length >= 20, `their reports heard (${off.length})`);
-  assert.ok(Math.max(...off) < 0.6, `every ball off its muzzle by no more than a ripple step's way (worst ${Math.max(...off).toFixed(2)} m)`);
+  assert.ok(Math.min(...tilt) > 0.5, `her heel lifts or drops every muzzle more than the heights' slack (least ${Math.min(...tilt).toFixed(2)} m)`);
+  assert.ok(Math.max(...off) < 0.6, `every ball off its heeled muzzle by no more than a ripple step's way (worst ${Math.max(...off).toFixed(2)} m)`);
+  assert.ok(Math.max(...rise) < 0.05, `every ball at its heeled muzzle's height (worst ${Math.max(...rise).toFixed(3)} m)`);
 });
 
 test('AUDIT GALLEON G5: another player\'s volley, flown here from her word, leaves her ports as this screen draws her heeled - placed through her hull as drawn here, not her upright root', async () => {

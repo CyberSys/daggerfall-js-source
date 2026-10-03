@@ -38,7 +38,7 @@
   {
     "name": "AUDIT-GN-G2-shutter-not-snapped",
     "file": "src/systems/naval/galleonGunDeck.js",
-    "old": "if (a) { a.SetBool('Opened', true); a.Play(OPENED_STATE); }",
+    "old": "if (a) { a.SetBool('Opened', true); a.Play(OPENED_STATE); a.update(0); }",
     "new": "if (a) a.SetBool('Opened', true);",
     "tests": [
       "test/auditgalleon_guns.test.js"
@@ -83,7 +83,7 @@
   {
     "name": "AUDIT-GN-G3-peer-never-laid",
     "file": "src/scenes/navalHost.js",
-    "old": "if (self?.laid?.length && clock - self.at <= PEER_LAY_S) for (const side of self.laid)",
+    "old": "if (self?.laid?.length && realClock - self.real <= PEER_LAY_S) for (const side of self.laid)",
     "new": "if (false) for (const side of self.laid)",
     "tests": [
       "test/auditgalleon_guns.test.js"
@@ -92,7 +92,7 @@
   {
     "name": "AUDIT-GN-G3-peer-laid-for-ever",
     "file": "src/scenes/navalHost.js",
-    "old": "if (self?.laid?.length && clock - self.at <= PEER_LAY_S) for (const side of self.laid)",
+    "old": "if (self?.laid?.length && realClock - self.real <= PEER_LAY_S) for (const side of self.laid)",
     "new": "if (self?.laid?.length) for (const side of self.laid)",
     "tests": [
       "test/auditgalleon_guns.test.js"
@@ -166,7 +166,7 @@
   {
     "name": "AUDIT-GN-G5-peer-volley-upright",
     "file": "src/scenes/navalHost.js",
-    "old": "const launches = volleyLaunches(heeled(solution, pose, boatOfShooter(shooter)), v.seed,",
+    "old": "const launches = volleyLaunches(heeled(solution, pose, boat), v.seed,",
     "new": "const launches = volleyLaunches(solution, v.seed,",
     "tests": [
       "test/auditgalleon_guns.test.js"
