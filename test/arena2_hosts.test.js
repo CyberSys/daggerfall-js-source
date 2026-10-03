@@ -21,7 +21,8 @@ test('ARENA2 hosts - world.js: one driver, ticked before the modal return, its s
   assert.match(W, /if \(mode === 'dungeon'\) return modes\?\.arenaFloorStage\?\.\(\) \?\? modes\?\.arenaPitStage\?\.\(\) \?\? null;/, 'in the instance its stage (ARENA-FIX 4: in the undercroft the pit\'s)');
   assert.match(W, /if \(mode !== 'exterior' \|\| !walkMode \|\| !playerSpawned \|\| !arenaCityPixel\(\)\) return null;/);
   assert.match(W, /if \(ex\?\.open && ex\.hour !== _arenaHourRun\) \{ _arenaHourRun = ex\.hour; arenaBouts\.ask\(\{ where: 'city', kind: 'exhibition', ex \}\); \}/, 'the hour\'s bout, once an hour');
-  assert.match(W, /spawn: \(mobile, feet, o\) => exteriorFoes\.spawnFoe\(mobile, feet, \{ yaw: o\.yaw, gender: o\.gender, level: o\.level, loose: true, transient: true, managed: true, champion: null \}\)/);
+  // ARENA4b: and a relay's mirrored fighter `placed` - every screen stands its own copy, the cell's stream carries it to nobody
+  assert.match(W, /spawn: \(mobile, feet, o\) => exteriorFoes\.spawnFoe\(mobile, feet, \{ yaw: o\.yaw, gender: o\.gender, level: o\.level, loose: true, transient: true, managed: true, champion: null, \.\.\.\(o\.mirror \? \{ placed: true \} : \{\}\) \}\)/);
   assert.match(W, /crime: \(\) => \{ setCrimeCommitted\(playerEntity, CRIMES\.Assault\); _crimeResponse\(\); \}/, 'the watch for a brawler, by the street\'s law');
   assert.match(W, /if \(b\.blockName === ARENA_BLOCK\) arenaOrigin = \[originMatrix\[12\], originMatrix\[13\], originMatrix\[14\]\];/);
   assert.match(W, /arena: arenaOrigin,/);

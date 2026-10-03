@@ -5,7 +5,9 @@
 // Seats-Arc 6.1, built here: the relay holds every fighter's vitality and believes as much of a blow as its reach, its
 // rate, its weapon and its bucket allow) and, on the ladder, its AI fighters - the gate's `gateBrain` pattern on the
 // floor's flat ground, no pathing: each walks straight at its nearest foe, telegraphs its blow and lands it if the foe is
-// still in reach. Design: bible/11-Multiplayer/Arena.md "7. Online".
+// still in reach. Design: bible/11-Multiplayer/Arena.md "7. Online". ARENA4b: and THE HOUR'S EXHIBITION (Arena.md 2 -
+// "the relay runs it, every client sees one bout"): two of those fighters against each other, the hour's pair
+// (net/arenaExhibition.js exhibitionFor), nobody on the sand but them and everybody in the stands.
 //
 // PURE. No clock, no dice and no socket of its own: `now` and `rng` are handed to every call, and every call answers
 // the WORDS to fan (net/arenaLaw.js validArenaOut's shapes) - the room (server/src/index.js) sends them, keeps the state
@@ -22,7 +24,7 @@ import {
 import {
   ARENA_FLOOR_CENTRE, ARENA_RING_R, ARENA_PVP_MARKS, ARENA_HIT, ARENA_HIT_HZ_MAX, ARENA_BUCKET_RATE, ARENA_BUCKET_DEPTH, ARENA_MELEE_REACH,
   ARENA_POSE_SLACK, ARENA_BOW_REACH, ARENA_SPELLS_IN, ARENA_SPELL_WINDOW_MS, ARENA_SPEED_MAX, ARENA_SPEED_SLACK, ARENA_JOIN_WAIT_MS,
-  ARENA_GONE_MS, arenaBlowCap, pvpVitality, pveVitality, arenaLadderBout, ARENA_SPECTATORS_MAX, ARENA_CHEER_MS,
+  ARENA_GONE_MS, arenaBlowCap, pvpVitality, ladderVitality, arenaLadderBout, ARENA_SPECTATORS_MAX, ARENA_CHEER_MS, arenaFoeStats, bannerClaim, ARENA_EX_BANNERS,
 } from './arenaLaw.js';
 
 /** A fighter of a bout between players stands on its mark once it says `in`; an AI fighter stands on its own. */
@@ -58,17 +60,33 @@ export const AI_RESAY_MS = 900;
 
 /**
  * A BOUT OPENED. A bout between players: `f` its two fighters `[{ sub, name, lv, rating }]`, side 0 first. A ladder bout:
- * `f` its one fighter (`lv`, `mh` - their own claimed level and whole health) and `tier`, `bout`. Nobody is on the sand
- * until each says `in` (`joinBout`).
- * @param {{ o: string, kind: 'pvp'|'pve', f: any[], tier?: number, bout?: number, now: number }} p
+ * `f` its one fighter (`lv` their claimed level, ARENA4b: `cl` the level their token signed - the vitality's, see
+ * net/arenaLaw.js ladderVitality) and `tier`, `bout`. Nobody is on the sand until each says `in` (`joinBout`). ARENA4b:
+ * the hour's exhibition (`kind` 'ex', `ex` net/arenaExhibition.js exhibitionFor's - its hour, its tier, its pair): no
+ * fighter of a socket, its two fighters the relay's own on sides 0 and 1, the law begun at once.
+ * @param {{ o: string, kind: 'pvp'|'pve'|'ex', f: any[], tier?: number, bout?: number, ex?: any, now: number }} p
  */
-export function openBout({ o, kind, f, tier = 0, bout = 0, now }) {
+export function openBout({ o, kind, f, tier = 0, bout = 0, ex = null, now }) {
   const seed = arenaBoutSeed(o);
   const st = {
-    o, kind, at: now, seed, phase: 'wait', tier, bout, b: null, res: null, owed: [], said: false, endAt: NaN, spectators: 0, cheer: {},
-    f: f.map((x, i) => ({ id: `p${i}`, sub: x.sub, name: x.name, side: i, lv: x.lv ?? 1, mh: x.mh ?? null, rating: x.rating ?? null, title: x.title ?? null, in: false })),
+    o, kind, at: now, seed, phase: 'wait', tier: kind === 'ex' ? ex.tier : tier, bout, b: null, res: null, owed: [], said: false, endAt: NaN, spectators: 0, cheer: {},
+    // ARENA4b: `banner` the fighter's word's claim (bannerClaim - billed on the list to watch, cosmetic, never counted)
+    f: f.map((x, i) => ({ id: `p${i}`, sub: x.sub, name: x.name, side: i, lv: x.lv ?? 1, cl: x.cl ?? null, rating: x.rating ?? null, title: x.title ?? null, banner: bannerClaim(x.banner), in: false })),
     ai: [], ref: {}, last: {}, gone: {},
   };
+  if (kind === 'ex') {
+    // ARENA4b: THE EXHIBITION - the hour's two on their marks, side 0 (the Red's) west and side 1 (the Blue's) east, the
+    // law at its call now: no socket is waited for (the stands may be empty; the bout is the hour's all the same)
+    st.hour = ex.hour;
+    const marks = arenaMarks(2, [1, 1]);
+    st.ai = ex.opponents.map((x, i) => {
+      const body = arenaFoeStats(x.mobile, x.level);
+      return { id: `a${i}`, i, mobile: body.mobile, level: body.level, hp: body.hp, dmg: body.dmg, speed: body.speed, every: body.every, windup: body.windup, reach: body.reach, side: i,
+        temper: arenaAiTemper(seed, i, body.mobile), pos: toLevel(marks[i][0]), mv: null, atk: null, nextAt: 0, said: null };
+    });
+    startLaw(st, now);
+    return st;
+  }
   if (kind === 'pve') {
     const L = arenaLadderBout(tier, bout);
     if (!L) throw new Error('arenaBrain: no such ladder bout');
@@ -120,10 +138,11 @@ function startLaw(st, now) {
   st.phase = 'law';
   const fighters = st.f.map((x) => ({
     id: x.id, name: x.name, side: x.side, ai: false, temper: 0,
-    maxHealth: st.kind === 'pvp' ? pvpVitality(x.lv) : pveVitality(x.mh, x.lv),
+    // ARENA4b: a ladder fighter's vitality is the relay's from the signed level alone - never the health the word claimed
+    maxHealth: st.kind === 'pvp' ? pvpVitality(x.lv) : ladderVitality(x.cl, x.lv, st.tier),
   }));
   for (const a of st.ai) fighters.push({ id: a.id, name: '-', side: a.side, ai: true, temper: a.temper, maxHealth: a.hp });
-  st.b = newBout({ id: st.o, kind: st.kind === 'pvp' ? 'pvp' : 'ladder', fighters, ring: { centre: [C[0], C[2]], radius: ARENA_RING_R }, now, tier: st.tier });
+  st.b = newBout({ id: st.o, kind: st.kind === 'pvp' ? 'pvp' : st.kind === 'ex' ? 'exhibition' : 'ladder', fighters, ring: { centre: [C[0], C[2]], radius: ARENA_RING_R }, now, tier: st.tier });
   for (const x of fighters) st.ref[x.id] = { bucket: ARENA_BUCKET_DEPTH, bucketAt: now, hits: [], spells: [], q: -1, qAt: -Infinity };
 }
 
@@ -185,13 +204,13 @@ export function refBlow(st, id, { i: to, d, r, w = -1, m = 0, q = null }, now) {
   const same = q != null && q === M.q && now - M.qAt < 250;
   if (!same) {
     if (M.hits.length >= ARENA_HIT_HZ_MAX) return out;
+    // THE SPELL'S COUNT - ARENA4b: a cast once, by its sequence, however many bodies its blast met
+    if (r === ARENA_HIT.Spell) {
+      M.spells = M.spells.filter((x) => now - x < ARENA_SPELL_WINDOW_MS);
+      if (M.spells.length >= ARENA_SPELLS_IN) return out;
+      M.spells.push(now);
+    }
     M.hits.push(now); M.q = q ?? -1; M.qAt = now;
-  }
-  // THE SPELL'S COUNT
-  if (r === ARENA_HIT.Spell) {
-    M.spells = M.spells.filter((x) => now - x < ARENA_SPELL_WINDOW_MS);
-    if (M.spells.length >= ARENA_SPELLS_IN) return out;
-    M.spells.push(now);
   }
   // THE REACH, from the striker's own last good pose to where the struck stands
   const from = whereIs(st, id, now), at = whereIs(st, to, now);
@@ -347,9 +366,11 @@ function aiStep(st, a, now, rng) {
 const r2 = (v) => Math.round(v * 100) / 100;
 const mvWord = (a, now) => (a.mv ? { k: 'mv', i: a.id, x: r2(a.mv.x), z: r2(a.mv.z), tx: r2(a.mv.tx), tz: r2(a.mv.tz), v: a.mv.v, at: a.mv.at } : { k: 'mv', i: a.id, x: r2(a.pos[0]), z: r2(a.pos[1]), tx: r2(a.pos[0]), tz: r2(a.pos[1]), v: 0, at: now });
 
-/** What the end owes in receipts: a bout between players one, naming both; a ladder bout its fighter's, won or lost. */
+/** What the end owes in receipts: a bout between players one, naming both; a ladder bout its fighter's, won or lost;
+ *  ARENA4b: an exhibition none (nobody of the realm fought it - its verdict is the `st`'s, the bookmakers' to read). */
 function receiptsOwed(st) {
   const r = st.res;
+  if (st.kind === 'ex') return [];
   if (st.kind === 'pvp') return [{ a: 'p', j: st.o, f: [st.f[0].sub, st.f[1].sub], r: r.side === 0 ? 0 : r.side === 1 ? 1 : 2, h: r.how === 'judges' && r.side === null ? 'judges' : r.how }];
   return [{ a: 'l', j: st.o, s: st.f[0].sub, q: st.tier, u: st.bout, r: r.side === 0 ? 1 : 0, h: r.how }];
 }
@@ -370,14 +391,17 @@ export function stateWord(st, me = '') {
   return {
     k: 'st', o: st.o, kind: st.kind, ph, pa: b ? b.phaseAt : st.at, fa: b && Number.isFinite(b.fightAt) ? b.fightAt : null, lim: b ? b.limitMs : 0,
     f: fighters.map((x) => { const m = meta(x.id); return [x.id, x.name, x.side, Math.max(0, Math.round(x.health)), Math.max(1, Math.round(x.maxHealth)), x.out ?? '', m.ai, m.mob, Math.round((x.temper ?? 0) * 100), '', '']; }),
-    me, sp: st.spectators, ...(st.kind === 'pve' ? { tier: st.tier, bout: st.bout } : {}), ...(st.res ? { res: st.res } : {}),
+    me, sp: st.spectators, ...(st.kind === 'pve' ? { tier: st.tier, bout: st.bout } : {}), ...(st.kind === 'ex' ? { h: st.hour } : {}), ...(st.res ? { res: st.res } : {}),
   };
 }
 /** The AI fighters' places now, as `mv` words - a joiner's picture of where they stand. */
 export const aiWords = (st, now) => st.ai.map((a) => mvWord(a, now));
-/** The live list's entry for this bout (the hall's `live`). */
+/** The live list's entry for this bout (the hall's `live`) - ARENA4b: an exhibition's by its hour and tier, its two by
+ *  their banners alone (the relay knows no fighter's name; every screen names them off the hour); every other fighter's
+ *  bill with their banner, as their word claimed it. */
 export function liveEntry(st) {
-  const bill = (x) => ({ n: x.name, ...(x.rating != null ? { r: x.rating } : {}), ...(x.title ? { t: x.title } : {}) });
+  if (st.kind === 'ex') return { o: st.o, kind: 'ex', h: st.hour, a: { b: ARENA_EX_BANNERS[0] }, b: { b: ARENA_EX_BANNERS[1] }, tier: st.tier, sp: st.spectators, at: st.at };
+  const bill = (x) => ({ n: x.name, ...(x.rating != null ? { r: x.rating } : {}), ...(x.title ? { t: x.title } : {}), ...(x.banner ? { b: x.banner } : {}) });
   return { o: st.o, kind: st.kind, a: bill(st.f[0]), ...(st.f[1] ? { b: bill(st.f[1]) } : {}), ...(st.kind === 'pve' ? { tier: st.tier } : {}), sp: st.spectators, at: st.at };
 }
 /** Is the bout's room done with it (the healers past, or void) - its receipts said and the hall told. */

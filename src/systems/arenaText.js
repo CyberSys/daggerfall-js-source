@@ -444,6 +444,7 @@ export const ARENA_TEXT = F({
     noLive: 'No fighters of the realm are on the sand right now.',
     liveLadder: (tier) => `A ladder bout - ${tier}`,
     livePlayers: 'A rated bout',
+    liveExhibition: (tier) => `The hour's exhibition - ${tier}`,   // ARENA4b: the relay's exhibition on the list
     watching: (n) => `${n} watching`,
     challengeTitle: 'Challenge a fighter',
     queueState: F({ idle: 'Rated', queued: 'Seeking', offer: 'A match!', going: 'To the sand', off: 'Offline' }),

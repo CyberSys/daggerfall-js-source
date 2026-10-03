@@ -2078,7 +2078,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
   // owned, and destroy() hands it back (the _prevPassiveHost idiom this
   // file already uses for its other process-global seams). A bare null
   // would not do: on ?world and ?exterior the previous holder is the
-  // host's own townTalk sink (world.js:15814 / exterior.js:3919), set
+  // host's own townTalk sink (world.js:15821 / exterior.js:3919), set
   // once at boot and never again, so nulling on the way out of the
   // first dungeon would silently un-file every mid-screen label above
   // ground for the rest of the session - MC-1's own bug, re-opened.
@@ -2827,6 +2827,11 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     // WB11c: the Legion-Lord's host as marks a harmful spell meets - each by its number and name
     hostMarks: opts.gateHost ? () => gateHostBodies().map((q) => ({ i: q.host, name: q.entity?.name ?? '', feet: q.ai.feet, height: q.ai.height, radius: q.ai.radius })) : null,
     castAtHost: opts.gateHost ? (sp, i) => spellOnHost(sp, i) : null,
+    // ARENA4b: MY OPPONENT ON A RELAY'S SAND as the one body my harmful spells reach (the duel's own seam, hostMagic.js
+    // duelMarksFor - a touch, a missile or a blast that meets them), and the door such a spell leaves through
+    // (spellOnRival: the number to the referee as a spell, as a swing's goes); none outside a bout between players
+    duelMark: opts.arenaRival ? () => { const rb = arenaRivalBody(); return rb ? { id: rb.rival, name: rb.entity?.name ?? '', feet: rb.ai.feet, height: rb.ai.height } : null; } : null,
+    castAtDuel: opts.arenaRival ? (_id, sp) => spellOnRival(sp) : null,
     // A10: THE RECALL ARRIVAL, ROUTED. This used to be a stand-in line
     // saying the anchor machinery lived in the streaming host - true of
     // the machinery, false as a refusal: this context is the one the
@@ -3672,8 +3677,20 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     if (!r || !r.entity || !Array.isArray(r.feet) || !(r.height > 0) || !(r.radius > 0) || typeof r.i !== 'string') return null;
     return { rival: r.i, dead: false, entity: r.entity, mobileType: null, ai: { feet: r.feet, yaw: r.yaw ?? 0, height: r.height, radius: r.radius, centreOffset: r.height / 2, isHostile: true } };
   }
-  /** A blow's number on my opponent, out to the referee; answers whether it went. */
-  const landOnRival = (rb, damage, kind) => !!opts.onArenaHit?.({ i: rb.rival, d: damage, kind, w: playerWeapon.strikingWeapon?.templateIndex ?? -1, m: playerWeapon.strikingWeapon?.material ?? 0 });
+  /** ARENA4b: THE BLOW'S SEQUENCE the referee reads (net/arenaBrain.js refBlow - one blow however many bodies it met): a
+   *  swing's every body one number (resolvePlayerHit), each shaft its own, each spell its own. */
+  let _arenaQ = 0;
+  const nextArenaQ = () => (_arenaQ = (_arenaQ + 1) & 0x7fffffff);
+  /** ARENA4b: A CAST'S SEQUENCE on the relay's fighters - every body one blast (or one round of its effects) meets in the
+   *  cast engine's one synchronous run shares one number, the next run a new one: the referee counts the cast once
+   *  (PVP-REF's three in five seconds), never once a body as ARENA4's unnumbered claims were. */
+  let _arenaSpellQ = null;
+  const arenaSpellQ = () => {
+    if (_arenaSpellQ == null) { _arenaSpellQ = nextArenaQ(); void Promise.resolve().then(() => { _arenaSpellQ = null; }); }
+    return _arenaSpellQ;
+  };
+  /** A blow's number on my opponent, out to the referee (ARENA4b: with its sequence); answers whether it went. */
+  const landOnRival = (rb, damage, kind) => !!opts.onArenaHit?.({ i: rb.rival, d: damage, kind, w: playerWeapon.strikingWeapon?.templateIndex ?? -1, m: playerWeapon.strikingWeapon?.material ?? 0, q: _arenaQ });
   /** A swing of mine that met my opponent: the parry's ring for none, else the hit's sound and blood at them and the
    *  number out (their own screen bleeds as the relay's health falls). */
   function swingOnRival(rb, damage, lookDir) {
@@ -3682,6 +3699,20 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     audio.play3d(hitSoundFor(playerWeapon.strikingWeapon), chest, ENEMY_HIT_VOLUME, { maxDistance: 24 });
     hitEffects?.showBloodSplash(0, chest, null, bloodHit(damage, rb.entity, { fromPlayer: true, weapon: playerWeapon.strikingWeapon, swing: playerWeapon.machine?.state, forward: lookDir }));
     landOnRival(rb, damage, 'melee');
+  }
+  /** ARENA4b: A HARMFUL SPELL OF MINE THAT MET MY OPPONENT (hostMagic's duel seam): its harmful families on their
+   *  stand-in by the one door every spell lands through, the damage summed and out to the referee as a spell - its own
+   *  sequence, PVP-REF's three casts in five seconds and sixty a cast deciding what lands (swingOnRival's road). */
+  function spellOnRival(sp) {
+    const rb = arenaRivalBody(), harm = duelSpellOf(sp);
+    if (!rb || !harm) return false;
+    let dealt = 0;
+    const sinks = { hurt: (n) => { dealt += Math.max(0, n); }, heal() {}, drainFatigue() {}, restoreFatigue() {}, drainMagicka() {}, restoreMagicka() {} };
+    try { applySpell(harm, playerEntity.level, rb.entity, sinks, Math.random, { entity: playerEntity }); } finally { rb.entity.activeEffects = []; }
+    if (!(dealt >= 1)) return false;
+    reportPlayerAttack({ hit: true, damage: Math.round(dealt) });   // HN1: the number pops as a blow's does
+    nextArenaQ();
+    return landOnRival(rb, dealt, 'spell');
   }
   /** How the swing sees him: the distance to his body's SURFACE (his axis is `radius` in and his middle `height/2` up - a
    *  point-centre law would ask a swing to reach 3 m into him), in view at the nearest point of him, the way to it
@@ -3764,6 +3795,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     return spellOnBoss(record);
   }
   function resolvePlayerHit(eye, inViewFn, playerFeet, lookDir) {
+    nextArenaQ();   // ARENA4b: this swing is one blow to the referee, every body it meets
     // AUDIT 23 (combat-14): entity colliders resolve FIRST
     // (WeaponManager.cs:1048-1056 foreach over hitColliders);
     // WeaponEnvDamage runs only in the no-entity fallback (:1057-1064
@@ -4047,6 +4079,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
           // ARENA4: a shaft meets my opponent on a relay's sand by their whole body - the number to the referee
           const rv = arenaRivalBody();
           if (rv && missileHitsCapsule(m.pos, rv.ai.feet, rv.ai.height, rv.ai.radius)) {
+            nextArenaQ();   // ARENA4b: each shaft its own blow
             playerArrowHitFoe(m, rv, { playerEntity, playerWeapon, playerFeet, audio, hitEffects, say: (l) => hudText.add(l), dealDamage: (t, d) => landOnRival(rv, d, 'arrow') });
             retireMissile(m);
             continue;
@@ -4071,10 +4104,11 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
           for (const f of foes) {
             if (f.dead || f.companion != null) continue;   // AUDIT CC-B1: the player's shaft flies past a companion (the street's and a building's spare him already)
             if (missileHitsFoe(m.pos, f)) {   // ROAD-H tail: DaggerfallMissile.cs:339's SphereCast meets the foe's CAPSULE (REVIEW 2026-09-05 had its centre as a point)
+              nextArenaQ();   // ARENA4b: each shaft its own blow to the referee (a relay's fighter's puppet - damageFoe's lane)
               // AUDIT 39 (#64) / THE FOUR HOSTS RULE - SHIPPED (wave D):
               // this host was the FOURTH BODY of the player-arrow law
               // and is now the fourth CALLER. combat/arrowFlight.js's
-              // playerArrowHitFoe is the one copy world.js:26197,
+              // playerArrowHitFoe is the one copy world.js:26204,
               // exterior.js:5579 and worldModes.js:9028 already ran;
               // the flag said the divergence would bite and it already
               // had. This copy splashed at the ARROW TIP
@@ -5759,7 +5793,11 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     // ARENA4: one of the relay's fighters on its sand (scenes/arenaBouts.js stands it as a puppet of the relay) - my
     // blow's number goes to the bout's referee, which holds its health and decides what lands
     if (foe._ownFrom === ARENA_PUPPET_OWNER) {
-      if (fromPlayer && damage >= 0) opts.onArenaHit?.({ i: `a${foe._ownI}`, d: damage, kind: kind === 'arrow' ? 'arrow' : spell ? 'spell' : 'melee', w: playerWeapon?.strikingWeapon?.templateIndex ?? -1, m: playerWeapon?.strikingWeapon?.material ?? 0 });
+      // ARENA4b: a swing's or a shaft's sequence (a cleave through two of them is one blow); a spell's - its damage comes
+      // through the sinks as kind 'spell' with no record (foeSinks), which ARENA4 claimed as a swing and the referee then
+      // held to a sword's reach - claimed as a spell, under its cast's one number (arenaSpellQ)
+      const cast = kind === 'spell' || !!spell;
+      if (fromPlayer && damage >= 0) opts.onArenaHit?.({ i: `a${foe._ownI}`, d: damage, kind: kind === 'arrow' ? 'arrow' : cast ? 'spell' : 'melee', w: playerWeapon?.strikingWeapon?.templateIndex ?? -1, m: playerWeapon?.strikingWeapon?.material ?? 0, q: cast ? arenaSpellQ() : _arenaQ });
       return;
     }
     if (foe._ownFrom != null) {
