@@ -950,7 +950,7 @@ does the pack's USE arm.
                         worldModes.js:2532 (the factory) and :1904 (a
                         HAND-ROLLED second one, 342 lines below it in
                         the same file),
-                        dungeonContext.js:1316, world.js:4960,
+                        dungeonContext.js:1316, world.js:4961,
                         exterior.js:2786. It is the only window TWO
                         enhanced screens already push - the sheet's
                         button and the pack's USE hand-off, whose
@@ -8794,7 +8794,7 @@ mutations, 4 dead.
 
 PX24 (Mac: "with the logbook and history, I want them as one detailed
 UI"): THE CHRONICLE. Two classic windows built at four sites -
-questJournal.js from charSheetNav:53, world.js:5418 and
+questJournal.js from charSheetNav:53, world.js:5419 and
 dungeonContext.js, playerHistory.js from charSheetNav:61 - become ONE
 seam (ui/chronicleDoor.js, the U52/U53/PX23 shape a sixth time) and,
 on the enhanced skin, ONE WINDOW.
@@ -15575,7 +15575,7 @@ whether an entry MATCHES and asserts nothing.
 Following it out was worse than the symptom. Five Ledger rows cite a
 PAIR - `` `world.js:N`, `exterior.js:M` `` - and the table captured `M`
 alone. So `M` was re-resolved at every wave for a year and `N` was never
-read: `world.js:11141` named a line that is 8950, `:1862` one that is
+read: `world.js:11141` named a line that is 8950, `:1863` one that is
 1215, `:1094` one that is 2194, `:3903` one that is 3066, `:3920` one
 that is 8907. `world.js:10875-10907` and `dungeonContext.js:1858` were
 stale the same way. Seven numbers re-resolved BY CONTENT, every
