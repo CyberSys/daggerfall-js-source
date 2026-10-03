@@ -337,6 +337,9 @@ export function createArenaBouts(deps) {
     const none = { west: null, east: null };
     if (!p) return none;
     const ok = (b) => (b === 'red' || b === 'blue' ? b : null);
+    // AUDIT PRE-MERGE 1003 W2: the relay's exhibition watched in the instance (scenes/arenaOnline.js goTo: `relayEx`, no
+    // `relay` nor `kind`) is the Red against the Blue as this screen's is - startExhibitionRelay's teams, the crowd's halves
+    if (p.relayEx) return { west: 'red', east: 'blue' };
     if (p.relay) {
       const r = p.relay;
       if (Array.isArray(r.sides)) return { west: ok(r.sides[0]), east: ok(r.sides[1]) };
