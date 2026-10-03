@@ -656,32 +656,32 @@ export function validArenaOut(m) {
 /** The relay's refusals, as the player reads them (`qx` and `no`). */
 export const ARENA_NO_TEXT = Object.freeze({
   busy: 'You are already in a bout.',
-  full: 'The hall is full - try again in a moment.',
-  declined: 'Your opponent declined the bout. Back in the queue.',
+  full: 'The queue is full. Try again soon.',
+  declined: 'Your opponent declined. You are back in the queue.',
   lapsed: 'The bout was not accepted in time.',
   left: 'You left the queue.',
-  guest: 'Only a registered account fights a rated bout.',
+  guest: 'Only registered accounts can play rated bouts.',
   'no bout': 'That bout is over.',
   'seats full': 'The stands are full.',
-  'not yours': 'That bout is not yours to fight.',
-  void: 'The bout is void - a fighter never came to the sand.',
-  'no contest': 'The bout is void - both fighters left the sand.',   // AUDIT PRE-MERGE 1003b S9
+  'not yours': 'That bout is not yours.',
+  void: 'Bout cancelled. A fighter never showed up.',
+  'no contest': 'Bout cancelled. Both fighters left.',   // AUDIT PRE-MERGE 1003b S9
   // ARENA6: a private session's
-  'host guest': 'Only a registered account can host a private session.',
-  taken: 'That code is already in use - host again for a new one.',
-  'no session': 'No private session has that code.',
-  removed: 'The host removed you from this session.',
-  'session full': 'That private session is full.',
-  locked: 'That private session is locked - the host is letting nobody new in.',   // AUDIT PRE-MERGE 1003b S4
-  'host only': 'Only the session\'s host can do that.',
+  'host guest': 'Only registered accounts can host.',
+  taken: 'That code is taken. Host again for a new one.',
+  'no session': 'No session has that code.',
+  removed: 'The host removed you.',
+  'session full': 'That session is full.',
+  locked: 'That session is locked.',   // AUDIT PRE-MERGE 1003b S4
+  'host only': 'Only the host can do that.',
   'not member': 'Join the session first.',
   'not here': 'That fighter is not here.',
-  'guest fighter': 'A guest can watch, but only a registered account can fight.',
-  'same fighter': 'Red and Blue must be two different fighters.',
-  'bout on': 'A bout is on - end it first.',
-  'no picks': 'Pick a Red and a Blue first.',
-  voided: 'The host ended the bout - no result.',
-  'has result': 'That bout has its result - it ends on its own.',   // AUDIT PRE-MERGE 1003b R8/S1: End bout after the result
+  'guest fighter': 'Guests can watch but not fight.',
+  'same fighter': 'Red and Blue must be different players.',
+  'bout on': 'A bout is running. End it first.',
+  'no picks': 'Pick Red and Blue first.',
+  voided: 'The host cancelled the bout.',
+  'has result': 'That bout is already decided.',   // AUDIT PRE-MERGE 1003b R8/S1: End bout after the result
   closed: 'The host closed the session.',
-  ended: 'The private session has ended.',
+  ended: 'The session has ended.',
 });

@@ -248,7 +248,7 @@ names, banners, health; your stamina), the **crowd meter**, the **timer**, the H
 | **ARENA4b** (SHIPPED 2026-10-03 - the record below) | the online half finished: the relay's exhibition, the ladder's trust (`cl`), the players' blows, the banners billed, the stands' cheer, the realm's Hall and Records, the laurel online, the gate online, a bout's Renown, the displaced online homes, the casual bout | the relay over fake sockets, the service over node:sqlite, the client headless, the UI probes |
 | **ARENA5** (SHIPPED 2026-10-03 - the record below) | the audit: every slice re-read against this page, the probes, the mutants; and what it found unbuilt - the banners on the sand, the Hall's plaque wall, your ladder replay | the mutant lists of every slice, the UI probes, the browser list in its record |
 | **ARENA6** (SHIPPED 2026-10-03 - the record below) | private sessions: a host opens a session under a code, members join by it, the host picks who fights and calls the bout, everyone else watches; equal health; accounts fight, guests watch | the relay over fake sockets, the client end to end on the real Room, the window's model |
-| **ARENA-COPY** (2026-10-03 - the record below) | the plain-words pass: every line and press of the arena's own text said short and plain | the words pin (`test/arena2_hud.test.js`), the suites that name the lines |
+| **ARENA-COPY** (2026-10-03 - the record below) | the plain-words pass: every line and press of the arena's own text said short and plain, the refusals included | the words pin (`test/arena2_hud.test.js`), the suites that name the lines |
 
 ## ARENA1 record (2026-10-02) - SHIPPED
 
@@ -982,7 +982,7 @@ understanding. Don't let it seem like AI." Words only - no key, signature, templ
 
 **What was said again.** `src/systems/arenaText.js` (ARENA_TEXT: the Herald's, recruiters' and bookmaker's choices and
 lines, the refusals, the notices, the window's pages and presses, the online cards and the private session's lines, the
-Rules). The house
+Rules) and `src/net/arenaLaw.js ARENA_NO_TEXT` (the relay's `qx` and `no` words as a player reads them). The house
 rules for them: a press is one to three words, a verb first where it acts ("Host", "Join", "Leave", "Find match",
 "Place bet", "Cancel bout", "Replay"); a line is one short sentence, with no clause hung on " - ", no semicolon, no
 hedge and no word about the machinery ("relay", "socket", "the realm keeps..."); a refusal still says what is wrong.
@@ -990,7 +990,11 @@ The crowd's barks, the Herald's calls on the sand, the verdicts, the tiers, titl
 bookmaker's "wager" is a "bet" on every press and line. `ui/arenaWindow.js`, `ui/arenaHud.js`,
 `ui/arenaSessionButton.js` and `systems/arenaBoard.js` draw these words and needed none of their own changed.
 
+**The relay's version.** `net/arenaLaw.js` is in the relay's bundle, so SLAM8 binds its bytes: ARENA_NO_TEXT's new
+words are RELAY_VERSION world157 (no frame, room or rule of the relay's changed), with its law row and the pins that
+name it. Merging it redeploys the relay once.
+
 **Tests.** The suites that pinned a line by its words now pin the new words (`arena2_hud`, `arena3_book`,
 `arena3_window`, `arena5_plaques`, `arena_fix`, `audit1003b_client`); no test added or removed. Mutant records whose
-text moved re-aimed by content (`audit1003_ui.json` AUDIT-1003-U10-lapsed-unsaid, `audit1003b.json`
-AUDIT1003b-U9-DRAW-NO-RESULT; both dead).
+text moved re-aimed by content (`arena6.json` ARENA6-REFUSAL-UNSAID, `audit1003_ui.json` AUDIT-1003-U10-lapsed-unsaid,
+`audit1003b.json` AUDIT1003b-U9-DRAW-NO-RESULT, `soc1.json` S38-version-not-bumped; all dead).
