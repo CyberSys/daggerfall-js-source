@@ -2,8 +2,8 @@
   {
     "name": "AUDIT-GALLEON-D1-any-piece-floor",
     "file": "src/scenes/world.js",
-    "old": "own = deck.heightAt(local[0], local[2], local[1], piece);",
-    "new": "own = floor;",
+    "old": "deck.keep(local[0], local[2], was ? was[1] : local[1], piece, local);",
+    "new": "if (Number.isNaN(floor)) deck.clamp(local[0], local[2], local); else local[1] = floor;",
     "tests": [
       "test/auditgalleon_deck.test.js"
     ],
@@ -12,20 +12,24 @@
   {
     "name": "AUDIT-GALLEON-D1-piece-filter-unread",
     "file": "src/systems/naval/navalDeck.js",
-    "old": "        if (p >= 0 && more.piece[n] !== p) continue;\n",
+    "old": "      if (p >= 0 && more.piece[n] !== p) continue;\n",
     "new": "",
     "tests": [
-      "test/auditgalleon_deck.test.js"
+      "test/auditgalleon_deck.test.js",
+      "test/auditnav2_deck.test.js",
+      "test/auditgalleon2_deck.test.js"
     ],
     "why": "heightAt asked for a piece's floor answers any piece's - the leash sets a body on another piece's floor"
   },
   {
     "name": "AUDIT-GALLEON-D1-open-deck-in-every-piece",
     "file": "src/systems/naval/navalDeck.js",
-    "old": "      let best = p > 0 ? NaN : y[j], d = Number.isNaN(best) ? Infinity : Math.abs(best - h);",
-    "new": "      let best = y[j], d = Number.isNaN(best) ? Infinity : Math.abs(best - h);",
+    "old": "    let best = p > 0 ? NaN : y[j], d = Number.isNaN(best) ? Infinity : Math.abs(best - h);",
+    "new": "    let best = y[j], d = Number.isNaN(best) ? Infinity : Math.abs(best - h);",
     "tests": [
-      "test/auditgalleon_deck.test.js"
+      "test/auditgalleon_deck.test.js",
+      "test/auditnav2_deck.test.js",
+      "test/auditgalleon2_deck.test.js"
     ],
     "why": "her open deck's floor read as her cabin's - a foe in her cabin snapped up onto the tread or the roof over him"
   },
@@ -181,8 +185,8 @@
   {
     "name": "AUDIT-GALLEON-D7-cover-a-floor",
     "file": "src/systems/naval/navalDeck.js",
-    "old": "      if (moves) continue;\n",
-    "new": "",
+    "old": "          if (moves) { lids[k * nx + i].push(y); continue; }",
+    "new": "          if (moves) lids[k * nx + i].push(y);",
     "tests": [
       "test/auditgalleon_deck.test.js"
     ],
@@ -210,8 +214,8 @@
   {
     "name": "AUDIT-GALLEON-D8-underside",
     "file": "src/systems/naval/navalDeck.js",
-    "old": "      if (isFlat && nY > 0) {",
-    "new": "      if (isFlat) {",
+    "old": "      if (isFlat && nY > 0 && !moves) {",
+    "new": "      if (isFlat && !moves) {",
     "tests": [
       "test/auditgalleon_deck.test.js"
     ],
@@ -299,8 +303,8 @@
   {
     "name": "AUDIT-GALLEON-DWALL-whole-triangle",
     "file": "src/systems/naval/navalDeck.js",
-    "old": "walls[k * nx + i].push(bottom, top);",
-    "new": "walls[k * nx + i].push(Math.min(ay, by, cy), Math.max(ay, by, cy));",
+    "old": "into[k * nx + i].push(bottom, top);",
+    "new": "into[k * nx + i].push(Math.min(ay, by, cy), Math.max(ay, by, cy));",
     "tests": [
       "test/auditgalleon_deck.test.js",
       "test/auditnav2_deck.test.js"

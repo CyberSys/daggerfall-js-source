@@ -11,8 +11,8 @@
   {
     "name": "DECK-WALK-walls-unread",
     "file": "src/systems/naval/navalDeck.js",
-    "old": "      for (let q = 0; clear && q < w.length; q += 2) if (w[q + 1] > y + DECK_STEP && w[q] < y + DECK_HEADROOM) clear = false;",
-    "new": "      for (let q = 0; false && q < w.length; q += 2) if (w[q + 1] > y + DECK_STEP && w[q] < y + DECK_HEADROOM) clear = false;",
+    "old": "      if (!clear || rises(walls[j], y)) continue;",
+    "new": "      if (!clear) continue;",
     "tests": [
       "test/deckwalk.test.js"
     ]
@@ -20,7 +20,7 @@
   {
     "name": "DECK-WALK-wall-footprints-dropped",
     "file": "src/systems/naval/navalDeck.js",
-    "old": "if (Math.abs(nY) < WALL_NY * len) { wallFace(ax, ay, az, bx, by, bz, cx, cy, cz); continue; }",
+    "old": "if (Math.abs(nY) < WALL_NY * len) { wallFace(moves ? leaves : walls, ax, ay, az, bx, by, bz, cx, cy, cz); continue; }",
     "new": "if (Math.abs(nY) < WALL_NY * len) continue;",
     "tests": [
       "test/deckwalk.test.js"
@@ -181,9 +181,9 @@
   },
   {
     "name": "DECK-WALK-leash-a-centre",
-    "file": "src/scenes/world.js",
-    "old": "        if (Number.isNaN(own)) deck.clamp(local[0], local[2], local, piece); else local[1] = own;",
-    "new": "        if (Number.isNaN(own)) { const c = deck.nearest(local[0], local[2]); local[0] = c[0]; local[1] = c[1]; local[2] = c[2]; } else local[1] = own;",
+    "file": "src/systems/naval/navalDeck.js",
+    "old": "      if (j >= 0) { const h = ringH; squareOf(j, x, z, out, 0); out[1] = h; return out; }",
+    "new": "      if (j >= 0) { const h = ringH, c = centre(j); out[0] = c[0]; out[1] = h; out[2] = c[2]; return out; }",
     "tests": [
       "test/deckwalk.test.js"
     ]
@@ -191,8 +191,8 @@
   {
     "name": "DECK-WALK-leash-height-unread",
     "file": "src/scenes/world.js",
-    "old": "      if (!(Math.abs(local[1] - floor) <= DECK_STEP)) {",
-    "new": "      if (Number.isNaN(floor)) {",
+    "old": "      if (!(Math.abs(local[1] - floor) <= DECK_STEP) && !(Math.abs(local[1] - deck.ajarAt(local[0], local[2], local[1])) <= DECK_STEP)) {",
+    "new": "      if (Number.isNaN(floor) && !(Math.abs(local[1] - deck.ajarAt(local[0], local[2], local[1])) <= DECK_STEP)) {",
     "tests": [
       "test/deckwalk.test.js"
     ]
