@@ -53,9 +53,10 @@ import {
   MASON_RECIPES, MASON_FEE, workOpen,   // PROF11: the mason's bench
   JEWEL_FEE,   // PROF10: the jeweller's bench
   ALCHEMY_FEE, ENCHANT_FEE, TRANSMUTE_RECIPES, TRANSMUTER, APOTHECARY_STOCK,   // PROF12: the alchemy and enchanting stations
+  STORES_MAX, ARCANE_ESSENCE,   // AUDIT PROF-541 B8: a disenchant's room in the Stores
 } from '../net/professionLaw.js';
 import {
-  POTIONS, brewKeys, brewSpends, brewCount, potentChance, potentPct, potentLasts, brewXp, brewFirstPays, ingredientKeys, DISTILLER, POTENT,
+  POTIONS, brewKeys, brewSpends, brewCount, potentChance, potentPct, potentLasts, potentAble, brewXp, brewFirstPays, ingredientKeys, DISTILLER, POTENT,
   enchantDiscountPct, DISENCHANTER, disenchantXp, essenceOf,
 } from '../net/alchemyLaw.js';   // PROF12: Alchemy's brew, Enchanting's layer and Disenchanting
 import {
@@ -117,6 +118,8 @@ import { getPref, setPref } from '../systems/uiPrefs.js';
  * @property {() => ({ kind: 'shop'|'home', fee: number }|null)} [alchemy]   PROF12: the alchemy station the player stands at
  * @property {(potion: string, keys: string[]) => Promise<{ ok: boolean, text: string }>} [brew]   PROF12: a brew, its potions
  *   into the pack and its fee paid
+ * @property {() => number} [alchemySteps]   AUDIT PROF-541 B4: the Apothecary's steps of the town the station stands in,
+ *   where the player's guild holds it (fortLaw stationSteps) - 0 elsewhere
  * @property {() => ({ kind: 'shop'|'home', fee: number }|null)} [enchanter]   PROF12: the enchanting station the player stands at
  * @property {() => Array<{ provenance: string, name: string, points: number, essence: number, recipe?: string }>} [disenchantable]   PROF12: the
  *   pack's crafted pieces an enchanting station may take apart, each its Essence (AUDIT PROF12 E2: and its recipe, the XP's tier)
@@ -1996,9 +1999,12 @@ export const ALCHEMY_AWAY_LINE = `Alchemy is brewed at an alchemy station: an Al
 export const _alchemyForTests = () => _alchemy;
 /** The potion line a brew's chance says: "Potent 30% (+25% magnitude)" - AUDIT PROF12 A3: a potion whose magnitude is DFU's
  *  default "(lasts 25% longer)" (alchemyLaw potentLasts), and the station's line, no potion picked, "(+25% magnitude or
- *  duration)". */
-export function potentLine(rank, specs, unbruised = 0, potion = null) {
-  const c = potentChance(rank, { distiller: specs?.[50] === DISTILLER, unbruised });
+ *  duration)". AUDIT PROF-541 B4: `steps` the town's Apothecary's (+10 a step - the service's own sum, potentChance);
+ *  B3: a Cure that is never Potent (alchemyLaw potentAble) says so, and no chance. */
+export const POTENT_NONE_LINE = 'Never Potent (a cure acts at once)';
+export function potentLine(rank, specs, unbruised = 0, potion = null, steps = 0) {
+  if (potion && !potentAble(potion)) return POTENT_NONE_LINE;
+  const c = potentChance(rank, { distiller: specs?.[50] === DISTILLER, unbruised, steps });
   const pct = potentPct(specs?.[100] ?? null);
   const what = !potion ? `+${pct}% magnitude or duration` : potentLasts(potion) ? `lasts ${pct}% longer` : `+${pct}% magnitude`;
   return `Potent ${c}% (${what})`;
@@ -2025,7 +2031,8 @@ function drawAlchemyStation(detail, rerender, { el, divider }) {
   const rank = track?.rank ?? 0;
   const specs = track?.specs ?? {};
   const n = brewCount(rank, specs[50]);
-  detail.append(el('p', 'px-note', `${station.kind === 'shop' ? `The alchemist's station - ${station.fee} gold a brew.` : 'Your alchemy station.'} Alchemy ${rank} (${rankName(rank)}): ${n === 1 ? 'a potion' : `${n} potions`} a brew; ${potentLine(rank, specs)}, +${POTENT.unbruised}% for each herb you picked unbruised.`));
+  const steps = p.alchemySteps?.() ?? 0;   // AUDIT PROF-541 B4: the town's Apothecary
+  detail.append(el('p', 'px-note', `${station.kind === 'shop' ? `The alchemist's station - ${station.fee} gold a brew.` : 'Your alchemy station.'} Alchemy ${rank} (${rankName(rank)}): ${n === 1 ? 'a potion' : `${n} potions`} a brew; ${potentLine(rank, specs, 0, null, steps)}${steps > 0 ? ` (the Apothecary's +${POTENT.apothecary * steps}% with it)` : ''}, +${POTENT.unbruised}% for each herb you picked unbruised.`));
   const short = purseShort(station, 'alchemist', 'a brew');
   if (short) detail.append(el('p', 'px-note prof-short', short));
   const held = (k) => book.held(k);
@@ -2055,8 +2062,8 @@ function drawAlchemyStation(detail, rerender, { el, divider }) {
       if (sale && have < inp.n) counterBuy(line, { el, p, state: _alchemy, rerender, key: inp.key, need: inp.n - have, sale, who: 'the Apothecaries', counter: 'apothecaries' });
       box.append(line);
     }
-    const gathered = potion.ingredients.filter((t) => ingredientKeys(t).some((k) => k.startsWith('p'))).length;
-    box.append(el('p', 'px-note', `${n === 1 ? 'A potion' : `${n} potions`} a brew. ${potentLine(rank, specs, 0, potion)}${gathered ? ` - and +${POTENT.unbruised}% for each of its herbs you picked unbruised` : ''}. ${brewXp(potion, rank, false)} Alchemy XP${brewFirstPays(potion) ? `, and ${brewXp(potion, rank, true) - brewXp(potion, rank, false)} the first time` : ''}.`));
+    const gathered = potentAble(potion) ? potion.ingredients.filter((t) => ingredientKeys(t).some((k) => k.startsWith('p'))).length : 0;   // AUDIT PROF-541 B3: a cure's herbs add nothing
+    box.append(el('p', 'px-note', `${n === 1 ? 'A potion' : `${n} potions`} a brew. ${potentLine(rank, specs, 0, potion, steps)}${gathered ? ` - and +${POTENT.unbruised}% for each of its herbs you picked unbruised` : ''}. ${brewXp(potion, rank, false)} Alchemy XP${brewFirstPays(potion) ? `, and ${brewXp(potion, rank, true) - brewXp(potion, rank, false)} the first time` : ''}.`));
     const ready = rank >= potion.rank && spends.length > 0 && spends.every((i) => held(i.key) >= i.n) && !_alchemy.crafting && !short;
     const go = el('button', 'act primary', _alchemy.crafting ? 'Brewing...' : 'Brew');
     go.type = 'button';
@@ -2084,6 +2091,8 @@ function drawAlchemyStation(detail, rerender, { el, divider }) {
 export const ENCHANT_AWAY_LINE = `Disenchanting is done at an enchanting station: a Mages Guild hall (${ENCHANT_FEE} gold a piece), or your own home's. A crafted piece comes apart into Arcane Essence in your Stores.`;
 /** Tests: the station's state. */
 export const _enchantForTests = () => _enchant;
+/** AUDIT PROF-541 B8: a piece whose Essence the Stores have no room for. */
+export const ENCHANT_FULL_LINE = (room) => `Your Stores hold room for ${Math.max(0, room)} more Arcane Essence - not this piece's.`;
 /**
  * PROF12: THE ENCHANTING STATION - the pack's crafted pieces (a provenance - loot is never disenchanted), each the Arcane
  * Essence it would give (a hundred of its enchantment points an Essence, a Disenchanter's twice) and the XP; Disenchant,
@@ -2108,6 +2117,9 @@ function drawEnchantingStation(detail, rerender, { el, divider }) {
   const short = purseShort(station, 'enchanter', 'a piece');
   if (short) detail.append(el('p', 'px-note prof-short', short));
   const pieces = p.disenchantable();
+  // AUDIT PROF-541 B8: the Essence's room - every origin counted, as the service counts it (storesFullIn's sum)
+  const ess = book.store?.(ARCANE_ESSENCE.key) ?? { own: book.held(ARCANE_ESSENCE.key) };
+  const room = (book.state?.caps?.stores ?? STORES_MAX) - ((ess.own | 0) + (ess.bought | 0) + (ess.gold | 0));
   if (!pieces.length) detail.append(el('p', 'px-note', 'No crafted piece in your pack carries enough enchantment to give Essence. Only a piece a crafter made online comes apart - never loot.'));
   for (const pc of pieces) {
     const row = el('div', 'prof-smelt');
@@ -2116,7 +2128,9 @@ function drawEnchantingStation(detail, rerender, { el, divider }) {
     const armed = _enchant.armed === pc.provenance;
     const b = el('button', 'act', _enchant.busy && armed ? 'Taking it apart...' : armed ? 'Press again: it is gone' : 'Disenchant');
     b.type = 'button';
-    b.disabled = _enchant.busy || !!short;
+    const full = pc.essence > room;   // AUDIT PROF-541 B8: the service would refuse it (stores-full) - said, never pressed
+    if (full) row.append(el('span', 'prof-short', ENCHANT_FULL_LINE(room)));
+    b.disabled = _enchant.busy || !!short || full;
     b.onclick = async () => {
       if (_enchant.busy) return;
       if (!armed) { _enchant.armed = pc.provenance; rerender(); return; }

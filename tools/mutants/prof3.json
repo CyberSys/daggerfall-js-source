@@ -268,11 +268,12 @@
   {
     "name": "PROF3-svc-inputs-unheld",
     "file": "server-account/src/professions.js",
-    "old": "      WHERE ${held.join(' AND ')}`).bind(...binds),\n    // the inputs out, each bought first\n    ...inputs.flatMap((inp) => spendStatements(db, {",
-    "new": "      WHERE 1`).bind(...binds),\n    // the inputs out, each bought first\n    ...inputs.flatMap((inp) => spendStatements(db, {",
+    "old": "      WHERE ${held.join(' AND ')}`).bind(...binds),\n    // the pieces, each its provenance id",
+    "new": "      WHERE 1`).bind(...binds),\n    // the pieces, each its provenance id",
     "tests": [
       "test/prof3_service.test.js"
-    ]
+    ],
+    "note": "AUDIT PROF-541 (RE-AIMED by content): the pieces minted before the spends now."
   },
   {
     "name": "PROF3-svc-uncapped-xp",
@@ -305,12 +306,12 @@
   {
     "name": "PROF3-svc-product-owner",
     "file": "server-account/src/professions.js",
-    "old": "      SELECT ?4, ?1, ?2, ?6, ?7, ?8, ?9, quality, seed, ?10, at, ?11, dye, ?12 FROM prof_crafts",
-    "new": "      SELECT ?4, ?2, ?2, ?6, ?7, ?8, ?9, quality, seed, ?10, at, ?11, dye, ?12 FROM prof_crafts",
+    "old": "      SELECT ?4, ?1, ?2, ?6, ?7, ?8, ?9, quality, seed, ?10, at, ?11, dye, ?12, ${boughtWith} FROM prof_crafts",
+    "new": "      SELECT ?4, ?2, ?2, ?6, ?7, ?8, ?9, quality, seed, ?10, at, ?11, dye, ?12, ${boughtWith} FROM prof_crafts",
     "tests": [
       "test/prof3_service.test.js"
     ],
-    "note": "PROF9 (RE-AIMED by content): the fire's code beside it."
+    "note": "PROF9 (RE-AIMED by content): the fire's code beside it. AUDIT PROF-541 (RE-AIMED by content): bought_with beside it."
   },
   {
     "name": "PROF3-svc-stock-free",

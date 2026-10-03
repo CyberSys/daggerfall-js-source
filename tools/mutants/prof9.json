@@ -540,11 +540,12 @@
   {
     "name": "PROF9-svc-hand-unkept",
     "file": "server-account/src/professions.js",
-    "old": "records[i], marked, hand))),",
-    "new": "records[i], marked, null))),",
+    "old": "records[i], marked, hand, ...inputs",
+    "new": "records[i], marked, null, ...inputs",
     "tests": [
       "test/prof9_service.test.js"
-    ]
+    ],
+    "note": "AUDIT PROF-541 (RE-AIMED by content): the inputs' keys bound after it."
   },
   {
     "name": "PROF9-svc-hand-unanswered",

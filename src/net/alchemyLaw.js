@@ -79,7 +79,10 @@ export function keyTemplate(key) {
  * WHAT A BREW SPENDS - DFU'S OWN LAW: `keys` the cauldron's contents as the Stores hold them, one key an ingredient (an
  * herb's group the brewer's choice), answered as `[{ key, n }]` when the templates they hold hash, sorted, to the potion's
  * own key (potionKeyFromCauldron - DFU's MixCauldron, "there is no ingredient comparison anywhere"), else null: a key the
- * Stores never hold, a cauldron of another size, or one no recipe of this potion answers.
+ * Stores never hold, a cauldron of another size, or one no recipe of this potion answers. AUDIT PROF-541 B1: AND the
+ * sorted templates ARE the recipe's own ingredients - the int32 hash collides (Purification of Jade for its Diamond,
+ * templates 4 9 17 27 33 60 62 63; a Healing of 17 19 62 65), and a cauldron DFU's own maker would brew only by the
+ * collision bought the Master's crown with cheap goods. DFU's hash is still asked first (law 1: its key, imported).
  * @param {Potion|null} potion @param {unknown} keys
  */
 export function brewSpends(potion, keys) {
@@ -87,6 +90,8 @@ export function brewSpends(potion, keys) {
   const templates = keys.map(keyTemplate);
   if (templates.some((t) => t == null)) return null;
   if (potionKeyFromCauldron(/** @type {number[]} */ (templates)) !== potion.key) return null;
+  const sorted = (/** @type {readonly number[]} */ a) => [...a].sort((x, y) => x - y).join(',');
+  if (sorted(/** @type {number[]} */ (templates)) !== sorted(potion.ingredients)) return null;   // AUDIT PROF-541 B1: the recipe's own, never a collision
   const out = new Map();
   for (const k of /** @type {string[]} */ (keys)) out.set(k, (out.get(k) ?? 0) + 1);
   return [...out].map(([key, n]) => ({ key, n }));
@@ -176,6 +181,16 @@ const RECIPE_BY_ID = new Map(/** @type {any[]} */ (POTION_RECIPES).map((r) => [r
 /** AUDIT PROF12 A3: whether a potion's Potent lasts longer (its magnitude DFU's default) rather than raising its magnitude -
  *  the station's and the brew's words. */
 export const potentLasts = (potion) => !!potion && magnitudeDefault(RECIPE_BY_ID.get(potion.id)?.settings ?? {});
+/** AUDIT PROF-541 B3: WHETHER A POTION CAN BE POTENT AT ALL - not a Cure (DFU's effect family 3: Cure Disease, Cure
+ *  Poison) of DFU's default magnitude with no second effect: an INSTANT (effects.js, "chance-only instants") with no
+ *  duration to last longer, and its chance bypassed as it is drunk (DrinkPotion's BypassChance, hostMagic.js) - so Potent
+ *  raised nothing and only its name and worth moved. Purification's magnitude and its Heal and Invisibility stay Potent.
+ *  The brew's roll (alchemy.js), the station's line and the potions' mint read it. */
+export function potentAble(potion) {
+  const r = potion ? RECIPE_BY_ID.get(potion.id) : null;
+  if (!r) return false;
+  return !(/^3,/.test(String(r.effect)) && !(r.secondary?.length) && magnitudeDefault(r.settings ?? {}));
+}
 /** A brew's XP (3.2: "a craft 20 x tier x units, +500 the first time a recipe is made"): a brew is one unit, whatever it
  *  makes (a Brewer's third potion earns nothing more, as a Cook's second serving does not, PROF9), at its potion's tier,
  *  quartered more than two tiers below the rank's top. */

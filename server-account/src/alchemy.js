@@ -24,9 +24,11 @@ import {
 import { rankOfXp, specsAt, craftXpCap, STORES_MAX, PROF_OPS_MAX, PROF_OPS_WINDOW_S, ARCANE_ESSENCE } from '../../src/net/professionLaw.js';
 import { FIRST_CRAFT_XP, recipeById, PROVENANCE_RE } from '../../src/net/recipeLaw.js';
 import {
-  potionById, brewSpends, brewCount, potentChance, potentPct, brewXp, brewFirstPays, DISTILLER,
+  potionById, brewSpends, brewCount, potentChance, potentPct, potentAble, brewXp, brewFirstPays, DISTILLER,
   piecePoints, essenceOf, disenchantXp, DISENCHANTER,
 } from '../../src/net/alchemyLaw.js';
+import { prepareRealmRecord, realmActFirst, recordMovedOf, mustChange, dropObjects, dropIfUnnamed } from './realm.js';   // AUDIT PROF-541 B2: a realm character's piece out of its record
+import { takeTradeGoods, tradeableRecord } from '../../src/net/realmTradeLaw.js';   // AUDIT PROF-541 B2: as MARKET-ANY's listGood takes a record's piece
 
 const HERB_RE = /^p[12]:\d+$/;
 
@@ -97,7 +99,9 @@ export async function brewAtStation(ctx, player, env, { character, potion: id, k
     if (u > 0) { unbruised += u; reckoned.push({ key: inp.key, n: u }); }
   }
   const chance = potentChance(rank, { distiller: specs[50] === DISTILLER, unbruised, steps });
-  const potent = dice(rand) * 100 < chance ? potentPct(specs[100]) : 0;
+  // AUDIT PROF-541 B3: a Cure of DFU's default magnitude is never Potent (alchemyLaw potentAble: an instant, its chance
+  // bypassed as it is drunk) - the die still cast first, so the dice after it fall as they did
+  const potent = dice(rand) * 100 < chance && potentAble(potion) ? potentPct(specs[100]) : 0;
   const count = brewCount(rank, specs[50]);
   const xp = brewXp(potion, rank, false);
   const nonce = mintId(rand);
@@ -117,8 +121,8 @@ export async function brewAtStation(ctx, player, env, { character, potion: id, k
       SELECT ?1, ?3, ?2, ?4, ?5, ?6, ?7, ?8, ?9,
         MAX(0, MIN(?10 + f * ?11, ${Number(cap)} - COALESCE((SELECT xp FROM prof_tracks WHERE player = ?1 AND char_id = ?2 AND profession = 'alchemy'), 0))),
         f, ?12, ?13
-      FROM (SELECT CASE WHEN EXISTS (SELECT 1 FROM prof_brews WHERE player = ?1 AND char_id = ?2 AND potion = ?4) THEN 0 ELSE 1 END AS f)
-      WHERE ${held.join(' AND ')}`).bind(...binds),
+      FROM (SELECT CASE WHEN ?11 > 0 AND NOT EXISTS (SELECT 1 FROM prof_brews WHERE player = ?1 AND char_id = ?2 AND potion = ?4) THEN 1 ELSE 0 END AS f)
+      WHERE ${held.join(' AND ')}`).bind(...binds),   // AUDIT PROF-541 B6: `first` only where the first time pays (brewFirstPays), as smeltAtForge's
     // the unbruised herbs it reckoned, spent with it - AUDIT PROF12 A1: before the cauldron leaves, so the spends' clamp
     // (professions.js unbruisedClamp: never more than the own units still held) reads the count already lowered
     ...reckoned.map((u) => db.prepare(`UPDATE prof_unbruised SET qty = MAX(0, qty - ?4)
@@ -169,11 +173,21 @@ async function disenchantAnswer(db, player, row, nowS, extra = {}) {
  * x the PIECE's recipe's tier an Essence before the doubling, quartered more than two tiers below the rank's top, none for a
  * piece made wholly of the counter's goods - AUDIT PROF12 E2), under the crafter's limit. The client takes the piece out of its pack
  * on the answer.
+ * AUDIT PROF-541 B2: A REALM CHARACTER'S PIECE LEAVES ITS RECORD IN THE SAME ACT - `realm` where its record stands, asked
+ * before any other word (realm.js realmActFirst), and the piece taken out of that record by its provenance (realmTradeLaw
+ * takeTradeGoods, as MARKET-ANY's listGood takes one) in the disenchant's own batch, guarded (mustChange - no disenchant,
+ * no piece out of the record): a record that does not hold it, or holds it worn or bound, is refused (`prof-piece-gone`) -
+ * the maker's record says where the piece is, never the products row (a piece sold to a shop or traded away is still
+ * "this account's" there), and a client that kept the piece kept nothing the record holds. An offline character's pack is
+ * its own save's: a piece whose row a disenchant of THIS account took already is answered `prof-no-piece` with `why:
+ * 'disenchanted'`, so a save that kept it past a lost answer lets it go.
  */
-export async function disenchantPiece(ctx, player, env, { character, provenance, rid } = {}) {
-  const { db, nowS, rand } = ctx;
+export async function disenchantPiece(ctx, player, env, { character, provenance, rid, realm = null } = {}) {
+  const { db, nowS, rand, bucket } = ctx;
   const refused = asks(player, { character, rid });
   if (refused) return refused;
+  const side = await realmActFirst(db, player.id, character, realm);   // AUDIT PROF-541 B2: where the record stands, first
+  if (side.error) return side;
   const prior = await db.prepare('SELECT * FROM prof_disenchants WHERE player = ?1 AND rid = ?2').bind(player.id, rid).first();
   if (prior) return disenchantAnswer(db, player, prior, nowS, { repeat: true });
   const closed = shut(player, env);
@@ -181,7 +195,7 @@ export async function disenchantPiece(ctx, player, env, { character, provenance,
   if (typeof provenance !== 'string' || !PROVENANCE_RE.test(provenance)) return { error: 'bad-piece' };
   if (await overRate(ctx, `prof:${player.id}`, PROF_OPS_MAX, PROF_OPS_WINDOW_S)) return { error: 'prof-rate' };
   const p = await db.prepare('SELECT * FROM products WHERE provenance = ?1').bind(provenance).first();
-  if (!p) return { error: 'prof-no-piece' };
+  if (!p) return { error: 'prof-no-piece', ...(await db.prepare('SELECT 1 FROM prof_disenchants WHERE player = ?1 AND provenance = ?2').bind(player.id, provenance).first() ? { why: 'disenchanted' } : {}) };   // AUDIT PROF-541 B2
   if (p.owner !== player.id) return { error: 'prof-not-yours' };
   const r = recipeById(p.recipe);
   const points = piecePoints(r, p.hand == null ? null : Number(p.hand));
@@ -192,9 +206,17 @@ export async function disenchantPiece(ctx, player, env, { character, provenance,
   const origin = p.bought_with === 'gold' ? 'gold' : p.char_id === character && p.bought_with == null ? 'own' : 'bought';
   const cap = craftXpCap('enchanting', ranks);
   const xp = disenchantXp(r, rank, base);   // AUDIT PROF12 E2: the piece's recipe's tier, quartered; none for the counter's goods alone
+  // AUDIT PROF-541 B2: THE RECORD'S OWN PIECE - a realm character's, out of the record its tab last checkpointed
+  const prep = side.at ? await prepareRealmRecord(ctx, player.id, side.at, (save) => {
+    const items = Array.isArray(save.items) ? save.items : [];
+    const at = items.findIndex((rec) => rec?.provenance === provenance);
+    return at >= 0 && tradeableRecord(items[at]) && takeTradeGoods(save, { items: [items[at]], gold: 0 }, [at]) ? null : 'prof-piece-gone';
+  }) : null;
+  if (prep?.error) return prep;
   const nonce = mintId(rand);
   const decided = 'EXISTS (SELECT 1 FROM prof_disenchants WHERE player = ?1 AND rid = ?2 AND n = ?3)';
-  await db.batch([
+  const batch = [
+    ...(prep ? prep.steps : []),
     // THE DECISION: the piece this account's, on no listing, no road and in no home, the Essence's room - and the XP what
     // the track can take under the crafter's limit
     db.prepare(`INSERT OR IGNORE INTO prof_disenchants (player, rid, char_id, provenance, recipe, points, essence, origin, xp, at, n)
@@ -206,6 +228,7 @@ export async function disenchantPiece(ctx, player, env, { character, provenance,
         AND NOT EXISTS (SELECT 1 FROM home_decor WHERE json_extract(item, '$.pv') = ?4)
         AND COALESCE((SELECT SUM(qty) FROM prof_stores WHERE player = ?1 AND char_id = ?2 AND material = ?12), 0) + ?7 <= ?13`)
       .bind(player.id, character, rid, provenance, p.recipe, points, essence, origin, xp, nowS, nonce, ARCANE_ESSENCE.key, STORES_MAX),
+    ...(prep ? [mustChange(db)] : []),   // AUDIT PROF-541 B2: no disenchant, no piece out of the record - the record's step rolls back with it
     // the piece gone
     db.prepare(`DELETE FROM products WHERE provenance = ?4 AND ${decided}`).bind(player.id, rid, nonce, provenance),
     // the Essence in, of its origin
@@ -217,9 +240,20 @@ export async function disenchantPiece(ctx, player, env, { character, provenance,
       SELECT ?1, ?2, 'enchanting', MIN(?4, xp), ?5 FROM prof_disenchants WHERE player = ?1 AND rid = ?3 AND n = ?6
       ON CONFLICT (player, char_id, profession) DO UPDATE SET xp = MAX(prof_tracks.xp, MIN(?4, prof_tracks.xp + excluded.xp)), updated_at = excluded.updated_at`)
       .bind(player.id, character, rid, cap, nowS, nonce),
-  ]);
+  ];
+  if (!prep) await db.batch(batch);
+  else {
+    try {
+      await db.batch(batch);
+      await dropObjects(bucket, [prep.prev]);
+    } catch {
+      await dropIfUnnamed(db, bucket, player.id, side.at.id, prep.key);   // AUDIT REALM2 S3: a batch that landed keeps its save
+      const moved = await recordMovedOf(db, player.id, side.at);
+      if (moved && !(moved.error === 'seq' && moved.seq === prep.seq)) return moved;
+    }
+  }
   const made = await db.prepare('SELECT * FROM prof_disenchants WHERE player = ?1 AND rid = ?2').bind(player.id, rid).first();
-  if (made?.n === nonce) return disenchantAnswer(db, player, made, nowS);
+  if (made?.n === nonce) return disenchantAnswer(db, player, made, nowS, prep ? { realm: { seq: prep.seq } } : {});
   if (made) return disenchantAnswer(db, player, made, nowS, { repeat: true });
   const now = await db.prepare('SELECT owner, listed FROM products WHERE provenance = ?1').bind(provenance).first();
   if (!now) return { error: 'prof-no-piece' };   // another request took it first

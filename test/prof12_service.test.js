@@ -15,6 +15,9 @@ import { FIRST_CRAFT_XP, recipeById } from '../src/net/recipeLaw.js';
 import { herbPatches, nodeKey } from '../src/net/nodeLaw.js';
 import { utcDay } from '../src/net/marksLaw.js';
 import { ACCOUNT_VERSION } from '../server-account/src/service.js';
+import { seatRealm, layRecord } from './realmSeat.mjs';   // AUDIT PROF-541 B2: a realm character's record
+import { potionKeyFromCauldron } from '../src/systems/potionRecipes.js';
+import { keyTemplate } from '../src/net/alchemyLaw.js';
 
 const DAY = 86_400;
 let _now = utcDay(T0) * DAY + 43_200;
@@ -96,7 +99,7 @@ test('PROF12 service: a Healing brewed at rank 0 - DFU\'s own recipe law on the 
   s.raw.prepare("DELETE FROM prof_stores WHERE player = ? AND material = 'p1:16'").run(mac.id);
   s.give(mac, 'p1:16', 'gold', 1);
   assert.deepEqual((await s.brew(mac, 'healing', HEALING)).body, { error: 'stores-gold' });
-  assert.match(ACCOUNT_VERSION, /^acct69$/);
+  assert.match(ACCOUNT_VERSION, /^acct70$/);
 });
 
 test('PROF12 service: the alchemist\'s ladder asked (Invisibility at 70, refused below, nothing spent); a brew\'s potions - 2 at Journeyman, a Brewer\'s 3, 3 at Master; Potent at Expert\'s 10% (the roll under it Potent, at it plain), a Distiller\'s +10 at 50, a Master Alchemist\'s +40% share; no 500 for a cauldron wholly of the Apothecaries\' goods', async () => {
@@ -130,7 +133,8 @@ test('PROF12 service: the alchemist\'s ladder asked (Invisibility at 70, refused
   s.setXp(mac, 'alchemy', xpForRank(40));
   s.cauldron(mac, LEVIT, 'bought');
   const lev = await s.brew(mac, 'levitation', LEVIT);
-  assert.deepEqual([lev.status, lev.body.first, lev.body.xp], [200, true, 80], 'the counter\'s goods alone: tier 4\'s 80 and no 500 (AUDIT 32 S1\'s law)');
+  assert.deepEqual([lev.status, lev.body.first, lev.body.xp], [200, false, 80], 'the counter\'s goods alone: tier 4\'s 80 and no 500 (AUDIT 32 S1\'s law) - and not called the first (AUDIT PROF-541 B6: as smeltAtForge\'s)');
+  assert.equal(s.raw.prepare("SELECT first FROM prof_brews WHERE potion = 'levitation'").get().first, 0, 'nor stored so');
 });
 
 // ─── THE UNBRUISED HERB (4.3, 5.2) ───────────────────────────────────
@@ -218,7 +222,9 @@ test('PROF12 service: a Gold Ruby Ring disenchanted - its record\'s 2,160 points
   const again = await s.disenchant(mac, pv, id);
   assert.deepEqual([again.body.repeat, again.body.essence, s.stores(mac, 'essence:arcane'), s.xpOf(mac, 'enchanting')], [true, 21, [['own', 21]], 315]);
   const gone = await s.disenchant(mac, pv);
-  assert.deepEqual([gone.status, gone.body], [404, { error: 'prof-no-piece' }]);
+  assert.deepEqual([gone.status, gone.body], [404, { error: 'prof-no-piece', why: 'disenchanted' }], 'AUDIT PROF-541 B2: this account\'s disenchant took it - a save that kept it lets it go');
+  const ann = await s.registered('Ann');
+  assert.deepEqual((await s.disenchant(ann, pv)).body, { error: 'prof-no-piece' }, 'another account is told nothing of it');
   s.setXp(mac, 'enchanting', xpForRank(50), { spec50: 'disenchanter' });
   const pv2 = await s.craft(mac, 'ring:gold:ruby');
   const d = await s.disenchant(mac, pv2);
@@ -328,4 +334,108 @@ test('AUDIT PROF12 A1 service: the unbruised count never outlives its herbs - a 
   for (const k of HEALING.slice(1)) s.give(mac, k, 'own', 1);
   const c = await s.brew(mac, 'healing', HEALING);
   assert.deepEqual([c.status, c.body.unbruised, s.unbruised(mac, 'p1:16'), s.stores(mac, 'p1:16')], [200, 1, 1, [['own', 1]]], 'reckoned before the spends: the count is the herb still held');
+});
+
+// ─── AUDIT PROF-541 (2026-10-03): B1, B2, B3, B5, B6, B7 ─────────────
+
+test('AUDIT PROF-541 B1/B3 service: a cauldron whose templates only COLLIDE with a recipe\'s hash is refused (Purification of Jade for its Diamond - bad-brew, nothing spent); a Cure of DFU\'s default magnitude is never Potent at the roll that makes a Purification Potent', async () => {
+  const s = await stand();
+  const mac = await s.registered('Mac');
+  s.setXp(mac, 'alchemy', xpForRank(100));
+  const JADE = ['gem:jade', 'p1:9', 'p1:17', 'p2:27', 'reagent:werewolf-blood', 'reagent:rain-water', 'reagent:elixir-vitae', 'reagent:nectar'];
+  const PURE = ['gem:diamond', 'p2:31', 'reagent:ectoplasm', 'reagent:mummy-wrappings', 'part:tooth', 'reagent:rain-water', 'reagent:elixir-vitae', 'reagent:nectar'];
+  assert.equal(potionKeyFromCauldron(JADE.map(keyTemplate)), potionKeyFromCauldron(PURE.map(keyTemplate)), 'DFU\'s hash: the same key');
+  s.cauldron(mac, JADE);
+  const bad = await s.brew(mac, 'purification', JADE);
+  assert.deepEqual([bad.status, bad.body], [400, { error: 'bad-brew' }]);
+  assert.deepEqual([s.stores(mac, 'gem:jade'), s.raw.prepare('SELECT COUNT(*) AS n FROM prof_brews').get().n], [[['own', 1]], 0], 'nothing spent');
+  s.cauldron(mac, PURE);
+  const pure = await steered(0x00, () => s.brew(mac, 'purification', PURE));
+  assert.deepEqual([pure.status, pure.body.potent], [200, 25], 'the Master\'s 20: the lowest roll Potent');
+  const CURE = ['p2:31', 'part:tooth', 'reagent:elixir-vitae'];
+  s.cauldron(mac, CURE);
+  const cure = await steered(0x00, () => s.brew(mac, 'cureDisease', CURE));
+  assert.deepEqual([cure.status, cure.body.potent, cure.body.count], [200, 0, 3], 'an instant cure: never Potent');
+});
+
+test('AUDIT PROF-541 B2 service: a realm character\'s piece leaves its RECORD with the disenchant - `realm` asked first (realm-needed without it), refused where the record does not hold it loose (traded away, worn: prof-piece-gone, nothing moved), taken out of the record at the next sequence in the disenchant\'s own batch; a stale record refused `seq` with the service\'s own; and a deleted realm character\'s unbruised count goes with it (B5)', async () => {
+  const s = await stand();
+  const mac = await s.registered('Mac');
+  s.setXp(mac, 'jewelcrafting', xpForRank(25));
+  const pv = await s.craft(mac, 'ring:gold:ruby');
+  const worn = await s.craft(mac, 'ring:gold:ruby');
+  const away = await s.craft(mac, 'ring:gold:ruby');
+  const ring = (p, extra = {}) => ({ group: 'Jewellery', templateIndex: 135, provenance: p, recipe: 'ring:gold:ruby', name: 'Gold Ruby Ring', ...extra });
+  const R = await seatRealm(s.env, mac.secret, 'Mac', { name: 'Mac', level: 9, goldPieces: 100, items: [ring(pv), { templateIndex: 1, name: 'Torch' }, ring(worn, { equipSlot: 3 })], lightSourceIndex: 1 });
+  const rmac = { ...mac, character: R.id };
+  const ask = (p, extra = {}) => s.call('/v1/prof/disenchant', { character: R.id, provenance: p, rid: rid(), ...extra }, mac.secret);
+  const record = () => JSON.parse(new TextDecoder().decode(s.env.SAVES._map.get(s.raw.prepare('SELECT obj FROM realm_characters WHERE id = ?').get(R.id).obj)));
+  assert.deepEqual(Object.values(await ask(pv)), [400, { error: 'realm-needed' }]);
+  for (const p of [away, worn]) {
+    const no = await ask(p, { realm: R.at() });
+    assert.deepEqual([no.status, no.body], [409, { error: 'prof-piece-gone' }], p === away ? 'sold to a shop, traded away: the record holds it no more' : 'worn');
+    assert.notEqual(s.product(p), null, 'the piece\'s row stands');
+  }
+  s.raw.prepare('UPDATE products SET listed = 1 WHERE provenance = ?').run(pv);
+  const busy = await ask(pv, { realm: R.at() });
+  assert.deepEqual([busy.status, busy.body, R.at().seq, record().items.length], [409, { error: 'prof-piece-busy' }, 1, 3], 'no disenchant, no piece out of the record: its step rolled back with it');
+  s.raw.prepare('UPDATE products SET listed = 0 WHERE provenance = ?').run(pv);
+  const was = R.at();
+  assert.deepEqual([was.seq, s.stores(rmac, 'essence:arcane')], [1, []], 'nothing moved');
+  const ok = await ask(pv, { realm: was });
+  assert.equal(ok.status, 200, JSON.stringify(ok.body));
+  assert.deepEqual([ok.body.essence, ok.body.origin, ok.body.realm, R.at().seq, s.product(pv)], [21, 'bought', { seq: 2 }, 2, null], 'its row gone, its record one on - the Essence bought: another character made it');
+  const rec = record();
+  assert.deepEqual([rec.items.map((it) => it.provenance ?? it.name), rec.lightSourceIndex], [['Torch', worn], 0], 'out of the record - the lit Torch followed to where it stands');
+  assert.deepEqual(s.stores(rmac, 'essence:arcane'), [['bought', 21]]);
+  const stale = await ask(away, { realm: was });
+  assert.deepEqual([stale.status, stale.body], [409, { error: 'seq', seq: 2 }], 'the record asked first: the service\'s own sequence');
+  // B5: the character deleted - its unbruised count with its Stores
+  s.raw.prepare('INSERT INTO prof_unbruised (player, char_id, material, qty) VALUES (?, ?, ?, ?)').run(mac.id, R.id, 'p1:16', 2);
+  const del = await s.call('/v1/realm/delete', { id: R.id }, mac.secret);
+  assert.equal(del.status, 200, JSON.stringify(del.body));
+  assert.equal(s.raw.prepare('SELECT COUNT(*) AS n FROM prof_unbruised WHERE char_id = ?').get(R.id).n, 0);
+});
+
+test('AUDIT PROF-541 B2 service: a crafted piece set down in a home stands with its provenance only while its row still bears it out - a disenchant landing between the read and the placement refuses it (bad-decor), nothing stands', async () => {
+  const s = await stand();
+  const mac = await s.registered('Mac');
+  const HOME = { mapId: 1291010263, buildingKey: 0x10203 };
+  const house = await s.seatHome(mac, { ...HOME, region: 17, price: 42000 });
+  assert.equal(house.status, 200, JSON.stringify(house.body));
+  s.setXp(mac, 'jewelcrafting', xpForRank(25));
+  const pv = await s.craft(mac, 'ring:gold:ruby');
+  const piece = (id, p) => ({ id, model: null, flat: [254, 1], pos: [1, 0, 1], rot: [0, 0, 0], scale: 1, light: null, storage: false, paid: 0, item: { t: 135, g: 4, pv: p } });
+  const pv2 = await s.craft(mac, 'ring:gold:ruby');
+  const fine = await s.call('/v1/homes/decor/place', { ...HOME, character: house.character, piece: piece('rg2', pv2) }, mac.secret);
+  assert.deepEqual([fine.status, fine.body.piece?.item?.pv], [200, pv2], 'no race: it stands, its provenance kept');
+  const real = s.env.DB.prepare.bind(s.env.DB);
+  s.env.DB.prepare = (sql) => { if (/INSERT OR IGNORE INTO home_decor/.test(sql)) s.raw.prepare('DELETE FROM products WHERE provenance = ?').run(pv); return real(sql); };
+  try {
+    const r = await s.call('/v1/homes/decor/place', { ...HOME, character: house.character, piece: piece('rg1', pv) }, mac.secret);
+    assert.deepEqual([r.status, r.body], [400, { error: 'bad-decor' }]);
+  } finally { s.env.DB.prepare = real; }
+  assert.equal(s.raw.prepare("SELECT COUNT(*) AS n FROM home_decor WHERE id = 'rg1'").get().n, 0, 'nothing stands');
+});
+
+test('AUDIT PROF-541 B7 service: a piece made of BOUGHT goods is bought - Linen Plain Robes of the counter\'s Linen recorded bought with Drakes (products.bought_with), so its disenchant\'s Essence is bought, never own (GOLD-MARKET\'s wall); one bought unit among own ones makes it so; robes of own Linen stay own', async () => {
+  const s = await stand();
+  const mac = await s.registered('Mac');
+  const robes = async (own, bought) => {
+    s.raw.prepare("DELETE FROM prof_stores WHERE player = ? AND material = 'cloth:linen'").run(mac.id);
+    if (own) s.give(mac, 'cloth:linen', 'own', own);
+    if (bought) s.give(mac, 'cloth:linen', 'bought', bought);
+    const r = await s.call('/v1/prof/craft', { character: mac.character, recipe: 'garment-163:linen', clean: false, name: 'Mac', rid: rid() }, mac.secret);
+    assert.equal(r.status, 200, JSON.stringify(r.body));
+    return r.body.pieces[0].provenance;
+  };
+  const counter = await robes(0, 3);
+  assert.equal(s.product(counter).bought_with, 'marks', 'the counter\'s Linen, bought with Drakes');
+  const d = await s.disenchant(mac, counter);
+  assert.deepEqual([d.status, d.body.origin, s.stores(mac, 'essence:arcane')], [200, 'bought', [['bought', 7]]], 'bought Essence - it lists for gold no more');
+  const mixed = await robes(2, 1);
+  assert.equal(s.product(mixed).bought_with, 'marks', 'one bought unit, spent first');
+  const own = await robes(3, 0);
+  assert.equal(s.product(own).bought_with, null);
+  assert.equal((await s.disenchant(mac, own)).body.origin, 'own');
 });

@@ -466,15 +466,19 @@ export function createProfBook({ door, storage = null, character = () => null, n
     },
     /** A crafted piece DISENCHANTED (PROF12) at an enchanting station - into Arcane Essence in the Stores, the piece gone. The
      *  id is the piece's own until an answer comes, so a press after a lost answer is the same disenchant. Answers the
-     *  service's answer; the Stores and Enchanting's track moved with it - the caller takes the piece out of the pack. */
-    async disenchant(provenance) {
+     *  service's answer; the Stores and Enchanting's track moved with it - the caller takes the piece out of the pack.
+     *  AUDIT PROF-541 B2: `realm` a realm character's record where it stands (the host's realm act, realmSaves.js
+     *  realmGoldAct) - the service takes the piece out of it in the disenchant's own batch. */
+    async disenchant(provenance, realm = null) {
       const c = character();
       if (!c) return { ok: false, error: 'prof-character' };
       const key = `disenchant|${slot()}|${provenance}`;
       const m = idFor(key, PROF_QUEUE_MS);
       if (m.promise) return m.promise;
       m.promise = (async () => {
-        const r = await ask(() => door.disenchant(c, provenance, m.id));
+        // AUDIT PROF-541 B2: a realm act asks once - the realm act asks again itself, reading a record one on as the act landed
+        const once = () => door.disenchant(c, provenance, m.id, realm);
+        const r = realm ? await Promise.resolve().then(once).catch(() => ({ ok: false, error: 'offline' })) : await ask(once);
         m.promise = null;
         if (!keptAnswer(r)) ids.delete(key);
         if (r?.ok) { applyStore(r.data?.store); applyTrack(r.data?.track); } else shutBy(r);

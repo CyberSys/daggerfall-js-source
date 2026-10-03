@@ -3036,12 +3036,14 @@ Seats-Arc 7.5). What sections 1, 2, 3.3, 4.1, 4.3, 4.5, 9.3 and 9.4 left open fo
   more off the item maker) and **Disenchanter** (Essence x2); its two at 100 chosen, their effects NOT YET (below).
 - **The four hosts** (17.1): **building interiors** (`worldModes.js` alchemyHere, enchantHere) - the stations;
   **the streaming world** (`world.js`) - the brew through the book (its fee, its town), the transmutations by the smelt, a
-  brew's potions minted (`profMintCraft`), a disenchant (the piece out of the pack on the answer); **every host** drinks a
+  brew's potions minted (`profMintCraft`), a disenchant (the piece out of the pack on the answer - a realm character's
+  through the realm act, its record's piece out in the same batch, AUDIT PROF-541 B2); **every host** drinks a
   Potent potion at its share (`world.js`, `exterior.js`, `dungeonContext.js` drinkPotion); **the fixed city** and
   **dungeons** - no station, as no station stands there (22's law).
-- **The service** is **acct69**; migration **`0070_alchemy.sql`** (`prof_unbruised`, `prof_brews`, `prof_disenchants`); two
-  routes (`/v1/prof/brew`, `/v1/prof/disenchant`); `prof-transmuter` 403, `bad-brew` 400, `bad-piece` 400, `prof-no-piece`
-  404, `prof-not-yours` 403, `prof-piece-busy` 409, `prof-no-essence` 409. No relay change.
+- **The service** is **acct70** (acct69 at PROF12; AUDIT PROF-541 moved it); migration **`0070_alchemy.sql`** (`prof_unbruised`, `prof_brews`, `prof_disenchants`); two
+  routes (`/v1/prof/brew`, `/v1/prof/disenchant` - a realm character's with `realm`); `prof-transmuter` 403, `bad-brew` 400, `bad-piece` 400, `prof-no-piece`
+  404 (`why: 'disenchanted'` where this account's disenchant took it), `prof-not-yours` 403, `prof-piece-busy` 409, `prof-no-essence` 409,
+  `prof-piece-gone` 409 (a realm record that does not hold the piece loose). No relay change.
 - **Not built, named (NOT YET)**: **enchanting a provenance piece at a station** for XP, its enchantments written onto its
   product record (9.3) - the market mints a piece from its record, and an enchantment on it would want the record's shape
   and the mint's to change: a slice of its own; **Soulbinder** (filled soul gems +10% points) and **Runecaster** (a
@@ -3058,9 +3060,22 @@ Seats-Arc 7.5). What sections 1, 2, 3.3, 4.1, 4.3, 4.5, 9.3 and 9.4 left open fo
   every own-unit spend; **A2** (LOW) a quick slot took Potent and plain for one kind - the share is in its key; **A3** Potent
   did nothing for fourteen potions - they last longer (Mac's choice); **E3** the Transmuter's three of a metal - two and a
   Mercury (Mac's choice); **E5** (LOW) accepted (NOT YET, above). Each pinned (eleven tests), 30 mutants added, all dead.
-- **Pinned**: `test/prof12_law.test.js` (13), `test/prof12_service.test.js` (9, through the real Worker),
-  `test/prof12_client.test.js` (12), `test/prof12_apothecary.test.js` (4, the Apothecary through the real Worker). Mutants:
-  `tools/mutants/prof12.json` (177, all dead). Patch notes: `PATCH-NOTES-Alchemy.md`; the Apothecary's in `PATCH-NOTES-Seats-Finished.md`.
+- **Audited again** (2026-10-03, AUDIT PROF-541 - acct70, no migration): **B1** (MED) DFU's int32 cauldron hash collides
+  (a Purification with Jade for its Diamond; a Healing of 17 19 62 65) - `brewSpends` asks the recipe's own ingredients
+  too, after DFU's hash; **B2** (MED) a disenchant never took the piece from the player - a realm character's now leaves
+  its record in the disenchant's own batch (`takeTradeGoods`, as MARKET-ANY's listGood; `prof-piece-gone` where the
+  record does not hold it loose - a piece sold to a shop or traded away is the maker's row's still), an offline save that
+  kept one past a lost answer lets it go on `prof-no-piece` with `why: 'disenchanted'`, and a crafted piece's placement
+  asks its products row inside the INSERT; **B3** (LOW) a Potent Cure Disease or Cure Poison did nothing (an instant, its
+  chance bypassed as drunk) - never Potent now (`potentAble`: the roll still cast, the station says so, the mint none);
+  **B4** (LOW) the station's Potent chance left out the town's Apothecary - said now; **B5** (LOW) a realm character's
+  delete left its unbruised count; **B6** (LOW) a Levitation's brew was called the first, paying no 500; **B7** (MED) a
+  piece crafted of the counter's goods was `own`, its Essence own and listed for gold over the wall - bought with Drakes
+  now (`products.bought_with` 'marks', read before the spends), its Essence bought; **B8** (LOW) Disenchant pressable past
+  the Stores' room - shut, the room said. Pinned (nine tests), 23 mutants added, all dead; nine re-aimed by content (prof12, prof3, prof9, guild_yard, gatekeys).
+- **Pinned**: `test/prof12_law.test.js` (15), `test/prof12_service.test.js` (13, through the real Worker),
+  `test/prof12_client.test.js` (16), `test/prof12_apothecary.test.js` (4, the Apothecary through the real Worker). Mutants:
+  `tools/mutants/prof12.json` (200: 199 dead, and PROF12-spends-no-hash recorded equivalent - B1's ingredient comparison holds everything DFU's hash refused). Patch notes: `PATCH-NOTES-Alchemy.md`; the Apothecary's in `PATCH-NOTES-Seats-Finished.md`.
 
 ## Appendix A - a day of a gatherer
 

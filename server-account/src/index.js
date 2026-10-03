@@ -326,6 +326,8 @@ const PROF_STATUS = Object.freeze({
   // PROF12: a transmutation is a Transmuter's (a skill's door); a cauldron DFU's law answers with no such potion, a bad piece's id;
   // no such piece, another's; one listed, on the road or set down; one that makes no Essence
   'prof-transmuter': 403, 'bad-brew': 400, 'bad-piece': 400, 'prof-no-piece': 404, 'prof-not-yours': 403, 'prof-piece-busy': 409, 'prof-no-essence': 409,
+  // AUDIT PROF-541 B2: a realm character's disenchant moves its record - a piece the record does not hold, and the record's own words
+  'prof-piece-gone': 409, 'realm-needed': 400, lease: 409, seq: 409, 'no-realm-character': 404, 'no-data': 404, 'no-storage': 503,
   'node-taken': 409, 'writ-taken': 409, 'writ-expired': 409, 'writ-cap': 409, 'marks-full': 409, 'marks-short': 409, 'prof-respec-pending': 409,
   'prof-rate': 429,
   // PROF6: guild writs, commissions and the guild Stores
@@ -1046,7 +1048,7 @@ const service = {
           '/v1/prof/smelt': () => smeltAtForge(ctx, who.player, env, body),   // PROF2
           '/v1/prof/craft': () => craftAtAnvil(ctx, who.player, env, body),   // PROF3: the anvil; PROF4: the workbench
           '/v1/prof/brew': () => brewAtStation(ctx, who.player, env, body),   // PROF12: the alchemy station's brew
-          '/v1/prof/disenchant': () => disenchantPiece(ctx, who.player, env, body),   // PROF12: an enchanting station's disenchant
+          '/v1/prof/disenchant': () => disenchantPiece({ ...ctx, bucket: env.SAVES }, who.player, env, body),   // PROF12: an enchanting station's disenchant; AUDIT PROF-541 B2: a realm character's record, in R2
           '/v1/prof/stock': () => buyStock(ctx, who.player, env, body),   // PROF3: the smith's stock; PROF4: the furnisher's
           '/v1/stores/withdraw': () => withdrawStores(ctx, who.player, env, body),
           // PROF6: the Court's writs, and beside them this board's guild writs and commissions (writs.js writBoard)
@@ -1069,7 +1071,8 @@ const service = {
         }[path];
         if (!act) return no('not-found', 404, origin);
         const r = await act();
-        if ('error' in r) return no(r.error, PROF_STATUS[r.error] ?? 400, origin);
+        // AUDIT PROF-541 B2: a realm record's sequence (a checkpoint's own word) and a refusal's `why` ride with it
+        if ('error' in r) return json({ error: r.error, ...(typeof r.why === 'string' ? { why: r.why } : {}), ...(r.error === 'seq' && Number.isSafeInteger(r.seq) ? { seq: r.seq } : {}) }, PROF_STATUS[r.error] ?? 400, origin);
         if (r.renown?.rose) {
           const key = await signingKey(env, subtle);
           return json({ ...r, order: key ? await mintRenownOrder({ s: who.player.id, lv: r.renown.level }, key, { subtle, nowS }) : null }, 200, origin);
