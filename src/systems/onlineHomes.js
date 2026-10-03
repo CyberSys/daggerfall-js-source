@@ -447,6 +447,14 @@ export function createOnlineHomes({ api, character = () => null, now = () => Dat
   return { ensure, waitFor, known, homeAt, claim, release, setEntry, setLook, homesIn, bump, version: () => version };
 }
 
+/** WD3: the layout this town stands in for the room - the service keeps it for the town's first home, and every client
+ *  stands the town so from then on (net/homeLaw.js); Daggerfall's own sends none. AUDIT PRE-MERGE 1003 WD1: a guild's
+ *  hall is a home, and says it too (scenes/worldModes.js buyHallAt). */
+export function homeClaimLayout(mapId) {
+  const stamp = layoutStampOfMapId(mapId);
+  return stamp && stamp !== CLASSIC_LAYOUT ? stamp : null;
+}
+
 /**
  * BUY ONE AT ITS DOOR. The claim first - the service's one answer decides whether the building can be mine at all -
  * and the gold only once it is. `afford(price)` asks the purse and the region's bank account together, before the
@@ -467,10 +475,7 @@ export async function buyOnlineHome(homes, { mapId, buildingKey, region, price, 
   out.add(key);
   try {
     if (!afford(price)) return { ok: false, error: 'gold' };
-    // WD3: the layout this town stands in for the room - the service keeps it for the town's first home, and every
-    // client stands the town so from then on (net/homeLaw.js); Daggerfall's own sends none
-    const stamp = layoutStampOfMapId(mapId);
-    const layout = stamp && stamp !== CLASSIC_LAYOUT ? stamp : null;
+    const layout = homeClaimLayout(mapId);
     if (realm) {
       // REALM P2.2b: the claim and the record's payment are one write on the service - the purse pays at once and gets it
       // back on a refusal (systems/realmSaves.js realmGoldAct); there is no claim to give back
