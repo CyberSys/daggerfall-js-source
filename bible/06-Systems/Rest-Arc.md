@@ -622,7 +622,8 @@ Mac: "Go" - every recommendation of section 15 taken. Slices REST1-REST6 and RES
   load since, no kneel - and no other copy spent); an offline loiter of six hours spent a night of fuel - a loiter is
   no night; an older build stamps `restStartedAt` when its rest window OPENS, which would have carried newer members
   into a whole night - a night's stamp now carries a mark (the second's 777th millisecond, restAct.js nightStamp) an
-  older build's open meets one time in a thousand; a worn-through tent no longer stokes or stands as a fire; the Salts
+  older build's open meets one time in a thousand [AUDIT REST-PARTY P2: three marks now, one a rest kind - three times
+  in a thousand]; a worn-through tent no longer stokes or stands as a fire; the Salts
   read the sleep stage (a Rested debt refused them); the laid Bedroll follows a recentre and the pack (a load leaves
   no phantom); an old save's kit fire (no fuel of its own: `camp.fuel` marks a Campfire) burns away as it always did;
   the dungeon fires compare squared distances in plain arithmetic (Math.hypot's last bit differs between engines, and a

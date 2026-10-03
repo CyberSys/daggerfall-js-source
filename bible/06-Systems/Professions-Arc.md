@@ -2892,10 +2892,11 @@ three). What sections 3.2, 3.3, 4.8, 9.3 and 9.4 left open for PROF9, DECIDED he
   already carries. The eater hears "The feast is shared with Ann and Bob."; a mate hears the cast's own line ("Mac casts
   Feast of the Hearth on you.").
 - **The specialisations** (3.3), all four chosen now: **Cook** - two servings a dish; **Field Cook** - DECIDED: a Campfire
-  Kit lit **spends no charge** [SUPERSEDED by the Rest arc, 2026-10-03: REST2 spends no charge on any placing, so a Field
-  Cook's night at their own Campfire spends no fuel instead - `survival/camp.js` fieldCookKeeps; `06-Systems/Rest-Arc.md`
-  Record] (`survival/camp.js` placeCampItem's `keep`, a campfire's alone - a tent wears as ever), in
-  the street and underground (`scenes/camps.js` `fieldCook`, `world.js` fieldCookNow); **Chef** - a feast lasts **half
+  Kit lit **spends no charge** (`survival/camp.js` placeCampItem's `keep`, a campfire's alone - a tent wears as ever), in
+  the street and underground (`scenes/camps.js` `fieldCook`, `world.js` fieldCookNow) [SUPERSEDED by the Rest arc,
+  2026-10-03: REST2 spends no charge on any placing, and `keep` is gone - a Field Cook's NIGHT at their own Campfire
+  spends no fuel instead, a Campfire's alone (`survival/camp.js` fieldCookKeeps, spendCampNight's `fieldCook`;
+  `06-Systems/Rest-Arc.md` Record)]; **Chef** - a feast lasts **half
   again** (a day and a half); **Provisioner** - "rations and dishes never spoil": FOUND, C&C's Rations never spoil already;
   DECIDED, a Provisioner's **dishes** and the **foods they take from the Stores** never spoil (`noRot`, read by C&C's day
   beside the Butcher's `slowRot` - 29). **The cook's hand** (`recipeLaw.js` dishHand): what of the choice at 100 a dish
@@ -2905,8 +2906,8 @@ three). What sections 3.2, 3.3, 4.8, 9.3 and 9.4 left open for PROF9, DECIDED he
 - **The pages**: the Stores page's **The Fire** (the seven dishes, their inputs as the Stores hold them, the rank each asks,
   the effect, the servings, the pan's XP; a Skillet said); Cooking practised on the Professions page, its unlocks by rank.
 - **The four hosts** (17.1): **the streaming world** - the fire on the street and in the wilderness, the craft, the feast's
-  share, a Field Cook's kit; **building interiors** (`worldModes.js`) - a hearth's or a brazier's fire; **dungeons**
-  (`dungeonContext.js`) - its fire bowls and a campfire on its floor, a Field Cook's kit; **the fixed city**
+  share, a Field Cook's Campfire (its nights, REST2); **building interiors** (`worldModes.js`) - a hearth's or a brazier's fire; **dungeons**
+  (`dungeonContext.js`) - its fire bowls and a campfire on its floor, a Field Cook's Campfire; **the fixed city**
   (`scenes/exterior.js`) - **no Cooking**, as no profession (22's law): a dish carried there is eaten by every host
   (`scenes/shared.js` installCooking - a dish is the pack's, offline too).
 - **The service** is **acct67** (acct66 another branch's at the same time - the two must not collide); migration
