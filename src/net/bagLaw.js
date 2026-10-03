@@ -143,12 +143,13 @@ export const BAG_WORDS = Object.freeze({
   name: BAG_ROW.name,
   /** the first harvest of a session, said once (scenes/gatherHost.js) */
   where: 'Gathered goods go into your Materials Bag - or your pack while you have none. Every General Store sells the bag.',
-  /** the bag's own refusals (systems/materialsBag.js planBagStore) */
+  /** the bag's own refusals (systems/materialsBag.js bagStoreRefusal, inventorySession.js planBagToggle) - AUDIT BAG1:
+   *  `full` and `second` were never said (the capacity ladder says a full bag; the shop shelves none to a second) */
   onlyMaterials: 'Only crafting materials go in the Materials Bag.',
-  full: 'Your Materials Bag cannot hold any more.',
   none: 'You have no Materials Bag. Every General Store sells one.',
-  second: 'You already carry a Materials Bag.',
   notEmpty: 'Empty your Materials Bag first.',
+  /** AUDIT BAG1 H1: a reward tray is up - a piece taken from the bag beside it was taken as the reward */
+  reward: 'Choose your reward first - your Materials Bag opens after.',
   /** a node's prompt when neither the bag nor the pack has room for one more unit */
   noRoom: 'No room in your bag or pack',
   /** the Stores page, away from a town */

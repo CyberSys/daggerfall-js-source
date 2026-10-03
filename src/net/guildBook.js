@@ -116,6 +116,8 @@ export class GuildBook {
     this.vaultView = null;
     /** @type {string|null} GUILD2b: the last vault read's refusal, or null */
     this.vaultError = null;
+    /** AUDIT GUILD2 M3: whose vault `vaultView` is - `character|guild` - so another's is never shown, nor taken from */
+    this.vaultFor = null;
     this.onHall = onHall;
     this.onRank = onRank;
     /** AUDIT PROF-541 G1: the `id|rank|hall` the last look found - '' (in no guild) before the first, so the first look
@@ -321,11 +323,18 @@ export class GuildBook {
   async readVault() {
     const c = this.character?.() ?? null;
     if (!c) return { ok: false, error: 'guild-character' };
+    // AUDIT GUILD2 M3: another character's or another guild's vault is let go before the read - a failed read showed the
+    // last guild's pieces under the new guild's header, each with its Take; and a read that fails shows none
+    const whose = `${c}|${this.guild?.id ?? ''}`;
+    if (this.vaultFor !== whose) { this.vaultView = null; this.vaultError = null; this.vaultFor = whose; }
     const r = await this.door.vault(c);
-    if (r?.ok) { this.vaultView = r.data?.vault ?? null; this.vaultError = null; } else { this.vaultError = r?.error ?? 'server'; this._whole(r?.error); }
+    if (whose !== `${this.character?.() ?? null}|${this.guild?.id ?? ''}`) return r;   // the character moved under the read
+    if (r?.ok) { this.vaultView = r.data?.vault ?? null; this.vaultError = null; } else { this.vaultView = null; this.vaultError = r?.error ?? 'server'; this._whole(r?.error); }
     this._changed();
     return r;
   }
+  /** AUDIT GUILD2 M3: the vault this book may show - its last read's, while it is the reader's character's and guild's. */
+  vaultNow() { return this.vaultFor === `${this.character?.() ?? null}|${this.guild?.id ?? ''}` ? this.vaultView : null; }
 
   /**
    * GUILD2b: A PIECE PUT IN - `item` the pack's own record, `count` of its stack (all of it where absent). A realm
@@ -361,7 +370,7 @@ export class GuildBook {
    *  the answer. */
   async vaultTake(slot, count = null) {
     if (!this.realm || !this.pack) return { ok: false, error: 'realm-only' };
-    const seen = this.vaultView?.items?.find((x) => x.slot === slot) ?? null;
+    const seen = this.vaultNow()?.items?.find((x) => x.slot === slot) ?? null;   // AUDIT GUILD2 M3: never another's view
     if (!seen) return { ok: false, error: 'guild-vault-empty' };
     const r = await this._act((character) => this.realm.act({
       apply: (/** @type {any} */ a) => { const rec = a?.data?.item; if (rec) { this.pack.add(rec); this.pack.changed(); } },

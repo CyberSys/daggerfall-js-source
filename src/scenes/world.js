@@ -1446,7 +1446,12 @@ export async function bootWorld(canvas, renderer, params, status) {
     if (profBook?.carrying?.()) {
       const got = carryHands.mint(key, n);
       const put = got.bag + got.pack;
+      // AUDIT BAG1 B5: what found no room still comes - into the pack, over its weight, as a withdrawal always came - for
+      // the service counted it carried, and a unit counted and never minted was lost to the character
+      const over = got.left > 0 ? withdrawIntoPack(playerEntity, key, got.left, undefined, carryOpts(key)) : 0;
+      if (over) saveSoon.changed();
       if (put) townTalk.say(`${put} ${materialCountLabel(key, put)} taken from the Stores into your ${got.bag && got.pack ? 'bag and pack' : got.pack ? 'pack' : 'bag'}.`);
+      if (over) townTalk.say(`${over} more into your pack, past what you can carry.`);
       return;
     }
     // PROF7: a Butcher's meat spoils half as fast (PROF0 3.3) - the Stores keep no unit's maker, so a Butcher's withdrawal
@@ -8944,7 +8949,7 @@ export async function bootWorld(canvas, renderer, params, status) {
         deposit: async (k, n) => {
           const r = await profBook.deposit(k, n);
           if (r?.ok) return { ok: true, text: `${n} ${materialCountLabel(k, n)} put in the Stores.` };
-          return { ok: false, text: r?.kept ? BAG_DEPOSIT_KEPT_TEXT : accountRefusalText(r?.error) };
+          return { ok: false, kept: r?.kept === true, text: r?.kept ? BAG_DEPOSIT_KEPT_TEXT : accountRefusalText(r?.error) };   // AUDIT BAG1: `kept` - Put everything in stops on it
         },
         inTown: () => _storesReached(),
         room: (k) => bagRoomFor(playerEntity, k),

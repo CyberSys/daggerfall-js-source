@@ -176,7 +176,13 @@ export const BAG_PAGE_WORDS = Object.freeze({
   noBag: 'You have no Materials Bag: what you gather goes into your pack. Every General Store sells one.',
   takenNote: 'Taken out, a material goes into your Materials Bag, or your pack while you have none - and back into the Stores from either, in any town.',
   allIn: 'Put everything in',
-  allInDone: (n) => `${n.toLocaleString('en-US')} put in the Stores.`,
+  /** AUDIT BAG1: what went in, and each material that would not with its reason - a refusal partway said only itself, and
+   *  the units that had gone in were never said; `stop` the counting-house's silence, which ends the run */
+  allInDone: (n, refused = [], stop = null) => [
+    `${n.toLocaleString('en-US')} put in the Stores.`,
+    ...refused.map((r) => `${r.name}: ${r.text ?? 'not put in.'}`),
+    ...(stop ? [stop] : []),
+  ].join(' '),
 });
 /** BAG1: the page's rows for a carrying book - every material the Stores hold or the character carries, each with its
  *  Stores split (`own`, `bought`, `gold`) and `carried`: what the bag and the pack hold of it that the service counts. */
@@ -634,7 +640,9 @@ function drawCarryStores(detail, rerender, kit) {
   if (!town) detail.append(el('p', 'px-note', BAG_WORDS.town));
   const all = carryRows(book, p.carriedHeld);
   const rows = storesRows(all, _stores, p.name);
-  const carriedAny = rows.some((r) => r.carried > 0);
+  // AUDIT BAG1: whatever the filter shows - the button puts in everything carried, and a search that hid the carried
+  // materials hid the button with them
+  const carriedAny = [...all.values()].some((r) => r.carried > 0);
   if (carriedAny) {
     const allIn = el('button', 'act', _stores.busy ? 'Sending...' : BAG_PAGE_WORDS.allIn);
     allIn.type = 'button';
@@ -643,19 +651,22 @@ function drawCarryStores(detail, rerender, kit) {
     allIn.onclick = async () => {
       if (_stores.busy || !p.deposit) return;
       _stores.busy = true; rerender();
-      let moved = 0, word = null;
+      // AUDIT BAG1: a material refused (its Stores full) is said and passed over - the rest still go in; the counting-house
+      // silent (a deposit kept) ends the run, its goods on their way
+      let moved = 0, stop = null;
+      const refused = [];
       for (const r of storesRows(carryRows(book, p.carriedHeld), {}, p.name)) {
         let left = r.carried;
         while (left > 0) {
           const q = Math.min(left, DEPOSIT_MAX);
           const res = await p.deposit(r.material, q);
-          if (!res?.ok) { word = res?.text ?? null; left = 0; break; }
+          if (!res?.ok) { if (res?.kept) stop = res.text ?? null; else refused.push({ name: r.name, text: res?.text ?? null }); break; }
           moved += q; left -= q;
         }
-        if (word) break;
+        if (stop) break;
       }
       _stores.busy = false;
-      _stores.word = word ?? BAG_PAGE_WORDS.allInDone(moved);
+      _stores.word = BAG_PAGE_WORDS.allInDone(moved, refused, stop);
       rerender();
     };
     detail.append(allIn);

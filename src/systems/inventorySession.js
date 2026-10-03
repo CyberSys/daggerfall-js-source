@@ -308,6 +308,9 @@ export const hasMaterialsBag = (items = []) => hasBag(items);
  *  @returns {{ok:true, usingBag:boolean, usingWagon:boolean}|{ok:false, refusal:object}} */
 export function planBagToggle(deps = {}, state = {}) {
   if (!hasMaterialsBag(deps.items?.() ?? [])) return { ok: false, refusal: { reason: 'noBag', text: BAG_WORDS.none } };
+  // AUDIT BAG1 H1: never over a reward tray - a choice up makes every piece taken from the side window the claim, and a
+  // log taken out of the bag was the smith's gift chosen
+  if (state.chooseOne && !state.usingBag) return { ok: false, refusal: { reason: 'reward', text: BAG_WORDS.reward } };
   const usingBag = !state.usingBag;
   return { ok: true, usingBag, usingWagon: usingBag ? false : !!state.usingWagon };
 }

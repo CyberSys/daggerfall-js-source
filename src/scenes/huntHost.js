@@ -213,6 +213,7 @@ export function huntKind({ book, bodies, openLoot = null }) {
         harvest: plan.harvest, tool: foragingToolIn(entity, SKINNING_KNIFE.templateIndex), profession: 'hunting', label: used ? '' : keyLabel('Interact'),
         heldByUse: !!used,
         ask: { foe: b.foe },   // the harvest names the foe the body is (PROF0 6: the tier is the client's claim)
+        material: b.hide,   // AUDIT BAG1 B4: the hide the foe gives, for the held count
         hand: (a) => (a.tool ? KNIFE_HAND : null),
       };
     },

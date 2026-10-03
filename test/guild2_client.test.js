@@ -244,10 +244,11 @@ const settle = () => new Promise((r) => setImmediate(r));
 async function tab(guild, opts = {}, page = null) {
   const rig = guildRig(guild, opts);
   const social = new SocialState({ acct: 'a' });
-  const panel = createSocialPanel({ social, guild: rig.book, doc: fakeDocument(), win: { addEventListener() {}, removeEventListener() {} }, overlay: () => false, touch: false });
+  const doc = fakeDocument();
+  const panel = createSocialPanel({ social, guild: rig.book, doc, win: { addEventListener() {}, removeEventListener() {} }, overlay: () => false, touch: false });
   const go = async (p) => { panel.openGuild(p); for (let i = 0; i < 4; i++) { await settle(); panel.render(); } };
   await go(page);
-  return { ...rig, panel, go, social };
+  return { ...rig, panel, go, social, doc };
 }
 
 test('GUILD2 the tab in pages: the guild\'s header over every page - its banner, name and tag, the reader\'s rank and the treasury - and a strip of pages, the guild Stores among them only where the professions are this account\'s; a page the guild does not show opens the Overview (mutants: the strip lost; the Stores page offline)', async () => {
@@ -327,6 +328,46 @@ test('GUILD2b the Vault page: each piece with who put it in; Take and Take one f
   assert.ok(texts(empty.panel.root).includes(GUILD_VAULT_EMPTY_TEXT));
 });
 
+test('GUILD2b the Vault page (AUDIT M1-M3): the town read live - a page left open on the road shuts Take and sends nothing; the vault read again at each look; another guild\'s pieces never shown, nor taken from (mutants: the town read once; read once a session; a stale view shown)', async () => {
+  const pieces = [{ slot: 0, name: 'Ebony Dagger', count: 1, by: 'Aldric', at: 5 }];
+  const t = await tab(view(), { vaultItems: pieces }, 'vault');
+  const take = button(t.panel.root, 'Take');
+  assert.equal(take.disabled, false);
+  t.setReach(false);
+  t.panel.render();   // the frame's live pass, nothing rebuilt
+  assert.equal(take.disabled, true, 'shut on the road');
+  take.disabled = false; take.fire('click');   // and a press that slipped through still sends nothing
+  await settle(); await settle();
+  assert.equal(t.calls.filter((c) => c[0] === 'vaultTake').length, 0);
+  t.setReach(true);
+  t.panel.render();
+  assert.equal(take.disabled, false, 'open again in a town');
+  // read again at each look: the tab opened again, the page turned to
+  const reads = () => t.calls.filter((c) => c[0] === 'vault').length;
+  const first = reads();
+  await t.go('overview');
+  await t.go('vault');
+  assert.ok(reads() > first, 'read again');
+  find(t.panel.root, 'dfsocial-subtab').find((b) => b.dataset.page === 'overview').fire('click');
+  const before = reads();
+  find(t.panel.root, 'dfsocial-subtab').find((b) => b.dataset.page === 'vault').fire('click');
+  for (let i = 0; i < 3; i++) { await settle(); t.panel.render(); }
+  assert.ok(reads() > before, 'and at the page\'s own tab');
+  // a read that fails shows no pieces - the last guild's least of all
+  t.answers.vault = { ok: false, error: 'server' };
+  await t.book.readVault();
+  assert.equal(t.book.vaultNow(), null);
+  await t.go('vault');
+  assert.equal(buttons(t.panel.root, 'Take').length, 0, 'no Take on a view not read');
+  assert.equal(t.book.vaultView, null);
+  t.answers.vault = undefined;
+  await t.book.readVault();
+  assert.equal(t.book.vaultNow()?.items?.length, 1);
+  t.book.guild = { ...t.book.guild, id: 'gOTHER000000' };
+  assert.equal(t.book.vaultNow(), null, 'another guild\'s view is no view');
+  assert.deepEqual(await t.book.vaultTake(0), { ok: false, error: 'guild-vault-empty' }, 'nor taken from');
+});
+
 test('GUILD2b the Members page: the guildmaster sets each member\'s standing at the vault - as their rank, no access, puts in, takes out with a limit a day - and Set says it; revoking is "as their rank"; an officer sees each standing but sets none (mutants: grants offered to an officer; the limit unsent)', async () => {
   const members = [
     { member: 'm1', name: 'Aldric', rank: 0, joinedAt: 1, you: true, vault: { level: 'withdraw', limit: 0, granted: false } },
@@ -340,8 +381,12 @@ test('GUILD2b the Members page: the guildmaster sets each member\'s standing at 
   assert.deepEqual(access.children.map((o) => o.value), ['', 'none', 'deposit', 'withdraw']);
   assert.equal(button(find(t.panel.root, 'dfsocial-grant')[0], 'Set').disabled, true, 'unchanged');
   access.value = 'withdraw'; access.fire('change');
+  // AUDIT GUILD2: drawn again in place, the focus kept on the level; a member made a withdrawer starts at ten a day (the
+  // limit counts takes - PIN MOVED: "pieces a day")
+  assert.equal(t.doc.activeElement, sel('Bran\'s vault access'), 'the focus on the level, drawn again');
+  assert.equal(sel('Bran\'s takes a day').children.find((o) => o.selected)?.value, '10', 'an Officer\'s ten, never "Any number" unasked');
   t.panel.render();
-  const limit = sel('Bran\'s pieces a day');
+  const limit = sel('Bran\'s takes a day');
   assert.ok(limit, 'a withdrawer\'s limit');
   limit.value = '5'; limit.fire('change');
   button(find(t.panel.root, 'dfsocial-grant')[0], 'Set').fire('click');
@@ -380,4 +425,16 @@ test('GUILD2c the Arms page: the guildmaster\'s choices are pictures - the divis
   assert.ok(texts(t.panel.root).includes('Per pale Azure and Crimson, bordered Gold, a Wolf Argent'));
   assert.equal(button(t.panel.root, 'Change it').disabled, false);
   assert.ok(find(t.panel.root, 'dfsocial-tagchip')[0].textContent.includes('HND'));
+  // AUDIT GUILD2: every swatch asks the law itself - the device's colour against the second field colour was left open,
+  // and a pick of it made arms the law refused (the border's too, while the device wears the border's)
+  assert.equal(sw('Device colour (its border\'s, unless chosen): Crimson').disabled, true, 'never the second colour');
+  sw('Device colour (its border\'s, unless chosen): Gold').fire('click');   // the border's again
+  assert.equal(sw('Border: Crimson').disabled, true, 'a border the device would wear against the second colour');
+  for (const label of find(t.panel.root, 'dfsocial-swatch').map((b) => b.attrs['aria-label'])) {
+    const b = sw(label);   // drawn again at each pick: the swatch as it stands now
+    if (!b || b.disabled) continue;
+    b.fire('click');
+    const raise = button(t.panel.root, 'Change it');
+    assert.equal(raise.disabled, false, `${label} - an open swatch makes arms the law takes (${raise.whyEl?.textContent ?? ''})`);
+  }
 });

@@ -69,17 +69,20 @@ function byItem() {
   return m;
 }
 /** The material an item is, or null. A quest's item, a summoned one or one an enchantment marks is never a material:
- *  it is not what the mint makes. */
+ *  it is not what the mint makes. AUDIT BAG1 B7: nor a food on its way to putrid (survival/food.js foodStage) - the
+ *  mint makes it fresh, and a rotting haunch held as the Basket's meat went into the Stores as fresh. */
 export function materialKeyOfItem(item) {
-  if (!item || item.questItem || isSummoned(item) || item.equipSlot != null || isEnchanted(item)) return null;
+  if (!item || item.questItem || isSummoned(item) || item.equipSlot != null || isEnchanted(item) || (item.foodStage ?? 0) > 0) return null;
   return byItem().get(itemKey(item)) ?? null;
 }
 export const isMaterialItem = (item) => materialKeyOfItem(item) != null;
 
-/** How many units of a material the bag and the pack hold together - the `held` a carrying request says. */
+/** How many units of a material the bag and the pack hold together - the `held` a carrying request says. AUDIT BAG1 B6:
+ *  and the wagon - the realm counts it with them (realmGoldLaw.js carriedItemLists), and herbs moved from the bag into
+ *  the wagon were said as gone, the count cut under them. */
 export function heldOf(entity, key) {
   let n = 0;
-  for (const list of [entity?.items ?? [], entity?.bagItems ?? []]) {
+  for (const list of [entity?.items ?? [], entity?.bagItems ?? [], entity?.wagonItems ?? []]) {
     for (const it of list) if (materialKeyOfItem(it) === key) n += it.stackCount ?? 1;
   }
   return n;
@@ -130,14 +133,15 @@ export function mintCarried(entity, key, n, { cc, slowRot = false, noRot = false
 /**
  * THE ITEMS A DEPOSIT TAKES: `n` units of a material out of the bag first, then the pack - whole stacks and a split of
  * the last - answered as `{ taken, back }`: how many came out, and the undo that puts each back where it was (a refusal
- * gives them back). Never a quest's, a summoned or a worn one (materialKeyOfItem).
+ * gives them back). Never a quest's, a summoned or a worn one (materialKeyOfItem). AUDIT BAG1 B6: the wagon last - what
+ * it holds is held (heldOf), so a station may use it as it uses the pack.
  * @param {any} entity @param {string} key @param {number} n
  */
 export function takeCarried(entity, key, n) {
   /** @type {{ list: any[], item: any, count: number, whole: boolean }[]} */
   const moves = [];
   let left = Math.max(0, n | 0);
-  for (const list of [bagItemsOf(entity), entity?.items ?? []]) {
+  for (const list of [bagItemsOf(entity), entity?.items ?? [], entity?.wagonItems ?? []]) {
     for (let i = list.length - 1; i >= 0 && left > 0; i--) {
       const it = list[i];
       if (materialKeyOfItem(it) !== key) continue;

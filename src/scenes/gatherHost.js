@@ -138,6 +138,12 @@ export function storesLine(d) {
   const said = goods.length > 1 ? `${goods.slice(0, -1).join(', ')} and ${goods[goods.length - 1]}` : goods[0];
   return `+${said} ${goodsWhere(d)}`;
 }
+/** AUDIT BAG1 B4: the material a kind's act names for its goods (`material`: a key, or one of the act's ground - a
+ *  herb's is its region's), or null where the service rolls it (the Basket's food, a boulder's stone). */
+export function materialOf(a) {
+  const m = typeof a?.material === 'function' ? a.material(a.info) : a?.material;
+  return typeof m === 'string' && m ? m : null;
+}
 /** AUDIT BAG1 B9: what a carried harvest left where it was gathered, each material by its own name ("1 Ruby and 2 Oak
  *  Logs"); a `put` from before the audit, which names none, as the harvest's own. */
 export function leftWords(d) {
@@ -567,6 +573,9 @@ export function createGatherHost(deps) {
     book.harvest({
       node: a.node.key, kind: a.harvest, climate: a.info?.climate ?? null, region: a.info?.region ?? null, act: report,   // PROF7: a body names no ground
       at: Math.floor(deps.nowMs() / 1000), ...((typeof a.ask === 'function' ? a.ask() : a.ask) ?? {}),   // AUDIT SILVER-WAYS D5: a kind's ask may be asked at the act's end
+      // AUDIT BAG1 B4: the material the act's goods are, where the kind knows it - the book reads what the bag and the pack
+      // hold of it (`held`); no kind named one, and no carried harvest ever cut the count to the pack
+      ...(materialOf(a) ? { material: materialOf(a) } : {}),
     }).then((r) => answered(a, r, before), () => {});
   }
   /** A harvest's answer said: the Stores, the XP, a gem, a rank's rise; a refusal in words; a kept one once. */

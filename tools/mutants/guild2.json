@@ -201,5 +201,86 @@
     "tests": [
       "test/guild2_service.test.js"
     ]
+  },
+  {
+    "name": "AUDIT-GUILD2-a-swatch-by-its-own-rule",
+    "file": "src/ui/socialPanel.js",
+    "old": "const allowed = (k) => { if (k === value) return true; const t = { ...h }; set(k, t); return !!heraldryOf(t); };",
+    "new": "const allowed = (k) => k !== HERALDRY_UNHELD || key === 'border';",
+    "tests": [
+      "test/guild2_client.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-GUILD2-M1-the-town-read-once",
+    "file": "src/ui/socialPanel.js",
+    "old": "const takeOf = () => { const why = !reachNow() ? 'in a town'",
+    "new": "const takeOf = () => { const why = !reach ? 'in a town'",
+    "tests": [
+      "test/guild2_client.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-GUILD2-M1-a-press-out-of-town",
+    "file": "src/ui/socialPanel.js",
+    "old": "const takeRun = (run) => () => { if (reachNow()) run(); };",
+    "new": "const takeRun = (run) => () => { run(); };",
+    "tests": [
+      "test/guild2_client.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-GUILD2-M2-read-once-a-session",
+    "file": "src/ui/socialPanel.js",
+    "old": "guildUi.storesAsked = false; guildUi.vaultAsked = false; if",
+    "new": "guildUi.storesAsked = false; if",
+    "tests": [
+      "test/guild2_client.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-GUILD2-M2-the-page-tab-reads-nothing",
+    "file": "src/ui/socialPanel.js",
+    "old": "        if (id === 'vault') guildUi.vaultAsked = false;   // AUDIT GUILD2 M2: the vault read again at each turn to its page\n",
+    "new": "",
+    "tests": [
+      "test/guild2_client.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-GUILD2-M3-a-failed-read-keeps-the-view",
+    "file": "src/net/guildBook.js",
+    "old": "} else { this.vaultView = null; this.vaultError = r?.error ?? 'server';",
+    "new": "} else { this.vaultError = r?.error ?? 'server';",
+    "tests": [
+      "test/guild2_client.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-GUILD2-M3-taken-from-another-guilds-view",
+    "file": "src/net/guildBook.js",
+    "old": "    const seen = this.vaultNow()?.items",
+    "new": "    const seen = this.vaultView?.items",
+    "tests": [
+      "test/guild2_client.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-GUILD2-a-withdrawer-unlimited-unasked",
+    "file": "src/ui/socialPanel.js",
+    "old": "if (x === 'withdraw' && draft.level !== 'withdraw' && m.vault?.level !== 'withdraw') draft.limit = VAULT_RANK_DEFAULTS[GUILD_RANK_OFFICER].limit;",
+    "new": "",
+    "tests": [
+      "test/guild2_client.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-GUILD2-the-grant-focus-lost",
+    "file": "src/ui/socialPanel.js",
+    "old": "          if (focusLevel) level.focus?.();",
+    "new": "",
+    "tests": [
+      "test/guild2_client.test.js"
+    ]
   }
 ]

@@ -199,6 +199,7 @@ export function treeKind({ book, renderer = null, flatBatchAabb = null, getTextu
           gentle: getPref('gentleActs') === true,
         }),
         harvest: plan.harvest, tool: foragingToolIn(entity, FT.WoodAxe), profession: 'logging', label: '',
+        material: n.material,   // AUDIT BAG1 B4: the logs the tree is, for the held count
         hand: (a) => (a.tool ? { ...AXE_HAND, ...axeHandFrame(a.act.swing) } : null),
       };
     },

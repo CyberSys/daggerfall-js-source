@@ -301,6 +301,7 @@ export function fishKind({ book, host }) {
         act,
         harvest: plan.harvest, tool: foragingToolIn(entity, FT.FishingNet), profession: 'fishing', label: keyLabel('Interact'),
         ask: { climate: g.climate, region: g.region },   // the cast's own ground: a loose node names none (AUDIT 32 H9)
+        material: FISH_KEY,   // AUDIT BAG1 B4: a haul is fish, for the held count
         hand: () => null,
       };
     },

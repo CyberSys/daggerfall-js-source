@@ -543,7 +543,7 @@ export function createProfBook({ door, storage = null, character = () => null, n
      * BAG1: A STATION'S, A CRAFT'S OR A WRIT'S SHORTFALL PUT IN THE STORES FIRST - for each input `{ key, n }` (summed by
      * key), what the Stores lack of `n` deposited from what is carried (`spend`: bought first, never gold's), so the act's
      * own route spends the Stores as it always has. A carried count that cannot cover a shortfall moves nothing and
-     * answers `stores-short`; a deposit refused answers its refusal. A book that does not carry answers `ok` at once.
+     * answers `materials-short`; a deposit refused answers its refusal (one unanswered: `deposit-kept`). A book that does not carry answers `ok` at once.
      * @param {{ key: string, n: number }[]|null|undefined} inputs
      */
     async ensureInStores(inputs) {

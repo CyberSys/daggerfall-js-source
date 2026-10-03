@@ -412,6 +412,8 @@ export function mineKind({ book, lodes = null, marks = null }) {
           master: rank('mining') >= PROF_RANK_MAX, gentle: getPref('gentleActs') === true,
         }),
         harvest: plan.harvest, tool: foragingToolIn(entity, FT.PickAxe), profession: 'mining', label: '',
+        // AUDIT BAG1 B4: the ore a vein or a Motherlode is, for the held count - a boulder's stone is the service's roll
+        ...(n.what === 'boulder' ? {} : { material: n.material }),
         hand: (a) => (a.tool ? { ...PICK_HAND, ...pickHandFrame(a.act.swing) } : null),
         // AUDIT SILVER-WAYS D5: the receipt asked again at the act's end - the newest standing then (one the relay handed
         // during a long act), the start's where none newer stands

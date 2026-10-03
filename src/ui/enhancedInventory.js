@@ -839,8 +839,11 @@ function ghostAt(x, y, verb) {
  *  `stow` on the one path where `stow` is guaranteed mute - a dead
  *  gesture that also wiped whatever the screen was saying. The plan's
  *  own `ok` is the honest answer to both, so the label is the plan's. */
+/** AUDIT BAG1: the bag's own rule, as every gate asks it - a piece the showing bag refuses (not a material), or null. */
+const bagRefuses = (item) => (remote?.kind === 'bag' ? bagStoreRefusal(item) : null);
 function stowIntent(item) {
   if (remote?.kind === 'ground' && lockRefuses(item, 'drop')) return { kind: 'stow', label: null, speaks: true };   // LOCK1: released, it says why
+  if (bagRefuses(item)) return { kind: 'stow', label: null, speaks: true };   // AUDIT BAG1: a dagger dragged to the bag read "Put in bag
   if (remote && boundRefusesPut(item, remote.kind)) return { kind: 'stow', label: null, speaks: true };   // SS3: a bound piece - released, it says why
   const plan = planStore(item, {
     remote: remote.items, usingWagon: session.usingWagon, chooseOne: session.chooseOne,
@@ -1421,6 +1424,7 @@ function canStow(item) {
   // right for a click and catastrophic for a render - every repaint
   // would mark a quest item as dropped. The dry run cannot change the
   // answer, because that rung's refusal speaks.
+  if (bagRefuses(item)) return false;   // AUDIT BAG1: no "Put in bag" on a dagger's card - the bag takes materials alone
   const plan = planStore(item, {
     remote: remote.items, usingWagon: session.usingWagon, chooseOne: session.chooseOne,
     dryRun: true,
@@ -1433,6 +1437,7 @@ function canStow(item) {
 /** DISC25-F: the most a transfer of this item would move - its plan's own amount, asked as a DRY RUN (canStow's
  *  reason: the quest rung writes) - or 0 where it would move nothing, or is a map's interception rather than a move. */
 function splitMax(item, dir) {
+  if (dir === 'store' && bagRefuses(item)) return 0;   // AUDIT BAG1: no how-many field for what the bag refuses
   const plan = dir === 'store'
     ? planStore(item, { remote: remote.items, usingWagon: session.usingWagon, chooseOne: session.chooseOne, dryRun: true, groundRefusal: groundRefusalOf(deps, session), capacity: storeCapacityOf(deps, session), bagLoaded: (deps.entity?.bagItems?.length ?? 0) > 0 })
     : planTake(item, {
@@ -1478,7 +1483,7 @@ function stow(item) {
     return render();
   }
   // BAG1: the bag takes materials alone - ahead of the ladder, and it speaks
-  if (remote?.kind === 'bag') { const no = bagStoreRefusal(item); if (no) return refuse(no); }
+  { const no = bagRefuses(item); if (no) return refuse(no); }
   const to = remoteTarget(deps, sessionState());
   const plan = planStore(item, {
     remote: to, usingWagon: session.usingWagon, chooseOne: session.chooseOne,
@@ -1602,6 +1607,8 @@ function toggleWagon() {
   render();
 }
 
+/** BAG1: whether the bag's door is drawn - a bag in the pack, and no reward tray up beside a closed bag (AUDIT BAG1 H1). */
+const bagDoorShown = () => hasMaterialsBag(deps.items?.() ?? []) && !(session.chooseOne && !session.usingBag);
 /** BAG1: THE BAG BUTTON (inventorySession.js planBagToggle) - the wagon button's, for the Materials Bag. */
 function toggleBag() {
   notice = null;
@@ -2532,8 +2539,9 @@ function remoteCol() {
     b.onclick = toggleWagon;
     acts.append(b);
   }
-  // BAG1: THE BAG BUTTON, by the wagon's own rule - there only with a bag in the pack
-  if (hasMaterialsBag(deps.items?.() ?? [])) {
+  // BAG1: THE BAG BUTTON, by the wagon's own rule - there only with a bag in the pack. AUDIT BAG1 H1: and never over a
+  // reward tray (a piece taken from the bag beside one was the reward chosen)
+  if (bagDoorShown()) {
     const b = el('button', `act${session.usingBag ? ' primary' : ''}`, session.usingBag ? 'Close bag' : 'Materials Bag');
     b.onclick = toggleBag;
     acts.append(b);
@@ -3419,6 +3427,15 @@ function render() {
       gold.append(give);
     }
     bar.append(el('span', 'packitems', plural(model.count, 'item')), carry, gold);
+    // AUDIT BAG1 H2: THE BAG'S DOOR ON A PLAIN PACK. Its button stood in the side window's header alone, and a pack opened
+    // with nothing beside it (no chest, no body, no wagon) draws no side window - the bag could not be opened at all.
+    // On the footer while no side window stands; open, the bag IS the side window, with its own Close bag
+    if (bagDoorShown() && remote?.kind === 'ground' && !(remote.count > 0)) {
+      const b = el('button', 'act bagbtn', 'Materials Bag');
+      b.type = 'button';
+      b.onclick = toggleBag;
+      bar.append(b);
+    }
     // AUDIT GOLD-DROP 1: the field is the FOOTER's, floated above it (the sheet's `.packbar > .goldfield`) as DFU's
     // popup floats - in the window's flow it took ~110px from the item list, which a stacked window (641-999px wide)
     // has about 50px of, and the dock ran under the footer

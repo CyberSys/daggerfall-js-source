@@ -51,7 +51,7 @@ import { LETTER_SUBJECT_MAX, LETTER_BODY_MAX, LETTER_LINES_MAX, cleanBody } from
 import {
   GUILD_FOUND_GOLD, GUILD_FOUND_RENOWN, GUILD_MEMBERS_MAX, GUILD_NAME_MAX, GUILD_RANK_NAME_MAX, GUILD_RANK_NAMES,
   guildMay, guildMayMove, guildOutranks, guildNameOf, guildTagOf, guildRankNamesOf, GUILD_MOVE_MAX,
-  GUILD_RANK_MASTER, GUILD_RANK_RECRUIT, GUILD_RENAME_GOLD,   // GUILD2a: a new name, for a price
+  GUILD_RANK_MASTER, GUILD_RANK_OFFICER, GUILD_RANK_RECRUIT, GUILD_RENAME_GOLD,   // GUILD2a: a new name, for a price
 } from '../net/guildLaw.js';   // GUILD1b: the Guild tab's rules are the service's
 import { VAULT_RANK_DEFAULTS, VAULT_LIMIT_CHOICES, GUILD_VAULT_SLOTS, vaultStandingText, vaultMayTake, vaultMayPut } from '../net/guildVaultLaw.js';   // GUILD2b: the vault
 import { tradeRefusal } from '../systems/tradePack.js';   // GUILD2b: what may leave a pack, for the vault as for a trade
@@ -288,7 +288,7 @@ textarea.dfsocial-field { resize: vertical; min-height: 120px; line-height: 1.4;
 .dfsocial-swatch[disabled] { opacity: .25; cursor: default; }
 .dfsocial-tile { background: rgba(0,0,0,.25); border: 1px solid var(--iron, #2b323b); border-radius: 3px; padding: 2px; cursor: pointer; line-height: 0; }
 .dfsocial.touch .dfsocial-subtab { min-height: 44px; padding: 8px 10px; }
-.dfsocial.touch .dfsocial-swatch { width: 36px; height: 36px; }
+.dfsocial.touch .dfsocial-swatch { width: 44px; height: 44px; }
 .dfsocial.touch .dfsocial-tile { padding: 8px; }
 
 /* AUDIT SOC C8: THE FINGER'S OWN SIZES. Every control this panel draws was built at the mouse's scale - the tabs 29
@@ -463,7 +463,9 @@ export function createSocialPanel({ social, send = null, mail = null, guild = nu
   // 'remove:<member>', 'hand:<member>') - the first press arms it, the second does it, SOCIAL_CONFIRM_MS disarms it
   const guildUi = { word: '', bad: false, draft: { name: '', tag: '', handle: '', gold: '', ranks: null }, arm: null, armAt: -Infinity };
   // AUDIT 31 H2: and the guild Stores read again at each look - they move while the tab is shut
-  const lookAtGuild = () => { guildUi.storesAsked = false; if (guild?.stale?.()) guild.refresh(); };
+  // AUDIT GUILD2 M2: and the vault read again at each look - read once a session, a piece another member took stood with
+  // its Take until the panel was reloaded
+  const lookAtGuild = () => { guildUi.storesAsked = false; guildUi.vaultAsked = false; if (guild?.stale?.()) guild.refresh(); };
 
   /** One act out. A refusal that is the RATE GATE's (`send` answered false) is not the player's fault and not the
    *  row's: the button stays as it was and the note says so, because the act was right and the moment was not. */
@@ -1118,7 +1120,12 @@ export function createSocialPanel({ social, send = null, mail = null, guild = nu
       const b = el('button', `dfsocial-subtab${id === page ? ' active' : ''}`, label);
       b.type = 'button'; b.dataset.page = id;
       b.setAttribute('role', 'tab'); b.setAttribute('aria-selected', id === page ? 'true' : 'false');
-      b.addEventListener('click', () => { if (guildUi.page === id) return; guildUi.page = id; guildUi.arm = null; ui++; if (open) repaint(); });
+      b.addEventListener('click', () => {
+        if (guildUi.page === id) return;
+        guildUi.page = id; guildUi.arm = null;
+        if (id === 'vault') guildUi.vaultAsked = false;   // AUDIT GUILD2 M2: the vault read again at each turn to its page
+        ui++; if (open) repaint();
+      });
       strip.append(b);
     }
     return strip;
@@ -1170,18 +1177,34 @@ export function createSocialPanel({ social, send = null, mail = null, guild = nu
         const draft = d.grants[m.member] ??= { level: was, limit: m.vault?.limit ?? 0 };
         const form = el('div', 'dfsocial-grant');
         const def = VAULT_RANK_DEFAULTS[m.rank] ?? VAULT_RANK_DEFAULTS[GUILD_RANK_RECRUIT];
-        form.append(selectOf(`${m.name}'s vault access`, [['', `As ${rankName(v, m.rank)} (${vaultStandingText(def)})`], ['none', 'No access'], ['deposit', 'Puts in'], ['withdraw', 'Takes out']],
-          draft.level, (x) => { draft.level = x; ui++; if (open) repaint(); }));
-        if (draft.level === 'withdraw') {
-          form.append(selectOf(`${m.name}'s pieces a day`, VAULT_LIMIT_CHOICES.map((n) => [String(n), n ? `${n} a day` : 'Any number']), String(draft.limit ?? 0),
-            (x) => { draft.limit = Number(x) || 0; }));
-        }
         const same = () => (draft.level || '') === (was || '') && (draft.level !== 'withdraw' || (draft.limit ?? 0) === (m.vault?.limit ?? 0));
-        form.append(liveBtn('Set', () => ({ enabled: !g.busy && !same(), why: g.busy ? 'a moment' : 'unchanged' }), {
-          run: () => guildDo(g.vaultGrant(m.member, draft.level || null, draft.level === 'withdraw' ? draft.limit ?? 0 : 0),
-            `${m.name}: ${draft.level ? vaultStandingText({ level: draft.level, limit: draft.limit ?? 0 }) : `as their rank (${vaultStandingText(def)})`}.`,
-            () => { delete d.grants[m.member]; }),
-        }));
+        // AUDIT GUILD2: DRAWN AGAIN IN PLACE at a pick of the level (the limit's select comes and goes with "Takes out"),
+        // the keyboard's focus kept on the level - the whole panel was painted again and the focus lost with it
+        const drawGrant = (focusLevel = false) => {
+          liveBtns = liveBtns.filter((x) => x.grant !== m.member);
+          const level = selectOf(`${m.name}'s vault access`, [['', `As ${rankName(v, m.rank)} (${vaultStandingText(def)})`], ['none', 'No access'], ['deposit', 'Puts in'], ['withdraw', 'Takes out']],
+            draft.level, (x) => {
+              // AUDIT GUILD2: a member made a withdrawer starts at an Officer's ten a day - the limit's select read 0, "Any
+              // number", and a Set unread made the vault anyone's to empty
+              if (x === 'withdraw' && draft.level !== 'withdraw' && m.vault?.level !== 'withdraw') draft.limit = VAULT_RANK_DEFAULTS[GUILD_RANK_OFFICER].limit;
+              draft.level = x;
+              drawGrant(true);
+            });
+          const kids = [level];
+          if (draft.level === 'withdraw') {
+            kids.push(selectOf(`${m.name}'s takes a day`, VAULT_LIMIT_CHOICES.map((n) => [String(n), n ? `${n} a day` : 'Any number']), String(draft.limit ?? 0),
+              (x) => { draft.limit = Number(x) || 0; }));
+          }
+          kids.push(liveBtn('Set', () => ({ enabled: !g.busy && !same(), why: g.busy ? 'a moment' : 'unchanged' }), {
+            run: () => guildDo(g.vaultGrant(m.member, draft.level || null, draft.level === 'withdraw' ? draft.limit ?? 0 : 0),
+              `${m.name}: ${draft.level ? vaultStandingText({ level: draft.level, limit: draft.limit ?? 0 }) : `as their rank (${vaultStandingText(def)})`}.`,
+              () => { delete d.grants[m.member]; }),
+          }));
+          liveBtns[liveBtns.length - 1].grant = m.member;
+          form.replaceChildren(...kids);
+          if (focusLevel) level.focus?.();
+        };
+        drawGrant();
         out.push(form);
       }
     }
@@ -1255,11 +1278,14 @@ export function createSocialPanel({ social, send = null, mail = null, guild = nu
       guildUi.vaultAsked = true;
       Promise.resolve(g.readVault()).then(() => { ui++; }, () => { ui++; });
     }
-    const vv = g.vaultView;
+    const vv = g.vaultNow ? g.vaultNow() : g.vaultView;   // AUDIT GUILD2 M3: this character's and guild's alone
     const st = vv?.me ?? v.vault?.me ?? null;
     out.push(el('div', 'dfsocial-sec', `Vault (${vv?.items?.length ?? v.vault?.used ?? 0}/${vv?.max ?? v.vault?.max ?? GUILD_VAULT_SLOTS})`));
     out.push(el('div', 'dfsocial-note', `Your standing: ${vaultStandingText(st)}${st?.level === 'withdraw' && st.limit ? ` - ${Number(st.taken ?? 0)} of ${st.limit} taken today` : ''}.`));
-    const reach = g.pack?.reach?.() !== false;
+    // AUDIT GUILD2 M1: the town is read at the press and on the live pass, never once at the build - a page left open
+    // on the road kept Take alive and sent takes out of town
+    const reachNow = () => g.pack?.reach?.() !== false;
+    const reach = reachNow();
     if (!reach) out.push(el('div', 'dfsocial-empty', GUILD_VAULT_REACH_TEXT));
     if (!vv) {
       out.push(el('div', 'dfsocial-note', g.vaultError ? `The vault cannot be read now: ${guildWordText(g.vaultError)}` : 'Reading the vault...'));
@@ -1271,14 +1297,15 @@ export function createSocialPanel({ social, send = null, mail = null, guild = nu
       return out;
     }
     const mayTake = vaultMayTake(st, st?.taken ?? 0);
-    const takeWhy = !reach ? 'in a town' : g.busy ? 'a moment' : '';
+    const takeOf = () => { const why = !reachNow() ? 'in a town' : g.busy ? 'a moment' : ''; return { enabled: !why, why }; };
+    const takeRun = (run) => () => { if (reachNow()) run(); };
     if (!vv.items.length) out.push(el('div', 'dfsocial-empty', GUILD_VAULT_EMPTY_TEXT));
     for (const it of vv.items) {
       const r = personRow({ name: it.count > 1 ? `${it.name} x${it.count}` : it.name, sub: `put in by ${it.by}` });
       if (mayTake) {
         const acts = rowActs(r);
-        acts.append(btn('Take', { enabled: !takeWhy, why: takeWhy, run: () => guildDo(g.vaultTake(it.slot), `${it.name} taken into your pack.`) }));
-        if (it.count > 1) acts.append(btn('Take one', { enabled: !takeWhy, why: takeWhy, run: () => guildDo(g.vaultTake(it.slot, 1), `One ${it.name} taken into your pack.`) }));
+        acts.append(liveBtn('Take', takeOf, { run: takeRun(() => guildDo(g.vaultTake(it.slot), `${it.name} taken into your pack.`)) }));
+        if (it.count > 1) acts.append(liveBtn('Take one', takeOf, { run: takeRun(() => guildDo(g.vaultTake(it.slot, 1), `One ${it.name} taken into your pack.`)) }));
       }
       out.push(r);
     }
@@ -1300,9 +1327,9 @@ export function createSocialPanel({ social, send = null, mail = null, guild = nu
         acts.append(liveBtn('Put in', () => {
           const it = byKey.get(d.vaultPick ?? '');
           const n = it ? countOf(it) : 0;
-          const why = !reach ? 'in a town' : g.busy ? 'a moment' : !it ? 'a piece' : !(n >= 1 && n <= (it.stackCount ?? 1)) ? `1 to ${it.stackCount ?? 1}` : (vv.items.length >= vv.max ? 'the vault is full' : '');
+          const why = !reachNow() ? 'in a town' : g.busy ? 'a moment' : !it ? 'a piece' : !(n >= 1 && n <= (it.stackCount ?? 1)) ? `1 to ${it.stackCount ?? 1}` : (vv.items.length >= vv.max ? 'the vault is full' : '');
           return { enabled: !why, why };
-        }, { run: () => { const it = byKey.get(d.vaultPick ?? ''); if (it) guildDo(g.vaultPut(it, countOf(it)), `${it.name ?? 'The piece'} put in the vault.`, () => { d.vaultCount = ''; }); } }));
+        }, { run: () => { const it = byKey.get(d.vaultPick ?? ''); if (it && reachNow()) guildDo(g.vaultPut(it, countOf(it)), `${it.name ?? 'The piece'} put in the vault.`, () => { d.vaultCount = ''; }); } }));
         out.push(acts);
       }
     }
@@ -1357,16 +1384,20 @@ export function createSocialPanel({ social, send = null, mail = null, guild = nu
     out.push(pics, el('div', 'dfsocial-note', shown ? heraldryText(shown) : GUILD_HERALDRY_NONE_TEXT));
     if (!may || !h) return out;
     const pick = (key, apply) => () => { apply(); draw(key); paintLiveBtns(); };
-    const swatches = (label, key, value, allowed, set) => {
+    // AUDIT GUILD2: A SWATCH IS OPEN ONLY WHERE THE LAW TAKES THE ARMS IT MAKES - the pick tried on a copy and read by
+    // heraldryOf, the one judge. Each row asked a rule of its own, which missed the device against the second colour: the
+    // swatch stood open, the pick made arms the law refused, and Raise went dead with nothing drawn of the draft
+    const swatches = (label, key, value, set) => {
       out.push(el('div', 'dfsocial-label', label));
       const row = el('div', 'dfsocial-swatches');
+      const allowed = (k) => { if (k === value) return true; const t = { ...h }; set(k, t); return !!heraldryOf(t); };
       for (const c of HERALDRY_COLOURS) {
         const b = el('button', `dfsocial-swatch${c.key === value ? ' on' : ''}`);
         b.type = 'button';
         b.style.background = c.hex;
         b.setAttribute('title', c.name); b.setAttribute('aria-label', `${label}: ${c.name}`); b.setAttribute('aria-pressed', c.key === value ? 'true' : 'false');
         if (!allowed(c.key)) b.disabled = true;
-        b.addEventListener('click', () => { if (!b.disabled) pick(`${key}:${c.key}`, () => set(c.key))(); });
+        b.addEventListener('click', () => { if (!b.disabled) pick(`${key}:${c.key}`, () => set(c.key, h))(); });
         focus.set(`${key}:${c.key}`, b);
         row.append(b);
       }
@@ -1387,19 +1418,19 @@ export function createSocialPanel({ social, send = null, mail = null, guild = nu
       }
       out.push(row);
     };
-    const ink = () => h.charge ?? h.border;
+    const ink = (t = h) => t.charge ?? t.border;
     /** A colour no one of the arms' others is - for a second field colour newly asked. */
     const freeColour = (not) => HERALDRY_COLOURS.find((c) => c.key !== HERALDRY_UNHELD && !not.includes(c.key))?.key ?? 'argent';
     // THE FIELD'S DIVISION, each drawn on the draft's own colours
     const asDrawn = (over) => heraldryOf({ ...h, ...over }) ?? heraldryOf({ field: h.field, border: h.border, device: h.device });
     tiles('Field', 'division', HERALDRY_DIVISIONS, h.division ?? 'plain',
-      (x) => shieldSvg(asDrawn(x === 'plain' ? { division: 'plain', field2: null } : { division: x, field2: h.field2 ?? freeColour([h.field, ink()]) }), { size: 28 }),
-      (x) => HERALDRY_DIVISION_NAMES[x], (x) => { h.division = x; h.field2 = x === 'plain' ? null : h.field2 ?? freeColour([h.field, ink()]); });
-    swatches('Field colour', 'field', h.field, (k) => k !== HERALDRY_UNHELD && k !== h.border, (k) => { h.field = k; if (h.field2 === k) h.field2 = freeColour([k, ink()]); });
-    if ((h.division ?? 'plain') !== 'plain') swatches('Second colour', 'field2', h.field2, (k) => k !== HERALDRY_UNHELD && k !== h.field, (k) => { h.field2 = k; });
-    swatches('Border', 'border', h.border, (k) => k !== h.field, (k) => { h.border = k; });
+      (x) => shieldSvg(asDrawn(x === 'plain' ? { division: 'plain', field2: null } : { division: x, field2: h.field2 ?? freeColour([h.field, ink(), h.border]) }), { size: 28 }),
+      (x) => HERALDRY_DIVISION_NAMES[x], (x) => { h.division = x; h.field2 = x === 'plain' ? null : h.field2 ?? freeColour([h.field, ink(), h.border]); });
+    swatches('Field colour', 'field', h.field, (k, t) => { t.field = k; if (t.field2 === k) t.field2 = freeColour([k, ink(t), t.border]); });
+    if ((h.division ?? 'plain') !== 'plain') swatches('Second colour', 'field2', h.field2, (k, t) => { t.field2 = k; });
+    swatches('Border', 'border', h.border, (k, t) => { t.border = k; });
     tiles('Device', 'device', HERALDRY_DEVICES, h.device, (x) => shieldSvg(asDrawn({ device: x }), { size: 28 }), heraldryDeviceName, (x) => { h.device = x; });
-    swatches('Device colour (its border\'s, unless chosen)', 'charge', ink(), (k) => k !== h.field, (k) => { h.charge = k === h.border ? null : k; });
+    swatches('Device colour (its border\'s, unless chosen)', 'charge', ink(), (k, t) => { t.charge = k === t.border ? null : k; });
     out.push(el('div', 'dfsocial-empty', v.heraldry ? `A change costs ${marksText(HERALDRY_CHANGE_DRAKES)} from the silver treasury.` : 'The first choice is free.'));
     const acts = el('div', 'dfsocial-acts');
     const raise = liveBtn(v.heraldry ? 'Change it' : 'Raise it', () => {

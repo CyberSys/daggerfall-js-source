@@ -213,7 +213,7 @@ export function mountNoticeBoard(host, deps) {
   // PROF6: the Work tab's guild writs and commissions - their own door, as the market's
   let workBusy = false;
   const workMore = work?.writs ? createWorkTab({
-    writs: work.writs, held: (m) => work.book.held(m), region: work.region, regionName: work.regionName,
+    writs: work.writs, held: (m) => work.book.held(m), carrying: () => work.book.carrying?.() === true, region: work.region, regionName: work.regionName,   // AUDIT BAG1: whose count `held` is
     regionNameOf: work.regionNameOf ?? ((r) => String(r)), countName: work.countName, pieces: work.pieces ?? (() => []),
     reload: () => { work.book.forgetWrits?.(); loadWrits(true); },   // AUDIT 31 B7: a read begun before the act is read again
   }, {
@@ -405,7 +405,7 @@ export function mountNoticeBoard(host, deps) {
       const full = (work.book.state.writs?.today ?? 0) >= (work.book.state.writs?.max ?? 3);
       const b = button('primary notice-take', 'Take', () => takeWrit(w));
       b.disabled = busy || workBusy || held < w.qty || full;   // AUDIT 31 B10: nor while a guild writ's or a commission's act is out
-      if (held < w.qty) b.title = work.book.carrying?.() ? 'You do not hold enough, in your Stores and your bag' : 'Your Stores do not hold enough';   // BAG1
+      if (held < w.qty) b.title = work.book.carrying?.() ? 'You do not hold enough - in your Stores, your Materials Bag and your pack together' : 'Your Stores do not hold enough';   // BAG1; AUDIT BAG1: and the pack
       else if (full) b.title = 'You have filled all the Court writs a day allows';
       take.append(b);
     }

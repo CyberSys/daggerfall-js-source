@@ -177,6 +177,9 @@ export function herbKind({ book }) {
         harvest: plan.harvest, tool, profession: 'herbalism', label: plan.harvest === 'food' ? 'click the glint' : kind === 'steady' && !used ? keyLabel('Interact') : '',
         hand: (a) => (a.harvest === 'herbs' && a.tool ? SICKLE_HAND : null),
         heldByUse: !!used && kind === 'steady',   // TOOL-USE: the Sickle's Use holds the steady hand - keep still, no E held
+        // AUDIT BAG1 B4: the material the herbs are, by the region the harvest names (the service's own key) - the Basket's
+        // food is the service's roll, named nowhere
+        ...(plan.harvest === 'herbs' ? { material: (info) => herbKey(p.herb, info?.region ?? 0) } : {}),
       };
     },
     cleanNote: (a) => (a.harvest === 'food' ? ' (every find)' : ' (unbruised)'),

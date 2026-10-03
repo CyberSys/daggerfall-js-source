@@ -13,13 +13,18 @@ import { createProfBook, PROF_QUEUE_MS } from '../src/net/profBook.js';
 import {
   BAG_TEMPLATE, BAG_KG_LIMIT, BAG_BASE_PRICE, BAG_ROW, BAG_CAPACITY, BAG_WORDS, CARRIED_MAX, goodsWhere, madeWhere,
 } from '../src/net/bagLaw.js';
-import { leftWords } from '../src/scenes/gatherHost.js';
+import { leftWords, materialOf } from '../src/scenes/gatherHost.js';
+import { survivalMinute } from '../src/systems/survival/needs.js';
+import { mountEnhancedInventory } from '../src/ui/enhancedInventory.js';
+import { withDom } from './invdrag.mjs';
+import { BAG_PAGE_WORDS } from '../src/ui/profPages.js';
 import {
   hasBag, bagItemsOf, materialKeyOfItem, isMaterialItem, heldOf, unitKgOf, bagWeight, roomFor, mintCarried, takeCarried,
   bagStoreRefusal, bagMayLeave, isBagItem,
 } from '../src/systems/materialsBag.js';
 import { mintMaterialItem, materialCountLabel } from '../src/systems/profItems.js';
 import { setItemFields } from '../src/systems/itemTemplates.js';
+import { addItem } from '../src/systems/inventory.js';
 import {
   planBagToggle, hasMaterialsBag, remoteTarget, storeCapacityOf, groundRefusalOf, remoteTargetType, REMOTE_TARGET_TYPES,
 } from '../src/systems/inventorySession.js';
@@ -401,6 +406,79 @@ test('BAG1 (AUDIT B8/B9): a station\'s put-in with no answer says so; a Court wr
   const gemDoor = { account: () => 'a', harvest: async () => ({ ok: true, data: { carry: true, material: HERB, qty: 2, gem: 'gem:ruby', carried: { material: HERB, own: 2, bought: 0 } } }) };
   const g = await createProfBook({ door: gemDoor, storage: memStorage(), character: () => 'c', sleep: noWait, carry: full }).harvest({ node: 'n', kind: 'herbs', climate: 231, region: 21, act: {}, at: 1, material: HERB });
   assert.deepEqual(g.data.put, { bag: 2, pack: 0, left: 1, lost: [{ key: 'gem:ruby', n: 1 }] });
+});
+
+test('BAG1 (AUDIT B6/B7): the wagon\'s are held and taken last; food in the bag rots as the pack\'s does, and a food on its way to putrid is no material (mutants: the wagon unread; the wagon first; the bag a larder with no clock; a rotting haunch counted)', () => {
+  const e = { ...body(), wagonItems: [] };
+  mintCarried(e, HERB, 2);
+  for (let i = 0; i < 3; i++) addItem(e.wagonItems, mintMaterialItem(HERB), 'back');
+  assert.equal(heldOf(e, HERB), 5, 'the bag\'s two and the wagon\'s three');
+  const t = takeCarried(e, HERB, 3);
+  assert.equal(t.taken, 3);
+  assert.deepEqual([bagItemsOf(e).length, e.wagonItems.reduce((a, i) => a + (i.stackCount ?? 1), 0)], [0, 2], 'the bag first, the wagon last');
+  t.back();
+  assert.equal(heldOf(e, HERB), 5);
+  // rot
+  const inPack = mintMaterialItem('food:meat', true);
+  const inBag = mintMaterialItem('food:meat', true);
+  const r = { stats: { strength: 50, endurance: 50 }, items: [inPack], wagonItems: [], otherItems: [], bagItems: [inBag], goldPieces: 0 };
+  for (let m = 1; m <= 2000; m++) survivalMinute(r, m, { natural: 30 }, { rolls: () => 0.99, autoEat: false, autoDrink: false });
+  assert.ok((inPack.foodStage ?? 0) > 0, 'the pack\'s meat turned');
+  assert.ok((inBag.foodStage ?? 0) > 0, 'and the bag\'s with it');
+  assert.equal(materialKeyOfItem(inBag), null, 'no longer the Basket\'s meat');
+  assert.equal(materialKeyOfItem(mintMaterialItem('food:meat', true)), 'food:meat', 'a fresh one is');
+});
+
+test('BAG1 (AUDIT B4/B5): every gathering kind names the material its goods are, so the held count is said; a withdrawal\'s goods with no room come into the pack, over its weight (by source; mutants: no kind named one)', () => {
+  assert.equal(materialOf({ material: 'log:oak' }), 'log:oak');
+  assert.equal(materialOf({ material: (info) => herbKey(9, info.region), info: { region: 21 } }), herbKey(9, 21), 'a herb\'s by its region');
+  assert.equal(materialOf({ harvest: 'food' }), null, 'the Basket\'s roll: none');
+  assert.match(src('src/scenes/gatherHost.js'), /\.\.\.\(materialOf\(a\) \? \{ material: materialOf\(a\) \} : \{\}\)/);
+  assert.match(src('src/scenes/herbHost.js'), /plan\.harvest === 'herbs' \? \{ material: \(info\) => herbKey\(p\.herb, info\?\.region \?\? 0\) \}/);
+  assert.match(src('src/scenes/treeHost.js'), /material: n\.material,/);
+  assert.match(src('src/scenes/mineHost.js'), /n\.what === 'boulder' \? \{\} : \{ material: n\.material \}/);
+  assert.match(src('src/scenes/huntHost.js'), /material: b\.hide,/);
+  assert.match(src('src/scenes/fishHost.js'), /material: FISH_KEY,/);
+  assert.match(src('src/scenes/world.js'), /const over = got\.left > 0 \? withdrawIntoPack\(playerEntity, key, got\.left/);
+});
+
+test('BAG1 (AUDIT H1/H2): the bag opens from a plain pack - its button on the footer while nothing stands beside the pack; never over a reward tray; the bag\'s card offers no Put in bag for what it refuses (mutants: the door on the side window alone; the bag over a tray; a dagger offered)', () => {
+  const named = (r) => r.querySelector('.itemname')?.children?.[0]?.textContent ?? '';
+  const acts = (host) => host.querySelectorAll('.act').map((b) => b.textContent);
+  const dagger = () => setItemFields({ group: 'Weapons', templateIndex: 113, material: 0 });
+  withDom((dom) => {
+    const host = dom.mk('div'); dom.body.append(host);
+    const e = { name: 'K', stats: { strength: 50 }, items: [bagItem(), dagger()], bagItems: [mintMaterialItem(OAK)], goldPieces: 0 };
+    const view = mountEnhancedInventory(host, { entity: e, items: () => e.items, bagItems: () => e.bagItems, wagonItems: () => [], onExit: () => {} });
+    assert.equal(host.querySelector('.loot-win'), null, 'nothing beside the pack');
+    const door = host.querySelectorAll('.act').find((b) => b.textContent === 'Materials Bag');
+    assert.ok(door, 'the bag\'s door on the footer');
+    door.onclick();
+    assert.ok(host.querySelector('.loot-win'), 'the bag beside the pack');
+    assert.ok(host.querySelectorAll('.itemrow').some((r) => r.closest('.loot-win') && /Oak/.test(named(r))));
+    host.querySelectorAll('.itemrow').find((r) => !r.closest('.loot-win') && /Dagger/.test(named(r))).onclick();
+    assert.equal(acts(host).includes('Put in bag'), false, 'a dagger is no material');
+    view.unmount();
+  });
+  withDom((dom) => {
+    const host = dom.mk('div'); dom.body.append(host);
+    const e = { name: 'K', stats: { strength: 50 }, items: [bagItem()], bagItems: [mintMaterialItem(OAK)], goldPieces: 0 };
+    const reward = [setItemFields({ group: 'Armor', templateIndex: 102, material: 0 })];
+    const view = mountEnhancedInventory(host, { entity: e, items: () => e.items, bagItems: () => e.bagItems, chooseOne: { items: reward, onChoose: () => {} }, onExit: () => {} });
+    assert.equal(acts(host).includes('Materials Bag'), false, 'no bag over a reward tray');
+    view.unmount();
+  });
+  assert.deepEqual(planBagToggle({ items: () => [bagItem()] }, { chooseOne: { items: [] } }).refusal, { reason: 'reward', text: BAG_WORDS.reward });
+});
+
+test('BAG1 (AUDIT): Put everything in says what went in and each material refused, passing over it; the work tab says a carrying book\'s count as held (mutants: a refusal ends the run; the Stores\' words for a carrying book)', () => {
+  assert.equal(BAG_PAGE_WORDS.allInDone(12), '12 put in the Stores.');
+  assert.equal(BAG_PAGE_WORDS.allInDone(12, [{ name: 'Oak Log', text: 'Your Stores hold 5,000 of that already.' }]), '12 put in the Stores. Oak Log: Your Stores hold 5,000 of that already.');
+  assert.equal(BAG_PAGE_WORDS.allInDone(3, [], 'slow'), '3 put in the Stores. slow');
+  const page = src('src/ui/profPages.js');
+  assert.match(page, /if \(res\?\.kept\) stop = res\.text \?\? null; else refused\.push\(\{ name: r\.name, text: res\?\.text \?\? null \}\); break;/);
+  assert.match(page, /const carriedAny = \[\.\.\.all\.values\(\)\]\.some/);
+  assert.match(src('src/ui/workTab.js'), /\$\{count\(held\)\} \$\{w\.carrying\?\.\(\) \? 'held' : 'in your Stores'\}/);
 });
 
 test('BAG1 a station\'s shortfall goes into the Stores first - bought before own, never gold\'s - every input covered before any moves; what cannot be covered moves nothing (mutants: the spend order; a partial move)', async () => {
