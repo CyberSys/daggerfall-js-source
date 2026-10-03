@@ -82,7 +82,8 @@
     "new": "",
     "tests": [
       "test/classicpages.test.js"
-    ]
+    ],
+    "note": "AUDIT HOLDINGS (PIN MOVED): re-aimed by content to the line the audit's fix rewrote - its law the same."
   },
   {
     "name": "CLASSICPAGES-key-opens-at-the-helm",

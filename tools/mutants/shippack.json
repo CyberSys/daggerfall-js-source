@@ -42,7 +42,8 @@
     "new": "",
     "tests": [
       "test/shippack.test.js"
-    ]
+    ],
+    "note": "AUDIT HOLDINGS (PIN MOVED): re-aimed by content to the line the audit's fix rewrote - its law the same."
   },
   {
     "name": "SHPK-new-number",

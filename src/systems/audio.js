@@ -348,6 +348,14 @@ export class AudioEngine {
     return true;
   }
 
+  /** ARENA2: a DAGGER.SND record's samples (mono, SAMPLE_RATE) - the raw voices a made sound is built from
+   *  (systems/arenaSound.js: the crowd's cheer and boo out of AmbientPeople1-10). Read off the player's own archive,
+   *  no context needed; null with no archive or no such record. Never a replacement's: the made sound is Daggerfall's. */
+  samplesOf(index) {
+    const rec = this.snd?.getSound?.(index);
+    return rec?.waveData?.length ? pcm8ToFloat32(rec.waveData) : null;
+  }
+
   _ready() {
     this._ensureCtx();
     return this.enabled && this.ctx && this.ctx.state === 'running';
@@ -446,6 +454,21 @@ export class AudioEngine {
       },
       /** WX2: the loop's gain, live - the rain loop fades with the front. */
       setVolume(v) { gain.gain.value = Math.max(0, Math.min(1, v)); },
+      /** HOTFIX 1003 (live: "audio crackling after a match ends"): an ending, not a cut - the gain ramps to nothing
+       *  over `seconds`, then the source stops. A loop stopped at its level pops; a crowd's bed of noise pops loudly. */
+      fadeStop(seconds = 0.4) {
+        try {
+          const t = src.context.currentTime;
+          gain.gain.cancelScheduledValues(t);
+          gain.gain.setValueAtTime(gain.gain.value, t);
+          gain.gain.linearRampToValueAtTime(0, t + seconds);
+          src.stop(t + seconds + 0.05);
+          src.onended = () => { try { src.disconnect(); } catch { /* gone */ } };
+        } catch {
+          try { src.stop(); } catch { /* already stopped */ }
+          try { src.disconnect(); } catch { /* gone */ }
+        }
+      },
       /** FIELD-WIND1: the loop's pitch, live (Unity's AudioSource.pitch, WebAudio's playbackRate) - the wind's bed
        *  brightens as the wind gets up. */
       setPitch(p) { src.playbackRate.value = p; },

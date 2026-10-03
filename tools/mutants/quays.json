@@ -87,7 +87,8 @@
     "new": "x1: x1 + t, z0",
     "tests": [
       "test/quays.test.js"
-    ]
+    ],
+    "note": "AUDIT HOLDINGS (PIN MOVED): re-aimed by content to the line the audit's fix rewrote - its law the same."
   },
   {
     "name": "QUAY-bank-step-ignored",
@@ -150,7 +151,8 @@
     "new": "    if (Math.abs(lz) < GANGWAY_LANE || Math.abs(lz - z0) < 1.6 || Math.abs(lz - z1) < 1.6) continue;",
     "tests": [
       "test/quays.test.js"
-    ]
+    ],
+    "note": "AUDIT HOLDINGS (PIN MOVED): re-aimed by content to the line the audit's fix rewrote - its law the same."
   },
   {
     "name": "QUAY-cargo-not-the-port-s",
@@ -359,7 +361,8 @@
     "new": "if (b.stood && b.dead) standCollider(b); }",
     "tests": [
       "test/quays.test.js"
-    ]
+    ],
+    "note": "AUDIT HOLDINGS (PIN MOVED): re-aimed by content to the line the audit's fix rewrote - its law the same."
   },
   {
     "name": "QUAY-pool-lights-any-count",
@@ -494,7 +497,8 @@
     "new": "      if (at != null) { continue; }",
     "tests": [
       "test/quays.test.js"
-    ]
+    ],
+    "note": "AUDIT HOLDINGS (PIN MOVED): re-aimed by content to the line the audit's fix rewrote - its law the same."
   },
   {
     "name": "QUAY-host-gangway-foot-at-the-berth",
@@ -503,7 +507,8 @@
     "new": "    const [fx, fz] = quayToScene(frame, 0, hz);",
     "tests": [
       "test/quays.test.js"
-    ]
+    ],
+    "note": "AUDIT HOLDINGS (PIN MOVED): re-aimed by content to the line the audit's fix rewrote - its law the same."
   },
   {
     "name": "QUAY-host-gangway-any-look",
@@ -512,7 +517,8 @@
     "new": "    const facing = () => true;",
     "tests": [
       "test/quays.test.js"
-    ]
+    ],
+    "note": "AUDIT HOLDINGS (PIN MOVED): re-aimed by content to the line the audit's fix rewrote - its law the same."
   },
   {
     "name": "QUAY-host-gangway-ashore-anywhere",
@@ -521,7 +527,8 @@
     "new": "        if (facing(g.landward)) return { ...g, way: 'ashore' };",
     "tests": [
       "test/quays.test.js"
-    ]
+    ],
+    "note": "AUDIT HOLDINGS (PIN MOVED): re-aimed by content to the line the audit's fix rewrote - its law the same."
   },
   {
     "name": "QUAY-host-gangway-not-taken",
@@ -530,7 +537,8 @@
     "new": "    if (!e) return false;",
     "tests": [
       "test/quays.test.js"
-    ]
+    ],
+    "note": "AUDIT HOLDINGS (PIN MOVED): re-aimed by content to the line the audit's fix rewrote - its law the same."
   },
   {
     "name": "QUAY-host-gangway-press-not-said",
@@ -539,7 +547,8 @@
     "new": "    return !!boardableOnFoot();",
     "tests": [
       "test/quays.test.js"
-    ]
+    ],
+    "note": "AUDIT HOLDINGS (PIN MOVED): re-aimed by content to the line the audit's fix rewrote - its law the same."
   },
   {
     "name": "QUAY-host-ashore-in-the-sea",
@@ -548,7 +557,8 @@
     "new": "      deps.board?.placePlayer?.([g.ashore[0], deps.seaY(), g.ashore[2]], Math.atan2(g.landward[0], g.landward[1]));",
     "tests": [
       "test/quays.test.js"
-    ]
+    ],
+    "note": "AUDIT HOLDINGS (PIN MOVED): re-aimed by content to the line the audit's fix rewrote - its law the same."
   },
   {
     "name": "QUAY-host-hint-every-frame",
@@ -629,7 +639,8 @@
     "new": "      if (false) return { state: 'Made fast', tone: 'is-away',",
     "tests": [
       "test/quays.test.js"
-    ]
+    ],
+    "note": "AUDIT HOLDINGS (PIN MOVED): re-aimed by content to the line the audit's fix rewrote - its law the same."
   },
   {
     "name": "QUAY-world-lights-by-day",
@@ -638,7 +649,8 @@
     "new": "for (const l of quays?.lights() ?? []) csaLit.push(",
     "tests": [
       "test/quays.test.js"
-    ]
+    ],
+    "note": "AUDIT HOLDINGS (PIN MOVED): re-aimed by content to the line the audit's fix rewrote - its law the same."
   },
   {
     "name": "QUAY-world-no-warp",

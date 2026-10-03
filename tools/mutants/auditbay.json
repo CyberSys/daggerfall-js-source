@@ -651,7 +651,8 @@
     "new": "    if (false) return false;",
     "tests": [
       "test/auditbay_lanes.test.js"
-    ]
+    ],
+    "note": "AUDIT HOLDINGS (PIN MOVED): re-aimed by content to the line the audit's fix rewrote - its law the same."
   },
   {
     "name": "BAY-A8-region-unsaid",

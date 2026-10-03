@@ -132,7 +132,8 @@
     "new": "  for (const r of _ships.values()) if (false) { r.credit = null; n++; }",
     "tests": [
       "test/fleet.test.js"
-    ]
+    ],
+    "note": "AUDIT HOLDINGS (PIN MOVED): re-aimed by content to the line the audit's fix rewrote - its law the same."
   },
   {
     "name": "FLEET-loan-total-unread",
@@ -141,7 +142,8 @@
     "new": "  if (!a) return null;",
     "tests": [
       "test/fleet.test.js"
-    ]
+    ],
+    "note": "AUDIT HOLDINGS (PIN MOVED): re-aimed by content to the line the audit's fix rewrote - its law the same."
   },
   {
     "name": "FLEET-title-left-in-the-pack",
@@ -429,6 +431,7 @@
     "new": "    for (const role of [...CREW_ROLES.filter((r) => !(h.bard && r === 'Lookout')), 'Bard']) {",
     "tests": [
       "test/crewroles.test.js"
-    ]
+    ],
+    "note": "AUDIT HOLDINGS (PIN MOVED): re-aimed by content to the line the audit's fix rewrote - its law the same."
   }
 ]

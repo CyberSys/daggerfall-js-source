@@ -240,7 +240,8 @@
     "new": "    if (!boat) return false;",
     "tests": [
       "test/shipclaim.test.js"
-    ]
+    ],
+    "note": "AUDIT HOLDINGS (PIN MOVED): re-aimed by content to the line the audit's fix rewrote - its law the same."
   },
   {
     "name": "SC-pose-not-where-she-lies",

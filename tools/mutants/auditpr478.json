@@ -71,7 +71,8 @@
     "new": "if (false) { h.harbour = sound(); h.at = clock; }",
     "tests": [
       "test/auditshiplife_host.test.js"
-    ]
+    ],
+    "note": "AUDIT HOLDINGS (PIN MOVED): re-aimed by content to the line the audit's fix rewrote - its law the same."
   },
   {
     "name": "ASLH-F1-b-launches-too",

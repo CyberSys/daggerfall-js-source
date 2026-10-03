@@ -334,7 +334,8 @@
     "new": "    if (false) decorDeliver([it]);   // DECOR2b: the furnisher delivers",
     "tests": [
       "test/decor2b.test.js"
-    ]
+    ],
+    "note": "AUDIT HOLDINGS (PIN MOVED): re-aimed by content to the line the audit's fix rewrote - its law the same."
   },
   {
     "name": "DECOR2b-the-steal-with-no-delivery",

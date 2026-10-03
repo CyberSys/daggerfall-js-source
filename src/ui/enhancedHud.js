@@ -873,8 +873,19 @@ const initialsOf = (name) => String(name ?? '').split(/\s+/).filter(Boolean)
  *  the pillars, as the held map's (DISC25-B), and the pieces fixed at the screen's edges apart from it (the notices,
  *  the quest tracker, the status line, the revenant's cards) read the pillar off `--ui-pillar`. Written on a change. */
 let _pillar = null;
+/** AUDIT PRE-MERGE 1003b M2: the picture's width the quest card and the arena's versus bar both fit in (the bar's half and
+ *  the card's 268 from the edge - AUDIT PRE-MERGE 1003 U4's 1100, which read the WINDOW's width). */
+const ARENA_CARD_ROOM_PX = 1100;
+let _narrow = null;
 function wearUiPillar(doc, root) {
   const ui = retroScreenRect(globalThis.innerWidth || 0, globalThis.innerHeight || 0);
+  // AUDIT PRE-MERGE 1003b M2: inside the pillarbox the card stands in the picture, so the room is the picture's - at
+  // 1366x768 in 4:3 the card overlapped the bar 36x54 px while the window's 1366 said there was room
+  const narrow = !!ui && ui.w <= ARENA_CARD_ROOM_PX;
+  if (narrow !== _narrow) {
+    _narrow = narrow;
+    if (narrow) doc.documentElement?.setAttribute?.('data-ui-narrow', ''); else doc.documentElement?.removeAttribute?.('data-ui-narrow');
+  }
   const inset = ui ? `${ui.x}px` : '';
   if (inset === _pillar) return;
   _pillar = inset;

@@ -33,7 +33,8 @@
     "new": "      if (m.i === 0 && false) { first = first ?? m; continue; }",
     "tests": [
       "test/auditwatchkit_crew.test.js"
-    ]
+    ],
+    "note": "AUDIT HOLDINGS (PIN MOVED): re-aimed by content to the line the audit's fix rewrote - its law the same."
   },
   {
     "name": "WK-W3-repair-order-sleeps",

@@ -258,7 +258,8 @@
     "new": "    if (state.placing) StopPlacing();",
     "tests": [
       "test/ows2_crossing.test.js"
-    ]
+    ],
+    "note": "AUDIT HOLDINGS (PIN MOVED): re-aimed by content to the line the audit's fix rewrote - its law the same."
   },
   {
     "name": "OWS2-launch-item-kept",
