@@ -136,6 +136,7 @@ const ROUTED = {
   'src/ui/spellIcons.js': 10,
   'src/ui/spellMakerWindow.js': 18,
   'src/ui/spellbookWindow.js': 7,
+  'src/ui/statsCard.js': 2,   // L10N4's pilot: the card's Strength and Health are DFU's words
   'src/ui/transportWindow.js': 1,
   'src/ui/travelMapWindow.js': 2,
   'src/ui/useMagicItemWindow.js': 1,

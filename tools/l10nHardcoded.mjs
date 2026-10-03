@@ -48,10 +48,26 @@ export function hardcodedStrings(root = ROOT) {
     const text = readFileSync(path, 'utf8');
     let ast;
     try { ast = parse(text, { ecmaVersion: 'latest', sourceType: 'module', locations: true }); } catch { continue; }
+    // L10N4: a top-level const whose name a text-core call takes (`t('k', NO_PARTY_TEXT)`, `localizedText('k', X)`) is
+    // that call's English - routed where it is read, so its words are not counted where they are written
+    const routedNames = new Set();
+    (function find(n) {
+      if (!n || typeof n.type !== 'string') return;
+      if (n.type === 'CallExpression' && n.callee?.type === 'Identifier' && ROUTED.has(n.callee.name)) {
+        for (const a of n.arguments) if (a?.type === 'Identifier') routedNames.add(a.name);
+      }
+      for (const k of Object.keys(n)) { if (k === 'loc') continue; const v = n[k]; if (Array.isArray(v)) v.forEach(find); else if (v && typeof v.type === 'string') find(v); }
+    })(ast);
+    const routedInits = new Set();
+    for (const node of ast.body) {
+      const decl = node.type === 'ExportNamedDeclaration' ? node.declaration : node;
+      if (decl?.type !== 'VariableDeclaration') continue;
+      for (const d of decl.declarations) if (d.id?.type === 'Identifier' && routedNames.has(d.id.name) && d.init) routedInits.add(d.init);
+    }
     const visit = (n, quiet) => {
       if (!n || typeof n.type !== 'string') return;
       if (n.type === 'ImportDeclaration' || n.type === 'ExportAllDeclaration' || n.type === 'ExportNamedDeclaration' && n.source) return;
-      let q = quiet;
+      let q = quiet || routedInits.has(n);
       if (n.type === 'CallExpression') {
         const c = n.callee;
         if (c?.type === 'Identifier' && ROUTED.has(c.name)) q = true;
