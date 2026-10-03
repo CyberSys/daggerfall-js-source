@@ -122,7 +122,7 @@ export const HULL_BUILDS = Object.freeze([
   // GALLEON (2026-10-01, Mac: "ensuring cannon fire shoots from the cannon holes properly"): hull 2 is Mac's galleon now
   // (world/galleonModel.js) and every number here is hers, off her own model (test/galleon_model.test.js pins each to
   // it): a gun at each of her ten gunports, its muzzle a hair outside her planking at the port's middle - the ports
-  // 1.56 to 2.93 m over the sea, her gun deck at 1.085 - so a broadside leaves her through the holes it is fired from;
+  // 1.56 to 2.93 m over the sea, her gun deck at 1.0829 - so a broadside leaves her through the holes it is fired from;
   // two chasers on swivels over her bow rail; the barrels over her stern under the castle. Her box is her hull's and
   // her castle's MeshCollider's bounds (GALLEON-2: her keel 4.64 m down on Mac's second export's deeper V). AUDIT GN-R5/
   // G9: her rig is each of her five sails as it hangs set in any wind (world/galleonRig.js's own canvas) - a square sail
@@ -133,7 +133,7 @@ export const HULL_BUILDS = Object.freeze([
   // canvas across its face. Where her canvas is inside her hull's box (the fore course but its outer clews, the gaff
   // sail's foot, the jib aft of her stem and under her roof) a ball strikes her hull first; out of it (the course's outer
   // clews, the topsails, the gaff sail over her roof or swung out, the jib over her bowsprit) it tears.
-  Object.freeze({   // 2 Small Ship - five ports a side on her gun deck (1.085), the guns' axis at the ports' middle (2.24)
+  Object.freeze({   // 2 Small Ship - five ports a side on her gun deck (1.0829), the guns' axis at the ports' middle (2.24)
     hull: 2, gun: 'long',
     broadside: Object.freeze([[5.949, 2.2435, -7.595], [5.949, 2.2435, -4.417], [5.949, 2.2435, -0.714], [5.949, 2.2435, 2.8105], [5.949, 2.2435, 6.5135]].map(Object.freeze)),
     bow: Object.freeze({ gun: 'chain', muzzles: Object.freeze([Object.freeze([-1.15, 7.45, 19.15]), Object.freeze([1.15, 7.45, 19.15])]) }),

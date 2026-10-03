@@ -21,8 +21,8 @@
   {
     "name": "GALLEON-hold-dropped",
     "file": "src/systems/naval/galleonGunDeck.js",
-    "old": "      if (s) s.laidUntil = Math.max(s.laidUntil, now + HOLD_S);",
-    "new": "      if (s) s.laidUntil = Math.max(s.laidUntil, now);",
+    "old": "      if (s) { s.laidUntil = Math.max(s.laidUntil, now + HOLD_S); settling.add(boat); }",
+    "new": "      if (s) { s.laidUntil = Math.max(s.laidUntil, now); settling.add(boat); }",
     "tests": [
       "test/galleon_model.test.js"
     ]
@@ -30,8 +30,8 @@
   {
     "name": "GALLEON-other-side-laid",
     "file": "src/systems/naval/galleonGunDeck.js",
-    "old": "          const laid = now < s.laidUntil;",
-    "new": "          const laid = now < Math.max(r.sides.starboard.laidUntil, r.sides.port.laidUntil);",
+    "old": "      const laid = now < s.laidUntil;",
+    "new": "      const laid = now < Math.max(r.sides.starboard.laidUntil, r.sides.port.laidUntil);",
     "tests": [
       "test/galleon_model.test.js"
     ]
@@ -39,8 +39,8 @@
   {
     "name": "GALLEON-guns-never-run-in",
     "file": "src/systems/naval/galleonGunDeck.js",
-    "old": "            const want = laid ? RUN_OUT_X : RUN_IN_X;",
-    "new": "            const want = RUN_OUT_X;",
+    "old": "        const want = laid ? RUN_OUT_X : RUN_IN_X;",
+    "new": "        const want = RUN_OUT_X;",
     "tests": [
       "test/galleon_model.test.js"
     ]

@@ -284,8 +284,8 @@
   {
     "name": "NAV1O-peer-word-unread",
     "file": "src/scenes/navalHost.js",
-    "old": "peerSelf.set(owner, { law: rec.law, me: rec.me, traffic: rec.traffic, at: clock, boat: rec.boat, laid: rec.laid });",
-    "new": "peerSelf.set(owner, { law: {}, me: null, traffic: rec.traffic, at: clock, boat: rec.boat, laid: rec.laid });",
+    "old": "peerSelf.set(owner, { law: rec.law, me: rec.me, traffic: rec.traffic, at: clock, real: realClock, boat: rec.boat, laid: rec.laid });",
+    "new": "peerSelf.set(owner, { law: {}, me: null, traffic: rec.traffic, at: clock, real: realClock, boat: rec.boat, laid: rec.laid });",
     "tests": [
       "test/navaudit_online.test.js"
     ]
@@ -1006,8 +1006,8 @@
   {
     "name": "NAV1O-traffic-unkept",
     "file": "src/scenes/navalHost.js",
-    "old": "traffic: rec.traffic, at: clock, boat: rec.boat, laid: rec.laid });",
-    "new": "traffic: TRAFFIC_DEFAULT, at: clock, boat: rec.boat, laid: rec.laid });",
+    "old": "traffic: rec.traffic, at: clock, real: realClock, boat: rec.boat, laid: rec.laid });",
+    "new": "traffic: TRAFFIC_DEFAULT, at: clock, real: realClock, boat: rec.boat, laid: rec.laid });",
     "tests": [
       "test/navaudit_online.test.js"
     ]
