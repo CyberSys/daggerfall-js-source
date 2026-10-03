@@ -41,7 +41,7 @@ test('TV-WASD: the bar says the speed, and the load governor\'s hold beside it',
 
 /** world.js's governor, mounted from its own source: `let tvHeld` through the end of travelViewGovern. */
 function mountGovernor(env) {
-  const from = WORLD.indexOf('  let tvHeld = null;');
+  const from = WORLD.indexOf('  let tvFoeRate = ');   // ENEMY-PACE: the near-enemies pace and its floor ride in front of tvHeld
   const fn = WORLD.indexOf('  function travelViewGovern(dt) {', from);
   const end = WORLD.indexOf('\n  }\n', fn) + 4;
   assert.ok(from >= 0 && fn > from && end > fn, 'the governor\'s source');

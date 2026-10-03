@@ -566,6 +566,7 @@ body:has(.hud-foe.on.blade) .travelpanel { --tp-top: calc(18px + 28px * var(--hu
   font-variant-numeric: tabular-nums; color: rgb(243,239,44); text-shadow: 1px 1px 0 rgb(93,77,12); }
 /* TV2: the clock held under the spinner while the land loads (systems/travelGovernor.js) - the rate that runs first */
 .travelpanel-accel.held { min-width: 92px; color: rgb(236,160,60); }
+.travelpanel-foeaccel { color: rgb(236,160,60); }
 .travelpanel-acts { gap: 8px; padding: 8px 16px; }
 .travelpanel-act { min-width: 78px; min-height: 36px; padding: 6px 14px; border: 2px solid; border-radius: 0;
   font-family: inherit; font-size: 13px; letter-spacing: 0.14em; text-indent: 0.14em; text-align: center; color: #e6dec6;
@@ -603,6 +604,9 @@ body:has(.hud-foe.on.blade) .travelpanel { --tp-top: calc(18px + 28px * var(--hu
   .travelpanel-bar { flex-wrap: wrap; }
   .travelpanel-dest { flex: 1 1 100%; border-bottom: 2px solid rgba(5,6,8,0.55); box-shadow: 0 1px 0 rgba(163,152,128,0.18); }
   .travelpanel-speed { flex-direction: row; padding: 8px 8px 8px 12px; border-left: 0; box-shadow: none; }
+  .travelpanel-speed { flex-direction: column; align-items: flex-start; }
+  .travelpanel.foes .travelpanel-msg { top: calc(var(--tp-top) + 196px); }
+  .travelpanel.foes .travelpanel-junction { top: calc(var(--tp-top) + 208px); }
   .travelpanel-speed > .travelpanel-label { display: none; }   /* the x40 in its socket says what it is; the row needs the room */
   .travelpanel-accel { min-width: 52px; }
   .travelpanel-acts { flex: 1 1 auto; padding: 8px 12px 8px 8px; }

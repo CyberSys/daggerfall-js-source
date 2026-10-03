@@ -18,6 +18,7 @@ import { elDecode, elDecode3, elDecodeN, elEncode, elTonemapRGB, elAttenuation, 
 import { buildTerrainGrid, buildTerrainIndices, surfaceNormalAt } from '../src/world/terrainSurface.js';
 import { HEIGHTMAP_DIMENSION, TERRAIN_SIZE } from '../src/world/terrainSampler.js';
 import { packAdapt, unpackAdapt } from '../src/render/airPass.js';
+import { SHADOW_POINT_CASTERS } from '../src/render/shadowPass.js';
 import { glslFunctions } from './glsl.mjs';
 
 const src = (p) => readFileSync(new URL(`../src/${p}`, import.meta.url), 'utf8');
@@ -41,7 +42,7 @@ function vertex({ w = packHeightSlope(0.5, 0, 0, 0), sunDir = [0, 1, 0], moonDir
     uGFieldOrigin: [0, 0], uGFieldM: 1, uSnowGlobal: 0, uWindV: [0, 0], uSunScale: 0.6, uCamPos: [0, 0, 0], uIndirect: [0, 0, 0, 0], uIndirectColor: [0, 0, 0],
     uCloudShadowRect: [0, 0, 0, 0], uSunVP: [Array(16).fill(0), Array(16).fill(0), Array(16).fill(0)], uSunOrigin: [0, 0, 0, 0], uSunShadowParams: [0, 0, 0, 0], uSunTexel: [0, 0, 0, 0],
     // a caster's map answers `shadow` everywhere: its params name a far plane, its taps the value
-    uPointShadowParams: [[0, 0, 0, 50], ...zeros4(7)], uShadowIndex: Array(8).fill(-1), uCasterOf: casterOf ?? Array(EL_MAX_LIGHTS).fill(-1),
+    uPointShadowParams: [[0, 0, 0, 50], ...zeros4(SHADOW_POINT_CASTERS - 1)], uShadowIndex: Array(SHADOW_POINT_CASTERS).fill(-1), uCasterOf: casterOf ?? Array(EL_MAX_LIGHTS).fill(-1),   // FLICKER-FIX: sized by the casters (twelve), not a literal
     uLane: lane, uPointCount: (cell ?? lights.map((_, k) => k)).length,
     uPointIdx: Array.from({ length: GRASS_CELL_LIGHTS }, (_, k) => (cell ?? lights.map((_, j) => j))[k] ?? 0),   // AUDIT A1: the cell's list
     uPointLights: [...lights.map((l) => [...l.at, l.range]), ...zeros4(GRASS_MAX_LIGHTS - lights.length)],
@@ -204,7 +205,7 @@ test('GRASS-LIT2: the vertex stage still fits the vectors WebGL2 promises every 
     for (const v of names.split(',')) vectors += Number(v.match(/\[(\d+)\]/)?.[1] ?? 1) * (type === 'mat4' ? 4 : 1);
   }
   assert.ok(vectors <= 256, `${vectors} vectors at most`);
-  assert.equal(vectors, 212, 'the count the docs quote');
+  assert.equal(vectors, 220, 'the count the docs quote');   // FLICKER-FIX: 212 with eight casters - uPointShadowParams and uShadowIndex are twelve now (+8)
   // the two const face tables are 12 more if a driver keeps a dynamically indexed const array in uniform storage
   assert.ok(vectors + 12 <= 256);
   assert.ok(GAME_GRASS_VS.includes(`uniform vec4 uPointLights[${GRASS_MAX_LIGHTS}];`) && GAME_GRASS_VS.includes(`uniform vec3 uPointColors[${GRASS_MAX_LIGHTS}];`));

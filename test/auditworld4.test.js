@@ -90,7 +90,7 @@ test('AUDIT WORLD4 A2/B2/D1 + C4: the mint is the ONE HOME of what may be said -
   assert.match(d, /if \(canon\.startsWith\('loot:'\)\) settleLootFlat\(Number\(canon\.slice\(5\)\)\);/, 'the room\'s word');
   assert.match(d, /settleLootFlat\(i\);   \/\/ AUDIT WORLD4 C3\/D2/, 'the save\'s restore');
   assert.equal((d.match(/const bi = billboardBatches\.indexOf\(p\.batch\);/g) ?? []).length, 1, 'and ONE HOME frees a layout pile\'s flat - the other destroy in the file is droppedLoot\'s teardown, a different owner');
-  assert.match(d, /const LOOT_KEY_RE = \/\^\(loot\|corpse\|enc\):\(0\|\[1-9\]\[0-9\]\{0,4\}\)\$\/;/, 'C4: one spelling, five digits at most (REST-SYNC: `enc` a shared encounter\'s body)');
+  assert.match(d, /const LOOT_KEY_RE = \/\^\(loot\|corpse\|enc\|srch\):\(0\|\[1-9\]\[0-9\]\{0,4\}\)\$\/;/, 'C4: one spelling, five digits at most (REST-SYNC: `enc` a shared encounter\'s body; SEARCH1: `srch` a searched object)');
   assert.match(d, /function lootKeyOf\(key\) \{\s*if \(typeof key !== 'string'\) return null;\s*const m = LOOT_KEY_RE\.exec\(key\);\s*return m \? `\$\{m\[1\]\}:\$\{Number\(m\[2\]\)\}` : null;\s*\}/, 'and the canon is what lands in _lootSeen and rides the wire');
   // C4 executed on the shape of the law: the spellings the old `key.split(':')` read as one container
   const RE = /^(loot|corpse|enc):(0|[1-9][0-9]{0,4})$/;

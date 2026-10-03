@@ -78,7 +78,7 @@ test('AUDIT WORLD6b-iii(c) A3/C2, A4/C10: a refused projection is not an empty g
   assert.equal(bobHits.at(-1).grant.length, 1, 'the second good item went'); assert.equal(rat.entity.items.length, 0, 'and the unmintable one is gone with it (it could never be granted)');
   // past LOOT_LIST_MAX
   const rat2 = await bob.spawnFoe(0, [12, 0, 12], { feetGiven: true });
-  rat2.entity.items = Array.from({ length: LOOT_LIST_MAX + 6 }, () => one());
+  rat2.entity.items = Array.from({ length: LOOT_LIST_MAX + 6 }, () => one()); delete rat2.entity.lootCap;   // FOE-CAP: a body with no cap (a boss's) - a plain rat's would carry three
   bob.damageFoe(rat2, 9999, [10, 0, 10]);
   clock.t += 1000; bob.applyHit('mac-0001', take(rat2.seq));
   assert.equal(bobHits.at(-1).grant.length, 35, 'a part'); assert.equal(rat2.entity.items.length, 35, 'the rest stays');

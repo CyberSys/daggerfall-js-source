@@ -13,8 +13,9 @@ import assert from 'node:assert/strict';
 import { Renderer, WORLD_FRAME } from '../src/render/renderer.js';
 import { EL_LANE, EL_MESH_FS, EL_BB_FS } from '../src/render/enhancedLighting.js';
 import * as bounds from '../src/render/bounds.js';   // a namespace: on the base the placement grid is missing, and only its pins fail
-import { sunCascadeMatrices, pointFaceMatrices, shadowFarFor, swayLean, spheresTouch, foldSignature, SHADOW_LIGHT_FLATS, SHADOW_NO_CAST_ARCHIVES, SHADOW_GLSL, SHADOW_SUN_SIZE, SHADOW_LO_REBUILDS } from '../src/render/shadowPass.js';
+import { sunCascadeMatrices, pointFaceMatrices, shadowFarFor, swayLean, spheresTouch, foldSignature, SHADOW_LIGHT_FLATS, SHADOW_NO_CAST_ARCHIVES, SHADOW_GLSL, SHADOW_SUN_SIZE, SHADOW_LO_REBUILDS, SHADOW_TUNING } from '../src/render/shadowPass.js';
 import { StaticBatchBuilder, keyResolver } from '../src/render/staticBatch.js';
+SHADOW_TUNING.override = false;   // FLICKER-FIX: these tests pin EL8's schedule (SHADOW_LO_REBUILDS, the cadences)
 
 const I = new Float32Array([1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1]);
 const RIGHT = new Float32Array([1, 0, 0]), UP = new Float32Array([0, 1, 0]);

@@ -155,7 +155,7 @@
   {
     "name": "DISC6-casters-memory-unused",
     "file": "src/render/shadowPass.js",
-    "old": "(held && heldAt(held, heldN, lights, i) ? CASTER_KEEP_RATIO : 1)",
+    "old": "(held && heldAt(held, heldN, lights, i) ? (SHADOW_TUNING.steady ? CASTER_KEEP_RATIO_STEADY : CASTER_KEEP_RATIO) : 1)",
     "new": "1",
     "tests": [
       "test/disc6.test.js"

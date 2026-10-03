@@ -47,8 +47,8 @@
   {
     "name": "UI2-a-ghost-loses-its-icon",
     "file": "src/systems/quickslots.js",
-    "old": "icon: iconOf(spell).icon ?? e.icon ?? null,",
-    "new": "icon: iconOf(spell).icon ?? null,",
+    "old": "icon: spell?.noIcon ? null : iconOf(spell).icon ?? e.icon ?? null,",
+    "new": "icon: spell?.noIcon ? null : iconOf(spell).icon ?? null,",
     "tests": [
       "test/ui2_hotbar.test.js"
     ]
@@ -209,7 +209,7 @@
   {
     "name": "UI2-the-drag-without-its-icon",
     "file": "src/ui/enhancedSpellbook.js",
-    "old": "        icon: spellIconPicture(r.spell?.icon, { box: SPELL_DRAG_BOX }) });",
+    "old": "        icon: r.spell?.noIcon ? null : spellIconPicture(r.spell?.icon, { box: SPELL_DRAG_BOX }) });",
     "new": "        icon: null });",
     "tests": [
       "test/ui2_hotbar.test.js"
