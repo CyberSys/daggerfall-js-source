@@ -392,32 +392,35 @@
  {
   "name": "AUDITREST2-P-P8-the-classic-hold-to-its-end",
   "file": "src/ui/restWindow.js",
-  "old": "if (this._actT >= this._act.channelSeconds || channelBroken(this._act, this._pendingEnemySpawn, () => this.deps.enemiesNearby?.(), this._actHealth, this.deps.vitals?.()?.health)) this._finishAct();",
+  "old": "if (this._actT >= this._act.channelSeconds || channelBroken(this._act, this._pendingEnemySpawn, () => this.deps.enemiesNearby?.(), this._actHealth, this.deps.vitals?.()?.health, () => this.deps.restAct?.() ?? null)) this._finishAct();",
   "new": "if (this._actT >= this._act.channelSeconds) this._finishAct();",
   "tests": [
    "test/auditrest2_party.test.js",
    "test/rest1_act.test.js"
-  ]
+  ],
+  "note": "AUDIT REST III C6 (PIN MOVED): the hold asks the point too; re-aimed by content."
  },
  {
   "name": "AUDITREST2-P-P8-the-enhanced-hold-to-its-end",
   "file": "src/ui/enhancedRest.js",
-  "old": "if (_actT >= act.channelSeconds || channelBroken(act, overlay._pendingEnemySpawn, () => deps.enemiesNearby?.(), overlay._actHealth, deps.vitals?.()?.health)) finishAct();",
+  "old": "if (_actT >= act.channelSeconds || channelBroken(act, overlay._pendingEnemySpawn, () => deps.enemiesNearby?.(), overlay._actHealth, deps.vitals?.()?.health, () => deps.restAct?.() ?? null)) finishAct();",
   "new": "if (_actT >= act.channelSeconds) finishAct();",
   "tests": [
    "test/auditrest2_party.test.js",
    "test/rest1_act.test.js"
-  ]
+  ],
+  "note": "AUDIT REST III C6 (PIN MOVED): the hold asks the point too; re-aimed by content."
  },
  {
   "name": "AUDITREST2-P-P8-a-kneel-broken-by-a-blow",
   "file": "src/systems/restAct.js",
-  "old": "  return !opened?.meditate && Number.isFinite(hpAtOpen)",
-  "new": "  return Number.isFinite(hpAtOpen)",
+  "old": "  if (opened?.meditate) return false;\n  if (Number.isFinite(hpAtOpen)",
+  "new": "  if (Number.isFinite(hpAtOpen)",
   "tests": [
    "test/auditrest2_party.test.js",
    "test/rest1_act.test.js"
-  ]
+  ],
+  "note": "AUDIT REST III C6 (PIN MOVED): the hold asks the point too; re-aimed by content."
  },
  {
   "name": "AUDITREST2-P-P8-no-foe-asked",
@@ -442,12 +445,13 @@
  {
   "name": "AUDITREST2-P-P8-no-blow-felt",
   "file": "src/systems/restAct.js",
-  "old": "  return !opened?.meditate && Number.isFinite(hpAtOpen) && Number.isFinite(hpNow) && hpNow < hpAtOpen;",
-  "new": "  return false;",
+  "old": "  if (Number.isFinite(hpAtOpen) && Number.isFinite(hpNow) && hpNow < hpAtOpen) return true;\n",
+  "new": "",
   "tests": [
    "test/auditrest2_party.test.js",
    "test/rest1_act.test.js"
-  ]
+  ],
+  "note": "AUDIT REST III C6 (PIN MOVED): the hold asks the point too; re-aimed by content."
  },
  {
   "name": "AUDITREST2-P-P9-the-carried-dead-sleep",

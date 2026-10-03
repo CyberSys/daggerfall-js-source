@@ -779,7 +779,7 @@ export class RestWindow {
     // REST1: the channel counts real seconds and lands at its end
     // AUDIT REST II P8: and ends the moment the hold is broken - a foe stood or in reach, a blow taken - through the end
     // check itself, so its lines are the end's and no night lands early
-    if (this.state === 'channel') { this._actT += dt; if (this._actT >= this._act.channelSeconds || channelBroken(this._act, this._pendingEnemySpawn, () => this.deps.enemiesNearby?.(), this._actHealth, this.deps.vitals?.()?.health)) this._finishAct(); return; }
+    if (this.state === 'channel') { this._actT += dt; if (this._actT >= this._act.channelSeconds || channelBroken(this._act, this._pendingEnemySpawn, () => this.deps.enemiesNearby?.(), this._actHealth, this.deps.vitals?.()?.health, () => this.deps.restAct?.() ?? null)) this._finishAct(); return; }   // AUDIT REST III C6: and the point, while held
     if (this.state !== 'resting') return;
     const r = this.session.tick(dt);
     if (r) this._end(r);

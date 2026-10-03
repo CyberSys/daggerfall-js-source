@@ -481,3 +481,30 @@ test('AUDIT REST II P8: channelBroken - a foe stood, a foe in reach (asked only 
   assert.equal(channelBroken({ meditate: true }, false, foe(false), 50, 1), false);
   assert.equal(channelBroken({ meditate: true }, false, foe(true), 50, 50), true, 'a foe breaks a kneel, as at its end');
 });
+
+test('AUDIT REST III C6: the hold is broken the moment the fire it rests by goes out - both skins, with the end check\'s own "interrupted" and no night; a bed\'s hold (no `where`) never asks; a candle\'s kneel finishes wherever it began (mutants: the point unasked; asked of a bed; a kneel broken)', async () => {
+  let lit = true;
+  const fireAct = () => (lit ? { point: { kind: 'camp', where: 'fire' }, night: true, channelSeconds: REST_CHANNEL_SECONDS } : { point: null, night: true });
+  const w = await classic({ restAct: fireAct });
+  w.w.tick(1);
+  assert.equal(w.w.state, 'channel');
+  lit = false;
+  w.w.tick(1 / 60);
+  assert.deepEqual([w.w.state, w.w.endLines, w.calls.night], ['ended', [REST_ACT_TEXT.interrupted], 0], 'at once - before, held to the sixth second');
+  lit = true;
+  await enhanced({ restAct: fireAct }, async ({ overlay, calls }) => {
+    overlay.tick(1);
+    lit = false;
+    overlay.tick(1 / 60);
+    assert.deepEqual([overlay.state, overlay._endLines, calls.night], ['ended', [REST_ACT_TEXT.interrupted], 0]);
+  });
+  // the law: asked only of a fire, a tent or a Bedroll - a bed's room stands, and a kneel finishes where it began
+  let asked = 0;
+  const gone = () => { asked++; return { point: null }; };
+  assert.equal(channelBroken({ point: { kind: 'camp', where: 'fire' } }, false, () => false, 50, 50, gone), true);
+  assert.equal(channelBroken({ point: { kind: 'camp', where: 'fire' } }, false, () => false, 50, 50, () => ({ point: { where: 'fire' } })), false);
+  asked = 0;
+  assert.equal(channelBroken({ point: { kind: 'bed' } }, false, () => false, 50, 50, gone), false, 'a bed');
+  assert.equal(channelBroken({ meditate: true, point: { kind: 'camp', where: 'fire' } }, false, () => false, 50, 50, gone), false, 'a kneel');
+  assert.equal(asked, 0, 'neither asks');
+});

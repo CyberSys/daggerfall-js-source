@@ -495,7 +495,7 @@ export function mountEnhancedRest(hostEl, deps, ignoreAllocatedBed = false) {
   overlay.tick = (dt) => {
     // REST1: the channel counts real seconds and lands at its end
     // AUDIT REST II P8: and ends the moment the hold is broken - restWindow.js's own law, the end check's own lines
-    if (overlay.state === 'channel') { _actT += dt; if (_actT >= act.channelSeconds || channelBroken(act, overlay._pendingEnemySpawn, () => deps.enemiesNearby?.(), overlay._actHealth, deps.vitals?.()?.health)) finishAct(); else updateChannel(); return; }
+    if (overlay.state === 'channel') { _actT += dt; if (_actT >= act.channelSeconds || channelBroken(act, overlay._pendingEnemySpawn, () => deps.enemiesNearby?.(), overlay._actHealth, deps.vitals?.()?.health, () => deps.restAct?.() ?? null)) finishAct(); else updateChannel(); return; }   // AUDIT REST III C6: and the point, while held
     if (overlay.state !== 'resting' || !overlay.session) return;
     const r = overlay.session.tick(dt);
     if (r) { overlay._end(r); return; }

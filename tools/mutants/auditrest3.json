@@ -425,5 +425,41 @@
       "test/auditrest3.test.js",
       "test/auditrest2_camps.test.js"
     ]
+  },
+  {
+    "name": "AUDITREST3-C6-the-point-unasked",
+    "file": "src/systems/restAct.js",
+    "old": "  return !!opened?.point?.where && typeof restActNow === 'function' && !restActNow()?.point;",
+    "new": "  return false;",
+    "tests": [
+      "test/auditrest2_party.test.js"
+    ]
+  },
+  {
+    "name": "AUDITREST3-C6-asked-of-a-bed",
+    "file": "src/systems/restAct.js",
+    "old": "  return !!opened?.point?.where && typeof restActNow === 'function' && !restActNow()?.point;",
+    "new": "  return typeof restActNow === 'function' && !restActNow()?.point;",
+    "tests": [
+      "test/auditrest2_party.test.js"
+    ]
+  },
+  {
+    "name": "AUDITREST3-C6-the-classic-window-unasked",
+    "file": "src/ui/restWindow.js",
+    "old": ", () => this.deps.restAct?.() ?? null)) this._finishAct();",
+    "new": ")) this._finishAct();",
+    "tests": [
+      "test/auditrest2_party.test.js"
+    ]
+  },
+  {
+    "name": "AUDITREST3-C6-the-enhanced-card-unasked",
+    "file": "src/ui/enhancedRest.js",
+    "old": ", () => deps.restAct?.() ?? null)) finishAct();",
+    "new": ")) finishAct();",
+    "tests": [
+      "test/auditrest2_party.test.js"
+    ]
   }
 ]

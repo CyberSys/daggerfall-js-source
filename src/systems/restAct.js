@@ -141,10 +141,17 @@ export function actAtChannelEnd(opened, now, hpAtOpen, hpNow) {
  *  you are hurt while you hold". Asked every frame of the channel, in the end check's own order: a foe stood while
  *  holding (`pending`, the window's latch), one in reach (`enemiesNearby`, asked only then), a blow since the open
  *  (`hpAtOpen`/`hpNow` - never a candle's kneel, which actAtChannelEnd lets finish hurt). True ends the channel now,
- *  through the end check itself - so the lines are its lines, and a night is never landed early. */
-export function channelBroken(opened, pending, enemiesNearby, hpAtOpen, hpNow) {
+ *  through the end check itself - so the lines are its lines, and a night is never landed early.
+ *  AUDIT REST III C6: AND THE POINT, WHILE IT IS HELD. The notes promise the rest is broken the moment "the fire you rest
+ *  by goes out", and the point was asked only at the end (actAtChannelEnd): a fire burned out or picked up in the first
+ *  second held the player still for the other five (nine on a Bedroll) before the same "interrupted". `restActNow` is
+ *  the host's restAct, asked only of a channel opened on a fire, a tent or a Bedroll (actAtChannelEnd's own test; a
+ *  bed's room stands, and a candle's kneel finishes wherever it began). */
+export function channelBroken(opened, pending, enemiesNearby, hpAtOpen, hpNow, restActNow = null) {
   if (pending || enemiesNearby?.()) return true;
-  return !opened?.meditate && Number.isFinite(hpAtOpen) && Number.isFinite(hpNow) && hpNow < hpAtOpen;
+  if (opened?.meditate) return false;
+  if (Number.isFinite(hpAtOpen) && Number.isFinite(hpNow) && hpNow < hpAtOpen) return true;
+  return !!opened?.point?.where && typeof restActNow === 'function' && !restActNow()?.point;
 }
 
 /** Whether the tier prices a rest of this kind whole (a bed, a fire, Casual's rough, the arc off). */
