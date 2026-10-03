@@ -2493,7 +2493,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     onClose: () => { if (activeOverlay?.isRestWindow) activeOverlay = null; },
     day: () => false, inside: () => true,
     restKind: () => (_fpFeet && camps.fireNear(_fpFeet) ? 'camp' : 'rough'),   // SURV4: a fire on the floor is the sleep; the bare floor is rough (AUDIT SURV-TIERS: the world's fire, in every tier)
-    restPoint: () => (_fpFeet && camps.fireNear(_fpFeet) ? { kind: 'camp', where: 'fire' } : null),   // REST1: online a dungeon's rest point is a lit fire in reach - a brazier, a camp, a placed fire
+    restPoint: () => (_fpFeet ? camps.restPointAt(_fpFeet) : null),   // REST1: online a dungeon's rest point is a lit fire in reach - a brazier, a camp, a placed fire
     onNightSlept: () => camps.spendNightNear(_fpFeet),   // REST2: a night at your own camp spends a charge
   });
   // U4: the ONE player-damage door - every source (traps, melee,
@@ -7902,7 +7902,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     // through the overlay as 'back' (ends a running rest)": that route
     // was never real. ROAD-B B5 built the real one. With a window up,
     // overlayAction turns any single character into `char:<k>`, so
-    // KeyR arrives as 'char:r', and ui/restWindow.js:349-351 runs A8's
+    // KeyR arrives as 'char:r', and ui/restWindow.js:350-352 runs A8's
     // normalizeCode inverse to turn it back into 'KeyR' - DFU's
     // toggleClosedBinding - so a second Rest press ends a running rest
     // or closes the selection page (:302-315), which is

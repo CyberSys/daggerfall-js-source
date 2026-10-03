@@ -273,6 +273,7 @@ export class RestWindow {
   /** REST1: the act's open - the town's refusal (no crime: there is no rest to commit it with), no rest point, a
    *  building's own law (CanRest: the rented room, the house, the hall), and then the channel. */
   _openAct() {
+    if (this._act.meditate) { this.mode = 'act'; this.state = 'channel'; return; }   // REST6: a candle's kneel - anywhere a rest may begin
     const place = this.deps.restPlace?.();
     if (place?.inTownOutside) { this.refusalLines = [REST_ACT_TEXT.inTown]; this.state = 'refused'; return; }
     if (!this._act.point) { this.refusalLines = [REST_ACT_TEXT.noPoint]; this.state = 'refused'; return; }
@@ -291,7 +292,7 @@ export class RestWindow {
       this._end({ textId: REST_TEXT.enemiesNearby, enemyBroke: true, died: false });
       return;
     }
-    const r = this._act.night ? this.deps.restNight?.({ rentedHours: this._remainingHoursRented }) : this.deps.restShort?.();
+    const r = this._act.meditate ? this.deps.restMeditate?.() : this._act.night ? this.deps.restNight?.({ rentedHours: this._remainingHoursRented }) : this.deps.restShort?.();
     this._end(r ?? { textId: REST_TEXT.wakeUp, enemyBroke: false, died: false });
   }
 
@@ -300,7 +301,7 @@ export class RestWindow {
     const where = this._act?.point?.where;
     const frac = Math.max(0, Math.min(1, this._actT / (this._act?.channelSeconds || 1)));
     const n = Math.round(frac * 20);
-    return [where ? REST_ACT_TEXT.channel(where) : REST_ACT_TEXT.channelBed, `[${'#'.repeat(n)}${'.'.repeat(20 - n)}]`, '', 'Esc - stop'];
+    return [this._act?.meditate ? REST_ACT_TEXT.meditating : where ? REST_ACT_TEXT.channel(where) : REST_ACT_TEXT.channelBed, `[${'#'.repeat(n)}${'.'.repeat(20 - n)}]`, '', 'Esc - stop'];
   }
 
   /** OnPop (:271-285) clears both flags. Every exit from this window
@@ -514,7 +515,7 @@ export class RestWindow {
     this._toggleArmed = false;
     if (this.state === 'resting') { this._stopRest(); return; }
     // REST1: a channel stopped is no rest - the window closes and nothing was slept (no raise is owed)
-    if (this.state === 'channel') { audio.playOneShot(SOUND.ButtonClick, 1); this._close(); return; }
+    if (this.state === 'channel') { audio.playOneShot(SOUND.ButtonClick, 1); if (this._act?.meditate) this.deps.snuffCandle?.(); this._close(); return; }   // REST6: a kneel stopped leaves the candle unspent and out
     // ButtonClick, as the port's `back` arm has always played it here -
     // ExitButton_OnMouseClick, the handler DFU routes the same outcome
     // through, plays it.

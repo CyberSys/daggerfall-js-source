@@ -672,11 +672,12 @@
   {
     "name": "SURVTIERS-off-stands-a-camp-it-cannot-show",
     "file": "src/scenes/camps.js",
-    "old": "    if (!survivalOn() && !(sharedClockOn() && isCampfireKit(item))) { say(CAMP_TEXT.arcOff); return false; }",
+    "old": "    if (!survivalOn() && !(sharedClockOn() && (isCampfireKit(item) || isEmberJar(item)))) { say(CAMP_TEXT.arcOff); return false; }",
     "new": "",
     "tests": [
       "test/auditsurv.test.js"
-    ]
+    ],
+    "note": "REST6 (PIN MOVED): re-aimed by content."
   },
   {
     "name": "SURVTIERS-fireNear-is-the-tiers-again",

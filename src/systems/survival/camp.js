@@ -36,6 +36,7 @@ import { wrapAngle } from '../../world/mat4.js';
 import { POSE_BOUND, POSE_Y_BOUND } from '../../net/wire.js';
 import { TEMPLATE, foodOf, foodStage, isFood } from './food.js';
 import { createSurvivalItem, dressFood, isCampingEquipment, isCampfireKit, isSkillet, SURVIVAL_USE_TEXT } from './items.js';
+import { isEmberJar, EMBER_JAR_MINUTES, REST_ITEM_TEXT } from '../restItems.js';   // REST6: the Ember Jar's one-night fire
 
 /** The mod's tent (Camping.DeployTent: CreateDaggerfallMeshGameObject(41606)). */
 export const TENT_MODEL = 41606;
@@ -156,7 +157,7 @@ export function stokeFire(camp, from) {
 /** REST2: NO CAMP BURNS AWAY. A Campfire that burns down goes cold and stands, its charges intact, for its owner to
  *  relight or pick up; a tent stands cold as it always did. [SUPERSEDES SURV3's kit fire, gone at its minute.] A
  *  peer's camps still go with their owner (scenes/camps.js sweepOwners). */
-export const campExpired = () => false;
+export const campExpired = (camp, now) => !!camp?.jar && !fireLit(camp, now);   // REST6: an Ember Jar's fire goes with its embers
 
 /** REST2: a night its owner slept at it spends one charge (a Campfire's fuel, a tent's wear). A Campfire whose last
  *  charge is spent goes cold. Answers { spent, empty } - nothing at all for a camp with none to spend. */
@@ -175,7 +176,8 @@ export function spendCampNight(camp, now) {
  * Returns { ok, text, camp, spent }.
  */
 export function placeCampItem(item, list, { now = 0, owner = null, feet = [0, 0, 0], yaw = 0, probe = null, place = {}, standing = 0, id = null } = {}) {
-  const kind = isCampingEquipment(item) ? CAMP_KIND.Tent : isCampfireKit(item) ? CAMP_KIND.Fire : null;
+  const jar = isEmberJar(item);   // REST6: one night's fire, EMBER_JAR_MINUTES lit, never picked up
+  const kind = isCampingEquipment(item) ? CAMP_KIND.Tent : isCampfireKit(item) || jar ? CAMP_KIND.Fire : null;
   if (!kind) return { ok: false, text: null, camp: null, spent: false };
   if (standing >= CAMPS_PER_OWNER) return { ok: false, text: CAMP_TEXT.tooMany, camp: null, spent: false };
   const spot = campSpot(feet, yaw, probe);
@@ -186,7 +188,12 @@ export function placeCampItem(item, list, { now = 0, owner = null, feet = [0, 0,
   // AUDIT SURV A: the fiftieth night was the last; a Campfire with no fuel waits for Firewood
   const uses = Math.max(0, item.currentCondition ?? 1);
   if (uses <= 0) return { ok: false, text: kind === CAMP_KIND.Fire ? CAMP_TEXT.noFuel : CAMP_TEXT.wornOut, camp: null, spent: false };
-  const camp = newCamp({ id: id ?? `${owner ?? 'me'}:${now}`, owner, kind, pos: spot.pos, yaw, now, wear: uses });
+  const camp = newCamp({ id: id ?? `${owner ?? 'me'}:${now}`, owner, kind, pos: spot.pos, yaw, now, wear: jar ? 1 : uses });
+  if (jar) {
+    camp.jar = true; camp.litUntil = now + EMBER_JAR_MINUTES;
+    if ((item.stackCount ?? 1) > 1) item.stackCount -= 1; else { const j = Array.isArray(list) ? list.indexOf(item) : -1; if (j >= 0) list.splice(j, 1); }
+    return { ok: true, text: REST_ITEM_TEXT.emberLit, camp, spent: true };
+  }
   const i = Array.isArray(list) ? list.indexOf(item) : -1;
   if (i >= 0) list.splice(i, 1);
   const text = kind === CAMP_KIND.Tent ? CAMP_TEXT.pitched : CAMP_TEXT.lit;
@@ -247,8 +254,8 @@ export function campInfoText(camp, now, mine) {
 export function campMenu(camp, now, mine) {
   const rows = [{ key: 'rest', text: CAMP_TEXT.menuRest }, { key: 'cook', text: CAMP_TEXT.menuCook }];
   if (camp.kind === CAMP_KIND.Tent && !fireLit(camp, now)) rows.push({ key: 'stoke', text: CAMP_TEXT.menuStoke });
-  if (camp.kind === CAMP_KIND.Fire && mine && !fireLit(camp, now) && (camp.wear | 0) > 0) rows.push({ key: 'stoke', text: CAMP_TEXT.menuRelight });
-  if (mine) rows.push({ key: 'pack', text: camp.kind === CAMP_KIND.Tent ? CAMP_TEXT.menuPack : CAMP_TEXT.menuPickUp });
+  if (camp.kind === CAMP_KIND.Fire && mine && !camp.jar && !fireLit(camp, now) && (camp.wear | 0) > 0) rows.push({ key: 'stoke', text: CAMP_TEXT.menuRelight });
+  if (mine && !camp.jar) rows.push({ key: 'pack', text: camp.kind === CAMP_KIND.Tent ? CAMP_TEXT.menuPack : CAMP_TEXT.menuPickUp });
   return rows;
 }
 

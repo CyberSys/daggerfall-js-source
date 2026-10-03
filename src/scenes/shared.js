@@ -80,6 +80,7 @@ import { installDiverseWeaponsIcons } from '../combat/diverseWeaponsIcons.js';
 import { installRoleplayRealismItems } from '../systems/rriInstall.js';
 import { installDetailedShipsArt } from '../systems/detailedShips.js';   // DS1: Detailed Ships' pictures and xml scales
 import { installWarmAshesShips } from '../systems/warmAshesShips.js';   // WA1: Warm Ashes - Ships' quest list and save slot
+import { installRestItemLoot, litCandle, meditate, snuffCandle, draughtTaken, spendDraught, DRAUGHT_NIGHT_MINUTES } from '../systems/restItems.js';   // REST6: the seven that fill the gaps
 import { installForaging } from '../systems/foragingInstall.js';   // FORAGE1: Foraging's quest list, tools, foods, pictures and console command
 import { installSmithing } from '../systems/smithItems.js';   // PROF3: the Repair Kit's use
 import { installHealingSupply } from '../systems/healingSupply.js';   // POTION-COMMON: Potions of Healing in the loot
@@ -1316,6 +1317,7 @@ export function ensureAudio(fetch = fetchBytes) {
   installRaidingParties();   // RAID1: the mod's save record, in every host - a save made in a dungeon carries the day's raids too
   installSmithing();   // PROF3: the Repair Kit's use on the item-use door, in every host (a kit is the pack's, offline too)
   installHealingSupply();   // POTION-COMMON: Potions of Healing in the loot - after the smithing install, its field kit's roll first
+  installRestItemLoot();   // REST6: the piles' and the foes' Ember Jars and Tonics - after Foraging's and the healing supply's hooks, the last draw
   // MW-IMPORT: same seam, same never-traps rule - no data means the
   // opt-in layer stays inert, which is its resting state anyway.
   const morrowind = registerMorrowindData().catch(() => 0);
@@ -2307,7 +2309,7 @@ export function createRestDeps(entity, opts = {}) {
   // SAME object `setResting` itself reads from - not a sibling copy of it. Cleared the moment resting turns off,
   // so an override always belongs to exactly the one session it was set for and can never bleed into this same
   // entity's next real rest.
-  let _restKindOverride = null;
+  let _restKindOverride = null, _draughtFrom = null;   // REST6: the own minute a Sleeping Draught's night began (spent by a night slept through)
   const out = {
     // PlayerEntity.IsResting / IsLoitering (:268, :284, :789, :285).
     // Every host owes these identically - they are entity flags, not
@@ -2328,6 +2330,9 @@ export function createRestDeps(entity, opts = {}) {
         _rules = survivalRules();   // SURV-TIERS: the tier read beside the place prices it (restHour, stiffen, the asks)
         _place = (_restKindOverride ?? restKind)();
         _kind = _rules ? _place : REST_KIND.Bed; _roughHours = 0;
+        // REST6: a Sleeping Draught makes the night a bed's - its yield, its sleep rate, no stiff morning - and is spent
+        // by a night slept through (DRAUGHT_NIGHT_MINUTES on the character's clock): a stopped channel or a nap keeps it
+        if (_rules && _place !== REST_KIND.Bed && draughtTaken(entity) && (!sharedClockOn() || nightDue(entity, ownMinutes()))) { _place = REST_KIND.Bed; _kind = REST_KIND.Bed; _draughtFrom = ownMinutes(); }
         _roughCarry = { health: 0, fatigue: 0, magicka: 0 };   // PARTY-REST10: a fresh sleep owes nothing to whatever the last one banked
       }
       // SURV4: rough hours rested are a stiff morning (STIFF_HOURS of speed and agility) on the way out - an interrupted
@@ -2343,7 +2348,7 @@ export function createRestDeps(entity, opts = {}) {
       // PARTY-REST4b: an override is good for exactly one session - the moment THIS session's resting flag drops,
       // forget it, so a later real rest (this same entity choosing to actually rest for themselves) never
       // silently inherits a stale kind broadcast by whoever they last mirrored.
-      if (!b) { _restKindOverride = null; }
+      if (!b) { _restKindOverride = null; if (_draughtFrom != null && ownMinutes() - _draughtFrom >= DRAUGHT_NIGHT_MINUTES) spendDraught(entity); _draughtFrom = null; }
     },
     setLoitering: (b) => { entity.isLoitering = !!b; },
     // THE PASS-THROUGH IS LOAD BEARING, and it is here because a review
@@ -2403,9 +2408,20 @@ export function createRestDeps(entity, opts = {}) {
   // window is DFU's own; `restNight` runs the night through THIS bag (the timed rest's own session, its sub-ticks,
   // quest ticks, hourly checks and vitals, in one call), stamps it, tops the yield up and spends a rented room's
   // night; `restShort` is the rest inside the night interval - the yield's healing, and nothing else.
-  out.restAct = () => (sharedClockOn()
-    ? { point: restPoint?.() ?? null, night: nightDue(entity, ownMinutes()), channelSeconds: REST_CHANNEL_SECONDS }
-    : null);
+  // REST6: a lit Meditation Candle makes the next rest its kneel, online or off (restMeditate); a Bedroll's point names
+  // its own longer channel.
+  out.restAct = () => {
+    if (litCandle()) return { point: { kind: 'candle', where: 'candle' }, night: false, meditate: true, channelSeconds: REST_CHANNEL_SECONDS };
+    if (!sharedClockOn()) return null;
+    const point = restPoint?.() ?? null;
+    return { point, night: nightDue(entity, ownMinutes()), channelSeconds: point?.channelSeconds ?? REST_CHANNEL_SECONDS };
+  };
+  out.restMeditate = () => {
+    const text = meditate(entity);
+    surfacePlayer();
+    return { textId: null, text: text ?? REST_ACT_TEXT.shortRest, enemyBroke: false, died: false };
+  };
+  out.snuffCandle = () => snuffCandle();
   out.restNight = ({ rentedHours = -1, carried = false } = {}) => {   // REST5: `carried` - a party member's night, mine to sleep but not to pass on
     const { result, hours } = runRestNight(out, { rentedHours });
     if (hours > 0) stampNight(entity, ownMinutes());

@@ -180,6 +180,7 @@ export function mountEnhancedRest(hostEl, deps, ignoreAllocatedBed = false) {
 
   /** REST1: the act's open - the town's refusal, no rest point, a building's own law (canRest), then the channel. */
   function openAct() {
+    if (act.meditate) { overlay.mode = 'act'; overlay.state = 'channel'; return; }   // REST6: a candle's kneel - anywhere a rest may begin
     const place = deps.restPlace?.();
     if (place?.inTownOutside) { overlay._refusalLines = [REST_ACT_TEXT.inTown]; overlay.state = 'refused'; return; }
     if (!act.point) { overlay._refusalLines = [REST_ACT_TEXT.noPoint]; overlay.state = 'refused'; return; }
@@ -196,13 +197,13 @@ export function mountEnhancedRest(hostEl, deps, ignoreAllocatedBed = false) {
       overlay._end({ textId: REST_TEXT.enemiesNearby, enemyBroke: true, died: false });
       return;
     }
-    const r = act.night ? deps.restNight?.({ rentedHours: overlay._remainingHoursRented }) : deps.restShort?.();
+    const r = act.meditate ? deps.restMeditate?.() : act.night ? deps.restNight?.({ rentedHours: overlay._remainingHoursRented }) : deps.restShort?.();
     overlay._end(r ?? { textId: REST_TEXT.wakeUp, enemyBroke: false, died: false });
   }
   function channelCard() {
     const c = el('div', 'card');
     const where = act?.point?.where;
-    c.append(el('h2', null, where ? REST_ACT_TEXT.channel(where) : REST_ACT_TEXT.channelBed));
+    c.append(el('h2', null, act?.meditate ? REST_ACT_TEXT.meditating : where ? REST_ACT_TEXT.channel(where) : REST_ACT_TEXT.channelBed));
     const meter = el('div', 'meter');
     const track = el('div', 'meter-track');
     const fill = el('div', 'meter-fill brass');
@@ -471,7 +472,7 @@ export function mountEnhancedRest(hostEl, deps, ignoreAllocatedBed = false) {
   // press that opened this window never reaches it (the window did not exist yet), so the press is enough.
   const stopOrClose = () => {
     if (overlay.state === 'resting') { deps.onManualStop?.(); if (overlay.session) overlay._end(overlay.session.endEarly()); return true; }
-    if (overlay.state === 'channel') { close(); return true; }   // REST1: a channel stopped is no rest - nothing slept, no raise owed
+    if (overlay.state === 'channel') { if (act?.meditate) deps.snuffCandle?.(); close(); return true; }   // REST1: a channel stopped is no rest - nothing slept, no raise owed; REST6: a kneel stopped leaves the candle unspent
     if (overlay.state === 'ended') { close(); deps.onRestFinished?.(); return true; }
     if (overlay.state === 'confirm') return false;   // the box's own Yes/No answer it
     close();

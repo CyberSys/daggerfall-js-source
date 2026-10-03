@@ -286,6 +286,6 @@ export function gatherRecipe(recipe, availableTemplateIndices) {
 //    bundle, all three hosts hand `drinkPotion` down (world.js:9512,
 //    dungeonContext.js:1933, exterior.js:2554) and useItem.js:379
 //    routes the bottle into it.
-//  - RandomlyAddPotionRecipe(25) is live in shopStock.js:236-243
+//  - RandomlyAddPotionRecipe(25) is live in shopStock.js:237-244
 //    (AUDIT 26 F129, DaggerfallLoot.cs:165 - the Alchemist arm), so a
 //    shop stocks a recipe scroll.

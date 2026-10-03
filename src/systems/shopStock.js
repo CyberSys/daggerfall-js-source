@@ -141,6 +141,7 @@ export const MAGIC_ITEMS_ENUM_TEMPLATE = 0;
 // constant, declared here and in loot.js.
 import { BOOK_TEMPLATE, createRegularMagicItem, createRandomPotion, randomlyAddPotionRecipe, getMagicItemTemplates, createRandomWeapon, createRandomArmor, createRandomClothing } from './loot.js';   // G4: the guild shelves' two minters (AUDIT 26 F129/F130: + the recipe arm and the registry)
 import { SPELLBOOK_TEMPLATE_INDEX } from './spellMaker.js';   // G4: one home for MiscItems 132
+import { restItemsStock } from './restItems.js';   // REST6: the Bedroll, the Ember Jar, Firewood and the draughts
 import { provisionsStock, campfireStock } from './survival/items.js';   // SURV2: the general store's provisions shelf   // REST2: and online the Campfire alone, the arc Off
 import { sharedClockOn } from './worldTick.js';
 import { healingShelfCount, mintHealingPotion } from './healingSupply.js';   // POTION-COMMON: the shelf's Potions of Healing
@@ -382,6 +383,11 @@ export function stockShopShelf({ buildingType, quality }, playerEntity = {}, { r
         else add({ group, templateIndex });
       }
     }
+  }
+  // REST6 (Rest-Arc.md section 6): a General Store's and an Alchemist's rest supplies, on the first shelf, after every
+  // draw of DFU's (unmoved) and before the healing supply, which stays the shelf's last act; offline with Climates & Calories, online once REST_ITEMS_ONLINE is on
+  if (shelfIndex === 0 && (buildingType === BUILDING_TYPES.GeneralStore || buildingType === BUILDING_TYPES.Alchemist)) {
+    for (const it of restItemsStock(buildingType === BUILDING_TYPES.GeneralStore ? 'GeneralStore' : 'Alchemist', quality, rolls)) addItem(items, it);
   }
   // POTION-COMMON (2026-10-01, the field: "make health potions more common"): an alchemist's and a general store's day of
   // Potions of Healing (healingSupply.js) - at the shelf's end and from no roll, so DFU's own draws above are the same.

@@ -4932,7 +4932,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     // Mac's word, and the whole of it: `resting` is not a fatigue knob,
     // it is the needs' one word for "sat still", and three other laws
     // read it. It held the bare-skin block's naked-cold and sunburn
-    // ticks and the byFire exposure damage (needs.js:516, :492) - the
+    // ticks and the byFire exposure damage (needs.js:531, :507) - the
     // health Mac wants ticking - and, the one TO-FIELD never counted,
     // it shut the HUNTING roll off entirely (hunting.js:120 refuses on
     // `resting`), so a traveller could not hunt on the road at all.
@@ -10009,7 +10009,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     inside: () => (modes?.mode ?? 'exterior') !== 'exterior',
     restKind: () => (camps.fireNear(walkMode && playerSpawned ? player.pos : cam.pos) ? 'camp' : 'rough'),   // SURV4: a lit fire near is the sleep; the window alone is rough (AUDIT SURV-TIERS: the world's fire, in every tier)
     // REST1: online the rest point - a bed pressed (a ship's, CSA-J's) or a lit fire in reach; the open road alone is none
-    restPoint: () => (_restFromBed ? { kind: 'bed', where: null } : camps.fireNear(walkMode && playerSpawned ? player.pos : cam.pos) ? { kind: 'camp', where: 'fire' } : null),
+    restPoint: () => (_restFromBed ? { kind: 'bed', where: null } : camps.restPointAt(walkMode && playerSpawned ? player.pos : cam.pos)),   // REST6: a fire, or the Bedroll laid
     onNightSlept: () => camps.spendNightNear(walkMode && playerSpawned ? player.pos : cam.pos),   // REST2: a night at your own camp spends a charge
   });
   // CSA-J (the audit): the press is a bed's - Roleplay Realism's BedActivation is DaggerfallUI's gate less its GiveOffer
@@ -17935,7 +17935,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   const socialActText = (k, who) => (k === 'friend.request' ? `Friend request sent to ${who}`
     : k === 'party.invite' ? `Party invite sent to ${who}`
       : k === 'friend.remove' ? `${who} is no longer your friend` : 'Sent');
-  /** PARTY-REST1: RestWindow's own `mode` string ('loiter'|'timed'|'full', restWindow.js:660) to the wire's small
+  /** PARTY-REST1: RestWindow's own `mode` string ('loiter'|'timed'|'full', restWindow.js:661) to the wire's small
    *  numbers (net/wire.js validPartyPose: 0/1/2) - the one place the three hosts' restState getters (worldModes.js,
    *  dungeonContext.js) and this host's own outdoor overlay converge, so the mapping is written once. */
   const partyRestModeCode = (mode) => (mode === 'timed' ? 1 : mode === 'full' ? 2 : 0);

@@ -20,11 +20,12 @@
   {
     "name": "REST2-a-burnt-down-campfire-is-swept-away",
     "file": "src/systems/survival/camp.js",
-    "old": "export const campExpired = () => false;",
+    "old": "export const campExpired = (camp, now) => !!camp?.jar && !fireLit(camp, now);",
     "new": "export const campExpired = (camp, now) => camp?.kind === CAMP_KIND.Fire && !fireLit(camp, now);",
     "tests": [
       "test/rest2_campfire.test.js"
-    ]
+    ],
+    "note": "REST6 (PIN MOVED): re-aimed by content."
   },
   {
     "name": "REST2-a-placed-campfire-stays-in-the-pack",
@@ -83,11 +84,12 @@
   {
     "name": "SURV3-anyone-may-pack-your-camp",
     "file": "src/systems/survival/camp.js",
-    "old": "  if (mine) rows.push({ key: 'pack',",
-    "new": "  rows.push({ key: 'pack',",
+    "old": "  if (mine && !camp.jar) rows.push({ key: 'pack',",
+    "new": "  if (!camp.jar) rows.push({ key: 'pack',",
     "tests": [
       "test/surv3_camps.test.js"
-    ]
+    ],
+    "note": "REST6 (PIN MOVED): re-aimed by content."
   },
   {
     "name": "SURV3-a-dead-kit-fire-stands-for-ever",

@@ -46,6 +46,7 @@ export const REST_ACT_TEXT = Object.freeze({
   interrupted: 'Your rest is interrupted.',
   channel: (where) => `Resting by the ${where}...`,
   channelBed: 'Resting...',
+  meditating: 'Meditating by the candle...',   // REST6: the Meditation Candle's kneel
   nextNight: (minutes) => `A night can pass again in ${minutes} ${minutes === 1 ? 'minute' : 'minutes'}.`,
   rested: 'Rested',
   carried: (name) => `${name} rests here, and you rest with them through the night.`,   // REST5: a member's night, carried

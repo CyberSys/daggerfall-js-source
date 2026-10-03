@@ -4866,7 +4866,7 @@ literal with no duplicates; all 71 display labels match DFU's recovered
 FALL.EXE text exactly; every secondary list matches its DFU array in
 order; the builder is reconstructed on re-entry on both sides, so the
 pick lists reset; a career's flags survive the save round trip (the
-career is spread as plain CFG data, save.js:322,529 - worth checking
+career is spread as plain CFG data, save.js:323,529 - worth checking
 because AUDIT 17h caught exactly this shape dropping player
 reputation); and parseCareerData leaves every numeric field finite and
 unsigned under the maximal fourteen-pick set.
@@ -14340,7 +14340,7 @@ items off your character."*
 
 It did not, and the whole of the reason is one line. INV1 hung the
 gesture on the pack's rows - `itemRow`'s `if (from === 'local')
-dragFrom(row, item)` (`ui/enhancedInventory.js:2370`) - and made the
+dragFrom(row, item)` (`ui/enhancedInventory.js:2371`) - and made the
 body a drop TARGET, with `equippedList` saying so in its own comment:
 *"the body is the equip target - `dragFrom`'s pointerup finds it by hit
 test, so the map needs no handler of its own"*. True for the direction
@@ -14837,7 +14837,7 @@ exactly as the classic did; the enhanced HUD has no arrow counter (AUDIT
 28 W2a's classic-arm feature) - not a font matter. AND THE CANVAS NATIVE
 WINDOWS, which the first record did not name: under the enhanced skin the
 death screen (`ui/deathScreen.js:183-185`), the rest window's rows
-(`ui/restWindow.js:919`), the save window (`ui/saveWindow.js`, eight
+(`ui/restWindow.js:920`), the save window (`ui/saveWindow.js`, eight
 `shadowText` sites), the travel popup (`ui/travelPopUp.js:743`), the quest
 journal (`ui/questJournal.js:628-629`), every MessageBox row
 (`ui/messageBox.js:501, 434`) and every ActionTextBox (`ui/actionText.js:45,

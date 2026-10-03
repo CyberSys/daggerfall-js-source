@@ -56,6 +56,7 @@
 // inventory slice's first job.
 // ═══════════════════════════════════════════════════════════════════
 
+import { isRestItem } from '../systems/restItems.js';   // REST6: the seven's card lines
 import { getPref, setPref } from '../systems/uiPrefs.js';   // PLUS7: getPref, the hover card's switch; PACK-PHONE: setPref, the phone's Body
 import { USE_PENDING, powersRows, INFO_TEXT_POWERS } from './nativeInventory.js';   // PLUS10: the Info box's powers record
 import { itemInfoRows, questLetterName } from '../systems/itemInfo.js';   // PLUS10: the classic Info popup's own text
@@ -406,7 +407,7 @@ export function itemLine(item, identity = undefined) {
     hands: itemHandsLine(item),
     // AUDIT SURV C: a food's worth and stage, a skin's water, the gear's uses - the classic popup's tokens (systems/itemInfo.js
     // survivalInfoTokens, less the name and the weight this card already carries), so a Waterskin says its water here too
-    survival: isSurvivalItem(item) ? survivalInfoTokens(item).slice(2).map((r) => r.text) : null,
+    survival: isSurvivalItem(item) || isRestItem(item) ? survivalInfoTokens(item).slice(2).map((r) => r.text) : null,   // REST6: the seven's lines too
     // MAPLOOT1 (Discord: "Potion recipe's can't be read at all"): a recipe is READ, not used - DFU's use arm
     // is cannotUseThis (DaggerfallInventoryWindow.cs:1732-1740) and the knowledge is ShowInfoPopup's
     // (:1602-1609): "Recipe for Potion of %po" and the chained PotionRecipeIngredients box. This skin has no
