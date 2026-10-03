@@ -5,7 +5,9 @@
 // displaced house's doors. scenes/worldModes.js - WIRED: the Herald's click, the floor's instance (enter, its gates,
 // its light and air, its stage, the gates shut while my bout stands, the way out to the Herald), the fighters' hall.
 // scenes/dungeonContext.js - WIRED: the foe yield floor, a fighter's level and no loot, the spare on my blows taken,
-// and what the sand will not allow (rest, save, map). scenes/exterior.js - FLAGGED by name: no bout driver.
+// and what the sand will not allow (rest, save, map). scenes/exterior.js - FLAGGED by name at ARENA2: no bout driver;
+// WIRED at ARENA-FIX 12 (the driver, the city's exhibitions, the Herald, the instance, the pit - the test below holds it;
+// ARENA5 corrected this header, which still said FLAGGED).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
