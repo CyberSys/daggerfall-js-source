@@ -182,8 +182,8 @@
   {
     "name": "CSA-A-unread-key-claimed-read",
     "file": "src/systems/modSettings.js",
-    "old": "'Handling.BadTack': Object.freeze({ default: false, description: 'Shipped with the mod; its assembly never reads it.' }),",
-    "new": "'Handling.BadTack': Object.freeze({ default: false, description: 'Tack badly.' }),",
+    "old": "'Handling.BadTack': Object.freeze({ default: false, get description() { return t('mods.comeSailAway.unread.description', 'Shipped with the mod; its assembly never reads it.'); } }),",
+    "new": "'Handling.BadTack': Object.freeze({ default: false, get description() { return t('mods.comeSailAway.unread.description', 'Tack badly.'); } }),",
     "tests": [
       "test/csa_registration.test.js"
     ]

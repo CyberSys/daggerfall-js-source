@@ -78,6 +78,7 @@ const ROUTED = {
   'src/systems/knightlyGifts.js': 1,
   'src/systems/legalBands.js': 14,   // REP5 (main): the %ltn ladder's one home
   'src/systems/lycanthropy.js': 2,
+  'src/systems/modSettings.js': 16,   // L10N4: the mods' option names DFU has - Unleveled Loot's ten materials, None, Low/Medium/High
   'src/systems/mysticism.js': 14,
   'src/systems/notebook.js': 5,
   'src/systems/playerTorch.js': 1,
