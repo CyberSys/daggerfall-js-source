@@ -271,6 +271,8 @@ export function boardPlaceOf(triggerNode) {
 export const NICE_BOAT_TEXT = 'Nice Boat!';
 /** CSA-K (DECLARED): the pack's refusal while another player stands on the deck, in the driver's words' shape. */
 export const PASSENGERS_ABOARD_TEXT = 'You cannot pack a boat with passengers aboard!';
+/** AUDIT HOLDINGS F1 (the port's own): parts whose boat already stands are refused - never a second boat of one number. */
+export const PARTS_STANDING_TEXT = 'She already lies afloat - these parts are hers.';
 /** SHIP-PACK (the port's own): the pack's refusal of a deed ship whose deed is not in the pack - her parts take its place,
  *  and a deed left elsewhere would call a second ship of hers to a port. */
 export const DEED_NOT_HELD_TEXT = 'Her deed must be in your pack to pick her up.';
@@ -1761,7 +1763,11 @@ export function createComeSailAwayRuntime(deps) {
         val.weightInKg = f(val.weightInKg + weight);
         state.PackedCargoes.set(key, val3);
       }
-      if (deed && !inBook(deed)) removeItem(deps.items.player(), deed);   // SHIP-PACK: her deed goes with her - HOLDINGS: a title in the Fleet's book stays there (her parts are her, the book her papers)
+      // SHIP-PACK: her deed goes with her - HOLDINGS: out of the Fleet's book too, where her title is kept now (AUDIT
+      // HOLDINGS F1: kept there, her parts left the pack - sold, chested, dropped - read her laid up and Summon stood her
+      // again while the parts still placed a second; sold, they paid her worth each time). Her parts are her; placed,
+      // they make her title again (takePlaceItem's retitle) - her name and her refits the ledger's, by her number
+      if (deed) removeExact(inBook(deed) ? deps.items.titles() : deps.items.player(), deed);
       deps.items.addToPlayer(val);   // AddItem(val, AddPosition.Back)
     }
     boat.MapPixel = null;
@@ -2070,6 +2076,9 @@ export function createComeSailAwayRuntime(deps) {
   }
 
   function StartPlacing(item, itemCollection) {
+    // AUDIT HOLDINGS F1 (the port's own): parts whose boat already stands are no second boat - a deed is her call to a
+    // port (it moves her), her parts never were
+    if (partsStanding(item)) { deps.midScreenText(PARTS_STANDING_TEXT, 3); return; }
     if (!state.placing) {
       state.placing = true;
       state.placeTime = deps.time();
@@ -2082,6 +2091,8 @@ export function createComeSailAwayRuntime(deps) {
     state.placing = false;
     state.placeItem = null;
   }
+  /** AUDIT HOLDINGS F1: a boat's parts whose number already stands in the world. */
+  const partsStanding = (item) => item?.templateIndex === BOAT_PARTS_TEMPLATE && !!item.UID && GetPlacedBoatWithUID(item.UID) != null;
 
   /** SpawnBoat, through the pool; CSA-G: the RudderAnimationEventListener GetBoatTransforms put on the rudder (1748)
    *  answers the oars' three animation events as the C#'s does - into ComeSailAway.Instance. */
@@ -2126,7 +2137,7 @@ export function createComeSailAwayRuntime(deps) {
    * have been placing is let go first. Returns the boat, or null for an item that is not parts.
    */
   function LaunchFromParts(item, itemCollection, position, direction, terrain = null) {
-    if (item?.templateIndex !== BOAT_PARTS_TEMPLATE) return null;
+    if (item?.templateIndex !== BOAT_PARTS_TEMPLATE || partsStanding(item)) return null;   // AUDIT HOLDINGS F1
     if (state.placing) StopPlacing();
     state.placeItem = item;
     state.placeItemCollection = itemCollection;
@@ -2168,6 +2179,7 @@ export function createComeSailAwayRuntime(deps) {
     if (boat) {
       if (boat === state.CurrentBoat || (deps.passengersAboard?.(boat) ?? 0) > 0) return null;
       if (state.placing) StopPlacing();
+      boat.inside = false;   // AUDIT HOLDINGS F6: called out of a dungeon's water to a port's - shown outdoors, not kept hidden as the dungeon's
       RepositionBoat(boat, [...position], [...direction], terrain);
       return boat;
     }

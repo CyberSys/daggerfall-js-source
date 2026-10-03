@@ -3542,6 +3542,14 @@ function pauseHoldings(body) {
   wrap.append(rail);
   const detail = el('div', 'px-qdetail px-sys');   // the system page's dress, as the Stats detail wears it (PLUS4)
   const kit = { el, divider: pxDivider, meter: pxMeter };
+  // AUDIT HOLDINGS C6: a host with no page to show (the standalone dungeon sets no provider) says so - the Stable drawn
+  // there told a player who owns both that they own no horse and no wagon
+  if (!secs.length) {
+    detail.append(el('div', 'px-qverdict', 'Nothing here to hold'), el('p', null, 'What you own and who follows you is kept in the world - your horse, your wagon, your ships and your companions.'));
+    wrap.append(detail);
+    body.append(wrap);
+    return;
+  }
   const draw = {
     stable: (d) => drawStablePage(d, render, kit),
     // a door the page opens over the world (the shipwright's window, the water's placing click): the pause goes down

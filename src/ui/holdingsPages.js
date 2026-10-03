@@ -14,7 +14,7 @@
 //
 // THE PROVIDER is the host's (scenes/world.js, scenes/exterior.js - setHoldingsProvider): what the pages read and the
 // acts they ask, so this file touches no runtime. Dressed by the stone-and-brass kit's roles (ui/enhancedFrame.js
-// FRAME_ROLES: a card a panel, a picture a well, a state a chip, Send away the warn) - this sheet writes geometry and
+// FRAME_ROLES: a card a panel, a picture a well, a state a chip) - this sheet writes geometry and
 // the words' colours alone, as the Companions page's does.
 
 import { requestFittedIcon, fittedImg } from './textureCanvas.js';
@@ -57,7 +57,8 @@ export function stableProviderFor({ runtime, on, hasHorse, hasCart }) {
       if (!on()) return { ok: false, text: 'Turn on Horse Cart and Cargo (Features) to call your horse and wagon.' };
       if (verb === 'summon') return runtime.summonTransport();
       if (verb === 'away') return runtime.sendTransportAway();
-      if (verb === 'rename') { const n = runtime.renameHorse(arg); return n ? { ok: true, text: `Your horse is called ${n}.` } : { ok: false, text: 'You do not own a horse.' }; }
+      // AUDIT HOLDINGS C5: a horse never named answers '' - his own, not none
+      if (verb === 'rename') { const n = runtime.renameHorse(arg); return n == null ? { ok: false, text: 'You do not own a horse.' } : n ? { ok: true, text: `Your horse is called ${n}.` } : { ok: false, text: 'Your horse keeps no name - give him one.' }; }
       return { ok: false, text: 'Not here.' };
     },
   };

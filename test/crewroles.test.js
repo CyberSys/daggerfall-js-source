@@ -9,7 +9,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { createShipCrew, CREW_ROLES, ROLES, FIRST_MATE } from '../src/systems/naval/shipCrew.js';
-import { createCrewLife, crewRoster, ROLE_POSTS, POST_SHARE, POST_REACH } from '../src/systems/naval/crewLife.js';
+import { createCrewLife, crewRoster, ROLE_POSTS, POST_REACH } from '../src/systems/naval/crewLife.js';
 import { MOBILE } from '../src/systems/naval/navalBoarding.js';
 import { sea, readyPool } from './navalSea.mjs';
 import { firstBuildOf, hullBuild } from '../src/systems/naval/navalShips.js';
@@ -91,7 +91,8 @@ test('CREW-ROLES each keeps to his post: over five calm minutes her First Mate, 
       assert.ok(at[j] / N > 0.3, `seed ${seed}: her ${roles[i]} at his post ${(at[j] / N).toFixed(2)}`);
       assert.ok(ctl[j] / N < 0.1, `seed ${seed}: with no roles, at that place ${(ctl[j] / N).toFixed(2)}`);
     });
-    assert.ok(at.reduce((a, b) => a + b, 0) / (N * kept.length) > POST_SHARE * 0.6, 'her posts kept, most of the time');
+    // PIN MOVED (AUDIT HOLDINGS T4): the bar was POST_SHARE * 0.6 - a share mutated lowered its own bar; measured 0.73-0.78
+    assert.ok(at.reduce((a, b) => a + b, 0) / (N * kept.length) > 0.6, 'her posts kept, most of the time');
     assert.equal(life.postOf(1), null, 'a Deckhand\'s own place - never a post');
   }
   // under fire her Gunner holds his gun
@@ -167,7 +168,10 @@ test('CREW-ROLES the Fleet page\'s Crew panel: her hands and their posts, a post
   d = draw();
   const picks = all(d, (c) => c.tag === 'select');
   assert.equal(picks.length, ROSTER.length);
-  assert.deepEqual(picks.map((p) => p.children.length), crew.hands.map((h) => CREW_ROLES.length + (h.mobile === MOBILE.Bard ? 1 : 0)), 'a Bard\'s calling on his list alone');
+  // PIN MOVED (AUDIT HOLDINGS C3): a Bard's list has his calling and never the Lookout - her bow is never a Bard's
+  assert.deepEqual(picks.map((p) => p.children.length), crew.hands.map(() => CREW_ROLES.length), 'every list CREW_ROLES long - a Bard\'s his calling in the Lookout\'s place');
+  const bardPick = picks[crew.hands.findIndex((h) => h.mobile === MOBILE.Bard)];
+  assert.ok(bardPick.children.some((o) => o.value === 'Bard') && !bardPick.children.some((o) => o.value === 'Lookout'), 'his calling, no lookout');
   picks[1].value = 'Gunner'; picks[1].onchange();
   d = draw();
   assert.equal(crew.hands[1].role, 'Gunner');

@@ -12,9 +12,10 @@
 // its quays while its mouth is within QUAY_STAND_M of the player - so they are there as a ship sails in, well before
 // she makes her berth; past QUAY_LEAVE_M they come down, as they do with the harbour itself (a transition, a fast
 // travel - the naval host forgets its harbours) and outside the street. A berth whose ground is not built yet (a far
-// pixel still streaming) is laid again QUAY_RETRY_S later. Each quay's collider rides its berth: its triangles baked in
-// the berth's frame turned, its translation the berth's place and the sea's top read live - so a recentre moves it
-// with the world and nothing is stood again.
+// pixel still streaming) is laid again QUAY_RETRY_S later. Each quay's collider is a still bucket, its triangles baked
+// where its berth lies on the sea's top - AUDIT HOLDINGS Q7: never a mover's (a bucket with a translation is never
+// filed in the broadphase, so every ray and sweep asked each quay, and its closure built an array each time) - stood
+// again where the berth lies after a recentre (`offsetAll`, after the naval host's moved the berths).
 //
 // Not a DFU member. Ledger A (QUAYS).
 import { planQuay, lanternLights, QUAY_DECK_UP } from '../systems/naval/quays.js';
@@ -64,16 +65,23 @@ export function createQuayPool(deps) {
     for (const b of q.berths) takeDownBerth(b);
     quays.delete(q.key);
   }
-  function destroyAll() { for (const q of [...quays.values()]) takeDown(q); }
+  function destroyAll() {
+    for (const q of [...quays.values()]) takeDown(q);
+    // AUDIT HOLDINGS Q9: the gangway's mesh freed with them, made again when one is next run out
+    if (gangwayGpu && !gangwayGpu.pending) { try { deps.renderer?.destroyMesh?.(gangwayGpu); } catch { /* the context went first */ } }
+    gangwayGpu = null;
+  }
 
-  /** The berth's collider: its model's triangles turned into the scene's axes, riding the berth's place and the sea. */
+  /** The berth's collider: its model's triangles baked where the berth lies on the sea's top now (a still bucket). */
   function standCollider(b) {
     const col = deps.collider();
     if (!col?.addMesh || !b.model) return;
     col.removeBucket?.(b.bucket);
-    const turn = trs(0, 0, 0, 0, b.plan.frame.theta * DEG, 0);
-    col.addMesh(b.bucket, b.model.positions, b.model.indices, turn, () => [b.berth.pos[0], deps.seaY(), b.berth.pos[1]]);
+    col.addMesh(b.bucket, b.model.positions, b.model.indices, trs(b.berth.pos[0], deps.seaY(), b.berth.pos[1], 0, b.plan.frame.theta * DEG, 0));
+    b.stood = true;
   }
+  /** AUDIT HOLDINGS Q7: the world moved (the floating origin) - each quay's collider stood again where its berth lies now. */
+  function offsetAll() { for (const q of quays.values()) for (const b of q.berths) if (b.stood && !b.dead) standCollider(b); }
 
   /** Lay one berth's quay: its plan off the ground, its model, its textures, its mesh and its collider. */
   async function lay(q, b) {
@@ -87,6 +95,9 @@ export function createQuayPool(deps) {
     b.gpu = deps.renderer?.createMesh ? deps.renderer.createMesh(b.model) : null;
     standCollider(b);
   }
+  /** A berth's lay that failed (a mesh that would not build): laid again QUAY_RETRY_S later - AUDIT HOLDINGS Q9: never
+   *  left with its plan and no quay for good. */
+  function layFailed(b) { b.laying = false; b.plan = null; b.model = null; b.retryAt = now() + QUAY_RETRY_S; }
 
   /** Bring the quays in line with the harbours known and the player's place. Call each frame (cheap when settled). */
   function frame() {
@@ -110,7 +121,7 @@ export function createQuayPool(deps) {
       }
       for (const b of q.berths) {
         if (b.plan || b.laying || t < b.retryAt) continue;
-        lay(q, b).catch(() => { b.laying = false; b.retryAt = now() + QUAY_RETRY_S; });
+        lay(q, b).catch(() => layFailed(b));
       }
     }
   }
@@ -130,8 +141,13 @@ export function createQuayPool(deps) {
     const ways = deps.gangways?.() ?? [];
     if (ways.length && !gangwayGpu && r.createMesh) {
       const model = buildGangwayModel();
-      gangwayGpu = { pending: true };
-      Promise.resolve(deps.prepare?.(model)).catch(() => {}).then(() => { gangwayGpu = r.createMesh(model); });
+      const pending = gangwayGpu = { pending: true };
+      // AUDIT HOLDINGS Q9: a mesh that would not build is tried again, never left pending for good; one taken down
+      // (destroyAll) while its textures came is not stood
+      Promise.resolve(deps.prepare?.(model)).catch(() => {}).then(() => {
+        if (gangwayGpu !== pending) return;
+        try { gangwayGpu = r.createMesh(model); } catch { gangwayGpu = null; }
+      });
     }
     if (gangwayGpu && !gangwayGpu.pending) for (const w of ways) { r.drawMesh(gangwayGpu, gangwayMatrix(w.foot, w.head), null); n++; }
     return n;
@@ -159,7 +175,9 @@ export function createQuayPool(deps) {
     return out;
   }
 
-  return { frame, draw, lights, destroyAll, standing, deckUp: QUAY_DECK_UP };
+  /** AUDIT HOLDINGS Q9: whether berth `index` of harbour `key` has its quay laid - mesh and collider - for the gangway. */
+  const laid = (key, index) => !!quays.get(key)?.berths[index]?.stood;
+  return { frame, draw, lights, destroyAll, offsetAll, standing, laid, deckUp: QUAY_DECK_UP };
 }
 
 /**

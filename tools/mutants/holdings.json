@@ -128,8 +128,8 @@
   {
     "name": "FLEET-loan-due-unread",
     "file": "src/systems/fleet.js",
-    "old": "  if (!a || !(a.loanTotal > 0) || a.loanDueDate !== c.due) return null;",
-    "new": "  if (!a || !(a.loanTotal > 0)) return null;",
+    "old": "  for (const r of _ships.values()) if (r.credit && !(accounts[r.credit.region]?.loanTotal > 0)) { r.credit = null; n++; }",
+    "new": "  for (const r of _ships.values()) if (false) { r.credit = null; n++; }",
     "tests": [
       "test/fleet.test.js"
     ]
@@ -137,8 +137,8 @@
   {
     "name": "FLEET-loan-total-unread",
     "file": "src/systems/fleet.js",
-    "old": "  if (!a || !(a.loanTotal > 0) || a.loanDueDate !== c.due) return null;",
-    "new": "  if (!a || a.loanDueDate !== c.due) return null;",
+    "old": "  if (!a || !(a.loanTotal > 0)) return null;",
+    "new": "  if (!a) return null;",
     "tests": [
       "test/fleet.test.js"
     ]
@@ -425,8 +425,8 @@
   {
     "name": "CR-every-list-a-bard",
     "file": "src/ui/fleetPage.js",
-    "old": "    for (const role of [...CREW_ROLES, ...(h.bard ? ['Bard'] : [])]) {",
-    "new": "    for (const role of [...CREW_ROLES, 'Bard']) {",
+    "old": "    for (const role of [...CREW_ROLES.filter((r) => !(h.bard && r === 'Lookout')), ...(h.bard ? ['Bard'] : [])]) {",
+    "new": "    for (const role of [...CREW_ROLES.filter((r) => !(h.bard && r === 'Lookout')), 'Bard']) {",
     "tests": [
       "test/crewroles.test.js"
     ]

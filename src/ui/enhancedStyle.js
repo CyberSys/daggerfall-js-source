@@ -1787,7 +1787,9 @@ ${badgeCss()}
 .px-win .px-tr { right: -1px; top: -1px; transform: translate(50%,-50%); }
 .px-win .px-bl { left: -1px; bottom: -1px; transform: translate(-50%,50%); }
 .px-win .px-br { right: -1px; bottom: -1px; transform: translate(50%,50%); }
-.px-tabs { display: flex; justify-content: center; gap: 4px;
+/* AUDIT HOLDINGS C4: four tabs - Quests, Stats, Holdings, System - outgrew a narrow window (the strip never wrapped,
+   its host clips: under ~720 px both end tabs were cut); tighter under 900 px and 660 px, wrapped as a last resort, never cut */
+.px-tabs { display: flex; flex-wrap: wrap; justify-content: center; gap: 4px;
   border-bottom: 2px solid rgba(125,116,96,0.55); padding: 6px 8px 2px; }
 .px-tabs button { font: inherit; font-size: 20px; letter-spacing: 0.16em; text-indent: 0.16em;
   text-transform: uppercase; color: #d8cfae; background: none; border: 0; cursor: pointer;
@@ -2087,9 +2089,15 @@ ${badgeCss()}
 .px-qverdict { text-align: center; color: #9c937d; font-size: 14px; letter-spacing: 0.2em;
   text-transform: uppercase; margin: -6px 0 12px; text-shadow: 2px 2px 0 rgba(0,0,0,0.7); }
 .px-qverdict.won { color: rgb(243,239,44); text-shadow: 2px 2px 0 rgb(93,77,12); }
+@media (max-width: 900px) {
+  .px-tabs button { font-size: 18px; letter-spacing: 0.1em; text-indent: 0.1em; padding: 6px 10px; gap: 6px; }
+}
+@media (max-width: 660px) {
+  .px-tabs button { font-size: 15px; letter-spacing: 0.06em; text-indent: 0.06em; padding: 6px 6px; gap: 0; }
+  .px-tabs button .px-c { display: none; }
+}
 @media (max-width: 480px) {
   .px-win { width: 100vw; height: calc(100dvh - 48px); border-left: 0; border-right: 0; }
-  .px-tabs button { font-size: 17px; letter-spacing: 0.1em; text-indent: 0.1em; padding: 6px 10px; gap: 8px; }
   /* PX4: the journal stacks - the rail is a strip of rows across the
      top, the detail beneath, both still whole pixels. */
   .px-journal { flex-direction: column; }

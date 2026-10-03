@@ -83,8 +83,8 @@
   {
     "name": "QUAY-bank-no-land-in",
     "file": "src/systems/naval/quays.js",
-    "old": "jetty = { x0: x1, x1: x1 + t + JETTY_LAND, z0: zJ - JETTY_WIDTH / 2, z1: zJ + JETTY_WIDTH / 2 }; break; }",
-    "new": "jetty = { x0: x1, x1: x1 + t, z0: zJ - JETTY_WIDTH / 2, z1: zJ + JETTY_WIDTH / 2 }; break; }",
+    "old": "x1: x1 + t + (g <= deck + 2 * STEP_M ? JETTY_LAND : 0), z0",
+    "new": "x1: x1 + t, z0",
     "tests": [
       "test/quays.test.js"
     ]
@@ -146,8 +146,8 @@
   {
     "name": "QUAY-cargo-in-the-jetty",
     "file": "src/systems/naval/quays.js",
-    "old": "    if (Math.abs(lz - zJ) < JETTY_WIDTH / 2 + 1 || Math.abs(lz - z0) < 1.6 || Math.abs(lz - z1) < 1.6) continue;",
-    "new": "    if (Math.abs(lz - z0) < 1.6 || Math.abs(lz - z1) < 1.6) continue;",
+    "old": "    if (Math.abs(lz - zJ) < JETTY_WIDTH / 2 + 1 || Math.abs(lz) < GANGWAY_LANE || Math.abs(lz - z0) < 1.6 || Math.abs(lz - z1) < 1.6) continue;",
+    "new": "    if (Math.abs(lz) < GANGWAY_LANE || Math.abs(lz - z0) < 1.6 || Math.abs(lz - z1) < 1.6) continue;",
     "tests": [
       "test/quays.test.js"
     ]
@@ -355,8 +355,8 @@
   {
     "name": "QUAY-pool-bucket-baked-fixed",
     "file": "src/scenes/quayPool.js",
-    "old": "    col.addMesh(b.bucket, b.model.positions, b.model.indices, turn, () => [b.berth.pos[0], deps.seaY(), b.berth.pos[1]]);",
-    "new": "    const at = [b.berth.pos[0], deps.seaY(), b.berth.pos[1]];\n    col.addMesh(b.bucket, b.model.positions, b.model.indices, turn, () => at);",
+    "old": "if (b.stood && !b.dead) standCollider(b); }",
+    "new": "if (b.stood && b.dead) standCollider(b); }",
     "tests": [
       "test/quays.test.js"
     ]
@@ -490,8 +490,8 @@
   {
     "name": "QUAY-host-fleet-not-told",
     "file": "src/scenes/navalHost.js",
-    "old": "    for (const b of myBoats()) deps.dockedPort(b, dockedAt(b));",
-    "new": "",
+    "old": "      if (at != null) { deps.dockedPort(b, at); continue; }",
+    "new": "      if (at != null) { continue; }",
     "tests": [
       "test/quays.test.js"
     ]
@@ -499,7 +499,7 @@
   {
     "name": "QUAY-host-gangway-foot-at-the-berth",
     "file": "src/scenes/navalHost.js",
-    "old": "    const [fx, fz] = quayToScene(frame, frame.halfWidth + QUAY_GAP + 0.4, hz);",
+    "old": "    const [fx, fz] = quayToScene(frame, f.x, hz);",
     "new": "    const [fx, fz] = quayToScene(frame, 0, hz);",
     "tests": [
       "test/quays.test.js"
@@ -508,7 +508,7 @@
   {
     "name": "QUAY-host-gangway-any-look",
     "file": "src/scenes/navalHost.js",
-    "old": "    const facing = (dir) => !lf || lf[0] * dir[0] + lf[2] * dir[1] >= 0.5;",
+    "old": "    const facing = (dir) => !lf || lf[0] * dir[0] + lf[2] * dir[1] >= GANGWAY_FACING;",
     "new": "    const facing = () => true;",
     "tests": [
       "test/quays.test.js"
@@ -517,7 +517,7 @@
   {
     "name": "QUAY-host-gangway-ashore-anywhere",
     "file": "src/scenes/navalHost.js",
-    "old": "        if (Math.hypot(g.head[0] - feet[0], g.head[2] - feet[2]) <= GANGWAY_REACH + 1 && facing(g.landward)) return { ...g, way: 'ashore' };",
+    "old": "        if (Math.hypot(g.deckAt[0] - feet[0], g.deckAt[2] - feet[2]) <= GANGWAY_ASHORE && facing(g.landward)) return { ...g, way: 'ashore' };",
     "new": "        if (facing(g.landward)) return { ...g, way: 'ashore' };",
     "tests": [
       "test/quays.test.js"
@@ -526,7 +526,7 @@
   {
     "name": "QUAY-host-gangway-not-taken",
     "file": "src/scenes/navalHost.js",
-    "old": "    if (!e) { const g = gangwayInReach(); return g ? takeGangway(g) : false; }   // QUAYS: the gangway, on foot",
+    "old": "    if (!e) { const g = boatTrigger ? null : gangwayInReach(); return g ? takeGangway(g) : false; }",
     "new": "    if (!e) return false;",
     "tests": [
       "test/quays.test.js"
@@ -535,7 +535,7 @@
   {
     "name": "QUAY-host-gangway-press-not-said",
     "file": "src/scenes/navalHost.js",
-    "old": "    return !!(boardableOnFoot() || gangwayInReach());   // QUAYS: and the gangway",
+    "old": "    return !!(boardableOnFoot() || (!boatTrigger && gangwayInReach()));",
     "new": "    return !!boardableOnFoot();",
     "tests": [
       "test/quays.test.js"
@@ -544,8 +544,8 @@
   {
     "name": "QUAY-host-ashore-in-the-sea",
     "file": "src/scenes/navalHost.js",
-    "old": "      deps.board?.placePlayer?.([g.ashore[0], g.foot[1], g.ashore[1]], Math.atan2(g.landward[0], g.landward[1]));",
-    "new": "      deps.board?.placePlayer?.([g.ashore[0], deps.seaY(), g.ashore[1]], Math.atan2(g.landward[0], g.landward[1]));",
+    "old": "      deps.board?.placePlayer?.([...g.ashore], Math.atan2(g.landward[0], g.landward[1]));",
+    "new": "      deps.board?.placePlayer?.([g.ashore[0], deps.seaY(), g.ashore[2]], Math.atan2(g.landward[0], g.landward[1]));",
     "tests": [
       "test/quays.test.js"
     ]
@@ -625,7 +625,7 @@
   {
     "name": "QUAY-fleet-page-away-unsaid",
     "file": "src/ui/fleetPage.js",
-    "old": "      if (s.docked) return { state: 'Made fast', tone: 'is-away',",
+    "old": "      if (s.docked != null) return { state: 'Made fast', tone: 'is-away',",
     "new": "      if (false) return { state: 'Made fast', tone: 'is-away',",
     "tests": [
       "test/quays.test.js"
@@ -634,8 +634,8 @@
   {
     "name": "QUAY-world-lights-by-day",
     "file": "src/scenes/world.js",
-    "old": "...droppedTorches.lights(), ...(quays?.lights() ?? []));   // PEERLIGHT1",
-    "new": "...droppedTorches.lights());   // PEERLIGHT1",
+    "old": "if (lightsOnAt(minute)) for (const l of quays?.lights() ?? []) csaLit.push(",
+    "new": "for (const l of quays?.lights() ?? []) csaLit.push(",
     "tests": [
       "test/quays.test.js"
     ]

@@ -421,7 +421,8 @@ test('DECOR2b the host (worldModes.js) by source: the tool reads the deliveries;
   assert.match(m, /function decorHome\(item\) \{\n\s*if \(isFurnishing\(item\)\) return \(playerEntity\.furnishings \?\?= \[\]\);\n\s*return \(playerEntity\.items \?\?= \[\]\);/);
   assert.match(m, /function decorDeliver\(items\) \{\n\s*if \(!items\.length\) return;\n\s*for \(const it of items\) decorHome\(it\)\.push\(it\);\n\s*say\(furnishingDeliveredLine\(items\.map\(\(it\) => itemLongName\(it\)\)\)\);/, 'said once for the lot');
   assert.match(m, /if \(i >= 0\) shelf\.items\.splice\(i, 1\);\n\s*if \(!isFurnishing\(it\)\) addItem\(playerEntity\.items, it\);\n\s*\}\n\s*decorDeliver\(staged\.filter\(isFurnishing\)\);/, 'the counter');
-  assert.match(m, /if \(isFurnishing\(it\)\) decorDeliver\(\[it\]\);[^\n]*\n\s*else addItem\(playerEntity\.items, it\);/, 'the keyed list');
+  // PIN MOVED (AUDIT HOLDINGS F8): the rest of the keyed list's buy into the pack, but a ship's deed to the Fleet's book
+  assert.match(m, /if \(isFurnishing\(it\)\) decorDeliver\(\[it\]\);[^\n]*\n(?:\s*\/\/[^\n]*\n)*\s*else if \(!\(it\?\.templateIndex === FLEET_DEED_TEMPLATE && titleDeed\(it, [^\n]*\)\)\) addItem\(playerEntity\.items, it\);/, 'the keyed list');
   assert.match(m, /packItems: \(\) => \(playerEntity\.items \?\?= \[\]\),\n\s*deliver: \(items\) => decorDeliver\(items\),/, 'the steal');
   assert.match(m, /if \(shopShelfTheft\(shelfBefore, shelf\.items\.length\)\) tallyCrimeGuildRequirements\(playerEntity, true, 1\);\n\s*decorDeliverCarried\(\);/, 'the closed shop');
   assert.match(m, /function decorDeliverCarried\(\) \{\n\s*const pack = playerEntity\.items \?\? \[\];\n\s*const carried = pack\.filter\(isFurnishing\);\n\s*for \(const it of carried\) pack\.splice\(pack\.indexOf\(it\), 1\);\n\s*decorDeliver\(carried\);/);

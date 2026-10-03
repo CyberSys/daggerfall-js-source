@@ -44,8 +44,7 @@ test('PEERLIGHT1 reader: the light stands where the owner\'s own torch stands, a
 test('PEERLIGHT1 wiring: sent with my pose, eased, and added to every scene\'s light list', () => {
   const w = read('src/scenes/world.js'), m = read('src/scenes/worldModes.js');
   assert.match(w, /lt: torchPoseByte\(playerEntity\),/);
-  // PIN MOVED (QUAYS): the night's list ends with the quays' lanterns after the dropped torches
-  assert.equal((w.match(/\.\.\.peerTorchLights\(\), \.\.\.\(gatePool\?\.lights\(\) \?\? \[\]\), \.\.\.\(riteHost\?\.lights\(\) \?\? \[\]\), \.\.\.camps\.lights\(\), \.\.\.droppedTorches\.lights\(\)(, \.\.\.\(quays\?\.lights\(\) \?\? \[\]\))?\)/g) || []).length, 2, 'the exterior, night and day');   // WB12d: the rite's braziers after the gate's fire
+  assert.equal((w.match(/\.\.\.peerTorchLights\(\), \.\.\.\(gatePool\?\.lights\(\) \?\? \[\]\), \.\.\.\(riteHost\?\.lights\(\) \?\? \[\]\), \.\.\.camps\.lights\(\), \.\.\.droppedTorches\.lights\(\)\)/g) || []).length, 2, 'the exterior, night and day');   // WB12d: the rite's braziers after the gate's fire
   assert.match(w, /peerLights: \(o\) => peerTorchLights\(o\),/);   // AUDIT PRE-MERGE 0928 M4: the dungeon's list asks for no torches under the abyss (audit0928_merge.test.js)
   assert.match(m, /\.\.\.\(host\.peerLights\?\.\(\{ torches: !_abyss\?\.torchOff \}\) \?\? \[\]\)\.map\(\(l\) => abyssCandle\(_dgTint\(l\), _abyss\)\), \.\.\.dungeonCtx\.campLights\(\)/, 'the dungeon, in its tint (AUDIT PRE-MERGE 0928 M4: under the abyss\'s own presentation)');
   assert.match(m, /\.\.\.\(host\.peerLights\?\.\(\) \?\? \[\]\), \.\.\.interiorTorches\.lights\(\)\)/, 'the interior');

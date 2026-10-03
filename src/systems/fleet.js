@@ -20,7 +20,7 @@
 // in the pack; laid up: neither, her title in the book) - scenes/fleetHost.js. Nothing here touches a host.
 
 import { mintDeed, BOAT_DEED_TEMPLATE, BOAT_PARTS_TEMPLATE } from './comeSailAwayItems.js';
-import { HULL_NAMES, HULL_PRICES, VARIANT_NAMES } from './comeSailAwayBoat.js';
+import { HULL_NAMES, HULL_PRICES, VARIANT_NAMES, HULL_VARIANT_COUNTS } from './comeSailAwayBoat.js';
 import { checkName } from '../net/nameFilter.js';
 
 export const FLEET_SAVE_VENDOR = 'Fleet';
@@ -121,8 +121,19 @@ export function loanOwed(rec, accounts) {
   const c = rec?.credit;
   if (!c || !Array.isArray(accounts)) return null;
   const a = accounts[c.region];
-  if (!a || !(a.loanTotal > 0) || a.loanDueDate !== c.due) return null;
+  // AUDIT HOLDINGS F4: owed while her region's bank is owed anything at all - its due date is no mark of the loan that
+  // bought her (borrowing more puts it later, the Empire calling the debt in sets it to now, and either lifted her claim
+  // with the loan unpaid); cleared for good once the Fleet sees nothing owed there (`settleCredit`)
+  if (!a || !(a.loanTotal > 0)) return null;
   return { region: c.region, owed: a.loanTotal };
+}
+/** AUDIT HOLDINGS F4: every claim whose region's bank is owed nothing now cleared for good - the loan that bought her
+ *  repaid (a later one is no claim of hers). Answers how many were cleared. */
+export function settleCredit(accounts) {
+  if (!Array.isArray(accounts)) return 0;
+  let n = 0;
+  for (const r of _ships.values()) if (r.credit && !(accounts[r.credit.region]?.loanTotal > 0)) { r.credit = null; n++; }
+  return n;
 }
 
 // ── THE LEDGER ───────────────────────────────────────────────────────────────────────────────────────────────────────
@@ -131,6 +142,12 @@ const _book = [];           // her title: the deed items, Come Sail Away's own s
 const upgradesBlank = () => ({ hold: 0, rigging: 0, hull: 0, guns: 0 });
 const isUid = (v) => Number.isSafeInteger(v) && v > 0;
 const hullOk = (h) => Number.isInteger(h) && h >= 0 && h < HULL_NAMES.length;
+/** AUDIT HOLDINGS F7: a variant her hull has - the Large Boat's seven, every other hull's one (SpawnBoat throws on any
+ *  other: a hostile save's Large Boat 8 threw from the page's Summon). */
+const variantOk = (hull, v) => Number.isInteger(v) && v >= 0 && v < Math.max(1, HULL_VARIANT_COUNTS[hull] ?? 0);
+/** AUDIT HOLDINGS F7: the most a save may hold, and her worth's ceiling (gold). */
+export const FLEET_MAX = 256;
+export const SHIP_VALUE_MAX = 10000000;
 /** A deed's hull and variant, read as Come Sail Away reads them (`hull * 10 + variant`). */
 const hullOfItem = (it) => Math.floor((it?.message | 0) / 10);
 const variantOfItem = (it) => (it?.message | 0) % 10;
@@ -160,20 +177,44 @@ export function titleDeed(deed, { from = null, credit = null, port = null } = {}
   if (from) { const i = from.indexOf(deed); if (i >= 0) from.splice(i, 1); }
   if (!titleOf(deed.UID)) _book.push(deed);
   const r = recordFor(deed.UID, hullOfItem(deed), variantOfItem(deed), deed.value);
-  if (credit && Number.isInteger(credit.region) && Number.isFinite(credit.due)) r.credit = { region: credit.region, due: credit.due };
+  if (credit && Number.isInteger(credit.region) && credit.region >= 0) r.credit = { region: credit.region, due: Number.isFinite(credit.due) ? credit.due : 0 };
   if (port) r.port = port;
   return r;
 }
 /** Every deed in `pack` entered (an older save's, a shelf's, the console's). Answers how many. */
 export function titleDeedsIn(pack, opts = {}) {
   let n = 0;
-  for (const it of [...(pack ?? [])]) if (it?.templateIndex === BOAT_DEED_TEMPLATE && titleDeed(it, { ...opts, from: pack })) n++;
+  // AUDIT HOLDINGS F2: never the deed a placing holds (`except`) - entered mid-placing, the placing spent its small
+  // boat's deed out of the pack, where it no longer lay, and her title stayed in the book while she stood
+  for (const it of [...(pack ?? [])]) if (it?.templateIndex === BOAT_DEED_TEMPLATE && it !== opts.except && titleDeed(it, { ...opts, from: pack })) n++;
   return n;
 }
 /** A boat of the player's standing with no title (a small boat's parts placed - its deed spent, as the mod spends one;
  *  her parts in the pack) given her record, so her name and her refits are hers. */
 export function knowShip(uid, hull, variant, value) {
-  return isUid(uid) && hullOk(hull) ? recordFor(uid, hull, variant | 0, value) : null;
+  if (!isUid(uid) || !hullOk(hull)) return null;
+  const r = recordFor(uid, hull, variantOk(hull, variant) ? variant : 0, value);
+  // AUDIT HOLDINGS F3: her rig as she stands now (a Large Boat's picked again) - her record and her title with it, so a
+  // ship laid up and called back keeps the rig she was sent away in
+  if (r.hull === hull && variantOk(hull, variant) && r.variant !== variant) {
+    r.variant = variant;
+    const t = titleOf(uid);
+    if (t) { const fresh = mintDeed(r.hull, variant, uid, t.value); t.message = fresh.message; t.name = fresh.name; }
+  }
+  return r;
+}
+/** AUDIT HOLDINGS F5: the bank's claim stamped on a boat bought as parts (a Rowboat off the shelf) - known to the
+ *  ledger at once, as a deed is. */
+export function creditShip(uid, hull, variant, value, credit) {
+  const r = knowShip(uid, hull, variant, value);
+  if (r && credit && Number.isInteger(credit.region) && credit.region >= 0) r.credit = { region: credit.region, due: Number.isFinite(credit.due) ? credit.due : 0 };
+  return r;
+}
+/** AUDIT HOLDINGS F8: a record no ship answers (a prize whose claim failed after her title was entered) forgotten. */
+export function forgetShip(uid) {
+  _ships.delete(uid);
+  const i = _book.findIndex((it) => it?.UID === uid);
+  if (i >= 0) _book.splice(i, 1);
 }
 /** Her name given (`shipNameVerdict`'s): answers the verdict. */
 export function renameShip(uid, raw) {
@@ -215,18 +256,24 @@ export function fleetSaveData() {
 export function restoreFleetSaveData(data) {
   _ships.clear();
   _book.length = 0;
-  for (const s of Array.isArray(data?.ships) ? data.ships : []) {
-    if (!s || !isUid(s.uid) || !hullOk(s.hull)) continue;
-    const variant = Number.isInteger(s.variant) && s.variant >= 0 && s.variant < VARIANT_NAMES.length ? s.variant : 0;
-    const r = recordFor(s.uid, s.hull, variant, Number.isFinite(s.value) ? s.value : undefined);
+  // AUDIT HOLDINGS F7: a save read as it may be - FLEET_MAX records at most, one a number (a second of the same uid
+  // entered a second title), her variant one her hull has, her worth within [0, SHIP_VALUE_MAX], her port's name the
+  // printable text a name keeps
+  for (const s of (Array.isArray(data?.ships) ? data.ships : []).slice(0, FLEET_MAX)) {
+    if (!s || !isUid(s.uid) || !hullOk(s.hull) || _ships.has(s.uid)) continue;
+    const variant = variantOk(s.hull, s.variant) ? s.variant : 0;
+    const r = recordFor(s.uid, s.hull, variant, Number.isFinite(s.value) ? Math.max(0, Math.min(SHIP_VALUE_MAX, s.value)) : undefined);
     const v = shipNameVerdict(s.name);
     r.name = v.ok ? v.name : '';
     for (const l of UPGRADE_LINES) r.upgrades[l.id] = Math.max(0, Math.min(UPGRADE_TIERS, Number(s.upgrades?.[l.id]) | 0));
-    r.credit = s.credit && Number.isInteger(s.credit.region) && Number.isFinite(s.credit.due) ? { region: s.credit.region, due: s.credit.due } : null;
-    r.port = s.port && typeof s.port.name === 'string' ? { name: s.port.name.slice(0, 64) } : null;
+    r.credit = s.credit && Number.isInteger(s.credit.region) && s.credit.region >= 0 ? { region: s.credit.region, due: Number.isFinite(s.credit.due) ? s.credit.due : 0 } : null;
+    const port = typeof s.port?.name === 'string' ? printable(s.port.name).slice(0, 64) : '';
+    r.port = s.port && typeof s.port.name === 'string' ? { name: port } : null;
     if (s.title) _book.push(mintDeed(r.hull, r.variant, r.uid, r.value));
   }
 }
+/** Printable ASCII alone (a line break or a tab a space), runs of white space closed. */
+const printable = (raw) => { let t = ''; for (const ch of String(raw ?? '')) { const c = ch.charCodeAt(0); if (c >= 32 && c <= 126) t += ch; else if (/\s/.test(ch)) t += ' '; } return t.replace(/\s+/g, ' ').trim(); };
 /** The ledger as a mod's save slot (systems/modSaveData.js registerModSaveData). */
 export const fleetSaveSlot = Object.freeze({ newSaveData: newFleetSaveData, getSaveData: fleetSaveData, restoreSaveData: restoreFleetSaveData });
 /** Tests: an empty ledger. */

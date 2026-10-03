@@ -16,10 +16,11 @@
 //   }
 
 import {
-  fleetShip, fleetShips, fleetBook, titleOf, titleDeedsIn, knowShip, renameShip, addRefit, setShipPort, retitle, refitOf, loanOwed,
+  fleetShip, fleetShips, fleetBook, titleOf, titleDeedsIn, knowShip, renameShip, addRefit, setShipPort, retitle, refitOf, loanOwed, settleCredit,
   shipLabel, upgradeCost, materialCount, takeMaterials, UPGRADE_LINES, UPGRADE_TIERS, MATERIALS, BOAT_PARTS_TEMPLATE,
 } from '../systems/fleet.js';
 import { HULL_NAMES, HULL_PRICES } from '../systems/comeSailAwayBoat.js';
+import { mintDeed } from '../systems/comeSailAwayItems.js';
 import { TERRAIN_EDGE } from '../systems/comeSailAway.js';
 import { batteriesOf } from '../systems/naval/navalShips.js';
 import { CREW_ORDERS, CREW_ROLES } from '../systems/naval/shipCrew.js';
@@ -51,8 +52,9 @@ export function createFleetHost(deps) {
 
   /** Every deed in the pack entered in the book, and every boat of mine with a number known to the ledger. */
   function sweep() {
-    titleDeedsIn(pack());
-    for (const b of placed()) knowShip(b.uid, b.hull, b.variant, b.itemValue);
+    titleDeedsIn(pack(), { except: csa()?.state?.placeItem ?? null });   // AUDIT HOLDINGS F2: never the deed a placing holds
+    for (const b of placed()) knowShip(b.uid, b.hull, b.variant, b.itemValue);   // AUDIT HOLDINGS F3: her rig as she stands
+    settleCredit(deps.accounts?.());   // AUDIT HOLDINGS F4: a claim whose bank is owed nothing now, cleared for good
     for (const it of pack()) if (it?.templateIndex === BOAT_PARTS_TEMPLATE && it.UID) knowShip(it.UID, Math.floor((it.message | 0) / 10), (it.message | 0) % 10, it.value);
   }
 
@@ -205,6 +207,7 @@ export function createFleetHost(deps) {
     }
     if (verb === 'summon') {
       if (why.summon) return said(false, why.summon);
+      setShipPort(uid, null);   // AUDIT HOLDINGS Q8: called away from where she lay - made fast at the quay, the docking says the port again
       const title = titleOf(uid);
       const berth = n?.freeBerth?.(rec.hull) ?? null;   // QUAYS: alongside its quay for her own hull - made fast at it
       if (berth) {
@@ -215,14 +218,19 @@ export function createFleetHost(deps) {
       // no berth known (the sea fight off, every one taken): the deed's own placing - the water clicked
       if (!title && at.where !== 'away') return said(false, 'She could not be brought round.');
       return said(true, `Choose where ${name} lies: click the water near the quay.`, () => {
-        const t = title ?? retitle(uid);
-        r.StartPlacing(t, () => fleetBook());
+        // AUDIT HOLDINGS F2: her title placed from the book; a small boat afloat elsewhere (no title - spent on her
+        // placing) from a deed of the moment in a list of its own, never minted into the book: a click on land, a fast
+        // travel or a placing already under way left that title in the book while she stood
+        const t = title ?? mintDeed(rec.hull, rec.variant, uid, rec.value);
+        const list = title ? fleetBook() : [t];
+        r.StartPlacing(t, () => list);
         return true;
       });
     }
     if (verb === 'away') {
       if (why.away) return said(false, why.away);
       const near = deps.nearestPort?.() ?? null;
+      knowShip(uid, at.boat.hull, at.boat.variant, at.boat.itemValue);   // AUDIT HOLDINGS F3: her rig as she is sent away
       retitle(uid);   // a small boat's title, spent on her placing, made again: the book stands for her laid up
       if (!r.LayUpBoat(at.boat)) return said(false, 'She could not be sent away.');
       setShipPort(uid, near ? { name: near.name } : null);

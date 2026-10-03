@@ -8,7 +8,7 @@
 // Not a DFU member. Ledger A (QUAYS).
 
 import { MeshBuilder } from './detStandIns.js';
-import { QUAY_DECK_T, PILE_R, BOLLARD_R, BOLLARD_H, LANTERN_UP, LANTERN_ARM, lanternHead } from '../systems/naval/quays.js';
+import { QUAY_DECK_T, PILE_R, BOLLARD_R, BOLLARD_H, LANTERN_UP, LANTERN_ARM, QUAY_KERB_W, QUAY_KERB_H, lanternHead } from '../systems/naval/quays.js';
 
 const WOOD = [67, 0];        // the classic ship's own planking: the decks
 const WOOD_DARK = [67, 8];   // a darker plank of the same set: the piles, the timbers, the cargo
@@ -51,7 +51,7 @@ export function buildQuayModel(plan) {
   const { deck } = plan, q = plan.quay, t = QUAY_DECK_T;
   // the deck, its kerb along the face and the timber under the face
   m.box(WOOD, [(q.x0 + q.x1) / 2, deck - t / 2, (q.z0 + q.z1) / 2], [q.x1 - q.x0, t, q.z1 - q.z0], 0.5);
-  m.box(WOOD_DARK, [q.x0 + 0.15, deck + 0.075, (q.z0 + q.z1) / 2], [0.3, 0.15, q.z1 - q.z0], 1);
+  m.box(WOOD_DARK, [q.x0 + QUAY_KERB_W / 2, deck + QUAY_KERB_H / 2, (q.z0 + q.z1) / 2], [QUAY_KERB_W, QUAY_KERB_H, q.z1 - q.z0], 1);
   m.box(WOOD_DARK, [q.x0 + 0.12, deck - t - 0.2, (q.z0 + q.z1) / 2], [0.24, 0.4, q.z1 - q.z0], 1);
   // the jetty to the shore, railed both sides, and its ramp down to a beach
   const j = plan.jetty;

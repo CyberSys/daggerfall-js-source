@@ -38,7 +38,8 @@
 //            SHIP-CLAIM (optional - without the first two no prize is claimed): mintUid() (the mod's items' UID,
 //            DaggerfallUnity.NextUID), packDeed(item) -> () => items (the item into the pack as the mod adds one -
 //            AddItem, no weight's gate - and the pack's live list the placing spends from), terrainAt(pos) -> terrain |
-//            null (the placing's nodes and pixel), redeck(from, to) (the bodies on one hull's deck stood on another's) }
+//            null (the placing's nodes and pixel), redeck(from, to) (the bodies on one hull's deck stood on another's),
+//            forgetDeed(item) (AUDIT HOLDINGS F8: a claim that failed - the ledger's record of her forgotten) }
 //   hold(key, tier) -> items                   DFU's loot roll at the player's level (systems/loot.js generateItems), its
 //                                              rarity at the lot's tier (navalPlunder.js holdTier)
 //   online: { id() -> string|null, peers() -> [{ id, feet }] } | null
@@ -87,7 +88,7 @@ import { raiderPlan, raiderClassOf, RAIDER_DROP_M } from '../systems/naval/naval
 import { pursue } from '../systems/naval/seaLanes.js';   // AUDIT BAY A6: a packet steered along her leg
 import { FADE_FLATS } from './comeSailAwayPool.js';   // AUDIT BAY A13/A14: what of a fading ship goes at half
 import { intoDeck, outOfDeck, mainLevel } from '../systems/naval/navalDeck.js';   // AUDIT NAV2 F36: the feet in her deck's frame (aboardShip); QUAYS: her rail where the gangway lands
-import { dockFor, madeFast, warpStep, quaySide, landwardOf, quayFrame, quayToScene, sceneToQuay, DOCK_WAY, GANGWAY_REACH, QUAY_GAP, QUAY_DECK_UP } from '../systems/naval/quays.js';   // QUAYS: docking at a harbour's quays
+import { dockFor, madeFast, warpStep, quaySide, landwardOf, quayFrame, quayToScene, sceneToQuay, gangwayFoot, DOCK_WAY, DOCK_REACH_M, DOCK_REFUSED, GANGWAY_REACH, GANGWAY_ASHORE, GANGWAY_FACING, GANGWAY_SIDE, QUAY_GAP, QUAY_WIDTH, QUAY_DECK_UP } from '../systems/naval/quays.js';   // QUAYS: docking at a harbour's quays
 
 /** The record's name in the save's per-mod slot (systems/modSaveData.js) - the port's own, as the Sigil Broker's is. */
 export const NAVAL_SAVE_VENDOR = 'NavalCombat';
@@ -2491,7 +2492,7 @@ export function createNavalHost(deps) {
    * Activate: at the helm, throw the grapples on a struck ship in reach; on foot (a deck alongside her, or swimming
    * up), go over her rail when she is within reach and the look is on her. True when it took the press.
    */
-  function activate() {
+  function activate({ boatTrigger = false } = {}) {
     if (!enabled || boarding || aiming) return false;   // AUDIT NAV2 F31: the guns laid, Activate is the hold's (holdFire) - never a grapple thrown with a broadside owed on the release
     const boat = myBoat();
     // a prize of mine whose fate is not yet set: her hold again
@@ -2505,7 +2506,7 @@ export function createNavalHost(deps) {
       return yardHere(boat) && openYard(boat);   // AUDIT NAV1: the shipwright, lying to his quay
     }
     const e = boardableOnFoot();
-    if (!e) { const g = gangwayInReach(); return g ? takeGangway(g) : false; }   // QUAYS: the gangway, on foot
+    if (!e) { const g = boatTrigger ? null : gangwayInReach(); return g ? takeGangway(g) : false; }   // QUAYS: the gangway, on foot - AUDIT HOLDINGS Q4: never over her own helm, hold or door the ray is on (`boatTrigger`)
     startBoarding('board', e, null);
     return true;
   }
@@ -2513,12 +2514,12 @@ export function createNavalHost(deps) {
    *  hold, a struck ship to board or to heave to beside, the yard at her quay, a struck ship's rail on foot. The street
    *  asks it before a node's press: at sea the net's cast stands in the look, and E cast it while the readout said "E:
    *  board her". */
-  function takesActivate() {
+  function takesActivate({ boatTrigger = false } = {}) {
     if (aiming || boarding || !enabled) return false;   // activate's own guard
     const boat = myBoat();
     if (prizeInReach(boat)) return true;
     if (boat) return !!(boardable(boat) || heaveFor(boat) || yardHere(boat));
-    return !!(boardableOnFoot() || gangwayInReach());   // QUAYS: and the gangway
+    return !!(boardableOnFoot() || (!boatTrigger && gangwayInReach()));   // QUAYS: and the gangway
   }
   /** A prize this player took and has not yet scuttled or cast off, within reach - of the helm (BOARD_RANGE past the
    *  two beams) or of the feet (FOOT_BOARD_M past hers) - the look on her. */
@@ -2917,7 +2918,7 @@ export function createNavalHost(deps) {
     // lies a prize still - never a deed with no boat, nor a second deed for her
     let boat = null;
     try { boat = r.LaunchFromDeed(deed, pack, at, forwardOfYaw(s.yaw), deps.board.terrainAt?.(at)); } catch (err) { console.warn('[naval] a claimed prize would not be placed', err); }
-    if (!boat) { const list = pack(), i = list.indexOf(deed); if (i >= 0) list.splice(i, 1); return false; }
+    if (!boat) { const list = pack(), i = list.indexOf(deed); if (i >= 0) list.splice(i, 1); deps.board?.forgetDeed?.(deed); return false; }   // AUDIT HOLDINGS F8: and the ledger's record of her with it
     pz.fate = 'claim';
     if (pz.hold.length) deps.board?.giveItems?.(pz.hold.splice(0), boat);
     const st = myBoatState(boat);
@@ -3208,11 +3209,12 @@ export function createNavalHost(deps) {
   }
   /** Whether berth `i` of harbour `key` is free - no ship of my sea moored at it or coming in to it, and (AUDIT BAY A7)
    *  none lying still at it: another player's moored ship, whose errand never rides the word (a packet was berthed
-   *  on one). */
-  function berthFree(key, i) {
-    for (const e of sea.values()) { const r = e.ship.errand; if (r && r.harbour === key && r.berth === i && (r.kind === 'moored' || r.kind === 'arrive')) return false; }
+   *  on one). `except`: a ship asking of her own berth (AUDIT HOLDINGS Q5 - an arriving ship's last look). */
+  function berthFree(key, i, except = null) {
+    for (const e of sea.values()) { const r = e.ship.errand; if (e.ship !== except && r && r.harbour === key && r.berth === i && (r.kind === 'moored' || r.kind === 'arrive')) return false; }
     const b = harbours.get(key)?.harbour?.berths[i];
-    if (b) for (const e of sea.values()) if (e.ship.damage.state !== SHIP_STATES.sunk && (e.ship.speed ?? 0) < BERTH_WAY && Math.hypot(b.pos[0] - e.ship.pos[0], b.pos[1] - e.ship.pos[2]) <= BERTH_SNAP_M) return false;
+    if (b) for (const e of sea.values()) if (e.ship !== except && e.ship.damage.state !== SHIP_STATES.sunk && (e.ship.speed ?? 0) < BERTH_WAY && Math.hypot(b.pos[0] - e.ship.pos[0], b.pos[1] - e.ship.pos[2]) <= BERTH_SNAP_M) return false;
+    if (warping?.k === `${key}#${i}`) return false;   // AUDIT HOLDINGS Q5: the berth my ship is warped in to, from as far as DOCK_REACH_M
     return !(b && boatAtBerth(b, null));   // QUAYS: nor a boat of mine or another player's lying at it - none moors into her
   }
   /** QUAYS: a boat of mine or another player's (not `except`) lying at berth `b` - within BERTH_SNAP_M of it, mine under
@@ -3240,7 +3242,7 @@ export function createNavalHost(deps) {
    *  quay for her own hull (`hull`; shipLife.js alongside) - she is brought round made fast at it. */
   function freeBerth(hull = HULL.Carrack) {
     const f = deps.feet?.();
-    if (!f) return null;
+    if (!f || DOCK_REFUSED.includes(hull)) return null;   // AUDIT HOLDINGS Q2: no quay takes a galley - the placing click
     let best = null, bestD = Infinity;
     for (const h of harbours.values()) {
       const berths = h.harbour?.berths ?? [];
@@ -3332,22 +3334,29 @@ export function createNavalHost(deps) {
     const step = warpStep([pose.position[0], pose.position[2]], yaw, dock, dt);
     return { pos: step.pos, rotation: quatOfYaw(step.yaw) };
   }
-  /** The gangway run out to a boat of mine made fast at a quay: its foot on the quay's face across from her waist, its
-   *  head over her main deck's rail on the quay's side (her deck's own, navalDeck.js rail; `deckAt` that deck point
-   *  itself) - scene points - or null. */
+  /** The gangway run out to a boat of mine made fast at a quay, square to her side at her waist (quays.js gangwayFoot -
+   *  AUDIT HOLDINGS Q1: never through her): its head at her main deck's port or on her gunwale (GANGWAY_SIDE), its foot
+   *  on the quay; `deckAt` her main deck's rail cell by it (navalDeck.js rail), where the player comes over her side;
+   *  `ashore` where he steps off it onto the quay's deck - scene points - or null. AUDIT HOLDINGS Q9: none onto a quay
+   *  not yet laid (`deps.quayLaid` - a plank over the water, a step ashore into the sea). */
   function gangwayOf(boat) {
     const d = dockOf(boat);
     if (!d?.berth || !boat.MeshObject) return null;
+    if (deps.quayLaid && !deps.quayLaid(d.key, d.index)) return null;
     const deck = deps.pool?.deckOf?.(boat.hull, boat.variant ?? 0);
     const side = quaySide(yawOfRot(boat.GameObject.rotation), landwardOf(d.berth));
     const m = boat.MeshObject.worldMatrix();
+    const [sx, sy] = GANGWAY_SIDE[boat.hull] ?? GANGWAY_SIDE[0];
+    const head = outOfDeck(m, [side * sx, sy, 0]);
     const rail = deck?.count ? deck.rail(side, 0, [0, 0, 0], mainLevel(deck)) : null;
-    const local = rail ? [rail[0] + side * 0.5, rail[1] + 0.9, rail[2]] : [side * hullBuild(boat.hull).beam, hullBuild(boat.hull).deck + 0.9, 0];
-    const head = outOfDeck(m, local), deckAt = rail ? outOfDeck(m, rail) : head;
-    const frame = quayFrame(d.berth, d.harbourHull);
-    const [, hz] = sceneToQuay(frame, head[0], head[2]);
-    const [fx, fz] = quayToScene(frame, frame.halfWidth + QUAY_GAP + 0.4, hz);
-    return { boat, name: deps.shipName?.(boat) || null, port: d.name ?? null, foot: [fx, deps.seaY() + QUAY_DECK_UP, fz], head, deckAt, ashore: quayToScene(frame, frame.halfWidth + QUAY_GAP + 1.6, hz), landward: landwardOf(d.berth) };
+    const deckAt = rail ? outOfDeck(m, rail) : head;
+    const frame = quayFrame(d.berth, d.harbourHull), seaY = deps.seaY();
+    const x0 = frame.halfWidth + QUAY_GAP, x1 = x0 + QUAY_WIDTH;
+    const [hx, hz] = sceneToQuay(frame, head[0], head[2]);
+    const f = gangwayFoot(hx, head[1] - seaY, x0, x1);
+    const [fx, fz] = quayToScene(frame, f.x, hz);
+    const [ax, az] = quayToScene(frame, f.x > x0 ? Math.min(f.x + 0.6, x1 - 0.4) : x0 + 1.6, hz);   // past a climbing plank's foot, else in from the kerb
+    return { boat, name: deps.shipName?.(boat) || null, port: d.name ?? null, foot: [fx, seaY + f.y, fz], head, deckAt, ashore: [ax, seaY + QUAY_DECK_UP, az], landward: landwardOf(d.berth) };
   }
   /** The gangways run out now: every boat of mine shown in the world and made fast. */
   function gangways() {
@@ -3355,18 +3364,19 @@ export function createNavalHost(deps) {
     for (const b of myBoats()) { const g = gangwayOf(b); if (g) out.push(g); }
     return out;
   }
-  /** The gangway the player can take now, on foot: from the quay by its foot, looking at her - aboard; from her deck by
-   *  its head, looking at the quay - ashore. `{ ...gangway, way }` or null. */
-  function gangwayInReach() {
+  /** The gangway the player can take now, on foot: on the quay by its foot, looking at her - aboard; on her deck by her
+   *  rail there (GANGWAY_ASHORE - AUDIT HOLDINGS Q4), looking at the quay - ashore. `{ ...gangway, way }` or null.
+   *  `looking` false: by it, wherever the look (its word's - said once a coming, never again as the look swings). */
+  function gangwayInReach(looking = true) {
     if (myBoat() || boarding) return null;
     const feet = deps.feet?.();
     if (!feet) return null;
-    const look = deps.look?.();
+    const look = looking ? deps.look?.() : null;
     const lf = look ? flatUnit(look.dir) : null;
-    const facing = (dir) => !lf || lf[0] * dir[0] + lf[2] * dir[1] >= 0.5;
+    const facing = (dir) => !lf || lf[0] * dir[0] + lf[2] * dir[1] >= GANGWAY_FACING;
     for (const g of gangways()) {
       if (standsOn(g.boat, feet)) {
-        if (Math.hypot(g.head[0] - feet[0], g.head[2] - feet[2]) <= GANGWAY_REACH + 1 && facing(g.landward)) return { ...g, way: 'ashore' };
+        if (Math.hypot(g.deckAt[0] - feet[0], g.deckAt[2] - feet[2]) <= GANGWAY_ASHORE && facing(g.landward)) return { ...g, way: 'ashore' };
       } else if (Math.hypot(g.foot[0] - feet[0], g.foot[2] - feet[2]) <= GANGWAY_REACH && Math.abs(feet[1] - g.foot[1]) <= 2 && facing([-g.landward[0], -g.landward[1]])) return { ...g, way: 'aboard' };
     }
     return null;
@@ -3380,7 +3390,7 @@ export function createNavalHost(deps) {
       deps.board?.placePlayer?.(spot[0], spot[1]);
       deps.say?.(`You go aboard${g.name ? ` the ${g.name}` : ''}.`, 2);
     } else {
-      deps.board?.placePlayer?.([g.ashore[0], g.foot[1], g.ashore[1]], Math.atan2(g.landward[0], g.landward[1]));
+      deps.board?.placePlayer?.([...g.ashore], Math.atan2(g.landward[0], g.landward[1]));
       deps.say?.(`You step ashore at ${portWords(g.port)}.`, 2);
     }
     return true;
@@ -3388,17 +3398,25 @@ export function createNavalHost(deps) {
   let gangwaySaid = null;   // the gangway the player was last told of, so it is said once a coming to it
   /** The gangway's word, once each time the player comes to it. */
   function gangwayHint() {
-    const g = gangwayInReach();
+    const g = gangwayInReach(false);
     const k = g ? `${g.way}:${g.boat.uid ?? ''}` : null;
     if (k && k !== gangwaySaid) deps.say?.(g.way === 'aboard' ? `The gangway${g.name ? ` to the ${g.name}` : ''} - Activate to go aboard.` : 'The gangway - Activate to step ashore.', 3);
     gangwaySaid = k;
   }
   let dockPortsAt = -Infinity;
-  /** The Fleet's word of where each boat of mine lies made fast (`deps.dockedPort(boat, name | null)`), once a second. */
+  /** The Fleet's word of where each boat of mine lies made fast (`deps.dockedPort(boat, name | null)`), once a second -
+   *  AUDIT HOLDINGS Q8: "nowhere" said only where it is known - a known harbour's mouth within HARBOUR_STAND of her, or
+   *  she under way; a harbour forgotten (a door, a jump) or never sounded leaves the last word standing. */
   function dockPorts() {
     if (!deps.dockedPort || clock - dockPortsAt < 1) return;
     dockPortsAt = clock;
-    for (const b of myBoats()) deps.dockedPort(b, dockedAt(b));
+    for (const b of myBoats()) {
+      const at = dockedAt(b);
+      if (at != null) { deps.dockedPort(b, at); continue; }
+      const p = b.GameObject.position, v = boatPose(b).velocity;
+      const known = [...harbours.values()].some((h) => h.harbour && Math.hypot(h.harbour.mouth[0] - p[0], h.harbour.mouth[1] - p[2]) <= HARBOUR_STAND);
+      if (known || Math.hypot(v[0], v[2]) > DOCK_WAY) deps.dockedPort(b, null);
+    }
   }
   /** A hull's water grid, made once for the scene as it stands. */
   function gridOf(hull) {
@@ -3420,8 +3438,9 @@ export function createNavalHost(deps) {
   function harbourFrame(seaY) {
     const near = deps.harbourNear?.() ?? null;
     const sound = () => findHarbour({ rect: near.rect, isWater: (x, z, h) => deps.isWater(x, z, h) });
-    if (near && !harbours.has(near.key)) harbours.set(near.key, { key: near.key, name: near.name ?? null, harbour: sound(), rolled: false, at: clock });
-    else if (near) { const h = harbours.get(near.key); if (!h.harbour && clock - h.at >= HARBOUR_RETRY_S) { h.harbour = sound(); h.at = clock; } }   // AUDIT SHIP-LIFE B7
+    // AUDIT HOLDINGS O1: sounded once every pixel its scan reads is built (`near.ready`) - never off a half-streamed shore
+    if (near && !harbours.has(near.key)) { if (near.ready?.() !== false) harbours.set(near.key, { key: near.key, name: near.name ?? null, harbour: sound(), rolled: false, at: clock }); }
+    else if (near) { const h = harbours.get(near.key); if (!h.harbour && clock - h.at >= HARBOUR_RETRY_S && near.ready?.() !== false) { h.harbour = sound(); h.at = clock; } }   // AUDIT SHIP-LIFE B7
     const feet = deps.feet();
     const day = where().day ?? 0;
     for (const h of harbours.values()) {
@@ -4215,6 +4234,7 @@ export function createNavalHost(deps) {
     wireVolleys = []; wireBarrels = [];
     gunfire = [];   // AUDIT NAV2 F8: the guns heard go with the sea they were fired on
     harbours.clear(); grids = new Map();   // SHIP-LIFE: found again, and their ships stood again, where the world is next
+    warping = null; gangwaySaid = null;   // AUDIT HOLDINGS Q9: no warp nor gangway word carried across
     claims.clear(); granted.clear();
     myCasks.clear();   // KEEP-PLUNDER
     seenVolleys.clear();

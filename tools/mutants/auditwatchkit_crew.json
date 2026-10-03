@@ -29,8 +29,8 @@
   {
     "name": "WK-W1-first-man-first",
     "file": "src/systems/naval/crewLife.js",
-    "old": "      if (m.i > 0) return (lookout = m);",
-    "new": "      return (lookout = m);",
+    "old": "      if (m.i === 0) { first = first ?? m; continue; }",
+    "new": "      if (m.i === 0 && false) { first = first ?? m; continue; }",
     "tests": [
       "test/auditwatchkit_crew.test.js"
     ]

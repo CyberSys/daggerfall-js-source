@@ -195,6 +195,7 @@ export function createShipCrew({ seed, regionIndex = 17, record = null }) {
       if (!h) return { ok: false, text: 'No such hand aboard her.' };
       const bard = role === 'Bard' && h.mobile === MOBILE.Bard;
       if (!/** @type {readonly string[]} */ (CREW_ROLES).includes(role) && !bard) return { ok: false, text: 'No such post aboard her.' };
+      if (role === LOOKOUT_ROLE && h.mobile === MOBILE.Bard) return { ok: false, text: `${h.name} leads her songs - he keeps no lookout.` };   // AUDIT HOLDINGS C3: her bow is never a Bard's (crewLife.js canLook)
       if (h.role === role) return { ok: true, text: `${h.name} is her ${role} already.` };
       if (role === FIRST_MATE) for (const o of hands) if (o !== h && o.role === FIRST_MATE) o.role = 'Deckhand';
       h.role = role;

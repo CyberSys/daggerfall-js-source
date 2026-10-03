@@ -38,7 +38,7 @@
   {
     "name": "SHPK-deed-kept",
     "file": "src/systems/comeSailAway.js",
-    "old": "if (deed && !inBook(deed)) removeItem(deps.items.player(), deed);",
+    "old": "      if (deed) removeExact(inBook(deed) ? deps.items.titles() : deps.items.player(), deed);",
     "new": "",
     "tests": [
       "test/shippack.test.js"

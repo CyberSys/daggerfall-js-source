@@ -271,7 +271,7 @@ import { freeTavernRooms } from '../systems/guildServices.js';
 // B2: the bank - the window, the per-region accounts and the purse seam.
 import { BankWindow, preloadBankArt, bankArtLoaded, BANK_RECTS, BANK_PANEL_X, BANK_PANEL_Y } from '../ui/bankWindow.js';
 import { BankPurchaseWindow, preloadPurchaseArt, purchaseArtLoaded } from '../ui/bankPurchaseWindow.js';   // H2
-import { titleDeed, shipLabel, BOAT_DEED_TEMPLATE as FLEET_DEED_TEMPLATE } from '../systems/fleet.js';   // HOLDINGS: a bought deed into the Fleet's book
+import { titleDeed, shipLabel, creditShip, BOAT_DEED_TEMPLATE as FLEET_DEED_TEMPLATE, BOAT_PARTS_TEMPLATE as FLEET_PARTS_TEMPLATE } from '../systems/fleet.js';   // HOLDINGS: a bought deed into the Fleet's book; AUDIT HOLDINGS F5: bought parts' claim
 import { createBankAccounts, createHouses, BANK_REGION_COUNT, TRANSACTION_RESULT, ownsHouse, isHouseOwned, ownedHouseKey, houseSellPrice, housesForSale, allocateHouseToPlayer, purchaseHouse, ownsShip, ownedShipType, purchaseShip, sellShip, sellHouse, SHIP_COORDS, SHIP_INTERIOR_MAP_IDS, housePrice, creditMarksSale, marksSaleCredit, crossedDeedLines, goldRegion, creditDecision, takeCredit, empireRefusalLines } from '../systems/banking.js';   // H1/H2   // H3: the two leaves - the sell price and the ship
 // HOME1: the online homes - the door's one answer, the offer, the owner's menu, and an owned home's own scene
 import {
@@ -2654,6 +2654,7 @@ export function createWorldModes(host) {
         .map((it) => titleDeed(it, { from: playerEntity.items, port: town ? { name: town } : null, credit: credit ? { region: credit.region, due: playerEntity.bankAccounts?.[credit.region]?.loanDueDate } : null }))
         .filter(Boolean);
       if (titled.length) hudText(`${titled.length === 1 ? `${shipLabel(titled[0])} waits` : `${titled.length} ships wait`} for you at ${town || 'this port'}. See Holdings > Fleet in the pause menu.`);
+      if (credit) for (const it of staged) if (it?.templateIndex === FLEET_PARTS_TEMPLATE && it.UID) creditShip(it.UID, Math.floor((it.message | 0) / 10), (it.message | 0) % 10, it.value, { region: credit.region, due: playerEntity.bankAccounts?.[credit.region]?.loanDueDate });   // AUDIT HOLDINGS F5: a boat bought as parts on the bank's credit carries its claim
     } else if (mode === 'Sell' || mode === 'SellMagic') {
       // The proceeds were weighed before they were paid: a purse that
       // would push the player past MaxEncumbrance becomes a letter of
@@ -2772,7 +2773,9 @@ export function createWorldModes(host) {
     shelf.items.splice(at, 1);
     playerEntity.items = playerEntity.items || [];
     if (isFurnishing(it)) decorDeliver([it]);   // DECOR2b: the furnisher delivers
-    else addItem(playerEntity.items, it);
+    // AUDIT HOLDINGS F8: a ship's deed off the keyed shelf goes to the Fleet's book as the counter's does (she waits at
+    // this town's port); one the book will not take (no number) into the pack as before
+    else if (!(it?.templateIndex === FLEET_DEED_TEMPLATE && titleDeed(it, { port: buildingDirectory?.()?.locationName ? { name: buildingDirectory().locationName } : null }))) addItem(playerEntity.items, it);
     tallySkill(playerEntity, SKILLS.Mercantile, 1);   // per completed trade (DFU OnTrade)
     surfacePlayer();
     return price;
@@ -8827,7 +8830,7 @@ export function createWorldModes(host) {
           // AUDIT 39r: and the FLASH, which this arm was copied without.
           // An arrow reaches the player through BowDamage ->
           // ApplyDamageToPlayer -> SendDamageToPlayer, the same door as
-          // a blow (world.js:15398's own wave-46 note); the interior
+          // a blow (world.js:15416's own wave-46 note); the interior
           // MELEE hit already flashes inside exteriorFoes, so only this
           // arm - which applies its own damage - was missing it.
           flashPlayerDamage(dmg);   // BA1: RemoveHealth carries the amount
@@ -11533,7 +11536,7 @@ export function createWorldModes(host) {
      *  (world.js's, this file's `interiorWeapon` :538, dungeonContext's
      *  and exterior.js's - which this seam does not reach: that host has no save path at all, its charter exterior.js:3503-3525), and IS1 routed the inside-a-building save to
      *  the WORLD host's composer - which reads its own exterior rig
-     *  unconditionally (world.js:11717). So an F9 pressed in a shop
+     *  unconditionally (world.js:11735). So an F9 pressed in a shop
      *  recorded the street's sheath and hand, and the load wrote them
      *  back into the street's rig; the rig actually in the player's
      *  hands was in no envelope at all.
@@ -11572,7 +11575,7 @@ export function createWorldModes(host) {
       if (interiorOverlay instanceof DeathScreen) { interiorOverlay.restoreView(); interiorOverlay = null; }
     },
     /** The restore half - and NOT gated on the mode, deliberately.
-     *  worldQuickLoad calls forceExitToExterior FIRST (world.js:11832)
+     *  worldQuickLoad calls forceExitToExterior FIRST (world.js:11850)
      *  and only re-enters the building at :4217, so the mode at apply
      *  time is whatever the LOAD landed in, not whatever the SAVE was
      *  taken in: an outdoor save loaded while the player was indoors
@@ -11582,7 +11585,7 @@ export function createWorldModes(host) {
      *
      *  FLAG ONLY and presence-gated - both laws now stated once, in
      *  combat/playerWeapon.js's applyWeaponPose, with the citation.
-     *  HARD2c: this used to spell them out, and named `world.js:10710`
+     *  HARD2c: this used to spell them out, and named `world.js:10728`
      *  and `dungeonContext.js:8002` for its two sibling copies - lines
      *  that had moved to :4418 and :5457. Three copies of a two-line
      *  law, and even the comment pointing between them had gone stale. */

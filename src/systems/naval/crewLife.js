@@ -75,6 +75,9 @@ export const LOOKOUT_BACK = 0.75;
  * Deckhands and her Bard go where they will. A second holder of one post stands beside the first.
  */
 export const ROLE_POSTS = Object.freeze(['First Mate', 'Bosun', 'Carpenter', 'Cook', 'Gunner']);
+/** AUDIT HOLDINGS C2: with none named Lookout, the order a posted hand gives his post up to keep her bow (a hand with
+ *  no post first) - her First Mate never. */
+export const LOOKOUT_YIELD = Object.freeze(['Gunner', 'Cook', 'Carpenter', 'Bosun']);
 /** HOLDINGS: the share of an idle hand's choices that take him back to his post (the rest are his own - a job, a talk, a
  *  walk), and how far off it he stands at it (m). */
 export const POST_SHARE = 0.8;
@@ -329,8 +332,18 @@ export function createCrewLife({ deck, roster, seed, places = [], faction = null
     const p = rolePosts();
     if (!p) return null;
     let n = 0;
-    for (const o of members) { if (o === m) break; if (roles[o.i] === role && !o.station && o !== lookout) n++; }
-    if (role === 'Gunner') return p.Gunner[n % Math.max(1, p.Gunner.length)] ?? null;
+    // AUDIT HOLDINGS C8: a holder gone (ashore, fallen) holds no place - the next stands at the post, not beside it
+    for (const o of members) { if (o === m) break; if (roles[o.i] === role && !o.station && o !== lookout && !o.gone) n++; }
+    if (role === 'Gunner') {
+      if (n < p.Gunner.length) return p.Gunner[n] ?? null;
+      if (!p.Gunner.length) return null;
+      // AUDIT HOLDINGS C8: a Gunner past her guns (a galley's eight hands) beside one of them, never on its man's spot
+      const gun = p.Gunner[n % p.Gunner.length];
+      gun.more ??= [];
+      const k = Math.floor(n / p.Gunner.length) - 1;
+      while (gun.more.length <= k) { const q = p.at(gun.at[0], gun.at[2]); gun.more.push(q ? { at: q, face: gun.face } : null); }
+      return gun.more[k] ?? gun;
+    }
     const base = p[role];
     if (!base?.at) return null;
     if (!n) return base;
@@ -353,15 +366,20 @@ export function createCrewLife({ deck, roster, seed, places = [], faction = null
       lookout = want;
     }
     if (lookout && !lookout.gone && !lookout.below) return lookout;
-    let first = null;
+    let first = null, best = null, bestRank = Infinity;
     lookout = null;
     for (let k = 0; k < members.length; k++) {
       const m = members[k];
       if (!canLook(m)) continue;
-      if (m.i > 0) return (lookout = m);
-      first = first ?? m;
+      if (m.i === 0) { first = first ?? m; continue; }
+      // AUDIT HOLDINGS C2: with none named Lookout, a hand with no post keeps her bow - else the one whose post matters
+      // least (LOOKOUT_YIELD: a Gunner, her Cook, her Carpenter, her Bosun), never the Bosun the Small Ship's and the
+      // Carrack's rosters are dealt while a Gunner stands by; no roles at all, her first hand past her captain as ever
+      const role = roles[m.i] ?? '', rank = LOOKOUT_YIELD.indexOf(role);
+      const r = role === 'First Mate' ? LOOKOUT_YIELD.length : rank < 0 ? -1 : rank;
+      if (r < bestRank) { best = m; bestRank = r; if (r < 0) break; }
     }
-    return (lookout = first);
+    return (lookout = best ?? first);
   }
 
   const live = () => members.filter((m) => !m.gone && !m.below);

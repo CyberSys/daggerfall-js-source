@@ -38,7 +38,7 @@ export function whereWords(s) {
     // QUAYS: made fast at a port's quay - where she is shown, her own place; afar, the last the Fleet heard of her
     case 'here': return s.docked != null ? { state: 'Made fast', tone: '', line: `Made fast at ${quayWords(s.docked)}, ${farWords(s.metres)}.` } : { state: 'Afloat', tone: '', line: `Lying ${farWords(s.metres)}.` };
     case 'away':
-      if (s.docked) return { state: 'Made fast', tone: 'is-away', line: `Made fast at ${quayWords(s.docked)}${s.metres == null ? '' : `, ${farWords(s.metres)}${s.way ? ` to the ${s.way}` : ''}`}.` };
+      if (s.docked != null) return { state: 'Made fast', tone: 'is-away', line: `Made fast at ${quayWords(s.docked)}${s.metres == null ? '' : `, ${farWords(s.metres)}${s.way ? ` to the ${s.way}` : ''}`}.` };
       return { state: 'Afloat', tone: 'is-away', line: s.metres == null ? 'Afloat far from here.' : `Afloat ${farWords(s.metres)}${s.way ? ` to the ${s.way}` : ''}.` };
     case 'laidup': return { state: 'Laid up', tone: 'is-away', line: s.port ? `Laid up at ${s.port} - she is brought round to any port you call her at.` : 'Laid up - she is brought round to any port you call her at.' };
     case 'packed': return { state: 'Packed', tone: 'is-away', line: 'Her parts are in your pack - use them to launch her.' };
@@ -92,7 +92,7 @@ function refitPanel(el, s, rerender, act) {
 function crewPanel(el, s, act) {
   const box = el('div', 'hld-text');
   if (!s.hands?.length) { box.append(el('span', 'hld-sub', 'She has no hands aboard - hire them at a shipwright.')); return box; }
-  box.append(el('span', 'hld-sub', 'Each keeps his post on her deck: her First Mate by the helm, her Bosun at the mainmast, her Carpenter by the hatch, her Cook at the galley, her Gunners at the guns, her Lookout at the bow.'));
+  box.append(el('span', 'hld-sub', 'Each keeps his post on her deck: her First Mate by the helm, her Bosun at the mainmast, her Carpenter by the hatch, her Cook at the galley, her Gunners at the guns, her Lookout at the bow. With no Lookout named, a hand with no post keeps the bow, else a Gunner.'));
   for (const h of s.hands) {
     const row = el('div', 'hld-refit hld-hand');
     const head = el('div', 'hld-head');
@@ -101,7 +101,7 @@ function crewPanel(el, s, act) {
     if (h.fights) row.append(el('span', 'hld-sub', `${h.fights} fight${h.fights === 1 ? '' : 's'} won`));
     const pick = /** @type {HTMLSelectElement} */ (el('select', 'hld-field hld-select'));
     pick.setAttribute('aria-label', `${h.name}'s post`);
-    for (const role of [...CREW_ROLES, ...(h.bard ? ['Bard'] : [])]) {
+    for (const role of [...CREW_ROLES.filter((r) => !(h.bard && r === 'Lookout')), ...(h.bard ? ['Bard'] : [])]) {   // AUDIT HOLDINGS C3: a Bard keeps no lookout
       const o = /** @type {HTMLOptionElement} */ (el('option', null, role));
       o.value = role;
       if (role === h.role) o.selected = true;

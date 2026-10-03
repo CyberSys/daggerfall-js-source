@@ -647,7 +647,7 @@
   {
     "name": "BAY-A7-lying-ship-unread",
     "file": "src/scenes/navalHost.js",
-    "old": "    if (b) for (const e of sea.values()) if (e.ship.damage.state !== SHIP_STATES.sunk && (e.ship.speed ?? 0) < BERTH_WAY && Math.hypot(b.pos[0] - e.ship.pos[0], b.pos[1] - e.ship.pos[2]) <= BERTH_SNAP_M) return false;",
+    "old": "    if (b) for (const e of sea.values()) if (e.ship !== except && e.ship.damage.state !== SHIP_STATES.sunk && (e.ship.speed ?? 0) < BERTH_WAY && Math.hypot(b.pos[0] - e.ship.pos[0], b.pos[1] - e.ship.pos[2]) <= BERTH_SNAP_M) return false;",
     "new": "    if (false) return false;",
     "tests": [
       "test/auditbay_lanes.test.js"

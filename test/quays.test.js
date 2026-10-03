@@ -10,12 +10,13 @@ import { readFileSync } from 'node:fs';
 import {
   planQuay, quayFrame, quayToScene, sceneToQuay, dockFor, madeFast, warpStep, quaySide, landwardOf, lanternLights, lanternHead, keyHash,
   QUAY_GAP, QUAY_WIDTH, QUAY_DECK_UP, QUAY_ENDS, PILE_DEPTH, JETTY_MAX, JETTY_LAND, JETTY_WIDTH, STEP_M, RAMP_SLOPE, CARGO_MAX,
-  DOCK_REACH_M, DOCK_ANGLE, FAST_M, FAST_DEG, WARP_SPEED, LANTERN_UP, LANTERN_ARM, DOCK_WAY,
+  DOCK_REACH_M, DOCK_ANGLE, FAST_M, FAST_DEG, WARP_SPEED, LANTERN_UP, LANTERN_ARM, DOCK_WAY, GANGWAY_SLOPE, GANGWAY_CLEAR, GANGWAY_BACK,
 } from '../src/systems/naval/quays.js';
 import { findHarbour, hullSize, alongside, offsetHarbour, BERTH_HULL } from '../src/systems/naval/shipLife.js';
 import { quatOfYaw } from '../src/systems/naval/navalAI.js';
 import { outOfDeck } from '../src/systems/naval/navalDeck.js';
 import { buildQuayModel, buildGangwayModel } from '../src/world/quayModel.js';
+const JETTY_STEP_T = 1;   // quays.js JETTY_STEP: the shore walked a metre at a time
 import { createQuayPool, gangwayMatrix, QUAY_STAND_M, QUAY_LEAVE_M, QUAY_RETRY_S, QUAY_LIGHTS_MAX, QUAY_LIGHT_REACH, QUAY_BUCKET } from '../src/scenes/quayPool.js';
 import { whereWords } from '../src/ui/fleetPage.js';
 import { sea } from './navalSea.mjs';
@@ -69,12 +70,16 @@ test('QUAYS THE QUAY ALONG HER BERTH: in the berth\'s frame (+x to the land, +z 
 test('QUAYS THE SHORE WALKED: from the quay\'s back to the land at her waist - a bank that meets the deck takes a jetty JETTY_LAND onto it; dry ground under the deck takes the jetty to it and a ramp down to the ground (never steeper than RAMP_SLOPE, ending on it); a bank at the quay\'s very back a jetty of JETTY_LAND alone; no land within JETTY_MAX none, the quay standing alone', () => {
   const b = HARBOUR.berths[0], f = quayFrame(b, HARBOUR.hull);
   const landAt = (p) => { for (let x = p.quay.x1; x < p.quay.x1 + 60; x += 0.25) { const [sx, sz] = quayToScene(f, x, (f.z0 + f.z1) / 2); if (!coast(sx, sz)) return x; } return Infinity; };
-  // a bank 3 m up
-  let p = plan0();
+  // a bank level with the deck (2 m up)
+  let p = plan0({ groundAt: groundOf(() => 2) });
   assert.ok(p.jetty && !p.ramp, 'a jetty, no ramp');
   const shore = landAt(p);
   assert.equal(p.jetty.x0, p.quay.x1, 'from the quay\'s back');
   assert.ok(p.jetty.x1 >= shore + JETTY_LAND - 1 - 1e-9 && p.jetty.x1 <= shore + JETTY_LAND + 1 + 1e-9, `onto the bank JETTY_LAND (${p.jetty.x1.toFixed(2)} vs shore ${shore.toFixed(2)})`);
+  // AUDIT HOLDINGS Q9: a bank standing over the deck by more than two steps (3 m up: a wall) met at its face, never run
+  // JETTY_LAND into it
+  const wall = plan0();
+  assert.ok(wall.jetty && wall.jetty.x1 >= shore - 1 - 1e-9 && wall.jetty.x1 <= shore + 1e-9 + JETTY_STEP_T, `met at its face (${wall.jetty.x1.toFixed(2)} vs shore ${shore.toFixed(2)})`);
   assert.ok(Math.abs(p.jetty.z1 - p.jetty.z0 - JETTY_WIDTH) < 1e-9 && Math.abs((p.jetty.z0 + p.jetty.z1) / 2 - (f.z0 + f.z1) / 2) < 1e-9, 'JETTY_WIDTH, at her waist');
   // a beach: dry, 0.4 m up and rising 5 cm a metre - under the deck
   const beach = (x, z) => 0.4 + Math.max(0, z - 200) * 0.05;
@@ -242,14 +247,21 @@ test('QUAYS THE POOL: a harbour the naval host knows stands its quays while its 
   assert.ok(Math.abs(m0[12] - b0.pos[0]) < 1e-4 && Math.abs(m0[13] - SEA) < 1e-4 && Math.abs(m0[14] - b0.pos[1]) < 1e-4, 'at the berth, on the sea\'s top');
   const xAxis = [m0[0], m0[2]];
   assert.ok(Math.abs(xAxis[0] + b0.normal[0]) < 1e-5 && Math.abs(xAxis[1] + b0.normal[1]) < 1e-5, 'its +x to the land');
-  // the bucket: the model turned, its translation the berth's live place - a recentre moves it with the world
-  const bk = log.buckets.get(`${QUAY_BUCKET}port:1:0`);
-  assert.deepEqual(bk.t(), [b0.pos[0], SEA, b0.pos[1]]);
-  assert.ok(Math.abs(bk.m[12]) + Math.abs(bk.m[13]) + Math.abs(bk.m[14]) < 1e-9, 'baked turned, never placed');
+  // the bucket: a still one (AUDIT HOLDINGS Q7 - a mover's is never filed in the broadphase), baked where the berth lies
+  // on the sea's top, the drawn matrix's own; a recentre stands it again where the berth lies now (offsetAll)
+  let bk = log.buckets.get(`${QUAY_BUCKET}port:1:0`);
+  assert.equal(bk.t, undefined, 'no translation: a still bucket');
+  assert.deepEqual([...bk.m].map((v) => +v.toFixed(4)), [...m0].map((v) => +v.toFixed(4)), 'baked as it is drawn');
   const was = [...b0.pos];
   offsetHarbour(HARBOUR, [100, 0, -50]);
-  assert.deepEqual(bk.t(), [was[0] + 100, SEA, was[1] - 50], 'rides the berth');
+  pool.offsetAll();
+  bk = log.buckets.get(`${QUAY_BUCKET}port:1:0`);
+  assert.deepEqual([bk.m[12], bk.m[13], bk.m[14]].map((v) => +v.toFixed(4)), [was[0] + 100, SEA, was[1] - 50].map((v) => +v.toFixed(4)), 'stood again with the berth');
+  assert.equal(log.buckets.size, n, 'each stood once');
   offsetHarbour(HARBOUR, [-100, 0, 50]);
+  pool.offsetAll();
+  assert.equal(pool.laid('port:1', 0), true, 'laid: the gangway may run onto it');
+  assert.equal(pool.laid('port:1', 99), false);
   // past QUAY_LEAVE_M: down
   w.feet = [HARBOUR.mouth[0] + QUAY_LEAVE_M + 10, SEA, HARBOUR.mouth[1]];
   pool.frame();
@@ -420,7 +432,7 @@ test('QUAYS A SHIP SAILING BY TAKES NO BERTH, by the real host: the port\'s roll
   assert.equal(at0.length, 1, 'the berth still the port\'s');
 });
 
-test('QUAYS THE GANGWAY, by the real host: run out from the quay\'s face to her main deck\'s rail on the quay\'s side while she lies made fast; on foot at its foot, looking at her, Activate goes aboard (said); on her deck by its head, looking at the land, Activate steps ashore onto the quay, facing the land (said); the press is the sea\'s (takesActivate) - and none while she is under way', async () => {
+test('QUAYS THE GANGWAY, by the real host: run out square to her side at her waist while she lies made fast - from her main deck\'s port down to the quay\'s deck, in from its face as far as a climb of GANGWAY_SLOPE asks (AUDIT HOLDINGS Q1); on foot at its foot, looking at her, Activate goes aboard (said); on her deck by its head, looking at the land, Activate steps ashore onto the quay, facing the land (said); the press is the sea\'s (takesActivate) - and none while she is under way', async () => {
   const h = await dockSea();
   layOff(h, 0, 6, 5 * DEG);
   warpFor(h, 30);
@@ -431,11 +443,13 @@ test('QUAYS THE GANGWAY, by the real host: run out from the quay\'s face to her 
   const g = ways[0];
   assert.ok(Math.abs(g.foot[1] - QUAY_DECK_UP) < 1e-9, 'its foot on the quay\'s deck');
   const b = h.harbour.berths[0], f = quayFrame(b, h.harbour.hull);
-  const [fx] = sceneToQuay(f, g.foot[0], g.foot[2]);
-  assert.ok(Math.abs(fx - (f.halfWidth + QUAY_GAP + 0.4)) < 1e-6, 'by the quay\'s face');
-  const [hx] = sceneToQuay(f, g.head[0], g.head[2]);
-  assert.ok(hx < fx && hx > 0, 'its head over her side toward the quay');
-  assert.ok(g.head[1] > g.foot[1], 'up to her rail');
+  // PIN MOVED (AUDIT HOLDINGS Q1): its foot was on the quay's face, the plank climbing 2 m into her side under her deck
+  const [fx, fz] = sceneToQuay(f, g.foot[0], g.foot[2]);
+  const [hx, hz] = sceneToQuay(f, g.head[0], g.head[2]);
+  assert.ok(hx < fx && hx > 0, 'its head on her side toward the quay');
+  assert.ok(Math.abs(hz - fz) < 1e-9, 'square to her');
+  assert.ok(Math.abs(Math.atan2(g.head[1] - g.foot[1], fx - hx) / DEG - GANGWAY_SLOPE) < 1e-6, 'up at GANGWAY_SLOPE');
+  assert.ok(fx > f.halfWidth + QUAY_GAP + GANGWAY_CLEAR - 1e-9 && fx < f.halfWidth + QUAY_GAP + QUAY_WIDTH - GANGWAY_BACK + 1e-9, 'in on the quay\'s deck');
   const toShip = [-g.landward[0], 0, -g.landward[1]];
   // on the quay at its foot, looking at her
   h.view.feet = [...g.foot];
@@ -457,6 +471,7 @@ test('QUAYS THE GANGWAY, by the real host: run out from the quay\'s face to her 
   const [ashoreAt, ashoreYaw] = h.log.placed.at(-1);
   const [ax] = sceneToQuay(f, ashoreAt[0], ashoreAt[2]);
   assert.ok(ax > f.halfWidth + QUAY_GAP && ax < f.halfWidth + QUAY_GAP + QUAY_WIDTH && Math.abs(ashoreAt[1] - QUAY_DECK_UP) < 1e-9, 'onto the quay');
+  assert.ok(ax > fx, 'past its foot - never under the plank');
   assert.ok(Math.abs(ashoreYaw - Math.atan2(g.landward[0], g.landward[1])) < 1e-9, 'facing the land');
   assert.ok(h.log.say.includes("You step ashore at Sentinel's quay."));
   // on her deck far from it (her forecastle), looking at the land: not the gangway's
@@ -523,14 +538,18 @@ test('QUAYS THE FLEET\'S WORD: a ship shown made fast at a port\'s quay reads so
 
 test('QUAYS THE WORLD\'S WIRING: the pool made beside the farms over the naval host\'s harbours and gangways, the sea\'s top and the ground; stood each frame before the lights, drawn in the world pass, its lanterns in the lanterns\' hours, down with a re-anchor and a load; Come Sail Away handed the warp, the naval host the Fleet\'s word and her name - THE FOUR HOSTS: a building\'s and a dungeon\'s frames have no sea, the standalone street no naval host', () => {
   const w = read('src/scenes/world.js');
-  assert.match(w, /quays = createQuayPool\(\{\n    renderer,\n    prepare: async \(model\) => \{ for \(const sm of model\.subMeshes\) \{ await getTexture\(sm\.textureArchive\); uploadRecord\(sm\.textureArchive, sm\.textureRecord, \{ opaque: true \}\); \} \},\n    collider: \(\) => collider,\n    harbours: \(\) => \(navalOn\(\) \? naval\?\.harbourList\?\.\(\) \?\? \[\] : \[\]\),\n    seaY: \(\) => tvSeaY\(\),\n    groundAt: \(x, z\) => surfaceAt\(x, z\),/);
+  assert.match(w, /quays = createQuayPool\(\{\n    renderer,\n    prepare: async \(model\) => \{ for \(const sm of model\.subMeshes\) \{ await getTexture\(sm\.textureArchive\); uploadRecord\(sm\.textureArchive, sm\.textureRecord, \{ opaque: true \}\); \} \},\n    collider: \(\) => collider,\n    harbours: \(\) => \(navalOn\(\) \? naval\?\.harbourList\?\.\(\) \?\? \[\] : \[\]\),\n    seaY: \(\) => tvSeaY\(\),/);
+  // AUDIT HOLDINGS Q6: a full-detail pixel's ground alone
+  assert.match(w, /groundAt: \(x, z\) => \{ const p = csaPixelAt\(x, z\); return p && \(p\._stride \?\? 1\) === 1 \? surfaceAt\(x, z\) : NaN; \},/);
+  assert.match(w, /quays\?\.offsetAll\(\);/);
+  assert.match(w, /quayLaid: \(key, index\) => quays\?\.laid\(key, index\) \?\? true,/);
   assert.match(w, /gangways: \(\) => \(navalOn\(\) \? naval\?\.gangways\?\.\(\) \?\? \[\] : \[\]\),/);
   const frameAt = w.indexOf('try { quays?.frame(); }'), lightsAt = w.indexOf('if (lightsOnAt(minute)) {'), drawAt = w.indexOf('quays?.draw(renderer);');
   assert.ok(frameAt > 0 && frameAt < lightsAt && lightsAt < drawAt, 'stood before the lights, drawn in the world pass');
-  const night = w.slice(lightsAt, w.indexOf('} else {', lightsAt));
-  assert.match(night, /\.\.\.droppedTorches\.lights\(\), \.\.\.\(quays\?\.lights\(\) \?\? \[\]\)\);/, 'the lanterns in the lanterns\' hours');
-  const day = w.slice(w.indexOf('} else {', lightsAt), w.indexOf('csaPoolFrame(dt);', lightsAt));
-  assert.ok(!day.includes('quays'), 'never by day');
+  // AUDIT HOLDINGS Q3: scene lights in the boats' selection, in the lanterns' hours alone - never the player's extras
+  assert.match(w, /if \(lightsOnAt\(minute\)\) for \(const l of quays\?\.lights\(\) \?\? \[\]\) csaLit\.push\(\{ x: l\.x, y: l\.y, z: l\.z, range: l\.range, color: CITY_LIGHT_COLOR_F32 \}\);/);
+  assert.ok(w.indexOf('csaLit.push(') < lightsAt, 'into the selection before it is made');
+  assert.equal((w.match(/quays\?\.lights\(\)/g) ?? []).length, 1, 'nowhere else - not the extras');
   assert.equal((w.match(/quays\?\.destroyAll\(\);/g) ?? []).length, 2, 'down with a re-anchor and a load');
   assert.match(w, /warp: \(boat, s\) => naval\?\.warp\?\.\(boat, s\) \?\? null,/);
   assert.match(w, /dockedPort: \(boat, port\) => \{ const r = boat\?\.uid \? fleetShip\(boat\.uid\) : null; if \(r && \(r\.port\?\.name \?\? null\) !== port\) setShipPort\(boat\.uid, port == null \? null : \{ name: port \}\); \},/);

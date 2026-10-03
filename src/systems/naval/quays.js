@@ -70,8 +70,39 @@ export const DOCK_EASE = 0.5;
 export const WARP_SPEED = 2;
 export const FAST_M = 1.5;
 export const FAST_DEG = 6;
-/** The gangway: how near its foot or its head the feet must stand to take it (m). */
+/** The gangway: how near its foot the feet must stand to take it aboard, and how near her rail by its head to take it
+ *  ashore (m) - AUDIT HOLDINGS Q4: by the rail, never anywhere on her deck (the whole of a small boat's was in reach). */
 export const GANGWAY_REACH = 3;
+export const GANGWAY_ASHORE = 1.5;
+/** AUDIT HOLDINGS Q4: how square to her (or to the land) the look must be to take it - the cosine. */
+export const GANGWAY_FACING = 0.7;
+/** AUDIT HOLDINGS Q1: the steepest a gangway climbs to a ship (degrees) - its foot as far in on the quay as it must. */
+export const GANGWAY_SLOPE = 30;
+/** AUDIT HOLDINGS Q1: a climbing gangway's foot never nearer the quay's face than GANGWAY_CLEAR (it rises clear of the
+ *  kerb and the bollard at her waist), nor nearer its back than GANGWAY_BACK (room to step off it) (m). */
+export const GANGWAY_CLEAR = 2;
+export const GANGWAY_BACK = 1;
+/** AUDIT HOLDINGS Q1: the lane each side of her waist (the berth's own point, the frame's z 0) the quay's cargo keeps
+ *  clear of - the plank, a crate's half and room to step off it (m). */
+export const GANGWAY_LANE = 1.6;
+/** The kerb along a quay's face: its width and its height over the deck (m; world/quayModel.js stands it). */
+export const QUAY_KERB_W = 0.3;
+export const QUAY_KERB_H = 0.15;
+/**
+ * AUDIT HOLDINGS Q1: WHERE A GANGWAY MEETS HER, by hull - `[x, y]` in her frame at her waist, measured off her own
+ * colliders (the plank laid to her innermost rail cell climbed into her side under her deck on every hull but the
+ * Rowboat's): a ship's at her main deck's entry port, just off her side; a boat's on her gunwale, the plank resting on it.
+ */
+export const GANGWAY_SIDE = Object.freeze([
+  Object.freeze([0.95, 0.7]),    // 0 Rowboat - on her gunwale (0.63 m up at 0.9 m out)
+  Object.freeze([1.75, 1.36]),   // 1 Large Boat - on her gunwale (1.27 m up at 1.7-1.8 m out)
+  Object.freeze([7.65, 4.14]),   // 2 Small Ship - her main deck's port, her side 7.5-7.55 m out there
+  Object.freeze([9.2, 10.75]),   // 3 Large Galley - her upper deck (she never docks - DOCK_REFUSED)
+  Object.freeze([7.65, 4.14]),   // 4 Carrack - her main deck's port, her side 7.45-7.5 m out there
+]);
+/** AUDIT HOLDINGS Q2: the hulls no quay takes - a Large Galley (93 m) is half again a Carrack's berth, and rows in and
+ *  out as the sea's own never moor (shipLife.js). */
+export const DOCK_REFUSED = Object.freeze([3]);
 
 const TAU = Math.PI * 2;
 const wrap = (a) => { a %= TAU; if (a > Math.PI) a -= TAU; else if (a < -Math.PI) a += TAU; return a; };
@@ -104,7 +135,7 @@ export function sceneToQuay(frame, x, z) {
 
 /**
  * A berth's quay, in its frame (y over the sea's top): the deck, the jetty and the ramp to the shore, the piles, the
- * bollards, the lanterns, the cargo and the gangway's foot - or null while the ground it is laid on is not built
+ * bollards, the lanterns and the cargo - or null while the ground it is laid on is not built
  * (`groundAt` not finite), to be laid again once it is.
  * @param {{ berth: { pos: number[], yaw: number, normal: number[] }, hull?: number, key?: string, index?: number,
  *   seaY: number, groundAt: (x: number, z: number) => number }} a
@@ -141,7 +172,9 @@ export function planQuay({ berth, hull = BERTH_HULL, key = '', index = 0, seaY, 
   for (let t = 0; t <= JETTY_MAX && !jetty; t += JETTY_STEP) {
     const g = ground(x1 + t, zJ);
     if (!Number.isFinite(g)) break;
-    if (g >= deck - STEP_M) { jetty = { x0: x1, x1: x1 + t + JETTY_LAND, z0: zJ - JETTY_WIDTH / 2, z1: zJ + JETTY_WIDTH / 2 }; break; }   // a bank meets the deck
+    // a bank meets the deck - AUDIT HOLDINGS Q9: one standing over it by more than two steps (a wall, a cliff) is met at
+    // its face, never run JETTY_LAND into it
+    if (g >= deck - STEP_M) { jetty = { x0: x1, x1: x1 + t + (g <= deck + 2 * STEP_M ? JETTY_LAND : 0), z0: zJ - JETTY_WIDTH / 2, z1: zJ + JETTY_WIDTH / 2 }; break; }
     if (g >= DRY_M) {
       // dry ground under the deck: the jetty to it, and a ramp down to the ground
       jetty = { x0: x1, x1: x1 + t, z0: zJ - JETTY_WIDTH / 2, z1: zJ + JETTY_WIDTH / 2 };
@@ -163,7 +196,8 @@ export function planQuay({ berth, hull = BERTH_HULL, key = '', index = 0, seaY, 
   const zMid = (frame.z0 + frame.z1) / 2;
   const bollards = [[x0 + 0.45, frame.z0 + 4], [x0 + 0.45, zMid], [x0 + 0.45, frame.z1 - 4]];
   const lanterns = [[x1 - 0.4, z0 + 0.6], [x1 - 0.4, z1 - 0.6]];
-  // the cargo: on the quay's back, clear of the jetty's mouth and the lanterns - its face kept for the walk and the gangway
+  // the cargo: on the quay's back, clear of the jetty's mouth, the gangway's lane at her waist and the lanterns - its face
+  // kept for the walk
   const r = mulberry32(hash32(keyHash(key), index >>> 0, QUAY_SALT));
   const cargo = [];
   const count = 2 + Math.floor(r() * (CARGO_MAX - 1));
@@ -172,7 +206,7 @@ export function planQuay({ berth, hull = BERTH_HULL, key = '', index = 0, seaY, 
     const s = kind === 'crate' ? 0.8 + r() * 0.35 : 0.36;
     const lz = z0 + 2 + r() * (z1 - z0 - 4);
     const lx = x1 - 0.9 - r() * 1.2;
-    if (Math.abs(lz - zJ) < JETTY_WIDTH / 2 + 1 || Math.abs(lz - z0) < 1.6 || Math.abs(lz - z1) < 1.6) continue;
+    if (Math.abs(lz - zJ) < JETTY_WIDTH / 2 + 1 || Math.abs(lz) < GANGWAY_LANE || Math.abs(lz - z0) < 1.6 || Math.abs(lz - z1) < 1.6) continue;
     if (cargo.some((c) => Math.abs(c.z - lz) < 1.6)) continue;
     const stack = kind === 'crate' && r() < 0.35 ? 2 : 1;
     cargo.push({ kind, x: lx, z: lz, s, stack });
@@ -180,7 +214,6 @@ export function planQuay({ berth, hull = BERTH_HULL, key = '', index = 0, seaY, 
   }
   return {
     frame, deck, quay: { x0, x1, z0, z1 }, jetty, ramp, piles, bollards, lanterns, cargo,
-    foot: [x0 + 0.5, zMid],   // the gangway's foot on its face, at her waist
   };
 }
 /** A harbour's key as a number for the cargo's stream (FNV-1a). */
@@ -205,6 +238,7 @@ export function lanternLights(plan, seaY) {
  * @param {{ pos: number[], yaw: number, hull: number }} ship @param {Array<any>} berths
  */
 export function dockFor(ship, berths) {
+  if (DOCK_REFUSED.includes(ship.hull)) return null;   // AUDIT HOLDINGS Q2
   let best = null;
   for (const b of berths) {
     if (b.free === false) continue;
@@ -237,6 +271,21 @@ export function warpStep(pos, yaw, dock, dt) {
 export function quaySide(yaw, landward) {
   const sx = Math.cos(yaw), sz = -Math.sin(yaw);   // her starboard, the yaw's own +x
   return sx * landward[0] + sz * landward[1] >= 0 ? 1 : -1;
+}
+/**
+ * AUDIT HOLDINGS Q1: A GANGWAY'S FOOT - the gangway runs square to her side, in the quay's frame (+x to the land), from
+ * its head at her waist (GANGWAY_SIDE; `headX` its x in the frame, `headY` its height over the sea's top) to its foot on
+ * the quay, `{ x, y }` (y over the sea's top), `x0`/`x1` the quay's face and back:
+ *  - a head over the kerb (a ship's port): the foot on the deck, in from the face as far as a climb of GANGWAY_SLOPE
+ *    asks - never nearer it than GANGWAY_CLEAR, nor nearer the back than GANGWAY_BACK - the plank clear of her all the
+ *    way down (it leaves her side going out);
+ *  - under it (a boat's gunwale): the foot on the kerb's outer edge, the plank down from it over the water onto her
+ *    gunwale, as steep as she lies under the quay.
+ */
+export function gangwayFoot(headX, headY, x0, x1) {
+  if (headY <= QUAY_DECK_UP + QUAY_KERB_H) return { x: x0, y: QUAY_DECK_UP + QUAY_KERB_H };
+  const run = (headY - QUAY_DECK_UP) / Math.tan(GANGWAY_SLOPE * DEG);
+  return { x: Math.min(x1 - GANGWAY_BACK, Math.max(x0 + GANGWAY_CLEAR, headX + run)), y: QUAY_DECK_UP };
 }
 /** The berth's landward direction in the scene, `[x, z]`. */
 export const landwardOf = (berth) => [-berth.normal[0], -berth.normal[1]];

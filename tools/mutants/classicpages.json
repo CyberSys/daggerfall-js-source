@@ -78,8 +78,8 @@
   {
     "name": "CLASSICPAGES-where-line-no-key",
     "file": "src/scenes/gatherHost.js",
-    "old": "${key ? `${key} opens your Stores page` : 'the pause menu\\'s Stores page'}",
-    "new": "the pause menu\\'s Stores page",
+    "old": "${key ? ` (${key} opens your Professions)` : ''}",
+    "new": "",
     "tests": [
       "test/classicpages.test.js"
     ]

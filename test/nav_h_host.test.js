@@ -425,7 +425,7 @@ test('NAV-H the world host: one naval host on Come Sail Away\'s pool, its record
   assert.match(w, /registerModSaveData\(NAVAL_SAVE_VENDOR, naval\);/);
   assert.match(w, /cam\.pos = player\.eyeAt\(\);\n\s+navalFrame\(dt\);/, 'after the eye is taken');
   assert.ok(w.indexOf('navalFrame(dt);   // NAV-H') < w.indexOf('csaPoolFrame(dt);   // CSA-B/C'), 'before the pool walks the hulls it posed');
-  assert.match(w, /else if \(!_race\.loot && !_race\.drop && naval\?\.activate\(\)\) \{/);
+  assert.match(w, /else if \(!_race\.loot && !_race\.drop && naval\?\.activate\(\{ boatTrigger: !!_race\.boatWins \}\)\) \{/);   // PIN MOVED (AUDIT HOLDINGS Q4): her own trigger under the ray named, the gangway yielding to it
   assert.match(w, /csaDrawParticlesBlended\(\);[^\n]*\n(?:[^\n]*\n){0,3}\s*if \(naval\?\.enabled\) navalRender\.draw\(naval\.drawFrame\(\)\);/);
   assert.equal((w.match(/thunderlockMuzzleLight\(playerEntity, player\.feetAt\(\), cam\.yaw\), \.\.\.\(naval\?\.enabled \? naval\.lights\(\) : \[\]\), \.\.\.peerTorchLights\(\)/g) ?? []).length, 2, 'both light lists');
   assert.match(w, /csaPeers\.rebase\(r\.offset\);[^\n]*\n\s+naval\?\.offsetAll\(r\.offset\); navalFlames\.offsetAll\(r\.offset\);/);

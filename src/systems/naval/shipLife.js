@@ -479,6 +479,14 @@ export function stepErrand(ship, dt, ctx) {
     case 'arrive': {
       const b = hb?.berths[e.berth];
       if (!b) { ship.errand = null; return null; }
+      // AUDIT HOLDINGS Q5: her berth looked at again on the way in - taken since she chose it (a player's ship made fast
+      // there, here or on another player's screen, whose putOff never reaches the ship I stand) - another free berth,
+      // else out
+      if (ctx.free && !ctx.free(e.harbour, e.berth, ship)) {
+        const other = hb.berths.findIndex((_, i) => i !== e.berth && ctx.free(e.harbour, i, ship));
+        ship.errand = other >= 0 && ship.hull !== 3 ? { kind: 'arrive', harbour: e.harbour, berth: other, path: null, i: 0 } : outbound(errandRng(ship.seed ^ Math.floor(ship.clock)), here, ctx.grid(ship.hull).clear);
+        return stepErrand(ship, dt, ctx);
+      }
       const p = way(b.pos, b.approach);
       if (!p) return giveUp();
       const left = remaining(ship, e);
