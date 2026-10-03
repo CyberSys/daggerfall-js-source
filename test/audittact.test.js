@@ -98,7 +98,9 @@ test('AUDIT TACT A2: the 2 ranged tokens hold - a shot hands the token on, so fi
   assert.ok(foes.filter((f) => f.shots > 0).length >= 4, `the turns go round (${foes.map((f) => f.shots)})`);
 });
 
-test('AUDIT TACT A3/D1: a wind-up lands at 20 fps, at 15 and at 10 - a slow frame is not a knock', () => {
+test('AUDIT TACT A3/D1: a wind-up lands at 20 fps, at 15 and at 10 - a slow frame is not a knock', (t) => {
+  let seed = 7;   // a wind-up is a roll (tactics.js BLOW_CHANCE): seeded, so "it wound up" is never the dice's
+  t.mock.method(Math, 'random', () => { seed = (seed * 1103515245 + 12345) & 0x7fffffff; return (seed >>> 8) / 0x800000; });
   for (const fps of [20, 15, 10]) {
     resetTactics(); resetBlows();
     const f = foe({ level: 12, at: [0, 0, 6] });

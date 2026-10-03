@@ -279,7 +279,7 @@ import {
   homeSoldLine, homeRefund, HOME_ENTRY_WORDS, HOME_BANK_LINES, buyOnlineHome, sellOnlineHome, HOME_BUY_BUSY, homeDoorPrompt,
   HOME_BUY_ARM_MS, HOME_VERB, homeBuyRows, homeOwnerRows, homeNextEntry, HOME_OFFER_BUY, HOME_OFFER_PASS,   // HOME2
   homeVisitorRows,   // HOME-RENT: a tenant's rows, and a home's with a room to rent
-  HALL_VERB, homeHallBuyRow, hallNextEntry, hallBoughtLine, hallShortLine, HALL_CHEST_SHUT,   // GUILD1d: a guild's hall
+  HALL_VERB, homeHallBuyRow, hallNextEntry, hallBoughtLine, hallShortLine, HALL_CHEST_SHUT, hallEntryTurnable,   // GUILD1d: a guild's hall; AUDIT PROF-541 R2-H1: its door's gate
   HALL_CHEST_TITLE, HALL_DROP_TEXT, HALL_VISITOR_MAGIC_TEXT, hallOfferLabel,   // AUDIT GUILD1d: the chest's name, a hall's floor and magic, the offer's hall
   HALL_BOARD_TITLE, hallBoardShutLine, HALL_BOARD_COLD,   // GUILD1e: the board in a hall
   HALL_OF_RECORDS_TEXT, HALL_OF_RECORDS_SHUT,   // SEASON1 part three: a seat's Hall of Records
@@ -297,8 +297,8 @@ import {
 } from '../systems/homeRent.js';
 // DECOR1c: the pieces a room's owner placed (their law, and the pool that stands them in the room)
 import { decorPieceOf, decorSaleBack, DECOR_STATION_SERVICES, DECOR_STATION_NAMES } from '../net/decorLaw.js';
-import { forgeOffered, PROF_STATIONS, stationColdLine } from '../ui/profPages.js';   // AUDIT 29 B2: a Forge worked only where the Stores page is; PROF4: a Workbench
-import { FORGE_FEE, WORKBENCH_FEE, LOOM_FEE, MASON_FEE } from '../net/professionLaw.js';   // PROF2: a smith's forge's use fee; PROF4: a furnisher's workbench's; PROF7: a tailor's loom's; PROF11: a General Store's mason's bench's
+import { forgeOffered, PROF_STATIONS, stationColdLine, enchantGoldPct } from '../ui/profPages.js';   // AUDIT 29 B2: a Forge worked only where the Stores page is; PROF4: a Workbench
+import { FORGE_FEE, WORKBENCH_FEE, LOOM_FEE, MASON_FEE, COOK_FIRE, JEWEL_FEE, ALCHEMY_FEE, ENCHANT_FEE } from '../net/professionLaw.js';   // PROF2: a smith's forge's use fee; PROF4: a furnisher's workbench's; PROF7: a tailor's loom's; PROF11: a General Store's mason's bench's; PROF10: a Pawn Shop's or a Gem Store's jeweller's bench's
 /** HOME-STATIONS: a station pressed whose maker's art has not landed yet. */
 const DECOR_STATION_NOT_READY = 'The station is not ready yet - try again in a moment.';
 /** AUDIT HOME-STATIONS S7: a maker's refusal whose TEXT.RSC record did not answer. */
@@ -345,7 +345,6 @@ import { placeFoeFreely } from '../systems/quest/sceneMount.js';   // B1: Create
 import { placeFoeEnv, entityOccupancy, questFoeGender, reviveQuestBehaviour as reviveQuestBehaviourFromSave, heldSpots, holdSpotWhile } from './questFoeHost.js';   // B1 (PlaceFoeFreely reads the fieldOfView import below)   // AUDIT 63 F24: SerializableEnemy.cs:206-217 re-adds the component on restore
 import { standLooseFoe } from './hostEnchant.js';   // ROAD-G G1: SoulBound's break release / the Sanguine Rose, inside a building
 import { ENEMY_BASICS, enemyDisplayName } from '../characters/enemyBasics.js';   // MERGE: FinalizeFoe's Flying lift reads the behaviour flag // WORLD-HOVER H2: GetLocalizedEnemyName - Entity.Name for a live one (.cs:310)
-import { foeTitled } from '../systems/foeTitle.js';   // FOE-TITLE: a revenant, a champion or an elite is named on the hover even while hostile
 import { openDoorsStep, foeFrameDt } from '../characters/enemyMotor.js';   // AUDIT 63 F42: EnemyMotor.OpenDoors (EnemyMotor.cs:1424-1442), which lives in the motor and runs wherever an enemy does
 import { billboardSize } from '../world/rmbFlats.js';
 import { positionHash, staticNpcData } from './questBridge.js';   // B7: the guild popup's TALK builds display data without re-registering the click
@@ -1328,8 +1327,8 @@ export function createWorldModes(host) {
    *  This host owned two pools and ran NO fan-out at all - no
    *  runMagicRoundsFor, so no tickActiveEffects and no updatePoisons
    *  (worldTick.js:393-394), and no killIfAnyLiveStatZero. Both pools
-   *  READ the effect list every frame (exteriorFoes.js:1329-1332 and
-   *  cityGuards.js:1043-1051 each take `entityIsParalyzed` +
+   *  READ the effect list every frame (exteriorFoes.js:1323-1326 and
+   *  cityGuards.js:1042-1050 each take `entityIsParalyzed` +
    *  `applyEnemyMotorEffectFlags`), and nothing ever ended one: a
    *  Continuous Damage bundle on a foe in a shop never took a round,
    *  a poison inflicted at this host's own onInflictPoison never
@@ -2277,7 +2276,7 @@ export function createWorldModes(host) {
       if (key.startsWith('mobileFoe:')) {
         const f = liveFoeFor(interiorFoePool(), key, 'mobileFoe');
         if (!f) return null;
-        const t = mobileEntityName(liveEntityName(f, enemyDisplayName(f.mobileType)), { hostile: !!f.ai?.isHostile, champion: foeTitled(f.entity) });   // LOOT7-CHECK CHAMP-HOVER: a champion named while hostile
+        const t = mobileEntityName(liveEntityName(f, enemyDisplayName(f.mobileType)), { hostile: !!f.ai?.isHostile });   // HOVER-PLAIN: a hostile foe is never named here, a champion, an elite or a revenant included - its name stands under its health bar alone
         return t ? { title: t } : null;
       }
       if (key.startsWith('door:') || key.startsWith('act:')) {
@@ -4989,6 +4988,7 @@ export function createWorldModes(host) {
       let itemWin = null;
       itemWin = new ItemMakerWindow({
         packItems: () => (playerEntity.items ??= []),
+        goldDiscountPct: () => enchantGoldPct(),   // PROF12: Enchanting's layer - online, the share off by the rank (net/alchemyLaw.js)
         player: playerEntity,
         icons: { getTexture, uploadRecord, textures: renderer.textures },
         entity: playerEntity,
@@ -6081,7 +6081,7 @@ export function createWorldModes(host) {
             if (verb === HOME_VERB.entry && door === 'own') { turnHomeEntry(bd, home); return true; }
             if (verb === HOME_VERB.sell && door === 'own') { openHomeSale(bd); return true; }
             if (verb === HALL_VERB.buy && price) { pressHallBuy(bd, price); return true; }   // GUILD1d: the house bought as the guild's hall
-            if (verb === HALL_VERB.entry && home?.hall && home.keeper) { turnHallEntry(bd, home); return true; }   // GUILD1d: who may walk into the hall
+            if (verb === HALL_VERB.entry && hallEntryTurnable(home)) { turnHallEntry(bd, home); return true; }   // GUILD1d: who may walk into the hall; AUDIT PROF-541 G2: as the service lets set it (R2-H1: the row's own gate)
           }
           // ...and where the plaque listed none (a touch screen, World Tooltips off), the click's own ask - HOME-OFFER's
           // prompt: a house's offer in any mode but Steal, once a session per house (Info always asks); my home's menu
@@ -7385,6 +7385,7 @@ export function createWorldModes(host) {
           breathHeld: () => !!townTalk?.overlayActive,   // AUDIT 27h S1: a street-slot window up over the dungeon (Recall's prompt) holds its breath too, as its own slot's do
           activateHeld: () => held(keys, 'ActivateCenterObject') || !!host.activateDown?.(),
           survivalEnv: () => host.survivalEnv?.() ?? null,   // SURV7: the outer host's env; the dungeon overrides the flags it owns
+          fieldCook: () => host.fieldCook?.() === true,   // PROF9: a Field Cook's kit keeps its charge (the outer host's word)
           // PARTY-REST2: forwarded straight from THIS host's own host.partyRestGate (world.js's own gate) - see its doc comment.
           // PARTY-REST28: forwarded straight from THIS host's own host.markPartyRestSpent (world.js's own
           // function), the same way partyRestGate itself already is - see its doc comment for the bug this closes.
@@ -7586,7 +7587,7 @@ export function createWorldModes(host) {
           hudMessageSink: (t) => questBridge?.notebook?.addMessage(t),
           // MAC1 J: and the relock the dungeon's pause door needs, on
           // the same threading - the context owns no canvas of its own
-          // (dungeonContext.js:8032), so the OUTER host's one rides in.
+          // (dungeonContext.js:8034), so the OUTER host's one rides in.
           // This is the most-played pause door of the six: world.js
           // gates its own Escape ladder on exterior mode, so underground
           // the key falls to routeKey -> ui/input.js:847 -> the
@@ -8817,7 +8818,7 @@ export function createWorldModes(host) {
           // AUDIT 39r: and the FLASH, which this arm was copied without.
           // An arrow reaches the player through BowDamage ->
           // ApplyDamageToPlayer -> SendDamageToPlayer, the same door as
-          // a blow (world.js:15183's own wave-46 note); the interior
+          // a blow (world.js:15333's own wave-46 note); the interior
           // MELEE hit already flashes inside exteriorFoes, so only this
           // arm - which applies its own damage - was missing it.
           flashPlayerDamage(dmg);   // BA1: RemoveHealth carries the amount
@@ -8852,10 +8853,10 @@ export function createWorldModes(host) {
         // AUDIT 58: WeaponManager.cs:630 after the damage fork - a
         // zero-damage shaft still enrages its mark and the room.
         // ROAD-G G1 (review): the interior WATCH carries the pair now
-        // (cityGuards.js:781-786), so this seam splits by pool exactly
+        // (cityGuards.js:780-785), so this seam splits by pool exactly
         // as `dealDamage` above it does rather than dropping the
         // non-encounter half - the zero-damage SWING already reaches
-        // that door (cityGuards.js:1350) and the shaft owes the same.
+        // that door (cityGuards.js:1349) and the shaft owes the same.
         onAttackFromPlayer: (f) => (f._encounter
           ? interiorFoes?.attackFromPlayer(f, player.pos, 'arrow')   // AUDIT WORLD6b-iii(e) A2: the pool's one door, the shaft's kind on it
           : interiorGuards?.handleAttackFromPlayer(f, player.pos)),
@@ -9442,7 +9443,7 @@ export function createWorldModes(host) {
       const w = interiorOverlay;
       if (!(w instanceof ItemMakerWindow)) return null;
       const rect = which === 'powers' ? ITEM_RECTS.powersList : ITEM_RECTS.sideEffectsList;
-      const row = itemMakerRowLayout(which === 'powers' ? w.powers : w.sideEffects)
+      const row = itemMakerRowLayout(w._lists()[which === 'powers' ? 'powers' : 'sideEffects'])   // AUDIT PROF-541 J3: the rows as drawn, a crafted piece's kept ones at the head
         .find((r) => r.entry.key === key);
       if (!row) return null;
       w.click(rect[0] + 2, rect[1] + row.y + 1);
@@ -11420,6 +11421,46 @@ export function createWorldModes(host) {
       if (hallMemberHere() && interiorDecor.list().some((p) => p?.station === 'mason')) return { kind: 'home', fee: 0 };   // AUDIT GUILD1d A2's law
       return null;
     },
+    /** PROF10 (bible/06-Systems/Professions-Arc.md 9.3; professionLaw JEWEL_FEE): THE JEWELLER'S BENCH THE PLAYER STANDS AT -
+     *  a Pawn Shop's or a Gem Store's, open for trade (9.3's fee, JEWEL_FEE gold a piece), or their own home's jeweller's
+     *  bench station - or null. */
+    jewellerHere() {
+      if (mode !== 'interior' || !interiorBuilding) return null;
+      const t = interiorBuilding.buildingType;
+      if (t === BUILDING_TYPES.PawnShop || t === BUILDING_TYPES.GemStore) return interiorBuilding.insideOpenShop === false ? null : { kind: 'shop', fee: JEWEL_FEE };
+      if (decorOwnerHere() && interiorDecor.list().some((p) => p?.station === 'jeweller')) return { kind: 'home', fee: 0 };
+      if (hallMemberHere() && interiorDecor.list().some((p) => p?.station === 'jeweller')) return { kind: 'home', fee: 0 };   // AUDIT GUILD1d A2's law
+      return null;
+    },
+    /** PROF12 (bible/06-Systems/Professions-Arc.md 9.3; professionLaw ALCHEMY_FEE): THE ALCHEMY STATION THE PLAYER STANDS AT -
+     *  an Alchemist's, open for trade (its use fee, ALCHEMY_FEE gold a brew or a transmutation), or their own home's alchemy
+     *  station (a hall member's) - or null. The station's DFU potion maker stays the station's own press (useDecorStation). */
+    alchemyHere() {
+      if (mode !== 'interior' || !interiorBuilding) return null;
+      if (interiorBuilding.buildingType === BUILDING_TYPES.Alchemist) return interiorBuilding.insideOpenShop === false ? null : { kind: 'shop', fee: ALCHEMY_FEE };
+      if (decorOwnerHere() && interiorDecor.list().some((p) => p?.station === 'alchemy')) return { kind: 'home', fee: 0 };
+      if (hallMemberHere() && interiorDecor.list().some((p) => p?.station === 'alchemy')) return { kind: 'home', fee: 0 };   // AUDIT GUILD1d A2's law
+      return null;
+    },
+    /** PROF12 (bible/06-Systems/Professions-Arc.md 9.3: "Disenchanting (new, at any enchanting station)"; professionLaw
+     *  ENCHANT_FEE): THE ENCHANTING STATION THE PLAYER STANDS AT - a Mages Guild hall (the house of DFU's own item maker; its
+     *  use fee, ENCHANT_FEE gold a piece), or their own home's enchanting station (a hall member's) - or null. */
+    enchantHere() {
+      if (mode !== 'interior' || !interiorBuilding) return null;
+      if (interiorBuilding.buildingType === BUILDING_TYPES.GuildHall && interiorBuilding.factionId
+        && guildGroupOfFaction(townTalk?.factionDict ?? null, interiorBuilding.factionId) === GUILD_GROUPS.MagesGuild) return { kind: 'shop', fee: ENCHANT_FEE };
+      if (decorOwnerHere() && interiorDecor.list().some((p) => p?.station === 'enchant')) return { kind: 'home', fee: 0 };
+      if (hallMemberHere() && interiorDecor.list().some((p) => p?.station === 'enchant')) return { kind: 'home', fee: 0 };   // AUDIT GUILD1d A2's law
+      return null;
+    },
+    /** PROF9 (bible/06-Systems/Professions-Arc.md 9.3; professionLaw COOK_FIRE): THE FIRE THE PLAYER STANDS AT for Cooking,
+     *  in a building (a hearth, a brazier, a fire bowl - the interior's own world fires, camps.js fireNear) or a dungeon (its
+     *  fire bowls and a campfire lit on its floor - the dungeon's own pool) - or null. The street's is the world host's. */
+    cookFireHere() {
+      if (mode === 'interior') return interiorCamps.fireNear(player.pos) ? COOK_FIRE : null;
+      if (mode === 'dungeon') return dungeonCtx?.cookFire?.() === true ? COOK_FIRE : null;
+      return null;
+    },
     // Q4-v: the world seam's playerInside half + the machine's
     // hot-place callback (deps.world.mountCurrentSiteQuestResources).
     get interiorBuilding() { return interiorBuilding; },
@@ -11491,7 +11532,7 @@ export function createWorldModes(host) {
      *  (world.js's, this file's `interiorWeapon` :538, dungeonContext's
      *  and exterior.js's - which this seam does not reach: that host has no save path at all, its charter exterior.js:3497-3519), and IS1 routed the inside-a-building save to
      *  the WORLD host's composer - which reads its own exterior rig
-     *  unconditionally (world.js:11503). So an F9 pressed in a shop
+     *  unconditionally (world.js:11653). So an F9 pressed in a shop
      *  recorded the street's sheath and hand, and the load wrote them
      *  back into the street's rig; the rig actually in the player's
      *  hands was in no envelope at all.
@@ -11530,7 +11571,7 @@ export function createWorldModes(host) {
       if (interiorOverlay instanceof DeathScreen) { interiorOverlay.restoreView(); interiorOverlay = null; }
     },
     /** The restore half - and NOT gated on the mode, deliberately.
-     *  worldQuickLoad calls forceExitToExterior FIRST (world.js:11618)
+     *  worldQuickLoad calls forceExitToExterior FIRST (world.js:11768)
      *  and only re-enters the building at :4217, so the mode at apply
      *  time is whatever the LOAD landed in, not whatever the SAVE was
      *  taken in: an outdoor save loaded while the player was indoors
@@ -11540,8 +11581,8 @@ export function createWorldModes(host) {
      *
      *  FLAG ONLY and presence-gated - both laws now stated once, in
      *  combat/playerWeapon.js's applyWeaponPose, with the citation.
-     *  HARD2c: this used to spell them out, and named `world.js:10496`
-     *  and `dungeonContext.js:8043` for its two sibling copies - lines
+     *  HARD2c: this used to spell them out, and named `world.js:10646`
+     *  and `dungeonContext.js:8045` for its two sibling copies - lines
      *  that had moved to :4418 and :5457. Three copies of a two-line
      *  law, and even the comment pointing between them had gone stale. */
     applyWeaponPose(pose) {

@@ -198,6 +198,8 @@ export function aimAt(eyePos, at, view) {
  * @property {() => { n: number, cap: number }} [tally] PROF7: the day's count the chip says, where it is not the
  *   character's harvests against 60 (Hunting's: the account's hides against 30)
  * @property {(data: any) => string} [storesLine] PROF8: the goods' one line in the kind's own words (a haul's species)
+ * @property {(key: string, error: (string|null)) => void} [refused] AUDIT SILVER-WAYS D2: a harvest refused - the node's key
+ *   and the service's word - so a kind learns what the refusal says of its node (REFUSALS-LEARNED)
  * @property {(data: any, toast: (text: string) => void) => void} [answered] PROF8: a harvest's answer heard - the kind's
  *   own after-step (a trophy into the pack, once)
  * @property {(node: any, ctx: { specs: (profession: string) => any }) => ({ w: number, h: number, reach?: number }|null)} [mark]
@@ -551,7 +553,7 @@ export function createGatherHost(deps) {
     const before = rank(a.profession);
     book.harvest({
       node: a.node.key, kind: a.harvest, climate: a.info?.climate ?? null, region: a.info?.region ?? null, act: report,   // PROF7: a body names no ground
-      at: Math.floor(deps.nowMs() / 1000), ...(a.ask ?? {}),
+      at: Math.floor(deps.nowMs() / 1000), ...((typeof a.ask === 'function' ? a.ask() : a.ask) ?? {}),   // AUDIT SILVER-WAYS D5: a kind's ask may be asked at the act's end
     }).then((r) => answered(a, r, before), () => {});
   }
   /** A harvest's answer said: the Stores, the XP, a gem, a rank's rise; a refusal in words; a kept one once. */
@@ -596,11 +598,17 @@ export function createGatherHost(deps) {
     if (r?.error === 'lapsed') { hud.toast(LAPSED_LINE); return; }
     hud.toast(accountRefusalText(r?.error));
     if (a && !a.loose && r?.error === 'node-taken') restandOf(a);
+    // AUDIT SILVER-WAYS D2 (REFUSALS-LEARNED): the refusal handed to the kinds - a Motherlode spent, found or gone is
+    // learned (scenes/mineHost.js), its pixel stood again
+    const key = a?.node?.key ?? nodeKeyOf;
+    if (typeof key === 'string') for (const k of kinds) { try { k.refused?.(key, r?.error ?? null); } catch (e) { console.warn('[gather] a refusal', e); } }
   }
 
   return {
     /** A pixel built: its nodes stood. */
     onBuilt(entry) { if (entry) stand(entry); },
+    /** PROF2b: a pixel's nodes stood again, where it is built - a Motherlode risen on it, gone or spent. */
+    restandAt(px, py) { restandAt(px, py); },
     /** A pixel torn down: its batches went with it (they are in its list); forgotten here. */
     onDestroyed(entry) {
       if (!entry) return;

@@ -117,7 +117,7 @@ export const SPECIALISATIONS = Object.freeze({
   mining: Object.freeze({
     50: pair(spec('prospector', 'Prospector', 'Surface veins within 200 m are marked on the compass; gems come a tenth more often.'),
       spec('deep-delver', 'Deep Delver', 'Dungeon veins yield +50%.')),
-    100: pair(spec('motherlode-sense', 'Motherlode Sense', 'Motherlode warnings come 30 minutes ahead, not 10.', 'PROF2b'),
+    100: pair(spec('motherlode-sense', 'Motherlode Sense', 'Motherlode warnings come 30 minutes ahead, not 10.'),   // PROF2b: its Motherlodes built - chosen as any
       spec('stonebreaker', 'Stonebreaker', 'Quarrying yields Cut Stone directly.')),
   }),
   logging: Object.freeze({
@@ -175,7 +175,7 @@ export const SPECIALISATIONS = Object.freeze({
     50: pair(spec('brewer', 'Brewer', '3 potions a brew at Journeyman.'),
       spec('distiller', 'Distiller', 'Potent chance +10%.')),
     100: pair(spec('master-alchemist', 'Master Alchemist', 'Potent is +40%, not +25%.'),
-      spec('transmuter', 'Transmuter', 'Three of a DFU metal make one of the next up.')),
+      spec('transmuter', 'Transmuter', 'Two of a DFU metal and a Mercury make one of the next up.')),
   }),
   enchanting: Object.freeze({
     50: pair(spec('efficient', 'Efficient', 'A further -5% cost.'),
@@ -586,6 +586,61 @@ export const throwM = (s) => {
   return FISH_ACT.throwMinM + t * (FISH_ACT.throwMaxM - FISH_ACT.throwMinM);
 };
 
+// ─── PROF12: THE ALCHEMIST'S AND THE ENCHANTER'S GOODS (PROF0 4.5, 4.8, 9.3; section 37) ───
+
+/** DFU's Ectoplasm's picture (TEXTURE.254 record 39), the one Arcane Essence borrows (4.8: "DFU Ectoplasm, tinted"). */
+export const ICON_ECTOPLASM = Object.freeze([254, 39]);
+/**
+ * THE APOTHECARIES' SIXTEEN (4.5: "the sixteen DFU ingredients that DFU's potion recipes need and no gathering route
+ * yields (FACT, POTION_RECIPES) ... at a fifth of DFU's price in Marks, rounded up"): each DFU's own ingredient in its own
+ * group (itemTemplatesData.js; withdrawn, DFU's item - profItems.js mintMaterialItem), in 4.5's order, `value` its counter
+ * price - 4.5's own numbers, pinned equal to a fifth of itemTemplates.json's basePrice rounded up (test/prof12_law.test.js)
+ * - and its tier its price's, as a body's part is (gemTierOfPrice). The Stores' family the Essences': DECIDED, the
+ * alchemist's and the enchanter's goods share one filter (8's "Essences"), no new one.
+ */
+const reagent = (key, group, templateIndex, price, value) => Object.freeze({ ...dfu(key, 'essences', gemTierOfPrice(price), group, templateIndex), value });
+export const REAGENTS = Object.freeze([
+  reagent('reagent:werewolf-blood', 'CreatureIngredients1', 33, 25, 5),
+  reagent('reagent:fairy-dragon-scales', 'CreatureIngredients1', 35, 90, 18),
+  reagent('reagent:unicorn-horn', 'CreatureIngredients3', 37, 200, 40),
+  reagent('reagent:ectoplasm', 'CreatureIngredients1', 39, 60, 12),
+  reagent('reagent:troll-blood', 'CreatureIngredients1', 42, 20, 4),
+  reagent('reagent:snake-venom', 'CreatureIngredients1', 43, 10, 2),
+  reagent('reagent:mummy-wrappings', 'CreatureIngredients2', 49, 40, 8),
+  reagent('reagent:saint-hair', 'CreatureIngredients1', 54, 200, 40),
+  reagent('reagent:small-tooth', 'MiscellaneousIngredients1', 58, 2, 1),
+  reagent('reagent:pure-water', 'MiscellaneousIngredients1', 59, 25, 5),
+  reagent('reagent:rain-water', 'MiscellaneousIngredients1', 60, 10, 2),
+  reagent('reagent:orc-blood', 'CreatureIngredients1', 61, 20, 4),
+  reagent('reagent:elixir-vitae', 'MiscellaneousIngredients1', 62, 30, 6),
+  reagent('reagent:nectar', 'MiscellaneousIngredients1', 63, 15, 3),
+  reagent('reagent:ichor', 'MiscellaneousIngredients1', 64, 20, 4),
+  reagent('reagent:ivory', 'MiscellaneousIngredients2', 76, 13, 3),
+]);
+/**
+ * ARCANE ESSENCE (4.8: "680 | Arcane Essence | Stores | DFU Ectoplasm, tinted"): Disenchanting's yield (9.3), the Stores'
+ * Essences. DECIDED: tier 3 and its Marks value 4 - an Essence is a hundred points of a crafted piece's budget, worth more
+ * than a common herb and less than a gem; undyed (Mortar's finding, PROF11: DFU's dye swatch reaches no ingredient's
+ * picture), its name telling it from the Ectoplasm whose lump it wears.
+ */
+export const ARCANE_ESSENCE = made('essence:arcane', 'essences', 3, 680, 'Arcane Essence', ICON_ECTOPLASM, null);
+export const ESSENCE_TEMPLATES = Object.freeze([ARCANE_ESSENCE]);
+/**
+ * PROF12 (9.3: "the brewing act at an alchemy station"): WHERE THE ALCHEMY STATION STANDS. DECIDED: 9.3 names a station
+ * and no shop - so a home's `alchemy` station (HOME-STATIONS' first, its 50,000 licence; a hall member's as the others'), or
+ * an ALCHEMIST's, open for trade (DFU's own potion seller, its insideOpenShop latch - AUDIT 29 D4's law), at every other
+ * station's use fee: 50 gold a brew or a transmutation, the purse's. The service cannot see the station (as it cannot see
+ * the forge, PROF0 23): the inputs are the Stores' and their units the bound.
+ */
+export const ALCHEMY_FEE = 50;
+/**
+ * PROF12 (9.3: "Disenchanting (new, at any enchanting station)"): WHERE IT IS DONE. DECIDED: a home's `enchant` station
+ * (HOME-STATIONS', its 200,000 licence; a hall member's) or a MAGES GUILD hall - the house of DFU's own item maker - at the
+ * stations' use fee, 50 gold a piece. The service cannot see the station either: the piece is the service's, its provenance
+ * the bound.
+ */
+export const ENCHANT_FEE = 50;
+
 // ─── THE SMITH'S STOCK (PROF0 24) ────────────────────────────────────
 
 /** PROF3: the fittings Smithing's recipes ask (PROF0 9.3) that no profession yielded then - Hunting's Cured Leather
@@ -607,24 +662,30 @@ export const FURNISHER_STOCK = Object.freeze([LINEN].map(stock('furnisher')));
 export const WEAVERS_STOCK = Object.freeze([
   Object.freeze({ key: LINEN.key, marks: 2, counter: 'weavers' }), Object.freeze({ key: WOOL.key, marks: 3, counter: 'weavers' }),
 ]);
+/** PROF12 (PROF0 4.5): the Apothecaries' counter on the Market tab beside the Weavers' - the sixteen at their own prices
+ *  (REAGENTS' `value`), straight into the Stores, bought, never own: a Marks sink, never a purse-gold purchase. Without it
+ *  the brewing act could make none of the twenty potions. */
+export const APOTHECARY_STOCK = Object.freeze(REAGENTS.map((r) => Object.freeze({ key: r.key, marks: /** @type {number} */ (r.value), counter: 'apothecaries' })));
 /** AUDIT 32 S1 (Mac, 2026-09-30: "Whatever you think is best"): the goods ONLY a counter sells - 4.5's Linen and Wool,
  *  never gathered. A recipe made wholly of them earns its craft's XP and no first-craft bonus (recipeLaw firstCraftPays).
  *  The smith's stock is not among them: every one of its goods is gathered too. A counter that sells what nothing
  *  gathers adds its goods here. */
-export const COUNTER_ONLY = Object.freeze([LINEN.key, WOOL.key]);
+export const COUNTER_ONLY = Object.freeze([LINEN.key, WOOL.key, ...REAGENTS.map((r) => r.key)]);   // PROF12: the Apothecaries' sixteen, never gathered
 /** Every counter's goods. The service cannot see a counter (as it cannot see the forge): it sells any of them wherever
  *  it is asked, and the client asks at the counter's shop - a lie buys the same goods at the same price. */
-export const STOCKS = Object.freeze([...SMITH_STOCK, ...FURNISHER_STOCK, ...WEAVERS_STOCK]);
+export const STOCKS = Object.freeze([...SMITH_STOCK, ...FURNISHER_STOCK, ...WEAVERS_STOCK, ...APOTHECARY_STOCK]);   // PROF12: the Apothecaries'
 export const stockOf = (key) => STOCKS.find((s) => s.key === key) ?? null;
 /** Units a purchase, at most. */
 export const STOCK_MAX = 100;
 /** The materials with no pack form - none since PROF7, which registered the hides', the leathers' and the cloth's
  *  templates (PROF4 the planks' and Charcoal's before it), until SEAT2b part two made the Ram Kit: a siege work never
- *  leaves the Stores but by a Siege Camp's writ. */
-export const NO_PACK_FORM = Object.freeze(['work:ram']);   // SEAT2b part two: a siege work's road is the writ's (RAM_KIT)
+ *  leaves the Stores but by a Siege Camp's writ. AUDIT PROF12 E1: nor does Arcane Essence - in the pack it sold to any
+ *  shop at its DFU worth (32 gold), a gold faucet a ring's 18 Essence deep and a silver-to-gold road around the Bank's
+ *  rate; its uses are the Stores' (the market, Runecaster's roll to come), and it stays where they read it. */
+export const NO_PACK_FORM = Object.freeze(['work:ram', 'essence:arcane']);   // SEAT2b part two: a siege work's road is the writ's (RAM_KIT); AUDIT PROF12 E1: Arcane Essence's the Stores'
 /** Whether the Stores may give a material to the pack. */
 export const withdrawable = (key) => !NO_PACK_FORM.includes(key);
-const MINED = new Map([...METALS, ...ORES, ...INGOTS, ...STONES, ...GEMS, SIEGE_GEM, PEARL, ...WOOD_TEMPLATES, ...HIDE_TEMPLATES, ...PARTS, ...MASONRY_TEMPLATES, RAM_KIT].map((m) => [m.key, m]));   // PROF7: the hides, leathers, cloth and a body's DFU parts; PROF8: the sea's Pearl; AUDIT-SEATS: the Siege-cracked Gem; PROF11: the bench's Mortar; SEAT2b part two: the Ram Kit
+const MINED = new Map([...METALS, ...ORES, ...INGOTS, ...STONES, ...GEMS, SIEGE_GEM, PEARL, ...WOOD_TEMPLATES, ...HIDE_TEMPLATES, ...PARTS, ...MASONRY_TEMPLATES, RAM_KIT, ...REAGENTS, ARCANE_ESSENCE].map((m) => [m.key, m]));   // PROF7: the hides, leathers, cloth and a body's DFU parts; PROF8: the sea's Pearl; AUDIT-SEATS: the Siege-cracked Gem; PROF11: the bench's Mortar; SEAT2b part two: the Ram Kit; PROF12: the Apothecaries' sixteen and Arcane Essence
 /** A mined (or smelted) material's row, or null. */
 export const minedMaterial = (key) => MINED.get(key) ?? null;
 /** PROF5: every registered material's key, in the registry's order - the market's catalogue beside the herbs and foods. */
@@ -742,6 +803,24 @@ export const LOOM_FEE = 50;
  */
 export const MASON_FEE = 50;
 /**
+ * PROF9 (PROF0 9.3: "Cooking (any campfire, hearth or brazier ...)"): THE FIRE COOKING IS DONE AT. DECIDED: any LIT fire
+ * within Climates & Calories' own reach of its flame (survival/camp.js BY_FIRE_REACH) - a campfire (anyone's, a peer's
+ * included), a hearth or a brazier (survival/hearth.js's world fires) - in the street, a building and a dungeon, in every
+ * tier of the arc (scenes/camps.js fireNear: the world's fire, as a rest's place reads it). No fee: a fire is nobody's.
+ * The service cannot see the fire (as it cannot see the forge, PROF0 23): the inputs are the Stores' and their units the
+ * bound; the client asks only where one burns.
+ */
+export const COOK_FIRE = Object.freeze({ kind: 'fire', fee: 0 });
+/**
+ * PROF10 (PROF0 9.3: "Jewelcrafting (a jeweller's bench, or any Pawn Shop or Gem store for 50 gold)"): WHERE THE
+ * JEWELLER'S BENCH STANDS - a Pawn Shop's or a Gem Store's, open for trade (its insideOpenShop latch, AUDIT 29 D4's law),
+ * at 9.3's own fee - 50 gold a piece, the purse's - or a home's `jeweller` station (HOME-STATIONS' eighth, its licence
+ * the workbench's 50,000 - net/decorLaw.js), as the loom and the mason's bench stand. The service cannot see the bench (as
+ * it cannot see the forge, PROF0 23): the inputs are the Stores' and their units the bound; the client asks only where it
+ * stands.
+ */
+export const JEWEL_FEE = 50;
+/**
  * A forge's or a workbench's work, no act (PROF0 4.1, 4.2, 25): `out` made from `inputs`, `per` a unit - or `more.per`
  * for a character standing under `more.spec`, their `more.profession`'s choice at `more.rank` (100 unless it says: a
  * Quartermaster's ingots, a Charcoal Burner's charcoal, a Timberwright's planks; PROF7 a Tanner's leather, a choice at
@@ -800,8 +879,32 @@ export const MASON_RECIPES = Object.freeze([
   masonWork('cut:stone', CUT_STONE.key, [[ROUGH_STONE.key, CUT_RATIO]], ROUGH_STONE.tier, { more: QUARRYMAN }),
   masonWork('mix:mortar', MORTAR.key, [['metal:sulphur', 1], ['metal:lead', 1], [ROUGH_STONE.key, 5]], MORTAR.tier, { per: MORTAR_BATCH }),
 ]);
-/** Every work of the forge, the workbench and the loom - PROF11: and the mason's bench - by its id. */
-export const WORK_RECIPES = Object.freeze([...SMELT_RECIPES, ...BURN_RECIPES, ...SAW_RECIPES, ...CURE_RECIPES, ...WEAVE_RECIPES, ...MASON_RECIPES]);
+/** PROF12 (3.3: "Transmuter - two of a DFU metal and a Mercury make one of the next up (Tin, Copper, Silver, Gold,
+ *  Platinum)" - AUDIT PROF12 E3; 4.1: "Mercury (Alchemy's Transmuter)"): the ladder, in its order. */
+export const TRANSMUTE_LADDER = Object.freeze(['metal:tin', 'metal:copper', 'metal:silver', 'metal:gold', 'metal:platinum']);
+/** The Transmuter - Alchemy's choice at 100 - the one door to a transmutation (`spec`, smeltAtForge's `prof-transmuter`). */
+export const TRANSMUTER = Object.freeze({ profession: 'alchemy', rank: 100, id: 'transmuter' });
+/** Two of a metal a transmutation takes, and the Mercury that turns them (4.1) - AUDIT PROF12 E3 (Mac: "2 + Mercury -> 1"):
+ *  Mac's choice, 2026-10-03, over 3.3's three - a Mercury and two of a metal make one of the next. */
+export const TRANSMUTE_IN = 2;
+export const TRANSMUTE_MERCURY = 1;
+/**
+ * PROF12: THE TRANSMUTATIONS - a work at the alchemy station (`station: 'alchemy'`), the forge's shape: two of a metal and
+ * one Mercury make one of the next up the ladder, a unit of work at a time (SMELT_MAX a request). DECIDED: the Mercury is
+ * 4.1's ("Mercury (Alchemy's Transmuter)") - the metal that turns the others, spent once a transmutation; no XP (`xp: null`):
+ * a Transmuter stands at 100, where the track is full; and the door is the choice at 100 (`spec`), asked by the service
+ * before anything moves. Own only where every unit that went in was (the smelt's origin, smeltOrigin).
+ */
+export const TRANSMUTE_RECIPES = Object.freeze(TRANSMUTE_LADDER.slice(0, -1).map((from, i) => Object.freeze({
+  ...recipe(`transmute:${from.slice('metal:'.length)}`, TRANSMUTE_LADDER[i + 1], [[from, TRANSMUTE_IN], ['metal:mercury', TRANSMUTE_MERCURY]], { station: 'alchemy', xp: null }),
+  spec: TRANSMUTER,
+})));
+/** PROF12: whether a work's choice (`r.spec` - the Transmuter's) stands for a track's choices (specsAt's `{ 50, 100 }`) -
+ *  every work that asks none is open. */
+export const workSpecOk = (r, specs) => !r?.spec || specs?.[r.spec.rank] === r.spec.id;
+/** Every work of the forge, the workbench and the loom - PROF11: and the mason's bench; PROF12: and the alchemy station's
+ *  transmutations - by its id. */
+export const WORK_RECIPES = Object.freeze([...SMELT_RECIPES, ...BURN_RECIPES, ...SAW_RECIPES, ...CURE_RECIPES, ...WEAVE_RECIPES, ...MASON_RECIPES, ...TRANSMUTE_RECIPES]);
 export const smeltRecipe = (id) => WORK_RECIPES.find((r) => r.id === id) ?? null;
 /** PROF11: whether a rank may do a work - a mason's asks its tier's rank (masonWork); every other work asks none. */
 export const workOpen = (r, rank) => !!r && rank >= (r.rank ?? 0);

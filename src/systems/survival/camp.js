@@ -174,10 +174,12 @@ export function spendCampNight(camp, now) {
 /**
  * USE the placeable off the pack: the decision, the item off `list`
  * with its uses riding the record (REST2: none spent), the record. `ctx` =
- * { now, owner, feet, yaw, probe, place, standing (this owner's count), id }.
+ * { now, owner, feet, yaw, probe, place, standing (this owner's count), id,
+ *   keep (PROF9's Field Cook - a kit lit without its charge spent, Professions-Arc 3.3; REST2 spends no charge on any
+ *   placing, so it changes nothing here - kept for its callers, the perk's meaning is Mac's to give again) }.
  * Returns { ok, text, camp, spent }.
  */
-export function placeCampItem(item, list, { now = 0, owner = null, feet = [0, 0, 0], yaw = 0, probe = null, place = {}, standing = 0, id = null } = {}) {
+export function placeCampItem(item, list, { now = 0, owner = null, feet = [0, 0, 0], yaw = 0, probe = null, place = {}, standing = 0, id = null, keep = false } = {}) {   // `keep`: PROF9's, moot under REST2 (above)
   const jar = isEmberJar(item);   // REST6: one night's fire, EMBER_JAR_MINUTES lit, never picked up
   const kind = isCampingEquipment(item) ? CAMP_KIND.Tent : isCampfireKit(item) || jar ? CAMP_KIND.Fire : null;
   if (!kind) return { ok: false, text: null, camp: null, spent: false };

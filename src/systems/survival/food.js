@@ -51,8 +51,19 @@ export const DRINK_KG = 0.1;
 /** A drink takes this off the thirst. */
 export const DRINK_RELIEF = 40;
 
-export const isFood = (item) => !!item && FOOD[item.templateIndex] != null && (item.group == null || item.group === SURVIVAL_GROUP);
-export const foodOf = (item) => (item ? FOOD[item.templateIndex] ?? null : null);
+/**
+ * PROF9 (2026-10-02, bible/06-Systems/Professions-Arc.md 35): THE FOODS ANOTHER ARC MAKES. Cooking's dishes (templates
+ * 685-688) are food by this law - eaten by it, spoiled by it, named by their stage - and C&C's own table stays as the
+ * mod wrote it: they come in through this door (systems/cookItems.js registers them, each on a row of this table's
+ * own - the Stew on the Meat's, the Supper on the Cooked Fish's, the Tart on the Bread's). A template FOOD holds is never
+ * taken over.
+ */
+const MORE_FOOD = new Map();
+export function registerFoods(rows) {
+  for (const [t, row] of Object.entries(rows ?? {})) if (FOOD[t] == null && row) MORE_FOOD.set(Number(t), Object.freeze({ ...row }));
+}
+export const isFood = (item) => !!item && (FOOD[item.templateIndex] ?? MORE_FOOD.get(item.templateIndex)) != null && (item.group == null || item.group === SURVIVAL_GROUP);
+export const foodOf = (item) => (item ? FOOD[item.templateIndex] ?? MORE_FOOD.get(item.templateIndex) ?? null : null);
 export const foodStage = (item) => Math.min(FOOD_STAGE.Putrid, Math.max(0, item?.foodStage ?? 0));
 /** The name with its stage: "Soft Apple", "Mouldy Bread", "Putrid Meat". */
 export function foodName(item) {
@@ -97,6 +108,9 @@ export function rotFoodDay(collections, rotDay = 0, rolls = Math.random) {
     if (!foodOf(item) || foodOf(item).keeps == null) continue;
     if (!Number.isFinite(item.rotDay)) item.rotDay = rotDay;
     const kept = Math.max(0, rotDay - item.rotDay);
+    // PROF9: a Provisioner's provisions never spoil (PROF0 3.3) - the dishes they cook and the foods they take from the Stores.
+    // AUDIT PROF9 K1: asked FIRST - a Butcher-Provisioner's meat carries both marks, and never spoiling outranks half the pace
+    if (item.noRot === true) continue;
     // PROF7: a Butcher's meat spoils half as fast (PROF0 3.3) - the same days at half the pace: rolled every other day,
     // aged half its days
     if (item.slowRot === true) { if (kept % 2 === 1) continue; if (rotRoll(item, Math.floor(kept / 2), rolls)) n++; continue; }

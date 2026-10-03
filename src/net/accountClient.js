@@ -54,7 +54,7 @@ import {
   GUILD_FOUND_RENOWN, GUILD_MEMBERS_MAX, GUILD_NAME_MIN, GUILD_NAME_MAX, GUILD_RANK_NAME_MAX, GUILD_MOVE_MAX,
 } from './guildLaw.js';   // GUILD1: the bounds its refusals name
 import { MARKET_PRICE_MAX, MARKET_UNITS_MAX, MARKET_LISTINGS_MAX, MARKET_ORDERS_MAX, AUCTION_BID_MAX } from './marketLaw.js';   // PROF5: the bounds its refusals name
-import { GUILD_WRITS_MAX, GUILD_STORES_MAX, COMMISSIONS_MAX, COMMISSIONS_FOR_MAX, WRIT_POSTS_MAX, WRIT_OPS_MAX } from './writLaw.js';   // PROF6: the bounds its refusals name
+import { GUILD_WRITS_MAX, GUILD_STORES_MAX, COMMISSIONS_MAX, COMMISSIONS_FOR_MAX, WRIT_POSTS_MAX, WRIT_OPS_MAX, GUILD_CONTRACTS_MAX, CONTRACT_PAY_MAX, CONTRACT_DEEDS_MAX } from './writLaw.js';   // PROF6: the bounds its refusals name; SILVER-WAYS: a contract's
 import { RENOWN_TRACKS_MAX } from './renown.js';   // RENOWN1: the tracks' bound, in its refusal's own sentence (RENOWN-CHAR: back with the tracks)
 import { HERALDRY_CHANGE_DRAKES } from './heraldryLaw.js';   // GUILD1d: a change's cost, in its refusal's own sentence
 
@@ -331,8 +331,10 @@ export const REFUSALS = Object.freeze({
   'node-taken': 'You have already gathered here today.',
   'bad-material': 'The Stores do not keep that.',
   'bad-recipe': 'The forge knows no such work.',   // PROF2
-  'prof-no-pack-form': 'That stays at the bench until its own craft is practised.',   // PROF3: the smith's stock
-  'prof-busy': 'The anvil is still ringing from your last work.',   // PROF3: one craft at a time
+  'prof-no-pack-form': 'That stays in the Stores - it never goes to the pack.',   // PROF3: the smith's stock; now a siege work and (AUDIT PROF12 E1) Arcane Essence
+  // PROF3: one craft at a time; AUDIT PROF-541 R2-C2: one latch for every craft and brew (profBook.js _craftBusy) - the
+  // anvil's word named the wrong work at the fire, the loom and the cauldron, so the words name none
+  'prof-busy': 'Your hands are busy with another craft.',
   'prof-later': 'That is made when the sieges come.',   // PROF4: the Ram Kit (PROF0 25)
   // PROF7: Hunting's day - the account's, every character's together (PROF0 6)
   'prof-hunt-cap': `Your account has taken all the hides a day allows (${HIDES_PER_DAY}, across your characters).`,
@@ -341,6 +343,16 @@ export const REFUSALS = Object.freeze({
   'prof-foe': 'No knife takes a hide from that body.',
   'prof-dye': 'That cannot be dyed so.',
   'prof-sculptor': 'Only a Sculptor carves stone decor - Masonry\'s choice at 100.',   // PROF11
+  'prof-lapidary': 'Only a Lapidary sets a Siege-cracked Gem as a piece\'s gem - Jewelcrafting\'s choice at 100.',   // PROF10
+  // PROF12: the alchemy station's and the enchanter's refusals
+  'prof-transmuter': 'Only a Transmuter turns one metal into the next - Alchemy\'s choice at 100.',
+  'bad-brew': 'That cauldron makes no such potion.',
+  'bad-piece': 'That is no crafted piece.',
+  'prof-no-piece': 'The counting-house knows no such crafted piece - only a piece a crafter made online can be disenchanted.',
+  'prof-not-yours': 'That piece is not yours to disenchant.',
+  'prof-piece-busy': 'That piece is listed on the market, on its way to you, or set down in a home - it cannot be disenchanted now.',
+  'prof-piece-gone': 'Your character\'s record does not hold that piece loose in the pack - it cannot be disenchanted.',   // AUDIT PROF-541 B2
+  'prof-no-essence': 'That piece carries too little enchantment to give any Arcane Essence.',
   'bad-qty': `Take 1 to ${WITHDRAW_MAX} at a time.`,
   'bad-pixels': 'That land could not be read.',
   'bad-region': 'That region could not be read.',
@@ -386,7 +398,8 @@ export const REFUSALS = Object.freeze({
   'market-gold-realm': 'Gold changes hands on the market only between characters of the online realm.',
   'market-currency': 'That listing is priced in the other currency. Look again.',
   'market-gold-goods': 'What you bought with gold goes to your pack or back on the market for gold - never for silver, to a station, a craft or a writ.',
-  'market-drakes-goods': 'What you bought with silver sells for silver. Only what you gathered, made or bought with gold sells for gold.',
+  // AUDIT PROF-541 R2-S3 (Mac: B7's wider wall kept, its word made plain): a piece made of goods a counter sold for silver is silver's
+  'market-drakes-goods': 'Goods bought with silver, and pieces made with them, sell only for silver. What you gathered, or made of your own or gold-bought goods, sells for gold.',
   'market-gold-none': 'Your sales hold no gold for you just now.',
   'market-gold-full': 'The seller cannot hold any more gold from the market just now.',
   // MARKET-ANY: a piece from the pack
@@ -430,7 +443,20 @@ export const REFUSALS = Object.freeze({
   'guild-stores-short': 'The guild Stores do not hold that many.',
   'guild-stores': 'Empty the guild Stores first.',
   'guild-writs': 'Withdraw the guild\'s writs first.',
-  'guild-writ-escrow': 'A withdrawn writ\'s pay is still waiting to go back to the silver treasury, which is full. Take silver out of the treasury first.',   // AUDIT 31 A15
+  'guild-writ-escrow': 'A withdrawn writ\'s or contract\'s pay is still waiting to go back to the silver treasury, which is full. Take silver out of the treasury first.',   // AUDIT 31 A15; SILVER-WAYS: or a contract's
+  // PROF2b: a Motherlode's strike
+  'motherlode-closed': 'The Motherlode is not standing now - it has not broken ground yet, or it has gone.',
+  'motherlode-watch': 'The Watch did not see you on the Motherlode\'s ground. Stand on it a moment and strike again.',
+  'motherlode-found': 'You have found your Motherlode today. Another breaks ground tomorrow.',
+  'motherlode-full': 'Its twenty miners have struck it. The Motherlode is spent.',
+  // SILVER-WAYS: guild contracts
+  'guild-contracts': 'Withdraw the guild\'s contracts first.',
+  'guild-contracts-max': `A guild may have ${GUILD_CONTRACTS_MAX} contracts posted at once.`,
+  'contract-kind': 'A guild contract pays for towns defended.',
+  'contract-pay': `A contract pays 1 to ${CONTRACT_PAY_MAX} silver a defender.`,
+  'contract-deeds': `A contract pays 1 to ${CONTRACT_DEEDS_MAX} defenders.`,
+  'contract-gone': 'That contract is no longer posted.',
+  'no-contract': 'There is no such contract.',
   // GUILD1d (Seats-Arc 8): the guild hall and the heraldry (server-account/src/halls.js)
   'guild-hall-have': 'Your guild already has a hall. Sell it first to buy another.',
   'guild-hall-none': 'Your guild has no hall.',
@@ -1191,10 +1217,13 @@ export function accountProf({ fetch, storage, waitMs = ACCOUNT_ACT_WAIT_MS }) {
     spec: (character, profession, rank, spec, from, rid) => post('/v1/prof/spec', { character, profession, rank, spec, from, rid }),   // AUDIT 29 A15: `from`, the choice the client saw standing
     withdraw: (character, material, qty, rid) => post('/v1/stores/withdraw', { character, material, qty, rid }),
     smelt: (character, recipe, count, rid, clean = false) => post('/v1/prof/smelt', { character, recipe, count, rid, ...(clean === true ? { clean: true } : {}) }),   // PROF2: the forge; PROF11: the mason's bench, `clean` the chisel's report
-    craft: (character, recipe, clean, name, rid, heartwood = false, dye = null, seat = null) => post('/v1/prof/craft', { character, recipe, clean, name, rid, heartwood, ...(dye == null ? {} : { dye }), ...(seat == null ? {} : { seat }) }),   // SEAT2b part two: `seat` the held town the station stands in   // PROF3: the anvil - `clean` the act's report, `name` the maker's mark; PROF4: the workbench, `heartwood` for a plank; PROF7: the loom, a garment's `dye`
+    craft: (character, recipe, clean, name, rid, heartwood = false, dye = null, seat = null, cracked = false) => post('/v1/prof/craft', { character, recipe, clean, name, rid, heartwood, ...(dye == null ? {} : { dye }), ...(seat == null ? {} : { seat }), ...(cracked === true ? { cracked: true } : {}) }),   // SEAT2b part two: `seat` the held town the station stands in   // PROF3: the anvil - `clean` the act's report, `name` the maker's mark; PROF4: the workbench, `heartwood` for a plank; PROF7: the loom, a garment's `dye`; PROF10: the jeweller's bench, `cracked` a Lapidary's Siege-cracked Gem for the gem
     stock: (character, material, qty, rid) => post('/v1/prof/stock', { character, material, qty, rid }),   // PROF3: the smith's stock
+    brew: (character, potion, keys, rid, seat = null) => post('/v1/prof/brew', { character, potion, keys, rid, ...(seat == null ? {} : { seat }) }),   // PROF12: the alchemy station's brew - `keys` the cauldron as the Stores hold it, `seat` the held town it stands in
+    disenchant: (character, provenance, rid, realm = null) => post('/v1/prof/disenchant', { character, provenance, rid, ...(realm ? { realm } : {}) }),   // PROF12: a crafted piece into Arcane Essence; AUDIT PROF-541 B2: a realm character's record where it stands
     writs: (character, region) => post('/v1/writs/list', { character, region }),
     deliver: (character, id, rid) => post('/v1/writs/deliver', { character, id, rid }),
+    motherlodes: (character) => post('/v1/prof/motherlodes', { character }),   // PROF2b: today's three (a strike rides `harvest`)
   };
 }
 
@@ -1240,6 +1269,8 @@ export function accountWrits({ fetch, storage, waitMs = ACCOUNT_ACT_WAIT_MS }) {
     stores: (character) => post('/v1/stores/guild', { character }),
     deposit: (req) => post('/v1/stores/guild-deposit', req),
     withdrawStores: (req) => post('/v1/stores/guild-withdraw', req),
+    contract: (req) => post('/v1/writs/contract', req),   // SILVER-WAYS: a guild contract posted, and withdrawn
+    withdrawContract: (req) => post('/v1/writs/contract-withdraw', req),
   };
 }
 

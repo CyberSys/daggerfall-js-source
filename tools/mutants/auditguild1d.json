@@ -203,8 +203,8 @@
   {
     "name": "AUDIT-GUILD1d-R5-heraldry-a-deposit",
     "file": "server-account/src/guilds.js",
-    "old": ": l.kind === 'heraldry' ? 'heraldry' : 'deposit', amount: l.amount })),",
-    "new": ": 'deposit', amount: l.amount })),",
+    "old": "'guild-withdraw': 'withdraw', heraldry: 'heraldry', 'guild-deed': 'deed',",
+    "new": "'guild-withdraw': 'withdraw', 'guild-deed': 'deed',",
     "tests": [
       "test/auditguild1d.test.js"
     ]
@@ -248,8 +248,8 @@
   {
     "name": "AUDIT-GUILD1d-A5-doors-never-read-again",
     "file": "src/scenes/world.js",
-    "old": "if (sig(g.guild) !== was) onlineHomes?.bump?.();",
-    "new": "if (sig(g.guild) !== was) void 0;",
+    "old": "onRank: () => { onlineHomes?.bump?.();",
+    "new": "onRank: () => { void 0;",
     "tests": [
       "test/auditguild1d.test.js"
     ]

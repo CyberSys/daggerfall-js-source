@@ -77,7 +77,9 @@
 //   POST /v1/prof/harvest { character, node, kind, climate, region, act, at, rid, foe? } -> { ok, material, qty, xp, track, today, store, gem?, extra?, extraQty?, hunt? } | { repeat, ... }   (PROF7: a body's `foe`, no ground)
 //   POST /v1/prof/spec { character, profession, rank, spec, rid }      -> { ok, track, marks?, balance? }
 //   POST /v1/prof/smelt { character, recipe, count, clean?, rid }      -> { ok, recipe, count, own, bought, xp, first?, clean?, track, stores } | { repeat, ... }   (PROF2; PROF4 the burns and saws; PROF7 the loom's cures and weave - a weave's `track` null; PROF11 the mason's bench's cut and mix - `clean` the chisel's, `first` its 500)
-//   POST /v1/prof/craft { character, recipe, clean, name?, heartwood?, dye?, rid } -> { ok, recipe, quality, count, seed, maker, marked, xp, first, heartwood, dye, pieces, track, stores } | { repeat, ... }   (PROF3 the anvil; PROF4 the workbench; PROF7 the loom and a garment's `dye`; PROF11 the Sculptor's stone decor)
+//   POST /v1/prof/craft { character, recipe, clean, name?, heartwood?, dye?, cracked?, rid } -> { ok, recipe, quality, count, seed, maker, marked, xp, first, heartwood, dye, hand?, pieces, track, stores } | { repeat, ... }   (PROF3 the anvil; PROF4 the workbench; PROF7 the loom and a garment's `dye`; PROF11 the Sculptor's stone decor; PROF9 the fire's dishes and a dish's `hand`; PROF10 the jeweller's bench - a piece's `hand`, a Lapidary's `cracked` gem)
+//   POST /v1/prof/brew { character, potion, keys, seat?, rid } -> { ok, potion, keys, count, potent, unbruised, steps, xp, first, track, stores } | { repeat, ... }   (PROF12: Alchemy's brewing act - DFU's own recipe law on the Stores' cauldron; Potent rolled, the Apothecary's steps)
+//   POST /v1/prof/disenchant { character, provenance, rid, realm? } -> { ok, provenance, recipe, points, essence, origin, xp, track, store, realm? } | { repeat, ... } | { error: 'prof-no-piece', why? }   (PROF12: a crafted piece into Arcane Essence, gone; AUDIT PROF-541 B2: a realm character's out of its record - `realm` where it stands, `realm.seq` the record's new sequence, `why: 'disenchanted'` a piece this account's disenchant took)
 //   POST /v1/prof/stock { character, material, qty, rid }             -> { ok, ... } | { repeat, ... }   (PROF3 the smith's stock; PROF4 the furnisher's; PROF5 the Weavers')
 //   POST /v1/stores/withdraw { character, material, qty, rid }         -> { ok, material, qty, store } | { repeat, ... }
 //   POST /v1/writs/list { character, region }                          -> { region, day, endsAt, writs, today }
@@ -171,13 +173,16 @@ import { fundFort, readForts } from './seatForts.js';   // SEAT2b: a seat's fort
  *  seats are open to it - for the wardrobe's read and its write. */
 const withSeatTitles = async (ctx, player, env) => (seatsOpenFor(player, env) ? { ...player, seatTitles: await seatTitlesOf(ctx.db, player.id) } : player);
 import { decorOf, placeDecor, moveDecor, removeDecor, hideDecorBase, yardsOf } from './decor.js';   // DECOR1: an online home's decor; BASE-HIDE: what its owner took out
-import { gateStrikeStatement, gateStrikeAnswer, marksOf, marksCardOf, exchangeMarks, depositGuildMarks, withdrawGuildMarks, marksReport } from './marks.js';   // MARKS1: the server's currency
+import { gateStrikeStatement, gateStrikeAnswer, raidStrikeStatement, combatStrikeAnswer, raidStrikeRid, deedStatements, deedAnswer, deedEvent, marksOf, marksCardOf, exchangeMarks, depositGuildMarks, withdrawGuildMarks, marksReport } from './marks.js';   // MARKS1: the server's currency; SILVER-WAYS: a raid's silver and a guild's deeds
 import { readBoard, pinNote, takeDownNote, reportNote, moderateNote, postNotice, removeNotice } from './board.js';   // NOTICE1: the Notice Board
 import { profState, profPixels, harvestNode, chooseSpec, withdrawStores, smeltAtForge, craftAtAnvil, buyStock, listWrits, deliverWrit } from './professions.js';   // PROF1: the professions; PROF2: the forge; PROF3: the anvil and the smith's stock
+import { brewAtStation, disenchantPiece } from './alchemy.js';   // PROF12: Alchemy's brew, Enchanting's disenchant
 import {
   writBoard, postGuildWrit, supplyGuildWrit, withdrawGuildWrit, setWritBudget, postCommission, fulfilCommission, cancelCommission, declineCommission,
   guildStores, depositGuildStores, withdrawGuildStores,
 } from './writs.js';   // PROF6: guild writs, commissions and the guild Stores
+import { contractBoard, postContract, withdrawContract, contractPayStatements, contractPaysOf } from './contracts.js';   // SILVER-WAYS: guild contracts
+import { motherlodesRead, strikeMotherlode, isMotherlodeNode } from './motherlodes.js';   // PROF2b: the Motherlodes
 import { marketRead, marketList, marketBuy, marketCancel, marketOrder, marketFill, marketUnorder, marketCollect, marketReport, marketRemove, marketAuction, marketBid, marketGoldCollect } from './market.js';   // PROF5: the market; PROF5b: its auctions; GOLD-MARKET: gold held collected
 import {
   listRealm, createRealm, customsRealm, joinRealm, checkpointRealm, getRealmBlob, leaveRealm, deleteRealm, undoRealm,
@@ -245,6 +250,7 @@ const GUILD_STATUS = Object.freeze({
   'guild-treasury': 409, 'guild-treasury-full': 409, 'guild-treasury-short': 409, 'guild-treasury-old': 409, 'marks-full': 409,   // AUDIT REALM L1-F3: gold no record paid in
   'guild-stores': 409, 'guild-writs': 409,   // PROF6: a guild keeping its Stores or a writ does not go (Professions-Arc 18)
   'guild-writ-escrow': 409,   // AUDIT 31 A15: a closed writ's escrow waiting on a full treasury
+  'guild-contracts': 409,   // AUDIT SILVER-WAYS B3: a guild with a contract standing does not go (its siblings' conflict, never a bad request)
   'guild-rate': 429,
   // GUILD1d (Seats-Arc 8): the hall - a building somebody owns, the guild's one hall already held, none held, one moved
   // under its sale, a guild kept from going by it; and the heraldry - the same again, changed meanwhile, the Drakes short
@@ -319,6 +325,12 @@ const PROF_STATUS = Object.freeze({
   'prof-hunt-cap': 409, 'prof-hunt-high': 409, 'prof-foe': 400, 'prof-dye': 400,   // PROF7: Hunting's day (30 hides, 3 of tiers 5-6), a body no knife skins, a dye asked of what takes none
   'prof-fish-cap': 409,   // PROF8: Fishing's day (40 hauls an account)
   'prof-sculptor': 403,   // PROF11: the stone decor is a Sculptor's - a skill's door, as the rank's
+  'prof-lapidary': 403,   // PROF10: a Siege-cracked Gem is set as a gem by a Lapidary alone - a skill's door, as the Sculptor's
+  // PROF12: a transmutation is a Transmuter's (a skill's door); a cauldron DFU's law answers with no such potion, a bad piece's id;
+  // no such piece, another's; one listed, on the road or set down; one that makes no Essence
+  'prof-transmuter': 403, 'bad-brew': 400, 'bad-piece': 400, 'prof-no-piece': 404, 'prof-not-yours': 403, 'prof-piece-busy': 409, 'prof-no-essence': 409,
+  // AUDIT PROF-541 B2: a realm character's disenchant moves its record - a piece the record does not hold, and the record's own words
+  'prof-piece-gone': 409, 'realm-needed': 400, lease: 409, seq: 409, 'no-realm-character': 404, 'no-data': 404, 'no-storage': 503,
   'node-taken': 409, 'writ-taken': 409, 'writ-expired': 409, 'writ-cap': 409, 'marks-full': 409, 'marks-short': 409, 'prof-respec-pending': 409,
   'prof-rate': 429,
   // PROF6: guild writs, commissions and the guild Stores
@@ -331,6 +343,10 @@ const PROF_STATUS = Object.freeze({
   'writ-own-guild': 403, 'guild-stores-mine': 403, 'market-uncollected': 409, 'commission-unyielded': 409, 'market-no-record': 409,   // AUDIT 31
   'commission-elsewhere': 409, 'market-unyielded': 409,
   'writ-rate': 429,
+  // SILVER-WAYS: guild contracts
+  'marks-need-account': 403, 'no-contract': 404, 'contract-gone': 409, 'guild-contracts-max': 409,
+  // PROF2b: a Motherlode's strike
+  'motherlode-closed': 409, 'motherlode-watch': 409, 'motherlode-found': 409, 'motherlode-full': 409, 'no-gate-key': 503,
 });
 /** PROF5: each market refusal's status - not this account's (a guest, the switches, a moderator's act) 403, no such
  *  listing, order or delivery 404, a conflict with what stands (the Marks, the Stores, the units, the road, the price
@@ -764,20 +780,26 @@ const service = {
         // one row a (day, account). No public half here yet is the
         // service's own gap, not the player's: 503, and the client keeps
         // the receipt for the week it carries.
-        const r = await claimGate(ctx, who.player, body.receipt, await gatePublicKey(env, subtle), { strike: (d) => gateStrikeStatement(ctx, who.player, env, d), region: body.region ?? null });
+        // SILVER-WAYS: and the guild's deed - the claiming character's guild, where three of its accounts closed this gate
+        const character = typeof body.character === 'string' ? body.character : null;
+        const r = await claimGate(ctx, who.player, body.receipt, await gatePublicKey(env, subtle), {
+          strike: (d) => gateStrikeStatement(ctx, who.player, env, d), region: body.region ?? null,
+          deeds: (d) => deedStatements(ctx, who.player, env, { kind: 'gate', event: deedEvent('gate', d), character, guard: [d] }),
+        });
         // AUDIT WB A5: a refused receipt says WHICH rung refused it - the client keeps one the service can mend (its key
         // not the relay's pair, a clock) and lets go of one it cannot
         if (r.error) return json({ error: r.error, ...(r.why ? { why: r.why } : {}) }, r.error === 'no-gate-key' ? 503 : r.error === 'not-yours' ? 403 : 400, origin);
         // MARKS1: THE FIRST FAUCET - a receipt that made its row strikes the gate's Marks, in the row's own batch
-        // (marks.js gateStrikeStatement: 50, two a UTC day, the gate's own day its line's id); `marks` null where Marks
-        // are not this account's
+        // (marks.js gateStrikeStatement: 50 under SILVER-WAYS' day's combat cap with the raids', the gate's own day its
+        // line's id); `marks` null where Marks are not this account's
         const answer = { ...r };
-        delete answer.day; delete answer.struck;   // the service's own: the line's day and whether the batch struck
+        delete answer.day; delete answer.struck; delete answer.deedStruck;   // the service's own: the line's day and whether the batch struck
+        if (r.recorded && !r.rite && r.deedStruck !== undefined) answer.deed = await deedAnswer(db, who.player, deedEvent('gate', r.day), r.deedStruck);   // SILVER-WAYS: where a deed was this claim's to try
         // SEAT1b (Seats-Arc 4.2): a kill recorded now is influence for the account's war-guild where it pledged in the
         // region the claim named (`seat` the answer: counted, or why not - the kill stands either way). WB12d: the rite
         // alone is no kill, and is no influence
         if (r.recorded && !r.rite && body.region != null) answer.seat = await creditGate(ctx, who.player, env, { character: body.character ?? null, day: r.day, region: body.region });
-        return json(r.recorded && !r.rite ? { ...answer, marks: await gateStrikeAnswer(ctx, who.player, env, !!r.struck) } : answer, 200, origin);   // AUDIT WB12d (A2): the rite alone strikes no Drakes, and says none
+        return json(r.recorded && !r.rite ? { ...answer, marks: await gateStrikeAnswer(ctx, who.player, env, !!r.struck, r.day) } : answer, 200, origin);   // AUDIT WB12d (A2): the rite alone strikes no Drakes, and says none
       }
 
       if (path === '/v1/raid/claim' && request.method === 'POST') {
@@ -786,14 +808,29 @@ const service = {
         // `claimRaid` holds the rest - the signature, the account, one row a (raid, account), the day's bound, the
         // Renown (RENOWN-CHAR: the fighting character's again). A level that ROSE comes back with a signed order, as a
         // Renown report's does.
-        const r = await claimRaid(ctx, who.player, { receipt: body.receipt, character: body.character, name: body.name ?? null, cid: body.cid ?? null }, await gatePublicKey(env, subtle));   // AUDIT RAID R4: `cid` - the device's claim, which the town's thanks are keyed to
+        // SILVER-WAYS: the town's silver (30, under the day's combat cap), the guild's deed and the guild contracts the
+        // raid's region posts, each in the claim's own batch and by its own row (raids.js)
+        const r = await claimRaid(ctx, who.player, { receipt: body.receipt, character: body.character, name: body.name ?? null, cid: body.cid ?? null }, await gatePublicKey(env, subtle), {   // AUDIT RAID R4: `cid` - the device's claim, which the town's thanks are keyed to
+          strike: (key, nonce) => raidStrikeStatement(ctx, who.player, env, key, nonce),
+          deeds: (key, nonce, character) => deedStatements(ctx, who.player, env, { kind: 'raid', event: deedEvent('raid', key), character, guard: [key, nonce] }),
+          contracts: (key, nonce) => contractPayStatements(ctx, who.player, env, { key, nonce }),
+        });
         if (r.error) return json({ error: r.error, ...(r.why ? { why: r.why } : {}) }, r.error === 'no-gate-key' ? 503 : r.error === 'not-yours' ? 403 : 400, origin);
         let order = null;
         if (r.renown?.rose) {
           const key = await signingKey(env, subtle);
           if (key) order = await mintRenownOrder({ s: who.player.id, lv: r.renown.level }, key, { subtle, nowS });
         }
-        return json({ ...r, order }, 200, origin);
+        const answer = { ...r };
+        delete answer.key; delete answer.struck; delete answer.deedStruck;   // SILVER-WAYS: the service's own
+        if (r.recorded) {
+          const marks = await combatStrikeAnswer(ctx, who.player, env, !!r.struck, raidStrikeRid(r.key));
+          if (marks) answer.marks = marks;
+          if (r.deedStruck !== undefined) answer.deed = await deedAnswer(db, who.player, deedEvent('raid', r.key), r.deedStruck);
+          const paid = await contractPaysOf(db, who.player, r.key);
+          if (paid.length) answer.contracts = paid;
+        }
+        return json({ ...answer, order }, 200, origin);
       }
 
       if (path === '/v1/renown/xp' && request.method === 'POST') {
@@ -1034,22 +1071,28 @@ const service = {
         const act = {
           '/v1/prof/state': () => profState(ctx, who.player, env, body),
           '/v1/prof/pixels': () => profPixels(ctx, who.player, env, body),
-          '/v1/prof/harvest': () => harvestNode(ctx, who.player, env, body),
+          // PROF2b: a Motherlode is struck through the harvest's own route - its node names it (motherlodes.js)
+          '/v1/prof/harvest': () => (isMotherlodeNode(body?.node) ? strikeMotherlode(ctx, who.player, env, body) : harvestNode(ctx, who.player, env, body)),
+          '/v1/prof/motherlodes': () => motherlodesRead(ctx, who.player, env, body),   // PROF2b: today's three
           '/v1/prof/spec': () => chooseSpec(ctx, who.player, env, body),
           '/v1/prof/smelt': () => smeltAtForge(ctx, who.player, env, body),   // PROF2
           '/v1/prof/craft': () => craftAtAnvil(ctx, who.player, env, body),   // PROF3: the anvil; PROF4: the workbench
+          '/v1/prof/brew': () => brewAtStation(ctx, who.player, env, body),   // PROF12: the alchemy station's brew
+          '/v1/prof/disenchant': () => disenchantPiece({ ...ctx, bucket: env.SAVES }, who.player, env, body),   // PROF12: an enchanting station's disenchant; AUDIT PROF-541 B2: a realm character's record, in R2
           '/v1/prof/stock': () => buyStock(ctx, who.player, env, body),   // PROF3: the smith's stock; PROF4: the furnisher's
           '/v1/stores/withdraw': () => withdrawStores(ctx, who.player, env, body),
           // PROF6: the Court's writs, and beside them this board's guild writs and commissions (writs.js writBoard)
           '/v1/writs/list': async () => {
             const r = await listWrits(ctx, who.player, env, body);
-            return 'error' in r ? r : { ...r, ...(await writBoard(ctx, who.player, env, body)) };
+            return 'error' in r ? r : { ...r, ...(await writBoard(ctx, who.player, env, body)), ...(await contractBoard(ctx, who.player, env, body)) };   // SILVER-WAYS: and its guild contracts
           },
           '/v1/writs/deliver': () => deliverWrit(ctx, who.player, env, body),
           '/v1/writs/post': () => postGuildWrit(ctx, who.player, env, body),   // PROF6: a guild writ
           '/v1/writs/supply': () => supplyGuildWrit(ctx, who.player, env, body),
           '/v1/writs/withdraw': () => withdrawGuildWrit(ctx, who.player, env, body),
           '/v1/writs/budget': () => setWritBudget(ctx, who.player, env, body),
+          '/v1/writs/contract': () => postContract(ctx, who.player, env, body),   // SILVER-WAYS: a guild contract
+          '/v1/writs/contract-withdraw': () => withdrawContract(ctx, who.player, env, body),
           '/v1/writs/commission': () => postCommission(ctx, who.player, env, body),   // PROF6: a commission
           '/v1/writs/fulfil': () => fulfilCommission(ctx, who.player, env, body),
           '/v1/writs/cancel': () => cancelCommission(ctx, who.player, env, body),
@@ -1060,7 +1103,8 @@ const service = {
         }[path];
         if (!act) return no('not-found', 404, origin);
         const r = await act();
-        if ('error' in r) return no(r.error, PROF_STATUS[r.error] ?? 400, origin);
+        // AUDIT PROF-541 B2: a realm record's sequence (a checkpoint's own word) and a refusal's `why` ride with it
+        if ('error' in r) return json({ error: r.error, ...(typeof r.why === 'string' ? { why: r.why } : {}), ...(r.error === 'seq' && Number.isSafeInteger(r.seq) ? { seq: r.seq } : {}) }, PROF_STATUS[r.error] ?? 400, origin);
         if (r.renown?.rose) {
           const key = await signingKey(env, subtle);
           return json({ ...r, order: key ? await mintRenownOrder({ s: who.player.id, lv: r.renown.level }, key, { subtle, nowS }) : null }, 200, origin);

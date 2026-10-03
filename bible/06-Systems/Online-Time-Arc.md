@@ -493,8 +493,8 @@ does online: "Short real wait"; asked whether the bounties, the curse quests and
   the old functions retire with the next relay deploy that happens anyway. `World-Bosses.md`'s game-time
   column retires with them. The gate panel already shows real local times.
 - **The patch notes,** in the pull request's description: "A day online is now 30 minutes. Nights, full
-  moons and quest hours come round four times as often." [TIME4, as built: `PATCH-NOTES-A-Faster-Sky.md`, the
-  root's file the release composes its notes from, as every patch's.]
+  moons and quest hours come round four times as often." [TIME4, as built; since REL6 the notes live in the pull request's
+  description, never as a file in the tree.]
 
 ## 8. The law in code
 
@@ -624,11 +624,10 @@ terms; 9 is new and not built.
   `test/fixtures/time1_census.json`), the weather's season, the nightfall words, the gates' and raids' local
   times, `tools/skyCutover.mjs`. TIME2: the full moon's night online. TIME3: quests on the character's clock and
   the sky (6.3a). TIME4: the Online pane's sentence, this page, `Lived-Time.md`, `Online-Arc.md`, `Quest-Arc.md`,
-  `World-Bosses.md`, `Clock-Arc.md`, the Port Ledger's departures, the patch notes
-  (`PATCH-NOTES-A-Faster-Sky.md`). The mutant campaigns are `tools/mutants/time1.json`-`time3.json`, all dead.
+  `World-Bosses.md`, `Clock-Arc.md`, the Port Ledger's departures, the patch notes. The mutant campaigns are `tools/mutants/time1.json`-`time3.json`, all dead.
 - 2026-10-02: TIMEFREE (6.3b) - online quests are not time: deadlines never run out, delays land on the short wait,
   no countdowns, bounties never lapse, the curse quests and crime-guild letters on the short wait.
-  `test/timefree.test.js`, `tools/mutants/timefree.json` (10, all dead), `PATCH-NOTES-Time-Free-Quests.md`. [DELETED by 6.3c]
+  `test/timefree.test.js`, `tools/mutants/timefree.json` (10, all dead). [DELETED by 6.3c]
 - 2026-10-02: AUDIT TIMEFREE (`01-Overview/Audit-Timefree.md`): every vendored clock read by hand, the main quest's
   whole; nineteen misread clocks corrected (T1-T6) - among them Brisienna's close, the main quest's endings and
   letter43, quests that never closed after their reward. `test/audit_timefree.test.js`, [DELETED by 6.3c]
@@ -637,8 +636,8 @@ terms; 9 is new and not built.
   across the switch); main merged in; the patch notes' words corrected.
 - 2026-10-02: QCLOCK-WORLD (6.3c): TIMEFREE's quest half reverted before the merge, and online a quest's countdowns
   charge the time played with the world's clock and never a raise - a rest, a wait or a journey spends no quest days.
-  `test/time3_quests.test.js` re-aimed, `tools/mutants/time3.json` (61, all dead),
-  `PATCH-NOTES-Quest-Timers-on-the-World-Clock.md`.
+  `test/time3_quests.test.js` re-aimed, `tools/mutants/time3.json` (61, all dead); its patch notes ride the Rest arc's
+  pull request (REL6), "Patch notes: Quest timers on the world's clock".
 - 2026-10-02: AUDIT TIME, four lenses (the sky and the moon; the quests; the hosts, saves and wire; the words and
   the tests). Fixed: the coven's daily re-roll was stamped and saved on the sky - its key is the event clock's day
   now, the prince's day the sky's (`daedraSummoning.js rerollDay`); `tools/skyCutover.mjs` could not move the

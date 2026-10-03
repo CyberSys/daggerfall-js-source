@@ -216,7 +216,7 @@ test('SEAT2b part two THE CRAFTING HALLS: a holder\'s member crafting in its tow
   assert.equal(await craft(smith, 'chair:oak', ANTICLERE.key), 0, 'the Forge steps no carpenter');
 });
 
-test('SEAT2b part two THE RAM KIT MADE: at Carpentry 60, its 40 Oak Planks, 20 Iron Ingots and 4 Bear Hides spent - the kit into the Stores (own, or bought where a bought unit went in), never a piece; refused where its Stores are full, nothing spent (mutants: the Stores; the origin; the room)', async (t) => {
+test('SEAT2b part two THE RAM KIT MADE: at Carpentry 60, its 40 Oak Planks, 20 Iron Ingots and 4 Bear Hides spent - the kit into the Stores (own, or bought where a bought unit went in), never a piece; refused where its Stores are full, nothing spent; the origin read in the kit\'s own write (AUDIT PROF-541 R2-S5) (mutants: the Stores; the origin; the room)', async (t) => {
   const s = await stood(t);
   const mac = await s.svc.registered('Mac');
   s.setXp(mac, 'carpentry', xpForRank(60));
@@ -234,6 +234,20 @@ test('SEAT2b part two THE RAM KIT MADE: at Carpentry 60, its 40 Oak Planks, 20 I
   const b = await craft();
   assert.equal(b.status, 200, JSON.stringify(b.body));
   assert.deepEqual(s.stores(mac, 'work:ram'), [['bought', 1], ['own', 1]], 'its planks bought: the kit bought');
+  // AUDIT PROF-541 R2-S5: the kit's origin read in its own INSERT, never before the batch - a bought plank laid in after
+  // the route looked (a counter's, between) is spent first, so the kit is bought
+  inputs();
+  const db = s.svc.env.DB, prep = db.prepare, batch = db.batch;
+  db.prepare = (sql) => Object.assign(prep.call(db, sql), { _sql: sql });
+  db.batch = async (list) => {
+    if (list.some((st) => st._sql?.includes('INSERT OR IGNORE INTO prof_crafts'))) s.give(mac, 'plank:oak', 'bought', 1);
+    return batch.call(db, list);
+  };
+  let raced;
+  try { raced = await craft(); } finally { db.prepare = prep; db.batch = batch; }
+  assert.equal(raced.status, 200, JSON.stringify(raced.body));
+  assert.deepEqual([s.stores(mac, 'work:ram'), s.stores(mac, 'plank:oak')], [[['bought', 2], ['own', 1]], [['own', 1]]], 'the bought plank went in first: the kit bought');
+  s.give(mac, 'plank:oak', 'own', 0);
   s.give(mac, 'work:ram', 'own', STORES_MAX - 1);
   inputs();
   assert.deepEqual((await craft()).body, { error: 'stores-full' }, 'the kit\'s room, not its inputs');

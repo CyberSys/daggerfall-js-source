@@ -81,7 +81,7 @@ so balance is an edit to one file, pinned by its own tests, never a hunt.
 | Region names | `REGION_NAMES` (`src/formats/mapsFile.js`, DFU's own table, MIT) | The kingdom map's names and indices (4.3) |
 | Guilds | `server-account/src/guilds.js`, `0013_guilds.sql`, `src/net/guildLaw.js` | 50 members; ranks 0 Guildmaster, 1 Officer, 2 Member, 3 Recruit; a gold treasury and its trigger-written ledger; `gi`/`gt`/`gm` on the signed token |
 | Homes, decor, stations | `server-account/src/homes.js`, `decor.js`; `src/net/homeLaw.js`, `decorLaw.js` | One owner a building (map_id, building_key); `HOME_CAP` 3; entry private/party/public; stations for a licence |
-| Renown | `renown_tracks` (0009), `src/net/renown.js`, `renownTracker.js` | Online level to 50, signed into the token (`lv`); client-reported XP, 5,000 a report, 20,000 an hour an account; no region recorded |
+| Renown | `renown_tracks` (0009), `src/net/renown.js`, `renownTracker.js` | Online level to 50, signed into the token (`lv`); client-reported XP, 5,000 a report, 15,000 an hour an account (SILVER-WAYS: it said 20,000 - RENOWN-ACCOUNT's three quarters made it 15,000, `renown.js` RENOWN_XP_HOUR_MAX); no region recorded |
 | The Oblivion Gate | `gateLaw.js`, `gateBrain.js`, `gateReceipt.js`, relay `_gate*`, `0014_gate_kills.sql` | Relay-refereed HP, reach, rate and damage buckets; phases; `r1.` Ed25519 receipts; the day's region from a pure shuffle bag |
 | Duels | `duelSession.js`, `duelCombat.js`, `0008_duels.sql` | 1v1 on a ring 12 m in radius (`DUEL_RADIUS_M`), defender-resolved - so no duel can award anything the server keeps |
 | Parties | the hub (`chat:world` Durable Object) | `PARTY_MAX` 8 |
@@ -384,7 +384,7 @@ referees up to 256 fighters against one foe.
 
 - **Siege vitality** - DECIDED: in a siege room the RELAY holds every fighter's vitality, and it is normalised:
   **300 + 2 x Renown level** - from 302 to 400. The level is the account service's signed number; its XP is
-  client-reported but rate-bounded (20,000 an hour an account, FACT `renownTracks.js`), so an inflated level is a slow
+  client-reported but rate-bounded (15,000 an hour an account, FACT `renown.js` RENOWN_XP_HOUR_MAX - SILVER-WAYS: it said 20,000, RENOWN-ACCOUNT's figure before its three quarters), so an inflated level is a slow
   lie - some 116 hours at the cap to reach 50 - and the formula is flat on purpose, so even a lie buys about a third
   more vitality at most (400 against 302). A siege never touches the save's health, items or gold (DECIDED): a fallen
   fighter respawns (6.2), and leaves the room as they entered it.
@@ -727,7 +727,7 @@ BUILT (SEAT2b part two (a), 2026-10-01, `acct61`, migration 0062; `06-Systems/On
 works at peace - a Siegewright's project a day sooner (DECIDED: the "siege works" of Professions-Arc 3.3 are these
 projects); the Shrine's Standing and its 50 a tier for each gate felled in the region, counted in the holder's defence;
 the Watchtowers' word to the holder's members; the Forge's and the Workshop's steps for the holder's members crafting in
-its town (the Apothecary's wait on Alchemy's, Cooking's and Jewelcrafting's stations); the Harbour a Travel Options port
+its town (the Apothecary's waited on Alchemy's, Cooking's and Jewelcrafting's stations - BUILT since, PROF12, below); the Harbour a Travel Options port
 for the holder's members, raised at a coastal town (DECIDED: the sea beside it, or a harbour already drawn there); the
 Ram Kit made into the Stores and carried to a Siege Camp by its writs. NOT YET: the works in battle (part two (b)) and
 the Barracks' guards and the revolt (part two (c)). BUILT since (SEAT2b part two (b), `world150`): the Walls' wave, the
@@ -735,6 +735,20 @@ Gatehouse and its Rams in battle (6.2's note). BUILT since (SEAT2b part two (c),
 guards - at the Throne and the banners, counted there as defenders, marking the nearest attacker within 12 m and following
 none past 24 m from their posts, rising at the defenders' camp with their wave (DECIDED there: a guard of Renown 30
 striking 20 a blow on a one-beat wind-up) - and the revolt (7.7's note). With it SEAT2b is whole.
+
+BUILT (PROF12, 2026-10-02, Mac: "2 and 4"; "lets just finish out everything before merge"; `acct69`;
+`06-Systems/Professions-Arc.md` 37): **THE APOTHECARY OPENED** - its three professions' stations stand (Cooking's fire, PROF9;
+Jewelcrafting's bench, PROF10; Alchemy's station, PROF12), so AUDIT SEATS-2 L5's gate is lifted (`src/net/fortLaw.js`
+APOTHECARY_OPEN): a holder raises it as any work, and its step a tier is the holder's members' crafting in its town (`seat`,
+the Forge's and the Workshop's route - `server-account/src/professions.js` seatStepsFor), each profession's own. A **piece of
+jewellery** a quality step (the Forge's law, nothing past Masterwork). DECIDED, a **dish** - which takes no quality - its XP
+half again a step (the clean pan's own step, Professions-Arc 35; `recipeLaw.js` cookXp). DECIDED, a **brew** its Potent
+chance +10 a step (`alchemyLaw.js` potentChance; the brew carries its town as a craft does). Nobody else's, no other town's,
+no other hall's. Pinned through the real Worker: `test/prof12_apothecary.test.js`. AUDITED (2026-10-03, AUDIT PROF12 P1):
+the Seat tab's line for it said every tier made "members' alchemy, cooking and jewelcrafting here" a quality step better -
+true of jewellery alone; it says each profession's own now (`fortLaw.js` FORT_EFFECT_WORDS): "members' jewellery here a
+quality step better, their dishes half again the XP, their brews +10% Potent chance" (tier 2: two steps, twice the XP,
++20%).
 
 ### 7.6 Edicts
 
@@ -1080,7 +1094,7 @@ Season with titles at the end; a Chronicle that remembers; and the Professions e
 | The Ram (6.2) | Carpentry and Smithing craft it; a siege consumes it |
 | The Levy (7.6), Harvest and Blight (9.3) | Node yields (PROF0 section 6) |
 | Regional signature materials (PROF0 4.7) | The crowns and marches that tax them |
-| The Forge, Workshop, Apothecary (7.5) | Quality +1 step for the holder's members |
+| The Forge, Workshop, Apothecary (7.5) | Quality +1 step for the holder's members (the Apothecary's, PROF12 and AUDIT PROF-541 D2: a jewellery piece's quality step, a dish's Cooking XP half again, a brew's Potent chance +10 - a tier each) |
 | Siege Honours (6.8) | The Spoils of War table - materials only war yields |
 | The Seat tab (7.9) | The same board's Work and Market tabs (PROF0 10.1) |
 
@@ -1278,7 +1292,7 @@ Every law in Home.md's Process section, and what it demands of this arc:
   windows, stockpiles and Levies, history, fealty and Pacts (`seatTurning.js` `SEASON_ZERO_WIPED`). DECIDED: what money is
   still owed out of (a battle's contracts, an Edict's escrow, a Royal Tourney's prize), the titles and Honours earned,
   and the red lines stay; the beta crowns no one.
-- **Patch notes** for every slice, in the house style (`PATCH-NOTES-*.md`, Discord-sized, player-facing).
+- **Patch notes** for every slice, in the house style (the pull request's `## Patch notes`, Discord-sized, player-facing).
 - **Moderation.** Guild names and tags pass the name filter they already pass; heraldry is a fixed palette and fixed
   devices, so nothing offensive can be drawn on a banner. Moderators (MOD1) may **void a siege** (`/siege void`) - a
   history row, the holder keeping the seat - when a fight was won by an exploit found after it. BUILT (VOID,

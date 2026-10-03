@@ -705,8 +705,15 @@ Mac: "Go" - every recommendation of section 15 taken. Slices REST1-REST6 and RES
 - 2026-10-03: REST8 - quest waits, option A (section 8's as-built note; `Online-Time-Arc.md` 6.3d): TIMEFREE's delay
   half restored on QCLOCK-WORLD's clock, its deadlines left on played time; R1, two misread deadlines corrected.
 - 2026-10-03: BUILT (Mac: "Go"). REST1 + REST2, REST3, REST5, REST6 and REST8 committed in that order, origin/main
-  merged in; REST7 deferred with the online switch (As built). The patch notes:
-  `PATCH-NOTES-Resting-at-Rest-Points.md`.
+  merged in; REST7 deferred with the online switch (As built). The patch notes ride the pull request's description
+  (REL6), "Patch notes: Resting at rest points".
 - 2026-10-03: AUDIT REST-PARTY (As built): the party rest adapted to the night (the tavern's exemption, the rester's
   spot, the far word), the ambush that never broke a night online, and every lens's findings fixed, pinned and
   mutation-proven.
+- 2026-10-03: origin/main merged in (#541 PROF9 Cooking, PROF10 Jewelcrafting, PROF12 Alchemy; #546 ELITE-RATES; #547
+  SILVER-WAYS and PROF2b; #548 REL6 - this arc's two patch-notes files leave the tree for the pull request), its cites by
+  citeMerge and the struck rows by content. One real overlap: PROF9's Field Cook lights a Campfire Kit without its
+  charge (survival/camp.js placeCampItem `keep`), and REST2 spends no charge on any placing - the option is accepted
+  and changes nothing, PROF9's two mutants on it are retired and its pin re-aimed; **the perk needs a new meaning
+  (Mac's call)** - e.g. a Field Cook's Firewood feeds four nights, or a night at their own Campfire spends none one
+  time in three.

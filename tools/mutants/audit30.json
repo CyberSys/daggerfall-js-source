@@ -164,11 +164,12 @@
   {
     "name": "AUDIT30-L4-the-mark-unsigned",
     "file": "server-account/src/professions.js",
-    "old": "a: marked === 1 && maker !== null, u }",
-    "new": "a: false, u }",
+    "old": "a: marked === 1 && maker !== null, u, f: hand }",
+    "new": "a: false, u, f: hand }",
     "tests": [
       "test/audit30_service.test.js"
-    ]
+    ],
+    "note": "PROF9 (RE-AIMED by content): the fire's code beside it."
   },
   {
     "name": "AUDIT30-L1-a-herb-key-in-any-spelling",

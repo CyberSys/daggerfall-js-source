@@ -50,7 +50,7 @@ async function stand(extra = {}) {
 
 // ─── THE DONE-WHEN ───────────────────────────────────────────────────
 
-test('PROF5b DONE WHEN: a Masterwork posted in Daggerfall is bid on from Wayrest and from Daggerfall - the Wayrest bid outbid and its escrow back on its bidder\'s read, a bid in the last two minutes adding two - and at its end the Daggerfall bidder\'s piece is theirs, the seller paid the bid less its tax', async () => {
+test('PROF5b DONE WHEN: a Masterwork posted in Daggerfall is bid on from Wayrest and from Daggerfall - the Wayrest bid outbid and its escrow back on its bidder\'s read, a bid in the last two minutes adding two - and at its end the Daggerfall bidder\'s piece is theirs, the seller paid the bid less its tax; disenchanted after, its auction and bids still in "My listings" (AUDIT PROF-541 R2-S4)', async () => {
   clock(T0);
   const s = await stand();
   const mac = await s.registered('Mac'), ann = await s.registered('Ann'), bob = await s.registered('Bob');
@@ -110,6 +110,15 @@ test('PROF5b DONE WHEN: a Masterwork posted in Daggerfall is bid on from Wayrest
   const trades = (await s.read(mac, 'history')).body.trades;
   assert.deepEqual(trades.filter((t) => t.side === 'auctioned').map((t) => t.total), [win - saleTax(win)]);
   assert.deepEqual((await s.read(bob, 'history')).body.trades.filter((t) => t.side === 'won').map((t) => t.total), [win]);
+  // AUDIT PROF-541 R2-S4: Bob disenchants it (its products row gone) - the auction and his bids stay in "My listings",
+  // named by the disenchant's recipe
+  const gone = await s.call('/v1/prof/disenchant', { character: bob.character, provenance: PV, rid: rid() }, bob.secret);
+  assert.equal(gone.status, 200, JSON.stringify(gone.body));
+  assert.equal(s.owner(PV), undefined, 'the row gone');
+  const macMine = (await s.read(mac, 'mine')).body.auctions.filter((x) => x.id === a.id);
+  assert.deepEqual(macMine.map((x) => [x.state, x.piece.provenance, x.piece.recipe]), [['sold', PV, 'longsword:mithril']], 'the seller\'s auction kept');
+  const bobBids = (await s.read(bob, 'mine')).body.bids.filter((x) => x.auction === a.id);
+  assert.deepEqual(bobBids.map((x) => [x.piece.provenance, x.piece.recipe]), [[PV, 'longsword:mithril'], [PV, 'longsword:mithril']], 'the winner\'s bids kept');
 });
 
 // ─── THE REFUSALS ────────────────────────────────────────────────────

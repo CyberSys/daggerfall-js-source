@@ -577,5 +577,25 @@
       "test/fb1001_market_goods.test.js",
       "test/goldmarket_client.test.js"
     ]
+  },
+  {
+    "name": "PROF541-R2-S2-pack-drakes-wall",
+    "file": "server-account/src/market.js",
+    "old": "    if (p?.bought_with === 'marks') return { error: 'market-drakes-goods' };\n",
+    "new": "",
+    "tests": [
+      "test/fb1001_market_goods.test.js"
+    ],
+    "note": "AUDIT PROF-541 R2-S2: a Drakes-bought make never lists for gold from the pack."
+  },
+  {
+    "name": "PROF541-R2-S2-pack-gold-passes",
+    "file": "server-account/src/market.js",
+    "old": "    if (p?.bought_with === 'marks') return { error: 'market-drakes-goods' };\n",
+    "new": "    if (p?.bought_with) return { error: 'market-drakes-goods' };\n",
+    "tests": [
+      "test/fb1001_market_goods.test.js"
+    ],
+    "note": "AUDIT PROF-541 R2-S2: a gold-bought one lists."
   }
 ]

@@ -62,13 +62,16 @@ const HEARTH_ROWS = Object.freeze([Object.freeze({ key: 'rest', text: CAMP_TEXT.
  *          selfId() (this player's online id, or null), onChanged() (the host's online publish),
  *          hearths() -> [{x, y, z}] (HEARTH1: the world's own cooking fires in the host's frame - the braziers
  *            and fire bowls survival/hearth.js picks out of the lantern list the host already builds; a host
- *            that passes none has none, which is what every caller did before this) }
+ *            that passes none has none, which is what every caller did before this),
+ *          fieldCook() (PROF9: whether the player stands as a Field Cook - a Campfire Kit lit spends no charge,
+ *            Professions-Arc 3.3; a host that passes none never keeps one) }
  */
 export function createCamps({
   renderer = null, getTexture = null, uploadRecordFrame = null, meshes = null, entity = null,
   camera = () => null, collider = () => null, place = () => ({}), pixelKeyAt = () => null,
   say = () => {}, showOverlay = null, openRest = null, advanceMinutes = null, selfId = () => null, onChanged = null,
   hearths = null,   // HEARTH1: the host's own braziers and fire bowls, in the host's frame - see below
+  fieldCook = null,   // PROF9: a Field Cook's kit keeps its charge (survival/camp.js placeCampItem `keep`)
 } = {}) {
   const camps = [];   // { rec, batch, anim, pixelKey, mine }
   let _nextId = 0;
@@ -205,6 +208,7 @@ export function createCamps({
       probe: col?.surfaceHit ? (o, d, m) => col.surfaceHit(o, d, m).dist
         : (col?.raycast ? (o, d, m) => col.raycast(o, d, m) : null),
       place: place?.() ?? {}, standing: own().length, id: `${selfId?.() ?? 'me'}:${++_nextId}:${Math.trunc(now())}`,
+      keep: fieldCook?.() === true,   // PROF9: a Field Cook lights a kit's fire without its charge (Professions-Arc 3.3)
     });
     if (r.text) say(r.text);
     if (!r.ok) return false;

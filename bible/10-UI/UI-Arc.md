@@ -947,17 +947,17 @@ still push CLASSIC canvas windows as children under the DOM, and so
 does the pack's USE arm.
 
     THE SPELLBOOK       FIVE construction sites across FOUR hosts:
-                        worldModes.js:2518 (the factory) and :1904 (a
+                        worldModes.js:2517 (the factory) and :1904 (a
                         HAND-ROLLED second one, 342 lines below it in
                         the same file),
-                        dungeonContext.js:1316, world.js:4851,
+                        dungeonContext.js:1316, world.js:4887,
                         exterior.js:2647. It is the only window TWO
                         enhanced screens already push - the sheet's
                         button and the pack's USE hand-off, whose
                         close-then-hand-over ordering U55 got
                         backwards. No law needs extracting first.
     THE LOGBOOK         THREE sites: charSheetNav.js:53,
-    / NOTEBOOK          world.js:12814, dungeonContext.js:8583. A seam
+    / NOTEBOOK          world.js:12964, dungeonContext.js:8585. A seam
                         wants making, as U52's and U53's did.
     HISTORY             ONE site (charSheetNav.js:61), and it reads
                         only the entity's backStory. The small one.
@@ -8711,7 +8711,7 @@ same answer: `ui/spellbookDoor.js`, with each host handing it only
 what that host knows.
 
 THE "HAND-ROLLED DUPLICATE" WAS NOT ONE. The board recorded
-worldModes.js:3394 as a second book built by hand 342 lines below the
+worldModes.js:3393 as a second book built by hand 342 lines below the
 factory. Read closely it is the SPELL MERCHANT'S SHOP - buyMode, with
 `offered`, the building's quality, the shop name, the haggling skills
 and the classic clock. A different question with different deps, and
@@ -8764,7 +8764,7 @@ window over, and both halves of it were here too.
 IT READ THE NAMES AND THREW AWAY THE NUMBERS. `spellEffects` hands
 back the effect RECORDS, and every one carries `magnitudeBaseLow/High`
 with its per-level step, `durationBase/Mod`, and `chanceBase/Mod` -
-the exact fields systems/effects.js:532-540 reads to resolve a live
+the exact fields systems/effects.js:535-543 reads to resolve a live
 effect. The first draft printed the two names and dropped the rest,
 which is the chronicle's flattened date wearing a different hat. Each
 part now appears only when the effect HAS it, because "0 to 0" is
@@ -8794,7 +8794,7 @@ mutations, 4 dead.
 
 PX24 (Mac: "with the logbook and history, I want them as one detailed
 UI"): THE CHRONICLE. Two classic windows built at four sites -
-questJournal.js from charSheetNav:53, world.js:5309 and
+questJournal.js from charSheetNav:53, world.js:5345 and
 dungeonContext.js, playerHistory.js from charSheetNav:61 - become ONE
 seam (ui/chronicleDoor.js, the U52/U53/PX23 shape a sixth time) and,
 on the enhanced skin, ONE WINDOW.
@@ -9421,7 +9421,7 @@ and firing THAT twice is a second PopToHUD.
 
 ### Why only two of the four hosts crashed
 
-`worldModes.js:8207` and `dungeonContext.js:2044` answer the same
+`worldModes.js:8208` and `dungeonContext.js:2044` answer the same
 `onClose` by nulling their slot and never disposing - nothing to
 re-enter. Only the two hosts that come through `townTalk.closeOverlay`
 dispose. **The four-hosts rule caught this one by accident**: the two
@@ -10150,7 +10150,7 @@ to the wrong code.
   so the edge was a silent no-op and one press glued a slider to the
   pointer for the rest of the popup's life, with the runaway value then
   written by the grid's save. `ControlsWindow.release()` forwards it now,
-  the ROAD-E E1 shape `ui/itemMakerWindow.js:204` has carried since
+  the ROAD-E E1 shape `ui/itemMakerWindow.js:210` has carried since
   Wave E, and it is `HorizontalSlider.cs:148-154`'s else arm.
 - **The wheel arm was dead.** `sliderScroll` ported MouseScrollUp/Down
   (:180-190) with no caller anywhere. `MouseControlsWindow.wheel(dir)`
@@ -10674,9 +10674,9 @@ re-resolved the `exterior.js` half of a three-file sentence and left the
 `ExteriorAutomapWindow` construction, `:4101` on a `locationName:`
 field). Both halves are now read by `test/citedrift.test.js` - the
 existing entries only ever captured the exterior number, which is how
-the other half went stale unnoticed. (The rest cite named `world.js:13273`,
+the other half went stale unnoticed. (The rest cite named `world.js:13423`,
 the first of the host's TWO identical `act === 'Rest'` arms; ROAD-H H5
-deleted the second and the cite is `world.js:13279` now.)
+deleted the second and the cite is `world.js:13429` now.)
 
 ## AUDIT 62 F24/F25 - THE SENTINEL SWEEP WAS TWO WINDOWS SHORT (2026-09-07)
 
@@ -14340,7 +14340,7 @@ items off your character."*
 
 It did not, and the whole of the reason is one line. INV1 hung the
 gesture on the pack's rows - `itemRow`'s `if (from === 'local')
-dragFrom(row, item)` (`ui/enhancedInventory.js:2371`) - and made the
+dragFrom(row, item)` (`ui/enhancedInventory.js:2372`) - and made the
 body a drop TARGET, with `equippedList` saying so in its own comment:
 *"the body is the equip target - `dragFrom`'s pointerup finds it by hit
 test, so the map needs no handler of its own"*. True for the direction
@@ -15575,9 +15575,9 @@ whether an entry MATCHES and asserts nothing.
 Following it out was worse than the symptom. Five Ledger rows cite a
 PAIR - `` `world.js:N`, `exterior.js:M` `` - and the table captured `M`
 alone. So `M` was re-resolved at every wave for a year and `N` was never
-read: `world.js:10765` named a line that is 8950, `:1782` one that is
+read: `world.js:10915` named a line that is 8950, `:1818` one that is
 1215, `:1094` one that is 2194, `:3903` one that is 3066, `:3920` one
-that is 8907. `world.js:10499-10531` and `dungeonContext.js:1848` were
+that is 8907. `world.js:10649-10681` and `dungeonContext.js:1848` were
 stale the same way. Seven numbers re-resolved BY CONTENT, every
 uncaptured half de-baked to `\d+`, and eight new entries added so every
 number in a pair is captured. The half nobody reads cannot rot in
@@ -17730,6 +17730,13 @@ every live arm (the street's, a building's, the dungeon's, the watch's) tells it
 nothing, and with the loot-rarity row off no champion stands, so the mod's silence is whole. The classic skin, which
 has no plaque, hears a champion on its line instead (`Loot-Arc.md` section 17, CHAMP-SAID).
 
+**RETIRED by HOVER-PLAIN (2026-10-03, Mac: "remove the crosshair tooltip. They should only have names/modifiers
+under their healthbar").** The exception is gone: `mobileEntityName(name, { hostile })` names no hostile foe, a champion,
+an elite or a revenant included; while one fights, its title stands on the target frame alone (`ui/hudFoeTarget.js`),
+and CHAMP-SAID's first-blow line stays. At peace it is named as ever, title and all (`liveEntityName` keeps `foeTitle`): a
+sworn companion by its own name, a calmed one, and a kneeling revenant - its motor still hostile, so the street's and
+the dungeon's arms pass `!f.yielded` (the street's `!f._pupYield` too) and its "- beaten" cue reads.
+
 The classic skin has none of it, byte for byte.
 
 ## CHARGEN-REFLEX — the Continue button was covered, not dead (2026-09-22)
@@ -18656,7 +18663,7 @@ gradient and its padding `14px 16px 16px`; with the fix, none and `0px`.
   three windows draw none of them; no board sheet (the board's, the professions', the bounty board's, the classic
   skin's) names one, and the classic sheet keeps every rule of the board's window and nothing else; the toasts' sheet
   names none of the board's. `audit31_tabs` and `audit30_client` follow the new classes. Mutants:
-  `tools/mutants/toast_split.json` (18, all dead). Patch notes: `PATCH-NOTES-Notifications-Fixed.md`.
+  `tools/mutants/toast_split.json` (18, all dead).
 
 ## FONT3 - THE ENHANCED FACE, READABLE AND EVERYWHERE (2026-10-02, Mac: "So I want to improve the readability of our ingame font as im recieving a lot of complaints, additionally we need to ensure everything recieves our enhanced font")
 
@@ -18756,7 +18763,7 @@ shelf's labels. Pins: `test/font3_readable.test.js` (9: the pair and the trio's 
 tokens, the recovery code's reason, THE FLOOR over all 25 sheets, the dim's contrast and order, the named surfaces,
 the dungeon line, the text layer over a fake document, the prison label mounted and taken down). Followed:
 `test/audit39_uicore.test.js` (the touch layer's order), `test/audit0928_input.test.js` (the map seam's new free
-name). Patch notes: `PATCH-NOTES-Readable-Text.md`.
+name).
 
 ## TIMERS1 - THE HOURGLASS: EVERY SHARED MOMENT, COUNTED DOWN (2026-10-02, Mac: "we need to create a new unique UI element for reset times like the Sunday wars, oblivion gates, town raids, and anything else so the player can keep track of when things are and watch countdowns. Im thinking maybe an enhanced plus button on the pause menu next to the profile icon")
 
@@ -18796,4 +18803,4 @@ its rows scroll inside it. AUDIT TIMERS1 (`01-Overview/Audit-Timers1.md`) then d
 the live pause face online (no relay or ARENA2 here). Pins: `test/timers1.test.js`
 (9: the gate, the seat week, the battles, the raids and the two days, the order, the words, the window over a fake
 document - drawn, moved, a row gone, offline said - the hourglass and its placing, the wiring through all the hosts);
-`test/outsideTap.test.js` (the fourth scrim, the hourglass in the keep list). Patch notes: `PATCH-NOTES-Timers.md`.
+`test/outsideTap.test.js` (the fourth scrim, the hourglass in the keep list).

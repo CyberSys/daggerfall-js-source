@@ -20,7 +20,7 @@ import { serviceLabel } from '../systems/guildServiceFlow.js';
 import { GUILD_RECTS, PANEL_X as GUILD_X, PANEL_Y as GUILD_Y, REFORGE_ROW } from './guildServiceWindow.js';
 import { COVEN_RECTS, COVEN_PANEL_X, COVEN_PANEL_Y } from './covenWindow.js';
 import { BANK_RECTS, BANK_PANEL_X, BANK_PANEL_Y, MARKS_ENTRY } from './bankWindow.js';
-import { MARKS_BANK, marksText } from '../net/marksLaw.js';   // MARKS1: the Bank's Marks, online
+import { MARKS_BANK, MARKS_COMBAT, marksText } from '../net/marksLaw.js';   // MARKS1: the Bank's Marks, online; SILVER-WAYS: the day's combat cap
 import { TRANSACTION_TYPE, goldRegion, EMPIRE_ACCOUNT_REGION } from '../systems/banking.js';   // EMPIRE-ACCOUNT: online, the one account
 import { REGION_NAMES } from '../formats/mapsFile.js';   // BANK-REGION: the account's region, by the index its row reads
 import { PURCHASE_RECTS, PURCHASE_PANEL_X, PURCHASE_PANEL_Y } from './bankPurchaseWindow.js';
@@ -129,6 +129,7 @@ const bank = {
           { type: 'stats', items: [
             ['Silver held', marksText(w.hooks.marks.balance() ?? 0)],
             ['Sold today', `${(w.hooks.marks.today()?.exchanged ?? 0)} of ${MARKS_BANK.perDay}`],
+            ['From gates and raids today', `${(w.hooks.marks.today()?.combat ?? 0)} of ${w.hooks.marks.today()?.combatMax ?? MARKS_COMBAT.perDay}`],   // SILVER-WAYS
             ['The Bank pays', `${MARKS_BANK.goldPerMark} gold for each silver`],
           ] },
           { type: 'actions', layout: 'column', items: [
@@ -233,14 +234,16 @@ const TAB_WORDS = Object.freeze({ WeaponsAndArmor: 'Weapons & armor', MagicItems
 const enchantRows = (w, list) => list.map((e) => {
   const secondary = enchantmentParams(e.type).length > 0 && e.param !== PARAM_NONE ? enchantmentParamName(e.type, e.param) : '';
   const forced = (e.parentEnchantment ?? 0) !== 0;
-  return { label: enchantmentName(e.type), sub: secondary, muted: forced, hint: forced ? 'Added with its power' : 'Remove',
-    act: forced ? null : () => w._removeRow(e) };
+  const kept = e.kept === true;   // AUDIT PROF-541 J3: a crafted piece's own row (itemMakerWindow.js _lists) - shown, costed, never removed
+  return { label: enchantmentName(e.type), sub: secondary, muted: forced || kept, hint: kept ? 'The piece\'s own' : forced ? 'Added with its power' : 'Remove',
+    act: forced || kept ? null : () => w._removeRow(e) };
 });
 const itemMaker = {
   kind: 'itemmaker',
   view(w) {
     const L = w.labels();
     const sel = w.selected;
+    const shown = w._lists();   // AUDIT PROF-541 J3: the lists as the classic window draws them - a crafted piece's kept rows at their head
     return {
       title: 'Item Enchanter', sub: sel ? `Enchanting ${w.itemName || itemName(sel)}` : 'Choose an item to enchant', size: 'wide',
       blocks: [
@@ -256,9 +259,9 @@ const itemMaker = {
             { type: 'field', label: 'Name', value: w.itemName, placeholder: sel ? itemName(sel) : '', button: { label: 'Rename', disabled: !sel, act: at(w, ITEM_RECTS.nameItem) } },
           ] },
           { type: 'cols', cols: [
-            [{ type: 'rows', title: 'Powers', key: 'pow', maxHeight: 170, empty: 'No powers yet.', items: enchantRows(w, w.powers) },
+            [{ type: 'rows', title: 'Powers', key: 'pow', maxHeight: 170, empty: 'No powers yet.', items: enchantRows(w, shown.powers) },
               { type: 'actions', layout: 'row', items: [{ label: 'Add power', act: at(w, ITEM_RECTS.powersButton), disabled: !sel }] }],
-            [{ type: 'rows', title: 'Side effects', key: 'side', maxHeight: 170, empty: 'No side effects.', items: enchantRows(w, w.sideEffects) },
+            [{ type: 'rows', title: 'Side effects', key: 'side', maxHeight: 170, empty: 'No side effects.', items: enchantRows(w, shown.sideEffects) },
               { type: 'actions', layout: 'row', items: [{ label: 'Add side effect', act: at(w, ITEM_RECTS.sideEffectsButton), disabled: !sel }] }],
           ] }],
         ] },

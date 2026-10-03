@@ -215,7 +215,7 @@ test('PROF11 pages: the Mason\'s Bench at a General Store - the cut and the mix 
   const { calls } = stubPages();
   const page = pageOf();
   try {
-    assert.deepEqual([...PROF_STATIONS], ['forge', 'workbench', 'loom', 'mason']);
+    assert.deepEqual([...PROF_STATIONS], ['forge', 'workbench', 'loom', 'mason', 'jeweller']);   // PIN MOVED (PROF10): the jeweller's bench
     assert.equal(stationColdLine('mason'), MASON_COLD_LINE);
     assert.match(MASON_COLD_LINE, /Masonry is done online, from your Stores page/);
     assert.match(page.text(), /The mason's bench - 50 gold a cut, a mix or a carving\. Masonry 0 \(Novice\)\./);
@@ -495,13 +495,13 @@ test('PROF11 wiring: the mason\'s bench a General Store\'s (open for trade) or a
   assert.match(m, /if \(decorOwnerHere\(\) && interiorDecor\.list\(\)\.some\(\(p\) => p\?\.station === 'mason'\)\) return \{ kind: 'home', fee: 0 \};/);
   assert.match(m, /if \(hallMemberHere\(\) && interiorDecor\.list\(\)\.some\(\(p\) => p\?\.station === 'mason'\)\) return \{ kind: 'home', fee: 0 \};/);
   const w = src('src/scenes/world.js');
-  assert.match(w, /: profession === 'masonry'[^\n]*\n\s*\? \{ here: \(\) => modes\?\.masonHere\?\.\(\) \?\? null, a: 'a mason\\'s bench', who: 'mason', noun: 'mason\\'s bench', kept: MASON_KEPT_TEXT, xp: 'Masonry', busy: 'Your last work is still on the bench\.' \}/);
+  assert.match(w, /: profession === 'masonry'[^\n]*\n\s*\? \{ here: \(\) => modes\?\.masonHere\?\.\(\) \?\? null, a: 'a mason\\'s bench', who: 'mason', noun: 'mason\\'s bench', kept: MASON_KEPT_TEXT, xp: 'Masonry' \}/);   // PIN MOVED (AUDIT PROF-541 R2-C2): no station's own busy word
   assert.match(w, /mason: \(\) => modes\?\.masonHere\?\.\(\) \?\? null,/);
   assert.match(w, /chiselBand: \(\) => chiselBand\(\{ strength: liveStat\(playerEntity, 'strength'\), endurance: liveStat\(playerEntity, 'endurance'\) \}\),/);
   assert.match(w, /smelt: async \(recipe, count, \{ clean = false \} = \{\}\) => \{/);
   assert.match(w, /const r = await profBook\.smelt\(recipe, count, \{ clean \}\);/);
   assert.match(w, /const xpWord = professionName\(smeltRecipe\(r\.data\.recipe\)\?\.xp \?\? 'smithing'\);/);
-  assert.match(w, /: id\.startsWith\('cut:'\) \? 'Cut' : id\.startsWith\('mix:'\) \? 'Mixed' : 'Smelted';/);
+  assert.match(w, /: id\.startsWith\('cut:'\) \? 'Cut' : id\.startsWith\('mix:'\) \? 'Mixed' : alch \? 'Transmuted into' : 'Smelted';/);   // PIN MOVED (PROF12): the Transmuter's word between
   const b = src('src/net/profBook.js');
   assert.match(b, /const r = await ask\(\(\) => door\.smelt\(c, recipe, count, m\.id, clean === true\)\);/);
   const svc = src('server-account/src/professions.js');

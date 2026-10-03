@@ -65,8 +65,8 @@
   {
     "name": "AUDIT-SEATS2-L5-apothecary",
     "file": "src/net/fortLaw.js",
-    "old": "export const APOTHECARY_OPEN = false;",
-    "new": "export const APOTHECARY_OPEN = true;",
+    "old": "export const APOTHECARY_OPEN = true;",
+    "new": "export const APOTHECARY_OPEN = false;",
     "tests": [
       "test/audit_seats2.test.js"
     ]

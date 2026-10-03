@@ -326,8 +326,8 @@
  {
   "name": "AUDIT32-B4-anvil-busy-everywhere",
   "file": "src/scenes/world.js",
-  "old": "r?.kept ? st.kept : r?.error === 'prof-busy' ? st.busy : accountRefusalText(r?.error)",
-  "new": "r?.kept ? st.kept : accountRefusalText(r?.error)",
+  "old": "text: r?.kept ? st.kept : accountRefusalText(r?.error) };",
+  "new": "text: r?.kept ? st.kept : r?.error === 'prof-busy' ? 'The anvil is still ringing from your last work.' : accountRefusalText(r?.error) };",
   "tests": [
    "test/audit30_client.test.js",
    "test/prof3_client.test.js"
@@ -619,22 +619,24 @@
  {
   "name": "AUDIT32-S1-wool-not-counter-only",
   "file": "src/net/professionLaw.js",
-  "old": "export const COUNTER_ONLY = Object.freeze([LINEN.key, WOOL.key]);",
-  "new": "export const COUNTER_ONLY = Object.freeze([LINEN.key]);",
+  "old": "export const COUNTER_ONLY = Object.freeze([LINEN.key, WOOL.key, ...REAGENTS.map((r) => r.key)]);",
+  "new": "export const COUNTER_ONLY = Object.freeze([LINEN.key, ...REAGENTS.map((r) => r.key)]);",
   "tests": [
    "test/audit32_law.test.js",
    "test/audit32_service.test.js"
-  ]
+  ],
+  "note": "PROF12 (PIN MOVED): re-aimed by content."
  },
  {
   "name": "AUDIT32-S1-cured-leather-counter-only",
   "file": "src/net/professionLaw.js",
-  "old": "export const COUNTER_ONLY = Object.freeze([LINEN.key, WOOL.key]);",
-  "new": "export const COUNTER_ONLY = Object.freeze([LINEN.key, WOOL.key, CURED_LEATHER.key]);",
+  "old": "export const COUNTER_ONLY = Object.freeze([LINEN.key, WOOL.key, ...REAGENTS.map((r) => r.key)]);",
+  "new": "export const COUNTER_ONLY = Object.freeze([LINEN.key, WOOL.key, CURED_LEATHER.key, ...REAGENTS.map((r) => r.key)]);",
   "tests": [
    "test/audit32_law.test.js",
    "test/audit32_service.test.js"
-  ]
+  ],
+  "note": "PROF12 (PIN MOVED): re-aimed by content."
  },
  {
   "name": "AUDIT32-R13-one-drakes",

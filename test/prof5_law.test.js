@@ -35,7 +35,7 @@ test('PROF5 law: the bounds (10.2, 10.3, section 20) - a listing 72 hours, thirt
   assert.deepEqual(MARKET_VIEWS.map(([v]) => v), ['materials', 'crafted', 'auctions', 'goods', 'mine', 'orders', 'history']);   // PROF5b: Auctions beside Crafted
   assert.deepEqual(MARKET_VIEWS.map(([, l]) => l), ['Materials', 'Crafted', 'Auctions', 'Goods', 'My listings', 'Orders', 'History'], 'the wireframe\'s row, PROF5b\'s Auctions and MARKET-ANY\'s Goods');
   // PIN MOVED (PROF11): the mason's bench's stonework lists, as the loom's three
-  assert.deepEqual(CRAFTED_FAMILIES.map(([f]) => f), ['weapons', 'armour', 'staves', 'bows', 'tools', 'kits', 'furniture', 'leather', 'clothing', 'furnishings', 'stonework'], 'arrows and the siege works never list (PROF7 moved it: the loom\'s three list)');
+  assert.deepEqual(CRAFTED_FAMILIES.map(([f]) => f), ['weapons', 'armour', 'staves', 'bows', 'tools', 'kits', 'furniture', 'leather', 'clothing', 'furnishings', 'stonework', 'dishes', 'jewellery'], 'arrows and the siege works never list (PROF7 moved it: the loom\'s three list; PIN MOVED (PROF9): the fire\'s dishes; PIN MOVED (PROF10): the jeweller\'s pieces)');
   assert.deepEqual([marketOpen(true, true, true), marketOpen(true, true, false), marketOpen(false, true, true), marketOpen(true, false, true)], [true, false, false, false]);
   assert.deepEqual([MARKET_MEDIAN_DAYS, MARKET_KEEP_DAYS, MARKET_REPORT_MEDIANS], [7, 90, 20]);
 });
@@ -91,13 +91,13 @@ test('PROF5 law: the catalogue - every registered material, the four foods and e
   assert.ok(cat.every((c) => material(c.key)), 'every one a Stores material');
   assert.equal(new Set(cat.map((c) => c.key)).size, cat.length);
   assert.ok(cat.some((c) => c.family === 'herbs') && cat.some((c) => c.key === 'food:apple') && cat.some((c) => c.key === 'ore:mithril') && cat.some((c) => c.key === 'cloth:wool'));
-  assert.deepEqual([...new Set(cat.map((c) => c.family))], ['metals', 'wood', 'herbs', 'hides', 'food', 'stone', 'gems', 'siege']);   // SEAT2b part two (PIN MOVED): the Ram Kit, the Siege Works'
+  assert.deepEqual([...new Set(cat.map((c) => c.family))], ['metals', 'wood', 'herbs', 'hides', 'food', 'stone', 'gems', 'essences', 'siege']);   // SEAT2b part two (PIN MOVED): the Ram Kit, the Siege Works'; PROF12 (PIN MOVED): the Apothecaries' goods and Arcane Essence, the Essences'
   assert.deepEqual({ key: WOOL.key, tier: WOOL.tier, templateIndex: WOOL.templateIndex, name: WOOL.name }, { key: 'cloth:wool', tier: 2, templateIndex: 669, name: 'Wool Bolt' });
   assert.equal(minedMaterial('cloth:wool').family, 'hides');
   assert.deepEqual(WEAVERS_STOCK.map((w) => [w.key, w.marks, w.counter]), [['cloth:linen', 2, 'weavers'], ['cloth:wool', 3, 'weavers']], '4.5\'s own prices');
   assert.deepEqual(FURNISHER_STOCK.map((w) => [w.key, w.marks]), [['cloth:linen', 2]], 'the counters never part');
   assert.equal(stockOf('cloth:wool').marks, 3);
-  assert.equal(STOCKS.length, 7);
+  assert.equal(STOCKS.length, 7 + 16);   // PIN MOVED (PROF12): the Apothecaries' sixteen after them
   assert.deepEqual([NO_PACK_FORM.includes('cloth:wool'), withdrawable('cloth:wool'), withdrawable('cloth:linen')], [false, true, true]);   // PROF7 moved it: the cloth's templates (668-671)
 });
 
@@ -106,9 +106,9 @@ test('PROF5 law: the ledger\'s market kinds - the fee, the tax and the courier b
     assert.equal(MARKS_KINDS[k], way, k);
   }
   // The faucets are the gate, the writ and the Seats' three (a siege's Honours, an Incursion's second half, a struck
-  // seat's fee given back) - none of them the market's
+  // seat's fee given back) - none of them the market's. PIN MOVED (SILVER-WAYS): and a raid's, a guild deed's, a Motherlode's
   assert.deepEqual(Object.entries(MARKS_KINDS).filter(([, w]) => w === 'mint').map(([k]) => k),
-    ['gate', 'writ', 'siege-honours', 'gate-incursion', 'seat-strike-refund'], 'the market strikes no Mark');
+    ['gate', 'writ', 'siege-honours', 'gate-incursion', 'seat-strike-refund', 'raid', 'guild-deed', 'motherlode'], 'the market strikes no Mark');
   const sql = src('server-account/migrations/0032_market.sql');
   assert.match(sql, /src_kind TEXT NOT NULL CHECK \(src_kind IN \('mint', 'account', 'guild', 'escrow'\)\)/);
   assert.match(sql, /dst_kind TEXT NOT NULL CHECK \(dst_kind IN \('burn', 'account', 'guild', 'escrow'\)\)/);
