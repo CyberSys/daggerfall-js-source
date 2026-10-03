@@ -18663,7 +18663,7 @@ gradient and its padding `14px 16px 16px`; with the fix, none and `0px`.
   three windows draw none of them; no board sheet (the board's, the professions', the bounty board's, the classic
   skin's) names one, and the classic sheet keeps every rule of the board's window and nothing else; the toasts' sheet
   names none of the board's. `audit31_tabs` and `audit30_client` follow the new classes. Mutants:
-  `tools/mutants/toast_split.json` (18, all dead). Patch notes: `PATCH-NOTES-Notifications-Fixed.md`.
+  `tools/mutants/toast_split.json` (18, all dead).
 
 ## FONT3 - THE ENHANCED FACE, READABLE AND EVERYWHERE (2026-10-02, Mac: "So I want to improve the readability of our ingame font as im recieving a lot of complaints, additionally we need to ensure everything recieves our enhanced font")
 
@@ -18763,7 +18763,7 @@ shelf's labels. Pins: `test/font3_readable.test.js` (9: the pair and the trio's 
 tokens, the recovery code's reason, THE FLOOR over all 25 sheets, the dim's contrast and order, the named surfaces,
 the dungeon line, the text layer over a fake document, the prison label mounted and taken down). Followed:
 `test/audit39_uicore.test.js` (the touch layer's order), `test/audit0928_input.test.js` (the map seam's new free
-name). Patch notes: `PATCH-NOTES-Readable-Text.md`.
+name).
 
 ## TIMERS1 - THE HOURGLASS: EVERY SHARED MOMENT, COUNTED DOWN (2026-10-02, Mac: "we need to create a new unique UI element for reset times like the Sunday wars, oblivion gates, town raids, and anything else so the player can keep track of when things are and watch countdowns. Im thinking maybe an enhanced plus button on the pause menu next to the profile icon")
 
@@ -18803,4 +18803,4 @@ its rows scroll inside it. AUDIT TIMERS1 (`01-Overview/Audit-Timers1.md`) then d
 the live pause face online (no relay or ARENA2 here). Pins: `test/timers1.test.js`
 (9: the gate, the seat week, the battles, the raids and the two days, the order, the words, the window over a fake
 document - drawn, moved, a row gone, offline said - the hourglass and its placing, the wiring through all the hosts);
-`test/outsideTap.test.js` (the fourth scrim, the hourglass in the keep list). Patch notes: `PATCH-NOTES-Timers.md`.
+`test/outsideTap.test.js` (the fourth scrim, the hourglass in the keep list).
