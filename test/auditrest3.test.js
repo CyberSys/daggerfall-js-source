@@ -255,3 +255,31 @@ test('AUDIT REST III E2: a mirrored placement\'s floor looks up to the collider 
     assert.equal(up.back, true, `${name}: from under, its back`);
   }
 });
+
+test('AUDIT REST III D2: a time limit the text sets keeps its days online - K0C00Y07\'s ransom and B0B71Y03\'s daughter read their number, not "a few", beside the deadline that kept its own; offline as ever (mutants: either out of the table)', async () => {
+  const { QuestMachine } = await import('../src/systems/quest/machine.js');
+  const { PLAYED_STEP_MAX_SECONDS } = await import('../src/systems/quest/clock.js');
+  const { loadQuestTables } = await import('../src/systems/quest/tables.js');
+  const { readdirSync } = await import('node:fs');
+  const bare = (p) => rd(p).replace(/^\uFEFF/, '');
+  const sources = {};
+  for (const f of readdirSync(new URL('../vendor/dfu-quests/Tables', import.meta.url))) if (f.endsWith('.txt')) sources[f.replace('.txt', '')] = bare(`vendor/dfu-quests/Tables/${f}`);
+  loadQuestTables(sources);
+  const parse = (name, online) => {
+    const lines = bare(`vendor/dfu-quests/Quests/${name}.txt`).split(/\r?\n/);
+    return new QuestMachine({
+      nowSeconds: () => 0, raisedSeconds: () => 0, questClockStepMax: () => (online ? PLAYED_STEP_MAX_SECONDS : Infinity),
+      showPopup() {}, getQuestSourceLines: () => lines, sharedClock: () => online,
+    }).parseQuestShape(name);
+  };
+  const log = console.log; console.log = () => {};
+  try {
+    for (const [quest, clock] of [['K0C00Y07', '2ransom'], ['B0B71Y03', 'finddaughter']]) {
+      const on = parse(quest, true).resources.get(clock), off = parse(quest, false).resources.get(clock);
+      assert.equal(on.isDeadline, true, `${quest}:${clock} a deadline`);
+      assert.equal(on.waitsShort, false, 'no short wait online');
+      assert.match(String(on.expandMacro(5)), /^\d+$/, `${quest}: online "=${clock}_ days" reads its number`);
+      assert.equal(on.expandMacro(5), off.expandMacro(5), 'the same number offline');
+    }
+  } finally { console.log = log; }
+});

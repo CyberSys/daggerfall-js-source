@@ -185,6 +185,8 @@ const SWEPT = {
   'R0C11Y03:2ndparton': 'deadline',   // "if you're not back in =2ndparton_ days, %g may forget you even left" (Q1)
   'S0000011:S.01': 'deadline',        // "Time is of the essence. I'm sure Gortwog will not wait long."
   'O0B00Y12:S.01': 'deadline',        // "It needs to be in ___contact1_ as soon as possible."
+  'K0C00Y07:2ransom': 'deadline',     // AUDIT REST III D2: "The ransom must be paid in =2ransom_ days or they will kill _victim_" (a dead clock: its words)
+  'B0B71Y03:finddaughter': 'deadline', // AUDIT REST III D2: "within =finddaughter_ days and I will tell you" (a dead clock: its words)
   // delays - a wait the text asks for, an arrival, a letter
   'A0C00Y10:S.00': 'delay',           // "Meet me at _inn_ in six hours" - the duel's hour (its window, `_S.01_`, a deadline)
   'A0C00Y10:S.02': 'delay',           // the challenger leaves to prepare ("I must prepare")

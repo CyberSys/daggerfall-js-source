@@ -140,8 +140,9 @@ export function clockCounts(quest, clock) {
  * called delays (R1, readsAsDeadline: K0C00Y02's gold, S0000502's tower) - 264 and 135 then; AUDIT REST-PARTY D2 two
  * more, by hand (ONLINE_DEADLINES: N0B00Y17's scholar, K0C30Y03's guard) - 266 and 133; AUDIT REST II three more:
  * R0C11Y03's return to the questgiver, the one entry of AUDIT TIMEFREE's closings table (retired with it - the reading
- * calls it a deadline), and by hand S0000011's chapter and O0B00Y12's drop - 269 and 130 now, the main quest's
- * deadlines 32. THE EDGE: a deadline read as a delay fires its end - a failure - two minutes in (as under TIMEFREE, whose
+ * calls it a deadline), and by hand S0000011's chapter and O0B00Y12's drop - 269 and 130; AUDIT REST III D2 two
+ * more by their text, K0C00Y07's ransom and B0B71Y03's daughter (both dead clocks: only their words moved) - 271 and
+ * 128 now, the main quest's deadlines 32. THE EDGE: a deadline read as a delay fires its end - a failure - two minutes in (as under TIMEFREE, whose
  * delays were cut the same); a delay read as a deadline now only waits its played days, where TIMEFREE froze it for
  * ever. The one harmful misreading is the first (R1's two were it, and AUDIT REST II's three), so the pins hold the
  * split, the table and the main quest's 32 deadlines, and test/rest8_questwaits.test.js ticks every vendored clock past
@@ -311,7 +312,12 @@ export function clockIsDeadline(quest, clock) {
  *  `_S.01_` ("It needs to be in ___contact1_ as soon as possible. _contact1_ will meet you there" - its end hides the
  *  contact, sends the note "The heat got too intense for me to wait around" and the smugglers' assassins; the questor's
  *  fail line: "Didn't I say 'as soon as possible'?"). Read as delays, the theft and the missed drop came two minutes
- *  after the quest was taken, for every player online. */
+ *  after the quest was taken, for every player online.
+ *  AUDIT REST III D2 (THE RULE, its text half): two more whose text sets a time limit - K0C00Y07's `_2ransom_` ("The
+ *  ransom must be paid in =2ransom_ days or they will kill _victim_") and B0B71Y03's `_finddaughter_` ("within
+ *  =finddaughter_ days and I will tell you"). Both are dead clocks (started, read by nothing - the quest's real limit
+ *  is another clock), so nothing ended early; but online their text read "a few days" beside a deadline that kept its
+ *  number. A time limit the text sets keeps its days. 271 and 128. */
 export const ONLINE_DEADLINES = Object.freeze({
   $CUREWER: Object.freeze(['huntstart']),
   $CUREVAM: Object.freeze(['huntstart']),
@@ -323,6 +329,8 @@ export const ONLINE_DEADLINES = Object.freeze({
   B0B81Y02: Object.freeze(['S.30']),   // AUDIT REST-PARTY D1: the artifact hunt, through the knight's reward
   S0000011: Object.freeze(['S.01']),   // AUDIT REST II Q2: Barenziah's chapter, before the Necromancers steal it
   O0B00Y12: Object.freeze(['S.01']),   // AUDIT REST II Q2: the drop, "as soon as possible"
+  K0C00Y07: Object.freeze(['2ransom']),   // AUDIT REST III D2: "The ransom must be paid in =2ransom_ days or they will kill _victim_"
+  B0B71Y03: Object.freeze(['finddaughter']),   // AUDIT REST III D2: "within =finddaughter_ days and I will tell you"
 });
 
 /** REST8: whether the quest's DELAYS take the short wait - online (the shared clock standing), the quest's own word.

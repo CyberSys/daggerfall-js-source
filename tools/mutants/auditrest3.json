@@ -506,5 +506,27 @@
     "tests": [
       "test/auditrest3.test.js"
     ]
+  },
+  {
+    "name": "AUDITREST3-D2-the-ransom-out-of-the-table",
+    "file": "src/systems/quest/clock.js",
+    "old": "  K0C00Y07: Object.freeze(['2ransom']),",
+    "new": "",
+    "tests": [
+      "test/auditrest3.test.js",
+      "test/rest8_questwaits.test.js",
+      "test/auditrest2_quests.test.js"
+    ]
+  },
+  {
+    "name": "AUDITREST3-D2-the-daughter-out-of-the-table",
+    "file": "src/systems/quest/clock.js",
+    "old": "  B0B71Y03: Object.freeze(['finddaughter']),",
+    "new": "",
+    "tests": [
+      "test/auditrest3.test.js",
+      "test/rest8_questwaits.test.js",
+      "test/auditrest2_quests.test.js"
+    ]
   }
 ]
