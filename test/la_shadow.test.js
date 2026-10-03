@@ -277,8 +277,8 @@ test('LA-SHADOW4: THE CASTER TABLE CARRIES A LO MAP\'S FAR - the word is the slo
   const lo = st.casterOf.slice(0, 12).filter((w) => (w & 255) >= SHADOW_POINT_CASTERS);
   assert.equal(lo.length, 12 - SHADOW_POINT_CASTERS);
   for (const w of lo) assert.equal((w >> SHADOW_CASTER_FAR_SHIFT) * SHADOW_FAR_QUANTUM, 16, 'the far the map was drawn to, not the live range\'s 12');
-  assert.match(SHADOW_GLSL, /float casterShadowAt\(int k, vec4 L, vec3 wp, vec3 n\) \{\n\s+int s = k & 255;\n\s+return s < 8 \? pointShadowAt\(s, wp, n\) : pointShadowLoAt\(s - 8, float\(k >> 8\) \* 4\.0, L, wp, n\);/);
-  assert.match(SHADOW_GLSL, /float casterShadowOne\(int k, vec4 L, vec3 wp\) \{\n\s+int s = k & 255;\n\s+return s < 8 \? pointShadowOne\(s, wp\) : pointShadowLoOne\(s - 8, float\(k >> 8\) \* 4\.0, L, wp\);/);
+  assert.match(SHADOW_GLSL, /float casterShadowAt\(int k, vec4 L, vec3 wp, vec3 n\) \{\n\s+int s = k & 255;\n\s+return s < 12 \? pointShadowAt\(s, wp, n\) : pointShadowLoAt\(s - 12, float\(k >> 8\) \* 4\.0, L, wp, n\);/);
+  assert.match(SHADOW_GLSL, /float casterShadowOne\(int k, vec4 L, vec3 wp\) \{\n\s+int s = k & 255;\n\s+return s < 12 \? pointShadowOne\(s, wp\) : pointShadowLoOne\(s - 12, float\(k >> 8\) \* 4\.0, L, wp\);/);
   assert.match(SHADOW_GLSL, /float pointShadowLoAt\(int j, float far, vec4 L, vec3 wp, vec3 n\) \{/);
   assert.match(SHADOW_GLSL, /float pointShadowLoOne\(int j, float far, vec4 L, vec3 wp\) \{/);
 });

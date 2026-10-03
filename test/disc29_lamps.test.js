@@ -24,7 +24,8 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { Renderer, WORLD_FRAME } from '../src/render/renderer.js';
 import { EL_LANE } from '../src/render/enhancedLighting.js';
-import { SHADOW_DYNAMIC_HOLD } from '../src/render/shadowPass.js';
+import { SHADOW_DYNAMIC_HOLD, SHADOW_TUNING } from '../src/render/shadowPass.js';
+SHADOW_TUNING.override = false;   // FLICKER-FIX: these tests pin the old schedule (the card's lamps by eye, the far casters' cadence)
 
 const rd = (p) => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8');
 const I = new Float32Array([1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1]);
@@ -202,9 +203,9 @@ test('DISC29-E: a flat idling in place is its own class - a mover to the eight, 
 });
 
 test('DISC29-E / AUDIT PRE-MERGE 0929 E3: the card\'s two lamps are CASTERS - a camera far off (the setting runs to 10 m) picked the eight lamps nearest IT, the card\'s own were not among them, and the silhouette hopped from lamp to lamp as it circled (mutants: the card\'s lamps not reserved; a reserved lamp in place of another of the card\'s)', () => {
-  // two lamps beside the card (x -1 and 1) and ten about a point 10 m off, nearer every camera below
+  // two lamps beside the card (x -1 and 1) and fourteen about a point 10 m off, nearer every camera below (FLICKER-FIX: past the twelve casters)
   const lamps = [-1, 2.5, 0, 12, 1, 2.5, 0, 12];
-  for (let i = 0; i < 10; i++) lamps.push(8 + (i % 5) * 1.5, 2.5, i < 5 ? -3 : 3, 12);
+  for (let i = 0; i < 14; i++) lamps.push(8 + (i % 7) * 1.5, 2.5, i < 7 ? -3 : 3, 12);
   const { sp, self, frame, setEye } = hall(lamps);
   self.origin = [0, 0, 0];
   frame(); frame(); frame();
@@ -218,7 +219,7 @@ test('DISC29-E / AUDIT PRE-MERGE 0929 E3: the card\'s two lamps are CASTERS - a 
     assert.equal(sp._slotSelf[west], 1, `eye at ${x},${z}: the west lamp holds the card`);
     assert.equal(sp._slotSelf[east], 1, `eye at ${x},${z}: the east lamp holds the card`);
     assert.ok(holdsCard(frame(), west), `eye at ${x},${z}: drawn into the west lamp`);
-    assert.equal(idx.filter((i) => i >= 0).length, 8, 'eight casters still - the eye\'s farthest gave way');
+    assert.equal(idx.filter((i) => i >= 0).length, 12, 'twelve casters still - the eye\'s farthest gave way');
   }
   // the card is noted as it is recorded, not looked for (AUDIT PRE-MERGE 0929 E2: every batch of every record, every frame)
   assert.doesNotMatch(rd('src/render/shadowPass.js').slice(rd('src/render/shadowPass.js').indexOf('  _selfCardAt(out) {'), rd('src/render/shadowPass.js').indexOf('  _selfCardAt(out) {') + 400), /for \(/, 'no walk in _selfCardAt');

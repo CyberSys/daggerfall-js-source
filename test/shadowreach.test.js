@@ -13,7 +13,8 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { Renderer, WORLD_FRAME } from '../src/render/renderer.js';
 import { EL_LANE } from '../src/render/enhancedLighting.js';
-import { SHADOW_CASCADES, SHADOW_SUN_DEPTH, shadowFarFor, SHADOW_SWAY_STILL, SHADOW_SWAY_EVERY, swayLean } from '../src/render/shadowPass.js';
+import { SHADOW_CASCADES, SHADOW_SUN_DEPTH, shadowFarFor, SHADOW_SWAY_STILL, SHADOW_SWAY_EVERY, swayLean, SHADOW_TUNING } from '../src/render/shadowPass.js';
+SHADOW_TUNING.override = false;   // FLICKER-FIX: these tests pin the old schedule (the sway's own cadence)
 
 const rd = (p) => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8');
 const I = new Float32Array([1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1]);

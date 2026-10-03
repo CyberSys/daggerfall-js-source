@@ -252,7 +252,7 @@ test('UI2 spell icons: a spell\'s icon is ICON00I0\'s 16px tile FITTED to its sl
 
 test('UI2 wiring: the bar\'s slots draw fitted pictures at a measured box - an item\'s by its dye, a spell\'s icon (its initials only while it loads) - the spellbook\'s drag and the diamond\'s spell chip wear the icon, the drop hint says any item; the box off a slot of the picture\'s own kind, the ratio off the bar (mutants: a spell slot back on its initials; the drag without its icon; the chip without its icon; every picture at slot 1\'s box; a spell fitted at an item\'s box; the ratio off a slot)', () => {
   const bar = read('src/ui/enhancedHotbar.js');
-  assert.match(bar, /const drew = iconFor\(s, v\.slot, null, entity, v\.icon\);\n\s+const sig = spellSigil\(v\.name\);\n\s+s\.glyph\.textContent = drew \? '' : sig;/);
+  assert.match(bar, /const drew = iconFor\(s, v\.slot, null, entity, v\.noIcon \? null : v\.icon\);[^\n]*\n\s+const sig = v\.noIcon \? spellInitials\(v\.name\) : spellSigil\(v\.name\);\n\s+s\.glyph\.textContent = drew \? '' : sig;/);
   assert.match(bar, /pic = spellIconPicture\(spellIcon, \{ box: fit\.box, dpr: fit\.dpr, onReady: again \}\);/);
   assert.match(bar, /requestFittedIcon\(image\.archive, image\.record, \{ box: fit\.box, dpr: fit\.dpr, dye: image\.dye, dyeTarget: image\.dyeTarget, onReady: again \}\)/);   // MERGE (UI2 x DYE-ICON): and the swatch
   assert.match(bar, /const key = kind \? `\$\{kind\}@\$\{fit\.box\}x\$\{fit\.dpr\}` : '';/, 'a new size draws them anew');
@@ -265,9 +265,9 @@ test('UI2 wiring: the bar\'s slots draw fitted pictures at a measured box - an i
   assert.match(bar, /if \(hbDrag\.icon\?\.src\) tile\.append\(fittedImg\(hbDrag\.icon\)\);/);
   assert.match(bar, /icon: slotPicture\(s\.icon\),/, 'a slot carried keeps its picture');
   const book = read('src/ui/enhancedSpellbook.js');
-  assert.match(book, /icon: spellIconPicture\(r\.spell\?\.icon, \{ box: SPELL_DRAG_BOX \}\) \}\);/);
+  assert.match(book, /icon: r\.spell\?\.noIcon \? null : spellIconPicture\(r\.spell\?\.icon, \{ box: SPELL_DRAG_BOX \}\) \}\);/);
   const hud = read('src/ui/enhancedHud.js');
-  assert.match(hud, /const pic = sp\?\.spell \? spellIconPicture\(sp\.spell\.icon, \{ box: SPELL_CHIP_BOX, dpr: clampDpr\(screenDpr\(\) \* \(last\.scale \?\? 1\)\), onReady: \(\) => \{ last\.qspell = null; \} \}\) : null;/);
+  assert.match(hud, /const pic = sp\?\.spell && !sp\.spell\.noIcon \? spellIconPicture\(sp\.spell\.icon, \{ box: SPELL_CHIP_BOX, dpr: clampDpr\(screenDpr\(\) \* \(last\.scale \?\? 1\)\), onReady: \(\) => \{ last\.qspell = null; \} \}\) : null;/);
   assert.match(hud, /spellChip\.append\(spellTag, spellIcon, spellName\);/);
   // the diamond's cells: fitted too, their boxes the sheet's caps less two a side
   const E = read('src/ui/enhancedStyle.js');

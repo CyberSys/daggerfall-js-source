@@ -38,8 +38,8 @@ import {
 } from './spellbookWindow.js';
 import { effectByKey } from '../systems/spellEffects.js';   // the classic book's own source (spellbookWindow.js:120)
 import { spellQuickslot, setSpellQuickslot, clearSpellQuickslot } from '../systems/quickslots.js';   // HOTSLOT: the book is where a spell is slotted
-import { TARGET_DESCRIPTIONS, ELEMENT_DESCRIPTIONS } from './spellIcons.js';
-import { spellIconPicture } from './enhancedArt.js';   // UI2: the spell's own icon, carried onto the hotbar
+import { TARGET_DESCRIPTIONS, ELEMENT_DESCRIPTIONS, SPELL_ICON_COUNT } from './spellIcons.js';
+import { spellIconPicture, spellIconUrl } from './enhancedArt.js';   // UI2: the spell's own icon, carried onto the hotbar
 /** UI2: the hotbar ghost's picture box - its 46px tile inside the 2px frame, less two a side. */
 const SPELL_DRAG_BOX = 38;
 // HB1: the hotbar. With it chosen over the diamond, the book is where a
@@ -47,7 +47,7 @@ const SPELL_DRAG_BOX = 38;
 // for the diamond's spell slot.
 import { hotbarSlotOf } from '../systems/quickslots.js';
 import { setHotbarDropMode, hotbarAcceptsDrops, beginHotbarDrag, takeHotbarDragClick, hotbarMode, toggleHotbarSpell,
-  spellSigil } from './enhancedHotbar.js';   // PX23b: the classic's OWN words for the two icons
+  spellSigil, spellInitials } from './enhancedHotbar.js';   // PX23b: the classic's OWN words for the two icons
 
 const el = (tag, cls, text) => {
   const n = document.createElement(tag);
@@ -62,6 +62,7 @@ let onExit = () => {};
 let picked = 0;
 let notice = null;
 let renaming = null;   // PX23b: the name being edited, kept across renders
+let choosingIcon = false;   // SB-ICON: the icon grid is open under the chosen spell
 let deleting = null;   // AUDIT 39: DeleteButton's deleteSpellIndex - the row the YesNo is asking about
 
 /**
@@ -189,12 +190,12 @@ function render() {
     b.onpointerdown = (e) => {
       if (!hotbarAcceptsDrops() || deleting !== null) return;
       // UI2: and carries the spell's own icon, as its slot will show it
-      beginHotbarDrag(e, { kind: 'spell', spell: r.spell }, { sigil: spellSigil(r.name), element: r.spell?.element ?? null,
-        icon: spellIconPicture(r.spell?.icon, { box: SPELL_DRAG_BOX }) });
+      beginHotbarDrag(e, { kind: 'spell', spell: r.spell }, { sigil: r.spell?.noIcon ? spellInitials(r.name) : spellSigil(r.name), element: r.spell?.element ?? null,
+        icon: r.spell?.noIcon ? null : spellIconPicture(r.spell?.icon, { box: SPELL_DRAG_BOX }) });
     };
     b.onclick = () => {
       if (takeHotbarDragClick()) return;   // the release of a drag is not a pick
-      picked = r.i; notice = null; deleting = null; render();
+      picked = r.i; notice = null; deleting = null; choosingIcon = false; render();
     };
     rail.append(b);
   }
@@ -281,6 +282,17 @@ function render() {
   const rename = el('button', 'act', 'Rename');
   rename.onclick = () => { renaming = renaming === null ? sel.name : null; notice = null; render(); };
   acts.append(rename);
+  // SB-ICON: change the spell's icon freely, as the spell maker's picker does - the whole classic set, any icon, any spell.
+  // The write is the classic book's own (editBookSpell on a copy, kept as custom), so both skins agree on it.
+  const iconBtn = el('button', `act sb-iconbtn${choosingIcon ? ' on' : ''}`, 'Icon');
+  iconBtn.onclick = () => { choosingIcon = !choosingIcon; renaming = null; notice = null; render(); };
+  acts.append(iconBtn);
+  // NO-ICON: the spell shows the first letter of its first two words instead of a picture; the chosen icon is kept, so it can come back
+  const noIcon = !!sel.spell?.noIcon;
+  const noBtn = el('button', `act sb-iconbtn${noIcon ? ' on' : ''}`, noIcon ? 'Use icon' : 'No icon');
+  noBtn.title = noIcon ? 'Show the spell\u2019s icon again' : `Show ${spellInitials(sel.name)} instead of an icon`;
+  noBtn.onclick = () => { editBookSpell(deps.spells?.(), sel.i, { noIcon: !noIcon }); choosingIcon = false; notice = noIcon ? 'Icon restored.' : `Now shown as ${spellInitials(sel.name)}.`; render(); };
+  acts.append(noBtn);
   // DELETE IS TWO PRESSES, and the second one is the classic's.
   // DeleteButton_OnMouseClick (:811-838) ends by parking the row in
   // `deleteSpellIndex` and raising a YesNo box on "deleteSpell"; only
@@ -294,11 +306,37 @@ function render() {
   del.onclick = () => {
     if (sel.undeletable) { notice = sel.undeletable; render(); return; }
     deleting = sel.i;
+    choosingIcon = false;
     notice = null;
     render();
   };
   acts.append(del);
   detail.append(acts);
+  if (choosingIcon) {
+    const grid = el('div', 'sb-icons');
+    grid.setAttribute('role', 'listbox');
+    grid.setAttribute('aria-label', 'Choose an icon');
+    for (let n = 0; n < SPELL_ICON_COUNT; n++) {
+      const c = el('button', `sb-icon${!sel.spell?.noIcon && n === (sel.spell?.icon ?? 0) ? ' on' : ''}`);
+      c.type = 'button';
+      c.title = `Icon ${n + 1}`;
+      c.setAttribute('aria-label', `Icon ${n + 1}`);
+      const url = spellIconUrl(n);
+      if (url) { const img = el('img'); img.src = url; img.alt = ''; c.append(img); }
+      else c.append(el('span', 'sb-iconnum', String(n + 1)));
+      c.onclick = () => {
+        choosingIcon = false;
+        notice = editBookSpell(deps.spells?.(), sel.i, { icon: n, noIcon: false }) ? 'Icon changed.' : null;
+        render();
+      };
+      grid.append(c);
+    }
+    detail.append(grid);
+    // the sheet may still be loading the first time: paint again once it lands
+    if (Array.from({ length: SPELL_ICON_COUNT }, (_, n) => spellIconUrl(n)).some((u) => !u)) {
+      setTimeout(() => { if (host && choosingIcon) render(); }, 400);
+    }
+  }
   if (renaming !== null) {
     const form = el('form', 'sb-rename');
     const input = el('input');
@@ -407,7 +445,7 @@ function onKey(e) {
     if (!rows.length) return;
     e.preventDefault(); e.stopPropagation();
     picked = (picked + (e.key === 'ArrowDown' ? 1 : rows.length - 1)) % rows.length;
-    notice = null;
+    notice = null; choosingIcon = false;
     render();
     return;
   }
@@ -415,6 +453,7 @@ function onKey(e) {
   // applies to F5 and the pack applies to F6. KB1: the comment said so and
   // the line read Escape alone - the book opened on CastSpell and did not
   // close on it. The registry's answer, as the pack reads its own.
+  if (choosingIcon && overlayAction(e) === 'back') { e.preventDefault(); e.stopPropagation(); choosingIcon = false; render(); return; }   // SB-ICON: Escape shuts the grid, not the book
   if (overlayAction(e) !== 'back' && !eventMeans(e, 'CastSpell')) return;   // UXB1-S: its key, shared or not
   e.preventDefault();
   e.stopPropagation();
@@ -433,6 +472,7 @@ export function mountEnhancedSpellbook(hostEl, d = {}) {
   notice = null;
   renaming = null;
   deleting = null;
+  choosingIcon = false;
   render();
   window.addEventListener('keydown', onKey, true);
   setHotbarDropMode('book', true, d.entity ?? null);   // HB1: the bar comes up under the book as a drop target
@@ -441,7 +481,7 @@ export function mountEnhancedSpellbook(hostEl, d = {}) {
     destroy() {
       window.removeEventListener('keydown', onKey, true);
       setHotbarDropMode('book', false);   // HB1
-      host = null; deps = {}; picked = 0; notice = null; renaming = null; deleting = null;
+      host = null; deps = {}; picked = 0; notice = null; renaming = null; deleting = null; choosingIcon = false;
     },
   };
 }

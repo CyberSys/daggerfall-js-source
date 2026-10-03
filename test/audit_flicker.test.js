@@ -22,8 +22,9 @@ import { Renderer, WORLD_FRAME } from '../src/render/renderer.js';
 import { EL_LANE, EL_BB_FS, EL_FLAT_LAMP_LIFT } from '../src/render/enhancedLighting.js';
 import {
   SHADOW_SUN_SIZE, SHADOW_SUN_BIAS, SHADOW_CASCADES, SUN_ANCHOR_HOLD, SUN_FLAT_REACH_TEXELS, SHADOW_STILL_EPS,
-  CASTER_KEEP_RATIO, sunAnchorFor, sunCascadeMatrices, sunTexelWorld, samePlace, nearestRank,
+  CASTER_KEEP_RATIO, sunAnchorFor, sunCascadeMatrices, sunTexelWorld, samePlace, nearestRank, SHADOW_TUNING,
 } from '../src/render/shadowPass.js';
+SHADOW_TUNING.override = false;   // FLICKER-FIX: these tests pin the old schedule (the card's two lamps, DISC6's hold at the casters' edge)
 import { transformPoint } from '../src/world/mat4.js';
 
 const rd = (p) => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8');
@@ -298,20 +299,21 @@ test('AUDIT FLICKER P3: A FLOATING-ORIGIN CROSSING KEEPS THE LAMPS - the kept co
   const at = [800.3, 0, -611.7], d = [-819.2, 0, 614.4];
   const lamps = [];
   for (const [x, z] of [[-1.3, 3.2], [1.1, 3.6], [0.7, 1.9], [-2.1, 2.2], [2.9, 3.1], [-0.4, 6.3], [3.3, 5.1]]) lamps.push(at[0] + x, 2.5, at[2] + z, 12);
-  lamps.push(at[0] - 4.9, 2.5, at[2] + 4.1, 12);   // lamp 7: the eighth, 4.9 m from the eye
-  lamps.push(at[0] + 7.3, 2.5, at[2] + 4.1, 12);   // lamp 8: 7.3 m, out of the eight
+  for (const [x, z] of [[-1.0, 4.8], [1.8, 4.6], [-2.6, 3.9], [2.0, 2.4]]) lamps.push(at[0] + x, 2.5, at[2] + z, 12);   // FLICKER-FIX: lamps 7-10, so the edge is the twelfth
+  lamps.push(at[0] - 4.9, 2.5, at[2] + 4.1, 12);   // lamp 11: the twelfth, 4.9 m from the eye
+  lamps.push(at[0] + 7.3, 2.5, at[2] + 4.1, 12);   // lamp 12: 7.3 m, out of the twelve
   const h = hall(lamps, at);
   for (let f = 0; f < 3; f++) h.frame();
   const casting = () => [...h.sp.shadowIndex].filter((i) => i >= 0).sort((a, b) => a - b).join(',');
-  assert.equal(casting(), '0,1,2,3,4,5,6,7', 'the eight nearest');
-  // lamp 8 is carried nearer - 4.5 m, within the keep ratio of the held 4.9: DISC6 keeps lamp 7
-  h.setLamp(8, [at[0] + 4.5, 2.5, at[2] + 4.1]);
+  assert.equal(casting(), '0,1,2,3,4,5,6,7,8,9,10,11', 'the twelve nearest');
+  // lamp 12 is carried nearer - 4.5 m, within the keep ratio of the held 4.9: DISC6 keeps lamp 11
+  h.setLamp(12, [at[0] + 4.5, 2.5, at[2] + 4.1]);
   for (let f = 0; f < 3; f++) h.frame();
-  assert.equal(casting(), '0,1,2,3,4,5,6,7', 'held: lamp 7 keeps its place');
+  assert.equal(casting(), '0,1,2,3,4,5,6,7,8,9,10,11', 'held: lamp 11 keeps its place');
   const slots = [...h.sp.shadowIndex];
   h.shift(d);
   h.frame();
-  assert.equal(casting(), '0,1,2,3,4,5,6,7', 'the crossing: still held');
+  assert.equal(casting(), '0,1,2,3,4,5,6,7,8,9,10,11', 'the crossing: still held');
   assert.deepEqual([...h.sp.shadowIndex], slots, 'every lamp in its own slot');
   // and no slot read as changed: the crossing frame draws what the same frame draws uncrossed (the cache off - SC1's
   // static layers rebuild at a crossing whatever this does, their signature is the meshes' places)
