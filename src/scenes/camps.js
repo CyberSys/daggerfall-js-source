@@ -229,7 +229,10 @@ export function createCamps({
     // AUDIT REST-PARTY B5: a kit holds what its own maxCondition says - an old save's five-use kit fed to eight read 160% and
     // sold for it (RRI's condition price); full is its own cap, never the new item's
     const capOf = (it) => Math.min(CAMPFIRE_USES, it.maxCondition ?? CAMPFIRE_USES);
-    const packed = (entity?.items ?? []).filter((it) => isCampfireKit(it)).sort((a, b) => (a.currentCondition ?? 0) - (b.currentCondition ?? 0))[0] ?? null;
+    const kits = (entity?.items ?? []).filter((it) => isCampfireKit(it));
+    // AUDIT REST II H11: the emptiest with ROOM - a full old five-use kit is "emptier" than a Campfire at six of eight,
+    // and took the stick only to refuse it ("all the fuel it can take") while the Campfire beside it had room
+    const packed = kits.filter((it) => (it.currentCondition ?? 0) < capOf(it)).sort((a, b) => (a.currentCondition ?? 0) - (b.currentCondition ?? 0))[0] ?? null;
     const take = () => { if ((item.stackCount ?? 1) > 1) item.stackCount -= 1; else { const i = (list ?? []).indexOf(item); if (i >= 0) list.splice(i, 1); } };
     if (placed && (placed.rec.wear | 0) < CAMPFIRE_USES) {
       placed.rec.wear = Math.min(CAMPFIRE_USES, (placed.rec.wear | 0) + FIREWOOD_NIGHTS);
@@ -238,13 +241,13 @@ export function createCamps({
       say(REST_ITEM_TEXT.firewoodFed(placed.rec.wear));
       return true;
     }
-    if (packed && (packed.currentCondition ?? 0) < capOf(packed)) {
+    if (packed) {
       packed.currentCondition = Math.min(capOf(packed), (packed.currentCondition ?? 0) + FIREWOOD_NIGHTS);
       take();
       say(REST_ITEM_TEXT.firewoodFed(packed.currentCondition));
       return true;
     }
-    say(placed || packed ? REST_ITEM_TEXT.firewoodFull : REST_ITEM_TEXT.firewoodNone);
+    say(placed || kits.length ? REST_ITEM_TEXT.firewoodFull : REST_ITEM_TEXT.firewoodNone);
     return false;
   }
   /** The Bedroll laid: where a camp could stand (a fire's law - so in a dungeon too), on the ground ahead, and the rest
@@ -300,6 +303,10 @@ export function createCamps({
       onChanged?.();
     }
   }
+  /** AUDIT REST II H3: the tending, asked by a rest that moves the clock where no frame runs (the dungeon's rest window
+   *  holds its frame, so its tick never saw the night - an offline Campfire burned out under its sleeper, B2's free night
+   *  again underground). */
+  const tend = () => tendWhileResting(now());
   const batches = () => seen().map((c) => c.batch).filter(Boolean);
   /**
    * The fires' lights for the host's list. AUDIT SURV-TIERS (the third pass): the NEAREST few in reach of the eye.
@@ -378,9 +385,11 @@ export function createCamps({
     }
     const c = forKey(key);
     if (!c) return null;
-    const out = { title: c.rec.kind === CAMP_KIND.Tent ? 'Camp' : mine(c) ? 'Your Campfire' : 'Campfire' };
-    if (c.rec.kind === CAMP_KIND.Fire && mine(c)) out.subs = [CAMP_TEXT.fuelLeft(c.rec.wear | 0)];
-    if (usable()) out.actions = campMenu(c.rec, now(), mine(c)).map((r) => ({ id: r.key, label: r.text }));
+    // AUDIT REST II H13: an Ember Jar's fire is no Campfire - it has no fuel to count and nothing to pick up
+    const jar = c.rec.kind === CAMP_KIND.Fire && !!c.rec.jar;
+    const out = { title: c.rec.kind === CAMP_KIND.Tent ? 'Camp' : jar ? (mine(c) ? 'Your Ember Jar fire' : 'Ember Jar fire') : mine(c) ? 'Your Campfire' : 'Campfire' };
+    if (c.rec.kind === CAMP_KIND.Fire && mine(c) && !jar) out.subs = [CAMP_TEXT.fuelLeft(c.rec.wear | 0)];
+    if (usable()) out.actions = campMenu(c.rec, now(), mine(c), { online: sharedClockOn() }).map((r) => ({ id: r.key, label: r.text }));
     return out;
   }
   /** Info and Talk name it; Grab and Steal open the menu. REST2: `lit` is the plaque's lit row (quickLoot.js
@@ -402,7 +411,7 @@ export function createCamps({
     if (!c) return false;
     if (mode === 'info' || mode === 'dialogue') { say(campInfoText(c.rec, now(), mine(c))); return true; }
     if (!usable()) return true;   // SURV-OFFSIGHT (the third pass): with the arc Off the click is taken and opens nothing - REST2: offline
-    if (lit && campMenu(c.rec, now(), mine(c)).some((r) => r.key === lit)) { act(c, lit); return true; }
+    if (lit && campMenu(c.rec, now(), mine(c), { online: sharedClockOn() }).some((r) => r.key === lit)) { act(c, lit); return true; }
     openMenu(c);
     return true;
   }
@@ -437,7 +446,7 @@ export function createCamps({
     return true;
   }
   function openMenu(c) {
-    const rows = campMenu(c.rec, now(), mine(c));
+    const rows = campMenu(c.rec, now(), mine(c), { online: sharedClockOn() });
     const win = new ListPickerWindow({ items: rows.map((r) => r.text), onPick: (i) => act(c, rows[i]?.key) });
     if (showOverlay) showOverlay(win); else act(c, rows[0]?.key);
     return win;
@@ -580,12 +589,15 @@ export function createCamps({
    * drops the player's own before it restores; a peer's stand on their owner's word.
    */
   function dropOwn() {
-    for (let i = camps.length - 1; i >= 0; i--) if (mine(camps[i])) drop(camps[i]);
+    let n = 0;
+    for (let i = camps.length - 1; i >= 0; i--) if (mine(camps[i])) { drop(camps[i]); n++; }
     _bedroll = null;   // AUDIT REST F10
+    if (n) onChanged?.();   // AUDIT REST II H1: the room hears they went, as packOwnFires' walk out says it - never a peer's ghost fire
   }
   /** AUDIT REST F1: leaving a scene that keeps nothing of mine (a dungeon): my own Campfires back into the pack with the
-   *  fuel they have, said once - never an Ember Jar's. Answers how many. */
-  function packOwnFires() {
+   *  fuel they have, said once - never an Ember Jar's. Answers how many. AUDIT REST II H4: `quiet` leaves the saying to
+   *  the caller - a dungeon's own HUD is torn down with the dungeon, so a line said into it was never seen. */
+  function packOwnFires({ quiet = false } = {}) {
     let n = 0;
     for (let i = camps.length - 1; i >= 0; i--) {
       const c = camps[i];
@@ -594,7 +606,7 @@ export function createCamps({
       if (r.item && entity) { (entity.items ??= []).push(r.item); n++; }
       drop(c);
     }
-    if (n) { say(CAMP_TEXT.carriedOut); onChanged?.(); }
+    if (n) { if (!quiet) say(CAMP_TEXT.carriedOut); onChanged?.(); }
     return n;
   }
 
@@ -649,7 +661,7 @@ export function createCamps({
   }
 
   return {
-    placeItem, tick, batches, lights, draw, targets, hoverName, activate, openMenu, openCook, byFire, fireNear, spendNightNear,
+    placeItem, tick, tend, batches, lights, draw, targets, hoverName, activate, openMenu, openCook, byFire, fireNear, spendNightNear,
     restPointAt, bedrollNear, packOwnFires,   // REST6; AUDIT REST F1
     destroyAll, dropOwn, collectPixel, offsetAll, snapshot, restore, wireRecords, applyOwner, sweepOwners, sweepColdAbsent,
     get camps() { return camps; }, own,

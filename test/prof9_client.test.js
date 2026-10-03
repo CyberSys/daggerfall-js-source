@@ -431,7 +431,7 @@ test('PROF9 items: a Field Cook\'s night at their own Campfire spends no fuel (3
   const night = (rec, fc) => { const r = spendCampNight(rec, 0, fc); return [r.spent, !!r.kept, rec.wear]; };
   assert.deepEqual(night({ kind: CAMP_KIND.Fire, fuel: true, wear: 8, litUntil: 99 }, true), [false, true, 8], 'a Field Cook\'s own Campfire: every night of fuel kept');
   assert.deepEqual(night({ kind: CAMP_KIND.Fire, fuel: true, wear: 8, litUntil: 99 }, false), [true, false, 7], 'anyone else\'s: one night spent');
-  assert.deepEqual(night({ kind: CAMP_KIND.Fire, fuel: true, jar: true, wear: 1, litUntil: 99 }, true), [true, false, 0], 'an Ember Jar\'s one night is spent');
+  assert.deepEqual(night({ kind: CAMP_KIND.Fire, jar: true, wear: 1, litUntil: 99 }, true), [true, false, 0], 'an Ember Jar\'s one night is spent (its record carries no fuel - placeCampItem\'s)');   // AUDIT REST II (L8-5): the shape the game writes
   assert.deepEqual(night({ kind: CAMP_KIND.Tent, wear: 5, litUntil: 99 }, true), [true, false, 4], 'a tent wears as ever');
   assert.deepEqual(night({ kind: CAMP_KIND.Fire, wear: 3, litUntil: 99 }, true), [true, false, 2], 'an old save\'s kit fire has no fuel of its own to keep');
   assert.deepEqual([fieldCookKeeps({ kind: CAMP_KIND.Fire, fuel: true }), fieldCookKeeps(null)], [true, false]);

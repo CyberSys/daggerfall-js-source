@@ -59,6 +59,9 @@ const row = (index, name, baseWeight, hitPoints, basePrice, rarity, icon, stacka
   index, name, baseWeight, hitPoints, capacityOrTarget: 0, basePrice, enchantmentPoints: 0, rarity, variants: 0,
   drawOrderOrEffect: 0, isBluntWeapon: false, isLiquid: false, isOneHanded: false, isIngredient: false,
   worldTextureArchive: icon[0], worldTextureRecord: icon[1], playerTextureArchive: 0, playerTextureRecord: 0, stackable,
+  // AUDIT REST II H7: a supply's charges are its uses, never wear a smith mends - a repair counter recharged a Bedroll's
+  // nights, a Candle's and the Salts' doses for less than the supply costs (DFU's ItemTemplate.isNotRepairable)
+  isNotRepairable: !stackable,
 });
 /** The rows, in DFU's ItemTemplates.txt columns - charges as hitPoints (mintCondition), stacking unless they carry
  *  charges. The pictures are DFU's own: the camping bundle, the Clay Jar, the twigs, the Glass Bottle, the Candle, the
@@ -93,6 +96,7 @@ export const REST_ITEM_TEXT = Object.freeze({
   tonic: 'You drink the tonic. Your weariness lifts.',
   tonicSleep: 'You drink the tonic. Your weariness lifts, and sleep can wait a while longer.',
   candleLit: 'You light the candle. Rest to kneel and meditate by it.',
+  candleNotCarried: 'Carry the candle in your pack to light it.',   // AUDIT REST II H10
   meditated: 'You meditate by the candle. Your mind clears.',
   candleOut: 'The candle burns down to nothing.',
   salts: 'The salts sting your nose awake. Weariness can wait an hour.',
@@ -118,7 +122,7 @@ export function restItemLines(item) {
   switch (item?.templateIndex) {
     case REST_ITEM.Bedroll: return [`${n} ${n === 1 ? 'night' : 'nights'} left`, 'A rough night anywhere a camp could stand.'];
     case REST_ITEM.EmberJar: return ['A fire for one night - it cannot be carried on.'];
-    case REST_ITEM.Firewood: return [`Feeds a Campfire ${FIREWOOD_NIGHTS} nights.`];
+    case REST_ITEM.Firewood: return [`Adds ${FIREWOOD_NIGHTS} nights of fuel to a Campfire.`];   // AUDIT REST II H13: the notes' own words
     case REST_ITEM.Tonic: return [`Restores ${Math.round(TONIC_FATIGUE * 100)}% of your fatigue.`, `With Climates & Calories, sleep can wait ${TONIC_SLEEP_HOURS} hours more.`];
     case REST_ITEM.Candle: return [`${n} ${n === 1 ? 'use' : 'uses'} left`, `Meditate by it to restore ${Math.round(CANDLE_MAGICKA * 100)}% of your magicka.`];
     case REST_ITEM.Salts: return [`${n} ${n === 1 ? 'use' : 'uses'} left`, 'Holds weariness off for an hour; it lands after.'];
@@ -186,7 +190,10 @@ let _candle = null;   // { item, list } - the candle lit, waiting for the rest's
 /** The candle the next rest kneels by, or null - AUDIT REST F4: only while it is still in `entity`'s pack (sold, dropped,
  *  stored or a load since, it is out). */
 export const litCandle = (entity = null) => (_candle && (!entity || (entity.items ?? []).includes(_candle.item)) ? _candle : null);
-export function useCandle(item, list) {
+export function useCandle(item, list, entity = null) {
+  // AUDIT REST II H10: the kneel asks the pack (litCandle - AUDIT REST F4), so a candle lit from the wagon said "lit"
+  // and never knelt: one off the pack is refused with words
+  if (entity && !(entity.items ?? []).includes(item)) return { kind: 'text', text: REST_ITEM_TEXT.candleNotCarried };
   _candle = { item, list };
   return { kind: 'text', text: REST_ITEM_TEXT.candleLit, closesWindow: true };
 }
@@ -217,7 +224,7 @@ registerItemUseHandler(REST_ITEM.Bedroll, offlineUse((item) => ({ kind: 'pitchCa
 registerItemUseHandler(REST_ITEM.EmberJar, offlineUse((item) => ({ kind: 'placeFire', item })));
 registerItemUseHandler(REST_ITEM.Firewood, offlineUse((item) => ({ kind: 'placeFire', item })));
 registerItemUseHandler(REST_ITEM.Tonic, offlineUse((item, list, ctx) => useTonic(item, list, ctx?.entity)));   // AUDIT REST-PARTY T1: the ladder's ctx (useItem.js), as foragingInstall.js reads it - a `{}` default typed the deploy's tsc red
-registerItemUseHandler(REST_ITEM.Candle, offlineUse((item, list) => useCandle(item, list)));
+registerItemUseHandler(REST_ITEM.Candle, offlineUse((item, list, ctx) => useCandle(item, list, ctx?.entity)));
 registerItemUseHandler(REST_ITEM.Salts, offlineUse((item, list, ctx) => useSalts(item, list, ctx?.entity)));
 registerItemUseHandler(REST_ITEM.Draught, offlineUse((item, list, ctx) => useDraught(item, list, ctx?.entity)));
 
@@ -234,6 +241,10 @@ export function restItemsStock(kind, quality = 10, rolls = Math.random, { online
   const out = [];
   for (const [t, lo, hi] of REST_SHELVES[kind] ?? []) {
     const n = lo + Math.floor(rolls() * (hi - lo + 1)) + (quality >= 15 && hi > 0 ? 1 : 0);
+    // AUDIT REST II H14: the Bedroll is ONLINE's rest point (section 2.1) - offline every rest is DFU's, anywhere, and a
+    // Bedroll's rough night is the bare ground's, so an offline shelf sold one for 80 to wear out and nothing more. Its
+    // count is still drawn, so the shelf's other draws stay their own.
+    if (t === REST_ITEM.Bedroll && !online) continue;
     for (let i = 0; i < n; i++) { const it = createRestItem(t); if (it) out.push(it); }
   }
   return out;

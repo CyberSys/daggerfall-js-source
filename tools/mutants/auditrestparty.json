@@ -176,17 +176,19 @@
  {
   "name": "AUDITRESTPARTY-B1-a-load-packs-the-fire",
   "file": "src/scenes/worldModes.js",
-  "old": "      if (dungeonCtx) { if (cacheScene) dungeonCtx.camps?.packOwnFires?.(); else dungeonCtx.camps?.dropOwn?.(); }",
-  "new": "      if (dungeonCtx) { dungeonCtx.camps?.packOwnFires?.(); }",
+  "old": "      if (dungeonCtx) { if (load) dungeonCtx.camps?.dropOwn?.(); else carried = dungeonCtx.camps?.packOwnFires?.({ quiet: true }) ?? 0; }",
+  "new": "      if (dungeonCtx) { carried = dungeonCtx.camps?.packOwnFires?.({ quiet: true }) ?? 0; }",
   "tests": [
-   "test/auditrestparty_camps.test.js"
-  ]
+   "test/auditrestparty_camps.test.js",
+   "test/auditrest2_camps.test.js"
+  ],
+  "note": "AUDIT REST II H1 (PIN MOVED): the arm reads the load's own flag, not cacheScene"
  },
  {
   "name": "AUDITRESTPARTY-B3-the-memory-goes-first",
   "file": "src/scenes/worldModes.js",
-  "old": "    dungeonCtx.camps?.packOwnFires?.();   // AUDIT REST-PARTY B3",
-  "new": "    void 0;   // AUDIT REST-PARTY B3",
+  "old": "    const carried = dungeonCtx.camps?.packOwnFires?.({ quiet: true }) ?? 0;   // AUDIT REST-PARTY B3",
+  "new": "    const carried = 0;   // AUDIT REST-PARTY B3",
   "tests": [
    "test/auditrestparty_camps.test.js"
   ]

@@ -103,7 +103,9 @@ export function applyCustoms(snap) {
   // usable, droppable and tradeable online. The offline character keeps them: customs runs on the realm's copy.
   let restKept = 0;
   if (!REST_ITEMS_ONLINE) {
-    for (const list of [...carriedItemLists(snap), ...stashedItemLists(snap)]) {
+    // AUDIT REST II H9: and the repairer's counter (save.js otherItems - restored to the pack's owner on the way in)
+    const lists = [...carriedItemLists(snap), ...stashedItemLists(snap), ...(Array.isArray(snap.otherItems) ? [snap.otherItems] : [])];
+    for (const list of lists) {
       for (let i = list.length - 1; i >= 0; i--) if (REST_ITEM_IDS.has(list[i]?.templateIndex)) { list.splice(i, 1); restKept++; }
     }
   }
@@ -258,7 +260,7 @@ export function customsLines({ called, owed, wealth, allowance, taken, crossed =
   const houses = crossed.filter((d) => d === 'house').length;
   const what = [crossed.includes('ship') ? 'your ship' : '', houses > 1 ? `${houses} houses` : houses ? 'your house' : ''].filter(Boolean).join(' and ');
   if (what) lines.push(`${what[0].toUpperCase()}${what.slice(1)} ${before ? 'will come' : 'came'} with you, every piece in ${crossed.length > 1 ? 'them' : 'it'}; the realm's bank does not buy back what comes through customs.`);
-  if (restKept > 0) lines.push(`Your camping supplies ${before ? 'will stay' : 'stayed'} with your offline character - they are not yet sold in the realm.`);   // AUDIT REST-PARTY B4
+  if (restKept > 0) lines.push(`Your rest supplies ${before ? 'will stay' : 'stayed'} with your offline character - they are not yet sold in the realm.`);   // AUDIT REST-PARTY B4; AUDIT REST II H13: the Tonics, Salts, Draughts and Candles are rest supplies, not camping
   if (!lines.length) lines.push(before ? 'Customs finds nothing to settle.' : 'Customs found nothing to settle.');
   return before ? [...lines, ...CUSTOMS_PROMISE] : lines;
 }

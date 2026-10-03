@@ -35,8 +35,9 @@ const pool = (entity, said = [], place = {}, selfId = null) => createCamps({
 
 test('AUDIT REST-PARTY B1 + B3: every way out of a dungeon puts my fires away BEFORE the room\'s memory is published - a leave or a teleport packs them, a load drops them (the pack is already the save\'s)', () => {
   const wm = rd('src/scenes/worldModes.js');
-  assert.match(wm, /dungeonCtx\.camps\?\.packOwnFires\?\.\(\);[^\n]*\n    const pose = dungeonPose\(\);\n    host\.onDungeonLeave\?\.\(\);/, 'the walk out');
-  assert.match(wm, /if \(dungeonCtx\) \{ if \(cacheScene\) dungeonCtx\.camps\?\.packOwnFires\?\.\(\); else dungeonCtx\.camps\?\.dropOwn\?\.\(\); \}\n      if \(dungeonCtx\) \{\n        host\.onDungeonLeave\?\.\(\);/, 'the forced exit: a teleport packs, a load drops - before the leave hook');
+  assert.match(wm, /const carried = dungeonCtx\.camps\?\.packOwnFires\?\.\(\{ quiet: true \}\) \?\? 0;[^\n]*\n    const pose = dungeonPose\(\);\n    host\.onDungeonLeave\?\.\(\);/, 'the walk out');   // AUDIT REST II H4 (PIN MOVED): packed quiet, said outside
+  // AUDIT REST II H1 (PIN MOVED): the load says so itself - cacheScene false is a Recall out of a dungeon too
+  assert.match(wm, /if \(dungeonCtx\) \{ if \(load\) dungeonCtx\.camps\?\.dropOwn\?\.\(\); else carried = dungeonCtx\.camps\?\.packOwnFires\?\.\(\{ quiet: true \}\) \?\? 0; \}\n      if \(dungeonCtx\) \{\n        host\.onDungeonLeave\?\.\(\);/, 'the forced exit: a teleport packs, a load drops - before the leave hook');
   // and on the pool: dropOwn after a load leaves the loaded pack as the save had it
   _resetForTests(); setPref('survival', true); setWorldMinutes(1000);
   const fire = createSurvivalItem(TEMPLATE.Campfire);
@@ -101,7 +102,7 @@ test('AUDIT REST-PARTY B4: customs keeps the supplies offline while their source
   const r = applyCustoms(snap);
   assert.equal(r.restKept, 2);
   assert.deepEqual(snap.items, [sword], 'the copy carries none of them');
-  assert.ok(customsLines(r).some((l) => /camping supplies stayed with your offline character/.test(l)));
+  assert.ok(customsLines(r).some((l) => /rest supplies stayed with your offline character/.test(l)));   // AUDIT REST II H13 (PIN MOVED)
   assert.ok(customsLines(r, { before: true }).some((l) => /will stay/.test(l)));
   const entity = { fatigue: 0, maxFatigue: 100, stats: { endurance: 50, strength: 50 }, survival: newSurvival(0) };
   const tonic = createRestItem(REST_ITEM.Tonic);

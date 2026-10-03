@@ -42,7 +42,9 @@ export const SURVIVAL_TEMPLATES = Object.freeze([
   { index: TEMPLATE.RawMeat, name: 'Raw Meat', baseWeight: 2.0, hitPoints: 60, basePrice: 8, rarity: 40, worldTextureArchive: 538, worldTextureRecord: 2 },
   { index: TEMPLATE.Waterskin, name: 'Waterskin', baseWeight: 0.5, hitPoints: 10, basePrice: 10, rarity: 1, worldTextureArchive: 539, worldTextureRecord: 0 },
   { index: TEMPLATE.Skillet, name: 'Skillet', baseWeight: 5.0, hitPoints: 100, basePrice: 60, rarity: 5, worldTextureArchive: 218, worldTextureRecord: 4 },
-  { index: TEMPLATE.Campfire, name: 'Campfire', baseWeight: 3.0, hitPoints: CAMPFIRE_USES, basePrice: 40, rarity: 1, worldTextureArchive: TORCH?.worldTextureArchive ?? 205, worldTextureRecord: TORCH?.worldTextureRecord ?? 17 },
+  // AUDIT REST II H7: its condition is its FUEL (REST2's nights), never wear - a repair counter refilled eight nights for
+  // less than one Firewood's three (isNotRepairable: "This cannot be repaired.", DFU's own refusal)
+  { index: TEMPLATE.Campfire, name: 'Campfire', baseWeight: 3.0, hitPoints: CAMPFIRE_USES, basePrice: 40, rarity: 1, worldTextureArchive: TORCH?.worldTextureArchive ?? 205, worldTextureRecord: TORCH?.worldTextureRecord ?? 17, isNotRepairable: true },
 ]);
 registerCustomTemplates(SURVIVAL_TEMPLATES);
 
@@ -228,14 +230,15 @@ export const isDrySourceFlat = (archive, record) => (DRY_SOURCE_FLATS[archive] ?
 // ---- THE SHOPS AND THE START -----------------------------------------
 /** A general store's provisions shelf: rations, bread, fruit, a skin or
  *  two, a fire kit, and camping gear and a skillet in a better shop. */
-export function provisionsStock(quality = 5, rolls = Math.random) {
+export function provisionsStock(quality = 5, rolls = Math.random, { campfires = true } = {}) {   // AUDIT REST II H8: `campfires` - the counter's shelf alone
   const n = (min, max) => min + Math.floor(rolls() * (max - min + 1));
   const out = [];
   out.push(createSurvivalItem(TEMPLATE.Rations, { stackCount: n(2, 5) }));
   for (let i = n(1, 3); i > 0; i--) out.push(createSurvivalItem(TEMPLATE.Bread));
   for (let i = n(1, 3); i > 0; i--) out.push(createSurvivalItem(rolls() < 0.5 ? TEMPLATE.Apple : TEMPLATE.Orange));
   for (let i = n(1, 2); i > 0; i--) out.push(createSurvivalItem(TEMPLATE.Waterskin, { water: 0 }));
-  for (let i = n(2, 4); i > 0; i--) out.push(createSurvivalItem(TEMPLATE.Campfire));   // REST2: two to four, the rest's own tool online
+  const fires = n(2, 4);   // AUDIT REST II H8: drawn on every shelf, so each shelf's later draws stay its own; stood on one
+  if (campfires) for (let i = fires; i > 0; i--) out.push(createSurvivalItem(TEMPLATE.Campfire));   // REST2: two to four, the rest's own tool online
   if (quality >= 5 || dice100(30, rolls())) out.push(createSurvivalItem(TEMPLATE.CampingEquipment));
   if (quality >= 8 || dice100(20, rolls())) out.push(createSurvivalItem(TEMPLATE.Skillet));
   return out.filter(Boolean);

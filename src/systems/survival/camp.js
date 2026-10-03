@@ -80,7 +80,7 @@ export const CAMP_TEXT = Object.freeze({
   arcOff: 'Turn Climates & Calories on to make camp.',
   pitched: 'You pitch your tent and light a fire.',
   lit: 'You light a campfire.',
-  kitSpent: 'That was the last of your campfire kit.',
+  kitSpent: 'That was the last of your Campfire Kit.',
   packed: 'You pack up your camp.',
   stamped: 'You stamp out the fire.',
   notYours: 'This is not your camp to pack.',
@@ -91,7 +91,7 @@ export const CAMP_TEXT = Object.freeze({
   nothingToCook: 'You have nothing to cook.',
   seeOwnCamp: 'You see your camp.',
   seeCamp: 'You see a camp.',
-  seeOwnFire: 'You see your campfire.',
+  seeOwnFire: 'You see your Campfire.',
   seeFire: 'You see a campfire.',
   seeEmbers: 'You see the embers of a fire.',
   seeHearth: 'You see a fire burning.',   // HEARTH1: the world's own, which is nobody's to pack
@@ -104,12 +104,12 @@ export const CAMP_TEXT = Object.freeze({
   menuStamp: 'Put out the fire',
   // REST2 (bible/06-Systems/Rest-Arc.md section 3): THE CAMPFIRE IS A TOOL, NOT A MATCH - placed free, its charges
   // spent by the nights its owner sleeps at it, picked back up, relit while it has fuel
-  menuPickUp: 'Pick up the campfire',
+  menuPickUp: 'Pick up the Campfire',   // AUDIT REST II H13: the item's own name, as the hover and the card say it
   menuRelight: 'Relight the fire',
-  pickedUp: 'You pick up your campfire.',
+  pickedUp: 'You pick up your Campfire.',
   relit: 'You relight the fire.',
-  noFuel: 'Your campfire has no fuel left.',
-  outOfFuel: 'Your campfire burns the last of its fuel.',
+  noFuel: 'Your Campfire has no fuel left.',
+  outOfFuel: 'Your Campfire burns the last of its fuel.',
   embersOut: 'The embers die out.',   // AUDIT REST: an Ember Jar's one night
   carriedOut: 'You take your Campfire with you.',   // AUDIT REST F1: leaving a dungeon with yours standing
   campWorn: 'Your camping equipment wears through.',
@@ -220,6 +220,14 @@ export function packCamp(camp) {
   return { item, text: tent ? CAMP_TEXT.packed : CAMP_TEXT.pickedUp };
 }
 
+/** AUDIT REST II H5: the Campfires a save left standing in a dungeon the load does not enter - an online page wakes at
+ *  the nearest temple instead (ONLINE-UNDERGROUND-LOAD1), and a dungeon this world cannot find or with no entrance here
+ *  stands nothing - packed with their fuel, as packOwnFires' walk out packs them; never an Ember Jar's or an old save's
+ *  kit fire (AUDIT REST-PARTY B5). `records` is the save's own (camps.snapshot: mine alone). */
+export const packSavedFires = (records) => (Array.isArray(records) ? records : [])
+  .filter((r) => r?.kind === CAMP_KIND.Fire)   // a fire alone, as packOwnFires; packCamp stamps out one with no fuel of its own
+  .map((r) => packCamp(r).item).filter(Boolean);
+
 /** The raw foods in a pack (the FOOD table's `cooks` column names what they become). */
 export const cookables = (items) => (items ?? []).filter((it) => isFood(it) && foodOf(it)?.cooks != null);
 export const hasSkillet = (items) => (items ?? []).some(isSkillet);
@@ -262,11 +270,18 @@ export function campInfoText(camp, now, mine) {
 }
 /** The menu's rows: rest and cook at any camp; stoke a cold tent; REST2: relight your own cold Campfire while it has
  *  fuel; pack your tent, or pick your Campfire up. The keys are the plaque's action ids (REST2: the loot plaque's rows). */
-export function campMenu(camp, now, mine) {
+export function campMenu(camp, now, mine, { online = false } = {}) {
   const rows = [{ key: 'rest', text: CAMP_TEXT.menuRest }, { key: 'cook', text: CAMP_TEXT.menuCook }];
   if (camp.kind === CAMP_KIND.Tent && !fireLit(camp, now) && (camp.wear | 0) > 0) rows.push({ key: 'stoke', text: CAMP_TEXT.menuStoke });
   if (camp.kind === CAMP_KIND.Fire && mine && !camp.jar && !fireLit(camp, now) && (camp.wear | 0) > 0) rows.push({ key: 'stoke', text: CAMP_TEXT.menuRelight });
   if (mine && !camp.jar && (camp.kind === CAMP_KIND.Tent || !!camp.fuel)) rows.push({ key: 'pack', text: camp.kind === CAMP_KIND.Tent ? CAMP_TEXT.menuPack : CAMP_TEXT.menuPickUp });   // AUDIT REST-PARTY B5: never an old save's kit fire (no fuel of its own: AUDIT REST F12 - it burns away as it always did; picked up, it was a second Campfire from nothing)
+  // AUDIT REST II H12: online a cold camp is no rest point (restAct asks a LIT fire), so its Rest row only refused, with
+  // the wrong words ("Find a fire or a bed to rest."): it goes, and the fire's own act - Relight, Stoke - leads, the row
+  // a click takes. Offline any rest is DFU's, anywhere, and the list is as it was.
+  if (online && !fireLit(camp, now)) {
+    const stoke = rows.filter((r) => r.key === 'stoke');
+    return [...stoke, ...rows.filter((r) => r.key !== 'rest' && r.key !== 'stoke')];
+  }
   return rows;
 }
 

@@ -249,8 +249,10 @@ export function stockShopShelf({ buildingType, quality }, playerEntity = {}, { r
     // kits, and camping gear and a skillet in a better shop. Minted by
     // their own module (their templates are the port's), after the
     // horse and the cart so the shelf reads travel first, then food.
-    if (survivalOn()) for (const it of provisionsStock(quality, rolls)) items.push(it);
-    else if (sharedClockOn()) for (const it of campfireStock(rolls)) items.push(it);   // REST2: online the Campfire is the rest's, the arc on or off
+    // AUDIT REST II H8: the Campfires on the counter's shelf alone (as the rest supplies and the healing supply below) - every
+    // shelf model is its own container stocked whole, so a store of four shelves sold sixteen, not "two to four"
+    if (survivalOn()) for (const it of provisionsStock(quality, rolls, { campfires: shelfIndex === 0 })) items.push(it);
+    else if (sharedClockOn() && shelfIndex === 0) for (const it of campfireStock(rolls)) items.push(it);   // REST2: online the Campfire is the rest's, the arc on or off
   }
   const level = playerEntity.level ?? 1;
   const female = playerEntity.gender === 'female';
