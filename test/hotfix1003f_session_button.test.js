@@ -59,3 +59,11 @@ test('HOTFIX 1003i: the stands\' rail - a watcher on the terrace is held out of 
   const w = readFileSync(new URL('../src/scenes/world.js', import.meta.url), 'utf8');
   assert.match(w, /if \(!player\.arena\) player\.arena = arenaBouts\.ring\(\); if \(!player\.arena\) \{ const s = arenaOnline\?\.session\?\.\(\); player\.arena = standsRail\(/);
 });
+
+test('HOTFIX 1003j: my opponent on a relay\'s sand is the body inside my ring, by name else the nearest - never the room\'s first peer, now the stands are drawn (live: "Players arent taking damage now") (mutant: the first peer)', () => {
+  const w = readFileSync(new URL('../src/scenes/world.js', import.meta.url), 'utf8');
+  const fn = w.slice(w.indexOf('function arenaRivalBody()'), w.indexOf('function arenaRivalBody()') + 2000);
+  assert.ok(!fn.includes('const peer = (peersNear() ?? [])[0];'), 'never the first peer the room holds');
+  assert.match(fn, /Math\.hypot\(p\.feet\[0\] - ring\.centre\[0\], p\.feet\[2\] - ring\.centre\[2\]\) <= ring\.radius \+ 1\.5 && Math\.abs\(p\.feet\[1\] - ring\.centre\[1\]\) < 2/, 'on the sand, inside my ring');
+  assert.match(fn, /const peer = onSand\.find\(\(p\) => vsName && online\?\.peers\?\.get\?\.\(p\.id\)\?\.name === vsName\) \?\? onSand\[0\];/, 'by name, else the nearest');
+});

@@ -18129,7 +18129,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   function arenaRivalBody() {
     const b = arenaOnline?.bout(), r = arenaBouts.relay();
     if (!b || b.kind !== 'pvp' || !r || !r.me) return null;
-    const peer = (peersNear() ?? [])[0];
+    const ring = arenaBouts.ring(), me = player.feetAt(), vsName = b.vs?.n ?? null, onSand = (peersNear() ?? []).filter((p) => p?.feet && (!ring || (Math.hypot(p.feet[0] - ring.centre[0], p.feet[2] - ring.centre[2]) <= ring.radius + 1.5 && Math.abs(p.feet[1] - ring.centre[1]) < 2))).sort((x, y) => Math.hypot(x.feet[0] - me[0], x.feet[2] - me[2]) - Math.hypot(y.feet[0] - me[0], y.feet[2] - me[2])); const peer = onSand.find((p) => vsName && online?.peers?.get?.(p.id)?.name === vsName) ?? onSand[0];   // HOTFIX 1003j (live: "PVP isn't working. Players arent taking damage now"): world156 draws the stands, so the room's first peer was often a watcher - my blows met a body standing where a spectator stood; my opponent is the one on the sand inside my ring (by name, else the nearest)
     if (!peer?.feet) return null;
     if (!_arenaRivalEntity) { _arenaRivalEntity = bossStandIn({ mobile: 0 }, b.vs?.n ?? 'Your opponent'); _arenaRivalEntity.armor = 100; _arenaRivalEntity.armorValues = new Array(7).fill(100); _arenaRivalEntity.skills = 0; _arenaRivalEntity.spareGear = true; }
     _arenaRivalEntity.name = b.vs?.n ?? _arenaRivalEntity.name;
