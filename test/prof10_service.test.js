@@ -82,6 +82,20 @@ test('PROF10 service: a Silver Ruby Ring at the jeweller\'s bench - its Silver a
   assert.match(ACCOUNT_VERSION, /^acct69$/   /* PIN MOVED (PROF12): the live version */);
 });
 
+test('AUDIT PROF-541 J7 service: the first time\'s 500 once a piece and base - a Silver Ruby Ring\'s, then a Silver Emerald Ring and a plain Silver Ring none; a Silver Mark and a Gold Ruby Ring each their own', async () => {
+  const s = await stand();
+  const mac = await s.registered('Mac');
+  s.setXp(mac, xpForRank(25));
+  for (const r of ['ring:silver:ruby', 'ring:silver:emerald', 'ring:silver', 'mark:silver:ruby', 'ring:gold:ruby']) s.stock(mac, r);
+  const firsts = [];
+  for (const r of ['ring:silver:ruby', 'ring:silver:emerald', 'ring:silver', 'mark:silver:ruby', 'ring:gold:ruby']) {
+    const a = await s.cut(mac, r);
+    assert.equal(a.status, 200, JSON.stringify(a.body));
+    firsts.push(a.body.first);
+  }
+  assert.deepEqual(firsts, [true, false, false, true, true]);
+});
+
 test('PROF10 service: the jeweller\'s ladder asked - Gold at 25, Platinum at 55, the Wand at 70 (refused below, nothing spent); the quality on the margin with a clean facet\'s step; a Wand\'s Heartwood its step; a Master\'s full track credits none', async () => {
   const s = await stand();
   const mac = await s.registered('Mac');

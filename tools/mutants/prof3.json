@@ -258,7 +258,7 @@
   {
     "name": "PROF3-svc-no-first-bonus",
     "file": "server-account/src/professions.js",
-    "old": "FROM (SELECT CASE WHEN EXISTS (SELECT 1 FROM prof_crafts WHERE player = ?1 AND char_id = ?2 AND recipe = ?4) THEN 0 ELSE 1 END AS f)",
+    "old": "FROM (SELECT CASE WHEN EXISTS (SELECT 1 FROM prof_crafts WHERE player = ?1 AND char_id = ?2 AND ${madeBefore}) THEN 0 ELSE 1 END AS f)",
     "new": "FROM (SELECT 0 AS f)",
     "tests": [
       "test/prof3_service.test.js",

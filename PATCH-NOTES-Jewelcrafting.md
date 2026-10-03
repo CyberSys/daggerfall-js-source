@@ -16,7 +16,7 @@
 - **Enchantment points.** A crafted piece holds more than a found one: **Gold +10%**, **Platinum +20%**, and **+10% for a set gem**. The item maker reads them when you enchant it. A gemmed piece is worth its gem as well.
 - **Quality.** Pieces come Crude to Masterwork, as smithing does - a Superior or a Masterwork rolls a magic property, and a Masterwork carries your name.
 - **The facet.** Each piece is cut in three facets (five with a gem). The stone turns slowly along the dial - stop it where it catches the light (Space, Enter or the button). Catch every facet for a clean piece, one quality step better. Willpower and Luck widen the window; so does your rank. Quick craft skips it.
-- **XP** comes with every piece by its tier, and +500 the first time you make each one.
+- **XP** comes with every piece by its tier, and +500 the first time you make each piece of each metal or wood (a Gold Ring once, whichever gem you set).
 - **Jewellery sells on the market** (a new **Jewellery** category), goes to auction as a Masterwork, and can be asked for in commissions.
 - **Specialisations:**
   - **Gemcutter** (50): a set gem adds +20% enchantment points, not +10%.

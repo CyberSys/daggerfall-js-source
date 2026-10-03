@@ -57,7 +57,7 @@ import {
 } from '../../src/net/professionLaw.js';
 import {
   recipeById, recipeOpen, qualityOdds, rollQuality, qualitySteps, craftQuality, takesQuality, craftXp, craftCount,
-  makerName, FIRST_CRAFT_XP, firstCraftPays, recipeInputs, takesHeartwood, carriesMark, dyeOk,
+  makerName, FIRST_CRAFT_XP, firstCraftPays, firstCraftKey, recipeInputs, takesHeartwood, carriesMark, dyeOk,
   masonXp,   // PROF11: the mason's bench's XP
   cookXp, dishHand,   // PROF9: a dish's XP and its cook's hand
   jewelHand, takesCracked, masterworkSpec, LAPIDARY,   // PROF10: the jeweller's hand, a Lapidary's cracked gem, the Master Jeweller's points
@@ -962,6 +962,11 @@ export async function craftAtAnvil(ctx, player, env, { character, recipe: id, cl
     binds.push(inp.key, inp.n);
     held.push(`${spendableSql('?1', '?2', `?${17 + 2 * i}`)} >= ?${18 + 2 * i}`);   // GOLD-MARKET: never gold's units
   });
+  // AUDIT PROF-541 J7: a jewel's first craft its piece and base's (recipeLaw firstCraftKey) - any gem of `ring:gold` made
+  // before is the first; ?{after the inputs} the key
+  const fk = `?${binds.length + 1}`;
+  const madeBefore = r.kind === 'jewel' ? `(recipe = ${fk} OR substr(recipe, 1, length(${fk}) + 1) = ${fk} || ':')` : 'recipe = ?4';
+  if (r.kind === 'jewel') binds.push(firstCraftKey(r));
   const decided = 'EXISTS (SELECT 1 FROM prof_crafts WHERE player = ?1 AND rid = ?5 AND n = ?6)';
   if (siege) held.push(`COALESCE((SELECT SUM(qty) FROM prof_stores WHERE player = ?1 AND char_id = ?2 AND material = '${RAM_KIT.key}'), 0) + ?6 <= ${STORES_MAX}`);   // SEAT2b part two: the kit's room
   await db.batch([
@@ -971,7 +976,7 @@ export async function craftAtAnvil(ctx, player, env, { character, recipe: id, cl
       SELECT ?1, ?3, ?2, ?4, ?5, ?6, ?7, ?8, ?9,
         MAX(0, MIN(?10 + f * ?13, ${Number(cap)} - COALESCE((SELECT xp FROM prof_tracks WHERE player = ?1 AND char_id = ?2 AND profession = ?14), 0))),
         f, ?11, ?12, ?15, ?16
-      FROM (SELECT CASE WHEN EXISTS (SELECT 1 FROM prof_crafts WHERE player = ?1 AND char_id = ?2 AND recipe = ?4) THEN 0 ELSE 1 END AS f)
+      FROM (SELECT CASE WHEN EXISTS (SELECT 1 FROM prof_crafts WHERE player = ?1 AND char_id = ?2 AND ${madeBefore}) THEN 0 ELSE 1 END AS f)
       WHERE ${held.join(' AND ')}`).bind(...binds),
     // the inputs out, each bought first
     ...inputs.flatMap((inp) => spendStatements(db, {

@@ -2850,7 +2850,8 @@ Mac: **"2 and 4"** (2026-10-02: the Apothecary waits on Alchemy, Cooking and Jew
   not the Mining tier its vein is struck at (4.1's 3, 4, 5) - at 4.1's tiers a Novice jeweller had nothing to make (the
   Cloth Amulet asks a gem, and the least is tier 2). **Silver at 0** (tier 1), **Gold at 25** (tier 3), **Platinum at 55**
   (tier 5, its own 4.1 tier); the **Cloth Amulet at 0** (Linen's tier 1); the **Wand at 70** (Ironwood's and Ghostwood's
-  tier 6) - the jeweller's crown piece. XP is 3.2's own (20 x the tier, +500 the first, a recipe two tiers below the
+  tier 6) - the jeweller's crown piece. XP is 3.2's own (20 x the tier, +500 the first - AUDIT PROF-541 J7 (Mac: "Once per piece and base"): a piece and base's
+  first, whichever gem, `firstCraftKey` - a recipe two tiers below the
   rank's quartered): the ladder spans 0 to 70, so it needed no "XP follows the rank".
 - **The points** (9.3: "Silver +0%, Gold +10%, Platinum +20%, a set gem +10% (Gemcutter +10% more)"; `jewelPointsPct`,
   `jewelPoints`). DECIDED: the piece carries **its own `enchantmentPoints`** (DFU's item field, `itemFields.js`) - its
