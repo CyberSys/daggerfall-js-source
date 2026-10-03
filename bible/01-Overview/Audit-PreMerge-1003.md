@@ -155,6 +155,10 @@ the pin in `test/audit1003_record.test.js`)
   main's 147; their words, with D2, D3 and D17's corrections, go on the pull request's description.
 - **S7 x O1.** O1's pin opened the offer's id as the bout's room; S7 mints the room at the go. The pin follows the go.
 - **The relay's row.** S and O both changed the relay's law; world155 (still undeployed) is hashed once over both.
+- **TACT2's archer pin (main's, #540) was flaky.** On the PR's own CI it read the ranged tokens at one instant - 1 where
+  2 stood: a holder hands its token on and another takes it the next frame, so the count dips for a frame by design. The
+  same 10 of 400 seeded runs fail on main, on #545's head and here (~2.5%). The pin now holds the law on every frame (never
+  more than two out, both taken, the third holding its fire while they are); `tact2.json`'s 25 mutants still die.
 - **The cites.** Each fix lane moved the cites its own lines shifted; the lanes were joined with citeMerge, and the
   CD4-gated cites citeMerge holds on struck rows were set by citedrift's own table, each on the text it names.
 
