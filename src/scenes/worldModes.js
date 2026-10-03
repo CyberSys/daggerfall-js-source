@@ -284,6 +284,7 @@ import {
   HALL_BOARD_TITLE, hallBoardShutLine, HALL_BOARD_COLD,   // GUILD1e: the board in a hall
   HALL_OF_RECORDS_TEXT, HALL_OF_RECORDS_SHUT,   // SEASON1 part three: a seat's Hall of Records
   homeDoorName,   // FIELD BUGS 2026-09-30b HOME-PLAQUE: a nameless house with verbs is a Residence
+  homeClaimLayout,   // AUDIT PRE-MERGE 1003 WD1: a hall is bought in its town's layout, as a home is
 } from '../systems/onlineHomes.js';
 import { guildHallPrice, GUILD_HALL_ENTRY_WORDS } from '../net/hallLaw.js';   // GUILD1d: what a hall costs, in its refusal's words; who may walk in
 import { SEAT_HALL_DECOR_CAP, SEAT_HALL_CLEAR_M, SEAT_HALL_TEXT } from '../net/townSeatLaw.js';   // SEAT-HALL: the palace as the holder's hall
@@ -6010,16 +6011,22 @@ export function createWorldModes(host) {
   /** GUILD1d: BUY IT AS THE GUILD'S HALL - the plaque's armed row, or (AUDIT GUILD1d A3) the offer box's own choice where
    *  no plaque rows are drawn. No purse moves: the treasury pays on the service. */
   function buyHallAt(bd, price) {
+    // AUDIT PRE-MERGE 1003 WD1: A HALL IS A HOME - its key names a building only in its town's layout, so buyHomeAt's
+    // gates (AUDIT WD3 O1/O2/B1) hold it too: none bought before the room's layouts of the homes' towns are heard, it is
+    // bought in its town's layout, and one refused for that layout hears them again
+    if (host.homeTownsMissing?.()) { townTalk?.say?.(accountRefusalText('home-towns')); return; }
+    if (host.homeLayoutsHeard?.() === false) { townTalk?.say?.(accountRefusalText('home-layout')); host.hearHomeLayouts?.(); return; }
     const id = homeIdOf(bd);
     if (_hallBuying.has(id)) return;
     _hallBuying.add(id);
     const g = hallGuild();
     const mapId = homeTownOf(bd);
-    Promise.resolve(host.guildHall?.buy?.({ mapId, buildingKey: bd.buildingKey, region: bd.regionIndex ?? 0, price }))
+    Promise.resolve(host.guildHall?.buy?.({ mapId, buildingKey: bd.buildingKey, region: bd.regionIndex ?? 0, price, layout: homeClaimLayout(mapId) }))
       .then((r) => {
         if (r?.ok) { host.onlineHomes?.ensure?.(mapId, { force: true }); townTalk?.say?.(hallBoughtLine(g?.name ?? 'your guild')); return; }
         townTalk?.say?.(r?.error === 'guild-treasury-short' || r?.error === 'guild-treasury-old' ? hallShortLine(guildHallPrice(price)) : accountRefusalText(r?.error ?? 'server'));
         if (r?.error === 'home-taken') host.onlineHomes?.ensure?.(mapId, { force: true });
+        if (r?.error === 'home-layout') host.hearHomeLayouts?.();   // AUDIT PRE-MERGE 1003 WD1: the town stood another layout here
       })
       .catch((e) => console.error(e))
       .finally(() => { _hallBuying.delete(id); });

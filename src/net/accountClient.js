@@ -1114,7 +1114,8 @@ export function accountGuilds({ fetch, storage }) {
     disband: (character) => post('/v1/guilds/disband', { character }),
     // GUILD1d (Seats-Arc 8): the hall bought and sold from the treasury, who may walk in, and the heraldry (`rid`: a change
     // after the first burns Drakes, and a change asked twice is one line)
-    hallBuy: ({ character, mapId, buildingKey, region, price }) => post('/v1/guilds/hall/buy', { character, mapId, buildingKey, region, price }),
+    // AUDIT PRE-MERGE 1003 WD1: a hall is a home - the layout its town stands in, always said (null: Daggerfall's), as a claim
+    hallBuy: ({ character, mapId, buildingKey, region, price, layout = null }) => post('/v1/guilds/hall/buy', { character, mapId, buildingKey, region, price, layout: layout || null }),
     hallSell: (character) => post('/v1/guilds/hall/sell', { character }),
     hallEntry: (character, entry) => post('/v1/guilds/hall/entry', { character, entry }),
     heraldry: (character, heraldry, rid = null) => post('/v1/guilds/heraldry', { character, heraldry, ...(rid ? { rid } : {}) }),
