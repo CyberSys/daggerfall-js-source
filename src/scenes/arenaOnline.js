@@ -534,7 +534,7 @@ export function createArenaOnline(deps) {
    */
   function sessionState(w) {
     sess.state = w;
-    if (bout?.priv && bout.o !== w.o) letGoPriv(true);
+    if (!sess.said) { sess.said = true; say(w.h === 1 ? O.privHereHost(sess.code) : O.privHereJoined(sess.code, Math.max(0, (Array.isArray(w.m) ? w.m.length : 1) - 1))); } if (bout?.priv && bout.o !== w.o) letGoPriv(true);   // HOTFIX 1003e: the session's first word said - its stands draw nobody, and a joiner saw an empty arena
     if (!w.o || bout?.o === w.o || w.ph === 'done' || w.ph === 'void') return;
     const side = w.f.indexOf(w.me);
     bout = { o: w.o, room: sess.room, kind: side >= 0 ? 'pvp' : 'watch', watchKind: 'pvp', side: side >= 0 ? side : null, casual: true, priv: true, sent: false, seen: true, at: now(), leftAt: null };
