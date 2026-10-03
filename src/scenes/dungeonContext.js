@@ -19,6 +19,8 @@ import { quickslotHand } from '../ui/quickslotTags.js';   // DISC21-C: an empty 
 import { lycanthropeAttackVoice, lycanthropeMoveSound } from '../systems/lycanthropy.js';   // V4: the beast's attack voice; LM1: the 4-20s move-sound loop; DISC10-E L3: the inventory refusal moved INTO the window door
 import { layoutDungeon, isDungeonExitDoor } from '../world/dungeonLayout.js';
 import { isGateArena, COURT_TEXT } from '../world/gateArena.js';   // WB3b: the Burning Court - what the Deadlands will not allow
+import { placeDungeonFires, colliderFireProbe, inFireWard, DUNGEON_FIRE_FLAT } from '../world/dungeonFires.js';   // REST3: the dungeon's own campfires
+import { withFireMarks } from '../ui/nodeMarks.js';   // REST3: the campfires on the compass
 import { expandMacros } from '../systems/talkSession.js';   // MACRO1: the global symbols every TEXT.RSC box passes through (MacroHelper)
 import { executeConsoleCommand } from '../systems/consoleCommands.js';   // E3: the probe door runs the real database
 import { enterDungeonAutomap, exitDungeonAutomap, detachedAutomapRecord, buildRevealIndex, bindAutomapLayout, automapRevealTick, automapEntranceTick, automapTrailTick, capsuleCentreFromEye, automapDungeonKey, SCAN_INTERVAL_S, recordTeleporterConnection, teleporterConnection, registerAutomapConsoleCommands } from '../systems/automap.js';   // A1; ROAD-C c2/S8 the teleport listener + the three console verbs, ROAD-E E3 on the command database
@@ -228,8 +230,8 @@ import { createHitEffects, bloodCentre } from './hitEffects.js';
 import { orbArchiveFor, ORB_RECORD, noteOrbColour, ORB_SCALE } from '../characters/thunderlockIds.js';   // FIELD-GUN14: what this weapon's shot LOOKS like - the leaf, so no cycle   // FIELD-GUN17: ...and its colour   // FIELD-GUN18: ...and how big it is drawn
 import { bloodHit } from '../combat/bloodDecals.js';   // BLOOD1b: the blow, in the shape the mark's ladder reads
 import { createDroppedTorches } from './droppedTorches.js';
-import { createCamps } from './camps.js';   // SURV3: a fire on the dungeon floor (no tent below - the camp law says so)
-import { campWire, validCampRecord } from '../systems/survival/camp.js';   // SURV3: the room's memory carries the camps as the wire says them   // HT1: Handheld Torches' dropped lights in the dungeon   // AUDIT 24 (wave 39): EnemyBlood.ShowBloodSplash
+import { createCamps, FIRE_LIGHT_UP } from './camps.js';   // REST3: a placed fire's light stands where a camp's does   // SURV3: a fire on the dungeon floor (no tent below - the camp law says so)
+import { campWire, validCampRecord, FIRE_LIGHT_RANGE } from '../systems/survival/camp.js';   // SURV3: the room's memory carries the camps as the wire says them   // HT1: Handheld Torches' dropped lights in the dungeon   // AUDIT 24 (wave 39): EnemyBlood.ShowBloodSplash
 import { EnemySoundSource, acuteHearingMultiplier } from '../characters/enemySounds.js';   // AUDIT 24 (wave 41): EnemySounds.cs, one home
 import { flashPlayerDamage, shakePlayerDamage } from '../ui/damageFlash.js';   // WB13d: the gate boss's elemental blows shake, unflashed
 import { resetVitalsDetector } from '../ui/hudVitals.js';   // BLOOD AUDIT 5: the load's detector reset   // AUDIT 24 (wave 39): ShowPlayerDamage
@@ -885,6 +887,42 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
       if (!isDungeonExitDoor(door)) continue;
       // Exit-door matrices are model-local under the block origin.
       exitDoors.push({ ...door, matrix: multiply(originMatrix, door.matrix) });
+    }
+  }
+
+  // REST3 (2026-10-03, bible/06-Systems/Rest-Arc.md section 4; Mac: "Dungeon layouts now recieve multiple strategic
+  // placements for campfires"): THE DUNGEON'S OWN FIRES (world/dungeonFires.js). Placed here - after every block's
+  // geometry is in the collider, before the flats are batched and the lights' flicker is sized - so a placed fire is a
+  // layout flat like any brazier: drawn and animated in the 210/1 batch, burning in the torches' loop, lit by a light of
+  // its own (the camps' range), a light billboard to Improved Interior Lighting, and a hearth in `dungeonHearths` -
+  // warmth, drying, cooking, the camp rest kind and, online, a rest point, with no new law. Every client of the dungeon
+  // casts the same rays over the same layout, so nothing rides the wire. Offline too (OPEN 8: a hearth; the rest stays
+  // DFU's). Never in the Burning Court. Permanent - never cold, never picked up - and a 15 m ward (_spawnEncounter).
+  const dungeonFires = isGateArena(dfLocation) ? [] : placeDungeonFires({
+    blocks: dungeon.blocks,
+    probe: colliderFireProbe(collider),   // the rays, the law's own (world/dungeonFires.js) - the probe tool casts the same
+    doors: [
+      ...dungeon.blocks.flatMap((b) => (b.layout.actionDoors ?? []).map((d) => [d.matrix[12] + b.originX, d.matrix[13], d.matrix[14] + b.originZ])),
+      ...exitDoors.map((d) => [d.matrix[12], d.matrix[13], d.matrix[14]]),
+    ],
+    existing: dungeonHearths.map((h) => [h.x, h.foot ?? h.y, h.z]),
+    seed: dfLocation?.dungeon?.recordElement?.header?.locationId ?? 0,
+    elite: !!dfLocation?.elite,
+  });
+  if (dungeonFires.length) {
+    const { archive, record } = DUNGEON_FIRE_FLAT;
+    const t = await getTexture(archive);
+    const size = t && record < t.recordCount ? billboardSize(t, record) : null;
+    if (!size) dungeonFires.length = 0;
+    for (const p of dungeonFires) {
+      const cy = p[1] + size.h / 2;   // an RDB flat's y is its centre - the batch stands it down half a height
+      const key = `${archive}_${record}`;
+      if (!flatGroups.has(key)) flatGroups.set(key, []);
+      flatGroups.get(key).push([p[0], cy, p[2]]);
+      torches.push({ pos: [p[0], cy, p[2]], handle: null });
+      iilLightFlats.push({ x: p[0], y: cy, z: p[2] });
+      lights.push({ x: p[0], y: p[1] + FIRE_LIGHT_UP, z: p[2], range: FIRE_LIGHT_RANGE });
+      dungeonHearths.push({ x: p[0], y: cy, z: p[2], foot: p[1], w: size.w, h: size.h, placed: true });
     }
   }
 
@@ -2271,6 +2309,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     let spot = null;
     for (let i = 0; i < ENCOUNTER_PLACE_ATTEMPTS && !spot; i++) {
       spot = placeFoeFreely(env, { minDistance, maxDistance, lineOfSightCheck });
+      if (spot && inFireWard(dungeonFires, spot)) spot = null;   // REST3: a placed fire's ward (OPEN 9) - no wandering spawn stands within 15 m; the next attempt
     }
     if (!spot) return null;
     // FinalizeFoe (FoeSpawner.cs:210-226): a flier hangs 1.5 above the
@@ -7004,7 +7043,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
         windowCoversHud: !!activeOverlay && dungeonWindows.hudCovered(activeOverlay),
         hudHidden: hidesHud(activeOverlay),   // AUDIT PRE-MERGE 0928 U8: a window that takes the HUD away outright, large HUD and all (MAP-FIELD2's word - Come Sail Away's position map, PauseGame(true, true), mounts here too)
         detected, playerXZ: playerFeet ? [playerFeet[0], playerFeet[2]] : null,
-        party: partyCompassPoints({ bodies: opts.party ?? null }), nodes: playerFeet ? (opts.nodeMarks?.(playerFeet) ?? null) : null,   // COMPASS-PARTY: the mates standing in this dungeon, at their feet in its frame; NODE-MARKS: the professions' nodes standing here (its veins), in its frame
+        party: partyCompassPoints({ bodies: opts.party ?? null }), nodes: playerFeet ? withFireMarks(opts.nodeMarks?.(playerFeet) ?? null, dungeonFires, playerFeet) : null,   // COMPASS-PARTY: the mates standing in this dungeon, at their feet in its frame; NODE-MARKS: the professions' nodes standing here (its veins), in its frame   // REST3: and the dungeon's own campfires, in the flame's yellow
         largeHud: largeHudOptions({ renderer, fetchBytes, palette }, playerEntity),
         // AUDIT 39: the enhanced HUD's two hand plaques - see world.js.
         readied: magic.readied() ?? null,
@@ -7719,6 +7758,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
         title: dfLocation?.name ?? 'Dungeon',
         party: opts.party ?? null,   // DISC23-A: the party members standing in this dungeon, at their feet in its frame
         portals: automapPortals,   // TP-SEEN: every teleporter in the level, shown once its spot has been seen
+        fires: dungeonFires,   // REST3: the dungeon's own campfires, on the held map once their spot has been seen
         // ROAD-C c2/S8: the Ctrl+Shift debug-teleport click
         // (TryTeleportPlayerToDungeonSegmentAtScreenPosition, :858-870).
         // It goes through the SAME `onTeleport` door the Teleport action

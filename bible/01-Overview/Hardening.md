@@ -171,7 +171,7 @@ left-hand weapon loaded back holding the right hand's item, or bare
 fists. By the time it was found, the two restore lines had drifted six
 and thirteen lines apart inside their own hosts, and the comment in
 `worldModes.js` that pointed between them cited `world.js:10491` and
-`dungeonContext.js:8002` - lines that had moved to `:6406` and `:7975`.
+`dungeonContext.js:8042` - lines that had moved to `:6445` and `:8015`.
 *Three copies of a rule, and the signpost between them stale as well.*
 
 The pair lives in `src/combat/playerWeapon.js` now - `weaponPoseOf`,
@@ -255,7 +255,7 @@ three collapsed on verification.**
    redundancy, not the fix.
 3. *"`worldModes.js:11272` disposes the dungeon overlay that
    `dungeonCtx.destroy()` disposes again - HARD1's double free."* Already
-   known, already written down, at `dungeonContext.js:8892-8893`:
+   known, already written down, at `dungeonContext.js:8932-8933`:
    *"dispose() is idempotent (A2), which is what makes the outer host's
    call harmless."* The tree had the answer before the audit asked.
 

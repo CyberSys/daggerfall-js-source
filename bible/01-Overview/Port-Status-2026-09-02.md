@@ -332,7 +332,7 @@ reference surface absent · **Departure** = deliberate, ledgered.
 **The pause primitive, precisely.** ROAD-B B1 built the stack DFU's
 `UserInterfaceManager` has, with `PauseWhileOpen` as a real latch
 (`ui/windowStack.js:139`, `:132`, `:330`). It is mounted in the two hosts
-that own overlay slots - `worldModes.js:92` and `dungeonContext.js:53` -
+that own overlay slots - `worldModes.js:92` and `dungeonContext.js:55` -
 and `world.js:438` reaches it by mounting `worldModes`. But `grep -rn
 "paused()" src/` returns exactly one hit, the definition at
 `windowStack.js:315`: **no host reads the primitive.** Every host still
@@ -388,7 +388,7 @@ are the **narrowed remainders** Wave D recorded rather than shipped
 
 **Blocked - no 1:1 target.**
 
-- ~~**`src/scenes/dungeonContext.js:2300`** - the two window seams this
+- ~~**`src/scenes/dungeonContext.js:2339`** - the two window seams this
   host cannot mount (`onTeleport`'s INTERIM shape). *There is no
   standalone dungeon scene in DFU to port from; `?dungeon` is the
   port's own dev route. Closing it means porting the trade window and
@@ -625,7 +625,7 @@ are the **narrowed remainders** Wave D recorded rather than shipped
 
 **Added after this page's measurement, and counted here so the tally follows the tree.**
 
-- ~~**`src/scenes/dungeonContext.js:1342`** - the dungeon's non-layout foe
+- ~~**`src/scenes/dungeonContext.js:1380`** - the dungeon's non-layout foe
   run is private (ONLINE-DUNGEON-FOES, 2026-09-20). *Mac's two online
   reports - "non-reactive enemies in dungeons" and "the lysander ghost
   enemy isn't synced between players" - are one line. `_layoutFoes` is
