@@ -126,6 +126,15 @@
     ]
   },
   {
+    "name": "ARENA5-REC-ROW-MINUTE",
+    "file": "src/scenes/arenaBouts.js",
+    "old": "    if (rec && row && Number.isFinite(row.at) && row.tier === rec.next?.tier) rec.at = row.at;\n",
+    "new": "",
+    "tests": [
+      "test/arena5_replay.test.js"
+    ]
+  },
+  {
     "name": "ARENA5-PLAY-NO-FEED",
     "file": "src/scenes/arenaBouts.js",
     "old": "    if (C?.relay?.replay) replayFrame(C, t);",

@@ -138,7 +138,7 @@ function rig(P) {
   const renderer = { createBillboardBatch: (a, r, size, at2) => ({ archive: a, record: r, size, at: at2, tint: undefined }), destroyBillboardBatch: () => {} };
   const getTexture = async () => ({ getSize: () => ({ width: 40, height: 70 }), getScale: () => ({ width: 0, height: 0 }), getFrameCount: () => 1 });
   const A = createArenaBouts({
-    now: () => t, rng: () => 0.99, playerEntity: P, gameMinutes: () => at(40), renderer, getTexture,
+    now: () => t, rng: () => 0.99, playerEntity: P, gameMinutes: () => at(40) + Math.floor((t - 1000) / 1000), renderer, getTexture,   // the game's clock runs through a bout
     say: (l) => log.say.push(l), notice: (ls) => log.notice.push(...ls), pay: (g) => log.pay.push(g), heal: () => { P.health = P.maxHealth; },
     drawHud: (m) => log.hud.push(m), sound: { cue: (l) => log.cues.push(...l.map((c) => c.s)), bed: () => {}, stop: () => {} },
   });
@@ -163,7 +163,7 @@ async function fightOne(r) {
   for (let i = 0; i < 200 && r.A.bout()?.phase !== 'done'; i++) r.step(100);
 }
 
-test('ARENA5 a ladder bout records itself and keeps its replay at the healers: my fighter as the class enemy of my career, its opponent, the bout, my banner\'s half, the game minute; the call, the fight, my swing, the blow, the fall and the verdict in it - never the pit\'s, an exhibition\'s, or a bout left before its verdict (mutants: ARENA5-REC-NOT-BEGUN, ARENA5-REC-NOT-KEPT, ARENA5-REC-PRACTICE, ARENA5-REC-EVENTS, ARENA5-REC-SWING)', async () => {
+test('ARENA5 a ladder bout records itself and keeps its replay at the healers: my fighter as the class enemy of my career, its opponent, the bout, my banner\'s half, the game minute its verdict wrote (its Records row); the call, the fight, my swing, the blow, the fall and the verdict in it - never the pit\'s, an exhibition\'s, or a bout left before its verdict (mutants: ARENA5-REC-NOT-BEGUN, ARENA5-REC-NOT-KEPT, ARENA5-REC-PRACTICE, ARENA5-REC-EVENTS, ARENA5-REC-SWING, ARENA5-REC-ROW-MINUTE)', async () => {
   const P = { name: 'Hero', gender: 'female', career: { name: 'Knight' }, health: 100, maxHealth: 100, arenaLadder: newArenaLadder(), arenaLeague: LG.joinBanner(LG.newArenaLeague(), 'red', at(40)).league };
   const r = rig(P);
   await fightOne(r);
@@ -173,7 +173,9 @@ test('ARENA5 a ladder bout records itself and keeps its replay at the healers: m
   assert.deepEqual(rec.f.map((f) => [f.n, f.s, f.m, f.g]), [['Hero', 0, MOBILE_TYPES.Knight, 'female'], [r.A.bout().fighters[1].name, 1, MOBILE_TYPES.Thief, r.foes[0].o.gender]]);
   assert.deepEqual([rec.next.tier, rec.next.bout, rec.next.label], [0, 0, 'bout 1 of 3']);
   assert.deepEqual(rec.sides, ['red', null], 'my banner on my half');
-  assert.equal(rec.at, at(40), 'the game minute - the Records page\'s row');
+  assert.equal(rec.at, P.arenaLeague.bouts[0].at, 'the game minute its verdict wrote - the Records page\'s row');
+  assert.ok(rec.at > at(40), 'the clock ran on through the bout');
+  assert.equal(recordsPage({ ladder: P.arenaLadder, league: P.arenaLeague, gameMinutes: rec.at, replays: P.arenaReplays }).bouts[0].replay?.i, 0, 'offered on its row');
   const kinds = rec.ev.map((e) => RP.REPLAY_EVENTS[e[1]]);
   for (const k of ['call', 'crier', 'walk', 'count', 'fight', 'hit', 'fall', 'end', 'verdict', 'heal', 'done']) assert.ok(kinds.includes(k), `the ${k} kept`);
   assert.deepEqual(rec.r, { side: 0, how: 'fall' });

@@ -245,6 +245,9 @@ export function createArenaBouts(deps) {
   function keepRecording(C) {
     const rec = C.rec && C.b?.result ? finishRecording(C.rec, C.b.result) : null;
     C.rec = null;
+    // the Records page's row for it is the one its verdict wrote (the game's clock ran on through the bout): its minute
+    const row = P?.arenaLeague?.bouts?.[0];
+    if (rec && row && Number.isFinite(row.at) && row.tier === rec.next?.tier) rec.at = row.at;
     if (rec && P) P.arenaReplays = keepReplay(P.arenaReplays, rec);
   }
   /**
