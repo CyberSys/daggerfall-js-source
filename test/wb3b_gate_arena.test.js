@@ -235,7 +235,7 @@ test('WB3b the seams, by source: the dungeon host enters the court through its o
   assert.ok(stood > 0 && stood < marker, 'the court stands before its start marker is read (the spawn lands on its floor)');
   assert.ok(stood < wm.indexOf("ctx.addActivationNamer((key) => (typeof key === 'string' && key.startsWith('exit:') ? staticDoorName('dungeonExit'"), 'and its way home is named before the dungeon exit\'s own namer');
   assert.match(wm, /gate: hit\.gateArena \?\? null,/);
-  assert.match(wm, /const returnLanding = \(\) => \(dungeonReturn\.gate \? host\.gateLanding\?\.\(dungeonReturn\.gate\) \?\? null : (?:dungeonReturn\.arena \? host\.arenaLanding\?\.\(\) \?\? null : )?dungeonEntranceLanding\(/);   // ARENA2: the arena floor's way out sits between, after the gate's
+  assert.match(wm, /const returnLanding = \(\) => \(dungeonReturn\.gate \? host\.gateLanding\?\.\(dungeonReturn\.gate\) \?\? null : (?:dungeonReturn\.arena \? host\.arenaLanding\?\.\(\) \?\? (?:dungeonReturn\.arenaFrom \?\? )?null : )?dungeonEntranceLanding\(/);   // ARENA2: the arena floor's way out sits between, after the gate's
   assert.match(wm, /const landing = returnLanding\(\);/);
   assert.match(wm, /if \(isGateArena\(dungeonLoc\)\) applyFog\(renderer, dungeonFog\(!!renderer\.lightingLane, COURT_FOG\)\);/);
   // WB4a: the boss's glow joins them - WB9b: the fight's own lights first, the braziers nearest first after (the cap drops a far court's fire)
