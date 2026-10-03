@@ -454,6 +454,21 @@ export class AudioEngine {
       },
       /** WX2: the loop's gain, live - the rain loop fades with the front. */
       setVolume(v) { gain.gain.value = Math.max(0, Math.min(1, v)); },
+      /** HOTFIX 1003 (live: "audio crackling after a match ends"): an ending, not a cut - the gain ramps to nothing
+       *  over `seconds`, then the source stops. A loop stopped at its level pops; a crowd's bed of noise pops loudly. */
+      fadeStop(seconds = 0.4) {
+        try {
+          const t = src.context.currentTime;
+          gain.gain.cancelScheduledValues(t);
+          gain.gain.setValueAtTime(gain.gain.value, t);
+          gain.gain.linearRampToValueAtTime(0, t + seconds);
+          src.stop(t + seconds + 0.05);
+          src.onended = () => { try { src.disconnect(); } catch { /* gone */ } };
+        } catch {
+          try { src.stop(); } catch { /* already stopped */ }
+          try { src.disconnect(); } catch { /* gone */ }
+        }
+      },
       /** FIELD-WIND1: the loop's pitch, live (Unity's AudioSource.pitch, WebAudio's playbackRate) - the wind's bed
        *  brightens as the wind gets up. */
       setPitch(p) { src.playbackRate.value = p; },
