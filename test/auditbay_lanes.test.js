@@ -685,7 +685,10 @@ test('AUDIT BAY A22: ANOTHER\'S PACKET IS FOLLOWED ALONG HER OWN LEG - known on 
   x.host.liners(L.map(home), { now: 4 });
   const m = bySeed(x, 61), q = bySeed(x, 60);
   assert.ok(!m.owner && !q.owner, 'taken over where they lie');
-  assert.deepEqual([m.ship.errand, m.ship.course?.map(Math.round)], [null, [1300, -400]], 'on along the leg she was on - never for a harbour\'s berth, nor about');
+  // PUPPET-GLIDE (FIELD BUGS 2026-10-02d): her copy's place between words is her own glide's now, a metre off the eased
+  // one - so the point she steers for is read off where she lies: on her leg, LINER_LOOKAHEAD_M ahead along it
+  assert.deepEqual([m.ship.errand, Math.round(m.ship.course?.[1])], [null, -400], 'on along the leg she was on - never for a harbour\'s berth');
+  assert.ok(Math.abs(m.ship.course[0] - (m.ship.pos[0] + HOST.LINER_LOOKAHEAD_M)) < 2, `nor about: ${HOST.LINER_LOOKAHEAD_M} m ahead along it (${m.ship.course[0].toFixed(1)} from ${m.ship.pos[0].toFixed(1)})`);
   assert.deepEqual([q.ship.errand?.kind, q.ship.errand?.berth], ['depart', 0], 'at her berth, her clock gone on: out of it');
 });
 

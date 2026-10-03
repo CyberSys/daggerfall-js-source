@@ -336,7 +336,7 @@ import { shipTransition, REPOSITION, isOnShip, shipMemory, shipRestorePos } from
 import { createMountRig } from '../player/mountRig.js';   // MAC-K3: the mount surface, one home for this host and the fixed-city one
 import { worldViewportRect, largeHudWorldAspect } from '../ui/hudLarge.js';   // ROAD-E E5: ViewportChanger - the docked bar shrinks the world pass (RETRO1: and retro mode's aspect correction pillarboxes it)
 import { createLockOn, LOCK_PICK_DISTANCE } from '../player/lockOn.js';   // TI1: touch lock-on
-import { rayDirFromScreen, projectToScreen, ndcFromScreen } from '../player/tapRay.js';   // TI1: the finger's ray and the dot
+import { rayDirFromScreen, projectToScreen, ndcFromScreen, worldRectPx } from '../player/tapRay.js';   // TI1: the finger's ray and the dot
 import { isRiding } from '../systems/transport.js';   // TR2: is there a mount under us
 import { useItem } from '../systems/useItem.js';   // UI1: MagicItemPicker_OnItemPicked's two arms
 import { isEnchanted } from '../systems/inventory.js';   // UI1: the use path's enchanted test
@@ -3268,12 +3268,12 @@ export async function bootWorld(canvas, renderer, params, status) {
    *  AUDIT-FIELD F7: A FLOOR, NOT THE WHOLE DISTANCE. The first cut
    *  called 64 "more than the fastest accelerated step", which is true
    *  of a fixed physics STEP and false of a FRAME: the motor moves
-   *  `speed * min(dt, MAX_FRAME_DT) * scale` in one go (motor.js:1432),
+   *  `speed * min(dt, MAX_FRAME_DT) * scale` in one go (motor.js:1442),
    *  and the frame that hitches is exactly the frame in which the
    *  streamer is behind. A horse at the shipped default limit of sixty
    *  covers ~65 units in a 10 fps frame and ~120 at the mod's ceiling of
    *  a hundred - past a 64-unit probe, off the built world, and once the
-   *  motor is airborne `airControl` is false (motor.js:3106) so zeroing
+   *  motor is airborne `airControl` is false (motor.js:3116) so zeroing
    *  the drive on the NEXT frame no longer steers: the fall is already
    *  paid for. `travelLookahead` measures the frame that is about to
    *  run instead, and keeps 64 as its floor. */
@@ -7451,7 +7451,8 @@ export async function bootWorld(canvas, renderer, params, status) {
       if (shipSight.blocked(player.collider, eye, t.id, t.point)) continue;
       points.push({ ...t, x: at.x, y: at.y });
     }
-    drawNavalTags(points, { covered, scale: enhancedHudScale(), reach: NAVAL_TAG_RANGE });
+    const r = worldRectPx(rect, w, h);   // SHIP-CLUTTER: the crosshair - the world strip's middle - picks the one tag that reads her line
+    drawNavalTags(points, { covered, scale: enhancedHudScale(), reach: NAVAL_TAG_RANGE, focus: { x: r.x + r.w / 2, y: r.y + r.h / 2 } });
   }
   /** SHIPMATES (2026-09-29, Mac: "Ally crew member's should have green health bars above their head"): THE CREW'S BARS -
    *  every shipmate (combat/friendlyFire.js isShipmate: mine on a deck, a room's its owner names) within CREW_BAR_RANGE,
@@ -12151,7 +12152,24 @@ export async function bootWorld(canvas, renderer, params, status) {
   // the INDOOR hosts, and the mod's own follow key refuses indoors
   // (TravelOptionsMod.cs:1439-1440, `PlayerEnterExit.IsPlayerInside`).
   // The journey is an exterior thing and lives with the exterior.
-  const travelOptionsSettings = readTravelOptionsSettings();
+  let travelOptionsSettings = readTravelOptionsSettings();
+  /** TO-LIVE (2026-10-02, Discord: "Whether or not I have the first setting for the Travel Options mod switched on or
+   *  off, both cautious and reckless travel initiate time accelerated travel ... requires a relog"): THE MOD'S LIVE
+   *  KEYS, READ AGAIN AS THEY CHANGE. The bag was read once here, so the tile's "Cautiously" dial (and Inns, Only From
+   *  Ports, Location Pause, Avoid Obstacles) answered the world's load all session. On a change of any mod's settings
+   *  (modSettingsGeneration) the bag is read afresh with the restart half carried from this load's
+   *  (systems/travelOptions.js TRAVEL_OPTIONS_RESTART_KEYS) and handed to the mod - its maps read it on their next
+   *  open, its journey on its next frame. The mod's switch itself stays the load's (AUDIT PRE-MERGE 0928 U7). */
+  const travelOptionsBoot = travelOptionsSettings;
+  let _travelOptionsGen = modSettingsGeneration();
+  function refreshTravelOptionsSettings() {
+    const g = modSettingsGeneration();
+    if (g === _travelOptionsGen) return;
+    _travelOptionsGen = g;
+    travelOptionsSettings = readTravelOptionsSettings(modSetting, travelOptionsBoot);
+    if (travelOptions) travelOptions.settings = travelOptionsSettings;
+    travelControlUI?.setAccelerationLimit(travelOptionsSettings.accelerationLimit);   // the panel's limit, the tile's dial
+  }
   const travelOptionsOn = modSetting(TRAVEL_OPTIONS_VENDOR, 'Enabled');
   latchModLoaded(TRAVEL_OPTIONS_VENDOR, travelOptionsOn);   // AUDIT PRE-MERGE 0928 U7: the journey is made now or not at all - its Follow Paths key answers the same (systems/inputActions.js actionLive)
   const travelJunctionMap = travelOptionsOn && travelOptionsSettings.roadsJunctionMap
@@ -12510,7 +12528,7 @@ export async function bootWorld(canvas, renderer, params, status) {
       // map need. Every one is guarded on the other side - with
       // Travel Options off `travelOptions` answers null and the map is
       // DFU's own, whole.
-      travelOptions: () => travelOptions,
+      travelOptions: () => { refreshTravelOptionsSettings(); return travelOptions; },   // TO-LIVE: the live keys as they stand at the map's open
       // AUDIT-TO1 D1: PlayerGPS.CurrentLocation's MapId (null in open
       // wilderness, the C#'s !Loaded) and TransportManager.IsOnShip - the
       // two reads IsNotAtPort / HasNoOceanTravel need and never had.
@@ -13109,6 +13127,15 @@ export async function bootWorld(canvas, renderer, params, status) {
   /** PEERMENU1: the peer whose menu the bind opened (their verbs are on the plaque), or null - declared up here so the
    *  plaque's namer (below) never reads it before it exists. */
   let peerMenuFor = null;
+  /** KEY-BOOT (2026-10-02, Discord "Keypress while loading/logging in": "all i did was turn the volume up via Fn + F11
+   *  keys ... just had to reload the game"): THE WORLD'S KEYS WAIT FOR THE WORLD. This listener stands from here, but
+   *  the boot goes on to await (the quest pack, the first pixel's people) for seconds behind the loading screen, and
+   *  the ladder's arms read bindings made after those awaits - `socialMenuCanOpen` first, on every key - so a key in
+   *  that window (any key: the volume, F11, a pad's button) threw "ReferenceError: Cannot access '..' before
+   *  initialization" into the crash banner, which stood over the whole session. Until the boot is past its last await
+   *  (where the title loses its loading step), a key fills the held ring (its keyup clears it) and acts on nothing; a
+   *  window's own keys (townTalk, above the ladder) are its as ever. */
+  let _worldKeysLive = false;
   addEventListener('keydown', (e) => {
     if (peerMenuReader && !isTextEntryTarget(e.target)) peerMenuReader.down(e.code, e.repeat);   // PEERMENU1: hears the key, never eats it (a tap of E still interacts)
     // FIX-E: QUICKLOAD WORKS FROM UNDER ANY OVERLAY - the death screen's
@@ -13206,6 +13233,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     // AUDIT UXB1 F1: ...until a WINDOW comes up - a pausing one (bindCursorToggle's own predicate) or a pointer surface
     // (the chat, the friends panel, the F-menu: they pause nothing, and take keys). The keys are its from there: a key
     // shared by two windows' doors opens the first, not both stacked, and nothing after a door is done behind it.
+    if (!_worldKeysLive) return;   // KEY-BOOT: the ladder's arms read bindings the boot has not reached yet
     const windowUp = () => gamePaused() || (modes?.modalWindowUp?.() ?? false) || pointerSurfaces.size > 0;
     const upBefore = windowUp();
     const pass = acts.length ? acts : [null];
@@ -23207,6 +23235,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     },
   });
   const lookGate = makeLookGate(canvas);
+  _worldKeysLive = true;   // KEY-BOOT: past the boot's last await - every binding the key ladder reads stands now
   const _frameToken = claimFrame();   // P0: this session owns the loop until someone claims after it
   status(null);   // FB0930-TITLE: the boot is done - the window loses its last loading step
   function frame(now) {
@@ -23649,6 +23678,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
         if (travelOptions) {
           const followDown = travelFollowPressed();
           travelNavFrame.dt = dt;   // TRAVEL-NAV1: the frame the steering's reach is measured over
+          refreshTravelOptionsSettings();   // TO-LIVE: a dial turned mid-journey reaches it
           const report = travelOptions.update({
             topWindowIsTravelUI: !!travelControlUI?.isShowing && !townTalk.overlayActive,
             topWindowAllowsTravel: townTalk.overlay === _travelMap,   // the mod's `DfTravelMapWindow` exception (:1351)
