@@ -46,7 +46,7 @@ import { arenaFloorRoomOf } from '../net/arenaLaw.js';   // ARENA4: a bout's roo
 import { accountArena } from '../net/accountClient.js';   // ARENA4: the arena's records on the account service
 import { fighterIdentity } from '../systems/arenaFighters.js';   // ARENA4: the relay's fighters billed by the bout's seed
 import { bossStandIn } from '../world/gateBoss.js';   // ARENA4: my opponent's stand-in for the formulas
-import { closeArenaDoor } from '../ui/arenaDoor.js';   // ARENA4: the window goes when a bout calls
+import { closeArenaDoor, arenaDoorOpen } from '../ui/arenaDoor.js'; import { createArenaSessionButton } from '../ui/arenaSessionButton.js';   // HOTFIX 1003f: the session's button on the screen   // ARENA4: the window goes when a bout calls
 import { cityFloorCentre } from '../world/arenaFloor.js';   // ARENA2: the city floor's sand, in its block's frame
 import { ARENA_TEXT } from '../systems/arenaText.js';   // ARENA1: the Daggerfall Bank's letter
 import { moveArenaRecords, arenaHomeFor, emptyArenaScene } from '../systems/arenaMove.js';   // ARENA1: a deed whose house the arena took, moved once; ARENA4b: and an online home, by its owner's client
@@ -8317,7 +8317,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   // pool, an exhibition on the hour of the game's clock while the player is near), and the floor's INSTANCE (the
   // dungeon arm's made level - scenes/worldModes.js arenaFloorStage - a ladder bout, or an exhibition watched from the
   // stands). The ladder rides the save (playerEntity.arenaLadder, systems/save.js). bible/11-Multiplayer/Arena.md.
-  const arenaSound = createArenaSound(audio);
+  const arenaSound = createArenaSound(audio); const arenaSessionBtn = createArenaSessionButton({ open: () => arenaGate.openWindow('bouts') });   // HOTFIX 1003f (the owner: "the arena button for the host needs to be on the screen")
   /** The healers (the duel's own heal, said by the Herald rather than the duel's line). */
   const arenaHeal = () => {
     if (!(playerEntity.health > 0) || modes?.deathUp?.()) return;
@@ -8402,7 +8402,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   let _arenaFrames = 0;   // the probe's count of the frames the arena was ticked in
   function arenaFrame(dt) {
     _arenaFrames++;
-    arenaOnline?.tick();   // ARENA4: the receipts, the hall, my `in` on a relay's sand
+    arenaOnline?.tick(); arenaSessionBtn.frame(!!arenaOnline?.inSession?.() && !arenaDoorOpen() && !townTalk.overlay && hudRenderEnabled());   // ARENA4: the receipts, the hall, my `in` on a relay's sand; HOTFIX 1003f: the session's button while a session holds me and no window stands
     const stg = arenaStageNow();
     arenaBouts.setStage(stg);
     if (stg === arenaCityStage && !arenaBouts.bout() && !arenaBouts.pending() && !gamePaused()) {
@@ -18104,7 +18104,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     level: () => playerEntity.level ?? 1,   // ARENA4b: my level alone on a ladder bout's `in` - the relay's vitality is the token's signed level, no health of mine is said
     guest: () => storedSession(appStorage())?.kind === 'guest', signedIn: () => !!storedSession(appStorage()),   // HOTFIX 1003f: a private session's Host and Join want an account held
     struck: (d) => { if (d > 0) { flashPlayerDamage(d); playPlayerVoice(audio, playerPainVoice(playerEntity, d)); } },
-    myHealth: (hp) => { if (playerEntity.health > 0) { playerEntity.health = hp; surfacePlayer(); } },
+    myHealth: (hp) => { if (playerEntity.health > 0) { playerEntity.health = Math.max(1, hp); surfacePlayer(); } },   // HOTFIX 1003f (live: "it shouldnt kick players after a bout"): the relay's 0 is a fall, never a death - the death screen took the loser out of the floor; the healers come
     heal: arenaHeal,   // AUDIT PRE-MERGE 1003b C2: a session's bout let go before its healers - healed all the same
     inBout: () => arenaBouts.holds(),
     // ARENA4b: A WON BOUT'S RENOWN - the fighting character's (its receipt kept with it), adopted only while it is the one
