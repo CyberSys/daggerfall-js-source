@@ -44,8 +44,9 @@
 //
 //   node scripts/desktopRelease.mjs check <dir>           exit 1 naming any file missing
 //   node scripts/desktopRelease.mjs notes <tag>           the release body, markdown, to stdout (gh api: GH_TOKEN)
+//   node scripts/desktopRelease.mjs renotes <tag> <body>  a published release's body, its notes read again (REL7)
 //   node scripts/desktopRelease.mjs latest <tag> [<cur>]  "true" when <tag> should be marked latest
-import { readdirSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { createRequire } from 'node:module';
 import { isMain } from '../tools/lib/isMain.mjs';
@@ -106,6 +107,27 @@ export const NOTES_AUTHORS = Object.freeze(['OWNER', 'MEMBER', 'COLLABORATOR']);
 export function composeReleaseNotes(notes) {
   const parts = (notes ?? []).map((n) => String(n?.text ?? '').trim()).filter(Boolean);
   return `${parts.length ? parts.join('\n\n') : NO_NOTES_TEXT}\n`;
+}
+
+/** GitHub's generated list of merged changes, which it appends under the
+ *  notes when the release is staged. The launcher cuts its news at the
+ *  same place (app/lib/launcherState.cjs GENERATED_RE): a player reads
+ *  the notes, never the list. */
+export const GENERATED_LIST_RE = /^(##\s*What['’]s Changed\b|\*\*Full Changelog\*\*|##\s*New Contributors\b)/m;
+
+/**
+ * REL7: a published release's body with its notes written again - `notes`
+ * (composeReleaseNotes) above GitHub's generated list, which stays as it
+ * was. A body with no list is replaced whole.
+ *
+ * @param {string|null|undefined} current
+ * @param {string} notes
+ * @returns {string}
+ */
+export function renotedBody(current, notes) {
+  const text = String(current ?? '').replace(/\r\n/g, '\n');
+  const cut = text.search(GENERATED_LIST_RE);
+  return cut < 0 ? notes : `${notes}\n\n${text.slice(cut)}`;
 }
 
 /**
@@ -299,11 +321,27 @@ function main(argv) {
     process.stdout.write(composeReleaseNotes(notes));
     return 0;
   }
+  // REL7: the pull requests between the previous release and <tag> are the
+  // ones read, so HEAD must BE the tag (release-notes.yml checks it out).
+  if (cmd === 'renotes') {
+    let notes;
+    try {
+      const head = git(['rev-parse', 'HEAD']);
+      const tagged = git(['rev-parse', `${a}^{commit}`]);
+      if (head !== tagged) throw new Error(`HEAD is ${head}, not ${a} (${tagged})`);
+      notes = pullRequestNotesSince(previousReleaseTag(a));
+    } catch (e) {
+      console.error(`the notes could not be read - the release is left as it is: ${String(e?.stderr || e?.message || e).trim()}`);
+      return 1;
+    }
+    process.stdout.write(renotedBody(readFileSync(b, 'utf8'), composeReleaseNotes(notes)));
+    return 0;
+  }
   if (cmd === 'latest') {
     console.log(String(shouldMarkLatest(a, b)));
     return 0;
   }
-  console.error('usage: desktopRelease.mjs check <dir> | notes <tag> | latest <tag> [<current>]');
+  console.error('usage: desktopRelease.mjs check <dir> | notes <tag> | renotes <tag> <body-file> | latest <tag> [<current>]');
   return 2;
 }
 
