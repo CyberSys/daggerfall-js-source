@@ -76,7 +76,7 @@ for (const [W, H, width] of [[1440, 900, 'desktop'], [800, 600, 'narrow'], [390,
     document.body.append(host);
     window.__arenaView = mountArenaWindow(host, {
       board: () => AB.arenaBoard({ ladder, league, gameMinutes: gm, name: 'Aldric Wyndbrooke-Varnell', atGate: true, gold: 640, healthShare: 1, replays }),
-      act: (k, d) => { window.__acts.push([k, d]); return { ok: true, text: 'Taken - 50 gold on Gorlak gro-Mazgul at 7 to 4. Good luck to you.' }; },
+      act: (k, d) => { window.__acts.push([k, d]); return { ok: true, text: '50 gold on Gorlak gro-Mazgul at 7 to 4. Good luck!' }; },
     });
     await new Promise((res) => setTimeout(res, 120));
   });
@@ -162,7 +162,7 @@ for (const [W, H, width] of [[1440, 900, 'desktop'], [800, 600, 'narrow'], [390,
         await new Promise((res) => setTimeout(res, 30));
         return { n: presses.length, inWin, acts: window.__acts.slice(), label: presses[0]?.textContent ?? '' };
       });
-      check(`${tag} Watch the replay on the three kept bouts, inside the window, pressed to the host`, rp.n === 3 && rp.inWin && rp.acts.length === 1 && rp.acts[0][0] === 'replay' && rp.acts[0][1].i === 0 && rp.label === 'Watch the replay', JSON.stringify(rp));
+      check(`${tag} Watch the replay on the three kept bouts, inside the window, pressed to the host`, rp.n === 3 && rp.inWin && rp.acts.length === 1 && rp.acts[0][0] === 'replay' && rp.acts[0][1].i === 0 && rp.label === 'Replay', JSON.stringify(rp));
     }
     if (online) {
       const o = await page.evaluate(() => {

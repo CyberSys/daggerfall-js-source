@@ -273,7 +273,7 @@
   {
     "name": "AUDIT-1003-U10-lapsed-unsaid",
     "file": "src/systems/arenaText.js",
-    "old": " : 'The offer has lapsed.'),",
+    "old": " : 'The offer expired.'),",
     "new": " : `Accept within ${s} seconds.`),",
     "tests": [
       "test/audit1003_ui.test.js"

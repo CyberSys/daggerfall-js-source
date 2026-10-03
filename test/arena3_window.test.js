@@ -194,7 +194,7 @@ test('ARENA3 window model: the Records - the stats, the last twenty, the wagers;
   assert.equal(AB.arenaDate(START), '4 Morning Star, 3E 405', 'a new game\'s day');
   assert.equal(AB.recordsPage({ ladder: newArenaLadder(), league: null, gameMinutes: gm }).empty, W.noBouts);
   const rules = AB.rulesPage();
-  assert.deepEqual(rules.map((r) => r.head), ['The bouts', 'The ladder', 'The banners', 'Purses and the crowd', 'Exhibitions and wagers']);
+  assert.deepEqual(rules.map((r) => r.head), ['The bouts', 'The ladder', 'The banners', 'Purses and the crowd', 'Exhibitions and bets']);
   for (const r of rules) for (const l of r.lines) { assert.ok(l.length <= 90, l); assert.ok(!/[—–]/.test(l)); }
   const all = AB.arenaBoard({ ladder: lad, league: L, gameMinutes: gm, name: 'A' });
   assert.deepEqual(Object.keys(all), ['header', 'bouts', 'ladder', 'team', 'boards', 'records', 'rules']);

@@ -248,6 +248,7 @@ names, banners, health; your stamina), the **crowd meter**, the **timer**, the H
 | **ARENA4b** (SHIPPED 2026-10-03 - the record below) | the online half finished: the relay's exhibition, the ladder's trust (`cl`), the players' blows, the banners billed, the stands' cheer, the realm's Hall and Records, the laurel online, the gate online, a bout's Renown, the displaced online homes, the casual bout | the relay over fake sockets, the service over node:sqlite, the client headless, the UI probes |
 | **ARENA5** (SHIPPED 2026-10-03 - the record below) | the audit: every slice re-read against this page, the probes, the mutants; and what it found unbuilt - the banners on the sand, the Hall's plaque wall, your ladder replay | the mutant lists of every slice, the UI probes, the browser list in its record |
 | **ARENA6** (SHIPPED 2026-10-03 - the record below) | private sessions: a host opens a session under a code, members join by it, the host picks who fights and calls the bout, everyone else watches; equal health; accounts fight, guests watch | the relay over fake sockets, the client end to end on the real Room, the window's model |
+| **ARENA-COPY** (2026-10-03 - the record below) | the plain-words pass: every line and press of the arena's own text said short and plain | the words pin (`test/arena2_hud.test.js`), the suites that name the lines |
 
 ## ARENA1 record (2026-10-02) - SHIPPED
 
@@ -973,3 +974,23 @@ storage, so a deploy of the relay mid-session ends nothing but reconnects every 
 is still the fighter's own claim, capped by the weapon and material it claims (PVP-REF's law, ARENA4): the health is
 equal, a modified client can always strike at the cap. Seats are a socket's: one account's two tabs in the stands take
 two (ONE-SEAT keeps two tabs online apart). Tab still closes the window (PX28b's house rule - the owner's call).
+
+## ARENA-COPY record (2026-10-03) - the plain-words pass
+
+The owner: "Do a comprehensive pass on any overexplained text and button text. Ensure simplicity and easy
+understanding. Don't let it seem like AI." Words only - no key, signature, template parameter or behaviour changed.
+
+**What was said again.** `src/systems/arenaText.js` (ARENA_TEXT: the Herald's, recruiters' and bookmaker's choices and
+lines, the refusals, the notices, the window's pages and presses, the online cards and the private session's lines, the
+Rules). The house
+rules for them: a press is one to three words, a verb first where it acts ("Host", "Join", "Leave", "Find match",
+"Place bet", "Cancel bout", "Replay"); a line is one short sentence, with no clause hung on " - ", no semicolon, no
+hedge and no word about the machinery ("relay", "socket", "the realm keeps..."); a refusal still says what is wrong.
+The crowd's barks, the Herald's calls on the sand, the verdicts, the tiers, titles and epithets kept their voice. The
+bookmaker's "wager" is a "bet" on every press and line. `ui/arenaWindow.js`, `ui/arenaHud.js`,
+`ui/arenaSessionButton.js` and `systems/arenaBoard.js` draw these words and needed none of their own changed.
+
+**Tests.** The suites that pinned a line by its words now pin the new words (`arena2_hud`, `arena3_book`,
+`arena3_window`, `arena5_plaques`, `arena_fix`, `audit1003b_client`); no test added or removed. Mutant records whose
+text moved re-aimed by content (`audit1003_ui.json` AUDIT-1003-U10-lapsed-unsaid, `audit1003b.json`
+AUDIT1003b-U9-DRAW-NO-RESULT; both dead).
