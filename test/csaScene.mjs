@@ -3,13 +3,25 @@
 // HELM-WAY's suite (test/helmway.test.js) drives the same runtime through it.
 import { readFileSync } from 'node:fs';
 import { comeSailAwayModels } from '../src/systems/comeSailAwayModels.js';
-import { spawnBoat } from '../src/systems/comeSailAwayBoat.js';
+import { spawnBoat, Boat } from '../src/systems/comeSailAwayBoat.js';
 import { createComeSailAwayRuntime, NO_WATER_LEVEL, WEATHER_TYPE } from '../src/systems/comeSailAway.js';
 
 const DIR = new URL('../vendor/come-sail-away/Models/', import.meta.url);
 const json = (f) => JSON.parse(readFileSync(new URL(f, DIR), 'utf8'));
 export const MODELS = comeSailAwayModels({ prefabs: json('prefabs.json'), meshes: json('meshes.json'), bin: new Uint8Array(readFileSync(new URL('meshes.bin', DIR))), materials: json('materials.json'), animation: json('animation.json') });
 export const ctxFor = (player) => ({ models: MODELS, player: () => player, billboardSize: () => [0.8, 1.6], modelBounds: () => ({ min: [-1, 0, -1], max: [1, 1, 1] }) });
+/** The pool's hullRig (scenes/comeSailAwayPool.js), the part the runtime reads: a hull built once off the vendored prefab -
+ *  whether it is crewed and packs (SHIP-DEEDS: which parts are a ship's). */
+const rigs = new Map();
+export function hullRig(hull) {
+  if (!(hull >= 0 && hull < 5)) return null;
+  if (!rigs.has(hull)) {
+    const b = new Boat(hull, 0);
+    spawnBoat(b, ctxFor({ position: [0, 0, 0], rotation: [0, 0, 0, 1] }));
+    rigs.set(hull, Object.freeze({ crewed: !!b.crewed, packable: !!b.packable }));
+  }
+  return rigs.get(hull);
+}
 
 export function terrain(x, y, { tile = 0 } = {}) {
   return { mapPixelX: x, mapPixelY: y, position: [(x - 10) * 819.2, 0, -(y - 20) * 819.2], tileMap: new Uint8Array(128 * 128).fill(tile << 2), sampleHeight: () => 20 };
@@ -32,7 +44,7 @@ export function scene(opts = {}) {
   };
   let timeScale = opts.timeScale ?? 1;
   const deps = {
-    pool: { models: MODELS, ready: () => true, spawnNow: (boat, p) => { spawnBoat(boat, ctxFor(p)); return boat; }, remove: () => {} },
+    pool: { models: MODELS, ready: () => true, spawnNow: (boat, p) => { spawnBoat(boat, ctxFor(p)); return boat; }, remove: () => {}, hullRig },
     player: () => ({ position: [...player.position], rotation: [0, Math.sin((player.yaw * Math.PI / 180) / 2), 0, Math.cos((player.yaw * Math.PI / 180) / 2)] }),
     camera: () => ({ position: [0, 50, 0], forward: [0, -1, 0] }),
     currentMapPixel: () => ({ X: 10, Y: world.pixelY }),

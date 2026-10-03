@@ -274,6 +274,8 @@ export const PASSENGERS_ABOARD_TEXT = 'You cannot pack a boat with passengers ab
 /** SHIP-PACK (the port's own): the pack's refusal of a deed ship whose deed is not in the pack - her parts take its place,
  *  and a deed left elsewhere would call a second ship of hers to a port. */
 export const DEED_NOT_HELD_TEXT = 'Her deed must be in your pack to pick her up.';
+/** SHIP-DEEDS (the port's own): a load's word when the deeds a journey packed away are given back (returnShipDeeds). */
+export const DEEDS_RETURNED_TEXT = 'Your ship\'s deed is back in your pack';
 /** The mod's two helm keys this slice reads, as the port's registry actions (KB1: one key, one action). */
 export const BOAT_ACTIONS = Object.freeze({
   disembark: 'BoatDisembark', toggleLight: 'BoatToggleLight',
@@ -1754,6 +1756,32 @@ export function createComeSailAwayRuntime(deps) {
   /** SHIP-PACK: whether a ship waits on her deed to be picked up - crewed, placed by a deed (her number on her), and that
    *  deed not in the pack. A boat no item placed (number 0) packs without one. */
   const deedMissing = (boat) => !!boat?.crewed && !!boat.uid && deedInPack(boat.uid) == null;
+  /**
+   * SHIP-DEEDS (2026-10-03, the port's own - "People lost their ship deeds"): THE DEEDS A JOURNEY PACKED AWAY, GIVEN
+   * BACK. From SHIP-PACK to this fix a fast travel from a ship's helm (OnPreFastTravel) and an Overworld landfall packed
+   * her: her deed out of the pack and her parts ("Parts of Small Ship 'I'") in, where the mod's ships had always stayed
+   * where they lay, the deed kept. So a record written before the fix (no `ShipDeedsReturned` - applySaveData) gives each
+   * ship's parts in the pack - a crewed hull's, by the pool's rig - her deed back where they lay: her number, their worth,
+   * her hull and variant. She stands by it as a bought ship does - it calls her to a port, and her hold (PackedCargoes,
+   * under her number) and her naval state come back with her. Parts a hand picked up cannot be told apart and go back
+   * too, once; every record written since carries the flag, so a ship picked up after the fix stays her parts. Parts
+   * stowed anywhere but the pack are untouched - placed on the water they give her deed back (takePlaceItem). Answers
+   * how many deeds were given back.
+   */
+  function returnShipDeeds() {
+    const pack = deps.items?.player?.();
+    if (!Array.isArray(pack)) return 0;
+    let n = 0;
+    for (let i = 0; i < pack.length; i++) {
+      const it = pack[i];
+      if (it?.templateIndex !== BOAT_PARTS_TEMPLATE) continue;
+      const hull = hullFromMessage(it.message ?? 0);
+      if (!deps.pool.hullRig?.(hull)?.crewed) continue;
+      pack[i] = mintDeed(hull, variantFromMessage(it.message ?? 0), it.UID, it.value);
+      n++;
+    }
+    return n;
+  }
   /** OpenCargo (6521-6525): the inventory over the boat's cargo, as a loot target. */
   function OpenCargo(boat) { deps.openCargo?.(boat.Cargo); }
   /** OpenBoatCargo (5575-5587): the boat the box hangs under, its cargo opened - OpenCargo(null) throws there when
@@ -2019,14 +2047,15 @@ export function createComeSailAwayRuntime(deps) {
     state.disembarking = null;   // its queued step ends at its next turn (resumeStopSailing)
     stopSailingTail(co.boatlast);
   }
-  /** OnPreFastTravel (1952-1971): placing stops; a packable boat sailed is packed (PackBoat) - SHIP-PACK: a ship too,
-   *  her deed in the pack (without it PackBoat packs nothing, and she stays where she lies, as a ship always did). */
+  /** OnPreFastTravel (1952-1971): placing stops; a packable boat sailed is packed (PackBoat). SHIP-DEEDS: never a ship
+   *  (crewed) - she stays where she lies and her deed stays in the pack, as the mod's ships always did; SHIP-PACK's
+   *  `packable` on her is for a hand that picks her up, never a journey's (it took her deed and left her parts). */
   function OnPreFastTravel() {
     if (state.placing) StopPlacing();
     if (isSailing()) {
       const currentBoat = state.CurrentBoat;
       StopSailing();
-      if (currentBoat.packable) PackBoat(currentBoat, true);
+      if (currentBoat.packable && !currentBoat.crewed) PackBoat(currentBoat, true);
     } else ResetTimeScale(false);
   }
   /** OnPostFastTravel (1973-1976, CSA-J's audit): the arrival puts the scale back to one, saying nothing. */
@@ -2775,6 +2804,7 @@ export function createComeSailAwayRuntime(deps) {
       data.packedCargoes = {};
       for (const [uid, items] of state.PackedCargoes) data.packedCargoes[uid] = deps.packedItems.serialize(items);
     }
+    data.ShipDeedsReturned = true;   // SHIP-DEEDS (the port's own): this record's pack owes no deed back (returnShipDeeds)
     return data;
   }
   /** RestoreSaveData - held until the models are in (DECLARED), then run whole and followed by OnLoad's visibility. */
@@ -2828,6 +2858,8 @@ export function createComeSailAwayRuntime(deps) {
     state.PackedCargoes = new Map();
     for (const [uid, items] of Object.entries(data.packedCargoes ?? {})) state.PackedCargoes.set(cargoKey(uid), deps.packedItems.deserialize(items));
     RunOnUpdateEvents();
+    // SHIP-DEEDS: a record written before the fix - the deeds its journeys packed away given back, once
+    if (dataIn?.ShipDeedsReturned !== true && returnShipDeeds() > 0) deps.hudText(DEEDS_RETURNED_TEXT);
   }
   /** RunOnUpdateEvents (1821-1831, the save's restore calls it): OnUpdateWind with the wind as it stands - CSA-J's
    *  receiver lets another mod listen - and the current's memory cleared. */

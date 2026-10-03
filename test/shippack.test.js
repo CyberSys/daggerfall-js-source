@@ -11,7 +11,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { scene, terrain } from './csaScene.mjs';
 import { TRIGGER_MODEL, HULL_PRICES, HULL_WEIGHTS, PACKED_WEIGHT_MAX, packedHullWeight } from '../src/systems/comeSailAwayBoat.js';
-import { DEED_NOT_HELD_TEXT, PASSENGERS_ABOARD_TEXT } from '../src/systems/comeSailAway.js';
+import { DEED_NOT_HELD_TEXT, PASSENGERS_ABOARD_TEXT, DEEDS_RETURNED_TEXT } from '../src/systems/comeSailAway.js';
 import { mintDeed, mintBoatItem, BOAT_DEED_TEMPLATE, BOAT_PARTS_TEMPLATE } from '../src/systems/comeSailAwayItems.js';
 
 const WORLD = readFileSync(new URL('../src/scenes/world.js', import.meta.url), 'utf8');
@@ -166,25 +166,68 @@ test('SHIP-PACK her worth is what placed her: a boat stood from an item keeps it
   assert.equal(s.pack.at(-1).value, HULL_PRICES[1]);
 });
 
-test('SHIP-PACK a fast travel packs the ship sailed when her deed is in the pack, as it packs a small boat; without it she stays where she lies, as a ship always did (mutants: the ship left, the deed unasked)', () => {
+test('SHIP-DEEDS (PIN MOVED from SHIP-PACK\'s) a fast travel never packs a ship - she stays where she lies and her deed stays in the pack, the deed or not (it took her deed and left her parts: "People lost their ship deeds"); a small boat sailed is packed as the mod packs it (mutants: the ship packed, the small boat left)', () => {
   const s = withPack();
-  const { b } = shipFromDeed(s, 2, 670, 100000);
+  const { b, deed } = shipFromDeed(s, 2, 670, 100000);
   s.helm(b);
   s.rt.OnPreFastTravel();
   assert.equal(s.rt.isSailing(), false);
-  assert.ok(!s.rt.AllBoats.includes(b), 'packed');
-  assert.deepEqual([s.pack.at(-1).templateIndex, s.pack.at(-1).UID], [BOAT_PARTS_TEMPLATE, 670]);
+  assert.ok(s.rt.AllBoats.includes(b), 'left where she lies');
+  assert.deepEqual(s.pack, [deed], 'her deed kept, no parts');
   const t = withPack();
-  const { b: kept, deed } = shipFromDeed(t, 2, 671, 100000);
-  t.pack.splice(t.pack.indexOf(deed), 1);
+  const { b: kept, deed: away } = shipFromDeed(t, 2, 671, 100000);
+  t.pack.splice(t.pack.indexOf(away), 1);
   t.helm(kept);
   t.rt.OnPreFastTravel();
   assert.ok(t.rt.AllBoats.includes(kept), 'left where she lies');
   assert.deepEqual(t.pack, []);
+  // a small boat sailed: packed, as the mod's OnPreFastTravel packs a Packable hull
+  const u = withPack();
+  const lb = u.place(1, 0);
+  u.helm(lb);
+  u.rt.OnPreFastTravel();
+  assert.ok(!u.rt.AllBoats.includes(lb), 'packed');
+  assert.deepEqual(u.pack.map((it) => it.templateIndex), [BOAT_PARTS_TEMPLATE]);
 });
 
-test('SHIP-PACK the world\'s seams: the pack handed to the runtime (where her deed is found); the boat menu told when her deed is not in the pack; a landfall packs a ship only with her deed, else she is left moored (mutants: the pack seam, the menu\'s word, the landfall unguarded)', () => {
+test('SHIP-DEEDS a save written before the fix gives a ship\'s deed back once: each crewed hull\'s parts in the pack are her deed again where they lay - her number, their worth, her hull and variant - and the HUD says so; a small boat\'s parts stay parts; she stands by the deed with her hold aboard (mutants: no deed back, a small boat\'s too, another number, the shelf\'s price, the word unsaid)', () => {
+  const s = withPack();
+  const ship = Object.assign(mintBoatItem(BOAT_PARTS_TEMPLATE, 680), { message: 20, value: 25000, name: "Parts of Small Ship 'I'", weightInKg: 121.5 });
+  const oars = Object.assign(mintBoatItem(BOAT_PARTS_TEMPLATE, 681), { message: 10, value: 2000, name: "Parts of Large Boat 'I'" });
+  s.pack.push({ name: 'rope', templateIndex: 50, UID: 1 }, ship, oars);
+  const old = JSON.parse(JSON.stringify(s.rt.getSaveData()));
+  delete old.ShipDeedsReturned;   // a record from before the fix
+  old.packedCargoes = { 680: [{ name: 'net', weightInKg: 1.5 }] };
+  s.rt.restoreSaveData(old);
+  assert.deepEqual(s.pack.map((it) => it.templateIndex), [50, BOAT_DEED_TEMPLATE, BOAT_PARTS_TEMPLATE], 'her deed where her parts lay; the small boat\'s parts kept');
+  const deed = s.pack[1];
+  assert.deepEqual({ UID: deed.UID, value: deed.value, message: deed.message, name: deed.name, kg: deed.weightInKg }, { UID: 680, value: 25000, message: 20, name: "Deed to Small Ship 'I'", kg: undefined }, 'the deed row\'s weight, never her parts\'');
+  assert.ok(s.pack[2] === oars);
+  assert.equal(s.out.hud.at(-1), DEEDS_RETURNED_TEXT);
+  // she stands by it, as a bought ship does: her hold aboard, her deed kept
+  const b = s.rt.LaunchFromDeed(deed, () => s.pack, AT, DIR, s.terrains[1]);
+  assert.deepEqual([b.hull, b.uid, b.crewed, b.itemValue], [2, 680, true, 25000]);
+  assert.deepEqual(b.Cargo.Items.map((it) => it.name), ['net']);
+  assert.ok(s.pack.includes(deed));
+});
+
+test('SHIP-DEEDS once a save: every record written since says so (ShipDeedsReturned), and a load of one leaves a ship picked up by hand as her parts; a load with no record of the mod\'s at all (NewSaveData) is one from before (mutants: the flag unwritten, the flag unread)', () => {
+  const s = withPack();
+  const { b } = shipFromDeed(s, 4, 690, 37500);
+  assert.equal(s.rt.PackBoat(b, true), true, 'picked up by hand');
+  const saved = JSON.parse(JSON.stringify(s.rt.getSaveData()));
+  assert.equal(saved.ShipDeedsReturned, true);
+  const hud = s.out.hud.length;
+  s.rt.restoreSaveData(saved);
+  assert.deepEqual(s.pack.map((it) => [it.templateIndex, it.UID]), [[BOAT_PARTS_TEMPLATE, 690]], 'her parts kept');
+  assert.equal(s.out.hud.length, hud, 'nothing said');
+  assert.equal(s.rt.newSaveData().ShipDeedsReturned, undefined, 'a record\'s initializer owes the deeds');
+  s.rt.restoreSaveData(s.rt.newSaveData());
+  assert.deepEqual(s.pack.map((it) => [it.templateIndex, it.UID]), [[BOAT_DEED_TEMPLATE, 690]]);
+});
+
+test('SHIP-PACK the world\'s seams: the pack handed to the runtime (where her deed is found); the boat menu told when her deed is not in the pack; SHIP-DEEDS: a landfall never packs a ship - she is left moored, her deed kept (mutants: the pack seam, the menu\'s word, the landfall unguarded)', () => {
   assert.match(WORLD, /player: \(\) => \(playerEntity\.items \?\?= \[\]\) \},/);
   assert.match(WORLD, /noDeed: !!csaRuntime\?\.deedMissing\?\.\(boat\),/);
-  assert.match(WORLD, /if \(tvSea\.means\?\.again && boat\.packable && csaPassengersOn\(boat\) === 0 && !csaRuntime\.deedMissing\(boat\)\) csaCall\(\(\) => csaRuntime\.PackBoat\(boat, true\)\);/);
+  assert.match(WORLD, /if \(tvSea\.means\?\.again && boat\.packable && csaPassengersOn\(boat\) === 0 && !boat\.crewed\) csaCall\(\(\) => csaRuntime\.PackBoat\(boat, true\)\);/);   // SHIP-DEEDS (PIN MOVED): never a ship
 });

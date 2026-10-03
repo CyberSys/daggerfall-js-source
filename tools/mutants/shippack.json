@@ -209,8 +209,89 @@
   {
     "name": "SHPK-landfall-unguarded",
     "file": "src/scenes/world.js",
-    "old": " && !csaRuntime.deedMissing(boat)) csaCall(",
+    "old": " && !boat.crewed) csaCall(",
     "new": ") csaCall(",
+    "tests": [
+      "test/shippack.test.js"
+    ]
+  },
+  {
+    "name": "SHDE-fasttravel-ship-packed",
+    "file": "src/systems/comeSailAway.js",
+    "old": "if (currentBoat.packable && !currentBoat.crewed) PackBoat(currentBoat, true);",
+    "new": "if (currentBoat.packable) PackBoat(currentBoat, true);",
+    "tests": [
+      "test/shippack.test.js"
+    ]
+  },
+  {
+    "name": "SHDE-no-deed-back",
+    "file": "src/systems/comeSailAway.js",
+    "old": "    if (dataIn?.ShipDeedsReturned !== true && returnShipDeeds() > 0) deps.hudText(DEEDS_RETURNED_TEXT);\n",
+    "new": "",
+    "tests": [
+      "test/shippack.test.js"
+    ]
+  },
+  {
+    "name": "SHDE-flag-unread",
+    "file": "src/systems/comeSailAway.js",
+    "old": "dataIn?.ShipDeedsReturned !== true && returnShipDeeds()",
+    "new": "returnShipDeeds()",
+    "tests": [
+      "test/shippack.test.js"
+    ]
+  },
+  {
+    "name": "SHDE-flag-unwritten",
+    "file": "src/systems/comeSailAway.js",
+    "old": "    data.ShipDeedsReturned = true;   // SHIP-DEEDS",
+    "new": "    // SHIP-DEEDS",
+    "tests": [
+      "test/shippack.test.js"
+    ]
+  },
+  {
+    "name": "SHDE-small-boat-too",
+    "file": "src/systems/comeSailAway.js",
+    "old": "      if (!deps.pool.hullRig?.(hull)?.crewed) continue;\n",
+    "new": "",
+    "tests": [
+      "test/shippack.test.js"
+    ]
+  },
+  {
+    "name": "SHDE-another-number",
+    "file": "src/systems/comeSailAway.js",
+    "old": "variantFromMessage(it.message ?? 0), it.UID, it.value);",
+    "new": "variantFromMessage(it.message ?? 0), it.UID + 1, it.value);",
+    "tests": [
+      "test/shippack.test.js"
+    ]
+  },
+  {
+    "name": "SHDE-shelf-price",
+    "file": "src/systems/comeSailAway.js",
+    "old": "variantFromMessage(it.message ?? 0), it.UID, it.value);",
+    "new": "variantFromMessage(it.message ?? 0), it.UID, HULL_PRICES[hull]);",
+    "tests": [
+      "test/shippack.test.js"
+    ]
+  },
+  {
+    "name": "SHDE-word-unsaid",
+    "file": "src/systems/comeSailAway.js",
+    "old": " && returnShipDeeds() > 0) deps.hudText(DEEDS_RETURNED_TEXT);",
+    "new": " && returnShipDeeds() > 0) void DEEDS_RETURNED_TEXT;",
+    "tests": [
+      "test/shippack.test.js"
+    ]
+  },
+  {
+    "name": "SHDE-parts-kept",
+    "file": "src/systems/comeSailAway.js",
+    "old": "      pack[i] = mintDeed(hull,",
+    "new": "      void mintDeed(hull,",
     "tests": [
       "test/shippack.test.js"
     ]

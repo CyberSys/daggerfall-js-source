@@ -2169,7 +2169,7 @@ row's (42).
   host's one input seam (`csaJourneyHelm`, read by `input.has` beside the keys and CSA-L's panel, and by the autorun):
   the rudder keys held, the ToggleSail key's edge, the oars' autorun, and at the landfall the disembark key - the mod's
   code moves, turns, beaches and leaves the boat, and PackBoat packs it. A packable boat is to hand again after its
-  landfall; a crewed one is left moored - SHIP-PACK: a ship is packed too when her deed is in the pack. The Rowboat (no sail) is no crossing's boat; the Carrack (no Cargo modifier) is
+  landfall; a crewed one is left moored, her deed kept (SHIP-DEEDS). The Rowboat (no sail) is no crossing's boat; the Carrack (no Cargo modifier) is
   one under the Responsive helm only, which gives her a hold (`tvSeaCrosses`: AUDIT
   NAV2 F16 - she was refused under the default helm she sails best under). AUDIT
   NAV2 F17: while the journey holds the helm (the travel view up) the helm panel is
@@ -2263,8 +2263,8 @@ packs every hull (`getBoatTransforms`: `Crewed` sets `packable` too), and makes 
 - **Her deed goes with her.** A deed ship (crewed, her deed's number on her) is picked up only with that deed in the
   pack (`deedMissing`); the deed is taken out and her parts go in. Without it Steal mode at her helm says *"Her deed
   must be in your pack to pick her up."* (`DEED_NOT_HELD_TEXT`), the menu's Pick up says why ("her deed is not in your
-  pack"), and PackBoat itself refuses (it answers false) for every caller: a fast travel from her helm and an Overworld
-  landfall leave her where she lies, as a ship always was. A deed kept elsewhere would call a second ship of hers to a
+  pack"), and PackBoat itself refuses (it answers false) for every caller. A fast travel from her helm and an Overworld
+  landfall never pack a ship at all (SHIP-DEEDS, below). A deed kept elsewhere would call a second ship of hers to a
   port. A ship no item placed (number 0) packs without one.
 - **Her deed comes back.** A ship's parts placed (the click, `LaunchFromParts`) are spent - the mod keeps a crewed
   hull's item, so one parts item would have stood ships without end - and her deed is given back where they lay in the
@@ -2283,11 +2283,45 @@ packs every hull (`getBoatTransforms`: `Crewed` sets `packable` too), and makes 
   weighs no more than the Large Boat's parts (120 kg, `packedHullWeight`), her hold's weight on top as ever: in the pack
   the table's would hold the bearer under the water and sink any boat she sailed.
 - The boat menu lists Pick up on every hull (`systems/csaBoatMenu.js`). The world host hands the runtime the pack
-  (`items.player`) and the menu its word (`noDeed`); an Overworld landfall packs a ship only with her deed.
+  (`items.player`) and the menu its word (`noDeed`); an Overworld landfall never packs a ship (SHIP-DEEDS).
 - Pins: `test/shippack.test.js` (8) and `test/shipclaim.test.js`'s two; `test/boatmenu.test.js`, `test/csa_boats.test.js`,
   `test/csa_items.test.js` and `test/ows2_crossing.test.js` PIN MOVED. `tools/mutants/shippack.json` (24, all dead);
   boatmenu's, csa_items', csa_placing's, ows2's and audit0928_save's records re-aimed by content and killed again. Not
   seen in a browser.
+
+## The deeds a journey took, given back (SHIP-DEEDS, 2026-10-03 - REGRESSION FIX)
+
+Reported: *"People lost their ship deeds and are unable to claim deeds from captured ships."* SHIP-PACK gave the ships
+the small boats' `packable`, and the mod packs a `packable` boat on two journeys, not only at a hand's Pick up: a fast
+travel from her helm (`OnPreFastTravel`) and an Overworld landfall (`scenes/world.js tvSeaAshore`). So from SHIP-PACK on,
+every fast travel from a ship's helm took her deed out of the pack and left "Parts of Small Ship 'I'" (120 kg) in its
+place, and the ship was gone from the water - a bought ship and a claimed prize alike (Naval-Combat SHIP-CLAIM: "her
+deed is in your pack", until the first journey). Nothing was deleted - placed on the water, her parts give her deed
+back (`takePlaceItem`) - but nothing said so, and with Iliac Puddle No More on a harbour's raised water refuses her
+(Field-Bugs-2026-10-02b PLACE-AFLOAT).
+- **A journey never packs a ship.** `OnPreFastTravel` packs a sailed boat only when it is `packable` and not `crewed` -
+  the mod's own `Packable` hulls, the Rowboat and the Large Boat, as before SHIP-PACK; the landfall the same. A ship
+  stays where she lies and her deed stays in the pack, as the mod's ships always did. Pick up (the boat menu, Steal mode
+  at her helm) still packs her, as SHIP-PACK asked.
+- **The deeds it took, given back - once a save** (`returnShipDeeds`). Come Sail Away's record now carries
+  `ShipDeedsReturned` (the port's own field; `getSaveData` writes it on every record). A record without it - one from
+  before the fix, or none at all (NewSaveData) - is read once at the restore (`applySaveData`): each ship's parts in the
+  pack (a crewed hull's, by the pool's `hullRig`) are her deed again where they lay - her number, their worth, her hull
+  and variant - and the HUD says "Your ship's deed is back in your pack" (`DEEDS_RETURNED_TEXT`). She stands by it as a
+  bought ship does: it calls her to a port, and her hold (PackedCargoes, under her number) and her naval state come
+  back aboard with her. A small boat's parts stay parts (the mod packs those on every journey).
+- **What it cannot tell apart:** a ship a hand picked up before the fix is her deed again too, once - no record says
+  which parts a journey made. Every record written since carries the flag, so a ship picked up after the fix stays her
+  parts. Parts stowed anywhere but the pack are left as they are; placed on the water they give her deed back.
+- Claiming was never refused: SHIP-CLAIM's code is unchanged since its merge, and a claim through the real naval host,
+  runtime and pool puts her deed in the pack - and, before this fix, the first fast travel from her helm took it. A claimed Large Boat's deed is spent on placing, as
+  every small boat's is (SHIP-CLAIM, DECLARED) - she lies where she was taken, with no deed in the pack.
+- THE FOUR HOSTS RULE: the landfall's guard is `scenes/world.js`'s, the one host with Come Sail Away's runtime;
+  `scenes/exterior.js`, `scenes/worldModes.js` and `scenes/dungeonContext.js` stand none.
+- Pins: `test/shippack.test.js` (the fast travel's PIN MOVED; two new: the deed given back once, and the flag written
+  and read), `test/ows2_crossing.test.js` (the landfall's PIN MOVED); `test/csaScene.mjs`'s pool answers `hullRig` as
+  the world's does. `tools/mutants/shippack.json`: nine SHDE records, all dead; SHPK-landfall-unguarded,
+  CSA-D-fasttravel-no-pack and OWS2-host-no-pack re-aimed by content and killed again. Not seen in a browser.
 
 ## What was already waiting in the port
 

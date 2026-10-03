@@ -22854,7 +22854,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
         break ashore;
       }
     }
-    if (tvSea.means?.again && boat.packable && csaPassengersOn(boat) === 0 && !csaRuntime.deedMissing(boat)) csaCall(() => csaRuntime.PackBoat(boat, true));   // "You store the boat in your inventory" - SHIP-PACK: a ship with her deed in the pack
+    if (tvSea.means?.again && boat.packable && csaPassengersOn(boat) === 0 && !boat.crewed) csaCall(() => csaRuntime.PackBoat(boat, true));   // "You store the boat in your inventory" - SHIP-DEEDS: never a ship (crewed) - she is left moored, her deed kept
     else {
       tvSay(TRAVEL_VIEW_TEXT.leftMoored);
       if (tvSea.means) tvSea.means = { ...tvSea.means, again: false };
