@@ -38,11 +38,19 @@
 // FOUR (696-699: a column, a bench, a font, a statue plinth) - pieces
 // of DFU's Furniture group, delivered among the home's things, never
 // carried, never shelved.
+//
+// PROF9 (Professions-Arc.md 4.8, 9.3, 35): THE FOUR DISHES (685-688) -
+// Hunter's Stew, Fisherman's Supper, Orchard Tart, Feast of the Hearth -
+// each on a Climates & Calories food's own row (its picture, weight and
+// keeping - imported, never typed again), and each a FOOD by C&C's own
+// law (survival/food.js registerFoods): eaten, spoiled and named by it.
 // ═══════════════════════════════════════════════════════════════════
 import { registerCustomTemplates, registerKitDye, registerCustomItemsForGroup } from './itemTemplates.js';
 import { DYE_COLORS } from '../characters/dyes.js';
-import { ORES, INGOTS, STONES, TIER_VALUES, WOOD_TEMPLATES, HIDE_TEMPLATES, SKINNING_KNIFE, SIEGE_GEM, MASONRY_TEMPLATES, ICON_LODESTONE } from '../net/professionLaw.js';   // PROF11: Mortar
-import { REPAIR_KIT_TEMPLATE, STONE_DECOR } from '../net/recipeLaw.js';   // PROF11: the Sculptor's four
+import { ORES, INGOTS, STONES, TIER_VALUES, WOOD_TEMPLATES, HIDE_TEMPLATES, SKINNING_KNIFE, SIEGE_GEM, MASONRY_TEMPLATES, ICON_LODESTONE, ESSENCE_TEMPLATES } from '../net/professionLaw.js';   // PROF11: Mortar; PROF12: Arcane Essence
+import { REPAIR_KIT_TEMPLATE, STONE_DECOR, DISHES } from '../net/recipeLaw.js';   // PROF11: the Sculptor's four; PROF9: the dishes
+import { SURVIVAL_TEMPLATES } from './survival/items.js';   // PROF9: C&C's food rows the dishes stand on
+import { TEMPLATE as CC, FOOD, registerFoods } from './survival/food.js';
 import { isOnlinePage } from './onlineLane.js';
 
 /** The group every new material mints in: DFU's miscellany (UselessItems2), where Foraging's own items sit - not an
@@ -152,6 +160,18 @@ export const MASONRY_TEMPLATE_ROWS = Object.freeze(MASONRY_TEMPLATES.map((m) => 
   playerTextureArchive: 0, playerTextureRecord: 0, stackable: true,
 })));
 registerCustomTemplates(MASONRY_TEMPLATE_ROWS);
+
+// ─── PROF12: ARCANE ESSENCE (PROF0 4.8: 680; section 37) ──────────────
+/** Disenchanting's yield (9.3): DECIDED Ectoplasm's own weight and the metals' scale's price (8 x its tier's Marks value -
+ *  32 gold), on Ectoplasm's picture undyed (professionLaw ARCANE_ESSENCE), stacking, never shelved - the Stores its one
+ *  door, as every row here. */
+export const ESSENCE_TEMPLATE_ROWS = Object.freeze(ESSENCE_TEMPLATES.map((m) => Object.freeze({
+  index: m.templateIndex, name: m.name, baseWeight: 0.1, hitPoints: 50, capacityOrTarget: 0, basePrice: 8 * TIER_VALUES[m.tier - 1],
+  enchantmentPoints: 0, rarity: 10, variants: 0, drawOrderOrEffect: 0, isBluntWeapon: false, isLiquid: false,
+  isOneHanded: false, isIngredient: false, worldTextureArchive: m.icon[0], worldTextureRecord: m.icon[1],
+  playerTextureArchive: 0, playerTextureRecord: 0, stackable: true,
+})));
+registerCustomTemplates(ESSENCE_TEMPLATE_ROWS);
 /** The Sculptor's four (recipeLaw STONE_DECOR - its worth and weight, DECIDED there): one a piece, never stacked (each
  *  its own provenance), never shelved; 200 hit points (stone outlasts DFU's oak, 50-150); in a list the stone's own
  *  lump, in a room its one DFU model (decorFurnish.js). */
@@ -177,3 +197,27 @@ registerCustomTemplates([SKINNING_KNIFE_ROW]);
  *  row), so a General Store or a Pawn Shop shelves it by DFU's own custom-item loop, as Foraging's tools. */
 export const knifeCustomItemsForGroup = (group) => (group === PROF_ITEM_GROUP && isOnlinePage() ? [SKINNING_KNIFE.templateIndex] : []);
 registerCustomItemsForGroup(knifeCustomItemsForGroup);
+
+// ─── PROF9: THE DISHES (PROF0 4.8, 9.3: 685-688; section 35) ──────────
+/** The C&C food each dish stands on - its picture, weight and keeping (4.8: "C&C's Meat / Cooked Fish / Bread"): the Stew
+ *  and the Feast the Meat's, the Supper the Cooked Fish's, the Tart the Bread's. */
+export const DISH_FOODS = Object.freeze({ stew: CC.Meat, supper: CC.CookedFish, tart: CC.Bread, feast: CC.Meat });
+const ccRow = (t) => SURVIVAL_TEMPLATES.find((r) => r.index === t);
+/** A dish's price: DECIDED three times its C&C food's (a cooked meal and its herbs), a feast twelve (a table's); its
+ *  weight the food's, a feast four times it. NOT LAID ON, for Mac: 4.8's "tinted" - DFU's dye swatch reaches no food's
+ *  picture (Mortar's finding, PROF11), so the Feast wears the Meat's as the Stew does, their names telling them apart. */
+export const DISH_TEMPLATE_ROWS = Object.freeze(DISHES.map((d) => {
+  const food = /** @type {any} */ (ccRow(DISH_FOODS[d.id]));
+  const feast = d.effect.party === true;
+  return Object.freeze({
+    index: d.templateIndex, name: d.name, baseWeight: food.baseWeight * (feast ? 4 : 1), hitPoints: food.hitPoints, capacityOrTarget: 0,
+    basePrice: food.basePrice * (feast ? 12 : 3), enchantmentPoints: 0, rarity: 10, variants: 0, drawOrderOrEffect: 0, isBluntWeapon: false,
+    isLiquid: false, isOneHanded: false, isIngredient: false, worldTextureArchive: food.worldTextureArchive, worldTextureRecord: food.worldTextureRecord,
+    playerTextureArchive: 0, playerTextureRecord: 0, stackable: false,   // each serving its own piece, its own provenance
+  });
+}));
+registerCustomTemplates(DISH_TEMPLATE_ROWS);
+/** The dishes as FOOD (C&C's law, survival/food.js registerFoods): each its C&C food's row - its satiety, keeping and
+ *  stale word - under its own name. */
+export const DISH_FOOD_ROWS = Object.freeze(Object.fromEntries(DISHES.map((d) => [d.templateIndex, Object.freeze({ ...FOOD[DISH_FOODS[d.id]], name: d.name })])));
+registerFoods(DISH_FOOD_ROWS);

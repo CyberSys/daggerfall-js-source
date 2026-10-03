@@ -2,8 +2,8 @@
   {
     "name": "LOOT7-rate-ten-times",
     "file": "src/systems/champions.js",
-    "old": "export const CHAMPION_PER_MILLE = 50;",
-    "new": "export const CHAMPION_PER_MILLE = 500;",
+    "old": "export const CHAMPION_PER_MILLE = 70;",
+    "new": "export const CHAMPION_PER_MILLE = 700;",
     "tests": [
       "test/loot7_champions.test.js"
     ]
@@ -291,7 +291,7 @@
   {
     "name": "LOOT7-hover-unnamed",
     "file": "src/systems/worldTooltips.js",
-    "old": "export const liveEntityName = (rec, enemyName = null) => championed(rec?.entity, rec?.entity?.name ?? enemyName ?? null);",
+    "old": "export const liveEntityName = (rec, enemyName = null) => foeTitle(rec?.entity, rec?.entity?.name ?? enemyName ?? null);",
     "new": "export const liveEntityName = (rec, enemyName = null) => rec?.entity?.name ?? enemyName ?? null;",
     "tests": [
       "test/loot7_champions.test.js"

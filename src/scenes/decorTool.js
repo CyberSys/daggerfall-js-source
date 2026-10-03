@@ -654,9 +654,12 @@ export function createDecorTool(deps) {
     if (what === 'preview') { door.preview(look ?? null); return true; }
     if (what === 'reset') { door.preview(undefined); return true; }
     if (what !== 'commit') return false;
+    // GUILD-YARD: a hall painted by its keeper. AUDIT GUILD-YARD C2: whose it is, read before the write - the decorator
+    // shut and its keeper off the lot while the answer was out, the room was nobody's and a hall said "Your house"
+    const hall = !!deps.room?.()?.hall;
+    const whose = hall ? 'Your guild\'s hall' : 'Your house';
     const r = await door.commit(look ?? null);
-    const whose = deps.room?.()?.hall ? 'Your guild\'s hall' : 'Your house';   // GUILD-YARD: a hall painted by its keeper
-    deps.say?.(r?.ok ? (look ? `${whose} is painted.` : `${whose} wears the town's own look again.`) : (deps.refusal?.(r?.error) ?? 'The house could not be painted.'));
+    deps.say?.(r?.ok ? (look ? `${whose} is painted.` : `${whose} wears the town's own look again.`) : (deps.refusal?.(r?.error) ?? (hall ? 'The hall could not be painted.' : 'The house could not be painted.')));
     return !!r?.ok;
   }
   /** HOME-RENT: THE OWNER'S ROOMS TO RENT - each room the house's walls part it into beside its offer (and an offer whose
@@ -885,7 +888,7 @@ export function createDecorTool(deps) {
     if (p.editing) return commitMove(p, r);
     if (p.entry.kind === 'own') return commitOwn(p, r);
     const price = p.piece.paid;
-    if (decorWhyNot({ price, ready: true, gold: deps.wallet().gold, count: pool.size(), cap: capHere(r), yard: !!r?.yard })) return false;   // the bar says why
+    if (decorWhyNot({ price, ready: true, gold: deps.wallet().gold, count: pool.size(), cap: capHere(r), yard: !!r?.yard, hall: !!r?.hall })) return false;   // the bar says why
     if (whyNotHere(p)) return false;   // HOME-YARD: off the lot; SEAT-HALL: out of the Charter Room - the bar says why
     p.busy = true;
     p.refused = null;
@@ -1389,7 +1392,7 @@ export function createDecorTool(deps) {
       return !deps.touch && !deps.locked?.() ? 'Click to look around again.' : null;
     }
     if (p.free && !deps.packHas?.(p.entry.own)) return p.entry.furnishing ? 'It is no longer among your things.' : 'It is no longer in your pack.';   // DECOR2a (DECOR2b: furniture)
-    const why = decorWhyNot({ price, ready: true, gold: deps.wallet?.().gold ?? 0, count: pool.size(), cap: capHere(deps.room?.()), yard: !!deps.room?.()?.yard });
+    const why = decorWhyNot({ price, ready: true, gold: deps.wallet?.().gold ?? 0, count: pool.size(), cap: capHere(deps.room?.()), yard: !!deps.room?.()?.yard, hall: !!deps.room?.()?.hall });
     if (why) return why;
     return !deps.touch && !deps.locked?.() ? 'Click to look around again.' : null;
   }

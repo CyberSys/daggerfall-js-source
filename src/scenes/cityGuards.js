@@ -60,7 +60,6 @@ import { coverDistance } from '../ai/cover.js';   // TACT1: a witness does not s
 import { blowConnects, blowScaled } from '../ai/foeBlows.js';   // TACT4
 import { SOUND } from '../systems/soundClips.js';
 import { ENEMY_BASICS } from '../characters/enemyBasics.js';
-import { foeTitled } from '../systems/foeTitle.js';   // FOE-TITLE: a revenant, a champion or an elite is named on the hover even while hostile
 import { copyEffectEntry } from '../systems/save.js';   // AUDIT 26 F217
 import { KNIGHT_CITY_WATCH } from '../characters/mobileTypes.js';
 import { MobileUnit } from '../characters/mobileUnit.js';
@@ -758,7 +757,7 @@ export function createCityGuards({ renderer, collider, fetchBytes, getTexture, u
    *  which arrowFlight.js calls unconditionally (arrowFlight.js:324)
    *  because `dealDamage` is inside its own `dmg > 0` fork - so the
    *  door is PUBLIC (the returned surface below), exactly as the
-   *  encounter pool's is (exteriorFoes.js:2843). */
+   *  encounter pool's is (exteriorFoes.js:2837). */
   function handleAttackFromPlayer(g, playerFeet = null) {
     if (!g?.ai) return;
     // DISC19-F (AUDIT DISC19): A BLOW ON A DEFENDER IS ASSAULT. The
@@ -1497,7 +1496,7 @@ export function createCityGuards({ renderer, collider, fetchBytes, getTexture, u
     // exterior door's is a bare NUMBER.
     const g = liveFoeFor(guards, key, 'mobileGuard', { idOf });
     if (!g) return null;
-    const t = mobileEntityName(liveEntityName(g, enemyDisplayName(g.mobileType)), { hostile: !!g.ai?.isHostile, champion: foeTitled(g.entity) });   // LOOT7-CHECK CHAMP-HOVER: the one law at every live arm (the watch never stands as one)
+    const t = mobileEntityName(liveEntityName(g, enemyDisplayName(g.mobileType)), { hostile: !!g.ai?.isHostile });   // HOVER-PLAIN: the one law at every live arm
     return t ? { title: t } : null;
   };
   // MAC-E: and the general arm is the WINDOW now (PlayerActivate.cs:957),

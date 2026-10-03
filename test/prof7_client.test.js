@@ -415,7 +415,7 @@ test('PROF7 pages: the Loom at a Clothing Store - the cures for the hides held a
   const text = () => root.textContent;
   const buttons = () => [...root.querySelectorAll('button')];
   const press = (label) => buttons().find((b) => b.textContent.startsWith(label)).onclick();
-  assert.deepEqual([...PROF_STATIONS], ['forge', 'workbench', 'loom', 'mason']);   // PIN MOVED (PROF11): the mason's bench
+  assert.deepEqual([...PROF_STATIONS], ['forge', 'workbench', 'loom', 'mason', 'jeweller']);   // PIN MOVED (PROF11): the mason's bench; PIN MOVED (PROF10): the jeweller's bench
   assert.match(stationColdLine('loom'), /The loom is still/);
   assert.match(text(), /The Loom/);
   assert.match(text(), /The tailor's loom and tanning rack - 50 gold a craft, a cure or a weave/);
@@ -516,11 +516,11 @@ test('PROF7 wiring: the street and the dungeon stamp and list their bodies for H
   assert.match(w, /loom: \(\) => modes\?\.loomHere\?\.\(\) \?\? null,/);
   assert.match(w, /stitchBand: \(\) => stitchBand\(\{ agility: liveStat\(playerEntity, 'agility'\), speed: liveStat\(playerEntity, 'speed'\) \}\),/);
   assert.match(w, /clothing: \(\) => \(playerEntity\?\.gender === 'female' \? 'WomensClothing' : 'MensClothing'\),/);
-  assert.match(w, /: profession === 'outfitting'\n\s*\? \{ here: \(\) => modes\?\.loomHere\?\.\(\) \?\? null, a: 'a loom', who: 'tailor', noun: 'loom', kept: LOOM_KEPT_TEXT, xp: 'Outfitting', busy: 'Your last work is still on the loom\.' \}/);
+  assert.match(w, /: profession === 'outfitting'\n\s*\? \{ here: \(\) => modes\?\.loomHere\?\.\(\) \?\? null, a: 'a loom', who: 'tailor', noun: 'loom', kept: LOOM_KEPT_TEXT, xp: 'Outfitting' \}/);   // PIN MOVED (AUDIT PROF-541 R2-C2): no station's own busy word
   // PIN MOVED (PROF11): a work at the mason's bench asks it first
-  assert.match(w, /const f = \(mason \? modes\?\.masonHere\?\.\(\) : loom \? modes\?\.loomHere\?\.\(\) : bench \? modes\?\.workbenchHere\?\.\(\) : modes\?\.forgeHere\?\.\(\)\) \?\? null;/);
-  assert.match(w, /const who = counter === 'furnisher' \? 'furnisher' : counter === 'weavers' \? 'Weavers' : 'smith';/);
-  assert.match(w, /withdrawIntoPack\(playerEntity, key, n, undefined, \{ slowRot: key === 'food:meat' && profBook\?\.track\('hunting'\)\?\.specs\?\.\[100\] === 'butcher' \}\)/);
+  assert.match(w, /const f = \(alch \? modes\?\.alchemyHere\?\.\(\) : mason \? modes\?\.masonHere\?\.\(\) : loom \? modes\?\.loomHere\?\.\(\) : bench \? modes\?\.workbenchHere\?\.\(\) : modes\?\.forgeHere\?\.\(\)\) \?\? null;/);   // PIN MOVED (PROF12): the alchemy station's transmutations first
+  assert.match(w, /const who = counter === 'furnisher' \? 'furnisher' : counter === 'weavers' \? 'Weavers' : counter === 'apothecaries' \? 'Apothecaries' : 'smith';/);   // PIN MOVED (PROF12): the Apothecaries'
+  assert.match(w, /withdrawIntoPack\(playerEntity, key, n, undefined, \{ slowRot: key === 'food:meat' && profBook\?\.track\('hunting'\)\?\.specs\?\.\[100\] === 'butcher', noRot: /);   // PIN MOVED (PROF9): a Provisioner's provisions beside the Butcher's meat
   assert.match(w, /profBook\.track\('hunting'\)\.specs\?\.\[50\] !== 'tracker' \|\| _mode\(\) !== 'exterior'\) return null;\n\s*return trackerMarks\(exteriorFoes\.foes, enchantFeet\(\)\);/);
   const m = src('src/scenes/worldModes.js');
   assert.match(m, /if \(interiorBuilding\.buildingType === BUILDING_TYPES\.ClothingStore\) return interiorBuilding\.insideOpenShop === false \? null : \{ kind: 'shop', fee: LOOM_FEE \};/);
@@ -536,7 +536,7 @@ test('PROF7 wiring: the street and the dungeon stamp and list their bodies for H
   assert.match(idx, /'prof-hunt-cap': 409, 'prof-hunt-high': 409, 'prof-foe': 400, 'prof-dye': 400,/);
   const c = src('src/net/accountClient.js');
   // SEAT2b part two (PIN MOVED): and the held town the station stands in (`seat`, its crafting halls' steps)
-  assert.match(c, /craft: \(character, recipe, clean, name, rid, heartwood = false, dye = null, seat = null\) => post\('\/v1\/prof\/craft', \{ character, recipe, clean, name, rid, heartwood, \.\.\.\(dye == null \? \{\} : \{ dye \}\), \.\.\.\(seat == null \? \{\} : \{ seat \}\) \}\),/);
+  assert.match(c, /craft: \(character, recipe, clean, name, rid, heartwood = false, dye = null, seat = null, cracked = false\) => post\('\/v1\/prof\/craft', \{ character, recipe, clean, name, rid, heartwood, \.\.\.\(dye == null \? \{\} : \{ dye \}\), \.\.\.\(seat == null \? \{\} : \{ seat \}\), \.\.\.\(cracked === true \? \{ cracked: true \} : \{\}\) \}\),/);   // PIN MOVED (PROF10): a Lapidary's `cracked` gem
   for (const word of ['prof-hunt-cap', 'prof-hunt-high', 'prof-foe', 'prof-dye']) assert.doesNotMatch(accountRefusalText(word), /problem|could not be read/, word);
   assert.match(src('.github/workflows/account-deploy.yml'), /- "src\/characters\/dyes\.js"/);
   assert.match(src('src/systems/foragingInstall.js'), /hudText\(brokeMessage\(item\.templateIndex, item\.name\)\);/);

@@ -28,13 +28,15 @@ test('AUDIT SEATS-2 L1: THE MARKET HALL\'S TITHE CAP (7.5: "the Tithe\'s cap +1%
   assert.match(src('src/net/townSeatLaw.js'), /tier: s\.tier, titheCap: s\.holder\.titheCap \?\? null,/);
 });
 
-test('AUDIT SEATS-2 L3, L4, L5, L7: a crown\'s Gatehouse stands from the first and says so; the Bounty\'s camps are the town\'s bailiwick\'s, said so; the Apothecary raised by no one until its stations stand; the Incursion\'s Drakes said (mutants: the crown\'s line; the Apothecary\'s gate)', () => {
+test('AUDIT SEATS-2 L3, L4, L5, L7: a crown\'s Gatehouse stands from the first and says so; the Bounty\'s camps are the town\'s bailiwick\'s, said so; the Apothecary raised by no one until its stations stand (PROF12: they stand - raised now); the Incursion\'s Drakes said (mutants: the crown\'s line; the Apothecary\'s gate)', () => {
   assert.equal(fortWorkLine('gatehouse', { tier: 0 }, { seatTier: 'crown' }), 'Gatehouse: standing - its vitality 20,000.');
   assert.equal(fortWorkLine('gatehouse', { tier: 0 }, { seatTier: 'palace' }), 'Gatehouse: none raised.');
   assert.match(src('src/ui/seatWorks.js'), /fortWorkLine\(w\.id, row, \{ nameOf, seatTier: seat\.tier,/);
   assert.match(EDICT_WORDS.bounty, /^Camps near the town yield double/);
-  assert.equal(APOTHECARY_OPEN, false);
-  assert.equal(fortMayRaise('apothecary', { tier: 'palace' }), false);
+  // PIN MOVED (PROF12, Mac: "2 and 4"): the Apothecary's three stand - Cooking's fire, Jewelcrafting's bench, Alchemy's
+  // station - and it is raised (Professions-Arc 37; Seats-Arc 7.5)
+  assert.equal(APOTHECARY_OPEN, true);
+  assert.equal(fortMayRaise('apothecary', { tier: 'palace' }), true);
   assert.equal(fortMayRaise('forge', { tier: 'palace' }), true);
   assert.equal(TIDE_WORDS.daedra, 'Gate kills give double influence and double silver.');
 });

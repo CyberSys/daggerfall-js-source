@@ -63,7 +63,7 @@ test('GUILD1d a hall BOUGHT: the guildmaster\'s, from what realm records paid in
   assert.ok(!/^[A-Za-z0-9_-]{4,64}$/.test(row.char_id), 'the guild\'s mark is outside every character id\'s shape');
   // the town: the members see their hall, its keepers may furnish it; a stranger sees whose it is
   const mine = (await town(gm)).find((h) => h.buildingKey === 300);
-  assert.deepEqual(mine, { buildingKey: 300, owner: 'The Silver Hand', entry: 'guild', mine: false, hall: { name: 'The Silver Hand', tag: 'SH', heraldry: null }, member: true, keeper: true });
+  assert.deepEqual(mine, { buildingKey: 300, owner: 'The Silver Hand', entry: 'guild', mine: false, hall: { name: 'The Silver Hand', tag: 'SH', heraldry: null }, member: true, keeper: true, hallEntry: true });   // AUDIT PROF-541 G2: `hallEntry`
   assert.equal((await town(officer)).find((h) => h.buildingKey === 300).keeper, true, 'an Officer keeps it');
   const rh = (await town(recruit)).find((h) => h.buildingKey === 300);
   assert.equal(rh.member, true);
@@ -152,7 +152,7 @@ test('GUILD1d who may walk in: an Officer opens the hall to anyone or keeps it t
   assert.equal(homeMayEnter(bySven), false);
 });
 
-test('GUILD1d a hall\'s DECOR: its Officers furnish it off their own records and a Recruit may not; its pieces are the catalogue\'s alone (GUILD-YARD: its yard stands); half of a piece taken out or shrunk goes into the guild\'s treasury, never to the keeper\'s purse (mutants: OWNS\'s keepers; the item and yard refusals; the half to the record; the ledger\'s kind)', async (t) => {
+test('GUILD1d a hall\'s DECOR: its Officers furnish it off their own records and a Recruit may not; its pieces are the catalogue\'s alone (GUILD-YARD: its yard stands); half of a piece taken out or shrunk goes into the guild\'s treasury, never to the keeper\'s purse (mutants: OWNS\'s keepers; the item refusal - a yard\'s is a palace\'s alone now; the half to the record; the ledger\'s kind)', async (t) => {
   t.mock.method(Date, 'now', () => T0 * 1000);
   const { svc, gm, officer, recruit, view, raw } = await stood();
   assert.equal((await svc.call('/v1/guilds/hall/buy', { character: gm.character, ...HALL }, gm.secret)).status, 200);

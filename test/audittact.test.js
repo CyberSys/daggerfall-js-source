@@ -98,14 +98,14 @@ test('AUDIT TACT A2: the 2 ranged tokens hold - a shot hands the token on, so fi
   assert.ok(foes.filter((f) => f.shots > 0).length >= 4, `the turns go round (${foes.map((f) => f.shots)})`);
 });
 
-test('AUDIT TACT A3/D1: a wind-up lands at 20 fps, at 15 and at 10 - a slow frame is not a knock', () => {
+test('AUDIT TACT A3/D1: a wind-up lands at 20 fps, at 15 and at 10 - a slow frame is not a knock', (t) => {
+  let seed = 7;   // a wind-up is a roll (tactics.js BLOW_CHANCE): seeded, so "it wound up" is never the dice's
+  t.mock.method(Math, 'random', () => { seed = (seed * 1103515245 + 12345) & 0x7fffffff; return (seed >>> 8) / 0x800000; });
   for (const fps of [20, 15, 10]) {
     resetTactics(); resetBlows();
     const f = foe({ level: 12, at: [0, 0, 6] });
     let started = 0, landed = 0, prev = null;
-    // 90 s of the foes' own time at every rate: under 20 fps a frame steps them (and the brain's clock) 0.05 s, so 90 s
-    // of frames at 10 fps was 45 s of theirs - room for one wind-up in twenty runs (AUDIT GALLEON-2's full-suite runs)
-    run([f], 90 * Math.max(1, 20 / fps), [0, 0, 0], { fps, each: () => {
+    run([f], 90, [0, 0, 0], { fps, each: () => {
       const st = f.ai._tac?.state;
       if (st === 'windup' && prev !== 'windup') started++;
       if (f.ai._blowVerdict != null) { landed++; f.ai._blowVerdict = null; f.ai._blowMult = undefined; }

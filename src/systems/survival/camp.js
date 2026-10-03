@@ -147,10 +147,11 @@ export const campExpired = (camp, now) => camp?.kind === CAMP_KIND.Fire && !fire
 /**
  * USE the placeable off the pack: the decision, one use off the item
  * (the item gone from `list` at nothing left), the record. `ctx` =
- * { now, owner, feet, yaw, probe, place, standing (this owner's count), id }.
+ * { now, owner, feet, yaw, probe, place, standing (this owner's count), id,
+ *   keep (PROF9: a Field Cook's - a Campfire Kit lights without its charge spent, Professions-Arc 3.3) }.
  * Returns { ok, text, camp, spent }.
  */
-export function placeCampItem(item, list, { now = 0, owner = null, feet = [0, 0, 0], yaw = 0, probe = null, place = {}, standing = 0, id = null } = {}) {
+export function placeCampItem(item, list, { now = 0, owner = null, feet = [0, 0, 0], yaw = 0, probe = null, place = {}, standing = 0, id = null, keep = false } = {}) {
   const kind = isCampingEquipment(item) ? CAMP_KIND.Tent : isCampfireKit(item) ? CAMP_KIND.Fire : null;
   if (!kind) return { ok: false, text: null, camp: null, spent: false };
   if (standing >= CAMPS_PER_OWNER) return { ok: false, text: CAMP_TEXT.tooMany, camp: null, spent: false };
@@ -158,7 +159,7 @@ export function placeCampItem(item, list, { now = 0, owner = null, feet = [0, 0,
   const d = campDecision(kind, { ...place, ground: spot.ground });
   if (!d.ok) return { ok: false, text: d.text, camp: null, spent: false };
   if ((item.currentCondition ?? 1) <= 0) return { ok: false, text: CAMP_TEXT.wornOut, camp: null, spent: false };   // AUDIT SURV A: the fiftieth pitch was the last
-  const uses = Math.max(0, (item.currentCondition ?? 1) - 1);
+  const uses = Math.max(0, (item.currentCondition ?? 1) - (keep === true && kind === CAMP_KIND.Fire ? 0 : 1));   // PROF9: a Field Cook's kit keeps its charge
   item.currentCondition = uses;
   let spent = false;
   if (kind === CAMP_KIND.Fire && uses === 0) {   // the kit's last light: the item goes with it

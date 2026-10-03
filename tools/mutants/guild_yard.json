@@ -128,7 +128,7 @@
   {
     "name": "GUILD-YARD-the-painted-word",
     "file": "src/scenes/decorTool.js",
-    "old": "const whose = deps.room?.()?.hall ? 'Your guild\\'s hall' : 'Your house';",
+    "old": "const whose = hall ? 'Your guild\\'s hall' : 'Your house';",
     "new": "const whose = 'Your house';",
     "tests": [
       "test/guild_yard.test.js"
@@ -148,6 +148,201 @@
     "file": "src/scenes/world.js",
     "old": "(row?.look || row?.mine || row?.keeper)) merged = true;",
     "new": "(row?.look || row?.mine)) merged = true;",
+    "tests": [
+      "test/guild_yard.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-GUILD-YARD-C1-the-first-yard-stood",
+    "file": "src/scenes/homeYards.js",
+    "old": "      if (rank < bestRank) { best = { y, home }; bestRank = rank; }",
+    "new": "      if (!best) { best = { y, home }; bestRank = rank; }",
+    "tests": [
+      "test/guild_yard.test.js",
+      "test/homeyard.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-GUILD-YARD-C1-the-lot-stood-on-unpreferred",
+    "file": "src/scenes/homeYards.js",
+    "old": "      const rank = (yardHolds(y.lot, o, feet) ? 0 : YARD_NEAR_ONLY) + away;",
+    "new": "      const rank = away;",
+    "tests": [
+      "test/guild_yard.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-GUILD-YARD-C2-whose-read-after-the-write",
+    "file": "src/scenes/decorTool.js",
+    "old": "    deps.say?.(r?.ok ? (look ? `${whose} is painted.`",
+    "new": "    deps.say?.(r?.ok ? (look ? `${deps.room?.()?.hall ? 'Your guild\\'s hall' : 'Your house'} is painted.`",
+    "tests": [
+      "test/guild_yard.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-GUILD-YARD-C2-the-houses-fallback",
+    "file": "src/scenes/decorTool.js",
+    "old": "(hall ? 'The hall could not be painted.' : 'The house could not be painted.')",
+    "new": "'The house could not be painted.'",
+    "tests": [
+      "test/guild_yard.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-GUILD-YARD-C3-the-town-unread",
+    "file": "src/scenes/world.js",
+    "old": "onRank: () => { onlineHomes?.bump?.(); onlineHomes?.ensure?.(_musicLoc?.mapTableData?.mapId, { force: true })?.catch?.(() => {}); },",
+    "new": "onRank: () => { onlineHomes?.bump?.(); },",
+    "tests": [
+      "test/guild_yard.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-PROF-541-G1-the-ranks-move-untold",
+    "file": "src/net/guildBook.js",
+    "old": "const moved = ranked !== this._ranked;",
+    "new": "const moved = false;",
+    "tests": [
+      "test/guild_yard.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-PROF-541-G1-no-guild-told-at-the-first-look",
+    "file": "src/net/guildBook.js",
+    "old": "    this._ranked = '';",
+    "new": "    this._ranked = undefined;",
+    "tests": [
+      "test/guild_yard.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-GUILD-YARD-Y1-the-keeper-off-the-rank-alone",
+    "file": "server-account/src/homes.js",
+    "old": "hallMay(rank, 'decorate') && h.me_realm === 1 ? { keeper: true }",
+    "new": "hallMay(rank, 'decorate') ? { keeper: true }",
+    "tests": [
+      "test/guild_yard.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-PROF-541-G2-hallEntry-asks-a-realm-character",
+    "file": "server-account/src/homes.js",
+    "old": "hallMay(rank, 'hallEntry') ? { hallEntry: true }",
+    "new": "hallMay(rank, 'hallEntry') && h.me_realm === 1 ? { hallEntry: true }",
+    "tests": [
+      "test/guild_yard.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-PROF-541-G2-the-registrys-hallEntry-the-keepers",
+    "file": "src/systems/onlineHomes.js",
+    "old": "hallEntry: h.hallEntry === true,",
+    "new": "hallEntry: h.keeper === true,",
+    "tests": [
+      "test/guild_yard.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-PROF-541-G2-the-rows-gate-the-keepers",
+    "file": "src/systems/onlineHomes.js",
+    "old": "...(hallEntryTurnable(home) ? [{ id: HALL_VERB.entry,",
+    "new": "...(home.keeper ? [{ id: HALL_VERB.entry,",
+    "tests": [
+      "test/guild_yard.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-PROF-541-G2-the-press-gate-the-keepers",
+    "file": "src/scenes/worldModes.js",
+    "old": "verb === HALL_VERB.entry && hallEntryTurnable(home)) { turnHallEntry",
+    "new": "verb === HALL_VERB.entry && !!home?.hall && !!home.keeper) { turnHallEntry",
+    "tests": [
+      "test/guild_yard.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-GUILD-YARD-the-lots-word-a-houses",
+    "file": "src/scenes/homeYards.js",
+    "old": "  const hallWords = (why) => (cur?.hall && why === YARD_IN_HOUSE ? YARD_IN_HALL : why);",
+    "new": "  const hallWords = (why) => why;",
+    "tests": [
+      "test/guild_yard.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-GUILD-YARD-the-bars-word-your-yard",
+    "file": "src/ui/decorPanel.js",
+    "old": "(hall ? \"The hall's yard\" : 'Your yard')",
+    "new": "'Your yard'",
+    "tests": [
+      "test/guild_yard.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-GUILD-YARD-the-panels-hall-unsent",
+    "file": "src/ui/decorPanel.js",
+    "old": "yard: !!view?.yard, hall: !!view?.hall }) : null;",
+    "new": "yard: !!view?.yard }) : null;",
+    "tests": [
+      "test/guild_yard.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-GUILD-YARD-the-tools-where-plain",
+    "file": "src/scenes/homeYards.js",
+    "old": "where: homeYardWhere(cur),",
+    "new": "where: 'Your yard',",
+    "tests": [
+      "test/guild_yard.test.js",
+      "test/homeyard.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-GUILD-YARD-OWNS-home-any-character",
+    "file": "server-account/src/decor.js",
+    "old": "WHERE (h.guild_id IS NULL AND h.player = k.p AND h.char_id = k.c)",
+    "new": "WHERE (h.guild_id IS NULL AND h.player = k.p)",
+    "tests": [
+      "test/guild_yard.test.js",
+      "test/homelook.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-GUILD-YARD-the-hall-word-for-every-yard",
+    "file": "server-account/src/decor.js",
+    "old": "    : barred && (S.seat",
+    "new": "    : (sent.item || out) && (S.seat",
+    "tests": [
+      "test/guild_yard.test.js",
+      "test/guild1d_service.test.js",
+      "test/seathall_service.test.js"
+    ],
+    "note": "AUDIT PROF-541 (RE-AIMED by content): the provenance guard's word before it."
+  },
+  {
+    "name": "AUDIT-PROF-541-G3-the-commits-cap-unasked",
+    "file": "src/scenes/decorTool.js",
+    "old": "    if (decorWhyNot({ price, ready: true, gold: deps.wallet().gold,",
+    "new": "    if (false && decorWhyNot({ price, ready: true, gold: deps.wallet().gold,",
+    "tests": [
+      "test/guild_yard.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-PROF-541-G3-the-bars-hall-lost",
+    "file": "src/scenes/decorTool.js",
+    "old": "yard: !!deps.room?.()?.yard, hall: !!deps.room?.()?.hall }",
+    "new": "yard: !!deps.room?.()?.yard, hall: false }",
+    "tests": [
+      "test/guild_yard.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-PROF-541-R2-H1-the-gate-the-keepers",
+    "file": "src/systems/onlineHomes.js",
+    "old": "export const hallEntryTurnable = (home) => !!home?.hall && !!home.hallEntry;",
+    "new": "export const hallEntryTurnable = (home) => !!home?.hall && !!home.keeper;",
     "tests": [
       "test/guild_yard.test.js"
     ]

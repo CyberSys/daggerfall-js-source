@@ -74,11 +74,12 @@
   {
     "name": "DRAKES-a-host-line-old",
     "file": "src/scenes/world.js",
-    "old": "at the Weavers' counter for ${r.data.marks} silver.`",
-    "new": "at the Weavers' counter for ${r.data.marks} Marks.`",
+    "old": "counter for ${r.data.marks} silver.` } : { ok: false, text: accountRefusalText(r?.error) };\n      },\n    } : null;",
+    "new": "counter for ${r.data.marks} Marks.` } : { ok: false, text: accountRefusalText(r?.error) };\n      },\n    } : null;",
     "tests": [
       "test/drakes.test.js"
-    ]
+    ],
+    "note": "PROF12 (PIN MOVED): re-aimed by content."
   },
   {
     "name": "DRAKES-the-gate-line-old",
