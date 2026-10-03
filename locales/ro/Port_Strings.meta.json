@@ -128,5 +128,355 @@
   "en": "64ca199c859e",
   "tr": "21f11e17ea61",
   "by": "claude-in-session"
+ },
+ "stats.attributes": {
+  "en": "a6652617f2c7",
+  "tr": "54a917298c26",
+  "by": "claude-in-session"
+ },
+ "stats.backstab": {
+  "en": "8f6f8fde958c",
+  "tr": "a44591c49cc6",
+  "by": "claude-in-session"
+ },
+ "stats.backstab.needsSkill": {
+  "en": "2363cf0d4309",
+  "tr": "ea191f7acc36",
+  "by": "claude-in-session"
+ },
+ "stats.backstab.sub": {
+  "en": "6e65b48b243b",
+  "tr": "c041bab23317",
+  "by": "claude-in-session"
+ },
+ "stats.backstab.tip": {
+  "en": "a51af8020d16",
+  "tr": "190a1b7c7748",
+  "by": "claude-in-session"
+ },
+ "stats.bareHands": {
+  "en": "177512fe7a76",
+  "tr": "c696c83f4cae",
+  "by": "claude-in-session"
+ },
+ "stats.breakdown": {
+  "en": "fd91b3cc1b4b",
+  "tr": "65c500d06f21",
+  "by": "claude-in-session"
+ },
+ "stats.breakdown.adjustments": {
+  "en": "5a9f0b03b300",
+  "tr": "ae7e34afe4be",
+  "by": "claude-in-session"
+ },
+ "stats.breakdown.adjustmentsTip": {
+  "en": "79dc984e8879",
+  "tr": "157cdce57244",
+  "by": "claude-in-session"
+ },
+ "stats.breakdown.attack": {
+  "en": "d5a74b2e042d",
+  "tr": "3c3ade670731",
+  "by": "claude-in-session"
+ },
+ "stats.breakdown.attackTip": {
+  "en": "4a0e56559491",
+  "tr": "9443704d6e80",
+  "by": "claude-in-session"
+ },
+ "stats.breakdown.fists": {
+  "en": "e59654af018d",
+  "tr": "81a270840368",
+  "by": "claude-in-session"
+ },
+ "stats.breakdown.foeArmour": {
+  "en": "ac057337cc22",
+  "tr": "d7dad9722c52",
+  "by": "claude-in-session"
+ },
+ "stats.breakdown.foeArmourTip": {
+  "en": "5f63e50ca583",
+  "tr": "efbc65147ddb",
+  "by": "claude-in-session"
+ },
+ "stats.breakdown.foeDodging": {
+  "en": "a0da7c6cedb5",
+  "tr": "75da46b4d773",
+  "by": "claude-in-session"
+ },
+ "stats.breakdown.material": {
+  "en": "d8169782b57c",
+  "tr": "d8169782b57c",
+  "by": "claude-in-session"
+ },
+ "stats.breakdown.proficiency": {
+  "en": "703c43ecfc66",
+  "tr": "b9af82c60cfe",
+  "by": "claude-in-session"
+ },
+ "stats.breakdown.proficiencyTip": {
+  "en": "c7225d7ce98c",
+  "tr": "7090ac0ff47e",
+  "by": "claude-in-session"
+ },
+ "stats.breakdown.race": {
+  "en": "6643dce8e4d3",
+  "tr": "0a847b7e487e",
+  "by": "claude-in-session"
+ },
+ "stats.breakdown.raceTip": {
+  "en": "c3c3ce26ba40",
+  "tr": "0b7bc8085546",
+  "by": "claude-in-session"
+ },
+ "stats.breakdown.rollTip": {
+  "en": "811fb54ddcd1",
+  "tr": "46fb1273a36b",
+  "by": "claude-in-session"
+ },
+ "stats.breakdown.strengthTip": {
+  "en": "95828870ab7a",
+  "tr": "657e8ac1b5c1",
+  "by": "claude-in-session"
+ },
+ "stats.breakdown.total": {
+  "en": "6b3c5f0c92fe",
+  "tr": "aae8fec74203",
+  "by": "claude-in-session"
+ },
+ "stats.breakdown.totalTip": {
+  "en": "c7cfb89f6e0d",
+  "tr": "706cde55b474",
+  "by": "claude-in-session"
+ },
+ "stats.breakdown.twoHanded": {
+  "en": "d0c5557d874c",
+  "tr": "ec200a6ab022",
+  "by": "claude-in-session"
+ },
+ "stats.breakdown.weaponRoll": {
+  "en": "d15f502562e3",
+  "tr": "a6b0aae837bd",
+  "by": "claude-in-session"
+ },
+ "stats.carryLimit": {
+  "en": "4087363e2ae8",
+  "tr": "e4716ae7c75f",
+  "by": "claude-in-session"
+ },
+ "stats.carryLimit.value": {
+  "en": "6c8307b99358",
+  "tr": "6c8307b99358",
+  "by": "claude-in-session"
+ },
+ "stats.critical": {
+  "en": "04b7b26c8ca2",
+  "tr": "44da34e8713e",
+  "by": "claude-in-session"
+ },
+ "stats.critical.sub": {
+  "en": "db9cf9a10975",
+  "tr": "59ee7ef5ebc2",
+  "by": "claude-in-session"
+ },
+ "stats.critical.subDamage": {
+  "en": "f237eaf8e1fc",
+  "tr": "16a78f61e264",
+  "by": "claude-in-session"
+ },
+ "stats.critical.tip": {
+  "en": "c53dea197c1e",
+  "tr": "0aa2a541e939",
+  "by": "claude-in-session"
+ },
+ "stats.critical.tipDamage": {
+  "en": "6d47731d5ece",
+  "tr": "42352a9bc0d5",
+  "by": "claude-in-session"
+ },
+ "stats.damage": {
+  "en": "7bf6d1d3a58a",
+  "tr": "207b04b98164",
+  "by": "claude-in-session"
+ },
+ "stats.damage.sub": {
+  "en": "95f0888899cf",
+  "tr": "e470729d27ae",
+  "by": "claude-in-session"
+ },
+ "stats.damage.subCrit": {
+  "en": "1f1d71eb859c",
+  "tr": "d858494639aa",
+  "by": "claude-in-session"
+ },
+ "stats.damage.tip": {
+  "en": "6aa2c79d99d7",
+  "tr": "06ff571a2abb",
+  "by": "claude-in-session"
+ },
+ "stats.defence": {
+  "en": "af4b8454e9e1",
+  "tr": "41462f69711d",
+  "by": "claude-in-session"
+ },
+ "stats.defence.armour": {
+  "en": "fab9348c4fd9",
+  "tr": "7fa9cad431f0",
+  "by": "claude-in-session"
+ },
+ "stats.defence.armourTip": {
+  "en": "dc26c1fd4878",
+  "tr": "7fd6d0c01d97",
+  "by": "claude-in-session"
+ },
+ "stats.defence.biography": {
+  "en": "53c2de2d09cb",
+  "tr": "8c379269ce4f",
+  "by": "claude-in-session"
+ },
+ "stats.defence.biographyTip": {
+  "en": "ee1ec0d7bb32",
+  "tr": "b9df309c9e40",
+  "by": "claude-in-session"
+ },
+ "stats.defence.dodgeTip": {
+  "en": "57a42a78ed38",
+  "tr": "665f6a1752d0",
+  "by": "claude-in-session"
+ },
+ "stats.defence.dodgeTipOverhaul": {
+  "en": "b0ab3ea49ab4",
+  "tr": "a4e5e758f4ae",
+  "by": "claude-in-session"
+ },
+ "stats.defence.partTip": {
+  "en": "27fe85764068",
+  "tr": "ee2c0487640e",
+  "by": "claude-in-session"
+ },
+ "stats.defence.toBeHit": {
+  "en": "b1c39d1d35a8",
+  "tr": "13899c4d7542",
+  "by": "claude-in-session"
+ },
+ "stats.error": {
+  "en": "164f6e3cdca5",
+  "tr": "113026d0cf1e",
+  "by": "claude-in-session"
+ },
+ "stats.flip.paperdoll": {
+  "en": "a615f7704b11",
+  "tr": "d0b999d19fc4",
+  "by": "claude-in-session"
+ },
+ "stats.flip.stats": {
+  "en": "be763e9aba2a",
+  "tr": "fa792e3d8071",
+  "by": "claude-in-session"
+ },
+ "stats.flip.toBack": {
+  "en": "689052159fc2",
+  "tr": "6278110f7c22",
+  "by": "claude-in-session"
+ },
+ "stats.flip.toFront": {
+  "en": "a323e1236fa6",
+  "tr": "cc4b25d7f816",
+  "by": "claude-in-session"
+ },
+ "stats.foes.against": {
+  "en": "a39eae895ea3",
+  "tr": "87a5d2fe5d58",
+  "by": "claude-in-session"
+ },
+ "stats.head": {
+  "en": "07ca595b28ad",
+  "tr": "5cf8705817e4",
+  "by": "claude-in-session"
+ },
+ "stats.hitChance": {
+  "en": "8d7bbcf67c93",
+  "tr": "4466f437c6c0",
+  "by": "claude-in-session"
+ },
+ "stats.hitChance.tip": {
+  "en": "32f9787633e9",
+  "tr": "47464bb6de30",
+  "by": "claude-in-session"
+ },
+ "stats.hitChance.vs": {
+  "en": "90c5ca505687",
+  "tr": "8368d169c8d8",
+  "by": "claude-in-session"
+ },
+ "stats.perSwing": {
+  "en": "dc6bffeb7159",
+  "tr": "9720f29eb11f",
+  "by": "claude-in-session"
+ },
+ "stats.perSwing.sub": {
+  "en": "d6b81d9a0130",
+  "tr": "57624585a413",
+  "by": "claude-in-session"
+ },
+ "stats.perSwing.tip": {
+  "en": "e87129f648c7",
+  "tr": "0789fee9cbe3",
+  "by": "claude-in-session"
+ },
+ "stats.rules.classic": {
+  "en": "b65a0dff50da",
+  "tr": "114ce8e02db8",
+  "by": "claude-in-session"
+ },
+ "stats.rules.overhaul": {
+  "en": "035acce29a31",
+  "tr": "30f9930ea24c",
+  "by": "claude-in-session"
+ },
+ "stats.skill": {
+  "en": "ec9f630c8693",
+  "tr": "3b6be4ecc2d1",
+  "by": "claude-in-session"
+ },
+ "stats.skills": {
+  "en": "33b1e43a70b3",
+  "tr": "6a797c6e979d",
+  "by": "claude-in-session"
+ },
+ "stats.swings.hit": {
+  "en": "ea490aaa629a",
+  "tr": "115a9c73a1d9",
+  "by": "claude-in-session"
+ },
+ "stats.swings.mods": {
+  "en": "0af70f7fc7ca",
+  "tr": "b12f8b527bda",
+  "by": "claude-in-session"
+ },
+ "stats.swings.rowTip": {
+  "en": "69b2072f9c56",
+  "tr": "69b2072f9c56",
+  "by": "claude-in-session"
+ },
+ "stats.swings.shot": {
+  "en": "386b6f16c26f",
+  "tr": "1619be4789ce",
+  "by": "claude-in-session"
+ },
+ "stats.swings.title": {
+  "en": "e0f22e212e56",
+  "tr": "58ff090ee11d",
+  "by": "claude-in-session"
+ },
+ "stats.title": {
+  "en": "06a9c0710138",
+  "tr": "f88e1cff49b0",
+  "by": "claude-in-session"
+ },
+ "stats.weapon": {
+  "en": "ead533685e26",
+  "tr": "b6b1c6391c32",
+  "by": "claude-in-session"
  }
 }

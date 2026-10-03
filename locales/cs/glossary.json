@@ -1,0 +1,23 @@
+{
+ "Damage": "Poškození",
+ "Hit chance": "Šance na zásah",
+ "Critical": "Kritický",
+ "Critical Strike": "Kritický zásah",
+ "Backstab": "Bodnutí do zad",
+ "Backstabbing": "Bodnutí do zad",
+ "Armour": "Zbroj",
+ "Dodging": "Uhýbání",
+ "Attributes": "Atributy",
+ "Skill": "Dovednost",
+ "Weapon": "Zbraň",
+ "Bare hands": "Holé ruce",
+ "Paperdoll": "Postava",
+ "Stats": "Statistiky",
+ "Defence": "Obrana",
+ "Hand-to-Hand": "Boj beze zbraně",
+ "foe": "nepřítel",
+ "swing": "úder",
+ "level": "úroveň",
+ "hit": "zásah",
+ "dmg": "poš."
+}

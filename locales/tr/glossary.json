@@ -1,0 +1,23 @@
+{
+ "Damage": "Hasar",
+ "Hit chance": "İsabet şansı",
+ "Critical": "Kritik",
+ "Critical Strike": "Kritik Vuruş",
+ "Backstab": "Arkadan Vuruş",
+ "Backstabbing": "Arkadan Vuruş",
+ "Armour": "Zırh",
+ "Dodging": "Kaçınma",
+ "Attributes": "Nitelikler",
+ "Skill": "Yetenek",
+ "Weapon": "Silah",
+ "Bare hands": "Çıplak eller",
+ "Paperdoll": "Figür",
+ "Stats": "İstatistik",
+ "Defence": "Savunma",
+ "Hand-to-Hand": "Silahsız Dövüş",
+ "foe": "düşman",
+ "swing": "vuruş",
+ "level": "seviye",
+ "hit": "isabet",
+ "dmg": "hasar"
+}

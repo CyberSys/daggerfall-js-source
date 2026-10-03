@@ -1,0 +1,23 @@
+{
+ "Damage": "Sebzés",
+ "Hit chance": "Találati esély",
+ "Critical": "Kritikus",
+ "Critical Strike": "Kritikus csapás",
+ "Backstab": "Hátba szúrás",
+ "Backstabbing": "Hátba szúrás",
+ "Armour": "Páncél",
+ "Dodging": "Kitérés",
+ "Attributes": "Tulajdonságok",
+ "Skill": "Képzettség",
+ "Weapon": "Fegyver",
+ "Bare hands": "Puszta kéz",
+ "Paperdoll": "Karakterkép",
+ "Stats": "Statisztika",
+ "Defence": "Védekezés",
+ "Hand-to-Hand": "Pusztakezes harc",
+ "foe": "ellenfél",
+ "swing": "csapás",
+ "level": "szint",
+ "hit": "találat",
+ "dmg": "sebz."
+}

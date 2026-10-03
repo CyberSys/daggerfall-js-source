@@ -1,0 +1,23 @@
+{
+ "Damage": "Skada",
+ "Hit chance": "Träffchans",
+ "Critical": "Kritisk",
+ "Critical Strike": "Kritisk träff",
+ "Backstab": "Rygghugg",
+ "Backstabbing": "Rygghugg",
+ "Armour": "Rustning",
+ "Dodging": "Undvikande",
+ "Attributes": "Attribut",
+ "Skill": "Färdighet",
+ "Weapon": "Vapen",
+ "Bare hands": "Bara händer",
+ "Paperdoll": "Docka",
+ "Stats": "Statistik",
+ "Defence": "Försvar",
+ "Hand-to-Hand": "Närkamp",
+ "foe": "fiende",
+ "swing": "hugg",
+ "level": "nivå",
+ "hit": "träff",
+ "dmg": "skada"
+}

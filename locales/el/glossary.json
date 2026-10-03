@@ -1,0 +1,23 @@
+{
+ "Damage": "Ζημιά",
+ "Hit chance": "Ευστοχία",
+ "Critical": "Κρίσιμο",
+ "Critical Strike": "Κρίσιμο χτύπημα",
+ "Backstab": "Πισώπλατο",
+ "Backstabbing": "Πισώπλατο χτύπημα",
+ "Armour": "Πανοπλία",
+ "Dodging": "Αποφυγή",
+ "Attributes": "Χαρακτηριστικά",
+ "Skill": "Δεξιότητα",
+ "Weapon": "Όπλο",
+ "Bare hands": "Γυμνά χέρια",
+ "Paperdoll": "Φιγούρα",
+ "Stats": "Στατιστικά",
+ "Defence": "Άμυνα",
+ "Hand-to-Hand": "Σώμα με σώμα",
+ "foe": "αντίπαλος",
+ "swing": "χτύπημα",
+ "level": "επίπεδο",
+ "hit": "ευστοχία",
+ "dmg": "ζημιά"
+}

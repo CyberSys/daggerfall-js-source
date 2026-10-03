@@ -1,0 +1,23 @@
+{
+ "Damage": "Щети",
+ "Hit chance": "Шанс за попадение",
+ "Critical": "Крит",
+ "Critical Strike": "Критичен удар",
+ "Backstab": "Удар в гръб",
+ "Backstabbing": "Удар в гръб",
+ "Armour": "Броня",
+ "Dodging": "Избягване",
+ "Attributes": "Атрибути",
+ "Skill": "Умение",
+ "Weapon": "Оръжие",
+ "Bare hands": "Голи ръце",
+ "Paperdoll": "Персонаж",
+ "Stats": "Статистика",
+ "Defence": "Защита",
+ "Hand-to-Hand": "Ръкопашен бой",
+ "foe": "противник",
+ "swing": "удар",
+ "level": "ниво",
+ "hit": "попадение",
+ "dmg": "щети"
+}

@@ -1,0 +1,23 @@
+{
+ "Damage": "Kerusakan",
+ "Hit chance": "Peluang kena",
+ "Critical": "Kritis",
+ "Critical Strike": "Serangan Kritis",
+ "Backstab": "Tikam Punggung",
+ "Backstabbing": "Tikam Punggung",
+ "Armour": "Zirah",
+ "Dodging": "Menghindar",
+ "Attributes": "Atribut",
+ "Skill": "Keahlian",
+ "Weapon": "Senjata",
+ "Bare hands": "Tangan kosong",
+ "Paperdoll": "Boneka",
+ "Stats": "Statistik",
+ "Defence": "Pertahanan",
+ "Hand-to-Hand": "Pertarungan Tangan Kosong",
+ "foe": "musuh",
+ "swing": "ayunan",
+ "level": "tingkat",
+ "hit": "kena",
+ "dmg": "kerusakan"
+}

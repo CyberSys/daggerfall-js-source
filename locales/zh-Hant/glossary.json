@@ -1,0 +1,23 @@
+{
+ "Damage": "傷害",
+ "Hit chance": "命中率",
+ "Critical": "爆擊",
+ "Critical Strike": "致命一擊",
+ "Backstab": "背刺",
+ "Backstabbing": "背刺",
+ "Armour": "護甲",
+ "Dodging": "閃避",
+ "Attributes": "屬性",
+ "Skill": "技能",
+ "Weapon": "武器",
+ "Bare hands": "徒手",
+ "Paperdoll": "人物",
+ "Stats": "數據",
+ "Defence": "防禦",
+ "Hand-to-Hand": "徒手格鬥",
+ "foe": "敵人",
+ "swing": "揮擊",
+ "level": "等級",
+ "hit": "命中",
+ "dmg": "傷害"
+}

@@ -1,0 +1,23 @@
+{
+ "Damage": "Daune",
+ "Hit chance": "Șansă de lovire",
+ "Critical": "Critic",
+ "Critical Strike": "Lovitură critică",
+ "Backstab": "Înjunghiere",
+ "Backstabbing": "Înjunghiere",
+ "Armour": "Armură",
+ "Dodging": "Eschivare",
+ "Attributes": "Atribute",
+ "Skill": "Abilitate",
+ "Weapon": "Armă",
+ "Bare hands": "Mâini goale",
+ "Paperdoll": "Siluetă",
+ "Stats": "Statistici",
+ "Defence": "Apărare",
+ "Hand-to-Hand": "Corp la corp",
+ "foe": "inamic",
+ "swing": "lovitură",
+ "level": "nivel",
+ "hit": "lovire",
+ "dmg": "daune"
+}

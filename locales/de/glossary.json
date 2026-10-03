@@ -1,0 +1,23 @@
+{
+ "Damage": "Schaden",
+ "Hit chance": "Trefferchance",
+ "Critical": "Kritisch",
+ "Critical Strike": "Kritischer Treffer",
+ "Backstab": "Rückenstich",
+ "Backstabbing": "Rückenstich",
+ "Armour": "Rüstung",
+ "Dodging": "Ausweichen",
+ "Attributes": "Attribute",
+ "Skill": "Fertigkeit",
+ "Weapon": "Waffe",
+ "Bare hands": "Bloße Hände",
+ "Paperdoll": "Figur",
+ "Stats": "Werte",
+ "Defence": "Verteidigung",
+ "Hand-to-Hand": "Faustkampf",
+ "foe": "Gegner",
+ "swing": "Schlag",
+ "level": "Stufe",
+ "hit": "Treffer",
+ "dmg": "Schaden"
+}

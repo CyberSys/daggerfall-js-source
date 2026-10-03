@@ -1,0 +1,23 @@
+{
+ "Damage": "Obrażenia",
+ "Hit chance": "Szansa trafienia",
+ "Critical": "Krytyczne",
+ "Critical Strike": "Cios krytyczny",
+ "Backstab": "Cios w plecy",
+ "Backstabbing": "Cios w plecy",
+ "Armour": "Pancerz",
+ "Dodging": "Unik",
+ "Attributes": "Atrybuty",
+ "Skill": "Umiejętność",
+ "Weapon": "Broń",
+ "Bare hands": "Gołe ręce",
+ "Paperdoll": "Postać",
+ "Stats": "Statystyki",
+ "Defence": "Obrona",
+ "Hand-to-Hand": "Walka wręcz",
+ "foe": "przeciwnik",
+ "swing": "cios",
+ "level": "poziom",
+ "hit": "trafienie",
+ "dmg": "obr."
+}

@@ -1,0 +1,23 @@
+{
+ "Damage": "Schade",
+ "Hit chance": "Trefkans",
+ "Critical": "Kritiek",
+ "Critical Strike": "Kritieke treffer",
+ "Backstab": "Rugsteek",
+ "Backstabbing": "Rugsteek",
+ "Armour": "Pantser",
+ "Dodging": "Ontwijken",
+ "Attributes": "Attributen",
+ "Skill": "Vaardigheid",
+ "Weapon": "Wapen",
+ "Bare hands": "Blote handen",
+ "Paperdoll": "Figuur",
+ "Stats": "Statistieken",
+ "Defence": "Verdediging",
+ "Hand-to-Hand": "Vuistgevecht",
+ "foe": "vijand",
+ "swing": "slag",
+ "level": "niveau",
+ "hit": "treffer",
+ "dmg": "schade"
+}

@@ -1,0 +1,23 @@
+{
+ "Damage": "Skade",
+ "Hit chance": "Træfchance",
+ "Critical": "Kritisk",
+ "Critical Strike": "Kritisk træffer",
+ "Backstab": "Rygstik",
+ "Backstabbing": "Rygstik",
+ "Armour": "Rustning",
+ "Dodging": "Undvigelse",
+ "Attributes": "Attributter",
+ "Skill": "Færdighed",
+ "Weapon": "Våben",
+ "Bare hands": "Bare hænder",
+ "Paperdoll": "Figur",
+ "Stats": "Statistik",
+ "Defence": "Forsvar",
+ "Hand-to-Hand": "Nærkamp",
+ "foe": "fjende",
+ "swing": "slag",
+ "level": "niveau",
+ "hit": "træf",
+ "dmg": "skade"
+}

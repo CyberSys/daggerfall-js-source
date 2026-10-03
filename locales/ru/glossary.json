@@ -1,0 +1,23 @@
+{
+ "Damage": "Урон",
+ "Hit chance": "Шанс попадания",
+ "Critical": "Крит",
+ "Critical Strike": "Критический удар",
+ "Backstab": "Удар в спину",
+ "Backstabbing": "Удар в спину",
+ "Armour": "Броня",
+ "Dodging": "Уклонение",
+ "Attributes": "Атрибуты",
+ "Skill": "Навык",
+ "Weapon": "Оружие",
+ "Bare hands": "Голые руки",
+ "Paperdoll": "Персонаж",
+ "Stats": "Статистика",
+ "Defence": "Защита",
+ "Hand-to-Hand": "Рукопашный бой",
+ "foe": "противник",
+ "swing": "удар",
+ "level": "уровень",
+ "hit": "попадание",
+ "dmg": "урон"
+}

@@ -1,0 +1,23 @@
+{
+ "Damage": "Dano",
+ "Hit chance": "Chance de acerto",
+ "Critical": "Crítico",
+ "Critical Strike": "Golpe Crítico",
+ "Backstab": "Punhalada",
+ "Backstabbing": "Punhalada",
+ "Armour": "Armadura",
+ "Dodging": "Esquiva",
+ "Attributes": "Atributos",
+ "Skill": "Habilidade",
+ "Weapon": "Arma",
+ "Bare hands": "Mãos nuas",
+ "Paperdoll": "Boneco",
+ "Stats": "Estatísticas",
+ "Defence": "Defesa",
+ "Hand-to-Hand": "Corpo a corpo",
+ "foe": "inimigo",
+ "swing": "golpe",
+ "level": "nível",
+ "hit": "acerto",
+ "dmg": "dano"
+}

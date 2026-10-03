@@ -1,0 +1,23 @@
+{
+ "Damage": "피해",
+ "Hit chance": "명중률",
+ "Critical": "치명타",
+ "Critical Strike": "치명타",
+ "Backstab": "백스탭",
+ "Backstabbing": "백스탭",
+ "Armour": "방어도",
+ "Dodging": "회피",
+ "Attributes": "능력치",
+ "Skill": "기술",
+ "Weapon": "무기",
+ "Bare hands": "맨손",
+ "Paperdoll": "장비",
+ "Stats": "스탯",
+ "Defence": "방어",
+ "Hand-to-Hand": "맨손 격투",
+ "foe": "적",
+ "swing": "휘두르기",
+ "level": "레벨",
+ "hit": "명중",
+ "dmg": "피해"
+}
