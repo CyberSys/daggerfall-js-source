@@ -71,7 +71,7 @@ test('BODYGUARD-CLOSE: offline nothing changes - DFU\'s `_timer_`, a day and thr
   assert.equal(q.questComplete, true, 'the day and three hours ran out');
 });
 
-test('BODYGUARD-CLOSE: what a start-up closing is NOT - a start-up block that pays (A0C41Y18) keeps its lifetime; an end that costs a standing (R0C10Y01\'s -20) or says a line (A0C10Y05\'s "too late") is a loss even after a success and stays frozen (mutants: the settling guard dropped; the quiet-close guard dropped)', () => {
+test('BODYGUARD-CLOSE: what a start-up closing is NOT - a start-up block that pays (A0C41Y18) keeps its lifetime; an end that costs a standing (R0C10Y01\'s -20) or says a line (A0C10Y05\'s "too late") is a loss even after a success and stays a deadline, on played time - frozen under TIMEFREE (mutants: the settling guard dropped; the quiet-close guard dropped)', () => {
   const kind = (q, n) => (q.resources.get(n).isDeadline ? 'deadline' : 'delay');
   for (const [name, clock] of [['A0C41Y18', 'S.10'], ['R0C10Y01', 'queston'], ['A0C10Y05', 'traveltime'], ['A0C01Y01', 'timer']]) {
     const q = parse(name, true);

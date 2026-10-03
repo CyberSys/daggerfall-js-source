@@ -7,8 +7,10 @@
 // deadlines. Re-aimed for REST8, where a deadline is no longer frozen: a deadline online runs on QCLOCK-WORLD's played
 // time and fires as DFU's (T7's frozen guard retired with the freeze - a deadline armed at nothing fires at once, online
 // as offline), a delay still lands on the short wait. The classifications are AUDIT TIMEFREE's, every one but REST8 R1's
-// two (the end alone read for the reward too: K0C00Y02's gold and S0000502's tower are deadlines); under REST8 a
-// deadline misread as a delay fires its end two minutes in, so these pins are the edge's guard.
+// two (the end alone read for the reward too: K0C00Y02's gold and S0000502's tower are deadlines) and AUDIT REST II's
+// (test/auditrest2_quests.test.js: T1's closings table retired - R0C11Y03's return is a deadline - and S0000011's chapter
+// a deadline by hand); under REST8 a deadline misread as a delay fires its end two minutes in, so these pins are the
+// edge's guard.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, readdirSync } from 'node:fs';
@@ -16,8 +18,9 @@ import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { QuestMachine } from '../src/systems/quest/machine.js';
 import { loadQuestTables } from '../src/systems/quest/tables.js';
-import { clockIsDeadline, ONLINE_CLOSINGS, ONLINE_DELAY_SECONDS, PLAYED_STEP_MAX_SECONDS } from '../src/systems/quest/clock.js';
+import * as clockModule from '../src/systems/quest/clock.js';
 
+const { clockIsDeadline, ONLINE_DEADLINES, ONLINE_DELAY_SECONDS, PLAYED_STEP_MAX_SECONDS } = clockModule;
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const rd = (p) => readFileSync(join(ROOT, p), 'utf8').replace(/^﻿/, '');
 {
@@ -51,17 +54,14 @@ test('REST8 / AUDIT TIMEFREE T1: a clock its starter starts AFTER settling the q
   assert.equal(kind(parse('A0C41Y18'), 'S.10'), 'deadline', 'the start-up block\'s `give pc nothing` starts no closing: the finger and the gold are kept their 1001 days');
 });
 
-test('REST8 / AUDIT TIMEFREE T1: the closing after a failure the reading cannot see is a delay by hand, and reads as a deadline without the table; the two that close `when` the failure and the clock both stand read as delays on their own (mutants: the table emptied)', () => {
-  assert.deepEqual(Object.entries(ONLINE_CLOSINGS).map(([q, c]) => `${q}:${c.join(',')}`).sort(), ['R0C11Y03:2ndparton']);
+test('REST8 / AUDIT TIMEFREE T1 (AUDIT REST II Q1: its closings table RETIRED): R0C11Y03\'s `_2ndparton_` was held a closing after a failure by hand - it is the time to come back for the reward after the heart is delivered, a deadline as the reading has it; the two that close `when` the failure and the clock both stand read as delays on their own (mutants: the closing by hand back)', () => {
+  assert.equal('ONLINE_CLOSINGS' in clockModule, false, 'no closings table');
+  const heart = parse('R0C11Y03');
+  assert.equal(clockIsDeadline(heart, heart.resources.get('2ndparton')), true, 'the reading: its end costs the questgiver -30 and ends the quest');
+  assert.equal(kind(heart, '2ndparton'), 'deadline', '"if you\'re not back in =2ndparton_ days, %g may forget you even left" - its days, played');
+  assert.equal((ONLINE_DEADLINES.R0C11Y03 ?? []).length, 0, '...the reading\'s own, not the hand\'s');
   assert.equal(kind(parse('N0B20Y02'), 'S.09'), 'delay', '`when _S.07_ and _S.09_` - the revenge week closes the failed quest');
   assert.equal(kind(parse('N0B10Y03'), 'S.10'), 'delay', '`when _S.10_ and _S.07_` - the unguarded hall\'s hour closes it');
-  for (const [quest, clocks] of Object.entries(ONLINE_CLOSINGS)) {
-    const q = parse(quest);
-    for (const c of clocks) {
-      assert.equal(clockIsDeadline(q, q.resources.get(c)), true, `${quest}:${c} reads as a deadline - why it is in the table`);
-      assert.equal(kind(q, c), 'delay', `${quest}:${c}, by hand`);
-    }
-  }
 });
 
 test('REST8 / AUDIT TIMEFREE T1/T5: online, before the quest is a success a task-started deadline runs on played time; once it is a SUCCESS it closes on the short wait; one started after it - a new limit - and one the start-up block started stay deadlines on played time; the mark rides the save (mutants: the run-time half dropped, the after-success mark ignored, the mark not saved)', () => {
@@ -111,9 +111,11 @@ test('REST8 / AUDIT TIMEFREE T2: what an end DOES costs a standing, not what a l
   assert.equal(kind(parse('_BRISIEN'), 'pcfailed'), 'deadline', 'her fortnight lowers her own standing - still a deadline');
 });
 
-test('REST8 / AUDIT TIMEFREE T3: `end quest` is a loss only when the end ALONE sets it off - the engine\'s own reading of the `when`; a clock declared at an explicit zero with no travel arm is "at once", never a deadline (mutants: the `alone` reading dropped, the at-once rule dropped)', () => {
+test('REST8 / AUDIT TIMEFREE T3: `end quest` is a loss only when the end ALONE sets it off - the engine\'s own reading of the `when`; a clock declared at an explicit zero with no travel arm is "at once", never a deadline; S0000011\'s chapter, which the reading calls a delay, is a deadline by hand (AUDIT REST II Q2) (mutants: the `alone` reading dropped, the at-once rule dropped, the chapter out of the table)', () => {
   assert.equal(kind(parse('S0000016'), 'delay'), 'delay', 'the main quest\'s endings: `when _S.01_ and _S.02_ and _delay_` - a beat after the story, not a loss');
-  assert.equal(kind(parse('S0000011'), 'S.01'), 'delay', 'Chapter 6 laid out after six days, `when _S.01_ and not _S.04_`');
+  const chapter = parse('S0000011');
+  assert.equal(clockIsDeadline(chapter, chapter.resources.get('S.01')), false, 'Chapter 6 moved after six days, `when _S.01_ and not _S.04_` - no loss the reading can see');
+  assert.equal(kind(chapter, 'S.01'), 'deadline', 'AUDIT REST II Q2: by hand - "Time is of the essence. I\'m sure Gortwog will not wait long." (its end the Necromancers\' theft, not a beat after the story)');
   assert.equal(kind(parse('S0000500'), 'firsttimer'), 'deadline', '`when _firsttimer_ and not _S.03_` fires on the time-out alone: a loss');
   const favour = parse('S0000106');
   assert.equal(favour.resources.get('delay').declaredAtOnce, true, '`Clock _delay_ 00:00`');
@@ -147,11 +149,11 @@ test('REST8 / AUDIT TIMEFREE: the main quest\'s deadlines, every one read by han
   assert.deepEqual(main, [
     'S0000002:1stparton', 'S0000003:2shedungent', 'S0000004:2ndgo', 'S0000005:2shedungent', 'S0000006:queston',
     'S0000007:2mondung', 'S0000007:2ndparton', 'S0000008:oneyear', 'S0000009:S.14', 'S0000010:itemindung',
-    'S0000011:S.18', 'S0000012:S.07', 'S0000013:2myndung', 'S0000100:S.02', 'S0000101:S.02', 'S0000102:S.02',
+    'S0000011:S.01', 'S0000011:S.18', 'S0000012:S.07', 'S0000013:2myndung', 'S0000100:S.02', 'S0000101:S.02', 'S0000102:S.02',
     'S0000103:S.02', 'S0000104:S.02', 'S0000500:firsttimer', 'S0000500:executiondelay', 'S0000500:escapetime',
     'S0000501:patsy', 'S0000501:time2', 'S0000502:S.03', 'S0000502:towertime', 'S0000503:S.02', 'S0000503:S.10',
     'S0000503:S.21', 'S0000503:S.31', '_BRISIEN:remindpc', '_BRISIEN:pcfailed',
-  ], 'AUDIT TIMEFREE\'s thirty, and REST8 R1\'s tower');
+  ], 'AUDIT TIMEFREE\'s thirty, REST8 R1\'s tower and AUDIT REST II\'s chapter');
   for (const id of main) {
     const [quest, clock] = id.split(':');
     assert.equal(parse(quest, true).resources.get(clock).waitsShort, false, `${id}: online, no short wait`);

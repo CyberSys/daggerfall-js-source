@@ -130,16 +130,22 @@ export function clockCounts(quest, clock) {
  *    reward that comes after a wait, a closing (AUDIT TIMEFREE T1). Online its remainder is cut once to
  *    ONLINE_DELAY_SECONDS of the character's own clock (about two real minutes of play) - or its own, if less - and then
  *    charged as any clock: the beat lands, nobody plays a day for a letter.
+ * AUDIT REST II (THE RULE, decided): a clock the quest's own text presents to the player as a TIME LIMIT - a window to
+ * act, to return, to fetch something before it is lost - is a deadline; a clock that only makes the player WAIT is a
+ * delay. The reading below is the script's guess at that, and the hand table (ONLINE_DEADLINES) corrects it where the
+ * guess is wrong.
  * The reading is the script's own tasks: what the end does, what starts from it, what a `when` reads of it, and who
  * started the clock; the run-time half is the quest's success (Clock isDeadline). AUDIT TIMEFREE read all 399 vendored
- * clocks by hand (262 deadlines, 137 delays) and its two hand tables below stand as it left them; REST8's own read found
- * two deadlines the reading called delays (R1, readsAsDeadline: K0C00Y02's gold, S0000502's tower) - 264 and 135 then;
- * AUDIT REST-PARTY D2 two more, by hand (ONLINE_DEADLINES: N0B00Y17's scholar, K0C30Y03's guard) - 266 and 133 now,
- * the main quest's deadlines 31. THE EDGE: a deadline read as a delay fires its end - a failure - two minutes in (as
- * under TIMEFREE, whose delays were cut the same); a delay read as a deadline now only waits its played days, where
- * TIMEFREE froze it for ever. The one harmful misreading is the first (R1's two were it), so the pins hold the split,
- * both tables and the main quest's 31 deadlines, and test/rest8_questwaits.test.js ticks every vendored clock past the
- * short wait. Offline none of it - DFU's clock. [SUPERSEDES QCLOCK-WORLD's delays on played time; TIMEFREE's frozen
+ * clocks by hand (262 deadlines, 137 delays) and left two hand tables; REST8's own read found two deadlines the reading
+ * called delays (R1, readsAsDeadline: K0C00Y02's gold, S0000502's tower) - 264 and 135 then; AUDIT REST-PARTY D2 two
+ * more, by hand (ONLINE_DEADLINES: N0B00Y17's scholar, K0C30Y03's guard) - 266 and 133; AUDIT REST II three more:
+ * R0C11Y03's return to the questgiver, the one entry of AUDIT TIMEFREE's closings table (retired with it - the reading
+ * calls it a deadline), and by hand S0000011's chapter and O0B00Y12's drop - 269 and 130 now, the main quest's
+ * deadlines 32. THE EDGE: a deadline read as a delay fires its end - a failure - two minutes in (as under TIMEFREE, whose
+ * delays were cut the same); a delay read as a deadline now only waits its played days, where TIMEFREE froze it for
+ * ever. The one harmful misreading is the first (R1's two were it, and AUDIT REST II's three), so the pins hold the
+ * split, the table and the main quest's 32 deadlines, and test/rest8_questwaits.test.js ticks every vendored clock past
+ * the short wait. Offline none of it - DFU's clock. [SUPERSEDES QCLOCK-WORLD's delays on played time; TIMEFREE's frozen
  * deadlines stay reverted.]
  */
 export const ONLINE_DELAY_SECONDS = 24 * 60;
@@ -234,7 +240,14 @@ function startersOf(quest, name) {
  *  `give pc _gold_`), Brisienna's `_oneday_` (started by meeting her - whose `start task` starts the main quest - and by
  *  her fortnight running out), the main quest's S0000007 `_delay_`. Read as deadlines they never ran out online and
  *  those quests stood open for ever (REST8: they would close only after their days played - a delay closes them on the
- *  short wait). (The run-time half - a quest already a success - is the Clock's `isDeadline`.) */
+ *  short wait). (The run-time half - a quest already a success - is the Clock's `isDeadline`.)
+ *  AUDIT REST II Q1: T1 also kept a hand table of closings after a failure the reading could not see, ONLINE_CLOSINGS,
+ *  whose one entry - R0C11Y03's `_2ndparton_` - was no closing: the heart handed to the chemist is the quest done RIGHT
+ *  ("After you have delivered it, return for your reward"; the chemist: "if you're not back in =2ndparton_ days, %g may
+ *  forget you even left"), and `_2ndparton_` is the time to come back and be paid. Cut to the short wait, the quest
+ *  failed (-30, ended unpaid) two minutes after a correct delivery. The table is RETIRED with its entry: under REST8 a
+ *  closing misread as a deadline only waits its played days (no freeze to stand open for ever), so the harm it guarded
+ *  is gone, and no other clock needed it. */
 function closes(quest, name) {
   for (const tn of startersOf(quest, name)) {
     if (reached(quest, tn, { conditional: false }).settles) return true;
@@ -253,9 +266,10 @@ const QUIET_CLOSE = new Set(['EndQuest', 'MakePermanent', 'DropAsQuestor']);
  *  when the start-up block settles nothing - the success, if it comes, is a later task's - and the clock's end is a
  *  QUIET close, that end is the only `end quest` a script that pays and never closes has: A0C01Y01 (The Bodyguard)
  *  pays on `when _clickqgiver_ and _slain_` and ends only on `_timer_`, a day and three hours after the offer. Frozen
- *  online, it stood paid and open for ever. The run-time half is the Clock's `isDeadline`, as T1's: still a deadline
- *  until the quest is a success. An end that costs a standing or says or sends anything (R0C10Y01's -20 beside its own
- *  `_delay_`, A0C10Y05's "too late" line) is a loss even then, and stays frozen. */
+ *  online under TIMEFREE, it stood paid and open for ever (under REST8 it would have closed only after its day and three
+ *  hours played). The run-time half is the Clock's `isDeadline`, as T1's: still a deadline until the quest is a success.
+ *  An end that costs a standing or says or sends anything (R0C10Y01's -20 beside its own `_delay_`, A0C10Y05's "too
+ *  late" line) is a loss even then, and stays a deadline, on played time (it was frozen under TIMEFREE). */
 function closesStartUp(quest, name) {
   const startUp = [...(quest.tasks?.keys() ?? [])].filter((tn) => /^\d+$/.test(tn));
   const starts = (tn) => quest.tasks.get(tn)?.actions.some((a) => a.constructor?.typeName === 'StartStopTimer' && a.isStartTimer && a.targetSymbol?.name === name);
@@ -290,7 +304,14 @@ export function clockIsDeadline(quest, clock) {
  *  180 days to find the artifact (`end quest`) the map read in the lich's lair starts. The knight's `give pc nothing`
  *  (`_success_`: the lich's death reported, the quest a success but not over) can come after the map is read, and a
  *  task started the clock - so isDeadline read the success as the quest closing, and online the artifact hunt ended two
- *  minutes after the knight's word. An entry here is never a closing (isDeadline: `_closesOnSuccess` skips the table). */
+ *  minutes after the knight's word. An entry here is never a closing (isDeadline: `_closesOnSuccess` skips the table).
+ *  AUDIT REST II Q2 (THE RULE): two more whose text sets a time limit the reading calls a wait, each ending a route the
+ *  quest opened. S0000011's `_S.01_` (the main quest's chapter: "Time is of the essence. I'm sure Gortwog will not wait
+ *  long." - its end moves Chapter6 out of Orsinium to Scourg Barrow, "The Necromancers have stolen it") and O0B00Y12's
+ *  `_S.01_` ("It needs to be in ___contact1_ as soon as possible. _contact1_ will meet you there" - its end hides the
+ *  contact, sends the note "The heat got too intense for me to wait around" and the smugglers' assassins; the questor's
+ *  fail line: "Didn't I say 'as soon as possible'?"). Read as delays, the theft and the missed drop came two minutes
+ *  after the quest was taken, for every player online. */
 export const ONLINE_DEADLINES = Object.freeze({
   $CUREWER: Object.freeze(['huntstart']),
   $CUREVAM: Object.freeze(['huntstart']),
@@ -300,15 +321,8 @@ export const ONLINE_DEADLINES = Object.freeze({
   N0B00Y17: Object.freeze(['time2']),   // AUDIT REST-PARTY D2: the scholar's "Please be prompt"
   K0C30Y03: Object.freeze(['S.13']),   // AUDIT REST-PARTY D2: the guard's lead
   B0B81Y02: Object.freeze(['S.30']),   // AUDIT REST-PARTY D1: the artifact hunt, through the knight's reward
-});
-
-/** AUDIT TIMEFREE T1: the closing after a FAILURE the reading cannot tell from a story beat (a starter that costs a
- *  standing is as often the plot - S0000500's traitor - as the loss): R0C11Y03's turn after the item went to the
- *  chemist, whose own end costs the questgiver and ends the quest. Frozen, the failed quest stood open for ever. A delay,
- *  by hand. (N0B20Y02's week of the mage's revenge and N0B10Y03's hour after the unguarded hall end the quest only
- *  `when` the failure AND the clock stand - T3's reading already calls them delays.) */
-export const ONLINE_CLOSINGS = Object.freeze({
-  R0C11Y03: Object.freeze(['2ndparton']),
+  S0000011: Object.freeze(['S.01']),   // AUDIT REST II Q2: Barenziah's chapter, before the Necromancers steal it
+  O0B00Y12: Object.freeze(['S.01']),   // AUDIT REST II Q2: the drop, "as soon as possible"
 });
 
 /** REST8: whether the quest's DELAYS take the short wait - online (the shared clock standing), the quest's own word.
@@ -407,7 +421,7 @@ export class Clock extends QuestResource {
       const name = this.symbol?.name;
       const atOnce = this.declaredAtOnce && !/^_2.*_$/.test(this.symbol?.original ?? '');   // (a `_2place_` clock's zero is its trip, StartTimer's)
       this._deadline = (ONLINE_DEADLINES[q?.questName] ?? []).includes(name)
-        || (!(ONLINE_CLOSINGS[q?.questName] ?? []).includes(name) && !atOnce && clockIsDeadline(q, this));
+        || (!atOnce && clockIsDeadline(q, this));   // (AUDIT REST II Q1: no closings table - see `closes`)
       // AUDIT REST-PARTY D1/D4: never a table entry - the hand's word stands through the success (B0B81Y02's artifact
       // hunt outlives the knight's reward), and until D4 nothing failed when the exemption went
       this._closesOnSuccess = this._deadline && !(ONLINE_DEADLINES[q?.questName] ?? []).includes(name)

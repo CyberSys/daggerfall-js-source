@@ -28,13 +28,15 @@
     ]
   },
   {
-    "name": "REST8-AUDIT-TIMEFREE-T1-the-closings-table-emptied",
+    "name": "REST8-AUDIT-TIMEFREE-T1-the-closing-by-hand-back",
     "file": "src/systems/quest/clock.js",
-    "old": "        || (!(ONLINE_CLOSINGS[q?.questName] ?? []).includes(name) && !atOnce && clockIsDeadline(q, this));",
-    "new": "        || (!atOnce && clockIsDeadline(q, this));",
+    "old": "        || (!atOnce && clockIsDeadline(q, this));",
+    "new": "        || (!(q?.questName === 'R0C11Y03' && name === '2ndparton') && !atOnce && clockIsDeadline(q, this));",
     "tests": [
-      "test/rest8_audit_timefree.test.js"
-    ]
+      "test/rest8_audit_timefree.test.js",
+      "test/auditrest2_quests.test.js"
+    ],
+    "note": "AUDIT REST II (PIN MOVED): ONLINE_CLOSINGS is retired with its one entry (AUDIT REST II Q1), so the record that emptied it (REST8-AUDIT-TIMEFREE-T1-the-closings-table-emptied) is re-aimed - R0C11Y03's `_2ndparton_` back as a closing by hand is the mutant now: online the quest fails two minutes after the heart is delivered."
   },
   {
     "name": "REST8-AUDIT-TIMEFREE-T1-the-run-time-half-dropped",

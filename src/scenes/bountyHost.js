@@ -26,7 +26,7 @@ import {
   BOUNTY_VENDOR, bountyDay, bountySites, boardPostings, postingFromId, parseBountyId, postingState,
   bountyDungeons, newBountyLedger, readBountyLedger, takeBounty, dropBounty, payBounty, lapseBounties, pruneBountyLedger,
   bountyPoseField, bountyPackOwner, bountyHuntKey, bountyTierFits, bountyMinutesLeft, rewardStory, BOUNTY_REWARD_TITLE, BOUNTY_ACTIVE_MAX,
-  MINUTES_PER_DAY, bountyIdAtLevel, bountyPartyKills, bountyClearPays,
+  MINUTES_PER_DAY, bountyIdAtLevel, bountyPartyKills, bountyClearPays, restampNeverLapsed,
 } from '../systems/bountyBoard.js';
 import { mintBountyItem, bountyItemName, bountyRewardRows } from '../systems/bountyReward.js';
 import { registerModSaveData } from '../systems/modSaveData.js';
@@ -34,6 +34,7 @@ import { addGoldPieces, addItem } from '../systems/inventory.js';
 import { BOUNTY_RING_R } from '../ui/bountyMapMark.js';
 import { setBountyJournal, BOUNTY_QUEST_PREFIX } from '../systems/bountyJournal.js';
 import { rewardContract } from '../systems/standing.js';   // REP4: a contract finished, the region's law two points better
+import { sharedClockOn } from '../systems/worldTick.js';   // AUDIT REST II Q3: the never-lapse build's rows, re-stamped online
 
 /** How often the host looks at the world, seconds. */
 export const BOUNTY_TICK_S = 0.5;
@@ -491,6 +492,9 @@ export function createBountyHost(deps) {
     if (acc < BOUNTY_TICK_S) { showNextNotice(); return; }
     acc = 0;
     const now = deps.now();
+    // AUDIT REST II Q3: a ledger the never-lapse build (TIMEFREE) wrote, first played online here - its held rows kept
+    // no time there, so each runs from now, once; without it every row held a day lapsed on this tick, kills and all
+    if (sharedClockOn()) restampNeverLapsed(ledger, now);
     // AUDIT 28 B10: a bounty taken "later" than now was taken on another clock (an offline save played online): it
     // runs from now, never for days, and never lapses before it began
     for (const h of ledger.held) if (h.takenAt > now) h.takenAt = now;
