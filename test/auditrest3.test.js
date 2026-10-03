@@ -188,3 +188,52 @@ test('AUDIT REST III B3: Firewood feeds the emptiest of my Campfires in reach th
   assert.equal(said.at(-1), REST_ITEM_TEXT.firewoodFull, 'every one full: the full word');
   assert.equal(wood.stackCount, 1, 'and the stick kept');
 });
+
+test('AUDIT REST III A2, A3: a tent\'s Stoke is its owner\'s - a friend\'s cold tent offers none (stoked on my screen alone, put out by its owner\'s next frame under the rest it promised); online my own cold tent keeps its Rest after its Stoke (the rest stokes it first, and was never refused); one worn out, neither; offline the list is as it was (mutants: the tent\'s stoke for anyone; the tent\'s rest dropped; any cold camp\'s rest kept)', async () => {
+  const { campMenu, CAMP_KIND } = await import('../src/systems/survival/camp.js');
+  const keys = (rows) => rows.map((r) => r.key);
+  const coldTent = { kind: CAMP_KIND.Tent, wear: 30, litUntil: 5 };
+  assert.deepEqual(keys(campMenu(coldTent, 10, false, { online: true })), ['cook'], 'a friend\'s cold tent: its embers, as a friend\'s cold fire');
+  assert.deepEqual(keys(campMenu(coldTent, 10, true, { online: true })), ['stoke', 'rest', 'cook', 'pack'], 'mine: Stoke, then the Rest that stokes it');
+  assert.deepEqual(keys(campMenu({ ...coldTent, wear: 0 }, 10, true, { online: true })), ['cook', 'pack'], 'worn out: neither');
+  assert.deepEqual(keys(campMenu({ kind: CAMP_KIND.Fire, fuel: true, wear: 6, litUntil: 5 }, 10, true, { online: true })), ['stoke', 'cook', 'pack'], 'a cold Campfire still offers no rest (relight it first)');
+  assert.deepEqual(keys(campMenu(coldTent, 10, true)), ['rest', 'cook', 'stoke', 'pack'], 'offline (every camp mine): as it was');
+  assert.deepEqual(keys(campMenu({ ...coldTent, litUntil: 99 }, 10, false, { online: true })), ['rest', 'cook'], 'a friend\'s lit tent: rest and cook');
+});
+
+test('AUDIT REST III B5, H12 by behaviour (lens F8): an Ember Jar\'s fire is named as itself when looked at, as on its hover; online my cold Campfire\'s list leads with Relight and the plaque\'s Rest does not rest - the pool reads the lane on its own (mutants: the jar a Campfire; the lane unread)', async () => {
+  const { setPref } = await import('../src/systems/uiPrefs.js');
+  const { setWorldMinutes } = await import('../src/systems/worldTick.js');
+  const { createCamps } = await import('../src/scenes/camps.js');
+  const { createSurvivalItem } = await import('../src/systems/survival/items.js');
+  const { TEMPLATE } = await import('../src/systems/survival/food.js');
+  const { createRestItem, REST_ITEM } = await import('../src/systems/restItems.js');
+  const { CAMP_TEXT, campInfoText, CAMP_KIND } = await import('../src/systems/survival/camp.js');
+  assert.equal(campInfoText({ kind: CAMP_KIND.Fire, jar: true, wear: 1, litUntil: 99 }, 10, true), CAMP_TEXT.seeOwnJar);
+  assert.equal(campInfoText({ kind: CAMP_KIND.Fire, jar: true, wear: 1, litUntil: 99 }, 10, false), CAMP_TEXT.seeJar);
+  assert.equal(CAMP_TEXT.seeOwnJar, 'You see your Ember Jar fire.');
+  assert.equal(campInfoText({ kind: CAMP_KIND.Fire, fuel: true, wear: 6, litUntil: 99 }, 10, true), CAMP_TEXT.seeOwnFire, 'a Campfire stays one');
+  const pool = (entity, rests) => createCamps({
+    entity, camera: () => ({ feet: [0, 1, 0], yaw: 0 }), collider: () => ({ raycast: (o, d, m) => (d[1] < 0 && m >= o[1] ? o[1] : null) }),
+    place: () => ({}), say: () => {}, openRest: () => rests.push(1), showOverlay: () => {},
+  });
+  setPref('survival', true); setWorldMinutes(1000);
+  const jarEntity = { items: [createRestItem(REST_ITEM.EmberJar)] };
+  const said = [];
+  const jp = createCamps({ entity: jarEntity, camera: () => ({ feet: [0, 1, 0], yaw: 0 }), collider: () => ({ raycast: (o, d, m) => (d[1] < 0 && m >= o[1] ? o[1] : null) }), place: () => ({}), say: (l) => said.push(l), openRest: () => {}, showOverlay: () => {} });
+  jp.placeItem(jarEntity.items[0], jarEntity.items);
+  jp.activate(`camp:${jp.camps[0].rec.id}`, 'info');
+  assert.equal(said.at(-1), CAMP_TEXT.seeOwnJar, 'the pool says it too');
+  for (const online of [false, true]) {
+    setSharedClock(online ? () => 5_000_000 : null);
+    const rests = [];
+    const entity = { items: [createSurvivalItem(TEMPLATE.Campfire)] };
+    const p = pool(entity, rests);
+    assert.equal(p.placeItem(entity.items[0], entity.items), true);
+    p.camps[0].rec.litUntil = 0;   // burned down, its fuel left
+    const key = `camp:${p.camps[0].rec.id}`;
+    assert.equal(p.hoverName(key).actions[0].id, online ? 'stoke' : 'rest', online ? 'online: Relight leads' : 'offline: as it was');
+    p.activate(key, 'grab', 'rest');
+    assert.equal(rests.length, online ? 0 : 1, online ? 'the plaque\'s Rest rests nobody at a cold fire online' : 'offline it rests, as DFU rests anywhere');
+  }
+});

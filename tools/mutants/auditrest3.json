@@ -340,5 +340,90 @@
       "test/auditrest3.test.js",
       "test/auditrest2_camps.test.js"
     ]
+  },
+  {
+    "name": "AUDITREST3-A2-a-tent-s-stoke-for-anyone",
+    "file": "src/systems/survival/camp.js",
+    "old": "if (camp.kind === CAMP_KIND.Tent && mine && !fireLit(camp, now)",
+    "new": "if (camp.kind === CAMP_KIND.Tent && !fireLit(camp, now)",
+    "tests": [
+      "test/auditrest3.test.js"
+    ]
+  },
+  {
+    "name": "AUDITREST3-A3-the-tent-s-rest-dropped",
+    "file": "src/systems/survival/camp.js",
+    "old": "const restable = mine && camp.kind === CAMP_KIND.Tent && (camp.wear | 0) > 0;",
+    "new": "const restable = false;",
+    "tests": [
+      "test/auditrest3.test.js",
+      "test/auditrest2_camps.test.js"
+    ]
+  },
+  {
+    "name": "AUDITREST3-A3-any-cold-camp-rests",
+    "file": "src/systems/survival/camp.js",
+    "old": "const restable = mine && camp.kind === CAMP_KIND.Tent && (camp.wear | 0) > 0;",
+    "new": "const restable = true;",
+    "tests": [
+      "test/auditrest3.test.js",
+      "test/auditrest2_camps.test.js"
+    ]
+  },
+  {
+    "name": "AUDITREST3-A3-a-friend-s-tent-rests",
+    "file": "src/systems/survival/camp.js",
+    "old": "const restable = mine && camp.kind === CAMP_KIND.Tent && (camp.wear | 0) > 0;",
+    "new": "const restable = camp.kind === CAMP_KIND.Tent && (camp.wear | 0) > 0;",
+    "tests": [
+      "test/auditrest3.test.js"
+    ]
+  },
+  {
+    "name": "AUDITREST3-A3-a-worn-tent-rests",
+    "file": "src/systems/survival/camp.js",
+    "old": "const restable = mine && camp.kind === CAMP_KIND.Tent && (camp.wear | 0) > 0;",
+    "new": "const restable = mine && camp.kind === CAMP_KIND.Tent;",
+    "tests": [
+      "test/auditrest3.test.js"
+    ]
+  },
+  {
+    "name": "AUDITREST3-B5-the-jar-a-campfire",
+    "file": "src/systems/survival/camp.js",
+    "old": "  if (camp.jar) return mine ? CAMP_TEXT.seeOwnJar : CAMP_TEXT.seeJar;",
+    "new": "",
+    "tests": [
+      "test/auditrest3.test.js"
+    ]
+  },
+  {
+    "name": "AUDITREST3-B5-whose-jar",
+    "file": "src/systems/survival/camp.js",
+    "old": "  if (camp.jar) return mine ? CAMP_TEXT.seeOwnJar : CAMP_TEXT.seeJar;",
+    "new": "  if (camp.jar) return mine ? CAMP_TEXT.seeJar : CAMP_TEXT.seeOwnJar;",
+    "tests": [
+      "test/auditrest3.test.js"
+    ]
+  },
+  {
+    "name": "AUDITREST3-H12-the-hover-reads-no-lane",
+    "file": "src/scenes/camps.js",
+    "old": "if (usable()) out.actions = campMenu(c.rec, now(), mine(c), { online: sharedClockOn() })",
+    "new": "if (usable()) out.actions = campMenu(c.rec, now(), mine(c), { online: false })",
+    "tests": [
+      "test/auditrest3.test.js",
+      "test/auditrest2_camps.test.js"
+    ]
+  },
+  {
+    "name": "AUDITREST3-H12-the-plaque-reads-no-lane",
+    "file": "src/scenes/camps.js",
+    "old": "if (lit && campMenu(c.rec, now(), mine(c), { online: sharedClockOn() })",
+    "new": "if (lit && campMenu(c.rec, now(), mine(c), { online: false })",
+    "tests": [
+      "test/auditrest3.test.js",
+      "test/auditrest2_camps.test.js"
+    ]
   }
 ]

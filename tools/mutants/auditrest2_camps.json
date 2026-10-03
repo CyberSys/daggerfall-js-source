@@ -284,11 +284,12 @@
   {
     "name": "AUDITREST2-H12-the-stoke-not-first",
     "file": "src/systems/survival/camp.js",
-    "old": "    return [...stoke, ...rows.filter((r) => r.key !== 'rest' && r.key !== 'stoke')];",
-    "new": "    return rows.filter((r) => r.key !== 'rest');",
+    "old": "    return [...stoke, ...rows.filter((r) => (r.key !== 'rest' || restable) && r.key !== 'stoke')];",
+    "new": "    return rows.filter((r) => r.key !== 'rest' || restable);",
     "tests": [
       "test/auditrest2_camps.test.js"
-    ]
+    ],
+    "note": "AUDIT REST III A3 (PIN MOVED): my own cold tent's Rest kept; re-aimed by content."
   },
   {
     "name": "AUDITREST2-H12-the-plaque-unlaned",

@@ -239,7 +239,7 @@ test('AUDIT REST II H12: online a cold camp offers no Rest - it is no rest point
   assert.equal(campMenu(coldFire, 10, true, { online: true })[0].text, CAMP_TEXT.menuRelight);
   assert.deepEqual(keys(campMenu({ ...coldFire, wear: 0 }, 10, true, { online: true })), ['cook', 'pack'], 'no fuel: pick it up');
   assert.deepEqual(keys(campMenu(coldFire, 10, false, { online: true })), ['cook'], 'a friend\'s cold fire: its embers');
-  assert.deepEqual(keys(campMenu(coldTent, 10, true, { online: true })), ['stoke', 'cook', 'pack'], 'a cold tent: Stoke first');
+  assert.deepEqual(keys(campMenu(coldTent, 10, true, { online: true })), ['stoke', 'rest', 'cook', 'pack'], 'a cold tent: Stoke first (AUDIT REST III A3 re-aim: its Rest kept - it stokes the tent first)');
   assert.deepEqual(keys(campMenu(litFire, 10, true, { online: true })), ['rest', 'cook', 'pack'], 'lit: as ever');
   assert.deepEqual(keys(campMenu(coldFire, 10, true)), ['rest', 'cook', 'stoke', 'pack'], 'offline: as it was');
   const c = rd('src/scenes/camps.js');

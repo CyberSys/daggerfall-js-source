@@ -80,7 +80,6 @@ export const CAMP_TEXT = Object.freeze({
   arcOff: 'Turn Climates & Calories on to make camp.',
   pitched: 'You pitch your tent and light a fire.',
   lit: 'You light a campfire.',
-  kitSpent: 'That was the last of your Campfire Kit.',
   packed: 'You pack up your camp.',
   stamped: 'You stamp out the fire.',
   notYours: 'This is not your camp to pack.',
@@ -93,6 +92,8 @@ export const CAMP_TEXT = Object.freeze({
   seeCamp: 'You see a camp.',
   seeOwnFire: 'You see your Campfire.',
   seeFire: 'You see a campfire.',
+  seeOwnJar: 'You see your Ember Jar fire.',   // AUDIT REST III B5: as its hover names it (AUDIT REST II H13)
+  seeJar: 'You see an Ember Jar fire.',
   seeEmbers: 'You see the embers of a fire.',
   seeHearth: 'You see a fire burning.',   // HEARTH1: the world's own, which is nobody's to pack
   menuRest: 'Rest here',
@@ -266,21 +267,25 @@ export const byFire = (camps, pos, now) => !!nearestFire(camps, pos, now);
 export function campInfoText(camp, now, mine) {
   if (camp.kind === CAMP_KIND.Tent) return mine ? CAMP_TEXT.seeOwnCamp : CAMP_TEXT.seeCamp;
   if (!fireLit(camp, now)) return CAMP_TEXT.seeEmbers;
+  if (camp.jar) return mine ? CAMP_TEXT.seeOwnJar : CAMP_TEXT.seeJar;   // AUDIT REST III B5: an Ember Jar's is no Campfire, here as on its hover
   return mine ? CAMP_TEXT.seeOwnFire : CAMP_TEXT.seeFire;
 }
 /** The menu's rows: rest and cook at any camp; stoke a cold tent; REST2: relight your own cold Campfire while it has
  *  fuel; pack your tent, or pick your Campfire up. The keys are the plaque's action ids (REST2: the loot plaque's rows). */
 export function campMenu(camp, now, mine, { online = false } = {}) {
   const rows = [{ key: 'rest', text: CAMP_TEXT.menuRest }, { key: 'cook', text: CAMP_TEXT.menuCook }];
-  if (camp.kind === CAMP_KIND.Tent && !fireLit(camp, now) && (camp.wear | 0) > 0) rows.push({ key: 'stoke', text: CAMP_TEXT.menuStoke });
+  if (camp.kind === CAMP_KIND.Tent && mine && !fireLit(camp, now) && (camp.wear | 0) > 0) rows.push({ key: 'stoke', text: CAMP_TEXT.menuStoke });   // AUDIT REST III A2: my own - a friend's tent stoked here is stoked on my screen alone (its owner publishes it, camps.js act), and the owner's next frame (2 s) puts it out under the rest it promised
   if (camp.kind === CAMP_KIND.Fire && mine && !camp.jar && !fireLit(camp, now) && (camp.wear | 0) > 0) rows.push({ key: 'stoke', text: CAMP_TEXT.menuRelight });
   if (mine && !camp.jar && (camp.kind === CAMP_KIND.Tent || !!camp.fuel)) rows.push({ key: 'pack', text: camp.kind === CAMP_KIND.Tent ? CAMP_TEXT.menuPack : CAMP_TEXT.menuPickUp });   // AUDIT REST-PARTY B5: never an old save's kit fire (no fuel of its own: AUDIT REST F12 - it burns away as it always did; picked up, it was a second Campfire from nothing)
   // AUDIT REST II H12: online a cold camp is no rest point (restAct asks a LIT fire), so its Rest row only refused, with
   // the wrong words ("Find a fire or a bed to rest."): it goes, and the fire's own act - Relight, Stoke - leads, the row
-  // a click takes. Offline any rest is DFU's, anywhere, and the list is as it was.
+  // a click takes. Offline any rest is DFU's, anywhere, and the list is as it was. AUDIT REST III A3: but my own cold
+  // tent's Rest stays, after its Stoke - that rest stokes the tent first (camps.js act, SURV3's "a rest will") and was
+  // never refused.
   if (online && !fireLit(camp, now)) {
     const stoke = rows.filter((r) => r.key === 'stoke');
-    return [...stoke, ...rows.filter((r) => r.key !== 'rest' && r.key !== 'stoke')];
+    const restable = mine && camp.kind === CAMP_KIND.Tent && (camp.wear | 0) > 0;
+    return [...stoke, ...rows.filter((r) => (r.key !== 'rest' || restable) && r.key !== 'stoke')];
   }
   return rows;
 }
