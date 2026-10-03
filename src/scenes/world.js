@@ -3714,7 +3714,7 @@ export async function bootWorld(canvas, renderer, params, status) {
           // WM2f: the mill's companion building is part of an enhanced-skin
           // departure; the 1:1 lane must not see it.
           if (placed.enhancedOnly && !isEnhanced()) continue;
-          const gpu = await getGpuMesh(placed.modelIdNum);
+          const gpu = await getGpuMesh(placed.modelIdNum, () => breather.breathe());   // AUDIT PRE-MERGE 1003 W6: a model built here breathes with the pixel (the colosseum's seal)
           if (!gpu) continue;
           const climateFree = isClimateFreeModel(placed.modelIdNum);   // ARENA1: the colosseum - never swapped, nor a key of the pixel's table
           if (!climateFree) await remapSubMeshes(gpu.subMeshes, texRemap, townClimateArchive, pipeline);
@@ -3818,7 +3818,7 @@ export async function bootWorld(canvas, renderer, params, status) {
             // GUILD1d: the building's first door, measured where it stands - its hall's banners hang beside it
             const hf = homeKey != null ? pixelHomeFrames.get(homeKey) : null;
             if (hf && !hf.door) hf.door = doorCornersOf(cpu.doors[0], local);
-            if (dfLocation.hasDungeon) for (const d of cpu.doors) if (d.type === DOOR_TYPE.DUNGEON_ENTRANCE) pixelDungeonDoors.push({ door: doorCornersOf(d, local), box, normal: doorNormalOf(d, local) });   // CASTLE-GATE (AUDIT G1: its outward normal)
+            if (dfLocation.hasDungeon) for (const d of cpu.doors) if (d.type === DOOR_TYPE.DUNGEON_ENTRANCE) pixelDungeonDoors.push({ door: doorCornersOf(d, local), box, normal: doorNormalOf(d, local), arena: b.blockName === ARENA_BLOCK });   // CASTLE-GATE (AUDIT G1: its outward normal; AUDIT PRE-MERGE 1003 W7: the undercroft's stair, no castle's - castleEntranceOf passes it over)
             for (const door of staticDoors) {
               doorGeneration += 1;   // WORLD-HOVER: a pixel's doors arriving
               buildingDoors.push({
@@ -8369,8 +8369,9 @@ export async function bootWorld(canvas, renderer, params, status) {
     return [t[0] + p.arena[0] + h.x * 0.025, t[1] + p.arena[1], t[2] + p.arena[2] + (h.z + 4096) * 0.025];
   }
   /** THE CITY'S SCHEDULE: an exhibition on the hour (systems/arenaLadder.js exhibitionFor - the same hour, the same bout,
-   *  on every screen) while I am outside near the colosseum; walked away from, it goes, unsaid, and comes back from its
-   *  call if I return inside its window. Answers the stage this frame stands (the instance's when I am in it). */
+   *  on every screen) while I am outside near the colosseum; walked away from - or left through any door - it goes, unsaid,
+   *  for the hour (AUDIT PRE-MERGE 1003 W8: `_arenaHourRun` starts each hour's bout once, and nothing clears it - a walk
+   *  back finds the sand empty until the next hour's). Answers the stage this frame stands (the instance's when I am in it). */
   const ARENA_NEAR_M = 150, ARENA_FAR_M = 260;
   function arenaStageNow() {
     const mode = modes?.mode ?? 'exterior';
@@ -8403,7 +8404,7 @@ export async function bootWorld(canvas, renderer, params, status) {
       hidden: gamePaused() || !!townTalk.hudHidden, touch: isTouchDevice(),
     });
   }
-  let _arenaHourRun = null;   // the hour whose exhibition this screen has started (one start an hour, a walk back restarts it)
+  let _arenaHourRun = null;   // the hour whose exhibition this screen has started (one start an hour - AUDIT PRE-MERGE 1003 W8: a walk back, or a door taken and left, does not start it again)
   /** THE HERALD'S CHOICE (systems/arenaHerald.js): watch, fight, the fighters' hall, leave - answered here, the
    *  instance and the undercroft through the mode machine. True: his choice is up. */
   function arenaHerald() {
@@ -9246,7 +9247,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   // ?dungeon host RAN every CastWhenUsed / CastWhenStrikes / SoulBound
   // / affinity arm against no ctx at all. They are optional-chained, so
   // it WAS silent. WAVE D closed it: the body is scenes/hostEnchant.js
-  // and dungeonContext.js:2935 mounts the same one, gated on
+  // and dungeonContext.js:2950 mounts the same one, gated on
   // `opts.enchantCtx !== false` because setDefaultEnchantCtx is a
   // session singleton and EC1 already routes THIS host's mount into
   // that context through modes.dungeonCtx - so worldModes.js:7011
@@ -11871,7 +11872,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     // so an F9 pressed inside a shop recorded the street's sheath and
     // hand. The mode host answers for the rig that is actually drawn
     // and null outside interior mode (the dungeon owns its own
-    // composer, dungeonContext.js:8103), so exterior mode and a
+    // composer, dungeonContext.js:8118), so exterior mode and a
     // pre-seam mode host compose exactly as before, per field.
     const wp = modes?.weaponPose?.() ?? null;
     const snap = snapshotPlayer(playerEntity, {

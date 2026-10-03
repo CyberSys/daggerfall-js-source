@@ -246,7 +246,7 @@ test('a model missing from ARCH3D costs the placement, never the building', () =
   assert.match(ctx, /if \(!cpu\) console\.warn/, 'and the seam says so once, where it is discovered');
   // the dungeon's action-door arm had the same three traps
   const dungeon = readFileSync(new URL('../src/scenes/dungeonContext.js', import.meta.url), 'utf8');
-  assert.match(dungeon, /remapSubMeshes\(cpuModels\.get\(id\)\?\.subMeshes,/, 'ensureRemap guards its receiver');
+  assert.match(dungeon, /levelModelRemap\(id, cpuModels\.get\(id\)\?\.subMeshes,/, 'ensureRemap guards its receiver');   // AUDIT PRE-MERGE 1003 W4: through the level's remap seam (levelModelRemap -> remapSubMeshes)
   const doorArm = dungeon.match(/for \(const d of b\.layout\.actionDoors\)[\s\S]*?\n {4}}/)[0];
   assert.match(doorArm, /if \(!gpu \|\| !cpu\) \{/, 'the dungeon door arm skips a missing model');
 });
