@@ -31,6 +31,7 @@ import { fighterIdentity } from '../systems/arenaFighters.js';
 import { totalGoldAmount, deductGold, addGold } from '../systems/court.js';
 import { arenaBoard, hallLinesOnline, hallPlaques } from '../systems/arenaBoard.js';
 import { PLAQUE_MAX } from '../world/arenaPlaques.js';   // ARENA5: the wall's cap
+import { arenaReplaysRestore } from '../systems/arenaReplay.js';   // ARENA5: your ladder replay
 import { nextLadderBout, arenaLadderRestore } from '../systems/arenaLadder.js';
 import { FIGHT_HEALTH_MIN } from '../systems/arenaHerald.js';
 import { createArenaOverlay, closeArenaDoor } from '../ui/arenaDoor.js';
@@ -161,7 +162,7 @@ export function createArenaGate(deps) {
    *  and `league` the host's (the player's share of health, the save's league - read offline only). */
   function heraldChoice({ cityBout = null, healthShare = (P.health ?? 0) / Math.max(1, P.maxHealth ?? 1), league = P.arenaLeague } = {}) {
     const on = online();
-    if (!on) return heraldChoiceOf({ gameMinutes: gm(), cityBout, ladder: arenaLadderRestore(P.arenaLadder), healthShare, league });
+    if (!on) return heraldChoiceOf({ gameMinutes: gm(), cityBout, ladder: arenaLadderRestore(P.arenaLadder), healthShare, league, replays: arenaReplaysRestore(P.arenaReplays).length });   // ARENA5: the last bout kept, offered again
     const climb = on.climb?.() ?? null;
     const ch = heraldChoiceOf({ gameMinutes: gm(), cityBout, ladder: climb, healthShare, league: null });
     if (!climb) {
@@ -264,6 +265,7 @@ export function createArenaGate(deps) {
       ladder: P.arenaLadder, league: league(), gameMinutes: gm(), name: P.name ?? '', atGate: !!deps.atGate?.(), onSand: deps.onSand?.() ?? null,
       healthShare: (P.health ?? 0) / Math.max(1, P.maxHealth ?? 1), gold: totalGoldAmount(P), liveHour: liveHour(), begun: begun(),
       online: online()?.model() ?? null,   // ARENA4: the realm's boards and the hall, while online
+      replays: P.arenaReplays ?? [],   // ARENA5: the Records page's Watch the replay
     });
   }
   /** A PRESS IN THE WINDOW: Watch and Fight are the Herald's (the window goes, the floor's instance comes); Wager is the
@@ -276,6 +278,16 @@ export function createArenaGate(deps) {
     }
     // ARENA4: the challenge and the stands - pressed anywhere the window stands (a match called sends me to the sand)
     if (kind === 'queue' || kind === 'unqueue' || kind === 'accept' || kind === 'decline' || kind === 'spectate') return online()?.act(kind, data) ?? { ok: false, text: ARENA_TEXT.online.whyOffline };
+    // ARENA5: a bout the records keep, watched again - at the gate, as Watch is; offline (the save's records)
+    if (kind === 'replay') {
+      if (online()) return { ok: false, text: ARENA_TEXT.replay.offline };
+      if (!atGate) return { ok: false, text: ARENA_TEXT.window.whyGate };
+      const i = Math.floor(Number(data.i) || 0);
+      if (!arenaReplaysRestore(P.arenaReplays)[i]) return { ok: false, text: ARENA_TEXT.replay.gone };
+      closeArenaDoor();
+      deps.heraldAct?.(`replay:${i}`);
+      return { ok: true, text: '' };
+    }
     if (kind === 'watch' || kind === 'fight') {
       if (!atGate) return { ok: false, text: ARENA_TEXT.window.whyGate };
       const on = online();

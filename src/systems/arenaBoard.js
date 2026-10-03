@@ -26,6 +26,7 @@ import { exhibitionCard, bookLines } from './arenaBook.js';
 import { enemyDisplayName, ENEMY_BASICS } from '../characters/enemyBasics.js';
 import { dateFromClassicMinutes, MONTH_NAMES, MINUTES_PER_DAY } from './gameDate.js';
 import { arenaSeasonOf, arenaSeasonDay } from '../net/arenaLaw.js';   // ARENA4b: the realm's season a row was taken in
+import { arenaReplaysRestore } from './arenaReplay.js';   // ARENA5: the Records page's Watch the replay
 
 /** The window's pages, in their order on the tab bar. */
 export const ARENA_PAGES = Object.freeze(['bouts', 'ladder', 'team', 'boards', 'records', 'rules']);
@@ -241,7 +242,7 @@ export function boardsPage({ ladder, league, gameMinutes, name }) {
 // ── RECORDS ──────────────────────────────────────────────────────────────────────────────────────────────────
 /** THE RECORDS PAGE: your record on the sand - wins, losses, yields, falls, ring-outs, the streak and the best, the
  *  purses, the champions beaten - and the last twenty bouts, newest first; and your wagers with the bookmaker. */
-export function recordsPage({ ladder, league, gameMinutes }) {
+export function recordsPage({ ladder, league, gameMinutes, replays = [], atGate = true }) {
   const L = arenaLadderRestore(ladder);
   const G = rollLeague(league, gameMinutes);
   const r = L.record;
@@ -254,10 +255,17 @@ export function recordsPage({ ladder, league, gameMinutes }) {
     { k: W().stat.purses, v: W().gold(r.purses) }, { k: W().stat.champions, v: String(L.champs.filter(Boolean).length) },
   ];
   const how = (b) => (b.how === 'draw' ? W().how.draw : W().how[b.how] ?? '');
+  // ARENA5: a bout the records keep (systems/arenaReplay.js - the record fought at the same game minute and tier) carries
+  // its press, Watch the replay, refused away from the gate as Watch is
+  const kept = arenaReplaysRestore(replays);
+  const replayOf = (b) => {
+    const i = kept.findIndex((r) => r.at === b.at && (r.next?.tier ?? -1) === b.tier);
+    return i < 0 ? null : { act: 'replay', label: ARENA_TEXT.replay.press, i, why: atGate ? '' : W().whyGate };
+  };
   const bouts = G.bouts.map((b) => ({
     when: arenaDate(b.at), tier: ARENA_TEXT.tiers[b.tier], label: b.grand ? ARENA_TEXT.grandLabel : b.champion ? ARENA_TEXT.champLabel : b.label,
     opp: b.opp || W().fighter, result: b.how === 'draw' ? W().drew : b.won ? W().wonWord : W().lostWord, won: b.won, draw: b.how === 'draw', how: how(b),
-    purse: b.purse, points: b.points, banner: b.team,
+    purse: b.purse, points: b.points, banner: b.team, replay: replayOf(b),
   }));
   return { stats, bouts, title: ladderTitle(L), titles: ladderTitles(L), empty: bouts.length ? '' : W().noBouts, wagers: bookLines(G, gameMinutes) };
 }

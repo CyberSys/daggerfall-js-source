@@ -39,6 +39,7 @@ import { arenaScoreSongs, ARENA_SCORE_SILENCE } from '../systems/arenaScore.js';
 import { drawArenaHud } from '../ui/arenaHud.js';   // ARENA2: the versus bar, the crowd's meter, the clock
 import { setPlayerBout } from '../characters/enemyTargets.js';   // ARENA2: the bout team's player arm
 import { exhibitionFor, nextLadderBout, arenaLadderRestore, practiceBout } from '../systems/arenaLadder.js';   // ARENA2: the hour's exhibition, the ladder's next bout
+import { arenaReplaysRestore } from '../systems/arenaReplay.js';   // ARENA5: your ladder replay
 import { createArenaGate, nearArenaGate } from './arenaGate.js';   // ARENA3; ARENA4b: the Herald's choice and the pause door's banner too
 import { createArenaOnline } from './arenaOnline.js';   // ARENA4: the arena online - the hall, a relay's bout, the boards and the receipts
 import { arenaBoutRoom } from '../net/arenaLaw.js';   // ARENA4: a bout's room
@@ -8357,7 +8358,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     const inDungeon = (modes?.mode ?? 'exterior') === 'dungeon';
     const rig = inDungeon ? modes?.dungeonCtx?.weaponRig?.() : weaponRig;
     arenaBouts.frame(gamePaused() ? 0 : dt, {
-      playerFeet: player.pos, sheathed: rig?.playerWeapon ? !!rig.playerWeapon.sheathed : null,
+      playerFeet: player.pos, playerYaw: cam.yaw, sheathed: rig?.playerWeapon ? !!rig.playerWeapon.sheathed : null,   // ARENA5: my facing, for the replay
       stamina: (playerEntity.fatigue ?? 0) / Math.max(1, maxFatigue(playerEntity)),
       hidden: gamePaused() || !!townTalk.hudHidden, touch: isTouchDevice(),
     });
@@ -8392,6 +8393,14 @@ export async function bootWorld(canvas, renderer, params, status) {
       modes?.enterArenaFloor?.('ladder');
     } else if (a === 'hall') modes?.enterArenaUndercroft?.();
     else if (a === 'window') arenaGate.openWindow('bouts');   // ARENA3
+    else if (a === 'replay' || String(a).startsWith('replay:')) {
+      // ARENA5: YOUR LADDER REPLAY (systems/arenaReplay.js) - a bout the records keep (the newest, or the Records page's
+      // pick), watched from the stands of the floor's instance
+      const rec = arenaReplaysRestore(playerEntity.arenaReplays)[Number(String(a).split(':')[1] ?? 0) || 0];
+      if (!rec) return;
+      arenaBouts.dismiss();
+      if (arenaBouts.askReplay(rec)) modes?.enterArenaFloor?.('watch');
+    }
   }
 
   // The classic catch-up loop (PlayerEntity.Update:486-492): per

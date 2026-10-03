@@ -251,6 +251,20 @@ export const ARENA_TEXT = F({
     plaqueLine: (name, banner, season) => `${name} - Grand Champion of the Arena of Daggerfall${banner ? `, for ${banner}` : ''}, ${season}.`,
   }),
 
+  // ── YOUR LADDER REPLAY (ARENA5; systems/arenaReplay.js) ─────────────────────────────────────────────────────
+  replay: F({
+    /** The Herald's call over a replay - the bout's own, from the records. */
+    call: (tier, label) => `From the records - ${tier}, ${label}!`,
+    callBare: 'From the records - a bout fought again!',
+    /** His choice and his line before it (the last bout kept). */
+    herald: 'R - Watch your last bout again',
+    heraldLine: 'The records keep your last bout - it can be fought again, for your eyes only.',
+    /** The Records page's press on a bout the records keep; its refusals. */
+    press: 'Watch the replay',
+    gone: 'That bout is no longer in the records.',
+    offline: 'Replays are kept offline - online the realm keeps its own records.',
+  }),
+
   // ── THE BANNERS (ARENA3; systems/arenaLeague.js) ────────────────────────────────────────────────────────────
   teams: F({
     /** The banners' names, their short names and their mottoes, as the recruiters and the window say them. */
@@ -438,6 +452,9 @@ export const ARENA_TEXT = F({
         'The ninth tier pits you against two at once; the tenth is the Grand Melee.',
         'Beat the tenth tier\'s champion and you are the Grand Champion of the Arena.',
         'The Pit Master in the undercroft spars with you - no purse, no shame.',
+        // ARENA5: your ladder replay
+        'Your last three ladder bouts are kept: the Herald or the Records page replays one.',
+        'A replay pays nothing and counts nothing. Leave by the gates whenever you like.',
       ]) }),
       F({ head: 'The banners', lines: F([
         'Join the Red Banner or the Blue at their recruiters by the gate. Joining is free.',

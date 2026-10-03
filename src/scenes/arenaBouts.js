@@ -38,6 +38,7 @@ import { mirrorOf, mirrorEvents, mirrorHealth, walkAt, walkDone } from '../net/a
 import { ARENA_PUPPET_OWNER, ARENA_CHEER_MS } from '../net/arenaLaw.js';   // ARENA4: a bout the relay runs, mirrored here; ARENA4b: the stands' allowance
 import { crowdShout } from '../systems/arenaCrowd.js';   // ARENA4: the stands' own cheers and boos, heard on every screen
 import { crowdHalves, crowdHalfOf, crowdWash } from '../systems/arenaCrowd.js';   // ARENA5: the crowd's half in a banner's colours
+import { newRecording, recordTick, recordStrike, recordEvent, finishRecording, keepReplay, replayOk, replayFeed, replayId, replayBoutId, playerMobileOf } from '../systems/arenaReplay.js';   // ARENA5: your ladder replay
 
 /** ARENA-FIX 10: A CRIT is the formula's own critical-strike roll (combat/formulas.js calculateAttackDamage's notes,
  *  told through `observeAttackResolution` and matched to the blow the damage door hears - `attackResolved` below).
@@ -210,6 +211,85 @@ export function createArenaBouts(deps) {
     C.crowd = newCrowd({ fighters: C.roster.map((f) => ({ id: f.id, home: f.home, ai: f.ai })), beasts: C.ladder ? !!C.next.beasts : !!C.ex.beasts });
     laurelFavour(C);
     if (!C.quiet) buildCrowd(C);
+    beginRecording(C, t);   // ARENA5: a ladder bout recorded for its replay
+  }
+  // ── ARENA5: YOUR LADDER REPLAY (systems/arenaReplay.js) ─────────────────────────────────────────────────────
+  /** A LADDER BOUT RECORDED from its first bell (never the pit's, never a relay's): its fighters in the law's order - me
+   *  as the class enemy of my own career - the bout it is, the banners its halves wear, the game minute it is fought at
+   *  (the Records page's row the replay is offered on). */
+  function beginRecording(C, t) {
+    if (!C.ladder || C.practice || C.relay || !C.b) return;
+    const sides = crowdHalves(C.b.fighters, C.teams);
+    C.rec = newRecording({
+      t0: t, next: C.next, sides, at: deps.gameMinutes?.() ?? 0,
+      fighters: C.b.fighters.map((f) => {
+        const r = C.roster.find((x) => x.id === f.id);
+        return { id: f.id, name: f.name, side: f.side, mobile: f.ai ? r?.spec?.mobile : playerMobileOf(P), gender: f.ai ? r?.who?.gender : P?.gender, home: f.home, epithet: f.epithet, health: f.health, maxHealth: f.maxHealth };
+      }),
+    });
+  }
+  /** THE TICKS DUE of the recording: each fighter's feet and facing from the floor's centre (mine my feet and my view's
+   *  yaw, a fighter's its body's), and its health. */
+  function recordFrame(C, t, o) {
+    if (!C.rec || !stage) return;
+    const c = stage.centre();
+    const poses = C.rec.ids.map((id) => {
+      if (id === YOU) return o.playerFeet ? [o.playerFeet[0] - c[0], o.playerFeet[2] - c[2], o.playerYaw ?? 0] : null;
+      const foe = C.fighters.get(id);
+      return foe?.ai?.feet ? [foe.ai.feet[0] - c[0], foe.ai.feet[2] - c[2], foe.ai.yaw ?? 0] : null;
+    });
+    recordTick(C.rec, t, poses, C.rec.ids.map((id) => { const f = boutFighter(C.b, id); return f ? [f.health, f.maxHealth] : null; }));
+  }
+  /** THE BOUT DONE (the healers have been): its record kept on the save's arena record, the newest first, the oldest past
+   *  REPLAY_KEEP let go - a bout left before its verdict keeps none. */
+  function keepRecording(C) {
+    const rec = C.rec && C.b?.result ? finishRecording(C.rec, C.b.result) : null;
+    C.rec = null;
+    if (rec && P) P.arenaReplays = keepReplay(P.arenaReplays, rec);
+  }
+  /**
+   * WATCH A REPLAY (one of the save's - `rec` a record of systems/arenaReplay.js): asked for the floor's instance as a
+   * relay's bout watched from the stands - the mirror's own puppets, HUD, crowd, Herald and music, fed the recorded words
+   * (`replayFeed`, each frame, below) instead of a relay's. Its banners its record's (`sides`; each fighter its side's on
+   * the versus bar); the stands' presses are heard by this screen's crowd alone; nothing of it pays or counts. Answers
+   * whether it was asked.
+   */
+  function askReplay(rec) {
+    if (!replayOk(rec)) return false;
+    const banners = {};
+    rec.f.forEach((f, i) => { const b = rec.sides[f.s]; if (b) banners[replayId(i)] = b; });
+    ask({
+      where: 'floor',
+      relay: {
+        o: replayBoutId(rec), kind: 'pve', me: '', next: rec.next ? { ...rec.next, purse: 0 } : null, sides: rec.sides, banners,
+        names: (i) => (rec.f[i] ? { name: rec.f[i].n, home: rec.f[i].h, epithet: rec.f[i].e, gender: rec.f[i].g } : null),
+        send: { cheer: () => true },   // the stands' presses: my crowd hears me, nobody else is there
+        replay: { rec, feed: null },
+      },
+    });
+    return true;
+  }
+  /** A REPLAY'S FRAME: its words due fed to the mirror as a relay's would be (relayWord), the recorded call said as the
+   *  replay's own (the Herald names the bout from the records), and each puppet standing still turned as it was. */
+  function replayFrame(C, t) {
+    const R = C.relay?.replay;
+    if (!R || !stage) return;
+    if (!R.feed) {
+      R.feed = replayFeed(R.rec, { t0: t, centre: stage.centre(), o: C.relay.o });
+      if (!R.feed) { dismiss(); return; }
+      for (const w of R.feed.first) relayWord(w);
+      relayWord(R.feed.st);
+    }
+    for (const w of R.feed.due(t)) {
+      if (w.k !== 'call') { relayWord(w); continue; }
+      if (C.crowd) deps.sound?.cue(crowdHear(C.crowd, { k: 'call' }, { now: t }), 1);
+      const nx = C.next;
+      deps.say?.(nx ? ARENA_TEXT.replay.call(nx.tierName, nx.grand ? ARENA_TEXT.grandLabel : nx.champion ? ARENA_TEXT.champLabel : nx.label) : ARENA_TEXT.replay.callBare);
+    }
+    for (const [id, foe] of C.fighters) {
+      const i = Number(String(id).slice(1));
+      if (foe._pup && !foe._pup.moving && Number.isInteger(i)) foe._pup.yaw = R.feed.yawAt(i, t);
+    }
   }
 
   // ── THE BANNERS (ARENA3) ────────────────────────────────────────────────────────────────────────────────
@@ -313,6 +393,7 @@ export function createArenaBouts(deps) {
     const a = boutFighter(C.b, from), b = boutFighter(C.b, to);
     if (!a || !b || a.side === b.side) return;
     const t = now();
+    if (from !== YOU) recordStrike(C.rec, t, from);   // ARENA5: a fighter's blow, its puppet's swing in the replay (mine is my swing's - playerSwing)
     if (!(r.damage > 0)) boutMiss(C.b, { from, now: t });
     else C.lastBlow.set(to, { critical: !!r.critical, at: t });
   }
@@ -328,6 +409,7 @@ export function createArenaBouts(deps) {
       if (me && !me.out && foe) C.relay.send?.hit?.({ k: 'hit', i: foe.id, d: 0, r: 0 });
       return;
     }
+    if (C?.ladder && C.b && boutLive(C.b)) recordStrike(C.rec, now(), YOU);   // ARENA5: every swing of mine, my puppet's in the replay
     if (!C?.ladder || !C.b || !boutLive(C.b) || struck > 0) return;
     const you = boutFighter(C.b, YOU);
     if (you && !you.out) boutMiss(C.b, { from: YOU, now: now() });
@@ -381,6 +463,7 @@ export function createArenaBouts(deps) {
   function frame(dt, o = {}) {
     const C = cur;
     const t = now();
+    if (C?.relay?.replay) replayFrame(C, t);   // ARENA5: a replay's recorded words, fed to the mirror below
     if (C?.relay) { relayFrame(C, dt, o, t); return; }   // ARENA4: a bout the relay runs, mirrored
     if (!C || !C.b) { deps.drawHud?.(null, { hidden: true }); return; }
     const c = stage?.centre?.() ?? null;
@@ -420,7 +503,8 @@ export function createArenaBouts(deps) {
       }
     }
     boutTick(C.b, t, rng);
-    for (const e of takeBoutEvents(C.b)) hear(C, e, t, near);
+    for (const e of takeBoutEvents(C.b)) { recordEvent(C.rec, e); hear(C, e, t, near); }   // ARENA5: each kept for the replay
+    recordFrame(C, t, o);   // ARENA5: the fighters' feet, facing and health, ten a second
     // the word given (or the verdict said) this frame: the bout team's hold follows it now, not a frame late
     for (const tag of C.tags.values()) tag.hold = !boutLive(C.b);
     if (C.playerTag) C.playerTag.hold = !boutLive(C.b);
@@ -433,7 +517,7 @@ export function createArenaBouts(deps) {
     }
     if (C.playerTag && (boutOver(C.b) || boutFighter(C.b, YOU)?.out)) C.playerTag.out = true;
     // the healers, then off the sand
-    if (C.b.phase === 'done' && !Number.isFinite(C.doneAt)) C.doneAt = t;
+    if (C.b.phase === 'done' && !Number.isFinite(C.doneAt)) { C.doneAt = t; keepRecording(C); }   // ARENA5: the replay kept
     if (Number.isFinite(C.doneAt) && t - C.doneAt >= LEAVE_AFTER_MS && C.fighters.size) {
       for (const foe of C.fighters.values()) stage?.remove?.(foe);
       C.fighters.clear();
@@ -896,6 +980,9 @@ export function createArenaBouts(deps) {
     startRelay, relayWord,   // ARENA4: a bout the relay runs
     cheer,   // ARENA4b: my cheer or boo from the stands of a relay's bout
     floorBanners,   // ARENA5: the banners the floor's instance hangs for the bout asked for it
+    askReplay,   // ARENA5: a recorded ladder bout watched from the stands
+    /** ARENA5: whether the bout standing (or asked) is a replay. */
+    replaying: () => !!(cur?.relay?.replay ?? pending?.relay?.replay),
     /** ARENA4b: the realm's banners' source while online (`() => ({ banner, laurel }) | null`), scenes/arenaOnline.js's. */
     setRealm: (fn) => { realmOf = typeof fn === 'function' ? fn : null; },
     /** ARENA4: the relay's bout standing here - its id, my fighter id ('' in the stands), its kind - or null. */

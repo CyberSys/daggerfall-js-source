@@ -286,6 +286,7 @@ import { createArenaSound } from '../systems/arenaSound.js';
 import { drawArenaHud } from '../ui/arenaHud.js';
 import { createArenaGate, nearArenaGate } from './arenaGate.js';   // ARENA3: the recruiters (and the bookmaker) at the gate; ARENA4b: the Herald's choice and the pause door's banner too
 import { exhibitionFor, nextLadderBout, arenaLadderRestore, practiceBout } from '../systems/arenaLadder.js';
+import { arenaReplaysRestore } from '../systems/arenaReplay.js';   // ARENA5: your ladder replay
 import { cityFloorCentre } from '../world/arenaFloor.js';
 import { setPlayerBout } from '../characters/enemyTargets.js';
 import { registerAttackResolutionListener } from '../combat/formulas.js';
@@ -1882,7 +1883,7 @@ export async function bootExterior(canvas, renderer, params, status) {
     if (!stg) { arenaBouts.frame(dt, {}); if (!arenaBouts.bout()) arenaSound.stop(); return; }
     const rig = (modes?.mode ?? 'exterior') === 'dungeon' ? modes?.dungeonCtx?.weaponRig?.() : weaponRig;
     arenaBouts.frame(gamePaused() ? 0 : dt, {
-      playerFeet: player.pos, sheathed: rig?.playerWeapon ? !!rig.playerWeapon.sheathed : null,
+      playerFeet: player.pos, playerYaw: cam.yaw, sheathed: rig?.playerWeapon ? !!rig.playerWeapon.sheathed : null,   // ARENA5: my facing, for the replay
       stamina: (playerEntity.fatigue ?? 0) / Math.max(1, maxFatigue(playerEntity)),
       hidden: gamePaused() || !!townTalk.hudHidden, touch: false,
     });
@@ -1914,6 +1915,14 @@ export async function bootExterior(canvas, renderer, params, status) {
       modes?.enterArenaFloor?.('ladder');
     } else if (a === 'hall') modes?.enterArenaUndercroft?.();
     else if (a === 'window') arenaGate.openWindow('bouts');   // ARENA3
+    else if (a === 'replay' || String(a).startsWith('replay:')) {
+      // ARENA5: YOUR LADDER REPLAY (systems/arenaReplay.js) - a bout the records keep (the newest, or the Records page's
+      // pick), watched from the stands of the floor's instance
+      const rec = arenaReplaysRestore(playerEntity.arenaReplays)[Number(String(a).split(':')[1] ?? 0) || 0];
+      if (!rec) return;
+      arenaBouts.dismiss();
+      if (arenaBouts.askReplay(rec)) modes?.enterArenaFloor?.('watch');
+    }
   }
 
   // AUDIT-RR F15: EnhancedRiding is a component on the player in EVERY exterior (RoleplayRealism.cs:139-151) - this
