@@ -270,11 +270,12 @@
   {
     "name": "PROF2b-cli-silver-unsaid",
     "file": "src/scenes/mineHost.js",
-    "old": "      if (typeof line === 'string' && line) toast(line);",
+    "old": "      if (typeof line === 'string' && line && o?.hauled !== true) toast(line);",
     "new": "      void line;",
     "tests": [
       "test/prof2b_client.test.js"
-    ]
+    ],
+    "note": "HAUL-CARDS (PIN MOVED): re-aimed by content - the queue's own hold and merge, the haul card's twin lines (the anchor widened to the pickup's own), the goods' line said where no card stood, a Motherlode's silver unsaid under its card."
   },
   {
     "name": "PROF2b-cli-lode-unstood",

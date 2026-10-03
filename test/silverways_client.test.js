@@ -201,8 +201,9 @@ test('SILVER-WAYS the Guild tab\'s treasury lines: a deed, a contract put up and
 
 test('SILVER-WAYS the world host by source: the raid claims say the book\'s silver lines; the gate claim carries the claiming character whether or not the scan found the region; a guild with a contract standing is kept from going (mutants: each seam)', () => {
   const w = src('src/scenes/world.js');
-  assert.match(w, /onMarks: \(data\) => marksBook\?\.claimLines\(data, 'raid'\) \?\? null,/);
-  assert.match(w, /onMarks: \(marks, data\) => marksBook\?\.claimLines\(data \?\? \{ marks \}, 'gate'\) \?\? null,/);
+  // HAUL-CARDS (PIN MOVED): the silver as cards too (ui/haulCards.js claimHauls), the book's lines said as ever
+  assert.match(w, /onMarks: \(data\) => \{ showHaul\(claimHauls\(data, 'raid'\)\); return marksBook\?\.claimLines\(data, 'raid'\) \?\? null; \},/);
+  assert.match(w, /onMarks: \(marks, data\) => \{ showHaul\(claimHauls\(data \?\? \{ marks \}, 'gate'\)\); return marksBook\?\.claimLines\(data \?\? \{ marks \}, 'gate'\) \?\? null; \},/);
   assert.match(w, /return site \? \{ region: site\.region, character \} : character \? \{ character \} : null;/);
   assert.match(src('server-account/src/guilds.js'), /OR EXISTS \(SELECT 1 FROM guild_contracts WHERE guild_id = \$\{p\} AND \(state = 'open' OR \(returned = 0 AND escrow > 0\)\)\)/);
 });
