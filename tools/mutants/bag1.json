@@ -196,14 +196,5 @@
     "tests": [
       "test/bag1_client.test.js"
     ]
-  },
-  {
-    "name": "BAG1-the-bag-a-cart",
-    "file": "src/net/bagLaw.js",
-    "old": "export const isBagItem = (item) => item?.templateIndex === BAG_TEMPLATE && item?.group === 'UselessItems2';",
-    "new": "export const isBagItem = (item) => item?.templateIndex === BAG_TEMPLATE;",
-    "tests": [
-      "test/bag1_client.test.js"
-    ]
   }
 ]
