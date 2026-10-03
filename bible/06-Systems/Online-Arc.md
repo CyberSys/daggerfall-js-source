@@ -11709,7 +11709,7 @@ slice, and SEAT2b's need). `06-Systems/Professions-Arc.md` 34 holds the whole re
 
 Pinned: `test/prof11_law.test.js` (11), `test/prof11_service.test.js` (7), `test/prof11_client.test.js` (7). Mutants:
 `tools/mutants/prof11.json` (138, all dead - the two that held the Builder and Fortifier LOCKED re-aimed to lock them
-again, still dead). Patch notes: `PATCH-NOTES-Masonry.md`.
+again, still dead).
 
 ### SEAT2b (part one) - the works: a seat's fortifications, its stockpile, seat writs and the Siege Camp
 
@@ -11754,7 +11754,7 @@ Seats-Arc 7.5, 7.9, 4.2. Law (`src/net/fortLaw.js`), service (`server-account/sr
 
 Pinned: `test/seat2b_law.test.js` (7), `test/seat2b_service.test.js` (11, through the real Worker), `test/seat2b_client
 .test.js` (5). Mutants: `tools/mutants/seat2b.json` (79: 78 dead, 1 equivalent recorded - the raise's own UPDATE holds
-the day the JS check spares). Patch notes: `PATCH-NOTES-Seats.md` (Fortifications).
+the day the JS check spares).
 
 ### SEAT2b part two (a) - the works at peace: the Siegewright's day, the Shrine, the Watchtowers, the halls, the Harbour, the Ram Kit
 
@@ -11807,7 +11807,7 @@ the day the JS check spares). Patch notes: `PATCH-NOTES-Seats.md` (Fortification
 
 Pinned: `test/seat2b_peace_law.test.js` (5), `test/seat2b_peace_service.test.js` (7, through the real Worker),
 `test/seat2b_peace_client.test.js` (5); twelve older tests' pins moved (PIN MOVED). Mutants: `tools/mutants/seat2b_peace.json`
-(63, all dead); sixteen older records re-aimed by content. Patch notes: `PATCH-NOTES-Seats.md` (The works at peace).
+(63, all dead); sixteen older records re-aimed by content.
 
 ### SEAT2b part two (b) - the works in battle: the Walls' wave, the Gatehouse, the Rams
 
@@ -11856,8 +11856,7 @@ service's own unbumped - one deploy with part (a)).
 Pinned: `test/seat2b_battle_law.test.js` (7), `test/seat2b_battle_relay.test.js` (3, over the real Room),
 `test/seat2b_battle_service.test.js` (2, through the real Worker), `test/seat2b_battle_client.test.js` (4); SEAT2a's
 crown Throne, the pass's claims and identityToken.js's imports moved (PIN MOVED); the relay's version pins moved on to
-world150. Mutants: `tools/mutants/seat2b_battle.json` (64, all dead); fourteen older records re-aimed by content. Patch
-notes: `PATCH-NOTES-Seats.md` (Fortifications in battle).
+world150. Mutants: `tools/mutants/seat2b_battle.json` (64, all dead); fourteen older records re-aimed by content.
 
 ### SEAT2b part two (c) - the relay's own fighters: the Barracks' guards and the revolt
 
@@ -11916,7 +11915,7 @@ place (undeployed); `acct61` (one deploy with parts (a) and (b)). With it SEAT2b
 Pinned: `test/seat2b_guards_law.test.js` (9), `test/seat2b_guards_relay.test.js` (3, over the real Room),
 `test/seat2b_revolt_service.test.js` (3, through the real Worker), `test/seat2b_guards_client.test.js` (5); the relay's
 world150 row re-hashed in place. Mutants: `tools/mutants/seat2b_guards.json` (78, all dead); twenty-nine older records
-re-aimed by content. Patch notes: `PATCH-NOTES-Seats.md` (Fortifications in battle; Revolts).
+re-aimed by content.
 
 ### SEAT-HALL - the palace as the holder's guild hall: the Charter Room
 
@@ -11949,8 +11948,7 @@ interiorSeatHall, `src/scenes/world.js` seatHall). `acct61` (one deploy with SEA
 - **The crown's hall**: CROWN-HALL's, below.
 
 Pinned: `test/seathall_service.test.js` (5, through the real Worker), `test/seathall_client.test.js` (5); sixteen older
-source pins re-aimed (PIN MOVED (SEAT-HALL)). Mutants: `tools/mutants/seat_hall.json` (40, all dead). Patch notes:
-`PATCH-NOTES-Seats.md` (The palace hall).
+source pins re-aimed (PIN MOVED (SEAT-HALL)). Mutants: `tools/mutants/seat_hall.json` (40, all dead).
 
 ### CROWN-HALL - the crown's castle as its holder's hall: the throne room
 
@@ -11979,7 +11977,7 @@ the hall - its throne room carries the holder's banners, the roster board and th
 
 Pinned: `test/crownhall.test.js` (5; the placement over a real Collider); the counts it moved (PIN MOVED: the world
 host's foreign passes, 23 to 24 call sites and 18 to 19 in world.js; the dungeon's activation families, 5 to 6;
-Systems.md's modules, 346). Mutants: `tools/mutants/crown_hall.json` (28, all dead). Patch notes: `PATCH-NOTES-Seats.md` (The palace hall).
+Systems.md's modules, 346). Mutants: `tools/mutants/crown_hall.json` (28, all dead).
 
 ### AUDIT SEATS-2 - the Seats arc audited again, after SEAT2b part two, SEAT-HALL and CROWN-HALL
 
@@ -12018,7 +12016,7 @@ real Worker or the real Room, a node run of the law) before it was fixed and pin
 Pinned: `test/audit_seats2.test.js` (3), `test/audit_seats2_service.test.js` (8), `test/audit_seats2_relay.test.js` (2),
 `test/audit_seats2_client.test.js` (2), `test/seat2b_revolt_service.test.js` (+1). Mutants: `tools/mutants/audit_seats2.json`
 (24, all dead), `tools/mutants/audit_seats2_service.json` (32, all dead); older records re-aimed by content, all still
-dead. Patch notes: `PATCH-NOTES-Seats.md` (Fixes).
+dead.
 
 ### AUDIT SEATS-3 - the Seats arc audited a third time, every lane new
 
@@ -12064,7 +12062,7 @@ use it, the seams of main's merges with the repository's health, the tests' own 
 
 Pinned: `test/audit_seats3_service.test.js` (11), `test/audit_seats3_relay.test.js` (7), `test/audit_seats3_client.test.js`
 (9). Mutants: `tools/mutants/audit_seats3_client.json` (20), `audit_seats3_service.json` (27), `audit_seats3_relay.json` (14),
-`audit_seats3_world.json` (5), and `seat_hall.json` +2, all dead; older records re-aimed by content, all still dead. Patch notes: `PATCH-NOTES-Seats.md` (Fixes).
+`audit_seats3_world.json` (5), and `seat_hall.json` +2, all dead; older records re-aimed by content, all still dead.
 
 ### HERALDRY-SHOWN - a guild's heraldry on its tag, the siege HUD and the Chronicle (2026-10-02)
 
@@ -13759,7 +13757,7 @@ Asked how each character should start, Mac chose "Own + recent gains". The recor
 - Pins: `test/renown_char.test.js` (7); `test/renown_account.test.js` keeps RENOWN-ACCOUNT's rate and 0021 (3); the
   pins RENOWN-ACCOUNT had rewritten put back. Mutants: `tools/mutants/renown_char.json` (17 dead, 1 recorded
   equivalent); 211 restored records across RENOWN1, AUDIT RENOWN1, RAID4, AUDIT RAID, RENOWN-BAR, RENOWN3 and RENOWN4,
-  all dead. Patch notes: `PATCH-NOTES-Renown-Per-Character.md`.
+  all dead.
 
 ## BOARD-ON (2026-09-29, Mac: "Should we switch everything on?") - the Notice Board opened to everyone
 
@@ -13855,7 +13853,7 @@ Asked what to, Mac chose **"Drakes"** (an old Imperial coin): "250 Drakes", "1 D
 - Pins: `test/drakes.test.js` (2; red on the tree before): the balance's words and two refusals, and a sweep of the
   twelve files that show the currency for any word left saying "Mark"; the MARKS1, PROF and AUDIT 30/31 client pins
   read the new words. Mutants: `tools/mutants/drakes.json` (10, all dead); `audit31.json`'s past-balance record and
-  `prof6.json`'s writ-filled record re-aimed by content. Patch notes: `PATCH-NOTES-Drakes.md`.
+  `prof6.json`'s writ-filled record re-aimed by content.
 
 ## SILVER (2026-10-02, Mac: "Can we change the name of Drakes to silver") - the currency is called silver
 
@@ -13893,8 +13891,7 @@ count, so every sentence was reworded to read right, never just swapped.
   reads the new words (its Marks sweep stands). Every client and law pin that read "Drakes" reads "silver". Mutants:
   `tools/mutants/silver.json` (14, all dead); `drakes.json`'s ten re-aimed at the new words;
   `crown1_royal_client.json`'s two prize records and `prof6.json`'s writ-filled record re-aimed by content,
-  `crown2.json`'s tribute mutant reworded. Patch notes: `PATCH-NOTES-Silver.md`; the unreleased Seats and Guild Halls
-  notes say silver.
+  `crown2.json`'s tribute mutant reworded.
 
 ## STRIKE-SHARED (2026-09-29, Mac: "Do #1") - a strike spell reaches a foe another player runs
 
@@ -13933,7 +13930,7 @@ else).
   this deploys, at the one after. The mark reaches the service at the next checkpoint; until then a re-boot forgives
   the same save again, to the same end (RESTORE's own law).
 - Pins: `test/loan_amnesty.test.js` (6, red on the tree before). Mutants: `tools/mutants/loan_amnesty.json` (14, all
-  dead); `survtiers3.json`'s two cite records re-aimed. Patch notes: `PATCH-NOTES-Loan-Amnesty.md`.
+  dead); `survtiers3.json`'s two cite records re-aimed.
 
 ## PROF7 (2026-09-29, Mac: "Do it") - Hunting, the Skinning Knife and Outfitting
 
@@ -13957,8 +13954,7 @@ since SWITCH-ON - no switch of its own.
   (the service pin's 500, before it shipped); the book never applied a harvest's `extraStore` (PROF4's Resin); the
   Professions page's Smithing unlocks lost three rows to a comment.
 - **Pinned:** `test/prof7_law.test.js`, `test/prof7_service.test.js`, `test/prof7_client.test.js` (the done-when
-  through the real Worker); `tools/mutants/prof7.json` (119: 118 dead, one recorded equivalent). Patch notes:
-  `PATCH-NOTES-Professions-Hunting-Outfitting.md`.
+  through the real Worker); `tools/mutants/prof7.json` (119: 118 dead, one recorded equivalent).
 
 ## AUDIT 32 (2026-09-30, Mac: "Audit this") - PROF7 audited
 
@@ -14106,7 +14102,7 @@ What failed was what the HUD SAID of it, and the reports read that as nothing gi
   `maintenance` is an answer the book keeps and asks again (`profBook.js` RETRY), as it keeps `server` and `rate`.
 - **Pinned:** `test/gathersaid.test.js` (7, each red on the code before with only the new names shimmed); the prof2,
   prof4 and prof7 client pins read the one line. Mutants: `tools/mutants/gathersaid.json` (13, all dead); prof4's
-  Resin and prof7's butchery-count records re-aimed by content. Patch notes: `PATCH-NOTES-What-a-Harvest-Says.md`.
+  Resin and prof7's butchery-count records re-aimed by content.
 - **For Mac** (found in the trace, not changed here): the classic skin's pause has no pages, so a classic player online
   can neither see nor withdraw the Stores, nor read a rank past the toasts and the chip (CLASSIC-PAGES, below); Foraging's own tools, used from
   the pack online, run Foraging's quest and give the pack its goods with no profession XP; a new logger in the
@@ -14135,8 +14131,7 @@ every vein table); the woods were the one gap.
 - **The XP curve is unchanged**: rank 10 is 67 plain tier-1 harvests or 46 clean ones (22 XP), inside a day's 60.
 - **Pinned:** `test/pineshare.test.js` (5; four red on the law before with only the new names shimmed, the fifth the
   Mountain's guard); prof4's law, service and client pins name the Oak they mean. Mutants:
-  `tools/mutants/pineshare.json` (7, all dead); prof4's twenty tree records re-run, all dead. Patch notes:
-  `PATCH-NOTES-Pine-in-Every-Forest.md`.
+  `tools/mutants/pineshare.json` (7, all dead); prof4's twenty tree records re-run, all dead.
 
 ## CLASSIC-PAGES (2026-09-30, Mac: "Enhanced pages + key") - the Professions and Stores on the classic skin
 
@@ -14167,8 +14162,7 @@ nothing said.
   the profHud lays the professions' own sheet on every skin online.
 - **Pinned:** `test/classicpages.test.js` (4, each red on the code before with only the new names shimmed); the key's
   count pins (inputactions, qs2, viewtoggle, prof1's Professions group) and AUDIT 29 B2 flipped. Mutants:
-  `tools/mutants/classicpages.json` (9, all dead); gathersaid's two records re-aimed by content. Patch notes:
-  `PATCH-NOTES-Professions-on-the-Classic-Skin.md`.
+  `tools/mutants/classicpages.json` (9, all dead); gathersaid's two records re-aimed by content.
 
 ## GOLD-MARKET (2026-09-30, Mac: "Allow trading with gold or drakes on the marketplace"; "Gold listings, walled") - the market in gold or Drakes
 
@@ -14209,7 +14203,7 @@ gold can now change hands the way a guild deposit or a house's price does - in t
   migration and the service before the client: an old service refuses every gold word as a bad act, and an old client
   beside a new service sees the Drakes' market as before.
 - **Pinned:** `test/goldmarket_service.test.js` (8) and `test/goldmarket_client.test.js` (9); the schema's table list
-  (accountworker ACC1b). Mutants: `tools/mutants/goldmarket.json` (35, all dead - AUDIT PROF-541 R2-S3's words among them). Patch notes: `PATCH-NOTES-The-Gold-Market.md`.
+  (accountworker ACC1b). Mutants: `tools/mutants/goldmarket.json` (35, all dead - AUDIT PROF-541 R2-S3's words among them).
 
 ## PROF8 (2026-09-30, Mac: "Continue the arc"; "XP follows your rank") - Fishing with the net
 
@@ -14228,7 +14222,7 @@ record; in short:
 - **The service**: **acct41**, migration `0042_fishing.sql`. Deploy the migration and the service before the client: an
   old service refuses every haul as a bad node.
 - **Pinned:** `test/prof8_law.test.js` (7), `test/prof8_service.test.js` (3), `test/prof8_client.test.js` (12). Mutants:
-  `tools/mutants/prof8.json` (34, all dead). Patch notes: `PATCH-NOTES-Fishing.md`.
+  `tools/mutants/prof8.json` (34, all dead).
 
 ## EMPIRE-ACCOUNT (2026-10-01, the field - maya: "i deposited alot of letters of credit in a random bank somewhere but theyre gone in the daggerfall bank"; Regi: "irs taken money again"; Mac chose "2": online, every region one Empire-wide account) - one bank account online
 
@@ -14265,5 +14259,4 @@ record; in short:
 - Pins: `test/empireaccount.test.js` (10); `test/realm5.test.js`, `test/goldmarket_service.test.js` and
   `test/guild1b.test.js` re-aimed at the one account, and `test/fb0930b_bankregion.test.js`'s online half. Mutants:
   `tools/mutants/empireaccount.json` (41, all dead); `realm0.json` (4), `realm5.json` (1), `auditrealm.json` (1),
-  `fb0930b_bankregion.json` (3) and `survtiers3.json` (2) re-aimed by content. Patch notes:
-  `PATCH-NOTES-One-Bank-Account-Online.md`.
+  `fb0930b_bankregion.json` (3) and `survtiers3.json` (2) re-aimed by content.
