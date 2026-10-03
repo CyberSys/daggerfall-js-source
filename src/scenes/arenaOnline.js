@@ -485,7 +485,8 @@ export function createArenaOnline(deps) {
     deps.closeWindow?.();
     say(O.privEntering(code));
     const ok = await deps.enterFloor('watch', `p${code}`, 0);
-    if (!ok && sess?.code === code) sess = null;
+    // the floor's door refused (indoors, or down - scenes/worldModes.js enterArenaFloor): said, never a silent press
+    if (!ok && sess?.code === code) { sess = null; say(O.privOutdoors); }
     return ok;
   }
   /** A session word down its room's socket (the presence session's own). */

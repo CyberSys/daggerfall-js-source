@@ -913,13 +913,14 @@ with each one's role (Host, Red, Blue, Guest, Away) and, to the host, *Red* / *B
 is stood on the made level's own arrival mark for the side (`worldModes.js standOnArenaMark` - Red the ladder's, Blue
 the rival's) and back to the stands when it clears; the relay mirror (ARENA4b's) draws the bout, banners red and blue.
 In a session the queue and the casual challenge wait (`You are in a private session`); the pause menu's Arena opens on
-the session. The relay's version: world155 (one deploy with the rest of the arc).
+the session. Host and Join are pressed outdoors (the floor's door is the exterior's); pressed indoors, the press says so
+(`privOutdoors`) and nothing is held. The relay's version: world155 (one deploy with the rest of the arc).
 
 **Tests.** `test/arena6_private.test.js` (10): the relay over fake sockets and fake objects - the door and the code,
 the session opened, the host's words and their refusals, the bout with equal health refereed and kept, void, kick, the
 host's absence and the session's ends, the seats, the wire both ways; the client end to end on the real Room (two
 screens: host, join by code, pick, go, both screens' bout, the result listed); the client's refusals and the card; the
-hosts' seams. Mutants: `tools/mutants/arena6.json` (29, all dead).
+hosts' seams. Mutants: `tools/mutants/arena6.json` (31, all dead).
 
 **Not done / open.** A session's bout is one against one (the tournament's own format - brackets, rounds - is the
 host's to run by hand). No spectating a session from outside it: the code is the door. The session lives in its room's

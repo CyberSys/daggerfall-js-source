@@ -384,7 +384,7 @@ function clientSocket(R, ws, room) {
 }
 const floorStage = () => ({ kind: 'floor', centre: () => [...C], spawn: async (m, feet) => ({ mobile: m, entity: { health: 20, maxHealth: 20 }, attack: {}, ai: { feet: [...feet], walkTo() {} } }), remove() {}, heightAt: () => null });
 /** One screen: the real bout driver on the floor and the real online half over its socket - every door it opens noted. */
-function screen(R, ws, name, { guest = false } = {}) {
+function screen(R, ws, name, { guest = false, outdoors = true } = {}) {
   const P = { name, health: 200, maxHealth: 200 };
   const D = createArenaBouts({ now: () => Date.now(), playerEntity: P, say() {}, notice() {}, drawHud() {}, heal: () => { P.health = P.maxHealth; }, pay() {} });
   D.setStage(floorStage());
@@ -392,7 +392,7 @@ function screen(R, ws, name, { guest = false } = {}) {
   const doors = [], said = [];
   const A = createArenaOnline({
     now: () => Date.now(), session: () => S, makeHall: () => null, bouts: D, account: { board: async () => ({ ok: false }), claim: async () => ({ ok: true, data: {} }), me: () => null },
-    enterFloor: async (kind, o) => { doors.push(['enter', kind, o]); S.room = arenaFloorRoomOf(o); return true; },
+    enterFloor: async (kind, o) => { doors.push(['enter', kind, o]); if (!outdoors) return false; S.room = arenaFloorRoomOf(o); return true; },   // the floor's door refuses a screen indoors (worldModes.js enterArenaFloor)
     standOnMark: (kind) => { doors.push(['mark', kind]); return true; }, leaveFloor: () => { doors.push(['leave']); S.room = 'world:1,1'; return true; },
     closeWindow: () => doors.push(['closeWindow']), say: (l) => said.push(l), guest: () => guest, inBout: () => D.holds(), level: () => 20,
     rand: (n) => new Uint8Array(n),   // every byte nought: the code AAAAAA
@@ -468,7 +468,7 @@ test('ARENA6 THE CLIENT, END TO END on the real Room: Host a session enters the 
   });
 });
 
-test('ARENA6 the client\'s refusals and the card out of a session: a guest\'s Host is refused (a guest may join to watch); in a session the challenge waits; the card offers Host and Join with its field (mutants: a guest hosting; the queue pressed in a session; the card without its join)', async () => {
+test('ARENA6 the client\'s refusals and the card out of a session: a guest\'s Host is refused (a guest may join to watch); in a session the challenge waits; the card offers Host and Join with its field; the floor\'s door refused (indoors) says so and holds nothing (mutants: a guest hosting; the queue pressed in a session; the card without its join; the refusal unsaid)', async () => {
   const W = fakeRooms();
   const R = W.room(arenaPrivateRoom('AAAAAA'));
   const gw = R.connect();
@@ -485,6 +485,16 @@ test('ARENA6 the client\'s refusals and the card out of a session: a guest\'s Ho
   // the window's model carries the session's card on the Bouts page, online, before the realm's board is in
   const m = arenaBoard({ ladder: null, league: null, gameMinutes: 0, name: 'Gil', online: G.A.model(), replays: [] });
   assert.ok(m.bouts.cards.some((c) => c.kind === 'session'));
+  // ARENA6: the floor's door refused (a screen indoors, or down) - the press SAYS so and nothing is held; it said only
+  // "To the arena" and fell silent, and a host on a stream saw nothing happen
+  const iw = R.connect();
+  await R.hello(iw, 'peer-ida', null, { name: 'Ida', kind: 'linked', tokenSub: 'acct-ida' });
+  const I = screen(R, iw, 'Ida', { outdoors: false });
+  assert.equal(I.A.act('privHost').ok, true);
+  await settled();
+  assert.deepEqual(I.said, [ARENA_TEXT.online.privEntering('AAAAAA'), ARENA_TEXT.online.privOutdoors], 'the refusal said');
+  assert.equal(I.A.inSession(), false, 'no session held');
+  assert.equal(I.A.model().session.in, false);
 });
 
 test('ARENA6 the hosts\' seams, by source: the online half is handed the instance\'s mark and its way out; the floor\'s host moves a session\'s fighter by the made level\'s own arrival points and leaves by its gates\' own way; the pause menu\'s Arena door opens on the session\'s page while one is stood in (mutants: a seam unwired)', () => {

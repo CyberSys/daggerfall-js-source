@@ -259,5 +259,23 @@
     "tests": [
       "test/arena6_private.test.js"
     ]
+  },
+  {
+    "name": "ARENA6-CLIENT-OUTDOORS-UNSAID",
+    "file": "src/scenes/arenaOnline.js",
+    "old": "{ sess = null; say(O.privOutdoors); }",
+    "new": "{ sess = null; }",
+    "tests": [
+      "test/arena6_private.test.js"
+    ]
+  },
+  {
+    "name": "ARENA6-CLIENT-OUTDOORS-HELD",
+    "file": "src/scenes/arenaOnline.js",
+    "old": "{ sess = null; say(O.privOutdoors); }",
+    "new": "{ say(O.privOutdoors); }",
+    "tests": [
+      "test/arena6_private.test.js"
+    ]
   }
 ]
