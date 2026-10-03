@@ -23,7 +23,8 @@ import { applySpell, removeBundleNamed } from '../src/systems/effects.js';
 import { liveStat } from '../src/systems/statMods.js';
 import { liveBundles, canEndBundle, endBundle } from '../src/systems/mysticism.js';
 import { mintPiece, mintPieces, craftedText, asMinted, COOK_KEPT_TEXT } from '../src/systems/smithItems.js';
-import { mintDish, dishUse, feedEffect, dishStaminaFactor, setFeastShare, installCooking, feastSharedLine, DISH_STAMINA_KIND, isDish, isPartyDishSpell, takeFeastGift, renewDish } from '../src/systems/cookItems.js';
+import { mintDish, dishUse, feedEffect, dishStaminaFactor, setFeastShare, installCooking, feastSharedLine, DISH_STAMINA_KIND, isDish, isPartyDishSpell, takeFeastGift, renewDish, isFeastRecord, dishStandsLine, shareFeastWith } from '../src/systems/cookItems.js';
+import { hallStepsFor } from '../src/net/fortLaw.js';
 import { DISH_TEMPLATE_ROWS, DISH_FOODS } from '../src/systems/profTemplates.js';
 import { materialLabel, withdrawIntoPack } from '../src/systems/profItems.js';
 import { templateByIndex } from '../src/systems/itemTemplates.js';
@@ -450,7 +451,7 @@ test('PROF9 wiring: the fire is any lit one (the street\'s camps and braziers, a
   assert.match(w, /fieldCook: \(\) => fieldCookNow\(\),   \/\/ PROF9: a Field Cook's kit keeps its charge\n/);
   assert.match(w, /const fieldCookNow = \(\) => profBook\?\.state\?\.open === true && profBook\.track\('cooking'\)\?\.specs\?\.\[50\] === 'field-cook';/);
   assert.match(w, /fieldCook: \(\) => fieldCookNow\(\),   \/\/ PROF9: a Field Cook's kit keeps its charge underground too/);
-  assert.match(w, /setFeastShare\(\(spell\) => \{\n\s+if \(!online \|\| online\.status !== 'open' \|\| !social\?\.party\) return \[\];\n\s+const out = \[\];\n\s+for \(const peer of peersNear\(\) \?\? \[\]\) \{[^\n]*\n\s+if \(!social\.isPartyPeer\(peer\.id\)\) continue;\n\s+if \(online\.sendCast\?\.\(allyCastFrame\(spell, DISH_LEVEL, peer\.id\)\)\) out\.push/);   // PIN MOVED (AUDIT PROF-541 K5): the mates in sight
+  assert.match(w, /setFeastShare\(\(spell\) => \{\n\s+if \(!online \|\| online\.status !== 'open' \|\| !social\?\.party\) return \[\];\n(?:\s+\/\/[^\n]*\n)*\s+return shareFeastWith\(peersNear\(\), \{ isMate: \(id\) => social\.isPartyPeer\(id\), send: \(id\) => online\.sendCast\?\.\(allyCastFrame\(spell, DISH_LEVEL, id\)\),/);   // PIN MOVED (AUDIT PROF-541 K5, R2-H1): the mates in sight, by cookItems.js shareFeastWith
   const m = src('src/scenes/worldModes.js');
   assert.match(m, /cookFireHere\(\) \{\n\s+if \(mode === 'interior'\) return interiorCamps\.fireNear\(player\.pos\) \? COOK_FIRE : null;\n\s+if \(mode === 'dungeon'\) return dungeonCtx\?\.cookFire\?\.\(\) === true \? COOK_FIRE : null;\n\s+return null;/);
   assert.match(m, /fieldCook: \(\) => host\.fieldCook\?\.\(\) === true,/);
@@ -557,8 +558,20 @@ test('AUDIT PROF-541 K4: a dish renewed is never shortened - a standing bundle w
 });
 
 test('AUDIT PROF-541 K5: a feast is shared with the party mates in sight at the table (peersNear - the stranger\'s gift\'s own law), never every party peer in the room and its halo cells; only those whose send went named', () => {
+  // AUDIT PROF-541 R2-H1: the share's law (cookItems.js shareFeastWith), driven: the mates among the peers in sight, each
+  // sent to, named where the send went ('a party member' where no name is known); a stranger in sight sent nothing
+  const sent = [];
+  const names = { 'peer-a': 'Ann', 'peer-c': null };
+  const out = shareFeastWith([{ id: 'peer-a' }, { id: 'peer-b' }, { id: 'peer-c' }, { id: 'peer-d' }], {
+    isMate: (id) => id !== 'peer-b', send: (id) => { sent.push(id); return id !== 'peer-d'; }, nameOf: (id) => names[id],
+  });
+  assert.deepEqual(sent, ['peer-a', 'peer-c', 'peer-d'], 'the mates alone, a stranger never');
+  assert.deepEqual(out, ['Ann', 'a party member'], 'only those whose send went named');
+  assert.deepEqual(shareFeastWith(null, { isMate: () => true, send: () => true, nameOf: () => 'x' }), [], 'no one in sight');
+  // the host's wiring (world.js's boot closure - no test stands its online and party up, the repo's exception): the
+  // peers it hands in are those in sight (peersNear), the send ALLY-CAST's frame at the dish's level
   const w = src('src/scenes/world.js');
-  assert.match(w, /setFeastShare\(\(spell\) => \{\n\s+if \(!online \|\| online\.status !== 'open' \|\| !social\?\.party\) return \[\];\n\s+const out = \[\];\n\s+for \(const peer of peersNear\(\) \?\? \[\]\) \{[^\n]*\n\s+if \(!social\.isPartyPeer\(peer\.id\)\) continue;\n\s+if \(online\.sendCast\?\.\(allyCastFrame\(spell, DISH_LEVEL, peer\.id\)\)\) out\.push\(peerName\(peer\.id\) \?\? 'a party member'\);/);
+  assert.match(w, /return shareFeastWith\(peersNear\(\), \{ isMate: \(id\) => social\.isPartyPeer\(id\), send: \(id\) => online\.sendCast\?\.\(allyCastFrame\(spell, DISH_LEVEL, id\)\), nameOf: \(id\) => peerName\(id\) \}\);/);
 });
 
 test('AUDIT PROF-541 K6: the Orchard Tart\'s stamina is the player\'s to end, as every other dish (BUFF-END: mysticism.js ENDABLE_KINDS)', () => {
@@ -588,11 +601,111 @@ test('AUDIT PROF-541 K7: the fire\'s XP line says what the service pays - the to
     page.dish('Hunter\'s Stew (northern').onclick();
     assert.match(page.text(), /a clean pan, half again its 140 Cooking XP\./);
   } finally { page.done(); setProfessionsPages(null); }
-  assert.match(src('src/scenes/world.js'), /cookSteps: \(\) => \{ const hall = seatHere\(_musicLoc\?\.mapTableData\?\.mapId\); return hall && hall\.holder\?\.guild\?\.id === \(guildBook\?\.guild\?\.id \?\? null\) \? stationSteps\('cooking', hall\.forts \?\? \{\}\) : 0; \},/);
+  assert.match(src('src/scenes/world.js'), /cookSteps: \(\) => myHall\('cooking'\)\.steps,/);   // PIN MOVED (AUDIT PROF-541 R2-H1): the guard's law fortLaw.js hallStepsFor's, driven below
 });
 
 test('AUDIT PROF-541 K8: a Brew pressed while another craft holds the one-craft latch (profBook.js prof-busy) says the hands are busy, not that a brew is in the cauldron', () => {
   const w = src('src/scenes/world.js');
   assert.match(w, /r\?\.error === 'prof-busy' \? 'Your hands are busy with another craft\.' : accountRefusalText\(r\?\.error\)/);
   assert.doesNotMatch(w, /Your last brew is still in the cauldron/);
+});
+
+// ─── AUDIT PROF-541 ROUND 2 (2026-10-03) ─────────────────────────────
+
+/** A spell named as the feast, its own effect: Fortify Strength 1 for 255 rounds a level (7,650 at the frame's 30). */
+const LOOK_ALIKE = Object.freeze({ name: 'Feast of the Hearth', element: 4, rangeType: 1, icon: 3, effects: [{ type: 9, subType: 0, durationBase: 0, durationMod: 255, durationPerLevel: 1,
+  chanceBase: 0, chanceMod: 0, chancePerLevel: 1, magnitudeBaseLow: 1, magnitudeBaseHigh: 1, magnitudeLevelBase: 0, magnitudeLevelHigh: 0, magnitudePerLevel: 1 }] });
+const feastRounds = (e) => liveBundles(e).filter((b) => b.name === 'Feast of the Hearth').map((b) => [...new Set(b.entries.map((a) => a.roundsRemaining))]);
+
+test('AUDIT PROF-541 R2-K9: a feast\'s gift is a feast by its record (dishSpell - a plain one\'s or a Chef\'s), never its name - a mate\'s own "Feast of the Hearth" (Fortify Strength 1 for 7,650 rounds) is dropped, never laid over the real one to shut out every feast eaten after it (mutants: the gift by its name; the record by its name; no Chef\'s record; a look-alike gift\'s entries standing for the feast)', () => {
+  const me = { items: [], stats: { ...STATS }, activeEffects: [] };
+  feedEffect(me, dishOf('feast'));
+  const frame = validCastData({ to: 'peer-0004', level: 30, spell: LOOK_ALIKE });
+  assert.ok(frame, 'the cast frame carries it');
+  const gift = allyCastSpell(frame.spell);
+  assert.equal(isPartyDishSpell(gift.name), true, 'its name the feast\'s');
+  assert.equal(isFeastRecord(gift), false);
+  assert.equal(takeFeastGift(me, gift, frame.level, true), false, 'a mate\'s look-alike dropped');
+  assert.deepEqual([liveStat(me, 'strength'), feastRounds(me)], [55, [[1439]]], 'the real feast stands, as it was');
+  // the real records, through the frame: a plain feast's and a Chef's
+  for (const hand of [null, HAND_CHEF]) {
+    const f = validCastData(allyCastFrame(dishSpell(dishOf('feast'), hand), DISH_LEVEL, 'peer-0004'));
+    assert.equal(isFeastRecord(allyCastSpell(f.spell)), true, `hand ${hand}`);
+  }
+  // a magnitude off, a stat swapped, an effect short, or another name: no feast
+  const real = dishSpell(dishOf('feast'));
+  assert.equal(isFeastRecord({ ...real, effects: real.effects.map((e, i) => (i ? e : { ...e, magnitudeBaseHigh: 6 })) }), false);
+  assert.equal(isFeastRecord({ ...real, effects: real.effects.map((e, i) => (i ? e : { ...e, subType: 7 })) }), false);
+  assert.equal(isFeastRecord({ ...real, effects: real.effects.slice(1) }), false);
+  assert.equal(isFeastRecord({ ...real, name: dishOf('stew').name }), false);
+  // one laid on already (before this round's fix): its entries never stand for the feast - a Chef's feast eaten lands,
+  // replacing the feast's own alone
+  applySpell(gift, frame.level, me, {}, () => 0.5, null, { allyCast: true });
+  assert.equal(feedEffect(me, dishOf('feast'), HAND_CHEF).length, 3, 'the Chef\'s feast eaten lands');
+  assert.deepEqual(feastRounds(me).sort((a, b) => a[0] - b[0]), [[2159], [7649]]);
+});
+
+test('AUDIT PROF-541 R2-K9: a spell of my own spellbook named as a dish never stands for it - the feast eaten lands beside it, renews its own bundle and never mine; a look-alike of another kind neither (mutants: every bundle of the name the dish\'s; any kind)', () => {
+  const me = { items: [], stats: { ...STATS }, activeEffects: [] };
+  applySpell({ ...LOOK_ALIKE, rangeType: 0 }, 30, me, {}, () => 0.5, null, {});
+  assert.deepEqual(feastRounds(me), [[7649]], 'my own spell, its 7,650 rounds (DFU\'s initial round run)');
+  assert.equal(feedEffect(me, dishOf('feast')).length, 3, 'the feast eaten lands');
+  assert.deepEqual([liveStat(me, 'strength'), feastRounds(me).sort((a, b) => a[0] - b[0])], [56, [[1439], [7649]]], 'beside my spell, untouched');
+  // run down: renewed - the feast's own bundle replaced, my spell kept
+  for (const a of me.activeEffects) if (a.settingsKey == null) a.roundsRemaining = 10;
+  assert.equal(feedEffect(me, dishOf('feast')).length, 3);
+  assert.deepEqual([liveBundles(me).length, feastRounds(me).sort((a, b) => a[0] - b[0])], [2, [[1439], [7649]]]);
+  // a mate's real feast renews the feast's own too
+  for (const a of me.activeEffects) if (a.settingsKey == null) a.roundsRemaining = 10;
+  const frame = validCastData(allyCastFrame(dishSpell(dishOf('feast'), null), DISH_LEVEL, 'peer-0005'));
+  assert.equal(takeFeastGift(me, allyCastSpell(frame.spell), frame.level, true), true);
+  assert.deepEqual(feastRounds(me), [[7649]], 'the eaten feast taken off for the gift; my spell stands');
+  // a look-alike of another kind (no settings): never the dish's
+  const odd = { items: [], stats: { ...STATS }, activeEffects: [{ kind: 'shield', bundleId: 999_999, bundleName: 'Feast of the Hearth', roundsRemaining: 99_999 }] };
+  assert.equal(feedEffect(odd, dishOf('feast')).length, 3);
+  assert.equal(odd.activeEffects.filter((a) => a.kind === 'shield').length, 1);
+});
+
+test('AUDIT PROF-541 R2-K10: a dish eaten while a longer one of it stands says so ("The feast you already enjoy lasts longer.") - it is eaten and nothing is laid on; a feast still goes to the mates (mutants: nothing said; said always; the words)', () => {
+  setPref('survival', false);
+  try {
+    const me = { items: [], stats: { ...STATS }, activeEffects: [] };
+    const shared = [];
+    setFeastShare((spell) => { shared.push(spell.name); return ['Ann']; });
+    const chef = mintDish({ recipe: 'feast:hearth', hand: HAND_CHEF }, PROV);
+    const plain = mintDish({ recipe: 'feast:hearth' }, PROV);
+    me.items.push(chef, plain);
+    assert.equal(dishUse(chef, me.items, { entity: me }).text, 'You eat the Feast of the Hearth. The feast is shared with Ann.');
+    assert.equal(dishUse(plain, me.items, { entity: me }).text, 'You eat the Feast of the Hearth. The feast you already enjoy lasts longer. The feast is shared with Ann.');
+    assert.deepEqual([me.items.length, shared.length, feastRounds(me)], [0, 2, [[2159]]], 'both eaten, both shared, the Chef\'s stands');
+    // a dish other than a feast: its own name
+    const stew = mintDish({ recipe: 'stew:north' }, PROV);
+    me.items.push(stew);
+    feedEffect(me, dishOf('stew'));
+    for (const a of me.activeEffects) if (a.bundleName === dishOf('stew').name) a.roundsRemaining = 9_999;
+    assert.equal(dishUse(stew, me.items, { entity: me }).text, 'You eat the Hunter\'s Stew. The Hunter\'s Stew you already enjoy lasts longer.');
+    assert.equal(dishStandsLine(dishOf('tart')), `The ${dishOf('tart').name} you already enjoy lasts longer.`);
+    // eaten with no one to lay it on: nothing more said
+    const loose = mintDish({ recipe: 'stew:south' }, PROV);
+    assert.equal(dishUse(loose, [loose], {}).text, 'You eat the Hunter\'s Stew.');
+  } finally { setFeastShare(null); setPref('survival', 'casual'); }
+});
+
+test('AUDIT PROF-541 R2-H1: a station\'s steps where my guild holds the town, by one law for every profession (fortLaw.js hallStepsFor - the craft\'s seat, the alchemy station\'s line, the fire\'s): the works\' steps in it and the seat named, none for another guild\'s town, an unheld one, no guild of mine or no works (mutants: any guild; the seat named with no step; one profession for all)', () => {
+  const seat = { key: 3021, holder: { guild: { id: 'g1' } }, forts: { apothecary: 2, forge: 1, workshop: 3, walls: 3 } };
+  assert.deepEqual(['cooking', 'alchemy', 'jewelcrafting', 'smithing', 'carpentry', 'nonsense'].map((p) => hallStepsFor(seat, 'g1', p)),
+    [{ steps: 2, seat: 3021 }, { steps: 2, seat: 3021 }, { steps: 2, seat: 3021 }, { steps: 1, seat: 3021 }, { steps: 3, seat: 3021 }, { steps: 0, seat: null }]);
+  const none = { steps: 0, seat: null };
+  assert.deepEqual(hallStepsFor(seat, 'g2', 'cooking'), none, 'another guild\'s town');
+  assert.deepEqual(hallStepsFor({ ...seat, holder: null }, 'g1', 'cooking'), none, 'unheld');
+  assert.deepEqual(hallStepsFor({ ...seat, holder: { guild: { id: null } } }, null, 'cooking'), none, 'no guild of mine');
+  assert.deepEqual(hallStepsFor({ ...seat, forts: { walls: 3 } }, 'g1', 'cooking'), none, 'no works stepping it: no seat named');
+  assert.deepEqual(hallStepsFor(null, 'g1', 'cooking'), none, 'no seat here');
+  // the host's wiring (world.js's boot closure - no test stands its seat and guild books up, the repo's exception): every
+  // station's guard is it, written once
+  const w = src('src/scenes/world.js');
+  assert.match(w, /const myHall = \(profession\) => hallStepsFor\(seatHere\(_musicLoc\?\.mapTableData\?\.mapId\), guildBook\?\.guild\?\.id \?\? null, profession\);\n\s+const alchemyHall = \(\) => myHall\('alchemy'\);/);
+  assert.match(w, /const \{ seat \} = myHall\(recipeById\(recipe\)\?\.profession\);/);
+  assert.match(w, /cookSteps: \(\) => myHall\('cooking'\)\.steps,/);
+  assert.equal(w.match(/holder\?\.guild\?\.id === \(guildBook/g), null, 'no guard of its own left in world.js');
 });

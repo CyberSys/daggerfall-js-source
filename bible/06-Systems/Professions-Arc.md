@@ -2830,9 +2830,24 @@ three). What sections 3.2, 3.3, 4.8, 9.3 and 9.4 left open for PROF9, DECIDED he
   stranger's gift's own law), naming only those whose send went. **K6** - the Tart's `dishStamina` is a kind the player may
   end (`mysticism.js` ENDABLE_KINDS). **K7** - the fire's XP line counts the town Apothecary's steps as the service does
   (`profPages.js`, the host's `cookSteps`; `recipeLaw.js` cookXp). **K8** - a Brew pressed while another craft holds the
-  one-craft latch says "Your hands are busy with another craft.".
+  one-craft latch says "Your hands are busy with another craft.". ACCEPTED (F2): a mate whose party roster lags behind
+  the eater's is not a party peer yet on their own client, so their copy of a shared feast is dropped as a stranger's
+  (K3) while the eater is told it was shared - the next feast reaches them once the roster has caught up.
+- **Audited a second round** (2026-10-03, AUDIT PROF-541 round 2): **R2-K9** (LOW) - a feast was known by its name alone,
+  so a mate's own spell named "Feast of the Hearth" (Fortify Strength 1 for 1,860 rounds and more) replaced a real feast
+  and then, never shortened (K4), shut out every feast eaten after it; a spell of the player's own spellbook so named did
+  the same: DECIDED, **a feast is its record** - a gift of the name lands only where its effects are the real feast's
+  (`cookItems.js` isFeastRecord over dishSpell's plain and Chef's records), any other is dropped, and a renewal counts and
+  replaces the dish's own bundles alone (eaten entries, or a feast's gift with the record's settings - `renewDish`'s
+  `dishEntry`): a look-alike neither stands for the dish nor is taken off by it. **R2-K10** (LOW) - a feast eaten while a
+  longer one stands was eaten for nothing, unsaid: it says "The feast you already enjoy lasts longer." (another dish its
+  own name; `cookItems.js` dishStandsLine) - the mates still receive it. **R2-H1** - the "my guild holds this seat" guard
+  written three times in `world.js` is one law, by profession (`fortLaw.js` hallStepsFor - the craft's seat, the
+  alchemy station's steps, the fire's `cookSteps`), and the feast's share is `cookItems.js` shareFeastWith, both driven by
+  tests; the hall door's gate is `onlineHomes.js` hallEntryTurnable, the row's and the press's. Pinned (four tests), 17
+  mutants added, all dead; seven re-aimed (prof9, guild_yard, guild1d).
 - **Pinned**: `test/prof9_law.test.js` (9), `test/prof9_service.test.js` (5, through the real Worker),
-  `test/prof9_client.test.js` (17). Mutants: `tools/mutants/prof9.json` (143, all dead). Patch notes:
+  `test/prof9_client.test.js` (21). Mutants: `tools/mutants/prof9.json` (159, all dead). Patch notes:
   `PATCH-NOTES-Cooking.md`.
 
 ## 36. PROF10 - Jewelcrafting, as built (BUILT 2026-10-02)
@@ -2935,8 +2950,8 @@ Mac: **"2 and 4"** (2026-10-02: the Apothecary waits on Alchemy, Cooking and Jew
   only "The item maker spends them.". **J6** - J1's cap took the most over every hand, the minted hand not stored: the
   jeweller's hand is **written on the piece** (`hand`, 1 or 2, `itemFields.js`; a hand its recipe takes alone) and the
   cap is that hand's (`craftedJewelPoints`) - no hand, no hand's share.
-- **Pinned**: `test/prof10_law.test.js` (10), `test/prof10_service.test.js` (6, through the real Worker),
-  `test/prof10_client.test.js` (13). Mutants: `tools/mutants/prof10.json` (164, all dead). Patch notes:
+- **Pinned**: `test/prof10_law.test.js` (10), `test/prof10_service.test.js` (7, through the real Worker),
+  `test/prof10_client.test.js` (13). Mutants: `tools/mutants/prof10.json` (166, all dead). Patch notes:
   `PATCH-NOTES-Jewelcrafting.md`.
 
 ## 37. PROF12 - Alchemy and the Enchanting layer, as built (BUILT 2026-10-02)

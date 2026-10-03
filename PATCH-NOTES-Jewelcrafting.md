@@ -37,4 +37,4 @@
 ---
 
 ### For the team
-- Deploy the account service (**`acct68`**). No migration (a piece's jeweller's hand rides `0069`'s `products.hand`), no relay change. Then ship the client. The account deploy's path filter now also lists `src/systems/itemTemplatesData.js`, which the service bundles for Daggerfall's Jewellery list.
+- Deploy the account service (**`acct70`** - PROF10's acct68 with AUDIT PROF-541's fixes; one Worker with Cooking's and Alchemy's), with migrations **`0069_cooking.sql`** (a piece's jeweller's hand rides its `products.hand`) and **`0070_alchemy.sql`**, in that order. No relay change. Then ship the client. The account deploy's path filter now also lists `src/systems/itemTemplatesData.js`, which the service bundles for Daggerfall's Jewellery list.

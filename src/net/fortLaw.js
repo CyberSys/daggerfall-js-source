@@ -182,6 +182,16 @@ export function stationSteps(profession, forts) {
   for (const [id, profs] of Object.entries(STATION_PROFESSIONS)) if (profs.includes(profession)) steps += Math.max(0, Number(forts?.[id] ?? 0) || 0);
   return steps;
 }
+/**
+ * AUDIT PROF-541 R2-H1: THE STEPS MY GUILD'S HALL GIVES A CRAFT - `seat` (the town a station stands in, dressed in its
+ * holder: world.js seatHere) where my guild (`guild`, the guild book's id) holds it: its works' steps in `profession`
+ * (stationSteps), and the seat a craft names (null where no step stands - the service asks the Charter again,
+ * professions.js seatStepsFor). One law for every station's line and the craft it sends, by profession.
+ */
+export function hallStepsFor(seat, guild, profession) {
+  const steps = !!guild && seat?.holder?.guild?.id === guild ? stationSteps(profession, seat.forts ?? {}) : 0;
+  return { steps, seat: steps > 0 ? seat.key ?? null : null };
+}
 /** The Harbour: a port for members (the Travel Options' port) at tier 1 or more. */
 export const harbourPort = (t) => Number(t) >= 1;
 /**

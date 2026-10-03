@@ -615,8 +615,8 @@
   {
     "name": "PROF9-effect-stacks",
     "file": "src/systems/cookItems.js",
-    "old": "while (removeBundleNamed(entity, name)) {",
-    "new": "while (removeBundleNamed(entity, `${name}!`)) {",
+    "old": "  if (ids.size) entity.activeEffects = entity.activeEffects.filter((a) => !ids.has(a.bundleId));",
+    "new": "  if (false) entity.activeEffects = entity.activeEffects.filter((a) => !ids.has(a.bundleId));",
     "tests": [
       "test/prof9_client.test.js"
     ]
@@ -1155,8 +1155,8 @@
   },
   {
     "name": "PROF9-world-feast-to-strangers",
-    "file": "src/scenes/world.js",
-    "old": "          if (!social.isPartyPeer(peer.id)) continue;\n",
+    "file": "src/systems/cookItems.js",
+    "old": "    if (!isMate(peer.id)) continue;\n",
     "new": "",
     "tests": [
       "test/prof9_client.test.js"
@@ -1285,8 +1285,8 @@
   {
     "name": "AUDIT-PROF-541-K5-whole-room",
     "file": "src/scenes/world.js",
-    "old": "        for (const peer of peersNear() ?? []) {",
-    "new": "        for (const peer of online.peers.values()) {",
+    "old": "return shareFeastWith(peersNear(), {",
+    "new": "return shareFeastWith(online.peers.values(), {",
     "tests": [
       "test/prof9_client.test.js"
     ]
@@ -1322,8 +1322,8 @@
   {
     "name": "AUDIT-PROF-541-K7-host-alchemy-steps",
     "file": "src/scenes/world.js",
-    "old": "stationSteps('cooking', hall.forts ?? {}) : 0; },",
-    "new": "stationSteps('alchemy', hall.forts ?? {}) : 0; },",
+    "old": "cookSteps: () => myHall('cooking').steps,",
+    "new": "cookSteps: () => myHall('alchemy').steps,",
     "tests": [
       "test/prof9_client.test.js"
     ]
@@ -1333,6 +1333,150 @@
     "file": "src/scenes/world.js",
     "old": "'Your hands are busy with another craft.'",
     "new": "'Your last brew is still in the cauldron.'",
+    "tests": [
+      "test/prof9_client.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-PROF-541-R2-K5-unsent-named",
+    "file": "src/systems/cookItems.js",
+    "old": "    if (send(peer.id)) out.push(nameOf(peer.id) ?? 'a party member');",
+    "new": "    send(peer.id); out.push(nameOf(peer.id) ?? 'a party member');",
+    "tests": [
+      "test/prof9_client.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-PROF-541-R2-K9-gift-by-its-name",
+    "file": "src/systems/cookItems.js",
+    "old": "  if (!isFeastRecord(spell)) return false;",
+    "new": "  if (false) return false;",
+    "tests": [
+      "test/prof9_client.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-PROF-541-R2-K9-record-by-its-name",
+    "file": "src/systems/cookItems.js",
+    "old": "FEAST_FORMS.get(spell?.name)?.records.has(recordKey(spell)) === true;",
+    "new": "FEAST_FORMS.has(spell?.name);",
+    "tests": [
+      "test/prof9_client.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-PROF-541-R2-K9-no-chefs-record",
+    "file": "src/systems/cookItems.js",
+    "old": "const recs = [null, HAND_CHEF].map((h) => dishSpell(d, h))",
+    "new": "const recs = [null].map((h) => dishSpell(d, h))",
+    "tests": [
+      "test/prof9_client.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-PROF-541-R2-K9-every-bundle-of-the-name",
+    "file": "src/systems/cookItems.js",
+    "old": "a.bundleName === name && dishEntry(a, name));",
+    "new": "a.bundleName === name);",
+    "tests": [
+      "test/prof9_client.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-PROF-541-R2-K9-look-alike-gift-stands",
+    "file": "src/systems/cookItems.js",
+    "old": "return a.bundleAlly === true && FEAST_FORMS.get(name)?.entries.has(",
+    "new": "return a.bundleAlly === true || FEAST_FORMS.get(name)?.entries.has(",
+    "tests": [
+      "test/prof9_client.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-PROF-541-R2-K9-any-kind",
+    "file": "src/systems/cookItems.js",
+    "old": "  if (a.kind !== 'fortifyAttribute' && a.kind !== DISH_STAMINA_KIND) return false;\n",
+    "new": "",
+    "tests": [
+      "test/prof9_client.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-PROF-541-R2-K10-nothing-said",
+    "file": "src/systems/cookItems.js",
+    "old": "  if (entity && !laid.length) lines.push(dishStandsLine(d));",
+    "new": "  if (false) lines.push(dishStandsLine(d));",
+    "tests": [
+      "test/prof9_client.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-PROF-541-R2-K10-said-unlaid",
+    "file": "src/systems/cookItems.js",
+    "old": "  if (entity && !laid.length) lines.push(dishStandsLine(d));",
+    "new": "  if (!laid.length) lines.push(dishStandsLine(d));",
+    "tests": [
+      "test/prof9_client.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-PROF-541-R2-K10-words",
+    "file": "src/systems/cookItems.js",
+    "old": "'The feast you already enjoy lasts longer.'",
+    "new": "'You are already full.'",
+    "tests": [
+      "test/prof9_client.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-PROF-541-R2-K10-dish-words",
+    "file": "src/systems/cookItems.js",
+    "old": "`The ${d?.name ?? 'dish'} you already enjoy lasts longer.`",
+    "new": "'The feast you already enjoy lasts longer.'",
+    "tests": [
+      "test/prof9_client.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-PROF-541-R2-H1-any-guild",
+    "file": "src/net/fortLaw.js",
+    "old": "const steps = !!guild && seat?.holder?.guild?.id === guild ? stationSteps(",
+    "new": "const steps = !!guild && !!seat ? stationSteps(",
+    "tests": [
+      "test/prof9_client.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-PROF-541-R2-H1-no-guild-of-mine",
+    "file": "src/net/fortLaw.js",
+    "old": "const steps = !!guild && seat?.holder?.guild?.id === guild ? stationSteps(",
+    "new": "const steps = seat?.holder?.guild?.id === guild ? stationSteps(",
+    "tests": [
+      "test/prof9_client.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-PROF-541-R2-H1-seat-without-steps",
+    "file": "src/net/fortLaw.js",
+    "old": "return { steps, seat: steps > 0 ? seat.key ?? null : null };",
+    "new": "return { steps, seat: seat?.key ?? null };",
+    "tests": [
+      "test/prof9_client.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-PROF-541-R2-H1-one-profession",
+    "file": "src/net/fortLaw.js",
+    "old": "stationSteps(profession, seat.forts ?? {})",
+    "new": "stationSteps('cooking', seat.forts ?? {})",
+    "tests": [
+      "test/prof9_client.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-PROF-541-R2-H1-host-craft-alchemy",
+    "file": "src/scenes/world.js",
+    "old": "const { seat } = myHall(recipeById(recipe)?.profession);",
+    "new": "const { seat } = myHall('alchemy');",
     "tests": [
       "test/prof9_client.test.js"
     ]

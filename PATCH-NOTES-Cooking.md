@@ -30,8 +30,10 @@
 - **The Orchard Tart's stamina can be ended** from the buff row, like every other dish.
 - **The fire's XP line counts the town's Apothecary** where your guild holds the town, so it shows the XP you actually get.
 - **Pressing Brew while another craft is under way** now says your hands are busy with another craft (it said your last brew was still in the cauldron).
+- **Only a real feast counts as a feast.** A spell that is merely named "Feast of the Hearth" - one a party member cast at you, or one of your own - no longer replaces your feast or stops you from eating one.
+- **Eating a feast while a longer one is still on you** now says so ("The feast you already enjoy lasts longer.") - your party still gets it.
 
 ---
 
 ### For the team
-- Apply migration **`0069_cooking.sql`** to production D1 and deploy the account service (**`acct67`** - `acct66` is another branch's fix, deployed first or with it). Then ship the client. No relay change.
+- Deploy the account service (**`acct70`** - PROF9's acct67 with AUDIT PROF-541's fixes; one Worker with Jewelcrafting's and Alchemy's), with migrations **`0069_cooking.sql`** (`products.hand`) and **`0070_alchemy.sql`** applied to production D1 in that order. Then ship the client. No relay change.

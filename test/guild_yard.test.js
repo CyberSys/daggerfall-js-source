@@ -14,7 +14,7 @@ import { seatRealm } from './realmSeat.mjs';
 import { homeSaleRefund, homeLookOf } from '../src/net/homeLaw.js';
 import { DECOR_YARD_CAP } from '../src/net/decorLaw.js';
 import { REFUSALS } from '../src/net/accountClient.js';
-import { homeOutsideKept, homeYardWhere, createOnlineHomes, homeHallRows, HOME_VERB, HALL_VERB } from '../src/systems/onlineHomes.js';
+import { homeOutsideKept, homeYardWhere, createOnlineHomes, homeHallRows, HOME_VERB, HALL_VERB, hallEntryTurnable } from '../src/systems/onlineHomes.js';
 import { createHomeYards, YARD_IN_HALL, YARD_HALL_FULL, YARD_IN_HOUSE, YARD_FULL } from '../src/scenes/homeYards.js';
 import { decorWhyNot } from '../src/ui/decorPanel.js';
 import { fakeDoc, fakeWin, fakeBlocks, rmb, TOWN, settle } from './decorFakes.mjs';
@@ -424,7 +424,10 @@ test('AUDIT PROF-541 G2 the hall\'s door "Who may enter" follows what the servic
   assert.equal(h.keeper, false);
   assert.deepEqual(homeHallRows(h, 'enter').map((r) => r.id), [HOME_VERB.enter, HALL_VERB.entry], 'a local Officer\'s door: "Who may enter"');
   assert.deepEqual(homeHallRows({ ...h, hallEntry: false, keeper: true }, 'enter').map((r) => r.id), [HOME_VERB.enter], 'keeper alone: no row');
-  assert.match(src('src/scenes/worldModes.js'), /if \(verb === HALL_VERB\.entry && home\?\.hall && home\.hallEntry\) \{ turnHallEntry\(bd, home\); return true; \}/, 'the press as the row');
+  // AUDIT PROF-541 R2-H1: the row's gate and the press's one law (onlineHomes.js hallEntryTurnable), driven
+  assert.deepEqual([hallEntryTurnable(h), hallEntryTurnable({ ...h, hallEntry: false, keeper: true }), hallEntryTurnable({ ...h, hall: false }), hallEntryTurnable(null)], [true, false, false, false]);
+  // the press's wiring (worldModes.js's building-click ladder - no test stands an interior host up to press it, the repo's exception)
+  assert.match(src('src/scenes/worldModes.js'), /if \(verb === HALL_VERB\.entry && hallEntryTurnable\(home\)\) \{ turnHallEntry\(bd, home\); return true; \}/, 'the press as the row');
 });
 
 test('AUDIT GUILD-YARD a home\'s outside is its CHARACTER\'s: another character of the same account paints nothing of it, nor places in its yard (mutants: OWNS\'s home any character of the account)', async (t) => {

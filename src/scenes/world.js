@@ -376,7 +376,7 @@ import { essenceOf, piecePoints, DISENCHANTER } from '../net/alchemyLaw.js';   /
 import { facetBand } from '../net/recipeLaw.js';   // PROF10: the facet's attribute band
 import { panBand, DISH_LEVEL } from '../net/recipeLaw.js';   // PROF9: the pan's attribute band; a feast's level at the table
 import { COOK_FIRE } from '../net/professionLaw.js';   // PROF9: the fire Cooking is done at - any lit one, no fee
-import { setFeastShare, takeFeastGift } from '../systems/cookItems.js';   // PROF9: a feast shared with the party at the table
+import { setFeastShare, takeFeastGift, shareFeastWith } from '../systems/cookItems.js';   // PROF9: a feast shared with the party at the table
 import { hasSkillet } from '../systems/survival/camp.js';   // PROF9: C&C's Skillet widens the pan's window
 import { allyCastFrame } from '../systems/allyCast.js';   // PROF9: a feast reaches a party mate as ALLY-CAST's gift
 import { questActionsExtensionTemplates } from '../systems/quest/questActionsExtension.js';   // FORAGE1: QAE's four actions, which Foraging's quests say
@@ -724,7 +724,7 @@ import { carvedFloorLocalY } from './deepWatersHost.js';   // DW-D: the shore pr
 import { breathStep, setWaterBreathingRule } from '../systems/breath.js';   // DW-D: the dungeon's breath law, on the open sea; ApplyArgonianInfiniteBreath
 import { CLASSIC_UPDATE_INTERVAL } from '../characters/weaponStates.js';   // DW-D: PlayerEntity's classic cadence, the dungeon's import
 import { RACES } from '../systems/races.js';   // DW-D: ArgonianInfiniteBreath
-import { stationSteps, harbourPortFor, coastalAt } from '../net/fortLaw.js';   // SEAT2b part two: a seat's crafting halls, its members' Harbour, a coast
+import { hallStepsFor, harbourPortFor, coastalAt } from '../net/fortLaw.js';   // SEAT2b part two: a seat's crafting halls, its members' Harbour, a coast
 import { isWaterPixel } from '../ui/overworldModel.js';   // SEAT2b part two: a coast is the sea beside the town (the port's one water law)
 import { createSiegeNpcs } from './siegeNpcs.js';   // SEAT2b part two (c): the Barracks' guards and a revolt's rising, drawn
 import { createSiegeSession, isBattleLeaveCommand, BATTLE_NONE_TEXT } from '../net/siegeSession.js';   // SEAT2a part four: a siege as this client fights it   // AUDIT-SEATS C1: the chat's `/leave`
@@ -8650,12 +8650,10 @@ export async function bootWorld(canvas, renderer, params, status) {
         onSettle: () => { profBook.settle(profMint, profMintCraft).catch(() => {}); }, pointer: (want) => { const relock = () => { if (!cursorActive() && !gamePaused() && !pointerSurfaces.size && !(modes?.modalWindowUp?.() ?? false) && !overlayOpen() && !travelView?.active) requestLook(canvas); }; if (want === 'look') { if (cursorActive()) { setCursorActive(false); relock(); } return null; } if (controllerLook()) return null; const off = holdCursor(); return () => { if (!off()) return; if (backButtonHeld) escRelock = relock; else relock(); }; },   // HERB-CURSOR (FIELD BUGS 2026-10-02 part four): the Basket's glints are clicked with the cursor, held free while it plays and the look taken back after (never under a window, a surface, an overlay, the travel view or the player's own freed mouse); a vein's, a body's or the net's act is aimed by the look - a mouse the player freed is taken back, under the same gates (AUDIT A4). AUDIT A1: an Escape that ended the act asks on its keyup (escRelock) - a lock taken inside its keydown was the browser's to end on the keyup, and ESC-LOCK read that as a second Escape; C8: a pad in hand strikes with its trigger, and no hold shows the OS pointer
       });
       /** AUDIT PROF-541 B4: the town the alchemy station stands in, where my guild holds it - its Apothecary's steps, and
-       *  the seat a brew names (null where no step stands) */
-      const alchemyHall = () => {
-        const hall = seatHere(_musicLoc?.mapTableData?.mapId);
-        const steps = hall && hall.holder?.guild?.id === (guildBook?.guild?.id ?? null) ? stationSteps('alchemy', hall.forts ?? {}) : 0;
-        return { steps, seat: steps > 0 ? hall.key : null };
-      };
+       *  the seat a brew names (null where no step stands); AUDIT PROF-541 R2-H1: every station's by one law, by profession
+       *  (fortLaw.js hallStepsFor) */
+      const myHall = (profession) => hallStepsFor(seatHere(_musicLoc?.mapTableData?.mapId), guildBook?.guild?.id ?? null, profession);
+      const alchemyHall = () => myHall('alchemy');
       setProfessionsPages({
         book: profBook, name: (k) => materialLabel(k), withdraw: (k, n) => profBook.withdraw(k, n, profMint),
         settle: () => profBook.settle(profMint, profMintCraft),   // AUDIT 29 C4: a kept withdrawal asked again when the Stores page opens; PROF3: and a kept craft
@@ -8675,9 +8673,8 @@ export async function bootWorld(canvas, renderer, params, status) {
           // AUDIT 30 C4: the fee rides the kept craft and is paid as its pieces are minted (profMintCraft) - by this press's
           // answer, or a settle's later; A4: the workbench's kept word its own
           // SEAT2b part two (Seats-Arc 7.5): the town the station stands in, where my guild holds it and its crafting halls
-          // step this craft (fortLaw.js stationSteps) - the service asks the Charter again (professions.js seatStepsFor)
-          const hall = seatHere(_musicLoc?.mapTableData?.mapId);
-          const seat = hall && hall.holder?.guild?.id === (guildBook?.guild?.id ?? null) && stationSteps(recipeById(recipe)?.profession, hall.forts ?? {}) > 0 ? hall.key : null;
+          // step this craft (fortLaw.js hallStepsFor) - the service asks the Charter again (professions.js seatStepsFor)
+          const { seat } = myHall(recipeById(recipe)?.profession);
           const r = await profBook.craft(recipe, { clean, heartwood, dye, cracked, fee: f.fee > 0 ? f.fee : 0, name: typeof playerEntity?.name === 'string' ? playerEntity.name : null, seat }, profMintCraft);   // PROF10: a Lapidary's cracked gem
           if (!r?.ok) return { ok: false, text: r?.kept ? st.kept : r?.error === 'prof-busy' ? st.busy : accountRefusalText(r?.error) };
           const paid = f.fee > 0 && !r.elsewhere;
@@ -8709,7 +8706,7 @@ export async function bootWorld(canvas, renderer, params, status) {
         skillet: () => hasSkillet(playerEntity?.items),
         // AUDIT PROF-541 K7: the town Apothecary's steps a dish's XP takes here - the seat the craft below sends (where my
         // guild holds the town; professions.js seatStepsFor asks the Charter again), so the fire's line says the XP the service pays
-        cookSteps: () => { const hall = seatHere(_musicLoc?.mapTableData?.mapId); return hall && hall.holder?.guild?.id === (guildBook?.guild?.id ?? null) ? stationSteps('cooking', hall.forts ?? {}) : 0; },
+        cookSteps: () => myHall('cooking').steps,
         // PROF10 (bible/06-Systems/Professions-Arc.md 9.3, 9.4): THE JEWELLER'S BENCH the player stands at, and the facet's band
         jeweller: () => modes?.jewellerHere?.() ?? null,
         // PROF12 (bible/06-Systems/Professions-Arc.md 9.3, 37): THE ALCHEMY STATION the player stands at (an Alchemist's, its
@@ -8816,12 +8813,9 @@ export async function bootWorld(canvas, renderer, params, status) {
       // spell, at the dish's level, laid on by the mate's own client as a mate's gift); the names it went to, said
       setFeastShare((spell) => {
         if (!online || online.status !== 'open' || !social?.party) return [];
-        const out = [];
-        for (const peer of peersNear() ?? []) {   // AUDIT PROF-541 K5: the mates at the table - in sight, as a stranger's gift is (online.onCast), never the whole room and its halo
-          if (!social.isPartyPeer(peer.id)) continue;
-          if (online.sendCast?.(allyCastFrame(spell, DISH_LEVEL, peer.id))) out.push(peerName(peer.id) ?? 'a party member');
-        }
-        return out;
+        // AUDIT PROF-541 K5: the mates at the table - in sight, as a stranger's gift is (online.onCast), never the whole
+        // room and its halo; R2-H1: by cookItems.js shareFeastWith
+        return shareFeastWith(peersNear(), { isMate: (id) => social.isPartyPeer(id), send: (id) => online.sendCast?.(allyCastFrame(spell, DISH_LEVEL, id)), nameOf: (id) => peerName(id) });
       });
     }
   }

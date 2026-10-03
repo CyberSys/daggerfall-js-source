@@ -41,7 +41,7 @@ import { foodName } from './survival/food.js';
 import { survivalOn, survivalRules } from './survival/switch.js';
 import { SURVIVAL_RULES } from './survival/difficulty.js';
 import { inflictDisease } from './diseases.js';
-import { assignModBundle, removeBundleNamed, rollDuration } from './effects.js';
+import { assignModBundle, rollDuration, settingsKeyOf } from './effects.js';
 import { PROF_ITEM_GROUP } from './profTemplates.js';
 
 /** The Tart's effect's kind (9.3: "stamina regained +20%"): the port's own - no DFU effect lengthens a stamina. */
@@ -121,9 +121,35 @@ export const isPartyDishSpell = (name) => typeof name === 'string' && DISHES.som
  *  to a plain feast's day by a second eaten or a mate's shared): then it stands and the incoming is skipped. Answers
  *  whether the incoming may land. */
 export function renewDish(entity, name, rounds) {
-  if ((entity?.activeEffects ?? []).some((a) => a.bundleId != null && !a.ended && a.bundleName === name && a.roundsRemaining >= rounds)) return false;
-  while (removeBundleNamed(entity, name)) { /* every bundle of the dish's name - renewed, never stacked */ }
+  // AUDIT PROF-541 R2-K9: the dish's own bundles alone (dishEntry) - a look-alike of its name (my own spellbook's
+  // "Feast of the Hearth") neither stands for it nor is taken off by it
+  const mine = (entity?.activeEffects ?? []).filter((a) => a.bundleId != null && !a.ended && a.bundleName === name && dishEntry(a, name));
+  if (mine.some((a) => a.roundsRemaining >= rounds)) return false;
+  const ids = new Set(mine.map((a) => a.bundleId));
+  if (ids.size) entity.activeEffects = entity.activeEffects.filter((a) => !ids.has(a.bundleId));   // every bundle of the dish's - renewed, never stacked
   return true;
+}
+/** AUDIT PROF-541 R2-K9: a spell record's identity - each effect's type, subType and settings (effects.js settingsKeyOf,
+ *  CompareSettings's fields), in order. */
+const recordKey = (spell) => (spell?.effects ?? []).map((e) => `${e?.type}/${e?.subType}/${settingsKeyOf(e ?? {})}`).join('|');
+/** AUDIT PROF-541 R2-K9: EACH FEAST'S OWN RECORD (dishSpell - a plain feast's and a Chef's), by name: the records a gift
+ *  must be, and the `stat/settingsKey` its laid entries carry (effects.js applySpell's Fortify Attribute). */
+const FEAST_FORMS = new Map(DISHES.filter((d) => d.effect.party === true).map((d) => {
+  const recs = [null, HAND_CHEF].map((h) => dishSpell(d, h)).filter(Boolean);
+  const stats = Object.keys(d.effect.stats ?? {});
+  return [d.name, { records: new Set(recs.map(recordKey)), entries: new Set(recs.flatMap((sp) => sp.effects.map((e, i) => `${stats[i]}/${settingsKeyOf(e)}`))) }];
+}));
+/** AUDIT PROF-541 R2-K9: WHETHER A FEAST-NAMED SPELL IS A FEAST - its effects the real feast's record (a plain one's or a
+ *  Chef's), never its name alone: a mate's own spell named "Feast of the Hearth" (Fortify Strength 1 for 1,860 rounds)
+ *  replaced a real feast and then, never shortened (K4), shut out every feast eaten after it. */
+export const isFeastRecord = (spell) => FEAST_FORMS.get(spell?.name)?.records.has(recordKey(spell)) === true;
+/** AUDIT PROF-541 R2-K9: whether a standing entry is a dish's own - one EATEN (feedEffect: a Fortify Attribute or the
+ *  Tart's stamina, no settings - never a spell's), or a FEAST'S GIFT (a mate's, its settings the feast record's). A spell
+ *  of my own spellbook named as a dish is neither. */
+function dishEntry(a, name) {
+  if (a.kind !== 'fortifyAttribute' && a.kind !== DISH_STAMINA_KIND) return false;
+  if (a.settingsKey == null) return a.bundleAlly !== true;
+  return a.bundleAlly === true && FEAST_FORMS.get(name)?.entries.has(`${a.stat}/${a.settingsKey}`) === true;
 }
 /** AUDIT PROF-541 K3/K4: WHAT A FEAST'S GIFT DOES (world.js online.onCast, before the cast lands): a spell that is no
  *  party dish's passes untouched (true); a feast from a STRANGER is dropped (false - a feast is the party's at the table,
@@ -132,13 +158,33 @@ export function renewDish(entity, name, rounds) {
 export function takeFeastGift(entity, spell, level, mate) {
   if (!isPartyDishSpell(spell?.name)) return true;
   if (!mate) return false;
+  if (!isFeastRecord(spell)) return false;   // AUDIT PROF-541 R2-K9: a feast by its record, never its name alone - a look-alike dropped
   return renewDish(entity, spell.name, Math.max(0, ...(spell.effects ?? []).map((e) => rollDuration(e, level))));
 }
+
+/** AUDIT PROF-541 R2-K10: what eating a dish says when a longer one of it already stands (renewDish - never shortened):
+ *  the dish eaten, nothing laid on. */
+export const dishStandsLine = (d) => (d?.effect?.party === true ? 'The feast you already enjoy lasts longer.' : `The ${d?.name ?? 'dish'} you already enjoy lasts longer.`);
 
 /** The host's share of a feast with the party at the table (world.js, online): `(spell, name) => [names shared with]`. */
 let _share = /** @type {((spell: any, name: string) => string[])|null} */ (null);
 /** World.js registers it online; null takes it down (offline a feast is the eater's alone). */
 export function setFeastShare(fn) { _share = typeof fn === 'function' ? fn : null; }
+/**
+ * AUDIT PROF-541 K5, R2-H1: A FEAST SHARED (the host's share door, world.js setFeastShare): to each party mate among the
+ * `peers` in sight at the table (world.js peersNear - the stranger's gift's own law, never the whole room and its halo),
+ * `send(id)` the host's (its spell record through ALLY-CAST's own frame); the names of those whose send went, said.
+ * @param {Iterable<{ id: string }>|null|undefined} peers
+ * @param {{ isMate: (id: string) => boolean, send: (id: string) => any, nameOf: (id: string) => string|null|undefined }} host
+ */
+export function shareFeastWith(peers, { isMate, send, nameOf }) {
+  const out = [];
+  for (const peer of peers ?? []) {
+    if (!isMate(peer.id)) continue;
+    if (send(peer.id)) out.push(nameOf(peer.id) ?? 'a party member');
+  }
+  return out;
+}
 /** What eating a feast shared says: "The feast is shared with Ann and Bob." */
 export function feastSharedLine(names) {
   const list = [...new Set((names ?? []).filter(Boolean))];
@@ -165,8 +211,9 @@ export function dishUse(item, collection, { entity = null, nowMinute = 0, rolls 
     out = { kind: 'ate', text: `You eat the ${foodName(item)}.` };
   }
   const hand = handOfDish(item);
-  feedEffect(entity, d, hand, rolls);
+  const laid = feedEffect(entity, d, hand, rolls);
   const lines = [out.text];
+  if (entity && !laid.length) lines.push(dishStandsLine(d));   // AUDIT PROF-541 R2-K10: eaten, and nothing laid on - said (the mates still get a feast)
   if (d.effect.party === true) {
     const sp = dishSpell(d, hand);
     const line = feastSharedLine(sp && _share ? _share(sp, d.name) : []);
