@@ -65,6 +65,7 @@ const ROUTED = {
   'src/systems/enchanting.js': 1,
   'src/systems/enchantmentCatalogue.js': 20,
   'src/systems/equip.js': 2,
+  'src/systems/features.js': 3,   // L10N4: the Features screen's Off, Low and High are DFU's own settings words
   'src/systems/gameDate.js': 7,
   'src/systems/guildServiceFlow.js': 21,
   'src/systems/guildServices.js': 9,

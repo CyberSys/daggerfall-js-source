@@ -310,8 +310,8 @@
  {
   "name": "AUDIT-GRASSPX-the-row-does-not-say-what-it-is-inert-without",
   "file": "src/systems/features.js",
-  "old": "    note: 'How much grass grows in the enhanced outdoors. Grass is the heaviest thing outdoors, so try Half '",
-  "new": "    note: 'How much grass grows. Grass is the heaviest thing outdoors, so try Half '",
+  "old": "    get note() { return t('features.grass.note', 'How much grass grows in the enhanced outdoors. Grass is the heaviest thing outdoors, so try Half '",
+  "new": "    get note() { return t('features.grass.note', 'How much grass grows. Grass is the heaviest thing outdoors, so try Half '",
   "tests": [
    "test/grasspx.test.js"
   ]

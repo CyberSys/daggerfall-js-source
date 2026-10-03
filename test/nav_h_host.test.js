@@ -463,6 +463,6 @@ test('NAV-H the switch: the Features row on the port\'s own prefs, forced on onl
     assert.ok(w.includes(`'${k}'`) && w.includes(`'${pref}'`), `${k} reads ${pref}`);
   }
   const f = src('systems/features.js');
-  assert.match(f, /id: 'naval-combat',\s+group: 'combat',\s+title: 'Naval Combat',/);
+  assert.match(f, /id: 'naval-combat',\s+group: 'combat',\s+get title\(\) \{ return t\('features\.navalCombat\.title', 'Naval Combat'\); \},/);
   assert.match(f, /control: Object\.freeze\(\{\s*store: 'prefs', key: 'naval', initial: true, online: true,/);
 });

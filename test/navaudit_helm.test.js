@@ -392,7 +392,7 @@ test('AUDIT NAV1 H9 the world wires it: the broadside camera\'s eye is the frame
   assert.match(w, /key === 'AimCamera' \? getPref\('naval-aim-camera'\) !== false/);
   const f = src('systems/features.js');
   assert.match(f, /Object\.freeze\(\{ store: 'prefs', key: 'naval-aim-camera', initial: true, online: 'player' \}\)/);
-  assert.match(f, /Object\.freeze\(\{ key: 'naval-aim-camera', label: 'Broadside camera' \}\)/);
+  assert.match(f, /Object\.freeze\(\{ key: 'naval-aim-camera', get label\(\) \{ return t\('features\.navalCombat\.aimCamera', 'Broadside camera'\); \} \}\)/);
 });
 
 // ── the brace ───────────────────────────────────────────────────────────────────────────────────────────────────────

@@ -436,8 +436,8 @@
   {
     "name": "SURVTIERS-row-stores-off-by-name",
     "file": "src/systems/features.js",
-    "old": "tiers: Object.freeze([[false, 'Off'],",
-    "new": "tiers: Object.freeze([['off', 'Off'],",
+    "old": "tiers: Object.freeze([tier(false, OFF),",
+    "new": "tiers: Object.freeze([tier('off', OFF),",
     "tests": [
       "test/survtiers.test.js"
     ]

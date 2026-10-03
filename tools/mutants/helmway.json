@@ -170,7 +170,7 @@
   {
     "name": "HELM-WAY-no-drawer-part",
     "file": "src/systems/features.js",
-    "old": "        Object.freeze({ key: 'naval-handling', label: 'Ship handling', tiers: Object.freeze([['responsive', 'Responsive'], ['classic', 'Classic']]) }),\n",
+    "old": "        Object.freeze({ key: 'naval-handling', get label() { return t('features.navalCombat.handling', 'Ship handling'); },\n          tiers: Object.freeze([tier('responsive', () => t('features.navalCombat.handling.responsive', 'Responsive')), tier('classic', () => t('features.navalCombat.handling.classic', 'Classic'))]) }),\n",
     "new": "",
     "tests": [
       "test/helmway.test.js"
