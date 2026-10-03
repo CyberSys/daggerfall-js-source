@@ -36,7 +36,7 @@ test('ARENA2 hosts - world.js: the crowd drawn in both passes, the music held, t
   assert.match(W, /if \(!gateScoreFrame\(\) && !arenaScoreFrame\(\)\) musicDirector\.update\(\{/);
   assert.match(W, /for \(const song of Object\.values\(arenaScoreSongs\(\)\)\) music\.registerSong\(song\.name, song\);/);
   assert.match(W, /function duelEnemyNear\(\) \{ return !!duelMgr\?\.live \|\| arenaBouts\.holds\(\); \}/, 'no rest, no travel, no journey in my bout');
-  assert.match(W, /if \(!player\.arena\) player\.arena = arenaBouts\.ring\(\);   \/\/ ARENA2/, 'online');
+  assert.match(W, /if \(!player\.arena\) player\.arena = arenaBouts\.ring\(\);[^\n]*\/\/ ARENA2/, 'online');   // HOTFIX 1003i: the stands' rail after it on its line
   assert.match(W, /if \(!player\.arena\) player\.arena = arenaBouts\.ring\(\); \/\* ARENA2/, 'and offline');
   for (const door of ['arenaHerald: () => arenaHerald(),', 'arenaPlayerSpare: () => arenaBouts.playerSpare(),', 'arenaHolds: () => arenaBouts.holds(),', 'arenaLanding: () => {']) assert.ok(W.includes(door), door);
   assert.match(W, /townTalk\.showOverlay\(new ChoiceWindow\(\{ lines: ch\.lines, options: ch\.options\.map/, 'the Herald\'s choice is a ChoiceWindow (the enhanced dialog on the Plus skin)');
