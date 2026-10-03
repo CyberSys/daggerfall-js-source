@@ -172,7 +172,7 @@ import { MOD_SETTINGS, modSetting, setModSetting, onlineModSetting, isIntKey, is
 import { keyCodeForDomCode, KEYCODE_NONE } from '../systems/keyCodes.js';   // HT1: a TextKey's capture spells the key as Unity would
 import { isOnlinePage, onlineForcedPref, onlineForcedModSetting, onlineForcedSetting, onlineWholeModKey, ONLINE_ROOM_MOD_KEYS } from '../systems/onlineLane.js';   // OL1: online is the enhanced lane, whole - a forced switch is shown locked   // ROADS 24; DS1: the integer keys; UL1: the choice keys
 import { onlineSyncPlan, applyOnlineSync, lastOnlineSync, undoOnlineSync } from '../systems/onlineSync.js';   // UXB1-E: the room's rules, copied home
-import { CREDITS } from './credits.js';   // CR1: who made what the port carries
+import { CREDITS, translationCredits } from './credits.js';   // CR1: who made what the port carries
 import { t, tIn, currentLocale, localeInfo, localeTable, availableLocales, BASE_LOCALE, localizedText, formatText } from '../systems/textManager.js';   // L10N1b: the port's own strings, the language row and the first-run offer; L10N3d: DFU's Internal_Strings
 import { localeForBrowser, catalogLocale } from '../systems/localeCatalog.js';   // L10N1b
 // FIX-F (Mac: "changing keybinds in classic/enhanced do not work"): the
@@ -3471,6 +3471,8 @@ function creditsCard() {
   };
   group(t('menu.credits.builtOn', 'Built on'), CREDITS.builtOn);
   group(t('menu.credits.mods', 'Mods'), CREDITS.mods);
+  const languages = translationCredits();   // L10N6: whose words each language's are, a bundled pack's terms
+  if (languages.length) group(t('menu.credits.translations', 'Translations'), languages);
   return c;
 }
 

@@ -913,7 +913,9 @@
     "new": "",
     "tests": [
       "test/prof11_client.test.js"
-    ]
+    ],
+    "equivalent": true,
+    "why": "nothing waits on SEAT2b since the fortifications shipped - no specialisation or recipe carries a later slice now, so the word is never drawn (it stands for the next slice that does)"
   },
   {
     "name": "PROF11-pages-mortar-at-rank-0",
