@@ -304,5 +304,14 @@
     "tests": [
       "test/goldmarket_client.test.js"
     ]
+  },
+  {
+    "name": "PROF-541-R2-C7-spoiled-unsaid",
+    "file": "src/ui/marketTab.js",
+    "old": "    if (h === 'yours' && (item.foodStage ?? 0) > 0) return SPOILED_DISH_WHY;\n",
+    "new": "",
+    "tests": [
+      "test/goldmarket_client.test.js"
+    ]
   }
 ]

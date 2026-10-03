@@ -85,6 +85,8 @@ const GOODS_SAID = 8;
 /** The words that say the view a press was made from has moved - read again (AUDIT 31 B8: the book's own list, so the
  *  tab and the book never disagree - a bid that leads, a bid standing, a bid overtaken as it was decided). */
 const MOVED = MARKET_MOVED;
+/** AUDIT PROF-541 R2-C7: why a spoiled dish of your own make does not list. */
+export const SPOILED_DISH_WHY = 'spoiled - only a fresh dish of your own make goes to the market';
 /** AUDIT 30 U11: the words that say the market is not this account's. */
 const SHUT = ['market-closed', 'prof-need-account'];
 const plural = (n, one) => `${n.toLocaleString('en-US')} ${one}${n === 1 ? '' : 's'}`;
@@ -489,6 +491,9 @@ export function createMarketTab(m, ui) {
   const craftedWhy = (item) => {
     if (typeof item?.provenance !== 'string') return null;
     const h = heldState(item.provenance);
+    // AUDIT PROF-541 R2-C7: a dish of your own make spoiled since it was cooked lists neither way - its record mints it
+    // fresh (smithItems.js asMinted), so the Crafted list leaves it out - and is said so, never "list it as a crafted piece"
+    if (h === 'yours' && (item.foodStage ?? 0) > 0) return SPOILED_DISH_WHY;
     return h === 'other' || h === 'none' ? null : h === 'yours' ? 'your own make - list it as a crafted piece' : h === 'elsewhere' ? 'on the market already' : 'being looked up';
   };
   function listForm() {

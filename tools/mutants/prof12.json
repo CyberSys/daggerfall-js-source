@@ -1887,5 +1887,50 @@
     "tests": [
       "test/prof12_client.test.js"
     ]
+  },
+  {
+    "name": "PROF-541-R2-C1-landed-unread",
+    "file": "src/scenes/world.js",
+    "old": "          if (!r.data) profBook.refresh({ force: true }).catch(() => {});\n",
+    "new": "",
+    "tests": [
+      "test/prof12_client.test.js"
+    ]
+  },
+  {
+    "name": "PROF-541-R2-C1-gone-unread",
+    "file": "src/scenes/world.js",
+    "old": "              profBook.refresh({ force: true }).catch(() => {});\n              saveSoon.changed();",
+    "new": "              saveSoon.changed();",
+    "tests": [
+      "test/prof12_client.test.js"
+    ]
+  },
+  {
+    "name": "PROF-541-R2-N1-gone-unpaid",
+    "file": "src/scenes/world.js",
+    "old": "if (owed > 0) deductGold(playerEntity, owed);",
+    "new": "if (owed < 0) deductGold(playerEntity, owed);",
+    "tests": [
+      "test/prof12_client.test.js"
+    ]
+  },
+  {
+    "name": "PROF-541-R2-C2-anvil-word",
+    "file": "src/net/accountClient.js",
+    "old": "'prof-busy': 'Your hands are busy with another craft.',",
+    "new": "'prof-busy': 'The anvil is still ringing from your last work.',",
+    "tests": [
+      "test/prof12_client.test.js"
+    ]
+  },
+  {
+    "name": "PROF-541-R2-C3-unclamped",
+    "file": "src/ui/profPages.js",
+    "old": "const steps = Math.max(0, Math.trunc(Number(p.alchemySteps?.()) || 0));",
+    "new": "const steps = p.alchemySteps?.() ?? 0;",
+    "tests": [
+      "test/prof12_client.test.js"
+    ]
   }
 ]

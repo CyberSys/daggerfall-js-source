@@ -529,7 +529,7 @@
   {
     "name": "PROF10-card-no-points",
     "file": "src/net/recipeLaw.js",
-    "old": "out.push(`${item.enchantmentPoints.toLocaleString('en-US')} enchantment points`);",
+    "old": "out.push(`${pts.toLocaleString('en-US')} enchantment points`);",
     "new": "out.push('');",
     "tests": [
       "test/prof10_law.test.js"
@@ -538,8 +538,8 @@
   {
     "name": "PROF10-card-points-on-a-sword",
     "file": "src/net/recipeLaw.js",
-    "old": "if (recipeById(item.recipe)?.kind === 'jewel' && Number.isSafeInteger(item.enchantmentPoints)) out.push(",
-    "new": "if (Number.isSafeInteger(item.enchantmentPoints)) out.push(",
+    "old": "if (recipeById(item.recipe)?.kind === 'jewel' && Number.isSafeInteger(pts)) out.push(",
+    "new": "if (Number.isSafeInteger(pts)) out.push(",
     "tests": [
       "test/prof10_law.test.js"
     ]
@@ -1559,6 +1559,69 @@
     "new": "r.id.split(':').slice(0, 3).join(':')",
     "tests": [
       "test/prof10_service.test.js"
+    ]
+  },
+  {
+    "name": "PROF-541-R2-C4-tooltip-raw",
+    "file": "src/ui/itemScroller.js",
+    "old": "pieceLines(item, craftedJewelPoints(item))",
+    "new": "pieceLines(item)",
+    "tests": [
+      "test/prof10_client.test.js"
+    ]
+  },
+  {
+    "name": "PROF-541-R2-C4-card-raw",
+    "file": "src/ui/enhancedInventory.js",
+    "old": "pieceLines(item, craftedJewelPoints(item))",
+    "new": "pieceLines(item)",
+    "tests": [
+      "test/prof10_client.test.js"
+    ]
+  },
+  {
+    "name": "PROF-541-R2-C4-law-ignores",
+    "file": "src/net/recipeLaw.js",
+    "old": "const pts = Number.isSafeInteger(points) ? points : item.enchantmentPoints;",
+    "new": "const pts = item.enchantmentPoints;",
+    "tests": [
+      "test/prof10_client.test.js"
+    ]
+  },
+  {
+    "name": "PROF-541-R2-C5-uncapped",
+    "file": "src/systems/enchanting.js",
+    "old": "  applied.length = Math.min(applied.length, Math.max(0, MAX_ENCHANTMENTS + 1 - kept.length));\n",
+    "new": "",
+    "tests": [
+      "test/prof10_client.test.js"
+    ]
+  },
+  {
+    "name": "PROF-541-R2-C6-unsaid",
+    "file": "src/ui/profPages.js",
+    "old": "${steps > 0 ? ` (+${steps} ${steps === 1 ? 'step' : 'steps'} from the town's Apothecary)` : ''}",
+    "new": "",
+    "tests": [
+      "test/prof10_client.test.js"
+    ]
+  },
+  {
+    "name": "PROF-541-R2-C6-unclamped",
+    "file": "src/ui/profPages.js",
+    "old": "const steps = Math.max(0, Math.trunc(Number(p.jewelSteps?.()) || 0));",
+    "new": "const steps = p.jewelSteps?.() ?? 0;",
+    "tests": [
+      "test/prof10_client.test.js"
+    ]
+  },
+  {
+    "name": "PROF-541-R2-C6-world-station",
+    "file": "src/scenes/world.js",
+    "old": "jewelSteps: () => myHall('jewelcrafting').steps,",
+    "new": "jewelSteps: () => myHall('alchemy').steps,",
+    "tests": [
+      "test/prof10_client.test.js"
     ]
   }
 ]

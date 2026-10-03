@@ -302,6 +302,8 @@ export function applyEnchantments(item, enchantments, { owner = null, ctx = null
   // AUDIT PROF10 J2: a crafted piece's own rows stay ahead of the new (keptEnchantments) - their created payloads ran
   // when they were laid on, and run no second time
   const kept = keptEnchantments(item)?.length ? item.enchantments : [];
+  // AUDIT PROF-541 R2-C5: and count in the cap - DFU's eleven rows the most the item stores, kept and new together
+  applied.length = Math.min(applied.length, Math.max(0, MAX_ENCHANTMENTS + 1 - kept.length));
   doEnchantedPayloads(item, applied, { entity: owner, ctx, nowMinutes });
   unequipItem(owner, item);
   // 3. AND WHAT IS STORED IS THE CLASSIC TYPE (:1316-1320). The

@@ -516,7 +516,7 @@ test('PROF7 wiring: the street and the dungeon stamp and list their bodies for H
   assert.match(w, /loom: \(\) => modes\?\.loomHere\?\.\(\) \?\? null,/);
   assert.match(w, /stitchBand: \(\) => stitchBand\(\{ agility: liveStat\(playerEntity, 'agility'\), speed: liveStat\(playerEntity, 'speed'\) \}\),/);
   assert.match(w, /clothing: \(\) => \(playerEntity\?\.gender === 'female' \? 'WomensClothing' : 'MensClothing'\),/);
-  assert.match(w, /: profession === 'outfitting'\n\s*\? \{ here: \(\) => modes\?\.loomHere\?\.\(\) \?\? null, a: 'a loom', who: 'tailor', noun: 'loom', kept: LOOM_KEPT_TEXT, xp: 'Outfitting', busy: 'Your last work is still on the loom\.' \}/);
+  assert.match(w, /: profession === 'outfitting'\n\s*\? \{ here: \(\) => modes\?\.loomHere\?\.\(\) \?\? null, a: 'a loom', who: 'tailor', noun: 'loom', kept: LOOM_KEPT_TEXT, xp: 'Outfitting' \}/);   // PIN MOVED (AUDIT PROF-541 R2-C2): no station's own busy word
   // PIN MOVED (PROF11): a work at the mason's bench asks it first
   assert.match(w, /const f = \(alch \? modes\?\.alchemyHere\?\.\(\) : mason \? modes\?\.masonHere\?\.\(\) : loom \? modes\?\.loomHere\?\.\(\) : bench \? modes\?\.workbenchHere\?\.\(\) : modes\?\.forgeHere\?\.\(\)\) \?\? null;/);   // PIN MOVED (PROF12): the alchemy station's transmutations first
   assert.match(w, /const who = counter === 'furnisher' \? 'furnisher' : counter === 'weavers' \? 'Weavers' : counter === 'apothecaries' \? 'Apothecaries' : 'smith';/);   // PIN MOVED (PROF12): the Apothecaries'
