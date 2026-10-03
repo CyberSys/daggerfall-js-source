@@ -125,7 +125,7 @@ are its lifetime. So online the paid Bodyguard never closed. Now a START-UP CLOS
 quest is a success: the start-up block settles nothing (the success is a later task's) and the clock's end is a quiet
 close - `end quest`, a kept item made permanent, the questor dropped, nothing said or sent and no standing lowered.
 R0C10Y01's `_queston_` (-20 with the questgiver, beside its own `_delay_` close) and A0C10Y05's `_traveltime_` (a "too
-late" line) stay frozen after a success; A0C41Y18 keeps its lifetime. Read over the whole corpus: of the start-up
+late" line) stayed frozen after a success under TIMEFREE (a deadline runs on played time since REST8); A0C41Y18 keeps its lifetime. Read over the whole corpus: of the start-up
 deadlines it turns, every other quest closes in the reward's own reach or by another close first, but A0C00Y10, which
 closed when the player left the inn and now closes on the short wait if they stay. A stuck save closes on its next tick
 (`questSuccess` is saved). `test/fb1003_bodyguard.test.js` runs the real machine: online, a hundred unpaid hours leave it
