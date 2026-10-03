@@ -299,8 +299,8 @@
   {
     "name": "LOOT5-the-find-ignored",
     "file": "src/systems/lootRarity.js",
-    "old": "  const legendary = Math.min(rare, at(RARITY_WEIGHTS.legendary) * (Number.isFinite(find) && find > 0 ? find : 1));",
-    "new": "  const legendary = Math.min(rare, at(RARITY_WEIGHTS.legendary));",
+    "old": "  const legendary = Math.min(rare, legAt(W.legendary) * (Number.isFinite(find) && find > 0 ? find : 1));",
+    "new": "  const legendary = Math.min(rare, legAt(W.legendary));",
     "tests": [
       "test/loot5_powers.test.js"
     ]
@@ -308,8 +308,8 @@
   {
     "name": "LOOT5-the-find-past-the-rare",
     "file": "src/systems/lootRarity.js",
-    "old": "  const legendary = Math.min(rare, at(RARITY_WEIGHTS.legendary) * (Number.isFinite(find) && find > 0 ? find : 1));",
-    "new": "  const legendary = at(RARITY_WEIGHTS.legendary) * (Number.isFinite(find) && find > 0 ? find : 1);",
+    "old": "  const legendary = Math.min(rare, legAt(W.legendary) * (Number.isFinite(find) && find > 0 ? find : 1));",
+    "new": "  const legendary = legAt(W.legendary) * (Number.isFinite(find) && find > 0 ? find : 1);",
     "tests": [
       "test/loot5_powers.test.js"
     ]

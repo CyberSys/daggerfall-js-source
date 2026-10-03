@@ -50,7 +50,7 @@
 // ui/deathScreen.js:183-185, ui/restWindow.js:871, ui/saveWindow.js:641+
 // (shadowText, eight sites), ui/travelPopUp.js:743,
 // ui/questJournal.js:628-629, ui/messageBox.js:501/:504 and
-// ui/actionText.js:45/:137 (every ActionTextBox's parchment on the
+// ui/actionText.js:45/:145 (every ActionTextBox's parchment on the
 // classic skin). Each of those is a native window whose every drawn
 // element cites a DFU rect (THE NATIVE-WINDOW RULE), so the face
 // cannot change without the metrics changing with it. (FONT3, 2026-10-02: that list is history - five of the seven

@@ -10,6 +10,8 @@ import { readFileSync, readdirSync } from 'node:fs';
 
 import { Renderer, WORLD_FRAME } from '../src/render/renderer.js';
 import { SHADOW_CASCADES, SHADOW_FAR_CASCADE_EVERY } from '../src/render/shadowPass.js';
+import { SHADOW_TUNING } from '../src/render/shadowPass.js';
+SHADOW_TUNING.override = false;   // these tests pin EL8's schedule
 import { EL_LANE } from '../src/render/enhancedLighting.js';
 import { TravelJunctionMap } from '../src/ui/travelJunctionMap.js';
 import { WISP_VS, WISP_LOOK, SAND_LOOK, WindWispsRenderer } from '../src/render/windWisps.js';

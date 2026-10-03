@@ -664,9 +664,9 @@ directory by `test/audit18_bible_docs.test.js`:
   out of EL_GLSL byte for byte) and each light's map where it has one
   (`shadowOfLight`, the flats' reader, at the sun's lift), in the
   provoking vertex alone, handed down `flat` as `vPoint`; the fragment
-  adds it beside R12 (the stage holds 212 uniform vectors at most,
+  adds it beside R12 (the stage holds 220 uniform vectors at most,
   counting every scalar whole and off the code, not its comments -
-  224 if a driver keeps the two const face tables as uniforms - of the
+  232 if a driver keeps the two const face tables as uniforms - of the
   256 WebGL2 promises; pinned). A
   lantern at night: the blade beside it drew
   0.21-0.52x the lit ground and draws 1.06-1.21x (`tools/
