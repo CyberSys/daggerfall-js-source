@@ -3834,6 +3834,31 @@ owner out. So the way back is the operator's, and it is the player's own recover
   recovery with the code typed without dashes, a new code, the operator's copy dead, every earlier device signed out,
   and the same account with its Founder. `tools/mutants/recoverop.json` has 7 mutants, all dead.
 
+## GUILD-GRANT — gold into a guild's treasury, awarded by the operator (2026-10-03)
+
+Mac: "Can we award the empire of tamriel guild 1.6mil gold". No route mints gold into a treasury, and on purpose: every
+gold piece in one was carried in by a member (GUILD1), and only what realm characters carried in (`realm_gold`, AUDIT
+REALM L1-F3) buys a hall or comes back out (HALL-GOLD). So an award is the operator's, written by hand, like RECOVER-OP.
+
+1. **The dry run.** Actions, then "Guild gold grant" (`.github/workflows/guild-grant.yml`), then Run workflow with the
+   guild's name, the gold (digits only: `1600000`) and apply OFF, the default. The run's summary names the guild the
+   name found - its tag, its members, its treasury and the part of it that buys a hall - and both as the award would
+   leave them. Nothing is written.
+2. **The award.** Read the summary; run again with apply on. One statement (`tools/grantGuildGold.mjs`) adds the gold
+   to the treasury AND to `realm_gold`, so it buys a hall and comes back out to a realm character like any other, and
+   the ledger's trigger (0046) writes the line in the same statement: the Guild tab reads "The developers awarded the
+   guild 1,600,000" (`GUILD_LEDGER_WORDS.grant`).
+
+- The guild is found by its name key (`guildNameKey`: case, spaces and punctuation aside), the key the service holds
+  unique. The tool takes only a name a guild could be founded with and a whole award from 1 to the treasury's cap
+  (`GUILD_TREASURY_MAX`); the award is not held to one move's cap (`GUILD_MOVE_MAX`), which is a player's. An award that
+  would take the treasury past its cap, or a name that finds no guild, fails the run and writes nothing.
+- The inputs reach the scripts as environment, never pasted into a `run:` line, and the run shares the deploy's queue,
+  so it never runs beside a migration. It creates, migrates and deploys nothing.
+- Pins: `test/guildgrant.test.js` (4). One drives the service end to end: the dry run, the award, the ledger's line, a
+  realm character's withdrawal of it. Another runs the workflow's own steps in bash over D1's answer.
+  `tools/mutants/guildgrant.json` has 11 mutants, all dead.
+
 
 ## RAID4 — the towns defended (2026-09-28, acct17)
 
