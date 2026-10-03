@@ -906,9 +906,10 @@ too (a reused tag shows no new arms on an old guild's lines). DECIDED: the book 
 Records names the arms in words - each guild a line names, in the line's order. A Moderators' void is about the holder
 it restored, else none. The Overworld's name face frames the tag with the shield too, drawn on its canvas.
 GUILD2c (2026-10-03, `Guild-Overhaul.md`; Mac: "a proper choosable insignia that also plays with guild banners"): forty
-devices (sixteen more - the guilds' own trades and creeds), a field divided eight ways with a second colour, and the
-device in a colour of its own; arms that carry neither are GUILD1d's three keys exactly, and every face above draws the
-rest. Chosen on the Guild tab's Arms page from pictures, not lists.
+devices (sixteen more - the guilds' own trades and creeds), a field divided seven ways (or plain) with a second
+colour, and the device in a colour of its own; arms that carry neither are GUILD1d's three keys exactly, and every face
+above that draws the device draws the rest (the map's ring and a Season's ribbon carry the colours alone). Chosen on
+the Guild tab's Arms page from pictures, not lists.
 
 ### 8.2 The guild hall (GUILD1d)
 

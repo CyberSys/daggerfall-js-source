@@ -12,8 +12,8 @@
 // account/src/guildVault.js), so a vault is never a copy of anyone's pack.
 //
 // WHO MAY: each member stands at a level - NONE, DEPOSIT (put in) or
-// WITHDRAW (put in and take out) - with, for a withdrawer, the most pieces
-// they may take out a UTC day. A rank sets the default (VAULT_RANK_DEFAULTS);
+// WITHDRAW (put in and take out) - with, for a withdrawer, the most takes
+// they may make a UTC day. A rank sets the default (VAULT_RANK_DEFAULTS);
 // the GUILDMASTER grants any member another level and limit, and revokes it
 // back to the rank's (`null` - the rank's default). The guildmaster's own is
 // WITHDRAW, unlimited, and is no one's to change.
@@ -32,7 +32,8 @@ export const GUILD_VAULT_LOG_SHOWN = 40;
 /** The three levels, lowest first. */
 export const VAULT_LEVELS = Object.freeze(['none', 'deposit', 'withdraw']);
 export const vaultLevelOk = (l) => VAULT_LEVELS.includes(l);
-/** A withdrawer's limit a UTC day: 1 to VAULT_LIMIT_MAX pieces, or 0 - no limit. */
+/** A withdrawer's limit a UTC day: 1 to VAULT_LIMIT_MAX takes (a take is one press - a stack or one of it), or 0 - no
+ *  limit. */
 export const VAULT_LIMIT_MAX = 100;
 export const vaultLimitOk = (n) => Number.isSafeInteger(n) && n >= 0 && n <= VAULT_LIMIT_MAX;
 /** The choices a guildmaster picks a limit from (the Members page), 0 the unlimited. */

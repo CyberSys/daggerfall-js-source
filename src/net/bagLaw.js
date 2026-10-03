@@ -142,7 +142,9 @@ export function madeWhere(p) {
 export const BAG_WORDS = Object.freeze({
   name: BAG_ROW.name,
   /** the first harvest of a session, said once (scenes/gatherHost.js) */
-  where: 'Gathered goods go into your Materials Bag - or your pack while you have none. Every General Store sells the bag.',
+  // AUDIT BAG1: "or your pack while you have none" read as the pack only for a character with no bag - the pack takes
+  // what the bag has no room for too
+  where: 'Gathered goods go into your Materials Bag, then your pack. Every General Store sells the bag.',
   /** the bag's own refusals (systems/materialsBag.js bagStoreRefusal, inventorySession.js planBagToggle) - AUDIT BAG1:
    *  `full` and `second` were never said (the capacity ladder says a full bag; the shop shelves none to a second) */
   onlyMaterials: 'Only crafting materials go in the Materials Bag.',

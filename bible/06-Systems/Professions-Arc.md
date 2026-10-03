@@ -50,6 +50,9 @@ src/net/nodeLaw.js (the nodes). Appendix B lists them in one place.
    count to what the client says it holds before every act that reads it, never raises it, and moves into the Stores
    only counted units. A pack item the service never handed out - a save-edited one, a looted one - is held and never
    counted: it still never enters the Stores. The guarantee stands; the door opens one way more, for the service's own.
+   THE AUDIT (Mac: "Audit this"; `Materials-Bag.md` 5 and 10): the cut runs only against the count the client last
+   heard (`seen`), so a lost answer never cuts units the pack is about to get; and the count is a ceiling, not a census -
+   a client that says it holds more than it does keeps its count uncut, bounded by what the service handed out.
 4. **THE NODES ARE THE CLOCK'S.** Which nodes exist today is a pure function of the UTC day and the map pixel, as the
    Oblivion Gate's site is (`src/net/gateLaw.js`); **yields are rolled by the service**, never the client.
 5. **THE HANDS DO THE WORK** - DECIDED (Mac: "Active player involvement"). Every harvest is an act the player plays
