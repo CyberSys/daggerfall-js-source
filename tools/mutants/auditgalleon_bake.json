@@ -74,18 +74,18 @@
   {
     "name": "AUDITGN-B1-on-edge-does-not-block",
     "file": "tools/fbxMesh.mjs",
-    "old": "span(t[0], t[1], co) !== CONCAVE && span(t[1], t[2], co) !== CONCAVE && span(t[2], t[0], co) !== CONCAVE",
-    "new": "span(t[0], t[1], co) === CONVEX && span(t[1], t[2], co) === CONVEX && span(t[2], t[0], co) === CONVEX",
+    "old": "  const side = (i, co) => f32(f32(f32(e[i][1] * co[0]) - f32(e[i][0] * co[1])) + c[i]) >= 0;",
+    "new": "  const side = (i, co) => f32(f32(f32(e[i][1] * co[0]) - f32(e[i][0] * co[1])) + c[i]) > 0;",
     "tests": ["test/auditgalleon_bake.test.js"],
     "why": "a corner on an ear's edge no longer blocks it (the old fill's rule): the notch on the first ears' diagonals"
   },
   {
     "name": "AUDITGN-B1-bounding-box-dropped",
     "file": "tools/fbxMesh.mjs",
-    "old": "      if (co[0] >= minX && co[0] <= maxX && co[1] >= minY && co[1] <= maxY\n        && span(",
-    "new": "      if (true\n        && span(",
+    "old": "co[ax] >= bounds[ax][0] ? walk(neg[node])",
+    "new": "true ? walk(neg[node])",
     "tests": ["test/auditgalleon_bake.test.js"],
-    "why": "a corner on the line of a tangential ear but past its ends blocks it"
+    "why": "AUDIT GN2-BK1 re-aim (5.1 asks no box of a node's own point; the box prunes the walk): the negative side's pruning dropped, and a corner on a tangential ear's line past its ends the walk never reached blocks it"
   },
   {
     "name": "AUDITGN-B1-sweep-dropped",
@@ -114,7 +114,7 @@
   {
     "name": "AUDITGN-B1-neighbours-never-resigned",
     "file": "tools/fbxMesh.mjs",
-    "old": "    if (sign[p] !== CONVEX) { signCalc(p); if (sign[p] === CONVEX) unconvex.delete(p); }\n",
+    "old": "    if (sign[p] !== CONVEX) { signCalc(p); if (sign[p] === CONVEX) { concave--; tree.remove(p); } }\n",
     "new": "",
     "tests": ["test/auditgalleon_bake.test.js"],
     "why": "a cut ear's previous corner keeps its old sign"
@@ -122,8 +122,8 @@
   {
     "name": "AUDITGN-B1-convex-resigned",
     "file": "tools/fbxMesh.mjs",
-    "old": "    if (sign[q] !== CONVEX) { signCalc(q); if (sign[q] === CONVEX) unconvex.delete(q); }\n",
-    "new": "    { const was = sign[q]; signCalc(q); if (sign[q] === CONVEX) unconvex.delete(q); else if (was === CONVEX) unconvex.add(q); }\n",
+    "old": "    if (sign[q] !== CONVEX) { signCalc(q); if (sign[q] === CONVEX) { concave--; tree.remove(q); } }\n",
+    "new": "    { const was = sign[q]; signCalc(q); if (sign[q] === CONVEX && was !== CONVEX) { concave--; tree.remove(q); } }\n",
     "tests": ["test/auditgalleon_bake.test.js"],
     "why": "a convex neighbour asked its sign again (Blender never asks)"
   },

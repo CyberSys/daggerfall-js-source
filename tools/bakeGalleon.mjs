@@ -1,6 +1,11 @@
 // THE NEW GALLEON'S MODEL, BAKED OUT OF MAC'S BLENDER SCENE.
 //
-//     node tools/bakeGalleon.mjs [--fbx=src/assets/galleon/source/New_Ship.fbx] [--list]
+//     node tools/bakeGalleon.mjs [--fbx=src/assets/galleon/source/New_Ship.fbx]
+//                                [--out=src/assets/galleon/galleon.json] [--list]
+//
+// AUDIT GN2-BK4: --fbx and --out are read from where it runs, their defaults
+// the repo's own; the file records the FBX it baked (`source`, its path in the
+// repo when it lies there).
 //
 // GALLEON (2026-10-01, Mac: "So this model is to replace the current ingame
 // gallon model. The doors/hatches should open and close and we will need to
@@ -77,7 +82,11 @@
 //    tools/fbxMesh.mjs blenderTessellate, Blender's own tessellation
 //    ported - a triangle kept, a quad split on the diagonal Blender
 //    takes, an n-gon filled by BLI_polyfill_calc in the plane of its
-//    Newell normal, all in single precision - on each polygon as Blender
+//    Newell normal, all in single precision - AUDIT GN2-BK1: as Blender
+//    5.1 cuts it, the Blender Mac exports from (the first port was 5.0's,
+//    whose fill cut two of her hull's 24-gons otherwise), and an export
+//    any other Blender wrote is refused by name (assertBlenderFill: its
+//    fill may not be the port's) - on each polygon as Blender
 //    holds it (the mesh's own coordinates, its corners in their own order),
 //    the triangles then carried through the mirror as the polygon is.
 //    Blender draws a face by its triangles, and a face that is not planar
@@ -112,10 +121,11 @@
 // (test/galleon_model.test.js): the source is committed beside it, so the
 // file is a DERIVATION, never a blob.
 import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
-import { dirname } from 'node:path';
+import { dirname, resolve, relative, isAbsolute, sep } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { createHash } from 'node:crypto';
 import { readFbx, nodeAt, childNamed, childrenNamed, property70, objectName } from './fbxRead.mjs';
-import { eulerXYZ, polygonsOf, sceneFrame, blenderTessellate, blenderProject, tilingFault } from './fbxMesh.mjs';
+import { eulerXYZ, polygonsOf, sceneFrame, blenderTessellate, blenderProject, tilingFault, BLENDER_FILL } from './fbxMesh.mjs';
 import { isMain } from './lib/isMain.mjs';
 
 export const SOURCE_FBX = 'src/assets/galleon/source/New_Ship.fbx';
@@ -203,7 +213,10 @@ export const SKIP = Object.freeze({
 /** The rudder's faces in the hull's mesh: aft of the sternpost, within this half-thickness of the centreline. */
 export const RUDDER = Object.freeze({ aftOf: -23.3, halfThickness: 0.2 });
 
-const round4 = (v) => Math.round(v * 1e4) / 1e4 + 0;   // + 0: never a -0 in the file
+/** A coordinate to 0.1 mm, as the file holds it. AUDIT GN2-BK5: a half step away from nought both sides (Math.round
+ *  alone takes 1.23465 up to 1.2347 and -1.23465 up to -1.2346), so a mirror pair bakes to the same |x|; + 0: never a
+ *  -0 in the file. */
+export const round4 = (v) => Math.sign(v) * Math.round(Math.abs(v) * 1e4) / 1e4 + 0;
 
 /** A scene point (metres, Z up, bow +X) in the boat's frame. */
 export function toBoat([x, y, z], frame = FRAME) {
@@ -226,6 +239,22 @@ function assertExportAxes(tree) {
     const got = property70(gs, key)?.[0];
     if (got === undefined || Number(got) !== want) {
       throw new Error(`GlobalSettings ${key} is ${got} where this export's is ${want} - the bake reads Blender's FBX axes (${Object.entries(EXPORT_AXES).map(([k, v]) => `${k} ${v}`).join(', ')}) and no other; export with Forward -Z, Up Y`);
+    }
+  }
+}
+
+/** AUDIT GN2-BK1: the file was written by the Blender whose fill tools/fbxMesh.mjs ports (BLENDER_FILL, 5.1.x) - its
+ *  SceneInfo's Original and LastSaved application Blender's, their versions that one - or the bake refuses it, naming
+ *  what wrote it: another Blender's fill may cut Mac's faces otherwise than the port does (5.0's did, two of hers). */
+function assertBlenderFill(tree) {
+  const info = nodeAt(tree.nodes, 'FBXHeaderExtension', 'SceneInfo');
+  if (!info) throw new Error('no SceneInfo in this FBX\'s header - the bake reads there which Blender wrote it');
+  for (const at of ['Original', 'LastSaved']) {
+    const name = String(property70(info, `${at}|ApplicationName`)?.[0] ?? '');
+    if (!name.startsWith('Blender')) throw new Error(`this FBX was written by ${name || 'nothing named'} (SceneInfo ${at}|ApplicationName), not Blender - the bake cuts faces as Blender ${BLENDER_FILL} does`);
+    const version = String(property70(info, `${at}|ApplicationVersion`)?.[0] ?? '');
+    if (version !== BLENDER_FILL && !version.startsWith(`${BLENDER_FILL}.`)) {
+      throw new Error(`this FBX was written by Blender ${version || '(no version)'} (SceneInfo ${at}|ApplicationVersion) - tools/fbxMesh.mjs cuts faces as Blender ${BLENDER_FILL} does, and another Blender's fill may cut them otherwise; export from Blender ${BLENDER_FILL}, or port that Blender's polyfill_2d.cc and say so in BLENDER_FILL`);
     }
   }
 }
@@ -365,8 +394,9 @@ function bakePart(role, object, polyIds) {
 }
 
 /** The bake: the FBX's bytes in, the galleon's parts out. Pure. `tree` is the bytes parsed - a test hands in one it
- *  has changed, to see the bake refuse it. */
-export function bakeGalleon(fbxBytes, tree = readFbx(fbxBytes)) {
+ *  has changed, to see the bake refuse it; `source` the FBX's path as the file records it (AUDIT GN2-BK4). */
+export function bakeGalleon(fbxBytes, tree = readFbx(fbxBytes), source = SOURCE_FBX) {
+  assertBlenderFill(tree);   // AUDIT GN2-BK1
   const objects = sceneObjects(tree);
   const parts = [];
   const seen = new Set();
@@ -404,7 +434,7 @@ export function bakeGalleon(fbxBytes, tree = readFbx(fbxBytes)) {
   if (missing.length) throw new Error(`the scene has none of ${missing.join(', ')}`);
   return {
     bake: 'tools/bakeGalleon.mjs',
-    source: SOURCE_FBX,
+    source,
     sha256: createHash('sha256').update(fbxBytes).digest('hex'),
     creator: childNamed(tree.nodes, 'Creator')?.props[0] ?? null,
     frame: { ...FRAME },
@@ -419,10 +449,23 @@ export function galleonJson(baked) {
   return `${JSON.stringify(head, null, 2).replace(/\n}$/, '')},\n  "parts": [\n${lines.join(',\n')}\n  ]\n}\n`;
 }
 
+/** The repo's root (tools/..). */
+const ROOT = fileURLToPath(new URL('..', import.meta.url));
+
+/** AUDIT GN2-BK4: an FBX's path as the file records it - in the repo, its path there (as SOURCE_FBX is written); else
+ *  where it lies. */
+export function sourcePath(file) {
+  const abs = resolve(file);
+  const rel = relative(ROOT, abs);
+  return rel && rel !== '..' && !rel.startsWith(`..${sep}`) && !isAbsolute(rel) ? rel.split(sep).join('/') : abs;
+}
+
 if (isMain(import.meta.url)) {
   const args = process.argv.slice(2);
   const opt = (k, d) => args.find((a) => a.startsWith(`--${k}=`))?.split('=').slice(1).join('=') ?? d;
-  const fbx = opt('fbx', SOURCE_FBX);
+  // AUDIT GN2-BK4: given paths read from where it runs; the defaults the repo's own, from anywhere
+  const fbx = resolve(opt('fbx', resolve(ROOT, SOURCE_FBX)));
+  const out = resolve(opt('out', resolve(ROOT, OUT)));
   const bytes = readFileSync(fbx);
   if (args.includes('--list')) {
     for (const o of sceneObjects(readFbx(bytes))) {
@@ -430,10 +473,10 @@ if (isMain(import.meta.url)) {
       console.log(`${o.name.padEnd(14)} ${(ROLES[o.name]?.role ?? (SKIP[o.name] ? '(skipped)' : '?')).padEnd(20)} ${JSON.stringify(mm(boxOf(o.scene)))}  ${o.polygons.length} polygons`);
     }
   } else {
-    const baked = bakeGalleon(bytes);
-    mkdirSync(dirname(OUT), { recursive: true });
-    writeFileSync(OUT, galleonJson(baked));
-    console.log(`${fbx} -> ${OUT}`);
+    const baked = bakeGalleon(bytes, readFbx(bytes), sourcePath(fbx));
+    mkdirSync(dirname(out), { recursive: true });
+    writeFileSync(out, galleonJson(baked));
+    console.log(`${fbx} -> ${out}`);
     for (const p of baked.parts) console.log(`  ${p.role.padEnd(20)} ${p.object.padEnd(14)} ${String(p.positions.length / 3).padStart(4)} vertices ${String(p.polygons.length).padStart(3)} polygons ${String(p.triangles.length / 3).padStart(4)} triangles${p.split ? ` (${p.split} cut)` : ''}`);
   }
 }

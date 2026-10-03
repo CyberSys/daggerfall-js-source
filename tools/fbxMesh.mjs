@@ -309,34 +309,50 @@ export function earClip(pts) {
   return tris;
 }
 
-// ═══ AUDIT GN-B1: BLENDER'S OWN TESSELLATION ══════════════════════════════════════════════════════════════════════
+// ═══ AUDIT GN-B1: BLENDER'S OWN TESSELLATION - AUDIT GN2-BK1: BLENDER 5.1'S ════════════════════════════════════════
 //
 // earClip above is AN ear clip, not Blender's: it drops an axis and takes the lowest-index ear, and for a planar face
 // any triangulation draws the same surface - but a face that is NOT planar is drawn by its triangles, and two
 // triangulations of it are two different surfaces. Mac's galleon has such faces (her hull's sides lean 0.55 m out of
 // their own planes since he drew two corners in at the bow), and he sees them as Blender cuts them. So this is that cut,
 // ported from Blender's source line for line (blenkernel mesh_tessellate.cc for the face, blenlib polyfill_2d.cc for the
-// n-gon fill) and computed as Blender computes it, in single precision:
+// n-gon fill) and computed as Blender computes it, in single precision. AUDIT GN2-BK1: AS BLENDER 5.1 HOLDS IT - the
+// Blender Mac exports from (his FBX's SceneInfo: 5.1.1). 5.1.0 rewrote polyfill_2d.cc's point test and kd-tree (5.1.0
+// and 5.1.1 hold it byte for byte), and the first port, 5.0's, cut her hull's lower 24-gons #2 and #34 otherwise; so
+// the fill is one Blender's (BLENDER_FILL) and tools/bakeGalleon.mjs refuses an export by any other:
 //
 // - A TRIANGLE is kept. A QUAD is cut on its 0-2 diagonal, (0,1,2) (0,2,3), unless is_quad_flip_v3_first_third_fast
 //   finds that diagonal outside it - then on 1-3, (0,1,3) (1,2,3).
 // - AN N-GON (five corners or more) is projected into the plane of its Newell normal (add_newell_cross_v3_v3v3 from the
 //   last corner round, normalize_v3; a face of no area takes +Z) through axis_dominant_v3_to_m3_NEGATE - the negated
-//   normal, so the face winds the way BLI_polyfill_calc is told it does (coords_sign 1: cross_poly_v2 >= 0) - and
+//   normal, so the face winds the way BLI_polyfill_calc is told it does (coords_sign 1, which polyfill_prepare would
+//   take itself where cross_poly_v2 <= 0 - AUDIT GN2-BK2) - and
 //   filled by BLI_polyfill_calc: an ear clip that CLIPS EVEN (after each cut the search starts two corners on) and
 //   SWEEPS (it turns back the other way when the corner it would start at is not convex), searching each time in two
 //   passes (Blender #103913) - a CONVEX ear first, and only when none is free a TANGENTIAL one (its three corners in a
 //   line: a triangle of no area) - and in DESPERATE MODE, when neither pass finds one, cutting the first corner that is
 //   not concave from where the search began (or that corner itself when every corner is concave). A corner blocks an
 //   ear when it lies inside its triangle OR ON IT - on an edge, or on a corner at another index - and only corners that
-//   are not convex are ever asked (in a simple polygon, an ear's triangle that holds any corner holds a reflex one),
-//   each until it is cut or turns convex; a convex corner's sign is never asked again, even when cutting its neighbour
-//   bends it in. Blender asks through a 2D kd-tree; it is only an index over the same
-//   set (its pruning is exact against the triangle's bounding box, which is tested first, inclusively), so the set is
-//   walked here instead - the same answer.
+//   are not convex are ever asked, each until it is cut or turns convex; a convex corner's sign is never asked again,
+//   even when cutting its neighbour bends it in.
+// - AUDIT GN2-BK1: THE POINT TEST (USE_PRECOMPUTED_ISECT, `triIsect`): each edge of the ear's triangle (tip, next, prev)
+//   a vector e and a constant c = e.x v.y - v.x e.y, computed once, and a corner on or in it when e.y x - e.x y + c >= 0
+//   on all three - span_tri_v2_sign's sign in exact arithmetic, not in float.
+// - AUDIT GN2-BK1: THE KD-TREE IS PART OF THE ANSWER (`kdTree2d`): the corners not convex are asked through
+//   polyfill_2d.cc's own 2D kd-tree, balanced by quickselect and walked from its root asking each node's OWN point first,
+//   with no bounds - so a corner the walk reaches blocks wherever it stands, one on a tangential ear's line past its ends
+//   too (5.0 asked the triangle's bounding box first) - then its children, the side of the triangle's centre first, each
+//   only while the node's split stands within the triangle's bounds. A corner leaving the tree COLLAPSES it (a removed
+//   node with one child hands it to its parent, its split pruning no more), and each corner keeps an INDEX CACHE: the
+//   corner that last blocked its ear, asked first while the tree holds it (asked again once its triangle has changed).
+//   Which corners the walk reaches is the fill, so the tree is ported node for node. Her #2 and #34 are cut otherwise
+//   by the two together: on each a convex ear is blocked by a corner past its bounding box, which this point test
+//   rounds onto the line of one of its edges and the walk reaches (span_tri_v2_sign rounded it off; 5.0 asked the box).
 // - FLOAT32 THROUGHOUT (Math.fround after every operation, in Blender's order): its corner signs compare against 0.0f,
-//   so a corner that is tangential in float may be convex in double, and that choice is the fill. As an x86-64 build
-//   rounds - no fused multiply-add; an ARM build may contract a*b - c*d into one and differ in a last bit.
+//   so a corner that is tangential in float may be convex in double, and that choice is the fill. No fused multiply-add,
+//   as Blender builds itself (AUDIT GN2-BK3): -ffp-contract=off on Apple, Unix and Windows' clang (v5.1.1's
+//   build_files/cmake/platform: platform_apple.cmake:161, platform_unix.cmake:870 and :942, platform_win32.cmake:188-189),
+//   and MSVC's x64 SSE2 (no /arch in its cmake) has none to emit - no a*b - c*d contracted, there or here.
 //
 // The corners go in as Blender holds them: the mesh's own coordinates (an FBX's Vertices are Blender's floats, exactly)
 // in the face's own corner order. The triangles come out as corner-index triples, each wound as the face is.
@@ -395,10 +411,117 @@ export function blenderProject(pts) {
   return P.map((p) => [dot3f(n1, p), dot3f(n2, p)]);
 }
 
+/** AUDIT GN2-BK1: the Blender whose fill this is - polyfill_2d.cc as 5.1.0 and 5.1.1 hold it (5.0's cuts otherwise).
+ *  tools/bakeGalleon.mjs refuses an export written by any other. */
+export const BLENDER_FILL = '5.1';
+/** polyfill_2d.cc's KDNODE_UNSET and KDTREE_INDEX_CACHE_UNSET. */
+const UNSET = -1;
+/** 1.0f / 3.0f (kdtree2d_isect_tri's centre). */
+const THIRD = f32(1 / 3);
+
+/** AUDIT GN2-BK1: tri_isect_precomputed_init and _test (USE_PRECOMPUTED_ISECT) - a test of whether a point lies in
+ *  triangle `vs` (tip, next, prev) or on it: each edge's vector e = v[i+1] - v[i] and constant c = e.x v.y - v.x e.y, and
+ *  e.y x - e.x y + c >= 0 on edges 1, 2 and 0. */
+function triIsect(vs) {
+  const e = [0, 1, 2].map((i) => [f32(vs[(i + 1) % 3][0] - vs[i][0]), f32(vs[(i + 1) % 3][1] - vs[i][1])]);
+  const c = [0, 1, 2].map((i) => f32(f32(e[i][0] * vs[i][1]) - f32(vs[i][0] * e[i][1])));
+  const side = (i, co) => f32(f32(f32(e[i][1] * co[0]) - f32(e[i][0] * co[1])) + c[i]) >= 0;
+  return (co) => side(1, co) && side(2, co) && side(0, co);
+}
+
+/**
+ * AUDIT GN2-BK1: polyfill_2d.cc's KDTree2D over the corners of `C` not convex by `sign` - kdtree2d_init (a node a
+ * corner, in corner order), kdtree2d_balance (quickselect about each median, x first, the axes alternating) and
+ * kdtree2d_init_mapping. `has(k)`: the tree holds corner k (nodes_map). `remove(k)` (kdtree2d_node_remove): its node
+ * flagged, then collapsed - a removed node with one child hands it to its parent, one with none leaves it, on up while
+ * the parent is removed too. `isect(ind)` (kdtree2d_isect_tri): the first corner the walk from the root finds in
+ * triangle `ind` or on it, not one of its own, else UNSET - each node's own point asked first (unless removed), with no
+ * bounds; then its children, the side of the triangle's centre first, each while the node's split stands within the
+ * triangle's bounds.
+ */
+function kdTree2d(C, sign) {
+  const index = [], neg = [], pos = [], axis = [], removed = [], parent = [];
+  for (let i = 0; i < C.length; i++) {
+    if (sign[i] !== CONVEX) { index.push(i); neg.push(UNSET); pos.push(UNSET); axis.push(0); removed.push(false); parent.push(UNSET); }
+  }
+  // kdtree2d_balance_recursive: nodes [ofs, ofs + num) about their median on `ax` (a node's children are unset until its
+  // own median is placed, so a swap moves its corner alone)
+  const balance = (ofs, num, ax) => {
+    if (num <= 0) return UNSET;
+    if (num === 1) return ofs;
+    const at = (k) => C[index[ofs + k]][ax];
+    const swap = (a, b) => { const t = index[ofs + a]; index[ofs + a] = index[ofs + b]; index[ofs + b] = t; };
+    const median = num >> 1;
+    let lo = 0, hi = num - 1;
+    while (hi > lo) {
+      const co = at(hi);
+      let i = lo - 1, j = hi;
+      for (;;) {
+        while (at(++i) < co) { /* pass */ }
+        while (at(--j) > co && j > lo) { /* pass */ }
+        if (i >= j) break;
+        swap(i, j);
+      }
+      swap(i, hi);
+      if (i >= median) hi = i - 1;
+      if (i <= median) lo = i + 1;
+    }
+    axis[ofs + median] = ax;
+    neg[ofs + median] = balance(ofs, median, 1 - ax);
+    pos[ofs + median] = balance(ofs + median + 1, num - (median + 1), 1 - ax);
+    return ofs + median;
+  };
+  const root = balance(0, index.length, 0);
+  const map = new Array(C.length).fill(UNSET);   // nodes_map: corner -> node
+  for (let i = 0; i < index.length; i++) {
+    if (neg[i] !== UNSET) parent[neg[i]] = i;
+    if (pos[i] !== UNSET) parent[pos[i]] = i;
+    map[index[i]] = i;
+  }
+  parent[root] = UNSET;
+  return {
+    has: (k) => map[k] !== UNSET,
+    remove(k) {
+      let node = map[k];
+      if (node === UNSET) return;
+      map[k] = UNSET;
+      removed[node] = true;
+      while (parent[node] !== UNSET) {
+        let child;
+        if (neg[node] === UNSET) child = pos[node];
+        else if (pos[node] === UNSET) child = neg[node];
+        else break;   // both children set, nothing to collapse
+        const up = parent[node];
+        if (neg[up] === node) neg[up] = child; else pos[up] = child;
+        if (child !== UNSET) parent[child] = up;
+        if (!removed[up]) break;
+        node = up;
+      }
+    },
+    isect(ind) {
+      const vs = ind.map((i) => C[i]);
+      const bounds = [0, 1].map((a) => [Math.min(vs[0][a], vs[1][a], vs[2][a]), Math.max(vs[0][a], vs[1][a], vs[2][a])]);
+      const centre = [0, 1].map((a) => f32(f32(f32(vs[0][a] + vs[1][a]) + vs[2][a]) * THIRD));
+      const inside = triIsect(vs);
+      const walk = (node) => {
+        const k = index[node], co = C[k], ax = axis[node];
+        if (!removed[node] && inside(co) && !ind.includes(k)) return k;
+        const toNeg = () => (neg[node] !== UNSET && co[ax] >= bounds[ax][0] ? walk(neg[node]) : UNSET);
+        const toPos = () => (pos[node] !== UNSET && co[ax] <= bounds[ax][1] ? walk(pos[node]) : UNSET);
+        const [first, then] = centre[ax] > co[ax] ? [toPos, toNeg] : [toNeg, toPos];
+        const hit = first();
+        return hit !== UNSET ? hit : then();
+      };
+      return walk(root);
+    },
+  };
+}
+
 /**
  * AUDIT GN-B1: BLI_polyfill_calc(coords, n, coords_sign = 1) - the n-gon fill, on a face already in its plane and wound
  * positively there (blenderProject's). Returns n - 2 triangles as index triples [prev, ear, next] in the order they are
- * cut, the last three corners last. See the section above for the rules; the names below are polyfill_2d.cc's.
+ * cut, the last three corners last. See the section above for the rules; the names below are polyfill_2d.cc's - AUDIT
+ * GN2-BK1: its 5.1 text (BLENDER_FILL), the point test triIsect's and the corners asked kdTree2d's.
  */
 export function blenderPolyfill(coords) {
   const n = coords.length;
@@ -410,26 +533,31 @@ export function blenderPolyfill(coords) {
     return f32(f32(d2x * d3y) - f32(d3x * d2y));
   };
   const span = (v1, v2, v3) => { const a = area2x(v3, v2, v1); return a === 0 ? TANGENTIAL : a > 0 ? CONVEX : CONCAVE; };
-  // polyfill_prepare: the ring, each corner's sign, and the corners that are not convex (USE_CONVEX_SKIP's count and
-  // the kd-tree's points - one set: a corner leaves both when it is cut or turns convex)
+  // polyfill_prepare: the ring, each corner's sign, the count of corners not convex (USE_CONVEX_SKIP) and each corner's
+  // index cache (USE_KDTREE_INDEX_CACHE: the corner that last blocked its ear, and whether its triangle changed since)
   const next = C.map((_, i) => (i + 1) % n), prev = C.map((_, i) => (i + n - 1) % n);
-  const sign = new Array(n);
+  const sign = new Array(n), lastHit = new Array(n).fill(UNSET), dirty = new Array(n).fill(false);
   const signCalc = (i) => { sign[i] = span(C[prev[i]], C[i], C[next[i]]); };
-  const unconvex = new Set();
-  for (let i = 0; i < n; i++) { signCalc(i); if (sign[i] !== CONVEX) unconvex.add(i); }
-  // pf_ear_tip_check: no corner that is not convex inside the ear's triangle or on it (kdtree2d_isect_tri)
+  let concave = 0;
+  for (let i = 0; i < n; i++) { signCalc(i); if (sign[i] !== CONVEX) concave++; }
+  // polyfill_calc: the kd-tree over the corners not convex - none when every corner is
+  const tree = concave ? kdTree2d(C, sign) : null;
+  // pf_ear_tip_check: no corner the tree holds in the ear's triangle or on it - the cached one asked first
   const earTipCheck = (tip, accept) => {
-    if (unconvex.size === 0) return true;   // "fast-path for circles"
+    if (concave === 0) return true;   // "fast-path for circles"
     if (sign[tip] !== accept) return false;
-    const t = [C[tip], C[next[tip]], C[prev[tip]]];
-    const minX = Math.min(t[0][0], t[1][0], t[2][0]), maxX = Math.max(t[0][0], t[1][0], t[2][0]);
-    const minY = Math.min(t[0][1], t[1][1], t[2][1]), maxY = Math.max(t[0][1], t[1][1], t[2][1]);
-    for (const k of unconvex) {
-      if (k === tip || k === next[tip] || k === prev[tip]) continue;
-      const co = C[k];
-      if (co[0] >= minX && co[0] <= maxX && co[1] >= minY && co[1] <= maxY
-        && span(t[0], t[1], co) !== CONCAVE && span(t[1], t[2], co) !== CONCAVE && span(t[2], t[0], co) !== CONCAVE) return false;
+    const ind = [tip, next[tip], prev[tip]];
+    const cached = lastHit[tip];
+    if (cached !== UNSET) {
+      if (!dirty[tip]) {
+        if (tree.has(cached)) return false;   // its triangle unchanged: it blocks while the tree holds it
+      } else if (tree.has(cached) && !ind.includes(cached) && triIsect(ind.map((i) => C[i]))(C[cached])) {
+        dirty[tip] = false;   // changed, and it blocks still (kdtree2d_isect_tri_single)
+        return false;
+      }
     }
+    const hit = tree.isect(ind);
+    if (hit !== UNSET) { lastHit[tip] = hit; dirty[tip] = false; return false; }
     return true;
   };
   // pf_ear_tip_find: two passes from pi_ear_init the way the sweep runs, then desperate mode (forward from it)
@@ -454,14 +582,16 @@ export function blenderPolyfill(coords) {
   let head = 0, init = 0, reverse = false;
   while (count > 3) {
     const ear = earTipFind(init, reverse);
+    if (sign[ear] !== CONVEX) concave--;
     const p = prev[ear], q = next[ear];
     tris.push([p, ear, q]);
-    unconvex.delete(ear);   // pf_coord_remove
+    tree?.remove(ear);   // pf_coord_remove
     next[p] = q; prev[q] = p;
     if (head === ear) head = q;
     count--;
-    if (sign[p] !== CONVEX) { signCalc(p); if (sign[p] === CONVEX) unconvex.delete(p); }
-    if (sign[q] !== CONVEX) { signCalc(q); if (sign[q] === CONVEX) unconvex.delete(q); }
+    dirty[p] = true; dirty[q] = true;   // their triangles changed: a cached corner is asked again
+    if (sign[p] !== CONVEX) { signCalc(p); if (sign[p] === CONVEX) { concave--; tree.remove(p); } }
+    if (sign[q] !== CONVEX) { signCalc(q); if (sign[q] === CONVEX) { concave--; tree.remove(q); } }
     init = reverse ? prev[p] : next[q];   // USE_CLIP_EVEN
     if (sign[init] !== CONVEX) { init = reverse ? prev[init] : next[init]; reverse = !reverse; }   // USE_CLIP_SWEEP
   }
