@@ -80,7 +80,7 @@
 // host forgives the player's stray ball on her (navalHost.js ALLY_STRAY_SHARE). And the bay is gentler: a quarter of
 // the pirates bold (BOLD_SHARE), and a boat lying still grappled only after GRAPPLE_STILL_S.
 
-import { classById, batteryOf, hullBuild, GUNS, HULL, SHIP_CLASSES } from './navalShips.js';
+import { classById, batteryOf, hullBuild, GUNS, HULL, SHIP_CLASSES, buildsStamp } from './navalShips.js';
 import { mulberry32 } from '../../combat/bloodArt.js';   // SEA-PEACE: the temper's draw (navalShips.js names on the same stream kind)
 import { createShipDamage, SHIP_STATES, STRUCK_AT, HOLED_BONUS, WATERLINE_BAND } from './navalDamage.js';
 import { createGunDeck, aimSolution, reloadSeconds } from './navalGunnery.js';
@@ -534,9 +534,10 @@ export function odds(a, b) {
  * AUDIT NAV2 F25: the share of a battery's balls that strike a hull at DUEL_RANGE (her gunners' `skill`): the depth a
  * lay long or short of her still passes through her (her height over the ball's fall at her, and her beam) against the
  * lay's error and the carriage's scatter in its height, times her half length against the scatter across the fire and
- * the fire's window. Reckoned once for each battery, crew and hull.
+ * the fire's window. Reckoned once for each battery, crew and hull as the builds stand (buildsKept).
  */
 export function hitShare(bat, skill, targetHull) {
+  buildsKept();
   const key = `${bat.gun}:${bat.muzzles[0][1]}:${skill}:${targetHull}`;
   let s = HIT_SHARE.get(key);
   if (s !== undefined) return s;
@@ -552,6 +553,11 @@ export function hitShare(bat, skill, targetHull) {
   return s;
 }
 const HIT_SHARE = new Map();
+/** AUDIT GN2-PF2: LAY_MIN and HIT_SHARE are the builds' as they stand - emptied when hull 2's switches (navalShips.js
+ *  setGalleonStanding): reckoned for the new galleon, the mod's galleon fallen back kept her numbers (her broadside's
+ *  dead zone on a Large Boat 11 m against its own 26). */
+let keptFor = -1;
+function buildsKept() { if (keptFor !== buildsStamp()) { keptFor = buildsStamp(); HIT_SHARE.clear(); LAY_MIN.clear(); } }
 
 /** A blow from `by` at `now`: the ship remembers who struck it. */
 export function provoke(ship, by, now) { if (by != null) ship.provoked.set(String(by), now); }
@@ -1160,11 +1166,12 @@ export const broadsideReach = (ship, seaY = 0) => batteryReach(ship, 'starboard'
  * AUDIT NAV2 F24 - a battery's DEAD ZONE on a hull: the shortest range (m, from her root) at which its lay, laid on her
  * as the gunnery lays it (AIM_FREEBOARD of her height, her rig's middle for chain shot), passes through her (layPasses)
  * - inside it the carriage cannot depress onto her (a galley's great guns on a Large Boat 91 m, her broadside 57: she
- * fought one from inside both and never struck it). Sounded once for each battery and hull, every LAY_MIN_STEP out to
- * the battery's reach (its reach when no lay strikes); 0 for none, or a barrel.
+ * fought one from inside both and never struck it). Sounded once for each battery and hull as the builds stand
+ * (buildsKept), every LAY_MIN_STEP out to the battery's reach (its reach when no lay strikes); 0 for none, or a barrel.
  * @param {number} hull @param {string} side @param {number} [targetHull]
  */
 export function layMin(hull, side, targetHull = HULL.LargeBoat) {
+  buildsKept();
   const key = `${hull}:${side}:${targetHull}`;
   let m = LAY_MIN.get(key);
   if (m !== undefined) return m;
@@ -1189,7 +1196,7 @@ export function layMin(hull, side, targetHull = HULL.LargeBoat) {
   LAY_MIN.set(key, m);
   return m;
 }
-/** AUDIT NAV2 F24: the dead zones sounded (the builds are frozen) - `hull:side:targetHull` -> m. */
+/** AUDIT NAV2 F24: the dead zones sounded - `hull:side:targetHull` -> m (AUDIT GN2-PF2: as the builds stand). */
 const LAY_MIN = new Map();
 export const LAY_MIN_STEP = 1;
 

@@ -384,6 +384,7 @@ import { windWidgetFrameUrl as csaWindWidgetFrameUrl, waveDerivedUrl as csaWaveD
 import { WAVE_FRAME_COUNT as CSA_WAVE_FRAME_COUNT, waveDitherOf as csaWaveDitherOf } from '../systems/comeSailAwayWaves.js';   // CSA-F
 import { ComeSailAwayRenderer, softParticleTexture as csaSoftParticleTexture } from '../render/comeSailAwayRender.js';   // CSA-F: the waves' and the particles' passes
 import { createNavalHost, hullBoxOf as navalHullBoxOf, NAVAL_SAVE_VENDOR, NAVAL_TAG_RANGE } from './navalHost.js';   // NAV-H: the sea fight - the Iliac Bay's ships, the guns, boarding, the law and the word
+import { draftOf as navalDraftOf } from '../systems/naval/shipLife.js';   // AUDIT GN2-PF6: a hull's draft, hull 2's off her keel as she stands
 import { createNavalFlames } from './navalFlames.js';   // NAV-B: a burning ship's deck fires
 import { NavalRenderer } from '../render/navalRender.js';   // NAV-B: the smoke, the spray, the balls in flight and the aim
 import { drawNavalHud, navalTouchBrace, navalPadPrompts, drawNavalTags, drawCrewBars, CREW_BAR_RANGE, drawCrewLines, CREW_SAY_RANGE } from '../ui/navalHud.js';   // AUDIT NAV1 (#14): and the ships' tags - SHIPMATES: and the crew's bars - LIVING CREW: and their lines
@@ -7011,7 +7012,6 @@ export async function bootWorld(canvas, renderer, params, status) {
   // dungeon's and the ?exterior bench's own hosts (scenes/worldModes.js, scenes/dungeonContext.js, scenes/exterior.js)
   // have no broadside, and the naval host empties the sea whenever this host leaves the exterior (navalTransition).
   const navalOn = () => !!csaRuntime && csaOn() && getPref('naval') !== false;
-  const NAVAL_DRAFT = Object.freeze([0.8, 1.4, 4.7, 2.8, 3.2]);   // a hull's water under her keel (m), rowboat to carrack - how shoal a sea she can sail. AUDIT GN-G6: hull 2's is the new galleon's keel, 4.64 m down (it was 2.2, under even the mod's galleon's 3.35 - her V sailed a carved floor 2.3 m deep)
   /** An action's bound key, as the HUD's hint names it - the player's own binding (primary, then secondary), in the
    *  words the Controls page shows it (AUDIT DEEP T1-12's reading, the travel view's hint); a pad's button is no key
    *  to print, so the hint names the action instead (CSA-L's helm panel, csaKeyLabel's law). */
@@ -7027,7 +7027,8 @@ export async function bootWorld(canvas, renderer, params, status) {
     return c ? tagText(c) : null;
   };
   /** Open water deep enough for a hull at a scene point: a water tile of a built pixel - and, where Iliac Puddle No
-   *  More carved the sea, a floor at least that hull's draft under the surface (-1: the surface alone). */
+   *  More carved the sea, a floor at least that hull's draft under the surface (-1: the surface alone). AUDIT GN2-PF6:
+   *  the draft asked when it sounds (shipLife.js draftOf - hull 2's off the keel of the galleon that stands). */
   const navalIsWater = (x, z, hull = 0) => {
     const p = csaPixelAt(x, z);
     if (!p) return false;
@@ -7035,7 +7036,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     if (!p.deepWaters && csaTileMapIndexAtPosition([x, 0, z], t) !== 0) return false;
     if (!p.deepWaters) return true;
     const floor = surfaceAt(x, z);
-    return Number.isFinite(floor) && floor < tvSeaY() - (hull < 0 ? 0.05 : NAVAL_DRAFT[Math.min(NAVAL_DRAFT.length - 1, hull | 0)]);
+    return Number.isFinite(floor) && floor < tvSeaY() - (hull < 0 ? 0.05 : navalDraftOf(hull));
   };
   let _navalCapitals = null;
   /** The three crowns' capitals' map pixels (navalShips.js crownOf reads the nearest as the waters' crown) - once. */

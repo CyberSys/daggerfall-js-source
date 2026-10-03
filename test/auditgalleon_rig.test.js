@@ -21,6 +21,8 @@ import { GALLEON_PREFAB_ID } from '../src/world/galleonModel.js';
 import { TEX } from '../src/world/galleonArt.js';
 import { HULL, HULL_BUILDS, hullBuild } from '../src/systems/naval/navalShips.js';
 import { rigBoxesOf } from '../src/scenes/navalHost.js';
+import { stowSail } from '../src/systems/comeSailAway.js';   // AUDIT GALLEON-2 RG3: her canvas set, where her rig's boxes stand
+import { animatorOf } from '../src/systems/comeSailAwayBoat.js';
 import { rigBand } from '../src/systems/naval/navalAI.js';
 import { toBoxLocal, orientedBox } from '../src/systems/naval/navalBallistics.js';
 import { mat4FromQuatPosScale, quatAngleAxis, quatRotate } from '../src/world/quat.js';
@@ -486,6 +488,7 @@ test('AUDIT GALLEON R5/G9 her rig\'s hit boxes follow her trim: each square sail
   const s = scene({ settings: { 'SailingAssist.AutoTrimming': false } });
   const boat = s.place(HULL.SmallShip, 0, [37, 2, -91], [0.6, 0, 0.8]);
   boat.MeshObject.localRotation = quatEuler(3, 0, -8);   // her heel and pitch: the boxes ride her MeshObject
+  for (const sail of boat.Sails) stowSail(animatorOf(sail), false);   // PIN MOVED (AUDIT GALLEON-2 RG3): her canvas set - a furled sail's box is gone
   const rig = hullBuild(HULL.SmallShip).rig, mo = boat.MeshObject, lp = mo.localPosition;
   // each boom's box on its own boom - the k-th of Come Sail Away's walk - and turned about where that boom stands
   for (const box of rig.filter((b) => b.boom != null)) {

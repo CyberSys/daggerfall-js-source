@@ -1271,8 +1271,8 @@
   {
     "name": "NAVP-sails-lowest-first",
     "file": "src/scenes/navalHost.js",
-    "old": ".sort((p, q) => q.worldMatrix()[13] - p.worldMatrix()[13]);",
-    "new": ".sort((p, q) => p.worldMatrix()[13] - q.worldMatrix()[13]);",
+    "old": ".map((n) => [n, canvasHeight(n)]).sort((p, q) => q[1] - p[1]).map(([n]) => n);",
+    "new": ".map((n) => [n, canvasHeight(n)]).sort((p, q) => p[1] - q[1]).map(([n]) => n);",
     "tests": [
       "test/navaudit_presentation.test.js"
     ]

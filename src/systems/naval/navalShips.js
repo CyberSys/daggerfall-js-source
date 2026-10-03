@@ -86,20 +86,23 @@ export const SIDE_DIR = Object.freeze({ starboard: Object.freeze([1, 0, 0]), por
  * acceleration modifier (Come Sail Away's modifierMoveAccelerationSail) - the rate her way comes and goes under sail
  * and off it, the player's and the captains' alike (navalAI.js helm).
  */
-/** A hull's rig boxes, frozen (a box's `boom`, `pivot` or `obb` riding on its pair). */
+/** A hull's rig boxes, frozen (a box's `boom`, `pivot`, `obb` or `sail` riding on its pair). AUDIT GN2-RG3: `sail` the
+ *  k-th of the boat's Sails (Come Sail Away's walk order) whose canvas the box holds - rigBoxesOf stands it only while
+ *  that sail is shown and set; a box with none (the mod's hulls' still boxes) stands whatever their sails do. */
 function rigOf(...boxes) { return Object.freeze(boxes.map((b) => Object.freeze(Object.assign(b.slice(0, 2).map((p) => Object.freeze([...p])), b[2] ?? {})))); }
-/** AUDIT GN-R5: a box on the `k`-th boom, turned with it about `pivot` (`[min, max]` where it stands with the boom home). */
-const onBoom = (k, pivot, min, max) => [min, max, { boom: k, pivot: Object.freeze(pivot) }];
+/** AUDIT GN-R5: a box on the `k`-th boom, turned with it about `pivot` (`[min, max]` where it stands with the boom home),
+ *  holding the `sail`-th sail's canvas. */
+const onBoom = (k, pivot, min, max, sail) => [min, max, { boom: k, pivot: Object.freeze(pivot), sail }];
 /** AUDIT GN-R5: a box askew - middle `c`, half sizes `h` along its own axes, the root's turned `pitch` degrees about x
  *  (Unity's turn: its y to (0, cos, sin), its z to (0, -sin, cos)) - with its bounds as its `[min, max]`. */
-function pitched(c, h, pitch) {
+function pitched(c, h, pitch, sail) {
   const a = pitch * Math.PI / 180, cs = Math.cos(a), sn = Math.sin(a);
   const min = [Infinity, Infinity, Infinity], max = [-Infinity, -Infinity, -Infinity];
   for (const sx of [-1, 1]) for (const sy of [-1, 1]) for (const sz of [-1, 1]) {
     const p = [c[0] + sx * h[0], c[1] + sy * h[1] * cs - sz * h[2] * sn, c[2] + sy * h[1] * sn + sz * h[2] * cs];
     for (let k = 0; k < 3; k++) { min[k] = Math.min(min[k], p[k]); max[k] = Math.max(max[k], p[k]); }
   }
-  return [min, max, { obb: Object.freeze({ c: Object.freeze(c), h: Object.freeze(h), pitch }) }];
+  return [min, max, { obb: Object.freeze({ c: Object.freeze(c), h: Object.freeze(h), pitch }), sail }];
 }
 
 export const HULL_BUILDS = Object.freeze([
@@ -137,13 +140,13 @@ export const HULL_BUILDS = Object.freeze([
     stern: Object.freeze({ gun: 'barrel', muzzles: Object.freeze([Object.freeze([0, 5.4, -20.6])]) }),
     hullHp: 420, sailHp: 160, crew: 24, deck: 6.2, beam: 5.4, ram: false, bowZ: 21.93, aftZ: -19.91, halfWidth: 5.86, keel: -4.64, top: 12.3, sailWay: 1,
     rig: rigOf(   // the fore mast's canvas over her roof, the main topsail and the gaff first, as they stood; then the rest
-      onBoom(1, [0, 16, 8.772], [-5, 12.42, 9.34], [5, 16.17, 10.33]),           // the fore topsail and its yard
-      onBoom(2, [0, 17.65, -0.191], [-5.2, 13.27, 0.42], [5.2, 17.82, 1.44]),    // the main topsail and its yard
-      onBoom(3, [0, 7.75, -0.191], [-1.07, 8.07, -8.2], [1.07, 15.03, -0.79]),   // the gaff sail and its gaff
-      onBoom(0, [0, 12.2, 8.772], [-6.3, 7.67, 9.34], [6.3, 12.37, 11.45]),       // the fore course and its yard
-      pitched([0, 11.92, 17.932], [1.06, 1.06, 9.37], 22.79),                     // the jib along its luff,
-      pitched([0, 12.375, 15.832], [1.03, 0.96, 7.35], 40.93),                    // its leech
-      pitched([0, 9.286, 22.488], [1.06, 0.91, 4.54], -10.23),                    // and its foot
+      onBoom(1, [0, 16, 8.772], [-5, 12.42, 9.34], [5, 16.17, 10.33], 1),           // the fore topsail and its yard
+      onBoom(2, [0, 17.65, -0.191], [-5.2, 13.27, 0.42], [5.2, 17.82, 1.44], 2),    // the main topsail and its yard
+      onBoom(3, [0, 7.75, -0.191], [-1.07, 8.07, -8.2], [1.07, 15.03, -0.79], 3),   // the gaff sail and its gaff
+      onBoom(0, [0, 12.2, 8.772], [-6.3, 7.67, 9.34], [6.3, 12.37, 11.45], 0),       // the fore course and its yard
+      pitched([0, 11.92, 17.932], [1.06, 1.06, 9.37], 22.79, 4),                     // the jib along its luff,
+      pitched([0, 12.375, 15.832], [1.03, 0.96, 7.35], 40.93, 4),                    // its leech
+      pitched([0, 9.286, 22.488], [1.06, 0.91, 4.54], -10.23, 4),                    // and its foot
     ),
   }),
   Object.freeze({   // 3 Large Galley - four long guns a side on the upper deck (10.25), three heavy guns over the stem, a ram
@@ -178,8 +181,11 @@ export const MOD_SMALL_SHIP_BUILD = Object.freeze({
 });
 /** Whether hull 2 stands as the new galleon (true until the models say otherwise - the pool sets it as they load). */
 let galleonStanding = true;
-/** AUDIT GN-G4: the models' answer - the new galleon over hull 2 (true) or the mod's own galleon (false). */
-export function setGalleonStanding(on) { galleonStanding = !!on; }
+/** AUDIT GN-G4: the models' answer - the new galleon over hull 2 (true) or the mod's own galleon (false). AUDIT GN2-PF2:
+ *  each switch a new `buildsStamp` - what is reckoned off the builds and kept (navalAI.js layMin, hitShare) is kept for one. */
+let stamp = 0;
+export function setGalleonStanding(on) { if (galleonStanding !== !!on) stamp++; galleonStanding = !!on; }
+export const buildsStamp = () => stamp;
 /** A hull's build, or the rowboat's for anything unknown - hull 2's the mod's own galleon's while she stands in for the
  *  new one (AUDIT GN-G4). */
 export const hullBuild = (hull) => (hull === 2 && !galleonStanding ? MOD_SMALL_SHIP_BUILD : HULL_BUILDS[hull] ?? HULL_BUILDS[0]);

@@ -174,9 +174,9 @@
   },
   {
     "name": "AUDIT-GN-G6-draft-the-old-guess",
-    "file": "src/scenes/world.js",
-    "old": "const NAVAL_DRAFT = Object.freeze([0.8, 1.4, 4.7, 2.8, 3.2]);",
-    "new": "const NAVAL_DRAFT = Object.freeze([0.8, 1.4, 2.2, 2.8, 3.2]);",
+    "file": "src/systems/naval/shipLife.js",
+    "old": "  return h === 2 ? DRAFT_SPARE - hullBuild(2).keel : /** @type {number} */ (HULL_DRAFT[h]);",
+    "new": "  return h === 2 ? 2.2 : /** @type {number} */ (HULL_DRAFT[h]);",
     "tests": [
       "test/auditgalleon_guns.test.js"
     ]
