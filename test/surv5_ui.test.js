@@ -130,7 +130,7 @@ test('SURV5: the info box - a survival item\'s built tokens: the name, the weigh
   assert.equal(survivalInfoTokens(fish).at(-1).text, 'Raw - cook it at a fire.');
   const skin = createSurvivalItem(TEMPLATE.Waterskin, { water: 1.25 });
   assert.deepEqual(survivalInfoTokens(skin).map((r) => r.text), ['Waterskin', 'Weight: 1.75 kilograms', 'Water: 1.3 of 2.0 kg']);
-  assert.equal(survivalInfoTokens(createSurvivalItem(TEMPLATE.Campfire, { condition: 1 })).at(-1).text, '1 use left');
+  assert.equal(survivalInfoTokens(createSurvivalItem(TEMPLATE.Campfire, { condition: 1 })).at(-1).text, '1 night of fuel', 'REST2: a Campfire\'s uses are nights of fuel');
   assert.equal(survivalInfoTokens(createSurvivalItem(TEMPLATE.CampingEquipment)).at(-1).text, '50 uses left');
   assert.equal(survivalInfoTokens(createSurvivalItem(TEMPLATE.Skillet)).at(-1).text, 'Cooking at a campfire goes twice as fast.');
   assert.equal(itemInfoRows({ group: 'Weapons', templateIndex: 113 }, rows)[0].text, 'record 1001', 'DFU\'s own items keep their records');
@@ -200,7 +200,7 @@ test('SURV5: by source - the four hosts chain the third box, the enhanced HUD ca
   const hud = read('src/ui/enhancedHud.js');
   // UI3: the needs are the status widget's tiles - a felt need amber, one that costs red
   assert.match(hud, /const needs = survivalOn\(\) \? survivalHudChips\(vitals, Math\.floor\(ownMinutes\(\)\), \{ vampire: !!liveVampirism\(vitals\), endurance: liveStat\(vitals, 'endurance'\) \}\) : \[\];/);
-  assert.match(hud, /const all = statusTiles\(\{ spells, powers, afflictions: afflictionRows\(vitals\), needs \}\);/);
+  assert.match(hud, /const all = statusTiles\(\{ spells, powers, afflictions: afflictionRows\(vitals\), needs, rested \}\);/);   // REST1: and the Rested tile
   assert.match(read('src/ui/enhancedStyle.js'), /\.hst-cell\.danger \{/);
   const wm = read('src/scenes/worldModes.js');
   assert.match(wm, /climateIndex: \(\) => host\.climateIndex\?\.\(\) \?\? 232,\s*\n\s*advanceMinutes: \(n\) => interiorTicker\.advance\(n\),\s*\n\s*endurance: \(\) => liveStat\(playerEntity, 'endurance'\),/);

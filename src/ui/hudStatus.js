@@ -83,6 +83,13 @@ export const STAT_NAME_GAP = 8;
  * from shapes and outlined by a machine, then looked at (tools/uiStatusProbe.mjs draws them all).
  */
 export const STATUS_GLYPHS = Object.freeze({
+  // REST1: a campfire - the flame over its crossed logs - while the night interval runs (Rested)
+  rested: Object.freeze({ pal: { f: '#ffb02a', y: '#fff0a0', w: '#9a6a3a', d: '#5a3a1e' }, rows: [
+    '................', '......kkkk......', '......kffk......', '.....kkffkk.....',
+    '.....kffffk.....', '....kkfyyfkk....', '....kfyyyyfk....', '...kkfyyyyfkk...',
+    '...kfffyyfffk...', '..kkkffffffkkk..', '.kkwwkkkkkkwwkk.', 'kkwwwddkkddwwwkk',
+    'kwwkkwwddwwkkwwk', 'kkkkkkkwwkkkkkkk', '......kkkk......', '................',
+  ] }),
   // a drumstick: the meat up and right, the bone down and left
   hunger: Object.freeze({ pal: { a: '#c8763a', b: '#e8a060', c: '#8a4a22', w: '#efe6cf' }, rows: [
     '................', '......kkkkkkk...', '.....kkbbbaakk..', '....kkbbbaaaakk.',
@@ -229,7 +236,7 @@ export function needGlyph(chip) {
  *   `needs` survivalHudChips
  * @returns {StatusTile[]}
  */
-export function statusTiles({ spells = [], powers = [], afflictions = [], needs = [] } = {}) {
+export function statusTiles({ spells = [], powers = [], afflictions = [], needs = [], rested = null } = {}) {
   /** @type {StatusTile[]} */
   const out = [];
   const tile = (t) => out.push({ foot: null, blink: false, item: false, recovering: false, spell: null, glyph: null, set: null, bundle: null, endable: false, ...t });
@@ -248,6 +255,8 @@ export function statusTiles({ spells = [], powers = [], afflictions = [], needs 
   // NEED-TIER: and how bad, at its foot ("2/3" - Hungry of Peckish, Hungry, Starving), as a spell's rounds are: the glyph
   // is one picture for every stage and the name goes where there is no room, so the foot is what says it there
   for (const c of needs) tile({ key: `need:${c.key}`, kind: c.level === 'danger' ? 'danger' : 'warn', name: String(c.text ?? ''), glyph: needGlyph(c), foot: c.tier ? `${c.tier}/${c.of}` : null });
+  // REST1: Rested - the night interval's real minutes left at its foot (systems/restAct.js nightRealMinutesLeft), a buff
+  if (rested?.minutes > 0) tile({ key: 'rested', kind: 'buff', name: 'Rested', foot: `${rested.minutes}m`, glyph: 'rested' });
   return out;
 }
 

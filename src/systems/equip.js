@@ -328,7 +328,7 @@ export function fillEquipTable(slots, items) {
  *  like any other item. Idempotent per entity.
  *
  *  SUPERSEDED, not pending. S3d shipped the real roll -
- *  systems/startingGear.js:74 assignStartingGear (ItemHelper's
+ *  systems/startingGear.js:75 assignStartingGear (ItemHelper's
  *  AssignStartingGear), run on both creation paths at
  *  chargenSession.js:142 (?class= headless) and :235 (the wizard) -
  *  and the guard below (`entity.equip || items.length`) makes this a

@@ -2778,7 +2778,7 @@ function infoCard(picked, side, ready = render, { body = false } = {}) {
   for (const t of line.survival ?? []) {   // AUDIT SURV C: the classic popup's tokens, each under a word of its own
     const i = t.indexOf(': ');
     if (i > 0) pair(t.slice(0, i), t.slice(i + 2));
-    else pair(/^Nourishes/.test(t) ? 'Food' : /^Raw/.test(t) ? 'Raw' : /uses left/.test(t) ? 'Uses' : /skillet/i.test(t) ? 'Cooking' : 'Note', t);
+    else pair(/^Nourishes/.test(t) ? 'Food' : /^Raw/.test(t) ? 'Raw' : /uses left/.test(t) ? 'Uses' : /of fuel$/.test(t) ? 'Fuel' : /skillet/i.test(t) ? 'Cooking' : 'Note', t);
   }
   if (line.recipe) {   // MAPLOOT1: the recipe's own two boxes, as rows
     pair('Recipe for', line.recipe.potion);

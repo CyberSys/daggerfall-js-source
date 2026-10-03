@@ -9,30 +9,30 @@
     ]
   },
   {
-    "name": "SURV3-a-kit-fire-can-be-stoked",
+    "name": "REST2-a-campfire-with-no-fuel-relights",
     "file": "src/systems/survival/camp.js",
-    "old": "  if (!camp || camp.kind !== CAMP_KIND.Tent) return false;",
-    "new": "  if (!camp) return false;",
+    "old": "  if (camp.kind === CAMP_KIND.Fire && (camp.wear | 0) <= 0) return false;\n",
+    "new": "",
     "tests": [
-      "test/surv3_camps.test.js"
+      "test/rest2_campfire.test.js"
     ]
   },
   {
-    "name": "SURV3-a-cold-tent-is-swept-like-a-dead-fire",
+    "name": "REST2-a-burnt-down-campfire-is-swept-away",
     "file": "src/systems/survival/camp.js",
-    "old": "export const campExpired = (camp, now) => camp?.kind === CAMP_KIND.Fire && !fireLit(camp, now);",
-    "new": "export const campExpired = (camp, now) => !fireLit(camp, now);",
+    "old": "export const campExpired = () => false;",
+    "new": "export const campExpired = (camp, now) => camp?.kind === CAMP_KIND.Fire && !fireLit(camp, now);",
     "tests": [
-      "test/surv3_camps.test.js"
+      "test/rest2_campfire.test.js"
     ]
   },
   {
-    "name": "SURV3-the-last-light-leaves-the-kit-in-the-pack",
+    "name": "REST2-a-placed-campfire-stays-in-the-pack",
     "file": "src/systems/survival/camp.js",
-    "old": "    spent = true;\n    const i = Array.isArray(list) ? list.indexOf(item) : -1;\n    if (i >= 0) list.splice(i, 1);",
-    "new": "    spent = true;",
+    "old": "  if (i >= 0) list.splice(i, 1);\n  const text = kind === CAMP_KIND.Tent ? CAMP_TEXT.pitched : CAMP_TEXT.lit;",
+    "new": "  const text = kind === CAMP_KIND.Tent ? CAMP_TEXT.pitched : CAMP_TEXT.lit;",
     "tests": [
-      "test/surv3_camps.test.js"
+      "test/rest2_campfire.test.js"
     ]
   },
   {

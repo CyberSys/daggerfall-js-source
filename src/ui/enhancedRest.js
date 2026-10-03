@@ -19,6 +19,7 @@ import { normalizeCode } from '../systems/dialogShortcuts.js';   // AUDIT PARTY-
 import { getBinding } from '../systems/inputActions.js';
 import { bindings } from './input.js';   // B5: the live InputManager registry, as restWindow.js reads it
 import { restClockLine } from './restWindow.js';   // AUDIT LIVED1 O (U3): the classic window's clock line, one home for its words
+import { REST_ACT_TEXT } from '../systems/restAct.js';   // REST1: the act's words
 
 const el = (tag, cls, text) => {
   const n = document.createElement(tag);
@@ -86,6 +87,12 @@ export function mountEnhancedRest(hostEl, deps, ignoreAllocatedBed = false) {
     else overlay._pendingEnemySpawn = true;
   };
   const isTop = () => (deps.topWindow ? deps.topWindow() === overlay : true);
+  // REST1 (bible/06-Systems/Rest-Arc.md): online the card opens on the ACT - restWindow.js's own law, the same three
+  // deps (restAct, restNight, restShort): refused, or the channel held, then the night or the short rest, then the
+  // ordinary wake card. Offline restAct is null and the card is the one it always was.
+  const act = deps.restAct?.() ?? null;
+  let _actT = 0;
+  let _actRefs = null;
 
   const startFixed = (mode, hours) => {
     overlay.mode = mode;
@@ -110,7 +117,8 @@ export function mountEnhancedRest(hostEl, deps, ignoreAllocatedBed = false) {
   const moveToBed = () => { if (overlay._allocatedBed != null && !ignoreAllocatedBed) deps.moveToBed?.(overlay._allocatedBed); };
   overlay._end = (result) => {
     if (result.rentExpired) deps.onRentExpired?.();
-    overlay._endLines = result.text ? [result.text] : (deps.endLines?.(result.textId) ?? ['You wake up.']);
+    if ((overlay.session?.totalHours ?? 0) >= 6) deps.onNightSlept?.();   // REST2: a night slept spends your own camp's charge, as restWindow.js
+    overlay._endLines = result.text ? [result.text, ...(result.extra ? [result.extra] : [])] : (deps.endLines?.(result.textId) ?? ['You wake up.']);   // REST1: a short rest says when a night may pass again
     if (result.died || !overlay._endLines?.length) { close(); deps.onRestFinished?.(); return; }
     overlay.state = 'ended';
     render();
@@ -168,6 +176,52 @@ export function mountEnhancedRest(hostEl, deps, ignoreAllocatedBed = false) {
     if (!canRestNow(alreadyWarned)) return;
     if (which === 'while') { overlay.state = 'hours'; overlay.mode = 'timed'; overlay._hoursValue = PROMPT_INITIAL; render(); }
     else { startFixed('full', 0); moveToBed(); }
+  }
+
+  /** REST1: the act's open - the town's refusal, no rest point, a building's own law (canRest), then the channel. */
+  function openAct() {
+    const place = deps.restPlace?.();
+    if (place?.inTownOutside) { overlay._refusalLines = [REST_ACT_TEXT.inTown]; overlay.state = 'refused'; return; }
+    if (!act.point) { overlay._refusalLines = [REST_ACT_TEXT.noPoint]; overlay.state = 'refused'; return; }
+    if (!canRestNow(false)) return;
+    moveToBed();
+    overlay.mode = 'act';
+    overlay.state = 'channel';
+  }
+  /** REST1: the channel held to its end - enemies, or the night, or the short rest. */
+  function finishAct() {
+    if (overlay._pendingEnemySpawn || deps.enemiesNearby?.()) {
+      overlay._pendingEnemySpawn = false;
+      deps.onEnemyBreak?.();
+      overlay._end({ textId: REST_TEXT.enemiesNearby, enemyBroke: true, died: false });
+      return;
+    }
+    const r = act.night ? deps.restNight?.({ rentedHours: overlay._remainingHoursRented }) : deps.restShort?.();
+    overlay._end(r ?? { textId: REST_TEXT.wakeUp, enemyBroke: false, died: false });
+  }
+  function channelCard() {
+    const c = el('div', 'card');
+    const where = act?.point?.where;
+    c.append(el('h2', null, where ? REST_ACT_TEXT.channel(where) : REST_ACT_TEXT.channelBed));
+    const meter = el('div', 'meter');
+    const track = el('div', 'meter-track');
+    const fill = el('div', 'meter-fill brass');
+    track.append(fill);
+    meter.append(track);
+    c.append(meter);
+    const acts = el('div', 'acts');
+    const stop = el('button', 'act', 'Stop');
+    stop.onclick = () => stopOrClose();
+    acts.append(stop);
+    c.append(acts);
+    _actRefs = { fill };
+    updateChannel();
+    return c;
+  }
+  function updateChannel() {
+    if (!_actRefs) return;
+    const frac = Math.max(0, Math.min(1, _actT / (act?.channelSeconds || 1)));
+    _actRefs.fill.style.width = `${Math.round(frac * 100)}%`;
   }
 
   function selectionCard() {
@@ -357,6 +411,7 @@ export function mountEnhancedRest(hostEl, deps, ignoreAllocatedBed = false) {
             : overlay.state === 'refused' ? refusedCard()
               : overlay.state === 'hoursRefused' ? hoursRefusedCard()
               : overlay.state === 'resting' ? restingCard()
+                : overlay.state === 'channel' ? channelCard()
                 : endedCard(),
     );
     win.append(body);
@@ -399,6 +454,7 @@ export function mountEnhancedRest(hostEl, deps, ignoreAllocatedBed = false) {
     overlay.dispose?.();
   };
 
+  if (act) openAct();   // REST1: online, the act's own first page
   render();
   releaseLock();
   lockHandler = releaseLock;
@@ -415,6 +471,7 @@ export function mountEnhancedRest(hostEl, deps, ignoreAllocatedBed = false) {
   // press that opened this window never reaches it (the window did not exist yet), so the press is enough.
   const stopOrClose = () => {
     if (overlay.state === 'resting') { deps.onManualStop?.(); if (overlay.session) overlay._end(overlay.session.endEarly()); return true; }
+    if (overlay.state === 'channel') { close(); return true; }   // REST1: a channel stopped is no rest - nothing slept, no raise owed
     if (overlay.state === 'ended') { close(); deps.onRestFinished?.(); return true; }
     if (overlay.state === 'confirm') return false;   // the box's own Yes/No answer it
     close();
@@ -432,6 +489,8 @@ export function mountEnhancedRest(hostEl, deps, ignoreAllocatedBed = false) {
   overlay.hover = () => {};
   overlay.draw = () => { /* DOM, not canvas */ };
   overlay.tick = (dt) => {
+    // REST1: the channel counts real seconds and lands at its end
+    if (overlay.state === 'channel') { _actT += dt; if (_actT >= act.channelSeconds) finishAct(); else updateChannel(); return; }
     if (overlay.state !== 'resting' || !overlay.session) return;
     const r = overlay.session.tick(dt);
     if (r) { overlay._end(r); return; }

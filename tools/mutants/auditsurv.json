@@ -48,7 +48,7 @@
   {
     "name": "AUDITSURV-spent-gear-pitches-for-ever",
     "file": "src/systems/survival/camp.js",
-    "old": "  if ((item.currentCondition ?? 1) <= 0) return { ok: false, text: CAMP_TEXT.wornOut, camp: null, spent: false };   // AUDIT SURV A: the fiftieth pitch was the last\n",
+    "old": "  if (uses <= 0) return { ok: false, text: kind === CAMP_KIND.Fire ? CAMP_TEXT.noFuel : CAMP_TEXT.wornOut, camp: null, spent: false };\n",
     "new": "",
     "tests": [
       "test/auditsurv.test.js"

@@ -59,7 +59,7 @@ FM-bank audit. Audio.md also still disowns `ActivateLockUnlock = 316`
 (`:158` "NOT OURS... neither of which is ported") - it sits in
 `soundClips.js:10` with three consumers (R1) - and still claims
 `deps.inCastle` stays false (`:105`), live since AUDIT 21
-(`dungeonContext.js:3096`). This is the one page whose live-queue
+(`dungeonContext.js:3098`). This is the one page whose live-queue
 claims actively contradict the code, the Ledger, and the rest of the
 bible at once.
 
@@ -233,7 +233,7 @@ opposite of their own code and deserve a slice's attention:
 
 ## Line-citation drift (low, batched)
 
-`Port-Ledger.md:636` (save.js:36/:587/:606 → :28/:688/:720), `:637`
+`Port-Ledger.md:636` (save.js:36/:591/:610 → :28/:692/:724), `:641`
 (world.js:5282 → :2412); `Quest-Arc.md:724`/`:2911`
 (worldModes.js:660 → :903); `Player-Arc.md:979` (worldModes.js:1012 →
 :2764), `:304` (world.js "531 lines" → 3,564); `Characters-Arc.md:190`

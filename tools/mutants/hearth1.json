@@ -210,7 +210,7 @@
  {
   "name": "AUDIT-HEARTH1-F1-the-worlds-fires-ignore-the-mods-switch-so-a-brazier-cooks-with-C-and-C-off",
   "file": "src/scenes/camps.js",
-  "old": "  const worldFires = () => (survivalOn() && hearths ? hearths() : null);",
+  "old": "  const worldFires = () => (usable() && hearths ? hearths() : null);",
   "new": "  const worldFires = () => (hearths ? hearths() : null);",
   "tests": [
    "test/hearth1_worldfires.test.js"

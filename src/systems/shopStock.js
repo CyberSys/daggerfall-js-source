@@ -141,7 +141,8 @@ export const MAGIC_ITEMS_ENUM_TEMPLATE = 0;
 // constant, declared here and in loot.js.
 import { BOOK_TEMPLATE, createRegularMagicItem, createRandomPotion, randomlyAddPotionRecipe, getMagicItemTemplates, createRandomWeapon, createRandomArmor, createRandomClothing } from './loot.js';   // G4: the guild shelves' two minters (AUDIT 26 F129/F130: + the recipe arm and the registry)
 import { SPELLBOOK_TEMPLATE_INDEX } from './spellMaker.js';   // G4: one home for MiscItems 132
-import { provisionsStock } from './survival/items.js';   // SURV2: the general store's provisions shelf
+import { provisionsStock, campfireStock } from './survival/items.js';   // SURV2: the general store's provisions shelf   // REST2: and online the Campfire alone, the arc Off
+import { sharedClockOn } from './worldTick.js';
 import { healingShelfCount, mintHealingPotion } from './healingSupply.js';   // POTION-COMMON: the shelf's Potions of Healing
 import { survivalOn } from './survival/switch.js';   // SURV2: the one switch
 import { conditionBasedPricesOn, conditionCostBase } from './rriRealism.js';   // RRI2: the CalculateCost override's condition arm
@@ -248,6 +249,7 @@ export function stockShopShelf({ buildingType, quality }, playerEntity = {}, { r
     // their own module (their templates are the port's), after the
     // horse and the cart so the shelf reads travel first, then food.
     if (survivalOn()) for (const it of provisionsStock(quality, rolls)) items.push(it);
+    else if (sharedClockOn()) for (const it of campfireStock(rolls)) items.push(it);   // REST2: online the Campfire is the rest's, the arc on or off
   }
   const level = playerEntity.level ?? 1;
   const female = playerEntity.gender === 'female';

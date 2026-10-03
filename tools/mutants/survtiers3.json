@@ -405,11 +405,12 @@
   {
     "name": "SURVTIERS3-the-kit-cite-startingGear-rots",
     "file": "src/systems/equip.js",
-    "old": "systems/startingGear.js:74 assignStartingGear",
+    "old": "systems/startingGear.js:75 assignStartingGear",
     "new": "systems/startingGear.js:70 assignStartingGear",
     "tests": [
       "test/citedrift.test.js"
-    ]
+    ],
+    "note": "REST1+REST2 (PIN MOVED): re-aimed by content to the cite the slice's cite shift moved."
   },
   {
     "name": "SURVTIERS3-the-kit-cite-headless-chargen-rots",
@@ -470,12 +471,12 @@
   {
     "name": "SURVTIERS3-the-rest-window-cite-input-rots",
     "file": "src/ui/restWindow.js",
-    "old": "exterior.js:3200, ui/input.js:922)",
-    "new": "exterior.js:3200, ui/input.js:525)",
+    "old": "exterior.js:3201, ui/input.js:922)",
+    "new": "exterior.js:3201, ui/input.js:525)",
     "tests": [
       "test/citedrift.test.js"
     ],
-    "note": "THE PROF7 MERGE (PIN MOVED): re-aimed by content to the cite the merge's citeMerge moved (main's #471 and PROF7 together); FIELD BUGS 2026-09-30's shift before it. TIME1 (PIN MOVED): its world.js and exterior.js cites shifted by citeShift; re-aimed by content. MERGE OF MAIN (#538) INTO THE TACTICS ARC (PIN MOVED): re-aimed by content to the cite citeMerge moved."
+    "note": "THE PROF7 MERGE (PIN MOVED): re-aimed by content to the cite the merge's citeMerge moved (main's #471 and PROF7 together); FIELD BUGS 2026-09-30's shift before it. TIME1 (PIN MOVED): its world.js and exterior.js cites shifted by citeShift; re-aimed by content. MERGE OF MAIN (#538) INTO THE TACTICS ARC (PIN MOVED): re-aimed by content to the cite citeMerge moved. REST1+REST2 (PIN MOVED): re-aimed by content to the cite the slice's cite shift moved."
   },
   {
     "name": "SURVTIERS3-the-mirror-overrides-tickVitals",

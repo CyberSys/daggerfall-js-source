@@ -161,7 +161,7 @@ test('SURV4: by source - the four hosts name their kind, the three rolls carry t
   assert.match(x, /restAsks: playerEntity\.isResting \? playerEntity\.restAsks : 1,/);
   assert.match(dc, /isResting: true,\s*\n\s*restAsks: playerEntity\.restAsks,/);
   const sh = read('src/scenes/shared.js');
-  assert.match(sh, /restKind = \(\) => REST_KIND\.Rough, \.\.\.rest/, 'a host that says nothing sleeps rough');
+  assert.match(sh, /restKind = \(\) => REST_KIND\.Rough,[\s\S]{0,400}?restPoint = null, \.\.\.rest/, 'a host that says nothing sleeps rough');
   // PARTY-REST4b/10 (the party-rest drop): the override slot and the rough-carry reset both live inside this same `if (b)` arm now - narrowed to the one invariant this test holds
   // SURV-TIERS: the tier is read at the open beside the place - null (the mod off) prices it as DFU's bed
   assert.match(sh, /_rules = survivalRules\(\);[^\n]*\n\s*_place = \(_restKindOverride \?\? restKind\)\(\);\n\s*_kind = _rules \? _place : REST_KIND\.Bed; _roughHours = 0;/, 'read at the open, DFU\'s bed with the mod off');
