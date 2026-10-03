@@ -1,4 +1,4 @@
-# HOLDINGS - the pause menu's Holdings tab: the Stable, the Fleet, a ship's refits and her name (the port's own)
+# HOLDINGS - the pause menu's Holdings tab: the Stable, the Fleet, a ship's refits and her name, the ports' quays (the port's own)
 
 Opened 2026-10-03. Mac, on PR #549 (TOUGHER-SHIPS): *"Lets add a new tab to the pause menu as the stat page is starting
 to get bloated. Lets organize everything appropriately. Under the new tab add a page that allows you to see your
@@ -80,8 +80,9 @@ it there (`deedInPack` reads the book too):
 - **A small boat's** title (the Large Boat's) is spent on placing, as the mod spends its deed; laid up, it is made again.
 
 **WHERE SHE IS** is never stored: it is read off the world each time (`scenes/fleetHost.js` `whereIs`) - **At your helm**,
-**Afloat** here (how far) or elsewhere (how far, which way), **Packed** (her parts in the pack), **Laid up** (her title
-and nothing of her standing). A ship with none of these (sold, purged) draws no card.
+**Afloat** here (how far) or elsewhere (how far, which way), **Made fast** at a port's quay (section 7 - here, her own
+place; afar, the last port the Fleet heard of her), **Packed** (her parts in the pack), **Laid up** (her title and
+nothing of her standing). A ship with none of these (sold, purged) draws no card.
 
 **THE CARD** (`ui/fleetPage.js`): her name, her hull and rig, her worth, the bank's claim while it stands, where she is,
 her hull, canvas and crew against their whole (the sea fight's own numbers - `navalHost.js` `fleetStatus`), a wreck, a
@@ -90,7 +91,7 @@ card.
 
 | Act | What it does | Refused |
 |---|---|---|
-| Summon | brought round to the free berth nearest the player of a harbour the sea fight knows (`freeBerth`) by Come Sail Away's `SummonBoat` - moved there if she stands anywhere, placed from her title if laid up; with no berth known, the deed's own placing (a door: the water clicked) | already here, packed, indoors, at a helm, fighting, away from any port (`IsNearPort`'s reach) |
+| Summon | brought round to the free berth nearest the player of a harbour the sea fight knows (`freeBerth`) by Come Sail Away's `SummonBoat` - alongside its quay for her hull and made fast there (section 7), moved there if she stands anywhere, placed from her title if laid up; with no berth known, the deed's own placing (a door: the water clicked) | already here, packed, indoors, at a helm, fighting, away from any port (`IsNearPort`'s reach) |
 | Send away | she sails for the nearest port and is laid up there (`LayUpBoat`: her hold into PackedCargoes under her number, placed again it is aboard) | laid up, packed, at her helm, fighting, another player aboard; a boat with no crew not here |
 | Repair | her hands, wherever she lies (below); the boat underfoot, her captain's order Make repairs | no crew, no hands aboard, nothing to mend, fighting |
 | Shipwright | a door to the yard's window (`navalYardWindow.js`) for a ship laid up or lying here, at a port | away from a port; she elsewhere |
@@ -151,6 +152,65 @@ unnamed fleet's record is the older build's to the letter, and a renamed boat is
 takes each name through the same law; a bad `n` never drops the boats, a refused name reads as none, and an older
 reader ignores the key (`systems/comeSailAwayWire.js`; `scenes/comeSailAwayPeers.js` `nameAt`).
 
+## 7. Quays and docking
+
+Mac: *"Completely revamp port towns with actual piers and docking ports. I want these places to feel alive and connected
+with the oceans of daggerfall, along with having them appear when sailing and close to a port."* Daggerfall's port towns
+stand no piers and its data names no dock: a harbour is found off the terrain (SHIP-LIFE's `findHarbour`,
+`03-World/Naval-Combat.md`), berth by berth along the town's shore. Each berth now stands a QUAY, and a ship of the
+player's docks at it.
+
+**THE QUAY** (`systems/naval/quays.js` `planQuay`, pure; `world/quayModel.js`) is laid in its berth's frame - +x to the
+land against the shore's normal, +z along the shore (`quayFrame`, the trs yaw `theta`). The berth is sounded for the
+Carrack, and the quay's FACE stands her widest and QUAY_GAP (0.8 m) off her; it runs QUAY_ENDS (3 m) past her bow and her
+stern, QUAY_WIDTH (4.5 m) deep, its plank deck QUAY_DECK_UP (1.6 m) over the sea's top, on piles every PILE_STEP (4 m)
+down to the bed (PILE_DEPTH, 6 m, at most), none where the ground stands at the deck. Behind it the shore is walked at her
+waist in JETTY_STEP (1 m): a bank that meets the deck within STEP_M takes a railed JETTY of JETTY_WIDTH (3 m) JETTY_LAND
+(2 m) onto it; dry ground under the deck (a beach) the jetty to it and a RAMP down to the ground at RAMP_SLOPE (0.45) at
+most, RAMP_MAX (10 m) long; no land within JETTY_MAX (40 m), no jetty - the quay stands alone, a stage moored to a bar.
+On it: a kerb along its face, three iron bollards by her stern, her waist and her bow, a lantern post at each landward
+corner with its lantern hung out over the quay, and the port's cargo on its back - crates (some two high) and barrels,
+drawn off the harbour's key and the berth's number on QUAY_SALT, clear of the jetty's mouth, its ends and its face, so
+every player in the port sees the same quay. The model wears the classic ship's own textures (her planking 67_0, its
+darker plank 67_8, iron 0_79, a lamp's glass 0_10) out of the player's ARENA2. A ground not built yet lays nothing; the
+berth is laid again QUAY_RETRY_S (2 s) later.
+
+**THE POOL** (`scenes/quayPool.js`, the world host's): a harbour the sea fight knows (`navalHost.js` `harbourList`) stands
+its quays while its mouth is within QUAY_STAND_M (1,600 m) of the player - so they are there as a ship sails in, before
+she makes her berth - and comes down past QUAY_LEAVE_M (2,000 m), when the harbour is forgotten or found again (a
+transition, a fast travel), indoors, at a re-anchor and at a load. A quay a berth: its mesh drawn in the world pass, its
+collider a bucket of its own - its triangles baked in the berth's frame turned, its translation the berth's place and the
+sea's top read live, so the floating origin moves it with the world and nothing is stood again; the player walks its
+deck, its jetty and its ramp, and a hull swept against its piles is stopped by them as by a rock. In the lanterns' hours
+(17:00-08:00) the nearest QUAY_LIGHTS_MAX (6) lanterns within QUAY_LIGHT_REACH (120 m) light the quay
+(QUAY_LIGHT_RANGE, 14 m). Nothing is saved or sent: the harbour is every client's own off the same terrain.
+
+**ALONGSIDE** (`shipLife.js` `alongside`): every hull lies with her side the gap off the face - a narrower one in toward
+the quay by the beams' difference, a galley out. The harbour's own moored ships are stood and eased there
+(`harbourFrame`, `stepErrand`'s moor), a packet lying in port too, and a ship summoned from the Fleet is brought round
+alongside for her own hull (`freeBerth(hull)`) - "brought round to Sentinel's quay and made fast". No ship of the sea
+moors into a berth a boat of the player's or another player's lies at (`berthFree`; one of the player's sailing by takes none).
+
+**DOCKING** (`navalHost.js` `warp`, Come Sail Away's `warp` seam in `lateUpdateSailing` - the mod has no quays): at the
+helm, her sails struck and no oar pulling, her way under DOCK_WAY (2 m/s) and no hostile ship near, a ship whose
+alongside place at a free berth lies within DOCK_REACH_M (25 m), her bow within DOCK_ANGLE (40 degrees) of its line
+either way (`dockFor`), is WARPED IN by her hands - eased onto it at DOCK_EASE a second, never faster than WARP_SPEED
+(2 m/s), her heading brought round with her, her way and her swing off, the bodies aboard carried. "Your hands warp her
+in alongside Sentinel's quay." A ship of the sea only coming in to that berth is sent to another (`putOff`). Within FAST_M
+(1.5 m) and FAST_DEG (6 degrees) she lies MADE FAST - "Made fast at Sentinel's quay." - and the Fleet hears it: her card
+reads **Made fast** at that port's quay, how far, and from afar the last port it heard of her (`dockPorts`, the world's
+`dockedPort`). A sail set, an oar pulled, she is her helm's again; she casts off as she gathers way.
+
+**THE GANGWAY** (`gangwayOf`): while she lies made fast, a plank with its lines runs from the quay's face across from her
+waist up to her main deck's rail on the quay's side (`navalDeck.js` `rail` at `mainLevel`). On foot at its foot,
+looking at her, **Activate goes aboard** - over her rail onto her deck (the boarding's own `landing`); on her deck by its
+head, looking at the land, **Activate steps ashore** onto the quay, facing the land. Its word is said once each time the
+player comes to it ("The gangway to the Sea Witch - Activate to go aboard."). The press is the sea's (`takesActivate`), a
+struck ship alongside first. Under way, no gangway.
+
+THE FOUR HOSTS: `scenes/world.js` stands the quays and hands the warp; a building's frame (`worldModes.js`) and a
+dungeon's (`dungeonContext.js`) have no sea, and the standalone street (`exterior.js`) no naval host to find a harbour.
+
 ## 8. Crew roles
 
 Mac: *"Named crew companions should be able to be assigned to certain roles, and be positioned accordingly to their
@@ -186,12 +246,18 @@ and her orders' answers; with none aboard, her first hand aboard as before.
 
 ## 9. Files, tests
 
-`systems/fleet.js`, `scenes/fleetHost.js`, `ui/holdingsPages.js`, `ui/fleetPage.js`; seams in `systems/horseCart.js`,
+`systems/fleet.js`, `scenes/fleetHost.js`, `ui/holdingsPages.js`, `ui/fleetPage.js`, `systems/naval/quays.js`,
+`world/quayModel.js`, `scenes/quayPool.js`; seams in `systems/horseCart.js`,
 `systems/comeSailAway.js` (SummonBoat, LayUpBoat, laidUpHold, the book's seams, the refits' reads),
 `systems/comeSailAwayWire.js`, `scenes/navalHost.js` (fleetStatus, repairAway, refitBoat, freeBerth, the refits' reads),
-`scenes/world.js`, `scenes/exterior.js`, `scenes/worldModes.js`, `ui/enhancedMenu.js`, `ui/enhancedFrame.js`.
+`scenes/world.js`, `scenes/exterior.js`, `scenes/worldModes.js`, `ui/enhancedMenu.js`, `ui/enhancedFrame.js`; the quays'
+in `systems/naval/shipLife.js` (`alongside`), `systems/comeSailAway.js` (`warp`) and `scenes/navalHost.js` (`harbourList`,
+the docking, the gangways).
 
 `test/holdings.test.js` (the tab, the Stable, the runtime's summon and send away), `test/fleet.test.js` (the ledger, the
 book under Come Sail Away's real runtime, the refits on the helm and the sea, the away repairs, the host half's every act
 and refusal, the word's names, the page), `test/crewroles.test.js` (the posts given, their places on the deck and the
-crew keeping them against a no-roles control, the First Mate's voice, the Crew panel); `tools/mutants/holdings.json`.
+crew keeping them against a no-roles control, the First Mate's voice, the Crew panel), `test/quays.test.js` (the quay off a
+berth, the shore walked, what stands on it, its model, alongside, docking's law, the pool, the real host's docking and
+gangway, Come Sail Away's seam, the Fleet's word, the world's wiring); `tools/mutants/holdings.json`,
+`tools/mutants/quays.json`.

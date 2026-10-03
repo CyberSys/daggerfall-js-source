@@ -30,11 +30,16 @@ let _open = null;   // { uid, panel: 'refit'|'rename'|'crew' } - the one panel o
 let _draft = '';
 
 /** Where she is, as a chip's word and a line. Pure. */
+/** QUAYS: a port's quay in words - "Wayrest's quay", or "a quay" for one with no name. */
+const quayWords = (port) => (port ? `${port}'s quay` : 'a quay');
 export function whereWords(s) {
   switch (s.where) {
     case 'sailing': return { state: 'At your helm', tone: '', line: 'You stand at her helm.' };
-    case 'here': return { state: 'Afloat', tone: '', line: `Lying ${farWords(s.metres)}.` };
-    case 'away': return { state: 'Afloat', tone: 'is-away', line: s.metres == null ? 'Afloat far from here.' : `Afloat ${farWords(s.metres)}${s.way ? ` to the ${s.way}` : ''}.` };
+    // QUAYS: made fast at a port's quay - where she is shown, her own place; afar, the last the Fleet heard of her
+    case 'here': return s.docked != null ? { state: 'Made fast', tone: '', line: `Made fast at ${quayWords(s.docked)}, ${farWords(s.metres)}.` } : { state: 'Afloat', tone: '', line: `Lying ${farWords(s.metres)}.` };
+    case 'away':
+      if (s.docked) return { state: 'Made fast', tone: 'is-away', line: `Made fast at ${quayWords(s.docked)}${s.metres == null ? '' : `, ${farWords(s.metres)}${s.way ? ` to the ${s.way}` : ''}`}.` };
+      return { state: 'Afloat', tone: 'is-away', line: s.metres == null ? 'Afloat far from here.' : `Afloat ${farWords(s.metres)}${s.way ? ` to the ${s.way}` : ''}.` };
     case 'laidup': return { state: 'Laid up', tone: 'is-away', line: s.port ? `Laid up at ${s.port} - she is brought round to any port you call her at.` : 'Laid up - she is brought round to any port you call her at.' };
     case 'packed': return { state: 'Packed', tone: 'is-away', line: 'Her parts are in your pack - use them to launch her.' };
     default: return { state: 'Lost', tone: 'is-lost', line: '' };

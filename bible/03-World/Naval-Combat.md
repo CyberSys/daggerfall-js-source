@@ -1202,7 +1202,9 @@ cruise to random waypoints; a port had no ships at all. `systems/naval/shipLife.
   a transition forgets the harbours, found again where the world is next. **Online**: a ship taken over (`adopt`)
   draws her errand again where she lies.
 
-Not built: fishing boats (no fishing class exists), a harbour's own lights and quays, ~~ships at anchor off a harbour
+Not built: fishing boats (no fishing class exists), ~~a harbour's own lights and quays~~ (QUAYS, `03-World/Holdings.md` 7:
+a quay at every berth with its jetty, piles, bollards, cargo and lanterns lit in the lanterns' hours; the harbour's ships
+moored alongside it; the player's ship warped in, made fast and a gangway run out), ~~ships at anchor off a harbour
 with no berth, and a voyage's port-to-port route beyond the loaded terrain~~ (SEA-LANES, below: the Bay's packets sail
 the map's water between its ports, and lie off a port whose harbour no one has sounded).
 Pins: `test/shiplife.test.js` (11). Mutants: `tools/mutants/shiplife.json` (32).

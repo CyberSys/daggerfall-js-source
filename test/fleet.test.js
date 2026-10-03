@@ -346,11 +346,13 @@ test('FLEET REPAIRS MADE AWAY: her hands mend her free to FIELD_MEND_CAP of each
 
 test('FLEET the berth a summoned ship is brought to: the free berth of a known harbour nearest the player - none taken by a ship of the sea or a boat of mine - on the sea\'s top, her bow along it; none known, none (source pins over the harbour\'s own law)', () => {
   const src = read('src/scenes/navalHost.js');
-  const at = src.indexOf('  function freeBerth()');
+  const at = src.indexOf('  function freeBerth(hull = HULL.Carrack) {');   // PIN MOVED (QUAYS): her hull asked
+  assert.ok(at >= 0, 'freeBerth found');
   const body = src.slice(at, src.indexOf('\n  }\n', at));
   assert.match(body, /if \(!berthFree\(h\.key, i\) \|\| myBoats\(\)\.some\(\(m\) => Math\.hypot\(m\.GameObject\.position\[0\] - b\.pos\[0\], m\.GameObject\.position\[2\] - b\.pos\[1\]\) <= BERTH_SNAP_M\)\) continue;/);
   assert.match(body, /const d = Math\.hypot\(b\.pos\[0\] - f\[0\], b\.pos\[1\] - f\[2\]\);\n        if \(d < bestD\)/);
-  assert.match(body, /position: \[b\.pos\[0\], deps\.seaY\(\), b\.pos\[1\]\], direction: forwardOfYaw\(b\.yaw\)/);
+  // PIN MOVED (QUAYS): alongside the berth's quay for her own hull (shipLife.js alongside), where the berth's point stood
+  assert.match(body, /const at = alongside\(b, hull, h\.harbour\.hull\); bestD = d; best = \{ position: \[at\[0\], deps\.seaY\(\), at\[1\]\], direction: forwardOfYaw\(b\.yaw\)/);
 });
 
 // ── the host half ────────────────────────────────────────────────────────────────────────────────────────────────────
@@ -365,7 +367,7 @@ function fleetWorld(opts = {}) {
     return { ...states.get(b.uid), stores: storesIn(b.Cargo?.Items ?? []) };
   };
   const naval = {
-    fleetStatus: status, hostileNear: () => w.hostile, freeBerth: () => w.berth, boatInPlay: () => null,
+    fleetStatus: status, hostileNear: () => w.hostile, freeBerth: (hull) => { w.berthHull = hull; return w.berth; }, boatInPlay: () => null,
     repairAway: (b) => { const st = states.get(b.uid); st.hull = st.maxHull; st.wants = false; return { ok: true, text: 'Mended.' }; },
     refitBoat: (b) => { w.refitted = b; }, openYard: (b) => { w.opened.push(b); return true; }, giveOrder: () => ({ ok: true, said: 'Aye.' }),
   };
@@ -414,7 +416,8 @@ test('FLEET Summon: brought round to the port\'s free berth (SummonBoat at it) -
   const { s, w, host } = fleetWorld();
   titleDeed(mintDeed(2, 0, 1, 1));
   let r = host.act(1, 'summon');
-  assert.deepEqual(r, { ok: true, text: "Small Ship 'I' is brought round to Sentinel's quay." });
+  assert.deepEqual(r, { ok: true, text: "Small Ship 'I' is brought round to Sentinel's quay and made fast." });   // PIN MOVED (QUAYS)
+  assert.equal(w.berthHull, 2, 'the berth asked for her own hull - alongside its quay');
   const b = s.rt.GetPlacedBoatWithUID(1);
   assert.deepEqual([b.GameObject.position[0], b.GameObject.position[2]], [300, 300]);
   assert.equal(host.act(1, 'summon').text, 'She is already here.');

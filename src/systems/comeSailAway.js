@@ -1410,6 +1410,20 @@ export function createComeSailAwayRuntime(deps) {
       if (!IsBeached(boat)) CheckCollision(boat);
     }
     if (!IsBeached(boat)) {
+      // QUAYS (the port's own - systems/naval/quays.js; the mod has no quays): her hands warping her in alongside a
+      // harbour's quay - her sails struck and no oar pulling - take her way off and lay her this step where the host
+      // says (`deps.warp`: her place and her turn, null to leave her to her helm), the bodies aboard carried with her
+      const w = deps.warp?.(boat, { struck: state.sailPosition === 0, oars: vSqrMagnitude(state.MoveVectorTarget) > 0 || state.TurnTarget !== 0, dt: dt() }) ?? null;
+      if (w) {
+        state.MoveVectorCurrent = [0, 0, 0];
+        state.velocityCurrent = [0, 0, 0];
+        state.TurnCurrent = 0;
+        const before = t.worldMatrix();
+        setPositionChecked(t, [f(w.pos[0]), t.position[1], f(w.pos[1])], log);
+        setLocalRotationChecked(t, normalizeQ(w.rotation), log);
+        carryChildren(boat, before);
+        return;
+      }
       let val = inverseTransformDirection(t, state.currentVector);
       if (!vEquals(state.CollisionVector, [0, 0, 0])) {
         // FIELD BUGS 2026-10-02 ROCK-AWAY (a departure): the response takes the way INTO what she met, as the C# does

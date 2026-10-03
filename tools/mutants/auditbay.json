@@ -674,8 +674,8 @@
   {
     "name": "BAY-A8-region-unread-at-berth",
     "file": "src/scenes/navalHost.js",
-    "old": "        e = launch({ seed, classId: cls.id, region: l.region, pos: [b.pos[0], deps.seaY(), b.pos[1]],",
-    "new": "        e = launch({ seed, classId: cls.id, pos: [b.pos[0], deps.seaY(), b.pos[1]],",
+    "old": "        e = launch({ seed, classId: cls.id, region: l.region, pos: [at[0], deps.seaY(), at[1]],",
+    "new": "        e = launch({ seed, classId: cls.id, pos: [at[0], deps.seaY(), at[1]],",
     "tests": [
       "test/auditbay_lanes.test.js"
     ]

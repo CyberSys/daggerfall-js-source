@@ -147,6 +147,9 @@ export function createFleetHost(deps) {
         uid: rec.uid, hull: rec.hull, variant: rec.variant, hullName: HULL_NAMES[rec.hull], name: rec.name, label: shipLabel(rec),
         value: Number.isFinite(rec.value) ? rec.value : HULL_PRICES[rec.hull], where: at.where, metres: b.metres, way: b.way,
         port: rec.port?.name ?? null, crewed: CREWED_HULLS.includes(rec.hull), guns: hasGuns(rec.hull),
+        // QUAYS: the port she lies made fast at - where she is shown, her own place (navalHost.js dockedAt); afar, the
+        // last the Fleet heard of her
+        docked: at.where === 'here' || at.where === 'sailing' ? n0()?.dockedAt?.(at.boat) ?? null : at.where === 'away' ? rec.port?.name ?? null : null,
         status: why.st, upgrades: { ...rec.upgrades }, loan: why.loan,
         // HOLDINGS: her named hands and their posts (a laid-up ship's signed on here), a Bard's calling his to keep
         hands: CREWED_HULLS.includes(rec.hull) && at.boat ? (n0()?.crewHands?.(at.boat) ?? []).map((h) => ({ name: h.name, role: h.role, bard: h.mobile === MOBILE.Bard, fights: h.fights | 0 })) : [],
@@ -203,11 +206,11 @@ export function createFleetHost(deps) {
     if (verb === 'summon') {
       if (why.summon) return said(false, why.summon);
       const title = titleOf(uid);
-      const berth = n?.freeBerth?.() ?? null;
+      const berth = n?.freeBerth?.(rec.hull) ?? null;   // QUAYS: alongside its quay for her own hull - made fast at it
       if (berth) {
         const boat = r.SummonBoat(uid, title, fleetBook(), berth.position, berth.direction, deps.terrainAt?.(berth.position) ?? null);
         if (!boat) return said(false, 'She could not be brought round.');
-        return said(true, `${name} is brought round to ${berth.harbour ? `${berth.harbour}'s` : 'the'} quay.`);
+        return said(true, `${name} is brought round to ${berth.harbour ? `${berth.harbour}'s` : 'the'} quay and made fast.`);
       }
       // no berth known (the sea fight off, every one taken): the deed's own placing - the water clicked
       if (!title && at.where !== 'away') return said(false, 'She could not be brought round.');

@@ -197,8 +197,9 @@ import { utcDayOfMs } from '../net/nodeLaw.js';   // PROF8: a haul's UTC day
 import { registerPlayerKillListener } from '../systems/playerKills.js';   // PROF7: the player's own kill stamps a body
 import { setProfessionsPages } from '../ui/profPages.js';   // PROF1: the Professions and Stores pages on the character sheet's rail
 import { setHoldingsProvider, stableProviderFor } from '../ui/holdingsPages.js';   // HOLDINGS: the Stable and the Fleet pages on the pause menu's Holdings tab
-import { fleetBook, fleetShip, titleDeed, knowShip, retitle, fleetSaveSlot, FLEET_SAVE_VENDOR } from '../systems/fleet.js';   // HOLDINGS: the Fleet's ledger and its book of titles
+import { fleetBook, fleetShip, titleDeed, knowShip, retitle, setShipPort, fleetSaveSlot, FLEET_SAVE_VENDOR } from '../systems/fleet.js';   // HOLDINGS: the Fleet's ledger and its book of titles
 import { createFleetHost } from './fleetHost.js';   // HOLDINGS: the Fleet page's host half
+import { createQuayPool } from './quayPool.js';   // QUAYS: a harbour's quays, stood off its berths, and the gangways
 import { withdrawIntoPack, materialLabel, materialCountLabel } from '../systems/profItems.js';   // PROF1: a Stores material as DFU's own item
 import { smeltRecipe, stockOf, WEAVERS_STOCK, APOTHECARY_STOCK, professionName } from '../net/professionLaw.js';   // PROF2: a smelt's product, for its word; PROF4: a counter's; PROF5: the Weavers'
 import { createMarketBook } from '../net/marketBook.js';   // PROF5: the market's book
@@ -1107,6 +1108,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   status('indexing locations');
   const locationIndex = new Map();
   let bountyFarms = null;   // BOUNTY-FARM: the farm pool, made beside the bounty pack's stander; read late (a transition, a load, the frame)
+  let quays = null;   // QUAYS: the harbours' quays (scenes/quayPool.js), made beside the farms; read late (a transition, a load, the frame)
   const _bountyFarmLocs = [];   // BOUNTY-FARM: the game's own farmsteads - the nearest lends a farm bounty its buildings
   const _bountyDungeonPixels = new Map();   // BOUNTY1: the game's own dungeons, by pixel -> name, for a board's underground hunts
   const _bountyGraveyardPixels = new Set();   // BOUNTY-GRAVEYARD: the game's own graveyards, by pixel - a board's hunt there stands outside
@@ -6439,6 +6441,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     wayScale: (underSail) => naval?.wayScale(underSail) ?? 1,   // AUDIT NAV1 (the helm): her hurts in her way - the canvas left, a wreck's oars
     sailRefused: () => naval?.sailRefused() ?? null,   // ...and no sail on a wreck or a rig shot away, said once
     brake: () => naval?.brake() ?? 0,   // ...and a heave-to's brake beside a struck ship
+    warp: (boat, s) => naval?.warp?.(boat, s) ?? null,   // QUAYS: her hands warping her in alongside a harbour's quay
     handling: () => getPref('naval-handling') ?? 'responsive',   // HELM-WAY: the Features row's Ship handling
     midScreenText: (text, seconds) => setMidScreenText(text, seconds),
     log: (text) => console.log(text),
@@ -7358,6 +7361,8 @@ export async function bootWorld(canvas, renderer, params, status) {
     seaY: () => tvSeaY(),
     isWater: navalIsWater,
     harbourNear: navalHarbourNear,   // SHIP-LIFE: the port town near the player, which the host finds a harbour off
+    shipName: (boat) => fleetHost?.nameOf(boat) ?? '',   // QUAYS: her name, in the gangway's word
+    dockedPort: (boat, port) => { const r = boat?.uid ? fleetShip(boat.uid) : null; if (r && (r.port?.name ?? null) !== port) setShipPort(boat.uid, port == null ? null : { name: port }); },   // QUAYS: the Fleet's word of the port she lies made fast at
     groundY: (x, z) => surfaceAt(x, z),
     feet: () => player.feetAt(),
     look: () => ({
@@ -9390,6 +9395,22 @@ export async function bootWorld(canvas, renderer, params, status) {
     mode: () => _mode(),
     enhanced: () => isEnhanced(),
   });
+  // QUAYS (bible/03-World/Holdings.md section 7): THE PORT'S QUAYS - each berth of a harbour the naval host found off the
+  // terrain stood with its quay, its jetty to the shore, its piles, bollards, lanterns and cargo (systems/naval/quays.js,
+  // world/quayModel.js), from the time its mouth is in sight of a ship sailing in; the gangways run out to my ships made
+  // fast at them. THE FOUR HOSTS: on the street alone, this host's - a building's frame (worldModes.js) and a dungeon's
+  // (dungeonContext.js) have no sea, and the standalone street (exterior.js) no naval host to find a harbour.
+  quays = createQuayPool({
+    renderer,
+    prepare: async (model) => { for (const sm of model.subMeshes) { await getTexture(sm.textureArchive); uploadRecord(sm.textureArchive, sm.textureRecord, { opaque: true }); } },
+    collider: () => collider,
+    harbours: () => (navalOn() ? naval?.harbourList?.() ?? [] : []),
+    seaY: () => tvSeaY(),
+    groundAt: (x, z) => surfaceAt(x, z),
+    feet: () => (walkMode && playerSpawned ? player.feetAt() : cam.pos),
+    mode: () => _mode(),
+    gangways: () => (navalOn() ? naval?.gangways?.() ?? [] : []),
+  });
   // HOME-YARD (2026-09-30, asked: "allowing for prop placement on the outside within the limits of their house"): THE
   // TOWN'S YARDS AND THE OWNER'S DECORATOR OUTSIDE (scenes/homeYards.js) - every online home's pieces outside, stood in
   // its pixel for everyone in the street, and the decorator on the owner's own lot (the lot's edge marked, a piece off
@@ -10609,6 +10630,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     // reason, rather than because a splice happened to run first.
     doorGeneration += 1;   // WORLD-HOVER: the origin was re-anchored, so every door's WORLD matrix moved with it
     bountyFarms?.destroyAll();   // BOUNTY-FARM: the frame moves under it - it stands again from the bounty, in the new one
+    quays?.destroyAll();   // QUAYS: and the quays - stood again off the harbours found in the new one
     riteHost?.destroyAll();   // WB12d: and the faithful's circle - its faithful went with the live pools; it stands again the next frame
     csaReanchor(state.initOffset);   // FIELD-CSA1: and every placed boat with it
     _streamSince = null;   // PERF-EXT24 (the review): the sweep ended the old world's stream - the new one's two seconds start at its first pump
@@ -11952,6 +11974,7 @@ export async function bootWorld(canvas, renderer, params, status) {
         droppedLoot.restoreWorld(restandRows(w.piles), (nx, nz) => state.localFromWorld(nx, nz), state.compensation[1]);
         droppedTorches.restore(restandAt('position')(w.droppedTorches), (p) => { const [lx, lz] = state.localFromWorld(p[0], p[2]); return [lx, p[1] + state.compensation[1], lz]; });   // HT1
         bountyFarms?.destroyAll();   // BOUNTY-FARM: a load - the farms stand again from the loaded bounties
+        quays?.destroyAll();   // QUAYS: and the quays, off the harbours found again
         camps.dropOwn();   // AUDIT SURV-TIERS (the third pass): the save says which camps are mine - the pitch after it is undone, not kept beside the gear it gave back
         camps.restore(restandAt('pos')(w.camps), campFromNatives);   // SURV3
         // F216/F217: the pools re-mint through their one spawn chain,
@@ -24990,6 +25013,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     try { if (gatePool?.frame(dt)) warmGateVeil(); } catch (e) { console.warn('[gate] pool', e?.message ?? e); }   // AUDIT WB D5: a gate stands - the step's veil is built ahead
     try { sigilBroker?.frame(dt); } catch (e) { console.warn('[broker] pool', e?.message ?? e); }   // SET7: the Broker stands where the clock stands her - BROKER-CAGE: in her cage at the faithful's circle
     try { riteHost?.frame(); } catch (e) { console.warn('[rite] host', e?.message ?? e); }   // WB12d: the faithful's circle, before the lights (its braziers light the ground)
+    try { quays?.frame(); } catch (e) { console.warn('[quays] pool', e?.message ?? e); }   // QUAYS: the harbours' quays stood or taken down, before the lights (their lanterns) and the world pass
     // Lanterns on 17:00-08:00, flickering verbatim; pixel-local lights
     // placed under the current compensation, nearest 16 to the camera.
     // WOD2: the mod's lights burn at every hour and each carries its own
@@ -25023,7 +25047,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
       const _lanterns = wodSel ? null : nearestLights(_sceneLights, cam.pos, renderer.maxPointLights + (renderer.lightingLane ? 1 : 0), _litRanges, null, 0, n);
       // DW-D: UnderwaterPresentationEffects.SuppressPlayerTorch - EnablePlayerTorch's light dark under the fog (the fuel burns on, the light is the only thing it takes)
       const lit = withPlayerLights(wodSel ? wodSel.data : _lanterns,   // EL1: the installed set's cap (16 classic, 48 on the lane); PERF-LIGHTS: `n` is how much of the pool is live
-        magic?.candleLight(), _dwFogP?.under ? null : playerTorchLight(playerEntity, player.feetAt(), cam.yaw), thunderlockMuzzleLight(playerEntity, player.feetAt(), cam.yaw), ...(naval?.enabled ? naval.lights() : []), ...peerTorchLights(), ...(gatePool?.lights() ?? []), ...(riteHost?.lights() ?? []), ...camps.lights(), ...droppedTorches.lights());   // PEERLIGHT1: the others' torches, right after my own hand lights   // X11 candle; T1 torch; HT1 the dropped lights; FIELD-GUN13 the muzzle flash; DISC13-A the hand lights ride the render feet (feetAt), as the camera does; NAV-B the broadsides' flashes and the burning decks beside the Thunderlock's own flash - the brightest things for a frame, cut last by the cap
+        magic?.candleLight(), _dwFogP?.under ? null : playerTorchLight(playerEntity, player.feetAt(), cam.yaw), thunderlockMuzzleLight(playerEntity, player.feetAt(), cam.yaw), ...(naval?.enabled ? naval.lights() : []), ...peerTorchLights(), ...(gatePool?.lights() ?? []), ...(riteHost?.lights() ?? []), ...camps.lights(), ...droppedTorches.lights(), ...(quays?.lights() ?? []));   // PEERLIGHT1: the others' torches, right after my own hand lights   // QUAYS: the quays' lanterns, in the lanterns' hours   // X11 candle; T1 torch; HT1 the dropped lights; FIELD-GUN13 the muzzle flash; DISC13-A the hand lights ride the render feet (feetAt), as the camera does; NAV-B the broadsides' flashes and the burning decks beside the Thunderlock's own flash - the brightest things for a frame, cut last by the cap
       if (wodSel) _wodSetLights(lit, wodSel);
       else renderer.setPointLights(lit, CITY_LIGHT_COLOR_F32, renderer.lightingLane ? capFadeColors(lit, lit.length / 4 - _lanterns.length / 4, cam.pos, renderer.maxPointLights, CITY_LIGHT_COLOR_F32) : null);   // LA-LIGHTS2
     } else {
@@ -25060,6 +25084,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     camps.draw(renderer);   // SURV3: the tents, the cart's own pass
     hcc.draw(renderer);   // HCC: the trailing / parked / following wagon and its cargo, mine and the peers' (the horses ride the flats' pass)
     bountyFarms?.draw(renderer);   // BOUNTY-FARM: a held farm bounty's farmstead
+    quays?.draw(renderer);   // QUAYS: the harbours' quays and the gangways to my ships made fast
     yards?.draw(renderer);   // HOME-YARD: the pieces outside the town's homes, and the one being placed
     if (csaOn()) csa.draw(renderer);   // CSA-B: the boats - the hulls, the classic models their helpers stand, the baked sails
 
