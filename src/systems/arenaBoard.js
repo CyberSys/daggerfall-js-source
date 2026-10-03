@@ -5,12 +5,17 @@
 // (ui/arenaWindow.js) draws these and asks the host to act; nothing here touches a door. Design:
 // bible/11-Multiplayer/Arena.md "5. The Arena window" - Bouts, Ladder, Team, Leaderboards, Records, Rules.
 //
+// ARENA4b: online the account is the record and the realm the field - the Records page is the account's
+// (`recordsPageOnline`, the board's `me.record` and `me.recent`), the fastest Grand Champions each in their own season,
+// the realm's Hall of Champions on the Leaderboards page (`hallBoardOnline`) and on the Keeper's wall (`hallLinesOnline`),
+// and before the board is in the ladder's Fight waits for the account's climb.
+//
 // Pure. Not a DFU member. Ledger A (ARENA).
 
 import { ARENA_TEXT } from './arenaText.js';
 import {
   LADDER_TIERS, BOUTS_PER_TIER, BOUT_PURSE, CHAMPION_PURSE, EXHIBITION_HOURS, arenaLadderRestore, nextLadderBout, ladderTitle,
-  ladderTitles, exhibitionFor, hourIndexOf,
+  ladderTitles, exhibitionFor, hourIndexOf, hallOfChampions,
 } from './arenaLadder.js';
 import { fighterIdentity } from './arenaFighters.js';
 import {
@@ -19,6 +24,7 @@ import {
 import { exhibitionCard, bookLines } from './arenaBook.js';
 import { enemyDisplayName, ENEMY_BASICS } from '../characters/enemyBasics.js';
 import { dateFromClassicMinutes, MONTH_NAMES, MINUTES_PER_DAY } from './gameDate.js';
+import { arenaSeasonOf, arenaSeasonDay } from '../net/arenaLaw.js';   // ARENA4b: the realm's season a row was taken in
 
 /** The window's pages, in their order on the tab bar. */
 export const ARENA_PAGES = Object.freeze(['bouts', 'ladder', 'team', 'boards', 'records', 'rules']);
@@ -322,16 +328,51 @@ export function ladderTitleOfReached(n) {
   return tiers > 0 ? ARENA_TEXT.titles[Math.min(LADDER_TIERS.length, tiers) - 1] : null;
 }
 
+/** ARENA4b: the realm's season a row of the board was taken in (its `at`, unix seconds - net/arenaLaw.js arenaSeasonOf),
+ *  or this season for a row that carries none (an older service). */
+const seasonOfRow = (r, board) => (Number.isFinite(r?.at) && r.at > 0 ? arenaSeasonOf(r.at) : board.season);
+
+/** ARENA4b: THE REALM'S HALL OF CHAMPIONS (the board's `hall` - every account that took the Grand Champion's title, the
+ *  newest first, each with the season it was cut in), as the Leaderboards page draws it under the fastest Grand
+ *  Champion: `{ title, sub, rows: [{ name, season, you }], empty }`. My row marked when I am one of them - by the name the
+ *  realm gives me (the fastest board's `you` row: the account's name, not the character's), else `name`. */
+export function hallBoardOnline(board, name = '') {
+  const grand = !!board?.me?.grand;
+  const fast = board?.fast ? [...(Array.isArray(board.fast.rows) ? board.fast.rows : []), board.fast.pinned] : [];
+  const mine = fast.find((r) => r?.you && typeof r.name === 'string' && r.name)?.name || name;
+  const rows = (Array.isArray(board?.hall) ? board.hall : []).filter((h) => h && typeof h.name === 'string' && h.name)
+    .map((h) => ({ name: h.name, season: O().seasonShort(seasonOfRow(h, board)), you: grand && !!mine && h.name === mine }));
+  return { title: ARENA_TEXT.undercroft.hallTitle, sub: O().hallTheirs, rows, empty: rows.length ? '' : ARENA_TEXT.undercroft.hallNone };
+}
+
+/** ARENA4b: THE KEEPER OF THE HALL ONLINE (scenes/arenaGate.js hall, the undercroft's Keeper - scenes/worldModes.js): the
+ *  wall as she reads it - my own names cut by the account's climb (systems/arenaLadder.js hallOfChampions over the
+ *  board's `me.ladder`: the Grand Champion, each tier's champion beaten), then the realm's Grand Champions, the newest
+ *  first, each with its season; "not yet" for me beside theirs. Pure. */
+export function hallLinesOnline(board, name) {
+  const U = ARENA_TEXT.undercroft;
+  const who = name || W().you;
+  const realm = (Array.isArray(board?.hall) ? board.hall : []).filter((h) => h && typeof h.name === 'string' && h.name);
+  const mine = hallOfChampions(board?.me?.ladder ?? null, who, []);
+  const lines = realm.length ? mine.map((l) => (l === U.hallNone ? U.hallNotYou : l)) : [...mine];
+  if (realm.length) {
+    lines.push('', O().hallTheirs);
+    for (const h of realm) lines.push(O().hallTheirAt(h.name, seasonOfRow(h, board)));
+  }
+  return lines;
+}
+
 /** THE LEADERBOARDS ONLINE, boardsPage's shape over the service's board: the realm's climb, its fastest Grand Champions,
- *  the season's ratings (its #1 and the laurel) and the banners this season and the last. */
-export function boardsPageOnline(board) {
+ *  the season's ratings (its #1 and the laurel) and the banners this season and the last. ARENA4b: each fastest Grand
+ *  Champion with the season it was taken in (its own `at`, not this season), and the realm's Hall (`hall`). */
+export function boardsPageOnline(board, name = '') {
   const row = (r, cells) => ({ rank: r.rank, name: r.name, home: '', banner: r.banner ?? null, you: !!r.you, cells });
   const pveCells = (r) => [ladderTitleOfReached(r.reached) ?? W().noTitle,
     r.reached >= LADDER_TIERS.length * (BOUTS_PER_TIER + 1) ? W().allTen : O().reached(r.reached + 1), W().wl(r.reached, r.losses)];
   const map = (b, cells) => ({ rows: b.rows.map((r) => row(r, cells(r))), pinned: b.pinned ? row(b.pinned, cells(b.pinned)) : null, total: b.total });
   const pvp = map(board.pvp, (r) => [String(r.rating), O().pvpCells(r.wins, r.losses, r.draws)]);
   const pve = map(board.pve, pveCells);
-  const fast = map(board.fast, (r) => [W().days(r.days), O().seasonShort(board.season)]);
+  const fast = map(board.fast, (r) => [W().days(r.days), O().seasonShort(seasonOfRow(r, board))]);
   const t = board.team;
   const teamRows = [
     { rank: 1, name: O().seasonShort(board.season), banner: null, you: false, cells: [String(t.standings.red), String(t.standings.blue), t.standings.red === t.standings.blue ? T().level : W().leading(T().short[t.standings.red > t.standings.blue ? 'red' : 'blue']), board.me?.banner ? T().short[board.me.banner] : W().none] },
@@ -342,11 +383,13 @@ export function boardsPageOnline(board) {
     fast: { title: W().boards.fast, sub: O().fastSub, cols: W().cols.fast, ...fast, empty: fast.rows.length ? '' : W().boards.fastNone },
     pvp: { title: W().boards.pvp, sub: O().pvpSub, cols: W().cols.pvp, ...pvp, empty: pvp.rows.length ? '' : O().pvpNone, champion: board.champion ? O().champion(board.champion.name) : O().noChampion },
     team: { title: W().boards.team, sub: O().teamSub, cols: W().cols.team, rows: teamRows, pinned: null, total: teamRows.length, empty: '' },
+    hall: hallBoardOnline(board, name),
   };
 }
 
 /** THE HEADER ONLINE: the season of the realm, the account's ladder title (the Arena Champion's or the Grand Champion's
- *  first), its banner and the laurel, its rating and its rank. */
+ *  first), its banner and the laurel, its rating and its rank. ARENA4b: no purses chip unless the board says one (a purse
+ *  is paid on this screen, never kept by the realm - `purses` null, the chip left out, never a 0). */
 export function arenaHeaderOnline({ board, name }) {
   const me = board.me ?? {};
   const L = arenaLadderRestore(me.ladder);
@@ -354,8 +397,63 @@ export function arenaHeaderOnline({ board, name }) {
   return {
     name: name || W().you, title: me.champion ? O().championTitle : me.grand ? T10 : ladderTitle(L), banner: me.banner ?? null,
     laurel: !!me.banner && board.team?.laurel === me.banner, season: O().seasonLine(board.season, board.day),
-    record: W().recordLine(L.record.wins, L.record.losses), purses: 0, owed: 0,
+    record: W().recordLine(L.record.wins, L.record.losses), purses: purseOf(me), owed: 0,
     rating: me.pvp ? O().ratingChip(me.pvp.rating) : null, rank: me.rank ? O().rankChip(me.rank) : null, champion: !!me.champion, online: true,
+  };
+}
+
+/** The purses the board says the account has won, or null when it says none (an older service, or never). */
+const purseOf = (me) => { const v = me?.purses ?? me?.record?.purses; return Number.isSafeInteger(v) && v >= 0 ? v : null; };
+
+/**
+ * ARENA4b: THE RECORDS PAGE ONLINE, recordsPage's shape over the board's `me`: the account's record on the realm's sand
+ * (`me.record` - its ladder and rated wins, losses and draws and its best streak; an older service's board without it,
+ * what the climb's record and the season's rating carry) and its last bouts (`me.recent`, newest first, at most
+ * twenty - a ladder bout by its tier and step and the house's fighters it met, a rated bout by its opponent and the
+ * rating it moved, a draw when `won` is null); the wagers stay the save's (the bookmaker's book is this screen's). The
+ * save's own record stays the offline page's.
+ * @param {any} board the service's board @param {{ league?: any, gameMinutes?: number }} [o]
+ */
+export function recordsPageOnline(board, { league = null, gameMinutes = 0 } = {}) {
+  const me = board?.me ?? {};
+  const L = arenaLadderRestore(me.ladder);
+  const n = (v) => (Number.isSafeInteger(v) && v >= 0 ? v : 0);
+  const rec = me.record && typeof me.record === 'object' ? me.record : null;
+  const pveW = rec ? n(rec.pveWins) : L.record.wins, pveL = rec ? n(rec.pveLosses) : L.record.losses;
+  const pvpW = n(rec ? rec.pvpWins : me.pvp?.wins), pvpL = n(rec ? rec.pvpLosses : me.pvp?.losses), pvpD = n(rec ? rec.pvpDraws : me.pvp?.draws);
+  const wins = pveW + pvpW, decided = wins + pveL + pvpL;
+  const S = O().stat;
+  const stats = [
+    { k: S.pveWins, v: String(pveW) }, { k: S.pveLosses, v: String(pveL) },
+    { k: S.pvpWins, v: String(pvpW) }, { k: S.pvpLosses, v: String(pvpL) }, { k: S.pvpDraws, v: String(pvpD) },
+    { k: W().stat.share, v: decided ? `${Math.round((wins / decided) * 100)}%` : '-' },
+    { k: W().stat.best, v: String(rec ? n(rec.best) : L.record.best) },
+    { k: S.rating, v: me.pvp && Number.isFinite(me.pvp.rating) ? String(me.pvp.rating) : '-' },
+    { k: W().stat.champions, v: String(L.champs.filter(Boolean).length) },
+  ];
+  const recent = Array.isArray(me.recent) ? me.recent : null;
+  const tierOf = (v) => (Number.isSafeInteger(v) && v >= 0 && v < LADDER_TIERS.length ? v : 0);
+  const stepOf = (v) => (Number.isSafeInteger(v) && v >= 0 && v <= BOUTS_PER_TIER ? v : 0);
+  const bouts = (recent ?? []).filter((b) => b && typeof b === 'object').slice(0, 20).map((b) => {
+    const pve = b.kind !== 'pvp';
+    const tier = tierOf(b.tier), step = stepOf(b.step), champ = step === BOUTS_PER_TIER;
+    const draw = b.won === null, won = b.won === true;
+    const rating = b.rating && Number.isFinite(b.rating.after) && Number.isFinite(b.rating.before) ? O().ratingMove(b.rating.after, b.rating.after - b.rating.before) : '';
+    return {
+      when: Number.isFinite(b.at) && b.at > 0 ? O().boutWhen(arenaSeasonOf(b.at), arenaSeasonDay(b.at)) : '',
+      tier: pve ? ARENA_TEXT.tiers[tier] : O().livePlayers,
+      label: pve ? (champ ? (tier === LADDER_TIERS.length - 1 ? ARENA_TEXT.grandLabel : ARENA_TEXT.champLabel) : ARENA_TEXT.boutLabel(step + 1)) : b.rated === false ? O().unratedShort : rating,
+      opp: (typeof b.opponent?.name === 'string' && b.opponent.name) || (pve ? opponentLine(champ ? LADDER_TIERS[tier].champion : LADDER_TIERS[tier].bouts[step]) : W().fighter),
+      result: draw ? W().drew : won ? W().wonWord : W().lostWord, won, draw,
+      how: typeof b.how === 'string' ? (b.how === 'draw' ? W().how.draw : W().how[b.how] ?? O().how[b.how] ?? '') : '',
+      purse: 0, points: n(b.points), banner: '',
+    };
+  });
+  const titles = ladderTitles(L);
+  if (me.champion) titles.unshift(O().championTitle);
+  return {
+    stats, bouts, title: me.champion ? O().championTitle : ladderTitle(L), titles, online: O().recordsOnline,
+    empty: recent === null ? O().noRecent : bouts.length ? '' : O().noBouts, wagers: bookLines(rollLeague(league, gameMinutes), gameMinutes),
   };
 }
 
@@ -367,6 +465,13 @@ export function arenaBoard(o) {
   if (!on) {
     const m = { header: arenaHeader(o), bouts: boutsPage(o), ladder: ladderPage(o), team: teamPage(o), boards: boardsPage(o), records: recordsPage(o), rules: rulesPage() };
     if (o.online) m.bouts.cards = m.bouts.cards.map((c) => (c.kind === 'players' ? onlineCards({ hall: o.online.hall, me: null, guest: !!o.online.guest, busy: !!o.online.busy, now: o.online.now ?? 0 })[0] : c));
+    // ARENA4b: online before the realm's board is in, the climb is not the save's - the ladder's Fight waits for it - and
+    // neither is the record: the Records page says the realm's is on its way (the save's wagers kept), no purses chip
+    if (o.online) {
+      for (const c of m.bouts.cards) if (c.kind === 'ladder') c.acts = c.acts.map((a) => (a.act === 'fight' ? { ...a, why: O().climbWait } : a));
+      m.records = { ...recordsPageOnline(null, o), stats: [] };
+      m.header.purses = null;
+    }
     return m;
   }
   const oo = { ...o, ladder: on.board.me?.ladder ?? o.ladder };
@@ -383,7 +488,7 @@ export function arenaBoard(o) {
   const rules = rulesPage();
   rules.push({ head: O().rules.head, lines: [...O().rules.lines] });
   return {
-    header: arenaHeaderOnline({ board: on.board, name: o.name }), bouts, ladder, team: teamPageOnline(on.board), boards: boardsPageOnline(on.board),
-    records: recordsPage(o), rules, hall: (on.board.hall ?? []).map((h) => O().hallTheir(h.name)),
+    header: arenaHeaderOnline({ board: on.board, name: o.name }), bouts, ladder, team: teamPageOnline(on.board), boards: boardsPageOnline(on.board, o.name ?? ''),
+    records: recordsPageOnline(on.board, o), rules, hall: (on.board.hall ?? []).map((h) => O().hallTheir(h.name)),   // ARENA4b: the account's record, not the save's
   };
 }

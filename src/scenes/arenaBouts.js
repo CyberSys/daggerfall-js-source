@@ -35,7 +35,7 @@ import { crowdSeats, pickSeats, RING_R } from '../world/arenaFloor.js';
 import { arenaHudModel } from '../ui/arenaHud.js';
 import { rollLeague, leagueAfterBout, laurelWorn, laurelBanner, LAUREL_FAVOUR } from '../systems/arenaLeague.js';   // ARENA3: the banners, the laurel, the Records page
 import { mirrorOf, mirrorEvents, mirrorHealth, walkAt, walkDone } from '../net/arenaLink.js';
-import { ARENA_PUPPET_OWNER } from '../net/arenaLaw.js';   // ARENA4: a bout the relay runs, mirrored here
+import { ARENA_PUPPET_OWNER, ARENA_CHEER_MS } from '../net/arenaLaw.js';   // ARENA4: a bout the relay runs, mirrored here; ARENA4b: the stands' allowance
 import { crowdShout } from '../systems/arenaCrowd.js';   // ARENA4: the stands' own cheers and boos, heard on every screen
 
 /** ARENA-FIX 10: A CRIT is the formula's own critical-strike roll (combat/formulas.js calculateAttackDamage's notes,
@@ -67,6 +67,11 @@ export const THROW_MS = 900;
 /** ARENA4: the owner every relay-run fighter's puppet is stood under (net/arenaLaw.js - scenes/dungeonContext.js's own
  *  lane hands a blow on it to the relay's referee, never to a peer). */
 export { ARENA_PUPPET_OWNER };
+/** ARENA4b: A SPECTATOR'S CHEER OR BOO goes at most one each this long, ms: the relay's own allowance (net/arenaLaw.js
+ *  ARENA_CHEER_MS - net/arenaBrain.js cheerOf drops a second inside it, unsaid) and a beat of the wire's slack, so a
+ *  press this screen lets through is never one the relay drops after my own crowd has heard it. */
+export const CHEER_SLACK_MS = 250;
+export const CHEER_GAP_MS = ARENA_CHEER_MS + CHEER_SLACK_MS;
 
 /**
  * @param {{
@@ -92,6 +97,11 @@ export function createArenaBouts(deps) {
   /** A bout asked for before its stage stood (the Herald's choice, the instance still building). */
   let pending = null;
   let intrusions = 0;
+  /** ARENA4b: THE REALM'S BANNERS while online (scenes/arenaOnline.js hands the source - `{ banner, laurel }`: the banner
+   *  my account fights under, the laurel the realm's last season gave), read at each bout's first bell; null offline,
+   *  where the save's league is the law. */
+  let realmOf = null;
+  const realmNow = () => { try { return realmOf?.() ?? null; } catch { return null; } };
 
   // ── THE STAGE ───────────────────────────────────────────────────────────────────────────────────────────
   /** The host's floor now (or null): a new stage takes no bout of the old one's - the old one is gone, unsaid. */
@@ -208,20 +218,27 @@ export function createArenaBouts(deps) {
     /** @type {Record<string, string>} */
     const out = {};
     if (practice) return out;
-    if (ladder) { const team = leagueNow()?.team; if (team) out[YOU] = team; return out; }
+    if (ladder) { const R = realmNow(), team = R ? R.banner : leagueNow()?.team; if (team) out[YOU] = team; return out; }   // ARENA4b: online the account's
     for (const f of fighters) out[f.id] = f.side === 0 ? 'red' : 'blue';
     return out;
   }
   const leagueNow = () => { const gm = deps.gameMinutes?.(); return P && Number.isFinite(gm) ? rollLeague(P.arenaLeague, gm) : null; };
   /** THE LAUREL: the crowd favours the fighters of the banner that won last season from the first bell - me, when I
-   *  wear it; an exhibition's fighter in its colours. */
+   *  wear it; an exhibition's fighter in its colours. ARENA4b: online the laurel is the realm's and my banner the
+   *  account's (`realmNow`), never the save's - an exhibition on this screen's floor too. */
   function laurelFavour(C) {
+    if (C.practice) return;
+    const R = realmNow();
+    if (R) { laurelOf(C, R.laurel, C.ladder ? { [YOU]: R.banner } : C.teams); return; }
     const gm = deps.gameMinutes?.();
-    if (!P || !Number.isFinite(gm) || C.practice) return;
+    if (!P || !Number.isFinite(gm)) return;
     if (C.ladder) { if (laurelWorn(P.arenaLeague, gm)) C.crowd.favour[YOU] = Math.min(1, (C.crowd.favour[YOU] ?? 0) + LAUREL_FAVOUR); return; }
-    const won = laurelBanner(P.arenaLeague, gm);
-    if (!won) return;
-    for (const [id, team] of Object.entries(C.teams)) if (team === won && id in C.crowd.favour) C.crowd.favour[id] = Math.min(1, C.crowd.favour[id] + LAUREL_FAVOUR);
+    laurelOf(C, laurelBanner(P.arenaLeague, gm), C.teams);
+  }
+  /** The laurel's favour (+LAUREL_FAVOUR) to each fighter of `teams` in the laurel's banner `won`. */
+  function laurelOf(C, won, teams) {
+    if (won !== 'red' && won !== 'blue') return;
+    for (const [id, team] of Object.entries(teams)) if (team === won && C.b?.fighters.some((f) => f.id === id)) C.crowd.favour[id] = Math.min(1, (C.crowd.favour[id] ?? 0) + LAUREL_FAVOUR);
   }
 
   // ── THE BODIES' DOORS (the pools' bout hooks) ───────────────────────────────────────────────────────────
@@ -618,9 +635,12 @@ export function createArenaBouts(deps) {
    * drawn by the room's poses), a ladder bout against the relay's own fighters ('pve' - each a puppet of its walk and its
    * blows), or a bout watched from the stands (`me` ''). Nothing here decides anything: the relay's words (`relayWord`)
    * move a mirror of its bout (net/arenaLink.js), which the crowd, the Herald, the HUD and the music read as they read a
-   * bout run here. `send` the doors back to the relay: `hit(word)`, `yield()`.
-   * @param {{ o: string, kind: 'pvp'|'pve', me?: string, next?: any, send?: { hit?: (w: any) => boolean, yield?: () => boolean },
-   *   names?: (i: number, mobile: number) => any, onEnd?: (r: any) => void, struck?: (d: number) => void, myHealth?: (hp: number, max: number) => void }} p
+   * bout run here. `send` the doors back to the relay: `hit(word)`, `yield()`. ARENA4b: and `cheer(dir)` from the stands;
+   * `banners` each fighter's banner as the hall billed it (by fighter id); `owe(gold, pay)` a ladder win's purse held for
+   * the account service's word (`pay` pays it) - without it the purse is paid at the verdict.
+   * @param {{ o: string, kind: 'pvp'|'pve', me?: string, next?: any, send?: { hit?: (w: any) => boolean, yield?: () => boolean, cheer?: (dir: number) => boolean },
+   *   names?: (i: number, mobile: number) => any, onEnd?: (r: any) => void, struck?: (d: number) => void, myHealth?: (hp: number, max: number) => void,
+   *   banners?: Record<string, string|null>, owe?: (gold: number, pay: (g: number) => void) => void }} p
    */
   function startRelay(p) {
     if (!stage) { pending = { where: 'floor', relay: p }; return null; }
@@ -632,9 +652,39 @@ export function createArenaBouts(deps) {
       lastBlow: new Map(), walking: new Set(), lastHealth: P?.health ?? 0, lastSheathed: null, verdictAt: NaN, doneAt: NaN, paid: false,
       said: false, crowdSeats: null, crowdBatches: [], throws: [], spawning: 0, title: false, startedAt: t, bark: '', barkAt: -Infinity,
       ringed: null, teams: {}, clock: { off: null }, mv: new Map(), M: null, spawned: false,
+      cheerAt: -Infinity, ownShout: null,   // ARENA4b: my last cheer from the stands, and its echo still to come
     };
     return cur;
   }
+  /** ARENA4b: THE BANNERS ON A RELAY'S SAND - mine the account's (the realm's `banner`, when I fight), the others' as the
+   *  hall billed them (`banners` by fighter id - a rival's, a watched bout's two; none for the relay's own fighters), each
+   *  a pennant on the versus bar (`data-team`), and the realm's laurel favoured from the first bell. */
+  function relayBanners(C) {
+    const R = realmNow();
+    /** @type {Record<string, string>} */
+    const out = {};
+    for (const [id, b] of Object.entries(C.relay.banners ?? {})) if (b === 'red' || b === 'blue') out[id] = b;
+    if (C.you && (R?.banner === 'red' || R?.banner === 'blue')) out[C.you] = R.banner;
+    C.teams = out;
+    laurelOf(C, R?.laurel ?? null, out);
+  }
+  /** ARENA4b: MY CHEER (`dir` 1) OR BOO (-1) from the stands of a relay's bout - one each CHEER_GAP_MS - sent through the
+   *  bout's session (`send.cheer`, scenes/arenaOnline.js) and heard by my own crowd at once, by the stands' own law
+   *  (systems/arenaCrowd.js crowdShout, one voice), as every screen hears the relay's `cr`; the relay's echo of it is
+   *  then heard only for whoever shouted with me (`relayWord`'s `cr`). Answers whether it went. */
+  function cheer(dir) {
+    const C = cur;
+    if (!C?.relay || C.you || !C.b || !C.crowd || boutOver(C.b) || (dir !== 1 && dir !== -1)) return false;
+    const t = now();
+    if (t - C.cheerAt < CHEER_GAP_MS) return false;
+    if (C.relay.send?.cheer?.(dir) !== true) return false;
+    C.cheerAt = t;
+    C.ownShout = { c: dir, at: t };
+    deps.sound?.cue(crowdShout(C.crowd, dir, 1, t), 1);
+    return true;
+  }
+  /** The stands' door for the HUD's presses (ui/arenaHud.js drawArenaHud `cheer`), one function for every frame. */
+  const cheerDoor = (dir) => cheer(dir);
   /** A RELAY'S WORD on the bout standing here (one of `startRelay`'s): its whole state, its events, its health, its
    *  fighters' walks and blows, the stands' shouts. Answers whether it was this bout's. */
   function relayWord(w) {
@@ -649,6 +699,7 @@ export function createArenaBouts(deps) {
       C.b = C.M.b; C.seed = C.M.seed; C.you = C.M.me || null; C.ladder = !!C.you;
       if (first) {
         C.crowd = newCrowd({ fighters: C.b.fighters.map((f) => ({ id: f.id, home: f.home, ai: f.ai })), beasts: !!C.next?.beasts });
+        relayBanners(C);   // ARENA4b: the realm's banners and its laurel, from the first bell
         if (C.you) { C.playerTag = { id: C.relay.o, side: C.b.fighters.find((f) => f.id === C.you)?.side ?? 0, out: false, hold: true }; deps.setPlayerBout?.(C.playerTag); }
         buildCrowd(C);
         for (const a of C.M.ai) spawnPuppet(C, a);
@@ -677,7 +728,15 @@ export function createArenaBouts(deps) {
         break;
       }
       case 'blow': break;   // what it took is the next `hp`'s (the relay holds my health); its sound is the puppet's swing
-      case 'cr': { const cues = crowdShout(C.crowd, w.c, w.n, t); deps.sound?.cue(cues, near); break; }
+      case 'cr': {
+        // ARENA4b: MY OWN SHOUT COME BACK (the first of its direction inside the relay's allowance): my crowd heard my
+        // voice at the press, so only the others who shouted with me are heard now - as every other screen heard us all
+        const own = C.ownShout && C.ownShout.c === w.c && t - C.ownShout.at <= ARENA_CHEER_MS;
+        if (own) C.ownShout = null;
+        const n = own ? w.n - 1 : w.n;
+        if (n > 0) deps.sound?.cue(crowdShout(C.crowd, w.c, n, t), near);
+        break;
+      }
       default: return false;
     }
     return true;
@@ -741,7 +800,9 @@ export function createArenaBouts(deps) {
       deps.setPlayerBout?.(null);
     }
     const bark = t - C.barkAt < BARK_SHOWN_MS ? C.bark : '';
-    deps.drawHud?.(arenaHudModel(C.b, C.crowd, t, { you: C.you, stamina: o.stamina ?? null, bark, quiet: false, teams: C.teams }), { hidden: !!o.hidden, touch: !!o.touch });
+    // ARENA4b: in the stands, the two presses (Cheer, Boo) under the plate - shut while the allowance runs
+    const stands = C.you ? null : { ready: t - C.cheerAt >= CHEER_GAP_MS };
+    deps.drawHud?.(arenaHudModel(C.b, C.crowd, t, { you: C.you, stamina: o.stamina ?? null, bark, quiet: false, teams: C.teams, stands }), { hidden: !!o.hidden, touch: !!o.touch, cheer: C.you ? null : cheerDoor });
     crowdFrame(C, t);
   }
   /** THE VERDICT of a relay's bout: the Herald's words; a ladder win's purse (the relay refereed it - the account's climb
@@ -762,7 +823,9 @@ export function createArenaBouts(deps) {
     const lines = [line];
     if (C.relay.kind === 'pve' && mine) {
       const purse = won ? boutPurse(C.next?.purse ?? 0, C.crowd.favour[C.you] ?? 0) : 0;
-      if (won && purse > 0 && !C.paid) { C.paid = true; deps.pay?.(purse); }
+      // ARENA4b: online the purse waits on the account service's word (`owe` - scenes/arenaOnline.js): paid only for the
+      // bout the account was owed, never for a win the realm refuses (out of the climb's order)
+      if (won && purse > 0 && !C.paid) { C.paid = true; if (C.relay.owe) C.relay.owe(purse, (g) => deps.pay?.(g)); else deps.pay?.(purse); }
       lines.push(won ? ARENA_TEXT.purse.won(purse) : ARENA_TEXT.purse.lost);
       if (won && C.next?.grand) lines.push(V.grand(P?.name || 'You'));
       else if (won && C.next?.champion) lines.push(V.tier(P?.name || 'You', ARENA_TEXT.tiers[C.next.tier]));
@@ -792,6 +855,9 @@ export function createArenaBouts(deps) {
   return {
     setStage, ask, start, dismiss, frame, batches, playerSpare, holds, attackResolved, playerSwing,
     startRelay, relayWord,   // ARENA4: a bout the relay runs
+    cheer,   // ARENA4b: my cheer or boo from the stands of a relay's bout
+    /** ARENA4b: the realm's banners' source while online (`() => ({ banner, laurel }) | null`), scenes/arenaOnline.js's. */
+    setRealm: (fn) => { realmOf = typeof fn === 'function' ? fn : null; },
     /** ARENA4: the relay's bout standing here - its id, my fighter id ('' in the stands), its kind - or null. */
     relay: () => (cur?.relay ? { o: cur.relay.o, me: cur.you ?? '', kind: cur.relay.kind } : null),
     /** The ring the motor keeps me in while my bout stands (player/motor.js `arena`), or null. */

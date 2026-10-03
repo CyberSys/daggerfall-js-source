@@ -486,11 +486,28 @@ export const ARENA_TEXT = F({
     watchingLine: (a, b) => `You watch ${a} against ${b} from the stands.`,
     cheer: 'Cheer',
     boo: 'Boo',
+    /** ARENA4b: the keys the stands' two presses answer (ui/arenaHud.js STANDS_KEYS), shown on them. */
+    cheerKey: '+',
+    booKey: '-',
     seatsFull: 'The stands are full.',
     boutOver: 'That bout is over.',
     // the Hall of Champions, online
     hallTheirs: 'The realm\'s Grand Champions, the newest first:',
     hallTheir: (name) => `${name}, Grand Champion of the Arena.`,
+    /** ARENA4b: a name on the realm's wall with the season it was cut in (the Keeper's roll, the Leaderboards' Hall). */
+    hallTheirAt: (name, season) => `Season ${season} - ${name}, Grand Champion of the Arena.`,
+    // ARENA4b: the account's climb, roll and record, before and after the realm's records are in
+    climbWait: 'The realm\'s record of your climb is on its way - ask again in a moment.',
+    rollWait: 'The realm\'s roll is on its way - ask me again in a moment.',
+    guestBanner: 'A banner takes registered fighters. Give your account a name first.',
+    recordsOnline: 'Your record is the realm\'s - every bout refereed, kept by your account.',
+    noBouts: 'No bout of yours is on the realm\'s record yet.',
+    noRecent: 'The realm has not sent your last bouts yet.',
+    boutWhen: (season, day) => `Season ${season}, day ${day}`,
+    ratingMove: (r, d) => `rating ${r} (${d > 0 ? '+' : ''}${d})`,
+    unratedShort: 'not rated',
+    stat: F({ pveWins: 'Ladder won', pveLosses: 'Ladder lost', pvpWins: 'Rated won', pvpLosses: 'Rated lost', pvpDraws: 'Rated drawn', rating: 'Season rating' }),
+    how: F({ forfeit: 'by forfeit' }),
     rules: F({ head: 'The realm', lines: F([
       'Online, your climb is the realm\'s - the relay referees every bout.',
       'Find a match to meet a real fighter, paired to your season rating.',

@@ -17,14 +17,23 @@
 // Nothing here decides a bout: the relay referees, the account service keeps. Offline (no session, a relay before the
 // arena's rooms) `live()` is false and every host keeps ARENA3's offline arena.
 //
+// ARENA4b: THE ACCOUNT IS THE LAW ONLINE. The climb Fight offers is the account's and waits for it (`climb()` null
+// until the board is in - asked then - and while a ladder win of mine is still with the service, CLIMB_WAIT_MS at most);
+// a ladder win's purse is held (`owe`) until the service keeps that win - paid then, never for a win it refuses (out of
+// the climb's order: its own words said); the climb the service answers a claim with is the board's at once. The realm's
+// banners (`realm()` - my account's banner, the laurel its last season gave) are the bout driver's while online, for a
+// relay's sand and for an exhibition on this screen's floor alike; a bout watched carries each fighter's banner as the
+// hall billed it; a cheer or a boo from the stands goes down the bout's room (`send.cheer` - the relay fans it as `cr`).
+//
 // Not a DFU member. Ledger A (ARENA).
 import { foldHall, HALL_EMPTY } from '../net/arenaLink.js';
 import { arenaBoutRoom, ARENA_HALL, ARENA_NO_TEXT, ARENA_HIT, arenaLadderOf } from '../net/arenaLaw.js';
 import { arenaBoutSeed } from '../net/arenaBrain.js';
-import { createArenaClaims } from '../net/arenaClaims.js';
+import { createArenaClaims, arenaClaimVerdict } from '../net/arenaClaims.js';
 import { ARENA_TEXT } from '../systems/arenaText.js';
 import { nextLadderBout } from '../systems/arenaLadder.js';
 import { accountRefusalText } from '../net/accountClient.js';
+import { readArenaReceipt } from '../net/arenaReceipt.js';   // ARENA4b: whose bout a claim's answer was, for its held purse
 
 /** The board is asked again when the window is up and it is this old, ms. */
 export const BOARD_STALE_MS = 20_000;
@@ -34,6 +43,11 @@ export const HALL_IDLE_MS = 60_000;
 export const BOUT_ARRIVE_MS = 60_000;
 /** The bouts to watch are asked again this often while the window is up, ms. */
 export const LIVE_ASK_MS = 8000;
+/** ARENA4b: a ladder win of mine still with the account service holds the next Fight back at most this long, ms - its
+ *  answer moves the climb (the service's own `ladder`); past it the board's climb stands as it is. */
+export const CLIMB_WAIT_MS = 15_000;
+/** ARENA4b: a held purse no answer came for is let go after this, ms (the receipt is still carried - unpaid). */
+export const OWED_KEEP_MS = 10 * 60_000;
 
 /** A fresh bout id, 16 hex - a ladder bout this screen opens. */
 export function newBoutId(rand = (n) => globalThis.crypto.getRandomValues(new Uint8Array(n))) {
@@ -60,14 +74,21 @@ export function createArenaOnline(deps) {
   let hall = { ...HALL_EMPTY };
   let hallWantedAt = -Infinity;
   let liveAskedAt = -Infinity;
-  let board = null, boardAt = -Infinity, boardAsking = false;
+  let board = null, boardAt = -Infinity, boardAsking = false, boardAgain = false;
   /** The bout this screen is going to or stands in: `{ o, kind: 'pvp'|'pve'|'watch', side, tier, bout, next, sent }`. */
   let bout = null;
+  /** ARENA4b: LADDER PURSES HELD for the service's word, by bout id: `{ gold, pay, won, at }` - `gold`/`pay` the verdict's
+   *  (scenes/arenaBouts.js relayVerdict `owe`), `won` the service's answer (true kept, false refused), paid once both are in. */
+  const owed = new Map();
   const claims = createArenaClaims({
-    claim: (r) => deps.account.claim(r), store: deps.store ?? null, me: () => deps.account.me?.() ?? null,
+    claim: async (r) => { const a = await deps.account.claim(r); answered(r, a); return a; }, store: deps.store ?? null, me: () => deps.account.me?.() ?? null,
     onCounted: (d) => { counted(d); askBoard(true); },
     onGuest: () => say(O.guest),
   });
+  /** ARENA4b: the realm's banners while online, for the bout driver (scenes/arenaBouts.js setRealm): my account's banner
+   *  and the laurel the realm's last season gave - null offline, where the save's league is the law. */
+  const realm = () => (live() ? { banner: board?.me?.banner ?? null, laurel: board?.team?.laurel ?? null } : null);
+  deps.bouts?.setRealm?.(realm);
 
   /** Is the arena online here: a session open on a relay that opens its rooms. */
   const live = () => { const s = deps.session?.(); return !!s && s.status === 'open' && !!s.arenaOk; };
@@ -96,10 +117,76 @@ export function createArenaOnline(deps) {
   }
 
   // ── THE BOARD ──
+  /** The board asked of the service (`force` - now, else when stale). ARENA4b: a forced ask while one is out is asked
+   *  again when it returns (the one out may have left before the write it must show), and `fetchBoard` waits for it. */
+  let boardWait = null, boardTriedAt = -Infinity;
   function askBoard(force = false) {
-    if (boardAsking || (!force && now() - boardAt < BOARD_STALE_MS)) return;
+    if (boardAsking) { if (force) boardAgain = true; return boardWait; }
+    if (!force && now() - Math.max(boardAt, boardTriedAt) < BOARD_STALE_MS) return null;   // ARENA4b: a failed ask waits too
     boardAsking = true;
-    Promise.resolve().then(() => deps.account.board()).then((r) => { if (r?.ok && r.data) { board = r.data; boardAt = now(); } }, () => {}).finally(() => { boardAsking = false; });
+    boardTriedAt = now();
+    boardWait = Promise.resolve().then(() => deps.account.board()).then((r) => { if (r?.ok && r.data) { board = r.data; boardAt = now(); } }, () => {})
+      .finally(() => { boardAsking = false; if (boardAgain) { boardAgain = false; askBoard(true); } })
+      .then(() => board);
+    return boardWait;
+  }
+  /** ARENA4b: the board now, or asked and waited for (null when it cannot be had). */
+  function fetchBoard() {
+    if (board) return Promise.resolve(board);
+    if (!live()) return Promise.resolve(null);
+    return askBoard(true) ?? Promise.resolve(board);
+  }
+  /** ARENA4b: A CLAIM ANSWERED (net/arenaClaims.js carries it - this sees each answer): a ladder receipt's held purse paid
+   *  when the service kept the win, let go when it refused it or the account cannot keep one (a guest), held while the
+   *  answer may still change (offline, a key the service will mend); the climb the service answers with is the board's.
+   *  A receipt the service says it kept already (`claimed` - the first answer lost on the way, the claim carried again)
+   *  is the account's own bout, kept as the receipt reads: its win pays the purse still held for it. */
+  function answered(r, a) {
+    const c = readArenaReceipt(r);
+    if (!c || c.a !== 'l') return;
+    const d = a?.ok ? a.data : null;
+    if (d?.ladder && board?.me) board = { ...board, me: { ...board.me, ladder: d.ladder } };
+    let won = null;
+    if (d?.recorded === true) won = d.won === true;
+    else if (d?.why === 'claimed') won = c.r === 1;   // kept before: the receipt's own result (a ladder receipt's r 1 is a win)
+    else if (arenaClaimVerdict(a) === 'done' || d?.why === 'guest') won = false;   // out of the climb's order, a guest's, a receipt refused for good
+    if (d?.recorded === false && d.why === 'order') say(O.order);
+    if (won === null) return;
+    const e = owed.get(c.j) ?? { gold: null, pay: null, won: null, at: now() };
+    e.won = won;
+    owed.set(c.j, e);
+    settleOwed(c.j);
+  }
+  /** ARENA4b: A LADDER WIN'S PURSE, held (relayVerdict's `owe`): paid when the service keeps the win. */
+  function owe(o, gold, pay) {
+    const e = owed.get(o) ?? { gold: null, pay: null, won: null, at: now() };
+    e.gold = gold; e.pay = pay; e.at = now();
+    owed.set(o, e);
+    settleOwed(o);
+  }
+  function settleOwed(o) {
+    const e = owed.get(o);
+    if (!e || e.won === null || e.gold === null) return;
+    owed.delete(o);
+    if (e.won && e.gold > 0) e.pay?.(e.gold);
+  }
+  /** ARENA4b: is a ladder win of mine still with the service (its purse held, no answer yet) - the climb not yet moved. */
+  const climbPending = () => {
+    const t = now();
+    let wait = false;
+    for (const [o, e] of owed) {
+      if (t - e.at > OWED_KEEP_MS) owed.delete(o);
+      else if (e.gold !== null && e.won === null && t - e.at < CLIMB_WAIT_MS) wait = true;
+    }
+    return wait;
+  };
+  /** ARENA4b: THE ACCOUNT'S CLIMB as Fight reads it, or null until it is known - the board not yet in (asked now), or a
+   *  ladder win of mine still with the service. */
+  function climb() {
+    if (!live()) return null;
+    if (!board) { askBoard(true); return null; }
+    if (climbPending()) return null;
+    return board.me?.ladder ?? arenaLadderOf([]);
   }
   /** What a bout's counting says, once the service kept it. */
   function counted(d) {
@@ -118,14 +205,17 @@ export function createArenaOnline(deps) {
     bout = { ...b, sent: false, seen: false, at: now(), leftAt: null };
     deps.closeWindow?.();
     const me = b.kind === 'watch' ? '' : b.kind === 'pvp' ? `p${b.side ?? 0}` : 'p0';
+    // ARENA4b: each fighter's banner as the hall billed it - my rival's (its `go`), a watched bout's two (its live entry)
+    const banners = b.kind === 'pvp' ? { [`p${1 - (b.side ?? 0)}`]: b.vs?.b ?? null } : b.kind === 'watch' ? { ...(b.banners ?? {}) } : {};
     deps.bouts.ask({
       where: 'floor', kind: 'relay',
       relay: {
         o: b.o, kind: b.kind === 'pvp' ? 'pvp' : b.kind === 'watch' ? (b.watchKind ?? 'pvp') : 'pve', me, next: b.next ?? null,
         names: deps.names ? deps.names(arenaBoutSeed(b.o)) : undefined,
-        send: { hit: (w) => boutSend({ ...w, k: 'hit' }), yield: () => boutSend({ k: 'yd' }) },
+        send: { hit: (w) => boutSend({ ...w, k: 'hit' }), yield: () => boutSend({ k: 'yd' }), cheer: (c) => boutSend({ k: 'ch', c }) },   // ARENA4b: the stands' shout
         struck: (d) => deps.struck?.(d), myHealth: (hp, max) => deps.myHealth?.(hp, max),
         onEnd: () => { askBoard(true); },
+        banners, owe: (gold, pay) => owe(b.o, gold, pay),   // ARENA4b: a ladder win's purse waits on the service's word
       },
     });
     const kind = b.kind === 'watch' ? 'watch' : b.kind === 'pvp' && b.side === 1 ? 'rival' : 'ladder';
@@ -207,32 +297,46 @@ export function createArenaOnline(deps) {
       if (bout || deps.inBout?.()) return { ok: false, text: O.whyBusy };
       if (typeof data.o !== 'string') return { ok: false, text: O.boutOver };
       const entry = hall.live.find((x) => x.o === data.o);
-      void goTo({ o: data.o, kind: 'watch', watchKind: entry?.kind ?? null });
+      void goTo({ o: data.o, kind: 'watch', watchKind: entry?.kind ?? null, banners: { p0: entry?.a?.b ?? null, p1: entry?.b?.b ?? null } });
       return { ok: true, text: '' };
     }
     return { ok: false, text: '' };
   }
-  /** THE LADDER ONLINE: the account's climb (the board's `me`), its next bout fought on the relay. Answers `{ ok, text }`. */
+  /** THE LADDER ONLINE: the account's climb (the board's `me`), its next bout fought on the relay. Answers `{ ok, text }`.
+   *  ARENA4b: refused with a line until the account's climb is known (`climb`) - never an empty climb's Pit. */
   function fightLadder() {
     if (!live()) return { ok: false, text: O.whyOffline };
     if (bout || deps.inBout?.()) return { ok: false, text: O.whyBusy };
-    const L = board?.me?.ladder ?? arenaLadderOf([]);
+    const L = climb();
+    if (!L) return { ok: false, text: O.climbWait };
     const next = nextLadderBout(L);
     if (!next) return { ok: false, text: ARENA_TEXT.herald.ladderDone };
     void goTo({ o: newBoutId(), kind: 'pve', tier: next.tier, bout: next.bout, next });
     return { ok: true, text: '' };
   }
-  /** A banner joined (`'red'`/`'blue'`) or quit (null) on the account: the service's word said when it refuses. */
+  /** A banner joined (`'red'`/`'blue'`) or quit (null) on the account: the service's word said when it refuses. ARENA4b:
+   *  a guest is told here (a banner takes a registered fighter); a join or quit the service took is the board's at once
+   *  (the window opened on its Team page shows it), the board asked again for the rest. */
   async function team(banner) {
     if (!live()) return null;
+    if (deps.guest?.()) { say(O.guestBanner); return { ok: false, error: 'guest' }; }
     const r = await deps.account.team(banner).catch(() => null);
     if (r && !r.ok && r.error && r.error !== 'no-session') say(accountRefusalText(r.error));
+    if (r?.ok && board?.me) {
+      const was = board.me.banner ?? null, worn = r.data?.banner === undefined ? banner : r.data.banner;
+      board = { ...board, me: { ...board.me, banner: worn ?? null, ...(worn === null && was ? { left: was, leftSeason: board.season } : {}) } };
+    }
     askBoard(true);
     return r;
   }
 
   return {
     live, model, act, fightLadder, team, word, hit, tick, claims,
+    climb, fetchBoard, realm,   // ARENA4b: the account's climb as Fight reads it, the board waited for, the realm's banners
+    /** ARENA4b: the board asked when it is stale (a door that reads it without a press - the pause window's). */
+    refresh: () => { if (live()) askBoard(); },
+    /** ARENA4b: is this a guest's session (a banner, a counted bout, need a registered account). */
+    guest: () => !!deps.guest?.(),
     /** The account's ladder online (the board's), or null before the board is heard. */
     ladder: () => board?.me?.ladder ?? null,
     board: () => board,

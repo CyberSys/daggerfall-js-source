@@ -321,7 +321,8 @@ test('ARENA3 the door, the gate\'s presses at the gate only, the Herald\'s and t
     const S = rd(f);
     assert.match(S, /else if \(a === 'window'\) arenaGate\.openWindow\('bouts'\);/, f);
     assert.match(S, /heraldAct: \(a\) => arenaHeraldAct\(a\), atGate: \(\) => \(modes\?\.mode \?\? 'exterior'\) === 'exterior' && nearArenaGate\(player\.pos, arenaHeraldAt\(\)\),/, f);
-    assert.match(S, /openArena: \(\) => arenaGate\.openWindow\('team'\), arenaJoined: \(\) => !!rollLeague\(playerEntity\.arenaLeague, worldMinutes\(\)\)\.team,/, `${f}: the pause window's door`);
+    // ARENA4b: the banner worn is the gate's word (scenes/arenaGate.js joined - the save's league offline, the account's online)
+    assert.match(S, /openArena: \(\) => arenaGate\.openWindow\('team'\), arenaJoined: \(\) => arenaGate\.joined\(\),/, `${f}: the pause window's door`);
     assert.match(S, /makeArenaWindow: \(page\) => arenaGate\.windowOverlay\(page\),/, f);
   }
   assert.match(rd('src/scenes/worldModes.js'), /openArena: \(\) => mountedInterior\(host\.makeArenaWindow\?\.\('team'\) \?\? null\), arenaJoined: \(\) => !!host\.arenaJoined\?\.\(\),/);

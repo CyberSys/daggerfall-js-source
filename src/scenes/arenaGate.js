@@ -10,18 +10,27 @@
 // asks - joins the banner, quits it (asked twice), opens the Arena window on its Team page - and says what was done.
 // The league rides the player (`playerEntity.arenaLeague`, systems/save.js), rolled to the season on every read.
 //
+// ARENA4b: ONLINE THE ACCOUNT IS THE LAW (bible/11-Multiplayer/Arena.md "7. Online"). While the arena online is live
+// (scenes/arenaOnline.js): a recruiter's choice reads and writes the ACCOUNT's banner (the board's `me.banner`, `left`,
+// `leftSeason`; the service refuses in its own words) and the save's league is left untouched; the Herald's choice
+// (`heraldChoice`, both hosts' Herald) reads the account's climb - Fight offers its next bout, "the ladder done" is its,
+// and until the realm's records are in Fight is not offered and his line says why; the window's Fight waits the same;
+// the Keeper of the Hall reads the realm's wall (`hall` - the board the window last fetched, or asked). Offline all of it
+// is ARENA3's, unchanged.
+//
 // Not a DFU member. Ledger A (ARENA).
 
 import { ChoiceWindow } from '../ui/talkWindow.js';
-import { recruiterChoice, quitAsk } from '../systems/arenaHerald.js';
+import { ActionTextBox } from '../ui/actionText.js';   // ARENA4b: the Keeper's wall, read online
+import { recruiterChoice, quitAsk, heraldChoice as heraldChoiceOf } from '../systems/arenaHerald.js';
 import { joinBanner, quitBanner, rollLeague } from '../systems/arenaLeague.js';
 import { ARENA_TEXT } from '../systems/arenaText.js';
 import { bookmakerChoice, stakeChoice, placeWager, settleBook, bookVerdict, collectWinnings, oddsText, exhibitionOdds, priceFor } from '../systems/arenaBook.js';
 import { exhibitionFor } from '../systems/arenaLadder.js';
 import { fighterIdentity } from '../systems/arenaFighters.js';
 import { totalGoldAmount, deductGold, addGold } from '../systems/court.js';
-import { arenaBoard } from '../systems/arenaBoard.js';
-import { nextLadderBout } from '../systems/arenaLadder.js';
+import { arenaBoard, hallLinesOnline } from '../systems/arenaBoard.js';
+import { nextLadderBout, arenaLadderRestore } from '../systems/arenaLadder.js';
 import { FIGHT_HEALTH_MIN } from '../systems/arenaHerald.js';
 import { createArenaOverlay, closeArenaDoor } from '../ui/arenaDoor.js';
 
@@ -32,6 +41,42 @@ export const nearArenaGate = (feet, herald) => !!feet && !!herald && Math.hypot(
 
 /** The recruiters by their office (world/arenaCity.js ARENA_GATE_PEOPLE `role`) and the banner each keeps. */
 export const RECRUITER_BANNER = Object.freeze({ redRecruiter: 'red', blueRecruiter: 'blue' });
+
+/**
+ * ARENA4b: A BANNER'S RECRUITER ONLINE - systems/arenaHerald.js recruiterChoice's shape over the ACCOUNT's membership (the
+ * board's `me.banner`, `left`, `leftSeason`) and the realm's season and standing: join when the account may (free; the
+ * other banner a season after quitting it, the one quit at once - server-account/src/arena.js arenaTeam's own law, said
+ * here so the choice never offers what the service will refuse), quit (asked again - `quitAsk`), the window, leave; a
+ * guest offered no banner, a line saying why; the realm's roll not yet in, a line and no join. Pure.
+ * @param {{ banner: 'red'|'blue', board: any, guest?: boolean, window?: boolean }} o
+ */
+export function recruiterChoiceOnline({ banner, board, guest = false, window = true }) {
+  const R = ARENA_TEXT.recruiter, T = ARENA_TEXT.teams, O = ARENA_TEXT.online;
+  const other = banner === 'red' ? 'blue' : 'red';
+  const lines = [...R.greet[banner], ''];
+  let why = null;
+  if (!board) { lines.push(O.rollWait); why = 'wait'; }
+  else {
+    const me = board.me ?? {}, st = board.team?.standings ?? { red: 0, blue: 0 };
+    lines.push(`${O.seasonLine(board.season, board.day)}.`);
+    lines.push(T.standing(st.red ?? 0, st.blue ?? 0));
+    if (me.banner === banner) {
+      why = 'already';
+      lines.push(R.yours(T.the[banner]), T.given(me.points ?? 0));
+      if (board.team?.laurel === banner) lines.push(T.laurelYou);
+    } else if (me.banner) { why = 'other'; lines.push(R.theirs(T.the[me.banner])); }
+    else if (me.left && me.left !== banner && Number(me.leftSeason) >= board.season) { why = 'season'; lines.push(R.wait(T.the[other])); }
+    else if (guest) { why = 'guest'; lines.push(O.guestBanner); }
+    else { lines.push(R.pitch, R.rule); }
+  }
+  const options = [];
+  if (!why) options.push({ code: 'KeyJ', label: R.join(T.the[banner]), act: 'join' });
+  if (why === 'already') options.push({ code: 'KeyQ', label: R.quit(T.the[banner]), act: 'quit' });
+  if (window) options.push({ code: 'KeyA', label: R.window, act: 'window' });
+  options.push({ code: 'KeyL', label: R.leave, act: 'leave' });
+  options.push({ code: 'Escape', label: null, act: 'leave' });
+  return { lines, options };
+}
 
 /**
  * @param {{
@@ -63,10 +108,12 @@ export function createArenaGate(deps) {
   /** The book written back into the league. */
   const setBook = (book) => { P.arenaLeague = { ...league(), book }; };
 
-  /** A RECRUITER's choice (`role` 'redRecruiter' | 'blueRecruiter'). True: it is up. */
+  /** A RECRUITER's choice (`role` 'redRecruiter' | 'blueRecruiter'). True: it is up. ARENA4b: online the account's. */
   function recruiter(role) {
     const banner = RECRUITER_BANNER[role];
     if (!banner) return false;
+    const on = online();
+    if (on) return recruiterOnline(on, banner);
     const name = ARENA_TEXT.teams.the[banner];
     const ch = recruiterChoice({ banner, league: league(), gameMinutes: gm(), window: typeof openWindow === 'function' });
     choice(ch, (a) => {
@@ -74,18 +121,79 @@ export function createArenaGate(deps) {
         const r = joinBanner(league(), banner, gm());
         P.arenaLeague = r.league;
         if (r.ok) { say(ARENA_TEXT.recruiter.joined(name)); openWindow?.('team'); }
-        if (r.ok) online()?.team(banner);   // ARENA4: online the banner is the account's too - the service's word said if it refuses
       } else if (a === 'quit') {
         choice(quitAsk(banner), (b) => {
           if (b !== 'quit') return;
           const r = quitBanner(league(), gm());
           P.arenaLeague = r.league;
           if (r.ok) say(ARENA_TEXT.recruiter.quitDone(name));
-          if (r.ok) online()?.team(null);   // ARENA4: and struck from the account's roll
         });
       } else if (a === 'window') openWindow?.('team');
     });
     return true;
+  }
+  /** ARENA4b: A RECRUITER ONLINE - the account's banner joined or quit at the service (scenes/arenaOnline.js team: its
+   *  refusal said in its own words), the save's league untouched; the welcome said and the Team page opened once the
+   *  service took it. The realm's roll asked when it is not yet in. */
+  function recruiterOnline(on, banner) {
+    const name = ARENA_TEXT.teams.the[banner];
+    const board = on.board?.() ?? null;
+    if (!board) on.climb?.();   // the roll asked now - the next word reads it
+    const ch = recruiterChoiceOnline({ banner, board, guest: !!on.guest?.(), window: typeof openWindow === 'function' });
+    choice(ch, (a) => {
+      if (a === 'join') void Promise.resolve(on.team(banner)).then((r) => { if (r?.ok) { say(ARENA_TEXT.recruiter.joined(name)); openWindow?.('team'); } });
+      else if (a === 'quit') {
+        choice(quitAsk(banner), (b) => {
+          if (b !== 'quit') return;
+          void Promise.resolve(on.team(null)).then((r) => { if (r?.ok) say(ARENA_TEXT.recruiter.quitDone(name)); });
+        });
+      } else if (a === 'window') openWindow?.('team');
+    });
+    return true;
+  }
+
+  // ── THE HERALD AND THE KEEPER (ARENA4b) ─────────────────────────────────────────────────────────────────
+  /** THE HERALD'S CHOICE (systems/arenaHerald.js) for both hosts' Herald (scenes/world.js, scenes/exterior.js
+   *  arenaHerald): offline the save's ladder and league; online the account's climb (`climb` - Fight offers its next bout,
+   *  "the ladder done" is its) and its banner under the realm's laurel - and while the climb is not yet known, no Fight
+   *  and his line says the realm's records are on their way. `cityBout` the names on the city's sand now; `healthShare`
+   *  and `league` the host's (the player's share of health, the save's league - read offline only). */
+  function heraldChoice({ cityBout = null, healthShare = (P.health ?? 0) / Math.max(1, P.maxHealth ?? 1), league = P.arenaLeague } = {}) {
+    const on = online();
+    if (!on) return heraldChoiceOf({ gameMinutes: gm(), cityBout, ladder: arenaLadderRestore(P.arenaLadder), healthShare, league });
+    const climb = on.climb?.() ?? null;
+    const ch = heraldChoiceOf({ gameMinutes: gm(), cityBout, ladder: climb, healthShare, league: null });
+    if (!climb) {
+      const H = ARENA_TEXT.herald;
+      const next = ch.next ? H.ladderNext(ch.next.tierName, ch.next.label) : null;
+      ch.lines = ch.lines.map((l) => (l === next ? ARENA_TEXT.online.climbWait : l)).filter((l) => l !== H.noFight);
+      ch.options = ch.options.filter((o) => o.act !== 'fight');
+      ch.next = null;
+    }
+    const me = on.board?.()?.me;
+    if (me?.banner === 'red' || me?.banner === 'blue') ch.lines.push(on.board().team?.laurel === me.banner ? ARENA_TEXT.teams.laurelYou : ARENA_TEXT.teams.under(ARENA_TEXT.teams.the[me.banner]));
+    return ch;
+  }
+  /** THE KEEPER OF THE HALL online (scenes/worldModes.js, the undercroft's Keeper): the realm's wall (systems/arenaBoard.js
+   *  hallLinesOnline) - the board the window last fetched, or asked and read when it comes. False offline: the host reads
+   *  this save's wall (systems/arenaLadder.js hallOfChampions). */
+  function hall() {
+    const on = online();
+    if (!on) return false;
+    const show = (b) => deps.showOverlay(new ActionTextBox(b ? hallLinesOnline(b, P.name ?? '') : [ARENA_TEXT.undercroft.hallTitle, '', ARENA_TEXT.online.rollWait]));
+    const b = on.board?.() ?? null;
+    if (b) show(b);
+    else void Promise.resolve(on.fetchBoard?.() ?? null).then(show, () => show(null));
+    return true;
+  }
+  /** WHETHER A BANNER IS WORN - the pause window's Arena door (both hosts' `arenaJoined`): offline the save's league;
+   *  online the account's banner (the board's `me.banner` - the board asked when it is not yet in). */
+  function joined() {
+    const on = online();
+    if (!on) return !!rollLeague(P.arenaLeague, gm()).team;
+    const b = on.board?.() ?? null;
+    if (!b) on.refresh?.();
+    return !!b?.me?.banner;
   }
 
   // ── THE BOOKMAKER ───────────────────────────────────────────────────────────────────────────────────────
@@ -158,8 +266,11 @@ export function createArenaGate(deps) {
     if (kind === 'queue' || kind === 'unqueue' || kind === 'accept' || kind === 'decline' || kind === 'spectate') return online()?.act(kind, data) ?? { ok: false, text: ARENA_TEXT.online.whyOffline };
     if (kind === 'watch' || kind === 'fight') {
       if (!atGate) return { ok: false, text: ARENA_TEXT.window.whyGate };
-      const onLadder = online()?.ladder() ?? P.arenaLadder;   // ARENA4: online the climb is the account's
-      if (kind === 'fight' && (!nextLadderBout(onLadder) || (P.health ?? 0) / Math.max(1, P.maxHealth ?? 1) < FIGHT_HEALTH_MIN)) return { ok: false, text: ARENA_TEXT.window.whyHurt };
+      const on = online();
+      const onLadder = on ? on.climb?.() ?? null : P.arenaLadder;   // ARENA4: online the climb is the account's
+      if (kind === 'fight' && on && !onLadder) return { ok: false, text: ARENA_TEXT.online.climbWait };   // ARENA4b: and waited for
+      if (kind === 'fight' && !nextLadderBout(onLadder)) return { ok: false, text: ARENA_TEXT.herald.ladderDone };
+      if (kind === 'fight' && (P.health ?? 0) / Math.max(1, P.maxHealth ?? 1) < FIGHT_HEALTH_MIN) return { ok: false, text: ARENA_TEXT.window.whyHurt };
       closeArenaDoor();
       deps.heraldAct?.(kind);
       return { ok: true, text: '' };
@@ -171,5 +282,5 @@ export function createArenaGate(deps) {
     return createArenaOverlay({ page, board: () => board(), act: (k, d) => windowAct(k, d) });
   }
 
-  return { recruiter, bookmaker, wager, settle, verdictSeen, board, windowAct, windowOverlay, openWindow: (page) => openWindow?.(page) ?? false };
+  return { recruiter, bookmaker, wager, settle, verdictSeen, board, windowAct, windowOverlay, heraldChoice, hall, joined, openWindow: (page) => openWindow?.(page) ?? false };
 }
