@@ -459,8 +459,9 @@ test('MARKS1 the wiring: online the streaming host holds the book and hands it t
   assert.match(w, /marks: marksBook,   \/\/ MARKS1: the Bank of the Empire's Marks, online/);
   assert.match(w, /marks: marksBook,   \/\/ MARKS1: the guild's Marks treasury/);
   // PIN MOVED (SILVER-WAYS): the gate's lines and the raid's, the strike's and a guild deed's, in the book's own words
-  assert.match(w, /onMarks: \(marks, data\) => marksBook\?\.claimLines\(data \?\? \{ marks \}, 'gate'\) \?\? null,/);
-  assert.match(w, /onMarks: \(data\) => marksBook\?\.claimLines\(data, 'raid'\) \?\? null,/);
+  // HAUL-CARDS (PIN MOVED): the book's lines said as ever, its cards shown beside them (ui/haulCards.js claimHauls)
+  assert.match(w, /onMarks: \(marks, data\) => \{ showHaul\(claimHauls\(data \?\? \{ marks \}, 'gate'\)\); return marksBook\?\.claimLines\(data \?\? \{ marks \}, 'gate'\) \?\? null; \},/);
+  assert.match(w, /onMarks: \(data\) => \{ showHaul\(claimHauls\(data, 'raid'\)\); return marksBook\?\.claimLines\(data, 'raid'\) \?\? null; \},/);
   const m = src('src/scenes/worldModes.js');
   assert.match(m, /sellMarks: host\.marks \? \(n\) => host\.marks\.sell\(n, marksSaleCredit\(\(\) => playerEntity\.bankAccounts, bankRegion, host\.saveSoon\), bankRegion\(\)\) : null,/);
   assert.match(m, /void host\.marks\.settle\(marksSaleCredit\(\(\) => playerEntity\.bankAccounts, bankRegion, host\.saveSoon\)\)/, 'a kept sale settles as the counter opens');

@@ -504,7 +504,9 @@ laid out for the phone's touch layer as for the desktop.
   the hold meter, the search, the trace and the haul bar each have a still form for Reduced motion.
 - **The haul**: toasts on the right, 4 at most, 3 seconds each - "+3 Oak Logs to your Stores", "+45 Logging XP
   (Clean Cut x2)", "Logging 34 -> 35"; a rank-up banner at 25, 50, 75 and 100, and at 50 and 100 the specialisation
-  choice opens.
+  choice opens. **HAUL-CARDS** (2026-10-03, below): on the Enhanced Plus skin the goods and the XP are one CARD under
+  the crosshair instead, and silver is a card wherever it is struck; the rise, the banner and the refusals keep their
+  toasts, and the classic skin keeps every line.
 - **The day's cap**: a chip under the compass - "Logging 34 / 60 today".
 - **The Professions tab** (character sheet): a left column in two groups (Gathering, Crafting) - each row the icon,
   name, rank, rank's name and a thin bar; the right pane for the chosen one - XP to the next rank, the specialisation
@@ -522,6 +524,98 @@ laid out for the phone's touch layer as for the desktop.
   "[E] Search with the Basket"). E starts the herbs first while they are untaken.
 - **The pad**: A / Cross interacts, RT acts, the right stick traces and aims. **Touch**: tap the node; the act's
   buttons on screen.
+
+### HAUL-CARDS - what a gather, a strike or a claim gave, as cards (2026-10-03)
+
+(Mac: "Im wondering with popups for obtaining silver and harvest items. We need a better enhanced plus UI element for
+when people gather these items"; a mockup of four screens answered; then "Dude this is sick".)
+
+**What was found (FACT).** A harvest's answer was three to five lines on the right - the goods ("+3 Iron and an Amber
+to your Stores"), the XP, a rank's rise, a Motherlode's silver - no picture, no tier, no Stores count, four at most
+(GATHER-SAID had to keep the goods' line from being pushed out by its own XP). A raid's or a gate's silver, a guild
+deed and a contract's pay were said in the chat alone. The enhanced skin already had a better face for a gain: the
+loot's PICKUP-FEED (`ui/pickupFeed.js`, `01-Overview/Field-Bugs-2026-10-01d.md`) - cards under the crosshair, a picture,
+a tier's colour, a bump that adds.
+
+**DECIDED: the pickup feed carries them, one family, one band** (Mac's mockup: the centre, the loot's own place - a
+gather ends at the crosshair, where the eye already is; the tiers in the loot's colours). `src/ui/haulCards.js` turns
+each answer into cards (pure); the feed (`showHaul`) draws them beside the pickups:
+
+- **A harvest** - one card: its material's picture (the pack's own item, as a withdrawal mints it - `mintMaterialItem`
+  over `inventoryItemImage`, fitted to the card's 32 px), "+3" and the name in its tier's colour (1 and 2 plain, 3
+  magic's blue, 4 rare's gold, 5 legendary's orange, 6 artifact's violet; none with the loot's tiers off), a STORES tag
+  with the count after it (own, bought and gold's - the goods are never in the pack), the XP on the same card and its
+  rank's progress a bar, a clean act's or the act's own words its head. A gem and a second find (PROF4's Resin, PROF7's
+  butchery) each their own card; PROF8's catch named by its species (`haulName`), the Raw Fish its sub. The same goods
+  again inside the card's hold BUMP it: the counts and the XP add, the Stores, the rank and the bar the newest's.
+- **A Motherlode (PROF2b)** - ONE card, held five seconds: its ore, its 10 silver and its twenty ("4 / 20 miners"), its
+  tier-6 glow; Mining's kind is told the card said the silver (`answered(d, toast, { hauled })`) and keeps the balance
+  without a line.
+- **Silver** - a coin card: "+30 silver", its source ("Town defended", "Breach closed"), the balance, and a combat
+  strike's day as a bar ("Combat today 120 / 150"); a guild deed brass, into its treasury ("Guild deed - to The HND
+  Guild"); each contract by its guild's tag and its tax; a strike the day's cap refused a muted card. The chat keeps
+  every line - the record; the card is what the eye catches (`scenes/world.js`, the raid's and the gate's `onMarks`).
+- **The law** the feed gained: a card its own hold (a gather's 3.2 s, a Motherlode's 5 s), a bump's `adds` and
+  `latest`, and the band measured card by card (a haul card is taller than a pickup's). Every haul card is built once,
+  its words rewritten at a bump (the rule the feed's header gives - no per-frame rebuild).
+- **Not changed**: the rise's toast and banner, the Stores' way said once a session, a refusal and a kept or lapsed
+  harvest - words about the act, not a gain, keep their toasts; the classic skin says every line exactly as before
+  (`showHaul` answers false and the host says them - so does a face that cannot draw). A Court writ's pay is said in
+  the Notice Board's own window, where it was asked, and stays there.
+- **Seen**: `tools/pickupFeedProbe.mjs` gained four scenes (a bumped vein and its gem, a raid's three silver cards, the
+  cap beside a pickup, a Motherlode) at 1280x800 and on a phone - 318 checks: no card over the plaque, the mid-screen
+  line, the HUD's foot or above the crosshair.
+- **FOUND on the way** (the full suite's run): AUDIT SILVER-WAYS B1's second race pin read the pair of claims by who
+  asked first - under the suite's load the scheduler lets either held batch go first, and it failed one run in a few;
+  it reads them by what each was paid now (its two mutants still dead). And the card's head and STORES tag were drawn
+  at 10 px, under the face's 11 px floor (FONT3) - 11 now.
+- **Pinned**: `test/haulcards.test.js` (9); `tools/mutants/haulcards.json` (34, all dead). PIN MOVED: pickupfeed (the
+  reduced-motion rule, the world host's import), prof8_client (the kind told `hauled`), silverways_client and marks1
+  (the claims' `onMarks`), auditsilver_service (B1's pair by its pay); `10-UI/UI.md`'s module count (290). Mutant
+  records re-aimed by content: pickupfeed (five), gathersaid (the goods unkept), prof2b (the silver unsaid);
+  pickupfeed.json and gathersaid.json run whole again, 67 dead.
+
+#### AUDIT HAUL-CARDS (2026-10-03, Mac: "Audit this")
+
+Three independent passes read the PR cold - the feed's law and face (scripts over the real module and the real sheet in
+Chromium), the cards' data against every kind's old lines (every material key run), and the look in a real browser
+(74 runs: long names, mixed stacks, HUD scales 0.75-1.5, the Plus themes, reduced motion) - and the author's re-read.
+FOUND, each fixed and pinned (`test/haulcards.test.js`, `tools/mutants/audithaul.json`):
+
+- **MEDIUM - A1: a card the band put out flickered every frame.** A hidden card measures nothing and was read as the
+  first card's height - a tall harvest card under three pickups in a 129-155 px band "fitted" the next frame, stood
+  (18 px into the HUD's foot), and went again, for its whole hold. FIXED: each card keeps its last height seen.
+- **MEDIUM (HIGH on a phone) - A2/C1: the day's cap note ran out of its card** - 59 letters, `nowrap`, 96 px past a
+  phone's card and off the screen. FIXED: it wraps.
+- **MEDIUM - C2: at a HUD scale over 1 a card ran off a phone's edges** - its width was the screen's before the
+  scale's transform. FIXED: `88vw` and `92vw` divided by the HUD's scale (the pickups' cards with them).
+- **MEDIUM - C3: a long source cut "silver" itself** ("+1,250 silv..."), and a contract with no tag lost its tax. FIXED:
+  the sub gives way first, silver's own word never; the tax before the guild, grouped (C7).
+- **MEDIUM - C4: on the Stone theme the feed fell to 2:1** - its light panel (luminance 0.10) under the brass head, the
+  muted note, the tag's border and the tiers' colours. FIXED: a theme whose panel is lighter than 0.06 veils the feed in
+  its ink (Stone alone; the pickups' cards with it); the tag's border the lit stone; the note's words the light stone.
+- **MEDIUM - B1: every `gem` was "a gem"** - a tree's Heartwood and a body's Big Tooth with it. FIXED: a gem's alone.
+- **LOW - B2: a bump kept the first act's head** - a torn pelt then a clean one read "A TORN PELT" over both. FIXED: the
+  newest act's words (none for a plain act).
+- **LOW - B3: a find's card said "Stores" with no count** though the answer carries `gemStore`/`extraStore`. FIXED.
+- **LOW - B4: a Motherlode's card dropped the purse** its suppressed line had said. FIXED: "you hold 1,380" beside its
+  silver.
+- **LOW - A3: a harvest answered with a window open had its card taken down unseen** (the plaque's hide clears the
+  feed) and its lines unsaid. FIXED: the card only on a live world; else the lines as ever.
+- **LOW - A5: the theme's tint overrode the note's veil; a Motherlode with no silver still showed a coin.** FIXED: the
+  note wears the theme's veil; no silver, no coin.
+- **Not changed, named (C6)**: at a HUD scale of 1.5 the band holds two haul cards, and a newer batch can keep an older
+  card out until its hold runs out - the feed's own law for every card (the oldest wait unseen, PICKUP-FEED).
+
+CHECKED, SOUND (the passes): pickup and haul keys never meet; a card's kind never changes, so paint's branch holds;
+twins in one push and a bump in the same push raise one bump and rewrite the words; no card stands for ever; the
+heights read in the order the cards stand; a silver or note card never asks for a picture; a fitted icon is cached by
+its box; the watchdog and ticker armed as a pickup's; every note an act says parses to its head; a kept answer's card
+right (a Motherlode's included); every gathered material's picture real and its tier sane; a refused claim shows no
+card; the classic skin builds nothing.
+- **Pinned**: `test/haulcards.test.js` (14 - five the audit's); `tools/mutants/audithaul.json` (20, all dead). PIN MOVED:
+  haulcards (the contract's words, the live world, the Motherlode's purse). Re-aimed by content: haulcards (three); the
+  haul list run whole again, 34 dead; pickupfeed.json and gathersaid.json again, 67 dead; the probe 319/319.
 
 ## 9. Crafting
 
