@@ -15,7 +15,7 @@
 - The first time you load after this update, the game forgets which buildings you had found in towns that changed. The towns themselves stay on your map.
 - Online, a home can't be bought until the game has loaded the towns as the other players see them. An out-of-date copy of the game is asked to reload before buying.
 - Online, players who see a town differently are never put in the same building together.
-- A quest-giver you met indoors is still where you left them when you come back to finish the quest.
+- A quest-giver you met indoors is still where you left them when you come back to finish the quest. One exception, online: a quest-giver you met indoors before this update may no longer be there if their town is now laid out by the new mods.
 - If a town you have things in can't be shown as you left it, the game tells you. Items left with a smith can be collected from any smith in that town, a rented room is honoured at any inn there, and a quest building is chosen again so the quest can still be finished.
 - Online, both mods are set for the whole room. Every online home keeps the layout its town had when it was bought, and everyone sees the same town around it.
 - You can take any of a room's own furniture out of your house, including the new towns' food, tableware and clutter. Before this fix, some of those pieces couldn't be taken out online, and came back after a load offline. Some cabin pieces on Detailed Ships' ships had the same problem.

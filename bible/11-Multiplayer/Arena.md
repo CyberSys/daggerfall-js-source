@@ -2,7 +2,8 @@
 
 > Design page, written before any code (2026-10-02). The slices at the foot are the order it ships in; each is
 > shippable and verifiable without the next. Where this page and a shipped slice disagree, the slice's own record
-> (its Ledger row, its tests, `06-Systems/Online-Arc.md` for the online slices) is what runs.
+> (its Ledger row, its tests, and for the online slices this page's own ARENA4 and ARENA4b records below) is what
+> runs.
 
 ## What Mac asked for
 
@@ -318,9 +319,10 @@ row already outside the cell is never touched. The relay's `interior:m<map>.<key
 
 **Not done / open.** Not seen in a browser or on a GPU: the colosseum's look, the tiers' walkability under the port's
 collider, and the gate people's footing on the terrain at the block's edge are unverified by eye. Smaller Dungeons (a
-setting) may trim the undercroft as it trims any keep. The Herald's line is a placeholder until ARENA2's bouts and
-ARENA3's Arena window. [ARENA2: the Herald's choice stands; the displaced deed's scene is EMPTIED into the new house
-rather than renamed onto it - see the ARENA2 record.]
+setting) may trim the undercroft as it trims any keep [FIXED at ARENA5: it never does -
+`world/smallerDungeons.js useSmallerDungeon`; see the ARENA5 record]. The Herald's line is a placeholder until
+ARENA2's bouts and ARENA3's Arena window. [ARENA2: the Herald's choice stands; the displaced deed's scene is EMPTIED
+into the new house rather than renamed onto it - see the ARENA2 record.]
 
 ## ARENA2 record (2026-10-02) - SHIPPED
 
@@ -449,7 +451,8 @@ suites updated where the law moved); mutants `tools/mutants/arenafix.json` (43, 
    riser's foot (so the gate's floating foot meets it under the ground). The ramp's triangles follow the drawn ones in the
    index list and in no submesh: every host draws a model by its submeshes (and the static batches and the automap's wire
    walk submeshes) and builds every collider from the whole list - so no host changed. Walked in the browser up and down
-   all five, holding W (`climbwalk.sh`): grounded every sample, never the climb.
+   all five, holding W (a scratch script of the QA round, `climbwalk.sh`, not kept in the tree): grounded every sample,
+   never the climb.
 2. **The gate's people by office** (`arenaGatePersonName`, `ARENA_TEXT.gateNames`): the plaque, "You see ..." and the
    talk window ask one seam (`worldModes.js officeName`): The Herald of the Arena, Arena Warden, Red Banner Recruiter,
    Blue Banner Recruiter, The Bookmaker.
@@ -485,7 +488,10 @@ suites updated where the law moved); mutants `tools/mutants/arenafix.json` (43, 
 7. **The gate's compass**: the gate opens onto the market, to the NORTH (the design page said south).
 8. **The walk in** (`enemyMotor.js walkTo`, `arenaBouts.js walkIn`): each fighter stands at its side's gate under the tiers
    and walks to its mark (the pursuit's own walk, 0.7 of its pace) as the Herald cries its name; the count waits for every
-   fighter on its mark (or the walk's limit). A pit has no gates: its fighter stands on its mark.
+   fighter on its mark (or the walk's limit). A pit has no gates: its fighter stands on its mark. The pace is the walk's
+   own step's (AUDIT PRE-MERGE 1003 D1: it was a field the motor put back only at its own arrival, and the bout ends every
+   walk in itself, at its mark or the walk's limit - so every fighter that walked in fought its bout at 0.7 of its speed;
+   `test/audit1003_record.test.js`).
 9. **The misses** (`formulas.js registerAttackResolutionListener`, `playerWeapon.js registerPlayerSwingListener`): every
    attack's resolution is told; between two fighters of a live bout on different sides, no damage is the striker's miss,
    and the player's swing that reached nobody is the player's - the judges' third count is live.
@@ -809,12 +815,13 @@ the wardens are static Royal Guard people, and DFU's SpawnCityGuards converts mo
 from their posts would depart from DFU (`test/arena5_wardens.test.js`).
 
 **The mutants.** Every list of the arc, by slice: `arena1.json` 26, `arena2.json` 77, `arena3.json` 62,
-`arenafix.json` 43 (as their records say; 24 of arena1's and 41 of arenafix's name only tests gated on ARENA2 data, so
-they are false survivors in a tree without the player's data - judged dead where the data stands, as their records
-were), `arena4.json` 203 (written by this audit - 40 survived its first run, each a gap in the tests, six of them
-mutants ARENA4's titles claimed and never killed: a purse on a loss, the decliner kept, a lapse queueing the silent one,
+`arenafix.json` 43 (as their records say; measured again in a tree without the player's data at AUDIT PRE-MERGE
+1003: all 26 of arena1's and 42 of arenafix's die there, and the one survivor, `ARENAFIX-RAMPS-UNREGISTERED`, is killed
+only by ARENA-FIX 1's stair survey, gated on ARENA2 - judged dead where the data stands, as its record was),
+`arena4.json` 203 (written by this audit - 40 survived its first run, each a gap in the tests, six of them mutants
+ARENA4's titles claimed and never killed: a purse on a loss, the decliner kept, a lapse queueing the silent one,
 the bucket unspent, a blow out of reach landed, the rating's floor; all closed by assertions in the ARENA4 suites, no
-source bug), the thirteen `arena4b_*.json` lists (all dead) and `arena5*.json` (67, all dead).
+source bug), the fourteen `arena4b_*.json` lists (256, all dead) and `arena5*.json` (67, all dead).
 
 **The probes.** The data-free UI probes run here (Chromium at /opt/pw-browsers): `tools/arenaHudProbe.mjs` 70 checks
 (the stands' presses clicked and keyed) and `tools/arenaWindowProbe.mjs` 391 (Records and the Hall online, the replay
