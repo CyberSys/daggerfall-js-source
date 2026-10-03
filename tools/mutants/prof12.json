@@ -1536,8 +1536,8 @@
   {
     "name": "PROF12-A2-key-no-potent",
     "file": "src/systems/quickslots.js",
-    "old": "item.aetheric ?? '', item.potent ?? ''].join('|');",
-    "new": "item.aetheric ?? ''].join('|');",
+    "old": "    + (item.potent ? `|p${item.potent}` : '');",
+    "new": "    + '';",
     "tests": [
       "test/prof12_client.test.js",
       "test/quickslots.test.js"

@@ -426,6 +426,7 @@ test('AUDIT PROF12 A2 client: a quick slot keeps a Potent potion and a plain one
   assert.notEqual(quickslotKey(plain), quickslotKey(potent));
   assert.notEqual(quickslotKey(potent), quickslotKey(master));
   assert.equal(quickslotKey(potent), quickslotKey(brewItems({ potion: 'resistFire', count: 1, potent: 25 })[0]), 'two Potent of one share: one kind');
+  assert.equal(quickslotKey(plain).split('|').length, 9, 'AUDIT PROF-541 Q1: a plain potion keys as on main - a save\'s slot still resolves');
   const pack = [{ ...plain, stackCount: 3 }, { ...potent, stackCount: 2 }];
   const entity = { items: pack };
   assignQuickslot('c1', pack[1]);
