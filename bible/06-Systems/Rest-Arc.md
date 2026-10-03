@@ -9,7 +9,9 @@ times with limited uses with more availability in shops. Dungeon layouts now rec
 campfires."* Then: *"Yep this is it. I think we should also introduce other type of consumables that can fill in the
 gaps when a campfire isn't available. Lets do this and be as detailed as possible."*
 
-**Status: DESIGN ONLY - Mac's calls open (section 15).** Nothing here is built. Every claim about today's code was read
+**Status: BUILT 2026-10-03 - Mac: "Go" on every call of section 15.** REST1-REST6 and REST8 shipped; REST7 waits for
+the online switch (see **As built**, before the Record, for every reading the build took). The design below is kept as
+it was approved. Every claim about today's code was read
 off the tree on 2026-10-02 (six read-only passes: the rest itself, every reader of rested time, the camps and the
 plaque, the dungeon layouts, the consumables and their seams, the online constraints and the quest waits) and is cited
 by module and function rather than line, so it survives the next merge. **Offline is untouched**: DFU's rest, byte for
@@ -531,7 +533,47 @@ brazier does today), and the consumables. The night interval, the single ambush 
 
 ---
 
+## As built (2026-10-03)
+
+Mac: "Go" - every recommendation of section 15 taken. Slices REST1-REST6 and REST8 shipped on 2026-10-03; REST7 waits
+(below). Each slice's tests are its Testing.md row; each law has its mutant list (`tools/mutants/rest3.json`,
+`rest5.json`, `rest6.json`, and the re-aimed SURV3/SURV-TIERS records for REST2).
+
+- **REST1 - the act** (`src/systems/restAct.js`; createRestDeps' `restAct`, `restNight`, `restShort`). As section 2,
+  with these readings: the channel is the rest window's own `channel` state (both skins), so the window being modal is
+  what keeps the player still - no step can be taken inside it - and an enemy is the end-of-channel check (the enemy
+  in reach, or a spawn latched while holding), not a per-frame poll. **The ambush (REST4) is not a separate draw:** the
+  night is one synchronous RestSession, so the per-minute rolls run inside it at the price the SURV-TIERS audit set -
+  the same odds as one roll at `1 - (1 - p)^480`, the break landing at the hour it falls, as an ambush mid-night.
+  `restNightAt` rides the save; a rented room's day is a night (`spendRoomNight`).
+- **REST2 - the Campfire** (`src/systems/survival/camp.js`, `src/scenes/camps.js`, `src/systems/survival/items.js`): as
+  section 3.
+- **REST3 - dungeon fires** (`src/world/dungeonFires.js`; `tools/dungeonFireProbe.mjs` for the real dungeons, which
+  this tree's container cannot read - run it with ARENA2_PATH). As section 4, with these readings: N counts the
+  non-border blocks (a border block is a cap of rock, not a room); a 6 m height band stands in for 4.2's storey
+  (`automapFloors.js` derives its storeys off the draw, after the fires must stand); no dungeon in the port is sealed,
+  so 4.2's boss-block rule has nothing to read; a fire is lit by a light of its own pushed before the layout's flicker
+  is sized (so the camps' light path is not needed), and is a light billboard to Improved Interior Lighting as any
+  210 flat is; its key is the hearth's (`hearth:<i>`) and its plaque says "Campfire"; the classic 3D automap stays
+  DFU's, unmarked - the held map and the compass mark the fires. Placed offline too (OPEN 8).
+- **REST5 - the party's night** (world.js `carryPartyNight`, `encounters.js` `quietNights`): as 2.6, with no relay
+  bump - the night's stamp is the pose's `restStartedAt` (a rest's open stamps no start online), which an older client
+  reads as its own "a rest just happened" cooldown. A follower inside their own night interval gets a short rest.
+- **REST6 - the consumables** (`src/systems/restItems.js`): as section 6, with these readings: the Bedroll is a laid
+  spot (not a camp record: nothing on the wire, nothing saved) and its Use begins the rest on it at once; the Candle is
+  lit from the pack and the next rest is its kneel (both windows; offline too); the shelves are a General Store's and
+  an Alchemist's (the port's temples, guilds and taverns keep no shelf), so the Candle and the Draught are the
+  Alchemist's and the Ember Jar the General Store's. **Online every source is shut** - `REST_ITEMS_ONLINE` is false for
+  this release (section 6's last rule: the templates ship a release before any shelf, pile, foe or recipe carries
+  them); offline the shelves and the piles carry them with Climates & Calories.
+- **REST7 - crafting: NOT BUILT, deliberately.** The recipes are a source like the shelves, so they could not open
+  before `REST_ITEMS_ONLINE` does; adding them now changes the account service's bundle (an `acct` bump) for rows that
+  stay shut. They ride the release that turns the switch on, with the shelves.
+
 ## Record
 
 - 2026-10-02: proposed (this page). Built on QCLOCK-WORLD (`Online-Time-Arc.md` 6.3c) and its audit's measure of the
   waits; it supersedes nothing yet.
+- 2026-10-03: BUILT (Mac: "Go"). REST1 + REST2, REST3, REST5, REST6 and REST8 committed in that order, origin/main
+  merged in; REST7 deferred with the online switch (As built). The patch notes:
+  `PATCH-NOTES-Resting-at-Rest-Points.md`.
