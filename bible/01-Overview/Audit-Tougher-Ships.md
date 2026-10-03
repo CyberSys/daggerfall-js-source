@@ -9,7 +9,8 @@ change (710 mutants: 708 dead, two survivors below).
 Every finding was re-run before it was fixed, and is pinned in `test/tougherships.test.js` or the moved pins (each a
 `PIN MOVED` note). Mutation-proven: `tools/mutants/tougherships.json` (28 mutants), the older records the fixes moved
 re-aimed (`auditnav2_captains.json` F26, `shipcrew.json` SCH-save-mates-dropped, SCH-the-pace-under-fire-unread - its
-name was stale), and the 741 mutants of every list the touched tests kill run again over the fixed tree.
+name was stale), and the 741 mutants of every list the touched tests kill run again over the fixed tree (nav_a.json's
+list with them): 739 dead, two survivors, both standing on the base as well (below).
 
 ## The combat (every road to a ship's harm)
 
@@ -57,6 +58,9 @@ name was stale), and the 741 mutants of every list the touched tests kill run ag
   `test/auditnav2_captains.test.js`.
 - **NAV-B-her-colours-struck SURVIVED** on this change and on its base (`7305011de`) alike - not this change's. RECORDED
   for its own slice.
+- **NAV-A-the-far-ship-first SURVIVED** the re-run (its list joined it for `test/nav_a_guns.test.js`, which this change
+  touched) - and survives on the base (`7305011de`) alike: a ball meeting two hulls along its step takes the nearer, and
+  no pin flies one through two. Not this change's. RECORDED for its own slice.
 - The duel bar's samples re-rolled with the toughness. 32 duels a pairing, before and after: cutter on sloop 20-12 and
   16-16 (the model 0.95), war galley on corsair galley 26-6 and 30-2 (1.18), war galley on brig 21-11 and 20-12
   (0.89). At 16 duels the base itself fails the bar (the war galley on the brig 12-4 against 0.89), so the eight
