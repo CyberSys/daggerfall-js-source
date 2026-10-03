@@ -98,6 +98,7 @@ const cut = (name) => {
   return m[0];
 };
 const constLine = (name) => { const m = new RegExp(`\\n {2}const ${name} = [^\\n]*\\n`).exec(W); assert.ok(m, `${name} lifted`); return m[0]; };
+const letLine = (name) => { const m = new RegExp(`\\n {2}let ${name} = [^\\n]*\\n`).exec(W); assert.ok(m, `${name} lifted`); return m[0]; };   // ENEMY-PACE: the near-enemies pace foeFloor reads
 
 const governorHost = (over = {}) => {
   const d = {
@@ -136,6 +137,7 @@ const governorHost = (over = {}) => {
     let tvHeld = null, tvHeldWhy = null, tvWalking = 0, _tvWalkYaw = d.walkYaw ?? null;
     const travelAsked = d.asked;
     ${constLine('JOURNEY_SLOW_SAY_MS')}
+    ${letLine('tvFoeRate')}${constLine('foeFloor')}
     let _slowWas = null, _slowSaidAt = -Infinity;
     ${cut('journeyThreats')}${cut('journeyThreatCap')}${cut('journeySlowSaid')}${cut('travelViewGovern')}
     return { govern: travelViewGovern, held: () => [tvHeld, tvHeldWhy] };`.replace(/\b_travelDrive\b/g, 's._travelDrive');

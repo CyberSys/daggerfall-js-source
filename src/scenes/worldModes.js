@@ -47,7 +47,8 @@ import { pickActivatable, pickActivatableHit, worldAabb, activationTargets, live
 // living-enemy arm of the activation ladder, in the two hosts this
 // file owns as well as the three outside it.
 import { tryMobileEnemyActivate } from '../player/mobileEnemyActivate.js';
-import { FOUND_NOTHING_VALUABLE_TEXT_ID } from '../systems/talk.js';   // GetRandomText(8999)
+import { FOUND_NOTHING_VALUABLE_TEXT_ID } from '../systems/talk.js';
+import { SEARCH_REACH } from '../systems/searchables.js';   // SEARCH1: a headstone's reach, half a door's   // GetRandomText(8999)
 import { LOCK_PICK_DISTANCE } from '../player/lockOn.js';   // AUDIT 62 F16/F28: the tap-to-lock reach, the same the exterior and standalone-dungeon arms use
 import { removeOne, addItem, isEnchanted, carriedWeight, letterOfCredit, LETTER_OF_CREDIT_TEMPLATE, spendAmmoFor, takeOneInto } from '../systems/inventory.js';   // U40: the sell filter, the encumbrance gate and the letter
 import { isEquipped, unequipSlot } from '../systems/equip.js';   // AUDIT 17e F4: worn gear is not merchandise
@@ -1710,10 +1711,10 @@ export function createWorldModes(host) {
    *  billboard is CENTRE-anchored, so the base ends up ON the marker
    *  inside a building and half a height BELOW it inside a dungeon.
    *  This port's billboard shader is BOTTOM-anchored (position = base,
-   *  the C11 law dungeonContext.js:2309 states), so the same visual
+   *  the C11 law dungeonContext.js:2315 states), so the same visual
    *  result needs the shift on the DUNGEON side - which is exactly the
    *  shift the dungeon's own RDB flats already take
-   *  (dungeonContext.js:2194, `y - size.h / 2`), and which a building's
+   *  (dungeonContext.js:2200, `y - size.h / 2`), and which a building's
    *  flats correctly do not (interiorContext.js passes its centers
    *  straight through).
    *
@@ -5693,7 +5694,11 @@ export function createWorldModes(host) {
     // The PRESS is unchanged: its board arm returns above the reach
     // gate, because the refusal is spoken inside activateBulletinBoard.
     boards.forEach((aabb, i) => targets.push({ key: `board:${i}`, aabb, distance: RAY_DISTANCE, reach: BULLETIN_BOARD_ACTIVATION_DISTANCE }));
-    _extList = { entries, npcs, boards, targets };
+    // SEARCH1 (systems/searchables.js): a graveyard's headstones - the streaming host's (scenes/world.js graveTargets);
+    // the bench host stands none. The ray's distance, half a door's reach carried beside it.
+    const graves = host.graveTargets?.() ?? [];
+    graves.forEach((aabb, i) => targets.push({ key: `grave:${i}`, aabb, distance: RAY_DISTANCE, reach: SEARCH_REACH }));
+    _extList = { entries, npcs, boards, graves, targets };
     _extMark = mark;
     return _extList;
   }
@@ -5943,7 +5948,8 @@ export function createWorldModes(host) {
       return _doorText;
     }
     if (typeof key !== 'string') return null;
-    if (key.startsWith('board:')) return { title: _extList?.boards?.[Number(key.split(':')[1])]?.bounty ? BOUNTY_BOARD_TEXT : BULLETIN_BOARD_TEXT };   // .cs:315-318; BOUNTY1: a bounty board names itself
+    if (key.startsWith('board:')) return { title: _extList?.boards?.[Number(key.split(':')[1])]?.bounty ? BOUNTY_BOARD_TEXT : BULLETIN_BOARD_TEXT };
+    if (key.startsWith('grave:')) return { title: 'Grave' };   // SEARCH1   // .cs:315-318; BOUNTY1: a bounty board names itself
     if (key.startsWith('person:')) {                                       // .cs:325-393
       const pn = npcs[Number(key.split(':')[1])];
       if (!pn) return null;
@@ -6142,7 +6148,7 @@ export function createWorldModes(host) {
     // swallow every entry click.
     const bd = buildingUnderRay(eye, dir);
     if (bd) activateBuilding(bd, resolveBuildingUnlocked(bd));
-    const { entries, npcs, boards, targets } = exteriorActivationTargets();
+    const { entries, npcs, boards, graves, targets } = exteriorActivationTargets();
     const { key, distance: _hitDist, reach: _hitReach } = pickActivatableHit(eye, dir, targets, baseCollider()) ?? { key: null };
     if (key === null) return false;
     // ...and the NPC arm ENDS the activation, exactly as the interior
@@ -6154,6 +6160,10 @@ export function createWorldModes(host) {
     if (typeof key === 'string' && key.startsWith('board:')) {
       activateBulletinBoard(boards[Number(key.split(':')[1])], eye, dir);
       return true;
+    }
+    if (typeof key === 'string' && key.startsWith('grave:')) {   // SEARCH1: a headstone - too far speaks the refusal
+      if (_hitDist > _hitReach) { setMidScreenText(TOO_FAR_AWAY_TEXT); return true; }
+      return host.activateGrave?.(graves[Number(key.split(':')[1])], getInteractionMode()) ?? true;
     }
     if (_hitDist > _hitReach) { setMidScreenText(TOO_FAR_AWAY_TEXT); return true; }   // AUDIT 65 MC-2: ActivateStaticDoor's OWN first statement (:501-504), before the bash sound and the lock ladder; the board arm keeps its gate inside activateBulletinBoard (:709-712), as C# does
     return activateStaticDoor(entries[key], entries, false, { verb: plaqueActionFor(key) });   // HOME2: the verb the door's plaque lit, if it listed any
@@ -7907,7 +7917,7 @@ export function createWorldModes(host) {
           hudMessageSink: (t) => questBridge?.notebook?.addMessage(t),
           // MAC1 J: and the relock the dungeon's pause door needs, on
           // the same threading - the context owns no canvas of its own
-          // (dungeonContext.js:8266), so the OUTER host's one rides in.
+          // (dungeonContext.js:8433), so the OUTER host's one rides in.
           // This is the most-played pause door of the six: world.js
           // gates its own Escape ladder on exterior mode, so underground
           // the key falls to routeKey -> ui/input.js:847 -> the
@@ -8282,7 +8292,7 @@ export function createWorldModes(host) {
     if (key.startsWith('plaque:')) { readPlaque(key); return true; }   // ARENA5: a plaque in the Hall of Champions reads its champion
     // U26: droppedLoot: is the player's own pile - the same three-way
     // arm the standalone dungeon scene carries, kept in step here.
-    if (key.startsWith('loot:') || key.startsWith('corpse:') || key.startsWith('droppedLoot:') || key.startsWith('droppedTorch:') || key.startsWith('camp:') || key.startsWith('hearth:')) {   // AUDIT-WH2 L2-F1: hearth: - HEARTH1's fourth host, stood and named down here since it shipped and never answered
+    if (key.startsWith('loot:') || key.startsWith('corpse:') || key.startsWith('droppedLoot:') || key.startsWith('droppedTorch:') || key.startsWith('camp:') || key.startsWith('hearth:') || key.startsWith('search:')) {   // SEARCH1: a searchable takes the mode (Steal picks its lock); AUDIT-WH2 L2-F1: hearth: - HEARTH1's fourth host, stood and named down here since it shipped and never answered
       dungeonCtx.takeLoot(key, getInteractionMode());   // SURV3: a camp's fire takes the mode too   // opens the inventory with the pile as the remote target; HT1: a dropped torch takes the mode
       return true;
     }
@@ -9155,7 +9165,7 @@ export function createWorldModes(host) {
           // AUDIT 39r: and the FLASH, which this arm was copied without.
           // An arrow reaches the player through BowDamage ->
           // ApplyDamageToPlayer -> SendDamageToPlayer, the same door as
-          // a blow (world.js:16012's own wave-46 note); the interior
+          // a blow (world.js:16062's own wave-46 note); the interior
           // MELEE hit already flashes inside exteriorFoes, so only this
           // arm - which applies its own damage - was missing it.
           flashPlayerDamage(dmg);   // BA1: RemoveHealth carries the amount
@@ -11882,7 +11892,7 @@ export function createWorldModes(host) {
      *  (world.js's, this file's `interiorWeapon` :538, dungeonContext's
      *  and exterior.js's - which this seam does not reach: that host has no save path at all, its charter exterior.js:3640-3662), and IS1 routed the inside-a-building save to
      *  the WORLD host's composer - which reads its own exterior rig
-     *  unconditionally (world.js:12028). So an F9 pressed in a shop
+     *  unconditionally (world.js:12032). So an F9 pressed in a shop
      *  recorded the street's sheath and hand, and the load wrote them
      *  back into the street's rig; the rig actually in the player's
      *  hands was in no envelope at all.
@@ -11921,7 +11931,7 @@ export function createWorldModes(host) {
       if (interiorOverlay instanceof DeathScreen) { interiorOverlay.restoreView(); interiorOverlay = null; }
     },
     /** The restore half - and NOT gated on the mode, deliberately.
-     *  worldQuickLoad calls forceExitToExterior FIRST (world.js:12357)
+     *  worldQuickLoad calls forceExitToExterior FIRST (world.js:12361)
      *  and only re-enters the building at :4217, so the mode at apply
      *  time is whatever the LOAD landed in, not whatever the SAVE was
      *  taken in: an outdoor save loaded while the player was indoors
@@ -11931,8 +11941,8 @@ export function createWorldModes(host) {
      *
      *  FLAG ONLY and presence-gated - both laws now stated once, in
      *  combat/playerWeapon.js's applyWeaponPose, with the citation.
-     *  HARD2c: this used to spell them out, and named `world.js:10933`
-     *  and `dungeonContext.js:8278` for its two sibling copies - lines
+     *  HARD2c: this used to spell them out, and named `world.js:10937`
+     *  and `dungeonContext.js:8445` for its two sibling copies - lines
      *  that had moved to :4418 and :5457. Three copies of a two-line
      *  law, and even the comment pointing between them had gone stale. */
     applyWeaponPose(pose) {

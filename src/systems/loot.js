@@ -17,8 +17,8 @@
 // MI (magic items) rolls need the MAGIC.DEF registry
 // (setMagicItemTemplates), and EVERY host that can generate loot now
 // loads it: scenes/shared.js:138-141 (loadMagicRegistries) feeds the
-// module table this file reads, called from dungeonContext.js:1747,
-// world.js:5421 and exterior.js:1353 - interiors run inside those hosts
+// module table this file reads, called from dungeonContext.js:1753,
+// world.js:5425 and exterior.js:1353 - interiors run inside those hosts
 // and read the same table. What is left is the data-absent boot, and
 // that is DFU's own answer rather than a stand-in: shared.js:149
 // records it, the category simply stays empty.

@@ -43,7 +43,7 @@ Every one of these is a standing call of Mac's, and no slice moves it:
          a Legendary ──► one in ten Exalted (LOOT2) ──► thirty records (LOOT3) ──► each with a POWER (LOOT5)
          five affix kinds that DO things - a sear, a leech, thorns, focus, a slayer's edge (LOOT4)
  CHASE   the source's family ──► its signature Legendaries weigh five to one (LOOT6)
-         a champion: a trait, a name, twice the health ──► a Rare or better, always (LOOT7)
+         a champion: a trait, a name, twice the health ──► its own roll, no Rare forced (LOOT7, CHAMP-LOOT)
          the drought: pieces taken without a Legendary ──► the source's own chance, up to three times (LOOT8)
  LOOP    a Magic+ piece ──► salvaged for Welkynd Shards (LOOT9) ──► the Reforge: one line rolled again
          a Legendary found ──► the codex (LOOT10) ──► its power imprinted on a Rare
@@ -149,9 +149,10 @@ elite's). Its name is the trait's and its own - `Mighty Orc Warlord` - on the HU
 death line (LOOT7-CHECK, section 17: on the plaque while it fights you too, and - on either skin - said at the first
 blow either way, with what its trait does).
 
-**Its loot.** A champion is a stronger source: its tier +4 and its quality x1.5. And it ALWAYS carries a Rare or
-better: if its own roll found none, its best eligible piece is made Rare - or, carrying none, a weapon or a piece of
-armour at its level is minted and made Rare. The chime rings at its fall.
+**Its loot.** A champion's body carries its own roll and nothing more (CHAMP-LOOT, 2026-10-03, Mac: "no more champion
+guaranteed rare"): its pieces roll Magic and Rare at half a plain foe's thresholds and its Legendary threshold two tiers
+more and a quarter again. LOOT7's Rare-or-better guarantee is gone. The numbers and their pin are in
+`06-Systems/Searchables.md`.
 
 **Online.** A dungeon's foes are its layout's, built on every client from the location (the elite's way): the
 champion and its trait are a HASH of the location and the marker, so every client stands the same champion with no
@@ -522,7 +523,7 @@ Pinned: `test/loot7_champions.test.js` (7) - the traits, the dungeon's marks (ab
 two locations so a client on another build cannot stand others), the street's hash (never a draw; golden for one street) and the record, the scaling and
 its refusals, the name in all four places, the two traits on their tails, the guarantee over 600 seeded kills of an
 orc, a rat and a Fire Daedra, its most valuable piece, the mint's mix, and the corpse door against the boosted source
-seed by seed; `tools/mutants/loot7.json` (50, all dead).
+seed by seed; `tools/mutants/loot7.json` (44, all dead - CHAMP-LOOT retired the eight guarantee records and added two of its own).
 
 ### LOOT8 - the drought (2026-10-01)
 
@@ -557,7 +558,7 @@ piece of 60 seeded piles (never gold or arrows; none off; it rides the wire, a f
 Rare one more, a Legendary none, the ceiling; unmarked, gold and off nothing), every take seam (into the pack, never
 out; a throwing listener never stops a take; the body's bulk take), the record (save, load, forged, a new game), the
 doors in play (sixty bodies taken, sixty counted; three times the Legendaries at 250), and a unique find's mark;
-`tools/mutants/loot8.json` (31, all dead).
+`tools/mutants/loot8.json` (30, all dead - CHAMP-LOOT retired the champion-piece record).
 
 ### LOOT9 - salvage, and the Reforge (2026-10-01)
 
@@ -763,7 +764,7 @@ and a Superior's piece refused with nothing taken; F3 a reforge and an imprint o
 order; F6 the sheet's rules (a phone's Keep), both skins' sheets (the classic's beside the Broker's), the brass tab, the
 imprint's card (its tier's line, its word, said);
 F7 the pack and the Codex over it, keyed; F8 every record's power, the Last Lock's shots, its row and the count; F9 a
-minted and a promoted champion's Rare. `tools/mutants/auditloot.json` (30, all dead). LOOT10's page pins read every
+minted and a promoted champion's Rare. `tools/mutants/auditloot.json` (29, all dead - F9's record retired with the guarantee). LOOT10's page pins read every
 record; seven records in `loot5.json` and `loot10.json` re-aimed by content (`powerIds`, `powerFits`, `allLegendaries`).
 
 **THE MERGE with main (PATREON-LINK + HERALD, #505).** Main's HERALD took world138 first, so the merged relay is

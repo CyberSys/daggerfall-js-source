@@ -221,7 +221,7 @@ test('EL2: the renderer builds the pass with the lane, records the three draw ki
   r.setLightingLane(EL_LANE);
   const sp = r.shadows;
   assert.ok(sp instanceof ShadowPass);
-  assert.equal(SHADOW_POINT_CASTERS, 8, 'HQ1: eight casters (AUDIT LIGHTING: the number itself, since every count below derives from it)');
+  assert.equal(SHADOW_POINT_CASTERS, 12, 'FLICKER-FIX: twelve casters (AUDIT LIGHTING: the number itself, since every count below derives from it)');
   assert.equal(count(calls, 'framebufferTextureLayer'), 3 + 6 * SHADOW_POINT_CASTERS, 'three cascade framebuffers (EL7), then six layers per caster (EL5; EL6: six casters); AUDIT SC1: the static cache\'s six per caster wait for the first frame that wants them (audit_lighting)');
   assert.equal(calls.filter((c) => c[0] === 'framebufferTexture2D' && c[3] >= 100 && c[3] < 106).length, 0, 'EL5: no cube faces - the faces are layers');
   assert.equal(calls.filter((c) => c[0] === 'texStorage3D').length, 3, 'the sun array, the casters\' array and DISC15\'s one-texel lo stand-in (AUDIT SC1: the cache\'s, the casters\' shape again, on the first frame with a caster; DISC15: the lo tier\'s own, on the first room that asks)'); assert.equal(calls.filter((c) => c[0] === 'texStorage2D').length, 0);

@@ -1406,13 +1406,13 @@ const QUICK_NARROW = '(max-width: 860px)';
 function drawSpellChip(view, tag) {
   const sp = view.spell;
   const lamp = quickslotCycling() === 'spell';
-  const sig = sp ? `${sp.index}|${sp.name}|${sp.spell ? 1 : 0}|${sp.readied ? 1 : 0}|${lamp ? 1 : 0}|${tagKey(tag)}|${last.scale ?? 1}` : `-|${tagKey(tag)}`;
+  const sig = sp ? `${sp.index}|${sp.name}|${sp.spell?.noIcon ? 'n' : ''}${sp.spell?.icon ?? ''}|${sp.spell ? 1 : 0}|${sp.readied ? 1 : 0}|${lamp ? 1 : 0}|${tagKey(tag)}|${last.scale ?? 1}` : `-|${tagKey(tag)}`;
   if (last.qspell === sig) return;
   last.qspell = sig;
   const chip = parts.spellChip;
   // UI2: THE SPELL'S OWN ICON before its name, fitted at the HUD's scale (the chip rides its transform); nothing for an
   // empty slot or a spell the book no longer holds - the name says which it was
-  const pic = sp?.spell ? spellIconPicture(sp.spell.icon, { box: SPELL_CHIP_BOX, dpr: clampDpr(screenDpr() * (last.scale ?? 1)), onReady: () => { last.qspell = null; } }) : null;
+  const pic = sp?.spell && !sp.spell.noIcon ? spellIconPicture(sp.spell.icon, { box: SPELL_CHIP_BOX, dpr: clampDpr(screenDpr() * (last.scale ?? 1)), onReady: () => { last.qspell = null; } }) : null;
   if (pic) { showFitted(chip.icon, pic); chip.icon.style.display = ''; } else { chip.icon.removeAttribute('src'); chip.icon.style.display = 'none'; }
   chip.chip.classList.toggle('on', !!sp);
   // HOTSLOT (2026-09-22): an EMPTY slot is a socket, as the diamond's

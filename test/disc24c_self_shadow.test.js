@@ -19,6 +19,8 @@ import assert from 'node:assert/strict';
 import { Renderer, WORLD_FRAME } from '../src/render/renderer.js';
 import { EL_LANE } from '../src/render/enhancedLighting.js';
 import { SHADOW_DYNAMIC_HOLD, SHADOW_FAR_CASTER_EVERY } from '../src/render/shadowPass.js';
+import { SHADOW_TUNING } from '../src/render/shadowPass.js';
+SHADOW_TUNING.override = false;   // these tests pin EL8's schedule and DISC24-C's near-two card
 
 const I = new Float32Array([1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1]);
 /** A view matrix that stands the eye at (x, y, z). */

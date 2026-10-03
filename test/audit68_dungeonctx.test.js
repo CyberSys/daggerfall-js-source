@@ -274,7 +274,7 @@ test('AUDIT 68 S19-removed-foe-lootable: a Destroy()ed foe (dispel, Wabbajack, a
   const h = killHarness({ foes: [lich, rat] });
   Object.assign(h.state, {
     lootPiles: [], RAY_DISTANCE, TREASURE_ACTIVATION_DISTANCE, CORPSE_ACTIVATION_DISTANCE,
-    droppedLoot: { lootTargets: () => [] }, droppedTorches: { targets: () => [] }, camps: { targets: () => [] },
+    droppedLoot: { lootTargets: () => [] }, droppedTorches: { targets: () => [] }, camps: { targets: () => [] }, searchables: [], SEARCH_REACH: 0,   // SEARCH1: none in this room
   });
   const loot = mount(`
     ${declSrc('LOOT_KEY_RE')}

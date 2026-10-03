@@ -20,6 +20,8 @@ import {
 import {
   SHADOW_CASTER_TABLE, SHADOW_FAR_CASCADE_EVERY, SHADOW_FAR_CASTER_EVERY, SHADOW_NEAR_CASTERS, SHADOW_CASCADES, SHADOW_GLSL, SHADOW_POINT_CASTERS,
 } from '../src/render/shadowPass.js';
+import { SHADOW_TUNING } from '../src/render/shadowPass.js';
+SHADOW_TUNING.override = false;   // these tests pin EL8's schedule
 import { EL_LANE, EL_MAX_LIGHTS, EL_MESH_FS, EL_TERRAIN_FS, EL_CHAR_FS, EL_BB_FS } from '../src/render/enhancedLighting.js';
 import { Renderer, WORLD_FRAME } from '../src/render/renderer.js';
 import { PerfMeter, perfOn, perfLine, PERF_EVERY, perfZones, perfZoneLine, setMeter, meterFor } from '../src/render/perfMeter.js';   // VC6d: the zone door, its line and the per-context registry
@@ -76,7 +78,7 @@ test('EL8: the constants, the door, the contact block and the table in the shade
   assert.match(SHADOW_GLSL, /uniform int uCasterOf\[48\];/);
   assert.match(SHADOW_GLSL, /float shadowOfLight\(int i, vec4 L, vec3 wp, vec3 n\) \{\n  int k = uCasterOf\[i\];\n  return k >= 0 \? casterShadowAt\(k, L, wp, n\) : 1\.0;/);   // DISC15: either tier
   assert.ok(!/for \(int k = 0; k < \$\{SHADOW_POINT_CASTERS\}/.test(read('src/render/shadowPass.js')), 'no search over the casters per light');
-  assert.ok(SHADOW_POINT_CASTERS === 8 && SHADOW_CASCADES.length === 3);   // HQ1: eight casters
+  assert.ok(SHADOW_POINT_CASTERS === 12 && SHADOW_CASCADES.length === 3);   // HQ1: eight casters
 });
 
 test('EL8: on the fake GL - the two depths ping-pong, the previous frame\'s view-projection reaches the march, the contact is off for the first frame, a sprite pass and a panel, and with the air off', () => {
@@ -170,7 +172,7 @@ test('EL8: the cadence - the far cascade every other frame, the near casters eve
   assert.ok(runs.some((x) => x.cascades === 2) && runs.some((x) => x.cascades === 3));
   assert.ok(runs.every((x) => x.faces >= 2 * 6), 'the two nearest casters every frame');
   assert.ok(runs.some((x) => x.faces === 6 * 6) && runs.some((x) => x.faces < 6 * 6), 'the far casters not every frame (six lanterns, six slots lit of HQ1\'s eight)');
-  assert.deepEqual([...sp.shadowIndex], [0, 1, 2, 3, 4, 5, -1, -1], 'nearest first (the eye at the origin); HQ1: eight slots, six lit');
+  assert.deepEqual([...sp.shadowIndex], [0, 1, 2, 3, 4, 5, -1, -1, -1, -1, -1, -1], 'nearest first (the eye at the origin); FLICKER-FIX: twelve slots, six lit');
   assert.deepEqual([...sp.casterOf.slice(0, 8)], [0, 1, 2, 3, 4, 5, -1, -1], 'the table: light i\'s slot');
   assert.ok(calls.some((c) => c[0] === 'uniform1iv' && c[1] === 'uCasterOf' && c[2].length === SHADOW_CASTER_TABLE), 'the table goes up');
   // a far slot's light moves: its cache is drawn again at once (SC1: the slot's statics, six faces), and the walker on top

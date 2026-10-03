@@ -54,6 +54,7 @@
 // it, so the port does the same. What the window restores is the
 // CHOICE, which is the half that was missing.
 
+import { capFoeLoot } from '../systems/foeLootCap.js';   // FOE-CAP: the death's cap, after its handlers
 import { championName, properName } from '../systems/champions.js';   // LOOT7: a champion's death line names it
 import { getBool } from '../systems/settings.js';   // AUDIT 28 W1: DisableEnemyDeathAlert
 import { floorLanding } from '../player/enterExit.js';
@@ -135,6 +136,7 @@ export function raiseEnemyDeath(entity, opts = {}) {
   for (const fn of _deathHandlers.values()) {
     try { fn(entity, opts); } catch (e) { console.warn('[enemyDeath] a handler threw', e); }
   }
+  capFoeLoot(entity);   // FOE-CAP: after EVERY handler's find - a plain foe's body never carries more than its cap
 }
 
 export function sayEnemyDied(say, mobileType, entity = null) {

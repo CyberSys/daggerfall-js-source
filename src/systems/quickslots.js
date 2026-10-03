@@ -1085,7 +1085,8 @@ export function hotbarView(entity, { readiedIndex = null, size = HOTBAR_CAPACITY
       const spell = book.find((sp) => sp?.index === e.index) ?? null;
       return { slot: i, type: 'spell', name: spell?.name || e.name, index: e.index, spell,
         element: spell?.element ?? null, rangeType: spell?.rangeType ?? null,
-        icon: iconOf(spell).icon ?? e.icon ?? null,   // UI2: the book's icon, else the one it was slotted with
+        icon: spell?.noIcon ? null : iconOf(spell).icon ?? e.icon ?? null,   // UI2: the book's icon, else the one it was slotted with (NO-ICON: none)
+        noIcon: !!spell?.noIcon,
         ghost: !spell, active: readiedIndex != null && readiedIndex === e.index };
     }
     const b = byKey.get(e.key);

@@ -319,8 +319,8 @@
   {
     "name": "RESTSYNC-the-room-name-unspelt",
     "file": "src/scenes/dungeonContext.js",
-    "old": "  const LOOT_KEY_RE = /^(loot|corpse|enc):(0|[1-9][0-9]{0,4})$/;",
-    "new": "  const LOOT_KEY_RE = /^(loot|corpse):(0|[1-9][0-9]{0,4})$/;",
+    "old": "  const LOOT_KEY_RE = /^(loot|corpse|enc|srch):(0|[1-9][0-9]{0,4})$/;",
+    "new": "  const LOOT_KEY_RE = /^(loot|corpse|srch):(0|[1-9][0-9]{0,4})$/;",
     "tests": [
       "test/restsync.test.js"
     ]

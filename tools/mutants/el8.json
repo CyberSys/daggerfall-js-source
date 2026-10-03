@@ -209,7 +209,7 @@
   {
     "name": "cadence-far-every-frame",
     "file": "src/render/shadowPass.js",
-    "old": "        if (c === last && this._sunDrawn[c] && this.frameNo % SHADOW_FAR_CASCADE_EVERY !== 0) continue;\n",
+    "old": "        if (c === last && this._sunDrawn[c] && !SHADOW_TUNING.steady && this.frameNo % SHADOW_FAR_CASCADE_EVERY !== 0) continue;\n",
     "new": "",
     "tests": [
       "test/el8_contact.test.js"
@@ -218,8 +218,8 @@
   {
     "name": "cadence-far-never-first",
     "file": "src/render/shadowPass.js",
-    "old": "        if (c === last && this._sunDrawn[c] && this.frameNo % SHADOW_FAR_CASCADE_EVERY !== 0) continue;",
-    "new": "        if (c === last && this.frameNo % SHADOW_FAR_CASCADE_EVERY !== 0) continue;",
+    "old": "        if (c === last && this._sunDrawn[c] && !SHADOW_TUNING.steady && this.frameNo % SHADOW_FAR_CASCADE_EVERY !== 0) continue;",
+    "new": "        if (c === last && !SHADOW_TUNING.steady && this.frameNo % SHADOW_FAR_CASCADE_EVERY !== 0) continue;",
     "tests": [
       "test/el8_contact.test.js"
     ]
@@ -236,7 +236,7 @@
   {
     "name": "cadence-casters-every-frame",
     "file": "src/render/shadowPass.js",
-    "old": "      const due = near || selfNear || (this.frameNo + k) % SHADOW_FAR_CASTER_EVERY === 0;",
+    "old": "      const due = SHADOW_TUNING.steady || near || selfNear || (this.frameNo + k) % SHADOW_FAR_CASTER_EVERY === 0;",
     "new": "      const due = true;",
     "tests": [
       "test/el8_contact.test.js"
