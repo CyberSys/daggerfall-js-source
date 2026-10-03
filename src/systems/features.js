@@ -105,7 +105,7 @@ const modFeature = (vendor, effect, group) => {
     id: `mod-${vendor.toLowerCase()}`,
     group,
     title: `${mod.title} by ${mod.author}`,
-    note: mod.keys.Enabled.description,
+    get note() { return mod.keys.Enabled.description; },   // L10N4: read when the tile is drawn - the description is the player's language's then, never the load's
     effect,
     kinds: Object.freeze(['mod']),
     control: Object.freeze({ store: 'mods', vendor, key: 'Enabled' }),

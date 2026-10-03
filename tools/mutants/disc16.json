@@ -60,8 +60,8 @@
   {
     "name": "DISC16-B-Inertia-Scale-at-DISC14-B",
     "file": "src/systems/modSettings.js",
-    "old": "'Inertia.Scale': Object.freeze({ default: 1.0, min: 0.0, max: 2.0, float: true, step: 0.1, description: 'The maximum distance that the sprite will be offset' }),   // DISC16-B",
-    "new": "'Inertia.Scale': Object.freeze({ default: 0, min: 0.0, max: 2.0, float: true, step: 0.1, description: 'The maximum distance that the sprite will be offset' }),   // DISC16-B",
+    "old": "'Inertia.Scale': Object.freeze({ default: 1.0, min: 0.0, max: 2.0, float: true, step: 0.1, get description() { return t('mods.weaponWidget.Inertia.Scale.description', 'The maximum distance that the sprite will be offset'); } }),   // DISC16-B",
+    "new": "'Inertia.Scale': Object.freeze({ default: 0, min: 0.0, max: 2.0, float: true, step: 0.1, get description() { return t('mods.weaponWidget.Inertia.Scale.description', 'The maximum distance that the sprite will be offset'); } }),   // DISC16-B",
     "tests": [
       "test/disc16.test.js",
       "test/ww1_weaponwidget.test.js"

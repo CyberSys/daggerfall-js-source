@@ -2609,7 +2609,7 @@ function modRow(vendor, key, def, { name = null, note = null, home = false } = {
     // cancels the capture.
     const b = el('button', 'act rowact', modSetting(vendor, key));
     b.onclick = () => {
-      b.textContent = 'press a key';
+      b.textContent = t('mods.pane.pressKey', 'press a key');   // L10N4: the Mods pane's own words
       if (textKeyCapture) removeEventListener('keydown', textKeyCapture, true);   // DISC28-A: one armed capture at a time
       const onKey = (e) => {
         e.preventDefault(); e.stopPropagation();
@@ -2625,7 +2625,7 @@ function modRow(vendor, key, def, { name = null, note = null, home = false } = {
     // and the capture alone could never write it (Escape cancels). The controls pane's own clear, its own class.
     const clear = el('button', 'act ctl-clear', '\u2715');
     clear.setAttribute('type', 'button');
-    clear.title = 'Clear this key';
+    clear.title = t('mods.pane.clearKey', 'Clear this key');
     clear.onclick = () => { b.textContent = setModSetting(vendor, key, KEYCODE_NONE); };
     ctl.append(b, clear);
   } else if (isTupleKey(def)) {
