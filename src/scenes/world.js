@@ -196,7 +196,7 @@ import { utcDayOfMs } from '../net/nodeLaw.js';   // PROF8: a haul's UTC day
 import { registerPlayerKillListener } from '../systems/playerKills.js';   // PROF7: the player's own kill stamps a body
 import { setProfessionsPages } from '../ui/profPages.js';   // PROF1: the Professions and Stores pages on the character sheet's rail
 import { withdrawIntoPack, materialLabel, materialCountLabel } from '../systems/profItems.js';   // PROF1: a Stores material as DFU's own item
-import { smeltRecipe, stockOf, WEAVERS_STOCK, professionName } from '../net/professionLaw.js';   // PROF2: a smelt's product, for its word; PROF4: a counter's; PROF5: the Weavers'
+import { smeltRecipe, stockOf, WEAVERS_STOCK, APOTHECARY_STOCK, professionName } from '../net/professionLaw.js';   // PROF2: a smelt's product, for its word; PROF4: a counter's; PROF5: the Weavers'
 import { createMarketBook } from '../net/marketBook.js';   // PROF5: the market's book
 import { createWritBook } from '../net/writBook.js';   // PROF6: guild writs, commissions, the guild Stores
 import { wearCondition, wearOf, WEAR_WHOLE } from '../net/marketLaw.js';   // PROF5: a bought piece's wear; PROF6: a commission's piece unworn
@@ -369,6 +369,16 @@ import { setForagingHost } from '../systems/foragingInstall.js';   // FORAGE1: F
 import { registerContainerLootHandler } from '../systems/containerLoot.js';   // THE MERGE: CSA-H's shelf subscriber, by its mod's name, on PlayerActivate.OnLootSpawned's one home
 import { mintPieces, mintPiece, craftedText, storedText, CRAFT_KEPT_TEXT, BENCH_KEPT_TEXT, LOOM_KEPT_TEXT, MASON_KEPT_TEXT, isCraftedFurniture, asMinted, pieceOfRecipe } from '../systems/smithItems.js';   // PROF3: a craft's pieces, minted into the pack; PROF4: furniture into the home's things; PROF11: the mason's word; SEAT2b part two: a siege work's
 import { heatBand, planeBand, stitchBand, chiselBand, recipeById } from '../net/recipeLaw.js';   // PROF3: the heat's attribute band; PROF4: the plane's, and a recipe's station; PROF7: the stitch's; PROF11: the chisel's
+import { COOK_KEPT_TEXT } from '../systems/smithItems.js';   // PROF9: the fire's word, a dish whose answer did not come
+import { JEWEL_KEPT_TEXT } from '../systems/smithItems.js';   // PROF10: the jeweller's bench's word, a piece whose answer did not come
+import { brewItems, brewedText, BREW_KEPT_TEXT } from '../systems/alchemyItems.js';   // PROF12: a brew's potions, DFU's own, into the pack
+import { essenceOf, piecePoints, DISENCHANTER } from '../net/alchemyLaw.js';   // PROF12: a piece's Essence, as the enchanting station shows it
+import { facetBand } from '../net/recipeLaw.js';   // PROF10: the facet's attribute band
+import { panBand, DISH_LEVEL } from '../net/recipeLaw.js';   // PROF9: the pan's attribute band; a feast's level at the table
+import { COOK_FIRE } from '../net/professionLaw.js';   // PROF9: the fire Cooking is done at - any lit one, no fee
+import { setFeastShare, takeFeastGift, shareFeastWith } from '../systems/cookItems.js';   // PROF9: a feast shared with the party at the table
+import { hasSkillet } from '../systems/survival/camp.js';   // PROF9: C&C's Skillet widens the pan's window
+import { allyCastFrame } from '../systems/allyCast.js';   // PROF9: a feast reaches a party mate as ALLY-CAST's gift
 import { questActionsExtensionTemplates } from '../systems/quest/questActionsExtension.js';   // FORAGE1: QAE's four actions, which Foraging's quests say
 import { entityMaxEncumbrance } from '../combat/formulas.js';   // FORAGE1: PlayerEntity.MaxEncumbrance, for Foraging's last check
 import { packCapacityKg } from '../systems/naval/crewCompanions.js';   // COMPANION-WEIGHT: what his pack carries
@@ -714,7 +724,7 @@ import { carvedFloorLocalY } from './deepWatersHost.js';   // DW-D: the shore pr
 import { breathStep, setWaterBreathingRule } from '../systems/breath.js';   // DW-D: the dungeon's breath law, on the open sea; ApplyArgonianInfiniteBreath
 import { CLASSIC_UPDATE_INTERVAL } from '../characters/weaponStates.js';   // DW-D: PlayerEntity's classic cadence, the dungeon's import
 import { RACES } from '../systems/races.js';   // DW-D: ArgonianInfiniteBreath
-import { stationSteps, harbourPortFor, coastalAt } from '../net/fortLaw.js';   // SEAT2b part two: a seat's crafting halls, its members' Harbour, a coast
+import { hallStepsFor, harbourPortFor, coastalAt } from '../net/fortLaw.js';   // SEAT2b part two: a seat's crafting halls, its members' Harbour, a coast
 import { isWaterPixel } from '../ui/overworldModel.js';   // SEAT2b part two: a coast is the sea beside the town (the port's one water law)
 import { createSiegeNpcs } from './siegeNpcs.js';   // SEAT2b part two (c): the Barracks' guards and a revolt's rising, drawn
 import { createSiegeSession, isBattleLeaveCommand, BATTLE_NONE_TEXT } from '../net/siegeSession.js';   // SEAT2a part four: a siege as this client fights it   // AUDIT-SEATS C1: the chat's `/leave`
@@ -1315,14 +1325,20 @@ export async function bootWorld(canvas, renderer, params, status) {
   let huntBodies = () => [];
   /** PROF7: the station a recipe's profession is crafted at - the anvil (Smithing's), the workbench (Carpentry's, PROF4),
    *  the loom (Outfitting's) - its place, its keeper and its words. */
-  // AUDIT 32 B4: and each its own busy word - the anvil's rang at the workbench and the loom
+  // AUDIT 32 B4: and each its own busy word - the anvil's rang at the workbench and the loom; AUDIT PROF-541 R2-C2: no more -
+  // one latch holds every craft and brew (profBook.js _craftBusy), so a station's own word named another's work: the
+  // book's refusal says the hands are busy (accountClient.js 'prof-busy')
   const craftStation = (profession) => (profession === 'carpentry'
-    ? { here: () => modes?.workbenchHere?.() ?? null, a: 'a workbench', who: 'furnisher', noun: 'workbench', kept: BENCH_KEPT_TEXT, xp: 'Carpentry', busy: 'Your last work is still on the workbench.' }
+    ? { here: () => modes?.workbenchHere?.() ?? null, a: 'a workbench', who: 'furnisher', noun: 'workbench', kept: BENCH_KEPT_TEXT, xp: 'Carpentry' }
     : profession === 'outfitting'
-      ? { here: () => modes?.loomHere?.() ?? null, a: 'a loom', who: 'tailor', noun: 'loom', kept: LOOM_KEPT_TEXT, xp: 'Outfitting', busy: 'Your last work is still on the loom.' }
+      ? { here: () => modes?.loomHere?.() ?? null, a: 'a loom', who: 'tailor', noun: 'loom', kept: LOOM_KEPT_TEXT, xp: 'Outfitting' }
       : profession === 'masonry'   // PROF11: the mason's bench - a General Store's or a home's
-        ? { here: () => modes?.masonHere?.() ?? null, a: 'a mason\'s bench', who: 'mason', noun: 'mason\'s bench', kept: MASON_KEPT_TEXT, xp: 'Masonry', busy: 'Your last work is still on the bench.' }
-        : { here: () => modes?.forgeHere?.() ?? null, a: 'an anvil', who: 'smith', noun: 'anvil', kept: CRAFT_KEPT_TEXT, xp: 'Smithing', busy: accountRefusalText('prof-busy') });
+        ? { here: () => modes?.masonHere?.() ?? null, a: 'a mason\'s bench', who: 'mason', noun: 'mason\'s bench', kept: MASON_KEPT_TEXT, xp: 'Masonry' }
+        : profession === 'cooking'   // PROF9: the fire - any lit one, a campfire, a hearth, a brazier; no fee
+          ? { here: () => cookFireHere(), a: 'a fire', who: 'cook', noun: 'fire', kept: COOK_KEPT_TEXT, xp: 'Cooking' }
+          : profession === 'jewelcrafting'   // PROF10: the jeweller's bench - a Pawn Shop's or a Gem Store's, or a home's
+            ? { here: () => modes?.jewellerHere?.() ?? null, a: 'a jeweller\'s bench', who: 'jeweller', noun: 'jeweller\'s bench', kept: JEWEL_KEPT_TEXT, xp: 'Jewelcrafting' }
+            : { here: () => modes?.forgeHere?.() ?? null, a: 'an anvil', who: 'smith', noun: 'anvil', kept: CRAFT_KEPT_TEXT, xp: 'Smithing' });
   /** AUDIT 32 B3: a balance a counter's purchase answered, told to every book that shows one - the Bank's and the
    *  market's (AUDIT 30 U6's law, which the Stores page's counters never kept: the Market tab read the old one for its
    *  minute's cache). One door for the Stores page's counters and the Market tab's Weavers'. */
@@ -1336,7 +1352,8 @@ export async function bootWorld(canvas, renderer, params, status) {
   const profMint = (key, n) => {
     // PROF7: a Butcher's meat spoils half as fast (PROF0 3.3) - the Stores keep no unit's maker, so a Butcher's withdrawal
     // is a Butcher's meat
-    const got = withdrawIntoPack(playerEntity, key, n, undefined, { slowRot: key === 'food:meat' && profBook?.track('hunting')?.specs?.[100] === 'butcher' });
+    // PROF9: and a Provisioner's provisions never spoil (3.3) - the foods a Provisioner takes from the Stores
+    const got = withdrawIntoPack(playerEntity, key, n, undefined, { slowRot: key === 'food:meat' && profBook?.track('hunting')?.specs?.[100] === 'butcher', noRot: profBook?.track('cooking')?.specs?.[100] === 'provisioner' });
     if (got) { townTalk.say(`${got} ${materialCountLabel(key, got)} taken from the Stores into your pack.`); saveSoon.changed(); }
   };
   /** PROF3: a craft's pieces into the pack (systems/smithItems.js) - each once, by its provenance id: a piece the pack
@@ -1344,6 +1361,13 @@ export async function bootWorld(canvas, renderer, params, status) {
    *  paid here - by the tab that mints it, on whichever answer lets it go (a kept craft settled a day later paid none). */
   const profMintCraft = (data, kept = null) => {
     if (kept?.fee > 0) { deductGold(playerEntity, Math.min(kept.fee, totalGoldAmount(playerEntity))); saveSoon.changed(); }
+    // PROF12: a brew's potions - DFU's own (systems/alchemyItems.js), into the pack; a kept brew's too, when its word comes
+    if (typeof data?.potion === 'string') {
+      const potions = brewItems(data);
+      for (const it of potions) addItem((playerEntity.items ??= []), it, 'back');
+      if (potions.length) { townTalk.say(`${brewedText(data)}.`); saveSoon.changed(); }
+      return;
+    }
     // PROF4: the home's things too - a crafted table waits there (DECOR2b's furnishings), never in the pack; arrows carry
     // no provenance and join the quiver
     const have = heldProvenances();   // AUDIT 31 H5: wherever in the save it lies
@@ -5713,7 +5737,17 @@ export async function bootWorld(canvas, renderer, params, status) {
     openRest: () => { townTalk.closeOverlay(); toggleRest(); },   // the menu's picker leaves the slot first (toggleRest refuses under a window); SURV4 takes the camp's own rest law from here
     advanceMinutes: (n) => { playerTicker.advance(n); runEncounterTick(walkMode && playerSpawned ? player.pos : cam.pos, true); },   // the cook's minutes pass - online on the character's own clock (LIVED1)   // CAMP-REST: spent through the tick as a skip, never replayed as walking time (no group roll)
     selfId: () => online?.id ?? null, onChanged: () => { _foesFullAt = -Infinity; },   // a change asks for a full frame, which carries the camps
+    fieldCook: () => fieldCookNow(),   // PROF9: a Field Cook's kit keeps its charge
   });
+  /** PROF9 (bible/06-Systems/Professions-Arc.md 3.3): whether the player stands as a Field Cook - online, the professions
+   *  the account's, Cooking's choice at 50 - so a Campfire Kit lights without its charge spent (survival/camp.js `keep`). */
+  const fieldCookNow = () => profBook?.state?.open === true && profBook.track('cooking')?.specs?.[50] === 'field-cook';
+  /** PROF9 (professionLaw COOK_FIRE): THE FIRE THE PLAYER STANDS AT for Cooking - on the street and in the wilderness any
+   *  lit camp or the world's own brazier within C&C's reach of its flame (camps.js fireNear, the world's fire in every
+   *  tier); in a building or a dungeon the mode machine's own (worldModes cookFireHere) - or null. */
+  const cookFireHere = () => (_mode() === 'exterior'
+    ? (camps.fireNear(walkMode && playerSpawned ? player.pos : cam.pos) ? COOK_FIRE : null)
+    : modes?.cookFireHere?.() ?? null);
   // SURV3 / AUDIT SURV-TIERS (the third pass): a camp's scene position in natives and back - the save's two converters,
   // named once for the three that need them: the save, the load, and the teleport that re-anchors the frame under the pool
   const campToNatives = (pos) => { const wc = state.worldCoords(pos); return [wc.x, pos[1] - state.compensation[1], wc.z]; };
@@ -8617,6 +8651,11 @@ export async function bootWorld(canvas, renderer, params, status) {
         activeDungeon: () => walkMode && modeNow() === 'dungeon' && !modes?.dungeonCtx?.uiOverlayActive && !modes?.deathUp?.() && !modes?.transitioning,   // PROF2: a dungeon's veins
         onSettle: () => { profBook.settle(profMint, profMintCraft).catch(() => {}); }, pointer: (want) => { const relock = () => { if (!cursorActive() && !gamePaused() && !pointerSurfaces.size && !(modes?.modalWindowUp?.() ?? false) && !overlayOpen() && !travelView?.active) requestLook(canvas); }; if (want === 'look') { if (cursorActive()) { setCursorActive(false); relock(); } return null; } if (controllerLook()) return null; const off = holdCursor(); return () => { if (!off()) return; if (backButtonHeld) escRelock = relock; else relock(); }; },   // HERB-CURSOR (FIELD BUGS 2026-10-02 part four): the Basket's glints are clicked with the cursor, held free while it plays and the look taken back after (never under a window, a surface, an overlay, the travel view or the player's own freed mouse); a vein's, a body's or the net's act is aimed by the look - a mouse the player freed is taken back, under the same gates (AUDIT A4). AUDIT A1: an Escape that ended the act asks on its keyup (escRelock) - a lock taken inside its keydown was the browser's to end on the keyup, and ESC-LOCK read that as a second Escape; C8: a pad in hand strikes with its trigger, and no hold shows the OS pointer
       });
+      /** AUDIT PROF-541 B4: the town the alchemy station stands in, where my guild holds it - its Apothecary's steps, and
+       *  the seat a brew names (null where no step stands); AUDIT PROF-541 R2-H1: every station's by one law, by profession
+       *  (fortLaw.js hallStepsFor) */
+      const myHall = (profession) => hallStepsFor(seatHere(_musicLoc?.mapTableData?.mapId), guildBook?.guild?.id ?? null, profession);
+      const alchemyHall = () => myHall('alchemy');
       setProfessionsPages({
         book: profBook, name: (k) => materialLabel(k), withdraw: (k, n) => profBook.withdraw(k, n, profMint),
         settle: () => profBook.settle(profMint, profMintCraft),   // AUDIT 29 C4: a kept withdrawal asked again when the Stores page opens; PROF3: and a kept craft
@@ -8626,7 +8665,7 @@ export async function bootWorld(canvas, renderer, params, status) {
         // PROF3 (bible/06-Systems/Professions-Arc.md 24): THE ANVIL beside it - a craft through the book, its pieces into
         // the pack (kept until minted), the smith's fee a craft on the service's answer, as a smelt's; the smith's stock;
         // the heat's band, Smithing's attribute pair
-        craft: async (recipe, { clean, heartwood = false, dye = null }) => {
+        craft: async (recipe, { clean, heartwood = false, dye = null, cracked = false }) => {
           // PROF4: the station is the recipe's - the anvil for Smithing's, the workbench for Carpentry's; PROF7: the loom
           // for Outfitting's
           const st = craftStation(recipeById(recipe)?.profession);
@@ -8636,11 +8675,10 @@ export async function bootWorld(canvas, renderer, params, status) {
           // AUDIT 30 C4: the fee rides the kept craft and is paid as its pieces are minted (profMintCraft) - by this press's
           // answer, or a settle's later; A4: the workbench's kept word its own
           // SEAT2b part two (Seats-Arc 7.5): the town the station stands in, where my guild holds it and its crafting halls
-          // step this craft (fortLaw.js stationSteps) - the service asks the Charter again (professions.js seatStepsFor)
-          const hall = seatHere(_musicLoc?.mapTableData?.mapId);
-          const seat = hall && hall.holder?.guild?.id === (guildBook?.guild?.id ?? null) && stationSteps(recipeById(recipe)?.profession, hall.forts ?? {}) > 0 ? hall.key : null;
-          const r = await profBook.craft(recipe, { clean, heartwood, dye, fee: f.fee > 0 ? f.fee : 0, name: typeof playerEntity?.name === 'string' ? playerEntity.name : null, seat }, profMintCraft);
-          if (!r?.ok) return { ok: false, text: r?.kept ? st.kept : r?.error === 'prof-busy' ? st.busy : accountRefusalText(r?.error) };
+          // step this craft (fortLaw.js hallStepsFor) - the service asks the Charter again (professions.js seatStepsFor)
+          const { seat } = myHall(recipeById(recipe)?.profession);
+          const r = await profBook.craft(recipe, { clean, heartwood, dye, cracked, fee: f.fee > 0 ? f.fee : 0, name: typeof playerEntity?.name === 'string' ? playerEntity.name : null, seat }, profMintCraft);   // PROF10: a Lapidary's cracked gem
+          if (!r?.ok) return { ok: false, text: r?.kept ? st.kept : accountRefusalText(r?.error) };
           const paid = f.fee > 0 && !r.elsewhere;
           const rec = recipeById(recipe);
           const made = rec?.kind === 'siege' ? storedText(rec.name, Number(r.data.count) || 1) : craftedText(mintPieces(r.data));   // SEAT2b part two: a Ram Kit is the Stores'
@@ -8649,7 +8687,7 @@ export async function bootWorld(canvas, renderer, params, status) {
         stock: async (material, qty, counter = stockOf(material)?.counter) => {
           const r = await profBook.stock(material, qty);
           toldBalance(r?.data?.balance);   // PROF5 (FOUND): the Bank's balance told too; AUDIT 32 B3: and the market's
-          const who = counter === 'furnisher' ? 'furnisher' : counter === 'weavers' ? 'Weavers' : 'smith';   // PROF4: the furnisher's Linen; PROF7: the Weavers' at the tailor's
+          const who = counter === 'furnisher' ? 'furnisher' : counter === 'weavers' ? 'Weavers' : counter === 'apothecaries' ? 'Apothecaries' : 'smith';   // PROF12: the Apothecaries' sixteen   // PROF4: the furnisher's Linen; PROF7: the Weavers' at the tailor's
           return r?.ok ? { ok: true, text: `Bought ${r.data.qty} ${materialCountLabel(material, r.data.qty)} from the ${who} for ${r.data.marks} silver.` } : { ok: false, text: accountRefusalText(r?.error) };
         },
         heatBand: () => heatBand({ strength: liveStat(playerEntity, 'strength'), agility: liveStat(playerEntity, 'agility') }),
@@ -8664,6 +8702,96 @@ export async function bootWorld(canvas, renderer, params, status) {
         // PROF11 (bible/06-Systems/Professions-Arc.md 9.3, 9.4): THE MASON'S BENCH the player stands at, and the chisel's band
         mason: () => modes?.masonHere?.() ?? null,
         chiselBand: () => chiselBand({ strength: liveStat(playerEntity, 'strength'), endurance: liveStat(playerEntity, 'endurance') }),
+        // PROF9 (bible/06-Systems/Professions-Arc.md 9.3, 9.4): THE FIRE the player stands at, the pan's band, and C&C's Skillet
+        fire: () => cookFireHere(),
+        panBand: () => panBand({ intelligence: liveStat(playerEntity, 'intelligence'), personality: liveStat(playerEntity, 'personality') }),
+        skillet: () => hasSkillet(playerEntity?.items),
+        // AUDIT PROF-541 K7: the town Apothecary's steps a dish's XP takes here - the seat the craft below sends (where my
+        // guild holds the town; professions.js seatStepsFor asks the Charter again), so the fire's line says the XP the service pays
+        cookSteps: () => myHall('cooking').steps,
+        // PROF10 (bible/06-Systems/Professions-Arc.md 9.3, 9.4): THE JEWELLER'S BENCH the player stands at, and the facet's band
+        jeweller: () => modes?.jewellerHere?.() ?? null,
+        // AUDIT PROF-541 R2-C6: and the town Apothecary's quality steps a piece takes there - the seat the craft sends, as cookSteps
+        jewelSteps: () => myHall('jewelcrafting').steps,
+        // PROF12 (bible/06-Systems/Professions-Arc.md 9.3, 37): THE ALCHEMY STATION the player stands at (an Alchemist's, its
+        // fee a brew; a home's), a brew through the book - its potions into the pack, kept until minted, the fee paid as they
+        // are - under the Apothecary's steps where my guild holds the town; the transmutations ride the smelt below
+        alchemy: () => modes?.alchemyHere?.() ?? null,
+        // AUDIT PROF-541 B4: the Apothecary's steps where my guild holds the town the station stands in - the station's
+        // Potent chance says them, as the service adds them (professions.js seatStepsFor)
+        alchemySteps: () => alchemyHall().steps,
+        brew: async (potion, keys) => {
+          const f = modes?.alchemyHere?.() ?? null;
+          if (!f) return { ok: false, text: 'You are not at an alchemy station.' };
+          if (f.fee > 0 && totalGoldAmount(playerEntity) < f.fee) return { ok: false, text: `The alchemist asks ${f.fee} gold for the use of the station.` };
+          const { seat } = alchemyHall();
+          const r = await profBook.brew(potion, keys, { fee: f.fee > 0 ? f.fee : 0, seat }, profMintCraft);
+          if (!r?.ok) return { ok: false, text: r?.kept ? BREW_KEPT_TEXT : r?.error === 'prof-busy' ? 'Your hands are busy with another craft.' : accountRefusalText(r?.error) };
+          const paid = f.fee > 0 && !r.elsewhere;
+          return { ok: true, text: `${brewedText(r.data)} (+${r.data.xp} Alchemy XP)${paid ? `, and paid the alchemist ${f.fee} gold` : ''}.` };
+        },
+        // PROF12: THE ENCHANTING STATION the player stands at (a Mages Guild hall, its fee a piece; a home's), the pack's crafted
+        // pieces it may take (in the pack, not worn, bound or locked, no market act kept on them) and a disenchant: the piece
+        // out of the pack on the service's answer, its Essence in the Stores
+        enchanter: () => modes?.enchantHere?.() ?? null,
+        disenchantable: () => (playerEntity.items ?? []).filter((it) => it?.provenance && typeof it.recipe === 'string' && !tradeRefusal(it) && !isLocked(it) && !pieceKept(it.provenance))
+          .map((it) => {
+            const r = recipeById(it.recipe);
+            const points = r?.kind === 'jewel' && Number.isSafeInteger(it.enchantmentPoints) ? it.enchantmentPoints : piecePoints(r);
+            return { provenance: it.provenance, name: itemLongName(it), points, essence: essenceOf(points, profBook?.track('enchanting')?.specs?.[50] === DISENCHANTER), recipe: it.recipe };   // AUDIT PROF12 E2: its recipe, the XP's tier
+          }).filter((x) => x.essence > 0),
+        disenchant: async (provenance) => {
+          const f = modes?.enchantHere?.() ?? null;
+          if (!f) return { ok: false, text: 'You are not at an enchanting station.' };
+          if (f.fee > 0 && totalGoldAmount(playerEntity) < f.fee) return { ok: false, text: `The enchanter asks ${f.fee} gold to take a piece apart.` };
+          const it = (playerEntity.items ?? []).find((x) => x?.provenance === provenance) ?? null;
+          const name = it ? itemLongName(it) : 'the piece';
+          // the piece out of the pack - once (a `repeat` finds it gone already); `out` what this press took, and where
+          let out = null;
+          const takeOut = () => {
+            const at = (playerEntity.items ?? []).findIndex((x) => x?.provenance === provenance);
+            if (at >= 0) out = { piece: playerEntity.items.splice(at, 1)[0], at };
+            return at >= 0;
+          };
+          let r;
+          if (realmSession) {
+            // AUDIT PROF-541 B2: a realm character's piece leaves its RECORD in the disenchant's own batch - the save
+            // checkpointed first, the piece out of the pack inside the hold as the service is first asked (marketBook
+            // postGood's order), back on a refusal; silence ends the session and a join reads the record
+            let asked = false;
+            r = await realmGoldAct({
+              session: realmSession, checkpoint: () => onlineCheckpoint(),
+              reserve: () => () => { if (out) { playerEntity.items.splice(Math.min(out.at, playerEntity.items.length), 0, out.piece); out = null; } },
+              call: (at) => { if (!asked) { asked = true; takeOut(); } return out ? profBook.disenchant(provenance, at) : Promise.resolve({ ok: false, error: 'prof-piece-gone' }); },
+            });
+          } else {
+            r = await profBook.disenchant(provenance);
+            if (r?.ok) takeOut();
+          }
+          if (!r?.ok) {
+            // AUDIT PROF-541 B2: a disenchant of this account took the piece's record already (an answer lost, the save
+            // kept the piece) - the save's copy goes too, as the answer it missed would have taken it
+            // AUDIT PROF-541 R2-C1: the Stores and Enchanting's track read again (the answer that moved them was lost);
+            // R2-N1: and the enchanter paid the fee the lost press owed, as the answered one pays it
+            if (r?.error === 'prof-no-piece' && r?.why === 'disenchanted' && takeOut()) {
+              const owed = f.fee > 0 ? Math.min(f.fee, totalGoldAmount(playerEntity)) : 0;
+              if (owed > 0) deductGold(playerEntity, owed);
+              profBook.refresh({ force: true }).catch(() => {});
+              saveSoon.changed();
+              return { ok: false, text: `${name} was disenchanted already - its Essence is in your Stores, and it leaves your pack${owed > 0 ? `; you paid the enchanter ${owed} gold` : ''}.` };
+            }
+            return { ok: false, text: accountRefusalText(r?.error) };
+          }
+          const paid = f.fee > 0 && out != null;
+          if (paid) deductGold(playerEntity, Math.min(f.fee, totalGoldAmount(playerEntity)));
+          // AUDIT PROF-541 R2-C1: a realm act that LANDED (its answer lost, the record one on) says no Stores and no track -
+          // the state read again, so the Essence and the XP show now, not at the next read
+          if (!r.data) profBook.refresh({ force: true }).catch(() => {});
+          saveSoon.changed();
+          const got = Number.isSafeInteger(r.data?.essence) ? `${r.data.essence} Arcane Essence (+${r.data.xp} Enchanting XP)` : 'Arcane Essence';   // a landed realm act says no more
+          return { ok: true, text: `${name} comes apart into ${got}${paid ? `, and paid the enchanter ${f.fee} gold` : ''}.` };
+        },
+        facetBand: () => facetBand({ willpower: liveStat(playerEntity, 'willpower'), luck: liveStat(playerEntity, 'luck') }),
         clothing: () => (playerEntity?.gender === 'female' ? 'WomensClothing' : 'MensClothing'),
         marks: () => marksBook?.state?.balance ?? null,   // AUDIT 32 P6: a counter's purchase the Marks cannot meet, said first
         marksOpen: () => marksBook?.state?.open !== false,
@@ -8672,10 +8800,11 @@ export async function bootWorld(canvas, renderer, params, status) {
           // a weave's the loom; PROF11: a cut's and a mix's the mason's bench, its chisel's report with it
           const work = smeltRecipe(recipe);
           const bench = work?.station === 'workbench', loom = work?.station === 'loom', mason = work?.station === 'mason';
-          const f = (mason ? modes?.masonHere?.() : loom ? modes?.loomHere?.() : bench ? modes?.workbenchHere?.() : modes?.forgeHere?.()) ?? null;
-          if (!f) return { ok: false, text: mason ? 'You are not at a mason\'s bench.' : loom ? 'You are not at a loom.' : bench ? 'You are not at a workbench.' : 'You are not at a forge.' };
-          const who = mason ? 'mason' : loom ? 'tailor' : bench ? 'furnisher' : 'smith';
-          if (f.fee > 0 && totalGoldAmount(playerEntity) < f.fee) return { ok: false, text: `The ${who} asks ${f.fee} gold for the use of the ${mason ? 'mason\'s bench' : loom ? 'loom' : bench ? 'workbench' : 'forge'}.` };
+          const alch = work?.station === 'alchemy';   // PROF12: a Transmuter's transmutation, at the alchemy station
+          const f = (alch ? modes?.alchemyHere?.() : mason ? modes?.masonHere?.() : loom ? modes?.loomHere?.() : bench ? modes?.workbenchHere?.() : modes?.forgeHere?.()) ?? null;
+          if (!f) return { ok: false, text: alch ? 'You are not at an alchemy station.' : mason ? 'You are not at a mason\'s bench.' : loom ? 'You are not at a loom.' : bench ? 'You are not at a workbench.' : 'You are not at a forge.' };
+          const who = alch ? 'alchemist' : mason ? 'mason' : loom ? 'tailor' : bench ? 'furnisher' : 'smith';
+          if (f.fee > 0 && totalGoldAmount(playerEntity) < f.fee) return { ok: false, text: `The ${who} asks ${f.fee} gold for the use of the ${alch ? 'station' : mason ? 'mason\'s bench' : loom ? 'loom' : bench ? 'workbench' : 'forge'}.` };
           const r = await profBook.smelt(recipe, count, { clean });
           if (!r?.ok) return { ok: false, text: accountRefusalText(r?.error) };
           // the fee for the smelt this press made, on the first answer it hears - `repeat` or not (AUDIT 29 C3: a first
@@ -8686,13 +8815,22 @@ export async function bootWorld(canvas, renderer, params, status) {
           const made = (Number(r.data.own) || 0) + (Number(r.data.bought) || 0) || r.data.count;
           const id = String(r.data.recipe);
           const verb = bench ? 'Sawed' : id.startsWith('burn:') ? 'Burnt' : id.startsWith('cure:') ? 'Cured' : id.startsWith('weave:') ? 'Wove'
-            : id.startsWith('cut:') ? 'Cut' : id.startsWith('mix:') ? 'Mixed' : 'Smelted';   // PROF7: the loom's; PROF11: the mason's
+            : id.startsWith('cut:') ? 'Cut' : id.startsWith('mix:') ? 'Mixed' : alch ? 'Transmuted into' : 'Smelted';   // PROF7: the loom's; PROF11: the mason's; PROF12: the Transmuter's
           // PROF11 (FOUND): the XP said is the work's own profession's - Masonry's at the bench (it said Smithing's whatever
           // the work); a clean chisel and a first work said with it
           const xpWord = professionName(smeltRecipe(r.data.recipe)?.xp ?? 'smithing');
           const how = [r.data.clean === true ? 'a clean chisel' : null, r.data.first === true ? 'your first' : null].filter(Boolean).join(', ');
           return { ok: true, text: `${verb} ${made} ${materialCountLabel(out, made)}${r.data.xp > 0 ? ` (+${r.data.xp} ${xpWord} XP${how ? ` - ${how}` : ''})` : ''}${f.fee > 0 ? `, and paid the ${who} ${f.fee} gold` : ''}.` };
         },
+      });
+      // PROF9 (bible/06-Systems/Professions-Arc.md 9.3: "the whole party"): A FEAST SHARED - eaten, its spell record goes
+      // to every party mate in the room through ALLY-CAST's own frame (systems/allyCast.js allyCastFrame - a beneficial
+      // spell, at the dish's level, laid on by the mate's own client as a mate's gift); the names it went to, said
+      setFeastShare((spell) => {
+        if (!online || online.status !== 'open' || !social?.party) return [];
+        // AUDIT PROF-541 K5: the mates at the table - in sight, as a stranger's gift is (online.onCast), never the whole
+        // room and its halo; R2-H1: by cookItems.js shareFeastWith
+        return shareFeastWith(peersNear(), { isMate: (id) => social.isPartyPeer(id), send: (id) => online.sendCast?.(allyCastFrame(spell, DISH_LEVEL, id)), nameOf: (id) => peerName(id) });
       });
     }
   }
@@ -8888,7 +9026,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   // and dungeonContext.js:2897 mounts the same one, gated on
   // `opts.enchantCtx !== false` because setDefaultEnchantCtx is a
   // session singleton and EC1 already routes THIS host's mount into
-  // that context through modes.dungeonCtx - so worldModes.js:6858
+  // that context through modes.dungeonCtx - so worldModes.js:6859
   // passes false beside its `chargen: false` and only the standalone
   // ?dungeon route mounts its own. S40 filled isResting
   // in - the sentence that stood here said it "stays absent above
@@ -9509,7 +9647,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     // U44: RecordLocationFromMap's reveal. DFU's own note key for the
     // map ITEM is `readMap`, the third caller of this one seam.
     revealMap: () => revealLocation('readMap'),
-    drinkPotion: (key) => magic.drinkPotion(key),   // U44: DrinkPotion through the ONE cast engine
+    drinkPotion: (key, potent) => magic.drinkPotion(key, potent),   // U44: DrinkPotion through the ONE cast engine; PROF12: a Potent potion's share
     // QuestMachine.GetQuest - the window's quest reach: the use-click
     // block (DaggerfallInventoryWindow.cs:1673) and ResolveItemLongName's
     // quest-letter arm (ItemHelper.cs:338) both go through it.
@@ -11506,7 +11644,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     // so an F9 pressed inside a shop recorded the street's sheath and
     // hand. The mode host answers for the rig that is actually drawn
     // and null outside interior mode (the dungeon owns its own
-    // composer, dungeonContext.js:7973), so exterior mode and a
+    // composer, dungeonContext.js:7975), so exterior mode and a
     // pre-seam mode host compose exactly as before, per field.
     const wp = modes?.weaponPose?.() ?? null;
     const snap = snapshotPlayer(playerEntity, {
@@ -14283,7 +14421,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   // exterior -> the townTalk overlay, interior OR dungeon -> the mode
   // machine's slot. U43-ii shipped the dungeon half: showQuestBox
   // offers the window to `modes.showQuestOverlay` below, and
-  // worldModes answers it in BOTH modes (worldModes.js:10407-10471 -
+  // worldModes answers it in BOTH modes (worldModes.js:10409-10473 -
   // dungeon routes to dungeonCtx.showOverlay), so a dungeon popup is
   // shown rather than logged loudly and dropped.
   // AUDIT 24 (wave 21): DaggerfallMessageBox.Show() is a
@@ -16265,6 +16403,7 @@ export async function bootWorld(canvas, renderer, params, status) {
       if (!mate && !(peersNear() ?? []).some((p) => p.id === id)) return;
       const spell = allyCastSpell(d?.spell, { stranger: !mate });
       if (!spell) return;
+      if (!takeFeastGift(playerEntity, spell, d.level, mate)) return;   // AUDIT PROF-541 K3/K4: a feast a party mate's alone (a stranger's stacked onto ours), renewing mine - never shortening it (AUDIT PROF9 K2: never stacked)
       const t = performance.now();
       const loud = mate || !(t - (_strangerCastSaid.get(id) ?? -Infinity) < STRANGER_CAST_SAY_MS);
       if (loud && !mate) _strangerCastSaid.set(id, t);
@@ -16810,6 +16949,9 @@ export async function bootWorld(canvas, renderer, params, status) {
       // guild's own batch - the purse checkpointed first, the hold standing until the answer (realmSaves.js realmGoldAct)
       realm: realmSession ? { act: (o) => realmGoldAct({ session: realmSession, checkpoint: () => onlineCheckpoint(), ...o }) } : null,
       onHall: (mapId) => { onlineHomes?.ensure?.(mapId, { force: true }); },   // GUILD1d: the hall's town read again - its door and banners
+      // AUDIT GUILD-YARD C3, AUDIT PROF-541 G1: a rank moved (a keeper made or unmade), found by whichever look, reads the
+      // town again, as onHall does - its halls' `keeper` was the town's answer's, believed a minute
+      onRank: () => { onlineHomes?.bump?.(); onlineHomes?.ensure?.(_musicLoc?.mapTableData?.mapId, { force: true })?.catch?.(() => {}); },
     });
     socialPanel = createSocialPanel({
       social,
@@ -19146,10 +19288,11 @@ export async function bootWorld(canvas, renderer, params, status) {
       tithe: () => (seatBook?.open === true ? boardTithePct(seatBook.data?.seats ?? [], region, [town.px, town.py]) : null),   // AUDIT SEATS-3 D3: its rate as the seats' list says it (null: not read)
       pieces: marketPieces, take: marketTake, putBack: marketPutBack, mint: marketMint, pieceName: marketPieceName, drop: marketDrop, goods: () => marketGoods.goods(), good: (it) => marketGoods.good(it), goodName: (rec) => marketGoods.goodName(rec),   // MARKET-ANY: a piece from the pack, for gold
       weavers: WEAVERS_STOCK,
+      apothecaries: APOTHECARY_STOCK,   // PROF12 (PROF0 4.5): the supplier's second counter - the potion recipes' sixteen
       stock: async (key, n) => {
         const r = await profBook.stock(key, n);
         toldBalance(r?.data?.balance);   // AUDIT 30 U6
-        return r?.ok ? { ok: true, text: `Bought ${r.data.qty} ${materialCountLabel(key, r.data.qty)} at the Weavers' counter for ${r.data.marks} silver.` } : { ok: false, text: accountRefusalText(r?.error) };
+        return r?.ok ? { ok: true, text: `Bought ${r.data.qty} ${materialCountLabel(key, r.data.qty)} at the ${stockOf(key)?.counter === 'apothecaries' ? 'Apothecaries\'' : 'Weavers\''} counter for ${r.data.marks} silver.` } : { ok: false, text: accountRefusalText(r?.error) };
       },
     } : null;
     return showNoticeWindow({
@@ -20781,6 +20924,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     currentRegionIndex: () => _questRegionIndex(),   // UL1: PlayerGPS.CurrentRegionIndex for the mode machine's mods
     climateIndex: () => maps.getClimateIndex(playerTravelPixel().x, playerTravelPixel().y),   // SURV5: PlayerGPS.CurrentClimateIndex, for the tavern's menu
     survivalEnv: () => survivalEnvNow(),   // SURV7: the interior ticker's and the dungeon's env; each overrides the flags it owns
+    fieldCook: () => fieldCookNow(),   // PROF9: a Field Cook's kit keeps its charge underground too
     currentLocation: () => _questLoc(),              // UL1: PlayerGPS.CurrentLocation
     // AUDIT 62 F8 (review): THE FINGER'S PRESS, published. worldModes
     // owns the interior and world-hosted-dungeon activate gate and has
@@ -20957,9 +21101,9 @@ export async function bootWorld(canvas, renderer, params, status) {
         const g = guildBook;
         if (!g) return null;
         // AUDIT GUILD1d A5: a look that moves what a door may offer (the hall's buy) reads the doors again - the plaque's
-        // text is kept by the registry's version, and the first hover after boot asked before the guild was known
-        const sig = (v) => (v ? `${v.id}|${v.rank}|${v.hall ? 1 : 0}` : '');
-        if (g.stale()) { const was = sig(g.guild); g.refresh().then(() => { if (sig(g.guild) !== was) onlineHomes?.bump?.(); }).catch(() => {}); }
+        // text is kept by the registry's version, and the first hover after boot asked before the guild was known.
+        // AUDIT PROF-541 G1: that look's word is the guild book's own now (its onRank, above), whichever look found it
+        if (g.stale()) g.refresh().catch(() => {});
         const v = g.guild;
         return v ? { name: v.name, rank: v.rank, hall: !!v.hall, treasury: v.treasury } : null;
       },

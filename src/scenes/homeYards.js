@@ -54,6 +54,8 @@ export const YARD_DRAW_M = 300;
 export const YARD_MARGIN = 6;
 /** How far outside its lot the owner may still stand and open the yard's decorator. */
 export const YARD_NEAR = 2;
+/** AUDIT GUILD-YARD C1: what standing only near a lot (not on it) weighs against a lot the feet are on - past any distance. */
+const YARD_NEAR_ONLY = 1e6;
 /** How high the lot's marked edge stands. */
 export const YARD_MARK_HIGH = 1;
 /** A town's yards, believed this long; an unanswered ask waits this long before the next. */
@@ -66,6 +68,9 @@ export const YARD_OFF_LOT = 'Outside your lot - keep it within the marked edge.'
 export const YARD_IN_HOUSE = 'That is inside your house - place it in the yard around it.';
 export const YARD_ON_OTHER = "That is another building's ground.";
 export const YARD_FULL = `Your yard already holds ${DECOR_YARD_CAP} pieces.`;   // the bar's words (ui/decorPanel.js decorWhyNot, `yard`)
+/** AUDIT GUILD-YARD: the same two in a guild hall's yard - the hall's, never "your house" (decorWhyNot's `hall`). */
+export const YARD_IN_HALL = "That is inside the hall - place it in the hall's yard around it.";
+export const YARD_HALL_FULL = `The hall's yard already holds ${DECOR_YARD_CAP} pieces.`;
 /** FB1001 ROAD-LOT: what the decorator says of a piece on the town's road or a path. */
 export const YARD_ON_ROAD = 'That is the road - keep the street and its paths clear.';
 /** How far into a wall's (or a road's) ground a piece may reach and still stand clear of it - touching is not in it. */
@@ -319,25 +324,32 @@ export function createHomeYards(deps) {
   /** A yard's pixel's climate swaps (its texRemap), or none. */
   const remapOf = (y) => deps.built?.()?.get?.(`${y.px},${y.py}`)?.texRemap ?? null;
 
-  /** THE OWNER'S YARD the player stands on (or near), in this frame - or null. */
+  /** THE OWNER'S YARD the player stands on (or near), in this frame - or null. AUDIT GUILD-YARD C1: of the kept yards
+   *  under the feet (a home's owner who keeps a hall beside it stands on two lots between them), the one whose lot holds
+   *  them (not only within YARD_NEAR of it), then whose house stands nearest them - never the first the town stood. */
   function ownYardHere() {
     const feet = deps.feet?.();
     if (!feet || !deps.outside?.()) return null;
+    let best = null, bestRank = Infinity;
     for (const y of yards.values()) {
       const home = deps.homes?.homeAt?.(y.mapId, y.bk) ?? null;
       if (!homeOutsideKept(home)) continue;   // GUILD-YARD: its owner's, or a keeper's of the guild whose hall it is
       const o = originOf(y);
-      if (yardHolds(y.lot, o, feet, YARD_NEAR)) {
-        const others = [];
-        const p = deps.built?.()?.get?.(`${y.px},${y.py}`);
-        for (const [bk, f] of p?.homeFrames ?? []) {
-          if (bk === y.bk) continue;
-          others.push([f.box[0] - y.frame.at[0], f.box[2] - y.frame.at[2], f.box[3] - y.frame.at[0], f.box[5] - y.frame.at[2]]);
-        }
-        return { yard: y, others, roads: yardRoadsOf(p, y.frame.at, y.lot), hall: !!home.hall };   // FB1001 ROAD-LOT: the road under the lot; GUILD-YARD: a hall's
-      }
+      if (!yardHolds(y.lot, o, feet, YARD_NEAR)) continue;
+      const x = feet[0] - o[0], z = feet[2] - o[2], h = y.lot.house;
+      const away = Math.hypot(Math.max(h[0] - x, 0, x - h[2]), Math.max(h[1] - z, 0, z - h[3]));
+      const rank = (yardHolds(y.lot, o, feet) ? 0 : YARD_NEAR_ONLY) + away;
+      if (rank < bestRank) { best = { y, home }; bestRank = rank; }
     }
-    return null;
+    if (!best) return null;
+    const { y, home } = best;
+    const others = [];
+    const p = deps.built?.()?.get?.(`${y.px},${y.py}`);
+    for (const [bk, f] of p?.homeFrames ?? []) {
+      if (bk === y.bk) continue;
+      others.push([f.box[0] - y.frame.at[0], f.box[2] - y.frame.at[2], f.box[3] - y.frame.at[0], f.box[5] - y.frame.at[2]]);
+    }
+    return { yard: y, others, roads: yardRoadsOf(p, y.frame.at, y.lot), hall: !!home.hall };   // FB1001 ROAD-LOT: the road under the lot; GUILD-YARD: a hall's
   }
 
   // THE DECORATOR OUTSIDE: the room's own tool over the yard the owner stands on - its pool the yard's, its writes the
@@ -369,6 +381,8 @@ export function createHomeYards(deps) {
   const collider = {
     raycastHit: (o, d, m, f = null) => deps.collider?.()?.surfaceHit?.(o, d, m, f) ?? deps.collider?.()?.raycastHit?.(o, d, m, f) ?? null,
   };
+  /** AUDIT GUILD-YARD: a hall's yard says the hall's words, never "your house". */
+  const hallWords = (why) => (cur?.hall && why === YARD_IN_HOUSE ? YARD_IN_HALL : why);
   const tool = createDecorTool({
     doc: deps.doc ?? null, win: deps.win ?? null, canvas: deps.canvas ?? null, touch: !!deps.touch, renderer: deps.renderer, pool, names: new Map(),
     // GUILD-YARD: a hall's yard is `hall` - a piece's half goes to the guild's treasury, never the purse (decorTool.js)
@@ -386,7 +400,7 @@ export function createHomeYards(deps) {
     openSlot: (o) => deps.openSlot?.(o), closeSlot: () => {},
     say: (l) => deps.say?.(l), refusal: (w) => deps.refusal?.(w) ?? null, now,
     // HOME-YARD: the lot - a piece off it refused, its edge marked
-    placeOk: (piece, foot) => (cur ? yardWhyNot(piece.pos, cur.yard.lot, cur.others, foot, cur.roads) : YARD_OFF_LOT),   // FB1001 ROAD-LOT: off the road
+    placeOk: (piece, foot) => (cur ? hallWords(yardWhyNot(piece.pos, cur.yard.lot, cur.others, foot, cur.roads)) : YARD_OFF_LOT),   // FB1001 ROAD-LOT: off the road
     lot: () => (cur ? yardLotQuads(cur.yard.lot, originOf(cur.yard), YARD_MARK_HIGH, cur.roads) : []),   // FB1001 ROAD-LOT: the edge along the road's side
     yardCap: DECOR_YARD_CAP,
     // HOME-LOOK: the house's outside, painted from the yard's panel

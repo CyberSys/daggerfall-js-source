@@ -163,7 +163,11 @@ const pieceOf = (p, wear) => (p ? {
   provenance: p.provenance, recipe: p.recipe, quality: Number(p.quality), seed: Number(p.seed), maker: p.maker ?? null,
   marked: Number(p.marked) === 1, template: Number(p.template), material: Number(p.material), wear: Number(wear),
   ...(p.dye == null ? {} : { dye: Number(p.dye) }),   // PROF7: a garment is the colour it was sewn in
+  ...(p.hand == null ? {} : { hand: Number(p.hand) }),   // PROF9: a dish keeps its cook's hand (0069)
 } : null);
+/** AUDIT PROF-541 R2-S4: an auction's piece's recipe - its products row's, or, the piece disenchanted since (the row
+ *  deleted), its disenchant's (prof_disenchants.provenance is UNIQUE: one look-up). `a` the auction, `p` its row. */
+const GONE_RECIPE_SQL = 'COALESCE(p.recipe, (SELECT recipe FROM prof_disenchants WHERE provenance = a.provenance)) AS recipe';
 /** MARKET-ANY: a piece from a pack, as its listing or its delivery carries it - its record, or null. */
 const goodOf = (text) => {
   let v = null;
@@ -410,7 +414,7 @@ function orderReturn(db, id, nowS) {
 async function roadOf(db, me, nowS) {
   const { results: loads = [] } = await db.prepare(`SELECT rid, char_id, material, units, from_region, arrives_at FROM market_sales
     WHERE buyer = ?1 AND kind = 'material' AND delivered = 0 ORDER BY arrives_at LIMIT 50`).bind(me).all();
-  const { results: pieces = [] } = await db.prepare(`SELECT d.id, d.char_id, d.wear, d.why, d.from_region, d.arrives_at, p.recipe, p.quality, p.seed, p.maker, p.marked, p.dye,
+  const { results: pieces = [] } = await db.prepare(`SELECT d.id, d.char_id, d.wear, d.why, d.from_region, d.arrives_at, p.recipe, p.quality, p.seed, p.maker, p.marked, p.dye, p.hand,
     p.template, p.material, p.provenance FROM market_deliveries d JOIN products p ON p.provenance = d.provenance
     WHERE d.player = ?1 AND d.collected = 0 ORDER BY d.arrives_at LIMIT 50`).bind(me).all();
   // MARKET-ANY: and pieces from packs, bought or come back - each its record
@@ -542,7 +546,7 @@ export async function marketRead(ctx, player, env, { character, region, view, fa
     };
   }
   if (view === 'crafted') {
-    const { results = [] } = await db.prepare(`SELECT l.*, p.recipe, p.quality, p.seed, p.maker, p.marked, p.dye, p.template, p.material AS dfu_material
+    const { results = [] } = await db.prepare(`SELECT l.*, p.recipe, p.quality, p.seed, p.maker, p.marked, p.dye, p.hand, p.template, p.material AS dfu_material
       FROM market_listings l JOIN products p ON p.provenance = l.provenance
       WHERE l.state = 'open' AND l.kind = 'piece' AND l.expires_at > ?1 AND l.currency = '${currency}' ORDER BY l.price, l.at LIMIT 500`).bind(nowS).all();   // GOLD-MARKET
     const famOk = (f) => !family || f === family;
@@ -568,7 +572,7 @@ export async function marketRead(ctx, player, env, { character, region, view, fa
   }
   if (view === 'auctions') {
     // PROF5b: every open auction, ending soonest first, each with its courier to this board (one piece)
-    const { results = [] } = await db.prepare(`SELECT a.*, p.recipe, p.quality, p.seed, p.maker, p.marked, p.dye, p.template, p.material AS dfu_material,
+    const { results = [] } = await db.prepare(`SELECT a.*, p.recipe, p.quality, p.seed, p.maker, p.marked, p.dye, p.hand, p.template, p.material AS dfu_material,
         (SELECT bidder FROM market_bids WHERE id = a.high_bid) AS high_bidder
       FROM market_auctions a JOIN products p ON p.provenance = a.provenance
       WHERE a.state = 'open' AND a.ends_at > ?1 ORDER BY a.ends_at, a.at LIMIT 500`).bind(nowS).all();
@@ -590,19 +594,21 @@ export async function marketRead(ctx, player, env, { character, region, view, fa
     };
   }
   if (view === 'mine') {
-    const { results: listings = [] } = await db.prepare(`SELECT l.*, p.recipe, p.quality, p.seed, p.maker, p.marked, p.dye, p.template, p.material AS dfu_material
+    const { results: listings = [] } = await db.prepare(`SELECT l.*, p.recipe, p.quality, p.seed, p.maker, p.marked, p.dye, p.hand, p.template, p.material AS dfu_material
       FROM market_listings l LEFT JOIN products p ON p.provenance = l.provenance
       WHERE l.seller = ?1 AND (l.state = 'open' OR l.closed_at > ?2) ORDER BY l.state = 'open' DESC, l.at DESC LIMIT ${MARKET_SHOWN}`)
       .bind(me, nowS - RECENT_S).all();
     const { results: orders = [] } = await db.prepare(`SELECT * FROM market_orders WHERE poster = ?1 AND (state = 'open' OR closed_at > ?2)
       ORDER BY state = 'open' DESC, at DESC LIMIT ${MARKET_SHOWN}`).bind(me, nowS - RECENT_S).all();
-    // PROF5b: this account's auctions and its bids (the standing ones, and a week of the rest), each with its piece
-    const { results: auctions = [] } = await db.prepare(`SELECT a.*, p.recipe, p.quality, p.seed, p.maker, p.marked, p.dye, p.template, p.material AS dfu_material
-      FROM market_auctions a JOIN products p ON p.provenance = a.provenance
+    // PROF5b: this account's auctions and its bids (the standing ones, and a week of the rest), each with its piece -
+    // AUDIT PROF-541 R2-S4: its row LEFT joined, as the listings' are: a piece disenchanted since (its products row
+    // deleted - alchemy.js disenchantPiece) keeps its history, named by its disenchant's recipe
+    const { results: auctions = [] } = await db.prepare(`SELECT a.*, ${GONE_RECIPE_SQL}, p.quality, p.seed, p.maker, p.marked, p.dye, p.hand, p.template, p.material AS dfu_material
+      FROM market_auctions a LEFT JOIN products p ON p.provenance = a.provenance
       WHERE a.seller = ?1 AND (a.state = 'open' OR a.closed_at > ?2) ORDER BY a.state = 'open' DESC, a.at DESC LIMIT ${MARKET_SHOWN}`).bind(me, nowS - RECENT_S).all();
     const { results: bids = [] } = await db.prepare(`SELECT b.*, a.state AS auction_state, a.ends_at, a.high, a.opening, a.bids AS count, a.region AS auction_region,
-        a.wear, p.recipe, p.quality, p.seed, p.maker, p.marked, p.dye, p.template, p.material AS dfu_material, p.provenance
-      FROM market_bids b JOIN market_auctions a ON a.id = b.auction JOIN products p ON p.provenance = a.provenance
+        a.wear, ${GONE_RECIPE_SQL}, p.quality, p.seed, p.maker, p.marked, p.dye, p.hand, p.template, p.material AS dfu_material, a.provenance
+      FROM market_bids b JOIN market_auctions a ON a.id = b.auction LEFT JOIN products p ON p.provenance = a.provenance   -- AUDIT PROF-541 R2-S4
       WHERE b.bidder = ?1 AND (b.state = 'high' OR b.at > ?2 OR a.closed_at > ?2)   -- AUDIT 31 S3: and a week from its auction's close
       ORDER BY b.state = 'high' DESC, b.at DESC LIMIT ${MARKET_SHOWN}`).bind(me, nowS - RECENT_S).all();
     return {
@@ -815,8 +821,12 @@ async function listGood(ctx, player, env, { character, region, item, pick, price
   if (!Number.isSafeInteger(pick) || pick < 0) return { error: 'bad-act' };
   if (goodRefusal(item)) return { error: 'market-not-good' };
   if (typeof item.provenance === 'string') {
-    const p = await db.prepare('SELECT owner FROM products WHERE provenance = ?1').bind(item.provenance).first();
+    const p = await db.prepare('SELECT owner, bought_with FROM products WHERE provenance = ?1').bind(item.provenance).first();
     if (p?.owner === me) return { error: 'market-piece-route' };
+    // AUDIT PROF-541 R2-S2: another's make keeps its wall from the pack too - a piece bought with Drakes (or made of goods
+    // they bought, B7) never lists for gold, as the piece route's rule (listPiece's bought_with); this route lists for
+    // gold alone, so a gold-bought piece passes
+    if (p?.bought_with === 'marks') return { error: 'market-drakes-goods' };
   }
   if (await overRate(ctx, `market-post:${me}`, MARKET_POSTS_MAX, MARKET_WINDOW_S)) return { error: 'market-rate' };
   await settle(ctx, player);

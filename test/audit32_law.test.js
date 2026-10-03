@@ -110,9 +110,11 @@ test('AUDIT 32 L3: every garment takes a dye - DFU\'s "unchangeable" shirts (178
 });
 
 test('AUDIT 32 S1 (Mac: "Whatever you think is best"): a recipe made wholly of goods only a counter sells - the Weavers\' Linen and Wool, never gathered - pays no first-craft bonus; a boot\'s Cured Leather, Silk, the planks and every gathered good keep 3.2\'s 500', () => {
-  assert.deepEqual([...COUNTER_ONLY], ['cloth:linen', 'cloth:wool']);
-  // the smith's stock is gathered too (PROF4, PROF7): no counter good but the Weavers' is counter-only
-  assert.deepEqual(STOCKS.map((s) => s.key).filter((k) => COUNTER_ONLY.includes(k)).sort(), ['cloth:linen', 'cloth:linen', 'cloth:wool'], 'the furnisher\'s Linen and the Weavers\' two');
+  // PIN MOVED (PROF12): and the Apothecaries' sixteen after them (Professions-Arc 4.5, 37) - never gathered either
+  assert.deepEqual([...COUNTER_ONLY].slice(0, 2), ['cloth:linen', 'cloth:wool']);
+  assert.ok(COUNTER_ONLY.slice(2).length === 16 && COUNTER_ONLY.slice(2).every((k) => k.startsWith('reagent:')));
+  // the smith's stock is gathered too (PROF4, PROF7): no counter good but the Weavers' (and PROF12's Apothecaries') is counter-only
+  assert.deepEqual(STOCKS.map((s) => s.key).filter((k) => COUNTER_ONLY.includes(k) && !k.startsWith('reagent:')).sort(), ['cloth:linen', 'cloth:linen', 'cloth:wool'], 'the furnisher\'s Linen and the Weavers\' two');
   const unpaid = RECIPES.filter((r) => !firstCraftPays(r));
   assert.deepEqual([unpaid.length, unpaid.filter((r) => r.kind === 'garment').length], [152, 144]);
   assert.ok(unpaid.every((r) => r.profession === 'outfitting' && r.inputs.length > 0 && r.inputs.every((i) => COUNTER_ONLY.includes(i.key))));

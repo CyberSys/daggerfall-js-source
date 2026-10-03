@@ -85,6 +85,8 @@ const GOODS_SAID = 8;
 /** The words that say the view a press was made from has moved - read again (AUDIT 31 B8: the book's own list, so the
  *  tab and the book never disagree - a bid that leads, a bid standing, a bid overtaken as it was decided). */
 const MOVED = MARKET_MOVED;
+/** AUDIT PROF-541 R2-C7: why a spoiled dish of your own make does not list. */
+export const SPOILED_DISH_WHY = 'spoiled - only a fresh dish of your own make goes to the market';
 /** AUDIT 30 U11: the words that say the market is not this account's. */
 const SHUT = ['market-closed', 'prof-need-account'];
 const plural = (n, one) => `${n.toLocaleString('en-US')} ${one}${n === 1 ? '' : 's'}`;
@@ -141,12 +143,14 @@ export function medianLineNode(line) {
  *   putBack: (item: any, where: string) => void, mint: (piece: any, why: string) => void, pieceName: (piece: any) => string,
  *   drop?: (item: any, where: string) => void,
  *   weavers: ReadonlyArray<{ key: string, marks: number }>, stock: (key: string, n: number) => Promise<{ ok: boolean, text?: string }>,
+ *   apothecaries?: ReadonlyArray<{ key: string, marks: number }>,
  *   goods?: () => Array<{ item: any, name: string, why: string|null }>, good?: (item: any) => { offered: any, pick: number, take: () => ((() => void) | null) },
  *   goodName?: (rec: any) => string,
  *   board?: number[]|null, tithe?: () => number|null,
  * }} m the host's market (scenes/world.js); `drop` - a piece a settled listing took, out of the save (AUDIT 30 C3); MARKET-ANY:
  *   `goods` - the pack's pieces, each with why it may not list (null: it may), `good(item)` - the piece's wire record, its
- *   index in the save and its taking, `goodName` - a pack piece's record named as the pack names it
+ *   index in the save and its taking, `goodName` - a pack piece's record named as the pack names it; PROF12: `apothecaries` the
+ *   Apothecaries' counter's sixteen (PROF0 4.5)
  *   SEAT1d: `board` the board's town pixel - a listing's, an auction's and a buy's courier's Tithe is its seat's;
  *   AUDIT SEATS-3 D3: `tithe()` that seat's Tithe in whole percents (0: unheld), or null while the seats' list is unread
  * @param {{ busy: () => boolean, run: (start: () => Promise<any>) => Promise<void>, rerender: () => void, nowS: () => number,
@@ -455,6 +459,29 @@ export function createMarketTab(m, ui) {
     return box;
   }
 
+  /** PROF12 (PROF0 4.5: "The Apothecaries' counter, the supplier's second"): the sixteen ingredients DFU's potion recipes need
+   *  and no gathering yields, a measure at a time, into the Stores for the alchemy station - the Weavers' counter's shape. */
+  function apothecariesNode() {
+    const box = el('div', 'market-counter');
+    box.append(el('h4', null, 'The Apothecaries\' counter'));
+    for (const w of m.apothecaries ?? []) {
+      const row = el('div', 'market-counterrow');
+      const count = () => intOf(st.weave[w.key] ?? 1, 1, 100);
+      const inp = numberInput(count(), 1, 100, `Measures of ${m.name(w.key)}`, `apothecary|${w.key}`);
+      const b = button('market-weave', '', () => ui.run(() => m.stock(w.key, count())));
+      const refresh = () => {
+        b.textContent = `Buy for ${marksText(w.marks * count())}`;
+        b.disabled = short(w.marks * count()) || ui.busy();   // the Weavers' AUDIT 30 U12, U13
+      };
+      inp.oninput = () => { st.weave[w.key] = intOf(inp.value, 1, 100); refresh(); };
+      refresh();
+      row.append(el('b', null, m.name(w.key)), el('span', 'market-price', `${marksText(w.marks)} a measure`), inp, b);
+      box.append(row);
+    }
+    box.append(el('p', 'notice-tip', 'For the alchemy station, into your Stores.'));
+    return box;
+  }
+
   /** MARKET-ANY: how the service says a crafted piece the save holds may list ("My listings" reads it, `ways`) - `yours`,
    *  `other`, `elsewhere`, `none` - or null while it has not said. */
   const heldState = (pv) => (st.view === 'mine' ? st.data?.ways?.[pv] ?? null : null);
@@ -464,6 +491,9 @@ export function createMarketTab(m, ui) {
   const craftedWhy = (item) => {
     if (typeof item?.provenance !== 'string') return null;
     const h = heldState(item.provenance);
+    // AUDIT PROF-541 R2-C7: a dish of your own make spoiled since it was cooked lists neither way - its record mints it
+    // fresh (smithItems.js asMinted), so the Crafted list leaves it out - and is said so, never "list it as a crafted piece"
+    if (h === 'yours' && (item.foodStage ?? 0) > 0) return SPOILED_DISH_WHY;
     return h === 'other' || h === 'none' ? null : h === 'yours' ? 'your own make - list it as a crafted piece' : h === 'elsewhere' ? 'on the market already' : 'being looked up';
   };
   function listForm() {
@@ -558,7 +588,7 @@ export function createMarketTab(m, ui) {
         // GOLD-MARKET: no fee now - each sale pays its share and the tax; the gold is held for the seller to collect
         // MARKET-ANY: a piece from the pack - where it goes, and why gold alone
         : st.list.kind === 'item' ? `No fee to list: its sale pays 1% and ${saleTax(100)}% tax out of its price. It leaves your pack now and stands on the boards of ${m.regionName} for 72 hours; the gold is held for you to collect into your bank (${goldText(goldSaleOf(0, worth()).gets)} if it sells). If you cancel, or it does not sell, it comes back to your pack. A piece from your pack sells for gold alone.`
-        : gold ? `No fee to list: each sale pays 1% and ${saleTax(100)}% tax out of its price. It stands on the boards of ${m.regionName} for 72 hours; the gold is held for you to collect into your bank (${goldText(goldSaleOf(0, worth()).gets)} if it all sells). Only what you gathered, made or bought with gold sells for gold.`
+        : gold ? `No fee to list: each sale pays 1% and ${saleTax(100)}% tax out of its price. It stands on the boards of ${m.regionName} for 72 hours; the gold is held for you to collect into your bank (${goldText(goldSaleOf(0, worth()).gets)} if it all sells). Only what you gathered, made of your own or gold-bought goods, or bought with gold sells for gold - not goods bought with silver, nor pieces made with them.`
         : st.list.kind === 'auction'
           ? `Listing fee ${marksText(fee)}, kept if you cancel (only while no bid stands). It stands on the boards of ${m.regionName} for ${AUCTION_S / 3600} hours; each bid must be ${AUCTION_RAISE_PCT}% over the last, and a bid with less than ${AUCTION_LATE_S / 60} minutes left adds ${AUCTION_ADD_S / 60} more. The highest bid buys it; you receive it less ${less}.`
           : `Listing fee ${marksText(fee)}, kept if you cancel. It stands on the boards of ${m.regionName} for 72 hours; a sale pays you its price less ${less} (${marksText(sellerGets(worth(), pct ?? 0))} if it all sells${pct == null ? ', before any Tithe' : ''}).`;
@@ -762,6 +792,7 @@ export function createMarketTab(m, ui) {
       if (st.data && !rows.length) list.append(el('p', 'notice-empty', st.view === 'materials' ? 'Nothing of that is listed on the Bay\'s boards.' : 'No crafted piece of that kind is listed.'));
       box.append(list);
       if (st.view === 'materials') box.append(weaversNode());
+      if (st.view === 'materials' && (m.apothecaries ?? []).length) box.append(apothecariesNode());   // PROF12
     } else if (st.view === 'goods') {
       // MARKET-ANY: the pieces listed from packs, in gold - bought off the purse as any gold row
       box.append(filtersNode(GOODS_FAMILIES));

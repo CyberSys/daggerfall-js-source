@@ -166,12 +166,12 @@ export const decorPriceText = (price) => (price == null ? '...' : `${price} gold
 
 /**
  * WHY A PIECE CANNOT BE PLACED, or null when it can: its size is still being read (or could not be), the room is
- * full, or the gold is short.
- * @param {{ price: number|null, ready: boolean, gold: number, count: number, cap: number, yard?: boolean }} v
+ * full, or the gold is short. AUDIT GUILD-YARD: `hall` - a guild hall's yard is the hall's, never "your yard".
+ * @param {{ price: number|null, ready: boolean, gold: number, count: number, cap: number, yard?: boolean, hall?: boolean }} v
  */
-export function decorWhyNot({ price, ready, gold, count, cap, yard = false }) {
+export function decorWhyNot({ price, ready, gold, count, cap, yard = false, hall = false }) {
   if (price == null) return ready ? 'Its size cannot be read, so it has no price.' : 'Its size is still being read.';
-  if (count >= cap) return `${yard ? 'Your yard' : 'This room'} already holds ${cap} pieces.`;   // HOME-YARD (AUDIT): a yard said "this room"
+  if (count >= cap) return `${yard ? (hall ? "The hall's yard" : 'Your yard') : 'This room'} already holds ${cap} pieces.`;   // HOME-YARD (AUDIT): a yard said "this room"; AUDIT GUILD-YARD: a hall's yard is nobody's own
   if (price > gold) return `You need ${price - gold} more gold.`;
   return null;
 }
@@ -853,7 +853,7 @@ export function createDecorPanel({
       paintBaseSide();
     } else {
       const free = sel?.kind === 'own' || mode === 'look';   // DECOR2a: one's own costs nothing (DECOR2b: nor its look)
-      const why = sel ? decorWhyNot({ price: free ? 0 : priceOf(sel), ready: free || !!view?.ready, gold: view?.gold ?? 0, count: view?.count ?? 0, cap: view?.cap ?? 0, yard: !!view?.yard }) : null;
+      const why = sel ? decorWhyNot({ price: free ? 0 : priceOf(sel), ready: free || !!view?.ready, gold: view?.gold ?? 0, count: view?.count ?? 0, cap: view?.cap ?? 0, yard: !!view?.yard, hall: !!view?.hall }) : null;
       pickWhy.textContent = why ?? '';
       place.disabled = !sel || why !== null;
       const label = mode === 'own' && sel?.looks ? DECOR_LOOK_BUTTON : 'Place';   // DECOR2b: furniture chooses its look first

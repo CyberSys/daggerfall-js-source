@@ -124,7 +124,8 @@ test('SEAT2b part two THE HOST\'S SEAMS: a members\' Harbour is the travel map\'
   assert.match(readFileSync(new URL('../src/systems/travelOptions.js', import.meta.url), 'utf8'), /hasPort: \(mapId\) => hasPortFor\(mapId\),/);
   assert.match(W, /const seaPixel = \(x, y\) => isWaterPixel\(maps\.getClimateIndex\(x, y\), woods\.getHeightMapValue\(x, y\)\);/);
   assert.match(W, /port: coastalAt\(town\.px, town\.py, seaPixel, csaIsPortTown\(town\.px, town\.py\)\),/);
-  assert.match(W, /const hall = seatHere\(_musicLoc\?\.mapTableData\?\.mapId\);\n\s+const seat = hall && hall\.holder\?\.guild\?\.id === \(guildBook\?\.guild\?\.id \?\? null\) && stationSteps\(recipeById\(recipe\)\?\.profession, hall\.forts \?\? \{\}\) > 0 \? hall\.key : null;/);
+  assert.match(W, /const \{ seat \} = myHall\(recipeById\(recipe\)\?\.profession\);/);   // PIN MOVED (AUDIT PROF-541 R2-H1): fortLaw.js hallStepsFor (prof9_client.test.js drives it)
+  assert.match(W, /const myHall = \(profession\) => hallStepsFor\(seatHere\(_musicLoc\?\.mapTableData\?\.mapId\), guildBook\?\.guild\?\.id \?\? null, profession\);/);
   assert.match(W, /name: typeof playerEntity\?\.name === 'string' \? playerEntity\.name : null, seat \}, profMintCraft\);/);
   assert.match(W, /\{ const g = guildBook\?\.guild\?\.id \?\? null; if \(g && seatBook\?\.towersDue\(g\)\) seatBook\.towers\(g, \(t\) => townTalk\.say\(t, 6\)\)\.catch\(\(\) => \{\}\); \}/);
   assert.match(W, /const made = rec\?\.kind === 'siege' \? storedText\(rec\.name, Number\(r\.data\.count\) \|\| 1\) : craftedText\(mintPieces\(r\.data\)\);/);

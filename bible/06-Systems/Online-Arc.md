@@ -4786,7 +4786,7 @@ with a marked top-left pixel on its last row).
 
 *"During online play, certain enemies cant be damaged."*
 
-`src/scenes/worldModes.js:7572` read, on one physical line:
+`src/scenes/worldModes.js:7574` read, on one physical line:
 
 ```js
 useMagicItem: (item) => host.useMagicItem?.(item),   // HT1: the torch keys onFoeHit: (hit) => host.onFoeHit?.(hit),   // WORLD2: a puppet's blow goes to the host
@@ -4801,7 +4801,7 @@ appended its own note to the end of the line that already carried
 **Why that is an invulnerable enemy.** Online, a joiner applies no local
 damage to a layout foe - `damageFoe`'s non-authority arm hands the blow
 to the room's host through `opts.onFoeHit?.(...)` and RETURNS
-(`dungeonContext.js:5590`). With the property missing that call is a
+(`dungeonContext.js:5591`). With the property missing that call is a
 no-op on `undefined`: no damage, no frame, no warning, nothing on the
 console. Every layout foe in every online dungeon absorbed every blow
 from everyone but the room's authority, for eight slices, in silence.
@@ -4928,9 +4928,9 @@ arrival, that is not rare. The blow is dropped instead.
   foe's maul, and your own Daedroth all do literally nothing to a
   puppet. The first two are WORLD2's law on purpose; the third is a gap
   in it.
-- **A foe's blast on a puppet is credited to ME.** `world.js:8783` and
+- **A foe's blast on a puppet is credited to ME.** `world.js:8921` and
   `:2925` pass `foeSinks: (f) => enchantFoeSinks(f)`, dropping the
-  provenance argument `applySpellToFoe` hands them (`hostMagic.js:474`)
+  provenance argument `applySpellToFoe` hands them (`hostMagic.js:475`)
   - the same shape AUDIT WORLD6b-iii(a) B2 fixed one layer down.
   Threading it touches four hosts.
 - **A building interior streams no foes at all.** `makeInteriorFoes`
@@ -10445,6 +10445,27 @@ Pinned: `test/guild_yard.test.js` (9); re-aimed `test/guild1d_service.test.js` (
 ACCOUNT_VERSION pins (`acct65`). `tools/mutants/guild_yard.json` (17, all dead); `guild1d.json`'s hall-yard record now
 a palace's (equivalent, as before), `housing.json`'s and `fb1001_yard.json`'s re-aimed by content.
 
+- **Audited** (2026-10-02, AUDIT GUILD-YARD; `acct66`, no migration): the town names a hall's `keeper` as OWNS keeps it -
+  of the rank AND a realm character (`homesInTown`'s `me_realm`; a local character of an Officer's rank had a decorator
+  every write of which was refused) (Y1); between two kept lots (a home's owner who keeps the hall beside it) the
+  decorator opens the lot under the feet before one only near, then the one whose house stands nearest - never the
+  first the town stood (`ownYardHere`, C1); the painted word is read before the write, a hall's failure "The hall could
+  not be painted." (`paintAct`, C2); a rank moved (the guild book's refresh, `guildHall.info` - not an online frame's
+  arm) reads the town again forced, as `onHall` does (C3); a hall's yard says "inside the hall" and "The hall's yard
+  already holds..." (`YARD_IN_HALL`, `decorWhyNot`'s `hall`). `test/guild_yard.test.js` (15, six new); the
+  `guild_yard.json` mutants 29, all dead (the audit's three survivors - the tool's `where`, OWNS's home without its
+  character, the hall's word for every yard refusal - among them); `guild1d.json`'s palace record renamed
+  (`GUILD1d-the-palace-yard-refused-only-in-the-write`, equivalent as before).
+- **Audited again** (2026-10-03, AUDIT PROF-541; `acct70`, no migration): G1 - C3 compared the rank only when
+  `guildHall.info` took the look itself, and every other look (the Guild tab's, the seat Edicts' `guildId`, `guildGone`,
+  an act's) came first, so a demoted Officer kept the yard's decorator a minute: the guild book compares `id|rank|hall`
+  in `_refresh` at every look and tells its host (`onRank`, beside `onOrders`), which bumps the registry and reads the
+  town again forced (world.js, outside `onlineFrame`); `info` only looks. G2 - Y1's realm clause also took the hall
+  door's "Who may enter" (`homeHallRows`, worldModes.js's press) from a local Officer whom `setHallEntry` (rank alone)
+  answers: the town names `hallEntry` apart, by the rank, and the row and the press go by it. G3 - the ghost's bar in a
+  full hall yard (`placingWhy`'s `hall`) and the commit's cap pinned. `test/guild_yard.test.js` (16, one new); the
+  `guild_yard.json` mutants 37, all dead.
+
 ### GUILD1e - a guild's own board
 
 (2026-09-30, Mac: "Finish the seats" - the Seats arc's slices in order, sieges
@@ -11606,8 +11627,9 @@ the day the JS check spares). Patch notes: `PATCH-NOTES-Seats.md` (Fortification
   stands in (`seat`, the host's word where its guild holds the town and a hall of the recipe's profession stands); the
   service asks the Charter again (`seatStepsFor`: the crafting character a member of the holder) and lays the steps on
   beside the clean act's, nothing past Masterwork. The client's word on the place, bounded as the clean act's is: the
-  holder's members alone, its own seat's halls. The Apothecary's professions craft at no station yet (no recipe is
-  Alchemy's, Cooking's or Jewelcrafting's): its steps wait on their slices.
+  holder's members alone, its own seat's halls. The Apothecary's professions crafted at no station then (no recipe was
+  Alchemy's, Cooking's or Jewelcrafting's): its steps waited on their slices - BUILT since (PROF12, `Professions-Arc.md` 37;
+  Seats-Arc 7.5's note: a jeweller's quality step, a dish's XP half again, a brew's Potent +10, a step a tier).
 - **The Harbour** (7.5: "coastal seats only ... ships dock at the seat; the town is a Travel Options port for members").
   DECIDED: a coast is the sea beside the town - its own map pixel or one of the eight about it water (the port's one
   water law, `isWaterPixel`, over CLIMATE.PAK and WOODS.WLD), or a harbour already drawn there (`coastalAt`); part one
@@ -13365,7 +13387,7 @@ Ledger A departure, extended (`Port-Ledger.md` section A, THE MARKET).
 - **FOUND and fixed:** the Market tab did not read again on `auction-low` - a bid another overtook left the old next bid
   on screen; `MARKS1-13` had aimed at a trigger `0032_market.sql` rebuilt, and survived unseen since PROF5.
 - **Pinned:** `test/prof5b_law.test.js`, `test/prof5b_service.test.js`, `test/prof5b_client.test.js`;
-  `tools/mutants/prof5b.json` (40: 35 dead, five recorded equivalent).
+  `tools/mutants/prof5b.json` (44: 39 dead, five recorded equivalent - AUDIT PROF-541 R2-S4's four among the dead).
 
 ## PROF6 (2026-09-29, Mac: "continue") - Guild writs, the guild Stores and commissions
 
@@ -14029,7 +14051,7 @@ gold can now change hands the way a guild deposit or a house's price does - in t
   migration and the service before the client: an old service refuses every gold word as a bad act, and an old client
   beside a new service sees the Drakes' market as before.
 - **Pinned:** `test/goldmarket_service.test.js` (8) and `test/goldmarket_client.test.js` (9); the schema's table list
-  (accountworker ACC1b). Mutants: `tools/mutants/goldmarket.json` (34, all dead). Patch notes: `PATCH-NOTES-The-Gold-Market.md`.
+  (accountworker ACC1b). Mutants: `tools/mutants/goldmarket.json` (35, all dead - AUDIT PROF-541 R2-S3's words among them). Patch notes: `PATCH-NOTES-The-Gold-Market.md`.
 
 ## PROF8 (2026-09-30, Mac: "Continue the arc"; "XP follows your rank") - Fishing with the net
 

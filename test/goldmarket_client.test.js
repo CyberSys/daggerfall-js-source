@@ -14,7 +14,7 @@ import { createMarketBook, MARKET_KEPT_TEXT } from '../src/net/marketBook.js';
 import { realmGoldAct } from '../src/systems/realmSaves.js';
 import { createProfBook } from '../src/net/profBook.js';
 import { storesRows, storesSplit, GOLD_GOODS_LINE } from '../src/ui/profPages.js';
-import { createMarketTab, priceText, listableUnits } from '../src/ui/marketTab.js';
+import { createMarketTab, priceText, listableUnits, SPOILED_DISH_WHY } from '../src/ui/marketTab.js';
 import { accountRefusalText } from '../src/net/accountClient.js';
 import { courierFee, roadPixels, goldText, goldSaleOf } from '../src/net/marketLaw.js';
 import { MARK_WORTH_GOLD } from '../src/net/marksLaw.js';
@@ -279,6 +279,8 @@ test('GOLD-MARKET refusals: every new word the service says has its sentence', (
     assert.notEqual(accountRefusalText(w), accountRefusalText('no-such-word-at-all'), `${w} has words`);
   }
   assert.match(accountRefusalText('market-gold-goods'), /pack or back on the market for gold/);
+  assert.match(accountRefusalText('market-drakes-goods'), /^Goods bought with silver, and pieces made with them, sell only for silver\./, 'AUDIT PROF-541 R2-S3: a piece made of counter goods is silver\'s, in words');
+  assert.match(readFileSync(new URL('../src/ui/marketTab.js', import.meta.url), 'utf8'), /not goods bought with silver, nor pieces made with them\./, 'AUDIT PROF-541 R2-S3: the gold form\'s own word agrees');
 });
 
 // ─── THE WIRING ──────────────────────────────────────────────────────
@@ -292,4 +294,29 @@ test('GOLD-MARKET wiring: the host gives the market book the realm act over the 
   assert.match(src('server-account/src/index.js'), /'\/v1\/market\/gold': \(\) => marketGoldCollect\(mctx, who\.player, env, body\),/);
   assert.match(src('server-account/src/index.js'), /'\/v1\/market\/buy': \(\) => marketBuy\(mctx, who\.player, env, body\),/);
   assert.match(src('server-account/src/service.js'), /'\/v1\/market\/gold',/);
+});
+
+test('AUDIT PROF-541 R2-C7: a dish of your own make spoiled since it was cooked lists neither way - the Crafted list leaves it out (its record mints it fresh: smithItems.js asMinted), and the pack\'s list says why, never "list it as a crafted piece"', async () => {
+  const fresh = { templateIndex: 531, name: 'Bread', provenance: 'aaaaaaaaaaaaaaaa' };
+  const spoiled = { templateIndex: 531, name: 'Bread', provenance: 'bbbbbbbbbbbbbbbb', foodStage: 2 };
+  const book = {
+    state: { open: true, balance: 100, road: [], counts: {}, goldHeld: 0 }, pending: 0, cached: () => null, goldOk: true, purse: () => 500,
+    read: async () => ({ ok: true, data: { rows: [], orders: [], ways: { [fresh.provenance]: 'yours', [spoiled.provenance]: 'yours' } } }),
+    settle: async () => ({ ok: true, settled: 0 }),
+  };
+  let root = null;
+  const m = {
+    book, stores: () => new Map(), region: DF, regionName: 'Daggerfall', regionNameOf: () => 'Daggerfall', hubs: HUBS, name: (k) => k, countName: (k) => k,
+    pieces: () => [], take: () => true, putBack: () => {}, mint: () => {}, pieceName: () => 'a piece', weavers: [], stock: async () => ({ ok: true }),
+    goods: () => [fresh, spoiled].map((item) => ({ item, name: item.name, why: null })), good: () => null, goodName: (r) => (r.foodStage ? 'Mouldy Bread' : 'Bread'),
+  };
+  const tab = createMarketTab(m, { busy: () => false, run: async (start) => start(), rerender: () => draw(), nowS: () => 0, alive: () => true });
+  function draw() { root?.remove?.(); root = tab.body(); document.body.append(root); }
+  await tab.open();
+  [...root.querySelectorAll('button')].find((b) => b.textContent === 'My listings').onclick();
+  await new Promise((r) => setTimeout(r, 0));
+  const what = [...root.querySelectorAll('select')].find((x) => x.getAttribute('aria-label') === 'What to list');
+  what.value = 'item'; what.onchange();
+  assert.ok(root.textContent.includes(`Not for the market: Bread (your own make - list it as a crafted piece); Mouldy Bread (${SPOILED_DISH_WHY}).`), root.textContent);
+  root.remove();
 });

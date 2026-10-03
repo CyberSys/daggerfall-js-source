@@ -140,7 +140,7 @@ test('AUDIT 29 B2: a home\'s Forge station is offered, and sold, only where a Fo
   setPref('skin', 'enhanced');
   assert.equal(forgeOffered(), true);
   // PIN MOVED (PROF11): the mason's bench is a seventh home station, offered by the same gate
-  assert.deepEqual(stationsOffered(), ['alchemy', 'spells', 'enchant', 'forge', 'workbench', 'loom', 'mason'], 'PROF4: the workbench by the same gate; PROF7: the loom; PROF11: the mason\'s bench');
+  assert.deepEqual(stationsOffered(), ['alchemy', 'spells', 'enchant', 'forge', 'workbench', 'loom', 'mason', 'jeweller'], 'PROF4: the workbench by the same gate; PROF7: the loom; PROF11: the mason\'s bench; PIN MOVED (PROF10): the jeweller\'s bench');
   assert.match(FORGE_COLD_LINE, /Stores page/);
   setProfessionsPages(null);
   const src = (await import('node:fs')).readFileSync(new URL('../src/scenes/decorTool.js', import.meta.url), 'utf8');

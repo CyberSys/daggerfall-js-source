@@ -135,6 +135,16 @@ export const ITEM_FIELDS = Object.freeze({
   marked: bool(),
   // PROF7: a Butcher's Raw Meat, which spoils half as fast (PROF0 3.3; survival/food.js rotFoodDay)
   slowRot: bool(),
+  // PROF9: a Provisioner's provisions, which never spoil - their dishes and the foods they take from the Stores (PROF0
+  // 3.3; survival/food.js rotFoodDay); and a Chef's feast, which lasts half again (recipeLaw dishHand) - true, or absent
+  noRot: bool(),
+  chef: bool(),
+  // AUDIT PROF-541 J6: a crafted piece of jewellery's jeweller's hand (recipeLaw JEWEL_HAND_*: 1 a Goldsmith's Silver, 2 a
+  // Gemcutter's gem) - the share its points' cap allows (enchanting.js craftedJewelPoints), or absent
+  hand: int({ min: 1, max: 2 }),
+  // PROF12: a Potent potion, brewed at an alchemy station (net/alchemyLaw.js) - its share of magnitude, 25 (a Master
+  // Alchemist's 40), or absent
+  potent: int({ min: 25, max: 40 }),
   // SELL-AS-FOUND (AUDIT ECON O1): the condition the world handed a piece over at - Roleplay & Realism: Items' rolls on
   // a pile, a body and a shelf (systems/rriRealism.js) - which an online counter's sale reads at best (tradeModes.js
   // saleConditionPercentage); absent on a piece handed over whole
