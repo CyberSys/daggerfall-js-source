@@ -8649,6 +8649,13 @@ export async function bootWorld(canvas, renderer, params, status) {
         activeDungeon: () => walkMode && modeNow() === 'dungeon' && !modes?.dungeonCtx?.uiOverlayActive && !modes?.deathUp?.() && !modes?.transitioning,   // PROF2: a dungeon's veins
         onSettle: () => { profBook.settle(profMint, profMintCraft).catch(() => {}); }, pointer: (want) => { const relock = () => { if (!cursorActive() && !gamePaused() && !pointerSurfaces.size && !(modes?.modalWindowUp?.() ?? false) && !overlayOpen() && !travelView?.active) requestLook(canvas); }; if (want === 'look') { if (cursorActive()) { setCursorActive(false); relock(); } return null; } if (controllerLook()) return null; const off = holdCursor(); return () => { if (!off()) return; if (backButtonHeld) escRelock = relock; else relock(); }; },   // HERB-CURSOR (FIELD BUGS 2026-10-02 part four): the Basket's glints are clicked with the cursor, held free while it plays and the look taken back after (never under a window, a surface, an overlay, the travel view or the player's own freed mouse); a vein's, a body's or the net's act is aimed by the look - a mouse the player freed is taken back, under the same gates (AUDIT A4). AUDIT A1: an Escape that ended the act asks on its keyup (escRelock) - a lock taken inside its keydown was the browser's to end on the keyup, and ESC-LOCK read that as a second Escape; C8: a pad in hand strikes with its trigger, and no hold shows the OS pointer
       });
+      /** AUDIT PROF-541 B4: the town the alchemy station stands in, where my guild holds it - its Apothecary's steps, and
+       *  the seat a brew names (null where no step stands) */
+      const alchemyHall = () => {
+        const hall = seatHere(_musicLoc?.mapTableData?.mapId);
+        const steps = hall && hall.holder?.guild?.id === (guildBook?.guild?.id ?? null) ? stationSteps('alchemy', hall.forts ?? {}) : 0;
+        return { steps, seat: steps > 0 ? hall.key : null };
+      };
       setProfessionsPages({
         book: profBook, name: (k) => materialLabel(k), withdraw: (k, n) => profBook.withdraw(k, n, profMint),
         settle: () => profBook.settle(profMint, profMintCraft),   // AUDIT 29 C4: a kept withdrawal asked again when the Stores page opens; PROF3: and a kept craft
@@ -8709,12 +8716,14 @@ export async function bootWorld(canvas, renderer, params, status) {
         // fee a brew; a home's), a brew through the book - its potions into the pack, kept until minted, the fee paid as they
         // are - under the Apothecary's steps where my guild holds the town; the transmutations ride the smelt below
         alchemy: () => modes?.alchemyHere?.() ?? null,
+        // AUDIT PROF-541 B4: the Apothecary's steps where my guild holds the town the station stands in - the station's
+        // Potent chance says them, as the service adds them (professions.js seatStepsFor)
+        alchemySteps: () => alchemyHall().steps,
         brew: async (potion, keys) => {
           const f = modes?.alchemyHere?.() ?? null;
           if (!f) return { ok: false, text: 'You are not at an alchemy station.' };
           if (f.fee > 0 && totalGoldAmount(playerEntity) < f.fee) return { ok: false, text: `The alchemist asks ${f.fee} gold for the use of the station.` };
-          const hall = seatHere(_musicLoc?.mapTableData?.mapId);
-          const seat = hall && hall.holder?.guild?.id === (guildBook?.guild?.id ?? null) && stationSteps('alchemy', hall.forts ?? {}) > 0 ? hall.key : null;
+          const { seat } = alchemyHall();
           const r = await profBook.brew(potion, keys, { fee: f.fee > 0 ? f.fee : 0, seat }, profMintCraft);
           if (!r?.ok) return { ok: false, text: r?.kept ? BREW_KEPT_TEXT : r?.error === 'prof-busy' ? 'Your hands are busy with another craft.' : accountRefusalText(r?.error) };
           const paid = f.fee > 0 && !r.elsewhere;
@@ -8736,15 +8745,39 @@ export async function bootWorld(canvas, renderer, params, status) {
           if (f.fee > 0 && totalGoldAmount(playerEntity) < f.fee) return { ok: false, text: `The enchanter asks ${f.fee} gold to take a piece apart.` };
           const it = (playerEntity.items ?? []).find((x) => x?.provenance === provenance) ?? null;
           const name = it ? itemLongName(it) : 'the piece';
-          const r = await profBook.disenchant(provenance);
-          if (!r?.ok) return { ok: false, text: accountRefusalText(r?.error) };
-          // the piece out of the pack - once, on the first answer heard (a `repeat` finds it gone already)
-          const at = (playerEntity.items ?? []).findIndex((x) => x?.provenance === provenance);
-          if (at >= 0) playerEntity.items.splice(at, 1);
-          const paid = f.fee > 0 && at >= 0;
+          // the piece out of the pack - once (a `repeat` finds it gone already); `out` what this press took, and where
+          let out = null;
+          const takeOut = () => {
+            const at = (playerEntity.items ?? []).findIndex((x) => x?.provenance === provenance);
+            if (at >= 0) out = { piece: playerEntity.items.splice(at, 1)[0], at };
+            return at >= 0;
+          };
+          let r;
+          if (realmSession) {
+            // AUDIT PROF-541 B2: a realm character's piece leaves its RECORD in the disenchant's own batch - the save
+            // checkpointed first, the piece out of the pack inside the hold as the service is first asked (marketBook
+            // postGood's order), back on a refusal; silence ends the session and a join reads the record
+            let asked = false;
+            r = await realmGoldAct({
+              session: realmSession, checkpoint: () => onlineCheckpoint(),
+              reserve: () => () => { if (out) { playerEntity.items.splice(Math.min(out.at, playerEntity.items.length), 0, out.piece); out = null; } },
+              call: (at) => { if (!asked) { asked = true; takeOut(); } return out ? profBook.disenchant(provenance, at) : Promise.resolve({ ok: false, error: 'prof-piece-gone' }); },
+            });
+          } else {
+            r = await profBook.disenchant(provenance);
+            if (r?.ok) takeOut();
+          }
+          if (!r?.ok) {
+            // AUDIT PROF-541 B2: a disenchant of this account took the piece's record already (an answer lost, the save
+            // kept the piece) - the save's copy goes too, as the answer it missed would have taken it
+            if (r?.error === 'prof-no-piece' && r?.why === 'disenchanted' && takeOut()) { saveSoon.changed(); return { ok: false, text: `${name} was disenchanted already - its Essence is in your Stores, and it leaves your pack.` }; }
+            return { ok: false, text: accountRefusalText(r?.error) };
+          }
+          const paid = f.fee > 0 && out != null;
           if (paid) deductGold(playerEntity, Math.min(f.fee, totalGoldAmount(playerEntity)));
           saveSoon.changed();
-          return { ok: true, text: `${name} comes apart into ${r.data.essence} Arcane Essence (+${r.data.xp} Enchanting XP)${paid ? `, and paid the enchanter ${f.fee} gold` : ''}.` };
+          const got = Number.isSafeInteger(r.data?.essence) ? `${r.data.essence} Arcane Essence (+${r.data.xp} Enchanting XP)` : 'Arcane Essence';   // a landed realm act says no more
+          return { ok: true, text: `${name} comes apart into ${got}${paid ? `, and paid the enchanter ${f.fee} gold` : ''}.` };
         },
         facetBand: () => facetBand({ willpower: liveStat(playerEntity, 'willpower'), luck: liveStat(playerEntity, 'luck') }),
         clothing: () => (playerEntity?.gender === 'female' ? 'WomensClothing' : 'MensClothing'),

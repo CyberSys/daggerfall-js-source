@@ -120,7 +120,9 @@
     "tests": [
       "test/prof12_law.test.js",
       "test/prof12_service.test.js"
-    ]
+    ],
+    "equivalent": true,
+    "why": "AUDIT PROF-541 B1: the cauldron must now BE the recipe's own sorted ingredients, which hash to its key by construction - DFU's hash, asked first (law 1), refuses nothing the ingredient comparison does not."
   },
   {
     "name": "PROF12-brewkeys-fewer",
@@ -795,22 +797,24 @@
   {
     "name": "PROF12-svc-potent-always",
     "file": "server-account/src/alchemy.js",
-    "old": "const potent = dice(rand) * 100 < chance ? potentPct(specs[100]) : 0;",
-    "new": "const potent = dice(rand) * 100 <= chance ? potentPct(specs[100]) : 0;",
+    "old": "const potent = dice(rand) * 100 < chance && potentAble(potion) ? potentPct(specs[100]) : 0;",
+    "new": "const potent = dice(rand) * 100 <= chance && potentAble(potion) ? potentPct(specs[100]) : 0;",
     "tests": [
       "test/prof12_service.test.js",
       "test/prof12_apothecary.test.js"
-    ]
+    ],
+    "note": "AUDIT PROF-541 (RE-AIMED by content): potentAble beside the roll."
   },
   {
     "name": "PROF12-svc-potent-share",
     "file": "server-account/src/alchemy.js",
-    "old": "const potent = dice(rand) * 100 < chance ? potentPct(specs[100]) : 0;",
-    "new": "const potent = dice(rand) * 100 < chance ? potentPct(null) : 0;",
+    "old": "const potent = dice(rand) * 100 < chance && potentAble(potion) ? potentPct(specs[100]) : 0;",
+    "new": "const potent = dice(rand) * 100 < chance && potentAble(potion) ? potentPct(null) : 0;",
     "tests": [
       "test/prof12_service.test.js",
       "test/prof12_client.test.js"
-    ]
+    ],
+    "note": "AUDIT PROF-541 (RE-AIMED by content): potentAble beside the roll."
   },
   {
     "name": "PROF12-svc-brew-count",
@@ -833,11 +837,12 @@
   {
     "name": "PROF12-svc-brew-first-again",
     "file": "server-account/src/alchemy.js",
-    "old": "FROM (SELECT CASE WHEN EXISTS (SELECT 1 FROM prof_brews WHERE player = ?1 AND char_id = ?2 AND potion = ?4) THEN 0 ELSE 1 END AS f)",
+    "old": "FROM (SELECT CASE WHEN ?11 > 0 AND NOT EXISTS (SELECT 1 FROM prof_brews WHERE player = ?1 AND char_id = ?2 AND potion = ?4) THEN 1 ELSE 0 END AS f)",
     "new": "FROM (SELECT 1 AS f)",
     "tests": [
       "test/prof12_service.test.js"
-    ]
+    ],
+    "note": "AUDIT PROF-541 (RE-AIMED by content): B6's first only where it pays."
   },
   {
     "name": "PROF12-svc-brew-gold",
@@ -1315,11 +1320,12 @@
   {
     "name": "PROF12-world-brew-no-seat",
     "file": "src/scenes/world.js",
-    "old": "const seat = hall && hall.holder?.guild?.id === (guildBook?.guild?.id ?? null) && stationSteps('alchemy', hall.forts ?? {}) > 0 ? hall.key : null;\n          const r = await profBook.brew(potion, keys, { fee: f.fee > 0 ? f.fee : 0, seat }, profMintCraft);",
-    "new": "const seat = null;\n          const r = await profBook.brew(potion, keys, { fee: f.fee > 0 ? f.fee : 0, seat }, profMintCraft);",
+    "old": "const { seat } = alchemyHall();",
+    "new": "const seat = null;",
     "tests": [
       "test/prof12_client.test.js"
-    ]
+    ],
+    "note": "AUDIT PROF-541 (RE-AIMED by content): the seat off the shared alchemyHall."
   },
   {
     "name": "PROF12-world-brew-unminted",
@@ -1333,11 +1339,12 @@
   {
     "name": "PROF12-world-dis-kept-piece",
     "file": "src/scenes/world.js",
-    "old": "          if (at >= 0) playerEntity.items.splice(at, 1);",
-    "new": "          if (at < 0) playerEntity.items.splice(at, 1);",
+    "old": "if (at >= 0) out = { piece: playerEntity.items.splice(at, 1)[0], at };",
+    "new": "if (at < 0) out = { piece: playerEntity.items.splice(at, 1)[0], at };",
     "tests": [
       "test/prof12_client.test.js"
-    ]
+    ],
+    "note": "AUDIT PROF-541 (RE-AIMED by content): the piece taken by takeOut."
   },
   {
     "name": "PROF12-modes-alchemist-closed",
@@ -1666,6 +1673,217 @@
     "file": "src/ui/profPages.js",
     "old": "turns two of a metal and a Mercury into one of the next",
     "new": "turns three of a metal and a Mercury into one of the next",
+    "tests": [
+      "test/prof12_client.test.js"
+    ]
+  },
+  {
+    "name": "PROF-541-B1-collision",
+    "file": "src/net/alchemyLaw.js",
+    "old": "  if (sorted(/** @type {number[]} */ (templates)) !== sorted(potion.ingredients)) return null;",
+    "new": "  if (sorted(/** @type {number[]} */ (templates)) === 'never') return null;",
+    "tests": [
+      "test/prof12_law.test.js",
+      "test/prof12_service.test.js"
+    ]
+  },
+  {
+    "name": "PROF-541-B3-able",
+    "file": "src/net/alchemyLaw.js",
+    "old": "  return !(/^3,/.test(String(r.effect)) && !(r.secondary?.length) && magnitudeDefault(r.settings ?? {}));",
+    "new": "  return true;",
+    "tests": [
+      "test/prof12_law.test.js",
+      "test/prof12_service.test.js",
+      "test/prof12_client.test.js"
+    ]
+  },
+  {
+    "name": "PROF-541-B3-roll",
+    "file": "server-account/src/alchemy.js",
+    "old": "dice(rand) * 100 < chance && potentAble(potion) ? potentPct(specs[100]) : 0",
+    "new": "dice(rand) * 100 < chance ? potentPct(specs[100]) : 0",
+    "tests": [
+      "test/prof12_service.test.js"
+    ]
+  },
+  {
+    "name": "PROF-541-B3-mint",
+    "file": "src/systems/alchemyItems.js",
+    "old": "potentOk(data?.potent) && potentAble(p) ? data.potent : 0",
+    "new": "potentOk(data?.potent) ? data.potent : 0",
+    "tests": [
+      "test/prof12_client.test.js"
+    ]
+  },
+  {
+    "name": "PROF-541-B3-word",
+    "file": "src/systems/alchemyItems.js",
+    "old": "const potent = potentOk(data?.potent) && potentAble(p);",
+    "new": "const potent = potentOk(data?.potent);",
+    "tests": [
+      "test/prof12_client.test.js"
+    ]
+  },
+  {
+    "name": "PROF-541-B3-line",
+    "file": "src/ui/profPages.js",
+    "old": "  if (potion && !potentAble(potion)) return POTENT_NONE_LINE;",
+    "new": "  if (potion && !potion) return POTENT_NONE_LINE;",
+    "tests": [
+      "test/prof12_client.test.js"
+    ]
+  },
+  {
+    "name": "PROF-541-B4-steps",
+    "file": "src/ui/profPages.js",
+    "old": "potentChance(rank, { distiller: specs?.[50] === DISTILLER, unbruised, steps })",
+    "new": "potentChance(rank, { distiller: specs?.[50] === DISTILLER, unbruised })",
+    "tests": [
+      "test/prof12_client.test.js"
+    ]
+  },
+  {
+    "name": "PROF-541-B4-provider",
+    "file": "src/scenes/world.js",
+    "old": "alchemySteps: () => alchemyHall().steps,",
+    "new": "alchemySteps: () => 0,",
+    "tests": [
+      "test/prof12_client.test.js"
+    ]
+  },
+  {
+    "name": "PROF-541-B6-first",
+    "file": "server-account/src/alchemy.js",
+    "old": "CASE WHEN ?11 > 0 AND NOT EXISTS (SELECT 1 FROM prof_brews",
+    "new": "CASE WHEN NOT EXISTS (SELECT 1 FROM prof_brews",
+    "tests": [
+      "test/prof12_service.test.js"
+    ]
+  },
+  {
+    "name": "PROF-541-B5-delete",
+    "file": "server-account/src/realm.js",
+    "old": "'DELETE FROM prof_unbruised WHERE player = ? AND char_id = ?'",
+    "new": "'DELETE FROM prof_unbruised WHERE player = ? AND char_id = ? AND 0'",
+    "tests": [
+      "test/prof12_service.test.js"
+    ]
+  },
+  {
+    "name": "PROF-541-B2-take",
+    "file": "server-account/src/alchemy.js",
+    "old": "return at >= 0 && tradeableRecord(items[at]) && takeTradeGoods(save, { items: [items[at]], gold: 0 }, [at]) ? null : 'prof-piece-gone';",
+    "new": "return null;",
+    "tests": [
+      "test/prof12_service.test.js"
+    ]
+  },
+  {
+    "name": "PROF-541-B2-guard",
+    "file": "server-account/src/alchemy.js",
+    "old": "...(prep ? [mustChange(db)] : []),",
+    "new": "...([]),",
+    "tests": [
+      "test/prof12_service.test.js"
+    ]
+  },
+  {
+    "name": "PROF-541-B2-first",
+    "file": "server-account/src/alchemy.js",
+    "old": "const side = await realmActFirst(db, player.id, character, realm);   // AUDIT PROF-541 B2",
+    "new": "const side = { at: null };   // AUDIT PROF-541 B2",
+    "tests": [
+      "test/prof12_service.test.js"
+    ]
+  },
+  {
+    "name": "PROF-541-B2-why",
+    "file": "server-account/src/alchemy.js",
+    "old": "? { why: 'disenchanted' } : {}",
+    "new": "? {} : {}",
+    "tests": [
+      "test/prof12_service.test.js"
+    ]
+  },
+  {
+    "name": "PROF-541-B2-why-wire",
+    "file": "server-account/src/index.js",
+    "old": "...(typeof r.why === 'string' ? { why: r.why } : {}), ...(r.error === 'seq'",
+    "new": "...(r.error === 'seq'",
+    "tests": [
+      "test/prof12_service.test.js"
+    ]
+  },
+  {
+    "name": "PROF-541-B2-seq-wire",
+    "file": "server-account/src/index.js",
+    "old": "...(r.error === 'seq' && Number.isSafeInteger(r.seq) ? { seq: r.seq } : {}) }, PROF_STATUS",
+    "new": "...({}) }, PROF_STATUS",
+    "tests": [
+      "test/prof12_service.test.js"
+    ]
+  },
+  {
+    "name": "PROF-541-B2-bucket",
+    "file": "server-account/src/index.js",
+    "old": "disenchantPiece({ ...ctx, bucket: env.SAVES }, who.player",
+    "new": "disenchantPiece(ctx, who.player",
+    "tests": [
+      "test/prof12_service.test.js",
+      "test/prof12_client.test.js"
+    ]
+  },
+  {
+    "name": "PROF-541-B2-decor",
+    "file": "server-account/src/decor.js",
+    "old": "' AND EXISTS (SELECT 1 FROM products WHERE provenance = ? AND owner = ? AND listed = 0)'",
+    "new": "' AND ? IS NOT NULL AND ? IS NOT NULL'",
+    "tests": [
+      "test/prof12_service.test.js"
+    ]
+  },
+  {
+    "name": "PROF-541-B2-book-once",
+    "file": "src/net/profBook.js",
+    "old": "const r = realm ? await Promise.resolve().then(once).catch(() => ({ ok: false, error: 'offline' })) : await ask(once);",
+    "new": "const r = await ask(once);",
+    "tests": [
+      "test/prof12_client.test.js"
+    ]
+  },
+  {
+    "name": "PROF-541-B2-wire",
+    "file": "src/net/accountClient.js",
+    "old": "post('/v1/prof/disenchant', { character, provenance, rid, ...(realm ? { realm } : {}) })",
+    "new": "post('/v1/prof/disenchant', { character, provenance, rid })",
+    "tests": [
+      "test/prof12_client.test.js"
+    ]
+  },
+  {
+    "name": "PROF-541-B2-world-gone",
+    "file": "src/scenes/world.js",
+    "old": "r?.error === 'prof-no-piece' && r?.why === 'disenchanted' && takeOut()",
+    "new": "r?.error === 'prof-no-piece' && r?.why === 'never' && takeOut()",
+    "tests": [
+      "test/prof12_client.test.js"
+    ]
+  },
+  {
+    "name": "PROF-541-B7-bought",
+    "file": "server-account/src/professions.js",
+    "old": "0`).join(' OR ') || '0'} THEN 'marks' END`",
+    "new": "0`).join(' OR ') || '0'} THEN NULL END`",
+    "tests": [
+      "test/prof12_service.test.js"
+    ]
+  },
+  {
+    "name": "PROF-541-B8-full",
+    "file": "src/ui/profPages.js",
+    "old": "b.disabled = _enchant.busy || !!short || full;",
+    "new": "b.disabled = _enchant.busy || !!short;",
     "tests": [
       "test/prof12_client.test.js"
     ]

@@ -14,6 +14,7 @@ import {
   potentPct, potentOk, potentEffect, POTENT, brewXp, templatePoints, piecePoints, essenceOf, ESSENCE_POINTS, disenchantXp, DISENCHANT_XP,
   enchantDiscountPct, enchantGold, ENCHANT_DISCOUNT,
   potentLasts, magnitudeDefault,   // AUDIT PROF12 A3
+  potentAble,   // AUDIT PROF-541 B3
 } from '../src/net/alchemyLaw.js';
 import {
   REAGENTS, APOTHECARY_STOCK, COUNTER_ONLY, ARCANE_ESSENCE, ALCHEMY_FEE, ENCHANT_FEE, TRANSMUTE_RECIPES, TRANSMUTE_LADDER, TRANSMUTER, workSpecOk,
@@ -224,4 +225,20 @@ test('AUDIT PROF12 E3 law (Mac: "2 + Mercury -> 1"): the Transmuter\'s recipe is
   assert.equal(TRANSMUTE_IN, 2);
   for (const r of TRANSMUTE_RECIPES) assert.deepEqual(r.inputs.map((i) => i.n), [2, 1], r.id);
   assert.equal(SPECIALISATIONS.alchemy[100].find((sp) => sp.id === 'transmuter')?.text, 'Two of a DFU metal and a Mercury make one of the next up.');
+});
+
+test('AUDIT PROF-541 B1 law: a cauldron is its recipe\'s own ingredients - DFU\'s int32 hash collides (a Purification with Jade for its Diamond: 4 9 17 27 33 60 62 63; a Healing of 17 19 62 65), and a collision answers no potion; the recipe\'s own, in any order, still does', () => {
+  const k = (t) => ingredientKeys(t)[0];
+  for (const [id, set] of [['purification', [4, 9, 17, 27, 33, 60, 62, 63]], ['healing', [17, 19, 62, 65]], ['healing', [17, 20, 39, 65]]]) {
+    const p = potionById(id);
+    assert.equal(leaf.potionKeyFromCauldron(set), p.key, `${id}: DFU's hash takes ${set}`);
+    assert.equal(brewSpends(p, set.map(k)), null, `${id}: ${set} is no recipe of it`);
+    assert.notEqual(brewSpends(p, [...p.ingredients].reverse().map(k)), null, `${id}: its own, reversed`);
+  }
+});
+
+test('AUDIT PROF-541 B3 law: a potion is Potent-able unless it is a Cure (DFU\'s family 3) of the default magnitude with no second effect - Cure Disease and Cure Poison, instants whose chance a drink bypasses; Purification (its magnitude, its Heal and Invisibility) stays', () => {
+  assert.deepEqual(POTIONS.filter((p) => !potentAble(p)).map((p) => p.id), ['cureDisease', 'curePoison']);
+  assert.equal(potentAble(null), false);
+  assert.equal(potentAble(potionById('purification')), true);
 });

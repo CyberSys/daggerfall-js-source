@@ -349,6 +349,7 @@ export const REFUSALS = Object.freeze({
   'prof-no-piece': 'The counting-house knows no such crafted piece - only a piece a crafter made online can be disenchanted.',
   'prof-not-yours': 'That piece is not yours to disenchant.',
   'prof-piece-busy': 'That piece is listed on the market, on its way to you, or set down in a home - it cannot be disenchanted now.',
+  'prof-piece-gone': 'Your character\'s record does not hold that piece loose in the pack - it cannot be disenchanted.',   // AUDIT PROF-541 B2
   'prof-no-essence': 'That piece carries too little enchantment to give any Arcane Essence.',
   'bad-qty': `Take 1 to ${WITHDRAW_MAX} at a time.`,
   'bad-pixels': 'That land could not be read.',
@@ -1203,7 +1204,7 @@ export function accountProf({ fetch, storage, waitMs = ACCOUNT_ACT_WAIT_MS }) {
     craft: (character, recipe, clean, name, rid, heartwood = false, dye = null, seat = null, cracked = false) => post('/v1/prof/craft', { character, recipe, clean, name, rid, heartwood, ...(dye == null ? {} : { dye }), ...(seat == null ? {} : { seat }), ...(cracked === true ? { cracked: true } : {}) }),   // SEAT2b part two: `seat` the held town the station stands in   // PROF3: the anvil - `clean` the act's report, `name` the maker's mark; PROF4: the workbench, `heartwood` for a plank; PROF7: the loom, a garment's `dye`; PROF10: the jeweller's bench, `cracked` a Lapidary's Siege-cracked Gem for the gem
     stock: (character, material, qty, rid) => post('/v1/prof/stock', { character, material, qty, rid }),   // PROF3: the smith's stock
     brew: (character, potion, keys, rid, seat = null) => post('/v1/prof/brew', { character, potion, keys, rid, ...(seat == null ? {} : { seat }) }),   // PROF12: the alchemy station's brew - `keys` the cauldron as the Stores hold it, `seat` the held town it stands in
-    disenchant: (character, provenance, rid) => post('/v1/prof/disenchant', { character, provenance, rid }),   // PROF12: a crafted piece into Arcane Essence
+    disenchant: (character, provenance, rid, realm = null) => post('/v1/prof/disenchant', { character, provenance, rid, ...(realm ? { realm } : {}) }),   // PROF12: a crafted piece into Arcane Essence; AUDIT PROF-541 B2: a realm character's record where it stands
     writs: (character, region) => post('/v1/writs/list', { character, region }),
     deliver: (character, id, rid) => post('/v1/writs/deliver', { character, id, rid }),
   };

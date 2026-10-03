@@ -322,14 +322,20 @@ export async function placeDecor(ctx, player, { mapId, buildingKey, character, p
   // AUDIT GUILD1d S3: the hall's own rule (no keeper's own thing; a palace's no yard - GUILD-YARD) inside the write too - a
   // hall bought between the rule's read and this INSERT took them
   const [countSql, countBinds] = S.count(mapId, buildingKey, out), [ruleSql, ruleBinds] = S.rule(mapId, buildingKey, barred);
+  // AUDIT PROF-541 B2: a piece whose provenance provenOf kept stands only while its products row still bears it out - a
+  // disenchant between the read and this INSERT took the row (and the piece) away
+  const pv = typeof p.item?.pv === 'string' ? p.item.pv : null;
+  const pvSql = pv ? ' AND EXISTS (SELECT 1 FROM products WHERE provenance = ? AND owner = ? AND listed = 0)' : '';
   const insert = db.prepare(`INSERT OR IGNORE INTO ${S.table} (map_id, building_key, id, model, flat_archive, flat_record, place, placed_at, item, paid, yard)
     SELECT ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ? WHERE ${S.owns} AND (SELECT COUNT(*) FROM ${S.table} WHERE ${countSql}) < ?
-      AND ${ruleSql}`)
+      AND ${ruleSql}${pvSql}`)
     .bind(mapId, buildingKey, p.id, p.model, p.flat?.[0] ?? null, p.flat?.[1] ?? null, placeJson(p), nowS, p.item ? JSON.stringify(p.item) : null,
       side.at ? ledger : 0, out, mapId, buildingKey, player.id, character, ...countBinds, out ? DECOR_YARD_CAP : S.cap,
-      ...ruleBinds);
-  /** AUDIT GUILD1d S3: a placement the hall's rule refused, in its own word - or null. */
-  const hallWord = async () => (barred && (S.seat || await hallGuildOf(db, mapId, buildingKey)) ? (out ? 'hall-yard' : 'hall-item') : null);
+      ...ruleBinds, ...(pv ? [pv, player.id] : []));
+  /** AUDIT GUILD1d S3: a placement the hall's rule refused, in its own word - or null. AUDIT PROF-541 B2: a kept piece's
+   *  row gone between, 'bad-decor' (the piece is not what was sent). */
+  const hallWord = async () => (pv && !(await db.prepare('SELECT 1 FROM products WHERE provenance = ? AND owner = ? AND listed = 0').bind(pv, player.id).first()) ? 'bad-decor'
+    : barred && (S.seat || await hallGuildOf(db, mapId, buildingKey)) ? (out ? 'hall-yard' : 'hall-item') : null);
   if (side.at && delta !== 0) {
     // REALM P2.2b: the piece and what it cost, together - a placement sent again found the record one on above
     const had = await db.prepare(`SELECT * FROM ${S.table} WHERE map_id = ? AND building_key = ? AND id = ?`).bind(mapId, buildingKey, p.id).first();

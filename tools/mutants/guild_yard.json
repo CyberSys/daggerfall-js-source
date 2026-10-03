@@ -311,13 +311,14 @@
   {
     "name": "AUDIT-GUILD-YARD-the-hall-word-for-every-yard",
     "file": "server-account/src/decor.js",
-    "old": "const hallWord = async () => (barred &&",
-    "new": "const hallWord = async () => ((sent.item || out) &&",
+    "old": "    : barred && (S.seat",
+    "new": "    : (sent.item || out) && (S.seat",
     "tests": [
       "test/guild_yard.test.js",
       "test/guild1d_service.test.js",
       "test/seathall_service.test.js"
-    ]
+    ],
+    "note": "AUDIT PROF-541 (RE-AIMED by content): the provenance guard's word before it."
   },
   {
     "name": "AUDIT-PROF-541-G3-the-commits-cap-unasked",

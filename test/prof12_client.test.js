@@ -34,6 +34,7 @@ import '../src/systems/profTemplates.js';
 import {
   setProfessionsPages, drawStoresPage, drawProfessionsPage, resetProfPages, enchantGoldPct, _alchemyForTests, ALCHEMY_AWAY_LINE, ENCHANT_AWAY_LINE,
   ESSENCE_STAYS_LINE,   // AUDIT PROF12 E1
+  POTENT_NONE_LINE, ENCHANT_FULL_LINE,   // AUDIT PROF-541 B3, B8
 } from '../src/ui/profPages.js';
 import { setPref } from '../src/systems/uiPrefs.js';
 import { utcDay } from '../src/net/marksLaw.js';
@@ -363,14 +364,16 @@ test('PROF12 wiring: the alchemy station an Alchemist\'s (open for trade) or a h
   assert.match(src('src/ui/itemMakerWindow.js'), /enchantDecision\(this\.selected, this\.powers, this\.sideEffects, \{ gold: this\.gold\(\), discountPct: this\.goldDiscountPct\(\) \}\)/);
   const w = src('src/scenes/world.js');
   assert.match(w, /alchemy: \(\) => modes\?\.alchemyHere\?\.\(\) \?\? null,/);
-  assert.match(w, /const seat = hall && hall\.holder\?\.guild\?\.id === \(guildBook\?\.guild\?\.id \?\? null\) && stationSteps\('alchemy', hall\.forts \?\? \{\}\) > 0 \? hall\.key : null;\n\s*const r = await profBook\.brew\(potion, keys, \{ fee: f\.fee > 0 \? f\.fee : 0, seat \}, profMintCraft\);/);
+  assert.match(w, /const steps = hall && hall\.holder\?\.guild\?\.id === \(guildBook\?\.guild\?\.id \?\? null\) \? stationSteps\('alchemy', hall\.forts \?\? \{\}\) : 0;\n\s*return \{ steps, seat: steps > 0 \? hall\.key : null \};/);
+  assert.match(w, /const \{ seat \} = alchemyHall\(\);\n\s*const r = await profBook\.brew\(potion, keys, \{ fee: f\.fee > 0 \? f\.fee : 0, seat \}, profMintCraft\);/);
+  assert.match(w, /alchemySteps: \(\) => alchemyHall\(\)\.steps,/, 'AUDIT PROF-541 B4: the station\'s line says the steps the service adds');
   assert.match(w, /if \(typeof data\?\.potion === 'string'\) \{\n\s*const potions = brewItems\(data\);/);
   assert.match(w, /const f = \(alch \? modes\?\.alchemyHere\?\.\(\) : mason \?/);
-  assert.match(w, /const r = await profBook\.disenchant\(provenance\);/);
-  assert.match(w, /if \(at >= 0\) playerEntity\.items\.splice\(at, 1\);/);
+  assert.match(w, /r = await profBook\.disenchant\(provenance\);\n\s*if \(r\?\.ok\) takeOut\(\);/);
+  assert.match(w, /if \(at >= 0\) out = \{ piece: playerEntity\.items\.splice\(at, 1\)\[0\], at \};/);
   const idx = src('server-account/src/index.js');
   assert.match(idx, /'\/v1\/prof\/brew': \(\) => brewAtStation\(ctx, who\.player, env, body\),/);
-  assert.match(idx, /'\/v1\/prof\/disenchant': \(\) => disenchantPiece\(ctx, who\.player, env, body\),/);
+  assert.match(idx, /'\/v1\/prof\/disenchant': \(\) => disenchantPiece\(\{ \.\.\.ctx, bucket: env\.SAVES \}, who\.player, env, body\),/);
   assert.match(src('server-account/src/service.js'), /'\/v1\/prof\/brew', '\/v1\/prof\/disenchant',/);
   assert.match(src('src/ui/profPages.js'), /drawJewellerBench\(detail, rerender, kit\);   \/\/ PROF10\n\s*drawAlchemyStation\(detail, rerender, kit\);   \/\/ PROF12\n\s*drawEnchantingStation\(detail, rerender, kit\);   \/\/ PROF12/);
   assert.equal(POTENT.pct, 25);
@@ -461,4 +464,64 @@ test('AUDIT PROF12 P1: the Apothecary\'s words say each profession\'s step as th
   assert.deepEqual([1, 2].map((t) => cookXp(50, { steps: t }) / cookXp(50)), [1.5, 2], 'the XP the words say');
   assert.deepEqual([1, 2].map((t) => potentChance(75, { steps: t }) - potentChance(75)), [POTENT.apothecary, 2 * POTENT.apothecary], 'the Potent chance the words say');
   assert.deepEqual(STATION_PROFESSIONS.apothecary, ['alchemy', 'cooking', 'jewelcrafting']);
+});
+
+// ─── AUDIT PROF-541 (2026-10-03): B2, B3, B4, B8 ─────────────────────
+
+test('AUDIT PROF-541 B3/B4 client: the station\'s Potent chance carries the town\'s Apothecary (+10 a step, as the service adds it); a Cure of DFU\'s default magnitude says it is never Potent (no chance, no herb\'s +5) and its potions are never minted Potent - nor named, nor worth more', () => {
+  stubPages({ alchemy: { kind: 'home', fee: 0 }, alchemyTrack: { rank: 75, specs: { 50: null, 100: null } }, over: { alchemySteps: () => 2 } });
+  const page = pageOf();
+  try {
+    assert.match(page.text(), /Alchemy 75 \(Expert\): 2 potions a brew; Potent 30% \(\+25% magnitude or duration\) \(the Apothecary's \+20% with it\)/);
+    page.recipe('Healing').onclick();
+    assert.match(page.text(), /2 potions a brew\. Potent 30% \(\+25% magnitude\) - and \+5% for each of its herbs/);
+    page.recipe('Cure Disease').onclick();
+    assert.match(page.text(), new RegExp(`2 potions a brew\\. ${POTENT_NONE_LINE.replace(/[()]/g, '\\$&')}\\. \\d+ Alchemy XP`));
+    page.recipe('Purification').onclick();
+    assert.match(page.text(), /Potent 30% \(\+25% magnitude\)/, 'Purification\'s magnitude stays Potent');
+  } finally { page.done(); setProfessionsPages(null); }
+  const [cure] = brewItems({ potion: 'cureDisease', count: 1, potent: 25 });
+  const [plain] = brewItems({ potion: 'cureDisease', count: 1, potent: 0 });
+  assert.deepEqual([cure.potent, cure.value, itemLongName(cure)], [undefined, plain.value, itemLongName(plain)]);
+  assert.equal(brewedText({ potion: 'curePoison', count: 2, potent: 40 }), 'You brewed 2 Potions of Cure Poison');
+  assert.equal(brewItems({ potion: 'purification', count: 1, potent: 25 })[0].potent, 25);
+});
+
+test('AUDIT PROF-541 B8 client: the Disenchant button is shut, the reason said, when the piece\'s Essence would pass the Stores\' room - every origin counted, as the service counts it', () => {
+  stubPages({ enchanter: { kind: 'home', fee: 0 }, held: { 'essence:arcane': 4996 } });
+  let page = pageOf();
+  try {
+    assert.equal(page.button('Disenchant').disabled, true);
+    assert.ok(page.text().includes(ENCHANT_FULL_LINE(4)));
+  } finally { page.done(); }
+  stubPages({ enchanter: { kind: 'home', fee: 0 }, held: { 'essence:arcane': 4994 } });
+  page = pageOf();
+  try {
+    assert.equal(page.button('Disenchant').disabled, false, 'room for its six');
+    assert.equal(page.text().includes('room for'), false);
+  } finally { page.done(); setProfessionsPages(null); }
+});
+
+test('AUDIT PROF-541 B2 client: a realm character\'s disenchant names where its record stands and is asked once (the realm act asks again); an offline one\'s still asks again itself; the record\'s refusal is worded', async () => {
+  const asked = [];
+  const door = {
+    account: () => 'acc',
+    disenchant: async (c, pv, rid, realm) => { asked.push([pv, realm]); return { ok: false, error: 'offline' }; },
+  };
+  const book = createProfBook({ door, storage: memStorage(), character: () => 'char-1', now: () => NOON * 1000, sleep: noWait });
+  const at = { id: 'r0123456789abcdef0123', lease: 'f'.repeat(32), seq: 4 };
+  await book.disenchant('aaaaaaaaaaaaaaaa', at);
+  assert.deepEqual(asked, [['aaaaaaaaaaaaaaaa', at]], 'once, with the record');
+  asked.length = 0;
+  await book.disenchant('bbbbbbbbbbbbbbbb');
+  assert.ok(asked.length > 1 && asked.every(([, r]) => r === null), 'offline: the book asks again');
+  assert.match(accountRefusalText('prof-piece-gone'), /record does not hold that piece/);
+  const bodies = [];
+  const wire = accountProf({ fetch: async (u, i) => { bodies.push(JSON.parse(i.body)); return new Response('{}', { status: 200 }); }, storage: sessionStorageOf(SESSION_KEY, { secret: 's'.repeat(43), id: 'acc' }) });
+  await wire.disenchant('char-1', 'aaaaaaaaaaaaaaaa', 'rid-1', at);
+  await wire.disenchant('char-1', 'aaaaaaaaaaaaaaaa', 'rid-2');
+  assert.deepEqual(bodies.map((b) => b.realm ?? null), [at, null], 'the record where it stands, on the wire - and none for another character');
+  const w = src('src/scenes/world.js');
+  assert.match(w, /call: \(at\) => \{ if \(!asked\) \{ asked = true; takeOut\(\); \} return out \? profBook\.disenchant\(provenance, at\) : Promise\.resolve\(\{ ok: false, error: 'prof-piece-gone' \}\); \},/);
+  assert.match(w, /if \(r\?\.error === 'prof-no-piece' && r\?\.why === 'disenchanted' && takeOut\(\)\)/);
 });
