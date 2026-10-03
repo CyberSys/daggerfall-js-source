@@ -33,6 +33,7 @@ import { arenaBoard, hallLinesOnline } from '../systems/arenaBoard.js';
 import { nextLadderBout, arenaLadderRestore } from '../systems/arenaLadder.js';
 import { FIGHT_HEALTH_MIN } from '../systems/arenaHerald.js';
 import { createArenaOverlay, closeArenaDoor } from '../ui/arenaDoor.js';
+import { bookRestore, houseOutcome } from '../systems/arenaBook.js';   // ARENA4b: online the relay's verdict settles, the house's only for an hour it never ran
 
 /** How near the Herald the Arena window's Watch, Fight and Wager may be pressed, metres (the gate and its plaza). */
 export const AT_GATE_M = 60;
@@ -199,7 +200,25 @@ export function createArenaGate(deps) {
   // ── THE BOOKMAKER ───────────────────────────────────────────────────────────────────────────────────────
   const B = ARENA_TEXT.book;
   /** Every wager that can be settled now, settled (systems/arenaBook.js settleBook) - its winnings owed at the stall. */
-  function settle() { setBook(settleBook(league().book, gm(), { liveHour: liveHour() }).book); }
+  function settle() {
+    const on = online();
+    if (!on?.exhibitions?.()) { setBook(settleBook(league().book, gm(), { liveHour: liveHour() }).book); return; }
+    // ARENA4b: ONLINE THE RELAY'S VERDICT SETTLES (Arena.md 2: the relay runs the exhibition, every client sees one bout).
+    // A wager whose bout this screen saw to its verdict is settled by it (verdictSeen - the mirror's, the relay's); one
+    // whose hour is out and whose verdict was not seen here is settled by the relay's, asked of its room
+    // (scenes/arenaOnline.js exhibitionVerdict) - the house's seeded record only for an hour the relay ran no bout in (or
+    // has long let go); an hour still unanswered waits. Never the house's by the clock alone: -Infinity is "no hour is
+    // out" to settleBook, which then settles the verdicts kept and nothing else.
+    let book = league().book;
+    const g = gm(), here = liveHour();
+    for (const w of bookRestore(book).wagers) {
+      if (w.status !== 'open' || w.hour === here || g < (w.hour + 1) * 60 || bookRestore(book).seen.some((x) => x.hour === w.hour)) continue;
+      const v = on.exhibitionVerdict(w.hour, g);
+      if (v?.house) { const ex = exhibitionFor(w.hour * 60); book = bookVerdict(book, w.hour, ex ? houseOutcome(ex) : null); }
+      else if (v) book = bookVerdict(book, w.hour, v.side);
+    }
+    setBook(settleBook(book, -Infinity).book);
+  }
   /** THE VERDICT SEEN of the exhibition of `hour` (the driver's - scenes/arenaBouts.js `exhibitionVerdict`): a wager on it
    *  is settled by what was seen. */
   function verdictSeen(hour, side) {

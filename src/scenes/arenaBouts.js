@@ -35,7 +35,7 @@ import { crowdSeats, pickSeats, RING_R } from '../world/arenaFloor.js';
 import { arenaHudModel } from '../ui/arenaHud.js';
 import { rollLeague, leagueAfterBout, laurelWorn, laurelBanner, LAUREL_FAVOUR } from '../systems/arenaLeague.js';   // ARENA3: the banners, the laurel, the Records page
 import { mirrorOf, mirrorEvents, mirrorHealth, walkAt, walkDone } from '../net/arenaLink.js';
-import { ARENA_PUPPET_OWNER, ARENA_CHEER_MS } from '../net/arenaLaw.js';   // ARENA4: a bout the relay runs, mirrored here; ARENA4b: the stands' allowance
+import { ARENA_PUPPET_OWNER, ARENA_CHEER_MS, ARENA_FLOOR_CENTRE } from '../net/arenaLaw.js';   // ARENA4: a bout the relay runs, mirrored here; ARENA4b: the stands' allowance, the relay's frame (the instance's)
 import { crowdShout } from '../systems/arenaCrowd.js';   // ARENA4: the stands' own cheers and boos, heard on every screen
 
 /** ARENA-FIX 10: A CRIT is the formula's own critical-strike roll (combat/formulas.js calculateAttackDamage's notes,
@@ -64,6 +64,8 @@ export const FAR_M = 140;
 export const BARK_SHOWN_MS = 2400;
 /** A thrown flat's flight from the stands to the sand, ms. */
 export const THROW_MS = 900;
+/** ARENA4b: a relay's fighter on the city's sand this far behind the relay's walk is stood where the relay has it. */
+export const CITY_SNAP_M = 3;
 /** ARENA4: the owner every relay-run fighter's puppet is stood under (net/arenaLaw.js - scenes/dungeonContext.js's own
  *  lane hands a blow on it to the relay's referee, never to a peer). */
 export { ARENA_PUPPET_OWNER };
@@ -109,10 +111,12 @@ export function createArenaBouts(deps) {
     if (s === stage) return;
     if (cur && cur.stage !== s) dismiss();
     stage = s ?? null;
-    if (stage && pending && pending.where === stage.kind) { const p = pending; pending = null; if (p.relay) startRelay(p.relay); else start(p); }
+    if (stage && pending && pending.where === stage.kind) { const p = pending; pending = null; begin(p); }
   }
   /** A bout asked for on a stage of `where` ('city' | 'floor'), started when it stands. */
-  function ask(p) { pending = p; if (stage && stage.kind === p.where) { pending = null; if (p.relay) startRelay(p.relay); else start(p); } }
+  function ask(p) { pending = p; if (stage && stage.kind === p.where) { pending = null; begin(p); } }
+  /** A bout asked for, begun: the relay's exhibition mirrored (ARENA4b), a relay's bout (ARENA4), or one of this screen's. */
+  const begin = (p) => (p.relayEx ? startExhibitionRelay(p.relayEx) : p.relay ? startRelay(p.relay) : start(p));
 
   // ── A BOUT ──────────────────────────────────────────────────────────────────────────────────────────────
   const floorFeet = (xz) => { const c = stage.centre(); return [c[0] + xz[0], c[1], c[2] + xz[1]]; };
@@ -460,7 +464,7 @@ export function createArenaBouts(deps) {
     const say = (line) => { if (near > 0.3) deps.say?.(line); };
     switch (e.k) {
       case 'call':
-        if (C.relay && !C.next) { say(ARENA_TEXT.call.players); break; }   // ARENA4: a bout between players
+        if (C.relay && !C.next && !C.ex) { say(ARENA_TEXT.call.players); break; }   // ARENA4: a bout between players (ARENA4b: the relay's exhibition is called as one)
         say(C.practice ? ARENA_TEXT.undercroft.practiceCall : C.ladder ? (C.next.grand ? ARENA_TEXT.call.grand : C.next.champion ? ARENA_TEXT.call.champion(C.next.tierName) : C.next.free ? ARENA_TEXT.call.melee : ARENA_TEXT.call.ladder(C.next.tierName, C.next.label)) : ARENA_TEXT.call.exhibition);
         break;
       case 'crier': {
@@ -691,7 +695,7 @@ export function createArenaBouts(deps) {
     const C = cur;
     if (!C?.relay || !w) return false;
     const t = now();
-    const near = 1;
+    const near = C.near ?? 1;   // ARENA4b: the city's sand heard from the market by distance (relayFrame), the instance's whole
     if (w.k === 'st') {
       if (w.o !== C.relay.o) return false;
       const first = !C.M;
@@ -745,14 +749,16 @@ export function createArenaBouts(deps) {
    *  owned by ARENA_PUPPET_OWNER - no senses, no swing of its own, its feet and its blows the relay's words. */
   function spawnPuppet(C, a) {
     const mv = C.mv.get(a.id);
-    const at = mv ? [mv.x, mv.z] : null;
+    const at = mv ? relayToStage(C, mv.x, mv.z) : null;   // ARENA4b: the relay's frame on this stage (the city's sand too)
     const c = stage.centre();
     const feet = at ? [at[0], c[1], at[1]] : [c[0], c[1], c[2]];
     const who = C.b.fighters.find((f) => f.id === a.id);
-    const tag = { id: C.relay.o, side: who?.side ?? 1, out: false, hold: true, hooks: {} };
+    // ARENA4b: an exhibition's fighter struck from the stands answers as this screen's would (the Herald, then the watch)
+    const tag = { id: C.relay.o, side: who?.side ?? 1, out: false, hold: true, hooks: C.ex ? { intrude: (foe) => intrude(a.id, foe) } : {} };
     C.tags.set(a.id, tag);
     C.spawning++;
-    Promise.resolve(stage.spawn(a.mobile, feet, { level: null, gender: C.relay.names?.(a.i, a.mobile)?.gender, yaw: Math.atan2(c[0] - feet[0], c[2] - feet[2]), bout: tag }))
+    // ARENA4b: `mirror` - a body every screen stands its own copy of (the city's pool streams it to nobody)
+    Promise.resolve(stage.spawn(a.mobile, feet, { level: null, gender: C.relay.names?.(a.i, a.mobile)?.gender, yaw: Math.atan2(c[0] - feet[0], c[2] - feet[2]), bout: tag, mirror: true }))
       .then((foe) => {
         C.spawning--;
         if (cur !== C || !foe) { if (foe) stage?.remove?.(foe); return; }
@@ -769,10 +775,14 @@ export function createArenaBouts(deps) {
     if (!C.b) { deps.drawHud?.(null, { hidden: true }); return; }
     const off = C.clock.off ?? 0;
     const c = stage?.centre?.() ?? null;
+    // ARENA4b: the city's sand is heard and its HUD shown by the distance from it (an exhibition watched from the market)
+    const near = C.near = C.stage?.kind === 'city' ? (c && o.playerFeet ? nearOf(Math.hypot(o.playerFeet[0] - c[0], o.playerFeet[2] - c[2])) : 0) : 1;
+    if (C.stage?.kind === 'city') cityBodiesFrame(C, t, off);   // ARENA4b: the exterior's own bodies, walked by their motor
     for (const [id, foe] of C.fighters) {
       const mv = C.mv.get(id);
       if (!mv || !foe._pup || !c) continue;
-      const p = walkAt(mv, t, off);
+      const w = walkAt(mv, t, off);
+      const p = w ? relayToStage(C, w[0], w[1]) : null;   // ARENA4b: on this stage's frame
       if (!p) continue;
       foe._pup.feet[0] = p[0]; foe._pup.feet[2] = p[1];
       if (Number.isFinite(foe.ai?.feet?.[1])) foe._pup.feet[1] = foe.ai.feet[1];
@@ -792,17 +802,18 @@ export function createArenaBouts(deps) {
     }
     if (C.playerTag) { C.playerTag.hold = !boutLive(C.b); if (you?.out || boutOver(C.b)) C.playerTag.out = true; }
     crowdTick(C.crowd, dt);
-    deps.sound?.bed(C.crowd.mood, 1);
+    deps.sound?.bed(C.crowd.mood, near);
     if (C.b.phase === 'done' && !Number.isFinite(C.doneAt)) C.doneAt = t;
     if (Number.isFinite(C.doneAt) && t - C.doneAt >= LEAVE_AFTER_MS && C.fighters.size) {
       for (const foe of C.fighters.values()) stage?.remove?.(foe);
       C.fighters.clear();
       deps.setPlayerBout?.(null);
     }
+    if (Number.isFinite(C.doneAt) && t - C.doneAt >= CROWD_STAYS_MS && C.stage?.kind === 'city') { dismiss(); return; }   // ARENA4b: the city's crowd goes home, as this screen's own bout's
     const bark = t - C.barkAt < BARK_SHOWN_MS ? C.bark : '';
     // ARENA4b: in the stands, the two presses (Cheer, Boo) under the plate - shut while the allowance runs
     const stands = C.you ? null : { ready: t - C.cheerAt >= CHEER_GAP_MS };
-    deps.drawHud?.(arenaHudModel(C.b, C.crowd, t, { you: C.you, stamina: o.stamina ?? null, bark, quiet: false, teams: C.teams, stands }), { hidden: !!o.hidden, touch: !!o.touch, cheer: C.you ? null : cheerDoor });
+    deps.drawHud?.(near > 0 ? arenaHudModel(C.b, C.crowd, t, { you: C.you, stamina: o.stamina ?? null, bark, quiet: false, teams: C.teams, stands }) : null, { hidden: !!o.hidden, touch: !!o.touch, cheer: C.you ? null : cheerDoor });
     crowdFrame(C, t);
   }
   /** THE VERDICT of a relay's bout: the Herald's words; a ladder win's purse (the relay refereed it - the account's climb
@@ -834,6 +845,81 @@ export function createArenaBouts(deps) {
     if (mine) deps.notice?.(lines);
   }
 
+  // ── ARENA4b: THE HOUR'S EXHIBITION, THE RELAY'S ─────────────────────────────────────────────────────────
+  /**
+   * THE RELAY'S EXHIBITION STOOD HERE (Arena.md 2: "the relay runs it, every client sees one bout"): a relay's bout
+   * watched from the stands (startRelay, `me` '') on the city's sand or the floor's instance, carrying the hour's
+   * exhibition (`ex` - net/arenaExhibition.js exhibitionFor) so the window, the Herald, the book and the music read it as
+   * the hour's: its Red against its Blue on the versus bar, the exhibition's call, the purse's bark and - at its verdict -
+   * the bookmaker told what the relay decided (`exhibitionVerdict`, the local bout's own door).
+   * @param {{ o: string, ex: any, names?: (i: number, mobile: number) => any, onEnd?: (r: any) => void }} p
+   */
+  function startExhibitionRelay(p) {
+    const ex = p.ex;
+    const C = startRelay(/** @type {any} */ ({
+      ...p, kind: 'ex', me: '', next: null, send: {},
+      onEnd: (r) => {
+        if (cur === C && r.side !== null) { C.bark = ARENA_TEXT.purse.won(EXHIBITION_PURSE); C.barkAt = now(); }
+        deps.exhibitionVerdict?.(ex.hour, r.side);   // the bookmaker settles by the relay's verdict
+        p.onEnd?.(r);
+      },
+    }));
+    if (!C) return null;
+    C.ex = ex;
+    C.teams = { a0: 'red', a1: 'blue' };   // ARENA3's exhibition: the Red's fighter (side 0) against the Blue's
+    return C;
+  }
+  /** A RELAY'S WORD on the exhibition standing here: the bout's own (relayWord), and what an exhibition adds - the beast
+   *  tier's sour crowd and the laurel's favour on its first `st`, and on the city's sand a telegraphed blow as the body's
+   *  own swing (the exterior's pool draws a strike off its attack's count). Answers whether it was this bout's. */
+  function exhibitionWord(w) {
+    const C = cur;
+    if (!C?.relay || !C.ex) return relayWord(w);
+    const first = w?.k === 'st' && !C.M && w.o === C.relay.o;
+    const ok = relayWord(w);
+    if (first && C.crowd) {
+      if (C.ex.beasts && !C.crowd.beasts) C.crowd = newCrowd({ fighters: C.b.fighters.map((f) => ({ id: f.id, home: f.home, ai: f.ai })), beasts: true });
+      laurelFavour(C);   // ARENA3's laurel: the crowd favours last season's winning banner's fighter from the first bell
+    }
+    if (ok && w.k === 'atk' && C.stage?.kind === 'city') {
+      const foe = C.fighters.get(w.i);
+      if (foe?.attack && foe.ai?.feet) {
+        const [tx, tz] = relayToStage(C, w.x, w.z);
+        foe.ai.walkGoal = null;
+        foe.ai.yaw = Math.atan2(tx - foe.ai.feet[0], tz - foe.ai.feet[2]);
+        foe.attack.firedRanged = false;
+        foe.attack.swingSeq = (foe.attack.swingSeq | 0) + 1;
+      }
+    }
+    return ok;
+  }
+  /** A place in the relay's frame (the floor's instance's - net/arenaLaw.js ARENA_FLOOR_CENTRE) on this bout's stage: the
+   *  instance's as it is, the city's the same offset from its own sand's centre (the driver lays both floors' marks so). */
+  function relayToStage(C, x, z) {
+    if (C.stage?.kind !== 'city') return [x, z];
+    const c = C.stage.centre();
+    return [c[0] + (x - ARENA_FLOOR_CENTRE[0]), c[2] + (z - ARENA_FLOOR_CENTRE[2])];
+  }
+  /** THE RELAY'S FIGHTERS ON THE CITY'S SAND: bodies of the exterior's own pool (no puppet lane there), each walked by
+   *  its own motor (characters/enemyMotor.js walkTo) after the relay's walk, stood where the relay has it once it falls
+   *  CITY_SNAP_M behind, stood down once out. Its bout tag holds it - it targets nobody, so no swing of it lands. */
+  function cityBodiesFrame(C, t, off) {
+    for (const [id, foe] of C.fighters) {
+      const ai = foe.ai, mv = C.mv.get(id);
+      if (!ai?.feet || !mv) continue;
+      if (boutFighter(C.b, id)?.out) { ai.walkGoal = null; standDown(foe); continue; }
+      const w = walkAt(mv, t, off);
+      if (!w) continue;
+      const [px, pz] = relayToStage(C, w[0], w[1]);
+      const f = ai.feet;
+      if (Math.hypot(px - f[0], pz - f[2]) > CITY_SNAP_M) { f[0] = px; f[2] = pz; ai.walkGoal = null; continue; }
+      if (!walkDone(mv, t, off)) {
+        const [gx, gz] = relayToStage(C, mv.tx, mv.tz);
+        if (!ai.walkGoal || Math.hypot(ai.walkGoal[0] - gx, ai.walkGoal[2] - gz) > MARK_ARRIVE_M) ai.walkTo?.([gx, f[1], gz], { pace: 1 });
+      } else if (!ai.walkGoal && Math.hypot(px - f[0], pz - f[2]) > MARK_ARRIVE_M) ai.walkTo?.([px, f[1], pz], { pace: WALK_PACE });
+    }
+  }
+
   // ── THE END OF IT ───────────────────────────────────────────────────────────────────────────────────────
   /** The bout gone, unsaid (its stage went, or another took its place): its fighters off the sand, its crowd and its
    *  sound let go, the HUD hidden. */
@@ -858,6 +944,7 @@ export function createArenaBouts(deps) {
     cheer,   // ARENA4b: my cheer or boo from the stands of a relay's bout
     /** ARENA4b: the realm's banners' source while online (`() => ({ banner, laurel }) | null`), scenes/arenaOnline.js's. */
     setRealm: (fn) => { realmOf = typeof fn === 'function' ? fn : null; },
+    startExhibitionRelay, exhibitionWord,   // ARENA4b: the hour's exhibition, the relay's
     /** ARENA4: the relay's bout standing here - its id, my fighter id ('' in the stands), its kind - or null. */
     relay: () => (cur?.relay ? { o: cur.relay.o, me: cur.you ?? '', kind: cur.relay.kind } : null),
     /** The ring the motor keeps me in while my bout stands (player/motor.js `arena`), or null. */

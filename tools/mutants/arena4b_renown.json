@@ -119,8 +119,9 @@
   {
     "name": "ARENA4B-HOST-CHARACTER-CHECK",
     "file": "src/scenes/world.js",
-    "old": "      if (d?.renown?.character !== characterIdOf(playerEntity)) return;\n      const a = renownAnswer({ ...d.renown, order: d.order ?? null }, d.renown.credited ?? 0, renownSaid);\n      if (a.xp !== null) renownXpAdopt(a.xp);\n      if (a.level !== null) renownAdopt(a.level);\n      if (a.order) online?.sendRenownOrder?.(a.order, a.level);\n      if (a.announce !== null) { renownSaid = a.announce; townTalk.say(`Your Renown is now ${a.announce}.`); }\n    },\n  });",
-    "new": "      const a = renownAnswer({ ...d.renown, order: d.order ?? null }, d.renown.credited ?? 0, renownSaid);\n      if (a.xp !== null) renownXpAdopt(a.xp);\n      if (a.level !== null) renownAdopt(a.level);\n      if (a.order) online?.sendRenownOrder?.(a.order, a.level);\n      if (a.announce !== null) { renownSaid = a.announce; townTalk.say(`Your Renown is now ${a.announce}.`); }\n    },\n  });",
+    "old": "      if (d?.renown?.character !== characterIdOf(playerEntity)) return;\n      const a = renownAnswer(",
+    "new": "      const a = renownAnswer(",
+    "note": "The merge of ARENA4b's streams (re-aimed by content): the relay stream's verdictHeard follows the hook, so the record names the check's own line.",
     "tests": [
       "test/arena4b_renown.test.js"
     ]

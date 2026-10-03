@@ -271,7 +271,7 @@ export function nameIsIssuable(name) {
 /**
  * The claims, as they ride. Short keys because this travels in a hello
  * on every connection and the payload is base64 on top.
- * @typedef {{s: string, n: string, k: 'guest'|'linked', i: number, e: number, t?: string, g?: string[], mu?: number, lv?: number, gi?: string, gt?: string, gm?: string, rc?: 0|1, au?: string, ar?: number}} Claims
+ * @typedef {{s: string, n: string, k: 'guest'|'linked', i: number, e: number, t?: string, g?: string[], mu?: number, lv?: number, gi?: string, gt?: string, gm?: string, rc?: 0|1, au?: string, ar?: number, cl?: number}} Claims
  *   s  the account id          n  the display name
  *   k  guest or linked         i  issued at, epoch seconds
  *   e  expires at, epoch seconds
@@ -290,11 +290,22 @@ export function nameIsIssuable(name) {
  *      none (GLYPH-WEAR). Paint alone: `g` stays what is true and what
  *      the rights read; a face drawing the badge leaves these out
  *   ar the account's arena rating this season, absent for a guest (ARENA4)
+ *   cl the level of the character the client named at the mint, as the
+ *      realm keeps it (server-account/src/realm.js - the summary's
+ *      `level`), absent when it named none or from a service before
+ *      ARENA4b; the relay's ladder vitality reads it (net/arenaLaw.js
+ *      ladderVitality) and never a health the client claims
  */
 /** ARENA4: the rating's bounds on a token (net/arenaLaw.js ARENA_ELO_MIN and ARENA_ELO_MAX, pinned - written here, not
  *  imported, so the token module stays the leaf every end reads). */
 export const ARENA_RATING_MIN = 100;
 export const ARENA_RATING_MAX = 4000;
+/** ARENA4b: the character level's bounds on a token (`cl` - the realm summary's own, server-account/src/realm.js
+ *  realmSummaryOf's 1000; net/arenaLaw.js ARENA_CL_MIN and ARENA_CL_MAX, pinned). */
+export const CHARACTER_LEVEL_MIN = 1;
+export const CHARACTER_LEVEL_MAX = 1000;
+/** ARENA4b: a character level a token may carry - a whole number in bounds, never a stand-in. */
+export const characterLevelIssuable = (cl) => Number.isSafeInteger(cl) && cl >= CHARACTER_LEVEL_MIN && cl <= CHARACTER_LEVEL_MAX;
 
 /** The account id's own shape - the same one `net/social.js` already
  *  keeps in `dagger.online.account`, so an id minted by SOC1 is an id
@@ -360,8 +371,9 @@ export function claimsValid(c, { maxTtlS = MAX_TTL_S } = {}) {
   // ARENA4: the account's arena rating this season (net/arenaLaw.js - the hall queues by it): absent from a service before
   // it and from a guest's token; present, a whole number on the rating's scale
   if (c.ar !== undefined && !(Number.isSafeInteger(c.ar) && c.ar >= ARENA_RATING_MIN && c.ar <= ARENA_RATING_MAX)) return false;
-  // ARENA4b: the realm character's own level (its tile's) - absent from a service before it and for any other character
-  if (c.cl !== undefined && !(Number.isSafeInteger(c.cl) && c.cl >= 1 && c.cl <= 1000)) return false;
+  // ARENA4b: the named character's level (the relay's ladder vitality reads it): absent from a service before it and from a
+  // mint that named no character; present, a whole number from 1 to the realm's 1000
+  if (c.cl !== undefined && !characterLevelIssuable(c.cl)) return false;
   if (!Number.isSafeInteger(c.i) || !Number.isSafeInteger(c.e)) return false;
   if (c.e <= c.i) return false;                 // a token that is born dead
   if (c.e - c.i > maxTtlS) return false;        // a minter that got greedy
@@ -395,7 +407,7 @@ export async function mintToken(who, privateKey, { subtle, nowS, ttlS = MAX_TTL_
   if (who?.rb !== undefined) claims.rb = who.rb;   // SEASON1 part two: only while a Season's ribbon is worn - none, the bytes as before
   if (who?.gx !== undefined && who.gx.length) claims.gx = who.gx;   // GLYPH-WEAR: only while a glyph is taken off - a player hiding none mints the bytes they always did
   if (who?.ar !== undefined) claims.ar = who.ar;   // ARENA4: only for a registered account - a guest mints the bytes it always did
-  if (who?.cl !== undefined) claims.cl = who.cl;   // ARENA4b: only for a realm character - any other mints the bytes it always did
+  if (who?.cl !== undefined) claims.cl = who.cl;   // ARENA4b: only when a character was named - a mint naming none, the bytes as before
   // A BAD CLAIM SET IS REFUSED AT THE MINTER. The verifier would refuse
   // it too, but at the player's machine, where the only thing anyone
   // learns is that online is broken.

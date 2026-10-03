@@ -6,8 +6,8 @@
 // darkness magery have been mintable since chargen and read by
 // nothing, and the enchantment conditions' inSunlight/inHolyPlace ctx
 // arms, which had stood open since E1 and are answered here: the two
-// readers below are wired into the enchant ctx at world.js:9102-9103
-// off the host seam that worldModes.js:1329 and dungeonContext.js:3057
+// readers below are wired into the enchant ctx at world.js:9109-9110
+// off the host seam that worldModes.js:1329 and dungeonContext.js:3062
 // register (bible/01-Overview/Port-Ledger.md:782 strikes the pair
 // through as closed, V2c 2026-08-27).
 //

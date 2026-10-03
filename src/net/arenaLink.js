@@ -58,7 +58,7 @@ export function mirrorOf(st, now, { prev = null, off = 0, names = () => null } =
     const who = ai ? names(k - st.f.filter((x) => !x[6]).length, mob) : null;
     return { id, name: who?.name ?? name, side, maxHealth: max, health: hp, temper: tmp / 100, ai: !!ai, home: who?.home ?? '', epithet: who?.epithet ?? '', out: out || null, mob };
   });
-  const b = prev?.b && prev.b.id === st.o ? prev.b : newBout({ id: st.o, kind: st.kind === 'pvp' ? 'pvp' : 'ladder', fighters, ring: { centre: [0, 0], radius: 14 }, now, limitMs: st.lim || BOUT_LIMIT_MS, tier: st.tier ?? 0 });
+  const b = prev?.b && prev.b.id === st.o ? prev.b : newBout({ id: st.o, kind: st.kind === 'pvp' ? 'pvp' : st.kind === 'ex' ? 'exhibition' : 'ladder', fighters, ring: { centre: [0, 0], radius: 14 }, now, limitMs: st.lim || BOUT_LIMIT_MS, tier: st.tier ?? 0 });   // ARENA4b: the hour's exhibition is the law's own kind
   b.events = [];
   for (const f of fighters) {
     const m = b.fighters.find((x) => x.id === f.id);
@@ -131,3 +131,12 @@ export function walkAt(mv, now, off = 0) {
 }
 /** Whether a walk word's walk is done at `now`. */
 export const walkDone = (mv, now, off = 0) => !mv || !(mv.v > 0) || (Math.max(0, now - (mv.at - off)) / 1000) * mv.v >= Math.hypot(mv.tx - mv.x, mv.tz - mv.z);
+
+/** ARENA4b: THE VERDICT A RELAY'S WORD SAYS of its bout - a whole `st`'s result, or an `ev` word's end or verdict - as
+ *  `{ side }` (0 / 1, null a draw), or null when the word says none. The bookmaker settles an exhibition's wager by it
+ *  (scenes/arenaOnline.js exhibitionVerdict). Pure. */
+export function verdictOfWord(w) {
+  if (w?.k === 'st') return w.res ? { side: w.res.side ?? null } : null;
+  if (w?.k === 'ev') { const e = (w.e ?? []).find((x) => x.k === 'end' || x.k === 'verdict'); return e ? { side: e.side ?? null } : null; }
+  return null;
+}

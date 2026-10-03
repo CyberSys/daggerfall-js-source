@@ -224,7 +224,9 @@ test('ARENA3 the driver tells the exhibition\'s verdict; the hosts wire the stal
     assert.match(W, /exhibitionVerdict: \(hour, side\) => arenaGate\.verdictSeen\(hour, side\)/, f);
     assert.match(W, /liveHour: \(\) => arenaBouts\.hour\(\), begun: \(\) => arenaBoutBegun\(\)/, f);
     assert.match(W, /arenaBookmaker: \(\) => arenaGate\.bookmaker\(\)/, f);
-    assert.match(W, /const arenaBoutBegun = \(\) => \{ const b = arenaBouts\.bout\(\); return arenaBouts\.kind\(\) === 'exhibition' && !!b && !\['call', 'walk', 'count'\]\.includes\(b\.phase\); \};/, f);
+    // ARENA4b: the book shuts at the word of the exhibition standing here by its HOUR - this screen's own bout's or the
+    // relay's mirrored one (scenes/arenaBouts.js startExhibitionRelay: kind 'relay', its `ex` carried)
+    assert.match(W, /const arenaBoutBegun = \(\) => \{ const b = arenaBouts\.bout\(\); return arenaBouts\.hour\(\) != null && !!b && !\['call', 'walk', 'count'\]\.includes\(b\.phase\); \};/, f);
   }
   assert.match(readFileSync(new URL('../src/scenes/worldModes.js', import.meta.url), 'utf8'), /if \(gateRole === 'bookmaker' && host\.arenaBookmaker\?\.\(\)\) return;/);
 });

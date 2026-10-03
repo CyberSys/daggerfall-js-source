@@ -41,7 +41,7 @@ import { setPlayerBout } from '../characters/enemyTargets.js';   // ARENA2: the 
 import { exhibitionFor, nextLadderBout, arenaLadderRestore, practiceBout } from '../systems/arenaLadder.js';   // ARENA2: the hour's exhibition, the ladder's next bout
 import { createArenaGate, nearArenaGate } from './arenaGate.js';   // ARENA3; ARENA4b: the Herald's choice and the pause door's banner too
 import { createArenaOnline } from './arenaOnline.js';   // ARENA4: the arena online - the hall, a relay's bout, the boards and the receipts
-import { arenaBoutRoom } from '../net/arenaLaw.js';   // ARENA4: a bout's room
+import { arenaFloorRoomOf } from '../net/arenaLaw.js';   // ARENA4: a bout's room (ARENA4b: or the hour's exhibition's)
 import { accountArena } from '../net/accountClient.js';   // ARENA4: the arena's records on the account service
 import { fighterIdentity } from '../systems/arenaFighters.js';   // ARENA4: the relay's fighters billed by the bout's seed
 import { bossStandIn } from '../world/gateBoss.js';   // ARENA4: my opponent's stand-in for the formulas
@@ -8301,8 +8301,9 @@ export async function bootWorld(canvas, renderer, params, status) {
     onSand: () => (arenaBouts.stageKind() === 'city' ? arenaBouts.onSand() : null),
     online: () => arenaOnline,   // ARENA4: the window's online half, its presses, the recruiters' banners on the account
   });
-  /** The exhibition standing here has had the word (the book on it is shut). */
-  const arenaBoutBegun = () => { const b = arenaBouts.bout(); return arenaBouts.kind() === 'exhibition' && !!b && !['call', 'walk', 'count'].includes(b.phase); };
+  /** The exhibition standing here has had the word (the book on it is shut) - ARENA4b: this screen's own or the relay's
+   *  mirrored (each carries its hour). */
+  const arenaBoutBegun = () => { const b = arenaBouts.bout(); return arenaBouts.hour() != null && !!b && !['call', 'walk', 'count'].includes(b.phase); };
   /** THE CITY'S FLOOR as a stage: the colosseum's sand where its block stands in a built pixel (null off it), its
    *  fighters through this host's own pool - `loose` (no cap), `transient` (no save holds them), `managed` (no cull),
    *  no champion, no loot - and the ground under a seat asked of the collider from above. */
@@ -8317,7 +8318,9 @@ export async function bootWorld(canvas, renderer, params, status) {
       _arenaCityC[0] = t[0] + p.arena[0] + f[0]; _arenaCityC[1] = t[1] + p.arena[1] + f[1]; _arenaCityC[2] = t[2] + p.arena[2] + f[2];
       return _arenaCityC;
     },
-    spawn: (mobile, feet, o) => exteriorFoes.spawnFoe(mobile, feet, { yaw: o.yaw, gender: o.gender, level: o.level, loose: true, transient: true, managed: true, champion: null })
+    // ARENA4b: a relay's fighter (`mirror`) is a body every screen stands its own copy of - `placed`, so the cell's stream
+    // carries it to nobody (each peer mirrors the same bout), the cap and the cull leave it be
+    spawn: (mobile, feet, o) => exteriorFoes.spawnFoe(mobile, feet, { yaw: o.yaw, gender: o.gender, level: o.level, loose: true, transient: true, managed: true, champion: null, ...(o.mirror ? { placed: true } : {}) })
       .then((f) => { if (f) { f.entity.bout = o.bout; f.entity.items = []; } return f; }),
     remove: (f) => exteriorFoes.removeFoe(f),
     heightAt: (x, z) => { const top = _arenaCityC[1] + 30; const d = collider.raycast([x, top, z], [0, -1, 0], 60); return Number.isFinite(d) ? top - d : null; },
@@ -8351,7 +8354,10 @@ export async function bootWorld(canvas, renderer, params, status) {
     arenaBouts.setStage(stg);
     if (stg === arenaCityStage && !arenaBouts.bout() && !arenaBouts.pending() && !gamePaused()) {
       const ex = exhibitionFor(worldMinutes());
-      if (ex?.open && ex.hour !== _arenaHourRun) { _arenaHourRun = ex.hour; arenaBouts.ask({ where: 'city', kind: 'exhibition', ex }); }
+      // ARENA4b: ONLINE THE HOUR'S BOUT IS THE RELAY'S - its room watched from the city's sand (scenes/arenaOnline.js
+      // watchCity), every screen the one bout; offline, or on a relay before it, this screen's own seeded bout as ever
+      if (arenaOnline?.exhibitions?.()) arenaOnline.watchCity(ex);
+      else if (ex?.open && ex.hour !== _arenaHourRun) { _arenaHourRun = ex.hour; arenaBouts.ask({ where: 'city', kind: 'exhibition', ex }); }
     }
     if (!stg) { arenaBouts.frame(dt, {}); if (!arenaBouts.bout()) arenaSound.stop(); return; }
     const inDungeon = (modes?.mode ?? 'exterior') === 'dungeon';
@@ -8379,6 +8385,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     if (a === 'watch') {
       const ex = exhibitionFor(worldMinutes());
       if (!ex) return;
+      if (arenaOnline?.exhibitions?.()) { arenaBouts.dismiss(); arenaOnline.watchExhibition(ex); return; }   // ARENA4b: the relay's bout, from the stands of its room
       _arenaHourRun = ex.hour;
       arenaBouts.dismiss();
       arenaBouts.ask({ where: 'floor', kind: 'exhibition', ex });
@@ -9091,7 +9098,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   // ?dungeon host RAN every CastWhenUsed / CastWhenStrikes / SoulBound
   // / affinity arm against no ctx at all. They are optional-chained, so
   // it WAS silent. WAVE D closed it: the body is scenes/hostEnchant.js
-  // and dungeonContext.js:2930 mounts the same one, gated on
+  // and dungeonContext.js:2935 mounts the same one, gated on
   // `opts.enchantCtx !== false` because setDefaultEnchantCtx is a
   // session singleton and EC1 already routes THIS host's mount into
   // that context through modes.dungeonCtx - so worldModes.js:6951
@@ -11716,7 +11723,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     // so an F9 pressed inside a shop recorded the street's sheath and
     // hand. The mode host answers for the rig that is actually drawn
     // and null outside interior mode (the dungeon owns its own
-    // composer, dungeonContext.js:8062), so exterior mode and a
+    // composer, dungeonContext.js:8100), so exterior mode and a
     // pre-seam mode host compose exactly as before, per field.
     const wp = modes?.weaponPose?.() ?? null;
     const snap = snapshotPlayer(playerEntity, {
@@ -17903,8 +17910,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     say: (l) => chatNotice(l),
     notice: (lines) => { for (const l of lines) townTalk.say(l); },
     names: (seed) => (i, mobile) => fighterIdentity(seed, i, mobile),
-    level: () => playerEntity.level ?? 1,
-    maxHealth: () => playerEntity.maxHealth ?? 1,
+    level: () => playerEntity.level ?? 1,   // ARENA4b: my level alone on a ladder bout's `in` - the relay's vitality is the token's signed level, no health of mine is said
     guest: () => storedSession(appStorage())?.kind === 'guest',
     struck: (d) => { if (d > 0) { flashPlayerDamage(d); playPlayerVoice(audio, playerPainVoice(playerEntity, d)); } },
     myHealth: (hp) => { if (playerEntity.health > 0) { playerEntity.health = hp; surfacePlayer(); } },
@@ -17922,6 +17928,7 @@ export async function bootWorld(canvas, renderer, params, status) {
       if (a.order) online?.sendRenownOrder?.(a.order, a.level);
       if (a.announce !== null) { renownSaid = a.announce; townTalk.say(`Your Renown is now ${a.announce}.`); }
     },
+    verdictHeard: () => arenaGate.settle(),   // ARENA4b: an exhibition's verdict asked of its room settles the book as it comes
   });
   /** ARENA4: MY OPPONENT on a relay's sand, as a body my blows meet (scenes/dungeonContext.js arenaRivalBody): the one
    *  body the bout's room draws (the stands have none), its stand-in for the formulas - unarmoured, every blow's number
@@ -20758,7 +20765,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     const mp = overworld ? worldCoordToMapPixel(wc.x, wc.z) : null;
     if (overworld) key = siegeSession?.room() ?? royalSession?.room() ?? roomKeyFor({ host: 'world', mode, mapPixel: mp });   // SEAT2a part four: a battle entered stands in its own room (CROWN1 part two: a Royal Tourney too)
     else if (modes?.roomIdentity?.()?.kind === 'gate') key = gateRoomKey(modes?.roomIdentity?.()?.day);   // WB3b: the court's room is its gate's own
-    else if (modes?.roomIdentity?.()?.kind === 'arena') key = arenaBoutRoom(modes?.roomIdentity?.()?.o);   // ARENA4: a relay's bout's floor is its room
+    else if (modes?.roomIdentity?.()?.kind === 'arena') key = arenaFloorRoomOf(modes?.roomIdentity?.()?.o);   // ARENA4: a relay's bout's floor is its room (ARENA4b: the hour's exhibition's, `x<hour>`, its own)
     else {
       const ident = modes?.roomIdentity?.();
       const loc = _questLoc();   // the location under the player: an interior's room is named by it

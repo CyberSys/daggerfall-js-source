@@ -4,8 +4,9 @@
 // arena player comes with it's own temporary title/glyph"): THE ARENA ONLINE, AS LAW - what the relay, the account
 // service and the game all read the same way. Design: bible/11-Multiplayer/Arena.md "7. Online".
 //
-//   THE ROOMS     `arena:hall` (the queue, the offers, the list of live bouts) and `arena:b<16 hex>` (one bout's floor:
-//                 its fighters, its spectators, the relay's referee and, on the ladder, its AI fighters).
+//   THE ROOMS     `arena:hall` (the queue, the offers, the list of live bouts), `arena:b<16 hex>` (one bout's floor:
+//                 its fighters, its spectators, the relay's referee and, on the ladder, its AI fighters) and (ARENA4b)
+//                 `arena:x<hour>` (the hour's exhibition - two of the relay's fighters and the stands).
 //   THE SEASON    eight weeks of wall time from a Monday (`arenaSeasonOf`) - Seats-Arc 9.1's planned seasons.
 //   THE RATING    Elo, 1,000 to start, K 32 (`eloAfter`), a season's own.
 //   THE QUEUE     paired by rating inside a band that widens every 10 s (`matchBand`, `pairQueue`); a pair is offered a
@@ -32,11 +33,25 @@ export const ARENA_BOUT_ID_RE = /^[0-9a-f]{16}$/;
 export const ARENA_BOUT_ROOM_RE = /^arena:b[0-9a-f]{16}$/;
 export const isArenaHall = (key) => key === ARENA_HALL;
 export const isArenaBoutRoom = (key) => ARENA_BOUT_ROOM_RE.test(String(key ?? ''));
+/** ARENA4b (Arena.md 2: "Exhibition - online: yes - the relay runs it, every client sees one bout"): THE HOUR'S
+ *  EXHIBITION'S ROOM, `arena:x<hour>` - the game hour since the epoch (systems/arenaLadder.js hourIndexOf) on the shared
+ *  clock, so every screen near the colosseum names one room and the relay runs one bout in it (net/arenaExhibition.js). */
+export const ARENA_EX_ROOM_RE = /^arena:x(0|[1-9]\d{0,8})$/;
+export const isArenaExhibitionRoom = (key) => ARENA_EX_ROOM_RE.test(String(key ?? ''));
+export const arenaExhibitionRoom = (hour) => `arena:x${Math.max(0, Math.floor(Number(hour) || 0))}`;
+/** The hour out of an exhibition room's key, or null. */
+export const arenaExhibitionHourOf = (key) => { const m = ARENA_EX_ROOM_RE.exec(String(key ?? '')); return m ? Number(m[1]) : null; };
+/** A room the bout law stands on - a bout's or the hour's exhibition's: its sand holds the fighters alone, its stands
+ *  every other socket (no body drawn, no pose fanned). */
+export const isArenaFloorRoom = (key) => isArenaBoutRoom(key) || isArenaExhibitionRoom(key);
 /** Any arena room - the Worker opens an object for these and no other `arena:` key. */
-export const isArenaRoom = (key) => isArenaHall(key) || isArenaBoutRoom(key);
+export const isArenaRoom = (key) => isArenaHall(key) || isArenaFloorRoom(key);
 export const arenaBoutRoom = (id) => `arena:b${id}`;
 /** The bout's id out of its room's key, or null. */
 export const arenaBoutIdOf = (key) => (isArenaBoutRoom(key) ? String(key).slice(7) : null);
+/** ARENA4b: the room a floor's instance stands in, by the bout it was entered for - a bout's id (`arena:b<id>`) or an
+ *  exhibition's `x<hour>` (`arena:x<hour>`); null for anything else. */
+export const arenaFloorRoomOf = (o) => (ARENA_BOUT_ID_RE.test(String(o ?? '')) ? arenaBoutRoom(o) : isArenaExhibitionRoom(`arena:${o}`) ? `arena:${o}` : null);
 
 // ── THE SEASON ────────────────────────────────────────────────────────────────────────────────
 /** The first season's first second: Monday 2026-09-28 00:00 UTC. */
@@ -117,6 +132,15 @@ export function pairQueue(queue, now, apart = () => false) {
 
 // ── THE TEAMS ─────────────────────────────────────────────────────────────────────────────────
 export const ARENA_BANNERS = Object.freeze(['red', 'blue']);
+/** ARENA4b: A FIGHTER'S BANNER AS A WORD CLAIMS IT - 'red' or 'blue', or null for none and for anything else (a word is
+ *  never refused over a pennant). COSMETIC ONLY: the relay bills it beside the name (the hall's offers, the bouts to
+ *  watch) so a rival's and a watched fighter's pennant shows; no point is counted off it - the account service counts a
+ *  banner's points off its own `arena_members` row (server-account/src/arena.js), never a word. The token does not sign
+ *  the banner, so the word's claim is all the relay has to bill. Pure. */
+export const bannerClaim = (b) => (ARENA_BANNERS.includes(b) ? b : null);
+/** ARENA4b: the hour's exhibition's banners by side (Arena.md 3, ARENA3's exhibition): side 0 the Red's fighter, side 1
+ *  the Blue's - the relay's two billed so on the list to watch. */
+export const ARENA_EX_BANNERS = Object.freeze(['red', 'blue']);
 /** A season's team points (systems/arenaLeague.js TEAM_POINTS, pinned, and Arena.md 3's refereed PvP win, two). */
 export const ARENA_TEAM_POINTS = Object.freeze({ bout: 1, champion: 3, grand: 10, pvp: 2 });
 
@@ -208,11 +232,38 @@ export const arenaLv = (lv) => Math.max(ARENA_LV_MIN, Math.min(ARENA_LV_MAX, Num
 /** A fighter's vitality in a bout between players: 300 + 2 x Renown level - Seats-Arc 6.1's normalised vitality, flat
  *  on purpose, so even a lie about the level buys a third more at most. */
 export const pvpVitality = (lv) => 300 + 2 * arenaLv(lv);
-/** A ladder fighter's own health, as their game says it, bounded by the level they claim (DFU's 25 a level at most and
- *  a base) - the gate's law for a claimed level (AUDIT WBX S2). */
+/** ARENA4b: A LADDER FIGHTER'S VITALITY FROM A LEVEL - DFU's most at it (25 and 30 a level: systems/chargen.js
+ *  rollMaxHealthLevel1's base and the steepest career's hit points a level - the bound ARENA4 held a claimed health to),
+ *  bounded. The relay cannot see a career or an endurance (neither is signed), so every fighter of a level fights at the
+ *  honest most of it: a lie about the health buys nothing, and nobody fights under what they could be. */
 export const PVE_HP_MIN = 10;
 export const PVE_HP_MAX = 2000;
-export const pveVitality = (mh, lv) => Math.max(PVE_HP_MIN, Math.min(PVE_HP_MAX, 25 + 30 * arenaLv(lv), Math.floor(Number(mh) || 0)));
+export const ladderVitalityAt = (level) => Math.max(PVE_HP_MIN, Math.min(PVE_HP_MAX, 25 + 30 * Math.max(1, Math.floor(Number(level) || 1))));
+/** ARENA4b: the signed character level's bounds (net/identityToken.js CHARACTER_LEVEL_MIN/MAX, pinned - written here so
+ *  this law imports nothing). */
+export const ARENA_CL_MIN = 1;
+export const ARENA_CL_MAX = 1000;
+/** ARENA4b: how far past a tier's own top level a claimed level is believed when no signed one rides the token (an old
+ *  account service): a tier spans two or three levels, so five past its top is two tiers' climb - an honest fighter who
+ *  out-levelled the mountain still fights near their own, and a forged level-sixty is no longer carried into the Pit. */
+export const LADDER_LV_MARGIN = 5;
+/** ARENA4b: the highest opponent level of a tier (a class fighter's own, a monster's DFU level - ARENA_BEASTS), plus the
+ *  margin - the hard cap on a claimed level there. Pure. */
+export function ladderLevelCap(tier) {
+  let top = 1;
+  for (const b of ARENA_LADDER_SPEC[tier] ?? []) for (const [m, l] of b) top = Math.max(top, l ?? ARENA_BEASTS[m]?.[0] ?? 1);
+  return top + LADDER_LV_MARGIN;
+}
+/**
+ * ARENA4b: A LADDER FIGHTER'S VITALITY, the relay's alone. The signed character level (`cl`, the account service's,
+ * off the realm character - net/identityToken.js) is the level; a client's claimed health (the `in` word's `mh`) is read
+ * by nothing. A token from a service before `cl` falls back to the claimed level held to the tier's cap
+ * (ladderLevelCap). Pure.
+ */
+export function ladderVitality(cl, lv, tier) {
+  const level = Number.isSafeInteger(cl) && cl >= ARENA_CL_MIN && cl <= ARENA_CL_MAX ? cl : Math.min(arenaLv(lv), ladderLevelCap(tier));
+  return ladderVitalityAt(level);
+}
 /** The blows a fighter lands a second, at most (the gate's GATE_HIT_HZ_MAX shape). */
 export const ARENA_HIT_HZ_MAX = 4;
 /** A fighter's damage bucket: it refills at this a second and holds this much - a sustained fight is bounded by it,
@@ -286,6 +337,13 @@ export const ARENA_CHAMPION_MIN_BOUTS = 3;
 export const ARENA_LIVE_MAX = 24;
 /** Why a bout ended, on the wire (systems/arenaBout.js's endings, and the relay's own: a forfeit, a void). */
 export const ARENA_HOW = Object.freeze(['yield', 'fall', 'ringout', 'judges', 'forfeit']);
+/** ARENA4b: a bout's kinds on the wire - between players, the ladder, and the hour's exhibition (two of the relay's own). */
+export const ARENA_KINDS = Object.freeze(['pvp', 'pve', 'ex']);
+/** ARENA4b: the largest game hour an exhibition's word names (the room key's nine digits). */
+export const ARENA_HOUR_MAX = 999_999_999;
+/** ARENA4b: a finished exhibition's room keeps its verdict this long - a game day on the shared clock (two real hours),
+ *  so the bookmaker of a screen that left before the verdict can still ask it (scenes/arenaOnline.js exhibitionVerdict). */
+export const ARENA_EX_KEEP_MS = 2 * 3600_000;
 
 // ── THE WIRE ──────────────────────────────────────────────────────────────────────────────────
 const int = (v, lo, hi) => (Number.isInteger(v) && v >= lo && v <= hi ? v : null);
@@ -297,16 +355,20 @@ export const ARENA_FIGHTER_RE = FID_RE;
 export const ARENA_IN_KINDS = Object.freeze(['q', 'x', 'y', 'n', 'ls', 'in', 'hit', 'yd', 'ch', 'out']);
 /**
  * A CLIENT'S ARENA WORD, projected - or null for anything that is not one:
- *   hall:  q (the queue - `lv` my Renown level), x (out of it), y / n (yes or no to offer `o`), ls (the live bouts)
- *   bout:  in (`r` 'f' to fight, 's' to watch; a ladder bout's opener names `tier` and `bout`, `lv` my level
- *          and `mh` my whole health), hit (`i` whom, `d` the damage, `r` how - ARENA_HIT, `w` the weapon's template, `m`
- *          its material, `q` the blow's sequence), yd (I yield), ch (a spectator's `c` cheer 1 or boo -1), out (I leave)
+ *   hall:  q (the queue - `lv` my Renown level, ARENA4b: `b` my banner - bannerClaim, cosmetic), x (out of it), y / n
+ *          (yes or no to offer `o`), ls (the live bouts)
+ *   bout:  in (`r` 'f' to fight, 's' to watch; a ladder bout's opener names `tier` and `bout`, `lv` my level, ARENA4b:
+ *          `b` my banner (bannerClaim - an unknown one dropped, never a refusal)
+ *          and `mh` my whole health - ARENA4b: read by nothing now, the vitality is the signed level's, ladderVitality -
+ *          kept on the wire for a build before it), hit (`i` whom, `d` the damage, `r` how - ARENA_HIT, `w` the weapon's
+ *          template, `m` its material, `q` the blow's sequence), yd (I yield), ch (a spectator's `c` cheer 1 or boo -1),
+ *          out (I leave)
  * @param {any} m
  */
 export function validArenaIn(m) {
   if (!m || typeof m !== 'object' || !ARENA_IN_KINDS.includes(m.k)) return null;
   switch (m.k) {
-    case 'q': return { k: 'q', ...(int(m.lv, 1, 999) != null ? { lv: m.lv } : {}) };
+    case 'q': return { k: 'q', ...(int(m.lv, 1, 999) != null ? { lv: m.lv } : {}), ...(bannerClaim(m.b) ? { b: m.b } : {}) };
     case 'x': case 'ls': case 'yd': case 'out': return { k: m.k };
     case 'y': case 'n': return typeof m.o === 'string' && ARENA_BOUT_ID_RE.test(m.o) ? { k: m.k, o: m.o } : null;
     case 'in': {
@@ -318,6 +380,7 @@ export function validArenaIn(m) {
       }
       if (m.lv !== undefined) { if (int(m.lv, 1, 999) == null) return null; out.lv = m.lv; }
       if (m.mh !== undefined) { if (int(m.mh, 1, 99999) == null) return null; out.mh = m.mh; }
+      if (bannerClaim(m.b)) out.b = m.b;   // ARENA4b: a ladder fighter's banner, billed on the list to watch
       return out;
     }
     case 'hit': {
@@ -376,8 +439,11 @@ function evOk(e) {
  * A RELAY'S ARENA WORD, projected - or null:
  *   hall:  qd (queued: `n` waiting, `band`), qx (out of the queue: `m` why), of (an offer: `o` its id, `vs` the opponent
  *          billed, `until` its lapse on the relay's clock), go (the bout is on: `o` its id, `side`, `vs`), live (`l` the
- *          bouts to watch: `[{ o, kind, a, b, tier, sp, at }]`)
- *   bout:  st (the whole bout: `o`, `kind`, `ph` its phase, `pa` the phase's start, `fa` the fight's, `lim`, `tier`, `bout`,
+ *          bouts to watch: `[{ o, kind, a, b, tier, sp, at }]` - ARENA4b: an exhibition's `kind` 'ex' with its hour `h`
+ *          and its two billed by banner alone (`{ b }`, ARENA_EX_BANNERS), the relay knowing no names: every screen
+ *          names its fighters off the hour). ARENA4b: a bill's `b` is the fighter's banner (bannerClaim - cosmetic)
+ *   bout:  st (the whole bout: `o`, `kind` - 'pvp', 'pve' or (ARENA4b) 'ex' with its hour `h` - `ph` its phase, `pa` the
+ *          phase's start, `fa` the fight's, `lim`, `tier`, `bout`,
  *          `f` its fighters, `me` my id or '', `sp` spectators, `res` the result), ev (`e` law events), hp (`h`
  *          `[[id, hp, max]]`), mv (`i` an AI fighter, its walk `x z tx tz v at`), atk (`i` its blow `at` landing at `x z`),
  *          blow (`i` struck player `to` for `d`), rc (`r` my receipt), cr (the crowd's `c` cheer or boo, `n` how many), no (`m` a
@@ -400,23 +466,30 @@ export function validArenaOut(m) {
       if (!Array.isArray(m.l) || m.l.length > ARENA_LIVE_MAX) return null;
       const l = [];
       for (const b of m.l) {
-        if (!b || typeof b.o !== 'string' || !ARENA_BOUT_ID_RE.test(b.o) || (b.kind !== 'pvp' && b.kind !== 'pve')) return null;
-        const a = billOk(b.a), z = b.b ? billOk(b.b) : null;
-        if (!a || (b.b && !z) || int(b.sp, 0, ARENA_SPECTATORS_MAX) == null || num(b.at, 1e15) == null) return null;
+        if (!b || typeof b.o !== 'string' || !ARENA_BOUT_ID_RE.test(b.o) || !ARENA_KINDS.includes(b.kind)) return null;
+        // ARENA4b: an exhibition is billed by its hour alone; every other bout by its fighters
+        const ex = b.kind === 'ex';
+        if (ex && int(b.h, 0, ARENA_HOUR_MAX) == null) return null;
+        // ARENA4b: an exhibition's two billed by their banners alone (the relay names nobody), an unknown one dropped
+        const exBill = (v) => (bannerClaim(v?.b) ? { b: v.b } : null);
+        const a = ex ? exBill(b.a) : billOk(b.a), z = ex ? exBill(b.b) : b.b ? billOk(b.b) : null;
+        if ((!ex && !a) || (!ex && b.b && !z) || int(b.sp, 0, ARENA_SPECTATORS_MAX) == null || num(b.at, 1e15) == null) return null;
         if (b.tier !== undefined && int(b.tier, 0, ARENA_TIERS - 1) == null) return null;
-        l.push({ o: b.o, kind: b.kind, a, ...(z ? { b: z } : {}), ...(b.tier !== undefined ? { tier: b.tier } : {}), sp: b.sp, at: b.at });
+        l.push({ o: b.o, kind: b.kind, ...(ex ? { h: b.h } : {}), ...(a ? { a } : {}), ...(z ? { b: z } : {}), ...(b.tier !== undefined ? { tier: b.tier } : {}), sp: b.sp, at: b.at });
       }
       return { k: 'live', l };
     }
     case 'st': {
-      if (typeof m.o !== 'string' || !ARENA_BOUT_ID_RE.test(m.o) || (m.kind !== 'pvp' && m.kind !== 'pve')) return null;
+      if (typeof m.o !== 'string' || !ARENA_BOUT_ID_RE.test(m.o) || !ARENA_KINDS.includes(m.kind)) return null;
+      if (m.kind === 'ex' && int(m.h, 0, ARENA_HOUR_MAX) == null) return null;   // ARENA4b: an exhibition says its hour
       const PH = ['wait', 'call', 'walk', 'count', 'fight', 'end', 'verdict', 'heal', 'done', 'void'];
       if (!PH.includes(m.ph) || num(m.pa, 1e15) == null || num(m.lim, 1e9) == null) return null;
       if (!Array.isArray(m.f) || m.f.length > 4) return null;
       const f = m.f.map(stFighterOk);
       if (f.some((x) => !x)) return null;
       if (typeof m.me !== 'string' || (m.me !== '' && !FID_RE.test(m.me))) return null;
-      const out = { k: 'st', o: m.o, kind: m.kind, ph: m.ph, pa: m.pa, fa: num(m.fa, 1e15) ?? null, lim: m.lim, f, me: m.me, sp: int(m.sp, 0, ARENA_SPECTATORS_MAX) ?? 0 };
+      /** @type {any} */
+      const out = { k: 'st', o: m.o, kind: m.kind, ph: m.ph, pa: m.pa, fa: num(m.fa, 1e15) ?? null, lim: m.lim, f, me: m.me, sp: int(m.sp, 0, ARENA_SPECTATORS_MAX) ?? 0, ...(m.kind === 'ex' ? { h: m.h } : {}) };
       if (m.tier !== undefined) { if (int(m.tier, 0, ARENA_TIERS - 1) == null || int(m.bout, 0, ARENA_TIER_BOUTS) == null) return null; Object.assign(out, { tier: m.tier, bout: m.bout }); }
       if (m.res !== undefined && m.res !== null) {
         const r = m.res;

@@ -38,8 +38,9 @@
   {
     "name": "ARENA4B-TOK-VALID-ZERO",
     "file": "src/net/identityToken.js",
-    "old": "c.cl >= 1 && c.cl <= 1000",
-    "new": "c.cl >= 0 && c.cl <= 1000",
+    "old": "cl >= CHARACTER_LEVEL_MIN && cl <= CHARACTER_LEVEL_MAX",
+    "new": "cl >= 0 && cl <= CHARACTER_LEVEL_MAX",
+    "note": "The merge of ARENA4b's streams (re-aimed by content): the relay stream's characterLevelIssuable is the one validation.",
     "tests": [
       "test/arena4b_token.test.js"
     ]
@@ -47,8 +48,9 @@
   {
     "name": "ARENA4B-TOK-VALID-FRACTION",
     "file": "src/net/identityToken.js",
-    "old": "!(Number.isSafeInteger(c.cl) && c.cl >= 1",
-    "new": "!(c.cl >= 1",
+    "old": "Number.isSafeInteger(cl) && cl >= CHARACTER_LEVEL_MIN",
+    "new": "cl >= CHARACTER_LEVEL_MIN",
+    "note": "The merge of ARENA4b's streams (re-aimed by content): the relay stream's characterLevelIssuable is the one validation.",
     "tests": [
       "test/arena4b_token.test.js"
     ]

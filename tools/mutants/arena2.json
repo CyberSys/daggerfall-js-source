@@ -200,7 +200,7 @@
   },
   {
     "name": "ARENA2-EX-HOURS",
-    "file": "src/systems/arenaLadder.js",
+    "file": "src/net/arenaExhibition.js",
     "old": "  if (!EXHIBITION_HOURS.includes(hod)) return null;",
     "new": "",
     "tests": [
@@ -209,7 +209,7 @@
   },
   {
     "name": "ARENA2-EX-OPEN",
-    "file": "src/systems/arenaLadder.js",
+    "file": "src/net/arenaExhibition.js",
     "old": "open: minute < EXHIBITION_START_MINUTES,",
     "new": "open: true,",
     "tests": [

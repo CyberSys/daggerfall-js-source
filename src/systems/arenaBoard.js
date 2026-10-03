@@ -274,7 +274,7 @@ const billed = (b) => (b ? { name: b.n ?? b.name ?? '', rating: b.r ?? b.rating 
  *  net/arenaLink.js's hall state; `me` the service's own of this account. */
 export function onlineCards({ hall, me, guest = false, busy = false, now = 0 }) {
   const live = (hall?.live ?? []).map((b) => ({
-    o: b.o, kind: b.kind, title: b.kind === 'pve' ? O().liveLadder(ARENA_TEXT.tiers[b.tier ?? 0] ?? '') : O().livePlayers,
+    o: b.o, kind: b.kind, title: b.kind === 'ex' ? O().liveExhibition(ARENA_TEXT.tiers[b.tier ?? 0] ?? '') : b.kind === 'pve' ? O().liveLadder(ARENA_TEXT.tiers[b.tier ?? 0] ?? '') : O().livePlayers,   // ARENA4b: the hour's exhibition, the relay's
     a: billed(b.a), b: billed(b.b), watching: O().watching(b.sp ?? 0), acts: [{ act: 'spectate', label: W().watch, why: busy ? O().whyBusy : null }],
   }));
   const players = {
