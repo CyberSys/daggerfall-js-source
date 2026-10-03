@@ -3043,7 +3043,7 @@ ladders became `hudCtx` while this slice was in flight - one object
 the ladder AND the large HUD's eleven panels both read, so a click on
 the bar and a press of the bound key reach the same door. The Rest
 arm moved into it, which means the large HUD's rest panel
-(`hudLarge.js:158`, `action: 'Rest'`) now has a destination in every
+(`hudLarge.js:159`, `action: 'Rest'`) now has a destination in every
 host: it had been posting an action nothing above ground answered.
 `routeAction`'s own `case 'Rest': ctx.toggleRest?.()` already carried
 the interior host.
@@ -3196,7 +3196,7 @@ collapse is a bare `RaiseTime(1 * SecondsPerHour)` (`:2429`) that
 returns; `Update` is not re-entered.
 
 The port's hosts implement that same RaiseTime as
-`playerTicker.advance(60)` (`exterior.js:1102`, `world.js:3268`), fired
+`playerTicker.advance(60)` (`exterior.js:1102`, `world.js:3272`), fired
 from inside `sinks.drainFatigue` - so it re-enters `tickPlayerMinutes`
 from inside that function's own fatigue band. The nested tick wrote the
 marker an hour ahead, the outer frame's own `setWorldMinutes` then
@@ -4597,7 +4597,7 @@ the true clause along with the false ones is in the campaign, because
 over-retiring is the equal and opposite failure.
 
 **And one delegation pointed at a flag nobody had ever written.**
-`world.js:4817` said the dungeon-mode enchant ctx was "FLAGGED there
+`world.js:4821` said the dungeon-mode enchant ctx was "FLAGGED there
 with the rest of its enchant wiring" in `dungeonContext.js`. It was
 not. `setDefaultEnchantCtx` had exactly **one** caller in the tree, so
 the standalone `?dungeon` host ran every arm that needs a host
@@ -5575,7 +5575,7 @@ to that cite and moves under the same content check; citeMerge had
 done this since CS2 and citeShift only reported them, so the two
 regexes are one law now, exported from citeShift (`ANY_CITE`,
 `CONTINUATION`) and imported by citeMerge. (2) A TEST'S ESCAPED
-LITERAL FOLLOWS THE ROW IT PINS: `world\.js:10957` in citedrift.test.js
+LITERAL FOLLOWS THE ROW IT PINS: `world\.js:10965` in citedrift.test.js
 is a quote of a Ledger row's text; the row is STRUCK and its number
 held, and the literal used to move anyway, parting the pin from its
 row at every shift. The CLI plans every doc first, learns which

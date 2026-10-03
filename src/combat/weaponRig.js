@@ -80,6 +80,8 @@ import { concealmentFlags } from '../systems/effects.js';   // EOTB-IL: PlayerBi
 import { getBool, getInt } from '../systems/settings.js';   // EOTB-IL: PlayerBillboard.LateUpdate reads DaggerfallUnity.Settings.BowDrawback
 import { modSetting } from '../systems/modSettings.js';   // WW1: its Enabled
 import { takeFrameLook } from '../player/lookFilter.js';   // WW1: the frame's look for the widget's inertia
+import { uiCanvas, onUiScreen, fromUiPoint } from '../ui/uiScreen.js';   // RETRO-UI: the viewmodel in DFU's CustomScreenRect
+import { dfuLookAxes } from '../ui/lookSettings.js';   // WIDGET-LOOK: the mods' Inertia reads DFU's look axes, not the camera's radians
 import { cursorActive } from '../player/pointerLock.js';   // WW1: PlayerMouseLook.cursorActive
 import { liveStat } from '../systems/statMods.js';   // WW1: the widget's speed ratio
 import './swingLaw.js';   // AUDIT PRE-MERGE 0929 S5: SWING-LAW's reader of the weapon in the hand, registered as it loads - every rig's
@@ -296,7 +298,7 @@ export async function autoBuildArms(entity, { dataCount = morrowindDataCount, me
  *                     pass console is retired: every call site hands
  *                     over a real one - hudText.add
  *                     (dungeonContext.js:3325), townTalk.say
- *                     (exterior.js:2196, world.js:8856) and
+ *                     (exterior.js:2196, world.js:8860) and
  *                     worldModes' own interior sink (worldModes.js:514,
  *                     which warns to console only where a host mounts
  *                     no townTalk at all), so the empty default below
@@ -719,7 +721,9 @@ export function createWeaponRig({ renderer, canvas, fetchBytes, palette, audio, 
     if (fpArm.ready()) playerWeapon.followHeldHand();   // MW-HAND: under the Morrowind arm, never an empty hand while the other holds a weapon
     playerWeapon.applyWeapon(claws);
   };
-  const cv = typeof canvas === 'function' ? canvas : () => canvas;
+  // RETRO-UI (FIELD BUGS 2026-10-03): the rig lays out on the UI canvas - DFU's CustomScreenRect under retro mode's
+  // pillarbox (FPSWeapon.cs :128-129, FPSSpellCasting.cs :88-89), the canvas otherwise; draw() puts it at its place
+  const cv = () => uiCanvas(typeof canvas === 'function' ? canvas() : canvas);
   const cache = new Map();   // `${type}:${material}` -> art (null while loading)
   let _dx = 0, _dy = 0, _held = false;
   let wolfForm = false, wolfSkin = null;   // WEREWOLF1 / SHADOW-FANG (AUDIT D5): the form handed to the rig last, and the skin read at its change
@@ -1061,7 +1065,9 @@ export function createWeaponRig({ renderer, canvas, fetchBytes, palette, audio, 
     // world object. `worldViewportRect` outlives endWorldPass for
     // exactly this reader; null is the full canvas, which is what
     // every host without a docked large HUD hands back.
-    _tlDrawn = { rect, canvasW: canvas.width, canvasH: canvas.height, muzzle: art.muzzle ?? null, flip: handedFlip(), viewport: renderer.worldViewportRect ?? null, aspect: renderer.worldProjAspect ?? null };   // RETRO1: and the lens's aspect
+    // RETRO-UI: drawn on the UI canvas, measured on the real one - the muzzle is a canvas pixel the world ray reads
+    const [rx, ry] = fromUiPoint(canvas, rect.x, rect.y), real = canvas.canvas ?? canvas;
+    _tlDrawn = { rect: { ...rect, x: rx, y: ry }, canvasW: real.width, canvasH: real.height, muzzle: art.muzzle ?? null, flip: handedFlip(), viewport: renderer.worldViewportRect ?? null, aspect: renderer.worldProjAspect ?? null };   // RETRO1: and the lens's aspect
     // FIELD-GUN13 (Mac: "The muzzle flash itself shouldn't be affected
     // by the darkening lighting").
     //
@@ -1674,7 +1680,8 @@ export function createWeaponRig({ renderer, canvas, fetchBytes, palette, audio, 
         const held = activateHeld();
         _activateStarted = held && !_activatePrev; _activatePrev = held;
         _lastEye = cam?.pos ? [cam.pos[0], cam.pos[1], cam.pos[2]] : null;
-        const look = takeFrameLook();   // WW1/HT1: the frame's look, read once, shared by both
+        const look = takeFrameLook();   // WW1/HT1: the frame's look, read once, shared by both - in the camera's radians, the Thunderlock's own (its lab's)
+        const lookAxes = dfuLookAxes(look);   // WIDGET-LOOK: the same look as InputManager.LookX/LookY, what the mods' Inertia reads
         // FIELD-GUN12: the gun's own rig steps on the same frame, from
         // the same motor and the same look the mod's modules take.
         thunderlockFeel(dt, { width: c?.width ?? 320, height: c?.height ?? 200, motion: frameMotion, look });
@@ -1687,7 +1694,7 @@ export function createWeaponRig({ renderer, canvas, fetchBytes, palette, audio, 
             castPlaying: fpsSpellCasting.isPlayingAnim, spellArmed: spellArmed(), thirdPerson: fpArm.thirdActive() || eotbHidesWeapon(),   // AUDIT-EOTB2: either body on screen hides the FPV hand
             climbing: !!cam?.climbing, swimming: !!mv.swimming, transformedLycanthrope: !!entity && isTransformedLycanthrope(entity),
             motion: frameMotion,   // AUDIT 68 S09-frame-motion-triplicated: FIELD-GUN12's one bag, not a restatement of it
-            look, swingHeld: _held, cursorActive: cursorActive(), camera: camThunk, collider: () => collider?.() ?? null,
+            look: lookAxes, swingHeld: _held, cursorActive: cursorActive(), camera: camThunk, collider: () => collider?.() ?? null,
             actionDown: (action) => !!actionDown?.(action), sheathWeapons: () => { if (!playerWeapon.sheathed) playerWeapon.toggleSheath(); },
           };
           handheld.update(dt, tctx);
@@ -1724,7 +1731,7 @@ export function createWeaponRig({ renderer, canvas, fetchBytes, palette, audio, 
           // and `.y` got undefined every frame, so the shield's Inertia
           // module saw the movement and never the look. It is off by
           // default, which is the only reason nothing said so.
-          look: { x: look?.[0] ?? 0, y: look?.[1] ?? 0, cursorActive: cursorActive(), swingAction: _held },
+          look: { x: lookAxes[0], y: lookAxes[1], cursorActive: cursorActive(), swingAction: _held },
         });
         if (widgetOn()) widget.lateUpdate(dt, {
           renderer, canvas: c, entity, art: c ? artFor(playerWeapon.weapon) : null, weapon: playerWeapon.weapon,
@@ -1733,7 +1740,7 @@ export function createWeaponRig({ renderer, canvas, fetchBytes, palette, audio, 
           equipCountdown: entity?.equipCountdown ?? 0, shown: spriteShown(), castPlaying: fpsSpellCasting.isPlayingAnim, spellArmed: spellArmed(),
           thirdPerson: fpArm.thirdActive() || eotbHidesWeapon(), reach: WEAPON_REACH,   // AUDIT-EOTB2: the widget's third-person gate asked the Morrowind arm alone
           motion: frameMotion,
-          look, swingHeld: _held, cursorActive: cursorActive(), camera: camThunk,
+          look: lookAxes, swingHeld: _held, cursorActive: cursorActive(), camera: camThunk,
           activateStarted: () => _activateStarted,
         });
       }
@@ -1770,7 +1777,7 @@ export function createWeaponRig({ renderer, canvas, fetchBytes, palette, audio, 
     setHeldPose(spec) { return fpArm.setHeldPose(spec); },
     draw({ paralyzed = false } = {}) {
       _armDrewLast = false;
-      try { return drawInner({ paralyzed }); } finally { widget.endOfFrame(); shield.endOfFrame(); }   // WW1: WaitForEndOfFrame resumes after the frame's draw
+      try { return onUiScreen(renderer, cv(), () => drawInner({ paralyzed })); } finally { widget.endOfFrame(); shield.endOfFrame(); }   // WW1: WaitForEndOfFrame resumes after the frame's draw; RETRO-UI: in the pillarbox
     },
     widget,   // WW1: the clone, for the pins
     shield,   // SW1: the shield's component, for the pins

@@ -2,7 +2,7 @@
   {
     "name": "UI1-no-dress-laid",
     "file": "src/ui/cursor.js",
-    "old": "      document.head.append(st);\n",
+    "old": "  lay(SCROLLBAR_STYLE_ID, CURSOR_SCROLLBAR_CSS);\n",
     "new": "",
     "tests": [
       "test/fb1001_uiaudit.test.js"
@@ -11,8 +11,8 @@
   {
     "name": "UI1-laid-at-every-install",
     "file": "src/ui/cursor.js",
-    "old": "    if (!document.getElementById('df-cursor-scrollbars')) {",
-    "new": "    if (true) {",
+    "old": "    if (doc.getElementById?.(id)) return;",
+    "new": "    if (false) return;",
     "tests": [
       "test/fb1001_uiaudit.test.js"
     ]
@@ -29,26 +29,8 @@
   {
     "name": "UI3-a-fixed-2x-again",
     "file": "src/ui/cursor.js",
-    "old": "    out.width = w * k; out.height = h * k;",
-    "new": "    out.width = w * 2; out.height = h * 2;",
-    "tests": [
-      "test/fb1001_uiaudit.test.js"
-    ]
-  },
-  {
-    "name": "UI3-the-whole-image-drawn",
-    "file": "src/ui/cursor.js",
-    "old": "    ctx.drawImage(src, 0, 0, w, h, 0, 0, out.width, out.height);",
-    "new": "    ctx.drawImage(src, 0, 0, width, height, 0, 0, out.width, out.height);",
-    "tests": [
-      "test/fb1001_uiaudit.test.js"
-    ]
-  },
-  {
-    "name": "UI3-the-full-size",
-    "file": "src/ui/cursor.js",
-    "old": "    const [w, h] = drawnExtent(rgba, width, height);",
-    "new": "    const [w, h] = [width, height];",
+    "old": "  const arrow = `url(\"${url}\") ${DFU_CURSOR_HOTSPOT[0]} ${DFU_CURSOR_HOTSPOT[1]}, auto`;",
+    "new": "  const arrow = `image-set(url(\"${url}\") 2x) ${DFU_CURSOR_HOTSPOT[0]} ${DFU_CURSOR_HOTSPOT[1]}, auto`;",
     "tests": [
       "test/fb1001_uiaudit.test.js"
     ]
@@ -56,8 +38,8 @@
   {
     "name": "UI3-the-hotspot-moved",
     "file": "src/ui/cursor.js",
-    "old": "`url(${out.toDataURL()}) 0 0, auto`",
-    "new": "`url(${out.toDataURL()}) 4 4, auto`",
+    "old": "export const DFU_CURSOR_HOTSPOT = Object.freeze([0, 0]);",
+    "new": "export const DFU_CURSOR_HOTSPOT = Object.freeze([4, 4]);",
     "tests": [
       "test/fb1001_uiaudit.test.js"
     ]

@@ -2415,10 +2415,10 @@ beside them. Then the same shape turned up everywhere else:
 | host | list |
 |---|---|
 | `dungeonContext.js:6862` | the mobiles, the drops, the spells |
-| `worldModes.js:8781` | the dungeon's flats, camps, torches and peers |
-| `worldModes.js:8985` | the interior's flats and peers |
-| `worldModes.js:8991-9059` | blood, torches, drops, foes, guards - **five separate uncut calls** |
-| `exterior.js:5437`, `world.js:25246` | the spell missiles |
+| `worldModes.js:8783` | the dungeon's flats, camps, torches and peers |
+| `worldModes.js:8987` | the interior's flats and peers |
+| `worldModes.js:8993-9061` | blood, torches, drops, foes, guards - **five separate uncut calls** |
+| `exterior.js:5437`, `world.js:25254` | the spell missiles |
 | `exterior.js:5514` | the fixed city's townspeople |
 | `interior.js:387`, `dungeon.js:1112` | the flats, the camps, the torches |
 

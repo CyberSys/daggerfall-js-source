@@ -163,7 +163,7 @@ test('AUDIT 68 S02-contextlost-tap-dead: the lost-context report takes the tap i
     createElement: () => ({ style: {}, clicks: [], addEventListener(ev, fn) { if (ev === 'click') this.clicks.push(fn); } }),
     body: { appendChild: (el) => els.set(el.id, el) },
   };
-  new Function('document', 'location', code)(document, { reload: () => reloads++ });
+  new Function('document', 'location', 'pageGoing', code)(document, { reload: () => reloads++ }, false);   // GL-LEAK: the page is not going (main.js's own flag; a context let go on purpose as it goes puts up no report)
   assert.equal(typeof lost, 'function', 'the handler is registered on the canvas');
   lost({ preventDefault() {} });
   lost({ preventDefault() {} });   // a phone can lose it twice

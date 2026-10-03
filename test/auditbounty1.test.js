@@ -55,7 +55,7 @@ test('AUDIT BOUNTY1 B2: ONE STAND FOR A GROUP IN THE WILDERNESS - the bounty pac
   const stand = campStand({
     placeFoeEnv: () => ({}), collider: {}, cam: { yaw: 0 }, fieldOfView: () => 1, entityOccupancy: () => () => false, _placingPool: () => [],
     campAnchorSpot: () => ({ x: 20, y: 0, z: 0 }), LOOSE_FOE_PLACE_ATTEMPTS: 1, placeFoeFreely: () => ({ x: 1, y: 0, z: 1 }),
-    _inAnyLocationRect: () => false, _nearRoad: () => false, _overDeepWater: () => false, CAMP_ROAD_CLEAR_M: 4,
+    _inAnyLocationRect: () => false, _nearRoad: () => false, _overDeepWater: () => false, _inRock: () => false, CAMP_ROAD_CLEAR_M: 4,   // BOUNTY-ROCK: no rock here
     // MERGE 2: main's OW6 - the growth one home (`campMembers`, bounded by the pool) and the camp ids the pool's one counter
     campMembers: (types) => partyGroupMembers(types, 8).slice(0, 8), ENEMY_BASICS: {}, CAMP_SIGHT_RADIUS: 60,
     exteriorFoes: { newCampId: (() => { let n = 1; return () => n++; })(), spawnFoe: (mobileType, at, opts) => { stood.push([mobileType, opts]); return Promise.resolve({ ai: {}, entity: {} }); } },
