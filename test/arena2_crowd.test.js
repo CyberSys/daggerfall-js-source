@@ -99,8 +99,8 @@ test('ARENA2 crowd: what it SOUNDS - drums before the call, the bell at the word
   assert.deepEqual(cues(crowdHear(c, { k: 'crit', a: 'a' }, { now: 5 })), ['gasp', 'roar']);
   assert.deepEqual(cues(crowdHear(c, { k: 'knockdown', a: 'a' })), ['groan', 'roar']);
   assert.deepEqual(cues(crowdHear(c, { k: 'timeout' })), ['bell', 'boo']);
-  assert.deepEqual(cues(crowdHear(c, { k: 'verdict' })), ['applause', 'fanfare']);
-  assert.deepEqual(cues(crowdHear(c, { k: 'verdict' }, { title: true })), ['applause', 'title'], 'a title\'s own fanfare');
+  assert.deepEqual(cues(crowdHear(c, { k: 'verdict' })), ['roar', 'fanfare'], 'HOTFIX 1003f: the roar, never the crackling applause');
+  assert.deepEqual(cues(crowdHear(c, { k: 'verdict' }, { title: true })), ['roar', 'title'], 'a title\'s own fanfare');
   assert.deepEqual(crowdHear(c, { k: 'miss', a: 'a' }), []);
   assert.deepEqual(crowdHear(null, { k: 'call' }), []);
   assert.deepEqual(crowdHear(c, { k: 'nothing' }), []);
@@ -267,7 +267,7 @@ test('ARENA2 sound: the driver builds once off the archive\'s voices, plays the 
   calls.length = 0;
   S.cue([{ s: 'cheer', v: 0.5 }, { s: 'gasp', v: 1 }, { s: 'gasp', v: 1 }, { s: 'groan', v: 1 }, { s: 'drums', v: 1 }, { s: 'drumsCall', v: 1 }, { s: 'bell', v: 1 }, { s: 'fanfare', v: 1 }, { s: 'title', v: 1 }, { s: '??', v: 1 }], 0.5);
   assert.deepEqual(calls.map((c) => c[1]), ['arena:cheer', 386, 387, 458, 28, 374, 107, 32, 33]);
-  assert.equal(calls[0][2], 0.25, 'the cue\'s volume times how near');
+  assert.equal(calls[0][2], 0.2, 'the cue\'s volume times how near, under the trim (HOTFIX 1003: the verdict\'s stack clipped)');
   assert.ok(calls[0][3], 'a made sound pitched a hair each time');
   calls.length = 0;
   S.cue([{ s: 'boo', v: 1 }], 0);

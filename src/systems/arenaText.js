@@ -580,7 +580,7 @@ export const ARENA_TEXT = F({
     privEntering: (code) => `To the arena - session ${code}.`,
     privOutdoors: 'The arena is reached from outdoors. Step outside and try again.',   // the floor's door refused
     privToSand: 'The host calls you to the sand!',
-    privToStands: 'Back to the stands.',
+    privToStands: 'Back to the stands.', privHereHost: (code) => `Session ${code} is open. Watchers are not shown - see Bouts in the Arena window.`, privHereJoined: (code, n) => `In session ${code}${n > 0 ? ` with ${n} other${n === 1 ? '' : 's'}` : ''}. Watchers are not shown - the host calls the fighters.`,   // HOTFIX 1003e (live: "it puts them in an empty arena by themself"): the stands draw nobody, so the session says it is there
     ladderOnline: 'Your climb is the realm\'s - every bout refereed.',
     // the boards
     pveSub: 'The realm\'s climb - every bout refereed, the Grand Champions first.',

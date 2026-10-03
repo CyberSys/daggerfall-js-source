@@ -37,6 +37,13 @@ export const ARENA_SOUND_RATE = 22050;
 export const ARENA_SOUND_SECONDS = Object.freeze({ bed: 8, cheer: 2.6, roar: 3.6, boo: 2.8, applause: 3.4 });
 /** Each made sound's level (RMS) - the bed under everything, the roar over it all. */
 export const ARENA_SOUND_RMS = Object.freeze({ bed: 0.05, cheer: 0.11, roar: 0.15, boo: 0.1, applause: 0.09 });
+/** HOTFIX 1003 (live: crackling as a match ends): every cue at this share of its volume - the verdict's applause, the
+ *  fanfare, the victory music and the roar sounded together past full scale and clipped. */
+export const ARENA_CUE_TRIM = 0.8;
+/** HOTFIX 1003: how long the bed takes to fall silent when it stops, seconds. */
+export const BED_FADE_S = 0.4;
+/** HOTFIX 1003: the shouts' top - the layered 8-bit voices hiss above it. */
+export const SHOUT_TOP_HZ = 3400;
 /** The seed of the made sounds: the same crowd every boot. */
 export const ARENA_SOUND_SEED = 0x43524f57;
 
@@ -100,7 +107,7 @@ export function synthBed(voices, { rate = ARENA_SOUND_RATE, srcRate = SND_RATE, 
   const rng = seededRng(seed);
   const n = Math.round(ARENA_SOUND_SECONDS.bed * rate);
   const out = band(n, rate, rng, 180, 900);
-  for (let i = 0; i < n; i++) out[i] *= 0.18;
+  for (let i = 0; i < n; i++) out[i] *= usable(voices).length ? 0 : 0.06;   // HOTFIX 1003f (live: "get rid of the static crowd noise"): with the voices, no noise at all - HOTFIX 1003 (live: "the crowd noise is just pure static"): the murmur under the voices, not over them
   // the noise wrapped: the last 50 ms faded into the first, so the loop has no click
   const fade = Math.round(0.05 * rate);
   for (let i = 0; i < fade; i++) { const t = i / fade; out[i] = out[i] * t + out[n - fade + i] * (1 - t); }
@@ -117,25 +124,25 @@ function shout(voices, { rate, srcRate, seed, seconds, count, pitch, spread, noi
   const rng = seededRng(seed);
   const n = Math.round(seconds * rate);
   const out = band(n, rate, rng, noiseLo, noiseHi);
-  for (let i = 0; i < n; i++) out[i] *= noiseGain * env(i / n);
+  const hiss = usable(voices).length ? 0 : 1; for (let i = 0; i < n; i++) out[i] *= noiseGain * hiss * env(i / n);   // HOTFIX 1003f (live: "get rid of the static crowd noise when cheering and booing"): the voices alone - the noise only stands in for an archive with none
   const vs = usable(voices);
   for (let k = 0; k < (vs.length ? count : 0); k++) {
     const v = vs[Math.floor(rng() * vs.length)];
     addVoice(out, rate, v, srcRate, { ratio: pitch * (1 - spread + rng() * spread * 2), offset: rng() * seconds * 0.35 - 0.2, gain: 0.5 + rng() * 0.5, env });
   }
-  return level(out, target);
+  return level(lowpass(out, rate, SHOUT_TOP_HZ), target);   // HOTFIX 1003: the layered 8-bit voices' hiss taken off the top
 }
 /** THE CHEER: the voices up, bright noise, a swell. */
 export const synthCheer = (voices, { rate = ARENA_SOUND_RATE, srcRate = SND_RATE, seed = ARENA_SOUND_SEED + 1 } = {}) => shout(voices, {
-  rate, srcRate, seed, seconds: ARENA_SOUND_SECONDS.cheer, count: 14, pitch: 1.22, spread: 0.12, noiseLo: 500, noiseHi: 3200, noiseGain: 0.5, env: swell(0.12, 0.45), target: ARENA_SOUND_RMS.cheer,
+  rate, srcRate, seed, seconds: ARENA_SOUND_SECONDS.cheer, count: 14, pitch: 1.22, spread: 0.12, noiseLo: 500, noiseHi: 3200, noiseGain: 0.15, env: swell(0.12, 0.45), target: ARENA_SOUND_RMS.cheer,
 });
 /** THE ROAR: the cheer, bigger and longer. */
 export const synthRoar = (voices, { rate = ARENA_SOUND_RATE, srcRate = SND_RATE, seed = ARENA_SOUND_SEED + 2 } = {}) => shout(voices, {
-  rate, srcRate, seed, seconds: ARENA_SOUND_SECONDS.roar, count: 26, pitch: 1.15, spread: 0.16, noiseLo: 350, noiseHi: 3600, noiseGain: 0.75, env: swell(0.08, 0.55), target: ARENA_SOUND_RMS.roar,
+  rate, srcRate, seed, seconds: ARENA_SOUND_SECONDS.roar, count: 26, pitch: 1.15, spread: 0.16, noiseLo: 350, noiseHi: 3600, noiseGain: 0.22, env: swell(0.08, 0.55), target: ARENA_SOUND_RMS.roar,
 });
 /** THE BOO: the voices down and slowed, over low noise, a long falling oooh. */
 export const synthBoo = (voices, { rate = ARENA_SOUND_RATE, srcRate = SND_RATE, seed = ARENA_SOUND_SEED + 3 } = {}) => shout(voices, {
-  rate, srcRate, seed, seconds: ARENA_SOUND_SECONDS.boo, count: 16, pitch: 0.66, spread: 0.08, noiseLo: 90, noiseHi: 520, noiseGain: 0.6, env: swell(0.18, 0.5), target: ARENA_SOUND_RMS.boo,
+  rate, srcRate, seed, seconds: ARENA_SOUND_SECONDS.boo, count: 16, pitch: 0.66, spread: 0.08, noiseLo: 90, noiseHi: 520, noiseGain: 0.18, env: swell(0.18, 0.5), target: ARENA_SOUND_RMS.boo,
 });
 /** THE APPLAUSE: many hand claps - each a burst of band-passed noise falling away in a few milliseconds - thickening,
  *  then thinning out, a few voices under them. */
@@ -144,7 +151,7 @@ export function synthApplause(voices, { rate = ARENA_SOUND_RATE, srcRate = SND_R
   const n = Math.round(ARENA_SOUND_SECONDS.applause * rate);
   const out = new Float32Array(n);
   const env = swell(0.15, 0.55);
-  const claps = 900;
+  const claps = 2200;   // HOTFIX 1003 (live: "crackling at the end of the celebration"): a thinning rain of 900 was single clicks at its tail
   for (let c = 0; c < claps; c++) {
     // claps fall where the envelope is high: a draw against the envelope (rejection)
     let t = rng();
@@ -201,7 +208,7 @@ export function createArenaSound(audio) {
     cue(list, near = 1) {
       if (!(near > 0) || !list?.length) return;
       for (const { s, v } of list) {
-        const vol = Math.max(0, Math.min(1, v * near));
+        const vol = Math.max(0, Math.min(1, v * near)) * ARENA_CUE_TRIM;
         switch (s) {
           case 'cheer': case 'roar': case 'boo': case 'applause':
             if (this.ensure()) audio.playOneShot(ARENA_SOUND_KEYS[s], vol, 0.94 + Math.random() * 0.12);
@@ -223,7 +230,7 @@ export function createArenaSound(audio) {
       if (!bedLoop) bedLoop = audio.loop?.(ARENA_SOUND_KEYS.bed, 0) ?? null;
       bedLoop?.setVolume?.(bedGain(mood, near));
     },
-    stop() { if (bedLoop) { bedLoop.stop(); bedLoop = null; } },
+    stop() { if (bedLoop) { if (bedLoop.fadeStop) bedLoop.fadeStop(BED_FADE_S); else bedLoop.stop(); bedLoop = null; } },   // HOTFIX 1003: faded, never cut - a cut bed pops
     get made() { return made; },
   };
 }

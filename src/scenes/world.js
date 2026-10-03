@@ -46,7 +46,7 @@ import { arenaFloorRoomOf } from '../net/arenaLaw.js';   // ARENA4: a bout's roo
 import { accountArena } from '../net/accountClient.js';   // ARENA4: the arena's records on the account service
 import { fighterIdentity } from '../systems/arenaFighters.js';   // ARENA4: the relay's fighters billed by the bout's seed
 import { bossStandIn } from '../world/gateBoss.js';   // ARENA4: my opponent's stand-in for the formulas
-import { closeArenaDoor } from '../ui/arenaDoor.js';   // ARENA4: the window goes when a bout calls
+import { closeArenaDoor, arenaDoorOpen } from '../ui/arenaDoor.js'; import { createArenaSessionButton } from '../ui/arenaSessionButton.js';   // HOTFIX 1003f: the session's button on the screen   // ARENA4: the window goes when a bout calls
 import { cityFloorCentre } from '../world/arenaFloor.js';   // ARENA2: the city floor's sand, in its block's frame
 import { ARENA_TEXT } from '../systems/arenaText.js';   // ARENA1: the Daggerfall Bank's letter
 import { moveArenaRecords, arenaHomeFor, emptyArenaScene } from '../systems/arenaMove.js';   // ARENA1: a deed whose house the arena took, moved once; ARENA4b: and an online home, by its owner's client
@@ -1212,7 +1212,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   let _pinsDroppedSaid = false;   // AUDIT WD3 B6   // AUDIT WD3 R3: the latest applyLayoutPins - an older one overtaken sets nothing
   let _homeLayoutsAsk = homesApi ? homesApi.layouts().catch(() => null) : null;
   let _arenaHomesAsked = false;   // ARENA4b: the online homes the arena displaced, moved once a boot (moveArenaHomesOnline) - here, above the boot's first landing
-  let playerSpawned = false;   // HOTFIX 1003: here, above the boot's first landing - moveArenaHomesOnline reads it when the homes' towns land, which can be before the boot walk reached its old line (a TDZ ReferenceError live)
+  let playerSpawned = false, _bootLoaded = false;   // HOTFIX 1003: here, above the boot's first landing - moveArenaHomesOnline reads it when the homes' towns land, which can be before the boot walk reached its old line (a TDZ ReferenceError live)
   // HOME-LOOK (2026-09-30, asked: "The ability to choose the texture for the roof, walls, door, windows, etc"): A PLAYER'S
   // HOME IS DRAWN OUT OF ITS PIXEL'S MERGE, with its OWN texture table - the pixel's climate swaps and its owner's look
   // over them (world/homeLook.js) - so a look that lands, or changes, repaints it where it stands (refreshHomeLooks). A
@@ -8338,7 +8338,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   // pool, an exhibition on the hour of the game's clock while the player is near), and the floor's INSTANCE (the
   // dungeon arm's made level - scenes/worldModes.js arenaFloorStage - a ladder bout, or an exhibition watched from the
   // stands). The ladder rides the save (playerEntity.arenaLadder, systems/save.js). bible/11-Multiplayer/Arena.md.
-  const arenaSound = createArenaSound(audio);
+  const arenaSound = createArenaSound(audio); const arenaSessionBtn = createArenaSessionButton({ open: () => arenaGate.openWindow('bouts') });   // HOTFIX 1003f (the owner: "the arena button for the host needs to be on the screen")
   /** The healers (the duel's own heal, said by the Herald rather than the duel's line). */
   const arenaHeal = () => {
     if (!(playerEntity.health > 0) || modes?.deathUp?.()) return;
@@ -8423,7 +8423,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   let _arenaFrames = 0;   // the probe's count of the frames the arena was ticked in
   function arenaFrame(dt) {
     _arenaFrames++;
-    arenaOnline?.tick();   // ARENA4: the receipts, the hall, my `in` on a relay's sand
+    arenaOnline?.tick(); arenaSessionBtn.frame(!!arenaOnline?.inSession?.() && !arenaDoorOpen() && !townTalk.overlay && hudRenderEnabled());   // ARENA4: the receipts, the hall, my `in` on a relay's sand; HOTFIX 1003f: the session's button while a session holds me and no window stands
     const stg = arenaStageNow();
     arenaBouts.setStage(stg);
     if (stg === arenaCityStage && !arenaBouts.bout() && !arenaBouts.pending() && !gamePaused()) {
@@ -12134,11 +12134,11 @@ export async function bootWorld(canvas, renderer, params, status) {
   async function moveArenaHomesOnline() {
     if (_arenaHomesAsked || !onlineHomes || !homesApi) return null;
     _arenaHomesAsked = true;
-    for (let i = 0; !(playerSpawned && modes) && i < 240; i++) await new Promise((r) => { setTimeout(r, 250); });   // `modes` is declared far below: read only once the world stands
+    for (let i = 0; !(playerSpawned && modes && _bootLoaded && !_loading) && i < 1200; i++) await new Promise((r) => { setTimeout(r, 250); });   // `modes` is declared far below: read only once the world stands
     try {
       const now = arenaCityNow();
-      const me = characterIdOf(playerEntity);
-      if (!now || !me || !playerSpawned) return null;
+      if (!playerSpawned || !_bootLoaded || _loading) { _arenaHomesAsked = false; return null; }   // HOTFIX 1003d: never the boot's stand-in character (characterIdOf mints one) - asked again at the next landing
+      const me = characterIdOf(playerEntity); if (!now || !me) return null;
       const scenes = (playerEntity.sceneCache ??= createSceneCache());
       const moved = await moveArenaHomes({
         homes: onlineHomes, api: homesApi, mapId: now.mapId >>> 0, character: me,
@@ -18144,7 +18144,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     level: () => playerEntity.level ?? 1,   // ARENA4b: my level alone on a ladder bout's `in` - the relay's vitality is the token's signed level, no health of mine is said
     guest: () => storedSession(appStorage())?.kind === 'guest',
     struck: (d) => { if (d > 0) { flashPlayerDamage(d); playPlayerVoice(audio, playerPainVoice(playerEntity, d)); } },
-    myHealth: (hp) => { if (playerEntity.health > 0) { playerEntity.health = hp; surfacePlayer(); } },
+    myHealth: (hp) => { if (playerEntity.health > 0) { playerEntity.health = Math.max(1, hp); surfacePlayer(); } },   // HOTFIX 1003f (live: "it shouldnt kick players after a bout"): the relay's 0 is a fall, never a death - the death screen took the loser out of the floor; the healers come
     heal: arenaHeal,   // AUDIT PRE-MERGE 1003b C2: a session's bout let go before its healers - healed all the same
     inBout: () => arenaBouts.holds(),
     // ARENA4b: A WON BOUT'S RENOWN - the fighting character's (its receipt kept with it), adopted only while it is the one
@@ -22247,7 +22247,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     // entrance - into whatever the structure stands on.
     if (entered) playerSpawned = true;
   }
-  if (testRoomOffline) townTalk.say(TEST_ROOM_OFFLINE_TEXT);   // AUDIT SET D4: said once the world stands, the character loaded
+  _bootLoaded = true; if (testRoomOffline) townTalk.say(TEST_ROOM_OFFLINE_TEXT);   // HOTFIX 1003d: the boot's character loaded (moveArenaHomesOnline waits for it)   // AUDIT SET D4: said once the world stands, the character loaded
   if (realmRefused) townTalk.say(REALM_OFFLINE_TEXT);   // REALM P1.3: an online boot with no realm character plays offline, and says so
   if (realmBoot?.restored && realmBoot.missed) townTalk.say(REALM_RESTORED_TEXT);   // RESCUE-SAVE: the device's copy of a save the realm refused or never answered, played on (AUDIT A8: an ordinary close's, silently)
   for (const line of reclaimLines(realmGiven)) townTalk.say(line);   // RESTORE: what came back, said once the world stands

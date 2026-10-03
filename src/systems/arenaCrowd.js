@@ -134,7 +134,7 @@ export function crowdHear(c, e, { share = () => 1, title = false, now = 0 } = {}
     case 'fall': push(c, MOOD_PUSH.fall); fav(c, e.a, FAVOUR_PUSH.fall); c.hopAt = now; c.hopAmp = HOP_M * 1.4; cues.push({ s: 'groan', v: 0.7 }, { s: 'roar', v: 1 }); break;
     case 'ringout': push(c, MOOD_PUSH.ringout); fav(c, e.a, FAVOUR_PUSH.ringout); cues.push({ s: 'roar', v: 0.8 }); break;
     case 'timeout': push(c, MOOD_PUSH.timeout); cues.push({ s: 'bell', v: 1 }, { s: 'boo', v: 0.5 }); break;
-    case 'verdict': cues.push({ s: 'applause', v: 1 }, { s: title ? 'title' : 'fanfare', v: 1 }); break;
+    case 'verdict': cues.push({ s: 'roar', v: 0.9 }, { s: title ? 'title' : 'fanfare', v: 1 }); break;   // HOTFIX 1003f (live: "crackling still happens after the bout ends"): the made applause - a rain of noise-burst claps thinning out - was the crackle; the voices' roar in its place
     case 'miss': push(c, MOOD_PUSH.miss); break;
     default: break;
   }
