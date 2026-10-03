@@ -109,7 +109,7 @@ test('AUDIT PRE-MERGE 1003b R3/S8: a fighter removed mid-bout is said gone to ev
   await ps(c.R, c.host, 'kick', { m: idOf(s, 'Brann') });
   const after = c.gull.sent.slice(mark);
   assert.ok(after.some((m) => m.t === 'leave' && m.id === 'peer-brann'), 'the removed fighter is said gone');
-  assert.ok(after.some((m) => m.t === 'leave' && m.id === 'peer-alva'), 'and the other leaves the sand as the bout clears');
+  assert.ok(!after.some((m) => m.t === 'leave' && m.id === 'peer-alva'), 'HOTFIX 1003f: and the other stays drawn as the bout clears - back in the stands, a member');
 }));
 
 test('AUDIT PRE-MERGE 1003b R4/S8: a session\'s floor is its members\' - a stranger in the room and a removed member see no fighter, no pose, no roster, and their room chat reaches nobody; a member who joins mid-bout is shown the sand (mutants: the join fanned to all; the poses to all; the roster to all; chat from a stranger; the late member never shown)', async () => onClock(async ({ step }) => {
@@ -117,13 +117,14 @@ test('AUDIT PRE-MERGE 1003b R4/S8: a session\'s floor is its members\' - a stran
   const c = await session(W, [...four, ['kim', 'Kim', true]]);
   const s0 = readArenaOut(last(c.host, 'pss'));
   await ps(c.R, c.host, 'kick', { m: idOf(s0, 'Kim') });
+  const kimAt = c.kim.sent.length;   // HOTFIX 1003f: a member, Kim was shown the members in the stands; removed, nothing after
   const stranger = c.R.connect();
   await c.R.hello(stranger, 'peer-str', at, { name: 'Stranger', tokenSub: 'acct-str' });
   await fightOn(c, step);
   for (let i = 0; i < 5; i++) { step(100); await c.R.pose(c.alva, { x: C[0] - 5 + i * 0.5, y: 0.3, z: C[2], yaw: 0, pitch: 0, mv: 1 }); }
-  for (const [who, ws] of [['the stranger', stranger], ['the removed', c.kim]]) {
-    assert.equal(ws.sent.filter((m) => m.t === 'join' && (m.id === 'peer-alva' || m.id === 'peer-brann')).length, 0, `${who} is shown no fighter`);
-    assert.equal(ws.sent.filter((m) => m.t === 'pose' && m.id === 'peer-alva').length, 0, `${who} hears no pose`);
+  for (const [who, ws, from] of [['the stranger', stranger, 0], ['the removed', c.kim, kimAt]]) {
+    assert.equal(ws.sent.slice(from).filter((m) => m.t === 'join' && (m.id === 'peer-alva' || m.id === 'peer-brann')).length, 0, `${who} is shown no fighter`);
+    assert.equal(ws.sent.slice(from).filter((m) => m.t === 'pose' && m.id === 'peer-alva').length, 0, `${who} hears no pose`);
   }
   assert.ok(c.gull.sent.some((m) => m.t === 'pose' && m.id === 'peer-alva'), 'a member hears the fighter move');
   // a stranger's hello mid-bout: no roster of the sand
@@ -132,7 +133,7 @@ test('AUDIT PRE-MERGE 1003b R4/S8: a session\'s floor is its members\' - a stran
   assert.deepEqual(late.sent.find((m) => m.t === 'welcome').peers.map((p) => p.id), [], 'a non-member\'s welcome draws nobody');
   // ...until it joins: then it is shown the two on the sand
   await ps(c.R, late, 'join');
-  assert.deepEqual(late.sent.filter((m) => m.t === 'join').map((m) => m.id).sort(), ['peer-alva', 'peer-brann'], 'a member who joins mid-bout is shown the sand');
+  assert.deepEqual(late.sent.filter((m) => m.t === 'join').map((m) => m.id).sort(), ['peer-alva', 'peer-brann', 'peer-gull', 'peer-hela'], 'a member who joins mid-bout is shown the sand (HOTFIX 1003f: and the stands - every member here, never the stranger or the removed)');
   // room chat: a stranger's and a removed member's lines reach no member, and a member's reaches no stranger
   const heard = (ws, text) => ws.sent.some((m) => m.t === 'chat' && m.text === text);
   step(2000); await c.R.chat(c.kim, 'from the removed');

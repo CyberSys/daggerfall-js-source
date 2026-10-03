@@ -77,7 +77,7 @@ export const hitKindOf = (kind) => (kind === 'arrow' ? ARENA_HIT.Shaft : kind ==
  *   now?: () => number, session: () => any, makeHall: () => any, account: any, store?: any, bouts: any,
  *   enterFloor: (kind: string, o: string, side?: number) => Promise<boolean>|boolean, closeWindow?: () => void,
  *   say?: (line: string) => void, notice?: (lines: string[]) => void, names?: (seed: number) => (i: number, mobile: number) => any,
- *   level?: () => number, guest?: () => boolean, struck?: (d: number) => void, myHealth?: (hp: number, max: number) => void,
+ *   level?: () => number, guest?: () => boolean, signedIn?: () => boolean, struck?: (d: number) => void, myHealth?: (hp: number, max: number) => void,
  *   inBout?: () => boolean, character?: () => (string|null), characterName?: () => (string|null), onRenown?: (data: any) => void,
  *   verdictHeard?: () => void,
  *   standOnMark?: (kind: string) => boolean, leaveFloor?: () => boolean, rand?: (n: number) => Uint8Array, heal?: () => void,   // ARENA6: a private session (AUDIT PRE-MERGE 1003b C2: `heal` the healers' own)
@@ -534,7 +534,7 @@ export function createArenaOnline(deps) {
    */
   function sessionState(w) {
     sess.state = w;
-    if (!sess.said) { sess.said = true; say(w.h === 1 ? O.privHereHost(sess.code) : O.privHereJoined(sess.code, Math.max(0, (Array.isArray(w.m) ? w.m.length : 1) - 1))); } if (bout?.priv && bout.o !== w.o) letGoPriv(true);   // HOTFIX 1003e: the session's first word said - its stands draw nobody, and a joiner saw an empty arena
+    if (!sess.said) { sess.said = true; say(w.h === 1 ? O.privHereHost(sess.code) : O.privHereJoined(sess.code, Math.max(0, (Array.isArray(w.m) ? w.m.length : 1) - 1))); } if (bout?.priv && bout.o !== w.o) letGoPriv(true);   // HOTFIX 1003e: the session's first word said - a joiner saw an empty arena (HOTFIX 1003f: its stands are drawn now)
     if (!w.o || bout?.o === w.o || w.ph === 'done' || w.ph === 'void') return;
     const side = w.f.indexOf(w.me);
     bout = { o: w.o, room: sess.room, kind: side >= 0 ? 'pvp' : 'watch', watchKind: 'pvp', side: side >= 0 ? side : null, casual: true, priv: true, sent: false, seen: true, at: now(), leftAt: null };
@@ -575,6 +575,9 @@ export function createArenaOnline(deps) {
    *  - and leaving it. Answers `{ ok, text }`. */
   function sessionAct(kind, data) {
     if (kind === 'privHost' || kind === 'privJoin') {
+      // HOTFIX 1003f: no account held, or my socket not open (a relay with no arena is `act`'s whyOffline) - the floor's hello
+      // is refused at the door (ACC1g: no token, no room) and its instance stood empty, the player alone in it and offline
+      if (deps.signedIn?.() === false || deps.session?.()?.status !== 'open') return { ok: false, text: O.privSignIn };
       if (sess) return { ok: false, text: O.privIn };
       if (bout || deps.inBout?.()) return { ok: false, text: O.whyBusy };
       if (hall.queue === 'queued' || hall.queue === 'offer') return { ok: false, text: O.privQueued };   // AUDIT PRE-MERGE 1003b U7: said as what it is

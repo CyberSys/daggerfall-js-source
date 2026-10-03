@@ -1392,11 +1392,13 @@
   {
     "name": "ARENA4-STANDS-POSE-NOBODY",
     "file": "server/src/index.js",
-    "old": "        if (!cur.af) return;\n",
-    "new": "",
+    "old": "        if (cur.af) { try { const st = await this._boutOf();",
+    "new": "        if (!cur.af) return; { try { const st = await this._boutOf();",
     "tests": [
-      "test/arena4_relay.test.js"
-    ]
+      "test/arena4_relay.test.js",
+      "test/hotfix1003_stands.test.js"
+    ],
+    "note": "HOTFIX 1003f (re-aimed by content): ARENA4's law that the stands' pose reaches nobody is retired - a spectator's pose is fanned as anyone's now, and this mutant is the old law brought back (a non-fighter's pose dropped)."
   },
   {
     "name": "ARENA4-POSE-REFEREED",
