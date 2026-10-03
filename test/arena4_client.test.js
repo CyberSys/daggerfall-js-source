@@ -64,7 +64,7 @@ test('ARENA4 the hall\'s fold: queued with its band, an offer on this screen\'s 
   assert.equal(h.live.length, 1);
 });
 
-test('ARENA4 the mirror: a relay\'s bout in the bout law\'s own shape - its fighters named by the bout\'s seed, its phases, outs and tallies moved by its events on this screen\'s clock, its health by its `hp`; a walk carried on (mutants: an event\'s time read raw; an out not taken; my health read as another\'s)', () => {
+test('ARENA4 the mirror: a relay\'s bout in the bout law\'s own shape - its fighters named by the bout\'s seed, its phases, outs and tallies moved by its events on this screen\'s clock, its health by its `hp`; a walk carried on (mutants: an event\'s time read raw; an out not taken; my health read as another\'s; the offset the lowest heard)', () => {
   const names = (i, mob) => ({ name: `Rogue${i}-${mob}`, home: 'Wayrest', epithet: 'the Sly' });
   const M = mirrorOf(pveSt('call'), 1000, { names });
   assert.equal(M.b.fighters[1].name, 'Rogue0-136');
@@ -78,6 +78,7 @@ test('ARENA4 the mirror: a relay\'s bout in the bout law\'s own shape - its figh
   assert.equal(M.b.fightAt, 2000, 'on this screen\'s clock');
   assert.equal(heard[0].at, 2000);
   mirrorEvents(M, [{ k: 'hit', at: 21_000, a: 'p0', b: 'a0', dmg: 7 }, { k: 'yield', at: 21_500, a: 'a0' }, { k: 'end', at: 21_500, side: 0, how: 'yield' }], 3600, clock);
+  assert.equal(clock.off, 17_985, 'ARENA5: the highest offset heard (the least delayed), let down five a word');
   assert.equal(M.b.fighters[0].dealt, 7);
   assert.equal(M.b.fighters[1].out, 'yield');
   assert.deepEqual([M.b.result.side, M.b.result.how, M.b.result.winners], [0, 'yield', ['p0']]);
@@ -89,7 +90,7 @@ test('ARENA4 the mirror: a relay\'s bout in the bout law\'s own shape - its figh
   assert.equal(walkDone(mv, 7000, 9000), true);
 });
 
-test('ARENA4 the receipts carried: kept one a bout, offered for the signed-in account alone (a ladder\'s by `s`, a players\' by `f`), let go once counted or out of order, kept for a guest; what was counted said (mutants: another\'s offered; a guest\'s let go)', async () => {
+test('ARENA4 the receipts carried: kept one a bout, offered for the signed-in account alone (a ladder\'s by `s`, a players\' by `f`), let go once counted or out of order, kept for a guest; what was counted said (mutants: another\'s offered; a guest\'s let go; one bout kept twice; an unsigned one kept)', async () => {
   const kp = await subtle.generateKey({ name: 'Ed25519' }, true, ['sign', 'verify']);
   const priv = await importReceiptKey(Buffer.from(new Uint8Array(await subtle.exportKey('pkcs8', kp.privateKey))).toString('base64'), { subtle });
   const nowS = Math.floor(Date.now() / 1000);
@@ -114,6 +115,14 @@ test('ARENA4 the receipts carried: kept one a bout, offered for the signed-in ac
   assert.equal(arenaClaimVerdict({ ok: false, error: 'offline' }), 'keep');
   answer = { ok: true, data: { recorded: false, why: 'guest' } };
   void answer;
+  // ARENA5: one a bout however often the relay hands it, kept while the service cannot answer - and an unsigned one
+  // never (the service could only decline it)
+  const K = createArenaClaims({ claim: async () => ({ ok: false, error: 'offline' }), me: () => 'acct-a' });
+  K.add(r1); K.add(r1);
+  await K.flush();
+  assert.equal(K.kept().length, 1, 'one a bout');
+  const bare = await mintArenaReceipt({ a: 'p', j: 'e'.repeat(16), f: ['acct-a', 'acct-b'], r: 0, h: 'fall' }, null, { subtle, nowS });
+  assert.equal(K.add(bare), false, 'an unsigned receipt is never kept');
 });
 
 test('ARENA4 the window online: the Bouts page carries the bouts on the sand (Watch each) and the challenge (Find a match, then Leave the queue, then Accept/Decline with its clock); offline the challenge says so; the ladder is the account\'s; the header its rating and rank (mutants: the offer\'s presses missing; the offline press allowed; the save\'s ladder online)', () => {
@@ -229,12 +238,19 @@ test('ARENA4 the driver on a relay\'s ladder bout: the relay\'s fighter stood as
   R.D.relayWord({ k: 'ev', e: [{ k: 'fall', at: 20_000, a: 'a0' }, { k: 'end', at: 20_000, side: 0, how: 'fall' }, { k: 'verdict', at: 21_500, side: 0, how: 'fall' }] });
   assert.equal(R.P.gold, 50, 'the Pit\'s purse');
   assert.ok(R.notices.at(-1).includes(ARENA_TEXT.purse.won(50)));
+  // ARENA5: a loss pays nothing - the purse is the winner's alone
+  const L = driverOf({ kind: 'pve' });
+  L.D.relayWord(pveSt('call'));
+  await new Promise((r) => setTimeout(r, 0));
+  L.D.relayWord({ k: 'ev', e: [{ k: 'fight', at: 9000 }, { k: 'fall', at: 20_000, a: 'p0' }, { k: 'end', at: 20_000, side: 1, how: 'fall' }, { k: 'verdict', at: 21_500, side: 1, how: 'fall' }] });
+  assert.equal(L.P.gold, undefined, 'no purse on a loss');
+  assert.ok(L.notices.at(-1).includes(ARENA_TEXT.purse.lost));
   assert.equal(hitKindOf('arrow'), ARENA_HIT.Shaft);
   assert.equal(hitKindOf('spell'), ARENA_HIT.Spell);
   assert.equal(hitKindOf('melee'), ARENA_HIT.Melee);
 });
 
-test('ARENA4 the host\'s glue: the window queues in the hall, a call sends me to the sand on my side, my `in` is said once I stand in the bout\'s room (a ladder\'s with its tier, its bout, my level and my health), its receipt carried, my blows claimed (mutants: the `in` before the room; the rival\'s side as the first\'s; the receipt dropped)', async () => {
+test('ARENA4 the host\'s glue: the window queues in the hall, a call sends me to the sand on my side, my `in` is said once I stand in the bout\'s room (a ladder\'s with its tier, its bout, my level and my health), its receipt carried, my blows claimed (mutants: the `in` before the room; the rival\'s side as the first\'s; the receipt dropped; the ladder\'s step lost from its `in`)', async () => {
   const hallSent = [], boutSent = [];
   const hallLink = { status: 'open', join() {}, leave() {}, sendArena: (w) => { hallSent.push(w); return true; } };
   const session = { status: 'open', arenaOk: true, room: 'world:1,1', sendArena: (w) => { boutSent.push(w); return true; } };
@@ -273,7 +289,8 @@ test('ARENA4 the host\'s glue: the window queues in the hall, a call sends me to
   await new Promise((res) => setTimeout(res, 0));
   assert.deepEqual(claimed, [r], 'carried to the service');
   // the ladder online: the account's next bout, with my level and health in the `in`
-  const B = createArenaOnline({ now: () => 0, session: () => ({ ...session, room: 'world:1,1' }), makeHall: () => hallLink, bouts, account: { board: async () => ({ ok: true, data: board }), claim: async () => ({ ok: true, data: {} }), me: () => null }, enterFloor: (k, o) => { entered.push([k, o]); return true; }, level: () => 12, maxHealth: () => 140 });
+  const sB = { ...session, room: 'world:1,1' };
+  const B = createArenaOnline({ now: () => 0, session: () => sB, makeHall: () => hallLink, bouts, account: { board: async () => ({ ok: true, data: board }), claim: async () => ({ ok: true, data: {} }), me: () => null }, enterFloor: (k, o) => { entered.push([k, o]); return true; }, level: () => 12, maxHealth: () => 140 });
   B.model();
   await new Promise((res) => setTimeout(res, 0));
   assert.deepEqual(B.fightLadder(), { ok: true, text: '' });
@@ -281,5 +298,8 @@ test('ARENA4 the host\'s glue: the window queues in the hall, a call sends me to
   assert.equal(kind, 'ladder');
   assert.match(o2, /^[0-9a-f]{16}$/);
   assert.equal(B.bout().bout, 1, 'the Pit\'s second bout');
+  sB.room = `arena:b${o2}`;
+  B.tick();
+  assert.deepEqual(boutSent.at(-1), { k: 'in', r: 'f', tier: 0, bout: 1, lv: 12 }, 'ARENA5: in its room, the ladder\'s `in` - its tier, its bout, my level');
   assert.match(newBoutId(), /^[0-9a-f]{16}$/);
 });

@@ -33,7 +33,7 @@ const tokenOf = async (S, who) => {
   return { ...r.body, claims: v.claims };
 };
 
-test('ARENA4 law: the season is eight weeks from a Monday; the rating is Elo 1,000 K 32, the sum kept, never under the floor; the climb is the won rows in order (mutants: K 16; the sum not kept; the gap read as a step)', () => {
+test('ARENA4 law: the season is eight weeks from a Monday; the rating is Elo 1,000 K 32, the sum kept, never under the floor; the climb is the won rows in order (mutants: K 16; the sum not kept; the gap read as a step; the floor dropped; Elo\'s 400 changed)', () => {
   assert.equal(new Date(ARENA_SEASON_EPOCH_S * 1000).getUTCDay(), 1, 'a Monday');
   assert.equal(ARENA_SEASON_S, 56 * 86400);
   assert.equal(arenaSeasonOf(ARENA_SEASON_EPOCH_S), 1);
@@ -50,6 +50,10 @@ test('ARENA4 law: the season is eight weeks from a Monday; the rating is Elo 1,0
   assert.equal(a + b, 2400, 'one change - the sum kept');
   assert.equal(a, 1400 - Math.round(32 * eloExpected(1400, 1000)));
   assert.equal(eloAfter(ARENA_ELO_MIN, 3000, 0)[0], ARENA_ELO_MIN, 'never under the floor');
+  // ARENA5: the pin above loses nothing (a 2,900-point favourite's win moves nobody a point), so the floor is held
+  // where a loss really crosses it - and the expectation by Elo's own 400
+  assert.deepEqual(eloAfter(ARENA_ELO_MIN + 10, ARENA_ELO_MIN + 10, 0), [ARENA_ELO_MIN, ARENA_ELO_MIN + 26], 'a loss that would cross the floor stops on it');
+  assert.ok(Math.abs(eloExpected(1400, 1000) - 10 / 11) < 1e-12, 'four hundred points up is ten to one');
   assert.equal(ladderKey(0, 0), 0);
   assert.equal(ladderKey(9, 3), 39);
   const L = arenaLadderOf([{ tier: 0, bout: 0 }, { tier: 0, bout: 1 }, { tier: 0, bout: 3 }]);
@@ -63,7 +67,7 @@ test('ARENA4 law: the season is eight weeks from a Monday; the rating is Elo 1,0
   assert.deepEqual(ARENA_TEAM_POINTS, { ...TEAM_POINTS, pvp: 2 }, 'the offline banners\' points, and Arena.md 3\'s refereed PvP win');
 });
 
-test('ARENA4 receipt: a1 claims are disjoint from the gate\'s and the raid\'s; a ladder receipt names one account, a players\' two different ones; the gate\'s verifier reads none of it (mutants: a gate field admitted; one account twice)', async () => {
+test('ARENA4 receipt: a1 claims are disjoint from the gate\'s and the raid\'s; a ladder receipt names one account, a players\' two different ones; the gate\'s verifier reads none of it (mutants: a gate field admitted; one account twice; the week unbounded; the version unread; the signature, the expiry or the future unchecked; a claim it could not verify minted)', async () => {
   const S = await standService();
   const r = await mintArenaReceipt({ a: 'l', j: 'aaaaaaaaaaaaaaaa', s: 'acct-1', q: 0, u: 0, r: 1, h: 'fall' }, S.gatePriv, { subtle, nowS: 1_800_000_000 });
   assert.ok(r.startsWith('a1.'));
@@ -74,11 +78,21 @@ test('ARENA4 receipt: a1 claims are disjoint from the gate\'s and the raid\'s; a
   assert.equal(arenaReceiptValid({ ...c, d: 4 }), false, 'a gate\'s day is not admitted');
   assert.equal(arenaReceiptValid({ a: 'p', j: 'aaaaaaaaaaaaaaaa', f: ['acct-1', 'acct-1'], r: 0, h: 'fall', i: 1, e: 2 }), false, 'one account twice');
   assert.equal(arenaReceiptValid({ a: 'p', j: 'aaaaaaaaaaaaaaaa', f: ['acct-1', 'acct-2'], r: 3, h: 'fall', i: 1, e: 2 }), false, 'a result past a draw');
+  // ARENA5: carried a week and no longer; read only under its own version; minted only when it could be verified
+  assert.equal(arenaReceiptValid({ ...c, e: c.i + ARENA_RECEIPT_TTL_S + 1 }), false, 'nothing carried past the week');
+  assert.equal(readArenaReceipt(`x1${r.slice(2)}`), null, 'an arena body under another version is no arena receipt');
+  await assert.rejects(mintArenaReceipt({ a: 'p', j: 'aaaaaaaaaaaaaaaa', f: ['acct-1', 'acct-1'], r: 0, h: 'fall' }, S.gatePriv, { subtle, nowS: 1_800_000_000 }), TypeError, 'the relay signs nothing the service would refuse');
   const gate = await mintReceipt({ d: 9, b: 'ruhn', s: 'acct-1', c: 1, x: 'dealt' }, S.gatePriv, { subtle, nowS: 1_800_000_000 });
   assert.equal(readArenaReceipt(gate), null, 'and the arena\'s refuses the gate\'s');
   const pub = await subtle.importKey('raw', new Uint8Array(Buffer.from(S.env.GATE_PUBLIC_KEY, 'base64url')), { name: 'Ed25519' }, false, ['verify']);
   assert.deepEqual(await verifyArenaReceipt(r.slice(0, r.lastIndexOf('.') + 1), pub, { subtle, nowS: 1_800_000_000 }), { ok: false, why: 'unsigned' });
   assert.equal((await verifyArenaReceipt(r, pub, { subtle, nowS: 1_800_000_000 })).ok, true);
+  // ARENA5: the verifier's rungs past the shape - another bout's claims under this signature, a week gone, a clock behind
+  const other = await mintArenaReceipt({ a: 'l', j: 'bbbbbbbbbbbbbbbb', s: 'acct-1', q: 0, u: 0, r: 1, h: 'fall' }, S.gatePriv, { subtle, nowS: 1_800_000_000 });
+  const forged = other.slice(0, other.lastIndexOf('.')) + r.slice(r.lastIndexOf('.'));
+  assert.deepEqual(await verifyArenaReceipt(forged, pub, { subtle, nowS: 1_800_000_000 }), { ok: false, why: 'signature' }, 'one bout\'s signature on another\'s claims');
+  assert.deepEqual(await verifyArenaReceipt(r, pub, { subtle, nowS: 1_800_000_000 + ARENA_RECEIPT_TTL_S }), { ok: false, why: 'expired' }, 'carried past its week');
+  assert.deepEqual(await verifyArenaReceipt(r, pub, { subtle, nowS: 1_800_000_000 - 3600 }), { ok: false, why: 'future' }, 'issued an hour ahead of the clock that reads it');
 });
 
 test('ARENA4 the climb: a win is kept only as the account\'s next bout (in the write), a loss whatever its order, a receipt once whoever carries it; another\'s is not yours; a guest keeps nothing (mutants: the order check dropped; a loss refused out of order; a receipt counted twice)', async () => {
@@ -143,7 +157,7 @@ test('ARENA4 the Grand Champion: forty refereed wins in order and the title is t
   assert.deepEqual(titlesHeld({ handle: 'Ceryn', created_at: 1_900_000_000, registered_at: 1_900_000_000, arena: { grand: true, champion: false } }, {}), ['grandchampion']);
 });
 
-test('ARENA4 bouts between players: one row a bout whoever claims it, both ratings before and after; past the pair\'s day a bout is kept and not rated; a guest\'s is not kept (mutants: the claimant rated alone; the pair bound off; a draw scored as a win)', async () => {
+test('ARENA4 bouts between players: one row a bout whoever claims it, both ratings before and after; past the pair\'s day a bout is kept and not rated; a guest\'s is not kept (mutants: the claimant rated alone; the pair bound off; a draw scored as a win; the rating read from the first bout)', async () => {
   _resetArenaCache();
   const S = await standService();
   const A = await S.registered('Eldis'), B = await S.registered('Fenn');
@@ -166,11 +180,12 @@ test('ARENA4 bouts between players: one row a bout whoever claims it, both ratin
   assert.equal(st.pvp.total, 2);
   const me = st.pvp.rows.find((r) => r.you);
   assert.equal(me.bouts, ARENA_PAIR_DAY_MAX, 'the unrated bout is not on the board');
+  assert.equal(st.me.pvp.rating, me.rating, 'ARENA5: my rating is my last rated bout\'s - the board\'s own');
   assert.equal(st.me.pvp.bouts, ARENA_PAIR_DAY_MAX);
   assert.equal((await tokenOf(S, A)).claims.ar, st.me.pvp.rating, 'the token carries the season\'s rating');
 });
 
-test('ARENA4 the laurel: the season\'s #1 with three rated bouts wears arenachampion and the laurel at the mint - and loses both to whoever takes the top; one short of the bouts and nobody wears it (mutants: the bouts bound off; the laurel without the title; the top read from the second row)', async () => {
+test('ARENA4 the laurel: the season\'s #1 with three rated bouts wears arenachampion and the laurel at the mint - and loses both to whoever takes the top; one short of the bouts and nobody wears it (mutants: the bouts bound off; the laurel without the title; the top read from the second row; the laurel passed down past a #1 short of the bouts)', async () => {
   _resetArenaCache();
   const S = await standService();
   const A = await S.registered('Gwyn'), B = await S.registered('Hask'), C = await S.registered('Ivo');
@@ -201,6 +216,17 @@ test('ARENA4 the laurel: the season\'s #1 with three rated bouts wears arenacham
   assert.ok((await tokenOf(S, C)).claims.g.includes('laurel'));
   assert.deepEqual(glyphsOf({ handle: 'x', created_at: 0, arena: { champion: true } }, {}, 1e10), ['laurel']);
   assert.equal(equipRefusal('arenachampion', { handle: 'x', arena: { champion: false } }, {}), 'not-held');
+  // ARENA5: the #1 short of the bouts holds the top all the same - nobody under them wears the laurel in their place
+  // (Jarl one rated win; Lorn three draws with Kesh, under him)
+  _resetArenaCache();
+  const S2 = await standService();
+  const J = await S2.registered('Jarl'), K = await S2.registered('Kesh'), L = await S2.registered('Lorn');
+  await claimOf(S2, J, await pvpReceipt(S2, J, K, 0));
+  for (let i = 0; i < 3; i++) await claimOf(S2, K, await pvpReceipt(S2, K, L, 2, 'judges'));
+  const b2 = (await S2.call('/v1/arena/board', {}, L.secret)).body;
+  assert.deepEqual(b2.pvp.rows.map((r) => [r.name, r.bouts]), [['Jarl', 1], ['Lorn', 3], ['Kesh', 4]]);
+  assert.equal(b2.champion, null, 'the top is one bout\'s - no laurel on the board');
+  assert.ok(!(await tokenOf(S2, L)).claims.g?.includes('laurel'), 'and none at the mint for the best of the rest');
 });
 
 test('ARENA4 the banners: join free, a second refused, quit at once, the other banner waits a season and the quit one takes you back; points counted from the rows by the banner worn at the claim (mutants: the season wait dropped; a loss scored; the champion scored as a bout)', async () => {
