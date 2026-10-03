@@ -792,3 +792,51 @@ the one left is `Devin{eresse}`, as before. Pinned by `test/l10n3g_wiring.test.j
 **Not yet (files other batches own):** the enhanced skin's click-anywhere notices (`enhancedNotice.js`), its Yes/No
 card and keyed menus, the input box's typed row, the quest log, the Daedra summoning window, the inventory's info
 panel, the enhanced chargen's boxes, the enhanced history and town map, and the dev boot routes' hero gender.
+
+## The merge of main (2026-10-03): the branch brought to #548
+
+Mac, 2026-10-03: "I want to finish that arc." The branch had stood since 2026-09-28 while main took 1,341 commits
+(#408-#548). Main was merged in twice (#408-#541, then #547 and #548), with 789 conflict hunks between the two merges.
+- 656 hunks were line cites alone. They took main's line, and `tools/citeMerge.mjs` re-aimed them (1,015 moved). Its
+  pass one now walks only the targets a line names, as pass two already did. The answer is the same, in 100 seconds
+  instead of most of an hour on a merge this size.
+- The 133 code hunks keep both sides: main's features sit on this branch's readers.
+- Main's refactors carry the arc with them:
+  - PROF12's potion leaf stays import-free, and `potions.js` hands it the localized display names
+    (`setPotionDisplayNames`).
+  - REP5's `legalBands.js` reads %ltn's fourteen bands through their keys.
+  - GUIDE2's `locationInRegionText` is localized in its one home, `questLens.js`.
+  - GUIDE3's journal date header is read off the language's `dateFormatString` and name lists when asked, instead
+    of being frozen in English at module load.
+  - ESSENTIALS-HALF's tavern labels read the language's menu lines.
+  - DISC29-H's new Info line shows the NPC's shown name.
+  - SWIM-SPENT drowns a swimmer by the port's own line in the three hosts with water, so DFU's watery grave stands
+    in the interior host alone.
+- `localizedTable` takes a function entry: the port's own line beside DFU's (PARTY-MAP's Shared Cartography).
+- The text core is now bundled by the account Worker, since main's `nodeLaw.js` reaches it through `gameDate.js`.
+  It joins the deploy's path filter.
+- 32 tests met main's code and this branch's readers for the first time. Their regexes were re-aimed, and their
+  English assertions kept.
+- 61 mutant records were re-aimed by content. Four were dropped because the code they mutated is gone.
+- The L10N4 ratchet was re-baselined, because main never had it: 9,718 literals in 507 files.
+
+## L10N4 (2026-10-03): the routing laws, and the batches
+
+- **The catalog** (`tools/l10nExtract.mjs`) reads a `t()` call's English from two more sources. One is the module's
+  own top-level constant, so `NO_PARTY_TEXT` beside `noPartyText()` needs no second copy of its words; this is L10N3d's
+  shape. The other is literals joined by `+`. A key is still a literal.
+- **The ratchet** (`tools/l10nHardcoded.mjs`) does not count a constant's words where they are written when a text-core
+  call reads them: they are routed where they are read. The 83 constants L10N3d had already routed fell out of the
+  count.
+- Pinned by `test/l10n4_routing.test.js` (2). Mutants `l10n4routing`: 6, all dead.
+- **The laws** every batch follows are `tools/l10n/ROUTE-BRIEF.md`, with drafting in `tools/l10n/TRANSLATE-BRIEF.md`.
+  The rules:
+  - Route what a player reads, the one-word labels the ratchet cannot see included.
+  - Use DFU's own key where DFU has the same English.
+  - Read lazily, never at module load.
+  - Build one pattern with arguments, never glued fragments.
+  - Keep identity strings (saved, sent, compared) English, and show a routed form beside them.
+- **The pilot** is the paperdoll's combat card (`ui/statsCard.js`): 70 keys, with Strength, Health and the attributes
+  through DFU's own keys.
+- **The batches** each take an area with its own key prefix, in a worktree of its own, and are merged and drafted in
+  waves. Every wave lands with its drafts in all 25 languages, so the catalog stays covered at every push.
