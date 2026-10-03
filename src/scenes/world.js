@@ -20691,7 +20691,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     const mp = overworld ? worldCoordToMapPixel(wc.x, wc.z) : null;
     if (overworld) key = siegeSession?.room() ?? royalSession?.room() ?? roomKeyFor({ host: 'world', mode, mapPixel: mp });   // SEAT2a part four: a battle entered stands in its own room (CROWN1 part two: a Royal Tourney too)
     else if (modes?.roomIdentity?.()?.kind === 'gate') key = gateRoomKey(modes?.roomIdentity?.()?.day);   // WB3b: the court's room is its gate's own
-    else if (modes?.roomIdentity?.()?.kind === 'arena') key = arenaBoutRoom(modes.roomIdentity().o);   // ARENA4: a relay's bout's floor is its room
+    else if (modes?.roomIdentity?.()?.kind === 'arena') key = arenaBoutRoom(modes?.roomIdentity?.()?.o);   // ARENA4: a relay's bout's floor is its room
     else {
       const ident = modes?.roomIdentity?.();
       const loc = _questLoc();   // the location under the player: an interior's room is named by it

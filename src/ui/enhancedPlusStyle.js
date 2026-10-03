@@ -1115,7 +1115,7 @@ export const ARENA_WINDOW_CSS = `/* ── ARENA3: THE ARENA WINDOW ── */
 .aw-acts { display: flex; flex-wrap: wrap; gap: 8px 10px; margin-top: 10px; }
 .aw-press { display: inline-flex; flex-direction: column; gap: 3px; }
 .aw-act { min-width: 96px; }
-.aw-why { font-size: 10.5px; color: var(--mute); max-width: 180px; }
+.aw-why { font-size: 11px; color: var(--mute); max-width: 180px; }
 .aw-wager { display: flex; flex-direction: column; gap: 8px; margin-top: 10px; padding: 10px; border: 1px dashed #7a5424; background: rgba(243,207,134,0.04); }
 .aw-wager-sides, .aw-stakes { display: flex; flex-wrap: wrap; gap: 6px; }
 .aw-side[data-banner="red"].on { box-shadow: inset 3px 0 0 var(--red); }
@@ -1151,7 +1151,7 @@ export const ARENA_WINDOW_CSS = `/* ── ARENA3: THE ARENA WINDOW ── */
 .aw-tier[data-state="current"] .aw-tiern { color: var(--brass-hi); border-color: var(--brass); box-shadow: 0 0 6px rgba(243,207,134,0.35); }
 .aw-tiername { font-size: 14px; color: var(--bone); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .aw-tier[data-state="locked"] .aw-tiername { color: #8d8270; }
-.aw-tierstate { grid-column: 3; grid-row: 1 / span 2; font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--mute); }
+.aw-tierstate { grid-column: 3; grid-row: 1 / span 2; font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--mute); }
 .aw-tier[data-state="current"] .aw-tierstate { color: var(--brass-hi); }
 .aw-pips { display: inline-flex; align-items: center; gap: 4px; }
 .aw-pips i { width: 7px; height: 7px; transform: rotate(45deg); background: rgba(0,0,0,0.6); border: 1px solid #5d5245; }
@@ -1189,14 +1189,14 @@ export const ARENA_WINDOW_CSS = `/* ── ARENA3: THE ARENA WINDOW ── */
 .aw-pts { color: var(--brass-hi); font-variant-numeric: tabular-nums; }
 .aw-stats { display: grid; gap: 8px; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); }
 .aw-stat { display: flex; flex-direction: column; gap: 2px; padding: 8px 10px; border: 1px solid #3a352a; background: rgba(5,6,8,0.45); }
-.aw-stat .k { font-size: 10.5px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--mute); }
+.aw-stat .k { font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--mute); }
 .aw-stat .v { font-size: 18px; color: var(--bone); font-variant-numeric: tabular-nums; text-shadow: 1px 1px 0 #050608; }
 /* the boards */
 .aw-subtabs { display: flex; flex-wrap: wrap; gap: 6px; }
 .aw-subtab { font-size: 12px; }
 .aw-boardsub { margin: 2px 0 10px; font-size: 12px; color: var(--mute); }
 .aw-table { width: 100%; border-collapse: collapse; font-size: 13px; font-variant-numeric: tabular-nums; }
-.aw-table th { padding: 4px 8px; text-align: left; font-size: 10.5px; font-weight: 400; letter-spacing: 0.12em; text-transform: uppercase; color: var(--mute);
+.aw-table th { padding: 4px 8px; text-align: left; font-size: 11px; font-weight: 400; letter-spacing: 0.12em; text-transform: uppercase; color: var(--mute);
   border-bottom: 1px solid rgba(243,207,134,0.25); }
 .aw-table td { padding: 5px 8px; border-bottom: 1px solid rgba(5,6,8,0.6); white-space: nowrap; }
 .aw-rank { width: 36px; color: var(--mute); }
