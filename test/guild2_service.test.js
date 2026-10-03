@@ -11,6 +11,7 @@ import { seatRealm, realmAt } from './realmSeat.mjs';
 import { GUILD_RENAME_GOLD, GUILD_RENAME_COOLDOWN_S, guildRenameOpen } from '../src/net/guildLaw.js';
 import { vaultStanding, vaultMayTake, vaultGrantOf, VAULT_RANK_DEFAULTS, guildVaultSlots, GUILD_VAULT_SLOTS } from '../src/net/guildVaultLaw.js';
 import { seatWeekOf } from '../src/net/townSeatLaw.js';
+import { REFUSALS } from '../src/net/accountClient.js';
 
 const realNow = Date.now;
 let _now = T0;
@@ -77,8 +78,10 @@ test('GUILD2 service: a rename is the guildmaster\'s, from the realm\'s gold in 
   s.raw.prepare("UPDATE guilds SET treasury = ?, realm_gold = 0, moved_by = 'seed', moved_at = ? WHERE id = ?").run(GUILD_RENAME_GOLD * 2, _now, s.gid);
   assert.deepEqual((await s.call('/v1/guilds/rename', body, s.gm.secret)).body, { error: 'guild-rename-gold' });
   s.realmGold(GUILD_RENAME_GOLD + 500);
+  s.raw.prepare("INSERT INTO homes (map_id, building_key, player, char_id, region, price, paid, bought_at, guild_id, owner_name) VALUES (1, 'b1', ?, ?, 0, 100, 100, 1, ?, 'The Iron Oath')").run(s.gm.id, s.gm.character, s.gid);
   const r = await s.call('/v1/guilds/rename', body, s.gm.secret);
   assert.equal(r.status, 200, JSON.stringify(r.body));
+  assert.equal(s.raw.prepare('SELECT owner_name FROM homes WHERE guild_id = ?').get(s.gid).owner_name, 'The Ember Oath', 'the hall says the new name, in the same batch');
   assert.deepEqual([r.body.guild.name, r.body.guild.tag, r.body.guild.treasury, r.body.cost], ['The Ember Oath', 'EMBR', 500, GUILD_RENAME_GOLD]);
   assert.equal(typeof r.body.order, 'string', 'the actor wears the new tag at once - its badge signed into an order for its rooms (GUILD1c)');
   assert.equal(r.body.guild.ledger[0].kind, 'rename');
@@ -101,6 +104,11 @@ test('GUILD2 service: a new name passes the name filter (and now a founding\'s d
   const rename = (b) => s.call('/v1/guilds/rename', { character: s.gm.character, ...b }, s.gm.secret);
   assert.deepEqual((await rename({ name: 'Server Admins' })).body, { error: 'guild-name-word' }, 'a reserved word inside a name, word by word');
   assert.deepEqual((await rename({ tag: 'MODS' })).body, { error: 'guild-name-word' });
+  // AUDIT GUILD2 G3: a word with no letters is no word the filter reads - GUILD1's shapes admit it, so the filter must
+  const digits = await rename({ name: 'The 22 Blades', tag: '22' });
+  assert.equal(digits.status, 200, JSON.stringify(digits.body));
+  assert.deepEqual([digits.body.guild.name, digits.body.guild.tag], ['The 22 Blades', '22']);
+  _now += GUILD_RENAME_COOLDOWN_S;
   // another guild's name and tag are taken
   const other = await s.registered('Corin', { renown: 10 });
   other.realm = await seatRealm(s.env, other.secret, 'Corin', { name: 'Corin', level: 5, goldPieces: 20_000, items: [], bankAccounts: [{ accountGold: 0 }] });
@@ -116,6 +124,7 @@ test('GUILD2 service: a new name passes the name filter (and now a founding\'s d
   s.raw.prepare("INSERT INTO town_seat_battles (week, key, kind, tier, attacker, defender, starts_at, ends_at, at) VALUES (?, 1, 'siege', 'palace', ?, ?, ?, ?, ?)")
     .run(seatWeekOf(_now * 1000), theirs.body.guild.id, s.gid, _now + 3600, _now + 7200, _now);
   assert.deepEqual((await rename({ name: 'The Ember Oath' })).body, { error: 'guild-rename-siege' });
+  _now = T0;
 });
 
 // ─── GUILD2b: THE VAULT ──────────────────────────────────────────────
@@ -181,6 +190,68 @@ test('GUILD2 service: what may not leave a pack never reaches the vault; a recor
   s.raw.prepare('DELETE FROM guild_members WHERE char_id = ?').run(s.member.character);
   assert.deepEqual((await s.call('/v1/guilds/disband', { character: s.gm.character }, s.gm.secret)).body, { error: 'guild-vault' });
   assert.deepEqual((await s.call('/v1/guilds/leave', { character: s.gm.character }, s.gm.secret)).body, { error: 'guild-vault' });
+});
+
+/** Holds the next realm record read (the take's prepareRealmRecord) until `release` - the take has read its slot and its
+ *  standing, and its batch lands after whatever runs meanwhile. */
+function holdNextRead(s) {
+  const realGet = s.env.SAVES.get.bind(s.env.SAVES);
+  let release = () => {};
+  const gate = new Promise((r) => { release = r; });
+  const held = { armed: true, release: () => release() };
+  s.env.SAVES.get = async (k) => { if (held.armed) { held.armed = false; await gate; } return realGet(k); };
+  held.restore = () => { s.env.SAVES.get = realGet; };
+  return held;
+}
+
+test('GUILD2 service (AUDIT G1): a take holds the very piece it read - a slot emptied and filled again in the same second, with a stack of the same count, is never the one taken', async () => {
+  const s = await stand();
+  const m = `m${s.memberRow(s.member).rid}`;
+  assert.equal((await s.call('/v1/guilds/vault/grant', { character: s.gm.character, member: m, level: 'withdraw', limit: 0 }, s.gm.secret)).status, 200);
+  assert.equal((await s.call('/v1/guilds/vault/put', { character: s.gm.character, realm: s.gm.realm.at(), pick: 0, item: sword() }, s.gm.secret)).status, 200);
+  const at = (await s.call('/v1/guilds/vault', { character: s.member.character }, s.member.secret)).body.vault.items[0].at;
+  const hold = holdNextRead(s);
+  const stale = s.call('/v1/guilds/vault/take', { character: s.member.character, realm: s.member.realm.at(), slot: 0, at }, s.member.secret);
+  await new Promise((r) => setTimeout(r, 20));
+  assert.equal(hold.armed, false, 'the member\'s take has read the slot');
+  // the same second: the guildmaster takes the sword back and puts one arrow in the slot it left
+  assert.equal((await s.call('/v1/guilds/vault/take', { character: s.gm.character, realm: s.gm.realm.at(), slot: 0, at }, s.gm.secret)).status, 200);
+  const arrow = await s.call('/v1/guilds/vault/put', { character: s.gm.character, realm: s.gm.realm.at(), pick: 0, item: arrows(40), count: 1 }, s.gm.secret);
+  assert.deepEqual([arrow.status, arrow.body.slot], [200, 0]);
+  hold.release();
+  const r = await stale;
+  hold.restore();
+  assert.deepEqual([r.status, r.body.error], [409, 'guild-vault-moved'], 'the slot holds another piece now');
+  assert.deepEqual((await s.record(s.member)).items.map((i) => i.name), ['Brenna\'s Blade'], 'no second sword');
+  assert.deepEqual(s.raw.prepare('SELECT slot, name, count FROM guild_vault WHERE guild_id = ?').all(s.gid).map((x) => ({ ...x })), [{ slot: 0, name: 'Arrow', count: 1 }], 'the arrow put in stays');
+});
+
+test('GUILD2 service (AUDIT G4): a take holds the standing it read - a revoke landing between the read and the batch refuses it', async () => {
+  const s = await stand();
+  const m = `m${s.memberRow(s.member).rid}`;
+  assert.equal((await s.call('/v1/guilds/vault/grant', { character: s.gm.character, member: m, level: 'withdraw', limit: 0 }, s.gm.secret)).status, 200);
+  assert.equal((await s.call('/v1/guilds/vault/put', { character: s.gm.character, realm: s.gm.realm.at(), pick: 0, item: sword() }, s.gm.secret)).status, 200);
+  const hold = holdNextRead(s);
+  const take = s.call('/v1/guilds/vault/take', { character: s.member.character, realm: s.member.realm.at(), slot: 0 }, s.member.secret);
+  await new Promise((r) => setTimeout(r, 20));
+  assert.equal(hold.armed, false);
+  assert.equal((await s.call('/v1/guilds/vault/grant', { character: s.gm.character, member: m, level: 'none' }, s.gm.secret)).status, 200, 'the leader revokes');
+  hold.release();
+  const r = await take;
+  hold.restore();
+  assert.deepEqual([r.status, r.body.error], [403, 'guild-vault-rank']);
+  assert.equal(s.raw.prepare('SELECT COUNT(*) AS n FROM guild_vault WHERE guild_id = ?').get(s.gid).n, 1, 'the sword stays in the vault');
+  assert.deepEqual((await s.record(s.member)).items.map((i) => i.name), ['Brenna\'s Blade']);
+});
+
+test('GUILD2 service (AUDIT G2): a lone guildmaster deleting its realm character empties the vault first (`guild-vault`) - deleted, the guild stood memberless with pieces nobody could take out', async () => {
+  const s = await stand();
+  assert.equal((await s.call('/v1/guilds/vault/put', { character: s.gm.character, realm: s.gm.realm.at(), pick: 0, item: sword() }, s.gm.secret)).status, 200);
+  assert.equal((await s.call('/v1/guilds/leave', { character: s.member.character }, s.member.secret)).status, 200);
+  const del = await s.call('/v1/realm/delete', { id: s.gm.character }, s.gm.secret);
+  assert.deepEqual([del.status, del.body.error], [409, 'guild-vault']);
+  assert.equal(s.raw.prepare('SELECT COUNT(*) AS n FROM guild_members WHERE guild_id = ?').get(s.gid).n, 1, 'the guildmaster stays');
+  assert.equal(typeof REFUSALS['guild-vault'], 'string', 'and is told so');
 });
 
 test('GUILD2 service: the guild\'s view carries the vault\'s shelves and every member\'s standing; a hall adds fifty', async () => {

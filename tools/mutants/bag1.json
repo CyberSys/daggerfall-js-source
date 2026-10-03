@@ -196,5 +196,122 @@
     "tests": [
       "test/bag1_client.test.js"
     ]
+  },
+  {
+    "name": "AUDIT-BAG1-B2-held-read-against-any-count",
+    "file": "server-account/src/professions.js",
+    "old": "AND (?6 IS NULL OR ${total} = ?6)`",
+    "new": "AND (?6 IS NULL OR 1 OR ${total} = ?6)`",
+    "tests": [
+      "test/bag1_service.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-BAG1-B2-the-cut-ungated",
+    "file": "server-account/src/professions.js",
+    "old": "origin = '${o}' AND ${open}`",
+    "new": "origin = '${o}' AND (1 OR ${open})`",
+    "tests": [
+      "test/bag1_service.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-BAG1-B2-the-gate-kept",
+    "file": "server-account/src/professions.js",
+    "old": "    db.prepare('DELETE FROM prof_carried_gate WHERE player = ?1 AND rid = ?2').bind(player, rid),\n",
+    "new": "",
+    "tests": [
+      "test/bag1_service.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-BAG1-B3-a-twin-cuts",
+    "file": "server-account/src/professions.js",
+    "old": "twin: 'NOT EXISTS (SELECT 1 FROM node_harvests WHERE player = ?1 AND rid = ?5)'",
+    "new": "twin: '(1 OR NOT EXISTS (SELECT 1 FROM node_harvests WHERE player = ?1 AND rid = ?5))'",
+    "tests": [
+      "test/bag1_service.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-BAG1-B2-any-material-held",
+    "file": "server-account/src/professions.js",
+    "old": "heldNow != null && body?.heldKey === key2 ?",
+    "new": "heldNow != null ?",
+    "tests": [
+      "test/bag1_service.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-BAG1-B1-lapsed-unasked",
+    "file": "src/net/profBook.js",
+    "old": "            if (h.carry === true) {\n              const r = await send(h, key);",
+    "new": "            if (false) {\n              const r = await send(h, key);",
+    "tests": [
+      "test/bag1_client.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-BAG1-B1-dropped-on-a-switch",
+    "file": "src/net/profBook.js",
+    "old": "    if (r?.ok && !here && h.carry === true) return { ok: false, error: 'elsewhere', kept: true, elsewhere: true };\n",
+    "new": "",
+    "tests": [
+      "test/bag1_client.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-BAG1-B2-a-deposit-out-uncounted",
+    "file": "src/net/profBook.js",
+    "old": "(carry ? carry.held(m) : 0) + keptOf().deposits.reduce",
+    "new": "(carry ? carry.held(m) : 0) + 0 * keptOf().deposits.reduce",
+    "tests": [
+      "test/bag1_client.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-BAG1-B2-seen-unsent",
+    "file": "src/net/profBook.js",
+    "old": "    return { held: heldNow(h.material), heldKey: h.material, seen: seenNow(h.material) };",
+    "new": "    return { held: heldNow(h.material), heldKey: h.material };",
+    "tests": [
+      "test/bag1_client.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-BAG1-B17-given-back-whole-after-a-reload",
+    "file": "src/net/profBook.js",
+    "old": "          const short = Math.min(d.qty | 0, Math.max(0, (d.before | 0) - (carry?.held(d.material) ?? 0)));",
+    "new": "          const short = d.qty | 0;",
+    "tests": [
+      "test/bag1_client.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-BAG1-B8-kept-said-as-offline",
+    "file": "src/net/profBook.js",
+    "old": "error: r?.kept === true ? 'deposit-kept' : (r?.error ?? 'offline')",
+    "new": "error: r?.error ?? 'offline'",
+    "tests": [
+      "test/bag1_client.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-BAG1-B9-the-card-unread",
+    "file": "src/net/profBook.js",
+    "old": "          ?? (card && typeof card.material === 'string' && Number.isSafeInteger(card.qty) && card.qty > 0 ? card : null);",
+    "new": "          ?? null;",
+    "tests": [
+      "test/bag1_client.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-BAG1-B9-a-gem-left-as-the-harvest",
+    "file": "src/net/profBook.js",
+    "old": "      if (left > 0) { out.left += left; out.lost.push({ key: k, n: left }); }",
+    "new": "      if (left > 0) { out.left += left; out.lost.push({ key: d.material, n: left }); }",
+    "tests": [
+      "test/bag1_client.test.js"
+    ]
   }
 ]

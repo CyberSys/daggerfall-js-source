@@ -91,6 +91,9 @@ export const depositOrderOk = (o) => typeof o === 'string' && Object.hasOwn(DEPO
 /** A held count the client says: a whole number from 0 to CARRIED_MAX x 10 (a pack may hold looted pieces of the same
  *  template beside the carried ones - DFU's own Red Rose and a gathered one are one item) - or null. */
 export const heldOk = (n) => Number.isSafeInteger(n) && n >= 0 && n <= CARRIED_MAX * 10;
+/** AUDIT BAG1 B2: the count a client last heard, every origin together (a `seen`) - a whole number from 0 to three origins'
+ *  bound - or anything else, which the service reads as unsaid. */
+export const seenOk = (n) => Number.isSafeInteger(n) && n >= 0 && n <= CARRIED_MAX * CARRIED_ORIGINS.length;
 
 /** What a count `c` (`{ own, bought, gold }`) is once cut to `held`, by CLAMP_ORDER - a copy; never raised. */
 export function clampCarried(c, held) {
@@ -121,6 +124,18 @@ export function goodsWhere(d) {
   const p = d.put ?? { bag: 0, pack: 0, left: 0 };
   const to = p.bag > 0 && p.pack > 0 ? 'to your bag and pack' : p.pack > 0 ? 'to your pack' : 'to your bag';
   return p.left > 0 ? `${to} - ${p.left} left where ${p.left === 1 ? 'it was' : 'they were'} gathered: no room` : to;
+}
+
+/** AUDIT BAG1 B9: WHERE A STATION'S WORK WENT (net/profBook.js smelt's `put`: `{ bag, pack, stored }`), as the sentence
+ *  after the work's own - the bag, the pack, or what stayed in the Stores with no room in either. '' when nothing was
+ *  carried out (an older book's work stays in the Stores, as it always did). */
+export function madeWhere(p) {
+  if (!p || typeof p !== 'object') return '';
+  const bag = p.bag | 0, pack = p.pack | 0, stored = p.stored | 0;
+  const to = bag > 0 && pack > 0 ? 'Into your bag and pack' : pack > 0 ? 'Into your pack' : bag > 0 ? 'Into your bag' : '';
+  if (!stored) return to ? `${to}.` : '';
+  const kept = `${stored} ${stored === 1 ? 'stays' : 'stay'} in your Stores: no room in your bag or pack.`;
+  return to ? `${to} - ${kept[0].toLowerCase()}${kept.slice(1)}` : kept;
 }
 
 /** The bag's words, said where it is bought, where a harvest lands, and where it is refused. */

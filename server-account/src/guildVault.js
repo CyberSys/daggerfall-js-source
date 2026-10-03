@@ -184,14 +184,19 @@ export async function vaultTake(ctx, player, { character, realm = null, slot, co
   try {
     await db.batch([
       ...prep.steps,
-      // the slot, only as it was read - cleared, or its stack cut
+      // the slot, only as it was read - cleared, or its stack cut. AUDIT GUILD2 G1: and holding the very piece read - a
+      // slot emptied and filled again in the same second, with a stack of the same count, kept its `at` and its count, and
+      // the taker was given the piece it saw while the vault lost the one put in after
       rest
-        ? db.prepare('UPDATE guild_vault SET rec = ?4, count = ?5 WHERE guild_id = ?1 AND slot = ?2 AND at = ?3 AND count = ?6').bind(gid, slot, Number(row.at), JSON.stringify(rest), left, have)
-        : db.prepare('DELETE FROM guild_vault WHERE guild_id = ?1 AND slot = ?2 AND at = ?3 AND count = ?4').bind(gid, slot, Number(row.at), have),
+        ? db.prepare('UPDATE guild_vault SET rec = ?4, count = ?5 WHERE guild_id = ?1 AND slot = ?2 AND at = ?3 AND count = ?6 AND rec = ?7').bind(gid, slot, Number(row.at), JSON.stringify(rest), left, have, row.rec)
+        : db.prepare('DELETE FROM guild_vault WHERE guild_id = ?1 AND slot = ?2 AND at = ?3 AND count = ?4 AND rec = ?5').bind(gid, slot, Number(row.at), have, row.rec),
       mustChange(db),
-      // THE DAY'S COUNT is the decision: a take past the limit moves nothing (a second tab racing the last take)
+      // THE DAY'S COUNT is the decision: a take past the limit moves nothing (a second tab racing the last take). AUDIT
+      // GUILD2 G4: and the member's standing as it was read - a guildmaster's revoke, or a demotion, that lands between the
+      // read and this batch refuses the take (the limit bound here is the standing read; a standing moved is not it)
       db.prepare(`UPDATE guild_members SET vault_taken = CASE WHEN vault_day = ?3 THEN vault_taken + 1 ELSE 1 END, vault_day = ?3
-        WHERE rowid = ?1 AND guild_id = ?2 AND (?4 = 0 OR (CASE WHEN vault_day = ?3 THEN vault_taken ELSE 0 END) < ?4)`).bind(a.me.rid, gid, day, limit),
+        WHERE rowid = ?1 AND guild_id = ?2 AND (?4 = 0 OR (CASE WHEN vault_day = ?3 THEN vault_taken ELSE 0 END) < ?4)
+          AND rank = ?5 AND vault_level IS ?6 AND vault_limit = ?7`).bind(a.me.rid, gid, day, limit, Number(me?.rank ?? a.me.rank), me?.vault_level ?? null, Number(me?.vault_limit ?? 0)),
       mustChange(db),
       db.prepare("INSERT INTO guild_vault_log (guild_id, at, who, kind, name, count) VALUES (?, ?, ?, 'take', ?, ?)").bind(gid, nowS, who, pieceName(rec), n),
     ]);
@@ -199,8 +204,9 @@ export async function vaultTake(ctx, player, { character, realm = null, slot, co
     await dropIfUnnamed(db, bucket, player.id, side.at.id, prep.key);
     const moved = await recordMovedOf(db, player.id, side.at);
     if (moved) return moved;
-    const again = await db.prepare('SELECT * FROM guild_members WHERE rowid = ?').bind(a.me.rid).first();
-    if (again && !vaultMayTake(standingOf(again), takenToday(again, nowS))) return { error: 'guild-vault-limit' };
+    const again = await db.prepare('SELECT * FROM guild_members WHERE rowid = ? AND guild_id = ?').bind(a.me.rid, gid).first();
+    if (!again || standingOf(again).level !== 'withdraw') return { error: 'guild-vault-rank' };   // AUDIT GUILD2 G4
+    if (!vaultMayTake(standingOf(again), takenToday(again, nowS))) return { error: 'guild-vault-limit' };
     return { error: 'guild-vault-moved' };
   }
   await dropObjects(bucket, [prep.prev]);

@@ -219,7 +219,7 @@ import { registerPlayerKillListener } from '../systems/playerKills.js';   // PRO
 import { setProfessionsPages } from '../ui/profPages.js';   // PROF1: the Professions and Stores pages on the character sheet's rail
 import { withdrawIntoPack, materialLabel, materialCountLabel } from '../systems/profItems.js';   // PROF1: a Stores material as DFU's own item
 import { heldOf as bagHeldOf, roomFor as bagRoomFor, mintCarried, takeCarried, bagWeight, hasBag } from '../systems/materialsBag.js';   // BAG1: the Materials Bag and the pack, the book's hands
-import { BAG_KG_LIMIT } from '../net/bagLaw.js';
+import { BAG_KG_LIMIT, madeWhere } from '../net/bagLaw.js';   // AUDIT BAG1 B9: where a station's work went
 import { smeltRecipe, stockOf, WEAVERS_STOCK, APOTHECARY_STOCK, professionName } from '../net/professionLaw.js';   // PROF2: a smelt's product, for its word; PROF4: a counter's; PROF5: the Weavers'
 import { createMarketBook } from '../net/marketBook.js';   // PROF5: the market's book
 import { createWritBook } from '../net/writBook.js';   // PROF6: guild writs, commissions, the guild Stores
@@ -9111,7 +9111,8 @@ export async function bootWorld(canvas, renderer, params, status) {
           // the work); a clean chisel and a first work said with it
           const xpWord = professionName(smeltRecipe(r.data.recipe)?.xp ?? 'smithing');
           const how = [r.data.clean === true ? 'a clean chisel' : null, r.data.first === true ? 'your first' : null].filter(Boolean).join(', ');
-          return { ok: true, text: `${verb} ${made} ${materialCountLabel(out, made)}${r.data.xp > 0 ? ` (+${r.data.xp} ${xpWord} XP${how ? ` - ${how}` : ''})` : ''}${f.fee > 0 ? `, and paid the ${who} ${f.fee} gold` : ''}.` };
+          const where = madeWhere(r.data.put);   // AUDIT BAG1 B9: where the work went - the bag, the pack, or the Stores' room
+          return { ok: true, text: `${verb} ${made} ${materialCountLabel(out, made)}${r.data.xp > 0 ? ` (+${r.data.xp} ${xpWord} XP${how ? ` - ${how}` : ''})` : ''}${f.fee > 0 ? `, and paid the ${who} ${f.fee} gold` : ''}.${where ? ` ${where}` : ''}` };
         },
       });
       // PROF9 (bible/06-Systems/Professions-Arc.md 9.3: "the whole party"): A FEAST SHARED - eaten, its spell record goes

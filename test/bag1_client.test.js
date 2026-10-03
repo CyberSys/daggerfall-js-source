@@ -9,15 +9,16 @@ import { readFileSync } from 'node:fs';
 import '../src/systems/profTemplates.js';
 import { standService, T0, sessionStorageOf } from './accountDb.mjs';
 import { accountProf, SESSION_KEY, accountRefusalText } from '../src/net/accountClient.js';
-import { createProfBook } from '../src/net/profBook.js';
+import { createProfBook, PROF_QUEUE_MS } from '../src/net/profBook.js';
 import {
-  BAG_TEMPLATE, BAG_KG_LIMIT, BAG_BASE_PRICE, BAG_ROW, BAG_CAPACITY, BAG_WORDS, CARRIED_MAX, goodsWhere,
+  BAG_TEMPLATE, BAG_KG_LIMIT, BAG_BASE_PRICE, BAG_ROW, BAG_CAPACITY, BAG_WORDS, CARRIED_MAX, goodsWhere, madeWhere,
 } from '../src/net/bagLaw.js';
+import { leftWords } from '../src/scenes/gatherHost.js';
 import {
   hasBag, bagItemsOf, materialKeyOfItem, isMaterialItem, heldOf, unitKgOf, bagWeight, roomFor, mintCarried, takeCarried,
   bagStoreRefusal, bagMayLeave, isBagItem,
 } from '../src/systems/materialsBag.js';
-import { mintMaterialItem } from '../src/systems/profItems.js';
+import { mintMaterialItem, materialCountLabel } from '../src/systems/profItems.js';
 import { setItemFields } from '../src/systems/itemTemplates.js';
 import {
   planBagToggle, hasMaterialsBag, remoteTarget, storeCapacityOf, groundRefusalOf, remoteTargetType, REMOTE_TARGET_TYPES,
@@ -263,6 +264,145 @@ test('BAG1 a deposit: the items out of the bag first, the service asked with wha
   assert.equal(heldOf(e, HERB), 2);
 });
 
+// ─── THE AUDIT (bible/06-Systems/Materials-Bag.md, the audit) ───────
+
+test('BAG1 (AUDIT B2): what the pack holds is said at each ask, never when the act was kept - a harvest asked after another\'s items were minted says them, and a deposit still out counts as held; with the material it is of and the count as last heard (mutants: held kept from the queue; a deposit out uncounted; `seen` unsent)', async () => {
+  const e = body();
+  const asked = [];
+  let answer = { ok: false, error: 'offline' };
+  const door = {
+    account: () => 'a',
+    harvest: async (b) => { asked.push(b); return answer; },
+    deposit: async () => ({ ok: false, error: 'offline' }),
+  };
+  let t = 1_000_000, n = 0;
+  const book = createProfBook({ door, storage: memStorage(), character: () => 'c', now: () => t, rid: () => `prof-${String(++n).padStart(6, '0')}`, sleep: noWait, carry: hands(e) });
+  await book.harvest({ node: 'n1', kind: 'herbs', climate: 231, region: 21, act: {}, at: 1, material: HERB });
+  assert.deepEqual([asked[0].held, asked[0].heldKey, asked[0].seen], [0, HERB, 0]);
+  mintCarried(e, HERB, 3);   // another act's items, minted meanwhile
+  assert.equal((await book.deposit(HERB, 2)).kept, true, 'two of them on their way into the Stores, unanswered');
+  t += 60_000;
+  await book.pump();
+  assert.deepEqual([asked[1].held, asked[1].heldKey, asked[1].seen], [3, HERB, 0], 'the one in the pack and the two still out');
+  answer = { ok: true, data: { carry: true, material: HERB, qty: 2, carried: { material: HERB, own: 5, bought: 0 }, xp: 1, track: { profession: 'herbalism', xp: 1, rank: 0 } } };
+  t += 60_000;
+  await book.pump();
+  await book.harvest({ node: 'n2', kind: 'herbs', climate: 231, region: 21, act: {}, at: 1, material: HERB });
+  assert.deepEqual([asked.at(-1).held, asked.at(-1).seen], [5, 5], 'the count as the answer said it - and the pack with the two minted');
+  // a Basket's food is the service's roll: no material named, no held count
+  await book.harvest({ node: 'n3', kind: 'baskets', climate: 231, region: 21, act: {}, at: 1 });
+  assert.deepEqual(['held' in asked.at(-1), 'heldKey' in asked.at(-1)], [false, false]);
+});
+
+test('BAG1 (AUDIT B1): a carried harvest is never let go unminted - lapsed, it is asked once and a landed one minted (one never landed lapses); heard under another character it waits kept for its own (mutants: lapsed unasked; dropped on a switch)', async () => {
+  const e = body();
+  let answer = { ok: false, error: 'offline' };
+  let who = 'c';
+  let onAsk = () => {};
+  const door = { account: () => 'a', harvest: async () => { onAsk(); return answer; } };
+  let t = 1_000_000;
+  const book = createProfBook({ door, storage: memStorage(), character: () => who, now: () => t, sleep: noWait, carry: hands(e) });
+  const landed = { ok: true, data: { carry: true, repeat: true, material: HERB, qty: 3, carried: { material: HERB, own: 3, bought: 0 }, xp: 1, track: { profession: 'herbalism', xp: 1, rank: 0 } } };
+  await book.harvest({ node: 'n1', kind: 'herbs', climate: 231, region: 21, act: {}, at: 1, material: HERB });
+  answer = landed;
+  t += PROF_QUEUE_MS + 1;
+  const said = [];
+  await book.pump((h, r) => said.push(r.ok ? 'ok' : r.error));
+  assert.deepEqual(said, ['ok'], 'past its ten minutes, asked once: the service answered the harvest it made');
+  assert.equal(heldOf(e, HERB), 3, 'and its herbs minted');
+  // one that never landed is refused for its age, and lapses
+  answer = { ok: false, error: 'offline' };
+  await book.harvest({ node: 'n2', kind: 'herbs', climate: 231, region: 21, act: {}, at: 1, material: HERB });
+  answer = { ok: false, error: 'prof-late' };
+  t += PROF_QUEUE_MS + 1;
+  said.length = 0;
+  await book.pump((h, r) => said.push(r.ok ? 'ok' : r.error));
+  assert.deepEqual(said, ['lapsed']);
+  assert.equal(book.pendingHarvests, 0);
+  // heard after a switch: the herbs are the first character's, minted by its own next ask
+  answer = landed;
+  onAsk = () => { who = 'd'; };
+  const r = await book.harvest({ node: 'n3', kind: 'herbs', climate: 231, region: 21, act: {}, at: t / 1000 | 0, material: HERB });
+  assert.deepEqual([r.ok, r.kept, r.elsewhere], [false, true, true]);
+  assert.equal(heldOf(e, HERB), 3, 'nothing minted into the other character\'s pack');
+  who = 'c';
+  onAsk = () => {};
+  assert.equal(book.pendingHarvests, 1, 'kept for its own character');
+  await book.pump();
+  assert.equal(heldOf(e, HERB), 6, 'minted once its own character asked again');
+});
+
+test('BAG1 (AUDIT B17): a deposit is kept with the other acts - a page reloaded still hears its answer; refused then, it gives back only what the bag and the pack are short of what they held (mutants: kept in memory alone; given back whole after a reload)', async () => {
+  const shared = memStorage();
+  const e = body();
+  mintCarried(e, HERB, 6);
+  const first = createProfBook({ door: { account: () => 'a', deposit: async () => ({ ok: false, error: 'offline' }) }, storage: shared, character: () => 'c', sleep: noWait, carry: hands(e) });
+  assert.equal((await first.deposit(HERB, 4)).kept, true);
+  assert.equal(heldOf(e, HERB), 2);
+  // reloaded, the save written after the items went: refused, they come back
+  let answer = { ok: false, error: 'carried-short' };
+  const asked = [];
+  const door = { account: () => 'a', deposit: async (...a) => { asked.push(a); return answer; } };
+  const second = createProfBook({ door, storage: shared, character: () => 'c', sleep: noWait, carry: hands(e) });
+  assert.equal(second.pendingDeposits, 1, 'heard by the next page');
+  await second.settle(() => {});
+  assert.equal(asked.length, 1);
+  assert.equal(heldOf(e, HERB), 6, 'the four given back');
+  assert.equal(second.pendingDeposits, 0);
+  // reloaded on a save that never saw them go: the pack holds them still, and nothing is given back
+  const e2 = body();
+  mintCarried(e2, HERB, 6);
+  await createProfBook({ door: { account: () => 'a', deposit: async () => ({ ok: false, error: 'offline' }) }, storage: shared, character: () => 'c', sleep: noWait, carry: hands(e2) }).deposit(HERB, 4);
+  const e3 = body();
+  mintCarried(e3, HERB, 6);   // the save as it stood before the deposit
+  await createProfBook({ door, storage: shared, character: () => 'c', sleep: noWait, carry: hands(e3) }).settle(() => {});
+  assert.equal(heldOf(e3, HERB), 6, 'never a copy');
+  // landed: nothing given back
+  await createProfBook({ door: { account: () => 'a', deposit: async () => ({ ok: false, error: 'offline' }) }, storage: shared, character: () => 'c', sleep: noWait, carry: hands(e2) }).deposit(HERB, 2);
+  answer = { ok: true, data: { store: { material: HERB, own: 2, bought: 0 }, carried: { material: HERB, own: 0, bought: 0 } } };
+  const third = createProfBook({ door, storage: shared, character: () => 'c', sleep: noWait, carry: hands(e2) });
+  await third.settle(() => {});
+  assert.deepEqual([third.pendingDeposits, heldOf(e2, HERB)], [0, 0]);
+});
+
+test('BAG1 (AUDIT B8/B9): a station\'s put-in with no answer says so; a Court writ\'s card names its shortfall where the book\'s list has none; a station\'s work says where it went; what a harvest left is named each by its own (mutants: `deposit-kept` said as offline; the card unread)', async () => {
+  const e = body();
+  mintCarried(e, OAK, 10);
+  let depositAnswer = { ok: false, error: 'offline' };
+  const asked = [];
+  const door = {
+    account: () => 'a',
+    deposit: async (c, m, q, held, order) => { asked.push([m, q, order]); return typeof depositAnswer === 'function' ? depositAnswer(m, q, held) : depositAnswer; },
+    harvest: async () => ({ ok: true, data: { carry: true, material: OAK, qty: 0, carried: { material: OAK, own: 10, bought: 0 } } }),
+    deliver: async () => ({ ok: true, data: { pay: 5 } }),
+  };
+  const book = createProfBook({ door, storage: memStorage(), character: () => 'c', sleep: noWait, carry: hands(e) });
+  await book.harvest({ node: 'n', kind: 'trees', climate: 231, region: 21, act: {}, at: 1 });
+  const kept = await book.ensureInStores([{ key: OAK, n: 2 }]);
+  assert.deepEqual([kept.ok, kept.error, kept.kept], [false, 'deposit-kept', true]);
+  assert.match(accountRefusalText('deposit-kept'), /on their way into your Stores/);
+  await book.settle(() => {});   // the kept one, still unanswered
+  depositAnswer = (m, q, held) => ({ ok: true, data: { store: { material: m, own: q, bought: 0 }, carried: { material: m, own: Math.max(0, held - q), bought: 0 } } });
+  await book.settle(() => {});
+  asked.length = 0;
+  const r = await book.deliver('w1', 21, { material: OAK, qty: 5 });
+  assert.equal(r.ok, true, JSON.stringify(r));
+  assert.deepEqual(asked, [[OAK, 3, 'spend']], 'the card\'s five: two in the Stores already, three put in');
+  assert.equal(madeWhere({ bag: 3, pack: 0, stored: 0 }), 'Into your bag.');
+  assert.equal(madeWhere({ bag: 1, pack: 2, stored: 0 }), 'Into your bag and pack.');
+  assert.equal(madeWhere({ bag: 2, pack: 0, stored: 1 }), 'Into your bag - 1 stays in your Stores: no room in your bag or pack.');
+  assert.equal(madeWhere({ bag: 0, pack: 0, stored: 4 }), '4 stay in your Stores: no room in your bag or pack.');
+  assert.equal(madeWhere(undefined), '');
+  assert.match(src('src/scenes/world.js'), /const where = madeWhere\(r\.data\.put\)/);
+  assert.equal(leftWords({ material: HERB, put: { left: 3, lost: [{ key: HERB, n: 2 }, { key: OAK, n: 1 }] } }), `2 ${materialCountLabel(HERB, 2)} and 1 ${materialCountLabel(OAK, 1)}`);
+  assert.equal(leftWords({ material: HERB, put: { left: 2 } }), `2 ${materialCountLabel(HERB, 2)}`, 'a put from before the audit');
+  // the book names what it could not mint: a gem with no room is the gem's, not the harvest's
+  const full = { ...hands(body()), mint: (k, q) => (k === 'gem:ruby' ? { bag: 0, pack: 0, left: q } : { bag: q, pack: 0, left: 0 }) };
+  const gemDoor = { account: () => 'a', harvest: async () => ({ ok: true, data: { carry: true, material: HERB, qty: 2, gem: 'gem:ruby', carried: { material: HERB, own: 2, bought: 0 } } }) };
+  const g = await createProfBook({ door: gemDoor, storage: memStorage(), character: () => 'c', sleep: noWait, carry: full }).harvest({ node: 'n', kind: 'herbs', climate: 231, region: 21, act: {}, at: 1, material: HERB });
+  assert.deepEqual(g.data.put, { bag: 2, pack: 0, left: 1, lost: [{ key: 'gem:ruby', n: 1 }] });
+});
+
 test('BAG1 a station\'s shortfall goes into the Stores first - bought before own, never gold\'s - every input covered before any moves; what cannot be covered moves nothing (mutants: the spend order; a partial move)', async () => {
   const e = body();
   mintCarried(e, OAK, 10);
@@ -346,7 +486,7 @@ test('BAG1 done when: a new character gathers into the pack with no bag, buys a 
     const r1 = await gather(patches[0]);
     assert.equal(r1.ok, true, JSON.stringify(r1));
     const k1 = r1.data.material;
-    assert.deepEqual(r1.data.put, { bag: 0, pack: r1.data.qty, left: 0 }, 'no bag yet: the pack');
+    assert.deepEqual(r1.data.put, { bag: 0, pack: r1.data.qty, left: 0, lost: [] }, 'no bag yet: the pack');
     assert.equal(heldOf(e, k1), r1.data.qty);
     e.items.push(bagItem());   // bought at a General Store
     const r2 = await gather(patches[1]);

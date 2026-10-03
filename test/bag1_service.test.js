@@ -94,14 +94,77 @@ test('BAG1 service: a harvest\'s `held` cuts the count first - a pack that sold 
   const p = patchOfTier(1);
   const key = herbKey(p.herb, ANTICLERE);
   s.carry(mac, key, 'own', 40);
-  const r = await s.call('/v1/prof/harvest', harvestBody(mac, p, { carry: true, held: 10 }), mac.secret);
+  const r = await s.call('/v1/prof/harvest', harvestBody(mac, p, { carry: true, held: 10, heldKey: key, seen: 40 }), mac.secret);
   assert.equal(r.status, 200, JSON.stringify(r.body));
   assert.deepEqual(s.carried(mac, key), [['own', 10 + r.body.qty]], 'cut to the ten held, then the harvest');
   const q = patchOfTier(1, p.x + 1);
   const qk = herbKey(q.herb, ANTICLERE);
   s.carry(mac, qk, 'own', CARRIED_MAX);
-  const full = await s.call('/v1/prof/harvest', harvestBody(mac, q, { carry: true, held: CARRIED_MAX }), mac.secret);
+  const full = await s.call('/v1/prof/harvest', harvestBody(mac, q, { carry: true, held: CARRIED_MAX, heldKey: qk, seen: CARRIED_MAX }), mac.secret);
   assert.deepEqual([full.status, full.body], [409, { error: 'carried-full' }]);
+});
+
+// AUDIT BAG1 B2 (bible/06-Systems/Materials-Bag.md, the audit): a held count is only as good as the count it was read
+// against. The auditors' repro: three herbs gathered offline, kept, each asked with `held: 0` - every one cut the units
+// the one before had counted, and the save was minted four that the service knew as one.
+test('BAG1 service (AUDIT B2): a `held` read against a count that has moved since cuts nothing - three kept harvests all keep their units; a current one is believed', async () => {
+  const s = await stand();
+  const mac = await s.registered('Mac');
+  const ps = [];
+  for (let x = 300; ps.length < 4 && x < 900; x++) {
+    const p = herbPatches({ x, y: 200, day: utcDay(NOON), climate: WOODS, confirmed: false }).find((q) => q.tier === 1);
+    if (p && (!ps.length || herbKey(p.herb, ANTICLERE) === herbKey(ps[0].herb, ANTICLERE))) ps.push({ x, y: 200, ...p });
+  }
+  assert.equal(ps.length, 4);
+  const key = herbKey(ps[0].herb, ANTICLERE);
+  let sum = 0;
+  for (const p of ps.slice(0, 3)) {   // kept while offline: each read the pack at 0, the count at 0
+    const r = await s.call('/v1/prof/harvest', harvestBody(mac, p, { carry: true, held: 0, heldKey: key, seen: 0 }), mac.secret);
+    assert.equal(r.status, 200, JSON.stringify(r.body));
+    sum += r.body.qty;
+  }
+  assert.deepEqual(s.carried(mac, key), [['own', sum]], 'every unit the save was handed is counted');
+  // a withdrawal and a deposit read against a stale count cut nothing either
+  s.give(mac, 'p1:19', 'own', 5);
+  const w = await s.call('/v1/stores/withdraw', { character: mac.character, material: 'p1:19', qty: 2, rid: rid(), carry: true, held: 0, seen: 0 }, mac.secret);
+  assert.equal(w.status, 200);
+  const stale = await s.call('/v1/stores/withdraw', { character: mac.character, material: 'p1:19', qty: 1, rid: rid(), carry: true, held: 0, seen: 0 }, mac.secret);
+  assert.equal(stale.status, 200);
+  assert.deepEqual(s.carried(mac, 'p1:19'), [['own', 3]], 'the first withdrawal\'s two, not yet in the pack, kept');
+  const d = await s.call('/v1/stores/deposit', { character: mac.character, material: 'p1:19', qty: 1, held: 1, seen: 2, order: 'all', rid: rid() }, mac.secret);
+  assert.equal(d.status, 200, 'a held of 1 read against 2: the count moved since, so nothing is cut before the deposit');
+  assert.deepEqual(s.carried(mac, 'p1:19'), [['own', 2]]);
+  // read against the count as it stands: believed - the pack sold one
+  const cut = await s.call('/v1/stores/deposit', { character: mac.character, material: 'p1:19', qty: 1, held: 1, seen: 2, order: 'all', rid: rid() }, mac.secret);
+  assert.equal(cut.status, 200);
+  assert.deepEqual(s.carried(mac, 'p1:19'), [], 'cut to the one held, and that one put in');
+  // the harvest's held count is the node's own material's alone: another material's says nothing of this one
+  const r = await s.call('/v1/prof/harvest', harvestBody(mac, ps[3], { carry: true, held: 0, heldKey: 'p1:19', seen: sum }), mac.secret);
+  assert.equal(r.status, 200, JSON.stringify(r.body));
+  assert.deepEqual(s.carried(mac, key), [['own', sum + r.body.qty]], 'a held count named for another material cuts nothing here');
+  assert.equal(s.raw.prepare('SELECT COUNT(*) AS n FROM prof_carried_gate').get().n, 0, 'the gate never outlives its batch');
+});
+
+// AUDIT BAG1 B3: two copies of one kept harvest (two tabs, one rid) both read no prior row; the second's cut ran after the
+// first had counted its units, against the same `held: 0`, and erased them.
+test('BAG1 service (AUDIT B3): a twin of a landed harvest, racing it, cuts nothing', async () => {
+  const s = await stand();
+  const mac = await s.registered('Mac');
+  const p = patchOfTier(1);
+  const key = herbKey(p.herb, ANTICLERE);
+  const body = harvestBody(mac, p, { carry: true, held: 0, heldKey: key });   // an older client's: no `seen`
+  const realBatch = s.env.DB.batch.bind(s.env.DB);
+  let held = null;
+  s.env.DB.batch = async (list) => {   // the first batch waits until its twin is past the prior read
+    if (list.length > 8 && held === null) { let go; held = new Promise((r) => { go = r; }); held.go = go; await held; return realBatch(list); }
+    if (list.length > 8 && held) { const out = await realBatch(list); held.go(); return out; }
+    return realBatch(list);
+  };
+  const [a, b] = await Promise.all([s.call('/v1/prof/harvest', body, mac.secret), s.call('/v1/prof/harvest', body, mac.secret)]);
+  s.env.DB.batch = realBatch;
+  assert.deepEqual([a.status, b.status], [200, 200]);
+  assert.equal(a.body.qty, b.body.qty, 'one harvest, told twice');
+  assert.deepEqual(s.carried(mac, key), [['own', a.body.qty]], 'the units the save mints are the units counted');
 });
 
 // ─── A WITHDRAWAL, COUNTED ──────────────────────────────────────────

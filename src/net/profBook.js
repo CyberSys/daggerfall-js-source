@@ -37,6 +37,19 @@
 // and given back on a refusal), so the station's own route spends the
 // Stores as it always has.
 //
+// AUDIT BAG1 (bible/06-Systems/Materials-Bag.md, the audit): WHAT THE
+// PACK HOLDS IS SAID WHEN THE ACT IS ASKED, never when it was kept -
+// `held` read at the send, with the units of every deposit still out (the
+// pack gave them up; the count holds them until the deposit lands), beside
+// `seen`, the count as this book last heard it, and `heldKey`, the material
+// it is of. The service cuts the count only where `seen` is its own: an
+// answer lost (a kept act's units counted, not yet minted) makes the count
+// move under the client, and the cut is skipped. A carried harvest is
+// never let go unminted: heard under another character it waits for its
+// own, and lapsed it is asked once - the service answers a landed one
+// whatever its age. A deposit is KEPT as the other acts are, so a page
+// closed before its answer still hears it.
+//
 // Pure - the door, the storage, the clock and the ids are handed in - so
 // the pins drive it without a network.
 // ═══════════════════════════════════════════════════════════════════
@@ -155,11 +168,12 @@ export function createProfBook({ door, storage = null, character = () => null, n
     return {
       harvests: Array.isArray(k?.harvests) ? k.harvests : [], withdrawals: Array.isArray(k?.withdrawals) ? k.withdrawals : [],
       crafts: Array.isArray(k?.crafts) ? k.crafts : [],   // PROF3: a craft asked and not yet answered - its pieces minted on the answer
+      deposits: Array.isArray(k?.deposits) ? k.deposits : [],   // AUDIT BAG1 B17: a deposit asked, its items out of the bag and the pack
     };
   };
   const writeKept = (kept, key = slot()) => {
     const t = { ...table() };
-    if (kept.harvests.length || kept.withdrawals.length || kept.crafts?.length) t[key] = kept; else delete t[key];
+    if (kept.harvests.length || kept.withdrawals.length || kept.crafts?.length || kept.deposits?.length) t[key] = kept; else delete t[key];
     writeTable(t);
   };
 
@@ -263,8 +277,15 @@ export function createProfBook({ door, storage = null, character = () => null, n
   let _depositBusy = false;   // BAG1: one deposit at a time
   /** BAG1: the deposits whose answer never came - their items kept out of the bag and the pack, asked again with the same
    *  id at the next settle, given back only on the service's own refusal (an honest client fails toward loss, never a
-   *  copy: a deposit that landed and lost its answer, given back, would be the units in the Stores AND in the pack). */
-  const pendingDeposits = [];
+   *  copy: a deposit that landed and lost its answer, given back, would be the units in the Stores AND in the pack).
+   *  AUDIT BAG1 B17: KEPT with the other acts (`deposits`), so a page closed before the answer still hears it; this page's
+   *  own undo by the deposit's id - after a reload there is none, and a refusal gives back what the pack is short. */
+  const depositBacks = new Map();
+  /** AUDIT BAG1 B2: what the service must read as held of a material - the bag's and the pack's items, and the units of
+   *  every deposit still out (the pack gave them up; the count holds them until the deposit lands). */
+  const heldNow = (m) => (carry ? carry.held(m) : 0) + keptOf().deposits.reduce((n, d) => n + (d.material === m ? d.qty | 0 : 0), 0);
+  /** AUDIT BAG1 B2: the count of a material as this book last heard it - the service cuts only against its own. */
+  const seenNow = (m) => carriedTotal(state.carried.get(m));
 
   const book = {
     state,
@@ -392,11 +413,12 @@ export function createProfBook({ door, storage = null, character = () => null, n
       const key = slot();
       const c = character();
       if (!c) return { ok: false, error: 'prof-character' };
-      // BAG1: a carrying book's harvest is the bag's or the pack's - `held` what they hold of the material, where the host
-      // names it (a Basket's food is the service's roll: none), so the count is cut to the truth first
+      // BAG1: a carrying book's harvest is the bag's or the pack's - the material it is of kept where the host names it (a
+      // Basket's food is the service's roll: none), so the count is cut to the truth first. AUDIT BAG1 B2: what is held of
+      // it is read at each ask (`send`), never here - a harvest kept while another's items were still to come said too few
       const { material: named = null, ...ask0 } = req ?? {};
       const h = { ...ask0, character: c, rid: rid(), queuedAt: now(), tries: 0, nextAt: 0,
-        ...(carry ? { carry: true, ...(typeof named === 'string' ? { held: carry.held(named) } : {}) } : {}) };
+        ...(carry ? { carry: true, ...(typeof named === 'string' ? { material: named } : {}) } : {}) };
       const kept = keptOf(key);
       kept.harvests.push(h);
       writeKept(kept, key);
@@ -418,10 +440,20 @@ export function createProfBook({ door, storage = null, character = () => null, n
       _pump = (async () => {
         for (const h of due) {
           const lapsed = now() - h.queuedAt > PROF_QUEUE_MS || dayOf(h.at * 1000) !== dayOf(now());
-          if (lapsed) { drop(h.rid, key); onAnswer(h, { ok: false, error: 'lapsed' }); continue; }
           // AUDIT 29 C4: the rank before the answer, handed to the caller - `send` applies the new track first, and a
           // rise read after it was no rise (no toast, no banner)
           const ranks = new Map([...state.tracks].map(([p, t]) => [p, t.rank]));
+          if (lapsed) {
+            // AUDIT BAG1 B1: a carried harvest that landed with its answer lost is counted, and only its answer mints the
+            // items - let go unasked, the count held units the pack never got. Asked once: the service answers a landed
+            // harvest whatever its age (its row); one that never landed is refused, and let go as lapsed
+            if (h.carry === true) {
+              const r = await send(h, key);
+              if (r.ok && !r.elsewhere) { onAnswer(h, r, ranks.get(r?.data?.track?.profession) ?? 0); continue; }
+              if (r.elsewhere) continue;
+            }
+            drop(h.rid, key); onAnswer(h, { ok: false, error: 'lapsed' }); continue;
+          }
           const r = await send(h, key);
           if (!r.kept && !r.elsewhere) onAnswer(h, r, ranks.get(r?.data?.track?.profession) ?? 0);   // AUDIT 32 B5: another character's, unsaid
         }
@@ -441,9 +473,9 @@ export function createProfBook({ door, storage = null, character = () => null, n
       const c = character();
       if (!c || !account()) return { ok: false, text: accountRefusalText('no-session') };
       _withdrawBusy = (async () => {
-        // BAG1: a carrying book's withdrawal is counted as carried - with what the bag and the pack hold of it now, kept
-        // with the withdrawal so an ask after a lost answer says the same
-        const w = { rid: rid(), material, qty, character: c, ...(carry ? { carry: true, held: carry.held(material) } : {}) };
+        // BAG1: a carrying book's withdrawal is counted as carried. AUDIT BAG1 B2: what the bag and the pack hold of it is
+        // read at each ask (settleOne), with the count as last heard
+        const w = { rid: rid(), material, qty, character: c, ...(carry ? { carry: true } : {}) };
         const kept = keptOf(key);
         kept.withdrawals.push(w);
         writeKept(kept, key);
@@ -491,15 +523,22 @@ export function createProfBook({ door, storage = null, character = () => null, n
       if (_depositBusy) return { ok: false, error: 'prof-busy' };
       _depositBusy = true;
       try {
-        const held = carry.held(material);
+        const key = slot();
+        const before = carry.held(material);
         const took = carry.take(material, qty);
         if (took.taken < qty) { took.back(); return { ok: false, error: 'carried-short' }; }
-        const d = { id: rid(), character: c, material, qty, held, order, back: took.back, key: slot() };
-        return await askDeposit(d);
+        // AUDIT BAG1 B17: kept before it is asked - `before` what the bag and the pack held, so a refusal heard after a
+        // reload gives back only what they are short of it (a save that never saw the items go still holds them)
+        const d = { id: rid(), character: c, material, qty, order, before };
+        depositBacks.set(d.id, took.back);
+        const kept = keptOf(key);
+        kept.deposits.push(d);
+        writeKept(kept, key);
+        return await askDeposit(d, key);
       } finally { _depositBusy = false; }
     },
     /** BAG1: how many deposits wait on the service's answer, their items out of the bag. */
-    get pendingDeposits() { return pendingDeposits.length; },
+    get pendingDeposits() { return keptOf().deposits.length; },
     /**
      * BAG1: A STATION'S, A CRAFT'S OR A WRIT'S SHORTFALL PUT IN THE STORES FIRST - for each input `{ key, n }` (summed by
      * key), what the Stores lack of `n` deposited from what is carried (`spend`: bought first, never gold's), so the act's
@@ -519,7 +558,8 @@ export function createProfBook({ door, storage = null, character = () => null, n
         while (left > 0) {
           const q = Math.min(left, DEPOSIT_MAX);
           const r = await this.deposit(k, q, { order: 'spend' });
-          if (!r?.ok) return { ok: false, error: r?.error ?? 'offline', material: k, kept: r?.kept === true };
+          // AUDIT BAG1 B8: a put-in whose answer has not come is no shortfall - its items are on their way, and said so
+          if (!r?.ok) return { ok: false, error: r?.kept === true ? 'deposit-kept' : (r?.error ?? 'offline'), material: k, kept: r?.kept === true };
           left -= q;
           moved += q;
         }
@@ -650,15 +690,18 @@ export function createProfBook({ door, storage = null, character = () => null, n
       return { data: null, error: r?.error ?? 'offline', stale: false };
     },
     /** A COURT WRIT TAKEN - delivered from the Stores. The id is the writ's own until an answer comes. Answers the
-     *  service's answer (`{ ok, data }` or `{ ok: false, error }`), the book's state and the writ's cache moved with it. */
-    async deliver(writId, region) {
+     *  service's answer (`{ ok, data }` or `{ ok: false, error }`), the book's state and the writ's cache moved with it.
+     *  AUDIT BAG1 B9: `card` the writ as the board showed it (`{ material, qty }`) - the shortfall's word where this book's
+     *  list has none (another book read the board), so what is carried still fills it. */
+    async deliver(writId, region, card = null) {
       const c = character();
       if (!c) return { ok: false, error: 'prof-character' };
       const m = idFor(`deliver|${slot()}|${writId}`);
       if (m.promise) return m.promise;
       m.promise = (async () => {
         // BAG1: the writ's units the Stores lack, from the bag and the pack first - a Court writ is filled from the Stores
-        const asked = writCache.get(`${slot()}|${region}`)?.data?.writs?.find((x) => x.id === writId) ?? null;
+        const asked = writCache.get(`${slot()}|${region}`)?.data?.writs?.find((x) => x.id === writId)
+          ?? (card && typeof card.material === 'string' && Number.isSafeInteger(card.qty) && card.qty > 0 ? card : null);
         const ready = asked ? await book.ensureInStores([{ key: asked.material, n: asked.qty }]) : { ok: true };
         if (!ready.ok) { m.promise = null; return { ok: false, error: ready.error ?? 'materials-short' }; }
         const r = await ask(() => door.deliver(c, writId, m.id));
@@ -738,7 +781,7 @@ export function createProfBook({ door, storage = null, character = () => null, n
       character: h.character, node: h.node, kind: h.kind, climate: h.climate, region: h.region, act: h.act, at: h.at, rid: h.rid,
       ...(h.foe === undefined ? {} : { foe: h.foe }),   // PROF7: the foe a body is (PROF0 6: the client's claim)
       ...(typeof h.watch === 'string' ? { watch: h.watch } : {}),   // PROF2b: a Motherlode's - the relay's Watch receipt for its pixel
-      ...(h.carry === true ? { carry: true, ...(Number.isSafeInteger(h.held) ? { held: h.held } : {}) } : {}),   // BAG1: into the bag or the pack
+      ...(h.carry === true ? { carry: true, ...heldBody(h) } : {}),   // BAG1: into the bag or the pack
     };
     let r;
     sending.add(h.rid);
@@ -746,6 +789,9 @@ export function createProfBook({ door, storage = null, character = () => null, n
     // AUDIT 32 B5: the answer is its press's character's - heard after a switch, it is let go and the book (the other
     // character's now) is left as it stands; that character's next read says it (AUDIT 31 B2's law, the market's)
     const here = key === slot();
+    // AUDIT BAG1 B1: a carried harvest's items are its own character's to mint - let go here, they were never made; it
+    // waits kept for that character, whose next ask the service answers with the same harvest
+    if (r?.ok && !here && h.carry === true) return { ok: false, error: 'elsewhere', kept: true, elsewhere: true };
     if (r?.ok && !here) { drop(h.rid, key); return { ok: true, data: r.data, elsewhere: true }; }
     if (r?.ok) {
       // BAG1: THE ITEMS ARE MINTED ONCE, by the tab that lets the kept harvest go - read and let go in one turn, BEFORE the
@@ -794,17 +840,25 @@ export function createProfBook({ door, storage = null, character = () => null, n
     if (r?.error === 'prof-hunt-high') state.hunt = { ...(state.hunt ?? { hides: 0, high: 0 }), high: Math.max(state.hunt?.high ?? 0, state.caps?.highHides ?? HIGH_HIDES_PER_DAY) };
     return { ok: false, error: r?.error ?? 'server' };
   }
+  /** AUDIT BAG1 B2: a carried harvest's `held`, `heldKey` and `seen`, read now - kept harvests from before the audit,
+   *  which name no material, say a held count the service no longer reads. */
+  function heldBody(h) {
+    if (!carry || typeof h.material !== 'string') return Number.isSafeInteger(h.held) ? { held: h.held } : {};
+    return { held: heldNow(h.material), heldKey: h.material, seen: seenNow(h.material) };
+  }
   /** BAG1: a carried harvest's goods into the bag or the pack - the material, a gem, a second find - each minted by the
    *  host's hands; `{ bag, pack, left }` summed, for the words (a unit with no room was left where it was gathered: the
-   *  service's count of it falls to the truth at the next act that reads it). */
+   *  service's count of it falls to the truth at the next act that reads it). AUDIT BAG1 B9: and `lost`, what was left of
+   *  each material by name - a gem or a second find left was said as the harvest's own. */
   function mintHarvest(d) {
-    const out = { bag: 0, pack: 0, left: 0 };
+    const out = { bag: 0, pack: 0, left: 0, lost: /** @type {{ key: string, n: number }[]} */ ([]) };
     const add = (k, n) => {
       if (typeof k !== 'string' || !(n > 0)) return;
       let got = null;
       try { got = carry?.mint(k, n) ?? null; } catch (e) { console.warn('[prof] a harvest would not mint', e); }
-      if (!got) { out.left += n; return; }
-      out.bag += got.bag; out.pack += got.pack; out.left += got.left;
+      const left = got ? got.left : n;
+      if (got) { out.bag += got.bag; out.pack += got.pack; }
+      if (left > 0) { out.left += left; out.lost.push({ key: k, n: left }); }
     };
     add(d.material, Number(d.qty) || 0);
     if (d.gem) add(d.gem, 1);
@@ -853,32 +907,43 @@ export function createProfBook({ door, storage = null, character = () => null, n
     return r?.ok ? out : { bag: 0, pack: 0, stored: n };
   }
   /** BAG1: a deposit's ask - answered (the Stores and the count moved), refused (its items given back), or kept out and
-   *  pending, asked again with the same id. */
-  async function askDeposit(d) {
-    const r = await ask(() => door.deposit(d.character, d.material, d.qty, d.held, d.order, d.id));
-    const i = pendingDeposits.indexOf(d);
-    if (r?.ok) {
-      if (i >= 0) pendingDeposits.splice(i, 1);
-      if (d.key === slot()) { applyStore(r.data?.store); applyCarried(r.data?.carried); }
-      return r;
+   *  pending, asked again with the same id. AUDIT BAG1 B2: `held` read at each ask (this deposit's own units counted
+   *  among those still out), with the count as last heard. AUDIT BAG1 B17: let go by the tab that hears the answer - read
+   *  and removed in one turn before anything is given back (AUDIT 29 C5's law), so two tabs give back once. */
+  async function askDeposit(d, key) {
+    const r = await ask(() => door.deposit(d.character, d.material, d.qty, heldNow(d.material), d.order, d.id, seenNow(d.material)));
+    if (keptAnswer(r) || r?.error === 'prof-rate') return { ok: false, error: r?.error ?? 'offline', kept: true };
+    if (key !== slot()) return { ok: false, error: 'elsewhere', kept: true };   // its own character's settle hears it again
+    const kept = keptOf(key);
+    const had = kept.deposits.some((x) => x.id === d.id);
+    kept.deposits = kept.deposits.filter((x) => x.id !== d.id);
+    writeKept(kept, key);
+    const back = depositBacks.get(d.id);
+    depositBacks.delete(d.id);
+    if (r?.ok) { applyStore(r.data?.store); applyCarried(r.data?.carried); return r; }
+    if (had) {
+      try {
+        if (back) back();
+        else {   // a reload: only what the bag and the pack are short of what they held - never a copy of a save's own
+          const short = Math.min(d.qty | 0, Math.max(0, (d.before | 0) - (carry?.held(d.material) ?? 0)));
+          if (short > 0) carry?.mint(d.material, short);
+        }
+      } catch (e) { console.warn('[prof] a deposit would not give back', e); }
     }
-    if (keptAnswer(r) || r?.error === 'prof-rate') {
-      if (i < 0) pendingDeposits.push(d);
-      return { ok: false, error: r?.error ?? 'offline', kept: true };
-    }
-    if (i >= 0) pendingDeposits.splice(i, 1);
-    try { d.back(); } catch (e) { console.warn('[prof] a deposit would not give back', e); }
     shutBy(r);
     if (r?.error === 'carried-short' || r?.error === 'stores-full') state.reread = true;   // the counts moved elsewhere: read again
     return r ?? { ok: false, error: 'server' };
   }
   /** BAG1: the deposits whose answers never came, asked again - this account's and character's only. */
   async function settleDeposits() {
-    for (const d of [...pendingDeposits]) if (d.key === slot()) await askDeposit(d);
+    const key = slot();
+    for (const d of [...keptOf(key).deposits]) await askDeposit(d, key);
   }
   /** A kept withdrawal's ask: minted and let go on an answer, let go on a refusal, kept on silence. */
   async function settleOne(w, key, mint) {
-    const r = await ask(() => door.withdraw(w.character, w.material, w.qty, w.rid, w.carry === true ? { held: w.held | 0 } : null));
+    // AUDIT BAG1 B2: held read at the ask, with the count as last heard (a withdrawal kept from before the audit: its own)
+    const r = await ask(() => door.withdraw(w.character, w.material, w.qty, w.rid, w.carry === true
+      ? (carry ? { held: heldNow(w.material), seen: seenNow(w.material) } : { held: w.held | 0 }) : null));
     if (key !== slot()) return { ok: false, kept: true, text: '' };   // AUDIT 32 B5: its own character's settle mints it
     const kept = keptOf(key);
     if (r?.ok) {

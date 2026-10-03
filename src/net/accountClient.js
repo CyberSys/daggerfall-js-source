@@ -347,6 +347,7 @@ export const REFUSALS = Object.freeze({
   'carried-short': 'You do not carry that many that you gathered or took from your Stores.',
   'bad-held': 'Your pack could not be counted - try again.',
   'materials-short': 'You do not have that many - in your Stores, your Materials Bag and your pack together.',
+  'deposit-kept': 'Your materials are on their way into your Stores - the counting-house has not answered yet. Try again in a moment.',   // AUDIT BAG1 B8
   'bad-deposit-order': 'That cannot be put in the Stores that way.',
   'node-taken': 'You have already gathered here today.',
   'bad-material': 'The Stores do not keep that.',
@@ -1287,8 +1288,9 @@ export function accountProf({ fetch, storage, waitMs = ACCOUNT_ACT_WAIT_MS }) {
     harvest: (req) => post('/v1/prof/harvest', req),
     spec: (character, profession, rank, spec, from, rid) => post('/v1/prof/spec', { character, profession, rank, spec, from, rid }),   // AUDIT 29 A15: `from`, the choice the client saw standing
     // BAG1: `carry` - the units counted as carried, into the bag or the pack - with what the client holds of it (`held`)
-    withdraw: (character, material, qty, rid, carry = null) => post('/v1/stores/withdraw', { character, material, qty, rid, ...(carry ? { carry: true, held: carry.held } : {}) }),
-    deposit: (character, material, qty, held, order, rid) => post('/v1/stores/deposit', { character, material, qty, held, order, rid }),   // BAG1: carried units into the Stores
+    // AUDIT BAG1 B2: and `seen`, the count as the client last heard it - the service cuts to `held` only against its own
+    withdraw: (character, material, qty, rid, carry = null) => post('/v1/stores/withdraw', { character, material, qty, rid, ...(carry ? { carry: true, held: carry.held, ...(carry.seen == null ? {} : { seen: carry.seen }) } : {}) }),
+    deposit: (character, material, qty, held, order, rid, seen = null) => post('/v1/stores/deposit', { character, material, qty, held, order, rid, ...(seen == null ? {} : { seen }) }),   // BAG1: carried units into the Stores
     smelt: (character, recipe, count, rid, clean = false) => post('/v1/prof/smelt', { character, recipe, count, rid, ...(clean === true ? { clean: true } : {}) }),   // PROF2: the forge; PROF11: the mason's bench, `clean` the chisel's report
     craft: (character, recipe, clean, name, rid, heartwood = false, dye = null, seat = null, cracked = false) => post('/v1/prof/craft', { character, recipe, clean, name, rid, heartwood, ...(dye == null ? {} : { dye }), ...(seat == null ? {} : { seat }), ...(cracked === true ? { cracked: true } : {}) }),   // SEAT2b part two: `seat` the held town the station stands in   // PROF3: the anvil - `clean` the act's report, `name` the maker's mark; PROF4: the workbench, `heartwood` for a plank; PROF7: the loom, a garment's `dye`; PROF10: the jeweller's bench, `cracked` a Lapidary's Siege-cracked Gem for the gem
     stock: (character, material, qty, rid) => post('/v1/prof/stock', { character, material, qty, rid }),   // PROF3: the smith's stock

@@ -37,7 +37,7 @@ import { mintId, overRate } from './accounts.js';
 import { marksOpenFor, balanceOf } from './marks.js';
 import { gatePublicKey } from './signing.js';
 import { profAsks, profShut, profDice, trackRow, trackView, profTodayOf, storeOf, carriedOf, clampStatements } from './professions.js';   // BAG1: the carried count
-import { CARRIED_MAX, heldOk } from '../../src/net/bagLaw.js';
+import { CARRIED_MAX, heldOk, seenOk } from '../../src/net/bagLaw.js';
 import { MARKS_MAX, utcDay } from '../../src/net/marksLaw.js';
 import {
   STORES_MAX, PROF_OPS_MAX, PROF_OPS_WINDOW_S, HARVEST_LATE_S, HARVEST_EARLY_S, PROF_XP_MAX, rankOfXp, harvestXp, glintsMax,
@@ -195,7 +195,9 @@ export async function strikeMotherlode(ctx, player, env, body = {}) {
   const stored = `COALESCE((SELECT SUM(qty) FROM ${T} WHERE player = ?1 AND char_id = ?4 AND material = l.material), 0)`;
   const silver = marksOpenFor(player, env);
   await db.batch([
-    ...(heldNow != null ? clampStatements(db, { player: player.id, character, binds: [lode.material, heldNow] }) : []),   // BAG1
+    // BAG1; AUDIT BAG1 B2/B3: only the lode's own material, while the client's view is current, before a twin of a landed strike
+    ...(heldNow != null && body?.heldKey === lode.material ? clampStatements(db, { player: player.id, character, material: lode.material, held: heldNow, rid,
+      seen: seenOk(body?.seen) ? body.seen : null, twin: 'NOT EXISTS (SELECT 1 FROM motherlode_strikes WHERE player = ?1 AND rid = ?5)' }) : []),
     // THE DECISION: the Motherlode standing at the act's end, its twenty, the account's one today (the key), the Stores'
     // room - the ore cut to it - and the XP to what the track can take
     db.prepare(`INSERT OR IGNORE INTO motherlode_strikes (day, k, player, char_id, material, qty, xp, watch, at, rid, n, carry)

@@ -51,3 +51,13 @@ ALTER TABLE prof_withdrawals ADD COLUMN carry INTEGER NOT NULL DEFAULT 0 CHECK (
 ALTER TABLE prof_withdrawals ADD COLUMN own INTEGER NOT NULL DEFAULT 0 CHECK (own >= 0);
 ALTER TABLE prof_withdrawals ADD COLUMN bought INTEGER NOT NULL DEFAULT 0 CHECK (bought >= 0);
 ALTER TABLE prof_withdrawals ADD COLUMN gold INTEGER NOT NULL DEFAULT 0 CHECK (gold >= 0);
+
+-- AUDIT BAG1 B2 (the audit, bible/06-Systems/Materials-Bag.md): WHETHER A REQUEST'S HELD COUNT MAY CUT THE COUNT - a row a
+-- request id, made at the head of the request's own batch where the count still stands at what the client last heard
+-- (`seen`), read by every origin's cut, and cleared at the batch's end: never a row between two batches. The decision is
+-- taken once because each origin's cut moves the total the next would read.
+CREATE TABLE IF NOT EXISTS prof_carried_gate (
+  player   TEXT NOT NULL,
+  rid      TEXT NOT NULL,
+  PRIMARY KEY (player, rid)
+);

@@ -83,7 +83,7 @@ import {
   GUILD_RENAME_GOLD, GUILD_RENAME_COOLDOWN_S, guildRenameAt, guildRenameOpen,   // GUILD2a: a new name, for a price
 } from '../../src/net/guildLaw.js';
 import { vaultStanding, guildVaultSlots } from '../../src/net/guildVaultLaw.js';   // GUILD2b: the vault, in the guild's view
-import { checkName } from '../../src/net/nameFilter.js';   // GUILD2a: a guild's name and tag pass the name filter (Seats-Arc 18 said they did)
+import { checkName, normaliseName } from '../../src/net/nameFilter.js';   // GUILD2a: a guild's name and tag pass the name filter (Seats-Arc 18 said they did)
 import { seatWeekOf } from '../../src/net/townSeatLaw.js';   // GUILD2a: no new name in a week the guild fights for a seat
 
 const charOk = (c) => typeof c === 'string' && CHAR_ID_RE.test(c);
@@ -205,7 +205,9 @@ const spend = (ctx, player) => overRate(ctx, `guild:${player.id}`, GUILD_OPS_MAX
 /** GUILD2a: a guild's name and tag through the name filter (net/nameFilter.js checkName) - the chat's, and a player's -
  *  AND EACH WORD OF THE NAME ON ITS OWN: the filter is a handle's, and reads a name run together ("serveradmins"), where a
  *  reserved word inside a longer one stands alone nowhere - so "Server Admins" and "Moderator Guild" passed it whole. */
-export const guildWordsOk = (name, tag) => [name, tag, ...String(name ?? '').split(/[\s'-]+/)].every((w) => !w || checkName(w).ok);
+/*  AUDIT GUILD2 G3: a word with no letters in it is no word the filter reads - its `empty` is a handle's "a name needs some
+ *  letters", not a refusal of a slur - so "The 7 Blades" and a tag of "22" passed GUILD1's shapes and were refused here. */
+export const guildWordsOk = (name, tag) => [name, tag, ...String(name ?? '').split(/[\s'-]+/)].every((w) => !w || !normaliseName(w) || checkName(w).ok);
 
 /**
  * GUILD2a (bible/11-Multiplayer/Guild-Overhaul.md; asked: "A way to change your guild name for a price"): A NEW NAME - the

@@ -156,5 +156,50 @@
     ],
     "equivalent": true,
     "why": "The early read is a fast path: the rename's batch is guarded by renamed_at + the fortnight itself, and the catch says guild-rename-soon off a fresh read - a rename inside the fortnight is still refused whole, nothing paid."
+  },
+  {
+    "name": "AUDIT-GUILD2-G1-the-piece-unread",
+    "file": "server-account/src/guildVault.js",
+    "old": "AND count = ?4 AND rec = ?5'",
+    "new": "AND count = ?4 AND (1 OR rec = ?5)'",
+    "tests": [
+      "test/guild2_service.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-GUILD2-G4-the-standing-unread",
+    "file": "server-account/src/guildVault.js",
+    "old": "AND rank = ?5 AND vault_level IS ?6 AND vault_limit = ?7",
+    "new": "AND (1 OR rank = ?5 AND vault_level IS ?6 AND vault_limit = ?7)",
+    "tests": [
+      "test/guild2_service.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-GUILD2-G2-a-delete-with-pieces",
+    "file": "server-account/src/realm.js",
+    "old": "  if (master?.vault) return { error: 'guild-vault' };",
+    "new": "",
+    "tests": [
+      "test/guild2_service.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-GUILD2-G3-digits-refused",
+    "file": "server-account/src/guilds.js",
+    "old": "(w) => !w || !normaliseName(w) || checkName(w).ok",
+    "new": "(w) => !w || checkName(w).ok",
+    "tests": [
+      "test/guild2_service.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-GUILD2-the-hall-keeps-the-old-name",
+    "file": "server-account/src/guilds.js",
+    "old": "      db.prepare('UPDATE homes SET owner_name = ? WHERE guild_id = ?').bind(n, gid),\n",
+    "new": "",
+    "tests": [
+      "test/guild2_service.test.js"
+    ]
   }
 ]

@@ -417,7 +417,7 @@ export function mountNoticeBoard(host, deps) {
   async function takeWrit(w) {
     if (busy || workBusy) return;
     busy = true; render();
-    const r = await work.book.deliver(w.id, work.region);
+    const r = await work.book.deliver(w.id, work.region, { material: w.material, qty: w.qty });   // AUDIT BAG1 B9: the card's own word
     if (!alive) return;
     busy = false;
     if (r?.ok) {

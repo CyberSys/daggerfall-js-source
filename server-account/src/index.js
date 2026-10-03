@@ -245,6 +245,7 @@ const REALM_STATUS = Object.freeze({
   'guild-master-leaves': 409,   // AUDIT REALM L1-F7: a guildmaster deleted hands the guild over first
   'guild-treasury': 409,   // AUDIT REALM2 S8: and a lone one empties the treasury first
   'guild-hall': 409,   // AUDIT GUILD1d S1: and sells its guild's hall first
+  'guild-vault': 409,   // AUDIT GUILD2 G2: and empties its guild's vault first
   'guild-seat': 409, 'guild-battle': 409,   // SEAT1c: and relinquishes its Charters, and fights the battle it is named in
   'realm-market-open': 409,   // PROF-DELETE: and one with market business open settles it first
   'home-tenants': 409, 'home-rent-due': 409,   // HOME-RENT: and one renting rooms out waits for its tenants and collects its rent
