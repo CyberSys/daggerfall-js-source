@@ -204,9 +204,14 @@ export function homeHallBuyRow(price, guild, armed = false) {
   const cost = guildHallPrice(price);
   return { id: HALL_VERB.buy, label: armed ? `Click again to buy it for ${guild.name}: ${cost} gold` : `Buy it for ${guild.name}: ${cost} gold from the treasury` };
 }
+/** AUDIT PROF-541 G2, R2-H1: WHETHER I MAY TURN A HALL'S DOOR ("Who may enter") - a hall whose `hallEntry` the service
+ *  lets me set (setHallEntry: the rank alone), never `keeper` (a realm character's too). The row's gate and the press's
+ *  (worldModes.js) are this one. */
+export const hallEntryTurnable = (home) => !!home?.hall && !!home.hallEntry;
 export function homeHallRows(home, door) {
   if (!home?.hall || door !== 'enter') return null;
-  return [{ id: HOME_VERB.enter, label: 'Go in' }, ...(home.keeper ? [{ id: HALL_VERB.entry, label: `Who may enter: ${GUILD_HALL_ENTRY_WORDS[home.entry] ?? GUILD_HALL_ENTRY_WORDS.guild}` }] : [])];
+  // AUDIT PROF-541 G2: "Who may enter" to whom the service lets set it (`hallEntry`), never `keeper` (a realm character's)
+  return [{ id: HOME_VERB.enter, label: 'Go in' }, ...(hallEntryTurnable(home) ? [{ id: HALL_VERB.entry, label: `Who may enter: ${GUILD_HALL_ENTRY_WORDS[home.entry] ?? GUILD_HALL_ENTRY_WORDS.guild}` }] : [])];
 }
 /** AUDIT GUILD1d A3: the offer box's hall choice (the plaque-less click's), for a guildmaster whose guild holds no hall. */
 export const hallOfferLabel = (price, guild) => `G - buy it for ${guild?.name ?? 'your guild'}: ${guildHallPrice(price)} gold from the treasury`;
@@ -316,6 +321,7 @@ export function createOnlineHomes({ api, character = () => null, now = () => Dat
             // whether one of its keepers (who furnish it)
             hall: h.hall && typeof h.hall.name === 'string' ? Object.freeze({ name: h.hall.name, tag: typeof h.hall.tag === 'string' ? h.hall.tag : '', heraldry: heraldryOf(h.hall.heraldry ?? null) }) : null,
             member: h.member === true, keeper: h.keeper === true,
+            hallEntry: h.hallEntry === true,   // AUDIT PROF-541 G2: may say who walks in - the rank's, no realm record asked
           });
         }
         towns.set(id, { at: now(), homes });

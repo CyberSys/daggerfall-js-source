@@ -102,10 +102,16 @@ export class GuildBook {
    *        (systems/realmSaves.js realmGoldAct over the playing session), or null for any other character
    * @param {((mapId: number) => void)|null} [opts.onHall]  GUILD1d: a hall's town changed (bought, sold, opened, its
    *        heraldry) - the host reads that town's homes again, so its door and its banners say it now
+   * @param {(() => void)|null} [opts.onRank]  AUDIT PROF-541 G1: a look found the character's guild, rank or hall moved
+   *        (a keeper made or unmade) - the host reads the town again, so a hall's `keeper` follows
    */
-  constructor({ door, character, wallet, now = () => Date.now(), onOrders = null, marks = null, profStores = null, realm = null, onHall = null }) {
+  constructor({ door, character, wallet, now = () => Date.now(), onOrders = null, marks = null, profStores = null, realm = null, onHall = null, onRank = null }) {
     this.door = door;
     this.onHall = onHall;
+    this.onRank = onRank;
+    /** AUDIT PROF-541 G1: the `id|rank|hall` the last look found - '' (in no guild) before the first, so the first look
+     *  that finds one tells it too (AUDIT GUILD1d A5: the plaque asked before the guild was known) */
+    this._ranked = '';
     this.realm = realm;
     /** MARKS1: the account's Marks book (net/marksBook.js) - the Marks treasury moves through it; null offline */
     this.marks = marks;
@@ -169,6 +175,13 @@ export class GuildBook {
     // GUILD1c: the membership as the service reads it now, to the rooms - when it moved since the last one handed on
     const key = guildBadgeKey(this.guild);
     if (key !== this._carried && typeof mine.data?.order === 'string') { this._carried = key; this._hand({ order: mine.data.order }); }
+    // AUDIT PROF-541 G1 (GUILD-YARD C3 again): a rank moved is told here, at EVERY look - the Guild tab's, the seat Edicts',
+    // a room's word that the guild went, an act's own - never only at the hall's plaque's (guildHall.info's), which a look
+    // already taken by any of those left nothing to compare: a demoted Officer kept the yard's decorator a minute
+    const ranked = this.guild ? `${this.guild.id}|${this.guild.rank}|${this.guild.hall ? 1 : 0}` : '';
+    const moved = ranked !== this._ranked;
+    this._ranked = ranked;
+    if (moved) { try { this.onRank?.(); } catch (e) { console.warn('[guild] a rank moved, its town unread', e?.message ?? e); } }
     return { ok: true };
   }
 

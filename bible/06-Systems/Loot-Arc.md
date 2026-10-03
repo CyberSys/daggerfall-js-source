@@ -133,7 +133,7 @@ undead, a Dragon's Den's dragons, a Coven's casters). Whether a Legendary drops 
 
 ## 9. LOOT7 - champion foes
 
-**Who.** About one foe in twenty of level 3 or more (never a quest's, the watch, an ally, the gate's Warden) stands
+**Who.** About one foe in fourteen (CHAMP-RATE, 2026-10-03; one in twenty until then) of level 3 or more (never a quest's, the watch, an ally, the gate's Warden) stands
 as a CHAMPION, with one TRAIT:
 
 | trait | does |
@@ -482,7 +482,7 @@ maximum) and the Thorned (the strike tail: a seventh of my blow that landed on i
 damage door, so a shield, a ward and a death save see it as any hurt; never a peer's blow, never an ally's).
 
 **Who.** A dungeon's: `markDungeonChampions` marks the layout's records by an FNV hash of the location id and the
-marker's index - one in twenty (`CHAMPION_PER_MILLE` 50), its trait from the hash's high bits - so every client
+marker's index - one in fourteen (`CHAMPION_PER_MILLE` 70; CHAMP-RATE, was 50), its trait from the hash's high bits - so every client
 stands the same champions with no wire word, and a mark rides its record through a rebuild. Every build arm of
 `applyEliteScaling` stands it, an elite dungeon's onto the elite's scaling. A quest's foe is never in the layout. The
 street's: an ordinary encounter's foe (`capped` - never a quest's, a summons, a placed camp's or a replacement) is
@@ -800,7 +800,9 @@ half and a seventh, each at least 1 a blow - the floor is what lifts both on sma
   passed only because of it - with every roll at its floor the body keeps the Thunderlock and its pellets now, and a
   pellet is ammunition, which the ladder never promotes: the pin's claim is the eligible pieces' (`isAmmunition`), as
   its arrow exemption already said.
-- **CHAMP-HOVER - a fighting champion was never on the plaque.** World Tooltips names a living entity only when its
+- **CHAMP-HOVER - a fighting champion was never on the plaque.** (RETIRED 2026-10-03 by HOVER-PLAIN, Mac: "remove the
+  crosshair tooltip. They should only have names/modifiers under their healthbar" - no hostile foe is named on the
+  plaque again - while it fights its title is the target frame's alone; at peace, a kneeling revenant included, it is named as ever.) World Tooltips names a living entity only when its
   motor is not hostile (.cs:304-312; `worldTooltips.js` `mobileEntityName`), so LOOT7's "its name on the hover over it
   alive" held only for a champion at peace. A champion is that law's one recorded exception now
   (`mobileEntityName(name, { hostile, champion })`) - its name is its trait, Mac's "single named foes with visible

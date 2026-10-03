@@ -123,6 +123,7 @@ import { isSurvivalItem } from '../systems/survival/items.js';
 import { hoodCapable, hoodUp } from '../systems/survival/temperature.js';   // HOOD-SAID: the one hood law, on the card and the panel
 import { rarityAttr, rarityLines, lootRarityOn } from '../systems/lootRarity.js';   // LR1: the row's tier attribute and the card's lines
 import { pieceLines } from '../net/recipeLaw.js';   // PROF3: a crafted piece's quality and maker, above its powers
+import { craftedJewelPoints } from '../systems/enchanting.js';   // AUDIT PROF-541 R2-C4: a jewel's points as the item maker reads them
 import { sigilCard } from './sigilCard.js';   // SIGIL-UI: the sigil's own block on the card
 import { validSigil } from '../systems/sigil.js';   // SIGIL-UI: the tile's corner rune
 import { setCard, setStrip, markSetFrame } from './setCard.js';   // SET5: a set piece's set on its card, the worn sets on the doll's column, a set piece's rune
@@ -2691,7 +2692,7 @@ function quickslotActs(item) {
  *  popup's own words; "powers unknown" until it is identified). The card and the trade window read this one list. */
 export function itemPowerLines(item, d = deps, { set = true, lore = true } = {}) {
   const lines = rarityLines(item, { sigil: false, set, lore });   // SET5: the card draws the set in its own block (set: false); CARD-FIT: and leaves the lore to the Info box (lore: false)
-  lines.unshift(...pieceLines(item));   // PROF3: a crafted piece's quality and maker above them
+  lines.unshift(...pieceLines(item, craftedJewelPoints(item)));   // PROF3: a crafted piece's quality and maker above them
   if (item && !(item.rarity && lootRarityOn()) && isEnchanted(item)) {
     // unidentified: DFU's "powers unknown" - unless the tier list already said "Unidentified"
     const known = itemIsIdentified(item);

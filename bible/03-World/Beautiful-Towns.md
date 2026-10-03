@@ -117,7 +117,7 @@ a shared quest's - would name two buildings.
 
 Every online home bought before WD3 was bought in Daggerfall's own towns. The
 account service keeps the layout each home's town was bought in
-(`homes.layout`, migration `0069_home_layout.sql` - 0046 on its branch, renumbered past main's at the merge; NULL is Daggerfall's own -
+(`homes.layout`, migration `0071_home_layout.sql` - 0046 on its branch, 0069 at the first merge onto main, 0071 past PROF9's and PROF12's 0069_cooking and 0070_alchemy at the second; NULL is Daggerfall's own -
 exactly the layout every existing home was bought in). A claim stores the
 layout its client's town stands in. A town that already holds a home keeps its
 first home's layout: a claim from a client whose town stands in another layout

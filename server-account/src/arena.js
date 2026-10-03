@@ -76,7 +76,7 @@ const GRAND_TIER = ARENA_TIERS - 1;
 // bout past the Pit pays 195 and the Grand Champion 585 - the ceiling's whole point. The most a claim asks is far under a
 // report's 5,000. A loss, a draw and a bout kept unrated (the pair's day) pay none: two friends trading wins earn
 // nothing on each other. ONCE AN ACCOUNT: a bout between players is one row whoever claims it first, so the winner may
-// claim second - the right to its Renown is its own row (`arena_renown`, migration 0071), taken before the credit.
+// claim second - the right to its Renown is its own row (`arena_renown`, migration 0073 - 0071 before the second merge onto main), taken before the credit.
 
 /** A ladder tier's level for its Renown - the design table's top level of each tier (Arena.md 2: 1-3, 3-5, ... 20+). */
 export const ARENA_RENOWN_TIER_LEVEL = (tier) => 2 * Math.max(0, Math.min(ARENA_TIERS - 1, Math.trunc(Number(tier) || 0))) + 3;

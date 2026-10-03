@@ -81,6 +81,7 @@ import { installDetailedShipsArt } from '../systems/detailedShips.js';   // DS1:
 import { installWarmAshesShips } from '../systems/warmAshesShips.js';   // WA1: Warm Ashes - Ships' quest list and save slot
 import { installForaging } from '../systems/foragingInstall.js';   // FORAGE1: Foraging's quest list, tools, foods, pictures and console command
 import { installSmithing } from '../systems/smithItems.js';   // PROF3: the Repair Kit's use
+import { installCooking, dishStaminaFactor } from '../systems/cookItems.js';   // PROF9: a dish eaten, and the Tart's stamina
 import { installHealingSupply } from '../systems/healingSupply.js';   // POTION-COMMON: Potions of Healing in the loot
 import { installRaidingParties } from '../systems/raidingParties.js';   // RAID1: World Events - Raiding Parties' save slot
 import '../systems/gateSpoils.js';   // WB5: the Sigil Stone's own template (570) registers in every host, so a save carrying one loads it in any of the four
@@ -1315,6 +1316,7 @@ export function ensureAudio(fetch = fetchBytes) {
   installRaidingParties();   // RAID1: the mod's save record, in every host - a save made in a dungeon carries the day's raids too
   installSmithing();   // PROF3: the Repair Kit's use on the item-use door, in every host (a kit is the pack's, offline too)
   installHealingSupply();   // POTION-COMMON: Potions of Healing in the loot - after the smithing install, its field kit's roll first
+  installCooking();   // PROF9: a dish eaten from the pack, in every host (a dish is the pack's, offline too)
   // MW-IMPORT: same seam, same never-traps rule - no data means the
   // opt-in layer stays inert, which is its resting state anyway.
   const morrowind = registerMorrowindData().catch(() => 0);
@@ -1762,8 +1764,11 @@ export function sensesContext(entity, gameMinutes, { movingLessThanHalfSpeed = t
  *  ONE home: dungeonContext kept a second copy whose comment said the
  *  port had no source for the flag, which had stopped being true. */
 export function fatigueLossMultiplierFor(entity) {
-  if (!hasSpecialAbility(entity?.career, SPECIAL_ABILITY.Athleticism)) return 1.0;
-  return entityImprovedAthleticism(entity) ? 0.8 : 0.9;
+  // PROF9 (Professions-Arc.md 35): an Orchard Tart's stamina - every minute's drain divided by 1.2 while it lasts
+  // (systems/cookItems.js dishStaminaFactor), laid over the career's own
+  const tart = dishStaminaFactor(entity);
+  if (!hasSpecialAbility(entity?.career, SPECIAL_ABILITY.Athleticism)) return 1.0 * tart;
+  return (entityImprovedAthleticism(entity) ? 0.8 : 0.9) * tart;
 }
 
 // --- THE MUSIC DIRECTOR (AUDIT 19's 1:1 pass) ------------------------

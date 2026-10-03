@@ -41,7 +41,7 @@ test('PROF11 law: Mortar is 675 - the stone family, tier 2, worth 2 Marks, Lodes
   assert.equal(TIER_VALUES[MORTAR.tier - 1], 2, '4.5: Mortar tier 2 (2)');
   assert.equal(minedMaterial('stone:mortar'), MORTAR);
   assert.ok(MINED_KEYS.includes('stone:mortar'), 'the registry, the market\'s catalogue');
-  assert.deepEqual(MINED_KEYS.slice(-2), ['stone:mortar', 'work:ram'], 'registered last - no key before it moved (SEAT2b part two\'s Ram Kit after it - PIN MOVED)');
+  assert.deepEqual(MINED_KEYS.slice(-19, -17), ['stone:mortar', 'work:ram'], 'registered last - no key before it moved (SEAT2b part two\'s Ram Kit after it - PIN MOVED; PROF12\'s sixteen reagents and Arcane Essence after them - PIN MOVED)');
   assert.equal(withdrawable('stone:mortar'), true);
   assert.ok(marketCatalogue().some((m) => m.key === 'stone:mortar'), 'listed on the Materials view');
   assert.equal(UNYIELDED.includes('stone:mortar'), false, 'the bench yields it');
@@ -59,7 +59,7 @@ test('PROF11 law: the mason\'s bench\'s works (4.5) - the cut, two Rough Stone a
   ]);
   assert.equal(MORTAR_BATCH, 10, '4.5: "ten at a time"');
   assert.equal(CUT_RATIO, 2, 'the cut at the rock stays 2 : 1 (PROF0 23) - the bench cuts at the same');
-  assert.deepEqual(WORK_RECIPES.slice(-2), [...MASON_RECIPES], 'the works after the loom\'s');
+  assert.deepEqual(WORK_RECIPES.slice(-6, -4), [...MASON_RECIPES], 'the works after the loom\'s (PIN MOVED (PROF12): the Transmuter\'s four after them)');
   assert.equal(smeltRecipe('cut:stone'), MASON_RECIPES[0]);
   assert.equal(smeltRecipe('mix:mortar'), MASON_RECIPES[1]);
   // the Quarryman (3.3): "Rough Stone cuts 1:1, not 2:1" - a choice at 50
@@ -73,7 +73,7 @@ test('PROF11 law: the mason\'s bench\'s works (4.5) - the cut, two Rough Stone a
   assert.equal(workOpen(smeltRecipe('saw:pine'), 0), true);
   assert.deepEqual([MASON_FEE, FORGE_FEE, WORKBENCH_FEE, LOOM_FEE], [50, 50, 50, 50]);
   // the home's mason's bench: a seventh station at the loom's licence
-  assert.deepEqual([DECOR_STATIONS.at(-1), DECOR_STATION_FEES.mason, DECOR_STATION_NAMES.mason], ['mason', 50_000, 'Mason\'s bench']);
+  assert.deepEqual([DECOR_STATIONS.at(-2), DECOR_STATION_FEES.mason, DECOR_STATION_NAMES.mason], ['mason', 50_000, 'Mason\'s bench']);   // PIN MOVED (PROF10): the jeweller's bench an eighth after it
   assert.equal(decorPlaceOf({ pos: [0, 0, 0], rot: [0, 0, 0], scale: 1, paid: 120, station: 'mason' })?.station, 'mason');
   assert.equal(decorPlaceOf({ pos: [0, 0, 0], rot: [0, 0, 0], scale: 1, paid: 120, station: 'mason', storage: true }), null, 'one thing a piece does');
 });
@@ -170,7 +170,7 @@ test('PROF11 law: the Sculptor\'s four (9.3) - a column, a bench, a font, a stat
     ['font:stone', 'font', 'Stone Font', 'furniture', 'stonework', 'masonry', 698, 0, 2, 10, 'sculptor', '10 stone:cut,3 stone:mortar'],
     ['plinth:stone', 'plinth', 'Statue Plinth', 'furniture', 'stonework', 'masonry', 699, 0, 2, 10, 'sculptor', '6 stone:cut,2 stone:mortar'],
   ]);
-  assert.deepEqual(RECIPES.slice(-4), [...MASONRY_RECIPES]);
+  assert.deepEqual(RECIPES.slice(-4 - 7 - 120, -7 - 120), [...MASONRY_RECIPES]);   // PIN MOVED (PROF9): the fire's seven dishes come after the Sculptor's four; PIN MOVED (PROF10): and the jeweller's 120 pieces after them
   assert.equal(new Set(RECIPES.map((r) => r.id)).size, RECIPES.length, 'every id its own');
   assert.equal(recipeById('font:stone'), MASONRY_RECIPES[2]);
   assert.deepEqual(STONE_DECOR_ROWS.map((r) => [r.index, r.name, r.baseWeight, r.basePrice, r.hitPoints, r.stackable, r.rarity, r.worldTextureArchive, r.worldTextureRecord]), [
@@ -193,7 +193,7 @@ test('PROF11 law: the Sculptor\'s four (9.3) - a column, a bench, a font, a stat
   assert.equal(firstCraftPays(col), true);
   assert.deepEqual(qualityOdds(100 - col.rank), [0, 0, 40, 52, 8], 'a Master\'s margin, 90: the finest row');
   // the market lists them (Stonework) and a commission may name them
-  assert.deepEqual(CRAFTED_FAMILIES.at(-1), ['stonework', 'Stonework']);
+  assert.deepEqual(CRAFTED_FAMILIES.at(-3), ['stonework', 'Stonework']);   // PIN MOVED (PROF9): the fire's dishes list after it; PIN MOVED (PROF10): and the jeweller's pieces after them
   assert.deepEqual(MASONRY_RECIPES.map((r) => pieceListable(r.id)), [true, true, true, true]);
   assert.deepEqual([commissionable('column:stone'), commissionTakesQuality('plinth:stone')], [true, true]);
 });

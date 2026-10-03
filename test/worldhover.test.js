@@ -1425,12 +1425,12 @@ test('AUDIT-WH H2: the mod\'s MOBILE BAND - a townsperson and a live foe, named 
   assert.match(read('src/characters/enemyEntity.js'), /name: isClass \? career\.name : undefined,/,
     'the departure above is this line - if the port ever loads monster careers, the fallback stops being reachable');
   // ...and all FOUR hosts read it through that one door rather than
-  // reaching for the corpse's member again. LOOT7-CHECK CHAMP-HOVER: each
-  // tells the door whether it is a CHAMPION too - the mod's one recorded
-  // exception (test/loot7check.test.js pins the law).
+  // reaching for the corpse's member again. HOVER-PLAIN: none tells the
+  // door anything but hostility - LOOT7-CHECK CHAMP-HOVER's exception is
+  // retired (test/loot7check.test.js pins the law).
   for (const [f, v] of [['src/scenes/exteriorFoes.js', 'f'], ['src/scenes/cityGuards.js', 'g'],
     ['src/scenes/worldModes.js', 'f'], ['src/scenes/dungeonContext.js', 'f']]) {
-    assert.match(read(f), new RegExp(String.raw`mobileEntityName\(liveEntityName\(${v}, enemyDisplayName\(${v}\.mobileType\)\), \{ hostile: !!${v}\.ai\?\.isHostile, champion: foeTitled\(${v}\.entity\) \}\)`),
+    assert.match(read(f), new RegExp(String.raw`mobileEntityName\(liveEntityName\(${v}, enemyDisplayName\(${v}\.mobileType\)\), \{ hostile: !!${v}\.ai\?\.isHostile[^}]*\}\)`),
       `${f}: the live arm takes Entity.Name, with the enemy name only as the port's fallback`);
   }
 

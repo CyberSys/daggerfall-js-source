@@ -220,7 +220,7 @@ names, banners, health; your stamina), the **crowd meter**, the **timer**, the H
 - **Matchmaking** - a queue in the arena's hall room (`arena:hall`), by season rating (Elo, 1,000 to start, K 32),
   the band widening every 10 s; a pair found is offered a bout (both accept in 20 s), a room `arena:<id>` minted (`arena:b<id>`); [ARENA4b: and a casual queue beside it - the records below].
 - **Spectators** - join a bout's room without a body (Seats-Arc 6.6's spectator), seated in the tiers; up to 60.
-- **The records** - account-service tables (migration 0047+ - built as 0070, renumbered at the merge onto main): ladder results (one row a tier won), PvP results (one
+- **The records** - account-service tables (migration 0047+ - built as 0072: 0070 at the merge onto main, 0072 at the second): ladder results (one row a tier won), PvP results (one
   row a bout, both ratings), team membership and season; leaderboards counted from rows (`/v1/arena/board`).
 - **The relay version** - one bump for the whole online slice (new frames, the arena brain, the titles and the
   glyph), so it costs one reconnect.
@@ -596,8 +596,8 @@ ARENA4 shipped its code in three commits on its branch (the account's records, t
 record; ARENA5's audit found its online half short of this page and the ARENA4b slice built what was missing (the
 record after this one). What ARENA4 itself stood:
 
-**The account's records** (`server-account/src/arena.js`, migration `0070_arena.sql` - 0047 on its branch, renumbered at
-the merge past main's 0047-0068). Three tables: `arena_pve` (one row a bout the relay refereed: the tier and step, won or
+**The account's records** (`server-account/src/arena.js`, migration `0072_arena.sql` - 0047 on its branch, 0070 at
+the merge past main's 0047-0068, 0072 past PROF9's and PROF12's 0069_cooking and 0070_alchemy at the second). Three tables: `arena_pve` (one row a bout the relay refereed: the tier and step, won or
 lost, how, the banner worn; one WIN a step, so a climb cannot hold the same bout twice), `arena_pvp` (one row a bout
 between players whoever claims it, both accounts, the result, both ratings before and after, rated or kept-unrated) and
 `arena_members` (the banner, the season joined, the banner quit and when). `POST /v1/arena/claim` takes a relay-signed
@@ -714,7 +714,7 @@ one at level 30, each capped at three levels over the character's Renown (measur
 answers its signed order, applied by the one plan every Renown answer takes (`renownAnswer`).
 
 **11. The displaced online homes** (the ARENA1 record's "written down, not built"). DECIDED by Mac: the owner's client
-picks, and what moves follows the offline law. Migration `0071_arena4b.sql` (`home_moves`, `arena_renown`).
+picks, and what moves follows the offline law. Migration `0073_arena4b.sql` (`home_moves`, `arena_renown`; 0071 before the second merge onto main).
 `POST /v1/homes/arena-move { mapId, from, to, character }` (`homes.js arenaMoveHome`): `from` the caller's home (or a
 hall they keep) in Daggerfall's cell (4,3), `to` outside it, a valid key and nobody's - the trust `claimHome` has; moved
 once (a second post answers the first). The row moves whole in one batch (`HOME_MOVE_CARRIED`, pinned to the table's
@@ -787,7 +787,7 @@ What the audit found it closed - ARENA4's online gaps in ARENA4b (the record abo
   caught by the mirror suite, fixed (`ARENA4b-MIR-EX-SIDES-WIPED`).
 - The page's "What the mod is" called DFARENA's 42512-42514 "the seating tiers": they are banners (DFU's tapestry range
   42500-42571; World of Daggerfall's catalogue names 42512 "Flag" and 42514 "Flower Banner Long") - corrected here and in
-  `vendor/daggerfall-arena/README.md`. Section 7's "migration 0047+" is 0070 and its `arena:<id>` is `arena:b<id>`.
+  `vendor/daggerfall-arena/README.md`. Section 7's "migration 0047+" is 0072 and its `arena:<id>` is `arena:b<id>`.
 - `test/arena2_hosts.test.js`'s header still called exterior.js FLAGGED (ARENA-FIX 12 wired it).
 - ARENA4 shipped no record, no Ledger row, no Testing.md rows and no mutant list: all written (the records above,
   Port-Ledger's ARENA4 row at the merge and the ARENA4b/ARENA5 row now, `tools/mutants/arena4.json`).

@@ -65,8 +65,11 @@ export const fortTierRow = (id, t) => (Number.isSafeInteger(t) && t >= 1 ? fortW
  * Harbour at a coastal seat; the rest anywhere.
  */
 /** AUDIT SEATS-2 L5: the Apothecary's steps wait on Alchemy's, Cooking's and Jewelcrafting's stations - until they stand
- *  it is raised by no one (a holder's Drakes and stone paid for nothing). */
-export const APOTHECARY_OPEN = false;
+ *  it is raised by no one (a holder's Drakes and stone paid for nothing). PROF12 (Mac: "2 and 4"): OPENED - the three
+ *  stand (PROF9 the fire, PROF10 the jeweller's bench, PROF12 the alchemy station), and a step a tier is each one's
+ *  (STATION_PROFESSIONS): a Jewelcrafting piece's quality step, a dish's XP half again (recipeLaw cookXp), a brew's Potent
+ *  chance +10 (alchemyLaw potentChance). */
+export const APOTHECARY_OPEN = true;
 export function fortMayRaise(id, seat) {
   const w = fortWork(id);
   if (!w) return false;
@@ -179,6 +182,16 @@ export function stationSteps(profession, forts) {
   for (const [id, profs] of Object.entries(STATION_PROFESSIONS)) if (profs.includes(profession)) steps += Math.max(0, Number(forts?.[id] ?? 0) || 0);
   return steps;
 }
+/**
+ * AUDIT PROF-541 R2-H1: THE STEPS MY GUILD'S HALL GIVES A CRAFT - `seat` (the town a station stands in, dressed in its
+ * holder: world.js seatHere) where my guild (`guild`, the guild book's id) holds it: its works' steps in `profession`
+ * (stationSteps), and the seat a craft names (null where no step stands - the service asks the Charter again,
+ * professions.js seatStepsFor). One law for every station's line and the craft it sends, by profession.
+ */
+export function hallStepsFor(seat, guild, profession) {
+  const steps = !!guild && seat?.holder?.guild?.id === guild ? stationSteps(profession, seat.forts ?? {}) : 0;
+  return { steps, seat: steps > 0 ? seat.key ?? null : null };
+}
 /** The Harbour: a port for members (the Travel Options' port) at tier 1 or more. */
 export const harbourPort = (t) => Number(t) >= 1;
 /**
@@ -243,7 +256,9 @@ export const FORT_EFFECT_WORDS = Object.freeze({
   shrine: (t) => `Standing +${shrineStanding(t)} a week, +${shrineGateInfluence(t)} influence for each gate felled in the region`,
   forge: (t) => `members smithing here ${t === 1 ? 'a quality step' : `${t} quality steps`} better`,
   workshop: (t) => `members' carpentry, outfitting and masonry here ${t === 1 ? 'a quality step' : `${t} quality steps`} better`,
-  apothecary: (t) => `members' alchemy, cooking and jewelcrafting here ${t === 1 ? 'a quality step' : `${t} quality steps`} better`,
+  // AUDIT PROF12 P1: a step each its own - a piece of jewellery's quality (the Forge's law), a dish's XP half again
+  // (recipeLaw cookXp), a brew's Potent chance +10 (alchemyLaw POTENT.apothecary)
+  apothecary: (t) => `members' jewellery here ${t === 1 ? 'a quality step' : `${t} quality steps`} better, their dishes ${t === 1 ? 'half again' : t === 2 ? 'twice' : `${(2 + t) / 2} times`} the XP, their brews +${10 * t}% Potent chance`,
   harbour: () => 'a port for the holder\'s members',
 });
 /**

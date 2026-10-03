@@ -189,7 +189,7 @@
   {
     "name": "GUILD1d-every-member-a-keeper",
     "file": "server-account/src/homes.js",
-    "old": "...(hallMay(rank, 'decorate') ? { keeper: true } : {})",
+    "old": "...(hallMay(rank, 'decorate') && h.me_realm === 1 ? { keeper: true } : {})",
     "new": "...({ keeper: true })",
     "tests": [
       "test/guild1d_service.test.js"
@@ -225,7 +225,7 @@
     "why": "AUDIT GUILD1d S3: the hall's rule is in the placement's INSERT too (its own mutant, AUDIT-GUILD1d-S3-insert-takes-a-hall-item) - the read before it only names the refusal sooner"
   },
   {
-    "name": "GUILD1d-hall-stands-a-yard",
+    "name": "GUILD1d-the-palace-yard-refused-only-in-the-write",
     "file": "server-account/src/decor.js",
     "old": "    if (yard === true && S.seat) return { error: 'hall-yard' };\n",
     "new": "",
@@ -266,7 +266,7 @@
   {
     "name": "GUILD1d-entry-row-to-a-member",
     "file": "src/systems/onlineHomes.js",
-    "old": "...(home.keeper ? [{ id: HALL_VERB.entry,",
+    "old": "...(hallEntryTurnable(home) ? [{ id: HALL_VERB.entry,",
     "new": "...(true ? [{ id: HALL_VERB.entry,",
     "tests": [
       "test/guild1d_client.test.js"

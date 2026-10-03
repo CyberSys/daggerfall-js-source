@@ -14,7 +14,7 @@
 // 13 fixed-list casters do not cast up here yet.
 
 import { ENEMY_BASICS } from '../characters/enemyBasics.js';
-import { foeTitled, foeTitle } from '../systems/foeTitle.js';   // FOE-TITLE: a revenant, a champion or an elite is named on the hover even while hostile
+import { foeTitle } from '../systems/foeTitle.js';   // FOE-TITLE: what a revenant, a champion or an elite is called
 import { effectiveLevel } from '../systems/mentorMode.js';   // SOFTCAP2: mentor mode - the level the world is built around
 import { markFoeStruck } from '../ui/hudFoeTarget.js';   // PX30
 import { damageShieldPool, playerBlowCameToNothing } from '../characters/playerEntity.js';   // AUDIT 58: DecreaseHealth's shield hook is the BASE class's (DaggerfallEntity.cs:313-328)
@@ -85,7 +85,7 @@ import { revenantFleeStep, revenantFleeHealth, revenantDeed, revenantSlain, appl
 import { revenantMayYield, beginYield, yieldStep, slipEvent, kneelPose, beginExecution, executionStep, finishExecution, beginSpare, spareDone, fateDissolve, fateModel, dropFateHeld } from '../systems/revenantFate.js';   // REVENANT-FATE: beaten, it yields - kill it or spare it
 import { setBatchDissolve } from '../systems/dissolve.js';   // DISSOLVE: burnt away, or gathered through a portal
 import { createPortalSet } from './portalFx.js';   // COMPANION-PORTAL
-import { elitesAllowed, promoteEliteFoe, rollOverworldElite, overworldEliteAllowed, grantEliteLoot, eliteGlow, setBatchEliteGlow, eliteSize, isEliteCorpse, markEliteCorpseBatch, ELITE_FOE_SIZE } from '../systems/eliteFoes.js';   // ELITE FOES: 2% of the wilds' foes, one at a time   // HITFLASH1
+import { elitesAllowed, promoteEliteFoe, rollOverworldElite, grantEliteLoot, eliteGlow, setBatchEliteGlow, eliteSize, isEliteCorpse, markEliteCorpseBatch, ELITE_FOE_SIZE } from '../systems/eliteFoes.js';   // ELITE FOES: 5% of the wilds' foes   // HITFLASH1
 
 // The port's allocation-owner guards (classic self-limits through the
 // 144-minute cadence; these keep a long session bounded).
@@ -265,10 +265,6 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
   const spawning = [];    // { feet, capped }
   const portals = createPortalSet({ renderer, audio });   // COMPANION-PORTAL: this pool's own, drawn with its foes
   let _eye = null;   // COMPANION-PORTAL: the camera, for a portal to stand behind its body
-  // ELITE-RARITY: the character's minute the open world last stood an elite of mine - set at the promotion itself, so
-  // a camp's members (one synchronous loop, each past its awaits in turn) never all win the roll
-  let _lastEliteAt = null;
-  const _eliteMinute = () => { try { return Number(currentMinute?.()) || 0; } catch { return 0; } };   // no clock: 0
   // AUDIT-39r: THE SWEEP'S EPOCH. clearLive below is
   // CleanupUntrackedObjects, but emptying an array cannot reach work
   // that is still crossing an await - a spawn or a corpse mint in
@@ -389,15 +385,13 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
       // frozen basics row (the STATIC table the ally-revert reads)
       // does not. Getting that wrong would ally every foe of the type.
       if (allied) { entity.team = 'PlayerAlly'; entity.mobileTeam = 'PlayerAlly'; }
-      // ELITE FOES: one foe in fifty in the open world stands as an elite - my own foes only (a puppet's is its owner's
-      // word, the record's `z`), never an ally, a quest's foe, a retype, a team a spawner set, a loose stand (a
-      // summoning's squad), or anything on a location's ground. Off Math.random, not this pool's `rolls`, so the
-      // encounter's own dice are not moved. ELITE-RARITY: and only past the gate - none while one stands near (mine or
-      // a peer's), none within the gap of my last (overworldEliteAllowed, asked before the roll).
+      // ELITE FOES: one foe in twenty in the open world stands as an elite - my own foes only (a puppet's is its owner's
+      // word, the record's `z`), never an ally, a quest's foe, a retype, a team a spawner set, or anything on a
+      // location's ground. Off Math.random, not this pool's `rolls`, so the encounter's own dice are not moved.
+      // ELITE-RATES: ELITE-RARITY's gate (one standing at a time, a 180-minute gap, never a loose stand) is gone.
       if (eliteFoe === true && !allied) promoteEliteFoe(entity);   // a saved foe's classification, restored before its HP/items overlay - never re-rolled
-      else if (eliteFoe === undefined && !puppet && !allied && !questBehaviour && !replacing && !team && !loose && !inLocation() && elitesAllowed({ onlinePage: isOnlinePage(), inRoom: _net != null })
-        && (revenant ? revenant.elite : (overworldEliteAllowed({ now: _eliteMinute(), lastAt: _lastEliteAt, liveElites: foes.filter((f) => !f.dead && f.entity?.eliteFoe).length }) && rollOverworldElite(Math.random)))
-        && promoteEliteFoe(entity) && !revenant) _lastEliteAt = _eliteMinute();   // REVENANT: a returning revenant stands as what it was - an elite's glow where elites stand, never a fresh roll, and outside the gap   // ONLINE ONLY
+      else if (eliteFoe === undefined && !puppet && !allied && !questBehaviour && !replacing && !team && !inLocation() && elitesAllowed({ onlinePage: isOnlinePage(), inRoom: _net != null })
+        && (revenant ? revenant.elite : rollOverworldElite(Math.random))) promoteEliteFoe(entity);   // REVENANT: a returning revenant stands as what it was - an elite's glow where elites stand, never a fresh roll   // ONLINE ONLY
       // SOFTCAP5: THE WILDS ARE AN AREA TOO - the dungeons' law, with the wilderness's share (22% by day, 44% at night):
       // my own foes only (a puppet is its owner's build), never an ally, never on a location's ground
       if (!puppet && !allied && !inLocation()) {
@@ -1711,7 +1705,7 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
     // exterior door's is a bare NUMBER.
     const f = liveFoeFor(foes, key, 'mobileFoe', { idOf });
     if (!f) return null;
-    const t = mobileEntityName(liveEntityName(f, enemyDisplayName(f.mobileType)), { hostile: !!f.ai?.isHostile, champion: foeTitled(f.entity) });   // LOOT7-CHECK CHAMP-HOVER: a champion named while hostile
+    const t = mobileEntityName(liveEntityName(f, enemyDisplayName(f.mobileType)), { hostile: !!f.ai?.isHostile && !f.yielded && !f._pupYield });   // HOVER-PLAIN: a hostile foe is never named here, a champion, an elite or a revenant included - its name stands on its health bar alone; a kneeling revenant (mine or a peer's, still hostile in its motor) is done fighting, so it says so below
     return t ? { title: f.yielded || f._pupYield ? `${t} - beaten` : t } : null;   // REVENANT-FATE: a kneeling revenant says so
   };
   // MAC-E: and the general arm is the WINDOW now (PlayerActivate.cs:957),
