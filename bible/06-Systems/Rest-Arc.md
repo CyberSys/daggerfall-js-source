@@ -694,6 +694,13 @@ Mac: "Go" - every recommendation of section 15 taken. Slices REST1-REST6 and RES
     keeps a table entry from closing on success is pinned.
   - **The type check was red** (`npm run types`, which the deploy runs): two `{}`-defaulted use-handler contexts and the
     Rested tile's input undeclared.
+  - **The mutation run** (every campaign on a file the arc changed, 4,575 records). SURVTIERS3's kit-fire mutant lived -
+    no test rested beside B5's unfuelled fire; pinned. REST6's Bedroll had copied CAMP-GROUND's probe into `layBedroll`,
+    and the copy kept CAMP-GROUND's text pins green while the camp's own probe broke (`probe-back-to-buckets-only`,
+    `probe-loses-its-fallback`: dead on main, alive on the arc) - the probe is one home now, `camps.js` `groundProbe`,
+    its two callers counted. REST2's online-Campfire `else` left AUDITSURV's chargen-provisions mutant unparseable;
+    re-aimed. Eight more live on main as well (AUDIT-REALM-L1F3's three, PROF4's two, PROF11, QS4, SURVART-4): not the
+    arc's.
 - **REST7 - crafting: NOT BUILT, deliberately.** The recipes are a source like the shelves, so they could not open
   before `REST_ITEMS_ONLINE` does; adding them now changes the account service's bundle (an `acct` bump) for rows that
   stay shut. They ride the release that turns the switch on, with the shelves.
@@ -717,3 +724,6 @@ Mac: "Go" - every recommendation of section 15 taken. Slices REST1-REST6 and RES
   and changes nothing, PROF9's two mutants on it are retired and its pin re-aimed; **the perk needs a new meaning
   (Mac's call)** - e.g. a Field Cook's Firewood feeds four nights, or a night at their own Campfire spends none one
   time in three.
+- 2026-10-03: origin/main merged in (#553 REL7, #550 HAUL-CARDS - its silver pin, read by what each claim was paid,
+  is the full suite's load flake this branch's gate met). The mutation run's three arc-blinded mutants fixed (AUDIT
+  REST-PARTY, "The mutation run").
