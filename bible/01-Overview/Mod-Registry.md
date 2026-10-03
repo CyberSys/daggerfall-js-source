@@ -4,9 +4,11 @@
 > left as it wrote them.** They were true of the fifteen rows that
 > existed on 2026-09-15 and they are the record of what putting those
 > rows side by side found. The live numbers are derived, not written:
-> `vendor/` holds 43 directories and 24 of their READMEs still carry an
+> `vendor/` holds 46 directories and 26 of their READMEs still carry an
 > unfilled permission line, each shown as `RECORD OPEN` in the table
-> (ARENA1, 2026-10-02: Kamer's `daggerfall-arena`, the forty-fifth - his permission relayed by Mac
+> (THE MERGE of main's FIELD BUGS 2026-10-03 into the arena branch: CLASSIC-CURSOR's `dfu-cursor`, the forty-third
+> on main, is the forty-sixth here - Daggerfall Unity's own cursor under its MIT licence, so the open count stands;
+> ARENA1, 2026-10-02: Kamer's `daggerfall-arena`, the forty-fifth - his permission relayed by Mac
 > and written in its README, so the open count stands;
 > WD3, 2026-10-01: carademono's `beautiful-villages` and `beautiful-cities`, the forty-third and
 > forty-fourth - Mac's word of permission recorded ("We have permission"), the author's own words
