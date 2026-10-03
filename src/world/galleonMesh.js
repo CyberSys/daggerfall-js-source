@@ -82,20 +82,8 @@ export class MeshBench {
   }
   /** A quad a-b-c-d (in order round it) facing `facing`. */
   quad(rec, a, b, c, d, uvs, facing) { this.poly(rec, [a, b, c, d], uvs, facing); }
-  /** Everything another bench holds, each point through `m` (a column-major 4x4) - normals through its turn. */
-  merge(other, m = null) {
-    for (const [rec, g] of other.groups) {
-      const h = this.group(rec);
-      for (let i = 0; i < g.p.length; i += 3) {
-        const p = [g.p[i], g.p[i + 1], g.p[i + 2]], n = [g.n[i], g.n[i + 1], g.n[i + 2]];
-        const q = m ? [m[0] * p[0] + m[4] * p[1] + m[8] * p[2] + m[12], m[1] * p[0] + m[5] * p[1] + m[9] * p[2] + m[13], m[2] * p[0] + m[6] * p[1] + m[10] * p[2] + m[14]] : p;
-        const k = m ? norm([m[0] * n[0] + m[4] * n[1] + m[8] * n[2], m[1] * n[0] + m[5] * n[1] + m[9] * n[2], m[2] * n[0] + m[6] * n[1] + m[10] * n[2]]) : n;
-        h.p.push(q[0], q[1], q[2]); h.n.push(k[0], k[1], k[2]);
-      }
-      h.uv.push(...g.uv);
-    }
-    return this;
-  }
+  // AUDIT GN2-BK6: `merge` (another bench through a matrix) gone - nothing called it, and it turned normals by the
+  // matrix's linear part (not its inverse transpose) and kept a mirror's winding
   get triangleCount() { let n = 0; for (const g of this.groups.values()) n += g.p.length / 9; return n; }
   /**
    * The CSA geometry: positions, normals, uvs and indices, a sub-mesh per texture in record order, the slots that

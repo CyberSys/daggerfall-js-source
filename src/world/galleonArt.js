@@ -1,8 +1,9 @@
 // @ts-check
-// GALLEON (2026-10-01, Mac: "we will need to give this a proper texture"): THE NEW GALLEON'S OWN ART, MADE AT BOOT.
+// GALLEON (2026-10-01, Mac: "we will need to give this a proper texture"): THE NEW GALLEON'S OWN ART, MADE AT THE LOAD.
 //
 // Mac's export names two pictures (Wood.png and floorboards.png) and carries neither, and a ship wears more than two
-// woods. So she is painted here, from noise, the moment the boats load - combat/bloodArt.js's law and world/gateArt.js's:
+// woods. So she is painted here, from noise, as the boats' preload asks for her archive (AUDIT GN2-PF3: it was her first
+// mesh's ask, at her first draw - scenes/comeSailAwayPool.js preload) - combat/bloodArt.js's law and world/gateArt.js's:
 // pixels and numbers, no renderer and no GL in this file, an atlas of the port's own under a pseudo-archive far above
 // any classic one (GALLEON_ARCHIVE). Deterministic, on fixed seeds, so every client's galleon is the same ship.
 // AUDIT GN-R12: HER TEXELS, AS SHE WEARS THEM (each picture's median over the area of every mesh she draws that wears it,
@@ -481,7 +482,8 @@ export function galleonArt() {
 }
 
 /** A record's night glow (its emission mask, top-down like its picture), or null for one that has none: the stern
- *  gallery's glass alone - each of its slices its own cut of the glow. Made once. */
+ *  gallery's glass alone - each of its slices its own cut of the glow. Made once (the pool's preload makes it - AUDIT
+ *  GN2-PF3). */
 let _glow = null;
 export function galleonGlow(record) {
   const k = BANDS.sternWindows.recs.indexOf(record);
@@ -493,10 +495,11 @@ export function galleonGlow(record) {
 let _registered = false;
 /**
  * Once: every picture on the texture door as a STAND-IN of GALLEON_ARCHIVE (no TEXTURE file is it), built when the
- * archive is first asked for - so the boats' own upload path (scenes/comeSailAwayPool.js meshFor: getTexture, then
- * uploadRecord) draws her as it draws every hull, and a loose pack's `38131_<record>-0.png` would override a picture as
- * it overrides any record. `addVendorTextures` is handed in (systems/textureReplacement.js's), keeping this file free of
- * the texture door's imports. Returns how many were registered (0 the second time).
+ * archive is first asked for (the pool's preload asks - AUDIT GN2-PF3) - so the boats' own upload path
+ * (scenes/comeSailAwayPool.js meshFor: getTexture, then uploadRecord) draws her as it draws every hull, and a loose
+ * pack's `38131_<record>-0.png` would override a picture as it overrides any record. `addVendorTextures` is handed in
+ * (systems/textureReplacement.js's), keeping this file free of the texture door's imports. Returns how many were
+ * registered (0 the second time).
  * @param {(entries: any[]) => number} addVendorTextures
  */
 export function registerGalleonArt(addVendorTextures) {
@@ -509,5 +512,7 @@ export function registerGalleonArt(addVendorTextures) {
     build: async () => art(record),
   })));
 }
-/** Test seam. */
-export function _resetGalleonArt() { _registered = false; }
+/** Test seam: unregistered, her glow uncut (AUDIT GN2-PF3). */
+export function _resetGalleonArt() { _registered = false; _glow = null; }
+/** Test seam (AUDIT GN2-PF3): whether her glow is cut. */
+export const _galleonGlowMade = () => _glow != null;

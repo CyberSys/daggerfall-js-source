@@ -9,9 +9,10 @@
 // triggers what the player activates, its Booms and Sails the rig the wind fills, its RudderObject the wheel and the
 // rudder, its lanterns, crew and modifiers. So the new galleon is that prefab again - `galleonPrefab` makes the tree,
 // every node the walk reads under the name it reads it by - over Mac's model (src/assets/galleon/galleon.json, baked
-// by tools/bakeGalleon.mjs) and the parts built here, and systems/comeSailAwayModels.js `withGalleon` stands it in for
-// prefab 112412. Everything that sails, steers, boards, lights, saves, fights and goes online on hull 2 then reads her
-// without a line of it knowing she is new.
+// by tools/bakeGalleon.mjs) and the parts built here, and systems/comeSailAwayModels.js (`comeSailAwayModels({ ...,
+// galleon })`, AUDIT GN2-PF9: this named a `withGalleon` that never was) stands it in for prefab 112412. Everything
+// that sails, steers, boards, lights, saves, fights and goes online on hull 2 then reads her without a line of it
+// knowing she is new.
 //
 // WHAT IS MAC'S AND WHAT IS BUILT. His: the hull with its ten gunports, the gun deck and the main deck with their two
 // hatchways, the stern castle with its doorway, the bulkhead below with its own, the stairs, the masts, the crow's
@@ -89,6 +90,14 @@ export const WELL_RAMP_NY = Object.freeze([0.75, 0.9]);
  *  sight line at the top) - and the binnacle forward of it 1.30 m to its hood's top (14 cm under the line): none of the
  *  28 blocked at any turn of the wheel (test/auditgalleon_prefab.test.js P1). */
 export const HELM = Object.freeze({ hub: Object.freeze([0, MEASURED.castleRoofY + 0.72, -12.9]), stand: Object.freeze([0, MEASURED.castleRoofY + CAPSULE_HEIGHT / 2, -14.25]), wheelR: 0.4 });
+/** AUDIT GN2-PF7: her DriveTrigger's node - Come Sail Away's trigger is a metre's cube on it, whatever the node's scale
+ *  (ImportCustomGameobject keeps its world scale) - over her wheel AND its binnacle: 0.25 m forward of the hub, so the
+ *  hub stands inside the cube and her HelmPedestal's collider inside it too (its fore face 8 cm in, its top 2 cm under
+ *  the cube's). At the hub, that box's fore face stood 0.17 m forward of the cube's: from forward of the wheel (150-210
+ *  degrees round it) the activation ray met the pedestal first and the helm was taken one time in six; the mod's
+ *  galleon's wheel-well stands inside its cube, every bearing taken. Its after face 1.1 m forward of DrivePosition
+ *  (test/auditgalleon2_prefab.test.js PF7). */
+export const DRIVE_TRIGGER_AT = Object.freeze([HELM.hub[0], HELM.hub[1], HELM.hub[2] + 0.25]);
 /** AUDIT GN-P3: Come Sail Away's anchor on her starboard bow - weighed (ActiveObject's, shown as she sails) and let go
  *  (IdleObject's cable down from her hawse) - each node turned `yawDeg` (Unity's: +z toward +x) so the weighed
  *  anchor's shank and arms lie along her bow's flare in plan (hull polygon 1's side, 30.8 deg off her centreline) with
@@ -463,11 +472,16 @@ export function hatchHingeDrop(g, over, clear = 0.002, deg = HATCH_OPEN_DEG) {
   return (over + low - clear) / (1 - c);
 }
 
+/** A door leaf's thickness. */
+export const DOOR_THICK = 0.08;
 /** A door leaf in its hinge's frame: the leaf to +x of the hinge, its foot on the hinge's height, `w` wide and `h`
- *  tall; planked, strapped and ringed (doorArt, the whole face). */
-export function doorLeafGeometry(w, h, t = 0.08) {
+ *  tall, `t` thick FORWARD of it (+z); planked, strapped and ringed (doorArt, the whole face). AUDIT GN2-PF8: the
+ *  hinge on the leaf's after face, the face it swings to - Come Sail Away's Door Opened turns it +90 (+x to -z, aft), so
+ *  open it lies on the hinge's free side. Hinged at the middle of its thickness, open, half of it (4 cm) stood back
+ *  through the hinge, 2 cm into the doorway's jamb over its whole height. */
+export function doorLeafGeometry(w, h, t = DOOR_THICK) {
   const bench = new MeshBench();
-  box(bench, TEX.door, [w / 2, h / 2, 0], [w / 2, h / 2, t / 2], { uvFace: (fi, k) => {
+  box(bench, TEX.door, [w / 2, h / 2, t / 2], [w / 2, h / 2, t / 2], { uvFace: (fi, k) => {
     const q = [[0, 0], [0, 1], [1, 1], [1, 0]][k];
     return fi === 4 ? [1 - q[0], q[1]] : fi === 5 ? q : [q[0] * 0.08, q[1]];
   } });
@@ -788,7 +802,7 @@ export function galleonPrefab(bake, csa) {
     const stand = [s * 4.3, M.mainDeckY + 0.05, gz];
     kids.push(nodeOf('BoardTrigger', { p: t, s: [3, 3, 3], kids: [nodeOf('BoardPosition', { p: scl(sub(stand, t), 1 / 3), r: yaw(s > 0 ? -90 : 90), s: [1 / 3, 1 / 3, 1 / 3] })] }));
   }
-  kids.push(nodeOf('DriveTrigger', { p: HELM.hub }));
+  kids.push(nodeOf('DriveTrigger', { p: DRIVE_TRIGGER_AT }));   // AUDIT GN2-PF7: over her wheel and its pedestal's collider
   kids.push(nodeOf('DrivePosition', { p: HELM.stand }));
 
   // ── Mac's model ──
@@ -832,10 +846,16 @@ export function galleonPrefab(bake, csa) {
   kids.push(hatch('HatchAft', M.hatchAft));
   kids.push(hatch('HatchFore', M.hatchFore));
 
-  // the doors in his two doorways, hinged on their port jambs, swinging aft
-  const door = (name, d) => meshNode(name, `galleon:door:${name}`, doorLeafGeometry(d.halfX * 2 - 0.04, d.y1 - d.y0 - 0.02), { collider: true, p: [-d.halfX + 0.02, d.y0 + 0.01, d.z], c: [animator('Door Controller')], kids: [nodeOf('DoorTrigger')] });
-  kids.push(door('CastleDoor', M.castleDoor));
-  kids.push(door('BulkheadDoor', M.bulkheadDoor));
+  // the doors in his two doorways, hinged on their port jambs, swinging aft. AUDIT GN2-PF8: each hinged on its leaf's
+  // after face (doorLeafGeometry), the shut leaf where it stood - across its doorway's middle - and each leaf's foot a
+  // centimetre over the deck it stands on: the castle's doorway runs down under her main deck (6.178, the deck 6.202),
+  // and its leaf's foot stood 1.4 cm inside it
+  const door = (name, d, floor) => {
+    const foot = Math.max(d.y0, floor) + 0.01;
+    return meshNode(name, `galleon:door:${name}`, doorLeafGeometry(d.halfX * 2 - 0.04, d.y1 - 0.01 - foot), { collider: true, p: [-d.halfX + 0.02, foot, d.z - DOOR_THICK / 2], c: [animator('Door Controller')], kids: [nodeOf('DoorTrigger')] });
+  };
+  kids.push(door('CastleDoor', M.castleDoor, M.mainDeckY));
+  kids.push(door('BulkheadDoor', M.bulkheadDoor, M.gunDeckY));
 
   // the shutters and the guns behind them: five ports a side, the port side's shutters the starboard's mirrored.
   // AUDIT GN-P6: a shutter a port, fitted to her side there (LID_FIT), each pair one shape mirrored, hinged on her side

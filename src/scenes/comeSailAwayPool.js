@@ -34,7 +34,7 @@
 // CSA-D).
 //
 // deps = { renderer, pipeline: scenes/dataPipeline.js's { getTexture, uploadRecord, getGpuMesh, gpuMeshes, cpuModels,
-//          textureFiles }, fetchFn (the vendored files' fetch), log }
+//          textureFiles, markClassicArt, isClassicArt }, fetchFn (the vendored files' fetch), log }
 
 import { loadComeSailAwayModels, rendererModel, rendererModelKey, bundleSlots } from '../systems/comeSailAwayModels.js';
 import { spawnBoat, boatAssetNeeds, DUNGEON_LIGHT_HANDLER, HULL_NAMES, setBoatVariant, Boat, FIRST_HULL_MODEL_ID, meshLocalBounds, worldBounds } from '../systems/comeSailAwayBoat.js';
@@ -51,7 +51,7 @@ import { mat4FromQuatPosScale, quatRotateInto } from '../world/quat.js';
 import { colliderPoses, boxColliderTriangles, invertAffine, BUILTIN_COLLIDER_MESHES } from '../world/prefabColliders.js';   // DECK-WALK: a hull's colliders at rest
 import { buildDeck } from '../systems/naval/navalDeck.js';   // DECK-WALK: her walkable deck
 import { hullBuild, setGalleonStanding } from '../systems/naval/navalShips.js';   // AUDIT GN-G4: and hull 2's build follows the hull that stands
-import { registerGalleonArt, GALLEON_ARCHIVE, galleonGlow } from '../world/galleonArt.js';   // GALLEON: the new galleon's own pictures, on the texture door before her meshes ask
+import { registerGalleonArt, GALLEON_ARCHIVE, galleonGlow, BANDS as GALLEON_BANDS } from '../world/galleonArt.js';   // GALLEON: the new galleon's own pictures, on the texture door before her meshes ask
 import { toColor32 } from '../formats/color32Order.js';
 import { addVendorTextures } from '../systems/textureReplacement.js';
 
@@ -185,9 +185,14 @@ export function createComeSailAwayPool({ renderer = null, pipeline = null, fetch
   async function ensureModels() {
     if (models || modelsFailed) return models;
     modelsLoading ??= loadComeSailAwayModels(fetchFn ?? globalThis.fetch, undefined, log).then((m) => {
-      // GALLEON: her pictures are the port's own, made at boot - registered as GALLEON_ARCHIVE's stand-ins before any
-      // of her meshes asks the pipeline for that archive (meshFor's getTexture), so they upload as every hull's do
-      if (m?.galleon) registerGalleonArt(addVendorTextures);
+      // GALLEON: her pictures are the port's own - registered as GALLEON_ARCHIVE's stand-ins as her model loads, before
+      // anything asks the pipeline for that archive, so they upload as every hull's do (AUDIT GN2-PF3: painted when the
+      // preload asks for it, below; this said "made at boot", and they were made at her first draw). AUDIT GN2-PF5: and
+      // they are her CLASSIC art, as ARENA2's is every other hull's - Retro Mode's no-mip cap reaches them
+      if (m?.galleon) {
+        registerGalleonArt(addVendorTextures);
+        pipeline?.markClassicArt?.(GALLEON_ARCHIVE);
+      }
       if (m) setGalleonStanding(m.galleon);   // AUDIT GN-G4: hull 2's numbers are the hull that stands
       models = m; modelsFailed = !m; return m;
     });
@@ -229,6 +234,13 @@ export function createComeSailAwayPool({ renderer = null, pipeline = null, fetch
     preloading ??= (async () => {
       if (!(await ensureModels())) return false;
       for (let hull = 0; hull < HULL_NAMES.length; hull++) await prepare(hull);
+      // AUDIT GN2-PF3: her pictures painted (her archive's first ask builds all twenty-three on the vendor door) and her
+      // glass's glow cut while the world loads - they were her first mesh's ask (meshFor) or a sail bake's, at the first
+      // draw of a hull 2: a 50-120 ms stall the first time she came into view
+      if (models.galleon) {
+        try { await pipeline.getTexture(GALLEON_ARCHIVE); for (const r of GALLEON_BANDS.sternWindows.recs) galleonGlow(r); }
+        catch (e) { warnOnce(`tex:${GALLEON_ARCHIVE}`, `[come-sail-away] TEXTURE.${GALLEON_ARCHIVE} will not load - the boats' faces in it draw nothing`, e); }
+      }
       for (let hull = 0; hull < HULL_NAMES.length; hull++) deckOf(hull, 0);   // DECK-WALK: baked while the world loads (10-50 ms a hull), never mid-voyage (AUDIT NAV2 F57: every rig's deck, one a hull)
       preloaded = true;
       return true;
@@ -337,8 +349,9 @@ export function createComeSailAwayPool({ renderer = null, pipeline = null, fetch
           // GALLEON: her stern gallery's glass, lit at night as a town's windows are (the window style the host sets -
           // its emission mask is the glass alone, galleonArt.js galleonGlow). AUDIT GN-R15: a pack's own picture over
           // her stern windows (a loose 38131_6 or _21) glows by HER glass, as a pack's over a town's window glows by
-          // the classic picture's (scenes/dataPipeline.js's window arm cuts the mask from the classic bitmap)
-          if (sm.textureArchive === GALLEON_ARCHIVE) { const glow = galleonGlow(sm.textureRecord); if (glow) renderer.uploadEmissionTexture?.(GALLEON_ARCHIVE, sm.textureRecord, toColor32(glow), { replacement: true }); }
+          // the classic picture's (scenes/dataPipeline.js's window arm cuts the mask from the classic bitmap). AUDIT
+          // GN2-PF5: flagged as her picture is - her classic art's, under Retro Mode's cap with it
+          if (sm.textureArchive === GALLEON_ARCHIVE) { const glow = galleonGlow(sm.textureRecord); if (glow) renderer.uploadEmissionTexture?.(GALLEON_ARCHIVE, sm.textureRecord, toColor32(glow), { replacement: !pipeline.isClassicArt?.(GALLEON_ARCHIVE) }); }
         }
         meshes.set(key, renderer.createMesh(model));
       })().catch((e) => { meshes.set(key, null); warnOnce(`mesh:${key}`, '[come-sail-away] a boat mesh failed to build', e); }).finally(() => meshLoads.delete(key)));

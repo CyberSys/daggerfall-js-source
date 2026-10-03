@@ -115,6 +115,13 @@ export function createDataPipeline({ renderer, arch, palette, fetch = fetchBytes
       return !t || t.vendor ? null : t.getScale(record);
     },
   });
+  // AUDIT GN2-PF5: THE ARCHIVES WHOSE STAND-INS ARE CLASSIC ART - the port's own pictures standing where a TEXTURE file
+  // would (the new galleon's 38131: a hull's planking, as ARENA2's is every other hull's), uploaded as a classic record
+  // is, so Retro Mode's no-mip cap reaches them. Every other stand-in is a mod's picture, TryImportTexture's, never
+  // capped. Marked by whoever registers them (scenes/comeSailAwayPool.js); a pack's picture over one is taken as its own.
+  const classicArt = new Set();
+  const markClassicArt = (archive) => { classicArt.add(Number(archive)); };
+  const isClassicArt = (archive) => classicArt.has(Number(archive));
   const getTextureSize = (archive, record) => {
     const t = textureFiles.get(archive);
     return { width: t.getWidth(record), height: t.getHeight(record) };
@@ -174,8 +181,9 @@ export function createDataPipeline({ renderer, arch, palette, fetch = fetchBytes
     // shader discarded, and the room behind it showed through.
     const masked = swap ? null : removeMask ? changeMask(bitmap) : bitmap;   // HM1: a clone - the cached record keeps its mask for the doll
     const color32 = swap ?? t.getColor32(dyed ? changeDyeBitmap(masked, dye, dyeTarget) : masked, opaque ? -1 : 0);   // DYE-ICON: the mask first, then the dye (:467-474)
-    // AUDIT RETRO1 A4: a replacement is flagged - TextureReader's retro arm (no mip chain) never reaches TryImportTexture's
-    const replacement = !!swap;
+    // AUDIT RETRO1 A4: a replacement is flagged - TextureReader's retro arm (no mip chain) never reaches TryImportTexture's.
+    // AUDIT GN2-PF5: a stand-in the port paints as a hull's classic art (markClassicArt) is no replacement
+    const replacement = !!swap && !classicArt.has(Number(archive));
     renderer.uploadTexture(archive, record, color32, variant !== undefined ? { opaque, mips, variant, replacement } : { opaque, mips, replacement });
     // Exterior windows also get their emission mask (R2, MaterialReader
     // semantics: glass texels glow with the active window style).
@@ -363,5 +371,6 @@ export function createDataPipeline({ renderer, arch, palette, fetch = fetchBytes
   // DISC22-D: the icon doors' per-record decode is the drawer's own (ui/itemScroller.js preloadIconRecord) - the
   // handout this bag once carried was taken by no scene, which is how the Steel Light Flail drew nothing.
   return { textureFiles, getTexture, getTextureSize, uploadRecord, uploadRecordFrame, getGpuMesh, getWindmillMeshes, getMachineryParts, gpuMeshes, cpuModels, palette,
+    markClassicArt, isClassicArt,   // AUDIT GN2-PF5
     loadFlats, flatCaption, flatFaceIndex, flatsFile: () => flats };
 }
