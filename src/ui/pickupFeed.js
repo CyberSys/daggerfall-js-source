@@ -207,18 +207,27 @@ export function pickupFeedLayout({ base, upper = 0, lower = Infinity, cardH = 0,
 // journey bar and the quest tracker read it). Each Plus theme tints the veil as it tints the plaque's.
 const T = FRAME_TONES;
 const rgbOf = (hex) => [1, 3, 5].map((i) => parseInt(String(hex).slice(i, i + 2), 16)).join(',');
+/** AUDIT HAUL-CARDS C4: a colour's relative luminance (WCAG) - a theme whose panel is light veils the feed in its ink. */
+const luminance = (hex) => {
+  const [r, g, b] = [1, 3, 5].map((i) => parseInt(String(hex).slice(i, i + 2), 16) / 255).map((v) => (v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4));
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+};
+/** AUDIT HAUL-CARDS C4: the feed is words over the world, in brass, parchment and the tiers' colours - a veil lighter than
+ *  this (Stone's panel, 0.10) dropped them to 2:1; such a theme's feed wears its ink, the rest their panel as before. */
+export const PICKUP_VEIL_LIGHT = 0.06;
+const veilOf = (th) => (th.ink && luminance(th.panel) > PICKUP_VEIL_LIGHT ? th.ink : th.panel);
 const THEME_TINTS = Object.entries(PLUS_THEMES).filter(([, th]) => th.panel)
-  .map(([id, th]) => `:root[data-plus-theme="${id}"] .pickfeed-card { background-color: rgba(${rgbOf(th.panel)}, 0.9); }`).join('\n');
+  .map(([id, th]) => `:root[data-plus-theme="${id}"] .pickfeed-card { background-color: rgba(${rgbOf(veilOf(th))}, 0.9); }`).join('\n');
 
 export const PICKUP_FEED_CSS = `${PIXELIFY_FIVE_FACE}
 /* PICKUP-FEED: what a press put in the pack, under the crosshair (ui/pickupFeed.js) */
 .pickfeed { position: fixed; left: 50%; top: var(--pf-top, 73%); z-index: 4; pointer-events: none;
   transform: translateX(-50%) scale(var(--hud-scale, 1)); transform-origin: top center;
-  display: flex; flex-direction: column; align-items: stretch; gap: ${PICKUP_CARD_GAP}px; width: max-content; min-width: 168px; max-width: 92vw;
+  display: flex; flex-direction: column; align-items: stretch; gap: ${PICKUP_CARD_GAP}px; width: max-content; min-width: 168px; max-width: calc(92vw / var(--hud-scale, 1));
   ${PIXEL_FONT_CSS} }
 .pickfeed:empty { display: none; }
 .pickfeed-card.pf-over { display: none; }
-.pickfeed-card { display: flex; align-items: center; gap: 6px; box-sizing: border-box; max-width: min(440px, 88vw);
+.pickfeed-card { display: flex; align-items: center; gap: 6px; box-sizing: border-box; max-width: min(440px, calc(88vw / var(--hud-scale, 1)));
   padding: 2px 10px 2px 2px; font-size: 14px; line-height: 20px; white-space: nowrap; color: #d8cfae;
   background-color: rgba(10,12,17,0.9); border: 2px solid;
   border-color: ${T.stoneLit} ${T.stoneDim} ${T.stoneDark} ${T.stoneMid};
@@ -263,10 +272,12 @@ ${rarityVarsCss('.pickfeed ')}
 .haul-head:empty { display: none; }
 .haul-line { display: flex; align-items: baseline; gap: 5px; white-space: nowrap; min-width: 0; }
 .pickfeed-card.haul .pickfeed-plus { margin-right: 0; }
-.haul-sub { font-size: 11px; color: ${T.stoneHi}; overflow: hidden; text-overflow: ellipsis; }
+.haul-sub { flex: 0 1000 auto; min-width: 0; font-size: 11px; color: ${T.stoneHi}; overflow: hidden; text-overflow: ellipsis; }   /* AUDIT HAUL-CARDS C3/C5: the sub gives way first */
+.pickfeed-card.haul .pickfeed-name { flex: 0 1 auto; }
+.pickfeed-card.haul.is-silver .pickfeed-name, .pickfeed-card.haul.is-treasury .pickfeed-name { flex-shrink: 0; }
 .haul-sub:empty, .haul-end:empty, .haul-tag:empty { display: none; }
 .haul-tag { margin-left: auto; padding: 0 4px; font-size: 11px; line-height: 14px; letter-spacing: 1px; text-transform: uppercase;
-  color: ${T.stoneHi}; border: 1px solid ${T.stoneLo}; }
+  color: ${T.stoneHi}; border: 1px solid ${T.stoneLit}; }
 .haul-end { margin-left: auto; padding-left: 6px; font-size: 11px; color: ${T.stoneHi}; }
 .haul-row { display: flex; align-items: center; gap: 6px; font-size: 11px; line-height: 14px; color: ${T.stoneHi}; }
 .haul-row[hidden] { display: none; }
@@ -282,20 +293,22 @@ ${rarityVarsCss('.pickfeed ')}
 .pickfeed-card.haul.is-silver .haul-fill { background: #c9d1d9; }
 .pickfeed-card.haul.is-treasury { --pf-edge: ${T.brass}; }
 .pickfeed-card.haul.is-treasury .pickfeed-name { color: ${T.brassHi}; }
-.pickfeed-card.haul.is-note { color: ${T.stoneLit}; background-color: rgba(10,12,17,0.8); font-size: 13px; padding-left: 10px; }
+.pickfeed-card.haul.is-note { color: ${T.stoneHi}; font-size: 13px; padding-left: 10px; white-space: normal; }   /* AUDIT HAUL-CARDS A2/C1: it wraps (59 letters ran 96 px past a phone's card); A5: its veil the theme's */
+.haul-note { min-width: 0; }
 .pickfeed-card.haul.is-lode { padding-top: 5px; padding-bottom: 5px;
   box-shadow: 0 0 0 1px ${T.outline}, inset 3px 0 0 var(--pf-edge, transparent), 0 0 14px rgba(var(--rar-rgb, 192,138,62),0.4); }
 .pickfeed-card.haul.is-lode .haul-head { color: var(--rar-hi, ${T.brassHi}); }
 .pickfeed-card.haul.is-lode .pickfeed-icon { width: 42px; height: 42px; }
 .pickfeed-card.haul.is-lode .pickfeed-icon img { max-width: 38px; max-height: 38px; }
 .haul-lode .haul-silver { color: #eef2f5; }
+.haul-lode .haul-coin[hidden] { display: none; }   /* AUDIT HAUL-CARDS A5: no silver struck, no coin */
 .pickfeed-card.haul .pickfeed-plus { display: inline-block; transform-origin: center; }
 .pickfeed-card.haul .pickfeed-plus.bump-a { animation: pickfeed-bump-a 180ms ease-out; }
 .pickfeed-card.haul .pickfeed-plus.bump-b { animation: pickfeed-bump-b 180ms ease-out; }
 /* no slide, no pop, no fade under reduced motion: a card is there, and then it is not */
 @media (prefers-reduced-motion: reduce) {
   .pickfeed-card, .pickfeed-count, .pickfeed-name, .pickfeed-plus, .haul-fill { animation: none !important; transition: none !important; } }
-@media (max-width: 720px) { .pickfeed-card { font-size: 13px; max-width: 88vw; } }
+@media (max-width: 720px) { .pickfeed-card { font-size: 13px; max-width: calc(88vw / var(--hud-scale, 1)); } }   /* AUDIT HAUL-CARDS C2: the width before the HUD's scale, so a scaled card keeps to the screen */
 ${THEME_TINTS}
 /* font: ${PIXEL_STACK} */`;
 
@@ -487,8 +500,9 @@ function buildHaul(d, l) {
   body.append(c.head, line, c.row);
   if (l.lode) {
     c.lode = d.createElement('div'); c.lode.className = 'haul-row haul-lode';
-    c.lodeSilver = span(d, 'haul-silver'); c.miners = span(d, 'haul-end');
-    c.lode.append(span(d, 'haul-coin'), c.lodeSilver, c.miners);
+    c.lodeSilver = span(d, 'haul-silver'); c.lodeHeld = span(d, 'haul-sub'); c.miners = span(d, 'haul-end');   // AUDIT HAUL-CARDS B4: the purse beside the silver
+    c.lodeCoin = span(d, 'haul-coin');
+    c.lode.append(c.lodeCoin, c.lodeSilver, c.lodeHeld, c.miners);
     body.append(c.lode);
   }
   el.append(c.icon, body);
@@ -512,7 +526,7 @@ function sayHaul(c, l) {
     c.fill.style.width = `${Math.round(w.row.fill * 100)}%`;
     c.rowEnd.textContent = w.row.end ?? '';
   }
-  if (c.lode && w.lode) { c.lodeSilver.textContent = w.lode.silver; c.miners.textContent = w.lode.miners; }
+  if (c.lode && w.lode) { c.lodeSilver.textContent = w.lode.silver; c.lodeHeld.textContent = w.lode.held ?? ''; c.miners.textContent = w.lode.miners; c.lodeCoin.hidden = !w.lode.silver; }
 }
 
 function build(d, l) {
@@ -591,9 +605,15 @@ function place(count) {
     if (r) lower = Math.min(lower, r.top - gap);
   }
   const first = rect(node.firstElementChild);
-  // HAUL-CARDS: a gather's card is taller than a pickup's - each card's own height, newest first
+  // HAUL-CARDS: a gather's card is taller than a pickup's - each card's own height, newest first. AUDIT HAUL-CARDS A1: a
+  // card the band put out measures nothing, so each keeps its last height seen (`_pfH`) - read as the first's, a tall
+  // card out of the band fitted the next frame, stood, and went again, a flicker the whole of its hold
   const heights = [];
-  for (let i = 0; i < count && i < (node.children?.length ?? 0); i++) heights.push(rect(node.children[i])?.height ?? first?.height ?? 0);
+  for (let i = 0; i < count && i < (node.children?.length ?? 0); i++) {
+    const kid = node.children[i], r = rect(kid);
+    if (r) kid._pfH = r.height;
+    heights.push(r?.height ?? kid._pfH ?? first?.height ?? 0);
+  }
   const { top, shown } = pickupFeedLayout({ base, upper, lower, cardH: first?.height ?? 0, cardGap: PICKUP_CARD_GAP * scale, count, heights });
   const t = `${top.toFixed(1)}px`;
   if (t !== lastTop) { lastTop = t; node.style.setProperty('--pf-top', t); }

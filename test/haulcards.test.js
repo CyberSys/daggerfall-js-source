@@ -14,7 +14,7 @@ import {
   TIER_RARITY, tierRarity, rankProgress, storesHaul, harvestHauls, silverHaul, claimHauls, haulWords, materialImage,
   HAUL_HOLD_MS, LODE_HOLD_MS, HAUL_CAPPED_TEXT, HAUL_ICON_BOX, LODE_ICON_BOX,
 } from '../src/ui/haulCards.js';
-import { createPickupQueue, pickupFeedLayout, showHaul, destroyPickupFeed, _setPickupFeedForTests, PICKUP_FEED_ID, PICKUP_FEED_CSS, PICKUP_FEED_FADE_MS } from '../src/ui/pickupFeed.js';
+import { createPickupQueue, pickupFeedLayout, showHaul, showPickups, destroyPickupFeed, _setPickupFeedForTests, PICKUP_FEED_ID, PICKUP_FEED_CSS, PICKUP_FEED_FADE_MS } from '../src/ui/pickupFeed.js';
 import { createProfBook } from '../src/net/profBook.js';
 import { veins, utcDayOfMs, material } from '../src/net/nodeLaw.js';
 import { MINE_ACT, xpForRank } from '../src/net/professionLaw.js';
@@ -61,7 +61,7 @@ test('HAUL-CARDS a harvest\'s cards: the goods one card - "+3", its material\'s 
     assert.equal(main.rarity, tierRarity(material('metal:iron').tier, true));
     assert.deepEqual(main.image, inventoryItemImage(mintMaterialItem('metal:iron')), 'the pack\'s own picture of it');
     assert.deepEqual(haulWords(main), { head: 'every strike on the glint', plus: '+3', name: 'Iron', sub: '', tag: 'Stores 41', end: '', row: { text: '+60 Mining XP', fill: 0, end: '34' }, lode: null });
-    assert.deepEqual([gem.material, gem.count, gem.sub, gem.xp, haulWords(gem).tag], ['gem:amber', 1, 'a gem', undefined, 'Stores']);
+    assert.deepEqual([gem.material, gem.count, gem.sub, gem.xp, haulWords(gem).tag], ['gem:amber', 1, 'a gem', undefined, 'Stores']);   // no gemStore in this answer: no count
     assert.deepEqual([extra.material, extra.count, haulWords(extra).name], ['gem:jade', 2, 'Jade']);
     assert.equal(gem.rarity, tierRarity(material('gem:amber').tier, true));
     assert.deepEqual([harvestHauls(null), harvestHauls({ qty: 3 }), harvestHauls({ material: 'metal:iron', qty: 0 })], [[], [], []]);
@@ -79,7 +79,7 @@ test('HAUL-CARDS a Motherlode\'s one card (PROF2b): its ore, its silver and its 
   const [c] = cards;
   assert.deepEqual([c.key, c.lode, c.head, c.silver, c.miners, c.hold], ['lode\u0002mlode:20833:0', true, 'Motherlode - every strike on the glint', 10, '4 / 20 miners', LODE_HOLD_MS]);
   const w = haulWords(c);
-  assert.deepEqual([w.plus, w.name, w.tag, w.row.text, w.lode], ['+9', 'Ebony Ore', 'Stores 9', '+1,380 Mining XP', { silver: '+10 silver', miners: '4 / 20 miners' }]);
+  assert.deepEqual([w.plus, w.name, w.tag, w.row.text, w.lode], ['+9', 'Ebony Ore', 'Stores 9', '+1,380 Mining XP', { silver: '+10 silver', held: 'you hold 60', miners: '4 / 20 miners' }]);   // AUDIT HAUL-CARDS B4 (PIN MOVED): the purse
   assert.equal(haulWords(harvestHauls({ ...d, marks: { struck: 0, balance: 10_000_000, why: 'full' } })[0]).lode.silver, '', 'a full purse: no silver said');
   assert.equal(harvestHauls({ ...d, motherlode: false })[0].key, 'stores\u0002ore:ebony');
 });
@@ -91,7 +91,7 @@ test('HAUL-CARDS a claim\'s cards: a raid\'s 30 with the day\'s combat bar and t
   assert.deepEqual(rest, [], 'a contract that paid nothing has no card');
   assert.deepEqual(haulWords(raid), { head: '', plus: '+30', name: 'silver', sub: 'Town defended', tag: '', end: '90', row: { text: 'Combat today', fill: 0.8, end: '120 / 150' }, lode: null });
   assert.deepEqual([deed.tone, haulWords(deed).sub, haulWords(deed).plus], ['treasury', 'Guild deed - to The HND Guild', '+25']);
-  assert.deepEqual([pay.tone, haulWords(pay).sub, haulWords(pay).plus], [undefined, 'Contract - [HND] (2 tax)', '+38']);
+  assert.deepEqual([pay.tone, haulWords(pay).sub, haulWords(pay).plus], [undefined, 'Contract (2 tax) - [HND]', '+38']);   // AUDIT HAUL-CARDS C3 (PIN MOVED): the tax before the guild
   assert.equal(haulWords(claimHauls({ marks: { struck: 50, balance: 50 } }, 'gate')[0]).sub, 'Breach closed');
   const capped = claimHauls({ marks: { struck: 0, balance: 150, why: 'cap', combat: { earned: 150, max: 150 } } }, 'gate');
   assert.deepEqual(capped.map((c) => [c.haul, haulWords(c).note]), [['note', HAUL_CAPPED_TEXT]]);
@@ -269,7 +269,7 @@ const NOON = (() => {
 const memStorage = () => { const m = new Map(); return { getItem: (k) => m.get(k) ?? null, setItem: (k, v) => m.set(k, String(v)) }; };
 const OUTSIDE = Object.freeze({ inside: false, insideDungeon: false, insideCastle: false, locationType: 0xffff, inLocationRect: false, hour: 12, climate: WOODS, region: GLENUMBRA, enemiesNear: false, carriedWeight: 0 });
 /** The gathering host over one flat pixel's veins (test/gathersaid.test.js's rig), its card door `haul` the test's. */
-function rig({ answer, haul }) {
+function rig({ answer, haul, live = true }) {
   const day = utcDayOfMs(NOON * 1000);
   const samples = new Float32Array(HEIGHTMAP_DIMENSION * HEIGHTMAP_DIMENSION).fill(0.25);
   const law = veins({ x: 400, y: 150, day, climate: WOODS, region: GLENUMBRA });
@@ -298,7 +298,7 @@ function rig({ answer, haul }) {
     built: () => built, pixelTranslation: (x, y, out) => { out[0] = 0; out[1] = 0; out[2] = 0; return out; },
     pixelInfo: () => ({ climate: WOODS, region: GLENUMBRA }), nowMs: () => clock.ms,
     eye: () => ({ pos: [feet[0], feet[1] + 1.6, feet[2]], dir: [Math.sin((view.yaw * Math.PI) / 180), Math.sin((view.pitch * Math.PI) / 180), Math.cos((view.yaw * Math.PI) / 180)] }),
-    view: () => view, feet: () => feet, entity: () => entity, keyLabel: () => 'E', input: () => input, active: () => true,
+    view: () => view, feet: () => feet, entity: () => entity, keyLabel: () => 'E', input: () => input, active: () => live.ok ?? live,
     ...(haul ? { haul } : {}),
   });
   const mine = async (i) => {
@@ -362,8 +362,117 @@ test('HAUL-CARDS the seams by source: the world host hands the gathering host th
   assert.match(w, /onMarks: \(data\) => \{ showHaul\(claimHauls\(data, 'raid'\)\); return marksBook\?\.claimLines\(data, 'raid'\) \?\? null; \},/);
   assert.match(w, /onMarks: \(marks, data\) => \{ showHaul\(claimHauls\(data \?\? \{ marks \}, 'gate'\)\); return marksBook\?\.claimLines\(data \?\? \{ marks \}, 'gate'\) \?\? null; \},/);
   const g = rd('src/scenes/gatherHost.js');
-  assert.match(g, /hauled = deps\.haul\?\.\(harvestHauls\(d, \{ name: k\?\.haulName\?\.\(d\) \?\? null, note \}\)\) === true;/);
+  assert.match(g, /hauled = live && deps\.haul\?\.\(harvestHauls\(d, \{ name: k\?\.haulName\?\.\(d\) \?\? null, note \}\)\) === true;/);   // AUDIT HAUL-CARDS A3 (PIN MOVED): on a live world
   assert.match(g, /try \{ k\?\.answered\?\.\(d, \(t\) => hud\.toast\(t\), \{ hauled \}\); \}/);
   assert.match(rd('src/ui/pickupFeed.js'), /const box = line\.lode \? LODE_ICON_BOX : line\.haul \? HAUL_ICON_BOX : PICKUP_ICON_BOX;/);
   assert.ok(materialImage('metal:iron') === null || Number.isInteger(materialImage('metal:iron').archive), 'an address or none');
 });
+
+test('AUDIT HAUL-CARDS B1-B4: "a gem" for a gem alone - a tree\'s Heartwood and a body\'s Big Tooth say none; each find its own Stores count off the answer\'s gemStore and extraStore; a bump says the newest act\'s words, a plain act after a clean one none; a Motherlode\'s card says the purse beside its silver (mutants: every find a gem; the finds\' counts unread; the head the first act\'s; the purse dropped)', () => {
+  const tree = harvestHauls({ material: 'log:oak', qty: 3, gem: 'wood:heartwood', gemStore: { own: 2 }, extra: 'wood:resin', extraQty: 2, extraStore: { own: 7, bought: 1 } });
+  assert.deepEqual(tree.slice(1).map((c) => [c.material, c.sub, haulWords(c).tag]), [['wood:heartwood', null, 'Stores 2'], ['wood:resin', null, 'Stores 8']]);
+  const body = harvestHauls({ material: 'hide:bear', qty: 1, gem: 'part:tooth', gemStore: { own: 1 } });
+  assert.deepEqual([body[1].sub, haulWords(body[1]).name], [null, 'Big Tooth']);
+  const vein = harvestHauls({ material: 'metal:iron', qty: 1, gem: 'gem:amber', gemStore: { own: 4 } });
+  assert.deepEqual([vein[1].sub, haulWords(vein[1]).tag], ['a gem', 'Stores 4']);
+  const pearl = harvestHauls({ material: 'food:fish', qty: 1, gem: 'gem:pearl' });
+  assert.equal(pearl[1].sub, 'a gem', 'the Pearl is a gem');
+  // the head: each act's own, through the feed's bump
+  const q = createPickupQueue();
+  const act = (note, xp) => harvestHauls({ material: 'metal:iron', qty: 1, xp, track: { profession: 'mining', xp: xpForRank(34), rank: 34 } }, { note })[0];
+  q.push([act('', 10)], 0);
+  q.push([act(' (every strike on the glint)', 15)], 500);
+  assert.equal(haulWords(q.standing(500)[0]).head, 'every strike on the glint', 'the clean act after a plain one');
+  q.push([act('', 10)], 900);
+  assert.equal(haulWords(q.standing(900)[0]).head, '', 'and a plain one after it says none');
+  // the Motherlode's purse
+  const lode = harvestHauls({ motherlode: true, node: 'mlode:1:0', material: 'ore:ebony', qty: 6, marks: { struck: 10, balance: 1380 }, lode: { struck: 3, strikers: 20 } })[0];
+  assert.deepEqual(haulWords(lode).lode, { silver: '+10 silver', held: 'you hold 1,380', miners: '3 / 20 miners' });
+  assert.equal(haulWords({ ...lode, silver: 0 }).lode.held, '', 'no silver struck, no purse said');
+});
+
+test('AUDIT HAUL-CARDS B4, the face: a Motherlode\'s card draws its silver, the purse beside it and its twenty (mutants: the purse unsaid)', () => {
+  const raf0 = globalThis.requestAnimationFrame;
+  globalThis.requestAnimationFrame = () => null;
+  try {
+    withPage((p) => {
+      assert.equal(showHaul(harvestHauls({ motherlode: true, node: 'mlode:1:0', material: 'ore:ebony', qty: 6, marks: { struck: 10, balance: 1380 }, lode: { struck: 3, strikers: 20 } })), true);
+      const [card] = p.cards();
+      assert.ok(card.classList.contains('is-lode'));
+      const row = find(card, 'haul-lode')[0];
+      assert.deepEqual([find(row, 'haul-silver')[0].textContent, find(row, 'haul-sub')[0].textContent, find(row, 'haul-end')[0].textContent],
+        ['+10 silver', 'you hold 1,380', '3 / 20 miners']);
+    });
+  } finally { globalThis.requestAnimationFrame = raf0; }
+});
+
+// ─── AUDIT HAUL-CARDS (2026-10-03, Mac: "Audit this") ───────────────────────────────────────────────────────────────
+
+test('AUDIT HAUL-CARDS A1: a card the band puts out keeps its own last height - a tall harvest card under three pickups in a band too short for all four stays out, frame after frame, where it stood and went every frame (mutants: the hidden card read as the first\'s height)', () => {
+  const raf0 = globalThis.requestAnimationFrame;
+  globalThis.requestAnimationFrame = () => null;
+  try {
+    withPage((p) => {
+      // every card its height, nothing while the band has put it out; the plaque's foot and the HUD's top make a 140 px band
+      const mk = p.doc.createElement;
+      p.doc.createElement = (t) => {
+        const e = mk(t);
+        e.getBoundingClientRect = () => {
+          const h = !e.classList.contains('pickfeed-card') || e.classList.contains('pf-over') ? 0 : e.classList.contains('haul') ? 56 : 30;
+          return { top: 0, bottom: h, height: h, width: 100, left: 0, right: 100 };
+        };
+        return e;
+      };
+      p.doc.rects['.wplaque.on'] = { top: 400, bottom: 564 };
+      p.doc.rects['.hud .hud-bottom'] = { top: 720, bottom: 800 };
+      assert.equal(showHaul(harvestHauls({ material: 'metal:iron', qty: 3, xp: 10, track: { profession: 'mining', xp: 0, rank: 1 } })), true);
+      p.now = 100;
+      const sword = (n) => ({ name: `Sword ${n}`, group: 'Weapons', templateIndex: 121 + n });
+      showPickups([{ item: sword(0), count: 1 }, { item: sword(1), count: 1 }, { item: sword(2), count: 1 }]);
+      const seen = [];
+      for (let i = 0; i < 6; i++) { p.now += 16; p.frame(); seen.push(p.cards().map((c) => (c.classList.contains('pf-over') ? 'out' : 'in')).join(' ')); }
+      assert.deepEqual(new Set(seen.slice(1)).size, 1, `one layout frame after frame: ${seen.join(' | ')}`);
+      assert.equal(seen.at(-1), 'in in in out', 'the three pickups in, the tall card out');
+    });
+  } finally { globalThis.requestAnimationFrame = raf0; }
+});
+
+test('AUDIT HAUL-CARDS A2/A5/C1-C4/C7, the sheet and the words: the cap\'s note wraps in its card and keeps the theme\'s veil; a card\'s width is the screen\'s before the HUD\'s scale; the source line gives way before "silver"; a contract\'s tax before its guild, grouped; a light theme (Stone) veils the feed in its ink, the dark ones their panel; the tag\'s border readable; a Motherlode with no silver shows no coin (mutants: the note unwrapped; the width unscaled; the sub not first to give; the veil Stone\'s panel; the tax ungrouped; the coin kept)', () => {
+  const css = PICKUP_FEED_CSS;
+  assert.match(css, /\.pickfeed-card\.haul\.is-note \{ color: #c2b79a; font-size: 13px; padding-left: 10px; white-space: normal; \}/);
+  assert.doesNotMatch(css, /\.pickfeed-card\.haul\.is-note \{[^}]*background/, 'the note wears the theme\'s veil');
+  assert.match(css, /\.pickfeed-card \{ display: flex; align-items: center; gap: 6px; box-sizing: border-box; max-width: min\(440px, calc\(88vw \/ var\(--hud-scale, 1\)\)\);/);
+  assert.match(css, /max-width: calc\(92vw \/ var\(--hud-scale, 1\)\);/);
+  assert.match(css, /\.haul-sub \{ flex: 0 1000 auto; min-width: 0;/);
+  assert.match(css, /\.pickfeed-card\.haul\.is-silver \.pickfeed-name, \.pickfeed-card\.haul\.is-treasury \.pickfeed-name \{ flex-shrink: 0; \}/);
+  assert.match(css, /border: 1px solid #9a9079; \}/, 'the tag\'s border the lit stone');
+  assert.match(css, /:root\[data-plus-theme="stone"\] \.pickfeed-card \{ background-color: rgba\(60,60,56, 0\.9\); \}/, 'Stone: its ink');
+  assert.match(css, /:root\[data-plus-theme="iron"\] \.pickfeed-card \{ background-color: rgba\(40,48,58, 0\.9\); \}/, 'Iron: its panel, as before');
+  const [, , pay] = claimHauls({ marks: { struck: 1, balance: 1 }, deed: { struck: 1, guild: { name: 'G' } }, contracts: [{ contract: 'c', pay: 12345, tax: 1234, guild: { name: 'The Most Honourable Company of Wayrest Defenders' } }] }, 'raid');
+  assert.equal(haulWords(pay).sub, 'Contract (1,234 tax) - The Most Honourable Company of Wayrest Defenders');
+  const raf0 = globalThis.requestAnimationFrame;
+  globalThis.requestAnimationFrame = () => null;
+  try {
+    withPage((p) => {
+      showHaul(harvestHauls({ motherlode: true, node: 'mlode:1:0', material: 'ore:ebony', qty: 6, marks: { struck: 0, balance: 10_000_000, why: 'full' }, lode: { struck: 3, strikers: 20 } }));
+      assert.equal(find(p.cards()[0], 'haul-coin')[0].hidden, true, 'no silver, no coin');
+      showHaul(harvestHauls({ motherlode: true, node: 'mlode:1:1', material: 'ore:ebony', qty: 6, marks: { struck: 10, balance: 70 }, lode: { struck: 4, strikers: 20 } }));
+      assert.equal(find(p.cards()[0], 'haul-coin')[0].hidden, false);
+    });
+  } finally { globalThis.requestAnimationFrame = raf0; }
+});
+
+test('AUDIT HAUL-CARDS A3: a harvest answered while the world is not live (a window over it) says its lines, never a card the window\'s door takes down unseen (mutants: the card asked on a held world)', outside(async () => {
+  const cards = [];
+  const r = rig({ answer: iron, haul: (e) => { cards.push(e); return true; } });
+  await r.stand();
+  await r.mine(0);
+  assert.equal(cards.length, 1, 'a live world: the card');
+  // the act ends on a live world; its answer lands after a window opened over it
+  const world = { ok: true };
+  const slow = rig({ answer: async (b) => { world.ok = false; return iron(b); }, haul: (e) => { cards.push(e); return true; }, live: world });
+  await slow.stand();
+  await slow.mine(0);
+  assert.equal(cards.length, 1, 'no card on a held world');
+  assert.equal(slow.said[0], '+3 Iron to your Stores', 'its lines instead');
+}));

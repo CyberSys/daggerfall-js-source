@@ -56,11 +56,12 @@
   {
     "name": "HAUL-CARDS-head-unsaid",
     "file": "src/ui/haulCards.js",
-    "old": "  if (head) main.head = head;\n",
-    "new": "",
+    "old": "  main.head = head;\n",
+    "new": "  main.head = '';\n",
     "tests": [
       "test/haulcards.test.js"
-    ]
+    ],
+    "note": "AUDIT HAUL-CARDS (PIN MOVED): re-aimed by content - the head each act's own (B2), the tax before the guild (C3), the card on a live world alone (A3)."
   },
   {
     "name": "HAUL-CARDS-lode-silver-off",
@@ -110,11 +111,12 @@
   {
     "name": "HAUL-CARDS-contract-tax-unsaid",
     "file": "src/ui/haulCards.js",
-    "old": "${c.tax > 0 ? ` (${c.tax} tax)` : ''}",
+    "old": "${c.tax > 0 ? ` (${num(c.tax)} tax)` : ''}",
     "new": "",
     "tests": [
       "test/haulcards.test.js"
-    ]
+    ],
+    "note": "AUDIT HAUL-CARDS (PIN MOVED): re-aimed by content - the head each act's own (B2), the tax before the guild (C3), the card on a live world alone (A3)."
   },
   {
     "name": "HAUL-CARDS-cap-unsaid",
@@ -236,11 +238,12 @@
   {
     "name": "HAUL-CARDS-fallback-lost",
     "file": "src/scenes/gatherHost.js",
-    "old": "hauled = deps.haul?.(harvestHauls(d, { name: k?.haulName?.(d) ?? null, note })) === true;",
+    "old": "hauled = live && deps.haul?.(harvestHauls(d, { name: k?.haulName?.(d) ?? null, note })) === true;",
     "new": "hauled = true;",
     "tests": [
       "test/haulcards.test.js"
-    ]
+    ],
+    "note": "AUDIT HAUL-CARDS (PIN MOVED): re-aimed by content - the head each act's own (B2), the tax before the guild (C3), the card on a live world alone (A3)."
   },
   {
     "name": "HAUL-CARDS-kind-told-nothing",

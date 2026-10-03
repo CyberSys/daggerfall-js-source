@@ -575,6 +575,48 @@ each answer into cards (pure); the feed (`showHaul`) draws them beside the picku
   records re-aimed by content: pickupfeed (five), gathersaid (the goods unkept), prof2b (the silver unsaid);
   pickupfeed.json and gathersaid.json run whole again, 67 dead.
 
+#### AUDIT HAUL-CARDS (2026-10-03, Mac: "Audit this")
+
+Three independent passes read the PR cold - the feed's law and face (scripts over the real module and the real sheet in
+Chromium), the cards' data against every kind's old lines (every material key run), and the look in a real browser
+(74 runs: long names, mixed stacks, HUD scales 0.75-1.5, the Plus themes, reduced motion) - and the author's re-read.
+FOUND, each fixed and pinned (`test/haulcards.test.js`, `tools/mutants/audithaul.json`):
+
+- **MEDIUM - A1: a card the band put out flickered every frame.** A hidden card measures nothing and was read as the
+  first card's height - a tall harvest card under three pickups in a 129-155 px band "fitted" the next frame, stood
+  (18 px into the HUD's foot), and went again, for its whole hold. FIXED: each card keeps its last height seen.
+- **MEDIUM (HIGH on a phone) - A2/C1: the day's cap note ran out of its card** - 59 letters, `nowrap`, 96 px past a
+  phone's card and off the screen. FIXED: it wraps.
+- **MEDIUM - C2: at a HUD scale over 1 a card ran off a phone's edges** - its width was the screen's before the
+  scale's transform. FIXED: `88vw` and `92vw` divided by the HUD's scale (the pickups' cards with them).
+- **MEDIUM - C3: a long source cut "silver" itself** ("+1,250 silv..."), and a contract with no tag lost its tax. FIXED:
+  the sub gives way first, silver's own word never; the tax before the guild, grouped (C7).
+- **MEDIUM - C4: on the Stone theme the feed fell to 2:1** - its light panel (luminance 0.10) under the brass head, the
+  muted note, the tag's border and the tiers' colours. FIXED: a theme whose panel is lighter than 0.06 veils the feed in
+  its ink (Stone alone; the pickups' cards with it); the tag's border the lit stone; the note's words the light stone.
+- **MEDIUM - B1: every `gem` was "a gem"** - a tree's Heartwood and a body's Big Tooth with it. FIXED: a gem's alone.
+- **LOW - B2: a bump kept the first act's head** - a torn pelt then a clean one read "A TORN PELT" over both. FIXED: the
+  newest act's words (none for a plain act).
+- **LOW - B3: a find's card said "Stores" with no count** though the answer carries `gemStore`/`extraStore`. FIXED.
+- **LOW - B4: a Motherlode's card dropped the purse** its suppressed line had said. FIXED: "you hold 1,380" beside its
+  silver.
+- **LOW - A3: a harvest answered with a window open had its card taken down unseen** (the plaque's hide clears the
+  feed) and its lines unsaid. FIXED: the card only on a live world; else the lines as ever.
+- **LOW - A5: the theme's tint overrode the note's veil; a Motherlode with no silver still showed a coin.** FIXED: the
+  note wears the theme's veil; no silver, no coin.
+- **Not changed, named (C6)**: at a HUD scale of 1.5 the band holds two haul cards, and a newer batch can keep an older
+  card out until its hold runs out - the feed's own law for every card (the oldest wait unseen, PICKUP-FEED).
+
+CHECKED, SOUND (the passes): pickup and haul keys never meet; a card's kind never changes, so paint's branch holds;
+twins in one push and a bump in the same push raise one bump and rewrite the words; no card stands for ever; the
+heights read in the order the cards stand; a silver or note card never asks for a picture; a fitted icon is cached by
+its box; the watchdog and ticker armed as a pickup's; every note an act says parses to its head; a kept answer's card
+right (a Motherlode's included); every gathered material's picture real and its tier sane; a refused claim shows no
+card; the classic skin builds nothing.
+- **Pinned**: `test/haulcards.test.js` (14 - five the audit's); `tools/mutants/audithaul.json` (20, all dead). PIN MOVED:
+  haulcards (the contract's words, the live world, the Motherlode's purse). Re-aimed by content: haulcards (three); the
+  haul list run whole again, 34 dead; pickupfeed.json and gathersaid.json again, 67 dead; the probe 319/319.
+
 ## 9. Crafting
 
 ### 9.1 The act of crafting

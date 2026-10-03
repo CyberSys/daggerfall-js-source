@@ -569,8 +569,12 @@ export function createGatherHost(deps) {
       const note = a && k?.actNote ? k.actNote(a.report) : a?.clean ? (k?.cleanNote(a, d) ?? '') : '';   // AUDIT 32 P10
       // HAUL-CARDS: on the enhanced skin the goods, their Stores and the XP are ONE card under the crosshair (the loot's
       // band - ui/pickupFeed.js showHaul); the classic skin, or a face that cannot draw, says the lines as ever
+      // AUDIT HAUL-CARDS A3: only on a live world (walking, nothing over it) - a window open as the answer lands takes
+      // the feed down with the plaque (ui/worldPlaque.js hideWorldPlaque), and the card went before it was seen, its
+      // lines unsaid; there the lines are said as ever
+      const live = deps.active?.() === true || deps.activeDungeon?.() === true;
       let hauled = false;
-      try { hauled = deps.haul?.(harvestHauls(d, { name: k?.haulName?.(d) ?? null, note })) === true; } catch { hauled = false; }
+      try { hauled = live && deps.haul?.(harvestHauls(d, { name: k?.haulName?.(d) ?? null, note })) === true; } catch { hauled = false; }
       if (!hauled) hud.toast(k?.storesLine ? k.storesLine(d) : storesLine(d), { keep: true });   // GATHER-SAID: the goods in one line, outlasting the rest; PROF4's Resin, PROF7's butchery in it; PROF8's species
       if (!storesSaid) { storesSaid = true; hud.toast(storesWhereLine(deps.keyLabel?.('Professions') ?? '')); }
       if (!hauled) hud.toast(`+${d.xp} ${professionName(profession)} XP${note}`);

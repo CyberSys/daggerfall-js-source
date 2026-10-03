@@ -94,19 +94,25 @@ export function harvestHauls(d, { name = null, note = null } = {}) {
     main.latest = [...main.latest, 'rank', 'progress'];
   }
   const head = typeof note === 'string' ? note.replace(/^\s*\(|\)\s*$/g, '').trim() : '';
-  if (head) main.head = head;
+  // AUDIT HAUL-CARDS B2: the head is each act's own - a bump says the newest act's words (a clean strike after a
+  // plain one, a torn pelt after a clean one), never the first's for both
+  main.head = head;
+  main.latest = [...main.latest, 'head'];
   if (d.motherlode) {
     // PROF2b: the day's one - its own card (never bumped into a vein's), its silver and its twenty on it
     main.key = `lode\u0002${d.node ?? d.material}`;
     main.lode = true;
     main.head = head ? `Motherlode - ${head}` : 'Motherlode';
     main.silver = Number.isSafeInteger(d.marks?.struck) && d.marks.struck > 0 ? d.marks.struck : 0;
+    main.balance = Number.isSafeInteger(d.marks?.balance) ? d.marks.balance : null;   // AUDIT HAUL-CARDS B4: the purse, as the silver cards say it
     main.miners = Number.isSafeInteger(d.lode?.struck) ? `${d.lode.struck} / ${d.lode.strikers ?? 20} miners` : null;
     main.hold = LODE_HOLD_MS;
   }
   const out = [main];
-  if (d.gem) { const g = storesHaul(d.gem, 1, { sub: 'a gem' }); if (g) out.push(g); }
-  if (d.extra) { const x = storesHaul(d.extra, Number(d.extraQty) || 1); if (x) out.push(x); }
+  // AUDIT HAUL-CARDS B1: "a gem" only for a gem - a tree's `gem` is its Heartwood, a body's its DFU part (a Big Tooth);
+  // B3: each find its own Stores count, as the answer carries it (`gemStore`, `extraStore`)
+  if (d.gem) { const g = storesHaul(d.gem, 1, { held: heldOf(d.gemStore), sub: material(d.gem)?.family === 'gems' ? 'a gem' : null }); if (g) out.push(g); }
+  if (d.extra) { const x = storesHaul(d.extra, Number(d.extraQty) || 1, { held: heldOf(d.extraStore) }); if (x) out.push(x); }
   return out;
 }
 
@@ -144,7 +150,8 @@ export function claimHauls(data, kind = 'gate') {
   for (const c of Array.isArray(data.contracts) ? data.contracts : []) {
     if (!c || !Number.isSafeInteger(c.pay) || c.pay <= 0) continue;
     const tag = c.guild?.tag ? `[${c.guild.tag}]` : (c.guild?.name ?? 'a guild');
-    out.push({ key: `contract\u0002${c.contract ?? tag}`, haul: 'silver', count: c.pay, source: `Contract - ${tag}${c.tax > 0 ? ` (${c.tax} tax)` : ''}`, hold: HAUL_HOLD_MS, adds: ['count'] });
+    // AUDIT HAUL-CARDS C3/C7: the tax before the guild (a long name gives way, never the tax), grouped as every number
+    out.push({ key: `contract\u0002${c.contract ?? tag}`, haul: 'silver', count: c.pay, source: `Contract${c.tax > 0 ? ` (${num(c.tax)} tax)` : ''} - ${tag}`, hold: HAUL_HOLD_MS, adds: ['count'] });
   }
   return out;
 }
@@ -171,6 +178,6 @@ export function haulWords(l) {
   const row = l.xp > 0 ? { text: `+${num(l.xp)} ${professionName(l.profession)} XP`, fill: Math.max(0, Math.min(1, Number(l.progress) || 0)), end: l.rank ? `${l.rank}` : '' } : null;
   return {
     head: l.head ?? '', plus: `+${num(l.count)}`, name, sub: l.sub ?? '', tag: Number.isSafeInteger(l.held) ? `Stores ${num(l.held)}` : 'Stores', end: '', row,
-    lode: l.lode ? { silver: l.silver > 0 ? `+${num(l.silver)} silver` : '', miners: l.miners ?? '' } : null,
+    lode: l.lode ? { silver: l.silver > 0 ? `+${num(l.silver)} silver` : '', held: l.silver > 0 && Number.isSafeInteger(l.balance) ? `you hold ${num(l.balance)}` : '', miners: l.miners ?? '' } : null,
   };
 }
