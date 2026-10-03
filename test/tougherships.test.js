@@ -134,7 +134,15 @@ test('TOUGHER-SHIPS the save keeps a boat on her first build\'s scale - an older
   dmg.apply({ hull: 336, sail: 64, crew: 0 }, 0);
   const rec = savedRecord(dmg, HULL.SmallShip, 32);
   assert.deepEqual([rec.hull, rec.maxHull, rec.sail, rec.maxSail, rec.credit], [210, first.hullHp, 120, first.sailHp, 20], 'half her hull is 210 of 420 to an older build, as it always was');
-  assert.deepEqual(savedHurts(rec, HULL.SmallShip, whole), { ...rec, hull: 336, sail: 192, credit: 32 }, 'and back, the same');
+  // PIN MOVED (TOUGHER-SHIPS + HOLDINGS' merge of main's #574, FG-05): read on the whole she was saved on, `exact` - to the bit
+  const { exact, ...plain } = rec;
+  assert.deepEqual(exact, { maxHull: b.hullHp, maxSail: b.sailHp, hull: 336, sail: 192, credit: 32 });
+  assert.deepEqual(savedHurts(rec, HULL.SmallShip, whole), { ...plain, hull: 336, sail: 192, credit: 32 }, 'and back, the same');
+  const frac = createShipDamage({ hullHp: b.hullHp, sailHp: b.sailHp, crew: 24, player: true });
+  frac.apply({ hull: 100, sail: 0, crew: 0 }, 0);
+  frac.restore({ ...frac.saveData(), hull: frac.hull - 0.12345 });
+  assert.equal(savedHurts(savedRecord(frac, HULL.SmallShip, 0), HULL.SmallShip, whole).hull, frac.hull, 'a fraction of her mending kept to the bit');
+  near(savedHurts(rec, HULL.SmallShip, { maxHull: b.hullHp * 1.3, maxSail: b.sailHp * 1.3 }).hull, 336 * 1.3, 1e-9, 'another whole (a refit) reads the share');
   const nick = createShipDamage({ hullHp: b.hullHp, sailHp: b.sailHp, crew: 24, player: true });
   nick.apply({ hull: b.hullHp - 1, sail: 0, crew: 0 }, 0);
   near(savedHurts(savedRecord(nick, HULL.SmallShip, 0), HULL.SmallShip, whole).hull, 1, 0.02, 'a sliver of hull is still a sliver: never read back a wreck');

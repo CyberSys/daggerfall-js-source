@@ -195,7 +195,7 @@ test('AUDIT 39 #62: the hosts wire CameraRecoiler.reset to load, relocation and 
   assert.ok(restored > 0 && reset > restored,
     'world: SaveLoadManager_OnStartLoad (:185-191) - reset AFTER the incoming character is read');
   assert.ok(rebuild > reset, '...and BEFORE the scene is torn down and rebuilt');
-  assert.match(world, /async function _teleportToPixel\([\s\S]{0,400}?cameraRecoiler\.reset\(\);/,
+  assert.match(world, /async function _teleportToPixel\([\s\S]{0,500}?cameraRecoiler\.reset\(\);/,
     'world: StreamingWorld_OnInitWorld (:178-183) - fast travel, teleport, the load\'s landing');
   for (const f of ['scenes/world.js', 'scenes/exterior.js']) {
     assert.match(src(f), /onCourtScreen: \(\) => cameraRecoiler\.reset\(\)/,

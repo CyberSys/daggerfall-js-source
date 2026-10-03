@@ -208,7 +208,9 @@ test('LOOK-BUTTONS end to end: on her own lot the owner opens the decorator, tri
   const paint = btnNamed(panel, 'Paint it');
   assert.equal(shown(r.doc, paint), true, 'the button she presses is drawn');
   paint.fire('click');
-  for (let i = 0; i < 6; i++) await r.frame(true);
+  // The click starts a real asynchronous service write; a frame count is not its completion.
+  const paintedBy = performance.now() + 5000;
+  while (!r.said.includes('Your house is painted.') && performance.now() < paintedBy) await r.frame(true);
   assert.ok(r.said.includes('Your house is painted.'), r.said.join(' / '));
   assert.deepEqual(r.homes.homeAt(7, 300).look, tried, 'her registry wears it');
   assert.deepEqual(r.previews.at(-1), [7, 300, undefined], 'the tried look put away - the registry\'s is the one drawn');

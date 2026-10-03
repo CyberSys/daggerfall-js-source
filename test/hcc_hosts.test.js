@@ -146,8 +146,8 @@ test('HCC hosts: world.js - the frame, the draw, the origin, the ray, the plaque
     /horseCartSave: \(\) => hccRuntime\.getSaveData\(\),/, /horseCartLoad: \(rec\) => \{ hccRuntime\.handleStartLoad\(\); if \(rec\) hccRuntime\.restoreSaveData\(rec\); \},/,
     /if \(!_loadedGame\) hccRuntime\.handleNewGame\(\);/, /horseCart: hccRuntimeOn,\s+\/\/ HCC: the runtime's transition handlers/,
     // AUDIT HCC H2: the travel map's journey (the mod's one subscription), and the online respawn treated as one
-    /if \(_traveling\) return;\n(?:\s*\/\/[^\n]*\n)*\s+hccRuntimeOn\(\)\?\.handlePreFastTravel\(\);\n\s+let hccPostDue = true;[^\n]*\n\s+_traveling = true;/,
-    /travelStart, modEvent: 'travel' \}\);\n\s+hccPostDue = false; hccRuntimeOn\(\)\?\.handlePostFastTravel\(\);/, /if \(hccPostDue\) hccRuntimeOn\(\)\?\.handlePostFastTravel\(\);[^\n]*\n\s+_traveling = false;/,
+    /let hccPostDue = false;[\s\S]*?try \{\s+hccRuntimeOn\(\)\?\.handlePreFastTravel\(\);\s+hccPostDue = true;[^\n]*\n\s+_traveling = true;/,
+    /hccPostDue = false; hccRuntimeOn\(\)\?\.handlePostFastTravel\(\);/, /try \{ if \(hccPostDue\) hccRuntimeOn\(\)\?\.handlePostFastTravel\(\); \}\s+finally \{\s+_traveling = false;/,
     /hccRuntimeOn\(\)\?\.handlePreFastTravel\(\);\n\s+try \{\n\s+if \(ohReturn\) \{[^\n]*\n\s+else await _teleportToPixel\(land\.x, land\.y, null, \{ reposition: REPOSITION\.RandomStartMarker \}\);\n\s+\} finally \{ hccRuntimeOn\(\)\?\.handlePostFastTravel\(\); \}/,   // AUDIT OH-F B5: the abyss's way up beside it
     /exteriorFoes\.foesFrame\(full, _hccDirty \|\| csaMoved \|\| csaAboardMoved( \|\| bandMoved)? \|\| navalMoved( \|\| seaRaidMoved)?\)/, /if \(cell && full\) frame\.c = camps\.wireRecords\(campToWire\); if \(cell && \(full \|\| _hccDirty\)\) \{ frame\.hv = hcc\.wireRecord\(campToWire\); _hccDirty = false; \}/,
     /if \(isCellRoom\(online\.room\)\) \{ const ids = ownerIds\(\); if \(ids\) camps\.sweepOwners\(ids, now, FOES_STALE_MS\); \}[^\n]*\n\s*if \(isCellRoom\(online\.room\)\) \{ const ids = ownerIds\(\); if \(ids\) hcc\.sweepOwners\(ids, now, FOES_STALE_MS\); \}/,

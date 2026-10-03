@@ -82,7 +82,11 @@ export class ActionTextBox {
    *  undefined for NOTICE_HINT's "click or press a key", which is what
    *  ClickAnywhereToClose means and so is the default. A box that
    *  closes some other way says so. */
-  constructor(lines, { highlightColor = undefined, previousWindow = true, pauseWhileOpen = true, noticeHint = undefined } = {}) {
+  /** SEARCH1: `onClose` runs ONCE when the box is dismissed - deferred past the dismissal, so the host has emptied its
+   *  slot before the callback acts (THE SLOT IS EMPTIED BEFORE THE OCCUPANT IS TOLD): a searched grave's foe stands, or
+   *  its find opens, only when the player has clicked the box away. A replaced (disposed) box runs nothing. */
+  constructor(lines, { highlightColor = undefined, previousWindow = true, pauseWhileOpen = true, noticeHint = undefined, onClose = null } = {}) {
+    this.onClose = typeof onClose === 'function' ? onClose : null;
     this.lines = lines;
     this.highlightColor = highlightColor;
     this.done = false;
@@ -99,7 +103,7 @@ export class ActionTextBox {
    *  so a box swapped for a window slid out NOTICE_WATCHDOG_MS late,
    *  over the window that replaced it. Same release `input` runs, and
    *  a no-op on the classic skin. */
-  dispose() { noticeRelease(this); }
+  dispose() { this.onClose = null; noticeRelease(this); }
 
   /** ST1: DaggerfallMessageBox.AddNextMessageBox - dismissing this
    *  box shows the next box's rows in its place, and only the LAST
@@ -114,6 +118,10 @@ export class ActionTextBox {
     // ENH-NOTICE1: the panel leaves with the box. A no-op on the
     // classic skin (no panel was ever keyed to this box).
     noticeRelease(this);
+    // SEARCH1: the close's one callback, once, after this dismissal has returned to its host
+    const cb = this.onClose;
+    this.onClose = null;
+    if (cb) Promise.resolve().then(() => { try { cb(); } catch (e) { console.warn('[actionText] onClose threw', e); } });
   }
 
   /** ClickAnywhereToClose is CLICK anywhere first (DaggerfallMessageBox

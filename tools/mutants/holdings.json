@@ -211,11 +211,12 @@
   {
     "name": "FLEET-wire-n-always",
     "file": "src/systems/comeSailAwayWire.js",
-    "old": "  return named ? { ...rec, n } : rec;",
-    "new": "  return { ...rec, n };",
+    "old": "...(named ? { n } : {}) };",
+    "new": "n };",
     "tests": [
       "test/fleet.test.js"
-    ]
+    ],
+    "note": "TOUGHER-SHIPS + HOLDINGS' merge of main's #574 (PIN MOVED): re-aimed by content - the record's names beside main's uids (`u`)."
   },
   {
     "name": "FLEET-wire-name-unread-by-law",

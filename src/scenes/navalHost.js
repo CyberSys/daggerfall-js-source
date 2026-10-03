@@ -109,20 +109,32 @@ export function savedHurts(rec, hull, whole) {
   const thenHull = was(rec.maxHull, first.hullHp);
   const out = { ...rec, hull: share(rec.hull, thenHull, whole.maxHull), sail: share(rec.sail, was(rec.maxSail, first.sailHp), whole.maxSail) };
   if (Number.isFinite(rec.credit)) out.credit = share(rec.credit, thenHull, whole.maxHull);
+  // read on the very whole she was saved on (the build that saved her, no refit since): her hurts to the bit, as they
+  // stood (`exact` - FG-05's law: a save and a load lose no fraction of her mending nor of her fires' work)
+  const x = rec.exact;
+  delete out.exact;
+  if (x && typeof x === 'object' && x.maxHull === whole.maxHull && x.maxSail === whole.maxSail && Number.isFinite(x.hull) && Number.isFinite(x.sail)) {
+    out.hull = x.hull; out.sail = x.sail;
+    if (Number.isFinite(x.credit)) out.credit = x.credit;
+  }
   return out;
 }
 /**
  * TOUGHER-SHIPS: a boat's record as the save keeps it - ON HER FIRST BUILD'S SCALE (navalShips.js firstBuildOf), her hull,
  * canvas and part-spent store's credit the share of it they are now (to the hundredth), and that whole said
  * (`maxHull`, `maxSail`): an older build reads her hurts as the points they always were (a save carried back to one
- * neither heals her nor wrecks her), and this one reads them as the share they are (savedHurts).
+ * neither heals her nor wrecks her), and this one reads them as the share they are (savedHurts). Built on the damage's
+ * `saveData` (each fire and the crew's burn kept - main's, at this branch's merge of #574), and `exact`: her hurts and
+ * credit as they stand on her whole now, read to the bit by a build whose whole for her is the same (an older one, or a
+ * refit, reads the share).
  * @param {ReturnType<typeof createShipDamage>} damage @param {number} hull @param {number} credit
  */
 export function savedRecord(damage, hull, credit) {
   const first = firstBuildOf(hull);
   const on = (v, now, then) => (now > 0 ? Math.round((v / now) * then * 100) / 100 : 0);
-  return { ...damage.snapshot(), hull: on(damage.hull, damage.maxHull, first.hullHp), sail: on(damage.sail, damage.maxSail, first.sailHp),
-    maxHull: first.hullHp, maxSail: first.sailHp, credit: on(credit, damage.maxHull, first.hullHp) };
+  return { ...damage.saveData(), hull: on(damage.hull, damage.maxHull, first.hullHp), sail: on(damage.sail, damage.maxSail, first.sailHp),
+    maxHull: first.hullHp, maxSail: first.sailHp, credit: on(credit, damage.maxHull, first.hullHp),
+    exact: { maxHull: damage.maxHull, maxSail: damage.maxSail, hull: damage.hull, sail: damage.sail, credit } };
 }
 /** SHIP-LIFE: a harbour's moored ships stand while its mouth is within HARBOUR_STAND of the player (m) - ashore too -
  *  and go, to be stood again the same on the player's return, past HARBOUR_LEAVE; HARBOUR_ROLL of them (a draw in the
@@ -4298,7 +4310,7 @@ export function createNavalHost(deps) {
   function getSaveData() {
     const boats = {};
     for (const [uid, rec] of pendingBoats) boats[uid] = rec;
-    for (const [uid, st] of boatState) boats[uid] = { ...savedRecord(st.damage, st.hull, st.credit), barrels: st.guns.barrels, mates: st.crew.snapshot() };   // SHIP-CREW (`mates`: the damage's own `crew` is her count), SEA-REPAIR (`credit`), TOUGHER-SHIPS (on her first build's scale)
+    for (const [uid, st] of boatState) boats[uid] = { ...savedRecord(st.damage, st.hull, st.credit), barrels: st.guns.barrels, mates: st.crew.snapshot() };   // SHIP-CREW (`mates`: the damage's own `crew` is her count), SEA-REPAIR (`credit`), TOUGHER-SHIPS (on her first build's scale) - her fires and fractional hurts with it (`saveData`)
     return { v: NAVAL_SAVE_VERSION, boats, notoriety: notoriety.snapshot(), day: lastDecayDay, raids: [...raidUids], party: companions.snapshot() };   // CREW-COMPANIONS: `party`
   }
   function restoreSaveData(r) {

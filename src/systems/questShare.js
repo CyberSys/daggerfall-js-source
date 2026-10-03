@@ -68,6 +68,7 @@
 import { MEMBERSHIP_STATUS, isMainQuestName } from './quest/questLists.js';
 import { TaskType } from './quest/task.js';
 import { getInnerSymbolName } from './quest/symbol.js';
+import { sharedActionMatches, takeLocalActions } from './quest/shareActions.js';
 import { GUILDS, hasJoined } from './guilds.js';
 import { QUEST_FRAME_MAX } from '../net/wire.js';
 import { BUILD_TAG } from '../buildTag.js';   // SHARE-MEND: the sender's build rides the envelope, so a refusal can name a skew
@@ -263,7 +264,7 @@ export function receiveSharedQuest(machine, questLists, questName, data, ctx = {
   if (why) return { ok: false, reason: 'mismatch' };
   // SHARE-MEND: the markers travel slim - made whole AFTER the shape check (AUDIT D3): it holds every resource's symbol
   // to a string, and a forged Place's number there threw out of the receipt instead of being refused in words
-  const safe = takeLocalItems(local, fullShareMarkers(data));
+  const safe = takeLocalItems(local, takeLocalActions(local, fullShareMarkers(data)));
   if (check.resync) {
     const quest = machine.updateSharedQuest(questName, safe);
     if (quest) return { ok: true, quest, resync: true };
@@ -320,7 +321,7 @@ export function shapeMismatch(local, data) {
     taskNames.add(name);
     const acts = Array.isArray(t.actions) ? t.actions : null;
     if (!acts || acts.length !== r.actions.length) return 'actions';
-    for (let j = 0; j < acts.length; j++) if (!acts[j] || acts[j].type !== r.actions[j].type) return 'action';
+    for (let j = 0; j < acts.length; j++) if (!sharedActionMatches(r.actions[j], acts[j])) return 'action';
   }
   const res = Array.isArray(data.resources) ? data.resources : null;
   if (!res) return 'resources';

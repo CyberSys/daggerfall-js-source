@@ -222,6 +222,11 @@ export function spellSigil(name) {
   }
   return words.slice(0, 3).map((w) => w.replace(/[^a-z0-9]/gi, '')[0] ?? '').join('').toUpperCase();
 }
+/** NO-ICON: a spell the player set to "No icon" wears the first letter of its first two words (one word: its first letter). */
+export function spellInitials(name) {
+  const words = String(name ?? '').split(/[\s-]+/).map((w) => w.replace(/[^a-z0-9]/gi, '')).filter(Boolean);
+  return words.slice(0, 2).map((w) => w[0]).join('').toUpperCase() || '?';
+}
 const ELEMENT_CLASS = ['fire', 'frost', 'poison', 'shock', 'magic'];
 const RANGE_MARK = ['\u25cf', '\u270b', '\u2192', '\u25ce', '\u2735'];   // self, touch, target, area, area-at-range
 const RANGE_WORD = ['Caster only', 'Touch', 'Target at range', 'Area around caster', 'Area at range'];
@@ -336,7 +341,7 @@ function paint() {
   const rev = bindings().rev;
   if (rev !== keysRev) { keysRev = rev; slots.forEach((sl, i) => { const t = hotbarKeyOf(i) ?? ''; if (sl.key.textContent !== t) sl.key.textContent = t; }); }   // KB1: a rebind renames the chips
   const sig = `${hotbarRevision()}|${dropping ? 1 : 0}|${fit.box}x${fit.dpr}|${view.map((v) => (v.empty ? '-'
-    : `${v.name}|${v.count ?? ''}|${Number.isFinite(v.condition) ? Math.round(v.condition) : ''}|${v.ghost ? 1 : 0}|${v.active ? 1 : 0}|${v.item ? 1 : 0}|${v.icon ?? ''}`
+    : `${v.name}|${v.count ?? ''}|${Number.isFinite(v.condition) ? Math.round(v.condition) : ''}|${v.ghost ? 1 : 0}|${v.active ? 1 : 0}|${v.item ? 1 : 0}|${v.icon ?? ''}|${v.noIcon ? 'n' : ''}`
       // AUDIT MERGE-PLUS C8: and the frame the slot wears (RARITY-UI's tier, SIGIL-UI's rune) - Loot Rarity switched,
       // an item identified or a sigil grown in, and the slot kept its old colour until something else moved
       + `|${v.item && v.type !== 'spell' ? `${rarityAttr(v.item) ?? ''}${validSigil(v.item.sigil) ? '*' : ''}${setIdOf(v.item) ?? ''}` : ''}`   // SET5: and its set
@@ -374,8 +379,8 @@ function paintSlot(s, v, entity) {
     // UI2 (Mac: "The hotbar also is missing sprite icons like spells"): THE SPELL'S OWN ICON - ICON00I0's, the one its
     // record names (a spell gone from the book keeps the one it was slotted with) - its initials only while the sheet
     // loads and for a spell with no icon at all
-    const drew = iconFor(s, v.slot, null, entity, v.icon);
-    const sig = spellSigil(v.name);
+    const drew = iconFor(s, v.slot, null, entity, v.noIcon ? null : v.icon);   // NO-ICON: none asked, none drawn
+    const sig = v.noIcon ? spellInitials(v.name) : spellSigil(v.name);
     s.glyph.textContent = drew ? '' : sig;
     s.glyph.dataset.len = String(sig.length);
     s.count.textContent = '';

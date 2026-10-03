@@ -111,7 +111,7 @@ test('EL5: the casters - the nearest lanterns first, at most SHADOW_POINT_CASTER
   assert.equal(pickShadowCaster(L, [0, 0, 0], C), 2, 'the old pick is the nearest');
   assert.deepEqual(pickShadowCasters(L, [0, 0, 0]), [0, 2, 5, 7, 6, 1], 'LIGHT-NEAR1: unflagged, the light at the eye is the nearest caster of all');
   assert.deepEqual(pickShadowCasters(new Float32Array(0), [0, 0, 0]), []);
-  assert.equal(SHADOW_POINT_CASTERS, 8);   // HQ1: eight, on SC1's cache
+  assert.equal(SHADOW_POINT_CASTERS, 12);   // FLICKER-FIX: twelve
 });
 
 test('EL5: the face basis the shader selects by is pointFaceMatrices\' own - a point projects to the same uv both ways, on every face', () => {

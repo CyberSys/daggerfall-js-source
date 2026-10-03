@@ -596,8 +596,8 @@
   {
     "name": "PT-host-never-beside",
     "file": "src/scenes/world.js",
-    "old": "const beside = walkMode && pick.besideAt ? partyBesideLanding(pick.besideAt(), pick.besideSeat) : null;",
-    "new": "const beside = null;",
+    "old": "beside = partyBesideLanding(target, pick.besideSeat);",
+    "new": "beside = null;",
     "tests": [
       "test/partytravel.test.js"
     ]

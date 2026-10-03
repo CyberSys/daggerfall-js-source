@@ -78,7 +78,7 @@ test('AUDIT WORLD6b-iii(c) A3/C2, A4/C10: a refused projection is not an empty g
   assert.equal(bobHits.at(-1).grant.length, 1, 'the second good item went'); assert.equal(rat.entity.items.length, 0, 'and the unmintable one is gone with it (it could never be granted)');
   // past LOOT_LIST_MAX
   const rat2 = await bob.spawnFoe(0, [12, 0, 12], { feetGiven: true });
-  rat2.entity.items = Array.from({ length: LOOT_LIST_MAX + 6 }, () => one());
+  rat2.entity.items = Array.from({ length: LOOT_LIST_MAX + 6 }, () => one()); delete rat2.entity.lootCap;   // FOE-CAP: a body with no cap (a boss's) - a plain rat's would carry three
   bob.damageFoe(rat2, 9999, [10, 0, 10]);
   clock.t += 1000; bob.applyHit('mac-0001', take(rat2.seq));
   assert.equal(bobHits.at(-1).grant.length, 35, 'a part'); assert.equal(rat2.entity.items.length, 35, 'the rest stays');
@@ -163,7 +163,8 @@ test('AUDIT WORLD6b-iii(c) C5: the frame obeys CELL_FRAME_RECORDS_MAX - the live
   assert.ok(f.f.every((r) => validFoeRecord(r)), 'every record the wire\'s');
 });
 
-test('AUDIT WORLD6b-iii(c) C3: the Room - the hit arm counts BYTES (HIT_ROOM_BYTES_PER_S a second, the destination\'s since AUDIT 68) - over the budget a frame is dropped and nobody struck; inside it a grant lands; the relay is at or past this slice\'s deploy', async () => {
+test('AUDIT WORLD6b-iii(c) C3: the Room - the hit arm counts BYTES (HIT_ROOM_BYTES_PER_S a second, the destination\'s since AUDIT 68) - over the budget a frame is dropped and nobody struck; inside it a grant lands; the relay is at or past this slice\'s deploy', async (t) => {
+  t.mock.method(Date, 'now', () => 1000000); // Two immediate grants must not gain byte budget from test-runner scheduling.
   assert.equal(HIT_ROOM_BYTES_PER_S, 256 * 1024); assert.ok(relayVersionAtLeast(66));
   const at = (px, pz) => ({ x: px * PIXEL_UNITS + 10, y: 0, z: pz * PIXEL_UNITS + 10, yaw: 0, pitch: 0, mv: 0 });
   const r = fakeRoom('world:3,12');

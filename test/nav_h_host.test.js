@@ -322,7 +322,12 @@ test('NAV-H the save: each boat of mine by its deed\'s UID (its hurts and barrel
   // the hundredth, so her hands' first tenth of a second of mending shows
   const first = firstBuildOf(2);
   const { hull: hull1, sail: sail1, ...rest } = hurts;
-  assert.deepEqual(rest, { crew: 10, fire: 0, state: 'afloat', maxHull: first.hullHp, maxSail: first.sailHp, barrels: 1 });
+  // PIN MOVED (TOUGHER-SHIPS + HOLDINGS' merge of main's #574): and her fires each and the crew's burn (the damage's saveData)
+  // and `exact`: her hurts on her whole now, read back to the bit by this build (FG-05)
+  const { exact, ...plain } = rest;
+  assert.deepEqual(plain, { crew: 10, fire: 0, fires: [], crewBurn: 0, state: 'afloat', maxHull: first.hullHp, maxSail: first.sailHp, barrels: 1 });
+  assert.deepEqual([exact.maxHull, exact.maxSail, exact.credit], [hullBuild(2).hullHp, hullBuild(2).sailHp, 0]);
+  assert.ok(exact.hull > 100 && Math.abs(exact.hull / exact.maxHull - hull1 / first.hullHp) < 1e-4, 'the same share, unrounded');
   assert.ok(hull1 >= 100 && hull1 < 100.2 && sail1 >= 50 && sail1 < 50.2, `her hurts as saved, on her first build's scale (${hull1}, ${sail1})`);
   assert.equal(credit, 0);
   assert.equal(mates.hands.length, 2, 'her two hands on deck, named');

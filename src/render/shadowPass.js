@@ -59,6 +59,8 @@ import { lookAt, multiply, ortho, perspective } from '../world/mat4.js';
 import { spherePlanes, transformSphere, matrixScale, transformSphereScaled, recordVisible, subMeshVisible, batchVisible, sphereInPlanes, batchSphere, ZERO_ORIGIN, placementRadius, placedHalfDiagonal, placementsInCube, placementsInVolume } from './bounds.js';   // EL5: the cull; PERF-EXT1: and a batch's placements
 import { billboardKey } from './billboardKey.js';   // AUDIT 68 S16-bbkey-stale-shadow-reach: re-keyed here, however the batch reached the records
 import { aabbOutside } from './frustum.js';   // SHADOW-REACH: a host's box against the cascades
+import { getPref } from '../systems/uiPrefs.js';
+import { AIR_TUNING } from './airPass.js';   // FLICKER-FIX: the calmer eye
 import { pageParam } from '../systems/pageQuery.js';   // PERF-URL: the page's query, parsed once a search
 import { BAYER_GLSL, DISSOLVE_GLSL } from './orderedDither.js';   // AUDIT BAY A12: a fading ship's shadow dissolves with her
 
@@ -67,7 +69,7 @@ export const SHADOW_SUN_SIZE = 2048;
 /** A caster's face size (six layers of the point depth array per caster). */
 export const SHADOW_POINT_SIZE = 512;
 /** EL5: how many lanterns cast at once - the nearest to the eye. */
-export const SHADOW_POINT_CASTERS = 8;   // EL6: six - a gate passage has that many lanterns in reach; HQ1: eight - SC1's cache made a still caster nearly free, so a tavern's every lamp throws its shadow
+export const SHADOW_POINT_CASTERS = 12;   // FLICKER-FIX (2026-10-02): twelve, not eight - a lamp past the eight read the lo map (static casters only), so the player's and the townsfolk's shadows vanished for it and came back when it swapped in (+48 MB of depth layers). EL6: six; HQ1: eight - SC1's cache made a still caster nearly free.
 /** EL8: the caster-slot table's size - one int per light slot the lane can
  *  hold (enhancedLighting.js EL_MAX_LIGHTS, pinned equal): a light's slot in
  *  one lookup, not a search over the casters per light per fragment. */
@@ -308,6 +310,14 @@ export const SHADOW_INSTANCE_REACH = 2;
  *  and every frame for every flora batch of a pixel handed SC1's whole saving back in a town with trees. */
 export const SHADOW_SWAY_STILL = 0.02;
 export const SHADOW_SWAY_EVERY = 4;
+/** FLICKER-FIX (2026-10-02): STEADY SHADOWS. The cadences above (far cascade every 2nd frame, far lanterns every 3rd,
+ *  sway every 4th) show up on screen as shadows popping on and off from frame to frame. With this on, every map is
+ *  redrawn every frame. It also (a) makes the caster hold much stickier, so two lamps at nearly the same distance never swap a full
+ *  shadow map (with dynamic shadows) for the lo map (static only) from one frame to the next, and (b) lifts the lo
+ *  tier's rebuild budget. Costs GPU time; turn off Settings > Features > Steady shadows (or from the console,
+ *  window.__DF_SHADOW_TUNING.override = false; null hands it back to the row) to get EL8's schedule back. */
+export const SHADOW_TUNING = { steady: true, override: null, debug: false, debugForce: null };
+if (typeof window !== 'undefined') /** @type {any} */ (window).__DF_SHADOW_TUNING = SHADOW_TUNING;   // FLICKER-FIX: set `override` live to compare
 /** WIND3's lean at a flat's crown, world units: the shader's push at top = 1 and the gust's peak (renderer.js BB_VS). */
 export const swayLean = (wl, sway, h) => wl * 1.3 * 0.0015 * sway * h;
 /** PERF-EXT1: the radius that bounds each quad of batch `b` in a record whose wind's rate is `wl` - bounds.js's
@@ -352,6 +362,8 @@ export const SHADOW_LO_MAX = SHADOW_CASTER_TABLE;
 /** DISC15: how many lo maps a frame redraws for a changed static set (a door that came to rest) - a new light's map
  *  is drawn at once, whatever this says. */
 export const SHADOW_LO_REBUILDS = 2;
+/** FLICKER-FIX: the lo tier's rebuilds a frame under Steady shadows - a stale lo map settles in a third of the frames. */
+export const SHADOW_LO_REBUILDS_STEADY = 6;
 /** SC1: the door - `?shadowcache=off` replays every caster at the cadence, as before. */
 export function shadowCacheOn(search = globalThis.location?.search ?? '') {
   return pageParam('shadowcache', search) !== 'off';   // PERF-URL
@@ -530,6 +542,8 @@ export function pickShadowCaster(lights, eye, carried = null) {
  * newcomer must be clearly nearer to take its place; the set changes when the player really moves, never on a tie.
  */
 export const CASTER_KEEP_RATIO = 0.8;
+/** FLICKER-FIX: the keep ratio under SHADOW_TUNING.steady - a newcomer must be a third nearer to take a held map. */
+export const CASTER_KEEP_RATIO_STEADY = 0.65;
 /** Was the light at `lights[i]` a caster last frame? `held` is the flat [x, y, z, _] list the pass kept, by
  *  POSITION (the hosts re-sort their lights every frame, so an index is no name - SC1's own matching). */
 function heldAt(held, heldN, lights, i) {
@@ -587,7 +601,7 @@ export function pickShadowCasters(lights, eye, max = SHADOW_POINT_CASTERS, carri
   for (let i = 0; i < n; i++) {
     if (carried && carried[i]) continue;   // MAC-T1: the light in the player's hand takes no caster slot in ANY camera (F3's law by name)
     const dx = lights[i * 4] - eye[0], dy = lights[i * 4 + 1] - eye[1], dz = lights[i * 4 + 2] - eye[2];
-    const d = Math.sqrt(dx * dx + dy * dy + dz * dz) * (held && heldAt(held, heldN, lights, i) ? CASTER_KEEP_RATIO : 1);
+    const d = Math.sqrt(dx * dx + dy * dy + dz * dz) * (held && heldAt(held, heldN, lights, i) ? (SHADOW_TUNING.steady ? CASTER_KEEP_RATIO_STEADY : CASTER_KEEP_RATIO) : 1);
     if (!(lights[i * 4 + 3] > 0) || lights[i * 4 + 3] > SHADOW_CASTER_MAX_RANGE) continue;   // AUDIT-EL F11; LIGHT-NEAR1: no lower bound on `d` - the lamp overhead casts
     if (picked.length === max && d >= picked[max - 1][1]) continue;
     let at = picked.length;
@@ -1022,7 +1036,7 @@ export class ShadowPass {
       for (let j = 0; j < cap; j++) if (!taken[j]) { slotOf[i] = j; taken[j] = 1; break; }
     }
     for (let j = 0; j < cap; j++) if (!taken[j]) { sl[j * 4] = NaN; this._loBuilt[j] = 0; }   // a light gone: its slot is drawn afresh for the next
-    let rebuilds = SHADOW_LO_REBUILDS;
+    let rebuilds = SHADOW_TUNING.steady ? SHADOW_LO_REBUILDS_STEADY : SHADOW_LO_REBUILDS;   // FLICKER-FIX: more per frame, never all at once (a door in a twenty-lamp room is a hitch)
     for (let i = 0; i < n; i++) {
       const j = slotOf[i];
       if (j < 0) continue;
@@ -1321,6 +1335,9 @@ export class ShadowPass {
   render(f) {
     const gl = this.gl;
     this.stats.records = this.count; this.stats.sunDraws = 0; this.stats.pointDraws = 0; this.stats.culled = 0;
+    SHADOW_TUNING.steady = SHADOW_TUNING.override ?? !!getPref('steadyShadows');
+    SHADOW_TUNING.debug = SHADOW_TUNING.debugForce ?? !!getPref('shadowDebug');   // FLICKER-FIX: the Shadow debug log chip (debugForce: the console's)
+    AIR_TUNING.calm = SHADOW_TUNING.steady;   // FLICKER-FIX: a calmer eye while shadows are steady
     this.kind = shadowKind(f.sunScale, f.lightDir);
     this.frameNo++;
     this.stats.cascadesDrawn = 0; this.stats.facesDrawn = 0; this.stats.staticFaces = 0; this.stats.dynFaces = 0; this.stats.blits = 0; this.stats.cachedSlots = 0;   // SC1
@@ -1343,7 +1360,7 @@ export class ShadowPass {
       const last = SHADOW_CASCADES.length - 1;
       for (let c = 0; c < SHADOW_CASCADES.length; c++) {
         // EL8: the far cascade every other frame (its map keeps its matrix until it is drawn again); a cascade never drawn is drawn now
-        if (c === last && this._sunDrawn[c] && this.frameNo % SHADOW_FAR_CASCADE_EVERY !== 0) continue;
+        if (c === last && this._sunDrawn[c] && !SHADOW_TUNING.steady && this.frameNo % SHADOW_FAR_CASCADE_EVERY !== 0) continue;
         this.sunVP[c].set(this._sunVPNew[c]);
         gl.bindFramebuffer(gl.FRAMEBUFFER, this.sunFbos[c]);
         gl.viewport(0, 0, SHADOW_SUN_SIZE, SHADOW_SUN_SIZE);
@@ -1423,11 +1440,11 @@ export class ShadowPass {
       // AUDIT FLICKER P2: with DISC6's hold - last frame's two by place, at the keep ratio. In first person the card stands
       // a pace before the eye and circles the feet as the player turns, so turning in place hopped the player's
       // shadow from lamp to lamp (a hall of ten lamps: 506 hops over 833 spots in one turn each, two on successive frames)
-      const selfNear = selfAt ? nearestRank(casters, L, selfAt, rank, this._selfHeld, this._selfHeldN) < SHADOW_NEAR_CASTERS : near;
+      const selfNear = selfAt ? (SHADOW_TUNING.steady || nearestRank(casters, L, selfAt, rank, this._selfHeld, this._selfHeldN) < SHADOW_NEAR_CASTERS) : near;   // FLICKER-FIX: steady, every map is redrawn every frame, so the card casts into ALL of them - its silhouette can no longer hop between lamps
       if (selfAt && selfNear && selfN < SHADOW_POINT_CASTERS) { this._selfNext[selfN * 4] = pos[0]; this._selfNext[selfN * 4 + 1] = pos[1]; this._selfNext[selfN * 4 + 2] = pos[2]; selfN++; }
       const selfWant = selfNear ? 1 : 0;
       const selfMoved = this._slotSelf[k] !== selfWant;
-      const due = near || selfNear || (this.frameNo + k) % SHADOW_FAR_CASTER_EVERY === 0;
+      const due = SHADOW_TUNING.steady || near || selfNear || (this.frameNo + k) % SHADOW_FAR_CASTER_EVERY === 0;
       if (!this.cacheOn) {
         // the old path whole: every caster in range, static or not, into the live layers at the cadence
         if (changed || due || selfMoved) {
@@ -1460,7 +1477,7 @@ export class ShadowPass {
         } else this.stats.cachedSlots++;
         // the dynamics on top: the cache blitted into the live layers, then the moving casters alone, at the cadence
         const dynNear = this._dynamicNear(pos, far, f.isSpectral, selfNear);   // 0 none, 1 sway alone, 2 a mover
-        const dueDyn = dynNear === DYN_SWAY ? (this.frameNo + k) % SHADOW_SWAY_EVERY === 0 : due;   // AUDIT REACH: a swaying wood redraws on the sway's own cadence
+        const dueDyn = dynNear === DYN_SWAY ? (SHADOW_TUNING.steady || (this.frameNo + k) % SHADOW_SWAY_EVERY === 0) : due;   // AUDIT REACH: a swaying wood redraws on the sway's own cadence
         if (dynNear && (dueDyn || staticStale || !this._slotLiveDyn[k] || selfMoved)) {
           this._blitSlot(k);
           if (!matrices) pointFaceMatrices(pos, far, this.faceVP);
@@ -1486,11 +1503,28 @@ export class ShadowPass {
     this._selfHeld.set(this._selfNext); this._selfHeldN = selfN;   // AUDIT FLICKER P2
     if (f.everyLight) this._renderLo(f, L);   // DISC15: a room drawn whole - every other light reads its lo map
     this.casters = casters.length;
+    if (SHADOW_TUNING.debug) this._debugLog(f, L, casters);   // FLICKER-FIX: __DF_SHADOW_TUNING.debugForce = true
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
     gl.colorMask(true, true, true, true);
     gl.enable(gl.CULL_FACE);
   }
 
+  /** FLICKER-FIX: the debug log. With `__DF_SHADOW_TUNING.debugForce = true` the console says, on every frame where the
+   *  shadow set CHANGED, what changed: which lamps gained or lost a full shadow map (by place), how many lamps fell back
+   *  to the lo map, and what was redrawn. A flicker that lines up with these lines is a slot swap; one that does not
+   *  is something else (the shader, the exposure). */
+  _debugLog(f, L, casters) {
+    const key = (i) => `${L[i * 4].toFixed(1)},${L[i * 4 + 1].toFixed(1)},${L[i * 4 + 2].toFixed(1)}`;
+    const now = new Set(casters.map(key));
+    const prev = this._dbgSet ?? new Set();
+    const gained = [...now].filter((k) => !prev.has(k)), lost = [...prev].filter((k) => !now.has(k));
+    const st = this.stats;
+    if (gained.length || lost.length || st.staticFaces > 0 || st.loFaces > 0) {
+      console.log(`[shadow] f${this.frameNo} steady=${SHADOW_TUNING.steady} casters=${casters.length} lights=${L.length >> 2}`
+        + ` +${gained.join(' | ') || '-'} -${lost.join(' | ') || '-'} staticFaces=${st.staticFaces} dynFaces=${st.dynFaces} loFaces=${st.loFaces} cascades=${st.cascadesDrawn}`);
+    }
+    this._dbgSet = now;
+  }
   /** SC1: the static signature of a lantern's reach - every static record (and static batch) whose sphere touches
    *  the light's, folded by identity and position, order-free. An unbounded record touches everything.
    *

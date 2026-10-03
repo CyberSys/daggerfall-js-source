@@ -104,7 +104,7 @@ const state = { c1: null, c2: null, swap: null };
  *  INDEX - a SPELLS.STD record number, or the negative one a made spell
  *  mints (systems/spellMaker.js:234-252) - and that index is already
  *  this port's name for "which spell": it is what the save writes
- *  (systems/save.js:361), what a restore reads back, and what
+ *  (systems/save.js:363), what a restore reads back, and what
  *  `setReadiedByIndex` resolves a readied spell by. So the slot keeps
  *  the same key the rest of the port keeps, and a book that changed
  *  under it (a spell sold, a made spell deleted) leaves a GHOST that
@@ -875,7 +875,7 @@ export function quickslotSaveData() {
   const out = {};
   for (const s of QUICKSLOTS) out[s] = state[s] ? { key: state[s].key, name: state[s].name } : null;
   // QS6: the spell slot rides the same block, keyed the way save.js
-  // already keys a spell - by index (systems/save.js:361).
+  // already keys a spell - by index (systems/save.js:363).
   out.spell = spellState ? { index: spellState.index, name: spellState.name } : null;
   // HB1: and the hotbar, on the same block - ten entries, each an item
   // kind or a spell index, exactly as the slots above key them.
@@ -1083,7 +1083,8 @@ export function hotbarView(entity, { readiedIndex = null, size = HOTBAR_CAPACITY
       const spell = book.find((sp) => sp?.index === e.index) ?? null;
       return { slot: i, type: 'spell', name: spell?.name || e.name, index: e.index, spell,
         element: spell?.element ?? null, rangeType: spell?.rangeType ?? null,
-        icon: iconOf(spell).icon ?? e.icon ?? null,   // UI2: the book's icon, else the one it was slotted with
+        icon: spell?.noIcon ? null : iconOf(spell).icon ?? e.icon ?? null,   // UI2: the book's icon, else the one it was slotted with (NO-ICON: none)
+        noIcon: !!spell?.noIcon,
         ghost: !spell, active: readiedIndex != null && readiedIndex === e.index };
     }
     const b = byKey.get(e.key);

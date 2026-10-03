@@ -130,7 +130,7 @@ test('NUDE-FLATS by source: every host that draws a person asks drawnFlat, and t
   assert.match(e, /const \[da, dr\] = drawnFlat\(flat\.archive, flat\.record\);[^\n]*\n\s*const t = textureFiles\.get\(da\) \?\? await getTexture\(da\);\s*if \(!t \|\| dr >= t\.recordCount\) continue;\s*const size = billboardSize\(t, dr\);/,
     'and its street NPCs\' boxes');
   const d = src('src/scenes/dungeonContext.js');
-  assert.match(d, /let size = billboardSize\(bornT, bornRecord\);\s*const based = centers\.map\(\(\[x, y, z\]\) => \[x, y - size\.h \/ 2, z\]\);[\s\S]{0,300}?const \[archive, record\] = drawnFlat\(bornArchive, bornRecord\);[\s\S]{0,200}?size = billboardSize\(t, record\);\s*const batch = renderer\.createBillboardBatch\(archive, record, size, based\);/,
+  assert.match(d, /let size = billboardSize\(bornT, bornRecord\);\s*const based = centers\.map\(\(p\) => Object\.assign\(\[p\[0\], p\[1\] - size\.h \/ 2, p\[2\]\], \{ noCover: !!p\.noCover \}\)\);[\s\S]{0,300}?const \[archive, record\] = drawnFlat\(bornArchive, bornRecord\);[\s\S]{0,200}?size = billboardSize\(t, record\);\s*const batch = renderer\.createBillboardBatch\(archive, record, size, based\);/,
     'an RDB figure: the stand-in on the BORN sprite\'s feet (its pivot is the born centre)');
   assert.match(d, /const drawn = dt && dr < dt\.recordCount \? billboardSize\(dt, dr\) : size;\s*pn\.width = drawn\.w;\s*pn\.height = drawn\.h;\s*pn\.y -= size\.h \/ 2;/,
     'and its box the drawn picture\'s, from the same feet');

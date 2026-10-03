@@ -7,8 +7,10 @@
 // Single named foes with visible traits (Fiery, Swift, Vampiric) and a
 // guaranteed Rare"). About one foe in fourteen of level 3 or more stands as
 // a CHAMPION with one TRAIT: twice its health and its blows a quarter
-// harder, its trait on top, its name the trait's and its own, and a Rare
-// or better ALWAYS on its body (scenes/hostCombat.js spawnEnemyLoot).
+// harder, its trait on top, its name the trait's and its own. Its loot is
+// its own roll (CHAMP-LOOT: no Rare is forced onto its body - Magic and Rare
+// at half a plain foe's, its Legendary as LOOT7 left it: systems/lootRarity.js
+// championSource).
 //
 // WHO DECIDES. A dungeon's foes are its LAYOUT's, built on every client
 // from the location (the elite's way): `markDungeonChampions` marks the

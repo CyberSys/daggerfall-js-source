@@ -259,14 +259,5 @@
     "tests": [
       "test/auditloot.test.js"
     ]
-  },
-  {
-    "name": "AUDITLOOT-F9-no-last-pass",
-    "file": "src/scenes/hostCombat.js",
-    "old": "  lastPass([piece], rolls);\n",
-    "new": "\n",
-    "tests": [
-      "test/auditloot.test.js"
-    ]
   }
 ]

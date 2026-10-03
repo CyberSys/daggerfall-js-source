@@ -3710,6 +3710,7 @@ function pauseStats(body) {
   // pauseSystem) carries. The kit's button role (enhancedFrame.js FRAME_ROLES) reads `.px-sys .act`,
   // so without it these four fell through to the bare, unpainted base .act under Plus.
   const detail = el('div', 'px-qdetail px-sys');   // DROPS-AUDIT F3: the system-page dress (Plus's; PLUS-DEAD: the only one)
+  if (statsSec === 'professions' || statsSec === 'stores') detail.classList.add('prof-detail');
   const profKit = { el, divider: pxDivider, meter: pxMeter };
   ({
     character: statsCharacter, attributes: statsAttributes, skills: statsSkills, specials: statsSpecials, standing: statsStanding, effects: statsEffects, master: statsMaster,   // SOFTCAP4: `master` - the Master Skills door's page
@@ -4856,7 +4857,7 @@ export function runEnhancedMenu(doc = document) {
   return new Promise((resolve) => {
     const menu = mountEnhancedMenu(host, {
       onAction: (action) => {
-        // SAV4 shipped the save manager (systems/saveSlots.js:366
+        // SAV4 shipped the save manager (systems/saveSlots.js:384
         // deleteSave), and this file deletes through it at :387 behind
         // an ask() confirm. Nothing routes 'delete' out here - every
         // onAction call site names its own verb and RAIL_ACTS (:162) is

@@ -417,8 +417,8 @@
   {
     "name": "AUDIT-WOD-m3-no-arrival-gate",
     "file": "src/scenes/world.js",
-    "old": "    const arriving = _seasonStraightening || _loading || _recalling;",
-    "new": "    const arriving = false;",
+    "old": "const arriving = _seasonStraightening || _loading || _recalling || _partyArrivalPending;",
+    "new": "const arriving = false;",
     "tests": [
       "test/audit_wod_branch.test.js"
     ]

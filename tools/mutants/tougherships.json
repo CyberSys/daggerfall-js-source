@@ -250,5 +250,16 @@
     "tests": [
       "test/tougherships.test.js"
     ]
+  },
+  {
+    "name": "TOUGHER-SHIPS-the-exact-read-ignored",
+    "file": "src/scenes/navalHost.js",
+    "old": "  if (x && typeof x === 'object' && x.maxHull === whole.maxHull && x.maxSail === whole.maxSail && Number.isFinite(x.hull) && Number.isFinite(x.sail)) {",
+    "new": "  if (false) {",
+    "tests": [
+      "test/tougherships.test.js",
+      "test/fullgame5719_naval.test.js"
+    ],
+    "note": "TOUGHER-SHIPS + HOLDINGS' merge of main's #574: a save read on the whole it was made on reads her hurts to the bit (`exact`) - FG-05's law beside the first build's scale."
   }
 ]

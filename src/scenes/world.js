@@ -21,7 +21,7 @@ import { WodSpawner, WOD_LOOT_LOCATION_INDEX, WOD_LOOT_ALIGN } from '../world/wo
 import { wodSiteId, yieldsTo } from '../world/wodShared.js';   // WOD7: a camp's marker, shared online
 import { alignBillboardToGround, alignControllerToGround } from '../world/groundAlign.js';   // WOD3: SpawnLoot's drop; CSA-D: BoardBoat's AlignControllerToGround
 import { PRIVATEERS_HOLD_BLOCK, HOLD_MODELS, HOLD_FLATS, holdModelMatrix, holdFireLights, rollHoldFoes } from '../world/wodPrivateersHold.js';   // WOD4: the camp at Privateer's Hold
-import { rollLootRarity, pileSource, dungeonRarityTier, stampWonWeapons } from '../systems/lootRarity.js';   // WOD3: LR1 over the camps' piles; SIGIL1: their weapons' sigils
+import { rollLootRarity, pileSource, dungeonRarityTier, dungeonFamily, stampWonWeapons } from '../systems/lootRarity.js';   // WOD3: LR1 over the camps' piles; SIGIL1: their weapons' sigils
 import { revenantToReturn, revenantSpawnOptions, revenantPresence, takeRevenantNotice, revenantSay, releaseRevenantStand, revenantRecord, revenantMomentEvent } from '../systems/revenant.js';   // REVENANT: who comes back, and what the player is told
 import { SKY_CLEAR } from '../render/renderer.js'; import { centreFromFeet } from '../characters/enemyAnchor.js';   // REVIEW 2026-09-05: one line, so the cites below it hold
 import { Arch3dFile } from '../formats/arch3dFile.js';
@@ -122,6 +122,7 @@ import { createBloodMarks } from '../combat/bloodMarks.js';   // BLOOD1a: the ri
 import { preloadRestArt } from '../ui/restWindow.js';   // S40: rest above ground   // D3: REST00I0/01I0/02I0
 import { createRestWindow } from '../ui/restDoor.js';   // the enhanced/native fork, same law as ui/tradeDoor.js
 import { ActionTextBox } from '../ui/actionText.js';   // AUDIT 23 (C5)
+import { isTombstoneModel, searchKey, searchCooldownLeft, markSearched, SEARCHED_TEXT, rollSearchOutcome, pickSearchUndead, rollSearchElite, searchMessage, mintSearchFind, setSearchClock, SEARCH_FOES_PER_PLAYER, SEARCH_FOE_SPACING } from '../systems/searchables.js';   // SEARCH1: a graveyard's headstones
 import { toggleStatusReadout } from '../ui/statusBox.js';   // STATUS-LIVE: the Status readout, one composer for all four hosts
 import { statusReadoutTakesAction } from '../systems/statusReadout.js';   // STATUS-LIVE: ...and the yield this host's own key ladder owes, which never reaches routeAction
 import { maxFatigue, FATIGUE_MULTIPLIER, liveStat, STAT_KEYS_ORDER } from '../systems/statMods.js';   // AUDIT 23 (C5); AUDIT SOC B5: the party pose's fatigue in the digits a sheet shows
@@ -411,9 +412,14 @@ import { entityMaxEncumbrance } from '../combat/formulas.js';   // FORAGE1: Play
 import { packCapacityKg } from '../systems/naval/crewCompanions.js';   // COMPANION-WEIGHT: what his pack carries
 import { createComeSailAwayPool, CULL_DETAIL_PX, FADE_FLATS as CSA_FADE_FLATS } from './comeSailAwayPool.js';   // CSA-B: Come Sail Away's boats, drawn
 import { createComeSailAwayPeers } from './comeSailAwayPeers.js';   // CSA-J: another player's boats, seen
-import { createComeSailAwayAboard, CSA_ABOARD_GRACE, deckPose as csaDeckPose, helmWord as csaHelmWordOf, localOf as csaLocalOf } from './comeSailAwayAboard.js';   // CSA-K: another player's boat, boarded; FIELD BUGS 2026-09-29 (the sea) #1: the deck's frame, the helmsman's place
+import { createComeSailAwayAboard, CSA_ABOARD_GRACE, deckPose as csaDeckPose, helmWord as csaHelmWordOf, localOf as csaLocalOf, worldOf as csaWorldOf } from './comeSailAwayAboard.js';   // CSA-K: another player's boat, boarded; FIELD BUGS 2026-09-29 (the sea) #1: the deck's frame, the helmsman's place
 import { csaWireRecord, csaRecordKey } from '../systems/comeSailAwayWire.js';   // CSA-J: my boats, said
 import { boatTriggers, boatMenuRows, boatMenuStart, pressBoatVerb, BOAT_VERB } from '../systems/csaBoatMenu.js';   // BOAT-MENU: a boat of mine's verbs on the plaque
+import { linkBankCabin, readBankCabinLink, bankCabinCandidates } from '../systems/boatCabinOwnership.js';
+import { hasSailingCabin, savedCabinBoat, cabinSceneName } from '../systems/sailingCabin.js';
+import { createSailingCabinAccess } from './sailingCabin.js';
+import { createSailingCabinLink } from '../net/sailingCabinLink.js';
+import { capsuleFits } from '../player/parkour.js';
 import { TRIGGER_MODEL as CSA_TRIGGER_MODEL, setLights as csaSetLights, HULL_NAMES as CSA_HULL_NAMES, nodeOf as csaNodeOf, AUDIO_CLIPS as CSA_AUDIO_CLIPS, colliderBoundsInChildren as csaColliderBoundsInChildren, animatorOf as csaAnimatorOf, meshLocalBounds as csaMeshLocalBounds } from '../systems/comeSailAwayBoat.js';   // CSA-B: the probe's lanterns; CSA-D: the plaque's word for a boat; CSA-G: the loops' objects and the five clips; CSA-J: Eye of the Beholder's Collider.bounds
 import { travelMapPicture, TRAVEL_MAP_IMG, LINE_TEXTURE as CSA_LINE_TEXTURE } from '../systems/comeSailAwayMap.js';   // CSA-I: the position reading's picture and lines
 import { createComeSailAwayRuntime, comeSailAwayCarrier, WATER_WALKING_SILENT, COME_SAIL_AWAY_VENDOR, CONSOLE as CSA_CONSOLE, NO_WATER_LEVEL, NICE_BOAT_TEXT as CSA_NICE_BOAT_TEXT, activationModelOf as csaActivationModelOf, customModelOf as csaCustomModelOf, ACTIVATION_DISTANCE as CSA_ACTIVATION_DISTANCE, windWidgetFrameCount as csaWindWidgetFrameCount, BOAT_ACTIONS as CSA_BOAT_ACTIONS, HANDLING as CSA_HANDLING, hullFromMessage as csaHullFromMessage, tileMapIndexAtPosition as csaTileMapIndexAtPosition } from '../systems/comeSailAway.js';   // NAV-H: the tile a sea ship floats on
@@ -461,6 +467,7 @@ import { createBountyOverlay, closeBountyDoor, bountyDoorOpen } from '../ui/boun
 import { isQualifyingThreatState } from '../systems/horseFollow.js';   // HCC: CollectThreats' qualification, the mod's own five-term test
 import { totalWeight } from '../systems/inventory.js';   // HCC: PlayerEntity.WagonWeight
 import { WAGON_KG_LIMIT, planTake, CANNOT_CARRY_TEXT } from '../systems/itemTransfer.js';   // HCC: ItemHelper.WagonKgLimit; SET7: the Broker's sale asks the pack's own carry gate
+import { giveNavalItems } from '../systems/naval/navalTransfer.js';
 import { InputMessageBoxWindow } from '../ui/inputMessageBox.js';   // HCC: the horse's name (DaggerfallInputMessageBox)
 import { getBool, getInt, getFloat } from '../systems/settings.js';   // U31: StartCellX/Y + StartInDungeon, the classic start's own three keys   // F-slice: worldCoordToMapPixel for the travel start pixel
 import { STREAMING_TERRAIN_SCALE, DEFAULT_TERRAIN_SCALE, HEIGHTMAP_DIMENSION, MAX_TERRAIN_HEIGHT, TERRAIN_SIZE, SCALED_OCEAN_ELEVATION, sampleKernel } from '../world/terrainSampler.js';   // GR1: the sea plane, so no blade stands in water
@@ -569,7 +576,8 @@ import { GATE_BRAIN_V } from '../net/wire.js';   // AUDIT WBX R7: the brain's la
 import { characterIdOf } from '../systems/characterId.js';   // AUDIT HCC-PARK: my parked team is my CHARACTER's (the relay keys it by the account and this)
 import { chooseTable, tableMoveSpeed } from '../player/eotbBillboard.js';   // AUDIT RIDE: the rider's gallop is the table the rider's own sprite shows
 import { PARTY_READY_TIMEOUT_MS, memberPresent, latestStamp, voteStands, snapshotCancels, cancelRequestFor, mirrorKey, cooldownStamp, stampOf, restsAlone, partyRestsTogether, restAloneText, restsApart, REST_APART_TEXT } from '../systems/partyRestLaw.js';   // AUDIT PARTY-REST: the pure half of the party-rest mechanic, pinned by execution   // SOC2: the hub's room and the party pose's floor (a second wire import: AUDIT WORLD4 A1 pins the first as it stands)
-import { besideLandingOf, PARTY_TRAVEL_TEXT, BESIDE_LEVEL, fareText } from '../systems/partyTravelLaw.js';   // PARTY-TRAVEL: the party's journey - to the leader, and together; SHIP-SAIL: the fare's own row
+import { partyArrivalBeside, supportedPartyPosition, waitForPartyArrival, PartyArrivalUnavailable, PARTY_ARRIVAL_TEXT } from '../systems/partyArrival.js';
+import { PARTY_TRAVEL_TEXT, fareText } from '../systems/partyTravelLaw.js';   // PARTY-TRAVEL: the party's journey - to the leader, and together; SHIP-SAIL: the fare's own row
 import { createPartyTravel } from '../systems/partyTravel.js';   // PARTY-TRAVEL: its session, over this host's seams
 import { TravelPopUpWindow } from '../ui/travelPopUp.js';   // PARTY-TRAVEL: the map's own popup prices a party journey, headless
 import { YesNoBoxWindow } from '../ui/yesNoBox.js';   // PARTY-TRAVEL: the journey's prompts - UXB1-M's box, either skin
@@ -679,7 +687,9 @@ import { createStormLights } from '../systems/lightning.js';   // BOLT: the stri
 import { LightningBoltsRenderer } from '../render/lightningBolts.js';   // BOLT: the channels, drawn
 import { createDread, createDreadStorm, dreadLight, dreadCloudGlow, DREAD_KEY_DIM, DREAD_FLASH_COLOR } from '../world/dreadSky.js';   // EVENT1: the live event's sky and its red storm
 import { parseEventCommand } from '../net/chatCommands.js';   // EVENT1: /event, a dev's live event
-import { isStaff, parseStaffCommand, STAFF_HELP_LINES, findPlace, findPlayer } from '../net/staffCommands.js';   // STAFF1: the staff's own commands
+import { createStaffTeleportClient, validStaffDestination, staffDestinationKey, followStaffPlayer } from '../net/staffTeleport.js';
+import { privateInteriorPrefix, privateInteriorRoom, privateBoatRoom, privateInteriorOf } from '../net/privateInterior.js';
+import { isStaff, parseStaffCommand, STAFF_HELP_LINES, findPlace } from '../net/staffCommands.js';   // STAFF1: the staff's own commands
 import { fieldFromNative, nativeFromField, fieldOfPixelLocal } from '../systems/weatherField.js';   // WEATHER2b: the field's metres from the streaming world's natives, and back
 import { cellOfField, VC_PROFILE } from '../render/volumetricClouds.js';   // WEATHER2c: the field's cells as the clouds' cells   // W1: the live weather state (the save halves ride save.js); SAV3: the classic import's zone array
 import { classicSaveToSnapshot, takePendingClassicSave, peekPendingClassicSave } from '../systems/classicSave.js';   // SAV3: the classic-save import arm
@@ -2254,7 +2264,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     // until its destination has built (a `finally`, so a throw drops it
     // too), nothing is awaited between that and the player standing, and a
     // load or a recall lands the player last.
-    const arriving = _seasonStraightening || _loading || _recalling;
+    const arriving = _seasonStraightening || _loading || _recalling || _partyArrivalPending;
     const o = _wodArrival.origin;
     const standing = walkMode && playerSpawned;
     const feet = standing ? player.pos : cam.pos;
@@ -3616,6 +3626,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     const pixelSprings = []; // SURV3: the mod's water sources - fountains and wells (212: 0, 2, 8, 9; 85: 0), the dry fountain (212: 3), the troughs (41220-41222) - pixel-local {pos, dry}
     const pixelNpcFlats = []; // AUDIT 26 (F019): the flats RMBLayout stands as StaticNPCs, pixel-local
     const pixelBoards = [];   // the block's BULLETIN BOARDS (model 41739), pixel-local boxes
+    const pixelGraves = [];   // SEARCH1: a Graveyard location's headstones (systems/searchables.js isTombstoneModel), pixel-local boxes
     const light210 = await getTexture(LIGHTS_ARCHIVE);
     const lightSize = (record) =>
       billboardSize(light210, record);
@@ -3799,6 +3810,7 @@ export async function bootWorld(canvas, renderer, params, status) {
           // pixel keeps the boards it stood - pixel-local, like its
           // NPCs and lights - and the activation ray reads that list.
           if (isBulletinBoard(placed.modelIdNum)) pixelBoards.push({ box, local });   // SEAT1a: and its matrix - a seat's pennant faces as the board does
+          if (dfLocation?.mapTableData?.locationType === LOCATION_TYPES.Graveyard && isTombstoneModel(placed.modelIdNum)) pixelGraves.push({ box, n: pixelGraves.length });   // SEARCH1: numbered in the build's own order - the same stone, the same key, every visit
           // AUDIT 64 F14: ...and the CITY GATES, stood standalone for
           // exactly the same reason (RMBLayout.cs:857) so
           // DaggerfallCityGate can ride them (:959-963) and swap the
@@ -4320,6 +4332,7 @@ export async function bootWorld(canvas, renderer, params, status) {
       npcs: pixelNpcs,   // AUDIT 26 (F019): RMBLayout's street StaticNPCs, pixel-local
       npcBatches: [], npcQuestPass: false,   // E3: their billboards (a subset of `batches`) and the one-shot SetupIndividualStaticNPC latch
       boards: pixelBoards,   // the block's bulletin boards (41739), pixel-local boxes
+      graves: pixelGraves,   // SEARCH1: a graveyard's headstones, pixel-local boxes
       cityGates: pixelGates,   // AUDIT 64 F14: DaggerfallCityGate's placements (446/447), ticked each frame
       buildings: pixelBuildings,   // AUDIT 64 F11: RMBLayout's StaticBuildings, pixel-local boxes
       locBlocks,   // T3d: the Where-is directory's block scan
@@ -5314,7 +5327,9 @@ export async function bootWorld(canvas, renderer, params, status) {
    *
    *  `modes?.` because the mode machine is built further down and the
    *  event handlers that ask this are bound before it exists. */
-  const gamePaused = () => townTalk.overlayActive || (modes?.overlayHeld ?? false);
+  let staffTeleportClient = null, staffTeleportHeld = false;
+  let _staffGlyphs = [];
+  const gamePaused = () => staffTeleportHeld || townTalk.overlayActive || (modes?.overlayHeld ?? false);
   _dwOverlayUp = () => gamePaused();   // DW-E2: the Deep Waters runtime's IsPlayingGame, now that the slot exists - AUDIT DW-F: every stack over the frame (a building's or a dungeon's window too), as IsPlayingGame asks of every window
   preloadCharSheetArt({ renderer, fetchBytes, palette });   // U8a: INFO00I0 warms at boot
   warmLevelUpWindow();   // LV1's audit: the level-up window opens because the GAME decided, so its chunk warms at boot rather than inside a pause nobody asked for
@@ -5943,6 +5958,9 @@ export async function bootWorld(canvas, renderer, params, status) {
   const csaPeers = createComeSailAwayPeers({ pool: csa, selfId: () => online?.id ?? null });   // CSA-J: the others' boats, in the pool's peer list
   csaPeers.setPeerLook((id) => (_hiddenPeers.has(id) ? 'hidden' : (_veils.get(id) ?? null)));   // AUDIT PRE-MERGE 0928 O4: a concealed sailor's boat is concealed with them (the cart pool's I-B law; last frame's word)
   const csaAboard = createComeSailAwayAboard({ peers: csaPeers, geometry: (c) => csaColliderMesh(c), selfId: () => online?.id ?? null });   // CSA-K: another player's boat, stood on and carried by; and the others aboard, seen on the deck
+  csaPeers.setKeepAboard((boat) => csaOn() && !(playerEntity.health <= 0)
+    && (boat === _partyTravelOriginBoat || (!(_teleporting || _traveling || _loading)
+      && (modes?.mode ?? 'exterior') === 'exterior' && csaAboard.aboard?.boat === boat)));
   // CSA-C: THE RUNTIME - the boats placed, kept where they stand and saved (systems/comeSailAway.js). Made as the world
   // mounts with the mod on ("Takes effect when the game next loads"); with it off, no runtime, and its record is carried
   // as the load handed it (AUDIT REALM2 C3 - OH-D's "a mod DFU did not load writes none" lost a realm character's boats
@@ -6281,8 +6299,24 @@ export async function bootWorld(canvas, renderer, params, status) {
   };
   /** BOAT-MENU: whether I stand on this boat's deck - the ground under me one of its buckets (the wake's own test). */
   const csaStandsOn = (boat) => !!player.grounded && typeof player.groundKey === 'string' && player.groundKey.startsWith(`csaBoat:${csaBoatId(boat)}:`);
+  const sailingCabins = createSailingCabinAccess({
+    available: () => !!csaRuntime && csaOn(),
+    boats: () => csaRuntime?.AllBoats ?? [], mode: () => modes?.mode ?? 'exterior', busy: () => worldMoveBusy(),
+    sailing: () => !!csaRuntime?.isSailing(), disembarking: () => !!csaRuntime?.state.disembarking,
+    aboard: csaStandsOn,
+    peerBoat: (owner, uid) => csaPeers.boatByUid(owner, uid),
+    boardPeer: (boat) => csaAboard.board(boat, CSA_ABOARD_GRACE),
+    nearby: (boat) => !!boat.MapPixel && Math.abs(boat.MapPixel.X - state.current.x) <= 1 && Math.abs(boat.MapPixel.Y - state.current.y) <= 1,
+    feet: () => [...player.pos], yaw: () => cam.yaw,
+    toNative: (p) => { const w = state.worldCoords(p); return [w.x, p[1] - state.compensation[1], w.z]; },
+    fromNative: (p) => { const [x, z] = state.localFromWorld(p[0], p[2]); return [x, p[1] + state.compensation[1], z]; },
+    enterInterior: (cabin) => modes?.enterSailingCabin(cabin), say: (line) => townTalk.say(line), log: (e) => console.error('[sailing cabin]', e),
+  });
   /** BOAT-MENU: a boat of mine's boxes and its rows (systems/csaBoatMenu.js) - what the plaque lists and the picker. */
   const _csaBoxes = new WeakMap();   // BOAT-MENU: boat -> { root, variant, boxes } - the walk once per hull and style, not each frame the plaque asks
+  const legacyCabinItems = () => [...(playerEntity.items ?? []), ...(playerEntity.wagonItems ?? [])];
+  const ensureBankCabinLink = (chosenUid = null) => csaRuntime?.state.TemporaryShip ? { status: 'unmatched' }
+    : linkBankCabin(playerEntity, csaRuntime?.AllBoats ?? [], legacyCabinItems(), chosenUid);
   const csaBoatMenu = (boat) => {
     let c = _csaBoxes.get(boat);
     if (!c || c.root !== boat.GameObject || c.variant !== boat.variant) _csaBoxes.set(boat, (c = { root: boat.GameObject, variant: boat.variant, boxes: boatTriggers(boat.GameObject, csaActivationModelOf, CSA_TRIGGER_MODEL) }));
@@ -6293,13 +6327,28 @@ export async function bootWorld(canvas, renderer, params, status) {
       passengers: csaPassengersOn(boat), variants: boat.VariantObject != null && boat.GetVariantCount >= 1,
       naval: navalOn(), crewed: !!boat.crewed, companions: !!boat.uid,   // SHIP-CREW: her crew's card and her orders - AUDIT CC-A9: hands go ashore by her deed's number
       noDeed: !!csaRuntime?.deedMissing?.(boat),   // SHIP-PACK: a ship is picked up with her deed in the pack
+      cabin: hasSailingCabin(boat), cabinWhy: hasSailingCabin(boat) ? sailingCabins.reason(boat) : null,
     });
+    const legacy = ensureBankCabinLink();
+    if (!['linked', 'unmatched'].includes(legacy.status) && bankCabinCandidates(playerEntity.ownedShip, [boat], []).length) {
+      rows.push({ id: 'linkCabin', label: 'Link existing bank cabin', ...(legacy.status === 'conflict' ? { disabled: true, why: 'both cabins contain saved contents' } : {}) });
+    }
     return { boxes, rows };
   };
   /** BOAT-MENU: a verb pressed on a boat of mine - through the mod's own activation on that verb's box (its 3.2 reach
    *  from the point aimed at, silent past it as the box's press is), a refused row saying why in the mod's words. */
   const csaBoatVerb = (pick, verb) => {
     if (!csaRuntime) return;
+    if (verb === 'linkCabin') {
+      if (pick.distance > CSA_ACTIVATION_DISTANCE || worldMoveBusy() || !csaRuntime.AllBoats.includes(pick.boat)) return;
+      const result = ensureBankCabinLink(pick.boat.uid);
+      townTalk.say(result.status === 'linked' ? 'Your existing bank cabin is linked to this ship.' : 'The cabins could not be linked without replacing saved contents.');
+      return;
+    }
+    if (verb === BOAT_VERB.cabin) {
+      if (pick.distance <= CSA_ACTIVATION_DISTANCE) { ensureBankCabinLink(); void sailingCabins.enter(pick.boat); }
+      return;
+    }
     // SHIP-CREW: her crew's card and her orders - the port's own rows, no box of the mod's (in reach as a box is)
     if (verb === BOAT_VERB.crew || verb === BOAT_VERB.orders || verb === BOAT_VERB.companions) {
       if (pick.distance <= CSA_ACTIVATION_DISTANCE) {
@@ -6325,6 +6374,9 @@ export async function bootWorld(canvas, renderer, params, status) {
     // BOAT-MENU: the verb the plaque lit on this boat (it starts on the box under the crosshair's own) ...
     const verb = plaqueActionFor(pick?.key);
     if (verb && pick.boat) { csaBoatVerb(pick, verb); return; }
+    // Classic skins / touch use the SAME existing list picker at a cabin door.
+    if (pick?.modelId === CSA_TRIGGER_MODEL.door && hasSailingCabin(pick.boat) && !csaRuntime?.isSailing()
+      && pick.distance <= CSA_ACTIVATION_DISTANCE && (modes?.mode ?? 'exterior') === 'exterior') { csaOpenBoatMenu(pick); return; }
     if (pick?.modelId != null) { csaCall(() => csaRuntime.activate(pick.modelId, pick.hit, getInteractionMode())); return; }
     // ... and where no plaque lists them (a phone's tap, the classic skins; AUDIT BOAT-MENU C5: a building's or a
     // dungeon's, whose plaque races no boat) a press on the hull opens them as a list - never at a helm (C1)
@@ -6501,6 +6553,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     camera: () => ({ position: [...cam.pos], forward: [Math.sin(cam.yaw) * Math.cos(cam.pitch), Math.sin(cam.pitch), Math.cos(cam.yaw) * Math.cos(cam.pitch)] }),   // the activation's own ray (cam.pos, the look) - the F key's law in third person too
     currentMapPixel: () => { const px = playerTravelPixel(); return { X: px.x, Y: px.y }; },   // PlayerGPS.CurrentMapPixel, a new one each read
     isPlayerInside: () => (modes?.mode ?? 'exterior') !== 'exterior',
+    keepExteriorBoats: () => !!modes?.sailingCabin,   // SAILING-CABINS: the exterior fleet stays afloat while its owner is below deck
     isPlayerInsideDungeon: () => (modes?.mode ?? 'exterior') === 'dungeon',   // AUDIT KEEP-BOATS D2: a boat kept in a dungeon stands in the dungeon, never a building on its pixel
     blockWaterLevel: () => {
       const mode = modes?.mode ?? 'exterior';
@@ -6905,7 +6958,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     // the window left by (every mode runs this; the hide is a no-op on a layer already down)
     if (!_csaMapWindow) hideEnhancedTextLayer(CSA_MAP_TEXT_LAYER);
     if (!csaRuntime) return;
-    const paused = gamePaused() || _loading;   // CSA-J (the audit): Update, LateUpdate and FixedUpdate return while SaveLoadManager.LoadInProgress too (4291/4917/5087), the pause's arm
+    const paused = gamePaused() || _loading || _partyArrivalPending;   // CSA-J (the audit): Update, LateUpdate and FixedUpdate return while SaveLoadManager.LoadInProgress too (4291/4917/5087), the pause's arm
     _csaDt = paused ? 0 : dt * worldTimeScale();
     if (!paused) _csaTime += _csaDt;
     _csaMovedPlayer = false;
@@ -7067,13 +7120,14 @@ export async function bootWorld(canvas, renderer, params, status) {
     const way = csaRuntime.helmMotion?.() ?? null;   // CSA-K: the boat at the helm says its way - per game second, on the real clock at my time scale (nothing while a pause holds it)
     const scale = way ? (gamePaused() ? 0 : worldTimeScale()) : 0;
     const view = csaRuntime.AllBoats.filter((b) => b.GameObject?.activeSelf).map((b) => ({
-      hull: b.hull, variant: b.variant, position: b.GameObject.position, rotation: b.GameObject.rotation,
+      uid: b.uid, hull: b.hull, variant: b.variant, position: b.GameObject.position, rotation: b.GameObject.rotation,
       sails: b.Sails.reduce((m, sail, k) => (csaAnimatorOf(sail) && !csaAnimatorOf(sail).GetBool('Stowed') ? m | (1 << k) : m), 0),
       helm: csaRuntime.isSailing() && b === csaRuntime.state.CurrentBoat, light: !!b.LightOn,
       ...(way && way.boat === b ? { velocity: way.velocity.map((v) => v * scale), turn: way.turn * scale } : null),
       name: fleetHost?.nameOf(b) ?? '',   // HOLDINGS: her name, for every other player to read over her
     }));
     const rec = csaWireRecord(view, campToWire);
+    if (rec && modes?.sailingCabin) rec.cabin = 1;
     const key = csaRecordKey(rec);
     if (!full && key === _csaWordKey) return false;
     if (frame) { frame.sa = rec; _csaWordKey = key; }
@@ -7403,18 +7457,9 @@ export async function bootWorld(canvas, renderer, params, status) {
    *  the purse (DoTransferItem's counter - a pile in the pack was gold nobody could spend), and with `force` what the
    *  pack will not carry goes in past its gate (a companion's pack is never thrown away) - `over` how many. */
   const navalGiveItems = (items, boat, { force = false } = {}) => {
-    if (boat?.Cargo?.Items) { for (const it of items) addItem(boat.Cargo.Items, it); surfacePlayer(); return { left: [], over: 0 }; }
-    playerEntity.items = playerEntity.items || [];
-    const left = [];
-    let over = 0;
-    for (const it of items) {
-      if (isGoldPieces(it)) { addGoldPieces(playerEntity, it.stackCount ?? 1); continue; }
-      if (planTake(it, { bag: playerEntity.items, entity: playerEntity, dryRun: true }).ok) addItem(playerEntity.items, it);
-      else if (force) { addItem(playerEntity.items, it); over++; }
-      else left.push(it);
-    }
+    const result = giveNavalItems(items, boat, playerEntity, { force });
     surfacePlayer();
-    return { left, over };
+    return result;
   };
   /** The plunder window over the world, the hold's loot window between two of its presses (navalPlunderDoor.js). */
   function navalOpenPlunder(model) {
@@ -9044,6 +9089,9 @@ export async function bootWorld(canvas, renderer, params, status) {
             return { provenance: it.provenance, name: itemLongName(it), points, essence: essenceOf(points, profBook?.track('enchanting')?.specs?.[50] === DISENCHANTER), recipe: it.recipe };   // AUDIT PROF12 E2: its recipe, the XP's tier
           }).filter((x) => x.essence > 0),
         disenchant: async (provenance) => {
+          const owner = characterIdOf(playerEntity), account = storedSession(appStorage())?.id;
+          const pack = playerEntity.items;
+          const here = () => owner === characterIdOf(playerEntity) && account === storedSession(appStorage())?.id && pack === playerEntity.items;
           const f = modes?.enchantHere?.() ?? null;
           if (!f) return { ok: false, text: 'You are not at an enchanting station.' };
           if (f.fee > 0 && totalGoldAmount(playerEntity) < f.fee) return { ok: false, text: `The enchanter asks ${f.fee} gold to take a piece apart.` };
@@ -9063,14 +9111,15 @@ export async function bootWorld(canvas, renderer, params, status) {
             // postGood's order), back on a refusal; silence ends the session and a join reads the record
             let asked = false;
             r = await realmGoldAct({
-              session: realmSession, checkpoint: () => onlineCheckpoint(),
-              reserve: () => () => { if (out) { playerEntity.items.splice(Math.min(out.at, playerEntity.items.length), 0, out.piece); out = null; } },
-              call: (at) => { if (!asked) { asked = true; takeOut(); } return out ? profBook.disenchant(provenance, at) : Promise.resolve({ ok: false, error: 'prof-piece-gone' }); },
+              session: realmSession, checkpoint: () => { if (here()) onlineCheckpoint(); },
+              reserve: () => () => { if (out) { pack.splice(Math.min(out.at, pack.length), 0, out.piece); out = null; } },
+              call: (at) => { if (!here()) return Promise.resolve({ ok: false, error: 'elsewhere', elsewhere: true }); if (!asked) { asked = true; takeOut(); } return out ? profBook.disenchant(provenance, at) : Promise.resolve({ ok: false, error: 'prof-piece-gone' }); },
             });
           } else {
             r = await profBook.disenchant(provenance);
-            if (r?.ok) takeOut();
+            if (r?.ok && here() && !r.elsewhere) takeOut();
           }
+          if (!here() || r?.elsewhere) return { ok: false, text: 'Your character changed while disenchanting. Check its Stores when you return.' };
           if (!r?.ok) {
             // AUDIT PROF-541 B2: a disenchant of this account took the piece's record already (an answer lost, the save
             // kept the piece) - the save's copy goes too, as the answer it missed would have taken it
@@ -9326,10 +9375,10 @@ export async function bootWorld(canvas, renderer, params, status) {
   // ?dungeon host RAN every CastWhenUsed / CastWhenStrikes / SoulBound
   // / affinity arm against no ctx at all. They are optional-chained, so
   // it WAS silent. WAVE D closed it: the body is scenes/hostEnchant.js
-  // and dungeonContext.js:2950 mounts the same one, gated on
+  // and dungeonContext.js:2956 mounts the same one, gated on
   // `opts.enchantCtx !== false` because setDefaultEnchantCtx is a
   // session singleton and EC1 already routes THIS host's mount into
-  // that context through modes.dungeonCtx - so worldModes.js:7024
+  // that context through modes.dungeonCtx - so worldModes.js:7072
   // passes false beside its `chargen: false` and only the standalone
   // ?dungeon route mounts its own. S40 filled isResting
   // in - the sentence that stood here said it "stays absent above
@@ -9424,7 +9473,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     // through the one that owns the billboard - `exteriorFoePool` is
     // the watch AND the encounter foes, and this arm reached the
     // encounter pool's remover for both. That was not a leak: removeFoe
-    // (exteriorFoes.js:569-574) never looks the record up in `foes`, and
+    // (exteriorFoes.js:570-575) never looks the record up in `foes`, and
     // both pools share this host's one renderer, so a struck WATCHMAN
     // got exactly what removeGuard (cityGuards.js:1630-1648) gives it -
     // batch freed, `dead = true`, no corpse, skipped by the next AI pass
@@ -10749,20 +10798,11 @@ export async function bootWorld(canvas, renderer, params, status) {
   // terrain ten units past its edge can differ by far more on a steep site.
   const ARRIVAL_LIFT = 40;
   const ARRIVAL_REACH = 240;
-  /** PARTY-TRAVEL: where the way to a spot beside the leader is looked along - chest height over their feet. */
-  const PARTY_BESIDE_CHEST = 1;
-  /** PARTY-TRAVEL: the spot beside a leader whose feet stand at natives `w` (partyTravelLaw besideTargetOf's answer - in
-   *  the pixel being built, or null), through the law's two questions asked of this pixel's collider: is the way from
-   *  the leader to a spot clear at the chest (one ray), and what floor is under it (the arrival's own snap, reaching a
-   *  level either way). Null when there is no leader to stand beside. AUDIT PARTY-TRAVEL: `seat` is where in the ring
-   *  the search starts (the pick's besideSeat, systems/partyTravel.js followerSeatOf), so followers stand apart. */
+  /** Resolve against the same capsule that will stand on the destination. */
   function partyBesideLanding(w, seat = 0) {
     if (!w) return null;
     const [lx, lz] = state.localFromWorld(w.x, w.z);
-    return besideLandingOf([lx, w.y + state.compensation[1], lz], {
-      clear: (from, dir, dist) => { const d = collider.raycast([from[0], from[1] + PARTY_BESIDE_CHEST, from[2]], dir, dist); return !Number.isFinite(d) || d >= dist; },
-      floor: (pos) => floorLanding(collider, pos, BESIDE_LEVEL * 2, BESIDE_LEVEL),
-    }, seat);
+    return partyArrivalBeside([lx, w.y + state.compensation[1], lz], collider, seat, tvSeaY() - 0.1);
   }
   // TL2: a floor this far ABOVE the location's flat is a roof, not the
   // ground - a step or a doorsill is under a unit; a house is many.
@@ -10777,7 +10817,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   // per-pixel build raises that. Every teleport used to raise the
   // travel event: a forced apply and a rebuild of the season's atlases
   // on each, and the load's own two-step apply never on a load.
-  async function _teleportToPixel(px, py, localPos = null, { grounded = false, arriveMinutes = null, reposition = REPOSITION.None, travelStart = null, modEvent = null } = {}) {
+  async function _teleportToPixel(px, py, localPos = null, { grounded = false, arriveMinutes = null, reposition = REPOSITION.None, travelStart = null, modEvent = null, resolveArrival = null } = {}) {
     // CameraRecoiler's StreamingWorld_OnInitWorld (:178-183): "player
     // can be moved by one system or another with swaying active" -
     // the sway does not ride a fast travel, a teleport or a load's
@@ -10954,12 +10994,17 @@ export async function bootWorld(canvas, renderer, params, status) {
       pos = floorLanding(collider, eraw, ARRIVAL_REACH, ARRIVAL_LIFT);
       console.warn(`[travel] start marker at ${raw[0].toFixed(1)},${raw[2].toFixed(1)} stands in geometry (floor ${(pos[1] - raw[1]).toFixed(1)} above the flat) - landing at the edge instead`);
     }
+    // Party journeys validate after the pixel builds but BEFORE its terrain
+    // landing is committed. A missing hull must not expose the seabed fallback.
+    const resolved = resolveArrival ? await resolveArrival(pos) : null;
+    if (resolved) pos = resolved.pos;
     if (walkMode) { player.spawn(pos[0], pos[1], pos[2]); playerSpawned = true; }
     cam.pos = [pos[0], pos[1] + (walkMode ? 0 : 40), pos[2]];
     // PositionPlayerToLocation sets the facing itself, through
     // PlayerMouseLook.SetFacing (:1552-1584), so the yaw lands with the
     // position rather than being left to the caller.
-    if (landing) cam.yaw = landing.yaw;
+    if (resolved?.yaw != null) cam.yaw = resolved.yaw;
+    else if (landing) cam.yaw = landing.yaw;
     // Q4-v: StreamingWorld.OnInitWorld - the world re-initialised at a
     // new origin (fast travel, quickload); CreateFoe's pending waves
     // invalidate across live AND scheduled quests.
@@ -11119,8 +11164,35 @@ export async function bootWorld(canvas, renderer, params, status) {
     if ((modes?.mode ?? 'exterior') !== 'exterior') modes?.forceExitToExterior();
     return boardOrDisembark();
   }
+  async function enterLinkedBankCabin({ loading = false } = {}) {
+    if (!csaOn() || !csaRuntime || (!loading && worldMoveBusy())) return false;
+    const result = ensureBankCabinLink();
+    if (result.status !== 'linked') return false;
+    const link = result.link;
+    if (link.type !== playerEntity.ownedShip) return false;
+    const boat = csaRuntime.AllBoats.find((b) => b.uid === link.uid && b.hull === link.hull && !b.inside);
+    if (!boat?.MapPixel) { townTalk.say('Launch your linked ship using its existing deed or packed parts first.'); return true; }
+    if (csaRuntime.isSailing()) { townTalk.say('Leave the helm before entering the cabin.'); return true; }
+    modes?.forceExitToExterior({ cacheScene: !loading });
+    cabinLink.close();
+    const wasMoving = _teleporting; _teleporting = true;
+    hudFade.smashHUDToBlack();
+    try {
+      await _teleportToPixel(boat.MapPixel.X, boat.MapPixel.Y);
+      const trigger = boat.BoardTriggers?.[0];
+      if (!trigger) { townTalk.say('Your linked ship has no boarding point.'); return true; }
+      csaSyncColliders();
+      csaRuntime.activate(CSA_TRIGGER_MODEL.board, { node: trigger, root: boat.GameObject, distance: 0 }, 'grab');
+      const origin = state.worldCoords(boat.GameObject.position);
+      const cabin = { v: 1, uid: boat.uid, hull: boat.hull, origin: [origin.x, boat.GameObject.position[1] - state.compensation[1], origin.z],
+        deck: csaLocalOf(csaDeckPose(boat), player.pos), yaw: cam.yaw };
+      if (!await modes?.enterSailingCabin(cabin)) townTalk.say('Your linked ship cabin could not be entered.');
+    } finally { _teleporting = wasMoving; hudFade.fadeHUDFromBlack(); }
+    return true;
+  }
   async function boardOrDisembark() {
     if (worldMoveBusy()) return;   // AUDIT 68 S22
+    if (await enterLinkedBankCabin()) return;
     const here = playerTravelPixel();
     const t = shipTransition(playerEntity, {
       boardShipPosition: playerEntity.boardShipPosition ?? null,
@@ -11474,6 +11546,8 @@ export async function bootWorld(canvas, renderer, params, status) {
     surfacePlayer();
   }
   let _traveling = false;
+  let _partyArrivalPending = false;
+  let _partyTravelOriginBoat = null;
   // V2e: DeployFullBlownVampirism's cemetery transfer (:164-175) -
   // GetRandomCemetery over the CURRENT region's mapTable, then the
   // same pixel arrival fast travel takes (_teleportToPixel re-inits
@@ -11719,17 +11793,30 @@ export async function bootWorld(canvas, renderer, params, status) {
     // HCC (AUDIT HCC H2): DaggerfallTravelPopUp.OnPreFastTravel [IL_a1d8] - the mod's ONE subscription for a
     // journey: the following team's pose is cached to ride along, or it waits at the departure with
     // FollowFastTravel off. Before `_traveling` rises (the runtime's ready() reads it) and before the gold goes.
-    hccRuntimeOn()?.handlePreFastTravel();
-    let hccPostDue = true;   // AUDIT HCC: the Post is owed once the Pre ran (the finally)
-    _traveling = true;
-    navalStow();   // KEEP-PLUNDER: stowed into her hold before the fast travel packs her (PackBoat carries the hold)
-    if (csaRuntime) csaCall(() => csaRuntime.OnPreFastTravel());   // CSA-D: ComeSailAway.OnPreFastTravel, the same event's other subscriber - placing stops, the helm is left
+    const partyArrival = walkMode && typeof pick.besideAt === 'function';
+    const departure = partyArrival ? {
+      pixel: { ...playerTravelPixel() }, native: state.worldCoords(player.pos),
+      y: player.pos[1] - state.compensation[1], yaw: cam.yaw,
+      boat: csaBoatUnderMe(), local: null,
+    } : null;
+    if (departure?.boat) departure.local = csaLocalOf(csaDeckPose(departure.boat), player.pos);
+    _partyTravelOriginBoat = departure?.boat ?? null;
+    _partyArrivalPending = partyArrival;
+    let hccPostDue = false;
     try {
+      hccRuntimeOn()?.handlePreFastTravel();
+      hccPostDue = true;   // the Post is owed once the Pre ran
+      _traveling = true;
+      navalStow();   // stow cargo before a successful journey packs the helm
+      if (csaRuntime && !partyArrival) csaCall(() => csaRuntime.OnPreFastTravel());
       // DeductFastTravelGold (:469-473): the inn nights come out of
       // COIN, and only what is left may be paid with a letter of
       // credit - "Taverns only accept gold pieces".
-      deductGoldPieces(playerEntity, computed.piecesCost ?? 0);
-      deductGold(playerEntity, computed.totalCost - (computed.piecesCost ?? 0));
+      const payFare = () => {
+        deductGoldPieces(playerEntity, computed.piecesCost ?? 0);
+        deductGold(playerEntity, computed.totalCost - (computed.piecesCost ?? 0));
+      };
+      if (!partyArrival) payFare();
       // WA1: RaiseOnPreFastTravelEvent (DaggerfallTravelPopUp.cs:328) - after DeductFastTravelGold, before the teleport:
       // Warm Ashes' OnPreFastTravel reads the journey's ocean pixels and the ship toggle
       if (warmAshesOn()) warmAshesPreTravel({ oceanPixels: computed.oceanPixels ?? 0, travelShip: !!opts.travelShip });
@@ -11778,25 +11865,59 @@ export async function bootWorld(canvas, renderer, params, status) {
       // is read here, ahead of the jump, and it is what tilts the side
       // pick towards the side the journey came from.
       const travelStart = state.worldCoords(walkMode ? player.pos : cam.pos);
-      await _teleportToPixel(pick.pixel.x, pick.pixel.y, null,
-        { arriveMinutes: sharedClockOn() ? skyMinutes() : worldMinutes() + computed.minutes,   // WORLD5: online the trip takes no world time - the arrival is now; TIME1: the sky's now (the season it lands in)
-          reposition: REPOSITION.DirectionFromStartMarker,
-          travelStart, modEvent: 'travel' });
-      hccPostDue = false; hccRuntimeOn()?.handlePostFastTravel();   // HCC (AUDIT HCC H2): OnPostFastTravel [IL_a2b4] - the relocation is pending; the team re-stands behind the player once the world is up
-      // PARTY-TRAVEL (2026-09-25, Mac: "Implementing a prompt for online to travel to party leader"): A FOLLOWER LANDS
-      // BESIDE THE LEADER. The core has stood me at the place's own door on the pixel it just built; a party journey's
-      // pick carries `besideAt`, the leader's feet in natives read NOW (they may have walked on while the pixel built)
-      // and only while they stand in THIS pixel's open air (systems/partyTravelLaw.js besideTargetOf), and the law
-      // picks the spot over the pixel's collider (besideLandingOf: a side clear of walls on the leader's own floor, else
-      // the leader's own spot). Where it answers nothing - the leader indoors, gone on, swimming, flying - the door
-      // stands. Placed before any frame draws: the core's tail and this line run in one breath after its build, and
-      // before the following team re-stands (HCC's relocation is pending until the world is up).
-      const beside = walkMode && pick.besideAt ? partyBesideLanding(pick.besideAt(), pick.besideSeat) : null;
-      if (beside) {
-        player.spawn(beside.pos[0], beside.pos[1], beside.pos[2]); playerSpawned = true;
-        cam.pos = [beside.pos[0], beside.pos[1], beside.pos[2]];
-        if (beside.yaw != null) cam.yaw = beside.yaw;   // facing the leader
+      let beside = null;
+      try {
+        await _teleportToPixel(pick.pixel.x, pick.pixel.y, null,
+          { arriveMinutes: sharedClockOn() ? skyMinutes() : worldMinutes() + computed.minutes,
+            reposition: REPOSITION.DirectionFromStartMarker,
+            travelStart, modEvent: 'travel',
+            resolveArrival: partyArrival ? async (fallback) => {
+              const resolved = await waitForPartyArrival(() => {
+                csaPeers.frame(0); csaSyncColliders();
+                const target = pick.besideAt();
+                beside = partyBesideLanding(target, pick.besideSeat);
+                if (beside) return beside;
+                // Preserve the ordinary outside/entrance fallback on dry,
+                // supported ground, including a swimming or flying leader.
+                return supportedPartyPosition(collider, fallback, tvSeaY() + 0.05);
+              }, { onWait: () => townTalk.say(PARTY_ARRIVAL_TEXT.waiting) });
+              // Stop/pack a departure helm only after success is certain. Its
+              // own position write is replaced by the validated spawn below.
+              if (csaRuntime) csaCall(() => {
+                const sameOwnedHull = departure.boat && csa.boats.includes(departure.boat)
+                  && resolved.groundKey?.startsWith(`csaBoat:${csaBoatId(departure.boat)}:`);
+                if (sameOwnedHull) csaRuntime.StopSailing();
+                else csaRuntime.OnPreFastTravel();
+              });
+              return resolved;
+            } : null });
+      } catch (error) {
+        if (!partyArrival) throw error;
+        // Restore the departure in the newly rebuilt origin frame. A guest's
+        // departure hull is retained locally across the room transition.
+        await _teleportToPixel(departure.pixel.x, departure.pixel.y, null, {
+          resolveArrival: () => {
+            csaSyncColliders();
+            const local = state.localFromWorld(departure.native.x, departure.native.z);
+            const pos = departure.boat && departure.local
+              ? csaWorldOf(csaDeckPose(departure.boat), departure.local)
+              : [local[0], departure.y + state.compensation[1], local[1]];
+            return { pos, yaw: departure.yaw };
+          },
+        });
+        if (departure.boat) csaAboard.board(departure.boat, CSA_ABOARD_GRACE);
+        hudFade.clearFade();
+        townTalk.say(PARTY_ARRIVAL_TEXT.returned);
+        if (!(error instanceof PartyArrivalUnavailable)) console.warn('[party-travel] arrival failed:', error);
+        return false;
       }
+      if (partyArrival) {
+        payFare();
+        const boat = [...csa.peerBoats, ...csa.boats].find((b) => typeof beside?.groundKey === 'string'
+          && beside.groundKey.startsWith(`csaBoat:${csaBoatId(b)}:`));
+        if (boat) csaAboard.board(boat, CSA_ABOARD_GRACE);
+      }
+      hccPostDue = false; hccRuntimeOn()?.handlePostFastTravel();
       // cautious arrival heals in full; magicka honors NoRegenSpellPoints
       // AUDIT WORLD5 C14: the heal is the trip's NIGHTS - DFU's cautious traveller arrives rested because the days
       // passed. LIVED1: online they pass too - on the character's own clock (the advance below), with every cost the
@@ -11918,8 +12039,12 @@ export async function bootWorld(canvas, renderer, params, status) {
       if (warmAshesOn()) warmAshesPostTravel();   // WA1: RaiseOnPostFastTravelEvent (:383) - Warm Ashes' CheckforEncounters arms its 0.05s coroutine
       if (csaRuntime) csaCall(() => csaRuntime.OnPostFastTravel());   // CSA-J (the audit): ComeSailAway.OnPostFastTravel, the same event's - ResetTimeScale(false)
     } finally {
-      if (hccPostDue) hccRuntimeOn()?.handlePostFastTravel();   // AUDIT HCC (branch audit): the journey threw - the team is released where it stands
-      _traveling = false;
+      try { if (hccPostDue) hccRuntimeOn()?.handlePostFastTravel(); }
+      finally {
+        _traveling = false;
+        _partyArrivalPending = false;
+        _partyTravelOriginBoat = null;
+      }
     }
     return true;
   }
@@ -11973,7 +12098,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     // so an F9 pressed inside a shop recorded the street's sheath and
     // hand. The mode host answers for the rig that is actually drawn
     // and null outside interior mode (the dungeon owns its own
-    // composer, dungeonContext.js:8118), so exterior mode and a
+    // composer, dungeonContext.js:8285), so exterior mode and a
     // pre-seam mode host compose exactly as before, per field.
     const wp = modes?.weaponPose?.() ?? null;
     const snap = snapshotPlayer(playerEntity, {
@@ -12421,6 +12546,7 @@ export async function bootWorld(canvas, renderer, params, status) {
         const inside = extras.interior
           ? await (modes?.restoreInterior?.(extras.interior, [lx, ly, lz], {
             fromNative: (nx, nz) => state.localFromWorld(nx, nz), yOffset: state.compensation[1],
+            sailingBoat: savedCabinBoat(extras.interior.sailingCabin, extras.modData?.[COME_SAIL_AWAY_VENDOR]),
           }) ?? false)
           : false;
         if (!inside) _wodInside = false;
@@ -12520,6 +12646,21 @@ export async function bootWorld(canvas, renderer, params, status) {
       applyPose(extras.pose);
       _lastEncMinutes = Math.floor(playerTicker.ownMinutes);   // no spawn catch-up across a load (DFU LoadInProgress)
       surfacePlayer();
+      if (csaOn() && csaRuntime && !csaRuntime.state.TemporaryShip) {
+        const oldBankType = SHIP_INTERIOR_MAP_IDS.indexOf(_questLoc()?.mapTableData?.mapId);
+        if (modes?.mode === 'interior' && oldBankType >= 0 && oldBankType === playerEntity.ownedShip && !modes?.roomIdentity?.()?.privateRoom) {
+          // The just-restored room is live, not in the cache. Cache it before
+          // linking, and only leave it when there is one launched destination.
+          const prior = readBankCabinLink(playerEntity.boatCabinLink);
+          const choices = bankCabinCandidates(oldBankType, csaRuntime.AllBoats, legacyCabinItems());
+          const choice = prior?.type === oldBankType ? prior : choices.length === 1 ? choices[0] : null;
+          const launched = choice && csaRuntime.AllBoats.some((b) => b.uid === choice.uid && b.hull === choice.hull && !b.inside && b.MapPixel);
+          if (launched && !playerEntity.sceneCache?.scenes.has(cabinSceneName(choice.uid))) {
+            modes?.forceExitToExterior();
+            await enterLinkedBankCabin({ loading: true });
+          }
+        } else if (modes?.mode === 'exterior') ensureBankCabinLink();
+      }
       townTalk.say('Game loaded.');
       slotLoaded(playerEntity.characterId ?? null);   // AUDIT ONLINE2 F3: the pack is the save's - the spoils' crash door asks again
       // BA1: SaveLoadManager.OnLoad's listeners - Better Ambience's fog and rain source (four frames on), and
@@ -15024,7 +15165,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   // exterior -> the townTalk overlay, interior OR dungeon -> the mode
   // machine's slot. U43-ii shipped the dungeon half: showQuestBox
   // offers the window to `modes.showQuestOverlay` below, and
-  // worldModes answers it in BOTH modes (worldModes.js:10703-10767 -
+  // worldModes answers it in BOTH modes (worldModes.js:10760-10824 -
   // dungeon routes to dungeonCtx.showOverlay), so a dungeon popup is
   // shown rather than logged loudly and dropped.
   // AUDIT 24 (wave 21): DaggerfallMessageBox.Show() is a
@@ -15038,6 +15179,52 @@ export async function bootWorld(canvas, renderer, params, status) {
   // only its tail. `push()` unshifts to the front, which is exactly
   // PushWindow.
   let _questBoxWin = null;
+  // ── SEARCH1 (systems/searchables.js): A GRAVEYARD'S HEADSTONE, searched ─────────────────────────────────────────
+  // Two in three find nothing; the last third is a find or the dead, half each. The box is clicked away first: the
+  // foe stands, or the find opens, only from its onClose (ui/actionText.js). Info mode reads the stone instead (GRAVE1).
+  setSearchClock(() => worldMinutes());
+  function activateGrave(g, mode = 'grab') {
+    if (!g) return false;
+    if (mode === 'info') { townTalk.say(randomEpitaph()); return true; }
+    const key = searchKey(g.loc, g.key);
+    const now = worldMinutes();
+    if (searchCooldownLeft(key, now) > 0) { setMidScreenText(SEARCHED_TEXT); return true; }
+    markSearched(key, now);
+    const outcome = rollSearchOutcome({ graveyard: true });
+    const level = effectiveLevel(playerEntity);
+    let rows, onClose = null;
+    if (outcome === 'foe') {
+      const type = pickSearchUndead(level);
+      const elite = rollSearchElite();
+      const count = SEARCH_FOES_PER_PLAYER * (1 + partyNear().length);   // SEARCH1-PARTY: two for every player of the party here
+      rows = searchMessage('tombstone', 'foe', { foeName: enemyDisplayName(type) ?? 'creature', elite, count });
+      onClose = () => {
+        // a ring about the stone, opening toward the player (a graveyard is open ground - no room to run out of)
+        const feet = player.pos;
+        const c = [(g.min[0] + g.max[0]) / 2, Math.min(g.min[1], feet[1]), (g.min[2] + g.max[2]) / 2];
+        const half = Math.max(g.max[0] - g.min[0], g.max[2] - g.min[2]) / 2;
+        const toward = Math.atan2(feet[0] - c[0], feet[2] - c[2]);
+        for (let n = 0; n < count; n++) {
+          const a = toward + (n % 2 ? 1 : -1) * Math.ceil(n / 2) * (Math.PI / 5);
+          const r = half + 0.7 + Math.floor(n / 10) * SEARCH_FOE_SPACING;
+          const at = [c[0] + Math.sin(a) * r, c[1] + 0.05, c[2] + Math.cos(a) * r];
+          exteriorFoes.spawnFoe(type, at, { yaw: Math.atan2(-(feet[0] - at[0]), -(feet[2] - at[2])), feetGiven: true, loose: true, eliteFoe: elite && n === 0 })
+            .catch((e) => console.warn('[search] a grave\'s foe would not stand', e));
+        }
+      };
+    } else if (outcome === 'loot') {
+      const items = mintSearchFind('tombstone', { level, gender: playerEntity.gender, tier: dungeonRarityTier(18), family: dungeonFamily(18), luck: liveStat(playerEntity, 'luck') });   // a Cemetery's tier and family (DFRegion.DungeonTypes 18)
+      rows = searchMessage('tombstone', 'loot');
+      onClose = () => {
+        const pile = droppedLoot.dropPile(items, dropFeet(), `${playerTravelPixel().x},${playerTravelPixel().y}`);
+        if (!pile) return;
+        const w = makeInventoryWindow({ onClose: () => droppedLoot.releaseEmptied(), loot: droppedLootHooks(pile) });
+        if (w) townTalk.showOverlay(w);   // a refused pack is null - the find stays on the ground
+      };
+    } else rows = searchMessage('tombstone', 'nothing');
+    townTalk.showOverlay(new ActionTextBox(rows, { onClose }));
+    return true;
+  }
   /** RW1 / FORAGE4: a quest's reward, given - its pile minted on the ground the player stands on now and opened, or,
    *  while a quest box is being read, opened when that box closes (GivePc's OnClose). */
   const giveReward = (dfItem) => {
@@ -16713,7 +16900,6 @@ export async function bootWorld(canvas, renderer, params, status) {
     computeEntityMods(playerEntity);   // SET3: a set's stat tier wakes, or rises a stage, with my Renown - now, not at the next round
     return renownNow;
   };
-  let _staffGlyphs = [];   // STAFF1: declared above adoptIssued, its writer (BOOT-TDZ)
   const adoptIssued = (who) => {
     renownXpAdopt(who?.xp);   // RENOWN4: the total, before the level - so no frame draws the new level over the old total
     who = { ...who, level: renownAdopt(who?.level) };   // RENOWN1: the highest level this page has known, never a stale token's lower one
@@ -16728,6 +16914,164 @@ export async function bootWorld(canvas, renderer, params, status) {
   };
   /** STAFF1: MY GLYPHS AS THE ACCOUNT SERVICE LAST ISSUED THEM (never the device's stored copy, which is only a cache). */
   const staffGlyphs = () => _staffGlyphs;
+  let _privateSource = null, _privatePrefix = null;
+  function privateRoomHere(identity) {
+    // Old relays accept arbitrary room names without this room's owner gate.
+    // Never advertise personal presence through one of those relays.
+    if (!chatLinks.get('world')?.staffTeleportOk || !social?.acct || !realmSession?.id) return null;
+    if (identity?.privateRoom) return identity.privateRoom;
+    const source = `${social.acct}:${realmSession.id}`;
+    if (_privateSource !== source) {
+      _privateSource = source; _privatePrefix = null;
+      privateInteriorPrefix(social.acct, realmSession.id).then((prefix) => {
+        if (_privateSource === source) _privatePrefix = prefix;
+      }).catch(() => { if (_privateSource === source) _privateSource = null; });
+    }
+    if (identity?.boatUid) return privateBoatRoom(_privatePrefix, identity.boatUid);
+    return privateInteriorRoom(_privatePrefix, _questLoc()?.mapTableData?.mapId, identity?.buildingKey);
+  }
+  /** STAFF-TP: x/z are native world coordinates outdoors/in buildings;
+   * dungeon/court positions are local to that exact instance. y never grounds. */
+  function staffDestination() {
+    if (!walkMode || !playerSpawned || worldMoveBusy() || modes?.transitioning || seatOut() || !(playerEntity.health > 0)) return { error: 'busy' };
+    if (siegeSession?.active() || royalSession?.active()) return { error: 'battle' };
+    const mode = modes?.mode ?? 'exterior';
+    const identity = modes?.roomIdentity?.();
+    if (identity?.kind === 'arena') return { error: 'battle' };
+    const privateRoom = identity?.private ? privateRoomHere(identity) : null;
+    if (mode === 'interior' && (!identity?.buildingKey || (identity.private && !privateRoom))) return { error: 'private' };
+    const inside = modes?.anchorContext?.();
+    const inDungeon = mode === 'dungeon';
+    const wc = inDungeon ? null : state.worldCoords(player.pos);
+    const pixel = inDungeon ? { ...state.current } : playerTravelPixel();
+    let dest = {
+      kind: mode, pixel,
+      pos: inDungeon ? [...player.pos] : [wc.x, player.pos[1] - state.compensation[1], wc.z],
+      yaw: cam.yaw, pitch: cam.pitch,
+    };
+    if (mode === 'interior') {
+      const door = inside?.interior?.door;
+      dest.door = door && { ...door, buildingKey: door.buildingKey >>> 0 };
+      dest.layout = identity?.layout ?? 'classic';
+      if (privateRoom) dest.privateRoom = privateRoom;
+      if (modes?.sailingCabin) { dest.sailingCabin = modes?.sailingCabin; dest.cabinOwner = modes?.cabinOwner ?? online?.id; }
+    }
+    if (inDungeon) {
+      const gate = modes?.gateArenaGate?.();
+      if (gate) dest = { ...dest, kind: 'gate', gate };
+      else if (ohAbyss?.active) dest = { ...dest, kind: 'abyss', abyss: ohAbyss.data };
+      else {
+        const loc = modes?.dungeonLocation, id = loc?.mapTableData?.mapId;
+        dest.mapId = Number.isInteger(id) ? id >>> 0 : null;
+        const dungeonId = loc?.dungeon?.recordElement?.header?.locationId;
+        if (Number.isInteger(dungeonId) && dungeonId >= 0) dest.locationKey = `dungeon:${dungeonId}`;
+      }
+    }
+    if (mode === 'exterior' && csaOn()) {
+      const ab = csaAboard.aboard;
+      const boat = ab?.boat ?? (csaRuntime?.isSailing() ? csaRuntime.state.CurrentBoat : null);
+      if (boat) {
+        const owner = ab?.owner ?? online?.id;
+        const slot = ab?.slot ?? csaRuntime.AllBoats.filter((b) => b.GameObject?.activeSelf).indexOf(boat);
+        // The ordinary aboard word rounds to centimetres. A staff landing does not.
+        const local = csaLocalOf(csaDeckPose(boat), player.pos);
+        dest.boat = { owner, slot, local, ...(boat.uid ? { uid: boat.uid } : {}) };
+      }
+    }
+    dest = validStaffDestination(dest);
+    return dest ? { dest } : { error: 'unavailable' };
+  }
+
+  function staffLanding(d) {
+    if (d.kind !== 'exterior' && d.kind !== 'interior') return [...d.pos];
+    const [x, z] = state.localFromWorld(d.pos[0], d.pos[2]);
+    return [x, d.pos[1] + state.compensation[1], z];
+  }
+
+  async function prepareStaffDestination(d, allowed = () => true) {
+    modes?.forceExitToExterior();
+    _wodInside = d.kind !== 'exterior';
+    await _teleportToPixel(d.pixel.x, d.pixel.y); if (!allowed()) throw new Error('Teleport cancelled: your player is no longer ready.');
+    let entered = d.kind === 'exterior';
+    if (d.kind === 'interior') entered = await modes?.restoreInterior?.({ door: d.door, ...(d.layout != null ? { layout: d.layout } : {}), ...(d.privateRoom ? { privateRoom: d.privateRoom } : {}), ...(d.sailingCabin ? { sailingCabin: d.sailingCabin, cabinOwner: d.cabinOwner } : {}) }, null, { strictDoor: true });
+    else if (d.kind === 'dungeon') {
+      entered = await modes?.startInDungeon?.({ locationKey: d.locationKey ?? null });
+      entered = entered && (modes?.dungeonLocation?.mapTableData?.mapId >>> 0) === d.mapId;
+    } else if (d.kind === 'gate') entered = await modes?.enterGateArena?.(d.gate);
+    else if (d.kind === 'abyss') {
+      entered = await modes?.startInDungeon?.();
+      const loc = modes?.dungeonLocation;
+      entered = entered && !!ohAbyss && loc?.regionIndex === d.abyss.TemplateRegionIndex && loc?.locationIndex === d.abyss.TemplateLocationIndex;
+      if (entered) {
+        const binding = ohAbyss.data?.RecallBinding ?? null;
+        ohAbyss.restoreSaveData({ ...d.abyss, RecallBinding: binding });
+        entered = ohAbyss.active;
+      }
+    }
+    if (!allowed()) throw new Error('Teleport cancelled: your player is no longer ready.'); if (!entered) {
+      _wodInside = false;
+      modes?.forceExitToExterior();
+      await _teleportToPixel(d.pixel.x, d.pixel.y);
+      ohAbyss?.onRespawnerComplete();
+      throw new Error('The target instance could not be entered. Exact teleport was not completed.');
+    }
+    // Put the observer at the snapshot while frozen so streaming and the
+    // multiplayer room load near the target, then ask again before final placement.
+    const preview = staffLanding(d);
+    if (!capsuleFits(player.collider, preview, player.height)) throw new Error('The target landing is blocked. Exact teleport was not completed.');
+    modes?.setPlayerLocalPosition?.(preview);
+    playerSpawned = true;
+    if (d.kind !== 'abyss') ohAbyss?.onRespawnerComplete();
+    if (d.boat) {
+      const end = performance.now() + 5000;
+      while (!(d.boat.uid ? csaPeers.boatByUid(d.boat.owner, d.boat.uid) : csaPeers.boatAt(d.boat.owner, d.boat.slot))) {
+        if (!allowed() || performance.now() >= end || seatOut() || !(playerEntity.health > 0)) throw new Error('The target boat did not load. Exact teleport was not completed.');
+        await new Promise((resolve) => setTimeout(resolve, 50));
+      }
+    }
+  }
+
+  function placeStaffDestination(d) {
+    let pos = staffLanding(d), boat = null;
+    if (d.boat) {
+      boat = d.boat.uid ? csaPeers.boatByUid(d.boat.owner, d.boat.uid) : csaPeers.boatAt(d.boat.owner, d.boat.slot);
+      if (!boat) throw new Error('The target boat is no longer available.');
+      pos = csaWorldOf(csaDeckPose(boat), d.boat.local);
+      csaSyncColliders();
+    }
+    if (!capsuleFits(player.collider, pos, player.height)) throw new Error('The target landing is blocked. Exact teleport was not completed.');
+    if (boat && !csaAboard.board(boat, CSA_ABOARD_GRACE)) throw new Error('The target boat is no longer available.');
+    modes?.setPlayerLocalPosition?.(pos);
+    cam.yaw = d.yaw; cam.pitch = d.pitch; lookFilter.settle();
+    playerEntity.playerTeleportedIntoDungeon = !['exterior', 'interior'].includes(d.kind);
+    surfacePlayer();
+  }
+
+  async function teleportToStaffPlayer(name) {
+    if (!isStaff(staffGlyphs()) || worldMoveBusy() || modes?.transitioning) throw new Error('You cannot teleport right now.');
+    if (siegeSession?.active() || royalSession?.active() || modes?.roomIdentity?.()?.kind === 'arena') throw new Error('Leave your battle before using player teleport.');
+    const client = staffTeleportClient, allowed = () => client === staffTeleportClient && !seatOut() && isStaff(staffGlyphs()) && playerEntity.health > 0 && !modes?.deathUp?.();
+    // Reserve the shared move latch before the network await. Keep the motor
+    // held until the final fresh sample lands (including inside a dungeon).
+    _teleporting = true; staffTeleportHeld = true;
+    hudFade.smashHUDToBlack();
+    try {
+      let preparedKey = null;
+      return await followStaffPlayer(name, {
+        ask: (target) => client.ask(target),
+        allowed,
+        prepare: async (dest) => {
+          const key = staffDestinationKey(dest);
+          if (preparedKey !== key) { await prepareStaffDestination(dest, allowed); preparedKey = key; }
+        },
+        place: placeStaffDestination,
+      });
+    } finally {
+      staffTeleportHeld = false; _teleporting = false;
+      hudFade.fadeHUDFromBlack();
+    }
+  }
+
   /** STAFF1: A STAFF COMMAND, RUN (net/staffCommands.js parseStaffCommand's answer) - its lines to the typer alone. */
   function runStaffCommand(tabId, c) {
     const say = (line) => chatLog.push(tabId, { text: line, system: true });
@@ -16760,10 +17104,11 @@ export async function bootWorld(canvas, renderer, params, status) {
       if (!hit) { say(`No place called "${c.place}".`); return; }
       pick = { pixel: { x: hit.px, y: hit.py }, name: hit.name };
     } else if (c.player != null) {
-      const players = [...travellerBook.live(Date.now()).map((t) => ({ name: t.name, px: t.p.px, py: t.p.py })), ...partyMarkers()];
-      const hit = findPlayer(players, c.player);
-      if (!hit) { say(`No player called "${c.player}" can be found - they must be in your region or your party.`); return; }
-      pick = { pixel: { x: hit.px, y: hit.py }, name: hit.name };
+      if (worldMoveBusy() || modes?.transitioning) { say('You cannot teleport right now.'); return; }
+      if (!staffTeleportClient) { say('Exact player teleport requires an online connection.'); return; }
+      teleportToStaffPlayer(c.player).then((who) => say(`Teleported to ${who.name}'s exact position.`))
+        .catch((e) => { console.error('[staff] player teleport:', e); say(e.message || 'The player teleport failed.'); });
+      return;
     } else {
       pick = { pixel: { x: c.px, y: c.py }, name: locationIndex.get(`${c.px},${c.py}`)?.name ?? `${c.px}, ${c.py}` };
     }
@@ -16882,6 +17227,19 @@ export async function bootWorld(canvas, renderer, params, status) {
     behaviourFor: (tag) => questBehaviourFor(questBridge?.machine, tag),
     adoptsOrphan: (from, f) => !!social?.party && adoptsOrphanQuestFoe({ myId: online?.id ?? null, myFeet: player.feetAt(), foeFeet: f.ai?.feet, partyPeers: (peersNear() ?? []).filter((p) => p.id !== from && social.isPartyPeer(p.id)) }),
   };
+  const cabinLink = createSailingCabinLink({
+    frame: () => {
+      const frame = exteriorFoes.emptyFoesFrame();
+      csaWord(frame, true); frame.sa ??= { b: [] }; frame.sa.cabin = 1; frame.ab = null;
+      return frame;
+    },
+    receive: (id, data) => {
+      const at = performance.now();
+      if (Object.hasOwn(data, 'sa')) csaPeers.applyOwner(id, data.sa, campToScene, at);
+      if (Object.hasOwn(data, 'ab')) csaAboard.applyRider(id, data.ab, at);
+    },
+    sweep: (ids, now) => { csaPeers.sweepOwners(ids, now, FOES_STALE_MS); csaAboard.sweepRiders(ids, now, FOES_STALE_MS); },
+  });
   const onlineStart = () => {
     online = new OnlineSession({
       url: params.get('server') || getPref('onlineServer') || DEFAULT_SERVER,
@@ -16927,7 +17285,15 @@ export async function bootWorld(canvas, renderer, params, status) {
     online.onWorld = (shared) => { if (modes?.restorePlaceSharedWorld?.(shared)) console.info('[online] the room\'s memory restored'); };   // WORLD6a: on the standing place, a dungeon or a building
     online.onHost = (id, mine) => { if (mine) { _worldPublishedAt = -Infinity; _foesFullAt = -Infinity; } else if (id && isWorldRoom(online.room)) _foesInAt = performance.now(); modes?.setDungeonAuthority?.(dungeonAuthority()); };   // AUDIT WORLD6b A9: a cell's seat is no heartbeat   // WORLD2: the seat decides who steps the foes; a new host streams every foe at once; another's word is its first heartbeat
     online.onFoes = (id, data) => {
-      if (isCellRoom(online.room)) { if ((modes?.mode ?? 'exterior') === 'exterior') exteriorFoes.applyFoes(id, data); return; }   // WORLD6b: a peer's foes in the cell, onto their puppets
+      if (isCellRoom(online.room)) {
+        if ((modes?.mode ?? 'exterior') === 'exterior') exteriorFoes.applyFoes(id, data);
+        else if (modes?.sailingCabin && data && (!data.k || online.inRoom(data.k))) {
+          const at = performance.now();
+          if (Object.hasOwn(data, 'sa')) csaPeers.applyOwner(id, data.sa, campToScene, at);
+          if (Object.hasOwn(data, 'ab')) csaAboard.applyRider(id, data.ab, at);
+        }
+        return;
+      }   // WORLD6b: a peer's foes in the cell, onto their puppets
       // AUDIT WORLD2 C5: the stream is the seat's heartbeat; A1: the host's id rides in; AUDIT WORLD6a B8: a building's
       // room streams no foes, and a frame there is no dungeon heartbeat.
       // AUDIT ONCRASH1 A4: and the heartbeat is the APPLY's word, not the frame's ARRIVAL. Stamped first, a stream
@@ -17130,6 +17496,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     globalThis.addEventListener?.('pagehide', () => {
       try { worldPublish(performance.now(), true); }
       catch (e) { console.error('[online] the farewell memory could not be collected - leaving anyway:', e); }
+      cabinLink.close();
       online?.leave();
       for (const link of chatLinks?.values() ?? []) link.leave();
       peerBodies?.destroy();
@@ -17188,6 +17555,12 @@ export async function bootWorld(canvas, renderer, params, status) {
       link.onGuildGone = guildGone;   // GUILD1c: a room took my guild off - the hub's word on a removal most of all
       if (tab.room) link.join(tab.room);   // CHAT-CHAN: the Region tab's room waits for the region and the relay (chatRegionFrame)
       chatLinks.set(tab.id, link);
+      if (tab.room === SOCIAL_ROOM) {
+        staffTeleportClient?.cancel();
+        const client = createStaffTeleportClient({ send: (m) => link.sendStaffTeleport(m), capture: staffDestination });
+        staffTeleportClient = client;
+        link.onStaffTeleport = (m) => client.receive(m);
+      }
       if (tab.room === SOCIAL_ROOM) link.onGate = (g) => gateLink?.word(g);   // WB3b: the hub's word of a kill, and a fighter's receipt outside the court
       if (tab.room === SOCIAL_ROOM) link.onRite = (w) => riteHost?.onBroken(w);   // WB12d: the hub's word of a broken rite, and at my hello
       if (tab.room === SOCIAL_ROOM) link.onRaid = (f, room) => (f.k === 'tw' ? offerRaidTowns(link, f.h) : raidRelayWord(f, room));   // RAID3: the hub's word of a cleanse anywhere, and the day's at my hello; RAID-ROLL: its ask for the towns table
@@ -19133,8 +19506,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     const near = online?.room && isCellRoom(online.room) && (modes?.mode ?? 'exterior') === 'exterior' ? (peersNear() ?? []) : [];
     if (!near.length) return 0;
     const heirOf = (f) => { if (f.entity?.team === 'PlayerAlly' || f.managed || f.deckBoat != null) return null; const at = f.ai?.feet; if (!at) return null; let id = null, best = f.site ? CAMP_CULL_DISTANCE : Infinity; for (const q of near) { if ((isPrivateQuestFoe(f) || f._keptTag) && !social?.isPartyPeer(q.id)) continue; const d = Math.hypot(at[0] - q.feet[0], at[2] - q.feet[2]); if (d < best) { best = d; id = q.id; } } return id; };   // QUEST-PARTY phase 2: a shared quest's foe goes to a party member alone (CURSE-SYNC: a world quest's to anyone, as an encounter's); SUMMON-SYNC: and my ALLY to nobody - it goes with its summoner (the record carries no side, so an heir stood it as everyone's foe); AUDIT WB12d (C3): a site's foe (a shared camp's, the faithful) to a player within a camp's cull distance of it alone - a far heir took a camp it stood nowhere near
-    const frame = exteriorFoes.handOverFrame(heirOf);
-    return frame && online.sendFoes(frame) ? exteriorFoes.dropOwnLive() : 0;
+    return exteriorFoes.handOver(heirOf, (frame) => online.sendFoes(frame));
   };
   /** AUDIT WB12d (C2): A SITE'S FOES OUTLIVE ITS OWNER'S TELEPORT - a shared camp's and the faithful's (WOD7's `site`) go to
    *  the player nearest each, within a camp's cull distance of it, on one last own frame before a teleport's sweep or
@@ -19154,8 +19526,7 @@ export async function bootWorld(canvas, renderer, params, status) {
         return id;
       };
       if (!exteriorFoes.foes.some((f) => heirOf(f))) return 0;
-      const frame = exteriorFoes.handOverFrame(heirOf);
-      const n = frame && online.sendFoes(frame) ? exteriorFoes.dropOwnLive() : 0;
+      const n = exteriorFoes.handOver(heirOf, (frame) => online.sendFoes(frame));
       if (n) console.info(`[foes] handed ${n} camp foe(s) on leaving`);
       return n;
     } catch (e) { console.warn('[foes] the camps\' handover', e?.message ?? e); return 0; }   // the sweep, or the leave, goes on
@@ -19189,8 +19560,7 @@ export async function bootWorld(canvas, renderer, params, status) {
       return id;
     };
     if (!exteriorFoes.foes.some((f) => heirOf(f))) return 0;
-    const frame = exteriorFoes.handOverFrame(heirOf);
-    return frame && online.sendFoes(frame) ? exteriorFoes.dropOwnLive() : 0;
+    return exteriorFoes.handOver(heirOf, (frame) => online.sendFoes(frame));
   }
   /** QUEST-PARTY phase 3b/3c: AUDIT CONTRIB P1's handover in a world room - at a building's or a dungeon's door out and
    *  at a death in it, my live own foes there go to the players who stay (a shared quest's to a party member alone),
@@ -20501,10 +20871,11 @@ export async function bootWorld(canvas, renderer, params, status) {
   /** WORLD3: the peers in my room as target candidates - each with its feet in THIS scene and its body's height; null
    *  when there is no room. The dungeon host's foes read it (peerCandidates) and, since WORLD6b-ii, the cell's own. */
   const _peerHeights = new Map();   // AUDIT WORLD6b-ii C5: a peer's height is the peer's - the doll answers 0 while it is not standing (a slot churn, a load), and the aim point flickered with it
-  const peersNear = () => {
+  const peersNear = ({ presenceOnly = false } = {}) => {
     if (!online || !online.room || online.status !== 'open') return null;
     const out = [];
     for (const p of online.peers.values()) {
+      if (!presenceOnly && !modes?.sailingCabin && csaPeers.isBelowDeck(p.id)) continue;
       if (!online.visible(p)) continue;   // AUDIT PSCALE1 NET-2: on the session's OWN clock (Date.now) - performance.now() against its stamps never timed a silent peer out
       const h = peerBodies?.heightOf(p.id) || 0;
       if (h > 0) _peerHeights.set(p.id, h);
@@ -20962,6 +21333,8 @@ export async function bootWorld(canvas, renderer, params, status) {
     // AUDIT ONESEAT H6: a duel in play ends as `left` while the socket still stands (the opponent told now, not after
     // DUEL_GONE_MS), and its heal runs - as the page's exit does
     try { duelLeaveNow(); } catch { /* no duel built, none to end */ }
+    staffTeleportClient?.cancel();
+    cabinLink.close();
     online?.supersede();
     for (const link of chatLinks?.values?.() ?? []) link.supersede();
     // AUDIT PRE-MERGE 1003 O9: and the arena's own rooms (scenes/arenaOnline.js leaveAll) - its hall's socket kept this tab
@@ -20999,6 +21372,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     seatLock?.claim();
   };
   const onlineFrame = (now, dt) => {
+    if (!modes?.sailingCabin || seatOut() || playerEntity.health <= 0 || modes?.deathUp?.()) cabinLink.close();
     chatFrame();   // CHAT1: before the dead return, so the channels keep their heartbeat and their reconnect while the death screen is up (the panel itself is paused away like any HUD - AUDIT CHAT B7)
     tradeFrame();   // TRADE1: retries, timeouts, a peer gone or out of reach - before the dead return, as the chat's is
     duelFrame();   // DUEL1: the duel's law, and the ring my body is kept in - before the dead return, so a fall ends the duel
@@ -21054,17 +21428,18 @@ export async function bootWorld(canvas, renderer, params, status) {
     _rezSeen = null;   // AUDIT CONTRIB A6: alive - the next death takes its own snapshot of what the party's poses say
     if (checkpointDue(now, _checkpointAt)) onlineCheckpoint();   // REALM P0.5: every two real minutes, alive and in the seat (the first such frame persists the join's call-in)
     const mode = modes?.mode ?? 'exterior';   // audit24_wave37: guarded on the OBJECT above its own declaration (the frame runs after it)
+    const cabin = modes?.sailingCabin;
     const overworld = mode === 'exterior';
     const wc = state.worldCoords(player.pos);
     let key;
     const mp = overworld ? worldCoordToMapPixel(wc.x, wc.z) : null;
-    if (overworld) key = siegeSession?.room() ?? royalSession?.room() ?? roomKeyFor({ host: 'world', mode, mapPixel: mp });   // SEAT2a part four: a battle entered stands in its own room (CROWN1 part two: a Royal Tourney too)
+    if (overworld) key = siegeSession?.room() ?? royalSession?.room() ?? roomKeyFor({ host: 'world', mode: 'exterior', mapPixel: mp });   // SEAT2a part four: a battle entered stands in its own room (CROWN1 part two: a Royal Tourney too)
     else if (modes?.roomIdentity?.()?.kind === 'gate') key = gateRoomKey(modes?.roomIdentity?.()?.day);   // WB3b: the court's room is its gate's own
     else if (modes?.roomIdentity?.()?.kind === 'arena') key = arenaFloorRoomOf(modes?.roomIdentity?.()?.o);   // ARENA4: a relay's bout's floor is its room (ARENA4b: the hour's exhibition's, `x<hour>`, its own)
     else {
       const ident = modes?.roomIdentity?.();
       const loc = _questLoc();   // the location under the player: an interior's room is named by it
-      key = roomKeyFor({
+      key = ident?.private ? privateRoomHere(ident) : roomKeyFor({
         host: 'world', mode,
         mapId: ident?.kind === 'dungeon' ? (ident.mapId ?? null) : (loc?.mapTableData?.mapId ?? null),
         regionIndex: ident?.kind === 'dungeon' ? ident.regionIndex : (loc?.regionIndex ?? -1),
@@ -21078,13 +21453,14 @@ export async function bootWorld(canvas, renderer, params, status) {
     // exterior's frame (P8), so its height sheds the origin's vertical
     // shift too (AUDIT ONLINE D7), the dungeon's frame is its own
     const shedY = overworld || mode === 'interior';
-    const pose = overworld
+    const nativeFrame = overworld || !!privateInteriorOf(key);
+    const pose = nativeFrame
       ? { x: wc.x, y: player.pos[1] - state.compensation[1], z: wc.z, yaw: cam.yaw, pitch: cam.pitch, mv: 0 }
       : { x: player.pos[0], y: shedY ? player.pos[1] - state.compensation[1] : player.pos[1], z: player.pos[2], yaw: cam.yaw, pitch: cam.pitch, mv: 0 };
-    onlineToScene = overworld
+    onlineToScene = nativeFrame
       ? (p) => { const l = state.localFromWorld(p.x, p.z); return [l[0], p.y + state.compensation[1], l[1]]; }
       : (p) => [p.x, shedY ? p.y + state.compensation[1] : p.y, p.z];
-    sceneToOnline = overworld ? campToWire : (q) => [q[0], shedY ? q[1] - state.compensation[1] : q[1], q[2]];   // AUDIT MERGE-PLUS B1
+    sceneToOnline = nativeFrame ? campToWire : (q) => [q[0], shedY ? q[1] - state.compensation[1] : q[1], q[2]];   // AUDIT MERGE-PLUS B1
     // ONLINE-MVFLICKER1 (Discord, 2026-09-18: "walking animation doesn't
     // complete, comes through only halfway"): `moved` used to be this
     // single frame's own delta, sent whichever frame the throttle below
@@ -21184,7 +21560,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     let _ownerIds;
     const ownerIds = () => {
       if (_ownerIds !== undefined) return _ownerIds;
-      const near = peersNear();
+      const near = peersNear({ presenceOnly: true });
       _ownerIds = near ? new Set(near.map((p) => p.id)) : null;
       return _ownerIds;
     };
@@ -21195,6 +21571,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     if (wantHalo.some((r) => !online.haloRooms().includes(r))) online.setLook(composeLook(playerEntity));   // AUDIT WORLD6b-iii(b) C5: a halo about to open hellos with the gear worn NOW (a promotion sends no hello of its own)
     online.setHalo(wantHalo);
     online.tick();
+    if (cabin && key) cabinLink.tick(online, cabin, worldCoordToMapPixel(cabin.origin[0], cabin.origin[2]), now);
     // WORLD6b: a room change leaves every puppet in the old cell; a peer gone from the room takes its puppets with it.
     // WORLD6b-iii(b): a cell crossing is no room change to the puppets - their owners' cells are still held (the
     // halo) and the prune below takes back any whose owner the hunt no longer sees
@@ -21229,12 +21606,14 @@ export async function bootWorld(canvas, renderer, params, status) {
     const peerEye = travelView?.eye ?? cam.pos, peerRight = [Math.cos(peerYaw), 0, -Math.sin(peerYaw)];
     const tvGrow = travelView?.active ? peerGrow : null;   // OW-PEERS: the others grown under the Overworld, as the traveller is
     const drawable = isCellRoom(online.room) && csaOn() ? csaAboard.glue(online.drawable(), { poseOf: (o, i) => csaPoseAhead(o, i, dt), toWire: campToWire, dt }) : online.drawable();   // CSA-K: a peer aboard a boat stands on its deck as it is drawn here - its owner's (mine among them) or the one led here - never a stride behind it
-    peerCastVisuals(drawable);   // SPELLFX1: a peer's new cast, drawn once
+    const visiblePeers = cabin ? drawable : drawable.filter((d) => !csaPeers.isBelowDeck(d.id));
+    peerCastVisuals(visiblePeers);   // SPELLFX1: a peer's new cast, drawn once
     _veilT += dt > 0 ? dt : 0;
     _veils.clear(); _hiddenPeers.clear();
+    for (const d of drawable) if (!cabin && csaPeers.isBelowDeck(d.id)) _hiddenPeers.add(d.id);
     const veilOn = combatVisualsOn();   // ECV1: once per frame
     const seen = [];
-    for (const d of drawable) {
+    for (const d of visiblePeers) {
       const look = peerDraw(d.shown?.cv | 0, veilOn, _veilT, d.id);
       if (look.kind === 'hidden') { _hiddenPeers.add(d.id); continue; }   // INVIS-NET: the classic lane - the concealed stand nowhere here
       if (look.kind === 'conceal') _veils.set(d.id, look.visual);
@@ -21276,7 +21655,7 @@ export async function bootWorld(canvas, renderer, params, status) {
       for (const acct of [..._partyBodies]) if (!others.some((m) => m.acct === acct)) { _partyBodies.delete(acct); remotePlayers.partyForget(acct); }
     }
     if (online.room) remotePlayers.keepCorpses((r) => r === online.room || ((isWorldRoom(r) || isCellRoom(r)) && (isWorldRoom(online.room) || isCellRoom(online.room))));   // PCORPSE2: never judged while between rooms (a cell crossing's gap) - no room is not another space
-    remotePlayers.sync(drawable, onlineToScene, { bodyHeight: (id) => peerRiders.heightOf(id) || peerBodies.heightOf(id) || peerWalkers.heightOf(id), dt, eye: travelView?.eye ?? player.pos, poseAgeMs: (p) => online.poseAgeMs(p), conceal: veilOf, hidden: (id) => _hiddenPeers.has(id), grow: tvGrow });   // AUDIT (pre-merge) I-G: every peer HEARD (a concealed one's steps, swings and hooves - sound is no renderer), the classic lane's concealed drawn nowhere   // 2026-09-17: dt drives the class-enemy billboard path's own animation clock; eye is the local player's own position, needed for mobileOrientation's facing calculation (see remotePlayers.js _syncMobilePeer)   // AUDIT DEEP R-11: under the travel view, the view's own eye - the picture each peer shows is the one the camera sees
+    remotePlayers.sync(visiblePeers, onlineToScene, { bodyHeight: (id) => peerRiders.heightOf(id) || peerBodies.heightOf(id) || peerWalkers.heightOf(id), dt, eye: travelView?.eye ?? player.pos, poseAgeMs: (p) => online.poseAgeMs(p), conceal: veilOf, hidden: (id) => _hiddenPeers.has(id), grow: tvGrow });   // AUDIT (pre-merge) I-G: every peer HEARD (a concealed one's steps, swings and hooves - sound is no renderer), the classic lane's concealed drawn nowhere   // 2026-09-17: dt drives the class-enemy billboard path's own animation clock; eye is the local player's own position, needed for mobileOrientation's facing calculation (see remotePlayers.js _syncMobilePeer)   // AUDIT DEEP R-11: under the travel view, the view's own eye - the picture each peer shows is the one the camera sees
     peerFlashFrame();   // PEERFX3: after every layer has (re)made its sprites this frame
   };
   /** SPELLFX1 (the Unity co-op's RpcPlayPlayerSpellCastVisual): EVERY PEER'S CAST, DRAWN. The pose already carries the
@@ -21418,6 +21797,9 @@ export async function bootWorld(canvas, renderer, params, status) {
   // what test/audit24_wave37.test.js asserts, both ways.
   var modes = createWorldModes({
     climbFeel,   // CLIMB4: the one body's climb camera - the modal frames take it after their own motor step
+    sailingCabin: sailingCabins,
+    linkedBankCabin: () => readBankCabinLink(playerEntity.boatCabinLink),
+    enterLinkedBankCabin: () => enterLinkedBankCabin(),
     // WEATHER3b / AUDIT WEATHER3 R3: the world weather map over the place the player is inside - the building's pixel,
     // or the dungeon's own (playerTravelPixel answers both) - every indoor frame; nothing under a ?weather pin
     weatherIndoors: () => {
@@ -21501,6 +21883,8 @@ export async function bootWorld(canvas, renderer, params, status) {
       if (told || lived) renderer.markForeignPass();
     },
     deadlandsSeconds: () => deadlandsSeconds(),   // WB6b: the court's flash and the shards' drift keep the sky's clock
+    staffTeleportHeld: () => staffTeleportHeld,
+    canVisitPrivateRoom: () => !seatOut() && isStaff(_staffGlyphs) && !!chatLinks.get('world')?.staffTeleportOk,
     gateVeil: () => gateVeil,   // WB6c: the step through the gate's fire, both ways
     // AUDIT WB B5: why the gate's door refuses the step now it has closed, or null - no relay to hold the court, its
     // master fallen, or sealed while the fire burned (the pool's own words where it has them)
@@ -22060,6 +22444,17 @@ export async function bootWorld(canvas, renderer, params, status) {
     // raycast (PlayerActivate.cs:314, :393-398), so the box has to be
     // in the frame the ray is cast in. pickActivatable takes
     // {min,max}; the pixel keeps the 6-array the culling box uses.
+    /** SEARCH1: a graveyard's headstones, through the same live floating-origin translation the boards ride. */
+    graveTargets: () => {
+      const out = [];
+      for (const p of built.values()) {
+        if (!p.graves?.length) continue;
+        const t = state.pixelTranslation(p.px, p.py);
+        for (const g of p.graves) out.push({ min: [g.box[0] + t[0], g.box[1] + t[1], g.box[2] + t[2]], max: [g.box[3] + t[0], g.box[4] + t[1], g.box[5] + t[2]], loc: `g${p.px},${p.py}`, key: String(g.n) });
+      }
+      return out;
+    },
+    activateGrave: (g, mode) => activateGrave(g, mode),   // SEARCH1
     boardTargets: () => {
       const out = [];
       for (const p of built.values()) {
@@ -23990,6 +24385,12 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     _slowWas = why;
   }
   const travelGovernor = createLoadGovernor({ max: MAX_TIME_SCALE });
+  // ENEMY-PACE (the player: "a second time multiplier for when you're near an enemy"): the slowest pace the clock runs at
+  // with enemies near - the enemies' cap still eases a journey down toward them, but never under this. The panel's second
+  // stepper sets it, and shows only while the enemies hold the clock
+  let tvFoeRate = 5;
+  const foeLadder = (n, up) => up ? (n >= 5 ? n + 5 : n + 1) : (n > 5 ? n - 5 : Math.max(1, n - 1));
+  const foeFloor = (cap, want) => Math.min(want, Math.max(cap, Math.min(tvFoeRate, travelControlUI?.accelerationLimit() || MAX_TIME_SCALE)));
   let tvHeld = null;   // the rate the governor holds the clock to, while it holds it under the spinner's
   // OW6: and why - 'load' (TV2's ground), 'foes' (an enemy near), 'ground' (the view down: AUDIT OW4 J5's walking pace - AUDIT
   // OW5 G1, the bar saying which; its tvHeldGround is this word now)
@@ -24033,7 +24434,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
       // the classic skin's journey on the ground, and First-Person Travel's (OW-TOGGLE): the mod's own ask, under the
       // enemies' cap alone (no view, no ground to watch) - nothing near, it is the ask handed back whole. Never over the
       // helm's own time step: Come Sail Away holds the clock then (AUDIT OW5 G5's law, whose restore asks this rate)
-      const rate = csaHoldsTimeScale() ? null : Math.min(travelAsked, foes.cap);
+      const rate = csaHoldsTimeScale() ? null : foeFloor(foes.cap, travelAsked);
       if (rate != null && worldTimeScale() !== rate) setWorldTimeScale(rate);
       tvHeld = rate != null && rate < travelAsked ? rate : null;
       tvHeldWhy = tvHeld != null ? 'foes' : null;
@@ -24067,10 +24468,11 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     const unbuilt = uc.n;
     const want = journey ? travelAsked : walk;   // AUDIT TV A2: what the mod asked - never the spinner past the mod's own cap; TV-WASD: or the keys' travel
     const load = travelGovernor.step(dt, { unbuilt, requested: want });
-    const rate = Math.min(load, foes.cap);   // OW6: the ground's cap and the enemies', the lower
+    const foeCap = foeFloor(foes.cap, want);   // ENEMY-PACE: the enemies' cap, never under the player's near-enemy pace
+    const rate = Math.min(load, foeCap);   // OW6: the ground's cap and the enemies', the lower
     if (worldTimeScale() !== rate) setWorldTimeScale(rate);
     tvHeld = rate < want ? rate : null;
-    tvHeldWhy = tvHeld == null ? null : foes.cap < load ? 'foes' : 'load';
+    tvHeldWhy = tvHeld == null ? null : foeCap < load ? 'foes' : 'load';
     journeySlowSaid(tvHeldWhy);
     tvWalking = journey ? 0 : walk;
   }
@@ -24487,7 +24889,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
       // or a building's went with the exit, and the body - stood over the new pixel at the INTERIOR's height - fell
       // through the half-built world onto a model collider or the terrain as each went in, and the frame billed it.
       // The landing re-anchors the fall (player.spawn), so a held body arrives with none.
-      const _seasonHeld = _seasonHoldKey !== null || _seasonStraightening;
+      const _seasonHeld = _partyArrivalPending || _seasonHoldKey !== null || _seasonStraightening;
       if (!playerSpawned && built.has(startKey)) {
         // FIX-C: THE FIRST STAND IS DFU'S. StartNewCharacter
         // (StartGameBehaviour.cs:404-409) puts an exterior start through
@@ -24553,7 +24955,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
         raidFrame(dt);   // OWS3: Warm Ashes' raiders - a sail sighted under the view gives chase; alongside, the mod's raid
         travelViewGovern(dt);   // TV2: under the travel view the clock runs no faster than the land loads
         const travelScale = worldTimeScale();
-        const _overlayHeld = (modes?.dungeonCtx?.uiOverlayActive ?? false) || townTalk.overlayActive;   // chargen/windows/talk hold the motor - typing must not walk the player
+        const _overlayHeld = staffTeleportHeld || _partyArrivalPending || (modes?.dungeonCtx?.uiOverlayActive ?? false) || townTalk.overlayActive;   // chargen/windows/talk hold the motor - typing must not walk the player
         // TO1: THE MOD'S OWN FRAME - TravelOptionsMod.Update, in its
         // own order, given what this host knows this frame. It answers
         // the autopilot's drive for the motor below, and everything
@@ -24632,7 +25034,6 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
         // so it is recomputed per frame in every host; swimming is
         // false outdoors (no blockWaterLevel - PlayerEnterExit) until
         // the surface model below re-derives it (OT1).
-        const _wasSwimming = !!player.isPlayerSwimming;   // OT1: the value the frame - or the dungeon exit - arrived with, read BEFORE the clear
         // DW-D: OutdoorSwimDriver.Update, ahead of the motor as its execution order puts it - the carved sea's swim
         // decision, and its forge ridden on the ONE motor flag write below (a clear and a forge after it would change
         // LevitateMotor.IsSwimming twice a frame, and each change cancels a step). A boat's live effect bundle
@@ -24644,6 +25045,9 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
           onBoat: (playerEntity.activeEffects ?? []).some((e) => isBoatEffectBundle(e?.bundleName)), loadGrace: loadGraceActive(performance.now() / 1000), input: { forward: _dwLastForward },
           frameDelta: dt * worldTimeScale(),   // Time.deltaTime: the frame's clamped seconds (the mod's own 0.1 s maximumDeltaTime) x Time.timeScale
         }) : null;
+        // Peer water boarding: Deep Waters may restore dry flags before the motor runs. Keep that result;
+        // a latch captured before its restore resurrected swimming over tile 0 and dropped the passenger after grace.
+        const _wasSwimming = !!player.isPlayerSwimming;   // OT1: still before applyMotorEffectFlags' per-frame clear
         applyMotorEffectFlags(player, playerEntity, _dwForge ?? undefined);
         // DW-D: the forge holds PlayerEnterExit's dungeon arm open for the frame, and the arm's afloat line with it
         if (_dwForge) { const afloat = afloatMessageStep(player, player.waterWalking); if (afloat) townTalk.say(afloat, CANNOT_FLOAT_HUD_SECONDS); }
@@ -26877,6 +27281,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
           following: !travelOptions?.destinationName,
           accel: travelControlUI?.timeAcceleration ?? 1,
           held: tvHeld,   // TV2: the travel view's cap, while it holds the clock under the spinner
+          foeRate: tvFoeRate,   // ENEMY-PACE
           heldWhy: tvHeldWhy,   // AUDIT OW5 G1: and why; OW6: the land loading, an enemy near, or the view down (its ground)
           message: travelControlUI?.message ?? '',
           minutesLeft: travelOptions?.minutesLeft ?? null,   // AUDIT-TO1 L5: the popup's estimate, run down on the world clock
@@ -26889,6 +27294,8 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
           exit: () => travelControlUI?.cancelWindow(),
           faster: () => travelControlUI?.faster(),
           slower: () => travelControlUI?.slower(),
+          foeFaster: () => { tvFoeRate = Math.min(travelControlUI?.accelerationLimit() || MAX_TIME_SCALE, foeLadder(tvFoeRate, true)); },   // never past the general spinner's own limit
+          foeSlower: () => { tvFoeRate = foeLadder(tvFoeRate, false); },
         });
       } else hideEnhancedTravelControl();
     } else {

@@ -259,6 +259,12 @@ export const AIR_ADAPT_MIN = 0.7;
 export const AIR_ADAPT_MAX = 1.8;
 export const AIR_ADAPT_OPEN = 0.6;
 export const AIR_ADAPT_CLOSE = 3.0;
+/** FLICKER-FIX (2026-10-02): THE CALMER EYE. With Steady shadows on the eye adapts at this share of its usual rate, in both
+ *  directions: a shadow that pops for a few frames moves the scene's mean luminance, and the eye (closing in a third of a
+ *  second) rippled with it, which read as the whole picture breathing. The rates are uniforms, so this is no shader change.
+ *  shadowPass.js sets `calm` once a frame from the Steady shadows switch. */
+export const AIR_CALM_RATE = 0.35;
+export const AIR_TUNING = { calm: false };
 /** EL4: the 8-bit encodings - log2 luminance over [-12, 4] stops, log2
  *  multiplier over [-2, 2]. */
 export const AIR_LUM_LOG_RANGE = Object.freeze([-12, 4]);
@@ -1356,7 +1362,7 @@ export class AirPass {
     this.adaptIndex = 0;
     this.grade = new Float32Array([AIR_BLOOM_STRENGTH, 1, AIR_VIGNETTE, AIR_CONTRAST]);
     this.adaptParams = new Float32Array([0, AIR_ADAPT_KEY, AIR_ADAPT_MIN, AIR_ADAPT_MAX]);
-    this.adaptRates = new Float32Array([AIR_ADAPT_OPEN, AIR_ADAPT_CLOSE]);
+    this.adaptRates = new Float32Array([AIR_ADAPT_OPEN, AIR_ADAPT_CLOSE]); /** @type {Float32Array|null} */ this._calmRates = null;   // FLICKER-FIX: the calm eye's rates, filled on first use
     this.canvas = new Float32Array(2);
     this.rect = new Float32Array(4);
     this._fullRect = new Float32Array(4);   // AUDIT RETRO1 B4: an unprepared frame's rect - its whole image
@@ -1989,7 +1995,8 @@ export class AirPass {
     gl.activeTexture(gl.TEXTURE0);
     this.adaptParams[0] = dt;
     gl.uniform4fv(P.adapt.uAdaptParams, this.adaptParams);
-    gl.uniform2fv(P.adapt.uAdaptRates, this.adaptRates);
+    if (AIR_TUNING.calm) { this._calmRates ??= new Float32Array(2); this._calmRates[0] = this.adaptRates[0] * AIR_CALM_RATE; this._calmRates[1] = this.adaptRates[1] * AIR_CALM_RATE; }   // FLICKER-FIX
+    gl.uniform2fv(P.adapt.uAdaptRates, AIR_TUNING.calm ? this._calmRates : this.adaptRates);
     gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
     this.adaptIndex = 1 - this.adaptIndex;
     }

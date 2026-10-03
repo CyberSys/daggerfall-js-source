@@ -976,8 +976,8 @@
   {
     "name": "PROF10-book-cracked-unasked",
     "file": "src/net/profBook.js",
-    "old": "Number.isSafeInteger(w.seat) ? w.seat : null, w.cracked === true)));",
-    "new": "Number.isSafeInteger(w.seat) ? w.seat : null, false)));",
+    "old": "Number.isSafeInteger(w.seat) ? w.seat : null, w.cracked === true)), key);",
+    "new": "Number.isSafeInteger(w.seat) ? w.seat : null, false)), key);",
     "tests": [
       "test/prof10_client.test.js"
     ]

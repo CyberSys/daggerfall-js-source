@@ -33,7 +33,7 @@
    string the game pays for only when a screen is mounted. */
 import { PIXELIFY_FIVE_FACE, PIXEL_STACK, PIXEL_FONT_CSS } from './pixelifyFive.js';   // FIX-D: Silkscreen's five ahead of Pixelify Sans
 import { badgeCss } from './playerBadge.js';   // ACC3c: one rule per title and per glyph, walked out of the vocabulary - the card writes a class and the skin carries the colour
-import { PLUS_CSS, PLUS_STYLE_ID, applyPlusTheme } from './enhancedPlusStyle.js';   // PLUS1: the Enhanced Plus sheet, laid over this one
+import { STONE_WORD, PLUS_CSS, PLUS_STYLE_ID, applyPlusTheme } from './enhancedPlusStyle.js';   // PLUS1: the Enhanced Plus sheet, laid over this one
 import { installPlusCursor } from './plusCursor.js';   // PLUS7: the gauntlet cursor
 import { installWindowMotion } from './windowMotion.js';   // PLUS1/WM1: windows unfold and fold - Enhanced Plus only
 import { isEnhancedPlus } from '../systems/uiSkin.js';   // PLUS1: the Plus sheet is laid only under Plus
@@ -2164,7 +2164,7 @@ ${badgeCss()}
 /* PX1b: THREE ZONES - build left, the skin toggle dead center, About
    the bottom-right box. A grid, because flex space-between centers the
    middle child only when the outer two happen to weigh the same. */
-.px-foot { position: absolute; left: 0; right: 0; bottom: 0;
+.px-foot { position: absolute; left: 0; right: 0; bottom: 0; pointer-events: none;
   display: grid; grid-template-columns: 1fr auto 1fr; align-items: end;
   padding: 12px 16px; font-size: 15px; letter-spacing: 0.12em;
   text-transform: uppercase; color: #9c937d;
@@ -2175,7 +2175,7 @@ ${badgeCss()}
 /* The About box: the ONE box on the boxless face, which is what makes
    it read as a plaque rather than a menu row. 2px border in whole
    pixels, gold on hover by the same pair. */
-.px-about { font: inherit; font-size: 16px; letter-spacing: 0.14em; text-indent: 0.14em;
+.px-about { pointer-events: auto; font: inherit; font-size: 16px; letter-spacing: 0.14em; text-indent: 0.14em;
   text-transform: uppercase; color: #d8cfae; cursor: pointer;
   justify-self: end; min-height: 44px; padding: 8px 18px;
   background: rgba(10,12,17,0.55); border: 2px solid #7d7460;
@@ -2430,7 +2430,22 @@ ${badgeCss()}
    foot stacks two rows only where width also runs out. */
 @media (max-height: 560px), (max-width: 480px) {
   .px-stage { justify-content: flex-start; padding: 7dvh 24px 132px; overflow-y: auto; }
+  /* Keep the ordinary pause panel above the clock; its body remains the scroller. */
+  .px-over > .px-stage:not(.px-acctstage):not(.px-timersstage) > .px-win { max-height: calc(100dvh - max(7dvh, 64px) - 64px); }
 }
+/* Inventory and Spellbook own direct window shells. Keep their controls above the measured controller legend. */
+html.plus-pad-prompts-visible .pack-shell,
+html.plus-pad-prompts-visible .sb-shell { box-sizing: border-box;
+  padding-bottom: calc(var(--plus-pad-clearance, 0px) + 8px); }
+html.plus-pad-prompts-visible .pack-shell > .pack-win,
+html.plus-pad-prompts-visible .sb-shell > .px-win {
+  max-height: calc(100dvh - var(--plus-pad-clearance, 0px) - 8px); }
+/* B12.01 + controller legend: reserve the measured wrapped bar, then the existing calendar row. */
+html.plus-pad-prompts-visible .px-clock { bottom: calc(var(--plus-pad-clearance, 0px) + 12px); }
+html.plus-pad-prompts-visible .px-over > .px-stage:not(.px-acctstage):not(.px-timersstage) {
+  padding-bottom: calc(var(--plus-pad-clearance, 0px) + 64px); }
+html.plus-pad-prompts-visible .px-over > .px-stage:not(.px-acctstage):not(.px-timersstage) > .px-win {
+  max-height: calc(100dvh - max(7dvh, 64px) - var(--plus-pad-clearance, 0px) - 64px); }
 /* AUDIT TIMERS1 UI-1: the timers window's stage is not the pause stage - two classes, so the rule above (one class,
    later) cannot take its padding and pin the window to the left; centred, its own padding, its list the one scroll.
    UI-2: and over the game on a short screen the pause window stands clear of the corner marks (the profile and the
@@ -2670,6 +2685,13 @@ ${badgeCss()}
 .travelpanel-speed { display: flex; flex-direction: column; justify-content: center; gap: 2px;
   padding: 7px 14px; border-left: 1px solid rgba(192,138,62,0.25); }
 .travelpanel-stepper { display: flex; align-items: center; gap: 6px; }
+/* ENEMY-PACE: the second clock, under the first - only while enemies hold the journey (the node's hidden attribute takes it away) */
+.travelpanel-foe { display: flex; flex-direction: column; align-items: inherit; gap: 3px; margin-top: 8px; }
+.travelpanel-foe[hidden] { display: none; }
+.travelpanel-foe > .travelpanel-label { white-space: nowrap; }
+.travelpanel-foeaccel { color: #d9a441; }
+.travelpanel.foes .travelpanel-msg { top: calc(var(--tp-top, 66px) + 148px); }
+.travelpanel.foes .travelpanel-junction { top: calc(var(--tp-top, 66px) + 156px); }
 .travelpanel-accel { font-family: var(--display); font-size: 19px; min-width: 46px; text-align: center; color: var(--brass); }
 .travelpanel-accel.held { font-size: 15px; min-width: 84px; color: #d9a441; }   /* TV2: held while the land loads */
 .travelpanel-step { pointer-events: auto; width: 22px; height: 22px; line-height: 1;
@@ -2743,9 +2765,12 @@ ${badgeCss()}
   border: 0; box-shadow: none; background: none; }
 #travel-view .tview-dock .travelpanel-dest { flex: 1 1 100%; min-width: 0; max-width: none; padding: 9px 12px 5px; }
 #travel-view .tview-dock .travelpanel-name { display: block; font-size: 16px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-#travel-view .tview-dock .travelpanel-speed { flex: 0 0 auto; flex-direction: row; align-items: center; gap: 8px; padding: 3px 0 9px 12px; }
+#travel-view .tview-dock .travelpanel-speed { flex: 0 0 auto; flex-direction: column; align-items: flex-start; justify-content: center; gap: 0; padding: 3px 0 9px 12px; }
 #travel-view .tview-dock .travelpanel-speed > .travelpanel-label { display: none; }
-#travel-view .tview-dock .travelpanel-acts { flex: 1 1 auto; display: flex; justify-content: flex-end; gap: 6px; padding: 3px 12px 9px 8px; }
+/* ENEMY-PACE: the clock on the left (its near-enemies stepper under it while enemies hold the clock), Camp ABOVE Exit on the right */
+#travel-view .tview-dock .travelpanel-acts { flex: 0 0 auto; margin-left: auto; display: flex; flex-direction: column; align-items: stretch; justify-content: center; gap: 6px; padding: 3px 12px 9px 8px; }
+#travel-view .tview-dock .travelpanel-acts .travelpanel-act { min-width: 78px; text-align: center; }
+#travel-view .tview-dock .travelpanel-foe { margin-top: 6px; }
 #travel-view .tview-dock .travelpanel-act[data-act="map"] { display: none; }
 #travel-view .tview-dock .travelpanel-act { padding: 5px 9px; }
 #travel-view .tview-dock > .travelpanel-msg { position: absolute; right: 0; left: auto; top: auto; bottom: calc(100% + 10px); transform: none;
@@ -3277,6 +3302,14 @@ ${badgeCss()}
 .sb-shell .sb-nums { display: flex; flex-wrap: wrap; gap: 6px 14px; margin: 4px 0 0 26px; }
 .sb-shell .sb-num { color: var(--brass); font-size: 12px; letter-spacing: 0.1em;
   font-variant-numeric: tabular-nums; text-shadow: 2px 2px 0 rgba(0,0,0,0.8); }
+/* SB-ICON: the icon grid under the spell's buttons - the spell maker's picker, in the book. 12 to a row, as the classic grid. */
+.sb-shell .sb-icons { display: grid; grid-template-columns: repeat(auto-fill, minmax(44px, 1fr)); gap: 6px; margin: 16px 0 0; max-height: 260px; overflow-y: auto; padding: 8px; border: 2px solid rgba(125,116,96,0.35); background: rgba(0,0,0,0.25); }
+.sb-shell .sb-icon { pointer-events: auto; display: grid; place-items: center; width: 100%; aspect-ratio: 1; min-height: 40px; padding: 0; cursor: pointer; background: rgba(43,50,59,0.9); border: 2px solid rgba(125,116,96,0.45); }
+.sb-shell .sb-icon img { width: 32px; height: 32px; image-rendering: pixelated; }
+.sb-shell .sb-icon:hover, .sb-shell .sb-icon:focus-visible { outline: none; border-color: var(--verdigris); }
+.sb-shell .sb-icon.on { border-color: var(--brass); background: rgba(192,138,62,0.28); }
+.sb-shell .sb-iconnum { font-size: 11px; color: var(--dim); }
+.sb-shell .sb-iconbtn.on { color: var(--brass); }
 .sb-shell .sb-rename { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; margin: 16px 0 0; }
 .sb-shell .sb-renamelabel { color: #9c937d; font-size: 12px; letter-spacing: 0.14em;
   text-transform: uppercase; }
@@ -4801,6 +4834,23 @@ ${badgeCss()}
    media block, so every base selector above is one class. */
 @media (max-width: 720px) { .wplaque { max-width: 88vw; --wp-pad-x: 12px; padding: 8px var(--wp-pad-x); }
   .wplaque-row, .wplaque-title { font-size: 13px; } .wplaque-sub { font-size: 11px; } }
+
+/* Action lists can grow with cabin and crew verbs. Bound the whole panel, including its title;
+   worldPlaque keeps the keyboard/wheel selection visible without adding a second input handler. */
+.wplaque.has-actions { box-sizing: border-box; min-width: 0; width: max-content;
+  max-width: min(${PLAQUE_MAX_W}px, calc(100vw - 24px));
+  max-height: calc(100vh - var(--wp-top, 55%) - 12px);
+  max-height: calc(100dvh - var(--wp-top, 55%) - 12px); }
+.wplaque.on.has-actions { display: flex; flex-direction: column; }
+.wplaque.has-actions > :not(.wplaque-list) { flex-shrink: 0; }
+.wplaque.has-actions .wplaque-acts { position: relative; min-height: 0; max-height: none;
+  margin-left: calc(-1 * var(--wp-pad-x)); margin-right: calc(-1 * var(--wp-pad-x));
+  padding-left: var(--wp-pad-x); padding-right: var(--wp-pad-x);
+  overflow-y: hidden; overflow-x: hidden; }
+.wplaque.has-actions .wplaque-row { overflow-wrap: anywhere; }
+/* Action plaques retain the active theme's original translucent world surface and use its readable body-text role. */
+.wplaque.has-actions:not(.tone-private) .wplaque-title, .wplaque.has-actions .wplaque-row { color: var(--bone); }
+:root[data-plus-theme="stone"] .wplaque.has-actions:not(.tone-private) .wplaque-title, :root[data-plus-theme="stone"] .wplaque.has-actions .wplaque-row { color: ${STONE_WORD}; }
 
 /* ── PX21a: THE TRANSPORT STRIP - retired (PLUS-DEAD, 2026-09-26): Mount and Cart are a split cell of the worn grid
    (PLUS11), and the strip plain Enhanced drew went with it. */

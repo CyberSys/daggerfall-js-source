@@ -396,8 +396,9 @@ export const FEATURES = Object.freeze([
     title: 'Enhanced lighting',
     note: 'Warmer, more natural light: lanterns and torches that glow and fade with distance, light through '
       + 'fog, shadows from the sun and your torch, darker corners, a glow on windows and flames, and rays of '
-      + 'sunlight. Off is Daggerfall Unity’s flat lighting.',
-    effect: 'Takes effect when the world next loads.',
+      + 'sunlight. Off is Daggerfall Unity’s flat lighting.'
+      + ' Steady shadows redraws every shadow every frame so none pop on and off; turn it off for more frame rate.',
+    effect: 'Lighting takes effect when the world next loads; steady shadows at once.',
     kinds: Object.freeze(['enhanced']),
     // OL-LIGHT (2026-09-24, Mac: "Can we let people disable it online"): THE PLAYER'S, ONLINE TOO. It was forced on
     // with the rest of the enhanced lane, so a player it did not suit - the interior flicker DISC15 closed, a GPU
@@ -405,7 +406,14 @@ export const FEATURES = Object.freeze([
     // the room agrees on nothing through it (render/enhancedLighting.js lightingOn is its one reader, and no wire
     // field, relay law or shared roll reads the lane), the same shape as the chat's visibility and the peers'
     // sprites the lane already leaves to the player.
-    control: Object.freeze({ store: 'prefs', key: 'enhancedLighting', initial: true, online: 'player' }),
+    // FLICKER-FIX (2026-10-02, Mac: "add it to enhanced lighting"): the steady-shadows switch is a PART of this row, as the wind's
+    // wisps are (render/shadowPass.js SHADOW_TUNING.steady reads it each frame: no frame-skipping cadence, a stickier caster hold,
+    // no lo-tier rebuild cap; off = EL8's schedule, cheaper but shadows can pop).
+    control: Object.freeze({
+      store: 'prefs', key: 'enhancedLighting', initial: true, online: 'player',
+      also: Object.freeze([Object.freeze({ store: 'prefs', key: 'steadyShadows', initial: true, online: 'player' }), Object.freeze({ store: 'prefs', key: 'shadowDebug', initial: false, online: 'player' })]),   // FLICKER-FIX: shadowDebug prints the console log (render/shadowPass.js _debugLog)
+      parts: Object.freeze([Object.freeze({ key: 'enhancedLighting', label: 'Lighting' }), Object.freeze({ key: 'steadyShadows', label: 'Steady shadows' }), Object.freeze({ key: 'shadowDebug', label: 'Shadow debug log' })]),
+    }),
   }),
   // IIL1-T (2026-09-27, Mac: "add an alternative light on off option to test the modded lighting"): Improved Interior
   // Lighting off, on, or on with shadows - it only ever acts with its .dfmod attached (systems/improvedInteriorLighting.js);

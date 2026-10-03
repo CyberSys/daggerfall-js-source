@@ -252,14 +252,25 @@ export function createShipDamage({ hullHp, sailHp, crew, player = false }) {
     },
     /** What the save or the wire keeps. */
     snapshot: () => ({ hull: Math.round(s.hull), sail: Math.round(s.sail), crew: s.crew, fire: +d.fire.toFixed(1), state: s.state }),
+
+    // Persistence retains fractional damage and each fire; the compact wire snapshot stays unchanged.
+    saveData: () => Object.assign(d.snapshot(), { hull: s.hull, sail: s.sail, fires: s.fires.map((f) => ({ ...f })), crewBurn: s.crewBurn }),
     /** Back from a snapshot - numbers bounded to the ship's own, a state it can be in. */
     restore(r) {
       if (!r || typeof r !== 'object') return;
       const num = (v, max) => (Number.isFinite(v) ? clamp(v, 0, max) : max);
       s.hull = num(r.hull, s.maxHull); s.sail = num(r.sail, s.maxSail); s.crew = Math.round(num(r.crew, s.maxCrew));
       douse();
-      const fire = Number.isFinite(r.fire) ? clamp(r.fire, 0, FIRE_SECONDS) : 0;
-      if (fire > 0) s.fires.push({ hp: FIRE_HP, t: fire });
+      if (Array.isArray(r.fires)) {
+        for (const f of r.fires.slice(0, FIRE_STACK)) {
+          if (!f || !Number.isFinite(f.t) || !(f.t > 0) || (f.hp !== FIRE_HP && f.hp !== BARREL.burnPerSecond)) continue;
+          s.fires.push({ hp: f.hp, t: Math.min(f.t, f.hp === FIRE_HP ? FIRE_SECONDS : BARREL.burn) });
+        }
+        if (s.fires.length && Number.isFinite(r.crewBurn)) s.crewBurn = clamp(r.crewBurn, 0, FIRE_CREW_S);
+      } else {
+        const fire = Number.isFinite(r.fire) ? clamp(r.fire, 0, FIRE_SECONDS) : 0;
+        if (fire > 0) s.fires.push({ hp: FIRE_HP, t: fire });   // older saves carried one ordinary fire
+      }
       const st = Object.values(SHIP_STATES).includes(r.state) ? r.state : SHIP_STATES.afloat;
       const was = s.state;
       s.state = player ? (st === SHIP_STATES.wrecked || s.hull <= 0 ? SHIP_STATES.wrecked : SHIP_STATES.afloat) : st;

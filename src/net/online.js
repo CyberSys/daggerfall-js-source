@@ -1,4 +1,5 @@
 // @ts-check
+import { relaySupportsFoeInventory } from './wire.js';
 // ONLINE1 (2026-09-12, Mac: "the basic bones of multiplayer. The goal is
 // being able to see others in the world while allowing you to bring
 // over one of your own save file ... All I care about is being able to
@@ -69,6 +70,7 @@
 // the rest). WORLD_PUBLISH_MS is how often.
 //
 // Not a DFU member: Daggerfall Unity has no multiplayer. Ledger A row.
+import { validStaffTeleportIn, validStaffTeleportOut, staffTeleportSupported } from './staffTeleport.js';
 import { layoutRoomKey } from '../world/interiorShared.js';   // WD3 (AUDIT WD3 B3): an interior's room is its layout's
 import { tabStorage } from '../systems/appStorage.js';   // the tab's own storage - the seam, never the browser's own (a PIN)
 import { wrapAngle } from '../world/mat4.js';   // ONCRASH1: the port's one angle wrap, which cannot loop
@@ -305,6 +307,8 @@ export class OnlineSession {
     this.onAmap = null;           // PARTY-MAP: (acct, name, k, r) => void - a party member's revealed automap rows in
     this.amapOk = false;          // PARTY-MAP: the relay knows the `amap` frame (relaySupportsPartyMap) - an older one closes on it
     this._lastAmapAt = -Infinity; // PARTY-MAP: the client's own floor between two sends (AMAP_SEND_MS)
+    this.onStaffTeleport = null;
+    this.staffTeleportOk = false;
     this.onTraveller = null;      // TV3: (frame) => void - a traveller's mark in my region (p null: they went in, or hid)
     this.onTravellerRoom = null;  // TV3: (frames) => void - the region room's marks, whole, on its welcome
     this.onTravellerLeft = null;  // TV3: (id) => void - a traveller left my region's room
@@ -420,6 +424,7 @@ export class OnlineSession {
     this.onRaid = null;           // RAID3: (frame, room) => void - a cell's word about a raid (its ledger, its cleanse, my receipt) or the hub's (a cleanse anywhere, the day's cleanses), projected by the wire's validRaidOut
     this._raidBucket = null;      // RAID3: my own raid words out - raidGate's law
     this._riteBucket = null;      // WB12d: my own rite words out - riteGate's law
+    this.foeInventoryOk = false;
     this.owOk = false;            // OW6L: the relay that welcomed my primary socket keeps a cell's overworld ledger (relaySupportsOverworld) - an older one CLOSES the socket on the frame, so nothing is said to it
     this.onOverworld = null;      // OW6L: (msg, room) => void - a cell's word on its overworld ledger, `{k:'sp', ids}` or `{k:'dg', rows}` (validOwOut), from my own cell or a halo's, its welcome's half by half
     this._owBucket = null;        // OW6L: my own `ow` words out - owGate's law
@@ -530,11 +535,12 @@ export class OnlineSession {
       // status is the SOCKET's - open, or still connecting (an 'error' after a relay error frame is a close on its way)
       // AUDIT WB12d (C6): each socket's own relay's word goes with it - the cell crossed into keeps the raid and the rite
       // its welcome said it keeps, and the one stepped down keeps its own (sendRaid/sendRite read the socket's word)
-      const old = { ws: this._ws, status: this.status === 'open' ? 'open' : 'connecting', retryAt: null, backoff: BACKOFF_MIN_MS, since: this._now(), raidOk: this.raidOk, riteOk: this.riteOk };
+      const old = { ws: this._ws, status: this.status === 'open' ? 'open' : 'connecting', retryAt: null, backoff: BACKOFF_MIN_MS, since: this._now(), raidOk: this.raidOk, riteOk: this.riteOk, foeInventoryOk: this.foeInventoryOk };
       this._halo.delete(room);
       this._halo.set(this.room, old);
       this._ws = h.ws; this.status = h.status; this.error = null; this._retryAt = h.retryAt; this._backoff = h.backoff;
       this.raidOk = !!h.raidOk; this.riteOk = !!h.riteOk;
+      this.foeInventoryOk = !!h.foeInventoryOk;
       this.room = room;
       this._pose = pose ?? this._pose;
       this._lastSent = null; this._lastSentAt = -Infinity;
@@ -758,6 +764,8 @@ export class OnlineSession {
    *  bucket (a frame over it is kept home rather than struck by the relay), never past FOES_FRAME_MAX. */
   sendFoes(data) {
     if (!data || typeof data !== 'object' || Array.isArray(data)) return false;
+    if (data.f !== undefined && !Array.isArray(data.f)) return false;
+    if (data.f?.some((r) => r?.it !== undefined) && !this.foeInventoryOk) return false;
     // WORLD6b: in a cell anyone streams (a foe is its spawner's); in a world room the host alone
     if (!(isCellRoom(this.room) || (this.isHost() && isWorldRoom(this.room))) || !this._ws || this.status !== 'open') return false;
     const gate = foesGate(this._fbucket, this._now());
@@ -1246,6 +1254,7 @@ export class OnlineSession {
         this._lastSent = null; this._lastSentAt = -Infinity;
         this._lastParty = null; this._lastPartyAt = -Infinity;   // SOC2: a fresh socket is a fresh attachment at the hub - the next party pose goes whole
         this.amapOk = false;   // PARTY-MAP: likewise, the welcome says
+        this.staffTeleportOk = false;
         this.travOk = false;   // AUDIT DEEP T3-5: this socket's relay says whether it knows `trav` on ITS welcome (a rollback to world121 closes on one)
         this._send(frame);
         if (!this.presence) this._lastSentAt = this._now();   // the heartbeat clock starts at the hello
@@ -1670,6 +1679,13 @@ export class OnlineSession {
     return true;
   }
 
+  /** Exact destinations use only the updated, authenticated global hub. */
+  sendStaffTeleport(frame) {
+    if (!this.staffTeleportOk || !isSocialRoom(this.room)) return false;
+    const m = validStaffTeleportIn(frame);
+    return !!m && this._send({ t: 'stp', ...m });
+  }
+
   /** SOC2: a social act out - to the hub, from a session that holds an account: `{k, acct?|peer?|party?}` as
    *  net/wire.js SOCIAL_ACTS has it, gated here as the hub gates it (SOCIAL_HZ_MAX - an act the hub would drop without
    *  a word is refused here with a false, and the panel keeps its button lit); false when nothing went. */
@@ -1907,6 +1923,8 @@ export class OnlineSession {
       // a welcome carries - a relay is the PLAYER'S choice (`?server=`,
       // the menu's Relay field), so its deploy name is not our word.
       const relayV = relayVersionOf(m.v);
+      if (primary) this.foeInventoryOk = relaySupportsFoeInventory(relayV);
+      else { const h = this._halo.get(room); if (h) h.foeInventoryOk = relaySupportsFoeInventory(relayV); }
       if (relayV) this._deliver('relay', () => this.onRelay?.(relayV));
       if (primary) this.tradeOk = relaySupportsTrade(relayV);   // TRADE1
       if (primary) this.castOk = relaySupportsCast(relayV);   // AUDIT ALLY-CAST B1
@@ -1941,6 +1959,7 @@ export class OnlineSession {
       if (primary) this.restOptOk = relaySupportsRestOpt(relayV);   // REST-OPT (AUDIT C1)
       if (primary) this.partyWalkOk = relaySupportsPartyWalk(relayV);   // TV8
       else { const h = this._halo.get(room); if (h) h.lookOk = relaySupportsLook(relayV); }   // PROFILE2: a halo says for itself
+      if (primary) this.staffTeleportOk = staffTeleportSupported(relayV);
       if (primary) this.travOk = relaySupportsTravellers(relayV);   // TV3
       if (primary) this.amapOk = relaySupportsPartyMap(relayV);   // PARTY-MAP
       // TV3: A REGION'S WELCOME SAYS ITS TRAVELLERS (`tr`), and says none when there are none - so it REPLACES the book,
@@ -2321,6 +2340,10 @@ export class OnlineSession {
         this._deliver('quest', () => this.onQuestBusy?.(quest));
       }
       if (f) this._deliver('social', () => this.onSocial?.(f));
+    } else if (m.t === 'stp') {
+      if (!primary || !isSocialRoom(room)) return;
+      const f = validStaffTeleportOut(m);
+      if (f) this._deliver('staff teleport', () => this.onStaffTeleport?.(f));
     } else if (m.t === 'party') {
       // AUDIT SOC B3: the other members' poses, at PARTY_IN_HZ_MAX (PARTY_MAX - 1 members at PARTY_HZ_MAX each) - per room
       const g = partyInGate(this._inParty.get(room), now);

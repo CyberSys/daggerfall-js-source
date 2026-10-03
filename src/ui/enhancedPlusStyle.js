@@ -566,6 +566,7 @@ body:has(.hud-foe.on.blade) .travelpanel { --tp-top: calc(18px + 28px * var(--hu
   font-variant-numeric: tabular-nums; color: rgb(243,239,44); text-shadow: 1px 1px 0 rgb(93,77,12); }
 /* TV2: the clock held under the spinner while the land loads (systems/travelGovernor.js) - the rate that runs first */
 .travelpanel-accel.held { min-width: 92px; color: rgb(236,160,60); }
+.travelpanel-foeaccel { color: rgb(236,160,60); }
 .travelpanel-acts { gap: 8px; padding: 8px 16px; }
 .travelpanel-act { min-width: 78px; min-height: 36px; padding: 6px 14px; border: 2px solid; border-radius: 0;
   font-family: inherit; font-size: 13px; letter-spacing: 0.14em; text-indent: 0.14em; text-align: center; color: #e6dec6;
@@ -603,6 +604,9 @@ body:has(.hud-foe.on.blade) .travelpanel { --tp-top: calc(18px + 28px * var(--hu
   .travelpanel-bar { flex-wrap: wrap; }
   .travelpanel-dest { flex: 1 1 100%; border-bottom: 2px solid rgba(5,6,8,0.55); box-shadow: 0 1px 0 rgba(163,152,128,0.18); }
   .travelpanel-speed { flex-direction: row; padding: 8px 8px 8px 12px; border-left: 0; box-shadow: none; }
+  .travelpanel-speed { flex-direction: column; align-items: flex-start; }
+  .travelpanel.foes .travelpanel-msg { top: calc(var(--tp-top) + 196px); }
+  .travelpanel.foes .travelpanel-junction { top: calc(var(--tp-top) + 208px); }
   .travelpanel-speed > .travelpanel-label { display: none; }   /* the x40 in its socket says what it is; the row needs the room */
   .travelpanel-accel { min-width: 52px; }
   .travelpanel-acts { flex: 1 1 auto; padding: 8px 12px 8px 8px; }
@@ -1367,7 +1371,9 @@ export const PROF_CSS = `/* ── PROF1: THE PROFESSIONS ── */
   color: var(--bone, #e9e4d9); background: rgba(10,8,6,0.6); border: 1px solid rgba(192,138,62,0.25); cursor: pointer; }
 .prof-mat.on { border-color: var(--brass, #c08a3e); background: rgba(192,138,62,0.16); }
 .prof-count { color: #f3cf86; font-variant-numeric: tabular-nums; }
-.prof-split { grid-column: 1 / -1; font-size: 11px; color: #9d917d; }
+.prof-split { grid-column: 1 / -1; font-size: 11px; color: var(--bone); }
+/* Existing readable text roles follow the active theme rather than one hard-coded Stone palette. */
+.px-qdetail.prof-detail .px-note { color: var(--bone); }
 .prof-matbar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 10px 0 4px; font-size: 12px; color: #d9cfbd; }
 .prof-smelt { display: grid; grid-template-columns: minmax(0, 1fr) 64px auto; align-items: center; gap: 4px 8px;
   padding: 4px 0; border-bottom: 1px solid rgba(192,138,62,0.18); font-size: 12px; color: #d9cfbd; }
@@ -1974,6 +1980,8 @@ body .arena-hint { color: ${FRAME_TONES.brassHi}; }
 :root[data-plus-theme="stone"] body .dfpage-note, :root[data-plus-theme="stone"] body .dfduel-sub { color: ${STONE_WORD}; }
 :root[data-plus-theme="stone"] body .dfdecor-pick-why, :root[data-plus-theme="stone"] body .dfdecor-bar-why { color: ${STONE_AMBER}; }
 :root[data-plus-theme="stone"] body .dfdecor-row.dim .dfdecor-row-price { color: ${STONE_RED}; }
+/* Profession status uses the existing Stone red word role on its lighter panel. */
+:root[data-plus-theme="stone"] body .px-qdetail.prof-detail .prof-word { color: ${STONE_RED}; }
 /* AUDIT NAV1 (the presentation): the sea fight's dim words join them - on Stone the plate's hint (the board key's line)
    read 1.9:1, its waters 2.9, its labels and the card's sub-line 3.8, the plunder window's sub-line, lede and counts
    3.3-3.5 */

@@ -39,6 +39,8 @@ const errors = [];
 page.on('pageerror', (e) => errors.push(e.message));
 
 await page.goto(`${BASE}/play/?nointro`, { waitUntil: 'networkidle' });
+  await page.waitForSelector('.px-menu');
+  if (await page.locator('.px-acctstage').count()) await page.keyboard.press('Escape');
 await page.waitForSelector('.px-menu button');
 await page.locator('.px-menu button').filter({ hasText: /Features/ }).first().click();
 await page.waitForSelector('.ft-tile');

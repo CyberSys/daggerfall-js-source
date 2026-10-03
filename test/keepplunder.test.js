@@ -109,7 +109,7 @@ test('KEEP-PLUNDER / KEEP-BOATS: THE WORLD\'S WIRING - the crew stows before eve
   for (const hook of ['onTransitionInterior: () => { navalStow(); csaOnTransition(); navalTransition(); },', 'onTransitionExterior: () => { navalStow(); csaOnTransition(); navalTransition(); },',
     'onTransitionDungeonInterior: (ctx) => { navalStow(); ohAbyss', 'onTransitionDungeonExterior: () => { navalStow(); ohAbyss']) assert.ok(WORLD.includes(hook), hook);
   assert.match(WORLD, /if \(modEvent !== 'load'\) navalStow\(\);[^\n]*\n\s+csaOnTeleport\(\);/);
-  assert.match(WORLD, /navalStow\(\);[^\n]*\n\s+if \(csaRuntime\) csaCall\(\(\) => csaRuntime\.OnPreFastTravel\(\)\);/);
+  assert.match(WORLD, /navalStow\(\);[^\n]*\n\s+if \(csaRuntime && !partyArrival\) csaCall\(\(\) => csaRuntime\.OnPreFastTravel\(\)\);/);
   assert.equal(MOD_SETTINGS['come-sail-away'].keys['Compatibility.PersistentDungeonBoats'].default, true);
   assert.match(WORLD, /persistentDungeonBoats: \(\) => \{ try \{ return modSetting\('come-sail-away', 'Compatibility\.PersistentDungeonBoats'\) === true;/);
 });

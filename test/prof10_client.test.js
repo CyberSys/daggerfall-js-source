@@ -471,7 +471,7 @@ test('PROF10 wiring: the jeweller\'s bench a Pawn Shop\'s or a Gem Store\'s (ope
   assert.match(w, /const r = await profBook\.craft\(recipe, \{ clean, heartwood, dye, cracked, fee: /);
   const b = src('src/net/profBook.js');
   assert.match(b, /\.\.\.\(cracked === true \? \{ cracked: true \} : \{\}\) \};/);
-  assert.match(b, /Number\.isSafeInteger\(w\.seat\) \? w\.seat : null, w\.cracked === true\)\)\);/);   // PIN MOVED (PROF12): a brew kept as a craft is asks its own door first
+  assert.match(b, /Number\.isSafeInteger\(w\.seat\) \? w\.seat : null, w\.cracked === true\)\), key\);/);   // PIN MOVED (PROF12): a brew kept as a craft is asks its own door first
   const svc = src('server-account/src/professions.js');
   assert.match(svc, /export async function craftAtAnvil\(ctx, player, env, \{ character, recipe: id, clean, name, heartwood = false, dye = null, rid, seat = null, cracked = false \} = \{\}\)/);
   assert.match(svc, /if \(crack && !\(takesCracked\(r\) && specs\[100\] === LAPIDARY\)\) return \{ error: 'prof-lapidary' \};/);

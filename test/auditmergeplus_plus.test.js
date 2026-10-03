@@ -19,6 +19,7 @@ import { readFileSync } from 'node:fs';
 import { noteMyBlow, poseFx, createPeerFxPlayer, FX_MIN_GAP_S, _resetPeerFxForTests } from '../src/net/peerFx.js';
 import { validPose, POSE_HZ_MAX } from '../src/net/wire.js';
 import { StreamingWorldState } from '../src/world/streamingWorld.js';
+import { privateInteriorOf } from '../src/net/privateInterior.js';
 import * as HB from '../src/systems/quickslots.js';
 import { equipTableOf, EQUIP_SLOTS, equipItem, isEquipped } from '../src/systems/equip.js';
 import { TEMPLATES } from '../src/systems/useItem.js';
@@ -68,7 +69,7 @@ function bootSlices() {
   for (let i = W.indexOf('const shedY = '); i >= 0;) {
     while (/\s/.test(W[i])) i++;
     const s = statementAt(W, i);
-    if (!/^(?:const shedY|const pose|onlineToScene|sceneToOnline) =/.test(s)) break;
+    if (!/^(?:const shedY|const nativeFrame|const pose|onlineToScene|sceneToOnline) =/.test(s)) break;
     frame.push(s); i += s.length;
   }
   assert.ok(frame.length >= 3, 'the frame\'s slice: shedY, the pose and its law');
@@ -87,20 +88,31 @@ function bootOf(slices, { origin, comp, pos }) {
   let observer = null;
   const host = mount(
     `'use strict';\n${slices.camp}\n${slices.toScene}\n${slices.toWire}\n${slices.observer}\n`
-      + `const frameIn = (mode) => { const overworld = mode === 'exterior'; const wc = state.worldCoords(player.pos);\n${slices.frame}\nreturn pose; };`,
-    { state, player, cam: { yaw: 0.5, pitch: -0.1 }, noteMyBlow, peerFxPlayer: { splashed() {} }, setSplashObserver: (fn) => { observer = fn; } },
+      + `const frameIn = (mode, key = null) => { const overworld = mode === 'exterior'; const wc = state.worldCoords(player.pos);\n${slices.frame}\nreturn pose; };`,
+    { state, player, privateInteriorOf, cam: { yaw: 0.5, pitch: -0.1 }, noteMyBlow, peerFxPlayer: { splashed() {} }, setSplashObserver: (fn) => { observer = fn; } },
     'return { frameIn, toScene: (p) => onlineToScene(p), campToWire };');
   return { ...host, strike: (pos) => observer(3, pos.slice(), { fromPlayer: true, damage: 5, maxHealth: 20 }) };
 }
 const near = (a, b, msg) => assert.ok(a.length === b.length && a.every((v, k) => Math.abs(v - b[k]) < 1e-6), `${msg}: ${JSON.stringify(a)}, not ${JSON.stringify(b)}`);
 const minus = (a, b) => a.map((v, k) => v - b[k]);
 
+test('STAFF-TP private presence: two floating origins agree on body height and native position inside a personal room', () => {
+  const slices = bootSlices(), P = [12.123456789, -50.123456789, 40.987654321];
+  const room = `owned:${'a'.repeat(32)}.${'b'.repeat(16)}:42.9`;
+  const origin = { x: 207, y: 213 }, comp = [30, 4, -20];
+  const owner = bootOf(slices, { origin, comp, pos: P });
+  const visitor = bootOf(slices, { origin: { x: 206, y: 214 }, comp: [-8, -2.5, 11], pos: [0, 0, 0] });
+  const pose = owner.frameIn('interior', room); visitor.frameIn('interior', room);
+  near([pose.x, pose.y, pose.z], owner.campToWire(P), 'private body uses native frame');
+  near(visitor.campToWire(visitor.toScene(pose)), [pose.x, pose.y, pose.z], 'visitor renders in their own origin');
+});
+
 test('AUDIT MERGE-PLUS B1 the struck point rides the mode\'s own law, by source: `sceneToOnline` declared beside `onlineToScene` (the overworld\'s law until a frame says otherwise), the splash observer hands PEERFX1 that live law and never the overworld\'s, and every frame writes it from the mode, right after its inverse (mutants: the splash back on campToWire, the per-frame law never written, no law declared)', () => {
   const { W, frame } = bootSlices();
   assert.match(W, /let onlineToScene = \(p\) => \[p\.x, p\.y, p\.z\];\s+let sceneToOnline = campToWire;/, 'declared beside the pose\'s own law');
   assert.match(W, /setSplashObserver\(\(bloodIndex, pos, hit\) => \{ peerFxPlayer\.splashed\(pos\); if \(hit\?\.fromPlayer\) noteMyBlow\(pos, bloodIndex, hit, \(q\) => sceneToOnline\(q\)\); \}\);/, 'my blow goes out through the law of the frame it was struck in');
   assert.ok(!/noteMyBlow\([^;]*campToWire/.test(W), 'no blow of mine is mapped by the overworld\'s law alone');
-  assert.match(frame, /\(p\) => \[p\.x, shedY \? p\.y \+ state\.compensation\[1\] : p\.y, p\.z\];\s*sceneToOnline = overworld \? campToWire : \(q\) => \[q\[0\], shedY \? q\[1\] - state\.compensation\[1\] : q\[1\], q\[2\]\];$/, 'written each frame, beside its inverse');
+  assert.match(frame, /\(p\) => \[p\.x, shedY \? p\.y \+ state\.compensation\[1\] : p\.y, p\.z\];\s*sceneToOnline = nativeFrame \? campToWire : \(q\) => \[q\[0\], shedY \? q\[1\] - state\.compensation\[1\] : q\[1\], q\[2\]\];$/, 'written each frame, beside its inverse');
   assert.equal((W.match(/\bsceneToOnline =/g) ?? []).length, 2, 'the declaration and the frame, nowhere else');
 });
 
