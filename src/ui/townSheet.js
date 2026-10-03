@@ -88,7 +88,7 @@ const EMPTY_SIZE = Object.freeze({ width: 1, height: 1 });
  *
  * @param {{
  *   gridW?: number, gridH?: number,
- *   blocks?: Array<{x:number,y:number,autoMap?:Uint8Array|number[]|null}>,
+ *   blocks?: Array<{x:number,y:number,autoMap?:Uint8Array|number[]|null,landmark?:{name:string,position:number[],buildingType?:number}|null}>,
  *   buildings?: () => Array<Summary>,
  *   discovered?: () => Array<Discovered>,
  *   revealAll?: () => boolean,
@@ -133,7 +133,7 @@ export function createTownSheet(deps = {}) {
 
   /**
    * WHICH BUILDINGS GET A NAME, and what that name is. The shipped
-   * town map's own ladder (ui/exteriorAutomapWindow.js:1070-1106),
+   * town map's own ladder (ui/exteriorAutomapWindow.js:1070-1116),
    * kept whole because it is the DISCOVERY law rather than a
    * presentation choice.
    */
@@ -169,6 +169,14 @@ export function createTownSheet(deps = {}) {
       // one place that plus-one is written, so a name and the wash
       // under it cannot come to disagree about what the building is.
       out.push({ text, quest, x: ax, y: sy, key: b.buildingKey, quarter: quarterOfType(b.buildingType) });
+    }
+    // ARENA-MAP: a block's LANDMARK (the Arena, world/arenaCity.js arenaTownLandmark) - always named, as the classic
+    // window names it, at its place and in its quarter's ink (the ring under it is that quarter's byte)
+    for (const bl of deps.blocks ?? []) {
+      const lm = bl?.landmark;
+      if (!lm?.name) continue;
+      const [ax, ay] = nameplateAnchor(bl.x ?? 0, bl.y ?? 0, lm.position ?? [0, 0, 0]);
+      out.push({ text: lm.name, quest: false, x: ax, y: sheetY(ensureField().h, ay), key: null, quarter: quarterOfType(lm.buildingType) });
     }
     return out;
   }

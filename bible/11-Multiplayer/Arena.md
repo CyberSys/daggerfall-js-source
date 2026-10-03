@@ -91,6 +91,19 @@ city), so the city's castle dungeon is untouched. Its people are fighters at res
 caged beasts of the beast tiers; it holds the ladder's training pit (an unranked bout against a dummy-fighter) and
 the Hall of Champions - a plaque wall naming every Grand Champion this save (offline) or this realm (online).
 
+**On the town map (ARENA-MAP, 2026-10-03, the owner, live: "Arena doesn't show on town map").** Both town maps draw a
+cell off its block's own 64 x 64 automap bytes and name only the buildings of the location's list. Kamer's automap
+draws the bowl in byte 117 - BuildingTypes.Special1 + 1, "never displayed on automap" (the classic window shows it in
+its Extra and All views alone, the enhanced sheet never) - and the colosseum is no building, so the cell read as empty
+street with no name. The block served now carries `arenaAutoMap` (`world/arenaCity.js`): the bowl's pixels inside the
+colosseum's own box and off its sand take a guild hall's byte, so both maps draw the walls and the stands as they draw
+the guilds and temples (the temple quarter's colour), a ring round the sand - which keeps Kamer's 117, an open court as
+a temple's courtyard is. The navgrid asks nonzero alone, so nothing walks differently. And the block's row on the town
+map carries a landmark (`arenaTownLandmark`, handed by both exterior hosts): "Arena", lettered at the colosseum's place
+by the building plates' own law (`ui/exteriorAutomapWindow.js` buildPlates, `ui/townSheet.js` named), always - there is
+no door to discover it by and no record to rename. `scenes/worldModes.js` and `scenes/dungeonContext.js` open no town
+map. Tests: `test/arena_townmap.test.js` (4); mutants: `tools/mutants/arena_map.json` (14, all dead).
+
 **What it displaces (Mac: "Move them to a new house").** GEMSAL03 stood 19 buildings - a tavern, two gem stores,
 fifteen houses and a house of the Academics. With ARENADAG.RMB laid no building has a key in cell (4,3), so every
 record keyed there is moved, once, at the first load that stands the arena (offline) and once by the service

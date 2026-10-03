@@ -34,7 +34,8 @@ import { registerCustomModel } from './customModels.js';
 import { ARENA_TEXT } from '../systems/arenaText.js';
 import { ARENA_MODEL_ID, buildArenaModel, withStairRamps, sealArenaSeams, sealArenaSeamsSliced } from './arenaModel.js';
 import { registerArenaPlaques } from './arenaPlaques.js';   // ARENA5: the Hall of Champions' plaque wall
-import { ARENA_GROUND_MODEL, arenaGroundModel } from './arenaFloor.js';   // AUDIT PRE-MERGE 1003 W1: the city's ground under the floor's instance
+import { ARENA_GROUND_MODEL, arenaGroundModel, SAND_R } from './arenaFloor.js';   // AUDIT PRE-MERGE 1003 W1: the city's ground under the floor's instance; ARENA-MAP: the sand the town map leaves open
+import { BUILDING_TYPES } from './buildingNames.js';   // ARENA-MAP: the byte the town map draws the colosseum in
 import ARENA_BLOCK_JSON from '../../vendor/daggerfall-arena/Arena/ARENADAG.RMB.json' with { type: 'json' };
 import UNDERCROFT_JSON from '../../vendor/daggerfall-arena/Arena/undercroft.json' with { type: 'json' };
 import ARENA_MODEL_INDEX from '../../vendor/daggerfall-arena/Models/864102.json' with { type: 'json' };
@@ -149,7 +150,7 @@ export const ARENA_PLAZA_MODELS = Object.freeze([
  *  and the blind sides' plazas furnished. Pure. */
 export function arenaBlockJson(vendored = ARENA_BLOCK_JSON) {
   const rmb = vendored.RmbBlock;
-  const fld = rmb.FldHeader;
+  const fld = { ...rmb.FldHeader, AutoMapData: arenaAutoMap(rmb.FldHeader.AutoMapData, rmb) };   // ARENA-MAP: the town map's colosseum
   return {
     ...vendored,
     RmbBlock: {
@@ -296,3 +297,48 @@ export function installArena({ readBin = null, log = console } = {}) {
 }
 /** Test seam. */
 export function _resetArena() { _installed = null; }
+
+// ARENA-MAP (2026-10-03, the owner, live: "Arena doesn't show on town map"): THE ARENA ON THE TOWN MAP. Both town maps
+// draw a cell off its block's own 64 x 64 automap bytes (ui/exteriorAutomapWindow.js buildExteriorLayout; the enhanced
+// sheet's ui/inkTown.js townBytes) and letter only the buildings of the location's list. Kamer's automap draws the
+// colosseum in byte 117 - BuildingTypes.Special1 + 1, "never displayed on automap" (world/buildingNames.js; the show-all
+// set of ui/townQuarters.js: the classic map draws it in its Extra and All views alone, the enhanced sheet never) - and
+// the colosseum is no building of the list, so cell (4,3) read as empty street with no name on it. Now:
+// - THE FOOTPRINT. Every pixel of Kamer's bowl inside the colosseum's own box (Models/864102's aabb about its record) and
+//   off its sand takes a guild hall's byte, so both maps draw the walls and the stands as they draw the guilds and the
+//   temples (the temple quarter's colour): a ring round the sand, which keeps Kamer's 117 - the open floor reads as a
+//   court, as a temple's courtyard does. The city's navgrid asks only nonzero (world/cityNavigation.js setBlockData), so
+//   nothing walks differently; Kamer's stray past the box (his row 0) stays undrawn, as it was.
+// - THE NAME. The block's row on the town map carries a LANDMARK (both exterior hosts' `blocks`, scenes/world.js and
+//   scenes/exterior.js; the interior and dungeon hosts open no town map): "Arena" at the colosseum's place, lettered
+//   always (ui/exteriorAutomapWindow.js buildPlates, ui/townSheet.js named) - it has no door to discover and no name to
+//   change.
+/** The byte the colosseum's ring takes: a guild hall's (the byte is BuildingType + 1) - the temple quarter. */
+export const ARENA_MAP_BYTE = BUILDING_TYPES.GuildHall + 1;
+/** Its name on the town map. */
+export const ARENA_MAP_NAME = 'Arena';
+/** Kamer's byte for the bowl. */
+const ARENA_BOWL_BYTE = BUILDING_TYPES.Special1 + 1;
+/** One automap pixel, metres (RMB_DIMENSION x GLOBAL_SCALE / 64). */
+const MAP_PX = (4096 * 0.025) / 64;
+/** The colosseum's place in its cell, metres - x east, z north from the cell's south-west corner: the frame a
+ *  building's Position is in (world/buildingSummaries.js buildingPosition), so the town map anchors it as it anchors one. */
+export function arenaColosseumAt(rmb = ARENA_BLOCK_JSON.RmbBlock) {
+  const c = rmb.Misc3dObjectRecords.find((o) => Number(o.ModelIdNum) === ARENA_MODEL_ID);
+  return [c.XPos * 0.025, 0, (c.ZPos + 4096) * 0.025];
+}
+/** THE TOWN MAP'S COLOSSEUM: Kamer's automap with its ring in ARENA_MAP_BYTE. Pure - a new array. */
+export function arenaAutoMap(bytes, rmb = ARENA_BLOCK_JSON.RmbBlock, box = ARENA_MODEL_INDEX.source.aabb) {
+  if (!bytes?.length) return bytes;
+  const [cx, , cz] = arenaColosseumAt(rmb);
+  return Array.from(bytes, (v, i) => {
+    if (v !== ARENA_BOWL_BYTE) return v;
+    // the pixel's centre about the colosseum; the rows run against +z (ExteriorAutomap.cs:1481, the navgrid's own flip)
+    const x = ((i % 64) + 0.5) * MAP_PX - cx, z = (63 - Math.floor(i / 64) + 0.5) * MAP_PX - cz;
+    const inBox = Math.abs(x - box.center[0]) <= box.extent[0] + MAP_PX / 2 && Math.abs(z - box.center[2]) <= box.extent[2] + MAP_PX / 2;
+    return inBox && x * x + z * z > SAND_R * SAND_R ? ARENA_MAP_BYTE : v;
+  });
+}
+/** The landmark a block's town-map row carries: the arena's name and place on ARENADAG.RMB, null on any other block. */
+export const arenaTownLandmark = (dfBlock) => (dfBlock?.name === ARENA_BLOCK
+  ? { name: ARENA_MAP_NAME, position: arenaColosseumAt(), buildingType: BUILDING_TYPES.GuildHall } : null);
