@@ -61,8 +61,8 @@
   {
     "name": "REL4-9-the-tag-being-cut-is-its-own-previous",
     "file": "scripts/desktopRelease.mjs",
-    "old": "'--match', 'app-v*', '--exclude', tag, 'HEAD'",
-    "new": "'--match', 'app-v*', 'HEAD'",
+    "old": "'--match', 'app-v*', '--exclude', tag, at",
+    "new": "'--match', 'app-v*', at",
     "tests": ["test/rel4_release.test.js"],
     "note": "On the tag door the tag already names HEAD, so the diff would be empty and the notes would say nothing came with the release."
   },
@@ -71,13 +71,6 @@
     "file": "scripts/desktopRelease.mjs",
     "old": "  return EXPECTED_RELEASE_FILES.filter((f) => !have.has(f));\n",
     "new": "  return [];\n",
-    "tests": ["test/rel4_release.test.js"]
-  },
-  {
-    "name": "REL4-11-the-notes-read-any-file-so-named",
-    "file": "scripts/desktopRelease.mjs",
-    "old": "    if (!PATCH_NOTES_RE.test(file ?? '') || (mode !== '100644' && mode !== '100755')) continue;",
-    "new": "    if (mode !== '100644' && mode !== '100755') continue;",
     "tests": ["test/rel4_release.test.js"]
   },
   {

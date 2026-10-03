@@ -1081,6 +1081,9 @@ export const ARENA_WINDOW_CSS = `/* ── ARENA3: THE ARENA WINDOW ── */
 .aw-close { flex: 0 0 auto; align-self: flex-start; }
 .aw-tabs { flex: 0 0 auto; display: flex; gap: 4px; padding: 8px 16px 0; border-bottom: 2px solid rgba(5,6,8,0.6); overflow-x: auto; scrollbar-width: none; }
 .aw-tabs::-webkit-scrollbar { display: none; }
+/* AUDIT PRE-MERGE 1003 U13: the six tabs need about 520 pixels - under it Records and Rules stood past the edge with the
+   scrollbar hidden and nothing to say they were there (a selected one too). They wrap to a second row instead */
+@media (max-width: 520px) { .aw-tabs { flex-wrap: wrap; row-gap: 4px; overflow-x: visible; } }
 .aw-tab { flex: 0 0 auto; padding: 6px 14px 5px; font-size: 12px; letter-spacing: 0.14em; text-transform: uppercase; margin-bottom: -2px; }
 .aw-tab.on { color: var(--brass-hi); }
 .aw-body { flex: 1 1 auto; min-height: 0; overflow: auto; padding: 14px 16px 18px; display: flex; flex-direction: column; gap: 12px; overscroll-behavior: contain; }
@@ -1095,6 +1098,9 @@ export const ARENA_WINDOW_CSS = `/* ── ARENA3: THE ARENA WINDOW ── */
 .aw-empty { margin: 8px 0 0; font-size: 13px; color: var(--mute); font-style: italic; }
 .aw-cards { display: grid; gap: 12px; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); }
 .aw-bout-card.k-exhibition { grid-column: 1 / -1; }
+/* AUDIT PRE-MERGE 1003b U1: a private session's card spans the page too - in one 300 px cell its member rows gave the
+   three presses every pixel and the names none (48 of 62 names 0 px wide at 1280) */
+.aw-bout-card.k-session { grid-column: 1 / -1; }
 .aw-tierline { margin: -4px 0 8px; font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--mute); }
 .aw-versus { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); align-items: stretch; gap: 10px; }
 .aw-fighter { display: flex; flex-direction: column; gap: 3px; min-width: 0; padding: 10px 12px; border: 1px solid #3a352a; background: rgba(5,6,8,0.4); }
@@ -1139,11 +1145,40 @@ export const ARENA_WINDOW_CSS = `/* ── ARENA3: THE ARENA WINDOW ── */
 .aw-champline { padding: 4px 8px; border-left: 2px solid #6f8a32; background: rgba(111,138,50,0.1); }
 .aw-online { color: #cfe3ff; }
 @media (max-width: 520px) { .aw-liveb { grid-template-columns: minmax(0, 1fr); } .aw-liveb .aw-acts { grid-column: 1; grid-row: auto; } }
+/* ARENA6: a private session - its code large enough to read off a stream, its members (the Red's and the Blue's marked in
+   words and at the edge), its results, and the join field */
+.aw-privcode { margin: 8px 0 2px; font-size: 26px; letter-spacing: 0.3em; font-variant-numeric: tabular-nums; color: var(--brass-hi);
+  text-shadow: 1px 1px 0 #050608; overflow-wrap: anywhere; }
+.aw-privmembers { list-style: none; margin: 8px 0 0; padding: 0; display: flex; flex-direction: column; gap: 4px; max-height: 260px; overflow-y: auto; }
+.aw-privm { display: grid; grid-template-columns: minmax(12ch, 1fr) auto; gap: 4px 10px; align-items: center; padding: 5px 8px;   /* AUDIT PRE-MERGE 1003b U1: a name keeps twelve characters */
+  border-left: 2px solid #3a352a; background: rgba(5,6,8,0.38); }
+.aw-privm.red { border-left-color: var(--red, #c23a2b); }
+.aw-privm.blue { border-left-color: var(--blue, #3768b8); }
+.aw-privm.me .aw-fn { color: var(--brass-hi); }
+.aw-privwho { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 6px; min-width: 0; }
+.aw-privrole { font-size: 11px; }
+.aw-privm .aw-acts { margin: 0; justify-content: flex-end; }
+.aw-privm .aw-act { min-width: 0; }
+/* AUDIT PRE-MERGE 1003b U4: a session's press shut by aria-disabled (it keeps the focus) looks shut, as a disabled one */
+.aw-act[aria-disabled="true"] { opacity: 0.4; cursor: not-allowed; }
+/* AUDIT PRE-MERGE 1003b U10: what a screen reader reads and nobody sees */
+.aw-sr { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+.aw-privcode { position: relative; }
+.aw-privresults { list-style: none; margin: 0; padding: 0; }
+.aw-privjoin { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 10px 0 0; }
+.aw-privlabel { font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--mute); }   /* AUDIT PRE-MERGE 1003b U11 */
+.aw-privinput::placeholder { letter-spacing: normal; text-transform: none; }
+.aw-privinput { min-width: 0; width: 15ch; padding: 6px 8px; font: inherit; font-size: 16px; letter-spacing: 0.2em; text-transform: uppercase;
+  color: #efe0b8; background: rgba(5,6,8,0.6); border: 1px solid #5a4a2a; }
+.aw-privinput:focus-visible { outline: 2px solid var(--brass-hi); outline-offset: 1px; }
+@media (max-width: 520px) { .aw-privm { grid-template-columns: minmax(0, 1fr); } .aw-privcode { font-size: 22px; } }
 /* the ladder: the ten tiers as a column, the one picked whole beside it */
 .aw-ladder { display: grid; grid-template-columns: minmax(240px, 0.85fr) minmax(0, 1.4fr); gap: 14px; align-items: start; }
 .aw-tiers { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column-reverse; gap: 3px; }
+/* AUDIT PRE-MERGE 1003 U14: a tier is a list item holding its press - the press a button, laid as the row was */
 .aw-tier { display: grid; grid-template-columns: 26px minmax(0, 1fr) auto; grid-template-rows: auto auto; align-items: center; gap: 0 8px;
-  padding: 5px 8px; cursor: pointer; border: 1px solid transparent; }
+  padding: 5px 8px; cursor: pointer; border: 1px solid transparent;
+  width: 100%; margin: 0; font: inherit; color: inherit; text-align: left; background: transparent; }
 .aw-tier.on { background: linear-gradient(90deg, rgba(243,207,134,0.14), transparent 85%); }
 .aw-tiern { grid-row: 1 / span 2; display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; font-size: 13px;
   color: var(--mute); border: 1px solid #4a4438; background: rgba(5,6,8,0.6); }
@@ -1260,15 +1295,27 @@ body .aw-shell .aw-boutacts .act { min-width: 0; padding: 3px 12px; font-size: 1
   .aw-table { table-layout: fixed; }
   .aw-table .opt { display: none; }
   .aw-table td, .aw-table th { padding: 5px 4px; overflow: hidden; text-overflow: ellipsis; }
-  .aw-table th:first-child, .aw-rank { width: 30px; }
+  /* AUDIT PRE-MERGE 1003 U5: by the column's class, the header's own now (ui/arenaWindow.js table) - a board with no rank
+     column (the banners') keeps its first column; the header's word whole in it ("R..." before) */
+  .aw-table .aw-rank { width: 34px; }
+  .aw-table th.aw-rank { padding-left: 2px; padding-right: 2px; letter-spacing: 0; text-overflow: clip; }
   .aw-table .aw-nm { width: 48%; }
   .aw-home { display: none; }
   .aw-bout { grid-template-columns: 52px minmax(0, 1fr); }
+  .aw-bt { white-space: normal; }   /* AUDIT PRE-MERGE 1003 U5: how each bout ended, whole - it was cut at "on t..." */
   .aw-bouttail { grid-column: 2; flex-direction: row; flex-wrap: wrap; gap: 2px 8px; justify-content: flex-start; white-space: normal; }
   .aw-boutacts { grid-column: 2; justify-content: flex-start; }
 }
 @media (pointer: coarse) { .aw-tier, .aw-tab, .aw-subtab, .aw-stake, .aw-side, .aw-boutacts .aw-act { min-height: 40px; } }
-@media (prefers-reduced-motion: reduce) { .aw-tier, .aw-card { transition: none; } }`;
+@media (prefers-reduced-motion: reduce) { .aw-tier, .aw-card { transition: none; } }
+/* AUDIT PRE-MERGE 1003 U9: UNDER FORCED COLOURS every chosen state was a colour or a shadow the system paints over - the
+   page, the side and the stake backed, the board, the tier - and a won pip drew as hollow as one to win. The chosen
+   carry the system's Highlight as an outline; a won pip is filled with the system's own ink */
+@media (forced-colors: active) {
+  .aw-tab.on, .aw-side.on, .aw-stake.on, .aw-subtab.on, .aw-tier.on { outline: 2px solid Highlight; outline-offset: -2px; }
+  .aw-pips i.on { background: CanvasText; forced-color-adjust: none; }
+  .aw-privm.red, .aw-privm.blue { border-left-color: Highlight; }   /* ARENA6: a session's picked fighters */
+}`;
 
 /** PROF1 (PROF0 8, 21): THE PROFESSIONS' FACES - the Work tab's writs on the Notice Board (the Court's purple seal), the
  *  Professions and Stores pages on the character sheet's rail, and in the world the prompt, the act's meter, the toasts,

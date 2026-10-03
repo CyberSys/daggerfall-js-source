@@ -153,12 +153,11 @@ writes the notes once, stages a DRAFT with every file attached, and
 publishes it in one PATCH. `latest` never names a release that is half
 there, and a hand re-cut of an old build does not take `latest` back
 (`shouldMarkLatest`, REL3's numeric compare). The notes are the
-player's: the PATCH-NOTES-*.md added or changed since the previous
-`app-v` tag, with GitHub's list of merged changes beneath them - the
-launcher's news panel shows the part above that list (DA10). A changed
-file brings only its NEWS, decided by what each line says (Audit-Install
-R2-C1: by position, app-v0.1.4534 lost four new fixes). Pinned in
-`test/rel4_release.test.js`; `tools/mutants/rel4.json`, 15, all dead.
+player's: the patch notes of everything merged since the previous
+`app-v` tag (REL6, below), with GitHub's list of merged changes beneath
+them - the launcher's news panel shows the part above that list (DA10).
+Pinned in `test/rel4_release.test.js`; `tools/mutants/rel4.json`, 14,
+all dead.
 
 **REL5 (2026-09-29): THE DOWNLOADS HAVE NAMES THAT DO NOT MOVE.** The
 build number is out of every file name - `DaggerfallOnline-win-x64-setup.exe`,
@@ -188,6 +187,57 @@ the merge until that release is `latest`, the four links are dead (and
 stay dead if that release fails). Before merging: upload the four
 downloads, under the new names, to the current latest release (or merge
 the landing page's links after the first REL5 release).
+
+**REL6 (2026-10-01, Mac: "Remove patch notes from the codebase and
+somehow refrain from patch notes filling up the codebase"): THE NOTES
+COME OFF THE PULL REQUEST.** The notes were `PATCH-NOTES-*.md` files at
+the repository's root, one for nearly every merge - 147 by #541, each
+read by one release and then kept in the tree for good. Now a pull
+request carries its player-facing notes in its own description, under a
+`## Patch notes` heading (`## Patch notes: <title>`, its parts under
+`###`) - `.github/pull_request_template.md` asks for it, and leaving the
+template's comment alone says there is nothing for players. The publish
+job's `notes` reads the first-parent merges since the previous `app-v`
+tag (GitHub's "Merge pull request #N", a squash's "(#N)"), asks `gh api`
+for each pull request with the job's own token (`pull-requests: read`),
+and prints each section lifted to the release's `# Patch Notes: <title>`,
+newest first. Only a MERGED pull request opened by the repository's own
+people (`NOTES_AUTHORS`: owner, member, collaborator) brings notes - a
+description stays editable after the merge, and the job prints it as the
+official release; an outside contributor's notes are a maintainer's to
+carry. A read that fails fails the step: a published release is never
+re-cut, so notes are never published as notes there were none of. The
+published releases are the archive. No patch-notes file may come back:
+`test/rel4_release.test.js` fails any in the tree (`PATCH_NOTES_PATH_RE`,
+over the index and the untracked). Retired with the files: the
+file-diff reader (`addedNotes`; Audit-Install's L1-1, L3-3, R2-C1 and
+R2-C4 findings were about it), its fixtures and twenty-two mutant
+records; `tools/mutants/rel6.json`, 31, all dead.
+
+**REL7 (2026-10-03, Mac: "I need you to do this auto"): A PUBLISHED
+RELEASE'S NOTES, READ AGAIN - ON THEIR OWN.** The publish job reads the
+notes once, as it runs. app-v0.1.5767 (#547 and #548) went out as "Fixes
+and improvements.": #547's notes had been a PATCH-NOTES file REL6
+deleted, and reached its description a minute after the job had read it.
+A published release is never re-cut, but its TEXT can be written again:
+`.github/workflows/release-notes.yml` runs when a pull request MERGED into
+the default branch has its DESCRIPTION edited (pull_request_target,
+`edited`; a title is not notes, an open pull request is nothing) or by
+hand with a tag. It finds the first release whose tag contains the merge
+(a version sort - app-v0.1.9 before app-v0.1.10; none yet is nothing to
+do, as the publish job still to come reads the description as it is),
+reads the notes of the pull requests between the previous release and
+that tag again (`desktopRelease.mjs renotes`: main's script, the tag's
+history - the first cut checked the tag out, and app-v0.1.5767's own
+script had no `renotes`), and patches the release's body: the notes above
+GitHub's generated list, which stays; no file of the release is touched.
+pull_request_target's token writes, so nothing checks out or runs a pull
+request's code; a description is read through the API, and only one the
+repository's own people opened is printed. The launcher shows the new
+notes the next time it reads the releases. The dispatch from a Claude
+session is refused (403, no actions: write); an edit to the description
+is the door. `test/rel7_renotes.test.js` (3), `tools/mutants/rel7.json`
+(15, all dead).
 
 
 `.github/workflows/release-desktop.yml` cuts a release through any

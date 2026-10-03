@@ -23,6 +23,11 @@
 // Records page says the record is the account's (`m.online`), and the header carries the purses won only when there is
 // one to say (never a 0 - the realm keeps none).
 //
+// AUDIT PRE-MERGE 1003 (lens U): the window draws ITSELF while it stands (`refresh` - the door asks once a second, and
+// only a model that changed is drawn again: the hall's offer and its clock, the board come in), and a redraw keeps the
+// keyboard's place (ui/domRepaint.js, AUDIT 32 P3's law) (U1, U2); a banner is said, never only shown in its colour
+// (U7); a screen reader meets a named page, the ladder's tiers as a list of buttons and no two presses of one name (U14).
+//
 // Not a DFU member. Ledger A (ARENA).
 
 import { closeOnOutsideTap } from './enhancedOverlays.js';
@@ -34,6 +39,7 @@ import { isEnhancedPlus } from '../systems/uiSkin.js';
 import { scopeRules } from './brokerWindow.js';
 import { ARENA_TEXT } from '../systems/arenaText.js';
 import { ARENA_PAGES, ARENA_BOARDS } from '../systems/arenaBoard.js';
+import { repaintKeepingScroll } from './domRepaint.js';   // AUDIT PRE-MERGE 1003 U2: a redraw keeps the scroll and the focus
 
 /** @param {string} tag @param {string|null} [cls] @param {string|null} [text] */
 const el = (tag, cls = null, text = null) => {
@@ -49,8 +55,16 @@ const button = (cls, text, onPress) => {
   return b;
 };
 const W = () => ARENA_TEXT.window;
-/** A banner's pennant (its colour is the sheet's, by `data-banner`). */
-const pennant = (banner, cls = '') => { const p = el('span', `aw-pennant${cls ? ` ${cls}` : ''}`); p.dataset.banner = banner ?? ''; p.setAttribute('aria-hidden', 'true'); return p; };
+/** A banner's pennant (its colour is the sheet's, by `data-banner`). AUDIT PRE-MERGE 1003 U7: a banner's pennant SAYS
+ *  its banner - an image named "The Red Banner" - for the Red's crimson and the Blue's azure are one grey (1.03:1 in
+ *  luminance, WCAG 1.4.1); a pennant of no banner stays the ornament it is. */
+const bannerMark = (p, banner) => {
+  p.dataset.banner = banner ?? '';
+  const name = ARENA_TEXT.teams.name[banner ?? ''];
+  if (name) { p.removeAttribute('aria-hidden'); p.setAttribute('role', 'img'); p.setAttribute('aria-label', name); } else { p.removeAttribute('role'); p.removeAttribute('aria-label'); p.setAttribute('aria-hidden', 'true'); }
+  return p;
+};
+const pennant = (banner, cls = '') => bannerMark(el('span', `aw-pennant${cls ? ` ${cls}` : ''}`), banner);
 
 export const ARENA_SKIN_STYLE_ID = 'arena-window-skin-style';
 /** The window's own sheet for the classic skins: its layout, and the kit's rules cut to its selectors. */
@@ -82,8 +96,10 @@ export function mountArenaWindow(host, deps) {
   let tierPicked = null;
   let boardPicked = 'pve';
   let wagerOpen = false, wagerSide = null, wagerStake = null;
+  let privCode = '';   // ARENA6: the session code typed in the join field, kept across redraws
   let word = null;   // { ok, text } - the status line
   let alive = true;
+  let drawn;   // AUDIT PRE-MERGE 1003 U1: the model last drawn, as its words (`refresh` draws only a changed one)
 
   const shell = el('div', 'aw-shell');
   shell.id = 'arena-window';
@@ -109,12 +125,15 @@ export function mountArenaWindow(host, deps) {
     const t = button('aw-tab', W().tabs[p], () => { page = p; wagerOpen = false; render(); });
     t.setAttribute('role', 'tab');
     t.dataset.page = p;
+    t.id = `aw-tab-${p}`;   // AUDIT PRE-MERGE 1003 U14: each tab names the page it shows, and the page is named by its tab
+    t.setAttribute('aria-controls', 'aw-page');
     t.setAttribute('aria-keyshortcuts', String(i + 1));
     tabOf[p] = t;
     tabs.append(t);
   }
   const body = el('div', 'aw-body');
   body.setAttribute('role', 'tabpanel');
+  body.id = 'aw-page';
   win.append(head, tabs, body);
   host.append(shell);
 
@@ -125,14 +144,21 @@ export function mountArenaWindow(host, deps) {
     if (r && typeof r === 'object') say(!!r.ok, r.text ?? '');
     if (alive) render();
   };
-  /** A press that may not be pressed, said: disabled, its reason as its title and under it. */
-  const press = (a, onPress, cls = '') => {
+  /** A press that may not be pressed, said: disabled, its reason as its title and under it. AUDIT PRE-MERGE 1003 U14:
+   *  `what` names which of its kind it is (a replay's bout, a bout on the sand) - its words first (WCAG 2.5.3), so the
+   *  three Watch the replay presses are three names. */
+  /** AUDIT PRE-MERGE 1003b U4: `soft` - a press shut by `aria-disabled` (U15's way: a keyboard's press that shuts it keeps
+   *  its focus - Start bout pressed dropped the focus to the page), `quiet` - its reason in its name and title alone (a
+   *  member row's three presses), and `a.key` its `data-focus`, so a redraw finds it again by who it is for. */
+  const press = (a, onPress, cls = '', what = '', { soft = false, quiet = false } = {}) => {
     const wrap = el('span', 'aw-press');
     const b = button(`aw-act${cls ? ` ${cls}` : ''}`, a.label, () => { if (!a.why) onPress(); });
     b.dataset.act = a.act;
-    if (a.why) { b.setAttribute('disabled', ''); b.setAttribute('title', a.why); b.setAttribute('aria-label', `${a.label}: ${a.why}`); }
+    if (a.key) b.dataset.focus = a.key;
+    const named = what ? `${a.label} - ${what}` : a.label;
+    if (a.why) { b.setAttribute(soft ? 'aria-disabled' : 'disabled', soft ? 'true' : ''); b.setAttribute('title', a.why); b.setAttribute('aria-label', `${named}: ${a.why}`); } else if (what) b.setAttribute('aria-label', named);
     wrap.append(b);
-    if (a.why) wrap.append(el('span', 'aw-why', a.why));
+    if (a.why && !quiet) wrap.append(el('span', 'aw-why', a.why));
     return wrap;
   };
   const chip = (text, cls = '') => el('span', `aw-chip${cls ? ` ${cls}` : ''}`, text);
@@ -142,7 +168,7 @@ export function mountArenaWindow(host, deps) {
     sub.textContent = h.season;
     note.textContent = word?.text ?? '';
     note.className = `aw-note${word?.ok ? ' ok' : ''}`;
-    crest.dataset.banner = h.banner ?? '';
+    bannerMark(crest, h.banner);   // AUDIT PRE-MERGE 1003 U7
     win.dataset.banner = h.banner ?? '';
     for (const c of [...id.children]) c.remove();
     id.append(el('span', 'aw-name', h.name));
@@ -152,7 +178,8 @@ export function mountArenaWindow(host, deps) {
     if (h.rating) id.append(chip(h.rating, 'aw-rating'));   // ARENA4: online, the season's rating and rank
     if (h.rank) id.append(chip(h.rank, `aw-rankchip${h.champion ? ' champ' : ''}`));
     // ARENA4b: the purses won (the design's header) - left out when there is none to say, never a 0 (online the realm keeps none)
-    if (Number.isSafeInteger(h.purses) && h.purses > 0) id.append(chip(W().gold(h.purses), 'aw-purse'));
+    // AUDIT PRE-MERGE 1003 U12: SAID - a bare "1050 gold" beside the name read as the purse carried, not the purses won
+    if (Number.isSafeInteger(h.purses) && h.purses > 0) id.append(chip(W().pursesWon(h.purses), 'aw-purse'));
     id.append(el('span', 'aw-rec', h.record));
   }
 
@@ -175,6 +202,8 @@ export function mountArenaWindow(host, deps) {
           nameRow.append(pennant(f.banner), el('span', 'aw-fn', f.name));
           box.append(nameRow, el('span', 'aw-fbill', f.billing), el('span', 'aw-fkind', f.kind));
           const nums = el('div', 'aw-fnums');
+          // AUDIT PRE-MERGE 1003 U7: the banner in words beside its colour - the Red's against the Blue's
+          if (ARENA_TEXT.teams.short[f.banner]) nums.append(chip(ARENA_TEXT.teams.short[f.banner], `aw-bannerchip b-${f.banner}`));
           nums.append(chip(f.record, 'aw-rec-chip'), chip(f.odds, 'aw-odds'));
           if (f.favourite) nums.append(chip(W().favourite, 'aw-fav'));
           box.append(nums);
@@ -198,7 +227,7 @@ export function mountArenaWindow(host, deps) {
           const meta = el('div', 'aw-livemeta');
           meta.append(el('span', 'aw-livet', b.title), chip(b.watching, 'aw-state'));
           const acts = el('div', 'aw-acts');
-          for (const a of b.acts) acts.append(press(a, () => doAct(/** @type {any} */ (a.act), { o: b.o })));
+          for (const a of b.acts) acts.append(press(a, () => doAct(/** @type {any} */ (a.act), { o: b.o }), '', b.b ? `${b.a?.name ?? ''} ${W().vs} ${b.b.name ?? ''}` : `${b.a?.name ?? ''}, ${b.title}`));   // AUDIT PRE-MERGE 1003 U14: which bout
           li.append(who, meta, acts);
           ul.append(li);
         }
@@ -211,20 +240,89 @@ export function mountArenaWindow(host, deps) {
         if (c.offer.rating != null) vs.append(chip(String(c.offer.rating), 'aw-rating'));
         card.append(vs);
       }
+      // ARENA6: A PRIVATE SESSION'S CODE - large, to be read off a stream and typed (its letters spelled to a screen reader)
+      if (c.kind === 'session' && c.code) {
+        // AUDIT PRE-MERGE 1003b U10: the spelled code in a span a reader reads (a paragraph may not be named); the large
+        // letters hidden from it, so the code is said once, letter by letter
+        const code = el('p', 'aw-privcode');
+        const shown = el('span', null, c.code);
+        shown.setAttribute('aria-hidden', 'true');
+        code.append(shown, el('span', 'aw-sr', `${ARENA_TEXT.online.privCodeLabel}: ${c.code.split('').join(' ')}`));
+        card.append(code);
+      }
       for (const l of c.lines ?? []) card.append(el('p', 'aw-line', l));
       if (c.acts?.length) {
         const acts = el('div', 'aw-acts');
         for (const a of c.acts) {
           if (a.act === 'wager') acts.append(press(a, () => { wagerOpen = !wagerOpen; wagerSide = null; wagerStake = null; render(); }, wagerOpen ? 'on' : ''));
-          else acts.append(press(a, () => doAct(/** @type {any} */ (a.act), { hour: c.hour }), a.act === 'fight' || a.act === 'queue' || a.act === 'accept' ? 'primary' : ''));
+          else acts.append(press(a, () => doAct(/** @type {any} */ (a.act), a.data ?? { hour: c.hour }), a.act === 'fight' || a.act === 'queue' || a.act === 'accept' || a.act === 'privHost' || a.act === 'privGo' ? 'primary' : '', '', { soft: c.kind === 'session' }));   // AUDIT PRE-MERGE 1003b: a press's own data (the lock's, a rejoin's code); a session's presses keep the focus (U4)
         }
         card.append(acts);
       }
+      if (c.kind === 'session') card.append(...sessionParts(c));   // ARENA6
       if (c.kind === 'exhibition' && wagerOpen && !c.acts.find((a) => a.act === 'wager')?.why) card.append(wagerPanel(c));
       grid.append(card);
     }
     body.append(grid);
     if (m.owed > 0) body.append(el('p', 'aw-owed', `${W().owed(m.owed)}.`));
+  }
+  /** ARENA6: A PRIVATE SESSION'S PARTS - its members (each its name and what it is, in words: Host, Red, Blue, Guest,
+   *  Away - never colour alone - and, to the host, the presses that pick it or remove it, each named for whom), its recent
+   *  results, and out of one, the field a code is typed in with Join (Enter joins too; the field keeps its letters and its
+   *  caret across the window's redraws - `data-focus`). */
+  function sessionParts(c) {
+    const O = ARENA_TEXT.online;
+    const out = [];
+    if (c.members?.length) {
+      const ul = el('ul', 'aw-privmembers');
+      for (const x of c.members) {
+        const li = el('li', `aw-privm${x.red ? ' red' : ''}${x.blue ? ' blue' : ''}${x.me ? ' me' : ''}`);
+        const who = el('div', 'aw-privwho');
+        who.append(pennant(x.banner), el('span', 'aw-fn', x.name));   // AUDIT PRE-MERGE 1003b U10: the member's own banner - the side is its chip's
+        for (const r of x.roles) who.append(chip(r, 'aw-privrole'));
+        li.append(who);
+        if (x.acts.length) {
+          const acts = el('div', 'aw-acts');
+          for (const a of x.acts) acts.append(press(a, () => doAct(/** @type {any} */ (a.act), a.data), '', x.name, { soft: true, quiet: true }));   // AUDIT PRE-MERGE 1003b U4
+          li.append(acts);
+        }
+        ul.append(li);
+      }
+      out.push(ul);
+    }
+    if (c.results?.length) {
+      out.push(el('h4', null, O.privResults));
+      const ul = el('ul', 'aw-privresults');
+      for (const r of c.results) ul.append(el('li', 'aw-line', r));
+      out.push(ul);
+    }
+    if (c.join) {
+      const form = el('div', 'aw-privjoin');
+      // AUDIT PRE-MERGE 1003b U11: a label a sighted player sees (the placeholder was the only one, clipped to "SIX LET"),
+      // the phone's keyboard asked for capitals and a Go key, room for a pasted " K7P - X2A ", and Enter mid-composition
+      // (an IME's) left to the composition
+      const label = /** @type {HTMLLabelElement} */ (el('label', 'aw-privlabel', c.join.field));
+      const input = /** @type {HTMLInputElement} */ (el('input', 'aw-privinput'));
+      input.type = 'text';
+      input.id = 'aw-priv-code';
+      label.htmlFor = input.id;
+      input.value = privCode;
+      input.maxLength = 16;
+      input.autocomplete = 'off';
+      input.spellcheck = false;
+      input.setAttribute('autocapitalize', 'characters');
+      input.setAttribute('autocorrect', 'off');
+      input.setAttribute('enterkeyhint', 'go');
+      input.placeholder = c.join.hint;
+      input.dataset.focus = 'aw-priv-code';
+      input.addEventListener('input', () => { privCode = input.value.toUpperCase(); });
+      const join = () => doAct('privJoin', { code: privCode });
+      input.addEventListener('keydown', (e) => { if (e.key === 'Enter' && !e.isComposing && !c.join.why) { e.preventDefault(); join(); } });
+      if (c.join.why) input.disabled = true;
+      form.append(label, input, press({ act: 'privJoin', label: c.join.label, why: c.join.why, key: 'aw-priv-join' }, join));
+      out.push(form);
+    }
+    return out;
   }
   /** THE WAGER: whom to back, how much, and the press that places it. */
   function wagerPanel(c) {
@@ -243,7 +341,8 @@ export function mountArenaWindow(host, deps) {
       stakes.append(b);
     }
     const ready = wagerSide != null && wagerStake != null;
-    const place = button('aw-place primary', ready ? ARENA_TEXT.book.wagerOn(wagerStake, c.fighters[wagerSide].name, c.fighters[wagerSide].odds) : W().wager, () => {
+    // AUDIT PRE-MERGE 1003 U14: "Place wager", not a second "Wager" beside the press that opened it
+    const place = button('aw-place primary', ready ? ARENA_TEXT.book.wagerOn(wagerStake, c.fighters[wagerSide].name, c.fighters[wagerSide].odds) : W().placeWager, () => {
       if (!ready) return;
       const side = wagerSide, stake = wagerStake;
       wagerOpen = false; wagerSide = null; wagerStake = null;
@@ -260,20 +359,20 @@ export function mountArenaWindow(host, deps) {
     const list = el('ol', 'aw-tiers');
     if (tierPicked == null || !m.tiers[tierPicked]) tierPicked = m.current;
     for (const [i, t] of m.tiers.entries()) {
-      const row = el('li', `aw-tier${i === tierPicked ? ' on' : ''}`);
+      // AUDIT PRE-MERGE 1003 U14: a list of tiers, each a list item holding its press - not items that were buttons
+      const item = el('li', 'aw-tierli');
+      const row = el('button', `aw-tier${i === tierPicked ? ' on' : ''}`);
+      row.setAttribute('type', 'button');
       row.dataset.state = t.state;
-      row.setAttribute('role', 'button');
-      row.setAttribute('tabindex', '0');
       row.setAttribute('aria-pressed', i === tierPicked ? 'true' : 'false');
-      const pick = () => { tierPicked = i; render(); };
-      row.onclick = pick;
-      row.onkeydown = (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault?.(); pick(); } };
+      row.onclick = (e) => { e?.stopPropagation?.(); tierPicked = i; render(); };
       const pips = el('span', 'aw-pips');
       for (let k = 0; k < 3; k++) { const d = el('i'); if (k < t.won) d.className = 'on'; pips.append(d); }
       const crown = el('i', `crown${t.champion.beaten ? ' on' : ''}`);
       pips.append(crown);
       row.append(el('span', 'aw-tiern', String(t.n)), el('span', 'aw-tiername', t.name), pips, el('span', 'aw-tierstate', W().tierState[t.state]));
-      list.append(row);
+      item.append(row);
+      list.append(item);
     }
     const t = m.tiers[tierPicked];
     const card = el('section', 'aw-card aw-tiercard');
@@ -303,11 +402,16 @@ export function mountArenaWindow(host, deps) {
   }
 
   // ── TEAM ────────────────────────────────────────────────────────────────────────────────────────────────
-  function table(cols, rows, pinned, { points = false } = {}) {
+  /** AUDIT PRE-MERGE 1003 U11: `heads` a board's own first columns (the banners' board: its Season, no rank - a season's
+   *  place in the list is no rank); by default the Rank and the Fighter. U5: each header carries its column's class - a
+   *  phone's fixed table takes its widths from this first row, and the Fighter's 48% stood on its cells alone. */
+  function table(cols, rows, pinned, { points = false, heads = null } = {}) {
+    const ranked = !heads;
+    const lead = heads ?? [W().rank, W().name];
     const t = el('table', 'aw-table');
     const thead = el('thead');
     const hr = el('tr');
-    for (const [i, c] of [W().rank, W().name, ...cols].entries()) { const th = el('th', i > 3 ? 'opt' : null, c); th.setAttribute('scope', 'col'); hr.append(th); }
+    for (const [i, c] of [...lead, ...cols].entries()) { const th = el('th', i - lead.length >= 2 ? 'opt' : i === lead.length - 1 ? 'aw-nm' : ranked && i === 0 ? 'aw-rank' : null, c); th.setAttribute('scope', 'col'); hr.append(th); }
     thead.append(hr);
     const tb = el('tbody');
     const row = (r) => {
@@ -318,7 +422,8 @@ export function mountArenaWindow(host, deps) {
       who.append(pennant(r.banner), el('span', 'aw-n', r.name));
       if (r.home) who.append(el('span', 'aw-home', r.home));
       nm.append(who);
-      tr.append(el('td', 'aw-rank', String(r.rank)), nm);
+      if (ranked) tr.append(el('td', 'aw-rank', String(r.rank)));
+      tr.append(nm);
       const cells = points ? [r.title ?? W().noTitle, W().wl(r.wins, r.losses), String(r.points)] : r.cells;
       cells.forEach((c, i) => tr.append(el('td', i >= 2 ? 'opt' : null, c)));
       return tr;
@@ -327,7 +432,7 @@ export function mountArenaWindow(host, deps) {
     if (pinned) {
       const gap = el('tr', 'aw-gap');
       const td = el('td', null, '...');
-      td.setAttribute('colspan', String(cols.length + 2));
+      td.setAttribute('colspan', String(cols.length + lead.length));
       gap.append(td);
       tb.append(gap, row(pinned));
     }
@@ -402,7 +507,7 @@ export function mountArenaWindow(host, deps) {
     const card = el('section', `aw-card aw-board b-${boardPicked}`);
     card.append(el('h3', null, bd.title), el('p', 'aw-boardsub', bd.sub));
     if (bd.champion) card.append(el('p', 'aw-line aw-gives aw-champline', bd.champion));   // ARENA4: the season's #1 and the laurel
-    if (bd.rows.length) card.append(table(bd.cols, bd.rows, bd.pinned));
+    if (bd.rows.length) card.append(table(bd.cols, bd.rows, bd.pinned, { heads: bd.heads ?? null }));
     if (bd.empty) card.append(el('p', 'aw-empty', bd.empty));
     body.append(card);
     if (boardPicked === 'fast' && m.hall) body.append(hallCard(m.hall));   // ARENA4b: online, the realm's Hall under its fastest
@@ -444,7 +549,8 @@ export function mountArenaWindow(host, deps) {
       if (b.points > 0) tail.append(el('span', 'aw-bpts', W().pointsWord(b.points)));
       li.append(res, what, tail);
       // ARENA5: a bout the records keep - Watch the replay (the host's, refused away from the gate)
-      if (b.replay) { const acts = el('div', 'aw-boutacts'); acts.append(press(b.replay, () => doAct('replay', { i: b.replay.i }))); li.append(acts); }
+      // AUDIT PRE-MERGE 1003 U14: each named by its bout - its opponent and its day
+      if (b.replay) { const acts = el('div', 'aw-boutacts'); acts.append(press(b.replay, () => doAct('replay', { i: b.replay.i }), '', `${b.opp}, ${b.when}`)); li.append(acts); }
       ol.append(li);
     }
     card.append(ol);
@@ -472,18 +578,38 @@ export function mountArenaWindow(host, deps) {
     body.append(wrap);
   }
 
-  function render() {
+  /** The model as its words - what `refresh` compares (a model that cannot be said is always new). */
+  const said = (m) => { try { return JSON.stringify(m); } catch { return undefined; } };
+  function render(m = deps.board()) {
     if (!alive) return;
-    const m = deps.board();
+    drawn = said(m);
     renderHead(m.header);
     for (const [p, t] of Object.entries(tabOf)) { t.setAttribute('aria-selected', p === page ? 'true' : 'false'); t.classList.toggle('on', p === page); t.setAttribute('tabindex', p === page ? '0' : '-1'); }
     body.dataset.page = page;
-    const scroll = body.scrollTop;
-    for (const c of [...body.children]) c.remove();
-    ({ bouts: () => renderBouts(m.bouts), ladder: () => renderLadder(m.ladder), team: () => renderTeam(m.team), boards: () => renderBoards(m.boards), records: () => renderRecords(m.records), rules: () => renderRules(m.rules) })[page]();
-    body.scrollTop = scroll;
+    body.setAttribute('aria-labelledby', tabOf[page].id);   // AUDIT PRE-MERGE 1003 U14: the page is named by its tab
+    // AUDIT PRE-MERGE 1003 U2: EVERY PRESS IN THE BODY REDREW IT, and the focus fell to the page with the nodes (Wager, a
+    // side, a stake, a tier, a sub-board, a refused press) - the next Tab started over from the top. The house's wrap:
+    // the scroll kept as it was, and the control pressed found again in the redrawn body (AUDIT 28 B11, AUDIT 31 U1,
+    // AUDIT 32 P3)
+    repaintKeepingScroll(win, () => {
+      for (const c of [...body.children]) c.remove();
+      ({ bouts: () => renderBouts(m.bouts), ladder: () => renderLadder(m.ladder), team: () => renderTeam(m.team), boards: () => renderBoards(m.boards), records: () => renderRecords(m.records), rules: () => renderRules(m.rules) })[page]();
+    }, { focus: true });
   }
   render();
+  /** AUDIT PRE-MERGE 1003 U1: THE WINDOW DRAWS ITSELF. Online its model moves with no press - the board comes in, the
+   *  hall opens, the queue is heard, an offer arrives with a 20-second clock - and nothing drew it until an unrelated
+   *  press. The door asks this once a second (ui/arenaDoor.js tick): the model built afresh (which tells the hall the
+   *  window still wants it - scenes/arenaOnline.js model), drawn only when it says something new. Answers whether it
+   *  drew. */
+  function refresh() {
+    if (!alive) return false;
+    const m = deps.board();
+    const now = said(m);
+    if (now !== undefined && now === drawn) return false;
+    render(m);
+    return true;
+  }
 
   const onKey = (e) => {
     if (e.metaKey || e.ctrlKey || e.altKey) return;
@@ -502,6 +628,7 @@ export function mountArenaWindow(host, deps) {
   const offOutside = closeOnOutsideTap(shell, '.aw-win', exit);
   return {
     repaint: () => render(),
+    refresh,   // AUDIT PRE-MERGE 1003 U1: drawn again only when the model moved (the door's clock)
     /** The page shown (the door's probe). */
     page: () => page,
     unmount() {

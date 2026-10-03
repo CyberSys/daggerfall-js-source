@@ -1011,12 +1011,14 @@ export function pcaaoNaturalDamageResistance(target) {
  * tally inside it already taken), `weaponAnimTime` the bow's draw in
  * milliseconds. Returns the damage the port's tail then carries on.
  * `notes` is the HUD's report (hit / critical / backstab /
- * ineffective), written as the C# decides each.
+ * ineffective), written as the C# decides each. `onStruck` is handed
+ * the body part the blow was rolled at, as the stock core's tail reads
+ * its own (WIDGET-RECOIL).
  */
 export function pcaaoAttackDamage(attacker, target, {
   weapon: weaponIn = null, damageMod = 0, toHitMod = 0, backstabChance = 0, weaponAnimTime = 0,
   rolls = Math.random, dfRand = () => Math.floor(Math.random() * 32768), onMonsterHit = null, onInflictPoison = null,
-  say = null, playerReflexes = null, notes = null, modules = pcaaoModules(), unaware = false,
+  say = null, playerReflexes = null, notes = null, modules = pcaaoModules(), unaware = false, onStruck = null,
 } = {}) {
   if (!attacker || !target) return 0;
   let weapon = weaponIn;
@@ -1081,6 +1083,7 @@ export function pcaaoAttackDamage(attacker, target, {
     chanceToHitMod += backstab;
   }
   const struckBodyPart = pcaaoStruckBodyPart(rolls());
+  onStruck?.(struckBodyPart);   // WIDGET-RECOIL: the part this core rolled, to the port's tail (the Shield Widget's "on shield" Recoil)
   const backstabbed = (before, after) => { if (notes && before > 0 && after === before * 3) notes.backstab = true; };
   if (skillID === SKILLS.HandToHand) {
     unarmedAttack = true;

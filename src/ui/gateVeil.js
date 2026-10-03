@@ -21,6 +21,7 @@ import { audio as defaultAudio } from '../systems/audio.js';
 import { SOUND } from '../systems/soundClips.js';
 import { GateVeilRenderer, veilAt, VEIL_CLOSE_S, VEIL_OPEN_S, VEIL_HOLD_MAX_S, VEIL_FRONT_IN, VEIL_FRONT_OUT } from '../render/gateVeil.js';
 import { FIRE_CAST_ID } from '../world/gateBoss.js';
+import { loseGlContext, onPageGone } from '../render/glRelease.js';   // GL-LEAK: its context let go with it, and as the page goes
 
 /** Over the world and its HUD (z 4, appended after .hud, which it ties and follows - ui/nameLayer.js AUDIT NAME1 F4
  *  maps the page's layers), under the chat and the party (5): a word said as the fire closes is still read. No pointer. */
@@ -42,6 +43,7 @@ export const VEIL_CUES = Object.freeze({
  */
 export function createGateVeil({ doc = globalThis.document, raf = (f) => globalThis.requestAnimationFrame(f), now = () => performance.now(), engine = defaultAudio, win = globalThis } = {}) {
   let canvas = null, pass = null, broken = false;
+  let veilGl = null, unseat = null;   // GL-LEAK: the context, and its seat for the page's going
   let phase = 'idle', at = 0, began = 0, from = VEIL_FRONT_IN, wait = 0, ticking = false;
   /** AUDIT WB D5: the frames the host has said it drew, and whether it says them at all; the count at the reveal */
   let drawnN = 0, hostCounts = false, drawnAt = 0;
@@ -64,6 +66,8 @@ export function createGateVeil({ doc = globalThis.document, raf = (f) => globalT
       doc.body.appendChild(canvas);
       const gl = canvas.getContext('webgl2', { alpha: true, premultipliedAlpha: true, antialias: false, depth: false, stencil: false });
       if (!gl) throw new Error('no WebGL2');
+      veilGl = gl;
+      unseat = onPageGone(() => loseGlContext(gl));   // GL-LEAK
       pass = new GateVeilRenderer(gl);
       return true;
     } catch (e) {
@@ -144,8 +148,9 @@ export function createGateVeil({ doc = globalThis.document, raf = (f) => globalT
       settle(false);
       phase = 'idle';
       try { pass?.destroy(); } catch { /* the context went with the page */ }
+      loseGlContext(veilGl); unseat?.();   // GL-LEAK: the context let go with its canvas, not at the collector's leisure
       canvas?.remove?.();
-      canvas = null; pass = null;
+      canvas = null; pass = null; veilGl = null; unseat = null;
     },
   };
 }

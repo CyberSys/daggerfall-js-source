@@ -173,7 +173,7 @@
   {
     "name": "ARENA4b-EX-LATE-SEATED",
     "file": "server/src/index.js",
-    "old": "      } else if (exRoom && boutFinished(st)) {",
+    "old": "      } else if (boutFinished(st) && (exRoom || fighterOfSub(st, a.sub))) {",
     "new": "      } else if (false) {",
     "tests": [
       "test/arena4b_exhibition.test.js"
@@ -182,8 +182,8 @@
   {
     "name": "ARENA4b-EX-KEEP",
     "file": "server/src/index.js",
-    "old": "const keep = st.kind === 'ex' ? ARENA_EX_KEEP_MS : ARENA_KEEP_MS;",
-    "new": "const keep = ARENA_KEEP_MS;",
+    "old": "const keep = st.kind === 'ex' ? ARENA_EX_KEEP_MS : st.priv ? ARENA_PRIVATE_KEEP_MS : ARENA_KEEP_MS;",
+    "new": "const keep = st.priv ? ARENA_PRIVATE_KEEP_MS : ARENA_KEEP_MS;",
     "tests": [
       "test/arena4b_exhibition.test.js"
     ]
@@ -191,8 +191,8 @@
   {
     "name": "ARENA4b-EX-ROSTER",
     "file": "server/src/index.js",
-    "old": "      if (isArenaFloorRoom(a.key)) for (let i = others.length - 1; i >= 0; i--) if (!others[i].af) others.splice(i, 1);",
-    "new": "      if (false) for (let i = others.length - 1; i >= 0; i--) if (!others[i].af) others.splice(i, 1);",
+    "old": "      if (isArenaFloorRoom(a.key)) for (let i = others.length - 1; i >= 0; i--) if (!others[i].af || unseen) others.splice(i, 1);",
+    "new": "      if (false) for (let i = others.length - 1; i >= 0; i--) if (!others[i].af || unseen) others.splice(i, 1);",
     "tests": [
       "test/arena4b_exhibition.test.js"
     ]
@@ -218,8 +218,8 @@
   {
     "name": "ARENA4b-EX-FLOOR-ROOM",
     "file": "src/net/arenaLaw.js",
-    "old": "isArenaExhibitionRoom(`arena:${o}`) ? `arena:${o}` : null);",
-    "new": "isArenaExhibitionRoom(`arena:${o}`) ? arenaBoutRoom(o) : null);",
+    "old": "isArenaExhibitionRoom(`arena:${o}`) || isArenaPrivateRoom(`arena:${o}`) ? `arena:${o}` : null);",
+    "new": "isArenaExhibitionRoom(`arena:${o}`) || isArenaPrivateRoom(`arena:${o}`) ? arenaBoutRoom(o) : null);",
     "tests": [
       "test/arena4b_exhibition.test.js"
     ]

@@ -50,7 +50,11 @@ one per host, fed what Unity handed it:
   flags, the equip countdown, the rig's show clock, the motor's words
   (grounded, crouching, riding, standing, the speed ratio, the local
   velocity), the frame's look (`lookFilter.takeFrameLook()`, latched
-  where the look is applied), the swing gesture, the cursor, the camera.
+  where the look is applied, in DFU's own axes - `lookSettings.dfuLookAxes`:
+  InputManager.LookX/LookY, degrees over PlayerMouseLook's 2 x
+  MouseLookSensitivity, the vertical invert undone; WIDGET-LOOK, FIELD
+  BUGS 2026-10-03 - handed the camera's radians it swayed a fourteenth
+  of its own), the swing gesture, the cursor, the camera.
 - **`draw(renderer, canvas)`** is OnGUI's repaint: one screen quad of the
   current frame over `GetWeaponRect()`, drawn in the rig's draw seam
   AFTER the Morrowind arms and BEFORE the classic sprite - so with the

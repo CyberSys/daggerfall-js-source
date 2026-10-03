@@ -128,8 +128,13 @@ test('DE2: every dungeon facing LEVELS THE PITCH, as all three DFU calls do', ()
   assert.match(modes, /cam\.yaw = Math\.atan2\(landing\.normal\[0\], landing\.normal\[2\]\);[\s\S]{0,700}?cam\.pitch = 0;/,
     'the exit levels the pitch');
   // exactly two transition sites level it - a third would mean some
-  // other path started snapping the view without a DFU member behind it
-  assert.equal((modes.match(/cam\.pitch = 0;/g) ?? []).length, 2);
+  // other path started snapping the view without a DFU member behind it.
+  // ARENA6: the one other is the arena floor's own arrival - a private
+  // session's fighter stood on its mark as the floor's entry stands a
+  // fighter (standOnArenaMark), named here so no other snap hides behind it
+  const arenaMark = /function standOnArenaMark\(kind\) \{[\s\S]{0,500}?cam\.pitch = 0;/;
+  assert.match(modes, arenaMark, 'the arena mark levels as the floor\'s entry does');
+  assert.equal((modes.replace(arenaMark, '').match(/cam\.pitch = 0;/g) ?? []).length, 2);
   // and BUILDINGS still do not face at all: neither TransitionInterior
   // nor BuildingTransitionExteriorLogic touches PlayerMouseLook, so a
   // shop door leaves the player's bearing alone

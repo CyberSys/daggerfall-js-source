@@ -232,14 +232,18 @@ import { heraldWebhook, heraldRole, omenPost, fellPost, ritePost, heraldOmenDue,
 // JOINS THE BUNDLE - net/arenaExhibition.js (the hour's exhibition as law: the schedule, the pair, the bout's id - moved
 // out of systems/arenaLadder.js, which hands it on; it imports arenaLaw.js, here already, and systems/wind.js's seeded
 // die, which imports nothing) - and the hour's room `arena:x<hour>` stands beside the bouts'.
+// ARENA6 (2026-10-03, the owner: "a way to simply host private matches"): NO FILE JOINS - a private session's room
+// `arena:p<code>` (net/arenaLaw.js) is a floor room whose bouts its host calls, its session's law in net/arenaBrain.js.
 import {
   isArenaRoom, isArenaHall, arenaBoutRoom, arenaBoutIdOf, pairQueue, matchBand, arenaRatingOk, MATCH_ACCEPT_MS, MATCH_QUEUE_MAX,
   MATCH_REPAIR_MS, ARENA_TICK_MS, ARENA_KEEP_MS, ARENA_LIVE_MAX, ARENA_HALL,
   isArenaExhibitionRoom, arenaExhibitionHourOf, isArenaFloorRoom, ARENA_EX_KEEP_MS, ARENA_CL_MIN, ARENA_CL_MAX, bannerClaim,
+  isArenaPrivateRoom, arenaPrivateCodeOf, ARENA_PRIVATE_KEEP_MS, ARENA_PRIVATE_JOIN_HZ, privateSessionOver, privateSessionDeadline,   // ARENA6: a private session
 } from '../../src/net/arenaLaw.js';
 import { exhibitionOpening, exhibitionBoutId, exhibitionAdmits } from '../../src/net/arenaExhibition.js';
 import {
   openBout, joinBout, leaveSeat, poseOf, refBlow, yieldOf, cheerOf, stepBout, fighterGone, stateWord, aiWords, hpWord, liveEntry, boutFinished, fighterOfSub,
+  seatOnMark, openSession, sessionJoin, sessionPick, sessionGoFighters, sessionKick, sessionHist, sessionWord,   // ARENA6: a private session
 } from '../../src/net/arenaBrain.js';
 import { mintArenaReceipt } from '../../src/net/arenaReceipt.js';
 import { owIdInCell, owRowInCell, owRowSane, owFoldSpent, owFoldRows, owRowsBehind, owPrune, owLedgerOf, owLedgerEmpty, toWelcome } from '../../src/net/overworldLaw.js';
@@ -948,13 +952,18 @@ export class Room {
       for (const member of party.members) for (const other of this._socketsOf(member)) this._send(other, line);
       return;
     }
+    // AUDIT PRE-MERGE 1003b R4: A PRIVATE SESSION'S ROOM TALKS AMONG ITS MEMBERS - a stranger with the code, or a member
+    // removed who kept its socket, neither speaks to the session (its line ignored before it spends the room's budget)
+    // nor overhears it
+    const S = isArenaPrivateRoom(a.key) ? await this._sessionOf() : null;
+    if (isArenaPrivateRoom(a.key) && !S?.members?.[a.sub]) return;
     const room = tokenGate(this._roomChat, now, CHAT_ROOM_HZ_MAX);
     this._roomChat = room.bucket;
     if (!room.pass) return;
     const out = JSON.stringify(frame);
     const chat = isChatRoom(a.key);
     for (const [other, b] of [...this._all()]) {
-      if (!b.id) continue;
+      if (!b.id || (S && !S.members[b.sub])) continue;
       if (other === ws || chat || inRange(a.key ?? '', a.pose, b.pose)) this._send(other, out);   // the sender hears its own line back: that is the receipt
     }
   }
@@ -1245,8 +1254,13 @@ export class Room {
       // once the token AND the pass are verified (`_battleHelloGate`, below), by account: a hello refused for either
       // touches no bucket.
       const battle = isBattleRoom(a.key);
+      // AUDIT PRE-MERGE 1003b R2: AND AN ARENA FLOOR'S DOOR NEITHER - a private session's code is read out on a stream, and
+      // twelve tokenless hellos a second shut the room to every newcomer and to a fighter whose socket blinked (a forfeit
+      // after ARENA_GONE_MS). A floor room's gate is spent after the token, by account, as a battle's (`_battleHelloGate`):
+      // the session's members and the bout's fighters wait on themselves alone, everyone else on the stands' bucket
+      const floor = isArenaFloorRoom(a.key);
       let gate = null;
-      if (!battle) {
+      if (!battle && !floor) {
         // the room's hello gate (A6): a storm is 2N frames a cycle for everyone in a place; a channel's hello costs no roster, so its gate runs deeper - never off (AUDIT CHAT A1)
         gate = tokenGate(await this.state.storage.get('hellos'), now, chat ? CHAT_HELLO_HZ_MAX : HELLO_HZ_MAX);
         await this.state.storage.put('hellos', gate.bucket);
@@ -1262,6 +1276,10 @@ export class Room {
       // player cast out and back) until the wrath's end. The Worker refused the key outside the window already; this is
       // the object's own word, for a socket that opened a moment before the seal.
       if (isGateRoom(a.key)) { const no = await this._gateAdmit(a.key, who.subject, now); if (no) { this._refuse(ws, no); return; } }
+      if (floor) {
+        gate = await this._battleHelloGate(who.subject ?? m.id, (await this._floorOwn(a.key, who.subject)) ? 'fighter' : 'watch', now);   // AUDIT PRE-MERGE 1003b R2
+        if (!gate.pass) { this._refuse(ws, 'busy', CLOSE_BUSY); return; }
+      }
       // PVP-REF: A SIEGE'S ROOM ADMITS THE DEVELOPERS ALONE until SEAT2a schedules its battles and signs its sides - the
       // referee's proving ground and its measurement (Seats-Arc 6.1). SEAT2a: BY ITS PASS - the account service's word
       // (the hello's `sp`) that this account fights on a side, or watches; the developers' ground only while the room
@@ -1320,7 +1338,14 @@ export class Room {
       if (!chat) { await this.state.storage.put(lookKey(m.id), m.look); this._looks.set(m.id, m.look); }   // a channel keeps no look: nobody is drawn from it
       const guild = who.gi ? { gi: who.gi, gt: who.gt, gm: who.gm } : {};   // GUILD1c: the guild the token carried, when it carried one
       const arena = isArenaRoom(a.key) ? { ar: arenaRatingOk(who.ar), lk: who.kind === 'linked' ? 1 : 0, ...(Number.isSafeInteger(who.cl) && who.cl >= ARENA_CL_MIN && who.cl <= ARENA_CL_MAX ? { cl: who.cl } : {}) } : {};   // ARENA4: the hall queues by the signed rating, and a guest is queued for no rated bout   // ARENA4b: and a ladder bout's vitality is the signed character level's (`cl` - absent from a service before it)
-      if (!this._setAttach(ws, { ...a, id: m.id, name: who.name, title: who.title, ...(who.ts ? { ts: who.ts } : {}), glyphs: who.glyphs, gx: who.gx, au: who.au, ...(who.rb ? { rb: who.rb } : {}), lv: who.lv, ...guild, gio: who.gio, sub: who.subject, ...(siegeSide ? { sd: siegeSide } : {}), mu: who.mu, pose: chat ? null : m.pose, since: replaced?.since ?? now, ...arena })) { this._refuse(ws, 'hello too large'); return; }   // MOD1: `sub` the verified account (what a mute names), `mu` until when it may not talk   // RENOWN1: `lv` the Renown level the token carried
+      // AUDIT PRE-MERGE 1003b R5: A FLOOR'S PLACE MOVES WITH ITS RECONNECT - a replaced socket loses its id before its close,
+      // so its leave frees no seat, and the new socket's `in` took another: every blip a seat gone from the stands (a full
+      // session's sixty), every fighter's a second body. The place the old socket held is the new one's
+      const placed = floor && replaced ? { af: replaced.af ?? 0, afid: replaced.afid ?? null, asp: replaced.asp ?? 0 } : {};
+      // AUDIT PRE-MERGE 1003b R4: a private session's floor is shown to its members - a socket that is none yet is shown
+      // the sand when its join makes it one (`_sessionShow`)
+      const shown = isArenaPrivateRoom(a.key) ? { shown: (await this._sessionOf())?.members?.[who.subject] ? 1 : 0 } : {};
+      if (!this._setAttach(ws, { ...a, ...placed, ...shown, id: m.id, name: who.name, title: who.title, ...(who.ts ? { ts: who.ts } : {}), glyphs: who.glyphs, gx: who.gx, au: who.au, ...(who.rb ? { rb: who.rb } : {}), lv: who.lv, ...guild, gio: who.gio, sub: who.subject, ...(siegeSide ? { sd: siegeSide } : {}), mu: who.mu, pose: chat ? null : m.pose, since: replaced?.since ?? now, ...arena })) { this._refuse(ws, 'hello too large'); return; }   // MOD1: `sub` the verified account (what a mute names), `mu` until when it may not talk   // RENOWN1: `lv` the Renown level the token carried
       // SRV-N: `v` rides EVERY welcome, a channel's included. A player in the enhanced skin holds a presence socket
       // and one chat socket per tab; whichever reconnects first after a hand deploy is the one that notices, and the
       // client's detector (net/updateNotice.js) is a Set so the rest of them say nothing. SLAM13 (AUDIT SLAM A5): and
@@ -1389,7 +1414,10 @@ export class Room {
       // ARENA4: A BOUT'S ROOM DRAWS ITS FIGHTERS ALONE - a spectator has no body (Seats-Arc 6.6), so the roster is the
       // sockets on the sand, and a hello's join is said when its `in` puts it there (_boutWord), never here
       // ARENA4b: the hour's exhibition's too - its sand is the relay's two, so its roster is nobody
-      if (isArenaFloorRoom(a.key)) for (let i = others.length - 1; i >= 0; i--) if (!others[i].af) others.splice(i, 1);
+      // AUDIT PRE-MERGE 1003b R4: and a private session's sand is shown to its members alone - a stranger with the code, or
+      // a member removed, is welcomed to a room that draws nobody (its join shows it the sand: `_sessionShow`)
+      const unseen = isArenaPrivateRoom(a.key) && !this._attach(ws)?.shown;
+      if (isArenaFloorRoom(a.key)) for (let i = others.length - 1; i >= 0; i--) if (!others[i].af || unseen) others.splice(i, 1);
       const near = rosterFor(battle ? others.map((b) => this._drawn(b, a.key)) : others, m.id, m.pose);   // AUDIT-SEATS T2: in a battle room, a spectator's place is said to nobody
       const missing = near.filter((b) => !this._looks.has(b.id)).map((b) => lookKey(b.id));
       const fetched = missing.length ? await this.state.storage.get(missing) : new Map();
@@ -1752,6 +1780,7 @@ export class Room {
       if (typeof a.sub !== 'string' || !a.sub) { this._junk(ws); return; }
       try {
         if (isArenaHall(a.key)) await this._hallWord(ws, a, m, now);
+        else if (m.k === 'ps' && isArenaPrivateRoom(a.key)) await this._sessionWord(ws, a, m, now);   // ARENA6: a private session's word, in its room alone
         else if (isArenaFloorRoom(a.key)) await this._boutWord(ws, a, m, now);   // ARENA4b: a bout's room or the hour's exhibition's
         else this._junk(ws);
       } catch (e) { console.warn('[arena] word failed', e?.message ?? e); }
@@ -2095,8 +2124,9 @@ export class Room {
       // a pose nobody has to ease is the cheapest frame in the room. At 200 standing that is 200 * 199 / 5s = 7,960
       // sends a second, beside the 59,000 the moving case already pays.
       const heard = [];
+      const S = isArenaPrivateRoom(a.key) ? await this._sessionOf() : null;   // AUDIT PRE-MERGE 1003b R4: a session's sand moves for its members alone
       for (const [other, b] of [...this._all()]) {
-        if (other === ws || !b.id) continue;
+        if (other === ws || !b.id || (S && !S.members[b.sub])) continue;
         if (inRange(a.key ?? '', m.p, b.pose)) heard.push([other, b]);
       }
       for (const [other] of (still ? heard : poseFan(heard, m.p, (e) => e[1].pose, met.turn, (e) => e[1].id))) this._send(other, out);   // SLAM10: the far tier bucketed by the listener's ID, so a moving crowd cannot shuffle who is served
@@ -2456,7 +2486,10 @@ export class Room {
       if (inOffer) { this._arenaSend(ws, { k: 'of', o: inOffer.o, vs: this._bill(inOffer.a.sub === sub ? inOffer.b : inOffer.a), until: inOffer.until, ...this._casualWord(inOffer.a) }); return; }
       if (!H.q.some((x) => x.sub === sub)) {
         if (H.q.length >= MATCH_QUEUE_MAX) { this._arenaSend(ws, { k: 'qx', m: 'full' }); return; }
-        H.q.push({ sub, name: a.name, rating: arenaRatingOk(a.ar), title: a.title ?? null, lv: m.lv ?? a.lv ?? 1, banner: bannerClaim(m.b), casual: m.u === 1, at: now });   // ARENA4b: the banner the word claims, billed (_bill); `casual` an unrated bout sought - paired like with like (pairQueue)
+        // AUDIT PRE-MERGE 1003 S3: `lv` THE TOKEN'S - the Renown level the account service signed (Seats-Arc 6.1's "the level
+        // is the account service's signed number"; net/arenaLaw.js pvpVitality reads it), never the word's: the word's `lv`
+        // set a rated bout's health (999 held at sixty - 420 against an honest 302). A word still carrying one is not refused.
+        H.q.push({ sub, name: a.name, rating: arenaRatingOk(a.ar), title: a.title ?? null, lv: a.lv ?? 1, banner: bannerClaim(m.b), casual: m.u === 1, at: now });   // ARENA4b: the banner the word claims, billed (_bill); `casual` an unrated bout sought - paired like with like (pairQueue)
         await this._hallSave();
       }
       this._arenaTell(sub, this._queueWord(H, now, sub));
@@ -2500,7 +2533,10 @@ export class Room {
   /** Both said yes: the bout's room opened with its two fighters, each told where to go and whom they meet. */
   async _hallGo(H, f, now) {
     H.offers = H.offers.filter((x) => x !== f);
-    const o = f.o;
+    // AUDIT PRE-MERGE 1003 S7: THE BOUT'S ROOM IS MINTED HERE, told to the pair only once it is open - never the offer's
+    // id, which both hear before either says yes: a ladder room's id is its fighter's own, so one of a pair stood a
+    // ladder bout in `arena:b<offer id>`, the open was refused, both were sent back `busy` and paired again, for ever
+    const o = arenaId();
     const fighters = [f.a, f.b].map((e) => ({ sub: e.sub, name: e.name, lv: e.lv, rating: e.rating, title: e.title, banner: e.banner ?? null }));   // ARENA4b: and the banner each claimed
     const ok = await this._arenaPost(arenaBoutRoom(o), ARENA_INTERNAL_OPEN, { o, kind: 'pvp', f: fighters, casual: !!f.a.casual, at: now });   // ARENA4b: a casual pair's room owes no receipt
     if (!ok) {
@@ -2572,16 +2608,19 @@ export class Room {
     const cur = await this.state.storage.getAlarm();
     if (cur == null || cur > at) await this.state.storage.setAlarm(at);
   }
-  /** Words to every hello'd socket in the bout's room. */
+  /** Words to every socket on the bout's sand or in its stands. AUDIT PRE-MERGE 1003 S1: theirs alone - the fan was every
+   *  hello'd socket, so one told the seats are full heard the whole bout all the same (sixty seats a bound on nothing). */
   _boutFan(words) {
     if (!words?.length) return;
     const outs = words.map((w) => JSON.stringify({ t: 'arena', ...w }));
-    for (const [ws, b] of [...this._all()]) if (b.id) for (const s of outs) if (!this._send(ws, s)) break;
+    for (const [ws, b] of [...this._all()]) if (b.id && (b.af || b.asp)) for (const s of outs) if (!this._send(ws, s)) break;
   }
-  /** The whole bout to every socket - each with its own fighter id, '' in the stands. */
-  _boutFanState(st) { for (const [ws, b] of [...this._all()]) if (b.id) this._arenaSend(ws, stateWord(st, b.afid ?? '')); }
-  /** The hall told of this bout - its entry, or done. */
+  /** The whole bout to every socket on its sand or in its stands - each with its own fighter id, '' in the stands. */
+  _boutFanState(st) { for (const [ws, b] of [...this._all()]) if (b.id && (b.af || b.asp)) this._arenaSend(ws, stateWord(st, b.afid ?? '')); }
+  /** The hall told of this bout - its entry, or done. ARENA6: a private session's bout never - the hall's list is the
+   *  realm's to watch, and a session's bouts are its members' (told done, it is said so here and nothing is posted). */
   async _boutTellHall(st, done = false) {
+    if (st.priv) return true;
     const e = done ? null : liveEntry(st);
     return this._arenaPost(ARENA_HALL, ARENA_INTERNAL_LIVE, { o: st.o, ...(done ? { done: true } : { e }) });
   }
@@ -2603,6 +2642,13 @@ export class Room {
     let st = await this._boutOf();
     if (m.k === 'in') {
       const exRoom = isArenaExhibitionRoom(a.key);
+      if (isArenaPrivateRoom(a.key)) {
+        // ARENA6: A PRIVATE SESSION'S SAND AND STANDS ARE ITS MEMBERS' - its bout is opened by its host's go alone (an `in`
+        // here never opens a ladder bout), and only a member of the session takes a place at it
+        const S = await this._sessionOf();
+        const no = !S ? 'no session' : !S.members[a.sub] ? (S.kicked.includes(a.sub) ? 'removed' : 'not member') : !st ? 'no bout' : null;
+        if (no) { this._arenaSend(ws, { k: 'no', m: no }); return; }
+      }
       if (!st && exRoom) {
         // ARENA4b: THE HOUR'S EXHIBITION IS OPENED BY ITS FIRST WATCHER - inside its window on the shared clock (the hour's
         // own, the gates open, its first EXHIBITION_START_MINUTES: net/arenaExhibition.js exhibitionOpening), the hour's
@@ -2617,27 +2663,41 @@ export class Room {
         // not ask it, the service stays the one arbiter of the climb)
         // ARENA4b: its fighter's vitality is the relay's, off the token's signed character level (`cl`); the word's `lv`
         // stands only for a token from a service before it, held to the tier's cap, and its `mh` is read by nothing
-        // (net/arenaLaw.js ladderVitality)
+        // (net/arenaLaw.js ladderVitality - AUDIT PRE-MERGE 1003 S2: the signed level held to the same cap)
         if (m.r !== 'f' || m.tier === undefined) { this._arenaSend(ws, { k: 'no', m: 'no bout' }); return; }
         st = this._bout = openBout({ o: arenaBoutIdOf(a.key), kind: 'pve', f: [{ sub: a.sub, name: a.name, lv: m.lv ?? a.lv ?? 1, cl: a.cl ?? null, title: a.title ?? null, banner: m.b ?? null }], tier: m.tier, bout: m.bout, now });   // ARENA4b: `banner` the word's claim, billed on the list to watch
         await this._boutTellHall(st);
-      } else if (exRoom && boutFinished(st)) {
+      } else if (boutFinished(st) && (exRoom || fighterOfSub(st, a.sub))) {
         // ARENA4b: a finished exhibition is kept for its verdict (ARENA_EX_KEEP_MS): an `in` is answered with the whole
         // bout, its result in it, and takes no seat - the stands are empty after the healers
-        this._arenaSend(ws, stateWord(st, ''));
+        // AUDIT PRE-MERGE 1003 S5: AND A FINISHED BOUT'S OWN FIGHTER, BACK INSIDE ITS KEEP (ARENA_KEEP_MS "for a reconnect's
+        // receipt"), is answered with it as theirs - the end and the result, and the receipt the room holds for them (a
+        // casual bout's none): joinBout says `no bout` once the healers are past, ~9 s after the end, so a fighter whose
+        // socket blinked at the last blow never heard the win the room kept ten minutes for them
+        const me = exRoom ? null : fighterOfSub(st, a.sub);
+        this._arenaSend(ws, stateWord(st, me?.id ?? ''));
+        const r = me ? st.rc?.[a.sub] : null;
+        if (r) this._arenaSend(ws, { k: 'rc', r });
         return;
       }
       const before = st.phase;
-      const j = joinBout(st, a.sub, m.r, now);
-      if (j.no) { this._arenaSend(ws, { k: 'no', m: j.no }); return; }
       const cur = this._attach(ws);
+      // AUDIT PRE-MERGE 1003 S1: A SEAT IS A SOCKET'S ONCE - joinBout counts a seat at every `in` it is asked, so a socket
+      // already in the stands asking again is answered with the bout and takes no second: one socket's sixty `in`s held
+      // all sixty seats of the hour's exhibition (and its close gave back one - 59 phantom seats, the bout blank to the realm)
+      const again = m.r === 's' && !!cur.asp && !fighterOfSub(st, a.sub);
+      const j = again ? { role: 's' } : joinBout(st, a.sub, m.r, now);
+      if (j.no) { this._arenaSend(ws, { k: 'no', m: j.no }); return; }
       if (j.role === 'f') {
         this._setAttach(ws, { ...cur, af: 1, afid: j.id, asp: 0 });
         // the fighter comes onto the sand: its body said to the room now (the hello said nothing)
         const look = this._looks.get(cur.id) ?? (await this.state.storage.get(lookKey(cur.id))) ?? null;
         const join = JSON.stringify(badged({ t: 'join', id: cur.id, name: cur.name, look, pose: cur.pose }, cur));
-        if (!cur.af) for (const [other, b] of [...this._all()]) if (other !== ws && b.id) this._send(other, join);
-        if (cur.pose) poseOf(st, j.id, cur.pose.x, cur.pose.z, now);
+        const S = st.priv ? await this._sessionOf() : null;   // AUDIT PRE-MERGE 1003b R4: a session's sand shown to its members alone
+        if (!cur.af) for (const [other, b] of [...this._all()]) if (other !== ws && b.id && (!S || S.members[b.sub])) this._send(other, join);
+        // ARENA6: a session's fighter comes from the stands to its mark (its client stands it there) - the mark is its
+        // place, never the terrace its socket last said (net/arenaBrain.js seatOnMark); a fighter back mid-fight keeps its own
+        if (!(st.priv && seatOnMark(st, j.id, now)) && cur.pose) poseOf(st, j.id, cur.pose.x, cur.pose.z, now);
       } else if (!cur.asp) {
         this._setAttach(ws, { ...cur, asp: 1 });
         this._boutFan([{ k: 'sp', n: st.spectators }]);
@@ -2649,7 +2709,7 @@ export class Room {
       if (st.b) this._arenaSend(ws, hpWord(st));
       const r = st.rc?.[a.sub];
       if (r && j.role === 'f') this._arenaSend(ws, { k: 'rc', r });   // a reconnect after the end: its receipt again
-      await this._boutSave(now, true);
+      await this._boutSave(now, !again);   // AUDIT PRE-MERGE 1003b R-f: a seat asked again changed nothing - never a forced write a word
       if (!boutFinished(st)) await this._boutArm(now);
       return;
     }
@@ -2692,7 +2752,20 @@ export class Room {
       if (f || was !== H.q.length) await this._hallSave();
       return;
     }
+    // ARENA6: a private session's member gone - its place kept (it comes back to it), and its host's absence stamped: the
+    // session ends ARENA_PRIVATE_HOST_GONE_MS after unless they come back (_arenaTick)
+    const S = isArenaPrivateRoom(a.key) ? await this._sessionOf() : null;
+    // AUDIT PRE-MERGE 1003b R6/S2: the bout read before the session is fanned - a room woken whose first word was a
+    // member's close fanned `this._bout` unread (undefined): every member told no bout stood, and both fighters' screens
+    // stood themselves back in the stands while the relay fought on
     const st = await this._boutOf();
+    if (S && S.members[a.sub] && !this._arenaSocketsOf(a.sub).some((w) => w !== ws)) {
+      S.members[a.sub].seen = now;
+      if (a.sub === S.host) S.hostGoneAt = now;
+      await this._sessionSave();
+      if (a.sub === S.host) await this._sessionArm(S, now);
+      this._sessionFan(S, ws);
+    }
     if (!st) return;
     if (a.af && fighterOfSub(st, a.sub)) {
       if (!this._arenaSocketsOf(a.sub).some((w) => w !== ws)) { fighterGone(st, a.sub, now); await this._boutSave(now, true); }
@@ -2707,14 +2780,26 @@ export class Room {
   async _arenaTick() {
     const now = Date.now();
     if (this._hall !== undefined || (await this.state.storage.get('arenahall'))) { await this._hallTick(now); return true; }
+    // ARENA6: A PRIVATE SESSION'S ROOM - its clock first (its host gone too long, its life out: it ends, every member
+    // told), then its bout's beat as any bout's, and with no bout its alarm is its clock's next end
+    const S = await this._sessionOf();
+    if (S && privateSessionOver(S, now)) { await this._sessionEnd(S, 'ended'); return true; }
     const st = await this._boutOf();
-    if (!st) return false;
+    if (!st) { if (!S) return false; await this._sessionArm(S, now); return true; }
+    /** How long a finished bout's room keeps it: ARENA_KEEP_MS for a reconnect's receipt (ARENA4b: an exhibition
+     *  ARENA_EX_KEEP_MS, a game day, for a bookmaker's verdict; ARENA6: a session's ARENA_PRIVATE_KEEP_MS - it owes no
+     *  receipt, and its session is back to choosing). */
+    const keep = st.kind === 'ex' ? ARENA_EX_KEEP_MS : st.priv ? ARENA_PRIVATE_KEEP_MS : ARENA_KEEP_MS;
+    // AUDIT PRE-MERGE 1003b R7: a session's keep runs from the healers' end (`doneAt`, the bout's first finished beat), as
+    // its record says - counted from the result (`endAt`), the healers' seven seconds had spent it before it began
+    const keptFrom = (b) => (b.priv ? b.doneAt ?? b.endAt ?? b.at : b.endAt || b.at);
     if (boutFinished(st) && st.toldDone) {
-      // the bout is over and said: kept ARENA_KEEP_MS for a reconnect's receipt, then forgotten (ARENA4b: an exhibition
-      // ARENA_EX_KEEP_MS, a game day, for a bookmaker's verdict)
-      const keep = st.kind === 'ex' ? ARENA_EX_KEEP_MS : ARENA_KEEP_MS;
-      if (now >= (st.endAt || st.at) + keep) { this._bout = null; await this.state.storage.delete('arenabout'); return true; }
-      await this.state.storage.setAlarm((st.endAt || st.at) + keep);
+      // the bout is over and said: kept, then forgotten (ARENA6: a session's, cleared - its fighters back in the stands)
+      if (now >= keptFrom(st) + keep) {
+        if (S) { await this._sessionClear(S, now); return true; }
+        this._bout = null; await this.state.storage.delete('arenabout'); return true;
+      }
+      await this.state.storage.setAlarm(keptFrom(st) + keep);
       return true;
     }
     const ph = st.phase === 'law' ? st.b?.phase : st.phase;
@@ -2738,16 +2823,230 @@ export class Room {
       await this._boutSave(now, true);
       for (const [ws, b] of [...this._all()]) { const r = b.id && b.af ? st.rc[b.sub] : null; if (r) this._arenaSend(ws, { k: 'rc', r }); }
     }
+    // ARENA6: a session's bout with a result - kept in its recent results once, and every member told
+    if (S && st.priv && st.res && !st.histed) { st.histed = true; sessionHist(S, st, now); await this._sessionSave(); this._sessionFan(S); }
     if (boutFinished(st)) {
       st.endAt = Number.isFinite(st.endAt) ? st.endAt : now;
+      st.doneAt = Number.isFinite(st.doneAt) ? st.doneAt : now;   // AUDIT PRE-MERGE 1003b R7
       if (!st.toldDone && (await this._boutTellHall(st, true))) st.toldDone = true;
       await this._boutSave(now, true);
-      await this.state.storage.setAlarm(st.toldDone ? st.endAt + (st.kind === 'ex' ? ARENA_EX_KEEP_MS : ARENA_KEEP_MS) : now + 1000);   // ARENA4b: an exhibition's verdict kept a game day
+      await this.state.storage.setAlarm(st.toldDone ? keptFrom(st) + keep : now + 1000);   // ARENA4b: an exhibition's verdict kept a game day (ARENA6: a session's bout a moment)
       return true;
     }
     await this._boutSave(now);
     await this.state.storage.setAlarm(now + ARENA_TICK_MS);
     return true;
+  }
+
+  // ───────────────────────────── ARENA6: A PRIVATE SESSION ─────────────────────────────
+  // The owner, 2026-10-03: "a way to simply host private matches ... a session where people can join, watch,
+  // participate, and allow the host of the session to choose who is fighting and who is in the crowd". The room
+  // `arena:p<code>` keeps one session beside its bout (`arenasession` - net/arenaBrain.js openSession's shape): a
+  // registered account opens it and hosts it, anyone joins it (a guest to watch), the host picks the Red and the Blue
+  // among the members here and registered and calls the bout - the casual players' bout, refereed by PVP-REF, every
+  // fighter equally whole, no receipt, never on the hall's list - and the session keeps its last results. Every member
+  // is told the whole session (`pss`) at each change. Design: bible/11-Multiplayer/Arena.md, the ARENA6 record.
+  async _sessionOf() {
+    if (this._session === undefined) { const v = await this.state.storage.get('arenasession'); this._session = v && typeof v === 'object' ? v : null; }
+    return this._session;
+  }
+  async _sessionSave() {
+    if (this._session) await this.state.storage.put('arenasession', this._session);
+    else await this.state.storage.delete('arenasession');
+  }
+  /** The session's clock armed: its next end (its life, its host's absence) - never later than an alarm already set. */
+  async _sessionArm(S, now) {
+    const at = Math.max(now + 1000, privateSessionDeadline(S));
+    const cur = await this.state.storage.getAlarm();
+    if (cur == null || cur > at) await this.state.storage.setAlarm(at);
+  }
+  /** Is an account here - a hello'd socket of it in the room (`gone` the one leaving, not counted). AUDIT PRE-MERGE 1003b
+   *  R1: the room's sockets listed ONCE, as a set of the accounts here - asked per member per recipient, a fan to sixty
+   *  members listed the room 3,600 times, and half a join's time was this. */
+  _sessionHere(gone = null) {
+    const at = new Set();
+    for (const [w, b] of this._all()) if (w !== gone && b.id && b.sub) at.add(b.sub);
+    return (sub) => at.has(sub);
+  }
+  /** The session told to every member here, each its own word (net/arenaBrain.js sessionWord). AUDIT PRE-MERGE 1003b R1:
+   *  with `ask` (the socket whose join this answers), a session nobody else would see changed - the host's own word the
+   *  same as the last fanned - is said to `ask` alone: a member's join repeated at the arena gate's sixteen a second
+   *  fanned the whole session to every member each time (1.9 MB a second at sixty-two). */
+  _sessionFan(S, gone = null, ask = null) {
+    const here = this._sessionHere(gone);
+    const st = this._bout ?? null;
+    const sig = JSON.stringify(sessionWord(S, S.host, here, st));
+    if (ask && sig === this._sessionSig) { this._arenaSend(ask, sessionWord(S, this._attach(ask)?.sub, here, st)); return; }
+    this._sessionSig = sig;
+    for (const [ws, b] of [...this._all()]) if (ws !== gone && b.id && S.members[b.sub]) this._arenaSend(ws, sessionWord(S, b.sub, here, st));
+  }
+  /** AUDIT PRE-MERGE 1003b R4: A SOCKET MADE A MEMBER IS SHOWN THE SAND - the fighters on it now, as the welcome shows a
+   *  member's (its hello, a stranger's then, drew nobody). Once a socket. */
+  async _sessionShow(ws) {
+    const cur = this._attach(ws);
+    if (!cur || cur.shown) return;
+    this._setAttach(ws, { ...cur, shown: 1 });
+    for (const [other, b] of [...this._all()]) {
+      if (other === ws || !b.id || !b.af) continue;
+      const look = this._looks.get(b.id) ?? (await this.state.storage.get(lookKey(b.id))) ?? null;
+      this._send(ws, JSON.stringify(badged({ t: 'join', id: b.id, name: b.name, look, pose: b.pose }, b)));
+    }
+  }
+  /** AUDIT PRE-MERGE 1003b R2: whether an account has its own place on this floor - a private session's member, a bout's
+   *  fighter: its hello waits on itself alone, never on the stands' bucket. */
+  async _floorOwn(key, sub) {
+    if (!sub) return false;
+    if (isArenaPrivateRoom(key)) return !!(await this._sessionOf())?.members?.[sub];
+    const st = await this._boutOf();
+    return !!st && !!fighterOfSub(st, sub);
+  }
+  /** A word to every member's socket here (a refusal or an end said to all). */
+  _sessionSay(S, w) { for (const [ws, b] of [...this._all()]) if (b.id && S.members[b.sub]) this._arenaSend(ws, w); }
+  /** THE BOUT LET GO: every socket off the sand and out of the stands (a fighter's body taken off the others' screens -
+   *  it is a body in the stands again, drawn to nobody), the bout forgotten. */
+  async _sessionDropBout() {
+    for (const [ws, b] of [...this._all()]) {
+      if (!b.id) continue;
+      if (b.af) { const out = JSON.stringify({ t: 'leave', id: b.id }); for (const [o2, b2] of [...this._all()]) if (o2 !== ws && b2.id) this._send(o2, out); }
+      if (b.af || b.asp || b.afid) this._setAttach(ws, { ...b, af: 0, afid: null, asp: 0 });
+    }
+    this._bout = null;
+    await this.state.storage.delete('arenabout');
+  }
+  /** The session's bout cleared (its keep past, or voided by its host): the session back to choosing, every member told. */
+  async _sessionClear(S, now) {
+    await this._sessionDropBout();
+    S.bout = null;
+    await this._sessionSave();
+    this._sessionFan(S);
+    await this._sessionArm(S, now);
+  }
+  /** THE SESSION ENDS - closed by its host (`closed`) or by its clock (`ended`): every member told, its bout and its
+   *  record gone. Each member's screen leaves the room (the floor's instance) on the word. */
+  async _sessionEnd(S, why) {
+    this._sessionSay(S, { k: 'no', m: why });
+    await this._sessionDropBout();
+    this._session = null;
+    await this._sessionSave();
+  }
+  /**
+   * ONE SESSION WORD (`ps`): `open` - the first registered account's opens it and hosts it (a guest's is refused; the host
+   * back re-opens nothing, it is the host again); `join` - a member, or a newcomer while it has room (a removed account
+   * refused); and the host's alone: `pick` the Red and the Blue, `go` their bout, `void` it with no result, `kick` a member
+   * for the session's life, `close` it. A refusal is a `no` to the asker; every change is every member's `pss`.
+   */
+  async _sessionWord(ws, a, m, now) {
+    let S = await this._sessionOf();
+    const sub = a.sub;
+    const no = (w) => { this._arenaSend(ws, { k: 'no', m: w }); };
+    const here = this._sessionHere();
+    const st = await this._boutOf();
+    const standing = !!st && !boutFinished(st);
+    if (!this._sessionJoinBy) this._sessionJoinBy = new Map();   // AUDIT PRE-MERGE 1003b R1: a member's join budget, by account
+    if (m.a === 'open' || m.a === 'join') {
+      if (m.a === 'open' && !S) {
+        if (!a.lk) { no('host guest'); return; }   // the host is a registered account
+        S = this._session = openSession({ code: arenaPrivateCodeOf(a.key), host: { sub, name: a.name, title: a.title ?? null, banner: m.bn ?? null }, now });
+        await this._sessionSave();
+        await this._sessionArm(S, now);
+        this._sessionFan(S);
+        await this._sessionShow(ws);
+        return;
+      }
+      if (!S) { no('no session'); return; }
+      if (m.a === 'open' && S.host !== sub) { no('taken'); return; }
+      // AUDIT PRE-MERGE 1003b R1/S3: A MEMBER'S JOIN IS NO MEGAPHONE. Each was a write and the whole session fanned to
+      // every member, at the arena gate's sixteen words a second - a guest in the stands could flood sixty-two screens.
+      // A member's changes (its banner, say) are taken ARENA_PRIVATE_JOIN_HZ a second (the bucket's two at once); past
+      // that its join is answered to it alone, unchanged. A join that changes nothing is written nowhere, and said to the
+      // asker alone (_sessionFan's `ask`)
+      const prev = S.members[sub] ? { ...S.members[sub] } : null;
+      if (prev) {
+        const budget = tokenGate(this._sessionJoinBy.get(sub), now, ARENA_PRIVATE_JOIN_HZ, 2);
+        this._sessionJoinBy.delete(sub);
+        if (this._sessionJoinBy.size >= SOCKETS_MAX) this._sessionJoinBy.delete(this._sessionJoinBy.keys().next().value);
+        this._sessionJoinBy.set(sub, budget.bucket);
+        if (!budget.pass) { this._arenaSend(ws, sessionWord(S, sub, here, st)); await this._sessionShow(ws); return; }
+      }
+      const goneWas = S.hostGoneAt;
+      const j = sessionJoin(S, { sub, name: a.name, guest: !a.lk, title: a.title ?? null, banner: m.bn ?? null }, now, here, st ? st.f.map((x) => x.sub) : []);
+      if (j.no) { no(j.no); return; }
+      const me = S.members[sub];
+      const same = !!prev && prev.name === me.name && prev.guest === me.guest && prev.title === me.title && prev.banner === me.banner && goneWas === S.hostGoneAt;
+      if (!same) await this._sessionSave();
+      this._sessionFan(S, null, ws);
+      await this._sessionShow(ws);
+      return;
+    }
+    if (!S) { no('no session'); return; }
+    if (S.host !== sub) { no(S.members[sub] ? 'host only' : S.kicked.includes(sub) ? 'removed' : 'not member'); return; }
+    // AUDIT PRE-MERGE 1003b R8/S1: a bout is "ended with no result" only while it has none - once its result is in (the
+    // verdict, the healers, the keep) a void or a fighter removed was said as "no result" to everyone while the session's
+    // results kept the win
+    const open = !!st && !st.res && !boutFinished(st);
+    if (m.a === 'lock') {
+      // AUDIT PRE-MERGE 1003b S4: THE HOST'S LOCK - a removal is the account's, and a guest account is one press away, so
+      // the host keeps newcomers out (a member coming back is always let in)
+      S.locked = m.l === 1;
+      await this._sessionSave();
+      this._sessionFan(S);
+      return;
+    }
+    if (m.a === 'pick') {
+      const r = sessionPick(S, { r: m.r, b: m.b }, here, standing);
+      if (r.no) { no(r.no); return; }
+      await this._sessionSave();
+      this._sessionFan(S);
+      return;
+    }
+    if (m.a === 'go') {
+      const g = sessionGoFighters(S, here, !!st);   // a bout still in its keep stands too: the next waits for the stands to clear
+      if (g.no) { no(g.no); return; }
+      // THE SESSION'S BOUT: the casual players' bout (no receipt, no rating, nothing kept by the realm), every fighter
+      // ARENA_PRIVATE_VITALITY whole (the owner's call: equal health), never on the hall's list (`priv`)
+      const o = arenaId();
+      this._bout = openBout({ o, kind: 'pvp', f: /** @type {any[]} */ (g.f), casual: true, equal: true, priv: true, now });
+      S.bout = o;
+      await this._boutSave(now, true);
+      await this._sessionSave();
+      await this._boutArm(now);
+      this._sessionFan(S);
+      return;
+    }
+    if (m.a === 'void') {
+      if (!open) { no(st && !boutFinished(st) ? 'has result' : 'no bout'); return; }   // its own word: a bout's `no bout` is its end on a screen
+      this._sessionSay(S, { k: 'no', m: 'voided' });
+      await this._sessionClear(S, now);
+      return;
+    }
+    if (m.a === 'kick') {
+      const k = sessionKick(S, m.m);
+      if (k.no) { no(k.no); return; }
+      // out of its bout first: a fighter's bout void (nothing kept - said only while it has no result), a seat in the stands
+      // given back
+      if (st && st.f.some((x) => x.sub === k.sub) && open) this._sessionSay(S, { k: 'no', m: 'voided' });
+      let seats = 0;
+      for (const [w, b] of [...this._all()]) {
+        if (!b.id || b.sub !== k.sub) continue;
+        // AUDIT PRE-MERGE 1003b R3/S8: a fighter's body said gone to every other screen first - its `af` cleared below,
+        // the bout's clear (_sessionDropBout) said `leave` for the other fighter alone, and the removed one stood on the
+        // sand on every screen until its socket closed
+        if (b.af) { const out = JSON.stringify({ t: 'leave', id: b.id }); for (const [o2, b2] of [...this._all()]) if (o2 !== w && b2.id) this._send(o2, out); }
+        // TOLD, AND TAKEN OUT OF THE BOUT - never closed by the relay: a close here is the presence session's whole socket
+        // (net/online.js reads a policy close as final - the player offline, not just out of the session); the screen
+        // leaves the room on the word, and every word of its after this is refused (`removed`)
+        this._arenaSend(w, { k: 'no', m: 'removed' });
+        if (b.asp && st) { leaveSeat(st); seats++; }
+        if (b.af || b.asp || b.afid) this._setAttach(w, { ...b, af: 0, afid: null, asp: 0 });
+      }
+      if (seats && st) this._boutFan([{ k: 'sp', n: st.spectators }]);
+      if (st && st.f.some((x) => x.sub === k.sub)) { await this._sessionClear(S, now); return; }
+      await this._sessionSave();
+      this._sessionFan(S);
+      return;
+    }
+    if (m.a === 'close') { await this._sessionEnd(S, 'closed'); return; }
+    this._junk(ws);
   }
 
   // ───────────────────────────── PVP-REF: A SIEGE'S ROOM ─────────────────────────────

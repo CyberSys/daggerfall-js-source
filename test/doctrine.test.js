@@ -542,6 +542,11 @@ const BUNDLE_ART = new Map([
   ['public/art/dfu-icons/',
     { manifest: 'vendor/dfu-icons/dfu-icons.files.json',
       why: "THIRD-PARTY - Daggerfall Unity (Daggerfall Workshop, MIT); HUDInteractionModeIcon's four icon sets (icon, classic, colour, mono - steal, grab, info, talk), byte for byte from Assets/Resources/Icons at the commit the listing pins (see vendor/dfu-icons/README.md)" }],
+  // CLASSIC-CURSOR (FIELD BUGS 2026-10-03): Daggerfall Unity's OWN default cursor - DFU-authored art out of Unity's
+  // Resources folder, MIT, never ARENA2 data (DFU reads no cursor from the game's files). Generated from the pinned commit.
+  ['public/art/dfu-cursor/',
+    { manifest: 'vendor/dfu-cursor/dfu-cursor.files.json',
+      why: "THIRD-PARTY - Daggerfall Unity (Daggerfall Workshop, MIT); the defaultCursor ProjectSettings names, Assets/Resources/Cursor2.png, byte for byte at the commit the listing pins (see vendor/dfu-cursor/README.md)" }],
   // SKIN2 (2026-09-25, Mac: "Implement these as new skin options"): Mac's ExistingClasses archive, twenty redrawn
   // enemy-class sheets worn as on-foot skins. A LOOSE-FILE pack (no .dfmod), so GrimoireUI's way: the listing
   // generated from the archive is the authority - and these names were changed on the way in (three port archive

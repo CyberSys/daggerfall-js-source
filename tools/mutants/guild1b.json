@@ -211,8 +211,8 @@
   {
     "name": "GUILD1b-withdraw-offered-to-an-officer",
     "file": "src/ui/socialPanel.js",
-    "old": "enabled: !g.busy && goldTyped() > 0 && guildMay(me, 'withdraw')",
-    "new": "enabled: !g.busy && goldTyped() > 0",
+    "old": "enabled: !g.busy && goldTyped() > 0 && !overCap() && guildMay(me, 'withdraw')",
+    "new": "enabled: !g.busy && goldTyped() > 0 && !overCap()",
     "tests": [
       "test/guild1b.test.js"
     ]

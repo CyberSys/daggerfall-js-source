@@ -7,7 +7,10 @@
 // floor's flat ground, no pathing: each walks straight at its nearest foe, telegraphs its blow and lands it if the foe is
 // still in reach. Design: bible/11-Multiplayer/Arena.md "7. Online". ARENA4b: and THE HOUR'S EXHIBITION (Arena.md 2 -
 // "the relay runs it, every client sees one bout"): two of those fighters against each other, the hour's pair
-// (net/arenaExhibition.js exhibitionFor), nobody on the sand but them and everybody in the stands.
+// (net/arenaExhibition.js exhibitionFor), nobody on the sand but them and everybody in the stands. ARENA6 (2026-10-03):
+// AND A PRIVATE SESSION (`arena:p<code>`) - its host, its members and its recent results as plain data the room keeps
+// beside its bout (`openSession` ... `sessionWord`), and its bouts the casual players' bout with every fighter equally
+// whole (`openBout`'s `equal`), told to no hall (`priv`).
 //
 // PURE. No clock, no dice and no socket of its own: `now` and `rng` are handed to every call, and every call answers
 // the WORDS to fan (net/arenaLaw.js validArenaOut's shapes) - the room (server/src/index.js) sends them, keeps the state
@@ -25,6 +28,7 @@ import {
   ARENA_FLOOR_CENTRE, ARENA_RING_R, ARENA_PVP_MARKS, ARENA_HIT, ARENA_HIT_HZ_MAX, ARENA_BUCKET_RATE, ARENA_BUCKET_DEPTH, ARENA_MELEE_REACH,
   ARENA_POSE_SLACK, ARENA_BOW_REACH, ARENA_SPELLS_IN, ARENA_SPELL_WINDOW_MS, ARENA_SPEED_MAX, ARENA_SPEED_SLACK, ARENA_JOIN_WAIT_MS,
   ARENA_GONE_MS, arenaBlowCap, pvpVitality, ladderVitality, arenaLadderBout, ARENA_SPECTATORS_MAX, ARENA_CHEER_MS, arenaFoeStats, bannerClaim, ARENA_EX_BANNERS,
+  ARENA_PRIVATE_VITALITY, ARENA_PRIVATE_MEMBERS_MAX, ARENA_PRIVATE_HIST_MAX, ARENA_PRIVATE_KICKED_MAX, ARENA_MEMBER_ID_RE,   // ARENA6: a private session
 } from './arenaLaw.js';
 
 /** A fighter of a bout between players stands on its mark once it says `in`; an AI fighter stands on its own. */
@@ -65,9 +69,11 @@ export const AI_RESAY_MS = 900;
  * the hour's exhibition (`kind` 'ex', `ex` net/arenaExhibition.js exhibitionFor's - its hour, its tier, its pair): no
  * fighter of a socket, its two fighters the relay's own on sides 0 and 1, the law begun at once.
  * ARENA4b: `casual` a bout between players the two asked for unrated - refereed all the same, no receipt owed.
- * @param {{ o: string, kind: 'pvp'|'pve'|'ex', f: any[], tier?: number, bout?: number, ex?: any, casual?: boolean, now: number }} p
+ * ARENA6: `equal` every fighter of a bout between players ARENA_PRIVATE_VITALITY whole, whatever their level (a private
+ * session's - the owner's call); `priv` a private session's bout, told to no hall (it is never on the list to watch).
+ * @param {{ o: string, kind: 'pvp'|'pve'|'ex', f: any[], tier?: number, bout?: number, ex?: any, casual?: boolean, equal?: boolean, priv?: boolean, now: number }} p
  */
-export function openBout({ o, kind, f, tier = 0, bout = 0, ex = null, casual = false, now }) {
+export function openBout({ o, kind, f, tier = 0, bout = 0, ex = null, casual = false, equal = false, priv = false, now }) {
   const seed = arenaBoutSeed(o);
   const st = {
     o, kind, at: now, seed, phase: 'wait', tier: kind === 'ex' ? ex.tier : tier, bout, b: null, res: null, owed: [], said: false, endAt: NaN, spectators: 0, cheer: {},
@@ -75,6 +81,8 @@ export function openBout({ o, kind, f, tier = 0, bout = 0, ex = null, casual = f
     f: f.map((x, i) => ({ id: `p${i}`, sub: x.sub, name: x.name, side: i, lv: x.lv ?? 1, cl: x.cl ?? null, rating: x.rating ?? null, title: x.title ?? null, banner: bannerClaim(x.banner), in: false })),
     ai: [], ref: {}, last: {}, gone: {},
     casual: kind === 'pvp' && casual === true,
+    equal: kind === 'pvp' && equal === true,   // ARENA6
+    priv: kind === 'pvp' && priv === true,   // ARENA6
   };
   if (kind === 'ex') {
     // ARENA4b: THE EXHIBITION - the hour's two on their marks, side 0 (the Red's) west and side 1 (the Blue's) east, the
@@ -141,7 +149,8 @@ function startLaw(st, now) {
   const fighters = st.f.map((x) => ({
     id: x.id, name: x.name, side: x.side, ai: false, temper: 0,
     // ARENA4b: a ladder fighter's vitality is the relay's from the signed level alone - never the health the word claimed
-    maxHealth: st.kind === 'pvp' ? pvpVitality(x.lv) : ladderVitality(x.cl, x.lv, st.tier),
+    // ARENA6: a private session's bout every fighter the same, whatever the level
+    maxHealth: st.kind === 'pvp' ? (st.equal ? ARENA_PRIVATE_VITALITY : pvpVitality(x.lv)) : ladderVitality(x.cl, x.lv, st.tier),
   }));
   for (const a of st.ai) fighters.push({ id: a.id, name: '-', side: a.side, ai: true, temper: a.temper, maxHealth: a.hp });
   st.b = newBout({ id: st.o, kind: st.kind === 'pvp' ? 'pvp' : st.kind === 'ex' ? 'exhibition' : 'ladder', fighters, ring: { centre: [C[0], C[2]], radius: ARENA_RING_R }, now, tier: st.tier });
@@ -159,6 +168,20 @@ export function poseOf(st, id, x, z, now) {
   }
   st.last[id] = [x, z, now];
   if (st.b) boutPos(st.b, id, [x, z]);
+  return true;
+}
+
+/** ARENA6: A SESSION'S FIGHTER COMES TO THE SAND FROM THE STANDS - its client stands it on its side's mark (the
+ *  floor's ARRIVE, scenes/worldModes.js standOnArenaMark), so the referee's last good place for it is that mark, never
+ *  the terrace its socket last said: a stand's pose read as the fighter's held every blow of its first seconds out of
+ *  reach, and the speed check refused the mark after it. Only a fighter with no place yet (a reconnect mid-fight keeps
+ *  its own). */
+export function seatOnMark(st, id, now) {
+  const f = st.f.find((x) => x.id === id);
+  if (!f || st.last[id]) return false;
+  const xz = toLevel(ARENA_PVP_MARKS[f.side] ?? ARENA_PVP_MARKS[0]);
+  st.last[id] = [xz[0], xz[1], now];
+  if (st.b) boutPos(st.b, id, xz);
   return true;
 }
 
@@ -259,6 +282,11 @@ export function cheerOf(st, key, c, now) {
 function takeWords(st) {
   const e = st.b ? takeBoutEvents(st.b) : [];
   if (!e.length) return [];
+  // AUDIT PRE-MERGE 1003 O1: THE HEALERS ON THE RELAY'S SAND - the law's 'heal' heals nobody (systems/arenaBout.js: on a
+  // screen's own bout the host's door does), and here the relay is the host: every fighter whole at the word, so the
+  // `hp` that rides with it says so (it said the bout's end health, and every fighter's screen struck its own healed
+  // player back down to it), and so does every `st` after
+  if (e.some((x) => x.k === 'heal')) for (const f of st.b.fighters) f.health = f.maxHealth;
   /** @type {any[]} */
   const words = [{ k: 'ev', e: e.map(evWire) }];
   if (e.some((x) => x.k === 'hit' || x.k === 'heal' || x.k === 'fall')) words.push(hpWord(st));
@@ -298,6 +326,15 @@ export function stepBout(st, now, rng = Math.random) {
   }
   const b = st.b;
   if (b.phase === 'walk') for (const x of b.fighters) if (!x.atMark) boutAtMarks(b, x.id, now);
+  // AUDIT PRE-MERGE 1003b S9: BOTH PLAYERS OF A PLAYERS' BOUT GONE - no contest. The forfeit below counted the Red out
+  // first, so two fighters gone together (a shared connection, the relay's own blip) handed the Blue a win neither fought
+  // for; with both gone ARENA_GONE_MS into a live fight the bout is void, nothing kept (a ladder's one player gone is
+  // still its forfeit - a void there would be a loss walked away from)
+  if (boutLive(b) && st.kind === 'pvp' && st.f.length === 2 && st.f.every((x) => st.gone[x.id] != null && now - st.gone[x.id] >= ARENA_GONE_MS)) {
+    st.phase = 'void';
+    words.push({ k: 'no', m: 'no contest' });
+    return words;
+  }
   // A FORFEIT: a player gone (no socket) ARENA_GONE_MS into a live fight is out, and the bout goes on without them
   if (boutLive(b)) for (const x of st.f) {
     const g = st.gone[x.id];
@@ -408,3 +445,123 @@ export function liveEntry(st) {
 }
 /** Is the bout's room done with it (the healers past, or void) - its receipts said and the hall told. */
 export const boutFinished = (st) => st.phase === 'void' || (!!st.b && st.b.phase === 'done');
+
+// ── ARENA6: A PRIVATE SESSION ───────────────────────────────────────────────────────────────────────────
+// Its state, kept in the room's storage beside the bout (`arenasession`): `{ v, code, host, hostName, at, hostGoneAt,
+// members: { [sub]: { id, name, guest, title, banner, seen } }, kicked: [sub], hist: [{ red, blue, winner, how, at }],
+// red, blue, bout }` - `red`/`blue` the accounts picked, `bout` the id of the bout it called. Accounts are kept here and
+// never said: a member is named on the wire by its `m<n>` id.
+
+/** A session opened by its host (a registered account - the room's to ask): the host its first member. Pure. */
+export function openSession({ code, host, now }) {
+  const S = { v: 1, code, host: host.sub, hostName: host.name, at: now, hostGoneAt: null, members: {}, kicked: [], hist: [], red: null, blue: null, bout: null, locked: false };
+  S.members[host.sub] = { id: 'm1', name: host.name, guest: false, title: host.title ?? null, banner: bannerClaim(host.banner), seen: now };
+  return S;
+}
+/** The smallest member id free (`m1`, `m2` ...). */
+function freeMemberId(S) {
+  const used = new Set(Object.values(S.members).map((x) => x.id));
+  for (let n = 1; n <= 999; n++) if (!used.has(`m${n}`)) return `m${n}`;
+  return null;
+}
+/** The account a member id names, or null. */
+export const sessionSubOf = (S, id) => (typeof id === 'string' && ARENA_MEMBER_ID_RE.test(id) ? Object.entries(S.members).find(([, x]) => x.id === id)?.[0] ?? null : null);
+/**
+ * SOMEBODY JOINS (or comes back): `who` `{ sub, name, guest, title, banner }`, `here(sub)` whether an account has a socket
+ * in the room now. A removed account is refused (`removed`); a newcomer to a full session takes the place of the member
+ * longest gone (never the host's, never one here, never one of `keep` - the bout standing's two), else is refused
+ * (`session full`); a member back keeps its id; the host back is the host again (its absence forgotten). Answers
+ * `{ member }` or `{ no }`. Pure but for `S`.
+ * @param {any} S @param {any} who @param {number} now @param {(sub: string) => boolean} [here] @param {string[]} [keep]
+ */
+export function sessionJoin(S, who, now, here = () => false, keep = []) {
+  if (S.kicked.includes(who.sub)) return { no: 'removed' };
+  let me = S.members[who.sub];
+  if (!me) {
+    if (S.locked) return { no: 'locked' };   // AUDIT PRE-MERGE 1003b S4: locked to newcomers - a member coming back is let in
+    if (Object.keys(S.members).length >= ARENA_PRIVATE_MEMBERS_MAX) {
+      const gone = Object.entries(S.members).filter(([sub]) => sub !== S.host && !here(sub) && !keep.includes(sub)).sort((a, b) => a[1].seen - b[1].seen)[0];
+      if (!gone) return { no: 'session full' };
+      delete S.members[gone[0]];
+      if (S.red === gone[0]) S.red = null;
+      if (S.blue === gone[0]) S.blue = null;
+    }
+    me = S.members[who.sub] = { id: /** @type {string} */ (freeMemberId(S)), name: who.name, guest: !!who.guest, title: who.title ?? null, banner: bannerClaim(who.banner), seen: now };
+  } else Object.assign(me, { name: who.name, guest: !!who.guest, title: who.title ?? me.title ?? null, banner: bannerClaim(who.banner) ?? me.banner ?? null, seen: now });
+  if (who.sub === S.host) S.hostGoneAt = null;
+  return { member: me };
+}
+/** Can this member fight now: a member, here, a registered account. Answers the refusal's word, or null. */
+function fighterNo(S, sub, here) {
+  const x = sub ? S.members[sub] : null;
+  if (!x || !here(sub)) return 'not here';
+  if (x.guest) return 'guest fighter';
+  return null;
+}
+/**
+ * THE HOST PICKS the Red (`r`) and/or the Blue (`b`) - member ids, '' for none. Refused while a bout stands (`bout on`,
+ * `standing` the room's), for a member gone or never one (`not here`), a guest (`guest fighter`), one member on both
+ * sides in one word (`same fighter`); a member picked for the side the other already holds moves to it (the other side
+ * emptied). Answers `{ ok }` or `{ no }`. Pure but for `S`.
+ */
+export function sessionPick(S, { r, b }, here, standing = false) {
+  if (standing) return { no: 'bout on' };
+  const red = r === undefined ? undefined : r === '' ? null : sessionSubOf(S, r) ?? false;
+  const blue = b === undefined ? undefined : b === '' ? null : sessionSubOf(S, b) ?? false;
+  if (red === false || blue === false) return { no: 'not here' };
+  for (const sub of [red, blue]) if (sub) { const no = fighterNo(S, sub, here); if (no) return { no }; }
+  if (red && blue && red === blue) return { no: 'same fighter' };
+  if (red !== undefined) { S.red = red; if (red && S.blue === red && blue === undefined) S.blue = null; }
+  if (blue !== undefined) { S.blue = blue; if (blue && S.red === blue && red === undefined) S.red = null; }
+  return { ok: true };
+}
+/** THE HOST'S GO: the two picked, each a member here and registered, not the same. Answers `{ f: [red, blue] }` (each
+ *  `{ sub, name, title, banner }` for openBout) or `{ no }`. Pure. */
+export function sessionGoFighters(S, here, standing = false) {
+  if (standing) return { no: 'bout on' };
+  if (!S.red || !S.blue) return { no: 'no picks' };
+  if (S.red === S.blue) return { no: 'same fighter' };
+  for (const sub of [S.red, S.blue]) { const no = fighterNo(S, sub, here); if (no) return { no }; }
+  return { f: [S.red, S.blue].map((sub) => ({ sub, name: S.members[sub].name, lv: 1, title: S.members[sub].title ?? null, banner: S.members[sub].banner ?? null })) };
+}
+/** THE HOST REMOVES a member (`id`) for the session's life: out of its members and its picks, its account refused from
+ *  here on (ARENA_PRIVATE_KICKED_MAX kept, the oldest forgotten). Never the host. Answers `{ sub }` or `{ no }`. */
+export function sessionKick(S, id) {
+  const sub = sessionSubOf(S, id);
+  if (!sub) return { no: 'not here' };
+  if (sub === S.host) return { no: 'host only' };
+  delete S.members[sub];
+  if (S.red === sub) S.red = null;
+  if (S.blue === sub) S.blue = null;
+  if (!S.kicked.includes(sub)) S.kicked.push(sub);
+  if (S.kicked.length > ARENA_PRIVATE_KICKED_MAX) S.kicked.splice(0, S.kicked.length - ARENA_PRIVATE_KICKED_MAX);
+  return { sub };
+}
+/** A SESSION'S BOUT ENDED WITH A RESULT: kept, the newest last, ARENA_PRIVATE_HIST_MAX at most - its two by name, the
+ *  winner's side (0 the Red, 1 the Blue, null none), how. A void keeps nothing. */
+export function sessionHist(S, st, now) {
+  if (!st?.res || st.f.length !== 2) return false;
+  S.hist.push({ red: st.f[0].name, blue: st.f[1].name, winner: st.res.side === 0 || st.res.side === 1 ? st.res.side : null, how: String(st.res.how ?? '').slice(0, 12), at: now });
+  if (S.hist.length > ARENA_PRIVATE_HIST_MAX) S.hist.splice(0, S.hist.length - ARENA_PRIVATE_HIST_MAX);
+  return true;
+}
+/**
+ * THE `pss` WORD for one member (`sub`): the code, the host, whether I host it and my id, every member (the host first,
+ * then by id) with whether it is here, the picks, the bout standing (`st` - its id, its phase, its two fighters' ids) and
+ * the results, the newest first. Never an account's id. Pure.
+ */
+export function sessionWord(S, sub, here, st = null) {
+  const idOf = (s) => (s && S.members[s] ? S.members[s].id : '');
+  const num = (id) => Number(String(id).slice(1));
+  const list = Object.entries(S.members).sort((a, b) => (a[0] === S.host ? -1 : b[0] === S.host ? 1 : num(a[1].id) - num(b[1].id)));
+  const standing = st && st.priv ? st : null;
+  const ph = standing ? (standing.phase === 'void' ? 'void' : standing.phase === 'wait' ? 'wait' : standing.b?.phase ?? 'wait') : '';
+  return {
+    k: 'pss', c: S.code, hn: S.hostName, hm: idOf(S.host), h: sub === S.host ? 1 : 0, me: idOf(sub),
+    m: list.map(([s, x]) => [x.id, x.name, x.guest ? 1 : 0, here(s) ? 1 : 0, x.title ?? '', x.banner ?? '']),
+    r: idOf(S.red), b: idOf(S.blue), o: standing ? standing.o : '', ph,
+    f: standing && standing.f.every((x) => idOf(x.sub)) ? standing.f.map((x) => idOf(x.sub)) : [],
+    hist: [...S.hist].reverse().map((h) => [h.red, h.blue, h.winner === 0 || h.winner === 1 ? h.winner : -1, h.how]),
+    lo: S.locked ? 1 : 0,   // AUDIT PRE-MERGE 1003b S4
+  };
+}

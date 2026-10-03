@@ -171,7 +171,9 @@ test('ARENA4b the Herald\'s choice online: the account\'s climb - his line its n
     const S = rd(f);
     assert.match(S, /const ch = arenaGate\.heraldChoice\(\{ cityBout: sand, healthShare: /, `${f}: the Herald's choice is the gate's`);
     assert.match(S, /arenaHall: \(\) => arenaGate\.hall\(\),/, `${f}: the Keeper's door`);
-    assert.match(S, /arenaJoined: \(\) => arenaGate\.joined\(\),   \/\/ ARENA4b/, `${f}: the modes' banner`);
+    // ARENA6: the world host's banner is worn in a private session too (the exterior host has no online half)
+    const worn = f === 'src/scenes/world.js' ? /arenaJoined: \(\) => arenaGate\.joined\(\) \|\| !!arenaOnline\?\.inSession\?\.\(\),   \/\/ ARENA4b/ : /arenaJoined: \(\) => arenaGate\.joined\(\),   \/\/ ARENA4b/;
+    assert.match(S, worn, `${f}: the modes' banner`);
   }
   assert.match(rd('src/scenes/worldModes.js'), /if \(!info && pn\?\.arenaRole === 'hallKeeper' && host\.arenaHall\?\.\(\)\) return;/, 'the Keeper asks the host first');
 });

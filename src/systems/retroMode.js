@@ -57,17 +57,17 @@
 //     CustomScreenRect (:138-140): every HUD element, window (freely
 //     scaled, DaggerfallBaseWindow.cs:85), the weapon, the horse, the
 //     casting hands (FPSSpellCasting.cs:88-89) and the automap's windows
-//     lay out inside the pillarbox. The port's 2D pass keeps the whole
-//     canvas; only the WORLD is pillarboxed - and, since DISC25-B, the
-//     enhanced held map, whose painted hands reached out over the black
-//     bars (it asks `retroScreenRect`; the Morrowind arm lane keeps the
-//     canvas, as C2 pins). AUDIT RETRO1 A2: so a
-//     docked bar is the CANVAS's width here, taller than DFU's (which is
-//     the pillarbox's width * 46/320), and the world strip above it is
-//     wider for its height than DFU's - at 1920x1080 in 4:3 the bar is
-//     276 px against 207 and the strip 1.791 wide a unit of height
-//     against 1.649; in 16:10 the 320x154 image is stretched 3.4% where
-//     DFU shows it at its own shape.
+//     lay out inside the pillarbox. Here, since RETRO-UI (FIELD BUGS
+//     2026-10-03, ui/uiScreen.js), so do the HUD, the large HUD, the
+//     weapon and its widgets, the casting hands and the horse - the
+//     canvas's 2D layer laid out on a canvas of `retroScreenRect`'s size
+//     and drawn at its place - and the enhanced HUD's root and the pieces
+//     at its edges; since DISC25-B the enhanced held map too. So a docked
+//     bar is the pillarbox's width * 46/320, DFU's (AUDIT RETRO1 A2,
+//     closed: 207 px at 1920x1080 in 4:3, where it was the canvas's 276).
+//     Still the whole canvas: the classic native windows (their own
+//     320x200 letterbox, integer-scaled, not DFU's free scale), the video
+//     and the Morrowind arm's lane (C2).
 import { getInt, getBool } from './settings.js';
 
 /** RetroTarget320x200 / RetroTarget640x400 (.renderTexture sizes). */
