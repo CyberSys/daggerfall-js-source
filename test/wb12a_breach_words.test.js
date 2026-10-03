@@ -93,7 +93,7 @@ test('WB12a the names on screen: the plaque, the banner and the map\'s legend sa
   assert.equal(GATE_CLAIM_TEXT.guest, 'Breach not recorded. Add a username within a week to keep it.');
   assert.equal(MARKS_TEXT.capped, 'No silver for this breach. The counting-houses strike 150 silver a day for breaches closed and towns defended.');   // SILVER: the currency's name; PIN MOVED (SILVER-WAYS): the day's cap the gates' and the raids'
   assert.equal(profileGateLine({ gates: { closed: 3 } }), 'Breaches closed: 3');
-  assert.match(read('src/ui/enhancedAccount.js'), /if \(gates\) row\('Breaches closed', gates\);/);
+  assert.match(read('src/ui/enhancedAccount.js'), /if \(gates\) row\(t\('account\.card\.gates', 'Breaches closed'\), gates\);/);   // L10N4 (PIN MOVED): the row's word through t()
   assert.equal(accountRefusalText('short'), 'Your account has too few embers for that.');   // AUDIT WB12d (A4): a rite's ember counts
   assert.deepEqual([BROKER_TEXT.trade, BROKER_TEXT.steal, BROKER_TEXT.gone], ['Trades in Deadlands Embers', 'The Broker\'s eyes never leave her embers.', 'The Sigil Broker leaves for the night.']);   // BROKER-CAGE: midnight takes her, not the breach (a Warden fallen early leaves her standing)
   assert.equal(INSIGNIA_LINE.title, 'A title worn over your name');

@@ -732,7 +732,7 @@
   {
     "name": "GUILD1-a-refusal-unsaid",
     "file": "src/net/accountClient.js",
-    "old": "  'guild-renown': `Founding a guild takes Renown ${GUILD_FOUND_RENOWN}.`,\n",
+    "old": "  'guild-renown': () => t('account.refusal.guildRenown', 'Founding a guild takes Renown {renown}.', { renown: GUILD_FOUND_RENOWN }),\n",
     "new": "",
     "tests": [
       "test/guild1.test.js"

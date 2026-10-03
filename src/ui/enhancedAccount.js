@@ -33,6 +33,7 @@ import { renownText, renownProgressText } from '../net/renown.js';   // RENOWN1:
 import { gateRecordText } from '../net/gateClaims.js';   // WB5b: and its gates-closed row
 import { marksText } from '../net/marksLaw.js';   // MARKS1: and its Marks row
 import { raidRecordText } from '../net/raidClaims.js';   // RAID4: and its towns-defended row
+import { t, localizedTable, intlLocale } from '../systems/textManager.js';   // L10N4: the card's words in the player's language, read when it is drawn
 
 /** RENOWN-CHAR (Mac: "Can we make renown per character again"): the card's Renown tracks as the service sends them -
  *  its characters', the most recently played first - or none: none earned yet, or a service from RENOWN-ACCOUNT's day
@@ -49,21 +50,21 @@ export function renownTracksOfCard(r) {
  *  a picture and needs no word; a wardrobe is a list of things a player
  *  holds, and a coloured shape with nothing beside it is a list nobody
  *  can read. A pin walks GLYPHS and requires an entry. */
-export const GLYPH_LABEL = Object.freeze({
-  sprout: 'New account',
-  dev: 'Developer',
-  mod: 'Moderator',
-  dm: 'Dungeon Master',   // TITLE-N: the die beside the Dungeon Master's name
-  disciple: 'Disciple',   // TITLE-N: the Patreon tiers' marks, each its title's word
-  apostle: 'Apostle',
-  hierophant: 'Hierophant',
-  shadowfang: 'Shadow Fang',   // SHADOW-FANG: the wolf's head beside SirMcMobdon's name
-  penitent: 'Penitent',   // PENITENT: the sword in its lozenge beside Diggleborf's name
-  herald: 'Herald',   // HERALD: the herald's trumpet and its banner
-  tower: 'A seat\'s Charter',   // SEAT1c: the tower of a guild holding a palace seat
-  crownDF: 'The Crown of Daggerfall',   // SEAT1c: a crown seat's crown, its kingdom's
-  crownWR: 'The Crown of Wayrest',
-  crownSN: 'The Crown of Sentinel',
+export const GLYPH_LABEL = localizedTable({   // L10N4: each word a getter, read when the wardrobe is drawn
+  sprout: () => t('account.glyph.sprout', 'New account'),
+  dev: () => t('account.glyph.dev', 'Developer'),
+  mod: () => t('account.glyph.mod', 'Moderator'),
+  dm: () => t('account.glyph.dm', 'Dungeon Master'),   // TITLE-N: the die beside the Dungeon Master's name
+  disciple: () => t('account.glyph.disciple', 'Disciple'),   // TITLE-N: the Patreon tiers' marks, each its title's word
+  apostle: () => t('account.glyph.apostle', 'Apostle'),
+  hierophant: () => t('account.glyph.hierophant', 'Hierophant'),
+  shadowfang: () => t('account.glyph.shadowfang', 'Shadow Fang'),   // SHADOW-FANG: the wolf's head beside SirMcMobdon's name
+  penitent: () => t('account.glyph.penitent', 'Penitent'),   // PENITENT: the sword in its lozenge beside Diggleborf's name
+  herald: () => t('account.glyph.herald', 'Herald'),   // HERALD: the herald's trumpet and its banner
+  tower: () => t('account.glyph.tower', 'A seat\'s Charter'),   // SEAT1c: the tower of a guild holding a palace seat
+  crownDF: () => t('account.glyph.crownDF', 'The Crown of Daggerfall'),   // SEAT1c: a crown seat's crown, its kingdom's
+  crownWR: () => t('account.glyph.crownWR', 'The Crown of Wayrest'),
+  crownSN: () => t('account.glyph.crownSN', 'The Crown of Sentinel'),
 });
 
 /** ACC4: THE TWO FACTS MAC ASKED FOR, as words. Pure, so node pins
@@ -71,12 +72,13 @@ export const GLYPH_LABEL = Object.freeze({
  *  the 21st in California was made on the 21st to its player, whatever
  *  UTC says - and the month is a word, because 09/10 is two different
  *  days on two sides of an ocean. Null for no date: a guest has not
- *  registered, and 0 would print 1970. */
-const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+ *  registered, and 0 would print 1970.
+ *  L10N4: in the player's language's own order and month words (Intl's), which in English is the "Sep 21, 2026" this
+ *  wrote out by hand. */
 export function registeredText(s) {
   if (!Number.isSafeInteger(s) || s <= 0) return null;
   const d = new Date(s * 1000);
-  return `${MONTHS[d.getMonth()]} ${d.getDate()}, ${d.getFullYear()}`;
+  return new Intl.DateTimeFormat(intlLocale(), { month: 'short', day: 'numeric', year: 'numeric' }).format(d);
 }
 /** Hours and minutes, and never seconds: the service counts in beats
  *  of five minutes (net/playClock.js), so a seconds figure would claim
@@ -84,52 +86,57 @@ export function registeredText(s) {
 export function playedText(s) {
   const m = Math.floor((Number.isFinite(s) && s > 0 ? s : 0) / 60);
   const h = Math.floor(m / 60);
-  return h ? `${h}h ${m % 60}m` : `${m}m`;
+  return h ? t('account.card.playedHours', '{h}h {m}m', { h, m: m % 60 }) : t('account.card.playedMinutes', '{m}m', { m });
 }
 
-export const STAGE_COPY = Object.freeze({
+/** The tag most stages wear - the card draws a stage's tag only where it is not this one (L10N4: compared as the player
+ *  reads it, so it holds in every language). */
+const ACCOUNT_TAG = 'Account';
+const accountTag = () => t('account.card.tag', ACCOUNT_TAG);
+
+export const STAGE_COPY = Object.freeze({   // L10N4: the words are getters, read when the card is drawn
   // THE BLURBS WERE CUT (Mac: "there's uneeded text explaining what an
   // account is"). A sign-in window is not a place to be taught what an
   // account is - the two buttons say it. What survives is only what a
   // player CANNOT guess and would be hurt by not knowing: that recovery
   // signs every device out, and that the code is shown once.
-  loading: { tag: 'Account', title: 'One moment', blurb: '' },
-  out: { tag: 'Account', title: 'Your account', blurb: '' },
-  register: { tag: 'Account', title: 'Create an account', blurb: '' },
-  login: { tag: 'Account', title: 'Sign in', blurb: '' },
+  loading: { get tag() { return accountTag(); }, get title() { return t('account.card.title.loading', 'One moment'); }, blurb: '' },
+  out: { get tag() { return accountTag(); }, get title() { return t('account.card.title.out', 'Your account'); }, blurb: '' },
+  register: { get tag() { return accountTag(); }, get title() { return t('account.card.title.register', 'Create an account'); }, blurb: '' },
+  login: { get tag() { return accountTag(); }, get title() { return t('account.card.title.login', 'Sign in'); }, blurb: '' },
   recover: {
-    tag: 'Account',
-    title: 'Use your recovery code',
+    get tag() { return accountTag(); },
+    get title() { return t('account.card.title.recover', 'Use your recovery code'); },
     // KEPT: this signs every device out, including the one being used.
     // A player who did not expect that has lost their other sessions.
-    blurb: 'This signs every device out, including this one.',
+    get blurb() { return t('account.card.blurb.recover', 'This signs every device out, including this one.'); },
   },
   code: {
-    tag: 'Write this down',
-    title: 'Your recovery code',
+    get tag() { return t('account.card.tag.code', 'Write this down'); },
+    get title() { return t('account.card.title.code', 'Your recovery code'); },
     // KEPT, and it is the only long line left on the card. Email is
     // optional, so this code IS the reset - a player who closes this
     // without writing it down has a forgotten password away from
     // losing the account.
-    blurb: 'This is the only time this code is shown. Without it, a forgotten password means a lost account.',
+    get blurb() { return t('account.card.blurb.code', 'This is the only time this code is shown. Without it, a forgotten password means a lost account.'); },
   },
-  in: { tag: 'Account', title: 'Signed in', blurb: '' },
+  in: { get tag() { return accountTag(); }, get title() { return t('account.card.title.in', 'Signed in'); }, blurb: '' },
   password: {
-    tag: 'Account',
-    title: 'Change your password',
+    get tag() { return accountTag(); },
+    get title() { return t('account.card.title.password', 'Change your password'); },
     // KEPT: same reason as recovery - an unexpected sign-out elsewhere.
-    blurb: 'Every other device will be signed out.',
+    get blurb() { return t('account.card.blurb.password', 'Every other device will be signed out.'); },
   },
 });
 
 /** The button each stage submits with, and what the card offers beside
  *  it. Derived per stage rather than written at the call site, so a
  *  stage cannot end up with two primary buttons or none. */
-export const STAGE_ACTS = Object.freeze({
-  register: { submit: 'Create account', back: 'out' },
-  login: { submit: 'Sign in', back: 'out' },
-  recover: { submit: 'Set a new password', back: 'login' },
-  password: { submit: 'Change password', back: 'in' },
+export const STAGE_ACTS = Object.freeze({   // L10N4: the button's word a getter, read when it is drawn
+  register: { get submit() { return t('account.card.act.createAccount', 'Create account'); }, back: 'out' },
+  login: { get submit() { return t('account.card.act.signIn', 'Sign in'); }, back: 'out' },
+  recover: { get submit() { return t('account.card.act.setPassword', 'Set a new password'); }, back: 'login' },
+  password: { get submit() { return t('account.card.act.changePassword', 'Change password'); }, back: 'in' },
 });
 
 /**
@@ -223,7 +230,10 @@ export function accountCard(doc, flow, { onClose = null } = {}) {
     link.target = '_blank';
     link.rel = 'noopener';
     const words = el('span');
-    words.append(el('span', null, 'I have read and agree to the '), link);
+    // L10N4: ONE SENTENCE, the link where the language puts the document's name - split at the name, never glued
+    const [before, after = ''] = t('account.card.agree', 'I have read and agree to the {doc}', { doc: '\u0001' }).split('\u0001');
+    words.append(el('span', null, before), link);
+    if (after) words.append(el('span', null, after));
     wrap.append(box, words);
     return wrap;
   }
@@ -262,7 +272,7 @@ export function accountCard(doc, flow, { onClose = null } = {}) {
 
     const box = el('div', 'acctwear');
     if (held.length) {
-      box.append(el('span', 'fieldlabel', 'Title'));
+      box.append(el('span', 'fieldlabel', t('account.wear.title', 'Title')));
       const row = el('div', 'acctwearrow');
       for (const key of held) {
         // PRESSING THE ONE WORN TAKES IT OFF (the flow decides that,
@@ -281,7 +291,7 @@ export function accountCard(doc, flow, { onClose = null } = {}) {
         b.type = 'button';
         b.disabled = !!flow.busy;
         b.setAttribute('aria-pressed', worn ? 'true' : 'false');
-        b.title = worn ? 'Worn. Press to take it off.' : `Wear ${TITLE_TEXT[key] ?? key}`;   // WB13b
+        b.title = worn ? t('account.wear.worn', 'Worn. Press to take it off.') : t('account.wear.wear', 'Wear {name}', { name: TITLE_TEXT[key] ?? key });   // WB13b
         b.onclick = () => flow.equip(key);
         row.append(b);
       }
@@ -290,7 +300,7 @@ export function accountCard(doc, flow, { onClose = null } = {}) {
     if (auras.length) {
       // WB9g: AN AURA IS WORN AS A TITLE IS - one at a time, pressed on, pressed off (the flow decides which), the fire at
       // the feet every other player sees once the next hello carries it
-      box.append(el('span', 'fieldlabel', 'Aura'));
+      box.append(el('span', 'fieldlabel', t('account.wear.aura', 'Aura')));
       const row = el('div', 'acctwearrow');
       for (const key of auras) {
         const worn = w.aura === key;
@@ -299,14 +309,14 @@ export function accountCard(doc, flow, { onClose = null } = {}) {
         b.type = 'button';
         b.disabled = !!flow.busy;
         b.setAttribute('aria-pressed', worn ? 'true' : 'false');
-        b.title = worn ? 'Worn. Press to take it off.' : `Wear ${AURA_TEXT[key] ?? key}`;
+        b.title = worn ? t('account.wear.worn', 'Worn. Press to take it off.') : t('account.wear.wear', 'Wear {name}', { name: AURA_TEXT[key] ?? key });
         b.onclick = () => flow.wearAura(key);
         row.append(b);
       }
       box.append(row);
     }
     if (glyphs.length) {
-      box.append(el('span', 'fieldlabel', 'Glyphs'));
+      box.append(el('span', 'fieldlabel', t('account.wear.glyphs', 'Glyphs')));
       const row = el('div', 'acctwearrow');
       const off = Array.isArray(w?.glyphsOff) ? w.glyphsOff : [];
       for (const g of glyphs) {
@@ -317,7 +327,7 @@ export function accountCard(doc, flow, { onClose = null } = {}) {
         chip.type = 'button';
         chip.disabled = !!flow.busy;
         chip.setAttribute('aria-pressed', shown ? 'true' : 'false');
-        chip.title = shown ? 'Showing this - press to hide it' : 'Hidden - press to show it';
+        chip.title = shown ? t('account.wear.glyphShown', 'Showing this - press to hide it') : t('account.wear.glyphHidden', 'Hidden - press to show it');
         chip.onclick = () => flow.toggleGlyph(g.key);
         // SHADOW-FANG: the one drawing's colourless half (ui/playerBadge.js glyphArtNode) - its shapes are
         // currentColor, which this chip's class colours; a gradient glyph brings its own fill and eye
@@ -374,16 +384,16 @@ export function accountCard(doc, flow, { onClose = null } = {}) {
     const box = el('div', 'acctwear acctpatreon');
     box.append(el('span', 'fieldlabel', 'Patreon'));
     const row = el('div', 'acctwearrow');
-    if (p.linked) row.append(el('span', 'acctpatreonstate', titles.length ? `Linked - ${titles.map((t) => TITLE_TEXT[t] ?? t).join(', ')}` : 'Linked - no tier yet'));
+    if (p.linked) row.append(el('span', 'acctpatreonstate', titles.length ? t('account.patreon.linked', 'Linked - {titles}', { titles: titles.map((k) => TITLE_TEXT[k] ?? k).join(', ') }) : t('account.patreon.noTier', 'Linked - no tier yet')));
     if (typeof p.link === 'string' && p.link.startsWith('https://')) {
-      const a = keyedAs(el('a', 'act', p.linked ? 'Refresh' : 'Link Patreon'), 'patreon:link');
+      const a = keyedAs(el('a', 'act', p.linked ? t('account.patreon.refresh', 'Refresh') : t('account.patreon.link', 'Link Patreon')), 'patreon:link');
       a.href = p.link;
       a.target = '_blank';
       a.rel = 'noopener';
       a.onclick = () => flow.patreonOpened();
       row.append(a);
     }
-    if (p.linked) row.append(act('Unlink', () => flow.unlinkPatreon(), { disabled: !!flow.busy, key: 'patreon:unlink' }));
+    if (p.linked) row.append(act(t('account.patreon.unlink', 'Unlink'), () => flow.unlinkPatreon(), { disabled: !!flow.busy, key: 'patreon:unlink' }));
     box.append(row);
     root.append(box);
   }
@@ -406,7 +416,7 @@ export function accountCard(doc, flow, { onClose = null } = {}) {
     // heading below it: "Write this down" over "Your recovery code" is
     // a different sentence; "Account" over "Your account" is the same
     // one twice.
-    if (copy.tag !== 'Account') root.append(el('span', 'tag', copy.tag));
+    if (copy.tag !== accountTag()) root.append(el('span', 'tag', copy.tag));
     // RENOWN1 (Mac: "having their level appear on the left side of character name and profile main menu"): the
     // Renown of the character most recently played online, left of the name - the service's tracks come most
     // recently played first (AUDIT RENOWN1 UI-10: "earned" was never what it measured - a report the hour had spent
@@ -418,7 +428,8 @@ export function accountCard(doc, flow, { onClose = null } = {}) {
     if (lvText) {
       const head = el('h3', null, null);
       const chip = el('span', 'acctrenown', lvText);
-      chip.title = `Renown ${tracks[0].level}${typeof tracks[0].name === 'string' && tracks[0].name ? ` - ${tracks[0].name}` : ''}`;   // AUDIT RENOWN1 UI-10: whose Renown it is
+      chip.title = typeof tracks[0].name === 'string' && tracks[0].name ? t('account.card.renownWhose', 'Renown {level} - {name}', { level: tracks[0].level, name: tracks[0].name })
+        : t('account.card.renownLevel', 'Renown {level}', { level: tracks[0].level });   // AUDIT RENOWN1 UI-10: whose Renown it is
       head.append(chip, el('span', 'acctname', heading));
       root.append(head);
     } else root.append(el('h3', null, heading));
@@ -437,41 +448,41 @@ export function accountCard(doc, flow, { onClose = null } = {}) {
       // than showing an empty username and a nag. It is an account
       // with no username attached YET - ACC0's own framing, and the
       // reason registering migrates nothing.
-      if (flow.account.handle) row('Username', flow.account.handle);
-      else row('Name', `${flow.account.guestName ?? flow.account.name} (a guest)`);
-      if (flow.account.kind) row('Kind', flow.account.kind === 'linked' ? 'Registered' : 'Guest');
+      if (flow.account.handle) row(t('account.card.username', 'Username'), flow.account.handle);
+      else row(t('account.card.name', 'Name'), t('account.card.guestName', '{name} (a guest)', { name: flow.account.guestName ?? flow.account.name }));
+      if (flow.account.kind) row(t('account.card.kind', 'Kind'), flow.account.kind === 'linked' ? t('account.card.kindRegistered', 'Registered') : t('account.card.kindGuest', 'Guest'));
       // ACC4 (Mac: "registered date and time played"). A guest has no
       // registered date and gets no row for it, rather than a dash - the
       // Kind row above already says why. Time played is every account's,
       // guest time included: registering upgrades the same row.
       const joined = registeredText(flow.account.registeredAt);
-      if (joined) row('Registered', joined);
-      row('Time played', playedText(flow.account.playedS));
+      if (joined) row(t('account.card.registered', 'Registered'), joined);
+      row(t('account.card.played', 'Time played'), playedText(flow.account.playedS));
       // DUEL1 (Mac: "Add a dueling K/D to the profile menu"): the account's record, the service's count of the duels
       // it won and lost (net/duelRecord.js says whose word each result is). A service from before it says nothing.
       const duels = duelRecordText(flow.account.duels);
-      if (duels) row('Duels', duels);
+      if (duels) row(t('account.card.duels', 'Duels'), duels);
       // WB5b: the Oblivion Gates this account closed - each a kill the relay signed and this service counted once
       // (net/gateClaims.js carries the receipts). A service from before it says nothing.
       const gates = gateRecordText(flow.account.gates);
-      if (gates) row('Breaches closed', gates);   // WB12a
+      if (gates) row(t('account.card.gates', 'Breaches closed'), gates);   // WB12a
       // MARKS1: the account's Marks - the server's currency, struck for acts a server witnessed (PROF0 10.5). Null where
       // Marks are not this account's (a guest, the service's switch), and a service from before it says nothing.
-      if (Number.isSafeInteger(flow.account.marks)) row('Silver', marksText(flow.account.marks));
+      if (Number.isSafeInteger(flow.account.marks)) row(t('account.card.silver', 'Silver'), marksText(flow.account.marks));
       // RAID4: the towns this account defended - each a raid's cleanse the relay signed and this service counted once
       // (net/raidClaims.js carries the receipts). A service from before it says nothing.
       const raids = raidRecordText(flow.account.raids);
-      if (raids) row('Towns defended', raids);
+      if (raids) row(t('account.card.raids', 'Towns defended'), raids);
       // RENOWN1: each character's Renown and how far into it they are - online's own level, never the save's. The
       // service sends the RENOWN_CARD_TRACKS (five) most recently played (RENOWN-CHAR: a row each again).
-      for (const t of tracks) {
-        row('Renown', `${typeof t.name === 'string' && t.name ? t.name : 'A character'} - Renown ${t.level}, ${renownProgressText(t.xp)}`);
+      for (const tr of tracks) {
+        row(t('account.card.renown', 'Renown'), t('account.card.renownRow', '{name} - Renown {level}, {progress}', { name: typeof tr.name === 'string' && tr.name ? tr.name : t('account.card.aCharacter', 'A character'), level: tr.level, progress: renownProgressText(tr.xp) }));
       }
       root.append(rows);
       wardrobe();
       patreonRow();   // PATREON-LINK
       if (!flow.account.handle) {
-        root.append(el('p', 'meta', 'Adding a username keeps everything this account already has.'));
+        root.append(el('p', 'meta', t('account.card.guestNote', 'Adding a username keeps everything this account already has.')));
       }
     }
 
@@ -500,29 +511,29 @@ export function accountCard(doc, flow, { onClose = null } = {}) {
     const acts = el('div', 'acts');
     const busy = flow.busy;
     if (stage === 'out') {
-      acts.append(act('Create account', () => flow.go('register'), { primary: true, disabled: busy }));
-      acts.append(act('Sign in', () => flow.go('login'), { disabled: busy }));
+      acts.append(act(t('account.card.act.createAccount', 'Create account'), () => flow.go('register'), { primary: true, disabled: busy, key: 'register' }));   // L10N4: the key is the act's name, not its word - the focus's memory holds in every language
+      acts.append(act(t('account.card.act.signIn', 'Sign in'), () => flow.go('login'), { disabled: busy, key: 'login' }));
     } else if (stage === 'in') {
       if (flow.account?.handle) {
-        acts.append(act('Change password', () => flow.go('password'), { disabled: busy }));
+        acts.append(act(t('account.card.act.changePassword', 'Change password'), () => flow.go('password'), { disabled: busy, key: 'password' }));
       } else {
-        acts.append(act('Give it a username', () => flow.go('register'), { primary: true, disabled: busy }));
+        acts.append(act(t('account.card.act.giveUsername', 'Give it a username'), () => flow.go('register'), { primary: true, disabled: busy, key: 'username' }));
       }
-      acts.append(act(busy ? 'Signing out…' : 'Sign out', () => flow.signOut(false), { disabled: busy, key: 'signout' }));
-      acts.append(act('Sign out everywhere', () => flow.signOut(true), { disabled: busy }));
+      acts.append(act(busy ? t('account.card.act.signingOut', 'Signing out…') : t('account.card.act.signOut', 'Sign out'), () => flow.signOut(false), { disabled: busy, key: 'signout' }));
+      acts.append(act(t('account.card.act.signOutAll', 'Sign out everywhere'), () => flow.signOut(true), { disabled: busy, key: 'signout-all' }));
     } else if (stage === 'code') {
       // THE ONLY WAY OFF THIS STAGE. No cancel, no close, no second
       // route - the code is dropped when this is pressed and nothing
       // anywhere can print it again.
-      acts.append(act('I have written it down', () => flow.acknowledgeCode(), { primary: true }));
+      acts.append(act(t('account.card.act.wroteIt', 'I have written it down'), () => flow.acknowledgeCode(), { primary: true, key: 'acknowledge' }));
     } else if (stage === 'loading') {
       // nothing to press yet
     } else {
       const spec = STAGE_ACTS[stage];
-      acts.append(act(busy ? 'Working…' : spec.submit, () => flow.submit(), { primary: true, disabled: busy, key: 'submit' }));
-      acts.append(act('Back', () => flow.go(spec.back), { disabled: busy }));
+      acts.append(act(busy ? t('account.card.act.working', 'Working…') : spec.submit, () => flow.submit(), { primary: true, disabled: busy, key: 'submit' }));
+      acts.append(act(t('account.card.act.back', 'Back'), () => flow.go(spec.back), { disabled: busy, key: 'back' }));
       if (stage === 'login') {
-        acts.append(act('Lost your password?', () => flow.go('recover'), { disabled: busy }));
+        acts.append(act(t('account.card.act.lostPassword', 'Lost your password?'), () => flow.go('recover'), { disabled: busy, key: 'recover' }));
       }
     }
     // ACC1f: CLOSE IS AN ACT, NOT A THIRD ROW. The window used to own
@@ -530,7 +541,7 @@ export function accountCard(doc, flow, { onClose = null } = {}) {
     // buttons - two stacked rows where one would do, and on a form
     // that already had a Back it was a second way to do the same
     // thing. One row, centred, Close last.
-    if (onClose) acts.append(act('Close', onClose));
+    if (onClose) acts.append(act(t('account.card.act.close', 'Close'), onClose, { key: 'close' }));
     if (acts.children.length) root.append(acts);
   }
 

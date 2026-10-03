@@ -587,7 +587,7 @@ import { PageOffers, pageOfferText, pageShownText, pageTooFarText, keptPageToken
 import { quickslotTag, quickslotHand, tagText } from '../ui/quickslotTags.js';   // JOURNAL1: the F-menu's own key, named off the live bindings
 import { isTouchDevice } from '../ui/touchDevice.js';   // JOURNAL1: ...or a tap, where a finger points
 import { composeCard, createCardAnswerGate, CARD_WAIT_MS } from '../net/profileCard.js';   // INSPECT1: my card when asked, and how often one asker is answered
-import { relayVersionSeen, buildUpdateSeen, fetchLiveBuildTag, RELAY_RESTART_TEXT, BUILD_UPDATE_TEXT, BUILD_POLL_MS } from '../net/updateNotice.js';   // SRV-N: the relay moved, or the build did
+import { relayVersionSeen, buildUpdateSeen, fetchLiveBuildTag, relayRestartText, buildUpdateText, BUILD_POLL_MS } from '../net/updateNotice.js';   // SRV-N: the relay moved, or the build did
 import { BUILD_TAG } from '../buildTag.js';   // SRV-N: which build this tab is actually running
 import { morrowindDataCount, morrowindDataGeneration, getBytes } from './dataSource.js';   // MWBODY1: the bodies' gate - Morrowind data attached - and its generation
 // Q4-v: THE QUEST BRIDGE - the machine goes live in this host.
@@ -19661,7 +19661,7 @@ export async function bootWorld(canvas, renderer, params, status) { handHeroGend
   // chat line, including `ui/nameLayer.js`'s BUBBLE1 speech-bubble treatment over the sender's own character.
   // See `_partyRestVoteTrackTick`'s own doc comment (this file, above) for the replacement: every near
   // member's own client now watches the shared pose data and pushes its own local, bubble-free `chatNotice`.
-  const onRelayVersion = (v) => { _relayKeepsRite = relaySupportsRite(v); _relayKeepsCage = relaySupportsCage(v); if (relayVersionSeen(v) === 'changed') chatNotice(RELAY_RESTART_TEXT); };   // AUDIT BROKER-CAGE C4, C6: and whether it keeps the rite and the cage
+  const onRelayVersion = (v) => { _relayKeepsRite = relaySupportsRite(v); _relayKeepsCage = relaySupportsCage(v); if (relayVersionSeen(v) === 'changed') chatNotice(relayRestartText()); };   // AUDIT BROKER-CAGE C4, C6: and whether it keeps the rite and the cage
   // SRV-N: THE BUILD POLL. The relay moves by hand and rarely; the client
   // moves on every merge, which is what "whenever we push" actually is
   // for this project. Nothing tells a tab held open across a deploy that
@@ -19688,7 +19688,7 @@ export async function bootWorld(canvas, renderer, params, status) { handHeroGend
     _buildPolledAt = now;
     const href = globalThis.location?.href ?? '';
     fetchLiveBuildTag(href).then((tag) => {
-      if (buildUpdateSeen(tag, BUILD_TAG) === 'changed') chatNotice(BUILD_UPDATE_TEXT);
+      if (buildUpdateSeen(tag, BUILD_TAG) === 'changed') chatNotice(buildUpdateText());
     }, () => {});   // `fetchLiveBuildTag` swallows its own throws; this is the belt for a rejection it cannot see
   };
   // ═══ CHAT-CHAN — THE FOUR CHANNELS, AT THE HOST ═══════════════════

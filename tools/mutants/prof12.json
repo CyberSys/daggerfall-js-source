@@ -1441,8 +1441,8 @@
   {
     "name": "PROF12-E1-refusal-words",
     "file": "src/net/accountClient.js",
-    "old": "  'prof-no-pack-form': 'That stays in the Stores - it never goes to the pack.',",
-    "new": "  'prof-no-pack-form': 'That stays at the bench until its own craft is practised.',",
+    "old": "  'prof-no-pack-form': () => t('account.refusal.profNoPackForm', 'That stays in the Stores - it never goes to the pack.'),",
+    "new": "  'prof-no-pack-form': () => t('account.refusal.profNoPackForm', 'That stays at the bench until its own craft is practised.'),",
     "tests": [
       "test/prof12_client.test.js"
     ]
@@ -1920,8 +1920,8 @@
   {
     "name": "PROF-541-R2-C2-anvil-word",
     "file": "src/net/accountClient.js",
-    "old": "'prof-busy': 'Your hands are busy with another craft.',",
-    "new": "'prof-busy': 'The anvil is still ringing from your last work.',",
+    "old": "'prof-busy': () => t('account.refusal.profBusy', 'Your hands are busy with another craft.'),",
+    "new": "'prof-busy': () => t('account.refusal.profBusy', 'The anvil is still ringing from your last work.'),",
     "tests": [
       "test/prof12_client.test.js"
     ]

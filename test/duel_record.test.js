@@ -305,5 +305,5 @@ test('DUEL1 the F-menu\'s rows: a waiting challenge reads Accept duel with Decli
   assert.match(w, /_profileSub = sub;   \/\/ DUEL1: the account the relay stamped on their answer/, 'the record is read by the relay\'s stamp');
   assert.match(w, /if \(end\.lost && duel\.sub\) \{\s*\n\s*duelAccount\.lost\(duel\.sub\)/, 'only a LOSS is reported, by the loser, naming the stamp');
   const card = src('src/ui/enhancedAccount.js');
-  assert.match(card, /const duels = duelRecordText\(flow\.account\.duels\);\s*\n\s*if \(duels\) row\('Duels', duels\);/, 'the main menu\'s account card');
+  assert.match(card, /const duels = duelRecordText\(flow\.account\.duels\);\s*\n\s*if \(duels\) row\(t\('account\.card\.duels', 'Duels'\), duels\);/, 'the main menu\'s account card');   // L10N4 (PIN MOVED): the row's word through t()
 });

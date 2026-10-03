@@ -412,8 +412,8 @@
   {
     "name": "PL-link-not-link",
     "file": "src/ui/enhancedAccount.js",
-    "old": "    const a = keyedAs(el('a', 'act', p.linked ? 'Refresh' : 'Link Patreon'), 'patreon:link');",
-    "new": "    const a = keyedAs(el('button', 'act', p.linked ? 'Refresh' : 'Link Patreon'), 'patreon:link');",
+    "old": "    const a = keyedAs(el('a', 'act', p.linked ? t('account.patreon.refresh', 'Refresh') : t('account.patreon.link', 'Link Patreon')), 'patreon:link');",
+    "new": "    const a = keyedAs(el('button', 'act', p.linked ? t('account.patreon.refresh', 'Refresh') : t('account.patreon.link', 'Link Patreon')), 'patreon:link');",
     "tests": [
       "test/patreon_link.test.js"
     ],

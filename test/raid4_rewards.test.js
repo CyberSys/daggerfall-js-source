@@ -295,7 +295,7 @@ test('RAID4 the cards: the account card\'s row and the Inspect card\'s line say 
   assert.equal(v.raids, 'Towns defended: 4');
   assert.equal(typeof createProfileWindow, 'function');
   const acct = src('src/ui/enhancedAccount.js');
-  assert.match(acct, /const raids = raidRecordText\(flow\.account\.raids\);\n\s+if \(raids\) row\('Towns defended', raids\);/);
+  assert.match(acct, /const raids = raidRecordText\(flow\.account\.raids\);\n\s+if \(raids\) row\(t\('account\.card\.raids', 'Towns defended'\), raids\);/);   // L10N4 (PIN MOVED): the row's word through t()
 });
 
 test('RAID4 the world host by source: my receipt goes to the queue with the character that fought it; the queue claims through the account\'s door and is offered on the frame\'s clock; a counted raid\'s Renown is the page\'s only for the character that earned it', () => {

@@ -66,8 +66,8 @@
   {
     "name": "ACC1e-9-the-recovery-code-stage-gains-a-second-way-off",
     "file": "src/ui/enhancedAccount.js",
-    "old": "      acts.append(act('I have written it down', () => flow.acknowledgeCode(), { primary: true }));",
-    "new": "      acts.append(act('I have written it down', () => flow.acknowledgeCode(), { primary: true }));\n      acts.append(act('Later', () => flow.go('in')));",
+    "old": "      acts.append(act(t('account.card.act.wroteIt', 'I have written it down'), () => flow.acknowledgeCode(), { primary: true, key: 'acknowledge' }));",
+    "new": "      acts.append(act(t('account.card.act.wroteIt', 'I have written it down'), () => flow.acknowledgeCode(), { primary: true, key: 'acknowledge' }));\n      acts.append(act('Later', () => flow.go('in')));",
     "tests": ["test/enhancedaccount.test.js"],
     "note": "The code is readable ONCE. A second way off that stage is a way to lose an account by taking it - and 'Later' is exactly the button somebody would add."
   },

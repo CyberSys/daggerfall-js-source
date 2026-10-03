@@ -156,8 +156,8 @@
   {
     "name": "PENITENT-card-label",
     "file": "src/ui/enhancedAccount.js",
-    "old": "  penitent: 'Penitent',   // PENITENT",
-    "new": "  penitent: 'Penitence',   // PENITENT",
+    "old": "  penitent: () => t('account.glyph.penitent', 'Penitent'),   // PENITENT",
+    "new": "  penitent: () => t('account.glyph.penitent', 'Penitence'),   // PENITENT",
     "tests": [
       "test/penitent.test.js"
     ]

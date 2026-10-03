@@ -221,7 +221,7 @@ test('AUDIT-312 F1: the cloud DELETE has a door, and it asks twice', () => {
   const fn = cloud.slice(cloud.indexOf('export const removeCloudSlot'));
   assert.doesNotMatch(fn, /removeItem|setItem/, 'it never touches this device\'s store');
   // ...and the sentence that names it is reachable now.
-  assert.match(rd('src/net/accountClient.js'), /'too-many-saves': '[^']*[Dd]elete[^']*'/);
+  assert.match(rd('src/net/accountClient.js'), /'too-many-saves': \(\) => t\('[^']*', '[^']*[Dd]elete[^']*'/);   // L10N4 (PIN MOVED): the sentence is its t() call's English
 });
 
 test('AUDIT-312 F5: the ten heads stay POSITIONAL - the index IS the identity', () => {

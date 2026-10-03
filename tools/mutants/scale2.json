@@ -128,8 +128,8 @@
   {
     "name": "SCALE2-B-the-retry-not-backed-off",
     "file": "src/net/online.js",
-    "old": "this.error = 'waiting for the account service'; this._backoff = Math.max(this._backoff, BACKOFF_MAX_MS / 2); this._scheduleRetry();",
-    "new": "this.error = 'waiting for the account service'; this._scheduleRetry();",
+    "old": "this.error = t('net.online.waitingAccount', 'waiting for the account service'); this._backoff = Math.max(this._backoff, BACKOFF_MAX_MS / 2); this._scheduleRetry();",
+    "new": "this.error = t('net.online.waitingAccount', 'waiting for the account service'); this._scheduleRetry();",
     "tests": [
       "test/scale2.test.js"
     ]

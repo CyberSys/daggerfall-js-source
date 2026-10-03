@@ -495,8 +495,8 @@
   {
     "name": "AUDIT-RENOWN1-chip-names-nobody",
     "file": "src/ui/enhancedAccount.js",
-    "old": "      chip.title = `Renown ${tracks[0].level}${typeof tracks[0].name === 'string' && tracks[0].name ? ` - ${tracks[0].name}` : ''}`;",
-    "new": "      chip.title = `Renown ${tracks[0].level}`;",
+    "old": "chip.title = typeof tracks[0].name === 'string' && tracks[0].name ? t('account.card.renownWhose'",
+    "new": "chip.title = false ? t('account.card.renownWhose'",
     "tests": [
       "test/auditrenown1.test.js",
       "test/renown1.test.js"

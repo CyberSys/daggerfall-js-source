@@ -20,8 +20,8 @@
   {
     "name": "SILVER-a-refusal-many",
     "file": "src/net/accountClient.js",
-    "old": "'marks-short': 'You do not hold that much silver.',",
-    "new": "'marks-short': 'You do not hold that many silver.',",
+    "old": "'marks-short': () => t('account.refusal.marksShort', 'You do not hold that much silver.'),",
+    "new": "'marks-short': () => t('account.refusal.marksShort', 'You do not hold that many silver.'),",
     "tests": [
       "test/silver.test.js"
     ]
@@ -29,8 +29,8 @@
   {
     "name": "SILVER-a-refusal-old",
     "file": "src/net/accountClient.js",
-    "old": "'marks-need-account': 'Silver is kept by registered accounts. Add a username to hold it.',",
-    "new": "'marks-need-account': 'Drakes are kept by registered accounts. Add a username to hold them.',",
+    "old": "'marks-need-account': () => t('account.refusal.marksNeedAccount', 'Silver is kept by registered accounts. Add a username to hold it.'),",
+    "new": "'marks-need-account': () => t('account.refusal.marksNeedAccount', 'Drakes are kept by registered accounts. Add a username to hold them.'),",
     "tests": [
       "test/silver.test.js"
     ]
