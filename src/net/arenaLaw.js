@@ -6,7 +6,8 @@
 //
 //   THE ROOMS     `arena:hall` (the queue, the offers, the list of live bouts), `arena:b<16 hex>` (one bout's floor:
 //                 its fighters, its spectators, the relay's referee and, on the ladder, its AI fighters) and (ARENA4b)
-//                 `arena:x<hour>` (the hour's exhibition - two of the relay's fighters and the stands).
+//                 `arena:x<hour>` (the hour's exhibition - two of the relay's fighters and the stands); and (ARENA6)
+//                 `arena:p<code>` (a private session - its host, its members, the bouts its host calls; ARENA6 below).
 //   THE SEASON    eight weeks of wall time from a Monday (`arenaSeasonOf`) - Seats-Arc 9.1's planned seasons.
 //   THE RATING    Elo, 1,000 to start, K 32 (`eloAfter`), a season's own.
 //   THE QUEUE     paired by rating inside a band that widens every 10 s (`matchBand`, `pairQueue`); a pair is offered a
@@ -41,17 +42,42 @@ export const isArenaExhibitionRoom = (key) => ARENA_EX_ROOM_RE.test(String(key ?
 export const arenaExhibitionRoom = (hour) => `arena:x${Math.max(0, Math.floor(Number(hour) || 0))}`;
 /** The hour out of an exhibition room's key, or null. */
 export const arenaExhibitionHourOf = (key) => { const m = ARENA_EX_ROOM_RE.exec(String(key ?? '')); return m ? Number(m[1]) : null; };
-/** A room the bout law stands on - a bout's or the hour's exhibition's: its sand holds the fighters alone, its stands
- *  every other socket (no body drawn, no pose fanned). */
-export const isArenaFloorRoom = (key) => isArenaBoutRoom(key) || isArenaExhibitionRoom(key);
+/** ARENA6 (2026-10-03, the owner: "a way to simply host private matches ... a session where people can join, watch,
+ *  participate, and allow the host of the session to choose who is fighting and who is in the crowd"): A PRIVATE
+ *  SESSION'S ROOM, `arena:p<code>` - six of an alphabet with no letter or digit read as another (no I, L, O, 0 or 1), so
+ *  a code read off a stream is typed right. Its sessions' bouts stand on the floor as every other bout's do. */
+export const ARENA_PRIVATE_CODE_ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
+export const ARENA_PRIVATE_CODE_LEN = 6;
+export const ARENA_PRIVATE_CODE_RE = /^[ABCDEFGHJKMNPQRSTUVWXYZ2-9]{6}$/;
+export const ARENA_PRIVATE_ROOM_RE = /^arena:p[ABCDEFGHJKMNPQRSTUVWXYZ2-9]{6}$/;
+export const isArenaPrivateRoom = (key) => ARENA_PRIVATE_ROOM_RE.test(String(key ?? ''));
+export const arenaPrivateRoom = (code) => `arena:p${code}`;
+/** The code out of a private session's room key, or null. */
+export const arenaPrivateCodeOf = (key) => (isArenaPrivateRoom(key) ? String(key).slice(7) : null);
+/** A code as a player typed it: upper-cased, its spaces and dashes gone - valid or not (`ARENA_PRIVATE_CODE_RE` says). */
+export const privateCodeTyped = (s) => String(s ?? '').toUpperCase().replace(/[\s-]/g, '').slice(0, 12);
+/** A FRESH CODE off `bytes(n)` (the caller's CSPRNG - this law has no dice): each byte below 248 (31 x 8) taken as one
+ *  letter, the rest thrown back, so no letter is likelier than another. Pure. */
+export function arenaPrivateCode(bytes) {
+  const A = ARENA_PRIVATE_CODE_ALPHABET;
+  let out = '';
+  for (let tries = 0; out.length < ARENA_PRIVATE_CODE_LEN && tries < 64; tries++) {
+    for (const b of bytes(ARENA_PRIVATE_CODE_LEN)) if (b < A.length * 8 && out.length < ARENA_PRIVATE_CODE_LEN) out += A[b % A.length];
+  }
+  return out;
+}
+/** A room the bout law stands on - a bout's or the hour's exhibition's (ARENA6: or a private session's): its sand holds
+ *  the fighters alone, its stands every other socket (no body drawn, no pose fanned). */
+export const isArenaFloorRoom = (key) => isArenaBoutRoom(key) || isArenaExhibitionRoom(key) || isArenaPrivateRoom(key);
 /** Any arena room - the Worker opens an object for these and no other `arena:` key. */
 export const isArenaRoom = (key) => isArenaHall(key) || isArenaFloorRoom(key);
 export const arenaBoutRoom = (id) => `arena:b${id}`;
 /** The bout's id out of its room's key, or null. */
 export const arenaBoutIdOf = (key) => (isArenaBoutRoom(key) ? String(key).slice(7) : null);
 /** ARENA4b: the room a floor's instance stands in, by the bout it was entered for - a bout's id (`arena:b<id>`) or an
- *  exhibition's `x<hour>` (`arena:x<hour>`); null for anything else. */
-export const arenaFloorRoomOf = (o) => (ARENA_BOUT_ID_RE.test(String(o ?? '')) ? arenaBoutRoom(o) : isArenaExhibitionRoom(`arena:${o}`) ? `arena:${o}` : null);
+ *  exhibition's `x<hour>` (`arena:x<hour>`); ARENA6: or a private session's `p<code>` (`arena:p<code>`); null for
+ *  anything else. */
+export const arenaFloorRoomOf = (o) => (ARENA_BOUT_ID_RE.test(String(o ?? '')) ? arenaBoutRoom(o) : isArenaExhibitionRoom(`arena:${o}`) || isArenaPrivateRoom(`arena:${o}`) ? `arena:${o}` : null);
 
 // ── THE SEASON ────────────────────────────────────────────────────────────────────────────────
 /** The first season's first second: Monday 2026-09-28 00:00 UTC. */
@@ -351,6 +377,41 @@ export const ARENA_HOUR_MAX = 999_999_999;
  *  so the bookmaker of a screen that left before the verdict can still ask it (scenes/arenaOnline.js exhibitionVerdict). */
 export const ARENA_EX_KEEP_MS = 2 * 3600_000;
 
+// ── ARENA6: A PRIVATE SESSION ─────────────────────────────────────────────────────────────────
+/** Its members at most: the stands' own seats and the two on the sand (a full session fills the stands of its bout). */
+export const ARENA_PRIVATE_MEMBERS_MAX = ARENA_SPECTATORS_MAX + 2;
+/** A session whose host has been gone this long ends (a host's tab that blinked, or a walk to the gate and back, keeps
+ *  it; a host who went home does not hold the code for ever). */
+export const ARENA_PRIVATE_HOST_GONE_MS = 15 * 60_000;
+/** A session ends this long after it opened, whoever is in it - a tournament's evening and more, never a room kept for
+ *  good under one code. */
+export const ARENA_PRIVATE_LIFE_MS = 8 * 3600_000;
+/** The session's recent results it keeps (and says). */
+export const ARENA_PRIVATE_HIST_MAX = 20;
+/** A finished bout of a session is kept this long past the healers ('done') before the session is back to choosing -
+ *  the verdict and the healers are seen by then; the fighters go back to the stands as it clears. */
+export const ARENA_PRIVATE_KEEP_MS = 5_000;
+/** The accounts a session has removed, at most (the oldest forgotten past it). */
+export const ARENA_PRIVATE_KICKED_MAX = 256;
+/** EVERY FIGHTER OF A SESSION'S BOUT IS THIS WHOLE (the owner's call: equal health, not by level) - the vitality a rated
+ *  bout gives a level-30 fighter (pvpVitality(30)), the middle of the range a rated bout's spans (302 at level 1, 420 at
+ *  sixty), so a session's bout lasts about as long as a rated one. */
+export const ARENA_PRIVATE_VITALITY = 360;
+/** A session's member on the wire - `m1`, `m2` ... (the smallest number free): never an account's id. */
+export const ARENA_MEMBER_ID_RE = /^m[1-9]\d{0,2}$/;
+/** A session word's acts (`ps`): open (its host's first), join, and the host's own - pick, go, void, kick, close. */
+export const ARENA_PS_ACTS = Object.freeze(['open', 'join', 'pick', 'go', 'void', 'kick', 'close']);
+/** The session's end, by its clock: `'life'` its life out, `'host'` its host gone ARENA_PRIVATE_HOST_GONE_MS, or null.
+ *  `S` the session (`at` when it opened, `hostGoneAt` when its host's last socket left, null while here). Pure. */
+export function privateSessionOver(S, now) {
+  if (!S) return null;
+  if (now - S.at >= ARENA_PRIVATE_LIFE_MS) return 'life';
+  if (S.hostGoneAt != null && now - S.hostGoneAt >= ARENA_PRIVATE_HOST_GONE_MS) return 'host';
+  return null;
+}
+/** When the session's clock ends it next (its life, or its host's absence), ms. Pure. */
+export const privateSessionDeadline = (S) => Math.min(S.at + ARENA_PRIVATE_LIFE_MS, S.hostGoneAt != null ? S.hostGoneAt + ARENA_PRIVATE_HOST_GONE_MS : Infinity);
+
 // ── THE WIRE ──────────────────────────────────────────────────────────────────────────────────
 const int = (v, lo, hi) => (Number.isInteger(v) && v >= lo && v <= hi ? v : null);
 const num = (v, lim) => (typeof v === 'number' && Number.isFinite(v) && Math.abs(v) <= lim ? v : null);
@@ -358,7 +419,7 @@ const FID_RE = /^(p0|p1|a[0-3])$/;
 /** A fighter's id in a bout room: `p0`/`p1` the players, `a0`..`a3` the relay's own. */
 export const ARENA_FIGHTER_RE = FID_RE;
 /** The client's words, by kind (its `k`). */
-export const ARENA_IN_KINDS = Object.freeze(['q', 'x', 'y', 'n', 'ls', 'in', 'hit', 'yd', 'ch', 'out']);
+export const ARENA_IN_KINDS = Object.freeze(['q', 'x', 'y', 'n', 'ls', 'in', 'hit', 'yd', 'ch', 'out', 'ps']);
 /**
  * A CLIENT'S ARENA WORD, projected - or null for anything that is not one:
  *   hall:  q (the queue - `lv` my Renown level, ARENA4b: `b` my banner - bannerClaim, cosmetic), x (out of it), y / n
@@ -369,6 +430,9 @@ export const ARENA_IN_KINDS = Object.freeze(['q', 'x', 'y', 'n', 'ls', 'in', 'hi
  *          kept on the wire for a build before it), hit (`i` whom, `d` the damage, `r` how - ARENA_HIT, `w` the weapon's
  *          template, `m` its material, `q` the blow's sequence), yd (I yield), ch (a spectator's `c` cheer 1 or boo -1),
  *          out (I leave)
+ *   ARENA6, a private session's room: ps (`a` - ARENA_PS_ACTS: open / join with `bn` my banner (bannerClaim, cosmetic),
+ *          pick `r` the Red and/or `b` the Blue (a member id - ARENA_MEMBER_ID_RE - or '' for none), go, void, kick `m`
+ *          a member id, close)
  * @param {any} m
  */
 export function validArenaIn(m) {
@@ -400,12 +464,29 @@ export function validArenaIn(m) {
       return out;
     }
     case 'ch': return m.c === 1 || m.c === -1 ? { k: 'ch', c: m.c } : null;
+    case 'ps': {
+      // ARENA6: a private session's word
+      if (!ARENA_PS_ACTS.includes(m.a)) return null;
+      const out = { k: 'ps', a: m.a };
+      if (m.a === 'open' || m.a === 'join') { if (bannerClaim(m.bn)) out.bn = m.bn; return out; }
+      const mid = (v) => typeof v === 'string' && (v === '' || ARENA_MEMBER_ID_RE.test(v));
+      if (m.a === 'pick') {
+        if (m.r === undefined && m.b === undefined) return null;
+        if (m.r !== undefined) { if (!mid(m.r)) return null; out.r = m.r; }
+        if (m.b !== undefined) { if (!mid(m.b)) return null; out.b = m.b; }
+        return out;
+      }
+      if (m.a === 'kick') return typeof m.m === 'string' && ARENA_MEMBER_ID_RE.test(m.m) ? { k: 'ps', a: 'kick', m: m.m } : null;
+      return out;
+    }
     default: return null;
   }
 }
 
 /** The relay's words, by kind. */
-export const ARENA_OUT_KINDS = Object.freeze(['qd', 'qx', 'of', 'go', 'live', 'st', 'ev', 'hp', 'mv', 'atk', 'blow', 'rc', 'cr', 'no', 'sp']);
+export const ARENA_OUT_KINDS = Object.freeze(['qd', 'qx', 'of', 'go', 'live', 'st', 'ev', 'hp', 'mv', 'atk', 'blow', 'rc', 'cr', 'no', 'sp', 'pss']);
+/** A bout's phases on the wire (the `st` word's `ph`; ARENA6: the session word's too). */
+export const ARENA_ST_PHASES = Object.freeze(['wait', 'call', 'walk', 'count', 'fight', 'end', 'verdict', 'heal', 'done', 'void']);
 /** A name on an arena word: the relay's own (the token's, a display name) - bounded and free of control characters. */
 const nameOk = (s) => typeof s === 'string' && s.length >= 1 && s.length <= 40 && !/[\u0000-\u001f\u007f]/.test(s);
 const bannerOk = (b) => b == null || ARENA_BANNERS.includes(b);
@@ -454,6 +535,11 @@ function evOk(e) {
  *          `[[id, hp, max]]`), mv (`i` an AI fighter, its walk `x z tx tz v at`), atk (`i` its blow `at` landing at `x z`),
  *          blow (`i` struck player `to` for `d`), rc (`r` my receipt), cr (the crowd's `c` cheer or boo, `n` how many), no (`m` a
  *          refusal), sp (`n` spectators)
+ *   ARENA6, a private session: pss (the session: `c` its code, `hn` its host's name, `hm` its host's member id, `h` 1 when
+ *          I host it, `me` my member id, `m` its members `[[id, name, guest 0|1, here 0|1, title|'', banner|'']]`, `r` / `b`
+ *          the Red and the Blue picked (ids, or ''), `o` the bout standing (its id, or '') with `ph` its phase and `f` its
+ *          two fighters' ids, `hist` its recent results `[[red's name, blue's name, the winner 0 red / 1 blue / -1 none,
+ *          how]]`) - never an account's id
  * @param {any} m
  */
 export function validArenaOut(m) {
@@ -489,8 +575,7 @@ export function validArenaOut(m) {
     case 'st': {
       if (typeof m.o !== 'string' || !ARENA_BOUT_ID_RE.test(m.o) || !ARENA_KINDS.includes(m.kind)) return null;
       if (m.kind === 'ex' && int(m.h, 0, ARENA_HOUR_MAX) == null) return null;   // ARENA4b: an exhibition says its hour
-      const PH = ['wait', 'call', 'walk', 'count', 'fight', 'end', 'verdict', 'heal', 'done', 'void'];
-      if (!PH.includes(m.ph) || num(m.pa, 1e15) == null || num(m.lim, 1e9) == null) return null;
+      if (!ARENA_ST_PHASES.includes(m.ph) || num(m.pa, 1e15) == null || num(m.lim, 1e9) == null) return null;
       if (!Array.isArray(m.f) || m.f.length > 4) return null;
       const f = m.f.map(stFighterOk);
       if (f.some((x) => !x)) return null;
@@ -533,6 +618,31 @@ export function validArenaOut(m) {
     case 'rc': return typeof m.r === 'string' && m.r.length <= 640 ? { k: 'rc', r: m.r } : null;
     case 'cr': return (m.c === 1 || m.c === -1) && int(m.n, 1, ARENA_SPECTATORS_MAX) != null ? { k: 'cr', c: m.c, n: m.n } : null;
     case 'sp': return int(m.n, 0, ARENA_SPECTATORS_MAX) != null ? { k: 'sp', n: m.n } : null;
+    case 'pss': {
+      // ARENA6: a private session, as one member is told it
+      const mid = (v) => typeof v === 'string' && (v === '' || ARENA_MEMBER_ID_RE.test(v));
+      if (typeof m.c !== 'string' || !ARENA_PRIVATE_CODE_RE.test(m.c) || !nameOk(m.hn) || (m.h !== 0 && m.h !== 1)) return null;
+      if (!mid(m.hm) || !mid(m.me) || !mid(m.r) || !mid(m.b)) return null;
+      if (!Array.isArray(m.m) || m.m.length > ARENA_PRIVATE_MEMBERS_MAX) return null;
+      const members = [];
+      for (const x of m.m) {
+        if (!Array.isArray(x) || x.length !== 6) return null;
+        const [id, n, g, here, t, bn] = x;
+        if (typeof id !== 'string' || !ARENA_MEMBER_ID_RE.test(id) || !nameOk(n) || (g !== 0 && g !== 1) || (here !== 0 && here !== 1)) return null;
+        if (typeof t !== 'string' || (t !== '' && !/^[a-z]{1,24}$/.test(t)) || !(bn === '' || ARENA_BANNERS.includes(bn))) return null;
+        members.push([id, n, g, here, t, bn]);
+      }
+      if (typeof m.o !== 'string' || (m.o !== '' && !ARENA_BOUT_ID_RE.test(m.o))) return null;
+      if (typeof m.ph !== 'string' || (m.ph !== '' && !ARENA_ST_PHASES.includes(m.ph))) return null;
+      if (!Array.isArray(m.f) || !(m.f.length === 0 || (m.f.length === 2 && m.f.every((v) => typeof v === 'string' && ARENA_MEMBER_ID_RE.test(v))))) return null;
+      if (!Array.isArray(m.hist) || m.hist.length > ARENA_PRIVATE_HIST_MAX) return null;
+      const hist = [];
+      for (const r of m.hist) {
+        if (!Array.isArray(r) || r.length !== 4 || !nameOk(r[0]) || !nameOk(r[1]) || int(r[2], -1, 1) == null || typeof r[3] !== 'string' || r[3].length > 12) return null;
+        hist.push([r[0], r[1], r[2], r[3]]);
+      }
+      return { k: 'pss', c: m.c, hn: m.hn, hm: m.hm, h: m.h, me: m.me, m: members, r: m.r, b: m.b, o: m.o, ph: m.ph, f: [...m.f], hist };
+    }
     default: return null;
   }
 }
@@ -549,4 +659,20 @@ export const ARENA_NO_TEXT = Object.freeze({
   'seats full': 'The stands are full.',
   'not yours': 'That bout is not yours to fight.',
   void: 'The bout is void - a fighter never came to the sand.',
+  // ARENA6: a private session's
+  'host guest': 'Only a registered account can host a private session.',
+  taken: 'That code is already in use - host again for a new one.',
+  'no session': 'No private session has that code.',
+  removed: 'The host removed you from this session.',
+  'session full': 'That private session is full.',
+  'host only': 'Only the session\'s host can do that.',
+  'not member': 'Join the session first.',
+  'not here': 'That fighter is not here.',
+  'guest fighter': 'A guest can watch, but only a registered account can fight.',
+  'same fighter': 'Red and Blue must be two different fighters.',
+  'bout on': 'A bout is on - end it first.',
+  'no picks': 'Pick a Red and a Blue first.',
+  voided: 'The host ended the bout - no result.',
+  closed: 'The host closed the session.',
+  ended: 'The private session has ended.',
 });

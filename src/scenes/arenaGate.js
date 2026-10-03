@@ -318,6 +318,8 @@ export function createArenaGate(deps) {
     }
     // ARENA4: the challenge and the stands - pressed anywhere the window stands (a match called sends me to the sand)
     if (kind === 'queue' || kind === 'casual' || kind === 'unqueue' || kind === 'accept' || kind === 'decline' || kind === 'spectate') return online()?.act(kind, data) ?? { ok: false, text: ARENA_TEXT.online.whyOffline };
+    // ARENA6: a private session's presses - hosted or joined from anywhere online, as the challenge is (its room is the floor's)
+    if (typeof kind === 'string' && kind.startsWith('priv')) return online()?.act(kind, data) ?? { ok: false, text: ARENA_TEXT.online.whyOffline };
     // ARENA5: a bout the records keep, watched again - at the gate, as Watch is; offline (the save's records)
     if (kind === 'replay') {
       if (online()) return { ok: false, text: ARENA_TEXT.replay.offline };

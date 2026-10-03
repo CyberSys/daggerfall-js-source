@@ -128,8 +128,8 @@
   {
     "name": "ARENA4b-TRUST-VITALITY-LEVEL",
     "file": "src/net/arenaBrain.js",
-    "old": "maxHealth: st.kind === 'pvp' ? pvpVitality(x.lv) : ladderVitality(x.cl, x.lv, st.tier),",
-    "new": "maxHealth: st.kind === 'pvp' ? pvpVitality(x.lv) : ladderVitality(null, x.lv, st.tier),",
+    "old": "maxHealth: st.kind === 'pvp' ? (st.equal ? ARENA_PRIVATE_VITALITY : pvpVitality(x.lv)) : ladderVitality(x.cl, x.lv, st.tier),",
+    "new": "maxHealth: st.kind === 'pvp' ? (st.equal ? ARENA_PRIVATE_VITALITY : pvpVitality(x.lv)) : ladderVitality(null, x.lv, st.tier),",
     "tests": [
       "test/arena4b_trust.test.js"
     ]

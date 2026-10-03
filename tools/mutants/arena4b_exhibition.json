@@ -182,8 +182,8 @@
   {
     "name": "ARENA4b-EX-KEEP",
     "file": "server/src/index.js",
-    "old": "const keep = st.kind === 'ex' ? ARENA_EX_KEEP_MS : ARENA_KEEP_MS;",
-    "new": "const keep = ARENA_KEEP_MS;",
+    "old": "const keep = st.kind === 'ex' ? ARENA_EX_KEEP_MS : st.priv ? ARENA_PRIVATE_KEEP_MS : ARENA_KEEP_MS;",
+    "new": "const keep = st.priv ? ARENA_PRIVATE_KEEP_MS : ARENA_KEEP_MS;",
     "tests": [
       "test/arena4b_exhibition.test.js"
     ]
@@ -218,8 +218,8 @@
   {
     "name": "ARENA4b-EX-FLOOR-ROOM",
     "file": "src/net/arenaLaw.js",
-    "old": "isArenaExhibitionRoom(`arena:${o}`) ? `arena:${o}` : null);",
-    "new": "isArenaExhibitionRoom(`arena:${o}`) ? arenaBoutRoom(o) : null);",
+    "old": "isArenaExhibitionRoom(`arena:${o}`) || isArenaPrivateRoom(`arena:${o}`) ? `arena:${o}` : null);",
+    "new": "isArenaExhibitionRoom(`arena:${o}`) || isArenaPrivateRoom(`arena:${o}`) ? arenaBoutRoom(o) : null);",
     "tests": [
       "test/arena4b_exhibition.test.js"
     ]

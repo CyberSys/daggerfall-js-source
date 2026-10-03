@@ -322,8 +322,12 @@ test('ARENA3 the door, the gate\'s presses at the gate only, the Herald\'s and t
     assert.match(S, /else if \(a === 'window'\) arenaGate\.openWindow\('bouts'\);/, f);
     assert.match(S, /heraldAct: \(a\) => arenaHeraldAct\(a\), atGate: \(\) => \(modes\?\.mode \?\? 'exterior'\) === 'exterior' && nearArenaGate\(player\.pos, arenaHeraldAt\(\)\),/, f);
     // ARENA4b: the banner worn is the gate's word (scenes/arenaGate.js joined - the save's league offline, the account's online)
-    assert.match(S, /openArena: \(\) => arenaGate\.openWindow\('team'\), arenaJoined: \(\) => arenaGate\.joined\(\),/, `${f}: the pause window's door`);
-    assert.match(S, /makeArenaWindow: \(page\) => arenaGate\.windowOverlay\(page\),/, f);
+    // ARENA6: the world host's door opens on a private session's page while one is stood in (the exterior host has no online half)
+    const door = f === 'src/scenes/world.js'
+      ? /openArena: \(\) => arenaGate\.openWindow\(arenaOnline\?\.inSession\?\.\(\) \? 'bouts' : 'team'\), arenaJoined: \(\) => arenaGate\.joined\(\) \|\| !!arenaOnline\?\.inSession\?\.\(\),/
+      : /openArena: \(\) => arenaGate\.openWindow\('team'\), arenaJoined: \(\) => arenaGate\.joined\(\),/;
+    assert.match(S, door, `${f}: the pause window's door`);
+    assert.match(S, f === 'src/scenes/world.js' ? /makeArenaWindow: \(page\) => arenaGate\.windowOverlay\(arenaOnline\?\.inSession\?\.\(\) \? 'bouts' : page\),/ : /makeArenaWindow: \(page\) => arenaGate\.windowOverlay\(page\),/, f);
   }
   assert.match(rd('src/scenes/worldModes.js'), /openArena: \(\) => mountedInterior\(host\.makeArenaWindow\?\.\('team'\) \?\? null\), arenaJoined: \(\) => !!host\.arenaJoined\?\.\(\),/);
   assert.match(rd('src/scenes/worldModes.js'), /makeArenaWindow: \(page\) => host\.makeArenaWindow\?\.\(page\) \?\? null, arenaJoined: \(\) => !!host\.arenaJoined\?\.\(\),/, 'the dungeon is handed it');
