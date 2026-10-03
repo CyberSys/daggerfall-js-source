@@ -27,6 +27,9 @@ const FILES = IN_BROWSER ? import.meta.glob('../../locales/*/*.csv', { query: '?
 const BUNDLED_TEXT = IN_BROWSER ? import.meta.glob(['../../locales/*/pack/**/*.csv', '../../locales/*/pack/**/*.txt'], { query: '?raw', import: 'default' }) : {};
 const BUNDLED_FONTS = IN_BROWSER ? import.meta.glob(['../../locales/*/pack/**/*.ttf', '../../locales/*/pack/**/*.otf'], { query: '?url', import: 'default' }) : {};
 const BUNDLED_META = IN_BROWSER ? import.meta.glob('../../locales/*/pack/PACK.json', { eager: true, import: 'default' }) : {};
+// L10N6: the people who translated or checked a language (`locales/<tag>/translators.json`, a list of names) - the About
+// pane credits them beside the machine's drafts.
+const TRANSLATORS = IN_BROWSER ? import.meta.glob('../../locales/*/translators.json', { eager: true, import: 'default' }) : {};
 
 /** A glob's locale files by tag - `locales/<tag>/<table>.csv` -> [{ table, load }] - English left out: it is the
  *  code's. */
@@ -66,23 +69,39 @@ let _bundled = indexBundledPacks({ text: BUNDLED_TEXT, fonts: BUNDLED_FONTS, met
 /** L10N6: the bundled pack's record for `code` (its PACK.json), or null. */
 export const bundledPackFor = (code) => _bundled.get(code)?.meta ?? null;
 
+/** L10N6: the translators by tag - `locales/<tag>/translators.json` -> its names (anything but a name left). */
+export function indexTranslators(glob = {}) {
+  const out = new Map();
+  for (const [path, names] of Object.entries(glob)) {
+    const hit = /locales\/([^/]+)\/translators\.json$/.exec(String(path).replace(/\\/g, '/'));
+    const list = Array.isArray(names) ? names.filter((n) => typeof n === 'string' && n.trim()).map((n) => n.trim()) : [];
+    if (hit && hit[1] !== BASE_LOCALE && list.length) out.set(hit[1], Object.freeze(list));
+  }
+  return out;
+}
+let _translators = indexTranslators(TRANSLATORS);
+
 /** L10N3b: the installed packs, by tag - read from the store at boot and after every install or removal. */
 let _packs = new Map();
 /** Whether the game holds text for `code`: the build's (English and the pseudo-locale always), or an installed pack. */
 export const hasLocaleText = (code) => code === BASE_LOCALE || code === PSEUDO_LOCALE || byCode.has(code) || ((_packs.has(code) || _bundled.has(code)) && !!catalogLocale(code));
 
+/** What the text core is told of a language: the catalog's record, its installed pack's (`pack` - the language row
+ *  shows it), its bundled pack's PACK.json (`bundled`, L10N6) and its translators (`translators`, L10N6) - the last
+ *  two the About pane's credits (ui/credits.js translationCredits). */
+const localeRecord = (info) => ({ ...info, pack: _packs.get(info.code) ?? null, bundled: bundledPackFor(info.code), translators: _translators.get(info.code) ?? [] });
+
 let _registered = false;
-/** The catalog's languages whose text the game holds, told to the text core once - each with its installed pack's
- *  record (`pack`), which the language row shows. */
+/** The catalog's languages whose text the game holds, told to the text core once. */
 export function registerLocales() {
   if (_registered) return;
   _registered = true;
-  for (const info of LOCALE_CATALOG) if (hasLocaleText(info.code)) registerLocale({ ...info, pack: _packs.get(info.code) ?? null, bundled: bundledPackFor(info.code) });
+  for (const info of LOCALE_CATALOG) if (hasLocaleText(info.code)) registerLocale(localeRecord(info));
 }
 /** L10N3b: read the installed packs again, and tell the text core. */
 export async function refreshPacks() {
   _packs = await packStore.installedPacks();
-  for (const info of LOCALE_CATALOG) if (hasLocaleText(info.code)) registerLocale({ ...info, pack: _packs.get(info.code) ?? null, bundled: bundledPackFor(info.code) });
+  for (const info of LOCALE_CATALOG) if (hasLocaleText(info.code)) registerLocale(localeRecord(info));
   return _packs;
 }
 /** The installed pack's record for `code`, or null. */
@@ -244,7 +263,8 @@ export async function initLocale(params = null, { languages = browserLanguages()
  *  or loaded yet. */
 export function _useLocaleFilesForTests(glob, bundled = {}) {
   byCode = indexLocaleFiles(glob);
-  _bundled = indexBundledPacks(bundled);   // L10N6: { text, fonts, meta }, as the build's three globs give them
+  _bundled = indexBundledPacks(bundled);   // L10N6: { text, fonts, meta, translators }, as the build's globs give them
+  _translators = indexTranslators(bundled.translators);
   _registered = false;
   _loaded.clear();
   _packs = new Map();

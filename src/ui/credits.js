@@ -27,9 +27,12 @@
 // the About pane reads them as it draws, never English frozen at load.
 // The names stay as they are: a work's title, its author, its version,
 // its link, its folder.
+//
+// L10N6: the translations are credited as the works are, one row a
+// language (translationCredits, below the table).
 // ═══════════════════════════════════════════════════════════════════
 
-import { t } from '../systems/textManager.js';
+import { t, availableLocales, intlLocale, BASE_LOCALE, PSEUDO_LOCALE } from '../systems/textManager.js';
 
 export const CREDITS = Object.freeze({
   builtOn: Object.freeze([
@@ -419,3 +422,42 @@ export const CREDITS = Object.freeze({
     }),
   ]),
 });
+
+/** Names as the player's language lists them ("A, B and C"). */
+const listOf = (names) => {
+  try { return new Intl.ListFormat(intlLocale(), { type: 'conjunction' }).format(names); } catch { return names.join(', '); }
+};
+
+/** L10N6: THE TRANSLATIONS, credited as the works are - one row a language the game holds text for, English and the
+ *  pseudo-locale aside (textManager availableLocales, as scenes/localeData.js registers them): its name in itself,
+ *  whose words they are, and a bundled pack's terms and source. Mac's decisions (Localization-Arc.md): a machine draft
+ *  says it is one; the people who translate or check a language are credited by name (`locales/<tag>/translators.json`);
+ *  a pack is bundled only on its authors' terms, and those travel with it. A pack the player installed is their own -
+ *  the Language row says so, the credits do not. Read as the About pane draws it, so every sentence is the player's
+ *  language's. */
+export function translationCredits(infos = availableLocales()) {
+  return infos.filter((i) => i.code !== BASE_LOCALE && i.code !== PSEUDO_LOCALE && !i.hidden).map((i) => {
+    const people = i.translators ?? [];
+    const pack = i.bundled ?? null;
+    const lines = [];
+    if (i.source === 'machine') {
+      lines.push(people.length
+        ? t('credits.l10n.checked', 'The port\'s own words are a machine translation by Claude, checked and corrected by {names}.', { names: listOf(people) })
+        : t('credits.l10n.machine', 'The port\'s own words are a machine translation by Claude, still being checked. A fix from a speaker is welcome.'));
+    } else {
+      lines.push(people.length
+        ? t('credits.l10n.people', 'The port\'s own words translated by {names}.', { names: listOf(people) })
+        : t('credits.l10n.community', 'The port\'s own words translated by the community.'));
+    }
+    if (pack) lines.push(t('credits.l10n.bundled', 'Daggerfall\'s own text is {pack}, carried with its authors\' permission.', { pack: pack.name }));
+    const authors = [...(pack?.authors ?? []), ...people];
+    return Object.freeze({
+      code: i.code,
+      title: i.name,
+      author: authors.length ? listOf(authors) : 'Claude (Anthropic)',
+      what: lines.join(' '),
+      ...(pack ? { terms: t('credits.l10n.terms', '{license}: {terms}', { license: pack.license, terms: pack.terms }) } : {}),
+      ...(pack && /^https?:\/\//.test(pack.source) ? { link: pack.source } : {}),
+    });
+  });
+}
