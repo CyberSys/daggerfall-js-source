@@ -562,6 +562,7 @@ export const ARENA_TEXT = F({
     privResults: 'Recent results',
     privResult: (red, blue, winner, how) => (winner === 0 ? `${red} (Red) beat ${blue} (Blue)${how ? ` - ${how}` : ''}` : winner === 1 ? `${blue} (Blue) beat ${red} (Red)${how ? ` - ${how}` : ''}` : `${red} (Red) and ${blue} (Blue) - no result`),
     privEntering: (code) => `To the arena - session ${code}.`,
+    privOutdoors: 'The arena is reached from outdoors. Step outside and try again.',   // the floor's door refused
     privToSand: 'The host calls you to the sand!',
     privToStands: 'Back to the stands.',
     ladderOnline: 'Your climb is the realm\'s - every bout refereed.',
