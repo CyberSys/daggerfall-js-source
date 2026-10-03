@@ -122,8 +122,8 @@
   {
     "name": "ACC4-13-guest-gets-a-date-row",
     "file": "src/ui/enhancedAccount.js",
-    "old": "      if (joined) row('Registered', joined);",
-    "new": "      row('Registered', joined ?? '-');",
+    "old": "      if (joined) row(t('account.card.registered', 'Registered'), joined);",
+    "new": "      row(t('account.card.registered', 'Registered'), joined ?? '-');",
     "tests": [
       "test/acc4played.test.js"
     ],

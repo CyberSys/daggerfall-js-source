@@ -146,8 +146,8 @@
   {
     "name": "PROF-DELETE-the-door-says-nothing",
     "file": "src/net/accountClient.js",
-    "old": "  'realm-market-open': 'This character still has business on the market",
-    "new": "  'realm-market-open-x': 'This character still has business on the market",
+    "old": "  'realm-market-open': () => t('account.refusal.realmMarketOpen', 'This character still has business on the market",
+    "new": "  'realm-market-open-x': () => t('account.refusal.realmMarketOpen', 'This character still has business on the market",
     "tests": [
       "test/profdelete.test.js"
     ]

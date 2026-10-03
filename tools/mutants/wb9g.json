@@ -329,8 +329,8 @@
   {
     "name": "WB9g-the-client-decides-the-aura",
     "file": "src/ui/accountFlow.js",
-    "old": "      self.wardrobe = { ...(self.wardrobe ?? {}), titles: r.data.titles, title: r.data.title, glyphs: r.data.glyphs, ...glyphHalf(r.data), ...auraHalf(r.data) };\n      self.busy = false;\n      self.note = want ? `Wearing ${want}.` : 'Aura removed.';",
-    "new": "      self.wardrobe = { ...self.wardrobe, aura: want };\n      self.busy = false;\n      self.note = want ? `Wearing ${want}.` : 'Aura removed.';",
+    "old": "      self.wardrobe = { ...(self.wardrobe ?? {}), titles: r.data.titles, title: r.data.title, glyphs: r.data.glyphs, ...glyphHalf(r.data), ...auraHalf(r.data) };\n      self.busy = false;\n      self.note = want ? t('account.flow.wearing', 'Wearing {what}.', { what: want }) : t('account.flow.auraRemoved', 'Aura removed.');",
+    "new": "      self.wardrobe = { ...self.wardrobe, aura: want };\n      self.busy = false;\n      self.note = want ? t('account.flow.wearing', 'Wearing {what}.', { what: want }) : t('account.flow.auraRemoved', 'Aura removed.');",
     "tests": [
       "test/wb9g_insignia.test.js"
     ]

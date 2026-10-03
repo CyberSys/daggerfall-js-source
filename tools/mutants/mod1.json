@@ -114,7 +114,7 @@
   {
     "name": "MOD1-15-two-names-one-guess",
     "file": "src/net/moderation.js",
-    "old": "  if (found.size > 1) return { error: `${found.size} players are called ${name}. Nobody was muted.` };",
+    "old": "  if (found.size > 1) return { error: t('net.mod.ambiguous', '{count} players are called {name}. Nobody was muted.', { count: found.size, name }) };",
     "new": "  if (found.size > 1) { const [[sub, shown]] = [...found]; return { sub, name: shown }; }",
     "tests": ["test/mod1.test.js"],
     "note": "Two guests with one generated name: the wrong one is muted."

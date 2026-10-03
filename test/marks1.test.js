@@ -466,5 +466,5 @@ test('MARKS1 the wiring: online the streaming host holds the book and hands it t
   assert.match(m, /void host\.marks\.settle\(marksSaleCredit\(\(\) => playerEntity\.bankAccounts, bankRegion, host\.saveSoon\)\)/, 'a kept sale settles as the counter opens');
   assert.match(src('src/ui/enhancedPorts.js'), /\{ label: w\.hooks\.marks\.pending\(\) \? 'Counting a sale\.\.\.' : 'Sell silver', act: \(\) => w\._button\('sellMarks'\)/);
   assert.match(src('src/ui/socialPanel.js'), /if \(g\.marks\?\.state\?\.open === true\) \{\n\s*out\.push\(el\('div', 'dfsocial-sec', 'Silver treasury'\)\);/);
-  assert.match(src('src/ui/enhancedAccount.js'), /if \(Number\.isSafeInteger\(flow\.account\.marks\)\) row\('Silver', marksText\(flow\.account\.marks\)\);/);
+  assert.match(src('src/ui/enhancedAccount.js'), /if \(Number\.isSafeInteger\(flow\.account\.marks\)\) row\(t\('account\.card\.silver', 'Silver'\), marksText\(flow\.account\.marks\)\);/);   // L10N4 (PIN MOVED): the row's word through t()
 });

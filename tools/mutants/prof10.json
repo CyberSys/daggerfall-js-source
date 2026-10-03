@@ -958,7 +958,7 @@
   {
     "name": "PROF10-refusal-unsaid",
     "file": "src/net/accountClient.js",
-    "old": "  'prof-lapidary': 'Only a Lapidary sets a Siege-cracked Gem as a piece\\'s gem - Jewelcrafting\\'s choice at 100.',   // PROF10\n",
+    "old": "  'prof-lapidary': () => t('account.refusal.profLapidary', 'Only a Lapidary sets a Siege-cracked Gem as a piece\\'s gem - Jewelcrafting\\'s choice at 100.'),   // PROF10\n",
     "new": "",
     "tests": [
       "test/prof10_client.test.js"

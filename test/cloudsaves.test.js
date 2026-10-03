@@ -172,10 +172,11 @@ test('ACC2: A GUEST MAY NOT HOLD A BACKUP - every save route, read and write ali
   // tell a player standing at the backup button to sign in again, which
   // is not what they need to do.
   const client = src('src/net/accountClient.js');
-  assert.match(client, /'saves-need-account': '[^']*username[^']*'/, 'the sentence names what to do about it');
+  // L10N4 (PIN MOVED): each sentence is the English of its t() call - `'word': () => t('account.refusal.<word>', '...')`
+  assert.match(client, /'saves-need-account': \(\) => t\('[^']*', '[^']*username[^']*'/, 'the sentence names what to do about it');
   assert.notEqual(
-    /'saves-need-account': '([^']*)'/.exec(client)?.[1],
-    /'not-registered': '([^']*)'/.exec(client)?.[1],
+    /'saves-need-account': \(\) => t\('[^']*', '([^']*)'/.exec(client)?.[1],
+    /'not-registered': \(\) => t\('[^']*', '([^']*)'/.exec(client)?.[1],
     'two different situations must not share one sentence',
   );
 });

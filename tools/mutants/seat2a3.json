@@ -697,7 +697,7 @@
  {
   "name": "SEAT2a3-client-words",
   "file": "src/net/accountClient.js",
-  "old": "  ...SIEGE_WHY,   // SEAT2a part three: the pass and the Honours\n",
+  "old": "  ...readEach(SIEGE_WHY),   // SEAT2a part three: the pass and the Honours\n",
   "new": "",
   "tests": [
    "test/seat2a_siege_service.test.js",

@@ -29,8 +29,8 @@
   {
     "name": "DRAKES-the-account-card-old",
     "file": "src/ui/enhancedAccount.js",
-    "old": "row('Silver', marksText",
-    "new": "row('Marks', marksText",
+    "old": "row(t('account.card.silver', 'Silver'), marksText",
+    "new": "row(t('account.card.silver', 'Marks'), marksText",
     "tests": [
       "test/drakes.test.js"
     ]
@@ -47,8 +47,8 @@
   {
     "name": "DRAKES-a-refusal-old",
     "file": "src/net/accountClient.js",
-    "old": "'marks-short': 'You do not hold that much silver.',",
-    "new": "'marks-short': 'You do not hold that many Marks.',",
+    "old": "'marks-short': () => t('account.refusal.marksShort', 'You do not hold that much silver.'),",
+    "new": "'marks-short': () => t('account.refusal.marksShort', 'You do not hold that many Marks.'),",
     "tests": [
       "test/drakes.test.js"
     ]

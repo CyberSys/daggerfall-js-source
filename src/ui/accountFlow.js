@@ -44,6 +44,7 @@ import {
   PASSWORD_MIN_LEN,
 } from '../net/accountClient.js';
 import { ACCEPTED, TERMS_URL, PRIVACY_URL } from '../net/legalLaw.js';   // TERMS1: the documents a new account agrees to
+import { t, localizedTable } from '../systems/textManager.js';   // L10N4: the card's words in the player's language, read when they are drawn
 
 /** Every stage this card can be on. Exported because a pin that
  *  enumerates them by hand is a pin that stops covering the one added
@@ -72,12 +73,12 @@ export const FIELDS = Object.freeze({
 /** What each field is called and how it behaves. `secret: true` is the
  *  difference between `type=password` and `type=text`, which is not a
  *  cosmetic choice: a recovery code read off a shoulder is the account. */
-export const FIELD_SPEC = Object.freeze({
-  handle: { label: 'Username', secret: false, max: 24, hint: 'One word, 3 to 24 characters, starting with a letter.' },
-  password: { label: 'Password', secret: true, max: 200, hint: `At least ${PASSWORD_MIN_LEN} characters.` },
-  confirm: { label: 'Repeat password', secret: true, max: 200, hint: '' },
-  oldPassword: { label: 'Current password', secret: true, max: 200, hint: '' },
-  code: { label: 'Recovery code', secret: false, max: 40, hint: 'The code shown once when you registered.' },
+export const FIELD_SPEC = Object.freeze({   // L10N4: the words are getters, read when the field is drawn
+  handle: { get label() { return t('account.field.handle', 'Username'); }, secret: false, max: 24, get hint() { return t('account.field.handleHint', 'One word, 3 to 24 characters, starting with a letter.'); } },
+  password: { get label() { return t('account.field.password', 'Password'); }, secret: true, max: 200, get hint() { return t('account.field.passwordHint', 'At least {min} characters.', { min: PASSWORD_MIN_LEN }); } },
+  confirm: { get label() { return t('account.field.confirm', 'Repeat password'); }, secret: true, max: 200, hint: '' },
+  oldPassword: { get label() { return t('account.field.oldPassword', 'Current password'); }, secret: true, max: 200, hint: '' },
+  code: { get label() { return t('account.field.code', 'Recovery code'); }, secret: false, max: 40, get hint() { return t('account.field.codeHint', 'The code shown once when you registered.'); } },
 });
 
 /** TERMS1 — WHAT EACH STAGE ASKS A PLAYER TO AGREE TO, in the order it
@@ -97,23 +98,23 @@ export const AGREEMENTS = Object.freeze({
 
 /** What each box agrees to, and where that document is read. */
 export const AGREEMENT_SPEC = Object.freeze({
-  terms: { label: 'Terms of Service', url: TERMS_URL },
-  privacy: { label: 'Privacy Policy', url: PRIVACY_URL },
+  terms: { get label() { return t('account.agree.terms', 'Terms of Service'); }, url: TERMS_URL },
+  privacy: { get label() { return t('account.agree.privacy', 'Privacy Policy'); }, url: PRIVACY_URL },
 });
 
 /** THE CLIENT'S OWN REFUSALS - the ones the service cannot make,
  *  because it never sees them. `confirm` is not sent anywhere: the
  *  service takes one password and has no idea a second box existed. */
-export const LOCAL_REFUSALS = Object.freeze({
-  'confirm-mismatch': 'Those two passwords are not the same.',
-  'handle-shape': 'A username is one word, 3 to 24 characters, starting with a letter, and no spaces.',
-  'password-short': `A password is at least ${PASSWORD_MIN_LEN} characters.`,
-  'code-empty': 'Type the recovery code you were given.',
-  'password-empty': 'Type your password.',
-  'handle-empty': 'Type your username.',
+export const LOCAL_REFUSALS = localizedTable({   // L10N4: each a getter, read when it is said
+  'confirm-mismatch': () => t('account.local.confirmMismatch', 'Those two passwords are not the same.'),
+  'handle-shape': () => t('account.local.handleShape', 'A username is one word, 3 to 24 characters, starting with a letter, and no spaces.'),
+  'password-short': () => t('account.local.passwordShort', 'A password is at least {min} characters.', { min: PASSWORD_MIN_LEN }),
+  'code-empty': () => t('account.local.codeEmpty', 'Type the recovery code you were given.'),
+  'password-empty': () => t('account.local.passwordEmpty', 'Type your password.'),
+  'handle-empty': () => t('account.local.handleEmpty', 'Type your username.'),
   // TERMS1: one sentence a box, naming the document - "tick the boxes" under two boxes says nothing about which
-  'terms-unticked': 'Read and agree to the Terms of Service to create an account.',
-  'privacy-unticked': 'Read and agree to the Privacy Policy to create an account.',
+  'terms-unticked': () => t('account.local.termsUnticked', 'Read and agree to the Terms of Service to create an account.'),
+  'privacy-unticked': () => t('account.local.privacyUnticked', 'Read and agree to the Privacy Policy to create an account.'),
 });
 
 /**
@@ -279,7 +280,7 @@ export function AccountFlow({ io, storage, onChange = () => {} }) {
     if (self.stage !== 'in') return;
     self.patreonWaiting = true;
     self.error = '';
-    self.note = 'Finish on Patreon, then come back here.';
+    self.note = t('account.flow.patreonFinish', 'Finish on Patreon, then come back here.');
     changed();
   };
 
@@ -302,7 +303,7 @@ export function AccountFlow({ io, storage, onChange = () => {} }) {
     self.patreon = d.patreon ?? null;
     if (self.patreonWaiting && self.patreon?.linked && (!was?.linked || String(was.titles) !== String(self.patreon.titles))) {
       self.patreonWaiting = false;
-      self.note = self.patreon.titles?.length ? 'Patreon linked. Wear your title under Title.' : 'Patreon linked. Your title arrives when your pledge holds one.';
+      self.note = self.patreon.titles?.length ? t('account.flow.patreonLinkedTitle', 'Patreon linked. Wear your title under Title.') : t('account.flow.patreonLinked', 'Patreon linked. Your title arrives when your pledge holds one.');
     }
     changed();
     return true;
@@ -322,7 +323,7 @@ export function AccountFlow({ io, storage, onChange = () => {} }) {
       self.patreon = r.data.patreon ?? null;
       self.patreonWaiting = false;
       self.busy = false;
-      self.note = 'Patreon unlinked.';
+      self.note = t('account.flow.patreonUnlinked', 'Patreon unlinked.');
       adoptIdentity(storage, { glyphs: r.data.glyphs, glyphsOff: r.data.glyphsOff, aura: auraStated(r.data), secret: asked });   // a lapsed tier's glyph off my own screen at once
       changed();
       return true;
@@ -363,7 +364,7 @@ export function AccountFlow({ io, storage, onChange = () => {} }) {
       // in the same breath as the refusal would have.
       self.wardrobe = { ...(self.wardrobe ?? {}), titles: r.data.titles, title: r.data.title, glyphs: r.data.glyphs, ...glyphHalf(r.data), ...auraHalf(r.data) };   // WB9g: the auras ride the same answer
       self.busy = false;
-      self.note = want ? `Wearing ${want}.` : 'Title removed.';
+      self.note = want ? t('account.flow.wearing', 'Wearing {what}.', { what: want }) : t('account.flow.titleRemoved', 'Title removed.');
       adoptIdentity(storage, { glyphs: r.data.glyphs, glyphsOff: r.data.glyphsOff, aura: auraStated(r.data), secret: asked });   // WB9g: my own screen's word, from the answer (AUDIT B4: into the session that asked)
       changed();
       return true;
@@ -389,7 +390,7 @@ export function AccountFlow({ io, storage, onChange = () => {} }) {
       if (!r.ok) return refuse(accountRefusalText(r.error));
       self.wardrobe = { ...(self.wardrobe ?? {}), titles: r.data.titles, title: r.data.title, glyphs: r.data.glyphs, glyphsOff: r.data.glyphsOff ?? [], ...auraHalf(r.data) };   // absent is none
       self.busy = false;
-      self.note = on ? 'Glyph shown.' : 'Glyph hidden.';
+      self.note = on ? t('account.flow.glyphShown', 'Glyph shown.') : t('account.flow.glyphHidden', 'Glyph hidden.');
       adoptIdentity(storage, { glyphs: r.data.glyphs, glyphsOff: r.data.glyphsOff, aura: auraStated(r.data), secret: asked });   // my own screen's word: the shown glyphs dress my werewolf
       changed();
       return true;
@@ -422,7 +423,7 @@ export function AccountFlow({ io, storage, onChange = () => {} }) {
       if (!r.ok) return refuse(accountRefusalText(r.error));
       self.wardrobe = { ...(self.wardrobe ?? {}), titles: r.data.titles, title: r.data.title, glyphs: r.data.glyphs, ...glyphHalf(r.data), ...auraHalf(r.data) };
       self.busy = false;
-      self.note = want ? `Wearing ${want}.` : 'Aura removed.';
+      self.note = want ? t('account.flow.wearing', 'Wearing {what}.', { what: want }) : t('account.flow.auraRemoved', 'Aura removed.');
       adoptIdentity(storage, { glyphs: r.data.glyphs, glyphsOff: r.data.glyphsOff, aura: auraStated(r.data), secret: asked });
       changed();
       return true;
@@ -557,7 +558,7 @@ export function AccountFlow({ io, storage, onChange = () => {} }) {
     const r = await ask(() => changePassword(door(), pw('oldPassword'), pw('password')));
     if (!r) return false;
     if (!r.ok) return refuse(accountRefusalText(r.error));
-    go('in', { note: 'Your password was changed. Every other device has been signed out.' });
+    go('in', { note: t('account.flow.passwordChanged', 'Your password was changed. Every other device has been signed out.') });
     return true;
   }
 
@@ -586,7 +587,7 @@ export function AccountFlow({ io, storage, onChange = () => {} }) {
       self.wardrobe = null;
       self.patreon = null; self.patreonWaiting = false;   // PATREON-LINK
       self.busy = false;
-      go('out', { note: all ? 'Signed out everywhere.' : 'Signed out.' });
+      go('out', { note: all ? t('account.flow.signedOutAll', 'Signed out everywhere.') : t('account.flow.signedOut', 'Signed out.') });
     }
   };
 

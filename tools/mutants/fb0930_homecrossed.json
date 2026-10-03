@@ -65,7 +65,7 @@
   {
     "name": "HOME-CROSSED-the-refusal-unsaid",
     "file": "src/net/accountClient.js",
-    "old": "  'home-crossed': 'That came into the realm through customs. The bank of the Empire does not buy it back. It stays your home.',\n",
+    "old": "  'home-crossed': () => t('account.refusal.homeCrossed', 'That came into the realm through customs. The bank of the Empire does not buy it back. It stays your home.'),\n",
     "new": "",
     "tests": [
       "test/fb0930_homecrossed.test.js"
@@ -74,7 +74,7 @@
   {
     "name": "HOME-CROSSED-busy-unsaid",
     "file": "src/net/accountClient.js",
-    "old": "  busy: 'Your last dealing with the realm is still being settled. Try again in a moment.',\n",
+    "old": "  busy: () => t('account.refusal.busy', 'Your last dealing with the realm is still being settled. Try again in a moment.'),\n",
     "new": "",
     "tests": [
       "test/fb0930_homecrossed.test.js"

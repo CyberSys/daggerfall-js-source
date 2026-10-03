@@ -29,8 +29,8 @@
   {
     "name": "MARKET-KEEP-the-words",
     "file": "src/net/accountClient.js",
-    "old": "It stays in your pack - a piece from your pack sells for gold.',",
-    "new": "It is gone.',",
+    "old": "It stays in your pack - a piece from your pack sells for gold.'),",
+    "new": "It is gone.'),",
     "tests": [
       "test/fb1001_market.test.js"
     ]

@@ -3150,8 +3150,8 @@
   {
     "name": "AUDIT-WB12d-the-refusal-s-breaches",
     "file": "src/net/accountClient.js",
-    "old": "short: 'Your account has too few embers for that.',",
-    "new": "short: 'Your account has too few breaches closed for that.',",
+    "old": "short: () => t('account.refusal.short', 'Your account has too few embers for that.'),",
+    "new": "short: () => t('account.refusal.short', 'Your account has too few breaches closed for that.'),",
     "tests": [
       "test/wb12a_breach_words.test.js",
       "test/wb9g_insignia.test.js"

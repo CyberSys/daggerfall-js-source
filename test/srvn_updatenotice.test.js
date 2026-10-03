@@ -242,8 +242,8 @@ test('SRV-N: the host wires BOTH arms and puts a notice on EVERY tab - the prese
   assert.match(w, /link\.onRelay\s*=\s*onRelayVersion/, 'every chat link hears the relay - a channel\'s welcome is the only one it gets');
   assert.match(w, /online\.onRelay\s*=\s*onRelayVersion/, 'and so does the presence session, which is usually first back after a deploy');
   assert.match(w, /relayVersionSeen\(v\)\s*===\s*'changed'/, 'ONE detector behind both arms, or two sockets say it twice');
-  assert.match(w, /chatNotice\(RELAY_RESTART_TEXT\)/);
-  assert.match(w, /chatNotice\(BUILD_UPDATE_TEXT\)/);
+  assert.match(w, /chatNotice\(relayRestartText\(\)\)/);   // L10N4 (PIN MOVED): RELAY_RESTART_TEXT through its reader, in the player's language
+  assert.match(w, /chatNotice\(buildUpdateText\(\)\)/);
   // A NOTICE IS NOT A ROOM'S EVENT. It is kept on every one of the log's
   // tabs rather than pushed to the active one, so a later row in CHAT_TABS
   // gets it for free and a player reading one tab is never guessing.

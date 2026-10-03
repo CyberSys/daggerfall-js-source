@@ -1154,7 +1154,7 @@
   {
     "name": "PROF11-door-sculptor-unworded",
     "file": "src/net/accountClient.js",
-    "old": "  'prof-sculptor': 'Only a Sculptor carves stone decor - Masonry\\'s choice at 100.',   // PROF11\n",
+    "old": "  'prof-sculptor': () => t('account.refusal.profSculptor', 'Only a Sculptor carves stone decor - Masonry\\'s choice at 100.'),   // PROF11\n",
     "new": "",
     "tests": [
       "test/prof11_service.test.js",

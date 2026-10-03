@@ -218,7 +218,7 @@
   {
     "name": "NOTICE1-25-a-refusal-without-words",
     "file": "src/net/accountClient.js",
-    "old": "  'notes-full': `You have ${NOTES_LIVE_MAX} notes up already. Take one down first.`,\n",
+    "old": "  'notes-full': () => t('account.refusal.notesFull', 'You have {max} notes up already. Take one down first.', { max: NOTES_LIVE_MAX }),\n",
     "new": "",
     "tests": [
       "test/notice1.test.js"
