@@ -841,3 +841,24 @@ this tree does not hold - their last runs are ARENA-FIX's and ARENA3's.
 60 seats a watcher on the city's sand sees no exhibition. The wardens' posts are not where the watch comes from (DFU's
 own law). Team-vs-team battles, Marks wagers on players' bouts and a mounted joust stay recorded, not built (the page's
 own list).
+
+## AUDIT PRE-MERGE 1003 (2026-10-03) - what the audit changed in the arena's law
+
+Mac: *"I want to do a comprehensive audit over it and make sure its perfect"*. Every finding and its fix is
+`01-Overview/Audit-PreMerge-1003.md`; what it changed in the arena's own rules, here:
+
+- **The bout's clock is the world's** (B1): a pause, a window or a hidden tab runs no bout's time, stall or yield.
+- **The sand is no place to fix a bout** (B2): a blow from the stands on an exhibition's fighter is made good; the
+  Herald warns, then the watch.
+- **The book** (B3, B4, O3): leave an exhibition after its word and the bookmaker keeps the stake whoever led; no wager
+  on an hour seen (offline, the verdict seen here; online, any word of its fight heard); the Herald never stages an hour
+  again once its word is given; no price shorter than 1 to 5 - a fighter likelier than that is not laid.
+- **The spare** (B5) holds from the word to the healers - a blow in flight after a yield or a fall kills nobody.
+- **Online** (S1-S8, O1-O10): a seat is a socket's once; a level, signed or claimed, is held to the tier's cap; a rated
+  bout's vitality is the token's Renown level; a kept bout pays only its own receipt (`reused` otherwise); a fighter
+  back inside the keep hears the end and the receipt; the healers' heal stands; online is the session's fact, never the
+  socket's this frame; the arena's own links are ticked; a tab that lost its seat leaves the arena.
+- **The floor's instance stands on the city's paving** (W1, `ARENA_GROUND_MODEL` 864103), walled at the cell's edge and
+  the passage's mouth, and **a third way out** stands at that mouth, where the Herald stands in the city.
+- **The deploy moved** (M1): the account service is acct72, its migrations `0073_home_layout`, `0074_arena`,
+  `0075_arena4b` (main's SILVER-WAYS took acct71 and 0071-0072); the relay stays world155, hashed again in place.
