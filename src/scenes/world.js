@@ -21967,7 +21967,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     arenaBusy: () => arenaBouts.holds() || !!arenaBouts.pending(),
     arenaPlayerSpare: () => arenaBouts.playerSpare(),
     arenaHolds: () => arenaBouts.holds(),
-    arenaFloorBanners: () => arenaBouts.floorBanners(),   // ARENA5: the banners the floor's instance hangs for the bout asked
+    arenaFloorBanners: () => arenaBouts.floorBanners(), drawSky: (yaw, pitch, fov, aspect, vp) => { sky.draw(yaw, pitch, fov, aspect, vp); renderer.markForeignPass(); },   // ARENA5: the banners the floor's instance hangs for the bout asked; HOTFIX 1003l: the sky over the arena's floor (its programs ran behind the renderer's shadows)
     arenaLanding: () => {
       const at = arenaHeraldAt();
       if (!at) return null;

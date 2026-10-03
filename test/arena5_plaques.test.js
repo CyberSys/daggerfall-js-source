@@ -167,7 +167,7 @@ test('ARENA5 the wall\'s words and wiring: a plaque reads its champion - name, b
   assert.match(M, /standArenaWall\(ctx, dfLocation\)\.catch\(\(\) => \{\}\);/, 'stood at the mount');
   assert.match(M, /const plan = hallPlaquePlan\(ctx\.arenaHall, \(o, d, m\) => ctx\.collider\?\.raycast\?\.\(o, d, m\) \?\? Infinity\);/, 'about the Keeper, in the level\'s collider');
   assert.match(M, /for \(const p of w\.plaques\) renderer\.drawMesh\(p\.k < n \? w\.gpu\.cut : w\.gpu\.bare, p\.matrix, null\);/, 'a champion\'s board for each name');
-  assert.match(M, /drawArenaWall\(\);   \/\/ ARENA5/, 'drawn on the dungeon\'s pass');
+  assert.match(M, /drawArenaWall\(\);[^\n]*\/\/ ARENA5/, 'drawn on the dungeon\'s pass');   // HOTFIX 1003l: the floor's sky after it on its line
   assert.match(M, /if \(key\.startsWith\('plaque:'\)\) \{ readPlaque\(key\); return true; \}/, 'pressed');
   assert.match(M, /say\(c \? U\.plaqueLine\(c\.name, c\.banner \? ARENA_TEXT\.teams\.the\[c\.banner\] \?\? '' : '', c\.season\) : U\.hallNone\);/, 'its line, or the stone\'s');
   assert.match(M, /ctx\.addActivationTargets\(\(\) => arenaWallLive\(\)\?\.plaques\.map/, 'in the ray');
