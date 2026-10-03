@@ -424,11 +424,11 @@ export function mineKind({ book, lodes = null, marks = null }) {
       if (typeof key === 'string' && key.startsWith('mlode:')) lodes?.refused?.(key, error);
     },
     /** PROF2b: a Motherlode's answer - the find and its count told to the Motherlodes' book, its silver said. */
-    answered(d, toast) {
+    answered(d, toast, o = {}) {
       if (!d?.motherlode) return;
       lodes?.heard?.(d);
-      const line = d.marks ? marks?.strikeLine?.(d.marks) ?? null : null;
-      if (typeof line === 'string' && line) toast(line);
+      const line = d.marks ? marks?.strikeLine?.(d.marks) ?? null : null;   // the balance kept either way
+      if (typeof line === 'string' && line && o?.hauled !== true) toast(line);   // HAUL-CARDS: its card says the silver
     },
     cleanNote: () => ' (every strike on the glint)',
     title: () => 'Miner',

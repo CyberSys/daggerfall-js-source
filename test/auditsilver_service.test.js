@@ -211,10 +211,14 @@ test('AUDIT SILVER-WAYS B1: a claim reads past the contracts it may be paid by -
     }
     return batch(list);
   };
-  const [x, y] = await Promise.all(pair.map((w) => s.raid(w, raidKey(DF, 70))));
+  const answers = await Promise.all(pair.map((w) => s.raid(w, raidKey(DF, 70))));
   db.prepare = prepare; db.batch = batch;
-  assert.deepEqual(x.body.contracts.map((c) => c.pay + c.tax), [50, 50, 50], 'the first: the three best, each its last deed');
-  assert.deepEqual(y.body.contracts.map((c) => c.contract), [next.body.contract.id], 'the second: the next, read past the three');
+  // HAUL-CARDS (FOUND - the full suite's load): which held batch the barrier lets go first is the scheduler's, so the
+  // pin reads the pair by what each was paid, not by who asked first
+  const paid = answers.map((r) => r.body.contracts ?? []);
+  const first = paid.find((p) => p.length === 3), second = paid.find((p) => p !== first);
+  assert.deepEqual(first?.map((c) => c.pay + c.tax), [50, 50, 50], `one claim the three best, each its last deed: ${JSON.stringify(paid)}`);
+  assert.deepEqual(second?.map((c) => c.contract), [next.body.contract.id], 'the other the next, read past the three');
   assert.ok(s.addsUp());
 });
 
