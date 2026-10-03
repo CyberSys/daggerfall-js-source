@@ -67,15 +67,15 @@ const HEARTH_ROWS = Object.freeze([Object.freeze({ key: 'rest', text: CAMP_TEXT.
  *          hearths() -> [{x, y, z}] (HEARTH1: the world's own cooking fires in the host's frame - the braziers
  *            and fire bowls survival/hearth.js picks out of the lantern list the host already builds; a host
  *            that passes none has none, which is what every caller did before this),
- *          fieldCook() (PROF9: whether the player stands as a Field Cook - a Campfire Kit lit spends no charge,
- *            Professions-Arc 3.3; a host that passes none never keeps one) }
+ *          fieldCook() (PROF9: whether the player stands as a Field Cook - a night at their own Campfire spends no
+ *            fuel, Professions-Arc 3.3 under REST2; a host that passes none never keeps one) }
  */
 export function createCamps({
   renderer = null, getTexture = null, uploadRecordFrame = null, meshes = null, entity = null,
   camera = () => null, collider = () => null, place = () => ({}), pixelKeyAt = () => null,
   say = () => {}, showOverlay = null, openRest = null, advanceMinutes = null, selfId = () => null, onChanged = null,
   hearths = null,   // HEARTH1: the host's own braziers and fire bowls, in the host's frame - see below
-  fieldCook = null,   // PROF9: a Field Cook's kit keeps its charge (survival/camp.js placeCampItem `keep`)
+  fieldCook = null,   // PROF9: a Field Cook's own Campfire keeps its fuel (survival/camp.js spendCampNight)
 } = {}) {
   const camps = [];   // { rec, batch, anim, pixelKey, mine }
   let _nextId = 0;
@@ -211,7 +211,6 @@ export function createCamps({
       // camp under a walkway still finds the walkway.
       probe: groundProbe(col),
       place: place?.() ?? {}, standing: own().length, id: `${selfId?.() ?? 'me'}:${++_nextId}:${Math.trunc(now())}`,
-      keep: fieldCook?.() === true,   // PROF9: a Field Cook lights a kit's fire without its charge (Professions-Arc 3.3)
     });
     if (r.text) say(r.text);
     if (!r.ok) return false;
@@ -414,7 +413,8 @@ export function createCamps({
     return win;
   }
   /** REST2: a night slept at your own camp in reach spends one of its charges (camp.js spendCampNight) - the
-   *  Campfire's fuel, the tent's wear - and says so when the last is gone. A friend's fire costs you nothing. */
+   *  Campfire's fuel, the tent's wear - and says so when the last is gone. A friend's fire costs you nothing, and a
+   *  Field Cook's own Campfire nothing (PROF9). */
   function spendNightNear(pos) {
     if (!pos) return false;
     let best = null, bestD = BY_FIRE_REACH;
@@ -429,7 +429,8 @@ export function createCamps({
       if (spendCharge(_bedroll.item, _bedroll.list)) { say(REST_ITEM_TEXT.bedrollWorn); _bedroll = null; }
       return true;
     }
-    const r = spendCampNight(best.rec, now());
+    const r = spendCampNight(best.rec, now(), fieldCook?.() === true);
+    if (r.kept) return true;
     if (!r.spent) return false;
     if (r.empty) { say(best.rec.jar ? CAMP_TEXT.embersOut : best.rec.kind === CAMP_KIND.Fire ? CAMP_TEXT.outOfFuel : CAMP_TEXT.campWorn); unmount(best); }
     onChanged?.();

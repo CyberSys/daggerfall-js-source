@@ -723,7 +723,7 @@ Mac: "Go" - every recommendation of section 15 taken. Slices REST1-REST6 and RES
   charge (survival/camp.js placeCampItem `keep`), and REST2 spends no charge on any placing - the option is accepted
   and changes nothing, PROF9's two mutants on it are retired and its pin re-aimed; **the perk needs a new meaning
   (Mac's call)** - e.g. a Field Cook's Firewood feeds four nights, or a night at their own Campfire spends none one
-  time in three.
+  time in three. [DECIDED below, the same day: a night at their own Campfire spends none, every night.]
 - 2026-10-03: origin/main merged in (#553 REL7, #550 HAUL-CARDS - its silver pin, read by what each claim was paid,
   is the full suite's load flake this branch's gate met). The mutation run's three arc-blinded mutants fixed (AUDIT
   REST-PARTY, "The mutation run").
@@ -733,3 +733,11 @@ Mac: "Go" - every recommendation of section 15 taken. Slices REST1-REST6 and RES
   `ONLINE_DEADLINES` exemption in `isDeadline`, both kept. Its pin assumed TIMEFREE's frozen deadline (a hundred unpaid
   hours online leave The Bodyguard open); with REST8 a deadline runs on the world's clock, so the unpaid `_timer_` runs
   out after its day and three hours, as DFU's - the pin now steps twenty unpaid hours, and pins that run-out too.
+- 2026-10-03: THE FIELD COOK GIVEN AGAIN (Mac: "Do whatever you think fits best"). DECIDED: the faithful carry - PROF9
+  made a Campfire Kit's lighting free, and REST2 moved that charge from the lighting to the night, so **a Field Cook's
+  night at their own Campfire spends no fuel** (`survival/camp.js` fieldCookKeeps and spendCampNight's `fieldCook`,
+  `scenes/camps.js` spendNightNear). A Campfire's alone: an Ember Jar's one night and a tent's wear spend as ever (a
+  tent wore under PROF9 too), and an old save's kit fire has no fuel of its own to keep. One kit, every night - what a
+  Field Cook had before REST. No relay or account-service change: the service validates the spec's id, and its
+  description is the client's (`net/professionLaw.js`, "A night at your own Campfire spends no fuel."). The dead
+  `keep` option leaves placeCampItem. Pinned in `test/prof9_client.test.js` (the law and the pool), seven mutants dead.

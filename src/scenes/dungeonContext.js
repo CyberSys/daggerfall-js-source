@@ -3468,7 +3468,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     say: (l) => hudText.add(l), showOverlay: (w) => pushDungeonWindow(w), openRest: () => { activeOverlay = null; api.toggleRest?.(); },   // the picker leaves the slot first
     advanceMinutes: (n) => _restAdvance(n),
     selfId: () => opts.selfId?.() ?? null, onChanged: () => { const c = camps.wireRecords(); opts.onActions?.({ k: _locationKey, c: c.length ? c : [] }); },   // an empty list says "none stand" - the room drops mine
-    fieldCook: () => opts.fieldCook?.() === true,   // PROF9: a Field Cook's kit keeps its charge (Professions-Arc 3.3)
+    fieldCook: () => opts.fieldCook?.() === true,   // PROF9: a Field Cook's own Campfire keeps its fuel (Professions-Arc 3.3)
   });
   /** SURV3: the room's memory of its camps - every camp standing, each with its owner (`o`). */
   const campMemory = () => camps.camps.map((c) => ({ ...campWire(c.rec), o: c.owner ?? (opts.selfId?.() ?? 'host') }));

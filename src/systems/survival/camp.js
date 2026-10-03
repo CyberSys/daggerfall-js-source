@@ -161,10 +161,17 @@ export function stokeFire(camp, from) {
  *  peer's camps still go with their owner (scenes/camps.js sweepOwners). */
 export const campExpired = (camp, now) => camp?.kind === CAMP_KIND.Fire && !camp.fuel && !fireLit(camp, now);   // REST6: a fire with no fuel of its own - an Ember Jar's, AUDIT REST F12: an old save's kit fire - goes with its embers
 
+/** PROF9's Field Cook (Professions-Arc 3.3) under REST2: the charge a kit's lighting spent is a night's fuel now, so a
+ *  Field Cook's night at their own Campfire spends none - a Campfire's alone (an Ember Jar's one night and a tent's
+ *  wear spend as ever, as a tent's did), and an old save's kit fire (no fuel of its own) has none to keep. */
+export const fieldCookKeeps = (camp) => camp?.kind === CAMP_KIND.Fire && !!camp.fuel && !camp.jar;
+
 /** REST2: a night its owner slept at it spends one charge (a Campfire's fuel, a tent's wear). A Campfire whose last
- *  charge is spent goes cold. Answers { spent, empty } - nothing at all for a camp with none to spend. */
-export function spendCampNight(camp, now) {
+ *  charge is spent goes cold. Answers { spent, empty, kept } - nothing at all for a camp with none to spend; `kept`
+ *  for a Field Cook's own Campfire (`fieldCook`, fieldCookKeeps), which spends nothing. */
+export function spendCampNight(camp, now, fieldCook = false) {
   if (!camp || (camp.wear | 0) <= 0) return { spent: false, empty: true };
+  if (fieldCook && fieldCookKeeps(camp)) return { spent: false, empty: false, kept: true };
   camp.wear = (camp.wear | 0) - 1;
   const empty = camp.wear <= 0;
   if (empty) camp.litUntil = now;   // AUDIT REST F8: the last night leaves a tent cold too - nothing left to stoke
@@ -174,12 +181,11 @@ export function spendCampNight(camp, now) {
 /**
  * USE the placeable off the pack: the decision, the item off `list`
  * with its uses riding the record (REST2: none spent), the record. `ctx` =
- * { now, owner, feet, yaw, probe, place, standing (this owner's count), id,
- *   keep (PROF9's Field Cook - a kit lit without its charge spent, Professions-Arc 3.3; REST2 spends no charge on any
- *   placing, so it changes nothing here - kept for its callers, the perk's meaning is Mac's to give again) }.
+ * { now, owner, feet, yaw, probe, place, standing (this owner's count), id } - REST2 spends no charge on any placing
+ *   (PROF9's Field Cook keeps a night's fuel instead: spendCampNight).
  * Returns { ok, text, camp, spent }.
  */
-export function placeCampItem(item, list, { now = 0, owner = null, feet = [0, 0, 0], yaw = 0, probe = null, place = {}, standing = 0, id = null, keep = false } = {}) {   // `keep`: PROF9's, moot under REST2 (above)
+export function placeCampItem(item, list, { now = 0, owner = null, feet = [0, 0, 0], yaw = 0, probe = null, place = {}, standing = 0, id = null } = {}) {
   const jar = isEmberJar(item);   // REST6: one night's fire, EMBER_JAR_MINUTES lit, never picked up
   const kind = isCampingEquipment(item) ? CAMP_KIND.Tent : isCampfireKit(item) || jar ? CAMP_KIND.Fire : null;
   if (!kind) return { ok: false, text: null, camp: null, spent: false };

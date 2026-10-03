@@ -5756,10 +5756,10 @@ export async function bootWorld(canvas, renderer, params, status) {
     openRest: () => { townTalk.closeOverlay(); toggleRest(); },   // the menu's picker leaves the slot first (toggleRest refuses under a window); SURV4 takes the camp's own rest law from here
     advanceMinutes: (n) => { playerTicker.advance(n); runEncounterTick(walkMode && playerSpawned ? player.pos : cam.pos, true); },   // the cook's minutes pass - online on the character's own clock (LIVED1)   // CAMP-REST: spent through the tick as a skip, never replayed as walking time (no group roll)
     selfId: () => online?.id ?? null, onChanged: () => { _foesFullAt = -Infinity; },   // a change asks for a full frame, which carries the camps
-    fieldCook: () => fieldCookNow(),   // PROF9: a Field Cook's kit keeps its charge
+    fieldCook: () => fieldCookNow(),   // PROF9: a Field Cook's own Campfire keeps its fuel
   });
   /** PROF9 (bible/06-Systems/Professions-Arc.md 3.3): whether the player stands as a Field Cook - online, the professions
-   *  the account's, Cooking's choice at 50 - so a Campfire Kit lights without its charge spent (survival/camp.js `keep`). */
+   *  the account's, Cooking's choice at 50 - so a night at their own Campfire spends no fuel (survival/camp.js spendCampNight). */
   const fieldCookNow = () => profBook?.state?.open === true && profBook.track('cooking')?.specs?.[50] === 'field-cook';
   /** PROF9 (professionLaw COOK_FIRE): THE FIRE THE PLAYER STANDS AT for Cooking - on the street and in the wilderness any
    *  lit camp or the world's own brazier within C&C's reach of its flame (camps.js fireNear, the world's fire in every
@@ -21034,7 +21034,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     currentRegionIndex: () => _questRegionIndex(),   // UL1: PlayerGPS.CurrentRegionIndex for the mode machine's mods
     climateIndex: () => maps.getClimateIndex(playerTravelPixel().x, playerTravelPixel().y),   // SURV5: PlayerGPS.CurrentClimateIndex, for the tavern's menu
     survivalEnv: () => survivalEnvNow(),   // SURV7: the interior ticker's and the dungeon's env; each overrides the flags it owns
-    fieldCook: () => fieldCookNow(),   // PROF9: a Field Cook's kit keeps its charge underground too
+    fieldCook: () => fieldCookNow(),   // PROF9: a Field Cook's own Campfire keeps its fuel underground too
     currentLocation: () => _questLoc(),              // UL1: PlayerGPS.CurrentLocation
     // AUDIT 62 F8 (review): THE FINGER'S PRESS, published. worldModes
     // owns the interior and world-hosted-dungeon activate gate and has
