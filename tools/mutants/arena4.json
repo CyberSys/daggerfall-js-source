@@ -942,7 +942,7 @@
   {
     "name": "ARENA4-BOARD-OFFER-PRESSES",
     "file": "src/systems/arenaBoard.js",
-    "old": "acts = [{ act: 'accept', label: O().accept, why: null }, { act: 'decline', label: O().decline, why: null }];",
+    "old": "acts = left > 0 ? [{ act: 'accept', label: O().accept, why: null }, { act: 'decline', label: O().decline, why: null }] : [];",
     "new": "acts = [];",
     "tests": [
       "test/arena4_client.test.js"
