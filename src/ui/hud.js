@@ -50,6 +50,7 @@ import { getBool } from '../systems/settings.js';   // AUDIT 28 W2: EnableArrowC
 import { getItem, isSummoned, ARROW_TEMPLATE } from '../systems/inventory.js';   // AUDIT 28 W2: GetItem(Arrow, priorityToConjured)
 import { EQUIP_SLOTS } from '../systems/equip.js';   // AUDIT 28 W2: the bow hand
 import { nativeMetrics } from './nativePanel.js';
+import { uiCanvas, onUiScreen } from './uiScreen.js';   // RETRO-UI: the HUD in the pillarbox, as DFU's CustomScreenRect lays it
 import { frameMark } from '../systems/frameClock.js';   // DISC22-C: the classic loot panel draws the frame resolved in THIS frame
 import { classicLootFrame } from '../systems/classicLootFrame.js';   // DISC22-C: a leaf - hud.js must not reach the item graph
 import { drawLootPanel } from './classicLootPanel.js';   // DISC22-C: quick loot's classic face
@@ -505,6 +506,10 @@ export function drawHud(renderer, canvas, art, vitals, heading01, dt = 0,
   { font = null, cursorActive = false, reticleHidden = false, windowCoversHud = null, hudHidden = false, detected = null, playerXZ = null, gate = null, quest = null, party = null, ships = null, nodes = null, boats = null, largeHud = null, hover = null,
     grip = null,   // CLIMB2: the enhanced climb's grip, { amount, low } or null
     readied = null, weapon = null, weaponSheathed = true, quickUse = null, quickSwap = null, quickOffHand = null, quickSpell = null, quickSwitchHand = null } = {}) {   // PX30b: for the enhanced HUD's hand plaques; AUDIT 28 W2: the arrow counter's gate; AUDIT 64 F35: the host's previousWindow answer; QS3: the diamond's sheathe state and its two phone taps; QS6: the caption's spell chip press
+  // RETRO-UI (FIELD BUGS 2026-10-03): under retro mode's pillarbox the HUD lays out in DFU's CustomScreenRect - the
+  // pillarbox's canvas, drawn at its place (ui/uiScreen.js) - not over the black bars. Once: a UI canvas answers itself.
+  const ui = uiCanvas(canvas);
+  if (ui !== canvas) return onUiScreen(renderer, ui, () => drawHud(renderer, ui, art, vitals, heading01, dt, arguments[6]));
   // AUDIT 24 (wave 39): ShowPlayerDamage's red flash, under the bars.
   // THE FOUR HOSTS RULE, applied before the fact: drawHud is the one
   // host-agnostic call all four make, "last, over the viewmodel", so

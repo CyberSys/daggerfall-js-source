@@ -97,7 +97,8 @@ Each is quoted where the code keeps it, beside the line it decided.
 2. **Stood** the first time the hunter stands on its pixel in the open (or inside its dungeon): 4 to 8 of ONE beast,
    60 to 110 metres out on a random bearing, and a line names how far and which way. The open-ground pack stands
    through the camp's own stand (the world host's `_standCampEncounter` - one home for a group in the wilderness:
-   the anchor on the terrain's floor, off roads, out of town rects and the sea, the camp's 60 m sight, one camp id so
+   the anchor on the terrain's floor, off roads, out of town rects and the sea, never inside a rock - BOUNTY-ROCK, FIELD
+   BUGS 2026-10-03: the collider's point-in-solid over every spot, the trail's and the farm's too - the camp's 60 m sight, one camp id so
    one member's alarm wakes the rest and they spare each other), fixed at the posting's count, `loose` (a board's
    hunt is not the encounter roll's to refuse) and `transient` (never saved).
 3. **Counted** as corpses fall - a beast culled (walked 200 m from) or lost to a reload is no kill, and only what is

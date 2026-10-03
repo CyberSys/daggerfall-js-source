@@ -74,7 +74,7 @@ and the lightning's minimum width (the world image's height,
 
 ## Recorded departures (Ledger A, RETRO1)
 
-- **The 2D layer keeps the whole canvas.** DFU hands the pillarboxed
+- **The native windows keep the whole canvas.** DFU hands the pillarboxed
   rect to DaggerfallUI as `CustomScreenRect` (:138-140): every HUD
   element, window (scaled freely, DaggerfallBaseWindow.cs:85), the
   weapon, the horse, the casting hands (FPSSpellCasting.cs:88-89), the
@@ -82,19 +82,28 @@ and the lightning's minimum width (the world image's height,
   lay out inside the pillarbox - as the presenter's ViewportChanger sets
   it (:140); the main camera's sets it null every frame (:47-50), and at
   one execution order Unity does not say which runs last (AUDIT RETRO1's
-  second pass, H2), so DFU's own UI may not always be pillarboxed. Here
-  only the world is pillarboxed - NARROWED by DISC25-B (2026-09-25,
-  kurkku: "hands on the enhanced map sprite go over the black bars in
-  retro mode"): the enhanced held map stands inside the pillarbox now,
-  its whole-window root inset to `retroScreenRect` (CustomScreenRect,
-  :139-140, cut from the world rect's own pillar) in the painted lane;
-  the Morrowind arm's lane keeps the canvas (C2). Everything else in the
-  2D layer still takes the whole canvas - so
-  a docked bar is the canvas's width, taller than DFU's (its bar is the
-  pillarbox's width * 46/320: at 1920x1080 in 4:3, 276 px against 207),
-  and the world strip above it is wider for its height than DFU's
-  (1.791 against 1.649; in 16:10 the 320x154 image is stretched 3.4%
-  where DFU shows it at its own shape) (AUDIT RETRO1 A2).
+  second pass, H2), so DFU's own UI may not always be pillarboxed. The
+  port pillarboxed the world alone until two narrowings: DISC25-B
+  (2026-09-25, kurkku: "hands on the enhanced map sprite go over the
+  black bars in retro mode") stood the enhanced held map inside it, its
+  root inset to `retroScreenRect` in the painted lane; and RETRO-UI
+  (FIELD BUGS 2026-10-03, Skibbster: "Retro mode aspect ratio doesn't
+  include weapon sprite, UI etc etc") the canvas's whole 2D layer of
+  play - the classic HUD and the large HUD (drawHud), the weapon and its
+  widgets, the casting hands, the climbing hands, the torch hand and the
+  Thunderlock (the weapon rig), the horse (the mount rig) - laid out on
+  a canvas of `retroScreenRect`'s size and drawn at its place through
+  the renderer's screen offset (`ui/uiScreen.js`), its clicks and hovers
+  mapped back; and the enhanced HUD's root inset to the pillars, the
+  pieces at its edges (the notices, the quest tracker, the status line,
+  the revenant's cards) reading `--ui-pillar`. So a docked bar is the
+  pillarbox's width * 46/320 as DFU's is (AUDIT RETRO1 A2, closed: at
+  1920x1080 in 4:3, 207 px - it was the canvas's 276 - and the world
+  strip above it DFU's shape). What still takes the whole canvas: the
+  classic native windows (their own 320x200 letterbox, integer-scaled
+  and centred, never DFU's free scale), the video, the Morrowind arm's
+  lane (C2) and the enhanced HUD's centred DOM pieces (which need no
+  inset).
 - **No mip bias.** DFU biases GetTexture2D's albedo -0.75 whenever retro
   mode is on (TextureReader.cs:271-274 - the gate is `RetroRenderingMode >
   0`, not `UseMipMapsInRetroMode`; replacements included; its atlases, :521,

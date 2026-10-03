@@ -4,6 +4,7 @@
 import { buildIliac, SEA_LEVEL, INTRO_MAP_W, INTRO_MAP_H } from './introMap.js';
 import { multiply, perspective, lookAt, UP_Y } from '../world/mat4.js';
 import { introCameraAt } from './introCue.js';
+import { loseGlContext, onPageGone } from '../render/glRelease.js';   // GL-LEAK: the intro's context let go with it
 
 const FIELD_SCALE = 0.70;
 const MAX_PIXELS = 900000;
@@ -144,7 +145,10 @@ export function createIntroLandscape(canvas) {
     disposed = true;
     for (const release of allocations.reverse()) release();
     allocations.length = 0;
+    unseat();
+    loseGlContext(gl);   // GL-LEAK: its multisampled buffer goes now, not when the collector reaches the canvas
   };
+  const unseat = onPageGone(dispose);
   try {
     const makeProgram = (vertex, fragment) => {
       const shaders = [];

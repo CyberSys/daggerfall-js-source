@@ -950,14 +950,14 @@ does the pack's USE arm.
                         worldModes.js:2517 (the factory) and :1904 (a
                         HAND-ROLLED second one, 342 lines below it in
                         the same file),
-                        dungeonContext.js:1280, world.js:4884,
+                        dungeonContext.js:1280, world.js:4888,
                         exterior.js:2646. It is the only window TWO
                         enhanced screens already push - the sheet's
                         button and the pack's USE hand-off, whose
                         close-then-hand-over ordering U55 got
                         backwards. No law needs extracting first.
     THE LOGBOOK         THREE sites: charSheetNav.js:53,
-    / NOTEBOOK          world.js:12957, dungeonContext.js:8542. A seam
+    / NOTEBOOK          world.js:12965, dungeonContext.js:8542. A seam
                         wants making, as U52's and U53's did.
     HISTORY             ONE site (charSheetNav.js:61), and it reads
                         only the entity's backStory. The small one.
@@ -7640,7 +7640,7 @@ PX5 (same day, Mac): TIMERS, THE CLOCK, AND MAIN/SIDE. Three asks,
 each grounded in something the port already carries. (1) QUEST
 TIMERS: the world's questLog walk now reports the TIGHTEST RUNNING
 clock per quest - Clock resources carry remainingTimeInSeconds with
-clockEnabled/clockFinished (quest/clock.js:270,164) - and the journal
+clockEnabled/clockFinished (quest/clock.js:292,164) - and the journal
 draws it under the quest name as 'Time remains: N days N hours'
 (hours+min under a day, min alone under an hour), URGENT GOLD below
 one game day, with a gold gem pushed right on the rail row of any
@@ -8636,7 +8636,7 @@ hours, hours with minutes under a day, minutes alone under an hour,
 and never "0 min", because a live clock always has a minute left. The
 threshold is one GAME DAY in seconds, not a guess. The clock is the
 machine's - the TIGHTEST running Clock resource on the quest
-(clockEnabled && !clockFinished, quest/clock.js:270,164) - and all
+(clockEnabled && !clockFinished, quest/clock.js:292,164) - and all
 three log builders walk it identically, world.js twice on purpose (its
 own questLog and the pauseQuestLog worldModes borrows, so the modal
 host's journal shows the same timers the world's does). 1 pin, 5
@@ -8794,7 +8794,7 @@ mutations, 4 dead.
 
 PX24 (Mac: "with the logbook and history, I want them as one detailed
 UI"): THE CHRONICLE. Two classic windows built at four sites -
-questJournal.js from charSheetNav:53, world.js:5342 and
+questJournal.js from charSheetNav:53, world.js:5346 and
 dungeonContext.js, playerHistory.js from charSheetNav:61 - become ONE
 seam (ui/chronicleDoor.js, the U52/U53/PX23 shape a sixth time) and,
 on the enhanced skin, ONE WINDOW.
@@ -9421,7 +9421,7 @@ and firing THAT twice is a second PopToHUD.
 
 ### Why only two of the four hosts crashed
 
-`worldModes.js:8207` and `dungeonContext.js:2008` answer the same
+`worldModes.js:8209` and `dungeonContext.js:2008` answer the same
 `onClose` by nulling their slot and never disposing - nothing to
 re-enter. Only the two hosts that come through `townTalk.closeOverlay`
 dispose. **The four-hosts rule caught this one by accident**: the two
@@ -9487,7 +9487,7 @@ cited and ported somewhere in `src/`. FOUR were not:
 ### UI1 CLOSED: the use-magic-item window
 
 The port had the DOOR and not the room. `input.js:816` routed
-`Actions.UseMagicItem` to `ctx.openUseMagicItem`, `hudLarge.js:157`
+`Actions.UseMagicItem` to `ctx.openUseMagicItem`, `hudLarge.js:158`
 gave the large HUD's button its rect, `inputActions.js` bound KeyU -
 and no host implemented the method, so a live binding silently did
 nothing. That is the anti-lie law's other half: a deferred feature
@@ -10674,9 +10674,9 @@ re-resolved the `exterior.js` half of a three-file sentence and left the
 `ExteriorAutomapWindow` construction, `:4101` on a `locationName:`
 field). Both halves are now read by `test/citedrift.test.js` - the
 existing entries only ever captured the exterior number, which is how
-the other half went stale unnoticed. (The rest cite named `world.js:13416`,
+the other half went stale unnoticed. (The rest cite named `world.js:13424`,
 the first of the host's TWO identical `act === 'Rest'` arms; ROAD-H H5
-deleted the second and the cite is `world.js:13422` now.)
+deleted the second and the cite is `world.js:13430` now.)
 
 ## AUDIT 62 F24/F25 - THE SENTINEL SWEEP WAS TWO WINDOWS SHORT (2026-09-07)
 
@@ -15575,9 +15575,9 @@ whether an entry MATCHES and asserts nothing.
 Following it out was worse than the symptom. Five Ledger rows cite a
 PAIR - `` `world.js:N`, `exterior.js:M` `` - and the table captured `M`
 alone. So `M` was re-resolved at every wave for a year and `N` was never
-read: `world.js:10908` named a line that is 8950, `:1815` one that is
+read: `world.js:10916` named a line that is 8950, `:1815` one that is
 1215, `:1094` one that is 2194, `:3903` one that is 3066, `:3920` one
-that is 8907. `world.js:10642-10674` and `dungeonContext.js:1812` were
+that is 8907. `world.js:10650-10682` and `dungeonContext.js:1812` were
 stale the same way. Seven numbers re-resolved BY CONTENT, every
 uncaptured half de-baked to `\d+`, and eight new entries added so every
 number in a pair is captured. The half nobody reads cannot rot in
@@ -17234,7 +17234,7 @@ three of the block's four rows empty and the box it measured was 30px
 tall where an ordinary fight makes it 111.
 
 The fix is not a better number, it is the tree's own rule read the
-right way round. QS3 (`ui/enhancedHud.js:643-646`) already says it, for
+right way round. QS3 (`ui/enhancedHud.js:644-647`) already says it, for
 the quickslot diamond, in the opposite direction: the diamond lives on
 the HUD root rather than in `.hud-bottom` **because** it is a CORNER,
 "and a corner block inside a centred flex column moves whenever a bar

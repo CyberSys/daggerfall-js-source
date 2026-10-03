@@ -47,6 +47,7 @@
 // are already a Ledger note on ui/spellIcons.js and stay one.
 
 import { drawSpellIcon, spellIconsLoaded } from './spellIcons.js';
+import { uiCanvas, toUiPoint } from './uiScreen.js';   // RETRO-UI: the HUD's own space under the pillarbox
 import { liveBundles, canEndBundle } from '../systems/mysticism.js';   // BUFF-END: and which the player may end
 import { getString } from '../systems/settings.js';
 import { nativeMetrics, pointToNative } from './nativePanel.js';
@@ -270,8 +271,8 @@ export function trackHudPointer(canvas, e) {
   if (!canvas?.getBoundingClientRect) return;
   const r = canvas.getBoundingClientRect();
   if (!r.width || !r.height) return;
-  const v = pointToNative(nativeMetrics(canvas),
+  const v = pointToNative(nativeMetrics(uiCanvas(canvas)), ...toUiPoint(   // RETRO-UI: the icons drawHud laid in the pillarbox
     (e.clientX - r.left) * (canvas.width / r.width),
-    (e.clientY - r.top) * (canvas.height / r.height));
+    (e.clientY - r.top) * (canvas.height / r.height)));
   setHudPointer(v ? v[0] : -1, v ? v[1] : -1);
 }

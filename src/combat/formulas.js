@@ -593,7 +593,10 @@ export function calculateAttackDamage(attacker, target, { weapon = null, damageM
   // is DFU's CALLERS' work and runs after either core. The override gets
   // the whole option bag plus the notes.
   const core = _overrides.get('calculateAttackDamage');
-  const overridden = core ? core(attacker, target, { weapon, damageMod, toHitMod, backstabChance, weaponAnimTime, rolls, dfRand, onMonsterHit, onInflictPoison, say, playerReflexes, notes, unaware }) : undefined;
+  // WIDGET-RECOIL (FIELD BUGS 2026-10-03, SlipperyPeasant: "I think the recoil module isnt working either"): a core
+  // that rolls its own part hands it back (`onStruck`) - PCAAO's, on by default, rolled one the tail never saw, so the
+  // struck hook said -1 on every blow and the Shield Widget's "Attack On Shield" Recoil (its default) never fired
+  const overridden = core ? core(attacker, target, { weapon, damageMod, toHitMod, backstabChance, weaponAnimTime, rolls, dfRand, onMonsterHit, onInflictPoison, say, playerReflexes, notes, onStruck: (part) => (struckPart = part), unaware }) : undefined;
   let damage = 0;
   if (overridden !== undefined) {
     damage = overridden;
