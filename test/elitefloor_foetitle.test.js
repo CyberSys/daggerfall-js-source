@@ -2,7 +2,7 @@
 //   - ELITE-FLOOR: an elite is never a foe under ELITE_FOE_MIN_LEVEL (LOOT7's floor), the city watch, or an ally; a
 //     refused promotion leaves the foe as it was built, and the dungeon's build arm falls through to its plain path.
 //   - FOE-TITLE: one home names a special foe on every surface - a revenant by its own name, a champion by its trait,
-//     an elite as "Elite" - the target bar, the hover, the death line and the body's title alike.
+//     an elite as "Elite" - the target bar, the hover (at peace only, HOVER-PLAIN), the death line and the body's title alike.
 //   - ELITE-RATES (2026-10-03, Mac: "Feel like they are too sparse. Back to original"): ELITE-RARITY undone - one foe in
 //     twenty in the open world with no gate (any number standing, no gap, a loose stand too); a normal dungeon one time
 //     in five. The Elite Dungeon keeps its 3 or 4 (Mac's own number).
@@ -60,12 +60,12 @@ test('FOE-TITLE: a revenant by its name, a champion by its trait, an elite as El
   // every surface asks the one home
   const elite = foe({ eliteFoe: true });
   assert.equal(championName(elite, 'Orc'), 'Elite Orc', 'the death line and the body (championName)');
-  assert.equal(liveEntityName({ entity: elite }, 'Orc'), 'Orc', 'HOVER-PLAIN: the hover says its kind alone');
+  assert.equal(liveEntityName({ entity: elite }, 'Orc'), 'Elite Orc', 'the hover\'s namer (HOVER-PLAIN: the plaque asks it only at peace)');
   clearFoeTarget();
   markFoeStruck({ entity: { ...elite, name: 'Orc' }, dead: false });
   assert.equal(foeTarget().name, 'Elite Orc', 'the target bar');
   clearFoeTarget();
-  for (const f of ['src/ui/hudFoeTarget.js', 'src/systems/champions.js']) {   // HOVER-PLAIN: the hover (worldTooltips.js) names none
+  for (const f of ['src/ui/hudFoeTarget.js', 'src/systems/worldTooltips.js', 'src/systems/champions.js']) {
     assert.match(read(f), /import \{ foeTitle \} from '[./]+(?:systems\/)?foeTitle\.js';/, `${f} asks the one home`);
   }
   assert.doesNotMatch(read('src/systems/foeTitle.js'), /^import /m, 'a leaf: the HUD\'s leaves may ask it');

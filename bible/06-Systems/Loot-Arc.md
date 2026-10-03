@@ -802,7 +802,7 @@ half and a seventh, each at least 1 a blow - the floor is what lifts both on sma
   its arrow exemption already said.
 - **CHAMP-HOVER - a fighting champion was never on the plaque.** (RETIRED 2026-10-03 by HOVER-PLAIN, Mac: "remove the
   crosshair tooltip. They should only have names/modifiers under their healthbar" - no hostile foe is named on the
-  plaque again, and the hover says a special foe's plain kind; its title is the target frame's alone.) World Tooltips names a living entity only when its
+  plaque again - while it fights its title is the target frame's alone; at peace, a kneeling revenant included, it is named as ever.) World Tooltips names a living entity only when its
   motor is not hostile (.cs:304-312; `worldTooltips.js` `mobileEntityName`), so LOOT7's "its name on the hover over it
   alive" held only for a champion at peace. A champion is that law's one recorded exception now
   (`mobileEntityName(name, { hostile, champion })`) - its name is its trait, Mac's "single named foes with visible

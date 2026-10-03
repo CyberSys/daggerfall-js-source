@@ -17732,8 +17732,10 @@ has no plaque, hears a champion on its line instead (`Loot-Arc.md` section 17, C
 
 **RETIRED by HOVER-PLAIN (2026-10-03, Mac: "remove the crosshair tooltip. They should only have names/modifiers
 under their healthbar").** The exception is gone: `mobileEntityName(name, { hostile })` names no hostile foe, a champion,
-an elite or a revenant included, and `liveEntityName` says the plain kind (no trait, no "Elite", no revenant's name).
-A special foe's title stands on the target frame alone (`ui/hudFoeTarget.js`); CHAMP-SAID's first-blow line stays.
+an elite or a revenant included; while one fights, its title stands on the target frame alone (`ui/hudFoeTarget.js`),
+and CHAMP-SAID's first-blow line stays. At peace it is named as ever, title and all (`liveEntityName` keeps `foeTitle`): a
+sworn companion by its own name, a calmed one, and a kneeling revenant - its motor still hostile, so the street's and
+the dungeon's arms pass `!f.yielded` (the street's `!f._pupYield` too) and its "- beaten" cue reads.
 
 The classic skin has none of it, byte for byte.
 

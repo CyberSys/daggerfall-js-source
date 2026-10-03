@@ -94,7 +94,7 @@ test('LOOT7-CHECK CORPSE-FIND: a body keeps its unique find - the Thunderlock an
   assert.match(src, /if \(loot\.length > carried\) \(entity\.items \?\?= \[\]\)\.push\(\.\.\.loot\.slice\(carried\)\);/, 'what the roll added past the carried pieces goes onto the body');
 });
 
-test('HOVER-PLAIN (CHAMP-HOVER retired): a hostile champion, elite or revenant says nothing on the plaque, as any hostile foe; at peace its kind alone; its name is the health bar\'s; all four live arms tell the door hostility alone', () => {
+test('HOVER-PLAIN (CHAMP-HOVER retired): a hostile champion, elite or revenant says nothing on the plaque, as any hostile foe; at peace named as ever; its name is the health bar\'s; all four live arms tell the door hostility alone, and the street\'s and the dungeon\'s a kneeling revenant done fighting', () => {
   on();
   // the law at its one home
   assert.equal(mobileEntityName('Rat', { hostile: true }), null, 'a hostile foe: nothing (.cs:304-312)');
@@ -106,7 +106,8 @@ test('HOVER-PLAIN (CHAMP-HOVER retired): a hostile champion, elite or revenant s
   assert.equal(champ.entity.champion, 'mighty', 'a champion stands');
   assert.equal(name(champ), null, 'a hostile champion: nothing');
   assert.equal(name(elite), null, 'a hostile elite: nothing');
-  assert.equal(name({ ...champ, ai: { isHostile: false } }), enemyDisplayName(7), 'at peace: its kind, never its trait');
+  assert.equal(name({ ...champ, ai: { isHostile: false } }), 'Mighty Orc', 'at peace (calmed): named as ever, its trait too');
+  assert.equal(name({ entity: { ...orc(), revenant: { id: 'r1', name: 'Grushnak the Kinslayer', rank: 1, sworn: true } }, mobileType: 7, ai: { isHostile: false } }), 'Grushnak the Kinslayer', 'a sworn companion: by its own name (revenantCompanions applySwornStrength)');
   // ...and so nothing onto the plaque's frame
   const namer = () => { const t = name(champ); return t ? { title: t } : null; };
   assert.equal(resolveHover({ key: 'mobileFoe:0', distance: 3, reach: MOBILE_NPC_ACTIVATION_DISTANCE }, { name: namer }), null, 'the plaque says nothing');
@@ -115,10 +116,14 @@ test('HOVER-PLAIN (CHAMP-HOVER retired): a hostile champion, elite or revenant s
   assert.equal(foeTarget().name, 'Mighty Orc', 'the target frame: its name and its trait');
   clearFoeTarget();
   off();
-  // the four live arms, each telling the door hostility alone
-  for (const [f, v] of [['src/scenes/exteriorFoes.js', 'f'], ['src/scenes/worldModes.js', 'f'], ['src/scenes/dungeonContext.js', 'f'], ['src/scenes/cityGuards.js', 'g']]) {
-    assert.match(read(f), new RegExp(String.raw`mobileEntityName\(liveEntityName\(${v}, enemyDisplayName\(${v}\.mobileType\)\), \{ hostile: !!${v}\.ai\?\.isHostile \}\)`), f);
+  // the four live arms, each telling the door hostility alone - and the two that stand revenants, that a kneeling one
+  // (its motor still hostile: revenantFate.beginYield never clears it) is done fighting, so its "- beaten" cue reads
+  for (const [f, v, done] of [['src/scenes/exteriorFoes.js', 'f', ' && !f.yielded && !f._pupYield'], ['src/scenes/worldModes.js', 'f', ''], ['src/scenes/dungeonContext.js', 'f', ' && !f.yielded'], ['src/scenes/cityGuards.js', 'g', '']]) {
+    const esc = done.replace(/[.?]/g, (c) => `\\${c}`);
+    assert.match(read(f), new RegExp(String.raw`mobileEntityName\(liveEntityName\(${v}, enemyDisplayName\(${v}\.mobileType\)\), \{ hostile: !!${v}\.ai\?\.isHostile${esc} \}\)`), f);
   }
+  assert.match(read('src/scenes/exteriorFoes.js'), /return t \? \{ title: f\.yielded \|\| f\._pupYield \? `\$\{t\} - beaten` : t \} : null;/, 'the street\'s cue');
+  assert.match(read('src/scenes/dungeonContext.js'), /return t \? \{ title: f\.yielded \? `\$\{t\} - beaten` : t \} : null;/, 'the dungeon\'s cue');
   // WHY THE LINE BELOW EXISTS TOO: the plaque is the enhanced skin's - on the classic skin it never draws a name
   assert.match(strip(read('src/ui/worldPlaque.js')), /_gateOn = isEnhanced\(\) && !isTouchDevice\(\);/, 'the plaque: the enhanced skin\'s');
   assert.match(strip(read('src/ui/worldPlaque.js')), /export const classicPlaqueOn = \(\) => !isEnhanced\(\) && !isTouchDevice\(\) && quickLootOn\(\);/, 'the classic face: quick loot\'s piles alone');

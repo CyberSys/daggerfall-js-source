@@ -149,7 +149,7 @@ test('LOOT7: its name everywhere - the hover, the HUD\'s target, the death line,
   markFoeStruck({ entity: e });
   assert.equal(foeTarget().name, 'Mighty Orc', 'the HUD\'s target frame');
   clearFoeTarget();
-  assert.equal(liveEntityName({ entity: e }, 'Orc'), 'Orc', 'HOVER-PLAIN: the hover over it alive says its kind alone - its trait is the health bar\'s');
+  assert.equal(liveEntityName({ entity: e }, 'Orc'), 'Mighty Orc', 'the hover\'s namer - every pool\'s one (HOVER-PLAIN: the plaque asks it only at peace)');
   assert.equal(liveEntityName({ entity: foe() }, 'Orc'), 'Orc');
   assert.equal(sayEnemyDied(() => {}, 7, e), 'Mighty Orc just died.');
   assert.equal(sayEnemyDied(() => {}, 7), 'Orc just died.');
