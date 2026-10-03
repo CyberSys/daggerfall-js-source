@@ -486,6 +486,13 @@ export const ARENA_TEXT = F({
     whyGuest: 'Registered accounts only',
     whyBusy: 'You are in a bout',
     whyQueued: 'You are seeking a match',
+    // ARENA4b: THE CASUAL BOUT (Arena.md 7: "A casual bout (unranked) may run") - refereed all the same, counted nowhere
+    casualMatch: 'Casual bout',
+    casualLine: 'Or a casual bout: refereed all the same, but no rating, no points and nothing kept.',
+    casualQueued: (n) => `Seeking a casual bout - ${n} in the hall.`,
+    casualOffer: 'A casual bout - nothing on it is counted.',
+    casualEnd: 'A casual bout - nothing is counted.',
+    liveCasual: 'A casual bout',
     ladderOnline: 'Your climb is the realm\'s - every bout refereed.',
     // the boards
     pveSub: 'The realm\'s climb - every bout refereed, the Grand Champions first.',

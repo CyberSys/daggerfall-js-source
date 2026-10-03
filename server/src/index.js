@@ -2439,6 +2439,8 @@ export class Room {
    *  (net/arenaLaw.js bannerClaim): the token signs no banner, and the pennant is cosmetic only - a banner's points are
    *  the account service's, counted off its own arena_members row, never off this bill. */
   _bill(e) { return { n: e.name, r: e.rating, ...(e.title ? { t: e.title } : {}), ...(e.banner ? { b: e.banner } : {}) }; }
+  /** ARENA4b: a casual pair's offer, call and listing say so (`u`) - both of a pair sought the same (pairQueue). */
+  _casualWord(e) { return e?.casual ? { u: 1 } : {}; }
   _queueWord(H, now, sub) {
     const e = H.q.find((x) => x.sub === sub);
     return e ? { k: 'qd', n: Math.min(MATCH_QUEUE_MAX, H.q.length), band: matchBand(now - e.at) } : null;
@@ -2451,10 +2453,10 @@ export class Room {
     const inOffer = H.offers.find((f) => f.a.sub === sub || f.b.sub === sub) ?? null;
     if (m.k === 'q') {
       if (!a.lk) { this._arenaSend(ws, { k: 'qx', m: 'guest' }); return; }
-      if (inOffer) { this._arenaSend(ws, { k: 'of', o: inOffer.o, vs: this._bill(inOffer.a.sub === sub ? inOffer.b : inOffer.a), until: inOffer.until }); return; }
+      if (inOffer) { this._arenaSend(ws, { k: 'of', o: inOffer.o, vs: this._bill(inOffer.a.sub === sub ? inOffer.b : inOffer.a), until: inOffer.until, ...this._casualWord(inOffer.a) }); return; }
       if (!H.q.some((x) => x.sub === sub)) {
         if (H.q.length >= MATCH_QUEUE_MAX) { this._arenaSend(ws, { k: 'qx', m: 'full' }); return; }
-        H.q.push({ sub, name: a.name, rating: arenaRatingOk(a.ar), title: a.title ?? null, lv: m.lv ?? a.lv ?? 1, banner: bannerClaim(m.b), at: now });   // ARENA4b: the banner the word claims, billed (_bill)
+        H.q.push({ sub, name: a.name, rating: arenaRatingOk(a.ar), title: a.title ?? null, lv: m.lv ?? a.lv ?? 1, banner: bannerClaim(m.b), casual: m.u === 1, at: now });   // ARENA4b: the banner the word claims, billed (_bill); `casual` an unrated bout sought - paired like with like (pairQueue)
         await this._hallSave();
       }
       this._arenaTell(sub, this._queueWord(H, now, sub));
@@ -2500,14 +2502,14 @@ export class Room {
     H.offers = H.offers.filter((x) => x !== f);
     const o = f.o;
     const fighters = [f.a, f.b].map((e) => ({ sub: e.sub, name: e.name, lv: e.lv, rating: e.rating, title: e.title, banner: e.banner ?? null }));   // ARENA4b: and the banner each claimed
-    const ok = await this._arenaPost(arenaBoutRoom(o), ARENA_INTERNAL_OPEN, { o, kind: 'pvp', f: fighters, at: now });
+    const ok = await this._arenaPost(arenaBoutRoom(o), ARENA_INTERNAL_OPEN, { o, kind: 'pvp', f: fighters, casual: !!f.a.casual, at: now });   // ARENA4b: a casual pair's room owes no receipt
     if (!ok) {
       for (const e of [f.a, f.b]) { if (!H.q.some((x) => x.sub === e.sub)) H.q.push(e); this._arenaTell(e.sub, { k: 'qx', m: 'busy' }); }
       return;
     }
-    H.live[o] = { o, kind: 'pvp', a: this._bill(f.a), b: this._bill(f.b), sp: 0, at: now };
-    this._arenaTell(f.a.sub, { k: 'go', o, side: 0, vs: this._bill(f.b) });
-    this._arenaTell(f.b.sub, { k: 'go', o, side: 1, vs: this._bill(f.a) });
+    H.live[o] = { o, kind: 'pvp', a: this._bill(f.a), b: this._bill(f.b), ...this._casualWord(f.a), sp: 0, at: now };
+    this._arenaTell(f.a.sub, { k: 'go', o, side: 0, vs: this._bill(f.b), ...this._casualWord(f.a) });
+    this._arenaTell(f.b.sub, { k: 'go', o, side: 1, vs: this._bill(f.a), ...this._casualWord(f.a) });
   }
   /** THE HALL'S BEAT, a second: offers lapsed (the one who did not say yes out of the queue, the other back in), the
    *  queue paired (pairQueue - the band widening with the wait), each band said again as it widens, the old forgotten. */
@@ -2530,8 +2532,8 @@ export class Room {
       H.q = H.q.filter((x) => x.sub !== a.sub && x.sub !== b.sub);
       const f = { o: arenaId(), a, b, until: now + MATCH_ACCEPT_MS, ya: false, yb: false };
       H.offers.push(f);
-      this._arenaTell(a.sub, { k: 'of', o: f.o, vs: this._bill(b), until: f.until });
-      this._arenaTell(b.sub, { k: 'of', o: f.o, vs: this._bill(a), until: f.until });
+      this._arenaTell(a.sub, { k: 'of', o: f.o, vs: this._bill(b), until: f.until, ...this._casualWord(a) });
+      this._arenaTell(b.sub, { k: 'of', o: f.o, vs: this._bill(a), until: f.until, ...this._casualWord(a) });
     }
     H.said ??= {};
     for (const e of H.q) {
@@ -2590,7 +2592,7 @@ export class Room {
     if (!body || typeof body.o !== 'string' || body.kind !== 'pvp' || !Array.isArray(body.f) || body.f.length !== 2) return json({ error: 'bad' }, 400);
     if (await this._boutOf()) return json({ error: 'taken' }, 409);
     const now = Date.now();
-    this._bout = openBout({ o: body.o, kind: 'pvp', f: body.f, now });
+    this._bout = openBout({ o: body.o, kind: 'pvp', f: body.f, casual: body.casual === true, now });
     await this._boutSave(now, true);
     await this._boutArm(now);
     return json({ ok: true });

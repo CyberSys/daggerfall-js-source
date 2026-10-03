@@ -104,7 +104,9 @@ export const matchBand = (waitMs) => Math.min(MATCH_BAND_MAX, MATCH_BAND_START +
 /**
  * THE PAIRS the queue makes now: oldest first, each with the nearest rating that both bands admit (|a - b| inside the
  * narrower of the two), never a fighter twice, never a fighter with themselves, never a pair `apart(a, b)` says not to
- * offer again yet. `queue` `[{ sub, rating, at }]`. Pure.
+ * offer again yet - and ARENA4b: like with like, a casual bout's seeker (`casual`) only with another (Arena.md 7: "A
+ * casual bout (unranked) may run"), so nobody sent to a rated bout meets one who asked for none. `queue`
+ * `[{ sub, rating, at, casual? }]`. Pure.
  * @param {ReadonlyArray<{ sub: string, rating: number, at: number }>} queue
  * @param {number} now
  * @param {(a: string, b: string) => boolean} [apart]
@@ -118,7 +120,7 @@ export function pairQueue(queue, now, apart = () => false) {
     if (taken.has(a.sub)) continue;
     let best = null, gap = Infinity;
     for (const b of list) {
-      if (b === a || b.sub === a.sub || taken.has(b.sub) || apart(a.sub, b.sub)) continue;
+      if (b === a || b.sub === a.sub || taken.has(b.sub) || apart(a.sub, b.sub) || !!a.casual !== !!b.casual) continue;
       const d = Math.abs(a.rating - b.rating);
       if (d > Math.min(matchBand(now - a.at), matchBand(now - b.at))) continue;
       if (d < gap || (d === gap && best && b.at < best.at)) { best = b; gap = d; }
@@ -368,7 +370,7 @@ export const ARENA_IN_KINDS = Object.freeze(['q', 'x', 'y', 'n', 'ls', 'in', 'hi
 export function validArenaIn(m) {
   if (!m || typeof m !== 'object' || !ARENA_IN_KINDS.includes(m.k)) return null;
   switch (m.k) {
-    case 'q': return { k: 'q', ...(int(m.lv, 1, 999) != null ? { lv: m.lv } : {}), ...(bannerClaim(m.b) ? { b: m.b } : {}) };
+    case 'q': return { k: 'q', ...(int(m.lv, 1, 999) != null ? { lv: m.lv } : {}), ...(bannerClaim(m.b) ? { b: m.b } : {}), ...(m.u === 1 ? { u: 1 } : {}) };   // ARENA4b: `u` a casual bout sought
     case 'x': case 'ls': case 'yd': case 'out': return { k: m.k };
     case 'y': case 'n': return typeof m.o === 'string' && ARENA_BOUT_ID_RE.test(m.o) ? { k: m.k, o: m.o } : null;
     case 'in': {
@@ -459,8 +461,9 @@ export function validArenaOut(m) {
       if (typeof m.o !== 'string' || !ARENA_BOUT_ID_RE.test(m.o)) return null;
       const vs = billOk(m.vs);
       if (!vs) return null;
-      if (m.k === 'of') return num(m.until, 1e15) != null ? { k: 'of', o: m.o, vs, until: m.until } : null;
-      return int(m.side, 0, 1) != null ? { k: 'go', o: m.o, side: m.side, vs } : null;
+      const u = m.u === 1 ? { u: 1 } : {};   // ARENA4b: a casual bout's offer and call say so
+      if (m.k === 'of') return num(m.until, 1e15) != null ? { k: 'of', o: m.o, vs, until: m.until, ...u } : null;
+      return int(m.side, 0, 1) != null ? { k: 'go', o: m.o, side: m.side, vs, ...u } : null;
     }
     case 'live': {
       if (!Array.isArray(m.l) || m.l.length > ARENA_LIVE_MAX) return null;
@@ -475,7 +478,7 @@ export function validArenaOut(m) {
         const a = ex ? exBill(b.a) : billOk(b.a), z = ex ? exBill(b.b) : b.b ? billOk(b.b) : null;
         if ((!ex && !a) || (!ex && b.b && !z) || int(b.sp, 0, ARENA_SPECTATORS_MAX) == null || num(b.at, 1e15) == null) return null;
         if (b.tier !== undefined && int(b.tier, 0, ARENA_TIERS - 1) == null) return null;
-        l.push({ o: b.o, kind: b.kind, ...(ex ? { h: b.h } : {}), ...(a ? { a } : {}), ...(z ? { b: z } : {}), ...(b.tier !== undefined ? { tier: b.tier } : {}), sp: b.sp, at: b.at });
+        l.push({ o: b.o, kind: b.kind, ...(ex ? { h: b.h } : {}), ...(a ? { a } : {}), ...(z ? { b: z } : {}), ...(b.tier !== undefined ? { tier: b.tier } : {}), ...(b.u === 1 ? { u: 1 } : {}), sp: b.sp, at: b.at });
       }
       return { k: 'live', l };
     }
@@ -489,7 +492,7 @@ export function validArenaOut(m) {
       if (f.some((x) => !x)) return null;
       if (typeof m.me !== 'string' || (m.me !== '' && !FID_RE.test(m.me))) return null;
       /** @type {any} */
-      const out = { k: 'st', o: m.o, kind: m.kind, ph: m.ph, pa: m.pa, fa: num(m.fa, 1e15) ?? null, lim: m.lim, f, me: m.me, sp: int(m.sp, 0, ARENA_SPECTATORS_MAX) ?? 0, ...(m.kind === 'ex' ? { h: m.h } : {}) };
+      const out = { k: 'st', o: m.o, kind: m.kind, ph: m.ph, pa: m.pa, fa: num(m.fa, 1e15) ?? null, lim: m.lim, f, me: m.me, sp: int(m.sp, 0, ARENA_SPECTATORS_MAX) ?? 0, ...(m.kind === 'ex' ? { h: m.h } : {}), ...(m.kind === 'pvp' && m.u === 1 ? { u: 1 } : {}) };
       if (m.tier !== undefined) { if (int(m.tier, 0, ARENA_TIERS - 1) == null || int(m.bout, 0, ARENA_TIER_BOUTS) == null) return null; Object.assign(out, { tier: m.tier, bout: m.bout }); }
       if (m.res !== undefined && m.res !== null) {
         const r = m.res;

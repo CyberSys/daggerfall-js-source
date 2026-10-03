@@ -30,8 +30,9 @@ export function foldHall(s, w, now, off = 0) {
   switch (w.k) {
     case 'qd': return { ...s, queue: 'queued', band: w.band, n: w.n, offer: null, heardAt: now };
     case 'qx': return { ...s, queue: 'idle', offer: null, said: w.m, heardAt: now };
-    case 'of': return { ...s, queue: 'offer', offer: { o: w.o, vs: w.vs, until: w.until - off }, said: null, heardAt: now };
-    case 'go': return { ...s, queue: 'going', offer: null, go: { o: w.o, side: w.side, vs: w.vs, at: now }, said: null, heardAt: now };
+    // ARENA4b: a casual pair's offer and call carry `u` (net/arenaLaw.js validArenaOut) - the bout counts nowhere
+    case 'of': return { ...s, queue: 'offer', offer: { o: w.o, vs: w.vs, until: w.until - off, casual: w.u === 1 }, said: null, heardAt: now };
+    case 'go': return { ...s, queue: 'going', offer: null, go: { o: w.o, side: w.side, vs: w.vs, at: now, casual: w.u === 1 }, said: null, heardAt: now };
     case 'live': return { ...s, live: w.l, heardAt: now };
     default: return s;
   }

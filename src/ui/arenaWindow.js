@@ -69,7 +69,7 @@ function injectSkin(doc = document) {
  * @param {HTMLElement} host
  * @param {{
  *   board: () => any,
- *   act?: (kind: 'watch'|'fight'|'wager'|'queue'|'unqueue'|'accept'|'decline'|'spectate', data?: any) => ({ ok: boolean, text?: string } | void),
+ *   act?: (kind: 'watch'|'fight'|'wager'|'queue'|'casual'|'unqueue'|'accept'|'decline'|'spectate', data?: any) => ({ ok: boolean, text?: string } | void),
  *   page?: string, onExit?: (() => void) | null,
  * }} deps `board` systems/arenaBoard.js arenaBoard's model, built fresh at each render; `act` the host's doors
  */

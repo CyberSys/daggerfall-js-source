@@ -101,8 +101,8 @@
   {
     "name": "ARENA4b-EX-RECEIPT",
     "file": "src/net/arenaBrain.js",
-    "old": "  if (st.kind === 'ex') return [];\n",
-    "new": "",
+    "old": "  if (st.kind === 'ex' || st.casual) return [];",
+    "new": "  if (st.casual) return [];",
     "tests": [
       "test/arena4b_exhibition.test.js"
     ]

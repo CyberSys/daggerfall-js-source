@@ -274,7 +274,7 @@ const billed = (b) => (b ? { name: b.n ?? b.name ?? '', rating: b.r ?? b.rating 
  *  net/arenaLink.js's hall state; `me` the service's own of this account. */
 export function onlineCards({ hall, me, guest = false, busy = false, now = 0 }) {
   const live = (hall?.live ?? []).map((b) => ({
-    o: b.o, kind: b.kind, title: b.kind === 'ex' ? O().liveExhibition(ARENA_TEXT.tiers[b.tier ?? 0] ?? '') : b.kind === 'pve' ? O().liveLadder(ARENA_TEXT.tiers[b.tier ?? 0] ?? '') : O().livePlayers,   // ARENA4b: the hour's exhibition, the relay's
+    o: b.o, kind: b.kind, title: b.kind === 'ex' ? O().liveExhibition(ARENA_TEXT.tiers[b.tier ?? 0] ?? '') : b.kind === 'pve' ? O().liveLadder(ARENA_TEXT.tiers[b.tier ?? 0] ?? '') : b.u === 1 ? O().liveCasual : O().livePlayers,   // ARENA4b: a casual bout listed as one   // ARENA4b: the hour's exhibition, the relay's
     a: billed(b.a), b: billed(b.b), watching: O().watching(b.sp ?? 0), acts: [{ act: 'spectate', label: W().watch, why: busy ? O().whyBusy : null }],
   }));
   const players = {
@@ -287,13 +287,14 @@ export function onlineCards({ hall, me, guest = false, busy = false, now = 0 }) 
   const lines = [O().challengeLine];
   if (me?.pvp) lines.push(O().ratingLine(me.pvp.rating, me.pvp.wins, me.pvp.losses));
   let acts;
-  if (st === 'queued') { acts = [{ act: 'unqueue', label: O().leaveQueue, why: null }]; lines.push(O().queuedLine(hall.band ?? 0, hall.n ?? 0)); }
+  if (st === 'queued') { acts = [{ act: 'unqueue', label: O().leaveQueue, why: null }]; lines.push(hall.casual ? O().casualQueued(hall.n ?? 0) : O().queuedLine(hall.band ?? 0, hall.n ?? 0)); }   // ARENA4b: a casual seeker's line
   else if (st === 'offer' && hall.offer) {
     acts = [{ act: 'accept', label: O().accept, why: null }, { act: 'decline', label: O().decline, why: null }];
     const vs = billed(hall.offer.vs);
     lines.push(O().offerLine(vs.name, vs.rating ?? '?'), O().offerClock(Math.max(0, Math.ceil(((hall.offer.until ?? 0) - now) / 1000))));
+    if (hall.offer.casual) lines.push(O().casualOffer);   // ARENA4b
   } else if (st === 'going') { acts = []; lines.push(O().goingLine(billed(hall.go?.vs)?.name ?? W().fighter)); }
-  else acts = [{ act: 'queue', label: O().findMatch, why }];
+  else { acts = [{ act: 'queue', label: O().findMatch, why }, { act: 'casual', label: O().casualMatch, why }]; lines.push(O().casualLine); }   // ARENA4b: Casual bout beside Find a match
   const challenge = { key: 'challenge', kind: 'challenge', title: O().challengeTitle, state: O().queueState[st], fighters: [], acts, lines, offer: st === 'offer' ? billed(hall.offer?.vs) : null };
   return [players, challenge];
 }

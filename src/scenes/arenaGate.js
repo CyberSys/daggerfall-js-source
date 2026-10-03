@@ -282,7 +282,7 @@ export function createArenaGate(deps) {
       return wager(data.hour, data.side === 1 ? 1 : 0, Math.floor(Number(data.stake) || 0));
     }
     // ARENA4: the challenge and the stands - pressed anywhere the window stands (a match called sends me to the sand)
-    if (kind === 'queue' || kind === 'unqueue' || kind === 'accept' || kind === 'decline' || kind === 'spectate') return online()?.act(kind, data) ?? { ok: false, text: ARENA_TEXT.online.whyOffline };
+    if (kind === 'queue' || kind === 'casual' || kind === 'unqueue' || kind === 'accept' || kind === 'decline' || kind === 'spectate') return online()?.act(kind, data) ?? { ok: false, text: ARENA_TEXT.online.whyOffline };
     if (kind === 'watch' || kind === 'fight') {
       if (!atGate) return { ok: false, text: ARENA_TEXT.window.whyGate };
       const on = online();

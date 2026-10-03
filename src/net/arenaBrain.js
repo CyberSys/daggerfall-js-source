@@ -64,15 +64,17 @@ export const AI_RESAY_MS = 900;
  * net/arenaLaw.js ladderVitality) and `tier`, `bout`. Nobody is on the sand until each says `in` (`joinBout`). ARENA4b:
  * the hour's exhibition (`kind` 'ex', `ex` net/arenaExhibition.js exhibitionFor's - its hour, its tier, its pair): no
  * fighter of a socket, its two fighters the relay's own on sides 0 and 1, the law begun at once.
- * @param {{ o: string, kind: 'pvp'|'pve'|'ex', f: any[], tier?: number, bout?: number, ex?: any, now: number }} p
+ * ARENA4b: `casual` a bout between players the two asked for unrated - refereed all the same, no receipt owed.
+ * @param {{ o: string, kind: 'pvp'|'pve'|'ex', f: any[], tier?: number, bout?: number, ex?: any, casual?: boolean, now: number }} p
  */
-export function openBout({ o, kind, f, tier = 0, bout = 0, ex = null, now }) {
+export function openBout({ o, kind, f, tier = 0, bout = 0, ex = null, casual = false, now }) {
   const seed = arenaBoutSeed(o);
   const st = {
     o, kind, at: now, seed, phase: 'wait', tier: kind === 'ex' ? ex.tier : tier, bout, b: null, res: null, owed: [], said: false, endAt: NaN, spectators: 0, cheer: {},
     // ARENA4b: `banner` the fighter's word's claim (bannerClaim - billed on the list to watch, cosmetic, never counted)
     f: f.map((x, i) => ({ id: `p${i}`, sub: x.sub, name: x.name, side: i, lv: x.lv ?? 1, cl: x.cl ?? null, rating: x.rating ?? null, title: x.title ?? null, banner: bannerClaim(x.banner), in: false })),
     ai: [], ref: {}, last: {}, gone: {},
+    casual: kind === 'pvp' && casual === true,
   };
   if (kind === 'ex') {
     // ARENA4b: THE EXHIBITION - the hour's two on their marks, side 0 (the Red's) west and side 1 (the Blue's) east, the
@@ -370,7 +372,7 @@ const mvWord = (a, now) => (a.mv ? { k: 'mv', i: a.id, x: r2(a.mv.x), z: r2(a.mv
  *  ARENA4b: an exhibition none (nobody of the realm fought it - its verdict is the `st`'s, the bookmakers' to read). */
 function receiptsOwed(st) {
   const r = st.res;
-  if (st.kind === 'ex') return [];
+  if (st.kind === 'ex' || st.casual) return [];   // ARENA4b: nor a casual bout - nothing of it is the realm's to keep
   if (st.kind === 'pvp') return [{ a: 'p', j: st.o, f: [st.f[0].sub, st.f[1].sub], r: r.side === 0 ? 0 : r.side === 1 ? 1 : 2, h: r.how === 'judges' && r.side === null ? 'judges' : r.how }];
   return [{ a: 'l', j: st.o, s: st.f[0].sub, q: st.tier, u: st.bout, r: r.side === 0 ? 1 : 0, h: r.how }];
 }
@@ -391,7 +393,7 @@ export function stateWord(st, me = '') {
   return {
     k: 'st', o: st.o, kind: st.kind, ph, pa: b ? b.phaseAt : st.at, fa: b && Number.isFinite(b.fightAt) ? b.fightAt : null, lim: b ? b.limitMs : 0,
     f: fighters.map((x) => { const m = meta(x.id); return [x.id, x.name, x.side, Math.max(0, Math.round(x.health)), Math.max(1, Math.round(x.maxHealth)), x.out ?? '', m.ai, m.mob, Math.round((x.temper ?? 0) * 100), '', '']; }),
-    me, sp: st.spectators, ...(st.kind === 'pve' ? { tier: st.tier, bout: st.bout } : {}), ...(st.kind === 'ex' ? { h: st.hour } : {}), ...(st.res ? { res: st.res } : {}),
+    me, sp: st.spectators, ...(st.kind === 'pve' ? { tier: st.tier, bout: st.bout } : {}), ...(st.kind === 'ex' ? { h: st.hour } : {}), ...(st.casual ? { u: 1 } : {}), ...(st.res ? { res: st.res } : {}),
   };
 }
 /** The AI fighters' places now, as `mv` words - a joiner's picture of where they stand. */
@@ -402,7 +404,7 @@ export const aiWords = (st, now) => st.ai.map((a) => mvWord(a, now));
 export function liveEntry(st) {
   if (st.kind === 'ex') return { o: st.o, kind: 'ex', h: st.hour, a: { b: ARENA_EX_BANNERS[0] }, b: { b: ARENA_EX_BANNERS[1] }, tier: st.tier, sp: st.spectators, at: st.at };
   const bill = (x) => ({ n: x.name, ...(x.rating != null ? { r: x.rating } : {}), ...(x.title ? { t: x.title } : {}), ...(x.banner ? { b: x.banner } : {}) });
-  return { o: st.o, kind: st.kind, a: bill(st.f[0]), ...(st.f[1] ? { b: bill(st.f[1]) } : {}), ...(st.kind === 'pve' ? { tier: st.tier } : {}), sp: st.spectators, at: st.at };
+  return { o: st.o, kind: st.kind, a: bill(st.f[0]), ...(st.f[1] ? { b: bill(st.f[1]) } : {}), ...(st.kind === 'pve' ? { tier: st.tier } : {}), ...(st.casual ? { u: 1 } : {}), sp: st.spectators, at: st.at };
 }
 /** Is the bout's room done with it (the healers past, or void) - its receipts said and the hall told. */
 export const boutFinished = (st) => st.phase === 'void' || (!!st.b && st.b.phase === 'done');

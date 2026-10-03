@@ -11,8 +11,8 @@
   {
     "name": "ARENA4b-BAN-Q-DROPPED",
     "file": "src/net/arenaLaw.js",
-    "old": "lv: m.lv } : {}), ...(bannerClaim(m.b) ? { b: m.b } : {}) };",
-    "new": "lv: m.lv } : {}) };",
+    "old": "lv: m.lv } : {}), ...(bannerClaim(m.b) ? { b: m.b } : {}), ...(m.u === 1",
+    "new": "lv: m.lv } : {}), ...(m.u === 1",
     "tests": [
       "test/arena4b_banners.test.js"
     ]
@@ -47,8 +47,8 @@
   {
     "name": "ARENA4b-BAN-QUEUE-UNKEPT",
     "file": "server/src/index.js",
-    "old": "banner: bannerClaim(m.b), at: now });",
-    "new": "banner: null, at: now });",
+    "old": "banner: bannerClaim(m.b), casual: m.u === 1, at: now });",
+    "new": "banner: null, casual: m.u === 1, at: now });",
     "tests": [
       "test/arena4b_banners.test.js"
     ]
@@ -110,8 +110,8 @@
   {
     "name": "ARENA4b-BAN-CLIENT-Q",
     "file": "src/scenes/arenaOnline.js",
-    "old": "lv: Math.max(1, Math.floor(deps.level?.() ?? 1)), ...myBanner() }) ?",
-    "new": "lv: Math.max(1, Math.floor(deps.level?.() ?? 1)) }) ?",
+    "old": "lv: Math.max(1, Math.floor(deps.level?.() ?? 1)), ...myBanner(), ...(casual",
+    "new": "lv: Math.max(1, Math.floor(deps.level?.() ?? 1)), ...(casual",
     "tests": [
       "test/arena4b_banners.test.js"
     ]

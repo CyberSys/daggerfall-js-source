@@ -130,7 +130,7 @@ export function createArenaOnline(deps) {
     hall = foldHall(hall, w, now(), 0);
     if (w.k === 'qx' && w.m && w.m !== 'left') say(ARENA_NO_TEXT[w.m] ?? w.m);
     if (w.k === 'of') say(O.offerLine(w.vs.n, w.vs.r ?? '?'));
-    if (w.k === 'go') goTo({ o: w.o, kind: 'pvp', side: w.side, vs: w.vs });
+    if (w.k === 'go') goTo({ o: w.o, kind: 'pvp', side: w.side, vs: w.vs, casual: w.u === 1 });   // ARENA4b: a casual bout's call
   }
   const hallSend = (w) => { const l = wantHall(); return !!l && l.sendArena?.(w) === true; };
   function closeHallIfIdle(t) {
@@ -249,7 +249,7 @@ export function createArenaOnline(deps) {
         names: deps.names ? deps.names(arenaBoutSeed(b.o)) : undefined,
         send: { hit: (w) => boutSend({ ...w, k: 'hit' }), yield: () => boutSend({ k: 'yd' }), cheer: (c) => boutSend({ k: 'ch', c }) },   // ARENA4b: the stands' shout
         struck: (d) => deps.struck?.(d), myHealth: (hp, max) => deps.myHealth?.(hp, max),
-        onEnd: () => { askBoard(true); },
+        onEnd: () => { if (b.casual) say(O.casualEnd); askBoard(true); },   // ARENA4b: a casual bout owes no receipt - its end says so
         banners, owe: (gold, pay) => owe(b.o, gold, pay),   // ARENA4b: a ladder win's purse waits on the service's word
       },
     });
@@ -447,12 +447,16 @@ export function createArenaOnline(deps) {
   /** A press in the window that is the arena online's. */
   function act(kind, data = {}) {
     if (!live()) return { ok: false, text: O.whyOffline };
-    if (kind === 'queue') {
+    if (kind === 'queue' || kind === 'casual') {
       if (deps.guest?.()) return { ok: false, text: O.whyGuest };
       if (bout || deps.inBout?.()) return { ok: false, text: O.whyBusy };
-      return hallSend({ k: 'q', lv: Math.max(1, Math.floor(deps.level?.() ?? 1)), ...myBanner() }) ? { ok: true, text: O.queueState.queued } : { ok: false, text: O.whyOffline };   // ARENA4b: my banner billed to my rival
+      // ARENA4b: Casual bout - the same queue word with `u`, paired only with another casual seeker (net/arenaLaw.js pairQueue)
+      const casual = kind === 'casual';
+      if (!hallSend({ k: 'q', lv: Math.max(1, Math.floor(deps.level?.() ?? 1)), ...myBanner(), ...(casual ? { u: 1 } : {}) })) return { ok: false, text: O.whyOffline };
+      hall = { ...hall, casual };
+      return { ok: true, text: O.queueState.queued };   // ARENA4b: my banner billed to my rival
     }
-    if (kind === 'unqueue') { hallSend({ k: 'x' }); hall = { ...hall, queue: 'idle', offer: null }; return { ok: true, text: O.leaveQueue }; }
+    if (kind === 'unqueue') { hallSend({ k: 'x' }); hall = { ...hall, queue: 'idle', offer: null, casual: false }; return { ok: true, text: O.leaveQueue }; }
     if (kind === 'accept' || kind === 'decline') {
       const o = hall.offer?.o;
       if (!o) return { ok: false, text: ARENA_NO_TEXT.lapsed };
