@@ -70,3 +70,10 @@ test('HOTFIX 1003j: my opponent on a relay\'s sand is the body inside my ring, b
   assert.ok(!fn.includes('arenaBouts.ring()'), 'never the ladder\'s ring');
   assert.match(fn, /const peer = onSand\.find\(\(p\) => vsName && online\?\.peers\?\.get\?\.\(p\.id\)\?\.name === vsName\) \?\? onSand\[0\];/, 'by name, else the nearest');
 });
+
+test('HOTFIX 1003l: the arena\'s floor draws the world\'s sky - after the opaque level, before the flats, the renderer told its programs ran (live: "the private sessions are missing the sky") (mutants: no sky; the shadows not told)', () => {
+  const m = readFileSync(new URL('../src/scenes/worldModes.js', import.meta.url), 'utf8');
+  assert.match(m, /drawArenaWall\(\); if \(isArenaFloor\(dungeonLoc\)\) host\.drawSky\?\.\(cam\.yaw, cam\.pitch/, 'the floor, and only the floor');
+  const w = readFileSync(new URL('../src/scenes/world.js', import.meta.url), 'utf8');
+  assert.match(w, /drawSky: \(yaw, pitch, fov, aspect, vp\) => \{ sky\.draw\(yaw, pitch, fov, aspect, vp\); renderer\.markForeignPass\(\); \}/, 'the sky drawn, the renderer\'s shadows told');
+});
