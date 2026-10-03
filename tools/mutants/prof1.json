@@ -419,7 +419,7 @@
   {
     "name": "PROF1-47-a-withdrawal-minted-on-silence",
     "file": "src/net/profBook.js",
-    "old": "    if (keptAnswer(r)) return { ok: false, kept: true, text: 'The Stores have your order and will send it when the counting-house answers.' };",
+    "old": "    if (keptAnswer(r)) return { ok: false, kept: true, text: t('prof.page.stores.withdrawKept', 'The Stores have your order and will send it when the counting-house answers.') };",
     "new": "    if (keptAnswer(r)) { mint(w.material, w.qty); return { ok: false, kept: true, text: '' }; }",
     "tests": [
       "test/prof1_client.test.js"

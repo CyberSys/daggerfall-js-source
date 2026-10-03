@@ -37,6 +37,7 @@
 import { BASKET_SPOTS } from '../systems/herbAct.js';
 import { MINE_POINTS } from '../systems/mineAct.js';
 import { MINE_ACT, CHOP_ACT, TRACE_ACT, FISH_ACT, throwM } from '../net/professionLaw.js';
+import { t } from '../systems/textManager.js';   // L10N4: the hint under the crosshair in the player's language
 
 const NS = 'http://www.w3.org/2000/svg';
 const clamp01 = (v) => Math.max(0, Math.min(1, Number(v) || 0));
@@ -70,6 +71,8 @@ export function offsetOf(p, aim, focal) {
 }
 /** An angle's reach on the screen, CSS pixels: a radius of `deg` round the crosshair. */
 export const reachPx = (deg, focal) => focal * Math.tan((Math.max(0, Number(deg) || 0) * Math.PI) / 180);
+/** The hold's key where the host names none, as a hint says it. */
+const useKey = () => t('prof.reticle.useKey', 'the use key');
 
 function kit(doc) {
   const div = (cls, parent = null) => { const n = doc.createElement('div'); n.className = cls; parent?.append(n); return n; };
@@ -155,7 +158,7 @@ function mineMarks(k, rc, under, act) {
       if (st.strikes > seen) { seen = st.strikes; flash.fire([0, 0], st.last === 'glint' ? 'gold' : ''); }
       flash.frame();
     },
-    hint: (st, label) => (st.gentle ? (label || 'click to strike') : (label || 'click to strike the glint')),   // ACT-CLICK: the press named
+    hint: (st, label) => (st.gentle ? (label || t('prof.reticle.mine.strike', 'click to strike')) : (label || t('prof.reticle.mine.strikeGlint', 'click to strike the glint'))),   // ACT-CLICK: the press named
   };
 }
 
@@ -193,7 +196,8 @@ function chopMarks(k, rc, under, act) {
       if (st.chops > seen) { seen = st.chops; flash.fire([0, 0], st.last === 'clean' ? 'gold' : ''); }
       flash.frame();
     },
-    hint: (st, label) => (st.creaked ? 'it creaks - keep chopping' : st.gentle ? (label || 'click to chop') : (label || 'click as the ring meets the notch')),
+    hint: (st, label) => (st.creaked ? t('prof.reticle.chop.creaks', 'it creaks - keep chopping') : st.gentle ? (label || t('prof.reticle.chop.chop', 'click to chop'))
+      : (label || t('prof.reticle.chop.notch', 'click as the ring meets the notch'))),
   };
 }
 
@@ -206,11 +210,15 @@ function holdMarks(k, rc) {
       setSvgClass(hold.el, st.bruised ? 'prof-arc prof-hold bruised' : 'prof-arc prof-hold');
     },
     // STEADY-SAID (AUDIT 2026-10-01 part four): the key the steady hand holds, where it holds one
-    hint: (st, label, byUse) => (st.kind === 'trace'
-      ? (byUse ? 'skinning...' : `hold ${label || 'the use key'}`)
-      : st.kind === 'steady'
-        ? (st.bruised ? `bruised - ${label ? `keep ${label} held` : 'hold on'} to keep what is left` : `${label ? `hold ${label} and ` : ''}keep still (${Math.round(st.window * 10) / 10} degrees)`)
-        : (label || 'kneeling...')),
+    hint: (st, label, byUse) => {
+      const deg = Math.round(st.window * 10) / 10;
+      return st.kind === 'trace'
+        ? (byUse ? t('prof.reticle.hold.skinning', 'skinning...') : t('prof.reticle.hold.hold', 'hold {key}', { key: label || useKey() }))
+        : st.kind === 'steady'
+          ? (st.bruised ? (label ? t('prof.reticle.steady.bruisedKey', 'bruised - keep {key} held to keep what is left', { key: label }) : t('prof.reticle.steady.bruised', 'bruised - hold on to keep what is left'))
+            : label ? t('prof.reticle.steady.stillKey', 'hold {key} and keep still ({deg} degrees)', { key: label, deg }) : t('prof.reticle.steady.still', 'keep still ({deg} degrees)', { deg }))
+          : (label || t('prof.reticle.hold.kneeling', 'kneeling...'));
+    },
   };
 }
 
@@ -240,7 +248,7 @@ function basketMarks(k, rc, under) {
       }
       flash.frame();
     },
-    hint: (st, label) => (st.gentle ? 'searching...' : label || 'click the glint'),   // AUDIT HERB-CURSOR C3: the cursor is free to click it; a gentle search has nothing to press
+    hint: (st, label) => (st.gentle ? t('prof.reticle.basket.searching', 'searching...') : label || t('prof.reticle.basket.glint', 'click the glint')),   // AUDIT HERB-CURSOR C3: the cursor is free to click it; a gentle search has nothing to press
   };
 }
 
@@ -282,13 +290,14 @@ function traceMarks(k, rc, under, act) {
       show(zone, !st.tracing);
       if (st.slips > seenSlips) { seenSlips = st.slips; nick.fire([0, 0]); }
       nick.frame();
-      const s = st.slips > 0 ? `slips ${st.slips}` : '';
+      const s = st.slips > 0 ? t('prof.reticle.trace.slips', 'slips {n}', { n: st.slips }) : '';
       if (slips.textContent !== s) slips.textContent = s;
     },
     // AUDIT 32 P10 / TOUCH-HOLD: a slip said; a Use's hold names no key
     hint: (s, label, byUse) => {
-      const key = label || 'the use key';
-      return s.tracing ? 'draw the knife along the line' : byUse ? 'aim the knife at the first point' : s.slips > 0 ? `let go - hold ${key} on the first point again` : `hold ${key} on the first point`;
+      const key = label || useKey();
+      return s.tracing ? t('prof.reticle.trace.draw', 'draw the knife along the line') : byUse ? t('prof.reticle.trace.aim', 'aim the knife at the first point')
+        : s.slips > 0 ? t('prof.reticle.trace.again', 'let go - hold {key} on the first point again', { key }) : t('prof.reticle.trace.hold', 'hold {key} on the first point', { key });
     },
   };
 }
@@ -312,8 +321,8 @@ function fishMarks(k, rc) {
       if (phase === 'wind') {
         const m = throwM(st.windS);
         wind.set((m - FISH_ACT.throwMinM) / span);
-        const t = `${Math.round(m)} m`;
-        if (metres.textContent !== t) metres.textContent = t;
+        const said = t('prof.reticle.fish.metres', '{m} m', { m: Math.round(m) });
+        if (metres.textContent !== said) metres.textContent = said;
       }
       const afloat = phase === 'wait' || phase === 'tug';
       show(float, afloat);
@@ -330,12 +339,15 @@ function fishMarks(k, rc) {
       }
     },
     hint: (st, label) => {
-      const key = label || 'E';
-      if (st.phase === 'haul') return `hold ${key} to raise the band, let go to lower it - keep the weight inside${st.slip > 0 ? ` (slipping, ${Math.round(st.slip * 100)}%)` : ''}`;
-      return st.phase === 'wind' ? `hold ${key} to wind the net, let go to throw it (${Math.round(throwM(st.windS))} m)`
-        : st.phase === 'fly' ? 'the net flies...'
-          : st.phase === 'wait' ? `waiting for a bite${st.school !== null ? ' - over a school' : ''}...`
-            : `a tug! press ${key} now`;
+      const key = label || 'E';   // a key's own name, as the keyboard prints it
+      if (st.phase === 'haul') {
+        return st.slip > 0 ? t('prof.reticle.fish.haulSlipping', 'hold {key} to raise the band, let go to lower it - keep the weight inside (slipping, {pct}%)', { key, pct: Math.round(st.slip * 100) })
+          : t('prof.reticle.fish.haul', 'hold {key} to raise the band, let go to lower it - keep the weight inside', { key });
+      }
+      return st.phase === 'wind' ? t('prof.reticle.fish.wind', 'hold {key} to wind the net, let go to throw it ({m} m)', { key, m: Math.round(throwM(st.windS)) })
+        : st.phase === 'fly' ? t('prof.reticle.fish.fly', 'the net flies...')
+          : st.phase === 'wait' ? (st.school !== null ? t('prof.reticle.fish.waitSchool', 'waiting for a bite - over a school...') : t('prof.reticle.fish.wait', 'waiting for a bite...'))
+            : t('prof.reticle.fish.tug', 'a tug! press {key} now', { key });
     },
   };
 }

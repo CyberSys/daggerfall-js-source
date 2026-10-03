@@ -699,8 +699,8 @@
   {
     "name": "SEAT2b-writ-place-camp",
     "file": "src/ui/workTab.js",
-    "old": "  return x?.camp ? `the Siege Camp at ${name}` : `${whose(name)} stockpile`;",
-    "new": "  return `${whose(name)} stockpile`;",
+    "old": "  if (x?.camp) {",
+    "new": "  if (false) {",
     "tests": [
       "test/seat2b_client.test.js"
     ]

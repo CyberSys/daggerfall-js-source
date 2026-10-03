@@ -565,8 +565,8 @@
   {
     "name": "SEAT2b2-stores-stock-words",
     "file": "src/ui/profPages.js",
-    "old": ": pick.family === 'siege' ? SIEGE_STAYS_LINE : STOCK_STAYS_LINE));",
-    "new": ": STOCK_STAYS_LINE));",
+    "old": ": pick.family === 'siege' ? siegeStaysLine() : stockStaysLine()));",
+    "new": ": stockStaysLine()));",
     "tests": [
       "test/seat2b_peace_client.test.js"
     ]

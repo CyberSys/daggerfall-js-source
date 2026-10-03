@@ -890,7 +890,7 @@
   {
     "name": "PROF11-pages-mason-cold-as-a-forge",
     "file": "src/ui/profPages.js",
-    "old": "station === 'mason' ? MASON_COLD_LINE : station === 'jeweller'",
+    "old": "station === 'mason' ? t('prof.page.cold.mason', MASON_COLD_LINE) : station === 'jeweller'",
     "new": "station === 'jeweller'",
     "tests": [
       "test/prof11_client.test.js"
@@ -909,7 +909,7 @@
   {
     "name": "PROF11-pages-fortifications-unsaid",
     "file": "src/ui/profPages.js",
-    "old": "SEAT2b: 'Comes with the fortifications',",
+    "old": " get SEAT2b() { return t('prof.page.later.seat2b', 'Comes with the fortifications'); },",
     "new": "",
     "tests": [
       "test/prof11_client.test.js"
@@ -918,8 +918,8 @@
   {
     "name": "PROF11-pages-mortar-at-rank-0",
     "file": "src/ui/profPages.js",
-    "old": "['Mortar, from Sulphur, Lead and Rough Stone', 2]",
-    "new": "['Mortar, from Sulphur, Lead and Rough Stone', 1]",
+    "old": "  masonry: () => [[t('prof.page.unlocks.masonry1', 'Cut Stone, from Rough Stone'), 1], [t('prof.page.unlocks.masonry2', 'Mortar, from Sulphur, Lead and Rough Stone'), 2]],",
+    "new": "  masonry: () => [[t('prof.page.unlocks.masonry1', 'Cut Stone, from Rough Stone'), 1], [t('prof.page.unlocks.masonry2', 'Mortar, from Sulphur, Lead and Rough Stone'), 1]],",
     "tests": [
       "test/prof11_client.test.js"
     ]
@@ -927,7 +927,7 @@
   {
     "name": "PROF11-pages-hands-not-at-the-bench",
     "file": "src/ui/profPages.js",
-    "old": ": me !== _mason && _mason.act ? 'the mason\\'s bench' : me !== _cook",
+    "old": ": me !== _mason && _mason.act ? 'mason' : me !== _cook",
     "new": ": me !== _cook",
     "tests": [
       "test/prof11_client.test.js"
@@ -937,7 +937,7 @@
   {
     "name": "PROF11-pages-escape-forgets-the-chisel",
     "file": "src/ui/profPages.js",
-    "old": "  if (_mason.act) { _mason.act.cancel(); endChisel(); _mason.word = CHISEL_DOWN_LINE; return true; }   // PROF11\n",
+    "old": "  if (_mason.act) { _mason.act.cancel(); endChisel(); _mason.word = chiselDownLine(); return true; }   // PROF11\n",
     "new": "",
     "tests": [
       "test/prof11_client.test.js"

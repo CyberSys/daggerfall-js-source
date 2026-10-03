@@ -119,8 +119,8 @@
   {
     "name": "AUDIT-HERB-CURSOR-C3-gentle-hint",
     "file": "src/ui/profReticle.js",
-    "old": "hint: (st, label) => (st.gentle ? 'searching...' : label || 'click the glint'),",
-    "new": "hint: (st, label) => label || 'click the glint',",
+    "old": "hint: (st, label) => (st.gentle ? t('prof.reticle.basket.searching', 'searching...') : label || t('prof.reticle.basket.glint', 'click the glint')),",
+    "new": "hint: (st, label) => label || t('prof.reticle.basket.glint', 'click the glint'),",
     "tests": [
       "test/fb1002_herbcursor_audit.test.js"
     ]

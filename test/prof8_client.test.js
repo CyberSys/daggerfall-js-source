@@ -347,7 +347,7 @@ test('PROF8 book, page, words and wiring: the book keeps the account\'s hauls (t
   assert.match(pb, /if \(r\?\.error === 'prof-fish-cap'\) state\.hauls = Math\.max\(state\.hauls \?\? 0, state\.caps\?\.hauls \?\? HAULS_PER_DAY\);/);
   const pp = src('src/ui/profPages.js');
   assert.match(pp, /const PRACTISED = Object\.freeze\(\['herbalism', 'mining', 'hunting', 'fishing',/);
-  assert.match(pp, /Today: \$\{book\.state\.hauls \?\? 0\} of \$\{book\.state\.caps\?\.hauls \?\? HAULS_PER_DAY\} hauls - your account's, across your characters/);
+  assert.match(pp, /t\('prof\.page\.today\.hauls', 'Today: \{hauls\} of \{cap\} hauls - your account\\'s, across your characters', \{ hauls: book\.state\.hauls \?\? 0, cap: book\.state\.caps\?\.hauls \?\? HAULS_PER_DAY \}\)/);   // PIN MOVED (L10N4): the line through t()
   const w = src('src/scenes/world.js');
   assert.match(w, /fishKind\(\{ book: profBook, host: \{/);
   assert.match(w, /storm: \(\) => currentWeather\(\) === 'thunder',/);

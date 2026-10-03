@@ -133,5 +133,5 @@ test('SEAT2b part two THE HOST\'S SEAMS: a members\' Harbour is the travel map\'
   assert.equal(storedText('Ram Kit', 2), 'You made 2 Ram Kits - they wait in your Stores');
   assert.notEqual(SIEGE_STAYS_LINE, STOCK_STAYS_LINE);
   assert.match(SIEGE_STAYS_LINE, /Siege Camp/);
-  assert.match(readFileSync(new URL('../src/ui/profPages.js', import.meta.url), 'utf8'), /: pick\.family === 'siege' \? SIEGE_STAYS_LINE : STOCK_STAYS_LINE\)\);/);
+  assert.match(readFileSync(new URL('../src/ui/profPages.js', import.meta.url), 'utf8'), /: pick\.family === 'siege' \? siegeStaysLine\(\) : stockStaysLine\(\)\)\);/);   // PIN MOVED (L10N4): said through their readers
 });

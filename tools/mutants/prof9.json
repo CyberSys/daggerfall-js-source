@@ -1012,8 +1012,8 @@
   {
     "name": "PROF9-pages-feast-unlock-55",
     "file": "src/ui/profPages.js",
-    "old": "['Feast of the Hearth', 6]]),",
-    "new": "['Feast of the Hearth', 5]]),",
+    "old": "  cooking: () => [[t('prof.page.unlocks.cooking1', 'Hunter\\'s Stew, Fisherman\\'s Supper'), 1], [t('prof.page.unlocks.cooking2', 'Orchard Tart'), 2], [t('prof.page.unlocks.cooking6', 'Feast of the Hearth'), 6]],",
+    "new": "  cooking: () => [[t('prof.page.unlocks.cooking1', 'Hunter\\'s Stew, Fisherman\\'s Supper'), 1], [t('prof.page.unlocks.cooking2', 'Orchard Tart'), 2], [t('prof.page.unlocks.cooking6', 'Feast of the Hearth'), 5]],",
     "tests": [
       "test/prof9_client.test.js"
     ]
@@ -1048,7 +1048,7 @@
   {
     "name": "PROF9-pages-hands-not-at-the-fire",
     "file": "src/ui/profPages.js",
-    "old": ": me !== _cook && _cook.act ? 'the fire'\n",
+    "old": " : me !== _cook && _cook.act ? 'fire'\n",
     "new": "\n",
     "tests": [
       "test/prof9_client.test.js"
@@ -1057,7 +1057,7 @@
   {
     "name": "PROF9-pages-escape-leaves-the-pan",
     "file": "src/ui/profPages.js",
-    "old": "  if (_cook.act) { _cook.act.cancel(); endPan(); _cook.word = PAN_DOWN_LINE; return true; }   // PROF9\n",
+    "old": "  if (_cook.act) { _cook.act.cancel(); endPan(); _cook.word = panDownLine(); return true; }   // PROF9\n",
     "new": "",
     "tests": [
       "test/prof9_client.test.js"
@@ -1093,8 +1093,8 @@
   {
     "name": "PROF9-pages-fire-away-offers",
     "file": "src/ui/profPages.js",
-    "old": "    endPan();\n    detail.append(el('p', 'px-note', FIRE_AWAY_LINE));\n    return;",
-    "new": "    endPan();\n    detail.append(el('p', 'px-note', FIRE_AWAY_LINE));",
+    "old": "    detail.append(el('p', 'px-note', fireAwayLine()));\n    return;",
+    "new": "    detail.append(el('p', 'px-note', fireAwayLine()));",
     "tests": [
       "test/prof9_client.test.js"
     ]
@@ -1102,8 +1102,8 @@
   {
     "name": "PROF9-pages-servings-unsaid",
     "file": "src/ui/profPages.js",
-    "old": "${serves > 1 ? 'Two servings (a Cook\\'s)' : 'One serving'}",
-    "new": "One serving",
+    "old": "${serves > 1 ? t('prof.page.fire.servesTwo', 'Two servings (a Cook\\'s), into your pack.') : t('prof.page.fire.servesOne', 'One serving, into your pack.')}",
+    "new": "${t('prof.page.fire.servesOne', 'One serving, into your pack.')}",
     "tests": [
       "test/prof9_client.test.js"
     ]
@@ -1304,8 +1304,8 @@
   {
     "name": "AUDIT-PROF-541-K7-steps-unsaid",
     "file": "src/ui/profPages.js",
-    "old": "Cooking XP to a plain dish's ${cookXp(rank, { steps })}",
-    "new": "Cooking XP to a plain dish's ${cookXp(rank)}",
+    "old": "xp: steps > 0 ? cookXp(rank, { steps }) : cookXp(rank),",
+    "new": "xp: cookXp(rank),",
     "tests": [
       "test/prof9_client.test.js"
     ]

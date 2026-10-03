@@ -507,8 +507,8 @@
   {
     "name": "PROF3-page-quick-clean",
     "file": "src/ui/profPages.js",
-    "old": "        _anvil.act = createHeatAct({ band: p.heatBand?.() ?? 1 });\n        _anvil.actRecipe = r.id; _anvil.actWood = _anvil.heartwood && takesHeartwood(r);\n        rerender();\n      };\n      const quick = el('button', 'act', 'Quick craft');\n      quick.type = 'button';\n      quick.disabled = !ready;\n      quick.onclick = () => { void finish(false); };",
-    "new": "        _anvil.act = createHeatAct({ band: p.heatBand?.() ?? 1 });\n        _anvil.actRecipe = r.id; _anvil.actWood = _anvil.heartwood && takesHeartwood(r);\n        rerender();\n      };\n      const quick = el('button', 'act', 'Quick craft');\n      quick.type = 'button';\n      quick.disabled = !ready;\n      quick.onclick = () => { void finish(true); };",
+    "old": "        _anvil.act = createHeatAct({ band: p.heatBand?.() ?? 1 });\n        _anvil.actRecipe = r.id; _anvil.actWood = _anvil.heartwood && takesHeartwood(r);\n        rerender();\n      };\n      const quick = el('button', 'act', quickWord());\n      quick.type = 'button';\n      quick.disabled = !ready;\n      quick.onclick = () => { void finish(false); };",
+    "new": "        _anvil.act = createHeatAct({ band: p.heatBand?.() ?? 1 });\n        _anvil.actRecipe = r.id; _anvil.actWood = _anvil.heartwood && takesHeartwood(r);\n        rerender();\n      };\n      const quick = el('button', 'act', quickWord());\n      quick.type = 'button';\n      quick.disabled = !ready;\n      quick.onclick = () => { void finish(true); };",
     "tests": [
       "test/prof3_client.test.js"
     ]
