@@ -16904,6 +16904,9 @@ export async function bootWorld(canvas, renderer, params, status) {
       // guild's own batch - the purse checkpointed first, the hold standing until the answer (realmSaves.js realmGoldAct)
       realm: realmSession ? { act: (o) => realmGoldAct({ session: realmSession, checkpoint: () => onlineCheckpoint(), ...o }) } : null,
       onHall: (mapId) => { onlineHomes?.ensure?.(mapId, { force: true }); },   // GUILD1d: the hall's town read again - its door and banners
+      // AUDIT GUILD-YARD C3, AUDIT PROF-541 G1: a rank moved (a keeper made or unmade), found by whichever look, reads the
+      // town again, as onHall does - its halls' `keeper` was the town's answer's, believed a minute
+      onRank: () => { onlineHomes?.bump?.(); onlineHomes?.ensure?.(_musicLoc?.mapTableData?.mapId, { force: true })?.catch?.(() => {}); },
     });
     socialPanel = createSocialPanel({
       social,
@@ -21053,11 +21056,9 @@ export async function bootWorld(canvas, renderer, params, status) {
         const g = guildBook;
         if (!g) return null;
         // AUDIT GUILD1d A5: a look that moves what a door may offer (the hall's buy) reads the doors again - the plaque's
-        // text is kept by the registry's version, and the first hover after boot asked before the guild was known
-        const sig = (v) => (v ? `${v.id}|${v.rank}|${v.hall ? 1 : 0}` : '');
-        // AUDIT GUILD-YARD C3: a rank moved (a keeper made or unmade) reads the town again, as onHall does - its halls'
-        // `keeper` was the town's answer's, believed a minute
-        if (g.stale()) { const was = sig(g.guild); g.refresh().then(() => { if (sig(g.guild) !== was) { onlineHomes?.bump?.(); onlineHomes?.ensure?.(_musicLoc?.mapTableData?.mapId, { force: true })?.catch?.(() => {}); } }).catch(() => {}); }
+        // text is kept by the registry's version, and the first hover after boot asked before the guild was known.
+        // AUDIT PROF-541 G1: that look's word is the guild book's own now (its onRank, above), whichever look found it
+        if (g.stale()) g.refresh().catch(() => {});
         const v = g.guild;
         return v ? { name: v.name, rank: v.rank, hall: !!v.hall, treasury: v.treasury } : null;
       },

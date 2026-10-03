@@ -14,10 +14,11 @@ import { seatRealm } from './realmSeat.mjs';
 import { homeSaleRefund, homeLookOf } from '../src/net/homeLaw.js';
 import { DECOR_YARD_CAP } from '../src/net/decorLaw.js';
 import { REFUSALS } from '../src/net/accountClient.js';
-import { homeOutsideKept, homeYardWhere, createOnlineHomes } from '../src/systems/onlineHomes.js';
+import { homeOutsideKept, homeYardWhere, createOnlineHomes, homeHallRows, HOME_VERB, HALL_VERB } from '../src/systems/onlineHomes.js';
 import { createHomeYards, YARD_IN_HALL, YARD_HALL_FULL, YARD_IN_HOUSE, YARD_FULL } from '../src/scenes/homeYards.js';
 import { decorWhyNot } from '../src/ui/decorPanel.js';
 import { fakeDoc, fakeWin, fakeBlocks, rmb, TOWN, settle } from './decorFakes.mjs';
+import { GuildBook } from '../src/net/guildBook.js';
 
 const src = (p) => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8');
 const HALL = { mapId: 7, buildingKey: 300, region: 17, price: 20_000 };
@@ -329,14 +330,42 @@ test('AUDIT GUILD-YARD C2 the painted word is the hall\'s though the decorator s
   assert.deepEqual(h.said, ['The house could not be painted.'], 'a home\'s own words still');
 });
 
-test('AUDIT GUILD-YARD C3 a keeper made or unmade: the guild book\'s refresh that finds the rank moved reads the town again, forced, as a hall bought does (the registry\'s `keeper` was the town\'s answer, believed a minute) - in the guild book\'s hook, never an online frame\'s arm (mutants: the town unread)', async () => {
+test('AUDIT GUILD-YARD C3 a keeper made or unmade: the guild book\'s refresh that finds the rank moved reads the town again, forced, as a hall bought does (the registry\'s `keeper` was the town\'s answer, believed a minute) - in the guild book\'s hook, never an online frame\'s arm; AUDIT PROF-541 G1: at EVERY look - the Guild tab\'s, the seat Edicts\', a room\'s word, an act\'s - never only the hall plaque\'s (mutants: the town unread; the rank\'s move untold; no guild told at the first look)', async () => {
+  // AUDIT PROF-541 G1: the guild book tells its host a moved `id|rank|hall` from whichever look found it
+  let guild = { id: 'g1', name: 'The Silver Hand', rank: 1, hall: { mapId: 7 }, treasury: 0 };
+  const door = { mine: async () => ({ ok: true, data: { guild } }), invites: async () => ({ ok: true, data: { invites: [] } }) };
+  let told = 0;
+  const book = new GuildBook({ door, character: () => 'r0123456789abcdef0123', wallet: () => ({ gold: () => 0, pay() {}, credit() {} }), onRank: () => { told++; } });
+  await book.refresh();
+  assert.equal(told, 1, 'the first look that finds a guild tells it (AUDIT GUILD1d A5: the plaque asked before it was known)');
+  await book.refresh();
+  assert.equal(told, 1, 'the same rank again: nothing told');
+  guild = { ...guild, rank: 2 };   // demoted from Officer, the Guild tab's look finding it
+  await book.refresh();
+  assert.equal(told, 2, 'an Officer demoted: told, whoever looked');
+  guild = { ...guild, hall: null };
+  await book.refresh();
+  assert.equal(told, 3, 'the hall gone: told');
+  guild = null;
+  await book.refresh();
+  assert.equal(told, 4, 'out of the guild: told');
+  const quiet = new GuildBook({ door: { ...door, mine: async () => ({ ok: true, data: { guild: null } }) }, character: () => 'r0123456789abcdef0123', wallet: () => ({ gold: () => 0, pay() {}, credit() {} }), onRank: () => { told++; } });
+  await quiet.refresh();
+  assert.equal(told, 4, 'a look that finds no guild, as none was known: nothing told');
+  const loud = new GuildBook({ door: { ...door, mine: async () => ({ ok: true, data: { guild: { id: 'g2', rank: 0 } } }) }, character: () => 'r0123456789abcdef0123', wallet: () => ({ gold: () => 0, pay() {}, credit() {} }), onRank: () => { throw new Error('boom'); } });
+  const warn = console.warn; console.warn = () => {};
+  try { assert.deepEqual(await loud.refresh(), { ok: true }, 'a host that throws costs the town its read, never the tab its look'); } finally { console.warn = warn; }
+  // the host: the hook reads the town again, forced - outside the online frame; the plaque's info only looks
   const w = src('src/scenes/world.js');
-  const hook = w.indexOf('    guildHall: {\n      info: () => {');
-  assert.ok(hook > 0);
-  const body = w.slice(hook, w.indexOf('      buy: (o) =>', hook));
-  assert.match(body, /if \(sig\(g\.guild\) !== was\) \{ onlineHomes\?\.bump\?\.\(\); onlineHomes\?\.ensure\?\.\(_musicLoc\?\.mapTableData\?\.mapId, \{ force: true \}\)\?\.catch\?\.\(\(\) => \{\}\); \}/);
+  const made = w.indexOf('    guildBook = new GuildBook({');
+  assert.ok(made > 0);
+  const opts = w.slice(made, w.indexOf('\n    });\n', made));
+  assert.match(opts, /onRank: \(\) => \{ onlineHomes\?\.bump\?\.\(\); onlineHomes\?\.ensure\?\.\(_musicLoc\?\.mapTableData\?\.mapId, \{ force: true \}\)\?\.catch\?\.\(\(\) => \{\}\); \},/);
+  const info = w.indexOf('    guildHall: {\n      info: () => {');
+  assert.ok(info > 0);
+  assert.ok(!w.slice(info, w.indexOf('      buy: (o) =>', info)).includes('onlineHomes'), 'the plaque\'s look tells nothing itself - the book does');
   const frameAt = w.indexOf('  const onlineFrame = (now, dt) => {');
-  assert.ok(frameAt > 0 && !w.slice(frameAt, w.indexOf('\n  };\n', frameAt)).includes('guildHall: {'), 'not in the online frame');
+  assert.ok(frameAt > 0 && !w.slice(frameAt, w.indexOf('\n  };\n', frameAt)).includes('onRank'), 'not in the online frame');
   // why the force: the registry believes a town's answer a minute - an unforced ask inside it keeps the old `keeper`
   let keeper = true, t = 0;
   const api = { town: async () => ({ ok: true, data: { homes: [{ buildingKey: 300, owner: 'SH', entry: 'guild', hall: { name: 'SH' }, member: true, ...(keeper ? { keeper: true } : {}) }] } }) };
@@ -369,6 +398,35 @@ test('AUDIT GUILD-YARD Y1 the town names a hall\'s keeper as OWNS keeps it - an 
   assert.equal(otto.keeper, true, 'a realm Officer keeps it');
 });
 
+test('AUDIT PROF-541 G2 the hall\'s door "Who may enter" follows what the service lets set (setHallEntry: the rank alone), never `keeper` (a realm character\'s too): a LOCAL Officer reads `hallEntry` and turns the door; a Recruit reads none; the registry and the door\'s rows and its press go by it (mutants: `hallEntry` asked a realm character; the registry\'s `hallEntry` the keeper\'s; the row\'s and the press\'s gate the keeper\'s)', async (t) => {
+  t.mock.method(Date, 'now', () => T0 * 1000);
+  const { svc, gm, officer, recruit, view } = await stood();
+  const lola = await svc.registered('Lola');   // a local character, `char-lola`
+  assert.equal((await svc.call('/v1/guilds/invite', { character: gm.character, handle: 'Lola' }, gm.secret)).status, 200);
+  const inv = await svc.call('/v1/guilds/invites', {}, lola.secret);
+  assert.equal((await svc.call('/v1/guilds/answer', { character: lola.character, guild: inv.body.invites[0].guild, accept: true }, lola.secret)).status, 200);
+  const member = (await view()).members.find((m) => m.name === 'Lola').member;
+  assert.equal((await svc.call('/v1/guilds/rank', { character: gm.character, member, rank: 1 }, gm.secret)).status, 200, 'an Officer');
+  const town = async (who) => (await svc.call('/v1/homes/town', { mapId: 7, character: who.character }, who.secret)).body.homes.find((h) => h.buildingKey === 300);
+  const seen = await town(lola);
+  assert.equal(seen.keeper, undefined, 'no keeper: Y1 stands');
+  assert.equal(seen.hallEntry, true, 'but the door is hers to turn');
+  assert.equal((await svc.call('/v1/guilds/hall/entry', { character: lola.character, entry: 'public' }, lola.secret)).status, 200, 'as the service answers her');
+  assert.equal((await town(officer)).hallEntry, true, 'a realm Officer too');
+  assert.equal((await town(gm)).hallEntry, true, 'the guildmaster too');
+  assert.equal((await town(recruit)).hallEntry, undefined, 'a Recruit turns nothing');
+  // the client: the registry reads it, and the door's row is it - a keeper who may not turn it shows none
+  const api = { town: async () => ({ ok: true, data: { homes: [{ ...seen, buildingKey: 300 }] } }) };
+  const homes = createOnlineHomes({ api, character: () => lola.character });
+  await homes.ensure(7);
+  const h = homes.homeAt(7, 300);
+  assert.equal(h.hallEntry, true);
+  assert.equal(h.keeper, false);
+  assert.deepEqual(homeHallRows(h, 'enter').map((r) => r.id), [HOME_VERB.enter, HALL_VERB.entry], 'a local Officer\'s door: "Who may enter"');
+  assert.deepEqual(homeHallRows({ ...h, hallEntry: false, keeper: true }, 'enter').map((r) => r.id), [HOME_VERB.enter], 'keeper alone: no row');
+  assert.match(src('src/scenes/worldModes.js'), /if \(verb === HALL_VERB\.entry && home\?\.hall && home\.hallEntry\) \{ turnHallEntry\(bd, home\); return true; \}/, 'the press as the row');
+});
+
 test('AUDIT GUILD-YARD a home\'s outside is its CHARACTER\'s: another character of the same account paints nothing of it, nor places in its yard (mutants: OWNS\'s home any character of the account)', async (t) => {
   t.mock.method(Date, 'now', () => T0 * 1000);
   const svc = await standService();
@@ -383,7 +441,7 @@ test('AUDIT GUILD-YARD a home\'s outside is its CHARACTER\'s: another character 
   assert.equal((await paint(o.character)).status, 200, 'its own character paints it');
 });
 
-test('AUDIT GUILD-YARD the hall\'s yard in the hall\'s words: the decorator\'s panel names it the guild\'s yard (its `where`, through the tool\'s room), a piece in the hall\'s footprint is "inside the hall" and a full yard is the hall\'s - never "your house", "your yard"; a home\'s keep their own; the service\'s refusals of a hall\'s yard its own (no-home, yard-cap), `hall-yard` a palace\'s alone (mutants: the tool\'s `where` plain; the hall\'s words lost - the lot\'s, the bar\'s; the hall\'s word for every yard refusal)', async (t) => {
+test('AUDIT GUILD-YARD the hall\'s yard in the hall\'s words: the decorator\'s panel names it the guild\'s yard (its `where`, through the tool\'s room), a piece in the hall\'s footprint is "inside the hall" and a full yard is the hall\'s - never "your house", "your yard"; a home\'s keep their own; the service\'s refusals of a hall\'s yard its own (no-home, yard-cap), `hall-yard` a palace\'s alone (mutants: the tool\'s `where` plain; the hall\'s words lost - the lot\'s, the bar\'s; the hall\'s word for every yard refusal; AUDIT PROF-541 G3: the ghost\'s bar\'s hall lost; the commit\'s cap unasked)', async (t) => {
   assert.equal(decorWhyNot({ price: 10, ready: true, gold: 100, count: DECOR_YARD_CAP, cap: DECOR_YARD_CAP, yard: true, hall: true }), YARD_HALL_FULL);
   assert.equal(decorWhyNot({ price: 10, ready: true, gold: 100, count: DECOR_YARD_CAP, cap: DECOR_YARD_CAP, yard: true }), YARD_FULL);
   assert.equal(decorWhyNot({ price: 10, ready: true, gold: 100, count: 3, cap: 3, hall: true }), 'This room already holds 3 pieces.', 'a hall\'s room is a room');
@@ -399,6 +457,22 @@ test('AUDIT GUILD-YARD the hall\'s yard in the hall\'s words: the decorator\'s p
   for (let i = 0; i < 2; i++) { w.yards.frame({ dt: 0.1, cam, overlayUp: true }); await settle(); }
   assert.ok(panelText(w).includes(YARD_HALL_FULL), panelText(w));
   assert.ok(!/Your yard|your house/.test(panelText(w)));
+  // AUDIT PROF-541 G3: a ghost standing as the yard fills - its warning bar says the hall's yard is full, and its commit
+  // places nothing
+  const f = world(HALL_ROW, { pieces: full.slice(1), feet: [15, 0, 10] });
+  await stand(f);
+  const ft = f.yards.tool();
+  assert.equal(ft.openPanel(), true);
+  for (let i = 0; i < 6; i++) { f.yards.frame({ dt: 0.1, cam, overlayUp: true }); await settle(); }
+  pressIn(f, (n) => n.dataset?.key === 'm41000');
+  pressIn(f, (n) => n.tag === 'button' && n.textContent === 'Place');
+  for (let i = 0; i < 6 && !ft.ghost(); i++) { f.yards.frame({ dt: 0.1, cam, overlayUp: false }); await settle(); }
+  assert.ok(ft.ghost(), 'the ghost stands');
+  assert.notEqual(ft.why(), YARD_HALL_FULL, 'a place still free');
+  f.yards.yards()[0].pool.put(piece({ id: 'last' }));   // another keeper's piece lands meanwhile
+  assert.equal(ft.why(), YARD_HALL_FULL, 'the bar: the hall\'s yard, full');
+  assert.equal(await ft.commit(), false, 'and nothing is placed');
+  assert.ok(!f.writes.some((x) => x[0] === 'place'), 'no write');
   // a piece aimed into the hall's footprint: "inside the hall"
   const aim = { pos: [15, 1.6, 10], yaw: -Math.PI / 2, pitch: -0.6 };   // west, 2.3 m ahead: x 12.7, in the hall
   const k = world(HALL_ROW, { feet: [15, 0, 10] });

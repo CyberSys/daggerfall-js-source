@@ -144,8 +144,8 @@ test('GUILD1d the door\'s rows: "Buy it for <guild>" to a guildmaster whose guil
   assert.equal(homeHallBuyRow(20_000, null), null);
   const hall = { entry: 'guild', hall: { name: 'The Hand' }, member: true };
   assert.deepEqual(homeHallRows(hall, 'enter'), [{ id: HOME_VERB.enter, label: 'Go in' }]);
-  assert.deepEqual(homeHallRows({ ...hall, keeper: true }, 'enter')[1], { id: HALL_VERB.entry, label: 'Who may enter: Members' });
-  assert.deepEqual(homeVisitorRows({ ...hall, keeper: true, rent: { vacant: 1, from: 5 } }, 'enter'), homeHallRows({ ...hall, keeper: true }, 'enter'), 'a hall is visited as a hall - no room to rent');
+  assert.deepEqual(homeHallRows({ ...hall, hallEntry: true }, 'enter')[1], { id: HALL_VERB.entry, label: 'Who may enter: Members' });   // AUDIT PROF-541 G2: the service's `hallEntry`
+  assert.deepEqual(homeVisitorRows({ ...hall, hallEntry: true, rent: { vacant: 1, from: 5 } }, 'enter'), homeHallRows({ ...hall, hallEntry: true }, 'enter'), 'a hall is visited as a hall - no room to rent');
   assert.equal(homeHallRows(hall, 'locked'), null);
   assert.equal(hallNextEntry('guild'), 'public');
   assert.equal(hallNextEntry('public'), 'guild');

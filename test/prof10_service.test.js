@@ -79,7 +79,7 @@ test('PROF10 service: a Silver Ruby Ring at the jeweller\'s bench - its Silver a
   assert.deepEqual((await s.cut(mac, 'ring:silver:ruby')).body, { error: 'stores-short' });
   assert.deepEqual((await s.cut(mac, 'ring:silver:emerald')).body, { error: 'stores-short' }, 'every gem its own');
   assert.equal(s.xpOf(mac), 540);
-  assert.match(ACCOUNT_VERSION, /^acct69$/   /* PIN MOVED (PROF12): the live version */);
+  assert.match(ACCOUNT_VERSION, /^acct70$/   /* PIN MOVED (PROF12, AUDIT PROF-541): the live version */);
 });
 
 test('PROF10 service: the jeweller\'s ladder asked - Gold at 25, Platinum at 55, the Wand at 70 (refused below, nothing spent); the quality on the margin with a clean facet\'s step; a Wand\'s Heartwood its step; a Master\'s full track credits none', async () => {
