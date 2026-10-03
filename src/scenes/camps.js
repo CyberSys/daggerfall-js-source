@@ -51,6 +51,10 @@ export const CAMP_LIGHT_REACH = 64;
 export const CAMP_LIGHTS_MAX = 4;
 const within = (a, b, reach) => Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]) <= reach;   // nearestFire's own measure
 const NO_CAMPS = Object.freeze([]);
+/** CAMP-GROUND's probe, one home - a camp's placement and REST6's Bedroll lay on the same ground (AUDIT REST-PARTY):
+ *  surfaceHit, mesh or terrain, whichever is nearer; a collider without that door keeps the bucket raycast, not null. */
+const groundProbe = (col) => (col?.surfaceHit ? (o, d, m) => col.surfaceHit(o, d, m).dist
+  : (col?.raycast ? (o, d, m) => col.raycast(o, d, m) : null));
 /** REST2: a world fire's rows - nobody's to pack or stoke, so rest and cook alone. */
 const HEARTH_ROWS = Object.freeze([Object.freeze({ key: 'rest', text: CAMP_TEXT.menuRest }), Object.freeze({ key: 'cook', text: CAMP_TEXT.menuCook })]);
 
@@ -205,8 +209,7 @@ export function createCamps({
       // as 'no surface' is right indoors and silently wrong in the whole
       // outdoors". It answers whichever is NEARER, mesh or terrain, so a
       // camp under a walkway still finds the walkway.
-      probe: col?.surfaceHit ? (o, d, m) => col.surfaceHit(o, d, m).dist
-        : (col?.raycast ? (o, d, m) => col.raycast(o, d, m) : null),
+      probe: groundProbe(col),
       place: place?.() ?? {}, standing: own().length, id: `${selfId?.() ?? 'me'}:${++_nextId}:${Math.trunc(now())}`,
       keep: fieldCook?.() === true,   // PROF9: a Field Cook lights a kit's fire without its charge (Professions-Arc 3.3)
     });
@@ -254,8 +257,7 @@ export function createCamps({
     const cam = camera?.();
     if (!cam?.feet) { say(CAMP_TEXT.noSpot); return false; }
     const col = collider?.();
-    const probe = col?.surfaceHit ? (o, d, m) => col.surfaceHit(o, d, m).dist : (col?.raycast ? (o, d, m) => col.raycast(o, d, m) : null);
-    const spot = campSpot(cam.feet, cam.yaw ?? 0, probe);
+    const spot = campSpot(cam.feet, cam.yaw ?? 0, groundProbe(col));
     const d = campDecision(CAMP_KIND.Fire, { ...(place?.() ?? {}), ground: spot.ground });
     if (!d.ok) { say(d.text); return false; }
     _bedroll = { item, list: list ?? entity?.items ?? null, pos: spot.pos };

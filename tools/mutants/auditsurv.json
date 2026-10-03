@@ -268,11 +268,12 @@
   {
     "name": "AUDITSURV-the-chargen-kit-carries-no-provisions",
     "file": "src/systems/startingGear.js",
-    "old": "  if (survivalOn()) for (const it of startingProvisions()) { addItem(entity.items, it); added.push(it); }\n",
-    "new": "",
+    "old": "for (const it of startingProvisions()) { addItem(entity.items, it); added.push(it); }",
+    "new": "{ }",
     "tests": [
       "test/auditsurv.test.js"
-    ]
+    ],
+    "note": "PIN MOVED (AUDIT REST-PARTY): REST2's online-Campfire `else` follows this line, so dropping the whole line no longer parsed; the loop alone is emptied."
   },
   {
     "name": "AUDITSURV-bare-feet-cost-blood-every-minute",
