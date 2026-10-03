@@ -332,5 +332,15 @@
     "tests": [
       "test/arena4b_mirror.test.js"
     ]
+  },
+  {
+    "name": "ARENA4b-MIR-EX-SIDES-WIPED",
+    "file": "src/scenes/arenaBouts.js",
+    "old": "    if (C.ex) return;\n    const R = realmNow();\n",
+    "new": "    const R = realmNow();\n",
+    "tests": [
+      "test/arena4b_mirror.test.js"
+    ],
+    "note": "The merge of ARENA4b's streams: the client stream's relayBanners, run on every relay bout's first st, wiped the relay stream's exhibition sides (and with them its laurel's favour)."
   }
 ]

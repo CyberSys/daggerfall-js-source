@@ -664,6 +664,9 @@ export function createArenaBouts(deps) {
    *  hall billed them (`banners` by fighter id - a rival's, a watched bout's two; none for the relay's own fighters), each
    *  a pennant on the versus bar (`data-team`), and the realm's laurel favoured from the first bell. */
   function relayBanners(C) {
+    // the merge of ARENA4b's streams: an EXHIBITION's sides are its own - the Red's fighter against the Blue's
+    // (startExhibitionRelay), its laurel exhibitionWord's - and this, run on every relay bout's first `st`, wiped both
+    if (C.ex) return;
     const R = realmNow();
     /** @type {Record<string, string>} */
     const out = {};
