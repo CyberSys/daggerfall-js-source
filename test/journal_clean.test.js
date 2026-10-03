@@ -128,14 +128,14 @@ test('JOURNAL-CLEAN: the Quests tab draws Remove (armed twice), Clear archive (a
   const start = src.indexOf('function pauseQuests(body) {');
   const tab = src.slice(start, src.indexOf('\nfunction render() {', start));
   assert.match(tab, /const clean = hooks\.journalClean\?\.\(\) \?\? null;/);
-  assert.match(tab, /'Click again to remove' : 'Remove'/);
+  assert.match(tab, /t\('pause\.journal\.removeArmed', 'Click again to remove'\) : t\('pause\.journal\.remove', 'Remove'\)/);
   assert.match(tab, /if \(journalCleanArmed !== sel\.key\) \{ journalCleanArmed = sel\.key; render\(\); return; \}/, 'the first Remove only arms');
   assert.match(tab, /clean\.removeFinished\?\.\(index\);/);
-  assert.match(tab, /'Click again to clear archive' : `Clear archive \(\$\{finished\.length\}\)`/);
+  assert.match(tab, /t\('pause\.journal\.clearArmed', 'Click again to clear archive'\) : t\('pause\.journal\.clear', 'Clear archive \(\{n\}\)', \{ n: finished\.length \}\)/);
   assert.match(tab, /if \(journalCleanArmed !== 'clear'\) \{ journalCleanArmed = 'clear'; render\(\); return; \}/, 'the first Clear only arms');
   assert.match(tab, /clean\.clearFinished\?\.\(\);/);
-  assert.match(tab, /isHidden \? 'Unhide' : 'Hide from journal'/);
-  assert.match(tab, /`Show hidden \(\$\{hidden\.length\}\)`/);
+  assert.match(tab, /isHidden \? t\('pause\.journal\.unhide', 'Unhide'\) : t\('pause\.journal\.hide', 'Hide from journal'\)/);
+  assert.match(tab, /t\('pause\.journal\.showHidden', 'Show hidden \(\{n\}\)', \{ n: hidden\.length \}\)/);
   assert.match(tab, /const shown = questShowHidden \? hidden : \[\];/);
   assert.match(tab, /rows\[0\]\?\.key \?\? null/, 'a journal whose every quest is hidden has no first row to open on');
   // the arming and the toggle never outlive the visit

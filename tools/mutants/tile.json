@@ -52,8 +52,8 @@
   {
     "name": "TILE-6-a-refusal-gets-a-second-sentence-here",
     "file": "src/ui/saveTile.js",
-    "old": "      bad: cloud.why || 'Could not back up',",
-    "new": "      bad: 'Could not back up',",
+    "old": "      bad: cloud.why || t('menu.cloud.bad', 'Could not back up'),",
+    "new": "      bad: t('menu.cloud.bad', 'Could not back up'),",
     "tests": [
       "test/savetile.test.js"
     ],

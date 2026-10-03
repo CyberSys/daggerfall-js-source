@@ -276,8 +276,8 @@ test('FT18 by source: the pane\'s search filters in place and All off asks first
   assert.match(pane, /const hit = matchesFeatureQuery\(f, featureQuery\); t\.hidden = !hit;/);
   assert.match(pane, /g\.head\.hidden = !n;\s*\n\s*g\.grid\.hidden = !n;/, 'a group left with nothing goes too');
   assert.match(pane, /none\.hidden = shown > 0;/, 'and an empty search says so');
-  assert.match(pane, /\{ label: 'All off', onClick: \(\) => ask\('Turn Everything Off', ALL_OFF_ASK, 'All off', \(\) => \{ featuresAllOff\(\); \}\) \}/, 'All off is asked first');
-  assert.match(pane, /\.\.\.\(kept && typeof kept === 'object' \? \[\{ label: 'Restore',/, 'Restore only while there is something to restore');
+  assert.match(pane, /\{ label: t\('menu\.features\.allOff', 'All off'\), onClick: \(\) => ask\(t\('menu\.features\.allOffTitle', 'Turn Everything Off'\), allOffAsk\(\), t\('menu\.features\.allOff', 'All off'\), \(\) => \{ featuresAllOff\(\); \}\) \}/, 'All off is asked first');
+  assert.match(pane, /\.\.\.\(kept && typeof kept === 'object' \? \[\{ label: t\('menu\.features\.restore', 'Restore'\),/, 'Restore only while there is something to restore');
   assert.match(menu, /featureQuery = '';   \/\/ FT18: a fresh visit searches nothing/);
   // the menu's own key handler stands down for a text field, so typing in the search never walks the menu
   assert.match(menu, /if \(t && \(t\.tagName === 'INPUT' \|\| t\.tagName === 'TEXTAREA' \|\| t\.isContentEditable\)\) return;/);

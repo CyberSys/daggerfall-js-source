@@ -52,5 +52,5 @@ test('FOEBAR1: the two pictures are one crop, the pref defaults to the plain bar
   assert.doesNotMatch(css, /\.hud-bladefull \{[^}]*opacity/, 'the fill stays solid red');
   const menu = read('src/ui/enhancedMenu.js');
   assert.match(menu, /const blade = getPref\('foeBarStyle'\) === 'blade';[\s\S]{0,900}?setPref\('foeBarStyle', blade \? 'bar' : 'blade'\); render\(\);/, 'the Interface card offers the two faces as a two-way row');
-  assert.match(menu, /el\('button', 'act rowact', blade \? 'Blade' : 'Bar'\)/, 'whose button names the OTHER option');
+  assert.match(menu, /el\('button', 'act rowact', blade \? t\('menu\.hud\.foeBarBlade', 'Blade'\) : t\('menu\.hud\.foeBarBar', 'Bar'\)\)/, 'whose button names the OTHER option');
 });

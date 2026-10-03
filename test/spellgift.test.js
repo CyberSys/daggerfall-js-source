@@ -165,7 +165,7 @@ test('SPELL-GIFT by source: the receiver takes a stranger\'s list only with the 
   assert.match(rd('src/scenes/dungeonContext.js'), /allyTarget: \(eye, dir, reach, sp\) => opts\.allyTarget\?\.\(eye, dir, reach, sp\) \?\? null,/);
   assert.equal(PREF_DEFAULTS.acceptStrangerSpells, true, 'on: the ask');
   assert.ok(ONLINE_PLAYERS_OWN_PREFS.includes('acceptStrangerSpells'), 'the player\'s own, online');
-  assert.match(rd('src/ui/enhancedMenu.js'), /c\.append\(prefRow\('acceptStrangerSpells', 'Spells from strangers',/);
+  assert.match(rd('src/ui/enhancedMenu.js'), /c\.append\(prefRow\('acceptStrangerSpells', t\('menu\.peers\.spells', 'Spells from strangers'\),/);
 });
 
 // ─── AUDIT (the batch's audit, agent B) ────────────────────────────────────────────────────────────────────────────

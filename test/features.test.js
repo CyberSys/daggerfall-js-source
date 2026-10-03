@@ -111,8 +111,8 @@ test('FT0: Features is on every rail and both dispatch tables, and the pane is t
   assert.match(menu, /\['features', 'Features'\],/, 'the pause system rail (SYSTEM_PANES)');
   assert.equal((menu.match(/features: paneFeatures,/g) ?? []).length, 2, 'both dispatch tables (boot and pause)');
   assert.match(menu, /import \{ FEATURES, KINDS, KIND_ORDER, GROUPS, GROUP_ORDER, filterFeatures, featureCounts, featureForControl, resolveControl, modModules, modDials, matchesFeatureQuery \} from '\.\.\/systems\/features\.js';/);
-  assert.match(menu, /function paneFeatures\(body\) \{[\s\S]*?featureCounts\(FEATURES\)[\s\S]*?chip\(null, 'All', counts\.all\)[\s\S]*?for \(const k of KIND_ORDER\) chips\.append\(chip\(k, KINDS\[k\]\.label, counts\[k\]\)\)/, 'All then the three kind chips, with counts');
-  assert.match(menu, /if \(!FEATURES\.length\) \{\s*body\.append\(empty\('Nothing here yet'/, 'an empty registry says so - the rail-hole law - rather than hiding the section');
+  assert.match(menu, /function paneFeatures\(body\) \{[\s\S]*?featureCounts\(FEATURES\)[\s\S]*?chip\(null, t\('menu\.features\.all', 'All'\), counts\.all\)[\s\S]*?for \(const k of KIND_ORDER\) chips\.append\(chip\(k, KINDS\[k\]\.label, counts\[k\]\)\)/, 'All then the three kind chips, with counts');
+  assert.match(menu, /if \(!FEATURES\.length\) \{\s*body\.append\(empty\(t\('menu\.settings\.emptyTitle', 'Nothing here yet'\)/, 'an empty registry says so - the rail-hole law - rather than hiding the section');
   assert.match(menu, /const rows = filterFeatures\(FEATURES, featureKind\);/);
   // the three builders: a row is the row its store already draws, dressed
   assert.match(menu, /function featureRow\(f\) \{[\s\S]*?c\.tiers \? choiceRow\(c\.key, f\.title, f\.note, c\.tiers, \{ home: true, read: c\.read, write: c\.write \}\) : prefRow\(c\.key, f\.title, f\.note, \{ home: true \}\)[\s\S]*?settingRow\(c\.key, \{ compact: true, home: true \}\)[\s\S]*?modRow\(c\.vendor, c\.key, MOD_SETTINGS\[c\.vendor\]\.keys\[c\.key\], \{ name: f\.title, note: f\.note, home: true \}\)/);
@@ -155,12 +155,12 @@ test('FT14: the panel is tiles grouped by what they change, the control is alway
   for (const [store, why] of [["c\\.store === 'prefs'", 'the port\'s own shelf'], ["c\\.store === 'settings'", 'DFU\'s ini']]) {
     assert.ok(new RegExp(store).test(menu), `tileStates answers for ${why}`);
   }
-  assert.match(menu, /return \{ labels: \['Off', 'On'\], at: getPref\(c\.key\) \? 1 : 0, locked,/, 'a two-state pref is a two-segment bar');
+  assert.match(menu, /return \{ labels: \['Off', 'On'\], shown: toggleWords\(\), at: getPref\(c\.key\) \? 1 : 0, locked,/, 'a two-state pref is a two-segment bar');
   assert.match(menu, /labels: c\.tiers\.map\(\(\[, l\]\) => l\)/, 'and a tiered one is its tiers, in order');
   assert.match(menu, /const vals = ENUM_LAW\[c\.key\]\.values;/, 'a DFU enum is its own values');
   assert.match(menu, /function segBar\(st, label\) \{/, 'one bar builder for all of them');
   // the row's own builder is the fallback, so a control the bar cannot express is not silently dropped
-  assert.match(menu, /if \(st\) t\.append\(segBar\(st, f\.title\)\);\s*\n\s*else t\.append\(featureRow\(f\)\);/,
+  assert.match(menu, /if \(st\) tile\.append\(segBar\(st, f\.title\)\);\s*\n\s*else tile\.append\(featureRow\(f\)\);/,
     'a store that cannot answer in segments falls back to its own row rather than vanishing');
 
   // (4) OL1 SURVIVES THE REDESIGN: a forced switch still reads forced and refuses the press

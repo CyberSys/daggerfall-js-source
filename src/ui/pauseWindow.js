@@ -94,7 +94,7 @@ import { SOUND } from '../systems/soundClips.js';
 import { BUILD_TAG } from '../buildTag.js';
 import { bindings, eventMeans } from './input.js';   // KB1: the live registry, for the toggle-close binding; AUDIT DISC28 UI-1: the event's own read of it
 import { getBinding } from '../systems/inputActions.js';   // KB1: InputManager.GetBinding(Actions.Escape)
-import { localizedText } from '../systems/textManager.js';   // L10N3d: DFU's Internal_Strings, read in the player's language
+import { localizedText, t } from '../systems/textManager.js';   // L10N3d: DFU's Internal_Strings, read in the player's language
 
 /** barMaxLength (:28). */
 export const BAR_MAX = 109.1;
@@ -332,7 +332,7 @@ export class PauseOptionsWindow {
       // nothing (or the note appearing to come from nowhere).
       if (this.hooks.loadingPrevented?.()) {
         this.top = 'note';
-        this._noteRows = ['Loading is disabled during online play.'];
+        this._noteRows = [t('pause.loadOnlineLocked', 'Loading is disabled during online play.')];
         return true;
       }
       // SAV4: LOAD GAME opens the slot window too (:308); a host
@@ -393,7 +393,7 @@ export class PauseOptionsWindow {
         this.hooks.openControls();
       } else {
         this.top = 'note';
-        this._noteRows = ['The controls window needs its art loaded.'];
+        this._noteRows = [t('pause.controlsNoArt', 'The controls window needs its art loaded.')];
       }
       return true;
     }
@@ -431,7 +431,7 @@ export class PauseOptionsWindow {
     if (this.top) {
       const got = this.top === 'exit' ? this.hooks.textLines?.(ARE_YOU_SURE_ID) : null;
       const rows = this.top === 'exit'
-        ? (got?.length ? got : ['Are you sure you want to quit?'])   // townTalk.lines answers [] without data
+        ? (got?.length ? got : [t('pause.quitConfirm', 'Are you sure you want to quit?')])   // townTalk.lines answers [] without data
         : this._noteRows;
       const buttons = this.top === 'exit' ? [MB_BUTTONS.Yes, MB_BUTTONS.No] : [];
       this._box = layoutMessageBox(font, rows, buttons);

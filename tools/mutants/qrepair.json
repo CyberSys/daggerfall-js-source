@@ -200,8 +200,8 @@
   {
     "name": "QREPAIR-no-confirm",
     "file": "src/ui/enhancedMenu.js",
-    "old": "    ask('Repair Active Quests', QUEST_REPAIR_ASK, 'Repair', () => {",
-    "new": "    ((a, b, c, f) => f())('Repair Active Quests', QUEST_REPAIR_ASK, 'Repair', () => {",
+    "old": "    ask(t('menu.questRepair.title', 'Repair Active Quests'), questRepairAsk(), t('menu.questRepair.go', 'Repair'), () => {",
+    "new": "    ((a, b, c, f) => f())(t('menu.questRepair.title', 'Repair Active Quests'), questRepairAsk(), t('menu.questRepair.go', 'Repair'), () => {",
     "tests": [
       "test/qrepair.test.js"
     ]

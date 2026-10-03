@@ -56,8 +56,8 @@
   {
     "name": "REST-OPT-no-settings-row",
     "file": "src/ui/enhancedMenu.js",
-    "old": "  c.append(prefRow('restWithParty', 'Rest with my party',",
-    "new": "  c.append(prefRow('restWithParty', 'Rest with party',",
+    "old": "  c.append(prefRow('restWithParty', t('menu.peers.rest', 'Rest with my party'),",
+    "new": "  c.append(prefRow('restWithParty', t('menu.peers.rest', 'Rest with party'),",
     "tests": [
       "test/restopt.test.js"
     ]

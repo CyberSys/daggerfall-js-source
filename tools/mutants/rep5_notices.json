@@ -66,7 +66,7 @@
   {
     "name": "REP5-the-stop's-price-not-said",
     "file": "src/ui/enhancedMenu.js",
-    "old": "`known to the watch (a stop: ${challengeFine(entity, i, { worldNow })} gold)`",
+    "old": "t('pause.law.known', 'known to the watch (a stop: {gold} gold)', { gold: challengeFine(entity, i, { worldNow }) })",
     "new": "'known to the watch'",
     "tests": [
       "test/rep5_notices.test.js"
@@ -75,8 +75,8 @@
   {
     "name": "REP5-the-pardon's-price-not-said",
     "file": "src/ui/enhancedMenu.js",
-    "old": "`banished${term} (a pardon: ${pardonPrice(entity, i)} gold)`",
-    "new": "`banished${term}`",
+    "old": "t('pause.law.banishedDays', 'banished, {days, plural, one {# day} other {# days}} left (a pardon: {gold} gold)', { days, gold: pardonPrice(entity, i) })",
+    "new": "t('pause.law.banishedDays', 'banished, {days, plural, one {# day} other {# days}} left', { days })",
     "tests": [
       "test/rep5_notices.test.js"
     ]

@@ -42,32 +42,32 @@
   {
     "name": "ONLY-6-only-says-backed-up",
     "file": "src/ui/saveTile.js",
-    "old": "      only: cloud.when ? `Only in your backup · ${cloud.when}` : 'Only in your backup',",
-    "new": "      only: cloud.when ? `Backed up · ${cloud.when}` : 'Backed up',",
+    "old": "      only: cloud.when ? t('menu.cloud.onlyWhen', 'Only in your backup · {when}', { when: cloud.when }) : t('menu.cloud.only', 'Only in your backup'),",
+    "new": "      only: cloud.when ? t('menu.cloud.savedWhen', 'Backed up · {when}', { when: cloud.when }) : t('menu.cloud.saved', 'Backed up'),",
     "tests": ["test/savetile.test.js"],
     "note": "'Backed up' under a tile whose only copy is the backup tells a player they have two of something they have one of - the opposite fact in the same sentence shape."
   },
   {
     "name": "ONLY-7-no-saved-games-over-a-shelf-of-backups",
     "file": "src/ui/enhancedMenu.js",
-    "old": "  if (!saves.length && !onlyCloud) body.append(empty('No saved games', 'Save a game and every slot of it appears here.'));",
-    "new": "  if (!saves.length) body.append(empty('No saved games', 'Save a game and every slot of it appears here.'));",
+    "old": "  if (!saves.length && !onlyCloud) body.append(empty(t('menu.saves.none', 'No saved games'), t('menu.load.noneHint', 'Save a game and every slot of it appears here.')));",
+    "new": "  if (!saves.length) body.append(empty(t('menu.saves.none', 'No saved games'), t('menu.load.noneHint', 'Save a game and every slot of it appears here.')));",
     "tests": ["test/cloudsaves.test.js"],
     "note": "The sentence ends 'Save a game and every slot of it appears here', which told a player with a shelf full of backups that they had none. It is the very sentence this slice exists to stop being shown, and it would sit directly above the tiles that disprove it."
   },
   {
     "name": "ONLY-8-a-stat-invented-from-a-column",
     "file": "src/ui/saveTile.js",
-    "old": "    name: card?.characterName || 'Unnamed',",
-    "new": "    name: card?.characterName || 'Unnamed',\n    level: card?.saveVersion ?? null,",
+    "old": "    name: card?.characterName || t('menu.save.unnamed', 'Unnamed'),",
+    "new": "    name: card?.characterName || t('menu.save.unnamed', 'Unnamed'),\n    level: card?.saveVersion ?? null,",
     "tests": ["test/savetile.test.js"],
     "note": "The service never held a level; `save_version` is the envelope's format number. Reading one column as another is how a tile prints 'level 1' about a character nobody sent - and the tile would draw it without complaint, because every field there is optional by design."
   },
   {
     "name": "ONLY-9-the-initial-from-the-slot-name",
     "file": "src/ui/saveTile.js",
-    "old": "    name: card?.characterName || 'Unnamed',",
-    "new": "    name: card?.saveName || 'Unnamed',",
+    "old": "    name: card?.characterName || t('menu.save.unnamed', 'Unnamed'),",
+    "new": "    name: card?.saveName || t('menu.save.unnamed', 'Unnamed'),",
     "tests": ["test/savetile.test.js"],
     "note": "There is no portrait in a card, so the well draws an INITIAL and the heading a name - and taking both from the slot name puts 'QuickSave' where the character goes, on the one surface whose whole job is telling a player which of their characters this is."
   },

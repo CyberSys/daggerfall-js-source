@@ -220,7 +220,7 @@ test('HT1: the Mods pane entry is the shipped modsettings.json - every key, its 
   _resetModSettings();
   const pane = rd('src/ui/enhancedMenu.js');
   assert.match(pane, /\} else if \(isTextKey\(def\)\) \{/, 'the pane has a key capture');
-  assert.match(pane, /b\.textContent = 'press a key';/);
+  assert.match(pane, /b\.textContent = t\('menu\.mods\.pressKey', 'press a key'\);/);
   assert.match(pane, /const name = e\.code === 'Escape' \? null : keyCodeForDomCode\(e\.code\);/, 'the capture spells the key as Unity would; Escape cancels');
   assert.match(pane, /\} else if \(isTupleKey\(def\)\) \{/, 'the pane has a pair of steppers');
   assert.match(pane, /const stepOf = def\.tuple === 'int' \? 1 : \(def\.step \?\? 0\.1\);/);

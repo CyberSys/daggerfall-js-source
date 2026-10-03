@@ -47,6 +47,7 @@ const ROUTED = {
   'src/scenes/dungeonContext.js': 2,
   'src/scenes/exterior.js': 1,
   'src/scenes/hostMagic.js': 6,
+  'src/scenes/menu.js': 1,
   'src/scenes/world.js': 13,
   'src/scenes/worldModes.js': 7,
   'src/systems/answerPipeline.js': 24,
@@ -112,7 +113,7 @@ const ROUTED = {
   'src/ui/enhancedChargen.js': 5,
   'src/ui/enhancedControls.js': 2,
   'src/ui/enhancedInventory.js': 1,
-  'src/ui/enhancedMenu.js': 5,
+  'src/ui/enhancedMenu.js': 20,
   'src/ui/enhancedRest.js': 2,
   'src/ui/guildServiceWindows.js': 3,
   'src/ui/itemMakerWindow.js': 1,
@@ -129,6 +130,7 @@ const ROUTED = {
   'src/ui/questJournal.js': 19,   // GUIDE2 (main): locationInRegionProvince lives in questLens.js now
   'src/ui/questLens.js': 1,
   'src/ui/questRail.js': 1,   // GUIDE3 (main): the journal's date header read off the language's dateFormatString
+  'src/ui/saveTile.js': 1,
   'src/ui/saveWindow.js': 18,
   'src/ui/settingsCopy.js': 6,
   'src/ui/settingsLaw.js': 15,

@@ -38,8 +38,8 @@
   {
     "name": "D23C-stripe-by-position",
     "file": "src/ui/enhancedMenu.js",
-    "old": "  t.dataset.on = st && barReading(st).on ? '1' : '0';",
-    "new": "  t.dataset.on = st && st.at > 0 ? '1' : '0';",
+    "old": "  tile.dataset.on = st && barReading(st).on ? '1' : '0';",
+    "new": "  tile.dataset.on = st && st.at > 0 ? '1' : '0';",
     "tests": [
       "test/disc23c_features_colour.test.js"
     ]

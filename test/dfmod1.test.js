@@ -195,7 +195,7 @@ test('DFMOD2 wiring: the boot never indexes on its way in, opens by range and wa
   assert.match(door, /const b = await Promise\.race\(\[bundleFor\(key\), waited\]\);/);
   assert.match(src('scenes/dataSource.js'), /const index = await indexDfmodBytes\(f\);/, 'an attach reads the picked File by range, not whole');
   assert.match(src('scenes/shared.js'), /if \(noMods\(\)\) return n;/, 'the ?nomods escape hatch');
-  assert.match(src('ui/enhancedMenu.js'), /label: `Texture detail: \$\{detailLabel\}`/);
+  assert.match(src('ui/enhancedMenu.js'), /label: t\('menu\.packs\.detail', 'Texture detail: \{detail\}', \{ detail: detailLabel \}\)/);
 });
 
 test('DFMOD2 detail: unset is the default, 0 is full, a number is its own', async () => {
@@ -214,7 +214,7 @@ test('DFMOD2 memory: Seasons\' door opens only its own bundle, not every attache
   const { DFMOD_DETAIL_DEFAULT } = await import('../src/systems/dfmodTextures.js');
   assert.equal(DFMOD_DETAIL_DEFAULT, 256);
   assert.match(src('systems/dfmodTextures.js'), /error: _openErrors\.get\(key\) \?\? null,/);
-  assert.match(src('ui/enhancedMenu.js'), /if \(m\.error\) row\.append\(el\('p', 'meta', `Not working: \$\{m\.error\}\.`\)\);/);
+  assert.match(src('ui/enhancedMenu.js'), /if \(m\.error\) row\.append\(el\('p', 'meta', t\('menu\.packs\.notWorking', 'Not working: \{error\}\.', \{ error: m\.error \}\)\)\);/);
   assert.match(src('combat/diverseWeaponsAssets.js'), /return \(await dfmodWeaponImage\(name\)\) \?\? \(await weaponModImage\(name\)\);/, 'DWHD1: an attached replacer first');
 });
 

@@ -73,8 +73,8 @@
   {
     "name": "QT-LIVE1-words-ignore-urgency",
     "file": "src/ui/enhancedMenu.js",
-    "old": "  return { text: `Time remains: ${remainWords(q.clockSeconds)}`, urgent: q.clockSeconds < QUEST_URGENT_SECONDS };",
-    "new": "  return { text: `Time remains: ${remainWords(q.clockSeconds)}`, urgent: false };",
+    "old": "  return { text: t('pause.journal.timeRemains', 'Time remains: {left}', { left: remainWords(q.clockSeconds) }), urgent: q.clockSeconds < QUEST_URGENT_SECONDS };",
+    "new": "  return { text: t('pause.journal.timeRemains', 'Time remains: {left}', { left: remainWords(q.clockSeconds) }), urgent: false };",
     "tests": [
       "test/qtlive1.test.js"
     ]

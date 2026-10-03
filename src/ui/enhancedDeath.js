@@ -33,6 +33,7 @@ import { PIXEL_STACK } from './pixelifyFive.js';
 import { isOnlinePage } from '../systems/onlineLane.js';
 import { deathPenaltyLine } from '../systems/deathPenalty.js';   // DEATH-PENALTY: the line about the loss
 import { armDrawWatchdog, disarmDraw } from './drawWatchdog.js';
+import { t } from '../systems/textManager.js';   // L10N4: the death screen's words in the player's language
 
 export const ENHANCED_DEATH_ID = 'enhanced-death';
 const STALE_MS = 350;
@@ -53,9 +54,9 @@ const el = (tag, cls, text) => {
  *  hint that is a lie is worse than none). Online, Enter and F11 both
  *  RESPAWN (world.js D-ONLINE1), so one plate says so. */
 export function deathKeys(hint, online) {
-  if (online) return [{ key: 'Enter', word: 'Rise now', confirm: true }];
-  const keys = [{ key: 'Enter', word: 'End the journey', confirm: true }];
-  if (/F11/i.test(String(hint ?? ''))) keys.push({ key: 'F11', word: 'Load last save' });
+  if (online) return [{ key: 'Enter', word: t('death.key.rise', 'Rise now'), confirm: true }];
+  const keys = [{ key: 'Enter', word: t('death.key.end', 'End the journey'), confirm: true }];
+  if (/F11/i.test(String(hint ?? ''))) keys.push({ key: 'F11', word: t('death.key.load', 'Load last save') });
   return keys;
 }
 
@@ -69,7 +70,7 @@ function build(screen) {
   root.setAttribute('role', 'alert');
   root.append(el('i', 'dth-veil'), el('i', 'dth-edge'));
   const band = el('div', 'dth-band');
-  const title = el('h1', 'dth-title', 'You Died');
+  const title = el('h1', 'dth-title', t('death.youDied', 'You Died'));
   const rule = el('div', 'dth-rule');
   rule.append(el('i'), el('span', 'dth-gem'), el('i'));
   // DEATH-PENALTY (Mac: "remove the tale line and use the same fonts for the gold loss message in online
@@ -77,8 +78,8 @@ function build(screen) {
   // under it in a second face. A death that costs nothing (offline, or a purse under four coins) keeps its words.
   const lossLine = screen.goldLoss > 0 ? (screen.goldLossLine || deathPenaltyLine(screen.goldLoss)) : '';
   const line = el('p', `dth-line${lossLine ? ' dth-lossline' : ''}`, lossLine || (online
-    ? 'Your body falls. The Bay is not done with you yet.'
-    : 'Your tale in the Iliac Bay ends here.'));
+    ? t('death.lineOnline', 'Your body falls. The Bay is not done with you yet.')
+    : t('death.line', 'Your tale in the Iliac Bay ends here.')));
   const keys = el('div', 'dth-keys');
   for (const k of deathKeys(screen.hint, online)) {
     const b = el(k.confirm ? 'button' : 'span', 'dth-key');
@@ -108,7 +109,7 @@ export function drawEnhancedDeath(screen, fade = 0) {
   const left = screen.respawnIn;
   if (left != null) {
     const c = node.querySelector('.dth-count');
-    const text = `Rising in ${left}`;
+    const text = t('death.risingInCount', 'Rising in {n}', { n: left });
     if (c && c.textContent !== text) c.textContent = text;
   }
   disarmDraw(watch);

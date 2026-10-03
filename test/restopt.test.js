@@ -22,7 +22,7 @@ test('REST-OPT the wire and the switch: `nr` rides the pose only as 1; the switc
   assert.equal('nr' in validPartyPose({ ...POSE }), false, 'a pose from before this build rests with its party');
   assert.equal(PREF_DEFAULTS.restWithParty, true);
   assert.ok(ONLINE_PLAYERS_OWN_PREFS.includes('restWithParty'));
-  assert.match(src('src/ui/enhancedMenu.js'), /c\.append\(prefRow\('restWithParty', 'Rest with my party',/);
+  assert.match(src('src/ui/enhancedMenu.js'), /c\.append\(prefRow\('restWithParty', t\('menu\.peers\.rest', 'Rest with my party'\),/);
 });
 
 test('REST-OPT the law: a member whose pose says `nr` rests alone; my rest is the party\'s only while my switch is on AND the leader\'s is - a leader resting alone leaves everyone to themselves; the words for a vote said alone (mutants: the leader\'s switch ignored; mine ignored)', () => {

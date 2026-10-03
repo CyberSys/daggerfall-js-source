@@ -48,8 +48,8 @@
   {
     "name": "BACKUP-NEWER-says-backed-up",
     "file": "src/ui/saveTile.js",
-    "old": "      newer: cloud.when ? `Newer backup · ${cloud.when}` : 'Newer backup',",
-    "new": "      newer: cloud.when ? `Backed up · ${cloud.when}` : 'Backed up',",
+    "old": "      newer: cloud.when ? t('menu.cloud.newerWhen', 'Newer backup · {when}', { when: cloud.when }) : t('menu.cloud.newer', 'Newer backup'),",
+    "new": "      newer: cloud.when ? t('menu.cloud.savedWhen', 'Backed up · {when}', { when: cloud.when }) : t('menu.cloud.saved', 'Backed up'),",
     "tests": [
       "test/savetile.test.js"
     ]
@@ -111,8 +111,8 @@
   {
     "name": "BACKUP-NEWER-restore-on-one-press",
     "file": "src/ui/enhancedMenu.js",
-    "old": "          : { label: 'Restore backup', primary: true, onClick: () => { cloudArm = `restore|${save.key}`; render(); } });",
-    "new": "          : { label: 'Restore backup', primary: true, onClick: () => restoreBackup(save, card) });",
+    "old": "          : { label: t('menu.cloud.restoreBackup', 'Restore backup'), primary: true, onClick: () => { cloudArm = `restore|${save.key}`; render(); } });",
+    "new": "          : { label: t('menu.cloud.restoreBackup', 'Restore backup'), primary: true, onClick: () => restoreBackup(save, card) });",
     "tests": [
       "test/cloudsaves.test.js"
     ]
@@ -156,7 +156,7 @@
   {
     "name": "AUDIT0927B-B1-failed-push-over-newer-one-press",
     "file": "src/ui/enhancedMenu.js",
-    "old": "      else if (newerBackup(card, save.dateAndTime)) line.actions.push(guardedPush(save, 'Try again'));\n",
+    "old": "      else if (newerBackup(card, save.dateAndTime)) line.actions.push(guardedPush(save, t('menu.cloud.tryAgain', 'Try again')));\n",
     "new": "",
     "tests": [
       "test/cloudsaves.test.js"

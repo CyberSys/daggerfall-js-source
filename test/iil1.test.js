@@ -131,9 +131,9 @@ test('IIL2 the mod\'s own shadows: a classic-look lane - the lane shaders with D
 
 test('IIL3 the lighting mod has its own section and button - it is listed there and not among the texture packs, and the button refuses anything else', () => {
   const menu = src('ui/enhancedMenu.js');
-  assert.match(menu, /c\.append\(el\('h3', null, 'Lighting mod'\)\);/);
+  assert.match(menu, /c\.append\(el\('h3', null, t\('menu\.packs\.lighting', 'Lighting mod'\)\)\);/);
   assert.match(menu, /const lighting = mods\.filter\(isIilMod\);\n\s+mods = mods\.filter\(\(m\) => !isIilMod\(m\)\);/, 'not listed twice');
-  assert.match(menu, /label: 'Attach lighting mod', primary: true, onClick: async \(\) => \{ const ds = await import\('\.\.\/scenes\/dataSource\.js'\); await ds\.pickLightingModFiles\(\); render\(\); \}/);
+  assert.match(menu, /label: t\('menu\.packs\.attachLighting', 'Attach lighting mod'\), primary: true, onClick: async \(\) => \{ const ds = await import\('\.\.\/scenes\/dataSource\.js'\); await ds\.pickLightingModFiles\(\); render\(\); \}/);
   const ds = src('scenes/dataSource.js');
   assert.match(ds, /export async function pickLightingModFiles\(\)/);
   assert.match(ds, /if \(!isIilMod\(\{ guid: manifest\?\.guid, title: manifest\?\.title \}\)\) \{\n\s+await deleteAssets\(TEXTURE_STORE, \[key, dfmodIndexKey\(key\)\]\);/, 'a texture pack picked here is taken back out');

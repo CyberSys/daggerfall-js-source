@@ -120,7 +120,7 @@ test('MWA1 pins: the hosts build at every door a made character arrives through 
   assert.match(read('src/scenes/exterior.js'), /\n  \}\);\n  autoBuildArms\(playerEntity\);/, 'exterior: after its rig');
   const menu = read('src/ui/enhancedMenu.js');
   assert.doesNotMatch(menu, /mwArms'/, 'MWA4: nothing on the card writes a switch');
-  assert.match(menu, /prefRow\('showFps', 'FPS counter',/, 'the counter has its row');
+  assert.match(menu, /prefRow\('showFps', t\('menu\.hud\.fps', 'FPS counter'\),/, 'the counter has its row');
   assert.match(read('src/main.js'), /mountFpsCounter\(\{ enabled: \(\) => params\.has\('fps'\) \|\| !!getPref\('showFps'\), stats: \(\) => renderer\.stats, info: \(\) => renderer\.frameInfo \}\);/, 'the counter mounts over every host, on the pref or ?fps, with the renderer\'s counts (PERF3) and its GPU and frame size (PERF-SCALE)');
 });
 

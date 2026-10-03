@@ -36,7 +36,7 @@ test('UXB1-A: main.js reads the pref at BOTH doors - the front door\'s film and 
 test('UXB1-A: the row is under Settings > Interface on the main menu, over the pref', () => {
   const menu = read('src/ui/enhancedMenu.js');
   const ui = menu.slice(menu.indexOf('function portRowsInterface('), menu.indexOf('\n}', menu.indexOf('function portRowsInterface(')));
-  assert.match(ui, /if \(!pause\) out\.push\(prefRow\('skipStartVideo', SKIP_START_VIDEO_NAME, SKIP_START_VIDEO_NOTE\)\);/,
+  assert.match(ui, /if \(!pause\) out\.push\(prefRow\('skipStartVideo', skipStartVideoName\(\), skipStartVideoNote\(\)\)\);/,
     'the front door\'s alone: it is read at launch, and the pause\'s condensed settings carry only what takes effect in play');
   assert.match(menu, /export const SKIP_START_VIDEO_NAME = 'Skip start video';/);
 });

@@ -216,9 +216,9 @@ test('REALM P1.3 by source: the boot joins before any save is read, never a slot
   const main = src('src/main.js');
   assert.match(main, /const realmId = choice === 'online' \? takePickedRealmId\(\) : null;\s*\n\s*if \(realmId\) params\.set\('realm', realmId\);\s*\n\s*else params\.delete\('realm'\);\s*\n\s*if \(choice === 'online-new'\) params\.set\('realmnew', '1'\);\s*\n\s*else params\.delete\('realmnew'\);/);
   const menu = src('src/ui/enhancedMenu.js');
-  assert.match(menu, /\{ label: save\.unfinished \? 'Never saved' : 'Play', primary: true, disabled: realmBusy \|\| save\.unfinished, onClick: \(\) => \{ _pickedRealmId = row\.id; onAction\('online'\); \} \}/);
-  assert.match(menu, /\{ label: 'New online character', primary: !realmRows\.length, disabled: realmBusy \|\| realmRows\.length >= realmMax, onClick: \(\) => onAction\('online-new'\) \}/);
-  assert.match(menu, /label: 'Delete character', disabled: realmBusy, onClick: \(\) => ask\(/, 'a delete asks first');
+  assert.match(menu, /\{ label: save\.unfinished \? t\('menu\.realm\.neverSaved', 'Never saved'\) : t\('menu\.realm\.play', 'Play'\), primary: true, disabled: realmBusy \|\| save\.unfinished, onClick: \(\) => \{ _pickedRealmId = row\.id; onAction\('online'\); \} \}/);
+  assert.match(menu, /\{ label: t\('menu\.realm\.new', 'New online character'\), primary: !realmRows\.length, disabled: realmBusy \|\| realmRows\.length >= realmMax, onClick: \(\) => onAction\('online-new'\) \}/);
+  assert.match(menu, /label: t\('menu\.realm\.delete', 'Delete character'\), disabled: realmBusy, onClick: \(\) => ask\(/, 'a delete asks first');
   const bring = menu.slice(menu.indexOf('function bringOnline(save)'));   // AUDIT LIVED1 G: the copy goes through the door between the lanes (systems/offlineCopy.js)
   const steps = ['const copy = onlineCopyOf(snap, sharedClassicMinutes(Date.now()));', 'applyCustoms(copy);', 'await realmCustoms(io, snap.characterId,', 'copy.characterId = made.data.id;', 'await realmPut(io, made.data.id, { lease: made.data.lease, seq: 1,'].map((t) => bring.indexOf(t));
   assert.ok(steps.every((at, i) => at > 0 && (i === 0 || at > steps[i - 1])), 'customs on a copy, made once, the realm\'s id, saved at 1');

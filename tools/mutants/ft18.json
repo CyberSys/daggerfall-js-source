@@ -320,8 +320,8 @@
   {
     "name": "FT18-all-off-unasked",
     "file": "src/ui/enhancedMenu.js",
-    "old": "{ label: 'All off', onClick: () => ask('Turn Everything Off', ALL_OFF_ASK, 'All off', () => { featuresAllOff(); }) },",
-    "new": "{ label: 'All off', onClick: () => { featuresAllOff(); render(); } },",
+    "old": "{ label: t('menu.features.allOff', 'All off'), onClick: () => ask(t('menu.features.allOffTitle', 'Turn Everything Off'), allOffAsk(), t('menu.features.allOff', 'All off'), () => { featuresAllOff(); }) },",
+    "new": "{ label: t('menu.features.allOff', 'All off'), onClick: () => { featuresAllOff(); render(); } },",
     "tests": [
       "test/ft18_features.test.js"
     ]
