@@ -61,7 +61,7 @@ const armTravel = (c, seconds = 2 * DAY_S) => {
   c.startingTimeInSeconds = c.remainingTimeInSeconds = seconds;
 };
 
-test('AUDIT REST II Q1: R0C11Y03 "The Heartless Daedra" online, ticked - the heart delivered to the chemist, an hour of play past the short wait the quest still stands and `_2ndparton_` counts its days; back to the questgiver, the reward is paid and nothing lost; back too late - its days played - -30 and the quest ended unpaid, as DFU\'s; offline the same (mutants: the closing by hand back, the closings table back)', () => {
+test('AUDIT REST II Q1: R0C11Y03 "The Heartless Daedra" online, ticked - the heart delivered to the chemist, an hour of play past the short wait the quest still stands and `_2ndparton_` counts its days; back to the questgiver, the reward is paid and nothing lost; back too late - its days played - -30 and the quest ended unpaid, as DFU\'s; offline the same (mutants: the closing by hand back - rest8_audit_timefree.json\'s record, the table\'s one entry restated; AUDIT REST III F12: the table itself is gone, so no mutant can put it back)', () => {
   const run = (online, { late }) => quiet(() => {
     const now = { s: 1e6, raised: 0 };
     const repute = [];
@@ -226,7 +226,7 @@ const SWEPT = {
   'S0000502:outgoing': 'delay', 'S0000988:delay': 'delay', '_BRISIEN:oneday': 'delay',
 };
 
-test('AUDIT REST II Q2: the corpus swept once for the shape - a delay whose end moves, hides, kills, sends or closes something, where the text sets a time limit - every verdict pinned online (mutants: the chapter out of the table, the drop out of the table, the closing by hand back)', () => {
+test('AUDIT REST II Q2: the corpus swept once for the shape - a delay whose end moves, hides, kills, sends or closes something, where the text sets a time limit - every verdict pinned online (mutants: the chapter out of the table, the drop out of the table, the closing by hand back; AUDIT REST III D2: the ransom and the daughter out of it)', () => {
   const got = {};
   quiet(() => {
     for (const id of Object.keys(SWEPT)) {

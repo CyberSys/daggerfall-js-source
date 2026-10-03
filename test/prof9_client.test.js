@@ -427,7 +427,7 @@ test('PROF9 items: what eating does - a dish eaten again renews its effect, neve
   setPref('survival', 'casual');
 });
 
-test('PROF9 items: a Field Cook\'s night at their own Campfire spends no fuel (3.3 under REST2 - the kit\'s lit charge became a night\'s fuel): a Campfire\'s alone - an Ember Jar\'s night, a tent\'s wear and an old save\'s kit fire spend as ever; on the pool the same, and anyone else\'s night spends one (mutants: the perk unread; a jar or a tent kept)', () => {
+test('PROF9 items: a Field Cook\'s night at their own Campfire spends no fuel (3.3 under REST2 - the kit\'s lit charge became a night\'s fuel): a Campfire\'s alone - an Ember Jar\'s night, a tent\'s wear and an old save\'s kit fire spend as ever; on the pool the same, and anyone else\'s night spends one (mutants: the perk unread; a tent or an old save\'s kit fire kept - AUDIT REST III F12: a jar\'s keep is recorded equivalent, the game never writes a jar with fuel)', () => {
   const night = (rec, fc) => { const r = spendCampNight(rec, 0, fc); return [r.spent, !!r.kept, rec.wear]; };
   assert.deepEqual(night({ kind: CAMP_KIND.Fire, fuel: true, wear: 8, litUntil: 99 }, true), [false, true, 8], 'a Field Cook\'s own Campfire: every night of fuel kept');
   assert.deepEqual(night({ kind: CAMP_KIND.Fire, fuel: true, wear: 8, litUntil: 99 }, false), [true, false, 7], 'anyone else\'s: one night spent');
