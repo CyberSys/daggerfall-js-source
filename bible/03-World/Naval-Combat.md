@@ -89,11 +89,14 @@ rail's height, the beam); the table is what each carries, a side at a time:
 
 | hull | hull / sails / crew | batteries |
 |---|---|---|
-| Rowboat | 60 / 0 / 0 | none - it rams, it does not fight |
-| Large Boat | 150 / 60 / 0 | 3 swivels a side, 1 on the bow |
-| Small Ship | 420 / 160 / 24 | 6 long guns a side, 2 chain-shot chasers, a fire barrel over the stern |
-| Large Galley | 520 / 90 / 60 | 4 long guns a side, 3 great guns on the bow - and the ram (GALLEY_RAM) |
-| Carrack | 560 / 220 / 30 | 7 long guns a side, 2 chain-shot chasers, a fire barrel over the stern |
+| Rowboat | 96 / 0 / 0 | none - it rams, it does not fight |
+| Large Boat | 240 / 96 / 0 | 3 swivels a side, 1 on the bow |
+| Small Ship | 672 / 256 / 24 | 6 long guns a side, 2 chain-shot chasers, a fire barrel over the stern |
+| Large Galley | 832 / 144 / 60 | 4 long guns a side, 3 great guns on the bow - and the ram (GALLEY_RAM) |
+| Carrack | 896 / 352 / 30 | 7 long guns a side, 2 chain-shot chasers, a fire barrel over the stern |
+
+TOUGHER-SHIPS (2026-10-03, below): the hulls and sails are SHIP_TOUGHNESS (1.6) times the 60 / 150 / 420 / 520 / 560
+and 0 / 60 / 160 / 90 / 220 they were built with (`firstBuildOf`).
 
 The guns (`GUNS`), their muzzle speed and the ranges that gives from a 4.5 m deck (the lowest elevation to the
 highest):
@@ -1753,6 +1756,45 @@ coin "Drake" - the old currency's name, gone from every word a player reads - is
 bank (so every other name stands); main's FIELD BUGS 2026-10-02 met this branch's of the same name, both kept on one
 page as its convention keeps them (`01-Overview/Field-Bugs-2026-10-02.md`, part three); the cites each side moved were
 mapped by citeMerge, CD4's struck ones by hand.
+
+## TOUGHER-SHIPS, QUICK-REPAIRS and SALVAGE (2026-10-03) - ships that last, repairs that need no port - DECLARED
+
+Mac: *"For naval combat and such I want to buff health of ships, allow for more streamlined repairs, allow sunken
+vessels to provide nessecary materials so you dont have to rely on the port"*. Daggerfall has no ships; all of this is
+the port's own.
+
+- **Tougher ships** (`navalShips.js` SHIP_TOUGHNESS, 1.6). Every hull stands that many times her first build's hull and
+  canvas (`tough`, `firstBuildOf`), the classes scaling it as ever - and her MEN that many times the shot to thin: a
+  ball's men are its gun's over the toughness, whole men on the ball's own roll (`navalDamage.js ballMen` - the wire
+  still carries a whole count), a fire takes a man every FIRE_CREW_S (10 s times the toughness), a ram one for every 40
+  times the toughness of the hull it deals (`navalHost.js ramMen`). Her hull alone toughened made a ship strike by her
+  men long before her hull, and a duel's odds moved with it (the cutter on the sloop from 0.95 to 0.66); toughened
+  whole, `strikeTime` divides her men's loss by the same toughness and every pairing's odds are what they were. A fight
+  lasts about that much longer. Over 32 duels each, the cutter on the sloop went 20-12 before and 16-16 after (the
+  model 0.95), the war galley on the corsair galley 26-6 and 30-2 (1.18), the war galley on the brig 21-11 and 20-12
+  (0.89). THE BAR's eight duels re-rolled with it: the time they are given goes up by the toughness, and a pairing
+  within COIN_TOSS (1.1) of even is a coin toss neither side's six of eight condemns (test/auditnav2_captains.test.js).
+- **The yard and the stores went down with it.** A hull point 7 gold, a yard of canvas 4 (REPAIR_PRICE, 12 and 6
+  before) - a wrecked Small Ship whole for 5,728 against 6,000 - and a store makes good 64 points of work (STORE_POINTS,
+  40 before): thirteen stores for a wrecked Small Ship, as before, at 314 gold each.
+- **The save.** A boat's record says the whole her hurts are of (`maxHull`, `maxSail`); one from before says neither and
+  reads as the share of her first build's it was (`navalHost.js savedHurts`) - a ship saved whole loads whole.
+- **Quick repairs.** Her hands turn to sooner and work faster: FIELD_QUIET_S 15 (30 before), FIELD_MEND_PER_S 0.4% a
+  second (0.2%), SEA_REPAIR_PER_S 1.6% (0.8%). Once a fight is over **her hands spend her stores on their own** - no
+  order - on what the free mending cannot reach (past FIELD_MEND_CAP), so no store goes on work they do for nothing,
+  all the way to whole; a word once when the work is done or the stores give out (`repairStep`'s `auto`). Features >
+  Naval Combat > **Crew repairs on their own** (`naval-auto-repair`, each player's own, on) turns it off.
+- **Damage control.** The order *Make repairs* is the quick way now - her stores spent from the first plank - and works
+  in the fight itself: with a hostile ship near or a ball lately in her, at SEA_REPAIR_UNDER_FIRE (30%) of the pace,
+  her fires left burning (`createShipDamage`'s `repair`, `douse` false - a patch is no bucket chain).
+- **Salvage** (`navalPlunder.js` SALVAGE_LOT, `salvageOf`). A sunk ship leaves her WRECKAGE afloat beside her casks (a
+  floater as a cask is, larger and paler on the sea - `navalRender.js`, the host's `wreck` mark). A boat that sails
+  through it, or a swimmer who reaches it, hauls in her timber, pitch and canvas as carpenter's stores - SALVAGE_SHARE
+  (40%) of her hull in a store's work, at least one: a sloop 2, a brig or a cutter 4, a flagship 6 - into the hold as a
+  cask's things go (a swimmer's into the boat at hand, else the pack), and her powder as SALVAGE_BARRELS (2) fire
+  barrels for a stern that rolls them, never past BARREL.stock. KEEP-PLUNDER stows the player's own before the sea
+  goes. Online, the wreckage rides the word on a key of its own (`w`: an older build reads none of it, where a lot past
+  its LOT_KEYS would fail its door and the word with it), and is claimed as a cask is.
 
 ## The tests
 

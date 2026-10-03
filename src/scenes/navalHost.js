@@ -60,15 +60,16 @@ import { createSeaShip, stepCaptain, quatOfYaw, forwardOfYaw, velocityOf, provok
 import { wrapAngle } from '../world/mat4.js';   // ONCRASH1: the port's one angle wrap
 import { createShipDamage, shotDamage, SHIP_STATES, SINK_SECONDS, SINK_CLEAR, sinkAngles, sinkDepth, BRACE_TAKEN, FIRE_CHANCE, WRECKED_OARS, repairCost, STRUCK_AT } from '../systems/naval/navalDamage.js';
 import { createGunDeck, aimSolution, volleyLaunches, bearingOf, sideForBearing, toWorld, RIPPLE_S, READY_FLASH_S } from '../systems/naval/navalGunnery.js';
-import { hullBuild, batteryOf, batteriesOf, GUNS, classById, classFor, shipNames, crownOf, classLine, SIDES, SIDE_DIR, BARREL, NAVAL_FACTIONS, HULL } from '../systems/naval/navalShips.js';
+import { hullBuild, firstBuildOf, SHIP_TOUGHNESS, batteryOf, batteriesOf, GUNS, classById, classFor, shipNames, crownOf, classLine, SIDES, SIDE_DIR, BARREL, NAVAL_FACTIONS, HULL } from '../systems/naval/navalShips.js';
 import { findHarbour, createWaterGrid, errandFor, errandRng, dwellOf, offsetErrand, offsetHarbour, BERTH_SNAP_M, BERTH_WAY } from '../systems/naval/shipLife.js';   // SHIP-LIFE
 import { hash32 } from '../world/spawnedDungeons.js';
 import { mulberry32 } from '../combat/bloodArt.js';
 import { orientedBox, arcPoints, flatUnit, NAVAL_DEG, rangeAt, segmentBoxEntry, shotPosition, landing } from '../systems/naval/navalBallistics.js';
 import { lawOf, createNotoriety, crownRegion, notorietyLevel, WITNESS_RANGE, KNIGHTLY_FACTION, TEMPLE_FACTION } from '../systems/naval/navalLaw.js';
-import { drawHold, flotsamKeys, choiceEffect, choiceOffer, holdTier, CHOICES, prizeDeedValue } from '../systems/naval/navalPlunder.js';
+import { drawHold, flotsamKeys, choiceEffect, choiceOffer, holdTier, CHOICES, prizeDeedValue, SALVAGE_LOT, isSalvage, salvageOf } from '../systems/naval/navalPlunder.js';
+import { mintStores } from '../systems/naval/navalStores.js';   // SALVAGE: a wreck's stores, minted as the yard's are
 import { mintDeed } from '../systems/comeSailAwayItems.js';   // SHIP-CLAIM: a claimed prize's deed, the shelf's own mint
-import { yardOffer, yardAll, fieldMend, FIELD_QUIET_S, FIELD_REFLOAT, YARD_PRICE, provisionOffer, seaRepair, wantsRepair, STORE_POINTS, STORES_STOCK, storesToWhole } from '../systems/naval/navalYard.js';
+import { yardOffer, yardAll, fieldMend, FIELD_QUIET_S, FIELD_REFLOAT, YARD_PRICE, provisionOffer, seaRepair, wantsRepair, STORE_POINTS, STORES_STOCK, storesToWhole, SEA_REPAIR_UNDER_FIRE } from '../systems/naval/navalYard.js';
 import { createCompanions, companionRows } from '../systems/naval/crewCompanions.js';   // CREW-COMPANIONS
 import { createShipCrew, reloadScaleOf, mendScaleOf, handsBonusOf, crewCard, CREW_ORDERS, ORDER_TEXT, spiritsOf, LOOKOUT_ROLE } from '../systems/naval/shipCrew.js';   // SHIP-CREW
 import { crewRoster, playerCrewCount } from '../systems/naval/crewLife.js';   // AUDIT NAV1: the shipwright, the mending at sea
@@ -91,6 +92,19 @@ import { intoDeck } from '../systems/naval/navalDeck.js';   // AUDIT NAV2 F36: t
 export const NAVAL_SAVE_VENDOR = 'NavalCombat';
 /** The save record's shape version. */
 export const NAVAL_SAVE_VERSION = 1;
+/**
+ * TOUGHER-SHIPS (2026-10-03): a saved boat's record with her hurts on her hull's whole now - her hull and canvas each the
+ * share of the whole they were saved against: her record's own `maxHull` and `maxSail`, or - a record from before the
+ * hulls were toughened, which says neither - her hull's first build's (navalShips.js firstBuildOf). A boat saved whole
+ * loads whole, never at the share of a toughened hull her old numbers make.
+ * @param {any} rec @param {number} hull @param {{ maxHull: number, maxSail: number }} whole
+ */
+export function savedHurts(rec, hull, whole) {
+  const first = firstBuildOf(hull);
+  const was = (v, fallback) => (Number.isFinite(v) && v > 0 ? v : fallback);
+  const share = (v, then, now) => (Number.isFinite(v) && then > 0 ? (v / then) * now : v);
+  return { ...rec, hull: share(rec.hull, was(rec.maxHull, first.hullHp), whole.maxHull), sail: share(rec.sail, was(rec.maxSail, first.sailHp), whole.maxSail) };
+}
 /** SHIP-LIFE: a harbour's moored ships stand while its mouth is within HARBOUR_STAND of the player (m) - ashore too -
  *  and go, to be stood again the same on the player's return, past HARBOUR_LEAVE; HARBOUR_ROLL of them (a draw in the
  *  range, never more than her berths), HARBOUR_NAVY of them the crown's, off a stream seeded by the port and the day
@@ -280,6 +294,9 @@ export const RAM_DAMAGE = 14;
 /** A galley's ram multiplies what it deals, and takes this share back. */
 export const GALLEY_RAM = 3;
 export const RAM_RECOIL = 0.3;
+/** The men a ram's blow takes: one for every 40 of the hull it deals - TOUGHER-SHIPS: over SHIP_TOUGHNESS, as a ball's
+ *  (navalDamage.js ballMen). */
+export const ramMen = (dealt) => Math.round(dealt / (40 * SHIP_TOUGHNESS));
 /** One ram a ship a stretch (s). */
 export const RAM_COOLDOWN_S = 3;
 /** AUDIT NAV1 (the helm): the ram strikes from her STEM (the hull's own bowZ) within RAM_REACH of the other's box - the
@@ -452,6 +469,8 @@ export function createNavalHost(deps) {
   const random = deps.random ?? Math.random;
   const u32 = () => (Math.floor(random() * 0xffffffff) >>> 0) || 1;
   const setting = (k, d) => { const v = deps.setting?.(k); return v === undefined || v === null ? d : v; };
+  /** QUICK-REPAIRS: whether her hands spend her stores on their own once a fight is over (Features > Naval Combat). */
+  const autoRepair = () => setting('AutoRepair', true) !== false;
   /** The waters, read ONCE a frame (the frame refreshes it): every ship's pose, every charge and the readout ask it. */
   let whereNow = null;
   const where = () => (whereNow ??= deps.where?.() ?? {});
@@ -508,7 +527,7 @@ export function createNavalHost(deps) {
     // SHIP-CREW: her guns' reload by her crew's spirits and her standing order
     st.guns = createGunDeck(boat.hull, { crewed: !!boat.crewed, crewShare: () => st.damage.crewShare(), barrels: BARREL.stock, reloadScale: () => (boat.crewed && st.crew ? reloadScaleOf(st.crew.morale, st.crew.order) : 1) });
     const saved = boat.uid ? pendingBoats.get(boat.uid) : null;
-    if (saved) { st.damage.restore(saved); if (Number.isFinite(saved.barrels)) st.guns.barrels = saved.barrels; pendingBoats.delete(boat.uid); }
+    if (saved) { st.damage.restore(savedHurts(saved, boat.hull, st.damage)); if (Number.isFinite(saved.barrels)) st.guns.barrels = saved.barrels; pendingBoats.delete(boat.uid); }   // TOUGHER-SHIPS
     // SHIP-CREW: her crew as people (names, spirits, the order standing), and SEA-REPAIR's store part-spent
     st.crew = createShipCrew({ seed: (deps.crewSeed?.(boat) ?? boat.uid ?? 1) >>> 0, regionIndex: where().region ?? 17, record: saved?.mates ?? null });
     st.credit = Number.isFinite(saved?.credit) ? Math.max(0, Math.min(STORE_POINTS, saved.credit)) : 0;   // AUDIT CC-D1: in work points (an older save's share of a whole reads as next to none)
@@ -950,13 +969,15 @@ export function createNavalHost(deps) {
 
   function onSinking(entry, by) {
     const s = entry.ship;
-    // her lots that float free
-    for (const key of flotsamKeys(s.cls, s.seed)) {
-      const a = random() * Math.PI * 2, r = 6 + random() * 10;
+    const drop = (lot, near, far) => {
+      const a = random() * Math.PI * 2, r = near + random() * (far - near);
       const id = String(u32());
-      shots.dropFlotsam({ id, pos: [s.pos[0] + Math.sin(a) * r, deps.seaY(), s.pos[2] + Math.cos(a) * r], lot: key, from: s.cls.id });
+      shots.dropFlotsam({ id, pos: [s.pos[0] + Math.sin(a) * r, deps.seaY(), s.pos[2] + Math.cos(a) * r], lot, from: s.cls.id });
       if (by === myId()) myCasks.add(id);   // KEEP-PLUNDER: a ship I sank - her casks are mine to stow if the sea goes first
-    }
+    };
+    // her lots that float free
+    for (const key of flotsamKeys(s.cls, s.seed)) drop(key, 6, 16);
+    drop(SALVAGE_LOT, 3, 8);   // SALVAGE: her wreckage, close where she went down
     if (by === myId()) chargePlayer('sink', entry);
   }
 
@@ -1000,14 +1021,42 @@ export function createNavalHost(deps) {
 
   /** A cask hauled aboard: its lot's items into the hold of the boat that sailed through it (Come Sail Away's cargo). */
   function pickFlotsam(e) {
-    const items = deps.hold?.(e.lot, holdTier(classById(e.from))) ?? [];
     const swim = e.collector === SWIMMER;
     const boat = swim ? null : myBoats().find((b) => myBoatId(b) === e.collector) ?? myBoat();
+    if (isSalvage(e.lot)) { pickSalvage(e, boat, swim); return; }   // SALVAGE: her wreckage, no hold's lot
+    const items = deps.hold?.(e.lot, holdTier(classById(e.from))) ?? [];
     if (items.length) { deps.board?.giveItems?.(items, boat ?? null); crewEvent(boat, 'plunder'); }   // SHIP-CREW: a hold filled
     const things = `${items.length} ${items.length === 1 ? 'thing' : 'things'}`;
     deps.say?.(swim ? (items.length ? `You break open a floating cask (${things} in it).` : 'You break open a floating cask. It is empty.')
       : items.length ? `You haul a floating cask aboard (${things} in it).` : 'You haul a floating cask aboard. It is empty.', 3);
     sound(NAVAL_CLASSIC.splashSmall, e.point, 0.6);
+  }
+
+  /** SALVAGE: a sunk ship's wreckage hauled in - her stores and powder to the boat that sailed through it (a swimmer's to
+   *  the boat of mine at hand), said. */
+  function pickSalvage(e, boat, swim) {
+    const into = boat ?? boatInPlay() ?? nearestBoat(e.point ?? deps.feet());
+    const r = stowSalvage(salvageOf(classById(e.from)), into);
+    const got = [r.stores ? `${r.stores} carpenter's ${r.stores === 1 ? 'store' : 'stores'}` : null, r.barrels ? `${r.barrels} fire ${r.barrels === 1 ? 'barrel' : 'barrels'}` : null].filter(Boolean);
+    deps.say?.(`${swim ? 'You pick through the wreckage' : 'You haul her wreckage aboard'}${got.length ? `: ${got.join(' and ')}.` : '. Nothing in it is worth keeping.'}`, 3);
+    if (r.lost) deps.say?.(`${r.lost} carpenter's ${r.lost === 1 ? 'store is' : 'stores are'} too heavy to carry and ${r.lost === 1 ? 'goes' : 'go'} down with the wreck.`, 3);
+    if (r.stores || r.barrels) crewEvent(into, 'plunder');
+    if (e.point) sound(NAVAL_CLASSIC.splashSmall, e.point, 0.6);
+  }
+  /** SALVAGE: a wreck's stores into `boat`'s hold as a cask's things go (no boat: the pack, as far as it carries them),
+   *  her powder to `boat`'s fire barrels up to her stock while her stern rolls them. Answers `{ stores, barrels, lost }`. */
+  function stowSalvage(got, boat) {
+    let stores = 0, barrels = 0, lost = 0;
+    if (got.stores > 0) {
+      const r = deps.board?.giveItems?.([mintStores(got.stores)], boat ?? null) ?? { left: [true] };
+      if (r.left?.length) lost = got.stores; else stores = got.stores;
+    }
+    if (boat && got.barrels > 0 && batteriesOf(boat.hull).some((x) => x.gun === 'barrel')) {
+      const st = myBoatState(boat);
+      barrels = Math.max(0, Math.min(got.barrels, BARREL.stock - st.guns.barrels));
+      st.guns.barrels += barrels;
+    }
+    return { stores, barrels, lost };
   }
 
   // ── AUDIT NAV1 (online #15): the casks of another's sea ───────────────────────────────────────────────────────────
@@ -1926,20 +1975,33 @@ export function createNavalHost(deps) {
     const away = boat?.uid ? companions.awayOf(boat.uid) : null;
     return st.crew.hands.find((h) => !away?.has(h.name))?.name ?? null;
   };
-  function repairStep(b, s, d) {
+  /** QUICK-REPAIRS: `auto` - her hands at the repairs on their own once the fight is over (no order to stand down; a
+   *  word once when the work is done or the stores give out under it); `underFire` - DAMAGE CONTROL, the order's work
+   *  in the fight itself at SEA_REPAIR_UNDER_FIRE of the pace, her fires left burning. */
+  function repairStep(b, s, d, { auto = false, underFire = false } = {}) {
     if (where().nearPort) return;   // AUDIT CC-D1: in port the shipwright is the repairs (the order stands for the open sea)
+    if (auto && !wantsRepair(s.damage)) { s.autoRepairing = false; return; }
     const stores = deps.stores?.count?.(b) ?? 0;
-    const r = seaRepair(s.damage, d, { crewed: !!b.crewed, crewShare: s.damage.crewShare(), scale: b.crewed ? mendScaleOf(s.crew.morale) : 1, budget: s.credit + stores * STORE_POINTS });
+    if (auto && s.credit <= 1e-9 && stores <= 0) return;   // nothing to work with: the free mending stands, unsaid
+    const scale = (b.crewed ? mendScaleOf(s.crew.morale) : 1) * (underFire ? SEA_REPAIR_UNDER_FIRE : 1);
+    const r = seaRepair(s.damage, d, { crewed: !!b.crewed, crewShare: s.damage.crewShare(), scale, budget: s.credit + stores * STORE_POINTS });
     if (r.hull > 0 || r.sail > 0) {
-      s.damage.repair({ hull: r.hull, sail: r.sail, crew: 0 }, { refloat: FIELD_REFLOAT });
+      s.damage.repair({ hull: r.hull, sail: r.sail, crew: 0 }, { refloat: FIELD_REFLOAT, douse: !underFire });
       s.repairing = true;
+      if (auto) s.autoRepairing = true;
       s.credit -= r.work;
       while (s.credit < -1e-9 && deps.stores?.spend?.(b)) s.credit += STORE_POINTS;
       s.credit = Math.max(0, s.credit);
     }
     const mate = mateOf(b, s);
+    const spent = s.credit <= 1e-9 && (deps.stores?.count?.(b) ?? 0) <= 0;
+    if (auto) {
+      if (!wantsRepair(s.damage)) { s.autoRepairing = false; deps.say?.(`${mate ? `${mate}: ` : ''}Repairs done, Captain. She's sound.`, 4); }
+      else if (spent) { s.autoRepairing = false; deps.say?.(`${mate ? `${mate}: ` : ''}The carpenter's stores are spent, Captain.`, 4); }
+      return;
+    }
     if (!wantsRepair(s.damage)) { s.crew.give(CREW_ORDERS.stand); deps.say?.(`${mate ? `${mate}: ` : ''}Repairs done, Captain. She's sound.`, 4); }
-    else if (s.credit <= 1e-9 && (deps.stores?.count?.(b) ?? 0) <= 0) { s.crew.give(CREW_ORDERS.stand); deps.say?.(`${mate ? `${mate}: ` : ''}The carpenter's stores are spent, Captain.`, 4); }
+    else if (spent) { s.crew.give(CREW_ORDERS.stand); deps.say?.(`${mate ? `${mate}: ` : ''}The carpenter's stores are spent, Captain.`, 4); }
   }
   /**
    * SHIP-CREW: an order given from her deck - CREW_ORDERS' (shipCrew.js): her crew answers it (her First Mate by name), or
@@ -2592,6 +2654,14 @@ export function createNavalHost(deps) {
       lost += r.left;
     }
     for (const f of shots.floaters().filter((o) => o.kind === 'flotsam' && !o.owner && myCasks.has(o.id))) {
+      if (isSalvage(f.lot)) {   // SALVAGE: her wreckage's stores and powder, as a cask's things
+        const r = stowSalvage(salvageOf(classById(f.from)), into);
+        shots.removeFloater(f.id);
+        casks++;
+        items += r.stores + r.barrels;
+        lost += r.lost;
+        continue;
+      }
       const got = deps.hold?.(f.lot, holdTier(classById(f.from))) ?? [];
       const r = got.length ? deps.board?.giveItems?.(got, into) ?? { left: got } : { left: [] };
       shots.removeFloater(f.id);
@@ -2912,7 +2982,7 @@ export function createNavalHost(deps) {
       sound(NAVAL_SFX.hit, stem, 1);
       deps.shake?.(3);
       deps.mid?.(galley ? 'Your ram smashes into her hull!' : 'You ram her!', 2);
-      const hurt = { hull: dealt, sail: 0, crew: Math.round(dealt / 40) };
+      const hurt = { hull: dealt, sail: 0, crew: ramMen(dealt) };
       chargePlayer('fire', e);
       e.myBlowAt = clock;
       if (e.owner) deps.sendHit?.(navalHitData(e.owner, { n: e.n, hull: Math.min(400, hurt.hull), crew: hurt.crew, zone: 'holed' }));
@@ -3108,14 +3178,20 @@ export function createNavalHost(deps) {
       const hostile = hostileNearBoat(b, s);
       crewStep(b, s, d, hostile);   // SHIP-CREW
       s.repairing = false;
-      if (clock - s.damage.lastHitAt >= FIELD_QUIET_S && !hostile) {
+      const quiet = clock - s.damage.lastHitAt >= FIELD_QUIET_S && !hostile;
+      let freeMend = false;
+      if (quiet) {
         const m = fieldMend(s.damage, d, { crewed: !!b.crewed, crewShare: s.damage.crewShare(), scale: b.crewed ? mendScaleOf(s.crew.morale) : 1 });
         if (m.hull > 0 || m.sail > 0) {
           s.damage.repair({ hull: m.hull, sail: m.sail, crew: 0 }, { refloat: FIELD_REFLOAT });
           if (b === boat) mending = true;
+          freeMend = true;
         }
-        if (s.crew.order === CREW_ORDERS.repair) repairStep(b, s, d);   // SEA-REPAIR
       }
+      // SEA-REPAIR, QUICK-REPAIRS: the order's repairs, in the quiet and (DAMAGE CONTROL) under fire; with none given, her
+      // hands spend her stores on their own once the fight is over - on what the free mending leaves them (AutoRepair)
+      if (s.crew.order === CREW_ORDERS.repair) repairStep(b, s, d, { underFire: !quiet });
+      else if (quiet && !freeMend && autoRepair()) repairStep(b, s, d, { auto: true });
     }
     heardReady(boat);
     harbourFrame(seaY);   // SHIP-LIFE: the port near the player - ashore too
@@ -3329,7 +3405,7 @@ export function createNavalHost(deps) {
         e.rammedAt = clock;
         const st = myBoatState(b);
         const dealt = Math.round(closing * RAM_DAMAGE * GALLEY_RAM * (st.guns.braced ? BRACE_TAKEN : 1));
-        st.damage.apply({ hull: dealt, sail: 0, crew: Math.round(dealt / 40) }, clock);
+        st.damage.apply({ hull: dealt, sail: 0, crew: ramMen(dealt) }, clock);
         effects.hit(bow, f, true);
         sound(NAVAL_SFX.hit, bow, 1);
         deps.shake?.(3.5);
@@ -3353,7 +3429,7 @@ export function createNavalHost(deps) {
         // of a volley is floored only once she has struck: strike's STRUCK_GRACE_S)
         const td = t.ship.damage;
         const room = td.state === SHIP_STATES.afloat && td.hullShare() > STRUCK_AT ? Math.ceil(td.hull - td.maxHull * STRUCK_AT) : Infinity;
-        strike(t, { hull: Math.min(dealt, room), sail: 0, crew: Math.round(dealt / 40) }, e.id);
+        strike(t, { hull: Math.min(dealt, room), sail: 0, crew: ramMen(dealt) }, e.id);
         s.damage.apply({ hull: Math.round(dealt * RAM_RECOIL / GALLEY_RAM), sail: 0, crew: 0 }, clock);
         break;
       }
@@ -3759,7 +3835,7 @@ export function createNavalHost(deps) {
     }
     const particles = effects.drawList();
     lampsInto(particles);   // SHIP-WATCH: the far ships' lanterns, points of light on the night sea
-    return { particles, balls: shots.balls(), floaters: shots.floaters(), aim: aimDraw, time: clock };   // AUDIT NAV1 (#4): the arcs' dash marches on the sea's clock
+    return { particles, balls: shots.balls(), floaters: shots.floaters().map((f) => (isSalvage(f.lot) ? { ...f, wreck: true } : f)), aim: aimDraw, time: clock };   // AUDIT NAV1 (#4): the arcs' dash marches on the sea's clock
   }
   /**
    * SHIP-WATCH: a lit ship's lanterns past LAMP_NEAR_M of the eye, as points of light (an added glow, shipWatch.js
@@ -3901,7 +3977,7 @@ export function createNavalHost(deps) {
   function getSaveData() {
     const boats = {};
     for (const [uid, rec] of pendingBoats) boats[uid] = rec;
-    for (const [uid, st] of boatState) boats[uid] = { ...st.damage.snapshot(), barrels: st.guns.barrels, mates: st.crew.snapshot(), credit: st.credit };   // SHIP-CREW (`mates`: the damage's own `crew` is her count), SEA-REPAIR
+    for (const [uid, st] of boatState) boats[uid] = { ...st.damage.snapshot(), maxHull: st.damage.maxHull, maxSail: st.damage.maxSail, barrels: st.guns.barrels, mates: st.crew.snapshot(), credit: st.credit };   // SHIP-CREW (`mates`: the damage's own `crew` is her count), SEA-REPAIR, TOUGHER-SHIPS (the whole her hurts are of: savedHurts)
     return { v: NAVAL_SAVE_VERSION, boats, notoriety: notoriety.snapshot(), day: lastDecayDay, raids: [...raidUids], party: companions.snapshot() };   // CREW-COMPANIONS: `party`
   }
   function restoreSaveData(r) {

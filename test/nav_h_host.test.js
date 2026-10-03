@@ -18,7 +18,7 @@ import { FIRST_ROLL_S } from '../src/systems/naval/navalDirector.js';
 import { navalHitData, validNavalRecord } from '../src/systems/naval/navalWire.js';
 import { CRIMES } from '../src/systems/crimes.js';
 import { NAVAL_SFX } from '../src/systems/naval/navalSounds.js';
-import { classById, hullBuild, NAVAL_FACTIONS } from '../src/systems/naval/navalShips.js';
+import { classById, hullBuild, firstBuildOf, NAVAL_FACTIONS } from '../src/systems/naval/navalShips.js';
 
 const src = (p) => readFileSync(new URL(`../src/${p}`, import.meta.url), 'utf8');
 const fileFetch = async (url) => {
@@ -318,12 +318,15 @@ test('NAV-H the save: each boat of mine by its deed\'s UID (its hurts and barrel
   assert.deepEqual(Object.keys(d.boats), ['42']);
   // PIN MOVED (SHIP-CREW, SEA-REPAIR): her crew as people (`mates`) and her store part-spent (`credit`) beside her hurts
   const { mates, credit, ...hurts } = d.boats[42];
-  assert.deepEqual(hurts, { hull: 100, sail: 50, crew: 10, fire: 0, state: 'afloat', barrels: 1 });
+  // PIN MOVED (TOUGHER-SHIPS): a record from before says no whole - her hurts the share of her first build's they were, on
+  // her toughened hull, and saved with the whole they are of now (navalHost.js savedHurts)
+  const b2 = hullBuild(2), first = firstBuildOf(2);
+  assert.deepEqual(hurts, { hull: Math.round((100 / first.hullHp) * b2.hullHp), sail: Math.round((50 / first.sailHp) * b2.sailHp), crew: 10, fire: 0, state: 'afloat', maxHull: b2.hullHp, maxSail: b2.sailHp, barrels: 1 });
   assert.equal(credit, 0);
   assert.equal(mates.hands.length, 2, 'her two hands on deck, named');
   assert.deepEqual(d.notoriety, { Wayrest: 40 });
   assert.deepEqual(d.raids, [777]);
-  assert.ok(Math.abs(h.host.hudModel().ship.hull - 100 / hullBuild(2).hullHp) < 1e-3, 'her hurts as saved (AUDIT NAV1: her hands mending from there - test/navaudit_helm.test.js)');
+  assert.ok(Math.abs(h.host.hudModel().ship.hull - 100 / firstBuildOf(2).hullHp) < 1e-3, 'her hurts as saved (AUDIT NAV1: her hands mending from there - test/navaudit_helm.test.js)');
   assert.equal(h.host.leaveShipGate({ uid: 777 }), 'naval', 'a raid of mine a load carried: thrown back, nothing sailed');
   assert.deepEqual(h.host.getSaveData().raids, []);
   assert.deepEqual(d.party, { party: [], resting: [] }, 'CREW-COMPANIONS: an older save carries no party - nobody ashore');

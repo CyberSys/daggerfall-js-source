@@ -43,7 +43,7 @@
 //
 // BRACING halves the hull and sail damage a ship takes while the brace is held (the gunnery's own brace).
 
-import { BARREL } from './navalShips.js';
+import { BARREL, SHIP_TOUGHNESS } from './navalShips.js';
 
 export const SHIP_STATES = Object.freeze({ afloat: 'afloat', struck: 'struck', sinking: 'sinking', sunk: 'sunk', prize: 'prize', wrecked: 'wrecked' });
 /** An AI ship strikes its colours at this share of its hull. */
@@ -64,7 +64,7 @@ export const FIRE_HP = 1.4;
 export const FIRE_SECONDS = 15;
 export const FIRE_STACK = 3;
 export const FIRE_SAIL = 0.5;
-export const FIRE_CREW_S = 10;
+export const FIRE_CREW_S = 10 * SHIP_TOUGHNESS;   // TOUGHER-SHIPS: a man every 10 s before
 /** What bracing leaves of a hit. */
 export const BRACE_TAKEN = 0.5;
 /** A wrecked boat's oars: this share of their way. */
@@ -105,15 +105,20 @@ export function fireOf(kind) {
 /**
  * The damage one ball does: `{ hull, sail, crew }` for its gun (navalShips.js GUNS) and the zone it struck. A rigging
  * hit cuts canvas (and takes a man) and holes nothing; a hull hit holes, and below the waterline holes more.
- * Chain shot's own numbers already favour the sails.
+ * Chain shot's own numbers already favour the sails. TOUGHER-SHIPS: the men a ball takes are `ballMen`'s - its gun's
+ * over SHIP_TOUGHNESS, whole men on the ball's own roll.
  */
 export function shotDamage(gun, zone, { braced = false, roll = 0.5 } = {}) {
   const k = braced ? BRACE_TAKEN : 1;
-  const spread = 0.85 + 0.3 * clamp(roll, 0, 1);   // each ball its own, 85-115%
-  if (zone === 'rig') return { hull: 0, sail: Math.round(Math.max(gun.sail * 2, gun.hull * 0.5) * k * spread), crew: gun.crew > 0 ? 1 : 0 };
+  const r = clamp(roll, 0, 1);
+  const spread = 0.85 + 0.3 * r;   // each ball its own, 85-115%
+  if (zone === 'rig') return { hull: 0, sail: Math.round(Math.max(gun.sail * 2, gun.hull * 0.5) * k * spread), crew: ballMen(gun.crew > 0 ? 1 : 0, r) };
   const holed = zone === 'holed' ? 1 + HOLED_BONUS : 1;
-  return { hull: Math.round(gun.hull * holed * k * spread), sail: Math.round(gun.sail * 0.25 * k * spread), crew: gun.crew };
+  return { hull: Math.round(gun.hull * holed * k * spread), sail: Math.round(gun.sail * 0.25 * k * spread), crew: ballMen(gun.crew, r) };
 }
+/** TOUGHER-SHIPS: the whole men a ball of `men` takes - `men` over SHIP_TOUGHNESS on the average, the ball's `roll`
+ *  (0..1) deciding the odd man (a hardier crew, the same weight of metal). */
+export const ballMen = (men, roll) => (men > 0 ? Math.floor(men / SHIP_TOUGHNESS + clamp(roll, 0, 0.999999)) : 0);
 
 /**
  * A ship's hurts: its three numbers, its fire, its state. `player` - a player's boat wrecks where an AI ship sinks.
@@ -223,12 +228,14 @@ export function createShipDamage({ hullHp, sailHp, crew, player = false }) {
     takePrize() { if (s.state !== SHIP_STATES.sunk && s.state !== SHIP_STATES.sinking) s.state = SHIP_STATES.prize; },
     /** Scuttled: straight to sinking (whatever burns aboard burns on - the host puts the torch to her). */
     scuttle() { if (s.state !== SHIP_STATES.sunk && s.state !== SHIP_STATES.sinking) { s.state = SHIP_STATES.sinking; s.sinkT = 0; } },
-    /** Repairs: hull, sails and crew each up to their best (or by an amount). A wrecked boat back over nought floats. */
-    repair({ hull = Infinity, sail = Infinity, crew = Infinity } = {}, { refloat = 0 } = {}) {
+    /** Repairs: hull, sails and crew each up to their best (or by an amount). A wrecked boat back over nought floats.
+     *  QUICK-REPAIRS: `douse` false - her carpenters at the work under fire (navalYard.js SEA_REPAIR_UNDER_FIRE) leave
+     *  her fires burning (a patch is no bucket chain). */
+    repair({ hull = Infinity, sail = Infinity, crew = Infinity } = {}, { refloat = 0, douse: putOut = true } = {}) {
       s.hull = Math.min(s.maxHull, s.hull + Math.max(0, hull));
       s.sail = Math.min(s.maxSail, s.sail + Math.max(0, sail));
       s.crew = Math.min(s.maxCrew, s.crew + Math.max(0, crew));
-      if (s.hull > 0) douse();
+      if (s.hull > 0 && putOut) douse();
       // AUDIT NAV1 (the helm): a wreck floats again once her hull passes `refloat` of its whole (the crew's mending at
       // sea, navalYard.js FIELD_REFLOAT); a yard's timber or a prize's, at once
       if (s.state === SHIP_STATES.wrecked && s.hull > s.maxHull * refloat && s.hull > 0) s.state = SHIP_STATES.afloat;
@@ -253,8 +260,10 @@ export function createShipDamage({ hullHp, sailHp, crew, player = false }) {
   return d;
 }
 
-/** The repair a shipwright asks, in gold: by what is missing of each - a hull point the dearest. */
-export const REPAIR_PRICE = Object.freeze({ hull: 12, sail: 6, crew: 30 });
+/** The repair a shipwright asks, in gold: by what is missing of each - a hull point the dearest. TOUGHER-SHIPS: a hull
+ *  point and a yard of canvas went down as the hulls stood more of them (12 and 6 before; navalShips.js SHIP_TOUGHNESS),
+ *  so a wreck made whole costs what it did. */
+export const REPAIR_PRICE = Object.freeze({ hull: 7, sail: 4, crew: 30 });
 export function repairCost(damage) {
   if (!damage) return 0;
   return Math.round((damage.maxHull - damage.hull) * REPAIR_PRICE.hull + (damage.maxSail - damage.sail) * REPAIR_PRICE.sail + (damage.maxCrew - damage.crew) * REPAIR_PRICE.crew);
