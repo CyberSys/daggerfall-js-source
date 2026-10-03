@@ -85,8 +85,11 @@ const PLURAL_SAME = Object.freeze(['Twigs', 'Green Leaves', 'Root Tendrils', 'Gr
   // PROF7: the hides, leathers and silks a body and the loom bring, and its butchery ('2 Harpy Feathers', '3 Raw Meat')
   'Bat Leather', 'Spider Silk', 'Scorpion Chitin', 'Slaughterfish Scales', 'Harpy Feathers', 'Hardened Leather', 'Standard-bearer\'s Silk',
   'Spider\'s Venom', 'Dragon\'s Scales', 'Raw Meat', 'Raw Fish', 'Fish',
-  'Mortar']);   // PROF11 (FOUND by its pin): the bench's mix is mass, as its stone - '10 Mortar', never 'Mortars'
-const PLURAL_OF = Object.freeze({ Cactus: 'Cacti', 'Pine Branch': 'Pine Branches', Ruby: 'Rubies', 'Big Tooth': 'Big Teeth' });
+  'Mortar',   // PROF11 (FOUND by its pin): the bench's mix is mass, as its stone - '10 Mortar', never 'Mortars'
+  // PROF12: the Apothecaries' sixteen and the enchanter's Essence, counted as mass ('4 Ichor', '3 Arcane Essence')
+  'Werewolf\'s Blood', 'Fairy Dragon\'s Scales', 'Ectoplasm', 'Troll\'s Blood', 'Snake Venom', 'Mummy Wrappings', 'Saint\'s Hair',
+  'Pure Water', 'Rain Water', 'Orc\'s Blood', 'Elixir Vitae', 'Nectar', 'Ichor', 'Ivory', 'Arcane Essence']);
+const PLURAL_OF = Object.freeze({ Cactus: 'Cacti', 'Pine Branch': 'Pine Branches', Ruby: 'Rubies', 'Big Tooth': 'Big Teeth', 'Small Tooth': 'Small Teeth' });   // PROF12: the Apothecaries' Small Tooth
 export function materialCountLabel(key, n, cc = survivalOn()) {
   const full = materialLabel(key, cc);
   if (n === 1) return full;

@@ -976,8 +976,8 @@
   {
     "name": "PROF10-book-cracked-unasked",
     "file": "src/net/profBook.js",
-    "old": "Number.isSafeInteger(w.seat) ? w.seat : null, w.cracked === true));",
-    "new": "Number.isSafeInteger(w.seat) ? w.seat : null, false));",
+    "old": "Number.isSafeInteger(w.seat) ? w.seat : null, w.cracked === true)));",
+    "new": "Number.isSafeInteger(w.seat) ? w.seat : null, false)));",
     "tests": [
       "test/prof10_client.test.js"
     ]
@@ -1049,11 +1049,12 @@
   {
     "name": "PROF10-pages-jewelcrafting-unpractised",
     "file": "src/ui/profPages.js",
-    "old": "'masonry', 'cooking', 'jewelcrafting']);   // PROF8: Fishing; PROF11: Masonry; PROF9: Cooking; PROF10: Jewelcrafting",
-    "new": "'masonry', 'cooking']);   // PROF8: Fishing; PROF11: Masonry; PROF9: Cooking; PROF10: Jewelcrafting",
+    "old": "'masonry', 'cooking', 'jewelcrafting', 'alchemy', 'enchanting']);   // PROF8: Fishing; PROF11: Masonry; PROF9: Cooking; PROF10: Jewelcrafting",
+    "new": "'masonry', 'cooking', 'alchemy', 'enchanting']);   // PROF8: Fishing; PROF11: Masonry; PROF9: Cooking; PROF10: Jewelcrafting",
     "tests": [
       "test/prof10_client.test.js"
-    ]
+    ],
+    "note": "PROF12 (PIN MOVED): re-aimed by content."
   },
   {
     "name": "PROF10-pages-no-bench",

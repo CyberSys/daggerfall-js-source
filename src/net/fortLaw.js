@@ -65,8 +65,11 @@ export const fortTierRow = (id, t) => (Number.isSafeInteger(t) && t >= 1 ? fortW
  * Harbour at a coastal seat; the rest anywhere.
  */
 /** AUDIT SEATS-2 L5: the Apothecary's steps wait on Alchemy's, Cooking's and Jewelcrafting's stations - until they stand
- *  it is raised by no one (a holder's Drakes and stone paid for nothing). */
-export const APOTHECARY_OPEN = false;
+ *  it is raised by no one (a holder's Drakes and stone paid for nothing). PROF12 (Mac: "2 and 4"): OPENED - the three
+ *  stand (PROF9 the fire, PROF10 the jeweller's bench, PROF12 the alchemy station), and a step a tier is each one's
+ *  (STATION_PROFESSIONS): a Jewelcrafting piece's quality step, a dish's XP half again (recipeLaw cookXp), a brew's Potent
+ *  chance +10 (alchemyLaw potentChance). */
+export const APOTHECARY_OPEN = true;
 export function fortMayRaise(id, seat) {
   const w = fortWork(id);
   if (!w) return false;

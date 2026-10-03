@@ -501,7 +501,7 @@ test('PROF11 wiring: the mason\'s bench a General Store\'s (open for trade) or a
   assert.match(w, /smelt: async \(recipe, count, \{ clean = false \} = \{\}\) => \{/);
   assert.match(w, /const r = await profBook\.smelt\(recipe, count, \{ clean \}\);/);
   assert.match(w, /const xpWord = professionName\(smeltRecipe\(r\.data\.recipe\)\?\.xp \?\? 'smithing'\);/);
-  assert.match(w, /: id\.startsWith\('cut:'\) \? 'Cut' : id\.startsWith\('mix:'\) \? 'Mixed' : 'Smelted';/);
+  assert.match(w, /: id\.startsWith\('cut:'\) \? 'Cut' : id\.startsWith\('mix:'\) \? 'Mixed' : alch \? 'Transmuted into' : 'Smelted';/);   // PIN MOVED (PROF12): the Transmuter's word between
   const b = src('src/net/profBook.js');
   assert.match(b, /const r = await ask\(\(\) => door\.smelt\(c, recipe, count, m\.id, clean === true\)\);/);
   const svc = src('server-account/src/professions.js');

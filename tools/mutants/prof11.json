@@ -31,12 +31,13 @@
   {
     "name": "PROF11-mortar-unregistered",
     "file": "src/net/professionLaw.js",
-    "old": "...PARTS, ...MASONRY_TEMPLATES, RAM_KIT]",
-    "new": "...PARTS, RAM_KIT]",
+    "old": "...PARTS, ...MASONRY_TEMPLATES, RAM_KIT, ...REAGENTS",
+    "new": "...PARTS, RAM_KIT, ...REAGENTS",
     "tests": [
       "test/prof11_law.test.js",
       "test/prof11_service.test.js"
-    ]
+    ],
+    "note": "PROF12 (PIN MOVED): re-aimed by content."
   },
   {
     "name": "PROF11-mortar-row-heavier",
@@ -68,11 +69,12 @@
   {
     "name": "PROF11-mortars",
     "file": "src/systems/profItems.js",
-    "old": "  'Mortar']);",
-    "new": "]);",
+    "old": "  'Mortar',   // PROF11 (FOUND by its pin)",
+    "new": "  // PROF11 (FOUND by its pin)",
     "tests": [
       "test/prof11_client.test.js"
-    ]
+    ],
+    "note": "PROF12 (PIN MOVED): re-aimed by content."
   },
   {
     "name": "PROF11-fee-forty",
@@ -212,12 +214,13 @@
   {
     "name": "PROF11-works-unlisted",
     "file": "src/net/professionLaw.js",
-    "old": "...WEAVE_RECIPES, ...MASON_RECIPES]",
-    "new": "...WEAVE_RECIPES]",
+    "old": "...WEAVE_RECIPES, ...MASON_RECIPES, ...TRANSMUTE_RECIPES]",
+    "new": "...WEAVE_RECIPES, ...TRANSMUTE_RECIPES]",
     "tests": [
       "test/prof11_law.test.js",
       "test/prof11_service.test.js"
-    ]
+    ],
+    "note": "PROF12 (PIN MOVED): re-aimed by content."
   },
   {
     "name": "PROF11-work-open-past-rank",
@@ -896,12 +899,12 @@
   {
     "name": "PROF11-pages-masonry-unpractised",
     "file": "src/ui/profPages.js",
-    "old": "'carpentry', 'masonry', 'cooking', 'jewelcrafting']);   // PROF8: Fishing; PROF11: Masonry",
-    "new": "'carpentry', 'cooking', 'jewelcrafting']);   // PROF8: Fishing; PROF11: Masonry",
+    "old": "'carpentry', 'masonry', 'cooking', 'jewelcrafting', 'alchemy', 'enchanting']);   // PROF8: Fishing; PROF11: Masonry",
+    "new": "'carpentry', 'cooking', 'jewelcrafting', 'alchemy', 'enchanting']);   // PROF8: Fishing; PROF11: Masonry",
     "tests": [
       "test/prof11_client.test.js"
     ],
-    "note": "PROF9 (RE-AIMED by content): the fire's code beside it."
+    "note": "PROF9 (RE-AIMED by content): the fire's code beside it. PROF12 (PIN MOVED): re-aimed by content."
   },
   {
     "name": "PROF11-pages-fortifications-unsaid",

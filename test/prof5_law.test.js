@@ -91,13 +91,13 @@ test('PROF5 law: the catalogue - every registered material, the four foods and e
   assert.ok(cat.every((c) => material(c.key)), 'every one a Stores material');
   assert.equal(new Set(cat.map((c) => c.key)).size, cat.length);
   assert.ok(cat.some((c) => c.family === 'herbs') && cat.some((c) => c.key === 'food:apple') && cat.some((c) => c.key === 'ore:mithril') && cat.some((c) => c.key === 'cloth:wool'));
-  assert.deepEqual([...new Set(cat.map((c) => c.family))], ['metals', 'wood', 'herbs', 'hides', 'food', 'stone', 'gems', 'siege']);   // SEAT2b part two (PIN MOVED): the Ram Kit, the Siege Works'
+  assert.deepEqual([...new Set(cat.map((c) => c.family))], ['metals', 'wood', 'herbs', 'hides', 'food', 'stone', 'gems', 'essences', 'siege']);   // SEAT2b part two (PIN MOVED): the Ram Kit, the Siege Works'; PROF12 (PIN MOVED): the Apothecaries' goods and Arcane Essence, the Essences'
   assert.deepEqual({ key: WOOL.key, tier: WOOL.tier, templateIndex: WOOL.templateIndex, name: WOOL.name }, { key: 'cloth:wool', tier: 2, templateIndex: 669, name: 'Wool Bolt' });
   assert.equal(minedMaterial('cloth:wool').family, 'hides');
   assert.deepEqual(WEAVERS_STOCK.map((w) => [w.key, w.marks, w.counter]), [['cloth:linen', 2, 'weavers'], ['cloth:wool', 3, 'weavers']], '4.5\'s own prices');
   assert.deepEqual(FURNISHER_STOCK.map((w) => [w.key, w.marks]), [['cloth:linen', 2]], 'the counters never part');
   assert.equal(stockOf('cloth:wool').marks, 3);
-  assert.equal(STOCKS.length, 7);
+  assert.equal(STOCKS.length, 7 + 16);   // PIN MOVED (PROF12): the Apothecaries' sixteen after them
   assert.deepEqual([NO_PACK_FORM.includes('cloth:wool'), withdrawable('cloth:wool'), withdrawable('cloth:linen')], [false, true, true]);   // PROF7 moved it: the cloth's templates (668-671)
 });
 

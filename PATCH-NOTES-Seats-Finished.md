@@ -27,6 +27,14 @@
 - **The guild gets the half back.** Take a yard piece down, or shrink it, and half of what it cost goes into the guild's treasury - never into the pocket of whoever took it down. Sell the hall and its yard goes with it, half of each piece's cost paid back to the treasury along with the hall's own share.
 - **Members and visitors look, they don't touch.** Ranks below Officer, and anyone outside the guild, see the hall's colours and its yard but cannot change them.
 
+## The Apothecary (online)
+- **The Apothecary can be raised.** A seat's holder can now build the Apothecary from the seat's board, as any other work (tier 1: 100 Cut Stone, 100 Oak Planks and 1,000 silver from the treasury; tier 2: 200 Cut Stone, 20 Pearls and 2,500 silver). It waited on Alchemy, Cooking and Jewelcrafting - all three are open now.
+- **What it does, a tier at a time, for the holder's members working in its town:**
+  - **Jewelcrafting:** a piece comes one quality step better - as the Forge does for a smith.
+  - **Cooking:** a dish takes no quality, so the step is in the cooking: half again the Cooking XP of the dish (a clean pan in a tier 2 Apothecary's town earns two and a half times the plain dish's).
+  - **Alchemy:** +10% chance a brew comes out Potent.
+- Only the holding guild's members get it, and only in that town.
+
 ## Fixes
 - **Voiding a revolt before it is fought no longer saves the Charter.** It now lapses, exactly as it would have at the Turning had nobody put the revolt down.
 - **A voided capture gives back the holder's building projects.** Anything the defenders were building when their seat fell starts again where it was, with the materials it held taken back from the seat's stockpile - the silver they spent on it is no longer lost. A voided revolt that stood does the same, and brings back the holder's Edict for next week.

@@ -440,6 +440,48 @@ export function createProfBook({ door, storage = null, character = () => null, n
       return _craftBusy;
     },
     get pendingCrafts() { return keptOf().crafts.length; },
+    // ─── A BREW AT THE ALCHEMY STATION (PROF12) ─────────────────────
+    /**
+     * One of DFU's twenty brewed from the Stores (net/alchemyLaw.js): `potion` its recipe's name, `keys` the cauldron as the
+     * Stores hold it. KEPT as a craft is - its potions are the save's once the service answers, so a lost answer is asked
+     * again (the same id, the same potions) and `mint` makes them on the answer, once, by the tab that lets it go; `fee` the
+     * Alchemist's gold, paid with them; `seat` the held town the station stands in (the Apothecary's steps). One craft or
+     * brew at a time.
+     * @returns {Promise<{ ok: boolean, data?: any, error?: string, kept?: boolean, elsewhere?: boolean }>}
+     */
+    async brew(potion, keys, { fee = 0, seat = null } = {}, mint) {
+      if (_craftBusy) return { ok: false, error: 'prof-busy' };   // one craft or brew at a time
+      const key = slot();
+      const c = character();
+      if (!c || !account()) return { ok: false, error: 'no-session' };
+      _craftBusy = (async () => {
+        const w = { rid: rid(), brew: true, recipe: potion, keys: Array.isArray(keys) ? [...keys] : [], character: c,
+          fee: Number.isSafeInteger(fee) && fee > 0 ? fee : 0, ...(Number.isSafeInteger(seat) && seat > -1 ? { seat } : {}) };
+        const kept = keptOf(key);
+        kept.crafts.push(w);
+        writeKept(kept, key);
+        return craftOne(w, key, mint);
+      })().finally(() => { _craftBusy = null; });
+      return _craftBusy;
+    },
+    /** A crafted piece DISENCHANTED (PROF12) at an enchanting station - into Arcane Essence in the Stores, the piece gone. The
+     *  id is the piece's own until an answer comes, so a press after a lost answer is the same disenchant. Answers the
+     *  service's answer; the Stores and Enchanting's track moved with it - the caller takes the piece out of the pack. */
+    async disenchant(provenance) {
+      const c = character();
+      if (!c) return { ok: false, error: 'prof-character' };
+      const key = `disenchant|${slot()}|${provenance}`;
+      const m = idFor(key, PROF_QUEUE_MS);
+      if (m.promise) return m.promise;
+      m.promise = (async () => {
+        const r = await ask(() => door.disenchant(c, provenance, m.id));
+        m.promise = null;
+        if (!keptAnswer(r)) ids.delete(key);
+        if (r?.ok) { applyStore(r.data?.store); applyTrack(r.data?.track); } else shutBy(r);
+        return r;
+      })();
+      return m.promise;
+    },
     /** The smith's stock (PROF3): `qty` of a fitting bought into the Stores for Marks. The id is kept until an answer
      *  comes, so a press after a lost answer is the same purchase. Answers the service's answer; the Stores moved. */
     async stock(material, qty) {
@@ -616,7 +658,9 @@ export function createProfBook({ door, storage = null, character = () => null, n
   /** A kept craft's ask (PROF3): its pieces minted and the craft let go on an answer, let go on a refusal, kept on
    *  silence - the service's row answers the same id with the same pieces whenever it is asked again. */
   async function craftOne(w, key, mint) {
-    const r = await ask(() => door.craft(w.character, w.recipe, w.clean, w.name, w.rid, w.heartwood === true, Number.isInteger(w.dye) ? w.dye : null, Number.isSafeInteger(w.seat) ? w.seat : null, w.cracked === true));   // PROF10: the cracked gem
+    const r = await ask(() => (w.brew === true   // PROF12: a brew kept as a craft is
+      ? door.brew(w.character, w.recipe, w.keys, w.rid, Number.isSafeInteger(w.seat) ? w.seat : null)
+      : door.craft(w.character, w.recipe, w.clean, w.name, w.rid, w.heartwood === true, Number.isInteger(w.dye) ? w.dye : null, Number.isSafeInteger(w.seat) ? w.seat : null, w.cracked === true)));   // PROF10: the cracked gem
     // AUDIT 32 B5: heard after a switch, the craft waits kept for its own character's settle - asked again there, the
     // service's row answers the same pieces into the right pack
     if (key !== slot()) return { ok: false, error: 'elsewhere', kept: true };

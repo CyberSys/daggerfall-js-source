@@ -41,7 +41,7 @@ test('PROF11 law: Mortar is 675 - the stone family, tier 2, worth 2 Marks, Lodes
   assert.equal(TIER_VALUES[MORTAR.tier - 1], 2, '4.5: Mortar tier 2 (2)');
   assert.equal(minedMaterial('stone:mortar'), MORTAR);
   assert.ok(MINED_KEYS.includes('stone:mortar'), 'the registry, the market\'s catalogue');
-  assert.deepEqual(MINED_KEYS.slice(-2), ['stone:mortar', 'work:ram'], 'registered last - no key before it moved (SEAT2b part two\'s Ram Kit after it - PIN MOVED)');
+  assert.deepEqual(MINED_KEYS.slice(-19, -17), ['stone:mortar', 'work:ram'], 'registered last - no key before it moved (SEAT2b part two\'s Ram Kit after it - PIN MOVED; PROF12\'s sixteen reagents and Arcane Essence after them - PIN MOVED)');
   assert.equal(withdrawable('stone:mortar'), true);
   assert.ok(marketCatalogue().some((m) => m.key === 'stone:mortar'), 'listed on the Materials view');
   assert.equal(UNYIELDED.includes('stone:mortar'), false, 'the bench yields it');
@@ -59,7 +59,7 @@ test('PROF11 law: the mason\'s bench\'s works (4.5) - the cut, two Rough Stone a
   ]);
   assert.equal(MORTAR_BATCH, 10, '4.5: "ten at a time"');
   assert.equal(CUT_RATIO, 2, 'the cut at the rock stays 2 : 1 (PROF0 23) - the bench cuts at the same');
-  assert.deepEqual(WORK_RECIPES.slice(-2), [...MASON_RECIPES], 'the works after the loom\'s');
+  assert.deepEqual(WORK_RECIPES.slice(-6, -4), [...MASON_RECIPES], 'the works after the loom\'s (PIN MOVED (PROF12): the Transmuter\'s four after them)');
   assert.equal(smeltRecipe('cut:stone'), MASON_RECIPES[0]);
   assert.equal(smeltRecipe('mix:mortar'), MASON_RECIPES[1]);
   // the Quarryman (3.3): "Rough Stone cuts 1:1, not 2:1" - a choice at 50

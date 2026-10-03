@@ -91,14 +91,14 @@ test('PROF4 law: a tree yields 2-4 logs (a march +25%, the fraction a chance); R
 test('PROF4 law: the forge burns a log to a Charcoal (a Charcoal Burner two) and the workbench saws one to two planks (a Timberwright three), no XP; a smelt\'s ingot a Quartermaster\'s two, Brass never; the fees; the furnisher\'s Linen at 2 Marks; Cured Leather, Linen and Bear Hide have no pack form - the woods do', () => {
   assert.deepEqual(BURN_RECIPES.map((r) => [r.id, r.out, r.inputs[0].key, r.station, r.per, r.xp]), WOODS.map((w) => [`burn:${w.id}`, 'wood:charcoal', `log:${w.id}`, 'forge', 1, null]));
   assert.deepEqual(SAW_RECIPES.map((r) => [r.id, r.out, r.inputs[0].key, r.station, r.per, r.xp]), WOODS.map((w) => [`saw:${w.id}`, `plank:${w.id}`, `log:${w.id}`, 'workbench', 2, null]));
-  assert.equal(WORK_RECIPES.length, SMELT_RECIPES.length + 14 + 9 + 2);   // PROF7 moved it: the loom's eight cures and its weave after them; PIN MOVED (PROF11): the mason's bench's cut and mix after them
+  assert.equal(WORK_RECIPES.length, SMELT_RECIPES.length + 14 + 9 + 2 + 4);   // PIN MOVED (PROF12): the Transmuter's four   // PROF7 moved it: the loom's eight cures and its weave after them; PIN MOVED (PROF11): the mason's bench's cut and mix after them
   assert.deepEqual([workPer(smeltRecipe('burn:oak'), { logging: 'charcoal-burner' }), workPer(smeltRecipe('burn:oak'), { logging: 'timberwright' }), workPer(smeltRecipe('burn:oak'), {})], [2, 1, 1]);
   assert.deepEqual([workPer(smeltRecipe('saw:oak'), { logging: 'timberwright' }), workPer(smeltRecipe('saw:oak'), { smithing: 'timberwright' }), workPer(smeltRecipe('saw:oak'))], [3, 2, 2]);
   assert.deepEqual([workPer(smeltRecipe('ingot:iron'), { smithing: 'quartermaster' }), workPer(smeltRecipe('metal:brass'), { smithing: 'quartermaster' }), smeltRecipe('ingot:iron').xp], [2, 1, 'smithing']);
   assert.deepEqual([WORKBENCH_FEE, FORGE_FEE], [50, 50]);
   assert.deepEqual(FURNISHER_STOCK.map((x) => [x.key, x.marks, x.counter]), [['cloth:linen', 2, 'furnisher']]);
   assert.ok(SMITH_STOCK.every((x) => x.counter === 'smith'));
-  assert.deepEqual(STOCKS.map((x) => x.key), ['leather:cured', 'plank:oak', 'plank:pine', 'wood:charcoal', 'cloth:linen', 'cloth:linen', 'cloth:wool']);   // PROF5: the Weavers' counter's two after them
+  assert.deepEqual(STOCKS.map((x) => x.key).slice(0, 7), ['leather:cured', 'plank:oak', 'plank:pine', 'wood:charcoal', 'cloth:linen', 'cloth:linen', 'cloth:wool']);   // PROF5: the Weavers' counter's two after them; PIN MOVED (PROF12): the Apothecaries' sixteen after those
   assert.equal(stockOf('cloth:linen').counter, 'furnisher');
   assert.deepEqual([...NO_PACK_FORM], ['work:ram']);   // PROF5: Wool Bolt beside the Linen; PROF7 moved it: every one has its template now; SEAT2b part two (PIN MOVED): a Ram Kit's road is the writ's
   assert.deepEqual(['leather:cured', 'cloth:linen', 'hide:bear', 'plank:oak', 'log:teak', 'wood:charcoal', 'ingot:iron'].map(withdrawable), [true, true, true, true, true, true, true]);

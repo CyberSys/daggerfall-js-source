@@ -239,6 +239,9 @@ export function stacksWith(a, b) {
     (a.material ?? 0) === (b.material ?? 0) &&
     (a.message ?? 0) === (b.message ?? 0) &&
     (a.potionRecipeKey ?? 0) === (b.potionRecipeKey ?? 0) &&
+    // PROF12 (the port's own field, Ledger A): a Potent potion stacks only with one of its own share - a Potent Healing and
+    // a plain one are two potions
+    (a.potent ?? 0) === (b.potent ?? 0) &&
     (a.timeForItemToDisappear ?? 0) === (b.timeForItemToDisappear ?? 0) &&
     // AUDIT MERGE-PLUS C4 (LOCK1 - the port's own field, Ledger A): a locked stack merges only with a locked one. Thirty
     // locked arrows stowed in a wagon holding five came out as thirty-five unlocked, and dropped.
@@ -364,6 +367,7 @@ export function splitStack(list, stack, numberToPick, { rolls = Math.random } = 
   // BOOK-SPLIT: FindExistingStack's other two identity terms (:708-713) - the potion's recipe (and the picture its
   // setter wrote) and the conjured expiry
   if (stack.potionRecipeKey) picked.potionRecipeKey = stack.potionRecipeKey;
+  if (stack.potent) picked.potent = stack.potent;   // PROF12: and its Potent share
   if (priced && stack.worldTextureRecord != null) picked.worldTextureRecord = stack.worldTextureRecord;
   if (stack.timeForItemToDisappear) picked.timeForItemToDisappear = stack.timeForItemToDisappear;
   if (stack.locked === true) picked.locked = true;   // AUDIT MERGE-PLUS C4: the part split off keeps the stack's lock

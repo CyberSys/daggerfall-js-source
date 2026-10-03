@@ -48,6 +48,7 @@ import { silenceBlocksCast, SILENCED_TEXT, PRESS_BUTTON_TO_FIRE_SPELL, DOOR_SPEL
 import { calculateCastCost, effectSchool, EFFECT_COST_TABLE } from '../systems/spellcost.js';
 import { applySpell, SPELL_REFLECTED_TEXT, hasActiveEffect, isSoulTrapEffect, spellSways } from '../systems/effects.js';   // WBX7: a soul trap meets the court's boss too
 import { potionBundle } from '../systems/potions.js';   // U44: DrinkPotion's bundle
+import { potentEffect } from '../net/alchemyLaw.js';   // PROF12: a Potent potion's magnitudes
 import { SPELL_CAST_SOUND } from '../systems/enemySpells.js';
 import { tallySkill } from '../systems/skills.js';
 import { morphSelf } from '../systems/lycanthropy.js';   // V2a: the MorphSelf arm the ONE cast engine wires
@@ -1223,9 +1224,11 @@ export function createPlayerMagic({
      *  and keys on ElementTypes.Magic. Answers the potion's display
      *  name, or null for a bottle whose recipe key names nothing -
      *  DFU's `PotionRecipeKey == 0` guard (:906). */
-    drinkPotion(recipeKey) {
-      const bundle = potionBundle(recipeKey);
-      if (!bundle) return null;
+    drinkPotion(recipeKey, potent = 0) {
+      const plain = potionBundle(recipeKey);
+      if (!plain) return null;
+      // PROF12: a Potent potion (an alchemy station's brew) lays its share on every magnitude (alchemyLaw potentEffect)
+      const bundle = potent ? { ...plain, effects: plain.effects.map((e) => potentEffect(e, potent)) } : plain;
       applySpellToPlayer(bundle, effectiveLevel(playerEntity), null,
         { bypassSavingThrows: true, bypassChance: true });
       audio.playOneShotId(SPELL_CAST_SOUND[bundle.element] ?? SPELL_CAST_SOUND[4], 1);   // AUDIT 58: the same ID door

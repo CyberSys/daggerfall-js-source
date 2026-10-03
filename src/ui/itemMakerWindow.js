@@ -71,6 +71,7 @@ import {
   enchantDecision, applyEnchantments, enchantmentCostLabel, totalGoldCost,
   totalEnchantmentCost, itemEnchantmentPower, openPickerDecision,
 } from '../systems/enchanting.js';
+import { enchantGold } from '../net/alchemyLaw.js';   // PROF12: Enchanting's layer - the gold with the rank's share off
 import {
   enchantmentName, enchantmentParams, enchantmentParamName, primaryPickerList, primaryPick,
   pickEnchantment, removeEnchantment, PARAM_NONE,
@@ -264,6 +265,9 @@ export class ItemMakerWindow {
    *  credit - which is what both the label (:193) and the enchant
    *  check (:734) read; the deduction seam spends the letters too. */
   gold() { return totalGoldAmount(this.hooks.player ?? this.hooks.entity ?? {}); }
+  /** PROF12 (bible/06-Systems/Professions-Arc.md 9.3): Enchanting's share off the gold, percent - the host's (online, the
+   *  professions this account's), none else: DFU's own price. */
+  goldDiscountPct() { const v = this.hooks.goldDiscountPct?.(); return Number.isSafeInteger(v) && v > 0 && v < 100 ? v : 0; }
 
   _selectTab(tab) {
     audio.playOneShot(SOUND.ButtonClick, 1);
@@ -384,7 +388,7 @@ export class ItemMakerWindow {
   /** EnchantButton_OnMouseClick (:705-770). */
   _enchant() {
     audio.playOneShot(SOUND.ButtonClick, 1);
-    const d = enchantDecision(this.selected, this.powers, this.sideEffects, { gold: this.gold() });
+    const d = enchantDecision(this.selected, this.powers, this.sideEffects, { gold: this.gold(), discountPct: this.goldDiscountPct() });   // PROF12: Enchanting's layer
     if (d.kind !== 'enchant') { this._say(d.text); return; }
     // DeductGoldAmount, which spends letters of credit as well as the
     // purse - the one deduction seam (court.js).
@@ -418,7 +422,7 @@ export class ItemMakerWindow {
     return {
       itemName: this.itemName,
       availableGold: String(this.gold()),
-      goldCost: String(totalGoldCost(this.powers)),
+      goldCost: String(enchantGold(totalGoldCost(this.powers), this.goldDiscountPct())),   // PROF12: the rank's share off, online
       enchantmentCost: enchantmentCostLabel(
         totalEnchantmentCost(this.powers, this.sideEffects), itemEnchantmentPower(this.selected)),
     };

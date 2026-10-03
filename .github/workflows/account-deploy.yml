@@ -91,6 +91,9 @@ on:
       - "src/world/mat4.js"
       - "src/characters/nameGen.json"
       - "src/characters/dyes.js"
+      - "src/net/alchemyLaw.js"
+      - "src/systems/potionRecipes.js"
+      - "src/characters/itemTemplates.json"
       - ".github/workflows/account-deploy.yml"
   workflow_dispatch:
 

@@ -2541,7 +2541,7 @@ export async function bootExterior(canvas, renderer, params, status) {
     // unread rather than eating it for nothing. Named rather than
     // omitted, so the construction sweep sees a DECISION.
     revealMap: null,
-    drinkPotion: (key) => magic.drinkPotion(key),   // U44: DrinkPotion through the ONE cast engine
+    drinkPotion: (key, potent) => magic.drinkPotion(key, potent),   // U44: DrinkPotion through the ONE cast engine; PROF12: a Potent potion's share
     // QX1: the use-click block's quest read
     // (DaggerfallInventoryWindow.cs:1681) and the quest LETTER's
     // display name, off this host's own machine. It was `null` with a

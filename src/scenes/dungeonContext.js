@@ -1886,7 +1886,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     // info panel asks for GetRandomTokens' dfRand draw (TextProvider
     // .cs:228); everything else keeps Random.Range's default.
     rows: (id, pick) => textRsc?.variantLinesById(id, pick ?? Math.random) ?? [],   // AUDIT 22 F2
-    drinkPotion: (key) => magic.drinkPotion(key),   // U44: DrinkPotion through the ONE cast engine
+    drinkPotion: (key, potent) => magic.drinkPotion(key, potent),   // U44: DrinkPotion through the ONE cast engine; PROF12: a Potent potion's share
     // QuestMachine.GetQuest - the use-click block
     // (DaggerfallInventoryWindow.cs:1673) and ResolveItemLongName's
     // quest-letter arm (ItemHelper.cs:338). The standalone `?dungeon`

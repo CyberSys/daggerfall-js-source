@@ -404,13 +404,14 @@
   {
     "name": "PROF9-cook-clean-nothing",
     "file": "src/net/recipeLaw.js",
-    "old": "  return clean ? Math.floor((xp * 3) / 2) : xp;\n}",
-    "new": "  return xp;\n}",
+    "old": "  const n = (clean ? 1 : 0) + (Number.isSafeInteger(steps) && steps > 0 ? steps : 0);",
+    "new": "  const n = 0 + (Number.isSafeInteger(steps) && steps > 0 ? steps : 0);",
     "tests": [
       "test/prof9_law.test.js",
       "test/prof9_service.test.js",
       "test/prof9_client.test.js"
-    ]
+    ],
+    "note": "PROF12 (PIN MOVED): re-aimed by content."
   },
   {
     "name": "PROF9-lines-keep-unsaid",
@@ -498,22 +499,24 @@
   {
     "name": "PROF9-svc-pan-never-clean",
     "file": "server-account/src/professions.js",
-    "old": "const xp = r.kind === 'dish' ? cookXp(rank, { clean: clean === true }) : craftXp(r.tier, rank, false);",
-    "new": "const xp = r.kind === 'dish' ? cookXp(rank, { clean: false }) : craftXp(r.tier, rank, false);",
+    "old": "const xp = r.kind === 'dish' ? cookXp(rank, { clean: clean === true, steps: halls }) : craftXp(r.tier, rank, false);",
+    "new": "const xp = r.kind === 'dish' ? cookXp(rank, { clean: false, steps: halls }) : craftXp(r.tier, rank, false);",
     "tests": [
       "test/prof9_service.test.js",
       "test/prof9_client.test.js"
-    ]
+    ],
+    "note": "PROF12 (PIN MOVED): re-aimed by content."
   },
   {
     "name": "PROF9-svc-dish-tier-xp",
     "file": "server-account/src/professions.js",
-    "old": "const xp = r.kind === 'dish' ? cookXp(rank, { clean: clean === true }) : craftXp(r.tier, rank, false);",
+    "old": "const xp = r.kind === 'dish' ? cookXp(rank, { clean: clean === true, steps: halls }) : craftXp(r.tier, rank, false);",
     "new": "const xp = craftXp(r.tier, rank, false);",
     "tests": [
       "test/prof9_service.test.js",
       "test/prof9_client.test.js"
-    ]
+    ],
+    "note": "PROF12 (PIN MOVED): re-aimed by content."
   },
   {
     "name": "PROF9-svc-no-hand",
@@ -998,11 +1001,12 @@
   {
     "name": "PROF9-pages-cooking-unpractised",
     "file": "src/ui/profPages.js",
-    "old": "'carpentry', 'masonry', 'cooking', 'jewelcrafting']);",
-    "new": "'carpentry', 'masonry', 'jewelcrafting']);",
+    "old": "'carpentry', 'masonry', 'cooking', 'jewelcrafting', 'alchemy', 'enchanting']);",
+    "new": "'carpentry', 'masonry', 'jewelcrafting', 'alchemy', 'enchanting']);",
     "tests": [
       "test/prof9_client.test.js"
-    ]
+    ],
+    "note": "PROF12 (PIN MOVED): re-aimed by content."
   },
   {
     "name": "PROF9-pages-feast-unlock-55",

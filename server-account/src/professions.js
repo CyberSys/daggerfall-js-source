@@ -53,6 +53,7 @@ import {
   HAULS_PER_DAY, HAUL_YIELD, FISH_KEY, haulTier,   // PROF8
   herbXpTier,   // HERB-XP
   workOpen,   // PROF11: a mason's work asks its rank
+  workSpecOk,   // PROF12: a Transmuter's transmutation asks its choice
 } from '../../src/net/professionLaw.js';
 import {
   recipeById, recipeOpen, qualityOdds, rollQuality, qualitySteps, craftQuality, takesQuality, craftXp, craftCount,
@@ -96,15 +97,15 @@ export function profOpenFor(player, env) {
 const charOk = (c) => typeof c === 'string' && CHAR_ID_RE.test(c);
 /** The first door every professions request walks through: a registered account, its character, and (for an act) a
  *  request id. The switch is asked after the row an act's request may already have made. */
-function asks(player, { character, rid, needRid = true }) {
+export function asks(player, { character, rid, needRid = true }) {   // PROF12: the alchemy station's door too (alchemy.js)
   if (accountKind(player) !== 'linked') return { error: 'prof-need-account' };
   if (!charOk(character)) return { error: 'prof-character' };
   if (needRid && (typeof rid !== 'string' || !PROF_RID_RE.test(rid))) return { error: 'prof-rid' };
   return null;
 }
-const shut = (player, env) => (profOpenFor(player, env) ? null : { error: 'prof-closed' });
+export const shut = (player, env) => (profOpenFor(player, env) ? null : { error: 'prof-closed' });
 /** A random unit in [0, 1) from the service's CSPRNG. */
-function dice(rand) {
+export function dice(rand) {
   const b = new Uint32Array(1);
   rand(new Uint8Array(b.buffer));
   return b[0] / 4294967296;
@@ -113,13 +114,13 @@ function dice(rand) {
 // ─── WHAT A CHARACTER HAS ────────────────────────────────────────────
 
 /** A track as the tabs read it: its XP and rank, the specialisations it stands under now, a change on its way. */
-function trackView(row, profession, nowS) {
+export function trackView(row, profession, nowS) {
   const xp = Number(row?.xp ?? 0);
   const specs = specsAt(row, nowS);
   const pending = row?.respec_to && Number(row.respec_at) > nowS ? { rank: Number(row.respec_rank), to: row.respec_to, at: Number(row.respec_at) } : null;
   return { profession, xp, rank: rankOfXp(xp), specs, respec: pending };
 }
-const trackRow = (db, player, character, profession) =>
+export const trackRow = (db, player, character, profession) =>
   db.prepare('SELECT * FROM prof_tracks WHERE player = ?1 AND char_id = ?2 AND profession = ?3').bind(player, character, profession).first();
 /** A Stores row's origin as a count's name - own, bought (with Drakes) or GOLD-MARKET's gold (bought with gold). */
 const originOf = (o) => (o === 'bought' || o === 'gold' ? o : 'own');
@@ -509,6 +510,12 @@ export async function harvestNode(ctx, player, env, body = {}) {
     db.prepare(`INSERT INTO prof_stores (player, char_id, material, origin, qty)
       SELECT player, char_id, material, 'own', qty FROM node_harvests WHERE ${mine}
       ON CONFLICT (player, char_id, material, origin) DO UPDATE SET qty = prof_stores.qty + excluded.qty`).bind(player.id, rid, nonce),
+    // PROF12 (PROF0 4.3, 5.2, 9.3: "an unbruised herb (+5% Alchemy Potent chance each)"): an herb picked UNBRUISED - an
+    // uncommon or rare herb's steady hand clean, every one an Apothecary's Friend's - counted beside the Stores (which keep
+    // no unit's bruise), its units the brewing act's (alchemy.js brewAtStation), at most the Stores' bound
+    ...(kind === 'herbs' && clean === true ? [db.prepare(`INSERT INTO prof_unbruised (player, char_id, material, qty)
+      SELECT player, char_id, material, qty FROM node_harvests WHERE ${mine}
+      ON CONFLICT (player, char_id, material) DO UPDATE SET qty = MIN(?4, prof_unbruised.qty + excluded.qty)`).bind(player.id, rid, nonce, STORES_MAX)] : []),
     // the gem beside it - the decision kept it only where its own material had room
     db.prepare(`INSERT INTO prof_stores (player, char_id, material, origin, qty)
       SELECT player, char_id, gem, 'own', 1 FROM node_harvests WHERE ${mine} AND gem IS NOT NULL
@@ -756,6 +763,8 @@ export async function smeltAtForge(ctx, player, env, { character, recipe: id, co
   const specsHere = r.more ? { [r.more.profession]: specsAt(tracks.find((t) => t.profession === r.more.profession), nowS)[workSpecRank(r)] } : {};
   const per = workPer(r, specsHere);
   const rank = ranks[r.xp] ?? 0;
+  // PROF12: a transmutation is a Transmuter's (3.3: Alchemy's choice at 100) - asked before anything moves
+  if (!workSpecOk(r, r.spec ? specsAt(tracks.find((t) => t.profession === r.spec.profession), nowS) : null)) return { error: 'prof-transmuter' };
   if (!workOpen(r, rank)) return { error: 'prof-rank' };   // PROF11: a mason's work asks its tier's rank (Mortar's 10)
   // PROF11: a mason's work's XP is a craft's (recipeLaw masonXp: the rank's tier a unit, a clean chisel's half again) and
   // its first time's 500 (?11, where firstCraftPays) laid on in the decision; every other work's the smelt's
@@ -908,7 +917,8 @@ export async function craftAtAnvil(ctx, player, env, { character, recipe: id, cl
   const wood = heartwood === true && takesHeartwood(r);
   const inputs = recipeInputs(r, { heartwood: wood, joiner: specs[50] === 'joiner', cracked: crack });
   // SEAT2b part two: the seat's crafting halls' steps, where the crafter's guild holds the town it crafts in (seatStepsFor)
-  const halls = takesQuality(r) ? await seatStepsFor(db, player.id, character, seat, prof, nowS) : 0;
+  // PROF12: and a dish's - the Apothecary's step a dish's XP (recipeLaw cookXp: a clean pan's half again, a step each)
+  const halls = takesQuality(r) || r.kind === 'dish' ? await seatStepsFor(db, player.id, character, seat, prof, nowS) : 0;
   const quality = takesQuality(r)
     ? craftQuality(rollQuality(dice(rand), qualityOdds(rank - r.rank, { masterwright: masterworkSpec(specs[100]) })), qualitySteps(r, { clean: clean === true, spec50: specs[50], heartwood: wood }) + halls)
     : -1;
@@ -932,7 +942,7 @@ export async function craftAtAnvil(ctx, player, env, { character, recipe: id, cl
   // first craft's ?13 (AUDIT 32 S1: none for a recipe wholly of goods only a counter sells) ?11 now ?12 nonce ?14 the
   // profession ?15 heartwood ?16 the dye; the inputs ?17 on, two a one
   // PROF9: a dish's XP follows the rank, a clean pan's half again (cookXp); every other craft's its tier's (craftXp)
-  const xp = r.kind === 'dish' ? cookXp(rank, { clean: clean === true }) : craftXp(r.tier, rank, false);
+  const xp = r.kind === 'dish' ? cookXp(rank, { clean: clean === true, steps: halls }) : craftXp(r.tier, rank, false);   // PROF12: the Apothecary's steps
   const binds = [player.id, character, rid, r.id, quality, count, provs[0], provs[1] ?? null, seed, xp, nowS, nonce, firstCraftPays(r) ? FIRST_CRAFT_XP : 0, prof, wood ? 1 : 0, u];
   const held = [];
   inputs.forEach((inp, i) => {

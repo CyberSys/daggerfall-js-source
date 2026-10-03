@@ -1,0 +1,195 @@
+// @ts-check
+// ═══════════════════════════════════════════════════════════════════
+// PROF12 (2026-10-02, Mac: "2 and 4"; "lets just finish out everything
+// before merge") - THE ALCHEMY AND ENCHANTING LAYERS, AND DISENCHANTING:
+// the law both ends read. bible/06-Systems/Professions-Arc.md 1, 2, 3.3,
+// 4.1, 4.3, 4.5, 9.3, 9.4 and 37 (as built).
+//
+// LAW 1: DFU'S MAKERS STAY 1:1. "Alchemy and Enchanting are layers over
+// them" (section 2): DFU's potion maker (pack ingredients) and its item
+// maker are untouched and earn nothing online - the service never sees
+// them. Alchemy's door is the BREWING ACT at an alchemy station (9.3):
+// the ingredients from the Stores, and the service runs DFU'S OWN RECIPE
+// LAW on them - POTION_RECIPES and the order-independent ingredient hash
+// DFU keys it by, IMPORTED (systems/potionRecipes.js), never copied - so
+// the same twenty recipes, and no new ones, make the same potions into
+// the pack. No act (9.4: "Alchemy, Enchanting: none - DFU's windows stay
+// 1:1"). Enchanting's layer is a discount on DFU's item maker's gold (a
+// discount on the player's own item, which cheats no one) and its XP is
+// what the service sees: Disenchanting a provenance piece into Arcane
+// Essence (680).
+//
+// Pure: no clock, no DOM, no network. The service bundles it (with the
+// item table's JSON - DFU's enchantment budgets, one home - and the
+// recipe leaf); the client draws and mints by it.
+// ═══════════════════════════════════════════════════════════════════
+import { POTION_RECIPES, potionRecipeKey, potionKeyFromCauldron } from '../systems/potionRecipes.js';   // DFU's twenty, one home (law 1)
+import {
+  TIER_RANKS, PLANT_GROUP_TEMPLATES, METALS, GEMS, PEARL, PARTS, REAGENTS, COUNTER_ONLY, topTierOf, JOURNEYMAN_RANK, PROF_RANK_MAX,
+} from './professionLaw.js';
+import { craftXp, jewelPoints } from './recipeLaw.js';
+import TEMPLATES_JSON from '../characters/itemTemplates.json' with { type: 'json' };   // DFU's ItemTemplates.txt verbatim - each template's enchantment budget
+
+// ─── THE BREW (9.3) ──────────────────────────────────────────────────
+
+/**
+ * THE ALCHEMIST'S LADDER - DECIDED: 9.3 sets no rank on DFU's twenty, and every one must be brewable by someone, so a
+ * potion's tier is its DFU price's (POTION_RECIPES `price` - the worth DFU itself puts on it): 50 gold or less tier 1 (the
+ * Novice's - Stamina, Orc Strength, Healing, Water Walking), 75 tier 2, 100 tier 3, 125 tier 4, 200 tier 5, 250 tier 6
+ * (Invisibility), and Purification's 500 tier 7 - the Master's crown. Every tier holds one at least, so XP needs no
+ * "follows the rank" (3.2's own, PROF10's ladder).
+ */
+export const POTION_PRICE_TIERS = Object.freeze([50, 75, 100, 125, 200, 250]);
+export const potionTier = (price) => { const i = POTION_PRICE_TIERS.findIndex((p) => price <= p); return i < 0 ? POTION_PRICE_TIERS.length + 1 : i + 1; };
+/**
+ * @typedef {{ id: string, name: string, tier: number, rank: number, key: number, price: number,
+ *   ingredients: readonly number[] }} Potion
+ */
+/** DFU's twenty as the station lists them, in DFU's own order: `id` the recipe's name (DFU's localisation key), `name` its
+ *  display name, `key` the broker's (potionRecipeKey over the pre-sorted ingredients - DFU's dictionary key). */
+/** @type {readonly Potion[]} */
+export const POTIONS = Object.freeze(/** @type {any[]} */ (POTION_RECIPES).map((r) => {
+  const tier = potionTier(r.price);
+  return Object.freeze({ id: r.name, name: r.displayName, tier, rank: TIER_RANKS[tier - 1], key: potionRecipeKey(r.ingredients), price: r.price, ingredients: r.ingredients });
+}));
+const BY_ID = new Map(POTIONS.map((p) => [p.id, p]));
+/** A potion by its recipe's name ('healing'), or null. */
+export const potionById = (id) => (typeof id === 'string' ? BY_ID.get(id) ?? null : null);
+
+/** The Stores' rows that are DFU ingredients, by template: the metals, the gems, the sea's Pearl, a body's parts and the
+ *  Apothecaries' sixteen (an herb is its group's - PLANT_GROUP_TEMPLATES). */
+const DFU_ROWS = new Map([...METALS, ...GEMS, PEARL, ...PARTS, ...REAGENTS].map((m) => [m.templateIndex, m]));
+/** THE STORES' KEYS A DFU INGREDIENT IS HELD UNDER: an herb its northern and its southern (`p1:16`, `p2:16`) where its
+ *  plant grows in both of DFU's groups, every other ingredient its one row's. Empty for a template the Stores never hold. */
+export function ingredientKeys(templateIndex) {
+  const herbs = ['p1', 'p2'].filter((g) => PLANT_GROUP_TEMPLATES[g].includes(templateIndex)).map((g) => `${g}:${templateIndex}`);
+  if (herbs.length) return herbs;
+  const row = DFU_ROWS.get(templateIndex);
+  return row ? [row.key] : [];
+}
+/** The DFU template a Stores key holds (an herb's, a metal's, a gem's, a part's, a reagent's), or null. */
+export function keyTemplate(key) {
+  if (typeof key !== 'string') return null;
+  const m = /^(p1|p2):(0|[1-9]\d{0,2})$/.exec(key);
+  if (m) return PLANT_GROUP_TEMPLATES[m[1]].includes(Number(m[2])) ? Number(m[2]) : null;
+  for (const row of DFU_ROWS.values()) if (row.key === key) return row.templateIndex;
+  return null;
+}
+/**
+ * WHAT A BREW SPENDS - DFU'S OWN LAW: `keys` the cauldron's contents as the Stores hold them, one key an ingredient (an
+ * herb's group the brewer's choice), answered as `[{ key, n }]` when the templates they hold hash, sorted, to the potion's
+ * own key (potionKeyFromCauldron - DFU's MixCauldron, "there is no ingredient comparison anywhere"), else null: a key the
+ * Stores never hold, a cauldron of another size, or one no recipe of this potion answers.
+ * @param {Potion|null} potion @param {unknown} keys
+ */
+export function brewSpends(potion, keys) {
+  if (!potion || !Array.isArray(keys) || keys.length !== potion.ingredients.length) return null;
+  const templates = keys.map(keyTemplate);
+  if (templates.some((t) => t == null)) return null;
+  if (potionKeyFromCauldron(/** @type {number[]} */ (templates)) !== potion.key) return null;
+  const out = new Map();
+  for (const k of /** @type {string[]} */ (keys)) out.set(k, (out.get(k) ?? 0) + 1);
+  return [...out].map(([key, n]) => ({ key, n }));
+}
+/** The cauldron a station fills for a potion from what the Stores hold (`held(key)`): each ingredient's key, an herb's the
+ *  group the Stores hold more of (the northern on a tie). */
+export function brewKeys(potion, held = (/** @type {string} */ k) => 0) {
+  if (!potion) return [];
+  return potion.ingredients.map((t) => {
+    const keys = ingredientKeys(t);
+    return keys.reduce((best, k) => (held(k) > held(best) ? k : best), keys[0]);
+  });
+}
+/** Whether a brew's first time pays FIRST_CRAFT_XP (AUDIT 32 S1's law, recipeLaw firstCraftPays): not for a potion made
+ *  wholly of goods only a counter sells (the Apothecaries' sixteen - Levitation's Ectoplasm, Pure Water and Nectar). */
+export const brewFirstPays = (potion) => !!potion && !potion.ingredients.every((t) => ingredientKeys(t).every((k) => COUNTER_ONLY.includes(k)));
+
+/** The Brewer (3.3: "3 potions a brew at Journeyman"), the Distiller ("Potent chance +10%") - Alchemy's choices at 50; the
+ *  Master Alchemist ("Potent is +40%, not +25%") and the Transmuter (professionLaw TRANSMUTER) its two at 100. */
+export const BREWER = 'brewer', DISTILLER = 'distiller', MASTER_ALCHEMIST = 'master-alchemist';
+/** THE POTIONS A BREW MAKES (9.3: "2 potions at Journeyman and 3 at Master (Brewer 3 at Journeyman)"): DECIDED one below
+ *  Journeyman - DFU's own maker's one a mix. */
+export function brewCount(rank, spec50 = null) {
+  if (rank >= PROF_RANK_MAX) return 3;
+  if (rank >= JOURNEYMAN_RANK) return spec50 === BREWER ? 3 : 2;
+  return 1;
+}
+/** POTENT (9.3: "Potent (+25% magnitude, named so) at 10% at Expert and 20% at Master, +5% an unbruised herb"): the
+ *  chances, percent. `apothecary` the Seats' hall's (Seats-Arc 7.5: "+1 step" a tier - DECIDED, a step is Expert's
+ *  rung, +10). */
+export const POTENT = Object.freeze({ expert: 10, master: 20, expertRank: 75, unbruised: 5, distiller: 10, apothecary: 10, pct: 25, masterPct: 40 });
+/**
+ * A BREW'S POTENT CHANCE, percent of 100: the rank's (none below Expert, 10 at Expert, 20 at Master), +5 an unbruised herb
+ * among its ingredients (DECIDED: at any rank - the herb's gift, not the brewer's), +10 a Distiller's, +10 a step of the
+ * Apothecary of the town it is brewed in; at most 100. One roll a brew: its potions are Potent together or not at all
+ * (one cauldron).
+ */
+export function potentChance(rank, { distiller = false, unbruised = 0, steps = 0 } = {}) {
+  const base = rank >= PROF_RANK_MAX ? POTENT.master : rank >= POTENT.expertRank ? POTENT.expert : 0;
+  const u = Number.isSafeInteger(unbruised) && unbruised > 0 ? unbruised : 0;
+  const st = Number.isSafeInteger(steps) && steps > 0 ? steps : 0;
+  return Math.min(100, base + POTENT.unbruised * u + (distiller ? POTENT.distiller : 0) + POTENT.apothecary * st);
+}
+/** A Potent potion's share of magnitude: +25%, a Master Alchemist's +40% (3.3). */
+export const potentPct = (spec100 = null) => (spec100 === MASTER_ALCHEMIST ? POTENT.masterPct : POTENT.pct);
+/** Whether a potent share is one a brew may carry - the item's field's bound (itemFields `potent`). */
+export const potentOk = (pct) => pct === POTENT.pct || pct === POTENT.masterPct;
+/** A Potent potion's magnitudes (DFU's EffectSettings' four magnitude fields - potions.js potionBundle's settings): each
+ *  raised by the share, rounded; nothing else of the bundle moves. */
+export const POTENT_FIELDS = Object.freeze(['magnitudeBaseLow', 'magnitudeBaseHigh', 'magnitudeLevelBase', 'magnitudeLevelHigh']);
+export function potentEffect(effect, pct) {
+  if (!effect || !potentOk(pct)) return effect;
+  const out = { ...effect };
+  for (const f of POTENT_FIELDS) if (Number.isFinite(out[f])) out[f] = Math.round((out[f] * (100 + pct)) / 100);
+  return out;
+}
+/** A brew's XP (3.2: "a craft 20 x tier x units, +500 the first time a recipe is made"): a brew is one unit, whatever it
+ *  makes (a Brewer's third potion earns nothing more, as a Cook's second serving does not, PROF9), at its potion's tier,
+ *  quartered more than two tiers below the rank's top. */
+export const brewXp = (potion, rank, first = false) => craftXp(potion.tier, rank, first);
+
+// ─── DISENCHANTING (9.3) ─────────────────────────────────────────────
+
+/** DFU's enchantment budget by template (itemTemplates.json `enchantmentPoints`): a template the table does not hold (the
+ *  port's own 600-699 and Foraging's tools) carries none. */
+const POINTS = new Map(/** @type {any[]} */ (TEMPLATES_JSON).map((t) => [t.index, Number(t.enchantmentPoints) || 0]));
+export const templatePoints = (templateIndex) => POINTS.get(templateIndex) ?? 0;
+/**
+ * THE POINTS A PIECE CARRIED (9.3: "one per 100 enchantment points it carried"). DECIDED: the budget the piece itself
+ * carries to DFU's item maker - its DFU template's (GetItemEnchantmentPower's base), a piece of jewellery its own (PROF10's
+ * metal and gem shares, jewelPoints, by its hand) - what the service knows of it from its record, never the client's word.
+ * The metal's multiplier DFU lays on a weapon's or armour's budget is the item maker's (enchanting.js), and not laid on
+ * here: an Essence is the form's, the metal's worth its quality's. A recipe's piece the table holds no budget for (a dish,
+ * a carving, a tool) carries none.
+ */
+export function piecePoints(r, hand = null) {
+  if (!r) return 0;
+  const base = templatePoints(r.templateIndex);
+  return r.kind === 'jewel' ? jewelPoints(r, base, hand) : base;
+}
+/** A hundred points an Essence (9.3); a Disenchanter's twice (3.3: "Arcane Essence x2"). */
+export const ESSENCE_POINTS = 100;
+export const DISENCHANTER = 'disenchanter';
+export const essenceOf = (points, disenchanter = false) => Math.floor(Math.max(0, Number(points) || 0) / ESSENCE_POINTS) * (disenchanter ? 2 : 1);
+/**
+ * A DISENCHANT's ENCHANTING XP. DECIDED: 9.3 says Enchanting's XP comes from what the service sees, and names no number;
+ * Enchanting has no recipe ladder, so its XP follows the rank (Mac's PROF8 law, as Masonry's and Cooking's): 5 x the rank's
+ * own tier an Essence the piece yields before a Disenchanter's doubling - a ring's 18 Essence 90 XP to a Novice, 630 to a
+ * Master - the piece's budget the measure of the work.
+ */
+export const DISENCHANT_XP = 5;
+export const disenchantXp = (rank, essence) => DISENCHANT_XP * topTierOf(rank) * (Number.isSafeInteger(essence) && essence > 0 ? essence : 0);
+
+// ─── ENCHANTING'S LAYER OVER THE ITEM MAKER (9.3) ────────────────────
+
+/** "cost -10% at Journeyman, -20% at Master (Efficient -5% more)" - percent off DFU's item maker's gold. */
+export const ENCHANT_DISCOUNT = Object.freeze({ journeyman: 10, master: 20, efficient: 5 });
+export const EFFICIENT = 'efficient';
+/** The share off an enchanter's gold at a rank (an Efficient's at 50 more): online, the professions this account's. */
+export function enchantDiscountPct(rank, spec50 = null) {
+  const r = Number.isSafeInteger(rank) ? rank : 0;
+  const base = r >= PROF_RANK_MAX ? ENCHANT_DISCOUNT.master : r >= JOURNEYMAN_RANK ? ENCHANT_DISCOUNT.journeyman : 0;
+  return base + (r >= JOURNEYMAN_RANK && spec50 === EFFICIENT ? ENCHANT_DISCOUNT.efficient : 0);
+}
+/** DFU's gold cost with the share off - DECIDED rounded up: the enchanter keeps the fraction. */
+export const enchantGold = (gold, pct = 0) => (pct > 0 ? Math.ceil((Math.max(0, gold) * (100 - pct)) / 100) : gold);

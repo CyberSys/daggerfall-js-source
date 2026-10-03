@@ -624,22 +624,22 @@ const SOURCE_CITES = [
   ['src/systems/loot.js', /world\.js:\d+ and exterior\.js:(\d+)/,
     EX, /loadMagicRegistries\(fetchBytes\)\.then/],
   ['src/systems/potions.js', /exterior\.js:(\d+)\) and useItem\.js:\d+/,
-    EX, /drinkPotion: \(key\) => magic\.drinkPotion\(key\)/],
+    EX, /drinkPotion: \(key, potent\) => magic\.drinkPotion\(key, potent\)/],
   // AUDIT SURV-TIERS: the entry above baked this half in as a literal
   // (WM3's own trap, above) - and it sat one line short, on the comment
   // over the call, since before SURV-TIERS moved it. Captured now.
   ['src/systems/potions.js', /exterior\.js:\d+\) and useItem\.js:(\d+)/,
-    'src/systems/useItem.js', /const drank = drinkPotion \? drinkPotion\(item\.potionRecipeKey \?\? 0\) : null;/],
+    'src/systems/useItem.js', /const drank = drinkPotion \? drinkPotion\(item\.potionRecipeKey \?\? 0, Number\.isInteger\(item\.potent\) \? item\.potent : 0\) : null;/],
   // AUDIT SURV-TIERS (the second pass, at the merge of main): and the sentence's other three halves, which no
   // entry captured, had rotted on BOTH sides of the merge - hostMagic.js lines 586-593 / 626-633 landed in the
   // missile code, world.js lines 3485 / 3597 in a comment, dungeonContext.js line 1389 in routeKey's (written as
   // plain numbers: they are the record of what the rotted cites said, not cites). Read by content, each pinned.
   ['src/systems/potions.js', /scenes\/hostMagic\.js:(\d+)-\d+ builds the/,
-    'src/scenes/hostMagic.js', /^ {4}drinkPotion\(recipeKey\) \{$/],
+    'src/scenes/hostMagic.js', /^ {4}drinkPotion\(recipeKey, potent = 0\) \{$/],
   ['src/systems/potions.js', /hand `drinkPotion` down \(world\.js:(\d+),/,
-    WO, /drinkPotion: \(key\) => magic\.drinkPotion\(key\)/],
+    WO, /drinkPotion: \(key, potent\) => magic\.drinkPotion\(key, potent\)/],
   ['src/systems/potions.js', /\/\/ {4}dungeonContext\.js:(\d+), exterior\.js:\d+\) and useItem/,
-    DC, /drinkPotion: \(key\) => magic\.drinkPotion\(key\)/],
+    DC, /drinkPotion: \(key, potent\) => magic\.drinkPotion\(key, potent\)/],
   ['src/systems/startingGear.js', /world\.js:\d+ and exterior\.js:(\d+) seed it/,
     EX, /if \(playerEntity\.chargenDone\) seedStartingEquipment\(playerEntity\);/],
   // AUDIT SURV-TIERS (the third pass): the OTHER halves of the kit's cites. SURV-OFFSIGHT re-aimed six of them by
@@ -733,11 +733,11 @@ const SOURCE_CITES = [
   // update, and the modal block's own range. Every number in a pair is
   // captured now, so none of them can be the half nobody reads.
   ['bible/01-Overview/Port-Ledger.md', /wired at `world\.js:(\d+)`, `exterior\.js:\d+`, `dungeonContext\.js:\d+`/,
-    WO, /drinkPotion: \(key\) => magic\.drinkPotion\(key\),/],
+    WO, /drinkPotion: \(key, potent\) => magic\.drinkPotion\(key, potent\),/],
   ['bible/01-Overview/Port-Ledger.md', /wired at `world\.js:\d+`, `exterior\.js:(\d+)`, `dungeonContext\.js:\d+`/,
-    EX, /drinkPotion: \(key\) => magic\.drinkPotion\(key\),/],
+    EX, /drinkPotion: \(key, potent\) => magic\.drinkPotion\(key, potent\),/],
   ['bible/01-Overview/Port-Ledger.md', /wired at `world\.js:\d+`, `exterior\.js:\d+`, `dungeonContext\.js:(\d+)`/,
-    DC, /drinkPotion: \(key\) => magic\.drinkPotion\(key\),/],
+    DC, /drinkPotion: \(key, potent\) => magic\.drinkPotion\(key, potent\),/],
   ['bible/01-Overview/Port-Ledger.md', /before the ambience update \(`world\.js:(\d+)`, `exterior\.js:\d+`\)/,
     WO, /^ {4}ambience\.update\(dt, \{ playerPos: cam\.pos, inside: false, underground: modes\?\.mode === 'dungeon'(?:, waterSurfaceY: dwPlayer\?\.waterLevelY \?\? null, submerged: !!dwPlayer\?\.submerged)? \}\);/],   // CRICKET-DUNGEON: the dep rides the same line; DW-D: and the sea's forged water state
   ['bible/01-Overview/Port-Ledger.md', /before the ambience update \(`world\.js:\d+`, `exterior\.js:(\d+)`\)/,

@@ -75,7 +75,7 @@ test('UI1: the door exists in all three player hosts and routes through the port
   // U53's ONE-BUILDER LAW: the host-owned use hooks are ONE bag both
   // readers take. UI1's first cut copied them and test/potions.test.js
   // caught it - two drink hooks where the law says one.
-  assert.equal((world.match(/drinkPotion: \(key\)/g) ?? []).length, 1, 'one drink hook');
+  assert.equal((world.match(/drinkPotion: \(key, potent\)/g) ?? []).length, 1, 'one drink hook');   // PIN MOVED (PROF12): a Potent potion's share handed on
   assert.match(world, /const useHooks = \{/);
   // QS2 made it THREE readers, not a third bag: the quickslot key drinks the
   // potion the window's Use button drinks, so its hooks are this same object

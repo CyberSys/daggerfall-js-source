@@ -807,10 +807,15 @@ export function panWindow(rank, band = 1, skillet = false) {
  * second earns nothing more, as a Quartermaster's second kit does not), half again for a CLEAN PAN (DECIDED: a dish
  * takes no quality, so the clean act's step is its +50% - the bench's law). The first time's 500 is the service's to lay
  * on, in its decision (firstCraftPays).
+ * PROF12 (Seats-Arc 7.5: the Apothecary - "members in Alchemy, Cooking, Jewelcrafting here: +1 step" a tier): DECIDED, a
+ * dish takes no quality, so a hall's step is what the clean pan's step is - half again of the dish's XP, a step each
+ * (`steps`, the Apothecary's tiers where the cook's guild holds the town): a clean pan in a tier-2 Apothecary's town
+ * two and a half times the plain dish's.
  */
-export function cookXp(rank, { clean = false } = {}) {
+export function cookXp(rank, { clean = false, steps = 0 } = {}) {
   const xp = CRAFT_XP_PER_TIER * topTierOf(rank);
-  return clean ? Math.floor((xp * 3) / 2) : xp;
+  const n = (clean ? 1 : 0) + (Number.isSafeInteger(steps) && steps > 0 ? steps : 0);
+  return Math.floor((xp * (2 + n)) / 2);
 }
 
 /** A maker's name as the mark keeps it: the character's name at the moment of making (PROF0 18), trimmed, at most 32. */

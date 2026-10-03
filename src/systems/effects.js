@@ -44,6 +44,7 @@ import { breakNormalPowerConcealment, handleAttackFromSource } from './concealme
 import { entityAbsorbsSpells, setEnchantmentEffectDoors } from './enchantments.js';   // E1: the AbsorbsSpells fold feeds the absorption gate
 import { markPlayerHarm } from './harmMark.js';   // REVENANT-HARM: a lingering effect's round on the player keeps its caster's mark
 import { regenBarred } from './courtRules.js';   // WBX6: the Burning Court keeps no regeneration
+import { HEAL_SPELL_POINTS_KEY } from './potionRecipes.js';   // PROF12: Heal-SpellPoints' key, beside the one recipe that names it
 
 export { breakNormalPowerConcealment, handleAttackFromSource, NORMAL_POWER_CONCEALMENTS } from './concealment.js';
 
@@ -463,7 +464,9 @@ export const isHealFatigue = (e) => e.type === 10 && e.subType === 9;
  *  DFU builds one from EffectEntry(effect.Key, settings) - a STRING
  *  key - so this effect travels under its own, and `type` stays -1
  *  because there is no pair to carry. */
-export const HEAL_SPELL_POINTS_KEY = 'Heal-SpellPoints';
+// PROF12: the key's one home is the recipe table's leaf (systems/potionRecipes.js), the one record that names it - imported
+// and re-exported here, every reader's import standing
+export { HEAL_SPELL_POINTS_KEY };
 export const isHealSpellPoints = (e) => e.key === HEAL_SPELL_POINTS_KEY;
 export const isDamageFatigue = (e) => e.type === 4 && e.subType === 1;
 export const isContinuousDamageFatigue = (e) => e.type === 1 && e.subType === 1;

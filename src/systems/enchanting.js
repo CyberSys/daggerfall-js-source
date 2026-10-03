@@ -45,6 +45,7 @@ import { templateByIndex } from './itemTemplates.js';
 import { ARMOR_MATERIAL } from './armorMaterials.js';
 import { WEAPON_MATERIALS } from '../characters/weapons.js';
 import { customItemClass } from './rriItems.js';   // RRI1: GetEnchantmentPower is a virtual the armor classes answer
+import { enchantGold } from '../net/alchemyLaw.js';   // PROF12: Enchanting's layer - the gold with the rank's share off
 
 /** SetEnchantments' `maxEnchantments` (:1273) - and the same ten the
  *  two picker buttons test against (DaggerfallItemMakerWindow.cs:629,
@@ -191,13 +192,16 @@ export function openPickerDecision(selectingPowers, { item = null, powers = [], 
  *   { kind: 'overLimit', text, cost, power }
  *   { kind: 'enchant', text, goldCost, cost, power }
  */
-export function enchantDecision(item, powers = [], sideEffects = [], { gold = 0 } = {}) {
+export function enchantDecision(item, powers = [], sideEffects = [], { gold = 0, discountPct = 0 } = {}) {
   if (!item) return { kind: 'noItem', text: ITEM_MUST_BE_SELECTED };
   if (powers.length === 0 && sideEffects.length === 0) {
     return { kind: 'noEnchantments', text: NO_ENCHANTMENTS_PREPARED };
   }
   const cost = totalEnchantmentCost(powers, sideEffects);
-  const goldCost = totalGoldCost(powers);
+  // PROF12 (bible/06-Systems/Professions-Arc.md 9.3: "Enchanting (DFU's item maker, unchanged): cost -10% at Journeyman,
+  // -20% at Master (Efficient -5% more)"): online, the enchanter's gold with the rank's share off (net/alchemyLaw.js
+  // enchantGold) - none offline and none asked, DFU's own ladder whole
+  const goldCost = enchantGold(totalGoldCost(powers), discountPct);
   const power = itemEnchantmentPower(item);
   if (gold < goldCost) {
     return { kind: 'noGold', text: NOT_ENOUGH_GOLD_TO_ENCHANT, goldCost };

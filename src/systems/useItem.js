@@ -376,7 +376,7 @@ export function useItem(item, collection, {
     // DrinkPotion's own guard is `PotionRecipeKey == 0` (:906), so a
     // bottle naming no recipe is drunk and does nothing, exactly as
     // here.
-    const drank = drinkPotion ? drinkPotion(item.potionRecipeKey ?? 0) : null;
+    const drank = drinkPotion ? drinkPotion(item.potionRecipeKey ?? 0, Number.isInteger(item.potent) ? item.potent : 0) : null;   // PROF12: a Potent potion's share
     out = drank ? { kind: 'potion', potion: drank } : { kind: 'potion', pending: true };
   }
 

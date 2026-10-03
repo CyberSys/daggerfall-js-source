@@ -11606,8 +11606,9 @@ the day the JS check spares). Patch notes: `PATCH-NOTES-Seats.md` (Fortification
   stands in (`seat`, the host's word where its guild holds the town and a hall of the recipe's profession stands); the
   service asks the Charter again (`seatStepsFor`: the crafting character a member of the holder) and lays the steps on
   beside the clean act's, nothing past Masterwork. The client's word on the place, bounded as the clean act's is: the
-  holder's members alone, its own seat's halls. The Apothecary's professions craft at no station yet (no recipe is
-  Alchemy's, Cooking's or Jewelcrafting's): its steps wait on their slices.
+  holder's members alone, its own seat's halls. The Apothecary's professions crafted at no station then (no recipe was
+  Alchemy's, Cooking's or Jewelcrafting's): its steps waited on their slices - BUILT since (PROF12, `Professions-Arc.md` 37;
+  Seats-Arc 7.5's note: a jeweller's quality step, a dish's XP half again, a brew's Potent +10, a step a tier).
 - **The Harbour** (7.5: "coastal seats only ... ships dock at the seat; the town is a Travel Options port for members").
   DECIDED: a coast is the sea beside the town - its own map pixel or one of the eight about it water (the port's one
   water law, `isWaterPixel`, over CLIMATE.PAK and WOODS.WLD), or a harbour already drawn there (`coastalAt`); part one

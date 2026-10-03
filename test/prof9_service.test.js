@@ -76,7 +76,7 @@ test('PROF9 service: a Hunter\'s Stew at the fire - its Raw Meat, Mushroom and R
   assert.deepEqual((await s.cook(mac, 'stew:north')).body, { error: 'stores-short' }, 'the Root Bulb gone');
   assert.equal(s.xpOf(mac, 'cooking'), 520 + 20 + 30);
   assert.deepEqual((await s.cook(mac, 'stew:south')).body, { error: 'stores-short' }, 'the southern Root Bulb is its own material');
-  assert.match(ACCOUNT_VERSION, /^acct68$/   /* PIN MOVED (PROF10): the live version */);
+  assert.match(ACCOUNT_VERSION, /^acct69$/   /* PIN MOVED (PROF10, PROF12): the live version */);
 });
 
 test('PROF9 service: a dish\'s rank is asked (the Tart 10, the Feast 70 - refused below, nothing spent); XP follows the rank - a stew at rank 55 is 20 x tier 5, never a quarter; a Master\'s full track credits none, answered so', async () => {

@@ -1001,7 +1001,7 @@ of Makers; commissions; regional prices to haul between; and every seat on the m
 | **PROF9** - BUILT 2026-10-02 (section 35) | Cooking | A Hunter's Stew cooked with a clean pan at a fire from the Stores' Raw Meat, Mushroom and Root Bulb, into the pack, eaten for Endurance +5 two hours; a Chef's Feast of the Hearth shared with the party at the table; a Provisioner's dish that never spoils. Needs PROF7 (Raw Meat), PROF8 (Raw Fish), PROF1 (the herbs and the Basket's foods) and C&C's fires |
 | **PROF10** - BUILT 2026-10-02 (section 36) | Jewelcrafting | A Gold Ruby Ring cut with a clean facet at a Gem Store's bench from the Stores' Gold and Ruby, into the pack as DFU's own Ring carrying Gold's and the gem's points (2,160) to the item maker; a Gemcutter's ring at +30%, listed and minted again from the market with its hand; a Lapidary's Siege-cracked Gem set as a Diamond. Needs PROF2 (the metals and gems), PROF8 (the Pearl), PROF7 (Cured Leather), PROF4 (the Wand's planks) and the Seats' Spoils of War |
 | **PROF11** - BUILT 2026-10-01 (section 34) | Masonry | Cut Stone and Mortar at the mason's bench, the chisel clean; the Sculptor's four stone pieces in a home; the Builder's stone and the Fortifier's Walls at a seat's works (SEAT2b). Needs PROF2 (quarrying); SEAT2b and PLOT1 consume what it makes |
-| **PROF12** | Alchemy and Enchanting layers; Disenchanting | - |
+| **PROF12** - BUILT 2026-10-02 (section 37) | Alchemy and Enchanting layers; Disenchanting | A Healing brewed at an Alchemist's from the Stores' Red Berries and Mercury and the Apothecaries' Troll's Blood and Elixir Vitae, into the pack as DFU's own potion; a Master Alchemist's Potent one at +40%, named so; a crafted ring disenchanted into Arcane Essence; the item maker's gold a Master's 20% less; and the Apothecary opened - its step a tier for the holder's jewellers, cooks and alchemists in its town. Needs PROF1 (the herbs), PROF2 (the metals and gems), PROF7 (a body's parts), PROF8 (the Pearl), PROF9 and PROF10 (the Apothecary's other two) |
 
 ## 16. What remains to measure
 
@@ -2889,6 +2889,119 @@ Mac: **"2 and 4"** (2026-10-02: the Apothecary waits on Alchemy, Cooking and Jew
 - **Pinned**: `test/prof10_law.test.js` (10), `test/prof10_service.test.js` (6, through the real Worker),
   `test/prof10_client.test.js` (8). Mutants: `tools/mutants/prof10.json` (136, all dead). Patch notes:
   `PATCH-NOTES-Jewelcrafting.md`.
+
+## 37. PROF12 - Alchemy and the Enchanting layer, as built (BUILT 2026-10-02)
+
+Mac: **"2 and 4"** and **"lets just finish out everything before merge"** (2026-10-02: Alchemy, the last of the
+Apothecary's three - Cooking stood first, section 35, Jewelcrafting second, section 36 - and then the Apothecary opened,
+Seats-Arc 7.5). What sections 1, 2, 3.3, 4.1, 4.3, 4.5, 9.3 and 9.4 left open for PROF12, DECIDED here, and what was found
+(FACT):
+
+- **What PROF12 is.** 15's row - "Alchemy and Enchanting layers; Disenchanting" - in its smallest faithful form: law 1
+  stands - **DFU's potion maker and item maker are untouched** (9.4: "Alchemy, Enchanting: none - DFU's windows stay
+  1:1") and earn nothing online; the profession's doors are the ones 9.3 names: the **brewing act** at an alchemy station
+  (Alchemy), **Disenchanting** at an enchanting station (Enchanting's XP), and **a discount on DFU's item maker's gold**
+  (Enchanting's layer). The Alchemy and Enchanting tracks are practised on the Professions page, their eight cards chosen.
+- **ONE DFU MEMBER, ONE EXPORT** (law 1, 17.2: "DFU's recipes (`POTION_RECIPES`) are imported by the Alchemy layer, never
+  copied"). FOUND: `potions.js` reaches the item table and the effect engine, which no Worker bundles. DECIDED: the twenty
+  and their key (`potionRecipeKey`, `potionKeyFromCauldron`, the default bottle record) moved **verbatim** into a leaf,
+  `systems/potionRecipes.js`, that imports nothing; `potions.js` imports and re-exports them (every reader's import stands,
+  the same objects - pinned), and the service and the layer (`net/alchemyLaw.js`) import them from it. Heal-SpellPoints'
+  key (the one DFU effect with no ClassicKey, potion-only) moved beside the one recipe that names it; `effects.js`
+  re-exports it. The account Worker bundles `itemTemplates.json` too (DFU's enchantment budgets, one home - guestName's
+  JSON precedent); the deploy's path filter names the three.
+- **The alchemy station** (9.3: "the brewing act at an alchemy station"; `professionLaw.js` ALCHEMY_FEE). DECIDED: an
+  **Alchemist's**, open for trade (DFU's own potion seller; its `insideOpenShop` latch), **50 gold a brew** or a
+  transmutation as every station's fee, paid as the potions are bottled - or a home's **`alchemy` station** (HOME-STATIONS'
+  first, its 50,000 licence; a hall member's). `scenes/worldModes.js` alchemyHere. The station's own press still opens
+  DFU's potion maker, 1:1. The Stores page's **The Alchemy Station**.
+- **The brew** (9.3: "the service runs DFU's own recipe law on them ... the same twenty recipes, and no new ones, make the
+  same potions, into the pack"; `/v1/prof/brew`, `server-account/src/alchemy.js` brewAtStation). The request names the
+  potion and the cauldron **as the Stores hold it** (`keys` - an herb its northern or southern, the brewer's: the page
+  fills it from the group held more of, `brewKeys`); the service maps each key to its DFU template and asks **DFU's own
+  hash** (`potionKeyFromCauldron`, sorted - any order) to answer that very potion (`brewSpends`; `bad-brew` else - DFU's
+  "there is no ingredient comparison anywhere"). DECIDED: a cauldron no recipe answers is refused before anything is spent
+  (DFU's maker spends a failed mix; the station names its recipe). The ingredients out, bought first; gold's units walled.
+- **THE ALCHEMIST'S LADDER** (DECIDED; `alchemyLaw.js` POTION_PRICE_TIERS): 9.3 sets no ranks on DFU's twenty, so a
+  potion's tier is its **DFU price's** - 50 gold or less tier 1 (Orc Strength, Stamina, Healing, Water Walking), 75 tier 2,
+  100 tier 3, 125 tier 4, 200 tier 5, Invisibility's 250 tier 6, Purification's 500 tier 7 - every tier holding one, so
+  3.2's XP needs no "follows the rank": **20 x the tier a brew** (never a potion: a Brewer's third earns nothing more, the
+  Cook's law), quartered more than two tiers below, **+500 the first** - not for a cauldron wholly of the counter's goods
+  (Water Breathing, Levitation: AUDIT 32 S1's law).
+- **The potions a brew makes** (9.3: "2 potions at Journeyman and 3 at Master (Brewer 3 at Journeyman)"): DECIDED **one
+  below Journeyman** - DFU's own maker's one a mix.
+- **POTENT** (9.3: "+25% magnitude, named so, at 10% at Expert and 20% at Master, +5% an unbruised herb"; `potentChance`).
+  Rolled by the service, **once a brew** (DECIDED: one cauldron, its potions Potent together or not); none below Expert.
+  The **Distiller** +10 (3.3); the **Master Alchemist**'s share +40, not +25. DECIDED: an unbruised herb's +5 holds **at any
+  rank** (the herb's gift, not the brewer's). The potion is DFU's own (`systems/alchemyItems.js` brewItems - loot.js
+  createPotion: its key, price and bottle) carrying the port's **`potent`** field (itemFields: 25 or 40): **named so**
+  ("Potent Potion of Healing", itemInfo itemNameParts), **stacked only with its own share** (inventory.js; a split keeps it),
+  **drunk at its share** - every magnitude of DFU's bundle raised by it, rounded (`potentEffect`, `hostMagic.js`
+  drinkPotion; the three hosts hand the share on) - and, DECIDED, **worth its share more**.
+- **THE UNBRUISED HERB** (4.3; 5.2: "an unbruised herb (+5% Alchemy Potent chance each)"). FOUND: the Stores keep a unit's
+  origin and nothing else (7). DECIDED: an uncommon or rare herb picked with the steady hand clean (every one an
+  Apothecary's Friend's) is **counted beside the Stores** at the harvest (`prof_unbruised`, migration 0070); a brew counts
+  at most the **own units it spends** of that herb (bought ones are spent first - nobody's steady hand) and at most the
+  count, and spends the count with it. A common herb has no moment and never counts.
+- **The Apothecaries' counter** (4.5: "the supplier's second ... the sixteen ... at a fifth of DFU's price in Marks, rounded
+  up"; `professionLaw.js` REAGENTS, APOTHECARY_STOCK). The sixteen - exactly the ingredients the twenty need and no
+  gathering yields (pinned) - each DFU's own item in its own group, at 4.5's prices (pinned to `itemTemplates.json`), the
+  smith's stock's route (`/v1/prof/stock`): **bought**, a Marks sink, never own, never gathered (COUNTER_ONLY). DECIDED:
+  their Stores family is the **Essences'** (8's filter; no new one), their tier their price's. On the Market tab beside the
+  Weavers' (`ui/marketTab.js`), and **at the station** where a cauldron is short of one (the forge's Charcoal's shape).
+- **The Transmuter** (3.3: "three of a DFU metal make one of the next up (Tin, Copper, Silver, Gold, Platinum)"; 4.1:
+  "Mercury (Alchemy's Transmuter)"; `professionLaw.js` TRANSMUTE_RECIPES). DECIDED: a **work at the alchemy station** on
+  the smelt's route - **three of a metal and one Mercury** make one of the next up, own only where every unit that went in
+  was; its door the choice at 100 (`prof-transmuter`, 403, before anything moves); **no XP** (a Transmuter's track is full).
+- **ENCHANTING'S LAYER** (9.3: "cost -10% at Journeyman, -20% at Master (Efficient -5% more) - a discount on the player's
+  own item, which cheats no one"; `enchantDiscountPct`, `enchantGold`). Online, the professions this account's, DFU's item
+  maker asks its gold with the rank's share off (`enchanting.js` enchantDecision's `discountPct`, the window's
+  `goldDiscountPct` hook, `profPages.js` enchantGoldPct) - DECIDED rounded up (the enchanter keeps the fraction); offline,
+  and for anyone below Journeyman, DFU's own price.
+- **DISENCHANTING** (9.3: "a provenance item the player owns becomes Arcane Essence, one per 100 enchantment points it
+  carried (Disenchanter x2), into the Stores, and is gone. Loot cannot be disenchanted"; `/v1/prof/disenchant`,
+  `alchemy.js` disenchantPiece). **The enchanting station** - DECIDED: a **Mages Guild hall** (the house of DFU's own item
+  maker; 50 gold a piece) or a home's **`enchant` station** (HOME-STATIONS', 200,000; a hall member's) - `worldModes.js`
+  enchantHere; the Stores page's **The Enchanting Station**, the pack's crafted pieces each its Essence, **pressed twice**
+  (the piece is gone). DECIDED - **the points it carried** are its budget as the service knows it from its own record: its
+  **DFU template's** enchantment points (`itemTemplates.json`), a piece of jewellery **its own** (PROF10's metal and gem
+  shares, by its hand) - never the client's word; the material multiplier DFU's item maker lays on a weapon's or armour's
+  budget is not laid on (an Essence is the form's). A dish, a carving and a tool carry none (`prof-no-essence`). The piece's
+  `products` row is **deleted** in the same batch (one disenchant a piece - `prof_disenchants.provenance` UNIQUE); refused
+  when another's (`prof-not-yours`), listed, on the road or set down in a home (`prof-piece-busy`). **Arcane Essence**
+  (680, 4.8): registered on Ectoplasm's picture, undyed (Mortar's finding); DECIDED tier 3, 4 Marks. Its origin: **own**
+  where this character made the piece and nobody bought it (7), **gold** where gold bought it (10.8's wall), else **bought**.
+- **Enchanting's XP** (9.3: "comes only from what the service sees"). DECIDED - XP FOLLOWS THE RANK (Mac's PROF8 law;
+  Enchanting has no recipe ladder): **5 x the rank's own tier an Essence** the piece yields before a Disenchanter's doubling
+  (a Gold Ruby Ring's 21 Essence 105 XP to a Novice), under the crafter's limit.
+- **THE APOTHECARY OPENED** (Seats-Arc 7.5: "members in Alchemy, Cooking, Jewelcrafting here: +1 step"; `fortLaw.js`
+  APOTHECARY_OPEN - AUDIT SEATS-2 L5's gate, opened now its three stations stand). A holder's member crafting in its town
+  (`seat`, the Forge's and the Workshop's route - `professions.js` seatStepsFor) takes **a step a tier**, each profession its
+  own: a **piece of jewellery a quality step** (the Forge's law, nothing past Masterwork); DECIDED **a dish's XP half again**
+  - a dish takes no quality (-1), so a step is what the clean pan's step is (35: "the clean act's step is its +50%"):
+  `cookXp`'s `steps`, a clean pan in a tier-2 Apothecary's town two and a half times the plain dish's; DECIDED **a brew's
+  Potent chance +10** a step (Expert's rung). The brew carries the town (`/v1/prof/brew`'s `seat`) as the craft does.
+- **The specialisations** (3.3), Alchemy's four chosen and practised: **Brewer** (three at Journeyman), **Distiller**
+  (+10), **Master Alchemist** (+40%), **Transmuter** (the transmutations). Enchanting's at 50 practised: **Efficient** (-5%
+  more off the item maker) and **Disenchanter** (Essence x2); its two at 100 chosen, their effects NOT YET (below).
+- **The four hosts** (17.1): **building interiors** (`worldModes.js` alchemyHere, enchantHere) - the stations;
+  **the streaming world** (`world.js`) - the brew through the book (its fee, its town), the transmutations by the smelt, a
+  brew's potions minted (`profMintCraft`), a disenchant (the piece out of the pack on the answer); **every host** drinks a
+  Potent potion at its share (`world.js`, `exterior.js`, `dungeonContext.js` drinkPotion); **the fixed city** and
+  **dungeons** - no station, as no station stands there (22's law).
+- **The service** is **acct69**; migration **`0070_alchemy.sql`** (`prof_unbruised`, `prof_brews`, `prof_disenchants`); two
+  routes (`/v1/prof/brew`, `/v1/prof/disenchant`); `prof-transmuter` 403, `bad-brew` 400, `bad-piece` 400, `prof-no-piece`
+  404, `prof-not-yours` 403, `prof-piece-busy` 409, `prof-no-essence` 409. No relay change.
+- **Not built, named (NOT YET)**: **enchanting a provenance piece at a station** for XP, its enchantments written onto its
+  product record (9.3) - the market mints a piece from its record, and an enchantment on it would want the record's shape
+  and the mint's to change: a slice of its own; **Soulbinder** (filled soul gems +10% points) and **Runecaster** (a
+  Masterwork's property chosen of three, 5 Essence a Rare roll) - chosen, their effects to come with that slice (the
+  Masterwork's Essence spend is a Smithing change); **a potion on the market** (a potion stacks and carries no provenance -
+  it trades by TRADE1 as any loot); the item maker's **material multiplier** in Disenchanting's points (above); the
+  station's **unbruised word per herb** on the page (the count is the service's; the page says the +5 a herb).
+- **Pinned**: `test/prof12_law.test.js` (9), `test/prof12_service.test.js` (6, through the real Worker),
+  `test/prof12_client.test.js` (8), `test/prof12_apothecary.test.js` (4, the Apothecary through the real Worker). Mutants:
+  `tools/mutants/prof12.json` (147, all dead). Patch notes: `PATCH-NOTES-Alchemy.md`; the Apothecary's in `PATCH-NOTES-Seats-Finished.md`.
 
 ## Appendix A - a day of a gatherer
 

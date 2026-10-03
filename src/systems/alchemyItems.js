@@ -1,0 +1,52 @@
+// @ts-check
+// ═══════════════════════════════════════════════════════════════════
+// PROF12 (2026-10-02, Mac: "2 and 4") - A BREW'S POTIONS AS DFU'S OWN
+// ITEMS (bible/06-Systems/Professions-Arc.md 9.3, 37): the potions the
+// alchemy station's brew makes, minted into the pack as DFU's own maker
+// mints one - ItemBuilder.CreatePotion (systems/loot.js createPotion: the
+// Glass Bottle carrying its recipe's key, the recipe's price and its
+// bottle's picture) - so a brewed Healing IS Daggerfall's Healing: it
+// stacks, drinks (DrinkPotion's bundle, potions.js) and sells as DFU's.
+//
+// A POTENT potion (9.3: "+25% magnitude, named so") carries the port's
+// own `potent` field (itemFields.js - its share, 25 or a Master
+// Alchemist's 40): its name says so (itemInfo.js itemNameParts), its
+// magnitudes are raised as it is drunk (scenes/hostMagic.js drinkPotion,
+// alchemyLaw potentEffect), it stacks only with its own share
+// (inventory.js), and - DECIDED - it is worth its share more.
+//
+// No provenance: a potion is DFU's own consumable and stacks; it is no
+// crafted piece the market mints again (NOT YET - Professions-Arc 37).
+// ═══════════════════════════════════════════════════════════════════
+import { createPotion } from './loot.js';
+import { potionById, potentOk } from '../net/alchemyLaw.js';
+
+/** What the station says of a brew whose answer did not come (smithItems.js's kept words' shape). */
+export const BREW_KEPT_TEXT = 'The cauldron bubbled, but no word came back - the brew is kept, and bottled when the word comes.';
+/** The potions a brew's answer makes (`{ potion, count, potent }`), each DFU's own potion - or none for an answer that
+ *  names no potion. */
+export function brewItems(data) {
+  const p = potionById(data?.potion);
+  if (!p) return [];
+  const n = Number.isSafeInteger(data?.count) ? Math.max(1, Math.min(3, data.count)) : 1;
+  const potent = potentOk(data?.potent) ? data.potent : 0;
+  const out = [];
+  for (let i = 0; i < n; i++) {
+    const it = createPotion(p.key);
+    if (potent) {
+      it.potent = potent;
+      it.value = Math.round(((Number(it.value) || 0) * (100 + potent)) / 100);
+    }
+    out.push(it);
+  }
+  return out;
+}
+
+/** What a brew says: "You brewed 2 Potent Potions of Healing (+20 Alchemy XP)". */
+export function brewedText(data) {
+  const p = potionById(data?.potion);
+  if (!p) return 'You brewed nothing.';
+  const n = Number.isSafeInteger(data?.count) ? data.count : 1;
+  const potent = potentOk(data?.potent);
+  return `You brewed ${n === 1 ? 'a' : n} ${potent ? 'Potent ' : ''}${n === 1 ? 'Potion' : 'Potions'} of ${p.name}${potent ? ` (+${data.potent}% magnitude)` : ''}`;
+}

@@ -727,7 +727,7 @@ BUILT (SEAT2b part two (a), 2026-10-01, `acct61`, migration 0062; `06-Systems/On
 works at peace - a Siegewright's project a day sooner (DECIDED: the "siege works" of Professions-Arc 3.3 are these
 projects); the Shrine's Standing and its 50 a tier for each gate felled in the region, counted in the holder's defence;
 the Watchtowers' word to the holder's members; the Forge's and the Workshop's steps for the holder's members crafting in
-its town (the Apothecary's wait on Alchemy's, Cooking's and Jewelcrafting's stations); the Harbour a Travel Options port
+its town (the Apothecary's waited on Alchemy's, Cooking's and Jewelcrafting's stations - BUILT since, PROF12, below); the Harbour a Travel Options port
 for the holder's members, raised at a coastal town (DECIDED: the sea beside it, or a harbour already drawn there); the
 Ram Kit made into the Stores and carried to a Siege Camp by its writs. NOT YET: the works in battle (part two (b)) and
 the Barracks' guards and the revolt (part two (c)). BUILT since (SEAT2b part two (b), `world150`): the Walls' wave, the
@@ -735,6 +735,16 @@ Gatehouse and its Rams in battle (6.2's note). BUILT since (SEAT2b part two (c),
 guards - at the Throne and the banners, counted there as defenders, marking the nearest attacker within 12 m and following
 none past 24 m from their posts, rising at the defenders' camp with their wave (DECIDED there: a guard of Renown 30
 striking 20 a blow on a one-beat wind-up) - and the revolt (7.7's note). With it SEAT2b is whole.
+
+BUILT (PROF12, 2026-10-02, Mac: "2 and 4"; "lets just finish out everything before merge"; `acct69`;
+`06-Systems/Professions-Arc.md` 37): **THE APOTHECARY OPENED** - its three professions' stations stand (Cooking's fire, PROF9;
+Jewelcrafting's bench, PROF10; Alchemy's station, PROF12), so AUDIT SEATS-2 L5's gate is lifted (`src/net/fortLaw.js`
+APOTHECARY_OPEN): a holder raises it as any work, and its step a tier is the holder's members' crafting in its town (`seat`,
+the Forge's and the Workshop's route - `server-account/src/professions.js` seatStepsFor), each profession's own. A **piece of
+jewellery** a quality step (the Forge's law, nothing past Masterwork). DECIDED, a **dish** - which takes no quality - its XP
+half again a step (the clean pan's own step, Professions-Arc 35; `recipeLaw.js` cookXp). DECIDED, a **brew** its Potent
+chance +10 a step (`alchemyLaw.js` potentChance; the brew carries its town as a craft does). Nobody else's, no other town's,
+no other hall's. Pinned through the real Worker: `test/prof12_apothecary.test.js`.
 
 ### 7.6 Edicts
 

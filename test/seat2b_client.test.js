@@ -44,10 +44,10 @@ test('SEAT2b THE WORKS PANEL: the works a palace may raise (no Gatehouse below t
   const host = document.createElement('div');
   const buttons = drawSeatWorks(host, { forts, seat: { tier: 'palace' }, lever: true, nameOf, onBegin: (w) => begun.push(w) });
   const lines = byClass(host, 'notice-seat-works-line').map((n) => n.textContent);
-  assert.deepEqual(lines.map((l) => l.split(':')[0]), ['Walls', 'Watchtowers', 'Barracks', 'Market Hall', 'Shrine', 'Forge', 'Workshop'], 'no Gatehouse, no Harbour; no Apothecary until its stations stand (AUDIT SEATS-2 L5, PIN MOVED)');
+  assert.deepEqual(lines.map((l) => l.split(':')[0]), ['Walls', 'Watchtowers', 'Barracks', 'Market Hall', 'Shrine', 'Forge', 'Workshop', 'Apothecary'], 'no Gatehouse, no Harbour; the Apothecary now its stations stand (AUDIT SEATS-2 L5; PIN MOVED (PROF12))');
   assert.match(lines[3], /Raising tier 1: 150 Oak Planks still wanted\./);
   assert.equal(byClass(host, 'notice-seat-works-stock')[0].textContent, 'The stockpile: 40 Iron Ingots.');
-  assert.deepEqual(Object.keys(buttons), ['walls', 'watchtowers', 'barracks', 'forge', 'workshop'], 'none for the Market Hall (building) nor the Shrine (at its last tier); none for the Apothecary until its stations stand (AUDIT SEATS-2 L5, PIN MOVED)');
+  assert.deepEqual(Object.keys(buttons), ['walls', 'watchtowers', 'barracks', 'forge', 'workshop', 'apothecary'], 'none for the Market Hall (building) nor the Shrine (at its last tier); the Apothecary\'s now its stations stand (AUDIT SEATS-2 L5; PIN MOVED (PROF12))');
   assert.equal(buttons.walls.textContent, 'Raise the Walls to tier 2 (3,000 silver)');
   buttons.forge.click();
   assert.deepEqual(begun, ['forge']);

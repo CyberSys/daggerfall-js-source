@@ -141,12 +141,14 @@ export function medianLineNode(line) {
  *   putBack: (item: any, where: string) => void, mint: (piece: any, why: string) => void, pieceName: (piece: any) => string,
  *   drop?: (item: any, where: string) => void,
  *   weavers: ReadonlyArray<{ key: string, marks: number }>, stock: (key: string, n: number) => Promise<{ ok: boolean, text?: string }>,
+ *   apothecaries?: ReadonlyArray<{ key: string, marks: number }>,
  *   goods?: () => Array<{ item: any, name: string, why: string|null }>, good?: (item: any) => { offered: any, pick: number, take: () => ((() => void) | null) },
  *   goodName?: (rec: any) => string,
  *   board?: number[]|null, tithe?: () => number|null,
  * }} m the host's market (scenes/world.js); `drop` - a piece a settled listing took, out of the save (AUDIT 30 C3); MARKET-ANY:
  *   `goods` - the pack's pieces, each with why it may not list (null: it may), `good(item)` - the piece's wire record, its
- *   index in the save and its taking, `goodName` - a pack piece's record named as the pack names it
+ *   index in the save and its taking, `goodName` - a pack piece's record named as the pack names it; PROF12: `apothecaries` the
+ *   Apothecaries' counter's sixteen (PROF0 4.5)
  *   SEAT1d: `board` the board's town pixel - a listing's, an auction's and a buy's courier's Tithe is its seat's;
  *   AUDIT SEATS-3 D3: `tithe()` that seat's Tithe in whole percents (0: unheld), or null while the seats' list is unread
  * @param {{ busy: () => boolean, run: (start: () => Promise<any>) => Promise<void>, rerender: () => void, nowS: () => number,
@@ -452,6 +454,29 @@ export function createMarketTab(m, ui) {
       box.append(row);
     }
     box.append(el('p', 'notice-tip', 'Into your Stores, for the loom.'));   // AUDIT 32 R5: Outfitting practised since PROF7 - a bolt withdraws, and sews
+    return box;
+  }
+
+  /** PROF12 (PROF0 4.5: "The Apothecaries' counter, the supplier's second"): the sixteen ingredients DFU's potion recipes need
+   *  and no gathering yields, a measure at a time, into the Stores for the alchemy station - the Weavers' counter's shape. */
+  function apothecariesNode() {
+    const box = el('div', 'market-counter');
+    box.append(el('h4', null, 'The Apothecaries\' counter'));
+    for (const w of m.apothecaries ?? []) {
+      const row = el('div', 'market-counterrow');
+      const count = () => intOf(st.weave[w.key] ?? 1, 1, 100);
+      const inp = numberInput(count(), 1, 100, `Measures of ${m.name(w.key)}`, `apothecary|${w.key}`);
+      const b = button('market-weave', '', () => ui.run(() => m.stock(w.key, count())));
+      const refresh = () => {
+        b.textContent = `Buy for ${marksText(w.marks * count())}`;
+        b.disabled = short(w.marks * count()) || ui.busy();   // the Weavers' AUDIT 30 U12, U13
+      };
+      inp.oninput = () => { st.weave[w.key] = intOf(inp.value, 1, 100); refresh(); };
+      refresh();
+      row.append(el('b', null, m.name(w.key)), el('span', 'market-price', `${marksText(w.marks)} a measure`), inp, b);
+      box.append(row);
+    }
+    box.append(el('p', 'notice-tip', 'For the alchemy station, into your Stores.'));
     return box;
   }
 
@@ -762,6 +787,7 @@ export function createMarketTab(m, ui) {
       if (st.data && !rows.length) list.append(el('p', 'notice-empty', st.view === 'materials' ? 'Nothing of that is listed on the Bay\'s boards.' : 'No crafted piece of that kind is listed.'));
       box.append(list);
       if (st.view === 'materials') box.append(weaversNode());
+      if (st.view === 'materials' && (m.apothecaries ?? []).length) box.append(apothecariesNode());   // PROF12
     } else if (st.view === 'goods') {
       // MARKET-ANY: the pieces listed from packs, in gold - bought off the purse as any gold row
       box.append(filtersNode(GOODS_FAMILIES));

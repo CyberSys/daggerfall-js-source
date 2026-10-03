@@ -139,6 +139,9 @@ export const ITEM_FIELDS = Object.freeze({
   // 3.3; survival/food.js rotFoodDay); and a Chef's feast, which lasts half again (recipeLaw dishHand) - true, or absent
   noRot: bool(),
   chef: bool(),
+  // PROF12: a Potent potion, brewed at an alchemy station (net/alchemyLaw.js) - its share of magnitude, 25 (a Master
+  // Alchemist's 40), or absent
+  potent: int({ min: 25, max: 40 }),
   // SELL-AS-FOUND (AUDIT ECON O1): the condition the world handed a piece over at - Roleplay & Realism: Items' rolls on
   // a pile, a body and a shelf (systems/rriRealism.js) - which an online counter's sale reads at best (tradeModes.js
   // saleConditionPercentage); absent on a piece handed over whole

@@ -47,7 +47,7 @@
 // ═══════════════════════════════════════════════════════════════════
 import { registerCustomTemplates, registerKitDye, registerCustomItemsForGroup } from './itemTemplates.js';
 import { DYE_COLORS } from '../characters/dyes.js';
-import { ORES, INGOTS, STONES, TIER_VALUES, WOOD_TEMPLATES, HIDE_TEMPLATES, SKINNING_KNIFE, SIEGE_GEM, MASONRY_TEMPLATES, ICON_LODESTONE } from '../net/professionLaw.js';   // PROF11: Mortar
+import { ORES, INGOTS, STONES, TIER_VALUES, WOOD_TEMPLATES, HIDE_TEMPLATES, SKINNING_KNIFE, SIEGE_GEM, MASONRY_TEMPLATES, ICON_LODESTONE, ESSENCE_TEMPLATES } from '../net/professionLaw.js';   // PROF11: Mortar; PROF12: Arcane Essence
 import { REPAIR_KIT_TEMPLATE, STONE_DECOR, DISHES } from '../net/recipeLaw.js';   // PROF11: the Sculptor's four; PROF9: the dishes
 import { SURVIVAL_TEMPLATES } from './survival/items.js';   // PROF9: C&C's food rows the dishes stand on
 import { TEMPLATE as CC, FOOD, registerFoods } from './survival/food.js';
@@ -160,6 +160,18 @@ export const MASONRY_TEMPLATE_ROWS = Object.freeze(MASONRY_TEMPLATES.map((m) => 
   playerTextureArchive: 0, playerTextureRecord: 0, stackable: true,
 })));
 registerCustomTemplates(MASONRY_TEMPLATE_ROWS);
+
+// ─── PROF12: ARCANE ESSENCE (PROF0 4.8: 680; section 37) ──────────────
+/** Disenchanting's yield (9.3): DECIDED Ectoplasm's own weight and the metals' scale's price (8 x its tier's Marks value -
+ *  32 gold), on Ectoplasm's picture undyed (professionLaw ARCANE_ESSENCE), stacking, never shelved - the Stores its one
+ *  door, as every row here. */
+export const ESSENCE_TEMPLATE_ROWS = Object.freeze(ESSENCE_TEMPLATES.map((m) => Object.freeze({
+  index: m.templateIndex, name: m.name, baseWeight: 0.1, hitPoints: 50, capacityOrTarget: 0, basePrice: 8 * TIER_VALUES[m.tier - 1],
+  enchantmentPoints: 0, rarity: 10, variants: 0, drawOrderOrEffect: 0, isBluntWeapon: false, isLiquid: false,
+  isOneHanded: false, isIngredient: false, worldTextureArchive: m.icon[0], worldTextureRecord: m.icon[1],
+  playerTextureArchive: 0, playerTextureRecord: 0, stackable: true,
+})));
+registerCustomTemplates(ESSENCE_TEMPLATE_ROWS);
 /** The Sculptor's four (recipeLaw STONE_DECOR - its worth and weight, DECIDED there): one a piece, never stacked (each
  *  its own provenance), never shelved; 200 hit points (stone outlasts DFU's oak, 50-150); in a list the stone's own
  *  lump, in a room its one DFU model (decorFurnish.js). */
