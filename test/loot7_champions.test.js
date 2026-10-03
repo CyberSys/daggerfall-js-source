@@ -2,7 +2,7 @@
 // and do all of the above?" - "Champion foes. Single named foes with visible traits (Fiery, Swift, Vampiric) and a
 // guaranteed Rare"). The laws pinned here:
 //   - THE TRAITS: five, each a name that is its id's (the HUD's leaf spells it), each what its sentence says.
-//   - WHO: about one foe in twenty - a dungeon's by a hash of the place and the marker (every client the same), the
+//   - WHO: about one foe in fourteen (CHAMP-RATE, was twenty) - a dungeon's by a hash of the place and the marker (every client the same), the
 //     street's by its owner's roll and carried to every puppet (`cp`), a save's kept; never under level 3, the watch,
 //     an ally; off, none.
 //   - WHAT: twice its health and its blows a quarter harder (on any elite's), its trait on top; its name everywhere.
@@ -42,12 +42,12 @@ test('LOOT7: the traits - five, each named as its id reads, the wire\'s order it
     assert.ok(t.text, t.id);
     assert.equal(CH.championIndex(t.id), CH.CHAMPION_TRAITS.indexOf(t));
   }
-  assert.equal(CH.CHAMPION_PER_MILLE, 50);
+  assert.equal(CH.CHAMPION_PER_MILLE, 70, 'CHAMP-RATE: 70, was 50');
   assert.equal(CH.CHAMPION_MIN_LEVEL, 3);
   assert.equal(CH.CHAMPION_TRAITS.length - 1 <= 15, true, 'the wire has room for every index');
 });
 
-test('LOOT7: the dungeon\'s - a hash of the place and the marker, the same every time, about one in twenty; never an ally; off none', () => {
+test('LOOT7: the dungeon\'s - a hash of the place and the marker, the same every time, about one in fourteen; never an ally; off none', () => {
   on();
   const layout = (n) => Array.from({ length: n }, (_, i) => ({ mobileType: 7, x: i, y: 0, z: 0 }));
   let marked = 0, total = 0;
@@ -59,7 +59,7 @@ test('LOOT7: the dungeon\'s - a hash of the place and the marker, the same every
     for (const e of a) if (e.champion != null) assert.ok(Number.isInteger(e.champion) && CH.CHAMPION_TRAITS[e.champion]);
     marked += na; total += 25;
   }
-  assert.ok(Math.abs(marked / total - 0.05) < 0.01, `about one in twenty (${marked} of ${total})`);
+  assert.ok(Math.abs(marked / total - 0.07) < 0.01, `about one in fourteen (${marked} of ${total})`);
   const seen = new Set();
   for (let loc = 1; loc <= 400; loc++) { const a = layout(25); CH.markDungeonChampions(a, loc); for (const e of a) if (e.champion != null) seen.add(e.champion); }
   assert.equal(seen.size, 5, 'every trait stands somewhere');
@@ -67,7 +67,7 @@ test('LOOT7: the dungeon\'s - a hash of the place and the marker, the same every
   assert.equal(CH.markDungeonChampions(allies, 3), 0, 'never an ally');
   // THE HASH IS THE BUILD'S WORD: a client on another build must stand the same champions - these never move
   const forty = (loc) => { const a = Array.from({ length: 40 }, () => ({})); CH.markDungeonChampions(a, loc); return a.flatMap((e, i) => (e.champion != null ? [[i, e.champion]] : [])); };
-  assert.deepEqual(forty(2), [[2, 2], [21, 1], [30, 3]]);
+  assert.deepEqual(forty(2), [[2, 2], [3, 0], [12, 3], [21, 1], [30, 3]]);   // CHAMP-RATE: 70 per mille keeps every pick of 50's and adds
   assert.deepEqual(forty(7), [[5, 0], [17, 4], [36, 0]]);
   const first = [{}];
   CH.markDungeonChampions(first, 39);
@@ -79,7 +79,7 @@ test('LOOT7: the dungeon\'s - a hash of the place and the marker, the same every
   assert.equal(CH.markDungeonChampions(layout(500), 5), 0, 'off: none');
 });
 
-test('LOOT7: the street\'s - a hash of where it stands, its type and the count, never a draw; one in twenty; the record carries it and refuses a forged one', () => {
+test('LOOT7: the street\'s - a hash of where it stands, its type and the count, never a draw; one in fourteen; the record carries it and refuses a forged one', () => {
   on();
   const r = lcg(4);
   const spots = Array.from({ length: 20000 }, () => [r() * 4000 - 2000, 0, r() * 4000 - 2000]);
@@ -88,14 +88,14 @@ test('LOOT7: the street\'s - a hash of where it stands, its type and the count, 
   let first;
   try { first = spots.map((p, i) => CH.rollStreetChampion(p, i % 40)); } finally { Math.random = real; }
   const marked = first.filter((c) => c != null);
-  assert.ok(Math.abs(marked.length / 20000 - 0.05) < 0.006, `about one in twenty (${marked.length})`);
+  assert.ok(Math.abs(marked.length / 20000 - 0.07) < 0.006, `about one in fourteen (${marked.length})`);
   assert.equal(new Set(marked).size, 5, 'every trait');
   CH._resetStreetChampionsForTests();
   assert.deepEqual(spots.map((p, i) => CH.rollStreetChampion(p, i % 40)), first, 'the same street stands the same champions - a seeded test\'s too');
   CH._resetStreetChampionsForTests();
   const street = [];
   for (let i = 0; i < 200; i++) { const c = CH.rollStreetChampion([i * 7.5, 0, i * -3.25], 7); if (c != null) street.push([i, c]); }
-  assert.deepEqual(street, [[26, 4], [28, 1], [37, 2], [67, 2], [74, 0], [79, 2], [103, 3], [118, 3], [139, 2], [159, 2], [168, 1], [199, 0]], 'golden');
+  assert.deepEqual(street, [[2, 4], [6, 2], [12, 2], [26, 4], [28, 1], [33, 0], [37, 2], [56, 2], [67, 2], [74, 0], [78, 4], [79, 2], [103, 3], [118, 3], [139, 2], [141, 3], [159, 2], [163, 3], [168, 1], [178, 0], [181, 1], [199, 0]], 'golden (CHAMP-RATE: 50\'s twelve kept, ten more)');
   CH._resetStreetChampionsForTests();
   assert.notDeepEqual(Array.from({ length: 200 }, (_, i) => CH.rollStreetChampion([i * 7.5, 0, i * -3.25], 8)), Array.from({ length: 200 }, (_, i) => street.find(([j]) => j === i)?.[1] ?? null), 'its type is in the hash');
   off();
@@ -149,7 +149,7 @@ test('LOOT7: its name everywhere - the hover, the HUD\'s target, the death line,
   markFoeStruck({ entity: e });
   assert.equal(foeTarget().name, 'Mighty Orc', 'the HUD\'s target frame');
   clearFoeTarget();
-  assert.equal(liveEntityName({ entity: e }, 'Orc'), 'Mighty Orc', 'the hover over it alive - every pool\'s one namer');
+  assert.equal(liveEntityName({ entity: e }, 'Orc'), 'Orc', 'HOVER-PLAIN: the hover over it alive says its kind alone - its trait is the health bar\'s');
   assert.equal(liveEntityName({ entity: foe() }, 'Orc'), 'Orc');
   assert.equal(sayEnemyDied(() => {}, 7, e), 'Mighty Orc just died.');
   assert.equal(sayEnemyDied(() => {}, 7), 'Orc just died.');

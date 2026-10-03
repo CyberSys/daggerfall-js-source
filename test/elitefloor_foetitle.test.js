@@ -60,12 +60,12 @@ test('FOE-TITLE: a revenant by its name, a champion by its trait, an elite as El
   // every surface asks the one home
   const elite = foe({ eliteFoe: true });
   assert.equal(championName(elite, 'Orc'), 'Elite Orc', 'the death line and the body (championName)');
-  assert.equal(liveEntityName({ entity: elite }, 'Orc'), 'Elite Orc', 'the hover');
+  assert.equal(liveEntityName({ entity: elite }, 'Orc'), 'Orc', 'HOVER-PLAIN: the hover says its kind alone');
   clearFoeTarget();
   markFoeStruck({ entity: { ...elite, name: 'Orc' }, dead: false });
   assert.equal(foeTarget().name, 'Elite Orc', 'the target bar');
   clearFoeTarget();
-  for (const f of ['src/ui/hudFoeTarget.js', 'src/systems/worldTooltips.js', 'src/systems/champions.js']) {
+  for (const f of ['src/ui/hudFoeTarget.js', 'src/systems/champions.js']) {   // HOVER-PLAIN: the hover (worldTooltips.js) names none
     assert.match(read(f), /import \{ foeTitle \} from '[./]+(?:systems\/)?foeTitle\.js';/, `${f} asks the one home`);
   }
   assert.doesNotMatch(read('src/systems/foeTitle.js'), /^import /m, 'a leaf: the HUD\'s leaves may ask it');

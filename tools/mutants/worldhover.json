@@ -477,8 +477,8 @@
   {
     "name": "WORLD-HOVER-a-hostile-foe-is-named",
     "file": "src/systems/worldTooltips.js",
-    "old": "export function mobileEntityName(entityName, { hostile = false, champion = false } = {}) {\n  if (hostile && !champion) return null;",
-    "new": "export function mobileEntityName(entityName, { hostile = false, champion = false } = {}) {\n  if (false) return null;",
+    "old": "export function mobileEntityName(entityName, { hostile = false } = {}) {\n  if (hostile) return null;",
+    "new": "export function mobileEntityName(entityName, { hostile = false } = {}) {\n  if (false) return null;",
     "tests": [
       "test/worldhover.test.js"
     ]
@@ -1101,8 +1101,8 @@
   {
     "name": "AUDIT-WH2-the-live-entity-takes-the-corpses-member",
     "file": "src/scenes/exteriorFoes.js",
-    "old": "    const t = mobileEntityName(liveEntityName(f, enemyDisplayName(f.mobileType)), { hostile: !!f.ai?.isHostile, champion: foeTitled(f.entity) });",
-    "new": "    const t = mobileEntityName(enemyDisplayName(f.mobileType), { hostile: !!f.ai?.isHostile, champion: foeTitled(f.entity) });",
+    "old": "    const t = mobileEntityName(liveEntityName(f, enemyDisplayName(f.mobileType)), { hostile: !!f.ai?.isHostile });",
+    "new": "    const t = mobileEntityName(enemyDisplayName(f.mobileType), { hostile: !!f.ai?.isHostile });",
     "tests": [
       "test/worldhover.test.js",
       "test/citedrift.test.js"

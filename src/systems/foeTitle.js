@@ -20,8 +20,3 @@ export function foeTitle(entity, base) {
   const named = typeof c === 'string' && c ? `${c.charAt(0).toUpperCase()}${c.slice(1)} ${base}` : base;
   return entity?.eliteFoe ? `Elite ${named}` : named;
 }
-
-/** Is this foe called by more than its kind (a revenant, a champion, an elite)? The hover names such a foe even while
- *  it is hostile (systems/worldTooltips.js mobileEntityName's `champion` arm - LOOT7-CHECK CHAMP-HOVER, widened). */
-export const foeTitled = (entity) => !!((typeof entity?.revenant?.name === 'string' && entity.revenant.name)
-  || (typeof entity?.champion === 'string' && entity.champion) || entity?.eliteFoe);

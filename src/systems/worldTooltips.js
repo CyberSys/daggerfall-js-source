@@ -54,7 +54,6 @@
 // which is strictly stronger: it also sees a container's contents
 // change under a constant key, which the mod cannot.
 import { modSetting } from './modSettings.js';
-import { foeTitle } from './foeTitle.js';   // FOE-TITLE: a champion, an elite, a revenant - what each is called
 import { itemLongName } from './itemInfo.js';   // RF6: ResolveItemLongName, the port's one resolver
 import { buildingClosedText, buildingLockValue } from './buildingLocks.js';
 import { BUILDING_TYPES } from '../world/buildingNames.js';
@@ -314,16 +313,16 @@ export const mobilePersonName = (nameNPC) => (nameNPC || null);
  * plaque draws nothing over it, exactly as an unnamed key does: the
  * mod will not label the thing that is trying to kill you.
  *
- * LOOT7-CHECK CHAMP-HOVER - THE ONE EXCEPTION, A RECORDED DEPARTURE: a
- * CHAMPION (systems/champions.js) is named while hostile. Mac asked for
- * "single named foes with visible traits", and its name IS the trait
- * ("Mighty Orc"): the warning the mod's silence would swallow, and on
- * the classic skin - which has no target frame (ui/hudFoeTarget.js is
- * the enhanced skin's) - the only word over it before it dies. Off is
- * the mod exactly: with the loot-rarity row off no champion stands.
+ * HOVER-PLAIN (2026-10-03, Mac: "remove the crosshair tooltip. They
+ * should only have names/modifiers under their healthbar"): LOOT7-CHECK
+ * CHAMP-HOVER's exception - a hostile champion, elite or revenant named
+ * here - is retired. The mod's law holds for every foe again; a special
+ * foe's name and its trait stand under its health bar alone
+ * (ui/hudFoeTarget.js, systems/foeTitle.js), and the first blow's line
+ * (LOOT7-CHECK CHAMP-SAID) still says a champion on every skin.
  */
-export function mobileEntityName(entityName, { hostile = false, champion = false } = {}) {
-  if (hostile && !champion) return null;
+export function mobileEntityName(entityName, { hostile = false } = {}) {
+  if (hostile) return null;
   return entityName || null;
 }
 
@@ -349,10 +348,9 @@ export function mobileEntityName(entityName, { hostile = false, champion = false
  * takes. The fallback is the port's limit, not a second reading of the
  * mod.
  */
-/** LOOT7 (the Loot arc): a CHAMPION's trait before its name; ELITE FOES: "Elite" before it; REVENANT: its own name -
- *  systems/foeTitle.js, the one home every surface asks. */
-const championed = (e, name) => foeTitle(e, name);
-export const liveEntityName = (rec, enemyName = null) => championed(rec?.entity, rec?.entity?.name ?? enemyName ?? null);   // LOOT7: a champion by its name; ELITE FOES and REVENANT too
+/** HOVER-PLAIN: the plain name, a special foe's too - its title (a champion's trait, "Elite", a revenant's own name)
+ *  is the health bar's alone (ui/hudFoeTarget.js). */
+export const liveEntityName = (rec, enemyName = null) => rec?.entity?.name ?? enemyName ?? null;
 
 // ── THE TOTEM (.cs:491-505) ─────────────────────────────────────
 //

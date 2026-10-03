@@ -947,7 +947,7 @@ still push CLASSIC canvas windows as children under the DOM, and so
 does the pack's USE arm.
 
     THE SPELLBOOK       FIVE construction sites across FOUR hosts:
-                        worldModes.js:2518 (the factory) and :1904 (a
+                        worldModes.js:2517 (the factory) and :1904 (a
                         HAND-ROLLED second one, 342 lines below it in
                         the same file),
                         dungeonContext.js:1280, world.js:4848,
@@ -8711,7 +8711,7 @@ same answer: `ui/spellbookDoor.js`, with each host handing it only
 what that host knows.
 
 THE "HAND-ROLLED DUPLICATE" WAS NOT ONE. The board recorded
-worldModes.js:3394 as a second book built by hand 342 lines below the
+worldModes.js:3393 as a second book built by hand 342 lines below the
 factory. Read closely it is the SPELL MERCHANT'S SHOP - buyMode, with
 `offered`, the building's quality, the shop name, the haggling skills
 and the classic clock. A different question with different deps, and
@@ -9421,7 +9421,7 @@ and firing THAT twice is a second PopToHUD.
 
 ### Why only two of the four hosts crashed
 
-`worldModes.js:8206` and `dungeonContext.js:2008` answer the same
+`worldModes.js:8205` and `dungeonContext.js:2008` answer the same
 `onClose` by nulling their slot and never disposing - nothing to
 re-enter. Only the two hosts that come through `townTalk.closeOverlay`
 dispose. **The four-hosts rule caught this one by accident**: the two
@@ -17729,6 +17729,11 @@ section 9) - whose name IS its trait, `Mighty Orc` - was never on the plaque whi
 every live arm (the street's, a building's, the dungeon's, the watch's) tells it; any other hostile foe still says
 nothing, and with the loot-rarity row off no champion stands, so the mod's silence is whole. The classic skin, which
 has no plaque, hears a champion on its line instead (`Loot-Arc.md` section 17, CHAMP-SAID).
+
+**RETIRED by HOVER-PLAIN (2026-10-03, Mac: "remove the crosshair tooltip. They should only have names/modifiers
+under their healthbar").** The exception is gone: `mobileEntityName(name, { hostile })` names no hostile foe, a champion,
+an elite or a revenant included, and `liveEntityName` says the plain kind (no trait, no "Elite", no revenant's name).
+A special foe's title stands on the target frame alone (`ui/hudFoeTarget.js`); CHAMP-SAID's first-blow line stays.
 
 The classic skin has none of it, byte for byte.
 
