@@ -22,11 +22,18 @@
 // believed for this screen's own circle alone (AUDIT WB12d R1), said once while the rite still holds, and opens the
 // faithful's casket for each character once a day (systems/riteChest.js) - its contents a pile the casket holds.
 //
+// BROKER-CAGE (2026-10-02, Mac: "she should be present at the site in a jailed gate, and the gate opens after all the
+// enemies are cleared"): the Sigil Broker is their prisoner, caged beside the circle (scenes/sigilBrokerPool.js). The
+// rite's word says too whether this character has seen EVERY ONE of the faithful fall (net/gateRite.js riteRosterFell -
+// the Summoner's fall the hub said counting as seen, AUDIT BROKER-CAGE C1); the hub's word that they all fell (`cl`) is
+// kept by circle like the broken one, and once it is said none of the faithful is stood again - for this screen, or a
+// page opened after - and copies of them standing are taken down (C13). `isCleared` is the cage's question.
+//
 // Online alone, on a relay that keeps the rite: offline there is no breach. Design: bible/11-Multiplayer/World-Bosses.md
 // section 19 D.
 //
 // Not a DFU member. Ledger A (WB).
-import { riteLocalOf, riteFaithfulOf, riteStands, riteWindow, RITE_REACH_M, RITE_CAREERS, RITE_FAITHFUL_MAX, RITE_SUMMONER_CAREER, RITE_SUMMONER_HEALTH, RITE_WORD_MS } from '../net/gateRite.js';
+import { riteLocalOf, riteFaithfulOf, riteStands, riteWindow, riteRosterFell, RITE_REACH_M, RITE_CAREERS, RITE_FAITHFUL_MAX, RITE_SUMMONER_CAREER, RITE_SUMMONER_HEALTH, RITE_WORD_MS } from '../net/gateRite.js';
 import { gateSpotLocal } from '../net/gateLaw.js';
 import { worldRoom, GATE_TOP_MAX } from '../net/wire.js';
 import { riteSiteId } from '../world/wodShared.js';
@@ -36,7 +43,7 @@ import { RiteSmokeRenderer, SMOKE_FADE_MIN } from '../render/riteSmoke.js';
 import { FlatAnim } from '../render/flatAnimation.js';
 import { GLOBAL_SCALE } from '../player/activate.js';
 import { FIRE_FLAT, TENT_MODEL, FIRE_LIGHT_RANGE } from '../systems/survival/camp.js';
-import { riteChestItems, riteChestOpened, markRiteChest, riteMemory } from '../systems/riteChest.js';
+import { riteChestItems, riteChestOpened, markRiteChest, riteMemory, riteSeen } from '../systems/riteChest.js';
 import { trs } from '../world/mat4.js';
 
 const listOf = (xs) => (xs.length > 1 ? `${xs.slice(0, -1).join(', ')} and ${xs[xs.length - 1]}` : xs[0] ?? '');
@@ -163,6 +170,12 @@ export function createRiteHost({
   const bare = { x: 0, z: 0, r: RITE_BARE_R, key: '' };
   /** the hub's word: the circles whose rite is broken, by circleKey - who broke it, and how many */
   const brokenWords = new Map();
+  /** BROKER-CAGE: the hub's word: the circles whose faithful every one fell, by circleKey - and when it was said (relay
+   *  ms; 0 unknown) */
+  const clearedWords = new Map();
+  /** AUDIT BROKER-CAGE C7: the cage's question's circle, its key made once (the Broker asks it every frame she is caged) */
+  let qDay = NaN, qPx = NaN, qPy = NaN, qKey = '';
+  const keyFor = (d, px, py) => { if (d !== qDay || px !== qPx || py !== qPy) { qDay = d; qPx = px; qPy = py; qKey = circleKey(d, px, py); } return qKey; };
   let frameN = 0;
   const T3 = [0, 0, 0];
 
@@ -238,12 +251,16 @@ export function createRiteHost({
 
   /** The hub's word for this circle: who broke it, or undefined (AUDIT WB12d R1: another circle's word is not this one's). */
   const brokenHere = () => (C ? brokenWords.get(C.key) : undefined);
+  /** BROKER-CAGE: whether the hub said this circle's faithful every one fallen. */
+  const clearedHere = () => !!C && clearedWords.has(C.key);
   const ownSite = (f) => !!f && f.site === C.site;
 
   // ── the faithful ──
   /** Which of the day's faithful stand: every one this character has not seen fall - never the Summoner once he fell,
-   *  nor once the hub says his rite is broken. [member, its index] - its index its place on the ring. */
+   *  nor once the hub says his rite is broken; BROKER-CAGE: and none once the hub says they all fell. [member, its index]
+   *  - its index its place on the ring. */
   function survivors() {
+    if (clearedHere()) return [];
     const mem = riteMemory(C.day), left = { ...mem.slain }, out = [];
     riteFaithfulOf(C.day).forEach((m, i) => {
       if (m.summoner) { if (!mem.fell && !brokenHere()) out.push([m, i]); return; }
@@ -324,8 +341,10 @@ export function createRiteHost({
   /** Whether to stand the faithful now - nobody's standing here (mine, a peer's copies, mine on their way), and nobody
    *  holds them: none ever sprang them, or their owner went quiet (AUDIT WB12d C2). */
   function maybeStand(t) {
-    // A peer's ownership supersedes this client's failed slots; never retry beside their copy.
-    if (C.pupLive || peerSprang(C.site)) C.retry.length = 0;
+    // A peer's ownership supersedes this client's failed slots; never retry beside their copy. THE MERGE (#534 B01 x
+    // BROKER-CAGE): nor once the hub says every one of them fell - the retry stands its slots past survivors(), whose
+    // law that is
+    if (C.pupLive || peerSprang(C.site) || clearedHere()) C.retry.length = 0;
     if (C.pending || C.pupLive || t - C.standAt < RITE_RESTAND_MS) return;
     if (C.retry.length && !peerSprang(C.site)) {
       const mem = riteMemory(C.day);
@@ -343,12 +362,15 @@ export function createRiteHost({
     if (!C.spawned) stand(t);
   }
   /** The rite's word to its cell - every RITE_WORD_MS, at once when it changes and once more RITE_RESAY_MS after; made
-   *  only when due (AUDIT WB12d C13). Not sent, it is said again at once. */
+   *  only when due (AUDIT WB12d C13). Not sent, it is said again at once. BROKER-CAGE: `c`, every one of them seen to
+   *  fall. */
   function word(t) {
-    const mem = riteMemory(C.day), s = mem.struck ? 1 : 0, f = mem.fell ? 1 : 0, k = s * 2 + f;
+    // AUDIT BROKER-CAGE C1: the Summoner's fall the hub said counts toward every one of them - he is never stood again for a
+    // character who did not see it (survivors), so its own eyes could never see them all, and the cage stayed shut
+    const mem = riteMemory(C.day), s = mem.struck ? 1 : 0, f = mem.fell ? 1 : 0, c = riteRosterFell(C.day, mem.slain, mem.fell || brokenHere() ? 1 : 0) ? 1 : 0, k = s * 4 + f * 2 + c;
     const changed = k !== C.saidKey;
     if (!changed && t - C.wordAt < RITE_WORD_MS && t < C.resayAt) return;
-    if (!send({ d: C.day, px: C.px, py: C.py, s, f }, C.cell)) return;
+    if (!send({ d: C.day, px: C.px, py: C.py, s, f, c }, C.cell)) return;
     C.resayAt = changed && k > 0 ? t + RITE_RESAY_MS : Infinity;
     C.wordAt = t; C.saidKey = k;
   }
@@ -481,6 +503,10 @@ export function createRiteHost({
       const f = feet(), d = f ? Math.hypot(f[0] - C.heart[0], f[2] - C.heart[2]) : Infinity;
       const holds = t >= C.win.from && t < C.win.to, on = online();
       if (foes && d <= RITE_TEND_M) tend(holds);
+      // AUDIT BROKER-CAGE C13: the hub says every one of them fell - my own still standing are copies a word outran (a
+      // page that stood them before the hello's word landed, a copy stood again and counted twice): taken down, the site
+      // kept, as at the opening; none is stood again (survivors)
+      if (foes && C.ownLive && clearedHere()) { foes.drop(C.site); C.ownLive = 0; }
       if (on && holds && foes && C.known && d <= RITE_SPRING_M) maybeStand(t);
       // the hub's word, said once while the rite holds and the place is known (AUDIT WB12d D1: a page opened after the
       // break heard it before its omen, "in the wilds")
@@ -502,9 +528,16 @@ export function createRiteHost({
       const f = anim.tick(dt);
       for (let i = 0; i < flamesList.length; i++) flamesList[i].frame = (f + Math.round((i * fire.count) / RITE_FLAME_PHASES)) % fire.count;
     },
-    /** THE HUB'S WORD (net/wire.js validRiteOut): a circle's rite broken - kept by its circle, said by the frame. */
+    /** THE HUB'S WORD (net/wire.js validRiteOut): a circle's rite broken - kept by its circle, said by the frame; or
+     *  (BROKER-CAGE, `cl`) its faithful every one fallen - kept by its circle, the cage's to read. */
     onBroken(w) {
       if (!w || !Number.isSafeInteger(w.d) || !Number.isSafeInteger(w.px) || !Number.isSafeInteger(w.py)) return;
+      if (w.k === 'cl') {
+        const k = circleKey(w.d, w.px, w.py);
+        clearedWords.delete(k); clearedWords.set(k, Number.isSafeInteger(w.at) && w.at > 0 ? w.at : 0);
+        if (clearedWords.size > BROKEN_KEPT) clearedWords.delete(clearedWords.keys().next().value);
+        return;
+      }
       const k = circleKey(w.d, w.px, w.py), by = Array.isArray(w.by) ? w.by.filter((x) => typeof x === 'string' && x) : [];
       brokenWords.delete(k);
       brokenWords.set(k, { by, n: Number.isSafeInteger(w.n) ? Math.max(w.n, by.length) : by.length });
@@ -512,6 +545,21 @@ export function createRiteHost({
     },
     /** Whether the hub said the rite at this circle broken (systems/gateOmen.js: its order is not said then). */
     isBroken: (day, px, py) => brokenWords.has(circleKey(day, px, py)),
+    /** BROKER-CAGE: whether every one of the circle's faithful fell - the hub's word, or (`ownEyes`: a relay before the
+     *  one that says it - net/wire.js relaySupportsCage) this character's own eyes, the Summoner's fall the hub's broken
+     *  word counting as seen (AUDIT BROKER-CAGE C1): the Broker's cage open. AUDIT BROKER-CAGE C6: where the relay says
+     *  it, its word alone - a screen that freed her on its own eyes while the relay never heard them (the last of them
+     *  felled 60 m out, the breach opening before its killer came back) sold where every other screen saw her caged. */
+    isCleared(day, px, py, ownEyes = true) {
+      const k = keyFor(day, px, py);
+      if (clearedWords.has(k)) return true;
+      if (!ownEyes) return false;
+      const mem = riteSeen(day);
+      return !!mem && riteRosterFell(day, mem.slain, mem.fell || brokenWords.has(k) ? 1 : 0);
+    },
+    /** BROKER-CAGE: when the hub said the circle's faithful every one fallen (relay ms), or NaN - AUDIT BROKER-CAGE C8:
+     *  the Broker's door, seen shut only after it, neither swings nor says she is free. */
+    clearedAt(day, px, py) { const at = clearedWords.get(keyFor(day, px, py)); return at > 0 ? at : NaN; },
     /** The circle's stone and the tents, in the host's world pass - and its sigil for an eye near it (AUDIT WB12d G6;
      *  no eye said, it is drawn). */
     draw(r = renderer, texRemap = null, eye = null) {
@@ -571,7 +619,7 @@ export function createRiteHost({
     /** The site of the circle standing now - its faithful are the rite's (AUDIT WB12d C15: the Overworld's mark) - or null. */
     siteNow: () => C?.site ?? null,
     /** The host's state, for the tests and the probes. */
-    state: () => (C ? { day: C.day, site: C.site, heart: C.heart, known: C.known, spawned: C.spawned, pending: C.pending, own: C.ownLive, copies: C.pupLive, struck: !!riteMemory(C.day).struck, fell: !!riteMemory(C.day).fell, broken: !!brokenHere(), passed: C.passed, pile: !!C.pile, mesh: !!mesh, sigil: !!sigilMesh, gen: C.gen, groundGen: C.groundGen } : null),
+    state: () => (C ? { day: C.day, site: C.site, heart: C.heart, known: C.known, spawned: C.spawned, pending: C.pending, own: C.ownLive, copies: C.pupLive, struck: !!riteMemory(C.day).struck, fell: !!riteMemory(C.day).fell, broken: !!brokenHere(), cleared: clearedHere(), passed: C.passed, pile: !!C.pile, mesh: !!mesh, sigil: !!sigilMesh, gen: C.gen, groundGen: C.groundGen } : null),
     destroyAll() { leave(); },
   };
 }
