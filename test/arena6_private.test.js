@@ -195,12 +195,12 @@ test('ARENA6 THE BOUT: the host\'s go opens a refereed casual bout between the t
   // the result kept, every member told
   const kept = readArenaOut(last(gull, 'pss'));
   assert.deepEqual(kept.hist, [['Alva', 'Brann', 0, 'fall']], 'the session\'s results: the Red, the Blue, the winner, how');
-  // the healers, the keep, and back to choosing - the fighters taken off every screen's sand
+  // the healers, the keep, and back to choosing - the fighters off the sand (HOTFIX 1003f: and still drawn, in the stands)
   await walk(R, step, 15_000 + ARENA_PRIVATE_KEEP_MS + 1000);
   assert.equal(await R.room._boutOf(), null, 'the bout cleared');
   const back = readArenaOut(last(host, 'pss'));
   assert.deepEqual([back.o, back.ph, back.f, back.r, back.b], ['', '', [], mA, mB], 'back to choosing, the picks kept for a rematch');
-  assert.ok(gull.sent.some((m) => m.t === 'leave' && m.id === 'peer-alva'), 'the Red\'s body off the stands\' sand');
+  assert.ok(!gull.sent.some((m) => m.t === 'leave' && m.id === 'peer-alva'), 'HOTFIX 1003f: the Red stays drawn - back in the stands, a member as every member is');
   const att = alva.deserializeAttachment();
   assert.deepEqual([att.af, att.asp], [0, 0], 'every socket out of the bout');
   await word(H, watcher, { k: 'ls' });

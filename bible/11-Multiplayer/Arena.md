@@ -646,8 +646,9 @@ signed receipt. A fighter gone from a live fight past 15 s forfeits; a matched b
 LADDER ON THE RELAY: the fighter's own `in` opens a ladder bout against the relay's fighters (`ARENA_LADDER_SPEC`, the
 game's ladder row for row, pinned: Tier 5's champion two Warriors on one side, the beast tier's bodies, Tier 9 two
 against one, Tier 10's Grand Melee every fighter a side, then the Iron Atronach), who walk at the fighter, telegraph and
-land by the relay's word. THE STANDS: a spectator takes a seat with no body (60 a bout), seen by no fighter, seeing the
-whole bout.
+land by the relay's word. THE STANDS: a spectator takes a seat (60 a bout) and sees the whole bout - a body on every
+screen in the room, the fighters' and the other spectators', as they are on its own (HOTFIX 1003f; ARENA4 drew the
+fighters alone, and every watcher stood in an empty arena).
 
 **The client** (`src/net/arenaLink.js` the hall's fold and the mirror of a relay's bout in the bout law's own shape;
 `src/net/arenaClaims.js` the receipts carried - kept a week, offered for the signed-in account alone, retried every five
@@ -882,10 +883,13 @@ below, each at its place, and listed at the end.
 right (`privateCodeTyped` takes it upper-cased, its spaces and dashes gone). A fresh code is drawn on the host's screen
 from the CSPRNG (`arenaPrivateCode`, a byte at or past 248 thrown back so no letter is likelier). The room is an arena
 floor room (`isArenaFloorRoom`): the screen enters the floor's instance as it does for any bout
-(`arenaFloorRoomOf('p<code>')`), its sand holds the two fighters, its stands everyone else - no body drawn, no pose
-fanned. The floor is the session's members' (1003b R4): a socket in the room that is no member (a stranger with the
-code, a member removed) is drawn no fighter, hears no pose, is welcomed to a roster of nobody, and neither speaks to the
-session's room chat nor overhears it; a socket made a member is shown the sand then (`_sessionShow`). Its door
+(`arenaFloorRoomOf('p<code>')`), its sand holds the two fighters, its stands everyone else - every member a body drawn
+to every other, its pose fanned to them (HOTFIX 1003f, live: "people join and are alone" - the stands drew nobody). The
+floor is the session's members' (1003b R4): a socket in the room that is no member (a stranger with the code, a member
+removed) is drawn to nobody and drawn nobody, hears no pose and its own reaches nobody, is welcomed to a roster of
+nobody, and neither speaks to the session's room chat nor overhears it; a socket made a member is shown every member
+here then and shown to each (`_sessionShow`); a member gone, removed or the session ended is said gone to the others
+(`_sessionUnshow` at the end), and a fighter back in the stands when its bout clears stays drawn. Its door
 (1003b R2): a floor room's hello gate is spent after the token, by account - a member or a fighter waits on itself
 alone, anyone else on the stands' bucket - so tokenless hellos never shut it. A socket replaced by its own reconnect
 keeps the seat or the place on the sand it held (1003b R5).
@@ -939,9 +943,11 @@ on it (its seat taken back after another tab's, a slow floor) adopts the session
 (`closed`, `ended`, `removed`, `no session`, `taken`, `host guest`, `session full`, `locked` - C6) takes the screen out
 of the floor. In a session the queue and the casual challenge wait (`You are in a private session`); queued, Host and
 Join wait for the queue (U7); the pause menu's Arena opens on the session. Host and Join are pressed outdoors (the
-floor's door is the exterior's); pressed indoors, the press says so (`privOutdoors`) and nothing is held. The floor's
+floor's door is the exterior's); pressed indoors, the press says so (`privOutdoors`) and nothing is held. They want an
+account held and the socket open (HOTFIX 1003f: `privSignIn` otherwise - a tokenless hello is refused at the relay's
+door, ACC1g, and the floor stood empty around a player who was not online). The floor's
 way out lands before the Herald, or - the Herald not streamed in, a session joined away from Daggerfall - back where the
-floor was entered (`arenaFrom`, C7). The relay's version: world155 (one deploy with the rest of the arc).
+floor was entered (`arenaFrom`, C7). The relay's version: world155 (one deploy with the rest of the arc); HOTFIX 1003f's stands, world156.
 
 **The four hosts.** `scenes/world.js` WIRED (the online half handed the instance's mark, its way out and the healers'
 heal - `standOnMark` / `leaveFloor` / `heal`; the pause window's Arena door and the modes' `makeArenaWindow` /
@@ -958,7 +964,8 @@ the real Room (two screens: host, join by code, pick, go, both screens' bout, th
 to the stands, Close taking both screens out of the instance); the client's refusals and the card; the hosts' seams.
 AUDIT PRE-MERGE 1003b's: `test/audit1003b_relay.test.js` (11), `test/audit1003b_client.test.js` (10 - fourteen as run, C2 four ways),
 `test/audit1003b_ui.test.js` (5 - the window mounted). Mutants: `tools/mutants/arena6.json`, `tools/mutants/audit1003b.json`
-(the counts in Testing.md's rows).
+(the counts in Testing.md's rows). HOTFIX 1003f's: `test/hotfix1003_stands.test.js` (3), `tools/mutants/hotfix1003f.json`
+(10), and the records whose laws it turned re-aimed by content (arena4.json, arena4b_exhibition.json, audit1003b.json).
 
 **Not done / open.** A session's bout is one against one (the tournament's own format - brackets, rounds - is the
 host's to run by hand). No spectating a session from outside it: the code is the door. The session lives in its room's

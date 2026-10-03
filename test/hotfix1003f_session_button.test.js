@@ -45,3 +45,17 @@ test('HOTFIX 1003f: with the voices, the cheer, the boo and the bed are the voic
   const hush = [new Float32Array(11025).fill(0)];
   for (const x of [synthCheer(hush), synthBoo(hush), synthBed(hush)]) assert.ok(x.every((v) => v === 0), 'nothing but the voices');
 });
+
+test('HOTFIX 1003i: the stands\' rail - a watcher on the terrace is held out of the sand\'s circle (a jump down stops at its edge), the sand\'s own never held, the host free; wired after the bout\'s ring (mutants: no rail; the rail on the sand; the host held)', async () => {
+  const { standsRail, SAND_R, STANDS_RAIL_UP, TERRACE_UP } = await import('../src/world/arenaFloor.js');
+  const c = [100, 50, 200];
+  const rail = standsRail(c, c[1] + TERRACE_UP);
+  assert.ok(rail, 'a watcher on the terrace is railed');
+  assert.equal(rail.clamp([c[0], 0, c[2] - 30], 0.3), null, 'out on the terrace: where it stands');
+  const back = rail.clamp([c[0], 0, c[2] - 10], 0.3);
+  assert.ok(Math.abs(Math.hypot(back[0] - c[0], back[1] - c[2]) - (SAND_R + 0.3)) < 1e-9, 'a step over the edge put back at it');
+  assert.equal(standsRail(c, c[1] + 0.1), null, 'on the sand: never held (a fighter, a ladder bout)');
+  assert.equal(standsRail(c, c[1] + STANDS_RAIL_UP + 1, true), null, 'the host is free');
+  const w = readFileSync(new URL('../src/scenes/world.js', import.meta.url), 'utf8');
+  assert.match(w, /if \(!player\.arena\) player\.arena = arenaBouts\.ring\(\); if \(!player\.arena\) \{ const s = arenaOnline\?\.session\?\.\(\); player\.arena = standsRail\(/);
+});

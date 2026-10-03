@@ -123,12 +123,12 @@ test('ARENA4b the Worker\'s door: an exhibition\'s room is minted for the hour n
   assert.equal((await at(`arena:x${hour - 40}`)).status, 404, 'an hour long gone');
 }));
 
-test('ARENA4b one bout for every watcher: the first watcher\'s `in` opens the hour\'s bout inside its window and every other joins it - the same bout, the same fighters, no body drawn, the stands counted, the hall told; nobody fights it (mutants: each watcher a bout of their own; a watcher put on the sand; the hall not told)', async () => onClock(NOON + 2, async ({ now }) => {
+test('ARENA4b one bout for every watcher: the first watcher\'s `in` opens the hour\'s bout inside its window and every other joins it - the same bout, the same fighters, every watcher drawn to the others (HOTFIX 1003f), the stands counted, the hall told; nobody fights it (mutants: each watcher a bout of their own; a watcher put on the sand; the hall not told)', async () => onClock(NOON + 2, async ({ now }) => {
   const W = fakeRooms();
   const ex = exhibitionFor(sharedClassicMinutes(now()));
   const { R, a, b } = await stands(W, ex.hour);
-  assert.deepEqual(b.sent.find((m) => m.t === 'welcome').peers, [], 'the stands see no body - the sand is the relay\'s two');
-  assert.ok(!a.sent.some((m) => m.t === 'join'), 'a watcher\'s hello is said to nobody');
+  assert.deepEqual(b.sent.find((m) => m.t === 'welcome').peers.map((p) => p.id), ['seat-alva'], 'HOTFIX 1003f: the stands see each other - the sand is the relay\'s two, the stands are bodies');
+  assert.ok(a.sent.some((m) => m.t === 'join' && m.id === 'seat-brann'), 'HOTFIX 1003f: a watcher\'s hello is said to the stands');
   await word(R, a, { k: 'in', r: 's' });
   const sa = last(a, 'st');
   assert.equal(sa.kind, 'ex');
