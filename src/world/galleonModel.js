@@ -233,7 +233,7 @@ export function bakedPartGeometry(part, { offset = [0, 0, 0], role = Array.isArr
  * banded or not - a cut through one side of a shared edge only left a T-junction there (20 on her hull, at 1.600 on
  * every gunport's outer cheek edges where the side's livery met the throat; 8 on her castle, at 9.000 by the wells) -
  * and the bake's own triangles are first split at any of the part's corners that lie on their edges (`splitAtCorners`:
- * the final bake has 12 such corners on her hull, at her ports' sill and lintel corners, and 1 in her castle). AUDIT
+ * the final bake has 10 such corners on her hull (AUDIT GN2-BK1: Blender 5.1.1's cut), at her ports' sill and lintel corners, and 1 in her castle). AUDIT
  * GN-B1: each triangle carries its POLYGON's normal at all three corners - 38 of Mac's 401 n-gons stand more than 1 cm
  * out of their planes (her hull's up to 0.40 m), and lit by each triangle's own normal a polygon's triangles shaded as
  * creases Blender's flat shading never shows.

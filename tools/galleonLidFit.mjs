@@ -29,7 +29,7 @@ export function hullTriangles(bake) {
 }
 
 /** Her half-breadth on side `s` (1 starboard, -1 port) at (y, z): the outermost hull triangle over the point, as |x|,
- *  or null where none is (a zero-area triangle - the bake keeps 13 on collinear corners - meets no point). */
+ *  or null where none is (a zero-area triangle - the bake keeps 11 on collinear corners, Blender 5.1.1's own - AUDIT GN2-BK1 - meets no point). */
 export function halfBreadth(tris, y, z, s) {
   let best = null;
   for (const { v: [a, b, c], y0, y1, z0, z1 } of tris) {
