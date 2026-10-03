@@ -288,5 +288,95 @@
       "test/aegis.test.js"
     ],
     "note": "A word off the prototype ('constructor') drawn with no look."
+  },
+  {
+    "name": "AEGIS-the-symbols-never-drawn",
+    "file": "src/render/auraRing.js",
+    "old": "      if (look.glyphs) {   // AEGIS: the ward's floating symbols, a third draw",
+    "new": "      if (false) {   // AEGIS: the ward's floating symbols, a third draw",
+    "tests": [
+      "test/aegis.test.js"
+    ],
+    "note": "The ward with no floating symbols."
+  },
+  {
+    "name": "AEGIS-the-flight-not-wrapping",
+    "file": "src/render/auraRing.js",
+    "old": "  return mod(floor(t / life + fract(k * 0.618034)), ${AURA_CLOCK_PERIOD.toFixed(1)} / life);",
+    "new": "  return floor(t / life + fract(k * 0.618034));",
+    "tests": [
+      "test/aegis.test.js"
+    ],
+    "note": "Which flight it is runs on past the clock: every symbol jumps somewhere else at the wrap."
+  },
+  {
+    "name": "AEGIS-every-flight-from-one-place",
+    "file": "src/render/auraRing.js",
+    "old": "float h = fract(sin((k * 17.0 + wardFlightOf(k, t)) * 12.9898 + 4.1) * 43758.5453);",
+    "new": "float h = fract(sin((k * 17.0) * 12.9898 + 4.1) * 43758.5453);",
+    "tests": [
+      "test/aegis.test.js"
+    ],
+    "note": "Each symbol lifts off the same spot every flight: nine fountains, not a ward."
+  },
+  {
+    "name": "AEGIS-the-symbols-sinking",
+    "file": "src/render/auraRing.js",
+    "old": "float y = uLift + 0.06 + (1.0 - (1.0 - age) * (1.0 - age)) *",
+    "new": "float y = uLift + 0.06 + ((1.0 - age) * (1.0 - age)) *",
+    "tests": [
+      "test/aegis.test.js"
+    ],
+    "note": "The symbols fall into the ring instead of floating up out of it."
+  },
+  {
+    "name": "AEGIS-the-cards-facing-one-way",
+    "file": "src/render/auraRing.js",
+    "old": "w = c + vec3(d.y, 0.0, -d.x) * o.x",
+    "new": "w = c + vec3(1.0, 0.0, 0.0) * o.x",
+    "tests": [
+      "test/aegis.test.js"
+    ],
+    "note": "The cards all face one way: seen edge-on from the side, the runes vanish."
+  },
+  {
+    "name": "AEGIS-one-rune-for-every-flight",
+    "file": "src/render/auraRing.js",
+    "old": "vS = vec3(f.w, mod(k * 5.0 + wardFlightOf(k, uTime), ",
+    "new": "vS = vec3(f.w, mod(k * 5.0, ",
+    "tests": [
+      "test/aegis.test.js"
+    ],
+    "note": "Each symbol lifts the same rune every flight."
+  },
+  {
+    "name": "AEGIS-the-symbols-never-fading",
+    "file": "src/render/auraRing.js",
+    "old": "  float fade = smoothstep(0.0, 0.1, age) * (1.0 - age * age);",
+    "new": "  float fade = 1.0;",
+    "tests": [
+      "test/aegis.test.js"
+    ],
+    "note": "The symbols pop in whole and vanish whole: nothing dissipates."
+  },
+  {
+    "name": "AEGIS-no-dust",
+    "file": "src/render/auraRing.js",
+    "old": "  float whole = smoothstep(age * 1.25 - 0.3, age * 1.25 - 0.1, n);",
+    "new": "  float whole = 1.0;",
+    "tests": [
+      "test/aegis.test.js"
+    ],
+    "note": "The runes only dim: they never break into dust."
+  },
+  {
+    "name": "AEGIS-the-card-seen",
+    "file": "src/render/auraRing.js",
+    "old": "  float edge = smoothstep(0.0, 0.12, min(min(uv.x, 1.0 - uv.x), min(uv.y, 1.0 - uv.y)));",
+    "new": "  float edge = 1.0;",
+    "tests": [
+      "test/aegis.test.js"
+    ],
+    "note": "The glow cut off square at the card's edge: a lit rectangle round each rune."
   }
 ]

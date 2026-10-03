@@ -34,7 +34,8 @@ import { standService } from './accountDb.mjs';
 import {
   AURA_LOOK, auraLookOf, AURA_RING_R, AURA_FLAME_H, AURA_GROUND_R, AURA_LIFT_M, AURA_STEPS, AURA_CLOCK_PERIOD, AURA_VS,
   AURA_FS, WARD_RING_R, WARD_RUNE_R, WARD_WALL_H, WARD_RUNES, WARD_SIGILS, WARD_TICKS, WARD_MOTES, WARD_HZ, WARD_FLOW,
-  WARD_SCRIPT, WARD_RGB, wardRatesWhole, AuraRingRenderer,
+  WARD_SCRIPT, WARD_RGB, wardRatesWhole, AuraRingRenderer, WARD_GLYPHS, WARD_GLYPH_LIFE, WARD_GLYPH_RISE, WARD_GLYPH_W,
+  WARD_GLYPH_H, auraGlyphCards,
 } from '../src/render/auraRing.js';
 import { glslFunctions, GlslDiscard } from './glsl.mjs';
 
@@ -329,8 +330,8 @@ test('AEGIS the classic face: the word a letter at a time along the gradient - t
 
 test('AEGIS the ward\'s law: a look for every aura in the vocabulary - the fire\'s as it was, the ward\'s wider ring and its veil low; a wearer naming none, or a word no aura has, is the fire; the ward\'s rates whole over the clock; its script twelve runes no two alike, inside its six ornaments; its light the Aegis of Oblivion\'s own (mutants: the script repeating; the ward\'s violet drifted from the title\'s)', () => {
   for (const a of AURAS) assert.ok(Object.hasOwn(AURA_LOOK, a), `a look for ${a}`);
-  assert.deepEqual({ ...AURA_LOOK.dagonfire }, { kind: 0, ringR: AURA_RING_R, flameH: AURA_FLAME_H }, 'the fire as it was');
-  assert.deepEqual({ ...AURA_LOOK.oblivionward }, { kind: 1, ringR: WARD_RING_R, flameH: WARD_WALL_H });
+  assert.deepEqual({ ...AURA_LOOK.dagonfire }, { kind: 0, ringR: AURA_RING_R, flameH: AURA_FLAME_H, glyphs: 0 }, 'the fire as it was - no symbols');
+  assert.deepEqual({ ...AURA_LOOK.oblivionward }, { kind: 1, ringR: WARD_RING_R, flameH: WARD_WALL_H, glyphs: WARD_GLYPHS }, 'the ward, and its floating symbols');
   assert.equal(auraLookOf(undefined), AURA_LOOK.dagonfire, 'a wearer naming none is the fire - the only aura before');
   assert.equal(auraLookOf('constructor'), AURA_LOOK.dagonfire, 'and never a word off the prototype');
   assert.equal(auraLookOf('oblivionward'), AURA_LOOK.oblivionward);
@@ -419,7 +420,7 @@ test('AEGIS the ward\'s light, the shader RUN: its ring WHOLE - lit at every bea
   assert.ok(near(vs([0.25, 1]), [10, 2 + AURA_LIFT_M + WARD_WALL_H, -4 + WARD_RING_R]), 'its top over it');
 });
 
-test('AEGIS the ward\'s draw: each wearer in its own aura\'s look - the fire for one naming none, the ward for the ward - its kind, its ring\'s radius and its wall\'s height set beside its place; one program for both; the fire\'s pins hold (mutants: the look set once for the frame; the kind never set)', () => {
+test('AEGIS the ward\'s draw: each wearer in its own aura\'s look - the fire for one naming none, the ward for the ward - its kind, its ring\'s radius and its wall\'s height set beside its place, and the ward\'s floating symbols a third draw of its own, the fire none; one program for both; the fire\'s pins hold (mutants: the look set once for the frame; the kind never set; the symbols never drawn)', () => {
   const calls = [];
   const gl = new Proxy({ VERTEX_SHADER: 1, FRAGMENT_SHADER: 2, COMPILE_STATUS: 3, LINK_STATUS: 4, ARRAY_BUFFER: 5, STATIC_DRAW: 6, FLOAT: 7, TRIANGLES: 8, BLEND: 9, ONE: 10, CULL_FACE: 11, POLYGON_OFFSET_FILL: 12 }, {
     get(t, k) {
@@ -438,7 +439,7 @@ test('AEGIS the ward\'s draw: each wearer in its own aura\'s look - the fire for
   assert.deepEqual(per('uRingR', 'uniform1f'), [AURA_RING_R, WARD_RING_R, AURA_RING_R], 'each ring at its own radius');
   assert.deepEqual(per('uFlameH', 'uniform1f'), [AURA_FLAME_H, WARD_WALL_H, AURA_FLAME_H], 'each wall at its own height');
   const draws = calls.filter((c) => c[0] === 'drawArrays').map((c) => c[3]);
-  assert.deepEqual(draws, [6, AURA_STEPS * 6, 6, AURA_STEPS * 6, 6, AURA_STEPS * 6], 'the ground, then the wall, each wearer');
+  assert.deepEqual(draws, [6, AURA_STEPS * 6, 6, AURA_STEPS * 6, WARD_GLYPHS * 6, 6, AURA_STEPS * 6], 'the ground, then the wall, each wearer - and the ward\'s symbols after its wall');
   // what each draw was drawn with: the newest uAura and uRingR set before it
   const seen = []; let kind = null, ringR = null;
   for (const c of calls) {
@@ -446,6 +447,108 @@ test('AEGIS the ward\'s draw: each wearer in its own aura\'s look - the fire for
     if (c[0] === 'uniform1f' && c[1] === 'uRingR') ringR = c[2];
     if (c[0] === 'drawArrays') seen.push([kind, ringR]);
   }
-  assert.deepEqual(seen, [[0, AURA_RING_R], [0, AURA_RING_R], [1, WARD_RING_R], [1, WARD_RING_R], [0, AURA_RING_R], [0, AURA_RING_R]], 'each wearer\'s ground and wall drawn in its own look');
+  assert.deepEqual(seen, [[0, AURA_RING_R], [0, AURA_RING_R], [1, WARD_RING_R], [1, WARD_RING_R], [1, WARD_RING_R], [0, AURA_RING_R], [0, AURA_RING_R]], 'each wearer\'s ground, wall and symbols drawn in its own look');
+  const kinds = calls.filter((c) => (c[0] === 'uniform1i' && c[1] === 'uKind') || c[0] === 'drawArrays').map((c) => (c[0] === 'drawArrays' ? `draw${c[3]}` : c[2]));
+  assert.deepEqual(kinds, [0, 'draw6', 1, `draw${AURA_STEPS * 6}`, 0, 'draw6', 1, `draw${AURA_STEPS * 6}`, 2, `draw${WARD_GLYPHS * 6}`, 0, 'draw6', 1, `draw${AURA_STEPS * 6}`], 'the symbols drawn as the third kind');
   assert.equal(calls.filter((c) => c[0] === 'useProgram').length, 1, 'the program bound once for the frame');
+});
+
+// ── THE FLOATING SYMBOLS (the owner: "Can you add like symbols that float and dissipate") ──
+
+/** The symbols' flight, the vertex half's own functions run. */
+const flightFns = (bind = {}) => glslFunctions(AURA_VS, { uRingR: WARD_RING_R, uLift: AURA_LIFT_M, uGroundR: AURA_GROUND_R, uFlameH: WARD_WALL_H, ...bind });
+/** One symbol card's corner as the vertex half places it: its world point and what it hands the light (`vS`). */
+const cardCorner = (k, u, v, { t = 7.5, at = [10, 2, -4], eye = [10, 1.6, 0] } = {}) => {
+  const I = [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1];
+  const f = flightFns({ aP: [k * 2 + u, v], uVP: I, uKind: 2, uAt: at, uTime: t, uCamPos: eye });
+  f.main();
+  return { w: f.globals.vWorld, uv: f.globals.vP, s: f.globals.vS };
+};
+
+test('AEGIS the floating symbols\' flight: WARD_GLYPHS cards, each lifting off the ring and climbing to WARD_GLYPH_RISE over it - slowing toward the top, drifting outward, never below the ring - its lives dividing the clock so the flights wrap whole; each flight lifting off a new place round the ring with a new rune, the symbols aloft at once staggered; every card upright and turned to face the eye round the vertical (mutants: the flight not wrapping; every flight from one place; the symbols sinking; the cards facing one way; one rune for every flight)', () => {
+  assert.deepEqual([...auraGlyphCards(2)], [0, 0, 1, 0, 1, 1, 0, 0, 1, 1, 0, 1, 2, 0, 3, 0, 3, 1, 2, 0, 3, 1, 2, 1], 'two cards: each number twice over plus the corner');
+  assert.equal(auraGlyphCards(WARD_GLYPHS).length, WARD_GLYPHS * 12);
+  for (const life of WARD_GLYPH_LIFE) assert.equal(AURA_CLOCK_PERIOD % life, 0, `a life of ${life} s divides the clock - the flights wrap whole`);
+  assert.ok(WARD_GLYPHS >= 6 && WARD_GLYPH_RISE > 1 && WARD_GLYPH_RISE < 1.6, 'enough aloft to read as many, rising to the chest and no higher');
+  const f = flightFns();
+  const R = WARD_RING_R;
+  for (let k = 0; k < WARD_GLYPHS; k++) {
+    // the wrap: the flight is periodic over the clock - a clock past its period is the clock wrapped (auraClock), so the
+    // symbol a breath after the wrap is where it would have been had the clock run on
+    for (const t of [0.37, 2.9, 61.3, 119.6]) {
+      const a = f.wardFlight(k, t), b = f.wardFlight(k, t + AURA_CLOCK_PERIOD);
+      assert.ok(a.every((x, i) => Math.abs(x - b[i]) < 1e-6), `symbol ${k} at ${t} s is where it is a clock later: ${a.map((x) => x.toFixed(4))} vs ${b.map((x) => x.toFixed(4))}`);
+      assert.equal(f.wardFlightOf(k, t), f.wardFlightOf(k, t + AURA_CLOCK_PERIOD), 'and so is which flight it is');
+    }
+    // one flight: from the ring up, outward, slowing
+    const life = WARD_GLYPH_LIFE[k % 3];
+    const t0 = (Math.floor(5 * life) + 1 - ((k * 0.618034) % 1)) * life;   // a flight's first instant (age 0)
+    const at = (age) => f.wardFlight(k, t0 + age * life);
+    const [x0, y0, z0, w0] = at(0.001), [x1, y1, z1] = at(0.5), [x2, y2, z2, w2] = at(0.99);
+    assert.ok(w0 < 0.01 && w2 > 0.98, `the age runs 0 to 1 over the life (${w0}, ${w2})`);
+    assert.ok(Math.abs(y0 - AURA_LIFT_M - 0.06) < 0.01, 'it lifts off the ring');
+    assert.ok(y0 < y1 && y1 < y2 && Math.abs(y2 - (AURA_LIFT_M + 0.06 + WARD_GLYPH_RISE)) < 0.01, 'and climbs to the top of its flight');
+    assert.ok(y1 - y0 > y2 - y1, 'slowing toward the top');
+    const r = (x, z) => Math.hypot(x, z);
+    assert.ok(Math.abs(r(x0, z0) - 0.9 * R) < 0.01 && r(x0, z0) < r(x1, z1) && r(x1, z1) < r(x2, z2), 'from the ring, drifting outward');
+    // its next flights: each from a new place round the ring
+    const starts = Array.from({ length: 5 }, (_, n) => { const [x, , z] = f.wardFlight(k, t0 + (n + 0.001) * life); return Math.atan2(z, x); });
+    for (let i = 0; i < starts.length; i++) for (let j = i + 1; j < starts.length; j++) assert.ok(Math.abs(Math.atan2(Math.sin(starts[i] - starts[j]), Math.cos(starts[i] - starts[j]))) > 0.05, `symbol ${k}'s flights ${i} and ${j} lift off apart`);
+  }
+  const ages = Array.from({ length: WARD_GLYPHS }, (_, k) => f.wardFlight(k, 7.5)[3]);
+  assert.ok(Math.max(...ages) - Math.min(...ages) > 0.5, `the symbols aloft at once staggered: ${ages.map((x) => x.toFixed(2))}`);
+  // the cards: upright, facing the eye round the vertical, at their flight's place, each handing the light its age and rune
+  const at = [10, 2, -4];
+  for (const eye of [[10, 1.6, 0], [14, 3, -4], [6, 0.5, -9]]) {
+    for (let k = 0; k < WARD_GLYPHS; k++) {
+      const c00 = cardCorner(k, 0, 0, { at, eye }), c10 = cardCorner(k, 1, 0, { at, eye }), c01 = cardCorner(k, 0, 1, { at, eye }), c11 = cardCorner(k, 1, 1, { at, eye });
+      const centre = [0, 1, 2].map((i) => (c00.w[i] + c11.w[i]) / 2);
+      const fl = f.wardFlight(k, 7.5);
+      assert.ok([0, 1, 2].every((i) => Math.abs(centre[i] - (at[i] + fl[i])) < 1e-9), 'the card centred on its flight\'s place');
+      const across = [0, 1, 2].map((i) => c10.w[i] - c00.w[i]), up = [0, 1, 2].map((i) => c01.w[i] - c00.w[i]);
+      const toEye = [eye[0] - centre[0], eye[2] - centre[2]], len = Math.hypot(...toEye);
+      assert.ok(Math.abs(across[0] * toEye[0] + across[2] * toEye[1]) / len < 1e-9, 'its face turned to the eye: the card runs square across the line to it');
+      assert.ok(Math.abs(across[1]) < Math.hypot(across[0], across[2]) * 0.25 && up[1] > Math.hypot(up[0], up[2]) * 3, 'upright, tilting a little');
+      const width = Math.hypot(...across), height = Math.hypot(...up);
+      assert.ok(width >= WARD_GLYPH_W - 1e-9 && width <= WARD_GLYPH_W * 1.35 + 1e-9 && height >= WARD_GLYPH_H - 1e-9 && height <= WARD_GLYPH_H * 1.35 + 1e-9, 'its size, growing as it fades');
+      assert.deepEqual([c00.uv, c11.uv], [[0, 0], [1, 1]], 'the card\'s own uv for the light');
+      assert.ok(Math.abs(c00.s[0] - fl[3]) < 1e-9 && c00.s[2] === k && Number.isInteger(c00.s[1]) && c00.s[1] >= 0 && c00.s[1] < WARD_RUNES, 'its age, its rune\'s place in the script, its number');
+    }
+  }
+  const runesNow = new Set(Array.from({ length: WARD_GLYPHS }, (_, k) => cardCorner(k, 0, 0).s[1]));
+  assert.ok(runesNow.size >= 4, `many runes aloft at once (${[...runesNow]})`);
+  const runesOfOne = new Set(Array.from({ length: 6 }, (_, n) => cardCorner(0, 0, 0, { t: (n + 0.5) * WARD_GLYPH_LIFE[0] }).s[1]));
+  assert.ok(runesOfOne.size >= 3, 'and a symbol lifts a new rune each flight');
+});
+
+/** A symbol's light at a point of its card - the shader's own main(), run, as the ward's third kind. */
+const symbolAt = (uv, age, { rune = 0, k = 3 } = {}) => {
+  const f = glslFunctions(AURA_FS, {
+    vP: uv, vS: [age, rune, k], vWorld: [0, 0, 0], uKind: 2, uAura: 1, uTime: 7.5, uSeed: 0, uKindle: 1, uRingR: WARD_RING_R,
+    uGroundR: AURA_GROUND_R, uFlameH: WARD_WALL_H, uFogMode: 0, uFogDensity: 0, uFogRange: [0, 1], uCamPos: [0, 0, 0], uFocus: [0, 0, 0, 0],
+  });
+  f.main();
+  return f.globals.o;
+};
+
+test('AEGIS the floating symbols dissipate: the script\'s rune stood on end down the card\'s middle, lit whole as it lifts off and violet; dark at the card\'s edges; faded in from nothing; broken into dust as it climbs - some of the stroke gone and some still lit - and all but gone at the end of its flight; kindled with the ward (mutants: the symbols never fading; no dust)', () => {
+  const stroke = Array.from({ length: 13 }, (_, i) => [0.5, 0.2 + i * 0.05]);   // down the rune's baseline, stood on end
+  for (const rune of [0, 3, 6]) {
+    const young = stroke.map((uv) => lum(symbolAt(uv, 0.2, { rune })));
+    assert.ok(young.every((x) => x > 0.6), `rune ${rune} lit whole as it lifts off: ${young.map((x) => x.toFixed(2))}`);
+  }
+  const c = symbolAt([0.5, 0.5], 0.2);
+  assert.ok(violet(c) || (c[2] >= c[0] && c[0] > c[1]), `in the ward's violet: ${c.map((x) => x.toFixed(2))}`);
+  for (const uv of [[0.01, 0.01], [0.99, 0.5], [0.5, 0.995], [0.02, 0.98]]) assert.ok(lum(symbolAt(uv, 0.2)) < 0.02, `dark at the card's edge ${uv} - no card seen, only the rune`);
+  assert.ok(lum(symbolAt([0.5, 0.5], 0.005)) < 0.1 * lum(symbolAt([0.5, 0.5], 0.2)), 'faded in from nothing as it lifts off');
+  // the dust: climbing, the stroke breaks - some of it gone, some still lit
+  const mid = stroke.map((uv) => lum(symbolAt(uv, 0.62)));
+  assert.ok(mid.some((x) => x < 0.05) && mid.some((x) => x > 0.15), `broken into dust as it climbs: ${mid.map((x) => x.toFixed(2))}`);
+  const lastOf = stroke.map((uv) => lum(symbolAt(uv, 0.97)));
+  assert.ok(Math.max(...lastOf) < 0.05, `all but gone at the end of its flight: ${Math.max(...lastOf).toFixed(3)}`);
+  const sum = (a) => a.reduce((x, y) => x + y, 0);
+  assert.ok(sum(stroke.map((uv) => lum(symbolAt(uv, 0.2)))) > 2 * sum(mid), 'fading as it goes');
+  const f = glslFunctions(AURA_FS, { vP: [0.5, 0.5], vS: [0.2, 0, 3], vWorld: [0, 0, 0], uKind: 2, uAura: 1, uTime: 7.5, uKindle: 0, uRingR: WARD_RING_R, uGroundR: AURA_GROUND_R, uFlameH: WARD_WALL_H, uFogRange: [0, 1], uCamPos: [0, 0, 0], uFocus: [0, 0, 0, 0] });
+  f.main();
+  assert.equal(lum(f.globals.o), 0, 'unkindled: no symbols');
 });

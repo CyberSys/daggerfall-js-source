@@ -4389,7 +4389,15 @@ broken arcs of violet runic script: beads on the line, curled ends, combs and a 
   turning slowly against the ring and lit one after another as if being written; four claws hung inward from the ring
   at the diagonals (the first reference's marks), clear of the runes as they turn beneath; the abyss's violet mist
   turning inside, gone under the feet. THE WALL: a veil of light to the shins in streaks that climb, and fourteen motes
-  rising off the ring. As it kindles it is drawn round from behind the wearer. Every rate is a whole number of cycles
+  rising off the ring. As it kindles it is drawn round from behind the wearer.
+- **The floating symbols** (the owner, after the first push: "Can you add like symbols that float and dissipate"): a
+  third draw, the ward's alone (`AURA_LOOK.glyphs` - the fire has none). Nine cards, each a rune of the ward's script
+  stood on end, lift off the ring and float up to the chest (WARD_GLYPH_RISE, 1.3 m), slowing toward the top, swaying,
+  drifting outward and tilting a little, always turned round the vertical to face the eye. As each climbs its strokes
+  blur and break into dust from the noise's low places up, and it fades in as it lifts off and out as it goes; then it
+  lifts again from a new place round the ring with a new rune. A flight lasts 3, 4 or 5 s (each dividing the clock, and
+  which flight it is wraps with it, so the wrap is whole); the nine are staggered, so some are always rising and some
+  always going. The flight is the vertex half's (`wardFlight`), the light the fragment half's (`wardSymbol`). Every rate is a whole number of cycles
   over the clock, written as a division by its whole period, never a rounded decimal. THE FOUR HOSTS, untouched:
   `scenes/world.js` owns the pass and gathers each wearer with their `aura` (auraFrame), drawing it on the street;
   `scenes/worldModes.js` calls the same hook (`host.drawVeiledPeerBodies`) in a building and hands it to the dungeon as
@@ -4397,8 +4405,9 @@ broken arcs of violet runic script: beads on the line, curled ends, combs and a 
   aura, as before WB9g - FLAGGED, unchanged.
 - **Seen**: the title and glyph in Chromium on the real name layer's sheet over the five grounds (13 to 64 px) beside
   the Apostle, the Protector, Shadow Fang and Penitent; the ward in a real WebGL2 from above, from a third-person camera
-  and from low, at kindle 0, 0.5 and 1. `tools/auraProbe.mjs` now draws both auras: 20/20 (the fire's 11 unchanged).
-- Pins: `test/aegis.test.js` (10). `tools/mutants/aegis.json` (29, all dead). The vocabulary's exact lists in
+  and from low, at kindle 0, 0.5 and 1, and the symbols at several moments of their flights. `tools/auraProbe.mjs` now
+  draws both auras: 22/22 (the fire's 11 unchanged; the symbols lit over the ward to the chest, nothing over the fire).
+- Pins: `test/aegis.test.js` (12). `tools/mutants/aegis.json` (38, all dead). The vocabulary's exact lists in
   `acc3titles.test.js` moved; the relay's pins moved to world160 crediting AEGIS (`auditbounty1.test.js` holds the
   credit) and the account's to acct73. Seven older records re-aimed by content (`herald.json`, `penitent.json`,
   `shadowfang.json`, `ribbon.json`, `wb9g.json` 3) and the version records in `soc1.json` and `gatekeys.json`.

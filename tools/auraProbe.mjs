@@ -9,7 +9,8 @@
 //
 // AEGIS (2026-10-03): and THE OBLIVION WARD, the second aura, through the same pass - its ring whole and violet round
 // the feet, dark within the runes and past its edge, no seam where the ring closes, no jump at the clock's wrap, its
-// veil standing up off the ring, nothing before it kindles, and half of it drawn round at half kindled.
+// veil standing up off the ring, nothing before it kindles, and half of it drawn round at half kindled; and its floating
+// symbols aloft over the ring, to the chest, where the fire has nothing.
 //
 //     node tools/auraProbe.mjs [--shots <dir>]     (writes aura.png / aura_side.png / ward.png / ward_side.png there)
 import { chromium } from 'playwright';
@@ -140,6 +141,15 @@ try {
   // half kindled: drawn round from behind the wearer (-x) - the half it has reached lit, the half it has not dark
   const wHalf = await wardAt(above, 3.5, 0.5, [[-Math.cos(0.6) * W, 0.05, Math.sin(-0.6) * W], [Math.cos(0.6) * W, 0.05, Math.sin(0.6) * W]]);
   check('half kindled, half drawn round', lum(wHalf.px[0]) > 150 && lum(wHalf.px[1]) < 70, JSON.stringify(wHalf.px));
+  // the floating symbols: from the side, the air from the knee to the chest over the ring - lit by the ward's symbols at
+  // every moment, and never by the fire, whose flames end below it
+  const air = []; for (let x = -1.4; x <= 1.401; x += 0.1) for (let y = 0.8; y <= 1.601; y += 0.1) air.push([x, y, 0]);
+  const aloft = async (aura, t) => (await page.evaluate(([e, tt, ps, au]) => window.draw(e, tt, 1, ps, au), [[0, 0.9, 3.4], t, air, aura])).px.filter((c) => lum(c) > 60).length;
+  const wardAir = [], fireAir = [];
+  for (const t of [2.0, 5.3, 9.1, 47.7]) { wardAir.push(await aloft('oblivionward', t)); fireAir.push(await aloft(undefined, t)); }
+  if (shotsAt) { await page.evaluate(([e]) => window.draw(e, 5.3, 1, [], 'oblivionward'), [[0, 0.9, 3.4]]); await page.locator('#c').screenshot({ path: join(shotsAt, 'ward_symbols.png') }); }
+  check('symbols float over the ward, to the chest', wardAir.every((n) => n >= 3), `lit points of ${air.length} at four moments: ${wardAir.join(' ')}`);
+  check('and none over the fire', fireAir.every((n) => n === 0), fireAir.join(' '));
   check('no page error', errs.length === 0, errs.join('; '));
 } finally {
   await browser.close();
