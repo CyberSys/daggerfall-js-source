@@ -10,7 +10,7 @@ Every finding below was re-run on its probe before it was fixed, and pinned by a
 stood: `test/auditgalleon_bake.test.js` (11), `auditgalleon_rig` (11), `auditgalleon_prefab` (18), `auditgalleon_deck`
 (14), `auditgalleon_guns` (11) and `auditgalleon_sea` (5) - 70 pins. Mutation-proven:
 `tools/mutants/auditgalleon_*.json`, 211 records, 210 dead and one recorded equivalent (G5's node between her root and
-her MeshObject, at identity on every hull). Each fix carries an `AUDIT GN-<id>` comment. Four fixers worked in parallel
+her MeshObject, at identity on every hull). Each fix in code carries an `AUDIT GN-<id>` comment (AUDIT GALLEON-2: P13's are tagged GN-NITS and GN-CROWSNEST; D6, P11, T5 and T7-T11 changed records, not code). Four fixers worked in parallel
 on files of their own (the bake; the rig; the deck and crew; the prefab) and the lead took the guns, the sea and the
 record; their branches were merged here.
 
@@ -25,7 +25,7 @@ record; their branches were merged here.
 | G3 | Major | **Another player's galleon fired through shut ports.** Her lay never reached the other screens: her guns stood in and her shutters shut until each ball left. | My laid broadsides ride my word as `g` (a bit a side, SIDE_CODES' order; an older build ignores it); another player's galleon is laid from hers while her word is fresh (PEER_LAY_S, past FOES_FULL_MS); and G2's snap covers a word without it. |
 | G4 | Minor | **Hull 2 fallen back kept the new galleon's numbers.** When her model will not load hull 2 is the mod's own galleon, but HULL_BUILDS[2] stayed hers: the guns fired from 0.24-1.29 m inside the old planking, berths and fires stood 2 m off. | `MOD_SMALL_SHIP_BUILD`, the mod's own Small Ship's build, answered for hull 2 while the pool says the new galleon does not stand (`setGalleonStanding`). |
 | G5 | Minor | **Her balls left her upright root, not her ports.** At 8 deg of roll a ball stood 0.89 m off its port, under the sill on the high side. | Each muzzle stood through her MeshObject's heel - in the root's own frame, on the root as she fires: the fix's first cut read her drawn world matrix, a frame behind a captain's ship (a ball 2.26 m aft of its port in a half-second frame), and the cutter's duels with the sloop went six to two against the odds; found by the F25 duels and pinned. |
-| G6 | Minor | **Her draft was the old guess.** The routing table drew hull 2 at 2.2 m over a keel 4.64 m down. | `NAVAL_DRAFT` 4.7. |
+| G6 | Minor | **Her draft was the old guess.** The routing table drew hull 2 at 2.2 m over a keel 4.64 m down. | `NAVAL_DRAFT` 4.7 (AUDIT GALLEON-2 GN1/PF6: it froze every hull-2 ship at her berth, the berths sounded for the Carrack; the table is `shipLife.js` `draftOf` now, hull 2's read off the galleon that stands, and berths sounded for the deepest keel that berths). |
 | G7 | Nit | **The gun deck clamped a long frame.** A 0.5 s frame (Come Sail Away's time scale) ran the guns 0.25 s: a captain's volley came with them 0.35 m short of the port. | The step is the clock's own. |
 | G8 | Nit | **My look laid a battery that was reloading.** Its guns stood run out through a 9 s reload. | Laid only while `ready`. |
 | G9 | Nit | **Her rig's boxes put her fore course over her roof** - all of it hangs under it, its clews in no box, and the jib's foot forward of her stem in none (about 7.5 m2 balls passed untouched), while the jib's box covered air. | R5 (her rig, below); the bible's description made true. |
@@ -52,9 +52,9 @@ record; their branches were merged here.
 
 | ID | Sev | Finding | Fix |
 |---|---|---|---|
-| B1 | Major | **Her sides were cut unlike each other, and unlike Blender.** Mac's side n-gons are not flat (up to 0.55 m out of plane where he drew the bow in), so the cut decides her shape and her shading - and the bake's ear clip (axis-drop, lowest index first) laid a 22 m wedge 65 deg off its face on her starboard side alone (a dark crease), the two sides 0.49 m apart. | `tools/fbxMesh.mjs blenderTessellate`: a float32 port of mesh_tessellate's projection and BLI_polyfill_calc (clip-even, sweep, the convex and tangential ear passes, the kd-tree point test, desperate mode; the quad flip) on the mesh's own corners in their own order, every polygon's cut refused by object and polygon unless it tiles the face exactly; the bake's own fills (`polyfill`, `slabFill`, `fillInside`) gone. Her sides 3.3 cm apart now. Her faces lit flat on their polygon's own normal, as Blender draws them (B1 lighting, below). |
+| B1 | Major | **Her sides were cut unlike each other, and unlike Blender.** Mac's side n-gons are not flat (up to 0.55 m out of plane where he drew the bow in), so the cut decides her shape and her shading - and the bake's ear clip (axis-drop, lowest index first) laid a 22 m wedge 65 deg off its face on her starboard side alone (a dark crease), the two sides 0.49 m apart. | `tools/fbxMesh.mjs blenderTessellate`: a float32 port of mesh_tessellate's projection and BLI_polyfill_calc (clip-even, sweep, the convex and tangential ear passes, the kd-tree point test, desperate mode; the quad flip; as Blender 5.1 holds it - its precomputed point test and its own kd-tree, AUDIT GALLEON-2 BK1: the first port was 5.0's, and cut her #2 and #34 otherwise) on the mesh's own corners in their own order, every polygon's cut refused by object and polygon unless it tiles the face exactly; the bake's own fills (`polyfill`, `slabFill`, `fillInside`) gone. Her sides 3.3 cm apart now. Her faces lit flat on their polygon's own normal, as Blender draws them (B1 lighting, below). |
 | B2 | Minor | **A fin folded under her port stern quarter** - three faces of polygon 8 against its normal. | Gone with B1; the bake refuses a triangle wound against its face. |
-| B3 | Minor | **The bake made points of its own.** `slabFill`'s 21 duplicate vertices, a zero-area triangle and a T-junction on the edge #76 shares with #77. | No vertex but the source's corners (hull 190 -> 168); thirteen zero-area triangles remain, Blender's own on corners Mac drew on one line (the drawing drops them). |
+| B3 | Minor | **The bake made points of its own.** `slabFill`'s 21 duplicate vertices, a zero-area triangle and a T-junction on the edge #76 shares with #77. | No vertex but the source's corners (hull 190 -> 168); eleven zero-area triangles remain, Blender 5.1.1's own (AUDIT GALLEON-2 BK1: the first port was 5.0's fill, and laid thirteen) on corners Mac drew on one line (the drawing drops them). |
 | B4 | Nit | **The bake's comments called its fill Blender's.** | Rewritten for the port of Blender's tessellation. |
 | B5 | Minor | **A re-export could bake wrong without a word.** | Refused by name: a mirroring transform, an unread rotation or scaling offset, an export's other axes, a part 2 cm out of the scene box it was read in. |
 | B6 | Nit | **Her centreline was 38 µm to starboard.** | The hull object's own scene Y, 36.24673828125, refused otherwise; the exporter's -90.0000093 snapped to the quarter turn it is (`quarterTurn`, under 2.8 µm anywhere), so 283 mirror vertices on 20 parts bake to the same |x|. |
@@ -126,7 +126,7 @@ record; their branches were merged here.
   chasers clear her bowsprit, stays and anchor; the barrels drop clear of her rudder.
 - **Her helm.** All ten Sailing clips at their thresholds, the wheel continuous about its axle, the rudder linear to 35
   deg; the Classic helm is the mod's.
-- **The cost.** The gun deck 34 us a frame for eight galleons and eight carracks; her pictures 48 ms at the preload; her
+- **The cost.** The gun deck 34 us a frame for eight galleons and eight carracks; her pictures 48 ms at the preload (AUDIT GALLEON-2 PF3: until then spent at her first draw; at the preload now, 74-132 ms, and her prefab built 100-230 ms once a process, PF4); her
   deck's exact walls 0.6-3.5 ms more a hull, once.
 
 ## Decisions
@@ -138,7 +138,7 @@ record; their branches were merged here.
   town's window glows by the classic picture's (`scenes/dataPipeline.js`'s window arm) - the port's one rule.
 - **The exporter's quarter turns (B6)**: the hull's -90.0000093 is read as the -90 it is (`quarterTurn`, within 1 urad),
   so her mirror pairs bake mirrored; nothing moves more than 2.8 um.
-- **Blender's own zero-area triangles (B3)**: thirteen, on corners Mac drew on one line (gunport sills and lintels, the
+- **Blender's own zero-area triangles (B3)**: eleven (Blender 5.1.1's - AUDIT GALLEON-2 BK1; thirteen under the first port's 5.0 fill), on corners Mac drew on one line (gunport sills and lintels, the
   port inner planking's fold) - kept, as Blender cuts them; the drawing drops them.
 - **Her bed (P12)**: the mod's galleon's 0.262 over the deck (its trireme's 0.261) - the classic model's own bounds are
   not in the repo to check.
@@ -151,7 +151,7 @@ record; their branches were merged here.
   inside the auto-trim's 30 deg, none. The mod's trim limits stand. The mainsheet's ring at the boom's end stands 34-85
   deg off its rope (a two-bone rope to a belay off the boom's axis cannot square it).
 - **Mac's mesh**: five hull faces stand apart from their mirrors where Blender cuts them on other diagonals (the stern
-  quarter's 0.37 m at most) - as his scene shows them; the thirteen zero-area triangles; fifteen sub-millimetre
+  quarter's 0.37 m at most) - as his scene shows them; the eleven zero-area triangles (AUDIT GALLEON-2 BK1); fifteen sub-millimetre
   asymmetries. Each is his to make planar or dissolve in Blender.
 - **A board trigger through an open port**: from her gun deck a look out of an open port reaches the trigger alongside
   (1.30 m at the nearest) and stands the player on her main deck, as BoardBoat does anyone who presses it; out of that

@@ -2318,16 +2318,19 @@ parapet and rail, the bulkhead, the two flights up the castle, the balustrades, 
 the crow's nest and the bowsprit, her six deck beams - AUDIT GN-B5, which refuses a mirroring transform, an unread pivot
 or offset and an export's other axes as well); the scene's other stations, its spare pieces and her parts' twins
 skipped, each checked to be what it is said to be; the hull's five rudder faces split off to turn on their own post;
-every polygon cut as Blender cuts it (`tools/fbxMesh.mjs blenderTessellate`: a float32 port of mesh_tessellate's
-projection and BLI_polyfill_calc, on the mesh's own corners in their own order - AUDIT GN-B1) and refused by object and
+every polygon cut as Blender cuts it (`tools/fbxMesh.mjs blenderTessellate`: a float32 port of Blender 5.1's
+mesh_tessellate projection and BLI_polyfill_calc - its precomputed point test and its kd-tree, node for node - on the
+mesh's own corners in their own order - AUDIT GN-B1, GN2-BK1; an export written by any Blender but 5.1.x is refused by
+name, since another version's fill may cut otherwise) and refused by object and
 polygon unless its triangles tile it exactly, then carried into the boat's frame (0.7 of the scene, the waterline and
 the midship taken off). The bake adds no vertex. Mac's faces are not all flat - his sides lean out of their planes by up
 to 0.55 m where he drew the bow in - so the cut decides their shape, and it is Blender's: the first bake's own ear clip
 cut her two sides unlike each other (a 22 m wedge 65 deg off its face on one, the sides 0.49 m apart) and its own fill
 laid two triangles over two of her ports from inside. Five faces still stand apart from their mirrors where Blender cuts
-them on other diagonals - the stern quarter's most, 0.37 m - as they do in his scene, and thirteen of the cut's
+them on other diagonals - the stern quarter's most, 0.37 m - as they do in his scene, and eleven of the cut's
 triangles lie on corners he drew on one line (no area: the drawing drops them). `test/galleon_model.test.js` re-bakes it
-to the byte; `test/auditgalleon_bake.test.js` holds the cut to Blender's.
+to the byte; `test/auditgalleon_bake.test.js` and `auditgalleon2_bake` hold the cut to Blender 5.1.1's, compiled
+from its own source (the first port was 5.0's fill and cut her #2 and #34 otherwise, at most 1 mm apart).
 
 **Her prefab** (`world/galleonModel.js galleonPrefab`) is Come Sail Away's data shape built on the bake and stands in
 for prefab 112412 (`systems/comeSailAwayModels.js`: her components after the mod's, her meshes decoded already, her
@@ -2372,8 +2375,9 @@ her sails, booms and rudder found by their names:
   leaves (the shot field's muzzle, its index the port's) and is hauled out over `HAUL_S`, a gun fired before it is out
   stood out at its shot with its shutter snapped open (G2); `HOLD_S` past the last word the guns run in to load and the
   shutters close. Each port's throat wears its own planking (R8: it wore the shutter's picture, iron straps and all).
-- **Her texture** (`world/galleonArt.js`): twenty-three pictures, each 64 x 64 (GALLEON-2, below), painted at load
-  from numbers alone - the hull's painted livery and gilt bands, her bottom, her inner planking, her deck, the castle's
+- **Her texture** (`world/galleonArt.js`): twenty-three pictures, each 64 x 64 (GALLEON-2, below), painted at the
+  boats' preload from numbers alone (her archive asked and her glass's glow cut before any boat stands - AUDIT
+  GN2-PF3; they had been painted at her first draw, a 100-440 ms stall) - the hull's painted livery and gilt bands, her bottom, her inner planking, her deck, the castle's
   panels, the stern gallery (its glass glowing by night through the pool's emission mask), spars, iron, canvas, rope,
   gilt, the hatch gratings, the shutters' red, the doors, the beams - registered as stand-ins of archive 38131 on the
   vendor texture door, so a loose pack's `38131_<record>-0.png` would override one as it overrides any record. No file,
@@ -2387,7 +2391,8 @@ her sails, booms and rudder found by their names:
   the master-at-arms and the cook below). Her board triggers stand outside her side (P4: they reached into her gun
   deck), and her stair wells and the cabin's casings wear her inner planking (P7).
 - **The loader never traps** (`loadComeSailAwayModels`): her model fetched beside the mod's five files
-  (`GALLEON_MODEL_URL`, never among them); missing, or one that will not build, hull 2 is the mod's own galleon, said
+  (`GALLEON_MODEL_URL`, never among them - AUDIT GN2-PF4: it had been asked only once they answered), and built once a
+  process (her bake's sha256, the same bake and mod tree - a second world's loader 0.8 ms, not 100-340); missing, or one that will not build, hull 2 is the mod's own galleon, said
   once.
 
 **Her deck** (`systems/naval/navalDeck.js`, `systems/naval/crewLife.js`). Her castle's roof is her deck, up its two

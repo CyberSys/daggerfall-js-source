@@ -574,7 +574,9 @@ graftColours, FLAG_DONOR_HULL). A hull hit's burst is grown for an eye far off (
 (`navalEffects.js` smolder, SMOLDER_RATE puffs a second at the worst) from the part the sea has not reached
 (`lineOver`); under DAMAGE_LIST_FROM a list to her going-down side (to DAMAGE_LIST_MAX, over DAMAGE_LIST_EASE_S; the
 sinking's own list takes it on); her canvas down with her sail share, her highest sails first (`sailsShown` - a sail
-node holds its skinned canvas alone, so her yards stand); and a ball into her hull sheds TIMBER_PER_HIT planks, laid
+node holds its skinned canvas alone, so her yards stand; AUDIT GALLEON-2 RG4: by the canvas's own height where a sail
+has a grid of bones, so the new galleon loses main topsail, fore topsail, jib, gaff, fore course - by node height she
+lost her course first; and RG2: each of her sheets under its own sail, gone with it); and a ball into her hull sheds TIMBER_PER_HIT planks, laid
 long on the sea (a particle's `aspect`), drifting, gone after TIMBER_LIFE or so. FAR SHIPS (#17): past NEAR_LIFE_M of
 the eye a ship's animators and particle systems step every FAR_LIFE_EVERY frames with the time they missed, each ship
 on her own frame of the stride; her animators found once; an idle particle system (stopped, nothing alive) returns
@@ -1022,8 +1024,18 @@ Carrack's hold).
   galleon's 838 - her main deck 664 at 6.20, one cell further out at her entry ports where her side stands under her
   deck there, and her castle and its flights 174 - the Large Galley's 4016, the Carrack's 511 (her main deck 465,
   running under her half-deck stairs and into the room under her forecastle; her forecastle 39 and its stair 7), the
-  mod's galleon's 750 when she stands in; her hatchways no deck (D7: a part that opens and shuts is no floor), and her
-  open deck one walk on every hull. NEVER INSET AGAINST A BENCH (F32: the Large Boat's thwarts ate 18 of her waist's 30
+  mod's galleon's 727 when she stands in (AUDIT GALLEON-2 DK4: 750 was measured over the new galleon's extent; 690
+  before D-wall); her hatchways no deck (D7: a part that opens and shuts is no floor), and her open deck one walk on
+  every hull. AUDIT GALLEON-2: what her parts that open stand over or in is baked beside her deck (`ajar`) - a shut
+  cover's top (DK1: the Carrack's cargo doors read 600 of their 1575 points ashore and held a boarder 2.48 m off a player
+  on them), and the floor a door's leaf alone walls with the inset's margin either side (DK3: no boarder went through
+  any door - 4.59 m off a player in the new galleon's great cabin). Standing aboard reads them and the leash lets a body
+  stand on them; never her walk, spots or a landing. Her deck's bake is unchanged on every hull. The deck cannot know a
+  part's state, so over an open hatchway a body is held while within a step of the cover's shut top, then set back at
+  its edge. THE LEASH (AUDIT GALLEON-2 DK2) measures off the floor the body last stood on - its piece's floor within
+  FLIGHT_JOIN of it, else that piece's nearest cell at that level, else its edge: since D-wall her open piece holds two
+  levels in a cell, and the body's height of the moment had set the Carrack's walks 2-3 m between her main deck and
+  forecastle (124 of 32904) and the mod's galleon's (43 of 19880). None now, never more than 0.57 m sideways. NEVER INSET AGAINST A BENCH (F32: the Large Boat's thwarts ate 18 of her waist's 30
   cells - her deck 12 cells to 18 now, the Rowboat's 4 to 13), and no inset that would cost half her deck. Under her
   main deck nothing is deck; every floor of hers that faces up, at any level, is what standing aboard her is (`under`,
   SEA-PEACE above; AUDIT GALLEON D3 and D-wall: below a step under her main deck within the capsule's reach of the feet,
@@ -1171,7 +1183,10 @@ cruise to random waypoints; a port had no ships at all. `systems/naval/shipLife.
   (`world.js navalHarbourNear`: `locationWorldRect` through the floating origin's `localFromWorld`), and the host finds
   its harbour once: the town's rect grown HARBOUR_REACH walked on a SHORE_STEP grid for water beside land; each shore
   point stood off the land along the shore's normal by her half width and BERTH_MARGIN is a BERTH lying parallel to the
-  shore - kept only where her whole footprint (sized for BERTH_HULL, the Carrack) floats, and BERTH_SPACING of her
+  shore - kept only where her whole footprint (sized for BERTH_HULL, the Carrack) floats in the water of the deepest keel that
+  berths (AUDIT GALLEON-2 GN1: `deepestBerther` over BERTH_HULLS - sounded for the Carrack alone, every berth was land
+  to a hull 2 drawing 4.7 m, and her merchant galleons, navy cutters and pirate brigs froze at them for good; off Iliac
+  Puddle No More's carved shelf the berths lie 40-52 m off the shore now, 16-28 before), and BERTH_SPACING of her
   length from every other, the nearest the town first, HARBOUR_BERTHS at most. Each berth has its APPROACH, open water
   APPROACH_LENGTHS astern of it and APPROACH_OUT off the shore. The MOUTH is the first point out along the berths' mean
   normal with MOUTH_CLEAR of open water all round. A town with no shore, or a harbour with no way out, has none.

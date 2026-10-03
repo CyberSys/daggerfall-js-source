@@ -8,6 +8,16 @@
 
 Newest first.
 
+**2026-10-03 - AUDIT GALLEON-2.** Mac: *"I want you to audit it"*, of the galleon's branch after AUDIT GALLEON, with
+main merged in. Six read-only lenses (the bake; her prefab, pictures and loader; her rig; her deck on every hull; her
+guns, the sea and online with #543's glide; the tests and records), 54 findings, each reproduced; six fixers on files of
+their own, every pin red first. Paid: G6's draft froze every hull-2 ship at every harbour berth; D-wall brought D1's
+level-jumping leash back on the Carrack and the fallback hull, and D7 made the Carrack's shut cargo doors a hole; G2's
+snap held only in the test's frame order; another player's galleon froze laid once she left her helm; her running rope
+trailed its spars up to 5 m; the fill was Blender 5.0's where Mac exported from 5.1.1; the port battery's side, a
+galleon at sea's guns and G5's heel were unpinned, and AUDIT NAV2 F24 had left a survivor. 133 mutants, 132 dead and one
+recorded equivalent. Her boom at head height kept, as the mod's own. Record: `Audit-Galleon-2.md` (AUDIT GALLEON-2).
+
 **2026-10-02 - AUDIT GALLEON.** Mac: *"Audit this. It must be perfect"*, of his galleon (GALLEON and GALLEON-2) on its own
 branch. Six lenses - the bake, the rig and her pictures, her prefab and loader, her deck and crew, her guns, the tests -
 and 70 pins, each red on the code as it stood. Paid: her faces cut as Blender cuts them (the bake's ear clip laid a 22 m
