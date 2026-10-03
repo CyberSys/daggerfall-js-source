@@ -575,6 +575,9 @@ async function sellOut(homes, { mapId, buildingKey, credit, realm }) {
 
 /** How many houses a move is posted to before it waits for the next boot (one taken under each pick). */
 export const ARENA_MOVE_TRIES = 3;
+/** AUDIT PRE-MERGE 1003 O10: whether a checkpoint's answer (awaited) says the save landed: a slot's `true`, a realm put's
+ *  `{ ok: true }`; no hook at all (`undefined`) asks no checkpoint. Pure. */
+export const checkpointLanded = (c) => c === undefined || c === true || c?.ok === true;
 
 /**
  * THE MOVES, made and read (above). `homes` the registry (createOnlineHomes), `api` net/accountClient.js accountHomes,
@@ -582,13 +585,14 @@ export const ARENA_MOVE_TRIES = 3;
  * name }`) or null; `nameOf(key)` a building's name; `realm` the host's realm act (`{ act }`) or null; `emptyScene(from,
  * to)` empties the old home's scene into the new one's and answers arenaMove.js emptyArenaScene's `{ own, crate, ... }`;
  * the hooks the host's, each optional: `giveOwn(items)`, `credit(gold)` (the Daggerfall bank account), `discover(key, hall)`,
- * `notice(lines)`, `note(text)`, `say(line)`, `checkpoint()` (the save written now - false when refused). Answers every
- * move handled, `{ from, to, refund, hall, made }`.
+ * `notice(lines)`, `note(text)`, `say(line)`, `checkpoint()` (the save written now - false when refused; AUDIT PRE-MERGE
+ * 1003 O10: or a promise of the realm's answer to its put, `{ ok }`). Answers every move handled, `{ from, to, refund,
+ * hall, made }`.
  * @param {{ homes: any, api: any, mapId: number, character: string|null, pick: (from: number, held: Set<number>) => ({ buildingKey: number }|null),
  *   nameOf?: (key: number) => string, realm?: { act: (o: any) => Promise<any> }|null, emptyScene?: (from: number, to: number) => any,
  *   hooks?: { giveOwn?: (items: any[]) => void, credit?: (gold: number) => void, discover?: (key: number, hall: boolean) => void,
  *     notice?: (lines: readonly string[]) => void, note?: (text: string) => void, say?: (line: string) => void,
- *     checkpoint?: () => boolean } }} o
+ *     checkpoint?: () => (boolean | Promise<any>) } }} o
  */
 export async function moveArenaHomes({ homes, api, mapId, character, pick, nameOf = () => '', realm = null, emptyScene, hooks = {} }) {
   const out = [];
@@ -612,7 +616,10 @@ export async function moveArenaHomes({ homes, api, mapId, character, pick, nameO
     hooks.note?.((m.hall ? ARENA_TEXT.homeMove.hallNote : ARENA_TEXT.deedMovedNote).replace('%s', name));
     if (made && !m.hall && m.refund > 0) hooks.say?.(ARENA_TEXT.homeMove.refund(m.refund));
     if (made && m.tenancies > 0) hooks.say?.(ARENA_TEXT.homeMove.tenants(m.tenancies));
-    if (hooks.checkpoint?.() !== false) await api.arenaSeen(mapId, m.from);
+    // AUDIT PRE-MERGE 1003 O10: read only once the save holding the emptied scene LANDED - the host's checkpoint answers
+    // the realm's word on its put (a promise of `{ ok }`), and the move was said read as the save was handed over: a put
+    // refused, or the page gone first, left the record's old scene full and the move read
+    if (checkpointLanded(await hooks.checkpoint?.())) await api.arenaSeen(mapId, m.from);
     out.push({ from: m.from, to: m.to, refund: m.refund, hall: m.hall, made });
   };
   const moveOf = (d) => ({ from: d.from, to: d.to, refund: Number.isSafeInteger(d.refund) && d.refund > 0 ? d.refund : 0, hall: d.hall === true, tenancies: Number.isSafeInteger(d.tenancies) ? d.tenancies : 0 });

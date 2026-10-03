@@ -1203,8 +1203,8 @@
   {
     "name": "ARENA4-GLUE-QUEUE-LEVEL",
     "file": "src/scenes/arenaOnline.js",
-    "old": "if (!hallSend({ k: 'q', lv: Math.max(1, Math.floor(deps.level?.() ?? 1)), ...myBanner()",
-    "new": "if (!hallSend({ k: 'q', ...myBanner()",
+    "old": "const q = { k: 'q', lv: Math.max(1, Math.floor(deps.level?.() ?? 1)), ...myBanner()",
+    "new": "const q = { k: 'q', ...myBanner()",
     "tests": [
       "test/arena4_client.test.js"
     ]
