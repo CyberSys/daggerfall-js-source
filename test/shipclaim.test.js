@@ -390,6 +390,11 @@ test('SHIP-CLAIM a harbour\'s ship claimed is not stood at her berth again today
   assert.equal(h.host.activate(), true, 'her window');
   assert.equal(h.log.plunder.at(-1).fate('claim'), true);
   const seed = e.ship.seed;
+  // PIN MOVED (AUDIT HOLDINGS, the mutants' run): she sails off her berth - lying at it, a boat of mine keeps it from the
+  // roll (HOLDINGS - QUAYS: none moors into her), and the pin could no longer see her berth kept
+  const mine = h.rt.AllBoats.at(-1);
+  assert.equal(mine.hull, e.ship.hull, 'mine now');
+  mine.GameObject.position = [mine.GameObject.position[0] + 3000, 0, mine.GameObject.position[2] - 3000];
   h.view.feet = [0, 0, 300 + HARBOUR_LEAVE + 800];
   h.run(1 + SHIP_FADE_S);   // SHIP-FADE (2026-10-02) PIN MOVED: they fade as they go
   h.view.feet = [0, 0, 300];

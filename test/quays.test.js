@@ -96,10 +96,12 @@ test('QUAYS THE SHORE WALKED: from the quay\'s back to the land at her waist - a
   // no land within JETTY_MAX: the quay alone
   p = plan0({ groundAt: (x, z) => { const [lx] = sceneToQuay(f, x, z); return lx > plan0().quay.x1 + JETTY_MAX + 5 ? SEA + 3 : SEA - 8; } });
   assert.ok(p && p.jetty === null && p.ramp === null, 'no jetty to nowhere');
-  // the jetty's piles over the water, none on the land
-  p = plan0();
+  // the jetty's piles over the water, none on the land - PIN MOVED (AUDIT HOLDINGS, the mutants' run): read over the bank
+  // the jetty runs JETTY_LAND onto (2 m up); the 3 m one is met at its face now (Q9), and no jetty stood over its land
+  p = plan0({ groundAt: groundOf(() => 2) });
   const jp = p.piles.filter(([x]) => x > p.quay.x1 + 0.1);
-  for (const [x, z] of jp) assert.ok(groundOf()(...quayToScene(f, x, z)) - SEA < QUAY_DECK_UP, 'over the water');
+  assert.ok(p.jetty.x1 > shore + 1, 'the jetty over the land');
+  for (const [x, z] of jp) assert.ok(groundOf(() => 2)(...quayToScene(f, x, z)) - SEA < QUAY_DECK_UP, 'over the water');
 });
 
 test('QUAYS WHAT STANDS ON IT: bollards on its face by her stern, her waist and her bow; a lantern post at each landward corner; the port\'s cargo on its back - crates (some two high) and barrels, off the harbour\'s key and the berth\'s number (QUAY_SALT), the same on every client - clear of the jetty\'s mouth, its ends and its face', () => {
@@ -430,6 +432,16 @@ test('QUAYS A SHIP SAILING BY TAKES NO BERTH, by the real host: the port\'s roll
   h.run(1);
   const at0 = [...h.host._sea.values()].filter((e) => e.ship.errand?.kind === 'moored' && e.ship.errand.berth === 0);
   assert.equal(at0.length, 1, 'the berth still the port\'s');
+  // AUDIT HOLDINGS (the mutants' run): lying still there - placed, never warped in (the warp's own berth is taken by the
+  // warp, Q5) - the roll moors none into her
+  const h2 = await dockSea();
+  layOff(h2, 0, 0);
+  h2.runtime.sailing = false;
+  h2.view.feet = [0, 0, 150];
+  h2.run(1);
+  const rolled = [...h2.host._sea.values()].filter((e) => e.ship.errand?.kind === 'moored');
+  assert.ok(rolled.length >= 1, 'the roll stood');
+  assert.ok(rolled.every((e) => e.ship.errand.berth !== 0), 'none moored into her');
 });
 
 test('QUAYS THE GANGWAY, by the real host: run out square to her side at her waist while she lies made fast - from her main deck\'s port down to the quay\'s deck, in from its face as far as a climb of GANGWAY_SLOPE asks (AUDIT HOLDINGS Q1); on foot at its foot, looking at her, Activate goes aboard (said); on her deck by its head, looking at the land, Activate steps ashore onto the quay, facing the land (said); the press is the sea\'s (takesActivate) - and none while she is under way', async () => {

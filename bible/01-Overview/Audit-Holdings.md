@@ -8,7 +8,8 @@ and online, the saves, the docs and the tests' own honesty. Thirty-nine findings
 Each fix is pinned in `test/auditholdings.test.js` (22 pins) or in the pin it moved (each a `PIN MOVED` note -
 `fleet.test.js`, `quays.test.js`, `crewroles.test.js`, `classicpages.test.js`, `csa_placing.test.js`,
 `fb0929h_veinneed.test.js`, `nav_h_host.test.js`, `sealanes.test.js`, `decor2b.test.js`). Mutation-proven: `tools/mutants/auditholdings.json`
-(80 mutants, all dead), and the mutants of every list a touched test kills run again over the fixed tree (below).
+(80 mutants, all dead), and the mutants of every list a touched test kills run again over the fixed tree (below):
+2,415 in 60 lists, every one dead or recorded once four pins were moved; three survive on `main` alike.
 
 Not THE HOLDINGS ARC of the hubs, homes and guilds (`06-Systems/Online-Arc.md`): this arc is named for the pause menu's
 Holdings tab (D4).
@@ -102,3 +103,19 @@ cargo, the bucket's re-standing, the Fleet's word, the gangway's foot, look, rea
 the lanterns' hours), `sealanes.json` FEED-harbour-unnamed, `shipclaim.json` SC-claim-deed-kept-on-failure,
 `shippack.json` SHPK-deed-kept, and `survtiers3.json`'s two cites.
 
+**The lists a touched test kills** - 60 lists, 2,415 mutants, run over the merged head (`c663d7a9e`, main's Arena merge
+in): 2,394 dead, 14 equivalent as recorded, seven survived.
+
+- **Four were this branch's** - each pin could no longer reach its law, and each is moved (`PIN MOVED`); re-run, 4 dead:
+  - **DEED-PORT-the-host-never-hands-it** (`fb0929h_deedport.test.js`) - the pin matched any
+    `nearestPort: () => csaNearestPort(),`, and the Fleet host's deps carry the same call; it reads Come Sail Away's own
+    line by its note now.
+  - **QUAY-piles-on-the-bank** (`quays.test.js`) - the jetty's piles were read over the 3 m bank, which Q9 meets at its
+    face; read over the 2 m bank the jetty runs JETTY_LAND onto.
+  - **QUAY-host-berth-free-of-mine** (`quays.test.js`) - every pin of a boat of mine lying at a berth had warped her in,
+    and the warp's berth is taken by the warp itself (Q5); a boat placed there, never warped, keeps the roll off it.
+  - **SC-berth-kept** (`shipclaim.test.js`) - a claimed prize lies at her berth as a boat of mine, which keeps the roll
+    off it whatever the departed law says; she sails off it before the harbour stands again.
+- **Three survive on `main` alike** (`ee3788396`, run there): `CSAL-pad-bare-dpad`, `VEIN-NEED-press-keeps-nothing`, and
+  `NAV-B-her-colours-struck` (AUDIT TOUGHER-SHIPS found it on its base too). Not this change's - RECORDED for their own
+  slices.
