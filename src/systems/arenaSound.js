@@ -107,7 +107,7 @@ export function synthBed(voices, { rate = ARENA_SOUND_RATE, srcRate = SND_RATE, 
   const rng = seededRng(seed);
   const n = Math.round(ARENA_SOUND_SECONDS.bed * rate);
   const out = band(n, rate, rng, 180, 900);
-  for (let i = 0; i < n; i++) out[i] *= 0.06;   // HOTFIX 1003 (live: "the crowd noise is just pure static"): the murmur under the voices, not over them
+  for (let i = 0; i < n; i++) out[i] *= usable(voices).length ? 0 : 0.06;   // HOTFIX 1003f (live: "get rid of the static crowd noise"): with the voices, no noise at all - HOTFIX 1003 (live: "the crowd noise is just pure static"): the murmur under the voices, not over them
   // the noise wrapped: the last 50 ms faded into the first, so the loop has no click
   const fade = Math.round(0.05 * rate);
   for (let i = 0; i < fade; i++) { const t = i / fade; out[i] = out[i] * t + out[n - fade + i] * (1 - t); }
@@ -124,7 +124,7 @@ function shout(voices, { rate, srcRate, seed, seconds, count, pitch, spread, noi
   const rng = seededRng(seed);
   const n = Math.round(seconds * rate);
   const out = band(n, rate, rng, noiseLo, noiseHi);
-  for (let i = 0; i < n; i++) out[i] *= noiseGain * env(i / n);
+  const hiss = usable(voices).length ? 0 : 1; for (let i = 0; i < n; i++) out[i] *= noiseGain * hiss * env(i / n);   // HOTFIX 1003f (live: "get rid of the static crowd noise when cheering and booing"): the voices alone - the noise only stands in for an archive with none
   const vs = usable(voices);
   for (let k = 0; k < (vs.length ? count : 0); k++) {
     const v = vs[Math.floor(rng() * vs.length)];

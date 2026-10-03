@@ -99,8 +99,8 @@ test('ARENA2 crowd: what it SOUNDS - drums before the call, the bell at the word
   assert.deepEqual(cues(crowdHear(c, { k: 'crit', a: 'a' }, { now: 5 })), ['gasp', 'roar']);
   assert.deepEqual(cues(crowdHear(c, { k: 'knockdown', a: 'a' })), ['groan', 'roar']);
   assert.deepEqual(cues(crowdHear(c, { k: 'timeout' })), ['bell', 'boo']);
-  assert.deepEqual(cues(crowdHear(c, { k: 'verdict' })), ['applause', 'fanfare']);
-  assert.deepEqual(cues(crowdHear(c, { k: 'verdict' }, { title: true })), ['applause', 'title'], 'a title\'s own fanfare');
+  assert.deepEqual(cues(crowdHear(c, { k: 'verdict' })), ['roar', 'fanfare'], 'HOTFIX 1003f: the roar, never the crackling applause');
+  assert.deepEqual(cues(crowdHear(c, { k: 'verdict' }, { title: true })), ['roar', 'title'], 'a title\'s own fanfare');
   assert.deepEqual(crowdHear(c, { k: 'miss', a: 'a' }), []);
   assert.deepEqual(crowdHear(null, { k: 'call' }), []);
   assert.deepEqual(crowdHear(c, { k: 'nothing' }), []);
