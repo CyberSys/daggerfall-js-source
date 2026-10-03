@@ -31,7 +31,7 @@ import { attachGamepad } from '../ui/gamepadInput.js';   // GP1: the pad speaks 
 import { BlocksFile } from '../formats/blocksFile.js';
 import { bindWorldDataBlocks } from '../formats/worldDataReplacement.js';   // RR3b
 import { isClimateFreeModel, NO_CLIMATE_REMAP } from '../world/customModels.js';   // ARENA1: RuntimeMaterials' ApplyClimate 0 - the colosseum wears its own pictures
-import { isUndercroftDoor, undercroftLocation, isArenaUndercroft, isArenaCity, inArenaCell, ARENA_REGION, ARENA_LOCATION, ARENA_BLOCK, ARENA_GATE_PEOPLE } from '../world/arenaCity.js';   // ARENA1: the undercroft's stair and its record, the city's cell; ARENA2: the colosseum's block in a built pixel, the Herald's place
+import { isUndercroftDoor, undercroftLocation, isArenaUndercroft, isArenaCity, inArenaCell, ARENA_REGION, ARENA_LOCATION, ARENA_BLOCK, ARENA_GATE_PEOPLE, arenaTownLandmark } from '../world/arenaCity.js';   // ARENA1: the undercroft's stair and its record, the city's cell; ARENA2: the colosseum's block in a built pixel, the Herald's place; ARENA-MAP: its name on the town map
 import { isFurnishing } from '../systems/decorFurnish.js';   // ARENA2: a moved house's furniture back among the furnishings
 import { createArenaBouts } from './arenaBouts.js';   // ARENA2: the bout on this screen - its law over real bodies, its crowd, its HUD
 import { createArenaSound } from '../systems/arenaSound.js';   // ARENA2: the crowd, heard - built from DAGGER.SND's own voices
@@ -13337,7 +13337,7 @@ export async function bootWorld(canvas, renderer, params, status) {
       locationName: dfLoc.name,
       locationId: locId,
       gridW: dfLoc.exterior.exteriorData.width, gridH: dfLoc.exterior.exteriorData.height,
-      blocks: b.locBlocks.map((bl) => ({ x: bl.x, y: bl.y, autoMap: bl.dfBlock?.rmbBlock?.fldHeader?.autoMapData })),
+      blocks: b.locBlocks.map((bl) => ({ x: bl.x, y: bl.y, autoMap: bl.dfBlock?.rmbBlock?.fldHeader?.autoMapData, landmark: arenaTownLandmark(bl.dfBlock) })),   // ARENA-MAP: the Arena's name (world/arenaCity.js)
       playerPos: () => local,
       // the marker law is DFU's modulo of the MAP PIXEL frame, so the
       // window needs the location's origin inside that pixel back
