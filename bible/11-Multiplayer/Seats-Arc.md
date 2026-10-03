@@ -1094,7 +1094,7 @@ Season with titles at the end; a Chronicle that remembers; and the Professions e
 | The Ram (6.2) | Carpentry and Smithing craft it; a siege consumes it |
 | The Levy (7.6), Harvest and Blight (9.3) | Node yields (PROF0 section 6) |
 | Regional signature materials (PROF0 4.7) | The crowns and marches that tax them |
-| The Forge, Workshop, Apothecary (7.5) | Quality +1 step for the holder's members |
+| The Forge, Workshop, Apothecary (7.5) | Quality +1 step for the holder's members (the Apothecary's, PROF12 and AUDIT PROF-541 D2: a jewellery piece's quality step, a dish's Cooking XP half again, a brew's Potent chance +10 - a tier each) |
 | Siege Honours (6.8) | The Spoils of War table - materials only war yields |
 | The Seat tab (7.9) | The same board's Work and Market tabs (PROF0 10.1) |
 

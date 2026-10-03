@@ -6082,7 +6082,7 @@ export function createWorldModes(host) {
             if (verb === HOME_VERB.entry && door === 'own') { turnHomeEntry(bd, home); return true; }
             if (verb === HOME_VERB.sell && door === 'own') { openHomeSale(bd); return true; }
             if (verb === HALL_VERB.buy && price) { pressHallBuy(bd, price); return true; }   // GUILD1d: the house bought as the guild's hall
-            if (verb === HALL_VERB.entry && home?.hall && home.keeper) { turnHallEntry(bd, home); return true; }   // GUILD1d: who may walk into the hall
+            if (verb === HALL_VERB.entry && home?.hall && home.hallEntry) { turnHallEntry(bd, home); return true; }   // GUILD1d: who may walk into the hall; AUDIT PROF-541 G2: as the service lets set it
           }
           // ...and where the plaque listed none (a touch screen, World Tooltips off), the click's own ask - HOME-OFFER's
           // prompt: a house's offer in any mode but Steal, once a session per house (Info always asks); my home's menu

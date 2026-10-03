@@ -267,6 +267,9 @@ export async function homesInTown({ db, nowS = Math.floor(Date.now() / 1000) }, 
           // AUDIT GUILD-YARD Y1: a keeper as OWNS keeps it - of the rank, and a realm character (a local one is refused
           // every write; its decorator stood for nothing)
           ...(rank != null ? { member: true, ...(hallMay(rank, 'decorate') && h.me_realm === 1 ? { keeper: true } : {}) } : {}),
+          // AUDIT PROF-541 G2: who may say who walks in, as setHallEntry asks it (halls.js) - the rank alone, any character;
+          // `keeper`'s realm clause took the door's "Who may enter" from a local Officer the service would have answered
+          ...(rank != null && hallMay(rank, 'hallEntry') ? { hallEntry: true } : {}),
           ...lookOfRow(h),   // GUILD-YARD: how its keepers painted it, to everyone
         };
       }

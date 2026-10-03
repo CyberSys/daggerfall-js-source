@@ -248,8 +248,8 @@
   {
     "name": "AUDIT-GUILD1d-A5-doors-never-read-again",
     "file": "src/scenes/world.js",
-    "old": "if (sig(g.guild) !== was) { onlineHomes?.bump?.();",
-    "new": "if (sig(g.guild) !== was) { void 0;",
+    "old": "onRank: () => { onlineHomes?.bump?.();",
+    "new": "onRank: () => { void 0;",
     "tests": [
       "test/auditguild1d.test.js"
     ]

@@ -695,7 +695,9 @@ etc".
   the record's own piece out of the seller's record in its batch and a delivery puts it into the buyer's - the realm
   trade's move, no new trust; never for Drakes (Marks), since the service never inspects a checkpoint after the first save and a
   save-edited piece would buy them (law 3). Bound, worn, locked, quest and summoned pieces, gold and letters, boat deeds
-  and parts, arrows and Stores materials stay off it, each said.
+  and parts, arrows and Stores materials stay off it, each said. AUDIT PROF-541 D4: since PROF12 that wall takes in the
+  Apothecaries' sixteen reagents (`MINED_KEYS`; marketLaw.js `storesForm`) - every DFU template of theirs, a looted
+  Unicorn Horn, Saint's Hair or Ectoplasm as much as one withdrawn from the Stores, since the pack cannot tell the two apart.
 - **Priced in Marks.**
 - **Regional markets** - DECIDED: a listing stands on the boards of the region it was listed in. A buyer in that
   region takes it at once; a buyer anywhere else pays the **courier fee** and the goods reach their Stores after the
@@ -2893,7 +2895,8 @@ Mac: **"2 and 4"** (2026-10-02: the Apothecary waits on Alchemy, Cooking and Jew
   city** and **dungeons** - no bench, as no station stands there (22's law).
 - **The service** is **acct68**. No migration; no route added (`/v1/prof/craft`'s `cracked`); `prof-lapidary` (403). No
   relay change.
-- **Not built, named**: the Apothecary's quality steps still wait on Alchemy (`fortLaw.js` APOTHECARY_OPEN); 4.1's mining
+- **Not built, named**: the Apothecary's quality steps waited on Alchemy (`fortLaw.js` APOTHECARY_OPEN - opened since,
+  PROF12; AUDIT PROF-541 D2); 4.1's mining
   tiers of the precious metals stand as Mining's alone (the ladder above); 4.8 names no jeweller's template - the pieces
   are DFU's own, their pictures DFU's.
 - **Audited** (2026-10-03, AUDIT PROF10): **J1** - the item maker trusted any piece of Jewellery's own `enchantmentPoints`
@@ -2954,7 +2957,7 @@ Seats-Arc 7.5). What sections 1, 2, 3.3, 4.1, 4.3, 4.5, 9.3 and 9.4 left open fo
 - **The potions a brew makes** (9.3: "2 potions at Journeyman and 3 at Master (Brewer 3 at Journeyman)"): DECIDED **one
   below Journeyman** - DFU's own maker's one a mix.
 - **POTENT** (9.3: "+25% magnitude, named so, at 10% at Expert and 20% at Master, +5% an unbruised herb"; `potentChance`).
-  Rolled by the service, **once a brew** (DECIDED: one cauldron, its potions Potent together or not); none below Expert.
+  Rolled by the service, **once a brew** (DECIDED: one cauldron, its potions Potent together or not); the rank's own chance none below Expert (AUDIT PROF-541 D1: the rest add at any rank - an unbruised herb, a Distiller's from 50, the town's Apothecary).
   The **Distiller** +10 (3.3); the **Master Alchemist**'s share +40, not +25. DECIDED: an unbruised herb's +5 holds **at any
   rank** (the herb's gift, not the brewer's). The potion is DFU's own (`systems/alchemyItems.js` brewItems - loot.js
   createPotion: its key, price and bottle) carrying the port's **`potent`** field (itemFields: 25 or 40): **named so**
@@ -3060,7 +3063,7 @@ Seats-Arc 7.5). What sections 1, 2, 3.3, 4.1, 4.3, 4.5, 9.3 and 9.4 left open fo
   did nothing for fourteen potions - they last longer (Mac's choice); **E3** the Transmuter's three of a metal - two and a
   Mercury (Mac's choice); **E5** (LOW) accepted (NOT YET, above). Each pinned (eleven tests), 30 mutants added, all dead.
 - **Pinned**: `test/prof12_law.test.js` (13), `test/prof12_service.test.js` (9, through the real Worker),
-  `test/prof12_client.test.js` (12), `test/prof12_apothecary.test.js` (4, the Apothecary through the real Worker). Mutants:
+  `test/prof12_client.test.js` (13), `test/prof12_apothecary.test.js` (4, the Apothecary through the real Worker). Mutants:
   `tools/mutants/prof12.json` (177, all dead). Patch notes: `PATCH-NOTES-Alchemy.md`; the Apothecary's in `PATCH-NOTES-Seats-Finished.md`.
 
 ## Appendix A - a day of a gatherer

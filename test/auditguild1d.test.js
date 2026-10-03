@@ -256,7 +256,7 @@ test('AUDIT GUILD1d A1-A9: members rest (the online bed its own permanence), use
   assert.match(wm, /if \(_hallBuying\.has\(id\)\) return;\n\s*_hallBuying\.add\(id\);/, 'A8');
   assert.match(wm, /\.finally\(\(\) => \{ _hallBuying\.delete\(id\); \}\);/);
   const w = src('src/scenes/world.js');
-  assert.match(w, /g\.refresh\(\)\.then\(\(\) => \{ if \(sig\(g\.guild\) !== was\) \{ onlineHomes\?\.bump\?\.\(\); /, 'A5');
+  assert.match(w, /onRank: \(\) => \{ onlineHomes\?\.bump\?\.\(\); /, 'A5');   // PIN MOVED (AUDIT PROF-541 G1): the guild book's onRank, told at every look
   const homes = createOnlineHomes({ api: { town: async () => ({ ok: true, data: { homes: [] } }) } });
   const v0 = homes.version();
   homes.bump();

@@ -10456,6 +10456,15 @@ a palace's (equivalent, as before), `housing.json`'s and `fb1001_yard.json`'s re
   `guild_yard.json` mutants 29, all dead (the audit's three survivors - the tool's `where`, OWNS's home without its
   character, the hall's word for every yard refusal - among them); `guild1d.json`'s palace record renamed
   (`GUILD1d-the-palace-yard-refused-only-in-the-write`, equivalent as before).
+- **Audited again** (2026-10-03, AUDIT PROF-541; `acct70`, no migration): G1 - C3 compared the rank only when
+  `guildHall.info` took the look itself, and every other look (the Guild tab's, the seat Edicts' `guildId`, `guildGone`,
+  an act's) came first, so a demoted Officer kept the yard's decorator a minute: the guild book compares `id|rank|hall`
+  in `_refresh` at every look and tells its host (`onRank`, beside `onOrders`), which bumps the registry and reads the
+  town again forced (world.js, outside `onlineFrame`); `info` only looks. G2 - Y1's realm clause also took the hall
+  door's "Who may enter" (`homeHallRows`, worldModes.js's press) from a local Officer whom `setHallEntry` (rank alone)
+  answers: the town names `hallEntry` apart, by the rank, and the row and the press go by it. G3 - the ghost's bar in a
+  full hall yard (`placingWhy`'s `hall`) and the commit's cap pinned. `test/guild_yard.test.js` (16, one new); the
+  `guild_yard.json` mutants 37, all dead.
 
 ### GUILD1e - a guild's own board
 

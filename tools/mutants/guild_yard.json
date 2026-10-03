@@ -192,8 +192,26 @@
   {
     "name": "AUDIT-GUILD-YARD-C3-the-town-unread",
     "file": "src/scenes/world.js",
-    "old": "{ onlineHomes?.bump?.(); onlineHomes?.ensure?.(_musicLoc?.mapTableData?.mapId, { force: true })?.catch?.(() => {}); }",
-    "new": "{ onlineHomes?.bump?.(); }",
+    "old": "onRank: () => { onlineHomes?.bump?.(); onlineHomes?.ensure?.(_musicLoc?.mapTableData?.mapId, { force: true })?.catch?.(() => {}); },",
+    "new": "onRank: () => { onlineHomes?.bump?.(); },",
+    "tests": [
+      "test/guild_yard.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-PROF-541-G1-the-ranks-move-untold",
+    "file": "src/net/guildBook.js",
+    "old": "const moved = ranked !== this._ranked;",
+    "new": "const moved = false;",
+    "tests": [
+      "test/guild_yard.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-PROF-541-G1-no-guild-told-at-the-first-look",
+    "file": "src/net/guildBook.js",
+    "old": "    this._ranked = '';",
+    "new": "    this._ranked = undefined;",
     "tests": [
       "test/guild_yard.test.js"
     ]
@@ -203,6 +221,42 @@
     "file": "server-account/src/homes.js",
     "old": "hallMay(rank, 'decorate') && h.me_realm === 1 ? { keeper: true }",
     "new": "hallMay(rank, 'decorate') ? { keeper: true }",
+    "tests": [
+      "test/guild_yard.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-PROF-541-G2-hallEntry-asks-a-realm-character",
+    "file": "server-account/src/homes.js",
+    "old": "hallMay(rank, 'hallEntry') ? { hallEntry: true }",
+    "new": "hallMay(rank, 'hallEntry') && h.me_realm === 1 ? { hallEntry: true }",
+    "tests": [
+      "test/guild_yard.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-PROF-541-G2-the-registrys-hallEntry-the-keepers",
+    "file": "src/systems/onlineHomes.js",
+    "old": "hallEntry: h.hallEntry === true,",
+    "new": "hallEntry: h.keeper === true,",
+    "tests": [
+      "test/guild_yard.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-PROF-541-G2-the-rows-gate-the-keepers",
+    "file": "src/systems/onlineHomes.js",
+    "old": "...(home.hallEntry ? [{ id: HALL_VERB.entry,",
+    "new": "...(home.keeper ? [{ id: HALL_VERB.entry,",
+    "tests": [
+      "test/guild_yard.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-PROF-541-G2-the-press-gate-the-keepers",
+    "file": "src/scenes/worldModes.js",
+    "old": "home?.hall && home.hallEntry) { turnHallEntry",
+    "new": "home?.hall && home.keeper) { turnHallEntry",
     "tests": [
       "test/guild_yard.test.js"
     ]
@@ -263,6 +317,24 @@
       "test/guild_yard.test.js",
       "test/guild1d_service.test.js",
       "test/seathall_service.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-PROF-541-G3-the-commits-cap-unasked",
+    "file": "src/scenes/decorTool.js",
+    "old": "    if (decorWhyNot({ price, ready: true, gold: deps.wallet().gold,",
+    "new": "    if (false && decorWhyNot({ price, ready: true, gold: deps.wallet().gold,",
+    "tests": [
+      "test/guild_yard.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-PROF-541-G3-the-bars-hall-lost",
+    "file": "src/scenes/decorTool.js",
+    "old": "yard: !!deps.room?.()?.yard, hall: !!deps.room?.()?.hall }",
+    "new": "yard: !!deps.room?.()?.yard, hall: false }",
+    "tests": [
+      "test/guild_yard.test.js"
     ]
   }
 ]
