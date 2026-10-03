@@ -11,17 +11,8 @@
   {
     "name": "CURSOR-EDGE-the-classic-arrow-always-2x",
     "file": "src/ui/cursor.js",
-    "old": "export const cursorScale = (w, h) => Math.max(1, Math.min(SCALE, Math.floor(MAX_CURSOR_DIP / Math.max(w, h))));",
-    "new": "export const cursorScale = () => SCALE;",
-    "tests": [
-      "test/fb1001_cursoredge.test.js"
-    ]
-  },
-  {
-    "name": "CURSOR-EDGE-the-classic-arrow-uncropped",
-    "file": "src/ui/cursor.js",
-    "old": "  return dw ? [dw, dh] : [w, h];",
-    "new": "  return [w, h];",
+    "old": "  const arrow = `url(\"${url}\") ${DFU_CURSOR_HOTSPOT[0]} ${DFU_CURSOR_HOTSPOT[1]}, auto`;",
+    "new": "  const arrow = `image-set(url(\"${url}\") 2x) ${DFU_CURSOR_HOTSPOT[0]} ${DFU_CURSOR_HOTSPOT[1]}, auto`;",
     "tests": [
       "test/fb1001_cursoredge.test.js"
     ]

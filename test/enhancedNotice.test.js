@@ -314,7 +314,7 @@ test('ENH-NOTICE1: drawEnhancedNotice - visible:false hides without releasing; a
 
 test('ENH-NOTICE1: the sheet - right edge, pointer-transparent, a slide the module\'s clock matches', () => {
   const stack = /\.notice-stack \{([^}]*)\}/.exec(ENHANCED_CSS)?.[1] ?? '';
-  assert.match(stack, /position: fixed; right: 0;/, 'mutants: the stack not pinned to the right edge');
+  assert.match(stack, /position: fixed; right: var\(--ui-pillar, 0px\);/, 'mutants: the stack not pinned to the right edge (RETRO-UI: the picture\'s - the pillar, 0 without one)');
   assert.match(stack, /pointer-events: none/, 'mutants: the panel eating the click that dismisses the box');
   assert.match(stack, /z-index: 31/);   // AUDIT ENH-NOTICE3 A7: off the tie with the update scrim at 30
   assert.match(stack, /max-height: 90vh; overflow: hidden;/, 'AUDIT ENH-NOTICE3 A1: what will not fit is clipped, not spilled off the screen');

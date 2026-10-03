@@ -53,7 +53,7 @@ const numeral = (rank) => ROMAN[Math.max(0, Math.min(5, rank | 0))];
 
 export const REVENANT_CARD_CSS = `
 .rvncard-stack {
-  position: fixed; left: calc(12px + env(safe-area-inset-left, 0px)); top: calc(17vh + env(safe-area-inset-top, 0px));
+  position: fixed; left: calc(12px + var(--ui-pillar, 0px) + env(safe-area-inset-left, 0px)); top: calc(17vh + env(safe-area-inset-top, 0px));   /* RETRO-UI */
   z-index: 31; pointer-events: none; display: flex; flex-direction: column; gap: 10px;
   width: min(380px, calc(100vw - 24px));
   font-family: ${PIXEL_STACK}; -webkit-font-smoothing: none; font-variant-ligatures: none; font-feature-settings: 'liga' 0, 'clig' 0;

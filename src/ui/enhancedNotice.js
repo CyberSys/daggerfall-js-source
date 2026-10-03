@@ -60,6 +60,7 @@
 import { injectEnhancedStyle, injectEnhancedFonts } from './enhancedStyle.js';
 import { isEnhanced, isEnhancedPlus } from '../systems/uiSkin.js';   // PLUS1: the toast's fade is Enhanced Plus's
 import { armDrawWatchdog, disarmDraw } from './drawWatchdog.js';   // DISC29-D: the watchdog counts frames, not milliseconds
+import { placeHudPieces } from './hudPlacer.js';   // MOVED-NOTICE: a new stack stands where HUD-MOVE put it from its first frame
 
 export const ENHANCED_NOTICE_ID = 'enhanced-notice';
 /** The sheet's transition length (ui/enhancedStyle.js .notice), in ms. */
@@ -85,6 +86,11 @@ function buildStack(doc) {
   root.className = 'notice-stack';
   root.setAttribute('aria-live', 'polite');   // the box's words, read out where the parchment could not be
   doc.body.append(root);
+  // MOVED-NOTICE (FIELD BUGS 2026-10-03): placed where the player moved it AT ONCE - before the first panel's resting
+  // style is flushed - as revenantCard's ensure() places its stack. The stack is rebuilt for every burst, and left to
+  // the 250 ms sweep its first panel was drawn at the sheet's own place, then warped to the moved one. Through the
+  // placer's seat, not hudLayout itself: this module is on the quest herald's light path (ui/hudPlacer.js).
+  placeHudPieces(doc);
   return root;
 }
 

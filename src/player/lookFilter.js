@@ -80,11 +80,13 @@ let _controllerLook = false;
 export function setControllerLook(on) { _controllerLook = !!on; }
 export const controllerLook = () => _controllerLook;
 
-/** WW1: THE FRAME'S LOOK, for a reader that is not the camera. DFU's
- *  InputManager.LookX/LookY are the frame's mouse axes after sensitivity,
- *  and Weapon Widget's inertia reads them straight; here the same
- *  numbers arrive at add() below, so the latch keeps the frame's sum and
- *  takeFrameLook hands it over once, zeroed for the next. */
+/** WW1: THE FRAME'S LOOK, for a reader that is not the camera. The latch
+ *  keeps the frame's sum of what add() below is handed - the camera's own
+ *  RADIANS, pitch inverted - and takeFrameLook hands it over once, zeroed
+ *  for the next. Those are NOT DFU's InputManager.LookX/LookY, which
+ *  Weapon Widget's inertia reads straight: ui/lookSettings.js dfuLookAxes
+ *  converts (WIDGET-LOOK, FIELD BUGS 2026-10-03 - read as they were, the
+ *  mods' sway was a fourteenth of their own). */
 let _frameYaw = 0, _framePitch = 0;
 export function takeFrameLook() { const v = [_frameYaw, _framePitch]; _frameYaw = 0; _framePitch = 0; return v; }
 

@@ -1499,7 +1499,7 @@ test('FIELD-GUN19: the shot leaves the barrel through the WORLD STRIP, not the c
   // for this one reader; a draw that forgot it would leave every shot
   // high again with nothing else to show for it.
   const rig = readFileSync('src/combat/weaponRig.js', 'utf8');
-  assert.match(rig, /_tlDrawn = \{[^}]*viewport: renderer\.worldViewportRect \?\? null[^}]*\}/,
+  assert.match(rig, /_tlDrawn = \{ rect: \{ \.\.\.rect, x: rx, y: ry \},[^}]*viewport: renderer\.worldViewportRect \?\? null[^}]*\}/,   // RETRO-UI: the rect measured back on the real canvas
     'drawThunderlock parks the strip the world was drawn into');
   const renderer = readFileSync('src/render/renderer.js', 'utf8');
   assert.match(renderer, /get worldViewportRect\(\)/, 'the renderer exposes the frame\'s strip');

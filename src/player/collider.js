@@ -932,6 +932,24 @@ export class Collider {
   }
 
   /**
+   * BOUNTY-ROCK (FIELD BUGS 2026-10-03): whether a world point stands INSIDE static solid - a World of Daggerfall rock
+   * or mountain, a model standing in the ground. `partsHolding`'s line straight up (ROCK-FREE's: an odd count of
+   * crossings of one part's skin), over every static bucket whose box holds the point. A bucket that turns (a boat's)
+   * holds nothing, as in hullSweepAll. `sphereOverlaps` cannot answer this: deep inside a rock no face is near.
+   */
+  insideSolid(p) {
+    const held = SWEEP_HELD;   // the hull sweep's scratch: insideSolid never runs inside a sweep (PERF-COL1: one scratch set)
+    for (const bucket of this._buckets.values()) {
+      if (bucket.r || !(bucket.min[0] <= bucket.max[0])) continue;   // a mover's; an empty bucket's box is inverted
+      const t = bucket.t();
+      held.clear();
+      partsHolding(bucket, p[0] - t[0], p[1] - t[1], p[2] - t[2], held);
+      if (held.size) return true;
+    }
+    return false;
+  }
+
+  /**
    * Static-geometry half of Unity's `Physics.OverlapSphere` - true
    * when any world triangle sits within `radius` of `center`. B1's
    * caller is CreateFoe's spawn-spot rejection (PlaceFoeFreely,

@@ -112,7 +112,7 @@
 // original note is STALE and is withdrawn: there are no screen-to-ray
 // conversions to fix. The port's activation ray is the CAMERA's own
 // forward vector (`townTalk.tryActivate(cam.pos, useFwd, ...)` -
-// scenes/world.js:24451 and scenes/exterior.js:4984, the only two
+// scenes/world.js:24459 and scenes/exterior.js:4984, the only two
 // hosts that carry the call, each over a useFwd that is the camera's
 // own forward from cam.yaw and cam.pitch - or, since TI1, the touch
 // tap's ray, which IS a pixel unprojected, but through the frame's
@@ -136,6 +136,7 @@
 // texture's shape, so there is still no second copy to find.
 
 import { ImgFile } from '../formats/imgFile.js';
+import { toUiPoint } from './uiScreen.js';   // RETRO-UI: a click on a bar drawn in DFU's CustomScreenRect
 import { CifRciFile } from '../formats/cifRciFile.js';
 import { BssFile } from '../formats/bssFile.js';
 // ui/hud.js is bitmapToColor32's home and it calls drawHudLarge below,
@@ -633,9 +634,9 @@ export function trackLargeHudPointer(canvas, e, bar = largeHudBar()) {
   if (!canvas?.getBoundingClientRect) { _overBar = false; return; }
   const r = canvas.getBoundingClientRect();
   if (!r.width || !r.height) { _overBar = false; return; }
-  _overBar = !!largeHudPoint(bar,
+  _overBar = !!largeHudPoint(bar, ...toUiPoint(   // RETRO-UI: the bar the last drawHud drew, in the pillarbox
     (e.clientX - r.left) * (canvas.width / r.width),
-    (e.clientY - r.top) * (canvas.height / r.height));
+    (e.clientY - r.top) * (canvas.height / r.height)));
 }
 
 /**
@@ -730,7 +731,7 @@ export function routeLargeHudClick(px, py, button, ctx, { windowUp = false, even
   // mousedown) never hear it.
   if (routeSpellIconClick(button, { windowUp })) { event?.preventDefault?.(); return true; }
   if (!largeHudEnabled() || windowUp || !cursorActive()) return false;
-  const hit = largeHudClick(largeHudBar(), px, py, button);
+  const hit = largeHudClick(largeHudBar(), ...toUiPoint(px, py), button);   // RETRO-UI: the host's canvas pixel, into the pillarbox the bar is drawn in
   if (!hit) return false;
   // AUDIT 65 UI-4 - THE BAR BINDS TWO BUTTONS. HUDLarge registers
   // OnMouseClick and OnRightMouseClick on all eleven panels

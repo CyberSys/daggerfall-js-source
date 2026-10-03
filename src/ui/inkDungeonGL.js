@@ -27,6 +27,7 @@
 import { INK_RGB } from './inkMap.js';
 import { slicingPositionY, DEFAULT_SLICING_BIAS_Y } from '../systems/automap.js';
 import { EYE_HEIGHT } from '../player/motor.js';
+import { loseGlContext, onPageGone } from '../render/glRelease.js';   // GL-LEAK: the context let go at once, and as the page goes
 
 /** How far over the player's feet the slice cuts (metres) - the classic window's own law (automap.js
  *  slicingPositionY: the eye, plus DFU's SlicingBiasY), so both maps cut the dungeon at the same height. */
@@ -260,9 +261,11 @@ function compile(gl, type, src) {
 }
 function program(gl, vs, fs) {
   const p = gl.createProgram();
-  gl.attachShader(p, compile(gl, gl.VERTEX_SHADER, vs)); gl.attachShader(p, compile(gl, gl.FRAGMENT_SHADER, fs));
+  const v = compile(gl, gl.VERTEX_SHADER, vs), f = compile(gl, gl.FRAGMENT_SHADER, fs);
+  gl.attachShader(p, v); gl.attachShader(p, f);
   gl.linkProgram(p);
-  if (!gl.getProgramParameter(p, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(p) ?? 'link');
+  gl.deleteShader(v); gl.deleteShader(f);   // GL-LEAK: flagged now, freed with the program they are attached to
+  if (!gl.getProgramParameter(p, gl.LINK_STATUS)) { gl.deleteProgram(p); throw new Error(gl.getProgramInfoLog(p) ?? 'link'); }
   return p;
 }
 
@@ -343,12 +346,12 @@ export function createDungeonInk(doc) {
   const gl = /** @type {WebGL2RenderingContext|null} */ (canvas?.getContext?.('webgl2', { alpha: true, premultipliedAlpha: true, antialias: false, depth: true, preserveDrawingBuffer: true }) ?? null);
   if (!gl) return null;
   let pA, pB;
-  try { pA = program(gl, VS_A, FS_A); pB = program(gl, VS_B, FS_B); } catch { return null; }
+  try { pA = program(gl, VS_A, FS_A); pB = program(gl, VS_B, FS_B); } catch { loseGlContext(gl); return null; }   // GL-LEAK: a context that failed is let go, not left for the collector
   const buf = { pos: gl.createBuffer(), nrm: gl.createBuffer(), water: gl.createBuffer(), rowY: gl.createBuffer(), quad: gl.createBuffer() };
   gl.bindBuffer(gl.ARRAY_BUFFER, buf.quad);
   gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 1, -1, -1, 1, 1, 1]), gl.STATIC_DRAW);
   const fbo = gl.createFramebuffer(), tN = gl.createTexture(), tK = gl.createTexture(), tD = gl.createTexture();
-  let fw = 0, fh = 0, meshKey = null, count = 0, lo = [0, 0, 0], hi = [0, 0, 0];
+  let fw = 0, fh = 0, meshKey = null, meshOwner = null, count = 0, lo = [0, 0, 0], hi = [0, 0, 0];
 
   function sizeTo(W, H) {
     if (W === fw && H === fh) return;
@@ -369,10 +372,13 @@ export function createDungeonInk(doc) {
 
   return {
     canvas,
-    /** The revealed rows, uploaded once per reveal. */
-    setMesh(key, rows) {
-      if (key === meshKey) return;
-      meshKey = key;
+    /** GL-LEAK: the context is gone (the browser took it back) - the page's ink is built anew. */
+    lost: () => !!gl.isContextLost?.(),
+    /** The revealed rows, uploaded once per reveal. GL-LEAK: the ink is the PAGE's, so the key is the sheet's own -
+     *  `owner` - as well as its reveal: another sheet's rows that happen to count the same are never taken for these. */
+    setMesh(key, rows, owner = null) {
+      if (key === meshKey && owner === meshOwner) return;
+      meshKey = key; meshOwner = owner;
       let n = 0;
       const parts = rows.map(rowMesh);
       for (const m of parts) n += m.count;
@@ -477,5 +483,46 @@ export function createDungeonInk(doc) {
       gl.activeTexture(gl.TEXTURE0);
       return canvas;
     },
+    /** GL-LEAK: every object this ink made, deleted, and the context let go at once (a canvas off the page is
+     *  otherwise freed only when the collector runs, which no GPU memory pressure ever asks for). */
+    dispose() {
+      for (const b of Object.values(buf)) gl.deleteBuffer(b);
+      gl.deleteFramebuffer(fbo);
+      for (const t of [tN, tK, tD]) gl.deleteTexture(t);
+      gl.deleteProgram(pA); gl.deleteProgram(pB);
+      meshKey = null; meshOwner = null; count = 0;
+      loseGlContext(gl);
+      canvas.width = 0; canvas.height = 0;
+    },
   };
+}
+
+/**
+ * GL-LEAK (FIELD BUGS 2026-10-03, Swololo: "After long plays there are consistent GPU memory leaks that do not lower
+ * down even after closing the tab ... Might be related to some GL instances not being cleared through webgl"): ONE INK
+ * A PAGE. The held map builds a sheet per open, and each sheet built its own ink - a WebGL2 context of its own with a
+ * full-size framebuffer, a depth buffer and three paper-sized textures (30-40 MB at 1080p, past 150 at 4K) - on every M
+ * in a dungeon or a building, never deleted and never lost; its canvas off the page, it lived until a collection no GPU
+ * pressure asks for. One map is ever open, so the page keeps one ink and every sheet draws with it (its rows keyed by
+ * the sheet, setMesh's `owner`). A lost one (the browser's to take back) is built anew; none (no WebGL2) is asked
+ * again at the next open, as each sheet asked before.
+ * @param {Document|null} doc
+ */
+let _shared = null;   // { doc, ink, unseat }
+export function dungeonInkFor(doc) {
+  if (!doc) return null;
+  if (_shared && _shared.doc === doc && !_shared.ink.lost()) return _shared.ink;
+  disposeDungeonInk();
+  const ink = createDungeonInk(doc);
+  if (ink) _shared = { doc, ink, unseat: onPageGone(disposeDungeonInk) };
+  return ink;
+}
+
+/** GL-LEAK: the shared ink let go - a lost one replaced, or the page going (render/glRelease.js). */
+export function disposeDungeonInk() {
+  if (!_shared) return;
+  const { ink, unseat } = _shared;
+  _shared = null;
+  unseat();
+  ink.dispose();
 }

@@ -472,8 +472,8 @@ test('D10: the offset really moves the horse rect and the viewmodel quad', () =>
   // MAC-K3: the horse arm is `player/mountRig.js`'s now, and it is the
   // ONE caller for every outdoor host - this used to read world.js,
   // which is the host that HAD a mount rather than the rule.
-  assert.ok(src('player/mountRig.js').includes('ridingRect(canvasOf(), art, horseOffsetHeight())'),
-    'the mount rig feeds the horse arm');
+  assert.ok(src('player/mountRig.js').includes('const ui = canvasOf();\n        const rect = ridingRect(ui, art, horseOffsetHeight());'),
+    'the mount rig feeds the horse arm (RETRO-UI: on the UI canvas, DFU\'s CustomScreenRect)');
   const callers = ['exterior', 'world', 'worldModes', 'dungeonContext']
     .filter((h) => src(`scenes/${h}.js`).includes('ridingRect('));
   assert.deepEqual(callers, [], 'and no host calls it directly any more');

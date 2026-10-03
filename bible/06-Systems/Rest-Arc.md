@@ -727,3 +727,9 @@ Mac: "Go" - every recommendation of section 15 taken. Slices REST1-REST6 and RES
 - 2026-10-03: origin/main merged in (#553 REL7, #550 HAUL-CARDS - its silver pin, read by what each claim was paid,
   is the full suite's load flake this branch's gate met). The mutation run's three arc-blinded mutants fixed (AUDIT
   REST-PARTY, "The mutation run").
+- 2026-10-03: origin/main merged in (#551 FIELD BUGS 2026-10-03, #555 REL7): 166 conflicting hunks were cites alone
+  (main's side taken, citeMerge, the struck rows by content); two were real - `quest/clock.js`, where main's
+  BODYGUARD-CLOSE (`closesStartUp`, a start-up closing closes on the short wait once paid) sits beside REST8's
+  `ONLINE_DEADLINES` exemption in `isDeadline`, both kept. Its pin assumed TIMEFREE's frozen deadline (a hundred unpaid
+  hours online leave The Bodyguard open); with REST8 a deadline runs on the world's clock, so the unpaid `_timer_` runs
+  out after its day and three hours, as DFU's - the pin now steps twenty unpaid hours, and pins that run-out too.

@@ -58,6 +58,7 @@
 // build() and read the live options bag from a module variable, so a
 // frame still costs no listener work.
 import { injectEnhancedStyle, injectEnhancedFonts } from './enhancedStyle.js';
+import { retroScreenRect } from '../systems/retroMode.js';   // RETRO-UI: the pillarbox's rect, DFU's CustomScreenRect
 import { stepGhost, chunkFrame, GHOST_HOLD } from './barLoss.js';   // VB2 / FRAME1: a bar's loss (AUDIT NAV1: shared with the sea fight's card)
 import { mountHitNumbers, healNumberFor, showNumber } from './hitNumbers.js';   // HN1; PARTY-BUFFS: the heal a frame shows
 import { maxRoundsRemaining } from './hudActiveSpells.js';
@@ -868,11 +869,27 @@ const initialsOf = (name) => String(name ?? '').split(/\s+/).filter(Boolean)
  *   quickSwap()     - and on the off hand while it offers a swap
  *   quickOffHand()  - the off hand's own press in every other state (QS4)
  */
+/** RETRO-UI (FIELD BUGS 2026-10-03): DFU lays its HUD out in CustomScreenRect - under retro mode's pillarbox, the
+ *  picture's rect (ViewportChanger.cs :138-140) - and the enhanced HUD stood over the black bars. Its root is inset to
+ *  the pillars, as the held map's (DISC25-B), and the pieces fixed at the screen's edges apart from it (the notices,
+ *  the quest tracker, the status line, the revenant's cards) read the pillar off `--ui-pillar`. Written on a change. */
+let _pillar = null;
+function wearUiPillar(doc, root) {
+  const ui = retroScreenRect(globalThis.innerWidth || 0, globalThis.innerHeight || 0);
+  const inset = ui ? `${ui.x}px` : '';
+  if (inset === _pillar) return;
+  _pillar = inset;
+  root.style.left = inset; root.style.right = inset;
+  if (inset) doc.documentElement?.style?.setProperty?.('--ui-pillar', inset);
+  else doc.documentElement?.style?.removeProperty?.('--ui-pillar');
+}
+
 export function drawEnhancedHud(vitals, heading01, dt = 0, opts = {}) {
   const { hidden = false } = opts;
   if (typeof document === 'undefined') return;
   if (!host) { parts = build(document); host = parts.root; mountHotbarDock(parts.hotDock); }
   tickHudLayout(document);   // HUD-MOVE: starts once, then a throttled sweep - the player's layout and the lock
+  wearUiPillar(document, host);   // RETRO-UI: inside retro mode's pillarbox, as the held map stands (DISC25-B)
   tickFoeTarget(dt);
   // HB1: the hotbar hears every frame, hidden or not - a hidden HUD is
   // exactly when it may still be up under the pack as a drop target.
