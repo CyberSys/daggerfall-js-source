@@ -42,7 +42,7 @@ import { CHAR_ID_RE } from './service.js';
 import { heraldryOfRow } from './halls.js';
 import { MARKS_MAX, utcDay } from '../../src/net/marksLaw.js';
 import { regionOk } from '../../src/net/nodeLaw.js';
-import { saleTaxOn } from '../../src/net/marketLaw.js';
+import { MARKET_TAX_PCT } from '../../src/net/marketLaw.js';   // AUDIT SILVER-WAYS B1: a deed's tax reckoned in the batch (deedTaxSql - saleTaxOn's law)
 import { GUILD_RANK_MASTER } from '../../src/net/guildLaw.js';
 import {
   CONTRACT_S, GUILD_CONTRACTS_MAX, CONTRACTS_PAID_MAX, WRIT_POSTS_MAX, WRIT_OPS_MAX, WRIT_WINDOW_S, WRIT_SETTLE_MAX, WRIT_SHOWN,
@@ -242,41 +242,58 @@ export async function withdrawContract(ctx, player, env, { character, contract: 
 const payRid = (id, key) => `cpay:${id}:${key}`;
 const taxRid = (id, key) => `ctax:${id}:${key}`;
 
+/** AUDIT SILVER-WAYS B1: the open contracts a claim reads to pay - twice what it may be paid by, so a contract another
+ *  claim fills in the meantime leaves the next-best to pay (the batch pays CONTRACTS_PAID_MAX at most). */
+const CONTRACTS_READ_MAX = CONTRACTS_PAID_MAX * 2;
+/** AUDIT SILVER-WAYS B1: a deed's tax in SQL, off the contract row AS THE BATCH FINDS IT (`c`) - marketLaw.js saleTaxOn's
+ *  running total (5% of the deeds paid with this one, floored, less 5% of those before it). MARKET_TAX_PCT is written
+ *  into the text as the law's integer, never bound: a bound number is a REAL to the driver, and the division with it
+ *  (1.5) would not floor; every term here an INTEGER column or literal, SQLite's integer division floors what is never
+ *  negative. */
+const TAX_PCT = Math.trunc(MARKET_TAX_PCT);
+const deedTaxSql = `(((c.deeds - c.left_deeds + 1) * c.pay * ${TAX_PCT}) / 100 - ((c.deeds - c.left_deeds) * c.pay * ${TAX_PCT}) / 100)`;
+
 /**
  * THE STATEMENTS A RAID'S CLAIM RUNS FOR THE CONTRACTS OF ITS REGION (raids.js claimRaid's batch): `{ key, nonce }` the
  * raid's key and the claim's own nonce. The region is the key's (RAID-ROLL: the relay read it against the day's roll);
  * the open contracts there with a deed left, the best-paying first, CONTRACTS_PAID_MAX of them - each paid once a (raid,
  * account), only where the claim's own row stands with its nonce, never to an account any of whose characters may post
- * or withdraw that guild's contracts, never past the defender's MARKS_MAX, and only while the contract stands as it was
- * read (its deeds left - the tax is the running total's, as a writ's). A contract another claim drew down between the
- * read and the write is passed over for this claim, which is counted all the same. Null where silver is not this
- * account's or no contract stands there.
+ * or withdraw that guild's contracts, never past the defender's MARKS_MAX.
+ * AUDIT SILVER-WAYS B1: the deed's tax is reckoned IN the batch, off the contract as the batch finds it - it was read
+ * before it and the pay written only while the contract still stood as read, so a party's claims, which the relay's
+ * receipts send together, passed over every defender but the first, who could never claim again. The batch's own
+ * serial order is the running total's now; and the read takes twice the contracts it pays, the batch paying
+ * CONTRACTS_PAID_MAX at most, so one filled meanwhile leaves the next-best.
+ * AUDIT SILVER-WAYS B2: the read skips a guild whose contracts this account may not be paid by (its posters' ranks), so
+ * an officer of a guild whose own contracts outrank the rest is still paid by the others'.
+ * Null where silver is not this account's or no contract stands there.
  */
 export async function contractPayStatements({ db, nowS }, player, env, { key, nonce }) {
   if (accountKind(player) !== 'linked' || !contractsOpenFor(player, env)) return null;
   const region = contractRegionOfRaid(key);
   if (region == null) return null;
-  const { results: open = [] } = await db.prepare(`SELECT id, pay, deeds, left_deeds FROM guild_contracts
-    WHERE region = ?1 AND kind = 'raid' AND state = 'open' AND expires_at > ?2 AND left_deeds >= 1
-    ORDER BY pay DESC, at LIMIT ${CONTRACTS_PAID_MAX}`).bind(region, nowS).all();
+  const posters = (g) => `EXISTS (SELECT 1 FROM guild_members m WHERE m.player = ?3 AND m.guild_id = ${g} AND m.rank IN (${POSTERS_SQL}))`;
+  const { results: open = [] } = await db.prepare(`SELECT id FROM guild_contracts
+    WHERE region = ?1 AND kind = 'raid' AND state = 'open' AND expires_at > ?2 AND left_deeds >= 1 AND NOT ${posters('guild_contracts.guild_id')}
+    ORDER BY pay DESC, at LIMIT ${CONTRACTS_READ_MAX}`).bind(region, nowS, player.id).all();
   if (!open.length) return null;
   const day = utcDay(nowS);
   const event = `raid:${key}`;
   const statements = [];
   for (const c of open) {
-    const pay = Number(c.pay), left = Number(c.left_deeds);
-    const tax = saleTaxOn((Number(c.deeds) - left) * pay, pay);
     const paid = 'EXISTS (SELECT 1 FROM guild_contract_pays WHERE contract = ?2 AND event = ?3 AND account = ?1 AND n = ?4)';
     statements.push(
-      // THE DECISION: the claim's own row, the contract as it was read, the account none of the guild's posters, its room
+      // THE DECISION: the claim's own row, the contract as the batch finds it (a deed left, its escrow, its tax), the
+      // account none of the guild's posters, its room, and the claim's CONTRACTS_PAID_MAX
       db.prepare(`INSERT OR IGNORE INTO guild_contract_pays (contract, event, account, char_id, guild_id, pay, tax, at, day, n)
-        SELECT c.id, ?3, ?1, rc.char_id, c.guild_id, ?5, ?6, ?7, ?8, ?4
-        FROM guild_contracts c JOIN raid_cleanses rc ON rc.raid = ?9 AND rc.account = ?1 AND rc.nonce = ?4
-        WHERE c.id = ?2 AND c.state = 'open' AND c.expires_at > ?7 AND c.left_deeds = ?10 AND c.pay = ?5 + ?6 AND c.escrow >= c.pay
+        SELECT c.id, ?3, ?1, rc.char_id, c.guild_id, c.pay - ${deedTaxSql}, ${deedTaxSql}, ?5, ?6, ?4
+        FROM guild_contracts c JOIN raid_cleanses rc ON rc.raid = ?7 AND rc.account = ?1 AND rc.nonce = ?4
+        WHERE c.id = ?2 AND c.state = 'open' AND c.expires_at > ?5 AND c.left_deeds >= 1 AND c.escrow >= c.pay
           AND NOT EXISTS (SELECT 1 FROM guild_members WHERE player = ?1 AND guild_id = c.guild_id AND rank IN (${POSTERS_SQL}))
-          AND NOT EXISTS (SELECT 1 FROM marks_ledger WHERE actor = ?1 AND rid = ?11)
-          AND COALESCE((SELECT balance FROM marks WHERE account = ?1), 0) + ?5 <= ?12`)
-        .bind(player.id, c.id, event, nonce, pay - tax, tax, nowS, day, key, left, payRid(c.id, key), MARKS_MAX),
+          AND NOT EXISTS (SELECT 1 FROM marks_ledger WHERE actor = ?1 AND rid = ?8)
+          AND COALESCE((SELECT balance FROM marks WHERE account = ?1), 0) + c.pay - ${deedTaxSql} <= ?9
+          AND (SELECT COUNT(*) FROM guild_contract_pays p WHERE p.event = ?3 AND p.account = ?1) < ?10`)
+        .bind(player.id, c.id, event, nonce, nowS, day, key, payRid(c.id, key), MARKS_MAX, CONTRACTS_PAID_MAX),
       // the contract drawn down, a filled one closed
       db.prepare(`UPDATE guild_contracts SET left_deeds = left_deeds - 1, escrow = escrow - pay,
           state = CASE WHEN left_deeds = 1 THEN 'filled' ELSE state END, closed_at = CASE WHEN left_deeds = 1 THEN ?5 ELSE closed_at END

@@ -12,14 +12,15 @@
 - **When three members of a guild defend the same town, or close the same gate, the guild's silver treasury earns 25.**
   Each must have been in the guild for **7 days**.
 - A guild earns at most **4 deeds a day**. The member whose claim completes a deed is told in the chat, and the Guild
-  tab's treasury list shows it.
+  tab's treasury list shows it. The Guild tab's silver treasury says how many deeds the guild has earned today.
+- Each account counts once for each town or gate, for the guild of the character it claimed with.
 
 ## Guild contracts
 - **A guild can pay fighters to defend a region.** On a Notice Board's **Work** tab, a Guildmaster (or an Officer, within
   the week's writ budget) can post a **guild contract**: 1 to 50 silver for each defender of a raid in that region, for
   up to 500 defenders. The whole amount is held from the guild's silver treasury.
-- **Anyone who defends a town in that region is paid** as their raid is counted, less the market's 5% tax. Your chat
-  says which guild paid you. A guild's own Officers and Guildmaster are not paid by its contracts. Its other members are.
+- **Anyone who defends a town in that region is paid** as their raid is counted, less the market's 5% tax - every
+  member of a party, however close together their claims arrive. Your chat says which guild paid you. A guild's own Officers and Guildmaster are not paid by its contracts. Its other members are.
 - A contract stands for **7 days**. A guild can have **5** at once. Withdraw one on the Work tab, and what is left of its
   silver goes back to the treasury. The same happens when it runs out.
 - Officers' contracts and writs share **one** weekly writ budget.
@@ -31,9 +32,12 @@
 - **You are warned in the chat 10 minutes before one rises**, with its region and its ore. With the **Motherlode Sense**
   specialisation (Mining 100), the warning comes 30 minutes ahead. Motherlode Sense can now be chosen.
 - **Find it on your compass** from anywhere in the open world, in Mining's colour. Close up it is a large, glowing heap of
-  ore at a rock.
-- **Strike it with your Pick-Axe** like a vein, at its tier-6 difficulty. It needs **Mining 25**. You must stand on its
-  ground for a moment first, so the world can see you are there. If you start too soon, you are told to wait a moment.
+  ore at a rock (where a town covers the middle of its ground, it stands at the nearest open spot outside the town).
+- **Strike it with your Pick-Axe** like a vein, at its tier-6 difficulty. It needs **Mining 25**. The Watch must have
+  seen you on its ground in the last few minutes - it marks those who move about, every two minutes. If it hasn't, you
+  are told to walk about on it a moment.
+- If its twenty miners have struck it, or it has gone, your first try tells you and the Motherlode is gone from your
+  world - no more wasted swings.
 - **Each strike gives 4 to 6 of its ore** (Adamantium, Ebony or Orichalcum - half again for a clean strike), Mining XP and
   **10 silver**. Each account can strike **one Motherlode a day**. It does not count against your 60 harvests.
 

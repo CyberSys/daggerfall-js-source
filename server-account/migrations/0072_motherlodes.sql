@@ -26,6 +26,16 @@ CREATE TABLE IF NOT EXISTS motherlodes (
 -- at most twenty a Motherlode (the deciding INSERT's count), written with the request's own nonce `n` so the Stores,
 -- the XP and the silver after it move for this strike alone. `watch` the relay's Watch receipt it stood on (its
 -- account, nonce and issue - `s:c:i`), the audit's.
+-- AUDIT SILVER-WAYS C3: THE DAY PICKED - its mark, kept with its picks (`picked` how many: none on a realm nobody has
+-- walked, fewer than three where the ground is scarce), so the day's confirmed ground is read once, not at every read
+-- and every strike of a day that picked fewer than three; `n` the read that picked it (its picks are written only
+-- under its own mark - two first reads racing the day's turn keep one pick, never a mix).
+CREATE TABLE IF NOT EXISTS motherlode_days (
+  day    INTEGER PRIMARY KEY,
+  picked INTEGER NOT NULL CHECK (picked >= 0 AND picked <= 3),
+  n      TEXT NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS motherlode_strikes (
   day      INTEGER NOT NULL,
   k        INTEGER NOT NULL,

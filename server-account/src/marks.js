@@ -192,11 +192,17 @@ export const deedRid = (event) => `deed:${event}`;
 /**
  * SILVER-WAYS: A GUILD DEED'S TWO STATEMENTS, for a claim's own batch - `null` where Marks are not this account's.
  *   1. THE MARK: this account counts for the guild its claiming `character` is in - where that character has been in
- *      it MARKS_FAUCETS.deed.tenureS (7 days: a guild joined for the day earns nothing) - once an (event, account), and
- *      only while the claim's own row stands (CLAIM_GUARDS[`kind`], its parameters `guard`).
+ *      it MARKS_FAUCETS.deed.tenureS (7 days: a guild joined for the day earns nothing) - once an (event, account)
+ *      WHATEVER THE GUILD, and only while the claim's own row stands (CLAIM_GUARDS[`kind`], its parameters `guard`).
+ *      AUDIT SILVER-WAYS A1: a gate's guard is its row's second, and a refused re-claim in that second (the same
+ *      receipt, another character named) passed it - the mark was once a (guild, event, account), so an account with a
+ *      character in each of three guilds marked all three, and its gate struck their deeds. One account, one guild an
+ *      event: the migration's unique (event, account), which this INSERT OR IGNORE meets.
  *   2. THE STRIKE: where that guild now has `members` (3) accounts' marks on the event, 25 silver into its treasury -
  *      once an event a guild (the line's id the deed's, the guild its actor), at most `perDay` (4) a guild a UTC day,
- *      never past MARKS_MAX. A strike the day's cap refused is struck by the next member's claim of that event.
+ *      never past MARKS_MAX. A strike the day's cap refused is struck by the next member's COUNTED claim of that event:
+ *      AUDIT SILVER-WAYS A2 - by the claim's own row as the mark is (a refused re-send of a week-old receipt the next
+ *      day struck a deed its answer never said).
  * A character counts on the claim alone: one account is one mark, however many of its characters are in the guild.
  */
 export function deedStatements({ db, nowS }, player, env, { kind, event, character, guard }) {
@@ -214,8 +220,9 @@ export function deedStatements({ db, nowS }, player, env, { kind, event, charact
         AND (SELECT COUNT(*) FROM guild_deed_marks x WHERE x.guild_id = d.guild_id AND x.event = ?7) >= ?8
         AND (SELECT COUNT(*) FROM marks_ledger l WHERE l.dst_kind = 'guild' AND l.dst_id = d.guild_id AND l.kind = 'guild-deed' AND l.day = ?3) < ?9
         AND COALESCE((SELECT balance FROM guild_marks WHERE guild_id = d.guild_id), 0) + ?2 <= ?10
-        AND NOT EXISTS (SELECT 1 FROM marks_ledger l WHERE l.actor = d.guild_id AND l.rid = ?6)`)
-      .bind(player.id, amount, utcDay(nowS), nowS, displayName(player), deedRid(event), event, members, perDay, MARKS_MAX),
+        AND NOT EXISTS (SELECT 1 FROM marks_ledger l WHERE l.actor = d.guild_id AND l.rid = ?6)
+        AND ${CLAIM_GUARDS[kind](11)}`)
+      .bind(player.id, amount, utcDay(nowS), nowS, displayName(player), deedRid(event), event, members, perDay, MARKS_MAX, ...guard),
   ];
 }
 /** SILVER-WAYS: the claim's deed, as its answer says it - `{ struck, guild: { name, tag } }` where THIS claim's batch

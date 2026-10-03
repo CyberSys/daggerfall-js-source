@@ -18412,13 +18412,13 @@ export async function bootWorld(canvas, renderer, params, status) {
    *  the same nodes lit where they stand (render/nodeGlow.js), after each mode's opaque world through the veiled bodies' hook. */
   /** PROF2b: THE MOTHERLODES STANDING, wherever they are - each on the compass at its pixel's heart, in Mining's colour,
    *  from any distance (the gathering host marks it where it stands once its pixel is near); on the street alone. */
-  const _lodeMarks = [];
+  const _lodeMarks = [], _lodesUp = [], _lodeTr = [0, 0, 0], _lodePool = [];   // AUDIT SILVER-WAYS D7: a frame's marks made of these alone
   const motherlodeMarks = () => {
     _lodeMarks.length = 0;
     if (!motherlodeBook || profBook?.state.open !== true || _mode() !== 'exterior') return _lodeMarks;
-    for (const l of motherlodeBook.standingAll()) {
-      const tr = state.pixelTranslation(l.x, l.y, [0, 0, 0]);
-      _lodeMarks.push({ profession: 'mining', at: [tr[0] + TERRAIN_SIZE / 2, tr[1], tr[2] + TERRAIN_SIZE / 2], d: 0, reach: 1 });
+    for (const l of motherlodeBook.standingAll(_lodesUp)) {
+      const tr = state.pixelTranslation(l.x, l.y, _lodeTr), m = _lodePool[_lodeMarks.length] ??= { profession: 'mining', at: [0, 0, 0], d: 0, reach: 1 };
+      m.at[0] = tr[0] + TERRAIN_SIZE / 2; m.at[1] = tr[1]; m.at[2] = tr[2] + TERRAIN_SIZE / 2; _lodeMarks.push(m);
     }
     return _lodeMarks;
   };

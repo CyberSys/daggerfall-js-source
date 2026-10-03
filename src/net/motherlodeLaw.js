@@ -55,6 +55,13 @@ export const MOTHERLODE_WARN_S = 600;
 export const MOTHERLODE_SENSE_WARN_S = 1800;
 /** A strike's Watch receipt: issued for the Motherlode's pixel in this many seconds before the act's end. */
 export const MOTHERLODE_WATCH_S = 600;
+/** AUDIT SILVER-WAYS C1: and no later than the act's end, give the clocks' skew (identityToken.js SKEW_S - pinned equal;
+ *  not imported, the law stays a leaf). The act's end is the client's own word, ten minutes late at most (the harvest's
+ *  HARVEST_LATE_S): with no ceiling a strike told as ended inside the two hours, sent after them, carried a receipt the
+ *  relay issued after the Motherlode had gone - a miner who reached it late struck it anyway. */
+export const MOTHERLODE_WATCH_AHEAD_S = 30;
+/** Whether a Watch receipt issued at `i` stands for a strike whose act ended at `at` (both epoch seconds). */
+export const motherlodeWatchOk = (i, at) => Number.isSafeInteger(i) && i >= at - MOTHERLODE_WATCH_S && i <= at + MOTHERLODE_WATCH_AHEAD_S;
 /** The tier-6 ores a Motherlode yields - a region's own where its signature is one of them (PROF0 4.7). */
 export const MOTHERLODE_ORES = Object.freeze(['ore:adamantium', 'ore:ebony', 'ore:orichalcum']);
 /** The climates a Motherlode rises in first: the mountains' and the deserts' (the richest veins, PROF0 6's table). */

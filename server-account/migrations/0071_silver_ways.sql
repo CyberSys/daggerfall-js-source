@@ -9,7 +9,9 @@
 
 -- A GUILD DEED'S MARKS: an account counted for its claiming character's guild on one event - a raid (`raid:<key>`) or a
 -- gate (`gate:<game day>`) - where that character has been in the guild seven days. Written in the claim's own batch, by
--- the claim's own row (marks.js deedStatements); once an (event, account) a guild. Three of a guild's marks on one event
+-- the claim's own row (marks.js deedStatements); once an (event, account) - one guild an account an event, however many
+-- guilds its characters are in (AUDIT SILVER-WAYS A1: a gate's re-claim in the claim's own second marked a second
+-- guild, and one account's gate struck two deeds). Three of a guild's marks on one event
 -- strike its deed - 25 silver into its treasury, once (the ledger's `deed:<event>` under the guild), four a guild a UTC
 -- day. A guild that goes takes its marks; an account that goes takes its own.
 CREATE TABLE IF NOT EXISTS guild_deed_marks (
@@ -22,7 +24,7 @@ CREATE TABLE IF NOT EXISTS guild_deed_marks (
   FOREIGN KEY (guild_id) REFERENCES guilds(id) ON DELETE CASCADE,
   FOREIGN KEY (account) REFERENCES players(id) ON DELETE CASCADE
 );
-CREATE INDEX IF NOT EXISTS idx_guild_deed_marks_event ON guild_deed_marks (event, account);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_guild_deed_marks_event ON guild_deed_marks (event, account);
 
 -- A GUILD'S CONTRACTS: posted by its Guildmaster, or an Officer within the week's writ budget (`officer` 1, `week` the
 -- seat week it was posted in - writLaw seatWeek; one budget with their writs); `pay` silver for each of `deeds`

@@ -12,7 +12,7 @@ import { readFileSync } from 'node:fs';
 import { T0 } from './accountDb.mjs';
 import { mintWatchReceipt } from '../src/net/watchReceipt.js';
 import { importReceiptKey } from '../src/net/gateReceipt.js';
-import { createMotherlodeBook, MOTHERLODE_TEXT, MOTHERLODE_READ_MS, MOTHERLODE_WATCH_KEPT, MOTHERLODE_ACT_S } from '../src/net/motherlodeBook.js';
+import { createMotherlodeBook, MOTHERLODE_TEXT, MOTHERLODE_READ_MS, MOTHERLODE_RETRY_MS, MOTHERLODE_WATCH_KEPT, MOTHERLODE_ACT_S } from '../src/net/motherlodeBook.js';
 import { motherlodeKey, MOTHERLODE_RANK, MOTHERLODE_WATCH_S } from '../src/net/motherlodeLaw.js';
 import {
   standMotherlodes, motherlodePlan, mineKind, mineFlats, MOTHERLODE_FLATS, MOTHERLODE_SCALE, MOTHERLODE_MARK, NODE_SPACING_M, ROCK_OFFSET,
@@ -33,13 +33,15 @@ async function relayKey() {
   const kp = await subtle.generateKey({ name: 'Ed25519' }, true, ['sign', 'verify']);
   return importReceiptKey(Buffer.from(new Uint8Array(await subtle.exportKey('pkcs8', kp.privateKey))).toString('base64'), { subtle });
 }
-function bookRig({ lodes = [lode(0), lode(1), lode(2)], found = null } = {}) {
+// AUDIT SILVER-WAYS D1 (PIN MOVED): the rig's device turns the day at its first moment (`rand` 0) - the spread is pinned
+// in test/auditsilver_client.test.js
+function bookRig({ lodes = [lode(0), lode(1), lode(2)], found = null, rand = () => 0 } = {}) {
   let nowS = DAY0 * 86400 + 60, nowMs = 1_000_000;
   const said = [], changed = [], reads = [];
   const door = { motherlodes: async (c) => { reads.push(c); return { ok: true, data: { day: Math.floor(nowS / 86400), lodes: lodes.map((l) => ({ ...l })), found } }; } };
   const b = createMotherlodeBook({
     door, character: () => 'char-1', me: () => 'acct-1', nowS: () => nowS, nowMs: () => nowMs, say: (t) => said.push(t), onChange: (l) => changed.push(l.key),
-    regionName: (r) => (r === 21 ? 'Wrothgarian Mountains' : `R${r}`), oreName: (m) => (m === 'ore:ebony' ? 'Ebony' : m),
+    regionName: (r) => (r === 21 ? 'Wrothgarian Mountains' : `R${r}`), oreName: (m) => (m === 'ore:ebony' ? 'Ebony' : m), rand,
   });
   return { b, said, changed, reads, at: (s) => { nowS = s; }, ms: (m) => { nowMs = m; }, now: () => nowS };
 }
@@ -80,8 +82,9 @@ test('PROF2b the book: today\'s three read on arrival and again every five minut
   const l1 = s.b.state.lodes[1];
   s.at(l1.opensAt - 1800); s.b.tick({ sense: true });
   assert.deepEqual(s.said, [MOTHERLODE_TEXT.warn('Ebony', 'Wrothgarian Mountains', 30)]);
-  // the day's turn reads again
-  s.at((DAY0 + 1) * 86400 + 5); s.b.tick(); await tick();
+  // the day's turn reads again - AUDIT SILVER-WAYS D1 (PIN MOVED): a retry's minute since the last asked at least (the
+  // rig's milliseconds stood still across the day)
+  s.ms(1_000_000 + MOTHERLODE_RETRY_MS); s.at((DAY0 + 1) * 86400 + 5); s.b.tick(); await tick();
   assert.equal(s.reads.length, 2);
 });
 
@@ -193,7 +196,7 @@ test('PROF2b the kind: a pixel\'s nodes take the Motherlodes standing on it; its
     const a = k.start(n, plan, ctx);
     assert.ok(a.act, 'the act');
     assert.equal(a.act.state.need, 7, 'tier 6\'s seven points');
-    assert.deepEqual(a.ask, { watch: w });
+    assert.deepEqual(a.ask(), { watch: w }, 'AUDIT SILVER-WAYS D5 (PIN MOVED): the receipt asked at the act\'s end');
   } finally { setForagingHost(null); }
   const toasts = [];
   k.answered({ motherlode: true, node: n.key, marks: { struck: 10, balance: 60 } }, (t) => toasts.push(t));
@@ -214,7 +217,7 @@ test('PROF2b the seams by source: the professions\' book sends a harvest\'s Watc
   assert.match(w, /online\.onWatch = \(r\) => \{ seatBook\?\.keepWatch\(r\); motherlodeBook\?\.watch\(r\); \};/);
   assert.match(w, /motherlodeBook\?\.tick\(\{ sense: profBook\.track\('mining'\)\.specs\?\.\[100\] === 'motherlode-sense' \}\)/);
   assert.match(w, /mineKind\(\{ book: profBook, lodes: motherlodeBook, marks: marksBook \}\)/);
-  assert.match(w, /for \(const l of motherlodeBook\.standingAll\(\)\) \{/);
+  assert.match(w, /for \(const l of motherlodeBook\.standingAll\(_lodesUp\)\) \{/);   // AUDIT SILVER-WAYS D7 (PIN MOVED): into the frame's own list
   assert.match(w, /return nodeCompassPoints\(far\.length \? \[\.\.\.\(near \?\? \[\]\), \.\.\.far\] : near, trackerAnimals\(\)\);/);
   assert.match(src('src/scenes/gatherHost.js'), /restandAt\(px, py\) \{ restandAt\(px, py\); \},/);
   assert.doesNotMatch(src('src/ui/profPages.js'), /PROF2b/, 'no card waits on the Motherlodes');

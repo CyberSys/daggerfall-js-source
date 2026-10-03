@@ -10539,18 +10539,20 @@ scaled by it: a forged level would be paid more for every honest receipt.
 - **GUILD DEEDS** - the `guild-deed` faucet, into a guild's treasury, never an account's: when three of a guild's
   accounts - each claiming with a character seven days in the guild - have claimed the same raid (`raid:<key>`) or gate
   (`gate:<game day>`), 25 silver; once an event a guild (the line `deed:<event>`, the guild its actor), at most four a
-  guild a UTC day - a deed the day's cap refused is struck by the next member's claim of that event. The mark and the
-  strike ride the claim's own batch, by its own row (marks.js deedStatements; `guild_deed_marks`). One account is one
-  mark, however many of its characters are in the guild. A gate's claim now names the claiming character whether or
+  guild a UTC day - a deed the day's cap refused is struck by the next member's COUNTED claim of that event (AUDIT
+  SILVER-WAYS A2). The mark and the strike ride the claim's own batch, by its own row (marks.js deedStatements;
+  `guild_deed_marks`). One account is one mark an event, however many of its characters are in the guild - or in other
+  guilds (A1: the unique (event, account)). A gate's claim now names the claiming character whether or
   not the scan found the gate's region (`scenes/world.js` gateSeatWord). The claim's answer says it (`deed`: the
-  amount and the guild); the Guild tab's treasury line reads "completed a guild deed".
+  amount and the guild); the Guild tab's treasury line reads "completed a guild deed", and its silver treasury says the
+  day's deeds against the four (A3).
 - **GUILD CONTRACTS** - a guild writ for DEEDS (`server-account/src/contracts.js`, `writLaw.js` GUILD CONTRACTS): a
   Guildmaster's, or an Officer's within the ONE writ budget it shares with their writs (`officerSpentSql` - a contract
   is no way round the budget), `pay` 1-50 silver for each of 1-500 defenders of a raid in a region, held from the
   treasury (`contract-escrow`), seven days, five open a guild. A counted raid's claim in that region is paid by up to
   three of its contracts, the best-paying first, in the claim's own batch, keyed on the claim's nonce
   (`guild_contract_pays`, one a contract, raid and account), less the market's 5% tax on the contract's running total
-  (a writ's, AUDIT 30 L6), never to an account any of whose characters may post or withdraw that guild's contracts,
+  (a writ's, AUDIT 30 L6 - reckoned in the batch off the contract as the batch finds it, AUDIT SILVER-WAYS B1), never to an account any of whose characters may post or withdraw that guild's contracts,
   never past the defender's cap; drawn down, filled and closed at its last deed. Withdrawn, or past its seventh day on
   anyone's Work read, what is left goes home (`contract-return`). A guild with one standing - or its pay still on the
   way home - does not disband. It mints nothing. RAIDS ONLY, DECIDED: a raid's region is in its key, read against the
@@ -10573,6 +10575,92 @@ scaled by it: a forged level would be paid more for every honest receipt.
   accountworker (the schema), the version pins (acct71). Mutant records re-aimed by content: marks1 (five), audit28 M4,
   auditguild1d R5, drakes, prof6 (four), audit31 (two), gatekeys, nodemarks, survtiers3 (two), fb1001_boulders,
   fb1001_ground.
+
+### AUDIT SILVER-WAYS (2026-10-03, Mac: "Audit this") - SILVER-WAYS and PROF2b read again, before their deploy
+
+Five lanes: four independent passes that read the PR's diff cold - the combat silver and the deeds, the contracts, the
+Motherlodes' service and law, the client - each with its repros against the real Worker over node:sqlite; and the
+author's own adversarial re-read. FOUND, each fixed and pinned (`test/auditsilver_service.test.js`,
+`test/auditsilver_client.test.js`, `tools/mutants/auditsilver.json`). Neither migration has been applied (the deploy
+runs from main), so `0071_silver_ways.sql` and `0072_motherlodes.sql` carry their fixes in place; acct71 still.
+
+- **MEDIUM - A1: one account's gate struck two guilds' deeds** (the deeds' pass). A gate's guard is its row's second
+  (`gate_kills.at` = now), and a refused re-claim in that second - the same receipt, another character named - passed
+  it; the mark was once a (guild, event, account), so three accounts each with a character in two guilds marked both,
+  and one gate minted two deeds (k guilds, k deeds, to the day's four each). FIXED: a mark is once an (event, account),
+  whatever the guild - the migration's unique `(event, account)`, which the mark's INSERT OR IGNORE meets.
+- **MEDIUM - B1: a party's defenders lost their contract pay** (the contracts' pass). The pay read the contract before
+  the batch and wrote only while it stood as read (its deeds left, the tax off that), and the relay mints every
+  earner's receipt in one pass, which the client offers at once - so a party's claims, read together, paid the first and
+  passed over the rest, each counted and never claimable again. FIXED: the tax is reckoned in the batch off the contract
+  as the batch finds it (`deedTaxSql` - saleTaxOn's running total, MARKET_TAX_PCT written into the text as the law's
+  integer: a bound number is a REAL to the driver and its division would not floor); the read takes twice what a claim
+  may be paid by, the batch paying three at most, so a contract another claim filled meanwhile leaves the next-best.
+- **MEDIUM - D1: the day's turn asked the Motherlodes every frame** (the client's pass). The turn's arm cleared only on
+  a read that answered the new day - offline over midnight, a refused session or the clocks a little apart, it asked on
+  every frame. FIXED: once a retry (60 s), and each device at its own moment in a 90-second spread
+  (`MOTHERLODE_TURN_SPREAD_MS`) - every client turns the day on one clock, and the day's first read picks its three.
+- **MEDIUM - D2: a strike's refusal taught the client nothing** (the client's pass; REFUSALS-LEARNED). `motherlode-full`,
+  `-found` and `-closed` were toasted alone: the Motherlode stood as last read, and every try played the act, wore the
+  Pick-Axe and spent an op on the same refusal for up to five minutes. FIXED: the gathering host hands a refusal to its
+  kinds (`GatherKind.refused`), Mining's to the Motherlodes' book (`refused`): its twenty struck, the day's find made,
+  or the list read again - the pixel stood again.
+- **LOW-MEDIUM - C1: a Motherlode struck after it had gone** (the Motherlodes' pass). The Watch had a floor (ten minutes
+  before the act's end) and no ceiling, and the act's end is the client's word, ten minutes late at most - an act told
+  as ended a second before the close, sent nine minutes after it, carried a receipt the relay issued after the
+  Motherlode had gone. FIXED: no later than the act's end, give the clocks' thirty seconds (`motherlodeWatchOk`,
+  `MOTHERLODE_WATCH_AHEAD_S` - identityToken.js SKEW_S, pinned equal).
+- **LOW - A2: a refused claim struck a held-back deed** (the deeds' pass). The deed's strike was not tied to the claim's
+  row as its mark was, so a member's refused re-send of a week-old receipt struck, the next day, a deed the day's cap
+  had held back - and its answer, `claimed`, never said it. FIXED: the strike is guarded by the claim's own row.
+- **LOW - A3: the guild could not see its four** (the deeds' pass). `guildDeedsToday` was written for the Guild tab and
+  never read. FIXED: the guild's view carries `deeds`/`deedsMax` where silver is open; the silver treasury says them.
+- **LOW - B2: an Officer shut out of other guilds' contracts** (the contracts' pass). The read took the best-paying
+  three before the posters' exclusion, which only the write asked - an Officer of a guild whose own contracts outranked
+  the rest was paid by none. FIXED: the read skips them (with B1's wider read it bites only an account that is an
+  Officer of two guilds - pinned so).
+- **LOW - B3: `guild-contracts` answered 400** (the contracts' pass), its siblings 409. FIXED: in GUILD_STATUS.
+- **LOW - C2: a repeat said the purse was full** (the Motherlodes' pass) for a strike made while silver was shut. FIXED:
+  `full` only where the balance truly cannot take the 10; else no silver said.
+- **LOW - C3: the day's ground read at every read** (the Motherlodes' pass). A day that picked fewer than three kept
+  nothing, so every read and strike read every confirmed pixel's reports again (about 1.2 s at 40,000 pixels), and two
+  first reads racing the turn on scarce ground could keep a mix. FIXED: the day's mark (`motherlode_days`, its count
+  among it, none included); the picks written only under the mark their own read made.
+- **LOW - D3: "Stand a moment"** (the client's pass). The relay marks a pose that MOVED in its last five minutes
+  (`watchDue`): a miner standing still at the rock was told to stand, and was never seen. FIXED: "Walk about on it a
+  moment - the Watch marks those on the move, every two minutes."
+- **LOW - D4: a Motherlode stood nowhere** (the client's pass; the PR's own named limit). A town over its pixel's heart,
+  no rock and no stone within reach - risen in the chat and on every compass, on no ground. FIXED: the nearest place
+  outside the town its pixel holds, the one order every client walks (`standAnywhere`).
+- **LOW - D5: a long act's receipt went stale** (the client's pass). The receipt was chosen at the act's start. FIXED:
+  asked again at its end (`GatherKind.start`'s `ask` may be a function the host calls at the finish), the newest then.
+- **LOW - D6: another account's receipts carried** (the client's pass) after a sign-in in the same tab. FIXED: the
+  receipts are this account's alone, and let go when it changes.
+- **LOW - D7: the frame's costs** (the client's pass). The account's stored session parsed every frame, the region's and
+  ore's names built every frame, a list and a translation made every frame for the compass. FIXED: the account read
+  once a second (`MOTHERLODE_ME_MS`), the names made only for a line said, `standingAll(out)` and the world host's
+  pooled marks.
+- **Smaller**: the gate route's comment still said "50, two a UTC day" - corrected.
+
+CHECKED, SOUND (the passes, each at the commit): the combat cap - every strike MIN(amount, 150 - earned), never nought or
+negative, one strike a batch, the claim's UTC day for the cap and the line; the Incursion's second half the gate line's
+own amount, outside the cap; the raid strike's guard (its row's nonce), its retry inert; every new statement's
+parameter numbering and batch place; a guild deed once an event a guild, four a day in the INSERT itself, the tenure in
+seconds, a rejoin restarting it; conservation over a 400-step random mix of posts, claims, withdrawals, sweeps and
+treasuries at the cap (minted less burnt equal to every balance, treasury and escrow at every step; an open contract's
+escrow its deeds left times its pay); no double return (withdraw racing expiry, withdraw twice); one budget both ways;
+the region the receipt key's; the Motherlodes' pick deterministic (witness `at` in seconds, strictly before the day);
+the twenty decided in one INSERT; one a day an account across characters; the strike's retry; the silver's
+`motherlode:<day>` once; the Watch's key, subject and pixel; rank, yield and XP as a vein's; the client's freshness
+window, units and pixel frame matching the service's and the relay's; every refusal code worded; no `innerHTML` (every
+new string through `textContent`); the four hosts (gathering, claims and the Watch are the streaming world's alone).
+NOT CHANGED, named: an Officer who leaves the guild (or an alt account) can be paid by contracts posted within the
+budget - the writs' own exposure; a pay of 1 is taxed 1 every twentieth deed (the running total's way); a Motherlode
+rising in its day's first half hour warns short of a Sense's thirty (the day's three are picked at its turn).
+- **Pinned**: `test/auditsilver_service.test.js` (10), `test/auditsilver_client.test.js` (8);
+  `tools/mutants/auditsilver.json` (32, all dead). PIN MOVED: prof2b_client (the rig's moment in the turn and a
+  retry's minute; the ask called; the compass's list), prof7_client (the host's ask, called where it is a function), accountworker (`motherlode_days`). Mutant records re-aimed by
+  content: prof2b (four), prof7 (the ask), silverways (the tax).
 
 ## THE SEATS (SEAT1a onwards, 2026-09-30, Mac: "Finish the seats"; asked what a Right of Siege does while no siege exists: "Or we could go ahead and do sieges") - `11-Multiplayer/Seats-Arc.md`, built in its section 13 order
 

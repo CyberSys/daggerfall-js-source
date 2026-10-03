@@ -205,6 +205,30 @@ export function standMineNodes({ px, py, day, climate, region = null, confirmed 
   out.push(...stones);
   return out;
 }
+/** AUDIT SILVER-WAYS D4: the pixel's tiles walked for a Motherlode's place this far apart (tiles), the nearest its heart
+ *  first. */
+const LODE_SEARCH_STEP = 4;
+/**
+ * AUDIT SILVER-WAYS D4: WHERE A MOTHERLODE STANDS WHEN ITS HEART CANNOT HOLD IT - the pixel's tiles every
+ * LODE_SEARCH_STEP, the nearest its heart first (the one order every client walks, so all stand it alike), the first
+ * where nature stands outside the pixel's town and its rocks; null on a pixel that holds none (all water, all cliff).
+ * A town over the heart with no stone within VEIN_STONE_REACH of it stood the day's Motherlode nowhere - risen in the
+ * chat and on every compass, and on no ground - the service picks pixels with no map (the witnesses' word on the ground
+ * is all it reads), and the witnesses' pixels are the ones folk walk, about the towns.
+ */
+function standAnywhere(samples, tilemap, locationRect, rocks) {
+  const c = Math.floor(WORLD_MAP_TILE_DIM / 2);
+  const tiles = [];
+  for (let y = LODE_SEARCH_STEP / 2; y < WORLD_MAP_TILE_DIM; y += LODE_SEARCH_STEP) {
+    for (let x = LODE_SEARCH_STEP / 2; x < WORLD_MAP_TILE_DIM; x += LODE_SEARCH_STEP) tiles.push({ x, y, d: (x - c) ** 2 + (y - c) ** 2 });
+  }
+  tiles.sort((a, b) => a.d - b.d || a.y - b.y || a.x - b.x);
+  for (const { x, y } of tiles) {
+    const at = natureStandsAt(samples, tilemap, locationRect, x, y);
+    if (at && onPixel(at.x, at.z) && !insideRocks(rocks, at.x, at.z)) return at;
+  }
+  return null;
+}
 /**
  * PROF2b: A PIXEL'S MOTHERLODES AS THE CLIENT STANDS THEM - each standing one (`lodes`, net/motherlodeBook.js
  * standingOn) at the foot of the rock piece nearest the pixel's heart, clear of the nodes already stood (`taken`, their
@@ -234,7 +258,8 @@ export function standMotherlodes({ lodes, samples, tilemap, locationRect = null,
       // no clear foot at a piece: the stone nearest its heart, else where nature stands there - a Motherlode stands
       // wherever its pixel can hold it, a vein beside it or not (it is the day's one; a vein moves aside for none)
       const t = Math.floor(WORLD_MAP_TILE_DIM / 2);
-      const at = nearestStone(samples, tilemap, locationRect, t, t, VEIN_STONE_REACH, pieces) ?? natureStandsAt(samples, tilemap, locationRect, t, t);
+      const at = nearestStone(samples, tilemap, locationRect, t, t, VEIN_STONE_REACH, pieces) ?? natureStandsAt(samples, tilemap, locationRect, t, t)
+        ?? standAnywhere(samples, tilemap, locationRect, pieces);
       if (at && onPixel(at.x, at.z) && !insideRocks(pieces, at.x, at.z)) local = [at.x, at.y, at.z];
     }
     if (!local) continue;
@@ -388,8 +413,15 @@ export function mineKind({ book, lodes = null, marks = null }) {
         }),
         harvest: plan.harvest, tool: foragingToolIn(entity, FT.PickAxe), profession: 'mining', label: '',
         hand: (a) => (a.tool ? { ...PICK_HAND, ...pickHandFrame(a.act.swing) } : null),
-        ...(watch ? { ask: { watch } } : {}),
+        // AUDIT SILVER-WAYS D5: the receipt asked again at the act's end - the newest standing then (one the relay handed
+        // during a long act), the start's where none newer stands
+        ...(watch ? { ask: () => ({ watch: lodes?.watchFor?.(n.lode.x, n.lode.y, 0) ?? watch }) } : {}),
       };
+    },
+    /** AUDIT SILVER-WAYS D2: a Motherlode's refusal told to the Motherlodes' book (its twenty, the find, the list read
+     *  again), which stands its pixel again. */
+    refused(key, error) {
+      if (typeof key === 'string' && key.startsWith('mlode:')) lodes?.refused?.(key, error);
     },
     /** PROF2b: a Motherlode's answer - the find and its count told to the Motherlodes' book, its silver said. */
     answered(d, toast) {

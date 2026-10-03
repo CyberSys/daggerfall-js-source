@@ -3167,8 +3167,11 @@ warning - and left four things open. DECIDED here (the record's, at Mac's instru
   room - the client's seat book kept only a seat's. DECIDED: that is section 6's socket check, and tighter (the pixel,
   not the cell): the Motherlodes' book keeps the newest receipt of each pixel (this account's, signed, eight pixels), a
   strike begun carries the Motherlode pixel's (`ask.watch`, riding the harvest through `net/profBook.js`), and the
-  service counts the strike only for a receipt of this account on the Motherlode's pixel issued within ten minutes of the
-  act's end. None yet: no act ("The Watch has not seen you on the Motherlode's ground yet") - it comes within two minutes.
+  service counts the strike only for a receipt of this account on the Motherlode's pixel issued within ten minutes before
+  the act's end and no later than it, give the clocks' thirty seconds (`motherlodeWatchOk` - AUDIT SILVER-WAYS C1). None
+  yet: no act ("The Watch has not seen you on the Motherlode's ground lately. Walk about on it a moment" - the relay marks
+  a pose that moved in its last five minutes, every two minutes; AUDIT SILVER-WAYS D3). The receipt is asked again at the
+  act's end, the newest standing then (D5), and only ever this account's (D6).
   A pose is the client's claim, so this is a bound, not a proof (section 6) - the twenty and the one a day are the rest.
 - **The rank - an Apprentice's.** Section 6 says "a tier-6 vein"; tier 6 asks Mining 90 (TIER_RANKS), which nobody on a
   realm days old holds, and a Motherlode is the realm's event - its contest is the clock and the twenty. DECIDED: the act
@@ -3182,7 +3185,8 @@ warning - and left four things open. DECIDED here (the record's, at Mac's instru
   `motherlode-full`, `prof-rank`, `stores-full`.
 - **Where it stands.** `scenes/mineHost.js` `standMotherlodes`: at the foot of the rock piece nearest its pixel's heart,
   clear of the pixel's veins and boulders by NODE_SPACING_M, else on the stone nearest its heart, else where nature
-  stands there; a heap of seven of its ore's flats at 3.3 (a vein's three at 2.2), glowing, on the compass from 400 m
+  stands there, else the nearest place outside its pixel's town that holds one (AUDIT SILVER-WAYS D4 - a town over the
+  heart stood it nowhere); a heap of seven of its ore's flats at 3.3 (a vein's three at 2.2), glowing, on the compass from 400 m
   (`MOTHERLODE_MARK`) - and from anywhere on the street while it stands, a Mining mark at its pixel's heart
   (`scenes/world.js` `motherlodeMarks`). A rising, a going, a twentieth striker and this account's find each stand its
   pixel again (`gatherHost.restandAt`).
@@ -3192,11 +3196,22 @@ warning - and left four things open. DECIDED here (the record's, at Mac's instru
   (1 in 20, PROF6b's roll); the four hosts: the Motherlodes stand in the streaming world alone (`scenes/world.js` - the
   one gathering host); `scenes/exterior.js` has no gathering host (prof2_client pins it), `scenes/worldModes.js` and
   `scenes/dungeonContext.js` stand no Motherlode - one is never underground or indoors (FLAGGED by name, as PROF2's veins).
+- **Audited** (2026-10-03, AUDIT SILVER-WAYS - `06-Systems/Online-Arc.md` holds the record): **C1** the Watch had a floor
+  and no ceiling - an act told as ended inside the two hours, sent after them, carried a receipt the relay issued after
+  the Motherlode had gone; now no later than the act's end. **C2** a strike made while silver was shut, answered again
+  once it opened, said the purse was full; now it says no silver. **C3** a day that picked fewer than three kept no mark,
+  so every read and every strike read the whole witnessed ground again - the day's mark is kept (`motherlode_days`, none
+  among the marks), and its picks are written only under the mark their own read made. **D1** the day's turn was asked
+  every frame while its read failed - now once a retry, at each device's own moment in a ninety-second spread. **D2** a
+  strike's refusal (`motherlode-full`, `-found`, `-closed`) taught the client nothing - now learned, the pixel stood
+  again. **D3**-**D6** as above. **D7** the frame's costs: the account read once a second, the compass's list and marks
+  its own.
 - **As built**: `src/net/motherlodeLaw.js`, `src/net/motherlodeBook.js`, `server-account/src/motherlodes.js`,
   `server-account/migrations/0072_motherlodes.sql`, `src/scenes/mineHost.js`, `src/scenes/gatherHost.js` (`restandAt`),
   `src/net/profBook.js` (`watch`), `src/net/accountClient.js` (`motherlodes`, the refusals), `src/scenes/world.js`; acct71 (acct66 on its branch).
   Pinned: `test/prof2b_motherlode.test.js` (6), `test/prof2b_client.test.js` (7); `tools/mutants/prof2b.json` (32, all
-  dead). AUDIT 29 A17's two pins moved (the Sense chosen as any).
+  dead). AUDIT 29 A17's two pins moved (the Sense chosen as any). The audit's: `test/auditsilver_service.test.js` (C1-C3),
+  `test/auditsilver_client.test.js` (D1-D7), `tools/mutants/auditsilver.json`.
 
 ## Appendix A - a day of a gatherer
 

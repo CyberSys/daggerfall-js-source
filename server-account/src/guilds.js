@@ -74,7 +74,7 @@ import { payFromSave, creditSave } from '../../src/net/realmGoldLaw.js';   // RE
 import { renownTrackOf } from './renownTracks.js';
 import { HANDLE_RE } from '../../src/net/handleShape.js';
 import { MARKS_LEDGER_SHOWN } from '../../src/net/marksLaw.js';   // MARKS1: the guild's Marks lines shown
-import { marksOpenFor, guildMarksSweep } from './marks.js';   // AUDIT 28 M5: the Marks shown only where they are the viewer's; M3: a guild that goes sweeps them
+import { marksOpenFor, guildMarksSweep, guildDeedsToday } from './marks.js';   // AUDIT 28 M5: the Marks shown only where they are the viewer's; M3: a guild that goes sweeps them; AUDIT SILVER-WAYS A3: the day's deeds
 import { hallViewOf, heraldryOfRow } from './halls.js';   // GUILD1d: the guild's hall and heraldry, in its view
 import {
   GUILD_FOUND_GOLD, GUILD_FOUND_RENOWN, GUILD_MEMBERS_MAX, GUILD_RANK_NAMES, GUILD_RANK_MASTER, GUILD_RANK_OFFICER, GUILD_RANK_RECRUIT,
@@ -159,6 +159,9 @@ async function viewOf(db, guildId, me, nowS, marksOpen = false) {
       marks: Number(marks?.balance ?? 0),
       // AUDIT GUILD1d R5: a heraldry changed is its own line (the treasury paid it), never a deposit
       marksLedger: (marksLines?.results ?? []).map((l) => ({ at: l.at, who: l.who, kind: GUILD_MARKS_LINE_KIND[l.kind] ?? 'deposit', amount: l.amount })),
+      // AUDIT SILVER-WAYS A3: the day's guild deeds against their cap (marks.js guildDeedsToday) - written for this line
+      // and never read, so a guild could not see its four
+      ...(await guildDeedsToday(db, guildId, nowS)),
     } : {}),
   };
 }

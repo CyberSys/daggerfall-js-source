@@ -44,8 +44,8 @@ import {
 import { WITNESS, witnessedFact, factConfirmed } from '../../src/net/nodeLaw.js';
 import { verifyWatchReceipt } from '../../src/net/watchReceipt.js';
 import {
-  MOTHERLODE_STRIKERS, MOTHERLODE_SILVER, MOTHERLODE_RANK, MOTHERLODE_TIER, MOTHERLODE_WATCH_S,
-  motherlodeSites, motherlodeOpen, motherlodeYield, parseMotherlodeKey, motherlodeKey,
+  MOTHERLODE_STRIKERS, MOTHERLODE_SILVER, MOTHERLODE_RANK, MOTHERLODE_TIER,
+  motherlodeSites, motherlodeOpen, motherlodeYield, parseMotherlodeKey, motherlodeKey, motherlodeWatchOk,
 } from '../../src/net/motherlodeLaw.js';
 
 /** A strike's silver line id - the account's one Motherlode a UTC day, under the service's own `:`. */
@@ -62,10 +62,16 @@ const rowView = (r) => ({
  * THE DAY'S MOTHERLODES - kept, or picked and kept on the day's first read: the pixels confirmed before the day began
  * (their reports before it - three accounts' word, as nodeLaw witnessedFact reads it), in motherlodeSites' one order.
  * Answers `[{ k, key, x, y, climate, region, material, opensAt, closesAt }]`.
+ * AUDIT SILVER-WAYS C3: THE DAY PICKED ONCE - its mark (`motherlode_days`) kept with its picks, none or fewer than three
+ * among them: the pick reads every confirmed pixel's reports, and a day that picked none kept nothing, so every read
+ * and every strike of it read them all again (ground confirmed before the day began never changes, so the first pick
+ * is the day's). The picks are written only under the mark THIS read made, so two first reads racing the day's turn
+ * never keep a mix of two picks.
+ * @param {{ db: any, rand?: () => number }} ctx
  */
-export async function motherlodesOf(db, day) {
-  const kept = await db.prepare('SELECT * FROM motherlodes WHERE day = ?1 ORDER BY k').bind(day).all();
-  if (kept?.results?.length) return kept.results.map(rowView);
+export async function motherlodesOf({ db, rand }, day) {
+  const keptOf = async () => ((await db.prepare('SELECT * FROM motherlodes WHERE day = ?1 ORDER BY k').bind(day).all())?.results ?? []).map(rowView);
+  if (await db.prepare('SELECT 1 FROM motherlode_days WHERE day = ?1').bind(day).first()) return keptOf();
   const before = day * 86400;
   const { results = [] } = await db.prepare(`SELECT key, account, report, at FROM world_witness
     WHERE kind = 'pixel' AND at < ?1 AND key IN (SELECT key FROM world_witness WHERE kind = 'pixel' AND at < ?1
@@ -80,11 +86,14 @@ export async function motherlodesOf(db, day) {
     candidates.push({ x, y, climate: /** @type {number} */ (f.climate), region: /** @type {number} */ (f.region) });
   }
   const sites = motherlodeSites(day, candidates);
-  if (!sites.length) return [];
-  await db.batch(sites.map((s) => db.prepare(`INSERT OR IGNORE INTO motherlodes (day, k, x, y, climate, region, material, opens_at, closes_at)
-    VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)`).bind(day, s.k, s.x, s.y, s.climate, s.region, s.material, s.opensAt, s.closesAt)));
-  const now = await db.prepare('SELECT * FROM motherlodes WHERE day = ?1 ORDER BY k').bind(day).all();
-  return (now?.results ?? []).map(rowView);
+  const n = mintId(rand);
+  await db.batch([
+    db.prepare('INSERT OR IGNORE INTO motherlode_days (day, picked, n) VALUES (?1, ?2, ?3)').bind(day, sites.length, n),
+    ...sites.map((s) => db.prepare(`INSERT OR IGNORE INTO motherlodes (day, k, x, y, climate, region, material, opens_at, closes_at)
+      SELECT ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9 WHERE EXISTS (SELECT 1 FROM motherlode_days WHERE day = ?1 AND n = ?10)`)
+      .bind(day, s.k, s.x, s.y, s.climate, s.region, s.material, s.opensAt, s.closesAt, n)),
+  ]);
+  return keptOf();
 }
 
 /**
@@ -92,11 +101,12 @@ export async function motherlodesOf(db, day) {
  * account found today (null for none) - the client stands them, warns of them and marks them. The professions' switch,
  * a registered account's.
  */
-export async function motherlodesRead({ db, nowS }, player, env, { character } = {}) {
+export async function motherlodesRead(ctx, player, env, { character } = {}) {
+  const { db, nowS } = ctx;
   const refused = profAsks(player, { character, needRid: false }) ?? profShut(player, env);
   if (refused) return refused;
   const day = utcDay(nowS);
-  const lodes = await motherlodesOf(db, day);
+  const lodes = await motherlodesOf(ctx, day);
   const { results: counts = [] } = await db.prepare('SELECT k, COUNT(*) AS n FROM motherlode_strikes WHERE day = ?1 GROUP BY k').bind(day).all();
   const struck = new Map(counts.map((c) => [Number(c.k), Number(c.n)]));
   const found = await db.prepare('SELECT k FROM motherlode_strikes WHERE day = ?1 AND player = ?2').bind(day, player.id).first();
@@ -107,6 +117,15 @@ export async function motherlodesRead({ db, nowS }, player, env, { character } =
   };
 }
 
+/** A strike's silver as its answer says it: the line it struck, or `why: 'full'` where the purse could not take it - and
+ *  AUDIT SILVER-WAYS C2: nothing where it struck none for want of the switch (a strike made while silver was shut,
+ *  answered again once it is open, said the purse was full). */
+async function strikeMarks(db, player, env, row, line) {
+  if (!marksOpenFor(player, env)) return {};
+  const balance = await balanceOf(db, row.player);
+  if (line) return { marks: { struck: Number(line.amount), balance } };
+  return balance + MOTHERLODE_SILVER > MARKS_MAX ? { marks: { struck: 0, balance, why: 'full' } } : {};
+}
 /** A strike's answer - a harvest's shape (scenes/gatherHost.js says it as one), its silver and the Motherlode's count
  *  beside it. */
 async function strikeAnswer({ db }, player, env, row, nowS, extra = {}, rankBefore = null) {
@@ -119,7 +138,7 @@ async function strikeAnswer({ db }, player, env, row, nowS, extra = {}, rankBefo
     node: motherlodeKey(day, Number(row.k)), kind: 'ore', material: row.material, qty: Number(row.qty), xp: Number(row.xp),
     track: t, today: (await profTodayOf(db, row.player, row.char_id, day)).mining ?? 0,
     store: await storeOf(db, row.player, row.char_id, row.material),
-    ...(marksOpenFor(player, env) ? { marks: { struck: Number(line?.amount ?? 0), balance: await balanceOf(db, row.player), ...(line ? {} : { why: 'full' }) } } : {}),
+    ...(await strikeMarks(db, player, env, row, line)),
     lode: { struck: Number(n?.n ?? 0), strikers: MOTHERLODE_STRIKERS },
   };
 }
@@ -146,7 +165,7 @@ export async function strikeMotherlode(ctx, player, env, body = {}) {
   if (m.day !== day) return { error: 'prof-day' };
   if (!Number.isSafeInteger(at) || at < nowS - HARVEST_LATE_S || at > nowS + HARVEST_EARLY_S || utcDay(at) !== day) return { error: 'prof-late' };
   if (await overRate(ctx, `prof:${player.id}`, PROF_OPS_MAX, PROF_OPS_WINDOW_S)) return { error: 'prof-rate' };
-  const lode = (await motherlodesOf(db, day)).find((l) => l.k === m.k);
+  const lode = (await motherlodesOf(ctx, day)).find((l) => l.k === m.k);
   if (!lode) return { error: 'bad-node' };
   if (!motherlodeOpen(lode, at)) return { error: 'motherlode-closed' };
   // THE WATCH: the relay's word that this account's pose stood on the Motherlode's pixel, in the ten minutes before
@@ -154,7 +173,7 @@ export async function strikeMotherlode(ctx, player, env, body = {}) {
   if (!key) return { error: 'no-gate-key' };
   const v = await verifyWatchReceipt(watch, key, { subtle, nowS });
   const c = v.ok ? v.claims : null;
-  if (!c || c.s !== player.id || c.x !== lode.x || c.y !== lode.y || c.i < at - MOTHERLODE_WATCH_S) return { error: 'motherlode-watch' };
+  if (!c || c.s !== player.id || c.x !== lode.x || c.y !== lode.y || !motherlodeWatchOk(c.i, at)) return { error: 'motherlode-watch' };   // AUDIT SILVER-WAYS C1: both ways
   // THE TRACK: an Apprentice's Mining (motherlodeLaw MOTHERLODE_RANK)
   const track = await trackRow(db, player.id, character, 'mining');
   const rank = rankOfXp(Number(track?.xp ?? 0));

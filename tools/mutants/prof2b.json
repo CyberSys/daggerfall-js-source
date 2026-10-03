@@ -122,11 +122,12 @@
   {
     "name": "PROF2b-svc-watch-any-age",
     "file": "server-account/src/motherlodes.js",
-    "old": "|| c.i < at - MOTHERLODE_WATCH_S) return { error: 'motherlode-watch' };",
+    "old": "|| !motherlodeWatchOk(c.i, at)) return { error: 'motherlode-watch' };",
     "new": ") return { error: 'motherlode-watch' };",
     "tests": [
       "test/prof2b_motherlode.test.js"
-    ]
+    ],
+    "note": "AUDIT SILVER-WAYS (PIN MOVED): re-aimed by content to the code the audit's fix left (the Watch both ways, the receipt asked at the act's end and this account's alone, the tax reckoned in the batch)."
   },
   {
     "name": "PROF2b-svc-watch-any-account",
@@ -194,11 +195,12 @@
   {
     "name": "PROF2b-cli-watch-anyones",
     "file": "src/net/motherlodeBook.js",
-    "old": "if (!c || !c.signed || c.s !== me()) return false;",
+    "old": "if (!c || !c.signed || c.s !== meNow()) return false;",
     "new": "if (!c || !c.signed) return false;",
     "tests": [
       "test/prof2b_client.test.js"
-    ]
+    ],
+    "note": "AUDIT SILVER-WAYS (PIN MOVED): re-aimed by content to the code the audit's fix left (the Watch both ways, the receipt asked at the act's end and this account's alone, the tax reckoned in the batch)."
   },
   {
     "name": "PROF2b-cli-watch-older-over-newer",
@@ -212,11 +214,12 @@
   {
     "name": "PROF2b-cli-watch-stale-carried",
     "file": "src/net/motherlodeBook.js",
-    "old": "return w && w.i >= nowS() + MOTHERLODE_ACT_S - MOTHERLODE_WATCH_S ? w.r : null;",
-    "new": "return w ? w.r : null;",
+    "old": "return w && w.s === meNow() && motherlodeWatchOk(w.i, nowS() + Math.max(0, aheadS)) ? w.r : null;",
+    "new": "return w && w.s === meNow() ? w.r : null;",
     "tests": [
       "test/prof2b_client.test.js"
-    ]
+    ],
+    "note": "AUDIT SILVER-WAYS (PIN MOVED): re-aimed by content to the code the audit's fix left (the Watch both ways, the receipt asked at the act's end and this account's alone, the tax reckoned in the batch)."
   },
   {
     "name": "PROF2b-cli-find-unheard",
@@ -239,11 +242,12 @@
   {
     "name": "PROF2b-cli-watch-unasked",
     "file": "src/scenes/mineHost.js",
-    "old": "        ...(watch ? { ask: { watch } } : {}),\n",
+    "old": "        ...(watch ? { ask: () => ({ watch: lodes?.watchFor?.(n.lode.x, n.lode.y, 0) ?? watch }) } : {}),\n",
     "new": "",
     "tests": [
       "test/prof2b_client.test.js"
-    ]
+    ],
+    "note": "AUDIT SILVER-WAYS (PIN MOVED): re-aimed by content to the code the audit's fix left (the Watch both ways, the receipt asked at the act's end and this account's alone, the tax reckoned in the batch)."
   },
   {
     "name": "PROF2b-cli-plan-rank-unread",
