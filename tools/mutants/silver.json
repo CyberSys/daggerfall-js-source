@@ -65,8 +65,8 @@
   {
     "name": "SILVER-a-work-label-old",
     "file": "src/ui/workTab.js",
-    "old": "labelled('Pay (silver)', pay)",
-    "new": "labelled('Pay (Drakes)', pay)",
+    "old": "      ...(q ? [labelled(t('prof.work.label.leastQuality', 'Least quality'), q)] : []), labelled(t('prof.work.label.paySilver', 'Pay (silver)'), pay), go);",
+    "new": "      ...(q ? [labelled(t('prof.work.label.leastQuality', 'Least quality'), q)] : []), labelled(t('prof.work.label.paySilver', 'Pay (Drakes)'), pay), go);",
     "tests": [
       "test/silver.test.js"
     ]

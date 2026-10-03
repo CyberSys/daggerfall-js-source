@@ -156,7 +156,8 @@ test('GOLD-MARKET Stores: the professions\' book keeps what gold bought as its o
   assert.equal(storesSplit({ own: 2, bought: 1 }), '2 own · 1 bought', 'as before');
   assert.equal(storesSplit({ own: 2, bought: 0 }), 'own');
   assert.match(GOLD_GOODS_LINE, /pack, or back on the market for gold/);
-  assert.match(src('src/ui/profPages.js'), /if \(\(pick\.gold \| 0\) > 0\) detail\.append\(el\('p', 'px-note', GOLD_GOODS_LINE\)\);/);
+  assert.match(src('src/ui/profPages.js'), /if \(\(pick\.gold \| 0\) > 0\) detail\.append\(el\('p', 'px-note', goldGoodsLine\(\)\)\);/);   // PIN MOVED (L10N4): said through its reader
+  assert.match(src('src/ui/profPages.js'), /const goldGoodsLine = \(\) => t\('prof\.page\.stores\.goldGoods', GOLD_GOODS_LINE\);/);
   // the listable units a currency's listing may take
   assert.equal(listableUnits({ own: 4, bought: 5, gold: 7 }, 'gold'), 11);
   assert.equal(listableUnits({ own: 4, bought: 5, gold: 7 }, 'marks'), 9);

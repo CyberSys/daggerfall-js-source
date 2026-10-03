@@ -431,7 +431,7 @@
   {
     "name": "PROFRETICLE-trace-slips-unsaid",
     "file": "src/ui/profReticle.js",
-    "old": "const s = st.slips > 0 ? `slips ${st.slips}` : '';",
+    "old": "const s = st.slips > 0 ? t('prof.reticle.trace.slips', 'slips {n}', { n: st.slips }) : '';",
     "new": "const s = '';",
     "tests": [
       "test/profreticle.test.js"
@@ -449,7 +449,7 @@
   {
     "name": "PROFRETICLE-fish-metres-unsaid",
     "file": "src/ui/profReticle.js",
-    "old": "        if (metres.textContent !== t) metres.textContent = t;\n",
+    "old": "        if (metres.textContent !== said) metres.textContent = said;\n",
     "new": "",
     "tests": [
       "test/profreticle.test.js"

@@ -463,8 +463,10 @@ test('TOOL-USE: the Professions page says a tool\'s Use at the node is the key\'
   // PIN MOVED (2026-10-01 part four, TOUCH-HOLD): and the Skinning Knife's Use
   assert.match(STORES_EMPTY_LINE, /or use the Sickle, Basket, Pick-Axe, Wood-Axe, Skinning Knife or Fishing-Net from your hotbar or quick slot there\. A tool used from your pack gathers nothing: it only points the way\.$/);
   const src = readFileSync(new URL('../src/ui/profPages.js', import.meta.url), 'utf8');
-  assert.match(src, /if \(GATHER_HOW\[_sel\]\) pane\.append\(el\('p', 'px-note', GATHER_HOW\[_sel\]\)\);/);
-  assert.match(src, /: STORES_EMPTY_LINE\)\);/);
+  assert.match(src, /if \(GATHER_HOW\[_sel\]\) pane\.append\(el\('p', 'px-note', gatherHow\(_sel\)\)\);/);   // PIN MOVED (L10N4): said through its reader
+  assert.match(src, /: storesEmptyLine\(\)\)\);/);
+  assert.match(src, /const gatherHow = \(id\) => \(id === 'herbalism' \? t\('prof\.page\.how\.herbalism', GATHER_HOW_HERBALISM\)/);
+  assert.match(src, /const storesEmptyLine = \(\) => t\('prof\.page\.stores\.empty', STORES_EMPTY_LINE\);/);
 });
 
 // ─── PROF-MENU (2026-10-01, Mac: "They should use the same menu the loot menu uses and not an interaction button") ───

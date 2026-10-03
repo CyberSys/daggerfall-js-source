@@ -164,8 +164,8 @@
   {
     "name": "TOUCH-HOLD-the-meter-names-a-key",
     "file": "src/ui/profReticle.js",
-    "old": "s.tracing ? 'draw the knife along the line' : byUse ? 'aim the knife at the first point' :",
-    "new": "s.tracing ? 'draw the knife along the line' :",
+    "old": " : byUse ? t('prof.reticle.trace.aim', 'aim the knife at the first point')\n        : s.slips",
+    "new": "\n        : s.slips",
     "tests": [
       "test/fb1001_touchhold.test.js"
     ]
@@ -173,8 +173,8 @@
   {
     "name": "TOUCH-HOLD-the-gentle-meter-names-a-key",
     "file": "src/ui/profReticle.js",
-    "old": "? (byUse ? 'skinning...' : `hold ${label || 'the use key'}`)",
-    "new": "? (`hold ${label || 'the use key'}`)",
+    "old": "? (byUse ? t('prof.reticle.hold.skinning', 'skinning...') : t('prof.reticle.hold.hold', 'hold {key}', { key: label || useKey() }))",
+    "new": "? (t('prof.reticle.hold.hold', 'hold {key}', { key: label || useKey() }))",
     "tests": [
       "test/fb1001_touchhold.test.js"
     ]

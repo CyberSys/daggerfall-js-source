@@ -65,8 +65,8 @@
   {
     "name": "DRAKES-a-work-label-old",
     "file": "src/ui/workTab.js",
-    "old": "labelled('Pay (silver)', pay)",
-    "new": "labelled('Pay (Marks)', pay)",
+    "old": "      ...(q ? [labelled(t('prof.work.label.leastQuality', 'Least quality'), q)] : []), labelled(t('prof.work.label.paySilver', 'Pay (silver)'), pay), go);",
+    "new": "      ...(q ? [labelled(t('prof.work.label.leastQuality', 'Least quality'), q)] : []), labelled(t('prof.work.label.paySilver', 'Pay (Marks)'), pay), go);",
     "tests": [
       "test/drakes.test.js"
     ]

@@ -995,8 +995,8 @@
   {
     "name": "PROF10-pages-jeweller-cold-as-a-forge",
     "file": "src/ui/profPages.js",
-    "old": ": station === 'jeweller' ? JEWEL_COLD_LINE : FORGE_COLD_LINE);",
-    "new": ": FORGE_COLD_LINE);",
+    "old": ": station === 'jeweller' ? t('prof.page.cold.jeweller', JEWEL_COLD_LINE) : forgeColdLine());",
+    "new": ": forgeColdLine());",
     "tests": [
       "test/prof10_client.test.js"
     ]
@@ -1004,7 +1004,7 @@
   {
     "name": "PROF10-pages-hands-not-at-the-bench",
     "file": "src/ui/profPages.js",
-    "old": "    : me !== _jewel && _jewel.act ? 'the jeweller\\'s bench' : null);",
+    "old": "    : me !== _jewel && _jewel.act ? 'jeweller' : null);",
     "new": "    : null);",
     "tests": [
       "test/prof10_client.test.js"
@@ -1013,7 +1013,7 @@
   {
     "name": "PROF10-pages-escape-keeps-the-stone",
     "file": "src/ui/profPages.js",
-    "old": "  if (_jewel.act) { _jewel.act.cancel(); endFacet(); _jewel.word = FACET_DOWN_LINE; return true; }   // PROF10\n",
+    "old": "  if (_jewel.act) { _jewel.act.cancel(); endFacet(); _jewel.word = facetDownLine(); return true; }   // PROF10\n",
     "new": "",
     "tests": [
       "test/prof10_client.test.js"
@@ -1040,8 +1040,8 @@
   {
     "name": "PROF10-pages-gold-at-40",
     "file": "src/ui/profPages.js",
-    "old": "['Gold pieces', 3]",
-    "new": "['Gold pieces', 4]",
+    "old": "  jewelcrafting: () => [[t('prof.page.unlocks.jewelcrafting1', 'Silver pieces; the Cloth Amulet'), 1], [t('prof.page.unlocks.jewelcrafting3', 'Gold pieces'), 3],",
+    "new": "  jewelcrafting: () => [[t('prof.page.unlocks.jewelcrafting1', 'Silver pieces; the Cloth Amulet'), 1], [t('prof.page.unlocks.jewelcrafting3', 'Gold pieces'), 4],",
     "tests": [
       "test/prof10_client.test.js"
     ]
@@ -1068,7 +1068,7 @@
   {
     "name": "PROF10-pages-bench-no-fee-said",
     "file": "src/ui/profPages.js",
-    "old": "const short = purseShort(bench, 'jeweller', 'a piece');",
+    "old": "const short = purseShort(bench, 'jeweller');",
     "new": "const short = null;",
     "tests": [
       "test/prof10_client.test.js"
@@ -1122,8 +1122,8 @@
   {
     "name": "PROF10-pages-points-no-hand",
     "file": "src/ui/profPages.js",
-    "old": "box.append(el('p', 'px-note', `${jewelPointsLine(r, hand)}",
-    "new": "box.append(el('p', 'px-note', `${jewelPointsLine(r, null)}",
+    "old": "{ points: jewelPointsLine(r, hand),",
+    "new": "{ points: jewelPointsLine(r, null),",
     "tests": [
       "test/prof10_client.test.js"
     ]
@@ -1437,8 +1437,8 @@
   {
     "name": "AUDIT-PROF10-J2-bench-words",
     "file": "src/ui/profPages.js",
-    "old": ", beside a Masterwork\\'s own enchantment'}.`));",
-    "new": "'}.`));",
+    "old": "    box.append(el('p', 'px-note', t('prof.page.jewel.pointsNote', '{points}{hand, select, goldsmith { - a Goldsmith\\'s Silver, counted as Gold} gemcutter { - a Gemcutter\\'s gem} other {}}. The item maker spends them{wand, select, yes {} other {, beside a Masterwork\\'s own enchantment}}.',",
+    "new": "    box.append(el('p', 'px-note', t('prof.page.jewel.pointsNote', '{points}{hand, select, goldsmith { - a Goldsmith\\'s Silver, counted as Gold} gemcutter { - a Gemcutter\\'s gem} other {}}. The item maker spends them{wand, select, yes {} other {}}.',",
     "tests": [
       "test/prof10_client.test.js"
     ]
@@ -1510,8 +1510,8 @@
   {
     "name": "AUDIT-PROF-541-J5-wand-promised",
     "file": "src/ui/profPages.js",
-    "old": "r.product === 'wand' ? ''",
-    "new": "r.product === 'wands' ? ''",
+    "old": "wand: r.product === 'wand' ? 'yes' : 'no'",
+    "new": "wand: r.product === 'wands' ? 'yes' : 'no'",
     "tests": [
       "test/prof10_client.test.js"
     ]
@@ -1600,8 +1600,8 @@
   {
     "name": "PROF-541-R2-C6-unsaid",
     "file": "src/ui/profPages.js",
-    "old": "${steps > 0 ? ` (+${steps} ${steps === 1 ? 'step' : 'steps'} from the town's Apothecary)` : ''}",
-    "new": "",
+    "old": "{odds}{steps, plural, =0 {} one { (+# step from the town\\'s Apothecary)} other { (+# steps from the town\\'s Apothecary)}}.",
+    "new": "{odds}.",
     "tests": [
       "test/prof10_client.test.js"
     ]

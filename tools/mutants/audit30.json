@@ -428,8 +428,8 @@
   {
     "name": "AUDIT30-U13-the-purse-unasked",
     "file": "src/ui/profPages.js",
-    "old": "  return have < station.fee ? `The ${who} asks",
-    "new": "  return false ? `The ${who} asks",
+    "old": "  if (have >= station.fee) return null;\n  const a = { fee: station.fee, have };",
+    "new": "  return null;\n  const a = { fee: station.fee, have };",
     "tests": [
       "test/audit30_client.test.js"
     ]

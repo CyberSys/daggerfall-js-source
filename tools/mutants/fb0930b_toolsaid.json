@@ -296,7 +296,7 @@
   {
     "name": "TOOL-SAID-the-page-keeps-its-silence",
     "file": "src/ui/profPages.js",
-    "old": "    if (GATHER_HOW[_sel]) pane.append(el('p', 'px-note', GATHER_HOW[_sel]));   // TOOL-SAID",
+    "old": "    if (GATHER_HOW[_sel]) pane.append(el('p', 'px-note', gatherHow(_sel)));   // TOOL-SAID",
     "new": "",
     "tests": ["test/fb0930b_toolsaid.test.js"]
   },

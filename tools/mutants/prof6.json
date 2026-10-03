@@ -630,8 +630,8 @@
   {
     "name": "PROF6-tab-fill-elsewhere",
     "file": "src/ui/workTab.js",
-    "old": "here ? 'Fill it on its card above.' : `Filled at the boards of ${where}.`",
-    "new": "'Fill it on its card above.'",
+    "old": "here ? t('prof.work.yours.fillAbove', 'Fill it on its card above.') : t('prof.work.yours.fillThere', 'Filled at the boards of {where}.', { where })",
+    "new": "t('prof.work.yours.fillAbove', 'Fill it on its card above.')",
     "tests": [
       "test/prof6_client.test.js",
       "test/audit31_tabs.test.js"
@@ -640,8 +640,8 @@
   {
     "name": "PROF6-tab-budget-unsaid",
     "file": "src/ui/workTab.js",
-    "old": "              : officer && escrow > (g.left ?? 0) ? `That is past your writ budget this week (${marksText(g.left ?? 0)} left).` : '');\n      said.textContent = `Holds ${marksText(escrow)} from the guild's treasury (it holds ${marksText(g.marks ?? 0)}) until it is delivered",
-    "new": "              : false ? `That is past your writ budget this week (${marksText(g.left ?? 0)} left).` : '');\n      said.textContent = `Holds ${marksText(escrow)} from the guild's treasury (it holds ${marksText(g.marks ?? 0)}) until it is delivered",
+    "old": "              : officer && escrow > (g.left ?? 0) ? pastBudget(g) : '');\n      said.textContent = t('prof.work.writ.said',",
+    "new": "              : false ? pastBudget(g) : '');\n      said.textContent = t('prof.work.writ.said',",
     "tests": [
       "test/prof6_client.test.js"
     ]

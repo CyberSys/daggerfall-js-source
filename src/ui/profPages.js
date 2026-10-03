@@ -80,6 +80,7 @@ import { material } from '../net/nodeLaw.js';
 import { marksText } from '../net/marksLaw.js';   // AUDIT 32 R13: "1 Drake", as the Market tab says it
 import { accountRefusalText } from '../net/accountClient.js';
 import { getPref, setPref } from '../systems/uiPrefs.js';
+import { t, localizedText, localizedTable, formatMessage, formatNumber } from '../systems/textManager.js';   // L10N4: the pages' words in the player's language; the metals, Leather, Arrows and All are DFU's own
 
 /**
  * @typedef {object} ProfPagesProvider
@@ -132,9 +133,11 @@ let _provider = /** @type {ProfPagesProvider|null} */ (null);
 export function setProfessionsPages(p) { _provider = p ?? null; }
 /** What a locked specialisation's card says it waits for (professionLaw.js `later`). */
 const LATER_WORDS = Object.freeze({
-  SEAT2: 'Comes with the sieges', SEAT2b: 'Comes with the fortifications',   // PROF11: the Builder's and the Fortifier's
+  get SEAT2() { return t('prof.page.later.seat2', 'Comes with the sieges'); }, get SEAT2b() { return t('prof.page.later.seat2b', 'Comes with the fortifications'); },   // PROF11: the Builder's and the Fortifier's
   // PROF7 (Professions-Arc.md 29): what DFU gives these nothing to stand as - for Mac
-  trophy: 'Waits on a trophy to stand as', 'two-colour': 'Waits on a second dye Daggerfall\'s cloth can take', wagon: 'Waits on a wagon upgrade to hold',   // AUDIT 32 R11: Daggerfall, never "DFU", where a player reads it
+  get trophy() { return t('prof.page.later.trophy', 'Waits on a trophy to stand as'); },
+  get 'two-colour'() { return t('prof.page.later.twoColour', 'Waits on a second dye Daggerfall\'s cloth can take'); },   // AUDIT 32 R11: Daggerfall, never "DFU", where a player reads it
+  get wagon() { return t('prof.page.later.wagon', 'Waits on a wagon upgrade to hold'); },
 });
 /** Whether the pages stand: a book, and the professions this account's. */
 export const profPagesShown = () => !!_provider && _provider.book?.state?.open === true;
@@ -145,6 +148,8 @@ export const profPagesShown = () => !!_provider && _provider.book?.state?.open =
 export const forgeOffered = () => profPagesShown();
 /** What a Forge station says when it cannot be worked here. */
 export const FORGE_COLD_LINE = 'The forge is cold. Smelting is done online, from your Stores page.';
+/** L10N4: the cold lines in the player's language - the constants stay the English the tests compare against. */
+export const forgeColdLine = () => t('prof.page.cold.forge', FORGE_COLD_LINE);
 /** PROF4 (bible/06-Systems/Professions-Arc.md 25): the home stations the Stores page works - the forge and the workbench -
  *  offered, sold and worked only where it is (forgeOffered's gate, AUDIT 29 B2). */
 export const PROF_STATIONS = Object.freeze(['forge', 'workbench', 'loom', 'mason', 'jeweller']);   // PROF7: the loom; PROF11: the mason's bench; PROF10: the jeweller's
@@ -152,10 +157,17 @@ export const WORKBENCH_COLD_LINE = 'The workbench is bare. Carpentry is done onl
 export const LOOM_COLD_LINE = 'The loom is still. Outfitting is done online, from your Stores page.';
 export const MASON_COLD_LINE = 'The mason\'s bench is idle. Masonry is done online, from your Stores page.';   // PROF11
 export const JEWEL_COLD_LINE = 'The jeweller\'s bench is bare. Jewelcrafting is done online, from your Stores page.';   // PROF10
-export const stationColdLine = (station) => (station === 'workbench' ? WORKBENCH_COLD_LINE : station === 'loom' ? LOOM_COLD_LINE
-  : station === 'mason' ? MASON_COLD_LINE : station === 'jeweller' ? JEWEL_COLD_LINE : FORGE_COLD_LINE);
+export const stationColdLine = (station) => (station === 'workbench' ? t('prof.page.cold.workbench', WORKBENCH_COLD_LINE) : station === 'loom' ? t('prof.page.cold.loom', LOOM_COLD_LINE)
+  : station === 'mason' ? t('prof.page.cold.mason', MASON_COLD_LINE) : station === 'jeweller' ? t('prof.page.cold.jeweller', JEWEL_COLD_LINE) : forgeColdLine());
+/** L10N4: a frozen row `[id, label]` whose label is read when it is read (in the player's language) - the shape the
+ *  rails and the pins destructure. */
+const wordRow = (id, label) => {
+  const row = [id];
+  Object.defineProperty(row, 1, { enumerable: true, get: label });
+  return Object.freeze(row);
+};
 /** The rail's rows the pages add. */
-export const PROF_PAGE_SECTIONS = Object.freeze([Object.freeze(['professions', 'Professions']), Object.freeze(['stores', 'Stores'])]);
+export const PROF_PAGE_SECTIONS = Object.freeze([wordRow('professions', () => t('prof.page.rail.professions', 'Professions')), wordRow('stores', () => t('prof.page.rail.stores', 'Stores'))]);
 
 /** What the Professions page has chosen, and a change of specialisation pressed once (the second press buys it). */
 let _sel = 'herbalism';
@@ -228,9 +240,11 @@ let _workingOn = /** @type {string|null} */ (null);
  * player never finished spent its ingot. Every station's Craft waits on the others'.
  * @param {object} me
  */
-const handsAt = (me) => (me !== _anvil && _anvil.act ? 'the anvil' : me !== _bench && _bench.act ? 'the workbench' : me !== _loom && _loom.act ? 'the loom'
-  : me !== _mason && _mason.act ? 'the mason\'s bench' : me !== _cook && _cook.act ? 'the fire'
-    : me !== _jewel && _jewel.act ? 'the jeweller\'s bench' : null);   // PROF11; PROF9: the fire; PROF10: the jeweller's bench
+const handsAt = (me) => (me !== _anvil && _anvil.act ? 'anvil' : me !== _bench && _bench.act ? 'workbench' : me !== _loom && _loom.act ? 'loom'
+  : me !== _mason && _mason.act ? 'mason' : me !== _cook && _cook.act ? 'fire'
+    : me !== _jewel && _jewel.act ? 'jeweller' : null);   // PROF11; PROF9: the fire; PROF10: the jeweller's bench
+/** What a station says while the hands are at another (`at`, handsAt's). */
+const handsLine = (at) => t('prof.page.hands', 'Your hands are at {at, select, anvil {the anvil} workbench {the workbench} loom {the loom} mason {the mason\'s bench} fire {the fire} other {the jeweller\'s bench}} - finish there first.', { at });
 /**
  * AUDIT 32 P1: AN ACT'S PRESS BUTTON (the heat's Strike, the stitch's Stitch) - pressed on the pointer's DOWN, the focus
  * left where it was (the click comes on the release: a tap on the beat was scored 90-150 ms late, and a phone has no
@@ -256,31 +270,50 @@ function actKey(e, ownButton, press) {
   e.preventDefault?.(); e.stopImmediatePropagation?.(); e.stopPropagation?.();
   if (!e.repeat) press(e);
 }
-/** AUDIT 30 U13: a station's fee the purse cannot meet - its words, or null. */
-function purseShort(station, who, per) {
+/** AUDIT 30 U13: a station's fee the purse cannot meet - its words, or null. `which` the station (L10N4: each its own
+ *  sentence: 'forge', 'anvil', 'workbench', 'loom', 'mason', 'jeweller', 'alchemy', 'enchanter'). */
+function purseShort(station, which) {
   const p = _provider;
   if (!station || station.kind !== 'shop' || !(station.fee > 0) || typeof p?.purse !== 'function') return null;
   const have = p.purse();
-  return have < station.fee ? `The ${who} asks ${station.fee} gold ${per}; you carry ${have}.` : null;
+  if (have >= station.fee) return null;
+  const a = { fee: station.fee, have };
+  switch (which) {
+    case 'forge': return t('prof.page.purse.forge', 'The smith asks {fee} gold a smelt; you carry {have}.', a);
+    case 'anvil': return t('prof.page.purse.anvil', 'The smith asks {fee} gold a craft; you carry {have}.', a);
+    case 'workbench': return t('prof.page.purse.workbench', 'The furnisher asks {fee} gold a craft or a saw; you carry {have}.', a);
+    case 'loom': return t('prof.page.purse.loom', 'The tailor asks {fee} gold a craft, a cure or a weave; you carry {have}.', a);
+    case 'mason': return t('prof.page.purse.mason', 'The mason asks {fee} gold a cut, a mix or a carving; you carry {have}.', a);
+    case 'jeweller': return t('prof.page.purse.jeweller', 'The jeweller asks {fee} gold a piece; you carry {have}.', a);
+    case 'alchemy': return t('prof.page.purse.alchemy', 'The alchemist asks {fee} gold a brew; you carry {have}.', a);
+    default: return t('prof.page.purse.enchanter', 'The enchanter asks {fee} gold a piece; you carry {have}.', a);
+  }
 }
 /** What a Stores material of the smith's stock says in place of a withdrawal. */
 export const STOCK_STAYS_LINE = 'It stays at the bench: the anvil and the workbench spend it, and it comes to the pack once its own craft is practised.';   // PROF4: a counter's good with no pack form - none since PROF7 registered them all (NO_PACK_FORM empty), kept for a material to come
+const stockStaysLine = () => t('prof.page.stores.stockStays', STOCK_STAYS_LINE);
 /** SEAT2b part two: what a siege work (the Ram Kit) says in place of a withdrawal - its road is a Siege Camp's writ. */
 export const SIEGE_STAYS_LINE = 'A siege work stays in the Stores: a writ for your guild\'s Siege Camp carries it to the siege, delivered at a Notice Board\'s Work tab.';
+const siegeStaysLine = () => t('prof.page.stores.siegeStays', SIEGE_STAYS_LINE);
 /** AUDIT PROF12 E1: what Arcane Essence says in place of a withdrawal - it never goes to the pack (NO_PACK_FORM). */
 export const ESSENCE_STAYS_LINE = 'Arcane Essence stays in the Stores: it never goes to the pack, and it is sold on the Market tab from here.';
+const essenceStaysLine = () => t('prof.page.stores.essenceStays', ESSENCE_STAYS_LINE);
+/** What setting the heat, the plane and the needle down says. */
+const heatDownLine = () => t('prof.page.anvil.down', 'You let the ingot cool; nothing is spent.');
+const planeDownLine = () => t('prof.page.bench.down', 'You set the plane down; nothing is spent.');
+const needleDownLine = () => t('prof.page.loom.down', 'You set the needle down; nothing is spent.');
 /**
  * AUDIT 32 P12: ESCAPE SETS AN ACT DOWN before it closes the window (AUDIT 31's law: Escape closes a form before the
  * window) - the heat, the plane or the stitch under way let go, nothing spent, and said. It closed the pause window, and
  * the act was dropped silently with the page. True when there was one.
  */
 export function setDownProfAct() {
-  if (_anvil.act) { _anvil.act.cancel(); endHeat(); _anvil.word = 'You let the ingot cool; nothing is spent.'; return true; }
-  if (_bench.act) { _bench.act.cancel?.(); _bench.act = null; _bench.actRecipe = null; _bench.word = 'You set the plane down; nothing is spent.'; return true; }
-  if (_loom.act) { _loom.act.cancel(); endStitch(); _loom.word = 'You set the needle down; nothing is spent.'; return true; }
-  if (_mason.act) { _mason.act.cancel(); endChisel(); _mason.word = CHISEL_DOWN_LINE; return true; }   // PROF11
-  if (_cook.act) { _cook.act.cancel(); endPan(); _cook.word = PAN_DOWN_LINE; return true; }   // PROF9
-  if (_jewel.act) { _jewel.act.cancel(); endFacet(); _jewel.word = FACET_DOWN_LINE; return true; }   // PROF10
+  if (_anvil.act) { _anvil.act.cancel(); endHeat(); _anvil.word = heatDownLine(); return true; }
+  if (_bench.act) { _bench.act.cancel?.(); _bench.act = null; _bench.actRecipe = null; _bench.word = planeDownLine(); return true; }
+  if (_loom.act) { _loom.act.cancel(); endStitch(); _loom.word = needleDownLine(); return true; }
+  if (_mason.act) { _mason.act.cancel(); endChisel(); _mason.word = chiselDownLine(); return true; }   // PROF11
+  if (_cook.act) { _cook.act.cancel(); endPan(); _cook.word = panDownLine(); return true; }   // PROF9
+  if (_jewel.act) { _jewel.act.cancel(); endFacet(); _jewel.word = facetDownLine(); return true; }   // PROF10
   return false;
 }
 /** Whether an act is under way on the Stores page (the back stack's question). */
@@ -298,39 +331,46 @@ export function resetProfPages() {
   _enchant.word = null; _enchant.armed = null;   // PROF12
 }
 
-/** What the Professions page says a harvest earns for each profession PROF1 gathers, by tier. */
+/** What the Professions page says a harvest earns for each profession PROF1 gathers, by tier. L10N4: each a function, its
+ *  words read when the page is drawn (in the player's language); the smith's lone metals are DFU's own words. */
 const UNLOCKS = Object.freeze({
-  herbalism: Object.freeze([['Common herbs, and the Basket\'s food', 1], ['Uncommon herbs', 2], ['Rare herbs', 3]]),
+  herbalism: () => [[t('prof.page.unlocks.herbalism1', 'Common herbs, and the Basket\'s food'), 1], [t('prof.page.unlocks.herbalism2', 'Uncommon herbs'), 2], [t('prof.page.unlocks.herbalism3', 'Rare herbs'), 3]],
   // PROF2: the metals by their tiers (PROF0 4.1), the stone and the dungeons' deep veins
-  mining: Object.freeze([['Iron, Tin, Copper, Lead, Sulphur; quarrying', 1], ['Lodestone, Mercury', 2], ['Silver; the dungeons\' deep veins', 3],
-    ['Gold, Moonstone, Dwarven Scrap', 4], ['Platinum, Mithril', 5], ['Adamantium, Ebony, Orichalcum', 6]]),
+  mining: () => [[t('prof.page.unlocks.mining1', 'Iron, Tin, Copper, Lead, Sulphur; quarrying'), 1], [t('prof.page.unlocks.mining2', 'Lodestone, Mercury'), 2], [t('prof.page.unlocks.mining3', 'Silver; the dungeons\' deep veins'), 3],
+    [t('prof.page.unlocks.mining4', 'Gold, Moonstone, Dwarven Scrap'), 4], [t('prof.page.unlocks.mining5', 'Platinum, Mithril'), 5], [t('prof.page.unlocks.mining6', 'Adamantium, Ebony, Orichalcum'), 6]],
   // PROF4: the woods by their tiers (PROF0 4.2); Smithing's metals and Carpentry's woods by theirs
-  logging: Object.freeze([['Pine', 1], ['Oak', 2], ['Cherry', 3], ['Teak', 4], ['Mahogany', 5], ['Ironwood, Ghostwood', 6]]),
+  logging: () => [[t('prof.page.unlocks.logging1', 'Pine'), 1], [t('prof.page.unlocks.logging2', 'Oak'), 2], [t('prof.page.unlocks.logging3', 'Cherry'), 3], [t('prof.page.unlocks.logging4', 'Teak'), 4],
+    [t('prof.page.unlocks.logging5', 'Mahogany'), 5], [t('prof.page.unlocks.logging6', 'Ironwood, Ghostwood'), 6]],
   // AUDIT 30 U19: the Spade is rank 10's. PROF7 (FOUND): that note once swallowed Silver, Elven and Dwarven, and Mithril
-  smithing: Object.freeze([['Iron; the Wood-Axe, Pick-Axe, Sickle and Skinning Knife', 1], ['Steel; the chain; the Spade', 2],
-    ['Silver', 3], ['Elven, Dwarven', 4], ['Mithril', 5], ['Adamantium, Ebony, Orcish; Warforged', 6], ['Daedric', 7]]),
-  carpentry: Object.freeze([['Pine: staves, bows, arrows, the Basket, a plain single bed', 1], ['Oak: tables, chairs, a plain double bed', 2],
-    ['Cherry: a fancy single bed', 3], ['Teak: a fancy double bed', 4], ['Mahogany', 5], ['Ironwood, Ghostwood: staves and bows', 6]]),
+  smithing: () => [[t('prof.page.unlocks.smithing1', 'Iron; the Wood-Axe, Pick-Axe, Sickle and Skinning Knife'), 1], [t('prof.page.unlocks.smithing2', 'Steel; the chain; the Spade'), 2],
+    [localizedText('silver', 'Silver'), 3], [t('prof.page.unlocks.smithing4', 'Elven, Dwarven'), 4], [localizedText('mithril', 'Mithril'), 5], [t('prof.page.unlocks.smithing6', 'Adamantium, Ebony, Orcish; Warforged'), 6],
+    [localizedText('daedric', 'Daedric'), 7]],
+  carpentry: () => [[t('prof.page.unlocks.carpentry1', 'Pine: staves, bows, arrows, the Basket, a plain single bed'), 1], [t('prof.page.unlocks.carpentry2', 'Oak: tables, chairs, a plain double bed'), 2],
+    [t('prof.page.unlocks.carpentry3', 'Cherry: a fancy single bed'), 3], [t('prof.page.unlocks.carpentry4', 'Teak: a fancy double bed'), 4], [t('prof.page.unlocks.logging5', 'Mahogany'), 5],
+    [t('prof.page.unlocks.carpentry6', 'Ironwood, Ghostwood: staves and bows'), 6]],
   // PROF7: the hides by their tiers (PROF0 4.4); Outfitting's leathers and cloths by theirs (9.3)
-  hunting: Object.freeze([['Rat Pelt', 1], ['Bat Leather, Bear Hide', 2], ['Tiger Pelt, Spider Silk', 3], ['Scorpion Chitin, Slaughterfish Scales', 4],
-    ['Harpy Feathers, Dreugh Shell', 5], ['Dragonling Scale', 6]]),
+  hunting: () => [[t('prof.page.unlocks.hunting1', 'Rat Pelt'), 1], [t('prof.page.unlocks.hunting2', 'Bat Leather, Bear Hide'), 2], [t('prof.page.unlocks.hunting3', 'Tiger Pelt, Spider Silk'), 3],
+    [t('prof.page.unlocks.hunting4', 'Scorpion Chitin, Slaughterfish Scales'), 4], [t('prof.page.unlocks.hunting5', 'Harpy Feathers, Dreugh Shell'), 5], [t('prof.page.unlocks.hunting6', 'Dragonling Scale'), 6]],
   // AUDIT 32 R4: the skins by their pelt's tier (the Rat's open at 0, the Bat's and the Bear's at 10, the Tiger's at 25),
   // and Standard-bearer's Silk said for what it waits on
-  outfitting: Object.freeze([['Linen clothing; the Rat\'s skins; the Fishing-Net', 1], ['Cured Leather armour; Wool clothing, rugs and tapestries; the Bat\'s and the Bear\'s skins', 2],
-    ['The Tiger\'s skins', 3], ['Silk clothing', 4], ['Hardened Leather armour; Standard-bearer\'s Silk clothing (its silk comes with the sieges)', 5]]),
+  outfitting: () => [[t('prof.page.unlocks.outfitting1', 'Linen clothing; the Rat\'s skins; the Fishing-Net'), 1],
+    [t('prof.page.unlocks.outfitting2', 'Cured Leather armour; Wool clothing, rugs and tapestries; the Bat\'s and the Bear\'s skins'), 2],
+    [t('prof.page.unlocks.outfitting3', 'The Tiger\'s skins'), 3], [t('prof.page.unlocks.outfitting4', 'Silk clothing'), 4],
+    [t('prof.page.unlocks.outfitting5', 'Hardened Leather armour; Standard-bearer\'s Silk clothing (its silk comes with the sieges)'), 5]],
   // PROF8: every haul is Raw Fish - the rank sets its XP (a haul is worked at the rank's own tier); the sea's finds need
   // the ground the witnesses confirmed, and no rank
-  fishing: Object.freeze([['Raw Fish in any water; a school\'s extra fish; at sea on confirmed ground a Pearl or a Slaughterfish; a trophy', 1]]),
+  fishing: () => [[t('prof.page.unlocks.fishing1', 'Raw Fish in any water; a school\'s extra fish; at sea on confirmed ground a Pearl or a Slaughterfish; a trophy'), 1]],
   // PROF11: the bench's two works by their ranks - the cut Rough Stone's (tier 1), the mix Mortar's (tier 2); the
   // Sculptor's stone decor comes with its card at 100
-  masonry: Object.freeze([['Cut Stone, from Rough Stone', 1], ['Mortar, from Sulphur, Lead and Rough Stone', 2]]),
+  masonry: () => [[t('prof.page.unlocks.masonry1', 'Cut Stone, from Rough Stone'), 1], [t('prof.page.unlocks.masonry2', 'Mortar, from Sulphur, Lead and Rough Stone'), 2]],
   // PROF9: the four dishes by their ranks (9.3; recipeLaw DISHES) - a dish's XP follows the rank, not the dish
-  cooking: Object.freeze([['Hunter\'s Stew, Fisherman\'s Supper', 1], ['Orchard Tart', 2], ['Feast of the Hearth', 6]]),
+  cooking: () => [[t('prof.page.unlocks.cooking1', 'Hunter\'s Stew, Fisherman\'s Supper'), 1], [t('prof.page.unlocks.cooking2', 'Orchard Tart'), 2], [t('prof.page.unlocks.cooking6', 'Feast of the Hearth'), 6]],
   // PROF10: the jeweller's ladder (recipeLaw JEWEL_METALS) - Silver and the Cloth Amulet at 0, Gold at 25, Platinum at 55,
   // the Wand (its Ironwood or Ghostwood) at 70
-  jewelcrafting: Object.freeze([['Silver pieces; the Cloth Amulet', 1], ['Gold pieces', 3], ['Platinum pieces', 5], ['The Wand, in Ironwood or Ghostwood', 6]]),
+  jewelcrafting: () => [[t('prof.page.unlocks.jewelcrafting1', 'Silver pieces; the Cloth Amulet'), 1], [t('prof.page.unlocks.jewelcrafting3', 'Gold pieces'), 3],
+    [t('prof.page.unlocks.jewelcrafting5', 'Platinum pieces'), 5], [t('prof.page.unlocks.jewelcrafting6', 'The Wand, in Ironwood or Ghostwood'), 6]],
   // PROF12: the alchemist's ladder (alchemyLaw POTIONS - a potion's tier its DFU price's), DFU's twenty by their ranks
-  alchemy: Object.freeze([1, 2, 3, 4, 5, 6, 7].map((t) => Object.freeze([POTIONS.filter((p) => p.tier === t).map((p) => p.name).join(', '), t]))),
+  alchemy: () => [1, 2, 3, 4, 5, 6, 7].map((tier) => [POTIONS.filter((p) => p.tier === tier).map((p) => p.name).join(', '), tier]),
 });
 /** PROF4 (FOUND): Smithing was practised from PROF3 and the page never said so - its cards stood locked. PROF7: Hunting
  *  and Outfitting. */
@@ -340,18 +380,25 @@ export const FISHING_HOW = 'With a Fishing-Net in your pack, stand in water, swi
 /** FIELD BUGS 2026-09-30b (TOOL-SAID): how the other three gathering professions gather, as the page says it - the page
  *  said it for Hunting and Fishing alone, and players used the tools from the pack. TOOL-USE: a tool's Use at the node
  *  (the hotbar's, a quick slot's) is the key's; from the pack it only points the way. */
-export const GATHER_HOW = Object.freeze({
-  herbalism: 'Walk up to an herb patch in the wilderness until the prompt shows, then press the use key: common herbs come by hand, the rest need a Sickle in your pack. With a Basket, the act choice key searches the patch for food instead. Using the Sickle or the Basket from your hotbar or quick slot at the patch is the same as the key - the Sickle picks the herbs, the Basket searches for food. Used from your pack, they only point the way.',
-  mining: 'With a Pick-Axe in your pack, walk up to an ore vein or a boulder in the wilderness, or a vein in a dungeon, until the prompt shows, then press the use key. Using the Pick-Axe from your hotbar or quick slot there is the same as the key. Used from your pack, it only points the way.',
-  logging: 'With a Wood-Axe in your pack, walk up to a tree in the wilderness until the prompt shows, then press the use key. Only some trees in each area can be felled each day. Using the Wood-Axe from your hotbar or quick slot there is the same as the key. Used from your pack, it only points the way.',
-});
+const GATHER_HOW_HERBALISM = 'Walk up to an herb patch in the wilderness until the prompt shows, then press the use key: common herbs come by hand, the rest need a Sickle in your pack. With a Basket, the act choice key searches the patch for food instead. Using the Sickle or the Basket from your hotbar or quick slot at the patch is the same as the key - the Sickle picks the herbs, the Basket searches for food. Used from your pack, they only point the way.';
+const GATHER_HOW_MINING = 'With a Pick-Axe in your pack, walk up to an ore vein or a boulder in the wilderness, or a vein in a dungeon, until the prompt shows, then press the use key. Using the Pick-Axe from your hotbar or quick slot there is the same as the key. Used from your pack, it only points the way.';
+const GATHER_HOW_LOGGING = 'With a Wood-Axe in your pack, walk up to a tree in the wilderness until the prompt shows, then press the use key. Only some trees in each area can be felled each day. Using the Wood-Axe from your hotbar or quick slot there is the same as the key. Used from your pack, it only points the way.';
+export const GATHER_HOW = Object.freeze({ herbalism: GATHER_HOW_HERBALISM, mining: GATHER_HOW_MINING, logging: GATHER_HOW_LOGGING });
+/** L10N4: how a gathering profession gathers, in the player's language (GATHER_HOW the English). */
+const gatherHow = (id) => (id === 'herbalism' ? t('prof.page.how.herbalism', GATHER_HOW_HERBALISM) : id === 'mining' ? t('prof.page.how.mining', GATHER_HOW_MINING)
+  : id === 'logging' ? t('prof.page.how.logging', GATHER_HOW_LOGGING) : '');
 /** TOOL-SAID: the empty Stores say where their goods come from - a node's act (TOOL-USE: the key's, or the tool's Use
  *  there), never a tool used from the pack. */
 export const STORES_EMPTY_LINE = 'Your Stores are empty. What you gather online is kept here: press the use key at an herb patch, a tree, an ore vein or a boulder, a body you felled, or in water with a net - or use the Sickle, Basket, Pick-Axe, Wood-Axe, Skinning Knife or Fishing-Net from your hotbar or quick slot there. A tool used from your pack gathers nothing: it only points the way.';   // TOUCH-HOLD: the knife's Use
+const storesEmptyLine = () => t('prof.page.stores.empty', STORES_EMPTY_LINE);
 /** PROF12: how Alchemy is practised, as the Professions page says it. */
 export const ALCHEMY_HOW = 'Alchemy is brewed at an alchemy station - an Alchemist\'s, or your own home\'s - from your Stores: Daggerfall\'s own twenty recipes, their herbs, metals and gems gathered, the rest from the Apothecaries\' counter. Daggerfall\'s potion maker, with the ingredients in your pack, stays as it was and earns nothing here.';
+const fishingHow = () => t('prof.page.how.fishing', FISHING_HOW);
+const alchemyHow = () => t('prof.page.how.alchemy', ALCHEMY_HOW);
 /** PROF12: how Enchanting is practised, and what its rank takes off the item maker's gold. */
-export const ENCHANTING_HOW = (pct) => `Enchanting rises by disenchanting crafted pieces into Arcane Essence at an enchanting station - a Mages Guild hall, or your own home's. Daggerfall's item maker stays as it was${pct > 0 ? `; your rank takes ${pct}% off its gold` : '; from Journeyman your rank takes a share off its gold'}.`;
+export const ENCHANTING_HOW = (pct) => (pct > 0
+  ? t('prof.page.how.enchantingPct', 'Enchanting rises by disenchanting crafted pieces into Arcane Essence at an enchanting station - a Mages Guild hall, or your own home\'s. Daggerfall\'s item maker stays as it was; your rank takes {pct}% off its gold.', { pct })
+  : t('prof.page.how.enchanting', 'Enchanting rises by disenchanting crafted pieces into Arcane Essence at an enchanting station - a Mages Guild hall, or your own home\'s. Daggerfall\'s item maker stays as it was; from Journeyman your rank takes a share off its gold.'));
 /** PROF12: ENCHANTING'S LAYER OVER DFU'S ITEM MAKER (9.3) - the share off its gold, percent: online, the professions this
  *  account's, by the Enchanting track's rank (and an Efficient's at 50); none else. The item maker reads it (worldModes). */
 export function enchantGoldPct() {
@@ -364,8 +411,8 @@ const PARTLY = Object.freeze({});
 
 /** The line a track's XP makes: "11,900 / 12,250 XP" to the next rank, or the Master's total. */
 export function xpLine(track) {
-  if (track.rank >= PROF_RANK_MAX) return `${track.xp.toLocaleString('en-US')} XP - Master`;
-  return `${track.xp.toLocaleString('en-US')} / ${xpForRank(track.rank + 1).toLocaleString('en-US')} XP`;
+  if (track.rank >= PROF_RANK_MAX) return t('prof.page.xpMaster', '{xp, number} XP - Master', { xp: track.xp });
+  return t('prof.page.xp', '{xp, number} / {next, number} XP', { xp: track.xp, next: xpForRank(track.rank + 1) });
 }
 /** How many crafts stand above Journeyman (PROF0 3.2's limit). */
 export const craftsAboveJourneyman = (tracks) => PROFESSIONS.filter((p) => p.kind === 'crafting' && (tracks.get(p.id)?.rank ?? 0) > JOURNEYMAN_RANK).length;
@@ -392,59 +439,64 @@ export function drawProfessionsPage(detail, rerender, kit) {
   const cols = el('div', 'prof-cols');
   const list = el('div', 'prof-list');
   for (const group of ['gathering', 'crafting']) {
-    list.append(divider(group === 'gathering' ? 'Gathering' : 'Crafting'));
+    list.append(divider(group === 'gathering' ? t('prof.page.gathering', 'Gathering') : t('prof.page.crafting', 'Crafting')));
     for (const prof of PROFESSIONS.filter((x) => x.kind === group)) {
-      const t = book.track(prof.id);
+      const tr = book.track(prof.id);
       const row = el('button', `prof-row${prof.id === _sel ? ' on' : ''}`);
       row.type = 'button';
-      row.append(el('span', 'prof-name', prof.name), el('span', 'prof-rank', `${rankName(t.rank)} ${t.rank}`));
-      const floor = xpForRank(t.rank), next = xpForRank(Math.min(PROF_RANK_MAX, t.rank + 1));
-      row.append(meter(t.rank >= PROF_RANK_MAX ? 1 : t.xp - floor, t.rank >= PROF_RANK_MAX ? 1 : next - floor, ''));
+      row.append(el('span', 'prof-name', prof.name), el('span', 'prof-rank', t('prof.page.rankOf', '{rankName} {rank}', { rankName: rankName(tr.rank), rank: tr.rank })));
+      const floor = xpForRank(tr.rank), next = xpForRank(Math.min(PROF_RANK_MAX, tr.rank + 1));
+      row.append(meter(tr.rank >= PROF_RANK_MAX ? 1 : tr.xp - floor, tr.rank >= PROF_RANK_MAX ? 1 : next - floor, ''));
       row.onclick = () => { _sel = prof.id; _armed = null; rerender(); };
       list.append(row);
     }
   }
   const pane = el('div', 'prof-pane');
-  const t = book.track(_sel);
+  const tr = book.track(_sel);
   const title = el('div', 'prof-title');
-  title.append(el('h3', null, professionName(_sel)), el('span', 'prof-rankline', t.rank >= PROF_RANK_MAX ? 'Master 100' : `${rankName(t.rank)}  ${t.rank} -> ${t.rank + 1}`));
-  pane.append(title, el('p', 'prof-xp', xpLine(t)));
+  title.append(el('h3', null, professionName(_sel)), el('span', 'prof-rankline', tr.rank >= PROF_RANK_MAX ? t('prof.page.master', 'Master 100')
+    : t('prof.page.rankNext', '{rankName}  {rank} -> {next}', { rankName: rankName(tr.rank), rank: tr.rank, next: tr.rank + 1 })));
+  pane.append(title, el('p', 'prof-xp', xpLine(tr)));
   const practised = PRACTISED.includes(_sel);
-  if (!practised) pane.append(el('p', 'px-note', PARTLY[_sel] ?? 'This profession is not practised in the Bay yet.'));
+  if (!practised) pane.append(el('p', 'px-note', PARTLY[_sel] ?? t('prof.page.notPractised', 'This profession is not practised in the Bay yet.')));
   if (_sel === 'hunting') {
     // PROF7: Hunting's day is the account's (PROF0 6) - its hides, every character's together, and the rare ones
     const h = book.state.hunt ?? { hides: 0, high: 0 };
-    pane.append(el('p', 'prof-today', `Today: ${h.hides} of ${book.state.caps?.hides ?? HIDES_PER_DAY} hides, ${h.high} of ${book.state.caps?.highHides ?? HIGH_HIDES_PER_DAY} of tiers 5-6 - your account's, across your characters`));
+    pane.append(el('p', 'prof-today', t('prof.page.today.hides', 'Today: {hides} of {cap} hides, {high} of {highCap} of tiers 5-6 - your account\'s, across your characters',
+      { hides: h.hides, cap: book.state.caps?.hides ?? HIDES_PER_DAY, high: h.high, highCap: book.state.caps?.highHides ?? HIGH_HIDES_PER_DAY })));
     // TOUCH-HOLD: the knife's Use, as the Sickle's - it holds the knife, so the line is drawn with no key held
-    pane.append(el('p', 'px-note', 'A body your own blow felled, with a Skinning Knife in your pack: the act choice key searches it instead. Hold the use key on the first point of the line and draw the knife along it - or use the Skinning Knife from your hotbar or quick slot at the body: it holds the knife for you, and you draw the line by looking.'));
+    pane.append(el('p', 'px-note', t('prof.page.how.hunting', 'A body your own blow felled, with a Skinning Knife in your pack: the act choice key searches it instead. Hold the use key on the first point of the line and draw the knife along it - or use the Skinning Knife from your hotbar or quick slot at the body: it holds the knife for you, and you draw the line by looking.')));
   } else if (_sel === 'fishing') {
     // PROF8: Fishing's day is the account's too (PROF0 6) - its hauls, every character's together
-    pane.append(el('p', 'prof-today', `Today: ${book.state.hauls ?? 0} of ${book.state.caps?.hauls ?? HAULS_PER_DAY} hauls - your account's, across your characters`));
-    pane.append(el('p', 'px-note', FISHING_HOW));
+    pane.append(el('p', 'prof-today', t('prof.page.today.hauls', 'Today: {hauls} of {cap} hauls - your account\'s, across your characters', { hauls: book.state.hauls ?? 0, cap: book.state.caps?.hauls ?? HAULS_PER_DAY })));
+    pane.append(el('p', 'px-note', fishingHow()));
   } else if (_sel === 'enchanting') {
     // PROF12: Enchanting's layer said where its rank is read - the item maker's gold, and what raises it
-    pane.append(el('p', 'px-note', ENCHANTING_HOW(enchantDiscountPct(t.rank, t.specs?.[50] ?? null))));
+    pane.append(el('p', 'px-note', ENCHANTING_HOW(enchantDiscountPct(tr.rank, tr.specs?.[50] ?? null))));
   } else if (_sel === 'alchemy') {
-    pane.append(el('p', 'px-note', ALCHEMY_HOW));
+    pane.append(el('p', 'px-note', alchemyHow()));
   } else if (PROFESSIONS.find((x) => x.id === _sel)?.kind === 'gathering' && practised) {
-    pane.append(el('p', 'prof-today', `Today: ${book.state.today?.[_sel] ?? 0} of ${book.state.caps?.harvests ?? HARVESTS_PER_DAY} harvests`));
-    if (GATHER_HOW[_sel]) pane.append(el('p', 'px-note', GATHER_HOW[_sel]));   // TOOL-SAID
+    pane.append(el('p', 'prof-today', t('prof.page.today.harvests', 'Today: {n} of {cap} harvests', { n: book.state.today?.[_sel] ?? 0, cap: book.state.caps?.harvests ?? HARVESTS_PER_DAY })));
+    if (GATHER_HOW[_sel]) pane.append(el('p', 'px-note', gatherHow(_sel)));   // TOOL-SAID
   }
   // THE SPECIALISATIONS: two cards a rank, the chosen one lit; a change of mind pressed twice
   for (const r of SPEC_RANKS) {
-    pane.append(divider(`At ${r}`));
+    pane.append(divider(t('prof.page.specs.at', 'At {rank}', { rank: r })));
     const cards = el('div', 'prof-specs');
-    const chosen = t.specs?.[r] ?? null;
+    const chosen = tr.specs?.[r] ?? null;
     for (const s of SPECIALISATIONS[_sel][r]) {
-      const card = el('button', `prof-spec${chosen === s.id ? ' on' : ''}${t.respec?.to === s.id && t.respec?.rank === r ? ' coming' : ''}`);
+      const card = el('button', `prof-spec${chosen === s.id ? ' on' : ''}${tr.respec?.to === s.id && tr.respec?.rank === r ? ' coming' : ''}`);
       card.type = 'button';
       card.append(el('b', null, s.name), el('span', null, s.text));
-      const locked = t.rank < r || !practised || !!s.later;   // AUDIT 29 A17: a choice whose slice is to come is named, never chosen
-      card.disabled = locked || chosen === s.id || !!t.respec;
-      if (s.later) card.append(el('i', 'prof-cost', LATER_WORDS[s.later] ?? 'Comes with a later work'));
+      const locked = tr.rank < r || !practised || !!s.later;   // AUDIT 29 A17: a choice whose slice is to come is named, never chosen
+      card.disabled = locked || chosen === s.id || !!tr.respec;
+      if (s.later) card.append(el('i', 'prof-cost', LATER_WORDS[s.later] ?? t('prof.page.later.any', 'Comes with a later work')));
       const armedHere = _armed === `${r}|${s.id}`;
-      if (!locked && chosen && chosen !== s.id && !t.respec) card.append(el('i', 'prof-cost', armedHere ? `Press again: ${RESPEC.marks.toLocaleString('en-US')} silver, in effect in ${RESPEC.days} days` : `Change: ${RESPEC.marks.toLocaleString('en-US')} silver`));
-      if (t.respec?.to === s.id && t.respec?.rank === r) card.append(el('i', 'prof-cost', `In effect from ${new Date(t.respec.at * 1000).toUTCString().slice(0, 16)}`));
+      if (!locked && chosen && chosen !== s.id && !tr.respec) {
+        card.append(el('i', 'prof-cost', armedHere ? t('prof.page.specs.respecArmed', 'Press again: {cost, number} silver, in effect in {days, plural, one {# day} other {# days}}', { cost: RESPEC.marks, days: RESPEC.days })
+          : t('prof.page.specs.respec', 'Change: {cost, number} silver', { cost: RESPEC.marks })));
+      }
+      if (tr.respec?.to === s.id && tr.respec?.rank === r) card.append(el('i', 'prof-cost', t('prof.page.specs.inEffect', 'In effect from {date}', { date: new Date(tr.respec.at * 1000).toUTCString().slice(0, 16) })));
       card.onclick = async () => {
         if (chosen && !armedHere) { _armed = `${r}|${s.id}`; rerender(); return; }
         _armed = null;
@@ -454,26 +506,26 @@ export function drawProfessionsPage(detail, rerender, kit) {
       };
       cards.append(card);
     }
-    if (t.rank < r) cards.append(el('p', 'px-note', `Chosen at ${r}.`));
+    if (tr.rank < r) cards.append(el('p', 'px-note', t('prof.page.specs.chosenAt', 'Chosen at {rank}.', { rank: r })));
     pane.append(cards);
   }
   if (_profWord) pane.append(el('p', 'prof-word', _profWord));
   if (UNLOCKS[_sel]) {
-    pane.append(divider('Unlocks'));
-    for (const [what, tier] of UNLOCKS[_sel]) {
-      const r = el('div', `px-stat${t.rank >= TIER_RANKS[tier - 1] ? '' : ' prof-locked'}`);
-      r.append(el('span', 'k', what), el('span', 'v', `rank ${TIER_RANKS[tier - 1]}`));
+    pane.append(divider(t('prof.page.unlocks', 'Unlocks')));
+    for (const [what, tier] of UNLOCKS[_sel]()) {
+      const r = el('div', `px-stat${tr.rank >= TIER_RANKS[tier - 1] ? '' : ' prof-locked'}`);
+      r.append(el('span', 'k', what), el('span', 'v', rankWord(TIER_RANKS[tier - 1])));
       pane.append(r);
     }
   }
-  pane.append(el('p', 'prof-limit', `Crafts above Journeyman: ${craftsAboveJourneyman(book.state.tracks)} of ${CRAFTS_ABOVE_JOURNEYMAN}`));
+  pane.append(el('p', 'prof-limit', t('prof.page.limit', 'Crafts above Journeyman: {n} of {max}', { n: craftsAboveJourneyman(book.state.tracks), max: CRAFTS_ABOVE_JOURNEYMAN })));
   // GENTLE ACTS (PROF0 5.1): the accessibility choice, beside the acts it changes
   const gentle = el('label', 'prof-gentle');
   const box = el('input');
   box.type = 'checkbox';
   box.checked = getPref('gentleActs') === true;
   box.onchange = () => { setPref('gentleActs', !!box.checked); rerender(); };
-  gentle.append(box, document.createTextNode(' Gentle acts - every act completes plainly: no bruise, no glint to find, and no clean bonus'));
+  gentle.append(box, document.createTextNode(` ${t('prof.page.gentle', 'Gentle acts - every act completes plainly: no bruise, no glint to find, and no clean bonus')}`));
   pane.append(gentle);
   cols.append(list, pane);
   detail.append(cols);
@@ -494,11 +546,13 @@ export function storesRows(stores, { family = null, query = '', sort = 'tier' } 
 /** A Stores card's split: own, bought and (GOLD-MARKET) bought with gold - "own" alone where nothing was bought. */
 export function storesSplit(r) {
   const gold = r.gold | 0;
-  if (!gold) return r.bought ? `${r.own} own · ${r.bought} bought` : 'own';
-  return [r.own ? `${r.own} own` : null, r.bought ? `${r.bought} bought` : null, `${gold} bought with gold`].filter(Boolean).join(' · ');
+  const own = () => t('prof.page.stores.own', '{n} own', { n: r.own }), bought = () => t('prof.page.stores.bought', '{n} bought', { n: r.bought });
+  if (!gold) return r.bought ? `${own()} · ${bought()}` : t('prof.page.stores.ownOnly', 'own');
+  return [r.own ? own() : null, r.bought ? bought() : null, t('prof.page.stores.boughtGold', '{n} bought with gold', { n: gold })].filter(Boolean).join(' · ');
 }
 /** GOLD-MARKET: what the page says of a material gold bought (Professions-Arc 10.8's wall). */
 export const GOLD_GOODS_LINE = 'Bought with gold: to your pack, or back on the market for gold. No station, craft, writ or silver sale takes it.';
+const goldGoodsLine = () => t('prof.page.stores.goldGoods', GOLD_GOODS_LINE);
 
 /**
  * THE STORES PAGE.
@@ -517,31 +571,31 @@ export function drawStoresPage(detail, rerender, kit) {
   if ((book.pendingWithdrawals || book.pendingCrafts) && p.settle && Date.now() - _stores.settledAt > 30_000) { _stores.settledAt = Date.now(); p.settle().then(rerender, () => {}); }
   const head = el('div', 'prof-storehead');
   const search = el('input', 'prof-search');
-  search.type = 'search'; search.placeholder = 'Search'; search.value = _stores.query;
+  search.type = 'search'; search.placeholder = t('prof.page.stores.search', 'Search'); search.value = _stores.query;
   search.setAttribute?.('data-focus', 'stores-search');
   search.oninput = () => {
     _stores.query = search.value;
     rerender();   // AUDIT 32 P13: the window keeps the caret where the typing left it (P3) - this put it at the end every key
   };
   const sort = el('select', 'prof-sort');
-  for (const [v, w] of [['tier', 'Sort by tier'], ['name', 'Sort by name'], ['count', 'Sort by count']]) { const o = el('option', null, w); o.value = v; if (v === _stores.sort) o.selected = true; sort.append(o); }
+  for (const [v, w] of [['tier', t('prof.page.stores.sortTier', 'Sort by tier')], ['name', t('prof.page.stores.sortName', 'Sort by name')], ['count', t('prof.page.stores.sortCount', 'Sort by count')]]) { const o = el('option', null, w); o.value = v; if (v === _stores.sort) o.selected = true; sort.append(o); }
   sort.onchange = () => { _stores.sort = sort.value; rerender(); };
   head.append(search, sort);
   const fams = el('div', 'prof-families');
-  for (const [id, word] of [[null, 'All'], ...MATERIAL_FAMILIES]) {
+  for (const [id, word] of [[null, localizedText('all', 'All')], ...MATERIAL_FAMILIES]) {
     const b = el('button', `prof-family${_stores.family === id ? ' on' : ''}`, word);
     b.type = 'button';
     b.onclick = () => { _stores.family = id; rerender(); };
     fams.append(b);
   }
-  detail.append(divider('The Stores'), head, fams);
+  detail.append(divider(t('prof.page.stores.title', 'The Stores')), head, fams);
   const rows = storesRows(book.state.stores, _stores, p.name);
   const grid = el('div', 'prof-grid');
-  if (!rows.length) grid.append(el('p', 'px-note', book.state.stores.size ? 'Nothing in the Stores matches.' : STORES_EMPTY_LINE));
+  if (!rows.length) grid.append(el('p', 'px-note', book.state.stores.size ? t('prof.page.stores.noMatch', 'Nothing in the Stores matches.') : storesEmptyLine()));
   for (const r of rows) {
     const card = el('button', `prof-mat${_stores.picked === r.material ? ' on' : ''}`);
     card.type = 'button';
-    card.append(el('b', null, r.name), el('span', 'prof-count', r.total.toLocaleString('en-US')), el('span', 'prof-split', storesSplit(r)));
+    card.append(el('b', null, r.name), el('span', 'prof-count', formatNumber(r.total)), el('span', 'prof-split', storesSplit(r)));
     card.onclick = () => { _stores.picked = r.material; _stores.qty = Math.min(_stores.qty, r.total) || 1; _stores.word = null; rerender(); };
     grid.append(card);
   }
@@ -549,11 +603,11 @@ export function drawStoresPage(detail, rerender, kit) {
   const pick = rows.find((r) => r.material === _stores.picked);
   if (pick) {
     const bar = el('div', 'prof-matbar');
-    bar.append(el('span', 'prof-matline', `${pick.name} x${pick.total} - tier ${pick.tier} - ${pick.value} silver each`));
+    bar.append(el('span', 'prof-matline', t('prof.page.stores.matLine', '{name} x{n} - tier {tier} - {value} silver each', { name: pick.name, n: pick.total, tier: pick.tier, value: pick.value })));
     const qty = el('input', 'prof-qty');
     qty.type = 'number'; qty.min = '1'; qty.max = String(Math.min(WITHDRAW_MAX, pick.total)); qty.value = String(Math.min(_stores.qty, pick.total, WITHDRAW_MAX));
     qty.oninput = () => { _stores.qty = Math.max(1, Math.min(WITHDRAW_MAX, pick.total, Math.floor(Number(qty.value) || 1))); };
-    const go = el('button', 'act primary', _stores.busy ? 'Sending...' : 'Withdraw to pack');
+    const go = el('button', 'act primary', _stores.busy ? t('prof.page.stores.sending', 'Sending...') : t('prof.page.stores.withdraw', 'Withdraw to pack'));
     go.type = 'button';
     go.disabled = _stores.busy || !withdrawable(pick.material);   // PROF3: the smith's stock stays at the bench
     go.onclick = async () => {
@@ -567,9 +621,9 @@ export function drawStoresPage(detail, rerender, kit) {
     if (withdrawable(pick.material)) bar.append(qty, go);   // AUDIT PROF12 E1: no Withdraw offered for a material with no pack form
     detail.append(bar);
     detail.append(el('p', 'px-note', withdrawable(pick.material)
-      ? 'Withdrawn, a material is an item in your pack and never goes back into the Stores. Writs are delivered at a Notice Board\'s Work tab.'
-      : pick.family === 'essences' ? ESSENCE_STAYS_LINE : pick.family === 'siege' ? SIEGE_STAYS_LINE : STOCK_STAYS_LINE));   // SEAT2b part two: a siege work's road
-    if ((pick.gold | 0) > 0) detail.append(el('p', 'px-note', GOLD_GOODS_LINE));
+      ? t('prof.page.stores.withdrawNote', 'Withdrawn, a material is an item in your pack and never goes back into the Stores. Writs are delivered at a Notice Board\'s Work tab.')
+      : pick.family === 'essences' ? essenceStaysLine() : pick.family === 'siege' ? siegeStaysLine() : stockStaysLine()));   // SEAT2b part two: a siege work's road
+    if ((pick.gold | 0) > 0) detail.append(el('p', 'px-note', goldGoodsLine()));
   }
   if (_stores.word) detail.append(el('p', 'prof-word', _stores.word));
   drawForge(detail, rerender, kit);
@@ -590,6 +644,28 @@ export function smeltable(r, held) {
   return Math.max(0, n);
 }
 
+/** A work's inputs as its row says them: "2 Iron Ore (14) + 1 Coal (3)". */
+const workIns = (r, p, held) => r.inputs.map((inp) => t('prof.page.work.input', '{n} {name} ({held})', { n: inp.n, name: p.name(inp.key), held: held(inp.key) })).join(' + ');
+/** A work's yield as its row names it: "Charcoal x2" where a unit makes more than one. */
+const workOut = (name, per) => (per > 1 ? t('prof.page.work.out', '{name} x{n}', { name, n: per }) : name);
+/** "rank 25" - what a recipe or an unlock asks. */
+const rankWord = (rank) => t('prof.page.rankN', 'rank {rank}', { rank });
+/** What a recipe's row says beside its name. */
+const recipeState = (open, can, rank) => (open ? (can ? t('prof.page.craft.canMake', 'can make now') : t('prof.page.craft.wants', 'wants its inputs')) : rankWord(rank));
+/** A craft's head: "Iron Longsword - rank 0". */
+const craftHead = (name, rank) => t('prof.page.craft.head', '{name} - rank {rank}', { name, rank });
+/** A craft's input as the Stores hold it: "Iron Ingot 2 / 3 (2 stored)". */
+const inputLine = (name, have, need) => t('prof.page.craft.input', '{name} {have} / {need} ({held} stored)', { name, have: Math.min(have, need), need, held: have });
+/** A station's rank: "Smithing 12 (Apprentice)." */
+const rankLine = (id, rank) => t('prof.page.rankLine', '{profession} {rank} ({rankName}).', { profession: professionName(id), rank, rankName: rankName(rank) });
+/** The odds a margin rolls on: "Common 60 | Fine 40". */
+const oddsText = (odds) => odds.map((o, q) => (o ? `${QUALITY_NAMES[q]} ${o}` : null)).filter(Boolean).join(' | ');
+const craftWord = () => t('prof.page.craft.go', 'Craft');
+const strikeWord = () => t('prof.page.act.strike', 'Strike');
+/** A bench's button while its work is in flight (the mason's, the jeweller's). */
+const benchBusyWord = () => t('prof.page.craft.atBench', 'At the bench...');
+const quickWord = () => t('prof.page.craft.quick', 'Quick craft');
+
 /**
  * A forge's or a workbench's rows of no-act work (PROF2's smelts; PROF4's burns and saws): each recipe's inputs as the
  * Stores hold them, how many it can make, a count and its button - its yield a unit said where it is more than one.
@@ -603,8 +679,7 @@ function workRows(detail, rerender, el, recipes, state, verb, busyVerb, go, shor
     const row = el('div', `prof-smelt${most ? '' : ' prof-locked'}`);
     // PROF7: the choice that raises a work is read at its own rank - a Tanner's at 50
     const per = workPer(r, r.more ? { [r.more.profession]: book.track(r.more.profession)?.specs?.[workSpecRank(r)] ?? null } : {});
-    const ins = r.inputs.map((inp) => `${inp.n} ${p.name(inp.key)} (${held(inp.key)})`).join(' + ');
-    row.append(el('b', null, `${p.name(r.out)}${per > 1 ? ` x${per}` : ''}`), el('span', 'prof-split', ins));
+    row.append(el('b', null, workOut(p.name(r.out), per)), el('span', 'prof-split', workIns(r, p, held)));
     const qty = el('input', 'prof-qty');
     qty.type = 'number'; qty.min = '1'; qty.max = String(Math.max(1, most));
     qty.value = String(Math.max(1, Math.min(state.counts[r.id] ?? 1, Math.max(1, most))));
@@ -629,17 +704,18 @@ function workRows(detail, rerender, el, recipes, state, verb, busyVerb, go, shor
  * COUNTER-GATES (AUDIT 2026-10-01 part four): A COUNTER'S BUY, ONE HOME - the loom's AUDIT 32 P6 law for every counter:
  * offered only while Marks are struck, the price held or said before the press (the anvil's and the workbench's offered
  * it whatever the balance, and with Marks shut, and refused it after). `state` the station's page state (its `busy`, its
- * `word`); `who` the counter as the button names it; `counter` the Weavers' own door, where the stock is theirs.
+ * `word`); `who` the counter the button names ('smith', 'furnisher', 'weavers', 'apothecaries' - L10N4: its words the
+ * pattern's); `counter` the Weavers' own door, where the stock is theirs.
  * @param {HTMLElement} line
  */
 function counterBuy(line, { el, p, state, rerender, key, need, sale, who, counter = null }) {
   if (!p.stock || p.marksOpen?.() === false) return;
   const balance = p.marks?.() ?? null;
   const shortOf = Number.isSafeInteger(balance) && balance < sale.marks * need;
-  const buy = el('button', 'act', `Buy ${need} from ${who} - ${sale.marks * need} silver`);
+  const buy = el('button', 'act', t('prof.page.buy', 'Buy {n} from {who, select, smith {the smith} furnisher {the furnisher} weavers {the Weavers} other {the Apothecaries}} - {cost} silver', { n: need, who, cost: sale.marks * need }));
   buy.type = 'button';
   buy.disabled = state.busy || shortOf;
-  if (shortOf) line.append(el('span', 'prof-split', `you hold ${marksText(balance)}`));   // AUDIT 32 R13: "1 Drake"
+  if (shortOf) line.append(el('span', 'prof-split', t('prof.page.buy.hold', 'you hold {balance}', { balance: marksText(balance) })));   // AUDIT 32 R13: "1 Drake"
   buy.onclick = async () => {
     if (state.busy) return;
     state.busy = true; rerender();
@@ -660,27 +736,27 @@ function drawForge(detail, rerender, { el, divider }) {
   if (!p?.forge || !p.smelt) return;
   const book = p.book;
   const forge = p.forge();
-  detail.append(divider('The Forge'));
+  detail.append(divider(t('prof.page.forge', 'The Forge')));
   if (!forge) {
-    detail.append(el('p', 'px-note', `Smelting is done at a forge: a Weaponsmith's or an Armorer's (${FORGE_FEE} gold a smelt), or your own home's forge.`));
+    detail.append(el('p', 'px-note', t('prof.page.forge.away', 'Smelting is done at a forge: a Weaponsmith\'s or an Armorer\'s ({fee} gold a smelt), or your own home\'s forge.', { fee: FORGE_FEE })));
     return;
   }
-  detail.append(el('p', 'px-note', forge.kind === 'shop' ? `The smith's forge - ${forge.fee} gold a smelt.` : 'Your forge.'));
-  const short = purseShort(forge, 'smith', 'a smelt');
+  detail.append(el('p', 'px-note', forge.kind === 'shop' ? t('prof.page.forge.shop', 'The smith\'s forge - {fee} gold a smelt.', { fee: forge.fee }) : t('prof.page.forge.home', 'Your forge.')));
+  const short = purseShort(forge, 'forge');
   if (short) detail.append(el('p', 'px-note prof-short', short));
-  workRows(detail, rerender, el, SMELT_RECIPES, _forge, 'Smelt', 'Smelting...', (id, n) => p.smelt(id, n), short);
+  workRows(detail, rerender, el, SMELT_RECIPES, _forge, t('prof.page.forge.smelt', 'Smelt'), t('prof.page.forge.smelting', 'Smelting...'), (id, n) => p.smelt(id, n), short);
   // PROF4: the logs a forge burns - those the Stores hold (a log a Charcoal; a Charcoal Burner's two)
   const burns = BURN_RECIPES.filter((r) => book.held(r.inputs[0].key) > 0);
-  if (burns.length) workRows(detail, rerender, el, burns, _forge, 'Burn', 'Burning...', (id, n) => p.smelt(id, n), short);
+  if (burns.length) workRows(detail, rerender, el, burns, _forge, t('prof.page.forge.burn', 'Burn'), t('prof.page.forge.burning', 'Burning...'), (id, n) => p.smelt(id, n), short);
   if (r0Charcoal(book)) {
-    const line = el('p', 'px-note', 'Steel wants Charcoal: a log burns to it here (Logging\'s), and the smith sells it.');
+    const line = el('p', 'px-note', t('prof.page.forge.charcoal', 'Steel wants Charcoal: a log burns to it here (Logging\'s), and the smith sells it.'));
     // CHARCOAL-BUY (AUDIT 2026-10-01 part four): and here is where - the smith's stock was bought only on an anvil
     // recipe short of an input, and no anvil recipe takes Charcoal, so its counter never stood: a smith who fells no
     // tree smelted no Steel. At a smith's forge, the Charcoal a Steel smelt asks, from the counter
     const sale = stockOf('wood:charcoal');
     const steel = SMELT_RECIPES.find((r) => r.inputs.some((i) => i.key === 'wood:charcoal'));
     const need = steel?.inputs.find((i) => i.key === 'wood:charcoal')?.n ?? 1;
-    if (sale && forge.kind === 'shop') counterBuy(line, { el, p, state: _forge, rerender, key: 'wood:charcoal', need, sale, who: 'the smith' });
+    if (sale && forge.kind === 'shop') counterBuy(line, { el, p, state: _forge, rerender, key: 'wood:charcoal', need, sale, who: 'smith' });
     detail.append(line);
   }
   if (_forge.word) detail.append(el('p', 'prof-word', _forge.word));
@@ -691,11 +767,19 @@ const r0Charcoal = (book) => book.held('wood:charcoal') < 1;
 // ─── PROF3: THE ANVIL (bible/06-Systems/Professions-Arc.md 9, 24) ─────
 
 /** The anvil's families, in its row's order, and the metals a family is made in. */
-export const ANVIL_FAMILIES = Object.freeze([['weapons', 'Weapons'], ['armour', 'Armour'], ['tools', 'Tools'], ['kits', 'Repair Kits']]);
+const toolsWord = () => t('prof.page.family.tools', 'Tools');
+export const ANVIL_FAMILIES = Object.freeze([wordRow('weapons', () => t('prof.page.family.weapons', 'Weapons')), wordRow('armour', () => t('prof.page.family.armour', 'Armour')),
+  wordRow('tools', toolsWord), wordRow('kits', () => t('prof.page.family.kits', 'Repair Kits'))]);
+/** The metals as the anvil's row names them - DFU's own material words; Warforged the port's. */
+const METAL_WORDS = localizedTable({
+  iron: ['iron', 'Iron'], steel: ['steel', 'Steel'], silver: ['silver', 'Silver'], elven: ['elven', 'Elven'], dwarven: ['dwarven', 'Dwarven'],
+  mithril: ['mithril', 'Mithril'], adamantium: ['adamantium', 'Adamantium'], ebony: ['ebony', 'Ebony'], orcish: ['orcish', 'Orcish'],
+  daedric: ['daedric', 'Daedric'], warforged: () => t('prof.page.anvil.warforged', 'Warforged'),
+});
 const METAL_ROW = Object.freeze([
-  ['ingot:iron', 'Iron'], ['ingot:steel', 'Steel'], ['ingot:silver', 'Silver'], ['ingot:moonstone', 'Elven'], ['ingot:dwarven', 'Dwarven'],
-  ['ingot:mithril', 'Mithril'], ['ingot:adamantium', 'Adamantium'], ['ingot:ebony', 'Ebony'], ['ingot:orichalcum', 'Orcish'],
-  ['ingot:daedric', 'Daedric'], ['ingot:warforged', 'Warforged'],
+  ['ingot:iron', 'iron'], ['ingot:steel', 'steel'], ['ingot:silver', 'silver'], ['ingot:moonstone', 'elven'], ['ingot:dwarven', 'dwarven'],
+  ['ingot:mithril', 'mithril'], ['ingot:adamantium', 'adamantium'], ['ingot:ebony', 'ebony'], ['ingot:orichalcum', 'orcish'],
+  ['ingot:daedric', 'daedric'], ['ingot:warforged', 'warforged'],
 ]);
 /** The recipes the anvil lists for a family at a metal (the tools are Iron's alone; the chain is Steel's). */
 export const anvilRecipes = (family, metal) => RECIPES.filter((r) => r.profession === 'smithing' && r.family === family && (family === 'tools' || r.metal === metal));
@@ -768,19 +852,19 @@ function drawAnvil(detail, rerender, { el, divider }) {
   if (!p?.forge || !p.craft) return;
   const book = p.book;
   const forge = p.forge();
-  detail.append(divider('The Anvil'));
+  detail.append(divider(t('prof.page.anvil', 'The Anvil')));
   if (!forge) {
     endHeat();
-    detail.append(el('p', 'px-note', `Smithing is done at an anvil, beside a forge: a Weaponsmith's or an Armorer's (${FORGE_FEE} gold a craft), or your own home's forge.`));
+    detail.append(el('p', 'px-note', t('prof.page.anvil.away', 'Smithing is done at an anvil, beside a forge: a Weaponsmith\'s or an Armorer\'s ({fee} gold a craft), or your own home\'s forge.', { fee: FORGE_FEE })));
     return;
   }
   const rank = book.track('smithing')?.rank ?? 0;
   const specs = book.track('smithing')?.specs ?? {};
-  detail.append(el('p', 'px-note', `${forge.kind === 'shop' ? `The smith's anvil - ${forge.fee} gold a craft.` : 'Your anvil.'} Smithing ${rank} (${rankName(rank)}).`));
-  const short = purseShort(forge, 'smith', 'a craft');
+  detail.append(el('p', 'px-note', `${forge.kind === 'shop' ? t('prof.page.anvil.shop', 'The smith\'s anvil - {fee} gold a craft.', { fee: forge.fee }) : t('prof.page.anvil.home', 'Your anvil.')} ${rankLine('smithing', rank)}`));
+  const short = purseShort(forge, 'anvil');
   if (short) detail.append(el('p', 'px-note prof-short', short));
   // AUDIT 30 A2: Gentle acts switched on under a heat lets it cool - nothing is spent, and the craft is a plain one
-  if (_anvil.act && getPref('gentleActs') === true) { _anvil.act.cancel(); endHeat(); _anvil.word = 'You let the ingot cool; nothing is spent.'; }
+  if (_anvil.act && getPref('gentleActs') === true) { _anvil.act.cancel(); endHeat(); _anvil.word = heatDownLine(); }
   // AUDIT 30 A3: nothing else is picked while the heat is struck - the heat makes the recipe it began on
   const striking = !!_anvil.act;
   const held = (k) => book.held(k);
@@ -795,9 +879,9 @@ function drawAnvil(detail, rerender, { el, divider }) {
   detail.append(fams);
   if (_anvil.family !== 'tools') {
     const metals = el('div', 'prof-families prof-metals');
-    for (const [id, word] of METAL_ROW) {
+    for (const [id, metal] of METAL_ROW) {
       if (_anvil.family === 'kits' && id === 'ingot:warforged') continue;
-      const b = el('button', `prof-family${_anvil.metal === id ? ' on' : ''}`, word);
+      const b = el('button', `prof-family${_anvil.metal === id ? ' on' : ''}`, METAL_WORDS[metal]);
       b.type = 'button';
       b.disabled = striking;
       b.onclick = () => { _anvil.metal = id; _anvil.picked = null; rerender(); };
@@ -812,31 +896,31 @@ function drawAnvil(detail, rerender, { el, divider }) {
     const row = el('button', `prof-recipe${_anvil.picked === r.id ? ' on' : ''}${can ? '' : ' prof-locked'}`);
     row.type = 'button';
     row.disabled = striking;
-    row.append(el('b', null, r.name), el('span', 'prof-split', open ? (can ? 'can make now' : 'wants its inputs') : `rank ${r.rank}`));
+    row.append(el('b', null, r.name), el('span', 'prof-split', recipeState(open, can, r.rank)));
     row.onclick = () => { _anvil.picked = r.id; rerender(); };
     detail.append(row);
   }
   const r = list.find((x) => x.id === _anvil.picked);
   if (r) {
     const box = el('div', 'prof-craft');
-    box.append(el('b', null, `${r.name} - rank ${r.rank}`));
+    box.append(el('b', null, craftHead(r.name, r.rank)));
     const spends = spendsOf(r, book, _anvil.heartwood);
     for (const inp of spends) {
       const have = held(inp.key);
       const line = el('div', `prof-input${have >= inp.n ? '' : ' prof-short'}`);
-      line.append(el('span', null, `${p.name(inp.key)} ${Math.min(have, inp.n)} / ${inp.n} (${have} stored)`));
+      line.append(el('span', null, inputLine(p.name(inp.key), have, inp.n)));
       const sale = stockOf(inp.key);
-      if (sale && have < inp.n && forge.kind === 'shop') counterBuy(line, { el, p, state: _anvil, rerender, key: inp.key, need: inp.n - have, sale, who: 'the smith' });   // COUNTER-GATES
+      if (sale && have < inp.n && forge.kind === 'shop') counterBuy(line, { el, p, state: _anvil, rerender, key: inp.key, need: inp.n - have, sale, who: 'smith' });   // COUNTER-GATES
       box.append(line);
     }
     if (takesQuality(r) && recipeOpen(r, rank)) {
       const odds = qualityOdds(rank - r.rank, { masterwright: specs[100] === 'masterwright' });
-      box.append(el('p', 'px-note', `Your rank ${rank}, margin ${rank - r.rank}: ${odds.map((o, q) => (o ? `${QUALITY_NAMES[q]} ${o}` : null)).filter(Boolean).join(' | ')}. A clean heat is a step better.`));
-    } else if (!takesQuality(r)) box.append(el('p', 'px-note', 'A Repair Kit mends a quarter of a piece\'s condition, up to three quarters, once - a weapon or armour of its metal.'));
+      box.append(el('p', 'px-note', t('prof.page.anvil.odds', 'Your rank {rank}, margin {margin}: {odds}. A clean heat is a step better.', { rank, margin: rank - r.rank, odds: oddsText(odds) })));
+    } else if (!takesQuality(r)) box.append(el('p', 'px-note', t('prof.page.anvil.kit', 'A Repair Kit mends a quarter of a piece\'s condition, up to three quarters, once - a weapon or armour of its metal.')));
     heartwoodToggle(box, el, r, book, _anvil, rerender, striking);   // PROF4: a Heartwood for a plank - the axes, hammers, shields, the Spade
     const gentle = getPref('gentleActs') === true;
     const elsewhere = handsAt(_anvil);   // AUDIT 32 P2
-    if (elsewhere && !_anvil.act) box.append(el('p', 'px-note', `Your hands are at ${elsewhere} - finish there first.`));
+    if (elsewhere && !_anvil.act) box.append(el('p', 'px-note', handsLine(elsewhere)));
     const ready = recipeOpen(r, rank) && craftable(r, held, spends) && !_anvil.busy && !_anvil.crafting && !_anvil.act && !elsewhere && !short;
     // AUDIT 30 A3: a craft bound to its recipe and its Heartwood when the heat began, never to the page's pick at its end;
     // AUDIT 32 P5: its own flag in flight - a stock purchase answered under it re-offered Craft mid-craft
@@ -858,16 +942,16 @@ function drawAnvil(detail, rerender, { el, divider }) {
       const marks = el('div', 'prof-strikes');
       const dots = [];
       for (let i = 0; i < HEAT_ACT.strikes; i++) { const d = el('span', `prof-strike${i < _anvil.act.state.strikes.length ? (_anvil.act.state.strikes[i] ? ' hit' : ' miss') : ''}`, 'o'); dots.push(d); marks.append(d); }
-      const hit = actButton(el, 'Strike', (e) => _anvil.strike?.(e));   // AUDIT 32 P1
-      const cancel = el('button', 'act', 'Let it cool');
+      const hit = actButton(el, strikeWord(), (e) => _anvil.strike?.(e));   // AUDIT 32 P1
+      const cancel = el('button', 'act', t('prof.page.anvil.cool', 'Let it cool'));
       cancel.type = 'button';
-      cancel.onclick = () => { _anvil.act?.cancel(); endHeat(); _anvil.word = 'You let the ingot cool; nothing is spent.'; rerender(); };
-      panel.append(el('span', 'prof-heatword', 'The heat - strike while the glow is in the band (Space)'), bar, marks, hit, cancel);
+      cancel.onclick = () => { _anvil.act?.cancel(); endHeat(); _anvil.word = heatDownLine(); rerender(); };
+      panel.append(el('span', 'prof-heatword', t('prof.page.anvil.heat', 'The heat - strike while the glow is in the band (Space)')), bar, marks, hit, cancel);
       box.append(panel);
       _anvil.els = { bar, marker, marks: dots, hit };
       if (!_anvil.off) _anvil.strike = heatLoop(rerender, craftOf(_anvil.actRecipe ?? r.id, _anvil.actRecipe ? _anvil.actWood : _anvil.heartwood && takesHeartwood(r)));
     } else {
-      const go = el('button', 'act primary', _anvil.crafting ? 'At the anvil...' : 'Craft');
+      const go = el('button', 'act primary', _anvil.crafting ? t('prof.page.anvil.crafting', 'At the anvil...') : craftWord());
       go.type = 'button';
       go.disabled = !ready;
       go.onclick = () => {
@@ -876,7 +960,7 @@ function drawAnvil(detail, rerender, { el, divider }) {
         _anvil.actRecipe = r.id; _anvil.actWood = _anvil.heartwood && takesHeartwood(r);
         rerender();
       };
-      const quick = el('button', 'act', 'Quick craft');
+      const quick = el('button', 'act', quickWord());
       quick.type = 'button';
       quick.disabled = !ready;
       quick.onclick = () => { void finish(false); };
@@ -901,19 +985,22 @@ function heartwoodToggle(box, el, r, book, state, rerender, locked = false) {
   cb.checked = state.heartwood === true;
   cb.disabled = locked;   // AUDIT 30 A3: the act under way keeps the wood it began with
   cb.onchange = () => { state.heartwood = !!cb.checked; rerender(); };
-  lab.append(cb, globalThis.document.createTextNode(` Use a Heartwood for a plank - a step better (${have} stored)`));
+  lab.append(cb, globalThis.document.createTextNode(` ${t('prof.page.heartwood', 'Use a Heartwood for a plank - a step better ({n} stored)', { n: have })}`));
   box.append(lab);
 }
 /** The workbench's families, in its row's order: staves and bows by wood, the arrows, the furniture by wood, the Basket,
  *  the Ram Kit. */
-export const BENCH_FAMILIES = Object.freeze([['staves', 'Staves'], ['bows', 'Bows'], ['arrows', 'Arrows'], ['furniture', 'Furniture'], ['tools', 'Tools'], ['siege', 'Siege']]);
+export const BENCH_FAMILIES = Object.freeze([wordRow('staves', () => t('prof.page.family.staves', 'Staves')), wordRow('bows', () => t('prof.page.family.bows', 'Bows')),
+  wordRow('arrows', () => localizedText('Arrows', 'Arrows')), wordRow('furniture', () => t('prof.page.family.furniture', 'Furniture')), wordRow('tools', toolsWord),
+  wordRow('siege', () => t('prof.page.family.siege', 'Siege'))]);
 /** The woods a family is shown by - every wood for the staves and bows, DFU's furniture's four and the beds' for the
  *  furniture; none for the rest. */
 const WOODS_OF = Object.freeze({ staves: WOODS.map((w) => `plank:${w.id}`), bows: WOODS.map((w) => `plank:${w.id}`), furniture: ['plank:pine', 'plank:oak', 'plank:cherry', 'plank:mahogany', 'plank:teak'] });
 /** The recipes the workbench lists for a family at a wood. */
 export const benchRecipes = (family, wood) => RECIPES.filter((r) => r.profession === 'carpentry' && r.family === family && (!WOODS_OF[family] || r.wood === wood));
 /** What the plane's board says of its act, for the page and the pins. */
-export const planeWord = (rep) => (rep ? (rep.clean ? 'A clean pass - true to the grain.' : rep.seconds < PLANE_ACT.minS ? 'Too quick - a plane is drawn, not flicked.' : rep.seconds > PLANE_ACT.maxS ? 'Too slow - the stroke wandered.' : 'The plane strayed from the grain.') : '');
+export const planeWord = (rep) => (rep ? (rep.clean ? t('prof.page.plane.clean', 'A clean pass - true to the grain.') : rep.seconds < PLANE_ACT.minS ? t('prof.page.plane.quick', 'Too quick - a plane is drawn, not flicked.')
+  : rep.seconds > PLANE_ACT.maxS ? t('prof.page.plane.slow', 'Too slow - the stroke wandered.') : t('prof.page.plane.strayed', 'The plane strayed from the grain.')) : '');
 
 /**
  * THE PLANE'S BOARD: the grain drawn across it, the player's stroke over it as they draw, the pointer's press, draw and
@@ -986,23 +1073,23 @@ function drawWorkbench(detail, rerender, { el, divider }) {
   if (!p?.workbench || !p.craft || !p.smelt) return;
   const book = p.book;
   const bench = p.workbench();
-  detail.append(divider('The Workbench'));
+  detail.append(divider(t('prof.page.bench', 'The Workbench')));
   if (!bench) {
     _bench.act?.cancel(); _bench.act = null; _bench.actRecipe = null;
-    detail.append(el('p', 'px-note', `Carpentry is done at a workbench: a Furniture Store's (${WORKBENCH_FEE} gold a craft or a saw), or your own home's.`));
+    detail.append(el('p', 'px-note', t('prof.page.bench.away', 'Carpentry is done at a workbench: a Furniture Store\'s ({fee} gold a craft or a saw), or your own home\'s.', { fee: WORKBENCH_FEE })));
     return;
   }
   const rank = book.track('carpentry')?.rank ?? 0;
-  detail.append(el('p', 'px-note', `${bench.kind === 'shop' ? `The furnisher's workbench - ${bench.fee} gold a craft or a saw.` : 'Your workbench.'} Carpentry ${rank} (${rankName(rank)}).`));
-  const short = purseShort(bench, 'furnisher', 'a craft or a saw');
+  detail.append(el('p', 'px-note', `${bench.kind === 'shop' ? t('prof.page.bench.shop', 'The furnisher\'s workbench - {fee} gold a craft or a saw.', { fee: bench.fee }) : t('prof.page.bench.home', 'Your workbench.')} ${rankLine('carpentry', rank)}`));
+  const short = purseShort(bench, 'workbench');
   if (short) detail.append(el('p', 'px-note prof-short', short));
   // AUDIT 30 A2: Gentle acts switched on under a pass sets the plane down - nothing spent, the craft a plain one
-  if (_bench.act && getPref('gentleActs') === true) { _bench.act.cancel(); _bench.act = null; _bench.actRecipe = null; _bench.word = 'You set the plane down; nothing is spent.'; }
+  if (_bench.act && getPref('gentleActs') === true) { _bench.act.cancel(); _bench.act = null; _bench.actRecipe = null; _bench.word = planeDownLine(); }
   const planing = !!_bench.act;   // AUDIT 30 A3: nothing else picked while the plane is drawn
   // THE SAW: the logs the Stores hold, to planks (a Timberwright's three)
   const saws = SAW_RECIPES.filter((r) => book.held(r.inputs[0].key) > 0);
-  if (saws.length) workRows(detail, rerender, el, saws, _bench, 'Saw', 'Sawing...', (id, n) => p.smelt(id, n), short, !!_bench.act);   // AUDIT 32 P5: held while planing
-  else detail.append(el('p', 'px-note', 'A log saws to two planks here. Logs come from the woods (Logging).'));
+  if (saws.length) workRows(detail, rerender, el, saws, _bench, t('prof.page.bench.saw', 'Saw'), t('prof.page.bench.sawing', 'Sawing...'), (id, n) => p.smelt(id, n), short, !!_bench.act);   // AUDIT 32 P5: held while planing
+  else detail.append(el('p', 'px-note', t('prof.page.bench.noLogs', 'A log saws to two planks here. Logs come from the woods (Logging).')));
   const held = (k) => book.held(k);
   const fams = el('div', 'prof-families');
   for (const [id, word] of BENCH_FAMILIES) {
@@ -1025,42 +1112,42 @@ function drawWorkbench(detail, rerender, { el, divider }) {
     detail.append(woods);
   }
   const list = benchRecipes(_bench.family, _bench.wood);
-  if (!list.length) detail.append(el('p', 'px-note', 'Nothing of that wood.'));
+  if (!list.length) detail.append(el('p', 'px-note', t('prof.page.bench.noneOfWood', 'Nothing of that wood.')));
   for (const r of list) {
     const open = recipeOpen(r, rank);
     const can = open && craftable(r, held, spendsOf(r, book, false));
     const row = el('button', `prof-recipe${_bench.picked === r.id ? ' on' : ''}${can ? '' : ' prof-locked'}`);
     row.type = 'button';
     row.disabled = planing;
-    row.append(el('b', null, r.name), el('span', 'prof-split', r.later ? LATER_WORDS.SEAT2 : open ? (can ? 'can make now' : 'wants its inputs') : `rank ${r.rank}`));
+    row.append(el('b', null, r.name), el('span', 'prof-split', r.later ? LATER_WORDS.SEAT2 : recipeState(open, can, r.rank)));
     row.onclick = () => { _bench.picked = r.id; rerender(); };
     detail.append(row);
   }
   const r = list.find((x) => x.id === _bench.picked);
   if (r) {
     const box = el('div', 'prof-craft');
-    box.append(el('b', null, `${r.name} - rank ${r.rank}`));
+    box.append(el('b', null, craftHead(r.name, r.rank)));
     const spends = spendsOf(r, book, _bench.heartwood);
     for (const inp of spends) {
       const have = held(inp.key);
       const line = el('div', `prof-input${have >= inp.n ? '' : ' prof-short'}`);
-      line.append(el('span', null, `${p.name(inp.key)} ${Math.min(have, inp.n)} / ${inp.n} (${have} stored)`));
+      line.append(el('span', null, inputLine(p.name(inp.key), have, inp.n)));
       const sale = stockOf(inp.key);
-      if (sale?.counter === 'furnisher' && have < inp.n && bench.kind === 'shop') counterBuy(line, { el, p, state: _bench, rerender, key: inp.key, need: inp.n - have, sale, who: 'the furnisher' });   // COUNTER-GATES
+      if (sale?.counter === 'furnisher' && have < inp.n && bench.kind === 'shop') counterBuy(line, { el, p, state: _bench, rerender, key: inp.key, need: inp.n - have, sale, who: 'furnisher' });   // COUNTER-GATES
       box.append(line);
     }
-    if (r.later) box.append(el('p', 'px-note', 'Comes with a later work.'));   // a recipe named before its slice (none since SEAT2b part two)
-    else if (r.kind === 'siege') box.append(el('p', 'px-note', 'A Ram Kit goes to your Stores - a seat writ carries it to your guild\'s Siege Camp, and a camp that wins a Right of Siege sends it to the battle where a Gatehouse stands.'));   // SEAT2b part two: a siege work's road
-    else if (r.kind === 'arrows') box.append(el('p', 'px-note', `Twenty arrows, one quiver - an arrow takes no quality.`));
-    else if (r.family === 'furniture') box.append(el('p', 'px-note', 'Furniture goes among your things, to set down in a room of your own (Decorate).'));
+    if (r.later) box.append(el('p', 'px-note', t('prof.page.later.anyLine', 'Comes with a later work.')));   // a recipe named before its slice (none since SEAT2b part two)
+    else if (r.kind === 'siege') box.append(el('p', 'px-note', t('prof.page.bench.ramKit', 'A Ram Kit goes to your Stores - a seat writ carries it to your guild\'s Siege Camp, and a camp that wins a Right of Siege sends it to the battle where a Gatehouse stands.')));   // SEAT2b part two: a siege work's road
+    else if (r.kind === 'arrows') box.append(el('p', 'px-note', t('prof.page.bench.arrows', 'Twenty arrows, one quiver - an arrow takes no quality.')));
+    else if (r.family === 'furniture') box.append(el('p', 'px-note', t('prof.page.bench.furniture', 'Furniture goes among your things, to set down in a room of your own (Decorate).')));
     if (takesQuality(r) && recipeOpen(r, rank)) {
       const odds = qualityOdds(rank - r.rank, { masterwright: false });
-      box.append(el('p', 'px-note', `Your rank ${rank}, margin ${rank - r.rank}: ${odds.map((o, q) => (o ? `${QUALITY_NAMES[q]} ${o}` : null)).filter(Boolean).join(' | ')}. A clean pass of the plane is a step better.`));
+      box.append(el('p', 'px-note', t('prof.page.bench.odds', 'Your rank {rank}, margin {margin}: {odds}. A clean pass of the plane is a step better.', { rank, margin: rank - r.rank, odds: oddsText(odds) })));
     }
     heartwoodToggle(box, el, r, book, _bench, rerender, planing);
     const gentle = getPref('gentleActs') === true;
     const elsewhere = handsAt(_bench);   // AUDIT 32 P2
-    if (elsewhere && !_bench.act) box.append(el('p', 'px-note', `Your hands are at ${elsewhere} - finish there first.`));
+    if (elsewhere && !_bench.act) box.append(el('p', 'px-note', handsLine(elsewhere)));
     const ready = !r.later && recipeOpen(r, rank) && craftable(r, held, spends) && !_bench.busy && !_bench.crafting && !_bench.act && !elsewhere && !short;
     // AUDIT 30 A3: the pass makes the recipe it began on, with its Heartwood - never the page's pick when it lands; AUDIT 32
     // P5: its own flag in flight, as the loom's
@@ -1074,17 +1161,17 @@ function drawWorkbench(detail, rerender, { el, divider }) {
     if (_bench.act) {
       // THE PLANE: draw along the grain from its head to its foot
       const panel = el('div', 'prof-plane');
-      panel.append(el('span', 'prof-heatword', 'The plane - press at the board\'s head and draw along the grain to its foot'));
+      panel.append(el('span', 'prof-heatword', t('prof.page.plane.how', 'The plane - press at the board\'s head and draw along the grain to its foot')));
       const planed = craftOf(_bench.actRecipe ?? r.id, _bench.actRecipe ? _bench.actWood : _bench.heartwood && takesHeartwood(r));
       panel.append(planeBoard(el, _bench.act, (clean, rep) => { void planed(clean, rep); }, rerender));
-      if (_bench.act.state.slips) panel.append(el('span', 'prof-split', `let go ${_bench.act.state.slips} time${_bench.act.state.slips === 1 ? '' : 's'} - start again at the head`));
-      const cancel = el('button', 'act', 'Set the plane down');
+      if (_bench.act.state.slips) panel.append(el('span', 'prof-split', t('prof.page.plane.slips', '{n, plural, one {let go # time - start again at the head} other {let go # times - start again at the head}}', { n: _bench.act.state.slips })));
+      const cancel = el('button', 'act', t('prof.page.plane.setDown', 'Set the plane down'));
       cancel.type = 'button';
-      cancel.onclick = () => { _bench.act?.cancel(); _bench.act = null; _bench.actRecipe = null; _bench.word = 'You set the plane down; nothing is spent.'; rerender(); };
+      cancel.onclick = () => { _bench.act?.cancel(); _bench.act = null; _bench.actRecipe = null; _bench.word = planeDownLine(); rerender(); };
       panel.append(cancel);
       box.append(panel);
     } else {
-      const go = el('button', 'act primary', _bench.crafting ? 'At the workbench...' : 'Craft');
+      const go = el('button', 'act primary', _bench.crafting ? t('prof.page.bench.crafting', 'At the workbench...') : craftWord());
       go.type = 'button';
       go.disabled = !ready;
       go.onclick = () => {
@@ -1093,7 +1180,7 @@ function drawWorkbench(detail, rerender, { el, divider }) {
         _bench.actRecipe = r.id; _bench.actWood = _bench.heartwood && takesHeartwood(r);
         rerender();
       };
-      const quick = el('button', 'act', 'Quick craft');
+      const quick = el('button', 'act', quickWord());
       quick.type = 'button';
       quick.disabled = !ready;
       quick.onclick = () => { void finish(false); };
@@ -1108,14 +1195,22 @@ function drawWorkbench(detail, rerender, { el, divider }) {
 
 /** The loom's families, in its row's order: the leather armour, the clothing, the rugs, tapestries and skins, the
  *  Fishing-Net. */
-export const LOOM_FAMILIES = Object.freeze([['leather', 'Leather'], ['clothing', 'Clothing'], ['furnishings', 'Furnishings'], ['tools', 'Tools']]);
+export const LOOM_FAMILIES = Object.freeze([wordRow('leather', () => localizedText('leather', 'Leather')), wordRow('clothing', () => t('prof.page.family.clothing', 'Clothing')),
+  wordRow('furnishings', () => t('prof.page.family.furnishings', 'Furnishings')), wordRow('tools', toolsWord)]);
 /** DFU's two clothing groups, as the loom's row names them. */
-const CLOTHING_ROW = Object.freeze([['MensClothing', 'Men\'s'], ['WomensClothing', 'Women\'s']]);
+const CLOTHING_ROW = Object.freeze([wordRow('MensClothing', () => t('prof.page.loom.mens', 'Men\'s')), wordRow('WomensClothing', () => t('prof.page.loom.womens', 'Women\'s'))]);
 /** The recipes the loom lists for a family - a garment of the cloth and the group shown. */
 export const loomRecipes = (family, cloth, clothing) => RECIPES.filter((r) => r.profession === 'outfitting' && r.family === family
   && (family !== 'clothing' || (r.cloth === cloth && r.group === clothing)));
 /** A dye's name as the loom says it ("Dark Brown"). */
-export const dyeWord = (dye) => String(DYE_NAMES[dye] ?? dye).replace(/([a-z])([A-Z])/g, '$1 $2');
+export const dyeWord = (dye) => DYE_WORDS[DYE_NAMES[dye]]?.() ?? String(DYE_NAMES[dye] ?? dye).replace(/([a-z])([A-Z])/g, '$1 $2');
+/** L10N4: DFU's ten clothing dyes as the loom says them, in the player's language. */
+const DYE_WORDS = Object.freeze({
+  Blue: () => t('prof.page.dye.blue', 'Blue'), Grey: () => t('prof.page.dye.grey', 'Grey'), Red: () => t('prof.page.dye.red', 'Red'),
+  DarkBrown: () => t('prof.page.dye.darkBrown', 'Dark Brown'), Purple: () => t('prof.page.dye.purple', 'Purple'), LightBrown: () => t('prof.page.dye.lightBrown', 'Light Brown'),
+  White: () => t('prof.page.dye.white', 'White'), Aquamarine: () => t('prof.page.dye.aquamarine', 'Aquamarine'), Yellow: () => t('prof.page.dye.yellow', 'Yellow'),
+  Green: () => t('prof.page.dye.green', 'Green'),
+});
 
 /** Tests: the loom's state - its stitch ticked by hand, as a frame would. */
 export const _loomForTests = () => _loom;
@@ -1179,26 +1274,26 @@ function drawLoom(detail, rerender, { el, divider }) {
   if (!p?.loom || !p.craft || !p.smelt) return;
   const book = p.book;
   const loom = p.loom();
-  detail.append(divider('The Loom'));
+  detail.append(divider(t('prof.page.loom', 'The Loom')));
   if (!loom) {
     endStitch();
-    detail.append(el('p', 'px-note', `Outfitting, and the tanning of hides, is done at a loom: a Clothing Store's (${LOOM_FEE} gold a craft, a cure or a weave), or your own home's.`));
+    detail.append(el('p', 'px-note', t('prof.page.loom.away', 'Outfitting, and the tanning of hides, is done at a loom: a Clothing Store\'s ({fee} gold a craft, a cure or a weave), or your own home\'s.', { fee: LOOM_FEE })));
     return;
   }
   const rank = book.track('outfitting')?.rank ?? 0;
   const specs = book.track('outfitting')?.specs ?? {};
-  detail.append(el('p', 'px-note', `${loom.kind === 'shop' ? `The tailor's loom and tanning rack - ${loom.fee} gold a craft, a cure or a weave.` : 'Your loom.'} Outfitting ${rank} (${rankName(rank)}).`));
-  const short = purseShort(loom, 'tailor', 'a craft, a cure or a weave');
+  detail.append(el('p', 'px-note', `${loom.kind === 'shop' ? t('prof.page.loom.shop', 'The tailor\'s loom and tanning rack - {fee} gold a craft, a cure or a weave.', { fee: loom.fee }) : t('prof.page.loom.home', 'Your loom.')} ${rankLine('outfitting', rank)}`));
+  const short = purseShort(loom, 'loom');
   if (short) detail.append(el('p', 'px-note prof-short', short));
   // AUDIT 30 A2's law: Gentle acts switched on under a stitch sets the needle down - nothing spent, the craft a plain one
-  if (_loom.act && getPref('gentleActs') === true) { _loom.act.cancel(); endStitch(); _loom.word = 'You set the needle down; nothing is spent.'; }
+  if (_loom.act && getPref('gentleActs') === true) { _loom.act.cancel(); endStitch(); _loom.word = needleDownLine(); }
   const sewing = !!_loom.act;
   // THE TANNING RACK AND THE LOOM'S OWN WORK: the hides the Stores hold, cured; Spider Silk, woven
   const cures = CURE_RECIPES.filter((r) => book.held(r.inputs[0].key) > 0);
-  if (cures.length) workRows(detail, rerender, el, cures, _loom, 'Cure', 'Curing...', (id, n) => p.smelt(id, n), short, sewing);   // AUDIT 32 P5: held while sewing
-  else detail.append(el('p', 'px-note', 'Two hides cure to a leather here (a Tanner\'s one). Hides come from the bodies your own blow fells (Hunting).'));
+  if (cures.length) workRows(detail, rerender, el, cures, _loom, t('prof.page.loom.cure', 'Cure'), t('prof.page.loom.curing', 'Curing...'), (id, n) => p.smelt(id, n), short, sewing);   // AUDIT 32 P5: held while sewing
+  else detail.append(el('p', 'px-note', t('prof.page.loom.noHides', 'Two hides cure to a leather here (a Tanner\'s one). Hides come from the bodies your own blow fells (Hunting).')));
   const weaves = WEAVE_RECIPES.filter((r) => book.held(r.inputs[0].key) > 0);
-  if (weaves.length) workRows(detail, rerender, el, weaves, _loom, 'Weave', 'Weaving...', (id, n) => p.smelt(id, n), short, sewing);
+  if (weaves.length) workRows(detail, rerender, el, weaves, _loom, t('prof.page.loom.weave', 'Weave'), t('prof.page.loom.weaving', 'Weaving...'), (id, n) => p.smelt(id, n), short, sewing);
   const held = (k) => book.held(k);
   const fams = el('div', 'prof-families');
   for (const [id, word] of LOOM_FAMILIES) {
@@ -1231,37 +1326,37 @@ function drawLoom(detail, rerender, { el, divider }) {
   const list = loomRecipes(_loom.family, _loom.cloth, clothing);
   // AUDIT 32 P8: Standard-bearer's Silk says where it comes from - a siege's Spoils (PROF0 4.7), the one door to its 76
   // garments; AUDIT-SEATS: the sieges yield it now (townSeatLaw.js SIEGE_SPOILS), so no longer "nothing yields it yet"
-  if (_loom.family === 'clothing' && _loom.cloth === STANDARD_SILK.key) detail.append(el('p', 'px-note', `${p.name(_loom.cloth)} comes with the sieges - a Siege Honour's Spoils.`));
+  if (_loom.family === 'clothing' && _loom.cloth === STANDARD_SILK.key) detail.append(el('p', 'px-note', t('prof.page.loom.silk', '{name} comes with the sieges - a Siege Honour\'s Spoils.', { name: p.name(_loom.cloth) })));
   for (const r of list) {
     const open = recipeOpen(r, rank);
     const can = open && craftable(r, held);
     const row = el('button', `prof-recipe${_loom.picked === r.id ? ' on' : ''}${can ? '' : ' prof-locked'}`);
     row.type = 'button';
     row.disabled = sewing;
-    row.append(el('b', null, r.name), el('span', 'prof-split', open ? (can ? 'can make now' : 'wants its inputs') : `rank ${r.rank}`));
+    row.append(el('b', null, r.name), el('span', 'prof-split', recipeState(open, can, r.rank)));
     row.onclick = () => { _loom.picked = r.id; rerender(); };
     detail.append(row);
   }
   const r = list.find((x) => x.id === _loom.picked);
   if (r) {
     const box = el('div', 'prof-craft');
-    box.append(el('b', null, `${r.name} - rank ${r.rank}`));
+    box.append(el('b', null, craftHead(r.name, r.rank)));
     for (const inp of r.inputs) {
       const have = held(inp.key);
       const line = el('div', `prof-input${have >= inp.n ? '' : ' prof-short'}`);
-      line.append(el('span', null, `${p.name(inp.key)} ${Math.min(have, inp.n)} / ${inp.n} (${have} stored)`));
+      line.append(el('span', null, inputLine(p.name(inp.key), have, inp.n)));
       const sale = WEAVERS_STOCK.find((x) => x.key === inp.key);   // the Weavers' Linen and Wool (4.5), at the tailor's
       // AUDIT 32 P6: the Marks the purchase asks, held or said before the press (the Market tab's counter's law, AUDIT 30
       // U12/U13) - it was offered whatever the balance, and refused after; COUNTER-GATES: the one counter's buy now
-      if (sale && have < inp.n && loom.kind === 'shop') counterBuy(line, { el, p, state: _loom, rerender, key: inp.key, need: inp.n - have, sale, who: 'the Weavers', counter: 'weavers' });
+      if (sale && have < inp.n && loom.kind === 'shop') counterBuy(line, { el, p, state: _loom, rerender, key: inp.key, need: inp.n - have, sale, who: 'weavers', counter: 'weavers' });
       box.append(line);
     }
-    if (r.family === 'furnishings') box.append(el('p', 'px-note', 'Furnishings go among your things, to set down in a room of your own (Decorate).'));
+    if (r.family === 'furnishings') box.append(el('p', 'px-note', t('prof.page.loom.furnishings', 'Furnishings go among your things, to set down in a room of your own (Decorate).')));
     // A GARMENT'S DYE (9.3: "itemDye.js's colours"): one of DFU's ten, chosen here and sewn in, or none (AUDIT 32 L3:
     // every garment takes one, DFU's "unchangeable" shirts too - the word is their variant's)
     if (r.kind === 'garment' && r.dyes === true) {
       const dyes = el('div', 'prof-families prof-metals');
-      const none = el('button', `prof-family${_loom.dye == null ? ' on' : ''}`, 'Undyed');
+      const none = el('button', `prof-family${_loom.dye == null ? ' on' : ''}`, t('prof.page.loom.undyed', 'Undyed'));
       none.type = 'button';
       none.disabled = sewing;
       none.onclick = () => { _loom.dye = null; rerender(); };
@@ -1277,12 +1372,15 @@ function drawLoom(detail, rerender, { el, divider }) {
     }
     if (takesQuality(r) && recipeOpen(r, rank)) {
       const odds = qualityOdds(rank - r.rank, { masterwright: false });
-      box.append(el('p', 'px-note', `Your rank ${rank}, margin ${rank - r.rank}: ${odds.map((o, q) => (o ? `${QUALITY_NAMES[q]} ${o}` : null)).filter(Boolean).join(' | ')}. A clean stitch is a step better${specs[50] === 'tailor' && r.family === 'clothing' ? ', and a Tailor\'s clothing another' : specs[50] === 'leatherworker' && r.family === 'leather' ? ', and a Leatherworker\'s leather another' : ''}.`));
+      const a = { rank, margin: rank - r.rank, odds: oddsText(odds) };
+      box.append(el('p', 'px-note', specs[50] === 'tailor' && r.family === 'clothing' ? t('prof.page.loom.oddsTailor', 'Your rank {rank}, margin {margin}: {odds}. A clean stitch is a step better, and a Tailor\'s clothing another.', a)
+        : specs[50] === 'leatherworker' && r.family === 'leather' ? t('prof.page.loom.oddsLeather', 'Your rank {rank}, margin {margin}: {odds}. A clean stitch is a step better, and a Leatherworker\'s leather another.', a)
+          : t('prof.page.loom.odds', 'Your rank {rank}, margin {margin}: {odds}. A clean stitch is a step better.', a)));
     }
     const gentle = getPref('gentleActs') === true;
     const dye = r.kind === 'garment' && r.dyes === true ? _loom.dye : null;
     const elsewhere = handsAt(_loom);   // AUDIT 32 P2
-    if (elsewhere && !_loom.act) box.append(el('p', 'px-note', `Your hands are at ${elsewhere} - finish there first.`));
+    if (elsewhere && !_loom.act) box.append(el('p', 'px-note', handsLine(elsewhere)));
     const ready = recipeOpen(r, rank) && craftable(r, held) && !_loom.busy && !_loom.crafting && !_loom.act && !elsewhere && !short;
     // AUDIT 30 A3's law: the stitch makes the recipe it began on, in the dye it began in; AUDIT 32 P5: a craft's own flag
     // in flight - a cure answered under it cleared the loom's one flag, and Craft was offered again mid-craft
@@ -1308,16 +1406,16 @@ function drawLoom(detail, rerender, { el, divider }) {
       const marks = el('div', 'prof-strikes');
       const dots = [];
       for (let i = 0; i < STITCH_ACT.stitches; i++) { const d = el('span', `prof-strike${i < _loom.act.state.stitches.length ? (_loom.act.state.stitches[i] ? ' hit' : ' miss') : ''}`, 'o'); dots.push(d); marks.append(d); }
-      const hit = actButton(el, 'Stitch', (e) => _loom.stitch?.(e));   // AUDIT 32 P1
-      const cancel = el('button', 'act', 'Set the needle down');
+      const hit = actButton(el, t('prof.page.loom.stitch', 'Stitch'), (e) => _loom.stitch?.(e));   // AUDIT 32 P1
+      const cancel = el('button', 'act', t('prof.page.loom.setDown', 'Set the needle down'));
       cancel.type = 'button';
-      cancel.onclick = () => { _loom.act?.cancel(); endStitch(); _loom.word = 'You set the needle down; nothing is spent.'; rerender(); };
-      panel.append(el('span', 'prof-heatword', `The stitch - press on the beat, ${STITCH_ACT.stitches} in a row (Space)`), bar, marks, hit, cancel);
+      cancel.onclick = () => { _loom.act?.cancel(); endStitch(); _loom.word = needleDownLine(); rerender(); };
+      panel.append(el('span', 'prof-heatword', t('prof.page.loom.how', 'The stitch - press on the beat, {n} in a row (Space)', { n: STITCH_ACT.stitches })), bar, marks, hit, cancel);
       box.append(panel);
       _loom.els = { bar, marker, marks: dots, hit };
       if (!_loom.off) _loom.stitch = stitchLoop(craftOf(_loom.actRecipe ?? r.id, _loom.actRecipe ? _loom.actDye : dye));
     } else {
-      const go = el('button', 'act primary', _loom.crafting ? 'At the loom...' : 'Craft');
+      const go = el('button', 'act primary', _loom.crafting ? t('prof.page.loom.crafting', 'At the loom...') : craftWord());
       go.type = 'button';
       go.disabled = !ready;
       go.onclick = () => {
@@ -1326,7 +1424,7 @@ function drawLoom(detail, rerender, { el, divider }) {
         _loom.actRecipe = r.id; _loom.actDye = dye;
         rerender();
       };
-      const quick = el('button', 'act', 'Quick craft');
+      const quick = el('button', 'act', quickWord());
       quick.type = 'button';
       quick.disabled = !ready;
       quick.onclick = () => { void finish(false); };
@@ -1341,6 +1439,7 @@ function drawLoom(detail, rerender, { el, divider }) {
 
 /** What setting the chisel down says. */
 export const CHISEL_DOWN_LINE = 'You set the chisel down; nothing is spent.';
+const chiselDownLine = () => t('prof.page.mason.down', CHISEL_DOWN_LINE);
 /** Tests: the bench's state - its chisel ticked by hand, as a frame would. */
 export const _masonForTests = () => _mason;
 /** The chisel let go: its loop, its keys and what it was making. */
@@ -1413,7 +1512,7 @@ function chiselLoop(finish) {
   return strike;
 }
 /** The verb a mason's work is done with on its button: the cut's "Cut", the mix's "Mix". */
-export const masonVerb = (id) => (id === 'cut:stone' ? 'Cut' : 'Mix');
+export const masonVerb = (id) => (id === 'cut:stone' ? t('prof.page.mason.cut', 'Cut') : t('prof.page.mason.mix', 'Mix'));
 
 /**
  * PROF11: THE MASON'S BENCH - the works (Rough Stone cut to Cut Stone, a Quarryman's two a cut; Mortar mixed ten at a
@@ -1430,20 +1529,20 @@ function drawMasonBench(detail, rerender, { el, divider }) {
   if (!p?.mason || !p.smelt) return;
   const book = p.book;
   const bench = p.mason();
-  detail.append(divider('The Mason\'s Bench'));
+  detail.append(divider(t('prof.page.mason', 'The Mason\'s Bench')));
   if (!bench) {
     endChisel();
-    detail.append(el('p', 'px-note', `Masonry is done at a mason's bench: a General Store's (${MASON_FEE} gold a cut, a mix or a carving), or your own home's.`));
+    detail.append(el('p', 'px-note', t('prof.page.mason.away', 'Masonry is done at a mason\'s bench: a General Store\'s ({fee} gold a cut, a mix or a carving), or your own home\'s.', { fee: MASON_FEE })));
     return;
   }
   const track = book.track('masonry');
   const rank = track?.rank ?? 0;
   const specs = track?.specs ?? {};
-  detail.append(el('p', 'px-note', `${bench.kind === 'shop' ? `The mason's bench - ${bench.fee} gold a cut, a mix or a carving.` : 'Your mason\'s bench.'} Masonry ${rank} (${rankName(rank)}).`));
-  const short = purseShort(bench, 'mason', 'a cut, a mix or a carving');
+  detail.append(el('p', 'px-note', `${bench.kind === 'shop' ? t('prof.page.mason.shop', 'The mason\'s bench - {fee} gold a cut, a mix or a carving.', { fee: bench.fee }) : t('prof.page.mason.home', 'Your mason\'s bench.')} ${rankLine('masonry', rank)}`));
+  const short = purseShort(bench, 'mason');
   if (short) detail.append(el('p', 'px-note prof-short', short));
   // AUDIT 30 A2's law: Gentle acts switched on under the chisel sets it down - nothing spent, the work a plain one
-  if (_mason.act && getPref('gentleActs') === true) { _mason.act.cancel(); endChisel(); _mason.word = CHISEL_DOWN_LINE; }
+  if (_mason.act && getPref('gentleActs') === true) { _mason.act.cancel(); endChisel(); _mason.word = chiselDownLine(); }
   const striking = !!_mason.act;
   const gentle = getPref('gentleActs') === true;
   const elsewhere = handsAt(_mason);   // AUDIT 32 P2: one act a page
@@ -1474,15 +1573,15 @@ function drawMasonBench(detail, rerender, { el, divider }) {
   if (_mason.act && _mason.actWhat) {
     const what = _mason.actWhat;
     const r = recipeOfWhat(what);
-    const label = what.kind === 'work' ? `${p.name(r?.out ?? '')}, ${what.count} ${what.count === 1 ? 'time' : 'times'}` : (r?.name ?? '');
+    const label = what.kind === 'work' ? t('prof.page.chisel.work', '{name}, {n, plural, one {# time} other {# times}}', { name: p.name(r?.out ?? ''), n: what.count }) : (r?.name ?? '');
     const panel = el('div', 'prof-heat prof-chisel');
-    panel.append(el('span', 'prof-heatword', `The chisel (${label}) - strike the marked line, ${_mason.act.state.need} strikes: press the line, or set the chisel with the arrows and strike with Space`));
+    panel.append(el('span', 'prof-heatword', t('prof.page.chisel.how', 'The chisel ({what}) - strike the marked line, {n, plural, one {# strike} other {# strikes}}: press the line, or set the chisel with the arrows and strike with Space', { what: label, n: _mason.act.state.need })));
     const stone = el('div', 'prof-stone');
     const lines = [];
     for (let i = 0; i < CHISEL_ACT.lines; i++) {
       const b = el('button', `prof-chisel-line${i === _mason.act.mark ? ' marked' : ''}${i === _mason.act.state.at ? ' at' : ''}`, String(i + 1));
       b.type = 'button';
-      b.setAttribute?.('aria-label', `Strike line ${i + 1}`);
+      b.setAttribute?.('aria-label', t('prof.page.chisel.line', 'Strike line {n}', { n: i + 1 }));
       // AUDIT 32 P1's law: struck on the pointer's DOWN, its own moment; a click nobody pointed at (a screen reader's) once
       let pointed = false;
       b.onpointerdown = (e) => { e?.preventDefault?.(); pointed = true; _mason.act?.aim(i); _mason.strike?.(e); };
@@ -1493,10 +1592,10 @@ function drawMasonBench(detail, rerender, { el, divider }) {
     const marks = el('div', 'prof-strikes');
     const dots = [];
     for (let i = 0; i < _mason.act.state.need; i++) { const d = el('span', `prof-strike${i < _mason.act.state.strikes.length ? (_mason.act.state.strikes[i] ? ' hit' : ' miss') : ''}`, 'o'); dots.push(d); marks.append(d); }
-    const hit = actButton(el, 'Strike', (e) => _mason.strike?.(e));
-    const cancel = el('button', 'act', 'Set the chisel down');
+    const hit = actButton(el, strikeWord(), (e) => _mason.strike?.(e));
+    const cancel = el('button', 'act', t('prof.page.chisel.setDown', 'Set the chisel down'));
     cancel.type = 'button';
-    cancel.onclick = () => { _mason.act?.cancel(); endChisel(); _mason.word = CHISEL_DOWN_LINE; rerender(); };
+    cancel.onclick = () => { _mason.act?.cancel(); endChisel(); _mason.word = chiselDownLine(); rerender(); };
     panel.append(stone, marks, hit, cancel);
     detail.append(panel);
     _mason.els = { stone, lines, marks: dots, hit };
@@ -1509,8 +1608,8 @@ function drawMasonBench(detail, rerender, { el, divider }) {
     // the Quarryman's two a cut - a choice read at its own rank (50), as the Tanner's
     const per = workPer(r, r.more ? { [r.more.profession]: book.track(r.more.profession)?.specs?.[workSpecRank(r)] ?? null } : {});
     const row = el('div', `prof-smelt prof-mason${most ? '' : ' prof-locked'}`);
-    const ins = r.inputs.map((inp) => `${inp.n} ${p.name(inp.key)} (${held(inp.key)})`).join(' + ');
-    row.append(el('b', null, `${p.name(r.out)}${per > 1 ? ` x${per}` : ''}`), el('span', 'prof-split', open ? ins : `${ins} - rank ${r.rank}`));
+    const ins = workIns(r, p, held);
+    row.append(el('b', null, workOut(p.name(r.out), per)), el('span', 'prof-split', open ? ins : t('prof.page.work.insRank', '{inputs} - rank {rank}', { inputs: ins, rank: r.rank })));
     const qty = el('input', 'prof-qty');
     qty.type = 'number'; qty.min = '1'; qty.max = String(Math.max(1, most));
     qty.value = String(Math.max(1, Math.min(_mason.counts[r.id] ?? 1, Math.max(1, most))));
@@ -1518,11 +1617,11 @@ function drawMasonBench(detail, rerender, { el, divider }) {
     const count = () => Math.max(1, Math.min(_mason.counts[r.id] ?? 1, smeltable(r, held)));
     const shut = _mason.busy || _mason.crafting || striking || most < 1 || !!short || !!elsewhere;
     const acts = el('span', 'prof-workacts');
-    const go = el('button', 'act', _mason.busy && _workingOn === r.id ? 'At the bench...' : masonVerb(r.id));
+    const go = el('button', 'act', _mason.busy && _workingOn === r.id ? benchBusyWord() : masonVerb(r.id));
     go.type = 'button';
     go.disabled = shut;
     go.onclick = () => { if (!go.disabled) begin({ kind: 'work', id: r.id, count: count() }); };
-    const quick = el('button', 'act', 'Quick');
+    const quick = el('button', 'act', t('prof.page.mason.quick', 'Quick'));
     quick.type = 'button';
     quick.disabled = shut;
     quick.onclick = () => { if (!quick.disabled) void finishFor({ kind: 'work', id: r.id, count: count() })(false); };
@@ -1531,43 +1630,44 @@ function drawMasonBench(detail, rerender, { el, divider }) {
     detail.append(row);
   }
   detail.append(el('p', 'px-note', held('stone:rough') > 0
-    ? 'Two Rough Stone cut to a Cut Stone (a Quarryman\'s two); Sulphur, Lead and five Rough Stone mix to ten Mortar. A clean chisel - every strike on the marked line - earns half again its Masonry XP.'
-    : 'Rough Stone is quarried from the boulders of the rock fields with a Pick-Axe (Mining).'));
-  if (elsewhere && !_mason.act) detail.append(el('p', 'px-note', `Your hands are at ${elsewhere} - finish there first.`));
+    ? t('prof.page.mason.works', 'Two Rough Stone cut to a Cut Stone (a Quarryman\'s two); Sulphur, Lead and five Rough Stone mix to ten Mortar. A clean chisel - every strike on the marked line - earns half again its Masonry XP.')
+    : t('prof.page.mason.noStone', 'Rough Stone is quarried from the boulders of the rock fields with a Pick-Axe (Mining).')));
+  if (elsewhere && !_mason.act) detail.append(el('p', 'px-note', handsLine(elsewhere)));
   // THE SCULPTOR'S STONE DECOR (3.3, 9.3): a column, a bench, a font, a statue plinth
-  detail.append(el('p', 'px-note', specs[100] === SCULPTOR ? 'Stone decor, carved for a room of your own:' : 'Stone decor - a column, a bench, a font, a statue plinth - is carved by a Sculptor (Masonry\'s choice at 100).'));
+  detail.append(el('p', 'px-note', specs[100] === SCULPTOR ? t('prof.page.mason.decor', 'Stone decor, carved for a room of your own:')
+    : t('prof.page.mason.decorSculptor', 'Stone decor - a column, a bench, a font, a statue plinth - is carved by a Sculptor (Masonry\'s choice at 100).')));
   for (const r of MASONRY_RECIPES) {
     const open = recipeOpen(r, rank, specs);
     const can = open && craftable(r, held);
     const row = el('button', `prof-recipe${_mason.picked === r.id ? ' on' : ''}${can ? '' : ' prof-locked'}`);
     row.type = 'button';
     row.disabled = striking;
-    row.append(el('b', null, r.name), el('span', 'prof-split', open ? (can ? 'can make now' : 'wants its inputs') : 'a Sculptor\'s'));
+    row.append(el('b', null, r.name), el('span', 'prof-split', open ? (can ? t('prof.page.craft.canMake', 'can make now') : t('prof.page.craft.wants', 'wants its inputs')) : t('prof.page.mason.sculptors', 'a Sculptor\'s')));
     row.onclick = () => { _mason.picked = r.id; rerender(); };
     detail.append(row);
   }
   const r = MASONRY_RECIPES.find((x) => x.id === _mason.picked);
   if (r && p.craft) {
     const box = el('div', 'prof-craft');
-    box.append(el('b', null, `${r.name} - a Sculptor's`));
+    box.append(el('b', null, t('prof.page.mason.carvingHead', '{name} - a Sculptor\'s', { name: r.name })));
     for (const inp of r.inputs) {
       const have = held(inp.key);
       const line = el('div', `prof-input${have >= inp.n ? '' : ' prof-short'}`);
-      line.append(el('span', null, `${p.name(inp.key)} ${Math.min(have, inp.n)} / ${inp.n} (${have} stored)`));
+      line.append(el('span', null, inputLine(p.name(inp.key), have, inp.n)));
       box.append(line);
     }
-    box.append(el('p', 'px-note', 'Stone decor goes among your things, to set down in a room of your own (Decorate).'));
+    box.append(el('p', 'px-note', t('prof.page.mason.decorGoes', 'Stone decor goes among your things, to set down in a room of your own (Decorate).')));
     const open = recipeOpen(r, rank, specs);
     if (open) {
       const odds = qualityOdds(rank - r.rank, { masterwright: false });
-      box.append(el('p', 'px-note', `Your rank ${rank}, margin ${rank - r.rank}: ${odds.map((o, q) => (o ? `${QUALITY_NAMES[q]} ${o}` : null)).filter(Boolean).join(' | ')}. A clean chisel is a step better.`));
+      box.append(el('p', 'px-note', t('prof.page.mason.odds', 'Your rank {rank}, margin {margin}: {odds}. A clean chisel is a step better.', { rank, margin: rank - r.rank, odds: oddsText(odds) })));
     }
     const ready = open && craftable(r, held) && !_mason.busy && !_mason.crafting && !_mason.act && !elsewhere && !short;
-    const go = el('button', 'act primary', _mason.crafting ? 'At the bench...' : 'Craft');
+    const go = el('button', 'act primary', _mason.crafting ? benchBusyWord() : craftWord());
     go.type = 'button';
     go.disabled = !ready;
     go.onclick = () => { if (!go.disabled) begin({ kind: 'carve', id: r.id, count: 1 }); };
-    const quick = el('button', 'act', 'Quick craft');
+    const quick = el('button', 'act', quickWord());
     quick.type = 'button';
     quick.disabled = !ready;
     quick.onclick = () => { if (!quick.disabled) void finishFor({ kind: 'carve', id: r.id, count: 1 })(false); };
@@ -1581,8 +1681,10 @@ function drawMasonBench(detail, rerender, { el, divider }) {
 
 /** What setting the pan aside says. */
 export const PAN_DOWN_LINE = 'You take the pan off the fire; nothing is spent.';
+const panDownLine = () => t('prof.page.fire.down', PAN_DOWN_LINE);
 /** Where Cooking is done, said away from a fire. */
 export const FIRE_AWAY_LINE = 'Cooking is done at a fire - a campfire, a hearth or a brazier: stand within reach of its flame. Your dishes go to your pack.';
+const fireAwayLine = () => t('prof.page.fire.away', FIRE_AWAY_LINE);
 /** Tests: the fire's state - its pan ticked by hand, as a frame would. */
 export const _cookForTests = () => _cook;
 /** The pan let go: its loop, its keys and what it was cooking. */
@@ -1660,19 +1762,19 @@ function drawCookFire(detail, rerender, { el, divider }) {
   if (!p?.fire || !p.craft) return;
   const book = p.book;
   const fire = p.fire();
-  detail.append(divider('The Fire'));
+  detail.append(divider(t('prof.page.fire', 'The Fire')));
   if (!fire) {
     endPan();
-    detail.append(el('p', 'px-note', FIRE_AWAY_LINE));
+    detail.append(el('p', 'px-note', fireAwayLine()));
     return;
   }
   const track = book.track('cooking');
   const rank = track?.rank ?? 0;
   const specs = track?.specs ?? {};
   const skillet = p.skillet?.() === true;
-  detail.append(el('p', 'px-note', `A fire to cook at. Cooking ${rank} (${rankName(rank)}). ${skillet ? 'Your Skillet widens the pan\'s window.' : 'A Skillet in your pack would widen the pan\'s window.'}`));
+  detail.append(el('p', 'px-note', `${t('prof.page.fire.here', 'A fire to cook at.')} ${rankLine('cooking', rank)} ${skillet ? t('prof.page.fire.skillet', 'Your Skillet widens the pan\'s window.') : t('prof.page.fire.noSkillet', 'A Skillet in your pack would widen the pan\'s window.')}`));
   // AUDIT 30 A2's law: Gentle acts switched on under the pan takes it off - nothing spent, the dish a plain one
-  if (_cook.act && getPref('gentleActs') === true) { _cook.act.cancel(); endPan(); _cook.word = PAN_DOWN_LINE; }
+  if (_cook.act && getPref('gentleActs') === true) { _cook.act.cancel(); endPan(); _cook.word = panDownLine(); }
   const gentle = getPref('gentleActs') === true;
   const elsewhere = handsAt(_cook);   // AUDIT 32 P2: one act a page
   const held = (k) => book.held(k);
@@ -1684,7 +1786,7 @@ function drawCookFire(detail, rerender, { el, divider }) {
   };
   if (_cook.act && _cook.actRecipe) {
     const panel = el('div', 'prof-heat prof-pan');
-    panel.append(el('span', 'prof-heatword', `The pan (${dishOf(_cook.actRecipe)?.name ?? ''}) - take each pan off while it is done, in the window (Space): ${_cook.act.state.need} pans`));
+    panel.append(el('span', 'prof-heatword', t('prof.page.fire.how', 'The pan ({dish}) - take each pan off while it is done, in the window (Space): {n, plural, one {# pan} other {# pans}}', { dish: dishOf(_cook.actRecipe)?.name ?? '', n: _cook.act.state.need })));
     const bar = el('div', 'prof-heatbar prof-panbar');
     const band = el('div', 'prof-heatband');
     band.style.left = `${(_cook.act.state.lo * 100).toFixed(1)}%`;
@@ -1699,10 +1801,10 @@ function drawCookFire(detail, rerender, { el, divider }) {
       dots.push(d);
       marks.append(d);
     }
-    const hit = actButton(el, 'Take it off', (e) => _cook.take?.(e));
-    const cancel = el('button', 'act', 'Set the pan aside');
+    const hit = actButton(el, t('prof.page.fire.take', 'Take it off'), (e) => _cook.take?.(e));
+    const cancel = el('button', 'act', t('prof.page.fire.setAside', 'Set the pan aside'));
     cancel.type = 'button';
-    cancel.onclick = () => { _cook.act?.cancel(); endPan(); _cook.word = PAN_DOWN_LINE; rerender(); };
+    cancel.onclick = () => { _cook.act?.cancel(); endPan(); _cook.word = panDownLine(); rerender(); };
     panel.append(bar, marks, hit, cancel);
     detail.append(panel);
     _cook.els = { bar, marker, marks: dots, hit };
@@ -1714,27 +1816,30 @@ function drawCookFire(detail, rerender, { el, divider }) {
     const row = el('button', `prof-recipe${_cook.picked === r.id ? ' on' : ''}${can ? '' : ' prof-locked'}`);
     row.type = 'button';
     row.disabled = !!_cook.act;
-    row.append(el('b', null, r.name), el('span', 'prof-split', open ? (can ? 'can cook now' : 'wants its inputs') : `rank ${r.rank}`));
+    row.append(el('b', null, r.name), el('span', 'prof-split', open ? (can ? t('prof.page.fire.canCook', 'can cook now') : t('prof.page.craft.wants', 'wants its inputs')) : rankWord(r.rank)));
     row.onclick = () => { _cook.picked = r.id; rerender(); };
     detail.append(row);
   }
   const r = COOKING_RECIPES.find((x) => x.id === _cook.picked);
   if (r) {
     const box = el('div', 'prof-craft');
-    box.append(el('b', null, `${r.name} - rank ${r.rank}`));
+    box.append(el('b', null, craftHead(r.name, r.rank)));
     for (const inp of r.inputs) {
       const have = held(inp.key);
       const line = el('div', `prof-input${have >= inp.n ? '' : ' prof-short'}`);
-      line.append(el('span', null, `${p.name(inp.key)} ${Math.min(have, inp.n)} / ${inp.n} (${have} stored)`));
+      line.append(el('span', null, inputLine(p.name(inp.key), have, inp.n)));
       box.append(line);
     }
     const hand = dishHand(r, specs[100]);
     const serves = craftCount(r, specs[100], specs[50]);
     const steps = Math.max(0, Math.trunc(Number(p.cookSteps?.()) || 0));   // AUDIT PROF-541 K7: the town Apothecary's steps where my guild holds it
-    box.append(el('p', 'px-note', `${dishEffectText(dishOf(r.id), hand)}.${hand === HAND_PROVISIONER ? ' Yours never spoil.' : ''}`));
-    box.append(el('p', 'px-note', `${serves > 1 ? 'Two servings (a Cook\'s)' : 'One serving'}, into your pack. ${panCount(r)} pans; every pan taken off done is a clean pan, ${steps > 0 ? `${cookXp(rank, { clean: true, steps })} Cooking XP to a plain dish's ${cookXp(rank, { steps })} - the town's Apothecary's ${steps === 1 ? 'step' : `${steps} steps`} in both` : `half again its ${cookXp(rank)} Cooking XP`}.`));   // AUDIT PROF-541 K7: the XP the service pays (cookXp's steps)
+    const effect = dishEffectText(dishOf(r.id), hand);
+    box.append(el('p', 'px-note', hand === HAND_PROVISIONER ? t('prof.page.fire.effectKept', '{effect}. Yours never spoil.', { effect }) : t('prof.page.fire.effect', '{effect}.', { effect })));
+    box.append(el('p', 'px-note', `${serves > 1 ? t('prof.page.fire.servesTwo', 'Two servings (a Cook\'s), into your pack.') : t('prof.page.fire.servesOne', 'One serving, into your pack.')} ${t('prof.page.fire.pans',
+      '{pans, plural, one {# pan} other {# pans}}; every pan taken off done is a clean pan, {steps, plural, =0 {half again its {xp} Cooking XP} one {{clean} Cooking XP to a plain dish\'s {xp} - the town\'s Apothecary\'s step in both} other {{clean} Cooking XP to a plain dish\'s {xp} - the town\'s Apothecary\'s # steps in both}}.',
+      { pans: panCount(r), steps, xp: steps > 0 ? cookXp(rank, { steps }) : cookXp(rank), clean: cookXp(rank, { clean: true, steps }) })}`));   // AUDIT PROF-541 K7: the XP the service pays (cookXp's steps)
     const ready = recipeOpen(r, rank, specs) && craftable(r, held) && !_cook.crafting && !_cook.act && !elsewhere;
-    const go = el('button', 'act primary', _cook.crafting ? 'At the fire...' : 'Cook');
+    const go = el('button', 'act primary', _cook.crafting ? t('prof.page.fire.cooking', 'At the fire...') : t('prof.page.fire.cook', 'Cook'));
     go.type = 'button';
     go.disabled = !ready;
     go.onclick = () => {
@@ -1744,15 +1849,15 @@ function drawCookFire(detail, rerender, { el, divider }) {
       _cook.actRecipe = r.id;
       rerender();
     };
-    const quick = el('button', 'act', 'Quick cook');
+    const quick = el('button', 'act', t('prof.page.fire.quick', 'Quick cook'));
     quick.type = 'button';
     quick.disabled = !ready;
     quick.onclick = () => { if (!quick.disabled) void finishFor(r.id)(false); };
     box.append(go, quick);
     detail.append(box);
   }
-  detail.append(el('p', 'px-note', 'Raw Meat comes from a body you skin, Raw Fish from the net, the Mushroom, the Egg, the Apple and the Orange from the Basket, and the herbs from their patches - into your Stores. A Raw Fish cooked over the flame from your pack stays a plain meal, and teaches no Cooking.'));
-  if (elsewhere && !_cook.act) detail.append(el('p', 'px-note', `Your hands are at ${elsewhere} - finish there first.`));
+  detail.append(el('p', 'px-note', t('prof.page.fire.sources', 'Raw Meat comes from a body you skin, Raw Fish from the net, the Mushroom, the Egg, the Apple and the Orange from the Basket, and the herbs from their patches - into your Stores. A Raw Fish cooked over the flame from your pack stays a plain meal, and teaches no Cooking.')));
+  if (elsewhere && !_cook.act) detail.append(el('p', 'px-note', handsLine(elsewhere)));
   if (_cook.word) detail.append(el('p', 'prof-word', _cook.word));
 }
 
@@ -1760,6 +1865,7 @@ function drawCookFire(detail, rerender, { el, divider }) {
 
 /** What setting the stone down says. */
 export const FACET_DOWN_LINE = 'You set the stone down; nothing is spent.';
+const facetDownLine = () => t('prof.page.jewel.down', FACET_DOWN_LINE);
 /** Tests: the bench's state - its facet ticked by hand, as a frame would. */
 export const _jewelForTests = () => _jewel;
 /** The recipes the bench lists for a piece in a base (its metal, its Linen, its wood): the plain piece, then a gem each. */
@@ -1768,7 +1874,7 @@ export const jewelRecipes = (piece, base) => JEWELCRAFTING_RECIPES.filter((r) =>
 export function jewelPointsLine(r, hand = null) {
   const pct = jewelPointsPct(r, hand);
   const pts = jewelPoints(r, templateByIndex(r.templateIndex)?.enchantmentPoints ?? 0, hand);
-  return `${pts.toLocaleString('en-US')} enchantment points${pct ? ` (+${pct}%)` : ''}`;
+  return pct ? t('prof.page.jewel.pointsPct', '{pts, number} enchantment points (+{pct}%)', { pts, pct }) : t('prof.page.jewel.points', '{pts, number} enchantment points', { pts });
 }
 /** The facet let go: its loop, its keys and what it was cutting. */
 function endFacet() {
@@ -1849,20 +1955,20 @@ function drawJewellerBench(detail, rerender, { el, divider }) {
   if (!p?.jeweller || !p.craft) return;
   const book = p.book;
   const bench = p.jeweller();
-  detail.append(divider('The Jeweller\'s Bench'));
+  detail.append(divider(t('prof.page.jewel', 'The Jeweller\'s Bench')));
   if (!bench) {
     endFacet();
-    detail.append(el('p', 'px-note', `Jewelcrafting is done at a jeweller's bench: a Pawn Shop's or a Gem Store's (${JEWEL_FEE} gold a piece), or your own home's.`));
+    detail.append(el('p', 'px-note', t('prof.page.jewel.away', 'Jewelcrafting is done at a jeweller\'s bench: a Pawn Shop\'s or a Gem Store\'s ({fee} gold a piece), or your own home\'s.', { fee: JEWEL_FEE })));
     return;
   }
   const track = book.track('jewelcrafting');
   const rank = track?.rank ?? 0;
   const specs = track?.specs ?? {};
-  detail.append(el('p', 'px-note', `${bench.kind === 'shop' ? `The jeweller's bench - ${bench.fee} gold a piece.` : 'Your jeweller\'s bench.'} Jewelcrafting ${rank} (${rankName(rank)}).`));
-  const short = purseShort(bench, 'jeweller', 'a piece');
+  detail.append(el('p', 'px-note', `${bench.kind === 'shop' ? t('prof.page.jewel.shop', 'The jeweller\'s bench - {fee} gold a piece.', { fee: bench.fee }) : t('prof.page.jewel.home', 'Your jeweller\'s bench.')} ${rankLine('jewelcrafting', rank)}`));
+  const short = purseShort(bench, 'jeweller');
   if (short) detail.append(el('p', 'px-note prof-short', short));
   // AUDIT 30 A2's law: Gentle acts switched on under the facet sets the stone down - nothing spent, the piece a plain one
-  if (_jewel.act && getPref('gentleActs') === true) { _jewel.act.cancel(); endFacet(); _jewel.word = FACET_DOWN_LINE; }
+  if (_jewel.act && getPref('gentleActs') === true) { _jewel.act.cancel(); endFacet(); _jewel.word = facetDownLine(); }
   const cutting = !!_jewel.act;
   const gentle = getPref('gentleActs') === true;
   const elsewhere = handsAt(_jewel);   // AUDIT 32 P2: one act a page
@@ -1901,7 +2007,7 @@ function drawJewellerBench(detail, rerender, { el, divider }) {
     const row = el('button', `prof-recipe${_jewel.picked === r.id ? ' on' : ''}${can ? '' : ' prof-locked'}`);
     row.type = 'button';
     row.disabled = cutting;
-    row.append(el('b', null, r.name), el('span', 'prof-split', open ? (can ? 'can make now' : 'wants its inputs') : `rank ${r.rank}`));
+    row.append(el('b', null, r.name), el('span', 'prof-split', recipeState(open, can, r.rank)));
     row.onclick = () => { _jewel.picked = r.id; rerender(); };
     detail.append(row);
   }
@@ -1914,22 +2020,24 @@ function drawJewellerBench(detail, rerender, { el, divider }) {
   const r = list.find((x) => x.id === _jewel.picked);
   if (r) {
     const box = el('div', 'prof-craft');
-    box.append(el('b', null, `${r.name} - rank ${r.rank}`));
+    box.append(el('b', null, craftHead(r.name, r.rank)));
     if (!(lapidary && takesCracked(r) && crackedHeld > 0)) _jewel.cracked = false;
     const spends = spendsFor(r, _jewel.heartwood, _jewel.cracked);
     for (const inp of spends) {
       const have = held(inp.key);
       const line = el('div', `prof-input${have >= inp.n ? '' : ' prof-short'}`);
-      line.append(el('span', null, `${p.name(inp.key)} ${Math.min(have, inp.n)} / ${inp.n} (${have} stored)`));
+      line.append(el('span', null, inputLine(p.name(inp.key), have, inp.n)));
       box.append(line);
     }
     const hand = jewelHand(r, specs[50]);
-    box.append(el('p', 'px-note', `${jewelPointsLine(r, hand)}${hand === JEWEL_HAND_GOLDSMITH ? ' - a Goldsmith\'s Silver, counted as Gold' : hand === JEWEL_HAND_GEMCUTTER ? ' - a Gemcutter\'s gem' : ''}. The item maker spends them${r.product === 'wand' ? '' : ', beside a Masterwork\'s own enchantment'}.`));   // AUDIT PROF10 J2: it takes a crafted piece with its Rare roll (itemMakerWindow.js itemMakerFilter); AUDIT PROF-541 J5: a Wand rolls none (lootRarity.js rarityEligible: no slot)
+    box.append(el('p', 'px-note', t('prof.page.jewel.pointsNote', '{points}{hand, select, goldsmith { - a Goldsmith\'s Silver, counted as Gold} gemcutter { - a Gemcutter\'s gem} other {}}. The item maker spends them{wand, select, yes {} other {, beside a Masterwork\'s own enchantment}}.',
+      { points: jewelPointsLine(r, hand), hand: hand === JEWEL_HAND_GOLDSMITH ? 'goldsmith' : hand === JEWEL_HAND_GEMCUTTER ? 'gemcutter' : 'none', wand: r.product === 'wand' ? 'yes' : 'no' })));   // AUDIT PROF10 J2: it takes a crafted piece with its Rare roll (itemMakerWindow.js itemMakerFilter); AUDIT PROF-541 J5: a Wand rolls none (lootRarity.js rarityEligible: no slot)
     if (recipeOpen(r, rank)) {
       const odds = qualityOdds(rank - r.rank, { masterwright: masterworkSpec(specs[100]) });
       // AUDIT PROF-541 R2-C6: and the town Apothecary's quality steps the service adds (professions.js seatStepsFor)
       const steps = Math.max(0, Math.trunc(Number(p.jewelSteps?.()) || 0));
-      box.append(el('p', 'px-note', `Your rank ${rank}, margin ${rank - r.rank}: ${odds.map((o, q) => (o ? `${QUALITY_NAMES[q]} ${o}` : null)).filter(Boolean).join(' | ')}${steps > 0 ? ` (+${steps} ${steps === 1 ? 'step' : 'steps'} from the town's Apothecary)` : ''}. A clean facet is a step better; ${craftXp(r.tier, rank, false)} Jewelcrafting XP.`));
+      box.append(el('p', 'px-note', t('prof.page.jewel.odds', 'Your rank {rank}, margin {margin}: {odds}{steps, plural, =0 {} one { (+# step from the town\'s Apothecary)} other { (+# steps from the town\'s Apothecary)}}. A clean facet is a step better; {xp} Jewelcrafting XP.',
+        { rank, margin: rank - r.rank, odds: oddsText(odds), steps, xp: craftXp(r.tier, rank, false) })));
     }
     heartwoodToggle(box, el, r, book, _jewel, rerender, cutting);   // a Wand's plank (4.2: Heartwood "worth one quality step in any recipe")
     if (lapidary && takesCracked(r) && crackedHeld > 0) {
@@ -1940,16 +2048,16 @@ function drawJewellerBench(detail, rerender, { el, divider }) {
       cb.checked = _jewel.cracked === true;
       cb.disabled = cutting;
       cb.onchange = () => { _jewel.cracked = !!cb.checked; rerender(); };
-      lab.append(cb, globalThis.document.createTextNode(` Set a Siege-cracked Gem as the ${gemWord(r.gem)} (${crackedHeld} stored)`));
+      lab.append(cb, globalThis.document.createTextNode(` ${t('prof.page.jewel.cracked', 'Set a Siege-cracked Gem as the {gem} ({n} stored)', { gem: gemWord(r.gem), n: crackedHeld })}`));
       box.append(lab);
     }
     const ready = recipeOpen(r, rank) && craftable(r, held, spends) && !_jewel.crafting && !_jewel.act && !elsewhere && !short;
-    if (elsewhere && !_jewel.act) box.append(el('p', 'px-note', `Your hands are at ${elsewhere} - finish there first.`));
+    if (elsewhere && !_jewel.act) box.append(el('p', 'px-note', handsLine(elsewhere)));
     const wood = _jewel.heartwood && takesHeartwood(r), crack = _jewel.cracked === true && lapidary && takesCracked(r);
     if (_jewel.act && _jewel.actRecipe) {
       // THE FACET: the dial, the light's window on it, the stone's bearing, the facets so far
       const panel = el('div', 'prof-heat prof-facet');
-      panel.append(el('span', 'prof-heatword', `The facet (${r.name}) - stop the turn where the stone catches the light (Space): ${_jewel.act.state.need} facets`));
+      panel.append(el('span', 'prof-heatword', t('prof.page.jewel.how', 'The facet ({name}) - stop the turn where the stone catches the light (Space): {n, plural, one {# facet} other {# facets}}', { name: r.name, n: _jewel.act.state.need })));
       const bar = el('div', 'prof-heatbar prof-facetbar');
       const band = el('div', 'prof-heatband');
       band.style.left = `${(((_jewel.act.state.light - _jewel.act.state.half) / 360) * 100).toFixed(1)}%`;
@@ -1965,16 +2073,16 @@ function drawJewellerBench(detail, rerender, { el, divider }) {
         dots.push(d);
         marks.append(d);
       }
-      const hit = actButton(el, 'Stop the turn', (e) => _jewel.stop?.(e));
-      const cancel = el('button', 'act', 'Set the stone down');
+      const hit = actButton(el, t('prof.page.jewel.stop', 'Stop the turn'), (e) => _jewel.stop?.(e));
+      const cancel = el('button', 'act', t('prof.page.jewel.setDown', 'Set the stone down'));
       cancel.type = 'button';
-      cancel.onclick = () => { _jewel.act?.cancel(); endFacet(); _jewel.word = FACET_DOWN_LINE; rerender(); };
+      cancel.onclick = () => { _jewel.act?.cancel(); endFacet(); _jewel.word = facetDownLine(); rerender(); };
       panel.append(gem, bar, marks, hit, cancel);
       box.append(panel);
       _jewel.els = { bar, band, marker, gem, marks: dots, hit };
       if (!_jewel.off) _jewel.stop = facetLoop(finishFor(_jewel.actRecipe, _jewel.actWood, _jewel.actCracked));
     } else {
-      const go = el('button', 'act primary', _jewel.crafting ? 'At the bench...' : 'Craft');
+      const go = el('button', 'act primary', _jewel.crafting ? benchBusyWord() : craftWord());
       go.type = 'button';
       go.disabled = !ready;
       go.onclick = () => {
@@ -1984,7 +2092,7 @@ function drawJewellerBench(detail, rerender, { el, divider }) {
         _jewel.actRecipe = r.id; _jewel.actWood = wood; _jewel.actCracked = crack;
         rerender();
       };
-      const quick = el('button', 'act', 'Quick craft');
+      const quick = el('button', 'act', quickWord());
       quick.type = 'button';
       quick.disabled = !ready;
       quick.onclick = () => { if (!quick.disabled) void finishFor(r.id, wood, crack)(false); };
@@ -1992,14 +2100,16 @@ function drawJewellerBench(detail, rerender, { el, divider }) {
     }
     detail.append(box);
   }
-  detail.append(el('p', 'px-note', 'Silver, Gold and Platinum come from the veins (Mining), the gems from a clean strike on a vein\'s glint, the Pearl from the sea\'s nets; Linen from the Weavers. Your pieces go to your pack.'));
+  detail.append(el('p', 'px-note', t('prof.page.jewel.sources', 'Silver, Gold and Platinum come from the veins (Mining), the gems from a clean strike on a vein\'s glint, the Pearl from the sea\'s nets; Linen from the Weavers. Your pieces go to your pack.')));
   if (_jewel.word) detail.append(el('p', 'prof-word', _jewel.word));
 }
 
 // ─── PROF12: THE ALCHEMY STATION (bible/06-Systems/Professions-Arc.md 9.3, 37) ─────
 
 /** What the station says a potion's cauldron wants, and its word for the Apothecaries'. */
-export const ALCHEMY_AWAY_LINE = `Alchemy is brewed at an alchemy station: an Alchemist's (${ALCHEMY_FEE} gold a brew), or your own home's. Your potions go to your pack.`;
+const ALCHEMY_AWAY = 'Alchemy is brewed at an alchemy station: an Alchemist\'s ({fee} gold a brew), or your own home\'s. Your potions go to your pack.';
+export const ALCHEMY_AWAY_LINE = formatMessage(ALCHEMY_AWAY, { fee: ALCHEMY_FEE });   // the English, as the tests compare it
+const alchemyAwayLine = () => t('prof.page.alchemy.away', ALCHEMY_AWAY, { fee: ALCHEMY_FEE });
 /** Tests: the station's state. */
 export const _alchemyForTests = () => _alchemy;
 /** The potion line a brew's chance says: "Potent 30% (+25% magnitude)" - AUDIT PROF12 A3: a potion whose magnitude is DFU's
@@ -2008,11 +2118,11 @@ export const _alchemyForTests = () => _alchemy;
  *  B3: a Cure that is never Potent (alchemyLaw potentAble) says so, and no chance. */
 export const POTENT_NONE_LINE = 'Never Potent (a cure acts at once)';
 export function potentLine(rank, specs, unbruised = 0, potion = null, steps = 0) {
-  if (potion && !potentAble(potion)) return POTENT_NONE_LINE;
+  if (potion && !potentAble(potion)) return t('prof.page.alchemy.neverPotent', POTENT_NONE_LINE);
   const c = potentChance(rank, { distiller: specs?.[50] === DISTILLER, unbruised, steps });
   const pct = potentPct(specs?.[100] ?? null);
-  const what = !potion ? `+${pct}% magnitude or duration` : potentLasts(potion) ? `lasts ${pct}% longer` : `+${pct}% magnitude`;
-  return `Potent ${c}% (${what})`;
+  return !potion ? t('prof.page.alchemy.potentAny', 'Potent {c}% (+{pct}% magnitude or duration)', { c, pct })
+    : potentLasts(potion) ? t('prof.page.alchemy.potentLasts', 'Potent {c}% (lasts {pct}% longer)', { c, pct }) : t('prof.page.alchemy.potent', 'Potent {c}% (+{pct}% magnitude)', { c, pct });
 }
 /**
  * PROF12: THE ALCHEMY STATION - DFU's twenty (alchemyLaw POTIONS, its own order), each its rank (its price's tier), the
@@ -2027,9 +2137,9 @@ function drawAlchemyStation(detail, rerender, { el, divider }) {
   if (!p?.alchemy || !p.brew) return;
   const book = p.book;
   const station = p.alchemy();
-  detail.append(divider('The Alchemy Station'));
+  detail.append(divider(t('prof.page.alchemy', 'The Alchemy Station')));
   if (!station) {
-    detail.append(el('p', 'px-note', ALCHEMY_AWAY_LINE));
+    detail.append(el('p', 'px-note', alchemyAwayLine()));
     return;
   }
   const track = book.track('alchemy');
@@ -2037,8 +2147,10 @@ function drawAlchemyStation(detail, rerender, { el, divider }) {
   const specs = track?.specs ?? {};
   const n = brewCount(rank, specs[50]);
   const steps = Math.max(0, Math.trunc(Number(p.alchemySteps?.()) || 0));   // AUDIT PROF-541 B4: the town's Apothecary; R2-C3: a whole step or none, as cookSteps
-  detail.append(el('p', 'px-note', `${station.kind === 'shop' ? `The alchemist's station - ${station.fee} gold a brew.` : 'Your alchemy station.'} Alchemy ${rank} (${rankName(rank)}): ${n === 1 ? 'a potion' : `${n} potions`} a brew; ${potentLine(rank, specs, 0, null, steps)}${steps > 0 ? ` (the Apothecary's +${POTENT.apothecary * steps}% with it)` : ''}, +${POTENT.unbruised}% for each herb you picked unbruised.${n > 1 ? ' A potion wholly of the Apothecaries\' goods brews one.' : ''}`));   // AUDIT PROF-541 R2-S1
-  const short = purseShort(station, 'alchemist', 'a brew');
+  const brewLine = t('prof.page.alchemy.brew', '{profession} {rank} ({rankName}): {n, plural, one {a potion} other {# potions}} a brew; {potent}{withSteps, select, yes { (the Apothecary\'s +{apothecary}% with it)} other {}}, +{unbruised}% for each herb you picked unbruised.',
+    { profession: professionName('alchemy'), rank, rankName: rankName(rank), n, potent: potentLine(rank, specs, 0, null, steps), withSteps: steps > 0 ? 'yes' : 'no', apothecary: POTENT.apothecary * steps, unbruised: POTENT.unbruised });
+  detail.append(el('p', 'px-note', `${station.kind === 'shop' ? t('prof.page.alchemy.shop', 'The alchemist\'s station - {fee} gold a brew.', { fee: station.fee }) : t('prof.page.alchemy.home', 'Your alchemy station.')} ${brewLine}${n > 1 ? ` ${t('prof.page.alchemy.counterOne', 'A potion wholly of the Apothecaries\' goods brews one.')}` : ''}`));   // AUDIT PROF-541 R2-S1
+  const short = purseShort(station, 'alchemy');
   if (short) detail.append(el('p', 'px-note prof-short', short));
   const held = (k) => book.held(k);
   for (const potion of POTIONS) {
@@ -2048,30 +2160,35 @@ function drawAlchemyStation(detail, rerender, { el, divider }) {
     const can = open && spends.every((i) => held(i.key) >= i.n);
     const row = el('button', `prof-recipe${_alchemy.picked === potion.id ? ' on' : ''}${can ? '' : ' prof-locked'}`);
     row.type = 'button';
-    row.append(el('b', null, potion.name), el('span', 'prof-split', open ? (can ? 'can brew now' : 'wants its ingredients') : `rank ${potion.rank}`));
+    row.append(el('b', null, potion.name), el('span', 'prof-split', open ? (can ? t('prof.page.alchemy.canBrew', 'can brew now') : t('prof.page.alchemy.wants', 'wants its ingredients')) : rankWord(potion.rank)));
     row.onclick = () => { _alchemy.picked = potion.id; rerender(); };
     detail.append(row);
   }
   const potion = POTIONS.find((x) => x.id === _alchemy.picked);
   if (potion) {
     const box = el('div', 'prof-craft');
-    box.append(el('b', null, `${potion.name} - rank ${potion.rank}`));
+    box.append(el('b', null, craftHead(potion.name, potion.rank)));
     const keys = brewKeys(potion, held);
     const spends = brewSpends(potion, keys) ?? [];
     for (const inp of spends) {
       const have = held(inp.key);
       const line = el('div', `prof-input${have >= inp.n ? '' : ' prof-short'}`);
-      line.append(el('span', null, `${p.name(inp.key)} ${Math.min(have, inp.n)} / ${inp.n} (${have} stored)`));
+      line.append(el('span', null, inputLine(p.name(inp.key), have, inp.n)));
       // 4.5: the Apothecaries' counter - an ingredient no gathering yields, bought where the cauldron is short of it
       const sale = APOTHECARY_STOCK.find((x) => x.key === inp.key);
-      if (sale && have < inp.n) counterBuy(line, { el, p, state: _alchemy, rerender, key: inp.key, need: inp.n - have, sale, who: 'the Apothecaries', counter: 'apothecaries' });
+      if (sale && have < inp.n) counterBuy(line, { el, p, state: _alchemy, rerender, key: inp.key, need: inp.n - have, sale, who: 'apothecaries', counter: 'apothecaries' });
       box.append(line);
     }
     const gathered = potentAble(potion) ? potion.ingredients.filter((t) => ingredientKeys(t).some((k) => k.startsWith('p'))).length : 0;   // AUDIT PROF-541 B3: a cure's herbs add nothing
     const made = brewCount(rank, specs[50], potion);   // AUDIT PROF-541 R2-S1: the counter's goods alone brew one
-    box.append(el('p', 'px-note', `${made === 1 ? 'A potion' : `${made} potions`} a brew. ${potentLine(rank, specs, 0, potion, steps)}${gathered ? ` - and +${POTENT.unbruised}% for each of its herbs you picked unbruised` : ''}. ${brewXp(potion, rank, false)} Alchemy XP${brewFirstPays(potion) ? `, and ${brewXp(potion, rank, true) - brewXp(potion, rank, false)} the first time` : ''}.`));
+    const xp = brewXp(potion, rank, false);
+    box.append(el('p', 'px-note', [
+      t('prof.page.alchemy.made', '{n, plural, one {A potion} other {# potions}} a brew.', { n: made }),
+      t('prof.page.alchemy.potentLine', '{potent}{gathered, select, yes { - and +{unbruised}% for each of its herbs you picked unbruised} other {}}.', { potent: potentLine(rank, specs, 0, potion, steps), gathered: gathered ? 'yes' : 'no', unbruised: POTENT.unbruised }),
+      brewFirstPays(potion) ? t('prof.page.alchemy.xpFirst', '{xp} Alchemy XP, and {more} the first time.', { xp, more: brewXp(potion, rank, true) - xp }) : t('prof.page.alchemy.xp', '{xp} Alchemy XP.', { xp }),
+    ].join(' ')));
     const ready = rank >= potion.rank && spends.length > 0 && spends.every((i) => held(i.key) >= i.n) && !_alchemy.crafting && !short;
-    const go = el('button', 'act primary', _alchemy.crafting ? 'Brewing...' : 'Brew');
+    const go = el('button', 'act primary', _alchemy.crafting ? t('prof.page.alchemy.brewing', 'Brewing...') : t('prof.page.alchemy.go', 'Brew'));
     go.type = 'button';
     go.disabled = !ready;
     go.onclick = async () => {
@@ -2085,20 +2202,22 @@ function drawAlchemyStation(detail, rerender, { el, divider }) {
   }
   // A TRANSMUTER'S TRANSMUTATIONS (3.3; AUDIT PROF12 E3): two of a metal and a Mercury into the next up the ladder
   if (p.smelt) {
-    if (specs[100] === TRANSMUTER.id) workRows(detail, rerender, el, TRANSMUTE_RECIPES, _alchemy, 'Transmute', 'Transmuting...', (id, k) => /** @type {any} */ (p.smelt)(id, k), short);
-    else detail.append(el('p', 'px-note', 'A Transmuter - Alchemy\'s choice at 100 - turns two of a metal and a Mercury into one of the next: Tin, Copper, Silver, Gold, Platinum.'));
+    if (specs[100] === TRANSMUTER.id) workRows(detail, rerender, el, TRANSMUTE_RECIPES, _alchemy, t('prof.page.alchemy.transmute', 'Transmute'), t('prof.page.alchemy.transmuting', 'Transmuting...'), (id, k) => /** @type {any} */ (p.smelt)(id, k), short);
+    else detail.append(el('p', 'px-note', t('prof.page.alchemy.transmuter', 'A Transmuter - Alchemy\'s choice at 100 - turns two of a metal and a Mercury into one of the next: Tin, Copper, Silver, Gold, Platinum.')));
   }
-  detail.append(el('p', 'px-note', 'Herbs come from the wilderness (Herbalism), metals and gems from the veins, the Pearl from the sea, a body\'s parts from Hunting; the rest from the Apothecaries\' counter. Your potions go to your pack.'));
+  detail.append(el('p', 'px-note', t('prof.page.alchemy.sources', 'Herbs come from the wilderness (Herbalism), metals and gems from the veins, the Pearl from the sea, a body\'s parts from Hunting; the rest from the Apothecaries\' counter. Your potions go to your pack.')));
   if (_alchemy.word) detail.append(el('p', 'prof-word', _alchemy.word));
 }
 
 // ─── PROF12: THE ENCHANTING STATION (bible/06-Systems/Professions-Arc.md 9.3, 37) ─────
 
-export const ENCHANT_AWAY_LINE = `Disenchanting is done at an enchanting station: a Mages Guild hall (${ENCHANT_FEE} gold a piece), or your own home's. A crafted piece comes apart into Arcane Essence in your Stores.`;
+const ENCHANT_AWAY = 'Disenchanting is done at an enchanting station: a Mages Guild hall ({fee} gold a piece), or your own home\'s. A crafted piece comes apart into Arcane Essence in your Stores.';
+export const ENCHANT_AWAY_LINE = formatMessage(ENCHANT_AWAY, { fee: ENCHANT_FEE });   // the English, as the tests compare it
+const enchantAwayLine = () => t('prof.page.enchant.away', ENCHANT_AWAY, { fee: ENCHANT_FEE });
 /** Tests: the station's state. */
 export const _enchantForTests = () => _enchant;
 /** AUDIT PROF-541 B8: a piece whose Essence the Stores have no room for. */
-export const ENCHANT_FULL_LINE = (room) => `Your Stores hold room for ${Math.max(0, room)} more Arcane Essence - not this piece's.`;
+export const ENCHANT_FULL_LINE = (room) => t('prof.page.enchant.full', 'Your Stores hold room for {n} more Arcane Essence - not this piece\'s.', { n: Math.max(0, room) });
 /**
  * PROF12: THE ENCHANTING STATION - the pack's crafted pieces (a provenance - loot is never disenchanted), each the Arcane
  * Essence it would give (a hundred of its enchantment points an Essence, a Disenchanter's twice) and the XP; Disenchant,
@@ -2110,29 +2229,33 @@ function drawEnchantingStation(detail, rerender, { el, divider }) {
   if (!p?.enchanter || !p.disenchant || !p.disenchantable) return;
   const book = p.book;
   const station = p.enchanter();
-  detail.append(divider('The Enchanting Station'));
+  detail.append(divider(t('prof.page.enchant', 'The Enchanting Station')));
   if (!station) {
-    detail.append(el('p', 'px-note', ENCHANT_AWAY_LINE));
+    detail.append(el('p', 'px-note', enchantAwayLine()));
     return;
   }
   const track = book.track('enchanting');
   const rank = track?.rank ?? 0;
   const specs = track?.specs ?? {};
   const pct = enchantDiscountPct(rank, specs[50] ?? null);
-  detail.append(el('p', 'px-note', `${station.kind === 'shop' ? `The guild's enchanter - ${station.fee} gold a piece.` : 'Your enchanting station.'} Enchanting ${rank} (${rankName(rank)})${pct ? `: the item maker's gold ${pct}% less` : ''}.`));
-  const short = purseShort(station, 'enchanter', 'a piece');
+  detail.append(el('p', 'px-note', `${station.kind === 'shop' ? t('prof.page.enchant.shop', 'The guild\'s enchanter - {fee} gold a piece.', { fee: station.fee }) : t('prof.page.enchant.home', 'Your enchanting station.')} ${pct
+    ? t('prof.page.enchant.rankPct', '{profession} {rank} ({rankName}): the item maker\'s gold {pct}% less.', { profession: professionName('enchanting'), rank, rankName: rankName(rank), pct }) : rankLine('enchanting', rank)}`));
+  const short = purseShort(station, 'enchanter');
   if (short) detail.append(el('p', 'px-note prof-short', short));
   const pieces = p.disenchantable();
   // AUDIT PROF-541 B8: the Essence's room - every origin counted, as the service counts it (storesFullIn's sum)
   const ess = book.store?.(ARCANE_ESSENCE.key) ?? { own: book.held(ARCANE_ESSENCE.key) };
   const room = (book.state?.caps?.stores ?? STORES_MAX) - ((ess.own | 0) + (ess.bought | 0) + (ess.gold | 0));
-  if (!pieces.length) detail.append(el('p', 'px-note', 'No crafted piece in your pack carries enough enchantment to give Essence. Only a piece a crafter made online comes apart - never loot.'));
+  if (!pieces.length) detail.append(el('p', 'px-note', t('prof.page.enchant.none', 'No crafted piece in your pack carries enough enchantment to give Essence. Only a piece a crafter made online comes apart - never loot.')));
   for (const pc of pieces) {
     const row = el('div', 'prof-smelt');
     const base = essenceOf(pc.points);
-    row.append(el('b', null, pc.name), el('span', 'prof-split', `${pc.points.toLocaleString('en-US')} points - ${pc.essence} Arcane Essence, +${disenchantXp(recipeById(pc.recipe), rank, base)} Enchanting XP${specs[50] === DISENCHANTER ? ' (a Disenchanter\'s two)' : ''}`));
+    const gives = { points: pc.points, essence: pc.essence, xp: disenchantXp(recipeById(pc.recipe), rank, base) };
+    row.append(el('b', null, pc.name), el('span', 'prof-split', specs[50] === DISENCHANTER
+      ? t('prof.page.enchant.givesTwo', '{points, number} points - {essence} Arcane Essence, +{xp} Enchanting XP (a Disenchanter\'s two)', gives)
+      : t('prof.page.enchant.gives', '{points, number} points - {essence} Arcane Essence, +{xp} Enchanting XP', gives)));
     const armed = _enchant.armed === pc.provenance;
-    const b = el('button', 'act', _enchant.busy && armed ? 'Taking it apart...' : armed ? 'Press again: it is gone' : 'Disenchant');
+    const b = el('button', 'act', _enchant.busy && armed ? t('prof.page.enchant.busy', 'Taking it apart...') : armed ? t('prof.page.enchant.armed', 'Press again: it is gone') : t('prof.page.enchant.go', 'Disenchant'));
     b.type = 'button';
     const full = pc.essence > room;   // AUDIT PROF-541 B8: the service would refuse it (stores-full) - said, never pressed
     if (full) row.append(el('span', 'prof-short', ENCHANT_FULL_LINE(room)));

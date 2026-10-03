@@ -33,6 +33,7 @@ import { HARVEST_LATE_S, HIDES_PER_DAY, HIGH_HIDES_PER_DAY, HAULS_PER_DAY, NODE_
 import { pixelKey, parseNodeKey } from './nodeLaw.js';
 import { accountRefusalText } from './accountClient.js';
 import { ASK_AGAIN_NOW, jittered } from './backoff.js';   // SCALE1: asks again spread out, and never at once into a minute's refusal
+import { t } from '../systems/textManager.js';   // L10N4: the Stores' words in the player's language
 
 /** Where this device keeps the acts whose answers did not come: { [account|character]: { harvests, withdrawals } }. */
 export const PROF_KEPT_KEY = 'prof1.kept';
@@ -377,7 +378,7 @@ export function createProfBook({ door, storage = null, character = () => null, n
      * @returns {Promise<{ ok: boolean, text: string, kept?: boolean }>}
      */
     async withdraw(material, qty, mint) {
-      if (_withdrawBusy) return { ok: false, text: 'The Stores are still counting your last withdrawal.' };
+      if (_withdrawBusy) return { ok: false, text: t('prof.page.stores.withdrawBusy', 'The Stores are still counting your last withdrawal.') };
       const key = slot();
       const c = character();
       if (!c || !account()) return { ok: false, text: accountRefusalText('no-session') };
@@ -702,7 +703,7 @@ export function createProfBook({ door, storage = null, character = () => null, n
       try { mint(r.data?.material ?? w.material, Number.isSafeInteger(r.data?.qty) ? r.data.qty : w.qty); } catch (e) { console.warn('[prof] a withdrawal would not mint', e); }
       return { ok: true, text: '', material: w.material, qty: r.data?.qty ?? w.qty };
     }
-    if (keptAnswer(r)) return { ok: false, kept: true, text: 'The Stores have your order and will send it when the counting-house answers.' };
+    if (keptAnswer(r)) return { ok: false, kept: true, text: t('prof.page.stores.withdrawKept', 'The Stores have your order and will send it when the counting-house answers.') };
     kept.withdrawals = kept.withdrawals.filter((x) => x.rid !== w.rid);
     writeKept(kept, key);
     shutBy(r);

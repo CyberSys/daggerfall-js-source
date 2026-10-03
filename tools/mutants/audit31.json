@@ -593,8 +593,8 @@
   {
     "name": "AUDIT31-tab-budget-none-silent",
     "file": "src/ui/workTab.js",
-    "old": "        || (standing >= GUILD_WRITS_MAX ? `The guild has ${GUILD_WRITS_MAX} writs posted already.`\n          : escrow > (g.marks ?? 0) ? `The guild's treasury holds only ${marksText(g.marks ?? 0)}.`\n            : officer && !(g.budget > 0) ? 'The Guildmaster has set no writ budget for Officers this week.'",
-    "new": "        || (standing >= GUILD_WRITS_MAX ? `The guild has ${GUILD_WRITS_MAX} writs posted already.`\n          : escrow > (g.marks ?? 0) ? `The guild's treasury holds only ${marksText(g.marks ?? 0)}.`\n            : false ? 'The Guildmaster has set no writ budget for Officers this week.'",
+    "old": "        || (standing >= GUILD_WRITS_MAX ? t('prof.work.writ.full', 'The guild has {n} writs posted already.', { n: GUILD_WRITS_MAX })\n          : escrow > (g.marks ?? 0) ? treasuryShort(g)\n            : officer && !(g.budget > 0) ? noBudget()",
+    "new": "        || (standing >= GUILD_WRITS_MAX ? t('prof.work.writ.full', 'The guild has {n} writs posted already.', { n: GUILD_WRITS_MAX })\n          : escrow > (g.marks ?? 0) ? treasuryShort(g)\n            : false ? noBudget()",
     "tests": [
       "test/audit31_tabs.test.js"
     ]
@@ -602,8 +602,8 @@
   {
     "name": "AUDIT31-tab-self-commission",
     "file": "src/ui/workTab.js",
-    "old": "            : data?.me && name.toLowerCase() === String(data.me).toLowerCase() ? 'You cannot commission yourself.'",
-    "new": "            : false ? 'You cannot commission yourself.'",
+    "old": "            : data?.me && name.toLowerCase() === String(data.me).toLowerCase() ? t('prof.work.comm.self', 'You cannot commission yourself.')",
+    "new": "            : false ? t('prof.work.comm.self', 'You cannot commission yourself.')",
     "tests": [
       "test/audit31_tabs.test.js"
     ]
@@ -611,8 +611,8 @@
   {
     "name": "AUDIT31-tab-past-balance",
     "file": "src/ui/workTab.js",
-    "old": "                  : balance != null && f.pay > balance ? `You hold only",
-    "new": "                  : false ? `You hold only",
+    "old": "                  : balance != null && f.pay > balance ? t('prof.work.comm.short', 'You hold only {balance}.', { balance: marksText(balance) }) : '');",
+    "new": "                  : false ? t('prof.work.comm.short', 'You hold only {balance}.', { balance: marksText(balance) }) : '');",
     "tests": [
       "test/audit31_tabs.test.js"
     ]
@@ -620,8 +620,8 @@
   {
     "name": "AUDIT31-tab-five-standing",
     "file": "src/ui/workTab.js",
-    "old": "                : mineOpen >= COMMISSIONS_MAX ? `You have",
-    "new": "                : false ? `You have",
+    "old": "                : mineOpen >= COMMISSIONS_MAX ? t('prof.work.comm.full', 'You have {n} commissions posted already.', { n: COMMISSIONS_MAX })",
+    "new": "                : false ? t('prof.work.comm.full', 'You have {n} commissions posted already.', { n: COMMISSIONS_MAX })",
     "tests": [
       "test/audit31_tabs.test.js"
     ]
@@ -639,7 +639,7 @@
   {
     "name": "AUDIT31-tab-yours-no-decline",
     "file": "src/ui/workTab.js",
-    "old": "        li.append(el('span', 'work-where', here ? 'Fill it on its card above.' : `Filled at the boards of ${where}.`), declineButton(c));",
+    "old": "        li.append(el('span', 'work-where', here ? t('prof.work.yours.fillAbove', 'Fill it on its card above.') : t('prof.work.yours.fillThere', 'Filled at the boards of {where}.', { where })), declineButton(c));",
     "new": "        li.append(el('span', 'work-where', ''));",
     "tests": [
       "test/audit31_tabs.test.js"
@@ -648,8 +648,8 @@
   {
     "name": "AUDIT31-tab-filled-unpointed",
     "file": "src/ui/workTab.js",
-    "old": "        : c.mine && c.state === 'filled' ? 'filled - collect it at the Market tab'",
-    "new": "        : false ? 'filled - collect it at the Market tab'",
+    "old": "        : c.mine && c.state === 'filled' ? t('prof.work.yours.collect', 'filled - collect it at the Market tab')",
+    "new": "        : false ? t('prof.work.yours.collect', 'filled - collect it at the Market tab')",
     "tests": [
       "test/audit31_tabs.test.js"
     ]
@@ -684,7 +684,7 @@
   {
     "name": "AUDIT31-tab-quality-unnamed",
     "file": "src/ui/workTab.js",
-    "old": "    const label = (p) => (p.quality != null ? `${p.name} (${QUALITY_NAMES[p.quality]})` : p.name);",
+    "old": "    const label = (p) => (p.quality != null ? t('prof.work.fill.pieceQuality', '{name} ({quality})', { name: p.name, quality: QUALITY_NAMES[p.quality] }) : p.name);",
     "new": "    const label = (p) => p.name;",
     "tests": [
       "test/audit31_tabs.test.js"
@@ -702,8 +702,8 @@
   {
     "name": "AUDIT31-tab-paid-text-nought",
     "file": "src/ui/workTab.js",
-    "old": "struck to your account${tax > 0 ?",
-    "new": "struck to your account${tax >= 0 ?",
+    "old": "export const paidText = (pay, tax) => (tax > 0 ? t(",
+    "new": "export const paidText = (pay, tax) => (tax >= 0 ? t(",
     "tests": [
       "test/audit31_tabs.test.js"
     ]
