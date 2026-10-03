@@ -228,11 +228,12 @@
   {
     "name": "AUDITREST2-H9-the-counter-unread",
     "file": "src/systems/realmCustoms.js",
-    "old": "...stashedItemLists(snap), ...(Array.isArray(snap.otherItems) ? [snap.otherItems] : [])];",
-    "new": "...stashedItemLists(snap)];",
+    "old": "...carriedItemLists(snap), ...(Array.isArray(snap.otherItems) ? [snap.otherItems] : [])])) {",
+    "new": "...carriedItemLists(snap)])) {",
     "tests": [
       "test/auditrest2_camps.test.js"
-    ]
+    ],
+    "note": "AUDIT REST III B4 (PIN MOVED): the lists walked once, the foreign ones uncounted; re-aimed by content."
   },
   {
     "name": "AUDITREST2-H10-the-pack-unasked",

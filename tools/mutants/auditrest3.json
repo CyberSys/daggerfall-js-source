@@ -238,5 +238,77 @@
     "tests": [
       "test/auditrest2_party.test.js"
     ]
+  },
+  {
+    "name": "AUDITREST3-B2-the-decor-unread",
+    "file": "src/systems/realmCustoms.js",
+    "old": "for (const id of own ? Object.keys(own) : []) {",
+    "new": "for (const id of []) {",
+    "tests": [
+      "test/auditrest3.test.js"
+    ]
+  },
+  {
+    "name": "AUDITREST3-B2-the-piece-left-standing",
+    "file": "src/systems/realmCustoms.js",
+    "old": "        if (Array.isArray(sc.decor)) sc.decor = sc.decor.filter((/** @type {any} */ p) => p?.id !== id);\n",
+    "new": "",
+    "tests": [
+      "test/auditrest3.test.js"
+    ]
+  },
+  {
+    "name": "AUDITREST3-B2-the-decor-unsaid",
+    "file": "src/systems/realmCustoms.js",
+    "old": "p?.id !== id);\n        restKept++;",
+    "new": "p?.id !== id);",
+    "tests": [
+      "test/auditrest3.test.js"
+    ]
+  },
+  {
+    "name": "AUDITREST3-B4-every-list-counted",
+    "file": "src/systems/realmCustoms.js",
+    "old": "if (!foreign.has(list)) restKept += n;",
+    "new": "restKept += n;",
+    "tests": [
+      "test/auditrest3.test.js"
+    ]
+  },
+  {
+    "name": "AUDITREST3-B4-the-shelf-counted",
+    "file": "src/systems/realmCustoms.js",
+    "old": "if (c?.containerType === LOOT_CONTAINER_TYPES.ShopShelves && Array.isArray(c.items)) foreign.add(c.items);",
+    "new": "void c;",
+    "tests": [
+      "test/auditrest3.test.js"
+    ]
+  },
+  {
+    "name": "AUDITREST3-B4-the-pile-counted",
+    "file": "src/systems/realmCustoms.js",
+    "old": "    for (const pile of snap.world?.piles ?? []) if (Array.isArray(pile?.items)) foreign.add(pile.items);\n",
+    "new": "",
+    "tests": [
+      "test/auditrest3.test.js"
+    ]
+  },
+  {
+    "name": "AUDITREST3-B4-the-dead-foe-counted",
+    "file": "src/systems/realmCustoms.js",
+    "old": "if (foe?.dead && Array.isArray(foe.items)) foreign.add(foe.items);",
+    "new": "void foe;",
+    "tests": [
+      "test/auditrest3.test.js"
+    ]
+  },
+  {
+    "name": "AUDITREST3-B4-a-chest-uncounted",
+    "file": "src/systems/realmCustoms.js",
+    "old": "for (const sc of scenes) for (const c of sc?.lootContainers ?? []) if (c?.containerType === LOOT_CONTAINER_TYPES.ShopShelves",
+    "new": "for (const sc of scenes) for (const c of sc?.lootContainers ?? []) if (c?.containerType !== LOOT_CONTAINER_TYPES.Nothing",
+    "tests": [
+      "test/auditrest3.test.js"
+    ]
   }
 ]

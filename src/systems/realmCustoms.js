@@ -32,7 +32,7 @@
 // ═══════════════════════════════════════════════════════════════════
 
 import { callInEmpireDebt, SHIP_TYPES, SHIP_INTERIOR_MAP_IDS, LOAN_AMNESTY } from './banking.js';
-import { interiorSceneName } from './sceneCache.js';   // RESTORE: a deed's room, by its own name
+import { interiorSceneName, LOOT_CONTAINER_TYPES } from './sceneCache.js';   // RESTORE: a deed's room, by its own name; AUDIT REST III B4: a shop's shelf told from a chest
 import { BUILDING_KEY_0 } from './talkTopics.js';   // RESTORE: the no-key key a ship's room is filed under
 import { firstRestorable } from './saveSlots.js';   // RESTORE: the offline character a realm one came from, on this device
 import { deductGold } from './court.js';
@@ -103,10 +103,38 @@ export function applyCustoms(snap) {
   // usable, droppable and tradeable online. The offline character keeps them: customs runs on the realm's copy.
   let restKept = 0;
   if (!REST_ITEMS_ONLINE) {
+    const strip = (/** @type {any[]} */ list) => {
+      let n = 0;
+      for (let i = list.length - 1; i >= 0; i--) if (REST_ITEM_IDS.has(list[i]?.templateIndex)) { list.splice(i, 1); n++; }
+      return n;
+    };
+    const scenes = Array.isArray(snap.sceneCache?.scenes) ? snap.sceneCache.scenes : [];
+    // AUDIT REST III B4: THE LINE IS SAID OF THE CHARACTER'S OWN. Every list a save holds is stripped, as before, but a
+    // shop's shelf in the scene cache, a dungeon's own loot pile and a dead foe's pack were never the character's: one
+    // who had only looked at a General Store's shelf heard "Your rest supplies will stay with your offline character".
+    // (A chest, a dropped pile, the ship's hold: what is in them, the character put there - the port's supplies ride
+    // no house loot.)
+    const foreign = new Set();
+    for (const sc of scenes) for (const c of sc?.lootContainers ?? []) if (c?.containerType === LOOT_CONTAINER_TYPES.ShopShelves && Array.isArray(c.items)) foreign.add(c.items);
+    for (const pile of snap.world?.piles ?? []) if (Array.isArray(pile?.items)) foreign.add(pile.items);
+    for (const foe of snap.world?.foes ?? []) if (foe?.dead && Array.isArray(foe.items)) foreign.add(foe.items);
     // AUDIT REST II H9: and the repairer's counter (save.js otherItems - restored to the pack's owner on the way in)
-    const lists = [...carriedItemLists(snap), ...stashedItemLists(snap), ...(Array.isArray(snap.otherItems) ? [snap.otherItems] : [])];
-    for (const list of lists) {
-      for (let i = list.length - 1; i >= 0; i--) if (REST_ITEM_IDS.has(list[i]?.templateIndex)) { list.splice(i, 1); restKept++; }
+    for (const list of new Set([...carriedItemLists(snap), ...(Array.isArray(snap.otherItems) ? [snap.otherItems] : [])])) {
+      const n = strip(list);
+      if (!foreign.has(list)) restKept += n;
+    }
+    // AUDIT REST III B2: AND WHAT STANDS AS THE OWNER'S OWN DECOR (DECOR2a's decorOwn, by piece id - an item set down in
+    // the offline house or the ship): online, the piece taken down or the house sold hands it back to the pack
+    // (worldModes.js decorReturnStrays, sceneCache.js takeSceneOwn) - the door B4 and H9 shut, open. The item stays
+    // offline, and the piece it stood as goes with it.
+    for (const sc of scenes) {
+      const own = sc?.decorOwn && typeof sc.decorOwn === 'object' ? sc.decorOwn : null;
+      for (const id of own ? Object.keys(own) : []) {
+        if (!REST_ITEM_IDS.has(own[id]?.templateIndex)) continue;
+        delete own[id];
+        if (Array.isArray(sc.decor)) sc.decor = sc.decor.filter((/** @type {any} */ p) => p?.id !== id);
+        restKept++;
+      }
     }
   }
   return { called: call.called, paid: call.paid, owed: call.owed, wealth, allowance, taken: wealth - liquidWealthOf(snap), crossed, restKept };

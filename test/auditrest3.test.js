@@ -118,3 +118,41 @@ test('AUDIT REST III C1: a night my own clock owes me is carried inside the part
   assert.equal(w.moved('a', true, t0 + 48_000 + PARTY_NIGHT_GAP_MS, t0 + 48_000 + PARTY_NIGHT_GAP_MS, true), true, 'past the minute, as before');
   assert.match(rd('src/scenes/world.js'), /_nightWatch\.moved\(m\.acct, !!m\.p, at, now, isNightStamp, \(\) => nightDue\(playerEntity, ownMinutes\(\)\)\)/, 'the host asks its own clock');
 });
+
+test('AUDIT REST III B2: "Bring online" keeps a rest supply standing as the owner\'s own decor offline too - the item and the piece it stood as leave the realm\'s copy (online, taking the piece down handed it to the pack); another piece and another own item stay (mutant: the decor unread; the piece left standing)', async () => {
+  const { setPref } = await import('../src/systems/uiPrefs.js');
+  const { applyCustoms } = await import('../src/systems/realmCustoms.js');
+  const { createRestItem, REST_ITEM } = await import('../src/systems/restItems.js');
+  setPref('survival', true);
+  const vase = { templateIndex: 205, group: 'Miscellaneous', value: 5 };
+  const scene = {
+    decor: [{ id: 'p1', pos: [0, 0, 0] }, { id: 'p2', pos: [1, 0, 0] }, { id: 'p3', pos: [2, 0, 0] }],
+    decorOwn: { p1: createRestItem(REST_ITEM.Bedroll), p2: vase, p3: createRestItem(REST_ITEM.Candle) },
+  };
+  const snap = { level: 1, goldPieces: 0, items: [], wagonItems: [], bankAccounts: [], sceneCache: { scenes: [scene] } };
+  const r = applyCustoms(snap);
+  assert.deepEqual(Object.keys(scene.decorOwn), ['p2'], 'the supplies leave the copy\'s house');
+  assert.deepEqual(scene.decor.map((p) => p.id), ['p2'], 'and the pieces they stood as');
+  assert.equal(r.restKept, 2, 'and the realm says they stayed');
+});
+
+test('AUDIT REST III B4: the line "Your rest supplies will stay..." is said of the character\'s own - a General Store\'s shelf in the scene cache, a dungeon\'s loot pile and a dead foe\'s pack are stripped from the copy all the same, and counted for nothing; a chest the character filled counts (mutant: every list counted)', async () => {
+  const { setPref } = await import('../src/systems/uiPrefs.js');
+  const { applyCustoms, customsLines } = await import('../src/systems/realmCustoms.js');
+  const { createRestItem, REST_ITEM } = await import('../src/systems/restItems.js');
+  const { LOOT_CONTAINER_TYPES } = await import('../src/systems/sceneCache.js');
+  setPref('survival', true);
+  const shelf = { containerType: LOOT_CONTAINER_TYPES.ShopShelves, items: [createRestItem(REST_ITEM.Tonic), createRestItem(REST_ITEM.Firewood)] };
+  const snap = {
+    level: 1, goldPieces: 0, items: [], wagonItems: [], bankAccounts: [],
+    sceneCache: { scenes: [{ lootContainers: [shelf] }] },
+    world: { piles: [{ items: [createRestItem(REST_ITEM.EmberJar)] }], foes: [{ dead: true, items: [createRestItem(REST_ITEM.EmberJar)] }] },
+  };
+  const r = applyCustoms(snap);
+  assert.deepEqual([shelf.items.length, snap.world.piles[0].items.length, snap.world.foes[0].items.length], [0, 0, 0], 'stripped from the copy all the same');
+  assert.equal(r.restKept, 0, 'and none of it was the character\'s');
+  assert.equal(customsLines(r, { before: true }).some((l) => /rest supplies/.test(l)), false, 'so nothing is said');
+  const chest = { containerType: LOOT_CONTAINER_TYPES.HouseContainers, items: [createRestItem(REST_ITEM.Salts)] };
+  const own = { level: 1, goldPieces: 0, items: [createRestItem(REST_ITEM.Tonic)], wagonItems: [], bankAccounts: [], sceneCache: { scenes: [{ lootContainers: [chest] }] } };
+  assert.equal(applyCustoms(own).restKept, 2, 'the pack\'s and the chest the character filled');
+});
