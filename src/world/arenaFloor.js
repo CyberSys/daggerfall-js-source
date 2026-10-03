@@ -345,3 +345,22 @@ export function pickSeats(seats, n, rng) {
   for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(rng() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; }
   return a.slice(0, Math.max(0, Math.min(a.length, n | 0)));
 }
+
+/** HOTFIX 1003i (2026-10-03, the owner, live: "add a barrier where players can jump in" - "Host should still be
+ *  allowed"): THE STANDS' RAIL - a watcher up on the terrace (feet more than STANDS_RAIL_UP over the sand) is kept out of
+ *  the sand's circle by the motor's own clamp (player/motor.js `arena.clamp`), so nobody jumps down into a bout. Whoever
+ *  stands on the sand already (a fighter called down, a ladder bout's) is never held, nor `free` (the session's host).
+ *  `centre` the sand's centre in the scene (its y the sand's), `feetY` mine. Null: no rail. Pure. */
+export const STANDS_RAIL_UP = 2;
+export function standsRail(centre, feetY, free = false) {
+  if (free || !centre || !(feetY > centre[1] + STANDS_RAIL_UP)) return null;
+  return {
+    centre, radius: SAND_R,
+    clamp: (pos, rad = 0) => {
+      const dx = pos[0] - centre[0], dz = pos[2] - centre[2];
+      const d = Math.hypot(dx, dz), R = SAND_R + rad;
+      if (d >= R) return null;
+      return d > 1e-6 ? [centre[0] + (dx / d) * R, centre[2] + (dz / d) * R] : [centre[0], centre[2] - R];
+    },
+  };
+}
