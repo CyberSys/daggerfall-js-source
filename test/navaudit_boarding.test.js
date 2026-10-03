@@ -261,7 +261,9 @@ test('AUDIT NAV1 (B6) the world host\'s endRaid, run: its living boarders withdr
 
 /** A blow on a ship I stand, landed through the host's own strike - `from` the striker ('local': mine). */
 /** A peer's blow - PIN MOVED (TOUGHER-SHIPS): one past a hit's most (navalWire.js NAVAL_HIT_MAX, a broadside's worth) lands
- *  as several, her fire and her men with the first; a toughened hull outweighs one hit. */
+ *  as several, her fire and her men with the first; a toughened hull outweighs one hit. The pieces after one that strikes
+ *  her are the same volley's (STRUCK_GRACE_S: floored at 1) - a blow meant to take her from afloat straight under is
+ *  two blows a grace apart, never one. */
 const blow = (h, e, from, o) => {
   let left = Math.max(0, o.hull ?? 0), first = true;
   do {

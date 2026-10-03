@@ -318,10 +318,12 @@ test('NAV-H the save: each boat of mine by its deed\'s UID (its hurts and barrel
   assert.deepEqual(Object.keys(d.boats), ['42']);
   // PIN MOVED (SHIP-CREW, SEA-REPAIR): her crew as people (`mates`) and her store part-spent (`credit`) beside her hurts
   const { mates, credit, ...hurts } = d.boats[42];
-  // PIN MOVED (TOUGHER-SHIPS): a record from before says no whole - her hurts the share of her first build's they were, on
-  // her toughened hull, and saved with the whole they are of now (navalHost.js savedHurts)
-  const b2 = hullBuild(2), first = firstBuildOf(2);
-  assert.deepEqual(hurts, { hull: Math.round((100 / first.hullHp) * b2.hullHp), sail: Math.round((50 / first.sailHp) * b2.sailHp), crew: 10, fire: 0, state: 'afloat', maxHull: b2.hullHp, maxSail: b2.sailHp, barrels: 1 });
+  // PIN MOVED (TOUGHER-SHIPS): a boat is saved on her first build's scale, that whole said (navalHost.js savedRecord) - to
+  // the hundredth, so her hands' first tenth of a second of mending shows
+  const first = firstBuildOf(2);
+  const { hull: hull1, sail: sail1, ...rest } = hurts;
+  assert.deepEqual(rest, { crew: 10, fire: 0, state: 'afloat', maxHull: first.hullHp, maxSail: first.sailHp, barrels: 1 });
+  assert.ok(hull1 >= 100 && hull1 < 100.2 && sail1 >= 50 && sail1 < 50.2, `her hurts as saved, on her first build's scale (${hull1}, ${sail1})`);
   assert.equal(credit, 0);
   assert.equal(mates.hands.length, 2, 'her two hands on deck, named');
   assert.deepEqual(d.notoriety, { Wayrest: 40 });

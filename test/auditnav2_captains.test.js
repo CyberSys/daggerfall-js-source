@@ -340,6 +340,28 @@ test('AUDIT NAV2 F24 a galley fights a low hull from outside her dead zone: a wa
   assert.ok(inside < 8 * T / 3, `inside her dead zone ${inside.toFixed(0)} s of ${8 * T}`);
 });
 
+// AUDIT TOUGHER-SHIPS (the station re-pinned): the duels below caught a galley stationed inside her great guns' dead zone
+// only by a stall - neither ship struck the other in 900 s - and with the ships toughened none of their eight stalls
+// whether she does or not. Her station itself, against a boat that lies still and leaves the range to her alone.
+test('AUDIT NAV2 F24 a war galley on a Large Boat lying still keeps her station off it - her fighting range never inside her great guns\' dead zone (91 m on a Large Boat), where at her class\'s own 70 m she sat inside it: from 75 m off, in eight bearings and four winds, she lies out past 70 m the minute through (mutants: the station inside the dead zones)', () => {
+  const winds = [[0.6, 0, 0.8], [-1.2, 0, 0.5], [0, 0, -1.5], [1.4, 0, -0.4]];
+  assert.ok(layMin(HULL.LargeGalley, 'bow', HULL.LargeBoat) > classById('navyGalley').range, 'her great guns\' dead zone past her class\'s range');
+  const close = [];
+  for (let k = 0; k < 8; k++) {
+    const a = k * 0.79;
+    const g = createSeaShip({ id: 'g', seed: 3 + k, classId: 'navyGalley', pos: [Math.sin(a) * 75, 0, Math.cos(a) * 75], yaw: a + (k % 2 ? 1.2 : -1.2) });
+    const ds = [];
+    for (let t = 0; t < 180; t += 0.1) {
+      stepCaptain(g, { now: t, dt: 0.1, seaY: 0, wind: winds[k % 4], isWater: open, random: () => 0.5, notoriety: () => 100,
+        contacts: [player([0, 0, 0], { hull: HULL.LargeBoat, hullShare: 1 })] });
+      if (t > 60) ds.push(Math.hypot(g.pos[0], g.pos[2]));
+    }
+    ds.sort((x, y) => x - y);
+    if (ds[ds.length >> 3] <= 70) close.push(`k ${k}: ${ds[ds.length >> 3].toFixed(0)} m`);
+  }
+  assert.deepEqual(close, [], 'she lies out past her class\'s range, toward her dead zone\'s edge');
+});
+
 // ── F26: a galley's ram and a prize ──────────────────────────────────────────────────────────────────────────────────
 
 test('AUDIT NAV2 F26 a galley\'s ram brings a sound ship to strike, never under: a corsair galley\'s stem into a coaster at speed - a blow that would sink her outright - leaves her struck, a prize to take (mutants: the ram unbounded)', async () => {
@@ -407,9 +429,7 @@ test('AUDIT NAV2 F28 every hull\'s way comes and goes at the player\'s own rates
 // ── F29: the mending waits on the boat's own waters ───────────────────────────────────────────────────────────────────
 
 test('AUDIT NAV2 F29 her hands mend her only when no hostile ship is near HER: over the side or ashore the fight she lies in goes on, and so does the wait - a hurt boat with a bold pirate 400 m off mends nothing while I swim; with the pirate gone off she mends (mutants: the quiet read by where I stand)', async () => {
-  // PIN MOVED (TOUGHER-SHIPS): a record that says the whole it was saved against (navalHost.js savedHurts) - one from before
-  // reads as the share of her old whole, and would stand her up at more than `before`
-  const save = { v: 1, boats: { 42: { hull: 84, sail: 16, crew: 24, fire: 0, state: 'afloat', barrels: 4, maxHull: hullBuild(HULL.SmallShip).hullHp, maxSail: hullBuild(HULL.SmallShip).sailHp } }, notoriety: {}, day: 1, raids: [] };
+  const save = { v: 1, boats: { 42: { hull: 84, sail: 16, crew: 24, fire: 0, state: 'afloat', barrels: 4 } }, notoriety: {}, day: 1, raids: [] };
   const s = await sea({ hull: HULL.SmallShip, save, settings: { ShipsAtSea: 'off', Boarders: false } });
   s.boat.crewed = true;
   const pirate = s.host._sea.get(s.host.spawnShip('pirateBrig', { range: 900, temper: 'bold' }));
@@ -518,7 +538,7 @@ test('AUDIT NAV2 F25 the fighting power is the time each ship needs to make the 
 /** The odds within which a duel is a coin toss (TOUGHER-SHIPS). */
 const COIN_TOSS = 1.1;
 for (const navy of ['navyCutter', 'navyGalley']) {
-  test(`AUDIT NAV2 F25 the fighting power bears out (Mac's bar): a ${navy} against each pirate, eight duels each - wherever the model favours a side at WARY_ODDS or better she wins six of eight, and no side wins six of eight that the model does not lean to; and every duel is fought to a strike (AUDIT NAV2 F24: no galley held in her dead zone for 900 s) (mutants: the crew's line unread, the size unread, the dead zone unread, the station inside the dead zones)`, async () => {
+  test(`AUDIT NAV2 F25 the fighting power bears out (Mac's bar): a ${navy} against each pirate, eight duels each - wherever the model favours a side at WARY_ODDS or better she wins six of eight, and no side wins six of eight that the model does not lean to (seven, where the odds are a coin toss - COIN_TOSS); and every duel is fought to a strike (AUDIT NAV2 F24: no galley held in her dead zone for 900 s, TOUGHER-SHIPS: times SHIP_TOUGHNESS) (mutants: the crew's line unread, the size unread, the dead zone unread)`, async () => {
     const lines = [];
     let called = 0;
     for (const pirate of ['pirateSloop', 'pirateBrig', 'pirateGalley', 'pirateFlagship']) {
@@ -529,10 +549,11 @@ for (const navy of ['navyCutter', 'navyGalley']) {
       const say = `${navy} v ${pirate}: the model's odds ${o.toFixed(2)}, the duels ${JSON.stringify(wins)}`;
       if (fav) { called++; if (wins[fav] < 6) lines.push(say); }
       // PIN MOVED (TOUGHER-SHIPS): odds within COIN_TOSS of even are a coin toss the model cannot call either way - six of
-      // eight to one side is a fair coin's one time in seven. The cutter and the sloop (0.95) went 4-4 here before the
-      // ships were toughened and 6-2 after, where 32 duels went 20-12 before and 16-16 after: as even as the model says
-      const toss = Math.abs(Math.log(o)) <= Math.log(COIN_TOSS);
-      if (!toss && ((wins[navy] >= 6 && !(o > 1)) || (wins[pirate] >= 6 && !(o < 1)))) lines.push(say);
+      // eight to one side is a fair coin's one time in seven, seven of eight one in thirty, so a toss still fails at
+      // seven. The cutter and the sloop (0.95) went 4-4 here before the ships were toughened and 6-2 after, where 32
+      // duels went 20-12 before and 16-16 after: as even as the model says
+      const toss = Math.abs(Math.log(o)) <= Math.log(COIN_TOSS), bar = toss ? 7 : 6;
+      if ((wins[navy] >= bar && !(o > 1)) || (wins[pirate] >= bar && !(o < 1))) lines.push(say);
       if (wins.none) lines.push(`${say} - not fought to a strike`);
     }
     assert.deepEqual(lines, []);

@@ -240,7 +240,7 @@
     "note": "AUDIT CREW (PIN MOVED): re-aimed by content at the line the audit changed."
   },
   {
-    "name": "SCH-quiet-unread",
+    "name": "SCH-the-pace-under-fire-unread",
     "file": "src/scenes/navalHost.js",
     "old": "(underFire ? SEA_REPAIR_UNDER_FIRE : 1)",
     "new": "1",
@@ -278,8 +278,8 @@
   {
     "name": "SCH-save-mates-dropped",
     "file": "src/scenes/navalHost.js",
-    "old": "barrels: st.guns.barrels, mates: st.crew.snapshot(), credit: st.credit };",
-    "new": "barrels: st.guns.barrels, credit: st.credit };",
+    "old": "{ ...savedRecord(st.damage, st.hull, st.credit), barrels: st.guns.barrels, mates: st.crew.snapshot() };",
+    "new": "{ ...savedRecord(st.damage, st.hull, st.credit), barrels: st.guns.barrels };",
     "tests": [
       "test/shipcrew.test.js"
     ]

@@ -172,8 +172,10 @@ export const FLEE_RANGE = 320;
 export const CHASE_GIVE_UP_S = 150;
 export const CHASE_GAIN = 0.1;
 export const SPARE_S = 300;
-/** A pirate runs under this share of hull (a flagship never). */
-export const PIRATE_RUNS_AT = 0.33;
+/** A pirate runs under this share of hull (a flagship never). TOUGHER-SHIPS: 0.33 before - her band between running and
+ *  striking (STRUCK_AT) as many seconds of fire as it was, now each share of her hull takes SHIP_TOUGHNESS times the balls
+ *  (0.08 of the old hull is 0.05 of the toughened one). */
+export const PIRATE_RUNS_AT = 0.3;
 /** A pirate grapples a boat within this (m) that is crippled (under GRAPPLE_HULL of hull) or has lain under
  *  GRAPPLE_STILL m/s for GRAPPLE_STILL_S - with at least GRAPPLE_CREW men to send. */
 export const GRAPPLE_RANGE = 28;

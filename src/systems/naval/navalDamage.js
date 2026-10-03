@@ -58,13 +58,14 @@ export const SINK_CLEAR = 2;
 export const WATERLINE_BAND = 1.1;
 export const HOLED_BONUS = 0.4;
 /** Fire: the chance a hull hit above the waterline sets one, a gun's fire's bite a second and its length, the most
- *  that burn at once, and what each eats besides her timbers - canvas a second, a man every FIRE_CREW_S. */
+ *  that burn at once, and what each eats besides her timbers - canvas a second, a man's worth every FIRE_CREW_S (TOUGHER-SHIPS:
+ *  a toughened crew loses 1/SHIP_TOUGHNESS of a man for it). */
 export const FIRE_CHANCE = 0.06;
 export const FIRE_HP = 1.4;
 export const FIRE_SECONDS = 15;
 export const FIRE_STACK = 3;
 export const FIRE_SAIL = 0.5;
-export const FIRE_CREW_S = 10 * SHIP_TOUGHNESS;   // TOUGHER-SHIPS: a man every 10 s before
+export const FIRE_CREW_S = 10;   // TOUGHER-SHIPS: a man's worth of harm - she loses 1/SHIP_TOUGHNESS of a man for it (`wound`)
 /** What bracing leaves of a hit. */
 export const BRACE_TAKEN = 0.5;
 /** A wrecked boat's oars: this share of their way. */
@@ -106,18 +107,22 @@ export function fireOf(kind) {
  * The damage one ball does: `{ hull, sail, crew }` for its gun (navalShips.js GUNS) and the zone it struck. A rigging
  * hit cuts canvas (and takes a man) and holes nothing; a hull hit holes, and below the waterline holes more.
  * Chain shot's own numbers already favour the sails. TOUGHER-SHIPS: the men a ball takes are `ballMen`'s - its gun's
- * over SHIP_TOUGHNESS, whole men on the ball's own roll.
+ * (`shotMen`) over SHIP_TOUGHNESS, whole men on the ball's own roll.
  */
 export function shotDamage(gun, zone, { braced = false, roll = 0.5 } = {}) {
   const k = braced ? BRACE_TAKEN : 1;
   const r = clamp(roll, 0, 1);
   const spread = 0.85 + 0.3 * r;   // each ball its own, 85-115%
-  if (zone === 'rig') return { hull: 0, sail: Math.round(Math.max(gun.sail * 2, gun.hull * 0.5) * k * spread), crew: ballMen(gun.crew > 0 ? 1 : 0, r) };
+  if (zone === 'rig') return { hull: 0, sail: Math.round(Math.max(gun.sail * 2, gun.hull * 0.5) * k * spread), crew: ballMen(shotMen(gun, zone), r) };
   const holed = zone === 'holed' ? 1 + HOLED_BONUS : 1;
-  return { hull: Math.round(gun.hull * holed * k * spread), sail: Math.round(gun.sail * 0.25 * k * spread), crew: ballMen(gun.crew, r) };
+  return { hull: Math.round(gun.hull * holed * k * spread), sail: Math.round(gun.sail * 0.25 * k * spread), crew: ballMen(shotMen(gun, zone), r) };
 }
-/** TOUGHER-SHIPS: the whole men a ball of `men` takes - `men` over SHIP_TOUGHNESS on the average, the ball's `roll`
- *  (0..1) deciding the odd man (a hardier crew, the same weight of metal). */
+/** TOUGHER-SHIPS: the men a ball of `gun` takes in `zone` BEFORE her toughness - a rigging hit's one man aloft, else the
+ *  gun's own. What a blow says on the wire: whoever stands the ship she strikes reckons the toughness (`ballMen`), so a
+ *  peer's ball is the same blow on every build. */
+export const shotMen = (gun, zone) => (zone === 'rig' ? (gun.crew > 0 ? 1 : 0) : gun.crew);
+/** TOUGHER-SHIPS: the whole men a blow of `men` (a ball's `shotMen`, a ram's men) takes - `men` over SHIP_TOUGHNESS on
+ *  the average, the `roll` (0..1) deciding the odd man (a hardier crew, the same weight of metal). */
 export const ballMen = (men, roll) => (men > 0 ? Math.floor(men / SHIP_TOUGHNESS + clamp(roll, 0, 0.999999)) : 0);
 
 /**
@@ -125,11 +130,11 @@ export const ballMen = (men, roll) => (men > 0 ? Math.floor(men / SHIP_TOUGHNESS
  * @param {{ hullHp: number, sailHp: number, crew: number, player?: boolean }} spec
  */
 export function createShipDamage({ hullHp, sailHp, crew, player = false }) {
-  /** @type {{ maxHull: number, maxSail: number, maxCrew: number, hull: number, sail: number, crew: number, fires: { hp: number, t: number }[], crewBurn: number, state: string, sinkT: number, lastHitAt: number }} */
+  /** @type {{ maxHull: number, maxSail: number, maxCrew: number, hull: number, sail: number, crew: number, fires: { hp: number, t: number }[], crewBurn: number, wound: number, state: string, sinkT: number, lastHitAt: number }} */
   const s = {
     maxHull: Math.max(1, hullHp), maxSail: Math.max(0, sailHp), maxCrew: Math.max(0, crew),
     hull: Math.max(1, hullHp), sail: Math.max(0, sailHp), crew: Math.max(0, crew),
-    fires: [], crewBurn: 0, state: SHIP_STATES.afloat, sinkT: 0, lastHitAt: -Infinity,
+    fires: [], crewBurn: 0, wound: 0, state: SHIP_STATES.afloat, sinkT: 0, lastHitAt: -Infinity,
   };
   /** A fire set: its own clock, up to FIRE_STACK - past that it takes the place of the one with the least harm left
    *  (bite times seconds), if it carries more. */
@@ -204,7 +209,11 @@ export function createShipDamage({ hullHp, sailHp, crew, player = false }) {
           s.crewBurn += burn;
         }
         s.fires = s.fires.filter((f) => f.t > 1e-9);
-        while (s.crewBurn >= FIRE_CREW_S) { s.crewBurn -= FIRE_CREW_S; s.crew = Math.max(0, s.crew - 1); }
+        // TOUGHER-SHIPS: each FIRE_CREW_S of burning is a man's worth of harm, and a toughened crew loses 1/SHIP_TOUGHNESS
+        // of a man to it - carried in `wound` from fire to fire, never let go when one burns out (FIRE_CREW_S stretched
+        // past a fire's life had one fire take nobody at all)
+        while (s.crewBurn >= FIRE_CREW_S) { s.crewBurn -= FIRE_CREW_S; s.wound += 1 / SHIP_TOUGHNESS; }
+        while (s.wound >= 1 - 1e-9) { s.wound = Math.max(0, s.wound - 1); s.crew = Math.max(0, s.crew - 1); }
         if (!s.fires.length) s.crewBurn = 0;
         const change = d.settle();
         if (change) return change;
