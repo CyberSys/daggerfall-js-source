@@ -37,8 +37,9 @@ Measured off the bundle (`scratchpad` survey, 2026-10-02; the vendor README carr
   ARCH3D (the bed-alias law, `world/customModels.js`).
 - **Its two textures** are Daggerfall's water and wall records saved through DXT1 - game data, not carried (and never
   shown by DFU either: RuntimeMaterials replaces them).
-- **DFARENA.RMB** - a re-saved ZLNDFLAT with no buildings: 118 classic props (the seating tiers 42512-42514, beams,
-  barrels, braziers), 29 light flats (torches, braziers, lanterns, lamp posts), the dirt of the arena floor, the bowl
+- **DFARENA.RMB** - a re-saved ZLNDFLAT with no buildings: 118 classic props (the ring's banners 42512-42514 - [CORRECTED
+  at ARENA5: this page called them "the seating tiers"; they are DFU's tapestry range 42500-42571, World of Daggerfall's
+  "Flag" and "Flower Banner Long"] - beams, barrels, braziers), 29 light flats (torches, braziers, lanterns, lamp posts), the dirt of the arena floor, the bowl
   on the automap, and one 43600 - the stair down into the undercroft.
 - **The location** - "Arena of Daggerfall", a DungeonKeep two map pixels north of the city, over a **32-block
   dungeon of Kamer's own** (no classic dungeon is its copy; none is as large).
@@ -119,7 +120,7 @@ the tiers. Four kinds:
 **An instance of the floor.** As the Oblivion Gate's Burning Court is a made dungeon level, an arena bout is a made
 level: the colosseum, its tiers and its crowd, built on its own (`world/arenaFloor.js`), entered from the gate and
 left to the gate - so two bouts never share a floor, the city cell never fills with fights, and an online bout is
-its own relay room (`arena:<id>`).
+its own relay room (`arena:<id>` - built as `arena:b<id>`, and the hour's exhibition `arena:x<hour>`, ARENA4/ARENA4b).
 
 **The bout.** Every bout runs one law (`systems/arenaBout.js`, pure, clock injected): the Herald's call and the
 fighters' walk to their marks; **3 - 2 - 1 - Fight!**; the fight (no doors, no rest, no travel - the duel's law); the
@@ -217,9 +218,9 @@ names, banners, health; your stamina), the **crowd meter**, the **timer**, the H
   every blow claim against reach, rate and a damage bucket from DFU's own weapon tables, and signs the result. A
   casual bout (unranked) may run under DUEL1's defender-resolved law.
 - **Matchmaking** - a queue in the arena's hall room (`arena:hall`), by season rating (Elo, 1,000 to start, K 32),
-  the band widening every 10 s; a pair found is offered a bout (both accept in 20 s), a room `arena:<id>` minted.
+  the band widening every 10 s; a pair found is offered a bout (both accept in 20 s), a room `arena:<id>` minted (`arena:b<id>`); [ARENA4b: and a casual queue beside it - the records below].
 - **Spectators** - join a bout's room without a body (Seats-Arc 6.6's spectator), seated in the tiers; up to 60.
-- **The records** - account-service tables (migration 0047+): ladder results (one row a tier won), PvP results (one
+- **The records** - account-service tables (migration 0047+ - built as 0070, renumbered at the merge onto main): ladder results (one row a tier won), PvP results (one
   row a bout, both ratings), team membership and season; leaderboards counted from rows (`/v1/arena/board`).
 - **The relay version** - one bump for the whole online slice (new frames, the arena brain, the titles and the
   glyph), so it costs one reconnect.
@@ -237,8 +238,9 @@ names, banners, health; your stamina), the **crowd meter**, the **timer**, the H
 | **ARENA1** (SHIPPED 2026-10-02 - the record below) | the colosseum in cell (4,3) of Daggerfall (both layouts), the model vendored and drawn, ARENADAG.RMB, the building list strip, the gate's people (Herald opens a placeholder card), the undercroft dungeon, the displaced records moved (offline) | ARENA2 data: the city's grid, the strip, the model's mesh and collider, the move of a deed |
 | **ARENA2** (SHIPPED 2026-10-02 - the record below) | the bout law, AI fighters (bout team, foe yield floor), exhibitions on the city floor, the instance of the floor, the ladder's ten tiers offline, the crowd (sound, sight, mood, words), the Herald, the HUD | the bout law's tests, a bout played through headless |
 | **ARENA3** (SHIPPED 2026-10-02 - the record below) | the teams, the Arena window (all tabs, offline records), tier titles and Grand Champion offline, purses, the bookmaker | UI probes, the window's model tests |
-| **ARENA4** | online: the account service tables and board, the relay's arena rooms, matchmaking, PVP-REF, the relay-run ladder opponent, spectators, the online titles and the laurel glyph, the online home move | the relay over fake sockets, the service over node:sqlite |
-| **ARENA5** | the audit: every slice re-read against this page, the probes, the mutants | |
+| **ARENA4** (SHIPPED 2026-10-02, finished at ARENA4b - the records below) | online: the account service tables and board, the relay's arena rooms, matchmaking, PVP-REF, the relay-run ladder opponent, spectators, the online titles and the laurel glyph, the online home move | the relay over fake sockets, the service over node:sqlite |
+| **ARENA4b** (SHIPPED 2026-10-03 - the record below) | the online half finished: the relay's exhibition, the ladder's trust (`cl`), the players' blows, the banners billed, the stands' cheer, the realm's Hall and Records, the laurel online, the gate online, a bout's Renown, the displaced online homes, the casual bout | the relay over fake sockets, the service over node:sqlite, the client headless, the UI probes |
+| **ARENA5** (SHIPPED 2026-10-03 - the record below) | the audit: every slice re-read against this page, the probes, the mutants; and what it found unbuilt - the banners on the sand, the Hall's plaque wall, your ladder replay | the mutant lists of every slice, the UI probes, the browser list in its record |
 
 ## ARENA1 record (2026-10-02) - SHIPPED
 
@@ -299,7 +301,9 @@ permanence; SUPERSEDED at ARENA2: the old scene is emptied into the new house by
 Bank's letter and a notebook line. Verified with ARENA2 in both layouts: a GEMSAL03 House2 deed lands on a House2 of
 the city outside the cell.
 
-**ARENA4 - the online homes' migration** (written down, not built). The account service owns online homes: `homes`
+**ARENA4 - the online homes' migration** (written down, not built) [BUILT at ARENA4b, decided by Mac: the owner's
+client picks the house by `arenaHouseFor` and the service checks it; what moves follows the offline law below, not
+this paragraph's re-keying - see the ARENA4b record]. The account service owns online homes: `homes`
 (PK map_id, building_key; 0010, `layout` 0046), `home_decor` (0011, `yard` 0039), `home_hidden` (0015) and `home_rooms`
 (0037), each keyed (map_id, building_key) with `ON DELETE CASCADE` from `homes`. One migration (the next free number) and
 one service pass must, for every `homes` row whose map_id is Daggerfall's (1291010263) and whose building_key is in cell
@@ -367,7 +371,7 @@ dungeon drip; an open-sky torchlit ambient and a thin night fog (`worldModes`). 
 
 **Exhibitions** (`exhibitionFor`): one an hour of the gates' hours (08:00-21:00), open for its first 20 game minutes, two
 fighters of one tier's roster (beast against beast in the beast tier) drawn from `arenaHash(hour)` - the same hour the same
-bout on every screen, so ARENA4's relay runs the schedule on the shared clock. On the CITY floor (world.js
+bout on every screen, so ARENA4's relay runs the schedule on the shared clock [BUILT at ARENA4b: `net/arenaExhibition.js`, `arena:x<hour>`]. On the CITY floor (world.js
 `arenaCityStage`: the colosseum block's origin in its built pixel plus the RMB colosseum's place less its sand) while the
 player stands within 150 m (dismissed past 260 m, unsaid, and restarted from its call on return inside the window); and
 in the instance when Watch is chosen.
@@ -580,7 +584,243 @@ versus bar - fought to a win, kept for the Records page with its point for the R
 
 **Not done / open.** Recorded, not built: the banners' colours ON THE SAND (banners on your side of the floor, the crowd's
 half in your colour - Arena.md 3) wait on a tint the billboard pass does not take and on hangings the floor's instance
-does not stand; the HUD's pennant is this slice's mark of them. The exhibition fighters are the bouts' own (ARENA2's
+does not stand; the HUD's pennant is this slice's mark of them [BUILT at ARENA5: the wash and the hangings - its
+record]. The exhibition fighters are the bouts' own (ARENA2's
 `exhibitionFor`), not the roster's, so a wager's record and form are the bout's and not a roster fighter's season. The
 online half - the season's 8 weeks, the PvP board, `arenachampion` and the laurel glyph, the relay's arena rooms - is
-ARENA4's; the audit is ARENA5's.
+ARENA4's; the audit is ARENA5's [both SHIPPED - their records below].
+
+## ARENA4 record (2026-10-02) - SHIPPED, finished at ARENA4b (2026-10-03)
+
+ARENA4 shipped its code in three commits on its branch (the account's records, the relay's rooms, the client) and no
+record; ARENA5's audit found its online half short of this page and the ARENA4b slice built what was missing (the
+record after this one). What ARENA4 itself stood:
+
+**The account's records** (`server-account/src/arena.js`, migration `0070_arena.sql` - 0047 on its branch, renumbered at
+the merge past main's 0047-0068). Three tables: `arena_pve` (one row a bout the relay refereed: the tier and step, won or
+lost, how, the banner worn; one WIN a step, so a climb cannot hold the same bout twice), `arena_pvp` (one row a bout
+between players whoever claims it, both accounts, the result, both ratings before and after, rated or kept-unrated) and
+`arena_members` (the banner, the season joined, the banner quit and when). `POST /v1/arena/claim` takes a relay-signed
+receipt (`src/net/arenaReceipt.js`, `a1`: a ladder receipt names one account, a players' two different ones; its claims
+disjoint from the gate's and the raid's; a week to be carried): a ladder WIN is kept only as the account's next bout (in
+the write - the INSERT is ordered, the service is the arbiter), a loss whatever its order, a receipt once whoever carries
+it. `/v1/arena/board` counts every board from the rows - the season's ratings and its #1, the climb (every account's
+highest bout won), the fastest Grand Champions, the banners' points this season and last, each banner's roster, the Hall
+- each a top ten and the caller pinned under it; `/v1/arena/team` joins (free), quits (at once) and refuses the other
+banner until the next season. The season is eight weeks from Monday 2026-09-28 (`src/net/arenaLaw.js arenaSeasonOf`);
+the rating is Elo, 1,000 to start, K 32, held between 100 and 4,000; team points a ladder bout 1, a tier champion 3, the
+Grand Champion 10, a refereed players' win 2. Past five rated bouts in a day between the same two accounts, a bout is
+kept and not rated (the pair's day).
+
+**The titles** (`server-account/src/titles.js`, `src/net/identityToken.js`, `src/ui/playerBadge.js`): `grandchampion`,
+for good, from the account's own climb - forty refereed wins in order, written only by in-order verified receipts;
+`arenachampion` and the LAUREL glyph for the season's #1 with at least three rated bouts, derived at the token's mint
+from the board as Sprout is from an account's age, so it passes to whoever takes the top and lapses by itself (each
+Worker caches the #1 for 60 s).
+
+**The relay's rooms** (`server/src/index.js`, `src/net/arenaBrain.js`, `src/net/arenaLaw.js`; RELAY_VERSION world155 -
+world142 on its branch, renumbered past main's world154 at the merge, `ARENA_RELAY_MIN` 155). THE HALL (`arena:hall`): a
+registered account's queue word with its season rating (the token's `ar`; a guest is refused), paired inside a band of
+100 that widens by 100 every 10 s, offered a bout both must accept within 20 s, a pair that declined not offered again for
+60 s; a bout's room is `arena:b<16 hex>` (the page's `arena:<id>`). PVP-REF: the relay runs the bout law
+(`systems/arenaBout.js`, pure, the clock and the dice handed in) and holds both fighters' health (300 + 2 a level); a blow
+claim is held to reach (2.5 m and 3 m of slack, a bow 60 m), the poses' speed, four blows a second, a damage cap off DFU's
+own weapon and material tables and a bucket of 40 a second 120 deep; spells three casts in five seconds; the verdict a
+signed receipt. A fighter gone from a live fight past 15 s forfeits; a matched bout nobody comes to is void at 45 s. THE
+LADDER ON THE RELAY: the fighter's own `in` opens a ladder bout against the relay's fighters (`ARENA_LADDER_SPEC`, the
+game's ladder row for row, pinned: Tier 5's champion two Warriors on one side, the beast tier's bodies, Tier 9 two
+against one, Tier 10's Grand Melee every fighter a side, then the Iron Atronach), who walk at the fighter, telegraph and
+land by the relay's word. THE STANDS: a spectator takes a seat with no body (60 a bout), seen by no fighter, seeing the
+whole bout.
+
+**The client** (`src/net/arenaLink.js` the hall's fold and the mirror of a relay's bout in the bout law's own shape;
+`src/net/arenaClaims.js` the receipts carried - kept a week, offered for the signed-in account alone, retried every five
+minutes; `src/scenes/arenaOnline.js` the host's glue; `src/scenes/arenaBouts.js startRelay`/`relayWord` - the relay's
+bout stood on the floor's instance as puppets, the Herald and the HUD driven from its events, my health the relay's, my
+yield and misses told; `src/systems/arenaBoard.js` the window online - the Bouts page's live bouts with Watch, Find a
+match, Leave the queue, Accept/Decline on a 20 s clock, the rating and rank chips, the Rules page's "The realm").
+
+**Verified.** `test/arena4_client.test.js` (8), `test/arena4_relay.test.js` (7) and `test/arena4_service.test.js` (7):
+the relay over fake sockets, the service over node:sqlite with every migration, the client headless. Its mutants were
+named in its tests but no list was written; ARENA5 wrote `tools/mutants/arena4.json` (the record below).
+
+## ARENA4b record (2026-10-03) - SHIPPED: the online half finished
+
+ARENA5's audit read ARENA4's code against this page and found its online half short in eleven places, and two more
+the merge of the streams turned up (the blows' sequence, the banners billed); this slice built every one, in three streams
+merged onto the arena branch (the relay, the client, the account service) and the casual bout after them.
+
+**1. The hour's exhibition is the relay's** (section 2: "the relay runs it, every client sees one bout"). The schedule's
+law moved out of `systems/arenaLadder.js` into `src/net/arenaExhibition.js` (`exhibitionFor`, `exhibitionOpening`,
+`exhibitionAdmits`, `arenaHash`, `hourIndexOf` - re-exported where it stood), so the relay draws the same pair from the
+same hour. Its room is `arena:x<hour>` (the game hours since the epoch, `floor(sharedClassicMinutes / 60)`); the Worker
+admits an hour from 25 back to one ahead. The first watcher inside its window (08:00-21:00, the first 20 game minutes)
+opens it (`openBout({ kind: 'ex' })`); a fighter's `in` never does. Its `st` names the sides Red and Blue, both the
+relay's AI; no receipt is owed; it is kept two real hours (a game day) after its verdict, so a late ask hears the result.
+On the client (`scenes/arenaOnline.js` `exhibitions`, `watchCity`, `watchExhibition`, `exhibitionVerdict`;
+`scenes/arenaBouts.js startExhibitionRelay`/`exhibitionWord`/`cityBodiesFrame`): online with a relay that runs it, the
+city floor's bout is the relay's, mirrored on the exterior's own bodies while the player stands within 150 m; the Herald's
+Watch and the Bouts page's list take the instance as its room; the bookmaker settles by the relay's verdict
+(`arenaGate.js settle`), and by the house's record only for an hour the relay ran no bout in. Offline, on an older relay
+and on the `?exterior` host (no online session) the local seeded exhibition runs as before.
+
+**2. The ladder's trust.** A relay ladder bout's vitality no longer trusts the word: a new signed token claim `cl` - the
+character's level, a whole number 1..1000 from the realm character's own tile (`server-account/src/realm.js
+realmLevelOf`), minted only for the calling account's realm character, validated by `identityToken.js
+characterLevelIssuable` - carried by the relay's `_named` and read alone (`arenaLaw.js ladderVitality`: 25 + 30 a level,
+10..2,000); the word's `mh` is ignored and no longer sent. A token from an older service (no `cl`) has its claimed level
+capped at the tier's top opponent's level plus five (`ladderLevelCap`: 8 at the Pit to 26 at the Grand Melee) - about two
+tiers, so an honest over-levelled fighter fights near their level and a forged sixty does not reach the Pit. The relay
+still does not check a ladder bout is the account's next - the service's ordered write is the arbiter, as ARENA4 had it.
+
+**3. The players' blows.** Each swing carries one sequence `q` (`dungeonContext.js nextArenaQ`) shared by every body it
+meets, each arrow its own, so a cleave is one blow to the rate check; a spell that strikes a player rival goes to the
+referee as a spell (`spellOnRival`), and one on a relay fighter is claimed as a spell (it was claimed as a melee hit,
+held to sword reach), one number a cast.
+
+**4. The banners billed.** A fighter's queue word and ladder `in` carry the account's banner (`bannerClaim`: anything
+but red or blue dropped, never refused); the relay bills it (`_bill`, the live list); the exhibition's sides are Red and
+Blue. Cosmetic only - a banner's points come from the service's own `arena_members` rows.
+
+**5. The stands' cheer** (section 4). A watcher of a relay bout has two presses under the plate (`ui/arenaHud.js` -
+Cheer and Boo, 36 px, 48 on touch; the `=` and `-` keys, never in a text field, with a modifier or on a held repeat), one
+shout every 1.75 s (the relay's 1.5 s and a quarter second); my shout moves my crowd at once and the relay's echo plays
+only the others'.
+
+**6. The realm's Hall of Champions** (section 1: "this realm (online)"): the window's Leaderboards page draws the board's
+Hall under the fastest Grand Champions (`arenaBoard.js hallBoardOnline`, `arenaWindow.js hallCard`), my own row by the
+name the realm uses for me; the Keeper reads the realm's names online (`host.arenaHall`).
+
+**7. The laurel and the banners online.** In a relay bout the laurel is the realm's (+0.25 favour from the first bell to
+a fighter in its banner) and the pennants are the relay's bills; local exhibitions online take the realm's laurel
+(`arenaBouts.js setRealm`, `relayBanners`).
+
+**8. The Records page online** reads the account (`arenaBoard.js recordsPageOnline` over the board's new `me.record` and
+`me.recent` - `server-account/src/arena.js arenaRecordsOf`: the record and the last twenty bouts, the opponent by name
+and badge, never an id; an older service's board falls back to the climb); before the board arrives it says the realm's
+record is on its way. The header's purses chip shows only a purse.
+
+**9. The gate online.** Joining a banner is the account's law (`arenaGate.js recruiterChoiceOnline`, the save's league
+untouched); the Herald's Fight and the window's read the account's climb, and wait for it - no Fight before the board is
+in (`arenaOnline.js climb`); a ladder purse is paid only for a win the service kept (`owe`/`answered`/`settleOwed`, a
+lost answer settled by the receipt's own result), held at most ten minutes. Fastest-Grand-Champion rows show each row's
+own season.
+
+**10. A bout's Renown** (section 2: "Online, renown too, within the renown law's own hourly cap"). `/v1/arena/claim`
+credits the fighting character through `reportRenownXp` (its hourly cap) once per account and bout (`arena_renown`): a
+ladder win one quest's Renown at its tier's top level, a tier champion two, the Grand Champion three, a rated players' win
+one at level 30, each capped at three levels over the character's Renown (measured at Renown 30: the Pit 165, Tier 10
+705, the Grand Champion 2,115, a players' win 975); a pledged war-guild takes influence in Daggerfall's region; a rise
+answers its signed order, applied by the one plan every Renown answer takes (`renownAnswer`).
+
+**11. The displaced online homes** (the ARENA1 record's "written down, not built"). DECIDED by Mac: the owner's client
+picks, and what moves follows the offline law. Migration `0071_arena4b.sql` (`home_moves`, `arena_renown`).
+`POST /v1/homes/arena-move { mapId, from, to, character }` (`homes.js arenaMoveHome`): `from` the caller's home (or a
+hall they keep) in Daggerfall's cell (4,3), `to` outside it, a valid key and nobody's - the trust `claimHome` has; moved
+once (a second post answers the first). The row moves whole in one batch (`HOME_MOVE_CARRIED`, pinned to the table's
+columns; a hall's `guild_id` set after the old row goes, so the one-hall index never sees two); a running tenancy is
+carried unlisted and anchorless (its tenant still enters and rests - the door and the bed read the tenancy), an offered
+room withdrawn, hidden pieces and placed items deleted, the catalogue's and the yard's pieces refunded whole onto the
+owner's record in the same batch (a hall's into its treasury). The client (`arenaMove.js arenaHomeFor` - `arenaHouseFor`
+filtered by `homeCandidate`; `onlineHomes.js moveArenaHomes`; world.js `moveArenaHomesOnline`) runs once a boot after the
+homes' towns land: picks, posts inside a realm act, empties the old scene into the new one (`emptyArenaScene`), the
+Daggerfall Bank's letter and the notebook line, and marks the move read only once a checkpoint holds the emptied scene.
+`claimHome` and `buyHall` refuse a key in the cell (`home-arena`) - an old build still stands GEMSAL03. The relay needs
+nothing: its interior rooms carry no loot and expire.
+
+**12. The casual bout** (section 7: "A casual bout (unranked) may run under DUEL1's defender-resolved law"). Built
+refereed rather than defender-resolved - PVP-REF holds both fighters either way, so nothing is gained by trusting the
+defender: the hall's queue word carries `u`, `pairQueue` pairs like with like (a casual seeker never with a rated one, at
+any rating), the offer, the call, the listing and the bout's `st` say so, and its room owes no receipt (`arenaBrain.js
+receiptsOwed`) - no rating, no points, no record. The window's Challenge card has Casual bout beside Find a match; its end
+says nothing was counted.
+
+**Verified.** Fourteen suites, 67 tests: `test/arena4b_{exhibition,trust,blows,mirror,banners,casual}.test.js` (the relay's,
+29), `test/arena4b_{gate,stands,window}.test.js` (the client's, 14), `test/arena4b_{homes,homeclient,records,renown,token}.test.js`
+(the service's, 24); 256 mutants across fourteen `tools/mutants/arena4b_*.json` lists, all dead. The UI probes draw the
+stands' presses (`tools/arenaHudProbe.mjs`) and Records and the Hall online (`tools/arenaWindowProbe.mjs`), all ok.
+
+**Not done / open.** Past the relay's 60 seats, a watcher on the city's sand sees no exhibition (it retries every 30 s).
+A guild hall's other keepers keep their own items in their own saves' old scene (a hall's sale does the same today). A
+re-claimed bout answers no Renown (the level arrives with the next token). Not seen in a browser online - the probes are
+headless and the relay is not deployed.
+
+## ARENA5 record (2026-10-03) - SHIPPED: the audit, and what it built
+
+Every slice re-read against this page (sections 1-7 and the four records), the probes run, the mutants written and run.
+What the audit found it closed - ARENA4's online gaps in ARENA4b (the record above), the rest here.
+
+**What the page promised and no slice had built:**
+- **The banners' colours on the sand** (section 3; the ARENA3 record's "Recorded, not built"). The crowd's half in your
+  colour: a per-batch wash the billboard pass now takes (`uBatchTint`, multiplied in after both maps are sampled - the
+  classic lane's BB_FS and Enhanced Lighting's EL_BB_FS; white for every other batch, so nothing else changes), the west
+  half of the tiers side 0's and the east side 1's (`systems/arenaCrowd.js crowdHalfOf`/`crowdHalves`, `CROWD_WASH` - red
+  [1, 0.8, 0.74], blue [0.78, 0.86, 1]), split only when a half has a banner (the save's offline, the realm's online; an
+  exhibition red against blue). The hangings: on a bannered side, Kamer's ring banners at least 6 m from the middle line
+  take the banner's cloth at his own hang points (`world/arenaFloor.js hangingModel`, `ARENA_BANNER_MODEL` red 42557,
+  blue 42558 - the latter World of Daggerfall's "Banner_Blue_Large"; the red is the large banner beside it, UNSEEN), nine a
+  side; the bout asked for the floor names its banners (`arenaBouts.js floorBanners`).
+- **The Hall of Champions' plaque wall** (section 1). A row of plaques on the wall by the Keeper, found as `crownHallPlan`
+  finds its wall (`world/arenaPlaques.js hallPlaquePlan`: the nearest of eight ways to a wall at 1.65 m within 7 m, 1 m
+  apart, centred on her, doorways and corners skipped, at most ten, left to right as you face them), two models of
+  Daggerfall's own dark frame-back wood (864110 a champion's, carrying one of its framed pictures; 864111 bare), each
+  click a `plaque:` target reading its champion (name, banner, season, "Grand Champion") or the Keeper's "No name is cut
+  here yet" (`worldModes.js standArenaWall`/`readPlaque`); the save's names offline, the realm's online
+  (`arenaBoard.js hallPlaques`, `arenaGate.plaques` - nothing online before the board, never the save's).
+- **Your ladder replay** (section 2's table: Spectate offline, "your ladder replay"). The last three ladder bouts kept in
+  the save (`systems/arenaReplay.js`, `snap.arena.replays`, versioned; an older save reads back none): 10 Hz, 0.1 m and
+  1/256-turn steps as one signed byte a change, health, strikes and the law's events when they happen; at most four
+  minutes, four fighters, 64 KB (measured: a 200 s duel moving every tick 20,190 bytes, a capped Grand Melee 47,964).
+  Played back through the relay mirror's own door (`askReplay`/`replayFrame` feeding `relayWord`) - the fighters as
+  puppets (the player as their career's class enemy), the crowd, the HUD, the music and the verdict from the recording,
+  nothing paid or counted, the gates never held. Offered by the Herald ("R - Watch your last bout again") and the Records
+  page ("Watch the replay"), at the gate, offline.
+- **The casual bout** (section 7: "A casual bout (unranked) may run under DUEL1's defender-resolved law") - built in
+  ARENA4b, refereed rather than defender-resolved.
+
+**What the audit corrected:**
+- The undercroft no longer shrinks under Smaller Dungeons (`world/smallerDungeons.js useSmallerDungeon` - the ARENA1
+  record's open item): the fighters' hall stands by distance over Kamer's 32 blocks.
+- `buildCrowd` read the bout's tier before its first await and threw for a relay bout with no ladder step or exhibition
+  (a watched or fought players' bout), so those stands stood empty - fixed and pinned.
+- At the merge of the streams, the client's `relayBanners` wiped a relay exhibition's Red/Blue sides and its laurel -
+  caught by the mirror suite, fixed (`ARENA4b-MIR-EX-SIDES-WIPED`).
+- The page's "What the mod is" called DFARENA's 42512-42514 "the seating tiers": they are banners (DFU's tapestry range
+  42500-42571; World of Daggerfall's catalogue names 42512 "Flag" and 42514 "Flower Banner Long") - corrected here and in
+  `vendor/daggerfall-arena/README.md`. Section 7's "migration 0047+" is 0070 and its `arena:<id>` is `arena:b<id>`.
+- `test/arena2_hosts.test.js`'s header still called exterior.js FLAGGED (ARENA-FIX 12 wired it).
+- ARENA4 shipped no record, no Ledger row, no Testing.md rows and no mutant list: all written (the records above,
+  Port-Ledger's ARENA4 row at the merge and the ARENA4b/ARENA5 row now, `tools/mutants/arena4.json`).
+
+**The wardens** (section 1: "so a brawl at the gate is a crime like any other"): read and pinned, not changed. A crime at
+the gate takes the street's own path in both hosts with no arena condition anywhere (the bout driver's crime door,
+`setCrimeCommitted(Assault)`, `_crimeResponse`, `_spawnGuards`, `cityGuards.spawnCityGuards` over the walkers' pool);
+the wardens are static Royal Guard people, and DFU's SpawnCityGuards converts mobile walkers only, so the watch coming
+from their posts would depart from DFU (`test/arena5_wardens.test.js`).
+
+**The mutants.** Every list of the arc, by slice: `arena1.json` 26, `arena2.json` 77, `arena3.json` 62,
+`arenafix.json` 43 (as their records say; 24 of arena1's and 41 of arenafix's name only tests gated on ARENA2 data, so
+they are false survivors in a tree without the player's data - judged dead where the data stands, as their records
+were), `arena4.json` 203 (written by this audit - 40 survived its first run, each a gap in the tests, six of them
+mutants ARENA4's titles claimed and never killed: a purse on a loss, the decliner kept, a lapse queueing the silent one,
+the bucket unspent, a blow out of reach landed, the rating's floor; all closed by assertions in the ARENA4 suites, no
+source bug), the thirteen `arena4b_*.json` lists (all dead) and `arena5*.json` (67, all dead).
+
+**The probes.** The data-free UI probes run here (Chromium at /opt/pw-browsers): `tools/arenaHudProbe.mjs` 70 checks
+(the stands' presses clicked and keyed) and `tools/arenaWindowProbe.mjs` 391 (Records and the Hall online, the replay
+press), all ok. The world probes (`tools/arenaProbe.mjs`, `tools/arena3Probe.mjs`) need the player's ARENA2 data, which
+this tree does not hold - their last runs are ARENA-FIX's and ARENA3's.
+
+**Look at in the browser** (nothing of ARENA4b/ARENA5 has been seen there):
+1. A ladder bout under a banner: your half of the tiers lightly red or blue; the nine ring banners on the west in the
+   banner's cloth - that 42557 reads red, that they hang right and do not clip.
+2. An exhibition: a red half and a blue half.
+3. The undercroft: the row of framed plaques on the wall by the Keeper; a click reads a champion's line.
+4. A ladder bout, then the Herald's R or the Records page's press: your own bout from the terrace, the gates open.
+5. Online (once the relay and service are deployed): the hour's exhibition the same on two screens; Find a match and a
+   casual bout between two accounts; the stands' Cheer; an online home on the arena's block moved at login.
+
+**Not done / open.** The replay stands the player as their career's class enemy, not their own body. Past the relay's
+60 seats a watcher on the city's sand sees no exhibition. The wardens' posts are not where the watch comes from (DFU's
+own law). Team-vs-team battles, Marks wagers on players' bouts and a mounted joust stay recorded, not built (the page's
+own list).

@@ -16,8 +16,9 @@ One prefab and two world-data files. The mod's own words: "Adds an Arena North o
   MeshCollider of the same mesh, and DFU's own `RuntimeMaterials` naming a classic texture (archive, record) for
   every submesh, `ApplyClimate` 0 on all 23 (no climate, no season). Footprint **3,396 x 3,712 Daggerfall units**
   (84.9 x 92.8 m), standing -0.6 m to 25.7 m where his block places it - inside one 4,096-unit block cell.
-- **DFARENA.RMB** - a re-saved ZLNDFLAT with no buildings: 118 classic props (the seating tiers 42512-42514, beams,
-  barrels, braziers), the colosseum's placement, 29 light flats (TEXTURE.210: torches, braziers, lanterns, lamp
+- **DFARENA.RMB** - a re-saved ZLNDFLAT with no buildings: 118 classic props (the ring's banners 42512-42514 - DFU's
+  tapestry range 42500-42571, World of Daggerfall's "Flag" and "Flower Banner Long"; ARENA5 corrected "the seating
+  tiers" - beams, barrels, braziers), the colosseum's placement, 29 light flats (TEXTURE.210: torches, braziers, lanterns, lamp
   posts), the dirt of the floor and the bowl on the automap (2,513 pixels of value 117), and one **43600** - the stair
   down into his dungeon.
 - **locationnew-Daggerfall_ArenaofDaggerfall-17.json** - "Arena of Daggerfall", a DungeonKeep two map pixels north

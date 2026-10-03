@@ -19,7 +19,7 @@
 //   save's offline, the realm's online), the rest of the row bare; each plaque's press reads its champion (name, banner,
 //   season, "Grand Champion" - ARENA_TEXT.undercroft.plaqueLine), a bare one the Keeper's "No name is cut here yet".
 //
-// Pure (the collider's ray handed in), but the registration. Not a DFU member (Daggerfall has no arena).
+// Pure (the collider's ray handed in), but the registration. Not a DFU member (Daggerfall has no arena). Ledger A (ARENA).
 
 import { registerCustomModel } from './customModels.js';
 

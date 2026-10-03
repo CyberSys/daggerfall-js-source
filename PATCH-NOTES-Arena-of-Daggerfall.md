@@ -18,14 +18,15 @@
 - You can quit your banner whenever you like (the recruiter asks you twice), but you can't join the other one until the next season. You can go back to the banner you quit at any time.
 - Each banner fields 24 fighters of its own, who climb the same ladder you do over the season. You'll see them on the leaderboards.
 - Your banner's pennant shows beside your name on the versus bar. In an exhibition, the Red Banner's fighter faces the Blue Banner's.
+- **Your colours on the sand:** fight a ladder bout under a banner and the banners around your side of the ring hang in its colour, and your half of the crowd takes on its colour too. At an exhibition, the Red Banner's half of the stands faces the Blue's.
 
 ## The Arena window
 - One window for everything at the arena, opened by the Herald, the recruiters and the bookmaker, and once you've joined a banner, from the **Arena** button on the character page of the pause menu.
 - **Bouts:** the hour's exhibition with both fighters' records and odds (Watch, Wager), and your next ladder bout with its purse (Fight). Watching, wagering and fighting are done at the arena's gate; the window tells you why when you can't.
 - **Ladder:** the ten tiers, where you stand, every opponent and champion, the purses and the title each tier gives.
 - **Team:** your banner, the season's standing against the other, the laurel, your points, and your banner's top ten.
-- **Leaderboards:** the highest tier, the fastest Grand Champion and the banners season by season, with your own row pinned below the top ten. The player rating board is for online play.
-- **Records:** your wins, losses, yields, falls, streaks and purses, your last twenty bouts and your wagers.
+- **Leaderboards:** the highest tier, the fastest Grand Champion and the banners season by season, with your own row pinned below the top ten. Online, the realm's boards and its Hall of Champions (see **Online** below).
+- **Records:** your wins, losses, yields, falls, streaks and purses, your last twenty bouts and your wagers. Your last three ladder bouts can be watched again from here (see **Replays** below).
 - **Rules:** the arena's rules in plain words.
 
 ## The bookmaker
@@ -36,7 +37,7 @@
 
 ## Titles
 - The Herald calls you by your arena title when you step onto the sand.
-- **The Hall of Champions** in the undercroft names every Grand Champion your character has seen: yours first, then each banner fighter who took the title, season by season.
+- **The Hall of Champions** in the undercroft names every Grand Champion your character has seen: yours first, then each banner fighter who took the title, season by season. Their names hang on a **wall of plaques** beside the Keeper of the Hall. Click a plaque to read whose it is.
 - Your banner shows on the character sheet beside your arena title and record.
 
 ## The bouts
@@ -49,6 +50,7 @@
 - While your bout is on, you can't rest, travel or leave through the gates.
 - Your progress, titles and record are saved with your character. Your arena title and record show on the character sheet.
 - Strike an exhibition fighter and the Herald will warn you once. Do it again and the watch comes for you.
+- **Replays:** your last three ladder bouts are kept with your character. Ask the Herald (**R - Watch your last bout again**) or press **Watch the replay** on the Records page, at the arena's gate, and you watch the bout again from the terrace, with the crowd, the Herald and the verdict. A replay pays and counts nothing, and you can leave it whenever you like. (In a replay you appear as a fighter of your class.)
 
 ## The crowd
 - The tiers fill with Daggerfall's own people: the gesturing man, dancers and musicians, courtiers and nobles. Big bouts draw hundreds.
@@ -68,13 +70,31 @@
 - Talk to **the Pit Master** at the training pit to **spar**: a practice bout against a fighter of your own tier. No purse, no crowd, no step on the ladder - just practice.
 - **The Keeper of the Hall** reads you the **Hall of Champions**: the tier champions you have beaten, and your name as Grand Champion once you earn it.
 - The castle's dungeon is not changed.
+- The **Smaller Dungeons** setting never shrinks the undercroft, so the fighters' hall, the training pit and the Hall of Champions are always where they belong.
 
 ## If you had something on that block
 - **A house:** the Daggerfall Bank moves your deed to a house of the same kind elsewhere in the city, the first time you load. Your own furniture goes back to your furnishings, ready to set down again, and anything you bought from the decorator is paid back in full to your Daggerfall bank account. Everything that was in your chests and on your floor waits for you in a chest in the new house (or in a crate by the door if the house has no chest). You'll get a letter, and a note in your notebook.
 - **A rented room** at the old tavern is honoured at any inn in the city.
 - **A quest building** on that block is chosen again in the city, so the quest can still be finished.
 - **A save made inside one of those buildings**, or a Recall anchor set there, puts you outside instead.
-- Online homes on that block are moved in a later update.
+- **An online home** on that block moves too (see **Online** below).
+
+## Online: the arena of the realm
+Online play needs a relay update (a single reconnect) and a registered account. Guests can watch, but they can't queue, join a banner or keep a result.
+
+- **Find a match:** from the Arena window's Bouts page, look for a real opponent at your season rating. Ratings start at 1,000. The search widens every 10 seconds until someone is found. You both have 20 seconds to accept. A fighter who declines isn't offered to you again for a minute.
+- **Casual bouts:** choose **Casual bout** instead and you're matched only with other players who want one. It's refereed the same way, but nothing is counted: no rating, no points, no record.
+- **Refereed bouts:** a bout between players is fought on its own copy of the arena floor, and the server referees it. It holds both fighters' health (the same for every fighter of a level) and only counts a blow that could really have landed: in reach, at a believable pace, no harder than your weapon can hit.
+  - Leave a fight for more than 15 seconds and you forfeit it. A matched bout that nobody turns up to is called off.
+  - A win or loss moves your rating. More than five rated bouts in a day against the same fighter are kept, but don't move it.
+- **The ladder online** is your account's own climb, with opponents the server runs. Wins count only in order, and your purse is paid once the realm has counted the win. Ladder wins (and rated wins against players) also earn **Renown** for the character who fought, within the usual hourly limit.
+- **The hour's exhibition is the same bout for everyone:** online, the server fights it, so every player at the arena sees the same blows and the same winner. The bookmaker settles your wager by that result.
+- **The stands:** watch any bout from the Bouts page (exhibitions, players' bouts, ladder bouts), up to 60 watchers a bout. You're seated in the tiers with no body. **Cheer** and **Boo** from the stands (buttons on screen, or the = and - keys), and the whole crowd hears it.
+- **Banners online** are your account's, not your character's. Seasons last eight weeks. You earn points for your banner: 1 for a ladder win, 3 for a Tier Champion, 10 for the Grand Champion and 2 for a rated win against a player. Last season's winners wear the laurel, and the crowd favours them from the first bell. Every fighter's banner shows on the versus bar.
+- **Realm leaderboards:** the highest climb, the fastest Grand Champions, the season's player ratings and the banners, with your own row pinned under the top ten. The **Hall of Champions** online names every Grand Champion of the realm, in the window and when the Keeper of the Hall reads it.
+- **Records online** shows your account's record and your last twenty bouts, with whom you fought and how.
+- **Titles:** **Grand Champion** is yours for good once the realm has counted all forty ladder wins. The season's #1 player (with at least three rated bouts) wears the title **Arena Champion** and the **laurel** beside their name, until someone else takes the top.
+- **Online homes on the arena's block** move the way offline houses do. The first time you play online, your house moves to a free house elsewhere in Daggerfall. Your own furniture goes back to your furnishings, anything you bought from the decorator is paid back in full, and everything in your chests and on your floor waits for you in a chest in the new house. A tenant renting a room keeps it until their rent runs out. The Daggerfall Bank writes to tell you, and your notebook notes it.
 
 ## Fixes and polish
 - **The stairs:** every stair in the colosseum now walks smoothly up and down, including the stair from the gate courtyard to the ring. You no longer catch on the steps or start climbing them.

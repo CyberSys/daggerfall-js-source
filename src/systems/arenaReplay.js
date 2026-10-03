@@ -23,7 +23,7 @@
 // events `ev`, all on this screen's clock from the moment it starts. Watched from the stands (`me` '' - nothing of it
 // pays, counts, or holds a gate), and left at any time by the floor's gates.
 //
-// Not a DFU member (Daggerfall has no arena).
+// Not a DFU member (Daggerfall has no arena). Ledger A (ARENA).
 
 import { MOBILE_TYPES } from '../characters/mobileTypes.js';
 
