@@ -26,8 +26,8 @@ import { PEER_LAY_S } from '../src/scenes/navalHost.js';
 import { navalWireRecord, validNavalRecord } from '../src/systems/naval/navalWire.js';
 import { Boat, animatorOf } from '../src/systems/comeSailAwayBoat.js';
 import { createComeSailAwayPool } from '../src/scenes/comeSailAwayPool.js';
+import { draftOf } from '../src/systems/naval/shipLife.js';   // AUDIT GN2-PF6: the draft table's home
 
-const WORLD = readFileSync(new URL('../src/scenes/world.js', import.meta.url), 'utf8');
 /** Her hull's own triangles, as baked (her side's half-breadth under a point: tools/galleonLidFit.mjs). */
 const HULL_TRIS = hullTriangles(JSON.parse(readFileSync(new URL('../src/assets/galleon/galleon.json', import.meta.url), 'utf8')));
 const near = (a, b, eps, what) => assert.ok(Math.abs(a - b) <= eps, `${what}: ${a} vs ${b}`);
@@ -329,11 +329,9 @@ test('AUDIT GALLEON G5: another player\'s volley, flown here from her word, leav
   }
 });
 
-test('AUDIT GALLEON G6: her draft in the routing table (world.js NAVAL_DRAFT, hull 2) is no shallower than her keel - a ship drawing 4.64 m was sailed over a 2.2 m floor', () => {
-  const m = WORLD.match(/const NAVAL_DRAFT = Object\.freeze\(\[([^\]]+)\]\)/);
-  assert.ok(m, 'the table');
-  const draft = m[1].split(',').map(Number);
-  assert.ok(draft[HULL.SmallShip] >= -ships.hullBuild(HULL.SmallShip).keel, `hull 2's ${draft[HULL.SmallShip]} m against her keel ${ships.hullBuild(HULL.SmallShip).keel}`);
+test('AUDIT GALLEON G6: her draft in the routing table (shipLife.js draftOf, world.js navalIsWater\'s - AUDIT GN2-PF6: the table moved there, hull 2\'s read off her keel) is no shallower than her keel - a ship drawing 4.64 m was sailed over a 2.2 m floor', () => {
+  const draft = draftOf(HULL.SmallShip);
+  assert.ok(draft >= -ships.hullBuild(HULL.SmallShip).keel, `hull 2's ${draft} m against her keel ${ships.hullBuild(HULL.SmallShip).keel}`);
 });
 
 test('AUDIT GALLEON G7: a long frame (a fast sea: Come Sail Away\'s time scale, 0.5 s a frame) runs her guns out as far as its time does - the gun deck no longer clamps a step to 0.25 s (the volley came three frames after the run-out with the guns 0.35 m short of the port)', () => {

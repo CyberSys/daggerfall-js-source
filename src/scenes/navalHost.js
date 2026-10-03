@@ -76,7 +76,7 @@ import { createBoarding, berthPose, musterOf, crewTeamOf, handsOf, repelPartyOf,
 import { navalWireRecord, validNavalRecord, navalHitData, validNavalHit, NAVAL_SHARE_RADIUS, NAVAL_VOLLEY_KEEP_MS, NAVAL_GEN_MAX, NAVAL_WIRE_VOLLEYS, NAVAL_WIRE_SPENT, TRAFFIC_DEFAULT } from '../systems/naval/navalWire.js';
 import { Boat, boatAnimators, boatParticleSystems, animatorOf, setLights, meshLocalBounds, HULL_NAMES } from '../systems/comeSailAwayBoat.js';
 import { runsDark, nightSight, lampSize, lampAlpha, lampPoints, LAMP_NEAR_M, LAMP_COLOR } from '../systems/naval/shipWatch.js';   // SHIP-WATCH: the sea by night, and my lookout
-import { stowSail } from '../systems/comeSailAway.js';
+import { stowSail, vSignedAngle } from '../systems/comeSailAway.js';   // AUDIT GN2-RG6: sailWind's angle
 import { quatEuler } from '../world/unityAnimator.js';
 import { quatRotate, quatLookRotation, quatAngleAxis, mat4FromQuatPos } from '../world/quat.js';
 import { constantCurve } from '../world/unityParticles.js';
@@ -408,7 +408,8 @@ export function hullBoxOf(boat, models) {
  *  `rig`, the root's frame) through the same MeshObject the hull rides, so the masts heel and settle with her.
  *  AUDIT GN-R5/G9: a box on a boom (`boom`, `pivot`) turned about its pivot by that boom's own rotation as the trim sets
  *  it - the canvas goes where the boom swings it, and so does the box; one askew (`obb`) as it lies. A boom the boat has
- *  not (another variant's, none walked yet) leaves its box home. */
+ *  not (another variant's, none walked yet) leaves its box home. AUDIT GN2-RG3: a box of a sail (`sail`) only while
+ *  that sail is shown and set - furled or hidden (her sail share) her boxes took balls where no canvas hung. */
 export function rigBoxesOf(boat) {
   const rig = hullBuild(boat?.hull).rig;
   const mo = boat?.MeshObject;
@@ -416,7 +417,8 @@ export function rigBoxesOf(boat) {
   const m = mo.worldMatrix();
   const lp = mo.localPosition ?? [0, 0, 0];
   const at = (p) => [p[0] - lp[0], p[1] - lp[1], p[2] - lp[2]];   // the root's frame in her mesh object's
-  return rig.map((box) => {
+  const hangs = (k) => { const s = boat.Sails?.[k]; return !s || (s.activeSelf && !animatorOf(s)?.GetBool('Stowed')); };
+  return rig.filter((box) => /** @type {any} */ (box).sail == null || hangs(/** @type {any} */ (box).sail)).map((box) => {
     const [mn, mx] = box, b = /** @type {any} */ (box);
     if (b.obb) return orientedBox(multiply(m, mat4FromQuatPos(quatAngleAxis(b.obb.pitch, [1, 0, 0]), at(b.obb.c)), new Float32Array(16)), [0, 0, 0], b.obb.h);
     const c = at([(mn[0] + mx[0]) / 2, (mn[1] + mx[1]) / 2, (mn[2] + mx[2]) / 2]), h = [(mx[0] - mn[0]) / 2, (mx[1] - mn[1]) / 2, (mx[2] - mn[2]) / 2];
@@ -427,6 +429,28 @@ export function rigBoxesOf(boat) {
     const turn = multiply(mat4FromQuatPos(q, P), mat4FromQuatPos([0, 0, 0, 1], [-P[0], -P[1], -P[2]]), new Float32Array(16));
     return orientedBox(multiply(m, turn, new Float32Array(16)), c, h);
   });
+}
+
+/** AUDIT GN2-RG4: how high a sail's canvas hangs (world y) - the mean of its grid (galleonRig.js: a bone a grid point,
+ *  `*SailBones`, as built - her set canvas - at a sea ship's first pose, before her animators first run); a sail on one
+ *  bone or none (the mod's hulls': no grid) its node's height, as they were sorted. Her jib's node stands at her origin
+ *  and her gaff's at its boom's foot: by their nodes she lost her lowest canvas first. */
+function canvasHeight(sail) {
+  const grid = sail.children.find((c) => /SailBones$/.test(c.name))?.children ?? [];
+  if (grid.length < 2) return sail.worldMatrix()[13];
+  return grid.reduce((y, bone) => y + bone.worldMatrix()[13], 0) / grid.length;
+}
+/** AUDIT GN2-RG6: the sign Come Sail Away's sailWind (comeSailAway.js) gives a sail's Wind in the wind `w` (where it
+ *  blows to) - by its signed angle to the sail's own forward: a gaff or a staysail +1 blown to starboard, a lateen the
+ *  other way (its clips'); square canvas +1, full (a sea ship's yards are never braced, her way never backs). Every Wind
+ *  was +: a sea ship's gaff and jib bellied to starboard in a wind blowing to port. */
+function sailSide(boat, sail, w) {
+  if (boat.SailsSquare?.includes(sail)) return 1;
+  const f = quatRotate(sail.rotation, [0, 0, 1]);
+  const a = vSignedAngle([f[0], 0, f[2]], [w[0], 0, w[2]], [0, 1, 0]);
+  if (boat.SailsLateen?.includes(sail)) return a > 0 ? -1 : 1;
+  if (boat.SailsGaff?.includes(sail)) return a >= 0 ? 1 : -1;
+  return a > 0 ? 1 : -1;
 }
 
 /**
@@ -1348,16 +1372,16 @@ export function createNavalHost(deps) {
     const pitch = Math.sin(t * wl) * wl * 0.5 + sink.pitch;
     if (b.MeshObject) b.MeshObject.localRotation = quatEuler(pitch, 0, roll);
     // the sails: set while she fights or runs, stowed struck, taken or going down. AUDIT NAV1 (#15): her canvas shown by
-    // her sail share, her highest sails gone first
+    // her sail share, her highest sails gone first - AUDIT GN2-RG4: by where each canvas hangs (canvasHeight)
     const set = state === SHIP_STATES.afloat && s.sails > 0.5;
-    const sails = e.sailsByHeight ??= [...(b.Sails ?? [])].sort((p, q) => q.worldMatrix()[13] - p.worldMatrix()[13]);
+    const sails = e.sailsByHeight ??= (b.Sails ?? []).map((n) => [n, canvasHeight(n)]).sort((p, q) => q[1] - p[1]).map(([n]) => n);
     const shown = s.damage.maxSail > 0 ? sailsShown(sails.length, s.damage.sailShare()) : sails.length;
     sails.forEach((sail, i) => { const on = i >= sails.length - shown; if (sail.activeSelf !== on) sail.setActive(on); });
     for (const sail of b.Sails ?? []) {
       const a = animatorOf(sail);
       if (!a) continue;
       if (a.GetBool('Stowed') === set) stowSail(a, !set);
-      a.SetFloat('Wind', set ? Math.min(1, wl) : 0);
+      a.SetFloat('Wind', set ? sailSide(b, sail, w) * Math.min(1, wl) : 0);   // AUDIT GN2-RG6: blown to her lee side
     }
     // AUDIT NAV1 (the presentation): HER COLOURS BY HER STATE - her faction's while she sails and fights, struck with her
     // (the flag's emitter stops: they come down), the captor's once she is taken (the player's boats' own orange -
@@ -1835,9 +1859,10 @@ export function createNavalHost(deps) {
    *  a swimmer or a quay against her side aboard. AUDIT GN-D3: that reach the capsule's own radius (motor.js
    *  CAPSULE_RADIUS), never the feet's own cell alone - a 0.5 m cell read a man between her guns, on a gun, on her
    *  mast's step as ashore (the galleon's 891 of 25197 standable points under her main deck, the Carrack's 638, the
-   *  Large Galley's 3829: no Sail ho!, no alarm, rest and journeys open, playerAfloat false), while the capsule's reach
-   *  misses none of the galleon's, and with her floors read only where they face up (AUDIT GN-D-wall: her bottom's
-   *  underside stood a swimmer on it) reads none of the points round her hull aboard (a metre read 3.8%). */
+   *  Large Galley's 5436 (AUDIT GN2-DK5: it said 3829): no Sail ho!, no alarm, rest and journeys open, playerAfloat
+   *  false), while the capsule's reach misses none of the galleon's, and with her floors read only where they face up
+   *  (AUDIT GN-D-wall: her bottom's underside stood a swimmer on it) reads none of the points round her hull aboard (a
+   *  metre read 3.8%). */
   const _aboardLocal = [0, 0, 0];
   const standsOn = (boat, feet) => {
     const r = boat.GameObject?.worldMatrix?.(), b = hullBuild(boat.hull);

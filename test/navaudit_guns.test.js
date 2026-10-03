@@ -19,6 +19,8 @@ import { orientedBox, launchVelocity, rangeAt, NAVAL_DEG } from '../src/systems/
 import { navalWireRecord } from '../src/systems/naval/navalWire.js';
 import { NAVAL_SFX, navalSoundRange } from '../src/systems/naval/navalSounds.js';
 import { hullBoxOf, rigBoxesOf, STRUCK_GRACE_S, TALLY_S, SHIP_FADE_S } from '../src/scenes/navalHost.js';
+import { stowSail } from '../src/systems/comeSailAway.js';   // AUDIT GALLEON-2 RG3: her canvas set, where her rig's boxes stand
+import { animatorOf } from '../src/systems/comeSailAwayBoat.js';
 import { navalHudText } from '../src/ui/navalHud.js';
 import { quatEuler } from '../src/world/unityAnimator.js';
 import { sea } from './navalSea.mjs';
@@ -329,6 +331,7 @@ test('AUDIT NAV1 G12 the rig is a target: a ball through her canvas tears it - a
   assert.deepEqual(events.filter((e) => e.type === 'hit').map((e) => e.zone), ['hull'], 'her side is hull');
   // a real hull's rig, heeled with her
   const h = await sea({ hull: HULL.SmallShip });
+  for (const sail of h.boat.Sails) stowSail(animatorOf(sail), false);   // PIN MOVED (AUDIT GALLEON-2 RG3): her canvas set - furled, no box stands
   const upright = rigBoxesOf(h.boat)[0];
   near(upright.ay[1], 1, 1e-9, 'upright');
   h.boat.MeshObject.localRotation = quatEuler(0, 0, 12);

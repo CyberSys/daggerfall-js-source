@@ -7,8 +7,8 @@
 // NO DOCK DATA EXISTS. A port town is a flag in its exterior data, so a HARBOUR is found from the terrain
 // (`findHarbour`): the town's rect grown HARBOUR_REACH, walked on a SHORE_STEP grid for water beside land; each such
 // shore point, stood off the land along the shore's normal by her half width and BERTH_MARGIN, is a berth lying
-// parallel to the shore - kept only where her whole footprint (bow to stern, beam to beam) is water, and BERTH_SPACING
-// of her length from every other. The harbour's MOUTH is the first point out from the berths along their mean normal
+// parallel to the shore - kept only where her whole footprint (bow to stern, beam to beam) is water (AUDIT GN2-GN1: deep
+// enough for the deepest keel that berths), and BERTH_SPACING of her length from every other. The harbour's MOUTH is the first point out from the berths along their mean normal
 // with MOUTH_CLEAR of open water all round it: where a ship leaves the harbour for the sea and meets it coming in.
 //
 // A WAY THROUGH THE WATER (`createWaterGrid`): WATER_CELL cells, a cell open when her hull floats at its centre and at
@@ -50,6 +50,22 @@ export const MOUTH_CLEAR = 60;
 export const MOUTH_REACH = 900;
 /** The hull a harbour's berths are sized for - the longest that berths (a galley rows in and out, never moors). */
 export const BERTH_HULL = 4;
+/** AUDIT GN2-GN1: the hulls that berth (every one but the galley). A berth is sounded deep enough for the deepest keel
+ *  of them (draftOf - Mac's galleon's 4.7 m, the mod's galleon's 3.41 fallen back, past the Carrack's 3.2): sounded for
+ *  BERTH_HULL's alone, every berth off a carved shelf was land to hull 2, and each galleon stood at one lay there frozen. */
+export const BERTH_HULLS = Object.freeze([0, 1, 2, 4]);
+/** A hull's water under her keel (m), rowboat to carrack - how shoal a sea she can sail (world.js navalIsWater). AUDIT
+ *  GN-G6: hull 2's is her keel's (the table's 2.2 sailed the new galleon's 4.64 m keel over a 2.3 m floor). AUDIT
+ *  GN2-PF6: read off hullBuild as she stands, DRAFT_SPARE under it - the mod's galleon's 3.41 while it stands in for the
+ *  new one (AUDIT GN-G4); a frozen 4.7 kept it out of water it sails. */
+export const HULL_DRAFT = Object.freeze([0.8, 1.4, null, 2.8, 3.2]);
+export const DRAFT_SPARE = 0.06;
+export const draftOf = (hull) => {
+  const h = Math.min(HULL_DRAFT.length - 1, Math.max(0, hull | 0));
+  return h === 2 ? DRAFT_SPARE - hullBuild(2).keel : /** @type {number} */ (HULL_DRAFT[h]);
+};
+/** AUDIT GN2-GN1: the deepest keel of BERTH_HULLS as the hulls stand. */
+export const deepestBerther = () => BERTH_HULLS.reduce((a, h) => (draftOf(h) > draftOf(a) ? h : a));
 /** The water grid: its cell (m), the clearance round a cell's centre it asks water at (cells), and the most nodes one
  *  way may expand. */
 export const WATER_CELL = 20;
@@ -123,10 +139,12 @@ export function footprintClear(pos, yaw, hull, isWater) {
  * A port town's harbour off the terrain: `rect` the town's footprint in the scene ({ minX, maxX, minZ, maxZ }),
  * `isWater(x, z, hull)`. Answers `{ berths: [{ pos: [x, z], yaw, normal: [x, z], approach: [x, z] }], mouth: [x, z],
  * hull }`, the berths nearest the town first - or null where the town has no shore to berth at or no way out to sea.
+ * AUDIT GN2-GN1: sounded for `hull`'s footprint in `deep`'s water too - the deepest keel that berths (BERTH_HULLS).
  */
-export function findHarbour({ rect, isWater, hull = BERTH_HULL, max = HARBOUR_BERTHS }) {
+export function findHarbour({ rect, isWater: own, hull = BERTH_HULL, deep = deepestBerther(), max = HARBOUR_BERTHS }) {
   const { length, halfWidth } = hullSize(hull);
-  const water = (x, z) => !!isWater(x, z, hull);
+  const isWater = (x, z, h) => !!own(x, z, h) && (h === deep || !!own(x, z, deep));
+  const water = (x, z) => isWater(x, z, hull);
   const cx = (rect.minX + rect.maxX) / 2, cz = (rect.minZ + rect.maxZ) / 2;
   const x0 = rect.minX - HARBOUR_REACH, x1 = rect.maxX + HARBOUR_REACH, z0 = rect.minZ - HARBOUR_REACH, z1 = rect.maxZ + HARBOUR_REACH;
   const cands = [];

@@ -22,6 +22,8 @@ import { yardText, yardNote, mountNavalYardWindow } from '../src/ui/navalYardWin
 import { createNavalYardOverlay, navalYardOpen, closeNavalYard } from '../src/ui/navalPlunderDoor.js';
 import { WARM_CHUNKS } from '../src/ui/enhancedChunk.js';
 import { sea } from './navalSea.mjs';
+import { stowSail } from '../src/systems/comeSailAway.js';   // AUDIT GALLEON-2 RG3: her canvas set, where her rig's boxes stand
+import { animatorOf } from '../src/systems/comeSailAwayBoat.js';
 import { mendScaleOf, MORALE_START } from '../src/systems/naval/shipCrew.js';   // SHIP-CREW: the mending by her crew's spirits
 
 // the suite's DOM, a step nearer a browser for a window that greys its presses (test/nav_f_ui.test.js's own)
@@ -535,6 +537,7 @@ test('AUDIT NAV1 H12 her hurts in her handling: Come Sail Away\'s way is the hos
   assert.equal(h.host.wayScale(false), 1);
   assert.equal(h.host.sailRefused(), null);
   // half her canvas shot away
+  for (const sail of h.boat.Sails) stowSail(animatorOf(sail), false);   // PIN MOVED (AUDIT GALLEON-2 RG3): her canvas set - furled, no box stands
   const bat = { delay: 0, p0: [0, 20, -60], v0: [0, 0, 120], gun: 'chain', index: 0 };
   const rig = rigBoxesOf(h.boat)[0];
   assert.ok(rig, 'her rig');

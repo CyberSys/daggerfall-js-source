@@ -340,6 +340,23 @@ test('AUDIT NAV2 F24 a galley fights a low hull from outside her dead zone: a wa
   assert.ok(inside < 8 * T / 3, `inside her dead zone ${inside.toFixed(0)} s of ${8 * T}`);
 });
 
+test('AUDIT NAV2 F24 a galley keeps her station on a low hull outside her great guns\' dead zone, past her own range: every gun reloading, a Large Boat lying still off her beam, she opens the range inside layMin of her bow guns (91 m - past her broadside\'s 57 and her class\'s 70) and closes it outside (mutants: the station inside the dead zones - AUDIT GALLEON-2 TS4: it lived on the F25 duels alone, and they no longer flip)', () => {
+  const bowDz = layMin(HULL.LargeGalley, 'bow', HULL.LargeBoat), sideDz = layMin(HULL.LargeGalley, 'starboard', HULL.LargeBoat);
+  const range = classById('navyGalley').range;
+  assert.ok(sideDz < range && range < bowDz - 10, `the bow's dead zone (${bowDz}) past her range (${range}), past her broadside's (${sideDz})`);
+  const wrong = [];
+  for (const wind of [[0, 0, 1.5], [1.2, 0, 0.6]]) {
+    for (let d = sideDz + 3; d <= bowDz + 40; d += 4) {
+      const g = createSeaShip({ id: 'g', seed: 1, classId: 'navyGalley', pos: [0, 0, 0], yaw: Math.PI / 2 });
+      for (const side of ['starboard', 'port', 'bow', 'stern']) g.guns.fired(side);
+      stepCaptain(g, { now: 0, dt: 0.1, seaY: 0, wind, isWater: open, random: () => 0.5, notoriety: () => 100, contacts: [player([0, 0, d], { hull: HULL.LargeBoat, hullShare: 1 })] });
+      const closing = Math.cos(g.wantPrev);   // the boat dead north of her: her course's share toward it
+      if (Math.abs(d - bowDz) > 2 && (closing > 0) !== (d > bowDz)) wrong.push(`${d} m: ${closing > 0 ? 'closes' : 'opens'} (${closing.toFixed(3)})`);
+    }
+  }
+  assert.deepEqual(wrong, [], `her station at her great guns' ${bowDz} m`);
+});
+
 // ── F26: a galley's ram and a prize ──────────────────────────────────────────────────────────────────────────────────
 
 test('AUDIT NAV2 F26 a galley\'s ram brings a sound ship to strike, never under: a corsair galley\'s stem into a coaster at speed - a blow that would sink her outright - leaves her struck, a prize to take (mutants: the ram unbounded)', async () => {
