@@ -137,8 +137,9 @@ test('ARENA4b my cheer from the stands over the real relay: sent through the wat
   await H.hello(B, 'peer-brann', null, { name: 'Brann', kind: 'linked', tokenSub: 'acct-brann', ar: 1040 });
   await wordTo(H, A, { k: 'q', lv: 20 }); await wordTo(H, B, { k: 'q', lv: 30 });
   step(1000); await H.fire();
-  const o = lastOf(A, 'of').o;
-  await wordTo(H, A, { k: 'y', o }); await wordTo(H, B, { k: 'y', o });
+  const of = lastOf(A, 'of').o;
+  await wordTo(H, A, { k: 'y', o: of }); await wordTo(H, B, { k: 'y', o: of });
+  const o = lastOf(A, 'go').o;   // AUDIT PRE-MERGE 1003 S7: the bout's room is the go's, never the offer's id
   const R = W.room(arenaBoutRoom(o));
   const a = R.connect(), b = R.connect();
   await R.hello(a, 'fight-alva', { x: C[0] - 6, y: 0.3, z: C[2], yaw: 0, pitch: 0, mv: 0 }, { name: 'Alva', kind: 'linked', tokenSub: 'acct-alva', lv: 20 });

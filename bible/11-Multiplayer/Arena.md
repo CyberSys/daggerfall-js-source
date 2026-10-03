@@ -667,11 +667,15 @@ and on the `?exterior` host (no online session) the local seeded exhibition runs
 **2. The ladder's trust.** A relay ladder bout's vitality no longer trusts the word: a new signed token claim `cl` - the
 character's level, a whole number 1..1000 from the realm character's own tile (`server-account/src/realm.js
 realmLevelOf`), minted only for the calling account's realm character, validated by `identityToken.js
-characterLevelIssuable` - carried by the relay's `_named` and read alone (`arenaLaw.js ladderVitality`: 25 + 30 a level,
-10..2,000); the word's `mh` is ignored and no longer sent. A token from an older service (no `cl`) has its claimed level
-capped at the tier's top opponent's level plus five (`ladderLevelCap`: 8 at the Pit to 26 at the Grand Melee) - about two
-tiers, so an honest over-levelled fighter fights near their level and a forged sixty does not reach the Pit. The relay
-still does not check a ladder bout is the account's next - the service's ordered write is the arbiter, as ARENA4 had it.
+characterLevelIssuable` - carried by the relay's `_named` and read in place of the word's (`arenaLaw.js ladderVitality`:
+25 + 30 a level, 10..2,000); the word's `mh` is ignored and no longer sent. A token from an older service (no `cl`) falls
+back to its claimed level. EITHER LEVEL is capped at the tier's top opponent's level plus five (`ladderLevelCap`: 8 at
+the Pit to 26 at the Grand Melee) - about two tiers, so an honest over-levelled fighter fights near their level and a
+forged level reaches the Pit at the Pit's cap, 265 health, signed or not. The signature says whose the level is, not
+that it is true: the tile's `level` is the summary the client writes itself (`/v1/realm/create`'s and every
+checkpoint's), never read against the save - this record first said the signed level was read alone and uncapped, and
+a token signing a thousand fought the Pit at 2,000 health (AUDIT PRE-MERGE 1003 S2). The relay still does not check a
+ladder bout is the account's next - the service's ordered write is the arbiter, as ARENA4 had it.
 
 **3. The players' blows.** Each swing carries one sequence `q` (`dungeonContext.js nextArenaQ`) shared by every body it
 meets, each arrow its own, so a cleave is one blow to the rate check; a spell that strikes a player rival goes to the

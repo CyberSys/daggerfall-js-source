@@ -535,6 +535,8 @@ export const ARENA_TEXT = F({
     ladderKept: 'The bout is on the realm\'s record.',
     grand: 'The realm names you Grand Champion of the Arena!',
     order: 'This win is not your next bout on the ladder, so the realm does not count it.',
+    /** AUDIT PRE-MERGE 1003 S4: the service's `reused` - the bout's id is already on the record as another bout. */
+    reused: 'The realm already keeps another bout under this one\'s name, so it does not count it.',
     guest: 'Your bouts count once your account has a name. Register to keep them.',
     points: (n, b) => `+${n} for ${b}.`,
     // the stands

@@ -71,9 +71,10 @@ test('ARENA4b casual bout on the relay: two casual seekers offered one bout that
   assert.equal(last(R0, 'of'), null, 'the rated seeker waits on');
   await word(H, A, { k: 'y', o: oa.o }); await word(H, B, { k: 'y', o: oa.o });
   assert.deepEqual([last(A, 'go').u, last(B, 'go').u], [1, 1], 'called to a casual bout');
+  const o = last(A, 'go').o;   // AUDIT PRE-MERGE 1003 S7: the bout's room is the go's, never the offer's id
   await word(H, A, { k: 'ls' });
-  assert.equal(last(A, 'live').l.find((e) => e.o === oa.o).u, 1, 'listed as one');
-  const Rm = W.room(arenaBoutRoom(oa.o));
+  assert.equal(last(A, 'live').l.find((e) => e.o === o).u, 1, 'listed as one');
+  const Rm = W.room(arenaBoutRoom(o));
   const kp = await subtle.generateKey({ name: 'Ed25519' }, true, ['sign', 'verify']);
   Rm.env.GATE_SIGNING_KEY = Buffer.from(new Uint8Array(await subtle.exportKey('pkcs8', kp.privateKey))).toString('base64');
   const a = Rm.connect(), b = Rm.connect();

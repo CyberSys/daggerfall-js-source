@@ -173,7 +173,7 @@ export function createArenaOnline(deps) {
     if (d?.recorded === true) won = d.won === true;
     else if (d?.why === 'claimed') won = c.r === 1;   // kept before: the receipt's own result (a ladder receipt's r 1 is a win)
     else if (arenaClaimVerdict(a) === 'done' || d?.why === 'guest') won = false;   // out of the climb's order, a guest's, a receipt refused for good
-    if (d?.recorded === false && d.why === 'order') say(O.order);
+    if (d?.recorded === false && (d.why === 'order' || d.why === 'reused')) say(O[d.why]);   // AUDIT PRE-MERGE 1003 S4: a reused bout's own words - and, never `claimed`, no purse
     if (won === null) return;
     const e = owed.get(c.j) ?? { gold: null, pay: null, won: null, at: now() };
     e.won = won;
