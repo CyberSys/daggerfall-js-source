@@ -499,7 +499,7 @@ test('ROAD-G G2 review: the cast engine raises the two ready-spell doors into TH
   // host owns its own cast engine, and worldModes takes THIS instance
   // for the interior mode, so while the mount passed neither key every
   // `cast X spell do` / `cast X effect do` on this route - and in every
-  // shop entered from it - was permanently deaf. world.js:9187-9188 and
+  // shop entered from it - was permanently deaf. world.js:9188-9189 and
   // dungeonContext.js:2797-2798 wire the identical pair.
   const doorSrc = slice('    onNewReadySpell: (sp) => questBridge',
     '    // ROAD-G G2 (a): THE THREE-ARM SHAPE');
