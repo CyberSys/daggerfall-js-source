@@ -72,7 +72,7 @@ function bodyFrom(src, from) {
 /** The body of a teardown declared as `destroy() {` / `dispose() {` at the start of a line. */
 function teardownBody(src, name) {
   // a method shorthand (`destroy() {`), a declaration (`function tryExit() {`)
-  // or a method with arguments (`forceExitToExterior({ cacheScene = true } = {}) {`)
+  // or a method with arguments (`forceExitToExterior({ cacheScene = true, load = false } = {}) {`)
   const re = new RegExp(`^\\s*(?:async\\s+)?(?:function\\s+)?${name}\\(`, 'm');
   const m = re.exec(src);
   assert.ok(m, `${name}() not found`);

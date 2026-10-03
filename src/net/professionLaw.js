@@ -185,7 +185,7 @@ export const SPECIALISATIONS = Object.freeze({
   }),
   cooking: Object.freeze({
     50: pair(spec('cook', 'Cook', '+1 serving a dish.'),
-      spec('field-cook', 'Field Cook', "A campfire without a Campfire Kit's charge.")),
+      spec('field-cook', 'Field Cook', 'A night at your own Campfire spends no fuel.')),
     100: pair(spec('chef', 'Chef', 'Feasts last +50%.'),
       spec('provisioner', 'Provisioner', 'Rations and dishes never spoil.')),
   }),

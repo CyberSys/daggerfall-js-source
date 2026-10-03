@@ -29,11 +29,12 @@
   {
     "name": "RESTSYNC-a-refused-ask-breaks-the-rest",
     "file": "src/scenes/dungeonContext.js",
-    "old": " y: q3(_motorYaw) } })) _restAskAt = Date.now();",
-    "new": " y: q3(_motorYaw) } }) || true) _restAskAt = Date.now();",
+    "old": " s: [q2(spot.x), q2(spot.y), q2(spot.z)] } })) {",
+    "new": " s: [q2(spot.x), q2(spot.y), q2(spot.z)] } }) || true) {",
     "tests": [
       "test/restsync.test.js"
-    ]
+    ],
+    "note": "AUDIT REST II (PIN MOVED): F1 made the sent ask's arm a block (a night running hears it at once - ambushNight - and only a paced window latches the hour); re-aimed by content at the ask's own test, the refused ask still let through. AUDIT REST III E1 (PIN MOVED): re-aimed by content - the ask names the spot its placement found, the host stands it there."
   },
   {
     "name": "RESTSYNC-the-ask-breaks-every-hour",
@@ -83,11 +84,12 @@
   {
     "name": "RESTSYNC-stood-by-the-hosts-feet",
     "file": "src/scenes/dungeonContext.js",
-    "old": "{ feet: f, yaw: Number.isFinite(rs.y) ? rs.y : 0, shared: true })",
-    "new": "{ yaw: Number.isFinite(rs.y) ? rs.y : 0, shared: true })",
+    "old": "{ feet: f, yaw: Number.isFinite(rs.y) ? rs.y : 0, shared: true, asked: s })",
+    "new": "{ yaw: Number.isFinite(rs.y) ? rs.y : 0, shared: true, asked: s })",
     "tests": [
       "test/restsync.test.js"
-    ]
+    ],
+    "note": "AUDIT REST III E1 (PIN MOVED): re-aimed by content - the ask names the spot its placement found, the host stands it there."
   },
   {
     "name": "RESTSYNC-the-ask-unheard",
