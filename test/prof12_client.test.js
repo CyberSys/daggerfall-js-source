@@ -15,6 +15,7 @@ import { readFileSync } from 'node:fs';
 import { standService, T0, sessionStorageOf } from './accountDb.mjs';
 import { accountProf, SESSION_KEY, accountRefusalText } from '../src/net/accountClient.js';
 import { createProfBook } from '../src/net/profBook.js';
+import { realmGoldAct } from '../src/systems/realmSaves.js';   // AUDIT PROF-541 R2-C1
 import { xpForRank, ALCHEMY_FEE, ENCHANT_FEE, stockOf } from '../src/net/professionLaw.js';
 import { potionById, POTENT, enchantGold, potentChance } from '../src/net/alchemyLaw.js';
 import { FORT_EFFECT_WORDS, STATION_PROFESSIONS } from '../src/net/fortLaw.js';
@@ -524,4 +525,46 @@ test('AUDIT PROF-541 B2 client: a realm character\'s disenchant names where its 
   const w = src('src/scenes/world.js');
   assert.match(w, /call: \(at\) => \{ if \(!asked\) \{ asked = true; takeOut\(\); \} return out \? profBook\.disenchant\(provenance, at\) : Promise\.resolve\(\{ ok: false, error: 'prof-piece-gone' \}\); \},/);
   assert.match(w, /if \(r\?\.error === 'prof-no-piece' && r\?\.why === 'disenchanted' && takeOut\(\)\)/);
+});
+
+// ─── AUDIT PROF-541 ROUND 2 (2026-10-03) ─────────────────────────────
+
+test('AUDIT PROF-541 R2-C1/N1: a realm disenchant that LANDED (its first answer lost, the record one on) answers no Stores and no track - the world reads the state again; a press that finds the piece disenchanted already reads it again too, and pays the enchanter the fee the lost press owed', async () => {
+  // the landed act: the record one on, no data - the book's Stores untouched by it
+  let seq = 5, n = 0;
+  const door = { account: () => 'acc', disenchant: async () => { n++; if (n === 1) { seq++; return { ok: false, error: 'offline' }; } return { ok: false, error: 'seq', seq }; } };
+  const book = createProfBook({ door, storage: memStorage(), character: () => 'r0123456789abcdef0123', now: () => NOON * 1000, sleep: noWait });
+  const session = { async transact(call) { const r = await call({ id: 'r0123456789abcdef0123', lease: 'f'.repeat(32), seq: 5 }); return r; } };
+  const r = await realmGoldAct({ session, checkpoint: () => {}, wait: noWait, call: (at) => book.disenchant('aaaaaaaaaaaaaaaa', at) });
+  assert.deepEqual([r.ok, r.landed, r.data], [true, true, undefined], 'landed, its Essence and XP unsaid');
+  const w = src('src/scenes/world.js');
+  assert.match(w, /if \(paid\) deductGold\(playerEntity, Math\.min\(f\.fee, totalGoldAmount\(playerEntity\)\)\);\n(?:\s*\/\/[^\n]*\n)*\s*if \(!r\.data\) profBook\.refresh\(\{ force: true \}\)\.catch\(\(\) => \{\}\);/, 'a landed act: the state read again');
+  assert.match(w, /if \(r\?\.error === 'prof-no-piece' && r\?\.why === 'disenchanted' && takeOut\(\)\) \{\n\s*const owed = f\.fee > 0 \? Math\.min\(f\.fee, totalGoldAmount\(playerEntity\)\) : 0;\n\s*if \(owed > 0\) deductGold\(playerEntity, owed\);\n\s*profBook\.refresh\(\{ force: true \}\)\.catch\(\(\) => \{\}\);/, 'disenchanted already: the fee paid, the state read again');
+  assert.match(w, /and it leaves your pack\$\{owed > 0 \? `; you paid the enchanter \$\{owed\} gold` : ''\}\./);
+});
+
+test('AUDIT PROF-541 R2-C2: one latch holds every craft and brew (profBook _craftBusy), so the busy word names no station - not the anvil at the fire, nor the fire at the loom', async () => {
+  assert.equal(accountRefusalText('prof-busy'), 'Your hands are busy with another craft.');
+  const w = src('src/scenes/world.js');
+  assert.doesNotMatch(w, /'The anvil is still ringing|'Your last (?:work|dish|piece) is still on the/);
+  assert.match(w, /if \(!r\?\.ok\) return \{ ok: false, text: r\?\.kept \? st\.kept : accountRefusalText\(r\?\.error\) \};/);
+  // the latch is one: a brew under way refuses a dish
+  let release;
+  const door = { account: () => 'acc', brew: () => new Promise((r) => { release = r; }), craft: async () => ({ ok: true, data: {} }) };
+  const book = createProfBook({ door, storage: memStorage(), character: () => 'char-1', now: () => NOON * 1000, sleep: noWait });
+  const brewing = book.brew('healing', [], {}, () => {});
+  assert.deepEqual(await book.craft('dish:bread', {}, () => {}), { ok: false, error: 'prof-busy' });
+  release({ ok: false, error: 'bad-recipe' });
+  await brewing;
+});
+
+test('AUDIT PROF-541 R2-C3: the station\'s Apothecary steps a whole number or none, as the fire\'s (cookSteps) - a fraction never a share of a step, a word never a step', () => {
+  for (const [steps, says] of [[2.7, '+20%'], [-3, null], ['x', null], [1, '+10%']]) {
+    stubPages({ alchemy: { kind: 'home', fee: 0 }, alchemyTrack: { rank: 75, specs: { 50: null, 100: null } }, over: { alchemySteps: () => steps } });
+    const page = pageOf();
+    try {
+      if (says) assert.ok(page.text().includes(`(the Apothecary's ${says} with it)`), String(steps));
+      else assert.equal(page.text().includes('the Apothecary'), false, String(steps));
+    } finally { page.done(); setProfessionsPages(null); }
+  }
 });

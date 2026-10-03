@@ -332,7 +332,9 @@ export const REFUSALS = Object.freeze({
   'bad-material': 'The Stores do not keep that.',
   'bad-recipe': 'The forge knows no such work.',   // PROF2
   'prof-no-pack-form': 'That stays in the Stores - it never goes to the pack.',   // PROF3: the smith's stock; now a siege work and (AUDIT PROF12 E1) Arcane Essence
-  'prof-busy': 'The anvil is still ringing from your last work.',   // PROF3: one craft at a time
+  // PROF3: one craft at a time; AUDIT PROF-541 R2-C2: one latch for every craft and brew (profBook.js _craftBusy) - the
+  // anvil's word named the wrong work at the fire, the loom and the cauldron, so the words name none
+  'prof-busy': 'Your hands are busy with another craft.',
   'prof-later': 'That is made when the sieges come.',   // PROF4: the Ram Kit (PROF0 25)
   // PROF7: Hunting's day - the account's, every character's together (PROF0 6)
   'prof-hunt-cap': `Your account has taken all the hides a day allows (${HIDES_PER_DAY}, across your characters).`,

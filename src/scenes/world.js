@@ -1325,18 +1325,20 @@ export async function bootWorld(canvas, renderer, params, status) {
   let huntBodies = () => [];
   /** PROF7: the station a recipe's profession is crafted at - the anvil (Smithing's), the workbench (Carpentry's, PROF4),
    *  the loom (Outfitting's) - its place, its keeper and its words. */
-  // AUDIT 32 B4: and each its own busy word - the anvil's rang at the workbench and the loom
+  // AUDIT 32 B4: and each its own busy word - the anvil's rang at the workbench and the loom; AUDIT PROF-541 R2-C2: no more -
+  // one latch holds every craft and brew (profBook.js _craftBusy), so a station's own word named another's work: the
+  // book's refusal says the hands are busy (accountClient.js 'prof-busy')
   const craftStation = (profession) => (profession === 'carpentry'
-    ? { here: () => modes?.workbenchHere?.() ?? null, a: 'a workbench', who: 'furnisher', noun: 'workbench', kept: BENCH_KEPT_TEXT, xp: 'Carpentry', busy: 'Your last work is still on the workbench.' }
+    ? { here: () => modes?.workbenchHere?.() ?? null, a: 'a workbench', who: 'furnisher', noun: 'workbench', kept: BENCH_KEPT_TEXT, xp: 'Carpentry' }
     : profession === 'outfitting'
-      ? { here: () => modes?.loomHere?.() ?? null, a: 'a loom', who: 'tailor', noun: 'loom', kept: LOOM_KEPT_TEXT, xp: 'Outfitting', busy: 'Your last work is still on the loom.' }
+      ? { here: () => modes?.loomHere?.() ?? null, a: 'a loom', who: 'tailor', noun: 'loom', kept: LOOM_KEPT_TEXT, xp: 'Outfitting' }
       : profession === 'masonry'   // PROF11: the mason's bench - a General Store's or a home's
-        ? { here: () => modes?.masonHere?.() ?? null, a: 'a mason\'s bench', who: 'mason', noun: 'mason\'s bench', kept: MASON_KEPT_TEXT, xp: 'Masonry', busy: 'Your last work is still on the bench.' }
+        ? { here: () => modes?.masonHere?.() ?? null, a: 'a mason\'s bench', who: 'mason', noun: 'mason\'s bench', kept: MASON_KEPT_TEXT, xp: 'Masonry' }
         : profession === 'cooking'   // PROF9: the fire - any lit one, a campfire, a hearth, a brazier; no fee
-          ? { here: () => cookFireHere(), a: 'a fire', who: 'cook', noun: 'fire', kept: COOK_KEPT_TEXT, xp: 'Cooking', busy: 'Your last dish is still on the fire.' }
+          ? { here: () => cookFireHere(), a: 'a fire', who: 'cook', noun: 'fire', kept: COOK_KEPT_TEXT, xp: 'Cooking' }
           : profession === 'jewelcrafting'   // PROF10: the jeweller's bench - a Pawn Shop's or a Gem Store's, or a home's
-            ? { here: () => modes?.jewellerHere?.() ?? null, a: 'a jeweller\'s bench', who: 'jeweller', noun: 'jeweller\'s bench', kept: JEWEL_KEPT_TEXT, xp: 'Jewelcrafting', busy: 'Your last piece is still on the bench.' }
-            : { here: () => modes?.forgeHere?.() ?? null, a: 'an anvil', who: 'smith', noun: 'anvil', kept: CRAFT_KEPT_TEXT, xp: 'Smithing', busy: accountRefusalText('prof-busy') });
+            ? { here: () => modes?.jewellerHere?.() ?? null, a: 'a jeweller\'s bench', who: 'jeweller', noun: 'jeweller\'s bench', kept: JEWEL_KEPT_TEXT, xp: 'Jewelcrafting' }
+            : { here: () => modes?.forgeHere?.() ?? null, a: 'an anvil', who: 'smith', noun: 'anvil', kept: CRAFT_KEPT_TEXT, xp: 'Smithing' });
   /** AUDIT 32 B3: a balance a counter's purchase answered, told to every book that shows one - the Bank's and the
    *  market's (AUDIT 30 U6's law, which the Stores page's counters never kept: the Market tab read the old one for its
    *  minute's cache). One door for the Stores page's counters and the Market tab's Weavers'. */
@@ -8679,7 +8681,7 @@ export async function bootWorld(canvas, renderer, params, status) {
           const hall = seatHere(_musicLoc?.mapTableData?.mapId);
           const seat = hall && hall.holder?.guild?.id === (guildBook?.guild?.id ?? null) && stationSteps(recipeById(recipe)?.profession, hall.forts ?? {}) > 0 ? hall.key : null;
           const r = await profBook.craft(recipe, { clean, heartwood, dye, cracked, fee: f.fee > 0 ? f.fee : 0, name: typeof playerEntity?.name === 'string' ? playerEntity.name : null, seat }, profMintCraft);   // PROF10: a Lapidary's cracked gem
-          if (!r?.ok) return { ok: false, text: r?.kept ? st.kept : r?.error === 'prof-busy' ? st.busy : accountRefusalText(r?.error) };
+          if (!r?.ok) return { ok: false, text: r?.kept ? st.kept : accountRefusalText(r?.error) };
           const paid = f.fee > 0 && !r.elsewhere;
           const rec = recipeById(recipe);
           const made = rec?.kind === 'siege' ? storedText(rec.name, Number(r.data.count) || 1) : craftedText(mintPieces(r.data));   // SEAT2b part two: a Ram Kit is the Stores'
@@ -8712,6 +8714,8 @@ export async function bootWorld(canvas, renderer, params, status) {
         cookSteps: () => { const hall = seatHere(_musicLoc?.mapTableData?.mapId); return hall && hall.holder?.guild?.id === (guildBook?.guild?.id ?? null) ? stationSteps('cooking', hall.forts ?? {}) : 0; },
         // PROF10 (bible/06-Systems/Professions-Arc.md 9.3, 9.4): THE JEWELLER'S BENCH the player stands at, and the facet's band
         jeweller: () => modes?.jewellerHere?.() ?? null,
+        // AUDIT PROF-541 R2-C6: and the town Apothecary's quality steps a piece takes there - the seat the craft sends, as cookSteps
+        jewelSteps: () => { const hall = seatHere(_musicLoc?.mapTableData?.mapId); return hall && hall.holder?.guild?.id === (guildBook?.guild?.id ?? null) ? stationSteps('jewelcrafting', hall.forts ?? {}) : 0; },
         // PROF12 (bible/06-Systems/Professions-Arc.md 9.3, 37): THE ALCHEMY STATION the player stands at (an Alchemist's, its
         // fee a brew; a home's), a brew through the book - its potions into the pack, kept until minted, the fee paid as they
         // are - under the Apothecary's steps where my guild holds the town; the transmutations ride the smelt below
@@ -8770,11 +8774,22 @@ export async function bootWorld(canvas, renderer, params, status) {
           if (!r?.ok) {
             // AUDIT PROF-541 B2: a disenchant of this account took the piece's record already (an answer lost, the save
             // kept the piece) - the save's copy goes too, as the answer it missed would have taken it
-            if (r?.error === 'prof-no-piece' && r?.why === 'disenchanted' && takeOut()) { saveSoon.changed(); return { ok: false, text: `${name} was disenchanted already - its Essence is in your Stores, and it leaves your pack.` }; }
+            // AUDIT PROF-541 R2-C1: the Stores and Enchanting's track read again (the answer that moved them was lost);
+            // R2-N1: and the enchanter paid the fee the lost press owed, as the answered one pays it
+            if (r?.error === 'prof-no-piece' && r?.why === 'disenchanted' && takeOut()) {
+              const owed = f.fee > 0 ? Math.min(f.fee, totalGoldAmount(playerEntity)) : 0;
+              if (owed > 0) deductGold(playerEntity, owed);
+              profBook.refresh({ force: true }).catch(() => {});
+              saveSoon.changed();
+              return { ok: false, text: `${name} was disenchanted already - its Essence is in your Stores, and it leaves your pack${owed > 0 ? `; you paid the enchanter ${owed} gold` : ''}.` };
+            }
             return { ok: false, text: accountRefusalText(r?.error) };
           }
           const paid = f.fee > 0 && out != null;
           if (paid) deductGold(playerEntity, Math.min(f.fee, totalGoldAmount(playerEntity)));
+          // AUDIT PROF-541 R2-C1: a realm act that LANDED (its answer lost, the record one on) says no Stores and no track -
+          // the state read again, so the Essence and the XP show now, not at the next read
+          if (!r.data) profBook.refresh({ force: true }).catch(() => {});
           saveSoon.changed();
           const got = Number.isSafeInteger(r.data?.essence) ? `${r.data.essence} Arcane Essence (+${r.data.xp} Enchanting XP)` : 'Arcane Essence';   // a landed realm act says no more
           return { ok: true, text: `${name} comes apart into ${got}${paid ? `, and paid the enchanter ${f.fee} gold` : ''}.` };

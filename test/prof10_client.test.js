@@ -30,6 +30,10 @@ import { validLootItem } from '../src/systems/loot.js';
 import { rarityEligible, RARE_FLAVOURS } from '../src/systems/lootRarity.js';
 import { PORT_SPECS } from '../src/ui/enhancedPorts.js';   // AUDIT PROF-541 J3: the Enhanced+ skin's item maker
 import { enchantmentRowCost } from '../src/systems/enchanting.js';   // AUDIT PROF-541 J4
+import { MAX_ENCHANTMENTS } from '../src/systems/enchanting.js';   // AUDIT PROF-541 R2-C5
+import { pieceLines } from '../src/net/recipeLaw.js';   // AUDIT PROF-541 R2-C4
+import { scrollerToolTipText } from '../src/ui/itemScroller.js';
+import { itemPowerLines } from '../src/ui/enhancedInventory.js';
 import {
   setProfessionsPages, drawStoresPage, drawProfessionsPage, resetProfPages, setDownProfAct, profActUnderWay, _jewelForTests, _cookForTests,
   PROF_STATIONS, stationColdLine, JEWEL_COLD_LINE, FACET_DOWN_LINE, jewelRecipes, jewelPointsLine,
@@ -460,7 +464,7 @@ test('PROF10 wiring: the jeweller\'s bench a Pawn Shop\'s or a Gem Store\'s (ope
   assert.match(m, /if \(decorOwnerHere\(\) && interiorDecor\.list\(\)\.some\(\(p\) => p\?\.station === 'jeweller'\)\) return \{ kind: 'home', fee: 0 \};/);
   assert.match(m, /if \(hallMemberHere\(\) && interiorDecor\.list\(\)\.some\(\(p\) => p\?\.station === 'jeweller'\)\) return \{ kind: 'home', fee: 0 \};/);
   const w = src('src/scenes/world.js');
-  assert.match(w, /: profession === 'jewelcrafting'[^\n]*\n\s*\? \{ here: \(\) => modes\?\.jewellerHere\?\.\(\) \?\? null, a: 'a jeweller\\'s bench', who: 'jeweller', noun: 'jeweller\\'s bench', kept: JEWEL_KEPT_TEXT, xp: 'Jewelcrafting', busy: 'Your last piece is still on the bench\.' \}/);
+  assert.match(w, /: profession === 'jewelcrafting'[^\n]*\n\s*\? \{ here: \(\) => modes\?\.jewellerHere\?\.\(\) \?\? null, a: 'a jeweller\\'s bench', who: 'jeweller', noun: 'jeweller\\'s bench', kept: JEWEL_KEPT_TEXT, xp: 'Jewelcrafting' \}/);   // PIN MOVED (AUDIT PROF-541 R2-C2): no station's own busy word
   assert.match(w, /jeweller: \(\) => modes\?\.jewellerHere\?\.\(\) \?\? null,/);
   assert.match(w, /facetBand: \(\) => facetBand\(\{ willpower: liveStat\(playerEntity, 'willpower'\), luck: liveStat\(playerEntity, 'luck'\) \}\),/);
   assert.match(w, /craft: async \(recipe, \{ clean, heartwood = false, dye = null, cracked = false \}\) => \{/);
@@ -630,4 +634,41 @@ test('AUDIT PROF-541 J5: a Wand rolls no Magic or Rare (no slot: lootRarity.js r
     page.recipe('Silver Ruby Ring').onclick();
     assert.match(page.text(), /The item maker spends them, beside a Masterwork's own enchantment\./);
   } finally { page.done(); setProfessionsPages(null); }
+});
+
+// ─── AUDIT PROF-541 ROUND 2 (2026-10-03) ─────────────────────────────
+
+test('AUDIT PROF-541 R2-C4: a crafted piece\'s points said as the item maker reads them (craftedJewelPoints) - a ring forged with two billion says a plain Silver Ring\'s 1,800 on the tooltip and the card; the law\'s line its own where none is handed in', () => {
+  const forged = { ...mintPiece({ recipe: 'ring:silver', quality: 1, seed: 1 }, PROV), enchantmentPoints: 2_000_000_000 };
+  assert.ok(scrollerToolTipText(forged).includes('1,800 enchantment points'), 'the classic tooltip');
+  assert.equal(scrollerToolTipText(forged).includes('2,000,000,000'), false);
+  assert.ok(itemPowerLines(forged).includes('1,800 enchantment points'), 'the Enhanced+ card');
+  assert.ok(pieceLines(forged).includes('2,000,000,000 enchantment points'), 'the law alone: the item\'s own');
+  assert.ok(pieceLines(forged, 1800).includes('1,800 enchantment points'));
+  const honest = mintPiece({ recipe: 'ring:silver', quality: 1, seed: 1, hand: 1 }, PROV);
+  assert.ok(scrollerToolTipText(honest).includes('1,980 enchantment points'), 'a Goldsmith\'s its own');
+});
+
+test('AUDIT PROF-541 R2-C5: the item maker\'s cap counts a crafted piece\'s kept rows - DFU\'s eleven rows the most the item stores, kept and new together; a plain piece eleven of its own', () => {
+  const rows = Array.from({ length: 14 }, (_, i) => enchantmentSettings('EnhancesSkill', i));
+  const mw = mintPiece({ recipe: 'mark:platinum:diamond', quality: MASTERWORK, seed: 1, maker: 'X' }, PROV);
+  applyEnchantments(mw, rows);
+  assert.equal(mw.enchantments.length, MAX_ENCHANTMENTS + 1, 'eleven in all');
+  assert.deepEqual([mw.enchantments[0].type, mw.enchantments[0].param], [ENCHANTMENT_TYPES.CastWhenHeld, 45], 'the Rare roll kept at the head');
+  const plain = mintPiece({ recipe: 'ring:silver', quality: 1, seed: 1 }, PROV);
+  applyEnchantments(plain, rows);
+  assert.equal(plain.enchantments.length, MAX_ENCHANTMENTS + 1, 'DFU\'s own eleventh row');
+});
+
+test('AUDIT PROF-541 R2-C6: the jeweller\'s bench\'s odds say the town Apothecary\'s quality steps the service adds (professions.js seatStepsFor) - a whole number or none; the world hands them by Jewelcrafting\'s station', () => {
+  for (const [steps, says] of [[2, ' (+2 steps from the town\'s Apothecary)'], [1.6, ' (+1 step from the town\'s Apothecary)'], [0, ''], [-2, '']]) {
+    stubPages({ rank: 25, held: { 'metal:gold': 9 }, over: { jewelSteps: () => steps } });
+    const page = pageOf();
+    try {
+      page.family('Gold').onclick();
+      page.recipe('Gold Ring').onclick();
+      assert.ok(page.text().includes(`Your rank 25, margin 0: Crude 20 | Standard 60 | Fine 20${says}. A clean facet is a step better`), String(steps));
+    } finally { page.done(); setProfessionsPages(null); }
+  }
+  assert.match(src('src/scenes/world.js'), /jewelSteps: \(\) => \{ const hall = seatHere\(_musicLoc\?\.mapTableData\?\.mapId\); return hall && hall\.holder\?\.guild\?\.id === \(guildBook\?\.guild\?\.id \?\? null\) \? stationSteps\('jewelcrafting', hall\.forts \?\? \{\}\) : 0; \},/);
 });

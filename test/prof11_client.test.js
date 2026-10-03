@@ -495,7 +495,7 @@ test('PROF11 wiring: the mason\'s bench a General Store\'s (open for trade) or a
   assert.match(m, /if \(decorOwnerHere\(\) && interiorDecor\.list\(\)\.some\(\(p\) => p\?\.station === 'mason'\)\) return \{ kind: 'home', fee: 0 \};/);
   assert.match(m, /if \(hallMemberHere\(\) && interiorDecor\.list\(\)\.some\(\(p\) => p\?\.station === 'mason'\)\) return \{ kind: 'home', fee: 0 \};/);
   const w = src('src/scenes/world.js');
-  assert.match(w, /: profession === 'masonry'[^\n]*\n\s*\? \{ here: \(\) => modes\?\.masonHere\?\.\(\) \?\? null, a: 'a mason\\'s bench', who: 'mason', noun: 'mason\\'s bench', kept: MASON_KEPT_TEXT, xp: 'Masonry', busy: 'Your last work is still on the bench\.' \}/);
+  assert.match(w, /: profession === 'masonry'[^\n]*\n\s*\? \{ here: \(\) => modes\?\.masonHere\?\.\(\) \?\? null, a: 'a mason\\'s bench', who: 'mason', noun: 'mason\\'s bench', kept: MASON_KEPT_TEXT, xp: 'Masonry' \}/);   // PIN MOVED (AUDIT PROF-541 R2-C2): no station's own busy word
   assert.match(w, /mason: \(\) => modes\?\.masonHere\?\.\(\) \?\? null,/);
   assert.match(w, /chiselBand: \(\) => chiselBand\(\{ strength: liveStat\(playerEntity, 'strength'\), endurance: liveStat\(playerEntity, 'endurance'\) \}\),/);
   assert.match(w, /smelt: async \(recipe, count, \{ clean = false \} = \{\}\) => \{/);

@@ -306,8 +306,10 @@ test('AUDIT 32 wiring: a flyer\'s body where its corpse lies (H3); no click thro
   assert.match(w, /active: \(\) => walkMode && modeNow\(\) === 'exterior' && !townTalk\.overlayActive && !modes\?\.deathUp\?\.\(\) && !modes\?\.transitioning && !travelView\?\.active,/, 'H10');
   assert.match(w, /profDungeonEntered: \(ctx\) => \{\n\s*if \(!gatherHost\) return;\n\s*const id = ctx\?\.profIdentity\?\.\(\);\n\s*gatherHost\.enterDungeon\(\{\n\s*id: id\?\.id \?\? null, climate: id\?\.climate \?\? null, region: id\?\.region \?\? null,/, 'H2: every dungeon told');
   assert.match(w, /const openHuntLoot = \(key\) => \(key\.startsWith\('foeCorpse:'\) \? openBodyLoot\(key\) : modes\?\.dungeonCtx\?\.takeLoot\(key, getInteractionMode\(\)\)\);/, 'H8');
-  assert.match(w, /busy: 'Your last work is still on the workbench\.' \}/, 'B4');
-  assert.match(w, /busy: accountRefusalText\('prof-busy'\) \}\);/);
+  // PIN MOVED (AUDIT PROF-541 R2-C2): B4's own busy words gone - one latch holds every craft and brew, so the book's word
+  // names none (test/prof12_client.test.js R2-C2)
+  assert.match(w, /xp: 'Carpentry' \}/, 'B4');
+  assert.match(w, /xp: 'Smithing' \}\);/);
   assert.match(src('src/systems/inputActions.js'), /\['ActChoice', 'At a profession node: the next of its acts on the list'\]/, 'R1');   // PROF-MENU: the key steps the node's list
   const idx = src('server-account/src/index.js');
   assert.match(idx, /POST \/v1\/prof\/harvest \{ character, node, kind, climate, region, act, at, rid, foe\? \}/, 'S6');

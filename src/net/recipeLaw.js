@@ -840,8 +840,10 @@ export function makerName(name) {
 /** A Masterwork's name: "Silverthorn's Mithril Longsword". */
 export const markedName = (maker, name) => `${maker}'s ${name}`;
 /** The lines a crafted piece's tooltip and card carry above its powers (PROF0 9.2): its quality and its maker - or a
- *  Repair Kit's work. Nothing for a piece no anvil or workbench made. */
-export function pieceLines(item) {
+ *  Repair Kit's work. Nothing for a piece no anvil or workbench made. AUDIT PROF-541 R2-C4: `points` a jewel's points
+ *  as the item maker reads them (systems/enchanting.js craftedJewelPoints, client-side - this law is the Worker's too),
+ *  the item's own where none is handed in. */
+export function pieceLines(item, points = null) {
   if (item?.fieldKit === true) return [`Mends ${Math.round(FIELD_KIT_REPAIR * 100)}% of a weapon's or armour's condition, up to ${Math.round(KIT_CEILING * 100)}%, once`];   // REPAIR-EASE: a looted kit has no provenance; KIT-CEILING
   if (!item || typeof item.provenance !== 'string' || !PROVENANCE_RE.test(item.provenance)) return [];
   if (Number.isInteger(item.kitMetal)) return [`Mends a quarter of a ${METAL_WORDS[item.kitMetal] ?? ''} piece's condition, up to ${Math.round(KIT_CEILING * 100)}%, once`];   // KIT-CEILING
@@ -855,6 +857,7 @@ export function pieceLines(item) {
   if (Number.isInteger(item.quality) && item.quality >= 0 && item.quality <= MASTERWORK) out.push(QUALITY_NAMES[item.quality]);
   if (typeof item.maker === 'string' && item.maker) out.push(`Made by ${item.maker}`);
   // PROF10: a piece of jewellery says the points its metal and its gem gave it - the budget the item maker reads
-  if (recipeById(item.recipe)?.kind === 'jewel' && Number.isSafeInteger(item.enchantmentPoints)) out.push(`${item.enchantmentPoints.toLocaleString('en-US')} enchantment points`);
+  const pts = Number.isSafeInteger(points) ? points : item.enchantmentPoints;
+  if (recipeById(item.recipe)?.kind === 'jewel' && Number.isSafeInteger(pts)) out.push(`${pts.toLocaleString('en-US')} enchantment points`);
   return out;
 }
