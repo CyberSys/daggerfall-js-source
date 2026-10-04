@@ -372,7 +372,7 @@ export async function levelModelRemap(id, subMeshes, texRemap, remap, deps) {
 }
 
 export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseType, opts = {}) {
-  const { renderer, arch, getGpuMesh, cpuModels, getTexture, uploadRecord, uploadRecordFrame, palette } = deps;
+  const { renderer, arch, getGpuMesh, cpuModels, getTexture, uploadRecord, uploadRecordFrame, palette, placeHold = null } = deps;   // FIELD BUGS 2026-10-04b PLACE-LRU: `placeHold` - the dungeon's hold on the shared caches (scenes/placeHolds.js), the three doors above its own; settled once built, released by destroy(). None from the standalone ?dungeon scene
 
   // Layout needs synchronous models (doors/exit extraction); a unit-size
   // pre-pass mirrors the standalone scene.
@@ -9588,8 +9588,8 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
       // ...and this context's OWN popup column (AUDIT FONT F1) - EVERY
       // ALLOCATION HAS AN OWNER, and a torn-down context's DOM column
       // would otherwise outlive it on the page.
-      hudText.dispose();
+      hudText.dispose(); placeHold?.release();   // FIELD BUGS 2026-10-04b PLACE-LRU: LAST, its own GL objects gone - its blocks, flats and foes' frames are kept a couple of dungeons' worth, then freed unless another place holds them
     },
-  };
+  }; placeHold?.settle();   // FIELD BUGS 2026-10-04b PLACE-LRU: built - the keep of this dungeon's last visit goes
   return api;
 }

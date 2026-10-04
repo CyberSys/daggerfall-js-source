@@ -678,7 +678,7 @@ export function createWorldModes(host) {
   // X7: set while an IDENTIFY SPELL's window is open ({chance, cost}),
   // null for the paid guild service. The trade window is one window
   // serving both, exactly as DFU's is.
-  const { getGpuMesh, cpuModels, getTexture, uploadRecord, uploadRecordFrame, arch, palette, getMachineryParts } = pipeline;
+  const { getGpuMesh, cpuModels, getTexture, uploadRecord, uploadRecordFrame, arch, palette, getMachineryParts } = pipeline; const placeHoldOf = (kind, key) => pipeline.holdPlace?.(kind, key) ?? { getGpuMesh, uploadRecord, uploadRecordFrame, release() {}, settle() {} };   // FIELD BUGS 2026-10-04b PLACE-LRU: a building's or a dungeon's hold on the shared caches (scenes/dataPipeline.js holdPlace), handed to its context, which settles it when built and releases it in destroy(); a bare pipeline (a test's) holds nothing
 
   /** ID1: THE INTERIOR'S OWN GROUND PILE.
    *
@@ -6982,8 +6982,8 @@ export function createWorldModes(host) {
       // (verbatim ownerPosition + buildingMatrix) - context coordinates
       // come back world-frame, landings run in one frame, and the walk
       // through the door is coordinate-seamless.
-      const ctx = await buildInteriorContext(
-        { renderer, getGpuMesh, cpuModels, getTexture, uploadRecord, uploadRecordFrame, palette, getMachineryParts },
+      const buildingHold = placeHoldOf('interior', `${hit.dfBlock?.name ?? ''}:${hit.recordIndex}`); const ctx = await buildInteriorContext(   // FIELD BUGS 2026-10-04b PLACE-LRU: the building is a place
+        { renderer, getGpuMesh: buildingHold.getGpuMesh, cpuModels, getTexture, uploadRecord: buildingHold.uploadRecord, uploadRecordFrame: buildingHold.uploadRecordFrame, palette, getMachineryParts, placeHold: buildingHold },
         // DaggerfallInterior.IsBadInteriorModel (:530-548) keys the
         // 31000-overlap repair on EntryDoor.blockIndex, which
         // RMBLayout.cs:848 mints as blockData.Index. The literal 0 is
@@ -7012,7 +7012,7 @@ export function createWorldModes(host) {
           // building ever enters that dictionary (systems/automap.js).
           dungeonEntranceDiscovered: !!getDungeonAutomap(
             automapDungeonKey(hit.dfLocation?.regionIndex ?? -1, hit.dfLocation?.name ?? ''))?.entranceDiscovered,
-        });
+        }).catch((e) => { buildingHold.release(); throw e; });   // PLACE-LRU: a build that throws hands no context back to release it
       if (!live()) { abandonContext(ctx); return false; }   // AUDIT 68 X3-transition-build-race: the world moved under the build (a load, a teleport) - nothing is published
       const siblings = entries.filter((e) =>
         e.dfBlock === hit.dfBlock && e.recordIndex === hit.recordIndex);
@@ -7788,10 +7788,10 @@ export function createWorldModes(host) {
       // published, never destroyed, and holding the process seams it
       // borrows at construction.
       const waterArchive = getGroundArchive(hit.climateBase, hit.season);
-      await getTexture(waterArchive);
+      await getTexture(waterArchive); const dungeonHold = placeHoldOf('dungeon', `${dfLocation.regionIndex}:${dfLocation.name}`);   // FIELD BUGS 2026-10-04b PLACE-LRU: the dungeon is a place - its hold, handed to the context below
       layingOutLoc = dfLocation;   // OH-E: PlayerEnterExit.Dungeon is assigned before SetDungeon lays it out (PlayerEnterExit.cs:918-919)
       const ctx = await buildDungeonContext(
-        { renderer, arch, getGpuMesh, cpuModels, getTexture, uploadRecord, uploadRecordFrame, palette },
+        { renderer, arch, getGpuMesh: dungeonHold.getGpuMesh, cpuModels, getTexture, uploadRecord: dungeonHold.uploadRecord, uploadRecordFrame: dungeonHold.uploadRecordFrame, palette, placeHold: dungeonHold },
         dfLocation, hit.blocksFile ?? blocks, dfLocation.climate.climateType, {   // WB3b: the court's blocks file answers its one made block
           automapFromLoad: fromLoad,   // MAP-KEEP: a load enters the saved record on the LOAD arm - its colour tier kept, nothing stamped or pruned
           placePlayer: placeLoadedPlayer,   // DIAL-LOAD: the host's load law, for every load the context runs - not routeKey's alone
@@ -8040,7 +8040,7 @@ export function createWorldModes(host) {
               if (p.crouching != null) player.crouching = !!p.crouching;
             },
           },
-        });
+        }).catch((e) => { dungeonHold.release(); throw e; });   // PLACE-LRU: a build that throws hands no context back to release it
       layingOutLoc = null;
       if (!live()) { abandonContext(ctx); return false; }   // AUDIT 68 X3-transition-build-race: the world moved under the build - it hands its seams back and publishes nothing
       dungeonCtx = ctx;

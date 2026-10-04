@@ -2021,7 +2021,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   const worldLightAnimator = new CityLightAnimator(4096, CITY_LIGHT_RANGE);
 
   // --- Shared caches (dataPipeline.js, extracted at P7) -----------------
-  const pipeline = createDataPipeline({ renderer, arch, palette });
+  const pipeline = createDataPipeline({ renderer, arch, palette }); const holdPixel = (key) => ({ ...pipeline, ...pipeline.holdPlace('pixel', key) });   // FIELD BUGS 2026-10-04b PLACE-LRU: a streamed pixel's own view of the pipeline - every door a build asks through holds what it gets for that pixel (scenes/placeHolds.js); one line, so the cites below it hold
   // AUDIT 18 HOST GAP: the audio engine's bootstrap lived only in
   // buildDungeonContext, so every sound in this host was a silent
   // no-op until a dungeon was entered (DFU's sound reader is global
@@ -2398,13 +2398,13 @@ export async function bootWorld(canvas, renderer, params, status) {
     w.flat = { kind: 'billboard', archive: act.archive, record: act.record };
     getTexture(act.archive).then((t) => {
       if (built.get(key) !== p || act.record >= t.recordCount) return;
-      uploadRecord(act.archive, act.record);
+      (p.placeHold ?? pipeline).uploadRecord(act.archive, act.record);   // FIELD BUGS 2026-10-04b PLACE-LRU: the pixel's own flat, held by the pixel
       const size = billboardSize(t, act.record);
       const base = centredBase(w.centre, size);
       const batch = renderer.createBillboardBatch(act.archive, act.record, size, [base]);
       batch._box = flatBatchAabb([base], size);
       for (let i = 0; i < 3; i++) { p._box[i] = Math.min(p._box[i], batch._box[i]); p._box[3 + i] = Math.max(p._box[3 + i], batch._box[3 + i]); }
-      armFlatAnim(batch, t, act.archive, act.record, p.flatAnims, uploadRecordFrame);
+      armFlatAnim(batch, t, act.archive, act.record, p.flatAnims, (p.placeHold ?? pipeline).uploadRecordFrame);
       p.batches.push(batch);
     }).catch(() => {});
   }
@@ -3491,7 +3491,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     const m = _building.get(key);
     _building.delete(key);
     if (built.has(key)) return;
-    if (m) {
+    if (m) {   m.placeHold?.release();   // FIELD BUGS 2026-10-04b PLACE-LRU: the build's hold goes as a published pixel's does in destroyPixel
       if (m.water) renderer.destroyWaterSurface(m.water);
       if (m.terrain) renderer.destroyMesh(m.terrain);
       if (m.staticBatch) renderer.destroyMesh(m.staticBatch);
@@ -3526,7 +3526,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   });
   async function buildPixelNow(px, py, { roadsRetry = false } = {}) {
     breather.reset();   // PERF7
-    const key = `${px},${py}`;
+    const key = `${px},${py}`, pipeline = holdPixel(key), { getGpuMesh, uploadRecord, uploadRecordFrame } = pipeline;   // FIELD BUGS 2026-10-04b PLACE-LRU: THE PIXEL'S HOLD, the host's three doors and `pipeline` itself shadowed for the whole build - its models, its flats and their frames, its climate's and its homes' swaps (remapSubMeshes / homeLookRemap take this `pipeline`) are held for THIS pixel, released by destroyPixel (or BUILD-FAIL1's ledger), and freed once no standing or kept place holds them. The mills' parts stay the host's (getWindmillMeshes, pinned): millParts outlives every pixel
     const made = {};   // BUILD-FAIL1: this build's ledger, until publish hands it to the entry
     _building.set(key, made);
     const dfLocation = _locationToBuild(px, py) || null;   // SPAWNED-DUNGEONS1: an empty pixel may stand one (AUDIT OW5b D2: a spawn the index holds asked its clocks)
@@ -3539,7 +3539,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     // thread when one is not; either way the reply is the same shape
     // and everything below it - GL uploads, the location layout, the
     // collider, the single atomic built.set - stays on this thread.
-    const seedTilemap = new Uint8Array(128 * 128);
+    const seedTilemap = new Uint8Array(128 * 128); made.placeHold = pipeline;   // FIELD BUGS 2026-10-04b PLACE-LRU: BUILD-FAIL1's ledger carries the hold, so a build that throws lets it go (releaseFailedBuild)
     let locationRect = null;
     if (dfLocation) locationRect = setLocationTiles(dfLocation, maps, blocks, seedTilemap);
     // WOD2: LocationLoader.AddLocation's DECISION (LocationLoader.cs:101-172),
@@ -3609,7 +3609,7 @@ export async function bootWorld(canvas, renderer, params, status) {
 
     // R9 tilemap pass: shared-index height grid + per-pixel tilemap
     // texture + one cached texture array per ground archive.
-    const groundTex = await getTexture(groundArchive);
+    pipeline.tileArray(groundArchive); const groundTex = await getTexture(groundArchive);   // FIELD BUGS 2026-10-04b PLACE-LRU: held BEFORE the cache is asked, so no sweep in the await frees what this pixel will draw
     if (!renderer.tileArrays.has(groundArchive)) {
       // GROUND1: an attached texture mod's tile set for the archive (DREAM's `<archive>-TexArray`) first, whole or not at all
       const modLayers = await dfmodGroundLayers(groundArchive, groundTex.recordCount);
@@ -4407,7 +4407,7 @@ export async function bootWorld(canvas, renderer, params, status) {
       gateClearKey: gateClear?.key ?? null,   // GATE-CLEAR: the gate's clearing this pixel was built against (null: none)
       gateRefused: gateLedger.refused,   // GATE-CLEAR: whether that clearing cost it a site or a piece
       wodReach: gateLedger.reach.length ? Float32Array.from(gateLedger.reach) : null,   // GATE-CLEAR: what it stood, for the next gate's sweep
-
+      placeHold: pipeline,
       location: dfLocation ? dfLocation.name : null,
       centerHeight: samples[64 * HEIGHTMAP_DIMENSION + 64] * worldHeight,
       avgY: dfLocation ? avg * worldHeight : 0,
@@ -4500,7 +4500,7 @@ export async function bootWorld(canvas, renderer, params, status) {
       }
       console.warn(`[roads] pixel ${key} painted without the network twice - kept as painted`);
     }
-    const entry = built.get(key);
+    const entry = built.get(key); pipeline.settle();   // FIELD BUGS 2026-10-04b PLACE-LRU: the pixel stands (published above with its hold, `placeHold`, which destroyPixel releases) - the keep of its last visit goes, with what only that visit held (a re-skin's old season, a rebuild's old layout)
     // AUDIT EV F-SIM2: the ring class was chosen at job-send time and
     // the player may have crossed during the worker round trip - and
     // the pixelChanged restride sweep cannot see an unpublished pixel.
@@ -4593,11 +4593,11 @@ export async function bootWorld(canvas, renderer, params, status) {
       const t = await getTexture(archive);
       if (built.get(`${entry.px},${entry.py}`) !== entry) return;   // AUDIT (49faf853) B2: torn down during the await - a batch made now would be nobody's
       if (!t || record >= t.recordCount) continue;
-      uploadRecord(archive, record);
+      (entry.placeHold ?? pipeline).uploadRecord(archive, record);   // FIELD BUGS 2026-10-04b PLACE-LRU: the street's people are the pixel's to hold
       const size = billboardSize(t, record);
       const batch = renderer.createBillboardBatch(archive, record, size, centers);
       batch._box = flatBatchAabb(centers, size);   // EV3
-      armFlatAnim(batch, t, archive, record, entry.flatAnims, uploadRecordFrame);
+      armFlatAnim(batch, t, archive, record, entry.flatAnims, (entry.placeHold ?? pipeline).uploadRecordFrame);
       entry.npcBatches.push(batch);
       entry.batches.push(batch);
     }
@@ -4756,7 +4756,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     // CollectLooseObjects(true).
     if (collectLoose) { cityGuards.collectPixel(key); exteriorFoes.collectPixel(key); }
     if (collectLoose && p.privateersHold) { p.privateersHold.state.gone = true; for (const f of p.privateersHold.state.foes) exteriorFoes.removeFoe(f); }   // WOD4: the Hold's foes go with the block
-    built.delete(key);
+    built.delete(key); p.placeHold?.release();   // FIELD BUGS 2026-10-04b PLACE-LRU: LAST, after its own batches went - what it shared is kept a view's worth of pixels and then freed if no other place holds it (scenes/placeHolds.js)
   }
 
   // --- Streaming state + player ------------------------------------------
@@ -4767,7 +4767,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   // 7x7). Read once at scene mount - DFU applies it the same way, at
   // StartGameBehaviour.ApplyStartSettings (:283), never rebuilding a
   // live world mid-session.
-  const state = new StreamingWorldState(fogDistance);   // LV1: the one read above - DFU's setting on the 1:1 lane, the Enhanced pane's Land view distance on the enhanced
+  const state = new StreamingWorldState(fogDistance); pipeline.keepPlaces('pixel', (2 * state.terrainDistance + 1) ** 2);   // LV1: the one read above - DFU's setting on the 1:1 lane, the Enhanced pane's Land view distance on the enhanced; FIELD BUGS 2026-10-04b PLACE-LRU: and the pixels gone that are kept warm, one whole view's worth (the player's "minimum set for chunks visible by viewing range" is the view itself, never freed)
   const queue = state.init(startPixel.x, startPixel.y);
   if (wod) wodSlots.step(startPixel.x, startPixel.y, state.terrainDistance, StreamingWorldState.onMap);   // AUDIT BRANCH (WoD) L1-3: the first UpdateWorld
   _wodArrival = wodArrivalOf(queue);   // WOD6: the first world is an InitWorld too
