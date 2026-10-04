@@ -1,0 +1,76 @@
+[
+  {
+    "name": "FAST-name-order",
+    "file": "tools/testShards.mjs",
+    "old": "  const ordered = shardsOf(files, 1, times)[0].files;",
+    "new": "  const ordered = files;",
+    "tests": [
+      "test/fastsuite.test.js"
+    ]
+  },
+  {
+    "name": "FAST-default-concurrency",
+    "file": "tools/testShards.mjs",
+    "old": "['--test', `--test-concurrency=${Math.max(1, cores | 0)}`, ...ordered]",
+    "new": "['--test', ...ordered]",
+    "tests": [
+      "test/fastsuite.test.js"
+    ]
+  },
+  {
+    "name": "FAST-concurrency-zero",
+    "file": "tools/testShards.mjs",
+    "old": "`--test-concurrency=${Math.max(1, cores | 0)}`",
+    "new": "`--test-concurrency=${cores | 0}`",
+    "tests": [
+      "test/fastsuite.test.js"
+    ]
+  },
+  {
+    "name": "FAST-status-dropped",
+    "file": "tools/testShards.mjs",
+    "old": "  return r.status ?? 1;",
+    "new": "  return 0;",
+    "tests": [
+      "test/fastsuite.test.js"
+    ]
+  },
+  {
+    "name": "FAST-empty-spawns",
+    "file": "tools/testShards.mjs",
+    "old": "  if (!files.length) return 0;\n  const ordered",
+    "new": "  const ordered",
+    "tests": [
+      "test/fastsuite.test.js"
+    ]
+  },
+  {
+    "name": "FAST-shard-own-spawn",
+    "file": "tools/testShards.mjs",
+    "old": "  return runTests(files);\n}",
+    "new": "  return spawnSync(process.execPath, ['--test', ...files], { cwd: ROOT, stdio: 'inherit' }).status ?? 1;\n}",
+    "tests": [
+      "test/fastsuite.test.js"
+    ]
+  },
+  {
+    "name": "FAST-changed-own-spawn",
+    "file": "tools/testChanged.mjs",
+    "old": "  return runTests(files);\n}",
+    "new": "  return 0;\n}",
+    "tests": [
+      "test/fastsuite.test.js"
+    ]
+  },
+  {
+    "name": "FAST-npm-test-glob",
+    "file": "package.json",
+    "old": "\"test\": \"node tools/testShards.mjs 1/1\",",
+    "new": "\"test\": \"node --test \\\"test/*.test.js\\\"\",",
+    "tests": [
+      "test/fastsuite.test.js",
+      "test/audit68_repo.test.js",
+      "test/flow1_ci.test.js"
+    ]
+  }
+]

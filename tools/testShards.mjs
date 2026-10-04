@@ -15,6 +15,7 @@ import { readFileSync, readdirSync, existsSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { spawnSync } from 'node:child_process';
+import { availableParallelism } from 'node:os';
 import { isMain } from './lib/isMain.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
@@ -63,6 +64,26 @@ export function shardsOf(files, n, times = {}) {
   return shards;
 }
 
+/**
+ * FAST-SUITE (2026-10-04, Mac: "Our workflow is extremely slow"): HOW A LIST OF TEST FILES IS RUN - the one home `npm
+ * test` (this file's `1/1`), a CI shard and `npm run test:changed` share. Two things, neither a test's business:
+ *   - LONGEST FIRST (`shardsOf`'s own order, by the recorded times). `node --test "test/*.test.js"` took the files in
+ *     name order, so the slowest - roadsReal, slam7, slam8, weather3a - started near the END and ran on alone while the
+ *     other workers sat idle; started first, they run beside everything else.
+ *   - EVERY CORE. Node's runner takes `availableParallelism() - 1` files at once by default, leaving a core to its own
+ *     process, which only gathers the children's reports. Measured on a four-core machine over every twelfth file
+ *     (185 files, 1628 tests): 140 s at the default three, 126 s at four.
+ * The files run, and what each does, are unchanged: the same `test/*.test.js` set (`testFiles`), each in its own
+ * process, every test in it. Answers the runner's exit status. `cores` and `spawn` are the machine's, a test's to stand in.
+ * @param {string[]} files
+ */
+export function runTests(files, { root = ROOT, times = readTimes(root), cores = availableParallelism(), spawn = spawnSync } = {}) {
+  if (!files.length) return 0;
+  const ordered = shardsOf(files, 1, times)[0].files;
+  const r = spawn(process.execPath, ['--test', `--test-concurrency=${Math.max(1, cores | 0)}`, ...ordered], { cwd: root, stdio: 'inherit' });
+  return r.status ?? 1;
+}
+
 function main(argv) {
   if (argv[0] === '--plan') {
     const n = Number(argv[1]) || 4;
@@ -75,9 +96,7 @@ function main(argv) {
   const { files } = shardsOf(testFiles(), shard.total, readTimes())[shard.index - 1];
   if (argv.includes('--list')) { for (const f of files) console.log(f); return 0; }
   console.log(`shard ${shard.index}/${shard.total}: ${files.length} files`);
-  if (!files.length) return 0;
-  const r = spawnSync(process.execPath, ['--test', ...files], { cwd: ROOT, stdio: 'inherit' });
-  return r.status ?? 1;
+  return runTests(files);
 }
 
 if (isMain(import.meta.url)) process.exitCode = main(process.argv.slice(2));

@@ -18,9 +18,9 @@
 import { readFileSync, readdirSync, existsSync, statSync } from 'node:fs';
 import { join, dirname, relative, normalize, basename } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { execFileSync, spawnSync } from 'node:child_process';
+import { execFileSync } from 'node:child_process';
 import { isMain } from './lib/isMain.mjs';
-import { testFiles } from './testShards.mjs';
+import { testFiles, runTests } from './testShards.mjs';   // FAST-SUITE: run as every list of tests is run - longest first, every core
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -104,9 +104,7 @@ function main(argv) {
   const files = chosen === 'all' ? tests : chosen;
   if (argv.includes('--list')) { for (const f of files) console.log(f); return 0; }
   console.log(`${changed.length} changed files -> ${chosen === 'all' ? 'the whole suite (a file every test leans on changed)' : `${files.length} of ${tests.length} test files`}`);
-  if (!files.length) return 0;
-  const r = spawnSync(process.execPath, ['--test', ...files], { cwd: ROOT, stdio: 'inherit' });
-  return r.status ?? 1;
+  return runTests(files);
 }
 
 if (isMain(import.meta.url)) process.exitCode = main(process.argv.slice(2));
