@@ -1,4 +1,4 @@
-# FIELD BUGS 2026-10-03b - the trees on the hills drawn, the Aetheric pieces the maker refuses, a ship's cabin without her hull
+# FIELD BUGS 2026-10-03b - the trees on the hills drawn, the Totem riding its cage, the Aetheric pieces the maker refuses, a ship's cabin without her hull
 
 The Discord's bug reports of 2026-10-03, handed over as screenshots: *"Floating trees in Tamhope"* (Rissa), *"Bugged
 Quest"* (RyuDouro: "the NPC to deliver no longer exists in the same shop"; TutucoGOD: "the NPC doesn't exist on the
@@ -11,6 +11,7 @@ by tests that fail on the record's own code (14cd193b1), the new pins mutation-c
 | | Report | What it was | Done |
 |---|---|---|---|
 | 1 | "Floating trees in Tamhope" (Rissa) | six Beautiful Villages blocks stand TEXTURE.504's trees on the RMB Resource Pack's hills at the author's heights, and the port's stand-in mounds are a fraction of the pack's size - 121 of 130 trees hung more than 1.5 m over what is drawn | TREES-SEATED |
+| 4 | "Im about to end my mainquest but the Totem of tiber Septim isnt here" (Shortstori) | DFU parents a quest item to its marker so it rides that marker's action - the treasury cage that raises the Totem; the port stood it at the marker's start, so the cage rose empty, and online the castle room remembers the raised cage for good | TOTEM-CAGE |
 | 5 | "You can enchant Ruhn's gear, lol" | an Aetheric piece carries no DFU enchantment, so DFU's one item refusal (IsEnchanted) never met it: the maker listed the Regalia, the Broker's ware and the raid sets as plain Daedric and spent their whole budget over their powers | AETHERIC-MAKER |
 | 6 | "i got into my boats interior and then got out and i'm in the void" (Regi) | a ship's cabin is built at her own root with her fleet kept afloat outside, and the host's indoor arms stood that fleet in the room - her decks in its collider and drawn through it (the planks and holes), her ladder and her helm pressed from it, which stood the player on her deck in the building's frame: her hull alone in the black | CABIN-HULL |
 
@@ -51,6 +52,45 @@ either way. Whether Tamhope's own grid holds one of the six blocks needs the pla
 (`maps.getLocationByName('Glenpoint', 'Tamhope').exterior.exteriorData.blockNames`); the cause is the six blocks'
 wherever they stand (TVRNAS0x are the roadside taverns' too). The far ring's stride-4 ground is not re-read, as for
 NATURE-GROUND.
+
+## TOTEM-CAGE (4)
+
+`systems/quest/sceneMount.js` sceneMarkerOf, sceneMarkerMover, rideSceneMarker, questStandBox; `world/actionSystem.js`
+objectAt; `scenes/dungeonContext.js` questMarkerMover; `scenes/worldModes.js` the dungeon adapter's standItem,
+standQuestFlatIn's follow and fill, questFlatTargets. S0000008 ("Who Gets the Totem") places the Totem at `_daggerfall_
+marker 5` - DaggerfallCastle2, the city's dungeon, "hidden in the treasury". DFU stands a quest item at its marker's
+layout point and then PARENTS it to the marker's scene object (GameObjectHelper.cs AddQuestItem :1144-1148, "This
+ensures mobile quest objects parented to action marker translates correctly"): an RDB marker can carry an action of
+its own (RDBLayout.cs:403-406), and GetDaggerfallMarker (:1165-1186) names the case - "raising treasure room cage for
+totem in Daggerfall castle". The port registered the acting marker as a moving flat (ActionSystem.addMoveFlat) and
+stood the Totem at the marker's start for good: the cage rose without it. Online that is permanent, which the report
+read as "will Never reset": the cage's pose is an action record, the castle room's memory carries it (WORLD3/WORLD34)
+and lands it on every joiner, the hour's respawn (WORLD8) renews foes and containers but never a mover, and the relay
+forgets a room only thirty days after it drains - Castle Daggerfall never does. No other player took it: a quest item
+stands on its own player's machine and is in no room's memory, and a reset would not have helped - the next raise
+strands it again, offline too. The parenting is DFU's now: GetDaggerfallMarker's unique-or-null law over the laid
+dungeon's 199.11/18 markers, by the ID both sides mint (block position + object position: the layout's `loadID`, the
+quest marker's `markerID`); the ActionSystem mover registered for it, answered only when it moves; and the stand
+riding the mover's live offset - its billboard's origin uniform (now, or when the texture lands) and its activation
+box - so the Totem is where its marker is after the player's own trigger, a peer's act heard live and the room
+memory's restore, in either order. THE FOUR HOSTS: `worldModes.js` (both adapters; the interior's records why a
+building's item stands still - DFU adds DaggerfallMarker in RDBLayout alone and a building marker's ID is 0,
+Place.cs:1503-1506) and `dungeonContext.js` (the mover) are wired; `world.js` and `exterior.js` stand no dungeon quest
+item of their own (their mount routes through worldModes); the standalone `scenes/dungeon.js` stands no quest.
+`test/fb1003b_totem.test.js` - S0000008's own lines through the real Place, Item and PlaceItem, the dungeon through
+layoutDungeon, the motion through the real ActionSystem, the room's word through sharedRecord and validActionRecord.
+`06-Systems/Quest-Arc.md` TOTEM-CAGE. The worldModes.js lines it moved were re-aimed across the bible and the tree by
+`tools/citeShift.mjs`.
+
+**Said, not fixed.** No ARENA2 here, so the castle itself is unread: which RDB object is DaggerfallCastle2's item
+marker 5 (the treasury, by the quest's own words), its action (the test's PositiveY rise is a fixture) and what raises
+it - a walk with the data (tools/castleProbe.mjs to the treasury, the marker's mover read against the Totem's stand)
+should confirm it. The travel is read whole from the marker's start, which is DFU's outcome on its entry and its
+load; a quest that hot-places an item onto a marker that already moved this visit stands it on the marker, where
+DFU's reparent leaves it off by the travel (no corpus case known). A JS spread of a marker index past the list
+(`place.js` _getSiteMarker) does not throw at the assignment where C# would; it throws later, at the mount - not this
+report's fault, recorded. A player already in the treasury needs nothing repaired: the quest is untouched and the
+Totem rides on the next entry.
 
 ## AETHERIC-MAKER (5)
 
@@ -112,4 +152,5 @@ player's ARENA2 and none was here. And the bank-linked Transport path enters the
 before the pixels round her have streamed; streaming stays frozen indoors, so they come in after the way out.
 
 Mutation lists: `tools/mutants/fb1003b.json` (AETHERIC-MAKER, 3, 3 dead), `tools/mutants/fb1003b_trees.json`
-(TREES-SEATED, 18, 18 dead), `tools/mutants/fb1003b_cabin.json` (CABIN-HULL, 9, 9 dead).
+(TREES-SEATED, 18, 18 dead), `tools/mutants/fb1003b_cabin.json` (CABIN-HULL, 9, 9 dead),
+`tools/mutants/fb1003b_totem.json` (TOTEM-CAGE, 14, 14 dead).
