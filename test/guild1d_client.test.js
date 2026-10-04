@@ -31,7 +31,7 @@ import {
 const src = (p) => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8');
 const WOLF = { field: 'azure', border: 'gold', device: 'wolf' };
 
-test('GUILD1d the heraldry\'s law: sixteen colours in the record\'s order with its colours, twenty-four devices, Ash never the field, the two colours different; the words (mutants: Ash as a field; the same colour twice; a device off the list)', () => {
+test('GUILD1d the heraldry\'s law: sixteen colours in the record\'s order with its colours, twenty-four devices (forty since GUILD2c, the first twenty-four in their place), Ash never the field, the two colours different; the words (mutants: Ash as a field; the same colour twice; a device off the list)', () => {
   assert.deepEqual(HERALDRY_COLOURS.map((c) => c.name), ['Azure', 'Crimson', 'Gold', 'Argent', 'Sable', 'Vert', 'Purpure', 'Tenné', 'Sanguine', 'Celeste', 'Murrey', 'Ochre', 'Teal', 'Rose', 'Ash', 'Umber']);
   assert.equal(heraldryColourOf('azure').hex, '#3b6fd8');
   assert.equal(heraldryColourOf('umber').hex, '#5a3e22');

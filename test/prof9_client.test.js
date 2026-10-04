@@ -606,7 +606,7 @@ test('AUDIT PROF-541 K7: the fire\'s XP line says what the service pays - the to
 
 test('AUDIT PROF-541 K8: a Brew pressed while another craft holds the one-craft latch (profBook.js prof-busy) says the hands are busy, not that a brew is in the cauldron', () => {
   const w = src('src/scenes/world.js');
-  assert.match(w, /r\?\.error === 'prof-busy' \? 'Your hands are busy with another craft\.' : accountRefusalText\(r\?\.error\)/);
+  assert.match(w, /r\?\.error === 'prof-busy' \? 'Your hands are busy with another craft\.' : `\$\{accountRefusalText\(r\?\.error\)\}\$\{movedFirstText\(r\)\}`/);   // PIN MOVED (AUDIT2 BAG1 K8): and what went into the Stores first
   assert.doesNotMatch(w, /Your last brew is still in the cauldron/);
 });
 

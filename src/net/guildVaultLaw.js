@@ -63,11 +63,16 @@ export const vaultMayPut = (s) => s?.level === 'deposit' || s?.level === 'withdr
 /** Whether a standing may take one out, having taken `takenToday` today. */
 export const vaultMayTake = (s, takenToday = 0) => s?.level === 'withdraw' && (s.limit === 0 || (takenToday | 0) < s.limit);
 
-/** A grant the guildmaster asks: a level and a limit, or `level: null` - revoked, back to the rank's. Null for a bad shape. */
+/** AUDIT2 GUILD2 S6: a withdrawer's limit where the grant names none - an officer's ten (never "no limit", which is the
+ *  guildmaster's to choose: 0). */
+export const VAULT_GRANT_LIMIT = VAULT_RANK_DEFAULTS[GUILD_RANK_OFFICER].limit;
+/** A grant the guildmaster asks: a level and a limit, or `level: null` - revoked, back to the rank's. Null for a bad shape.
+ *  A withdrawer's grant that names no limit (absent or null) stands at VAULT_GRANT_LIMIT. */
 export function vaultGrantOf(raw) {
   if (!raw || typeof raw !== 'object') return null;
-  const { level = null, limit = 0 } = /** @type {any} */ (raw);
+  const { level = null, limit: asked = null } = /** @type {any} */ (raw);
   if (level === null) return { level: null, limit: 0 };
+  const limit = asked == null ? (level === 'withdraw' ? VAULT_GRANT_LIMIT : 0) : asked;
   if (!vaultLevelOk(level) || !vaultLimitOk(limit)) return null;
   return { level, limit: level === 'withdraw' ? limit : 0 };
 }

@@ -83,7 +83,7 @@ import {
   GUILD_RENAME_GOLD, GUILD_RENAME_COOLDOWN_S, guildRenameAt, guildRenameOpen,   // GUILD2a: a new name, for a price
 } from '../../src/net/guildLaw.js';
 import { vaultStanding, guildVaultSlots } from '../../src/net/guildVaultLaw.js';   // GUILD2b: the vault, in the guild's view
-import { checkName, normaliseName } from '../../src/net/nameFilter.js';   // GUILD2a: a guild's name and tag pass the name filter (Seats-Arc 18 said they did)
+import { checkName, normaliseName, standsAlone, IMPERSONATION } from '../../src/net/nameFilter.js';   // GUILD2a: a guild's name and tag pass the name filter (Seats-Arc 18 said they did)
 import { seatWeekOf } from '../../src/net/townSeatLaw.js';   // GUILD2a: no new name in a week the guild fights for a seat
 
 const charOk = (c) => typeof c === 'string' && CHAR_ID_RE.test(c);
@@ -207,7 +207,29 @@ const spend = (ctx, player) => overRate(ctx, `guild:${player.id}`, GUILD_OPS_MAX
  *  reserved word inside a longer one stands alone nowhere - so "Server Admins" and "Moderator Guild" passed it whole. */
 /*  AUDIT GUILD2 G3: a word with no letters in it is no word the filter reads - its `empty` is a handle's "a name needs some
  *  letters", not a refusal of a slur - so "The 7 Blades" and a tag of "22" passed GUILD1's shapes and were refused here. */
-export const guildWordsOk = (name, tag) => [name, tag, ...String(name ?? '').split(/[\s'-]+/)].every((w) => !w || !normaliseName(w) || checkName(w).ok);
+/*  AUDIT2 GUILD2 S2: A WORD IS READ AS A WORD. The filter's second reading - the letters' runs collapsed, a handle's
+ *  `cccoooock` - is a handle's, and read over each word of a guild's name it caught ordinary words as the server's own:
+ *  "The Iron Staff" (`staf`), "The Dark Mood" (`mod`). The slurs and the crude words keep both readings; the server's
+ *  words (IMPERSONATION) are read on a word's own letters, as written. The whole name and the tag keep the filter whole.
+ *  Answers the word caught, or null - the refusal names it (nameFilter.js's own law: "the refusal says WHICH word"). */
+export function guildWordRefusal(name, tag) {
+  for (const w of [name, tag]) {
+    if (!w || !normaliseName(w)) continue;
+    const c = checkName(w);
+    if (!c.ok) return c.word || w;   // never '' - a refusal names something, and '' reads as none
+  }
+  for (const w of String(name ?? '').split(/[\s'-]+/)) {
+    const flat = normaliseName(w);
+    if (!flat) continue;
+    const c = checkName(w);
+    if (c.ok) continue;
+    if (c.kind !== 'impersonation') return c.word || w;
+    const own = IMPERSONATION.find((x) => standsAlone(flat, x));
+    if (own) return own;
+  }
+  return null;
+}
+export const guildWordsOk = (name, tag) => guildWordRefusal(name, tag) == null;
 
 /**
  * GUILD2a (bible/11-Multiplayer/Guild-Overhaul.md; asked: "A way to change your guild name for a price"): A NEW NAME - the
@@ -232,7 +254,8 @@ export async function renameGuild(ctx, player, { character, name = null, tag = n
   const t = tag == null || tag === '' ? g.tag : guildTagOf(tag);
   if (!n || !t) return { error: 'bad-guild' };
   if (n === g.name && t === g.tag) return { error: 'guild-rename-same' };
-  if (!guildWordsOk(n, t)) return { error: 'guild-name-word' };
+  const caught = guildWordRefusal(n, t);
+  if (caught) return { error: 'guild-name-word', word: caught };   // AUDIT2 GUILD2 S2: the word caught, said
   const renamedAt = g.renamed_at == null ? null : Number(g.renamed_at);
   if (!guildRenameOpen(renamedAt, nowS)) return { error: 'guild-rename-soon', at: guildRenameAt(renamedAt) };
   const week = seatWeekOf(nowS * 1000);
@@ -266,7 +289,8 @@ export async function renameGuild(ctx, player, { character, name = null, tag = n
     const now = await db.prepare('SELECT realm_gold, renamed_at FROM guilds WHERE id = ?').bind(gid).first();
     if (!now) return { error: 'no-guild' };
     if (Number(now.realm_gold ?? 0) < GUILD_RENAME_GOLD) return { error: 'guild-rename-gold' };
-    if (!guildRenameOpen(now.renamed_at == null ? null : Number(now.renamed_at), nowS)) return { error: 'guild-rename-soon' };
+    const was = now.renamed_at == null ? null : Number(now.renamed_at);
+    if (!guildRenameOpen(was, nowS)) return { error: 'guild-rename-soon', at: guildRenameAt(was) };   // AUDIT2 GUILD2 S7: said here too
     return { error: 'guild-rename-moved' };
   }
   const me = await memberRow(db, player.id, character);
@@ -295,7 +319,8 @@ export async function foundGuild(ctx, player, { character, name, tag, realm = nu
   // GUILD2a: THE NAME FILTER, at last - Seats-Arc 18 said a guild's name and tag passed it, and neither ever had: only the
   // chat (wire.js) called it. A name or a tag that reads as a slur, a crude word or the server's is refused here as a new
   // name is (renameGuild)
-  if (!guildWordsOk(n, t)) return { error: 'guild-name-word' };
+  const caught = guildWordRefusal(n, t);
+  if (caught) return { error: 'guild-name-word', word: caught };   // AUDIT2 GUILD2 S2: the word caught, said
   if (await spend(ctx, player)) return { error: 'guild-rate' };
   const track = await renownTrackOf({ db }, player.id, character);   // RENOWN-CHAR: the founding character's own
   if ((track?.level ?? 1) < GUILD_FOUND_RENOWN) return { error: 'guild-renown' };

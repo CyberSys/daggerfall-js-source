@@ -116,7 +116,7 @@ import {
   storeCapacityOf,   // COMPANION-WEIGHT: a storage's own weight limit
   planBagToggle, hasMaterialsBag,   // BAG1: the Materials Bag, a list beside the wagon's
 } from '../systems/inventorySession.js';
-import { bagStoreRefusal } from '../systems/materialsBag.js';   // BAG1: only materials go in the bag
+import { bagStoreRefusal, bagMayLeave } from '../systems/materialsBag.js';   // BAG1: only materials go in the bag; AUDIT2 H11: and a loaded one stays
 import { BAG_KG_LIMIT } from '../net/bagLaw.js';
 import { entityMaxEncumbrance } from '../combat/formulas.js';   // AUDIT 26: PlayerEntity.MaxEncumbrance, enchantment allowance and all
 import { liveStat } from '../systems/statMods.js';
@@ -849,7 +849,7 @@ function stowIntent(item) {
     remote: remote.items, usingWagon: session.usingWagon, chooseOne: session.chooseOne,
     dryRun: true,   // as canStow's own note says: the quest rung WRITES, and a label must not
     groundRefusal: groundRefusalOf(deps, session),   // HOUSE-DROP
-    capacity: storeCapacityOf(deps, session), bagLoaded: (deps.entity?.bagItems?.length ?? 0) > 0,   // COMPANION-WEIGHT
+    capacity: storeCapacityOf(deps, session), bagLoaded: !bagMayLeave(deps.entity),   // COMPANION-WEIGHT
   });
   // A refusal that speaks is still worth releasing on - the player gets
   // the sentence. One that cannot speak is shown as refused and does
@@ -1429,7 +1429,7 @@ function canStow(item) {
     remote: remote.items, usingWagon: session.usingWagon, chooseOne: session.chooseOne,
     dryRun: true,
     groundRefusal: groundRefusalOf(deps, session),   // HOUSE-DROP
-    capacity: storeCapacityOf(deps, session), bagLoaded: (deps.entity?.bagItems?.length ?? 0) > 0,   // COMPANION-WEIGHT
+    capacity: storeCapacityOf(deps, session), bagLoaded: !bagMayLeave(deps.entity),   // COMPANION-WEIGHT
   });
   return plan.ok || !!plan.refusal.text;
 }
@@ -1439,7 +1439,7 @@ function canStow(item) {
 function splitMax(item, dir) {
   if (dir === 'store' && bagRefuses(item)) return 0;   // AUDIT BAG1: no how-many field for what the bag refuses
   const plan = dir === 'store'
-    ? planStore(item, { remote: remote.items, usingWagon: session.usingWagon, chooseOne: session.chooseOne, dryRun: true, groundRefusal: groundRefusalOf(deps, session), capacity: storeCapacityOf(deps, session), bagLoaded: (deps.entity?.bagItems?.length ?? 0) > 0 })
+    ? planStore(item, { remote: remote.items, usingWagon: session.usingWagon, chooseOne: session.chooseOne, dryRun: true, groundRefusal: groundRefusalOf(deps, session), capacity: storeCapacityOf(deps, session), bagLoaded: !bagMayLeave(deps.entity) })
     : planTake(item, {
       bag: deps.items?.() ?? [], entity: deps.entity, mode: 'remove',
       chooseOne: session.chooseOne, usingWagon: session.usingWagon, dryRun: true,
@@ -1489,14 +1489,14 @@ function stow(item) {
     remote: to, usingWagon: session.usingWagon, chooseOne: session.chooseOne,
     getQuest: deps.getQuest ?? null,
     groundRefusal: groundRefusalOf(deps, session),   // HOUSE-DROP: a floor that refuses a drop
-    capacity: storeCapacityOf(deps, session), bagLoaded: (deps.entity?.bagItems?.length ?? 0) > 0,   // COMPANION-WEIGHT: a companion's pack takes what fits
+    capacity: storeCapacityOf(deps, session), bagLoaded: !bagMayLeave(deps.entity),   // COMPANION-WEIGHT: a companion's pack takes what fits
   });
   if (!plan.ok) return refuse(plan.refusal);
   // AUDIT INV2 B-F2: THE MAP IS AN INTERCEPTION, not a transfer. AUDIT
   // 26 F156: planStore answers `{ ok: true, map: true }` for a
   // MiscItems.Map - the reveal runs, the paper is consumed, nothing
   // lands in the destination. The classic window routes it
-  // (nativeInventory.js:946) and this one did not, so dragging a
+  // (nativeInventory.js:947) and this one did not, so dragging a
   // treasure map out of the pack dropped the paper on the floor and
   // revealed nothing.
   if (plan.map) { use(item, deps.items?.() ?? []); return; }
@@ -1515,7 +1515,7 @@ function stow(item) {
   // again on the other side, and a tip that stays open after every
   // press is the quirk being fixed.
   // AUDIT INV2 B-F1: THE ENTITY AND THE PROVENANCE RIDE, as they do at
-  // the classic window's own call (nativeInventory.js:952). Without them
+  // the classic window's own call (nativeInventory.js:953). Without them
   // `clearLightSourceOnLeave` - AUDIT 26 F157's first statement inside
   // applyTransfer - is a no-op, so a LIT TORCH dropped on the ground
   // went on lighting the player from where it lay. INV2 made that a
@@ -1552,7 +1552,7 @@ function take(item) {
   if (amount == null) { notice = HOW_MANY_ITEMS(plan.amount); render(); return; }
   // MAC-O6 (report: "looting gold/items makes no sound"): DoTransferItem's
   // own cue (:1569 gold's clink, :1583 everything else), which the classic
-  // window plays (nativeInventory.js:972) and this one never did - the ONLY
+  // window plays (nativeInventory.js:973) and this one never did - the ONLY
   // difference between the two windows' calls to planTake/applyTransfer was
   // that this one dropped `plan.sound` on the floor. Played here, ahead of
   // the gold interception below, exactly as DFU's own PlayOneShot sits
@@ -1617,6 +1617,9 @@ function toggleBag() {
   session.usingBag = plan.usingBag;
   session.usingWagon = plan.usingWagon;
   if (side === 'remote') { picked = null; side = 'local'; }
+  // AUDIT2 BAG1 U8: the gold field goes with it - gold is no material, so the bag hides the field, and a half-typed
+  // amount came back over the list it was never meant for when the bag closed
+  goldEntry = null;
   refresh();
   render();
 }
@@ -1630,7 +1633,7 @@ function dropGold(text) {
   const plan = planDropGold(text, {
     carried: goldAmount(player), usingWagon: session.usingWagon, remote: to,
     groundRefusal: groundRefusalOf(deps, session),   // HOUSE-DROP
-    capacity: storeCapacityOf(deps, session), bagLoaded: (deps.entity?.bagItems?.length ?? 0) > 0,   // COMPANION-WEIGHT
+    capacity: storeCapacityOf(deps, session), bagLoaded: !bagMayLeave(deps.entity),   // COMPANION-WEIGHT
   });
   if (plan.notice) notice = plan.notice;
   else if (!plan.ok && plan.refusal?.reason === 'ground') notice = plan.refusal.text;   // HOUSE-DROP: the floor's refusal is said

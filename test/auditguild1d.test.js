@@ -355,7 +355,7 @@ function rig(first) {
   return { panel, book, calls, doc, set: (g) => { guild = g; } };
 }
 
-test('AUDIT GUILD1d R10-R14: a heraldry draft is one guild\'s; a select changes the picture and the button in place, never the select; with Drakes shut the reason says so; the sale says the service\'s own sum; an older answer never clears a newer choice\'s id (mutants: the draft\'s key; the repaint on change; the Drakes reason; the sale\'s words; the rid compared)', async () => {
+test('AUDIT GUILD1d R10-R14: a heraldry draft is one guild\'s; a pick changes the picture and the button in place, never the page (GUILD2c: a swatch, a select before it); with Drakes shut the reason says so; the sale says the service\'s own sum; an older answer never clears a newer choice\'s id (mutants: the draft\'s key; the repaint on change; the Drakes reason; the sale\'s words; the rid compared)', async () => {
   // GUILD2c (PIN MOVED): the arms are their own page, and the choices swatches and tiles, not selects. A pick draws the
   // arms' box again in place - the page around it (its strip, its header) never repainted - and the keyboard's focus
   // lands on the picked swatch's new self, so a player walking the swatches with Tab and Enter keeps their place.

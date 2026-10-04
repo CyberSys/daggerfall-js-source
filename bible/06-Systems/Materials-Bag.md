@@ -21,7 +21,8 @@ crafting materials in the inventory itself." And: "This is something I really wa
   as the Small Cart is (`hasNoEncumbrance`), one to a slot. **Owning one is holding one**, as DFU's HasCart reads the
   cart in the pack.
 - **Bought** at every General Store, online, after the horse and the cart (`systems/shopStock.js`), to a character who
-  carries none. Its base price is **250**; DFU's shop price is 2 x (cost x (quality - 10) / 100 + cost), so **500 gold**
+  carries none - on the shop's first shelf alone (the second audit's H8: the horse and the cart are every shelf's, as DFU
+  stocks them; a bag on each one sold one bag several times over). Its base price is **250**; DFU's shop price is 2 x (cost x (quality - 10) / 100 + cost), so **500 gold**
   at a middling shop and 456 to 550 by the shop's quality (1 to 20), before the region and the haggle - "like 500g".
 - **It holds 300 kg** - two fifths of a wagon's 750 (`BAG_KG_LIMIT`): "quite a lot", never unlimited. A day's Logging
   (60 trees of 2-4 logs at 2 kg) is about 360 kg; the bag holds most of a day in one craft.
@@ -50,8 +51,10 @@ taken from the side window there is the reward chosen). With nothing beside the 
 pack's footer. `REMOTE_TARGET_TYPES.Bag` (4) is the port's own, after DFU's four.
 
 DEPARTURE: the classic skin's inventory is DFU's own window, every rect cited (THE NATIVE-WINDOW RULE), and it has no
-slot for a bag pane - there the bag is reached from the Stores page (section 4), whose Put everything in and Take out
-work on either skin (CLASSIC-PAGES). Nothing is lost: what the bag holds counts as held at every station.
+slot for a bag pane - there the bag is reached from the Stores page (section 4), whose Put everything in, Take out and
+**Empty your bag into your pack** work on either skin (CLASSIC-PAGES). Nothing is lost: what the bag holds counts as
+held at every station, and anything in it - a food that rotted there, which no Put in takes - comes out into the pack
+from the Stores page, anywhere (the second audit's H1).
 
 ## 3. Where a harvest goes
 
@@ -82,6 +85,11 @@ The Stores page (`ui/profPages.js`) shows each material's Stores count and, besi
 material, **Take out** (into the bag, then the pack) and **Put in** (from the bag, then the pack), and **Put everything
 in** - every counted unit the bag and the pack hold, in one press, whatever the page's filter shows: it says how many
 went in and names each material refused (its Stores full) and goes on past it; the counting-house's silence ends it.
+Put in and Put everything in stop at the Stores' own room (5,000 a material, every origin), and a full material is said,
+never asked; why Take out or Put in is shut is drawn under the bar, not only on a title (the second audit's U1, U14).
+**Empty your bag into your pack** stands on the page, in a town or out of one, whenever the bag's list holds anything:
+every piece, as much of each as the pack's weight takes, what no Put in takes first (a full pack never leaves the jam
+behind).
 
 ## 5. Law 3, restated - the carried count
 
@@ -110,7 +118,12 @@ reopens exactly that door - unless the service knows what it handed out. So it c
   flight), the pack does not yet hold units the count has, and the cut is skipped - never the units lost. The decision
   is taken once a request, at the head of its own batch (`prof_carried_gate`), and an older client that says no `seen`
   is believed as before. `held` is read when the act is asked, never when it was kept, with a deposit's units still on
-  their way counted as held. The wagon counts as held too.
+  their way counted as held. The wagon counts as held too. **And never under the count as heard while another carried
+  act is kept** (the second audit's K2): a state read makes `seen` the service's own, and a kept harvest's units, landed
+  and not yet minted, would be cut - so while one (or a kept withdrawal of the material) waits, the book says the count
+  itself as held, which cuts nothing. The act being asked is not pending for itself.
+- **A carried harvest's row is kept thirty days** (`CARRIED_ROW_DAYS`; a Stores harvest's two, as before): it is the
+  answer a kept harvest asked again is given, and only that answer mints its items (the second audit's S1).
 
 ## 6. Stations, writs and the potion maker
 
@@ -121,9 +134,13 @@ that many - in your Stores, your Materials Bag and your pack together." (`materi
 not come says so (`deposit-kept`) rather than that anything is short. Every craft and brew at a station does it
 (`craft`, `brew`), a smelt at the forge (`smelt`), a Court writ's delivery (`deliver`, the shortfall the writ's card
 names where the book's list has none) and a guild writ's (the host's `writBook.supply`). A smelt's product comes out
-carried, into the bag, and the smelt's line says where it went ("Into your bag - 2 stay in your Stores: no room in your
-bag or pack."). A withdrawal's goods that find no room come into the pack, over its weight, as a withdrawal always
-did - the service counted them carried. DFU's own potion maker reads and spends the bag
+carried - as many withdrawals as the room takes, each within a withdrawal's 200 - and the smelt's line says where it
+went and why any stayed ("Into your bag - 2 stay in your Stores: no room in your bag or pack."; "...: another withdrawal
+was still being counted"; "4 on their way from your Stores: the counting-house has not answered yet"; a refusal's own
+words). Every unit the service hands over is minted - into the bag, the pack, then the pack past its weight
+(`giveCarried`), as a withdrawal always came: the service counted them carried. A station's refusal after some inputs
+went in says so ("1 of the materials went into your Stores first - the next try spends them there."); a press while a
+put-in of an input is unanswered says `deposit-kept` at once, and no craft is kept (the second audit's K4-K10). DFU's own potion maker reads and spends the bag
 after the cart (`scenes/worldModes.js`). The market, the guild Stores and Disenchanting read the Stores alone, as they
 did: a material is listed, given to the guild or sold back from the Stores, so it is put in first.
 
@@ -131,13 +148,20 @@ did: a material is listed, given to the guild or sold back from the Stores, so i
 
 - **A deposit's answer that never comes** keeps its items out of the bag and asks again with the same id at the next
   settle. The deposit is KEPT with the other acts (the audit's B17: it was memory alone), so a page closed before the
-  answer still hears it. Refused, its items are given back - by this page's own undo, or after a reload, only what the
-  bag and the pack are short of what they held before it (a save that never saw the items go still holds them: never a
-  copy). Two tabs give back once, the tab that lets it go.
+  answer still hears it. **Its take is STAMPED in the save** (the second audit's K3/K7/H2: `entity.bagTakes`, its id,
+  material, units and order), and that save is the realm's - a checkpoint that LANDED - **before the deposit is asked**.
+  So the save a later page boots says what happened: holding the stamp, it saw the items go, and a refusal gives back
+  every unit (into the bag, the pack, past the pack's weight); without it, the deposit was never sent (its checkpoint
+  never landed) and is let go, the save keeping its items. A checkpoint refused on a first ask undoes the take whole
+  ("Your game could not be saved just now, so nothing went into your Stores."); on a later ask the deposit stays kept. A
+  stamp no kept deposit names (its answer heard, the page gone before the checkpoint that took it off; or kept on
+  another device) is asked by its own id - the service answers a deposit made as made, for good (`prof_deposits`). The
+  stamp is read and taken off in one turn, so a save's items are given back once. (The `before` count this replaced
+  gave back one of four when a harvest had been minted since, and two deposits' shortfalls shared one.)
 - **Two tabs** settling one kept harvest mint its goods once - the tab that lets it go (AUDIT 29 C5's law).
 - **A carried harvest is never let go unminted** (the audit's B1): heard under another character it waits kept for its
-  own, whose next ask the service answers with the same harvest; past its ten minutes it is asked once - the service
-  answers a landed one whatever its age - and only a refusal lets it lapse.
+  own, whose next ask the service answers with the same harvest; past its ten minutes it is asked until it is answered -
+  the service answers a landed one whatever its age (its row kept thirty days) - and only a refusal lets it lapse.
 - **A unit left where it was gathered** stays counted until the next act cuts the count to the pack.
 
 ## 8. The threats, and the answers
@@ -150,6 +174,9 @@ did: a material is listed, given to the guild or sold back from the Stores, so i
 | A client claims it holds more than it does | `held` only cuts the count; the units stay counted, bounded by what was handed out (5) |
 | A stale `held` (an answer lost, a twin request) cuts units the pack is about to get | The cut only against the count the client heard, once a request, never by a twin of a landed act (5, 10) |
 | A loaded bag sold or given, stranding its list | Refused while it holds anything; never traded at all (1) |
+| A deposit landed and its page gone before the save that took the items out | The take is saved before the ask; a save without its stamp never sent it (7) |
+| A deposit refused after a reload given back twice, or not at all | By the stamp in the save, read and taken off in one turn (7) |
+| A kept harvest's units cut before they are minted | The count as heard is said as held while another carried act waits (5) |
 
 ## 9. Pins
 
@@ -179,3 +206,41 @@ then pinned and its fix mutated (`tools/mutants/bag1.json`, the `AUDIT-BAG1-` re
 
 Not changed, and why: the Stores' town is the client's convention (4) - the service checks no place, as it never did;
 `held` over-reported stays bounded, not prevented (5).
+
+## 11. The second audit (2026-10-03, Mac: "Audit again. Just want perfection")
+
+Six reviewers read the whole PR again - the service, the book, the hands, the pages, the heraldry, the docs - and each
+finding was reproduced (their repros against the real Worker and the real modules) before it was fixed, then pinned and
+its fix mutated (`tools/mutants/bag1.json`, the `AUDIT2-BAG1-` records).
+
+| # | Found | Fixed |
+|---|---|---|
+| S1 | A kept carried harvest asked after two days was refused `prof-day` (its row swept) and its counted units never came | Carried rows kept `CARRIED_ROW_DAYS` (30) (5) |
+| K2 | A state read made `seen` current while a kept harvest's units were unminted, and the next act's cut took them (B2 half done) | The count as heard said as held while another carried act waits (5) |
+| K3/K7/H2/H4/D1 | A deposit across a reload: given back one of four after a harvest's mint, one shortfall shared by two deposits, a landing with the page gone before the save kept the items too | The stamp in the save, the save the realm's before the ask (7) |
+| K4/H5 | A smelt's carry-out minted through the bare mint, and units with no room by the answer were lost | Every unit given (`giveCarried`), past the pack's weight (6) |
+| K10 | A product past 200 said "no room" with the bag half empty; a busy or unanswered withdrawal said as no room | As many withdrawals as the room takes; `why` said (`madeWhere`) (6) |
+| K5/K6/K8/K12/K13 | A craft said "the work is kept" with none kept; a second press put a shortfall in twice; inputs moved before a refusal went unsaid; a deposit while one was out said "busy with another craft"; a smelt that threw held its id for good | `deposit-kept`, `moved` said, `deposit-busy`, the id let go (6) |
+| K9 | A `carried-full` harvest refusal left the state unread | Read again, as Stores-full is |
+| K11 | "+3 Oak Log to your bag" for goods that all went nowhere | "- all left where they were gathered: no room in your bag or pack" (3) |
+| H1/U2 | The classic skin could not reach the bag, and a food rotted in it held the bag loaded for good | Empty your bag into your pack, on the Stores page (2, 4) |
+| H3 | A take's undo wrote onto a stack sold or merged since, or into a bag that had left | The undo by each list's role, read at the undo |
+| H8 | Every shelf of a General Store shelved a bag | The first shelf alone (1) |
+| H11/H12 | `bagMayLeave` restated inline at five doors; Arcane Essence mintable as an item | One test; only what has a pack form is minted |
+| U1/U14 | Put in offered past the Stores' room; why Take out was shut lived on a title alone; the qty field unlabelled | The room read; the reason drawn; "How many" (4) |
+| U3/U6/U8/U11 | The footer's bag button grew the footer; the haul card counted what the service counted, not what came; the gold field came back over the pack after the bag; "your pack while you have none" | The gold button's rules; what came; the field put away; the words (2, 3) |
+| S8 | No pin held a carried Motherlode strike or its twin | Pinned, a twin racing its first among them (`prof2b_motherlode.test.js`) |
+| D3/D4 | Pins that read source a comment could fool (a host's material line, the potion maker's bag); no pin for the bag in the orphan sweep, the realm's customs or the hosts | Anchored to lines of code; the sweep and the enchanted piece driven |
+| S9/D16 | The price note said 450; the law restated the Stores' bounds as literals | 456; `STORES_MAX`/`WITHDRAW_MAX` imported |
+
+Not changed, and why: the wagon is reached from the inventory anywhere the cart is, as DFU reaches it - a design note
+(H13), not a finding.
+
+## 12. The four hosts (THE FOUR HOSTS RULE)
+
+| Host | BAG1 |
+|---|---|
+| `scenes/world.js` | the book's hands (held, room, mint, give, take and the deposits' stamps, the checkpoint that landed); the Stores page; the inventory window interiors open (`bagItems`); the save |
+| `scenes/exterior.js` | the inventory's bag pane (`bagItems`) |
+| `scenes/dungeonContext.js` | the same, below ground |
+| `scenes/worldModes.js` | DFU's potion maker reads and spends the bag after the cart; interiors' inventory is world.js's |

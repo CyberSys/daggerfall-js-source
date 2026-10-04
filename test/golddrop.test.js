@@ -231,6 +231,7 @@ const PIECE = {
   carryWord: [...FOOTER, EL('div', 'packcarry'), EL('span', 'k')], meter: [...FOOTER, EL('div', 'packcarry'), EL('div', 'px-meter')],
   purse: [...FOOTER, EL('div', 'packgold')], purseWord: [...FOOTER, EL('div', 'packgold'), EL('span', 'k')],
   button: [...FOOTER, EL('div', 'packgold'), EL('button', 'act goldbtn')], field: [...FOOTER, EL('form', 'goldfield')],
+  bagButton: [...FOOTER, EL('button', 'act bagbtn')],   // AUDIT2 BAG1 U3: the Materials Bag's door on a plain pack
   wornRow: [...FOOTER.slice(0, -1), EL('div', 'pack'), EL('div', 'pack-main'), EL('section', 'charcol'), EL('section', 'equipped'),
     EL('div', 'wornmap'), EL('button', 'wornrow')],
 };
@@ -529,6 +530,22 @@ test('AUDIT2 GOLD-DROP 1: the button takes no height - drawn at 32 and sunk 6px 
     const target = px(b['min-height']) - 2 * border - px(after.top) - px(after.bottom);   // offsets run from the padding edge
     assert.equal(target, 44, `${at}: a finger's 44px`);
     assert.equal(target, px(bar['padding-top']) + 20 + px(bar['padding-bottom']), `${at}: exactly the footer's inside, where nothing paints over it`);
+  }
+});
+
+// AUDIT2 BAG1 U3: THE BAG'S DOOR ON THE FOOTER (AUDIT BAG1 H2) took an .act's own height, and the footer grew out of the
+// item list under it - the gold button's case. It is the gold button's kind now: drawn at 32 and sunk into the footer.
+test('AUDIT2 BAG1 U3: the footer\'s Materials Bag button takes no height - the gold button\'s rules, its box the footer\'s 20px line, a finger\'s 44 a target inside the footer (mutants: the rules unwritten; the target cut to the drawing)', () => {
+  for (const env of EVERY) {
+    const at = `${env.w}px ${env.pointer}`;
+    const b = styleAt(env, PIECE.bagButton);
+    assert.equal(px(b['min-height']), 32, `${at}: drawn at 32`);
+    assert.equal(px(b['min-height']) + px(b['margin-top']) + px(b['margin-bottom']), 20, `${at}: its box the footer's 20px line`);
+    assert.equal(b['padding-left'], env.w <= 520 ? '8px' : '12px', `${at}: the gold button's sides`);
+    const after = styleAt(env, PIECE.bagButton, 'after');
+    if (env.pointer !== 'coarse') { assert.equal(after.content, undefined, `${at}: no finger, no target`); continue; }
+    const border = px((b.border ?? '').split(' ')[0]);
+    assert.equal(px(b['min-height']) - 2 * border - px(after.top) - px(after.bottom), 44, `${at}: a finger's 44px`);
   }
 });
 

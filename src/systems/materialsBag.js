@@ -25,10 +25,10 @@
 // Pure where it can be: every function takes the entity it reads or
 // writes; nothing here asks the network.
 // ═══════════════════════════════════════════════════════════════════
-import { BAG_KG_LIMIT, BAG_WORDS, CARRIED_MAX, hasBag, isBagItem } from '../net/bagLaw.js';
+import { BAG_KG_LIMIT, BAG_WORDS, CARRIED_MAX, hasBag, isBagItem, depositOrderOk } from '../net/bagLaw.js';
 import { PLANT_GROUP_TEMPLATES, FOOD_KEYS, MINED_KEYS, withdrawable } from '../net/professionLaw.js';
 import { material } from '../net/nodeLaw.js';
-import { mintMaterialItem } from './profItems.js';
+import { mintMaterialItem, withdrawIntoPack } from './profItems.js';
 import { addItem, totalWeight, effectiveUnitWeightInKg, canHoldAmount, carriedWeight, isSummoned, isEnchanted } from './inventory.js';
 import { entityMaxEncumbrance } from '../combat/formulas.js';
 
@@ -116,6 +116,9 @@ export function roomFor(entity, key) {
 export function mintCarried(entity, key, n, { cc, slowRot = false, noRot = false } = {}) {
   const out = { bag: 0, pack: 0, left: 0 };
   if (!entity || !Number.isSafeInteger(n) || n < 1) return out;
+  // AUDIT2 BAG1 H12: only what has a pack form (professionLaw.js withdrawable) - an Arcane Essence or a Ram Kit minted as
+  // an item was a shop's gold (PROF12 E1's closed faucet) and a held count of none
+  if (!withdrawable(key)) { out.left = n; return out; }
   if (!Array.isArray(entity.items)) entity.items = [];
   const kg = unitKgOf(key);
   for (let i = 0; i < n; i++) {
@@ -130,36 +133,69 @@ export function mintCarried(entity, key, n, { cc, slowRot = false, noRot = false
   return out;
 }
 
+/** AUDIT2 BAG1 H3: a list by its role, read NOW - the bag's only while the pack still holds a bag (sold since, its goods go
+ *  to the pack), the wagon's or the pack's - so an undo never writes into a list the entity no longer has. */
+function listOf(entity, role) {
+  if (role === 'bag') return hasBag(entity?.items) ? bagItemsOf(entity) : (entity.items ??= []);
+  if (role === 'wagon') return (entity.wagonItems ??= []);
+  return (entity.items ??= []);
+}
+
 /**
  * THE ITEMS A DEPOSIT TAKES: `n` units of a material out of the bag first, then the pack - whole stacks and a split of
  * the last - answered as `{ taken, back }`: how many came out, and the undo that puts each back where it was (a refusal
  * gives them back). Never a quest's, a summoned or a worn one (materialKeyOfItem). AUDIT BAG1 B6: the wagon last - what
  * it holds is held (heldOf), so a station may use it as it uses the pack.
- * @param {any} entity @param {string} key @param {number} n
+ * AUDIT2 BAG1 H3: the undo puts each back by its list's ROLE, read at the undo (listOf) - a split stack whose rest has gone
+ * (merged, sold) comes back as a record of its own, never onto a record the lists no longer hold.
+ * AUDIT2 BAG1 K3/K7/H2: `stamp` - a deposit's id, written into the save with the take (`entity.bagTakes`, systems/save.js)
+ * with its material, units and `order`, so a page loaded later knows whether the save it booted saw these units go, and
+ * can ask a deposit no kept act names (net/profBook.js strayStamps). The undo takes the stamp off with them.
+ * @param {any} entity @param {string} key @param {number} n @param {string|null} [stamp] @param {string|null} [order]
  */
-export function takeCarried(entity, key, n) {
-  /** @type {{ list: any[], item: any, count: number, whole: boolean }[]} */
+export function takeCarried(entity, key, n, stamp = null, order = null) {
+  /** @type {{ role: string, item: any, count: number, whole: boolean }[]} */
   const moves = [];
   let left = Math.max(0, n | 0);
-  for (const list of [bagItemsOf(entity), entity?.items ?? [], entity?.wagonItems ?? []]) {
+  for (const [role, list] of /** @type {[string, any[]][]} */ ([['bag', bagItemsOf(entity)], ['items', entity?.items ?? []], ['wagon', entity?.wagonItems ?? []]])) {
     for (let i = list.length - 1; i >= 0 && left > 0; i--) {
       const it = list[i];
       if (materialKeyOfItem(it) !== key) continue;
       const count = it.stackCount ?? 1;
       const take = Math.min(left, count);
-      if (take === count) { list.splice(i, 1); moves.push({ list, item: it, count, whole: true }); } else { it.stackCount = count - take; moves.push({ list, item: it, count: take, whole: false }); }
+      if (take === count) { list.splice(i, 1); moves.push({ role, item: it, count, whole: true }); } else { it.stackCount = count - take; moves.push({ role, item: it, count: take, whole: false }); }
       left -= take;
     }
   }
   const taken = moves.reduce((a, m) => a + m.count, 0);
+  if (stamp && taken > 0) (entity.bagTakes ??= {})[stamp] = { material: key, qty: taken, ...(depositOrderOk(order) ? { order } : {}) };
   const back = () => {
     for (const m of moves.reverse()) {
-      if (m.whole) addItem(m.list, m.item, 'back');
-      else m.item.stackCount = (m.item.stackCount ?? 1) + m.count;
+      const list = listOf(entity, m.role);
+      if (m.whole) addItem(list, m.item, 'back');
+      else if (list.includes(m.item)) m.item.stackCount = (m.item.stackCount ?? 1) + m.count;
+      else addItem(list, { ...m.item, stackCount: m.count }, 'back');
     }
     moves.length = 0;
+    if (stamp && entity?.bagTakes) delete entity.bagTakes[stamp];
   };
   return { taken, back };
+}
+
+/** AUDIT2 BAG1: the deposits' stamps the save holds - `{ id: { material, qty, order? } }` (takeCarried's `stamp`). */
+export const bagTakesOf = (entity) => (entity?.bagTakes && typeof entity.bagTakes === 'object' ? entity.bagTakes : {});
+
+/**
+ * AUDIT2 BAG1 H4/K4/H5: UNITS THE SERVICE HANDED OVER, ALL OF THEM MINTED - into the bag and then the pack as mintCarried,
+ * and what finds no room into the pack past its weight, as a withdrawal always came (B5): a unit the service counted as
+ * carried and the save never got was lost to the character. `{ bag, pack, over }`.
+ * @param {any} entity @param {string} key @param {number} n @param {{ cc?: boolean, slowRot?: boolean, noRot?: boolean }} [opts]
+ */
+export function giveCarried(entity, key, n, opts = {}) {
+  const got = mintCarried(entity, key, n, opts);
+  let over = 0;
+  if (got.left > 0 && withdrawable(key)) over = withdrawIntoPack(entity, key, got.left, opts.cc, { slowRot: opts.slowRot === true, noRot: opts.noRot === true });
+  return { bag: got.bag, pack: got.pack, over };
 }
 
 /** THE BAG'S OWN RULE, ahead of the wagon's capacity ladder: only a material goes in it. Null - the ladder decides. */
@@ -167,5 +203,37 @@ export function bagStoreRefusal(item) {
   return isMaterialItem(item) ? null : { reason: 'bagOnlyMaterials', text: BAG_WORDS.onlyMaterials };
 }
 
-/** Whether a bag may leave the pack - sold, dropped, given: only when it holds nothing, the cart's own rule. */
+/** Whether a bag may leave the pack - sold, dropped, given: only when it holds nothing, the cart's own rule. AUDIT2 BAG1
+ *  H11: the one test - every door that asks it (the inventories' transfer ladders, the sale) reads this. */
 export const bagMayLeave = (entity) => !(entity?.bagItems?.length > 0);
+
+/**
+ * AUDIT2 BAG1 H1/U2: THE BAG EMPTIED INTO THE PACK - every piece in it, as much of each as the pack's weight takes (DFU's
+ * own integer law, as roomFor reads it): whole stacks, and the part of the last that fits. Reached from the Stores page
+ * on either skin and anywhere - the classic inventory draws no bag, and a food that rotted in it (no material, so never
+ * put in the Stores) held the bag loaded for good, never sold. `{ moved, left }`, in units.
+ * @param {any} entity
+ */
+export function emptyBagIntoPack(entity) {
+  const out = { moved: 0, left: 0 };
+  const bag = entity?.bagItems;
+  if (!Array.isArray(bag) || !bag.length) return out;
+  if (!Array.isArray(entity.items)) entity.items = [];
+  // what no Put in takes first (a rotted food, a piece that is no material): a full pack must never leave the jam behind
+  const order = [...bag].sort((a, b) => (isMaterialItem(a) ? 1 : 0) - (isMaterialItem(b) ? 1 : 0));
+  for (const it of order) {
+    const count = it.stackCount ?? 1;
+    const kg = effectiveUnitWeightInKg(it);
+    const fit = kg > 0 ? Math.max(0, Math.min(count, canHoldAmount(count, kg, entityMaxEncumbrance(entity), carriedWeight(entity)))) : count;
+    if (fit >= count) {
+      bag.splice(bag.indexOf(it), 1);
+      addItem(entity.items, it, 'back');
+    } else if (fit > 0) {
+      it.stackCount = count - fit;
+      addItem(entity.items, { ...it, stackCount: fit }, 'back');
+    }
+    out.moved += fit;
+    out.left += count - fit;
+  }
+  return out;
+}

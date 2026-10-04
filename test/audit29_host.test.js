@@ -296,7 +296,7 @@ test('AUDIT 29: the hosts by source - the seams the audit moved', () => {
   // B3 + B4: the fee on the first answer; the kept withdrawals settled on every good read and on the Stores page
   assert.match(w, /if \(f\.fee > 0\) \{ deductGold\(playerEntity, f\.fee\); saveSoon\.changed\(\); \}/);   // PROF-SAVE: and the save soon
   assert.doesNotMatch(w, /!r\.data\?\.repeat\) \{? ?deductGold/);
-  assert.match(g, /if \(r\?\.ok\) \{ refreshAt = 0; restandAll\(\); if \(book\.pendingWithdrawals \|\| book\.pendingCrafts\) deps\.onSettle\?\.\(\); \}/);
+  assert.match(g, /if \(r\?\.ok\) \{ refreshAt = 0; restandAll\(\); if \(book\.pendingWithdrawals \|\| book\.pendingCrafts \|\| book\.pendingDeposits\) deps\.onSettle\?\.\(\); \}/);   // PIN MOVED (AUDIT2 BAG1 K3): and a kept deposit
   assert.match(src('src/ui/profPages.js'), /if \(\(book\.pendingWithdrawals \|\| book\.pendingCrafts \|\| book\.pendingDeposits\) && p\.settle && Date\.now\(\) - _stores\.settledAt > 30_000\)/);   // PROF5 (FOUND): a kept craft settles too; BAG1 (PIN MOVED): and a kept deposit
   // D4: a smith's open for trade
   assert.match(m, /return interiorBuilding\.insideOpenShop === false \? null : \{ kind: 'shop', fee: FORGE_FEE \};/);

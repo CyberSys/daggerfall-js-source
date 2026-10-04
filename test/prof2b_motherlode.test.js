@@ -192,3 +192,52 @@ test('PROF2b the twenty: the first twenty accounts strike, the twenty-first is r
 test('PROF2b Motherlode Sense is chosen at Mining 100 as any specialisation (PIN MOVED from AUDIT 29 A17: named and locked until its Motherlodes)', () => {
   assert.equal(specOk('mining', 100, 'motherlode-sense'), true);
 });
+
+test('PROF2b (AUDIT2 BAG1 S8): a carrying client\'s strike lands in the carried count, never the Stores - the count cut first to what the pack holds, only against the count the client heard; asked again, the twin cuts nothing and answers carried (mutants: the ore into the Stores; the twin cutting; the cut against a stale count)', async () => {
+  clock(DAY0 * DAY + 60);
+  const s = await stand();
+  s.confirm(4);
+  const ann = await s.miner('Ann');
+  const [l0] = (await s.read(ann)).body.lodes;
+  const carried = () => Number(s.raw.prepare("SELECT COALESCE(SUM(qty), 0) AS n FROM prof_carried WHERE player = ? AND char_id = ? AND material = ?").get(ann.id, ann.character, l0.material).n);
+  s.raw.prepare("INSERT INTO prof_carried (player, char_id, material, origin, qty) VALUES (?, ?, ?, 'own', 5)").run(ann.id, ann.character, l0.material);
+  clock(l0.opensAt + 120);
+  const id = rid();
+  // the pack holds 2 of the 5 the client heard: cut to 2, then the strike's ore on top
+  const hit = await s.strike(ann, l0, { rid: id, carry: true, held: 2, heldKey: l0.material, seen: 5 });
+  assert.equal(hit.status, 200, JSON.stringify(hit.body));
+  assert.deepEqual([hit.body.carry, hit.body.motherlode], [true, true]);
+  assert.equal(carried(), 2 + hit.body.qty);
+  assert.deepEqual(hit.body.carried, { material: l0.material, own: 2 + hit.body.qty, bought: 0 });
+  assert.equal(s.stores(ann, l0.material), 0, 'nothing into the Stores');
+  // the same strike asked again, saying an empty pack: a twin of a landed act cuts nothing
+  const again = await s.strike(ann, l0, { rid: id, carry: true, held: 0, heldKey: l0.material, seen: 2 + hit.body.qty });
+  assert.deepEqual([again.body.repeat, again.body.carry, again.body.qty], [true, true, hit.body.qty]);
+  assert.equal(carried(), 2 + hit.body.qty, 'the count untouched');
+  // a held count read against a count that moved since (the client heard 4, the count is 5) cuts nothing
+  const bea = await s.miner('Bea');
+  s.raw.prepare("INSERT INTO prof_carried (player, char_id, material, origin, qty) VALUES (?, ?, ?, 'own', 5)").run(bea.id, bea.character, l0.material);
+  const stale = await s.strike(bea, l0, { carry: true, held: 0, heldKey: l0.material, seen: 4 });
+  assert.equal(stale.status, 200, JSON.stringify(stale.body));
+  assert.deepEqual(stale.body.carried, { material: l0.material, own: 5 + stale.body.qty, bought: 0 }, 'never cut against a count it did not hear');
+  // a TWIN RACING its first (an older client's: no `seen`, its pack read as empty) - the first's batch held until the
+  // twin is past its own prior read: the twin cuts nothing, and the units the save mints are the units counted
+  const cy = await s.miner('Cyra');
+  s.raw.prepare("INSERT INTO prof_carried (player, char_id, material, origin, qty) VALUES (?, ?, ?, 'own', 4)").run(cy.id, cy.character, l0.material);
+  const realBatch = s.env.DB.batch.bind(s.env.DB);
+  let held = null;
+  s.env.DB.batch = async (list) => {
+    if (list.length > 6 && held === null) { let go; held = new Promise((res) => { go = res; }); held.go = go; await held; return realBatch(list); }
+    if (list.length > 6 && held) { const out = await realBatch(list); held.go(); return out; }
+    return realBatch(list);
+  };
+  const twinRid = rid();
+  const watch = await s.watch(cy, l0);
+  const twinBody = { character: cy.character, node: l0.key, kind: 'ore', act: { glints: glintsMax(MOTHERLODE_TIER), clean: true }, at: _now - 2, rid: twinRid, watch, carry: true, held: 0, heldKey: l0.material };
+  const [ta, tb] = await Promise.all([s.call('/v1/prof/harvest', twinBody, cy.secret), s.call('/v1/prof/harvest', twinBody, cy.secret)]);
+  s.env.DB.batch = realBatch;
+  assert.deepEqual([ta.status, tb.status], [200, 200], JSON.stringify([ta.body, tb.body]));
+  assert.equal(ta.body.qty, tb.body.qty, 'one strike, told twice');
+  const cyCarried = Number(s.raw.prepare('SELECT COALESCE(SUM(qty), 0) AS n FROM prof_carried WHERE player = ? AND char_id = ? AND material = ?').get(cy.id, cy.character, l0.material).n);
+  assert.equal(cyCarried, ta.body.qty, 'the four the empty pack does not hold cut once, by the first; the twin cuts nothing more');
+});

@@ -40,6 +40,7 @@
 // service itself handed out: law 3's guarantee, kept with the door open
 // one way more.
 // ═══════════════════════════════════════════════════════════════════
+import { STORES_MAX, WITHDRAW_MAX } from './professionLaw.js';   // AUDIT2 BAG1 D16: the bounds this law shares, one home
 
 /** The bag's template, in the professions' reserved range (Professions-Arc 4.8: 600 was unused). */
 export const BAG_TEMPLATE = 600;
@@ -47,7 +48,8 @@ export const BAG_TEMPLATE = 600;
  *  day's Logging (60 trees of 2-4 logs at 2 kg) is about 360 kg; the bag holds most of a day in one craft. */
 export const BAG_KG_LIMIT = 300;
 /** Its row's base price. DFU's shop price is 2 x (cost x (quality - 10) / 100 + cost) (shopStock.js calculateCost):
- *  500 gold at a middling shop, 450 to 550 by its quality, before the region and the haggle - "like 500g". */
+ *  500 gold at a middling shop, 456 to 550 by its quality (C#'s integer division), before the region and the haggle -
+ *  "like 500g". */
 export const BAG_BASE_PRICE = 250;
 /** Its row, in the port's template columns (systems/profTemplates.js registers it): DFU's own Backpack picture
  *  (ItemTemplates 89: TEXTURE.205 record 44 - law 6, the picture is DFU's own), weightless as the Small Cart is
@@ -72,9 +74,12 @@ export const BAG_CAPACITY = Object.freeze({ kg: BAG_KG_LIMIT, name: 'Your Materi
 
 /** The most of one material the service counts as carried, every origin together - the Stores' own bound
  *  (professionLaw.js STORES_MAX), so a unit is never refused between the two. */
-export const CARRIED_MAX = 5000;
+export const CARRIED_MAX = STORES_MAX;
+/** AUDIT2 BAG1 S1: how long the service keeps a CARRIED harvest's row - the row a kept harvest asked again is answered by,
+ *  and the only word that mints its items. An older client's harvest row (into the Stores) is kept two days, as it was. */
+export const CARRIED_ROW_DAYS = 30;
 /** One deposit, at most - a withdrawal's own bound (professionLaw.js WITHDRAW_MAX). */
-export const DEPOSIT_MAX = 200;
+export const DEPOSIT_MAX = WITHDRAW_MAX;
 /** The origins a carried count keeps - the Stores' three (0041_gold_market.sql). */
 export const CARRIED_ORIGINS = Object.freeze(['own', 'bought', 'gold']);
 /** THE ORDER A COUNT IS CUT DOWN TO WHAT THE PACK HOLDS: gold's first, bought, then own - the order a withdrawal fills
@@ -122,21 +127,45 @@ export const carriedUsable = (c, held) => carriedSpendable(clampCarried(c, held)
 export function goodsWhere(d) {
   if (d?.carry !== true) return 'to your Stores';
   const p = d.put ?? { bag: 0, pack: 0, left: 0 };
+  const left = `left where ${p.left === 1 ? 'it was' : 'they were'} gathered`;
+  // AUDIT2 BAG1 K11: none of it carried - said as such, never "to your bag" of goods that went nowhere
+  if (!(p.bag > 0) && !(p.pack > 0) && p.left > 0) return `- all ${left}: no room in your bag or pack`;
   const to = p.bag > 0 && p.pack > 0 ? 'to your bag and pack' : p.pack > 0 ? 'to your pack' : 'to your bag';
-  return p.left > 0 ? `${to} - ${p.left} left where ${p.left === 1 ? 'it was' : 'they were'} gathered: no room` : to;
+  return p.left > 0 ? `${to} - ${p.left} ${left}: no room` : to;
 }
 
-/** AUDIT BAG1 B9: WHERE A STATION'S WORK WENT (net/profBook.js smelt's `put`: `{ bag, pack, stored }`), as the sentence
- *  after the work's own - the bag, the pack, or what stayed in the Stores with no room in either. '' when nothing was
- *  carried out (an older book's work stays in the Stores, as it always did). */
+/** AUDIT2 BAG1 K10: why a station's work stayed in the Stores (net/profBook.js carryOut's `why`) - a refusal's own words
+ *  follow it (`text`). */
+const STAYS_WHY = Object.freeze({
+  room: 'no room in your bag or pack',
+  busy: 'another withdrawal was still being counted',
+  kept: 'take them out once it has',
+});
+/** AUDIT BAG1 B9: WHERE A STATION'S WORK WENT (net/profBook.js smelt's `put`: `{ bag, pack, stored, coming, why, text }`),
+ *  as the sentence after the work's own - the bag, the pack, what is on its way (a withdrawal unanswered), and what
+ *  stayed in the Stores and why. '' when nothing was carried out (an older book's work stays in the Stores, as it always
+ *  did). AUDIT2 BAG1 K10: every rest was said as "no room" - a withdrawal busy, unanswered or refused too. */
 export function madeWhere(p) {
   if (!p || typeof p !== 'object') return '';
-  const bag = p.bag | 0, pack = p.pack | 0, stored = p.stored | 0;
+  const bag = p.bag | 0, pack = p.pack | 0, stored = Math.max(0, p.stored | 0), coming = Math.max(0, p.coming | 0);
   const to = bag > 0 && pack > 0 ? 'Into your bag and pack' : pack > 0 ? 'Into your pack' : bag > 0 ? 'Into your bag' : '';
-  if (!stored) return to ? `${to}.` : '';
-  const kept = `${stored} ${stored === 1 ? 'stays' : 'stay'} in your Stores: no room in your bag or pack.`;
-  return to ? `${to} - ${kept[0].toLowerCase()}${kept.slice(1)}` : kept;
+  const said = [];
+  if (coming) said.push(`${coming} on ${coming === 1 ? 'its' : 'their'} way from your Stores: the counting-house has not answered yet`);
+  if (stored) {
+    const stay = `${stored} ${stored === 1 ? 'stays' : 'stay'} in your Stores`;
+    said.push(p.why === 'refused' ? stay : `${stay}: ${STAYS_WHY[p.why] ?? STAYS_WHY.room}`);
+  }
+  if (!said.length) return to ? `${to}.` : '';
+  const line = to ? `${to} - ${said.join('; ')}.` : `${said.join('; ')}.`;
+  return p.why === 'refused' && stored && typeof p.text === 'string' && p.text ? `${line} ${p.text}` : line;
 }
+
+/** AUDIT2 BAG1 K8: a station's refusal after some of its inputs went into the Stores (net/profBook.js ensureInStores'
+ *  `moved`) - said, so the player knows where they are: the next press spends them there. '' for none. */
+export const movedFirstText = (r) => {
+  const n = Number(r?.moved) || 0;
+  return n > 0 ? ` ${n} of the materials went into your Stores first - the next try spends them there.` : '';
+};
 
 /** The bag's words, said where it is bought, where a harvest lands, and where it is refused. */
 export const BAG_WORDS = Object.freeze({

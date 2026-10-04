@@ -132,7 +132,10 @@ import { getPref, setPref } from '../systems/uiPrefs.js';
  * @property {() => boolean} [inTown]   BAG1: whether the Stores are reached here - in a town, indoors or out
  * @property {(key: string) => number} [room]   BAG1: how many more units of a material the bag and the pack can take
  * @property {(key: string) => number} [carriedHeld]   BAG1: how many units of a material the bag and the pack hold
- * @property {() => ({ has: boolean, kg: number, max: number })} [bag]   BAG1: the Materials Bag - held, its load and its limit
+ * @property {() => ({ has: boolean, kg: number, max: number, count?: number })} [bag]   BAG1: the Materials Bag - held, its load and
+ *   its limit (AUDIT2: and how many pieces its list holds)
+ * @property {() => ({ moved: number, left: number })} [emptyBag]   AUDIT2 BAG1 H1/U2: every piece in the bag into the pack, as much
+ *   as the pack carries - anywhere, on either skin
  */
 let _provider = /** @type {ProfPagesProvider|null} */ (null);
 /** The host's book, or null to take the pages down (offline, a closed switch, the host gone). */
@@ -174,8 +177,14 @@ const _stores = { family: null, query: '', sort: 'tier', picked: null, qty: 1, w
 /** BAG1: the Stores page's own words for a carrying book. */
 export const BAG_PAGE_WORDS = Object.freeze({
   noBag: 'You have no Materials Bag: what you gather goes into your pack. Every General Store sells one.',
-  takenNote: 'Taken out, a material goes into your Materials Bag, or your pack while you have none - and back into the Stores from either, in any town.',
+  // AUDIT2 BAG1 U11: the pack takes what the bag has no room for too, and a deposit takes from the wagon last
+  takenNote: 'Taken out, a material goes into your Materials Bag, then your pack - and back into the Stores from your bag, pack or wagon, in any town.',
   allIn: 'Put everything in',
+  /** AUDIT2 BAG1 H1/U2: the bag emptied into the pack - the classic inventory draws no bag, and a food rotted in it held it */
+  emptyBag: 'Empty your bag into your pack',
+  emptied: (moved, left) => `${moved.toLocaleString('en-US')} moved into your pack.${left > 0 ? ` ${left.toLocaleString('en-US')} stay in your bag: your pack can carry no more.` : ''}`,
+  /** AUDIT2 BAG1 U1: a material whose Stores are full, passed over by Put everything in without asking */
+  storesFull: 'Your Stores hold all of it they can.',
   /** AUDIT BAG1: what went in, and each material that would not with its reason - a refusal partway said only itself, and
    *  the units that had gone in were never said; `stop` the counting-house's silence, which ends the run */
   allInDone: (n, refused = [], stop = null) => [
@@ -184,6 +193,9 @@ export const BAG_PAGE_WORDS = Object.freeze({
     ...(stop ? [stop] : []),
   ].join(' '),
 });
+/** AUDIT2 BAG1 U1: how many more units of a row's material the Stores take - their bound less what they hold, every
+ *  origin (the deposit's own decision, server-account/src/professions.js depositStores). */
+export const storesRoomOf = (book, row) => Math.max(0, (book?.state?.caps?.stores ?? STORES_MAX) - ((row?.own | 0) + (row?.bought | 0) + (row?.gold | 0)));
 /** BAG1: the page's rows for a carrying book - every material the Stores hold or the character carries, each with its
  *  Stores split (`own`, `bought`, `gold`) and `carried`: what the bag and the pack hold of it that the service counts. */
 export function carryRows(book, carriedHeld) {
@@ -638,6 +650,20 @@ function drawCarryStores(detail, rerender, kit) {
   const bag = p.bag?.() ?? { has: false, kg: 0, max: 0 };
   detail.append(el('p', 'px-note prof-bagline', bag.has ? `Materials Bag: ${bag.kg.toFixed(1)} / ${bag.max} kg` : BAG_PAGE_WORDS.noBag));
   if (!town) detail.append(el('p', 'px-note', BAG_WORDS.town));
+  // AUDIT2 BAG1 H1/U2: THE BAG EMPTIED INTO THE PACK - anywhere, on either skin: the classic inventory draws no bag, and a
+  // piece no Put in takes (a food that rotted in it) held the bag loaded for good, never to be sold
+  if ((bag.count ?? 0) > 0 && p.emptyBag) {
+    const empty = el('button', 'act', BAG_PAGE_WORDS.emptyBag);
+    empty.type = 'button';
+    empty.disabled = _stores.busy;
+    empty.onclick = () => {
+      if (_stores.busy) return;
+      const r = p.emptyBag?.() ?? { moved: 0, left: 0 };
+      _stores.word = BAG_PAGE_WORDS.emptied(r.moved | 0, r.left | 0);
+      rerender();
+    };
+    detail.append(empty);
+  }
   const all = carryRows(book, p.carriedHeld);
   const rows = storesRows(all, _stores, p.name);
   // AUDIT BAG1: whatever the filter shows - the button puts in everything carried, and a search that hid the carried
@@ -656,7 +682,9 @@ function drawCarryStores(detail, rerender, kit) {
       let moved = 0, stop = null;
       const refused = [];
       for (const r of storesRows(carryRows(book, p.carriedHeld), {}, p.name)) {
-        let left = r.carried;
+        // AUDIT2 BAG1 U1: as many as the Stores have room for - a material whose Stores are full is said, never asked
+        let left = Math.min(r.carried, storesRoomOf(book, r));
+        if (r.carried > 0 && left < 1) { refused.push({ name: r.name, text: BAG_PAGE_WORDS.storesFull }); continue; }
         while (left > 0) {
           const q = Math.min(left, DEPOSIT_MAX);
           const res = await p.deposit(r.material, q);
@@ -688,10 +716,11 @@ function drawCarryStores(detail, rerender, kit) {
     bar.append(el('span', 'prof-matline', `${pick.name} - ${pick.total} stored, ${pick.carried} carried - tier ${pick.tier} - ${pick.value} silver each`));
     const room = Math.max(0, p.room?.(pick.material) ?? 0);
     const outMost = Math.min(WITHDRAW_MAX, pick.total, room);
-    const inMost = Math.min(DEPOSIT_MAX, pick.carried);
+    const inMost = Math.min(DEPOSIT_MAX, pick.carried, storesRoomOf(book, pick));   // AUDIT2 BAG1 U1: and the Stores' room
     const most = Math.max(1, outMost, inMost);
     const qty = el('input', 'prof-qty');
     qty.type = 'number'; qty.min = '1'; qty.max = String(most); qty.value = String(Math.min(_stores.qty, most));
+    qty.setAttribute('aria-label', 'How many');   // AUDIT2 BAG1 U14: the field said what it counts
     qty.oninput = () => { _stores.qty = Math.max(1, Math.min(most, Math.floor(Number(qty.value) || 1))); };
     const run = (fn) => async () => {
       if (_stores.busy) return;
@@ -709,10 +738,15 @@ function drawCarryStores(detail, rerender, kit) {
     const put = el('button', 'act', _stores.busy ? 'Sending...' : 'Put in');
     put.type = 'button';
     put.disabled = _stores.busy || !town || inMost < 1 || !p.deposit;
-    if (!town) put.title = BAG_WORDS.town;
+    put.title = !town ? BAG_WORDS.town : pick.carried > 0 && inMost < 1 ? BAG_PAGE_WORDS.storesFull : '';
     put.onclick = run(() => p.deposit?.(pick.material, Math.max(1, Math.min(_stores.qty, inMost))));
     if (withdrawable(pick.material)) bar.append(qty, take, put);
     detail.append(bar);
+    // AUDIT2 BAG1 U14: why Take out or Put in is shut, drawn - a title is no word on a touch screen
+    if (town && withdrawable(pick.material)) {
+      const why = [pick.total > 0 && room < 1 ? BAG_WORDS.noRoom : null, pick.carried > 0 && inMost < 1 ? BAG_PAGE_WORDS.storesFull : null].filter(Boolean);
+      if (why.length) detail.append(el('p', 'px-note prof-why', why.join(' ')));
+    }
     detail.append(el('p', 'px-note', withdrawable(pick.material) ? BAG_PAGE_WORDS.takenNote
       : staysLine(pick)));
     if ((pick.gold | 0) > 0) detail.append(el('p', 'px-note', GOLD_GOODS_LINE));

@@ -81,7 +81,7 @@ import { stationSteps } from '../../src/net/fortLaw.js';   // SEAT2b part two (7
 import { fortTiersOf } from './seatForts.js';   // SEAT2b part two: the halls standing at the seat
 import { RAM_KIT } from '../../src/net/professionLaw.js';   // SEAT2b part two: a siege work's place in the Stores
 import { SIEGE_GEM } from '../../src/net/professionLaw.js';   // PROF10: a Lapidary's Siege-cracked Gem, spent for a piece's gem
-import { CARRIED_MAX, DEPOSIT_MAX, CLAMP_ORDER, DEPOSIT_ORDERS, heldOk, seenOk, depositOrderOk } from '../../src/net/bagLaw.js';   // BAG1: what a character carries, counted
+import { CARRIED_MAX, DEPOSIT_MAX, CLAMP_ORDER, DEPOSIT_ORDERS, CARRIED_ROW_DAYS, heldOk, seenOk, depositOrderOk } from '../../src/net/bagLaw.js';   // BAG1: what a character carries, counted
 
 const DAY_S = 86_400;
 /** The pixels one read may ask after - a streamed 5 x 5. */
@@ -201,8 +201,14 @@ export async function profState({ db, nowS }, player, env, { character } = {}) {
   const refused = asks(player, { character, needRid: false }) ?? shut(player, env);
   if (refused) return refused;
   const day = utcDay(nowS);
-  // PROF0 20: a day's harvests are kept two days - a bounded sweep on the state's own read
-  await db.prepare('DELETE FROM node_harvests WHERE rowid IN (SELECT rowid FROM node_harvests WHERE day < ? LIMIT 500)').bind(day - 1).run();
+  // PROF0 20: a day's harvests are kept two days - a bounded sweep on the state's own read. AUDIT2 BAG1 S1: a CARRIED one
+  // CARRIED_ROW_DAYS: its row is the answer a kept harvest asked again is given, and only that answer mints its items - swept
+  // at two days, a harvest whose answer was lost (or heard under another character) was refused `prof-day` and its counted
+  // units never came
+  await db.batch([
+    db.prepare('DELETE FROM node_harvests WHERE rowid IN (SELECT rowid FROM node_harvests WHERE carry = 0 AND day < ? LIMIT 500)').bind(day - 1),
+    db.prepare('DELETE FROM node_harvests WHERE rowid IN (SELECT rowid FROM node_harvests WHERE carry = 1 AND day < ? LIMIT 500)').bind(day - CARRIED_ROW_DAYS),
+  ]);
   const { results: rows = [] } = await db.prepare('SELECT * FROM prof_tracks WHERE player = ?1 AND char_id = ?2').bind(player.id, character).all();
   const byProf = new Map(rows.map((r) => [r.profession, r]));
   const { results: stores = [] } = await db.prepare('SELECT material, origin, qty FROM prof_stores WHERE player = ?1 AND char_id = ?2 AND qty > 0 ORDER BY material')

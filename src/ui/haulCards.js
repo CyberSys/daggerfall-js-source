@@ -88,8 +88,14 @@ export function harvestHauls(d, { name = null, note = null } = {}) {
   // BAG1: a carried harvest's counts are the service's carried count of each thing, said as carried
   const carried = d.carry === true;
   const where = carried ? 'Carried' : 'Stores';
-  const main = storesHaul(d.material, d.qty, { held: heldOf(carried ? d.carried : d.store), name, sub: name ? `as ${materialCountLabel(d.material, Number(d.qty) || 1)}` : null, where });
+  // AUDIT2 BAG1 U6: a carried harvest's card counts what CAME - the units the bag and the pack took (net/profBook.js
+  // mintHarvest's `put`, each material's `lost` its own) - never what the service counted with some left on the ground
+  const lost = (k) => (carried && Array.isArray(d.put?.lost) ? d.put.lost.reduce((n, x) => n + (x?.key === k ? Number(x.n) || 0 : 0), 0) : 0);
+  const came = (k, n) => Math.max(0, (Number(n) || 0) - lost(k));
+  const mainCame = came(d.material, d.qty);
+  const main = storesHaul(d.material, mainCame > 0 ? mainCame : d.qty, { held: heldOf(carried ? d.carried : d.store), name, sub: name ? `as ${materialCountLabel(d.material, Number(d.qty) || 1)}` : null, where });
   if (!main) return [];
+  if (mainCame < 1) { main.count = 0; main.sub = 'left where gathered - no room'; }   // none came: the act's XP still said
   const profession = d.track?.profession ?? null;
   const xp = Math.trunc(Number(d.xp) || 0);
   if (profession && xp > 0) {
@@ -115,8 +121,8 @@ export function harvestHauls(d, { name = null, note = null } = {}) {
   const out = [main];
   // AUDIT HAUL-CARDS B1: "a gem" only for a gem - a tree's `gem` is its Heartwood, a body's its DFU part (a Big Tooth);
   // B3: each find its own Stores count, as the answer carries it (`gemStore`, `extraStore`)
-  if (d.gem) { const g = storesHaul(d.gem, 1, { held: heldOf(carried ? d.gemCarried : d.gemStore), sub: material(d.gem)?.family === 'gems' ? 'a gem' : null, where }); if (g) out.push(g); }
-  if (d.extra) { const x = storesHaul(d.extra, Number(d.extraQty) || 1, { held: heldOf(carried ? d.extraCarried : d.extraStore), where }); if (x) out.push(x); }
+  if (d.gem) { const g = storesHaul(d.gem, came(d.gem, 1), { held: heldOf(carried ? d.gemCarried : d.gemStore), sub: material(d.gem)?.family === 'gems' ? 'a gem' : null, where }); if (g) out.push(g); }
+  if (d.extra) { const x = storesHaul(d.extra, came(d.extra, Number(d.extraQty) || 1), { held: heldOf(carried ? d.extraCarried : d.extraStore), where }); if (x) out.push(x); }
   return out;
 }
 

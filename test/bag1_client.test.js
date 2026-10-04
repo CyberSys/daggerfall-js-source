@@ -9,22 +9,22 @@ import { readFileSync } from 'node:fs';
 import '../src/systems/profTemplates.js';
 import { standService, T0, sessionStorageOf } from './accountDb.mjs';
 import { accountProf, SESSION_KEY, accountRefusalText } from '../src/net/accountClient.js';
-import { createProfBook, PROF_QUEUE_MS } from '../src/net/profBook.js';
+import { createProfBook, PROF_QUEUE_MS, PROF_REFRESH_BACKOFF_MS } from '../src/net/profBook.js';
 import {
-  BAG_TEMPLATE, BAG_KG_LIMIT, BAG_BASE_PRICE, BAG_ROW, BAG_CAPACITY, BAG_WORDS, CARRIED_MAX, goodsWhere, madeWhere,
+  BAG_TEMPLATE, BAG_KG_LIMIT, BAG_BASE_PRICE, BAG_ROW, BAG_CAPACITY, BAG_WORDS, CARRIED_MAX, DEPOSIT_MAX, goodsWhere, madeWhere, movedFirstText,
 } from '../src/net/bagLaw.js';
 import { leftWords, actMaterial } from '../src/scenes/gatherHost.js';
 import { survivalMinute } from '../src/systems/survival/needs.js';
 import { mountEnhancedInventory } from '../src/ui/enhancedInventory.js';
 import { withDom } from './invdrag.mjs';
-import { BAG_PAGE_WORDS } from '../src/ui/profPages.js';
+import { BAG_PAGE_WORDS, setProfessionsPages, drawStoresPage, resetProfPages, storesRoomOf } from '../src/ui/profPages.js';
 import {
   hasBag, bagItemsOf, materialKeyOfItem, isMaterialItem, heldOf, unitKgOf, bagWeight, roomFor, mintCarried, takeCarried,
-  bagStoreRefusal, bagMayLeave, isBagItem,
+  bagStoreRefusal, bagMayLeave, isBagItem, giveCarried, bagTakesOf, emptyBagIntoPack,
 } from '../src/systems/materialsBag.js';
 import { mintMaterialItem, materialCountLabel } from '../src/systems/profItems.js';
 import { setItemFields } from '../src/systems/itemTemplates.js';
-import { addItem } from '../src/systems/inventory.js';
+import { addItem, carriedWeight } from '../src/systems/inventory.js';
 import {
   planBagToggle, hasMaterialsBag, remoteTarget, storeCapacityOf, groundRefusalOf, remoteTargetType, REMOTE_TARGET_TYPES,
 } from '../src/systems/inventorySession.js';
@@ -35,8 +35,9 @@ import { tradeableRecord } from '../src/net/realmTradeLaw.js';
 import { carriedItemLists } from '../src/net/realmGoldLaw.js';
 import { stockShopShelf } from '../src/systems/shopStock.js';
 import { BUILDING_TYPES } from '../src/world/buildingNames.js';
-import { snapshotPlayer, restorePlayer } from '../src/systems/save.js';
-import { storesFullIn, fullWordsIn, herbKey } from '../src/net/professionLaw.js';
+import { snapshotPlayer, restorePlayer, bagTakesSaved, removeAllOrphanedItems } from '../src/systems/save.js';
+import { storesFullIn, fullWordsIn, herbKey, STORES_MAX, WITHDRAW_MAX } from '../src/net/professionLaw.js';
+import { calculateCost } from '../src/systems/shopStock.js';
 import { harvestHauls } from '../src/ui/haulCards.js';
 import { herbPatches, nodeKey } from '../src/net/nodeLaw.js';
 import { sharedClassicMinutes } from '../src/net/wire.js';
@@ -50,8 +51,18 @@ const bagItem = () => setItemFields({ group: 'UselessItems2', templateIndex: BAG
 const body = ({ bag = true } = {}) => ({ stats: { strength: 50 }, items: bag ? [bagItem()] : [], bagItems: [], goldPieces: 0 });
 const OAK = 'log:oak';   // 2 kg a log
 const HERB = 'p1:9';     // 0.25 kg
-/** The host's hands on an entity, as scenes/world.js builds them. */
-const hands = (e) => ({ held: (k) => heldOf(e, k), room: (k) => roomFor(e, k), mint: (k, n) => mintCarried(e, k, n), take: (k, n) => takeCarried(e, k, n) });
+/** The host's hands on an entity, as scenes/world.js builds them - AUDIT2: the deposits' stamps in its save, every unit
+ *  handed over minted (`give`), and `flush` the checkpoint a deposit waits on (none given: the entity IS the save). */
+const hands = (e, { flush = null } = {}) => ({
+  held: (k) => heldOf(e, k), room: (k) => roomFor(e, k), mint: (k, n) => mintCarried(e, k, n),
+  take: (k, n, id, order) => takeCarried(e, k, n, id, order), give: (k, n) => giveCarried(e, k, n),
+  stamped: (id) => Object.hasOwn(bagTakesOf(e), id), unstamp: (id) => { delete e.bagTakes?.[id]; },
+  stamps: () => Object.entries(bagTakesOf(e)).map(([id, t]) => ({ id, ...t })),
+  ...(flush ? { flush } : {}),
+});
+/** AUDIT2: the save a checkpoint writes of an entity - and the entity a page boots from it. */
+const saveOf = (e) => structuredClone(e);
+const sumOf = (list, k) => list.filter((i) => materialKeyOfItem(i) === k).reduce((a, i) => a + (i.stackCount ?? 1), 0);
 
 // ─── THE LAW ────────────────────────────────────────────────────────
 
@@ -64,17 +75,22 @@ test('BAG1 the row: DFU\'s own Backpack picture, weightless as the Small Cart, o
   assert.equal(BAG_KG_LIMIT, 300);
   assert.deepEqual(BAG_CAPACITY, { kg: 300, name: 'Your Materials Bag' });
   assert.equal(CARRIED_MAX, 5000);
+  assert.deepEqual([CARRIED_MAX, DEPOSIT_MAX], [STORES_MAX, WITHDRAW_MAX], 'AUDIT2 D16: the Stores\' own bounds, imported');
+  assert.deepEqual([1, 10, 20].map((q) => calculateCost(BAG_BASE_PRICE, q)), [456, 500, 550], 'AUDIT2: 456 to 550 by the shop\'s quality');
   const it = bagItem();
   assert.deepEqual([it.name, it.value, isBagItem(it), hasBag([it]), hasBag([])], ['Materials Bag', 250, true, true, false]);
 });
 
-test('BAG1 the words: where a harvest\'s goods went - the Stores for an older book, else the bag, the pack or both as the mint put them, and what had no room left where it was gathered (mutants: the pack said as the bag; the left-behind unsaid)', () => {
+test('BAG1 the words: where a harvest\'s goods went - the Stores for an older book, else the bag, the pack or both as the mint put them, and what had no room left where it was gathered (mutants: the pack said as the bag; the left-behind unsaid; AUDIT2: none carried said as the bag)', () => {
   assert.equal(goodsWhere({ carry: false }), 'to your Stores');
   assert.equal(goodsWhere({ carry: true, put: { bag: 3, pack: 0, left: 0 } }), 'to your bag');
   assert.equal(goodsWhere({ carry: true, put: { bag: 0, pack: 2, left: 0 } }), 'to your pack');
   assert.equal(goodsWhere({ carry: true, put: { bag: 1, pack: 2, left: 0 } }), 'to your bag and pack');
   assert.equal(goodsWhere({ carry: true, put: { bag: 4, pack: 0, left: 1 } }), 'to your bag - 1 left where it was gathered: no room');
   assert.equal(goodsWhere({ carry: true, put: { bag: 0, pack: 1, left: 3 } }), 'to your pack - 3 left where they were gathered: no room');
+  // AUDIT2 K11: none of it carried - never "to your bag" of goods that went nowhere
+  assert.equal(goodsWhere({ carry: true, put: { bag: 0, pack: 0, left: 3 } }), '- all left where they were gathered: no room in your bag or pack');
+  assert.equal(goodsWhere({ carry: true, put: { bag: 0, pack: 0, left: 1 } }), '- all left where it was gathered: no room in your bag or pack');
   assert.match(BAG_WORDS.where, /Every General Store sells the bag/);
 });
 
@@ -165,7 +181,7 @@ test('BAG1 a loaded bag stays: it leaves the pack - dropped, stored, sold - only
   }
 });
 
-test('BAG1 bought: every General Store shelves one online, after the horse and the cart, to a character who carries none; offline none (mutants: offline; a second bag)', () => {
+test('BAG1 bought: every General Store shelves one online, after the horse and the cart, to a character who carries none - on its first shelf alone (AUDIT2 H8); offline none (mutants: offline; a second bag; a bag a shelf)', () => {
   const where = globalThis.location;
   try {
     const shelf = (e) => stockShopShelf({ buildingType: BUILDING_TYPES.GeneralStore, quality: 10 }, e, { rolls: () => 0.5, torchesFromItems: false });
@@ -176,12 +192,15 @@ test('BAG1 bought: every General Store shelves one online, after the horse and t
     assert.equal(on[i].group, 'UselessItems2');
     assert.ok(on.slice(0, i).some((it) => it.group === 'Transportation'), 'after the horse and the cart');
     assert.equal(shelf({ items: [bagItem()], level: 1 }).some((it) => it.templateIndex === BAG_TEMPLATE), false, 'one to a character');
+    // AUDIT2 H8: the first shelf alone - the horse and the cart are every shelf's, as DFU stocks them; the bag is the shop's
+    const second = stockShopShelf({ buildingType: BUILDING_TYPES.GeneralStore, quality: 10 }, { items: [], level: 1 }, { rolls: () => 0.5, torchesFromItems: false, shelfIndex: 1 });
+    assert.deepEqual([second.some((it) => it.templateIndex === BAG_TEMPLATE), second.some((it) => it.group === 'Transportation')], [false, true]);
     globalThis.location = { search: '' };
     assert.equal(shelf({ items: [], level: 1 }).some((it) => it.templateIndex === BAG_TEMPLATE), false, 'offline nothing gathers into it');
   } finally { globalThis.location = where; }
 });
 
-test('BAG1 the save keeps the bag\'s list, and the realm counts it with the pack and the wagon (mutants: the list unsaved; the realm blind to it)', () => {
+test('BAG1 the save keeps the bag\'s list, and the realm counts it with the pack and the wagon; AUDIT2: and the deposits\' stamps, to a deposit\'s bounds (mutants: the list unsaved; the realm blind to it; the stamp unsaved; the stamp dropped on load)', () => {
   const e = { ...body(), isPlayer: true };
   mintCarried(e, OAK, 4);
   const q = { isPlayer: true };
@@ -191,11 +210,24 @@ test('BAG1 the save keeps the bag\'s list, and the realm counts it with the pack
   assert.equal(materialKeyOfItem(q.bagItems[0]), OAK);
   const lists = carriedItemLists({ items: [{ a: 1 }], bagItems: [{ b: 2 }], wagonItems: [] });
   assert.ok(lists.some((l) => l.some((x) => x.b === 2)), 'the bag\'s list is the record\'s to count');
+  // AUDIT2 K3/K7: a deposit's stamp rides the save - its id, material, units and order - and a bad one is dropped
+  takeCarried(e, OAK, 3, 'dep-1', 'spend');
+  const r = { isPlayer: true };
+  restorePlayer(r, JSON.parse(JSON.stringify(snapshotPlayer(e, { classicMinutes: 100 }))));
+  assert.deepEqual(r.bagTakes, { 'dep-1': { material: OAK, qty: 3, order: 'spend' } });
+  const older = JSON.parse(JSON.stringify(snapshotPlayer({ ...body(), isPlayer: true }, { classicMinutes: 100 })));
+  delete older.bagTakes;
+  const o = { isPlayer: true };
+  restorePlayer(o, older);
+  assert.deepEqual(o.bagTakes, {}, 'a save written before holds none');
+  assert.deepEqual(bagTakesSaved({ a: { material: OAK, qty: 0 }, b: { material: OAK, qty: 201 }, c: { material: 3, qty: 1 }, d: { material: OAK, qty: 2, order: 'gold' }, [`${'x'.repeat(65)}`]: { material: OAK, qty: 1 } }),
+    { d: { material: OAK, qty: 2 } }, 'no units, past a deposit\'s bound, no material, an order no deposit has, an id past its length');
+  assert.deepEqual(bagTakesSaved([1]), {});
 });
 
 // ─── THE BOOK ───────────────────────────────────────────────────────
 
-test('BAG1 the book carries: a harvest asks with `carry` and the held count, never the material\'s name; the answer\'s goods are minted ONCE into the bag - a second settle of the same harvest mints nothing; the haul card says Carried (mutants: the material sent; minted twice; the Stores\' count said)', async () => {
+test('BAG1 the book carries: a harvest asks with `carry` and the held count, never the material\'s name; the answer\'s goods are minted ONCE into the bag - a second settle of the same harvest mints nothing; the haul card says Carried, counting what came (mutants: the material sent; minted twice; the Stores\' count said; AUDIT2 U6: the service\'s count for what came)', async () => {
   const e = body();
   const asked = [];
   let answer = { ok: false, error: 'offline' };
@@ -239,6 +271,10 @@ test('BAG1 the book carries: a harvest asks with `carry` and the held count, nev
   const [card] = harvestHauls(answer.data);
   assert.equal(card.where, 'Carried');
   assert.equal(card.held, 5);
+  // AUDIT2 U6: the card counts what came - one of the three left where it was gathered
+  assert.equal(harvestHauls({ ...answer.data, put: { bag: 2, pack: 0, left: 1, lost: [{ key: HERB, n: 1 }] } })[0].count, 2);
+  const none = harvestHauls({ ...answer.data, put: { bag: 0, pack: 0, left: 3, lost: [{ key: HERB, n: 3 }] } })[0];
+  assert.deepEqual([none.count, none.sub, none.xp], [0, 'left where gathered - no room', 2], 'none came: said, and the XP still on it');
   assert.match(src('src/ui/haulCards.js'), /tag: Number\.isSafeInteger\(l\.held\) \? `\$\{l\.where \?\? 'Stores'\} \$\{num\(l\.held\)\}`/);
 });
 
@@ -337,37 +373,215 @@ test('BAG1 (AUDIT B1): a carried harvest is never let go unminted - lapsed, it i
   assert.equal(heldOf(e, HERB), 6, 'minted once its own character asked again');
 });
 
-test('BAG1 (AUDIT B17): a deposit is kept with the other acts - a page reloaded still hears its answer; refused then, it gives back only what the bag and the pack are short of what they held (mutants: kept in memory alone; given back whole after a reload)', async () => {
-  const shared = memStorage();
-  const e = body();
-  mintCarried(e, HERB, 6);
-  const first = createProfBook({ door: { account: () => 'a', deposit: async () => ({ ok: false, error: 'offline' }) }, storage: shared, character: () => 'c', sleep: noWait, carry: hands(e) });
-  assert.equal((await first.deposit(HERB, 4)).kept, true);
-  assert.equal(heldOf(e, HERB), 2);
-  // reloaded, the save written after the items went: refused, they come back
+test('BAG1 (AUDIT B17; AUDIT2 K3/K7/H2/H4/D1): a deposit is kept with the other acts and its take STAMPED in the save, the save the realm\'s before it is asked - booted from a save that holds the stamp, a refusal gives back every unit it took, whatever was minted since; booted from one that does not, it was never sent, and is let go untouched; a stamp no kept act names is asked by its own id (mutants: a stamped refusal given nothing; an unstamped deposit asked; asked before the checkpoint; a first ask unsaved kept; a stray stamp swept; given back twice)', async () => {
+  const offline = { account: () => 'a', deposit: async () => ({ ok: false, error: 'offline' }) };
+  const landed = (m, q) => ({ ok: true, data: { repeat: true, store: { material: m, own: q, bought: 0 }, carried: { material: m, own: 0, bought: 0 } } });
   let answer = { ok: false, error: 'carried-short' };
   const asked = [];
   const door = { account: () => 'a', deposit: async (...a) => { asked.push(a); return answer; } };
-  const second = createProfBook({ door, storage: shared, character: () => 'c', sleep: noWait, carry: hands(e) });
+  const bookOf = (e, storage, { d = door, flush = null, rid } = {}) => createProfBook({ door: d, storage, character: () => 'c', sleep: noWait, carry: hands(e, { flush }), ...(rid ? { rid } : {}) });
+
+  // K3: the save written after the take holds its stamp; three herbs minted since, before the settle - refused, all four
+  // come back (the shortfall the stamp replaced - 6 held then, 5 now - gave back one)
+  const s1 = memStorage();
+  const e = body();
+  mintCarried(e, HERB, 6);
+  assert.equal((await bookOf(e, s1, { d: offline }).deposit(HERB, 4)).kept, true);
+  const booted = saveOf(e);
+  assert.equal(heldOf(booted, HERB), 2);
+  assert.deepEqual(Object.values(bagTakesOf(booted)), [{ material: HERB, qty: 4, order: 'all' }], 'the take, stamped in the save');
+  mintCarried(booted, HERB, 3);
+  const second = bookOf(booted, s1);
   assert.equal(second.pendingDeposits, 1, 'heard by the next page');
   await second.settle(() => {});
   assert.equal(asked.length, 1);
-  assert.equal(heldOf(e, HERB), 6, 'the four given back');
-  assert.equal(second.pendingDeposits, 0);
-  // reloaded on a save that never saw them go: the pack holds them still, and nothing is given back
+  assert.equal(heldOf(booted, HERB), 9, 'the four given back');
+  assert.deepEqual([second.pendingDeposits, bagTakesOf(booted)], [0, {}]);
+  // two deposits out: each its own stamp, each given back whole (one shortfall shared by the two gave back once)
+  const s2 = memStorage();
   const e2 = body();
   mintCarried(e2, HERB, 6);
-  await createProfBook({ door: { account: () => 'a', deposit: async () => ({ ok: false, error: 'offline' }) }, storage: shared, character: () => 'c', sleep: noWait, carry: hands(e2) }).deposit(HERB, 4);
+  const off2 = bookOf(e2, s2, { d: offline });
+  await off2.deposit(HERB, 2);
+  await off2.deposit(HERB, 2);
+  const booted2 = saveOf(e2);
+  asked.length = 0;
+  await bookOf(booted2, s2).settle(() => {});
+  assert.deepEqual([asked.length, heldOf(booted2, HERB)], [2, 6]);
+
+  // H2: THE TAKE SAVED BEFORE THE ASK - the checkpoint asked first, holding the take and its stamp; refused, a first ask is
+  // undone whole and never sent
+  const seq = [];
+  let saves = true;
+  const e5 = body();
+  mintCarried(e5, HERB, 6);
+  const s5 = memStorage();
+  const b5 = bookOf(e5, s5, { d: { account: () => 'a', deposit: async () => { seq.push('ask'); return { ok: false, error: 'offline' }; } }, flush: async () => { seq.push(['flush', heldOf(e5, HERB), Object.keys(bagTakesOf(e5)).length]); return saves; } });
+  await b5.deposit(HERB, 4);
+  assert.deepEqual([seq[0], seq.slice(1).every((x) => x === 'ask'), seq.length > 1], [['flush', 2, 1], true, true], 'the save with the take and its stamp landed first, then the asks');
+  // asked before - it may have landed: a checkpoint refused now keeps it out, unasked, never undone
+  seq.length = 0;
+  saves = false;
+  await b5.settle(() => {});
+  assert.deepEqual([seq, b5.pendingDeposits, heldOf(e5, HERB)], [[['flush', 2, 1]], 1, 2]);
+  const e4 = body();
+  mintCarried(e4, HERB, 6);
+  asked.length = 0;
+  const b4 = bookOf(e4, memStorage(), { flush: () => false });
+  assert.deepEqual(await b4.deposit(HERB, 4), { ok: false, error: 'deposit-unsaved' });
+  assert.deepEqual([asked.length, heldOf(e4, HERB), b4.pendingDeposits, bagTakesOf(e4)], [0, 6, 0, {}], 'never sent, all back');
+  assert.match(accountRefusalText('deposit-unsaved'), /could not be saved just now, so nothing went into your Stores/);
+
+  // K7: the page gone while its checkpoint was out - the realm's save is the one from BEFORE the take, with no stamp: the
+  // deposit was never sent, and is let go unasked; the save keeps its six (asked and landed, it took them out of the save
+  // the page booted - and asked from a save that never saw them go, a landing whose page then went was a copy)
+  const s3 = memStorage();
   const e3 = body();
-  mintCarried(e3, HERB, 6);   // the save as it stood before the deposit
-  await createProfBook({ door, storage: shared, character: () => 'c', sleep: noWait, carry: hands(e3) }).settle(() => {});
-  assert.equal(heldOf(e3, HERB), 6, 'never a copy');
-  // landed: nothing given back
-  await createProfBook({ door: { account: () => 'a', deposit: async () => ({ ok: false, error: 'offline' }) }, storage: shared, character: () => 'c', sleep: noWait, carry: hands(e2) }).deposit(HERB, 2);
-  answer = { ok: true, data: { store: { material: HERB, own: 2, bought: 0 }, carried: { material: HERB, own: 0, bought: 0 } } };
-  const third = createProfBook({ door, storage: shared, character: () => 'c', sleep: noWait, carry: hands(e2) });
+  mintCarried(e3, HERB, 6);
+  const before3 = saveOf(e3);
+  let asked3 = 0;
+  void bookOf(e3, s3, { d: { account: () => 'a', deposit: async () => { asked3++; return { ok: false, error: 'offline' }; } }, flush: () => new Promise(() => {}) }).deposit(HERB, 4);
+  assert.deepEqual([asked3, heldOf(e3, HERB)], [0, 2], 'taken, its checkpoint out, unasked');
+  answer = landed(HERB, 4);
+  asked.length = 0;
+  const third = bookOf(before3, s3, { flush: () => true });
+  assert.equal(third.pendingDeposits, 1);
   await third.settle(() => {});
-  assert.deepEqual([third.pendingDeposits, heldOf(e2, HERB)], [0, 0]);
+  assert.deepEqual([asked.length, third.pendingDeposits, heldOf(before3, HERB), bagTakesOf(before3)], [0, 0, 6, {}]);
+
+  // A STRAY STAMP: the answer heard, the page gone before the checkpoint that took the stamp off - the save holds a stamp no
+  // kept act names. Asked by its own id and order: the service answers a deposit made as made, and nothing moves
+  const s6 = memStorage();
+  const e6 = body();
+  mintCarried(e6, HERB, 6);
+  await bookOf(e6, s6, { d: offline, rid: () => 'dep-6' }).deposit(HERB, 4, { order: 'spend' });
+  const record = saveOf(e6);
+  await bookOf(e6, s6).settle(() => {});   // heard on that page, its stamp off - the page then gone
+  assert.deepEqual(bagTakesOf(e6), {});
+  asked.length = 0;
+  const b7 = bookOf(record, s6);
+  assert.equal(b7.pendingDeposits, 1, 'the stray stamp waits');
+  await b7.settle(() => {});
+  assert.deepEqual(asked.map((a) => [a[4], a[5]]), [['spend', 'dep-6']], 'asked by its own id, in its own order');
+  assert.deepEqual([heldOf(record, HERB), b7.pendingDeposits, bagTakesOf(record)], [2, 0, {}]);
+  // kept on ANOTHER DEVICE: this one's storage holds no kept act, its save the stamp - refused, the units come back; and
+  // the first device, booting the save the second wrote, finds no stamp - settled elsewhere - and lets its own go unasked
+  const d1 = memStorage();
+  const e8 = body();
+  mintCarried(e8, HERB, 6);
+  await bookOf(e8, d1, { d: offline }).deposit(HERB, 4);
+  const rec = saveOf(e8);
+  answer = { ok: false, error: 'stores-full' };
+  asked.length = 0;
+  await bookOf(rec, memStorage()).settle(() => {});
+  assert.deepEqual([asked.length, heldOf(rec, HERB), bagTakesOf(rec)], [1, 6, {}]);
+  const rec2 = saveOf(rec);
+  const back1 = bookOf(rec2, d1);
+  assert.equal(back1.pendingDeposits, 1);
+  await back1.settle(() => {});
+  assert.deepEqual([asked.length, heldOf(rec2, HERB), back1.pendingDeposits], [1, 6, 0], 'never asked again, never a copy');
+
+  // H4: a refusal heard when the bag and the pack are full - every unit back, into the pack past its weight (B5's law)
+  const s9 = memStorage();
+  const e9 = body();
+  mintCarried(e9, OAK, 10);
+  await bookOf(e9, s9, { d: offline }).deposit(OAK, 10);
+  const rec9 = saveOf(e9);
+  mintCarried(rec9, OAK, 187);
+  assert.equal(roomFor(rec9, OAK), 0);
+  await bookOf(rec9, s9).settle(() => {});
+  assert.equal(heldOf(rec9, OAK), 197, 'all ten back');
+
+  // D1: TWO TABS on one save, one kept deposit, both asking at once - the stamp read and taken off in one turn: given back once
+  const s10 = memStorage();
+  const e10 = body();
+  mintCarried(e10, HERB, 6);
+  await bookOf(e10, s10, { d: offline }).deposit(HERB, 4);
+  let release;
+  const gate = new Promise((r) => { release = r; });
+  const slow = { account: () => 'a', deposit: async () => { await gate; return { ok: false, error: 'stores-full' }; } };
+  const both = [bookOf(e10, s10, { d: slow }).settle(() => {}), bookOf(e10, s10, { d: slow }).settle(() => {})];
+  release();
+  await Promise.all(both);
+  assert.equal(heldOf(e10, HERB), 6, 'the four back once');
+});
+
+test('BAG1 (AUDIT2 K2/K9): while another carried act is kept - a harvest whose answer may have landed unminted - the held count said is never under the count as heard (a state read made `seen` the service\'s own, and the cut took the kept act\'s units); the act asked is not pending for itself; a `carried-full` refusal reads the state again (mutants: held the pack\'s alone; the act pending for itself; carried-full unlearned)', async () => {
+  const e = body();
+  const asked = [];
+  const door = {
+    account: () => 'a',
+    harvest: async (b) => { asked.push(b); return { ok: false, error: 'offline' }; },
+    state: async () => ({ ok: true, data: { carried: [{ material: HERB, own: 5, bought: 0 }] } }),
+  };
+  let t = 1_000_000, n = 0;
+  const storage = memStorage();
+  const book = createProfBook({ door, storage, character: () => 'c', now: () => t, rid: () => `h-${++n}`, sleep: noWait, carry: hands(e) });
+  await book.harvest({ node: 'n1', kind: 'herbs', climate: 231, region: 21, act: {}, at: 1, material: HERB });   // landed: its three unminted
+  mintCarried(e, HERB, 2);
+  await book.refresh({ force: true });   // the count: 5, the kept harvest's three among them
+  asked.length = 0;
+  await book.harvest({ node: 'n2', kind: 'oak', climate: 231, region: 21, act: {}, at: 1, material: OAK });
+  await book.harvest({ node: 'n3', kind: 'herbs', climate: 231, region: 21, act: {}, at: 1, material: HERB });
+  assert.deepEqual([asked.at(-1).held, asked.at(-1).seen], [5, 5], 'never 2 - the cut took the three the kept harvest is yet to mint');
+  // the kept act's own ask, alone: not pending for itself - the pack's count, so a pack emptied by a sale is believed
+  const e2 = body();
+  const asked2 = [];
+  const door2 = { ...door, harvest: async (b) => { asked2.push(b); return { ok: false, error: 'offline' }; } };
+  const b2 = createProfBook({ door: door2, storage: memStorage(), character: () => 'c', now: () => t, sleep: noWait, carry: hands(e2) });
+  await b2.harvest({ node: 'n1', kind: 'herbs', climate: 231, region: 21, act: {}, at: 1, material: HERB });
+  mintCarried(e2, HERB, 2);
+  await b2.refresh({ force: true });
+  asked2.length = 0;
+  t += 60_000;
+  await b2.pump();
+  assert.deepEqual([asked2[0].held, asked2[0].seen], [2, 5]);
+  // K9: refused at the carried count's bound - the state read again, as a Stores-full refusal is
+  const b3 = createProfBook({ door: { ...door, harvest: async () => ({ ok: false, error: 'carried-full' }) }, storage: memStorage(), character: () => 'c', now: () => t, sleep: noWait, carry: hands(body()) });
+  await b3.refresh({ force: true });
+  assert.equal(b3.stale(), false);
+  await b3.harvest({ node: 'n9', kind: 'herbs', climate: 231, region: 21, act: {}, at: t / 1000 | 0, material: HERB });
+  t += PROF_REFRESH_BACKOFF_MS;
+  assert.equal(b3.stale(), true);
+});
+
+test('BAG1 (AUDIT2 K5/K6/K8/K12): a station\'s put-in refused for a later input leaves the earlier in the Stores, said by `moved` and in the station\'s words; one unanswered is `deposit-kept` and no craft is kept; a second press while it is out says so at once, never a second put-in; a deposit while another is on the wire is the deposit\'s own word (mutants: `kept` passed to the craft; a second put-in; the moved inputs unsaid; `prof-busy`)', async () => {
+  const e = body();
+  mintCarried(e, 'ingot:iron', 2);
+  mintCarried(e, 'metal:tin', 2);
+  const deposits = [];
+  let tin = { ok: false, error: 'stores-full' };
+  const door = {
+    account: () => 'a',
+    state: async () => ({ ok: true, data: { carried: [{ material: 'ingot:iron', own: 2, bought: 0 }, { material: 'metal:tin', own: 2, bought: 0 }] } }),
+    deposit: async (c, m, q) => { deposits.push([m, q]); return m === 'metal:tin' ? tin : { ok: true, data: { store: { material: m, own: q, bought: 0 }, carried: { material: m, own: 1, bought: 0 } } }; },
+    craft: async () => ({ ok: true, data: {} }),
+  };
+  const book = createProfBook({ door, storage: memStorage(), character: () => 'c', sleep: noWait, carry: hands(e) });
+  await book.refresh({ force: true });
+  const r = await book.craft('dagger:iron', {}, () => {});
+  assert.deepEqual(r, { ok: false, error: 'stores-full', material: 'metal:tin', moved: 1 }, 'the iron in, the tin refused');
+  assert.equal(movedFirstText(r), ' 1 of the materials went into your Stores first - the next try spends them there.');
+  assert.equal(movedFirstText({ moved: 0 }), '');
+  assert.match(src('src/scenes/world.js'), /text: `\$\{accountRefusalText\(r\?\.error\)\}\$\{movedFirstText\(r\)\}` \};\n\s+\/\/ the fee for the smelt/);
+  assert.equal(book.storesHeld('ingot:iron'), 1, 'the iron waits in the Stores for the next craft');
+  tin = { ok: false, error: 'offline' };
+  const r2 = await book.craft('dagger:iron', {}, () => {});
+  assert.deepEqual([r2.error, r2.material, 'kept' in r2, book.pendingCrafts], ['deposit-kept', 'metal:tin', false, 0], 'no craft kept');
+  const before = deposits.length;
+  const r3 = await book.craft('dagger:iron', {}, () => {});
+  assert.deepEqual([r3.error, deposits.length], ['deposit-kept', before], 'said at once - never a second put-in');
+  // K12: one deposit at a time, in the deposit's own words
+  let release;
+  const gate = new Promise((res) => { release = res; });
+  const e2 = body();
+  mintCarried(e2, HERB, 4);
+  const b2 = createProfBook({ door: { account: () => 'a', deposit: async () => { await gate; return { ok: false, error: 'stores-full' }; } }, storage: memStorage(), character: () => 'c', sleep: noWait, carry: hands(e2) });
+  const first = b2.deposit(HERB, 1);
+  assert.deepEqual(await b2.deposit(HERB, 1), { ok: false, error: 'deposit-busy' });
+  assert.match(accountRefusalText('deposit-busy'), /still being counted/);
+  release();
+  await first;
 });
 
 test('BAG1 (AUDIT B8/B9): a station\'s put-in with no answer says so; a Court writ\'s card names its shortfall where the book\'s list has none; a station\'s work says where it went; what a harvest left is named each by its own (mutants: `deposit-kept` said as offline; the card unread)', async () => {
@@ -429,20 +643,115 @@ test('BAG1 (AUDIT B6/B7): the wagon\'s are held and taken last; food in the bag 
   assert.equal(materialKeyOfItem(mintMaterialItem('food:meat', true)), 'food:meat', 'a fresh one is');
 });
 
-test('BAG1 (AUDIT B4/B5): every gathering kind names the material its goods are, so the held count is said; a withdrawal\'s goods with no room come into the pack, over its weight (by source; mutants: no kind named one)', () => {
+test('BAG1 (AUDIT2 H3/H12): a take\'s undo puts each unit back by its list\'s role, read at the undo - a split stack whose rest has gone comes back as a record of its own, and the bag\'s go to the pack once the bag has left; only what has a pack form is ever minted (mutants: the undo onto the stale record; into a bag that left; Arcane Essence minted)', () => {
+  const e = body();
+  mintCarried(e, HERB, 5);
+  const t = takeCarried(e, HERB, 2);
+  const rest = bagItemsOf(e)[0];
+  assert.equal(rest.stackCount, 3);
+  bagItemsOf(e).splice(0, 1);   // the rest sold since
+  t.back();
+  assert.deepEqual([heldOf(e, HERB), bagItemsOf(e).length], [2, 1], 'the two back');
+  assert.notEqual(bagItemsOf(e)[0], rest, 'a record of their own, never the one sold');
+  const e2 = body();
+  mintCarried(e2, HERB, 3);
+  const t2 = takeCarried(e2, HERB, 3, 'dep-2');
+  assert.deepEqual(bagTakesOf(e2), { 'dep-2': { material: HERB, qty: 3 } });
+  e2.items = e2.items.filter((it) => !isBagItem(it));   // the bag, empty, sold
+  t2.back();
+  assert.equal(sumOf(e2.items, HERB), 3, 'into the pack');
+  assert.deepEqual(bagTakesOf(e2), {}, 'the undo takes the stamp off with them');
+  assert.deepEqual(mintCarried(body(), 'essence:arcane', 2), { bag: 0, pack: 0, left: 2 });
+  assert.deepEqual(mintCarried(body(), 'work:ram', 1), { bag: 0, pack: 0, left: 1 });
+});
+
+test('BAG1 (AUDIT2 K4/K10/K13): a station\'s work comes out of the Stores in as many withdrawals as the room takes, each within a withdrawal\'s bound; every unit handed over is minted - past the pack\'s weight where the room shrank meanwhile; what stays says why; a press that threw lets its id go (mutants: one withdrawal of 200; the overflow lost; busy and unanswered said as no room; the id held by a throw)', async () => {
+  const PLANK = 'plank:pine';
+  const withdrawals = [];
+  let onWithdraw = async () => {};
+  let wAnswer = null;
+  let throwOnce = false;
+  const door = {
+    account: () => 'a',
+    state: async () => ({ ok: true, data: { stores: [{ material: 'log:pine', own: 999, bought: 0 }], carried: [] } }),
+    smelt: async (c, recipe, count) => ({ ok: true, data: { recipe, own: count * 2, bought: 0, stores: [{ material: PLANK, own: count * 2, bought: 0 }] } }),   // two planks a log
+    withdraw: async (c, m, q) => { withdrawals.push(q); await onWithdraw(q); return wAnswer ?? { ok: true, data: { material: m, qty: q, carried: { material: m, own: q, bought: 0 } } }; },
+  };
+  const e = body();
+  const h = hands(e);
+  const carry = { ...h, held: (k) => { if (throwOnce) { throwOnce = false; throw new Error('a host that threw'); } return h.held(k); } };
+  let n = 0;
+  const book = createProfBook({ door, storage: memStorage(), character: () => 'c', rid: () => `r-${++n}`, sleep: noWait, carry });
+  await book.refresh();
+  assert.equal(roomFor(e, PLANK), 375);
+  const r = await book.smelt('saw:pine', 125);
+  assert.deepEqual(withdrawals, [200, 50], 'two withdrawals, each within the bound');
+  assert.deepEqual(r.data.put, { bag: 250, pack: 0, stored: 0, coming: 0, why: null });
+  assert.equal(madeWhere(r.data.put), 'Into your bag.');
+  // the room shrank between the ask and the answer (a harvest minted): every unit still minted, the rest over the weight
+  withdrawals.length = 0;
+  onWithdraw = async () => { mintCarried(e, PLANK, roomFor(e, PLANK) - 30); onWithdraw = async () => {}; };
+  const r2 = await book.smelt('saw:pine', 50);
+  assert.deepEqual([withdrawals, r2.data.put.stored, r2.data.put.bag + r2.data.put.pack], [[100], 0, 100]);
+  assert.equal(heldOf(e, PLANK), 250 + 95 + 100, 'none lost: 70 past the pack\'s weight');
+  // no room at all
+  const r3 = await book.smelt('saw:pine', 5);
+  assert.deepEqual([r3.data.put.stored, r3.data.put.why], [10, 'room']);
+  assert.equal(madeWhere(r3.data.put), '10 stay in your Stores: no room in your bag or pack.');
+  // unanswered: on its way, said so; refused: the refusal's words; busy: never "no room"
+  takeCarried(e, PLANK, 600);
+  wAnswer = { ok: false, error: 'offline' };
+  const r4 = await book.smelt('saw:pine', 2);
+  assert.deepEqual([r4.data.put.coming, r4.data.put.stored, r4.data.put.why], [4, 0, null]);
+  assert.equal(madeWhere(r4.data.put), '4 on their way from your Stores: the counting-house has not answered yet.');
+  assert.equal(madeWhere({ bag: 200, pack: 0, stored: 50, coming: 0, why: 'kept' }), 'Into your bag - 50 stay in your Stores: take them out once it has.');
+  assert.equal(madeWhere({ bag: 0, pack: 0, stored: 3, coming: 0, why: 'busy' }), '3 stay in your Stores: another withdrawal was still being counted.');
+  assert.equal(madeWhere({ bag: 0, pack: 0, stored: 3, coming: 0, why: 'refused', text: 'Your Stores do not hold that many.' }), '3 stay in your Stores. Your Stores do not hold that many.');
+  wAnswer = { ok: false, error: 'stores-short' };
+  const r5 = await book.smelt('saw:pine', 3);
+  assert.deepEqual([r5.data.put.why, r5.data.put.text], ['refused', accountRefusalText('stores-short')]);
+  let release;
+  wAnswer = null;
+  onWithdraw = () => new Promise((res) => { release = res; });
+  const pending = book.withdraw(PLANK, 1, () => {});
+  onWithdraw = async () => {};
+  const r6 = await book.smelt('saw:pine', 4);
+  assert.deepEqual([r6.data.put.why, r6.data.put.stored], ['busy', 8]);
+  release();
+  await pending;
+  // K13: a press that threw (the host's hands, mid put-in) lets the smelt's id go - the next press is asked
+  throwOnce = true;
+  await assert.rejects(book.smelt('saw:pine', 6, {}));
+  const again = await book.smelt('saw:pine', 6, {});
+  assert.equal(again.ok, true, 'asked again, not the same rejected press');
+});
+
+test('BAG1 (AUDIT B4/B5; AUDIT2 K4/H5): every gathering kind names the material its goods are, so the held count is said; a withdrawal\'s goods with no room come into the pack, over its weight - the hands\' `give`, which the world\'s withdrawal and a station\'s carry-out both mint through (mutants: no kind named one; the overflow dropped; a thing with no pack form minted)', () => {
   assert.equal(actMaterial({ material: 'log:oak' }), 'log:oak');
   assert.equal(actMaterial({ material: (info) => herbKey(9, info.region), info: { region: 21 } }), herbKey(9, 21), 'a herb\'s by its region');
   assert.equal(actMaterial({ harvest: 'food' }), null, 'the Basket\'s roll: none');
-  assert.match(src('src/scenes/gatherHost.js'), /\.\.\.\(actMaterial\(a\) \? \{ material: actMaterial\(a\) \} : \{\}\)/);
+  assert.match(src('src/scenes/gatherHost.js'), /^\s+\.\.\.\(actMaterial\(a\) \? \{ material: actMaterial\(a\) \} : \{\}\),$/m, 'AUDIT2 D3: a line of code, never a comment');
+  // AUDIT2 D3: DFU's potion maker reads the bag after the cart and spends it - lines of code, never comments
+  const modes = src('src/scenes/worldModes.js');
+  assert.match(modes, /^\s+wagonItems: \(\) => \[\.\.\.\(playerEntity\.wagonItems \?\?= \[\]\), \.\.\.\(playerEntity\.bagItems \?\? \[\]\)\],/m);
+  assert.match(modes, /^\s+return where !== 'pack' && removeOne\(playerEntity\.bagItems \?\? \[\], templateIndex, \{ group, allowEnchantedItem: false \}\);/m);
   assert.match(src('src/scenes/herbHost.js'), /plan\.harvest === 'herbs' \? \{ material: \(info\) => herbKey\(p\.herb, info\?\.region \?\? 0\) \}/);
   assert.match(src('src/scenes/treeHost.js'), /material: n\.material,/);
   assert.match(src('src/scenes/mineHost.js'), /n\.what === 'boulder' \? \{\} : \{ material: n\.material \}/);
   assert.match(src('src/scenes/huntHost.js'), /material: b\.hide,/);
   assert.match(src('src/scenes/fishHost.js'), /material: FISH_KEY,/);
-  assert.match(src('src/scenes/world.js'), /const over = got\.left > 0 \? withdrawIntoPack\(playerEntity, key, got\.left/);
+  const full = body();
+  mintCarried(full, OAK, 187);
+  assert.deepEqual(giveCarried(full, OAK, 5), { bag: 0, pack: 0, over: 5 }, 'no room: into the pack past its weight');
+  assert.equal(heldOf(full, OAK), 192);
+  const some = body();
+  mintCarried(some, OAK, 185);
+  assert.deepEqual(giveCarried(some, OAK, 4), { bag: 0, pack: 2, over: 2 });
+  assert.deepEqual(giveCarried(body(), 'essence:arcane', 2), { bag: 0, pack: 0, over: 0 }, 'the Stores\' own, never an item');
+  assert.match(src('src/scenes/world.js'), /const got = carryHands\.give\(key, n\);/);
 });
 
-test('BAG1 (AUDIT H1/H2): the bag opens from a plain pack - its button on the footer while nothing stands beside the pack; never over a reward tray; the bag\'s card offers no Put in bag for what it refuses (mutants: the door on the side window alone; the bag over a tray; a dagger offered)', () => {
+test('BAG1 (AUDIT H1/H2; AUDIT2 U8): the bag opens from a plain pack - its button on the footer while nothing stands beside the pack; never over a reward tray; the bag\'s card offers no Put in bag for what it refuses; the gold field goes with the bag\'s opening (mutants: the door on the side window alone; the bag over a tray; a dagger offered; the field back over the pack)', () => {
   const named = (r) => r.querySelector('.itemname')?.children?.[0]?.textContent ?? '';
   const acts = (host) => host.querySelectorAll('.act').map((b) => b.textContent);
   const dagger = () => setItemFields({ group: 'Weapons', templateIndex: 113, material: 0 });
@@ -458,6 +767,19 @@ test('BAG1 (AUDIT H1/H2): the bag opens from a plain pack - its button on the fo
     assert.ok(host.querySelectorAll('.itemrow').some((r) => r.closest('.loot-win') && /Oak/.test(named(r))));
     host.querySelectorAll('.itemrow').find((r) => !r.closest('.loot-win') && /Dagger/.test(named(r))).onclick();
     assert.equal(acts(host).includes('Put in bag'), false, 'a dagger is no material');
+    view.unmount();
+  });
+  // AUDIT2 U8: the gold field opened, then the bag - the field goes, and never comes back when the bag closes
+  withDom((dom) => {
+    const host = dom.mk('div'); dom.body.append(host);
+    const e = { name: 'K', stats: { strength: 50 }, items: [bagItem()], bagItems: [mintMaterialItem(OAK)], goldPieces: 50 };
+    const view = mountEnhancedInventory(host, { entity: e, items: () => e.items, bagItems: () => e.bagItems, wagonItems: () => [], onExit: () => {} });
+    host.querySelectorAll('.goldbtn')[0].onclick();
+    assert.ok(host.querySelector('.goldfield'), 'the field up');
+    host.querySelectorAll('.act').find((b) => b.textContent === 'Materials Bag').onclick();
+    assert.equal(host.querySelector('.goldfield'), null, 'the bag up: no field');
+    host.querySelectorAll('.act').find((b) => b.textContent === 'Close bag').onclick();
+    assert.equal(host.querySelector('.goldfield'), null, 'the bag shut: the field stays put away');
     view.unmount();
   });
   withDom((dom) => {
@@ -479,6 +801,132 @@ test('BAG1 (AUDIT): Put everything in says what went in and each material refuse
   assert.match(page, /if \(res\?\.kept\) stop = res\.text \?\? null; else refused\.push\(\{ name: r\.name, text: res\?\.text \?\? null \}\); break;/);
   assert.match(page, /const carriedAny = \[\.\.\.all\.values\(\)\]\.some/);
   assert.match(src('src/ui/workTab.js'), /\$\{count\(held\)\} \$\{w\.carrying\?\.\(\) \? 'held' : 'in your Stores'\}/);
+});
+
+test('BAG1 (AUDIT2 H1/U2/U1/U11/U14): the Stores page empties the bag into the pack - anywhere, on either skin, as much as the pack carries (the classic inventory draws no bag, and a food rotted in it held it loaded for good); Put in and Put everything in stop at the Stores\' room, said; why Take out or Put in is shut is drawn; the qty field says what it counts (mutants: no way out of the bag; the pack past its weight; the jam left behind; the Stores\' room unread; Put everything in asking a full Store; the reason a title alone; the qty unlabelled)', async () => {
+  // the hands
+  const e = body();
+  mintCarried(e, OAK, 150);   // a full bag: 300 kg
+  const rotten = mintMaterialItem('food:meat', true);
+  rotten.foodStage = 2;
+  bagItemsOf(e).push(rotten);
+  assert.equal(materialKeyOfItem(rotten), null, 'no material: no Put in takes it');
+  assert.equal(bagMayLeave(e), false);
+  const r = emptyBagIntoPack(e);
+  assert.ok(e.items.includes(rotten) && !bagItemsOf(e).includes(rotten), 'the rotted meat out first - never left behind by a pack the logs filled');
+  const logs = sumOf(e.items, OAK);
+  assert.deepEqual([r.moved, r.left], [logs + 1, 150 - logs]);
+  assert.equal(logs, Math.floor((75 - carriedWeight(e) + logs * 2) / 2), 'as many logs as the pack\'s 75 kg takes after the meat');
+  assert.ok(carriedWeight(e) <= 75, 'never past the pack\'s weight');
+  assert.equal(sumOf(bagItemsOf(e), OAK), 150 - logs);
+  const light = body();
+  mintCarried(light, HERB, 4);
+  assert.deepEqual(emptyBagIntoPack(light), { moved: 4, left: 0 });
+  assert.equal(bagMayLeave(light), true, 'emptied: the bag may be sold');
+  // the page
+  const store = body();
+  mintCarried(store, OAK, 10);
+  const book = createProfBook({ door: { account: () => 'a', state: async () => ({ ok: true, data: { stores: [{ material: OAK, own: STORES_MAX - 3, bought: 0 }], carried: [{ material: OAK, own: 10, bought: 0 }] } }) }, storage: memStorage(), character: () => 'c', sleep: noWait, carry: hands(store) });
+  await book.refresh({ force: true });
+  assert.equal(storesRoomOf(book, book.store(OAK)), 3);
+  const deposits = [];
+  let emptied = 0;
+  withDom((dom) => {
+    resetProfPages();
+    const kit = { el: (tag, cls, text) => { const n = dom.mk(tag); if (cls) n.className = cls; if (text != null) n.textContent = text; return n; }, divider: (w) => { const n = dom.mk('h3'); n.textContent = w; return n; }, meter: () => dom.mk('div') };
+    let town = false;
+    setProfessionsPages({
+      book, name: (k) => k, withdraw: async () => ({ ok: true, text: '' }), inTown: () => town, room: (k) => roomFor(store, k), carriedHeld: (k) => heldOf(store, k),
+      bag: () => ({ has: true, kg: bagWeight(store), max: BAG_KG_LIMIT, count: store.bagItems.length }),
+      emptyBag: () => { emptied++; return emptyBagIntoPack(store); },
+      deposit: async (k, n) => { deposits.push([k, n]); return { ok: true, text: '' }; },
+    });
+    let root = null;
+    const draw = () => { root = dom.mk('div'); drawStoresPage(root, draw, kit); };
+    draw();
+    const btn = (w) => root.querySelectorAll('button').find((b) => b.textContent === w);
+    const said = () => root.querySelectorAll('p').map((n) => n.textContent).join(' ');
+    assert.ok(btn(BAG_PAGE_WORDS.emptyBag), 'out of town too');
+    btn(BAG_PAGE_WORDS.emptyBag).onclick();
+    assert.equal(emptied, 1);
+    assert.match(said(), /10 moved into your pack\./);
+    assert.equal(btn(BAG_PAGE_WORDS.emptyBag), undefined, 'an empty bag: none');
+    town = true;
+    draw();
+    root.querySelectorAll('button').find((b) => b.className.startsWith('prof-mat') && b.querySelector('b')?.textContent === OAK).onclick();
+    const qty = root.querySelectorAll('input').find((i) => i.className === 'prof-qty');
+    assert.equal(qty.getAttribute('aria-label'), 'How many', 'the field says what it counts');
+    qty.value = '10';
+    qty.oninput();
+    btn('Put in').onclick();
+    assert.deepEqual(deposits, [[OAK, 3]], 'the Stores\' three, never ten for a refusal');
+    assert.equal(said().includes(BAG_WORDS.noRoom), false, 'room for the logs: no reason');
+    mintCarried(store, OAK, roomFor(store, OAK));   // the bag and the pack full
+    draw();
+    assert.ok(said().includes(BAG_WORDS.noRoom), 'Take out\'s reason drawn, not a title alone');
+  });
+  // Put everything in: the Stores full - said, never asked
+  await book.refresh({ force: true });
+  book.state.stores.set(OAK, { material: OAK, own: STORES_MAX, bought: 0 });
+  deposits.length = 0;
+  await withDom(async (dom) => {
+    resetProfPages();
+    const kit = { el: (tag, cls, text) => { const n = dom.mk(tag); if (cls) n.className = cls; if (text != null) n.textContent = text; return n; }, divider: (w) => { const n = dom.mk('h3'); n.textContent = w; return n; }, meter: () => dom.mk('div') };
+    setProfessionsPages({
+      book, name: (k) => k, withdraw: async () => ({ ok: true, text: '' }), inTown: () => true, room: (k) => roomFor(store, k), carriedHeld: (k) => heldOf(store, k),
+      bag: () => ({ has: true, kg: bagWeight(store), max: BAG_KG_LIMIT, count: store.bagItems.length }),
+      deposit: async (k, n) => { deposits.push([k, n]); return { ok: true, text: '' }; },
+    });
+    let root = null;
+    let drawn = null;
+    const draw = () => { root = dom.mk('div'); drawStoresPage(root, draw, kit); drawn = root; };
+    draw();
+    await drawn.querySelectorAll('button').find((b) => b.textContent === BAG_PAGE_WORDS.allIn).onclick();
+    assert.equal(deposits.length, 0);
+    assert.match(root.querySelectorAll('p').map((n) => n.textContent).join(' '), new RegExp(`${OAK}: ${BAG_PAGE_WORDS.storesFull}`));
+  });
+  setProfessionsPages(null);
+  assert.match(BAG_PAGE_WORDS.takenNote, /into your Materials Bag, then your pack - and back into the Stores from your bag, pack or wagon/);
+});
+
+test('BAG1 (AUDIT2 D3/D4): the bag\'s list in every door that reads a character\'s lists - the orphan sweep, the realm\'s customs, the four hosts\' inventories; an enchanted piece is no material; Put everything in passes a material the service refuses and puts the rest in (mutants: the bag unswept; an enchanted herb counted; a refusal ends the run)', async () => {
+  // the orphan sweep reaches the bag (save.js removeAllOrphanedItems)
+  const e = { items: [], wagonItems: [], otherItems: [], bagItems: [{ ...mintMaterialItem(HERB), questItem: true, questUID: 7 }, mintMaterialItem(OAK)] };
+  assert.equal(removeAllOrphanedItems(e, () => null), 1);
+  assert.deepEqual(e.bagItems.map((i) => materialKeyOfItem(i)), [OAK], 'the orphaned quest piece gone from the bag, the log kept');
+  assert.match(src('src/systems/realmCustoms.js'), /for \(const list of lists\(snap\.wagonItems, snap\.bagItems, snap\.items\)\) takeFrom\(list\);/);
+  for (const f of ['src/scenes/exterior.js', 'src/scenes/dungeonContext.js', 'src/scenes/world.js']) {
+    assert.match(src(f), /bagItems: \(\) => \(playerEntity\.bagItems \?\?= \[\]\),/, f);
+  }
+  // H10: an enchanted piece is never what the mint makes
+  assert.equal(materialKeyOfItem({ ...mintMaterialItem(HERB), enchantments: [{ type: 1, param: 0 }] }), null);
+  assert.equal(materialKeyOfItem({ ...mintMaterialItem(HERB), customEnchantments: [{ id: 'x' }] }), null);
+  // D3: Put everything in - the service refuses one material, the rest still go in, the refused one named
+  const store = body();
+  mintCarried(store, OAK, 3);
+  mintCarried(store, HERB, 2);
+  const book = createProfBook({ door: { account: () => 'a', state: async () => ({ ok: true, data: { carried: [{ material: OAK, own: 3, bought: 0 }, { material: HERB, own: 2, bought: 0 }] } }) }, storage: memStorage(), character: () => 'c', sleep: noWait, carry: hands(store) });
+  await book.refresh({ force: true });
+  const asked = [];
+  await withDom(async (dom) => {
+    resetProfPages();
+    const kit = { el: (tag, cls, text) => { const n = dom.mk(tag); if (cls) n.className = cls; if (text != null) n.textContent = text; return n; }, divider: (w) => { const n = dom.mk('h3'); n.textContent = w; return n; }, meter: () => dom.mk('div') };
+    setProfessionsPages({
+      book, name: (k) => (k === OAK ? 'Oak Log' : 'Red Rose'), withdraw: async () => ({ ok: true, text: '' }), inTown: () => true, room: (k) => roomFor(store, k), carriedHeld: (k) => heldOf(store, k),
+      bag: () => ({ has: true, kg: bagWeight(store), max: BAG_KG_LIMIT, count: store.bagItems.length }),
+      // the FIRST material asked is refused, whichever the page's order puts first - the run must go on past it
+      deposit: async (k, n) => { asked.push([k, n]); return asked.length === 1 ? { ok: false, text: 'Refused.' } : { ok: true, text: '' }; },
+    });
+    let root = null;
+    const draw = () => { root = dom.mk('div'); drawStoresPage(root, draw, kit); };
+    draw();
+    await root.querySelectorAll('button').find((b) => b.textContent === BAG_PAGE_WORDS.allIn).onclick();
+    assert.deepEqual(asked.map((a) => a[0]).sort(), [HERB, OAK].sort(), 'both asked: a refusal passed over');
+    const [first, second] = asked;
+    const nameOf = (k) => (k === OAK ? 'Oak Log' : 'Red Rose');
+    assert.ok(root.querySelectorAll('p').map((n) => n.textContent).join(' ').includes(BAG_PAGE_WORDS.allInDone(second[1], [{ name: nameOf(first[0]), text: 'Refused.' }])));
+  });
+  setProfessionsPages(null);
 });
 
 test('BAG1 a station\'s shortfall goes into the Stores first - bought before own, never gold\'s - every input covered before any moves; what cannot be covered moves nothing (mutants: the spend order; a partial move)', async () => {
@@ -524,7 +972,13 @@ test('BAG1 full: a carrying book\'s node is full when neither the bag nor the pa
 test('BAG1 wired: the world host hands the book its hands on the bag and the pack, mints each answer there, reaches the Stores in a town, and puts a writ\'s shortfall in first; the potion maker spends the bag (by source)', () => {
   const w = src('src/scenes/world.js');
   assert.match(w, /mint: \(key, n\) => \{ const got = mintCarried\(playerEntity, key, n, carryOpts\(key\)\);/);
-  assert.match(w, /take: \(key, n\) => \{\n\s+const t = takeCarried\(playerEntity, key, n\);/);
+  assert.match(w, /take: \(key, n, stamp = null, order = null\) => \{\n\s+const t = takeCarried\(playerEntity, key, n, stamp, order\);/);
+  // AUDIT2: every unit handed over minted; the deposits' stamps in the save; the checkpoint that LANDED before a deposit
+  assert.match(w, /give: \(key, n\) => \{ const got = giveCarried\(playerEntity, key, n, carryOpts\(key\)\);/);
+  assert.match(w, /stamped: \(id\) => Object\.hasOwn\(bagTakesOf\(playerEntity\), id\),/);
+  assert.match(w, /stamps: \(\) => Object\.entries\(bagTakesOf\(playerEntity\)\)\.map\(\(\[id, t\]\) => \(\{ id, \.\.\.t \}\)\),/);
+  assert.match(w, /flush: async \(\) => \{\n\s+try \{ const r = await onlineCheckpointLanded\(\); return r === true \|\| r\?\.ok === true; \} catch \{ return false; \}/);
+  assert.match(src('src/systems/save.js'), /snap\.bagTakes = bagTakesSaved\(entity\.bagTakes\);/);
   assert.match(w, /const _storesReached = \(\) => \(modes\?\.mode \?\? 'exterior'\) !== 'dungeon' && _musicInLocationRect\(\)/);
   assert.match(w, /const ready = await profBook\.ensureInStores\(\[\{ key: material, n: Number\(ask\.units\) \|\| 0 \}\]\);/);
   assert.match(src('src/scenes/worldModes.js'), /bagItems/);

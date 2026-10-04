@@ -10,7 +10,9 @@
 // a door, a gap between bars), a `w` part stroked that wide rather than
 // filled. The banner (Seats-Arc 3.4) is the port's own cloth, 1 wide by
 // 3 tall: its field the first colour, a border in the second, the
-// device centred in the second colour, the foot cut as a swallowtail.
+// device centred in the border's colour (GUILD2c: or its own, `charge`;
+// a divided field's second part in `field2`), the foot cut as a
+// swallowtail. GUILD2c: forty devices now (AUDIT2 GUILD2 G5).
 // One drawing, two faces: an SVG string for the Guild tab, and a canvas
 // for the world's cloth (render/bannerPass.js) - Path2D reads the same
 // path text, so the tab and the street show one banner.
@@ -36,7 +38,8 @@ const fg = (d) => ({ d });
 const bg = (d) => ({ d, bg: true });
 const line = (d, w) => ({ d, w });
 
-/** THE TWENTY-FOUR DEVICES - the record's order (heraldryLaw.js HERALDRY_DEVICES), each its parts. */
+/** THE FORTY DEVICES - GUILD1d's twenty-four and GUILD2c's sixteen, the record's order (heraldryLaw.js HERALDRY_DEVICES),
+ *  each its parts. */
 export const DEVICE_ART = Object.freeze({
   wolf: [fg('M84 80 L70 62 L74 30 L65 40 L60 16 L52 36 C40 36 30 42 22 50 L8 56 L10 63 L30 65 L40 72 L46 86 Z'), bg(circle(47, 47, 3.5))],
   bear: [fg(circle(27, 26, 10)), fg(circle(73, 26, 10)), fg('M50 26 C72 26 84 42 82 60 C80 78 66 88 50 88 C34 88 20 78 18 60 C16 42 28 26 50 26 Z'), bg(circle(38, 52, 4)), bg(circle(62, 52, 4)), bg('M42 68 C44 62 56 62 58 68 C56 74 44 74 42 68 Z')],
@@ -120,6 +123,11 @@ export function divisionPath(division, w, h) {
     default: return '';
   }
 }
+/** AUDIT2 GUILD2 G2: the FIRST colour's part of a divided field - the box less the division's part, as even-odd path text
+ *  (the box, then the part's own subpaths: inside both is outside). A hole is painted once in each colour, each clipped
+ *  to its own part - painted whole in the first and again in the second inside the part, its anti-aliased edge left a
+ *  rim of the first colour around it there (a boar's eye, a key's bow). */
+export const divisionComplement = (divD, w, h) => (divD ? `M0 0 H${w} V${h} H0 Z ${divD}` : '');
 /** The box a division is laid over on the banner - the cloth's own, to the swallowtail's points. */
 const BANNER_BOX = Object.freeze({ w: 100, h: 300 });
 /** And on the shield. */
@@ -132,6 +140,9 @@ export const BANNER_BORDER_W = 16;
 /** Where the device stands on the cloth: its 100 box scaled to this and set at this corner. */
 export const BANNER_DEVICE = Object.freeze({ x: 14, y: 84, scale: 0.72 });
 
+/** AUDIT2 GUILD2 G2: a divided field's two clip paths - `${clip}d` the division's part, `${clip}c` the rest (even-odd). */
+const partClips = (clip, divD, box) => `<clipPath id="${clip}d"><path d="${divD}"/></clipPath>`
+  + `<clipPath id="${clip}c"><path d="${divisionComplement(divD, box.w, box.h)}" clip-rule="evenodd"/></clipPath>`;
 /** A device's parts as SVG, in `fgHex` and `bgHex`. */
 function deviceSvg(device, fgHex, bgHex) {
   return (DEVICE_ART[device] ?? []).map((p) => partSvg(p, p.bg ? bgHex : fgHex)).join('');
@@ -143,23 +154,24 @@ const partSvg = (p, hex) => (p.w
 /**
  * THE DEVICE AT `transform`, its holes the field beneath. AUDIT GUILD2 G11: a hole was painted the FIRST field colour,
  * so on a divided field an owl's eyes, a key's bow and a skull's sockets lay in the wrong colour over the second part.
- * A divided field's hole (`div`: the division's clip-path id, in the cloth's own space, and the second colour) is painted
- * the first colour and then again in the second inside the division's part - in the parts' own order, so a pupil drawn
- * after its socket still lies on it. Plain arms draw exactly as GUILD1d's (every cached picture unmoved).
+ * A divided field's hole (`div`: the division's clip-path id and its complement's, in the cloth's own space, and the
+ * second colour) is painted the first colour inside the first part and the second inside the division's - in the parts'
+ * own order, so a pupil drawn after its socket still lies on it. AUDIT2 GUILD2 G2: each colour clipped to its own part,
+ * never one over the other (divisionComplement). Plain arms draw exactly as GUILD1d's (every cached picture unmoved).
  */
 function deviceLayers(device, inkHex, fieldHex, transform, div = null) {
   if (!div) return `<g transform="${transform}">${deviceSvg(device, inkHex, fieldHex)}</g>`;
-  return (DEVICE_ART[device] ?? []).map((p) => {
-    const one = `<g transform="${transform}">${partSvg(p, p.bg ? fieldHex : inkHex)}</g>`;
-    return p.bg ? `${one}<g clip-path="url(#${div.id})"><g transform="${transform}">${partSvg(p, div.hex)}</g></g>` : one;
-  }).join('');
+  const inPart = (id, p, hex) => `<g clip-path="url(#${id})"><g transform="${transform}">${partSvg(p, hex)}</g></g>`;
+  return (DEVICE_ART[device] ?? []).map((p) => (p.bg
+    ? `${inPart(div.comp, p, fieldHex)}${inPart(div.id, p, div.hex)}`
+    : `<g transform="${transform}">${partSvg(p, inkHex)}</g>`)).join('');
 }
 /**
  * The device on a canvas `ctx` already in the cloth's own space - `at` where it stands, its holes the field beneath (G11,
- * as deviceLayers): a divided field's hole painted again in the second colour inside the division's part (`div` its
- * Path2D in the cloth's space, `f2` the second colour).
+ * as deviceLayers): a divided field's hole painted in each colour inside its own part (`div` the division's Path2D in
+ * the cloth's space, `comp` its complement's - AUDIT2 GUILD2 G2: even-odd - and `f2` the second colour).
  */
-function drawDevice(ctx, P, device, inkHex, fieldHex, at, div = null, f2 = null) {
+function drawDevice(ctx, P, device, inkHex, fieldHex, at, div = null, f2 = null, comp = null) {
   ctx.save();
   ctx.translate(at.x, at.y);
   ctx.scale(at.scale, at.scale);
@@ -167,18 +179,19 @@ function drawDevice(ctx, P, device, inkHex, fieldHex, at, div = null, f2 = null)
     const path = new P(p.d);
     if (p.w) { ctx.strokeStyle = hex; ctx.lineWidth = p.w; ctx.lineCap = 'round'; ctx.lineJoin = 'round'; ctx.stroke(path); } else { ctx.fillStyle = hex; ctx.fill(path); }
   };
+  /** `p` painted `hex` inside `part` (the cloth's space, `rule` its fill rule). */
+  const inPart = (p, hex, part, rule) => {
+    ctx.save();
+    ctx.scale(1 / at.scale, 1 / at.scale);   // back to the cloth's space, where the division's line is
+    ctx.translate(-at.x, -at.y);
+    ctx.clip(part, rule);
+    ctx.translate(at.x, at.y);
+    ctx.scale(at.scale, at.scale);
+    paint(p, hex);
+    ctx.restore();
+  };
   for (const p of DEVICE_ART[device] ?? []) {
-    paint(p, p.bg ? fieldHex : inkHex);
-    if (p.bg && div && f2) {
-      ctx.save();
-      ctx.scale(1 / at.scale, 1 / at.scale);   // back to the cloth's space, where the division's line is
-      ctx.translate(-at.x, -at.y);
-      ctx.clip(div);
-      ctx.translate(at.x, at.y);
-      ctx.scale(at.scale, at.scale);
-      paint(p, f2);
-      ctx.restore();
-    }
+    if (p.bg && div && f2 && comp) { inPart(p, fieldHex, comp, 'evenodd'); inPart(p, f2, div, 'nonzero'); } else paint(p, p.bg ? fieldHex : inkHex);
   }
   ctx.restore();
 }
@@ -209,10 +222,10 @@ export function bannerSvg(heraldry, { width = 60 } = {}) {
   const divD = h?.division ? divisionPath(h.division, BANNER_BOX.w, BANNER_BOX.h) : '';
   const parted = divD ? `<path d="${divD}" fill="${heraldryColourOf(h.field2)?.hex}" clip-path="url(#${clip})"/>` : '';
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 300" width="${width}" height="${width * 3}" role="img" aria-label="banner">`
-    + `<defs><clipPath id="${clip}"><path d="${BANNER_CLOTH}"/></clipPath>${divD ? `<clipPath id="${clip}d"><path d="${divD}"/></clipPath>` : ''}</defs>`
+    + `<defs><clipPath id="${clip}"><path d="${BANNER_CLOTH}"/></clipPath>${divD ? partClips(clip, divD, BANNER_BOX) : ''}</defs>`
     + `<path d="${BANNER_CLOTH}" fill="${field}"/>` + parted
     + (h ? `<path d="${BANNER_CLOTH}" fill="none" stroke="${border}" stroke-width="${BANNER_BORDER_W * 2}" clip-path="url(#${clip})"/>`
-      + deviceLayers(h.device, ink, field, `translate(${d.x} ${d.y}) scale(${d.scale})`, divD ? { id: `${clip}d`, hex: heraldryColourOf(h.field2)?.hex } : null) : '')
+      + deviceLayers(h.device, ink, field, `translate(${d.x} ${d.y}) scale(${d.scale})`, divD ? { id: `${clip}d`, comp: `${clip}c`, hex: heraldryColourOf(h.field2)?.hex } : null) : '')
     + '</svg>';
 }
 
@@ -236,14 +249,16 @@ export function drawBanner(ctx, heraldry, w) {
     const ink = heraldryColourOf(heraldryInk(h) ?? h.border)?.hex ?? border;   // GUILD2c: the device's own colour
     ctx.save();
     ctx.clip(cloth);
-    const div = h.division ? new P(divisionPath(h.division, BANNER_BOX.w, BANNER_BOX.h)) : null;
+    const divD = h.division ? divisionPath(h.division, BANNER_BOX.w, BANNER_BOX.h) : '';
+    const div = divD ? new P(divD) : null;
     const f2 = h.division ? heraldryColourOf(h.field2)?.hex ?? field : null;
     if (div) { ctx.fillStyle = f2; ctx.fill(div); }   // GUILD2c
     ctx.strokeStyle = border;
     ctx.lineWidth = BANNER_BORDER_W * 2;
     ctx.stroke(cloth);
     ctx.restore();
-    drawDevice(ctx, P, h.device, ink, field, BANNER_DEVICE, div, f2);   // AUDIT GUILD2 G11: its holes the field beneath
+    // AUDIT GUILD2 G11: its holes the field beneath; AUDIT2 G2: each colour in its own part
+    drawDevice(ctx, P, h.device, ink, field, BANNER_DEVICE, div, f2, divD ? new P(divisionComplement(divD, BANNER_BOX.w, BANNER_BOX.h)) : null);
   }
   ctx.restore();
 }
@@ -275,18 +290,20 @@ export function shieldSvg(heraldry, { size = 16 } = {}) {
   const divD = h.division ? divisionPath(h.division, SHIELD_BOX.w, SHIELD_BOX.h) : '';
   const parted = divD ? `<path d="${divD}" fill="${heraldryColourOf(h.field2)?.hex}" clip-path="url(#${clip})"/>` : '';
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 104" width="${size}" height="${Math.round(size * 1.04)}" role="img" aria-label="heraldry">`
-    + `<defs><clipPath id="${clip}"><path d="${SHIELD_CLOTH}"/></clipPath>${divD ? `<clipPath id="${clip}d"><path d="${divD}"/></clipPath>` : ''}</defs>`
+    + `<defs><clipPath id="${clip}"><path d="${SHIELD_CLOTH}"/></clipPath>${divD ? partClips(clip, divD, SHIELD_BOX) : ''}</defs>`
     + `<path d="${SHIELD_CLOTH}" fill="${field}"/>` + parted
     + `<path d="${SHIELD_CLOTH}" fill="none" stroke="${border}" stroke-width="${SHIELD_BORDER_W * 2}" clip-path="url(#${clip})"/>`
-    + deviceLayers(h.device, ink, field, `translate(${d.x} ${d.y}) scale(${d.scale})`, divD ? { id: `${clip}d`, hex: heraldryColourOf(h.field2)?.hex } : null)
+    + deviceLayers(h.device, ink, field, `translate(${d.x} ${d.y}) scale(${d.scale})`, divD ? { id: `${clip}d`, comp: `${clip}c`, hex: heraldryColourOf(h.field2)?.hex } : null)
     + `<path d="${SHIELD_CLOTH}" fill="none" stroke="#000" stroke-opacity="0.6" stroke-width="3"/>`
     + '</svg>';
 }
 
 /**
  * AUDIT HERALDRY H4: THE SHIELD ON A CANVAS - the Overworld's name face (ui/travelViewHud.js badgeSprite) draws on a
- * canvas, not the DOM: shieldSvg's drawing into `ctx` at (`x`, `y`), `size` pixels wide - the field, the border inside the
- * edge, the device in the border colour on the field, the dark edge. Drawn once into a kept sprite, never a frame.
+ * canvas, not the DOM: shieldSvg's drawing into `ctx` at (`x`, `y`), `size` pixels wide - the field (GUILD2c: a divided
+ * one's second part in `field2`), the border inside the edge, the device in its own colour (the border's unless `charge`
+ * names one) on the field, its holes the field beneath in each part, the dark edge. Drawn once into a kept sprite, never
+ * a frame (AUDIT2 GUILD2 G5: it said the border's colour alone, on a plain field).
  * Whether it drew one (none for no heraldry, or no Path2D).
  * @param {CanvasRenderingContext2D} ctx @param {any} heraldry @param {number} x @param {number} y @param {number} size
  */
@@ -304,15 +321,17 @@ export function drawShield(ctx, heraldry, x, y, size) {
   ctx.fill(shield);
   ctx.save();
   ctx.clip(shield);
-  const div = h.division ? new P(divisionPath(h.division, SHIELD_BOX.w, SHIELD_BOX.h)) : null;
+  const divD = h.division ? divisionPath(h.division, SHIELD_BOX.w, SHIELD_BOX.h) : '';
+  const div = divD ? new P(divD) : null;
   const f2 = h.division ? heraldryColourOf(h.field2)?.hex ?? field : null;
   if (div) { ctx.fillStyle = f2; ctx.fill(div); }   // GUILD2c
   ctx.strokeStyle = border;
   ctx.lineWidth = SHIELD_BORDER_W * 2;
   ctx.stroke(shield);
   ctx.restore();
-  // a hole in the field's colour (AUDIT GUILD2 G11: both of a divided one's), the device in its own (the border's by default)
-  drawDevice(ctx, P, h.device, inkHex, field, SHIELD_DEVICE, div, f2);
+  // a hole in the field's colour (AUDIT GUILD2 G11: both of a divided one's, AUDIT2 G2: each in its own part), the device
+  // in its own (the border's by default)
+  drawDevice(ctx, P, h.device, inkHex, field, SHIELD_DEVICE, div, f2, divD ? new P(divisionComplement(divD, SHIELD_BOX.w, SHIELD_BOX.h)) : null);
   ctx.strokeStyle = 'rgba(0,0,0,0.6)';
   ctx.lineWidth = 3;
   ctx.stroke(shield);

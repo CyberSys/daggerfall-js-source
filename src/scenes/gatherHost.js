@@ -834,7 +834,7 @@ export function createGatherHost(deps) {
       if (book.stale() && now >= refreshAt) {
         refreshAt = now + 30_000;
         // PROF5 (FOUND): a kept craft settles too, not only beside a kept withdrawal
-        book.refresh().then((r) => { if (r?.ok) { refreshAt = 0; restandAll(); if (book.pendingWithdrawals || book.pendingCrafts) deps.onSettle?.(); } }, () => {});
+        book.refresh().then((r) => { if (r?.ok) { refreshAt = 0; restandAll(); if (book.pendingWithdrawals || book.pendingCrafts || book.pendingDeposits) deps.onSettle?.(); } }, () => {});   // AUDIT2 BAG1 K3: and a kept deposit, at the next settle
       }
       const d = utcDayOfMs(now);
       if (d !== day) { day = d; restandAll(); }

@@ -34,6 +34,13 @@ something I really want you be detailed on and focus."
   Admins" and "Moderator Guild" passed it whole (`guild-name-word`). A word with no letters ("The 22 Blades", a tag of
   22) is no word the filter reads, and passes (the audit's G3: the filter's "needs some letters" refused it). The
   guilds founded before GUILD2 are not read again: a name that stood keeps standing until its guild renames.
+  **A word is read as written** (the second audit's S2): the filter's second reading - a letter's run collapsed, a
+  handle's `cccoooock` - read over each word caught ordinary words as the server's own ("The Iron Staff" as `staf`,
+  "The Dark Mood" as `mod`). The server's words are read on a word's own letters; the slurs and the crude words keep
+  both readings (a handle's "Spicy" is refused, and so is a guild's - the filter's own call); the whole name and the tag
+  keep the filter whole. **The refusal names the word** (`why`: "A guild's name and tag may not carry "mod" - a word the
+  realm keeps out of names."), the filter's own law, and a rename refused for the fortnight says when the next may come
+  (`at`, S7).
 - The Settings page: the name and tag fields start at the ones that stand; **Rename** arms, and the second press -
   "Sure? 25,000 gold" - pays. It waits, and says why: already the guild's, not yet (the fortnight), the realm's gold
   short.
@@ -52,6 +59,14 @@ something I really want you be detailed on and focus."
   taken is the one the taker saw: the slot, the time it was put there, its count AND its record (the audit's G1: a slot
   emptied and filled again in the same second, with a stack of the same count, was taken as the piece read), so a slot
   filled again is never the one taken.
+- **The shelves' bound is the batch's own read** (the second audit's S3): fifty, and fifty more while the guild holds a
+  hall. A put decided with a hall's hundred that lands after the hall is sold takes nothing (`guild-vault-full`); a hall
+  sold with more than fifty pieces leaves them on the shelves, each taken out as ever, nothing put in until fewer than
+  fifty stand. A put holds the standing it read, as a take does (S4).
+- **A take NEEDS its answer** (the second audit's K1, `realmGoldAct`'s `needsAnswer`, as a market's collect): the piece is
+  the answer, and a take that landed with its answer lost was read as landed with no piece - the checkpoint after it
+  wrote the record without the piece the service had just put in it. Lost, the session ends and a join reads the record,
+  which holds it. The last vault read asked is the one shown (K14).
 - **Who may use it - the leader's word.** Each rank stands at a default (`VAULT_RANK_DEFAULTS`): Officers take out, ten
   takes a UTC day (a take is one press - a whole stack or one of it - and the limit counts presses, not pieces);
   Members and Recruits put in. The guildmaster **grants and revokes** per member on the Members page: no access, puts
@@ -59,7 +74,10 @@ something I really want you be detailed on and focus."
   their rank", the grant revoked. The guildmaster always takes out, unlimited; a grant on that row is never read. The
   day's count is the service's, counted in the take's own batch, so two takes racing at the limit cannot both land; and
   the batch holds the standing the take read (the audit's G4: a revoke or a demotion landing between the read and the
-  batch refuses it, `guild-vault-rank`).
+  batch refuses it, `guild-vault-rank`). A grant holds its granter's rank (S5: a guildmaster who handed the guild over
+  between the read and the write grants nothing), and a withdrawer's grant that names no limit stands at ten a day,
+  never "any number" (S6: the service's default was none). A grant's draft on the page is of the standing it was made
+  from - a standing moved since starts it again (U7).
 - **A grant names its member by the row** (`m<rowid>`). SQLite may give a deleted last row's id to the next row made,
   so a guildmaster's page read before a member left and another joined could grant the newcomer (the audit's G5).
   Accepted, not fixed: it is the guildmaster's own act on a stale page, said on the page at once ("Bran: Takes out, 5 a
@@ -68,7 +86,9 @@ something I really want you be detailed on and focus."
   out in town - the town read at the press and every frame, never once at the page's build (the audit's M1). The
   vault is read again at each look (M2), and the page shows the reader's own guild's alone - a read that fails shows
   no pieces, never the last guild's (M3). **The hall's chest IS the vault**: pressing it opens the Guild tab at the Vault page (the guild Stores a
-  page beside it).
+  page beside it). Put in offers what may leave the pack and is not locked (U4: a lock closes every way out a trade is),
+  and its pick is a piece, never a place in the list (U10: a put-in shifted the list under an index, and the next Put in
+  offered the piece after it).
 - **Every piece in or out is a line** (`guild_vault_log`), the latest forty on the page.
 - **A guild holding pieces does not go**: the guildmaster empties the vault before disbanding (`guild-vault`), as the
   treasury and the hall are emptied first - and before deleting a lone guildmaster's realm character (the audit's G2:
@@ -93,12 +113,20 @@ something I really want you be detailed on and focus."
   one (the audit's G11: they were painted the first colour over the second part). Every picture kept is keyed by the
   whole arms (`heraldryKey` - G12: the tag's swatch, the name layer and the Overworld badge were keyed by GUILD1d's three,
   so a new division drew the old picture). The words say them: "Per pale Azure and Crimson, bordered Gold, an Owl
-  Argent"; a pair as one - "a Pair of Swords", "a Pair of Scales" (G14).
+  Argent"; a pair as one - "a Pair of Swords", "a Pair of Scales" (G14). A hole is painted once in each colour, each
+  inside its own part - the first colour clipped to the division's complement, even-odd (the second audit's G2: painted
+  whole in the first and again in the second, its anti-aliased edge left a rim of the first colour around it).
+- **A renamed guild keeps its Chronicle** (the second audit's G1): a Chronicle row names each guild as it was that day,
+  and the arms are found by the tag and name a guild bears now - so a rename stripped the shield from every line before
+  it, and a new guild founded with the old name and tag wore them. The service gives each such guild `now` (its name
+  and tag today: the guild whose first rename away from that name came at or after the row - `guild_renames`), and the
+  Chronicle and the Roll of Arms find its arms by it ("The Iron Oath <IRON> (now the Ember Oath <EMB>): ...").
 - **The Arms page** shows the banner, the shield and the tag as they will stand, and the choices as the things
   themselves - the divisions a tile each drawn in the draft's own colours, the colours swatches (the ones the law
   refuses shut: each pick tried on a copy and read by `heraldryOf`, the one judge - a row's own rule missed the device
   against the second colour), the devices a tile of forty - drawn again in place at each pick with the keyboard's focus
-  kept on the pick. On a touch screen a swatch is 44 pixels. The price is GUILD1d's: the first raising free, a change 500 Drakes from the silver treasury.
+  kept on the pick. A shut swatch says why - on its label and its title, and drawn under its row for a finger (the second
+  audit's U14). On a touch screen a swatch is 44 pixels. The price is GUILD1d's: the first raising free, a change 500 Drakes from the silver treasury.
 
 ## GUILD2d - the tab in pages
 
@@ -117,7 +145,8 @@ Stores, the rank names and leaving, every section under the one before. It is pa
 | Settings | a new name, the rank names, leaving and disbanding |
 
 Each page keeps every control and sentence the section it took over had, so a refusal still says its reason beside its
-button. `openGuild(page)` opens the tab at a page (the hall's chest: the Vault).
+button. `openGuild(page)` opens the tab at a page (the hall's chest: the Vault). A page turned keeps the keyboard's
+focus on its own tab (the second audit's U9).
 
 ## The threats, and the answers
 
@@ -151,5 +180,34 @@ then pinned and its fix mutated (`tools/mutants/guild2.json`, the `AUDIT-GUILD2-
 | M1-M3 | The vault's town read once at the build; the vault read once a session; another guild's pieces shown with Take after a failed read | Each fixed (GUILD2b) |
 | - | The grant's select rebuilt the whole panel, its focus lost; "Takes out" started at any number; a swatch the law refused left open; touch swatches under 44 pixels; the hall's name after a rename unpinned | Each fixed; the hall's name asserted |
 
-The service's two fixes that move rows (G1, G4) need no migration; the relay re-bundles the heraldry law (world157,
-no wire change).
+The service's two fixes that move rows (G1, G4) need no migration; the relay re-bundles the heraldry law (world160 -
+world157 when this was written, renumbered past main's DFO integration; no wire change).
+
+## The second audit (2026-10-03, Mac: "Audit again. Just want perfection")
+
+Read whole again in six lenses; each finding reproduced before it was fixed, then pinned and its fix mutated
+(`tools/mutants/guild2.json`, the `AUDIT2-GUILD2-` records).
+
+| # | Found | Fixed |
+|---|---|---|
+| K1 | A vault take whose answer was lost was read as landed with no piece, and the checkpoint after it wrote the record without the piece - gone from the vault and the record | `needsAnswer`: the session ends, a join reads the record (GUILD2b) |
+| S2/S7 | The filter's stretched reading per word refused "The Iron Staff" and "The Dark Mood"; the word caught and the fortnight's end were dropped by the route and the book | A word read as written; `why` and `at` said (GUILD2a) |
+| S3 | A put decided with a hall's hundred landed after the hall's sale; the bound read by a slot's index | The bound in the batch, by count and slot (GUILD2b) |
+| S4/S5/S6 | A put held no standing; a grant held no granter's rank; a withdrawer granted with no limit was unlimited | Each held; ten a day (GUILD2b) |
+| K14/K15 | A look's read answered after a take's showed the piece back; a piece the pack no longer held said "more than the stack holds" | The last read asked shown; `vault-goods` |
+| G1 | A rename stripped the Chronicle's shields; a new guild with the old name wore them | `now` on each renamed guild a row names (GUILD2c) |
+| G2 | A rim of the first colour round a hole on a divided field | Each colour clipped to its own part (GUILD2c) |
+| G3/G5 | No pin held a division at the shield's box, the canvas shield's division or the service's round trip; stale wording (twenty-four devices, the device in the border's colour, the refusal's words) | Pinned; worded |
+| U4/U7/U9/U10/U14 | Locked pieces offered to the vault; a grant's draft kept over a new standing; a page turn dropped the focus; the vault's pick a place in the list; a shut swatch said nothing | Each fixed (GUILD2b, GUILD2c, GUILD2d) |
+| - | A rename's treasury line read "put in 25,000"; a rename refused for the fortnight on the batch's fresh read said no `at` | "renamed the guild for"; `at` said on both reads |
+
+Two guards are recorded as equivalent, each with its reason (`tools/mutants/guild2.json`): the take's day count in its batch (a member is one realm character, whose record's sequence serializes its takes) and the rename's fortnight in its batch (every rename changes the name or the tag, which the batch holds as read). Each stays, the law the batch states; the race pins (two renames paying once) hold either way.
+
+## The four hosts (THE FOUR HOSTS RULE)
+
+| Host | GUILD2 |
+|---|---|
+| `scenes/world.js` | the guild book's hands - the pack a vault piece leaves and enters, the town it is reached in, the realm act (and its `abandon`); the Guild tab; the hall's and the seats' banners (`render/bannerPass.js` through `drawBanner`, `scenes/hallBanners.js`, `scenes/seatBanners.js`) |
+| `scenes/worldModes.js` | interiors: the hall's chest opens the Vault page; a throne room's cloth keyed as the street's (`bannerKeyOf`) |
+| `scenes/exterior.js` | FLAGGED, nothing to wire: the single-location dev host has no online guild, hall or banner (online play is world.js's) |
+| `scenes/dungeonContext.js` | FLAGGED, nothing to wire: no hall, chest or banner below ground; the Guild tab is world.js's on every face |

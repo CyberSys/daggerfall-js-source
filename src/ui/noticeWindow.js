@@ -44,6 +44,7 @@ import {
   BOUNTY_BOARD_LINE, noteIsNew,
 } from '../net/boardLaw.js';
 import { accountRefusalText } from '../net/accountClient.js';   // PROF1: a writ's refusal, in words
+import { movedFirstText } from '../net/bagLaw.js';   // AUDIT2 BAG1 K8: what went into the Stores before a refusal
 import { createMarketTab } from './marketTab.js';   // PROF5: the Market tab
 import { createWorkTab } from './workTab.js';   // PROF6: the Work tab's guild writs and commissions
 import { createSeatTab } from './seatTab.js';   // SEAT1b: the Seat tab - a seat town's standings, pledges and Tribute
@@ -424,7 +425,7 @@ export function mountNoticeBoard(host, deps) {
       writs = work.book.state && writs ? { ...writs, writs: writs.writs.map((x) => (x.id === w.id ? { ...x, state: 'mine' } : x)), today: r.data?.today ?? writs.today } : writs;
       word = { ok: true, text: work.onTaken?.(r) || `Writ filled: ${r.data?.pay ?? w.pay} silver.` };
     } else {
-      word = { ok: false, text: accountRefusalText(r?.error) };
+      word = { ok: false, text: `${accountRefusalText(r?.error)}${movedFirstText(r)}` };
       if (r?.error === 'writ-taken' || r?.error === 'writ-expired') loadWrits(true);
     }
     render();

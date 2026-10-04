@@ -9,7 +9,7 @@ import assert from 'node:assert/strict';
 import { standService, T0 } from './accountDb.mjs';
 import { herbPatches, nodeKey } from '../src/net/nodeLaw.js';
 import { herbKey } from '../src/net/professionLaw.js';
-import { CARRIED_MAX, DEPOSIT_MAX, clampCarried, carriedUsable } from '../src/net/bagLaw.js';
+import { CARRIED_MAX, DEPOSIT_MAX, CARRIED_ROW_DAYS, clampCarried, carriedUsable } from '../src/net/bagLaw.js';
 import { sharedClassicMinutes } from '../src/net/wire.js';
 import { utcDay } from '../src/net/marksLaw.js';
 
@@ -268,4 +268,29 @@ test('BAG1 service: the unbruised count follows its own units into the bag and b
   assert.equal(unbruised(), 4, 'carried own units still count');
   await s.call('/v1/stores/deposit', { character: mac.character, material: 'p1:19', qty: 1, held: 1, order: 'all', rid: rid() }, mac.secret);
   assert.equal(unbruised(), 1, 'a pack holding one: the count cut, and the unbruised with it');
+});
+
+// ─── THE SECOND AUDIT (bible/06-Systems/Materials-Bag.md, the second audit) ───
+
+test('BAG1 service (AUDIT2 S1): a carried harvest\'s row is kept thirty days, not two - it is the answer a kept harvest asked again is given, and only that answer mints its items; a Stores harvest\'s still goes at two, and past its bound a carried one goes too (mutants: swept at two days; never swept)', async () => {
+  const s = await stand();
+  const mac = await s.registered('Mac');
+  const p = patchOfTier(1);
+  const body = harvestBody(mac, p, { carry: true, held: 0 });
+  const r = await s.call('/v1/prof/harvest', body, mac.secret);
+  assert.equal(r.status, 200, JSON.stringify(r.body));
+  const plain = harvestBody(mac, patchOfTier(1, p.x + 1));
+  assert.equal((await s.call('/v1/prof/harvest', plain, mac.secret)).status, 200);
+  const rowsOf = (carry) => Number(s.raw.prepare('SELECT COUNT(*) AS n FROM node_harvests WHERE player = ? AND carry = ?').get(mac.id, carry).n);
+  try {
+    Date.now = () => (NOON + 3 * DAY) * 1000;
+    await s.call('/v1/prof/state', { character: mac.character }, mac.secret);   // the state's own sweep
+    assert.deepEqual([rowsOf(1), rowsOf(0)], [1, 0], 'the Stores harvest swept, the carried one kept');
+    const again = await s.call('/v1/prof/harvest', body, mac.secret);
+    assert.deepEqual([again.body.repeat, again.body.carry, again.body.qty], [true, true, r.body.qty], 'asked again three days on: answered, so its items are minted');
+    Date.now = () => (NOON + (CARRIED_ROW_DAYS + 1) * DAY) * 1000;
+    await s.call('/v1/prof/state', { character: mac.character }, mac.secret);
+    assert.equal(rowsOf(1), 0, 'past its bound, swept');
+  } finally { Date.now = () => NOON * 1000; }
+  assert.equal(CARRIED_ROW_DAYS, 30);
 });

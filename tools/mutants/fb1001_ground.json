@@ -146,7 +146,7 @@
   {
     "name": "REFUSALS-LEARNED-the-state-never-read-again",
     "file": "src/net/profBook.js",
-    "old": "    if (r?.error === 'prof-cap' || r?.error === 'stores-full') state.reread = true;",
+    "old": "    if (r?.error === 'prof-cap' || r?.error === 'stores-full' || r?.error === 'carried-full') state.reread = true;",
     "new": "",
     "tests": [
       "test/fb1001_ground.test.js"

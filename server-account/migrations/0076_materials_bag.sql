@@ -42,6 +42,9 @@ CREATE TABLE IF NOT EXISTS prof_deposits (
 -- before BAG1 and an older client's still does. Read back by the answer, so a request asked again says where its units
 -- went.
 ALTER TABLE node_harvests ADD COLUMN carry INTEGER NOT NULL DEFAULT 0 CHECK (carry IN (0, 1));
+-- AUDIT2 BAG1 S1: a carried harvest's row is kept CARRIED_ROW_DAYS (bagLaw.js), an older client's two - the sweep reads each
+-- kind by its own day (professions.js profState)
+CREATE INDEX IF NOT EXISTS idx_node_harvests_carry_day ON node_harvests (carry, day);
 ALTER TABLE motherlode_strikes ADD COLUMN carry INTEGER NOT NULL DEFAULT 0 CHECK (carry IN (0, 1));
 
 -- A WITHDRAWAL'S ORIGINS: what it took of each (gold's first, bought, own - its spend order), so the units it handed to a

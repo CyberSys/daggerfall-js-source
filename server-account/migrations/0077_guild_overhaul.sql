@@ -22,6 +22,8 @@ CREATE TABLE IF NOT EXISTS guild_renames (
   FOREIGN KEY (guild_id) REFERENCES guilds(id) ON DELETE CASCADE
 );
 CREATE INDEX IF NOT EXISTS idx_guild_renames_guild ON guild_renames (guild_id, seq);
+-- AUDIT2 GUILD2 G1: a Chronicle row's guild, as it was that day, found by the name and tag it bore (seatInfluence.js renamedSince)
+CREATE INDEX IF NOT EXISTS idx_guild_renames_old ON guild_renames (old_tag, old_name, at);
 
 -- GUILD2b: THE VAULT - a guild's shelf of items, a slot each (guildVaultLaw.js: 50, and 50 more with a hall). `rec` the
 -- piece's record exactly as it left its depositor's realm record (net/realmTradeLaw.js takeTradeGoods - every field, the

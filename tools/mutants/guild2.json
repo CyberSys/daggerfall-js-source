@@ -131,8 +131,8 @@
   {
     "name": "GUILD2b-the-taken-piece-unminted",
     "file": "src/net/guildBook.js",
-    "old": "if (rec) { this.pack.add(rec); this.pack.changed(); }",
-    "new": "if (rec) { this.pack.changed(); }",
+    "old": "try { this.pack.add(rec); this.pack.changed(); held = true; }",
+    "new": "try { this.pack.changed(); held = true; }",
     "tests": [
       "test/guild2_client.test.js"
     ]
@@ -157,7 +157,7 @@
       "test/guild2_service.test.js"
     ],
     "equivalent": true,
-    "why": "The early read is a fast path: the rename's batch is guarded by renamed_at + the fortnight itself, and the catch says guild-rename-soon off a fresh read - a rename inside the fortnight is still refused whole, nothing paid."
+    "why": "The early read is a fast path: the rename's batch is guarded by renamed_at + the fortnight itself, and the catch says guild-rename-soon, with when the next may come, off a fresh read - a rename inside the fortnight is still refused whole, nothing paid, and said the same."
   },
   {
     "name": "AUDIT-GUILD2-G1-the-piece-unread",
@@ -189,8 +189,8 @@
   {
     "name": "AUDIT-GUILD2-G3-digits-refused",
     "file": "server-account/src/guilds.js",
-    "old": "(w) => !w || !normaliseName(w) || checkName(w).ok",
-    "new": "(w) => !w || checkName(w).ok",
+    "old": "    const flat = normaliseName(w);\n    if (!flat) continue;",
+    "new": "    const flat = normaliseName(w);\n    if (!w) continue;",
     "tests": [
       "test/guild2_service.test.js"
     ]
@@ -207,8 +207,8 @@
   {
     "name": "AUDIT-GUILD2-a-swatch-by-its-own-rule",
     "file": "src/ui/socialPanel.js",
-    "old": "const allowed = (k) => { if (k === value) return true; const t = { ...h }; set(k, t); return !!heraldryOf(t); };",
-    "new": "const allowed = (k) => k !== HERALDRY_UNHELD || key === 'border';",
+    "old": "const refusal = (k) => { if (k === value) return ''; const t = { ...h }; set(k, t); return heraldryOf(t) ? '' : armsWhy(t); };",
+    "new": "const refusal = (k) => (k !== HERALDRY_UNHELD || key === 'border' ? '' : armsWhy({ ...h, field: k }));",
     "tests": [
       "test/guild2_client.test.js"
     ]
@@ -288,8 +288,8 @@
   {
     "name": "AUDIT-GUILD2-G11-a-hole-the-first-colour-svg",
     "file": "src/ui/heraldryArt.js",
-    "old": "    return p.bg ? `${one}<g clip-path",
-    "new": "    return false ? `${one}<g clip-path",
+    "old": "    ? `${inPart(div.comp, p, fieldHex)}${inPart(div.id, p, div.hex)}`",
+    "new": "    ? `<g transform=\"${transform}\">${partSvg(p, fieldHex)}</g>`",
     "tests": [
       "test/guild2_client.test.js"
     ]
@@ -297,7 +297,7 @@
   {
     "name": "AUDIT-GUILD2-G11-a-hole-the-first-colour-canvas",
     "file": "src/ui/heraldryArt.js",
-    "old": "    if (p.bg && div && f2) {",
+    "old": "    if (p.bg && div && f2 && comp) {",
     "new": "    if (false) {",
     "tests": [
       "test/guild2_client.test.js"
@@ -329,5 +329,261 @@
     "tests": [
       "test/guild2_client.test.js"
     ]
+  },
+  {
+    "name": "AUDIT2-GUILD2-K1-the-take-asked-as-any-act",
+    "file": "src/net/guildBook.js",
+    "old": "      needsAnswer: true,\n      apply: (/** @type {any} */ a) => {\n        const rec = a?.data?.item;",
+    "new": "      apply: (/** @type {any} */ a) => {\n        const rec = a?.data?.item;",
+    "tests": [
+      "test/guild2_client.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT2-GUILD2-K1-no-piece-taken-as-done",
+    "file": "src/net/guildBook.js",
+    "old": "        if (!held) this.realm.abandon?.('unknown');",
+    "new": "        void held;",
+    "tests": [
+      "test/guild2_client.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT2-GUILD2-K14-an-earlier-read-shown",
+    "file": "src/net/guildBook.js",
+    "old": "    if (gen !== this._vaultGen) return r;",
+    "new": "    void gen;",
+    "tests": [
+      "test/guild2_client.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT2-GUILD2-K15-a-piece-not-held-said-as-a-count",
+    "file": "src/net/guildBook.js",
+    "old": "    if (pick < 0) return { ok: false, error: 'vault-goods' };",
+    "new": "    if (pick < 0) return { ok: false, error: 'bad-vault-count' };",
+    "tests": [
+      "test/guild2_client.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT2-GUILD2-S2-why-dropped-by-the-book",
+    "file": "src/net/guildBook.js",
+    "old": "error: r?.error ?? 'server', ...(typeof r?.why === 'string' ? { why: r.why } : {}), ...(Number.isSafeInteger(r?.at) ? { at: r.at } : {}) };",
+    "new": "error: r?.error ?? 'server' };",
+    "tests": [
+      "test/guild2_client.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT2-GUILD2-S2-the-word-unsaid",
+    "file": "server-account/src/index.js",
+    "old": "        if (r.error === 'guild-name-word' && typeof r.word === 'string')",
+    "new": "        if (false)",
+    "tests": [
+      "test/guild2_service.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT2-GUILD2-S7-at-dropped",
+    "file": "server-account/src/index.js",
+    "old": "        if (r.error === 'guild-rename-soon' && Number.isSafeInteger(r.at))",
+    "new": "        if (false)",
+    "tests": [
+      "test/guild2_service.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT2-GUILD2-S2-the-stretched-reading-per-word",
+    "file": "server-account/src/guilds.js",
+    "old": "    if (c.kind !== 'impersonation') return c.word || w;",
+    "new": "    return c.word || w;",
+    "tests": [
+      "test/guild2_service.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT2-GUILD2-S3-the-bound-by-the-read-alone",
+    "file": "server-account/src/guildVault.js",
+    "old": "          AND ?2 < ${SHELVES_SQL} AND (SELECT COUNT(*) FROM guild_vault WHERE guild_id = ?1) < ${SHELVES_SQL}`)",
+    "new": "          AND (?2 < ${SHELVES_SQL} OR 1) AND ((SELECT COUNT(*) FROM guild_vault WHERE guild_id = ?1) < ${SHELVES_SQL} OR 1)`)",
+    "tests": [
+      "test/guild2_service.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT2-GUILD2-S4-the-standing-unheld",
+    "file": "server-account/src/guildVault.js",
+    "old": "AND rank = ?11 AND vault_level IS ?12)",
+    "new": "AND (rank = ?11 OR 1) AND (vault_level IS ?12 OR 1))",
+    "tests": [
+      "test/guild2_service.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT2-GUILD2-S5-the-granter-unheld",
+    "file": "server-account/src/guildVault.js",
+    "old": "      AND EXISTS (SELECT 1 FROM guild_members WHERE rowid = ?5 AND guild_id = ?4 AND rank = ?6)`)",
+    "new": "      AND (EXISTS (SELECT 1 FROM guild_members WHERE rowid = ?5 AND guild_id = ?4 AND rank = ?6) OR 1)`)",
+    "tests": [
+      "test/guild2_service.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT2-GUILD2-S6-no-limit-for-none-named",
+    "file": "src/net/guildVaultLaw.js",
+    "old": "  const limit = asked == null ? (level === 'withdraw' ? VAULT_GRANT_LIMIT : 0) : asked;",
+    "new": "  const limit = asked == null ? 0 : asked;",
+    "tests": [
+      "test/guild2_service.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT2-GUILD2-U4-a-locked-piece-offered",
+    "file": "src/ui/socialPanel.js",
+    "old": "tradeRefusal(it) == null && !isLocked(it));",
+    "new": "tradeRefusal(it) == null);",
+    "tests": [
+      "test/guild2_client.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT2-GUILD2-U7-the-draft-kept",
+    "file": "src/ui/socialPanel.js",
+    "old": "        if (d.grants[m.member]?.from !== from) d.grants[m.member] = { level: was, limit: m.vault?.limit ?? 0, from };",
+    "new": "        d.grants[m.member] ??= { level: was, limit: m.vault?.limit ?? 0, from };",
+    "tests": [
+      "test/guild2_client.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT2-GUILD2-U9-the-focus-dropped",
+    "file": "src/ui/socialPanel.js",
+    "old": "        if (open) stripBtns.get(id)?.focus?.();",
+    "new": "        void stripBtns;",
+    "tests": [
+      "test/guild2_client.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT2-GUILD2-U10-the-pick-a-place",
+    "file": "src/ui/socialPanel.js",
+    "old": "{ run: () => { const it = offers.includes(d.vaultPick) ? d.vaultPick : null; if (it && reachNow())",
+    "new": "{ run: () => { const it = offers[1] ?? offers[0]; if (it && reachNow())",
+    "tests": [
+      "test/guild2_client.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT2-GUILD2-U14-shut-unsaid",
+    "file": "src/ui/socialPanel.js",
+    "old": "      if (shut.size) out.push(",
+    "new": "      if (false) out.push(",
+    "tests": [
+      "test/guild2_client.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT2-GUILD2-G1-no-now",
+    "file": "server-account/src/seatInfluence.js",
+    "old": "  await renamedSince(db, rows);\n",
+    "new": "",
+    "tests": [
+      "test/guild2_service.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT2-GUILD2-G1-the-rows-time-unread",
+    "file": "server-account/src/seatInfluence.js",
+    "old": "x.old_name === g.name && Number(x.at) >= r.at);",
+    "new": "x.old_name === g.name);",
+    "tests": [
+      "test/guild2_service.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT2-GUILD2-G2-the-first-colour-whole-svg",
+    "file": "src/ui/heraldryArt.js",
+    "old": "    ? `${inPart(div.comp, p, fieldHex)}${inPart(div.id, p, div.hex)}`",
+    "new": "    ? `<g transform=\"${transform}\">${partSvg(p, fieldHex)}</g>${inPart(div.id, p, div.hex)}`",
+    "tests": [
+      "test/guild2_client.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT2-GUILD2-G2-the-complement-nonzero-canvas",
+    "file": "src/ui/heraldryArt.js",
+    "old": "inPart(p, fieldHex, comp, 'evenodd');",
+    "new": "inPart(p, fieldHex, comp, 'nonzero');",
+    "tests": [
+      "test/guild2_client.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT2-GUILD2-G2-the-complement-nonzero-svg",
+    "file": "src/ui/heraldryArt.js",
+    "old": "\" clip-rule=\"evenodd\"/></clipPath>`;",
+    "new": "\"/></clipPath>`;",
+    "tests": [
+      "test/guild2_client.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT2-GUILD2-G3-the-shield-on-the-banners-box",
+    "file": "src/ui/heraldryArt.js",
+    "old": "  const divD = h.division ? divisionPath(h.division, SHIELD_BOX.w, SHIELD_BOX.h) : '';\n  const div = divD ? new P(divD) : null;",
+    "new": "  const divD = h.division ? divisionPath(h.division, BANNER_BOX.w, BANNER_BOX.h) : '';\n  const div = divD ? new P(divD) : null;",
+    "tests": [
+      "test/guild2_client.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT2-GUILD2-G3-field2-dropped-on-the-way",
+    "file": "src/net/heraldryLaw.js",
+    "old": "  if (parted) { out.division = division; out.field2 = field2; }",
+    "new": "  if (parted) { out.division = division; }",
+    "tests": [
+      "test/guild2_service.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT2-GUILD2-G3-charge-dropped-on-the-way",
+    "file": "src/net/heraldryLaw.js",
+    "old": "  if (charge != null && charge !== border) out.charge = charge;",
+    "new": "",
+    "tests": [
+      "test/guild2_service.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT2-GUILD2-a-rename-said-as-put-in",
+    "file": "src/ui/socialPanel.js",
+    "old": ", rename: 'renamed the guild for' });",
+    "new": " });",
+    "tests": [
+      "test/guild2_client.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT2-GUILD2-D3-the-batch-fortnight-gone",
+    "file": "server-account/src/guilds.js",
+    "old": "AND (renamed_at IS NULL OR renamed_at + ?10 <= ?5)",
+    "new": "AND (?10 = ?10)",
+    "tests": [
+      "test/guild2_service.test.js"
+    ],
+    "equivalent": true,
+    "why": "Every rename that lands changes the name or the tag (guild-rename-same refuses one that changes neither), and the batch's UPDATE holds the name and tag it read - so a second rename racing the first is refused on the row before the fortnight clause is reached (the race pin, two renames paying once, holds either way). Kept beside the row's guard: the fortnight is the law the batch states."
+  },
+  {
+    "name": "AUDIT2-GUILD2-D3-the-batch-day-limit-gone",
+    "file": "server-account/src/guildVault.js",
+    "old": "AND (?4 = 0 OR (CASE WHEN vault_day = ?3 THEN vault_taken ELSE 0 END) < ?4)",
+    "new": "AND (?4 = ?4)",
+    "tests": [
+      "test/guild2_service.test.js"
+    ],
+    "equivalent": true,
+    "why": "The day's count is a member row's, and a member is ONE realm character: two of its takes racing are serialized by the realm record's sequence (prepareRealmRecord's guard), so the second is refused on the record before this guard is reached, and the early read refuses a take past the limit sequentially. Kept as belt-and-braces beside the record's guard."
   }
 ]

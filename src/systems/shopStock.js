@@ -246,9 +246,11 @@ export function stockShopShelf({ buildingType, quality }, playerEntity = {}, { r
     add({ group: 'Transportation', templateIndex: TRANSPORT_SMALL_CART });
     // BAG1 (bible/06-Systems/Materials-Bag.md): THE MATERIALS BAG beside the cart, at every General Store - online alone,
     // where the professions are (nothing offline gathers into it), and by name, as the horse and the cart are; never to a
-    // player who carries one (a second bag holds nothing more - the bag is one list, as the wagon is)
+    // player who carries one (a second bag holds nothing more - the bag is one list, as the wagon is). AUDIT2 BAG1 H8: on
+    // the shop's first shelf alone - the horse and the cart are on every shelf as DFU stocks them, but a bag on each one
+    // showed a shop of several shelves selling one bag several times over
     const ownsBag = hasBag(playerEntity.items ?? []);
-    if (isOnlinePage() && !ownsBag) add({ group: 'UselessItems2', templateIndex: BAG_TEMPLATE });
+    if (isOnlinePage() && !ownsBag && shelfIndex === 0) add({ group: 'UselessItems2', templateIndex: BAG_TEMPLATE });
     // SURV2: the provisions shelf - rations, bread, fruit, skins, fire
     // kits, and camping gear and a skillet in a better shop. Minted by
     // their own module (their templates are the port's), after the

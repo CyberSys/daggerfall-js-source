@@ -59,7 +59,7 @@ src/net/nodeLaw.js (the nodes). Appendix B lists them in one place.
    (section 5), and an act played well gives more - within a bound a modified client cannot break (5.1).
 6. **NO NEW COMMITTED ART IN THE FIRST SLICES** - DECIDED. Tools in the hand are DFU's own weapon sprites (and the
    Morrowind arms on that lane; the net and the basket are the item's own picture held as the held map is - 5.1), new items' icons are DFU's own icons recoloured at runtime from the player's data
-   (4.8), nodes are DFU's own flats tinted. The one committed art is the heraldry's 24 devices (SEAT0 8.1), the port's
+   (4.8), nodes are DFU's own flats tinted. The one committed art is the heraldry's devices (SEAT0 8.1: 24; forty since GUILD2c), the port's
    own. If Mac later commissions art, it replaces a runtime composition icon by icon. Foraging's seven textures are the
    author's own art, vendored with Mac's word of permission - a mod's work carried, not art the port made (FORAGE0
    law 5).
@@ -1181,7 +1181,8 @@ Every PROF slice's record names all four (Home.md, THE FOUR HOSTS RULE, 17e), ea
   16). Its Marks refuse nothing: they go to its guildmaster in the same batch as the delete (AUDIT 28 M3/M5 - a switch
   the guildmaster could not pass would otherwise lock the guild for good), refused only past the guildmaster's cap.
 - **The Stores are full** (5,000 of a material): the prompt says so before the act ("Stores full - Oak Logs"), so a
-  harvest is never played for nothing.
+  harvest is never played for nothing. BAG1: for a carrying book the prompt is the bag's and the pack's ("No room in
+  your bag or pack"), or the carried count's bound (`06-Systems/Materials-Bag.md` 3).
 - **A crafted item changes hands.** The service keeps each provenance id's **owner**. TRADE1's confirm step, when a
   provenance item is in the trade, asks the service to hand the id over (both parties' tokens, the relay's verified
   trade); a market sale hands it over by itself. A listing is accepted only from the owner, and an id has **one live

@@ -65,8 +65,8 @@
   {
     "name": "COMPANION-WEIGHT-enhanced-store-without-it",
     "file": "src/ui/enhancedInventory.js",
-    "old": "    capacity: storeCapacityOf(deps, session), bagLoaded: (deps.entity?.bagItems?.length ?? 0) > 0,   // COMPANION-WEIGHT: a companion's pack takes what fits\n",
-    "new": "    bagLoaded: (deps.entity?.bagItems?.length ?? 0) > 0,\n",
+    "old": "    capacity: storeCapacityOf(deps, session), bagLoaded: !bagMayLeave(deps.entity),   // COMPANION-WEIGHT: a companion's pack takes what fits\n",
+    "new": "    bagLoaded: !bagMayLeave(deps.entity),\n",
     "tests": [
       "test/companion_weight.test.js"
     ]

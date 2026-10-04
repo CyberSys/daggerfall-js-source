@@ -23,10 +23,10 @@ import { entityMaxEncumbrance } from '../combat/formulas.js';
 import { isBound, BOUND_TRADE_TEXT } from './itemBound.js';   // SS1: a bound piece never leaves for another player
 import { BOAT_TEMPLATES } from '../net/realmTradeLaw.js';   // AUDIT REALM2 T1: nor a boat's deed or parts - what they stand for stays in the giver's save
 
-/** Why an item may not be put on the table, or null. Words a player can act on. */
 /** BAG1: the Materials Bag stays with its owner - a list of its own rides with it (systems/materialsBag.js), which no
  *  trade moves; every General Store sells another. */
 export const BAG_TRADE_TEXT = 'Your Materials Bag stays with you. Every General Store sells one.';
+/** Why an item may not be put on the table, or null. Words a player can act on. */
 export function tradeRefusal(item) {
   if (!item) return 'That is not an item.';
   if (isEquipped(item)) return 'Unequip that first.';

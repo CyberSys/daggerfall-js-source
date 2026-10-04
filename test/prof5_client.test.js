@@ -282,7 +282,7 @@ test('PROF5 wiring: the host builds the market book online, its answers told to 
   assert.match(w, /\.filter\(\(it\) => it\?\.provenance && asMinted\(it\) && !tradeRefusal\(it\) && !isLocked\(it\) && !pieceKept\(it\.provenance\)\)/);   // AUDIT 30 C2
   assert.match(w, /const r = await profBook\.stock\(material, qty\);\n\s*toldBalance\(r\?\.data\?\.balance\);/);   // AUDIT 32 B3: the Bank's book and the market's
   assert.match(src('src/ui/profPages.js'), /if \(\(book\.pendingWithdrawals \|\| book\.pendingCrafts \|\| book\.pendingDeposits\) && p\.settle/);   // BAG1 (PIN MOVED): a kept deposit settles too
-  assert.match(src('src/scenes/gatherHost.js'), /if \(book\.pendingWithdrawals \|\| book\.pendingCrafts\) deps\.onSettle\?\.\(\);/);
+  assert.match(src('src/scenes/gatherHost.js'), /if \(book\.pendingWithdrawals \|\| book\.pendingCrafts \|\| book\.pendingDeposits\) deps\.onSettle\?\.\(\);/);   // PIN MOVED (AUDIT2 BAG1 K3): and a kept deposit
   for (const rule of [/\.prof-grain \{ fill: none; stroke:/, /\.prof-trail \{ fill: none; stroke:/, /\.prof-board \{ position: relative; height: 96px; touch-action: none;/, /\.prof-boardhead \{ fill:/]) {
     assert.match(PROF_CSS, rule, 'the plane dressed');
   }

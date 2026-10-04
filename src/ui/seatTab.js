@@ -441,7 +441,8 @@ export function createSeatTab(host, ui) {
         lines.forEach((l, i) => {
           const li = el('li');
           const g = about[i];
-          const shield = g ? heraldrySwatch(document, armsNamed(arms, g.tag, g.name)) : null;   // AUDIT HERALDRY H3: the tag's guild by its name too
+          // AUDIT HERALDRY H3: the tag's guild by its name too; AUDIT2 GUILD2 G1: as the guild is named NOW (`now`, the service's)
+          const shield = g ? heraldrySwatch(document, armsNamed(arms, g.now?.tag ?? g.tag, g.now?.name ?? g.name)) : null;
           if (shield) li.append(shield);
           li.append(el('span', null, l));
           ol.append(li);

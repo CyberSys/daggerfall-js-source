@@ -218,8 +218,8 @@ import { utcDayOfMs } from '../net/nodeLaw.js';   // PROF8: a haul's UTC day
 import { registerPlayerKillListener } from '../systems/playerKills.js';   // PROF7: the player's own kill stamps a body
 import { setProfessionsPages } from '../ui/profPages.js';   // PROF1: the Professions and Stores pages on the character sheet's rail
 import { withdrawIntoPack, materialLabel, materialCountLabel } from '../systems/profItems.js';   // PROF1: a Stores material as DFU's own item
-import { heldOf as bagHeldOf, roomFor as bagRoomFor, mintCarried, takeCarried, bagWeight, hasBag } from '../systems/materialsBag.js';   // BAG1: the Materials Bag and the pack, the book's hands
-import { BAG_KG_LIMIT, madeWhere } from '../net/bagLaw.js';   // AUDIT BAG1 B9: where a station's work went
+import { heldOf as bagHeldOf, roomFor as bagRoomFor, mintCarried, takeCarried, giveCarried, bagTakesOf, bagWeight, hasBag, emptyBagIntoPack } from '../systems/materialsBag.js';   // BAG1: the Materials Bag and the pack, the book's hands
+import { BAG_KG_LIMIT, madeWhere, movedFirstText } from '../net/bagLaw.js';   // AUDIT BAG1 B9: where a station's work went; AUDIT2 K8: what went in before a refusal
 import { smeltRecipe, stockOf, WEAVERS_STOCK, APOTHECARY_STOCK, professionName } from '../net/professionLaw.js';   // PROF2: a smelt's product, for its word; PROF4: a counter's; PROF5: the Weavers'
 import { createMarketBook } from '../net/marketBook.js';   // PROF5: the market's book
 import { createWritBook } from '../net/writBook.js';   // PROF6: guild writs, commissions, the guild Stores
@@ -1347,10 +1347,20 @@ export async function bootWorld(canvas, renderer, params, status) {
     held: (key) => bagHeldOf(playerEntity, key),
     room: (key) => bagRoomFor(playerEntity, key),
     mint: (key, n) => { const got = mintCarried(playerEntity, key, n, carryOpts(key)); if (got.bag + got.pack > 0) saveSoon.changed(); return got; },
-    take: (key, n) => {
-      const t = takeCarried(playerEntity, key, n);
+    take: (key, n, stamp = null, order = null) => {
+      const t = takeCarried(playerEntity, key, n, stamp, order);
       if (t.taken > 0) saveSoon.changed();
       return { taken: t.taken, back: () => { t.back(); saveSoon.changed(); } };
+    },
+    // AUDIT2 BAG1: every unit the service handed over minted (the pack past its weight for the rest, B5's law); a deposit's
+    // stamp in the save; a checkpoint that LANDED, before a deposit is asked (onlineCheckpointLanded - defined below, read
+    // at the deposit, long after the boot)
+    give: (key, n) => { const got = giveCarried(playerEntity, key, n, carryOpts(key)); if (got.bag + got.pack + got.over > 0) saveSoon.changed(); return got; },
+    stamped: (id) => Object.hasOwn(bagTakesOf(playerEntity), id),
+    unstamp: (id) => { if (playerEntity.bagTakes && Object.hasOwn(playerEntity.bagTakes, id)) { delete playerEntity.bagTakes[id]; saveSoon.changed(); } },
+    stamps: () => Object.entries(bagTakesOf(playerEntity)).map(([id, t]) => ({ id, ...t })),
+    flush: async () => {
+      try { const r = await onlineCheckpointLanded(); return r === true || r?.ok === true; } catch { return false; }
     },
   };
   const profBook = params.has('online')
@@ -1453,14 +1463,13 @@ export async function bootWorld(canvas, renderer, params, status) {
   const profMint = (key, n) => {
     // BAG1: a carrying book's withdrawal is the bag's first, then the pack's (the hands above say where each went)
     if (profBook?.carrying?.()) {
-      const got = carryHands.mint(key, n);
-      const put = got.bag + got.pack;
       // AUDIT BAG1 B5: what found no room still comes - into the pack, over its weight, as a withdrawal always came - for
-      // the service counted it carried, and a unit counted and never minted was lost to the character
-      const over = got.left > 0 ? withdrawIntoPack(playerEntity, key, got.left, undefined, carryOpts(key)) : 0;
-      if (over) saveSoon.changed();
+      // the service counted it carried, and a unit counted and never minted was lost to the character (AUDIT2: the hands'
+      // own `give`, which a smelt's carry-out mints through too)
+      const got = carryHands.give(key, n);
+      const put = got.bag + got.pack;
       if (put) townTalk.say(`${put} ${materialCountLabel(key, put)} taken from the Stores into your ${got.bag && got.pack ? 'bag and pack' : got.pack ? 'pack' : 'bag'}.`);
-      if (over) townTalk.say(`${over} more into your pack, past what you can carry.`);
+      if (got.over) townTalk.say(`${got.over} more into your pack, past what you can carry.`);
       return;
     }
     // PROF7: a Butcher's meat spoils half as fast (PROF0 3.3) - the Stores keep no unit's maker, so a Butcher's withdrawal
@@ -8995,7 +9004,9 @@ export async function bootWorld(canvas, renderer, params, status) {
         inTown: () => _storesReached(),
         room: (k) => bagRoomFor(playerEntity, k),
         carriedHeld: (k) => bagHeldOf(playerEntity, k),
-        bag: () => ({ has: hasBag(playerEntity.items), kg: bagWeight(playerEntity), max: BAG_KG_LIMIT }),
+        bag: () => ({ has: hasBag(playerEntity.items), kg: bagWeight(playerEntity), max: BAG_KG_LIMIT, count: playerEntity.bagItems?.length ?? 0 }),
+        // AUDIT2 BAG1 H1/U2: the bag emptied into the pack, from the Stores page - anywhere, on either skin
+        emptyBag: () => { const r = emptyBagIntoPack(playerEntity); if (r.moved > 0) saveSoon.changed(); return r; },
         // PROF2 (bible/06-Systems/Professions-Arc.md 23): THE FORGE - the one the player stands at (a Weaponsmith's or an
         // Armorer's, its fee a smelt from the purse, paid on the service's answer; a home's forge), and a smelt through it
         forge: () => modes?.forgeHere?.() ?? null,
@@ -9015,7 +9026,7 @@ export async function bootWorld(canvas, renderer, params, status) {
           // step this craft (fortLaw.js hallStepsFor) - the service asks the Charter again (professions.js seatStepsFor)
           const { seat } = myHall(recipeById(recipe)?.profession);
           const r = await profBook.craft(recipe, { clean, heartwood, dye, cracked, fee: f.fee > 0 ? f.fee : 0, name: typeof playerEntity?.name === 'string' ? playerEntity.name : null, seat }, profMintCraft);   // PROF10: a Lapidary's cracked gem
-          if (!r?.ok) return { ok: false, text: r?.kept ? st.kept : accountRefusalText(r?.error) };
+          if (!r?.ok) return { ok: false, text: r?.kept ? st.kept : `${accountRefusalText(r?.error)}${movedFirstText(r)}` };
           const paid = f.fee > 0 && !r.elsewhere;
           const rec = recipeById(recipe);
           const made = rec?.kind === 'siege' ? storedText(rec.name, Number(r.data.count) || 1) : craftedText(mintPieces(r.data));   // SEAT2b part two: a Ram Kit is the Stores'
@@ -9063,7 +9074,7 @@ export async function bootWorld(canvas, renderer, params, status) {
           if (f.fee > 0 && totalGoldAmount(playerEntity) < f.fee) return { ok: false, text: `The alchemist asks ${f.fee} gold for the use of the station.` };
           const { seat } = alchemyHall();
           const r = await profBook.brew(potion, keys, { fee: f.fee > 0 ? f.fee : 0, seat }, profMintCraft);
-          if (!r?.ok) return { ok: false, text: r?.kept ? BREW_KEPT_TEXT : r?.error === 'prof-busy' ? 'Your hands are busy with another craft.' : accountRefusalText(r?.error) };
+          if (!r?.ok) return { ok: false, text: r?.kept ? BREW_KEPT_TEXT : r?.error === 'prof-busy' ? 'Your hands are busy with another craft.' : `${accountRefusalText(r?.error)}${movedFirstText(r)}` };
           const paid = f.fee > 0 && !r.elsewhere;
           return { ok: true, text: `${brewedText(r.data)} (+${r.data.xp} Alchemy XP)${paid ? `, and paid the alchemist ${f.fee} gold` : ''}.` };
         },
@@ -9147,7 +9158,7 @@ export async function bootWorld(canvas, renderer, params, status) {
           const who = alch ? 'alchemist' : mason ? 'mason' : loom ? 'tailor' : bench ? 'furnisher' : 'smith';
           if (f.fee > 0 && totalGoldAmount(playerEntity) < f.fee) return { ok: false, text: `The ${who} asks ${f.fee} gold for the use of the ${alch ? 'station' : mason ? 'mason\'s bench' : loom ? 'loom' : bench ? 'workbench' : 'forge'}.` };
           const r = await profBook.smelt(recipe, count, { clean });
-          if (!r?.ok) return { ok: false, text: accountRefusalText(r?.error) };
+          if (!r?.ok) return { ok: false, text: `${accountRefusalText(r?.error)}${movedFirstText(r)}` };
           // the fee for the smelt this press made, on the first answer it hears - `repeat` or not (AUDIT 29 C3: a first
           // answer lost, the same smelt asked again answers `repeat`, and the smith went unpaid); the page holds one press
           // at a time, and the book one ask an id
@@ -17858,7 +17869,8 @@ export async function bootWorld(canvas, renderer, params, status) {
       },
       // REALM P2.2: a realm character's founding, deposit and withdrawal move its record's gold on the service, in the
       // guild's own batch - the purse checkpointed first, the hold standing until the answer (realmSaves.js realmGoldAct)
-      realm: realmSession ? { act: (o) => realmGoldAct({ session: realmSession, checkpoint: () => onlineCheckpoint(), ...o }) } : null,
+      // AUDIT2 GUILD2 K1: and the session given up where an answer the act needs is missing (a vault take's piece)
+      realm: realmSession ? { act: (o) => realmGoldAct({ session: realmSession, checkpoint: () => onlineCheckpoint(), ...o }), abandon: (why) => realmSession.abandon(why) } : null,
       onHall: (mapId) => { onlineHomes?.ensure?.(mapId, { force: true }); },   // GUILD1d: the hall's town read again - its door and banners
       // AUDIT GUILD-YARD C3, AUDIT PROF-541 G1: a rank moved (a keeper made or unmade), found by whichever look, reads the
       // town again, as onHall does - its halls' `keeper` was the town's answer's, believed a minute

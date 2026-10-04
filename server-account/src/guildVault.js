@@ -19,9 +19,17 @@
 // the slot's piece (or part of its stack) into the taker's record, the
 // slot cleared or cut only from the count it was read at. A batch that
 // lands and loses its answer keeps its save (AUDIT REALM2 S3's
-// dropIfUnnamed), and the client reads a record one on as the act,
-// landed (realmSaves.js realmGoldAct). So a piece is in a pack or in the
-// vault - never both, never neither.
+// dropIfUnnamed). A put's client reads a record one on as the act,
+// landed (realmSaves.js realmGoldAct); a take's NEEDS its answer - the
+// piece is the answer - and one lost ends the session, a join reading the
+// record that holds it (AUDIT2 GUILD2 K1: read as landed, the checkpoint
+// after it wrote the record without the piece). So a piece is in a pack
+// or in the vault - never both, never neither.
+//
+// AUDIT2 GUILD2 S3: THE SHELVES' BOUND is the batch's own read - fifty,
+// and fifty more while the guild holds a hall. A hall sold with more than
+// fifty pieces on the shelves leaves them there: each is taken out as
+// ever, and nothing is put in until fewer than fifty stand.
 //
 // ═══ WHO MAY ═══════════════════════════════════════════════════════
 //
@@ -40,7 +48,7 @@ import { displayName, overRate } from './accounts.js';
 import { guildActorOf } from './guilds.js';
 import { prepareRealmRecord, realmActFirst, recordMovedOf, mustChange, dropObjects, dropIfUnnamed, REALM_ID_RE } from './realm.js';
 import { GUILD_OPS_MAX, GUILD_OPS_WINDOW_S, GUILD_RANK_MASTER, guildMay, GUILD_MEMBER_RE } from '../../src/net/guildLaw.js';
-import { vaultStanding, vaultMayPut, vaultMayTake, vaultGrantOf, guildVaultSlots, GUILD_VAULT_LOG_SHOWN } from '../../src/net/guildVaultLaw.js';
+import { vaultStanding, vaultMayPut, vaultMayTake, vaultGrantOf, guildVaultSlots, GUILD_VAULT_LOG_SHOWN, GUILD_VAULT_SLOTS, GUILD_VAULT_HALL_SLOTS } from '../../src/net/guildVaultLaw.js';
 import { takeTradeGoods, giveTradeGoods, recordCount, REALM_TRADE_RECORD_MAX } from '../../src/net/realmTradeLaw.js';
 
 const DAY_S = 86_400;
@@ -53,6 +61,9 @@ const takenToday = (m, nowS) => (Number(m.vault_day) === Math.floor(nowS / DAY_S
 const pieceName = (rec) => String(rec?.name ?? 'an item').slice(0, 64);
 /** Whether the guild holds a hall (its cupboards add the vault's second shelves). */
 const holdsHall = async (db, gid) => !!(await db.prepare('SELECT 1 FROM homes WHERE guild_id = ?').bind(gid).first());
+/** AUDIT2 GUILD2 S3: the vault's bound as the batch reads it (`?1` the guild) - the shelves, and the hall's while it holds
+ *  one: a hall sold between a put's read and its batch no longer lends its fifty. */
+const SHELVES_SQL = `(${GUILD_VAULT_SLOTS} + CASE WHEN EXISTS (SELECT 1 FROM homes WHERE guild_id = ?1) THEN ${GUILD_VAULT_HALL_SLOTS} ELSE 0 END)`;
 
 /**
  * THE VAULT, as a member reads it: every slot's piece (its record, for the picture and the card), who put it there and
@@ -124,10 +135,14 @@ export async function vaultPut(ctx, player, { character, realm = null, pick, ite
   try {
     await db.batch([
       ...prep.steps,
-      // the slot, while the member still stands in the guild
+      // the slot, while the member still stands in the guild. AUDIT2 GUILD2 S4: at the standing read (a revoke, or a rank
+      // moved, between the read and this batch refuses the put - the take's G4, on the other door). S3: and inside the
+      // vault's bound as it stands - a slot past it, or a vault already at it (a hall sold under the put), takes nothing
       db.prepare(`INSERT INTO guild_vault (guild_id, slot, rec, name, count, dep_player, dep_char, dep_name, at)
-        SELECT ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9 WHERE EXISTS (SELECT 1 FROM guild_members WHERE rowid = ?10 AND guild_id = ?1)`)
-        .bind(gid, slot, JSON.stringify(piece), name, recordCount(piece), player.id, character, who, nowS, a.me.rid),
+        SELECT ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9
+        WHERE EXISTS (SELECT 1 FROM guild_members WHERE rowid = ?10 AND guild_id = ?1 AND rank = ?11 AND vault_level IS ?12)
+          AND ?2 < ${SHELVES_SQL} AND (SELECT COUNT(*) FROM guild_vault WHERE guild_id = ?1) < ${SHELVES_SQL}`)
+        .bind(gid, slot, JSON.stringify(piece), name, recordCount(piece), player.id, character, who, nowS, a.me.rid, Number(me?.rank ?? a.me.rank), me?.vault_level ?? null),
       mustChange(db),
       db.prepare("INSERT INTO guild_vault_log (guild_id, at, who, kind, name, count) VALUES (?, ?, ?, 'put', ?, ?)").bind(gid, nowS, who, name, recordCount(piece)),
     ]);
@@ -135,6 +150,11 @@ export async function vaultPut(ctx, player, { character, realm = null, pick, ite
     await dropIfUnnamed(db, bucket, player.id, side.at.id, prep.key);   // AUDIT REALM2 S3: a batch that landed and lost its answer keeps its save
     const moved = await recordMovedOf(db, player.id, side.at);
     if (moved) return moved;
+    // AUDIT2 GUILD2 S3/S4: the refusal the batch's guard meant - the standing gone, or the vault at its bound
+    const again = await db.prepare('SELECT * FROM guild_members WHERE rowid = ? AND guild_id = ?').bind(a.me.rid, gid).first();
+    if (!again || !vaultMayPut(standingOf(again))) return { error: 'guild-vault-rank' };
+    const used = Number((await db.prepare('SELECT COUNT(*) AS n FROM guild_vault WHERE guild_id = ?').bind(gid).first())?.n ?? 0);
+    if (used >= guildVaultSlots(await holdsHall(db, gid))) return { error: 'guild-vault-full' };
     return { error: 'guild-vault-moved' };
   }
   await dropObjects(bucket, [prep.prev]);
@@ -215,11 +235,12 @@ export async function vaultTake(ctx, player, { character, realm = null, slot, co
 
 /**
  * GRANT OR REVOKE: `{ character, member, level, limit }` - the guildmaster's alone (guildLaw.js GUILD_POWERS.vaultGrant):
- * a member's standing at the vault set to `level` ('none', 'deposit', 'withdraw' - a withdrawer's `limit` a day, 0 none),
- * or `level: null` - revoked, back to its rank's. Never the guildmaster's own row.
+ * a member's standing at the vault set to `level` ('none', 'deposit', 'withdraw' - a withdrawer's `limit` a day, 0 none;
+ * AUDIT2 GUILD2 S6: none named, an officer's ten - guildVaultLaw.js vaultGrantOf), or `level: null` - revoked, back to its
+ * rank's. Never the guildmaster's own row.
  * @param {any} ctx
  */
-export async function vaultGrant(ctx, player, { character, member, level = null, limit = 0 } = {}) {
+export async function vaultGrant(ctx, player, { character, member, level = null, limit = null } = {}) {
   const { db } = ctx;
   const a = await guildActorOf(db, player, character);
   if ('error' in a) return a;
@@ -231,8 +252,14 @@ export async function vaultGrant(ctx, player, { character, member, level = null,
   const t = await db.prepare('SELECT rowid AS rid, rank FROM guild_members WHERE rowid = ? AND guild_id = ?').bind(rid, a.me.guild_id).first();
   if (!t || Number(t.rank) === GUILD_RANK_MASTER) return { error: 'no-member' };
   if (await spend(ctx, player)) return { error: 'guild-rate' };
-  const r = await db.prepare(`UPDATE guild_members SET vault_level = ?1, vault_limit = ?2 WHERE rowid = ?3 AND guild_id = ?4 AND rank <> ${GUILD_RANK_MASTER}`)
-    .bind(grant.level, grant.limit, rid, a.me.guild_id).run();
-  if (!r?.meta?.changes) return { error: 'no-member' };
+  // AUDIT2 GUILD2 S5: while the granter still holds the rank it was read at - a guildmaster who handed the guild over
+  // between the read and this write grants nothing
+  const r = await db.prepare(`UPDATE guild_members SET vault_level = ?1, vault_limit = ?2 WHERE rowid = ?3 AND guild_id = ?4 AND rank <> ${GUILD_RANK_MASTER}
+      AND EXISTS (SELECT 1 FROM guild_members WHERE rowid = ?5 AND guild_id = ?4 AND rank = ?6)`)
+    .bind(grant.level, grant.limit, rid, a.me.guild_id, a.me.rid, Number(a.me.rank)).run();
+  if (!r?.meta?.changes) {
+    const still = await db.prepare('SELECT rank FROM guild_members WHERE rowid = ? AND guild_id = ?').bind(a.me.rid, a.me.guild_id).first();
+    return { error: still && guildMay(Number(still.rank), 'vaultGrant') ? 'no-member' : 'guild-rank' };
+  }
   return { ok: true, member, vault: vaultStanding(Number(t.rank), grant.level == null ? null : grant) };
 }

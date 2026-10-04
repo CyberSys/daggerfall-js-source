@@ -347,8 +347,8 @@
   {
     "name": "GUILD1d-hole-in-the-device-colour",
     "file": "src/ui/heraldryArt.js",
-    "old": "drawDevice(ctx, P, h.device, ink, field, BANNER_DEVICE, div, f2);",
-    "new": "drawDevice(ctx, P, h.device, ink, ink, BANNER_DEVICE, div, f2);",
+    "old": "drawDevice(ctx, P, h.device, ink, field, BANNER_DEVICE, div, f2,",
+    "new": "drawDevice(ctx, P, h.device, ink, ink, BANNER_DEVICE, div, f2,",
     "tests": [
       "test/guild1d_client.test.js"
     ],

@@ -113,6 +113,7 @@ import { firstHotkey } from '../systems/dialogShortcuts.js';   // A8: the Dagger
 import { expandRowValues } from '../systems/quest/questMacros.js';   // MACROS1: a used item's record through its own context (%map)
 import { magicPowersLines } from '../systems/itemPowers.js';   // MACRO-3: %mpw
 import { itemIsIdentified } from '../systems/tradeModes.js';   // MACRO-3: MagicPowers' identified arm
+import { bagMayLeave } from '../systems/materialsBag.js';   // AUDIT2 BAG1 H11: a loaded bag stays - the one test
 
 export const INV_RECTS = Object.freeze({
   tabWeapons: [0, 0, 92, 10],        // weaponsAndArmorRect
@@ -936,7 +937,7 @@ export class NativeInventoryWindow {
         getQuest: this.hooks.getQuest ?? null,
         groundRefusal: groundRefusalOf(this.hooks, { usingWagon: this.usingWagon, chooseOne: this.chooseOne }),   // HOUSE-DROP: a floor that refuses a drop
         capacity: storeCapacityOf(this.hooks, { usingWagon: this.usingWagon, chooseOne: this.chooseOne }),   // COMPANION-WEIGHT: a companion's pack takes what fits
-        bagLoaded: (this.hooks.entity?.bagItems?.length ?? 0) > 0,   // BAG1: a loaded Materials Bag never leaves the pack
+        bagLoaded: !bagMayLeave(this.hooks.entity),   // BAG1: a loaded Materials Bag never leaves the pack (AUDIT2 H11: the one test)
       });
       if (!plan.ok) { this._refuse(plan.refusal); return; }
       // AUDIT 26 F156: the map interception (:1471-1478) - the reveal

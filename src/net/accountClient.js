@@ -348,6 +348,9 @@ export const REFUSALS = Object.freeze({
   'bad-held': 'Your pack could not be counted - try again.',
   'materials-short': 'You do not have that many - in your Stores, your Materials Bag and your pack together.',
   'deposit-kept': 'Your materials are on their way into your Stores - the counting-house has not answered yet. Try again in a moment.',   // AUDIT BAG1 B8
+  'deposit-busy': 'Your last put-in is still being counted. Try again in a moment.',   // AUDIT2 BAG1 K12: one deposit at a time
+  'deposit-unsaved': 'Your game could not be saved just now, so nothing went into your Stores. Try again in a moment.',   // AUDIT2 BAG1 H2: the take saved before the ask
+  'deposit-unsent': 'That put-in was never sent - its materials are still with you.',   // AUDIT2 BAG1 K7: a kept deposit whose take the save never saw (askDeposit)
   'bad-deposit-order': 'That cannot be put in the Stores that way.',
   'node-taken': 'You have already gathered here today.',
   'bad-material': 'The Stores do not keep that.',
@@ -487,7 +490,7 @@ export const REFUSALS = Object.freeze({
   'guild-battle': 'The guild is named in a siege or a Tourney this week. It cannot go until the battle is over.',   // SEAT1c
   'hall-item': 'A guild hall holds furniture from the catalogue alone - your own things stay yours.',
   'hall-yard': 'A palace\'s grounds cannot be furnished - only its Charter Room.',   // GUILD-YARD: a guild hall's yard is its keepers'; a palace's grounds stand none
-  'bad-heraldry': 'Choose two different colours - Ash only as the border - and one device.',
+  'bad-heraldry': 'Choose arms the law allows - a field and a border of different colours (Ash only as the border), one device that stands out from the field, and a divided field\'s second colour unlike the first and the border.',   // AUDIT2 GUILD2 G5: GUILD2c's divisions and device colour
   // GUILD2a (bible/11-Multiplayer/Guild-Overhaul.md): a new name for a price (server-account/src/guilds.js renameGuild)
   'guild-rename-same': 'That is already the guild\'s name and tag.',
   'guild-name-word': 'A guild\'s name and tag may not carry a word the realm keeps out of names.',
@@ -616,7 +619,7 @@ export async function call({ fetch, base = DEFAULT_ACCOUNT_SERVICE, secret = nul
     // The service says `{ error: '<word>' }`. A proxy, a 502 or an
     // HTML error page says nothing we can read, and `server` is the
     // honest answer for that rather than a guess at which word it meant.
-    return { ok: false, error: typeof data?.error === 'string' ? data.error : 'server', ...(typeof data?.why === 'string' ? { why: data.why } : {}), ...(Number.isSafeInteger(data?.seq) ? { seq: data.seq } : {}), status: res.status };   // AUDIT WB A5: and the rung, where the service names one; REALM P2.2: and a realm record's sequence
+    return { ok: false, error: typeof data?.error === 'string' ? data.error : 'server', ...(typeof data?.why === 'string' ? { why: data.why } : {}), ...(Number.isSafeInteger(data?.seq) ? { seq: data.seq } : {}), ...(Number.isSafeInteger(data?.at) ? { at: data.at } : {}), status: res.status };   // AUDIT WB A5: and the rung, where the service names one; REALM P2.2: and a realm record's sequence; AUDIT2 GUILD2 S7: and when a refused act may come again
   }
   return { ok: true, data, status: res.status };
 }
@@ -1166,7 +1169,7 @@ export function accountGuilds({ fetch, storage }) {
     vault: (character) => post('/v1/guilds/vault', { character }),
     vaultPut: ({ character, realm, pick, item, count }) => post('/v1/guilds/vault/put', { character, realm, pick, item, count }),
     vaultTake: ({ character, realm, slot, count = null, at = null }) => post('/v1/guilds/vault/take', { character, realm, slot, ...(count == null ? {} : { count }), ...(at == null ? {} : { at }) }),
-    vaultGrant: (character, member, level, limit = 0) => post('/v1/guilds/vault/grant', { character, member, level, limit }),
+    vaultGrant: (character, member, level, limit = null) => post('/v1/guilds/vault/grant', { character, member, level, limit }),   // AUDIT2 GUILD2 S6: none named - the law's ten
   };
 }
 
