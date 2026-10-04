@@ -40,6 +40,11 @@
 // spell engine's own drawn fire missiles - DFU's fireball flat, its impact flash and its fire sound where it lands
 // (scenes/hostMagic.js skyFire). DRAWN ONLY: nothing is applied - no player is burned by an event. A watched change of
 // face is said in a line (SUNBABY_FACE_LINES).
+//
+// SUNBABY3 (2026-10-04, "Have it transition much faster and use this for todd howard", with his photograph): the faces
+// turn in SUNBABY_MORPH_S = 1 s, and Todd is THE PHOTOGRAPH Mac supplied (src/assets/sunbaby/todd.jpg, the face's disk
+// - SUNBABY_TODD_PHOTO_FIT - in the sun's rim; render/sunbabySkyRenderer.js loads it), the cartoon below drawn only
+// until it has loaded, or if it never does.
 // ═══════════════════════════════════════════════════════════════════
 
 import { seededRng } from '../systems/wind.js';   // SUNBABY2: the fireballs' draws (the dread's)
@@ -102,8 +107,8 @@ export const SUNBABY_PHASES = Object.freeze([
 ]);
 /** A cycle's real seconds. */
 export const SUNBABY_CYCLE_S = SUNBABY_PHASES.reduce((a, p) => a + p.s, 0);
-/** Real seconds one face takes to morph into the next, at the head of the phase it morphs into. */
-export const SUNBABY_MORPH_S = 6;
+/** Real seconds one face takes to morph into the next, at the head of the phase it morphs into (SUNBABY3: 6 -> 1). */
+export const SUNBABY_MORPH_S = 1;
 /** What a player watching is told when the face changes. */
 export const SUNBABY_FACE_LINES = Object.freeze({
   evil: 'The sun baby stops laughing. Its eyes burn - fire rains on Daggerfall!',
@@ -132,7 +137,7 @@ export const SUNBABY_WRATH_HORN = Object.freeze([0.32, 0.05, 0.04]);
 export const SUNBABY_WRATH_TINT = Object.freeze([1.0, 0.52, 0.40]);
 
 // ── SUNBABY2: Todd ─────────────────────────────────────────────────
-/** Todd's face: skin, hair (and brows), eyes, lips, teeth. A cartoon - no likeness is taken from any picture. */
+/** Todd's cartoon face: skin, hair (and brows), eyes, lips, teeth - SUNBABY3: drawn only until his photograph has loaded. */
 export const SUNBABY_TODD_SKIN = Object.freeze([0.96, 0.78, 0.64]);
 export const SUNBABY_TODD_HAIR = Object.freeze([0.25, 0.17, 0.11]);
 export const SUNBABY_TODD_IRIS = Object.freeze([0.35, 0.24, 0.16]);
@@ -140,6 +145,9 @@ export const SUNBABY_TODD_LIP = Object.freeze([0.70, 0.36, 0.34]);
 export const SUNBABY_TODD_TOOTH = Object.freeze([0.98, 0.97, 0.93]);
 /** How many times finer each way the flower grid is under Todd - its square is sixteen times the detail. */
 export const SUNBABY_TODD_DETAIL = 4;
+/** SUNBABY3: the photograph's crop is the face's disk at this many face radii - its circle (half the square) is the
+ *  face's edge, inside the rim. */
+export const SUNBABY_TODD_PHOTO_FIT = 0.9;
 
 // ── SUNBABY2: the fireballs ────────────────────────────────────────
 /** The shared clock's slots: each holds one fireball or none, by its seed's first draw under the chance. */
@@ -319,8 +327,9 @@ const f = (v) => v.toFixed(4);
 const v3 = (c) => `vec3(${c.map(f).join(', ')})`;
 
 /** The flower sky and the sun baby in GLSL, generated from the tables above:
- *  `vec3 sunbabySky(vec3 dir, vec3 sunDir, float t, vec2 face)` - the sky's colour along the unit ray `dir` at `t`
- *  seconds, the sun at `sunDir`, wearing `face` (SUNBABY2: x the wrath's weight, y Todd's - the baby the rest).
+ *  `vec3 sunbabySky(vec3 dir, vec3 sunDir, float t, vec2 face, sampler2D photo, float photoOn)` - the sky's colour along
+ *  the unit ray `dir` at `t` seconds, the sun at `sunDir`, wearing `face` (SUNBABY2: x the wrath's weight, y Todd's -
+ *  the baby the rest), Todd's `photo` once `photoOn` (SUNBABY3).
  *  Derivatives are taken before any branch (the AA reads them), so it is safe anywhere in main. */
 export const SUNBABY_GLSL = `
 const float SB_PI = 3.14159265;
@@ -364,8 +373,9 @@ float sbArc(vec2 p, vec2 c, float rr, float th, float up) {
 // The distance to the segment ab.
 float sbSeg(vec2 p, vec2 a, vec2 b) { vec2 pa = p - a, ba = b - a; return length(pa - ba * clamp(dot(pa, ba) / dot(ba, ba), 0.0, 1.0)); }
 // The sun over col, the face's uv in face radii (1 the rim), px a pixel in the same units; evil and todd the faces'
-// weights (SUNBABY2), the baby the rest.
-vec3 sbSun(vec3 col, vec2 uv, float px, float t, float evil, float todd) {
+// weights (SUNBABY2), the baby the rest; Todd's photograph (SUNBABY3) and whether it has loaded, duv uv's derivatives
+// (taken before the branch this is called in).
+vec3 sbSun(vec3 col, vec2 uv, float px, float t, float evil, float todd, sampler2D photo, float photoOn, vec4 duv) {
   float baby = clamp(1.0 - evil - todd, 0.0, 1.0), still = 1.0 - todd;
   // the giggle - a quicker cackle in the wrath; Todd holds still and grins: bursts of laughs, the head bobbing and
   // tilting with them
@@ -444,33 +454,41 @@ vec3 sbSun(vec3 col, vec2 uv, float px, float t, float evil, float todd) {
     col = mix(col, pit, inside);
     col = mix(col, ${v3(SUNBABY_WRATH_TOOTH)}, inside * max(sbFill(fang, px), sbFill(tusk, px)));
   }
-  // TODD: short dark hair swept over a side part, friendly brows, open eyes with a twinkle, and a sure toothy grin
-  if (todd > 0.0) {
+  // TODD (SUNBABY3): his photograph in the face's disk, square to the eye
+  if (todd * photoOn > 0.0) {
+    vec2 k = vec2(${f(0.5 / SUNBABY_TODD_PHOTO_FIT)}, -${f(0.5 / SUNBABY_TODD_PHOTO_FIT)});
+    vec3 ph = textureGrad(photo, 0.5 + uv * k, duv.xy * k, duv.zw * k).rgb;
+    col = mix(col, ph, todd * photoOn * sbFill(r - ${f(SUNBABY_TODD_PHOTO_FIT)}, px));
+  }
+  // ...and until it has loaded, the cartoon: short dark hair swept over a side part, friendly brows, open eyes with a
+  // twinkle, and a sure toothy grin
+  float cart = todd * (1.0 - photoOn);
+  if (cart > 0.0) {
     float fringe = 0.36 + 0.16 * uv.x + 0.02 * sin(uv.x * 11.0 + 1.0);
     float hair = min(max(r - 0.95, fringe - uv.y), max(max(r - 0.93, 0.79 - abs(uv.x)), 0.12 - uv.y));
-    col = mix(col, ${v3(SUNBABY_TODD_HAIR)} * (0.92 + 0.08 * sin(uv.x * 22.0 - uv.y * 30.0)), todd * sbFill(hair, px));
+    col = mix(col, ${v3(SUNBABY_TODD_HAIR)} * (0.92 + 0.08 * sin(uv.x * 22.0 - uv.y * 30.0)), cart * sbFill(hair, px));
     for (int s = -1; s <= 1; s += 2) {
       vec2 q = vec2(uv.x * float(s), uv.y);
-      col = mix(col, ${v3(SUNBABY_TODD_HAIR)}, todd * sbFill(sbSeg(q, vec2(0.17, 0.29), vec2(0.47, 0.32)) - 0.032, px));
+      col = mix(col, ${v3(SUNBABY_TODD_HAIR)}, cart * sbFill(sbSeg(q, vec2(0.17, 0.29), vec2(0.47, 0.32)) - 0.032, px));
       vec2 e = vec2(0.32, 0.15), ic = e + vec2(-0.01, -0.005);
       float white = (length((q - e) / vec2(0.11, 0.065)) - 1.0) * 0.065;
-      col = mix(col, vec3(0.97, 0.96, 0.93), todd * sbFill(white, px));
-      col = mix(col, ${v3(SUNBABY_TODD_IRIS)}, todd * sbFill(max(length(q - ic) - 0.05, white), px));
-      col = mix(col, vec3(0.05), todd * sbFill(max(length(q - ic) - 0.022, white), px));
-      col = mix(col, vec3(1.0), todd * sbFill(length(q - ic - vec2(0.015, 0.02)) - 0.012, px));
-      col = mix(col, ${v3(SUNBABY_TODD_HAIR)} * 1.4, 0.7 * todd * sbFill(sbArc(q, e - vec2(0.0, 0.03), 0.12, 0.012, 1.0), px));
+      col = mix(col, vec3(0.97, 0.96, 0.93), cart * sbFill(white, px));
+      col = mix(col, ${v3(SUNBABY_TODD_IRIS)}, cart * sbFill(max(length(q - ic) - 0.05, white), px));
+      col = mix(col, vec3(0.05), cart * sbFill(max(length(q - ic) - 0.022, white), px));
+      col = mix(col, vec3(1.0), cart * sbFill(length(q - ic - vec2(0.015, 0.02)) - 0.012, px));
+      col = mix(col, ${v3(SUNBABY_TODD_HAIR)} * 1.4, 0.7 * cart * sbFill(sbArc(q, e - vec2(0.0, 0.03), 0.12, 0.012, 1.0), px));
     }
     float x2 = uv.x * uv.x;
     float top = -0.25 + 0.32 * x2, bot = -0.38 + 0.80 * x2;
     float smile = max(uv.y - top, bot - uv.y);
     float open = clamp((top - uv.y) / max(top - bot, 1e-3), 0.0, 1.0);
     vec3 teeth = ${v3(SUNBABY_TODD_TOOTH)} * (1.0 - 0.25 * smoothstep(0.40, 0.5, abs(fract(uv.x * 9.0) - 0.5)));
-    col = mix(col, ${v3(SUNBABY_TODD_LIP)}, todd * sbFill(smile - 0.03, px));
-    col = mix(col, mix(teeth, vec3(0.25, 0.06, 0.06), smoothstep(0.55, 0.7, open)), todd * sbFill(smile, px));
+    col = mix(col, ${v3(SUNBABY_TODD_LIP)}, cart * sbFill(smile - 0.03, px));
+    col = mix(col, mix(teeth, vec3(0.25, 0.06, 0.06), smoothstep(0.55, 0.7, open)), cart * sbFill(smile, px));
   }
   return col;
 }
-vec3 sunbabySky(vec3 dir, vec3 sunDir, float t, vec2 face) {
+vec3 sunbabySky(vec3 dir, vec3 sunDir, float t, vec2 face, sampler2D photo, float photoOn) {
   float evil = clamp(face.x, 0.0, 1.0), todd = clamp(face.y, 0.0, 1.0);
   // the dome: nursery blue over a pale horizon - blood over ember in the wrath - a little deeper below it where the
   // land will cover it
@@ -494,7 +512,8 @@ vec3 sunbabySky(vec3 dir, vec3 sunDir, float t, vec2 face) {
   vec3 ey = cross(sunDir, ex);
   vec2 uv = vec2(dot(dir, ex), dot(dir, ey)) / ${f(SUNBABY_SUN_RADIUS)};
   float upx = length(fwidth(uv));
-  if (dot(dir, sunDir) > cos(${f(SUNBABY_SUN_RADIUS)} * 4.0)) col = sbSun(col, uv, upx, t, evil, todd);
+  vec4 duv = vec4(dFdx(uv), dFdy(uv));
+  if (dot(dir, sunDir) > cos(${f(SUNBABY_SUN_RADIUS)} * 4.0)) col = sbSun(col, uv, upx, t, evil, todd, photo, photoOn, duv);
   return col;
 }
 `;

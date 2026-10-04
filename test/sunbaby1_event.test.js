@@ -171,11 +171,11 @@ test('SUNBABY1 GLSL: the flower sky and the sun baby are generated from the tabl
   for (const c of [...SUNBABY_PETALS, SUNBABY_HEART, SUNBABY_ZENITH, SUNBABY_HORIZON]) assert.ok(SUNBABY_GLSL.includes(v3(c)), v3(c));
   for (const d of SUNBABY_DENSITY) assert.ok(SUNBABY_GLSL.includes(d.toFixed(4)));
   assert.ok(SUNBABY_GLSL.includes(`/ ${SUNBABY_SUN_RADIUS.toFixed(4)};`), 'the face in its own radii');
-  assert.match(SUNBABY_GLSL, /vec3 sunbabySky\(vec3 dir, vec3 sunDir, float t, vec2 face\)/);   // SUNBABY2 moved it: the face it wears
-  assert.match(SUNBABY_GLSL, /float px = length\(fwidth\(p\)\);[\s\S]*float upx = length\(fwidth\(uv\)\);\s*\n\s*if \(dot\(dir, sunDir\)/, 'every derivative taken before the branch that reads it');
+  assert.match(SUNBABY_GLSL, /vec3 sunbabySky\(vec3 dir, vec3 sunDir, float t, vec2 face, sampler2D photo, float photoOn\)/);   // SUNBABY2 moved it: the face it wears; SUNBABY3: Todd's photograph
+  assert.match(SUNBABY_GLSL, /float px = length\(fwidth\(p\)\);[\s\S]*float upx = length\(fwidth\(uv\)\);\s*\n\s*vec4 duv = vec4\(dFdx\(uv\), dFdy\(uv\)\);\s*\n\s*if \(dot\(dir, sunDir\)/, 'every derivative taken before the branch that reads it');   // SUNBABY3 moved it: the photograph's too
   assert.ok(FS.includes(SUNBABY_GLSL));
   assert.ok(FS.includes(rd('src/render/enhancedSky.js').match(/vec3 ray = normalize\(vec3\(vNdc\.x[^\n]*/)[0]), 'the enhanced sky\'s ray');
-  assert.match(FS, /outColor = vec4\(sunbabySky\(dir, uSunDir, uTime, uFace\), clamp\(uWeight, 0\.0, 1\.0\)\);/, 'blended by the weight');   // SUNBABY2 moved it: uFace
+  assert.match(FS, /outColor = vec4\(sunbabySky\(dir, uSunDir, uTime, uFace, uToddPhoto, uToddPhotoOn\), clamp\(uWeight, 0\.0, 1\.0\)\);/, 'blended by the weight');   // SUNBABY2 moved it: uFace; SUNBABY3: the photograph
   for (const u of UNIFORM_NAMES) assert.match(FS, new RegExp(`uniform [^;]*\\b${u}\\b`), u);
 });
 
@@ -217,7 +217,7 @@ test('SUNBABY1 pass: at weight 0 it draws NOTHING; above it, one triangle at the
   for (const [k, ...a] of [['disable', 'BLEND'], ['enable', 'CULL_FACE'], ['depthFunc', 'LESS'], ['depthMask', true]]) assert.ok(after.some((c) => c[0] === k && a.every((v, i) => c[i + 1] === v)), `${k} ${a} put back`);
   calls.length = 0;
   p.dispose();
-  assert.deepEqual(calls.map((c) => c[0]), ['deleteProgram', 'deleteBuffer', 'deleteVertexArray'], 'every allocation has an owner');
+  assert.deepEqual(calls.map((c) => c[0]), ['deleteProgram', 'deleteBuffer', 'deleteVertexArray', 'deleteTexture'], 'every allocation has an owner');   // SUNBABY3 moved it: Todd's photograph
 });
 
 // ── THE HOST ─────────────────────────────────────────────────────────
