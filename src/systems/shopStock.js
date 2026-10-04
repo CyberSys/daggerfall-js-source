@@ -55,7 +55,7 @@ import { findFactionByTypeAndRegion } from './talk.js';           // S41: Persis
 import { MERCHANTS_FACTION_ID } from './guilds.js';               // S41: FactionIDs.The_Merchants, one home
 import { turnOnConditionFlag, turnOffConditionFlag, REGION_FLAGS, REGION_COUNT } from './regionConditions.js';   // S42: the store S41's flag was waiting on
 import { isOnlinePage } from './onlineLane.js';   // REALM P0.4: online, a shop pays at most half what it asks
-import { BAG_TEMPLATE, hasBag } from '../net/bagLaw.js';   // BAG1: the Materials Bag, at every General Store online
+import { BAG_TEMPLATE } from '../net/bagLaw.js';   // BAG1: the Materials Bag, at every General Store online
 
 // ItemGroups ids used by the shelf tables (DaggerfallUnityEnums).
 const GROUP_NAMES = Object.freeze({
@@ -247,12 +247,12 @@ export function stockShopShelf({ buildingType, quality }, playerEntity = {}, { r
     add({ group: 'Transportation', templateIndex: TRANSPORT_HORSE });
     add({ group: 'Transportation', templateIndex: TRANSPORT_SMALL_CART });
     // BAG1 (bible/06-Systems/Materials-Bag.md): THE MATERIALS BAG beside the cart, at every General Store - online alone,
-    // where the professions are (nothing offline gathers into it), and by name, as the horse and the cart are; never to a
-    // player who carries one (a second bag holds nothing more - the bag is one list, as the wagon is). AUDIT2 BAG1 H8: on
-    // the shop's first shelf alone - the horse and the cart are on every shelf as DFU stocks them, but a bag on each one
-    // showed a shop of several shelves selling one bag several times over
-    const ownsBag = hasBag(playerEntity.items ?? []);
-    if (isOnlinePage() && !ownsBag && shelfIndex === 0) add({ group: 'UselessItems2', templateIndex: BAG_TEMPLATE });
+    // where the professions are (nothing offline gathers into it), and by name, as the horse and the cart are.
+    // BAG-SHELF (FIELD BUGS 2026-10-04, "nobody can find material bags in store"): on EVERY shelf, whoever stocks it, as
+    // the horse and the cart are. AUDIT2 H8 had put it on the first shelf alone, and BAG1 left it off a shelf stocked by a
+    // character who carried one - but online a shelf's stock is the room's for the day, so one bag-owner's open hid it
+    // from everyone, and the first shelf is just the first model the building lists
+    if (isOnlinePage()) add({ group: 'UselessItems2', templateIndex: BAG_TEMPLATE });
     // SURV2: the provisions shelf - rations, bread, fruit, skins, fire
     // kits, and camping gear and a skillet in a better shop. Minted by
     // their own module (their templates are the port's), after the

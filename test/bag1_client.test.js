@@ -181,7 +181,7 @@ test('BAG1 a loaded bag stays: it leaves the pack - dropped, stored, sold - only
   }
 });
 
-test('BAG1 bought: every General Store shelves one online, after the horse and the cart, to a character who carries none - on its first shelf alone (AUDIT2 H8); offline none (mutants: offline; a second bag; a bag a shelf)', () => {
+test('BAG1 bought: every General Store shelves one online, after the horse and the cart - on every shelf, whoever stocks it (BAG-SHELF: a shelf\'s stock is the room\'s); offline none (mutants: offline; the first shelf alone; none to a bag-owner)', () => {
   const where = globalThis.location;
   try {
     const shelf = (e) => stockShopShelf({ buildingType: BUILDING_TYPES.GeneralStore, quality: 10 }, e, { rolls: () => 0.5, torchesFromItems: false });
@@ -191,10 +191,12 @@ test('BAG1 bought: every General Store shelves one online, after the horse and t
     assert.ok(i > 0, 'shelved');
     assert.equal(on[i].group, 'UselessItems2');
     assert.ok(on.slice(0, i).some((it) => it.group === 'Transportation'), 'after the horse and the cart');
-    assert.equal(shelf({ items: [bagItem()], level: 1 }).some((it) => it.templateIndex === BAG_TEMPLATE), false, 'one to a character');
-    // AUDIT2 H8: the first shelf alone - the horse and the cart are every shelf's, as DFU stocks them; the bag is the shop's
+    // BAG-SHELF (FIELD BUGS 2026-10-04, "nobody can find material bags in store"): online a shelf's stock is the room's for
+    // the day, so a bag-owner's open stocks it for everyone - the bag is there whoever stocked it
+    assert.equal(shelf({ items: [bagItem()], level: 1 }).some((it) => it.templateIndex === BAG_TEMPLATE), true, 'stocked by a bag-owner, still shelved');
+    // and on every shelf, as the horse and the cart are - the first shelf is only the first model the building lists
     const second = stockShopShelf({ buildingType: BUILDING_TYPES.GeneralStore, quality: 10 }, { items: [], level: 1 }, { rolls: () => 0.5, torchesFromItems: false, shelfIndex: 1 });
-    assert.deepEqual([second.some((it) => it.templateIndex === BAG_TEMPLATE), second.some((it) => it.group === 'Transportation')], [false, true]);
+    assert.deepEqual([second.some((it) => it.templateIndex === BAG_TEMPLATE), second.some((it) => it.group === 'Transportation')], [true, true]);
     globalThis.location = { search: '' };
     assert.equal(shelf({ items: [], level: 1 }).some((it) => it.templateIndex === BAG_TEMPLATE), false, 'offline nothing gathers into it');
   } finally { globalThis.location = where; }

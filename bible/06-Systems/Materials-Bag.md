@@ -20,9 +20,9 @@ crafting materials in the inventory itself." And: "This is something I really wa
   Bag", DFU's own Backpack picture (ItemTemplates 89: TEXTURE.205 record 44 - law 6, the picture is DFU's), weightless
   as the Small Cart is (`hasNoEncumbrance`), one to a slot. **Owning one is holding one**, as DFU's HasCart reads the
   cart in the pack.
-- **Bought** at every General Store, online, after the horse and the cart (`systems/shopStock.js`), to a character who
-  carries none - on the shop's first shelf alone (the second audit's H8: the horse and the cart are every shelf's, as DFU
-  stocks them; a bag on each one sold one bag several times over). Its base price is **250**; DFU's shop price is 2 x (cost x (quality - 10) / 100 + cost), so **500 gold**
+- **Bought** at every General Store, online, after the horse and the cart (`systems/shopStock.js`) - on every shelf,
+  whoever stocks it, as the horse and the cart are (BAG-SHELF, section 13: the first shelf alone, left off for a
+  character who carried one, hid it - a shelf's stock is the room's for the day). Its base price is **250**; DFU's shop price is 2 x (cost x (quality - 10) / 100 + cost), so **500 gold**
   at a middling shop and 456 to 550 by the shop's quality (1 to 20), before the region and the haggle - "like 500g".
 - **It holds 300 kg** - two fifths of a wagon's 750 (`BAG_KG_LIMIT`): "quite a lot", never unlimited. A day's Logging
   (60 trees of 2-4 logs at 2 kg) is about 360 kg; the bag holds most of a day in one craft.
@@ -231,7 +231,7 @@ its fix mutated (`tools/mutants/bag1.json`, the `AUDIT2-BAG1-` records).
 | K11 | "+3 Oak Log to your bag" for goods that all went nowhere | "- all left where they were gathered: no room in your bag or pack" (3) |
 | H1/U2 | The classic skin could not reach the bag, and a food rotted in it held the bag loaded for good | Empty your bag into your pack, on the Stores page (2, 4) |
 | H3 | A take's undo wrote onto a stack sold or merged since, or into a bag that had left | The undo by each list's role, read at the undo |
-| H8 | Every shelf of a General Store shelved a bag | The first shelf alone (1) |
+| H8 | Every shelf of a General Store shelved a bag | The first shelf alone (1) - undone by BAG-SHELF (13): nobody found it |
 | H11/H12 | `bagMayLeave` restated inline at five doors; Arcane Essence mintable as an item | One test; only what has a pack form is minted |
 | U1/U14 | Put in offered past the Stores' room; why Take out was shut lived on a title alone; the qty field unlabelled | The room read; the reason drawn; "How many" (4) |
 | U3/U6/U8/U11 | The footer's bag button grew the footer; the haul card counted what the service counted, not what came; the gold field came back over the pack after the bag; "your pack while you have none" | The gold button's rules; what came; the field put away; the words (2, 3) |
@@ -260,3 +260,10 @@ pack's weight (6, the audit's B5). A DFU pack is carried to its limit, so a char
 saw. The book mints a harvest through the hands' `give` now (`net/profBook.js` mintHarvest: bag, pack, then the pack past
 its weight, `put.over`), as the Foraging mod's own AddItem does; the node still refuses an act with no room for one unit
 before it starts. The record: `01-Overview/Field-Bugs-2026-10-04.md`.
+
+**BAG-SHELF** (the same day, Mac: "Also nobody can find material bags in store"). The bag stood on a General Store's
+first shelf alone (the second audit's H8) and was left off a shelf stocked by a character who carried one. The first
+shelf is only the first shelf model the building lists, and online a shelf's stock is the room's for the day - so one
+bag-owner's open hid it from everyone in the building until the next restock. It is on every shelf now, whoever stocks
+it, as the horse and the cart are (`systems/shopStock.js`); a second bag bought is the buyer's choice, as a second cart
+is. A shelf stocked earlier the same game day keeps its stock until its restock.
