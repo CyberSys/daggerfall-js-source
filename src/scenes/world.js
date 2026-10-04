@@ -6767,6 +6767,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     travelOptionsActive: () => (travelOptions ? !!travelOptions.isTravelActive : null),
     timeScale: () => worldTimeScale(),
     setTimeScale: (scale) => setWorldTimeScale(scale),
+    timeLocked: () => sharedClockOn(),   // HELM-TIME-ONLINE (Mac: "Remove the time dial from ships online"): the helm's dial is offline's alone
     // CSA-G: the sounds - DaggerfallUnity.Settings.SoundVolume, and the three one-shot doors (the loops the frame syncs)
     soundVolume: () => getFloat('Controls', 'SoundVolume', 0, 1),
     audio: { oneShot: csaSourceOneShot, dfOneShot: csaDfOneShot, dfClipAtPoint: csaDfClipAtPoint, uiOneShot: (soundIndex) => audio.playOneShot(soundIndex, 1) },   // CSA-H: DaggerfallUI.Instance.PlayOneShot
