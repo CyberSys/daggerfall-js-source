@@ -17234,7 +17234,7 @@ three of the block's four rows empty and the box it measured was 30px
 tall where an ordinary fight makes it 111.
 
 The fix is not a better number, it is the tree's own rule read the
-right way round. QS3 (`ui/enhancedHud.js:645-648`) already says it, for
+right way round. QS3 (`ui/enhancedHud.js:651-654`) already says it, for
 the quickslot diamond, in the opposite direction: the diamond lives on
 the HUD root rather than in `.hud-bottom` **because** it is a CORNER,
 "and a corner block inside a centred flex column moves whenever a bar
@@ -18804,3 +18804,22 @@ the live pause face online (no relay or ARENA2 here). Pins: `test/timers1.test.j
 (9: the gate, the seat week, the battles, the raids and the two days, the order, the words, the window over a fake
 document - drawn, moved, a row gone, offline said - the hourglass and its placing, the wiring through all the hosts);
 `test/outsideTap.test.js` (the fourth scrim, the hourglass in the keep list).
+
+## TELL9 - THE FIGHT ON SCREEN (2026-10-04)
+
+The Feud arc's screen slice (`bible/12-Enhanced-AI/Feud-Arc.md` section 11 and its TELL9 record), on the enhanced HUD
+and both skins' debuffs, under the Enhanced AI switch:
+
+- **The target frame follows a threat** (`ui/hudFoeTarget.js markFoeThreat`): a foe whose wind-up at me begins takes
+  the frame unless I struck another in the last 2 s. Before it the frame followed only the foes I struck (PX30).
+- **The poise track** under the frame's health (`.hud-foepoise`, drawn from `foeTarget().poise` - the brain's reading,
+  registered by `scenes/hostCombat.js`, so the HUD's leaf imports no brain): empty, amber and filling, red and hatched
+  "Iron", a white flash "Staggered" (none under reduced motion), "Open". The quest card clears the taller frame.
+- **Words on the hit** (`ui/hitNumbers.js HIT_TAGS`): "Stagger", "Holds", "Open" join the number my blow just raised
+  on that foe (or rise alone); "Perfect" at a perfect dodge; "Weakness" waits on RVN3.
+- **The bleed's own icon** (`ui/hudStatus.js STATUS_GLYPHS.bleed`, two drops of blood): the status widget's tile -
+  which had not shown the bleed at all - and the classic debuff row's.
+- **Telegraph contrast**, a part of the Enhanced AI row on the Features home.
+
+Pins: `test/tell9_screen.test.js` (9); `tools/foeTelegraphProbe.mjs` (the contrast off a real frame).
+

@@ -314,20 +314,22 @@
   {
     "name": "TELL4-ring-missing",
     "file": "src/scenes/hostCombat.js",
-    "old": "    if (landed && ai._perfectAt != null && ai._perfectAt >= c.blow.land - 1e-6) play(SOUND.Parry6, TELL.PERFECT_PITCH);",
-    "new": "",
+    "old": "    if (landed && ai._perfectAt != null && ai._perfectAt >= c.blow.land - 1e-6) { play(SOUND.Parry6, TELL.PERFECT_PITCH); showWord(",
+    "new": "    if (landed && ai._perfectAt != null && ai._perfectAt >= c.blow.land - 1e-6) { showWord(",
     "tests": [
       "test/tell4_punish.test.js"
-    ]
+    ],
+    "note": "TELL9 (PIN MOVED): re-aimed by content - the ring shares its line with the word \"Perfect\"; the ring alone goes."
   },
   {
     "name": "TELL4-ring-stale",
     "file": "src/scenes/hostCombat.js",
-    "old": "    if (landed && ai._perfectAt != null && ai._perfectAt >= c.blow.land - 1e-6) play(",
-    "new": "    if (landed && ai._perfectAt != null) play(",
+    "old": "    if (landed && ai._perfectAt != null && ai._perfectAt >= c.blow.land - 1e-6) { play(",
+    "new": "    if (landed && ai._perfectAt != null) { play(",
     "tests": [
       "test/tell4_punish.test.js"
-    ]
+    ],
+    "note": "TELL9 (PIN MOVED): re-aimed by content (the ring and the word share its braces)."
   },
   {
     "name": "TELL4-ring-dull",

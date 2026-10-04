@@ -2872,6 +2872,24 @@ html.plus-pad-prompts-visible .px-over > .px-stage:not(.px-acctstage):not(.px-ti
 .hud-bladeempty, .hud-bladefull { position: absolute; inset: 0; display: block;
   background-position: center; background-size: 100% 100%; background-repeat: no-repeat; }
 .hud-bladeempty { opacity: 0.72; }   /* FOEBAR1b: the drained bar lets the world through, as the friend's picture does */
+/* TELL9 (bible/12-Enhanced-AI/Feud-Arc.md 11.1): THE POISE TRACK under the foe's health - its wind-up read. Empty
+   outside one; amber, filling toward its poise; red and HATCHED for iron (never by colour alone); a white flash at a
+   break, "Staggered"; "Open" through an overreach. The word stands beside the track, so the bar grows by the track. */
+.hud-foepoise { display: none; position: relative; width: min(280px, 40vw); height: 6px;
+  background: rgba(10,12,17,0.6); border: 1px solid rgba(125,116,96,0.45); }
+.hud-foe.poised .hud-foepoise { display: block; }
+.hud-poisefill { display: block; height: 100%; width: 0; background: transparent; }
+.hud-foepoise.windup .hud-poisefill { background: #e0a43a; }
+.hud-foepoise.iron .hud-poisefill { background: repeating-linear-gradient(135deg, #d8342c 0 4px, #7a1410 4px 6px); }
+.hud-foepoise.staggered .hud-poisefill { background: #fff; animation: hud-poise-flash 0.45s ease-out; }
+.hud-foepoise.open { border-color: rgba(241,192,79,0.9); }
+.hud-poiseword { position: absolute; left: calc(100% + 6px); top: 50%; transform: translateY(-50%); white-space: nowrap;
+  font-size: 11px; letter-spacing: 0.16em; text-transform: uppercase; }
+.hud-foepoise.iron .hud-poiseword { color: #ff6a5a; }
+.hud-foepoise.staggered .hud-poiseword { color: #fff; }
+.hud-foepoise.open .hud-poiseword { color: #f1c04f; }
+@keyframes hud-poise-flash { 0% { box-shadow: 0 0 10px 3px rgba(255,255,255,0.9); } 100% { box-shadow: 0 0 0 0 rgba(255,255,255,0); } }
+@media (prefers-reduced-motion: reduce) { .hud-foepoise.staggered .hud-poisefill { animation: none; } }
 
 /* THE VITALS. Magicka, health, fatigue - the reference's own order and
    DFU's own three, each with its number beside it. */
@@ -4040,6 +4058,11 @@ html.plus-pad-prompts-visible .px-over > .px-stage:not(.px-acctstage):not(.px-ti
 .hitnum-heal { top: 50%; color: #8fe27f; text-shadow: 2px 2px 0 rgba(0,40,0,0.9), 0 0 8px rgba(120,220,100,0.35); }
 .hitnum-tag { display: block; font-size: calc(12px * var(--hud-scale, 1)); font-weight: 600; letter-spacing: 0.22em; text-transform: uppercase;
   text-align: center; color: #f1c04f; margin-top: -2px; }
+/* TELL9 (bible/12-Enhanced-AI/Feud-Arc.md 11.2): a word alone - a door's word with no number to join ("Holds" on a spell's
+   landing), and a perfect dodge's "Perfect", bright, a little under the reticle where no blow of mine rises */
+.hitnum-word { font-size: calc(16px * var(--hud-scale, 1)); font-weight: 700; letter-spacing: 0.2em; text-transform: uppercase; color: #f1c04f; }
+.hitnum-perfect { top: 50%; font-size: calc(24px * var(--hud-scale, 1)); font-weight: 700; letter-spacing: 0.24em; text-transform: uppercase;
+  color: #fff6d8; text-shadow: 2px 2px 0 rgba(60,40,0,0.95), 0 0 12px rgba(255,236,170,0.6); }
 @keyframes hitnum-rise {
   0%   { opacity: 0; transform: translate(calc(-50% + var(--dx, 0px)), 10px) scale(0.9); }
   12%  { opacity: 1; transform: translate(calc(-50% + var(--dx, 0px)), 0) scale(1); }
@@ -5482,6 +5505,9 @@ button.lv-note.lv-clickable:hover, button.lv-note.lv-clickable:focus-visible {
 @media (max-width: 900px) {
   body:has(.hud-foe.on) .qtrack { --qt-clear: calc(18px + 28px * var(--hud-scale, 1) + 30px + 46px * var(--hud-scale, 1)); }
   body:has(.hud-foe.on.blade) .qtrack { --qt-clear: calc(18px + 28px * var(--hud-scale, 1) + 30px + 76px * var(--hud-scale, 1)); }
+  /* TELL9: the poise track under it - its 6px, its border and its 4px gap more */
+  body:has(.hud-foe.on.poised) .qtrack { --qt-clear: calc(18px + 28px * var(--hud-scale, 1) + 30px + 58px * var(--hud-scale, 1)); }
+  body:has(.hud-foe.on.blade.poised) .qtrack { --qt-clear: calc(18px + 28px * var(--hud-scale, 1) + 30px + 88px * var(--hud-scale, 1)); }
 }
 /* AUDIT GUIDE T1/D1, U1, U7: the card steps aside - keeping its line, so the party list never jumps - for what stands
    in its corner a while: the Overworld's block at the top of a touch screen, a narrow screen's chat lines, a journey's

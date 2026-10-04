@@ -5,11 +5,17 @@
 // outline at once, filling outward as the wind-up runs, a bright flash at the landing. Depth-tested and never
 // depth-written, lifted and offset off the ground. TELL2 (bible/12-Enhanced-AI/Feud-Arc.md 4.4): drawn in the boss's
 // readable line (render/telegraphStyle.js), premultiplied over the frame (ONE, ONE_MINUS_SRC_ALPHA) - it was added on
-// (ONE, ONE), which could only brighten; TELL3: an iron blow's second rim and hatch; TELL5: a cut feint fades dashed.
+// (ONE, ONE), which could only brighten; TELL3: an iron blow's second rim and hatch; TELL5: a cut feint fades dashed;
+// TELL9: the player's telegraph contrast (a part of the Enhanced AI row) bolder over all of it.
 import { buildProgram } from './glProgram.js';
 import { FOG_FACTOR_GLSL } from './labGrass.js';   // AUDIT TACT D9: the renderer's one fog block
 import { BLOW, TELL_NOW } from '../ai/blowShapes.js';   // the leaf - the brain stays off the renderer's boot graph
 import { TELEGRAPH_STYLE_GLSL } from './telegraphStyle.js';   // TELL2: the boss's readable line, at a foe's scale (a leaf)
+import { getPref } from '../systems/uiPrefs.js';   // TELL9: the telegraph contrast, the player's own
+
+/** TELL9 (bible/12-Enhanced-AI/Feud-Arc.md 11.3): the player's telegraph contrast - thicker lines, a white keyline, a
+ *  pattern for every guard. Read each draw: the switch flips the next frame. */
+export const telegraphContrastOn = () => getPref('telegraphContrast') === true;
 
 /** The shapes as the shader's `uKind` says them. */
 export const BLOW_KIND = Object.freeze({ lunge: 0, sweep: 1, slam: 2, ring: 3, charge: 0, leap: 2, aimed: 0 });   // TELL6: the charge's lane and the aimed line are the lunge's branch, the leap's disc the slam's - each its own numbers
@@ -92,6 +98,7 @@ uniform float uNow;   // TELL2: 0..1 through the last stretch before the landing
 uniform float uNearFloor;   // TELL2: the fog's floor for a mark near the player (0 none)
 uniform float uIron;   // TELL3: 1 an iron blow - its second rim and its hatch
 uniform float uCut;   // TELL5: a cut feint's fade, 1..0 (0 none) - it goes out dashed
+uniform float uContrast;   // TELL9: 1 the player's telegraph contrast - the bolder line, the white keyline, the dots
 in vec3 vWorld;
 uniform int uFogMode;
 uniform float uFogDensity;
@@ -133,6 +140,7 @@ void main() {
   float fogK = max(fogFactorAt(vWorld), uNearFloor);
   oColor = telegraphStyle(dist, inside ? 1.0 : 0.0, edge, uT, uNow, uFlash, uColor, fogK);
   if (uIron > 0.5) oColor = telegraphIron(oColor, dist, inside ? 1.0 : 0.0, vec2(across, along), uColor, fogK);   // TELL3
+  if (uContrast > 0.5) oColor = telegraphContrast(oColor, dist, inside ? 1.0 : 0.0, vec2(across, along), uIron, uColor, fogK);   // TELL9
   if (uCut > 0.0) oColor *= uCut * step(0.5, fract((across + along) * 2.5));   // TELL5: a feint cut - dashed, fading
 }`;
 
@@ -146,7 +154,7 @@ export class FoeTelegraphPass {
     this.gl = gl;
     this.program = buildProgram(gl, VS, FS, 'foeTelegraph');
     this.u = {};
-    for (const n of ['uVP', 'uOrigin', 'uYaw', 'uHalf', 'uLift', 'uKind', 'uT', 'uFlash', 'uColor', 'uP', 'uSlope', 'uFogMode', 'uFogDensity', 'uFogRange', 'uCamPos', 'uFocus', 'uNow', 'uNearFloor', 'uIron', 'uCut']) this.u[n] = gl.getUniformLocation(this.program, n);
+    for (const n of ['uVP', 'uOrigin', 'uYaw', 'uHalf', 'uLift', 'uKind', 'uT', 'uFlash', 'uColor', 'uP', 'uSlope', 'uFogMode', 'uFogDensity', 'uFogRange', 'uCamPos', 'uFocus', 'uNow', 'uNearFloor', 'uIron', 'uCut', 'uContrast']) this.u[n] = gl.getUniformLocation(this.program, n);
     this.vao = gl.createVertexArray();
     gl.bindVertexArray(this.vao);
     this.vbo = gl.createBuffer();
@@ -160,8 +168,9 @@ export class FoeTelegraphPass {
   }
 
   /** Draw each { blow, phase, nearFloor } (ai/foeBlows.js drawableBlows) under the camera `proj` x `view`, in the frame's
-   *  `fog` ({ mode, density, range, camPos }; none draws unfogged). */
-  draw(list, proj, view, fog = null) {
+   *  `fog` ({ mode, density, range, camPos }; none draws unfogged). TELL9: `contrast` the bold look (the preference's
+   *  by default). */
+  draw(list, proj, view, fog = null, { contrast = telegraphContrastOn() } = {}) {
     this.drawn = 0;
     if (!list?.length || !proj || !view) return 0;
     const gl = this.gl, U = this.u;
@@ -169,6 +178,7 @@ export class FoeTelegraphPass {
     gl.useProgram(this.program);
     gl.uniformMatrix4fv(U.uVP, false, this._vp);
     gl.uniform1f(U.uLift, BLOW_LIFT);
+    gl.uniform1f(U.uContrast, contrast ? 1 : 0);   // TELL9
     gl.uniform1i(U.uFogMode, fog ? fog.mode : 0);
     gl.uniform1f(U.uFogDensity, fog?.density ?? 0);
     gl.uniform2fv(U.uFogRange, fog?.range ?? NO_FOG_RANGE);

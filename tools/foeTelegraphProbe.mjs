@@ -36,7 +36,7 @@ const vp = new Float32Array(16);
 for (let c = 0; c < 4; c++) for (let r = 0; r < 4; r++) vp[c*4+r] = proj[r]*view[c*4] + proj[4+r]*view[c*4+1] + proj[8+r]*view[c*4+2] + proj[12+r]*view[c*4+3];
 const pass = new FoeTelegraphPass(gl);
 window.err = gl.getError();
-window.draw = (kind, when, fog = null, slope = null, nearFloor = 0, guard = 'poise') => {
+window.draw = (kind, when, fog = null, slope = null, nearFloor = 0, guard = 'poise', contrast = false) => {
   gl.viewport(0, 0, 512, 512);
   gl.clearColor(0, 0, 0, 1); gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
   gl.enable(gl.DEPTH_TEST); gl.disable(gl.CULL_FACE); gl.useProgram(pr); gl.uniformMatrix4fv(gl.getUniformLocation(pr, 'vp'), false, vp);
@@ -47,11 +47,13 @@ window.draw = (kind, when, fog = null, slope = null, nearFloor = 0, guard = 'poi
   if (slope) blow.slope = slope;
   if (kind === 'leap') blow.ahead = 3;   // TELL6: its point, 3 m out
   if (kind === 'aimed') blow.ahead = 6;   // TELL6: its line, 6 m to its target
-  const n = pass.draw([{ blow, phase: blowPhase(blow, at), nearFloor }], proj, view, fog);
+  const n = pass.draw([{ blow, phase: blowPhase(blow, at), nearFloor }], proj, view, fog, { contrast });   // TELL9: the preference said outright
   // read the ground at a world point
   const px = (x, z) => { const v = [x, 0, z, 1]; const c = [0,0,0,0]; for (let r = 0; r < 4; r++) c[r] = vp[r]*v[0] + vp[4+r]*v[1] + vp[8+r]*v[2] + vp[12+r]*v[3];
-    const sx = Math.round((c[0]/c[3]*0.5+0.5)*511), sy = Math.round((c[1]/c[3]*0.5+0.5)*511); const o = new Uint8Array(4); gl.readPixels(sx, sy, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, o); return o[0]; };
-  return { n, err: gl.getError(), probes: { ahead: px(0, 1.8), beside: px(3.5, 1.8), behind: px(0, -2.5), far: px(0, 4.0), wide: px(1.5, 1.5), keyline: px(0.70, 1.8), inner: px(0.35, 1.8), feet: px(0, 0.8), out: px(0, 4.9), lane7: px(0, 7.0), laneWide: px(0.7, 3.0), hatch: Array.from({ length: 13 }, (_, i) => px(0, 2.5 + i * 0.03)) }, png: document.getElementById('c').toDataURL() };
+    const sx = Math.round((c[0]/c[3]*0.5+0.5)*511), sy = Math.round((c[1]/c[3]*0.5+0.5)*511); const o = new Uint8Array(4); gl.readPixels(sx, sy, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, o); return ch === 2 ? o[2] : o[0]; };
+  let ch = 0;
+  const blue = (x, z) => { ch = 2; const v = px(x, z); ch = 0; return v; };   // TELL9: white is lit in blue too, the amber line is not
+  return { n, err: gl.getError(), probes: { ahead: px(0, 1.8), beside: px(3.5, 1.8), behind: px(0, -2.5), far: px(0, 4.0), wide: px(1.5, 1.5), keyline: px(0.70, 1.8), keyW: px(0.78, 1.8), keyWBlue: blue(0.78, 1.8), inner: px(0.35, 1.8), feet: px(0, 0.8), out: px(0, 4.9), lane7: px(0, 7.0), laneWide: px(0.7, 3.0), hatch: Array.from({ length: 13 }, (_, i) => px(0, 2.5 + i * 0.03)) }, png: document.getElementById('c').toDataURL() };
 };
 window.ready = true;
 </script></body></html>`;
@@ -124,6 +126,15 @@ try {
   check('TELL3: the iron mark draws a second rim inside its outline', ironW.probes.inner > poiseW.probes.inner + 15, `${poiseW.probes.inner} -> ${ironW.probes.inner}`);
   const spread = (a) => Math.max(...a) - Math.min(...a);
   check('TELL3: the iron mark hatches its fill; the poise mark\'s is even', spread(ironW.probes.hatch) > 10 && spread(poiseW.probes.hatch) < 4, JSON.stringify({ iron: ironW.probes.hatch, poise: poiseW.probes.hatch }));
+  // TELL9: telegraph contrast - the line twice as thick, a white keyline outside it, a pattern for every guard
+  const boldW = await page.evaluate(() => window.draw('lunge', 'wind', null, null, 0, 'poise', true));
+  const boldIron = await page.evaluate(() => window.draw('lunge', 'wind', null, null, 0, 'iron', true));
+  console.log(JSON.stringify({ plain: { keyline: poiseW.probes.keyline, keyW: poiseW.probes.keyW, keyWBlue: poiseW.probes.keyWBlue }, bold: { keyline: boldW.probes.keyline, keyW: boldW.probes.keyW, keyWBlue: boldW.probes.keyWBlue } }));
+  check('TELL9: contrast draws, no GL error', boldW.n === 1 && boldW.err === 0 && boldIron.err === 0, JSON.stringify({ n: boldW.n, err: boldW.err }));
+  check('TELL9: contrast - the line twice as thick (where the dark keyline was, the line)', boldW.probes.keyline > GROUND + 30 && poiseW.probes.keyline < GROUND - 8, `${poiseW.probes.keyline} -> ${boldW.probes.keyline}`);
+  check('TELL9: contrast - a white keyline outside it (lit in blue as in red)', boldW.probes.keyW > GROUND + 40 && boldW.probes.keyWBlue > GROUND + 40 && poiseW.probes.keyWBlue < GROUND + 12, JSON.stringify({ plain: [poiseW.probes.keyW, poiseW.probes.keyWBlue], bold: [boldW.probes.keyW, boldW.probes.keyWBlue] }));
+  check('TELL9: contrast - a poise mark\'s fill dotted; iron keeps its hatch alone', spread(boldW.probes.hatch) > 10 && boldIron.probes.hatch.every((v, i) => Math.abs(v - ironW.probes.hatch[i]) < 4), JSON.stringify({ poise: boldW.probes.hatch, iron: boldIron.probes.hatch, ironPlain: ironW.probes.hatch }));
+  if (shotsAt) { for (const [n, r] of [['contrast-poise', boldW], ['contrast-iron', boldIron], ['plain-poise', poiseW]]) writeFileSync(join(shotsAt, `${n}.png`), Buffer.from(r.png.split(',')[1], 'base64')); }
 } finally {
   await browser.close();
   server.close();

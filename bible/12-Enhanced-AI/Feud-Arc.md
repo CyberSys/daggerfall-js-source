@@ -6,8 +6,8 @@ these enemies and breath more depth into it"*; then, on the sixteen ideas offere
 detailed arc. I want this to be perfect and insanely detailed"*.
 
 **Status: DESIGNED 2026-10-04 - Mac: "Go" on every call of section 31, each as recommended. Built slice by slice
-(section 30's order; TELL7 before TELL6, TELL6 shape by shape) - TELL1 to TELL7 built (TELL6 in five parts); each
-slice's record is at the foot.**
+(section 30's order; TELL7 before TELL6, TELL6 shape by shape) - TELL1 to TELL7 and TELL9 built (TELL6 in five parts);
+each slice's record is at the foot.**
 Two halves that lean on each other. **TELL** (TELL1-TELL9) gives a foe's telegraphed blow weight: poise, a body that
 winds up, a cost for missing. **RVN** (RVN1-RVN13) gives a revenant a memory of how it was beaten, a secret, a last
 stand, a name for its worst blow, a band, a lair, and a reason to fear leaving it alone. The predecessors are
@@ -1456,9 +1456,59 @@ RVN5-RVN7; RVN8-RVN11; RVN12 and RVN13 with the audit.
   knockdown taking the push, its 5 s guard); the bleed (its ticks, its mark, a heal ending it, a second adding the
   first's remainder, its HUD row); the pools' word (fresh, damaging, spent either way); the helper's tick through the
   host's door; ON THE MOTOR the brain's stamp for a hit and none for a miss; the hosts, the pools and the gates wired.
-  Pins moved: `audittact` D (the watch's weighed blow asks for its landing); `audit39_worldmodes` #34, `audit39_worldstate`
-  #59 and 39r, `interiorfoes` IF and `perfrig1` (the rigs' flag takes the knockdown); `disc8` DISC8-G (exterior's frame
-  above its hold); `duel_wall` DUEL1 (the step's emptied input, the push before the ring's clamp). Mutant records re-aimed by content: `duel` (the motor's
-  step), `survtiers` (one cite) and `survtiers3` (three cites) - the hosts' cites the shift moved. Cites re-resolved (`tools/citeShift.mjs`) and 24 by hand, aligned by their HEAD lines' content; the open
-  flags regenerated (`tools/regenOpenFlags.mjs`).
+  Pins moved: `audittact` D (the watch's weighed blow asks for its landing); `audit39_worldmodes` #34,
+  `audit39_worldstate` #59 and 39r, `interiorfoes` IF and `perfrig1` (the rigs' flag takes the knockdown); `disc8`
+  DISC8-G (exterior's frame above its hold); `duel_wall` DUEL1 (the step's emptied input, the push before the ring's
+  clamp). Mutant records re-aimed by content: `duel` (the motor's step), `survtiers` (one cite) and `survtiers3` (three
+  cites) - the hosts' cites the shift moved. Cites re-resolved (`tools/citeShift.mjs`) and 24 by hand, aligned by their
+  HEAD lines' content; the open flags regenerated (`tools/regenOpenFlags.mjs`).
 - Mutants `tools/mutants/tell6e.json` (32), all dead.
+
+### TELL9 - BUILT 2026-10-04 (the Enhanced AI switch on; the enhanced HUD, the ground, both skins' debuffs): on screen
+
+- **The bar's foe on a threat** - `ui/hudFoeTarget.js markFoeThreat`: a foe whose wind-up at me begins (the cues'
+  start, `hostCombat.tellCues`, its blow's board the local player's) takes the target bar unless I struck another in
+  the last `THREAT_YIELD_S` (2 s - `markFoeStruck` stamps it, the bar's frame tick counts it); its own next wind-up
+  refreshes its welcome; a bout's fighter (the versus bar's), a dead foe or a record with no entity never.
+- **The poise track** - `ai/tactics.js poiseTrack(ai)`: null for a foe with no brain or with the switch off (no track
+  drawn); else 'empty' outside a wind-up, 'windup' (its meter's share of its poise, clamped; 0 before the first blow
+  sets the poise), 'iron' ("Iron", full), 'staggered' ("Staggered", full), 'open' ("Open") through an overreach. A
+  charge's run reads as its wind-up; a feint as any wind-up (the bar tells no more than the ground); a cut one is gone.
+  The HUD's leaf imports no brain: `scenes/hostCombat.js` registers the reading (`setFoePoiseReader`) and `foeTarget()`
+  carries it. `ui/enhancedHud.js` draws it under the health (`.hud-foepoise`, its state a class, its fill, its word
+  beside it): amber; red and HATCHED for iron (never by colour alone); a white flash at a break (none under reduced
+  motion); "Open" with a gold rim. The quest card clears the taller bar (+12 px at the HUD's scale).
+- **The words on the hit** - `ui/hitNumbers.js HIT_TAGS`, `tagHit`, `showWord`: the door decides after the formula
+  reports, so the door's word joins the number my last HIT raised on that same foe inside `TAG_JOIN_MS` (250 ms),
+  beside a backstab's own; none such (a spell's landing raised no number, a miss is no blow) and it rises alone.
+  `hostCombat.windupTag`, asked by `windupDoor` for my own blow alone (no `peer`, no `striker`): "Stagger" at a break
+  that staggers (an overreached foe's first blow too), "Holds" on a wind-up it does not break, "Open" on an overreached
+  foe it could not stagger (inside STAGGER_IMMUNE). DECIDED HERE: a break inside the stagger guard says nothing - the
+  mark going out says it, and a fifth word for it would teach a distinction the player cannot act on. A perfect dodge
+  says "Perfect" at its landing with its ring (`tellCues`), a little under the reticle where no blow of mine rises.
+  "Weakness" is in the table for RVN3 to say. Nothing without the enhanced HUD (the numbers are its own).
+- **Telegraph contrast** - a part of the Enhanced AI row (`also`/`parts`: `telegraphContrast`, off, the player's online
+  - it is what this screen draws), read each draw (`render/foeTelegraph.js telegraphContrastOn`, `uContrast`):
+  `render/telegraphStyle.js telegraphContrast` over the style and iron's mark - the line twice as thick, a WHITE
+  keyline outside it, and a poise mark's fill dotted every `CONTRAST_DOTS` (0.3 m, `CONTRAST_DOT_R` 0.06 m); iron keeps
+  its hatch alone (no dots on iron), so every guard wears a pattern. A cut feint dashes the bold mark too.
+- **The Features note** - one sentence on the blows ("Wound-up blows are marked on the ground: hit hard to stagger,
+  dodge to punish; red, hatched iron cannot be stopped."); the rest said shorter to stay inside FT15's 450 (449).
+- **The bleed's own icon** - `ui/hudStatus.js STATUS_GLYPHS.bleed`: two drops of blood on the kit's 16 px grid,
+  outlined 8-way (the kit's law), seen in Chromium over dark and light. Both skins: the enhanced widget's tile
+  (`afflictionRows` - "Bleeding", its ticks at its foot, the last blinking; TELL6e had shown the bleed on the classic
+  row alone, and the enhanced widget, which reads the bundles, never) and the classic row (`hudActiveSpells.js`, its
+  index still the atlas's first for DFU's shape, drawn from the glyph - `statusGlyphColor32` uploaded once a name).
+- **Not built here** - the peers' side of every word and track (TELL8); "Weakness" said (RVN3); a revenant's ember on
+  the track (RVN).
+- Pins `test/tell9_screen.test.js` (9): the track's law (every state, the clamp, the switch); the bar's foe on a threat
+  (the 2 s yield, the refresh, a bout, the dead, the poise riding the target); ON THE REAL BRAIN a wind-up taking the
+  bar through its cues, the track filling as my blows hold and "Staggered" at the break, a blow at another target
+  marking nothing; the words (the join, its window and target, a miss, the door's mine-only gate, "Open" and "Stagger"
+  on an overreached foe, unmounted nothing); "Perfect" once; the contrast part and the pass's upload (the pref, a
+  caller's word); the bleed's glyph, tile and classic texture; the note; the HUD's track and the sheet. Pins moved:
+  `enhancedHud` PX30 (the read carries `poise`), `ft5_enhancedai` (the row's part), `ui3_status` (twelve glyphs).
+  `tools/foeTelegraphProbe.mjs` reads the contrast off a real frame (29 held): the line where the dark keyline was, a
+  white keyline lit in blue as in red, the poise fill dotted, iron's hatch unchanged. Mutant records re-aimed by
+  content: `audit1003_ui` U3 (two - markFoeThreat holds the same guard), `tell4` (the ring shares the word's line).
+- Mutants `tools/mutants/tell9.json` (50), all dead.

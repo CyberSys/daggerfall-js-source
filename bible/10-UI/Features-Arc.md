@@ -60,7 +60,7 @@ finding and the move.
 
 | Key | Row today | Default | Status / notes |
 |---|---|---|---|
-| `enhancedAI` | Enhanced AI | off | **MOVED (FT5, 2026-09-14)** - Enhanced; the note names the DFU key it is not |
+| `enhancedAI` | Enhanced AI | off | **MOVED (FT5, 2026-09-14)** - Enhanced; the note names the DFU key it is not. TELL9 (2026-10-04): its one part, `telegraphContrast` (Telegraph contrast, off, the player's online - `bible/12-Enhanced-AI/Feud-Arc.md` 11.3) |
 | `enhancedEnvironments` | Enhanced environments | on | **MOVED (FT4, 2026-09-14)** - condensed with Dynamic Skies' `Enabled` into one three-way row wearing both labels |
 | `pixelatedSky` | Pixelated sky | on | **REMOVED (FT3, 2026-09-14, Mac: "Remove our version of pixelated sky")** - the pass, the pref, the row, the doors |
 | `landViewDistance` | Land view distance | 5 | **MOVED (FT2, 2026-09-14)** - condensed with `Experimental/TerrainDistance` into one row wearing both labels |

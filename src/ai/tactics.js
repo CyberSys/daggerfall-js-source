@@ -200,6 +200,23 @@ export function foeGlint(ai, now = clock(), reduced = false) {
   const c = b.color ?? BLOW_COLOR;
   return [c[0], c[1], c[2], k];
 }
+/**
+ * TELL9 (section 11.1): what the target bar's POISE TRACK shows for `ai` - null for a foe with no brain or with the
+ * switch off (no track at all: the classic motor's fight), else `{ state, fill, word }`: 'empty' outside a wind-up;
+ * 'windup' amber, `fill` the meter's share of its poise (0 before the first blow sets it); 'iron' red and full, "Iron";
+ * 'staggered' white and full, "Staggered"; 'open' through an overreach, "Open". A charge's run is its wind-up still; a
+ * feint reads as any wind-up (the bar tells no more than the ground) and a cut one is gone.
+ */
+export function poiseTrack(ai) {
+  const s = ai?._tac;
+  if (!s || !tacticsSwitchOn()) return null;
+  if (s.state === 'staggered') return { state: 'staggered', fill: 1, word: 'Staggered' };
+  if (s.state === 'overreach') return { state: 'open', fill: 0, word: 'Open' };
+  const b = s.state === 'windup' ? s.blow : s.state === 'dash' ? s.dash?.blow ?? null : null;
+  if (!b) return { state: 'empty', fill: 0, word: '' };
+  if (b.guard === 'iron') return { state: 'iron', fill: 1, word: 'Iron' };
+  return { state: 'windup', fill: b.poise > 0 ? Math.min(1, (b.taken ?? 0) / b.poise) : 0, word: '' };
+}
 /** TELL1: is this entity staggered now (on the brain's clock)? */
 export const staggeredNow = (ent, now = clock()) => Number.isFinite(ent?.staggerUntil) && now < ent.staggerUntil;
 // TELL1: a staggered foe takes a quarter more from every blow - the formulas' tail and a spell's landing read this

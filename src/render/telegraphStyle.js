@@ -13,11 +13,17 @@
 // already taken), applied to both.
 // TELL3 (section 5): AN IRON BLOW, never by colour alone - a second line IRON_INSET inside the first, and a diagonal
 // hatch across its fill every IRON_HATCH metres (`telegraphIron`, over the style above).
+// TELL9 (section 11.3): TELEGRAPH CONTRAST, the player's preference - over all of it, a line twice as thick, a WHITE
+// keyline outside that, and a pattern for every guard: a poise mark's fill dotted every CONTRAST_DOTS metres (iron's
+// hatch stands always) (`telegraphContrast`).
 
 /** TELL3: the iron mark's second rim, metres inside its outline. */
 export const IRON_INSET = 0.25;
 /** TELL3: the iron hatch's spacing along its diagonal, metres. */
 export const IRON_HATCH = 0.35;
+/** TELL9: the contrast dots' spacing on a poise mark's fill, and their radius, metres. */
+export const CONTRAST_DOTS = 0.3;
+export const CONTRAST_DOT_R = 0.06;
 
 export const TELEGRAPH_STYLE_GLSL = `
 // edge: metres to the shape's outline (unsigned); fin: 1 inside, 0 outside; s: the fill coordinate (0 its root, 1 its far
@@ -48,4 +54,16 @@ vec4 telegraphIron(vec4 o, float edge, float fin, vec2 p, vec3 col, float fogK) 
   float hatch = fin * (1.0 - smoothstep(0.12, 0.12 + fu, abs(fract(u) - 0.5))) * step(${IRON_INSET.toFixed(3)} + 2.2 * aa, edge);
   vec3 rgb = col * (inner * 0.9 + hatch * 0.35);
   return vec4(o.rgb + rgb * fogK, clamp(o.a + (inner * 0.55 + hatch * 0.18) * fogK, 0.0, 1.0));
+}
+// TELL9: telegraph contrast over the style (and iron's) - the line widened to twice its width, a white keyline outside
+// it, and a poise mark's fill dotted (iron 1 keeps its hatch alone)
+vec4 telegraphContrast(vec4 o, float edge, float fin, vec2 p, float iron, vec3 col, float fogK) {
+  float aa = max(fwidth(edge), 1e-4);
+  float thick = (1.0 - smoothstep(2.2 * aa, 4.4 * aa, edge)) * smoothstep(aa, 2.2 * aa, edge);
+  float kw = (1.0 - fin) * smoothstep(4.0 * aa, 4.6 * aa, edge) * (1.0 - smoothstep(7.0 * aa, 8.0 * aa, edge));
+  vec2 q = (fract(p / ${CONTRAST_DOTS.toFixed(3)} + 0.5) - 0.5) * ${CONTRAST_DOTS.toFixed(3)};
+  float fq = max(fwidth(length(q)), 1e-4);
+  float dots = (1.0 - iron) * fin * (1.0 - smoothstep(${CONTRAST_DOT_R.toFixed(3)}, ${CONTRAST_DOT_R.toFixed(3)} + fq, length(q))) * step(0.1 + 4.4 * aa, edge);
+  vec3 rgb = col * (thick * 0.9 + dots * 0.55) + vec3(1.0) * kw * 0.85;
+  return vec4(o.rgb + rgb * fogK, clamp(o.a + (thick * 0.6 + kw * 0.6 + dots * 0.3) * fogK, 0.0, 1.0));
 }`;

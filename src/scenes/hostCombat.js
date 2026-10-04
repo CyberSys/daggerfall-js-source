@@ -38,11 +38,13 @@ import { bloodHit } from '../combat/bloodDecals.js';   // BLOOD1b: the blow, in 
 import { KNIGHT_CITY_WATCH } from '../characters/mobileTypes.js';
 import { ATTRACT_RADIUS, ignoreHumanSounds } from '../characters/enemySounds.js';   // AUDIT 24 (wave 41); TELL2: a person's wind-up is a swing, not a voice
 import { enemyDisplayName, ENEMY_BASICS } from '../characters/enemyBasics.js';   // AUDIT 24 (wave 42); TELL1: the bark a breaking blow wrings out
-import { windupHolds, windupStruck, tacticsNow, overreachOpen } from '../ai/tactics.js';   // TELL1: poise and the stagger (bible/12-Enhanced-AI/Feud-Arc.md section 3); TELL2: the cues' clock; TELL4: the punish window
+import { windupHolds, windupStruck, tacticsNow, overreachOpen, poiseTrack, LOCAL_TARGET } from '../ai/tactics.js';   // TELL1: poise and the stagger (bible/12-Enhanced-AI/Feud-Arc.md section 3); TELL2: the cues' clock; TELL4: the punish window
 import { blowK, blowWeight, behind, TELL } from '../ai/tells.js';
 import { BLOW } from '../ai/blowShapes.js';   // TELL6d: the aimed shot's speed
 import { blowEffectOf, queueBlowEffect, drainBlowEffects, tickBleed } from '../systems/blowEffects.js';   // TELL6e: what a landing does to the player
 import { BLOW_VERDICT_LIFE } from '../ai/foeBlows.js';   // TELL1: a blow's weight on the poise meter; TELL2: the cues' numbers
+import { markFoeThreat, setFoePoiseReader } from '../ui/hudFoeTarget.js';   // TELL9: the bar's foe on a threat, its poise track
+import { HIT_TAGS, tagHit, showWord } from '../ui/hitNumbers.js';   // TELL9: the words on the hit
 import { comprehendLanguagesChance } from '../systems/effects.js';   // X11: the pacification bonus DFU reads inside its own formula
 
 // ---- DaggerfallUnityItem.GetWeaponSkillUsed / GetWeaponSkillIDAsShort ----
@@ -658,6 +660,7 @@ export function windupDoor(f, damage, { kind = 'melee', weapon = null, round = f
   if (f?.ai && overreachOpen(f.ai)) {   // TELL4: no meter to weigh - the blow lands, and the first staggers it
     const word = windupStruck(f.ai, f.entity, typeof weight === 'function' ? weight() : weight, 0);
     windupFeedback(word, f, fx);
+    if (!peer && !striker) windupTag(word, f, true);   // TELL9: my blow's word
     return word;
   }
   if (!f?.ai || !windupHolds(f.ai)) return null;
@@ -669,8 +672,21 @@ export function windupDoor(f, damage, { kind = 'melee', weapon = null, round = f
   const w = typeof weight === 'function' ? weight() : weight;
   const word = windupStruck(f.ai, f.entity, w, v);
   windupFeedback(word, f, fx);
+  if (!peer && !striker) windupTag(word, f, false);   // TELL9: my blow's word
   return word;
 }
+/** TELL9 (section 11.2): the word my own blow on a telegraphing foe raises with its number (ui/hitNumbers.js tagHit) -
+ *  "Stagger" at a break that staggers, "Holds" on a wind-up it does not break, "Open" on an overreached foe it could
+ *  not stagger (its last stagger too recent). A break inside the stagger guard says nothing: the mark going out says it.
+ *  The door asks it for the player's blow alone - a peer's (`peer`) and a foe's (`striker`) are their screens' or none.
+ *  Answers the word. */
+export function windupTag(word, f, open) {
+  const tag = word === 'stagger' ? HIT_TAGS.stagger : word === 'hold' ? HIT_TAGS.hold : (open && !word) ? HIT_TAGS.open : null;
+  if (tag) tagHit(f?.entity ?? null, tag);
+  return tag;
+}
+// TELL9 (section 11.1): the target bar's poise track reads the brain through this host - the HUD's leaf imports none
+setFoePoiseReader((f) => poiseTrack(f?.ai));
 /** TELL1: what a blow on a wind-up sounds and looks like. A stagger: the Weapon Widget's clang spark at the chest, a
  *  hit and the foe's own bark low (a person's voice stays DFU's - the watch's alone speaks), a small kick of the
  *  camera for the player's own blow. A hold: the parry ring of a kind DFU gives one (`parrySounds`). */
@@ -697,8 +713,8 @@ export function windupFeedback(word, f, { audio = null, hitEffects = null, shake
  *   LAND at the strike frame that follows its landing (the sprite's `meleeSeq`) - the kind's attack sound, always
  *   (DFU's half-the-time roll stays on its plain swings).
  * A wind-up that breaks plays neither of the last two; a feint (TELL5) no WIND, and its cut's plain blow the LAND. TELL4: a perfect dodge rings at its
- * landing - `SOUND.Parry6` at TELL.PERFECT_PITCH. Called once a frame per live foe,
- * after its sprite's update. Answers the cues it played this frame (tests).
+ * landing - `SOUND.Parry6` at TELL.PERFECT_PITCH. TELL9: a wind-up at me makes its foe the target bar's (markFoeThreat)
+ * and a perfect dodge says "Perfect" (ui/hitNumbers.js). Called once a frame per live foe, after its sprite's update. Answers the cues it played this frame (tests).
  */
 export function tellCues(f, audio, hearing = 1, now = tacticsNow()) {
   const ai = f?.ai;
@@ -715,6 +731,7 @@ export function tellCues(f, audio, hearing = 1, now = tacticsNow()) {
   const row = ENEMY_BASICS[f.mobileType];
   if (b && c.blow !== b) {
     c.blow = b; c.released = false; c.land = false;
+    if (s.key === LOCAL_TARGET) markFoeThreat(f);   // TELL9: a foe winding up at me takes the target bar
     if (!b.feint) {
       if (ignoreHumanSounds(f.mobileType)) play(SOUND.SwingMediumPitch, TELL.WIND_CLASS_PITCH, TELL.WIND_CLASS_VOLUME);
       else play(row?.barkSound, TELL.WIND_PITCH);
@@ -729,7 +746,7 @@ export function tellCues(f, audio, hearing = 1, now = tacticsNow()) {
     c.land = (landed && c.blow.kind !== 'aimed' && (ai._blowHold === false || ai._blowHold === 'spent'))   // TELL4: a miss strikes too, then stands spent; TELL6d: a shot strikes nothing - its arrow flies
       || c.blow.cut != null;   // TELL5: a cut feint's plain blow sounds at its strike
     // TELL4 (6.2): a perfect dodge - the bright parry ring, at the landing
-    if (landed && ai._perfectAt != null && ai._perfectAt >= c.blow.land - 1e-6) play(SOUND.Parry6, TELL.PERFECT_PITCH);
+    if (landed && ai._perfectAt != null && ai._perfectAt >= c.blow.land - 1e-6) { play(SOUND.Parry6, TELL.PERFECT_PITCH); showWord(HIT_TAGS.perfect, 'perfect'); }   // TELL9: and says so
     c.blow = null;
   }
   if (c.land && (f.mobile?.meleeSeq ?? 0) !== c.seq) {
