@@ -249,7 +249,8 @@ elsewhere.
   never renumber or grow it.
 - **Houses for sale.** Every building the bank or a door can sell in either
   mod stands on a classic model (measured: 1,658 village houses and 3,358 city
-  houses), so every price is DFU's own `GetHousePrice` over the ARCH3D radius.
+  houses), so every price reads the ARCH3D record: the bank's DFU's own `GetHousePrice` over its radius, a door's
+  online price (HOME-PRICE) its ground - `06-Systems/Economy-Arc.md`.
   Beautiful Cities' 224 `House5` records whose one model is a wall piece
   (`53210`) and two `House2` with none have no exterior door and are no
   residence: nothing sells them - the bank's market skips a house with no model

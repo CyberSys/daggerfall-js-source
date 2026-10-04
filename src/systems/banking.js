@@ -272,14 +272,15 @@ export function purchaseHouse(accounts, houses, regionIndex, house, player, {
  *  the building and zeroed the slot - the deed destroyed for nothing.
  *  `found` is GetBuildingSummary's bool; it defaults TRUE so a caller
  *  that has already resolved the building need not say so twice. */
-export function sellHouse(accounts, houses, regionIndex, { meshRadius = 0, found = true, online = isOnlinePage() } = {}, {
+export function sellHouse(accounts, houses, regionIndex, { meshRadius = 0, found = true, online = isOnlinePage(), price = houseSellPrice(meshRadius) } = {}, {
   removePermanentScene = null, undiscoverBuilding = null,
 } = {}) {
   const slot = houses[regionIndex];
   if (!(slot.buildingKey > 0)) return { kind: 'none' };
   if (online && slot.crossed) return { kind: 'crossed' };   // RESTORE: what came through customs is never bought back online
   if (!found) return { kind: 'none' };   // :454-456 falls to :464 - the miss arm has no effects at all
-  const price = houseSellPrice(meshRadius);
+  // AUDIT HOME-PRICE C1: `price` is GetHouseSellPrice's own unless the caller names another - online the host names the
+  // deed share of the house's online price (scenes/worldModes.js deedSellPrice)
   accounts[goldRegion(accounts, regionIndex, online)].accountGold += price;   // EMPIRE-ACCOUNT: online, into the Empire's account
   removePermanentScene?.(slot.mapId, slot.buildingKey);
   undiscoverBuilding?.(slot.buildingKey);
@@ -1056,7 +1057,7 @@ export function bankingStatusRows(accounts, { regionName = () => '', dueText = n
 //    the permanent-scene set, so housesForSale, allocateHouseToPlayer
 //    and sellHouse above are live; H2/H4 brought the BUY UI itself -
 //    DaggerfallBankPurchasePopUp is ui/bankPurchaseWindow.js
-//    (BankPurchaseWindow :102), mounted at scenes/worldModes.js:3246
+//    (BankPurchaseWindow :102), mounted at scenes/worldModes.js:3248
 //    openPurchase with drawBankModelPreview (:1938) as the dedicated
 //    3D model panel, and ui/bankWindow.js:292-305 routes BUY HOUSE's
 //    'pick' into it (a host without the window still falls back to
