@@ -120,6 +120,7 @@ import {
 } from '../systems/inventorySession.js';
 import { bagStoreRefusal, bagMayLeave } from '../systems/materialsBag.js';   // BAG1: only materials go in the bag; AUDIT2 H11: and a loaded one stays
 import { BAG_KG_LIMIT } from '../net/bagLaw.js';
+import { STORE_FILTER_KINDS, filterStore, storeFilterOptions, freshStoreFilter } from './storeFilter.js';   // WAGON-FILTER: the wagon, the storage and the bag, filtered
 import { entityMaxEncumbrance } from '../combat/formulas.js';   // AUDIT 26: PlayerEntity.MaxEncumbrance, enchantment allowance and all
 import { liveStat } from '../systems/statMods.js';
 import { conditionWord, conditionPercentage, itemNameParts, itemLongName, itemDamageLine, itemArmourLine, itemHandsLine } from '../systems/itemInfo.js';   // RF6: the long name's two parts, ResolveItemLongName's arms once
@@ -622,6 +623,9 @@ let session = { usingWagon: false, allowDungeonWagonAccess: false, chooseOne: nu
 let dropped = [];
 let wagonLocal = [];
 let remote = null;
+/** WAGON-FILTER: what the player's own store (the wagon, their storage, the bag) is showing - a category and a search,
+ *  ui/storeFilter.js. Fresh at every open, so a pane never opens on a filter the player has forgotten setting. */
+let storeFilter = freshStoreFilter();
 /* PX20b (Mac: "when looting items, only open the loot tooltip, not the
    entire inventory window"). DFU opens the whole parchment because DFU
    has ONE window and both lists live in it; PX19c already split the
@@ -1513,7 +1517,7 @@ function stow(item) {
   // 26 F156: planStore answers `{ ok: true, map: true }` for a
   // MiscItems.Map - the reveal runs, the paper is consumed, nothing
   // lands in the destination. The classic window routes it
-  // (nativeInventory.js:954) and this one did not, so dragging a
+  // (nativeInventory.js:984) and this one did not, so dragging a
   // treasure map out of the pack dropped the paper on the floor and
   // revealed nothing.
   if (plan.map) { use(item, deps.items?.() ?? []); return; }
@@ -1532,7 +1536,7 @@ function stow(item) {
   // again on the other side, and a tip that stays open after every
   // press is the quirk being fixed.
   // AUDIT INV2 B-F1: THE ENTITY AND THE PROVENANCE RIDE, as they do at
-  // the classic window's own call (nativeInventory.js:960). Without them
+  // the classic window's own call (nativeInventory.js:990). Without them
   // `clearLightSourceOnLeave` - AUDIT 26 F157's first statement inside
   // applyTransfer - is a no-op, so a LIT TORCH dropped on the ground
   // went on lighting the player from where it lay. INV2 made that a
@@ -1569,7 +1573,7 @@ function take(item) {
   if (amount == null) { notice = HOW_MANY_ITEMS(plan.amount); render(); return; }
   // MAC-O6 (report: "looting gold/items makes no sound"): DoTransferItem's
   // own cue (:1569 gold's clink, :1583 everything else), which the classic
-  // window plays (nativeInventory.js:980) and this one never did - the ONLY
+  // window plays (nativeInventory.js:1010) and this one never did - the ONLY
   // difference between the two windows' calls to planTake/applyTransfer was
   // that this one dropped `plan.sound` on the floor. Played here, ahead of
   // the gold interception below, exactly as DFU's own PlayOneShot sits
@@ -1618,6 +1622,7 @@ function toggleWagon() {
   if (!plan.ok) return refuse(plan.refusal);
   session.usingWagon = plan.usingWagon;
   if (plan.usingWagon) session.usingBag = false;   // BAG1: one second list at a time
+  storeFilter = freshStoreFilter();   // AUDIT WAGON-FILTER C2: another list shown, a fresh filter
   // The selection belonged to the list that just went away.
   if (side === 'remote') { picked = null; side = 'local'; }
   refresh();
@@ -1633,6 +1638,7 @@ function toggleBag() {
   if (!plan.ok) return refuse(plan.refusal);
   session.usingBag = plan.usingBag;
   session.usingWagon = plan.usingWagon;
+  storeFilter = freshStoreFilter();   // AUDIT WAGON-FILTER C2: another list shown, a fresh filter
   if (side === 'remote') { picked = null; side = 'local'; }
   // AUDIT2 BAG1 U8: the gold field goes with it - gold is no material, so the bag hides the field, and a half-typed
   // amount came back over the list it was never meant for when the bag closed
@@ -2425,6 +2431,17 @@ function itemRow(item, from = 'local') {
     // fires after pointerup, so without this a reorder would also
     // select the row it left.
     if (takeDragClick()) return;   // AUDIT INV2 A-F6: a release that DRAGGED is not a pick
+    // SHIFT-STOW (2026-10-04, Mac: "shift click to deposit items (like materials) needs to be a thing"): Shift on a pack
+    // row puts the WHOLE stack into the player's own store showing beside it - the wagon, their storage, the bag - in one
+    // press, through the same ladder as the card's Stow (stow: the lock, the bound law, the bag's materials-only, the
+    // 750 kg, the companion's back). Ahead of the double click, so a quick second deposit never wears the piece; the
+    // card's how-many field does not apply - Shift is the whole stack. A corpse, a container and the ground keep their
+    // plain click (the ground is where a slip loses a piece).
+    if (from === 'local' && e?.shiftKey && remote && STORE_FILTER_KINDS.has(remote.kind)) {
+      if (qty.item === item) qty = { item: null, text: '' };
+      stow(item);
+      return;
+    }
     // DBLEQUIP: the pack's second click on the same piece wears it (or lights it); the loot side's click already takes
     if (from === 'local' && equipByDoubleClick(secondClick(item, item, e))) return;
     // AUDIT 26: "Send click to quest system" (:2027-2037) - the FIRST
@@ -2608,14 +2625,77 @@ function remoteCol() {
   // is also what lets them FLOW INTO A SECOND COLUMN before anything
   // scrolls at all.
   const list = el('div', 'remotelist');
+  // WAGON-FILTER: the player's own store carries its filter between the head and the rows (ui/storeFilter.js); every
+  // other remote shows its list whole, as it always did
+  const store = STORE_FILTER_KINDS.has(remote.kind);
+  // AUDIT WAGON-FILTER C2: fresh for every store shown, and for a store emptied - the wagon's category and search
+  // followed the player into the bag, and a wagon emptied on Materials hid the dagger shift-stowed into it next
+  if (store && (storeFilter.kind !== remote.kind || !remote.items.length)) storeFilter = freshStoreFilter(remote.kind);
+  const filtering = store && remote.items.length > 0;
+  if (filtering) col.append(storeFilterBar(list));
+  // SHIFT-STOW: the gesture says itself where it works - a modifier nobody is told of is a feature nobody finds; its own
+  // line, hidden on a touch screen and a short one (enhancedStyle), so a hidden hint leaves no band behind
+  if (store && packOpen) col.append(el('p', 'storehint', SHIFT_STOW_HINT[remote.kind] ?? SHIFT_STOW_HINT.wagon));
+  fillRemoteList(list, filtering);
+  col.append(list);
+  return col;
+}
+
+/** SHIFT-STOW: the line under a store's head that tells the gesture, in the store's own verb (STOW_LABEL's). */
+export const SHIFT_STOW_HINT = Object.freeze({
+  wagon: 'Shift-click an item in your pack to stow the whole stack in the wagon.',
+  storage: 'Shift-click an item in your pack to store the whole stack.',
+  bag: 'Shift-click a material in your pack to put the whole stack in the bag.',
+});
+/** The row's own name, so the search reads what the row says. */
+const storeNameOf = (it) => itemLine(it, deps.entity).name;
+/** The remote rows - all of them, or what the store's filter shows. A take is by the item itself (take(item)), so a
+ *  filtered list takes the right piece from the whole store. */
+function fillRemoteList(list, filtering = STORE_FILTER_KINDS.has(remote.kind) && remote.items.length > 0) {
+  list.innerHTML = '';
+  const shown = filtering ? filterStore(remote.items, storeFilter, storeNameOf) : remote.items;
   if (!remote.items.length) {
     list.append(el('p', 'packempty', remote.kind === 'ground'
       ? 'Nothing dropped here yet.'
       : 'Empty.'));
+  } else if (!shown.length) list.append(el('p', 'packempty', 'Nothing here matches.'));
+  for (const it of shown) list.append(itemRow(it, 'remote'));
+}
+
+/**
+ * WAGON-FILTER (2026-10-04, Mac: "The wagon needs a filter option"): the search and the category menu over the
+ * player's own store, in ONE row (AUDIT WAGON-FILTER C1 - the store's list is what the frame is for). Both refill the
+ * rows in place: the field is never rebuilt under the caret, the menu keeps its focus, and a card open on a pack item
+ * stays open. Back in the field clears it, then leaves it.
+ */
+function storeFilterBar(list) {
+  const bar = el('div', 'storefilter');
+  const search = el('input', 'storesearch');
+  search.type = 'search';
+  search.maxLength = 40;
+  search.placeholder = 'Filter by name';
+  search.value = storeFilter.query;
+  search.setAttribute('aria-label', `Filter the ${String(remote.title).toLowerCase()} by name`);
+  search.dataset.focus = 'store-filter';
+  search.oninput = () => { storeFilter.query = search.value; fillRemoteList(list, true); };
+  search.onkeydown = (e) => {
+    if (overlayAction(e) !== 'back') return;
+    e.preventDefault(); e.stopPropagation();
+    if (search.value) { search.value = ''; storeFilter.query = ''; fillRemoteList(list, true); } else search.blur?.();
+  };
+  bar.append(search);
+  const menu = el('select', 'storecat');
+  menu.setAttribute('aria-label', `Show in the ${String(remote.title).toLowerCase()}`);
+  for (const c of storeFilterOptions(remote.items, storeFilter.cat)) {
+    const o = el('option', null, `${c.label} (${c.count})`);
+    o.value = c.id;
+    if (c.id === storeFilter.cat) o.selected = true;
+    menu.append(o);
   }
-  for (const it of remote.items) list.append(itemRow(it, 'remote'));
-  col.append(list);
-  return col;
+  menu.value = storeFilter.cat;
+  menu.onchange = () => { storeFilter.cat = menu.value; fillRemoteList(list, true); };
+  bar.append(menu);
+  return bar;
 }
 
 /** A numeric field of 8, opening on "0" (:1272). The REFUSAL is
@@ -3294,6 +3374,7 @@ function render() {
   // dismissal the pane does not keep. (The classic twin queues each of
   // these as a real click-anywhere box; the enhanced pane never did.)
   const onPanel = noticeHold(noticeOwner, notice ? [{ text: notice, center: true }] : null, { hint: false });
+  const filterFocus = storeFilterFocus();   // WAGON-FILTER: the search keeps its focus and caret through a repaint
   repaintKeepingScroll(host, () => {
     // PX22: the list's scroll position survives a repaint, per tab - an
     // equip, a drop or a tab's own re-render rebuilds the DOM, and a
@@ -3548,6 +3629,20 @@ function render() {
     if (list && _scrollMemo.has(tab)) list.scrollTop = _scrollMemo.get(tab);
     _renderedTab = tab;
   });
+  if (filterFocus) restoreStoreFilterFocus(filterFocus);
+}
+
+/** WAGON-FILTER: the store's search, when it holds the focus - its caret, to be given back after a repaint. */
+function storeFilterFocus() {
+  const a = host?.ownerDocument?.activeElement ?? globalThis.document?.activeElement;
+  if (!a || a.dataset?.focus !== 'store-filter' || !host?.contains?.(a)) return null;
+  return { at: typeof a.selectionStart === 'number' ? [a.selectionStart, a.selectionEnd] : null };
+}
+function restoreStoreFilterFocus(kept) {
+  const s = host?.querySelector?.('[data-focus="store-filter"]');
+  if (!s) return;
+  s.focus?.({ preventScroll: true });   // AUDIT WAGON-FILTER: domRepaint's own manner - the page does not scroll to it
+  if (kept.at) { try { s.setSelectionRange(kept.at[0], kept.at[1]); } catch { /* a field with no caret */ } }
 }
 
 // ── THE KEYBOARD ─────────────────────────────────────────────────
@@ -3663,6 +3758,7 @@ export function mountEnhancedInventory(hostEl, d = {}) {
   onExit = d.onExit ?? (() => {});
   tab = PAGE_IDS[0];
   picked = null;
+  storeFilter = freshStoreFilter();   // WAGON-FILTER
   // PX20b: a LOOT target opens its own frame alone; every other way in
   // (F6, the world's inventory door) opens the pack as it always did.
   // SHIP-STORE (2026-09-26, Mac: "No ui to put items in storage on boat - problem for enhanced and enhanced +"):

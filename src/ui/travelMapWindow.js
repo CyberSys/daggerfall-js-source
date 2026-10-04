@@ -106,6 +106,7 @@ import { TRAVEL_OPTIONS_TEXT as TO_TEXT, format as toFormat } from '../systems/t
 import { readPartyMarks, partyMarksKey, PARTY_DOT_RGB, PARTY_OFFLINE_DOT_RGB } from './partyMapMarks.js';   // SOC6: the party's marks, the one reading both maps share
 import { readGateMark, gateRingKey, gateRingTexels, GATE_DOT_RGB } from './gateMapMark.js';   // WB1: the Oblivion Gate's ring, on the open province's page
 import { readBountyMarks, bountyMarksKey, bountyRingTexels, BOUNTY_DOT_RGB } from './bountyMapMark.js';   // BOUNTY1: held bounties' black circles on the region page
+import { readVendorMark, vendorMarkKey, vendorRingTexels, VENDOR_DOT_RGB } from './vendorMapMark.js';   // HOME-VENDOR: the trader's waypoint's gold ring
 import { MAP_WIDTH, MAP_HEIGHT } from '../formats/woodsFile.js';
 import { layoutMessageBox, drawMessageBox, messageBoxHit, MB_BUTTONS, messageBoxArtLoaded, fitBoxRows } from './messageBox.js';
 import { ListPickerWindow, preloadListPickerArt, listPickerArtLoaded } from './listPicker.js';
@@ -563,6 +564,7 @@ export class TravelMapWindow {
     this._partyPoll = 0;
     this._gateKey = '';   // WB1: the ring the page last drew (its place alone - the page draws no words)
     this._bountiesKey = '';   // BOUNTY1: the circles the page last drew
+    this._vendorKey = '';   // HOME-VENDOR: the trader's waypoint the page last drew
     // TO1: Travel Options' own state on this window. `_to` is the mod
     // itself (null when it is off), read ONCE per open the way DFU
     // reads `TravelOptionsMod.Instance` in the constructor
@@ -819,6 +821,13 @@ export class TravelMapWindow {
       const bountyPx = packRGBA(BOUNTY_DOT_RGB[0], BOUNTY_DOT_RGB[1], BOUNTY_DOT_RGB[2], 255);
       for (const [x, y] of bountyRingTexels(bounties, originX, originY, width, height)) plot(x, y, bountyPx);
     }
+    // HOME-VENDOR: the trader's waypoint's gold ring, under the party as the bounties' are
+    const vendor = readVendorMark(this.deps.vendor, { width: MAP_WIDTH, height: MAP_HEIGHT });
+    this._vendorKey = vendorMarkKey(vendor);
+    if (vendor) {
+      const vendorPx = packRGBA(VENDOR_DOT_RGB[0], VENDOR_DOT_RGB[1], VENDOR_DOT_RGB[2], 255);
+      for (const [x, y] of vendorRingTexels(vendor, originX, originY, width, height)) plot(x, y, vendorPx);
+    }
     const marks = readPartyMarks(this.deps.party, { width: MAP_WIDTH, height: MAP_HEIGHT });
     this._partyKey = partyMarksKey(marks);
     for (const m of marks) plot(m.px - originX, m.py - originY, m.online ? partyPx : partyOffPx);
@@ -905,7 +914,8 @@ export class TravelMapWindow {
     if (!this.regionSelected) return false;
     if (partyMarksKey(readPartyMarks(this.deps.party, { width: MAP_WIDTH, height: MAP_HEIGHT })) === this._partyKey
       && gateRingKey(readGateMark(this.deps.gate, { width: MAP_WIDTH, height: MAP_HEIGHT })) === this._gateKey
-      && bountyMarksKey(readBountyMarks(this.deps.bounties, { width: MAP_WIDTH, height: MAP_HEIGHT })) === (this._bountiesKey ?? '')) return false;   // WB1: or the ring came, went or moved; BOUNTY1: or a circle came or went
+      && bountyMarksKey(readBountyMarks(this.deps.bounties, { width: MAP_WIDTH, height: MAP_HEIGHT })) === (this._bountiesKey ?? '')
+      && vendorMarkKey(readVendorMark(this.deps.vendor, { width: MAP_WIDTH, height: MAP_HEIGHT })) === (this._vendorKey ?? '')) return false;   // WB1: or the ring came, went or moved; BOUNTY1: or a circle came or went; HOME-VENDOR: or the trader's waypoint moved
     this._updateMapLocationDotsTexture();
     return true;
   }

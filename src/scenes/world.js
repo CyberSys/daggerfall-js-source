@@ -549,6 +549,14 @@ import { seatArrivalLine, seatHallOf, seatBannerOf, boardTithePct } from '../net
 import { hallMay } from '../net/hallLaw.js';   // SEAT-HALL: a palace's keepers are a hall's
 import { createOnlineHomes, moveArenaHomes, homeSceneName, homeTownBlocks, holdRealmDeeds, homeClaimLayout, checkpointLanded } from '../systems/onlineHomes.js';   // HOME1: the account service's homes, one town at a time; ARENA4b: the ones the arena displaced, moved; HOME-PRICE: a town's size; FIELD BUGS 2026-10-04d KNIGHT-HOUSE: a deed the realm gave, held
 import { townBoardRows, townHomeRows } from '../ui/townMapMarks.js';   // TOWN-MARKS: the Notice Boards and the player housing on the town map
+import { setVendorWaypoint, clearVendorWaypoint, vendorWaypoint, vendorWaypointKey, vendorWaypointVersion, isVendorWaypoint, vendorWaypointLabel } from '../systems/vendorWaypoint.js';   // HOME-VENDOR: the trader's waypoint
+import { setVendorPage } from '../ui/vendorPage.js';   // HOME-VENDOR: the Vendor page, under the Professions
+import { goldText as vendorGoldText } from '../net/marketLaw.js';   // HOME-VENDOR: a trader's price in words
+import { homeMayEnter as vendorDoorOpen } from '../net/homeLaw.js';   // HOME-VENDOR: only the traders whose door lets this player in
+import { itemStatRows } from '../systems/itemInfo.js';   // HOME-VENDOR: a trader's piece's stats, the look panel's own rows
+import { rarityLines, lootRarityOn } from '../systems/lootRarity.js';   // HOME-VENDOR: and its tier and affixes
+import { magicPowersLines } from '../systems/itemPowers.js';   // HOME-VENDOR: and an enchanted piece's powers
+import { itemIsIdentified } from '../systems/tradeModes.js';   // HOME-VENDOR: known, or "powers unknown"
 import { setSigilOnline, setSigilRenown } from '../systems/sigil.js';   // SIGIL1: a weapon won online carries a sigil, woken by my Renown
 import { setSetsDueling, setsDueling, drinkWorn, setSetsWearer } from '../systems/sigilSets.js';   // SET2: the duel's word - sets sleep in one; SET4: the drink, whole; SET5: the wearer a tooltip reads
 import { lootHudChips } from '../systems/lootPowers.js'; import { setSetPowersVoice, setHudChips, heldPlayerBlow, remarkPlayerBlow } from '../systems/sigilSetPowers.js'; import '../systems/lootDrought.js'; import '../systems/lootCodex.js'; import { createLootLines } from './lootLines.js';   // SET3: what the sets DO - every power registered at import; its voice is this host's; SET5: its chips; LOOT4: and lootPowers.js beside it, what a loot piece DOES (the Loot arc), every kind registered at import; LOOT8: lootDrought.js, the drought's finder and take listener, registered at import; LOOT10: lootCodex.js, the codex's take listener, round sweep and record; LOOT11: the lines of light over a find
@@ -1166,6 +1174,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   const _bandPlacePixels = new Set();   // AUDIT OW4 B2 / AUDIT OW5 B2: the land a band may NOT stand on (below)
   const _layoutKeyPixel = new Map();   // WD3: a town's location key -> its pixel in the index (the layout pins' refresh)
   const _layoutKeyOfMapId = new Map();   // WD3: a town's map id (unsigned) -> its location key (a save's records name towns so)
+  const _townOfMapId = new Map();   // HOME-VENDOR: a town's map id (unsigned) -> { name, px, py, region } - a trader's town, named and found
   for (let r = 0; r < maps.regionCount; r++) {
     const region = maps.getRegion(r);
     if (!region) continue;
@@ -1178,6 +1187,7 @@ export async function bootWorld(canvas, renderer, params, status) {
       if (l < baseCount) { _hubRows.push(loc); _bandPlacePixels.add(`${p.x},${p.y}`); }   // OW6: the band's places
       _layoutKeyPixel.set(makeLocationKey(r, l), `${p.x},${p.y}`);   // WD3
       _layoutKeyOfMapId.set(loc.mapTableData.mapId >>> 0, makeLocationKey(r, l));   // WD3
+      _townOfMapId.set(loc.mapTableData.mapId >>> 0, { name: String(loc.name ?? ''), px: p.x, py: p.y, region: r });   // HOME-VENDOR
       if (l < baseCount) {   // BOUNTY1: the game's own rows alone - a mod's addition stands on one client and not another
         _bountyLocPixels.add(`${p.x},${p.y}`);   // the pixels a hunt's ground may not be
         // a dungeon a board may name - the game's own, never a town's (a city's castle is the city's)
@@ -2108,6 +2118,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   let tvDng = { at: null, dg: -1, list: [] };   // TV6: the dungeons about the traveller (above its readers: BOOT-TDZ - a load empties it)
   let tvFind = { at: null, dg: -1, n: -1, list: [] };   // AUDIT OW5 D1: the find's own, uncapped (above its readers: BOOT-TDZ - a load empties it)
   const _tvBountyHold = new Map();   // BOUNTY-OVERWORLD: each held bounty's kept scene point, by bounty id
+  const _tvVendorHold = {};   // HOME-VENDOR: the trader's waypoint's kept scene point (tvSceneKept's holder)
   const _tvPartyHold = new Map();   // AUDIT OW5 P6: each party member's kept scene point (PERF-TV's own holder), by account
   const TV_FIND_REACH = 4;   // AUDIT OW5 D1: map pixels about the traveller's that a kilometre from the feet can reach
   let tvBandSeen = { at: null, life: -1, list: [] };   // TV7: the bands about the traveller, this life's (above its readers: BOOT-TDZ)
@@ -5997,7 +6008,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   const hcc = createHorseCartPool({
     renderer, meshes: { getGpuMesh, cpuModels }, collider: () => collider, now: () => performance.now() / 1000,
     threats: hccThreats, selfId: () => online?.id ?? null, peerName: (id) => peerName(id),
-    onChanged: () => { _hccDirty = true; }, toWire: (p) => campToWire(p), log: console,   // AUDIT HCC O5: the change key in the wire frame (campToWire is the pose's law, declared with the stream below; read only once frames run)
+    onChanged: () => { _hccDirty = true; }, toWire: (p) => campToWire(p), log: console, peerAnchor: (id) => { const sh = _peerMapPoses.get(id); return sh && (sh.rd | 0) === 2 ? onlineToScene(sh) : null; },   // AUDIT HCC O5: the change key in the wire frame (campToWire is the pose's law, declared with the stream below; read only once frames run); WAGON-HITCH: where another player's cart rider stands as drawn this frame (`rd` 2, the cart - the pose peerRiders stands them on, boat-adjusted; the online frame fills the map before the pool steps), so their trailing wagon hangs from the rider seen here rather than easing apart from it
   });
   hcc.setPeerLook((id) => (_hiddenPeers.has(id) ? 'hidden' : (_veils.get(id) ?? null)));   // AUDIT (pre-merge) I-B: a concealed owner's team is concealed with it (last frame's word - the pool steps before the peers sync)
   hccGroundMoved = hcc.groundMoved;   // DISC20-C
@@ -9547,7 +9558,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   // and dungeonContext.js:3070 mounts the same one, gated on
   // `opts.enchantCtx !== false` because setDefaultEnchantCtx is a
   // session singleton and EC1 already routes THIS host's mount into
-  // that context through modes.dungeonCtx - so worldModes.js:7268
+  // that context through modes.dungeonCtx - so worldModes.js:7278
   // passes false beside its `chargen: false` and only the standalone
   // ?dungeon route mounts its own. S40 filled isResting
   // in - the sentence that stood here said it "stays absent above
@@ -13733,6 +13744,8 @@ export async function bootWorld(canvas, renderer, params, status) {
       quests: () => (marksOn() ? questMapMarks(questTracker.views, questTracker.tracked()?.id ?? null, questPixel) : []),
       // BOUNTY1 (Mac: "board quests can be a green circle", then black - green is the party's): each held bounty's pixel, on both maps
       bounties: () => bountyHost?.mapMarks() ?? [],
+      // HOME-VENDOR: the trader's waypoint - its town's pixel, the house's owner and the town, on both maps (ui/vendorMapMark.js)
+      vendor: () => { const wp = vendorWaypoint(); const t = wp ? _townOfMapId.get(wp.map) : null; return t ? { px: t.px, py: t.py, label: `Trader: ${wp.owner || 'a'}'s house`, town: t.name } : null; },
       // HUB1: each region's hub, marked and named - online alone (systems/regionHubs.js); offline the map is DFU's
       hubAt: params.has('online') ? (summary) => hubAtMapId(regionHubs, summary?.mapID ?? summary?.mapId) : null,
       // SEAT1a: each seat's ring (and a crown's crown, a March's and a Free Land's second ring) - while the seats are open
@@ -13918,9 +13931,13 @@ export async function bootWorld(canvas, renderer, params, status) {
       townBoards: () => townBoardMarks(b),
       townHomes: () => townHomeRows({
         buildings: summaries, mapId: dfLoc.mapTableData?.mapId, regionIndex: dfLoc.regionIndex, houses: playerEntity.houses ?? null,
-        homeAt: onlineHomes ? (mapId, buildingKey) => onlineHomes.homeAt(mapId, buildingKey) : null,
+        homeAt: onlineHomes ? (mapId, buildingKey) => {
+          const h = onlineHomes.homeAt(mapId, buildingKey);
+          // HOME-VENDOR: the trader's waypoint names its house on the town map
+          return h && isVendorWaypoint(mapId, buildingKey) ? { ...h, own: false, owner: vendorWaypointLabel(h.owner) } : h;
+        } : null,
       }),
-      townHomesVersion: () => onlineHomes?.version() ?? 0,
+      townHomesVersion: () => (onlineHomes?.version() ?? 0) + vendorWaypointVersion() * 100_000,   // HOME-VENDOR: a waypoint moved repaints
     }));
     onlineHomes?.ensure(dfLoc.mapTableData?.mapId);   // TOWN-MARKS: a town heard from long ago is asked again, and its homes mark when it answers
   };
@@ -15483,7 +15500,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   // exterior -> the townTalk overlay, interior OR dungeon -> the mode
   // machine's slot. U43-ii shipped the dungeon half: showQuestBox
   // offers the window to `modes.showQuestOverlay` below, and
-  // worldModes answers it in BOTH modes (worldModes.js:10965-11029 -
+  // worldModes answers it in BOTH modes (worldModes.js:10975-11039 -
   // dungeon routes to dungeonCtx.showOverlay), so a dungeon popup is
   // shown rather than logged loudly and dropped.
   // AUDIT 24 (wave 21): DaggerfallMessageBox.Show() is a
@@ -19426,6 +19443,17 @@ export async function bootWorld(canvas, renderer, params, status) {
   // one memo, which the look's map question shares, so the compass (every street frame) and the held map's poll never
   // re-read a region (MapsFile keeps one in memory)
   const questPixel = (find) => questPlacePixel(maps, find?.regionName ?? '', find?.locationName ?? '');
+  /** HOME-VENDOR: THE TRADER'S WAYPOINT ON THE COMPASS - its town's pixel, from the street, until the player stands in it
+   *  (there the town map names the house); null with none set. */
+  const vendorCompassMark = () => {
+    const wp = vendorWaypoint();
+    if (!wp || (modes?.mode ?? 'exterior') !== 'exterior') return null;
+    const t = _townOfMapId.get(wp.map);
+    const here = playerTravelPixel();
+    if (!t || (here && here.x === t.px && here.y === t.py)) return null;
+    const tr = state.pixelTranslation(t.px, t.py);
+    return [tr[0] + TERRAIN_SIZE / 2, tr[2] + TERRAIN_SIZE / 2];
+  };
   /** GUIDE5: the tracker's quest's place on the compass - the centre of its map pixel in THIS scene's frame (the
    *  streaming host's pixelTranslation, the gate's own sum), on the street only (buildings and dungeons steer by
    *  their own frames), and only while the marks are on and the place is on the player's map. */
@@ -19520,7 +19548,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   const socialActText = (k, who) => (k === 'friend.request' ? `Friend request sent to ${who}`
     : k === 'party.invite' ? `Party invite sent to ${who}`
       : k === 'friend.remove' ? `${who} is no longer your friend` : 'Sent');
-  /** PARTY-REST1: RestWindow's own `mode` string ('loiter'|'timed'|'full', restWindow.js:690) to the wire's small
+  /** PARTY-REST1: RestWindow's own `mode` string ('loiter'|'timed'|'full', restWindow.js:691) to the wire's small
    *  numbers (net/wire.js validPartyPose: 0/1/2) - the one place the three hosts' restState getters (worldModes.js,
    *  dungeonContext.js) and this host's own outdoor overlay converge, so the mapping is written once. */
   const partyRestModeCode = (mode) => (mode === 'timed' ? 1 : mode === 'full' ? 2 : 0);
@@ -20813,6 +20841,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     return showNoticeWindow({
       town: { name: town.name, mapId: town.mapId }, rumour: rumour ?? [], bountyLine: !!town.bountyLine,
       gate: () => noticeGateCard(), answer: (note) => answerNote(note), work, market,
+      vendors: market ? vendorBoardHost(region) : null,   // HOME-VENDOR: the region's traders, searched, a waypoint set on one
       guilds: true,   // GUILD1e: the Guilds tab - the town's recruitment posters, and the reader's own guild's board
       seatBattle: (st, f) => siegeEnter(st, f), seatRoyal: (st, r, w) => royalEnter(st, r, w), seatRecords: (st) => openRecordsFromBoard(st), seat: seatAt ? { seat: seatAt, book: seatBook, nameOf: (k) => seatAtMapId(townSeats, k)?.name ?? null, port: coastalAt(town.px, town.py, seaPixel, csaIsPortTown(town.px, town.py)), countName: materialCountLabel } : null,   // SEAT1b: a seat town's standings   // SEAT2a part four: the battle's door
     });
@@ -20839,6 +20868,108 @@ export async function bootWorld(canvas, renderer, params, status) {
     townTalk.showOverlay(ov);
     return true;
   };
+  // ═══ HOME-VENDOR (net/vendorLaw.js): THE TRADERS - a home's stall, the board's Vendors tab, the Vendor page ═══
+  /** The region the player stands in (the purse's and the page's), or null. */
+  const vendorRegionHere = () => { const p = playerTravelPixel(); try { const r = p ? maps.getRegionIndexAt(p.x, p.y) : null; return Number.isInteger(r) && r >= 0 ? r : null; } catch { return null; } };
+  const vendorTownOf = (map) => _townOfMapId.get(Number(map) >>> 0)?.name || 'a town';
+  const vendorNameOf = (it) => { try { return marketGoods.goodName(it); } catch { return 'a piece'; } };
+  /** A trader's piece LOOKED AT - `{ rows, magic }`: the look panel's own stat rows (systems/itemInfo.js itemStatRows -
+   *  damage, armour, hands, material, condition, weight), and its magic as the trade window says it (its tier with its
+   *  affixes and set, and an enchanted piece's powers - or "powers unknown" unidentified). Null for no piece. */
+  const vendorItemStats = (it) => {
+    if (!it || typeof it !== 'object') return null;
+    let rows = [], magic = [];
+    try { rows = itemStatRows(it).map((r) => (r.label ? `${r.label}: ${r.text}` : r.text)); } catch { rows = []; }
+    try { magic = rarityLines(it, { sigil: true, set: true, lore: false }); } catch { magic = []; }
+    try {
+      if (!(it.rarity && lootRarityOn()) && isEnchanted(it)) {
+        for (const t of magicPowersLines(it, { identified: itemIsIdentified(it) })) if (t && !magic.includes(t)) magic.push(t);
+      }
+    } catch { /* a piece whose powers cannot be read says none */ }
+    return { rows, magic };
+  };
+  const vendorSaid = (r, ok) => (r?.ok ? { ok: true, text: ok } : { ok: false, text: accountRefusalText(r?.error) });
+  /** A trader's piece BOUGHT at its stall: off the purse at its own price, its delivery collected into the pack at once. */
+  const vendorBuy = async (vendor, row) => {
+    const hub = marketHubs[row.region];
+    const r = await marketBook.buy({ region: row.region, listing: row.id, units: 1, max: row.price, hubs: hub ? { [row.region]: hub } : {}, currency: 'gold', vendor }, marketMint);
+    if (r?.ok && r.data?.delivery?.id) await marketBook.collectGood(r.data.delivery.id);
+    return vendorSaid(r, `Bought ${vendorNameOf(row.item)} for ${vendorGoldText(row.price)}.`);
+  };
+  /** A piece TAKEN BACK off my trader: the listing cancelled, the piece collected back into the pack at once. */
+  const vendorTake = async (row) => {
+    const r = await marketBook.cancel(row.id, marketMint);
+    if (r?.ok && r.data?.delivery?.id) await marketBook.collectGood(r.data.delivery.id);
+    return vendorSaid(r, `${vendorNameOf(row.item)} is back in your pack.`);
+  };
+  /** A piece from my pack PUT UP at my trader, for gold, for the trader's thirty days. */
+  const vendorPut = async (vendor, item, price) => {
+    const g = marketGoods.good(item);
+    if (!g?.offered || !(g.pick >= 0)) return { ok: false, text: accountRefusalText('market-good-gone') };
+    const region = vendorRegionHere() ?? 0;
+    const r = await marketBook.list({ region, kind: 'item', item: g.offered, pick: g.pick, price, hubs: {}, currency: 'gold', vendor }, null, g);
+    return vendorSaid(r, `${vendorNameOf(item)} is up for sale at ${vendorGoldText(price)}.`);
+  };
+  /** A row's waypoint SET on its trader's house. */
+  const vendorWaypointOn = (row) => {
+    const ok = setVendorWaypoint({ map: row.map, buildingKey: row.buildingKey, owner: row.owner ?? '', town: vendorTownOf(row.map) });
+    if (ok) townTalk.say(`Waypoint set: ${row.owner ?? 'a trader'}'s house in ${vendorTownOf(row.map)}. A gold coin marks it on your world map.`);
+    return ok;
+  };
+  /** THE TRADERS THIS PLAYER MAY REACH (Mac: "Show only traders whose house a given player can actually enter"): the
+   *  region's directory kept to the houses whose door lets this character in - the door's own law (net/homeLaw.js
+   *  homeMayEnter: theirs, public, their party's owner, their guild's, a room they rent); the service says each door, the
+   *  party's names are the relay's. A row with no door said is kept (an older service). */
+  const vendorReachable = async (region) => {
+    const r = await marketBook.vendors(region);
+    if (!r?.ok) return r;
+    const partyNames = (social?.others?.() ?? []).map((m) => m.name).filter((n) => typeof n === 'string' && n.length > 0);
+    const rows = (r.data?.rows ?? []).filter((row) => !row.home || vendorDoorOpen(row.home, { partyNames }));
+    return { ...r, data: { ...r.data, rows } };
+  };
+  const vendorMarketOpen = () => !!marketBook && profBook?.state.open === true && marksBook?.state?.open !== false;
+  /** The board's Vendors tab: the region's traders, read fresh. */
+  const vendorBoardHost = (region) => ({
+    mode: 'board', region, regionName: REGION_NAMES[region] ?? 'the region',
+    read: () => vendorReachable(region), nameOf: vendorNameOf, townOf: vendorTownOf, stats: vendorItemStats,
+    waypoint: vendorWaypointOn, waypointKey: () => vendorWaypointKey(), clearWaypoint: () => clearVendorWaypoint(),
+  });
+  /** A TRADER PRESSED in its home (worldModes.js openHomeVendor): its stall, in the Notice Board's window - the owner
+   *  stocking it, a visitor buying. False where the market is not this account's (worldModes says so). */
+  const openHomeVendorWindow = ({ vendor, own = false, owner = '' } = {}) => {
+    if (!vendorMarketOpen() || !noticeBook || !vendor) return false;
+    const who = own ? 'Your trader' : `${owner || 'A'}'s trader`;
+    return showNoticeWindow({
+      town: { name: who, mapId: 0 },
+      traderOnly: { title: who, sub: own ? 'What you have put up for sale here. Visitors buy it at this stall.' : 'Goods for sale, paid from your purse.' },
+      vendors: {
+        mode: 'stall', own, owner,
+        read: async () => {
+          const r = await marketBook.vendorStock(vendor);
+          const v = r?.ok ? r.data?.vendor : null;
+          if (v && isVendorWaypoint(v.map, v.buildingKey)) clearVendorWaypoint();   // the trader reached: the waypoint's work is done
+          return r;
+        },
+        nameOf: vendorNameOf, stats: vendorItemStats, purse: () => marketBook.purse(vendorRegionHere() ?? 0),
+        buy: (row) => vendorBuy(vendor, row), take: (row) => vendorTake(row),
+        goods: () => marketGoods.goods(), put: (item, price) => vendorPut(vendor, item, price),
+      },
+    });
+  };
+  // THE VENDOR PAGE (ui/vendorPage.js): my traders, their stock, what they sold and the gold it holds; every region's
+  // traders searched, a waypoint set
+  setVendorPage({
+    shown: () => vendorMarketOpen() && marketBook.goldOk === true,
+    mine: () => marketBook.myVendors(), search: (region) => vendorReachable(region),
+    regionHere: vendorRegionHere, regionNames: REGION_NAMES, nameOf: vendorNameOf, townOf: vendorTownOf, stats: vendorItemStats,
+    take: (row) => vendorTake(row), collectGold: async () => {
+      const region = vendorRegionHere();
+      if (region == null) return { ok: false, text: 'Collect your takings where a region\'s bank can hold them.' };
+      const r = await marketBook.collectGold(region);
+      return vendorSaid(r, `Your takings are in your account in ${REGION_NAMES[region] ?? 'this region'}.`);
+    },
+    waypoint: vendorWaypointOn, waypointKey: () => vendorWaypointKey(), waypoint0: () => vendorWaypoint(), clearWaypoint: () => clearVendorWaypoint(),
+  });
   /** GUILD1e (Seats-Arc 8.2): THE BOARD IN A GUILD'S HALL PRESSED - the Notice Board's window on the guild's own notes
    *  alone (`guildOnly`), under the guild's name; no town's board is read. The service asks whether this character is a
    *  member (a visitor's press never reaches here - worldModes.js says the board is the guild's). */
@@ -22635,6 +22766,7 @@ export async function bootWorld(canvas, renderer, params, status) {
         return { key: seat.key, name: g.name ?? '', member: seatHallOf(seat, guildBook?.guild?.id ?? null), heraldry: seatBannerOf(seat) };
       },
     },
+    homeVendor: { open: (o) => openHomeVendorWindow(o) },   // HOME-VENDOR: a trader pressed in its home (worldModes.js openHomeVendor)
     guildHall: {
       info: () => {
         const g = guildBook;
@@ -24451,6 +24583,18 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
       marks.push({ key: `bounty:${b.id}`, at: tvSceneKept(h, x, z, TV_PLACE_LIFT), label: `Bounty: ${b.label}`, sub: farDistanceText(km), kind: 'bounty', edge: true, pick: true });   // BOUNTY-SNAP: pressable, on its ring alone (ui/travelViewHud.js pickBox)
     }
     for (const id of [..._tvBountyHold.keys()]) if (!bountyIds.has(id)) _tvBountyHold.delete(id);   // a bounty over lets its point go
+    // HOME-VENDOR: THE TRADER'S WAYPOINT - its town's pixel, in Travel Options' mark's own yellow (`target`), named for
+    // the house and held at the edge off the picture with its distance, as a bounty is
+    {
+      const wp = vendorWaypoint();
+      const t = wp ? _townOfMapId.get(wp.map) : null;
+      if (t) {
+        const o = mapPixelToWorldCoords(t.px, t.py);
+        const x = o.x + 16384, z = o.z + 16384;
+        const km = (Math.hypot(x - here.x, z - here.z) / 32768) * PIXEL_KM;
+        marks.push({ key: `vendor:${wp.map}:${wp.buildingKey}`, at: tvSceneKept(_tvVendorHold, x, z, TV_PLACE_LIFT), label: `Trader: ${wp.owner || 'a'}'s house`, sub: `${t.name} · ${farDistanceText(km)}`, kind: 'target', edge: true });
+      }
+    }
     // AUDIT DEEP2 B-1: THE JOURNEY'S END IS NEVER OFF THE SCREEN UNSEEN - held at the edge as a far place is (a far town's
     // plate gave way to a flag drawn above the picture, and the destination was gone for the whole journey), a place's
     // with its distance, and a click on a place's flag is its journey again (after a stop there is no ground to click)
@@ -26603,7 +26747,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     sigilBroker?.draw(renderer);   // BROKER-CAGE: the Sigil Broker's cage beside it, and its door
     gatePool?.draw(renderer);   // WB2: the Oblivion Gate's stone
     camps.draw(renderer);   // SURV3: the tents, the cart's own pass
-    hcc.draw(renderer);   // HCC: the trailing / parked / following wagon and its cargo, mine and the peers' (the horses ride the flats' pass)
+    hcc.draw(renderer, null, tvf ? { selfGrow: tvf.grow, grow: peerGrow } : undefined);   // HCC: the trailing / parked / following wagon and its cargo, mine and the peers' (the horses ride the flats' pass); WAGON-HITCH x OW-BIG: a cart's wagon grown with its rider under the Overworld
     bountyFarms?.draw(renderer);   // BOUNTY-FARM: a held farm bounty's farmstead
     quays?.draw(renderer);   // QUAYS: the harbours' quays and the gangways to my ships made fast
     yards?.draw(renderer);   // HOME-YARD: the pieces outside the town's homes, and the one being placed
@@ -27139,48 +27283,56 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     // WX2: what falls is what the front SHOWS - under the enhanced sky the
     // outgoing rain tapers after the sim has cleared and the incoming
     // holds off until the deck is in. Classic: the sim's mode, as W1.
-    const precipShown = enhancedFront ? fx.shown : precipMode;
-    if (precipShown === 'sand') {
-      // WEATHER2d: THE SANDSTORM'S SAND - the wisps' program in the sand's look, the front's intensity its
-      // strength, on the one wind's rate and travel; the rain program never draws it
-      if (sand && !_dwPrecipOff) {
-        sand.draw({ on: true, strength01: fx.intensity, windV: wd.windV, step: wd.step, gust: wd.gust }, proj, view, new Float32Array(wxEye), now / 1000);
+    // RAIN-OVER-GRASS (Mac: "the rain, rains behind the grass texture"): what falls - the rain, the snow, the sand and
+    // the wisps - writes no depth, so every pass drawn AFTER it painted over it: the grass field and the halls' banners
+    // stood in front of rain falling nearer the eye. It is drawn once the opaque world is whole (below, after the banners).
+    const drawFalling = () => {
+      const precipShown = enhancedFront ? fx.shown : precipMode;
+      if (precipShown === 'sand') {
+        // WEATHER2d: THE SANDSTORM'S SAND - the wisps' program in the sand's look, the front's intensity its
+        // strength, on the one wind's rate and travel; the rain program never draws it
+        if (sand && !_dwPrecipOff) {
+          sand.draw({ on: true, strength01: fx.intensity, windV: wd.windV, step: wd.step, gust: wd.gust }, proj, view, new Float32Array(wxEye), now / 1000);
+          renderer.markForeignPass();
+        }
+      } else if (precipShown && precip) {   // W1 review: the gate is the MODE, never the object - the renderer outlives a clear-up
+        // EE8: the enhanced profile rides the switch, and the wind that drives
+        // its rain is the SKY'S OWN - the deck's wind from the eased weather
+        // row - INTEGRATED here as travel, so a change in the wind moves what
+        // falls next and never what has already fallen.
+        precip.enhanced = !!sky?.cloudShadow;
+        if (precip.enhanced) {
+          precip.intensity = fx.intensity;   // WX2: the front's share of the profile
+          // WX1: THE LAB'S WIND LAW, term for term - the rate handed to the
+          // shader is the lab's metres a second WITHOUT the gust, and the
+          // travel integrated on the CPU carries it, as grass-proto.html's
+          // frame() does. WIND3: both come from the ONE mapping now
+          // (systems/windDrive.js, `wd` above) - the same rate the grass,
+          // the wisps and the flats take, and WIND1's gust in place of the
+          // fixed three-sine stack this block had kept.
+          precip.windV[0] = wd.windV[0]; precip.windV[1] = wd.windV[1];
+          precip.windOff[0] += wd.step[0]; precip.windOff[1] += wd.step[1];
+        }
+        // AUDIT-TO1 J1: DisableWeatherAndSound stops the rain/snow PARTICLES
+        // for the journey (:1218-1223) and restores them at its end; the sim,
+        // the front and the wind carry on underneath, which is what the mod's
+        // `PlayerWeather` disable leaves running too.
+        // OW-RAIN (Mac: "it stops raining (you can still hear it) ... when you move on the overworld map"): the Overworld's
+        // click is a Travel Options journey, whose DisableWeatherAndSound stood the particles down while the rain loop
+        // played on - but the Overworld's journey is SEEN, the world going on under it, so what falls keeps falling there
+        if ((!_travelWeatherOff || tvf) && !_dwPrecipOff) {
+          precip.draw(precipShown, proj, view, new Float32Array(wxEye), camRight, now / 1000);
+          renderer.markForeignPass();   // EV6: so did the rain
+        }
+      }
+      // WIND3: THE WISPS - the wind, seen (render/windWisps.js). After the
+      // rain and before the grass, on the same integrated wind; a foreign
+      // pass like the rain. Their row is read every frame.
+      if (wisps && wd.on && wispsOn() && !_dwAirOff) {
+        wisps.draw(wd, proj, view, new Float32Array(wxEye), now / 1000);
         renderer.markForeignPass();
       }
-    } else if (precipShown && precip) {   // W1 review: the gate is the MODE, never the object - the renderer outlives a clear-up
-      // EE8: the enhanced profile rides the switch, and the wind that drives
-      // its rain is the SKY'S OWN - the deck's wind from the eased weather
-      // row - INTEGRATED here as travel, so a change in the wind moves what
-      // falls next and never what has already fallen.
-      precip.enhanced = !!sky?.cloudShadow;
-      if (precip.enhanced) {
-        precip.intensity = fx.intensity;   // WX2: the front's share of the profile
-        // WX1: THE LAB'S WIND LAW, term for term - the rate handed to the
-        // shader is the lab's metres a second WITHOUT the gust, and the
-        // travel integrated on the CPU carries it, as grass-proto.html's
-        // frame() does. WIND3: both come from the ONE mapping now
-        // (systems/windDrive.js, `wd` above) - the same rate the grass,
-        // the wisps and the flats take, and WIND1's gust in place of the
-        // fixed three-sine stack this block had kept.
-        precip.windV[0] = wd.windV[0]; precip.windV[1] = wd.windV[1];
-        precip.windOff[0] += wd.step[0]; precip.windOff[1] += wd.step[1];
-      }
-      // AUDIT-TO1 J1: DisableWeatherAndSound stops the rain/snow PARTICLES
-      // for the journey (:1218-1223) and restores them at its end; the sim,
-      // the front and the wind carry on underneath, which is what the mod's
-      // `PlayerWeather` disable leaves running too.
-      if (!_travelWeatherOff && !_dwPrecipOff) {
-        precip.draw(precipShown, proj, view, new Float32Array(wxEye), camRight, now / 1000);
-        renderer.markForeignPass();   // EV6: so did the rain
-      }
-    }
-    // WIND3: THE WISPS - the wind, seen (render/windWisps.js). After the
-    // rain and before the grass, on the same integrated wind; a foreign
-    // pass like the rain. Their row is read every frame.
-    if (wisps && wd.on && wispsOn() && !_dwAirOff) {
-      wisps.draw(wd, proj, view, new Float32Array(wxEye), now / 1000);
-      renderer.markForeignPass();
-    }
+    };
     // BOLT: the burning channels, over what the world drew and behind what stands in front of them - from the eye the
     // view was built from (mwv.eye: a third-person camera stands metres off the head, cam.pos)
     if (boltsGl && boltFrame.bolts.length && !_dwAirOff) {
@@ -27365,6 +27517,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
         fog: { mode: renderer._fogMode, density: renderer._fogDensity, range: renderer._fogRange, color: renderer._fogColor, camPos: renderer._camPos, dw: renderer._dwFog, focus: renderer._focus },
       })) renderer.markForeignPass();
     }
+    drawFalling();   // RAIN-OVER-GRASS: after the grass and the banners, before the translucent bodies and the fires
     drawVeiledPeerBodies();   // INVIS-LOOK: the concealed peers' bodies, translucent - after the opaque world, the flats and the grass
     // DUEL1: THE RINGS' WALLS - my own duel's, rising in and dying away, and every duel the cells around me say stands
     // (each once: both duellists say it). After the grass, from the view's own eye (mwv.eye, the bolts' law), fogged as
@@ -27695,7 +27848,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
           hudHidden: townTalk.hudHidden,   // MAP-FIELD2: the held map takes the vitals and the status icons with it, on both skins
           detected: _detected, playerXZ: [enchantFeet()[0], enchantFeet()[2]],
           gate: gateCompassMark(),   // WB1: the Oblivion Gate on the compass, while the player stands in its ring
-          quest: questCompassMark(),   // GUIDE5: the tracker's quest's place on the compass, on the street
+          quest: vendorCompassMark() ?? questCompassMark(),   // GUIDE5: the tracker's quest's place on the compass, on the street; HOME-VENDOR: a trader's waypoint first, while it is set
           party: partyCompass(),   // COMPASS-PARTY: the party's marks - the bodies drawn here, the rest where their poses say
           ships: navalOn() && _mode() === 'exterior' ? naval?.compassShips() ?? null : null, boats: csaRuntime && _mode() === 'exterior' ? boatCompassPoints(csaRuntime.AllBoats, csaBoatUnderMe(), enchantFeet(), state, TERRAIN_SIZE) : null,   // AUDIT NAV1 (the helm): the sea's ships on the compass; BOAT-MARK: my own boats, from anywhere on the street (under the travel view too), the one at my helm left out
           nodes: professionMarks(),   // NODE-MARKS: every profession's nodes near (PROF2: a Prospector's veins within 200 m, PROF0 3.3); PROF7: a Tracker's animals within 100 m

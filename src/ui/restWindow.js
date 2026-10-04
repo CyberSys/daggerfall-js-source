@@ -65,7 +65,7 @@ import { layoutMessageBox, drawMessageBox, messageBoxHit, messageBoxArtLoaded, M
 import { noticeFrame, noticeRelease } from './enhancedNotice.js';   // ENH-NOTICE2: the window's own click-anywhere box, as the enhanced panel
 import { isEnhanced } from '../systems/uiSkin.js';   // CLK4: the enhanced skin's rest is a veil, not a wall
 import { dateFromClassicMinutes } from '../systems/gameDate.js';
-import { REST_ACT_TEXT, ambushNight, actAtChannelEnd, channelBroken, campNightStep } from '../systems/restAct.js';   // REST1: the act's words   // AUDIT REST-PARTY A2: and the night it runs   // OL2: the world's clock, read for the counter page
+import { REST_ACT_TEXT, ambushNight, actAtChannelEnd, channelBroken, channelHealTick, campNightStep } from '../systems/restAct.js';   // REST1: the act's words   // AUDIT REST-PARTY A2: and the night it runs   // OL2: the world's clock, read for the counter page
 
 /** CLK4 (the Clock arc): on the ENHANCED skin the resting page is a
  *  translucent veil over the world instead of DFU's opaque black, so
@@ -241,7 +241,7 @@ export class RestWindow {
     // (InputManager.cs:634-637) - so the opening release is already
     // spent when DFU's window first runs, and :193's bare `GetKeyUp`
     // is safe there. Every host here opens on the key DOWN
-    // (world.js:14521, exterior.js:3357, ui/input.js:922), and that same
+    // (world.js:14538, exterior.js:3357, ui/input.js:922), and that same
     // key's release is then routed straight into the freshly mounted
     // window, so the release door needs the deferral DFU gives every
     // window whose open edge IS the down: DaggerfallAutomapWindow.cs
@@ -291,6 +291,7 @@ export class RestWindow {
     this.mode = 'act';
     this.state = 'channel';
     this._actHealth = this.deps.vitals?.()?.health;   // AUDIT REST-PARTY A5: a blow while holding interrupts
+    this.deps.restChannelOpen?.();   // REST-CHANNEL-HEAL: the bar heals as it fills (restAct.js openChannelHeal)
     this.deps.camp?.open?.(!!this._act.night);   // CAMP-ROLL: my act is open on a night - the camp's roll may be mine
   }
 
@@ -822,7 +823,10 @@ export class RestWindow {
     // REST1: the channel counts real seconds and lands at its end
     // AUDIT REST II P8: and ends the moment the hold is broken - a foe stood or in reach, a blow taken - through the end
     // check itself, so its lines are the end's and no night lands early
-    if (this.state === 'channel') { this._actT += dt; if (this._actT >= this._act.channelSeconds || channelBroken(this._act, this._pendingEnemySpawn, () => this.deps.enemiesNearby?.(), this._actHealth, this.deps.vitals?.()?.health, () => this.deps.restAct?.() ?? null)) this._finishAct(); return; }   // AUDIT REST III C6: and the point, while held
+    // REST-CHANNEL-HEAL: and while the hold stands the bar pays its share (restAct.js channelHealTick) - kept however it
+    // ends - and the health it leaves is the hold's new mark for a blow; the break is asked FIRST, so a broken hold
+    // pays nothing more, and the end lands on a full bar
+    if (this.state === 'channel') { this._actT += dt; if (channelBroken(this._act, this._pendingEnemySpawn, () => this.deps.enemiesNearby?.(), this._actHealth, this.deps.vitals?.()?.health, () => this.deps.restAct?.() ?? null)) this._finishAct(); else { this._actHealth = channelHealTick(this._act, this.deps, this._actT, this._actHealth); if (this._actT >= this._act.channelSeconds) this._finishAct(); } return; }   // AUDIT REST III C6: and the point, while held
     // CAMP-ROLL: the wait is still the hold - a foe, a blow or the point gone ends it through the channel's own end
     // check (its lines); otherwise the camp is asked again
     if (this.state === 'campWait') { if (channelBroken(this._act, this._pendingEnemySpawn, () => this.deps.enemiesNearby?.(), this._actHealth, this.deps.vitals?.()?.health, () => this.deps.restAct?.() ?? null)) this._finishAct(); else this._campStep(); return; }

@@ -447,8 +447,8 @@
   {
     "name": "AUDITREST3-C6-the-classic-window-unasked",
     "file": "src/ui/restWindow.js",
-    "old": "this._actHealth, this.deps.vitals?.()?.health, () => this.deps.restAct?.() ?? null)) this._finishAct(); return; }   // AUDIT REST III C6",
-    "new": "this._actHealth, this.deps.vitals?.()?.health)) this._finishAct(); return; }   // AUDIT REST III C6",
+    "old": ", () => this.deps.restAct?.() ?? null)) this._finishAct(); else { this._actHealth = channelHealTick(",
+    "new": ")) this._finishAct(); else { this._actHealth = channelHealTick(",
     "tests": [
       "test/auditrest2_party.test.js"
     ],
@@ -457,8 +457,8 @@
   {
     "name": "AUDITREST3-C6-the-enhanced-card-unasked",
     "file": "src/ui/enhancedRest.js",
-    "old": ", () => deps.restAct?.() ?? null)) finishAct(); else updateChannel(); return; }",
-    "new": ")) finishAct(); else updateChannel(); return; }",
+    "old": ", () => deps.restAct?.() ?? null)) finishAct(); else { overlay._actHealth = channelHealTick(",
+    "new": ")) finishAct(); else { overlay._actHealth = channelHealTick(",
     "tests": [
       "test/auditrest2_party.test.js"
     ],

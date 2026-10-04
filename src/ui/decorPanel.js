@@ -47,14 +47,16 @@ import { registerOverlay } from './enhancedOverlays.js';   // PX28b: Tab puts it
 import { DECOR_KINDS, DECOR_SIZES, decorSize, filterDecor } from '../systems/decorCatalogue.js';
 import { decorRefund, DECOR_FURNITURE_GROUP, DECOR_STATIONS, DECOR_STATION_FEES, DECOR_STATION_NAMES } from '../net/decorLaw.js';
 import { forgeOffered, PROF_STATIONS } from './profPages.js';
+import { VENDOR_STATION } from '../net/vendorLaw.js';   // HOME-VENDOR: a hired trader
 import { rentRowSub, rentPriceStep, RENT_PRICE_STEPS, RENT_PRICE_FIRST } from '../systems/homeRent.js';   // HOME-RENT: the owner's rooms
 import {
   HOME_LOOK_PARTS, HOME_LOOK_PART_NAMES, HOME_LOOK_CLIMATES, HOME_LOOK_CLIMATE_NAMES, HOME_LOOK_SETS, HOME_LOOK_SET_NAMES, HOME_LOOK_DOOR_KEPT, homeLookOf, homeLookSig,
 } from '../net/homeLaw.js';   // HOME-LOOK: the house outside, painted
 import { homeLookSwatch } from '../world/homeLook.js';
 import { decorIsDoor } from '../systems/decorDoorways.js';   // HOME-DOORS (AUDIT): a door's controls
-/** The crafts a piece may be made here: every station, the Forge only where it works (AUDIT 29 B2). */
-export const stationsOffered = () => DECOR_STATIONS.filter((k) => !PROF_STATIONS.includes(k) || forgeOffered());   // PROF4: the workbench as the forge
+/** The crafts a piece may be made here: every station, the Forge only where it works (AUDIT 29 B2). HOME-VENDOR: and a
+ *  trader only where the market trades - online, the trades open (its stock is market listings). */
+export const stationsOffered = () => DECOR_STATIONS.filter((k) => !(PROF_STATIONS.includes(k) || k === VENDOR_STATION) || forgeOffered());   // PROF4: the workbench as the forge
 
 export const DECOR_STYLE_ID = 'dagger-decor-style';
 export const DECOR_CSS = `
