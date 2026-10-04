@@ -63,7 +63,7 @@ export const FOLLOW_LEASH = 20;
  *  the wall, next to the exit that leads to outside"): a follower with no clear line to its leader walks the LEADER'S
  *  OWN TRAIL (`follow.trail`, the crumbs crewAshore.js drops where the player walked) - the newest crumb it can see,
  *  looked for every FOLLOW_SIGHT_S with at most FOLLOW_SIGHT_TRIES casts, the next crumb once it is within
- *  FOLLOW_CRUMB_REACH. The street, a building and a dungeon without the pathing motor have no navmesh, and straight at
+ *  FOLLOW_CRUMB_REACH. The street, a building and a dungeon without the pathing motor have no baked route, and straight at
  *  the leader a companion walked into the wall beside every doorway the player had gone through. A line is clear when
  *  a FOLLOW_SIGHT_RADIUS capsule reaches within FOLLOW_CRUMB_REACH of the point and the point is no more than
  *  FOLLOW_SIGHT_DY above or below; a crumb further than FOLLOW_CRUMB_FAR is never looked at. */
@@ -1700,7 +1700,7 @@ export class EnemyAI {
 
   /** CREW-COMPANIONS: where a following companion heads. COMPANION-TRAIL: the leader while it is in clear sight, else
    *  the newest crumb of the leader's trail in sight, else the nearest crumb, else the leader (no trail: the straight
-   *  line it always walked). The pathing motor asks the trail first and routes on the navmesh when it has nothing. */
+   *  line it always walked). The pathing motor asks the trail first and takes its baked route when it has nothing. */
   _followGoal(leader, dt) { return this._trailGoal(leader, dt) ?? this._nearestCrumb() ?? leader; }
 
   /** COMPANION-TRAIL: whether a body walking from here would reach `to` - a FOLLOW_SIGHT_RADIUS capsule at the obstacle
