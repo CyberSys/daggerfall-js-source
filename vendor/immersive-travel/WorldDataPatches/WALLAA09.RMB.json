@@ -1,0 +1,7 @@
+{"format":"dfe-worlddata-patch/1","rebuilds":"WALLAA09.RMB.json","base":{"kind":"block","block":"WALLAA09.RMB","index":6},"sha256":"d2cb05f2b9269c227c1e8592e369d00f4875a34f550c82928156227057070d12","ops":[
+["i",["RmbBlock","Misc3dObjectRecords",2],{"ModelId":"41214","ModelIdNum":41214,"ObjectType":0,"XPos":861,"YPos":-33,"ZPos":-1009,"XScale":1,"YScale":1,"ZScale":1,"XRotation":0,"YRotation":-1182,"ZRotation":0}],
+["i",["RmbBlock","Misc3dObjectRecords",3],{"ModelId":"41207","ModelIdNum":41207,"ObjectType":0,"XPos":716,"YPos":-36,"ZPos":-936,"XScale":1,"YScale":1,"ZScale":1,"XRotation":0,"YRotation":-1570,"ZRotation":0}],
+["i",["RmbBlock","MiscFlatObjectRecords",1],{"Position":0,"XPos":716,"YPos":-2,"ZPos":-1009,"TextureArchive":201,"TextureRecord":0,"FactionID":0,"Flags":0}],
+["i",["RmbBlock","MiscFlatObjectRecords",2],{"Position":1380762866,"XPos":712,"YPos":-2,"ZPos":-1081,"TextureArchive":201,"TextureRecord":1,"FactionID":0,"Flags":0}],
+["i",["RmbBlock","MiscFlatObjectRecords",3],{"Position":1654768220,"XPos":815,"YPos":-2,"ZPos":-1111,"TextureArchive":357,"TextureRecord":3,"FactionID":8642,"Flags":0}]
+]}

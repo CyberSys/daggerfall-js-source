@@ -83,7 +83,7 @@
 
 import { loadImg, nativeMetrics, drawImg, drawRect, shadowText, NATIVE_W } from './nativePanel.js';   // OL2: the online line, centred under the panel
 import { hudFade } from './fadeLayer.js';   // D4: FadeBehaviour
-import { layoutMessageBox, drawMessageBox, messageBoxHit, MB_BUTTONS, messageBoxArtLoaded } from './messageBox.js';
+import { layoutMessageBox, drawMessageBox, messageBoxHit, MB_BUTTONS, messageBoxArtLoaded, fitBoxRows } from './messageBox.js';
 import { drawText } from './text.js';
 import { calculateTravelTime, calculateTripCost, travelDays } from '../systems/travel.js';
 import { guildFastTravel } from '../systems/guildVariants.js';   // TP1: GuildManager.FastTravel
@@ -99,6 +99,7 @@ import { calculateTradePrice, essentialPrice } from '../systems/shopStock.js';  
 import { isOnlinePage } from '../systems/onlineLane.js';   // ESSENTIALS-HALF: online, a fare costs half
 import { liveStat } from '../systems/statMods.js';
 import { skillValue, SKILLS } from '../systems/skills.js';   // TO-FARE: GetLiveSkillValue(Mercantile)
+import { IT_POPUP, IT_TEXT, itPopUpDefaults, itTogglePress, itTrip, playerPopUpRefusal } from '../systems/immersiveTravel.js';   // IT1: the mod's ImmersiveTravelPopUp and SeafarersPopUp
 
 /** The five Hotkey assignments this window makes, in DFU's own setup
  *  order (:167, :171, :176, :188, :200) - Panel.ProcessHotkeySequences
@@ -275,6 +276,21 @@ export class TravelPopUpWindow {
     // a destination with no location, which can only be walked to.
     this._to = deps.travelOptions?.() ?? null;
     this.coordsOnly = !!deps.coordsOnly;
+    // IT1: IMMERSIVE TRAVEL'S POPUPS - `itKind` 'carriage' (ImmersiveTravelPopUp over a driver's map), 'seafarer'
+    // (SeafarersPopUp over a captain's) or 'player' (ImmersiveTravelPopUp as the player's own map's, under
+    // DisableNormalTravel); null is DFU's popup (with Travel Options' additions). Each is a new popup with its own
+    // OnPush defaults (systems/immersiveTravel.js itPopUpDefaults), its own calculator, and none of Travel Options'
+    // fork: the mod's popup derives from DFU's, so a trip from it is DFU's fast travel.
+    this.itKind = deps.immersive?.kind ?? null;
+    this._itSettings = deps.immersive?.settings ?? null;
+    this._itText = null;   // the words of the box the mod pushed (`top` 'itPush' or 'itBox')
+    if (this.itKind) {
+      Object.assign(this, itPopUpDefaults(this.itKind, this._itSettings));
+      // ImmersiveTravelPopUp.OnPush (IL_19e4-1aac): over the player's own map, a refusal box at once - its OK pops it
+      // AND the popup (IL_1bbb-1bdd); a destination with no location is only logged, and the popup stands
+      const refusal = this.itKind === IT_POPUP.player ? playerPopUpRefusal(this._itSettings, deps.locationSummary?.()?.locationType ?? null) : null;
+      if (refusal) { this._itText = IT_TEXT[refusal]; this.top = 'itPush'; }
+    }
     this.refresh();
   }
 
@@ -357,6 +373,22 @@ export class TravelPopUpWindow {
   }
 
   refresh() {
+    // IT1: the mod's popup - its own calculator (ImmersiveTravelCalculator / SeafarersCalculator) over DFU's
+    // UpdateLabels, the guild's blessing folded in as the base folds it; never walked, never Travel Options' fare
+    if (this.itKind) {
+      const t = itTrip(this.itKind === IT_POPUP.seafarer ? IT_POPUP.seafarer : IT_POPUP.carriage, this._itSettings, {
+        start: this.deps.getPlayerPixel(), end: this.endPos,
+        opts: { speedCautious: this.speedCautious, sleepModeInn: this.sleepModeInn, travelShip: this.travelShip },
+        hasHorse: this.hasHorse, hasCart: this.hasCart, hasShip: this.hasShip, freeTavernRooms: this.freeTavernRooms(),
+        getClimateIndex: this.deps.getClimateIndex, playerEntity: this.deps.playerEntity?.() ?? null,
+        calc: { calculateTravelTime, guildFastTravel },
+      });
+      this.travelTimeTotalMins = t.minutes;
+      this.trip = t;
+      this.walkedTrip = false;
+      this.countdownValueTravelTimeDays = travelDays(this.travelTimeTotalMins);
+      return;
+    }
     const t = calculateTravelTime(this.deps.getPlayerPixel(), this.endPos, {
       speedCautious: this.speedCautious,
       sleepModeInn: this.sleepModeInn,
@@ -489,7 +521,7 @@ export class TravelPopUpWindow {
    *  no fare, so it never reaches `enoughGoldCheck` - which is the
    *  mod's own order, not an omission. */
   callFastTravelGoldCheck() {
-    if (this.coordsOnly || this.isPlayerControlledTravel()) {
+    if (!this.itKind && (this.coordsOnly || this.isPlayerControlledTravel())) {   // IT1: the mod's popup has no walked arm
       this.doFastTravel = false;
       this.done = true;
       this.deps.onTravel?.(this.endPos, {
@@ -534,8 +566,29 @@ export class TravelPopUpWindow {
     this._exitNow();
   }
 
+  /** IT1: the mod's own boxes - one OK (AddButton(OK, true)): Return presses the default button, O is OK's key. The
+   *  OnPush refusal's OK plays the click and pops the box AND the popup (IL_1bbb-1bdd); a toggle's refusal pops the
+   *  box alone (CloseWindow, IL_15d7). */
+  _itBoxOk() {
+    if (this.top === 'itPush') { this._click(); this.top = null; this._itText = null; this._exitNow(); return; }
+    this.top = null; this._itText = null;
+  }
+
+  /** IT1: one of the three toggles under the mod's overrides (systems/immersiveTravel.js itTogglePress) - a refusal
+   *  pushes the mod's box and plays nothing; the base arm plays the click and refreshes, as DFU's does. */
+  _itPress(press, opts) {
+    const refusal = itTogglePress(this.itKind, this, this._itSettings, press, opts);
+    if (refusal) { this._itText = IT_TEXT[refusal]; this.top = 'itBox'; return; }
+    this._click();
+    this.refresh();
+  }
+
   input(code, e = null) {
     const key = typeof code === 'string' ? code : '';
+    if (this.top === 'itPush' || this.top === 'itBox') {
+      if (key === 'Enter' || key === 'NumpadEnter' || key === 'KeyO') this._itBoxOk();
+      return;
+    }
     if (this.top === 'diseased') {
       // ConfirmTravelPopupDiseasedButtonClick (:445-457)
       if (key === 'KeyY') { this._click(); this.top = null; this.callFastTravelGoldCheck(); return; }
@@ -564,13 +617,20 @@ export class TravelPopUpWindow {
       // Button.cs's "legacy support fallback" faked click on key-down.
       case 'TravelExit': this._click(); this.isCloseWindowDeferred = true; return;
       case 'TravelSpeedToggle': this._click(); this.speedCautious = !this.speedCautious; this.refresh(); return;
-      case 'TravelTransportModeToggle': this._click(); this.travelShip = !this.travelShip; this.refresh(); return;
-      case 'TravelInnCampOutToggle': this._click(); this.sleepModeInn = !this.sleepModeInn; this.refresh(); return;
+      // IT1: DFU routes T to the foot/horse button's ToggleTransportModeButtonOnScrollHandler and N to the inn
+      // button's ToggleSleepModeButtonOnScrollHandler (DaggerfallTravelPopUp SetupButtons) - the handlers the mod
+      // overrides
+      case 'TravelTransportModeToggle': if (this.itKind) { this._itPress('transportToggle'); return; } this._click(); this.travelShip = !this.travelShip; this.refresh(); return;
+      case 'TravelInnCampOutToggle': if (this.itKind) { this._itPress('sleepToggle', { campOutButton: false }); return; } this._click(); this.sleepModeInn = !this.sleepModeInn; this.refresh(); return;
       default: break;   // DFU offers no other accelerator on this window
     }
   }
 
   click(vx, vy) {
+    if (this.top === 'itPush' || this.top === 'itBox') {   // IT1: the OK button alone answers
+      if (this._box && messageBoxHit(this._box, vx, vy) === MB_BUTTONS.OK) this._itBoxOk();
+      return true;
+    }
     if (this.top === 'diseased') {
       const hit = this._box ? messageBoxHit(this._box, vx, vy) : null;
       if (hit === MB_BUTTONS.Yes) this.input('KeyY');
@@ -588,6 +648,12 @@ export class TravelPopUpWindow {
     // TO1 (:182-189, TransportModeButtonOnClickHandler): with the ports
     // restriction on, the SHIP button refuses with a message instead of
     // toggling - the mod checks before it lets the base handler run.
+    // IT1: the mod's popups override all four of these buttons' click handlers (TransportModeButtonOnClickHandler,
+    // SleepModeButtonOnClickHandler) - and Travel Options' ports rule is not theirs
+    if (this.itKind) {
+      if (inRect(POPUP_RECTS.ship, vx, vy) || inRect(POPUP_RECTS.footHorse, vx, vy)) { this._itPress('transportClick', { ship: inRect(POPUP_RECTS.ship, vx, vy) }); return true; }
+      if (inRect(POPUP_RECTS.inns, vx, vy) || inRect(POPUP_RECTS.campout, vx, vy)) { this._itPress('sleepClick', { inn: inRect(POPUP_RECTS.inns, vx, vy) }); return true; }
+    }
     if (inRect(POPUP_RECTS.ship, vx, vy)) {
       const refusal = this._to?.settings?.shipTravelPortsOnly ? this.shipTravelRefusal() : null;
       if (refusal) { this._click(); this.top = refusal; return true; }
@@ -619,6 +685,10 @@ export class TravelPopUpWindow {
     const [vx, vy] = this.lastMousePos;
     if (inRect(POPUP_RECTS.cautious, vx, vy) || inRect(POPUP_RECTS.reckless, vx, vy)) {
       this._click(); this.speedCautious = !this.speedCautious; this.refresh();
+    } else if (this.itKind && (inRect(POPUP_RECTS.footHorse, vx, vy) || inRect(POPUP_RECTS.ship, vx, vy))) {
+      this._itPress('transportToggle');   // IT1: ToggleTransportModeButtonOnScrollHandler, the mod's
+    } else if (this.itKind && (inRect(POPUP_RECTS.inns, vx, vy) || inRect(POPUP_RECTS.campout, vx, vy))) {
+      this._itPress('sleepToggle', { campOutButton: inRect(POPUP_RECTS.campout, vx, vy) });   // IT1: ToggleSleepModeButtonOnScrollHandler, the mod's
     } else if (inRect(POPUP_RECTS.footHorse, vx, vy) || inRect(POPUP_RECTS.ship, vx, vy)) {
       // AUDIT-TO1 D4 (:207-213, ToggleTransportModeButtonOnScrollHandler):
       // a notch that would SELECT the ship is refused under the ports
@@ -662,11 +732,13 @@ export class TravelPopUpWindow {
       speedCautious: this.speedCautious,
       sleepModeInn: this.sleepModeInn,
       travelShip: this.travelShip,
+      ...(this.itKind ? { immersive: this.itKind } : {}),   // IT1: the host's fork knows a driver's trip
     }, { ...this.trip, minutes: this.travelTimeTotalMins });
   }
 
   /** The two pushed boxes' rows, off TEXT.RSC. */
   _boxRows() {
+    if (this.top === 'itPush' || this.top === 'itBox') return fitBoxRows(this._font, [this._itText ?? '']);   // IT1: the mod's words, SS5's wrap
     const t = this.deps.textRsc;
     if (this.top === 'diseased') {
       return t?.variantLinesById?.(DISEASED_WARNING_TEXT_ID, this.deps.pick ?? Math.random)
@@ -735,8 +807,9 @@ export class TravelPopUpWindow {
       ];
       for (const [label, r] of rows) shadowText(renderer, font, label, m, r[0] + 8, r[1]);
     }
+    this._font = font;   // IT1: the wrap measures the mod's lines with the face that draws them
     if (this.top) {
-      const buttons = this.top === 'diseased' ? [MB_BUTTONS.Yes, MB_BUTTONS.No] : [];
+      const buttons = this.top === 'diseased' ? [MB_BUTTONS.Yes, MB_BUTTONS.No] : (this.top === 'itPush' || this.top === 'itBox') ? [MB_BUTTONS.OK] : [];
       this._box = layoutMessageBox(font, this._boxRows(), buttons);
       if (!messageBoxArtLoaded() || !drawMessageBox(renderer, m, font, this._box)) {
         const rows = this._box.rows ?? [];
