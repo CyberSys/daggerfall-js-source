@@ -702,7 +702,7 @@ import { createStormLights } from '../systems/lightning.js';   // BOLT: the stri
 import { LightningBoltsRenderer } from '../render/lightningBolts.js';   // BOLT: the channels, drawn
 import { createDread, createDreadStorm, dreadLight, dreadCloudGlow, DREAD_KEY_DIM, DREAD_FLASH_COLOR } from '../world/dreadSky.js';   // EVENT1: the live event's sky and its red storm
 import { parseEventCommand } from '../net/chatCommands.js';   // EVENT1: /event, a dev's live event
-import { createSunbaby, sunbabyLight, SUNBABY_WEATHER } from '../world/sunbabySky.js';   // SUNBABY1: the sun baby's sky of flowers, the clear day and the light under it
+import { createSunbaby, sunbabyLight, SUNBABY_WEATHER, sunbabyKey, createSunbabyRain } from '../world/sunbabySky.js';   // SUNBABY1: the sun baby's sky of flowers, the clear day and the light under it; SUNBABY2: the wrath's key light and its fireballs
 import { relayKnowsLiveEvent } from '../net/wire.js';   // SUNBABY1: a word staged only on a relay that knows it
 import { createStaffTeleportClient, validStaffDestination, staffDestinationKey, followStaffPlayer } from '../net/staffTeleport.js';
 import { privateInteriorPrefix, privateInteriorRoom, privateBoatRoom, privateInteriorOf } from '../net/privateInterior.js';
@@ -1977,6 +1977,10 @@ export async function bootWorld(canvas, renderer, params, status) {
   // world's (rolled, shared on the weather map, saved) and comes back the frame the event ends. Offline nothing sets it.
   const sunbaby = createSunbaby();
   const shownWeather = () => (sunbaby.on ? SUNBABY_WEATHER : currentWeather());
+  // SUNBABY2: THE WRATH'S FIRE - its fireballs on the shared clock, dropped onto the ground under each (the terrain's
+  // height there, or my feet's where nothing is streamed) by the spell engine (magic.skyFire)
+  const sunbabyRain = createSunbabyRain();
+  const sunbabyGround = (x, z) => { const h = heightAt(x, z); return Number.isFinite(h) ? h : player.pos[1]; };
   const dreadStorm = createDreadStorm();
   // WBX8: THE SKY OVER A GATE - the dread's grade and a red storm of its own, gathered over the gate's site (the omen's
   // `sky`, read each exterior frame); the site's translation into a scratch of its own
@@ -26445,6 +26449,9 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     // the red storm below all read this one number
     const dreadW = dread.tick(dt);
     const sunbabyW = sunbaby.tick(dt);   // SUNBABY1: the sun baby's - the flower sky, the land's haze and its light
+    // SUNBABY2: and the face it wears on the shared clock - the baby, the wrath, Todd - said when it changes under me
+    const sunbabyFace = sunbaby.frame(Date.now() + _sharedOffsetMs);
+    if (sunbabyFace.line) townTalk.say(sunbabyFace.line);
     // WBX8 (Mac: "Improve the sky effect to be more like the /event dread command" - the overworld's, "not the inside"):
     // THE SKY OVER A GATE BURNS, as the omen has always said it does - its weight by the gate's life and this eye's
     // distance from it (systems/gateOmen.js gateSkyWeight); the sky, its fog and the land's light take the greater of it
@@ -26489,6 +26496,10 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
       if (isEnhanced()) for (const s of ds.strikes) struckFar.push({ ...s, flashColor: DREAD_FLASH_COLOR });
       for (const s of ds.sounds) audio.play3d(s.clip, thunderSourceAt(cam.pos, s.x, s.z), s.volume, { refDistance: THUNDER_SOURCE_M, maxDistance: THUNDER_SOURCE_M * 8, far: true });
     }
+    // SUNBABY2: THE FIRE - under the wrath the sun baby's fireballs fall round the traveller on the shared clock (every
+    // player online sees one drop in the same second, each round themselves), drawn by the spell engine, burning no one
+    if (jump) sunbabyRain.reset();
+    for (const fb of sunbabyRain.tick({ sharedMs: Date.now() + _sharedOffsetMs, eye: tvStand, fire: sunbaby.on && sunbabyFace.fire, ground: sunbabyGround })) magic.skyFire(fb);
     // WBX8: THE GATE'S RED STORM - the same strikes' law on a schedule of its own, round the gate's site (so its
     // lightning shows where the gate stands), its thunder from each strike's distance to the ear; ticked every frame,
     // at nothing when no gate burns, so a gate coming into reach fires no backlog
@@ -26505,14 +26516,15 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
       ? stormLights.frame({ seconds: now / 1000, eye: tvf ? cam.pos : mwv.eye, distant: struckFar, player: lightning, shown: !!lightningShown, test: Number(params.get('bolttest')) || 0 })   // TV4: a strike's column stands on the traveller's ground, not 448 m under the raised eye
       : { bolts: [], flash: null };
     sky.setSunbaby(sunbabyW, sunbaby.on);   // SUNBABY1: its flower sky, and the clear day the sky wears while it is staged
+    sky.setSunbabyFace(sunbabyFace.evil, sunbabyFace.todd);   // SUNBABY2: the face it wears, and the wrath's burning sky
     sky.setDread(skyDreadW, dreadCloudGlow(boltFrame.bolts));   // EVENT1: the sky's grade, and the red strikes' glow in its deck; WBX8: the gate's, where it is the greater
     // EV5: the moons light the night - the masser as a second key, the
     // secunda folded into the ambient. null by day and under classic.
     const moonNow = sky.moonlight();
     renderer.setMoonlight(moonNow);
     renderer.setLighting(
-      sunbabyLight(dreadLight(withMoonAmbient(exteriorAmbient(minute, getFloat('Enhancements', 'NightAmbientLightScale', 0, 1), wxNow.sun), moonNow), skyDreadW), sunbabyW), sunScale(minute) * wxNow.sun * flash * sky.sunFactor() * (1 - DREAD_KEY_DIM * skyDreadW),   // EVENT1: the land under the dread's light; SUNBABY1: lifted toward noon's under the sun baby   // ES1d: the cloud in front of the sun takes the KEY light (never the ambient - the sky still lights the ground); WX2: the scale is the front's
-      dreadLight(SUN_RIG_COLOR, skyDreadW));
+      sunbabyLight(dreadLight(withMoonAmbient(exteriorAmbient(minute, getFloat('Enhancements', 'NightAmbientLightScale', 0, 1), wxNow.sun), moonNow), skyDreadW), sunbabyW, sunbabyFace.evil), sunScale(minute) * wxNow.sun * flash * sky.sunFactor() * (1 - DREAD_KEY_DIM * skyDreadW),   // EVENT1: the land under the dread's light; SUNBABY1: lifted toward noon's under the sun baby (SUNBABY2: reddened under its wrath)   // ES1d: the cloud in front of the sun takes the KEY light (never the ambient - the sky still lights the ground); WX2: the scale is the front's
+      sunbabyKey(dreadLight(SUN_RIG_COLOR, skyDreadW), sunbabyW, sunbabyFace.evil));   // SUNBABY2: the key reddened under the wrath
     // DW-C: the distance fog's own "under" (UnderwaterDistanceFog.TryGetUnderwaterPresentation) - the surfaces'
     // _DeepWatersUnderwater and UnderwaterPresentationEffects' light suppression read it too, so it is taken
     // here, before the lights, from this frame's camera and capsule

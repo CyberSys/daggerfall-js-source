@@ -64,6 +64,11 @@ import { markPlayerHarm } from '../systems/harmMark.js';   // REVENANT-HARM: a f
 import { sparedByPlayer, isShipmate } from '../combat/friendlyFire.js';   // SHIPMATES: who the player's spells pass by, and whose blasts pass the player by
 import { coverDistance, coverStep } from '../ai/cover.js';   // TACT1: billboards are cover; AUDIT TACT B5: met by touch
 
+/** SUNBABY2: a sky fireball (skyFire) is drawn this many times its flat's size, its flash too - a ball a sun throws,
+ *  seen falling from far up - and heard this far (metres) from where it lands. */
+export const SKY_FIRE_SCALE = 3;
+export const SKY_FIRE_HEARD_M = 48;
+
 /**
  * AUDIT SET M4: whether a burst from feet `a` reaches feet `b` through `collider` - chest to chest, a wall between is
  * the answer (the Warden's Nova is fire, not a thrown rock over a wall). No collider, or feet on feet: clear.
@@ -470,7 +475,10 @@ export function createPlayerMagic({
    *  `elementType != None && targetType != ByTouch` (rangeType 1). */
   function showImpactFlash(m, pos) {
     if (!m.spell || m.spell.element == null || m.spell.rangeType === 1) return;
-    impacts.showImpactFlash(missileArchive(m.spell.element), pos);
+    impacts.showImpactFlash(missileArchive(m.spell.element), pos, m.scale ?? 1);   // SUNBABY2: a sky fireball's, at its own size
+    // SUNBABY2: and a sky fireball is HEARD where it lands - its element's cast clip (DFU has no impact clip; the
+    // missile's sound is its cast's), from the impact, as far as SKY_FIRE_HEARD_M
+    if (m.sky) { try { audio.play3dId?.(SPELL_CAST_SOUND[m.spell.element] ?? SPELL_CAST_SOUND[4], pos, 1, { maxDistance: SKY_FIRE_HEARD_M }); } catch { /* a sound never costs the flash */ } }
   }
 
   /** Every spell landing ON THE PLAYER rides this: the S19 Paralyze
@@ -1021,7 +1029,8 @@ export function createPlayerMagic({
     // the scene. Check before publishing.
     if (m.dead) { m.batch = null; return; }
     uploadRecord(archive, 0);
-    const size = billboardSize(t, 0);
+    const own = billboardSize(t, 0);
+    const size = m.scale ? { ...own, w: own.w * m.scale, h: own.h * m.scale } : own;   // SUNBABY2: a sky fireball is drawn larger
     m.firePos = [...m.pos];
     m.batch = renderer.createBillboardBatch(archive, 0, size, [centredBase(m.firePos, size)]);   // FIELD-GUN20: a missile is CENTRED on its position (DaggerfallMissile.cs:601-602, no AlignToBase) - the base is half a height under it
     // FA1 slice 2: the missile flat ANIMATES while it flies -
@@ -1097,6 +1106,12 @@ export function createPlayerMagic({
       // SPELLFX1: A PEER'S MISSILE, DRAWN - it flies, meets a wall (above), a body or me, flashes and is gone, and
       // applies NOTHING: the caster's own world decided what it hit (a beneficial one of theirs reached its target as ALLY-CAST's cast frame)
       if (m.visual) {
+        // SUNBABY2: a sky fireball lands where it was thrown - on the ground the host found under it, which the
+        // collider's ray (buildings, not the terrain) would not stop it at
+        if (m.sky) {
+          m.left -= _adv * _len;
+          if (m.left <= 0) { showImpactFlash(m, m.to); retireMissile(m); continue; }
+        }
         const body = (playerFeet && missileHitsCapsule(m.pos, playerFeet, playerHeight, PLAYER_BODY_RADIUS))
           || foes().some((f) => !f.dead && missileHitsFoe(m.pos, f))
           || (peerBodies?.() ?? []).some((q) => q && q.id !== m.casterId && Array.isArray(q.feet) && missileHitsCapsule(m.pos, q.feet, q.height ?? CAPSULE_HEIGHT, PLAYER_BODY_RADIUS));
@@ -1412,6 +1427,18 @@ export function createPlayerMagic({
       // a touch goes off at arm's length along the aim; a self or area cast on the caster's own body
       const at = rangeType === 1 && Array.isArray(dir) ? [from[0] + dir[0] * 1.5, from[1] + dir[1] * 1.5, from[2] + dir[2] * 1.5] : [from[0], from[1] - 0.6, from[2]];
       impacts.showImpactFlash(missileArchive(el), at);
+      return true;
+    },
+    /** SUNBABY2: a fireball the evil sun baby throws (world/sunbabySky.js sunbabyFireball) - a DRAWN fire missile,
+     *  spellVisual's kind, falling `from` the sky `to` the ground at the engine's own speed, SKY_FIRE_SCALE times the
+     *  flat's size. It flashes and is heard where it lands, or on a roof or a body it meets first. Visual only: nothing
+     *  is applied, spent or tallied - an event burns no one. */
+    skyFire({ from, to }) {
+      const ok = (p) => Array.isArray(p) && p.length === 3 && p.every(Number.isFinite);
+      if (!ok(from) || !ok(to)) return false;
+      const d = Math.hypot(to[0] - from[0], to[1] - from[1], to[2] - from[2]);
+      if (!(d > 0)) return false;
+      missiles.push({ spell: { element: 0, rangeType: 2 }, pos: [...from], dir: [(to[0] - from[0]) / d, (to[1] - from[1]) / d, (to[2] - from[2]) / d], age: 0, batch: null, fromPlayer: null, visual: true, casterId: null, sky: true, to: [...to], left: d, scale: SKY_FIRE_SCALE });
       return true;
     },
     /** X3-slice: an enemy spell missile joins the engine's pool -
