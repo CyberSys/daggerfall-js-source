@@ -2473,7 +2473,14 @@ export function createWorldModes(host) {
   function openCustomMerchantService(service) {
     const b = interiorBuilding ?? {};
     service({
-      messageBox: (text) => mountInterior(new ActionTextBox([text])),
+      // IT1: a street merchant's box stands in the street's slot (mountServiceWindow's exterior arm), where the
+      // interior's would never be drawn
+      messageBox: (text) => (mode === 'interior' ? mountInterior(new ActionTextBox([text])) : mountServiceWindow(new ActionTextBox([text]))),
+      // IT1: Immersive Travel's Fast Travel - AreEnemiesNearby(false, false) and the driver's or the captain's map,
+      // both the streaming host's (scenes/world.js openImmersiveMap); a host without them answers no map
+      enemiesNearby: () => !!host.travelEnemiesNearby?.(),
+      enemiesText: host.travelEnemiesText,
+      openImmersiveMap: (kind) => host.openImmersiveMap?.(kind) ?? null,
       openBuy: (items) => {
         if (!tradeDoorReady() || (!isEnhanced() && !_shopFont)) return false;   // the one gate both skins answer to (openMerchantSell's)
         const win = openTradeWindow({ items }, b, 'Buy');
@@ -3211,13 +3218,22 @@ export function createWorldModes(host) {
     // GNRC01I0 panel, and the SERVICE BUTTON opens the window
     // (:104-108). The port jumped straight to the window, so the
     // merchant's own panel, and its Talk row, never appeared.
+    // IT1: A STREET MERCHANT WITH A MOD'S SERVICE - Immersive Travel's driver at the gate. The popup's art rides a
+    // building's entry (ensureInteriorWindowArt), so a first click in the street can come before it: the art is loaded
+    // and the click lands once it has (ASYNC NEVER DROPS), as talk if it never does
+    if (!forceTalk && route.kind === 'merchant' && mode !== 'interior' && getCustomMerchantService(pn.factionID) && !merchantServiceDoorReady()) {
+      preloadMerchantServiceArt({ renderer, fetchBytes, palette })
+        .catch(() => {})
+        .then(() => openStaticNpc(pn, { forceTalk: !merchantServiceDoorReady() }));
+      return;
+    }
     if (!forceTalk && route.kind === 'merchant'
       && (route.service === 'banking' || route.service === 'sell')
-      && merchantServiceDoorReady() && (isEnhanced() || _shopFont)) {
+      && merchantServiceDoorReady() && (isEnhanced() || _shopFont || (mode !== 'interior' && getCustomMerchantService(pn.factionID)))) {   // IT1: outdoors the street's slot draws with its own face
       const banking = route.service === 'banking';
       // RR3: a registered custom merchant service (DaggerfallMerchantServicePopupWindow.cs:112-115, :149-151) - its own label on the button, its own body on the click
       const custom = getCustomMerchantService(pn.factionID);
-      mountInterior(createMerchantServiceWindow({
+      (mode === 'interior' ? mountInterior : mountServiceWindow)(createMerchantServiceWindow({   // IT1: a street merchant's popup in the street's slot
         service: banking ? 'Banking' : 'Sell',
         label: custom ? getCustomMerchantServiceLabel(pn.factionID) : undefined,
         onTalk: () => openStaticNpc(pn, { forceTalk: true }),
@@ -9200,7 +9216,7 @@ export function createWorldModes(host) {
           // AUDIT 39r: and the FLASH, which this arm was copied without.
           // An arrow reaches the player through BowDamage ->
           // ApplyDamageToPlayer -> SendDamageToPlayer, the same door as
-          // a blow (world.js:16229's own wave-46 note); the interior
+          // a blow (world.js:16280's own wave-46 note); the interior
           // MELEE hit already flashes inside exteriorFoes, so only this
           // arm - which applies its own damage - was missing it.
           flashPlayerDamage(dmg);   // BA1: RemoveHealth carries the amount
@@ -11927,7 +11943,7 @@ export function createWorldModes(host) {
      *  (world.js's, this file's `interiorWeapon` :538, dungeonContext's
      *  and exterior.js's - which this seam does not reach: that host has no save path at all, its charter exterior.js:3648-3670), and IS1 routed the inside-a-building save to
      *  the WORLD host's composer - which reads its own exterior rig
-     *  unconditionally (world.js:12198). So an F9 pressed in a shop
+     *  unconditionally (world.js:12199). So an F9 pressed in a shop
      *  recorded the street's sheath and hand, and the load wrote them
      *  back into the street's rig; the rig actually in the player's
      *  hands was in no envelope at all.
@@ -11966,7 +11982,7 @@ export function createWorldModes(host) {
       if (interiorOverlay instanceof DeathScreen) { interiorOverlay.restoreView(); interiorOverlay = null; }
     },
     /** The restore half - and NOT gated on the mode, deliberately.
-     *  worldQuickLoad calls forceExitToExterior FIRST (world.js:12527)
+     *  worldQuickLoad calls forceExitToExterior FIRST (world.js:12528)
      *  and only re-enters the building at :4217, so the mode at apply
      *  time is whatever the LOAD landed in, not whatever the SAVE was
      *  taken in: an outdoor save loaded while the player was indoors
@@ -11976,7 +11992,7 @@ export function createWorldModes(host) {
      *
      *  FLAG ONLY and presence-gated - both laws now stated once, in
      *  combat/playerWeapon.js's applyWeaponPose, with the citation.
-     *  HARD2c: this used to spell them out, and named `world.js:11103`
+     *  HARD2c: this used to spell them out, and named `world.js:11104`
      *  and `dungeonContext.js:8447` for its two sibling copies - lines
      *  that had moved to :4418 and :5457. Three copies of a two-line
      *  law, and even the comment pointing between them had gone stale. */
