@@ -2807,6 +2807,13 @@ html.plus-pad-prompts-visible .px-over > .px-stage:not(.px-acctstage):not(.px-ti
 .tview-fdot-towns { background: #e9e4d9; } .tview-fdot-distant { background: #c08a3e; } .tview-fdot-dungeons { background: #b0443a; }
 .tview-fdot-enemies { background: #e0503c; } .tview-fdot-travellers { background: #4e7f72; } .tview-fdot-gathering { background: linear-gradient(135deg, #e586ec, #d9894a 50%, #d4e157); }
 .tview-fnum { min-width: 2ch; text-align: right; font-size: 11px; color: var(--dim); font-variant-numeric: tabular-nums; }
+/* OW-WHO / OW-NODE-KM (FIELD BUGS 2026-10-04e): the players by kin - each switch's dot the colour their names wear
+   (systems/travelViewFilters.js TV_KIN_COLORS; a stranger the traveller's verdigris) - and the two steps, pressed round */
+.tview-fdot-kin-friends { background: #8fd0ff; } .tview-fdot-kin-guild { background: #c9a6ff; } .tview-fdot-kin-others { background: #4e7f72; }
+.tview-filter.tview-cycle { grid-template-columns: 1fr; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tview-filter.tview-cycle-wide { grid-column: 1 / -1; }
+/* SEAT-TIP: the held map's card (.hmtip), over the Overworld - placed in the root's viewport pixels */
+.tview-tip { z-index: 4; }
 .tview-filter:not(.on) .tview-fnum { opacity: 0.6; }
 /* OW-CONFIRM: the view's own question - over the map's upper middle, in the block's stone; its presses the Path switch's */
 .tview-confirm { position: absolute; left: 50%; top: 28%; transform: translate(-50%, -50%); pointer-events: auto; z-index: 2;

@@ -313,7 +313,7 @@ import { keysHeading, axesToward, tvOwnGrow } from '../player/travelCamera.js'; 
 import { createTravelView, TV_MOVE_ACTIONS, TRAVEL_VIEW_TEXT, travelViewLine, travelTripLine, travelWalkRate, shipPassageRows } from './travelView.js';   // TV1: the travel view (bible/06-Systems/Travel-View.md) - the raised eye, its input and its ways out
 import { showTravelViewHud, hideTravelViewHud, updateTravelViewHud, travelViewHudPickAt, showTravelViewConfirm, hideTravelViewConfirm, travelViewConfirmOpen, setTravelViewArmsOf } from '../ui/travelViewHud.js';   // TV1: its readout; AUDIT HERALDRY H4: the tag's arms
 import { createBandSprites } from '../world/bandSprites.js';   // OW-FOES: the bands as their monsters, faded in near
-import { markShown } from '../systems/travelViewFilters.js';   // OW-FILTER: a hidden group's sprites hidden with its marks
+import { markShown, travellerKin } from '../systems/travelViewFilters.js';   // OW-FILTER: a hidden group's sprites hidden with its marks
 import { travelPathMode, travelPathUsesRoads, pickTakesPlace, fineMoveHeld, TRAVEL_PATH_TEXT } from '../systems/travelPathMode.js';   // OW-PATH: roads or free, and the snap to a town
 import { groundHit, canvasPoint, classifyPick } from '../player/travelPick.js';   // TV2: the click's ground
 import { planRoute, routeLegs, roadShare, crossesWater, dryLine, SEA_KINDS } from '../systems/travelRoute.js';   // TV2: the way by the roads; OWS2: and over the water
@@ -545,6 +545,8 @@ import { setHudRenown } from '../ui/hudRenown.js';   // RENOWN4: my own Renown a
 import { pickRegionHubs, hubAtMapId, hubArrivalLine } from '../systems/regionHubs.js';   // HUB1: every region's main city, its hub
 import { deriveTownSeats, seatAtMapId } from '../systems/townSeats.js';   // SEAT1a: every palace a seat, the three capitals crowns
 import { createTownSeatBook, parseSeatCommand, parseSiegeCommand } from '../net/townSeatBook.js';   // SEAT1a: the seats open, confirmed, witnessed   // VOID: a moderator's /siege void
+import { seatTipOf } from '../net/townSeatLaw.js';   // SEAT-TIP: a seat's card on the Overworld's plate
+import { hasCarriageGate } from '../world/immersiveTravelGates.js';   // OW-HUBS: a town with a carriage at its gate
 import { seatArrivalLine, seatHallOf, seatBannerOf, boardTithePct } from '../net/townSeatLaw.js';   // SEAT1a: the seat's arrival line; SEAT-HALL: whose hall a palace is; CROWN-HALL: the throne room's banners; AUDIT SEATS-3 D3: a board's Tithe
 import { hallMay } from '../net/hallLaw.js';   // SEAT-HALL: a palace's keepers are a hall's
 import { createOnlineHomes, moveArenaHomes, homeSceneName, homeTownBlocks, holdRealmDeeds, homeClaimLayout, checkpointLanded } from '../systems/onlineHomes.js';   // HOME1: the account service's homes, one town at a time; ARENA4b: the ones the arena displaced, moved; HOME-PRICE: a town's size; FIELD BUGS 2026-10-04d KNIGHT-HOUSE: a deed the realm gave, held
@@ -13662,7 +13664,7 @@ export async function bootWorld(canvas, renderer, params, status) {
       // join or leave - both skins read it on their own refresh. The
       // host says WHERE and WHO; neither map is told what a party is.
       party: () => partyMarkers(),
-      travellers: () => travellerBook.live(Date.now()).filter((t) => !social?.inMyParty(social.accountOfPeer(t.id))).map((t) => ({ id: t.id, name: t.name, ...t.p, ship: isShipMark(t.p) })),   // OWS1: one at sea drawn as a ship   // TV3: the region's travellers, as the view draws them - AUDIT DEEP T3-9: bar my party, whom the map already rings as theirs
+      travellers: () => travellerBook.live(Date.now()).filter((t) => !social?.inMyParty(social.accountOfPeer(t.id))).map((t) => ({ id: t.id, name: t.name, ...t.p, ship: isShipMark(t.p), kin: travellerKin({ friend: !!social?.isFriendPeer(t.id), gt: t.gt }, myGuildTag()), lv: t.lv ?? null })),   // OW-KIN / OW-WHO: who they are to me, and their Renown   // OWS1: one at sea drawn as a ship   // TV3: the region's travellers, as the view draws them - AUDIT DEEP T3-9: bar my party, whom the map already rings as theirs
       // WB1: THE OBLIVION GATE'S RING - a function for the party's reason (the countdown moves while the map stands
       // open); null offline and while no gate is marked, and both maps draw nothing
       gate: () => gateOmen?.mapMark() ?? null,
@@ -13680,6 +13682,7 @@ export async function bootWorld(canvas, renderer, params, status) {
       hubAt: params.has('online') ? (summary) => hubAtMapId(regionHubs, summary?.mapID ?? summary?.mapId) : null,
       // SEAT1a: each seat's ring (and a crown's crown, a March's and a Free Land's second ring) - while the seats are open
       seatAt: seatBook ? (summary) => seatHere(summary?.mapID ?? summary?.mapId) : null,
+      carriageAt: (summary) => carriageTown(summary?.mapID ?? summary?.mapId),   // OW-HUBS: a carriage town's wheel
       // TO1: the mod itself rides travelFareDeps (above); the reads its additions to this window need follow.
       // AUDIT-TO1 I4: ...and the door ACTS on the refusal it can still get
       // (the popup was minted before the online state could change).
@@ -23304,6 +23307,21 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     // but the seabed lies under the sea, and land over it cuts the veil by its own depth
     return Math.max(g, tvSeaY() + CURTAIN_FOOT_MARGIN_M);
   };
+  /** OW-HUBS (FIELD BUGS 2026-10-04e): a town with a carriage at its gate, by its map id - while Immersive Travel is
+   *  loaded (online it is always). Kept per id until the location index moves (a spawn stood or taken back). */
+  const _carriageOf = new Map();
+  let _carriageGen = -1;
+  const carriageTown = (mapId) => {
+    if (!immersiveTravelLoaded() || !Number.isFinite(mapId)) return false;
+    if (_carriageGen !== _locIndexGen) { _carriageOf.clear(); _carriageGen = _locIndexGen; }
+    const id = mapId & 0xfffff;
+    let on = _carriageOf.get(id);
+    if (on === undefined) { on = hasCarriageGate(locationIndex.get(`${id % 1000},${Math.floor(id / 1000)}`)); _carriageOf.set(id, on); }
+    return on;
+  };
+  /** SEAT-TIP (FIELD BUGS 2026-10-04e): a town that can be taken - its card for the Overworld's hover (who holds it,
+   *  this week's battle), or null; while the seats are open (seatHere). */
+  const seatTipAt = (mapId) => seatTipOf(seatHere(mapId));
   const tvPlaceSummary = (px, py) => {
     const loc = locationIndex.get(`${px},${py}`);
     const row = loc?.name ? travelLocationSummaryAt(mapDict, px, py) : null;
@@ -24317,7 +24335,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     const marks = [];
     for (const p of travelViewPlaces()) {
       if (p.key === endKey) continue;
-      marks.push({ key: p.key, at: tvSceneKept(p, p.x, p.z, TV_PLACE_LIFT), label: p.summary.name, kind: 'place', pick: true });
+      marks.push({ key: p.key, at: tvSceneKept(p, p.x, p.z, TV_PLACE_LIFT), label: p.summary.name, kind: 'place', pick: true, hub: carriageTown(p.summary.mapId), tip: seatTipAt(p.summary.mapId) });   // OW-HUBS: a carriage town's wheel; SEAT-TIP: a seat's card
     }
     // TV5: the far places, held at the edge with their distance (the journey's own end is the flag's)
     const farEnd = endKey ? `far:${tvTrip.plan.summary.mapId}` : null;
@@ -24325,7 +24343,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     for (const f of travelViewFarPlaces()) {
       if (f.key === farEnd) continue;
       const km = (Math.hypot(f.x - here.x, f.z - here.z) / 32768) * PIXEL_KM;   // native units a pixel (MapsFile.WorldMapTerrainDim)
-      marks.push({ key: f.key, at: tvSceneKept(f, f.x, f.z, TV_PLACE_LIFT), label: f.summary.name, sub: farDistanceText(km), kind: 'far', pick: true, edge: true });
+      marks.push({ key: f.key, at: tvSceneKept(f, f.x, f.z, TV_PLACE_LIFT), label: f.summary.name, sub: farDistanceText(km), kind: 'far', pick: true, edge: true, hub: carriageTown(f.summary.mapId), tip: seatTipAt(f.summary.mapId) });   // OW-HUBS; SEAT-TIP
     }
     // TV6: THE DUNGEONS - a found one past the grid a far plate (within it TV2's plate stands - AUDIT OW3 D3: the list
     // leaves those out, so they spend none of its twelve), the rest unnamed lairs. AUDIT OW3 D1: a spawn the player has
@@ -24401,7 +24419,8 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
       const h = peerRiders.heightOf(d.id) || peerBodies.heightOf(d.id) || peerWalkers.heightOf(d.id) || TV_PEER_HEAD_M;
       near.add(d.id);
       // AUDIT NAMES: and one on a journey (their region mark's `tv`) keeps the arrow they wore from afar
-      marks.push({ key: `peer:${d.id}`, at: [f[0], f[1] + h, f[2]], label: d.name ?? '', kind: `${party ? 'party' : 'traveller'}${isShipMark(t?.p) ? ' ship' : ''}${t?.p.tv ? ' journey' : ''}`, edge: party || !!t, badge: tvBadgeOf(d) });   // OWS1: at sea (their region mark says so), a ship
+      marks.push({ key: `peer:${d.id}`, at: [f[0], f[1] + h, f[2]], label: d.name ?? '', kind: `${party ? 'party' : 'traveller'}${isShipMark(t?.p) ? ' ship' : ''}${t?.p.tv ? ' journey' : ''}`, edge: party || !!t, badge: tvBadgeOf(d),
+        kin: travellerKin({ friend: !!social?.isFriendPeer(d.id), gt: d.gt }, myGuildTag()), lv: d.lv ?? null });   // OW-KIN / OW-WHO: who they are to me, and their Renown   // OWS1: at sea (their region mark says so), a ship
     }
     // TV3: THE REGION'S TRAVELLERS - their marks, beyond the pose range (inside it they are the players above); a party
     // member's in the party's colour; one outside the picture held at its edge, pointing
@@ -24413,7 +24432,8 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
       // as play's names ask it (colorOf), so my own other tab is never my party's green
       const kind = social?.isPartyPeer(t.id) ? 'party' : 'traveller';
       const ship = isShipMark(t.p);   // OWS1: at sea, a ship - riding the sea's top
-      marks.push({ key: `trav:${t.id}`, at: tvSceneKept(t, w.x, w.z, 2, ship), label: t.name, kind: `${kind}${ship ? ' ship' : ''}${t.p.tv ? ' journey' : ''}`, edge: true, badge: tvBadgeOf(t) });
+      marks.push({ key: `trav:${t.id}`, at: tvSceneKept(t, w.x, w.z, 2, ship), label: t.name, kind: `${kind}${ship ? ' ship' : ''}${t.p.tv ? ' journey' : ''}`, edge: true, badge: tvBadgeOf(t),
+        kin: travellerKin({ friend: !!social?.isFriendPeer(t.id), gt: t.gt }, myGuildTag()), lv: t.lv ?? null });   // OW-KIN / OW-WHO
       near.add(t.id);
     }
     // AUDIT OW5 P6: MY PARTY, WHEREVER THEY ARE - the held map draws them from the party's own poses (partyMarkers); here

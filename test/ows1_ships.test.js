@@ -112,7 +112,7 @@ test('OWS1 host wiring by source: the boat under me is my own at its helm or ano
   assert.match(w, /const csaBoatUnderMe = \(\) => \(csaRuntime\?\.isSailing\(\) \? csaRuntime\.state\.CurrentBoat : null\) \?\? csaAboard\.aboard\?\.boat \?\? null;/);
   assert.match(w, /const csaBoatYaw = \(boat\) => \{ const fw = csaQuatRotate\(boat\.GameObject\.rotation, \[0, 0, 1\]\); return Math\.atan2\(fw\[0\], fw\[2\]\); \};/);
   assert.match(w, /const ship = n \? csaBoatUnderMe\(\) : null;\n\s*const mark = n \? travellerMarkOf\(\{ x: n\.x, z: n\.z, yaw: ship \? csaBoatYaw\(ship\) : cam\.yaw, mode: ship \? TRANSPORT_MODES\.Ship : player\.transportMode, journey: !!travelControlUI\?\.isShowing \}\) : null;/);
-  assert.match(w, /\.map\(\(t\) => \(\{ id: t\.id, name: t\.name, \.\.\.t\.p, ship: isShipMark\(t\.p\) \}\)\),/, 'the held map\'s rows say who is at sea');
+  assert.match(w, /\.map\(\(t\) => \(\{ id: t\.id, name: t\.name, \.\.\.t\.p, ship: isShipMark\(t\.p\), kin: travellerKin\(/, 'the held map\'s rows say who is at sea');   // PIN MOVED (FIELD BUGS 2026-10-04e OW-KIN): and who they are to me
   assert.match(w, /kind: `\$\{party \? 'party' : 'traveller'\}\$\{isShipMark\(t\?\.p\) \? ' ship' : ''\}\$\{t\?\.p\.tv \? ' journey' : ''\}`/, 'within the pose range, by their region mark');
   assert.match(w, /const ship = isShipMark\(t\.p\);[^\n]*\n\s*marks\.push\(\{ key: `trav:\$\{t\.id\}`, at: tvSceneKept\(t, w\.x, w\.z, 2, ship\),/, 'a ship\'s mark asked on the sea');
   assert.match(w, /if \(onSea\) holder\._tvAt\[1\] = Math\.max\(holder\._tvAt\[1\], tvSeaY\(\) \+ lift\);/, 'a ship rides the sea\'s top, not the carved seabed');

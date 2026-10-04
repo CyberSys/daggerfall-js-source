@@ -43,6 +43,7 @@ import { GATE_RING_CSS, GATE_FILL_CSS } from './gateMapMark.js';   // WB1: the O
 import { BOUNTY_RING_CSS, BOUNTY_FILL_CSS } from './bountyMapMark.js';   // BOUNTY1: a held bounty's black circle
 import { RAID_MARK_CSS } from './eventMapMarks.js';   // EVENT-TIP: a town under attack
 import { QUEST_MARK_CSS, QUEST_MARK_LIFT } from './questMarks.js';   // GUIDE5: where a quest points
+import { wheelPath } from './carriageWheel.js';   // OW-HUBS: a carriage town's wheel beside its mark
 import { seatMapMark, SEAT_RING_SIEGE } from '../net/townSeatLaw.js';   // SEAT1a: how a seat is marked - its ring, a crown, a second ring; SEAT1c: held, Contested, a siege week
 
 // ── THE INK (skin): the pen and its washes ───────────────────────────────────────────────
@@ -585,9 +586,10 @@ export function buildInkModel(deps) {
  * mark carries it and how the map marks it (net/townSeatLaw.js seatMapMark).
  * @param {{ summaries?: Iterable<any>, filters?: any,
  *   isDiscovered?: (summary: any) => boolean, nameOf?: (summary: any) => string,
- *   isPort?: (summary: any) => boolean, hubAt?: (summary: any) => any, seatAt?: (summary: any) => any }} deps
+ *   isPort?: (summary: any) => boolean, hubAt?: (summary: any) => any, seatAt?: (summary: any) => any,
+ *   carriageAt?: (summary: any) => boolean }} deps   OW-HUBS: `carriageAt` - a carriage stands at the town's gate
  */
-export function buildInkMarks({ summaries = [], filters = {}, isDiscovered = undefined, nameOf = () => '', isPort = () => false, hubAt = () => null, seatAt = () => null }) {
+export function buildInkMarks({ summaries = [], filters = {}, isDiscovered = undefined, nameOf = () => '', isPort = () => false, hubAt = () => null, seatAt = () => null, carriageAt = () => false }) {
   const opts = isDiscovered ? { isDiscovered } : {};
   return buildMarkerModel(summaries, filters, opts).map((m) => ({
     x: m.x, y: -m.z,             // the pixel's centre, in map pixels (y down)
@@ -597,6 +599,7 @@ export function buildInkMarks({ summaries = [], filters = {}, isDiscovered = und
     summary: m.summary,
     mapId: m.summary?.mapID ?? m.summary?.mapId ?? null,
     port: !!isPort(m.summary),
+    carriage: !!carriageAt(m.summary),   // OW-HUBS
     hub: hubAt(m.summary) ?? null,
     ...seatMarkOf(seatAt(m.summary)),
   }));
@@ -990,11 +993,13 @@ export function paintInkStatic(ctx, model, view, opts) {
   // is worse than the tangle the halo is here to fix.
   const inked = [];
   const harbours = [];   // PORT-MAP: [beside, x, y] - a port's anchor, at every band
+  const wheels = [];   // OW-HUBS: [beside, x, y] - a carriage town's wheel, at every band, as a port's anchor
   for (const m of model.marks) {
     if (!visible(m.x, m.y)) continue;
     const ink = shown.has(m.colorIndex);
     if (ink) inked.push([m, ...toPaper(view, m.x, m.y)]);
     if (opts.ports && m.port) harbours.push([ink, ...toPaper(view, m.x, m.y)]);
+    if (m.carriage) wheels.push([ink, ...toPaper(view, m.x, m.y)]);
   }
   // HUB1: a hub's circle goes down FIRST - its glyph's halo and ink then sit on it, so the town reads on the colour
   for (const [m, x, y] of inked) if (m.hub) paintHubCircle(ctx, x, y, markReach(m) - (m.seat ? SEAT_RING_PAD : 0), !!m.hub.capital);
@@ -1008,6 +1013,7 @@ export function paintInkStatic(ctx, model, view, opts) {
   // the band inks the place, ON the place where it does not (far inks the cities alone, and the map opens far) - so the
   // ports the quays stand at read from the first look. MAP2 drew them at mid and near only.
   for (const [beside, x, y] of harbours) paintHarbour(ctx, x, y, beside);
+  for (const [beside, x, y] of wheels) paintCarriageWheel(ctx, x, y, beside);   // OW-HUBS
   // MAP2: the mod's MARK (TravelOptionsMapWindow.cs:532-550, drawn in
   // MarkLocationColor) - a ring on the marked place at EVERY band, whether
   // or not the band inks the place itself: the mark is the thing the
@@ -1257,6 +1263,18 @@ export function paintHarbour(ctx, x, y, beside = true) {
   ctx.stroke();
   ctx.strokeStyle = PEN.line; ctx.lineWidth = HARBOUR_PEN;
   anchorPath(ctx, ax, ay);
+  ctx.stroke();
+}
+/** OW-HUBS (FIELD BUGS 2026-10-04e): a carriage town's wheel - LEFT of its mark (the anchor stands right), or on the
+ *  place where the band inks no mark there; the anchor's halo and pen. Skin. */
+export const CARRIAGE_WHEEL_R = 3.6;
+export function paintCarriageWheel(ctx, x, y, beside = true) {
+  const wx = beside ? x - 9 : x, wy = beside ? y - 1 : y;
+  ctx.strokeStyle = PEN.halo; ctx.lineWidth = HARBOUR_HALO;
+  wheelPath(ctx, wx, wy, CARRIAGE_WHEEL_R);
+  ctx.stroke();
+  ctx.strokeStyle = PEN.line; ctx.lineWidth = HARBOUR_PEN;
+  wheelPath(ctx, wx, wy, CARRIAGE_WHEEL_R);
   ctx.stroke();
 }
 /** The anchor's one path: its shank, its stock and its flukes. */
