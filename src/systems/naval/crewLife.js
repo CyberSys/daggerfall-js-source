@@ -317,7 +317,11 @@ export function createCrewLife({ deck, roster, seed, places = [], faction = null
       }
       return null;
     };
-    const carpenter = hatch ? { at: at(hatch[0] + 1.1, hatch[2]), face: -Math.PI / 2 } : null;
+    // GALLEON-HOLDINGS: to port of her hatch where her deck lies there and not to starboard - Mac's galleon's hatch
+    // stands to port of her open fore hatchway (AUDIT GN-D7), and a post asked in the hole found her deck across it,
+    // 3.5 m off
+    const cx = hatch && !deck.walkable?.(hatch[0] + 1.1, hatch[2]) && deck.walkable?.(hatch[0] - 1.1, hatch[2]) ? -1.1 : 1.1;
+    const carpenter = hatch ? { at: at(hatch[0] + cx, hatch[2]), face: cx > 0 ? -Math.PI / 2 : Math.PI / 2 } : null;
     const guns = [];
     for (let k = 0; k < 6; k++) {
       const side = k % 2 === 0 ? 1 : -1, z = mid + (Math.floor(k / 2) - 1) * Math.min(3, len * 0.15);

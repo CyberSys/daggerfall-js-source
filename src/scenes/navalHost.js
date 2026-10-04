@@ -91,7 +91,7 @@ import { intoDeck, outOfDeck, mainLevel, DECK_STEP } from '../systems/naval/nava
 import { CAPSULE_RADIUS } from '../player/motor.js';   // AUDIT GN-D3: aboard under her main deck, a body's own reach (standsOn)
 import { createGalleonGunDeck } from '../systems/naval/galleonGunDeck.js';   // GALLEON: her shutters and guns at work
 import { timeScale } from '../systems/timeScale.js';   // AUDIT GN2-GN3: the real clock another player's word comes on
-import { dockFor, madeFast, warpStep, quaySide, landwardOf, quayFrame, quayToScene, sceneToQuay, gangwayFoot, DOCK_WAY, DOCK_REACH_M, DOCK_REFUSED, GANGWAY_REACH, GANGWAY_ASHORE, GANGWAY_FACING, GANGWAY_SIDE, QUAY_GAP, QUAY_WIDTH, QUAY_DECK_UP } from '../systems/naval/quays.js';   // QUAYS: docking at a harbour's quays
+import { dockFor, madeFast, warpStep, quaySide, landwardOf, quayFrame, quayToScene, sceneToQuay, gangwayFoot, DOCK_WAY, DOCK_REACH_M, DOCK_REFUSED, GANGWAY_REACH, GANGWAY_ASHORE, GANGWAY_FACING, gangwaySide, QUAY_GAP, QUAY_WIDTH, QUAY_DECK_UP } from '../systems/naval/quays.js';   // QUAYS: docking at a harbour's quays
 
 /** The record's name in the save's per-mod slot (systems/modSaveData.js) - the port's own, as the Sigil Broker's is. */
 export const NAVAL_SAVE_VENDOR = 'NavalCombat';
@@ -3475,7 +3475,7 @@ export function createNavalHost(deps) {
     return { pos: step.pos, rotation: quatOfYaw(step.yaw) };
   }
   /** The gangway run out to a boat of mine made fast at a quay, square to her side at her waist (quays.js gangwayFoot -
-   *  AUDIT HOLDINGS Q1: never through her): its head at her main deck's port or on her gunwale (GANGWAY_SIDE), its foot
+   *  AUDIT HOLDINGS Q1: never through her): its head at her main deck's port or on her gunwale (gangwaySide), its foot
    *  on the quay; `deckAt` her main deck's rail cell by it (navalDeck.js rail), where the player comes over her side;
    *  `ashore` where he steps off it onto the quay's deck - scene points - or null. AUDIT HOLDINGS Q9: none onto a quay
    *  not yet laid (`deps.quayLaid` - a plank over the water, a step ashore into the sea). */
@@ -3486,7 +3486,7 @@ export function createNavalHost(deps) {
     const deck = deps.pool?.deckOf?.(boat.hull, boat.variant ?? 0);
     const side = quaySide(yawOfRot(boat.GameObject.rotation), landwardOf(d.berth));
     const m = boat.MeshObject.worldMatrix();
-    const [sx, sy] = GANGWAY_SIDE[boat.hull] ?? GANGWAY_SIDE[0];
+    const [sx, sy] = gangwaySide(boat.hull);
     const head = outOfDeck(m, [side * sx, sy, 0]);
     const rail = deck?.count ? deck.rail(side, 0, [0, 0, 0], mainLevel(deck)) : null;
     const deckAt = rail ? outOfDeck(m, rail) : head;
