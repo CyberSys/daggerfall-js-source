@@ -2418,7 +2418,7 @@ ENUMERATED** applied to the one place a grant is usually a row:
 
 | | held when |
 |---|---|
-| **Founder** | registered, and first played by `FOUNDER_UNTIL`: `min(created_at, registered_at) <= FOUNDER_UNTIL` since FOUNDER3 (it read `registered_at` alone before; 1790294400 — 2026-09-25T00:00:00Z since FOUNDER2; it was 1790121600, 2026-09-23T00:00:00Z) |
+| **Founder** | registered, and first played by `FOUNDER_UNTIL`: `min(created_at, registered_at, first_played_at) <= FOUNDER_UNTIL` - `first_played_at` since FOUNDER4 (the first contact of a row the account shares a character with, migration 0078), the two before it since FOUNDER3 (it read `registered_at` alone before; 1790294400 — 2026-09-25T00:00:00Z since FOUNDER2; it was 1790121600, 2026-09-23T00:00:00Z) |
 | **Developer** | the handle is in `env.DEVELOPER_HANDLES` |
 | **sprout** | `nowS - created_at < SPROUT_S` (two weeks) |
 | **dev** | the same list as the Developer title |
@@ -3821,7 +3821,8 @@ it".
   - Still registered accounts only. A guest from before the cutoff holds it the moment it registers.
   - The guard on `registered_at` stays first, because D1 gives a guest a NULL `registered_at`, which `Math.min` reads as 0.
 - **Not reached.** A player who played as a guest in one browser and registered in another has two rows and nothing
-  linking them. The account's row was first seen when it registered.
+  linking them. The account's row was first seen when it registered. FOUNDER4 (2026-10-04) reaches it where the two
+  rows share a character; two rows that share none are still not linked.
 - The account service is `acct15`, and the rule takes effect on that deploy.
 - Pins: `test/founder3.test.js` (4), including the service end to end (a guest first seen before the cutoff, registered
   through the Worker after it, wears Founder on its signed token). ACC3's, TITLE-N's and SHADOW-FANG's non-founder
@@ -4523,3 +4524,45 @@ glyph design if possible. with the same color of the name".
   relay's pins moved to world162 crediting PRIMARCH (`auditbounty1.test.js` holds the credit), the account's to acct75.
   Seven older records re-aimed by content, all dead (`aegis.json` 4, `herald.json`, `penitent.json`,
   `shadowfang.json`), and the version records in `soc1.json` and `gatekeys.json`.
+
+## FOUNDER4 — Founder through a shared character (2026-10-04, acct75, migration 0078)
+
+Mac: "Before we merge this. We need to find a way to grant the founder title to everyone before the previous cut off
+date. Since people are still missing their founders title". Asked which ways (carry over a held guest session at
+sign-in; link shared characters; grant by name; move the cutoff later), Mac chose one: "Link shared characters".
+
+- **The cause.** FOUNDER3 reads Founder off when an account first played, its row's `created_at`, and said what it
+  could not reach: a player who played as a guest in one place and registered in another has two rows and nothing
+  linking them. The desktop app made that common. It is its own origin (`dagger://game`, `app/main.cjs`), so its
+  storage is not the browser's: a browser guest from before the cutoff who installed it and registered there has an
+  account first seen after the cutoff, and their play before it on a guest row nothing names. Signing in does not help
+  after the fact either - a device that signs in keeps only the new session (`ui/accountFlow.js doLogin`), and the
+  guest's secret is gone.
+- **The link** (`server-account/migrations/0078_founder_links.sql`): a CHARACTER both rows hold. A character's id is
+  minted on the player's own machine (`systems/characterId.js`, a UUID or a stamp and a random tail) and never told to
+  another player - the relay keys what it shares by a hash of the account and the id (`net/wire.js parkKeyOf`) - so a
+  character on two rows is one player's save on both. A row holds a character when the service recorded it there: a
+  cloud save of it (`saves.character_id`), its Renown track (`renown_tracks.char_id`), the realm's census of it
+  (`realm_census.char_id`), a realm character brought in from it (`realm_characters.origin_id`) or a customs pass spent
+  on it (`realm_passes.origin_id`). A realm character's own id is minted by the service for one account and links
+  nothing.
+- **The fact** (`players.first_played_at`): the earliest first play (FOUNDER3's: `created_at`, or `registered_at` where
+  earlier) of a row the account shares a character with, written only where it is EARLIER than the account's own, NULL
+  everywhere else. One hop - the row that holds the character, never a row linked through a row in between. Guests are
+  filled too, so a desktop guest linked to a browser guest from before the cutoff holds Founder the moment it registers.
+  It is a fact about when the player played, as `created_at` is, and grants nothing: `titles.js firstPlayed` reads it
+  beside the two it read, and Founder is still that against FOUNDER_UNTIL at every ask. The instant does not move and
+  nobody who holds Founder loses it. The players-column pin (`accountworker.test.js`) carries it.
+- **Once, at the deploy.** The migration gathers the holdings into a table of its own, indexed both ways, fills the
+  column in one statement and drops the table (0035's precedent). A character carried onto a new account after the
+  deploy is not linked by it; the statement can be run again by hand against the live database to count late arrivals.
+- **Not reached.** Two rows that share no character: a player who played before the cutoff and has not brought a single
+  character's save, track or realm character onto the new account, or whose old storage is gone with the characters in
+  it. Moving the cutoff, a by-name list and a sign-in carry-over were offered and not chosen.
+- The account service is still `acct75` - PRIMARCH's, undeployed, one deploy for both - and the rule takes effect when
+  that deploy applies 0078. No relay change: Founder is already in the token's vocabulary.
+- Pins: `test/founder4.test.js` (5) - the law; the migration run over a seeded database (each of the five records, the
+  earliest of several linked rows, nothing without a shared character or without an earlier one, one hop, guests
+  filled); its shape (the five sources, no table left behind); and the real Worker before and after 0078 (Founder in
+  the wardrobe and on the signed token). `tools/mutants/founder4.json` (12, all dead); three of `founder3.json`'s
+  re-aimed by content at the new `firstPlayed` (6, all dead). The acct75 pins credit FOUNDER4 beside PRIMARCH.

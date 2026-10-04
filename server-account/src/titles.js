@@ -14,7 +14,9 @@
 // This is the whole design and it is the repo's own law (DERIVED OVER
 // ENUMERATED) applied to the one place a grant is usually a row:
 //
-//   FOUNDER   your registered account first played by FOUNDER_UNTIL.
+//   FOUNDER   your registered account first played by FOUNDER_UNTIL -
+//             its row's first contact, or (FOUNDER4) the first contact of
+//             a row it shares a character with (`first_played_at`).
 //   DEVELOPER your handle is in the service's DEVELOPER_HANDLES.
 //   SPROUT    your account is younger than SPROUT_S.
 //   DEV       the same list as the Developer title.
@@ -94,7 +96,16 @@ import { patreonTitlesOf } from './patreon.js';   // PATREON-LINK: a Patreon tie
  *  title befire the original cut off date. A lot of people are missing
  *  it"): the SAME instant, read off when the account FIRST PLAYED rather
  *  than when it registered (`firstPlayed`, below). The instant does not
- *  move, in either direction: nobody who holds it loses it. */
+ *  move, in either direction: nobody who holds it loses it.
+ *
+ *  FOUNDER4 (2026-10-04, Mac: "We need to find a way to grant the founder
+ *  title to everyone before the previous cut off date. Since people are
+ *  still missing their founders title"; asked how, "Link shared
+ *  characters"): the SAME instant again, and when the account first
+ *  played may now be proven by ANOTHER row - one it shares a character
+ *  with (migration 0078 `first_played_at`): a guest in one browser who
+ *  registered in another place, the desktop app's own storage above all,
+ *  first played when that guest did. */
 export const FOUNDER_UNTIL = 1_790_294_400;
 
 /** How long the sprout stays on a new account: two weeks, in seconds,
@@ -206,9 +217,15 @@ export const canModerate = (player, env) => isModerator(player, env) || isDevelo
  *  after it held nothing (Field-Bugs 2026-09-26b, report 3). `created_at`
  *  is stamped at a row's first contact, guest or not, and registering is
  *  an upgrade IN PLACE of that same row (0002), so it is still there. A
- *  row without one is judged by its registration, as before. */
-const firstPlayed = (player) =>
-  Math.min(player.registered_at, Number.isFinite(player.created_at) ? player.created_at : Infinity);
+ *  row without one is judged by its registration, as before. FOUNDER4:
+ *  AND `first_played_at` - the first contact of a row this one shares a
+ *  character with, where it is earlier (migration 0078 says how a
+ *  character is shared); a row without one is judged as before. */
+const firstPlayed = (player) => Math.min(
+  player.registered_at,
+  Number.isFinite(player.created_at) ? player.created_at : Infinity,
+  Number.isFinite(player.first_played_at) ? player.first_played_at : Infinity,   // FOUNDER4
+);
 
 /**
  * THE TITLES THIS PLAYER HOLDS, in the order they are offered.
