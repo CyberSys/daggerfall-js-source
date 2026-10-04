@@ -2215,10 +2215,35 @@ on the mod's own states (`bible/10-UI/Controls.md` HELM-KEYS has the keys):
   AUDIT NAV2 F18);
   `helmPanelState().inIrons` and `.responsive` put the right advice, with the
   keys, on the panel's line while it lasts (`ui/enhancedHelm.js helmHint`).
-- **The panel teaches the arrows**: its line is the helm's hand at a glance,
-  and its sails' button presses More sail to raise and Less sail to stow (the
-  mod's own toggle where the square sails are the player's, which strikes all
-  her canvas as its label says) - so its key hint is the arrow.
+- **The panel teaches the arrows**: its line is the helm's hand at a glance.
+  HELM-LADDER (below) moved its sails' button to the mod's own toggle.
+
+## One ladder for W, S and the arrows (HELM-LADDER, 2026-10-04 - DECLARED)
+
+From the field: "WASD and Arrow keys should function the same when controlling. Allowing you to lower and raise
+sails" - the throttle ladder chosen over a tap-or-hold split. HELM-KEYS had put the sails on the up and down arrows and
+left W and S the mod's oars, held: two pairs that did different things, W and S inert once the sails were up. Now W and
+the up arrow (`MoveForwards`, `BoatSailUp`) climb ONE ladder a rung a press, S and the down arrow (`MoveBackwards`,
+`BoatSailDown`) come down it (`systems/comeSailAway.js` `ladderUp`, `ladderDown`):
+
+- **The rungs**: the oars backing water (-1), the oars at rest (0), the oars pulling ahead (1), her sails (RaiseSails),
+  and - where her square sails are the player's own (`squareHandled`) - all her canvas (MoreSail's step). Each rung is
+  said ("Oars: backing water.", "Oars: at rest.", "Oars: pulling ahead.", the mod's own "Sail raised!"); the foot says
+  "She is already backing water.", the top what MoreSail says, a rowboat's top what ToggleSails says ("Boat does not
+  have any sail."). Down from her sails is LessSail's step, and from the last of them she PULLS AHEAD on her oars.
+- **The oars are a rung, not a held key**: `oarThrottle` is kept until a press moves it, a sail goes up (RaiseSails
+  ships them) or she leaves the helm (StartSailing and StopSailing set it at rest); never saved. The oars' stroke, its
+  rudder's RowZ, the oar acceleration and the helm's answer astern (backing water turns her the other way) all read the
+  rung where the mod read the held keys (Update 4301-4768, moveAccel 538-551, HasInput 582-613). `Run` with a side key
+  still sidesteps. A press takes the frame it is made in (read before the stroke, as a held key was).
+- **Unchanged**: A, D and the side arrows steer (HELM-KEYS); End still toggles all her canvas from any rung, and the
+  helm panel's sails button is that toggle now (its key hint End) - "Raise sails" raises them, never a rung of oars;
+  a journey's oars pull as the autorun does (OWS2), and under the travel view W and S stand down with the sail keys
+  (AUDIT NAV2 F17's gate). The panel's line reads "Oars & sails W S ↑ ↓ · Steer A D ← →" as bound; in irons, "strike sail
+  (S ↓) and row her round" - one rung down does both.
+
+The test harnesses (`test/csa_sailing.test.js`, `test/csaScene.mjs`) take a key going down as the press it is - one held
+as the helm is taken is pressed at the helm. `tools/mutants/helmladder.json`.
 
 ## The responsive helm (HELM-WAY, 2026-09-29 - DECLARED)
 

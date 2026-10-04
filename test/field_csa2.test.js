@@ -189,8 +189,8 @@ test('FIELD-CSA2: on the open sea, Iliac Puddle No More on - every deed\'s hull 
       s.frame({ press: [BOAT_ACTIONS.toggleSail] });   // stowed again, for the oars
     }
     const start = [...boat.GameObject.position];
-    s.held.add('MoveForwards');
-    for (let i = 0; i < 8; i++) s.frame();
+    s.frame({ press: ['MoveForwards'] });   // HELM-LADDER: a rung up - her oars pulling ahead
+    for (let i = 0; i < 7; i++) s.frame();
     const moved = Math.hypot(boat.GameObject.position[0] - start[0], boat.GameObject.position[2] - start[2]);
     assert.ok(s.rt.state.MoveVectorCurrent[2] > 0, `hull ${hull}: under way (a beached boat's move is zeroed each frame)`);
     assert.ok(moved > 0.25, `hull ${hull}: the oars pulled it ${moved} m in two seconds (none while beached)`);

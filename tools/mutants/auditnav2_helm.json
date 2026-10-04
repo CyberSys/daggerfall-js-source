@@ -75,7 +75,7 @@
   {
     "name": "AUDIT-NAV2-F17-the-sail-keys-under-the-view",
     "file": "src/scenes/world.js",
-    "old": "started: (action) => (pressed(latch.edge, keys, action) && !(travelView?.active && [CSA_BOAT_ACTIONS.sailUp, CSA_BOAT_ACTIONS.sailDown, CSA_BOAT_ACTIONS.toggleSail].includes(action))) || csaHelmInput.edges.has(action),",
+    "old": "started: (action) => (pressed(latch.edge, keys, action) && !(travelView?.active && [CSA_BOAT_ACTIONS.sailUp, CSA_BOAT_ACTIONS.sailDown, CSA_BOAT_ACTIONS.toggleSail, 'MoveForwards', 'MoveBackwards'].includes(action))) || csaHelmInput.edges.has(action),",
     "new": "started: (action) => (pressed(latch.edge, keys, action)) || csaHelmInput.edges.has(action),",
     "tests": [
       "test/auditnav2_helm.test.js"
@@ -84,8 +84,8 @@
   {
     "name": "AUDIT-NAV2-F17-the-journey-refused-too",
     "file": "src/scenes/world.js",
-    "old": "started: (action) => (pressed(latch.edge, keys, action) && !(travelView?.active && [CSA_BOAT_ACTIONS.sailUp, CSA_BOAT_ACTIONS.sailDown, CSA_BOAT_ACTIONS.toggleSail].includes(action))) || csaHelmInput.edges.has(action),",
-    "new": "started: (action) => !(travelView?.active && [CSA_BOAT_ACTIONS.sailUp, CSA_BOAT_ACTIONS.sailDown, CSA_BOAT_ACTIONS.toggleSail].includes(action)) && (pressed(latch.edge, keys, action) || csaHelmInput.edges.has(action)),",
+    "old": "started: (action) => (pressed(latch.edge, keys, action) && !(travelView?.active && [CSA_BOAT_ACTIONS.sailUp, CSA_BOAT_ACTIONS.sailDown, CSA_BOAT_ACTIONS.toggleSail, 'MoveForwards', 'MoveBackwards'].includes(action))) || csaHelmInput.edges.has(action),",
+    "new": "started: (action) => !(travelView?.active && [CSA_BOAT_ACTIONS.sailUp, CSA_BOAT_ACTIONS.sailDown, CSA_BOAT_ACTIONS.toggleSail, 'MoveForwards', 'MoveBackwards'].includes(action)) && (pressed(latch.edge, keys, action) || csaHelmInput.edges.has(action)),",
     "tests": [
       "test/auditnav2_helm.test.js"
     ]
@@ -93,8 +93,8 @@
   {
     "name": "AUDIT-NAV2-F17-the-sail-key-left-live",
     "file": "src/scenes/world.js",
-    "old": "CSA_BOAT_ACTIONS.sailDown, CSA_BOAT_ACTIONS.toggleSail].includes(action)",
-    "new": "CSA_BOAT_ACTIONS.sailDown].includes(action)",
+    "old": "CSA_BOAT_ACTIONS.sailDown, CSA_BOAT_ACTIONS.toggleSail, 'MoveForwards', 'MoveBackwards'].includes(action)",
+    "new": "CSA_BOAT_ACTIONS.sailDown, 'MoveForwards', 'MoveBackwards'].includes(action)",
     "tests": [
       "test/auditnav2_helm.test.js"
     ]

@@ -416,8 +416,8 @@
   {
     "name": "CSA-E-raise-position-kept",
     "file": "src/systems/comeSailAway.js",
-    "old": "    state.sailPosition = 1;\n    deps.audio?.dfOneShot?.(nodeOf(b.GameObject, b.DFAudioSource), 380",
-    "new": "    deps.audio?.dfOneShot?.(nodeOf(b.GameObject, b.DFAudioSource), 380",
+    "old": "    state.sailPosition = 1;\n    state.oarThrottle = 0;",
+    "new": "    state.oarThrottle = 0;",
     "tests": [
       "test/csa_wind.test.js"
     ]
