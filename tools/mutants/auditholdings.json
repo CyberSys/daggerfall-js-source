@@ -359,11 +359,12 @@
   {
     "name": "AH-T5-a-peer-at-a-berth-unseen",
     "file": "src/scenes/navalHost.js",
-    "old": "    for (const m of deps.pool?.peerBoats ?? []) if (m !== except && m.GameObject?.activeSelf !== false",
-    "new": "    for (const m of []) if (m !== except && m.GameObject?.activeSelf !== false",
+    "old": "    for (const m of deps.pool?.peerBoats ?? []) if (m !== except && m.GameObject && Math.hypot(",
+    "new": "    for (const m of []) if (m !== except && m.GameObject && Math.hypot(",
     "tests": [
       "test/auditholdings.test.js"
-    ]
+    ],
+    "note": "BERTH-HIDDEN (PIN MOVED): re-aimed by content - the peer's boat asked shown or not (`m.GameObject`)."
   },
   {
     "name": "AH-T5-warped-in-under-fire",

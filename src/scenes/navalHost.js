@@ -582,6 +582,12 @@ export function createNavalHost(deps) {
   const myBoat = () => (sailing() ? csa().state.CurrentBoat : null);
   /** The boats of mine that stand in the world (the shots' targets, the flotsam's collectors). */
   const myBoats = () => (csa()?.state?.AllBoats ?? []).filter((b) => b.GameObject?.activeSelf);
+  /** BERTH-HIDDEN (2026-10-04, Mac: "its two ships clipped inside of eachother"): every boat of mine placed outdoors,
+   *  shown or not - what a berth asks of. Come Sail Away hides a boat more than a map pixel off and every one while I am
+   *  indoors, and she lies where she lay all the same (FIELD-CSA1: she rides the origin in sight or not); read by the
+   *  shown ones alone, a ship made fast at a quay was a free berth from the harbour roll's 1,200 m, and the port moored
+   *  its own into her. A dungeon's (`inside`) lies in its own place. */
+  const berthBoats = () => (csa()?.state?.AllBoats ?? []).filter((b) => b.GameObject && !b.inside);
   /** A boat's root pose as the gunnery reads it. */
   function boatPose(boat) {
     const r = csa();
@@ -3230,14 +3236,15 @@ export function createNavalHost(deps) {
     return !(b && boatAtBerth(b, null));   // QUAYS: nor a boat of mine or another player's lying at it - none moors into her
   }
   /** QUAYS: a boat of mine or another player's (not `except`) lying at berth `b` - within BERTH_SNAP_M of it, mine under
-   *  BERTH_WAY (one sailing by takes no berth). */
+   *  BERTH_WAY (one sailing by takes no berth). BERTH-HIDDEN: shown or not - mine out of sight (berthBoats), another's
+   *  under its hidden owner (comeSailAwayPeers.js O4: it stands nowhere while he is at its helm, and is posed all along). */
   function boatAtBerth(b, except) {
-    for (const m of myBoats()) {
+    for (const m of berthBoats()) {
       if (m === except || Math.hypot(m.GameObject.position[0] - b.pos[0], m.GameObject.position[2] - b.pos[1]) > BERTH_SNAP_M) continue;
       const v = boatPose(m).velocity;
       if (Math.hypot(v[0], v[2]) < BERTH_WAY) return true;
     }
-    for (const m of deps.pool?.peerBoats ?? []) if (m !== except && m.GameObject?.activeSelf !== false && Math.hypot(m.GameObject.position[0] - b.pos[0], m.GameObject.position[2] - b.pos[1]) <= BERTH_SNAP_M) return true;
+    for (const m of deps.pool?.peerBoats ?? []) if (m !== except && m.GameObject && Math.hypot(m.GameObject.position[0] - b.pos[0], m.GameObject.position[2] - b.pos[1]) <= BERTH_SNAP_M) return true;
     return false;
   }
   /** AUDIT SHIP-LIFE B1: the harbour I know a ship lies still at a berth of - another player's moored ship (her errand
