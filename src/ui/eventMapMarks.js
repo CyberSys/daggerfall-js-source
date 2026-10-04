@@ -32,6 +32,9 @@ export const RAID_TIP_TITLE = 'Raiding Party';
  *  grew past the screen would be the CARD-FIT bug again. */
 export const TIP_LINES_MAX = 5;
 export const TIP_TEXT_MAX = 80;
+/** SEAT-TIP (FIELD BUGS 2026-10-04e): a seat's card says whole sentences - its holder's and its battle's each name two
+ *  guilds and run past 80 - so its lines are bounded here instead (the card wraps them in its 320 px). */
+export const SEAT_TIP_TEXT_MAX = 160;
 /** How near the pointer a raided town answers, paper pixels - the location marks' own 16 (_markerAt): the raid's ring
  *  stands on the town's mark, so pointing at either is pointing at the raid. */
 export const RAID_HIT_PX = 16;
@@ -72,12 +75,13 @@ export function raidMapMarks(raids, nowMinutes, { regionName = () => '', localTi
   return out;
 }
 
-/** A tip read and checked: a title and its lines as bounded text, or null for anything else. */
-export function readTip(tip) {
+/** A tip read and checked: a title and its lines as bounded text (each line at most `textMax` - TIP_TEXT_MAX, or a seat's
+ *  SEAT_TIP_TEXT_MAX), or null for anything else. */
+export function readTip(tip, { textMax = TIP_TEXT_MAX } = {}) {
   if (!tip || typeof tip !== 'object') return null;
   const title = String(tip.title ?? '').slice(0, TIP_TEXT_MAX);
   if (!title) return null;
-  const lines = (Array.isArray(tip.lines) ? tip.lines : []).slice(0, TIP_LINES_MAX).map((l) => String(l ?? '').slice(0, TIP_TEXT_MAX)).filter(Boolean);
+  const lines = (Array.isArray(tip.lines) ? tip.lines : []).slice(0, TIP_LINES_MAX).map((l) => String(l ?? '').slice(0, textMax)).filter(Boolean);
   return Object.freeze({ title, lines: Object.freeze(lines) });
 }
 

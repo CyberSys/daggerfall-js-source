@@ -171,11 +171,11 @@ test('SUNBABY1 GLSL: the flower sky and the sun baby are generated from the tabl
   for (const c of [...SUNBABY_PETALS, SUNBABY_HEART, SUNBABY_ZENITH, SUNBABY_HORIZON]) assert.ok(SUNBABY_GLSL.includes(v3(c)), v3(c));
   for (const d of SUNBABY_DENSITY) assert.ok(SUNBABY_GLSL.includes(d.toFixed(4)));
   assert.ok(SUNBABY_GLSL.includes(`/ ${SUNBABY_SUN_RADIUS.toFixed(4)};`), 'the face in its own radii');
-  assert.match(SUNBABY_GLSL, /vec3 sunbabySky\(vec3 dir, vec3 sunDir, float t\)/);
+  assert.match(SUNBABY_GLSL, /vec3 sunbabySky\(vec3 dir, vec3 sunDir, float t, vec2 face\)/);   // SUNBABY2 moved it: the face it wears
   assert.match(SUNBABY_GLSL, /float px = length\(fwidth\(p\)\);[\s\S]*float upx = length\(fwidth\(uv\)\);\s*\n\s*if \(dot\(dir, sunDir\)/, 'every derivative taken before the branch that reads it');
   assert.ok(FS.includes(SUNBABY_GLSL));
   assert.ok(FS.includes(rd('src/render/enhancedSky.js').match(/vec3 ray = normalize\(vec3\(vNdc\.x[^\n]*/)[0]), 'the enhanced sky\'s ray');
-  assert.match(FS, /outColor = vec4\(sunbabySky\(dir, uSunDir, uTime\), clamp\(uWeight, 0\.0, 1\.0\)\);/, 'blended by the weight');
+  assert.match(FS, /outColor = vec4\(sunbabySky\(dir, uSunDir, uTime, uFace\), clamp\(uWeight, 0\.0, 1\.0\)\);/, 'blended by the weight');   // SUNBABY2 moved it: uFace
   for (const u of UNIFORM_NAMES) assert.match(FS, new RegExp(`uniform [^;]*\\b${u}\\b`), u);
 });
 
@@ -227,8 +227,8 @@ test('SUNBABY1 host: the sky controller draws the flower sky over the sky and it
   assert.match(shared, /if \(clouds\) \{ clouds\.update\(viewport\); clouds\.draw\(yaw, pitch, fovY, aspect\); \}[^\n]*\n\s*if \(sunbabyW > 0\) sunbabySky\?\.draw\(yaw, pitch, fovY, aspect\);/, 'after the clouds, before the host\'s marker');
   assert.match(shared, /setSunbaby\(w, on = false\) \{\s*sunbabyW = Math\.max\(0, Math\.min\(1, Number\(w\) \|\| 0\)\);\s*sunbabyOn = !!on;\s*if \(sunbabyW > 0\) \{ const p = sunbabyPass\(\); if \(p\) p\.weight = sunbabyW; \}\s*else if \(sunbabySky\) sunbabySky\.weight = 0;/);
   assert.match(shared, /try \{ sunbabySky = new SunbabySkyRenderer\(gl\); \} catch/, 'built the first time it shows, and a failed build costs the flowers, never the frame');
-  assert.match(shared, /const c = sunbabyW > 0 \? sunbabyHaze\(own, sunbabyW\) : own;[^\n]*\n\s*return dreadW > 0 \? dreadGrade\(c, dreadW\) : c;/, 'the fog');
-  assert.match(shared, /const dreaded = \(ws\) => sunbabyWaterSky\(dreadW > 0 \? [^\n]*: ws, sunbabyW\);/, 'the water, on either lane');
+  assert.match(shared, /const c = sunbabyW > 0 \? sunbabyHaze\(own, sunbabyW, sunbabyEvil\) : own;[^\n]*\n\s*return dreadW > 0 \? dreadGrade\(c, dreadW\) : c;/, 'the fog');   // SUNBABY2 moved it: the wrath's horizon
+  assert.match(shared, /const dreaded = \(ws\) => sunbabyWaterSky\(dreadW > 0 \? [^\n]*: ws, sunbabyW, sunbabyEvil\);/, 'the water, on either lane');   // SUNBABY2 moved it: the wrath's sky
   assert.match(shared, /use\(skyIndex, minuteOfDay, showNightSky = true, extra = null\) \{\s*if \(sunbabyOn && extra\) extra = \{ \.\.\.extra, violence: extra\.weather, cells: null, cloudBase: null, approach: 0 \};/, 'no storm cell, no violence, no front under the sun baby');
 });
 
@@ -240,7 +240,7 @@ test('SUNBABY1 host: world.js hears the sun baby on the hub\'s one onEvent, SHOW
   assert.match(world, /link\.onEvent = \(ev, o\) => \{ dread\.set\(ev, o\); sunbaby\.set\(ev, o\); \};/);
   assert.match(world, /const sunbabyW = sunbaby\.tick\(dt\);/);
   assert.match(world, /if \(isEnhanced\(\) && !weatherOverride && !sunbaby\.on\) \{[^\n]*\n\s*const ds = distantStorms\.tick\(/);
-  assert.match(world, /sunbabyLight\(dreadLight\(withMoonAmbient\(exteriorAmbient\([\s\S]*?\), moonNow\), skyDreadW\), sunbabyW\), sunScale\(minute\)/);
+  assert.match(world, /sunbabyLight\(dreadLight\(withMoonAmbient\(exteriorAmbient\([\s\S]*?\), moonNow\), skyDreadW\), sunbabyW, sunbabyFace\.evil\), sunScale\(minute\)/);   // SUNBABY2 moved it: the wrath
   const set = world.indexOf('sky.setSunbaby(sunbabyW, sunbaby.on);');
   assert.ok(set > 0 && set < world.indexOf('sky.use(('), 'before the sky\'s frame reads it');
   assert.match(world, /if \(staged\.kind && !relayKnowsLiveEvent\(hub\.eventV, staged\.kind\)\) return say\('The server cannot stage that event yet\.'\);/);

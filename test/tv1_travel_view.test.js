@@ -696,8 +696,10 @@ test('TV1 key: TravelView is the port\'s own action, appended, drawn in the Wind
   assert.equal(DEFAULT_BINDINGS.find(([, a]) => a === 'TravelView'), undefined, 'no default key');
   const windows = ACTION_GROUPS.find((g) => g.name === 'Windows' || g.title === 'Windows' || g.label === 'Windows');
   assert.ok(windows?.rows.some((r) => r.action === 'TravelView'), 'the pane draws it');
-  assert.match(rd('src/scenes/world.js'), /if \(!townTalk\.overlayActive && act === 'TravelView'\) \{ if \(e\.repeat\) return true; const st = travelView\?\.state; if \(st === 'up' \|\| st === 'rising'\) travelView\.exit\('key'\); else travelView\?\.enter\(\); return true; \}\n\s*if \(!townTalk\.overlayActive && \(modes\?\.mode \?\? 'exterior'\) === 'exterior'\) \{/,
+  assert.match(rd('src/scenes/world.js'), /if \(!townTalk\.overlayActive && act === 'TravelView'\) \{ if \(e\.repeat\) return true; travelViewKey\(\); return true; \}\n\s*if \(!townTalk\.overlayActive && \(modes\?\.mode \?\? 'exterior'\) === 'exterior'\) \{/,
     'AUDIT DEEP X-2: the same key again is the way out - AUDIT DEEP2 A5/A8: never on a repeat, and ABOVE the mode gate (indoors it is answered)');
+  // PAD-BINDS (FIELD BUGS 2026-10-04e): the key's arm and the pad's d-pad share ONE toggle
+  assert.match(rd('src/scenes/world.js'), /function travelViewKey\(\) \{\n\s*const st = travelView\?\.state;\n\s*if \(st === 'up' \|\| st === 'rising'\) travelView\.exit\('key'\); else travelView\?\.enter\(\);\n\s*\}/);
 });
 
 test('TV1 body: the seam holds whichever body answers out of the head for the view, hands it back as it found it, and hides every first-person piece while it holds', async () => {

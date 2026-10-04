@@ -705,6 +705,26 @@ export function seatBattleLine(battle) {
   if (battle.kind === 'tourney') return `${GuildWords(battle.guild)} and ${guildWords(battle.against)} meet in a Tourney for the Charter this week.`;
   return `${GuildWords(battle.guild)} has won a Right of Siege against ${guildWords(battle.against)} this week.`;
 }
+/**
+ * SEAT-TIP (FIELD BUGS 2026-10-04e: "We need a hover tooltips for capturable cities/towns that show occupation"): A
+ * SEAT'S CARD for a map's hover - the Overworld's plate and the held map's mark - `{ title, lines }` (the EVENT-TIP card,
+ * ui/eventMapMarks.js readTip): the town, then its Charter and who holds it ("The Charter of Anticlere: held by the
+ * Silver Hand <SH>"), how long and how firmly (seatHolderLine), the holder's rule (seatRuleLine), and this week's battle
+ * and a called siege. `seat` a DRESSED seat (net/townSeatBook.js dressed - `holder`, `battle`), or null. Pure.
+ */
+export function seatTipOf(seat, nowMs = Date.now()) {
+  if (!seat?.name) return null;
+  const holder = seat.holder ?? null;
+  const lines = [seatInfoLine(seat, holder?.guild ?? null)];
+  if (holder?.guild) lines.push(seatHolderLine(holder));
+  const rule = seatRuleLine(seat, holder);
+  if (rule) lines.push(rule);
+  const battle = seatBattleLine(seat.battle ?? null);
+  if (battle) lines.push(battle);
+  const siege = siegeCalledClause(seat.battle, nowMs).trim();
+  if (siege) lines.push(siege);
+  return { title: seat.name, lines };
+}
 /** What the relinquish button says - pressed once to arm, again to give the Charter up. */
 export const SEAT_RELINQUISH_WORDS = Object.freeze({ arm: 'Give up the Charter', sure: 'Press again to give up the Charter' });
 /** The claim line under the standings: the threshold an unheld seat's claimant must pass, or the holder's defence. */

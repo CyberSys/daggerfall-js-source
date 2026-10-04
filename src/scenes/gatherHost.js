@@ -1010,7 +1010,7 @@ export function createGatherHost(deps) {
             const tr = deps.pixelTranslation(g.s.entry.px, g.s.entry.py, _t);
             const d = Math.hypot(at.local[0] + tr[0] - pos[0], at.local[2] + tr[2] - pos[2]);
             if (!(d <= GROUP_M)) continue;
-            all.push({ d, s: g.s, local: at.local, mark: { key: `gather:${key}`, at: [0, 0, 0], label: groupLabel(g.profession, g.nodes.length), kind: `gather ${g.profession}`, color: nodeMarkCss(g.profession) } });
+            all.push({ d, s: g.s, local: at.local, mark: { key: `gather:${key}`, at: [0, 0, 0], label: groupLabel(g.profession, g.nodes.length), kind: `gather ${g.profession}`, color: nodeMarkCss(g.profession), dist: d / 1000 } });   // OW-NODE-KM: how far off, km - the Overworld's node reach reads it
           }
           all.sort((a, b) => a.d - b.d || (a.mark.key < b.mark.key ? -1 : 1));
           groupsKept = all.slice(0, GROUP_MAX);

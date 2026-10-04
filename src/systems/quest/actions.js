@@ -2337,6 +2337,11 @@ export class CreateFoe extends ActionTemplate {
         throw new Error(`create foe could not find Foe with symbol name ${this.symbol?.name}`);
       }
       if (foe.isHidden) return;   // hidden blocks the spawn; the interval is already spent
+      // CURSE-OFF-SAND (FIELD BUGS 2026-10-04e): a wave the host keeps off where the player stands (systems/arenaGround.js
+      // - the curse's dead off the arena's grounds) passes as a hidden Foe's does: the interval spent, NO wave pending. A
+      // refusal at placement instead left the wave pending, and every tick of a pending wave raises the encounter event
+      // below - a rest on the grounds broken each hour by a foe that never came
+      if (world.foeKeptOff?.(foe)) return;
       this._createPendingFoeSpawn(world, foe);
     }
 
