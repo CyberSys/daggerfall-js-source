@@ -11,8 +11,8 @@
   {
     "name": "FAST-default-concurrency",
     "file": "tools/testShards.mjs",
-    "old": "['--test', `--test-concurrency=${Math.max(1, cores | 0)}`, ...ordered]",
-    "new": "['--test', ...ordered]",
+    "old": "  const head = ['--test', `--test-concurrency=${Math.max(1, cores | 0)}`, ...extra];",
+    "new": "  const head = ['--test', ...extra];",
     "tests": [
       "test/fastsuite.test.js"
     ]
@@ -29,8 +29,8 @@
   {
     "name": "FAST-status-dropped",
     "file": "tools/testShards.mjs",
-    "old": "  return r.status ?? 1;",
-    "new": "  return 0;",
+    "old": "    const s = r.status ?? 1;",
+    "new": "    const s = 0;",
     "tests": [
       "test/fastsuite.test.js"
     ]
@@ -47,7 +47,7 @@
   {
     "name": "FAST-shard-own-spawn",
     "file": "tools/testShards.mjs",
-    "old": "  return runTests(files);\n}",
+    "old": "  return runTests(files, { extra: runnerFlags(argv.slice(1)) });\n}",
     "new": "  return spawnSync(process.execPath, ['--test', ...files], { cwd: ROOT, stdio: 'inherit' }).status ?? 1;\n}",
     "tests": [
       "test/fastsuite.test.js"
@@ -56,7 +56,7 @@
   {
     "name": "FAST-changed-own-spawn",
     "file": "tools/testChanged.mjs",
-    "old": "  return runTests(files);\n}",
+    "old": "  return runTests(files, { extra: runnerFlags(argv) });\n}",
     "new": "  return 0;\n}",
     "tests": [
       "test/fastsuite.test.js"
@@ -71,6 +71,51 @@
       "test/fastsuite.test.js",
       "test/audit68_repo.test.js",
       "test/flow1_ci.test.js"
+    ]
+  },
+  {
+    "name": "FAST-F7-no-budget-split",
+    "file": "tools/testShards.mjs",
+    "old": "    if (run.length && used + f.length + 3 > budget) {",
+    "new": "    if (false) {",
+    "tests": [
+      "test/fastsuite.test.js"
+    ]
+  },
+  {
+    "name": "FAST-F7-a-later-status-wins",
+    "file": "tools/testShards.mjs",
+    "old": "    if (s !== 0 && status === 0) status = s;",
+    "new": "    if (s !== 0) status = s;",
+    "tests": [
+      "test/fastsuite.test.js"
+    ]
+  },
+  {
+    "name": "FAST-F7-start-error-unsaid",
+    "file": "tools/testShards.mjs",
+    "old": "    if (r.error) console.error(`[tests] the test runner did not start: ${r.error.message ?? r.error}`);\n",
+    "new": "",
+    "tests": [
+      "test/fastsuite.test.js"
+    ]
+  },
+  {
+    "name": "FAST-F7-flags-dropped",
+    "file": "tools/testShards.mjs",
+    "old": "export const runnerFlags = (argv) => argv.filter((a) => /^--test-[a-z-]+(=.*)?$/.test(a));",
+    "new": "export const runnerFlags = (argv) => argv.filter(() => false);",
+    "tests": [
+      "test/fastsuite.test.js"
+    ]
+  },
+  {
+    "name": "FAST-F7-flags-ahead-of-concurrency",
+    "file": "tools/testShards.mjs",
+    "old": "  const head = ['--test', `--test-concurrency=${Math.max(1, cores | 0)}`, ...extra];",
+    "new": "  const head = ['--test', ...extra, `--test-concurrency=${Math.max(1, cores | 0)}`];",
+    "tests": [
+      "test/fastsuite.test.js"
     ]
   }
 ]

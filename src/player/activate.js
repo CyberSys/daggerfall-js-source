@@ -507,6 +507,11 @@ function nearestActivatableHit(eye, dir, targets, collider) {
         targetKeys ??= new Set(targets.map((t) => t.key));
         if (targetKeys.has(firstHit.key)) continue;
       }
+      // AUDIT WHERE-ROBES P3: and when the first surface IS its own, it is struck there and not at its box's entry - a
+      // decor dresser's mirror behind a candle on its top took the candle's press, the bug WHERE-ROBES fixed for the
+      // building's own furniture. Only its own surface moves it: a piece whose box stands with no bucket of its own (a
+      // model with no geometry to collide) is still met at its box, as before.
+      if (firstHit.key === target.key) d = Math.max(d, firstHit.dist);
     } else if (target.surface === true && collider.raycastHit && d <= bestDist) {   // a box entered past the best can lose only further: no cast
       // WHERE-ROBES (FIELD BUGS 2026-10-04c): CASTLE1's law again, for a box merely ENTERED whose model's triangles sit
       // in the collider's SHARED bucket (a building's furniture, filed under the interior's own key, so no key names

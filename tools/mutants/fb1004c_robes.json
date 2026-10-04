@@ -168,7 +168,7 @@
   {
     "name": "ROBES-share-click-lost",
     "file": "src/systems/quest/machine.js",
-    "old": "      if (was?.clicked) r.hasPlayerClicked = true;\n",
+    "old": "      if (was?.clicked && !r.hasPlayerClicked) r.setPlayerClicked();\n",
     "new": "",
     "tests": [
       "test/fb1004c_robes.test.js"
@@ -177,7 +177,7 @@
   {
     "name": "ROBES-share-pickup-lost",
     "file": "src/systems/quest/machine.js",
-    "old": "      if (was?.hidden) r.isHidden = true;\n",
+    "old": "      if (was?.hidden && r.isItem) r.isHidden = true;\n",
     "new": "",
     "tests": [
       "test/fb1004c_robes.test.js"
@@ -186,8 +186,8 @@
   {
     "name": "ROBES-dungeon-search-box-raced",
     "file": "src/scenes/dungeonContext.js",
-    "old": "reach: SEARCH_REACH, surface: true }));",
-    "new": "reach: SEARCH_REACH }));",
+    "old": "reach: SEARCH_REACH, surface: true }); });",
+    "new": "reach: SEARCH_REACH }); });",
     "tests": [
       "test/fb1004c_robes.test.js"
     ]

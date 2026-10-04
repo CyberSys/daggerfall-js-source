@@ -35,7 +35,7 @@ Houseguest", is the other tiger in the pack: a house, and a kill.)
 - Shared with the party (QUEST-PARTY), it rides the room's own lane to the party alone, stood as a puppet for a LINKED
   copy only (DISC28-J's `accepts`), struck only by the party, hunting only the party (`isPrivateQuestFoe`,
   `questShareTag`, `peerMayHit`). Every member's linked copy counts the injury and the kill it sees; the resync's max
-  merge (`machine.js:1369`) keeps the copies equal.
+  merge (`machine.js:1376`) keeps the copies equal.
 - It is never the room's: the hourly respawn (`RESPAWN_MS`) and the relay's memory of the dead (`sharedWorld`'s
   `slice(0, _layoutFoes)`) cover the layout's run alone. Once its copy counts it killed it is never stood again; alive,
   it stands at full health each time its player comes in.

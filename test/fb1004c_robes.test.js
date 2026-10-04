@@ -13,51 +13,13 @@
 import './modsOff.js';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync, readdirSync } from 'node:fs';
-import { join, dirname } from 'node:path';
-import { fileURLToPath } from 'node:url';
-import { QuestMachine } from '../src/systems/quest/machine.js';
-import { loadQuestTables } from '../src/systems/quest/tables.js';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { sendQuestItemClick } from '../src/systems/itemTransfer.js';
-import { hoverLines } from '../src/systems/worldHover.js';
-import { foldQuickLoot, quickLootTake, quickLootArm, resetQuickLoot } from '../src/systems/quickLoot.js';
-import { PREF_DEFAULTS, setPref } from '../src/systems/uiPrefs.js';
-import { mountEnhancedInventory, inventoryQuickAct } from '../src/ui/enhancedInventory.js';
-import { _resetForTests } from '../src/systems/settings.js';
-import { withDom } from './invdrag.mjs';
+import { foldQuickLoot, quickLootTake, quickLootArm } from '../src/systems/quickLoot.js';
+import { inventoryQuickAct } from '../src/ui/enhancedInventory.js';
+import { ROOT, examination, noteCame, withQuickLoot, frameOf, thief, overPile, bedRoom } from './robesHarness.mjs';   // the harness the audit's file shares
 
-const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
-const rd = (p) => readFileSync(join(ROOT, p), 'utf8').replace(/^﻿/, '');
-{
-  const sources = {};
-  for (const f of readdirSync(join(ROOT, 'vendor/dfu-quests/Tables'))) if (f.endsWith('.txt')) sources[f.replace('.txt', '')] = rd(join('vendor/dfu-quests/Tables', f));
-  loadQuestTables(sources);
-}
-
-/** The flattened words of a popup's tokens. */
-const words = (tokens) => (tokens ?? []).map((t) => t.text ?? '').join(' ').replace(/\s+/g, ' ');
-
-/** The Qualifying Examination, begun: the beggar's letter in hand, the robes minted and somewhere not the pack. Its
- *  map placements want a loaded world, so those lines are left out (the AUDIT TIMEFREE II harness's cut) - the robes'
- *  click and `_S.03_` are what is asked. */
-function examination() {
-  const now = { s: 1e6 };
-  const popups = [], given = [];
-  const m = new QuestMachine({
-    nowSeconds: () => now.s, isPlayerInTown: () => true,
-    getQuestSourceLines: (n) => rd(`vendor/dfu-quests/Quests/${n}.txt`).split(/\r?\n/).filter((l) => !/^\s*(place npc|place item|create npc at)/.test(l)),
-    showPopup: (_q, tokens) => popups.push(words(tokens)),
-    giveItemToPlayer: (it) => given.push(it),
-  });
-  const q = m.startQuestByName('O0A0AL00');
-  const step = (n = 2) => { for (let i = 0; i < n; i++) { now.s += 1; m.tick(); } };
-  step();
-  const robes = q.getItem({ name: 'clothing' }).daggerfallUnityItem;
-  const note = q.getItem({ name: 'note' }).daggerfallUnityItem;
-  return { m, q, robes, note, popups, given, step, getQuest: (uid) => m.getQuest(uid) };
-}
-/** Whether the robes' note reached the player: message 1018 said and `_note_` given. */
-const noteCame = (e) => e.popups.some((p) => /As you pick up the/.test(p) && /note is tucked/.test(p)) && e.given.includes(e.note);
 
 test('WHERE-ROBES: the examination as DFU runs it - a click on the robes says 1018 and hands over the note; no click, no note (the trigger is the click, ticked through the real machine)', () => {
   const e = examination();
@@ -83,18 +45,6 @@ test('WHERE-ROBES: the one home answers nothing for what is not a live quest ite
 
 // ── QUICK LOOT: the row taken with no window ───────────────────────────────────────────────────────────────────────
 
-/** The feature with its switch on and its state clean, restored after (test/quickloot.test.js's own). */
-function withQuickLoot(fn) {
-  setPref('quickLoot', true);
-  resetQuickLoot();
-  try { return fn(); } finally { resetQuickLoot(); setPref('quickLoot', PREF_DEFAULTS.quickLoot); }
-}
-/** A frame as resolveHover mints one, the rows hoverLines' own. */
-const frameOf = (key, items) => {
-  const { shown, rest, empty } = hoverLines(items);
-  return { key, kind: 'items', title: 'Loot Pile', subs: [], rows: shown, rest, empty };
-};
-const thief = () => ({ name: 'Balcony', items: [], goldPieces: 0, stats: { strength: 50 } });
 
 test('WHERE-ROBES: QUICK LOOT\'s take is the loot row\'s click - the robes off a pile with E send the quest click, and the note comes (mutant: the click left out of takeThrough)', () => withQuickLoot(() => {
   const e = examination();
@@ -108,7 +58,7 @@ test('WHERE-ROBES: QUICK LOOT\'s take is the loot row\'s click - the robes off a
   assert.equal(noteCame(e), true, 'the click reached `_S.03_`: 1018 said, the note given');
 }));
 
-test('WHERE-ROBES: QUICK LOOT\'s take-all (P) clicks every quest item it takes, as a click on each row would', () => withQuickLoot(() => {
+test('WHERE-ROBES: QUICK LOOT\'s take-all (P) clicks every quest row of the lot, as a click on each row would - taken or, too heavy, left (DFU sends the click before CanCarryAmount)', () => withQuickLoot(() => {
   const e = examination();
   const p = thief();
   const body = [{ name: 'Dagger', group: 'Weapons', templateIndex: 113 }, e.robes];
@@ -122,25 +72,6 @@ test('WHERE-ROBES: QUICK LOOT\'s take-all (P) clicks every quest item it takes, 
 
 // ── THE ENHANCED SKIN: the menu and the pad's quick act ─────────────────────────────────────────────────────────────
 
-/** The enhanced pack over a loot pile - the remote target the hosts hand it (`loot.items`) and their quest resolver. */
-function overPile(e, pile, fn) {
-  const prev = globalThis.location, prevWin = globalThis.window, hadWin = 'window' in globalThis;
-  globalThis.location = { search: '?skin=enhanced' };
-  globalThis.window = { innerWidth: 1280, innerHeight: 800 };   // the menu is placed beside the pointer (placeBeside reads the view)
-  _resetForTests();
-  try {
-    withDom((dom) => {
-      const host = dom.mk('div'); dom.body.append(host);
-      const p = thief();
-      let view = null;
-      view = mountEnhancedInventory(host, { entity: p, items: () => p.items, loot: { items: () => pile }, getQuest: e.getQuest, onExit: () => view?.unmount() });
-      try {
-        const lootRow = () => host.querySelectorAll('.itemrow').find((r) => r.closest('.loot-win') && r._padItem === e.robes) ?? null;
-        fn({ dom, host, p, lootRow });
-      } finally { view.unmount(); }
-    });
-  } finally { globalThis.location = prev; if (hadWin) globalThis.window = prevWin; else delete globalThis.window; _resetForTests(); }
-}
 
 test('WHERE-ROBES: the enhanced skin\'s RIGHT CLICK on a loot row (a long press, the pad\'s Y) is DFU\'s right click - the quest click goes first, then its Take takes (mutant: the menu\'s click left out)', () => {
   const e = examination();
@@ -200,35 +131,13 @@ test('WHERE-ROBES: a quest ITEM stand is named by the Item resource\'s own item 
 
 test('WHERE-ROBES: both hosts\' quest-stand namers ask the one reader - no namer reads a field no resource has', () => {
   const wm = readFileSync(join(ROOT, 'src/scenes/worldModes.js'), 'utf8');
-  assert.equal((wm.match(/questResourceName\(questStandItem\(res\), \{ archive: st\.archive \?\? -1, record: st\.record \?\? -1 \}\)/g) ?? []).length, 2,
+  assert.equal((wm.match(/questResourceName\(questStandItem\(res\), \{ archive: st\.archive \?\? -1, record: st\.record \?\? -1, getQuest: \(uid\) => questBridge\?\.machine\.getQuest\(uid\) \?\? null \}\)/g) ?? []).length, 2,
     'the building\'s namer and the dungeon\'s');
   assert.doesNotMatch(wm, /res\.daggerfallItem|res\.item \?\?/, 'the old read is gone from both');
 });
 
 // ── THE PRESS: the robes on a bed, a dresser, a shelf ───────────────────────────────────────────────────────────────
 
-/** A real Collider holding a bed as a building files it (one shared bucket, the interior's own key): a mattress 0.5 m
- *  high from x 2..4, a headboard at its far end (x 3.9..4) up to 1.4 m - the bed's box, as worldAabb mints it, is the
- *  hull of both. Quads as two triangles each, every face. */
-async function bedRoom() {
-  const { Collider } = await import('../src/player/collider.js');
-  const c = new Collider(() => -Infinity);
-  const box = (x0, y0, z0, x1, y1, z1) => {
-    const p = [[x0, y0, z0], [x1, y0, z0], [x1, y1, z0], [x0, y1, z0], [x0, y0, z1], [x1, y0, z1], [x1, y1, z1], [x0, y1, z1]];
-    const f = [[0, 1, 2, 3], [5, 4, 7, 6], [4, 0, 3, 7], [1, 5, 6, 2], [3, 2, 6, 7], [4, 5, 1, 0]];
-    return { positions: p.flat(), indices: f.flatMap(([a, b, cc, d]) => [a, b, cc, a, cc, d]) };
-  };
-  const mattress = box(2, 0, -1, 4, 0.5, 1), head = box(3.9, 0.5, -1, 4, 1.4, 1);
-  const I = [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1];
-  c.addMesh('interior', new Float32Array(mattress.positions), new Uint32Array(mattress.indices), I);
-  c.addMesh('interior', new Float32Array(head.positions), new Uint32Array(head.indices), I);
-  const wall = box(6, 0, -3, 6.2, 3, 3);   // the room's far wall, past the bed
-  c.addMesh('interior', new Float32Array(wall.positions), new Uint32Array(wall.indices), I);
-  const bed = { key: 'bed:0', aabb: { min: [2, 0, -1], max: [4, 1.4, 1] }, distance: 76.8, reach: 3.2, surface: true };
-  // the robes, a 0.5 m pile standing on the mattress (questStandBox's shape: base-anchored, `width` square)
-  const robes = { key: 'questflat:0', aabb: { min: [3.0, 0.5, -0.25], max: [3.5, 1.0, 0.25] }, distance: 3.2 };
-  return { c, bed, robes };
-}
 
 test('WHERE-ROBES: furniture is struck at its MESH - the robes on a mattress win the press over the bed whose box holds them, in either list order; the mattress itself is still the bed (mutants: the surface law dropped; the box-containment test dropped; struck at the box\'s entry, not the surface)', async () => {
   const { pickActivatableHit } = await import('../src/player/activate.js');

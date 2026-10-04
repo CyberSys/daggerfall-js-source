@@ -957,7 +957,7 @@ does the pack's USE arm.
                         close-then-hand-over ordering U55 got
                         backwards. No law needs extracting first.
     THE LOGBOOK         THREE sites: charSheetNav.js:53,
-    / NOTEBOOK          world.js:13756, dungeonContext.js:8991. A seam
+    / NOTEBOOK          world.js:13756, dungeonContext.js:8997. A seam
                         wants making, as U52's and U53's did.
     HISTORY             ONE site (charSheetNav.js:61), and it reads
                         only the entity's backStory. The small one.
@@ -9421,7 +9421,7 @@ and firing THAT twice is a second PopToHUD.
 
 ### Why only two of the four hosts crashed
 
-`worldModes.js:8596` and `dungeonContext.js:2123` answer the same
+`worldModes.js:8597` and `dungeonContext.js:2123` answer the same
 `onClose` by nulling their slot and never disposing - nothing to
 re-enter. Only the two hosts that come through `townTalk.closeOverlay`
 dispose. **The four-hosts rule caught this one by accident**: the two
@@ -17864,7 +17864,7 @@ draws, and it is a DEPARTURE recorded as one (Ledger A).
 
 DFU's own precedent for taking with no window is real and narrow: a
 body holding nothing but arrows is taken whole and no window opens
-(PlayerActivate.cs:948-952). This generalises that one case to any row
+(PlayerActivate.cs:949-954). This generalises that one case to any row
 the player has picked out, which is exactly the size of the departure.
 
 **Where the parts live.** The HIGHLIGHT's law is `systems/worldHover.js

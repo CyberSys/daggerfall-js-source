@@ -125,8 +125,9 @@ export function paintRoads(tileData, tilemap, roadMask, trackMask, locationRect 
       // lies on the pixel's centre cross (x or y within MID_LO-1..MID_HI+1 - a river join two out, at MID_LO-2 or
       // MID_HI+2, has its other coordinate on the cross), on its two diagonals (x-y, or the mirror's, within 2 - the
       // pixel corners among them), or inside the location rect (the road's paving); a tile off all of them fails every
-      // condition, so skipping it changes no byte - and spares 15,000 of the 16,384 the ladder ran. Proven against the
-      // ladder alone over every road, track, river and stream pixel of the shipped map, water on and off (103,487).
+      // condition, so skipping it changes no byte - and spares some 14,000 of the 16,384 the ladder ran (2,224 stay, and a
+      // location's rect). Proven against the ladder alone over every road, track, river and stream pixel of the shipped
+      // map, water on and off: `node tools/roadGuardProof.mjs` (103,487 real-map cases, none differing).
       if (!(x >= MID_LO - 1 && x <= MID_HI + 1) && !(y >= MID_LO - 1 && y <= MID_HI + 1)
         && Math.abs(x - y) > 2 && Math.abs(DIM - 1 - x - y) > 2
         && !(locationRect && x > locationRect.xMin && x < locationRect.xMax && y > locationRect.yMin && y < locationRect.yMax)) continue;

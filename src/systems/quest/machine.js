@@ -1321,8 +1321,15 @@ export class QuestMachine {
     // the click back - `clicked item` never fired, O0A0AL00's note never came - and showed the stand again over robes
     // already in the pack. Both are kept as the foes' flags are: an Item is hidden only by that pickup (no action
     // un-hides one), and the click is spent by the tick's own PostTick, never by a partner.
-    const itemActsBefore = new Map();
-    for (const r of quest.resources.values()) if (r.isItem && (r.hasPlayerClicked || r.isHidden)) itemActsBefore.set(r.symbol?.name, { clicked: !!r.hasPlayerClicked, hidden: !!r.isHidden });
+    // AUDIT WHERE-ROBES S1: and a click is this world's whatever it clicked - a quest Person's or Foe's too (ClickedNpc,
+    // ClickedFoe); a resync between the click and the tick lost O0A0AL00's own hand-in (`toting _clothing_ and
+    // _thiefmember_ clicked`). Restored through setPlayerClicked, so a Person the partner's copy has since muted or
+    // destroyed refuses it, as DFU's guard does.
+    const actsBefore = new Map();
+    for (const r of quest.resources.values()) {
+      const hidden = !!(r.isItem && r.isHidden);
+      if (r.hasPlayerClicked || hidden) actsBefore.set(r.symbol?.name, { clicked: !!r.hasPlayerClicked, hidden });
+    }
     // AUDIT DISC7 C2: the behaviours standing on this quest - relinked below, at once, not on their next update
     // (a person's or an item's never ticks, and a Place mount may come first)
     const standing = this._liveBehaviours(uid);
@@ -1357,10 +1364,10 @@ export class QuestMachine {
     }
     { let t = 0; for (const task of quest.tasks.values()) { let a = 0; for (const action of task.actions) { const w = action.typeName === 'CreateFoe' ? wavesBefore.get(`${t}:${a}`) : null; if (w && w.last) { action.lastSpawnTime = w.last; action._lastTick = w.tick; action._lastRaised = w.raised; action.spawnCounter = w.count | 0; } a++; } t++; } }   // the count is the holder's too: the waves spawn in this world, N of them here
     for (const r of quest.resources.values()) if (r.isItem && itemsBefore.has(r.symbol?.name)) r.daggerfallUnityItem = itemsBefore.get(r.symbol?.name);
-    for (const r of quest.resources.values()) {   // WHERE-ROBES: this world's click and pickup, kept
-      const was = r.isItem ? itemActsBefore.get(r.symbol?.name) : null;
-      if (was?.clicked) r.hasPlayerClicked = true;
-      if (was?.hidden) r.isHidden = true;
+    for (const r of quest.resources.values()) {   // WHERE-ROBES: this world's clicks and pickups, kept
+      const was = actsBefore.get(r.symbol?.name);
+      if (was?.clicked && !r.hasPlayerClicked) r.setPlayerClicked();
+      if (was?.hidden && r.isItem) r.isHidden = true;
     }
     this._relinkQuestItems(quest);
     for (const r of quest.resources.values()) {

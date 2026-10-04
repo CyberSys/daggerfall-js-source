@@ -20,7 +20,7 @@ import { join, dirname, relative, normalize, basename } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { execFileSync } from 'node:child_process';
 import { isMain } from './lib/isMain.mjs';
-import { testFiles, runTests } from './testShards.mjs';   // FAST-SUITE: run as every list of tests is run - longest first, every core
+import { testFiles, runTests, runnerFlags } from './testShards.mjs';   // FAST-SUITE: run as every list of tests is run - longest first, every core
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -104,7 +104,7 @@ function main(argv) {
   const files = chosen === 'all' ? tests : chosen;
   if (argv.includes('--list')) { for (const f of files) console.log(f); return 0; }
   console.log(`${changed.length} changed files -> ${chosen === 'all' ? 'the whole suite (a file every test leans on changed)' : `${files.length} of ${tests.length} test files`}`);
-  return runTests(files);
+  return runTests(files, { extra: runnerFlags(argv) });
 }
 
 if (isMain(import.meta.url)) process.exitCode = main(process.argv.slice(2));

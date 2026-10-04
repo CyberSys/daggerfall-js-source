@@ -16,7 +16,7 @@
 //
 // DFU's own precedent for taking with no window is real, and narrow: a
 // body holding nothing but arrows is taken whole and no window opens
-// (PlayerActivate.cs:948-952). This generalises that one case to any
+// (PlayerActivate.cs:949-954). This generalises that one case to any
 // row the player has picked out, which is exactly the size of the
 // departure and why it is worth writing down rather than implying.
 //

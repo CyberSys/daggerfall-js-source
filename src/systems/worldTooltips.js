@@ -379,9 +379,13 @@ export const questStandItem = (resource) => resource?.daggerfallUnityItem ?? nul
 
 /** A quest resource's word - items only; a quest PERSON or FOE stand
  *  answers nothing, exactly as the mod's `is Item` gate does. */
-export function questResourceName(item, { archive = -1, record = -1 } = {}) {
+export function questResourceName(item, { archive = -1, record = -1, getQuest = null } = {}) {
   if (archive === TOTEM_ARCHIVE && record === TOTEM_RECORD) return TOTEM_TEXT;
   if (!item) return null;
+  // AUDIT WHERE-ROBES N1: `getQuest` is the host's quest resolver. ResolveItemLongName's quest-letter arm
+  // (ItemHelper.cs:334-350) finds the letter's quest through QuestMachine.Instance and says "Letter: <signoff>"; the
+  // port's arm (itemInfo.js questLetterName) runs only with the resolver handed in, so a quest letter standing in the
+  // world read "Parchment" - a branch no one met until ROBES-NAME named the stands at all.
   // AUDIT-WH M4: `ResolveItemLongName(item, FALSE)` (.cs:509). The
   // second argument is `differentiatePlantIngredients`, which DFU
   // defaults TRUE - it is what puts "(northern)"/"(southern)" on the
@@ -391,7 +395,7 @@ export function questResourceName(item, { archive = -1, record = -1 } = {}) {
   // stand read "Yellow Rose (northern)" where the mod reads "Yellow
   // Rose". The port's own resolver already carries the switch; this
   // is the one caller that turns it off.
-  return itemLongName(item, { differentiatePlantIngredients: false }) || null;
+  return itemLongName(item, { differentiatePlantIngredients: false, getQuest }) || null;
 }
 
 // ── DOORS ───────────────────────────────────────────────────────

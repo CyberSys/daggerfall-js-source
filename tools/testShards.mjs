@@ -75,14 +75,42 @@ export function shardsOf(files, n, times = {}) {
  *     (185 files, 1628 tests): 140 s at the default three, 126 s at four.
  * The files run, and what each does, are unchanged: the same `test/*.test.js` set (`testFiles`), each in its own
  * process, every test in it. Answers the runner's exit status. `cores` and `spawn` are the machine's, a test's to stand in.
+ *
+ * AUDIT FAST-SUITE F7: the list rides the runner's COMMAND LINE, which `node --test "test/*.test.js"` never did (Node
+ * expanded the glob itself) - 2,232 paths are ~59,000 characters, and Windows' CreateProcess takes 32,767. So where the
+ * platform caps it (`budget`, win32's), the list runs in as few runners as fit, one after another, each longest first
+ * in its turn; elsewhere it is one runner, as before. A runner that cannot start says why (it was a bare exit 1), and
+ * `extra` - the runner's own flags a caller hands on (`npm test -- --test-name-pattern=...`) - rides every runner, after
+ * this file's, so a caller's own `--test-concurrency` wins.
  * @param {string[]} files
  */
-export function runTests(files, { root = ROOT, times = readTimes(root), cores = availableParallelism(), spawn = spawnSync } = {}) {
+export const WIN32_ARGV_BUDGET = 30000;
+export function runTests(files, { root = ROOT, times = readTimes(root), cores = availableParallelism(), spawn = spawnSync, extra = [],
+  budget = process.platform === 'win32' ? WIN32_ARGV_BUDGET : Infinity } = {}) {
   if (!files.length) return 0;
   const ordered = shardsOf(files, 1, times)[0].files;
-  const r = spawn(process.execPath, ['--test', `--test-concurrency=${Math.max(1, cores | 0)}`, ...ordered], { cwd: root, stdio: 'inherit' });
-  return r.status ?? 1;
+  const head = ['--test', `--test-concurrency=${Math.max(1, cores | 0)}`, ...extra];
+  const base = process.execPath.length + head.reduce((n, a) => n + a.length + 3, 0);   // a space and two quotes an argument
+  const runs = [];
+  let run = [], used = base;
+  for (const f of ordered) {
+    if (run.length && used + f.length + 3 > budget) { runs.push(run); run = []; used = base; }
+    run.push(f); used += f.length + 3;
+  }
+  runs.push(run);
+  let status = 0;
+  for (const list of runs) {
+    const r = spawn(process.execPath, [...head, ...list], { cwd: root, stdio: 'inherit' });
+    if (r.error) console.error(`[tests] the test runner did not start: ${r.error.message ?? r.error}`);
+    const s = r.status ?? 1;
+    if (s !== 0 && status === 0) status = s;
+  }
+  return status;
 }
+
+/** AUDIT FAST-SUITE F7: the runner's own flags among a tool's arguments (`--test-name-pattern=x`, `--test-only`, ...),
+ *  handed on to it; the tool's own (`--list`, `--base`) are not the runner's. */
+export const runnerFlags = (argv) => argv.filter((a) => /^--test-[a-z-]+(=.*)?$/.test(a));
 
 function main(argv) {
   if (argv[0] === '--plan') {
@@ -96,7 +124,7 @@ function main(argv) {
   const { files } = shardsOf(testFiles(), shard.total, readTimes())[shard.index - 1];
   if (argv.includes('--list')) { for (const f of files) console.log(f); return 0; }
   console.log(`shard ${shard.index}/${shard.total}: ${files.length} files`);
-  return runTests(files);
+  return runTests(files, { extra: runnerFlags(argv.slice(1)) });
 }
 
 if (isMain(import.meta.url)) process.exitCode = main(process.argv.slice(2));

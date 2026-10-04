@@ -34,9 +34,10 @@ key names them - is struck where the first surface the ray meets lies, and only 
 model owns its bucket, given to the third case: a box merely entered, over geometry nobody's key names. A ray that
 crosses the box and meets nothing of it never struck it; one that meets the headboard behind the robes struck the bed
 there, past the robes, which win - as DFU's ray meets the item's trigger sphere first (GameObjectHelper.cs:1158). The
-mattress itself is still the bed, struck at the mattress. A building's containers, beds and shelves carry the mark;
-nothing else does (doors, ladders and action objects keep their boxes; a dungeon's furniture is no target - its loot is
-piles, which are flats).
+mattress itself is still the bed, struck at the mattress. A building's containers, beds and shelves carry the mark, and
+a dungeon's searchable models (SEARCH1's coffins, shelves, chests and crates, in the dungeon's one shared bucket); doors,
+ladders and action objects keep their boxes. An owner's decor piece owns its bucket and was DISC19-E's already; since
+the audit (P3) it too is struck at its own surface when that is what the ray meets first.
 
 THE SHELF. AddFurnitureAction (DaggerfallInterior.cs:791-819) gives a shelf-set model a component in a shop, a
 Library, GuildHall or Temple, and an owned house (a container - HC1); in a plain residence it gets nothing and is
@@ -46,8 +47,11 @@ port's Hall of Records the third) - and elsewhere it is the collider's, which bl
 does.
 
 The four hosts: building furniture is `scenes/worldModes.js`'s alone (interiorContext builds it, this host races it);
-`scenes/world.js` and `scenes/exterior.js` stand no building furniture, and `scenes/dungeonContext.js`'s RDB has no
-containers, beds or shelves (its piles are flats). The plaque reads the same pick, so it names what the press presses.
+`scenes/dungeonContext.js` races the dungeon's searchables, marked the same (a castle's shelves are its Hall of Records
+while the seats are open - the audit's P1); `scenes/world.js` and `scenes/exterior.js` stand no building furniture, and
+the street's one box-raced model family, a graveyard's headstones (SEARCH1, world.js and worldModes.js's exterior
+arm), is FLAGGED and left as it is: no quest item stands in a street. The plaque reads the same pick, so it names what
+the press presses.
 
 ## ROBES-NAME (2)
 
@@ -66,7 +70,7 @@ counts) and its pad's quick act (`ui/enhancedInventory.js` openMenu, inventoryQu
 (`systems/quickLoot.js` takeThrough - the row's click with no window around it, sent before the plan as DFU sends it
 before CanCarryAmount, and once per quest item for P's take-all). Every quickLootTake call (seven, in the four hosts)
 already carried the quest resolver (QL-WEIGHT1). Not changed, and why: a body holding only arrows is taken whole with no click, as DFU's
-(PlayerActivate.cs:948-952); GivePc/GetItem hand items straight to the pack, as DFU's.
+(PlayerActivate.cs:949-954); GivePc/GetItem hand items straight to the pack, as DFU's.
 
 ## ROBES-SHARE (4)
 
@@ -86,11 +90,53 @@ resolver; quick loot's E and P take the robes and the note comes; the enhanced s
 mounted pane over a pile, and the note comes; no inline copy of the send in either skin or quick loot; the robes named
 from the real resource, a person or foe not; both namers through the one reader; a real Collider bed - the robes on the
 mattress win in either list order, the box law alone loses them, the mattress is the bed, air over it and the wall
-past it are not; the three furniture families marked and the shelf gated on openShelf's arms; a resync between the
+past it are not; the three furniture families and the dungeon's searchables marked and the shelf gated on openShelf's
+arms; a resync between the
 pickup and the tick keeps the note coming and the stand down, and makes no click up. `test/quickloot.test.js`'s quest
 corpse take now carries the real resource's click and asserts it; `test/enhancedInventory.test.js`'s two row pins read
-the one home. `tools/mutants/fb1004c_robes.json` (20, all dead); the ten lists aimed at `player/activate.js` re-run
-beside it (499, all dead).
+the one home. `tools/mutants/fb1004c_robes.json` (21, all dead); the nine other lists aimed at `player/activate.js`
+re-run beside it (479, all dead).
+
+## The audit (2026-10-04, Mac: "Audit this")
+
+Three readers over the pull request - the surface law; the click, the name and the resync; the suite's runner, the
+docs and the two merges of main - each finding reproduced against the real modules before it was fixed, then pinned
+(`test/fb1004c_audit.test.js`, 7; `test/fastsuite.test.js`, two more) and its fix mutated
+(`tools/mutants/fb1004c_audit.json`, 13, all dead; `tools/mutants/fastsuite.json`, 13, all dead).
+
+| # | Found | Fixed |
+|---|---|---|
+| P1 (major) | A castle's shelf is a SEARCH1 searchable AND, while the seats are open, the crown's Hall of Records (AUDIT-SEATS) - two targets on one box. Equal boxes, the search listed first won every press (the Hall unreachable, from before); struck at its mesh against the Hall's box, the winner turned on rounding ray by ray - the plaque flickering between the two, a read rolling a search | The Hall's: the search stands down for a castle shelf while the host's `castleRecordsHere` claims it, and stands again when it does not (Seats-Arc 9.2's "a Hall of Records book in ... the three castles") |
+| P2 | The record said nothing but a building's furniture was marked - the dungeon's searchables are - and flagged neither the street's headstones nor the castle's Hall | Rewritten (ROBES-PRESS above) |
+| P3 | An owner's decor piece (its own bucket, DISC19-E's) was still met at its box: a candle on a decor dresser under its mirror lost the press to the dresser | Struck at its own surface when that is the first the ray meets; a piece with no bucket of its own is met at its box as before |
+| P4 | Unpinned: a surface target past its reach must still win the ray and refuse (MC-2's "You are too far away"), and the 0.15 skin (a turned chest's mesh a hair outside its box) | Pinned |
+| N1 | ROBES-NAME made a branch live that nobody had met: a quest LETTER standing in the world read "Parchment" where the mod's ResolveItemLongName reads "Letter: <signoff>" (ItemHelper.cs:335-347) - the port's letter arm runs only with the quest resolver handed in | Both namers hand `questResourceName` the host's resolver |
+| S1 | A resync still took back a click on a quest Person or Foe (O0A0AL00's hand-in is `_thiefmember_ clicked`) | Every resource's click is this world's and kept, restored through SetPlayerClicked so a Person the partner muted refuses it |
+| S2 | Unpinned: the resync's commonest case - a partner's envelope after the pickup's tick (the click spent, the stand hidden) | Pinned |
+| C1 | Unpinned: the enhanced menu's click sits at its OPENING (a menu closed unused has looked) and on the loot side alone (DFU's local list sends none) - moving it to the take, or dropping the side gate, passed | Pinned on the mounted pane, a quest letter in the player's own pack |
+| F1 (major) | CI never verified the FAST-SUITE head: main had moved, a pull request in conflict runs no workflow, and the rule handed the whole suite to CI | Main merged in before the push to be verified; CLAUDE.md says a conflicted pull request runs nothing |
+| F2 | `test:changed` picks none of the bible's gates for a one-module change - and this very slice's road edit moved a mutant record and a cite only they catch | CLAUDE.md: the gates before every push |
+| F3 | Testing.md still named `npm run check` the pre-push gate | Restated |
+| F4 | The runner list now rides the command line - 2,232 paths, ~59,000 characters, where Windows takes 32,767 - and a runner that failed to start exited 1 unsaid; `npm test -- --test-name-pattern=...` lost its flag | runTests splits the list into as few runners as fit where the platform caps it (one runner elsewhere), says why a runner did not start, and hands the runner's own flags on |
+| F5 | Numbers: "(20, all dead)" for 21; "the ten lists ... (499)"; the guard "spares 15,000" (14,160 at most); "103,487" and "113,727" side by side with no proof in the tree; times re-taken under other work (~1.8x) | Corrected; the proof committed (`tools/roadGuardProof.mjs`, the ladder taken from the guard's parent commit); the times taken again on a quiet machine |
+| F6 | `PlayerActivate.cs:948-952` for the arrows-only take, which is 949-954 - carried from quickLoot.js's header into the Ledger and UI-Arc | Corrected in all four |
+
+Checked and sound, by the readers' own runs: the surface law's other arms (every container, bed and shelf is in the
+collider; the `d <= bestDist` guard; the shared first cast; CASTLE1 first; occlusion cannot reject a surface winner) and
+its cost (one extra cast a pick at most, ~0.009 ms); shelvesAct against AddFurnitureAction; no double reward from a kept
+click; "no action un-hides an Item" in DFU and the port; every click site (the native skin's one remote door, the
+classic loot panel through quick loot, the arrows take and GivePc/GetItem sending none, as DFU's); the road guard,
+proven again independently (~147,000 cases, 5.8x); runTests' concurrency (no fixed temp paths or ports, the memory of
+four at once); the two merges (nothing of main's lost, every cite into a changed file on the same content); every DFU
+and World Tooltips cite.
+
+Not changed, and why: quick loot's take-all sends the click for a quest row it then leaves for its weight - DFU sends a
+row's click before CanCarryAmount, and P is a click on each row (its pin's title says so now); a flat on an OPEN decor
+shelf with the room's wall behind it still loses to the shelf's box (a decor piece with no bucket of its own must stay
+pointable, and the room's wall is no target's); test/quickloot.test.js's quest corpse keeps its hand-built resource
+(the real one is this record's own tests'); FLOW1's "~245 s ... ~80 s a job" is that day's measurement, kept as its
+record; and three cites on main from before this pull request (passiveSpecials.js and exterior.js into world.js,
+Audit-58's `:273-281`) are main's to re-resolve - flagged here, not guessed at.
 
 ## For the player
 

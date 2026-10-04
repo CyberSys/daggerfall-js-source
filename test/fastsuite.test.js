@@ -5,7 +5,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { runTests, shardsOf, testFiles } from '../tools/testShards.mjs';
+import { runTests, runnerFlags, shardsOf, testFiles, WIN32_ARGV_BUDGET } from '../tools/testShards.mjs';
 
 const read = (p) => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8');
 const spy = (status = 0) => {
@@ -38,11 +38,44 @@ test('FAST-SUITE: runTests runs the files longest first, every core at once, in 
 test('FAST-SUITE: every door runs through it - npm test is the whole suite as one shard, a CI shard and test:changed call runTests, and nothing spawns its own `node --test` (mutants: a door with its own spawn)', () => {
   assert.equal(JSON.parse(read('package.json')).scripts.test, 'node tools/testShards.mjs 1/1');
   const shards = read('tools/testShards.mjs'), changed = read('tools/testChanged.mjs');
-  assert.match(shards, /return runTests\(files\);\n\}/, 'a shard');
-  assert.match(changed, /return runTests\(files\);\n\}/, 'the changed tests');
+  assert.match(shards, /return runTests\(files, \{ extra: runnerFlags\(argv\.slice\(1\)\) \}\);\n\}/, 'a shard, its runner flags handed on');
+  assert.match(changed, /return runTests\(files, \{ extra: runnerFlags\(argv\) \}\);\n\}/, 'the changed tests, likewise');
   assert.equal((shards.match(/\['--test'/g) ?? []).length, 1, 'one spawn of the runner, runTests\'');
   assert.doesNotMatch(changed, /\['--test'/, 'test:changed spawns none of its own');
   // 1/1 is every test file: the whole of testFiles in one shard
   const all = testFiles();
   assert.deepEqual([...shardsOf(all, 1, {})[0].files].sort(), all);
+});
+
+test('AUDIT FAST-SUITE F7: where the platform caps a command line (Windows: 32,767), the list runs in as few runners as fit, in order, every file once, the first failure answered; elsewhere one runner; a runner that cannot start says why (mutants: no budget split; a later runner\'s status over the first failure; the start error unsaid)', () => {
+  const files = Array.from({ length: 40 }, (_, i) => `test/f${String(i).padStart(2, '0')}.test.js`);
+  const times = Object.fromEntries(files.map((f, i) => [f, 1000 - i]));   // already longest first
+  const statuses = [0, 7, 3];
+  const calls = [];
+  const spawn = (cmd, args) => { calls.push(args); return { status: statuses[calls.length - 1] ?? 0 }; };
+  const budget = process.execPath.length + 200;
+  assert.equal(runTests(files, { times, cores: 4, spawn, budget }), 7, 'the first failing runner\'s status');
+  assert.ok(calls.length > 1, `split into ${calls.length} runners`);
+  for (const args of calls) {
+    assert.deepEqual(args.slice(0, 2), ['--test', '--test-concurrency=4'], 'each a whole runner');
+    assert.ok(process.execPath.length + args.reduce((n, a) => n + a.length + 3, 0) <= budget, 'each inside the budget');
+  }
+  assert.deepEqual(calls.flatMap((a) => a.slice(2)), files, 'every file once, in the longest-first order');
+  // no cap: one runner
+  const one = []; runTests(files, { times, cores: 4, spawn: (c, a) => { one.push(a); return { status: 0 }; } , budget: Infinity });
+  assert.equal(one.length, 1);
+  assert.ok(WIN32_ARGV_BUDGET < 32767, 'Windows\' cap, with room for the executable');
+  // the runner that never started
+  const said = [], orig = console.error;
+  console.error = (m) => said.push(String(m));
+  try { assert.equal(runTests(['test/a.test.js'], { times, spawn: () => ({ status: null, error: new Error('E2BIG') }) }), 1); } finally { console.error = orig; }
+  assert.match(said.join('\n'), /did not start: E2BIG/);
+});
+
+test('AUDIT FAST-SUITE F7: the runner\'s own flags are handed on - `npm test -- --test-name-pattern=x` filters again, after this file\'s own so a caller\'s concurrency wins; the tools\' own flags are not the runner\'s (mutants: flags dropped; put ahead of the concurrency)', () => {
+  assert.deepEqual(runnerFlags(['--list', '--test-name-pattern=ROBES', '--base', 'HEAD~2', '--test-only', '--test-concurrency=1']),
+    ['--test-name-pattern=ROBES', '--test-only', '--test-concurrency=1']);
+  const calls = [];
+  runTests(['test/a.test.js'], { times: {}, cores: 4, extra: ['--test-concurrency=1'], spawn: (c, a) => { calls.push(a); return { status: 0 }; } });
+  assert.deepEqual(calls[0], ['--test', '--test-concurrency=4', '--test-concurrency=1', 'test/a.test.js'], 'the caller\'s last, so it wins');
 });
