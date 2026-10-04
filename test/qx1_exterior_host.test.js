@@ -409,7 +409,7 @@ test('ROAD-G G2: the outdoor arm is PlaceFoeExteriorLocation - the 5/20 ring, th
     // slot) and every foe lands dead ahead - this bound is red.
     // ...and the cone's FAR side, which is what makes it a cone
     // ANCHORED ON THE PLAYER rather than a bearing that is merely not
-    // ahead: sceneMount.js:238-240 draws `fovDegrees + Range(0,4)`, so
+    // ahead: sceneMount.js:315-317 draws `fovDegrees + Range(0,4)`, so
     // the closed band is [75, 79). REVIEW: `bearing >= 75` alone was
     // one-sided, and `playerYawRad: cam.yaw + Math.PI` - a cone
     // anchored behind the player, foes at 103 degrees - passed it.
@@ -444,7 +444,7 @@ test('ROAD-G G2: the outdoor arm is PlaceFoeExteriorLocation - the 5/20 ring, th
   // from the feet - DFU rays from `PlayerObject.transform.position`
   // (CreateFoe.cs:282-283), which the host ships as `feet[1] + 0.9`.
   // A floor 3.5 below the feet is 4.4 below the centre, past
-  // PLACE_FOE_DEFAULTS.maxFloorDistance = 4 (sceneMount.js:208), so the
+  // PLACE_FOE_DEFAULTS.maxFloorDistance = 4 (sceneMount.js:285), so the
   // shipped origin refuses where a feet origin would place. REVIEW: the
   // header claimed this term and the stub's flat plane could not see
   // it - `playerFeet: [feet[0], feet[1], feet[2]]` passed the pin.

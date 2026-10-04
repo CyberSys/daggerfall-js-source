@@ -533,7 +533,14 @@ constructor(collider, { damagePlayer = null, drainMagicka = null, castSpell = nu
 
   _next(o) {
     if (o.nextKey == null || o.nextKey < 0) return null;
-    return this._links.get(`${o.ns}:${o.nextKey}`) ?? null;
+    return this.objectAt(o.ns, o.nextKey);
+  }
+
+  /** The object registered under block instance `ns` and RDB object position `positionKey` - the chain's own key, the
+   *  one `_next` follows. TOTEM-CAGE: a quest item's scene marker is found by it (systems/quest/sceneMount.js
+   *  sceneMarkerMover). */
+  objectAt(ns, positionKey) {
+    return this._links.get(`${ns}:${positionKey}`) ?? null;
   }
 
   /** Register an effect action (Hurt/Poison/DrainMagicka/CastSpell):
