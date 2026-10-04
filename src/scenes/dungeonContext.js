@@ -2605,6 +2605,9 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     // PARTY-REST19: forwarded straight from THIS host's own opts.canceledByFollower, relayed the same way
     // opts.onEnemyBreak already is - see world.js's checkCanceledByFollower for what it's for.
     canceledByFollower: () => opts.canceledByFollower?.() ?? false,
+    // CAMP-ROLL: forwarded straight from THIS host's own opts.campRest (world.js's camp, relayed through worldModes.js as
+    // opts.strangerRestGate is) - a party's rest underground rolls once, its roller's ask the camp's one (REST-SYNC)
+    camp: opts.campRest ?? null,
     endLines: (id) => rscLines(id),
     say: (msg) => hudText.add(msg),
     onLevelUp: _onLevelUp,

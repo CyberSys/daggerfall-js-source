@@ -7777,6 +7777,7 @@ export function createWorldModes(host) {
           transferToCemetery: () => host.transferToCemetery?.(),
           // STRANGER-REST1: forwarded straight from THIS host's own host.strangerRestGate (world.js's own gate) - see its doc comment.
           strangerRestGate: () => host.strangerRestGate?.(),
+          campRest: host.campRest ?? null,   // CAMP-ROLL: world.js's camp, for the dungeon's rest bag - the interior's carries none (a building rolls nothing)
           // PARTY-REST5: forwarded straight from THIS host's own host.onEnemyBreak (world.js's own hook) - see
           // worldModes.js's own interiorRestDeps for the twin of this same forward.
           onEnemyBreak: () => host.onEnemyBreak?.(),

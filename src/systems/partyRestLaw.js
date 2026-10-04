@@ -255,3 +255,91 @@ export function carriedRestKind(own, theirs) {
   if (o < 0) return t < 0 ? null : theirs;
   return t > o ? theirs : own;
 }
+
+// CAMP-ROLL (2026-10-04, the player: "In a party, or with other players. Every player spawns their own enemies when
+// resting", then "Do it"): ONE ROLL A CAMP. REST5 retired the vote online, and with it the one door that let a single
+// real rest run at a time, so a party that walks up to a fire and presses Rest together opened one act each - and each
+// act's night rolled its own ambush (world.js runEncounterTick: a rest is always its rester's own roll, AUDIT PSCALE1
+// COUNT-1), each hit standing a pack already sized for the whole party (partyExtraFoes). Four sleepers, up to four
+// party-sized packs; in a dungeon, one host ask a sleeper (REST-SYNC). A night only went quiet when it was CARRIED,
+// and a member who pressed Rest themselves was 'busy', never carried.
+//
+// Now the act's night is the CAMP'S: the members resting with the party within its reach (world.js nearAccount, 15 m)
+// whose acts are open on a night elect ONE roller with no message of its own - each says so on the pose
+// (`restStartedAt` with restAct.js's CAMP_MARKS open mark, `rs` while resting), and every client reads the same
+// answer: the LOWEST account id among them. The roller's night is DFU's, rolled once at the odds it always had; every
+// other member's channel ends in a wait ("Resting with Ada...") that their night's stamp ends - slept as theirs, its
+// rolls quiet (encounters.js quietNights) - or their ambush ends (`restEnemyAt` moved: the same foes, the same break),
+// or the roller's leaving ends (a `done` mark, `rs` dropped: the next lowest rolls), or CAMP_WAIT_MS ends (my own
+// roll, today's behaviour - the fail-open). A member resting alone (`nr`) is a camp of their own, as STRANGER-REST's
+// gate already keeps them.
+
+/** How long a member waits on the camp's roller, from the end of their own channel, before rolling their own night. */
+export const CAMP_WAIT_MS = 15_000;
+/** How old a camp mate's open mark may be and still name a rest in progress: a Bedroll's ten-second channel, the
+ *  wait, and slack. */
+export const CAMP_OPEN_FRESH_MS = 40_000;
+
+/** A camp mate's pose as the law reads it: their stamp through stampOf, and their enemy break marker (the sender's
+ *  own clock - compared only against the value seen before, never against mine). */
+const campSnap = (m, now) => ({ at: stampOf(m?.p?.restStartedAt, now), enemy: Number.isFinite(m?.p?.restEnemyAt) ? m.p.restEnemyAt : null });
+
+/** THE CAMP WATCH - one rest window's view of its camp. `open` at the channel's open snapshots every party mate's
+ *  stamps (a move is a move SINCE my act began: a mate's night that lands while I hold the channel is mine to sleep);
+ *  `verdict` is asked at the channel's end and every frame after; `close` with the window. `kindOf` answers a night
+ *  stamp's rest kind or null (restAct.js nightKindOf), `campOf` a stamp's camp mark or null (restAct.js campMarkOf) -
+ *  handed in, as the night watch's predicate is.
+ *  @param {{ kindOf: (t: number) => string|null, campOf: (t: number) => string|null, waitMs?: number, freshMs?: number }} o */
+export function createCampWatch({ kindOf, campOf, waitMs = CAMP_WAIT_MS, freshMs = CAMP_OPEN_FRESH_MS }) {
+  /** @type {Map<string, { at: number, enemy: number|null }>|null} */
+  let base = null;
+  /** @type {number|null} */
+  let firstAsk = null;
+  return {
+    /** My act's channel opened: every mate's stamps as they stand now. @param {any[]} members @param {number} now */
+    open(members, now) {
+      base = new Map();
+      firstAsk = null;
+      for (const m of members ?? []) if (m?.acct) base.set(m.acct, campSnap(m, now));
+    },
+    isOpen: () => base !== null,
+    close() { base = null; firstAsk = null; },
+    /** Whose night my act's is now: `{ act: 'enemy'|'night'|'wait', acct, name, kind? }`, `{ act: 'roll' }`, or null
+     *  with no watch open. `me` my account; `members` the party's other rows (net/social.js others()); `inCamp(m)`
+     *  whether a mate stands in my camp (present, the same place, within the party's reach). A mate first seen after
+     *  the open is a baseline, never a move. A foe's break outranks a night; a night outranks the wait; the wait ends
+     *  at `waitMs` from the first ask.
+     *  @param {{ me: string, members: any[], inCamp: (m: any) => boolean, now: number }} q */
+    verdict({ me, members, inCamp, now }) {
+      if (!base) return null;
+      if (firstAsk === null) firstAsk = now;
+      let night = null, leader = null;
+      for (const m of members ?? []) {
+        if (!m?.acct || restsAlone(m) || !inCamp(m)) continue;
+        const was = base.get(m.acct);
+        const cur = campSnap(m, now);
+        if (!was) { base.set(m.acct, cur); continue; }
+        if (cur.enemy !== null && cur.enemy !== was.enemy) return { act: 'enemy', acct: m.acct, name: m.name };
+        const kind = cur.at > was.at && now - cur.at <= freshMs ? kindOf(cur.at) : null;
+        if (kind && !night) night = { act: 'night', acct: m.acct, name: m.name, kind };
+        if (m.p?.rs && campOf(cur.at) === 'open' && now - cur.at <= freshMs && m.acct < me && (!leader || m.acct < leader.acct)) leader = m;
+      }
+      if (night) return night;
+      if (now - firstAsk >= waitMs || !leader) return { act: 'roll' };
+      return { act: 'wait', acct: leader.acct, name: leader.name };
+    },
+  };
+}
+
+/** CAMP-ROLL: whether a spawn spot `p` ({x, z}) stands at least `min` metres (on the ground plane) from every camp
+ *  mate's feet (`[x, y, z]` each) - the band the roller's ambush keeps from its roller, kept from every sleeper it
+ *  stands for. */
+export function campClear(p, feet, min) {
+  const m2 = min * min;
+  for (const f of feet ?? []) {
+    if (!f) continue;
+    const dx = f[0] - p.x, dz = f[2] - p.z;
+    if (dx * dx + dz * dz < m2) return false;
+  }
+  return true;
+}

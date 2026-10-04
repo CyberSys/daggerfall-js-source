@@ -19,7 +19,7 @@ import { SocialState, PARTY_GREEN_CSS, FRIEND_CSS, lastOnlineText } from '../src
 import { INVITE_TTL_MS, PARTY_MAX } from '../src/net/wire.js';
 import {
   createSocialPanel, injectSocialStyle, SOCIAL_CSS, SOCIAL_STYLE_ID, SOCIAL_NOTE_MS, SOCIAL_CONFIRM_MS,
-  NO_FRIENDS_TEXT, NO_PARTY_TEXT, TRY_AGAIN_TEXT, inviteLeftText, partyPoseText, friendOrder,
+  NO_FRIENDS_TEXT, NO_PARTY_TEXT, TRY_AGAIN_TEXT, inviteLeftText, partyPoseText, friendOrder, MAKE_LEADER_TEXT,
 } from '../src/ui/socialPanel.js';
 
 const rd = (p) => readFileSync(new URL('../' + p, import.meta.url), 'utf8');
@@ -84,7 +84,7 @@ const member = (name, over = {}) => ({ ...row(name), p: null, ...over });
 const inviteFrame = (party, from, members, at) => ({ t: 'social', k: 'invite', party, from, members, at, expires: at + INVITE_TTL_MS });
 
 /** A panel over a fresh picture, with the clock the test moves. */
-function build({ accept = true, canOpen = () => true, touch = false, frame = stateFrame(), journey = () => null, mail = null } = {}) {
+function build({ accept = true, canOpen = () => true, touch = false, frame = stateFrame(), journey = () => null, mail = null, canLead = () => false } = {}) {
   const clock = { t: T0 };
   const social = new SocialState({ now: () => clock.t });
   social.apply(frame);
@@ -95,6 +95,7 @@ function build({ accept = true, canOpen = () => true, touch = false, frame = sta
     social,
     send: (a) => { sent.push(a); return accept; },
     canOpen, overlay: off, doc, win, touch, journey,   // PARTY-UI: the party's journey session, or none
+    canLead,   // PARTY-LEAD: the hub knows party.lead
     mail,   // AUDIT PARTY-UI: a letterbox, for the Letters form a journey must not rebuild
     onOpen: () => pointer.push('free'), onClose: () => pointer.push('lock'),
   });
@@ -376,6 +377,33 @@ test('SOC3: Invite on a friend row is enabled only when they have a tab in the w
 });
 
 // ═══ THE PARTY ═══════════════════════════════════════════════════════
+
+test('PARTY-LEAD: the leader is offered Make leader on every other seat, through a hub that knows the act - an offline seat drawn and explained, never pressed; a member, my own seat and an older hub get none (mutants: the button for a member; on my own seat; drawn through an older hub; an offline seat pressable; the act naming the wrong seat)', () => {
+  const party = {
+    id: 'q-1', leader: 'acct-me',
+    members: [member('me', { acct: 'acct-me', name: 'Mac' }), member('Bob'), member('Cid', { online: false, seen: T0 - 60_000 })],
+  };
+  let hubKnows = true;
+  const { social, panel, root, sent } = build({ frame: stateFrame({ party }), canLead: () => hubKnows });
+  panel.open();
+  find(root, 'dfsocial-tab')[1].fire('click');
+  const rows = bodyRows(root);
+  assert.deepEqual(rows.slice(0, 3).map((r) => !!btnBy(r, MAKE_LEADER_TEXT)), [false, true, true], 'every seat but mine');
+  assert.equal(MAKE_LEADER_TEXT, 'Make leader');
+  assert.equal(btnBy(rows[2], MAKE_LEADER_TEXT).disabled, true, 'an offline seat: the hub would refuse it');
+  assert.equal(one(btnBy(rows[2], MAKE_LEADER_TEXT), 'dfsocial-why').textContent, 'offline', 'and says why');
+  btnBy(rows[2], MAKE_LEADER_TEXT).fire('click');
+  assert.deepEqual(sent, [], 'a dead button sends nothing');
+  btnBy(rows[1], MAKE_LEADER_TEXT).fire('click');
+  assert.deepEqual(sent, [{ k: 'party.lead', acct: 'acct-Bob' }]);
+  hubKnows = false;
+  panel.render();
+  assert.deepEqual(bodyRows(root).slice(0, 3).map((r) => !!btnBy(r, MAKE_LEADER_TEXT)), [false, false, false], 'an older hub closes the socket on the act - not offered');
+  hubKnows = true;
+  social.apply({ t: 'social', k: 'party', party: { ...party, leader: 'acct-Bob' } });
+  panel.render();
+  assert.deepEqual(bodyRows(root).slice(0, 3).map((r) => !!btnBy(r, MAKE_LEADER_TEXT)), [false, false, false], 'the lead handed on: it is theirs to hand now');
+});
 
 test('SOC3: the party tab draws the seats out of PARTY_MAX, marks the leader, says where each member stands and how they fare, and offers Kick to the LEADER alone (mutants: Kick drawn for a member; Kick on my own seat; the leader mark on everyone; the pose\'s place dropped; the seat count hardcoded)', () => {
   const party = {

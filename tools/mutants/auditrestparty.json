@@ -151,13 +151,14 @@
  },
  {
   "name": "AUDITRESTPARTY-the-follower-sleeps-where-they-stand",
-  "file": "src/scenes/world.js",
-  "old": "      if (kind) bag.overrideRestKind?.(() => kind);",
+  "file": "src/scenes/shared.js",
+  "old": "      if (kind) _restKindOverride = () => kind;",
   "new": "      if (kind) void kind;",
   "tests": [
    "test/auditrestparty.test.js",
    "test/rest5_partynight.test.js"
-  ]
+  ],
+  "note": "CAMP-ROLL (PIN MOVED): the carried night's sequence is the bag's one (scenes/shared.js restCampNight); re-aimed by content."
  },
  {
   "name": "AUDITRESTPARTY-the-exemption-not-handed",

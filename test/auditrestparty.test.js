@@ -142,7 +142,9 @@ test('AUDIT REST-PARTY by source: the follow tick hands the law its readings, sl
   assert.match(carry, /\n      const dead = playerEntity\.health <= 0 \|\| !!modes\?\.deathUp\?\.\(\);\n      const act = carriedNightAction\(\{\n        withParty: restsWithParty\(\), resterAlone: restsAlone\(m\), exempt: !!modes\?\.insidePartyRestExempt, dead,\n/, 'dead, or the death screen up - handed to the law');
   assert.match(w, /if \(act === 'far'\) setMidScreenText\(REST_ACT_TEXT\.carriedFar\(name\), 4\);/);
   assert.match(w, /else sleepCarriedNight\(name, nightKindOf\(at\)\);/, 'the rester\'s spot, off their stamp');
-  assert.match(w, /const kind = carriedRestKind\(bag\.placeKind\?\.\(\) \?\? null, theirs\);/);
+  // CAMP-ROLL (PIN MOVED): the carried night's sequence is the bag's one (scenes/shared.js restCampNight), world.js its caller
+  assert.match(rd('src/scenes/shared.js'), /out\.restCampNight = \(theirs, night = nightDue\(entity, ownMinutes\(\)\)\) => \{\n    const kind = carriedRestKind\(restKind\(\), theirs\);/);
+  assert.match(w, /try \{ r = bag\.restCampNight\(theirs, night\); \} finally \{ bag\.setResting\(false\); \}/);
   assert.match(w, /if \(!social\?\.party \|\| modes\?\.insidePartyRestExempt \|\| !restTogether\(\) \|\| sharedClockOn\(\)\) \{ _partyRestVoteLastReady = null;/, 'no vote online, so no tally');
   assert.match(rd('src/scenes/shared.js'), /const spot = carried \? null : _spot;[^\n]*\n    const \{ result, hours \} = runRestNight\(out, \{ rentedHours \}\);/, 'the spot the open read');
 });

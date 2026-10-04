@@ -19,7 +19,7 @@ import { normalizeCode } from '../systems/dialogShortcuts.js';   // AUDIT PARTY-
 import { getBinding } from '../systems/inputActions.js';
 import { bindings } from './input.js';   // B5: the live InputManager registry, as restWindow.js reads it
 import { restClockLine } from './restWindow.js';   // AUDIT LIVED1 O (U3): the classic window's clock line, one home for its words
-import { REST_ACT_TEXT, ambushNight, actAtChannelEnd, channelBroken } from '../systems/restAct.js';   // REST1: the act's words   // AUDIT REST-PARTY A2: and the night it runs
+import { REST_ACT_TEXT, ambushNight, actAtChannelEnd, channelBroken, campNightStep } from '../systems/restAct.js';   // REST1: the act's words   // AUDIT REST-PARTY A2: and the night it runs
 
 const el = (tag, cls, text) => {
   const n = document.createElement(tag);
@@ -116,6 +116,7 @@ export function mountEnhancedRest(hostEl, deps, ignoreAllocatedBed = false) {
   // RemoveExpiredRentedRooms as the first arm of EndRest, the presence re-roll on close.
   const moveToBed = () => { if (overlay._allocatedBed != null && !ignoreAllocatedBed) deps.moveToBed?.(overlay._allocatedBed); };
   overlay._end = (result) => {
+    deps.camp?.settle?.();   // CAMP-ROLL: an act that ended with no night heard is no camp's roller any more (restWindow.js _end)
     if (result.rentExpired) deps.onRentExpired?.();
     if (overlay.mode !== 'loiter' && (overlay.session?.totalHours ?? 0) >= 6) deps.onNightSlept?.();   // REST2: a night slept spends your own camp's charge, as restWindow.js
     overlay._endLines = result.text ? [result.text, ...(result.extra ? [result.extra] : [])] : (deps.endLines?.(result.textId) ?? ['You wake up.']);   // REST1: a short rest says when a night may pass again
@@ -189,6 +190,7 @@ export function mountEnhancedRest(hostEl, deps, ignoreAllocatedBed = false) {
     overlay.mode = 'act';
     overlay.state = 'channel';
     overlay._actHealth = deps.vitals?.()?.health;   // AUDIT REST-PARTY A5: a blow while holding interrupts
+    deps.camp?.open?.(!!act.night);   // CAMP-ROLL: my act is open on a night - the camp's roll may be mine (restWindow.js _openAct)
   }
   /** REST1: the channel held to its end - enemies, or the night, or the short rest. */
   function finishAct() {
@@ -200,8 +202,32 @@ export function mountEnhancedRest(hostEl, deps, ignoreAllocatedBed = false) {
     }
     const at = actAtChannelEnd(act, deps.restAct?.() ?? null, overlay._actHealth, deps.vitals?.()?.health);   // AUDIT REST-PARTY A5: the point asked again
     if (!at) { overlay._end({ textId: null, text: REST_ACT_TEXT.interrupted, enemyBroke: false, died: false }); return; }
-    const r = at.meditate ? deps.restMeditate?.() : at.night ? deps.restNight?.({ rentedHours: overlay._remainingHoursRented }) : deps.restShort?.();
-    overlay._end(r ?? { textId: REST_TEXT.wakeUp, enemyBroke: false, died: false });
+    if (at.meditate) { overlay._end(deps.restMeditate?.() ?? { textId: REST_TEXT.wakeUp, enemyBroke: false, died: false }); return; }
+    _actPlan = at;
+    campStep();
+  }
+  /** CAMP-ROLL: the night is the camp's (restAct.js campNightStep) - restWindow.js _campStep, this skin's card. */
+  let _actPlan = null, _campWho = null;
+  function campStep() {
+    const s = campNightStep(deps, _actPlan, overlay._remainingHoursRented);
+    if (s.wait) {
+      const fresh = overlay.state !== 'campWait' || _campWho !== s.wait;
+      overlay.state = 'campWait';
+      _campWho = s.wait;
+      if (fresh) render();   // in place while it holds: a rebuild a frame would tear the Stop button out from under a click (RESTFIX1)
+      return;
+    }
+    overlay._end(s.r ?? { textId: REST_TEXT.wakeUp, enemyBroke: false, died: false });
+  }
+  function campWaitCard() {
+    const c = el('div', 'card');
+    c.append(el('h2', null, REST_ACT_TEXT.campWait(_campWho ?? 'A party member')));
+    const acts = el('div', 'acts');
+    const stop = el('button', 'act', 'Stop');
+    stop.onclick = () => stopOrClose();
+    acts.append(stop);
+    c.append(acts);
+    return c;
   }
   function channelCard() {
     const c = el('div', 'card');
@@ -416,6 +442,7 @@ export function mountEnhancedRest(hostEl, deps, ignoreAllocatedBed = false) {
               : overlay.state === 'hoursRefused' ? hoursRefusedCard()
               : overlay.state === 'resting' ? restingCard()
                 : overlay.state === 'channel' ? channelCard()
+                : overlay.state === 'campWait' ? campWaitCard()
                 : endedCard(),
     );
     win.append(body);
@@ -496,6 +523,7 @@ export function mountEnhancedRest(hostEl, deps, ignoreAllocatedBed = false) {
     // REST1: the channel counts real seconds and lands at its end
     // AUDIT REST II P8: and ends the moment the hold is broken - restWindow.js's own law, the end check's own lines
     if (overlay.state === 'channel') { _actT += dt; if (_actT >= act.channelSeconds || channelBroken(act, overlay._pendingEnemySpawn, () => deps.enemiesNearby?.(), overlay._actHealth, deps.vitals?.()?.health, () => deps.restAct?.() ?? null)) finishAct(); else updateChannel(); return; }   // AUDIT REST III C6: and the point, while held
+    if (overlay.state === 'campWait') { if (channelBroken(act, overlay._pendingEnemySpawn, () => deps.enemiesNearby?.(), overlay._actHealth, deps.vitals?.()?.health, () => deps.restAct?.() ?? null)) finishAct(); else campStep(); return; }   // CAMP-ROLL: the wait is still the hold (restWindow.js tick)
     if (overlay.state !== 'resting' || !overlay.session) return;
     const r = overlay.session.tick(dt);
     if (r) { overlay._end(r); return; }

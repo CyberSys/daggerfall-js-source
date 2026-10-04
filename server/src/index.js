@@ -4822,6 +4822,7 @@ export class Room {
       case 'party.decline': return this._partyDecline(me, rec, m.party, now);
       case 'party.leave': return this._partyLeave(me, rec, now);
       case 'party.kick': return this._partyKick(me, rec, m.acct, now);
+      case 'party.lead': return this._partyLead(me, rec, m.acct, now);   // PARTY-LEAD
       default: return 'unknown act';
     }
   }
@@ -4978,6 +4979,24 @@ export class Room {
     this._markParty(them, null);
     this._sayTo(them, JSON.stringify({ t: 'social', k: 'party', party: null }));
     this._sayNote(them, 'party.kicked', them, trec?.name ?? null);
+    return null;
+  }
+  /** PARTY-LEAD (2026-10-04, the player: "add a make person party leader option for the leader when in a party"): the
+   *  leader hands the lead to a seated member - the leader's alone, as a kick is; never to oneself; and never to a seat
+   *  that is away (AUDIT PARTY8: a lead held by an away seat left nobody able to kick). Every member hears the
+   *  `party.leader` note the lead's passing on a leave already says, then the party as it stands. */
+  async _partyLead(me, rec, them, now) {
+    const [party] = await this._myParty(me, rec, now);
+    if (!party) return 'you are not in a party';
+    if (party.leader !== me) return 'only the leader can do that';
+    if (them === me) return 'that is you';
+    if (!party.members.includes(them)) return 'they are not in your party';
+    if (!this._socketsOf(them).length) return 'they are not online';
+    const next = { ...party, leader: them };
+    await this._putParty(next);
+    const trec = await this._acct(them);
+    for (const m of next.members) this._sayNote(m, 'party.leader', them, trec?.name ?? null);
+    await this._sayParty(next, now);
     return null;
   }
 }
