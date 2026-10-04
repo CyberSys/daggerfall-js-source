@@ -204,9 +204,10 @@ test('AUDIT WBX2 M7 the stone asks for a player in a horn\'s root at every stand
   assert.match(read('src/scenes/gatePool.js'), /const f = feet\(\);\n {4}if \(f && g && inGateRoot\(place, f\)\) landBefore\(g\);/);
 });
 
-test('AUDIT WBX2 M9 the sweep reads its cursors in one storage read (AUDIT RAID R2: four now - the raid receipts\' too)', () => {
+test('AUDIT WBX2 M9 the sweep reads its cursors in one storage read (AUDIT RAID R2: four now - the raid receipts\' too; AUDIT SERPENT S5: five - the serpent receipts\')', () => {
   const idx = read('server/src/index.js');
-  assert.match(idx, /const cur = \(await this\.state\.storage\.get\(\['sweep:acct', 'sweep:party', 'sweep:gaterc', 'sweep:raidrc'\]\)\);/);
+  assert.match(idx, /const cur = \(await this\.state\.storage\.get\(\['sweep:acct', 'sweep:party', 'sweep:gaterc', 'sweep:raidrc', 'sweep:serpentrc'\]\)\);/);
   assert.doesNotMatch(idx, /storage\.get\('sweep:gaterc'\)/);
   assert.doesNotMatch(idx, /storage\.get\('sweep:raidrc'\)/);
+  assert.doesNotMatch(idx, /storage\.get\('sweep:serpentrc'\)/);
 });

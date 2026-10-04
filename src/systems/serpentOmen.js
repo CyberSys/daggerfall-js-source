@@ -34,7 +34,8 @@ export const insideSerpentRing = (mark, px, py, slack = 1) => !!mark && Math.hyp
 
 /**
  * @param {{now: () => number, site: (day: number) => any, say: (text: string) => void, localTime?: (classicMinutes: number) => (string|null),
- *   fellAt?: (day: number) => (number|null), ready?: () => boolean, settleMs?: number}} deps
+ *   fellAt?: (day: number, site: {sx: number, sz: number}) => (number|null), ready?: () => boolean, settleMs?: number}} deps
+ *   `fellAt` the kill of THIS site's serpent (AUDIT SERPENT S1 - the hub says each site's; a forged one's is not mine)
  */
 export function createSerpentOmen({ now, site, say, localTime = () => null, fellAt = () => null, ready = () => true, settleMs = 0 }) {
   let saidDay = null, saidRank = -1;
@@ -60,10 +61,13 @@ export function createSerpentOmen({ now, site, say, localTime = () => null, fell
         settled = true;
       }
       const t = serpentAt(now());
-      const fell = fellAt(t.day);
-      const phase = serpentPhase(t, now(), fell);
-      if (phase === 'quiet' || phase === 'gone') { current = { t, phase, site: null }; return current; }
+      // AUDIT SERPENT S1: the site first - its kill is the one that ends it early (a kill only ever brings `gone` sooner,
+      // so the clock's own quiet and gone need no site)
+      const bare = serpentPhase(t, now());
+      if (bare === 'quiet' || bare === 'gone') { current = { t, phase: bare, site: null }; return current; }
       const s = siteOf(t.day);
+      const phase = serpentPhase(t, now(), s ? fellAt(t.day, s) : null);
+      if (phase === 'gone') { current = { t, phase, site: null }; return current; }
       current = { t, phase, site: s };
       if (!s) return current;
       const line = SAYS[phase];
@@ -79,6 +83,9 @@ export function createSerpentOmen({ now, site, say, localTime = () => null, fell
       return current;
     },
     current: () => current,
+    /** AUDIT SERPENT L4: offline, nothing stands - no ring, no compass mark - until the omen is ready and settled again
+     *  (its lines already said stay said). */
+    reset() { current = null; readyAt = null; settled = false; },
     /** The map's mark while the omen stands: the ring (map pixels), its name and its countdown's words, its card. */
     mapMark() {
       const c = current;
@@ -94,7 +101,7 @@ export function createSerpentOmen({ now, site, say, localTime = () => null, fell
     /** Where it swims, for the compass and the host: its site, its phase and its times, while it swims. */
     swimming() {
       const c = current;
-      return c?.site && serpentSwims(c.phase) ? { day: c.t.day, site: c.site, phase: c.phase, t: c.t, fellAt: fellAt(c.t.day) } : null;
+      return c?.site && serpentSwims(c.phase) ? { day: c.t.day, site: c.site, phase: c.phase, t: c.t, fellAt: fellAt(c.t.day, c.site) } : null;
     },
   };
 }

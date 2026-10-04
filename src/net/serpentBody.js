@@ -73,6 +73,16 @@ export function legAt(L, t) {
   }
   return { x: L.x + Math.sin(L.yw) * v * dt, z: L.z + Math.cos(L.yw) * v * dt, yw: L.yw };
 }
+/**
+ * AUDIT SERPENT S2: THE TIMELINE'S ONE RULE - a leg or a mode said at `at` supersedes every one still to come after it
+ * (taken off `list`, in place). The relay applies it as it pushes (serpentBrain.js pushLeg, pushMode) and every client
+ * as it folds the word (net/serpentLink.js), so both hold one track in time order and draw one body - where a word said
+ * now beside one still to come (a surfacing on its way, a turn mid-breach) parted them by hundreds of metres.
+ */
+export function supersede(list, at) {
+  for (let i = list.length - 1; i >= 0; i--) if (list[i].at > at) list.splice(i, 1);
+  return list;
+}
 /** The leg swum at `t` (the last begun by then), its index, or -1 before the first. */
 export function legIndexAt(legs, t) {
   for (let i = legs.length - 1; i >= 0; i--) if (legs[i].at <= t) return i;
@@ -135,7 +145,7 @@ export const HUMP_UNDER = -3.4;
  *  REAR_Y high over REAR_FALL. */
 export const BREACH_Y = 12;
 export const BREACH_FALL = 26;
-export const REAR_Y = 24;
+export const REAR_Y = 14;   // AUDIT SERPENT T4: at 24 m the reared head stood over every broadside's arc (long guns 17.6 m at their highest)
 export const REAR_FALL = 30;
 /** The head skims at the sea's top while it cruises. */
 export const CRUISE_HEAD_Y = 0.8;

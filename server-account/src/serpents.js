@@ -15,10 +15,12 @@
 //
 // The receipt is the RELAY's word - it saw the serpent fall and the
 // account's part in it. What the relay could not check, this file bounds:
-// it holds no map, so a modified client could stand a serpent's fight in
-// a cell the day's site is not in; an account is counted ONE serpent a
-// day (migration 0069's key), and its Renown is charged to the account's
-// hour, as every report is (renownTracks.js).
+// it holds no map, so a modified client could stand a serpent's fight at
+// a site that is not the day's (the relay keeps it apart - AUDIT SERPENT
+// S1); an account is counted ONE serpent a day (migration 0078's key),
+// and its Renown is charged to the account's hour, as every report is
+// (renownTracks.js). A receipt earned by standing the fight out is paid
+// SERPENT_STOOD_RENOWN of it.
 //
 // A SERPENT'S HOARD IS THIS FILE'S WORD TOO (the raids' AUDIT RAID R4):
 // the receipt's seed rolls it on the device (src/systems/serpentSpoils.js)
@@ -40,6 +42,9 @@ import { renownCharacterOk, renownNameOf, renownTrackOf } from './renownTracks.j
 
 /** A device's claim id - the key a serpent's hoard is given under (the raids' RAID_CID_RE). */
 export const SERPENT_CID_RE = /^[0-9a-f]{16}$/;
+/** AUDIT SERPENT (the books): what a receipt earned by STANDING the fight out (a hand aboard, a ship that held its
+ *  waters) is paid of a serpent's Renown - half; one whose guns dealt their share is paid it whole. */
+export const SERPENT_STOOD_RENOWN = 0.5;
 const HOUR_S = 3600;
 
 /** The statements that write a (day, account)'s hoard row for `cid` if none is yet, and read whose it is. */
@@ -85,7 +90,8 @@ export async function claimSerpent({ db, nowS, subtle, rand }, player, { receipt
   if (typeof character !== 'string' || !renownCharacterOk(character)) return { error: 'renown-character' };
   const hour = Math.floor(nowS / HOUR_S);
   const before = await renownTrackOf({ db }, player.id, character);
-  const xp = renownSerpentXp(before?.level ?? 1);
+  // AUDIT SERPENT (the books): a hand who stood the fight out is paid SERPENT_STOOD_RENOWN of what a ship that dealt is
+  const xp = Math.floor(renownSerpentXp(before?.level ?? 1) * (c.x === 'stood' ? SERPENT_STOOD_RENOWN : 1));
   const nonce = hex(rand(new Uint8Array(8)));
   const mine = 'EXISTS (SELECT 1 FROM serpent_kills WHERE day = ?3 AND account = ?1 AND nonce = ?4)';
   const track = 'SELECT xp FROM renown_tracks WHERE player = ?1 AND char_id = ?2';

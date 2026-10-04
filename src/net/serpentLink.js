@@ -6,12 +6,14 @@
 // receipt. The gate's link's twin (net/gateLink.js). Design: bible/11-Multiplayer/Sea-Serpent.md section 6.
 //
 // PURE in its fold (`foldSerpent`): a state and a word in, the next state out. The link around it keeps the state, the
-// falls by day (the hub says a kill to everyone online) and the receipts by day, and says a refusal in words once.
+// falls by day and site (the hub says each site's kill to everyone online - AUDIT SERPENT S1: a forged site's is not
+// this machine's serpent's) and the receipts by day, and says a refusal in words once.
 //
 // Not a DFU member. Ledger A (SERPENT1).
 import { readSerpentReceipt } from './serpentReceipt.js';
 import { pruneLegs } from './serpentBrain.js';
-import { MODES_KEPT, LEGS_KEPT } from './serpentBody.js';
+import { MODES_KEPT, LEGS_KEPT, supersede } from './serpentBody.js';
+import { serpentSiteKey, sameSerpentSite } from './serpentLaw.js';
 
 /**
  * @typedef {{day: number|null, boss: string|null, sx: number, sz: number, ph: number, hp: number, max: number,
@@ -25,6 +27,8 @@ export const SERPENT_STATE_EMPTY = Object.freeze({
   sh: 0, su: 0, sa: 0, n: 0, op: 0, fell: null, gone: null, heardAt: 0, broke: null, crushed: 0,
 });
 
+/** AUDIT SERPENT S4/M1: a coil still holding let go at `at` - a dead or sounded serpent grips nothing. */
+const letGo = (c, at) => (c && !(c.off > 0) ? { ...c, off: at } : c);
 const sameLeg = (a, b) => a.at === b.at && a.k === b.k && a.x === b.x && a.z === b.z && a.yw === b.yw && a.v === b.v && !!a.j === !!b.j;
 
 /**
@@ -46,16 +50,21 @@ export function foldSerpent(s, w, now) {
   }
   if (s.day === null) return s;
   switch (w.k) {
+    // AUDIT SERPENT S2: THE TIMELINE'S ONE RULE, the relay's own (serpentBody.js supersede) - a word supersedes every leg or
+    // mode still to come after it, so this track is the relay's, word for word, and the body drawn here is the one it judges
     case 'sw': {
       if (s.legs.some((l) => sameLeg(l, w.l))) return s;
-      const f = { legs: [...s.legs, w.l].sort((a, b) => a.at - b.at) };
+      const f = { legs: supersede([...s.legs], w.l.at) };
+      f.legs.push(w.l);
       pruneLegs(f, now);
       while (f.legs.length > LEGS_KEPT * 2) f.legs.shift();
       return { ...s, legs: f.legs, heardAt: now };
     }
     case 'dv': {
       if (s.modes.some((d) => d.at === w.at && d.m === w.m)) return s;
-      return { ...s, modes: [...s.modes, { at: w.at, m: w.m }].sort((a, b) => a.at - b.at).slice(-MODES_KEPT), heardAt: now };
+      const modes = supersede([...s.modes], w.at);
+      modes.push({ at: w.at, m: w.m });
+      return { ...s, modes: modes.slice(-MODES_KEPT), heardAt: now };
     }
     case 'atk': return { ...s, atk: { i: w.i, a: w.a, at: w.at, x: w.x, z: w.z, yw: w.yw, tg: w.tg, ...(w.s ? { s: w.s } : {}) }, heardAt: now };
     case 'hp': return { ...s, hp: w.h, max: w.m, heardAt: now };
@@ -68,10 +77,11 @@ export function foldSerpent(s, w, now) {
     case 'mael': return { ...s, mael: { at: w.at, x: w.x, z: w.z }, heardAt: now };
     case 'fell': {
       if (w.d !== undefined && w.d !== s.day) return s;
+      if (w.sx !== undefined && !sameSerpentSite(w, s)) return s;   // AUDIT SERPENT S1: another site's serpent
       if (s.fell) return w.dm && !s.fell.dm ? { ...s, fell: { ...s.fell, dm: w.dm }, heardAt: now } : s;
-      return { ...s, fell: { at: w.at, top: w.top, n: w.n, ...(w.dm ? { dm: w.dm } : {}) }, hp: 0, atk: null, heardAt: now };
+      return { ...s, fell: { at: w.at, top: w.top, n: w.n, ...(w.dm ? { dm: w.dm } : {}) }, hp: 0, atk: null, coil: letGo(s.coil, w.at), heardAt: now };
     }
-    case 'gone': return { ...s, gone: w.at, atk: null, heardAt: now };
+    case 'gone': return { ...s, gone: w.at, atk: null, coil: letGo(s.coil, w.at), heardAt: now };
     default: return s;
   }
 }
@@ -79,18 +89,24 @@ export function foldSerpent(s, w, now) {
 /** The cell's refusals' words as the player reads them (net/wire.js SERPENT_NO_WORDS). */
 export const SERPENT_NO_TEXT = Object.freeze({
   'the serpent is gone': 'The serpent is gone into the deep.',
-  'the storm has closed its waters': 'A storm has closed over the serpent\'s waters - no ship can reach the fight now.',
+  'the storm has closed its waters': 'A storm has closed over the serpent\'s waters - no ship can join the fight now.',
+  'it is already slain': 'The serpent is already slain.',
   'too far from its waters': 'Sail closer to the serpent\'s waters.',
   'the waters are full': 'There are too many ships in the serpent\'s waters.',
   reload: 'Your game is older than this serpent - save, then reload (or update the app) to fight it.',
 });
+/** A kill's key: its day and its site's name. */
+const fallKey = (day, site) => `${day}|${serpentSiteKey(site.sx, site.sz)}`;
 
 /**
- * The link: the state, the falls and the receipts by day, and the words said.
- * @param {{now: () => number, say?: (text: string) => void, onFell?: (day: number, fell: any) => void,
- *   onReceipt?: (receipt: string) => void, onRefused?: (why: string) => void}} deps
+ * The link: the state, the falls by day and site and the receipts by day, and the words said. `site` this machine's
+ * own site for the day (systems/serpentSite.js, null unknown): a whole state of another site's fight is not folded
+ * (AUDIT SERPENT S1 - the relay says one fight to a socket; this is the client's own guard). `onFell` hears each kill
+ * once, with the site it fell at.
+ * @param {{now: () => number, say?: (text: string) => void, onFell?: (day: number, fell: any, site: {sx: number, sz: number}) => void,
+ *   onReceipt?: (receipt: string) => void, onRefused?: (why: string) => void, site?: () => ({day: number, sx: number, sz: number}|null)}} deps
  */
-export function createSerpentLink({ now, say = () => {}, onFell = () => {}, onReceipt = () => {}, onRefused = () => {} }) {
+export function createSerpentLink({ now, say = () => {}, onFell = () => {}, onReceipt = () => {}, onRefused = () => {}, site = () => null }) {
   /** @type {Readonly<SerpentState>} */
   let state = SERPENT_STATE_EMPTY;
   const falls = new Map();
@@ -102,17 +118,21 @@ export function createSerpentLink({ now, say = () => {}, onFell = () => {}, onRe
       if (!w) return;
       if (w.k === 'no') { if (!refused.has(w.m)) { refused.add(w.m); say(SERPENT_NO_TEXT[w.m] ?? w.m); } onRefused(w.m); return; }
       if (w.k === 'rcpt') { const c = readSerpentReceipt(w.r); if (c && !receipts.has(c.d)) { receipts.set(c.d, w.r); onReceipt(w.r); } return; }
+      if (w.k === 'st') { const mine = site(); if (mine && mine.day === w.d && !sameSerpentSite(mine, w)) return; }
       if (w.k === 'fell') {
+        // the hub's names its site; the cell's own is its fight's
         const day = w.d ?? state.day;
-        if (Number.isSafeInteger(day) && !falls.has(day)) { const f = { at: w.at, top: w.top, n: w.n }; falls.set(day, f); onFell(day, f); }
+        const at = w.sx !== undefined ? { sx: w.sx, sz: w.sz } : state.day === day ? { sx: state.sx, sz: state.sz } : null;
+        if (Number.isSafeInteger(day) && at && !falls.has(fallKey(day, at))) { const f = { at: w.at, top: w.top, n: w.n }; falls.set(fallKey(day, at), f); onFell(day, f, at); }
       }
       // a whole state naming a kill this link never heard said (a ship sailing in on a serpent slain while it was away,
       // a hub that missed the word): kept for the omen, unsaid - the bar says it
-      if (w.k === 'st' && w.fell && Number.isSafeInteger(w.d) && !falls.has(w.d)) falls.set(w.d, { at: w.fell.at, top: w.fell.top, n: w.fell.n });
+      if (w.k === 'st' && w.fell && Number.isSafeInteger(w.d) && !falls.has(fallKey(w.d, w))) falls.set(fallKey(w.d, w), { at: w.fell.at, top: w.fell.top, n: w.fell.n });
       state = foldSerpent(state, w, now());
     },
     state: () => state,
-    fellAt: (day) => falls.get(day)?.at ?? null,
+    /** The kill of the serpent at `at` on `day` (its relay time), or null. */
+    fellAt: (day, at) => (at && Number.isFinite(at.sx) && Number.isFinite(at.sz) ? falls.get(fallKey(day, at))?.at ?? null : null),
     receipt: (day) => receipts.get(day) ?? null,
     /** A refusal said again only after the fight is left (a ship turned away from the storm's wall is told once). */
     leave() { state = SERPENT_STATE_EMPTY; refused.clear(); },

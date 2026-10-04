@@ -113,21 +113,24 @@ export const serpentAdmits = (day, nowMs) => { const t = serpentTimes(day); retu
 export const serpentHolds = (day, nowMs) => { const t = serpentTimes(day); return isSerpentDay(day) && nowMs >= t.riseAt && nowMs < t.soundAt + SERPENT_DIVE_MS; };
 
 /** What a countdown on the serpent counts to, and says: to its rising from the sighting; to the storm's closing while
- *  its waters are open; to its sounding once they are closed. Null otherwise. */
+ *  its waters are open (AUDIT SERPENT B9: from the rising itself - never "rises in 0s" as it rises); to its sounding
+ *  once they are closed. Null otherwise. */
 export function serpentCountdown(t, nowMs, phase = serpentPhase(t, nowMs)) {
   if (!t) return null;
-  if (phase === 'omen' || phase === 'rising') return { to: 'rise', ms: Math.max(0, t.riseAt - nowMs) };
-  if (phase === 'hunt') return { to: 'seal', ms: Math.max(0, t.sealAt - nowMs) };
+  if (phase === 'omen') return { to: 'rise', ms: Math.max(0, t.riseAt - nowMs) };
+  if (phase === 'rising' || phase === 'hunt') return { to: 'seal', ms: Math.max(0, t.sealAt - nowMs) };
   if (phase === 'late') return { to: 'sound', ms: Math.max(0, t.soundAt - nowMs) };
   return null;
 }
-/** "4:07", "0:09" - the seconds rounded UP, so a countdown never reads 0:00 while time is left (gateLaw.js's law). */
+/** "4m 07s", "9s" - the seconds rounded UP, so a countdown never reads 0s while time is left (gateLaw.js's law). AUDIT
+ *  SERPENT (words): never "15:00" - a time left read as a clock's hour beside lines that name the hour it rises. */
 export function serpentClock(ms) {
   const s = Math.max(0, Math.ceil((Number.isFinite(ms) ? ms : 0) / 1000));
-  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+  return s < 60 ? `${s}s` : `${Math.floor(s / 60)}m ${String(s % 60).padStart(2, '0')}s`;
 }
-/** A countdown's words: "rises in 4:07", "storm closes in 8:41", "sounds in 6:12" - null for none. */
-export const serpentCountdownWords = (cd) => (cd ? `${cd.to === 'rise' ? 'rises' : cd.to === 'seal' ? 'storm closes' : 'sounds'} in ${serpentClock(cd.ms)}` : null);
+/** A countdown's words: "rises in 4m 07s", "storm closes in 8m 41s", "dives in 6m 12s" - null for none. AUDIT SERPENT
+ *  (words): it DIVES - "sounds", the sailors' word, read as a noise. */
+export const serpentCountdownWords = (cd) => (cd ? `${cd.to === 'rise' ? 'rises' : cd.to === 'seal' ? 'storm closes' : 'dives'} in ${serpentClock(cd.ms)}` : null);
 
 // ═══ THE ROLLS ════════════════════════════════════════════════════════
 //
@@ -150,6 +153,11 @@ export const serpentRiseYaw = (day) => unit(day, 7) * 2 * Math.PI;
 /** A map pixel's side, metres (gateLaw.js SERPENT_PIXEL_M - pinned equal), and native units to the metre (40: 32768 a pixel). */
 export const SERPENT_PIXEL_M = 819.2;
 export const SERPENT_NATIVE_PER_M = 40;
+/** AUDIT SERPENT S1: A SITE'S NAME - its native point to the whole unit (every honest client finds the same point; the
+ *  relay keeps one fight a name, and a client hears the kill of its own site's serpent alone). */
+export const serpentSiteKey = (sx, sz) => `${Math.round(sx)},${Math.round(sz)}`;
+export const sameSerpentSite = (a, b) => !!a && !!b && Number.isFinite(a.sx) && Number.isFinite(a.sz) && Number.isFinite(b.sx) && Number.isFinite(b.sz)
+  && serpentSiteKey(a.sx, a.sz) === serpentSiteKey(b.sx, b.sz);
 
 /** The omen's ring on the map: this many map pixels across its radius (about 2.5 km) - its waters with room to sail
  *  into - and its centre pulled this far at most off the site, so the ring says where to sail and the sea where. */
@@ -186,13 +194,14 @@ export const serpentBossById = (id) => SERPENT_BOSSES.find((b) => b.id === id) ?
 // a time names this machine's); `left` a countdown ("4:07").
 export const sightingLine = ({ near, at, boss }) => `Bells ring in the harbours: a great serpent is sighted off ${near}. ${boss} rises at ${at} your time.`;
 export const risingLine = ({ near, boss, left }) => `${boss} rises off ${near}. The storm closes over its waters in ${left}.`;
-export const sealLine = ({ near, boss, at }) => `A storm closes over ${boss}'s waters off ${near}. It sounds at ${at} your time.`;
-export const soundLine = ({ near, boss }) => `${boss} sounds off ${near} and is gone into the deep.`;
-/** The Bay hears the kill (the relay's word, fanned by the hub): "Sethrakul is slain off Sentinel by Ama, Bel and Cor." */
+export const sealLine = ({ near, boss, at }) => `A storm closes over ${boss}'s waters off ${near} - no ship can join the fight now. It dives at ${at} your time.`;
+export const soundLine = ({ near, boss }) => `${boss} dives off ${near} and is gone into the deep.`;
+/** The Bay hears the kill (the relay's word, fanned by the hub): "Sethrakul is slain off Sentinel by Ama, Bel and Cor."
+ *  AUDIT SERPENT (words): the whole Bay hears it - its hoard is said to be the ships' that fought it, never everyone's. */
 export function slainLine({ near, boss, top }) {
   const names = (Array.isArray(top) ? top : []).filter((n) => typeof n === 'string' && n);
   const by = names.length > 1 ? `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}` : names[0] ?? '';
-  return `${boss} is slain${near ? ` off ${near}` : ''}${by ? ` by ${by}` : ''}. The sea gives up its hoard.`;
+  return `${boss} is slain${near ? ` off ${near}` : ''}${by ? ` by ${by}` : ''}. Its hoard goes to the ships that fought it.`;
 }
 
 /** The brain's law version a client fights by: the relay refuses an `in` below SERPENT_BRAIN_MIN in words that say

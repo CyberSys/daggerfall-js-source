@@ -986,7 +986,8 @@ export function createNavalHost(deps) {
     const t = e.volley != null ? tallies.get(String(e.volley)) : null;
     if (!t) return;
     if (e.type === 'hit') {
-      if (!sea.has(e.target)) { if (e.zone !== 'rig') t.ended++; }
+      if (segmentOfTarget(e.target) != null) { t.hits++; t.ended++; }   // AUDIT SERPENT L2: a ball in the sea serpent's hide is a hit, never a miss
+      else if (!sea.has(e.target)) { if (e.zone !== 'rig') t.ended++; }
       else if (e.zone === 'rig') t.rig++;
       else { t.hits++; if (e.zone === 'holed') t.holed++; t.ended++; }
     } else if (e.type === 'splash' || e.type === 'land' || e.type === 'gone') t.ended++;
@@ -2313,16 +2314,17 @@ export function createNavalHost(deps) {
         if (hit && (!best || hit.t < best.t)) best = { t: hit.t, point: hit.point, e, hull, rig: i > 0 };
       }
     }
-    // SERPENT1: the look on the serpent lays the guns on the segment it meets (no lead - it swims its own way)
+    // SERPENT1: the look on the serpent lays the guns on the segment it meets - AUDIT SERPENT T4: led by its way as a
+    // ship is by hers (a body swimming 11 m/s under a ball two seconds aloft was struck behind the segment laid on)
     for (const t of deps.serpent?.targets?.() ?? []) {
       const hit = segmentBoxEntry(look.origin, far, t.box, 0);
-      if (hit && (!best || hit.t < best.t)) best = { t: hit.t, point: hit.point, e: null, hull: null, rig: false };
+      if (hit && (!best || hit.t < best.t)) best = { t: hit.t, point: hit.point, e: null, hull: null, rig: false, v: t.v ?? null };
     }
     if (!best) return null;
-    if (!best.e) return best.point;
+    if (!best.e && !best.v) return best.point;
     const pose = boatPose(boat);
     const fire = flatUnit(quatRotate(pose.rotation, SIDE_DIR[side])) ?? [0, 0, 1];
-    const v = velocityOf(best.e.ship);
+    const v = best.e ? velocityOf(best.e.ship) : best.v;
     const p = best.rig && bat.gun !== 'chain' && best.hull ? best.hull.c : best.point;
     const along = (v[0] * fire[0] + v[2] * fire[2]) * dist2d(p, pose.position) / Math.max(1, g.speed * 0.97);
     return [p[0] + fire[0] * along, p[1], p[2] + fire[2] * along];
@@ -2349,9 +2351,9 @@ export function createNavalHost(deps) {
       const boxes = [hullBox(e.boat), ...(solution.gun === 'chain' ? rigBoxesOf(e.boat) : [])].filter(Boolean);
       if (boxes.length) ships.push({ e, v: velocityOf(e.ship), boxes: boxes.map((b) => ({ b, r: Math.hypot(b.h[0], b.h[1], b.h[2]) })) });
     }
-    // SERPENT1: the sea serpent's segments above the sea - a broadside laid on it goes red as on a ship (its way is its
-    // own swim: laid where it stands)
-    for (const t of deps.serpent?.targets?.() ?? []) ships.push({ e: SERPENT_AIM, v: [0, 0, 0], boxes: [{ b: t.box, r: Math.hypot(t.box.h[0], t.box.h[1], t.box.h[2]) }] });
+    // SERPENT1: the sea serpent's segments above the sea - a broadside laid on it goes red as on a ship, each segment
+    // where its way will carry it (AUDIT SERPENT T4)
+    for (const t of deps.serpent?.targets?.() ?? []) ships.push({ e: SERPENT_AIM, v: t.v ?? [0, 0, 0], boxes: [{ b: t.box, r: Math.hypot(t.box.h[0], t.box.h[1], t.box.h[2]) }] });
     if (!ships.length) return null;
     let ship = null;
     const hits = solution.launches.map((l) => {
@@ -4463,11 +4465,13 @@ export function createNavalHost(deps) {
       };
     },
     /** SERPENT1: a sea serpent's blow on a boat of mine - her own client takes it (the victim's law): her hurt, the deck's
-     *  shake, the line. Answers the state it changed her to, or null. */
+     *  shake, the line. AUDIT SERPENT B6: braced, her hull and canvas take BRACE_TAKEN of it, as of any ball. Answers the
+     *  state it changed her to, or null. */
     serpentStrike(boat, hurt, { shake = 0, line = null } = {}) {
       const st = boat ? myBoatState(boat) : null;
       if (!enabled || !st || !hurt) return null;
-      const change = st.damage.apply(hurt, clock);
+      const k = st.guns.braced ? BRACE_TAKEN : 1;
+      const change = st.damage.apply(k < 1 ? { ...hurt, hull: Math.round((hurt.hull ?? 0) * k), sail: Math.round((hurt.sail ?? 0) * k) } : hurt, clock);
       if (shake) deps.shake?.(shake);
       if (line) deps.say?.(line, 2.5);
       if (change === SHIP_STATES.wrecked) deps.mid?.('Your ship is crippled! The sails hang in rags.', 3);

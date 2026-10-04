@@ -21,8 +21,8 @@ export const STUN_CSS = '#fff2a6';
 /** The words. */
 export const SERPENT_BAR_TEXT = Object.freeze({
   ships: (n) => (n === 1 ? '1 ship in its waters' : `${n} ships in its waters`),
-  sounds: (left) => `It sounds in ${left}`,
-  stunned: (s) => `Stunned - strike its head! ${s}`,
+  sounds: (left) => `It dives in ${left}`,
+  stunned: (s) => `Stunned - strike its head! ${s}s`,
   coil: (h, m, mine) => (mine ? `Its coils hold YOUR ship - ${h} / ${m}` : `Break the coil - ${h} / ${m}`),
   phase: (n, name) => `${['I', 'II', 'III'][n - 1] ?? n} - ${name}`,
 });

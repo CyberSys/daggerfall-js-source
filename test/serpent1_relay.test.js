@@ -21,9 +21,9 @@ import { importPublicKeyB64 } from '../src/net/identityToken.js';
 import {
   parseClient, validSerpentIn, validSerpentOut, relaySupportsSerpent, serpentGate, SERPENT_RELAY_MIN, SERPENT_HZ_MAX, SERPENT_KINDS,
   SERPENT_OUT_KINDS, SERPENT_NO_WORDS, SERPENT_LEGS_MAX, SERPENT_MODES_MAX, SERPENT_ATTACKS, SERPENT_MODES, SERPENT_CHART_MAX,
-  SERPENT_RECEIPT_WIRE_MAX, SERPENT_DMG_WIRE_MAX, SERPENT_FIGHT_KEY, SOCIAL_ROOM, RELAY_VERSION, cellRoomOfWire, PIXEL_UNITS,
+  SERPENT_RECEIPT_WIRE_MAX, SERPENT_DMG_WIRE_MAX, SERPENT_FIGHT_KEY, serpentFightId, SOCIAL_ROOM, RELAY_VERSION, cellRoomOfWire, PIXEL_UNITS,
 } from '../src/net/wire.js';
-import { serpentTimes, serpentBossOf, SERPENT_BRAIN_V, SERPENT_DIVE_MS, SERPENT_NATIVE_PER_M } from '../src/net/serpentLaw.js';
+import { serpentTimes, serpentBossOf, serpentSiteKey, SERPENT_BRAIN_V, SERPENT_DIVE_MS, SERPENT_NATIVE_PER_M } from '../src/net/serpentLaw.js';
 import {
   SERPENT_ATTACK_BY_ID, SERPENT_TICK_MS, SERPENT_OPENING_MS, FAN_R, ADMIT_R, SHIP_REF, SERPENT_TTK_S, SERPENT_DAMAGE_CHART_MAX, serpentStateOf, ZONES,
 } from '../src/net/serpentBrain.js';
@@ -33,7 +33,7 @@ import { fakeRooms } from './fakeRoom.mjs';
 import worker from '../server-account/src/index.js';
 import { _resetKeyForTests } from '../server-account/src/signing.js';
 import { createGuest } from '../server-account/src/accounts.js';
-import { claimSerpent, serpentRecordOf } from '../server-account/src/serpents.js';
+import { claimSerpent, serpentRecordOf, SERPENT_STOOD_RENOWN } from '../server-account/src/serpents.js';
 import { ROUTES, OPEN_ROUTES } from '../server-account/src/service.js';
 import { renownSerpentXp, renownRaidXp, RENOWN_SERPENT_QUESTS } from '../src/net/renown.js';
 import { accountSerpents } from '../src/net/accountClient.js';
@@ -84,8 +84,8 @@ test('SERPENT1 receipt: minted by the relay, verified by its public half - the d
 
 // ═══ THE WIRE ════════════════════════════════════════════════════════════════════════════════════
 
-test('SERPENT1 wire: the client says four things - `in` with its day, law, level, hull and site, `hit` with a damage and where it struck, the coiled ship\'s `held` and `esc` - projected field by field after a hello alone; the first relay that holds a serpent is SERPENT_RELAY_MIN (mutants: an extra field carried; a hull past the table; a damage past the wire\'s bound)', () => {
-  assert.deepEqual(SERPENT_KINDS, ['in', 'hit', 'held', 'esc']);
+test('SERPENT1 wire: the client says five things - `in` with its day, law, level, hull and site, `hit` with a damage and where it struck, `wr` its ship wrecked or afloat, the coiled ship\'s `held` and `esc` - projected field by field after a hello alone; the first relay that holds a serpent is SERPENT_RELAY_MIN (mutants: an extra field carried; a hull past the table; a damage past the wire\'s bound; a wreck word not 0 or 1)', () => {
+  assert.deepEqual(SERPENT_KINDS, ['in', 'hit', 'held', 'esc', 'wr']);
   const IN = { k: 'in', d: 363, bv: 1, lv: 20, hl: 4, sx: 205.5 * PIXEL_UNITS, sz: 285.5 * PIXEL_UNITS };
   assert.deepEqual(validSerpentIn({ ...IN, extra: 1 }), IN);
   assert.equal(validSerpentIn({ ...IN, hl: 5 }), null);
@@ -99,6 +99,9 @@ test('SERPENT1 wire: the client says four things - `in` with its day, law, level
   assert.deepEqual(validSerpentIn({ k: 'held', i: 3, x: 10, z: -4 }), { k: 'held', i: 3, x: 10, z: -4 });
   assert.deepEqual(validSerpentIn({ k: 'esc', i: 3, x: 1 }), { k: 'esc', i: 3 });
   assert.equal(validSerpentIn({ k: 'esc', i: 0 }), null);
+  assert.deepEqual(validSerpentIn({ k: 'wr', w: 1, i: 4 }), { k: 'wr', w: 1 });
+  assert.deepEqual(validSerpentIn({ k: 'wr', w: 0 }), { k: 'wr', w: 0 });
+  for (const w of [2, -1, true, '1', undefined]) assert.equal(validSerpentIn({ k: 'wr', w }), null, `wreck word ${w}`);
   assert.equal(validSerpentIn({ k: 'spent', d: 3 }), null);
   assert.deepEqual(parseClient(JSON.stringify({ t: 'serpent', ...IN }), { hasHello: true }), { t: 'serpent', ...IN });
   assert.equal(parseClient(JSON.stringify({ t: 'serpent', ...IN }), { hasHello: false }).error, 'serpent before hello');
@@ -145,6 +148,11 @@ test('SERPENT1 wire: the cell\'s every word projected for the client - a state t
   assert.equal(validSerpentOut({ ...st, fell: { ...st.fell, dm: [{ n: 'A', h: 4, d: 3, c: 40, x: 9, b: 50 }] } }), null, 'a chart row whose coils outweigh its whole');
   assert.equal(validSerpentOut({ ...st, h: 500 }), null);
   assert.deepEqual(validSerpentOut({ k: 'fell', at: 9, top: ['Ama'], n: 3, d: 363 }), { k: 'fell', at: 9, top: ['Ama'], n: 3, d: 363 });
+  // AUDIT SERPENT S1: the hub's kill names its site - both halves or neither
+  assert.deepEqual(validSerpentOut({ k: 'fell', at: 9, top: [], n: 3, d: 363, sx: 1e6, sz: 2e6 }), { k: 'fell', at: 9, top: [], n: 3, d: 363, sx: 1e6, sz: 2e6 });
+  assert.equal(validSerpentOut({ k: 'fell', at: 9, top: [], n: 3, d: 363, sx: 1e6 }), null, 'half a site');
+  assert.equal(validSerpentOut({ k: 'fell', at: 9, top: [], n: 3, d: 363, sx: 1e6, sz: 9e12 }), null, 'a site off the world');
+  assert.deepEqual(validSerpentOut({ k: 'no', m: 'it is already slain' }), { k: 'no', m: 'it is already slain' });
 });
 
 // ═══ THE RELAY ═══════════════════════════════════════════════════════════════════════════════════
@@ -158,6 +166,9 @@ const CELL = cellRoomOfWire(SX, SZ);
 const at = (mx, mz, extra = {}) => ({ x: SX + mx * SERPENT_NATIVE_PER_M, y: 0, z: SZ + mz * SERPENT_NATIVE_PER_M, yaw: 0, pitch: 0, ...extra });
 const words = (ws, k) => ws.sent.filter((m) => m.t === 'serpent' && (!k || m.k === k));
 const IN = (o = {}) => ({ k: 'in', d: DAY, bv: SERPENT_BRAIN_V, lv: 20, hl: 4, sx: SX, sz: SZ, ...o });
+/** The site's fight in the cell's storage, and on the instance (null for none). */
+const FIGHT_AT = `${SERPENT_FIGHT_KEY}:${serpentFightId(DAY, serpentSiteKey(SX, SZ))}`;
+const fightIn = (r) => r.room._serpents?.get(serpentFightId(DAY, serpentSiteKey(SX, SZ))) ?? null;
 async function withSea(fn, { start = TT.riseAt + 20_000 } = {}) {
   const realNow = Date.now; let clock = start; Date.now = () => clock;
   const world = fakeRooms({ now: () => clock });
@@ -176,8 +187,8 @@ test('SERPENT1 relay: THE JOIN - `in` from a pose by its waters stands the fight
     const st = words(a, 'st')[0];
     assert.equal(st.d, DAY); assert.equal(st.b, serpentBossOf(DAY).id); assert.equal(st.sx, SX); assert.equal(st.sz, SZ);
     assert.equal(st.m, SERPENT_TTK_S * SHIP_REF[4]);
-    assert.ok(r.room._serpent.players['acct-peer-0001'], 'the account the token verified');
-    assert.equal(r.store.get(SERPENT_FIGHT_KEY).day, DAY, 'kept at once');
+    assert.ok(fightIn(r).players['acct-peer-0001'], 'the account the token verified');
+    assert.equal(r.store.get(FIGHT_AT).day, DAY, 'kept at once');
     assert.equal(words(b).length + words(c).length, 0, 'the state went to its asker alone');
     assert.equal(r.alarm.at, now() + SERPENT_TICK_MS, 'the beat armed');
     await tick(Math.ceil(SERPENT_OPENING_MS / SERPENT_TICK_MS) + 24);
@@ -197,7 +208,7 @@ test('SERPENT1 relay: THE REFUSALS - a game older than its law (`reload`), a day
     await say(a, IN({ d: DAY + 2 }));
     assert.deepEqual(words(a).at(-1), { t: 'serpent', k: 'no', m: 'the serpent is gone' });
     await say(a, IN({ sx: SX + 20 * PIXEL_UNITS }));
-    assert.equal(r.room._serpent ?? null, null, 'a site in another cell stands nothing here');
+    assert.equal(r.room._serpents?.size ?? 0, 0, 'a site in another cell stands nothing here');
     // ...even one a stone's throw over the cell's edge from a pose inside it
     const edgeM = (Math.floor(PX / 16) * 16 + 15.8 - (PX + 0.5)) * (PIXEL_UNITS / SERPENT_NATIVE_PER_M);
     const edge = r.connect(); await r.hello(edge, 'peer-0004', at(edgeM, 0));
@@ -206,29 +217,29 @@ test('SERPENT1 relay: THE REFUSALS - a game older than its law (`reload`), a day
     assert.notEqual(cellRoomOfWire(over, SZ), CELL);
     assert.ok(Math.abs(over - at(edgeM, 0).x) / SERPENT_NATIVE_PER_M < ADMIT_R, 'within sight of the site it names');
     await say(edge, IN({ sx: over }));
-    assert.equal(r.room._serpent ?? null, null, 'a site over the edge stands nothing here');
+    assert.equal(r.room._serpents?.size ?? 0, 0, 'a site over the edge stands nothing here');
     const far = r.connect(); await r.hello(far, 'peer-0002', at(ADMIT_R + 100, 0));
     await say(far, IN());
     assert.deepEqual(words(far).at(-1), { t: 'serpent', k: 'no', m: 'too far from its waters' });
-    assert.equal(r.room._serpent ?? null, null);
+    assert.equal(fightIn(r), null);
     await say(a, IN());
-    assert.ok(r.room._serpent.players['acct-peer-0001']);
+    assert.ok(fightIn(r).players['acct-peer-0001']);
     set(TT.sealAt + 1);
     const late = r.connect(); await r.hello(late, 'peer-0003', at(200, 0));
     await say(late, IN());
     assert.deepEqual(words(late).map((m) => m.k), ['st', 'no']);
     assert.equal(words(late)[1].m, 'the storm has closed its waters');
-    assert.ok(!r.room._serpent.players['acct-peer-0003']);
+    assert.ok(!fightIn(r).players['acct-peer-0003']);
   });
 });
 
-test('SERPENT1 relay: A BLOW - believed as far as the brain allows from where the socket\'s OWN pose stands: before `in` it is junk, a dead pose lands nothing; the coiled ship\'s word is hers alone (mutants: the frame trusted for where it stood; the dead striking)', async () => {
+test('SERPENT1 relay: A BLOW - believed as far as the brain allows from where the socket\'s OWN pose stands: before `in` it is not heard, a dead pose lands nothing; the coiled ship\'s word is hers alone (mutants: the frame trusted for where it stood; the dead striking)', async () => {
   await withSea(async ({ r, tick, say }) => {
     const a = r.connect(); await r.hello(a, 'peer-0001', at(150, 0));
     await say(a, { k: 'hit', d: 50, z: 0 });
-    assert.equal(r.room._serpent ?? null, null, 'no fight, nothing');
+    assert.equal(fightIn(r), null, 'no fight, nothing');
     await say(a, IN());
-    const f = r.room._serpent;
+    const f = fightIn(r);
     await tick(2);
     // the serpent cruising round its waters' heart: a blow from 150 m lands
     f.legs = [{ k: 1, at: Date.now() - 30_000, x: -60, z: 0, yw: 0, v: 11, r: 60, sd: 1, j: 1 }];
@@ -252,7 +263,7 @@ test('SERPENT1 relay: THE KILL - said once to everyone about it, a receipt to ex
     await r.hello(a, 'peer-0001', at(120, 0)); await r.hello(w, 'peer-0002', at(900, 900)); await r.hello(idle, 'peer-0003', at(0, 1300));
     await say(a, IN({ lv: 33 }));
     await say(idle, IN());   // in its fight, never within its engagement: it stood nothing and dealt nothing
-    const f = r.room._serpent;
+    const f = fightIn(r);
     await tick(1);
     f.legs = [{ k: 1, at: now() - 30_000, x: -60, z: 0, yw: 0, v: 11, r: 60, sd: 1, j: 1 }];
     f.modes = [{ at: now() - 30_000, m: 1 }];
@@ -264,15 +275,15 @@ test('SERPENT1 relay: THE KILL - said once to everyone about it, a receipt to ex
     const mine = words(a, 'rcpt');
     assert.equal(mine.length, 1);
     assert.equal(words(w, 'rcpt').length, 0);
-    assert.ok(r.room._serpent.players['acct-peer-0003'], 'the idle ship is a fighter');
+    assert.ok(fightIn(r).players['acct-peer-0003'], 'the idle ship is a fighter');
     assert.equal(words(idle, 'fell').length, 1, 'it heard the kill');
     assert.equal(words(idle, 'rcpt').length, 0, 'and serpentEarned no receipt');
     const ok = await verifySerpentReceipt(mine[0].r, kp.publicKey, { subtle, nowS: Math.floor(now() / 1000) });
     assert.equal(ok.ok, true);
     assert.deepEqual([ok.claims.s, ok.claims.d, ok.claims.b, ok.claims.h, ok.claims.l], ['acct-peer-0001', DAY, 'sethrakul', 4, 33]);
-    assert.equal(r.store.get(SERPENT_FIGHT_KEY).said, true, 'checkpointed with the kill');
-    assert.equal(r.store.get(SERPENT_FIGHT_KEY).told, true, 'the hub answered');
-    assert.deepEqual(words(h9, 'fell'), [{ t: 'serpent', k: 'fell', at: fell[0].at, top: fell[0].top, n: 2, d: DAY }], 'everyone online');
+    assert.equal(r.store.get(FIGHT_AT).said, true, 'checkpointed with the kill');
+    assert.equal(r.store.get(FIGHT_AT).told, true, 'the hub answered');
+    assert.deepEqual(words(h9, 'fell'), [{ t: 'serpent', k: 'fell', at: fell[0].at, top: fell[0].top, n: 2, d: DAY, sx: SX, sz: SZ }], 'everyone online, its site named');
     const late = hub.connect(); await hub.hello(late, 'peer-0010');
     assert.deepEqual(words(late, 'fell'), words(h9, 'fell'), 'a hello while its day holds hears it');
     await tick(4);
@@ -283,7 +294,7 @@ test('SERPENT1 relay: THE KILL - said once to everyone about it, a receipt to ex
     // its keeping's end: the cell forgets it
     set(TT.soundAt + SERPENT_DIVE_MS + 2 * 60 * 60 * 1000 + 1);
     await r.fire();
-    assert.equal(r.store.has(SERPENT_FIGHT_KEY), false);
+    assert.equal(r.store.has(FIGHT_AT), false);
     const later = hub.connect(); await hub.hello(later, 'peer-0011');
     assert.equal(words(later, 'fell').length, 0, 'its day over, a hello hears nothing');
   });
@@ -366,6 +377,13 @@ test('SERPENT1 books: a serpent is worth RENOWN_SERPENT_QUESTS quests at the top
   const next = await claimSerpent(ctx, m, { receipt: await serpentFor(m.id, priv, DAY + 2), character: CH, cid: CID }, pubKey);
   assert.equal(next.recorded, true); assert.equal(next.slain, 2, 'the next serpent counts');
   assert.deepEqual(await serpentRecordOf(ctx, m.id), { slain: 2 });
+  // AUDIT SERPENT (the books): a hand who STOOD the fight out is paid SERPENT_STOOD_RENOWN of a serpent's Renown
+  assert.equal(SERPENT_STOOD_RENOWN, 0.5);
+  const hand = await member(db);
+  const stood = await claimSerpent(ctx, hand, { receipt: await mintSerpentReceipt({ d: DAY, b: 'sethrakul', s: hand.id, c: 5, x: 'stood', h: -1, l: 20 }, priv, { subtle, nowS: T0S }), character: CH, cid: CID }, pubKey);
+  assert.equal(stood.recorded, true);
+  assert.equal(stood.renown.credited, Math.floor(renownSerpentXp(1) * SERPENT_STOOD_RENOWN), 'half');
+  assert.ok(stood.renown.credited < first.renown.credited);
   // the gate's table is not the serpent's: a gate kill the same day is a row of its own
   assert.equal(db._raw.prepare("SELECT COUNT(*) AS n FROM sqlite_master WHERE name = 'serpent_kills'").get().n, 1);
   const g = await guest(db);
@@ -415,6 +433,7 @@ test('SERPENT1 books: the worker\'s /v1/serpent/claim behind a session and never
   });
   assert.equal(claims.add(r, CH, 'Ann', 20), true);
   await claims.flush();
+  await new Promise((done) => setImmediate(done));   // the offer the add began, its hoard's grant awaited (AUDIT SERPENT D6)
   assert.equal(claims.kept().length, 0, 'settled');
   assert.equal(claims.add(r, CH, 'Ann', 20), false, 'never again on this device');
   assert.equal(serpentClaimVerdict({ ok: true, data: { why: 'guest' } }), 'keep');

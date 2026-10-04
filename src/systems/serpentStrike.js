@@ -22,7 +22,7 @@ const wrap = (a) => { let x = (a + Math.PI) % (2 * Math.PI); if (x < 0) x += 2 *
 /**
  * Does attack `atk` (its word - net/serpentBrain.js serpentAtkFrame) meet ship `boat` at `t`? The lane is the ram's: its head
  * has run `RAM_V` m/s down it from its landing, and a ship is met once that run has reached her (her beam's width
- * across it); the ring is the coil's (her middle inside it at the landing); the rest are met at the landing.
+ * across it); the ring is the coil's (any of her inside it at the landing); the rest are met at the landing.
  */
 export function shapeMeets(atk, boat, t = atk?.at ?? 0) {
   const A = SERPENT_ATTACK_BY_ID[atk?.a];
@@ -42,7 +42,7 @@ export function shapeMeets(atk, boat, t = atk?.at ?? 0) {
       const run = Math.max(0, Math.min(len, ((t - atk.at) / 1000) * RAM_V));
       return pts.some(([x, z]) => { const a = (x - cx) * ux + (z - cz) * uz, s = Math.abs((x - cx) * uz - (z - cz) * ux); return a >= -boat.hw && a <= run + boat.hw && s <= A.width / 2 + boat.hw; });
     }
-    case 'ring': return Math.hypot(boat.x - cx, boat.z - cz) <= A.r;
+    case 'ring': return pts.some(([x, z]) => Math.hypot(x - cx, z - cz) <= A.r);   // AUDIT SERPENT B5: laid where the relay saw her helm - any of her inside it
     default: return false;
   }
 }

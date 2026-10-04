@@ -25,7 +25,7 @@ import {
   chooseSerpentAttack, coilWord, coilHolds, pruneLegs, refOf, clampHull, SHIP_REF, SERPENT_TTK_S, SERPENT_BUCKET_RATE_X, SERPENT_BUCKET_DEPTH_X,
   SERPENT_HIT_CAP_X, SERPENT_HIT_HZ_MAX, HEAD_X, STUN_X, ZONES, SERPENT_PHASE_AT, SERPENT_SHIELD_MS, SERPENT_ATTACK_TABLE, SERPENT_ATTACK_BY_ID, SERPENT_PHASE_TURN, SERPENT_OPENING_MS,
   ENGAGE_R, GUN_REACH_M, SERPENT_POSE_SLACK, COIL_MS, COIL_ESC_MS, SERPENT_STUN_MS, COIL_TEAM_S, COIL_HP_MIN, SERPENT_RECEIPT_SHARE, SERPENT_STOOD_SHARE,
-  SERPENT_FIGHTERS_MAX, SERPENT_ABSENT_RETIRE_MS, ARENA_R, MAEL_ORBIT_R, RAM_V, ramLen, BREACH_LEAD_MS,
+  SERPENT_FIGHTERS_MAX, SERPENT_ABSENT_RETIRE_MS, ARENA_R, MAEL_ORBIT_R, RAM_V, ramLen, BREACH_LEAD_MS, SERPENT_COIL_PASS, SERPENT_STAND_R, SERPENT_IDLE_RETIRE_MS, SERPENT_TARGET_R, serpentWreck, serpentShareWanted, COIL_WORD_EARLY_MS, serpentAtkFrame,
 } from '../src/net/serpentBrain.js';
 import { HULL, HULL_BUILDS, GUNS } from '../src/systems/naval/navalShips.js';
 import { orientedBox, segmentBoxEntry } from '../src/systems/naval/navalBallistics.js';
@@ -96,11 +96,15 @@ test('SERPENT1 schedule: who may come - a newcomer from the rising until the sto
   assert.ok(!serpentAdmits(364, serpentTimes(364).riseAt), 'no serpent, no admission');
   assert.ok(serpentHolds(363, t.sealAt) && serpentHolds(363, t.soundAt + SERPENT_DIVE_MS - 1) && !serpentHolds(363, t.soundAt + SERPENT_DIVE_MS) && !serpentHolds(363, t.riseAt - 1));
   assert.deepEqual(serpentCountdown(t, t.omenAt), { to: 'rise', ms: t.riseAt - t.omenAt });
-  assert.equal(serpentCountdownWords(serpentCountdown(t, t.riseAt - 61_500)), 'rises in 1:02');
+  assert.equal(serpentCountdownWords(serpentCountdown(t, t.riseAt - 61_500)), 'rises in 1m 02s');
   assert.equal(serpentCountdownWords(serpentCountdown(t, t.riseAt + SERPENT_SURFACE_MS)), `storm closes in ${serpentClock(t.sealAt - t.riseAt - SERPENT_SURFACE_MS)}`);
-  assert.equal(serpentCountdownWords(serpentCountdown(t, t.sealAt)), 'sounds in 10:00');
+  // AUDIT SERPENT B9: as it rises the countdown is the storm's - never "rises in 0s"
+  assert.deepEqual(serpentCountdown(t, t.riseAt + 1000), { to: 'seal', ms: t.sealAt - t.riseAt - 1000 });
+  assert.equal(serpentCountdownWords(serpentCountdown(t, t.sealAt)), 'dives in 10m 00s');
   assert.equal(serpentCountdown(t, t.soundAt), null);
-  assert.equal(serpentClock(1), '0:01', 'rounded up - never 0:00 with time left');
+  assert.equal(serpentClock(1), '1s', 'rounded up - never 0s with time left');
+  assert.equal(serpentClock(59_001), '1m 00s');
+  assert.equal(serpentClock(15 * 60_000), '15m 00s', 'AUDIT SERPENT (words): never "15:00", a clock\'s hour');
 });
 
 test('SERPENT1 rolls: the lane tries and the place along each are the day\'s own hash, the place in the lane\'s middle stretch; the ring on the map holds its site (mutants: the along share outside its stretch; the ring centred on the site with no shift)', () => {
@@ -131,13 +135,13 @@ test('SERPENT1 words: the boss table, and each line the event, where and when (m
   assert.equal(SERPENT_BOSSES.length, 1);
   assert.equal(serpentBossOf(363).id, 'sethrakul');
   assert.equal(serpentBossById('nobody').id, 'sethrakul');
-  const w = { near: 'Sentinel', boss: 'Sethrakul', at: '14:32', left: '4:07' };
+  const w = { near: 'Sentinel', boss: 'Sethrakul', at: '14:32', left: '4m 07s' };
   assert.equal(sightingLine(w), 'Bells ring in the harbours: a great serpent is sighted off Sentinel. Sethrakul rises at 14:32 your time.');
-  assert.equal(risingLine(w), 'Sethrakul rises off Sentinel. The storm closes over its waters in 4:07.');
-  assert.equal(sealLine(w), 'A storm closes over Sethrakul\'s waters off Sentinel. It sounds at 14:32 your time.');
-  assert.equal(soundLine(w), 'Sethrakul sounds off Sentinel and is gone into the deep.');
-  assert.equal(slainLine({ ...w, top: ['Ama', 'Bel', 'Cor'] }), 'Sethrakul is slain off Sentinel by Ama, Bel and Cor. The sea gives up its hoard.');
-  assert.equal(slainLine({ ...w, near: null, top: [] }), 'Sethrakul is slain. The sea gives up its hoard.');
+  assert.equal(risingLine(w), 'Sethrakul rises off Sentinel. The storm closes over its waters in 4m 07s.');
+  assert.equal(sealLine(w), 'A storm closes over Sethrakul\'s waters off Sentinel - no ship can join the fight now. It dives at 14:32 your time.');
+  assert.equal(soundLine(w), 'Sethrakul dives off Sentinel and is gone into the deep.');
+  assert.equal(slainLine({ ...w, top: ['Ama', 'Bel', 'Cor'] }), 'Sethrakul is slain off Sentinel by Ama, Bel and Cor. Its hoard goes to the ships that fought it.');
+  assert.equal(slainLine({ ...w, near: null, top: [] }), 'Sethrakul is slain. Its hoard goes to the ships that fought it.');
 });
 
 // ═══ THE BODY ════════════════════════════════════════════════════════════════════════════════════
@@ -258,7 +262,7 @@ function surfaced(f, t = T0) {
 }
 
 test('SERPENT1 brain: A SHIP\'S CLAIM SETS BOTH WHAT IT BRINGS AND WHAT IT MAY DEAL - so no claim buys a faster kill: one ship at the cap fells its own share in (SERPENT_TTK_S - SERPENT_BUCKET_DEPTH_X) / SERPENT_BUCKET_RATE_X seconds whatever hull it says; a hand aboard another\'s ship brings and deals nothing (mutants: the share off the claim; the bucket off the claim; the one-blow cap lifted)', () => {
-  assert.deepEqual(SHIP_REF, [0, 5, 10, 13, 12]);
+  assert.deepEqual(SHIP_REF, [0, 3.6, 10, 13, 12]);   // AUDIT SERPENT T6: the Large Boat's swivels are uncrewed (reload x1.4)
   assert.equal(SHIP_REF.length, HULL_BUILDS.length, 'a reference for every hull');
   assert.equal(refOf(-1), 0); assert.equal(refOf(99), 0); assert.equal(clampHull(2.5), -1);
   // the reference is a hull's broadside a second, both sides in turn - the guns' own numbers
@@ -294,8 +298,17 @@ test('SERPENT1 brain: the join - a ship brings its share at the CURRENT fraction
   assert.ok(joinSerpentFight(f, 's2', 'P2', 30, HULL.SmallShip, T0 + 1000, true));
   assert.ok(Math.abs(f.hp / f.max - frac) < 1e-12, 'the fraction held');
   assert.equal(f.players.s2.bucket, 0, 'a late ship\'s bucket starts empty');
+  // AUDIT SERPENT B4/H2: a bigger hull claimed later is HER ship now - her old share out, the new in at the fraction it
+  // stands at, its bucket empty (the late ship's law); a smaller one later never shrinks it; her level is her first
+  const before = f.max, frac2 = f.hp / f.max;
   assert.ok(joinSerpentFight(f, 's2', 'P2b', 60, HULL.Carrack, T0 + 2000, true));
-  assert.equal(f.players.s2.hl, HULL.SmallShip, 'the first claim kept');
+  assert.equal(f.players.s2.hl, HULL.Carrack, 'the bigger hull claimed');
+  assert.equal(f.max, before - SERPENT_TTK_S * SHIP_REF[HULL.SmallShip] + SERPENT_TTK_S * SHIP_REF[HULL.Carrack]);
+  assert.ok(Math.abs(f.hp / f.max - frac2) < 1e-12, 'at the fraction it stands at');
+  assert.equal(f.players.s2.bucket, 0, 'its bucket empty');
+  assert.equal(f.players.s2.lv, 30, 'the first level kept');
+  assert.ok(joinSerpentFight(f, 's2', 'P2b', 60, HULL.LargeBoat, T0 + 3000, true));
+  assert.equal(f.players.s2.hl, HULL.Carrack, 'a smaller claim never shrinks it');
   assert.equal(f.players.s2.name, 'P2b', 'the name follows the player');
   assert.ok(!joinSerpentFight(f, 's3', 'P3', 1, HULL.Carrack, T0, false), 'not while it admits nobody');
   const g = fightOf([]);
@@ -390,6 +403,7 @@ function coiled() {
   f.atk = { i: 9, a: SERPENT_ATTACK_TABLE.coil.id, at: T0 + 100, x: 50, z: 0, yw: 0, tg: [[0, 0]], until: T0 + 100 + SERPENT_ATTACK_TABLE.coil.recover, s: 's1' };
   f.seq = 9;
   const bodies = [body('s1', 0, 0), body('s2', 150, 0)];
+  f.threat = { s1: 5, s2: 5 };   // both at their guns before it - AUDIT SERPENT T3: the coil's health is the fighting ships'
   const words = [];
   for (let t = T0; t <= T0 + 500; t += 250) for (const o of stepSerpentBrain(f, t, bodies, rng)) words.push(o);
   return { f, rng, bodies, words };
@@ -400,6 +414,13 @@ test('SERPENT1 brain: THE COIL - it winds about the ship where its ring was said
   const c = words.find((o) => o.k === 'coil');
   assert.ok(c && c.s === 's1' && c.x === 0 && c.z === 0);
   assert.equal(c.m, Math.max(COIL_HP_MIN, COIL_TEAM_S * 2 * SHIP_REF[HULL.Carrack]));
+  // AUDIT SERPENT T3: ships with no fire on it (no threat) and wrecks bring the coil nothing
+  const idle = surfaced(fightOf([HULL.Carrack, HULL.Carrack]));
+  idle.phase = 2; idle.threat = { s1: 5 }; idle.seq = 9;
+  idle.atk = { i: 9, a: SERPENT_ATTACK_TABLE.coil.id, at: T0 + 100, x: 50, z: 0, yw: 0, tg: [[0, 0]], until: T0 + 100 + SERPENT_ATTACK_TABLE.coil.recover, s: 's1' };
+  const iw = [];
+  for (let t = T0; t <= T0 + 500; t += 250) for (const o of stepSerpentBrain(idle, t, [body('s1', 0, 0), body('s2', 150, 0)], seeded(2))) iw.push(o);
+  assert.equal(iw.find((o) => o.k === 'coil').m, Math.max(COIL_HP_MIN, COIL_TEAM_S * SHIP_REF[HULL.Carrack]), 'the silent ship brings it nothing');
   assert.ok(coilHolds(f, T0 + 500));
   assert.deepEqual(coilWord(f, 's2', 'esc', 9, 0, 0, T0 + 600), [], 'another\'s word is nothing');
   const held = coilWord(f, 's1', 'held', 9, 12, -8, T0 + 600);
@@ -420,7 +441,8 @@ test('SERPENT1 brain: A COIL BROKEN by the ships\' fire lets go and lies SERPENT
   let t = T0 + 700, broke = null;
   while (!broke && t < T0 + 20_000) { for (const o of applySerpentHit(f, 's2', 40, ZONES.coil, { x: 150, z: 0 }, t)) if (o.k === 'cb') broke = o; t += 300; }
   assert.ok(broke && broke.n === 'P2' && broke.su === broke.at + SERPENT_STUN_MS);
-  assert.equal(f.hp, hp, 'the coil\'s health, not its own');
+  // AUDIT SERPENT T3: the coil's health first - and SERPENT_COIL_PASS of every blow on it off its own
+  assert.ok(Math.abs(f.hp - (hp - f.players.s2.cd * SERPENT_COIL_PASS)) < 1e-6, `the coil's fire passes through (${hp} -> ${f.hp})`);
   assert.ok(f.players.s2.cd > 0 && f.players.s2.cd === f.players.s2.dealt);
   const during = [];
   for (let u = t; u < broke.su; u += 250) for (const o of stepSerpentBrain(f, u, bodies, rng)) during.push(o);

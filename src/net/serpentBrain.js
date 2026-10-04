@@ -28,7 +28,7 @@
 //
 // Not a DFU member. Ledger A (SERPENT1).
 import {
-  LEG, MODE, legFrom, headAt, legAt, bodyAt, headExposed, nearestExposed, spinePoint, coilWeight,
+  LEG, MODE, legFrom, headAt, legAt, bodyAt, headExposed, nearestExposed, spinePoint, coilWeight, supersede,
   BODY_LEN, LEGS_KEPT, MODES_KEPT, SEG_N, SEG_LEN, COIL_R, SWIM_MIN_V, MODE_BLEND_MS,
 } from './serpentBody.js';
 
@@ -71,6 +71,9 @@ export const LEG_MIN_MS = 900;
 /** A woken fight whose head has swum past its waters by this much (m) - a room that slept with nobody in it - surfaces
  *  again inside them. */
 export const STRAY_M = 200;
+/** AUDIT SERPENT E1: the serpent goes only at what it can reach - a body within this of its waters' heart (m); its head
+ *  is aimed within ARENA_R and orbits its mark at ORBIT_R. */
+export const SERPENT_TARGET_R = 600;
 
 // ── the clock of the fight ─────────────────────────────────────────────
 export const SERPENT_TICK_MS = 250;
@@ -78,6 +81,11 @@ export const SERPENT_HP_SEND_MS = 250;
 export const SERPENT_STATE_SEND_MS = 5000;
 export const SERPENT_CHECKPOINT_MS = 2000;
 export const SERPENT_STEP_MAX_MS = 1000;
+/** AUDIT SERPENT S9: a fight read back from its checkpoint after a wake - its attack numbers go on PAST any it may have
+ *  said since (a checkpoint is at most CHECKPOINT_MS old, and no attack is shorter than a second), so no client takes a
+ *  new attack or coil for one it already lived through. */
+export const SERPENT_WAKE_SEQ = 50;
+export function serpentWoke(f) { f.seq = (Number.isSafeInteger(f.seq) ? f.seq : 0) + SERPENT_WAKE_SEQ; return f; }
 /** It surfaces and circles this long after the fight is born before it strikes - time to see it. */
 export const SERPENT_OPENING_MS = 10_000;
 /** A target is kept this long before it looks again. */
@@ -99,13 +107,13 @@ export const clampHull = (hl) => (Number.isInteger(hl) && hl >= 0 && hl < HULLS 
 /** A REFERENCE BROADSIDE A SECOND by hull - a battery's hull points over its reload, both sides and the chasers taken
  *  in turn (navalShips.js GUNS and HULL_BUILDS): the rowboat none, the Large Boat's swivels, the Small Ship's and the
  *  Carrack's long guns and chasers, the galley's long guns and great guns. */
-export const SHIP_REF = Object.freeze([0, 5, 10, 13, 12]);
+export const SHIP_REF = Object.freeze([0, 3.6, 10, 13, 12]);   // AUDIT SERPENT T6: the Large Boat has no crew to its guns (reload x1.4) - 5 overstated what she can deal by two fifths
 export const refOf = (hl) => SHIP_REF[clampHull(hl)] ?? 0;
 /** Seconds of reference broadside the health a ship brings stands for. */
 export const SERPENT_TTK_S = 180;
 /** A fighter's damage bucket: refilled at SERPENT_BUCKET_RATE_X their reference a second, SERPENT_BUCKET_DEPTH_X deep (a broadside's
  *  whole weight on the head lands), no one blow over SERPENT_HIT_CAP_X of it. */
-export const SERPENT_BUCKET_RATE_X = 3;
+export const SERPENT_BUCKET_RATE_X = 1.5;   // AUDIT SERPENT T5: honest fire measures 0.25-0.4 of the reference; 3 gave a forged claim a 12-20x ceiling
 export const SERPENT_BUCKET_DEPTH_X = 20;
 export const SERPENT_HIT_CAP_X = 14;
 /** The words of blows an account says a second (its machine gathers a volley's balls into one). */
@@ -133,19 +141,21 @@ export const SERPENT_PHASE_NAMES = Object.freeze(['The Hunt', 'The Coil', 'The M
 //   rings  - between `r0` and `r1` about `tg[0]` (the roar - safe close in under its jaws)
 //   none   - nothing struck (a phase's cry, the maelstrom's forming)
 // A SHIP struck takes `hull` of her whole hull and `base` more, `sail` of her canvas and `crew` men (TOUGHER-SHIPS: her
-// whole is her refits' - every hull feels each blow alike); `shove` (m/s) throws her off her way. `pool` is the venom
+// whole is her refits'); `shove` (m/s) throws her off her way. AUDIT SERPENT T1 (2026-10-04, Mac chose the validated
+// rebalance): every blow lighter - a ship it focused was wrecked in 36-80 s, and no fleet of eight won at the measured
+// gunnery - the ram kept the heaviest, the one blow a helm can sail out of. `pool` is the venom
 // the spit leaves on the water and the decks (players standing in it take `pct` of their health and `base` more a
 // SERPENT_POOL_TICK_MS). `mode` how it holds itself through the wind-up. `phase` the first it comes in, `range` how near its
 // head the target must be (m), `minGap` how far at least, `w` its weight in the choice.
 /** The venom's bite on a standing player, each second, resolved on their machine. */
 export const SERPENT_POOL_TICK_MS = 1000;
 export const SERPENT_ATTACK_TABLE = Object.freeze({
-  lash: Object.freeze({ id: 0, key: 'lash', name: 'Tail Lash', windup: 2600, active: 400, recover: 900, shape: 'sector', r: 85, arc: 120, hull: 0.14, base: 18, sail: 0.06, crew: 3, shove: 4, mode: MODE.cruise, phase: 1, range: 170, minGap: 0, w: 3 }),
-  ram: Object.freeze({ id: 1, key: 'ram', name: 'Breaching Ram', windup: 3600, active: 4400, recover: 1800, shape: 'lane', width: 18, hull: 0.22, base: 30, sail: 0.05, crew: 4, shove: 9, mode: MODE.deep, phase: 1, range: 240, minGap: 60, w: 2 }),
-  breach: Object.freeze({ id: 2, key: 'breach', name: 'Rising Maw', windup: 3200, active: 400, recover: 3000, shape: 'disc', r: 20, hull: 0.18, base: 24, sail: 0.1, crew: 3, shove: 6, mode: MODE.deep, phase: 1, range: 320, minGap: 0, w: 2 }),
-  spit: Object.freeze({ id: 3, key: 'spit', name: 'Venom Spit', windup: 2600, active: 300, recover: 900, shape: 'disc', r: 13, hull: 0.04, base: 6, sail: 0, crew: 3, shove: 0, pool: Object.freeze({ r: 13, ms: 9000, pct: 0.05, base: 3 }), mode: MODE.breach, phase: 1, range: 260, minGap: 30, w: 2 }),
+  lash: Object.freeze({ id: 0, key: 'lash', name: 'Tail Lash', windup: 2600, active: 400, recover: 900, shape: 'sector', r: 85, arc: 120, hull: 0.06, base: 6, sail: 0.06, crew: 2, shove: 4, mode: MODE.cruise, phase: 1, range: 170, minGap: 0, w: 3 }),
+  ram: Object.freeze({ id: 1, key: 'ram', name: 'Breaching Ram', windup: 3600, active: 4400, recover: 1800, shape: 'lane', width: 18, hull: 0.14, base: 12, sail: 0.05, crew: 3, shove: 9, mode: MODE.deep, phase: 1, range: 240, minGap: 60, w: 2 }),
+  breach: Object.freeze({ id: 2, key: 'breach', name: 'Rising Maw', windup: 3200, active: 400, recover: 3000, shape: 'disc', r: 20, hull: 0.07, base: 8, sail: 0.1, crew: 2, shove: 6, mode: MODE.deep, phase: 1, range: 320, minGap: 0, w: 2 }),
+  spit: Object.freeze({ id: 3, key: 'spit', name: 'Venom Spit', windup: 2600, active: 300, recover: 900, shape: 'disc', r: 13, hull: 0.015, base: 2, sail: 0, crew: 1, shove: 0, pool: Object.freeze({ r: 13, ms: 9000, pct: 0.02, base: 1 }), mode: MODE.breach, phase: 1, range: 260, minGap: 30, w: 2 }),
   coil: Object.freeze({ id: 4, key: 'coil', name: 'Constrict', windup: 4800, active: 0, recover: 600, shape: 'ring', r: 36, hull: 0, base: 0, sail: 0, crew: 0, shove: 0, mode: MODE.deep, phase: 2, range: 320, minGap: 0, w: 2 }),
-  roar: Object.freeze({ id: 5, key: 'roar', name: 'Abyssal Roar', windup: 2800, active: 300, recover: 1600, shape: 'rings', r0: 22, r1: 120, hull: 0.1, base: 14, sail: 0.18, crew: 2, shove: 3, mode: MODE.rear, phase: 3, range: 150, minGap: 0, w: 2 }),
+  roar: Object.freeze({ id: 5, key: 'roar', name: 'Abyssal Roar', windup: 2800, active: 300, recover: 1600, shape: 'rings', r0: 22, r1: 120, hull: 0.05, base: 5, sail: 0.18, crew: 1, shove: 3, mode: MODE.rear, phase: 3, range: 150, minGap: 0, w: 2 }),
   cry: Object.freeze({ id: 6, key: 'cry', name: "Satakal's Call", windup: 2600, active: 0, recover: 400, shape: 'none', hull: 0, base: 0, sail: 0, crew: 0, shove: 0, mode: MODE.rear, phase: 99, range: 9999, minGap: 0, w: 0 }),
   mael: Object.freeze({ id: 7, key: 'mael', name: 'The Maelstrom', windup: 5000, active: 0, recover: 800, shape: 'none', hull: 0, base: 0, sail: 0, crew: 0, shove: 0, mode: MODE.deep, phase: 99, range: 9999, minGap: 0, w: 0 }),
 });
@@ -172,38 +182,52 @@ export const BREACH_LEAD_MS = 1200;
  *  least - and the stun a broken coil leaves it in (ms). */
 export const COIL_MS = 24_000;
 export const COIL_ESC_MS = 3000;
-export const COIL_TEAM_S = 6;
+export const COIL_TEAM_S = 4;   // AUDIT SERPENT T3: 6 seconds of every broadside about it held 35-40% of phases II and III, and no coil broke at the measured gunnery
 export const COIL_HP_MIN = 60;
 export const SERPENT_STUN_MS = 9000;
 /** How far the coiled ship's word may move the coil's centre off her pose (m) - her hull's middle, not her helm. */
 export const COIL_HELD_SLACK = 40;
+/** AUDIT SERPENT S3: how early before its landing (the relay's clock) a coiled ship's word is kept for it (ms) - her clock
+ *  is the relay's through the welcome's offset, which a frame's jitter may put a little ahead. */
+export const COIL_WORD_EARLY_MS = 1000;
 /** The crush and the coil's grip, on the coiled ship (her machine's): the crush at its end, the grip each second. */
-export const CRUSH = Object.freeze({ hull: 0.35, base: 40, sail: 0.2, crew: 5, shove: 12 });
-export const GRIP = Object.freeze({ hull: 0.025, base: 3, crew: 0.4 });
+export const CRUSH = Object.freeze({ hull: 0.25, base: 15, sail: 0.2, crew: 4, shove: 12 });   // AUDIT SERPENT T1: a full coil was 108-212% of any hull
+export const GRIP = Object.freeze({ hull: 0.008, base: 1, crew: 0.15 });
+/** AUDIT SERPENT T3: a blow on a coil holding a ship hurts the serpent too - this share of it off its own health (the
+ *  fire a coil draws is never wasted, broken or not). */
+export const SERPENT_COIL_PASS = 0.5;
 
 // ── the maelstrom ──────────────────────────────────────────────────────
 /** THE MAELSTROM - phase three's whirlpool at the waters' heart: how far it pulls (m), its eye (m), the pull at its rim
  *  and at the eye (m/s, toward the heart), its swirl (m/s about it), and what the eye grinds off a hull each second. */
 export const MAEL_R = 230;
 export const MAEL_EYE_R = 40;
-export const MAEL_PULL = Object.freeze([1.2, 5]);
+export const MAEL_PULL = Object.freeze([1.0, 3.8]);   // AUDIT SERPENT T8: at [1.2, 5] a rowboat or a Large Boat in it never sailed out
 export const MAEL_SWIRL = 4;
-export const MAEL_GRIND = Object.freeze({ hull: 0.03, base: 2 });
+export const MAEL_GRIND = Object.freeze({ hull: 0.012, base: 1 });   // AUDIT SERPENT T1: the eye ground a carrack to a wreck in 31 s
 /** In the Maelstrom it rears out of the whirl every MAEL_REAR_EVERY_MS for MAEL_REAR_MS - its head the prize. */
 export const MAEL_REAR_EVERY_MS = 14_000;
 export const MAEL_REAR_MS = 6000;
 
 // ── the receipt ────────────────────────────────────────────────────────
-/** Who earns a receipt: dealt this share of the health their own ship brought, or stood alive at the fight this share
- *  of it (a hand aboard another's ship earns so). */
-export const SERPENT_RECEIPT_SHARE = 0.02;
+/** Who earns a receipt: dealt this share of the health their own ship brought, or stood alive at the fight - within
+ *  SERPENT_STAND_R of its body - this share of it (a hand aboard another's ship earns so). AUDIT SERPENT E1/E2 (Mac:
+ *  "Must be in the fight"): 2% was one volley, and a boat parked at 900 m - where nothing of it reaches - stood. */
+export const SERPENT_RECEIPT_SHARE = 0.1;
 export const SERPENT_STOOD_SHARE = 0.5;
+export const SERPENT_STAND_R = 450;
+/** AUDIT SERPENT E2/E3: a ship whose guns have said nothing this long takes her share out of its health (back, at the
+ *  fraction it stands at, with her next blow) - a claim never backed by fire no longer makes it tougher for everyone. */
+export const SERPENT_IDLE_RETIRE_MS = 90_000;
 /** A share leaves with its fighter (gateBrain.js AUDIT WBX R1): one away from the fight this long takes its share out
  *  of the health at the fraction it stands at. Longer than the gate's - a ship tacking back in is gone a while. */
 export const SERPENT_ABSENT_RETIRE_MS = 45_000;
 /** A real part in the fight - what keeps a seat in a full fight. */
 export const SERPENT_SEAT_KEEP_MS = 45_000;
 export const serpentHasPart = (p) => (p.share > 0 && p.dealt >= SERPENT_RECEIPT_SHARE * p.share) || p.stoodMs >= SERPENT_SEAT_KEEP_MS;
+/** AUDIT SERPENT T2/E2/S8: does a fighter's share belong in its health now - not wrecked, not away from the fight past
+ *  SERPENT_ABSENT_RETIRE_MS, and (a ship) not silent past SERPENT_IDLE_RETIRE_MS. */
+export const serpentShareWanted = (p, now) => !p.wreck && now - (p.seenAt ?? p.joinedAt) <= SERPENT_ABSENT_RETIRE_MS && !(p.share > 0 && now - (p.hitAt ?? p.joinedAt) > SERPENT_IDLE_RETIRE_MS);
 /** Threat: the share of aimed attacks at whoever dealt most lately, and how fast it forgets (a share a second). */
 export const SERPENT_THREAT_PICK = 0.6;
 export const SERPENT_THREAT_DECAY = 0.08;
@@ -211,6 +235,8 @@ export const SERPENT_THREAT_DECAY = 0.08;
 export const SERPENT_DAMAGE_CHART_MAX = 32;
 
 const dist = (ax, az, bx, bz) => Math.hypot(ax - bx, az - bz);
+/** The nearest of the body's points to (x, z), metres - Infinity for none. */
+const nearestPoint = (pts, x, z) => { let d = Infinity; for (const p of pts ?? []) d = Math.min(d, dist(p.x, p.z, x, z)); return d; };
 const r2 = (v) => Math.round(v * 100) / 100;
 const r4 = (v) => Math.round(v * 10000) / 10000;
 /** An angle into [-PI, PI). */
@@ -269,7 +295,7 @@ function shareOut(f, share) {
 }
 export function retireSerpentShare(f, p) { if (p.retired) return; shareOut(f, p.share); p.retired = true; }
 export function restoreSerpentShare(f, p) {
-  if (!p.retired) return;
+  if (!p.retired) return;   // AUDIT SERPENT T2: every caller asks serpentShareWanted first - a wreck's never comes back
   const frac = serpentStandsAt(f);
   f.max += p.share; f.hp += p.share * frac; p.retired = false;
 }
@@ -278,12 +304,28 @@ export function restoreSerpentShare(f, p) {
  * A player joins the fight, claiming hull `hl` (-1 aboard none of their own) and level `lv` (the spoils' level). A
  * newcomer brings SERPENT_TTK_S seconds of their hull's reference broadside as health - at the fraction it stands at
  * (a late ship never heals it), with an empty bucket after the first blood (AUDIT WB A8) - and only while `admits`
- * and the fight has room (a full one frees an idle seat: `present`). A player already in keeps their FIRST claims.
+ * and the fight has room (a full one frees an idle seat: `present`). A player already in keeps their first LEVEL;
+ * AUDIT SERPENT B4/H2: a later claim of a bigger hull (a captain who sighted it off her helm, or from her rowboat)
+ * takes her old share out and brings the new one in at the fraction it stands at, its bucket empty - the late ship's
+ * law, so it buys no faster kill. `near` (AUDIT SERPENT S8): the word was said from within ENGAGE_R - only then does it
+ * count as being at the fight (a ship anchored 1400 m off keeps no share in it by saying `in`).
  * @returns {boolean}
  */
-export function joinSerpentFight(f, sub, name, lv, hl, now, admits, present = null) {
+export function joinSerpentFight(f, sub, name, lv, hl, now, admits, present = null, near = true) {
   const known = f.players[sub];
-  if (known) { if (typeof name === 'string' && name) known.name = name.slice(0, 24); if (!f.fell && !f.gone) { known.seenAt = now; restoreSerpentShare(f, known); } return true; }
+  if (known) {
+    if (typeof name === 'string' && name) known.name = name.slice(0, 24);
+    if (f.fell || f.gone) return true;
+    const hull = clampHull(hl), ref = refOf(hull);
+    if (ref > known.ref) {
+      if (!known.retired) shareOut(f, known.share);
+      const share = SERPENT_TTK_S * ref, frac = serpentStandsAt(f);
+      Object.assign(known, { hl: hull, ref, share, bucket: 0, bucketAt: now, hitAt: now, retired: !!known.wreck });
+      if (!known.wreck) { f.max += share; f.hp += share * frac; }
+    }
+    if (near) { known.seenAt = now; if (serpentShareWanted(known, now)) restoreSerpentShare(f, known); }
+    return true;
+  }
   if (f.fell || f.gone || !admits) return false;
   if (Object.keys(f.players).length >= SERPENT_FIGHTERS_MAX && !freeSerpentSeat(f, present)) return false;
   const hull = clampHull(hl), ref = refOf(hull), share = SERPENT_TTK_S * ref, frac = serpentStandsAt(f);
@@ -292,8 +334,23 @@ export function joinSerpentFight(f, sub, name, lv, hl, now, admits, present = nu
   f.players[sub] = {
     name: String(name ?? '').slice(0, 24), lv: clampSerpentLv(lv), hl: hull, ref, share, dealt: 0, clipped: 0,
     bucket: frac >= 1 ? SERPENT_BUCKET_DEPTH_X * ref : 0, bucketAt: now, rate: SERPENT_HIT_HZ_MAX, rateAt: now, stoodMs: 0, joinedAt: now,
-    seenAt: now, retired: false, hits: 0, best: 0, cd: 0,
+    seenAt: now, hitAt: now, retired: false, wreck: false, hits: 0, best: 0, cd: 0,
   };
+  return true;
+}
+/**
+ * AUDIT SERPENT T2: a fighter's ship WRECKED (`w` 1) or afloat again (0) - her machine's word. A wreck's share leaves its
+ * health and never comes back while she is one; it no longer goes at her; her stood time still counts.
+ * @returns {boolean} whether anything changed
+ */
+export function serpentWreck(f, sub, w, now) {
+  const p = f.players[sub];
+  if (!p || f.fell || f.gone || p.share <= 0) return false;
+  const wreck = !!w;
+  if (wreck === !!p.wreck) return false;
+  p.wreck = wreck;
+  if (wreck) { retireSerpentShare(f, p); if (f.target === sub) f.target = null; }
+  else { p.hitAt = now; if (serpentShareWanted(p, now)) restoreSerpentShare(f, p); }
   return true;
 }
 /** A full fight frees the seat of one who joined and left with no part in it (gateBrain.js AUDIT WB A1). */
@@ -349,13 +406,19 @@ export function applySerpentHit(f, sub, d, z, pose, now) {
   const pts = bodyAt(f, now);
   const near = nearestExposed(pts, pose.x, pose.z);
   if (!near || near.d > GUN_REACH_M + SERPENT_POSE_SLACK) return out;
+  // AUDIT SERPENT E2: her guns speak - a share retired for their silence comes back at the fraction it stands at
+  p.hitAt = now;
+  if (p.retired && serpentShareWanted(p, now)) restoreSerpentShare(f, p);
   const stun = stunned(f, now);
   if (z === ZONES.coil && coilHolds(f, now)) {
     const got = spendPurse(p, d * (stun ? STUN_X : 1), f.coil.h, now);
     p.cd += got;
     if (got > 0) { p.hits++; p.best = Math.max(p.best, got); f.threat[sub] = (f.threat[sub] ?? 0) + got; }
     f.coil.h -= got;
+    // AUDIT SERPENT T3: the coil's fire is never wasted - SERPENT_COIL_PASS of it off its own health
+    f.hp -= Math.min(f.hp, got * SERPENT_COIL_PASS);
     if (f.coil.h <= 1e-6) breakCoil(f, now, p.name, out);
+    if (f.hp <= 1e-6 && f.max > 0) fall(f, now, out);
     return out;
   }
   const x = (z === ZONES.head && headExposed(f, pts, now, stun) ? HEAD_X : 1) * (stun ? STUN_X : 1);
@@ -371,18 +434,20 @@ function fall(f, now, out) {
   f.hp = 0;
   f.fell = { at: now, top: serpentTopDealers(f, 3), n: Object.keys(f.players).length, dm: serpentDamageChart(f) };
   f.atk = null; f.queue = []; f.pending = null;
-  if (f.coil && !(f.coil.off > 0)) f.coil.off = now;
-  pushMode(f, now, MODE.dying, null);
-  pushLeg(f, legFrom(f.legs, now, LEG.line, DRIFT_V), null);
+  // AUDIT SERPENT S4/M1: a coil holding a ship lets her go, and says so - a dead serpent never grips
+  if (coilHolds(f, now) || (f.coil && !(f.coil.off > 0))) { f.coil.off = now; f.coil.why = 'fell'; out.push({ k: 'cx', i: f.coil.i, at: now }); }
+  // AUDIT SERPENT M2: its throes said, as every other turn of its body is
+  pushMode(f, now, MODE.dying, out);
+  pushLeg(f, legFrom(f.legs, now, LEG.line, DRIFT_V), out);
   out.push({ k: 'fell', at: now, top: f.fell.top, n: f.fell.n, dm: f.fell.dm });
 }
 /** THE SOUNDING: the day's end with it unslain - it dives and is gone. */
 function sound(f, now, out) {
   f.gone = { at: f.soundAt };
   f.atk = null; f.queue = []; f.pending = null;
-  if (f.coil && !(f.coil.off > 0)) f.coil.off = now;
-  pushMode(f, now, MODE.deep, null);
-  pushLeg(f, legFrom(f.legs, now, LEG.line, DEEP_V), null);
+  if (coilHolds(f, now) || (f.coil && !(f.coil.off > 0))) { f.coil.off = now; f.coil.why = 'gone'; out.push({ k: 'cx', i: f.coil.i, at: now }); }
+  pushMode(f, now, MODE.deep, out);
+  pushLeg(f, legFrom(f.legs, now, LEG.line, DEEP_V), out);
   out.push({ k: 'gone', at: f.gone.at });
 }
 
@@ -401,7 +466,7 @@ export function serpentDamageChart(f) {
     .map((q) => ({ n: q.name, h: q.hl, d: Math.round(q.dealt), c: Math.min(Math.round(q.dealt), Math.round(q.cd ?? 0)), x: q.hits ?? 0, b: Math.round(q.best ?? 0) }));
 }
 /** Did `sub` earn a receipt? Only a slain serpent pays: dealt SERPENT_RECEIPT_SHARE of the health their ship brought, or stood
- *  alive at the fight SERPENT_STOOD_SHARE of it. */
+ *  alive within SERPENT_STAND_R of its body SERPENT_STOOD_SHARE of the fight. */
 export function serpentEarned(f, sub) {
   const p = f.players[sub];
   if (!p || !f.fell) return false;
@@ -412,11 +477,12 @@ export function serpentEarned(f, sub) {
 export const serpentEarnedBy = (f, sub) => { const p = f.players[sub]; return p && p.share > 0 && p.dealt >= SERPENT_RECEIPT_SHARE * p.share ? 'dealt' : 'stood'; };
 
 /** Who it goes at: SERPENT_THREAT_PICK of the time the ship (or, with none at the fight, the body) with the most threat, else a
- *  random one. Ships first - a hand aboard another's ship stands where that ship does. */
-export function pickSerpentTarget(f, bodies, rng) {
-  const live = bodies.filter((b) => !b.dead && f.players[b.sub]);
+ *  random one. Ships first - a hand aboard another's ship stands where that ship does. AUDIT SERPENT E1/T2: only what it
+ *  can reach (within SERPENT_TARGET_R of its waters), never a wreck; `shipOnly` (a coil - AUDIT SERPENT S10) no hand. */
+export function pickSerpentTarget(f, bodies, rng, shipOnly = false) {
+  const live = bodies.filter((b) => !b.dead && f.players[b.sub] && !f.players[b.sub].wreck && Math.hypot(b.x, b.z) <= SERPENT_TARGET_R);
   const ships = live.filter((b) => f.players[b.sub].hl >= 0);
-  const pool = ships.length ? ships : live;
+  const pool = ships.length || shipOnly ? ships : live;
   if (!pool.length) return null;
   if (rng() < SERPENT_THREAT_PICK) {
     let best = null, t = 0;
@@ -444,6 +510,9 @@ export function chooseSerpentAttack(can, rng) {
  *  and the track is pruned by the clock that has come, never by the one a future leg names). */
 function pushLeg(f, L, out) {
   const leg = roundLeg(L);
+  // AUDIT SERPENT S2: THE TIMELINE'S ONE RULE - a leg said now supersedes any still to come (the relay and every client
+  // apply it alike: serpentBody.js supersede), so the track is always in time order and every screen draws one body
+  supersede(f.legs, leg.at);
   f.legs.push(leg);
   while (f.legs.length > LEGS_KEPT * 2) f.legs.shift();
   out?.push({ k: 'sw', l: leg });
@@ -476,8 +545,12 @@ function trackSince(legs, t, since) {
 }
 /** A change of mode, kept and said. */
 function pushMode(f, at, m, out) {
+  // AUDIT SERPENT S2: the timeline's one rule - and a mode still to come that it takes away is said away (the word is said
+  // even when the ride it keeps is the same, so every client's fold drops what the relay dropped)
+  const had = f.modes.length;
+  supersede(f.modes, Math.round(at));
   const cur = f.modes[f.modes.length - 1];
-  if (cur && cur.m === m && cur.at <= at) return;
+  if (f.modes.length === had && cur && cur.m === m && cur.at <= at) return;
   f.modes.push({ at: Math.round(at), m });
   while (f.modes.length > MODES_KEPT) f.modes.shift();
   out?.push({ k: 'dv', at: Math.round(at), m });
@@ -516,7 +589,7 @@ function aimOf(f, now, target) {
 export const serpentWindupOf = (A) => A.windup;
 /** An attack as the wire says it. */
 export function serpentAtkFrame(a) {
-  return { i: a.i, a: a.a, at: a.at, x: r2(a.x), z: r2(a.z), yw: r4(a.yw), tg: a.tg.map((p) => [r2(p[0]), r2(p[1])]), ...(a.s ? { s: a.s } : {}) };
+  return { i: a.i, a: a.a, at: a.at, x: r2(a.x), z: r2(a.z), yw: r4(serpentWrapYaw(a.yw)), tg: a.tg.map((p) => [r2(p[0]), r2(p[1])]), ...(a.s ? { s: a.s } : {}) };
 }
 
 /**
@@ -595,7 +668,8 @@ function beginCoil(f, a, now, here, out) {
   const cx = a.tg[0][0], cz = a.tg[0][1];
   const h = headAt(f.legs, now);
   const th = Math.atan2(h.x - cx, h.z - cz);
-  const refs = here.reduce((s, b) => s + (f.players[b.sub]?.ref ?? 0), 0);
+  // AUDIT SERPENT T3: COIL_TEAM_S of the broadsides of the ships FIGHTING it - afloat, and with some threat on it
+  const refs = here.reduce((s, b) => { const p = f.players[b.sub]; return s + (p && !p.wreck && (f.threat[b.sub] ?? 0) > 0 ? p.ref : 0); }, 0);
   const m = Math.max(COIL_HP_MIN, Math.round(COIL_TEAM_S * refs));
   // its moment the landing's - the moment every client tested its own ship against the ring - not the beat's
   f.coil = { i: a.i, s: a.s ?? null, x: r2(cx), z: r2(cz), th: r4(th), at: a.at, until: a.at + COIL_MS, off: 0, h: m, m, held: false, why: null };
@@ -603,6 +677,8 @@ function beginCoil(f, a, now, here, out) {
   jumpTo(f, a.at, cx + Math.sin(th) * COIL_R, cz + Math.cos(th) * COIL_R, serpentWrapYaw(th + Math.PI / 2), DRIFT_V, out);
   pushMode(f, a.at, MODE.coil, out);
   out.push(coilFrame(f.coil));
+  // AUDIT SERPENT S3/B1: her word, said at the landing on her own clock, came before the beat that wound it - heard now
+  if (a.word) out.push(...coilWord(f, a.word.sub, a.word.k, a.i, a.word.x, a.word.z, Math.max(now, f.coil.at)));
 }
 /** The coil as the wire says it. */
 export const coilFrame = (c) => ({ k: 'coil', i: c.i, s: c.s, x: c.x, z: c.z, th: c.th, at: c.at, until: c.until, h: Math.ceil(c.h), m: c.m });
@@ -630,6 +706,13 @@ function breakCoil(f, now, by, out) {
 export function coilWord(f, sub, k, i, x, z, now) {
   const out = [];
   const c = f.coil;
+  // AUDIT SERPENT S3/B1: the word of a coil not yet wound - its landing come on her clock, the relay's beat still to
+  // wind it (up to SERPENT_TICK_MS on) - is kept on the attack and heard as it winds (beginCoil)
+  const a = f.atk;
+  if ((!c || c.i !== i) && a && a.i === i && a.a === SERPENT_ATTACK_TABLE.coil.id && !a.done && a.s === sub && !a.word && now >= a.at - COIL_WORD_EARLY_MS && (k === 'held' || k === 'esc')) {
+    a.word = { sub, k, x: Number.isFinite(x) ? x : null, z: Number.isFinite(z) ? z : null };
+    return out;
+  }
   if (!c || c.i !== i || c.s !== sub || !coilHolds(f, now) || c.held) return out;
   if (k === 'esc') {
     if (now - c.at > COIL_ESC_MS) return out;
@@ -659,33 +742,38 @@ export function stepSerpentBrain(f, now, bodies, rng) {
   if (f.fell || f.gone) { stateFrame(f, now, out); return out; }
   if (now >= f.soundAt) { sound(f, now, out); return out; }
   const here = bodies.filter((b) => !b.dead && f.players[b.sub] && Math.hypot(b.x, b.z) <= ENGAGE_R);
-  // standing: a living body at the fight stands its time, and the fight's own clock runs while one does
-  for (const b of here) f.players[b.sub].stoodMs += dt;
+  // standing: a living body within SERPENT_STAND_R of its body stands its time (AUDIT SERPENT E1: never a boat parked
+  // where nothing of it reaches), and the fight's own clock runs while anyone is at it
+  const pts = here.length ? bodyAt(f, now) : null;
+  for (const b of here) if (nearestPoint(pts, b.x, b.z) <= SERPENT_STAND_R) f.players[b.sub].stoodMs += dt;
   if (here.length) f.liveMs += dt;
-  // a share leaves with its fighter, and comes back with them
-  for (const b of here) { const p = f.players[b.sub]; p.seenAt = now; restoreSerpentShare(f, p); }
-  for (const p of Object.values(f.players)) if (!p.retired && now - (p.seenAt ?? p.joinedAt) > SERPENT_ABSENT_RETIRE_MS) retireSerpentShare(f, p);
+  // a share leaves with its fighter, and comes back with them - never a wreck's, nor a silent ship's (serpentShareWanted)
+  for (const b of here) f.players[b.sub].seenAt = now;
+  for (const p of Object.values(f.players)) { if (serpentShareWanted(p, now)) restoreSerpentShare(f, p); else retireSerpentShare(f, p); }
+  // AUDIT SERPENT B7: the ships in its waters - afloat, at the fight, now
+  f.ships = here.filter((b) => f.players[b.sub].hl >= 0 && !f.players[b.sub].wreck).length;
   const keep = Math.pow(1 - SERPENT_THREAT_DECAY, dt / 1000);
   for (const k of Object.keys(f.threat)) { f.threat[k] *= keep; if (f.threat[k] < 0.5) delete f.threat[k]; }
   // a room that slept while its head swam on: it surfaces again inside its waters (under the sea, unseen)
   const h0 = headAt(f.legs, now);
-  if (Math.hypot(h0.x, h0.z) > ARENA_R + STRAY_M && !f.atk && !coilHolds(f, now)) {
+  // AUDIT SERPENT S2: once - a surfacing already on its way (its jump still to come) is never asked again each beat
+  if (Math.hypot(h0.x, h0.z) > ARENA_R + STRAY_M && !f.atk && !coilHolds(f, now) && !((f.legs[f.legs.length - 1]?.at ?? 0) > now)) {
     const [x, z] = keepIn(h0.x, h0.z, ARENA_R * 0.6);
     pushMode(f, now, MODE.deep, out);
     jumpTo(f, now + MODE_BLEND_MS + 200, x, z, Math.atan2(-x, -z), CRUISE_V, out);
     pushMode(f, now + MODE_BLEND_MS + 1200, MODE.cruise, out);
   }
-  // a phase crossed: its ward, and the phase's turn (anything in flight is superseded)
+  // a phase crossed: its ward, and the phase's turn. AUDIT SERPENT S2: an attack in flight lands as every screen was
+  // told it would (the turn waits for its span - nothing said is unsaid); a coil holding a ship lets her go
   if (f.max > 0 && f.phase < 3 && f.hp / f.max <= SERPENT_PHASE_AT[f.phase - 1]) {
     f.phase++;
     f.shieldUntil = now + SERPENT_SHIELD_MS;
     f.stunUntil = 0;
     if (coilHolds(f, now)) { f.coil.why = 'turn'; releaseCoil(f, now, out); out.push({ k: 'cx', i: f.coil.i, at: now }); }
-    f.atk = null;
     out.push({ k: 'ph', n: f.phase, until: f.shieldUntil });
-    const [first, ...rest] = SERPENT_PHASE_TURN[f.phase];
-    f.queue = [...rest];
-    begin(f, SERPENT_ATTACK_TABLE[first], now, null, rng, out);
+    f.queue = [...SERPENT_PHASE_TURN[f.phase]];
+    f.pending = null;
+    if (!f.atk) { const [first, ...rest] = f.queue; f.queue = rest; begin(f, SERPENT_ATTACK_TABLE[first], now, null, rng, out); }
   }
   // the coil's own clock: its crush at its end
   if (coilHolds(f, now) && now >= f.coil.until) {
@@ -714,7 +802,7 @@ export function stepSerpentBrain(f, now, bodies, rng) {
   if (f.pending && now >= f.nextAt) {
     const A = SERPENT_ATTACK_TABLE[f.pending];
     f.pending = null;
-    const t = A === SERPENT_ATTACK_TABLE.coil ? pickSerpentTarget(f, here, rng) : null;
+    const t = A === SERPENT_ATTACK_TABLE.coil ? pickSerpentTarget(f, here, rng, true) : null;
     if (A && (A !== SERPENT_ATTACK_TABLE.coil || t)) { begin(f, A, now, t, rng, out); endFrames(f, now, out); return out; }
   }
   // choose: a target kept a while, and what can be done to it from here
@@ -762,7 +850,7 @@ export function serpentStateOf(f) {
     coil: c ? { i: c.i, s: c.s, x: c.x, z: c.z, th: c.th, at: c.at, until: c.until, off: c.off > 0 ? c.off : 0, h: Math.ceil(c.h), m: c.m } : null,
     mael: f.mael ? { at: f.mael.at, x: f.mael.x, z: f.mael.z } : null,
     atk: f.atk ? serpentAtkFrame(f.atk) : null, sh: f.shieldUntil, su: f.stunUntil > 0 ? f.stunUntil : 0, sa: f.soundAt,
-    n: Object.keys(f.players).length, op: f.openUntil,
+    n: f.ships ?? 0, op: f.openUntil,   // AUDIT SERPENT B7: the ships afloat at the fight, never every account that ever joined
     fell: f.fell ? { at: f.fell.at, top: f.fell.top, n: f.fell.n, ...(f.fell.dm ? { dm: f.fell.dm } : {}) } : null,
     gone: f.gone ? f.gone.at : null,
   };

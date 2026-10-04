@@ -2126,9 +2126,10 @@ export class OnlineSession {
       if (r && (r.k === 'cl' || r.k === 'rc' ? isCellRoom(room) || isSocialRoom(room) : r.k === 'cls' || r.k === 'tw' ? isSocialRoom(room) : isCellRoom(room))) this._deliver('raid', () => this.onRaid?.(r, room));   // RAID-ROLL: `tw` the hub's ask alone
     } else if (m.t === 'serpent') {
       // SERPENT1: the serpent's cell's word (on any cell socket I hold - my own cell's or a halo's) or the hub's (its kill,
-      // to everyone online), projected by the wire's own law; the hub says the kill alone, and a cell anything but
+      // to everyone online), projected by the wire's own law; the hub says the kill and an account's receipt (AUDIT
+      // SERPENT S5 - a fighter away from its cell at the kill) alone, and a cell anything but
       const r = validSerpentOut(m);
-      if (r && (isSocialRoom(room) ? r.k === 'fell' : isCellRoom(room))) this._deliver('serpent', () => this.onSerpent?.(r, room));
+      if (r && (isSocialRoom(room) ? r.k === 'fell' || r.k === 'rcpt' : isCellRoom(room))) this._deliver('serpent', () => this.onSerpent?.(r, room));
     } else if (m.t === 'rite') {
       // WB12d: the hub's word of a broken rite (once, and at my hello while its circle stands), projected by the wire's
       // own law; from any other room it is dropped

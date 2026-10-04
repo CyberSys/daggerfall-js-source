@@ -97,14 +97,19 @@ export function spineRings(points, segLen = 7) {
   return rings;
 }
 /** The colour of the hide at metres `s` behind the snout, `top` 1 on the back and 0 on the belly. */
-export function hideAt(s, top) {
+export function hideAt(s, top) { const c = [0, 0, 0]; hideInto(s, top, c, 0); return c; }
+/** hideAt written into `out` at `o` - the tube's every vertex, no array made (AUDIT SERPENT L5). */
+function hideInto(s, top, out, o) {
   const banded = Math.floor(s / BAND_M) % 2 === 1;
   const back = banded ? HIDE.band : HIDE.back;
   const k = Math.max(0, Math.min(1, (top - 0.28) / 0.44));
   const kk = k * k * (3 - 2 * k);
   const head = s < 9 ? 0.75 : 1;   // the skull darker
-  return [0, 1, 2].map((i) => (HIDE.belly[i] * (1 - kk) + back[i] * kk) * head);
+  for (let i = 0; i < 3; i++) out[o + i] = (HIDE.belly[i] * (1 - kk) + back[i] * kk) * head;
 }
+/** The tube's ring vertices, reused frame to frame: position 3, normal 3, colour 3 (AUDIT SERPENT L5 - the tube made
+ *  some ten thousand small arrays a frame). */
+let _ringVerts = new Float32Array(0);
 
 /**
  * THE BODY'S TRIANGLES into `out` (Float32Array, MESH_STRIDE a vertex) from vertex 0 - the tube, the sail, the horns,
@@ -123,32 +128,46 @@ export function bodyMesh(f, out) {
   const rings = spineRings(f.points);
   if (!rings.length) return 0;
   // the snout's ring closes to a blunt point, the tail's to a tip
-  const ringPts = rings.map((g, i) => {
-    const pts = [];
+  const need = rings.length * RING_SIDES * 9;
+  if (_ringVerts.length < need) _ringVerts = new Float32Array(need);
+  const S = _ringVerts;
+  for (let i = 0; i < rings.length; i++) {
+    const g = rings[i];
     const r = g.r * (i === 0 ? 0.35 : 1);
     for (let k = 0; k < RING_SIDES; k++) {
       const a = (k / RING_SIDES) * Math.PI * 2;
       const ca = Math.cos(a), sa = Math.sin(a);
+      const o = (i * RING_SIDES + k) * 9;
       // the section: the back up (`n`), wider than deep
-      const dir = add(mul(g.n, ca * SECTION_H), mul(g.b, sa * SECTION_W));
-      const nrm = norm(add(mul(g.n, ca / SECTION_H), mul(g.b, sa / SECTION_W)));
-      pts.push({ p: add(g.p, mul(dir, r)), n: nrm, c: hideAt(g.s, (ca + 1) / 2) });
+      const dh = ca * SECTION_H, dw = sa * SECTION_W, nh = ca / SECTION_H, nw = sa / SECTION_W;
+      for (let j = 0; j < 3; j++) S[o + j] = g.p[j] + (g.n[j] * dh + g.b[j] * dw) * r;
+      const nx = g.n[0] * nh + g.b[0] * nw, ny = g.n[1] * nh + g.b[1] * nw, nz = g.n[2] * nh + g.b[2] * nw;
+      const l = Math.hypot(nx, ny, nz) || 1;
+      S[o + 3] = nx / l; S[o + 4] = ny / l; S[o + 5] = nz / l;
+      hideInto(g.s, (ca + 1) / 2, S, o + 6);
     }
-    return pts;
-  });
+  }
+  /** A ring vertex (ring `i`, side `k`) into the mesh. */
+  const ringPut = (i, k) => {
+    const o = v * MESH_STRIDE;
+    if (o + MESH_STRIDE > out.length) return;
+    const q = (i * RING_SIDES + k) * 9;
+    for (let j = 0; j < 9; j++) out[o + j] = S[q + j];
+    out[o + 9] = 0;
+    v++;
+  };
   for (let i = 0; i + 1 < rings.length; i++) {
-    const A = ringPts[i], B = ringPts[i + 1];
     for (let k = 0; k < RING_SIDES; k++) {
       const k2 = (k + 1) % RING_SIDES;
-      put(A[k].p, A[k].n, A[k].c); put(B[k].p, B[k].n, B[k].c); put(B[k2].p, B[k2].n, B[k2].c);
-      put(A[k].p, A[k].n, A[k].c); put(B[k2].p, B[k2].n, B[k2].c); put(A[k2].p, A[k2].n, A[k2].c);
+      ringPut(i, k); ringPut(i + 1, k); ringPut(i + 1, k2);
+      ringPut(i, k); ringPut(i + 1, k2); ringPut(i, k2);
     }
   }
   // the snout capped
-  const tip = add(rings[0].p, mul(rings[0].t, -rings[0].r * 0.9));
+  const tip = add(rings[0].p, mul(rings[0].t, -rings[0].r * 0.9)), tipN = mul(rings[0].t, -1);
   for (let k = 0; k < RING_SIDES; k++) {
-    const k2 = (k + 1) % RING_SIDES, A = ringPts[0];
-    put(tip, mul(rings[0].t, -1), HIDE.back); put(A[k2].p, A[k2].n, A[k2].c); put(A[k].p, A[k].n, A[k].c);
+    const k2 = (k + 1) % RING_SIDES;
+    put(tip, tipN, HIDE.back); ringPut(0, k2); ringPut(0, k);
   }
   // THE SAIL: membrane from the back's ridge up to its ragged edge, a spine standing every FIN_SPINE_M
   for (let i = 0; i + 1 < rings.length; i++) {

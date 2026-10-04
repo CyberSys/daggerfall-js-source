@@ -3903,13 +3903,17 @@ export function validOwOut(m) {
 // down the socket of that cell - its own, or a halo's. It says `in` as it comes within the serpent's sight (the day, the
 // brain's law it fights by, its level, the hull it sails - -1 aboard none of its own - and the site it found, native
 // units), `hit` for each gathered volley that struck it (the damage its own guns made and where it struck: the body, the
-// head, a coil), and - the coiled ship alone - `held` (she was inside the coil's ring at its landing: her hull's middle,
-// site metres) or `esc` (she had slipped it). Everything else is the cell's word: the brain's kinds and the relay's own
-// (`no` - a refusal in words, `rcpt` - an account's receipt); and the hub says the kill to everyone online (`fell`).
-// Every time on these frames is the RELAY's clock.
+// head, a coil), `wr` as its ship wrecks (1) or floats again (0), and - the coiled ship alone - `held` (she was inside
+// the coil's ring at its landing: her hull's middle, site metres) or `esc` (she had slipped it). Everything else is the
+// cell's word: the brain's kinds and the relay's own (`no` - a refusal in words, `rcpt` - an account's receipt); and the
+// hub says the kill to everyone online (`fell`, naming the site it fell at - a client hears the kill of its own site's
+// serpent alone) and hands each account that earned one its receipt (`rcpt`). Every time on these frames is the RELAY's
+// clock.
+// AUDIT SERPENT S1: THE SITE IS THE CLIENT'S WORD (the relay holds no map), so a cell keeps ONE FIGHT A SITE - at most
+// SERPENT_SITES_MAX a day - and a forged site stands its own fight, which no honest client sees or hears the kill of.
 
 /** What a client may say to the serpent's cell. */
-export const SERPENT_KINDS = Object.freeze(['in', 'hit', 'held', 'esc']);
+export const SERPENT_KINDS = Object.freeze(['in', 'hit', 'held', 'esc', 'wr']);
 /** What the cell (or the hub) says back (the client drops any other kind): the whole state, a leg of its swim, a change
  *  in how it rides the sea, an attack begun, its health, a phase's turn, a coil wound / its health / broken / crushed /
  *  slipped, the maelstrom formed, the kill, the sounding, a refusal, a receipt. */
@@ -3925,13 +3929,19 @@ export const relaySupportsSerpent = (v) => { const m = /^world(\d+)$/.exec(typeo
 export const SERPENT_INTERNAL_FELL = '/internal/serpent/fell';
 /** How soon a cell whose hub did not answer the kill tells it again (AUDIT WB A10's law, the gate's number). */
 export const SERPENT_TELL_RETRY_MS = 5000;
-/** The cell's storage key for the fight it holds (one a cell - the day's serpent is one site). */
+/** A cell's storage: the fights it holds (SERPENT_FIGHTS_KEY - their ids, `day@site` - net/serpentLaw.js serpentSiteKey),
+ *  each under SERPENT_FIGHT_KEY + ':' + its id. AUDIT SERPENT S1: one a site, at most SERPENT_SITES_MAX a day. */
 export const SERPENT_FIGHT_KEY = 'serpent';
-/** The alarm a serpent's beat set aside in a cell (its raids' ends, a rite's retry): when it falls due, the cell's other
- *  duties run on the beat that finds it due. */
-export const SERPENT_OTHER_KEY = 'spother';
+export const SERPENT_FIGHTS_KEY = 'serpents';
+export const SERPENT_SITES_MAX = 3;
+export const serpentFightId = (day, site) => `${day}@${site}`;
+/** The hub's storage: the day's kills (one a site - at most SERPENT_FELLS_MAX, the oldest first out) and each account's
+ *  latest receipt (AUDIT SERPENT S5 - one an account, handed to its hello while it is good). */
+export const SERPENT_FELLS_KEY = 'serpentfells';
+export const SERPENT_FELLS_MAX = 8;
+export const SERPENT_RC_PREFIX = 'serpentrc:';
 /** The room's refusals, in words (the `no` kind) - a closed list. 'reload': a game older than the brain's law. */
-export const SERPENT_NO_WORDS = Object.freeze(['the serpent is gone', 'the storm has closed its waters', 'too far from its waters', 'the waters are full', 'reload']);
+export const SERPENT_NO_WORDS = Object.freeze(['the serpent is gone', 'the storm has closed its waters', 'too far from its waters', 'the waters are full', 'it is already slain', 'reload']);
 /** A level claim, a hull claim, the brain's law's number, one volley's damage on the wire (the brain caps it far lower). */
 export const SERPENT_LV_WIRE_MAX = 999;
 export const SERPENT_HULL_MAX = 4;
@@ -3959,8 +3969,9 @@ const spYaw = (v) => finite(v) && Math.abs(v) <= 8;
 const spSub = (v) => typeof v === 'string' && ID_RE.test(v);
 
 /**
- * A client's serpent word, projected: `{k:'in', d, bv, lv, hl, sx, sz}`, `{k:'hit', d, z}`, `{k:'held', i, x, z}`,
- * `{k:'esc', i}` - or null. The fields ride the frame's top level, so the projection names each and drops the rest.
+ * A client's serpent word, projected: `{k:'in', d, bv, lv, hl, sx, sz}`, `{k:'hit', d, z}`, `{k:'wr', w}`,
+ * `{k:'held', i, x, z}`, `{k:'esc', i}` - or null. The fields ride the frame's top level, so the projection names each
+ * and drops the rest.
  */
 export function validSerpentIn(m) {
   if (!m || typeof m !== 'object' || !SERPENT_KINDS.includes(m.k)) return null;
@@ -3970,6 +3981,7 @@ export function validSerpentIn(m) {
     return { k: 'in', d: m.d, bv: m.bv, lv: m.lv, hl: m.hl, sx: m.sx, sz: m.sz };
   }
   if (m.k === 'hit') return finite(m.d) && m.d > 0 && m.d <= SERPENT_DMG_WIRE_MAX && intIn(m.z, 0, 2) ? { k: 'hit', d: m.d, z: m.z } : null;
+  if (m.k === 'wr') return m.w === 0 || m.w === 1 ? { k: 'wr', w: m.w } : null;
   if (!Number.isSafeInteger(m.i) || m.i < 1) return null;
   if (m.k === 'esc') return { k: 'esc', i: m.i };
   return spXZ(m.x) && spXZ(m.z) ? { k: 'held', i: m.i, x: m.x, z: m.z } : null;
@@ -4051,10 +4063,12 @@ export function validSerpentOut(m) {
     case 'fell': {
       const f = spFell(m);
       if (!f) return null;
-      // the hub's word names the day and the place it fell off (net/serpentLaw.js slainLine)
+      // the hub's word names the day and the place it fell off (net/serpentLaw.js slainLine), and the site it fell at
       if (m.d !== undefined && !(Number.isSafeInteger(m.d) && m.d >= 0)) return null;
+      const site = m.sx !== undefined || m.sz !== undefined;
+      if (site && !(finite(m.sx) && finite(m.sz) && Math.abs(m.sx) <= POSE_BOUND && Math.abs(m.sz) <= POSE_BOUND)) return null;
       const near = typeof m.near === 'string' ? sanitizeName(m.near) : null;
-      return { k: 'fell', ...f, ...(m.d !== undefined ? { d: m.d } : {}), ...(near ? { near } : {}) };
+      return { k: 'fell', ...f, ...(m.d !== undefined ? { d: m.d } : {}), ...(site ? { sx: m.sx, sz: m.sz } : {}), ...(near ? { near } : {}) };
     }
     case 'gone': return spMs(m.at) ? { k: 'gone', at: m.at } : null;
     case 'no': return SERPENT_NO_WORDS.includes(m.m) ? { k: 'no', m: m.m } : null;

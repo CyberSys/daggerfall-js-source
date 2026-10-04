@@ -268,7 +268,7 @@ import { serpentBarModel } from '../ui/serpentBar.js'; import { drawGateBossBar 
 import { playSerpentSound } from '../systems/serpentSounds.js';   // SERPENT1: its voice - DAGGER.SND's own, pitched for its size
 import { serpentSpoilsList, serpentSpoilsDay, SERPENT_SPOILS_KEYS, SERPENT_SPOILS_TEXT, SERPENT_SPOILS_RECORDS_MAX } from '../systems/serpentSpoils.js';   // SERPENT1: the Old Coil's hoard
 import { createSerpentClaims } from '../net/serpentClaims.js';   // SERPENT1: its receipts carried to the account service
-import { slainLine, serpentBossOf, SERPENT_NATIVE_PER_M } from '../net/serpentLaw.js';   // SERPENT1: the hub's word of its kill, in the chat
+import { slainLine, serpentBossOf, serpentBossById, sameSerpentSite, SERPENT_NATIVE_PER_M } from '../net/serpentLaw.js';   // SERPENT1: the hub's word of its kill, in the chat (AUDIT SERPENT S1: my own site's alone)
 import { createGateCourt, courtSaySeconds } from './gateCourt.js';   // WB4: the fight on this screen - the boss drawn, heard and read, and his blows on me
 import { DeadlandsRenderer, skyGain, anchoredClock } from '../render/deadlands.js';   // WB6a: the Deadlands' sky and sea round the Burning Court
 import { createDeadlandsAir } from './deadlandsAir.js';   // WB6b: and their air - the wind, the fire, the thunder of the sky's strikes
@@ -18858,11 +18858,13 @@ export async function bootWorld(canvas, renderer, params, status) {
    *  and by how it earned it, straight into the pack when that character stands here - else kept for it. */
   function grantSerpentSpoils(entry) {
     const c = readSerpentReceipt(entry?.r);
-    if (!c) return;
-    const level = Math.max(1, Math.floor(Number(entry.lv) || c.l || playerEntity.level || 1));
-    spoilsLock(() => serpentSpoils.grant({ day: serpentSpoilsDay(c.d), acct: c.s, roll: () => serpentSpoilsList(c.c, level, c.x), text: SERPENT_SPOILS_TEXT.granted,
-      owner: entry.ch, kept: SERPENT_SPOILS_TEXT.kept(entry.nm) }))
-      .catch((e) => console.warn('[serpent] spoils', e?.message ?? e));
+    if (!c) return undefined;
+    // AUDIT SERPENT D2: never past the level the fight admitted (the receipt's), nor the standing character's own
+    const level = spoilsLevel(entry.ch === characterIdOf(playerEntity) ? playerEntity.level ?? 1 : Number(entry.lv) || c.l || 1, c.l);
+    // AUDIT SERPENT D6: its promise is the carrier's - a grant that fails leaves the receipt unsettled, asked again
+    const boss = serpentBossById(c.b);
+    return spoilsLock(() => serpentSpoils.grant({ day: serpentSpoilsDay(c.d), acct: c.s, roll: () => serpentSpoilsList(c.c, level, c.x), text: SERPENT_SPOILS_TEXT.granted(boss),
+      owner: entry.ch, kept: SERPENT_SPOILS_TEXT.kept(entry.nm, boss) }));
   }
   /** WB5: THE CRASH'S DOOR (scenes/spoilsPool.js recoverSpoils) - asked once for each character that stands up in this
    *  session, online or not, before it can save: a boss's spoils no save of theirs holds are handed back. */
@@ -18909,7 +18911,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   // AUDIT ONLINE2 F3 (AUDIT RAID R8d): A LOAD IN THE SESSION IS A STAND-UP - the pack is the loaded save's, so the pools
   // let go of what they held in the old one, and the crash's door asks again for the loaded character (a town's thanks
   // given, a load of a save from before them, then a save: the record cleared with its pieces in no pack at all)
-  onSlotLoaded((characterId) => { spoilsPool.loaded(characterId); raidSpoils.loaded(characterId); _spoilsAskedFor = null; });
+  onSlotLoaded((characterId) => { spoilsPool.loaded(characterId); raidSpoils.loaded(characterId); serpentSpoils.loaded(characterId); _spoilsAskedFor = null; });   // AUDIT SERPENT D5: and the Old Coil's hoard
   /** WB9b: the court's floor as the dungeon arm asks for it each frame - the fight's crossings and the relay's clock */
   const _gateFloor = { xa: [], now: 0, none: Object.freeze([]) };
   const _courtArena = courtArena(_gateFloor.none, 0);
@@ -19030,8 +19032,13 @@ export async function bootWorld(canvas, renderer, params, status) {
   const serpentLink = params.has('online') ? createSerpentLink({
     now: () => Date.now() + _sharedOffsetMs,
     say: (text) => setMidScreenText(text, 5),   // the cell's refusal, once until I leave its waters
-    // the hub's word of the kill, to everyone online - the place named from this machine's own site
-    onFell: (day, f) => { const site = serpentOmen?.current?.()?.site; chatNotice(slainLine({ near: site?.day === day ? site.near : null, boss: serpentBossOf(day).name, top: f.top })); },
+    // AUDIT SERPENT S7/H1: and to the host - a refusal that holds for the day stops my volleys
+    onRefused: (why) => serpentHost?.refused?.(why),
+    // AUDIT SERPENT S1: the day's site as this machine found it - a whole state of another site's fight is not mine
+    site: () => serpentOmen?.current?.()?.site ?? null,
+    // the hub's word of the kill, to everyone online - said for THIS machine's own site's serpent alone (AUDIT SERPENT S1:
+    // a forged site's kill is said for nobody), the place named from it
+    onFell: (day, f, at) => { const site = serpentOmen?.current?.()?.site; if (!site || site.day !== day || !sameSerpentSite(site, at)) return; chatNotice(slainLine({ near: site.near, boss: serpentBossOf(day).name, top: f.top })); },
     // my receipt: to the account service, with the character that fought and the level it was admitted at
     onReceipt: (r) => { const c = readSerpentReceipt(r); serpentClaims?.add(r, characterIdOf(playerEntity), typeof playerEntity?.name === 'string' ? playerEntity.name : null, c?.l ?? playerEntity.level ?? 1); },
   }) : null;
@@ -19048,7 +19055,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     },
     say: (text) => chatNotice(text),
     localTime: eventLocalTime,
-    fellAt: (day) => serpentLink.fellAt(day),
+    fellAt: (day, site) => serpentLink.fellAt(day, site),
     // the gate's AUDIT WB C4 law: nothing said before the relay's clock is read and the hub has welcomed this player (its
     // word of a kill comes just behind) - or, a hub that never answers, eight seconds on the relay's clock alone
     ready: () => { if (!online?.clockRead) { _serpentClockAt = null; return false; } _serpentClockAt ??= performance.now(); return !!socialLink()?.clockRead || performance.now() - _serpentClockAt > 8000; },
@@ -19059,7 +19066,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     link: serpentLink,
     omen: serpentOmen,
     online: {
-      ready: (cell) => !!online?.serpentReady?.(cell),
+      ready: (cell) => navalOn() && !!online?.serpentReady?.(cell),   // AUDIT SERPENT M4: no sea fight, no ship to bring - no `in`, no share
       send: (w, cell) => !!online?.sendSerpent?.(w, cell),
       acct: () => _accountSerpents.me(),   // the relay's fighter key - the identity's sub, the account's id
     },
@@ -19113,7 +19120,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   /** No online frame (offline, a load): the bar put away; offline, the fight forgotten - my ship let go of its coil. */
   const serpentAway = (offline) => {
     if (_serpentBarUp) { drawGateBossBar(null); _serpentBarUp = false; }
-    if (offline) serpentHost?.leave();
+    if (offline) { serpentHost?.leave(); serpentOmen?.reset(); }   // AUDIT SERPENT L4: offline, no ring and no compass mark stand
   };
   /** SERPENT1: the compass's mark - where it hunts, in THIS scene, while it swims and the player stands in its ring. */
   const serpentCompassMark = () => {

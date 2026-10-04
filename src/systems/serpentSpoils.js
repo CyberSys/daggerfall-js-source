@@ -40,11 +40,13 @@ export const SERPENT_SPOILS_KEYS = Object.freeze({ store: 'serpent1.spoils', day
 export const SERPENT_SPOILS_RECORDS_MAX = 16;
 /** A serpent's receipt as the pool keys it spent: its day, never a gate's bare day. */
 export const serpentSpoilsDay = (d) => `serpent:${d}`;
-/** The words. */
+/** The words - the serpent named off the receipt's boss (net/serpentLaw.js SERPENT_BOSSES). AUDIT SERPENT B10: the
+ *  hoard goes into the pack, and the words say no more than that (never a ship's hold it is not in); B11: the name is the
+ *  table's, never written here. */
 export const SERPENT_SPOILS_TEXT = Object.freeze({
-  granted: 'The Old Coil\'s hoard is in your hold - and your pack.',
+  granted: (boss) => `${boss.name}'s hoard is yours - it is in your pack.`,
   recovered: 'A sea serpent\'s hoard is in your pack.',
-  kept: (name) => `The Old Coil's hoard waits for ${name || 'the one who fought it'}.`,
+  kept: (name, boss) => `${boss.name}'s hoard waits for ${name || 'the one who fought it'}.`,
 });
 
 /** A piece laddered to its tier and known (applyRarity's own fall from Legendary is read back off the item). */

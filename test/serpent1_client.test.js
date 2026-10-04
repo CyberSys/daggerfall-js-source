@@ -138,13 +138,14 @@ test('SERPENT1 link: a refusal said once until the fight is left; a receipt kept
   L.word({ k: 'rcpt', r }); L.word({ k: 'rcpt', r });
   assert.deepEqual(rcpts, [r]);
   assert.equal(L.receipt(DAY), r);
-  L.word({ k: 'fell', d: DAY, at: T0 + 5, top: ['Ama'], n: 2 }); L.word({ k: 'fell', d: DAY, at: T0 + 5, top: ['Ama'], n: 2 });
+  L.word({ k: 'fell', d: DAY, at: T0 + 5, top: ['Ama'], n: 2, sx: SX, sz: SZ }); L.word({ k: 'fell', d: DAY, at: T0 + 5, top: ['Ama'], n: 2, sx: SX, sz: SZ });
   assert.deepEqual(fells, [[DAY, T0 + 5]]);
-  assert.equal(L.fellAt(DAY), T0 + 5);
+  assert.equal(L.fellAt(DAY, { sx: SX, sz: SZ }), T0 + 5);
+  assert.equal(L.fellAt(DAY, null), null);
   const { st } = brainState(T0, { fell: { at: T0 - 50, top: ['Ama'], n: 1 } });
   const L2 = createSerpentLink({ now: () => now, onFell: (d) => fells.push([d, 'said']) });
   L2.word(st);
-  assert.equal(L2.fellAt(DAY), T0 - 50, 'kept for the omen');
+  assert.equal(L2.fellAt(DAY, { sx: SX, sz: SZ }), T0 - 50, 'kept for the omen');
   assert.equal(fells.length, 1, 'unsaid');
 });
 
@@ -177,8 +178,8 @@ test('SERPENT1 strike: each shape meets a ship by her bow, her middle or her ste
   assert.equal(shipPoints(CARRACK).length, 3);
   // the hurt: her whole's share and points on top - alike for a rowboat and a carrack
   const h = shipHurt(SERPENT_ATTACK_TABLE.breach, CARRACK);
-  assert.deepEqual(h, { hull: Math.round(0.18 * 1200 + 24), sail: Math.round(0.1 * 600), crew: 3 });
-  assert.ok(close(shipHurt(SERPENT_ATTACK_TABLE.breach, ROWBOAT).hull / ROWBOAT.maxHull, (0.18 * 120 + 24) / 120, 0.01));
+  assert.deepEqual(h, { hull: Math.round(0.07 * 1200 + 8), sail: Math.round(0.1 * 600), crew: 2 });   // AUDIT SERPENT T1's numbers
+  assert.ok(close(shipHurt(SERPENT_ATTACK_TABLE.breach, ROWBOAT).hull / ROWBOAT.maxHull, (0.07 * 120 + 8) / 120, 0.01));
   assert.deepEqual(crushHurt(CARRACK), shipHurt(CRUSH, CARRACK));
 });
 
@@ -219,6 +220,31 @@ test('SERPENT1 strike: the grip and the eye grind by the second with their fract
 // ═══ THE SIGHTING ═══════════════════════════════════════════════════════════════════════════════════
 
 const SITE = Object.freeze({ day: DAY, px: 205, py: 214, sx: SX, sz: SZ, near: 'Sentinel', place: 'Sentinel, Sentinel', between: ['Sentinel', 'Wayrest'], ring: { cx: 205.5, cy: 214.5, r: SERPENT_RING_PIXELS } });
+
+test('AUDIT SERPENT S1: a kill is its SITE\'s - the hub\'s word of another site\'s serpent is kept for that site alone, never marks this state\'s fight slain, and the omen asks the kill of its own site; a whole state of another site\'s fight is not folded; the cell\'s own kill is its fight\'s site\'s (mutants: the kill by day alone; the state folded whatever its site)', () => {
+  const fells = [];
+  const OTHER = { sx: SX - 3 * PIXEL_UNITS, sz: SZ };
+  const L = createSerpentLink({ now: () => T0, onFell: (d, f, at) => fells.push([d, at.sx]), site: () => SITE });
+  const { st } = brainState();
+  L.word(st);
+  L.word({ k: 'fell', d: DAY, at: T0 + 5, top: [], n: 1, ...OTHER });
+  assert.deepEqual(fells, [[DAY, OTHER.sx]], 'heard, with its site');
+  assert.equal(L.state().fell, null, 'my serpent lives');
+  assert.equal(L.fellAt(DAY, SITE), null);
+  assert.equal(L.fellAt(DAY, OTHER), T0 + 5);
+  L.word(validSerpentOut({ ...st, sx: OTHER.sx, h: 1 }));
+  assert.equal(L.state().sx, SX, 'another site\'s whole state is not mine');
+  L.word({ k: 'fell', at: T0 + 9, top: ['Ama'], n: 1 });   // the cell's own word, no site: its fight's
+  assert.equal(L.fellAt(DAY, SITE), T0 + 9);
+  assert.deepEqual(fells.at(-1), [DAY, SX]);
+  assert.equal(L.state().fell.at, T0 + 9);
+  // the omen asks its own site's
+  const asked = [];
+  const O = createSerpentOmen({ now: () => TT.sealAt + 1000, site: () => SITE, say: () => {}, fellAt: (d, at) => { asked.push(at); return L.fellAt(d, at); } });
+  O.frame();
+  assert.equal(asked[0], SITE);
+  assert.equal(O.current().phase, 'gone', 'slain at T0 + 9, its throes long over');
+});
 
 test('SERPENT1 omen: nothing said before its host is ready and settled; each of its lines said once a day as the clock reaches it - a player arriving late hears the one for where it stands; a serpent slain says no sounding; no site is silence, asked again (mutants: a line said twice; a late arrival told every line; the slain sounding; a missing site cached for the day)', () => {
   let now = TT.omenAt + 1000, ready = false, fell = null, asked = 0, siteOk = false;
@@ -274,7 +300,7 @@ function rig({ shipAt = [60, 0], acct = 'acct-0001' } = {}) {
   const link = createSerpentLink({ now: () => now });
   const sw = { day: DAY, site: { sx: SX, sz: SZ }, phase: 'hunt', t: TT };
   const boat = { id: 'mine' };
-  const ship = { at: [...shipAt], yaw: 0, atHelm: true };
+  const ship = { at: [...shipAt], yaw: 0, atHelm: true, none: false, wrecked: false };
   const host = createSerpentHost({
     now: () => now, link, omen: { swimming: () => sw },
     online: { ready: (cell) => cell === CELL, send: (w, cell) => { sent.push({ ...w, cell }); return true; }, acct: () => acct },
@@ -283,7 +309,7 @@ function rig({ shipAt = [60, 0], acct = 'acct-0001' } = {}) {
     seaY: () => 0,
     feet: () => [ship.at[0] + OFF[0], 1, ship.at[1] + OFF[1]],
     level: () => 20,
-    boat: () => ({ boat, hull: 4, root: [ship.at[0] + OFF[0], ship.at[1] + OFF[1]], pos: [ship.at[0] + OFF[0], 0, ship.at[1] + OFF[1]], yaw: ship.yaw, hl: 25, hw: 7, maxHull: 1200, maxSail: 600, atHelm: ship.atHelm, wrecked: false }),
+    boat: () => (ship.none ? null : { boat, hull: 4, root: [ship.at[0] + OFF[0], ship.at[1] + OFF[1]], pos: [ship.at[0] + OFF[0], 0, ship.at[1] + OFF[1]], yaw: ship.yaw, hl: 25, hw: 7, maxHull: 1200, maxSail: 600, atHelm: ship.atHelm, wrecked: ship.wrecked }),
     strike: (b, hurt, o) => strikes.push({ b, hurt, o }),
     hurt: (pct, base, el) => hurts.push([pct, base, el]),
     say: (t) => says.push(t), mid: (t) => mids.push(t), sound: (k, p) => sounds.push([k, p]), fx: (k, p) => fx.push([k, p]),
@@ -292,7 +318,7 @@ function rig({ shipAt = [60, 0], acct = 'acct-0001' } = {}) {
   return { host, link, sent, strikes, sounds, fx, mids, says, hurts, boat, ship, hear, sw, at: () => now, step: (ms) => { now += ms; return host.frame(); } };
 }
 
-test('SERPENT1 host: the `in` said within sight of its waters to the CELL of its site - its day, its law, my level and my hull at my helm, the site - soon again while unanswered, seldom once answered; nothing past ADMIT_R (mutants: said every frame; said to my own cell; the hull said for a ship not at my helm)', () => {
+test('SERPENT1 host: the `in` said within sight of its waters to the CELL of its site - its day, its law, my level and my own ship\'s hull (AUDIT SERPENT B4/H2: at her helm or on her deck), the site - soon again while unanswered, seldom once answered; nothing past ADMIT_R (mutants: said every frame; said to my own cell; the hull said aboard no ship of mine; the hull said at the helm alone)', () => {
   const R = rig();
   assert.equal(R.host.frame(), false, 'no state yet');
   assert.deepEqual(R.sent, [{ k: 'in', d: DAY, bv: SERPENT_BRAIN_V, lv: 20, hl: 4, sx: SX, sz: SZ, cell: CELL }]);
@@ -309,8 +335,12 @@ test('SERPENT1 host: the `in` said within sight of its waters to the CELL of its
   const far = rig({ shipAt: [ADMIT_R + 10, 0] });
   far.host.frame();
   assert.equal(far.sent.length, 0, 'too far to say it');
+  const deck = rig();
+  deck.ship.atHelm = false;
+  deck.host.frame();
+  assert.equal(deck.sent[0].hl, 4, 'on her deck, away from her helm');
   const aboard = rig();
-  aboard.ship.atHelm = false;
+  aboard.ship.none = true;
   aboard.host.frame();
   assert.equal(aboard.sent[0].hl, -1, 'aboard another\'s ship');
 });
@@ -384,6 +414,7 @@ test('SERPENT1 host: THE COIL on my ship - inside its ring at the landing she is
   R.hear({ k: 'coil', i: 10, s: 'acct-0001', x: 60, z: 0, th: 0, at: at2, until: at2 + 24_000, h: 60, m: 60 });
   R.step(10);
   assert.equal(R.host.held, true);
+  while (R.at() + 5000 < at2 + 24_000 + COIL_LOST_MS) { R.step(5000); R.hear({ k: 'hp', h: 50, m: 60 }); }   // the fight goes on - only the coil's end is lost
   R.step(at2 + 24_000 + COIL_LOST_MS - R.at());
   assert.equal(R.host.held, true, 'still held through COIL_LOST_MS past its end');
   R.step(1);
@@ -485,9 +516,9 @@ test('SERPENT1 bar: the gate\'s bar in the sea\'s colours - its health, the atta
   assert.match(m.host, /The Coil/);
   const st = serpentBarModel({ ...b, stunned: true, stunLeft: 4200 });
   assert.equal(st.callout.color, STUN_CSS);
-  assert.match(st.callout.text, /5/);
+  assert.match(st.callout.text, /! 5s$/, 'AUDIT SERPENT (words): its seconds said as seconds');
   assert.ok(serpentBarModel({ ...b, soundIn: 30_000 }).wrathNear);
-  assert.match(serpentBarModel({ ...b, soundIn: SOUND_WARN_MS }).wrath, /sounds in/);
+  assert.equal(serpentBarModel({ ...b, soundIn: SOUND_WARN_MS }).wrath, 'It dives in 5m 00s');
   const fell = { ...b, fell: { at: 1000 } };
   assert.equal(serpentBarModel(fell, 1500).alpha, 1);
   assert.equal(serpentBarModel(fell, 100_000).alpha, 0);

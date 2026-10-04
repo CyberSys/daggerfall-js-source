@@ -18,6 +18,7 @@
 //
 // Pure - the call, the store and the clocks are handed in. Not a DFU member. Ledger A (SERPENT1).
 import { readSerpentReceipt } from './serpentReceipt.js';
+import { serpentBossById } from './serpentLaw.js';
 
 /** The device's serpent receipts not yet settled with the account service: `[{ r, ch, nm, lv, cid }]` - the receipt, the
  *  character that fought it, its name, its level (the hoard rolls at it), and this device's claim id. */
@@ -30,8 +31,10 @@ export const SERPENT_CID_RE = /^[0-9a-f]{16}$/;
 const mintCid = () => { const b = new Uint8Array(8); globalThis.crypto.getRandomValues(b); return [...b].map((x) => x.toString(16).padStart(2, '0')).join(''); };
 /** A receipt's settled key - its day and account. */
 const settledKeyOf = (c) => `${c.d}|${c.s}`;
-/** The most it keeps - a week of serpents; the oldest go first past this. */
-export const SERPENT_CLAIMS_MAX = 48;
+/** The most it keeps; the oldest go first past this. AUDIT SERPENT D3: fewer than the spoils pool remembers spent
+ *  (scenes/spoilsPool.js SPOILS_SPENT_MAX, 32 - pinned below it), so a guest's receipts, offered again and again, never
+ *  outlive the pool's memory that their hoard was given. */
+export const SERPENT_CLAIMS_MAX = 24;
 /** The least time between two offers of what is kept, ms. */
 export const SERPENT_CLAIM_RETRY_MS = 10 * 60 * 1000;
 /** How often a frame asks who is signed in (AUDIT WBX W4's law). */
@@ -39,7 +42,7 @@ export const SERPENT_ME_POLL_MS = 1000;
 
 /** The words. */
 export const SERPENT_CLAIM_TEXT = Object.freeze({
-  recorded: (n, xp) => `The Bay will remember the Old Coil's fall. Serpents slain: ${n}.${xp > 0 ? ` +${xp} Renown XP.` : ''}`,
+  recorded: (n, xp, boss) => `The Bay will remember ${boss.name}'s fall. Serpents slain: ${n}.${xp > 0 ? ` +${xp} Renown XP.` : ''}`,   // AUDIT SERPENT B11: the table's name
   guest: 'This serpent is not on your record yet: only registered accounts keep one. Add a username this week and it counts.',
 });
 
@@ -65,11 +68,11 @@ export function serpentRecordText(rec) {
  *   store?: { get: (k: string) => any, set: (k: string, v: any) => void }|null,
  *   nowS?: () => (number|null), nowMs?: () => number, say?: (text: string) => void,
  *   onRecorded?: (data: any, entry: { r: string, ch: string, nm: string|null, lv: number, cid: string }) => void,
- *   onSpoils?: (entry: { r: string, ch: string, nm: string|null, lv: number, cid: string }, data: any) => void,
+ *   onSpoils?: (entry: { r: string, ch: string, nm: string|null, lv: number, cid: string }, data: any) => (void|Promise<any>),
  *   me?: () => (string|null), cid?: () => string,
  * }} deps `claim` is net/accountClient.js accountSerpents' - `{ ok, data }` or `{ ok: false, error, why? }`, never a
  *   throw; `me` the signed-in account's id; `onRecorded` hears each counted receipt's answer (its Renown and order);
- *   `onSpoils` each receipt whose hoard the service gave THIS claim
+ *   `onSpoils` each receipt whose hoard the service gave THIS claim - awaited, its receipt settled only once it is given
  */
 export function createSerpentClaims({ claim, store = null, nowS = () => Math.floor(Date.now() / 1000), nowMs = () => Date.now(), say = () => {}, onRecorded = () => {}, onSpoils = () => {}, me = () => null, cid = mintCid }) {
   let busy = false, again = false, lastAt = -Infinity;
@@ -83,6 +86,9 @@ export function createSerpentClaims({ claim, store = null, nowS = () => Math.flo
   /** R8e: a page's hook that throws is the page's - never the carrier's (it left the receipt unsettled, and the next
    *  offer was answered "claimed") */
   const hear = (fn, ...args) => { try { fn(...args); } catch (e) { console.warn('[serpent] claim hook', e?.message ?? e); } };
+  /** AUDIT SERPENT D6: the hoard's grant AWAITED - one that fails (thrown or rejected) leaves its receipt unsettled, so the
+   *  next offer asks again and the service gives this claim its hoard again (the pool's spent mark keeps it once). */
+  const granted = async (fn, ...args) => { try { await fn(...args); return true; } catch (e) { console.warn('[serpent] claim hook', e?.message ?? e); return false; } };
   let memory = [];
   function kept() {
     let v;
@@ -104,18 +110,18 @@ export function createSerpentClaims({ claim, store = null, nowS = () => Math.flo
         if (!mine || live(e.r)?.s !== mine) continue;   // another account's waits for its own sign-in
         let answer;
         try { answer = await claim(e.r, e.ch, e.nm ?? null, e.cid); } catch { answer = { ok: false, error: 'offline' }; }
-        if (answer?.ok && answer.data?.spoils === true) hear(onSpoils, e, answer.data);   // the hoard, this claim's
+        const given = answer?.ok && answer.data?.spoils === true ? await granted(onSpoils, e, answer.data) : true;   // the hoard, this claim's
         if (answer?.ok && answer.data?.recorded === true) {
           recorded++;
           const n = Number.isSafeInteger(answer.data.slain) ? answer.data.slain : null;
           const xp = Number.isSafeInteger(answer.data.renown?.credited) ? answer.data.renown.credited : 0;
-          if (n != null) say(SERPENT_CLAIM_TEXT.recorded(n, xp));
+          if (n != null) say(SERPENT_CLAIM_TEXT.recorded(n, xp, serpentBossById(live(e.r)?.b)));
           hear(onRecorded, answer.data, e);
         } else if (answer?.ok && answer.data?.why === 'guest' && !guestSaid.has(e.r)) {
           guestSaid.add(e.r);
           say(SERPENT_CLAIM_TEXT.guest);
         }
-        if (serpentClaimVerdict(answer) === 'done') { settled.add(e.r); markSettled(live(e.r)); keep(kept().filter((k) => k.r !== e.r)); }
+        if (given && serpentClaimVerdict(answer) === 'done') { settled.add(e.r); markSettled(live(e.r)); keep(kept().filter((k) => k.r !== e.r)); }
       }
     } finally { busy = false; }
     if (again) { again = false; void flush(); }

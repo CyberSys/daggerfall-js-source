@@ -121,7 +121,7 @@
   {
     "name": "SERPENT1-relay-far-admitted",
     "file": "server/src/index.js",
-    "old": "if (Math.hypot(at.x, at.z) > serpentBrain.ADMIT_R) { no('too far from its waters'); return; }",
+    "old": "if (off > serpentBrain.ADMIT_R) { no('too far from its waters'); return; }",
     "new": "",
     "tests": [
       "test/serpent1_relay.test.js"
@@ -157,8 +157,8 @@
   {
     "name": "SERPENT1-hub-hello-past-day",
     "file": "server/src/index.js",
-    "old": "if (g && serpentHolds(g.d, now)) this._send(ws, JSON.stringify({ t: 'serpent', ...g }));",
-    "new": "if (g) this._send(ws, JSON.stringify({ t: 'serpent', ...g }));",
+    "old": "if (g && serpentHolds(g.d, now)) for (const fell of g.list)",
+    "new": "if (g) for (const fell of g.list)",
     "tests": [
       "test/serpent1_relay.test.js"
     ]
@@ -166,8 +166,8 @@
   {
     "name": "SERPENT1-hub-hello-silent",
     "file": "server/src/index.js",
-    "old": "if (g && serpentHolds(g.d, now)) this._send(ws, JSON.stringify({ t: 'serpent', ...g }));",
-    "new": "void g;",
+    "old": "if (g && serpentHolds(g.d, now)) for (const fell of g.list)",
+    "new": "if (false) for (const fell of g.list)",
     "tests": [
       "test/serpent1_relay.test.js"
     ]
@@ -254,10 +254,10 @@
     ]
   },
   {
-    "name": "SERPENT1-host-hull-not-at-helm",
+    "name": "SERPENT1-host-hull-no-ship",
     "file": "src/scenes/serpentHost.js",
-    "old": "const hl = b?.atHelm ? b.hull : -1;",
-    "new": "const hl = b ? b.hull : -1;",
+    "old": "const hl = b ? b.hull : -1;",
+    "new": "const hl = b ? b.hull : 4;",
     "tests": [
       "test/serpent1_client.test.js"
     ]
@@ -319,7 +319,7 @@
   {
     "name": "SERPENT1-link-state-kill-lost",
     "file": "src/net/serpentLink.js",
-    "old": "if (w.k === 'st' && w.fell && Number.isSafeInteger(w.d) && !falls.has(w.d)) falls.set(",
+    "old": "if (w.k === 'st' && w.fell && Number.isSafeInteger(w.d) && !falls.has(fallKey(w.d, w))) falls.set(",
     "new": "if (false) falls.set(",
     "tests": [
       "test/serpent1_client.test.js"

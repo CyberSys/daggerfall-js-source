@@ -44,8 +44,8 @@
   {
     "name": "F3-door-never-reasked",
     "file": "src/scenes/world.js",
-    "old": "raidSpoils.loaded(characterId); _spoilsAskedFor = null; });",
-    "new": "raidSpoils.loaded(characterId); });",
+    "old": "serpentSpoils.loaded(characterId); _spoilsAskedFor = null; });",
+    "new": "serpentSpoils.loaded(characterId); });",
     "tests": ["test/auditonline2.test.js"]
   },
   {

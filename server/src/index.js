@@ -215,9 +215,9 @@ import { mintReceipt, importReceiptKey, readReceipt, RECEIPT_TTL_S } from '../..
 // gateLaw.js, both here), net/serpentBody.js and net/serpentBrain.js (the body and the fight, pure law - they import
 // each other alone) and net/serpentReceipt.js (the kill's receipt under the gate's one key). The fight lives in the cell
 // its site stands in (bible/11-Multiplayer/Sea-Serpent.md section 6).
-import { serpentAt, serpentAdmits, serpentHolds, serpentBossOf, serpentRiseYaw, SERPENT_DIVE_MS, SERPENT_BRAIN_MIN, SERPENT_NATIVE_PER_M } from '../../src/net/serpentLaw.js';
+import { serpentAt, serpentAdmits, serpentHolds, serpentBossOf, serpentRiseYaw, serpentSiteKey, sameSerpentSite, SERPENT_DIVE_MS, SERPENT_BRAIN_MIN, SERPENT_NATIVE_PER_M } from '../../src/net/serpentLaw.js';
 import * as serpentBrain from '../../src/net/serpentBrain.js';
-import { mintSerpentReceipt } from '../../src/net/serpentReceipt.js';
+import { mintSerpentReceipt, readSerpentReceipt } from '../../src/net/serpentReceipt.js';
 // RAID3 (2026-09-27, Mac, on World Events - Raiding Parties online: "1. Server"): TWO FILES JOIN THE BUNDLE -
 // net/raidLaw.js (a town raid's ledger, pure law - it imports nothing) and net/raidReceipt.js (a raid's receipt, the
 // relay's second signature under the gate's one key - it imports identityToken.js and raidLaw.js, both here).
@@ -259,7 +259,7 @@ import {
 import { mintArenaReceipt } from '../../src/net/arenaReceipt.js';
 import { owIdInCell, owRowInCell, owRowSane, owFoldSpent, owFoldRows, owRowsBehind, owPrune, owLedgerOf, owLedgerEmpty, toWelcome } from '../../src/net/overworldLaw.js';
 
-import { serpentGate, validSerpentOut, SERPENT_INTERNAL_FELL, SERPENT_TELL_RETRY_MS, SERPENT_FIGHT_KEY } from './relay.js';   // SERPENT1: the serpent's frame and its doors (the wire's, through relay.js - walked last, as ever)
+import { serpentGate, validSerpentOut, SERPENT_INTERNAL_FELL, SERPENT_TELL_RETRY_MS, SERPENT_FIGHT_KEY, SERPENT_FIGHTS_KEY, SERPENT_SITES_MAX, serpentFightId, SERPENT_FELLS_KEY, SERPENT_FELLS_MAX, SERPENT_RC_PREFIX } from './relay.js';   // SERPENT1: the serpent's frame and its doors (the wire's, through relay.js - walked last, as ever)
 import { roomOf, parseClient, inRange, poseGate, chatGate, redGate, dmGate, muteGate, tokenGate, rosterFor, badged, isChatRoom, isWorldRoom, isCellRoom, streamsFoes, hitOwnerOf, worldFrameMaxFor, CELL_FRAME_RECORDS_MAX, HELLO_HZ_MAX, CHAT_HELLO_HZ_MAX, CHAT_ROOM_HZ_MAX, SOCKETS_MAX, CHAT_SOCKETS_MAX, DROP_STRIKES_MAX, CHAT_STRIKES_MAX, WORLD_MIN_MS, WORLD_CHUNK, WORLD_TTL_MS, WORLD_PREFIX, FOES_PREFIX, OWN_PREFIX, foesGate, byteGate, FOES_ROOM_BYTES_PER_S, HIT_ROOM_HZ_MAX, ACT_ROOM_HZ_MAX, ACT_ROOM_BYTES_PER_S, actGate, MAX_FRAME_BYTES, CLOSE_REPLACED, CLOSE_POLICY, CLOSE_BUSY, HIT_ROOM_BYTES_PER_S, whoGate, whoIdOf, WHO_ROOM_HZ_MAX, poseFan, poseChanged, RELAY_VERSION, KEEPALIVE_FAN_MS, ACT_SENDER_BYTES_PER_S, CHAT_ROSTER_MAX, isSocialRoom, socialGate, partyGate, SOCIAL_ROOM_HZ_MAX, FRIENDS_MAX, PENDING_MAX, PARTY_MAX, PARTY_INVITES_MAX, INVITE_TTL_MS, PARTY_OFFLINE_MS, ACCOUNT_TABS_MAX, mintPartyId, SOCIAL_REPEAT_MS, ACCOUNT_IDLE_MS, ACCOUNT_SWEEP_MS, SWEEP_STEP_MS, SWEEP_PAGE, questShareGate, amapShareGate, AMAP_ROOM_HZ_MAX, QUEST_ROOM_HZ_MAX, QUEST_ROOM_BYTES_PER_S, QUEST_PREFIX, QUEST_FRAME_MAX, tradeGate, TRADE_ROOM_HZ_MAX, TRADE_ROOM_BYTES_PER_S, castGate, CAST_HZ_MAX, CAST_DEST_SENDERS_MAX, parkGate, parkKey, parkKeyOf, PARK_KEY_RE, parkRegistryRoom, cellRoomOfWire, PARK_INTERNAL_REG, PARK_INTERNAL_DROP, PARK_CELL_MAX, PARK_ACCOUNT_MAX, PARK_TTL_MS, PARK_REFRESH_MS, PARTY_CHAT_ROOM_HZ_MAX, rollGate, rollDice, cardGate, pageGate, duelGate, DUEL_HZ_MAX, renownGate, renownRoomGate, lookGate, eventGate, EVENT_KEY, validLiveEvent, gateGate, siegeGate, SIEGE_IN_MS, GATE_INTERNAL_FELL, SOCIAL_ROOM, validGateOut, HELLO_WAIT_MS, GATE_TELL_RETRY_MS, gateReceiptKey, GATE_BRAIN_MIN, GATE_HERE_HOLD_MS, guildGate, guildRoomGate, GUILD_CHAT_ROOM_HZ_MAX, SEAT_ELSEWHERE, raidGate, RAID_INTERNAL_CLEAN, RAID_INTERNAL_DAY, RAID_DAY_ASK_MS, raidTownsGate, RAID_TELL_RETRY_MS, RAID_CLEANS_MAX, RAID_LEDGER_PREFIX, raidLedgerKey, RAID_RC_PREFIX, raidReceiptKeyOf, RAID_RC_KEEP, RAID_RC_KEEP_MS, mapPixelOfWire, validRaidOut, worldRoom, sharedClassicMinutes, wallMsForClassicMinutes, isRegionRoom, travHubGate, travRoomGate, TRAV_STALE_MS, TRAV_WELCOME_MAX, owGate, owRoomGate, OW_LEDGER_KEY, REALM_DOOR_WORD, riteRelayGate, validRiteOut, sanitizeName, RITE_INTERNAL_BROKEN, RITE_INTERNAL_DAY, RITE_TELL_RETRY_MS, RITE_KEY, RITE_BY_MAX, RITE_CIRCLES_MAX, RITE_HUB_CIRCLES_MAX, RITE_ASK_EVERY_MS, RITE_ASK_TIMEOUT_MS, arenaGate } from './relay.js';
 
 // AUDIT WORLD34 D4: the relay names itself in /health. SLAM13 (AUDIT SLAM A5): the name lives in net/wire.js, so the
@@ -277,6 +277,8 @@ const rand01 = () => rand32() / 4294967296;
  *  keeps a fight past its going - a fighter whose link dropped at the kill is handed its receipt at its next `in`. */
 const SERPENT_REST_MS = 5000;
 const SERPENT_KEEP_MS = 2 * 60 * 60 * 1000;
+/** SERPENT1: where a cell keeps a fight (its id `day@site` - wire.js serpentFightId; the ids under SERPENT_FIGHTS_KEY). */
+const serpentStoreKey = (id) => `${SERPENT_FIGHT_KEY}:${id}`;
 const json = (o, status = 200) => new Response(JSON.stringify(o), { status, headers: { 'content-type': 'application/json', 'access-control-allow-origin': '*' } });
 /** WB12d: the names of those who broke a circle's rite, in the order they were said. */
 const riteNames = (c) => Object.values(c?.h ?? {}).filter((n) => typeof n === 'string' && n);
@@ -478,7 +480,7 @@ export class Room {
     this._helloBy = new Map();   // AUDIT-SEATS R3: a battle room's hello buckets, by verified account (_battleHelloGate) - a wake forgets them, as the meters
     this._receiptKey = undefined;   // WB3: the relay's signing key (GATE_SIGNING_KEY), imported once; null = none (the receipts go out unsigned)
     this._gateFell = undefined;     // WB3: the hub's last word of a kill, said to a hello while its gate still holds
-    this._serpentFell = undefined;  // SERPENT1: the hub's last word of a sea serpent's kill, said to a hello while its day still holds
+    this._serpentFells = undefined; // SERPENT1: the hub's kills of the latest serpent day, one a site (SERPENT_FELLS_KEY), said to a hello while that day holds
     this._event = undefined;        // EVENT1: the hub's live event, read once (_liveEvent) - undefined: not read yet
     this._raids = new Map();        // RAID3: a cell's raid ledgers read so far (net/raidLaw.js) - AUDIT RAID R1: its identity (key and signature) -> ledger|null; storage is the truth; R6: at most RAID_CACHE_MAX
     this._raidSavedAt = new Map();  // RAID3: when each ledger was last written (a word that moves nothing writes at most every RAID_SAVE_MS)
@@ -493,9 +495,9 @@ export class Room {
     this._roomOw = null;            // OW6L: a cell's budget for fanning its ledger's changes (OW_ROOM_HZ_MAX) - on the instance, as the chat's is
     this._herald = undefined;       // DISCORD-GATES: the hub's door to Discord ({hook, role}), read once - undefined: not read yet, null: none (no posts)
     this._gateSiteRec = undefined;  // DISCORD-GATES: the hub's record of where the gate stands, as accounts said it (net/gateHerald.js foldGateSite) - undefined: not read yet
-    this._serpent = undefined;      // SERPENT1: the serpent's fight a cell holds (storage's SERPENT_FIGHT_KEY after a wake) - undefined: not read yet, null: none
-    this._serpentSavedAt = 0;       // SERPENT1: when it was last checkpointed
-    this._serpentFalling = null;    // SERPENT1: the kill being said (one fall at a time - AUDIT WB12d R2's law)
+    this._serpents = undefined;     // SERPENT1: the serpents' fights a cell holds, by id (storage's SERPENT_FIGHTS_KEY after a wake) - undefined: not read yet
+    this._serpentSavedAt = new Map(); // SERPENT1: when each was last checkpointed
+    this._serpentFalling = new Map(); // SERPENT1: the kills being said (one fall at a time a fight - AUDIT WB12d R2's law)
     this._serpentArmedTo = 0;       // SERPENT1: the beat a blow already armed (a volley a frame never re-arms it)
     this._serpentRestAt = 0;        // SERPENT1: when a beating serpent's cell last ran its other duties (_alarmRest)
     try {
@@ -1034,8 +1036,8 @@ export class Room {
    *  next hello, as a drain's is. The cursors ride storage; a full page is followed SWEEP_STEP_MS later, an empty one
    *  ACCOUNT_SWEEP_MS later from the start. */
   async _sweepHub(now) {
-    const cur = (await this.state.storage.get(['sweep:acct', 'sweep:party', 'sweep:gaterc', 'sweep:raidrc']));   // AUDIT WBX2 M9: one read
-    const acur = cur.get('sweep:acct') ?? null, pcur = cur.get('sweep:party') ?? null, gcur = cur.get('sweep:gaterc') ?? null, rcur = cur.get('sweep:raidrc') ?? null;
+    const cur = (await this.state.storage.get(['sweep:acct', 'sweep:party', 'sweep:gaterc', 'sweep:raidrc', 'sweep:serpentrc']));   // AUDIT WBX2 M9: one read
+    const acur = cur.get('sweep:acct') ?? null, pcur = cur.get('sweep:party') ?? null, gcur = cur.get('sweep:gaterc') ?? null, rcur = cur.get('sweep:raidrc') ?? null, scur = cur.get('sweep:serpentrc') ?? null;
     const accts = await this.state.storage.list({ prefix: 'acct:', limit: SWEEP_PAGE, ...(acur ? { startAfter: acur } : {}) });
     const dead = [], idle = []; let alast = null;
     for (const [k, r] of accts) { alast = k; const id = k.slice(5); if (unlisted(r, now) && now - (r.seen ?? 0) >= ACCOUNT_IDLE_MS && !this._socketsOf(id).length) idle.push([k, id, r.party]); }
@@ -1059,9 +1061,13 @@ export class Room {
     const rcs = await this.state.storage.list({ prefix: RAID_RC_PREFIX, limit: SWEEP_PAGE, ...(rcur ? { startAfter: rcur } : {}) });
     let rlast = null;
     for (const [k, v] of rcs) { rlast = k; if (!raidRcLive(v, now).length) dead.push(k); }
+    // AUDIT SERPENT S5: and a serpent receipt kept for an account that never came back, once it has expired
+    const src = await this.state.storage.list({ prefix: SERPENT_RC_PREFIX, limit: SWEEP_PAGE, ...(scur ? { startAfter: scur } : {}) });
+    let slast = null;
+    for (const [k, r] of src) { slast = k; if (!r || typeof r !== 'object' || !(Number.isFinite(r.e) && now < r.e * 1000)) dead.push(k); }
     for (let i = 0; i < dead.length; i += SWEEP_PAGE) await this.state.storage.delete(dead.slice(i, i + SWEEP_PAGE));
-    const more = accts.size >= SWEEP_PAGE || parties.size >= SWEEP_PAGE || kept.size >= SWEEP_PAGE || rcs.size >= SWEEP_PAGE;
-    await this.state.storage.put({ 'sweep:acct': accts.size >= SWEEP_PAGE ? alast : null, 'sweep:party': parties.size >= SWEEP_PAGE ? plast : null, 'sweep:gaterc': kept.size >= SWEEP_PAGE ? glast : null, 'sweep:raidrc': rcs.size >= SWEEP_PAGE ? rlast : null });
+    const more = accts.size >= SWEEP_PAGE || parties.size >= SWEEP_PAGE || kept.size >= SWEEP_PAGE || rcs.size >= SWEEP_PAGE || src.size >= SWEEP_PAGE;
+    await this.state.storage.put({ 'sweep:acct': accts.size >= SWEEP_PAGE ? alast : null, 'sweep:party': parties.size >= SWEEP_PAGE ? plast : null, 'sweep:gaterc': kept.size >= SWEEP_PAGE ? glast : null, 'sweep:raidrc': rcs.size >= SWEEP_PAGE ? rlast : null, 'sweep:serpentrc': src.size >= SWEEP_PAGE ? slast : null });
     await this.state.storage.setAlarm(now + (more ? SWEEP_STEP_MS : ACCOUNT_SWEEP_MS));
   }
 
@@ -1381,6 +1387,7 @@ export class Room {
       if (!chat) { await this.state.storage.put(lookKey(m.id), m.look); this._looks.set(m.id, m.look); }   // a channel keeps no look: nobody is drawn from it
       const guild = who.gi ? { gi: who.gi, gt: who.gt, gm: who.gm } : {};   // GUILD1c: the guild the token carried, when it carried one
       const arena = isArenaRoom(a.key) ? { ar: arenaRatingOk(who.ar), lk: who.kind === 'linked' ? 1 : 0, ...(Number.isSafeInteger(who.cl) && who.cl >= ARENA_CL_MIN && who.cl <= ARENA_CL_MAX ? { cl: who.cl } : {}) } : {};   // ARENA4: the hall queues by the signed rating, and a guest is queued for no rated bout   // ARENA4b: and a ladder bout's vitality is the signed character level's (`cl` - absent from a service before it)
+      const charLv = isCellRoom(a.key) && Number.isSafeInteger(who.cl) && who.cl >= 1 ? { cl: who.cl } : {};   // AUDIT SERPENT E4: a cell's serpent fighter's level is never above the token's own character level (`cl` - absent from a service before ARENA4b)
       // AUDIT PRE-MERGE 1003b R5: A FLOOR'S PLACE MOVES WITH ITS RECONNECT - a replaced socket loses its id before its close,
       // so its leave frees no seat, and the new socket's `in` took another: every blip a seat gone from the stands (a full
       // session's sixty), every fighter's a second body. The place the old socket held is the new one's
@@ -1388,7 +1395,7 @@ export class Room {
       // AUDIT PRE-MERGE 1003b R4: a private session's floor is shown to its members - a socket that is none yet is shown
       // the sand when its join makes it one (`_sessionShow`)
       const shown = isArenaPrivateRoom(a.key) ? { shown: (await this._sessionOf())?.members?.[who.subject] ? 1 : 0 } : {};
-      if (!this._setAttach(ws, { ...a, ...placed, ...shown, id: m.id, name: who.name, title: who.title, ...(who.ts ? { ts: who.ts } : {}), glyphs: who.glyphs, gx: who.gx, au: who.au, ...(who.rb ? { rb: who.rb } : {}), lv: who.lv, ...guild, gio: who.gio, sub: who.subject, ...(siegeSide ? { sd: siegeSide } : {}), mu: who.mu, pose: chat ? null : m.pose, since: replaced?.since ?? now, ...arena })) { this._refuse(ws, 'hello too large'); return; }   // MOD1: `sub` the verified account (what a mute names), `mu` until when it may not talk   // RENOWN1: `lv` the Renown level the token carried
+      if (!this._setAttach(ws, { ...a, ...placed, ...shown, id: m.id, name: who.name, title: who.title, ...(who.ts ? { ts: who.ts } : {}), glyphs: who.glyphs, gx: who.gx, au: who.au, ...(who.rb ? { rb: who.rb } : {}), lv: who.lv, ...guild, gio: who.gio, sub: who.subject, ...(siegeSide ? { sd: siegeSide } : {}), mu: who.mu, pose: chat ? null : m.pose, since: replaced?.since ?? now, ...arena, ...charLv })) { this._refuse(ws, 'hello too large'); return; }   // MOD1: `sub` the verified account (what a mute names), `mu` until when it may not talk   // RENOWN1: `lv` the Renown level the token carried
       // SRV-N: `v` rides EVERY welcome, a channel's included. A player in the enhanced skin holds a presence socket
       // and one chat socket per tab; whichever reconnects first after a hand deploy is the one that notices, and the
       // client's detector (net/updateNotice.js) is a Set so the rest of them say nothing. SLAM13 (AUDIT SLAM A5): and
@@ -1414,8 +1421,10 @@ export class Room {
         if (isSocialRoom(a.key) && m.acct) { try { await this._helloAccount(ws, m, now); } catch (e) { console.warn('[hub] account hello failed', e?.message ?? e); } }   // AUDIT SOC A2: contained, as the acts and the leave are
         // WB3: a gate's kill said while this player was away, while that gate still stands - so it collapses on their screen too
         if (isSocialRoom(a.key)) { try { const g = await this._gateFellOf(); if (g && gateHolds(g.d, now)) this._send(ws, JSON.stringify({ t: 'gate', ...g })); } catch (e) { console.warn('[hub] gate word failed', e?.message ?? e); } }
-        // SERPENT1: and a sea serpent's, while its day holds - its ring on their map reads slain, its lines are not said
-        if (isSocialRoom(a.key)) { try { const g = await this._serpentFellOf(); if (g && serpentHolds(g.d, now)) this._send(ws, JSON.stringify({ t: 'serpent', ...g })); } catch (e) { console.warn('[hub] serpent word failed', e?.message ?? e); } }
+        // SERPENT1: and a sea serpent's, while its day holds - its ring on their map reads slain, its lines are not said;
+        // AUDIT SERPENT S1: each site's kill (a client hears its own site's); S5: and this account's receipt while it is good
+        if (isSocialRoom(a.key)) { try { const g = await this._serpentFellsOf(); if (g && serpentHolds(g.d, now)) for (const fell of g.list) this._send(ws, JSON.stringify({ t: 'serpent', ...fell })); } catch (e) { console.warn('[hub] serpent word failed', e?.message ?? e); } }
+        if (isSocialRoom(a.key) && who.subject) { try { await this._serpentReceiptTo(ws, who.subject, now); } catch (e) { console.warn('[hub] serpent receipt failed', e?.message ?? e); } }
         // AUDIT WB A4: and this account's receipt, while it is good (spent, it goes)
         if (isSocialRoom(a.key) && who.subject) { try { await this._gateReceiptTo(ws, who.subject, now); } catch (e) { console.warn('[hub] gate receipt failed', e?.message ?? e); } }
         // WB12d: the faithful's rite broken while this player was away, while its circle still stands
@@ -3905,18 +3914,44 @@ export class Room {
   }
 
   // ───────────────────────────── SERPENT1: THE SEA SERPENT ─────────────────────────────
-  // bible/11-Multiplayer/Sea-Serpent.md section 6. The fight lives in the CELL its site stands in (the client finds the
-  // site over the map files - systems/serpentSite.js - and says it with its `in`; the first `in` of a day stands the
-  // fight there, and every word after it must name a site in this cell). Its beat rides the cell's alarm beside the
-  // cell's own duties (alarm()); its words go to every socket about its waters (FAN_R) and to every fighter.
-  /** The fight this cell holds, or null - the instance's while it is awake, storage's (the last checkpoint) after. */
-  async _serpentFightOf() {
-    if (this._serpent === undefined) { const v = await this.state.storage.get(SERPENT_FIGHT_KEY); this._serpent = v && typeof v === 'object' ? v : null; }
-    return this._serpent;
+  // bible/11-Multiplayer/Sea-Serpent.md section 6. A fight lives in the CELL its site stands in (the client finds the
+  // site over the map files - systems/serpentSite.js - and says it with its `in`). AUDIT SERPENT S1: THE SITE IS THE
+  // CLIENT'S WORD (the relay holds no map), so the cell keeps ONE FIGHT A SITE (net/serpentLaw.js serpentSiteKey), at
+  // most SERPENT_SITES_MAX a day: a forged site stands a fight of its own that no honest client hears, and its kill is
+  // said for its own site alone. The beats ride the cell's alarm beside the cell's own duties (alarm()); a fight's words
+  // go to the sockets that hear it (_serpentHears).
+  /** The fights this cell holds, by id (`day@site`) - the instance's while it is awake, else storage's: each one's last
+   *  checkpoint, its attack numbers carried past any it said since (AUDIT SERPENT S9 - serpentWoke). */
+  async _serpentFights() {
+    if (this._serpents === undefined) {
+      const ids = await this.state.storage.get(SERPENT_FIGHTS_KEY);
+      const list = Array.isArray(ids) ? ids.filter((id) => typeof id === 'string').slice(0, 4 * SERPENT_SITES_MAX) : [];
+      const got = list.length ? await this.state.storage.get(list.map(serpentStoreKey)) : new Map();
+      const fights = new Map();
+      for (const id of list) { const f = got.get(serpentStoreKey(id)); if (f && typeof f === 'object') fights.set(id, serpentBrain.serpentWoke(f)); }
+      this._serpents = fights;
+    }
+    return this._serpents;
   }
-  /** A pose (native units) in the fight's site frame, metres. */
+  /** The fights' ids, to storage - a fight born or forgotten. */
+  async _serpentIndex(fights) { await this.state.storage.put(SERPENT_FIGHTS_KEY, [...fights.keys()]); }
+  /** A fight forgotten - the instance's and storage's. */
+  async _serpentForget(fights, id) {
+    fights.delete(id);
+    this._serpentSavedAt.delete(id);
+    await this.state.storage.delete(serpentStoreKey(id));
+    await this._serpentIndex(fights);
+  }
+  /** A pose (native units) in a fight's site frame, metres. */
   _serpentFrameOf(f, p) { return { x: (p.x - f.sx) / SERPENT_NATIVE_PER_M, z: (p.z - f.sz) / SERPENT_NATIVE_PER_M }; }
-  /** The fight's bodies about its waters now: one a fighter (its NEWEST socket speaks for it - AUDIT SOC B9's law), where
+  /** The fight here that counts this account a fighter - the newest day's - as [id, fight], or null. An account fights at
+   *  one site a day in a cell (_serpentIn). */
+  _serpentFightBy(fights, sub) {
+    let by = null;
+    for (const [id, f] of fights) if (f.players[sub] && (!by || f.day > by[1].day)) by = [id, f];
+    return by;
+  }
+  /** A fight's bodies about its waters now: one a fighter (its NEWEST socket speaks for it - AUDIT SOC B9's law), where
    *  its last pose stands in the site frame, and whether that pose says it died. */
   _serpentBodies(f) {
     const newest = new Map();
@@ -3927,25 +3962,33 @@ export class Room {
     }
     return [...newest.values()].map((b) => { const c = this._serpentFrameOf(f, b.pose); return { sub: b.sub, x: c.x, z: c.z, dead: !!b.pose.dd }; });
   }
-  /** Is this socket one the fight is said to - a fighter, or a pose within FAN_R of its waters? */
-  _serpentHears(f, b) {
+  /**
+   * Does this socket hear the fight `id`? AUDIT SERPENT S1: a socket whose `in` named a site this day (`sps` - a ship
+   * refused a seat still watches) hears that site's fight alone; else its account's fight; else a pose within FAN_R of
+   * the fight's waters - only when no other fight of its day stands about that pose, so a client never folds two
+   * serpents into one.
+   */
+  _serpentHears(fights, id, f, b) {
     if (!b.id) return false;
+    if (b.sps && b.spd === f.day) return b.sps === id;
     if (b.sub && f.players[b.sub]) return true;
     if (!b.pose) return false;
-    const c = this._serpentFrameOf(f, b.pose);
-    return Math.hypot(c.x, c.z) <= serpentBrain.FAN_R;
+    const about = (o) => { const c = this._serpentFrameOf(o, b.pose); return Math.hypot(c.x, c.z) <= serpentBrain.FAN_R; };
+    if (!about(f)) return false;
+    for (const [other, o] of fights) if (other !== id && o.day === f.day && about(o)) return false;
+    return true;
   }
-  /** The brain's frames to everyone who hears the fight, in order. */
-  _serpentFan(f, frames) {
+  /** A fight's frames to everyone who hears it, in order. */
+  _serpentFan(fights, id, f, frames) {
     if (!frames.length) return;
     const outs = frames.map((fr) => JSON.stringify({ t: 'serpent', ...fr }));
-    for (const [ws, b] of [...this._all()]) if (this._serpentHears(f, b)) for (const o of outs) if (!this._send(ws, o)) break;
+    for (const [ws, b] of [...this._all()]) if (this._serpentHears(fights, id, f, b)) for (const o of outs) if (!this._send(ws, o)) break;
   }
-  /** The fight to storage - every CHECKPOINT_MS from the beat, at once on a join and on the kill. */
-  async _serpentSave(f, now, force) {
-    if (!force && now - this._serpentSavedAt < serpentBrain.SERPENT_CHECKPOINT_MS) return;
-    this._serpentSavedAt = now;
-    await this.state.storage.put(SERPENT_FIGHT_KEY, f);
+  /** A fight to storage - every CHECKPOINT_MS from the beat, at once on a join and on the kill. */
+  async _serpentSave(id, f, now, force) {
+    if (!force && now - (this._serpentSavedAt.get(id) ?? 0) < serpentBrain.SERPENT_CHECKPOINT_MS) return;
+    this._serpentSavedAt.set(id, now);
+    await this.state.storage.put(serpentStoreKey(id), f);
   }
   /** The beat armed now unless it already is, sooner (the cell's other duties run on it - alarm()). */
   async _serpentArm(now) {
@@ -3955,83 +3998,127 @@ export class Room {
     if (at == null || at > now + serpentBrain.SERPENT_TICK_MS) await this.state.storage.setAlarm(now + serpentBrain.SERPENT_TICK_MS);
   }
   /**
-   * A serpent word in its cell. `in` (the day, the brain's law, the level, the hull, the site): its receipt again to a
-   * fighter who has one; refused for a day the clock is not about, a game older than the brain, a site in another cell,
-   * a pose away from its waters; the fight stood here at the first, a fighter joined while its waters are open - and
-   * the whole state to the one who said it either way (a ship that came too late still sees it). `hit`: a gathered
-   * volley the brain judges from where the socket's own pose stands. `held`/`esc`: the coiled ship's word.
+   * AUDIT SERPENT S1: room for a new site's fight among the day's: room while it holds fewer than SERPENT_SITES_MAX,
+   * else the id of one to let go - one over (its receipts are the hub's once it is told), else one no fighter has a part
+   * in and at most one keeps about its waters - else null (the fourth site is refused).
+   */
+  _serpentRoomFor(fights, day) {
+    const today = [...fights].filter(([, f]) => f.day === day);
+    if (today.length < SERPENT_SITES_MAX) return true;
+    const over = today.find(([, f]) => (f.fell && f.said && f.told) || (f.gone && !f.fell));
+    if (over) return over[0];
+    const idle = today.find(([, f]) => !f.fell && !Object.values(f.players).some(serpentBrain.serpentHasPart)
+      && this._serpentBodies(f).filter((b) => Math.hypot(b.x, b.z) <= serpentBrain.FAN_R).length <= 1);
+    return idle ? idle[0] : null;
+  }
+  /**
+   * A serpent word in its cell. `in` (the day, the brain's law, the level, the hull, the site): _serpentIn. `hit`: a
+   * gathered volley the brain judges from where the socket's own pose stands. `wr`: the ship wrecked or afloat again.
+   * `held`/`esc`: the coiled ship's word. Each goes to the fight its account fights in here - AUDIT SERPENT S7/H1: and a
+   * word from an account no fight here counts (a ship refused a seat, its volleys already in the air; a fight let go) is
+   * not heard - never junk: a correct client says it.
    */
   async _serpentFrame(ws, a, m, now) {
-    const no = (why) => this._send(ws, JSON.stringify({ t: 'serpent', k: 'no', m: why }));
-    let f = await this._serpentFightOf();
-    if (m.k === 'in') {
-      const t = serpentAt(now);
-      if (f && f.day === m.d && f.rc?.[a.sub]) this._send(ws, JSON.stringify({ t: 'serpent', k: 'rcpt', r: f.rc[a.sub] }));
-      if (!(m.bv >= SERPENT_BRAIN_MIN)) { no('reload'); return; }
-      if (m.d !== t.day || !serpentHolds(t.day, now)) { if (!f?.rc?.[a.sub]) no('the serpent is gone'); return; }
-      if (cellRoomOfWire(m.sx, m.sz) !== a.key) { this._junk(ws); return; }   // a site this cell does not hold - a correct client says it in the site's own cell
-      if (!a.pose || a.pose.dd) return;
-      const site = f && f.day === t.day ? { sx: f.sx, sz: f.sz } : { sx: m.sx, sz: m.sz };
-      const at = { x: (a.pose.x - site.sx) / SERPENT_NATIVE_PER_M, z: (a.pose.z - site.sz) / SERPENT_NATIVE_PER_M };
-      if (Math.hypot(at.x, at.z) > serpentBrain.ADMIT_R) { no('too far from its waters'); return; }
-      if (!f || f.day !== t.day) {
-        f = this._serpent = serpentBrain.newSerpentFight(t.day, now, t.soundAt, serpentBossOf(t.day).id, m.sx, m.sz, serpentRiseYaw(t.day));
-        this._serpentSavedAt = 0;
-      }
-      const present = new Set();
-      for (const [, sock] of this._all()) if (sock.id && sock.sub) present.add(sock.sub);   // the accounts about the cell now - a full fight frees a seat no one holds
-      const joined = !f.players[a.sub];
-      if (!serpentBrain.joinSerpentFight(f, a.sub, a.name ?? '', m.lv, m.hl, now, serpentAdmits(t.day, now), present)) {
-        this._send(ws, JSON.stringify({ t: 'serpent', ...serpentBrain.serpentStateOf(f) }));
-        no(f.fell || f.gone ? 'the serpent is gone' : Object.keys(f.players).length >= serpentBrain.SERPENT_FIGHTERS_MAX ? 'the waters are full' : 'the storm has closed its waters');
-        return;
-      }
-      this._send(ws, JSON.stringify({ t: 'serpent', ...serpentBrain.serpentStateOf(f) }));
-      if (joined) await this._serpentSave(f, now, true);
-      if (!f.fell && !f.gone) await this._serpentArm(now);
-      return;
-    }
-    if (!f || !f.players[a.sub]) { this._junk(ws); return; }
+    const fights = await this._serpentFights();
+    if (m.k === 'in') { await this._serpentIn(ws, a, m, now, fights); return; }
+    const by = this._serpentFightBy(fights, a.sub);
+    if (!by) return;
+    const [id, f] = by;
     if (m.k === 'hit') {
       const pose = a.pose && !a.pose.dd ? this._serpentFrameOf(f, a.pose) : null;   // the dead strike nothing
       // the kill is said by _serpentFall alone, its receipts minted and kept first (AUDIT WB A10's law) - never the brain's word of it here
-      this._serpentFan(f, serpentBrain.applySerpentHit(f, a.sub, m.d, m.z, pose, now).filter((o) => o.k !== 'fell'));
-      if (f.fell && !f.said) { await this._serpentFall(f, now); return; }
-    } else this._serpentFan(f, serpentBrain.coilWord(f, a.sub, m.k, m.i, m.x, m.z, now));
+      this._serpentFan(fights, id, f, serpentBrain.applySerpentHit(f, a.sub, m.d, m.z, pose, now).filter((o) => o.k !== 'fell'));
+      if (f.fell && !f.said) { await this._serpentFall(id, f, now); return; }
+    } else if (m.k === 'wr') serpentBrain.serpentWreck(f, a.sub, m.w, now);
+    else this._serpentFan(fights, id, f, serpentBrain.coilWord(f, a.sub, m.k, m.i, m.x, m.z, now));
     if (!f.fell && !f.gone) await this._serpentArm(now);
   }
   /**
-   * ONE BEAT of a serpent's cell: the brain stepped over the bodies about it, its frames fanned, the kill said once, the
-   * fight checkpointed. Answers null when the cell holds no fight (the alarm is the cell's other duties'), else when the
-   * next firing is due and whether the fight still beats (`live`): every BRAIN_TICK_MS while it lives and someone hears
-   * it, the hub told again while it has not answered, else the fight's keeping's end, when the cell forgets it.
+   * An `in`: its receipt again to a fighter who has one; refused for a game older than the brain, a day the clock is not
+   * about, a site in another cell (junk - a correct client says it in the site's own cell), a pose away from its waters,
+   * an account already fighting at another site here this day, a fourth site (S1). The site's fight stood at its first
+   * `in` while its waters are open, the socket set to hear it (`sps`), the fighter joined - and the whole state to the
+   * one who said it either way (a ship that came too late still sees it). AUDIT SERPENT E4: the level is never above the
+   * token's own character level (`cl`); S8: only an `in` from within ENGAGE_R counts as being at the fight.
+   */
+  async _serpentIn(ws, a, m, now, fights) {
+    const no = (why) => this._send(ws, JSON.stringify({ t: 'serpent', k: 'no', m: why }));
+    const t = serpentAt(now);
+    const id = serpentFightId(m.d, serpentSiteKey(m.sx, m.sz));
+    let f = fights.get(id) ?? null;
+    if (f?.rc?.[a.sub]) this._send(ws, JSON.stringify({ t: 'serpent', k: 'rcpt', r: f.rc[a.sub] }));
+    if (!(m.bv >= SERPENT_BRAIN_MIN)) { no('reload'); return; }
+    if (m.d !== t.day || !serpentHolds(t.day, now)) { if (!f?.rc?.[a.sub]) no('the serpent is gone'); return; }
+    if (cellRoomOfWire(m.sx, m.sz) !== a.key) { this._junk(ws); return; }
+    if (!a.pose || a.pose.dd) return;
+    const site = f ?? { sx: m.sx, sz: m.sz };
+    const at = this._serpentFrameOf(site, a.pose), off = Math.hypot(at.x, at.z);
+    if (off > serpentBrain.ADMIT_R) { no('too far from its waters'); return; }
+    const mine = this._serpentFightBy(fights, a.sub);
+    if (mine && mine[0] !== id && mine[1].day === t.day) { no('the waters are full'); return; }
+    let born = false;
+    if (!f) {
+      if (!serpentAdmits(t.day, now)) { no('the storm has closed its waters'); return; }
+      const room = this._serpentRoomFor(fights, t.day);
+      if (room === null) { no('the waters are full'); return; }
+      if (room !== true) await this._serpentForget(fights, room);
+      f = serpentBrain.newSerpentFight(t.day, now, t.soundAt, serpentBossOf(t.day).id, m.sx, m.sz, serpentRiseYaw(t.day));
+      fights.set(id, f);
+      await this._serpentIndex(fights);
+      born = true;
+    }
+    this._setAttach(ws, { ...(this._all().get(ws) ?? a), sps: id, spd: t.day });
+    const present = new Set();
+    for (const [, sock] of this._all()) if (sock.id && sock.sub) present.add(sock.sub);   // the accounts about the cell now - a full fight frees a seat no one holds
+    const joined = !f.players[a.sub];
+    const lv = Number.isSafeInteger(a.cl) && a.cl >= 1 ? Math.min(m.lv, a.cl) : m.lv;
+    if (!serpentBrain.joinSerpentFight(f, a.sub, a.name ?? '', lv, m.hl, now, serpentAdmits(t.day, now), present, off <= serpentBrain.ENGAGE_R)) {
+      this._send(ws, JSON.stringify({ t: 'serpent', ...serpentBrain.serpentStateOf(f) }));
+      no(f.fell ? 'it is already slain' : f.gone ? 'the serpent is gone' : Object.keys(f.players).length >= serpentBrain.SERPENT_FIGHTERS_MAX ? 'the waters are full' : 'the storm has closed its waters');
+      return;
+    }
+    this._send(ws, JSON.stringify({ t: 'serpent', ...serpentBrain.serpentStateOf(f) }));
+    if (joined || born) await this._serpentSave(id, f, now, true);
+    if (!f.fell && !f.gone) await this._serpentArm(now);
+  }
+  /**
+   * ONE BEAT of a serpent's cell: each fight's brain stepped over the bodies about it, its frames fanned, its kill said
+   * once, it checkpointed - and forgotten at its keeping's end. Answers null when the cell holds no fight (the alarm is
+   * the cell's other duties'), else when the next firing is due and whether a fight still beats (`live`): every
+   * TICK_MS while one lives and someone hears it, the hub told again while it has not answered, else the soonest end.
    */
   async _serpentTick() {
-    const f = await this._serpentFightOf();
-    if (!f) return null;
+    const fights = await this._serpentFights();
+    if (!fights.size) return null;
     const now = Date.now();
-    const end = f.soundAt + SERPENT_DIVE_MS + SERPENT_KEEP_MS;
-    if (now >= end) { this._serpent = null; await this.state.storage.delete(SERPENT_FIGHT_KEY); return null; }
-    try {
-      if (!f.fell && !f.gone) this._serpentFan(f, serpentBrain.stepSerpentBrain(f, now, this._serpentBodies(f), rand01));
-      if (f.fell && !f.said) await this._serpentFall(f, now);
-      else if (f.said && !f.told) await this._serpentTellHubOnce(f, now);
-      await this._serpentSave(f, now, false);
-    } catch (e) { console.warn('[serpent] beat failed', e?.message ?? e); }
-    const heard = [...this._all()].some(([, b]) => this._serpentHears(f, b));
-    if (f.said && !f.told) return { at: now + SERPENT_TELL_RETRY_MS, live: false };
-    if (heard && !f.fell && !f.gone) return { at: now + serpentBrain.SERPENT_TICK_MS, live: true };
-    return { at: end, live: false };
+    let at = Infinity, live = false;
+    for (const [id, f] of [...fights]) {
+      const end = f.soundAt + SERPENT_DIVE_MS + SERPENT_KEEP_MS;
+      if (now >= end) { await this._serpentForget(fights, id); continue; }
+      try {
+        if (!f.fell && !f.gone) this._serpentFan(fights, id, f, serpentBrain.stepSerpentBrain(f, now, this._serpentBodies(f), rand01));
+        if (f.fell && !f.said) await this._serpentFall(id, f, now);
+        else if (f.said && !f.told) await this._serpentTellHubOnce(id, f, now);
+        await this._serpentSave(id, f, now, false);
+      } catch (e) { console.warn('[serpent] beat failed', e?.message ?? e); }
+      const heard = [...this._all()].some(([, b]) => this._serpentHears(fights, id, f, b));
+      if (f.said && !f.told) at = Math.min(at, now + SERPENT_TELL_RETRY_MS);
+      else if (heard && !f.fell && !f.gone) { at = Math.min(at, now + serpentBrain.SERPENT_TICK_MS); live = true; }
+      else at = Math.min(at, end);
+    }
+    return fights.size ? { at, live } : null;
   }
   /** THE KILL, SAID ONCE (the gate's AUDIT WB A10 law): the receipts minted for every account that earned one and the
    *  fight checkpointed with them and its `said`, THEN the fall fanned and each receipt handed to its account's sockets
-   *  here, then the hub told (until it answers). One fall at a time (AUDIT WB12d R2). */
-  async _serpentFall(f, now) {
-    if (this._serpentFalling) return this._serpentFalling;
-    this._serpentFalling = this._serpentFallOnce(f, now).finally(() => { this._serpentFalling = null; });
-    return this._serpentFalling;
+   *  here, then the hub told (until it answers). One fall at a time a fight (AUDIT WB12d R2). */
+  async _serpentFall(id, f, now) {
+    const had = this._serpentFalling.get(id);
+    if (had) return had;
+    const p = this._serpentFallOnce(id, f, now).finally(() => { this._serpentFalling.delete(id); });
+    this._serpentFalling.set(id, p);
+    return p;
   }
-  async _serpentFallOnce(f, now) {
+  async _serpentFallOnce(id, f, now) {
     if (f.said) return;
     const key = await this._receiptKeyOf();
     const nowS = Math.floor(now / 1000);
@@ -4043,44 +4130,89 @@ export class Room {
       catch (e) { console.warn('[serpent] receipt refused', e?.message ?? e); }
     }
     f.said = true;   // said once, whatever the next beat finds
-    await this._serpentSave(f, now, true);
+    // the accounts handed their receipt here - the hub hands it to every other earner's newest socket (AUDIT SERPENT S5)
+    f.here = [...new Set([...this._all()].filter(([, b]) => b.id && b.sub && f.rc[b.sub]).map(([, b]) => b.sub))].slice(0, serpentBrain.SERPENT_FIGHTERS_MAX);
+    await this._serpentSave(id, f, now, true);
     const { at: fellAt, top, n, dm } = f.fell;
-    this._serpentFan(f, [{ k: 'fell', at: fellAt, top, n, ...(dm ? { dm } : {}) }]);
+    this._serpentFan(this._serpents, id, f, [{ k: 'fell', at: fellAt, top, n, ...(dm ? { dm } : {}) }]);
     for (const [ws, b] of [...this._all()]) { const r = b.id && b.sub ? f.rc[b.sub] : null; if (r) this._send(ws, JSON.stringify({ t: 'serpent', k: 'rcpt', r })); }
-    await this._serpentTellHubOnce(f, now);
+    await this._serpentTellHubOnce(id, f, now);
   }
-  /** The hub told of the kill, and it kept - once it has answered. */
-  async _serpentTellHubOnce(f, now) {
+  /** The hub told of the kill - its site, and every receipt with the accounts handed theirs here - and it kept, once it
+   *  has answered. */
+  async _serpentTellHubOnce(id, f, now) {
     if (f.told || !f.fell) return;
     const rooms = this.env?.ROOMS;
     let ok = true;   // a relay built without the binding (a harness, a local worker) keeps the cell's own word
     if (rooms?.idFromName && rooms?.get) {
       try {
-        const res = await rooms.get(rooms.idFromName(SOCIAL_ROOM)).fetch(new Request(`https://relay.internal${SERPENT_INTERNAL_FELL}`, { method: 'POST', body: JSON.stringify({ d: f.day, at: f.fell.at, top: f.fell.top, n: f.fell.n }) }));
+        const body = { d: f.day, at: f.fell.at, top: f.fell.top, n: f.fell.n, sx: f.sx, sz: f.sz, rc: Object.entries(f.rc ?? {}), here: f.here ?? [] };
+        const res = await rooms.get(rooms.idFromName(SOCIAL_ROOM)).fetch(new Request(`https://relay.internal${SERPENT_INTERNAL_FELL}`, { method: 'POST', body: JSON.stringify(body) }));
         ok = !!res?.ok;
       } catch (e) { console.warn('[serpent] hub', e?.message ?? e); ok = false; }
     }
     if (!ok) return;
     f.told = true;
-    await this._serpentSave(f, now, true);
+    await this._serpentSave(id, f, now, true);
   }
-  /** SERPENT1: the hub's last word of a sea serpent's kill (null for none) - the instance's, else storage's. */
-  async _serpentFellOf() {
-    if (this._serpentFell === undefined) { const v = await this.state.storage.get('serpentfell'); this._serpentFell = v && typeof v === 'object' ? v : null; }
-    return this._serpentFell;
+  /** SERPENT1: the hub's kills of the latest serpent day - `{d, list}`, one a site (null for none) - the instance's, else
+   *  storage's. */
+  async _serpentFellsOf() {
+    if (this._serpentFells === undefined) { const v = await this.state.storage.get(SERPENT_FELLS_KEY); this._serpentFells = v && typeof v === 'object' && Array.isArray(v.list) ? v : null; }
+    return this._serpentFells;
   }
-  /** THE HUB'S HALF: the serpent's kill, from its cell - said to everyone online (each client names the place it fell
-   *  off from its own site - net/serpentLaw.js slainLine), projected through the wire's own law, as a client would - and kept
-   *  for a hello while its day holds (the gate's own WB3 law). */
+  /** AUDIT SERPENT S5: the hub hands an account's kept serpent receipt to its hello while it is good, and forgets an
+   *  expired one (the account service counts a (day, account) once and gives its hoard to one claim - a receipt said
+   *  again settles nothing twice). */
+  async _serpentReceiptTo(ws, sub, now) {
+    const k = SERPENT_RC_PREFIX + sub;
+    const kept = await this.state.storage.get(k);
+    if (!kept || typeof kept !== 'object') return;
+    if (!(Number.isFinite(kept.e) && now < kept.e * 1000) || typeof kept.r !== 'string') { await this.state.storage.delete(k); return; }
+    this._send(ws, JSON.stringify({ t: 'serpent', k: 'rcpt', r: kept.r }));
+  }
+  /**
+   * THE HUB'S HALF: a serpent's kill, from its cell, projected through the wire's own law as a client would. Each
+   * account's receipt is kept for its own life (one key an account, never over a newer day's - AUDIT SERPENT S5) and
+   * handed now to the newest socket of every earner its cell did not hand it to. The kill is kept by its day and site
+   * (one a site, SERPENT_FELLS_MAX the most - S1: a client hears its own site's) and said to everyone online - AUDIT
+   * SERPENT S12: only while its day holds and never an older day's than the kept (a cell that told it late).
+   */
   async _serpentFellInternal(request) {
     let body = null;
     try { body = await request.json(); } catch { /* refused below */ }
-    const fell = validSerpentOut({ k: 'fell', d: body?.d, at: body?.at, top: body?.top, n: body?.n });
-    if (!fell || fell.d === undefined) return json({ ok: false }, 400);
-    this._serpentFell = fell;
-    await this.state.storage.put('serpentfell', fell);   // kept for a hello while its day holds
-    const said = JSON.stringify({ t: 'serpent', ...fell });
-    for (const [ws, b] of [...this._all()]) if (b.id) this._send(ws, said);
+    const fell = validSerpentOut({ k: 'fell', d: body?.d, at: body?.at, top: body?.top, n: body?.n, sx: body?.sx, sz: body?.sz });
+    if (!fell || fell.d === undefined || fell.sx === undefined) return json({ ok: false }, 400);
+    const now = Date.now();
+    const rc = new Map();
+    for (const e of Array.isArray(body.rc) ? body.rc.slice(0, serpentBrain.SERPENT_FIGHTERS_MAX) : []) {
+      const r = Array.isArray(e) && typeof e[0] === 'string' ? validSerpentOut({ k: 'rcpt', r: e[1] }) : null;
+      const c = r ? readSerpentReceipt(r.r) : null;
+      if (c && c.s === e[0] && c.d === fell.d && Number.isFinite(c.e) && now < c.e * 1000) rc.set(e[0], { r: r.r, e: c.e });
+    }
+    const keys = [...rc.keys()].map((sub) => SERPENT_RC_PREFIX + sub);
+    const had = keys.length ? await this.state.storage.get(keys) : new Map();
+    const fresh = [...rc].filter(([sub]) => { const v = had.get(SERPENT_RC_PREFIX + sub); return !(v && typeof v === 'object' && Number.isSafeInteger(v.d) && v.d > fell.d); });
+    for (let i = 0; i < fresh.length; i += 128) await this.state.storage.put(Object.fromEntries(fresh.slice(i, i + 128).map(([sub, v]) => [SERPENT_RC_PREFIX + sub, { d: fell.d, r: v.r, e: v.e }])));
+    const kept = await this._serpentFellsOf();
+    const newer = !kept || fell.d >= kept.d;
+    if (newer) {
+      const list = kept && kept.d === fell.d ? kept.list.filter((g) => !sameSerpentSite(g, fell)) : [];
+      this._serpentFells = { d: fell.d, list: [...list, fell].slice(-SERPENT_FELLS_MAX) };
+      await this.state.storage.put(SERPENT_FELLS_KEY, this._serpentFells);
+    }
+    const said = newer && serpentHolds(fell.d, now) ? JSON.stringify({ t: 'serpent', ...fell }) : null;
+    const here = new Set(Array.isArray(body.here) ? body.here.filter((x) => typeof x === 'string').slice(0, serpentBrain.SERPENT_FIGHTERS_MAX) : []);
+    const handed = new Set(fresh.map(([sub]) => sub));
+    const newest = new Map();
+    for (const [ws, b] of [...this._all()]) {
+      if (!b.id) continue;
+      if (said) this._send(ws, said);
+      if (!b.sub || !handed.has(b.sub) || here.has(b.sub)) continue;
+      const was = newest.get(b.sub);
+      if (!was || (b.since ?? 0) >= (was.b.since ?? 0)) newest.set(b.sub, { ws, b });
+    }
+    for (const [sub, { ws }] of newest) this._send(ws, JSON.stringify({ t: 'serpent', k: 'rcpt', r: rc.get(sub).r }));
     return json({ ok: true });
   }
 
