@@ -37,6 +37,9 @@
 //   t - AUDIT NAV1 (online #15): the owner's Ships at sea, by navalDirector.js DENSITY_KEYS' row - said only when it is
 //       not TRAFFIC_DEFAULT, which a word without it (or no word at all) stands for; a shared sea is sailed at the lowest
 //       of its players' (the stander's alone sailed everyone's)
+//   g - AUDIT GN-G3 (the galleon audit): the owner's own boat's laid broadsides, a bit a side in SIDE_CODES' order as a
+//       ship's runOut - her shutters up and her guns run out on every screen as on hers; said only while one is laid
+//       (an older build's word says none, and its reader ignores this one)
 //   f - AUDIT NAV1 (online #15): the casks of a sunk ship's cargo afloat in the owner's sea, each [id, x, y, z, cls, lot]
 //       - the ship's class by its row and the lot's key by navalPlunder.js LOT_KEYS' row, the place to half a metre (a
 //       cask drifts, and a word said again for every centimetre of it would be a frame every FOES_MS), at most
@@ -123,7 +126,8 @@ const U32 = 0xffffffff;
  * point to the wire frame - and (AUDIT NAV1, online) my own boat at sea and my notoriety by crown. Null when there is
  * nothing to say (the reader drops mine).
  * @param {{ ships?: any[], volleys?: any[], barrels?: any[], me?: { hull: number, crippled: boolean, boarders: boolean, crew?: number, battle?: boolean, boatHull?: number } | null,
- *   law?: Record<string, number>, traffic?: string, casks?: { id: number, pos: number[], from: string, lot: string }[], spent?: number[] }} view
+ *   law?: Record<string, number>, traffic?: string, casks?: { id: number, pos: number[], from: string, lot: string }[], spent?: number[],
+ *   laid?: string[] }} view
  */
 export function navalWireRecord(view, toWire = (p) => p) {
   const s = [], v = [], b = [], k = [];
@@ -167,6 +171,9 @@ export function navalWireRecord(view, toWire = (p) => p) {
   if (w.length) out.w = w;
   const me = view?.me;
   if (me) out.p = [pct(me.hull), me.crippled ? 1 : 0, me.boarders === false ? 0 : 1];
+  // AUDIT GN-G3: my boat's laid broadsides - a bit a side (SIDE_CODES), said only while one is
+  const laid = (view?.laid ?? []).reduce((m, side) => { const i = SIDE_CODES.indexOf(side); return i >= 0 ? m | (1 << i) : m; }, 0);
+  if (laid) out.g = laid;
   if (k.length) out.k = k;
   if (me && int(me.crew, 0, 0xffff) && int(me.boatHull, 0, HULL_NAMES.length - 1)) out.m = [me.crew, me.battle ? 1 : 0, me.boatHull];   // AUDIT NAV2 F2/F3
   const law = [];
@@ -176,7 +183,7 @@ export function navalWireRecord(view, toWire = (p) => p) {
   if (t >= 0 && view?.traffic !== TRAFFIC_DEFAULT) out.t = t;
   const l = (view?.spent ?? []).filter((x) => int(x, 0, U32)).slice(-NAVAL_WIRE_SPENT);   // AUDIT BAY A18
   if (l.length) out.l = l;
-  return s.length || v.length || b.length || out.p || out.n || out.t !== undefined || out.f || out.w || out.l ? out : null;
+  return s.length || v.length || b.length || out.p || out.n || out.t !== undefined || out.f || out.w || out.l || out.g ? out : null;
 }
 
 /** AUDIT NAV2 F1/F3/F5: the captains' key through the door - a Map from a ship's number to her temper, her captain's
@@ -196,7 +203,8 @@ function validCaptains(raw) {
  * A peer's word through the door - whole or not at all.
  * @returns {{ ships: any[], volleys: any[], barrels: any[], me: { hull: number, crippled: boolean, boarders: boolean } | null,
  *   law: Record<string, number>, traffic: string, casks: { id: number, pos: number[], from: string, lot: string }[],
- *   captains: Map<number, { temper: string, mode: string, struckTo: number }>, boat: { crew: number, battle: boolean, hull: number } | null, spent: number[] } | null}
+ *   captains: Map<number, { temper: string, mode: string, struckTo: number }>, boat: { crew: number, battle: boolean, hull: number } | null, spent: number[],
+ *   laid: string[] } | null}
  */
 export function validNavalRecord(raw) {
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null;
@@ -279,7 +287,10 @@ export function validNavalRecord(raw) {
   // AUDIT BAY A18: the spent packets - an older build's word says none
   const spent = raw.l ?? [];
   if (!Array.isArray(spent) || spent.length > NAVAL_WIRE_SPENT || !spent.every((x) => int(x, 0, U32))) return null;
-  return { ships, volleys, barrels, me, law, traffic: raw.t === undefined ? TRAFFIC_DEFAULT : DENSITY_KEYS[raw.t], casks, captains, boat, spent: [...spent] };
+  // AUDIT GN-G3: the owner's laid broadsides (an older build's word says none)
+  if (raw.g !== undefined && !int(raw.g, 0, 15)) return null;
+  const laid = SIDE_CODES.filter((_, i) => ((raw.g ?? 0) & (1 << i)) !== 0);
+  return { ships, volleys, barrels, me, law, traffic: raw.t === undefined ? TRAFFIC_DEFAULT : DENSITY_KEYS[raw.t], casks, captains, boat, spent: [...spent], laid };
 }
 
 /** A change key: the word rides a delta frame only when it moved (the full frame always carries it). */

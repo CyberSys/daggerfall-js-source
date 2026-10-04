@@ -134,12 +134,12 @@ binds") - THE ARROWS ARE THE HELM (DECLARED, the Port-Ledger's HELM-KEYS row):
   wheel, and the professions read no choice there (`world.js`). The down arrow was free.
 - **The helm panel teaches them**: its line under the name is the helm's hand at a glance - the sails on the arrows,
   the rudder on the turn keys, as bound now - and its sails' button presses More and Less sail, so its hint is the
-  arrow. IN IRONS (her sails up, her bow within IRONS_TELL_DEG of the wind's eye, her way through the water under
-  IRONS_TELL_WAY - never the sea's current: AUDIT NAV2 F15) the helm is told once how she comes out - under the Classic
-  helm strike sail and row her round, under the Responsive one put the helm over first (AUDIT NAV2 F18) - and the
-  panel's line says it, with the keys, while it lasts. AUDIT NAV2 F17: while an Overworld journey holds the helm (the
-  travel view up) the panel is covered and the arrows' More sail and Less sail, and the sail toggle, stand down - the
-  journey sets her sails, and the turn keys were already the view's there.
+  arrow. IN IRONS (her sails up, her bow within IRONS_TELL_DEG of the wind's eye, her way ahead through the water under
+  IRONS_TELL_WAY - sternway counts, never the sea's current: AUDIT NAV2 F15) the helm is told once how she comes out -
+  under the Classic helm strike sail and row her round, under the Responsive one put the helm over first (AUDIT NAV2
+  F18) - and the panel's line says it, with the keys, while it lasts. AUDIT NAV2 F17: while an Overworld journey holds
+  the helm (the travel view up) the panel is covered and the arrows' More sail and Less sail, and the sail toggle, stand
+  down - the journey sets her sails, and the turn keys were already the view's there.
 
 ## The sea fight at the helm (NAV-H, 2026-09-28 - for Mac's read)
 

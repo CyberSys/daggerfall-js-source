@@ -23,6 +23,7 @@ import { navalHitData } from '../src/systems/naval/navalWire.js';
 import { hash32 } from '../src/world/spawnedDungeons.js';
 import { mulberry32 } from '../src/combat/bloodArt.js';
 import { sea } from './navalSea.mjs';
+import { outOfDeck } from '../src/systems/naval/navalDeck.js';
 
 const DEG = NAVAL_DEG;
 const world = (o = {}) => ({ now: 0, dt: 0.1, seaY: 0, wind: [0, 0, WIND_RATED], isWater: () => true, contacts: [], random: () => 0.5, ...o });
@@ -40,9 +41,11 @@ test('SEA-PEACE aboard: a pirate a bay off is no enemy of a player ashore - no r
   assert.equal(ashore.host.hostileNear(), false, 'a rest, a journey and the time scale are no ship\'s to hold ashore');
   assert.deepEqual(ashore.host.threats(), [], 'no journey slows for her');
   assert.ok(!ashore.log.say.some((t) => /Sail ho/.test(t)), 'no lookout\'s cry on the beach');
-  // on her own deck (a sea ship's) the player is aboard: she is an enemy nearby again
+  // on her own deck (a sea ship's) the player is aboard: she is an enemy nearby again - PIN MOVED (GALLEON, 2026-10-01):
+  // on her deck itself, the new galleon's floors far under her root at the sea (the mod's galleon's hold was within a
+  // metre's reach of it)
   const e = [...ashore.host._sea.values()][0];
-  ashore.view.feet = [...e.ship.pos];
+  ashore.view.feet = outOfDeck(e.boat.MeshObject.worldMatrix(), ashore.pool.deckOf(e.ship.hull, 0).nearest(0, 0));
   assert.equal(ashore.host.hostileNear(), true, 'on a sea ship\'s deck, aboard');
   // at a helm: the pirate is an enemy near, the journey slows, the lookout cries once
   const helm = await sea({ hull: HULL.LargeBoat });
@@ -97,7 +100,7 @@ test('SEA-PEACE fighting power (AUDIT NAV2 F25): her measure - her hull and buil
   // the brig on my Small Ship (by her hull alone): one broadside, a volley each reload and TURN_PER_VOLLEY at her turn
   const bat = batteryOf(HULL.SmallShip, 'starboard');
   const perS = bat.muzzles.length / (reloadSeconds('long', 1, true) + TURN_PER_VOLLEY / classPower(brig).turn);
-  const hullPerS = perS * hitShare(bat, brig.skill, HULL.SmallShip) * GUNS.long.hull * (1 + HOLED_BONUS * Math.min(1, WATERLINE_BAND / 10.92));
+  const hullPerS = perS * hitShare(bat, brig.skill, HULL.SmallShip) * GUNS.long.hull * (1 + HOLED_BONUS * Math.min(1, WATERLINE_BAND / hullBuild(HULL.SmallShip).top));
   assert.ok(Math.abs(strikeTime(classPower(brig), mine) - 420 * (1 - STRUCK_AT) / hullPerS) < 1e-6, 'one side, her broadside alone');
   assert.equal(strikeTime(fightingPower({ hull: HULL.Rowboat, hullHp: 60 }), mine), Infinity, 'a rowboat carries no gun');
   // her hull above the strike line: half as much, half the time
@@ -110,11 +113,15 @@ test('SEA-PEACE fighting power (AUDIT NAV2 F25): her measure - her hull and buil
 
 // PIN MOVED (AUDIT NAV2 F25): the prizes the odds give - a Large Boat's swivels take two men a ball and she never
 // strikes, so a wary brig leaves her be now; a Large Galley alone at her guns is the brig's prize
-test('SEA-PEACE the odds: a wary pirate takes a prize she outguns WARY_ODDS to one - a Large Galley alone at her guns, not a Small Ship until it is holed or crippled - leaves one she cannot size up, and answers a blow; a bold one takes anything her trade does (mutants: the odds inverted, the holed hull unread, a blow unanswered)', () => {
-  const wary = shipOf('pirateBrig', { temper: 'wary' });
-  const bold = shipOf('pirateBrig', { temper: 'bold' });
+// PIN MOVED (GALLEON, 2026-10-01): the Small Ship's broadside is five guns (Mac's galleon, five ports a side - the mod's
+// had six), and a wary brig outguns no player's boat at her best now (a Large Galley alone at her guns 1.10 to one) -
+// the wary sloop's prize is the Large Galley, whose guns cannot lay on her (her dead zone)
+test('SEA-PEACE the odds: a wary pirate takes a prize she outguns WARY_ODDS to one - a Large Galley to a sloop, not a Small Ship until it is holed or crippled - leaves one she cannot size up, and answers a blow; a bold one takes anything her trade does (mutants: the odds inverted, the holed hull unread, a blow unanswered)', () => {
+  const wary = shipOf('pirateSloop', { temper: 'wary' });
+  const bold = shipOf('pirateSloop', { temper: 'bold' });
   const boat = powerOfHull(HULL.LargeGalley, { crewed: false }), ship = powerOfHull(HULL.SmallShip);
   assert.ok(odds(shipPower(wary), boat) >= WARY_ODDS && odds(shipPower(wary), ship) < WARY_ODDS, 'the numbers the pins stand on');
+  assert.ok(odds(shipPower(shipOf('pirateBrig', { temper: 'wary' })), boat) < WARY_ODDS, 'the brig\'s five a side take no Large Galley');
   assert.equal(hostile(wary, me({ power: boat })), true, 'a Large Galley alone at her guns is her prize');
   assert.equal(hostile(wary, me({ power: ship })), false, 'a Small Ship she leaves be');
   assert.equal(hostile(wary, me({ power: ship, hullShare: GRAPPLE_HULL - 0.01 })), true, 'holed under GRAPPLE_HULL: prey');
@@ -141,7 +148,9 @@ test('SEA-PEACE the odds: a wary pirate takes a prize she outguns WARY_ODDS to o
 
 // PIN MOVED (AUDIT NAV2 F25): my boat sized as the new measure has her - her men and whether they load her guns - and a
 // wary brig's prize a Large Galley alone at her guns (a Large Boat's swivels she leaves be now: two men a ball)
-test('SEA-PEACE the host sizes me up: my boat\'s power off her build and her hurts - single-handed without her crew - so a wary pirate leaves a sound Small Ship be and comes for a Large Galley alone at her guns, never one with her crew aboard (mutants: the crewless boat at full rate, the hurt unread)', async () => {
+// PIN MOVED (GALLEON, 2026-10-01): the brig's five guns a side outgun no sound armed boat of mine - her prize my Small Ship
+// hurt to four fifths of her hull and alone at her guns (1.37 to one), never with her crew loading them (1.13)
+test('SEA-PEACE the host sizes me up: my boat\'s power off her build and her hurts - single-handed without her crew - so a wary pirate leaves a sound Small Ship be and comes for a hurt one alone at her guns, never one with her crew aboard (mutants: the crewless boat at full rate, the hurt unread)', async () => {
   const big = await sea({ hull: HULL.SmallShip });
   big.boat.crewed = false;
   const c = big.host._contacts().find((x) => x.kind === 'player');
@@ -152,14 +161,17 @@ test('SEA-PEACE the host sizes me up: my boat\'s power off her build and her hur
   big.run(4);
   assert.equal(w.ship.mode, 'cruise', 'a stronger ship: she sails on');
   assert.equal(big.host.hostileNear(), false);
-  const alone = await sea({ hull: HULL.LargeGalley });
+  const hurt = (h) => h.host._myState(h.boat).damage.apply({ hull: Math.round(hullBuild(HULL.SmallShip).hullHp * 0.2), sail: 0, crew: 0 });
+  const alone = await sea({ hull: HULL.SmallShip });
   alone.boat.crewed = false;
+  hurt(alone);
   const w2 = alone.host._sea.get(alone.host.spawnShip('pirateBrig', { range: 300, temper: 'wary' }));
   alone.run(4);
   assert.ok(w2.ship.mode === 'engage' || w2.ship.mode === 'board', `a prize: ${w2.ship.mode}`);
   assert.equal(w2.ship.target, 'local');
-  const manned = await sea({ hull: HULL.LargeGalley });
+  const manned = await sea({ hull: HULL.SmallShip });
   manned.boat.crewed = true;
+  hurt(manned);
   const w3 = manned.host._sea.get(manned.host.spawnShip('pirateBrig', { range: 300, temper: 'wary' }));
   manned.run(4);
   assert.equal(w3.ship.mode, 'cruise', 'her crew at her guns: no prize');
