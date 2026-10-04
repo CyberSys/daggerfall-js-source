@@ -2580,7 +2580,7 @@ export async function bootExterior(canvas, renderer, params, status) {
     // QG1: the ready-spell doors - EntityEffectManager's two events
     // (hostMagic.js:97-98), which are the ONLY route into the quest
     // machine's CastSpellDo / CastEffectDo latches (machine.js:935/:941;
-    // actions.js:2739). This host owns its own cast engine and passed
+    // actions.js:2754). This host owns its own cast engine and passed
     // neither key, so on this route - and, because worldModes takes THIS
     // instance indoors, in every shop entered from it - `cast X spell do`
     // and `cast X effect do` could never latch and never fire. The other
@@ -3736,7 +3736,7 @@ export async function bootExterior(canvas, renderer, params, status) {
     isPlayerInLocationRect: () => _musicInLocationRect(),
     playerPixel: () => _locPixel,   // F114: the quest clock's travel arm
     // QG1: CastSpellDo's two world reads, world.js:15158-15161's pair.
-    // Without them the action self-completes at parse (actions.js:2793/:2800)
+    // Without them the action self-completes at parse (actions.js:2808/:2815)
     // and a `cast X spell do` on this route could never be armed, whatever
     // the ready-spell doors above raise.
     getClassicSpellEffects: (spellID) => spellRecordOfIndex(spellID)?.effects ?? null,

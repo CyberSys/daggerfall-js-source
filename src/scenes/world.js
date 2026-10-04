@@ -15489,8 +15489,8 @@ export async function bootWorld(canvas, renderer, params, status) {
       if (m !== 'exterior') {
         // QUEST-PARTY phase 3b/3c: in a building or a dungeon the member who shared this quest, in the room and near,
         // stands the wave (through a relay whose own lane carries it here); this copy counts it as placed, as the open
-        // air's does
-        if ((m === 'interior' || m === 'dungeon') && online?.ownOk && isWorldRoom(online.room) && partnerStandsQuestFoes({ questName: handle.foe?.parentQuest?.questName, sharerOf: (q) => _liveSharer(q), inMyParty: (a) => !!social?.inMyParty(a), peers: peersNear(), accountOfPeer: (id) => social?.accountOfPeer(id), myFeet: player.pos })) return true;
+        // air's does - VERMIN-SHARED: only while the sharer's foe of this wave's Foe stands here; else this copy stands its own
+        if ((m === 'interior' || m === 'dungeon') && online?.ownOk && isWorldRoom(online.room) && partnerStandsQuestFoes({ questName: handle.foe?.parentQuest?.questName, symbol: handle.foe?.symbol?.name, sharerOf: (q) => _liveSharer(q), inMyParty: (a) => !!social?.inMyParty(a), peers: peersNear(), accountOfPeer: (id) => social?.accountOfPeer(id), myFeet: player.pos, foes: modes?.insideFoes?.() ?? [] })) return true;
         return modes?.tryPlaceQuestFoe?.(handle) ?? false;
       }
       if (!(walkMode && playerSpawned)) return false;
@@ -15510,8 +15510,8 @@ export async function bootWorld(canvas, renderer, params, status) {
       }
       const feet = player.pos;
       // QUEST-PARTY: the member who shared this quest stands near - that copy stands the wave and this one sees it
-      // through the stream; here it counts as placed (its message and its count run on) and no foe stands twice
-      if (partnerStandsQuestFoes({ questName: handle.foe?.parentQuest?.questName, sharerOf: (q) => _liveSharer(q), inMyParty: (a) => !!social?.inMyParty(a), peers: peersNear(), accountOfPeer: (id) => social?.accountOfPeer(id), myFeet: feet })) return true;
+      // through the stream; here it counts as placed (its message and its count run on) - VERMIN-SHARED: only while the sharer's foe of this Foe stands here
+      if (partnerStandsQuestFoes({ questName: handle.foe?.parentQuest?.questName, symbol: handle.foe?.symbol?.name, sharerOf: (q) => _liveSharer(q), inMyParty: (a) => !!social?.inMyParty(a), peers: peersNear(), accountOfPeer: (id) => social?.accountOfPeer(id), myFeet: feet, foes: exteriorFoes.foes })) return true;
       const env = placeFoeEnv({
         collider,
         // origin at the controller centre - DFU casts from

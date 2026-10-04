@@ -323,15 +323,34 @@ export function creditKeptKills(machine, ledger, owner, rows, now) {
   return n;
 }
 
-/** QUEST-PARTY: whether the member who shared quest `questName` - still in my party - stands within `radius` of me:
- *  then that member's copy stands the quest's foes and mine stands none (a wave counts here as placed). */
-export function partnerStandsQuestFoes({ questName, sharerOf, inMyParty, peers, accountOfPeer, myFeet, radius = QUEST_SHARE_RADIUS }) {
+/** QUEST-PARTY: whether the member who shared quest `questName` - still in my party - stands within `radius` of me
+ *  AND (VERMIN-SHARED) that member's copy stands a foe of the wave's own Foe here: then mine stands none (the wave
+ *  counts here as placed). The two copies are two quests, each wave on its own clock and gated by its own tasks; the
+ *  sharer standing near was taken for its copy standing the wave, and a copy whose wave was elsewhere - another
+ *  `pick one of`, a window open, a link a reload dropped - left the party with nothing to fight (The Exterminator in a
+ *  guild hall: "nothing seems to have spawned"). Otherwise this copy stands its own wave, as CreateFoe.TryPlacement
+ *  always places (CreateFoe.cs:183-212). `symbol` is the wave's Foe (its symbol's name), `foes` this pool's records. */
+export function partnerStandsQuestFoes({ questName, symbol, sharerOf, inMyParty, peers, accountOfPeer, myFeet, foes, radius = QUEST_SHARE_RADIUS }) {
   const sharer = questName ? sharerOf(questName) : null;
   if (!sharer || !inMyParty(sharer) || !myFeet) return false;
   for (const p of peers ?? []) {
     if (!p || accountOfPeer(p.id) !== sharer || !Array.isArray(p.feet)) continue;
     const dx = p.feet[0] - myFeet[0], dz = p.feet[2] - myFeet[2];
-    if (dx * dx + dz * dz <= radius * radius) return true;
+    if (dx * dx + dz * dz <= radius * radius) return sharerFoeStands({ foes, sharer, questName, symbol, accountOfPeer });
+  }
+  return false;
+}
+
+/** VERMIN-SHARED: a live foe of `sharer`'s (an account, never null - partnerStandsQuestFoes' own gate) for quest
+ *  `questName`'s Foe `symbol` stands in this pool - a puppet whose owner (a cell's and a building's pool name it in
+ *  `puppet`, a dungeon's own lane in `_ownFrom`) is that account and whose quest word (`_pupQuest`, the frame's `qf`)
+ *  names that quest and that Foe. */
+function sharerFoeStands({ foes, sharer, questName, symbol, accountOfPeer }) {
+  for (const f of foes ?? []) {
+    if (f.dead) continue;   // a body stands no wave (a puppet let go is dead too - removePuppet)
+    const tag = f._pupQuest;   // a puppet's alone: my own foes carry their behaviour, a taken one is cleared (adopt)
+    if (!tag || tag.q !== questName || tag.s !== symbol) continue;
+    if (accountOfPeer(f.puppet ?? f._ownFrom) === sharer) return true;
   }
   return false;
 }

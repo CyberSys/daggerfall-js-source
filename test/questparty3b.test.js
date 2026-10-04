@@ -169,5 +169,5 @@ test('QUEST-PARTY 3b by source: the building pool\'s net and the party\'s law, i
   assert.match(w, /onInteriorLeave: \(\) => \{ const n = handOverRoomFoes\(\);/, 'the building\'s door hands my foes to those who stay');
   assert.match(w, /const _handed = handOverFoes\(\) \|\| handOverRoomFoes\(\);/, 'and a death in it');
   assert.match(w, /const handOverRoomFoes = \(\) => \{[\s\S]*?if \(\(isPrivateQuestFoe\(f\) \|\| f\._keptTag\) && !social\?\.isPartyPeer\(q\.id\)\) continue;[\s\S]*?return frame && online\.sendOwnFoes\(frame\) \? \(modes\?\.dropOwnHanded\?\.\(\) \?\? 0\) : 0;/, 'a quest\'s foe to the party alone (CURSE-SYNC: a private quest\'s)');
-  assert.match(w, /if \(\(m === 'interior' \|\| m === 'dungeon'\) && online\?\.ownOk && isWorldRoom\(online\.room\) && partnerStandsQuestFoes\(\{/, 'the wave indoors');
+  assert.match(w, /if \(\(m === 'interior' \|\| m === 'dungeon'\) && online\?\.ownOk && isWorldRoom\(online\.room\) && partnerStandsQuestFoes\(\{ questName: handle\.foe\?\.parentQuest\?\.questName, symbol: handle\.foe\?\.symbol\?\.name, [^\n]*, foes: modes\?\.insideFoes\?\.\(\) \?\? \[\] \}\)\) return true;/, 'the wave indoors - VERMIN-SHARED (PIN MOVED): left to the sharer only while the room\'s pool holds its foe of this wave\'s Foe');
 });
