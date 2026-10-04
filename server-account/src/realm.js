@@ -598,13 +598,17 @@ export async function deleteRealm({ db, bucket, nowS = Math.floor(Date.now() / 1
   if (row.origin_id && !(row.bytes > 0)) return undoCustoms({ db, bucket }, playerId, id, row.origin_id);
   const master = await db.prepare(`SELECT (SELECT COUNT(*) FROM guild_members o WHERE o.guild_id = m.guild_id) AS n,
     (SELECT treasury FROM guilds g WHERE g.id = m.guild_id) AS treasury,
-    (SELECT 1 FROM homes h WHERE h.guild_id = m.guild_id) AS hall FROM guild_members m
+    (SELECT 1 FROM homes h WHERE h.guild_id = m.guild_id) AS hall,
+    (SELECT 1 FROM guild_vault v WHERE v.guild_id = m.guild_id LIMIT 1) AS vault FROM guild_members m
     WHERE m.player = ? AND m.char_id = ? AND m.rank = ?`).bind(playerId, id, GUILD_RANK_MASTER).first();
   if ((master?.n ?? 0) > 1) return { error: 'guild-master-leaves' };
   if ((master?.treasury ?? 0) > 0) return { error: 'guild-treasury' };
   // AUDIT GUILD1d S1: and a lone one sells its guild's hall first - deleted, the guild stood memberless with the hall,
   // which kept it from ever being reclaimed (guildKeepsSql): the building, the name and the deed share gone for good
   if (master?.hall) return { error: 'guild-hall' };
+  // AUDIT GUILD2 G2: and empties its guild's vault - deleted, the guild stood memberless with pieces nobody could take
+  // out, kept from going by them (guildKeepsSql), its name and tag held for good (guilds.js disband and leave ask it too)
+  if (master?.vault) return { error: 'guild-vault' };
   if (Number((await db.prepare(REALM_MARKET_OPEN_SQL).bind(playerId, id).first())?.n ?? 0) > 0) return { error: 'realm-market-open' };
   // HOME-RENT: a room another player is renting in its home waits for its days to run out, and rent held for it waits to
   // be collected - the delete takes the home with it. AUDIT: then no room of it is offered any more, and both are asked
@@ -629,6 +633,7 @@ export async function deleteRealm({ db, bucket, nowS = Math.floor(Date.now() / 1
     db.prepare('DELETE FROM prof_stores WHERE player = ? AND char_id = ?').bind(playerId, id),   // PROF-DELETE
     db.prepare('DELETE FROM prof_tracks WHERE player = ? AND char_id = ?').bind(playerId, id),   // PROF-DELETE
     db.prepare('DELETE FROM prof_unbruised WHERE player = ? AND char_id = ?').bind(playerId, id),   // AUDIT PROF-541 B5: the unbruised count goes with the Stores it counts
+    db.prepare('DELETE FROM prof_carried WHERE player = ? AND char_id = ?').bind(playerId, id),   // BAG1: and what it was counted as carrying
     db.prepare('DELETE FROM realm_characters WHERE id = ? AND player = ?').bind(id, playerId),
   ]);
   return { ok: true };

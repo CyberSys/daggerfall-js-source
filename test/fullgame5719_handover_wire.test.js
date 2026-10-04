@@ -20,11 +20,11 @@ function client(version) {
 }
 
 test('FG-03: inventory handover waits for the required advertised relay protocol', () => {
-  for (const version of [undefined, 'world154', 'world155', 'world156', 'world157', 'world158', 'world159', 'world160']) {
+  for (const version of [undefined, 'world154', 'world155', 'world156', 'world157', 'world158', 'world159', 'world160', 'world161']) {
     const { s, ws } = client(version);
     const items = [goldStack(125)];
     const data = { n: 1, k: s.room, full: 0, f: [{ i: 1, t: 0, d: 0, e: 'bob-0002', it: items }] };
-    const capable = version === 'world159' || version === 'world160';
+    const capable = version === 'world159' || version === 'world160' || version === 'world161';
     assert.equal(relaySupportsFoeInventory(version), capable, 'upstream arena and unpublished candidates must not advertise combined inventory handover');
     assert.equal(s.foeInventoryOk, capable);
     assert.equal(s.sendFoes(data), capable);

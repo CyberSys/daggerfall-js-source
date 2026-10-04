@@ -290,8 +290,8 @@
   {
     "name": "GOLDMARKET-profbook-drops-gold",
     "file": "src/net/profBook.js",
-    "old": ", ...(gold > 0 ? { gold } : {}) });",
-    "new": ", });",
+    "old": "state.stores.set(s.material, { material: s.material, own: s.own | 0, bought: s.bought | 0, ...(gold > 0 ? { gold } : {}) });",
+    "new": "state.stores.set(s.material, { material: s.material, own: s.own | 0, bought: s.bought | 0 });",
     "tests": [
       "test/goldmarket_client.test.js"
     ]
@@ -299,8 +299,8 @@
   {
     "name": "GOLDMARKET-stores-total-no-gold",
     "file": "src/ui/profPages.js",
-    "old": "total: s.own + s.bought + (s.gold | 0) };",
-    "new": "total: s.own + s.bought };",
+    "old": "total: s.own + s.bought + (s.gold | 0), carried: s.carried | 0 };",
+    "new": "total: s.own + s.bought, carried: s.carried | 0 };",
     "tests": [
       "test/goldmarket_client.test.js"
     ]

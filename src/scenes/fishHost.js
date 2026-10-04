@@ -28,7 +28,8 @@
 //   species' own item, into the pack once.
 // ═══════════════════════════════════════════════════════════════════
 import { haulKey, parseNodeKey, schoolSpots, SCHOOLS_PER_PIXEL, SCHOOL_R, pixelKey } from '../net/nodeLaw.js';
-import { HAULS_PER_DAY, FISH_KEY, actBand, PEARL, storesFullIn } from '../net/professionLaw.js';
+import { HAULS_PER_DAY, FISH_KEY, actBand, PEARL, storesFullIn, fullWordsIn } from '../net/professionLaw.js';
+import { goodsWhere } from '../net/bagLaw.js';   // BAG1: where the haul went
 import { createFishAct } from '../systems/fishAct.js';
 import { FT, attributeAverage } from '../systems/foragingLaw.js';
 import { foragingActRefusal, actChecksRefusal, foragingToolIn, foragingHost } from '../systems/foragingInstall.js';
@@ -115,7 +116,7 @@ export function haulLine(d, species) {
   if (d.gem) goods.push(d.gem === PEARL.key ? 'a Pearl' : `a ${materialCountLabel(d.gem, 1)}`);
   if (d.extra) goods.push(materialCountLabel(d.extra, Number(d.extraQty) || 1));
   const said = goods.length > 1 ? `${goods.slice(0, -1).join(', ')} and ${goods[goods.length - 1]}` : goods[0];
-  return `+${said} to your Stores`;
+  return `+${said} ${goodsWhere(d)}`;   // BAG1: the bag, the pack, or an older book's Stores
 }
 
 /**
@@ -123,15 +124,15 @@ export function haulLine(d, species) {
  * naming what is missing (the ground the net never works, the account's day, the Stores' room). `school` - a school's
  * words (where one rises near), said beside a ready cast.
  * @param {{ taken: boolean, counting: boolean, hauls: number, cap?: number, rank: number, storesFull: boolean,
- *   where?: string|null, school?: string }} o
+ *   where?: string|null, school?: string, fullWords?: string }} o
  */
-export function fishPlan({ taken, counting, hauls, cap = HAULS_PER_DAY, rank, storesFull, where = null, school = '' }) {
+export function fishPlan({ taken, counting, hauls, cap = HAULS_PER_DAY, rank, storesFull, where = null, school = '', fullWords = 'Stores full' }) {   // BAG1: `fullWords` the book's (professionLaw fullWordsIn)
   const harvest = 'fish';
   const verb = 'Cast the net';
   if (taken || counting) return { harvest, verb, rest: 'being counted', ready: false };
   if (where) return { harvest, verb, rest: where, ready: false };
   if (hauls >= cap) return { harvest, verb, rest: `Fishing ${rank} - ${hauls} of ${cap} hauls today`, ready: false, full: true };
-  if (storesFull) return { harvest, verb, rest: `Stores full - ${materialCountLabel(FISH_KEY, 2)}`, ready: false };
+  if (storesFull) return { harvest, verb, rest: `${fullWords} - ${materialCountLabel(FISH_KEY, 2)}`, ready: false };
   return { harvest, verb, rest: `Fishing ${rank}${school ? ` - ${school}` : ''}`, ready: true };
 }
 
@@ -279,7 +280,7 @@ export function fishKind({ book, host }) {
     plan(n, { rank, entity }) {
       const plan = fishPlan({
         taken: book.taken(n.key, 'fish'), counting: book.counting(n.key, 'fish'), hauls: book.state.hauls ?? 0, cap: book.state.caps?.hauls ?? HAULS_PER_DAY,
-        rank: rank('fishing'), storesFull: storesFullIn(book, FISH_KEY) /* STORES-ROOM: every origin, as the service counts */, where: actChecksRefusal(NET_WHERE, NET_WHERE_WORDS) ?? (tooTiredForTheWater(entity) ? NET_TIRED_WORDS : null), school: schoolWords(),
+        rank: rank('fishing'), storesFull: storesFullIn(book, FISH_KEY) /* STORES-ROOM: every origin, as the service counts */, fullWords: fullWordsIn(book), where: actChecksRefusal(NET_WHERE, NET_WHERE_WORDS) ?? (tooTiredForTheWater(entity) ? NET_TIRED_WORDS : null), school: schoolWords(),
       });
       return { ...plan, profession: 'fishing' };
     },
@@ -300,6 +301,7 @@ export function fishKind({ book, host }) {
         act,
         harvest: plan.harvest, tool: foragingToolIn(entity, FT.FishingNet), profession: 'fishing', label: keyLabel('Interact'),
         ask: { climate: g.climate, region: g.region },   // the cast's own ground: a loose node names none (AUDIT 32 H9)
+        material: FISH_KEY,   // AUDIT BAG1 B4: a haul is fish, for the held count
         hand: () => null,
       };
     },

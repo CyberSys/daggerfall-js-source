@@ -248,7 +248,7 @@ test('AEGIS the service end to end: Sureme registers, holds the title, the glyph
 });
 
 test('AEGIS token and relay: a token may carry the title, the glyph and the ward and verifies; every glyph at once still fits; the relay - world160, the one that knows the words - reads all three out of the signature onto the peer\'s row (mutants: the vocabulary without the ward, so the relay refuses the token)', async () => {
-  assert.equal(RELAY_VERSION, 'world160', 'AEGIS moved it on (world160): the vocabulary rides the relay\'s bundle');
+  assert.equal(RELAY_VERSION, 'world161', 'AEGIS moved it on (world160): the vocabulary rides the relay\'s bundle; GUILD2 after it (world161, no wire change - PIN MOVED)');
   const kp = await subtle.generateKey({ name: 'Ed25519' }, true, ['sign', 'verify']);
   const pub = await importPublicKeyB64(Buffer.from(new Uint8Array(await subtle.exportKey('raw', kp.publicKey))).toString('base64url'), { subtle });
   const nowS = 1_760_000_000;
