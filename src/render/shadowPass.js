@@ -316,7 +316,19 @@ export const SHADOW_SWAY_EVERY = 4;
  *  shadow map (with dynamic shadows) for the lo map (static only) from one frame to the next, and (b) lifts the lo
  *  tier's rebuild budget. Costs GPU time; turn off Settings > Features > Steady shadows (or from the console,
  *  window.__DF_SHADOW_TUNING.override = false; null hands it back to the row) to get EL8's schedule back. */
-export const SHADOW_TUNING = { steady: true, override: null, debug: false, debugForce: null };
+export const SHADOW_TUNING = { steady: true, override: null, debug: false, debugForce: null, selfLamps: null, calmForce: null };
+/** STEADY-BALANCE (2026-10-04, Discord: "shadows too dark and too light where they should be normal ... light of candles too
+ *  bright ... it fixed the flickering tho"): THE PLAYER'S OWN CARD CASTS INTO THE TWO LAMPS NEAREST IT AGAIN, steady or not.
+ *  FLICKER-FIX had cast it into EVERY lamp with a full map under Steady shadows (twelve): in first person the card
+ *  ("Shadows Only", the default) stands a pace before the eye, so every lamp BEHIND the player threw a silhouette right
+ *  where the player was looking - a tavern's dozen lamps stacked a dozen into one black mass at the crosshair, and a
+ *  candle below the card threw it across the ceiling. The darker screen then opened the eye (EL4's adaptation, toward
+ *  AIR_ADAPT_MAX) and every lamp's hot spot blew out to white: the "too dark" and the "too bright" were one fault.
+ *  The hop FLICKER-FIX wanted gone is AUDIT FLICKER P2's hold (the card's two lamps kept by place), and under Steady
+ *  shadows those two maps are redrawn every frame like the rest, so there is no cadence lag left to hop on.
+ *  `selfLamps` (console: window.__DF_SHADOW_TUNING.selfLamps = 12) puts FLICKER-FIX's every-lamp card back to compare;
+ *  null is SHADOW_SELF_LAMPS. */
+export const SHADOW_SELF_LAMPS = 2;
 if (typeof window !== 'undefined') /** @type {any} */ (window).__DF_SHADOW_TUNING = SHADOW_TUNING;   // FLICKER-FIX: set `override` live to compare
 /** WIND3's lean at a flat's crown, world units: the shader's push at top = 1 and the gust's peak (renderer.js BB_VS). */
 export const swayLean = (wl, sway, h) => wl * 1.3 * 0.0015 * sway * h;
@@ -929,7 +941,7 @@ export class ShadowPass {
     this._sunScaleK = 1;   // AUDIT DEEP R-3: the cascades' scale the maps were last drawn at
     this.kind = null;
     /** per-frame counts, for a probe */
-    this.stats = { records: 0, sunDraws: 0, pointDraws: 0, culled: 0, cascadesDrawn: 0, facesDrawn: 0, staticFaces: 0, dynFaces: 0, blits: 0, cachedSlots: 0, loSlots: 0, loFaces: 0 };   // SC1: the faces split, the blits, the slots served from the cache; DISC15: the lo tier's slots and faces
+    this.stats = { records: 0, sunDraws: 0, pointDraws: 0, culled: 0, cascadesDrawn: 0, facesDrawn: 0, staticFaces: 0, dynFaces: 0, blits: 0, cachedSlots: 0, loSlots: 0, loFaces: 0, selfLamps: 0 };   // SC1: the faces split, the blits, the slots served from the cache; DISC15: the lo tier's slots and faces
     this._planes = new Float32Array(24);   // EL5: the replay's frustum
     this._bSphere = new Float64Array(4);   // AUDIT 68 S16-batch-sphere-dup: batchSphere's scratch for the SC1 scans
     this._selfAt = new Float64Array(3);    // DISC29-E: where the player's own card stands this frame (_selfCardAt)
@@ -1337,7 +1349,10 @@ export class ShadowPass {
     this.stats.records = this.count; this.stats.sunDraws = 0; this.stats.pointDraws = 0; this.stats.culled = 0;
     SHADOW_TUNING.steady = SHADOW_TUNING.override ?? !!getPref('steadyShadows');
     SHADOW_TUNING.debug = SHADOW_TUNING.debugForce ?? !!getPref('shadowDebug');   // FLICKER-FIX: the Shadow debug log chip (debugForce: the console's)
-    AIR_TUNING.calm = SHADOW_TUNING.steady;   // FLICKER-FIX: a calmer eye while shadows are steady
+    // STEADY-BALANCE: the calmer eye is its OWN chip now (prefs 'calmEye', off by default), no longer ridden on Steady
+    // shadows - at a third of the rate the eye took ten seconds to open into a dark room and held a candle's glare
+    // as long; with the card's stacked silhouettes gone (SHADOW_SELF_LAMPS) there is little left for it to calm
+    AIR_TUNING.calm = SHADOW_TUNING.calmForce ?? !!getPref('calmEye');
     this.kind = shadowKind(f.sunScale, f.lightDir);
     this.frameNo++;
     this.stats.cascadesDrawn = 0; this.stats.facesDrawn = 0; this.stats.staticFaces = 0; this.stats.dynFaces = 0; this.stats.blits = 0; this.stats.cachedSlots = 0;   // SC1
@@ -1376,8 +1391,9 @@ export class ShadowPass {
     // of them, each into its six layers; the replays are culled to the
     // lantern's range and the face's frustum, so a caster costs what it lights
     const selfAt = f.pointLights?.length ? this._selfCardAt(this._selfAt) : null;   // DISC29-E: the player's own card's place, or null (none drawn)
+    const selfLamps = Math.max(0, Math.min(SHADOW_POINT_CASTERS, SHADOW_TUNING.selfLamps ?? SHADOW_SELF_LAMPS));   // STEADY-BALANCE
     const casters = reserveSelfCasters(pickShadowCasters(f.pointLights, f.eye, SHADOW_POINT_CASTERS, f.carried, this._heldCasters, this._heldCasterN),   // MAC-T1; LIGHT-NEAR1; DISC6: last frame's casters keep their maps on a tie
-      f.pointLights, selfAt, SHADOW_NEAR_CASTERS, SHADOW_POINT_CASTERS, f.carried, this._heldCasters, this._heldCasterN);   // AUDIT PRE-MERGE 0929 E3
+      f.pointLights, selfAt, selfLamps, SHADOW_POINT_CASTERS, f.carried, this._heldCasters, this._heldCasterN);   // AUDIT PRE-MERGE 0929 E3
     this._heldCasterN = holdCasters(this._heldCasters, f.pointLights, casters);
     if (this.cacheOn && casters.length) this._ensureCache();   // AUDIT SC1
     const L = f.pointLights;
@@ -1440,7 +1456,9 @@ export class ShadowPass {
       // AUDIT FLICKER P2: with DISC6's hold - last frame's two by place, at the keep ratio. In first person the card stands
       // a pace before the eye and circles the feet as the player turns, so turning in place hopped the player's
       // shadow from lamp to lamp (a hall of ten lamps: 506 hops over 833 spots in one turn each, two on successive frames)
-      const selfNear = selfAt ? (SHADOW_TUNING.steady || nearestRank(casters, L, selfAt, rank, this._selfHeld, this._selfHeldN) < SHADOW_NEAR_CASTERS) : near;   // FLICKER-FIX: steady, every map is redrawn every frame, so the card casts into ALL of them - its silhouette can no longer hop between lamps
+      // STEADY-BALANCE: the card's own lamps (SHADOW_SELF_LAMPS, two) steady or not - FLICKER-FIX's every lamp stacked a
+      // silhouette per lamp behind the player at the crosshair; `due` below still redraws them every frame
+      const selfNear = selfAt ? (nearestRank(casters, L, selfAt, rank, this._selfHeld, this._selfHeldN) < selfLamps) : near;
       if (selfAt && selfNear && selfN < SHADOW_POINT_CASTERS) { this._selfNext[selfN * 4] = pos[0]; this._selfNext[selfN * 4 + 1] = pos[1]; this._selfNext[selfN * 4 + 2] = pos[2]; selfN++; }
       const selfWant = selfNear ? 1 : 0;
       const selfMoved = this._slotSelf[k] !== selfWant;
@@ -1501,6 +1519,7 @@ export class ShadowPass {
     }
     for (let k = 0; k < SHADOW_POINT_CASTERS; k++) if (!taken[k]) { this._slotLight[k * 4] = NaN; this._slotCached[k] = 0; this._slotLiveDyn[k] = 0; this._slotSelf[k] = 0; }   // an emptied slot is drawn afresh when it is filled
     this._selfHeld.set(this._selfNext); this._selfHeldN = selfN;   // AUDIT FLICKER P2
+    this.stats.selfLamps = selfN;   // STEADY-BALANCE: how many lamps the card cast into, for the debug log
     if (f.everyLight) this._renderLo(f, L);   // DISC15: a room drawn whole - every other light reads its lo map
     this.casters = casters.length;
     if (SHADOW_TUNING.debug) this._debugLog(f, L, casters);   // FLICKER-FIX: __DF_SHADOW_TUNING.debugForce = true
@@ -1521,7 +1540,8 @@ export class ShadowPass {
     const st = this.stats;
     if (gained.length || lost.length || st.staticFaces > 0 || st.loFaces > 0) {
       console.log(`[shadow] f${this.frameNo} steady=${SHADOW_TUNING.steady} casters=${casters.length} lights=${L.length >> 2}`
-        + ` +${gained.join(' | ') || '-'} -${lost.join(' | ') || '-'} staticFaces=${st.staticFaces} dynFaces=${st.dynFaces} loFaces=${st.loFaces} cascades=${st.cascadesDrawn}`);
+        + ` +${gained.join(' | ') || '-'} -${lost.join(' | ') || '-'} staticFaces=${st.staticFaces} dynFaces=${st.dynFaces} loFaces=${st.loFaces} cascades=${st.cascadesDrawn}`
+        + ` selfLamps=${st.selfLamps} calmEye=${AIR_TUNING.calm}`);   // STEADY-BALANCE
     }
     this._dbgSet = now;
   }

@@ -146,7 +146,7 @@ export const MAGIC_ITEMS_ENUM_TEMPLATE = 0;
 import { BOOK_TEMPLATE, createRegularMagicItem, createRandomPotion, randomlyAddPotionRecipe, getMagicItemTemplates, createRandomWeapon, createRandomArmor, createRandomClothing } from './loot.js';   // G4: the guild shelves' two minters (AUDIT 26 F129/F130: + the recipe arm and the registry)
 import { SPELLBOOK_TEMPLATE_INDEX } from './spellMaker.js';   // G4: one home for MiscItems 132
 import { restItemsStock } from './restItems.js';   // REST6: the Bedroll, the Ember Jar, Firewood and the draughts
-import { provisionsStock, campfireStock, createSurvivalItem, isSurvivalItem, isCampfireKit, TEMPLATE as SURVIVAL_TEMPLATE } from './survival/items.js';   // SURV2: the general store's provisions shelf   // REST2: and online the Campfire alone, the arc Off
+import { provisionsStock, campfireStock, createSurvivalItem, isSurvivalItem, isCampfireKit, TEMPLATE as SURVIVAL_TEMPLATE, ensureEndlessProvisions, ENDLESS_RATIONS_STACK } from './survival/items.js';   // SURV2: the general store's provisions shelf   // REST2: and online the Campfire alone, the arc Off
 import { sharedClockOn } from './worldTick.js';
 import { healingShelfCount, mintHealingPotion } from './healingSupply.js';   // POTION-COMMON: the shelf's Potions of Healing
 import { survivalOn } from './survival/switch.js';   // SURV2: the one switch
@@ -214,8 +214,10 @@ export const stockSearched = (container, today) => Number.isFinite(container?.op
   && container.openedOn === container.stockedDate && !needsRestock(container, today);
 
 /** ENDLESS-STOCK (2026-10-04, Mac: "I want the gathering bag to be unlimited purchases in stores. It shouldnt run out,
- *  same with campfires"): the rows a shop never sells out of - the Materials Bag and the Campfire. */
-export const isEndlessStock = (item) => isBagItem(item) || (isSurvivalItem(item) && isCampfireKit(item));
+ *  same with campfires"): the rows a shop never sells out of - the Materials Bag and the Campfire. ENDLESS PROVISIONS
+ *  (2026-10-04, Mac: "rations should be available in stores where it makes sense and unlimited as well"): and Rations. */
+const isRations = (item) => isSurvivalItem(item) && item.templateIndex === SURVIVAL_TEMPLATE.Rations;
+export const isEndlessStock = (item) => isBagItem(item) || (isSurvivalItem(item) && isCampfireKit(item)) || isRations(item);
 /** ENDLESS-STOCK: a purchase's endless rows put back on the shelf they were bought from - a fresh one for each (neither
  *  stacks), minted as the shelf mints it (worldModes.js commitTrade's Buy). Only a purchase restocks: a row taken from a
  *  closed shop's shelf is stolen, and stays gone. Online alone; and online no shop buys one back (shopBuysItem), so the only
@@ -226,6 +228,13 @@ export function restockEndless(shelfItems, bought) {
   let n = 0;
   for (const it of bought ?? []) {
     if (!isEndlessStock(it)) continue;
+    if (isRations(it)) {
+      // ENDLESS PROVISIONS: Rations stack - the shelf's stack is filled back to its whole, or stood again if the lot took it
+      const stack = shelfItems.find(isRations);
+      if (stack) { if ((stack.stackCount ?? 1) < ENDLESS_RATIONS_STACK) { stack.stackCount = ENDLESS_RATIONS_STACK; n++; } }
+      else { const r = createSurvivalItem(SURVIVAL_TEMPLATE.Rations, { stackCount: ENDLESS_RATIONS_STACK }); if (r) { addItem(shelfItems, r); n++; } }
+      continue;
+    }
     const fresh = isBagItem(it)
       ? mintCondition(setItemFields({ group: 'UselessItems2', templateIndex: BAG_TEMPLATE }))
       : createSurvivalItem(SURVIVAL_TEMPLATE.Campfire);
@@ -424,6 +433,10 @@ export function stockShopShelf({ buildingType, quality }, playerEntity = {}, { r
     for (const it of restItemsStock(buildingType === BUILDING_TYPES.GeneralStore ? 'GeneralStore' : 'Alchemist', quality, rolls)) addItem(items, it);
   }
   if (shelfIndex === 0 && buildingType === BUILDING_TYPES.PawnShop && sharedClockOn()) for (const it of campfireStock(rolls, 0, 2)) addItem(items, it);   // AUDIT REST: REST2's Pawn Shop, 0-2 online
+  // ENDLESS PROVISIONS: a General Store's and a Pawn Shop's counter shelf has a Campfire Kit and a full stack of Rations in
+  // every tier, Climates & Calories Off and offline too - after DFU's draws, from no roll. Online a purchase stands them
+  // again (restockEndless); offline they sell out until the day's restock, as the rest of the shelf does (ENDLESS-STOCK F4)
+  if (shelfIndex === 0 && (buildingType === BUILDING_TYPES.GeneralStore || buildingType === BUILDING_TYPES.PawnShop)) ensureEndlessProvisions(items);
   // POTION-COMMON (2026-10-01, the field: "make health potions more common"): an alchemist's and a general store's day of
   // Potions of Healing (healingSupply.js) - at the shelf's end and from no roll, so DFU's own draws above are the same.
   // AUDIT ECON P1: on the shop's FIRST shelf alone, the one its counter sells from (worldModes.js openMerchantSell) -

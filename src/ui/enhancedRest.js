@@ -70,6 +70,7 @@ export function mountEnhancedRest(hostEl, deps, ignoreAllocatedBed = false) {
     _remainingHoursRented: -1,
     _allocatedBed: null,
     _pendingRest: null,   // RESTFIX3: 'while' | 'healed' - which button is waiting on the illegal-rest confirm
+    _loiterOffer: false,   // LOITER-ANYWHERE: an act refusal offers Loiter in its place (online only)
     _refusalLines: null,   // RESTFIX3: canRest's own refusal text, shown once and then the window closes
     _hoursValue: PROMPT_INITIAL,
     _endLines: null,
@@ -129,11 +130,20 @@ export function mountEnhancedRest(hostEl, deps, ignoreAllocatedBed = false) {
   // refuses anything over loiterLimitHours() (3-12), a rest over 99 was silently cut to 99 where classic shows
   // TEXT.RSC 26, and an empty field started an hour's rest where classic returns to the selection page. The refusal
   // is a page of its own whose OK goes back to selection, as classic's does: a retry is a fresh While/Loiter press.
+  /** LOITER-ANYWHERE: from the act (its refusal or its channel) to the loiter prompt. */
+  const toLoiter = () => { overlay._loiterOffer = true; overlay.state = 'hours'; overlay.mode = 'loiter'; overlay._hoursValue = PROMPT_INITIAL; render(); };
+  /** LOITER-ANYWHERE: where a prompt goes BACK to - the selection card offline; online (no selection card: its Rest
+   *  buttons would start a rest with no fire or bed) the act's refusal again, Loiter still offered, or out. */
+  const home = () => {
+    if (!act) { overlay.state = 'selection'; render(); return; }
+    if (overlay._refusalLines?.length) { overlay.state = 'refused'; render(); return; }
+    close();
+  };
   const refuseHours = (lines) => { overlay._hoursLines = lines?.length ? lines : ['You cannot rest that long.']; overlay.state = 'hoursRefused'; overlay._hoursValue = PROMPT_INITIAL; render(); };
   const startTimed = (mode) => {
     const raw = String(overlay._hoursValue ?? '').trim();
     const hours = raw === '' ? NaN : Number(raw);
-    if (!Number.isFinite(hours) || hours < 0) { overlay.state = 'selection'; overlay._hoursValue = PROMPT_INITIAL; render(); return; }
+    if (!Number.isFinite(hours) || hours < 0) { overlay._hoursValue = PROMPT_INITIAL; home(); return; }
     if (mode === 'loiter' && hours > loiterLimitHours()) { refuseHours(cannotLoiterLines()); return; }
     if (mode === 'timed' && hours > MAX_REST_HOURS) { refuseHours(deps.endLines?.(CANNOT_REST_MORE_THAN_99_HOURS_ID) ?? null); return; }
     startFixed(mode, Math.floor(hours));
@@ -181,10 +191,14 @@ export function mountEnhancedRest(hostEl, deps, ignoreAllocatedBed = false) {
   /** REST1: the act's open - the town's refusal, no rest point, a building's own law (canRest), then the channel. */
   function openAct() {
     if (act.meditate) { overlay.mode = 'act'; overlay.state = 'channel'; return; }   // REST6: a candle's kneel - anywhere a rest may begin
+    // LOITER-ANYWHERE (2026-10-04, Discord: "the new rest system ... has no loiter"): every refusal of the act offers
+    // Loiter in its place, as restWindow.js's - DFU's loiter is never gated by a bed, a camp or the town
+    overlay._loiterOffer = true;
     const place = deps.restPlace?.();
     if (place?.inTownOutside) { overlay._refusalLines = [REST_ACT_TEXT.inTown]; overlay.state = 'refused'; return; }
     if (!act.point) { overlay._refusalLines = [REST_ACT_TEXT.noPoint]; overlay.state = 'refused'; return; }
     if (!canRestNow(false)) return;
+    overlay._loiterOffer = false;
     moveToBed();
     overlay.mode = 'act';
     overlay.state = 'channel';
@@ -216,6 +230,11 @@ export function mountEnhancedRest(hostEl, deps, ignoreAllocatedBed = false) {
     const acts = el('div', 'acts');
     const stop = el('button', 'act', 'Stop');
     stop.onclick = () => stopOrClose();
+    if (!act?.meditate) {   // LOITER-ANYWHERE: wait instead of sleeping, at the fire as anywhere
+      const loiter = el('button', 'act', 'Loiter Instead');
+      loiter.onclick = () => toLoiter();
+      acts.append(loiter);
+    }
     acts.append(stop);
     c.append(acts);
     _actRefs = { fill };
@@ -258,7 +277,12 @@ export function mountEnhancedRest(hostEl, deps, ignoreAllocatedBed = false) {
     const c = el('div', 'card');
     for (const line of overlay._refusalLines ?? []) c.append(el('p', null, line));
     const acts = el('div', 'acts');
-    const ok = el('button', 'act', 'OK');
+    if (overlay._loiterOffer) {   // LOITER-ANYWHERE: no fire or bed is no reason not to wait
+      const loiter = el('button', 'act', 'Loiter');
+      loiter.onclick = () => toLoiter();
+      acts.append(loiter);
+    }
+    const ok = el('button', 'act', overlay._loiterOffer ? 'Cancel' : 'OK');
     ok.onclick = () => close();
     acts.append(ok);
     c.append(acts);
@@ -270,7 +294,7 @@ export function mountEnhancedRest(hostEl, deps, ignoreAllocatedBed = false) {
     for (const line of overlay._hoursLines ?? []) c.append(el('p', null, line));
     const acts = el('div', 'acts');
     const ok = el('button', 'act', 'OK');
-    ok.onclick = () => { overlay._hoursLines = null; overlay.state = 'selection'; render(); };
+    ok.onclick = () => { overlay._hoursLines = null; home(); };
     acts.append(ok);
     c.append(acts);
     return c;
@@ -289,7 +313,7 @@ export function mountEnhancedRest(hostEl, deps, ignoreAllocatedBed = false) {
     const start = el('button', 'act', 'Start');
     start.onclick = () => startTimed(overlay.mode);
     const back = el('button', 'act', 'Back');
-    back.onclick = () => { overlay.state = 'selection'; render(); };
+    back.onclick = () => home();
     acts.append(start, back);
     c.append(acts);
     requestAnimationFrame(() => input.focus());

@@ -19382,7 +19382,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   const socialActText = (k, who) => (k === 'friend.request' ? `Friend request sent to ${who}`
     : k === 'party.invite' ? `Party invite sent to ${who}`
       : k === 'friend.remove' ? `${who} is no longer your friend` : 'Sent');
-  /** PARTY-REST1: RestWindow's own `mode` string ('loiter'|'timed'|'full', restWindow.js:664) to the wire's small
+  /** PARTY-REST1: RestWindow's own `mode` string ('loiter'|'timed'|'full', restWindow.js:680) to the wire's small
    *  numbers (net/wire.js validPartyPose: 0/1/2) - the one place the three hosts' restState getters (worldModes.js,
    *  dungeonContext.js) and this host's own outdoor overlay converge, so the mapping is written once. */
   const partyRestModeCode = (mode) => (mode === 'timed' ? 1 : mode === 'full' ? 2 : 0);
