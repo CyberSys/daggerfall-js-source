@@ -91,7 +91,7 @@ const find = (n, cls) => {
 test('PRIMARCH vocabulary: the title and the glyph join the closed lists last, the aura joins AURAS after the ward; "Primarch" and "Golden Radiance" in words; the title ONE colour - the pixel menu\'s own light gold, #d8cfae, held to the menu\'s rule - no gradient, no edge; the glyph in it, filled; `Y` on the classic face; the radiance\'s button in the Primarch\'s gold; the wire keeps all three (mutants: the colour, the glyph\'s colour, the mark, the fill, the button\'s paint, the words)', () => {
   assert.equal(TITLES.at(-1), 'primarch', 'the vocabulary\'s newest');
   assert.equal(GLYPHS.at(-1), 'primarch');
-  assert.deepEqual([...AURAS], ['dagonfire', 'oblivionward', 'radiance'], 'the Broker\'s fire, the ward, then the radiance');
+  assert.deepEqual([...AURAS], ['dagonfire', 'oblivionward', 'radiance', 'shadowcloak'], 'the Broker\'s fire, the ward, then the radiance - SHADOW-CLOAK\'s cloak after it (PIN MOVED)');
   assert.equal(TITLE_TEXT.primarch, 'Primarch', 'GA00250: "the title will be Primarch"');
   assert.equal(AURA_TEXT.radiance, 'Golden Radiance');
   assert.equal(GLYPH_LABEL.primarch, 'Primarch', 'named on the account card');
@@ -116,7 +116,7 @@ test('PRIMARCH vocabulary: the title and the glyph join the closed lists last, t
   assert.ok(GLYPH_MARK.primarch.charCodeAt(0) >= FONT_GLYPH_MIN && GLYPH_MARK.primarch.charCodeAt(0) <= FONT_GLYPH_MAX, 'inside the font');
   for (const a of AURAS) assert.ok(AURA_TEXT[a] && TITLES.includes(AURA_PAINT[a]), `every aura has a word and a title's paint for its button: ${a}`);
   assert.equal(AURA_PAINT.radiance, 'primarch', 'the radiance in the Primarch\'s own gold');
-  assert.deepEqual({ ...AURA_PAINT }, { dagonfire: 'gatebreaker', oblivionward: 'aegis', radiance: 'primarch' }, 'the fire and the ward as before');
+  assert.deepEqual({ ...AURA_PAINT }, { dagonfire: 'gatebreaker', oblivionward: 'aegis', radiance: 'primarch', shadowcloak: 'shadowfang' }, 'the fire and the ward as before - SHADOW-CLOAK\'s cloak in the Shadow Fang\'s paint after them (PIN MOVED)');
   const badge = titleBadge({ title: 'primarch' });
   assert.deepEqual({ text: badge.text, rgba: badge.rgba, gradient: badge.gradient, edge: badge.edge }, { text: 'Primarch', rgba: TITLE_RGBA.primarch, gradient: null, edge: null });
   assert.deepEqual(readBadge({ title: 'primarch', glyphs: ['primarch'] }), { title: 'primarch', glyphs: ['primarch'] }, 'the wire keeps it');
@@ -179,7 +179,7 @@ test('PRIMARCH grant: PRIMARCH_HANDLES names GA00250, and the list grants the ti
   assert.equal(v('PRIMARCH_HANDLES'), 'GA00250', 'the owner: "a custom title, glyph, and aura for ga00250"');
   assert.equal(TIER_LISTS.primarch, 'PRIMARCH_HANDLES');
   assert.equal(TIER_GLYPH.primarch, 'primarch');
-  assert.deepEqual({ ...TIER_AURA }, { aegis: 'oblivionward', primarch: 'radiance' }, 'the two lists that grant an aura');
+  assert.deepEqual({ ...TIER_AURA }, { aegis: 'oblivionward', primarch: 'radiance', shadowfang: 'shadowcloak' }, 'the lists that grant an aura - SHADOW-CLOAK\'s the third (PIN MOVED)');
   for (const h of ['GA00250', 'ga00250', 'Ga00250']) {
     const p = row(h);
     assert.deepEqual(titlesHeld(p, ENV), ['primarch'], `${h}: the title, by name, case-folded`);
@@ -243,7 +243,7 @@ test('PRIMARCH the service end to end: GA00250 registers, holds the title, the g
 });
 
 test('PRIMARCH token and relay: a token may carry the title, the glyph and the radiance and verifies; every glyph at once still fits; the relay - world162, the one that knows the words - reads all three out of the signature onto the peer\'s row (mutants: the vocabulary\'s aura)', async () => {
-  assert.equal(RELAY_VERSION, 'world164', 'PRIMARCH moved it on (world162): the vocabulary rides the relay\'s bundle; SUNBABY1 after it (world163, a live event\'s word - PIN MOVED); PARTY-LEAD after that (world164, the hub\'s party.lead act - PIN MOVED)');
+  assert.equal(RELAY_VERSION, 'world165', 'PRIMARCH moved it on (world162): the vocabulary rides the relay\'s bundle; SUNBABY1 after it (world163, a live event\'s word - PIN MOVED); PARTY-LEAD after that (world164, the hub\'s party.lead act - PIN MOVED); SHADOW-CLOAK after it (world165, the Holo Shadow Cloak\'s word - PIN MOVED)');
   const kp = await subtle.generateKey({ name: 'Ed25519' }, true, ['sign', 'verify']);
   const pub = await importPublicKeyB64(Buffer.from(new Uint8Array(await subtle.exportKey('raw', kp.publicKey))).toString('base64url'), { subtle });
   const nowS = 1_760_000_000;

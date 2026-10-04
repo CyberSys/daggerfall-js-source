@@ -629,7 +629,7 @@ import { createSeatBanners, seatBannerAnchors, palaceKeysOf, townCentreOf } from
 import { createFestivalStage, festivalBannerAnchors, festivalLanternsOf } from './seatFestival.js';   // FESTIVAL-STAGE: a Festival's music, banners and lanterns
 import { drawBanner } from '../ui/heraldryArt.js';   // GUILD1d: ...its heraldry painted on it
 import { heraldryLookup } from '../ui/heraldrySwatch.js';   // HERALDRY-SHOWN: a guild's heraldry by its tag, off what this client holds
-import { AuraRingRenderer, auraWearers, AURA_KINDLE_S } from '../render/auraRing.js';   // WB9g: Dagon's Fire at a wearer's feet
+import { AuraRingRenderer, auraWearers, AURA_KINDLE_S } from '../render/auraRing.js'; import { peerBodyYaw } from '../net/peerClimb.js';   // WB9g: Dagon's Fire at a wearer's feet; SHADOW-CLOAK: a peer's facing, the cloak's front (on this line, so no cite below it moves)
 import { duelAttackerOf, duelWeaponOf, duelSwingOf, resolveDuelStrike, duelBlowPlausible, duelSpellOf, duelSpellFromWire, duelWearDamage, DUEL_TRAIL_MS, duelStub } from '../combat/duelCombat.js';   // DUEL1: the blow between two duellists, both halves
 import { createPageWindow, pageView } from '../ui/pageWindow.js';   // JOURNAL1: a page another player holds out, read and kept
 import { PageOffers, pageOfferText, pageShownText, pageTooFarText, keptPageTokens, keptLetterTokens, letterOfPage, PAGE_UNSUPPORTED_TEXT, PAGE_NO_READERS_TEXT, PAGE_GONE_TEXT } from '../net/journalPage.js';   // JOURNAL1: a page of the journal shown, and one shown to me kept
@@ -22181,7 +22181,7 @@ export async function bootWorld(canvas, renderer, params, status) {
    *  dungeon's lateWorldDraw, the building - added and fogged; never under the travel view, and a concealed peer's
    *  fire is concealed with them. */
   const _auraWearers = [], _auraDraw = [], _auraPool = new Map();
-  const _auraSelf = { id: 'self', at: [0, 0, 0], aura: null, seed: 0.37, kindle: 1, since: 0 };
+  const _auraSelf = { id: 'self', at: [0, 0, 0], aura: null, seed: 0.37, kindle: 1, since: 0, yaw: 0 };   // SHADOW-CLOAK: `yaw` the facing the cloak's parting faces
   let _auraPass = null, _auraTried = false;
   const auraSeedOf = (id) => { let h = 2166136261; for (const ch of String(id)) h = Math.imul(h ^ ch.charCodeAt(0), 16777619); return ((h >>> 0) % 997) / 997; };
   function auraFrame(seen) {
@@ -22192,7 +22192,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     if (mine && playerSpawned) {
       const f = player.feetAt();
       if (_auraSelf.aura !== mine) _auraSelf.since = t;
-      _auraSelf.at[0] = f[0]; _auraSelf.at[1] = f[1]; _auraSelf.at[2] = f[2]; _auraSelf.aura = mine;
+      _auraSelf.at[0] = f[0]; _auraSelf.at[1] = f[1]; _auraSelf.at[2] = f[2]; _auraSelf.aura = mine; _auraSelf.yaw = player.bodyYawFor(cam.yaw);   // SHADOW-CLOAK: the body's own facing, as its third person is drawn
       _auraSelf.kindle = Math.min(1, (t - _auraSelf.since) / AURA_KINDLE_S);
       _auraWearers.push(_auraSelf);
     } else _auraSelf.aura = null;
@@ -22203,7 +22203,7 @@ export async function bootWorld(canvas, renderer, params, status) {
       let w = _auraPool.get(d.id);
       if (!w || w.aura !== au) { w = { id: d.id, at: [0, 0, 0], aura: au, seed: auraSeedOf(d.id), kindle: 0, since: t }; _auraPool.set(d.id, w); }
       const p = onlineToScene(d.shown);
-      w.at[0] = p[0]; w.at[1] = p[1]; w.at[2] = p[2];
+      w.at[0] = p[0]; w.at[1] = p[1]; w.at[2] = p[2]; w.yaw = peerBodyYaw(d.shown) ?? 0;   // SHADOW-CLOAK: the peer's facing (to the wall on a climb)
       w.kindle = Math.min(1, (t - w.since) / AURA_KINDLE_S); w.seen = t;
       _auraWearers.push(w);
     }

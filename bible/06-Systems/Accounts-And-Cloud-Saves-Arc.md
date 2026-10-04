@@ -4580,3 +4580,65 @@ answer leaves the row out for its own character and marks it `deed` for everyone
 homes bought (`deed = 0`); `/v1/homes/release` with `deed: true` removes only the caller's own deed row, and a deed's row
 is never sold as a home. `HOME_MOVE_CARRIED` carries `deed`. `ACCOUNT_VERSION` acct77 in both the Worker and
 `wrangler.toml`; twelve version pins moved. Deploy order: the service (0079, then acct77), then the client.
+
+## SHADOW-CLOAK — SirMcMobdon's own: the Holo Shadow Cloak (2026-10-04, world165, acct78)
+
+Mac: "So for SirMcMobdon, I want to build a new unique AURA specifically for his account. A holo shadow cloak with red
+accents. Extremely detailed". SirMcMobdon already holds SHADOW-FANG's title and glyph (black #0d0709 to crimson
+#d3193c), so the cloak is drawn in that paint: the cloth is shadow, its light is red.
+
+- **The grant** (`server-account/wrangler.toml`, `server-account/src/titles.js`): no new list. `TIER_AURA.shadowfang =
+  'shadowcloak'` - SHADOW_FANG_HANDLES, the list that grants Shadow Fang, is the third to grant an aura with its title
+  (AEGIS's law, PRIMARCH's after it): held while the handle is listed, gone from the next token once it is not,
+  case-folded, never a guest's. Held is not worn: SirMcMobdon wears it from the account card's Aura row (`player.aura`),
+  as every aura is.
+- **The vocabulary** (`src/net/identityToken.js`, in the relay bundle): `shadowcloak` joins AURAS last. A relay before it
+  refuses a token carrying it (`claimsValid`), so the relay is **world165** and the account service **acct78**; the
+  account deploy waits on the relay's `/health` to serve world165 (SHADOW-FANG's AUDIT B1). No frame changes shape.
+- **The face** (`src/ui/playerBadge.js`): "Holo Shadow Cloak" (`AURA_TEXT`), its button on the account card in the
+  Shadow Fang's own paint (`AURA_PAINT.shadowcloak = 'shadowfang'`).
+- **The cloak** (`src/render/auraRing.js`, the aura pass WB9g built): the fourth look of the same program (`uAura` 3,
+  AURA_LOOK). Not a mark on the ground nor light round the body but a CLOAK ON IT: its wall is its own mesh
+  (`mesh: 'cloak'`, a grid CLOAK_ROUND 48 round by CLOAK_ROWS 40 up, `auraCloakGrid`) shaped in the vertex half - a
+  hooded cloak from the hem (0.48 m about the feet) up to shoulders (1.46 m), drawn in at the neck (1.6 m) and up round
+  the hood to its peak (1.97 m, the body is 1.8 m), narrower front to back than across (`CLOAK_SQUASH`), its back hanging
+  further behind the body than its front (`CLOAK_BACK_M`) and the hood's peak fallen back; fourteen folds deepening to
+  the hem, the hem billowing and a ripple running down the back, and now and then a glitch slipping a band of it
+  sideways. It FACES ITS WEARER'S WAY: the wearers carry `yaw` (`scenes/world.js auraFrame` - one's own body's facing,
+  `player.bodyYawFor`, as the third person draws it; a peer's from `net/peerClimb.js peerBodyYaw`) and the uniform
+  `uYaw` turns the mesh, so it is PARTED AT THE FRONT (`CLOAK_OPEN`: wide at the hem, closing to the throat, the hood's
+  face open) - the seam of the mesh hidden in the parting. It SHADES: the only look drawn premultiplied (`shade`,
+  ONE / ONE_MINUS_SRC_ALPHA) where the others add, so the cloth darkens what is behind it as well as lighting it -
+  without it a shadow cannot be drawn. The cloth: smoke climbing it, its edges toward the eye lit crimson (a rim), the
+  folds' crests lit, a scan line climbing it every three seconds with a hex lattice lit in its wake, a rain of the
+  Shadow Fang's crimson script falling down it, a hot trim and a dashed one inside it down both edges of the parting, a
+  circuit across the shoulders with its nodes, the hem torn into blocks that re-roll four times a second and lit along
+  the tear, the inside seen through the parting dimmer than the outside, the whole projection now and then flickering.
+  On its back THE SHADOW FANG'S MARK (1.14 m up): two fangs and two eyes inside a broken ring, burning through the
+  shadow. THE GROUND: a pool of shadow under it to 0.95 m with mist turning in it and drawn in to the feet; the emitter
+  just outside the hem, 24 crimson dashes turning round it with a hairline inside; a bezel of 60 ticks turning the other
+  way (a longer one every fifth); three brackets turning about it all; a radar sweep turning inside the bezel, the
+  lattice lit in its wake outside the hem. THE WISPS, its third draw: ten tongues of shadow peeling off the back and
+  shoulders, rising 0.9 m and burning away from the tip down, a crimson line where they burn and an ember at the root
+  (lives of 4, 5 and 6 s, each dividing the clock). It kindles as a projection BUILDS: the ground from the feet out, the
+  cloth from the hem up behind a hot build line, the wisps only once it is nearly whole. Never seen from inside it: the
+  wearer's own first person sees no shadow over the view (the cloth reads `uAt` beside the eye, as the radiance does).
+  Every rate whole over the clock (`cloakRatesWhole`), every pattern round a whole number, so no seam and no jump at
+  the wrap. THE FOUR HOSTS, untouched: the pass's hosts are AEGIS's (`scenes/world.js`, `scenes/worldModes.js`,
+  `scenes/dungeonContext.js`; `scenes/exterior.js` draws no aura - FLAGGED, unchanged).
+- **Seen**: in a real WebGL2 round a stand-in body (a lit floor, so the shadow can be read) from a third-person camera,
+  from behind, from the front, from above, turned with its wearer, at half kindled and from the wearer's own eye.
+  `tools/auraProbe.mjs` draws all four auras: 47/47 (the cloak's 14: no GL error, the emitter's crimson dashes most of
+  the way round, the floor past the pool untouched, the pool's shadow round the hem, the cloth shading the floor behind
+  it, the mark lit and red on its back, nothing over the hood, parted at the front - a hot trim either side and none
+  across the middle, turned with its wearer, no jump at the wrap, nothing unkindled, built to the knee and not the hood
+  at half kindled, nothing over the wearer's own view). NOT SEEN: in a real game client on a real body (ARENA2's or the
+  Morrowind rig's) - the probe's body is a stand-in.
+- Pins: `test/shadowcloak.test.js` (11) - the vocabulary, the grant, the real service end to end (wardrobe and signed
+  token), the token and relay at world165, the measures, the vertex half (facing, back drape, squash, peak, folds,
+  wisps), the cloth, the ground, the wisps (all run in `test/glsl.mjs`), the draw (premultiplied for the cloak alone,
+  additive restored after it) and the hosts. `tools/mutants/shadowcloak.json` (35, all dead). The vocabulary's newest-word
+  and one-list pins in `aegis.test.js` and `primarch.test.js` moved (PIN MOVED), `shadowfang.test.js`'s wardrobe holds
+  the cloak; the relay's pins moved to world165 crediting SHADOW-CLOAK (`auditbounty1.test.js` holds the credit), the
+  account's to acct78. Re-aimed by content, all dead: `aegis.json` (3), `primarch.json` (4), and the version records in
+  `soc1.json`, `gatekeys.json` and `fb1004d_knight_house.json`.
