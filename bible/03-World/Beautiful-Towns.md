@@ -191,6 +191,14 @@ elsewhere.
 
 ## Daggerfall's own laws the mods meet
 
+- **A building's own outside, kept in its room.** Both mods leave a copy of a building's EXTERIOR model inside its
+  room, its door facing out as every exterior door does. Where that door is the interior door nearest the enter
+  marker, TransitionInterior's landing (the door, 0.75 along its normal) stood the player outside the room's
+  one-sided shell over nothing, falling for good in the black: 146 of the packs' 10,309 entries (Warvale's `GENRAS00`
+  #1, #2 and #7), and 18 of Daggerfall's own 11,452. Each of DFU's two landing arms takes only a spot with a floor
+  under it now, in DFU's own order, so no landing DFU makes on a floor moves (`player/enterExit.js` `interiorLanding`'s
+  `standsAt`); a room with nowhere to stand is refused in DFU's own words, "This house has nothing of value."; and a
+  body ten metres under a room's lowest triangle is stood back at its door (FIELD BUGS 2026-10-04b VOID-ENTRY).
 - **The port's curation: a tavern with no tavern.** Beautiful Villages rebuilds
   `TVRNAS00` and `TVRNAS06` as houses (the classic blocks hold three taverns
   each) and leaves the 274 roadside taverns standing on them (their location
@@ -297,8 +305,8 @@ one stand-in, on while either mod that places it is loaded.
 | its hills | 23 ids | 47 | a mound of the climate's grass or rock, by the catalogue's size - smaller than the pack's own meshes (measured on its published files by `tools/rmbrpHills.mjs`: most 3-4x too narrow - 1.7-4.5x across the 23 - and 2-7x too low), so the trees six village blocks stand on the pack's hills (RESIAS08, TVRNAS00, 01, 03, TEMPASH3, WEAPAS02: 130 of `TEXTURE.504`, a metre to 13 m up) are seated on the mound or the ground drawn under them (TREES-SEATED, `world/townStandIns.js` `blockHillSeat`) |
 | its market stalls | 17 ids | 32 | a stall the pack's size (3.2 m across the counter, 4.9 m along it), its awning the cloth each prefab names (`TEXTURE.049` or `449`) |
 | its docks | `53140`-`53144` | 16 | measured off the pack's meshes: a plank deck whose top is the origin, five-sided piles 5 m below it and 1 m above, a ramp or five steps - which land where the author's do (GENRAS00's ramps at the long dock's two ends; TEMPASH3's three flights across the T-dock's wing) |
-| its platform, foundation and domes | `53160`, `53170`, `53182`, `53187`, `53194` | 22 | stone blocks and drum-and-hemisphere domes, classic textures - the foundation the pack's 16 x 8 x 16 m block, its top the floor of the two temples it stands under (centred, as the pack's mesh is, it walled up their front doors; no stand-in covers any door of either pack's towns) |
-| its crop fields | `53211`-`53214` | 252 | RMBCropBillboardBatch's own law: a grid 85 or 35 m a side, a plant every 4 m nudged up to half a metre, the climate's crop billboard (`TEXTURE.301`: wheat in the woodlands, corn in the mountains, sunflowers in the south, vines in swamp and rainforest; `511_22` stubble in winter), seeded by the spot so a field stands the same every visit (`world/flatFields.js`, sown by `world/rmbFlats.js`) |
+| its platform, foundation and domes | `53160`, `53170`, `53182`, `53187`, `53194` | 22 | stone blocks, classic textures, and the three domes at the pack's own profile (FIELD BUGS 2026-10-04b DOMES, measured off its HF Dome 03/04 meshes at the prefabs' 4.6875: an octagonal drum 4.8 m across on the ground to 3.63 m, the dome to 8.43 m, 03's spire to 10.75 m - they had been a 3.6 m cap over a drum sunk in the roofs they stand on) - the foundation the pack's 16 x 8 x 16 m block, its top the floor of the two temples it stands under (centred, as the pack's mesh is, it walled up their front doors; no stand-in covers any door of either pack's towns) |
+| its crop fields | `53211`-`53214` | 252 | RMBCropBillboardBatch's own law (FIELD BUGS 2026-10-04b CROPS, read again off the component's source): a grid over C#'s integer halves (an 85 m field from -42 to 42, a 35 m one from -17 to 15) in the world's axes - the batch's turn is never read - a plant every 4 m nudged up to half a metre, at the field's own height, none within a metre of the block's models (IsOverlapping, `blockSolids`), each a random pick of the climate's crop billboard (`TEXTURE.301`: wheat in the woodlands, corn in the mountains, sunflowers in the south, vines in swamp and rainforest, the second desert's own record 20; `511_22` stubble in winter), seeded by the spot so a field stands the same every visit (`world/flatFields.js`, sown by `world/rmbFlats.js`) |
 | its city-wall piece | `53210` | 224 | the middle 128 units of Daggerfall's own wall segment (`445`) out of the player's ARCH3D - its stone, its climate - cut and moved onto the piece's line (FIELD BUGS 2026-10-03c, below) |
 
 **The city walls' corners** (FIELD BUGS 2026-10-03c,
@@ -319,6 +327,18 @@ that, cut out of the player's own 445 (`townStandIns.js` `cityWallFillModel`),
 so it is solid as the wall is. A quarter of the placements (the two corners'
 pieces along their north line) turn it the other way across the wall, as the
 author did, so there the 445's inner face looks out - the stone is the same.
+
+**Why the hole held a player** (FIELD BUGS 2026-10-04b CITY-WALLS; Discord: "small chunks of walls seem to be
+missing in some cities ... I was stuck inside invisible walls after investigating the hole in the wall", posted
+before CITY-WALL merged). Daggerfall's wall segment `445`, its gates `446`/`447` and the arms of its tower `444` are
+HOLLOW: below the walkway each is two long faces and no ends. Through a corner's hole the player walked into that
+corridor, which runs on through every segment and tower; inside, every face is seen from behind - the renderer culls
+it, the collider (facing-blind) does not - so the walls stood unseen and held. The stand-in shuts the hole with the
+445's own cross-section, so no opening into the corridor is left. Measured with the player's data through the port's
+loader: all 410 rings shut, none open at either end of any line; every one of the 1,266 corner pieces is the middle of a
+445 with nothing on its cut faces; Daggerfall's own corner towers reach exactly 448 from where their lines cross. The
+author's farms stand inside the ring by design and reach at most 50 units into a wall piece (house `215` in
+`WALLAA06/12/13.FARMAA01`), as Daggerfall Unity places them too: recorded, unchanged.
 
 ### Not stood in
 

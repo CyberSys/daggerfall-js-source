@@ -4461,3 +4461,17 @@ broken arcs of violet runic script: beads on the line, curled ends, combs and a 
   `acc3titles.test.js` moved; the relay's pins moved to world160 crediting AEGIS (`auditbounty1.test.js` holds the
   credit) and the account's to acct73. Seven older records re-aimed by content (`herald.json`, `penitent.json`,
   `shadowfang.json`, `ribbon.json`, `wb9g.json` 3) and the version records in `soc1.json` and `gatekeys.json`.
+
+## KNIGHT-HOUSE — a deed the realm gave, held off its character's record (2026-10-04, acct75)
+
+FIELD BUGS 2026-10-04b (`01-Overview/Field-Bugs-2026-10-04b.md`; the law is `06-Systems/Online-Arc.md` KNIGHT-HOUSE).
+A Knightly Order's house was Daggerfall's deed in the save and nothing on this service, so every other player's claim
+on it landed and the knight's own claim paid for it again. Migration `0078_home_deed.sql` adds `homes.deed`;
+`POST /v1/homes/deed` (`server-account/src/homes.js` holdDeed) reads the character's realm record and refuses `no-deed` unless the
+record holds that deed (`src/net/homeLaw.js` homeDeedOf, which the client's door reads too) in the layout the hold names;
+otherwise it writes the building's row marked `deed` (price and paid 0) in the town's one layout, counted against the
+hour's claims. Every other claim on it answers 409 `home-taken`; the owner's is a repeat that pays nothing; the town's
+answer leaves the row out for its own character and marks it `deed` for everyone else; the cap of three counts the
+homes bought (`deed = 0`); `/v1/homes/release` with `deed: true` removes only the caller's own deed row, and a deed's row
+is never sold as a home. `HOME_MOVE_CARRIED` carries `deed`. `ACCOUNT_VERSION` acct75 in both the Worker and
+`wrangler.toml`; twelve version pins moved. Deploy order: the service (0078, then acct75), then the client.

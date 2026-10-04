@@ -10031,6 +10031,39 @@ home's alone - they are about other players.
 - Known limits: the lot is a box round the footprint (a building turned off the grid has a wider lot); yard pieces are
   not activation targets; the street's wandering folk are not steered round them.
 
+### KNIGHT-HOUSE - a house a Knightly Order gives is its knight's on every door (FIELD BUGS 2026-10-04b)
+
+The Discord: "Houses earned through Knightly Orders still possibly purchaseable? ... I don't want to risk my Knight
+House being bought out from under me" - at the knight's own door, "To Arde's residence", "Go in", "Buy it: 554330
+gold". The order's gift (KnightlyOrder.ReceiveHouse, `systems/banking.js` allocateHouseToPlayer) is Daggerfall's deed in
+the save and nothing else, and HOME1's offer read only the service's list: the knight was offered their own house, every
+other player the same - whose claim then took it (measured on the real service: 200) - and the knight's own claim paid
+for it again. Online the bank sells no house (HOME1), so the order's gift is the one deed made in the realm.
+
+- **The knight's door.** A building the character's own deed names - one the realm gave, standing in its layout
+  (`net/homeLaw.js` homeDeedOf, `systems/onlineHomes.js` realmDeedAt) - is never priced to it (`homeOfferPrice`). A deed
+  customs carried in is an offline house and stays HOME1's ("Stay offline only").
+- **Held from everyone else.** The account service HOLDS such a deed's building (`/v1/homes/deed`,
+  `server-account/src/homes.js` holdDeed, migration 0078 `homes.deed`): read off the character's realm record (the deed
+  must stand in it, to that building, in the layout the hold names), written as a claim's row marked `deed` - nothing
+  paid, outside the three homes a character may buy. Every other claim on it is `home-taken`; the owner's is a repeat
+  that pays nothing. To every other reader it is the knight's home, shut; the knight's own answer leaves it out (its
+  door, storage and bed are Daggerfall's, off the deed). The Seneschal holds the house it gives once the checkpoint
+  carrying it lands, waiting first for the room's town layouts (a building key names a building only in its layout); a
+  building taken meanwhile gives the gift back (the deed, the order's flag, the scene, the discovery). Every boot holds
+  the deeds from before.
+- **The market and the bank.** The houses for sale (the bank's and the Seneschal's, `banking.js` housesForSale `owned`)
+  leave out any building the town's answer names - a player's home or another knight's house. The deed's sale at the
+  bank gives the hold up first (`releaseDeed`); a deed the service never held sells as Daggerfall's.
+- **Deploy the account service first** (migration 0078, then the `acct75` Worker). A new client on an old service: the
+  holds answer 404 and the deed is kept - the knight's door is mended, nobody else is kept off until the service
+  lands. An old client on a new service: the knight's house is the knight's to everyone else; the knight's old build
+  still offers "Buy it", and its claim is answered as a repeat that pays nothing.
+- **Not reconciled:** a knight's house another player claimed before this stands theirs (the knight's hold answers
+  `home-taken`). Four hosts: `worldModes.js` (the door, the market, the Seneschal, the bank) and `world.js` (the boot's
+  holds) WIRED; `exterior.js` builds worldModes offline with no registry (Daggerfall's law stands); `dungeonContext.js`
+  has no house door. Pinned by `test/fb1004b_knight_house.test.js`; `tools/mutants/fb1004b_knight_house.json`.
+
 ### THE AUDIT (2026-09-30, asked: "let's do a nice audit on this. Just want to make sure it's perfect")
 
 Four lanes read the slices adversarially (the rent and its gold, the doors, the look and the yard, the merge and the
