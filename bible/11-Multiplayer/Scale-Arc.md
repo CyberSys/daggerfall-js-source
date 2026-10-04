@@ -53,6 +53,7 @@ Four read-only audits covered the relay (`server/src/index.js`), the account ser
 |---|---|---|---|
 | SCALE1 | The account service's half: fewer writes per request, metrics, indexes, the 100-parameter fix, gated deploys, D1 bookmark before migrations, client retry discipline | No | **Shipped in this PR** |
 | SCALE2 | The reconnect wave, from the client - NO relay deploy: one token for a connect's rooms (reused within a minute, never twice into one room, one mint on the wire), a tokenless refusal asked again while signed in, the channels' rejoin jittered | No | **Shipped** (after SCALE1) |
+| NET-SMOOTH | Other players drawn without jumping back, from the client - NO relay deploy: the snap in the room's own units, one source room per peer (handed to a room that is ahead), introductions' stale poses ignored, a play-out along waypoints at 0.75x-2x with a jitter cushion | No | **Shipped** (2026-10-04, `06-Systems/Online-Arc.md` NET-SMOOTH) |
 | SCALE2b | The relay's own, ONE announced relay deploy: the O(1) socket index, the hello path in memory, bounded caches, cross-room timeouts, relay metrics, idle rooms allowed to sleep (foes and memory only when someone else is there) | Yes, once | Next |
 | SCALE3 | The load harness: a Node bot fleet (guest → token → hello → poses, chat and checkpoints at real rates) against local workerd, then a staging pair; the deploy-storm scenario | No | After SCALE2 |
 | SCALE4 | D1 discipline: sweeps moved to a `scheduled()` cron, retention for the tables that only grow, the witness tables redesigned, reads made write-free and served from read replicas (Sessions API), one heartbeat replacing the mail, beat and board polls, 304s | No | After SCALE3's numbers |
@@ -118,3 +119,16 @@ The relay was split out of SCALE2 on reading: every piece of the reconnect storm
 - ACC1d-8 / 9 / 10 / 12
 - the three TOKEN-WAIT mutants
 - RENOWN1's character mutant
+
+## NET-SMOOTH: shipped (client only, no relay deploy)
+
+Mac, 2026-10-04: "Sometimes other players rubberband, I want to continue to improve performance and future proof for
+larger amounts of players". Asked, Mac chose client fixes first and a batched relay deploy later. The record is
+`06-Systems/Online-Arc.md` NET-SMOOTH. For scale it matters in three ways:
+- **A crowd degrades smoothly.** SLAM3 slows a crowded sender and SLAM6 gives far listeners one pose in four. Before,
+  the rate changes as a peer crossed a tier made the peer dash; now a backlog or a promotion is walked at no more than
+  twice the pace, and a demotion is walked over its own interval.
+- **More halos, no more jumping.** Every halo a player holds is another copy of every nearby pose. One source room per
+  peer makes the copies harmless however many rooms overlap.
+- **The relay batch is unchanged by it.** SCALE2b still owns the relay's O(N) work and the hello path. A sequence and a
+  send time on the pose belong to that deploy, and NET-SMOOTH is written to read them when they come.

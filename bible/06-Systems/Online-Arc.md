@@ -5464,6 +5464,9 @@ A peer is eased over the interval **it is actually keeping** now,
 measured at arrival and bounded both ways: a burst must not snap it, a
 long silence must not make it crawl back. A peer that has not moved
 twice yet has no interval and falls back to the default.
+*(NET-SMOOTH, 2026-10-04: still the interval it keeps, now the median of
+its last five, a bunch and a pause not counted at all; the ease itself is a
+play-out along waypoints - see NET-SMOOTH at the end of this arc.)*
 
 Measured MOVE TO MOVE, never from the welcome. The first cut took it
 from `at`, which is also stamped when a roster entry first names a peer
@@ -6042,6 +6045,10 @@ the catch-up is capped at twice the peer's real speed and converges in two
 intervals (1000 → 500 → 250, pinned), growth is unbounded as before so a
 silence still ceilings rather than crawls, and the steady state is
 untouched.
+*(Superseded by NET-SMOOTH, 2026-10-04: halving per pose let a stall's
+backlog, landing as a burst, halve the interval to the floor and dash. The
+2x bound is now on the drawn speed itself - the play-out rate is held within
+`PLAY_RATE_MIN`..`PLAY_RATE_MAX` - and the pin reads the speed frame by frame.)*
 
 `RELAY_VERSION` is `world71` (this line first read `world72`: the later slices' version-bump seds relabelled it - the same in-place rewrite the ledger pin forbids for its rows, caught by the final audit); the version bump was run with
 `test/relayversion.test.js` excluded, as that file now says to.
@@ -14271,3 +14278,82 @@ record; in short:
   `test/guild1b.test.js` re-aimed at the one account, and `test/fb0930b_bankregion.test.js`'s online half. Mutants:
   `tools/mutants/empireaccount.json` (41, all dead); `realm0.json` (4), `realm5.json` (1), `auditrealm.json` (1),
   `fb0930b_bankregion.json` (3) and `survtiers3.json` (2) re-aimed by content.
+
+## NET-SMOOTH (2026-10-04, Mac: "Sometimes other players rubberband, I want to continue to improve performance and future proof for larger amounts of players") - other players drawn without jumping back
+
+Asked first, Mac chose **client fixes first** (no relay deploy now; a batched relay deploy - a sequence and timestamp
+on the pose, SCALE2b's O(1) index - comes later as its own slice) and **onto the open PR**. Every cause found was on
+the client, in `src/net/online.js`; the relay is untouched and stays on its version.
+
+**Four causes, read in the code:**
+1. **The snap in the wrong units.** A pose farther than the snap from where the peer is drawn is a teleport. The snap
+   was `SNAP_WORLD_UNITS` for a room whose name starts `world:` and the scene frame's 30 units for every other - but a
+   siege's battle, a Royal Tourney and an owned interior or boat carry their poses in MapsFile's frame
+   (`scenes/world.js` `nativeFrame`), 40 units to the metre. There the snap was 0.75 m, and a runner at 10 Hz goes
+   0.8 m a pose: they teleported on nearly every pose. The snap is the frame of the ROOM the pose was heard in now
+   (`nativePoseRoom`, `snapUnitsFor`).
+2. **One pose, several rooms, no order.** `sendPose` sends down the cell's socket and every halo's, and each room is a
+   Durable Object of its own. A listener holding two of them hears every pose twice, and the copies race. Only an
+   identical copy was dropped (AUDIT WORLD6b-iii(b) C6); an OLDER copy landing second was eased toward and the peer
+   walked backwards. The frame has no sequence to order by, so a peer is heard through ONE room at a time (`src`).
+   Another room's copy says the peer is alive and moves nothing, until the source falls silent (`SOURCE_STALE_GAPS`
+   intervals, `SOURCE_STALE_MIN_MS` at least), lets the peer go (its leave, the room forgotten), or proves itself
+   behind: a pose the source brings that another room brought `SOURCE_LEAD_MIN_MS` sooner, `SOURCE_LEADS` times in a
+   row, hands that room the peer. It takes it at the moment it has just shown itself ahead, so its next pose is newer
+   than anything the old source said - no step back at the hand-over. One socket's frames arrive in the order they
+   were sent, so one source is one ordered stream.
+3. **A hello's pose replayed.** A peer opening a halo is announced to that room by a `join` carrying the pose it said
+   hello with, and a halo of mine opening hears a roster of the poses that room last held. Each is older than what the
+   peer's source room is saying. An introduction's pose moves the peer only from its source room, or when no source is
+   live; the introduction itself (name, look, badge) always lands.
+4. **An ease that restarted on every pose.** The ease ran from where the peer was drawn to the newest pose over the
+   newest interval between arrivals, halved at most per pose (SLAM10). A stall's backlog, landing as one burst, halved
+   it to the floor: the peer parked, then cut the corners at up to 4x. And it restarted from where the peer was drawn
+   the frame BEFORE, so every pose cost one frozen frame. A peer is **played out** now. Its poses are waypoints on a
+   path (`path`), spaced in the peer's own time (`c`, ms of its walk), and a cursor (`cur`) walks the path at a rate
+   (`rate`) set at each arrival (`rateFor`):
+   - it aims to keep one interval and a jitter cushion of path ahead of the cursor; a steady stream plays at exactly 1;
+   - it never goes faster than `PLAY_RATE_MAX` (2, SLAM10's own bound on a catch-up) or slower than `PLAY_RATE_MIN`
+     (0.75, while the cushion fills);
+   - the cushion is the farthest of the recent intervals from the cadence, at most one interval (`cushionOf`) - the
+     farthest because it is there for the late pose. On a line jittering 0-60 ms, a cushion of twice the mean distance
+     let the peer stand still on 12 frames in four seconds; this one, on none;
+   - the cadence is the median of the last `CADENCE_SAMPLES` (5) intervals between moves (`cadenceOf`). An interval
+     under `GAP_MIN_MS` (faster than any client may speak: two poses delivered together) or past `PAUSE_MS` (a pause)
+     is not counted, so neither a backlog nor standing still is read as a rate;
+   - a pose's own segment is the cadence (`segmentFor`), unless its own spacing says the rate changed before the median
+     can: under a third of it, a faster rate (the far tier promoting me) walked at its own spacing; past twice it after
+     a moving pose, a slower rate or a stall, walked over half the silence and never played faster than 1;
+   - a backlog past `PATH_MAX` (8) lets its oldest waypoints go past the one being walked: the path straightens, the
+     peer's time along it is kept, nothing dashes.
+
+**Measured** beside the old law in a scratch simulation (one peer walking 5 m/s, heard through a cell and a halo, each
+socket in order, nine lines). Every figure is from that simulation, not from live play:
+
+| line | backward steps (old → new) | fastest frame | standing frames |
+|---|---|---|---|
+| clean | 0 → 0 | 1.6x → 1.5x | 161 → 7 |
+| the halo 0-150 ms slower | 15 → 0 | 4.5x → 1.1x | 297 → 0 |
+| jitter 0-120 ms | 0 → 0 | 4.3x → 2.0x | 302 → 29 |
+| a 400 ms stall every 3 s | 0 → 0 | 1.6x → 1.3x | 177 → 0 |
+| promoted 1 Hz → 10 Hz and back | 0 → 0 | 5.5x → 2.3x | 265 → 274 |
+
+How far behind a peer is drawn moved little:
+- within about 10 ms of the old law on a clean line, a slow halo and stalls;
+- higher by the cushion where the line jitters: about 25 ms at a crowd's 4 Hz with 40 ms of jitter, and about 55 ms at
+  0-120 ms of jitter;
+- slower to close after a promotion: the far tier's second of lag closes in about 1 to 1.5 s at 2x, where the old law
+  closed it in about half a second by dashing at up to 5.5x.
+
+The standing frames left in promotion come from the first far interval after a demotion. No client can know it is coming
+before the pose that ends it.
+
+**Not changed:** the relay, the wire, the send rates, the far tier. Without a sequence on the wire, order is "one source
+room at a time" and a peer's real send times are estimated from arrivals. The relay batch can add both, and NET-SMOOTH
+would then read them.
+
+**Pinned** in `test/netsmooth.test.js` (9). Re-aimed: `test/slam3.test.js`'s bounds pin (a bunch measures nothing, a
+pause is not an interval, stop-and-go never moves it), `test/slam10.test.js`'s catch-up pin (the drawn speed frame by
+frame through a promotion and a demotion), and ONLINE1's merge pin (where Bob is drawn is read off his walk; the test
+had written `shown` by hand). `tools/mutants/netsmooth.json`: 23 mutants, 22 dead, 1 equivalent as recorded. The three
+easing mutants in `slam10.json` were re-aimed at the new law (all dead), and `slam14.json`'s Y6 was re-aimed by content.

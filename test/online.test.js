@@ -141,12 +141,14 @@ test('ONLINE1: the session over a fake socket, on its own clock - hello on open,
   now += PEER_TIMEOUT_MS + 1; s.tick();
   assert.equal(s.peers.size, 2, 'silent past the timeout: still known'); assert.equal(s.drawable().length, 0, '...but hidden');
   sockets[0].receive({ t: 'pose', id: 'bob-0001', p: pose(22) }); assert.equal(s.drawable().length, 1, 'a pose brings the peer back');
-  // the welcome merges: a reconnect keeps where a known peer is drawn
-  s.peers.get('bob-0001').shown = pose(22.5);
+  // the welcome merges: a reconnect keeps where a known peer is drawn (NET-SMOOTH: read off his walk, part way along)
+  now += 30; s.tick();
+  const drawn = s.peers.get('bob-0001').shown.x;
+  assert.ok(drawn > 21 && drawn < 22, `part way from 21 to 22 (${drawn})`);
   sockets[0].receive({ t: 'welcome', id: 'mac-0001', peers: [{ id: 'bob-0001', name: 'Bob', look: {}, pose: pose(30) }] });
   // SLAM14 (AUDIT SLAM FINAL B2): Zed, not in the roster, is UNCONFIRMED - the roster names the nearest, not the present
   assert.equal(s.peers.size, 2, 'Zed, not in the roster, is kept'); assert.deepEqual(Object.keys(s.peers.get('zed-0001').unconfirmed), [s.room], 'stamped unconfirmed for this room');
-  assert.equal(s.peers.get('bob-0001').from.x, 22.5, 'Bob eases from where he was drawn');
+  assert.equal(s.peers.get('bob-0001').from.x, drawn, 'Bob eases from where he was drawn');
   now = s.peers.get('zed-0001').seenAt + PEER_TIMEOUT_MS + 1; s.tick();
   assert.equal(s.peers.size, 1, 'and Zed, unconfirmed and silent past the timeout, is gone');
   // the relay's frames are checked by the wire's own law

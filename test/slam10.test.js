@@ -18,10 +18,12 @@
 // from 1000 ms (far) to 250 ms (near) in one step, the accumulated lag burned inside one 250 ms segment: a peer
 // walking at 5 u/s was drawn at 20.6 u/s for a quarter second. The interval may now halve at most per pose, which
 // caps the catch-up at 2x and converges in two intervals; growth is unbounded as before.
+// NET-SMOOTH (2026-10-04) re-aimed THREE: the halving is gone (a backlog's burst halved it to the floor and dashed),
+// and the 2x bound is on the drawn speed itself - a peer is played out along its waypoints at PLAY_RATE_MIN..PLAY_RATE_MAX.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { poseFan, hashKey, POSE_FAN_MAX, POSE_FAR_SHARE } from '../src/net/wire.js';
-import { OnlineSession, GAP_MAX_MS, GAP_MIN_MS } from '../src/net/online.js';
+import { OnlineSession, GAP_MAX_MS } from '../src/net/online.js';
 import { PeerBodies, BODIES_MAX } from '../src/net/peerBodies.js';
 import * as relay from '../server/src/relay.js';
 import { fakeRoom } from './fakeRoom.mjs';
@@ -109,7 +111,10 @@ test('SLAM10: a peer the relay has not introduced takes NO Morrowind body - the 
   assert.ok([...bodies._bodies.keys()].every((id) => id.startsWith('kn-')));
 });
 
-test('SLAM10: the ease interval halves at most per pose - a peer promoted from the far tier catches up at no more than twice its speed, in two intervals (mutant: the interval collapsing in one step, the 4x dash)', () => {
+test('SLAM10 (re-aimed by NET-SMOOTH): a peer promoted from the far tier catches up at no more than twice its speed and closes the lag, and one demoted back walks its slower interval rather than dashing it (mutants: the catch-up unbounded, the 4x dash; a catch-up too timid to close the lag; the slower rate walked over the old cadence, a dash at the demotion)', () => {
+  // SLAM10 halved the eased interval at most per pose. NET-SMOOTH plays a peer out along its waypoints at a rate
+  // within PLAY_RATE_MIN..PLAY_RATE_MAX (online.js rateFor), so the bound is now on the DRAWN SPEED itself, read here frame by
+  // frame - which is what the 4x dash this law exists for was.
   const { FakeWS, sockets } = fakeSocketClass();
   let now = 1_000_000;
   const s = new OnlineSession({ url: 'wss://relay.test', name: 'Mac', id: 'mac-0001', secret: 'secret-of-mac-0001', WebSocketImpl: FakeWS, now: () => now });
@@ -118,17 +123,28 @@ test('SLAM10: the ease interval halves at most per pose - a peer promoted from t
     s.join('town:m1', at(0)); const ws = sockets[0]; ws.open();
     ws.receive({ t: 'welcome', id: 'mac-0001', peers: [{ id: 'eve-0003', name: 'Eve', look: null, pose: at(0) }], host: null, world: null });
     const p = s.peers.get('eve-0003');
-    // far tier: one pose a second, three of them
-    for (let k = 1; k <= 3; k++) { now += 1000; ws.receive({ t: 'pose', id: 'eve-0003', p: at(k * 5) }); }
+    const walk = (x) => ({ ...at(x), mv: 1 });
+    const speed = 5 / 1000;   // Eve walks 5 units a second whatever rate she is heard at
+    let x = 0, fastest = 0, last = null;
+    const run = (ms, every, step) => {   // ticks of 10 ms; a pose every `every` ms, `step` units on
+      for (let t = 10; t <= ms; t += 10) {
+        now += 10;
+        if (t % every === 0) { x += step; ws.receive({ t: 'pose', id: 'eve-0003', p: walk(x) }); }
+        s.tick();
+        if (last != null) fastest = Math.max(fastest, (p.shown.x - last) / 10);
+        last = p.shown.x;
+      }
+    };
+    run(4000, 1000, 5);   // the far tier: one pose a second
     assert.equal(p.gap, GAP_MAX_MS, 'settled at the far interval');
-    // promoted: poses every 250 ms
-    const gaps = [];
-    for (let k = 1; k <= 4; k++) { now += 250; ws.receive({ t: 'pose', id: 'eve-0003', p: at(15 + k * 1.25) }); gaps.push(p.gap); }
-    assert.deepEqual(gaps, [500, 250, 250, 250], 'the interval halves, then meets the real one - never a 1000 -> 250 cliff');
-    // and the other way is unbounded, as before: a silence ceilings, it does not crawl
-    now += 5000; ws.receive({ t: 'pose', id: 'eve-0003', p: at(40) });
-    assert.equal(p.gap, GAP_MAX_MS);
-    now += 10; ws.receive({ t: 'pose', id: 'eve-0003', p: at(41) });
-    assert.equal(p.gap, Math.max(GAP_MIN_MS, GAP_MAX_MS / 2), 'and a burst after a silence halves rather than snaps');
+    fastest = 0;
+    run(3000, 250, 1.25);   // promoted: a pose every 250 ms, the same walk
+    assert.equal(p.gap, 250, 'the near interval taken');
+    assert.ok(fastest <= 2 * speed + 1e-9, `never drawn faster than twice her speed catching up (${(fastest / speed).toFixed(2)}x)`);
+    assert.ok(fastest >= 1.5 * speed, `and she did catch up, rather than trail a second behind for ever (${(fastest / speed).toFixed(2)}x)`);
+    assert.ok(x - p.shown.x <= speed * 300, `three seconds on she trails by one near interval's walk, the lag of the far tier closed (${((x - p.shown.x) / speed).toFixed(0)} ms behind)`);
+    fastest = 0;
+    run(4000, 1000, 5);   // demoted again
+    assert.ok(fastest <= 2 * speed + 1e-9, `the first far interval is walked, not dashed at the near one's pace (${(fastest / speed).toFixed(2)}x)`);
   } finally { console.info = info; }
 });
