@@ -1251,7 +1251,7 @@ test('TO1: the wiring - one construction, the fork on the popup\'s word, the pan
   assert.match(w, /\n  travelOptions = travelOptionsOn \? createTravelOptions\(\{/, 'BOOT-TDZ: ASSIGNED where the mod is built - the binding is declared above the stream that reads it');
   assert.match(w, /let travelOptions = null;/, 'BOOT-TDZ: and declared there, null');
   // the fork
-  assert.match(w, /if \(opts\?\.playerControlled && beginAcceleratedTravel\(pick, opts, \{ estimateMinutes: computed\?\.minutes \?\? null \}\)\) return;[^\n]*\n(?:\s*\/\/[^\n]*\n)*(?:\s*if \(opts\?\.playerControlled && tvRoutesJourneys\(\)\) return;\n)?\s*fastTravelTo\(pick, opts, computed\);/,   // PIN MOVED (TO-ROADS): a routed trip's refusal (the Overworld's, or a first-person route's)
+  assert.match(w, /if \(opts\?\.playerControlled && beginAcceleratedTravel\(pick, opts, \{ estimateMinutes: computed\?\.minutes \?\? null \}\)\) return;[^\n]*\n(?:\s*\/\/[^\n]*\n)*(?:\s*if \(opts\?\.playerControlled && tvRoutesJourneys\(\)\) return;\n)?\s*if \(isOnlinePage\(\) && !opts\?\.travelShip\) \{ townTalk\.say\(ONLINE_LAND_TRAVEL_REFUSAL\); hudFade\.clearFade\(\); \} else fastTravelTo\(pick, opts, computed\);/,   // PIN MOVED (TO-ROADS): a routed trip's refusal (the Overworld's, or a first-person route's); PIN MOVED (AUDIT TRAVEL-ONLINE T7): online a trip over land never reaches it
     'the walked trip is tried first (with the popup\'s estimate riding along - AUDIT-TO1 L5) and fast travel is the fallback (AUDIT OW3 J2: never for a walk the Overworld refused)');
   // TO-ONLINE (2026-09-19, Mac: "travel options uses instant travel for the
   // online mod, which shouldn't be the case"): the journey RUNS online. The

@@ -199,7 +199,7 @@ import { SPAWNER_ARMS } from '../systems/encounters.js';   // SURV6: the hunt's 
 import { skillValue } from '../systems/skills.js';   // SURV6: the hunter's four skills
 import { refreshMentor, mentorStatusText, effectiveLevel } from '../systems/mentorMode.js';
 import { setMasterSkillsGate, MASTER_SKILLS_DUNGEON_TEXT } from '../systems/masterSkills.js';   // SOFTCAP3
-import { isOnlinePage } from '../systems/onlineLane.js';   // SOFTCAP3: Master Skills is online only
+import { isOnlinePage, ONLINE_LAND_TRAVEL_REFUSAL } from '../systems/onlineLane.js';   // SOFTCAP3: Master Skills is online only; AUDIT TRAVEL-ONLINE T7: the map's floor
 // SOFTCAP1: mentor mode, the party's overlay
 import { inflictDisease } from '../systems/diseases.js';   // SURV6: a foul pool's water
 import { createHunting, HUNT_PENDING_NEAR_M } from './hunting.js';   // SURV6: hunting, foraging and the water search as real-time events
@@ -464,7 +464,7 @@ import { raidersNear, raiderAt, raiderSight, chaseStep as raiderChaseStep, pixel
 import { RAIDER_LEAD_S } from '../systems/naval/navalRaiders.js';   // NAV-R: a raider ship steers its seeded course this far on
 import { setRaidingPartiesHost, raidFrame as raidingPartiesFrame, raidState, raidingPartiesOn, raidTypeName as raidKindName, raidDefendingHere, outOfSight as raidOutOfSight, raidWireWord, raidPeerWord, raidRelayWord, raidTownsFor, RAID_SPAWN_MIN_DISTANCE, RAID_SPAWN_MAX_DISTANCE } from '../systems/raidingParties.js';   // RAID1: World Events - Raiding Parties, the towns' raids
 import { modSaveRecords, restoreModSaveRecords, newGameModSaveRecords, registerModSaveData } from '../systems/modSaveData.js';   // WA1: DFU's per-mod save slot, for the mods after HCC; OH-D: Ocean Holes' OceanHoleSaveData
-import { applyDeathPenalty, deathPenaltyText, stateDeathLoss, statedDeathLoss } from '../systems/deathPenalty.js';   // DEATH-PENALTY: an online death costs a quarter of the purse
+import { applyDeathPenalty, deathPenaltyText, stateDeathLoss, statedDeathLoss } from '../systems/deathPenalty.js';   // DEATH-PENALTY: an online death costs a tenth of the purse
 import { createBountyHost } from './bountyHost.js';   // BOUNTY1: the town's bounty boards - the hunts, their packs, their purse
 import { createBountyFarms, farmSpotLocal, pickFarm } from './bountyFarms.js';   // BOUNTY-FARM: a farm on a farm bounty's pixel, while it is held
 import { questBoardIndices } from '../systems/bountyBoard.js';   // BOUNTY1: which of a town's boards post bounties (half)
@@ -5119,7 +5119,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     // Mac's word, and the whole of it: `resting` is not a fatigue knob,
     // it is the needs' one word for "sat still", and three other laws
     // read it. It held the bare-skin block's naked-cold and sunburn
-    // ticks and the byFire exposure damage (needs.js:538, :514) - the
+    // ticks and the byFire exposure damage (needs.js:544, :520) - the
     // health Mac wants ticking - and, the one TO-FIELD never counted,
     // it shut the HUNTING roll off entirely (hunting.js:120 refuses on
     // `resting`), so a traveller could not hunt on the road at all.
@@ -13050,7 +13050,7 @@ export async function bootWorld(canvas, renderer, params, status) {
       // said, and done. It fell through to the fast travel below: a paid teleport straight past the mountain rule.
       // TO-ROADS: a first-person route's refusal the same - never the straight walk, never the teleport
       if (opts?.playerControlled && tvRoutesJourneys()) return;
-      fastTravelTo(pick, opts, computed);
+      if (isOnlinePage() && !opts?.travelShip) { townTalk.say(ONLINE_LAND_TRAVEL_REFUSAL); hudFade.clearFade(); } else fastTravelTo(pick, opts, computed);   // AUDIT TRAVEL-ONLINE T7: online a trip over land is never the teleport - the floor under the room's switches (systems/onlineLane.js)
     } });
     if (!_travelMap) { townTalk.say('(the travel map art is unavailable)'); return false; }
     if (_travelGoto) { _travelMap.gotoPlace(_travelGoto); _travelGoto = null; }   // GotoPlace (:214-217), consumed on the map's first tick - AUDIT PARTY-UI2 1: this open's, or one a refused open kept
