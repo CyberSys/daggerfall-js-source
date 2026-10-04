@@ -1330,6 +1330,7 @@ const VENDOR_CITES = [
   // by nothing because the completeness sweep below exempted the hosts.
   ['.cs:483-512', /else if \(CheckComponent<QuestResourceBehaviour>\(hit, out comp\)\)/, /^ {36}\}$/],
   ['.cs:509', /ResolveItemLongName\(\(\(Item\)qrb\.TargetResource\)/, null],
+  ['.cs:489', /if \(qrb\.TargetResource is Item\)/, null],   // FIELD BUGS 2026-10-04b QUEST-ITEM-NAMED: the stand namer's `is Item` gate
   ['.cs:526', /ret = loot\.entityName \+ " \(dead\)";/, null],
   ['.cs:534-548', /case LootContainerTypes\.DroppedLoot:/, /^ {40}break;$/],
   ['.cs:549-551', /case LootContainerTypes\.ShopShelves:/, /^ {40}break;$/, /^                                        ret = "Shop Shelf";$/],

@@ -158,7 +158,7 @@ import { raceWinner } from '../player/activationRace.js';   // WORLD-HOVER: the 
 import { worldHoverFrame, hideWorldPlaque, destroyWorldPlaque } from '../ui/worldPlaque.js';   // WORLD-HOVER: the one seam each host calls, and the hide door for the branches that return above it
 import { quickLootTake, quickLootSpend, plaqueActionFor } from '../systems/quickLoot.js'; import { showPickups } from '../ui/pickupFeed.js';   // QUICK-LOOT B4: the take, through the window's own door; HOME2: the verb the plaque lit over a door; PICKUP-FEED: what a take moved, as cards (the take's `took`)
 import { lootPile } from '../player/lootStack.js';   // LOOT-STACK: the pile under the reticle, as the loot window's tabs
-import { staticDoorName, npcHoverName, questResourceName, worldTooltipsOn, hideInteractTooltip,
+import { staticDoorName, npcHoverName, questStandName, worldTooltipsOn, hideInteractTooltip,
   houseContainerName, houseContainerHover, actionName, actionDoorName, lootPileName,
   BOOKSHELF_TEXT, SHOP_SHELF_TEXT, LADDER_TEXT, BULLETIN_BOARD_TEXT, mobileEntityName, liveEntityName } from '../systems/worldTooltips.js';   // WORLD-HOVER: the mod's ladder for the families THIS host stands   // WORLD-HOVER: the mod's ladder for the families THIS host stands
 import { LOCATION_TYPES, REGION_NAMES } from '../formats/mapsFile.js';   // WORLD-HOVER: .cs:777-782 - a dungeon exit names its town, or the region   // WORLD-HOVER: the texture record is DERIVED at its one reader, off the stored model id
@@ -2343,13 +2343,13 @@ export function createWorldModes(host) {
       }
       // .cs:483-512 - a quest ITEM stand only; a person or foe stand
       // answers nothing, as the mod's `is Item` gate does.
-      if (key.startsWith('questflat:')) {
-        const st = questFlats[Number(key.split(':')[1])];
-        const res = st?.behaviour?.targetResource ?? null;
-        if (!res || res.isPerson === true || res.isFoe === true) return null;
-        const t = questResourceName(res.daggerfallItem ?? res.item ?? null, { archive: st.archive ?? -1, record: st.record ?? -1 });
-        return t ? { title: t } : null;
-      }
+      // FIELD BUGS 2026-10-04b QUEST-ITEM-NAMED: through the one namer
+      // the dungeon's ladder asks too (worldTooltips.js questStandName),
+      // which names the item the stand carries. This arm read
+      // `daggerfallItem ?? item`, which no Item resource has, so every
+      // quest item a building stood - the Priestess Robes O0A0AL00 sends a
+      // thief for among them - was nameless while the wardrobes were named.
+      if (key.startsWith('questflat:')) return questStandName(questFlats[Number(key.split(':')[1])]);
       return null;
     },
   ]);
@@ -8127,11 +8127,11 @@ export function createWorldModes(host) {
       // nothing, exactly as the mod's `is Item` gate does.
       ctx.addActivationNamer((key) => {
         if (typeof key !== 'string' || !key.startsWith('questflat:')) return null;   // AUDIT-WH2 L2-F5: C1's guard
-        const st = dungeonQuestFlats[Number(key.split(':')[1])];
-        const res = st?.behaviour?.targetResource ?? null;
-        if (!res || res.isPerson === true || res.isFoe === true) return null;
-        const t = questResourceName(res.daggerfallItem ?? res.item ?? null, { archive: st.archive ?? -1, record: st.record ?? -1 });
-        return t ? { title: t } : null;
+        // FIELD BUGS 2026-10-04b QUEST-ITEM-NAMED: the interior's one namer (worldTooltips.js
+        // questStandName) - this arm read the same field no Item resource has, so a quest item a
+        // dungeon stood read nothing but the Totem; and, as the interior's arm, only with the mod on.
+        if (!worldTooltipsOn()) return null;
+        return questStandName(dungeonQuestFlats[Number(key.split(':')[1])]);
       });
       _dungeonAuthority = host.dungeonAuthority?.() ?? true; ctx.setAuthority?.(_dungeonAuthority);   // WORLD2: a dungeon built while another hosts starts as puppets
       // P10 host parity (2026-08-16 audit: only the standalone scene
