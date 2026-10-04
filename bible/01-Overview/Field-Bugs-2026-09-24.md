@@ -1001,7 +1001,7 @@ The hand-off is RIDE's: `isRiding` is true only once the art is up, so while
 it loads or has failed, and in a build without it, DISC12's enemy sprite
 still stands for them. A beast is never nothing.
 
-The modal passes (`worldModes.js:9109` the dungeon, `:9319` the interior)
+The modal passes (`worldModes.js:9132` the dungeon, `:9342` the interior)
 draw only `host.extraBillboards`. That was `remotePlayers.batches()` alone,
 so a beast drawn by the rider layer would have been nothing indoors and
 underground. It hands over both layers' batches now (`world.js:22075`). A
@@ -1072,12 +1072,12 @@ the scene the picture takes in:
 **Hosts.** Every Morrowind body in the port goes through `drawThird`. The
 local player's goes through `mwView.mwViewDrawBody` (`mwView.js:395`,
 `:339`), which four files call: `world.js:26372`, `exterior.js:5462`,
-`worldModes.js:9097` and `:9209` (the dungeon and the interior passes),
+`worldModes.js:9120` and `:9232` (the dungeon and the interior passes),
 and `dungeon.js:1107`. `dungeonContext.js`, the fourth motor host, builds
 the dungeon for those hosts and draws no body of its own. The other players'
 bodies go through `peerBodies.js:695` (`PeerBodies.draw`, and INVIS-LOOK's `drawVeiled`, by `_drawBodies`). The open world
 calls it at `world.js:26373`, and the modal passes reach it through
-`host.drawPeerBodies` (`worldModes.js:9098`, `:9210`). The fix therefore
+`host.drawPeerBodies` (`worldModes.js:9121`, `:9233`). The fix therefore
 sits in one place and reaches every host.
 
 The pins are `test/prbow1_bow.test.js`: seven tests, all failing on the
@@ -1100,7 +1100,7 @@ is folded off its positions. The fold's results are unchanged:
 pins stand.
 
 **The portrait.** `fpArm.figure()` draws the enhanced inventory's model
-figure (`enhancedInventory.js:1688`), which is shown in a 110:184 cell with
+figure (`enhancedInventory.js:1691`), which is shown in a 110:184 cell with
 object-fit: contain (`enhancedStyle.js:4450`). It framed `meshBounds` over
 EVERY piece, then hid the unlit torch, the arrow off the string and the
 empty holster twin, so gear it did not show still moved the frame. Its width

@@ -139,6 +139,24 @@ export function questTransferRefused(item, { fromLocal, toWagon = false, getQues
   return false;
 }
 
+/**
+ * FIELD BUGS 2026-10-04b LOOT-CLICK: "Send click to quest system" - the FIRST act of RemoteItemListScroller_OnItemClick
+ * (DaggerfallInventoryWindow.cs:2027-2037), ahead of its action-mode branch: a quest item clicked in the REMOTE list (a
+ * body, a container, the ground) has its resource's PlayerClicked set, whatever the click then does - and the
+ * ClickedItem trigger (`clicked item _item_`) polls that flag. ONE door for every take off the remote side: the classic
+ * window's pick, the enhanced window's click, right-click and take, and quick loot's row and lot - which put the item
+ * in the pack and never told its quest, so R0C20Y07's sapphire, taken off the giant's body, never raised the friend it
+ * gates. Answers whether a resource heard it. DFU dereferences the Item it found unguarded; a symbol its quest no
+ * longer holds is nothing here, as the windows' own chain had it.
+ */
+export function sendQuestItemClick(item, getQuest = null) {
+  if (!item?.questItem) return false;
+  const resource = getQuest?.(item.questUID)?.getItem?.(item.questSymbol) ?? null;
+  if (!resource) return false;
+  resource.setPlayerClicked();
+  return true;
+}
+
 /** key "wagonFullGold" - the drop-gold clamp's box, Internal_Strings.csv:815
  *  verbatim ("Your wagon could only hold {0} gold pieces."), formatted
  *  with wagonCanHold at DaggerfallInventoryWindow.cs:1303. */

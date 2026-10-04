@@ -459,7 +459,7 @@ test('QL-WEIGHT1: a map is left for the window - it is a row the window USES rat
 
 test('AUDIT QL-WEIGHT1: a QUEST ITEM goes through the door with the host\'s own resolver - the plan resolves the quest, the item moves and its resource is marked picked up; with no resolver the plan refuses it (DFU\'s :1489), so the first cut refused every quest item on every corpse and swallowed the press (mutants: the resolver dropped on the way to the plan; the hosts passing none)', () => withQuickLoot(() => {
   const p = player();
-  const res = { allowDrop: false, playerDropped: true };
+  const res = { allowDrop: false, playerDropped: true, hasPlayerClicked: false, setPlayerClicked() { this.hasPlayerClicked = true; } };   // LOOT-CLICK: QuestResource's click, as the Item resource carries it
   const quest = { getItem: (sym) => (sym === '_ring_' ? res : null) };
   const getQuest = (uid) => (uid === 7 ? quest : null);
   const ring = () => item('Ring of Namira', { group: 'Jewellery', templateIndex: 133, questItem: true, questUID: 7, questSymbol: '_ring_' });
@@ -472,6 +472,7 @@ test('AUDIT QL-WEIGHT1: a QUEST ITEM goes through the door with the host\'s own 
   assert.deepEqual(items, [], 'off the body');
   assert.equal(p.items[0]?.questItem, true, 'in the pack');
   assert.equal(res.playerDropped, false, 'the resource knows it is carried again (the window\'s own write)');
+  assert.equal(res.hasPlayerClicked, true, 'LOOT-CLICK: and was clicked, as the window\'s remote click clicks it (test/fb1004b_lootclick.test.js)');
   assert.deepEqual(said, ['You take the Ring of Namira.']);
   // no resolver: the plan cannot find the quest and refuses, as the window would with `getQuest: null`
   items = [ring()];
