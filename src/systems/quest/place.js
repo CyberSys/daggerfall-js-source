@@ -29,6 +29,8 @@ import { generateBuildingName } from '../../world/buildingNames.js';
 import { surname, firstName, getNameBankOfRegion, GENDERS } from '../../characters/nameHelper.js';
 import { RDB_RESOURCE_TYPES } from '../../formats/blocksFile.js';
 import { stampLayout, layoutStampOfMapId, recordStands } from '../layoutPins.js';   // WD3: a building site keeps its town's layout
+import { questReachOn, questReachPixels, nearbyIndices, indicesWithin } from './questReach.js';   // NEARBY-QUESTS
+import { longitudeLatitudeToMapPixel } from '../../formats/mapsFile.js';
 
 export const Scopes = Object.freeze({ None: 'none', Local: 'local', Remote: 'remote', Fixed: 'fixed' });
 
@@ -329,6 +331,26 @@ export class Place extends QuestResource {
     const playerLocationIndex = world.currentLocationIndex?.() ?? -1;
     if (!regionData || regionData.locationCount === 0) return false;
 
+    // NEARBY-QUESTS: the towns within the reach, each tried once in a drawn order, then within twice it; only then
+    // DFU's darts over the whole region below (a quest that wants a building no near town has must still start)
+    const reach = this._questReach(world);
+    if (reach) {
+      const towns = [];
+      for (let i = 0; i < regionData.locationCount; i++) {
+        if (i !== playerLocationIndex && !this._isDungeonType(regionData.mapTable[i].locationType)) towns.push(i);
+      }
+      for (const r of [reach.pixels, reach.pixels * 2]) {
+        const pool = indicesWithin(regionData, towns, reach.origin, r);
+        if (pool === null) break;   // an unmeasured town: DFU's darts
+        if (this._tryTownPool(world, regionIndex, regionData, pool, requiredBuildingType)) return true;
+        if (requiredBuildingType >= BT_HOUSE1 && requiredBuildingType <= BT_HOUSE6) {
+          // DFU's house fallback (the 250th dart), at once here: no near town has that house - any house will do
+          requiredBuildingType = BT_ANY_HOUSE; this.p2 = -1;
+          if (this._tryTownPool(world, regionIndex, regionData, pool, requiredBuildingType)) return true;
+        }
+      }
+    }
+
     let attempts = 0;
     let found = false;
     while (!found) {
@@ -344,23 +366,51 @@ export class Place extends QuestResource {
       const locationIndex = this._range(regionData.locationCount);
       if (locationIndex === playerLocationIndex) continue;
       if (this._isDungeonType(regionData.mapTable[locationIndex].locationType)) continue;
-      const location = world.maps.getLocation(regionIndex, locationIndex);
-      if (!location?.loaded) continue;
-
-      let foundSites;
-      if (this.p2 === -1 && this.p3 === 0) foundSites = this._collectQuestSitesOfBuildingType(world, location, BT_ALL_VALID, this.p3);
-      else if (this.p2 === -1 && this.p3 === 1) foundSites = this._collectQuestSitesOfBuildingType(world, location, BT_ANY_HOUSE, this.p3);
-      else {
-        // The MAPS.BSA directory pre-check (can be inaccurate, always
-        // followed by the full block walk)
-        if (!this._hasBuildingType(location, requiredBuildingType)) continue;
-        foundSites = this._collectQuestSitesOfBuildingType(world, location, this.p2, this.p3);
-      }
-      if (!foundSites.length) continue;
-      this.siteDetails = foundSites[this._range(foundSites.length)];
-      found = true;
+      found = this._tryTownLocation(world, regionIndex, locationIndex, requiredBuildingType);
     }
     return found;
+  }
+
+  /** One dart's landing (SelectRemoteTownSite's loop body from the location load on, lifted verbatim so the darts and
+   *  NEARBY-QUESTS' pools share it): the site set and true, or false and nothing drawn. */
+  _tryTownLocation(world, regionIndex, locationIndex, requiredBuildingType) {
+    const location = world.maps.getLocation(regionIndex, locationIndex);
+    if (!location?.loaded) return false;
+
+    let foundSites;
+    if (this.p2 === -1 && this.p3 === 0) foundSites = this._collectQuestSitesOfBuildingType(world, location, BT_ALL_VALID, this.p3);
+    else if (this.p2 === -1 && this.p3 === 1) foundSites = this._collectQuestSitesOfBuildingType(world, location, BT_ANY_HOUSE, this.p3);
+    else {
+      // The MAPS.BSA directory pre-check (can be inaccurate, always
+      // followed by the full block walk)
+      if (!this._hasBuildingType(location, requiredBuildingType)) return false;
+      foundSites = this._collectQuestSitesOfBuildingType(world, location, this.p2, this.p3);
+    }
+    if (!foundSites.length) return false;
+    this.siteDetails = foundSites[this._range(foundSites.length)];
+    return true;
+  }
+
+  /** NEARBY-QUESTS: each town of `pool` once, in an order the quest's roll draws (Fisher-Yates), until one holds a site. */
+  _tryTownPool(world, regionIndex, regionData, pool, requiredBuildingType) {
+    const order = pool.slice();
+    for (let i = order.length - 1; i > 0; i--) { const j = this._range(i + 1); [order[i], order[j]] = [order[j], order[i]]; }
+    for (const locationIndex of order) if (this._tryTownLocation(world, regionIndex, locationIndex, requiredBuildingType)) return true;
+    return false;
+  }
+
+  /** NEARBY-QUESTS: the reach this quest's remote sites are drawn within - { origin, pixels } - or null for DFU's own
+   *  region-wide draw (the row off, or no pixel to measure from). The origin is the travel reckoning's own
+   *  (world.playerPixel, the quest clock's), else the player's location's pixel. */
+  _questReach(world) {
+    if (!questReachOn()) return null;
+    let origin = world.playerPixel?.() ?? null;
+    if (!origin) {
+      const t = world.currentLocation?.()?.mapTableData;
+      if (t) origin = longitudeLatitudeToMapPixel(t.longitude, t.latitude);
+    }
+    if (!origin || !Number.isFinite(origin.x) || !Number.isFinite(origin.y)) return null;
+    return { origin, pixels: questReachPixels(this.parentQuest?.hooks?.playerLevel?.() ?? 1) };
   }
 
   /** SelectRemoteDungeonSite (:880-935): types 0-16 only (17-18 carry
@@ -371,8 +421,10 @@ export class Place extends QuestResource {
     const regionData = world.maps.getRegion(regionIndex);
     if (!regionData || regionData.locationCount === 0) return false;
 
-    const foundIndices = this._collectDungeonIndicesOfType(regionData, dungeonTypeIndex);
+    let foundIndices = this._collectDungeonIndicesOfType(regionData, dungeonTypeIndex);
     if (!foundIndices.length) return false;
+    const reach = this._questReach(world);   // NEARBY-QUESTS: the dungeons within reach, or the nearest few
+    if (reach) foundIndices = nearbyIndices(regionData, foundIndices, reach.origin, reach.pixels);
     const index = this._range(foundIndices.length);
     const location = world.maps.getLocation(regionIndex, foundIndices[index]);
     if (!location?.loaded) return false;
@@ -407,11 +459,13 @@ export class Place extends QuestResource {
     const regionIndex = world.currentRegionIndex();
     const regionData = world.maps.getRegion(regionIndex);
     if (!regionData || regionData.locationCount === 0) return false;
-    const foundIndices = [];
+    let foundIndices = [];
     for (let i = 0; i < regionData.locationCount; i++) {
       if (locationTypeIndex === -1 || regionData.mapTable[i].locationType === locationTypeIndex) foundIndices.push(i);
     }
     if (!foundIndices.length) return false;
+    const reach = this._questReach(world);   // NEARBY-QUESTS
+    if (reach) foundIndices = nearbyIndices(regionData, foundIndices, reach.origin, reach.pixels);
     const location = world.maps.getLocation(regionIndex, foundIndices[this._range(foundIndices.length)]);
     if (!location?.loaded) return false;
     this.siteDetails = {
