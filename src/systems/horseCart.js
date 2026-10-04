@@ -56,7 +56,7 @@ import {
   GROUND_RETRY_SECONDS, POSE_POSITION_TOLERANCE_SQ, POSE_ANGLE_TOLERANCE_DEG, signedLongitudinalTravel, wheelRotationDegrees, wrapWheelAngle, cargoTier,
   stepHorseWalk, freshHorseWalk, hccActionRows,   // ACT-MENU: the plaque's rows over my three activators
 } from './horseCartLaw.js';
-import { HorseFollowController, WagonHitch, hitchedPoseStep, tryFindGround } from './horseFollow.js';   // WAGON-HITCH: the moving wagon on its shafts (the IL's WagonTrail / groundedPoseStep stay in horseFollow.js as the record)
+import { HorseFollowController, WagonHitch, hitchedPoseStep, hitchJumpReach, tryFindGround } from './horseFollow.js';   // WAGON-HITCH: the moving wagon on its shafts (the IL's WagonTrail / groundedPoseStep stay in horseFollow.js as the record)
 import { quatLookRotation, quatForward, quatFromBasis, quatRotate, UNITY_QUAT_IDENTITY } from '../world/quat.js';
 
 /** KB1: the mod's two hotkeys are the port's keybinding registry's actions (systems/inputActions.js MOD_ACTIONS) -
@@ -321,7 +321,7 @@ export function createHorseCartRuntime(deps) {
     }
     wagonVisual = {
       parts,
-      pose: { position: [...V_ZERO], rotation: [...UNITY_QUAT_IDENTITY], active: false, lastValidPosition: [...V_ZERO], lastValidRotation: [...UNITY_QUAT_IDENTITY], hasLastValid: false, up: [0, 1, 0], hitch: null },   // WAGON-HITCH: the eased ground normal and the point it hangs from
+      pose: { position: [...V_ZERO], rotation: [...UNITY_QUAT_IDENTITY], active: false, lastValidPosition: [...V_ZERO], lastValidRotation: [...UNITY_QUAT_IDENTITY], hasLastValid: false, up: [0, 1, 0], hitch: null, axle: null },   // WAGON-HITCH: the eased ground normal, the point it hangs from, where its wheels stand
       wheel: { has: false, prevPos: [...V_ZERO], prevFwd: [...V_FORWARD], angle: 0 },
       cargoTier: 0, interaction: false,
     };
@@ -342,6 +342,10 @@ export function createHorseCartRuntime(deps) {
   function resetWheelMotionState() { if (wagonVisual) wagonVisual.wheel = { has: false, prevPos: [...V_ZERO], prevFwd: [...V_FORWARD], angle: 0 }; }
   const wagonActive = () => !!wagonVisual?.pose.active;
   const wagonPosition = () => wagonVisual.pose.position;
+  /** AUDIT WAGON-HITCH A1: where the moving wagon's WHEELS stand - the point a parked one is stood again at, so the
+   *  hitched horse comes to stand where the rider sat on a slope too (the drawn position leans a metre up the ground's
+   *  normal, downhill of it). */
+  const wagonAxle = () => wagonVisual.pose.axle ?? wagonVisual.pose.position;
   const wagonForward = () => quatForward(wagonVisual.pose.rotation);
   function destroyDeployedWagonPresentation() { if (deployedVisual) { deployedVisual.release(); deployedVisual = null; changed(); } nextDeployedSpawnRetryTime = 0; deployedSpawnFailureLogged = false; }
   function destroyStationaryHorsePresentation() { if (stationaryHorseVisual) { stationaryHorseVisual.release(); stationaryHorseVisual = null; changed(); } nextHorseSpawnRetryTime = 0; horseSpawnFailureLogged = false; horseFollower.resetTransient(); }
@@ -446,7 +450,7 @@ export function createHorseCartRuntime(deps) {
   }
   function tryGetLiveFollowingWagonPose() {
     if (!isTeamFollowing() || !wagonVisual || !wagonActive() || !hasLastValidGroundState) return null;
-    return { position: [...wagonPosition()], heading: horizontalForward(wagonForward()) };
+    return { position: [...wagonAxle()], heading: horizontalForward(wagonForward()) };
   }
   function tryGetPhysicalWagonScene() {
     if (wagonState.Mode === WAGON_MODE.Deployed) return tryGetRelevantDeployedScene();
@@ -483,12 +487,12 @@ export function createHorseCartRuntime(deps) {
   function cacheMovingWorldPose() {
     if (!wagonVisual || !wagonActive() || !hasLastValidGroundState || pee().isPlayerInside()) return;
     const heading = horizontalForward(wagonForward());
-    [movingWorldX, movingWorldZ] = toWorld(wagonPosition());
+    [movingWorldX, movingWorldZ] = toWorld(wagonAxle());
     movingWorldHeading = heading; hasMovingWorldPose = true;
   }
   function cacheFollowingWagonWorldPose() {
     if (!wagonVisual || !wagonActive() || !hasLastValidGroundState || !isTeamFollowing()) return;
-    [wagonState.WorldX, wagonState.WorldZ] = toWorld(wagonPosition());
+    [wagonState.WorldX, wagonState.WorldZ] = toWorld(wagonAxle());
     const h = horizontalForward(wagonForward()); wagonState.HeadingX = h[0]; wagonState.HeadingZ = h[2]; wagonState.Version = WAGON_SAVE_VERSION;
   }
   function cacheFollowingHorseWorldPose() {
@@ -1133,14 +1137,11 @@ export function createHorseCartRuntime(deps) {
    *  mounted (`hitchSeed`), laid fresh behind the team after a jump. */
   function updateMovingPresentation(weight, limit, dt) {
     const m = movement();
-    let seed = null;
-    if (!wagonVisual) {
-      if (!createWagonVisual()) return;
-      seed = hitchSeed;
-    }
+    const seed = wagonVisual ? null : hitchSeed;   // AUDIT WAGON-HITCH A5: spent here whether the visual stands or not
     hitchSeed = null;
+    if (!wagonVisual && !createWagonVisual()) return;
     updateCargoFullness(weight, limit);
-    if (hitch.observe(m.position)) relayHitch();
+    if (hitch.observe(m.position, hitchJumpReach(dt))) relayHitch();   // AUDIT WAGON-HITCH A3: a jump is past what the step's game time could cover
     applyHitchedPose(m.position, m.forward, dt, seed);
     updateWheelAnimation();
     cacheMovingWorldPose();
@@ -1169,7 +1170,7 @@ export function createHorseCartRuntime(deps) {
       followingWagonFailureLogged = false; nextFollowingWagonSpawnRetryTime = 0;
     }
     updateCargoFullness(weight, limit);
-    const jumped = hitch.observe(horse.position);
+    const jumped = hitch.observe(horse.position, hitchJumpReach(dt));   // AUDIT WAGON-HITCH A3/A4
     if (!seed && (jumped || (!horseFollower.isCombatEvading && horseRecoveredThisFrame))) {
       seed = wagonActive() ? [...wagonPosition()] : null;
       wagonVisual.pose.active = false; wagonVisual.pose.hasLastValid = false; hasLastValidGroundState = false; resetWheelMotionState();
@@ -1284,6 +1285,7 @@ export function createHorseCartRuntime(deps) {
       const p = wagonVisual.pose;
       p.position = vadd(p.position, d); p.lastValidPosition = vadd(p.lastValidPosition, d);
       if (p.hitch) p.hitch = vadd(p.hitch, d);
+      if (p.axle) p.axle = vadd(p.axle, d);
       if (wagonVisual.wheel.has) wagonVisual.wheel.prevPos = vadd(wagonVisual.wheel.prevPos, d);
     }
     deployedVisual?.offset(d); stationaryHorseVisual?.offset(d);

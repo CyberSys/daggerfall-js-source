@@ -271,6 +271,14 @@ const isShiftCode = (code, e = null) =>
   code === 'ShiftLeft' || code === 'ShiftRight'
   || e?.code === 'ShiftLeft' || e?.code === 'ShiftRight'
   || e?.key === 'Shift';
+/** Which of the two Shift keys a press is (AUDIT SHIFT-STOW: one let go while the other is held is not Shift up). */
+const shiftSide = (code, e = null) => (code === 'ShiftRight' || e?.code === 'ShiftRight' ? 'R' : 'L');
+/** AUDIT SHIFT-STOW C4: the page losing the keyboard (a switch of window) - a Shift let go out there sends this page no
+ *  key-up, and `click` carries no event of its own to say so, so a Shift seen before the loss is not trusted after it
+ *  until a key or the pointer says it again. One listener for the module's life. */
+let _focusLosses = 0;
+export const noteFocusLost = () => { _focusLosses++; };
+if (typeof globalThis.addEventListener === 'function') globalThis.addEventListener('blur', noteFocusLost);
 
 /** AUDIT 17e F36 - RefreshArmourValues' displayed number
  *  (PaperDoll.cs:159-173): (100 - armorValue) / 5, plus armorMod
@@ -461,8 +469,10 @@ export class NativeInventoryWindow {
     this.inputBox = null;
     this._controlDown = false;
     // SHIFT-STOW (2026-10-04, Mac: "shift click to deposit items (like materials) needs to be a thing"): Shift held as
-    // Control is - a state from its down edge to its up edge, and the pointer's own word on every move (hover)
-    this._shiftDown = false;
+    // Control is - a state from its down edge to its up edge, per key, and the pointer's own word on every move (hover);
+    // read through `_shiftDown`
+    this._shiftKeys = new Set();
+    this._shiftSeen = _focusLosses;
     this._icon = makeIconDrawer(hooks.icons, () => hooks.entity);   // AUDIT 17f: icons follow the wearer's morphology
     this._accessoryIcon = makeAccessoryIconDrawer(hooks.icons, () => hooks.entity);   // the twelve worn slots
     if (hooks.entity) refreshPaperDoll(hooks.entity);   // U8g: the doll composes fresh on open
@@ -899,6 +909,9 @@ export class NativeInventoryWindow {
     return this.mode;
   }
 
+  /** SHIFT-STOW: Shift is down - a key of the two held, and seen since the page last lost the keyboard. */
+  get _shiftDown() { return this._shiftKeys.size > 0 && this._shiftSeen === _focusLosses; }
+
   /** SHIFT-STOW: whether the remote list is one of the player's own stores - the wagon, or their storage (SHIP-STORE's
    *  `loot.storage`). A corpse, a container, a reward tray and the ground keep the plain click. */
   _shiftStores() {
@@ -1111,7 +1124,10 @@ export class NativeInventoryWindow {
   input(code, e = null) {
     // CM5: Input.GetKey(Control)'s down edge; keyup below is the other
     if (isControlCode(code, e)) this._controlDown = true;
-    if (isShiftCode(code, e)) this._shiftDown = true;   // SHIFT-STOW
+    if (isShiftCode(code, e)) {   // SHIFT-STOW
+      this._shiftKeys.add(shiftSide(code, e)); this._shiftSeen = _focusLosses;
+      if (e?.repeat) return;   // AUDIT SHIFT-STOW C3: a HELD Shift repeats its down edge (Windows) - never a key that answers a box
+    }
     if (this.inputBox) {
       this.inputBox.input(code, e);   // the pushed box owns the keyboard
       if (this.inputBox.done) this.inputBox = null;
@@ -1310,7 +1326,11 @@ export class NativeInventoryWindow {
     this._mouse = [vx, vy];
     // SHIFT-STOW: the pointer says whether Shift is down on every move - a Shift pressed before the window opened, or
     // let go while the page had no focus, is right again by the time the cursor reaches a row
-    if (typeof e?.shiftKey === 'boolean') this._shiftDown = e.shiftKey;
+    if (typeof e?.shiftKey === 'boolean') {
+      if (!e.shiftKey) this._shiftKeys.clear();
+      else if (!this._shiftKeys.size) this._shiftKeys.add('L');
+      this._shiftSeen = _focusLosses;
+    }
     // MAC-N2: VerticalScrollBar.Update (:101-130) - while button 0 is
     // held the latched thumb follows the cursor, wherever the cursor
     // goes (DFU keeps dragging off the bar); the frame it reads the
@@ -1530,7 +1550,7 @@ export class NativeInventoryWindow {
     if (hit) {
       // SHIFT-STOW: Shift and the left button on a pack row put the whole stack into the player's own store beside it
       // (the wagon, their storage) whatever the action mode - Remove's own transfer, with no how-many popup
-      if (hit.kind === 'slot' && !right && !middle && this._shiftDown && this._shiftStores()) this._pick(hit.slot, 'remove', true);
+      if (hit.kind === 'slot' && !right && this._shiftDown && this._shiftStores()) this._pick(hit.slot, 'remove', true);   // (the middle button never reaches here - _middleClick answers it above)
       else if (hit.kind === 'slot') this._pick(hit.slot, mode);
       // MAC-N2: a press ON the thumb latches the drag (VerticalScrollBar
       // .Update :110-113) - button 0 alone, as GetMouseButton(0) is.
@@ -1561,7 +1581,7 @@ export class NativeInventoryWindow {
   /** ROAD-E E1's key-up half: only the Control state reads it here. */
   keyup(code, e = null) {
     if (isControlCode(code, e)) this._controlDown = false;
-    if (isShiftCode(code, e)) this._shiftDown = false;   // SHIFT-STOW
+    if (isShiftCode(code, e)) this._shiftKeys.delete(shiftSide(code, e));   // SHIFT-STOW
   }
 
   draw(renderer, canvas, font) {

@@ -6028,12 +6028,15 @@ void main() { vec4 t = texture(uTex, vUV); if (t.a < 0.5) discard; outColor = ve
     return mesh._wire;
   }
 
-  drawMesh(mesh, modelMatrix, texRemap = null) {
+  /** `noShadow` (AUDIT WAGON-HITCH B2): the draw casts nothing into the sun's cascades - a mesh drawn GROWN under the
+   *  travel view (OW-BIG's law: a grown figure casts no giant's shadow, as the sprite's selfCard and peerRiders'
+   *  noShadow are off). */
+  drawMesh(mesh, modelMatrix, texRemap = null, { noShadow = false } = {}) {
     this._close2D();   // PERF-2D: the baseline back, before anything that needs it
-    this._drawMeshBundle(mesh, modelMatrix, texRemap, false);
+    this._drawMeshBundle(mesh, modelMatrix, texRemap, false, noShadow);
   }
 
-  _drawMeshBundle(mesh, modelMatrix, texRemap, wire) {
+  _drawMeshBundle(mesh, modelMatrix, texRemap, wire, noShadow = false) {
     this._close2D();   // PERF-2D: the baseline back, before anything that needs it
     // NEVER TRAPS. A mesh that is absent, or one whose subMeshes never
     // arrived, is game DATA missing - a model id the player's ARCH3D
@@ -6070,7 +6073,7 @@ void main() { vec4 t = texture(uTex, vUV); if (t.a < 0.5) discard; outColor = ve
     this._use(this.program);
     this._uploadCloudShadow('mesh');   // VC4
     gl.uniformMatrix4fv(this.uModel, false, modelMatrix);
-    if (!wire && this._casting) this._shadows.recordMesh(mesh, modelMatrix, texRemap, 1 - (this._dissolve ?? 1));   // EL2; AUDIT BAY A12: a fading ship's share of her shadow
+    if (!wire && !noShadow && this._casting) this._shadows.recordMesh(mesh, modelMatrix, texRemap, 1 - (this._dissolve ?? 1));   // EL2; AUDIT BAY A12: a fading ship's share of her shadow; AUDIT WAGON-HITCH B2: never a grown mesh's
     this._bindVao(wire ? wireMesh.vao : mesh.vao);
     for (let smi = 0; smi < mesh.subMeshes.length; smi++) {
       const sm = mesh.subMeshes[smi];

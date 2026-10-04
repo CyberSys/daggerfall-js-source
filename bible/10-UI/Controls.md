@@ -211,7 +211,10 @@ Law 2's: Shift is the pack's own modifier, not a registry action. It is read the
 click, the classic window's hover). Shift and the LEFT button on a pack item put the whole stack into the player's own
 store beside it - the wagon, their storage, and (enhanced) the Materials Bag - in any action mode, with no how-many
 popup; Control's popup is DFU's and stays as it was. The ground, a corpse, a container and a reward tray keep the
-plain click. A right click stays the mode swap. Port-Ledger A, SHIFT AND A CLICK STOW THE WHOLE STACK.
+plain click. A right click stays the mode swap. The classic window's latch is per key (one Shift let go while the
+other is held is still Shift), is never trusted across the page losing the keyboard, and a held Shift's repeated down
+edge answers no box (AUDIT SHIFT-STOW). Shift is also Run's default key: holding Run while clicking a pack item beside
+the wagon deposits it. Port-Ledger A, SHIFT AND A CLICK STOW THE WHOLE STACK.
 
 ## The defaults
 

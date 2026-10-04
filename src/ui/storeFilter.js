@@ -8,6 +8,11 @@
 // a house's cupboards, a placed chest - SHIP-STORE) and the Materials Bag. A corpse, a container, the ground and a
 // reward tray stay as they were: those are a glance and a take, and their window never scrolls (PX21e).
 //
+// AUDIT WAGON-FILTER C1: ONE ROW - the search and a category menu side by side. The first cut stood a wrapping row of
+// chips under the search and a hint under them, 202-236 px of fixed furniture in a frame PX21e keeps from scrolling:
+// measured in Chromium, a phone on its side kept 1 px of the wagon's list (it had 203), and a 1366x625 screen 3 rows of
+// 7.
+//
 // The categories are the pack's own nine pages (packPages.js pageOf - one law for where an item lives, never a second
 // copy) plus MATERIALS, the Materials Bag's own test (materialsBag.js isMaterialItem: every herb, food, ore, ingot,
 // log, hide and reagent the professions mint). It crosses the pages - an ingot is Misc and a herb Ingredients - which
@@ -20,11 +25,12 @@ import { isMaterialItem } from '../systems/materialsBag.js';
 
 /** The remote kinds (enhancedInventory.js remoteModel) that are the player's own stores. */
 export const STORE_FILTER_KINDS = Object.freeze(new Set(['wagon', 'storage', 'bag']));
-/** The categories, in the order the chips show them: [id, label]. */
+/** The categories, in the order the menu lists them: [id, label]. */
 export const STORE_FILTERS = Object.freeze([['all', 'All'], ['materials', 'Materials'], ...PACK_PAGES]);
 const IDS = new Set(STORE_FILTERS.map(([id]) => id));
-/** The filter a fresh pane opens on. */
-export const freshStoreFilter = () => ({ cat: 'all', query: '' });
+/** The filter a store opens on - fresh for every store shown (AUDIT WAGON-FILTER: the wagon's category and search
+ *  followed the player into the bag, which showed "Nothing here matches." over a bag that held an ingot). */
+export const freshStoreFilter = (kind = null) => ({ kind, cat: 'all', query: '' });
 
 /** Whether an item answers a category. Total over the ids; an id the list does not have answers everything. */
 export const storeFilterAccepts = (it, cat) => (!IDS.has(cat) || cat === 'all' ? true : cat === 'materials' ? isMaterialItem(it) : pageOf(it) === cat);
@@ -45,13 +51,13 @@ export function filterStore(items, { cat = 'all', query = '' } = {}, nameOf = (i
 }
 
 /**
- * The chips: All, then every category the store holds something of, each with its count - and the chosen one even
- * when it holds nothing now (the last ingot just taken out), so the lit chip never vanishes from under the hand.
+ * The menu's entries: All, then every category the store holds something of, each with its count - and the chosen one
+ * even when it holds nothing now (the last ingot just taken out), so the choice never vanishes from under the hand.
  * @param {any[]} items
  * @param {string} chosen
  * @returns {{ id: string, label: string, count: number }[]}
  */
-export function storeFilterChips(items, chosen = 'all') {
+export function storeFilterOptions(items, chosen = 'all') {
   const out = [];
   for (const [id, label] of STORE_FILTERS) {
     const count = id === 'all' ? items.length : items.filter((it) => storeFilterAccepts(it, id)).length;

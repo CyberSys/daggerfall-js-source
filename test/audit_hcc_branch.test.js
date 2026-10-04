@@ -44,7 +44,7 @@ test('AUDIT BRANCH IL2 [SeedTrail IL_5968-IL_59e7]: a jump re-seeds the trail AN
   assert.ok(Math.abs(parked[0] - w.pos[0]) < 1 && parked[2] < w.pos[2], `parked behind the player, not 200 m back: ${parked}`);
 });
 
-test('AUDIT BRANCH IL3 [IL_51ef-IL_51f9]: a following team whose horse jumped re-seeds its path FROM THE WAGON - the wagon stands between the horse and where it was, on its shafts (WAGON-HITCH: HITCHED_HORSE_LOCAL_Z off, the IL\'s 2.5 m trail retired) (mutant: the seed forgets the wagon)', () => {
+test('AUDIT BRANCH IL3 [IL_51ef-IL_51f9]: a following team whose horse jumped re-seeds its path FROM THE WAGON - the wagon stands between the horse and where it was, on its shafts (WAGON-HITCH: HITCHED_HORSE_LOCAL_Z off, the IL\'s 2.5 m trail retired), SNAPPED there (mutants: the seed forgets the wagon; the reset gone; the jump unread; the pose kept active)', () => {
   const { rt, w, step, walk } = makeWorld();
   step(); rt.tryUseTransport(TRANSPORT.Cart); step(); walk(10);
   w.mode = TRANSPORT.Foot; step(3);
@@ -54,8 +54,10 @@ test('AUDIT BRANCH IL3 [IL_51ef-IL_51f9]: a following team whose horse jumped re
   walk(15); step(60);
   const horse = rt.view().horse.position;
   horse[0] += 100;   // the horse re-grounded far off (the follower's 20 m re-ground, a stuck recovery)
+  w.ground = 3;   // AUDIT WAGON-HITCH M1: onto ground three metres up - a re-seed SNAPS the wagon there, as the IL's reset does
   step(1);
   const h = rt.view().horse.position, p = rt.view().moving.pose.position;
+  assert.ok(Math.abs(p[1] - (3 + 1)) < 1e-9, `snapped onto the new ground a metre up, not eased toward it: ${p[1]}`);
   assert.ok(Math.abs(Math.hypot(h[0] - p[0], h[2] - p[2]) - HITCHED_HORSE_LOCAL_Z) < 1e-6, `on its shafts: horse ${h}, wagon ${p}`);
   assert.ok(h[0] - p[0] > HITCHED_HORSE_LOCAL_Z * 0.99, `toward where it was (the jump was +x; laid behind the horse's facing it would stand at -z): horse ${h}, wagon ${p}`);
 });

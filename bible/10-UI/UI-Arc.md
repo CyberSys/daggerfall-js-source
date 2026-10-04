@@ -14340,7 +14340,7 @@ items off your character."*
 
 It did not, and the whole of the reason is one line. INV1 hung the
 gesture on the pack's rows - `itemRow`'s `if (from === 'local')
-dragFrom(row, item)` (`ui/enhancedInventory.js:2406`) - and made the
+dragFrom(row, item)` (`ui/enhancedInventory.js:2408`) - and made the
 body a drop TARGET, with `equippedList` saying so in its own comment:
 *"the body is the equip target - `dragFrom`'s pointerup finds it by hit
 test, so the map needs no handler of its own"*. True for the direction
@@ -18814,17 +18814,20 @@ Port-Ledger A: THE PLAYER'S OWN STORES, FILTERED and SHIFT AND A CLICK STOW THE 
 750 kg, so finding one ingot in it meant scrolling the lot.
 
 - **Where it shows.** The remote pane of the player's OWN store: the wagon, their storage (SHIP-STORE) and the
-  Materials Bag (`ui/storeFilter.js STORE_FILTER_KINDS`). It sits between the head and the rows, as fixed furniture
-  (PX21e: the rows scroll, never the frame).
-- **The search.** It reads the row's own name (`itemLine`), trimmed, lower-cased and capped at 40. Typing refills the
-  rows in place, so the field is never rebuilt under the caret. A chip's repaint keeps the field's focus and caret
-  (`render`'s own arm). Back in the field clears it, then leaves it.
-- **The chips.** All, then MATERIALS, then the pack's nine pages, each with its count. Materials is the Materials
-  Bag's own test (`materialsBag.js isMaterialItem`) and crosses the pages: an ingot is Misc and a herb Ingredients.
-  The pages are `packPages.js pageOf`, never a second copy. Only what the store holds is shown, and the lit chip
-  stays at nought rather than vanishing from under the hand.
+  Materials Bag (`ui/storeFilter.js STORE_FILTER_KINDS`). It sits between the head and the rows as ONE row of fixed
+  furniture, 44 px - the search beside a category menu (PX21e: the rows scroll, never the frame).
+- **The search.** It reads the row's own name (`itemLine` - an unidentified piece is found by what it shows, never by
+  the name it hides), trimmed, lower-cased and capped at 40. Typing refills the rows in place, so the field is never
+  rebuilt under the caret; a repaint from elsewhere (an icon landing, a resize) gives it back its focus and caret.
+  Back in the field clears it, then leaves it, and the pack never sees that Back.
+- **The menu.** All, then MATERIALS, then the pack's nine pages, each with its count ("Materials (2)"). Materials is
+  the Materials Bag's own test (`materialsBag.js isMaterialItem`) and crosses the pages: an ingot is Misc and a herb
+  Ingredients. The pages are `packPages.js pageOf`, never a second copy. Only what the store holds is listed, and the
+  chosen one stays at nought rather than vanishing from under the hand. A choice refills the rows in place - a card
+  open on a pack item stays open.
 - **What does not change.** A take is `take(item)`, so a filtered list takes that piece out of the whole store. A
-  corpse, a container, the ground and a reward tray keep their whole list. The filter is fresh at every open.
+  corpse, a container, the ground and a reward tray keep their whole list. The filter is fresh for every store shown:
+  each open, each wagon or bag door pressed, and a store emptied.
 - **The classic skin draws none.** THE NATIVE-WINDOW RULE: DFU's parchment has no such control and no source for one.
 
 **Shift (both skins).**
@@ -18833,16 +18836,50 @@ Port-Ledger A: THE PLAYER'S OWN STORES, FILTERED and SHIFT AND A CLICK STOW THE 
   into the player's own store, in one press and in any action mode, through the one ladder (`planStore`).
 - **Enhanced.** The arm is `itemRow`'s, ahead of the double click, so a refused piece clicked twice is never worn.
   The card's how-many field does not apply. A line under the store's head says the gesture (`SHIFT_STOW_HINT`, in the
-  store's own verb), hidden on a touch screen, which has no Shift.
-- **Classic.** Shift is held as Control is (`_shiftDown`: the down edge, the up edge, and the pointer's `shiftKey` on
-  every hover). `_pick(slot, 'remove', true)` is Remove's own transfer, without TransferItem's split popup. Only the
-  wagon and the player's storage take it (`_shiftStores`); the classic skin has no bag pane.
+  store's own verb), its own element, hidden on a touch screen (no Shift) and a short one (the list first).
+- **Classic.** Shift is held as Control is - `_shiftDown`: each Shift key's down and up edge, the pointer's `shiftKey`
+  on every hover, and never trusted across the page losing the keyboard (a Shift let go out there sends no key-up, and
+  `click` carries no event of its own). A held Shift's repeated down edge answers no box. `_pick(slot, 'remove', true)`
+  is Remove's own transfer, without TransferItem's split popup. Only the wagon and the player's storage take it
+  (`_shiftStores`); the classic skin has no bag pane; the middle button is `_middleClick`'s, as it was.
+- **Known.** Shift is also Run's default key: a player still holding Run as they click a pack item beside their wagon
+  deposits it. Taking it back is one click.
 
-**Seen.** By execution on the fake document (`test/invdrag.mjs`), not in a browser here: no ARENA2 in the container.
+**Seen.** At the slice, by execution on the fake document (`test/invdrag.mjs`). Its audit drove the real pack in
+Chromium through vite and Playwright, from the scratchpad (below).
 
-**Proof.** `test/shiftstow.test.js` (5): the filter law; the enhanced pane narrowed by a chip and a search, a take
-from the narrowed list, and no bar over a corpse; Shift into the wagon, a plain click still a pick, the refused piece
-never worn, nothing on the ground; the 750 kg taking what fits, and the storage; the classic latch, the arm in Info
-mode, no popup on a partial fit, the ground and a right click unchanged. Mutants: `tools/mutants/shiftstow.json` (11,
-all dead).
+**Proof.** `test/shiftstow.test.js` (9 after the audit): the filter law; the one row, the menu and the search
+refilling in place, a take from the narrowed list, Back, no bar over a corpse; the filter fresh per store; the search
+blind to a hidden name; Shift into the wagon, a plain click still a pick, the refused piece never worn, nothing on the
+ground; the how-many field not applying; the 750 kg taking what fits, and the storage; the classic latch, the arm in
+Info mode, no popup on a partial fit, the ground, a right and a middle click unchanged, the repeat, the focus loss and
+the two keys. Mutants: `tools/mutants/shiftstow.json` (23, all dead).
+
+### AUDIT WAGON-FILTER AND SHIFT-STOW (2026-10-04, Mac: "Audit this")
+
+The UI lens of `06-Systems/Horse-Cart-And-Cargo.md`'s AUDIT WAGON-HITCH, run in a real Chromium (vite and Playwright
+from the scratchpad, the pack mounted over a wagon of thirteen):
+
+- **C1 (MAJOR - BLOCKER on a phone): the filter took the list away.** The first cut stood a search, a WRAPPING row of
+  chips and the hint as fixed furniture - 202 px on a touch screen, 236 with the hint, in the frame PX21e keeps from
+  scrolling. The list it left: a phone on its side 1 px (it had 203: 3 rows to 0), 1366x625 170 px (7 rows to 3),
+  1366x768 292 px (9 to 5); at 390x500 head and bar overran the frame. The fake document has no layout, so the PX21e
+  pin could not see it. ONE row now (the search beside a menu), the hint its own line and hidden where it costs most.
+- **C2: the filter followed the player from store to store** - the wagon's Weapons and "mace" carried into the bag
+  ("Nothing here matches." over a bag holding an ingot), and a wagon emptied on Materials hid the dagger shift-stowed
+  into it next. Reset at each door and each emptied store.
+- **C3 / C4 (classic):** a held Shift's repeated keydown (Windows) took a shift-stow's refusal away in about 30 ms; a
+  Shift seen before an alt-tab turned the next unmoved click into a whole-stack deposit. Both closed (above), with the
+  two-keys nit.
+- **The nits:** the chip-focus claim (false in Chromium: a clicked button takes the focus and the repaint dropped it -
+  the menu refills in place now); a chip closing a pack card (likewise); an empty band where the hint hid on a touch
+  screen; the search's focus restore now `preventScroll`, as domRepaint's.
+- **M3 (the records lens): claims with no pin** - the how-many field, the classic storage, the middle button (its
+  guard was unreachable: `_middleClick` answers first, so the guard is gone and the click's path pinned), the focus,
+  the mount's reset, Back, the cap, the search's name - each pinned now and killed by a mutant.
+- **Checked and fine** (the lens's own): all four hosts deliver Shift's raw down and up to the classic window and real
+  DOM events to its hover; the pack's key handlers, Tab's registry, the hotbar, chat and the hosts' routing step aside
+  for a text field; in Chromium the first Escape cleared the field and the second left it, the pack staying open; a
+  real Shift+click stowed with no text selected; `itemRow` is the pack's alone (trade, bank and the hold untouched).
+
 

@@ -469,14 +469,27 @@ export function groundedPoseStep(phys, w, pathPosition, pathForward, dt) {
  *  team stands alike parked, ridden and following: a dismount parks the wagon where it hung and the horse comes to
  *  stand where the rider sat. The IL's trail and ease above stay as the record (test/hcc_follow.test.js pins them);
  *  they no longer place the drawn wagon. Ledger A, WAGON-HITCH. */
+/** AUDIT WAGON-HITCH A3: the fastest a hitch may honestly move, metres a second of GAME time - past a cart or a horse
+ *  at their quickest (the ride base at speed 100 is 11.8 m/s, a canter under Enhanced Riding x1.85 about 22 m/s;
+ *  a following horse catches up at 7, Travel Options' accelerated follow at the player's pace plus 12), short of any
+ *  teleport. The port's own number: the mod's jump is a flat 20 m a frame because its frame never spans more than a
+ *  frame of game time, and under Travel Options' x100 the port's does (a 30 fps frame is 3.3 game seconds, a cart's
+ *  25 m), so a flat 20 m read every frame of a fast journey as a jump - the wagon re-laid each frame, its wheels
+ *  frozen, its height and tilt snapped. */
+export const HITCH_JUMP_SPEED = 30;
+/** How far a hitch may move in one step of `dt` game seconds before it is a JUMP: the mod's 20 m TELEPORT_DISTANCE,
+ *  plus what HITCH_JUMP_SPEED covers in the step. */
+export const hitchJumpReach = (dt) => TELEPORT_DISTANCE + HITCH_JUMP_SPEED * Math.max(0, Number.isFinite(dt) ? dt : 0);
+
 export class WagonHitch {
   constructor() { this.last = null; }
   /** The floating origin moved the scene. */
   offset(d) { if (this.last) { this.last[0] += d[0]; this.last[1] += d[1]; this.last[2] += d[2]; } }
-  /** Where the hitch stands this frame; answers whether it JUMPED there (no observation yet, or past the mod's 20 m
-   *  TELEPORT_DISTANCE in one frame - a door, a fast travel, a recentre the host did not shift, a stuck recovery). */
-  observe(hitch) {
-    const jumped = !this.last || horizontalDistance(hitch, this.last) > TELEPORT_DISTANCE;
+  /** Where the hitch stands this frame; answers whether it JUMPED there (no observation yet, or past `reach` in one
+   *  step - hitchJumpReach of the step's game time: a door, a fast travel, a recentre the host did not shift, a stuck
+   *  recovery). */
+  observe(hitch, reach = TELEPORT_DISTANCE) {
+    const jumped = !this.last || horizontalDistance(hitch, this.last) > reach;
     this.last = [...hitch];
     return jumped;
   }
@@ -493,7 +506,7 @@ export function hitchAxle(from, hitch, length, fallbackForward) {
 }
 
 /** The pose a hitched wagon takes this frame. `w` is the wagon's pose state (groundedPoseStep's shape, plus `up`, the
- *  eased ground normal, and `hitch`, the point it hangs from); `hitch` where the shafts meet the horse; `hitchForward`
+ *  eased ground normal, `hitch`, the point it hangs from, and `axle`, where its wheels stand on the ground); `hitch` where the shafts meet the horse; `hitchForward`
  *  the way the team faces, read only to lay a wagon that has nowhere to be pulled from yet; `seed` where an unplaced
  *  wagon already stands (a parked one being driven off), so it swings into line from there rather than appearing
  *  behind the camera. The axle is `length` from the hitch, horizontally, on the line from where it was; the ground
@@ -503,7 +516,11 @@ export function hitchAxle(from, hitch, length, fallbackForward) {
  *  stays hidden (`active` false), as the mod's SetActive(false). Pure; returns the next state. */
 export function hitchedPoseStep(phys, w, hitch, hitchForward, length, dt, seed = null) {
   const next = { ...w, hitch: [...hitch] };
-  const from = w.active ? w.position : (seed ?? vsub(hitch, vscale(horizontalForward(hitchForward), length)));
+  // AUDIT WAGON-HITCH A1: the shafts pull from where the WHEELS stood (`axle`), never from the drawn position - that
+  // stands a metre up the ground's normal, which on a slope leans downhill, and fed back it swung the wagon round its
+  // hitch frame by frame until it hung straight down the hill (a 3 degree side slope: 75 degrees in two seconds, the
+  // rider standing still; and more the higher the frame rate)
+  const from = w.active ? (w.axle ?? w.position) : (seed ?? vsub(hitch, vscale(horizontalForward(hitchForward), length)));
   const { axle, dir } = hitchAxle(from, hitch, length, hitchForward);
   const best = pickGround(phys.raycastAll(vadd(axle, [0, GROUND_RAY_HEIGHT, 0]), [0, -1, 0], GROUND_RAY_DISTANCE), hitch[1]);
   let ground = null;
@@ -511,8 +528,12 @@ export function hitchedPoseStep(phys, w, hitch, hitchForward, length, dt, seed =
     const n = best.normal ?? [0, 1, 0];
     ground = vsqr(n) <= MATHF_EPSILON ? [0, 1, 0] : vnorm(n);
     next.lastValidPosition = vadd(best.point, vscale(ground, NORMAL_GROUND_OFFSET));
+    next.axle = [axle[0], best.point[1], axle[2]];
     next.hasLastValid = true;
-  } else if (w.hasLastValid) next.lastValidPosition = [axle[0], w.lastValidPosition[1], axle[2]];
+  } else if (w.hasLastValid) {
+    next.lastValidPosition = [axle[0], w.lastValidPosition[1], axle[2]];
+    next.axle = [axle[0], w.axle?.[1] ?? w.lastValidPosition[1] - NORMAL_GROUND_OFFSET, axle[2]];
+  } else next.axle = [...axle];
   if (!next.hasLastValid) { next.active = false; return next; }
   const wasUp = w.up ?? [0, 1, 0];
   const targetUp = ground ?? wasUp;

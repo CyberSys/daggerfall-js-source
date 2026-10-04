@@ -992,7 +992,9 @@ redrawn); `tools/mutants/tv3.json` and `tv5.json` (the OVERWORLD-NAMES records).
   attached"): the cart's trailing wagon is drawn grown with its rider, about the point it hangs from - mine by the
   view's own step (`frame().grow`, handed to `hcc.draw` as `selfGrow`), another player's by `peerGrow` at their rider.
   A wagon at its own size hung a speck under the grown horse. Only the draw grows; the pose the runtime keeps, parks,
-  saves and sends is the wagon's own. `06-Systems/Horse-Cart-And-Cargo.md` WAGON-HITCH, `test/wagonhitch.test.js`.
+  saves and sends is the wagon's own. Its AUDIT (WAGON-HITCH B1/B2/B7): the grown wagon casts no giant's shadow (the law
+  above), finds its ground with a probe that rises with its reach (a hill its own length tall swallowed the mod's fixed
+  8 m), and its grown wheels turn g times slower for the same road. `06-Systems/Horse-Cart-And-Cargo.md` WAGON-HITCH, `test/wagonhitch.test.js`.
 
 **Proof.** `test/heldmap.test.js`, `test/tv5_far_places.test.js`, `test/eotb_body.test.js`,
 `test/tv1_travel_view.test.js`; `tools/mutants/ow1.json` (14 records, all dead).

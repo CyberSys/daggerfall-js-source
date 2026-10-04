@@ -12,12 +12,12 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { makeWorld } from './hccWorld.mjs';
 import { syntheticWagon41214 } from './hccModel.mjs';
-import { TRANSPORT, WAGON_MODE, HORSE_MODE, HITCHED_HORSE_LOCAL_Z, NORMAL_GROUND_OFFSET, WAGON_MODEL_ID } from '../src/systems/horseCartLaw.js';
-import { hitchedPoseStep, hitchAxle, WagonHitch } from '../src/systems/horseFollow.js';
-import { createHorseCartPool, grownHitchedPosition } from '../src/scenes/horseCartPool.js';
+import { TRANSPORT, WAGON_MODE, HORSE_MODE, HITCHED_HORSE_LOCAL_Z, NORMAL_GROUND_OFFSET, WAGON_MODEL_ID, TELEPORT_DISTANCE } from '../src/systems/horseCartLaw.js';
+import { hitchedPoseStep, hitchAxle, WagonHitch, hitchJumpReach, HITCH_JUMP_SPEED } from '../src/systems/horseFollow.js';
+import { createHorseCartPool, grownHitchedPosition, grownWheelStep } from '../src/scenes/horseCartPool.js';
 import { HCC_WIRE_KIND } from '../src/systems/horseCartWire.js';
 import { CARGO_DEFINITIONS } from '../src/systems/wagon41214.js';
-import { quatForward, UNITY_QUAT_IDENTITY } from '../src/world/quat.js';
+import { quatForward, quatRotate, quatLookRotation, UNITY_QUAT_IDENTITY } from '../src/world/quat.js';
 
 const L = HITCHED_HORSE_LOCAL_Z;
 const hgap = (a, b) => Math.hypot(a[0] - b[0], a[2] - b[2]);
@@ -111,6 +111,8 @@ test('WAGON-HITCH: hitchedPoseStep - hidden until it first grounds; kept on its 
   assert.ok(Math.abs(up1.up[2] - rotT * n[2] / Math.hypot(rotT * n[2], 1 - rotT + rotT * n[1])) < 1e-9, `the tilt eased by the mod's 10 per second: ${up1.up}`);
   const f = quatForward(up1.rotation);
   assert.ok(Math.abs(f[0]) < 1e-9 && f[2] > 0, 'still facing the hitch exactly');
+  const d = f[0] * up1.up[0] + f[1] * up1.up[1] + f[2] * up1.up[2];
+  assert.ok(Math.abs(d) < 1e-9 && Math.abs(f[1]) > 1e-3, `laid along the ground's plane - pitched with it (AUDIT D H12): ${f}`);
 });
 
 test('WAGON-HITCH: hitchAxle is the trailer law - the axle on the line from where it was, the length from the hitch; WagonHitch reads a jump past the mod\'s 20 m', () => {
@@ -140,7 +142,7 @@ test('WAGON-HITCH x OW-BIG: grownHitchedPosition - the axle g times as far from 
 function fakeRenderer() {
   const r = { draws: [] };
   r.createMesh = (model) => ({ model });
-  r.drawMesh = (gpu, m) => r.draws.push({ gpu, m: [...m] });
+  r.drawMesh = (gpu, m, remap, o) => r.draws.push({ gpu, m: [...m], o });
   r.uploadTexture = () => 'k'; r.createBillboardBatch = () => ({ origin: null }); r.destroyBillboardBatch = () => {};
   return r;
 }
@@ -154,10 +156,11 @@ const flush = async () => { for (let i = 0; i < 6; i++) await new Promise((r) =>
 const scaleOf = (m) => Math.hypot(m[0], m[1], m[2]);
 const runtimeShowing = (view) => ({ view: () => ({ state: { HorseName: '' }, moving: null, deployed: null, horse: null, teamFollowing: false, horseFollowing: false, persistence: true, ...view }), lateUpdate() {}, horseTargetLabel: '' });
 
-test('WAGON-HITCH x OW-BIG: under the Overworld my cart\'s wagon is drawn grown with the traveller about its hitch; a following team and a parked wagon stay their size', async () => {
+test('WAGON-HITCH x OW-BIG: under the Overworld my cart\'s wagon is drawn grown with the traveller about its hitch, casting no shadow; a following team and a parked wagon stay their size (mutants: grown off the drawn position, the shadow cast)', async () => {
   const renderer = fakeRenderer();
   const pool = createHorseCartPool({ renderer, meshes: fakeMeshes(), collider: floorCollider, now: () => 0 });
-  const pose = { active: true, position: [0, NORMAL_GROUND_OFFSET, -L], rotation: [...UNITY_QUAT_IDENTITY], hitch: [0, 1.3, 0] };
+  const pose = hitchedPoseStep(flat(0), freshPose(), [0, 1.3, 0], [0, 0, 1], L, 1 / 30);   // the producer's own pose (its hitch and axle)
+  assert.deepEqual(pose.axle.map((v) => +v.toFixed(9)), [0, 0, -L]);
   const rt = runtimeShowing({ moving: { pose, wheel: { angle: 0 }, cargoTier: 0, interaction: false } });
   pool.attach(rt); pool.frame(1 / 30, [0, 2, 5]); await flush();
   renderer.draws.length = 0; pool.draw(renderer);
@@ -167,11 +170,19 @@ test('WAGON-HITCH x OW-BIG: under the Overworld my cart\'s wagon is drawn grown 
   assert.ok(Math.abs(scaleOf(body) - 8) < 1e-9, 'grown with the traveller\'s own step, never the peers\' law');
   const at = [body[12], body[13], body[14]], want = [0, NORMAL_GROUND_OFFSET * 8, -L * 8];
   assert.ok(at.every((v, i) => Math.abs(v - want[i]) < 1e-5), `its axle eight hitch-lengths back, its wheels on the ground: ${at}`);   // the matrix is Float32
+  assert.ok(renderer.draws.length > 1 && renderer.draws.every((d) => d.o?.noShadow === true), 'no grown piece casts a giant\'s shadow (AUDIT B2)');
+  renderer.draws.length = 0; pool.draw(renderer);
+  assert.ok(renderer.draws.every((d) => !d.o?.noShadow), 'at its own size it casts as a wagon does');
   const following = createHorseCartPool({ renderer, meshes: fakeMeshes(), collider: floorCollider, now: () => 0 });
   following.attach(runtimeShowing({ teamFollowing: true, moving: { pose, wheel: { angle: 0 }, cargoTier: 0, interaction: true } }));
   following.frame(1 / 30, [0, 2, 5]); await flush();
   renderer.draws.length = 0; following.draw(renderer, null, { selfGrow: 8 });
   assert.ok(Math.abs(scaleOf(renderer.draws[0].m) - 1) < 1e-9, 'a following team\'s wagon beside its own-size horse is not grown');
+  const parked = createHorseCartPool({ renderer, meshes: fakeMeshes(), collider: floorCollider, now: () => 0 });
+  parked.attach(runtimeShowing({ deployed: { isGrounded: true, position: [5, 1, 5], rotation: [...UNITY_QUAT_IDENTITY], cargoTier: 0 } }));
+  parked.frame(1 / 30, [0, 2, 5]); await flush();
+  renderer.draws.length = 0; parked.draw(renderer, null, { selfGrow: 8 });
+  assert.ok(renderer.draws.length && Math.abs(scaleOf(renderer.draws[0].m) - 1) < 1e-9, 'nor is a parked wagon - a wagon in the world');
 });
 
 test('WAGON-HITCH: another player\'s cart wagon hangs from their rider as drawn here - on its shafts at every frame, where the eased word ran behind; a parked wagon is never pulled (mutant: the anchor ignored)', async () => {
@@ -204,4 +215,158 @@ test('WAGON-HITCH: the world host hands the pool another player\'s cart rider an
   assert.match(world, /peerAnchor: \(id\) => \{ const sh = _peerMapPoses\.get\(id\); return sh && \(sh\.rd \| 0\) === 2 \? onlineToScene\(sh\) : null; \}/);
   assert.match(world, /hcc\.draw\(renderer, null, tvf \? \{ selfGrow: tvf\.grow, grow: peerGrow \} : undefined\);/);
   for (const host of ['worldModes.js', 'dungeonContext.js']) assert.doesNotMatch(readFileSync(new URL(`../src/scenes/${host}`, import.meta.url), 'utf8'), /hcc\.draw\(/, `${host} draws no wagon`);
+});
+
+// ── AUDIT WAGON-HITCH (2026-10-04): the four lenses' findings, each pinned
+const sideSlope = (deg) => {
+  const t = Math.tan((deg * Math.PI) / 180), n = Math.hypot(t, 1);
+  return { raycastAll: (o, d, max) => { const y = -t * o[0]; return d[1] < 0 && o[1] >= y && o[1] - y <= max ? [{ point: [o[0], y, o[2]], distance: o[1] - y, normal: [t / n, 1 / n, 0] }] : []; } };
+};
+const bearingDeg = (axle, hitch) => (Math.atan2(hitch[0] - axle[0], hitch[2] - axle[2]) * 180) / Math.PI;
+
+test('AUDIT WAGON-HITCH A1: on a side slope the wagon holds its line - the shafts pull from where the WHEELS stand, so the metre up the leaning normal never swings it round its hitch, at any frame rate (the first cut: 75 degrees in two seconds on a 3 degree slope, the rider standing still) (mutant: pulled from the drawn position)', () => {
+  // the rider standing still on a 3 degree side slope, ten seconds
+  let w = freshPose();
+  for (let i = 0; i < 600; i++) w = hitchedPoseStep(sideSlope(3), w, [0, 1.3, 0], [0, 0, 1], L, 1 / 60);
+  assert.ok(Math.abs(bearingDeg(w.axle, [0, 1.3, 0])) < 1e-6, `still straight behind: ${bearingDeg(w.axle, [0, 1.3, 0])}`);
+  assert.ok(Math.abs(hgap(w.axle, [0, 1.3, 0]) - L) < 1e-9);
+  // riding along a 10 degree side slope at 7.6 m/s: the same line at 30, 60 and 144 frames a second
+  for (const fps of [30, 60, 144]) {
+    let p = freshPose(); const h = [0, 1.3, 0];
+    for (let i = 0; i < fps * 10; i++) { h[2] += 7.6 / fps; p = hitchedPoseStep(sideSlope(10), p, h, [0, 0, 1], L, 1 / fps); }
+    assert.ok(Math.abs(bearingDeg(p.axle, h)) < 1e-6, `${fps} fps: ${bearingDeg(p.axle, h)}`);
+  }
+});
+
+test('AUDIT WAGON-HITCH A1: through the runtime on an 8 degree side slope - riding, standing and a dismount that parks the wagon square and stands the horse where the rider sat (mutant: the park read off the drawn position)', () => {
+  const { w, rt, step, state, scene } = makeWorld();
+  w.slope = 8;
+  step(2); rt.tryUseTransport(TRANSPORT.Cart); step(2);
+  for (let i = 0; i < 90; i++) { w.pos[2] += 7.6 / 30; step(); }
+  step(60);   // standing two seconds
+  const p = rt.view().moving.pose;
+  assert.ok(Math.abs(bearingDeg(p.axle, w.pos)) < 1e-6, `straight behind after the stand: ${bearingDeg(p.axle, w.pos)}`);
+  const rider = [...w.pos];
+  w.mode = TRANSPORT.Foot; step(3);
+  assert.equal(state().Mode, WAGON_MODE.Deployed);
+  assert.ok(Math.abs(state().HeadingX) < 1e-6 && state().HeadingZ > 0.999, `parked square to the road: ${state().HeadingX}, ${state().HeadingZ}`);
+  const parked = scene(state().WorldX, state().WorldZ);
+  assert.ok(Math.abs(parked[0] - rider[0]) < 1e-6, 'parked where its wheels stood, not a lean downhill of them');
+  const h = rt.view().horse;
+  assert.ok(h?.isInteractive && hgap(h.position, rider) < 0.02, `the horse where the rider sat: ${h?.position} vs ${rider}`);
+});
+
+test('AUDIT WAGON-HITCH A3: a Travel Options journey at x100 is no jump - the wagon is not re-laid every frame, its wheels turn; a teleport still re-lays it behind the team (mutants: the flat 20 m, the re-lay kept active)', () => {
+  assert.equal(hitchJumpReach(0), TELEPORT_DISTANCE);
+  assert.equal(hitchJumpReach(2), TELEPORT_DISTANCE + 2 * HITCH_JUMP_SPEED);
+  const j = new WagonHitch();
+  j.observe([0, 0, 0]);
+  assert.equal(j.observe([0, 0, TELEPORT_DISTANCE], hitchJumpReach(0)), false, 'exactly the reach is no jump');
+  const { w, rt, step } = makeWorld();
+  step(2); rt.tryUseTransport(TRANSPORT.Cart); step(2);
+  const dt = 100 / 30;   // a 30 fps frame at x100: the host hands the runtime the world's time
+  const angles = new Set();
+  for (let i = 0; i < 30; i++) {
+    w.pos[2] += 7.6 * dt; w.now += 1 / 30; rt.lateUpdate(dt);
+    const m = rt.view().moving;
+    assert.ok(m.pose.active && Math.abs(hgap(m.pose.axle, w.pos) - L) < 1e-9);
+    angles.add(m.wheel.angle.toFixed(3));
+  }
+  assert.ok(angles.size > 20, `the wheels turn: ${angles.size} angles`);
+  // a real leap - 200 m sideways in one ordinary frame, the team facing +z - re-lays it behind the team, not toward
+  // where it was
+  w.pos[0] += 200; w.now += 1 / 60; rt.lateUpdate(1 / 60);
+  const p = rt.view().moving.pose;
+  assert.ok(Math.abs(p.axle[0] - w.pos[0]) < 1e-6 && Math.abs(p.axle[2] - (w.pos[2] - L)) < 1e-6, `re-laid behind the facing: ${p.axle} vs ${w.pos}`);
+});
+
+test('AUDIT WAGON-HITCH: mounting a FOLLOWING team drives its wagon off from where it stood; a drive-off pending across a recentre moves with the scene (mutants: the following arm dropped, the pending seed not rebased)', () => {
+  const { w, rt, step } = makeWorld();
+  step(2); rt.tryUseTransport(TRANSPORT.Cart); step(2);
+  for (let i = 0; i < 60; i++) { w.pos[2] += 0.1; step(); }
+  w.mode = TRANSPORT.Foot; step(3);
+  w.activateMode = 'dialogue'; rt.handleStationaryHorseActivation(1); step();
+  for (let i = 0; i < 90; i++) { w.pos[0] += 0.05; step(); }   // walk off to the side; the team follows
+  step(90);
+  assert.equal(rt.view().teamFollowing, true);
+  const was = [...rt.view().moving.pose.axle];
+  // stand beside the wagon, facing away from it, and mount
+  w.pos = [was[0] + 1.5, 0.9, was[2] + 1]; w.yaw = Math.PI; step();
+  assert.equal(rt.tryUseTransport(TRANSPORT.Cart).succeeded, true);
+  rt.rebase([100, 0, 0]); w.pos[0] += 100;   // a recentre before the next frame
+  step();
+  const now = rt.view().moving.pose.axle;
+  assert.ok(hgap(now, [was[0] + 100, 0, was[2]]) < 1.5, `driven off from where it stood (moved with the scene): ${now} vs ${was}`);
+});
+
+test('AUDIT WAGON-HITCH M2/B4/B5: another player\'s cart wagon - a leap of their rider starts again from their word; the height is the ground\'s here, eased; the wagon is turned toward the rider; the tilt is eased; the tilt forgotten when the rider is not drawn (mutants: the restart, the height snapped, the word\'s facing, the tilt snapped, the tilt kept)', async () => {
+  const renderer = fakeRenderer();
+  let anchor = [0, 0, 0], floorY = 0;
+  const collider = () => ({ surfaceHit: (o, d, max) => (d[1] < 0 && o[1] > floorY && o[1] - floorY <= max ? { dist: o[1] - floorY, key: null, normal: [0, 1, 0] } : { dist: Infinity }) });
+  const pool = createHorseCartPool({ renderer, meshes: fakeMeshes(), collider, now: () => 0, selfId: () => 'me', peerAnchor: (id) => (id === 'p1' ? anchor : null) });
+  pool.attach(runtimeShowing({}));
+  const word = (x, z, rot = [0, 0, 0, 1]) => ({ w: [HCC_WIRE_KIND.Trailing, x, NORMAL_GROUND_OFFSET, z, ...rot, 0, 0] });
+  pool.applyOwner('p1', word(0, -L), (p) => p, 1);
+  for (let i = 0; i < 30; i++) pool.frame(1 / 30, [0, 2, 5]);
+  let p = pool.peers.get('p1');
+  // turned toward the rider: the rider steps to the side, the word still faces +z
+  anchor = [2, 0, 0]; pool.frame(1 / 30, [0, 2, 5]);
+  const f = quatForward(p.shownRotation), to = [anchor[0] - p.shownWagon[0], 0, anchor[2] - p.shownWagon[2]];
+  assert.ok(Math.abs(Math.atan2(f[0], f[2]) - Math.atan2(to[0], to[2])) < 1e-6, 'facing the rider, not the word');
+  // the height: the ground steps up two metres - eased toward it at the mod's 12
+  const y0 = p.shownWagon[1];
+  floorY = 2; pool.frame(1 / 30, [0, 2, 5]);
+  const want = y0 + (2 + NORMAL_GROUND_OFFSET - y0) * (1 - Math.exp(-12 / 30));
+  assert.ok(Math.abs(p.shownWagon[1] - want) < 1e-9, `eased toward the ground here: ${p.shownWagon[1]} vs ${want}`);
+  // the tilt: a word on a tilted ground eases the wagon's up toward it
+  const tilted = quatLookRotation([0, 0, 1], [Math.sin(0.4), Math.cos(0.4), 0]);
+  pool.applyOwner('p1', word(2, -L, tilted), (p) => p, 2);
+  pool.frame(1 / 30, [0, 2, 5]);
+  const wordUp = quatRotate(tilted, [0, 1, 0]);
+  assert.ok(p.shownUp[0] > 1e-3 && p.shownUp[0] < wordUp[0] - 1e-3, `the tilt eased: ${p.shownUp[0]} of ${wordUp[0]}`);
+  // a leap past 20 m: from the word's place, not from where it was drawn
+  anchor = [50, 0, 0];
+  pool.applyOwner('p1', word(50, L), (p) => p, 3);
+  pool.frame(1 / 30, [0, 2, 5]);
+  assert.ok(Math.abs(p.shownWagon[0] - 50) < 1e-6 && Math.abs(p.shownWagon[2] - L) < 1e-6, `started again from the word: ${p.shownWagon}`);
+  // the rider not drawn: the tilt is forgotten with the anchor
+  anchor = null; pool.frame(1 / 30, [0, 2, 5]);
+  p = pool.peers.get('p1');
+  assert.equal(p.shownUp, null);
+  assert.equal(p.hitch, null);
+});
+
+test('AUDIT WAGON-HITCH B1/B7: a grown wagon finds the ground up a hill its own reach tall, and its grown wheels turn slower for the same road (mutants: the probe at the mod\'s fixed height, the wheels at the small wagon\'s pace)', async () => {
+  // a 25 degree climb behind a cart going downhill (+z): the ground rises toward -z
+  const t = Math.tan((25 * Math.PI) / 180);
+  const hill = () => ({ surfaceHit: (o, d, max) => { const y = -t * o[2]; return d[1] < 0 && o[1] > y && o[1] - y <= max ? { dist: o[1] - y, key: null, normal: [0, 1, 0] } : { dist: Infinity }; } });
+  const renderer = fakeRenderer();
+  const pool = createHorseCartPool({ renderer, meshes: fakeMeshes(), collider: hill, now: () => 0 });
+  const pose = hitchedPoseStep({ raycastAll: (o) => [{ point: [o[0], -t * o[2], o[2]], distance: 0, normal: [0, 1, 0] }] }, freshPose(), [0, 1.3, 0], [0, 0, 1], L, 1 / 30);
+  pool.attach(runtimeShowing({ moving: { pose, wheel: { angle: 0 }, cargoTier: 0, interaction: false } }));
+  pool.frame(1 / 30, [0, 2, 5]); await flush();
+  renderer.draws.length = 0; pool.draw(renderer, null, { selfGrow: 12 });
+  const m = renderer.draws[0].m;
+  const groundThere = -t * m[14];
+  assert.ok(Math.abs(m[13] - (groundThere + NORMAL_GROUND_OFFSET * 12)) < 1e-3, `on the hill ${groundThere.toFixed(2)} m up, not sunk into it: ${m[13]}`);
+  // the wheel clock: the small wagon's wheel turns 80 degrees, the twelve-times wheel a twelfth of it; the step is taken
+  // the short way across the wrap
+  let s = grownWheelStep(null, 100, 12);
+  assert.equal(s.acc, 100);
+  s = grownWheelStep(s, 180, 12);
+  assert.ok(Math.abs(s.acc - (100 + 80 / 12)) < 1e-9);
+  s = grownWheelStep(s, 10, 12);   // 180 -> 10 is -170
+  assert.ok(Math.abs(s.acc - (100 + 80 / 12 - 170 / 12)) < 1e-9);
+  assert.equal(grownWheelStep({ last: 350, acc: 0 }, 10, 1).acc, 20, 'at its own size the step is the step');
+});
+
+test('AUDIT WAGON-HITCH A1 x OW-BIG: on a side slope my grown wagon is grown from where its wheels stand - the drawn position\'s lean downhill is not grown eight times over (mutant: grown off the drawn position)', async () => {
+  const renderer = fakeRenderer();
+  const pool = createHorseCartPool({ renderer, meshes: fakeMeshes(), collider: floorCollider, now: () => 0 });
+  const pose = hitchedPoseStep(sideSlope(8), freshPose(), [0, 1.3, 0], [0, 0, 1], L, 1 / 30);
+  assert.ok(pose.position[0] > 0.1, `the drawn position leans downhill: ${pose.position[0]}`);
+  pool.attach(runtimeShowing({ moving: { pose, wheel: { angle: 0 }, cargoTier: 0, interaction: false } }));
+  pool.frame(1 / 30, [0, 2, 5]); await flush();
+  renderer.draws.length = 0; pool.draw(renderer, null, { selfGrow: 8 });
+  assert.ok(Math.abs(renderer.draws[0].m[12]) < 1e-4, `grown on the axle's line: ${renderer.draws[0].m[12]}`);
 });

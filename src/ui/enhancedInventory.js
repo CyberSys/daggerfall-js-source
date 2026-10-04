@@ -119,7 +119,7 @@ import {
 } from '../systems/inventorySession.js';
 import { bagStoreRefusal, bagMayLeave } from '../systems/materialsBag.js';   // BAG1: only materials go in the bag; AUDIT2 H11: and a loaded one stays
 import { BAG_KG_LIMIT } from '../net/bagLaw.js';
-import { STORE_FILTER_KINDS, filterStore, storeFilterChips, freshStoreFilter } from './storeFilter.js';   // WAGON-FILTER: the wagon, the storage and the bag, filtered
+import { STORE_FILTER_KINDS, filterStore, storeFilterOptions, freshStoreFilter } from './storeFilter.js';   // WAGON-FILTER: the wagon, the storage and the bag, filtered
 import { entityMaxEncumbrance } from '../combat/formulas.js';   // AUDIT 26: PlayerEntity.MaxEncumbrance, enchantment allowance and all
 import { liveStat } from '../systems/statMods.js';
 import { conditionWord, conditionPercentage, itemNameParts, itemLongName, itemDamageLine, itemArmourLine, itemHandsLine } from '../systems/itemInfo.js';   // RF6: the long name's two parts, ResolveItemLongName's arms once
@@ -1501,7 +1501,7 @@ function stow(item) {
   // 26 F156: planStore answers `{ ok: true, map: true }` for a
   // MiscItems.Map - the reveal runs, the paper is consumed, nothing
   // lands in the destination. The classic window routes it
-  // (nativeInventory.js:964) and this one did not, so dragging a
+  // (nativeInventory.js:977) and this one did not, so dragging a
   // treasure map out of the pack dropped the paper on the floor and
   // revealed nothing.
   if (plan.map) { use(item, deps.items?.() ?? []); return; }
@@ -1520,7 +1520,7 @@ function stow(item) {
   // again on the other side, and a tip that stays open after every
   // press is the quirk being fixed.
   // AUDIT INV2 B-F1: THE ENTITY AND THE PROVENANCE RIDE, as they do at
-  // the classic window's own call (nativeInventory.js:970). Without them
+  // the classic window's own call (nativeInventory.js:983). Without them
   // `clearLightSourceOnLeave` - AUDIT 26 F157's first statement inside
   // applyTransfer - is a no-op, so a LIT TORCH dropped on the ground
   // went on lighting the player from where it lay. INV2 made that a
@@ -1557,7 +1557,7 @@ function take(item) {
   if (amount == null) { notice = HOW_MANY_ITEMS(plan.amount); render(); return; }
   // MAC-O6 (report: "looting gold/items makes no sound"): DoTransferItem's
   // own cue (:1569 gold's clink, :1583 everything else), which the classic
-  // window plays (nativeInventory.js:990) and this one never did - the ONLY
+  // window plays (nativeInventory.js:1003) and this one never did - the ONLY
   // difference between the two windows' calls to planTake/applyTransfer was
   // that this one dropped `plan.sound` on the floor. Played here, ahead of
   // the gold interception below, exactly as DFU's own PlayOneShot sits
@@ -1606,6 +1606,7 @@ function toggleWagon() {
   if (!plan.ok) return refuse(plan.refusal);
   session.usingWagon = plan.usingWagon;
   if (plan.usingWagon) session.usingBag = false;   // BAG1: one second list at a time
+  storeFilter = freshStoreFilter();   // AUDIT WAGON-FILTER C2: another list shown, a fresh filter
   // The selection belonged to the list that just went away.
   if (side === 'remote') { picked = null; side = 'local'; }
   refresh();
@@ -1621,6 +1622,7 @@ function toggleBag() {
   if (!plan.ok) return refuse(plan.refusal);
   session.usingBag = plan.usingBag;
   session.usingWagon = plan.usingWagon;
+  storeFilter = freshStoreFilter();   // AUDIT WAGON-FILTER C2: another list shown, a fresh filter
   if (side === 'remote') { picked = null; side = 'local'; }
   // AUDIT2 BAG1 U8: the gold field goes with it - gold is no material, so the bag hides the field, and a half-typed
   // amount came back over the list it was never meant for when the bag closed
@@ -2607,8 +2609,15 @@ function remoteCol() {
   const list = el('div', 'remotelist');
   // WAGON-FILTER: the player's own store carries its filter between the head and the rows (ui/storeFilter.js); every
   // other remote shows its list whole, as it always did
-  const filtering = STORE_FILTER_KINDS.has(remote.kind) && remote.items.length > 0;
-  if (STORE_FILTER_KINDS.has(remote.kind)) col.append(storeFilterBar(list, filtering));
+  const store = STORE_FILTER_KINDS.has(remote.kind);
+  // AUDIT WAGON-FILTER C2: fresh for every store shown, and for a store emptied - the wagon's category and search
+  // followed the player into the bag, and a wagon emptied on Materials hid the dagger shift-stowed into it next
+  if (store && (storeFilter.kind !== remote.kind || !remote.items.length)) storeFilter = freshStoreFilter(remote.kind);
+  const filtering = store && remote.items.length > 0;
+  if (filtering) col.append(storeFilterBar(list));
+  // SHIFT-STOW: the gesture says itself where it works - a modifier nobody is told of is a feature nobody finds; its own
+  // line, hidden on a touch screen and a short one (enhancedStyle), so a hidden hint leaves no band behind
+  if (store && packOpen) col.append(el('p', 'storehint', SHIFT_STOW_HINT[remote.kind] ?? SHIFT_STOW_HINT.wagon));
   fillRemoteList(list, filtering);
   col.append(list);
   return col;
@@ -2636,15 +2645,13 @@ function fillRemoteList(list, filtering = STORE_FILTER_KINDS.has(remote.kind) &&
 }
 
 /**
- * WAGON-FILTER (2026-10-04, Mac: "The wagon needs a filter option"): the search and the category chips over the
- * player's own store. Typing refills the rows in place - the field is never rebuilt under the caret - and a chip
- * repaints the window, which keeps the field's focus (render's own arm). Back in the field clears it, then leaves it.
+ * WAGON-FILTER (2026-10-04, Mac: "The wagon needs a filter option"): the search and the category menu over the
+ * player's own store, in ONE row (AUDIT WAGON-FILTER C1 - the store's list is what the frame is for). Both refill the
+ * rows in place: the field is never rebuilt under the caret, the menu keeps its focus, and a card open on a pack item
+ * stays open. Back in the field clears it, then leaves it.
  */
-function storeFilterBar(list, filtering) {
+function storeFilterBar(list) {
   const bar = el('div', 'storefilter');
-  // SHIFT-STOW: the gesture says itself where it works - a modifier nobody is told of is a feature nobody finds
-  if (packOpen) bar.append(el('p', 'storehint', SHIFT_STOW_HINT[remote.kind] ?? SHIFT_STOW_HINT.wagon));
-  if (!filtering) return bar;
   const search = el('input', 'storesearch');
   search.type = 'search';
   search.maxLength = 40;
@@ -2659,18 +2666,17 @@ function storeFilterBar(list, filtering) {
     if (search.value) { search.value = ''; storeFilter.query = ''; fillRemoteList(list, true); } else search.blur?.();
   };
   bar.append(search);
-  const chips = el('div', 'storechips');
-  chips.setAttribute('role', 'group');
-  chips.setAttribute('aria-label', 'Show');
-  for (const c of storeFilterChips(remote.items, storeFilter.cat)) {
-    const on = c.id === storeFilter.cat;
-    const b = el('button', `storechip${on ? ' on' : ''}`, c.label);
-    b.setAttribute('aria-pressed', on ? 'true' : 'false');
-    b.append(el('span', 'storechipn', String(c.count)));
-    b.onclick = () => { storeFilter.cat = c.id; picked = null; render(); };
-    chips.append(b);
+  const menu = el('select', 'storecat');
+  menu.setAttribute('aria-label', `Show in the ${String(remote.title).toLowerCase()}`);
+  for (const c of storeFilterOptions(remote.items, storeFilter.cat)) {
+    const o = el('option', null, `${c.label} (${c.count})`);
+    o.value = c.id;
+    if (c.id === storeFilter.cat) o.selected = true;
+    menu.append(o);
   }
-  bar.append(chips);
+  menu.value = storeFilter.cat;
+  menu.onchange = () => { storeFilter.cat = menu.value; fillRemoteList(list, true); };
+  bar.append(menu);
   return bar;
 }
 
@@ -3617,7 +3623,7 @@ function storeFilterFocus() {
 function restoreStoreFilterFocus(kept) {
   const s = host?.querySelector?.('[data-focus="store-filter"]');
   if (!s) return;
-  s.focus?.();
+  s.focus?.({ preventScroll: true });   // AUDIT WAGON-FILTER: domRepaint's own manner - the page does not scroll to it
   if (kept.at) { try { s.setSelectionRange(kept.at[0], kept.at[1]); } catch { /* a field with no caret */ } }
 }
 

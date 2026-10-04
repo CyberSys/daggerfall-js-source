@@ -12,9 +12,9 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { withDom } from './invdrag.mjs';
 import { mountEnhancedInventory, SHIFT_STOW_HINT } from '../src/ui/enhancedInventory.js';
-import { NativeInventoryWindow, WAGON_KG_LIMIT } from '../src/ui/nativeInventory.js';
+import { NativeInventoryWindow, WAGON_KG_LIMIT, noteFocusLost } from '../src/ui/nativeInventory.js';
 import { CELL_X } from '../src/ui/itemScroller.js';
-import { STORE_FILTERS, STORE_FILTER_KINDS, filterStore, storeFilterChips, storeFilterAccepts, storeQuery } from '../src/ui/storeFilter.js';
+import { STORE_FILTERS, STORE_FILTER_KINDS, filterStore, storeFilterOptions, storeFilterAccepts, storeQuery } from '../src/ui/storeFilter.js';
 import { SMALL_CART_TEMPLATE } from '../src/systems/inventorySession.js';
 import { mintMaterialItem } from '../src/systems/profItems.js';
 import { ITEM_TEMPLATES } from '../src/characters/paperdoll.js';
@@ -53,57 +53,75 @@ function withWagon(items, wagon, fn, { loot = null, open = true } = {}) {
     const lootRowOf = (name) => rows().find((r) => !!r.closest('.loot-win') && textOf(r).includes(name)) ?? null;
     const pack = () => JSON.parse(globalThis.__pack());
     const door = () => host.querySelectorAll('button').find((b) => b.onclick && /cart|wagon/i.test(textOf(b)) && !b.closest('.loot-win .remotelist'));
-    const chip = (label) => host.querySelectorAll('.storechip').find((b) => b.textContent.startsWith(label)) ?? null;
+    const menu = () => host.querySelectorAll('select').find((m) => m.className === 'storecat') ?? null;
+    const options = () => (menu()?.children ?? []).map((o) => o.textContent);
+    const choose = (id) => { const m = menu(); m.value = id; m.onchange(); };
     const search = () => host.querySelectorAll('input').find((i) => i.className === 'storesearch') ?? null;
     const click = (node, at, extra = {}) => node.onclick({ timeStamp: at, detail: 1, ...extra });
     const tabTo = (label) => host.querySelectorAll('.packtab').find((b) => b.textContent.startsWith(label)).onclick();
     try {
       if (open && !loot) { door().onclick(); assert.equal(pack().remoteKind, 'wagon'); }
-      return fn({ dom, host, e, view, rowOf, lootRows, lootRowOf, pack, chip, search, click, tabTo });
+      return fn({ dom, host, e, view, rowOf, lootRows, lootRowOf, pack, menu, options, choose, search, click, tabTo, door });
     } finally { view.unmount(); }
   });
 }
 
-test('WAGON-FILTER storeFilter: All, Materials and the pack\'s nine pages; Materials is the bag\'s own test and crosses the pages; the search is the row\'s name, trimmed and lower-cased; the chips name what the store holds and keep the lit one (mutants: Materials read as a page, the query unlowered)', () => {
+test('WAGON-FILTER storeFilter: All, Materials and the pack\'s nine pages; Materials is the bag\'s own test and crosses the pages; the search is the row\'s name, trimmed and lower-cased; the menu names what the store holds and keeps the chosen one (mutants: Materials read as a page, the query unlowered)', () => {
   assert.deepEqual(STORE_FILTERS.map(([id]) => id), ['all', 'materials', ...PACK_PAGES.map(([id]) => id)]);
   assert.deepEqual([...STORE_FILTER_KINDS].sort(), ['bag', 'storage', 'wagon']);
-  const a = arrows(3), i = ingots(4), herb = mintMaterialItem('herb:PlantIngredients1:4') ?? null;
+  const a = arrows(3), i = ingots(4), herb = mintMaterialItem('p1:8');   // AUDIT D: an herb's key is p1:/p2: and its template (the bag's law)
+  assert.ok(herb, 'the herb is minted');
   assert.equal(storeFilterAccepts(i, 'materials'), true, 'an ingot is a material');
   assert.equal(storeFilterAccepts(i, 'misc'), true, '... and lives on Misc');
   assert.equal(storeFilterAccepts(a, 'materials'), false, 'an arrow is not');
   assert.equal(storeFilterAccepts(a, 'weapons'), true);
   assert.equal(storeFilterAccepts(a, 'nonsense'), true, 'an id the list does not have shows everything');
-  if (herb) assert.equal(storeFilterAccepts(herb, 'materials'), true, 'a herb too, from the Ingredients page');
+  assert.equal(storeFilterAccepts(herb, 'materials'), true, 'a herb too...');
+  assert.equal(storeFilterAccepts(herb, 'ingredients'), true, '... from the Ingredients page');
   assert.equal(storeQuery('  IRON  '), 'iron');
   const items = [a, i];
   assert.deepEqual(filterStore(items, { cat: 'all', query: ' IrOn ' }, (it) => it.name), [i]);
   assert.deepEqual(filterStore(items, { cat: 'materials' }, (it) => it.name), [i]);
   assert.deepEqual(filterStore(items, { cat: 'weapons', query: 'iron' }, (it) => it.name), []);
-  assert.deepEqual(storeFilterChips(items, 'all').map((c) => `${c.id}:${c.count}`), ['all:2', 'materials:1', 'weapons:1', 'misc:1']);
-  assert.deepEqual(storeFilterChips([a], 'materials').map((c) => `${c.id}:${c.count}`), ['all:1', 'materials:0', 'weapons:1'], 'the lit chip stays at nought');
+  assert.deepEqual(storeFilterOptions(items, 'all').map((c) => `${c.id}:${c.count}`), ['all:2', 'materials:1', 'weapons:1', 'misc:1']);
+  assert.deepEqual(storeFilterOptions([a], 'materials').map((c) => `${c.id}:${c.count}`), ['all:1', 'materials:0', 'weapons:1'], 'the chosen one stays at nought');
+  assert.equal(storeQuery('x'.repeat(60)).length, 40, 'the search reads 40 characters at most');
 });
 
-test('WAGON-FILTER on the enhanced pack: the wagon carries the search and the chips; a chip and a search narrow the rows; a take from the narrowed list takes that piece; nothing matching says so (mutants: the rows unfiltered, the bar on every remote)', () => {
-  withWagon([cart()], [arrows(20), ingots(6), mk('Mace')], ({ e, lootRows, lootRowOf, chip, search, click, pack }) => {
+test('WAGON-FILTER on the enhanced pack: the wagon carries the search and the menu in ONE row; the menu and the search narrow the rows in place (the field kept, a pack card kept open); a take from the narrowed list takes that piece; nothing matching says so (mutants: the rows unfiltered, the bar on every remote)', () => {
+  withWagon([cart(), mk('Dagger')], [arrows(20), ingots(6), mk('Mace')], ({ e, host, lootRows, lootRowOf, menu, options, choose, search, click, pack, rowOf }) => {
     assert.ok(search(), 'the wagon has its search');
-    assert.deepEqual(['All', 'Materials', 'Weapons', 'Misc'].map((l) => !!chip(l)), [true, true, true, true]);
-    assert.equal(lootRows().length, 3);
-    chip('Materials').onclick();
+    assert.equal(host.querySelectorAll('.storefilter').length, 1);
+    const bar = host.querySelectorAll('.storefilter')[0];
+    assert.deepEqual(bar.children.map((c) => c.className), ['storesearch', 'storecat'], 'one row: the search beside the menu, nothing under them');
+    assert.deepEqual(options(), ['All (3)', 'Materials (1)', 'Weapons (2)', 'Misc (1)']);
+    click(rowOf('Dagger'), epoch());
+    assert.equal(pack().picked, 'Dagger', 'a pack card open');
+    const before = search();
+    choose('materials');
+    assert.equal(search(), before, 'the menu refills the rows in place - nothing rebuilt');
+    assert.equal(pack().picked, 'Dagger', 'and the card stays open');
     assert.equal(lootRows().length, 1);
     assert.match(lootRows()[0], /Iron Ingot/);
     click(lootRowOf('Iron Ingot'), epoch());
     assert.equal(e.items.filter((it) => /Ingot/.test(it.name)).length, 1, 'the ingots taken - the right piece out of the whole wagon');
     assert.equal(e.wagonItems.length, 2);
-    // the lit chip stays at nought; All brings the rest back; the search narrows by name
-    assert.ok(chip('Materials'), 'the lit chip stays');
-    assert.match(lootRows()[0] ?? '', /Nothing|^$/);
-    chip('All').onclick();
+    assert.equal(menu().value, 'materials', 'the choice stays at nought');
+    assert.ok(options().includes('Materials (0)'));
+    choose('all');
     const s = search();
     s.value = 'mac'; s.oninput();
+    assert.equal(search(), s, 'typing refills in place - the field is never rebuilt under the caret');
     assert.deepEqual(lootRows().map((r) => /Mace/.test(r)), [true]);
     s.value = 'zzz'; s.oninput();
-    assert.equal(lootRows().length, 0);
-    assert.ok(pack().remoteKind === 'wagon');
+    assert.equal(lootRows().length, 0, 'no rows');
+    assert.ok(host.querySelectorAll('.packempty').some((p) => p.textContent === 'Nothing here matches.'));
+    // Back in the field clears it, the pack stays
+    let stopped = false;
+    s.onkeydown({ key: 'Escape', code: 'Escape', preventDefault() {}, stopPropagation() { stopped = true; } });
+    assert.equal(s.value, '');
+    assert.ok(stopped, 'the pack never sees that Back');
+    assert.equal(lootRows().length, 2);
   });
   // a corpse carries no bar: a glance is not a store
   const body = [arrows(2), mk('Mace')];
@@ -112,6 +130,45 @@ test('WAGON-FILTER on the enhanced pack: the wagon carries the search and the ch
     assert.equal(search(), null);
     assert.equal(host.querySelectorAll('.storefilter').length, 0);
   }, { loot: { items: () => body } });
+});
+
+test('WAGON-FILTER is fresh for every store shown: the wagon shut and opened again, a store emptied, a new open - never a filter carried in (AUDIT C2; mutants: the toggle keeps it, the emptied store keeps it, the mount keeps it)', () => {
+  withWagon([cart(), mk('Dagger')], [ingots(2), mk('Mace')], ({ door, menu, choose, search, lootRows }) => {
+    choose('weapons');
+    const s = search(); s.value = 'mac'; s.oninput();
+    assert.equal(lootRows().length, 1);
+    door().onclick(); door().onclick();   // the wagon shut and shown again
+    assert.equal(menu().value, 'all');
+    assert.equal(search().value, '');
+    assert.equal(lootRows().length, 2);
+  });
+  // emptied on Materials: the next piece in is shown
+  withWagon([cart(), mk('Dagger')], [ingots(2)], ({ e, choose, lootRows, lootRowOf, rowOf, click, tabTo }) => {
+    choose('materials');
+    click(lootRowOf('Iron Ingot'), epoch());
+    assert.equal(e.wagonItems.length, 0);
+    tabTo('Weapons');   // a take turns the pack to the taken piece's page
+    click(rowOf('Dagger'), epoch(), { shiftKey: true });
+    assert.deepEqual(lootRows().map((r) => /Dagger/.test(r)), [true], 'the dagger just stowed is shown, not hidden by the old Materials');
+  });
+  // the player's chest, opened straight onto (no door pressed): left on Weapons, the next open starts on All
+  const chest = [ingots(2), mk('Mace')];
+  withWagon([], [], ({ choose, menu }) => { choose('weapons'); assert.equal(menu().value, 'weapons'); }, { loot: { items: () => chest, storage: true } });
+  withWagon([], [], ({ menu, lootRows }) => {
+    assert.equal(menu().value, 'all', '... a new open starts on All');
+    assert.equal(lootRows().length, 2);
+  }, { loot: { items: () => chest, storage: true } });
+});
+
+test('WAGON-FILTER: the search reads the row\'s name - an unidentified enchanted piece is found by what it shows, never by the name it hides (mutant: the search on item.name)', () => {
+  const hidden = mk('Mace', 'Weapons', { name: 'Mace of the Sorrowful', enchantments: [{ type: 1, param: 5 }] });
+  withWagon([cart()], [hidden, mk('Dagger')], ({ search, lootRows }) => {
+    const s = search();
+    s.value = 'sorrow'; s.oninput();
+    assert.equal(lootRows().length, 0, 'the hidden name is not searchable');
+    s.value = 'mace'; s.oninput();
+    assert.equal(lootRows().length, 1);
+  });
 });
 
 test('SHIFT-STOW on the enhanced pack: Shift on a pack row stows the whole stack in the wagon in one press - no card - and a quick second one on a refused piece never wears it; a plain click still only picks; the hint says the gesture (mutants: the shift arm gone, the arm after the double click, the arm on the ground)', () => {
@@ -212,4 +269,71 @@ test('SHIFT-STOW on the classic window: Shift is held as Control is (down edge, 
   w3.hover(10, 10, { shiftKey: true });
   firstSlot(w3);
   assert.equal(bag3.length, 1, 'nothing dropped on the ground');
+});
+
+test('SHIFT-STOW on the classic window, the latch\'s edges (AUDIT C3/C4): a HELD Shift\'s repeated down edge never answers a refusal box; a Shift seen before the page lost the keyboard is not trusted after it until a key or the pointer says it again; one Shift let go while the other is held is still Shift; the middle button is not the gesture; the player\'s storage takes it as the wagon does (mutants: the repeat answers the box, the focus loss ignored, one key\'s up clears both, the storage refused)', () => {
+  // a full wagon's refusal, and Shift held over it
+  const brim = Array.from({ length: Math.ceil(WAGON_KG_LIMIT / effectiveUnitWeightInKg(mk('Mace'))) }, () => mk('Mace'));   // loaded past its limit: nothing more goes in
+  const bag = [cart(), mk('Dagger')];
+  const w = classic(bag, brim);
+  w.click(226 + 5, 14 + 5);
+  w.mode = 'info';
+  w.input('ShiftLeft', { code: 'ShiftLeft', key: 'Shift' });
+  firstSlot(w);
+  assert.ok(w.topBox, 'the wagon refuses, and says so');
+  w.input('ShiftLeft', { code: 'ShiftLeft', key: 'Shift', repeat: true });
+  assert.ok(w.topBox, 'the held key\'s repeat does not take the refusal away');
+  w.click(10, 10);
+  assert.equal(w.topBox, null, 'a press answers it, as it always did');
+  // two keys: one let go, the other held
+  w.input('ShiftRight', { code: 'ShiftRight', key: 'Shift' });
+  w.keyup('ShiftLeft', { code: 'ShiftLeft', key: 'Shift' });
+  assert.equal(w._shiftDown, true, 'the right one is still down');
+  w.keyup('ShiftRight', { code: 'ShiftRight', key: 'Shift' });
+  assert.equal(w._shiftDown, false);
+  // the page loses the keyboard with Shift down and gets it back with no key-up: a click is a plain click
+  const bag2 = [cart(), arrows(25)];
+  const wagon2 = [];
+  const w2 = classic(bag2, wagon2);
+  w2.click(226 + 5, 14 + 5);
+  w2.mode = 'info';
+  w2.input('ShiftLeft', { code: 'ShiftLeft', key: 'Shift' });
+  noteFocusLost();
+  assert.equal(w2._shiftDown, false, 'not trusted after the loss');
+  firstSlot(w2);
+  assert.equal(wagon2.length, 0, 'Info, not a deposit');
+  if (w2.topBox) w2.click(10, 10);
+  w2.hover(10, 10, { shiftKey: true });
+  assert.equal(w2._shiftDown, true, 'the pointer says it again');
+  // the middle button with Shift is the middle button's
+  firstSlot(w2, false);
+  assert.equal(wagon2.length, 1, 'the left button stows');
+  const bag3 = [cart(), arrows(5)];
+  const wagon3 = [];
+  const w3 = classic(bag3, wagon3);
+  w3.click(226 + 5, 14 + 5);
+  w3.mode = 'info';
+  w3.hover(10, 10, { shiftKey: true });
+  w3.click(163 + CELL_X + 5, 48 + 5, false, true);
+  assert.equal(wagon3.length, 0, 'the middle button is not the gesture');
+  // the player's own storage
+  const chest = [];
+  const bag4 = [arrows(9)];
+  const w4 = classic(bag4, [], { loot: { items: () => chest, storage: true } });
+  w4.mode = 'info';
+  w4.hover(10, 10, { shiftKey: true });
+  firstSlot(w4);
+  assert.deepEqual(chest.map((it) => `${it.name}:${it.stackCount}`), ['Arrow:9'], 'into the chest, whole');
+});
+
+test('SHIFT-STOW on the enhanced pack: the card\'s how-many field does not apply - Shift is the whole stack (AUDIT D M3; mutant: the field left standing)', () => {
+  withWagon([cart(), arrows(30)], [], ({ e, host, rowOf, click }) => {
+    const T = epoch();
+    click(rowOf('Arrow'), T);
+    const field = host.querySelectorAll('input').find((i) => i.closest('.qtyfield'));
+    assert.ok(field, 'the card asks how many');
+    field.value = '5'; field.oninput();
+    click(rowOf('Arrow'), T + 5000, { shiftKey: true });
+    assert.deepEqual(e.wagonItems.map((it) => `${it.name}:${it.stackCount}`), ['Arrow:30'], 'the whole stack, not the five');
+  });
 });
