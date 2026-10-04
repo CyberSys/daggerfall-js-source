@@ -122,7 +122,7 @@
   {
     "name": "ATACT-A6-detour-walks",
     "file": "src/characters/enemyMotor.js",
-    "old": "    if (_took && (!detouring || this.fleeLeft > 0 || this._tac?.state === 'windup')) return;",
+    "old": "    if (_took && (!detouring || this.fleeLeft > 0 || this._tac?.state === 'windup' || this._tac?.state === 'dash')) return;",
     "new": "    if (_took && !detouring) return;",
     "tests": [
       "test/audittact.test.js"

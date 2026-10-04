@@ -141,8 +141,8 @@
   {
     "name": "TELL7-brain-own-set",
     "file": "src/ai/tactics.js",
-    "old": "      const shapes = blowShapesOf(ent.mobileType, ent);   // TELL7",
-    "new": "      const shapes = blowShapesOf(ent.mobileType);   // TELL7",
+    "old": "  const all = throwsBlows(ent) ? blowShapesOf(ent.mobileType, ent) : [];",
+    "new": "  const all = throwsBlows(ent) ? blowShapesOf(ent.mobileType) : [];",
     "tests": [
       "test/tell7_tier.test.js",
       "test/tell6a_ring.test.js"

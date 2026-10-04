@@ -6,8 +6,8 @@ these enemies and breath more depth into it"*; then, on the sixteen ideas offere
 detailed arc. I want this to be perfect and insanely detailed"*.
 
 **Status: DESIGNED 2026-10-04 - Mac: "Go" on every call of section 31, each as recommended. Built slice by slice
-(section 30's order; TELL7 before TELL6, TELL6 shape by shape) - TELL1 to TELL5, TELL7 and TELL6a built; each
-slice's record is at the foot.**
+(section 30's order; TELL7 before TELL6, TELL6 shape by shape) - TELL1 to TELL5, TELL7, TELL6a and TELL6b built;
+each slice's record is at the foot.**
 Two halves that lean on each other. **TELL** (TELL1-TELL9) gives a foe's telegraphed blow weight: poise, a body that
 winds up, a cost for missing. **RVN** (RVN1-RVN13) gives a revenant a memory of how it was beaten, a secret, a last
 stand, a name for its worst blow, a band, a lair, and a reason to fear leaving it alone. The predecessors are
@@ -1338,3 +1338,30 @@ RVN5-RVN7; RVN8-RVN11; RVN12 and RVN13 with the audit.
   quad with its glow's room; who throws it (and who never does), its iron, its chain and its window; ON THE MOTOR an
   elite giant's ring landing on a player in its annulus, and missing one who hugs its feet - its iron window.
 - Mutants `tools/mutants/tell6a.json` (11), all dead; TELL7's two waiting records answered (16 dead).
+
+### TELL6b - BUILT 2026-10-04 (the Enhanced AI switch on, every host): the charge
+
+- **The shape** - `BLOW.charge` (0.9 s, a lane 9 m by 1.6 m, x1.5, run in 0.45 s, begun 5-12 m out); `inBlow`'s lane
+  (the lunge's law, its own numbers); the ground draws it on the lunge's branch with its own `uP` and quad; it tracks
+  (TELL5); its miss leaves 1.4 s (TELL4).
+- **The brain change** - TACT4 only ever wound up in reach. `ai/tactics.js blowPool`: in reach a foe's blows of
+  reach; out of it the gap-closers (`GAP_CLOSERS`) whose lane is free - `gapCloses`: 5-12 m, no wall (the collider's
+  ray at the chest) and no cover (`ai/cover.js coverDistance`) to the target and a metre past. Who: TELL7's whole set
+  of the chargers.
+- **The run** - at its landing at me the foe RUNS its lane (`beginDash`, state `dash`): the brain's walk (`_tacDir`) at
+  the lane's speed, along the collider - a wall ends it in a skid (`_tacBlocked`); `characters/enemyMotor.js` never
+  hands a run to the detour. The verdict is swept between the brain's turns, once (`dashTurn`; the world boss's
+  `chargeStrikes` law): my feet within its half-width of the stretch it ran - a hit, and it stops where it met me;
+  its time out or a wall - a miss, and it overreaches at the lane's end. Its held swing stands until the verdict;
+  `resolveLanding` (the landing's one law, now shared) releases it. Its run is its foe's one wind-up near me
+  (`windupNear`'s `dashUntil`). It never chains (its foe ends its lane past its target). Its RELEASE comes before the
+  run, its LAND at the strike the run decides (`tellCues` reads a run as a landing still to come).
+- `tools/foeTelegraphProbe.mjs` gains the charge's lane (past the lunge's reach and wider: 23 held).
+- **Not built here** - the push (TELL6e); an iron charge's knockdown (OPEN 6, TELL6e); a peer's (TELL8).
+- Pins `test/tell6b_charge.test.js` (5): the numbers, the lane, the ground's mirror and branch; who and when (the
+  band, a wall, cover, the pool in reach and out); ON THE MOTOR an elite grizzly's charge from 6.5 m running into a
+  player who stands - a hit where it meets them, stopping short of the lane's end - and an elite Orc Warlord's past one
+  who steps out after its aim locks, overreaching at the lane's end and never chaining; the ear. Pin moved: `tact2`
+  (the motor never hands a run to the detour). Mutant records re-aimed by content (the landing's one law and the
+  pool): `audittact` A6, `tact2`, `tact4` (three), `tell2`, `tell4` (two), `tell5` (four), `tell6a`, `tell7`.
+- Mutants `tools/mutants/tell6b.json` (24), all dead.

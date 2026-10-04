@@ -244,8 +244,8 @@
   {
     "name": "TELL5-chain-gap-open",
     "file": "src/ai/foeBlows.js",
-    "old": "    if (now >= b.land && !(b.chainUntil > now)) continue;",
-    "new": "    if (now >= b.land) continue;",
+    "old": "    if (now >= b.land && !(b.chainUntil > now) && !(b.dashUntil > now)) continue;",
+    "new": "    if (now >= b.land && !(b.dashUntil > now)) continue;",
     "tests": [
       "test/tell5_patterns.test.js"
     ]
@@ -325,8 +325,8 @@
   {
     "name": "TELL5-never-chain",
     "file": "src/ai/tactics.js",
-    "old": "      if ((b.chain ?? 0) < 1 && chains(blowFamily(ent?.mobileType), ent, shapes) && Math.random() < TELL.CHAIN_CHANCE) {",
-    "new": "      if (false) {",
+    "old": "  if (!GAP_CLOSERS.includes(b.kind) && (b.chain ?? 0) < 1 && chains(blowFamily(ent?.mobileType), ent, shapes) && Math.random() < TELL.CHAIN_CHANCE) {",
+    "new": "  if (false) {",
     "tests": [
       "test/tell5_patterns.test.js"
     ]
@@ -334,8 +334,8 @@
   {
     "name": "TELL5-chain-of-chains",
     "file": "src/ai/tactics.js",
-    "old": "      if ((b.chain ?? 0) < 1 && chains(",
-    "new": "      if ((b.chain ?? 0) < 9 && chains(",
+    "old": "  if (!GAP_CLOSERS.includes(b.kind) && (b.chain ?? 0) < 1 && chains(",
+    "new": "  if (!GAP_CLOSERS.includes(b.kind) && (b.chain ?? 0) < 9 && chains(",
     "tests": [
       "test/tell5_patterns.test.js"
     ]
@@ -343,8 +343,8 @@
   {
     "name": "TELL5-gap-unheld",
     "file": "src/ai/tactics.js",
-    "old": "          b.chainUntil = s.chainAt + 0.2;",
-    "new": "          b.chainUntil = 0;",
+    "old": "      b.chainUntil = s.chainAt + 0.2;",
+    "new": "      b.chainUntil = 0;",
     "tests": [
       "test/tell5_patterns.test.js"
     ]

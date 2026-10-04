@@ -92,8 +92,8 @@
   {
     "name": "TELL6a-kind-id",
     "file": "src/render/foeTelegraph.js",
-    "old": "export const BLOW_KIND = Object.freeze({ lunge: 0, sweep: 1, slam: 2, ring: 3 });",
-    "new": "export const BLOW_KIND = Object.freeze({ lunge: 0, sweep: 1, slam: 2, ring: 2 });",
+    "old": "export const BLOW_KIND = Object.freeze({ lunge: 0, sweep: 1, slam: 2, ring: 3, charge: 0 });",
+    "new": "export const BLOW_KIND = Object.freeze({ lunge: 0, sweep: 1, slam: 2, ring: 2, charge: 0 });",
     "tests": [
       "test/tell6a_ring.test.js"
     ]

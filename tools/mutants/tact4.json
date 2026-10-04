@@ -164,8 +164,8 @@
   {
     "name": "TACT4-no-tier-gate",
     "file": "src/ai/tactics.js",
-    "old": "    if (throwsBlows(ent) && !windupNear(_me.feet, now, ai) && Math.random() < BLOW_CHANCE) {",
-    "new": "    if (!windupNear(_me.feet, now, ai) && Math.random() < BLOW_CHANCE) {",
+    "old": "  const all = throwsBlows(ent) ? blowShapesOf(ent.mobileType, ent) : [];",
+    "new": "  const all = blowShapesOf(ent.mobileType, ent);",
     "tests": [
       "test/tact4.test.js"
     ]
@@ -200,8 +200,8 @@
   {
     "name": "TACT4-verdict-always",
     "file": "src/ai/tactics.js",
-    "old": "      ai._blowVerdict = inBlow(b, _me.feet[0], _me.feet[2]);",
-    "new": "      ai._blowVerdict = true;",
+    "old": "    if (atMe) return resolveLanding(ai, s, s.blow, inBlow(s.blow, _me.feet[0], _me.feet[2]), now, cooled);",
+    "new": "    if (atMe) return resolveLanding(ai, s, s.blow, true, now, cooled);",
     "tests": [
       "test/tact4.test.js"
     ]
@@ -209,8 +209,8 @@
   {
     "name": "TACT4-no-forced-swing",
     "file": "src/ai/tactics.js",
-    "old": "      ai._blowMult = b.mult; ai._blowAt = now; ai._blowSwing = true;",
-    "new": "      ai._blowMult = b.mult; ai._blowAt = now;",
+    "old": "  ai._blowMult = b.mult; ai._blowAt = now; ai._blowSwing = true;",
+    "new": "  ai._blowMult = b.mult; ai._blowAt = now;",
     "tests": [
       "test/tact4.test.js"
     ]

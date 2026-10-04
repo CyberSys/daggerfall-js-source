@@ -11,6 +11,8 @@ export const BLOW = Object.freeze({
   // TELL6 (bible/12-Enhanced-AI/Feud-Arc.md 8.1): the ring - an annulus about its feet; safe at its feet (the hug
   // answers it), for the player who backs off
   ring: Object.freeze({ windup: 1.0, rIn: 1.6, rOut: 4.0, mult: 1.5 }),
+  // TELL6 (8.1): the charge - the gap-closer, begun 5-12 m out: a lane 9 m by 1.6 m it crosses in 0.45 s at its landing
+  charge: Object.freeze({ windup: 0.9, len: 9.0, halfW: 0.8, mult: 1.5, cross: 0.45, from: 5, to: 12 }),
 });
 
 // TELL2 (bible/12-Enhanced-AI/Feud-Arc.md section 4): the numbers the ground's pass reads beside the brain - their one

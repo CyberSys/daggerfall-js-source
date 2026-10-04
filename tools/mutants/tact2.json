@@ -183,7 +183,7 @@
   {
     "name": "TACT2-motor-ignores",
     "file": "src/characters/enemyMotor.js",
-    "old": "    if (_took && (!detouring || this.fleeLeft > 0 || this._tac?.state === 'windup')) return;",
+    "old": "    if (_took && (!detouring || this.fleeLeft > 0 || this._tac?.state === 'windup' || this._tac?.state === 'dash')) return;",
     "new": "    void _took;",
     "tests": [
       "test/tact2.test.js"

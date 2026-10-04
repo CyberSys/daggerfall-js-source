@@ -133,8 +133,8 @@
   {
     "name": "TELL2-landing-never-releases",
     "file": "src/ai/tactics.js",
-    "old": "      ai._blowHold = false;   // TELL2: the held swing strikes on its next frame",
-    "new": "",
+    "old": "  ai._blowHold = false;   // TELL2: the held swing strikes on its next frame\n  s.blowReady = cooled; s.blow = null;",
+    "new": "  s.blowReady = cooled; s.blow = null;",
     "tests": [
       "test/tell2_tell.test.js",
       "test/tact4.test.js"

@@ -12,13 +12,13 @@ import { BLOW, TELL_NOW } from '../ai/blowShapes.js';   // the leaf - the brain 
 import { TELEGRAPH_STYLE_GLSL } from './telegraphStyle.js';   // TELL2: the boss's readable line, at a foe's scale (a leaf)
 
 /** The shapes as the shader's `uKind` says them. */
-export const BLOW_KIND = Object.freeze({ lunge: 0, sweep: 1, slam: 2, ring: 3 });
+export const BLOW_KIND = Object.freeze({ lunge: 0, sweep: 1, slam: 2, ring: 3, charge: 0 });   // TELL6: the charge's lane is the lunge's branch, its own numbers
 /** TELL6: a shape's reach from the foe's feet (its farthest point). */
-const REACH = Object.freeze({ lunge: BLOW.lunge.len, sweep: BLOW.sweep.r, slam: BLOW.slam.ahead + BLOW.slam.r, ring: BLOW.ring.rOut });
+const REACH = Object.freeze({ lunge: BLOW.lunge.len, sweep: BLOW.sweep.r, slam: BLOW.slam.ahead + BLOW.slam.r, ring: BLOW.ring.rOut, charge: BLOW.charge.len });
 /** TELL6: a blow's quad half-extent - its own shape and the line's glow past its outline (TELL2 draws 0.5 m out), so a
  *  long shape does not enlarge every quad. */
 export const quadHalf = (kind) => (REACH[kind] ?? BLOW_QUAD_HALF) + 0.6;
-/** The quad's half-extent about the foe's feet - every shape fits (a lunge's lane is the longest). */
+/** The quad's half-extent about the foe's feet - every shape fits (TELL6: the charge's lane is the longest). */
 export const BLOW_QUAD_HALF = Math.max(...Object.values(REACH)) + 0.3;
 export const BLOW_LIFT = 0.06;
 const OUTLINE = 0.12;   // metres of rim
@@ -29,8 +29,8 @@ const OUTLINE = 0.12;   // metres of rim
  * outline of the rim).
  */
 export function blowField(kind, across, along) {
-  if (kind === 'lunge') {
-    const P = BLOW.lunge;
+  if (kind === 'lunge' || kind === 'charge') {   // TELL6: the charge's lane, the lunge's law
+    const P = BLOW[kind];
     const inside = along >= -0.3 && along <= P.len && Math.abs(across) <= P.halfW;
     const edge = Math.max(0, (along + 0.3) / (P.len + 0.3));
     const rim = inside && (P.len - along < OUTLINE || along + 0.3 < OUTLINE || P.halfW - Math.abs(across) < OUTLINE);
@@ -178,7 +178,7 @@ export class FoeTelegraphPass {
       gl.uniform1i(U.uKind, BLOW_KIND[b.kind] ?? 0);
       gl.uniform1f(U.uHalf, quadHalf(b.kind));   // TELL6: each its own size
       const P = BLOW[b.kind];
-      if (b.kind === 'lunge') gl.uniform4f(U.uP, P.len, P.halfW, 0, 0);
+      if (b.kind === 'lunge' || b.kind === 'charge') gl.uniform4f(U.uP, P.len, P.halfW, 0, 0);
       else if (b.kind === 'sweep') gl.uniform4f(U.uP, P.r, P.halfArc, 0, 0);
       else if (b.kind === 'ring') gl.uniform4f(U.uP, P.rIn, P.rOut, 0, 0);
       else gl.uniform4f(U.uP, P.r, P.ahead, 0, 0);

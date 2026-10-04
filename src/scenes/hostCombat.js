@@ -700,7 +700,7 @@ export function windupFeedback(word, f, { audio = null, hitEffects = null, shake
 export function tellCues(f, audio, hearing = 1, now = tacticsNow()) {
   const ai = f?.ai;
   if (!ai) return null;
-  const s = ai._tac, b = s?.state === 'windup' ? s.blow : null;
+  const s = ai._tac, b = s?.state === 'windup' ? s.blow : s?.state === 'dash' ? s.dash?.blow ?? null : null;   // TELL6: a charge's run is its landing still to come
   const c = f._tellCue ?? (f._tellCue = { blow: null, released: false, land: false, seq: 0 });
   const played = [];
   const at = [ai.feet[0], ai.feet[1] + 1, ai.feet[2]];

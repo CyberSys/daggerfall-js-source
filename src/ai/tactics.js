@@ -34,6 +34,7 @@ import { getPref } from '../systems/uiPrefs.js';
 import { ENEMY_BASICS } from '../characters/enemyBasics.js';
 import { MOBILE_TYPES } from '../characters/mobileTypes.js';
 import { throwsBlows, blowShapesOf, blowFamily, makeBlow, fitBlowToGround, inBlow, setLiveBlow, windupNear, offsetBlows, BLOW, BLOW_CHANCE, BLOW_COLOR, IRON_COLOR } from './foeBlows.js';   // TACT4; TELL3: iron; TELL5: the family, the shapes' lengths
+import { coverDistance } from './cover.js';   // TELL6: a charge's lane must be free of cover
 import { tacticsNow, setTacticsClock, tickTactics } from './tacticsClock.js';   // AUDIT TACT D10/A3
 import { TELL, poiseOf, staggerSeconds, glintStrength, blowGuard, punishSeconds, windupSeconds, feints, chains, chainShape, trackYaw, blowCooldown } from './tells.js';   // TELL1: poise and the stagger (bible/12-Enhanced-AI/Feud-Arc.md section 3); TELL3: a blow's guard; TELL4: the punish window; TELL5: patterns; TELL7: the cooldowns
 import { registerBlowTakenMod } from '../systems/blowTaken.js';   // TELL1: a staggered foe takes more - the leaf the formulas read
@@ -130,6 +131,7 @@ export function releaseTactics(ai) {
   if (ai._tac) { ai._tac.key = null; if (ai._tac.state === 'windup') { ai._tac.state = 'wait'; dropSwing(ai); } ai._tac.blow = null; }
   if (ai._tac?.state === 'overreach') { ai._tac.state = 'wait'; endOverreach(ai); }   // TELL4: its window goes with its place
   if (ai._tac?.state === 'chain') ai._tac.state = 'wait';   // TELL5: and a chain it had yet to wind up
+  if (ai._tac?.state === 'dash') { ai._tac.state = 'wait'; ai._tac.dash = null; dropSwing(ai); }   // TELL6: and a charge mid-lane
   setLiveBlow(ai, null);   // TACT4: a wind-up dies with its foe's place
   clearBlowState(ai);
   ai._tacDir = null; ai._tacStrike = undefined; ai._tacShoot = undefined;
@@ -318,6 +320,8 @@ export function tacticsStep(ai, dx, dz) {
     if (ent && _me && targetKey(ai) === LOCAL && ai.canAct !== false && !skipped) beginWindup(ai, s, ent, s.chainShape, _me.feet[0] - ai.feet[0], _me.feet[2] - ai.feet[2], now, s.chainN);
     else s.state = 'engage';   // knocked, paralysed or turned away in the gap: the chain is spent
   }
+  // TELL6 (8.1): a charge running its lane - committed; the verdict swept between its turns
+  if (s.state === 'dash') return dashTurn(ai, s, now);
   // TACT4: a wind-up, once begun, is committed - it lands where it was aimed whether or not the target stays in sight
   if (s.state === 'windup' && s.blow) return windupTurn(ai, s, now, skipped);
   if (s.key !== key) { releaseTactics(ai); s.key = key; s.state = 'wait'; }
@@ -414,10 +418,11 @@ export function tacticsStep(ai, dx, dz) {
   }
   if (s.state === 'engage' && !b.melee.has(ai) && !open) s.state = 'wait';
   // TACT4: a telegraphed blow - a holder in reach of the tier, its cooldown spent, nobody else winding up near me
-  if (s.state === 'engage' && b.melee.has(ai) && key === LOCAL && _me && dist <= reach + 0.5 && ai.canAct !== false && now >= (s.blowReady ?? 0)) {   // AUDIT TACT: a token holder's, never an opportunist's
+  // TELL6: in reach, a blow of reach; out of it, a gap-closer whose lane is free (the charge, 5-12 m)
+  if (s.state === 'engage' && b.melee.has(ai) && key === LOCAL && _me && ai.canAct !== false && now >= (s.blowReady ?? 0)) {   // AUDIT TACT: a token holder's, never an opportunist's
     const ent = ai.vitals?.();
-    if (throwsBlows(ent) && !windupNear(_me.feet, now, ai) && Math.random() < BLOW_CHANCE) {
-      const shapes = blowShapesOf(ent.mobileType, ent);   // TELL7: an elite's, a champion's or a revenant's whole set
+    const shapes = blowPool(ai, ent, dist, dist <= reach + 0.5, dx, dz);
+    if (shapes.length && !windupNear(_me.feet, now, ai) && Math.random() < BLOW_CHANCE) {
       beginWindup(ai, s, ent, shapes[Math.floor(Math.random() * shapes.length)], dx, dz, now);
     }
   }
@@ -491,32 +496,10 @@ function windupTurn(ai, s, now, skipped) {
   // TELL4 (6.2): my feet, sampled once - the first turn inside TELL_LATE of the landing
   if (atMe && s.blow.lateIn == null && now >= s.blow.land - TELL.TELL_LATE && now < s.blow.land) s.blow.lateIn = inBlow(s.blow, _me.feet[0], _me.feet[2]);
   if (now >= s.blow.land) {
-    ai._blowLandedAt = now;   // TELL2: the landing, for the LAND cue (scenes/hostCombat.js tellCues)
     // AUDIT TACT A4/D6: only ever at ME - a wind-up whose foe has turned on another lands on no one here
-    if (atMe) {
-      const b = s.blow;
-      ai._blowVerdict = inBlow(b, _me.feet[0], _me.feet[2]);
-      ai._blowMult = b.mult; ai._blowAt = now; ai._blowSwing = true;
-      ai._blowHold = false;   // TELL2: the held swing strikes on its next frame
-      s.blowReady = cooled; s.blow = null;
-      // TELL5 (7.4): a chain - hit or miss, a second blow at once; the punish window waits for its last
-      const ent = ai.vitals?.();
-      const shapes = ent ? blowShapesOf(ent.mobileType, ent) : [];
-      if ((b.chain ?? 0) < 1 && chains(blowFamily(ent?.mobileType), ent, shapes) && Math.random() < TELL.CHAIN_CHANCE) {
-        const next = chainShape(b.kind, shapes);
-        if (next) {
-          s.state = 'chain'; s.chainAt = now + TELL.CHAIN_GAP; s.chainShape = next; s.chainN = (b.chain ?? 0) + 1;
-          b.chainUntil = s.chainAt + 0.2;   // still its foe's one wind-up near me through the gap (foeBlows.windupNear)
-          ai._tacStrike = false; ai._tacShoot = false; ai.moving = false;
-          return true;
-        }
-      }
-      // TELL4 (6.1): it missed - OVERREACHED; inside at the late sample and out at the landing, a perfect dodge
-      if (!ai._blowVerdict) { beginOverreach(ai, s, b, now, b.lateIn === true); return true; }
-      s.state = 'engage';
-      ai._tacStrike = true;
-      return false;
-    }
+    if (atMe && s.blow.kind === 'charge') { beginDash(ai, s, s.blow, now, cooled); return true; }   // TELL6: its landing is its run
+    ai._blowLandedAt = now;   // TELL2: the landing, for the LAND cue (scenes/hostCombat.js tellCues)
+    if (atMe) return resolveLanding(ai, s, s.blow, inBlow(s.blow, _me.feet[0], _me.feet[2]), now, cooled);
     clearBlowState(ai); dropSwing(ai);
     s.blowReady = cooled; s.state = 'engage'; s.blow = null;
     ai._tacStrike = true;
@@ -524,6 +507,92 @@ function windupTurn(ai, s, now, skipped) {
   }
   ai._tacStrike = false; ai._tacShoot = false; ai.moving = false;   // AUDIT TACT A4: no shot, no spell, mid-wind-up
   return true;
+}
+
+/** TACT4: a landing at me decided - `verdict` (my feet in its shape; TELL6: a charge's run over them). The swing is
+ *  released; TELL5 a chain may follow, hit or miss; TELL4 a miss overreaches. */
+function resolveLanding(ai, s, b, verdict, now, cooled) {
+  ai._blowLandedAt = now;
+  ai._blowVerdict = verdict;
+  ai._blowMult = b.mult; ai._blowAt = now; ai._blowSwing = true;
+  ai._blowHold = false;   // TELL2: the held swing strikes on its next frame
+  s.blowReady = cooled; s.blow = null;
+  // TELL5 (7.4): a chain - hit or miss, a second blow at once; the punish window waits for its last. TELL6: never after a
+  // charge - its foe ends its lane past its target
+  const ent = ai.vitals?.();
+  const shapes = ent ? blowShapesOf(ent.mobileType, ent).filter((k) => !GAP_CLOSERS.includes(k)) : [];
+  if (!GAP_CLOSERS.includes(b.kind) && (b.chain ?? 0) < 1 && chains(blowFamily(ent?.mobileType), ent, shapes) && Math.random() < TELL.CHAIN_CHANCE) {
+    const next = chainShape(b.kind, shapes);
+    if (next) {
+      s.state = 'chain'; s.chainAt = now + TELL.CHAIN_GAP; s.chainShape = next; s.chainN = (b.chain ?? 0) + 1;
+      b.chainUntil = s.chainAt + 0.2;   // still its foe's one wind-up near me through the gap (foeBlows.windupNear)
+      ai._tacStrike = false; ai._tacShoot = false; ai.moving = false;
+      return true;
+    }
+  }
+  // TELL4 (6.1): it missed - OVERREACHED; inside at the late sample and out at the landing, a perfect dodge
+  if (!verdict) { beginOverreach(ai, s, b, now, b.lateIn === true); return true; }
+  s.state = 'engage';
+  ai._tacStrike = true;
+  return false;
+}
+
+// ── TELL6: THE GAP-CLOSERS (bible/12-Enhanced-AI/Feud-Arc.md section 8.1) ────────────────────────────────────────────
+/** TELL6: the shapes this foe may wind up from here - `near` (in reach) its blows of reach; out of reach the
+ *  gap-closers whose lanes are free. TELL7: from its whole set. */
+export function blowPool(ai, ent, dist, near, dx, dz) {
+  const all = throwsBlows(ent) ? blowShapesOf(ent.mobileType, ent) : [];
+  return near ? all.filter((k) => !GAP_CLOSERS.includes(k)) : all.filter((k) => gapCloses(ai, k, dist, dx, dz));
+}
+/** The shapes begun out of reach (TELL6c's leap joins). */
+export const GAP_CLOSERS = Object.freeze(['charge']);
+/** May `kind` be begun from `dist` out along (dx, dz)? The charge: 5-12 m, its lane free of the collider and of cover
+ *  (ai/cover.js) to the target and a metre past. A shape of reach: never out of it. */
+export function gapCloses(ai, kind, dist, dx, dz) {
+  if (kind !== 'charge') return false;
+  const P = BLOW.charge;
+  if (!(dist >= P.from && dist <= P.to)) return false;
+  const l = Math.hypot(dx, dz) || 1, dir = [dx / l, 0, dz / l];
+  const from = [ai.feet[0], ai.feet[1] + 0.9, ai.feet[2]], len = Math.min(P.len, dist + 1);
+  const wall = ai.collider?.raycast?.(from, dir, len);
+  if (Number.isFinite(wall) && wall < len) return false;
+  return !(coverDistance(ai.collider, from, dir, len) < len);
+}
+/** TELL6: the charge's landing - its foe runs its lane, `cross` seconds end to end, along the collider (a wall ends it
+ *  in a skid); the verdict is swept between its turns (the world boss's chargeStrikes law), once. Its held swing stands
+ *  until the verdict. */
+function beginDash(ai, s, b, now, cooled) {
+  s.state = 'dash';
+  s.dash = { blow: b, until: now + BLOW.charge.cross, head: [ai.feet[0], ai.feet[2]], cooled };
+  b.dashUntil = s.dash.until + 0.1;   // its foe's one wind-up near me while it runs (foeBlows.windupNear)
+  return dashStep(ai, b);
+}
+function dashStep(ai, b) {
+  ai._tacDir = [Math.sin(b.yaw), Math.cos(b.yaw)];
+  ai._tacSpeed = (BLOW.charge.len / BLOW.charge.cross) / Math.max(0.1, ai.speed ?? 1);
+  ai.moving = true; ai._tacStrike = false; ai._tacShoot = false;
+  return true;
+}
+/** The charge's turn: my feet within its half-width of the stretch it ran since the last - a hit, and it stops; its time
+ *  out, or a wall - a miss. */
+function dashTurn(ai, s, now) {
+  const d = s.dash, b = d?.blow;
+  if (!b) { s.state = 'engage'; return false; }
+  const h = [ai.feet[0], ai.feet[2]];
+  const hit = !!_me && targetKey(ai) === LOCAL && segDist(_me.feet[0], _me.feet[2], d.head[0], d.head[1], h[0], h[1]) <= BLOW.charge.halfW;
+  d.head = h;
+  if (hit || now >= d.until || ai._tacBlocked) {
+    ai._tacBlocked = false; ai._tacDir = null; ai.moving = false; s.dash = null;
+    if (!_me || targetKey(ai) !== LOCAL) { clearBlowState(ai); dropSwing(ai); s.blowReady = d.cooled; s.state = 'engage'; ai._blowLandedAt = now; return false; }
+    return resolveLanding(ai, s, b, hit, now, d.cooled);
+  }
+  return dashStep(ai, b);
+}
+/** The distance from (px, pz) to the segment a-b. */
+function segDist(px, pz, ax, az, bx, bz) {
+  const vx = bx - ax, vz = bz - az, l2 = vx * vx + vz * vz;
+  const t = l2 > 0 ? Math.max(0, Math.min(1, ((px - ax) * vx + (pz - az) * vz) / l2)) : 0;
+  return Math.hypot(px - (ax + vx * t), pz - (az + vz * t));
 }
 
 /** Hold the ring: step in or out to it, else circle round toward the foe's own slot. FEEDBACK: out only while its

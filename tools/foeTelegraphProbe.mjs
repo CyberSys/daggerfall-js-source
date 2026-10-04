@@ -49,7 +49,7 @@ window.draw = (kind, when, fog = null, slope = null, nearFloor = 0, guard = 'poi
   // read the ground at a world point
   const px = (x, z) => { const v = [x, 0, z, 1]; const c = [0,0,0,0]; for (let r = 0; r < 4; r++) c[r] = vp[r]*v[0] + vp[4+r]*v[1] + vp[8+r]*v[2] + vp[12+r]*v[3];
     const sx = Math.round((c[0]/c[3]*0.5+0.5)*511), sy = Math.round((c[1]/c[3]*0.5+0.5)*511); const o = new Uint8Array(4); gl.readPixels(sx, sy, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, o); return o[0]; };
-  return { n, err: gl.getError(), probes: { ahead: px(0, 1.8), beside: px(3.5, 1.8), behind: px(0, -2.5), far: px(0, 4.0), wide: px(1.5, 1.5), keyline: px(0.70, 1.8), inner: px(0.35, 1.8), feet: px(0, 0.8), out: px(0, 4.9), hatch: Array.from({ length: 13 }, (_, i) => px(0, 2.5 + i * 0.03)) }, png: document.getElementById('c').toDataURL() };
+  return { n, err: gl.getError(), probes: { ahead: px(0, 1.8), beside: px(3.5, 1.8), behind: px(0, -2.5), far: px(0, 4.0), wide: px(1.5, 1.5), keyline: px(0.70, 1.8), inner: px(0.35, 1.8), feet: px(0, 0.8), out: px(0, 4.9), lane7: px(0, 7.0), laneWide: px(0.7, 3.0), hatch: Array.from({ length: 13 }, (_, i) => px(0, 2.5 + i * 0.03)) }, png: document.getElementById('c').toDataURL() };
 };
 window.ready = true;
 </script></body></html>`;
@@ -106,6 +106,10 @@ try {
   check('TELL6: the ring is drawn, no GL error', ringW.n === 1 && ringW.err === 0 && ringL.err === 0, JSON.stringify({ n: ringW.n, err: ringW.err }));
   check('TELL6: the ring lights its annulus, all round', ringL.probes.ahead > GROUND + 60 && ringL.probes.beside > GROUND + 60 && ringL.probes.behind > GROUND + 60, JSON.stringify(ringL.probes));
   check('TELL6: the ring leaves its feet and past its edge dark', Math.abs(ringL.probes.feet - GROUND) < 6 && Math.abs(ringL.probes.out - GROUND) < 6, JSON.stringify(ringL.probes));
+  // TELL6: the charge - a lane past the lunge's reach and wider than it
+  const chargeL = await page.evaluate(() => window.draw('charge', 'land'));
+  const lungeL = await page.evaluate(() => window.draw('lunge', 'land'));
+  check('TELL6: the charge\'s lane reaches past the lunge\'s and is wider', chargeL.n === 1 && chargeL.err === 0 && chargeL.probes.lane7 > GROUND + 60 && Math.abs(lungeL.probes.lane7 - GROUND) < 6 && chargeL.probes.laneWide > GROUND + 60 && Math.abs(lungeL.probes.laneWide - GROUND) < 30, JSON.stringify({ charge: chargeL.probes, lunge: lungeL.probes }));
   // TELL3: an iron blow is never told by colour alone - a second line a quarter-metre inside, a hatch across its fill
   const poiseW = await page.evaluate(() => window.draw('lunge', 'wind'));
   const ironW = await page.evaluate(() => window.draw('lunge', 'wind', null, null, 0, 'iron'));

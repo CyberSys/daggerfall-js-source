@@ -1465,7 +1465,7 @@ export class EnemyAI {
     // a coward's run, an archer's kiting - a foe in sight of its target, not detouring. Off, it answers false and
     // touches nothing.
     const _took = tacticsStep(this, dx, dz);
-    if (_took && (!detouring || this.fleeLeft > 0 || this._tac?.state === 'windup')) return;   // AUDIT TACT A6: a committed wind-up and a coward's run are never the detour's
+    if (_took && (!detouring || this.fleeLeft > 0 || this._tac?.state === 'windup' || this._tac?.state === 'dash')) return;   // AUDIT TACT A6: a committed wind-up and a coward's run are never the detour's; TELL6: nor a charge's run
     this._tacDir = null;
     // Ranged attacks (:468-470) - the FIRST branch of TakeAction's
     // action ladder, AHEAD of the detour (AUDIT 26 F011: the port took

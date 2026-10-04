@@ -123,7 +123,7 @@ export function inBlow(b, px, pz) {
   const fx = Math.sin(b.yaw), fz = Math.cos(b.yaw);
   const rx = px - b.origin[0], rz = pz - b.origin[2];
   const along = rx * fx + rz * fz, across = -rx * fz + rz * fx;
-  if (b.kind === 'lunge') { const P = BLOW.lunge; return along >= -0.3 && along <= P.len && Math.abs(across) <= P.halfW; }
+  if (b.kind === 'lunge' || b.kind === 'charge') { const P = BLOW[b.kind]; return along >= -0.3 && along <= P.len && Math.abs(across) <= P.halfW; }   // TELL6: the charge's lane is a lunge's, longer and wider
   if (b.kind === 'sweep') {
     const P = BLOW.sweep, d = Math.hypot(rx, rz);
     if (d > P.r) return false;
@@ -158,7 +158,7 @@ export function setLiveBlow(ai, b) { if (b) _live.set(ai, b); else _live.delete(
 export function windupNear(feet, now, except = null) {
   for (const [ai, b] of _live) {
     if (ai === except || b.cut != null || gone(ai, now)) continue;   // TELL5: a cut feint is no wind-up
-    if (now >= b.land && !(b.chainUntil > now)) continue;   // TELL5: a landing about to chain is still its foe's one
+    if (now >= b.land && !(b.chainUntil > now) && !(b.dashUntil > now)) continue;   // TELL5: a landing about to chain is still its foe's one; TELL6: a charge running its lane too
     if (Math.hypot(b.origin[0] - feet[0], b.origin[2] - feet[2]) <= BLOW_NEAR) return true;
   }
   return false;
