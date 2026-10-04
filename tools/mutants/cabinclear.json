@@ -1,0 +1,65 @@
+[
+  {
+    "name": "CABIN-CLEAR-the-cabin-shown",
+    "file": "src/scenes/world.js",
+    "old": "  const csaModeShown = () => csaOn() && !modes?.sailingCabin;",
+    "new": "  const csaModeShown = () => csaOn();",
+    "tests": [
+      "test/cabinclear.test.js"
+    ]
+  },
+  {
+    "name": "CABIN-CLEAR-the-mod-off-shown",
+    "file": "src/scenes/world.js",
+    "old": "  const csaModeShown = () => csaOn() && !modes?.sailingCabin;",
+    "new": "  const csaModeShown = () => !modes?.sailingCabin;",
+    "tests": [
+      "test/cabinclear.test.js"
+    ]
+  },
+  {
+    "name": "CABIN-CLEAR-her-hands-in-the-room",
+    "file": "src/scenes/world.js",
+    "old": "...(csaModeShown() ? csa.batches() : [])",
+    "new": "...(csaOn() ? csa.batches() : [])",
+    "tests": [
+      "test/cabinclear.test.js"
+    ]
+  },
+  {
+    "name": "CABIN-CLEAR-her-hull-in-the-room",
+    "file": "src/scenes/world.js",
+    "old": "    drawModeMeshes: () => { if (csaModeShown()) {",
+    "new": "    drawModeMeshes: () => { if (csaOn()) {",
+    "tests": [
+      "test/cabinclear.test.js"
+    ]
+  },
+  {
+    "name": "CABIN-CLEAR-her-drops-in-the-room",
+    "file": "src/scenes/world.js",
+    "old": "    csaDrawParticlesBlended: () => { if (csaModeShown()) csaDrawParticlesBlended(); },",
+    "new": "    csaDrawParticlesBlended: () => { if (csaOn()) csaDrawParticlesBlended(); },",
+    "tests": [
+      "test/cabinclear.test.js"
+    ]
+  },
+  {
+    "name": "CABIN-CLEAR-her-lamps-in-the-room",
+    "file": "src/scenes/world.js",
+    "old": "    modeLights: () => (csaModeShown() ? csa.lights(cam.pos) : []),",
+    "new": "    modeLights: () => (csaOn() ? csa.lights(cam.pos) : []),",
+    "tests": [
+      "test/cabinclear.test.js"
+    ]
+  },
+  {
+    "name": "CABIN-CLEAR-the-ray-on-her",
+    "file": "src/scenes/world.js",
+    "old": "    csaActivationPick: (eye, dir) => (csaModeShown() ? csaActivationPick(eye, dir) : null),",
+    "new": "    csaActivationPick: (eye, dir) => csaActivationPick(eye, dir),",
+    "tests": [
+      "test/cabinclear.test.js"
+    ]
+  }
+]

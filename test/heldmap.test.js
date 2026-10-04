@@ -40,7 +40,7 @@ import { guildFastTravel } from '../src/systems/guildVariants.js';
 import {
   buildInkModel, buildInkMarks, paintInk, placeNames, zoomBand, clampView, scaleMinOf, zoomAt, viewCentredOn,
   toPaper, toMap, boundarySegments, linkSegments, landAt, roadChains, markKind, roundCorners,
-  paintInkStatic, paintInkOverlay, nameFont,
+  paintInkStatic, paintInkOverlay, nameFont, HARBOUR_PEN, HARBOUR_HALO,
   BAND_MARKS, BAND_NAMES, SCALE_MAX, PEN, GLYPH_R, paintGlyph,
 } from '../src/ui/inkMap.js';
 import { PARTY_MARK_CSS } from '../src/ui/partyMapMarks.js';
@@ -1576,16 +1576,17 @@ test('MAP2 ports: the filter is the mod\'s law (portsFilterAllows over hasPort) 
     win.input('KeyP');
     assert.equal(win._sheet.ensure().marks.length, 2, 'and back');
     assert.equal(win._findLocations('B')[0]?.name, 'B', 'and so is the hamlet, to the find box');
-    // the harbour glyph: beside a port at mid and near, never at far, and
-    // only while the mod restricts ships to ports
+    // the harbour glyph: beside a port the band inks. PIN MOVED (PORT-MAP, 2026-10-04, Mac: "Also ports don't show on
+    // my map"): at EVERY band - far too, where the map opens - haloed then inked in the full pen; none only when the
+    // sheet is asked none (the window always asks: test/heldmap.test.js PORT-MAP)
     const harbours = (band, scale, ports) => {
       const ctx = recordingCtx();
       paintInk(ctx, win._sheet.ensure(), { ox: 0, oy: 0, scale }, { paperW: 200, paperH: 200, band, ports });
-      return ctx.calls.filter((c) => c.fn === 'arc' && c.lineWidth === 1.1).length;
+      return ctx.calls.filter((c) => c.fn === 'arc' && c.lineWidth === HARBOUR_PEN).length;
     };
     assert.equal(harbours('near', 10, true), 1, 'one anchor, beside the port');
-    assert.equal(harbours('far', 1, true), 0, 'none at far');
-    assert.equal(harbours('near', 10, false), 0, 'none while ships may sail from anywhere');
+    assert.equal(harbours('far', 1, true), 1, 'at far too');
+    assert.equal(harbours('near', 10, false), 0, 'none when the sheet is asked none');
     win.dispose();
     // per-open (departure 6): a fresh window opens with the filter off
     const again = mkWin(modDeps());

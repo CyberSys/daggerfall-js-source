@@ -582,7 +582,8 @@ export function createNavalHost(deps) {
   const myBoat = () => (sailing() ? csa().state.CurrentBoat : null);
   /** The boats of mine that stand in the world (the shots' targets, the flotsam's collectors). */
   const myBoats = () => (csa()?.state?.AllBoats ?? []).filter((b) => b.GameObject?.activeSelf);
-  /** BERTH-HIDDEN (2026-10-04, Mac: "its two ships clipped inside of eachother"): every boat of mine placed outdoors,
+  /** BERTH-HIDDEN (2026-10-04 - found chasing Mac's "its two ships clipped inside of eachother", which was the cabin's,
+   *  world.js CABIN-CLEAR): every boat of mine placed outdoors,
    *  shown or not - what a berth asks of. Come Sail Away hides a boat more than a map pixel off and every one while I am
    *  indoors, and she lies where she lay all the same (FIELD-CSA1: she rides the origin in sight or not); read by the
    *  shown ones alone, a ship made fast at a quay was a free berth from the harbour roll's 1,200 m, and the port moored

@@ -65,6 +65,23 @@ loading requires that boat in the loaded save, never one from the previous chara
 The interior frame remains axis-aligned, matching the translation-relative decor
 cache even when the boat turns between visits.
 
+**CABIN-CLEAR (2026-10-04, Mac: "The classic style ship is broken. its two ships
+clipped inside of eachother"; "from the ship deed it spawns in a dark void outside the
+game world and you can move around another ship under construction").** The room is
+laid where her hull floats, and the exterior fleet stays afloat below deck
+(`keepExteriorBoats`), so the modal pass's Come Sail Away hooks - meant for a boat on
+a dungeon's water, and asking only whether the mod was on - drew her hull, her hands
+and lanterns, lit her lamps and pointed the ray at her, through the room's walls in
+the void of an interior. The hooks ask `csaModeShown` (world.js): the mod on and no
+sailing cabin. The fleet stays afloat for its passengers and its word; the room only
+stops drawing it. `test/cabinclear.test.js`, `tools/mutants/cabinclear.json`.
+OPEN FOR MAC: "Bank ownership and bank ship scenes stay independent" (above) is not
+what the code does - `boatCabinOwnership.js linkBankCabin` links the bank ship to the
+one matching sailing ship WITHOUT asking (from her menu, Enter cabin and every load
+outdoors), moves the bank ship's room into her cabin, and Transport > Ship and the bank
+ship's door then lead to her cabin, not to "Your Ship". Whether that link should be
+asked first is Mac's call; it is left as it stands.
+
 **Return to deck** goes through the same exit transition and resolves the same
 live boat's deck pose. It uses feet height without snapping to the seabed. A missing
 boat refuses the exit without destroying the room. Cabin entry/exit does not take

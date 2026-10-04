@@ -249,8 +249,8 @@ within GANGWAY_FACING (cos 0.7) of square. Its word is said once each time the p
 alongside first - but never over her own helm, hold or door under the ray (Q4: `boatTrigger`, Come Sail Away's trigger
 first). Under way, no gangway.
 
-**A SHIP OUT OF SIGHT KEEPS HER BERTH** (BERTH-HIDDEN, 2026-10-04, Mac: "The classic style ship is broken. its two ships
-clipped inside of eachother"). Come Sail Away hides a boat more than a map pixel off, and every boat while the player is
+**A SHIP OUT OF SIGHT KEEPS HER BERTH** (BERTH-HIDDEN, 2026-10-04 - found chasing Mac's "The classic style ship is
+broken. its two ships clipped inside of eachother", which was the sailing cabin's: `Come-Sail-Away.md` CABIN-CLEAR). Come Sail Away hides a boat more than a map pixel off, and every boat while the player is
 indoors (`UpdateBoatVisibility`); she lies where she lay all the same (FIELD-CSA1: she rides the origin in sight or not).
 The berths asked only the boats it shows (`myBoats`), so a ship made fast at a quay was a free berth to the port's roll,
 which stands from HARBOUR_STAND (1,200 m off the mouth - two pixels from her, coming in): it moored its own ship at her

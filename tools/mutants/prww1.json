@@ -92,11 +92,12 @@
   {
     "name": "PRWW1-modal-hook-narrowed-back",
     "file": "src/scenes/world.js",
-    "old": "    extraBillboards: () => [...(remotePlayers?.batches() ?? []), ...(peerRiders?.batches() ?? []), ...(peerWalkers?.batches() ?? []), ...(gateCourt?.batches() ?? []), ...(csaOn() ? csa.batches() : []), ...((modes?.mode ?? 'exterior') === 'dungeon' ? arenaBouts.batches() : [])],",
-    "new": "    extraBillboards: () => [...(remotePlayers?.batches() ?? []), ...(gateCourt?.batches() ?? []), ...(csaOn() ? csa.batches() : []), ...((modes?.mode ?? 'exterior') === 'dungeon' ? arenaBouts.batches() : [])],",
+    "old": "    extraBillboards: () => [...(remotePlayers?.batches() ?? []), ...(peerRiders?.batches() ?? []), ...(peerWalkers?.batches() ?? []), ...(gateCourt?.batches() ?? []), ...(csaModeShown() ? csa.batches() : []), ...((modes?.mode ?? 'exterior') === 'dungeon' ? arenaBouts.batches() : [])],",
+    "new": "    extraBillboards: () => [...(remotePlayers?.batches() ?? []), ...(gateCourt?.batches() ?? []), ...(csaModeShown() ? csa.batches() : []), ...((modes?.mode ?? 'exterior') === 'dungeon' ? arenaBouts.batches() : [])],",
     "tests": [
       "test/prww1_werewolf.test.js"
-    ]
+    ],
+    "note": "CABIN-CLEAR (PIN MOVED): re-aimed by content - the modal billboards ask csaModeShown (no sailing cabin) where they asked csaOn."
   },
   {
     "name": "PRWW1-local-body-on-the-settings-alone",

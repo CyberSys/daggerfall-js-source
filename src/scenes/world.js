@@ -5967,6 +5967,13 @@ export async function bootWorld(canvas, renderer, params, status) {
   // the colliders and the rays never did, so a mod switched off mid-game left an invisible deck standing
   const _csaOnAtLoad = latchModLoaded('come-sail-away', (() => { try { return modSetting('come-sail-away', 'Enabled') !== false; } catch { return false; } })());   // AUDIT PRE-MERGE 0928 S4: and the mod's other doors (the shelf's rows, its keys, its effect's restore) read this answer too
   const csaOn = () => _csaOnAtLoad;
+  /** CABIN-CLEAR (2026-10-04, Mac: "it spawns in a dark void outside the game world and you can move around another ship
+   *  under construction"): the boats a modal pass draws, lights and points at - Come Sail Away's, but never from a
+   *  sailing cabin. Indoors the pool holds only a boat on a dungeon's water (UpdateBoatVisibility's inside arm); a cabin
+   *  keeps the WHOLE exterior fleet afloat (keepExteriorBoats - its passengers, its word), and the bank ship's room is
+   *  laid where her hull floats (scenes/sailingCabin.js), so the room drew her - hull, hands, lanterns and the ray on
+   *  them - through its own walls. A cabin is never entered from a dungeon's water (hasSailingCabin: !boat.inside). */
+  const csaModeShown = () => csaOn() && !modes?.sailingCabin;
   const csa = createComeSailAwayPool({ renderer, pipeline, log: console });
   /** NAV-H: the naval host (made below, with Come Sail Away's runtime) - declared here, beside the pool whose sea list
    *  it fills, because the boats' colliders, rays and particles below read its ships. */
@@ -21950,11 +21957,11 @@ export async function bootWorld(canvas, renderer, params, status) {
     // now draws, which the enemy sprite gives way to, would be nothing at all indoors and underground
     // (and DISC23-B's walkers: a peer standing as their chosen set gives the class sprite way just the same, so the
     // merge of the two hands their batches here too)
-    extraBillboards: () => [...(remotePlayers?.batches() ?? []), ...(peerRiders?.batches() ?? []), ...(peerWalkers?.batches() ?? []), ...(gateCourt?.batches() ?? []), ...(csaOn() ? csa.batches() : []), ...((modes?.mode ?? 'exterior') === 'dungeon' ? arenaBouts.batches() : [])],   // WB4: and the Burning Court's boss; CSA-C: a boat's crew and lanterns where it stands indoors
-    drawModeMeshes: () => { if (csaOn()) { csa.draw(renderer); csaDrawParticlesOpaque(); } },   // CSA-C: a boat placed on a dungeon's water (UpdateBoatVisibility's inside arm keeps it active there); CSA-F: its wake's and splashes' quads and its flag
-    csaDrawParticlesBlended: () => { if (csaOn()) csaDrawParticlesBlended(); },   // CSA-F: ...and its drops, after the mode's last world draw
-    modeLights: () => (csaOn() ? csa.lights(cam.pos) : []),   // CSA-C: ...and its lit lanterns
-    csaActivationPick: (eye, dir) => csaActivationPick(eye, dir),   // CSA-D: ...and the one ray on it, in the building's or the dungeon's ladder
+    extraBillboards: () => [...(remotePlayers?.batches() ?? []), ...(peerRiders?.batches() ?? []), ...(peerWalkers?.batches() ?? []), ...(gateCourt?.batches() ?? []), ...(csaModeShown() ? csa.batches() : []), ...((modes?.mode ?? 'exterior') === 'dungeon' ? arenaBouts.batches() : [])],   // WB4: and the Burning Court's boss; CSA-C: a boat's crew and lanterns where it stands indoors
+    drawModeMeshes: () => { if (csaModeShown()) { csa.draw(renderer); csaDrawParticlesOpaque(); } },   // CSA-C: a boat placed on a dungeon's water (UpdateBoatVisibility's inside arm keeps it active there); CSA-F: its wake's and splashes' quads and its flag
+    csaDrawParticlesBlended: () => { if (csaModeShown()) csaDrawParticlesBlended(); },   // CSA-F: ...and its drops, after the mode's last world draw
+    modeLights: () => (csaModeShown() ? csa.lights(cam.pos) : []),   // CSA-C: ...and its lit lanterns
+    csaActivationPick: (eye, dir) => (csaModeShown() ? csaActivationPick(eye, dir) : null),   // CSA-D: ...and the one ray on it, in the building's or the dungeon's ladder; CABIN-CLEAR: none from a cabin
     csaActivate: (pick) => csaActivate(pick),
     csaDrawWindWidget: () => csaDrawWindWidget(),   // CSA-E: the wind widget over a mode's HUD
     csaOnPlayerDeath: () => { if (csaRuntime) csaCall(() => csaRuntime.OnPlayerDeath()); },   // CSA-J (the audit): PlayerEntity.OnDeath and OnExhausted reach ComeSailAway.OnPlayerDeath in every mode (Start 1059-1060)
