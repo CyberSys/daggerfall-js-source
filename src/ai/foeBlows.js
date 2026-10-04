@@ -131,6 +131,7 @@ export function inBlow(b, px, pz) {
     return Math.acos(Math.max(-1, Math.min(1, along / d))) <= P.halfArc;
   }
   if (b.kind === 'slam') { const P = BLOW.slam; return Math.hypot(along - P.ahead, across) <= P.r; }
+  if (b.kind === 'ring') { const P = BLOW.ring, d = Math.hypot(rx, rz); return d >= P.rIn && d <= P.rOut; }   // TELL6: safe at its feet
   return false;
 }
 

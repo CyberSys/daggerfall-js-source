@@ -12,9 +12,14 @@ import { BLOW, TELL_NOW } from '../ai/blowShapes.js';   // the leaf - the brain 
 import { TELEGRAPH_STYLE_GLSL } from './telegraphStyle.js';   // TELL2: the boss's readable line, at a foe's scale (a leaf)
 
 /** The shapes as the shader's `uKind` says them. */
-export const BLOW_KIND = Object.freeze({ lunge: 0, sweep: 1, slam: 2 });
+export const BLOW_KIND = Object.freeze({ lunge: 0, sweep: 1, slam: 2, ring: 3 });
+/** TELL6: a shape's reach from the foe's feet (its farthest point). */
+const REACH = Object.freeze({ lunge: BLOW.lunge.len, sweep: BLOW.sweep.r, slam: BLOW.slam.ahead + BLOW.slam.r, ring: BLOW.ring.rOut });
+/** TELL6: a blow's quad half-extent - its own shape and the line's glow past its outline (TELL2 draws 0.5 m out), so a
+ *  long shape does not enlarge every quad. */
+export const quadHalf = (kind) => (REACH[kind] ?? BLOW_QUAD_HALF) + 0.6;
 /** The quad's half-extent about the foe's feet - every shape fits (a lunge's lane is the longest). */
-export const BLOW_QUAD_HALF = Math.max(BLOW.lunge.len, BLOW.sweep.r, BLOW.slam.ahead + BLOW.slam.r) + 0.3;
+export const BLOW_QUAD_HALF = Math.max(...Object.values(REACH)) + 0.3;
 export const BLOW_LIFT = 0.06;
 const OUTLINE = 0.12;   // metres of rim
 
@@ -37,6 +42,11 @@ export function blowField(kind, across, along) {
     const inside = d <= P.r && (d < 0.5 || ang <= P.halfArc);
     const rim = inside && (P.r - d < OUTLINE || (d >= 0.5 && (P.halfArc - ang) * d < OUTLINE));
     return { inside, edge: d / P.r, rim };
+  }
+  if (kind === 'ring') {   // TELL6: the annulus, filling outward from its inner edge
+    const P = BLOW.ring, d = Math.hypot(across, along);
+    const inside = d >= P.rIn && d <= P.rOut;
+    return { inside, edge: Math.max(0, (d - P.rIn) / (P.rOut - P.rIn)), rim: inside && (d - P.rIn < OUTLINE || P.rOut - d < OUTLINE) };
   }
   const P = BLOW.slam, d = Math.hypot(across, along - P.ahead);
   const inside = d <= P.r;
@@ -69,7 +79,7 @@ uniform int uKind;
 uniform float uT;
 uniform float uFlash;
 uniform vec3 uColor;
-uniform vec4 uP;   // lunge: len, halfW / sweep: r, halfArc / slam: r, ahead
+uniform vec4 uP;   // lunge: len, halfW / sweep: r, halfArc / slam: r, ahead / TELL6 ring: rIn, rOut
 uniform float uNow;   // TELL2: 0..1 through the last stretch before the landing
 uniform float uNearFloor;   // TELL2: the fog's floor for a mark near the player (0 none)
 uniform float uIron;   // TELL3: 1 an iron blow - its second rim and its hatch
@@ -98,11 +108,16 @@ void main() {
     inside = d <= uP.x && (d < 0.5 || ang <= uP.y);
     edge = d / uP.x;
     dist = inside ? min(uP.x - d, d >= 0.5 ? (uP.y - ang) * d : 1e3) : max(d - uP.x, d >= 0.5 ? (ang - uP.y) * d : 0.0);
-  } else {
+  } else if (uKind == 2) {
     float d = length(vec2(across, along - uP.y));
     inside = d <= uP.x;
     edge = d / uP.x;
     dist = abs(uP.x - d);
+  } else {   // TELL6: the ring - safe at its feet
+    float d = length(vec2(across, along));
+    inside = d >= uP.x && d <= uP.y;
+    edge = max(0.0, (d - uP.x) / (uP.y - uP.x));
+    dist = inside ? min(d - uP.x, uP.y - d) : (d < uP.x ? uP.x - d : d - uP.y);
   }
   // TELL2: the line, the keyline and the glow reach a little past the outline; nothing else outside it is drawn
   if (!inside && dist > 0.5) discard;
@@ -145,7 +160,6 @@ export class FoeTelegraphPass {
     mul(this._vp, proj, view);
     gl.useProgram(this.program);
     gl.uniformMatrix4fv(U.uVP, false, this._vp);
-    gl.uniform1f(U.uHalf, BLOW_QUAD_HALF);
     gl.uniform1f(U.uLift, BLOW_LIFT);
     gl.uniform1i(U.uFogMode, fog ? fog.mode : 0);
     gl.uniform1f(U.uFogDensity, fog?.density ?? 0);
@@ -162,9 +176,11 @@ export class FoeTelegraphPass {
       gl.uniform1f(U.uYaw, b.yaw);
       gl.uniform2f(U.uSlope, b.slope?.[0] ?? 0, b.slope?.[1] ?? 0);
       gl.uniform1i(U.uKind, BLOW_KIND[b.kind] ?? 0);
+      gl.uniform1f(U.uHalf, quadHalf(b.kind));   // TELL6: each its own size
       const P = BLOW[b.kind];
       if (b.kind === 'lunge') gl.uniform4f(U.uP, P.len, P.halfW, 0, 0);
       else if (b.kind === 'sweep') gl.uniform4f(U.uP, P.r, P.halfArc, 0, 0);
+      else if (b.kind === 'ring') gl.uniform4f(U.uP, P.rIn, P.rOut, 0, 0);
       else gl.uniform4f(U.uP, P.r, P.ahead, 0, 0);
       gl.uniform1f(U.uT, phase.t);
       gl.uniform1f(U.uFlash, phase.flash);

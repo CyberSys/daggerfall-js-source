@@ -8,6 +8,9 @@ export const BLOW = Object.freeze({
   lunge: Object.freeze({ windup: 0.7, len: 4.5, halfW: 0.6, mult: 1.5 }),
   sweep: Object.freeze({ windup: 0.8, r: 3.2, halfArc: (65 * Math.PI) / 180, mult: 1.25 }),
   slam: Object.freeze({ windup: 0.9, r: 2.0, ahead: 1.0, mult: 1.75 }),
+  // TELL6 (bible/12-Enhanced-AI/Feud-Arc.md 8.1): the ring - an annulus about its feet; safe at its feet (the hug
+  // answers it), for the player who backs off
+  ring: Object.freeze({ windup: 1.0, rIn: 1.6, rOut: 4.0, mult: 1.5 }),
 });
 
 // TELL2 (bible/12-Enhanced-AI/Feud-Arc.md section 4): the numbers the ground's pass reads beside the brain - their one

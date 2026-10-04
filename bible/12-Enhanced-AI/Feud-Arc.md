@@ -6,7 +6,8 @@ these enemies and breath more depth into it"*; then, on the sixteen ideas offere
 detailed arc. I want this to be perfect and insanely detailed"*.
 
 **Status: DESIGNED 2026-10-04 - Mac: "Go" on every call of section 31, each as recommended. Built slice by slice
-(section 30's order; TELL7 before TELL6) - TELL1 to TELL5 and TELL7 built; each slice's record is at the foot.**
+(section 30's order; TELL7 before TELL6, TELL6 shape by shape) - TELL1 to TELL5, TELL7 and TELL6a built; each
+slice's record is at the foot.**
 Two halves that lean on each other. **TELL** (TELL1-TELL9) gives a foe's telegraphed blow weight: poise, a body that
 winds up, a cost for missing. **RVN** (RVN1-RVN13) gives a revenant a memory of how it was beaten, a secret, a last
 stand, a name for its worst blow, a band, a lair, and a reason to fear leaving it alone. The predecessors are
@@ -1316,5 +1317,24 @@ RVN5-RVN7; RVN8-RVN11; RVN12 and RVN13 with the audit.
   only; the cooldowns; ON THE MOTOR a level-1 revenant telegraphing where an ordinary level-1 orc never does, each
   tier's cooldown on the pinned roll. Pin moved: `tell1_poise` (the table). Mutant records re-aimed by content:
   `tact4` (two), `tell1`.
-- Mutants `tools/mutants/tell7.json` (16): 14 dead; 2 recorded equivalent until TELL6's ring exists (a family's
-  shapes are its whole set until then) - they go stale, and are answered, there.
+- Mutants `tools/mutants/tell7.json` (16): 14 dead at the slice; 2 recorded equivalent until TELL6's ring existed (a
+  family's shapes were its whole set until then) - answered at TELL6a, all 16 dead.
+
+### TELL6a - BUILT 2026-10-04 (the Enhanced AI switch on, every host): the ring
+
+- **The order** - TELL6 is built shape by shape: the ring (6a), the charge (6b), the leap (6c), the aimed shot (6d),
+  then what a landing does (6e).
+- **The shape** - `ai/blowShapes.js BLOW.ring` (1.0 s, 1.6-4.0 m about its feet, x1.5); `ai/foeBlows.js inBlow`: the
+  annulus, all round, safe at its feet and past its edge.
+- **The ground** - `render/foeTelegraph.js`: `BLOW_KIND.ring` 3, `blowField`'s mirror of the verdict, the shader's
+  annulus (filling outward from its inner edge, its unsigned distance to both edges for the line), `uP` its two radii.
+  Each blow its own quad (`quadHalf`: its reach and room for the glow - TELL2 draws 0.5 m out; `uHalf` in the draw
+  loop, so the charge's lane will not enlarge every quad); `BLOW_QUAD_HALF` still holds every shape.
+  `tools/foeTelegraphProbe.mjs` gains the ring (lit all round, dark at its feet and past its edge: 22 held).
+- **Who** - TELL7's whole set: an elite, a champion or a revenant Giant, Iron or Flesh Atronach, or Daedra Lord.
+  Heavy and massive bodies all, so iron (TELL3's `IRON_SHAPES`); it never turns (TELL5); it chains into a slam; its
+  miss leaves a second's window (TELL4), iron's 0.3 s more.
+- Pins `test/tell6a_ring.test.js` (5): the numbers and the verdict all round; every shape's mirror inside its own
+  quad with its glow's room; who throws it (and who never does), its iron, its chain and its window; ON THE MOTOR an
+  elite giant's ring landing on a player in its annulus, and missing one who hugs its feet - its iron window.
+- Mutants `tools/mutants/tell6a.json` (11), all dead; TELL7's two waiting records answered (16 dead).

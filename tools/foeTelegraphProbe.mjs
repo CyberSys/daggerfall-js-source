@@ -49,7 +49,7 @@ window.draw = (kind, when, fog = null, slope = null, nearFloor = 0, guard = 'poi
   // read the ground at a world point
   const px = (x, z) => { const v = [x, 0, z, 1]; const c = [0,0,0,0]; for (let r = 0; r < 4; r++) c[r] = vp[r]*v[0] + vp[4+r]*v[1] + vp[8+r]*v[2] + vp[12+r]*v[3];
     const sx = Math.round((c[0]/c[3]*0.5+0.5)*511), sy = Math.round((c[1]/c[3]*0.5+0.5)*511); const o = new Uint8Array(4); gl.readPixels(sx, sy, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, o); return o[0]; };
-  return { n, err: gl.getError(), probes: { ahead: px(0, 1.8), beside: px(3.5, 1.8), behind: px(0, -2.5), far: px(0, 4.0), wide: px(1.5, 1.5), keyline: px(0.70, 1.8), inner: px(0.35, 1.8), hatch: Array.from({ length: 13 }, (_, i) => px(0, 2.5 + i * 0.03)) }, png: document.getElementById('c').toDataURL() };
+  return { n, err: gl.getError(), probes: { ahead: px(0, 1.8), beside: px(3.5, 1.8), behind: px(0, -2.5), far: px(0, 4.0), wide: px(1.5, 1.5), keyline: px(0.70, 1.8), inner: px(0.35, 1.8), feet: px(0, 0.8), out: px(0, 4.9), hatch: Array.from({ length: 13 }, (_, i) => px(0, 2.5 + i * 0.03)) }, png: document.getElementById('c').toDataURL() };
 };
 window.ready = true;
 </script></body></html>`;
@@ -100,6 +100,12 @@ try {
   const lost = await page.evaluate((f) => window.draw('lunge', 'land', { ...f, range: new Float32Array(f.range), camPos: new Float32Array(f.camPos) }), { ...thick, range: [...thick.range], camPos: [...thick.camPos] });
   const kept = await page.evaluate((f) => window.draw('lunge', 'land', { ...f, range: new Float32Array(f.range), camPos: new Float32Array(f.camPos) }, null, 0.6), { ...thick, range: [...thick.range], camPos: [...thick.camPos] });
   check('TELL2: a mark near the player keeps its floor through thick fog', Math.abs(lost.probes.ahead - GROUND) < 6 && kept.probes.ahead > GROUND + 40, JSON.stringify({ lost: lost.probes.ahead, kept: kept.probes.ahead }));
+  // TELL6: the ring - lit about its feet, dark at them (the hug answers it) and past its outer edge
+  const ringW = await page.evaluate(() => window.draw('ring', 'wind'));
+  const ringL = await page.evaluate(() => window.draw('ring', 'land'));
+  check('TELL6: the ring is drawn, no GL error', ringW.n === 1 && ringW.err === 0 && ringL.err === 0, JSON.stringify({ n: ringW.n, err: ringW.err }));
+  check('TELL6: the ring lights its annulus, all round', ringL.probes.ahead > GROUND + 60 && ringL.probes.beside > GROUND + 60 && ringL.probes.behind > GROUND + 60, JSON.stringify(ringL.probes));
+  check('TELL6: the ring leaves its feet and past its edge dark', Math.abs(ringL.probes.feet - GROUND) < 6 && Math.abs(ringL.probes.out - GROUND) < 6, JSON.stringify(ringL.probes));
   // TELL3: an iron blow is never told by colour alone - a second line a quarter-metre inside, a hatch across its fill
   const poiseW = await page.evaluate(() => window.draw('lunge', 'wind'));
   const ironW = await page.evaluate(() => window.draw('lunge', 'wind', null, null, 0, 'iron'));

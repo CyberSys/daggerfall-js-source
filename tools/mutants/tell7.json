@@ -125,10 +125,9 @@
     "old": "  if (!base.length || !wholeSet(entity)) return base;",
     "new": "  return base;",
     "tests": [
-      "test/tell7_tier.test.js"
-    ],
-    "equivalent": true,
-    "why": "until TELL6 brings a shape of the whole set (the ring, the charge, the leap), a family's shapes are its whole set - TELL6a's ring kills it, and this record goes stale then"
+      "test/tell7_tier.test.js",
+      "test/tell6a_ring.test.js"
+    ]
   },
   {
     "name": "TELL7-brain-ordinary-clock",
@@ -145,9 +144,8 @@
     "old": "      const shapes = blowShapesOf(ent.mobileType, ent);   // TELL7",
     "new": "      const shapes = blowShapesOf(ent.mobileType);   // TELL7",
     "tests": [
-      "test/tell7_tier.test.js"
-    ],
-    "equivalent": true,
-    "why": "until TELL6 brings a shape of the whole set (the ring, the charge, the leap), a family's shapes are its whole set - TELL6a's ring kills it, and this record goes stale then"
+      "test/tell7_tier.test.js",
+      "test/tell6a_ring.test.js"
+    ]
   }
 ]
