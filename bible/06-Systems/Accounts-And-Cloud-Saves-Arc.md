@@ -4436,3 +4436,61 @@ broken arcs of violet runic script: beads on the line, curled ends, combs and a 
   `acc3titles.test.js` moved; the relay's pins moved to world160 crediting AEGIS (`auditbounty1.test.js` holds the
   credit) and the account's to acct73. Seven older records re-aimed by content (`herald.json`, `penitent.json`,
   `shadowfang.json`, `ribbon.json`, `wb9g.json` 3) and the version records in `soc1.json` and `gatekeys.json`.
+
+## PRIMARCH — GA00250's own: the Primarch, its glyph and the Golden Radiance (2026-10-04, world162, acct75)
+
+The owner: "The details here are for a custom title, glyph, and aura for ga00250", over GA00250's own words: "the title
+will be Primarch, the color will be that light gold color that you guys use in some places in the game menu" - with a
+screenshot of their name in the pause menu's pixel face ("that color") and a swatch - and "can the aura be a golden
+light around the character? like i've seen some rare mobs with it" (the elite foes' glow, `systems/hitFlash.js`
+ELITE_GLOW_GLSL: the sprite warmed toward gold, an edge of light round the silhouette, embers rising off it). No glyph
+was described.
+
+- **The grant** (`server-account/wrangler.toml`, `server-account/src/titles.js`): `PRIMARCH_HANDLES = "GA00250"`,
+  TITLE-N's handle-list law (`TIER_LISTS.primarch`, `TIER_GLYPH.primarch`) and AEGIS's: the second list that grants an
+  aura (`TIER_AURA.primarch = 'radiance'`), derived from the config at every ask as the Oblivion Ward is - held while the
+  handle is listed, gone from the next token once it is not, case-folded, never a guest's. Nothing else had to move:
+  AEGIS already made `aurasHeld`, `auraWorn` and `auraRefusal` read the config at every caller. No staff command rides it.
+- **The vocabulary** (`src/net/identityToken.js`, in the relay bundle): `primarch` joins TITLES and GLYPHS last, and
+  `radiance` joins AURAS after `oblivionward`. A relay before it refuses a token carrying any of the three
+  (`claimsValid`), so the relay is **world162** and the account service **acct75**; the account deploy waits for the
+  relay's `/health` to serve world162. No frame changes shape.
+- **The title** (`src/ui/playerBadge.js`): "Primarch" in ONE colour, as asked - #d8cfae, the pixel menu's text
+  (`ui/enhancedStyle.js .px-mname`, the very rule the screenshot's name is drawn by; the screenshot's letters sample at
+  #d4ccb0 through its JPEG, the swatch at #e5e09e). A pin holds the title to that rule, so the two cannot drift. A
+  one-colour title wears every face's black text shadow (no gradient, no `TITLE_EDGE`); it read on all five grounds - a
+  night sky, a day sky, stone, grass and snow - in Chromium at 13 to 64 px. It is paler and greyer than the Founder's
+  and the Crowned's golds and warmer than the Champion's silver. (The name under it is drawn in `--bone`, #e9e4d9: the
+  two are near, which is the colour GA00250 chose.)
+- **The glyph** (the port's own, after the title's demigod-general): a sword raised point up on the middle - the glyph's
+  highest point - a guard across its foot, a grip and a lozenge pommel; and each side a wing rising out and up from
+  beside the blade (clear of it) to a tip at the box's top corner, its trailing edge cut into four feathers. Filled, in
+  the title's gold. Chosen over a stroked winged sword (the feathers read as beads on a line, the wings as a trident's
+  tines at a name's size) and a filled one with the feathers only notched (two blades). Penitent's sword points down
+  inside a lozenge; this one points up between wings. `Y` on the classic face (the wings over the hilt); "Primarch" on
+  the account card.
+- **The Golden Radiance** (`src/render/auraRing.js`, the aura pass WB9g built): the third look of the same program
+  (`uAura` 2, AURA_LOOK - its column's radius 0.6 m and height 2.2 m, no symbols). Light ABOUT THE BODY rather than a
+  mark at the feet. THE WALL: a column the body's width standing past the crown (the walking body is 1.8 m), lit as a
+  glowing shell is - faint where the eye looks through it across the body, brightest at its two edges where the eye
+  looks along it (the horizontal facing of its surface to the eye) - so it reads as a halo up the silhouette, never a
+  gold wash over the wearer; shafts of noise climbing it, whole to the chest and gone at its top, breathing; eighteen
+  golden motes rising its height at their own places and paces (the elite's embers). Seen from inside it - the wearer's
+  own first person - the column is not drawn (the fragment half reads the feet, `uAt`, beside the eye) and its motes are
+  dimmer: the wearer's own view is never veiled in gold. THE GROUND: a pool of the light, brightest at the feet and gone
+  before the quad's edge; a white-gold ring at the column's foot; twelve rays across the pool, turning a turn in 30 s.
+  It kindles up: the ground lights as the others' do and the column rises from the feet to past the crown. Its glow is a
+  gold a step paler than the elite's (#ffbd47) and its heart the title's own #d8cfae. Every rate is a whole number of
+  cycles over the clock (`radianceRatesWhole`), every pattern round a whole number, so no seam and no jump at the wrap.
+  THE FOUR HOSTS, untouched: the pass's hosts are AEGIS's (`scenes/world.js`, `scenes/worldModes.js`,
+  `scenes/dungeonContext.js`; `scenes/exterior.js` draws no aura - FLAGGED, unchanged).
+- **Seen**: the title and glyph in Chromium over the five grounds at 13 to 64 px; the radiance in a real WebGL2 round a
+  stand-in body from a third-person camera, from low, from above, from far, close, at half kindled, and from the
+  wearer's own eye looking level and looking down. `tools/auraProbe.mjs` now draws all three auras: 33/33 (the ring
+  whole and golden, the pool, no seam, no jump at the wrap, the column bright at its edges and faint across, dark beside
+  it and over the crown, nothing unkindled, risen to the waist at half kindled, no veil from inside).
+- Pins: `test/primarch.test.js` (11). `tools/mutants/primarch.json` (32, all dead). The vocabulary's exact lists in
+  `acc3titles.test.js` and `titlen.test.js` moved, and `aegis.test.js`'s newest-word and one-list pins (PIN MOVED); the
+  relay's pins moved to world162 crediting PRIMARCH (`auditbounty1.test.js` holds the credit), the account's to acct75.
+  Seven older records re-aimed by content, all dead (`aegis.json` 4, `herald.json`, `penitent.json`,
+  `shadowfang.json`), and the version records in `soc1.json` and `gatekeys.json`.

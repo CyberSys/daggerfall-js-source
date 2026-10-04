@@ -32,6 +32,9 @@
 //             the list grants an AURA beside the title and its glyph
 //             (TIER_AURA): the Oblivion Ward, held while the handle is
 //             listed, as the glyph is. The first aura not bought.
+//   PRIMARCH (PRIMARCH, 2026-10-04) the same, GA00250's own - the title,
+//             its glyph and an aura: the Golden Radiance, a light about
+//             the body, granted with them as the Oblivion Ward is.
 //   GRAND CHAMPION, ARENA CHAMPION and THE LAUREL (ARENA4, 2026-10-02)
 //             the arena's rows (server-account/src/arena.js): a Grand
 //             Champion row the relay signed; the season's #1 of the
@@ -158,13 +161,17 @@ export const TIER_LISTS = Object.freeze({
   // Title: Aegis of Oblivion. Theme: Purple"): a third title made for one player, granted the same way - and the first
   // list to grant an aura with it (TIER_AURA, below).
   aegis: 'AEGIS_HANDLES',
+  // PRIMARCH (2026-10-04, GA00250, relayed by the owner: "the title will be Primarch, the color will be that light gold
+  // color that you guys use in some places in the game menu"; "can the aura be a golden light around the character?"):
+  // a fourth title made for one player, and the second list to grant an aura with it (TIER_AURA, below).
+  primarch: 'PRIMARCH_HANDLES',
 });
 /** The glyph each of those titles carries, in the vocabulary's words. */
-export const TIER_GLYPH = Object.freeze({ dungeonmaster: 'dm', disciple: 'disciple', apostle: 'apostle', hierophant: 'hierophant', shadowfang: 'shadowfang', penitent: 'penitent', herald: 'herald', aegis: 'aegis' });
+export const TIER_GLYPH = Object.freeze({ dungeonmaster: 'dm', disciple: 'disciple', apostle: 'apostle', hierophant: 'hierophant', shadowfang: 'shadowfang', penitent: 'penitent', herald: 'herald', aegis: 'aegis', primarch: 'primarch' });
 /** AEGIS: THE AURA A LIST'S TITLE CARRIES, where it carries one - held while the handle is listed, exactly as its glyph
  *  is, and gone on the next token once it is not. A grant like the glyph and unlike the Broker's: derived from the
  *  config at every ask, never a sale recorded on the row. */
-export const TIER_AURA = Object.freeze({ aegis: 'oblivionward' });
+export const TIER_AURA = Object.freeze({ aegis: 'oblivionward', primarch: 'radiance' });   // PRIMARCH: the Golden Radiance
 
 /** Does this player hold that list's title? A guest holds none, for the developer's reason. PATREON-LINK (2026-10-01,
  *  Mac: "having to manually hand out titles ... its really hard to keep up with it"): AND a Patreon tier's title is held
