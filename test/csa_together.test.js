@@ -373,8 +373,9 @@ test('CSA-K: the host - another\'s boat stands in MY collider beside my boats, a
   const sync = cut(WORLD, 'function csaSyncColliders() {', '\n  }\n');
   // THE MERGE with NAV-H (2026-09-28): MY boats are csaColliderBoats() - mine, and the sea's ships near enough to board
   // and to ram (test/nav_h_host.test.js pins its body) - and every peer's boat joins them on the street, aboard it or not
-  // (FIELD BUGS 2026-10-01b: test/fb1001b_peerboats.test.js runs it)
-  assert.match(sync, /const peers = \(modes\?\.mode \?\? 'exterior'\) === 'exterior' \? csa\.peerBoats : \[\];[^\n]*\n\s+for \(const boat of peers\.length \? \[\.\.\.csaColliderBoats\(\), \.\.\.peers\] : csaColliderBoats\(\)\) \{/);
+  // (FIELD BUGS 2026-10-01b: test/fb1001b_peerboats.test.js runs it) - and below deck in a ship's cabin, where the street's
+  // collider keeps the whole fleet (CABIN-HULL, FIELD BUGS 2026-10-03b: test/fb1003b_cabinhull.test.js runs it)
+  assert.match(sync, /const peers = \(modes\?\.mode \?\? 'exterior'\) === 'exterior' \|\| modes\?\.sailingCabin \? csa\.peerBoats : \[\];[^\n]*\n\s+for \(const boat of peers\.length \? \[\.\.\.csaColliderBoats\(\), \.\.\.peers\] : csaColliderBoats\(\)\) \{/);
   const upd = cut(WORLD, 'function csaUpdate(dt) {', '\n  }\n');
   assert.match(upd, /csaSyncColliders\(\);\n\s+csaPeersFrame\(dt\);[^\n]*\n\s+if \(_csaMovedPlayer\) cam\.pos = player\.eyeAt\(\);/, 'after the colliders, before the eye');
   const peersFrame = cut(WORLD, 'function csaPeersFrame(dt) {', '\n  }\n');
