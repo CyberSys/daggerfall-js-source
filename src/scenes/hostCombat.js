@@ -36,10 +36,10 @@ import { swingSoundFor, hitSoundFor, ENEMY_HIT_VOLUME, SOUND } from '../systems/
 import { bloodCentre } from './hitEffects.js';   // AUDIT 62 F19: EnemyAttack.cs:326-328's one home, the same law the four player-melee sites cite
 import { bloodHit } from '../combat/bloodDecals.js';   // BLOOD1b: the blow, in the shape the mark's ladder reads
 import { KNIGHT_CITY_WATCH } from '../characters/mobileTypes.js';
-import { ATTRACT_RADIUS } from '../characters/enemySounds.js';   // AUDIT 24 (wave 41)
+import { ATTRACT_RADIUS, ignoreHumanSounds } from '../characters/enemySounds.js';   // AUDIT 24 (wave 41); TELL2: a person's wind-up is a swing, not a voice
 import { enemyDisplayName, ENEMY_BASICS } from '../characters/enemyBasics.js';   // AUDIT 24 (wave 42); TELL1: the bark a breaking blow wrings out
-import { windupHolds, windupStruck } from '../ai/tactics.js';   // TELL1: poise and the stagger (bible/12-Enhanced-AI/Feud-Arc.md section 3)
-import { blowK, blowWeight, behind } from '../ai/tells.js';   // TELL1: a blow's weight on the poise meter
+import { windupHolds, windupStruck, tacticsNow } from '../ai/tactics.js';   // TELL1: poise and the stagger (bible/12-Enhanced-AI/Feud-Arc.md section 3); TELL2: the cues' clock
+import { blowK, blowWeight, behind, TELL } from '../ai/tells.js';   // TELL1: a blow's weight on the poise meter; TELL2: the cues' numbers
 import { comprehendLanguagesChance } from '../systems/effects.js';   // X11: the pacification bonus DFU reads inside its own formula
 
 // ---- DaggerfallUnityItem.GetWeaponSkillUsed / GetWeaponSkillIDAsShort ----
@@ -677,6 +677,52 @@ export function windupFeedback(word, f, { audio = null, hitEffects = null, shake
   } else if (word === 'hold' && basics?.parrySounds) {
     audio?.play3d?.(PARRY_1 + Math.floor(rolls() * PARRY_SOUND_COUNT), at, PARRY_VOLUME, { maxDistance: 16 });
   }
+}
+
+// ---- TELL2: THE EAR (bible/12-Enhanced-AI/Feud-Arc.md section 4.3) ----
+/**
+ * A telegraphed blow's three cues, in the world boss's order (world/gateBoss.js BOSS_CUES), each once, through the
+ * foes' own device settings (playEnemyClip's: a metre above the feet, linear to the attract radius by `hearing`):
+ *   WIND as it winds up - the kind's bark at TELL.WIND_PITCH (a person, whom DFU keeps mute, a low swing instead);
+ *   RELEASE TELL.RELEASE_LEAD before its landing - the low swing at TELL.RELEASE_PITCH;
+ *   LAND at the strike frame that follows its landing (the sprite's `meleeSeq`) - the kind's attack sound, always
+ *   (DFU's half-the-time roll stays on its plain swings).
+ * A wind-up that breaks plays neither of the last two; a feint (TELL5) no WIND. Called once a frame per live foe,
+ * after its sprite's update. Answers the cues it played this frame (tests).
+ */
+export function tellCues(f, audio, hearing = 1, now = tacticsNow()) {
+  const ai = f?.ai;
+  if (!ai) return null;
+  const s = ai._tac, b = s?.state === 'windup' ? s.blow : null;
+  const c = f._tellCue ?? (f._tellCue = { blow: null, released: false, land: false, seq: 0 });
+  const played = [];
+  const at = [ai.feet[0], ai.feet[1] + 1, ai.feet[2]];
+  const play = (clip, pitch, volume = 1) => {
+    if (clip == null) return;
+    audio?.play3d?.(clip, at, volume, { maxDistance: ATTRACT_RADIUS * hearing, distanceModel: 'linear', pitch });
+    played.push(clip);
+  };
+  const row = ENEMY_BASICS[f.mobileType];
+  if (b && c.blow !== b) {
+    c.blow = b; c.released = false; c.land = false;
+    if (!b.feint) {
+      if (ignoreHumanSounds(f.mobileType)) play(SOUND.SwingMediumPitch, TELL.WIND_CLASS_PITCH, TELL.WIND_CLASS_VOLUME);
+      else play(row?.barkSound, TELL.WIND_PITCH);
+    }
+  }
+  if (b && !c.released && now >= b.land - TELL.RELEASE_LEAD) { c.released = true; play(SOUND.SwingLowPitch, TELL.RELEASE_PITCH); }
+  if (b) c.seq = f.mobile?.meleeSeq ?? 0;   // the strikes counted while it is held - the next one is its own
+  else if (c.blow) {
+    // landed (the brain stamped its landing at or after this blow's), or broken - only a landing strikes; its strike may
+    // already be this frame's (the sprite stepped past the release before this call)
+    c.land = ai._blowLandedAt != null && ai._blowLandedAt >= c.blow.land - 1e-6 && ai._blowHold === false;
+    c.blow = null;
+  }
+  if (c.land && (f.mobile?.meleeSeq ?? 0) !== c.seq) {
+    c.land = false;
+    if (!ignoreHumanSounds(f.mobileType)) play(row?.attackSound, 1);
+  }
+  return played;
 }
 
 // ---- GameManager.MakeEnemiesHostile (ROAD-B, hostility model) ----

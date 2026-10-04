@@ -23,6 +23,7 @@ import { copyEffectEntry } from '../systems/save.js';   // AUDIT 26 F216: the ca
 import { EnemyAI, isBackFacing, withinYaw, MELEE_DISTANCE, foeFrameDt } from '../characters/enemyMotor.js';   // AUDIT WORLD6b-iii(a) B4: the puppet's cast is read against the owner's own bands
 import { spaceFoes } from '../characters/foeSpacing.js';   // FOE-SPACING: the pack keeps apart
 import { blowConnects, blowScaled } from '../ai/foeBlows.js';   // TACT4
+import { foeGlint } from '../ai/tactics.js';   // TELL2: a wind-up's glint (bible/12-Enhanced-AI/Feud-Arc.md section 4.2)
 import { runTargetMachine, boutGate, isPlayerTarget, isLocalPlayerTarget, isPeerTarget, resetAllyTeamOnPlayerAttack, PLAYER_TARGET, PEER_CAST_TARGET, targetAimPoint, enemyArrowOrigin, enemyTransformPoint, arrowAimDirection, wireRecipient, bumpAtkCount, staticTeamOf } from '../characters/enemyTargets.js';   // AUDIT WATCH1: the wire's spellings, one home   // WORLD6b-ii: the local player told from a peer, the peer told from a foe   // MT-ii   // ROAD-H H1/H1b: the ONE arrow loose point and the crouch dip
 import { FALL_DAMAGE_THRESHOLD, FALL_HP_PER_METRE, CAPSULE_HEIGHT } from '../player/motor.js';   // CH3: the shared fall formula
 import { SOUND, hitSoundFor, ENEMY_HIT_VOLUME } from '../systems/soundClips.js';   // CH3: the FallDamage clip; WORLD6b: a peer's blow rung at the owner
@@ -38,7 +39,7 @@ import { combatStanding, foeShare, progressionScaling, wildernessShare } from '.
 import { isNight } from '../world/worldClock.js';   // SOFTCAP5: the wilds' night share   // AUDIT WATCH1 A1: the watch's own puppet allowance
 import { MobileUnit, MOBILE_DAEDRA_SEDUCER, SeducerTransformBehaviour } from '../characters/mobileUnit.js';   // A5: the Seducer transform pair + its trigger
 import { ClassFile } from '../formats/classFile.js';
-import { spawnEnemyLoot, hasBowAttack, backstabChanceOf, zeroDamageHitSound, enemyMissSound, enemyAttackVoice, enemyPainVoice, playerAttackGrunt, tickEnemySound, playEnemyClip, tryLanguagePacification, applyDamageToNonPlayer, windupDoor } from './hostCombat.js';   // C2-slice (combat-9/17); MT-ii: the foe-vs-foe payload; TELL1: the poise door
+import { spawnEnemyLoot, hasBowAttack, backstabChanceOf, zeroDamageHitSound, enemyMissSound, enemyAttackVoice, enemyPainVoice, playerAttackGrunt, tickEnemySound, playEnemyClip, tryLanguagePacification, applyDamageToNonPlayer, windupDoor, tellCues } from './hostCombat.js';   // C2-slice (combat-9/17); MT-ii: the foe-vs-foe payload; TELL1: the poise door
 import { TELL } from '../ai/tells.js';   // TELL1: the breaking blow's shove
 import { validLootList, LOOT_NEWER_TAKE_TEXT } from '../systems/loot.js';   // WORLD6b-iii(c): the pile on the wire, WORLD4's projection; AUDIT ONLINE2 F4: a grant this build cannot read
 import { foeHandoverFrames } from '../world/foeHandover.js';
@@ -81,7 +82,7 @@ import { isShipmate } from '../combat/friendlyFire.js';   // SHIPMATES: my crew 
 import { campTagsOf, validCampTags } from '../world/campShared.js';   // OW6: a camp rides tagged, and an heir takes it as a camp
 import { CAMP_SIGHT_RADIUS, CAMP_ALERT_RADIUS, PACK_ALERT_RADIUS } from '../systems/campEncounters.js';   // OW6: a camp taken over sees and wakes as it did
 import { combatVisualsOn, foeDraw, markConcealedHit } from '../systems/combatVisuals.js';   // ECV1: what the enhanced skin draws for a concealed foe
-import { foeHitFlash, setBatchHitFlash, puppetHurtStep } from '../systems/hitFlash.js';
+import { foeHitFlash, setBatchHitFlash, puppetHurtStep, setBatchGlint, prefersReducedMotion } from '../systems/hitFlash.js';   // TELL2: a wind-up's glint
 import { isOnlinePage } from '../systems/onlineLane.js';   // ELITE FOES: online play only
 import { revenantFleeStep, revenantFleeHealth, revenantDeed, revenantSlain, applyRevenant, grantRevenantLoot, revenantById, revenantSay, revenantTauntEvent, revenantFleeEvent, revenantCorneredEvent, revenantEscapeEvent, revenantSlainEvent, REVENANT_TAUNT_DISTANCE } from '../systems/revenant.js';   // REVENANT: the foes that kill you or run, and come back
 import { revenantMayYield, beginYield, yieldStep, slipEvent, kneelPose, beginExecution, executionStep, finishExecution, beginSpare, spareDone, fateDissolve, fateModel, dropFateHeld } from '../systems/revenantFate.js';   // REVENANT-FATE: beaten, it yields - kill it or spare it
@@ -1468,7 +1469,7 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
       if (strikeEdge) { f._atkA = bumpAtkCount(f._atkA, f.attack.firedRanged); f._atkB = wireRecipient(f.ai.target); }   // WORLD6b: the attack count on the wire, the ranged bit low (WORLD2's spelling); AUDIT WORLD6b-iii(a) A3: and whom the swing is at, latched with it
       // PlayAttackSound at the START of the swing, as the dungeon does
       // (MeleeAnimation fires it once on the edge, not at the hit).
-      if (strikeEdge) playEnemyClip(audio, f.sounds.attack(), f.ai.feet, acuteHearingMultiplier(playerEntity));   // CF1: acute hearing
+      if (strikeEdge && f.ai._blowHold !== true) playEnemyClip(audio, f.sounds.attack(), f.ai.feet, acuteHearingMultiplier(playerEntity));   // CF1: acute hearing; TELL2: a telegraphed swing's start is its WIND cue (tellCues)
       // A5 - DaedraSeducerMobileBehaviour.Update (the dungeon pool's
       // law, one spelling): a MonoBehaviour Update that runs BEFORE
       // the anim step consumes the state it raises, keyed on
@@ -1483,7 +1484,9 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
         rangedStriking: strikeEdge && !!f.attack.firedRanged,
         hurting: f.ai.hurtKnock || f.ai.staggered,   // TELL1: a staggered foe's Hurt held for its stagger
         casting: !!f._castPending,
+        hold: f.ai._blowHold,   // TELL2: a telegraphed blow's swing, held at its raised arm until the landing
       }, f.ai.yaw, f.ai.feet, eye);
+      tellCues(f, audio, acuteHearingMultiplier(playerEntity));   // TELL2: its wind, its release and its landing in the ear
       // X2-slice: the ranged -1 marker looses a REAL arrow through
       // the host's seam, aimed at the player mid-capsule at fire
       // time (the dungeon's shootArrow arm shape).
@@ -1801,6 +1804,7 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
       if (ecv.kind === 'hidden') continue;
       f.batch.conceal = ecv.kind === 'conceal' ? ecv.visual : null;
       setBatchHitFlash(f.batch, foeHitFlash(f, performance.now() / 1000));   // HITFLASH1: a foe struck flashes red - any blow, mine, a peer's, or its owner's stream
+      setBatchGlint(f.batch, foeGlint(f.ai, undefined, prefersReducedMotion()));   // TELL2: a wind-up's glint on the body
       setBatchEliteGlow(f.batch, eliteGlow(f.entity, performance.now() / 1000, (f.seq * 1.7) % 6.28), performance.now() / 1000);   // ELITE FOES: the pulse
       const _dv = f.executing || f.sparing || f.portalFx ? fateDissolve(f, Date.now()) : f._pupExec ? fateDissolve({ executing: { at: f._pupExec } }, Date.now()) : f._pupSpare ? fateDissolve({ sparing: { at: f._pupSpare } }, Date.now()) : null;   // REVENANT-FATE / COMPANION-PORTAL: burning away (its owner's too), or through a portal
       if (!_dv && f.portalFx && f.portalFx.dir === 'in') f.portalFx = null;   // through: whole

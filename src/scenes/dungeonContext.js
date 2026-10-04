@@ -123,6 +123,7 @@ import {
   makeEnemiesHostile,              // ROAD-B: GameManager.cs:790-806
   spawnEnemyLoot,                  // RF2: SetEnemyCareer's whole loot chain, one seam
   windupDoor,                      // TELL1: the poise door (bible/12-Enhanced-AI/Feud-Arc.md section 3)
+  tellCues,                        // TELL2: a telegraphed blow's three cues
 } from './hostCombat.js';   // AUDIT 18: the laws every host must share
 import { TELL } from '../ai/tells.js';   // TELL1: the breaking blow's shove
 import { createCharacter } from '../systems/chargen.js';
@@ -270,9 +271,10 @@ const REMOTE_KILL = Object.freeze({ kind: 'remote' });
 const GATE_STRIKE_CAST = Object.freeze({ frost: SPELL_CAST_SOUND[1], poison: SPELL_CAST_SOUND[2], shock: SPELL_CAST_SOUND[3] });
 import { lootPile } from '../player/lootStack.js';   // LOOT-STACK: the pile under the reticle, as the loot window's tabs
 import { rollLootRarity, pileSource, dungeonRarityTier, dungeonFamily, stampWonWeapons } from '../systems/lootRarity.js';   // LR1: the item ladder over every list this host mints (a foe's through hostCombat.spawnEnemyLoot, RF2)
-import { foeHitFlash, setBatchHitFlash, puppetHurtStep } from '../systems/hitFlash.js';   // HITFLASH1
+import { foeHitFlash, setBatchHitFlash, puppetHurtStep, setBatchGlint, prefersReducedMotion } from '../systems/hitFlash.js';   // HITFLASH1; TELL2: a wind-up's glint
 import { coverDistance, coverStep, createCoverIndex, isCoverFlat, coverProxy } from '../ai/cover.js';   // TACT1: billboards are cover
 import { blowConnects, blowScaled } from '../ai/foeBlows.js';   // TACT4
+import { foeGlint } from '../ai/tactics.js';   // TELL2: a wind-up's glint (bible/12-Enhanced-AI/Feud-Arc.md section 4.2)
 import { ambushNight } from '../systems/restAct.js';   // AUDIT REST-PARTY A1: a resting encounter stood breaks the night that rolled it
 
 
@@ -301,7 +303,7 @@ const q3 = (v) => Math.round(v * 1000) / 1000; const GENDER_BIT = ['male', 'fema
 const HIT_POS_MAX = 1e6;
 // AUDIT FOES FOE5: the most damage one peer's blow may claim. The host TRUSTS the number (it never recomputes - the
 // striker's own calc is the game's), so without a bound any joiner could one-shot every foe in the room and empty it
-// through the kill door. The exterior twin has carried this bound since WORLD6b (exteriorFoes.js:2709); the dungeon
+// through the kill door. The exterior twin has carried this bound since WORLD6b (exteriorFoes.js:2713); the dungeon
 // had none. Past anything a legal swing, shaft or blast can roll.
 const HIT_DMG_MAX = 10000;
 /** REST-SYNC: a joiner's ask is answered - or given up on - inside this long: its rest breaks once, at the next hour. */
@@ -5143,7 +5145,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     const i = data.i | 0, dmg = Number(data.dmg);
     const xs = data.xs === 1;   // REST-SYNC: a shared encounter, by the room's number - not a layout index
     const f = xs ? (_sharedById.get(i) ?? null) : foes[i];
-    // AUDIT FOES FOE5: BOUNDED, as the exterior twin's applyHit is (exteriorFoes.js:2709). The number is a peer's
+    // AUDIT FOES FOE5: BOUNDED, as the exterior twin's applyHit is (exteriorFoes.js:2713). The number is a peer's
     // word and the host trusts it without recomputing, so an unbounded one let any joiner one-shot every foe in the
     // room - and, through the kill door, empty it. 10000 is past anything a legal swing, shaft or blast can roll.
     if (!f || (!xs && i >= _layoutFoes) || f.dead || !Number.isFinite(dmg) || dmg < 0 || dmg > HIT_DMG_MAX) return false;
@@ -5722,7 +5724,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     // InstantiatePrefab's a fresh GameObject per saved record, so
     // EnemyEntity's `PickpocketByPlayerAttempted` default is the loaded
     // truth for every enemy. The re-minting pools match that by
-    // construction (exteriorFoes.js:2062's restoreWorld goes through
+    // construction (exteriorFoes.js:2066's restoreWorld goes through
     // spawnFoe), but this host patches the LIVE foes in place, so a
     // same-dungeon reload kept a raised latch and a failed pickpocket
     // could never be retried - falsifying the law
@@ -7002,7 +7004,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
       // except the watch, at whatever volumeScale the last attract
       // sound left behind. Through the one home (AUDIT 24 wave 41):
       // this arm's own `!f.entity.isClass` gate was the same drift.
-      if (_strikeEdge) {
+      if (_strikeEdge && f.ai._blowHold !== true) {   // TELL2: a telegraphed swing's start is its WIND cue (tellCues)
         f.sounds ??= new EnemySoundSource(f.mobileType);
         playEnemyClip(audio, f.sounds.attack(), f.ai.feet, acuteHearingMultiplier(playerEntity));
       }
@@ -7098,7 +7100,9 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
             rangedStriking: _strikeEdge && !!f.attack.firedRanged,   // C17: archers draw records 20-24 - keyed per SWING (the in-band bow shot), not per foe
             hurting: f.ai.hurtKnock || f.ai.staggered,   // C15: the knockback threshold IS the hurt anim (KnockbackMovement); TELL1: and a stagger holds it
             casting: !!f._castPending,   // C14: the cast decision's edge (Spell one-shot)
+            hold: _puppet ? false : f.ai._blowHold,   // TELL2: a telegraphed blow's swing, held at its raised arm until the landing (a puppet's is its owner's)
           }, f.ai.yaw, f.ai.feet, eye);
+          if (!_puppet) tellCues(f, audio, acuteHearingMultiplier(playerEntity));   // TELL2: its wind, its release and its landing in the ear
           f._castPending = false;
           // a puppet lands no blow of its own (WORLD2) - unless the blow is at ME, and a shaft at anyone flies (WORLD3, the arm consumes
           // those). AUDIT WORLD6b-ii B10: dropped AFTER the mobile set them this frame, not in puppetStep before it - a frame latched
@@ -7156,6 +7160,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
         if (ecv.kind === 'hidden') continue;
         f.batch.conceal = ecv.kind === 'conceal' ? ecv.visual : null;
         setBatchHitFlash(f.batch, foeHitFlash(f, performance.now() / 1000));   // HITFLASH1: a foe struck flashes red - any blow, mine, a peer's, or its owner's stream
+        setBatchGlint(f.batch, foeGlint(f.ai, undefined, prefersReducedMotion()));   // TELL2: a wind-up's glint on the body
         setBatchEliteGlow(f.batch, eliteGlow(f.entity, performance.now() / 1000, (f.mobileType * 1.7) % 6.28), performance.now() / 1000);   // ELITE FOES: the pulse
         const _dv = f.executing || f.sparing || f.portalFx ? fateDissolve(f, Date.now()) : null;   // REVENANT-FATE / COMPANION-PORTAL: burning away, or through a portal
         if (!_dv && f.portalFx && f.portalFx.dir === 'in') f.portalFx = null;

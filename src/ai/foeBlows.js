@@ -20,7 +20,7 @@ import { tacticsNow } from './tacticsClock.js';   // AUDIT TACT: the foes' own t
 const M = MOBILE_TYPES;
 
 export { BLOW } from './blowShapes.js';   // the shapes' one home - a leaf the ground's pass reads too
-import { BLOW } from './blowShapes.js';
+import { BLOW, TELL_NEAR_M, TELL_NEAR_FLOOR } from './blowShapes.js';
 export const BLOW_TIER_LEVEL = 10;      // Mac: level 10 and up, or an elite
 export const BLOW_COOLDOWN_MIN = 8;     // seconds between one foe's blows
 export const BLOW_COOLDOWN_MAX = 15;
@@ -124,14 +124,16 @@ export function windupNear(feet, now, except = null) {
   return false;
 }
 /** What the ground draws now: each live blow within `range` of `near` (the player's feet in the host's frame) with its
- *  phase; a blow past its flash is dropped from the registry here. */
+ *  phase, and TELL2's `nearFloor` - the fog's floor for a mark within TELL_NEAR_M of the player; a blow past its flash is
+ *  dropped from the registry here. */
 export function drawableBlows(now, near = null, range = 40) {
   const out = [];
   for (const [ai, b] of _live) {
     const phase = blowPhase(b, now);
     if (!phase || (now < b.land && gone(ai, now))) { _live.delete(ai); continue; }   // AUDIT TACT D4: a dead foe's wind-up goes with it
-    if (near && Math.hypot(b.origin[0] - near[0], b.origin[2] - near[2]) > range) continue;
-    out.push({ blow: b, phase });
+    const d = near ? Math.hypot(b.origin[0] - near[0], b.origin[2] - near[2]) : Infinity;
+    if (near && d > range) continue;
+    out.push({ blow: b, phase, nearFloor: d <= TELL_NEAR_M ? TELL_NEAR_FLOOR : 0 });
   }
   return out;
 }

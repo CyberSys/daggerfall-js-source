@@ -234,7 +234,9 @@ test('LA-COST1: THE SECOND CALL IN A FRAME SENDS ONLY ITS OWN - a billboard call
   // DISSOLVE (the 2026-10-02 audit): and the burn, set whole (one more - a reset that sends nothing left the last burning
   // flat's share live under every flat after it)
   // ARENA5: and a batch's wash, set white (one more - a washed crowd batch's colour must not ride onto the next frame's flats)
-  assert.deepEqual(counts, ['billboards 103 -> 29', 'decals 85 -> 12', 'a character 86 -> 13']);
+  // TELL2 (bible/12-Enhanced-AI/Feud-Arc.md 4.2): and a wind-up's glint, set to none (one more - a glinting foe's colour
+  // must not ride onto the next frame's flats)
+  assert.deepEqual(counts, ['billboards 104 -> 29', 'decals 85 -> 12', 'a character 86 -> 13']);
   // ...and the next frame sends them all again
   r.beginFrame(PROJ, VIEW, new Float32Array([0.3, 0.8, 0.2]), WORLD_FRAME);
   calls.length = 0; r.drawBillboards(bbs, R, UP);
@@ -372,7 +374,8 @@ test('LA-COST1: THE LAW, READ OFF THE SOURCE - every field the four gated frame 
     '_bbColumnOn', '_dwCamFwd',   // merged beside DW-F: the column switch's GL-state shadow, and the camera-forward scratch
     '_bbTipOn',   // PROF4: the felled tree's tip, the same kind of GL-state shadow
     '_bbDissolveOn',   // DISSOLVE: the burn's switch, the same kind of GL-state shadow
-    '_bbTintOn'];   // ARENA5: a batch's wash (the arena crowd's half in a banner's colours), the same kind of GL-state shadow
+    '_bbTintOn',   // ARENA5: a batch's wash (the arena crowd's half in a banner's colours), the same kind of GL-state shadow
+    '_bbGlintOn'];   // TELL2: a wind-up's glint, the same kind of GL-state shadow
   const { canvas } = stateGl();
   const r = new Renderer(canvas);
   for (const lane of [null, EL_LANE]) {

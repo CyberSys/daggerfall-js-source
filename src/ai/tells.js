@@ -15,6 +15,7 @@
 import { weaponSkillUsed } from '../characters/weapons.js';
 import { SKILLS } from '../systems/skills.js';
 import { getItemHands, ITEM_HANDS } from '../characters/equipTable.js';
+import { TELL_NOW, TELL_NEAR_M, TELL_NEAR_FLOOR } from './blowShapes.js';   // TELL2: the ground's numbers, homed in the leaf the renderer reads
 
 /** Every TELL number on one table (section 27). Seconds, shares, multipliers. */
 export const TELL = Object.freeze({
@@ -48,6 +49,19 @@ export const TELL = Object.freeze({
   STAGGER_KNOCK: 1.5,           // the breaking blow's withheld knockback, written at this
   STAGGER_TAKEN: 1.25,          // every blow a staggered foe takes
   STAGGER_IMMUNE: 3,            // no new stagger for this long after one ends
+  // TELL2: the tell - the glint on the body, the cues in the ear, the ground near the player
+  GLINT_PULSE: 0.9,             // the glint's flare as the wind-up begins...
+  GLINT_PULSE_S: 0.15,          // ...falling to the steady rim over this long
+  GLINT_STEADY: 0.2,            // the rim through the wind-up
+  TELL_NOW,                     // the last stretch before the landing: the glint rises to full ("now") - ai/blowShapes.js
+  GLINT_REDUCED: 0.45,          // reduced motion: one steady rim, no pulses
+  RELEASE_LEAD: 0.25,           // the release's whoosh this long before the landing
+  WIND_PITCH: 0.85,             // the kind's bark as it winds up
+  WIND_CLASS_PITCH: 0.6,        // ...a person's (muted by DFU): a low swing
+  WIND_CLASS_VOLUME: 0.6,
+  RELEASE_PITCH: 0.45,
+  NEAR_M: TELL_NEAR_M,          // a wind-up this near the player... (ai/blowShapes.js)
+  NEAR_FLOOR: TELL_NEAR_FLOOR,  // ...draws at no less than this through the fog
 });
 
 /** The weight class of a foe of `weight` classic units. */
@@ -127,4 +141,16 @@ export function behind(origin, yaw, from) {
 export function blowWeight(damage, k, { back = false, weak = false } = {}) {
   if (!(damage > 0) || !(k > 0)) return 0;
   return damage * k * (back ? TELL.POISE_BACK : 1) * (weak ? TELL.POISE_WEAK : 1);
+}
+
+/** TELL2: the glint's strength `sinceStart` seconds into a wind-up with `toLand` seconds left (0 none): a flare that
+ *  falls to a steady rim, then a rise to full through the last TELL_NOW; reduced motion a steady rim alone. */
+export function glintStrength(sinceStart, toLand, reduced = false) {
+  if (!(sinceStart >= 0) || !(toLand >= 0)) return 0;
+  if (reduced) return TELL.GLINT_REDUCED;
+  /** @type {number} */
+  let k = TELL.GLINT_STEADY;
+  if (sinceStart < TELL.GLINT_PULSE_S) k = Math.max(k, TELL.GLINT_PULSE - (TELL.GLINT_PULSE - TELL.GLINT_STEADY) * (sinceStart / TELL.GLINT_PULSE_S));
+  if (toLand < TELL.TELL_NOW) k = Math.max(k, TELL.GLINT_STEADY + (1 - TELL.GLINT_STEADY) * (1 - toLand / TELL.TELL_NOW));
+  return k;
 }

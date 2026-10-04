@@ -6,7 +6,8 @@
 // so it only brightens what it lies on, depth-tested and never depth-written, lifted and offset off the ground.
 import { buildProgram } from './glProgram.js';
 import { FOG_FACTOR_GLSL } from './labGrass.js';   // AUDIT TACT D9: the renderer's one fog block
-import { BLOW } from '../ai/blowShapes.js';   // the leaf - the brain stays off the renderer's boot graph
+import { BLOW, TELL_NOW } from '../ai/blowShapes.js';   // the leaf - the brain stays off the renderer's boot graph
+import { TELEGRAPH_STYLE_GLSL } from './telegraphStyle.js';   // TELL2: the boss's readable line, at a foe's scale (a leaf)
 
 /** The shapes as the shader's `uKind` says them. */
 export const BLOW_KIND = Object.freeze({ lunge: 0, sweep: 1, slam: 2 });
@@ -67,6 +68,8 @@ uniform float uT;
 uniform float uFlash;
 uniform vec3 uColor;
 uniform vec4 uP;   // lunge: len, halfW / sweep: r, halfArc / slam: r, ahead
+uniform float uNow;   // TELL2: 0..1 through the last stretch before the landing
+uniform float uNearFloor;   // TELL2: the fog's floor for a mark near the player (0 none)
 in vec3 vWorld;
 uniform int uFogMode;
 uniform float uFogDensity;
@@ -74,33 +77,34 @@ uniform vec2 uFogRange;
 uniform vec3 uCamPos;
 out vec4 oColor;
 ${FOG_FACTOR_GLSL}
-const float OUTLINE = ${OUTLINE.toFixed(3)};
+${TELEGRAPH_STYLE_GLSL}
 void main() {
   float across = vLocal.x, along = vLocal.y;
-  bool inside = false, rim = false;
-  float edge = 0.0;
+  bool inside = false;
+  float edge = 0.0;   // the fill coordinate: 0 at its root, 1 at its far edge
+  float dist = 0.0;   // TELL2: metres to the outline, unsigned (the line's, the keyline's and the glow's)
   if (uKind == 0) {
     inside = along >= -0.3 && along <= uP.x && abs(across) <= uP.y;
     edge = max(0.0, (along + 0.3) / (uP.x + 0.3));
-    rim = inside && (uP.x - along < OUTLINE || along + 0.3 < OUTLINE || uP.y - abs(across) < OUTLINE);
+    vec2 q = abs(vec2(across, along - (uP.x - 0.3) * 0.5)) - vec2(uP.y, (uP.x + 0.3) * 0.5);
+    dist = abs(length(max(q, 0.0)) + min(max(q.x, q.y), 0.0));
   } else if (uKind == 1) {
     float d = length(vec2(across, along));
     float ang = d < 1e-9 ? 0.0 : acos(clamp(along / d, -1.0, 1.0));
     inside = d <= uP.x && (d < 0.5 || ang <= uP.y);
     edge = d / uP.x;
-    rim = inside && (uP.x - d < OUTLINE || (d >= 0.5 && (uP.y - ang) * d < OUTLINE));
+    dist = inside ? min(uP.x - d, d >= 0.5 ? (uP.y - ang) * d : 1e3) : max(d - uP.x, d >= 0.5 ? (ang - uP.y) * d : 0.0);
   } else {
     float d = length(vec2(across, along - uP.y));
     inside = d <= uP.x;
     edge = d / uP.x;
-    rim = inside && uP.x - d < OUTLINE;
+    dist = abs(uP.x - d);
   }
-  if (!inside) discard;
-  float a = rim ? 0.55 : 0.08;
-  if (edge <= uT) a = max(a, 0.32);
-  a = max(a, uFlash * 0.9);
-  a *= fogFactorAt(vWorld);   // AUDIT TACT D9: fogged as the ground it lies on - never a glow through the murk
-  oColor = vec4(uColor * a, a);
+  // TELL2: the line, the keyline and the glow reach a little past the outline; nothing else outside it is drawn
+  if (!inside && dist > 0.5) discard;
+  // AUDIT TACT D9: fogged as the ground it lies on - never a glow through the murk; TELL2: never lost a step away
+  float fogK = max(fogFactorAt(vWorld), uNearFloor);
+  oColor = telegraphStyle(dist, inside ? 1.0 : 0.0, edge, uT, uNow, uFlash, uColor, fogK);
 }`;
 
 const QUAD = new Float32Array([-1, -1, 1, -1, 1, 1, -1, -1, 1, 1, -1, 1]);
@@ -113,7 +117,7 @@ export class FoeTelegraphPass {
     this.gl = gl;
     this.program = buildProgram(gl, VS, FS, 'foeTelegraph');
     this.u = {};
-    for (const n of ['uVP', 'uOrigin', 'uYaw', 'uHalf', 'uLift', 'uKind', 'uT', 'uFlash', 'uColor', 'uP', 'uSlope', 'uFogMode', 'uFogDensity', 'uFogRange', 'uCamPos', 'uFocus']) this.u[n] = gl.getUniformLocation(this.program, n);
+    for (const n of ['uVP', 'uOrigin', 'uYaw', 'uHalf', 'uLift', 'uKind', 'uT', 'uFlash', 'uColor', 'uP', 'uSlope', 'uFogMode', 'uFogDensity', 'uFogRange', 'uCamPos', 'uFocus', 'uNow', 'uNearFloor']) this.u[n] = gl.getUniformLocation(this.program, n);
     this.vao = gl.createVertexArray();
     gl.bindVertexArray(this.vao);
     this.vbo = gl.createBuffer();
@@ -126,8 +130,8 @@ export class FoeTelegraphPass {
     this.drawn = 0;
   }
 
-  /** Draw each { blow, phase } (ai/foeBlows.js drawableBlows) under the camera `proj` x `view`, in the frame's `fog`
-   *  ({ mode, density, range, camPos }; none draws unfogged). */
+  /** Draw each { blow, phase, nearFloor } (ai/foeBlows.js drawableBlows) under the camera `proj` x `view`, in the frame's
+   *  `fog` ({ mode, density, range, camPos }; none draws unfogged). */
   draw(list, proj, view, fog = null) {
     this.drawn = 0;
     if (!list?.length || !proj || !view) return 0;
@@ -143,11 +147,11 @@ export class FoeTelegraphPass {
     gl.uniform3fv(U.uCamPos, fog?.camPos ?? NO_FOG_RANGE3);
     if (U.uFocus) gl.uniform4fv(U.uFocus, fog?.focus ?? NO_FOCUS);   // AUDIT DEEP R-1's law: under the travel view the fog is the traveller's
     gl.bindVertexArray(this.vao);
-    gl.enable(gl.BLEND); gl.blendFunc(gl.ONE, gl.ONE);
+    gl.enable(gl.BLEND); gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);   // TELL2: premultiplied - the keyline darkens the floor, the line and the fill light it
     gl.depthMask(false);
     gl.disable(gl.CULL_FACE);
     gl.enable(gl.POLYGON_OFFSET_FILL); gl.polygonOffset(-2, -4);
-    for (const { blow: b, phase } of list) {
+    for (const { blow: b, phase, nearFloor = 0 } of list) {
       gl.uniform3f(U.uOrigin, b.origin[0], b.origin[1], b.origin[2]);
       gl.uniform1f(U.uYaw, b.yaw);
       gl.uniform2f(U.uSlope, b.slope?.[0] ?? 0, b.slope?.[1] ?? 0);
@@ -158,6 +162,8 @@ export class FoeTelegraphPass {
       else gl.uniform4f(U.uP, P.r, P.ahead, 0, 0);
       gl.uniform1f(U.uT, phase.t);
       gl.uniform1f(U.uFlash, phase.flash);
+      gl.uniform1f(U.uNow, phase.flash > 0 ? 0 : nowShare(b, phase));   // TELL2
+      gl.uniform1f(U.uNearFloor, nearFloor > 0 ? nearFloor : 0);
       const c = b.color ?? [1, 0.42, 0.12];
       gl.uniform3f(U.uColor, c[0], c[1], c[2]);
       gl.drawArrays(gl.TRIANGLES, 0, 6);
@@ -170,6 +176,12 @@ export class FoeTelegraphPass {
     gl.disable(gl.BLEND);
     return this.drawn;
   }
+}
+
+/** TELL2: how far through the last TELL_NOW before its landing a blow stands (0 before it, 1 at the landing). */
+export function nowShare(b, phase) {
+  const toLand = (b.land - b.start) * (1 - phase.t);
+  return Math.max(0, Math.min(1, 1 - toLand / TELL_NOW));
 }
 
 function mul(out, a, b) {

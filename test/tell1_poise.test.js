@@ -44,6 +44,8 @@ test('TELL1: the table is the arc\'s section 27 (mutants: any number moved)', ()
     K_ARROW: 0.5, K_SPELL: 0.75, K_PEER: 1, POISE_BACK: 1.5, BACK_DEG: 110, POISE_WEAK: 2,
     STAGGER_S: { light: 1.4, medium: 1.2, heavy: 1.0, massive: 0.8 },
     STAGGER_KNOCK: 1.5, STAGGER_TAKEN: 1.25, STAGGER_IMMUNE: 3,
+    GLINT_PULSE: 0.9, GLINT_PULSE_S: 0.15, GLINT_STEADY: 0.2, TELL_NOW: 0.2, GLINT_REDUCED: 0.45, RELEASE_LEAD: 0.25,
+    WIND_PITCH: 0.85, WIND_CLASS_PITCH: 0.6, WIND_CLASS_VOLUME: 0.6, RELEASE_PITCH: 0.45, NEAR_M: 6, NEAR_FLOOR: 0.6,
   });
 });
 

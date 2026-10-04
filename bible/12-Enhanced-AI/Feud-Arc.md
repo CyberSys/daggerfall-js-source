@@ -6,7 +6,7 @@ these enemies and breath more depth into it"*; then, on the sixteen ideas offere
 detailed arc. I want this to be perfect and insanely detailed"*.
 
 **Status: DESIGNED 2026-10-04 - Mac: "Go" on every call of section 31, each as recommended. Built slice by slice
-(section 30's order); each slice's record is at the foot.**
+(section 30's order) - TELL1 and TELL2 built; each slice's record is at the foot.**
 Two halves that lean on each other. **TELL** (TELL1-TELL9) gives a foe's telegraphed blow weight: poise, a body that
 winds up, a cost for missing. **RVN** (RVN1-RVN13) gives a revenant a memory of how it was beaten, a secret, a last
 stand, a name for its worst blow, a band, a lair, and a reason to fear leaving it alone. The predecessors are
@@ -284,11 +284,11 @@ nothing is host-local but the routes into the watch's door (the arrows' kind, th
 - Two strikes in one list (the Giant's `[0,1,-1,2,3,4,-1,5]`, the Daedra Lord's, a class foe's): the verdict and the
   weight ride the first `-1`; the second is a plain DFU blow with DFU's reach test (`blowConnects` spends the verdict
   once - unchanged).
-- **Cancelled** by a break (to Hurt) or a paralysis (to idle) through a new `MobileUnit.cancelAttack()` - the Hurt gate
-  refuses to override an attack, so a cancel must be explicit - and the attack component's one-shot state reset with
-  it.
-- The swing's DFU attack sound and its strike edge move to the start with the swing; the landing keeps the verdict, the
-  `-1` and the damage.
+- **Cancelled** by a break (to Hurt) or a paralysis (to idle) through the hold's third word, `'cancel'` (as built: the
+  host passes it, `MobileUnit.update` drops the held swing to idle - the Hurt gate refuses to override an attack, so a
+  cancel must be explicit) - and the attack component's one-shot state reset with it.
+- The swing's strike edge moves to the start with the swing, and its sound is the WIND there (4.3); the landing keeps
+  the verdict, the `-1`, the damage and the LAND.
 - **Puppets** (TELL8): the held frame is drawn host-side, `MobileUnit.heldPose('attack', k)` over `f._mout` beside the
   puppet's other held poses, `k` the frame before the first `-1`.
 
@@ -1128,3 +1128,59 @@ RVN5-RVN7; RVN8-RVN11; RVN12 and RVN13 with the audit.
   with its parry, the stagger's shove x1.5, the clang and the kick, the Hurt held every frame); the foe-vs-foe payload
   and a monster striker's weight; every door, Hurt, round and arrow route by source.
 - Mutants `tools/mutants/tell1.json` (39), all dead.
+- Pins moved (each marked `PIN MOVED (TELL1: ...)`): `audit24_lifetimes`, `audit26_combat`, `audit39_worldstate`,
+  `audit39_worldmodes`, `audit68_review`, `audit68_worldjs`, `auditworld6biii`, `world2`, `disc10_lycan`, `enchantpool`,
+  `exteriorfoes`, `hostmagic_wiring` (source lines the doors and the sinks changed), `roadg_pools` (a cite); mutant
+  records re-aimed in `disc10`, `duel`, `loot7` and `tact5`.
+
+### TELL2 - BUILT 2026-10-04 (the Enhanced AI switch on, every host)
+
+- **The held swing** - `ai/tactics.js`: the wind-up's start raises `ai._blowHold = true` and `ai._blowWind`; the
+  landing at me writes `_blowHold = false` (and stamps `ai._blowLandedAt`); a break, a paralysis, a landing on no one
+  here and a lost place (`releaseTactics`) drop it (`dropSwing`: `'cancel'`). `characters/enemyAttack.js`: `_blowWind`
+  begins the one swing at the wind-up (the strike edge, `swingSeq`, `_held`); the landing's `_blowSwing` releases a held
+  swing - the brain's count (`_tacSwung`) then, no second swing - and restarts the machine on the strike it rolled at
+  the start (no new draw): its own swing ran out under the hold, and a swing in flight holds the bow roll as the forced
+  swing's did; `'cancel'` resets the machine. A landing the attack
+  component cannot take in time is spent as before. `characters/mobileUnit.js`: `update`'s `hold` - a swing that BEGAN
+  under it (`_underHold`) stands before its first `-1` (the raised arm; a list that starts with `-1` holds frame 0); the
+  release strikes on the next frame step; `'cancel'` drops it to idle, so a stagger's Hurt takes the same frame (section
+  4.1's `cancelAttack()` is this word, not a method). The first `-1` releases the hold - a list's second strike is
+  DFU's, unheld. `meleeSeq` counts the strikes. A DFU swing in flight is never held or dropped; a wind-up's own swing
+  replaces one (the attack machine's restart at `_blowWind` does the same).
+- **The glint** - `ai/tells.js glintStrength` (the flare 0.9 over 0.15 s, the 0.2 rim, the rise to 1 through the last
+  `TELL_NOW`; reduced motion 0.45 steady); `ai/tactics.js foeGlint` (the blow's colour, `BLOW_COLOR` without one; none
+  for a feint, none out of a wind-up). `systems/hitFlash.js`: `GLINT_GLSL` (`glintRimColor`, `glintLit`),
+  `TELL_GLINT_PAD`, `setBatchGlint` (written on change), `prefersReducedMotion` (read at most once a second). Both
+  billboard shaders (`renderer.js BB_FS`, `enhancedLighting.js EL_BB_FS` - its colour decoded into the lane's light, its
+  rim in display colour as the elite's): the outline by the elite rim's texel test, over an elite's halo while it lasts,
+  never round a concealed or burning body; the body lifted under the hit's red. `drawOne` uploads it on change, the
+  frame resets it, and the pad widens the quad for it as for an elite. `render/contract.js` types `batch.glint`.
+- **The ear** - `scenes/hostCombat.js tellCues`, once a frame per live foe after its sprite: WIND (the bark at 0.85; a
+  person, muted by DFU, `SwingMediumPitch` at 0.6 and volume 0.6; none for a feint), RELEASE (`SwingLowPitch` at 0.45,
+  0.25 s before the landing), LAND (the attack sound at the strike after a landing - `meleeSeq` past the count it held;
+  a person's silent). Through `play3d` at the foes' own device settings (a metre over the feet, linear to the attract
+  radius times acute hearing). A break plays neither RELEASE nor LAND. The pools hold their strike-edge attack clip
+  while `_blowHold` is true: the start's sound is the WIND (section 4.1's "the attack sound moves to the start" is the
+  WIND; the attack sound is the LAND, as 4.3 says).
+- **The ground** - `render/telegraphStyle.js` (a leaf of GLSL; the line, the keyline, the glow past it, the fill, "now",
+  the landing), composed by `render/foeTelegraph.js` over an unsigned distance to the outline per shape (drawn 0.5 m
+  past it for the keyline and the glow); `uNow` (`nowShare`, 0 at the flash), `uNearFloor`; the blend premultiplied
+  (ONE, ONE_MINUS_SRC_ALPHA). `ai/foeBlows.js drawableBlows` hands each mark its near floor (0.6 within 6 m of the
+  player). `ai/blowShapes.js` homes `TELL_NOW`, `TELL_NEAR_M` and `TELL_NEAR_FLOOR` (the TELL table takes them).
+  `tools/foeTelegraphProbe.mjs` gains the keyline, the brighten and the near floor (17 held, Chromium WebGL2).
+- **Three pools** - `exteriorFoes.js`, `dungeonContext.js` (a puppet passes no hold and plays no cues: its owner's) and
+  `cityGuards.js`: the hold into the sprite, the strike clip held, `tellCues` after the sprite, `setBatchGlint` beside
+  the hit flash. Every host that runs them is wired with them (`world.js`, `exterior.js`, `worldModes.js`, the dungeon).
+- **Not built here** - the puppet's held pose (TELL8); a feint (TELL5) - its no-glint and no-WIND are in place.
+- Pins `test/tell2_tell.test.js` (20): the held swing on the real frame lists (the stand, the release, the cancel and
+  its Hurt, the head `-1`, a DFU swing never held, the replace); on the real motor (begun once, released once, dropped on
+  a break and a lost place); end to end on the real sprite and in the ear; the cues; the glint's curve, colour and batch,
+  the reduced-motion read; the shaders and the renderer; the ground; the three pools. Pins moved (each marked
+  `PIN MOVED (TELL2 ...)`): `tact4` (the swing begins with the wind-up, released at the landing); `audittact` A4/D5 (the
+  archer's held swing released, no second), D9 (the fog into the line as `fogK`) and the ground pass's blend;
+  `combatVisuals` ECV1 (the glint's frame reset beside the dissolve's); `dwf_audit` E-1 (the glint's declarations
+  before the burn's); `hard3_types` (49 fields minted); `la_cost` (the billboards' first call 104, `_bbGlintOn` a GL-state
+  shadow); three cites by hand (`roadg_pools`, `chargenSession.js`, `Port-Ledger.md`). Mutant records re-aimed by
+  content: `audit0928_render`, `audittact` (three), `perfextb`, `tact2`, `tact4`, `tell1`.
+- Mutants `tools/mutants/tell2.json` (54), all dead.

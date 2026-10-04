@@ -35,7 +35,7 @@ import { ENEMY_BASICS } from '../characters/enemyBasics.js';
 import { MOBILE_TYPES } from '../characters/mobileTypes.js';
 import { throwsBlows, blowShapesOf, makeBlow, fitBlowToGround, inBlow, setLiveBlow, windupNear, offsetBlows, BLOW_CHANCE, BLOW_COOLDOWN_MIN, BLOW_COOLDOWN_MAX, BLOW_COLOR } from './foeBlows.js';   // TACT4
 import { tacticsNow, setTacticsClock, tickTactics } from './tacticsClock.js';   // AUDIT TACT D10/A3
-import { TELL, poiseOf, staggerSeconds } from './tells.js';   // TELL1: poise and the stagger (bible/12-Enhanced-AI/Feud-Arc.md section 3)
+import { TELL, poiseOf, staggerSeconds, glintStrength } from './tells.js';   // TELL1: poise and the stagger (bible/12-Enhanced-AI/Feud-Arc.md section 3)
 import { registerBlowTakenMod } from '../systems/blowTaken.js';   // TELL1: a staggered foe takes more - the leaf the formulas read
 
 export const tacticsSwitchOn = () => getPref('enhancedAI') === true;
@@ -127,13 +127,16 @@ export function releaseTactics(ai) {
     b.melee.delete(ai); b.ranged.delete(ai); b.waiting.delete(ai);
     if (k !== LOCAL && !b.melee.size && !b.ranged.size && !b.waiting.size) _boards.delete(k);   // AUDIT TACT A7: no dead target held
   }
-  if (ai._tac) { ai._tac.key = null; if (ai._tac.state === 'windup') ai._tac.state = 'wait'; ai._tac.blow = null; }
+  if (ai._tac) { ai._tac.key = null; if (ai._tac.state === 'windup') { ai._tac.state = 'wait'; dropSwing(ai); } ai._tac.blow = null; }
   setLiveBlow(ai, null);   // TACT4: a wind-up dies with its foe's place
   clearBlowState(ai);
   ai._tacDir = null; ai._tacStrike = undefined; ai._tacShoot = undefined;
 }
 /** AUDIT TACT A4/D5/D6: a blow's landing state, spent - no verdict, weight or forced swing left for a later swing. */
 function clearBlowState(ai) { ai._blowVerdict = null; ai._blowMult = undefined; ai._blowSwing = false; }
+/** TELL2: a wind-up's held swing dropped (its wind-up broke, a paralysis, its place gone) - the sprite and the attack
+ *  component let it go and strike nothing (characters/mobileUnit.js, characters/enemyAttack.js). */
+function dropSwing(ai) { ai._blowHold = 'cancel'; ai._blowWind = false; }
 
 // ── TELL1: POISE AND THE STAGGER (bible/12-Enhanced-AI/Feud-Arc.md section 3; Mac: "player's can easily stun these
 // enemies") ───────────────────────────────────────────────────────────────────────────────────────────────────────
@@ -161,6 +164,7 @@ export function windupStruck(ai, ent, weight, v) {
   setLiveBlow(ai, null); s.blow = null;
   s.blowReady = now + BLOW_COOLDOWN_MIN + Math.random() * (BLOW_COOLDOWN_MAX - BLOW_COOLDOWN_MIN);
   clearBlowState(ai);
+  dropSwing(ai);
   const bd = s.key != null ? _boards.get(s.key) : null;
   if (bd) { bd.melee.delete(ai); bd.waiting.set(ai, now); }   // the token goes on to whoever waited longest
   ai._tacStrike = false; ai._tacShoot = false; ai.moving = false;
@@ -169,6 +173,16 @@ export function windupStruck(ai, ent, weight, v) {
   ai.staggerUntil = s.until;   // the motor's hold (characters/enemyMotor.js _step)
   if (ent) ent.staggerUntil = s.until;   // ...and what every blow at it reads (the fold below)
   return 'stagger';
+}
+/** TELL2: the glint on a foe's body this frame - `[r, g, b, strength]` in its blow's colour, or null: no wind-up, or a
+ *  feint (a feint never glints - the glint is the honest tell). `reduced` the viewer's reduced motion. */
+export function foeGlint(ai, now = clock(), reduced = false) {
+  const s = ai?._tac, b = s?.state === 'windup' ? s.blow : null;
+  if (!b || b.feint) return null;
+  const k = glintStrength(now - b.start, b.land - now, reduced);
+  if (!(k > 0)) return null;
+  const c = b.color ?? BLOW_COLOR;
+  return [c[0], c[1], c[2], k];
 }
 /** TELL1: is this entity staggered now (on the brain's clock)? */
 export const staggeredNow = (ent, now = clock()) => Number.isFinite(ent?.staggerUntil) && now < ent.staggerUntil;
@@ -337,6 +351,7 @@ export function tacticsStep(ai, dx, dz) {
       s.blow = fitBlowToGround(makeBlow(shapes[Math.floor(Math.random() * shapes.length)], ai.feet, Math.atan2(dx, dz), now, BLOW_COLOR), ai.collider);   // AUDIT TACT D8: on the ground it marks
       setLiveBlow(ai, s.blow);
       s.state = 'windup';
+      ai._blowHold = true; ai._blowWind = true;   // TELL2: the swing begins now and stands at its raised arm until the landing
     }
   }
   if (s.state === 'windup') return windupTurn(ai, s, now, skipped);
@@ -366,14 +381,17 @@ function windupTurn(ai, s, now, skipped) {
   if (skipped || ai.canAct === false || ai.hurtKnock || ai.knockbackSpeed > 0) {
     setLiveBlow(ai, null); s.blow = null; s.state = 'engage'; s.blowReady = cooled;
     clearBlowState(ai);
+    dropSwing(ai);
     return false;
   }
   if (now >= s.blow.land) {
+    ai._blowLandedAt = now;   // TELL2: the landing, for the LAND cue (scenes/hostCombat.js tellCues)
     // AUDIT TACT A4/D6: only ever at ME - a wind-up whose foe has turned on another lands on no one here
     if (_me && targetKey(ai) === LOCAL) {
       ai._blowVerdict = inBlow(s.blow, _me.feet[0], _me.feet[2]);
       ai._blowMult = s.blow.mult; ai._blowAt = now; ai._blowSwing = true;
-    } else clearBlowState(ai);
+      ai._blowHold = false;   // TELL2: the held swing strikes on its next frame
+    } else { clearBlowState(ai); dropSwing(ai); }
     s.blowReady = cooled; s.state = 'engage'; s.blow = null;
     ai._tacStrike = true;
     return false;

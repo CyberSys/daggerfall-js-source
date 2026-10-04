@@ -166,14 +166,19 @@ test('AUDIT TACT A4/D5: a bow foe mid-wind-up neither shoots nor casts; its land
   assert.equal(f.ai._tacShoot, false, 'no shot, no spell mid-wind-up');
   const shots0 = f.shots;
   player[2] = f.ai.feet[2] - 8;
+  // PIN MOVED (TELL2, bible/12-Enhanced-AI/Feud-Arc.md 4.1): the swing BEGAN with the wind-up and stands held at its raised
+  // arm; the landing RELEASES it - at once, never parked, no second swing - and the brain sees its blow then
   let swungAt = null, landedAt = null;
-  const seq0 = f.atk.swingSeq;
+  const seq0 = f.atk.swingSeq, tac0 = f.ai._tacSwung ?? 0;
+  assert.equal(f.atk._held, true, 'the wind-up\'s swing is in flight, held');
   run([f], 1.5, player, { each: () => {
     if (landedAt == null && f.ai._blowAt != null) landedAt = f.ai._blowAt;
-    if (swungAt == null && f.atk.swingSeq !== seq0 && !f.atk.firedRanged) swungAt = T;
+    if (swungAt == null && (f.ai._tacSwung ?? 0) !== tac0) swungAt = T;
   } });
   assert.equal(f.shots, shots0, 'no shot while it stood its wind-up');
-  assert.ok(swungAt != null && landedAt != null && swungAt - landedAt < 0.15, `the landing swung at once (${landedAt}, ${swungAt})`);
+  assert.ok(swungAt != null && landedAt != null && swungAt - landedAt < 0.15, `the landing released its swing at once (${landedAt}, ${swungAt})`);
+  assert.equal(f.atk.swingSeq, seq0, 'released, never a second swing');
+  assert.equal(f.atk._held, false);
   assert.equal(f.ai._blowSwing, false, 'nothing parked');
 });
 
@@ -281,7 +286,9 @@ test('AUDIT TACT D8: the mark lies on the ground it marks - fitted to a ramp und
 
 test('AUDIT TACT D9: the mark is fogged as the ground is - the renderer hands the pass its fog', () => {
   assert.match(rd('src/render/renderer.js'), /this\._foeTelegraph\.draw\(list, this\._proj, this\._view, \{ mode: this\._fogMode, density: this\._fogDensity, range: this\._fogRange, camPos: this\._camPos, focus: this\._focus \}\)/);
-  assert.match(rd('src/render/foeTelegraph.js'), /a \*= fogFactorAt\(vWorld\);/);
+  // PIN MOVED (TELL2, bible/12-Enhanced-AI/Feud-Arc.md 4.4): the fog's factor goes into the boss's line as `fogK`, floored
+  // for a mark near the player
+  assert.match(rd('src/render/foeTelegraph.js'), /float fogK = max\(fogFactorAt\(vWorld\), uNearFloor\);\n\s*oColor = telegraphStyle\([^;]*fogK\);/);
 });
 
 // ── B: cover ────────────────────────────────────────────────────────
@@ -422,7 +429,7 @@ test('AUDIT TACT C6/C7: inner swing doors and a dungeon\'s doors are doorways to
 
 function fakeGl() {
   const calls = [];
-  const gl = new Proxy({ VERTEX_SHADER: 1, FRAGMENT_SHADER: 2, COMPILE_STATUS: 3, LINK_STATUS: 4, ARRAY_BUFFER: 5, STATIC_DRAW: 6, FLOAT: 7, TRIANGLES: 8, BLEND: 9, ONE: 10, CULL_FACE: 11, POLYGON_OFFSET_FILL: 12 }, {
+  const gl = new Proxy({ VERTEX_SHADER: 1, FRAGMENT_SHADER: 2, COMPILE_STATUS: 3, LINK_STATUS: 4, ARRAY_BUFFER: 5, STATIC_DRAW: 6, FLOAT: 7, TRIANGLES: 8, BLEND: 9, ONE: 10, CULL_FACE: 11, POLYGON_OFFSET_FILL: 12, ONE_MINUS_SRC_ALPHA: 13 }, {
     get(t, k) {
       if (k in t) return t[k];
       return (...a) => { calls.push([k, ...a]); if (k === 'getShaderParameter' || k === 'getProgramParameter') return true; if (k === 'getUniformLocation') return a[1]; return {}; };
@@ -444,7 +451,8 @@ test('AUDIT TACT D (coverage): the ground pass adds onto the frame, writes no de
   const names = calls.map((c) => c[0]);
   const draw = names.indexOf('drawArrays');
   assert.ok(draw > 0);
-  assert.deepEqual(calls.filter((c) => c[0] === 'blendFunc').map((c) => c.slice(1)), [[gl.ONE, gl.ONE]]);
+  // PIN MOVED (TELL2, bible/12-Enhanced-AI/Feud-Arc.md 4.4): premultiplied over the frame - the keyline darkens what it lies on
+  assert.deepEqual(calls.filter((c) => c[0] === 'blendFunc').map((c) => c.slice(1)), [[gl.ONE, gl.ONE_MINUS_SRC_ALPHA]]);
   assert.deepEqual(calls.filter((c) => c[0] === 'depthMask').map((c) => c[1]), [false, true], 'no depth written, then written again');
   assert.ok(calls.some((c, i) => i > draw && c[0] === 'disable' && c[1] === gl.BLEND), 'blend off after');
   assert.ok(calls.some((c, i) => i > draw && c[0] === 'enable' && c[1] === gl.CULL_FACE), 'culling back on after');

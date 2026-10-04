@@ -1,0 +1,34 @@
+// @ts-check
+// TELL2 (bible/12-Enhanced-AI/Feud-Arc.md section 4.4; Mac, 2026-10-04: "breath more depth into it"): A TELEGRAPH'S
+// LOOK, a LEAF of GLSL importing nothing - the world boss's readable line (render/gateTelegraph.js, WB13a) at a foe's
+// scale, for the foe's pass (render/foeTelegraph.js) to compose. The boss's own pass imports the boss's brain and is never
+// imported whole; this is the part of its look a foe's mark needs:
+//   - THE LINE: two pixels wide wherever it is seen (its width read off the outline's own screen derivative), a dark
+//     KEYLINE just outside it (the blend darkens the floor there - a pale fill no longer vanishes on snow or sand) and a
+//     soft glow past that;
+//   - THE FILL: dim at once, deepening behind its front as the wind-up runs (`t`, the shape's own fill coordinate `s`);
+//   - NOW: the last stretch before the landing brightens the line toward white and the fill with it (`nowK`);
+//   - THE LANDING: white-hot at once, fading (`flash`).
+// Premultiplied colour out, for the pass's blend (ONE, ONE_MINUS_SRC_ALPHA). `fogK` the fog's factor (with the near floor
+// already taken), applied to both.
+
+export const TELEGRAPH_STYLE_GLSL = `
+// edge: metres to the shape's outline (unsigned); fin: 1 inside, 0 outside; s: the fill coordinate (0 its root, 1 its far
+// edge); t: how far the fill has reached; nowK: 0..1 through the last stretch; flash: the landing's 1..0; col: its colour
+vec4 telegraphStyle(float edge, float fin, float s, float t, float nowK, float flash, vec3 col, float fogK) {
+  float aa = max(fwidth(edge), 1e-4);
+  float core = 1.0 - smoothstep(aa, 2.2 * aa, edge);
+  float keyl = (1.0 - fin) * (1.0 - core) * (1.0 - smoothstep(2.2 * aa, 5.0 * aa, edge));
+  float glow = (1.0 - fin) * smoothstep(4.0 * aa, 6.0 * aa, edge) * exp(-(edge - 5.0 * aa) / (4.0 * aa + 0.08));   // past the keyline, never over it
+  float fs = max(fwidth(s), 1e-4);
+  float filled = fin * (1.0 - smoothstep(t - fs, t + fs, s));
+  vec3 lineCol = mix(col, vec3(1.0, 0.95, 0.85), 0.45 * nowK);
+  vec3 rgb = col * (fin * 0.10 + filled * (0.22 + 0.40 * t * t + 0.25 * nowK)) + lineCol * (core * (0.9 + 0.6 * nowK) + glow * 0.2);
+  float a = fin * (0.20 + 0.20 * filled) + keyl * 0.55 + core * 0.6;
+  if (flash > 0.0) {
+    vec3 hot = mix(col, vec3(1.0, 0.96, 0.88), 0.6);
+    rgb = hot * fin * (0.25 + 1.1 * flash) + lineCol * core;
+    a = fin * (0.35 + 0.35 * flash) + core * 0.6;
+  }
+  return vec4(rgb * fogK, clamp(a, 0.0, 1.0) * fogK);
+}`;

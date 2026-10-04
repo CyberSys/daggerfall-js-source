@@ -41,8 +41,8 @@
   {
     "name": "ATACT-A2-shot-uncounted",
     "file": "src/characters/enemyAttack.js",
-    "old": "this.swingSeq++; ai._tacShot = (ai._tacShot ?? 0) + 1; }",
-    "new": "this.swingSeq++; }",
+    "old": "this.swingSeq++; this._held = false; ai._tacShot = (ai._tacShot ?? 0) + 1; }",
+    "new": "this.swingSeq++; this._held = false; }",
     "tests": [
       "test/audittact.test.js"
     ]
@@ -86,8 +86,8 @@
   {
     "name": "ATACT-A4-swing-parked",
     "file": "src/characters/enemyAttack.js",
-    "old": "        if (ai._blowAt != null && tacticsNow() - ai._blowAt > BLOW_SWING_LATE) { ai._blowVerdict = null; ai._blowMult = undefined; }",
-    "new": "        if (ai._blowAt != null && tacticsNow() - ai._blowAt > 1e9) { ai._blowVerdict = null; ai._blowMult = undefined; }",
+    "old": "        if (ai._blowAt != null && tacticsNow() - ai._blowAt > BLOW_SWING_LATE) { ai._blowVerdict = null; ai._blowMult = undefined; this._held = false; }",
+    "new": "        if (ai._blowAt != null && tacticsNow() - ai._blowAt > 1e9) { ai._blowVerdict = null; ai._blowMult = undefined; this._held = false; }",
     "tests": [
       "test/audittact.test.js"
     ]
@@ -203,8 +203,8 @@
   {
     "name": "ATACT-D9-unfogged",
     "file": "src/render/foeTelegraph.js",
-    "old": "  a *= fogFactorAt(vWorld);",
-    "new": "  a *= 1.0;",
+    "old": "  float fogK = max(fogFactorAt(vWorld), uNearFloor);",
+    "new": "  float fogK = 1.0;",
     "tests": [
       "test/audittact.test.js"
     ]

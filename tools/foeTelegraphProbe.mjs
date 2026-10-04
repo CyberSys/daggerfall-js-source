@@ -36,19 +36,20 @@ const vp = new Float32Array(16);
 for (let c = 0; c < 4; c++) for (let r = 0; r < 4; r++) vp[c*4+r] = proj[r]*view[c*4] + proj[4+r]*view[c*4+1] + proj[8+r]*view[c*4+2] + proj[12+r]*view[c*4+3];
 const pass = new FoeTelegraphPass(gl);
 window.err = gl.getError();
-window.draw = (kind, when, fog = null, slope = null) => {
+window.draw = (kind, when, fog = null, slope = null, nearFloor = 0) => {
   gl.viewport(0, 0, 512, 512);
   gl.clearColor(0, 0, 0, 1); gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
   gl.enable(gl.DEPTH_TEST); gl.disable(gl.CULL_FACE); gl.useProgram(pr); gl.uniformMatrix4fv(gl.getUniformLocation(pr, 'vp'), false, vp);
   gl.bindVertexArray(vao); gl.drawArrays(gl.TRIANGLES, 0, 6); gl.bindVertexArray(null);
   const blow = makeBlow(kind, [0, 0, 0], 0, 10);   // at the origin, facing +z
-  const at = when === 'land' ? blow.land + 0.02 : 10 + (blow.land - 10) * 0.4;   // the landing's flash, or 40% through the wind-up
+  const share = when === 'mid' ? 0.5 : when === 'now' ? 0.95 : 0.4;   // TELL2: halfway, and inside the last stretch
+  const at = when === 'land' ? blow.land + 0.02 : 10 + (blow.land - 10) * share;   // the landing's flash, or that far through the wind-up
   if (slope) blow.slope = slope;
-  const n = pass.draw([{ blow, phase: blowPhase(blow, at) }], proj, view, fog);
+  const n = pass.draw([{ blow, phase: blowPhase(blow, at), nearFloor }], proj, view, fog);
   // read the ground at a world point
   const px = (x, z) => { const v = [x, 0, z, 1]; const c = [0,0,0,0]; for (let r = 0; r < 4; r++) c[r] = vp[r]*v[0] + vp[4+r]*v[1] + vp[8+r]*v[2] + vp[12+r]*v[3];
     const sx = Math.round((c[0]/c[3]*0.5+0.5)*511), sy = Math.round((c[1]/c[3]*0.5+0.5)*511); const o = new Uint8Array(4); gl.readPixels(sx, sy, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, o); return o[0]; };
-  return { n, err: gl.getError(), probes: { ahead: px(0, 1.8), beside: px(3.5, 1.8), behind: px(0, -2.5), far: px(0, 4.0), wide: px(1.5, 1.5) }, png: document.getElementById('c').toDataURL() };
+  return { n, err: gl.getError(), probes: { ahead: px(0, 1.8), beside: px(3.5, 1.8), behind: px(0, -2.5), far: px(0, 4.0), wide: px(1.5, 1.5), keyline: px(0.70, 1.8) }, png: document.getElementById('c').toDataURL() };
 };
 window.ready = true;
 </script></body></html>`;
@@ -89,6 +90,16 @@ try {
   const up = await page.evaluate(() => window.draw('lunge', 'land', null, [0, 0.5]));   // told it rises: the lane stands over the flat ground, seen to its end
   check('tilted: the mark follows the slope it is given (AUDIT TACT D8)', Math.abs(down.probes.ahead - 46) < 6 && Math.abs(down.probes.far - 46) < 6 && up.probes.ahead > 46 + 60 && up.probes.far > 46 + 60, JSON.stringify({ down: down.probes, up: up.probes }));
   check('the sweep\'s cone holds the diagonal ahead', sweep.probes.wide > GROUND + 60, JSON.stringify(sweep.probes));
+  // TELL2 (bible/12-Enhanced-AI/Feud-Arc.md 4.4): the boss's readable line at a foe's scale
+  const wind = await page.evaluate(() => window.draw('lunge', 'wind'));
+  check('TELL2: a dark keyline just outside the line darkens the floor (the blend is premultiplied, not additive)', wind.probes.keyline < GROUND - 8, JSON.stringify(wind.probes));
+  const mid = await page.evaluate(() => window.draw('lunge', 'mid'));
+  const now = await page.evaluate(() => window.draw('lunge', 'now'));
+  check('TELL2: the last stretch brightens it ("now")', now.probes.ahead > mid.probes.ahead + 20, `${mid.probes.ahead} -> ${now.probes.ahead}`);
+  const thick = { mode: 1, range: new Float32Array([1, 3]), density: 0, camPos: new Float32Array([0, 14, 0]) };
+  const lost = await page.evaluate((f) => window.draw('lunge', 'land', { ...f, range: new Float32Array(f.range), camPos: new Float32Array(f.camPos) }), { ...thick, range: [...thick.range], camPos: [...thick.camPos] });
+  const kept = await page.evaluate((f) => window.draw('lunge', 'land', { ...f, range: new Float32Array(f.range), camPos: new Float32Array(f.camPos) }, null, 0.6), { ...thick, range: [...thick.range], camPos: [...thick.camPos] });
+  check('TELL2: a mark near the player keeps its floor through thick fog', Math.abs(lost.probes.ahead - GROUND) < 6 && kept.probes.ahead > GROUND + 40, JSON.stringify({ lost: lost.probes.ahead, kept: kept.probes.ahead }));
 } finally {
   await browser.close();
   server.close();

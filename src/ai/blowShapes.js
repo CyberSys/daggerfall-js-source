@@ -9,3 +9,12 @@ export const BLOW = Object.freeze({
   sweep: Object.freeze({ windup: 0.8, r: 3.2, halfArc: (65 * Math.PI) / 180, mult: 1.25 }),
   slam: Object.freeze({ windup: 0.9, r: 2.0, ahead: 1.0, mult: 1.75 }),
 });
+
+// TELL2 (bible/12-Enhanced-AI/Feud-Arc.md section 4): the numbers the ground's pass reads beside the brain - their one
+// home is here, for the same reason as the shapes'; ai/tells.js's TELL table takes them from here.
+/** The last stretch before a landing (s): the glint rises to full and the mark's line brightens ("now"). */
+export const TELL_NOW = 0.2;
+/** A wind-up this near the player (m)... */
+export const TELL_NEAR_M = 6;
+/** ...draws at no less than this through the fog (a dungeon's black murk swallowed a mark a step away). */
+export const TELL_NEAR_FLOOR = 0.6;

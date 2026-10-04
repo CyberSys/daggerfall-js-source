@@ -58,6 +58,7 @@ import { FALL_DAMAGE_THRESHOLD, FALL_HP_PER_METRE, CAPSULE_RADIUS, CAPSULE_HEIGH
 import { findLowestOuterInteriorDoor } from '../player/enterExit.js';   // ROAD-B: DaggerfallInterior.FindLowestOuterInteriorDoor
 import { coverDistance } from '../ai/cover.js';   // TACT1: a witness does not see through a tree
 import { blowConnects, blowScaled } from '../ai/foeBlows.js';   // TACT4
+import { foeGlint } from '../ai/tactics.js';   // TELL2: a wind-up's glint (bible/12-Enhanced-AI/Feud-Arc.md section 4.2)
 import { SOUND } from '../systems/soundClips.js';
 import { ENEMY_BASICS } from '../characters/enemyBasics.js';
 import { copyEffectEntry } from '../systems/save.js';   // AUDIT 26 F217
@@ -66,7 +67,7 @@ import { MobileUnit } from '../characters/mobileUnit.js';
 import { EnemyAI, withinYaw, isBackFacing, foeFrameDt } from '../characters/enemyMotor.js';
 import { spaceFoes, DOORWAY_DEPTH } from '../characters/foeSpacing.js';   // FOE-SPACING: the watch keeps apart   // TACT3c: past the threshold
 import { runTargetMachine, isPlayerTarget, PLAYER_TARGET, resetAllyTeamOnPlayerAttack, wireRecipient, bumpAtkCount, staticTeamOf } from '../characters/enemyTargets.js';   // AUDIT WATCH1: the wire's spellings, one home   // MT-ii   // ROAD-G G1: MakeEnemyHostileToAttacker's entity-side half, for the watch too
-import { applyDamageToNonPlayer, spawnEnemyLoot, windupDoor } from './hostCombat.js';   // MT-ii: EnemyAttack.ApplyDamageToNonPlayer; TELL1: the poise door
+import { applyDamageToNonPlayer, spawnEnemyLoot, windupDoor, tellCues } from './hostCombat.js';   // MT-ii: EnemyAttack.ApplyDamageToNonPlayer; TELL1: the poise door
 import { TELL } from '../ai/tells.js';   // TELL1: the breaking blow's shove
 import { stampWonWeapons } from '../systems/lootRarity.js';   // SIGIL1: a body's weapons won online
 import { EnemyAttack } from '../characters/enemyAttack.js';
@@ -106,7 +107,7 @@ import { fieldOfView } from '../ui/viewSettings.js';   // MENU: Video/FieldOfVie
 import { flashPlayerDamage } from '../ui/damageFlash.js';   // AUDIT 24 (wave 39): ShowPlayerDamage   // AUDIT 24 (wave 38): EnemyDeath's one home
 import { combatVisualsOn, foeDraw, markConcealedHit } from '../systems/combatVisuals.js';   // ECV1: what the enhanced skin draws for a concealed foe
 import { registerFoeDoor } from '../systems/artifactEffects.js';   // AUDIT PSCALE1 DOORS-2: Namira's reflection on a watchman through his own door
-import { foeHitFlash, setBatchHitFlash } from '../systems/hitFlash.js';   // HITFLASH1
+import { foeHitFlash, setBatchHitFlash, setBatchGlint, prefersReducedMotion } from '../systems/hitFlash.js';   // HITFLASH1; TELL2: a wind-up's glint
 import { reportPlayerKill } from '../systems/playerKills.js';   // SET2: my own kills, told
 
 // PlayerEntity.Crimes (the two this module levies - the enum lives
@@ -166,7 +167,7 @@ export function createCityGuards({ renderer, collider, fetchBytes, getTexture, u
   // with no Y test. The default keeps the two street pools as they were.
   playerInside = false,
   // ROAD-G G1: GameManager.MakeEnemiesHostile over the HOST's whole
-  // area, the encounter pool's dep to the line (exteriorFoes.js:226).
+  // area, the encounter pool's dep to the line (exteriorFoes.js:227).
   // DaggerfallEntityBehaviour.cs:255-258 fires it when a NON-hostile
   // enemy is struck by the player, and Knight_CityWatch is an
   // EnemyClass - one of the two EntityTypes that walk (:250). This
@@ -758,7 +759,7 @@ export function createCityGuards({ renderer, collider, fetchBytes, getTexture, u
    *  which arrowFlight.js calls unconditionally (arrowFlight.js:324)
    *  because `dealDamage` is inside its own `dmg > 0` fork - so the
    *  door is PUBLIC (the returned surface below), exactly as the
-   *  encounter pool's is (exteriorFoes.js:2889). */
+   *  encounter pool's is (exteriorFoes.js:2893). */
   function handleAttackFromPlayer(g, playerFeet = null) {
     if (!g?.ai) return;
     // DISC19-F (AUDIT DISC19): A BLOW ON A DEFENDER IS ASSAULT. The
@@ -1120,7 +1121,7 @@ export function createCityGuards({ renderer, collider, fetchBytes, getTexture, u
       const seq = g.attack.swingSeq;   // AUDIT 68 S04-strike-edge-cut: EnemyAttack's own start count, the foes' one edge law
       const strikeEdge = seq !== g._swingSeq;
       g._swingSeq = seq;
-      if (strikeEdge) playEnemyClip(audio, g.sounds.attack(), g.ai.feet, acuteHearingMultiplier(playerEntity));   // AUDIT 24 (wave 41); CF1: acute hearing
+      if (strikeEdge && g.ai._blowHold !== true) playEnemyClip(audio, g.sounds.attack(), g.ai.feet, acuteHearingMultiplier(playerEntity));   // AUDIT 24 (wave 41); CF1: acute hearing; TELL2: a telegraphed swing's start is its WIND cue (tellCues)
       // WATCH1: the attack count on the wire, the ranged bit low (the watch never shoots - `rangedAttack = false`
       // above, AUDIT 18), and whom the swing was at: '.' me, '' a foe of mine (a watchman brawling a rat, MT-ii). A
       // peer is never a watchman's target (the hunt's candidates are this host's own, never the roster), so a puppet
@@ -1134,7 +1135,9 @@ export function createCityGuards({ renderer, collider, fetchBytes, getTexture, u
         hurting: g.ai.hurtKnock || g.ai.staggered,   // TELL1: a staggered watchman's Hurt held for his stagger
         casting: false,
         rangedStriking: false,
+        hold: g.ai._blowHold,   // TELL2: a telegraphed blow's swing, held at its raised arm until the landing
       }, g.ai.yaw, g.ai.feet, eye);
+      tellCues(g, audio, acuteHearingMultiplier(playerEntity));   // TELL2: its wind, its release and its landing in the ear
       // C16: the -1 damage marker resolves the melee vs the player
       // EnemyAttack.Update returns at the top while paralysed (:91-94), so no
       // damage frame resolves - the swing may still be drawn, nothing lands.
@@ -1217,6 +1220,7 @@ export function createCityGuards({ renderer, collider, fetchBytes, getTexture, u
       if (ecv.kind === 'hidden') continue;
       g.batch.conceal = ecv.kind === 'conceal' ? ecv.visual : null;
       setBatchHitFlash(g.batch, foeHitFlash(g, performance.now() / 1000));   // HITFLASH1: a foe struck flashes red - any blow, mine, a peer's, or its owner's stream
+      setBatchGlint(g.batch, foeGlint(g.ai, undefined, prefersReducedMotion()));   // TELL2: a wind-up's glint on the body
 
       const o = g._mout;
       const rkey = `${o.record}#${o.frame}`;
