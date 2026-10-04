@@ -10,7 +10,7 @@
 // paintings (sixty-two ids, each hung as its placements stand - its face's normal and its picture's top), Rosy's
 // hangings and rugs, the RMB Resource Pack's rocks, hills, stalls, platform, foundation, domes and docks (every mesh
 // sound - each face facing its normal, every index landing, Daggerfall's textures or the port's drawn cloth - and each
-// the size it was measured; its city-wall piece, cut out of the player's 445, in test/fb1003b_citywall.test.js); the
+// the size it was measured; its city-wall piece, cut out of the player's 445, in test/fb1003c_citywall.test.js); the
 // drawn cloth (48 pictures, opaque) and sprites (a clear ground, binary alpha); the crop
 // fields (the climate's plant, a grid of 484, the same every visit, sown only where a block's nature is known); the
 // table clutter and the temple gardens (classic records); the install (once, every piece behind its switch, DET's and

@@ -25,7 +25,7 @@
 // All of it stands behind the town mods' own load (scenes/modWorldData.js installs it when a town pack is opened -
 // for the game, or for a save whose towns are pinned to it), and costs a game that has neither mod nothing.
 
-import { registerCustomModel, registerModelAlias } from './customModels.js';
+import { registerCustomModel, registerModelAlias, customModelFor } from './customModels.js';
 import { addVendorTextures } from '../systems/textureReplacement.js';
 import { buildDerivedPicture } from '../formats/derivedTexture.js';
 import { installDetStandIns, MeshBuilder } from './detStandIns.js';
@@ -226,6 +226,72 @@ function hill(r, hgt, surface) {
   }
   return m.build();
 }
+
+// ---- TREES-SEATED: a block's trees on the hills the port draws ---------------------------------------------------
+// TREES-SEATED (FIELD BUGS 2026-10-03b, Rissa on the Discord: "Floating trees in Tamhope"). Six of Beautiful Villages'
+// blocks (RESIAS08, TVRNAS00, TVRNAS01, TVRNAS03, TEMPASH3, WEAPAS02) stand TEXTURE.504's trees as misc flats on the
+// RMB Resource Pack's hills, at the heights the author read off the pack's own meshes: 130 of them a metre to 13 m over
+// the plane. DFU stands each where it is authored (AddMiscBlockFlats reads no terrain and no model) on the pack's hill,
+// and draws them floating without the pack. The port's mounds are smaller than the pack's (`RMBRP_HILLS`, sized by the
+// catalogue), so 121 of the 130 hung more than 1.5 m over the mound or the ground. While the port draws a block's hills
+// as these stand-ins, a nature flat of that block stands on the top of what is drawn under it - the higher of the
+// ground and the mounds; a hill the port does not draw as its own (no stand-in on) leaves the block as DFU stands it.
+
+/** The mound the port draws for `id` - its stand-in, while the town mods' stand-ins are on (customModelFor, the door the
+ *  pipeline asks before any other: scenes/dataPipeline.js buildGpuMesh) - or null: not a hill, or not drawn as ours. */
+export const drawnHillStandIn = (id) => (RMBRP_HILLS[id] ? customModelFor(id) : null);
+
+/**
+ * TREES-SEATED: THE TOP OF THE HILLS ONE BLOCK STANDS, AS DRAWN. Each hill stand-in among the block's models
+ * (layoutRmbBlock's, in the block's frame), its mesh's triangles laid by its own matrix; `topAt(x, z)` answers the
+ * highest of them over that point in the same frame, or null where none is. Null when the block draws no hill of ours.
+ * @param {Iterable<{modelIdNum:number, matrix:ArrayLike<number>}>} models
+ * @param {(id:number) => ?{positions:ArrayLike<number>, indices:ArrayLike<number>}} [drawn] the mesh drawn for an id
+ * @returns {?{topAt: (x:number, z:number) => ?number}}
+ */
+export function blockHillSeat(models, drawn = drawnHillStandIn) {
+  const tris = [];   // per triangle: ax, ay, az, bx, by, bz, cx, cy, cz, minX, maxX, minZ, maxZ
+  for (const placed of models ?? []) {
+    const mesh = drawn(placed.modelIdNum);
+    if (!mesh) continue;
+    const m = placed.matrix, p = mesh.positions, w = new Float64Array(p.length);
+    for (let i = 0; i < p.length; i += 3) {
+      w[i] = m[0] * p[i] + m[4] * p[i + 1] + m[8] * p[i + 2] + m[12];
+      w[i + 1] = m[1] * p[i] + m[5] * p[i + 1] + m[9] * p[i + 2] + m[13];
+      w[i + 2] = m[2] * p[i] + m[6] * p[i + 1] + m[10] * p[i + 2] + m[14];
+    }
+    const ix = mesh.indices;
+    for (let t = 0; t + 2 < ix.length; t += 3) {
+      const a = ix[t] * 3, b = ix[t + 1] * 3, c = ix[t + 2] * 3;
+      tris.push(w[a], w[a + 1], w[a + 2], w[b], w[b + 1], w[b + 2], w[c], w[c + 1], w[c + 2],
+        Math.min(w[a], w[b], w[c]), Math.max(w[a], w[b], w[c]), Math.min(w[a + 2], w[b + 2], w[c + 2]), Math.max(w[a + 2], w[b + 2], w[c + 2]));
+    }
+  }
+  if (!tris.length) return null;
+  return {
+    topAt(x, z) {
+      let top = null;
+      for (let k = 0; k < tris.length; k += 13) {
+        if (x < tris[k + 9] || x > tris[k + 10] || z < tris[k + 11] || z > tris[k + 12]) continue;
+        const ax = tris[k], az = tris[k + 2], bx = tris[k + 3], bz = tris[k + 5], cx = tris[k + 6], cz = tris[k + 8];
+        const d = (bz - cz) * (ax - cx) + (cx - bx) * (az - cz);
+        if (Math.abs(d) < 1e-12) continue;   // a face seen edge-on from above
+        const l1 = ((bz - cz) * (x - cx) + (cx - bx) * (z - cz)) / d, l2 = ((cz - az) * (x - cx) + (ax - cx) * (z - cz)) / d, l3 = 1 - l1 - l2;
+        if (l1 < -1e-9 || l2 < -1e-9 || l3 < -1e-9) continue;
+        const y = l1 * tris[k + 1] + l2 * tris[k + 4] + l3 * tris[k + 7];
+        if (top === null || y > top) top = y;
+      }
+      return top;
+    },
+  };
+}
+
+/** TREES-SEATED: where a nature flat of a block with a seat stands - on the higher of the ground under it (`groundY`,
+ *  the same frame) and the top of the block's drawn hills there. */
+export function seatNatureFlat(seat, x, z, groundY) {
+  const top = seat ? seat.topAt(x, z) : null;
+  return top !== null && top > groundY ? top : groundY;
+}
 /** The pack's market stalls: the awning each wears (its fourth material, a cloth of TEXTURE.049 or 449) on a stall the
  *  pack's size - 3.2 m across the counter, 4.9 m along it, 4.4 m to the awning's high edge. */
 export const RMBRP_STALLS = Object.freeze({
@@ -327,7 +393,7 @@ export const RMBRP_PIECES = Object.freeze({
 });
 
 // ---- the RMB Resource Pack's city-wall piece ------------------------------------------------------------------------
-/** FIELD BUGS 2026-10-03b (Discord: "missing holes in the out walls of Alik'ra"; "Saw the same thing in Chesterwark").
+/** FIELD BUGS 2026-10-03c (Discord: "missing holes in the out walls of Alik'ra"; "Saw the same thing in Chesterwark").
  *  Beautiful Cities turns its walls round corners of its own - WALLAA12 to WALLAA15, the 112 composites built on them.
  *  Each stands its corner tower (444) where Daggerfall's corners stand it, 64 units in from where the two wall lines
  *  cross, whose edge is where Daggerfall's walls begin, 448 units along each line; but the first wall segment (445) of

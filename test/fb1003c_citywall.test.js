@@ -1,4 +1,4 @@
-// CITY-WALL (FIELD BUGS 2026-10-03b, Mefwhesk on Discord: "Looks like there's some missing holes in the out walls of
+// CITY-WALL (FIELD BUGS 2026-10-03c, Mefwhesk on Discord: "Looks like there's some missing holes in the out walls of
 // Alik'ra"; Fay: "Saw the same thing in Chesterwark. I assume it's a general issue"). Beautiful Cities turns its walls
 // round corners of its own (WALLAA12-15, 112 composites), its first wall segment on each line a whole segment out from
 // the corner tower, and closes the 128 units between with the RMB Resource Pack's wall piece 53210 - which the port

@@ -203,7 +203,7 @@ test('AUDIT PRE-MERGE 1003 WD1 the host: the door\'s hall buy (worldModes.js buy
  *  2" and its letter "at item marker 1"; `next` the building the place's own law chooses again. */
 async function movedSite(next) {
   const { QuestMachine } = await import('../src/systems/quest/machine.js');
-  const { Place, SITE_TYPES, MARKER_TYPES } = await import('../src/systems/quest/place.js');
+  const { Place, SITE_TYPES, MARKER_TYPES, Scopes } = await import('../src/systems/quest/place.js');
   const { loadQuestTables } = await import('../src/systems/quest/tables.js');
   const { configureLayoutPins, _resetLayoutPins } = await import('../src/systems/layoutPins.js');
   const T = new URL('../vendor/dfu-quests/Tables/', import.meta.url);
@@ -218,6 +218,7 @@ async function movedSite(next) {
   quest.resources.set('thug', { symbol: sym('thug'), isFoe: true, parentQuest: quest });
   quest.resources.set('letter', { symbol: sym('letter'), isItem: true, parentQuest: quest });
   const place = new Place(quest); place.symbol = sym('house'); place.p1 = 0; place.p2 = 17; place.p3 = 0;
+  place.scope = Scopes.Remote;   // QUESTOR-MOVED: a DECLARED place (`Place _house_ remote house1`) - the parse's scope; a scope-less Place is a questor's hall, never chosen again by P2/P3
   const at = (type, xs) => (xs ? xs.map((x) => place._createQuestMarker(type, { x, y: 0, z: x })) : null);
   const S = MARKER_TYPES.QuestSpawn, I = MARKER_TYPES.QuestItem;
   place.siteDetails = {

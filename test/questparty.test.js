@@ -41,9 +41,20 @@ test('QUEST-PARTY: a quest foe carries its quest\'s word only while the quest is
   assert.equal(sharedQuestFoe(machineWith({ shared: false }), { q: 'WAQ_SHIP_SMALLRAID', s: '_pirate_' }), null, 'a quest I do not share counts nothing');
 });
 
-test('QUEST-PARTY: a receiver stands no wave while the member who shared the quest - still in its party - stands within reach', () => {
-  const base = { questName: 'WAQ_SHIP_SMALLRAID', sharerOf: (q) => (q === 'WAQ_SHIP_SMALLRAID' ? 'acct-amy' : undefined), inMyParty: (a) => a === 'acct-amy', accountOfPeer: (id) => (id === 'amy-0003' ? 'acct-amy' : 'acct-bob'), myFeet: [0, 0, 0] };
+test('QUEST-PARTY: a receiver stands no wave while the member who shared the quest - still in its party - stands within reach (VERMIN-SHARED: and a foe of the sharer\'s of the wave\'s own Foe stands in this pool)', () => {
+  // VERMIN-SHARED (PIN MOVED, FIELD BUGS 2026-10-03b): the sharer near was the whole law, and its copy - another quest,
+  // its own wave clock and its own `pick one of` - stood nothing of this Foe; the pool's records are the word now
+  const amys = { puppet: 'amy-0003', dead: false, _pupQuest: { q: 'WAQ_SHIP_SMALLRAID', s: 'pirate' } };
+  const base = { questName: 'WAQ_SHIP_SMALLRAID', symbol: 'pirate', foes: [amys], sharerOf: (q) => (q === 'WAQ_SHIP_SMALLRAID' ? 'acct-amy' : undefined), inMyParty: (a) => a === 'acct-amy', accountOfPeer: (id) => (id === 'amy-0003' ? 'acct-amy' : 'acct-bob'), myFeet: [0, 0, 0] };
   assert.equal(partnerStandsQuestFoes({ ...base, peers: [{ id: 'amy-0003', feet: [30, 0, 0] }] }), true, 'the sharer near: its copy stands the wave');
+  const near = { ...base, peers: [{ id: 'amy-0003', feet: [30, 0, 0] }] };
+  assert.equal(partnerStandsQuestFoes({ ...near, foes: [] }), false, 'VERMIN-SHARED: the sharer near and none of its foes here - this copy stands its own');
+  assert.equal(partnerStandsQuestFoes({ ...near, symbol: 'captain' }), false, 'VERMIN-SHARED: its foe of another Foe stands for nothing of this wave');
+  assert.equal(partnerStandsQuestFoes({ ...near, foes: [{ ...amys, dead: true }] }), false, 'VERMIN-SHARED: nor its body');
+  assert.equal(partnerStandsQuestFoes({ ...near, foes: [{ ...amys, puppet: 'bob-0002' }] }), false, 'VERMIN-SHARED: nor another player\'s foe of the same Foe');
+  assert.equal(partnerStandsQuestFoes({ ...near, foes: [{ ...amys, _pupQuest: { q: 'OTHER', s: 'pirate' } }] }), false, 'VERMIN-SHARED: nor its foe of another quest');
+  assert.equal(partnerStandsQuestFoes({ ...near, foes: [{ puppet: 'amy-0003', dead: false, _pupQuest: null }] }), false, 'VERMIN-SHARED: nor a foe of its that is no quest\'s (an encounter)');
+  assert.equal(partnerStandsQuestFoes({ ...near, foes: [{ _ownFrom: 'amy-0003', dead: false, _pupQuest: amys._pupQuest }] }), true, 'VERMIN-SHARED: a dungeon\'s own-lane puppet names its owner in _ownFrom');
   assert.equal(partnerStandsQuestFoes({ ...base, peers: [{ id: 'amy-0003', feet: [QUEST_SHARE_RADIUS + 20, 0, 0] }] }), false, 'out of reach: this copy stands its own');
   assert.equal(partnerStandsQuestFoes({ ...base, peers: [{ id: 'bob-0002', feet: [5, 0, 0] }] }), false, 'another player near is not the sharer');
   assert.equal(partnerStandsQuestFoes({ ...base, inMyParty: () => false, peers: [{ id: 'amy-0003', feet: [5, 0, 0] }] }), false, 'a sharer who left the party shares nothing');
@@ -201,5 +212,5 @@ test('QUEST-PARTY by source: the world host keeps who shared each quest, hands t
   assert.match(w, /peerMayHit: \(peerId, f\) => !!social\?\.isPartyPeer\(peerId\) && f\.entity\?\.team !== 'PlayerAlly' && !!questShareTag\(questBridge\?\.machine, f, !!social\?\.party\),/);
   assert.match(w, /onPuppetHurt: \(tag\) => sharedQuestFoe\(questBridge\?\.machine, tag\)\?\.setInjured\?\.\(\),/);
   assert.match(w, /onPuppetDied: \(tag, from, i\) => \{\n\s+const foe = sharedQuestFoe\(questBridge\?\.machine, tag\);\n\s+if \(!foe\) return;[\s\S]{0,300}?foe\.incrementKills\?\.\(\);\n\s+\},/);   // KEPT-KILL re-aimed it (PIN MOVED): the kill counts through the ledger a holder's pose shares (test/keptkill.test.js)
-  assert.match(w, /if \(partnerStandsQuestFoes\(\{ questName: handle\.foe\?\.parentQuest\?\.questName, sharerOf: \(q\) => _liveSharer\(q\), inMyParty: \(a\) => !!social\?\.inMyParty\(a\), peers: peersNear\(\), accountOfPeer: \(id\) => social\?\.accountOfPeer\(id\), myFeet: feet \}\)\) return true;/, 'the exterior arm: counted as placed, stood by the sharer');
+  assert.match(w, /if \(partnerStandsQuestFoes\(\{ questName: handle\.foe\?\.parentQuest\?\.questName, symbol: handle\.foe\?\.symbol\?\.name, sharerOf: \(q\) => _liveSharer\(q\), inMyParty: \(a\) => !!social\?\.inMyParty\(a\), peers: peersNear\(\), accountOfPeer: \(id\) => social\?\.accountOfPeer\(id\), myFeet: feet, foes: exteriorFoes\.foes \}\)\) return true;/, 'the exterior arm: counted as placed, stood by the sharer - VERMIN-SHARED (PIN MOVED): while the street\'s pool holds its foe of this wave\'s Foe');
 });

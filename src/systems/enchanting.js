@@ -49,6 +49,7 @@ import { enchantGold } from '../net/alchemyLaw.js';   // PROF12: Enchanting's la
 import { recipeById, jewelPoints } from '../net/recipeLaw.js';   // AUDIT PROF10 J1: the most a crafted piece's recipe mints
 import { enchantmentSettings } from './enchantmentCatalogue.js';   // AUDIT PROF10 J2: a crafted piece's own enchantments, costed as the maker costs a row
 import { ENCHANTMENT_TYPES } from '../formats/magicDef.js';   // and their classic type back to the catalogue's key
+import { isAetheric } from './aetheric.js';   // AETHERIC-MAKER: an Aetheric piece is the port's own tier, never the maker's
 
 /** SetEnchantments' `maxEnchantments` (:1273) - and the same ten the
  *  two picker buttons test against (DaggerfallItemMakerWindow.cs:629,
@@ -206,6 +207,16 @@ export const CANNOT_ENCHANT_MORE_POWERS = 'You cannot enchant this item with any
 export const NO_MORE_SIDE_EFFECTS = 'No further side-effects may be enchanted in this item.';        // 1658
 
 /**
+ * AETHERIC-MAKER (FIELD BUGS 2026-10-03b, Discord: "You can enchant Ruhn's gear"): THE PIECES THE MAKER REFUSES beyond
+ * DFU's own. An Aetheric piece carries no DFU enchantment (aetheric.js's header: its affixes and its sigil are the
+ * port's own), so DFU's IsEnchanted refusal (AddFilteredItem :419-422) never met it and the maker spent its Daedric
+ * budget over its powers. It is refused as the port's other services refuse it (reforge.js salvageRefusal,
+ * reforgePrice). The line is the port's own.
+ */
+export const itemMakerRefuses = (item) => isAetheric(item);
+export const AETHERIC_TAKES_NO_ENCHANTMENT = 'An Aetheric piece takes no enchantment.';
+
+/**
  * PowersButton / SideEffectsButton_OnMouseClick's guard (:614-633,
  * :660-679). The two buttons share a ladder and differ only in the
  * line they speak at the top.
@@ -233,6 +244,7 @@ export function openPickerDecision(selectingPowers, { item = null, powers = [], 
  * then the item's power - so a player who can afford neither is told
  * about the gold. Answers one of
  *   { kind: 'noItem', text }
+ *   { kind: 'refused', text }   (AETHERIC-MAKER: an item the maker refuses, the port's own arm)
  *   { kind: 'noEnchantments', text }
  *   { kind: 'noGold', text, goldCost }
  *   { kind: 'overLimit', text, cost, power }
@@ -240,6 +252,7 @@ export function openPickerDecision(selectingPowers, { item = null, powers = [], 
  */
 export function enchantDecision(item, powers = [], sideEffects = [], { gold = 0, discountPct = 0 } = {}) {
   if (!item) return { kind: 'noItem', text: ITEM_MUST_BE_SELECTED };
+  if (itemMakerRefuses(item)) return { kind: 'refused', text: AETHERIC_TAKES_NO_ENCHANTMENT };   // AETHERIC-MAKER
   if (powers.length === 0 && sideEffects.length === 0) {
     return { kind: 'noEnchantments', text: NO_ENCHANTMENTS_PREPARED };
   }
