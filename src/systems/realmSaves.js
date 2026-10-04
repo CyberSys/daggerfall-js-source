@@ -175,6 +175,20 @@ const UNSENT_KEPT_ON = Object.freeze(['lease', 'auth', 'signed-out']);
 /** AUDIT RESCUE-SAVE A6: how long a put may go unanswered before its save is written to the device. A put that lands
  *  sooner costs the device nothing; a page hidden, a put refused or unanswered, or the session's leave writes at once. */
 export const REALM_UNSENT_GRACE_MS = 1_500;
+/** SCALE2b (Scale-Arc "Checkpoints: every 120 s, sent even when the save has not changed"): a checkpoint whose save is
+ *  the one that last landed, but for its clock and its look, goes at least this often - and otherwise not at all. */
+export const REALM_IDLE_CHECKPOINT_MS = 10 * 60 * 1000;
+/** SCALE2b: what a save says once its clock and its look are set aside - the character's two minutes (`classicMinutes`,
+ *  the world's `worldMinutes`) and where the camera points (`pose.yaw`, `pose.pitch`, `pose.camera`) move every
+ *  checkpoint of a player standing still; nothing else does. Null for a text that is not a save's JSON (no skip). */
+export function idleKeyOf(text, summary = null) {
+  let s;
+  try { s = JSON.parse(text); } catch { return null; }
+  if (!s || typeof s !== 'object' || Array.isArray(s)) return null;
+  const { classicMinutes, worldMinutes, ...rest } = s;
+  if (rest.pose && typeof rest.pose === 'object') { const { yaw, pitch, camera, ...pose } = rest.pose; rest.pose = pose; }
+  return JSON.stringify([rest, summary]);
+}
 
 /** RESCUE-PACK (2026-09-30, Mac: "Do it"): A LONG LIFE'S COPY RIDES PACKED. The copy was the save's text, and a save
  *  big enough to need REALM-GZIP's packing on the wire (past 4 MiB) will not fit a browser's storage (5-10 MB an origin)
@@ -349,6 +363,7 @@ export function createRealmSession({
   hidden = () => globalThis.document?.visibilityState === 'hidden',
   watchHidden = (fn) => whenPageHides(globalThis.document, fn),
   pack = packUnsent,
+  now = () => Date.now(),
 }) {
   const storage = io?.storage ?? null;   // RESCUE-SAVE: the device's copy of what the service has not taken
   let current = seq;
@@ -361,6 +376,8 @@ export function createRealmSession({
   /** @type {(() => void) | null} */
   let unkeptTimer = null;
   let missed = false;   // AUDIT A8: a put refused or unanswered since the last that landed
+  let landedKey = null, landedAt = -Infinity;   // SCALE2b: the last landed save's idle key (idleKeyOf), and when it landed
+  let idleOk = false;   // SCALE2b: inside `idle` - the periodic checkpoint, the one call that may be answered by the save the service holds
   /** @type {string | null} */
   let latest = null;   // AUDIT RESCUE-SAVE 2 B3: the newest save handed, written or not
   const player = io?.player ?? null;   // AUDIT RESCUE-SAVE 2 B5: the account the copy's record names
@@ -434,6 +451,7 @@ export function createRealmSession({
         }
         if (r.ok) {
           unsure = false; current = r.data?.seq ?? current + 1; last = { ok: true, seq: current }; answer(job, last);
+          landedKey = idleKeyOf(job.text, job.summary); landedAt = now();   // SCALE2b
           // RESCUE-SAVE: the newest save landed - no copy; or a newer one waits, its copy at the sequence now held
           missed = false;
           if (pending) rebaseCopy(); else dropCopy();
@@ -478,6 +496,11 @@ export function createRealmSession({
       // REALM P2: a save composed while a transaction is in flight holds its goods in flight - never sent; the outcome's
       // own checkpoint (the host's, as it applies the answer) is the next one
       if (holding) return Promise.resolve({ ok: false, error: 'held' });
+      // SCALE2b: A SAVE THAT SAYS NOTHING NEW IS NOT SENT. The periodic checkpoint (`idle`) went every two minutes
+      // whatever it held - an account write every two minutes for someone standing still. The save the service holds
+      // is answered for it: the one that last landed, but for its clock and its look (idleKeyOf), with nothing queued,
+      // nothing missed, inside REALM_IDLE_CHECKPOINT_MS - and never on a page going away, whose save the next join reads.
+      if (idleOk && landedKey != null && !pending && !running && !missed && !hidden() && now() - landedAt < REALM_IDLE_CHECKPOINT_MS && idleKeyOf(text, summary) === landedKey) return Promise.resolve({ ok: true, seq: current, idle: true });
       // RESCUE-SAVE: NEVER IN THIS PAGE'S MEMORY ALONE - on the device once its put waits out the grace, and at once on a
       // hidden page, whose put the page's going cuts off (a close, a reload, the keepalive leave ahead of it)
       unkept = text;
@@ -499,10 +522,15 @@ export function createRealmSession({
      * came (`unknown`) ends the session - this tab cannot know how its record stands, and only a join reads it.
      * @param {(at: { io: any, id: string, lease: string, seq: number }) => Promise<any>} call
      */
+    /** SCALE2b: `fn` - the periodic checkpoint - run with the idle skip allowed: its save, if it says nothing the landed
+     *  one did not (idleKeyOf), is answered without a put. A checkpoint asked for anything else - an act's before it
+     *  runs, an exit's, a load's - always goes. The sink hands the save over synchronously, so the window is exact. */
+    idle(/** @type {() => any} */ fn) { idleOk = true; try { return fn(); } finally { idleOk = false; } },
     async transact(call) {
       if (lost) return { ok: false, error: lost };
       if (holding) return { ok: false, error: 'busy', why: 'busy' };
       holding = true;
+      landedKey = null;   // SCALE2b: the service moves the record now - no save of ours stands for it until the next lands
       try {
         if (running) await running;
         if (lost) return { ok: false, error: lost };

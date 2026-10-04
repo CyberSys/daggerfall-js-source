@@ -22,8 +22,8 @@
   {
     "name": "NETSMOOTH-1-the-old-prefix-test",
     "file": "src/net/online.js",
-    "old": "    if (groundDist(shown, pose) > snapUnitsFor(room)) {",
-    "new": "    if (groundDist(shown, pose) > (String(this.room ?? '').startsWith('world:') ? SNAP_WORLD_UNITS : SNAP_SCENE_UNITS)) {",
+    "old": "    if (groundDist(shown, pose) > snapUnitsFor(room)) {   // NET-SMOOTH 1: in the units of the room it was heard in",
+    "new": "    if (groundDist(shown, pose) > (String(this.room ?? '').startsWith('world:') ? SNAP_WORLD_UNITS : SNAP_SCENE_UNITS)) {   // NET-SMOOTH 1: in the units of the room it was heard in",
     "tests": [
       "test/netsmooth.test.js"
     ],
@@ -239,8 +239,8 @@
   {
     "name": "NETSMOOTH-4-the-waypoint-being-walked-let-go",
     "file": "src/net/online.js",
-    "old": "    if (p.path.length > PATH_MAX) p.path.splice(2, p.path.length - PATH_MAX);",
-    "new": "    if (p.path.length > PATH_MAX) p.path.splice(1, p.path.length - PATH_MAX);",
+    "old": "    if (p.path.length > PATH_MAX) p.path.splice(2, p.path.length - PATH_MAX);   // the oldest ahead past the one being walked",
+    "new": "    if (p.path.length > PATH_MAX) p.path.splice(1, p.path.length - PATH_MAX);   // the oldest ahead past the one being walked",
     "tests": [
       "test/netsmooth.test.js"
     ],

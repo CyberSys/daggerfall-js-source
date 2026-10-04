@@ -7158,7 +7158,7 @@ answers that exact string in the object's sleep, no event, no wake. Only a
 CHANNEL session (chat, `presence: false`) used it. A presence session's
 liveness rode the pose.
 
-**Now (`src/net/wire.js:1131`, `src/net/online.js:2452`):**
+**Now (`src/net/wire.js:1142`, `src/net/online.js:2471`):**
 
 - `HEARTBEAT_MS` 5000 -> 20000. The pose goes when it MOVED (at POSE_HZ, as
   before) or every 20 s standing, as the peers' proof of life and the silence
@@ -14350,10 +14350,55 @@ before the pose that ends it.
 
 **Not changed:** the relay, the wire, the send rates, the far tier. Without a sequence on the wire, order is "one source
 room at a time" and a peer's real send times are estimated from arrivals. The relay batch can add both, and NET-SMOOTH
-would then read them.
+would then read them. *(It did, the same day - SCALE2b, below. Everything above stays as the fallback for a pose without
+a send time: an older relay strips it, an older client sends none.)*
 
 **Pinned** in `test/netsmooth.test.js` (9). Re-aimed: `test/slam3.test.js`'s bounds pin (a bunch measures nothing, a
 pause is not an interval, stop-and-go never moves it), `test/slam10.test.js`'s catch-up pin (the drawn speed frame by
 frame through a promotion and a demotion), and ONLINE1's merge pin (where Bob is drawn is read off his walk; the test
 had written `shown` by hand). `tools/mutants/netsmooth.json`: 23 mutants, 22 dead, 1 equivalent as recorded. The three
 easing mutants in `slam10.json` were re-aimed at the new law (all dead), and `slam14.json`'s Y6 was re-aimed by content.
+
+## SCALE2b (2026-10-04, Mac: "I definitely want to do all these changes in full. No exceptions") - a pose says when it was said
+
+NET-SMOOTH's second half, in the relay deploy SCALE2b is (`11-Multiplayer/Scale-Arc.md` SCALE2b has the relay's
+side). The wire gains one field and the client reads it.
+
+**The field** (`src/net/wire.js`): `ts`, the sender's wall clock in ms when it said the pose, modulo `POSE_TS_MOD`
+(2^24, 4.6 hours), never less than one past the last it said (`OnlineSession._stampTs`). `validPose` keeps it when it
+is an integer inside the modulus and drops it otherwise - never clamped, which would order every later pose behind it.
+`poseTsDiff` orders two across the wrap. Omitted by an older client, stripped by an older relay: a receiver that sees
+none plays the pose as NET-SMOOTH does. Every room's copy of one pose carries the same `ts` (one stamp, then the cell's
+socket and every halo's); the hello's pose is stamped as it is said; a pose that goes nowhere spends no stamp.
+Wall clock, so a reload's poses are never older than the last page's.
+
+**The receiver** (`OnlineSession._arriveTimed`):
+- **Order.** The newest send time wins whichever room brings it; an older or repeated copy moves nothing. So every
+  pose arrives by the quicker room - the source-room logic is the untimed fallback's alone - and an introduction's old
+  pose (a halo's join or roster) is simply older. A sender whose clock went back is followed again after
+  `TS_RESYNC_MS` (2 s) with nothing newer.
+- **Spacing.** A waypoint's place on the path is its send time, so the path is walked at the pace the sender kept. The
+  cadence is the median of the sender's own intervals - no jitter in them.
+- **Delay.** Each arrival's lateness against its send time (`offs`, the last `OFFSET_SAMPLES` = 8) gives the line's
+  fastest and its jitter. The cursor is steered to the send time `now - (fastest + one interval + the jitter, at most
+  one interval)`: one interval so a pose is always ahead of it, the jitter so a late one still lands first. Steady, the
+  rate is exactly 1 whatever the line does; behind (a backlog, a promotion), at most `PLAY_RATE_MAX`; ahead, at least
+  `PLAY_RATE_MIN`.
+- **Standing.** A step after a still pose starts one interval before its send time, a moving segment is at most
+  `GAP_MAX_MS`; a cursor waiting at the end of the path is moved across the standing rather than racing it.
+
+**Measured** in the same scratch simulation as NET-SMOOTH's table, the send time added to every pose (simulation, not
+live play):
+
+| line | untimed lag → timed | fastest frame | standing frames |
+|---|---|---|---|
+| clean | 175 → 163 ms | 1.5x → 1.1x | 7 → 4 |
+| the halo 0-150 ms slower | 184 → 176 ms | 1.1x → 1.0x | 0 → 0 |
+| jitter 0-120 ms | 266 → 246 ms | 2.0x → 1.6x | 29 → 16 |
+| a 400 ms stall on one room every 3 s | 186 → 176 ms | 1.3x → 1.0x | 0 → 0 |
+| stop and go, 2 s / 1 s | 141 → 120 ms | 2.0x → 1.1x | 3 → 3 |
+
+The stall row is the order paying off: the other room never stalled, and every pose came by it.
+
+**Pinned** in `test/scale2b.test.js` (the stamp, the order, the resync, the pace on a jittering line, the standing),
+beside the relay's half. ONLINE1's and CHAT1's pose-frame pins re-aimed at the stamped pose.

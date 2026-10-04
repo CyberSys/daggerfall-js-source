@@ -197,6 +197,9 @@ const GUILD_OUTS_MAX = 1024;
 const GUILD_OUTS_KEY = 'guildouts';
 const GUILD_OUT_KEEP_S = MAX_TTL_S + ORDER_TTL_S + 60;
 
+// ═══ SCALE2b (2026-10-04): the relay's half of the scale arc - its constants and helper in ./relayScale.js ═══
+import { IDX_TRUST_MS, ATTACH_LAZY_MS, PARTIES_MAX, HUB_KEEP_MAX, ACCT_SEEN_WRITE_MS, ROOM_CALL_MS, Bounded, RoomMetrics, countedState, roomKindOf } from './relayScale.js';
+
 // ═══ WB3: THE GATE'S BOSS ROOM ═════════════════════════════════════
 //
 // Mac: "a gate of oblivion which takes place in a large boss arena with an oversized enemy with telegraphed attacks",
@@ -378,7 +381,9 @@ const unlisted = (r, now) => !!r && !(r.friends?.length) && !(r.in?.length) && !
 
 export class Room {
   constructor(state, env) {
-    this.state = state;
+    this._metrics = new RoomMetrics();   // SCALE2b: the room's counts, written to Analytics Engine a window at a time (relayScale.js)
+    this._kind = null;                   // SCALE2b: the room's kind for a metric, from the first attachment it reads
+    this.state = countedState(state, this._metrics);   // SCALE2b: the storage counted into the metrics, nothing else changed
     // ACC1d: the runtime hands a Durable Object (state, env) and this
     // class had been taking the first alone. The public key and the TTL
     // ceiling are config (bible ACC1d D2/D3), so the object needs it.
@@ -417,7 +422,25 @@ export class Room {
     this._guildOutsLoad = null;   // AUDIT MERGE-PLUS A3: the storage read that fills it, once a wake
     this._roomGuild = null;   // GUILD1c: the room's budget for guild-tag fans (GUILD_ROOM_HZ_MAX)
     this._guildChat = null;   // GUILD1c: the hub's budget for guild lines (GUILD_CHAT_ROOM_HZ_MAX), apart from the room's and the parties'
-    this._idx = null;   // ws -> attachment, read once (A7); rebuilt when the socket set changes
+    this._idx = null;   // ws -> attachment, read once (A7); kept by the doors that change the socket set (SCALE2b)
+    this._idxAt = -Infinity;   // SCALE2b: when the index was last walked against the runtime's list
+    /** SCALE2b: THE ROOM'S HELLO BUCKET (A6), in memory. It was read from storage and written back on every hello -
+     *  before the gate refused a storm, so a storm paid two storage operations a hello for its own refusal. The bucket
+     *  is `tokenGate`'s, capped at its rate, so it refills whole in one second; a room sleeps only after a quiet spell
+     *  far longer than that, so a wake never had anything to read back. Every bucket of this object's own lives on the
+     *  instance for the same reason (AUDIT ATTACH, above); this one was the last in storage. */
+    this._hellos = null;
+    /** SCALE2b: THE IDS' SECRETS (A3), id -> secret (null: none), read from storage the first time a wake asks for an id
+     *  (`_secretOf`) and kept; every write and delete keeps the copy. A hello read its id's secret and wrote it back
+     *  every time. Read an id at a time, never listed: a deploy drops sockets without their leave, and a hub that never
+     *  drains keeps every secret such a drop left behind - a list of them a wake would grow without end. */
+    this._secrets = new Bounded(HUB_KEEP_MAX);
+    this._asecrets = new Bounded(HUB_KEEP_MAX);   // SCALE2b: the hub's account id -> profile secret (null: none), read once and kept
+    this._noGateRcpt = new Bounded(HUB_KEEP_MAX); // SCALE2b: accounts the hub holds no gate receipt for (dropped whole when one is written)
+    this._noRaidRcpt = new Bounded(HUB_KEEP_MAX); // SCALE2b: and no raid receipts
+    this._worldMemo = undefined;   // SCALE2b: the stored world, raw, as `_worldRaw` read it (undefined: not read this wake)
+    this._parks = null;            // SCALE2b: a cell's parked teams, key -> record - a promise of the one list a wake
+    this._attachedAt = new WeakMap();   // SCALE2b: ws -> when its attachment was last written to the runtime
     this._roomChat = null;   // AUDIT CHAT A2: the room's own chat budget - on the instance, since a sleeping room fans nothing
     this._travFan = null;   // TV3: a region room's fan budget for traveller marks (TRAV_ROOM_HZ_MAX)
     this._travClearFan = null;   // AUDIT DEEP T3-2: and its clears', apart - a flood of either never starves the other
@@ -437,10 +460,10 @@ export class Room {
     this._roomSocial = null;     // SOC1: the hub's budget for social acts (SOCIAL_ROOM_HZ_MAX) - over it an act is refused with 'busy'
     this._roomRenown = null;     // AUDIT RENOWN1 SEC-2/WIRE-1: the room's budget for renown fans (RENOWN_ROOM_HZ_MAX) - on the instance, as the chat's is
     this._acctIdx = null;        // SOC1: account -> its hello'd sockets, built from the index when asked and dropped with it (a socket's account changes on its hello alone)
-    this._parties = new Map();   // SOC1: party id -> record, kept while the object is awake (a party pose reads its party once a second; a wake reads storage once and keeps it again)
-    this._recs = new Map();      // AUDIT SOC A5: account id -> record, kept while the object is awake - every write goes through _putAcct/_putAccts so the copy is the storage's; bounded at RECS_MAX
+    this._parties = new Bounded(PARTIES_MAX);   // SOC1: party id -> record, kept while the object is awake (a party pose reads its party once a second; a wake reads storage once and keeps it again)
+    this._recs = new Bounded(RECS_MAX);      // AUDIT SOC A5: account id -> record, kept while the object is awake - every write goes through _putAcct/_putAccts so the copy is the storage's; bounded at RECS_MAX
     this._alarmArmed = false;    // AUDIT SOC A3: the sweep's alarm is armed once per instance life (a storage read otherwise on every hello)
-    this._cool = new Map();      // AUDIT SOC A1/A8: "kind from to" -> when a directed act last went through, on the instance (a flood keeps the object awake; a hibernation is a quiet hub); bounded at COOL_MAX
+    this._cool = new Bounded(COOL_MAX);      // AUDIT SOC A1/A8: "kind from to" -> when a directed act last went through, on the instance (a flood keeps the object awake; a hibernation is a quiet hub); bounded at COOL_MAX
     this._dead = new Set();      // AUDIT WORLD34 D1: the sockets this object closed itself, whose leave the runtime will not deliver - reaped on the way out of every door
     this._gone = new WeakSet();  // AUDIT WORLD34 D1: and the ones whose leave has been said, so a runtime that does deliver a close says it once
     // AUDIT ATTACH (2026-09-23): EVERY PER-SOCKET METER LIVES HERE, not on the socket's attachment - each arm's bucket
@@ -466,7 +489,7 @@ export class Room {
     this._receiptKey = undefined;   // WB3: the relay's signing key (GATE_SIGNING_KEY), imported once; null = none (the receipts go out unsigned)
     this._gateFell = undefined;     // WB3: the hub's last word of a kill, said to a hello while its gate still holds
     this._event = undefined;        // EVENT1: the hub's live event, read once (_liveEvent) - undefined: not read yet
-    this._raids = new Map();        // RAID3: a cell's raid ledgers read so far (net/raidLaw.js) - AUDIT RAID R1: its identity (key and signature) -> ledger|null; storage is the truth; R6: at most RAID_CACHE_MAX
+    this._raids = new Bounded(RAID_CACHE_MAX);        // RAID3: a cell's raid ledgers read so far (net/raidLaw.js) - AUDIT RAID R1: its identity (key and signature) -> ledger|null; storage is the truth; R6: at most RAID_CACHE_MAX
     this._raidSavedAt = new Map();  // RAID3: when each ledger was last written (a word that moves nothing writes at most every RAID_SAVE_MS)
     this._raidCleaning = new Set(); // RAID3: the raids whose cleanse is being minted - a word that lands meanwhile is not heard (an input gate holds for storage alone, and the mint awaits crypto)
     this._raidSlots = new Map();    // RAID-ROLL: a cell's copy of each day's slots (net/raidLaw.js raidDaySlots) - a few days at most
@@ -512,10 +535,14 @@ export class Room {
     // included - and the look sits in storage under the id (its meters
     // are the instance's: AUDIT ATTACH)
     this.state.acceptWebSocket(server);
-    server.serializeAttachment({ key, id: null, name: null, pose: null, at: Date.now() });   // AUDIT WB A1: when it opened
-    this._idx = null;
+    const att = { key, id: null, name: null, pose: null, at: Date.now() };   // AUDIT WB A1: when it opened
+    server.serializeAttachment(att);
+    this._adopt(server, att);
     return new Response(null, { status: 101, webSocket: client });
   }
+  /** SCALE2b: a socket the runtime has just accepted, into the index - the one door a socket comes in by (the index
+   *  is never rebuilt for one; a wake's first `_all` reads every socket the runtime holds). */
+  _adopt(ws, att) { this._idx?.set(ws, att); }
   /** AUDIT WB A1: every socket past HELLO_WAIT_MS with no hello closed, busy (a slow client retries and says it); a socket
    *  from before the stamp (an older build's, awake across a deploy) counts from now. */
   _unseatSilent(now) {
@@ -523,20 +550,29 @@ export class Room {
       if (a.id || a.replaced || this._dead.has(ws)) continue;
       if (!Number.isFinite(a.at)) { this._setAttach(ws, { ...a, at: now }); continue; }
       if (now - a.at < HELLO_WAIT_MS) continue;
-      this._forget(ws);
       try { ws.close(CLOSE_BUSY, 'no hello'); } catch { /* gone */ }
       this._dead.add(ws);
+      this._closed(ws);   // SCALE2b
     }
   }
 
-  /** Every socket with its attachment, read once. */
+  /** Every socket with its attachment, read once.
+   *  SCALE2b (2026-10-04): KEPT, NOT RE-CHECKED ON EVERY CALL. This asked the runtime for the whole socket list and
+   *  walked it against the index on every call - three times a pose, nine a hello - so the index cost O(N) whether or
+   *  not anything had changed. The index is kept by the doors that change the set (the accept in `fetch` adds, `_leave`
+   *  and `_forget` remove) and trusted for IDX_TRUST_MS; past that, one walk against the runtime's list takes in any
+   *  socket the doors did not see and lets go of any it no longer holds - KEEPING the entries it already has, whose
+   *  attachments are newer than the stored ones (a pose's write is lazy - `_setAttach`). */
   _all() {
+    const now = Date.now();
+    if (this._idx && now - this._idxAt < IDX_TRUST_MS) return this._idx;
     const sockets = this.state.getWebSockets();
-    if (!this._idx || this._idx.size !== sockets.length || sockets.some((ws) => !this._idx.has(ws))) {
-      this._idx = new Map();
-      this._acctIdx = null;   // SOC1: rebuilt with the index
-      for (const ws of sockets) { let a; try { a = ws.deserializeAttachment() ?? {}; } catch { a = {}; } this._idx.set(ws, a); }
-    }
+    if (!this._idx) { this._idx = new Map(); this._acctIdx = null; }
+    let moved = false;
+    if (this._idx.size) { const live = new Set(sockets); for (const ws of [...this._idx.keys()]) if (!live.has(ws)) { this._idx.delete(ws); moved = true; } }
+    for (const ws of sockets) if (!this._idx.has(ws)) { let a; try { a = ws.deserializeAttachment() ?? {}; } catch { a = {}; } this._idx.set(ws, a); moved = true; }
+    if (moved) this._acctIdx = null;   // SOC1: rebuilt with the index
+    this._idxAt = now;
     return this._idx;
   }
   /** SOC1: the hello'd sockets of each account - one pass over the index, kept until the index or an account changes. */
@@ -578,14 +614,22 @@ export class Room {
     const key = `${kind} ${me} ${them}`;
     const at = this._cool.get(key);
     if (at != null && now - at < SOCIAL_REPEAT_MS) return true;
-    if (this._cool.size >= COOL_MAX) this._cool.clear();
-    this._cool.set(key, now);
+    this._cool.set(key, now);   // SCALE2b: bounded, the oldest first (the oldest is the most expired) - never a clear that forgets every cooldown
     return false;
   }
   /** One socket's attachment: the index's, or the socket's own when it is already gone from the set (a closing socket still carries its id). */
   _attach(ws) { const idx = this._all(); if (idx.has(ws)) return idx.get(ws); try { return ws.deserializeAttachment() ?? {}; } catch { return {}; } }
-  _setAttach(ws, a) {
-    try { ws.serializeAttachment(a); } catch { return false; }
+  /** SCALE2b: `lazy` - a pose's write. Every pose rewrote the socket's whole attachment (a 2 KiB JSON stored by the
+   *  runtime), most of it unchanged; the index - what every reader in this object reads - takes the pose at once, and
+   *  the runtime's copy, which only a wake reads, is written at most every ATTACH_LAZY_MS (and at once by any eager
+   *  write, which carries the latest pose with it). A wake loses at most that much of a moving player's pose; the
+   *  next pose sets it right. */
+  _setAttach(ws, a, lazy = false) {
+    const now = Date.now();
+    if (!lazy || !(now - (this._attachedAt.get(ws) ?? -Infinity) < ATTACH_LAZY_MS)) {
+      try { ws.serializeAttachment(a); } catch { return false; }
+      this._attachedAt.set(ws, now);
+    }
     const idx = this._all(), was = idx.get(ws);
     if (!was || was.id !== a.id || was.acct !== a.acct) this._acctIdx = null;   // SOC1: the account index follows the ids alone - a pose's write leaves it standing
     idx.set(ws, a);
@@ -595,17 +639,24 @@ export class Room {
 
   /** A frame to one socket; a socket that will not take it is closed (A10). */
   _send(ws, s) {
-    try { ws.send(s); return true; } catch {
-      this._forget(ws);
+    try { ws.send(s); this._metrics.c.sends++; this._metrics.c.bytesOut += s.length; return true; } catch {
       try { ws.close(1011, 'send failed'); } catch { /* gone */ }
       this._dead.add(ws);   // AUDIT WORLD34 D1: closed by the object - its leave is ours to say
+      this._closed(ws);
       return false;
     }
   }
+  /** SCALE2b: a socket this object just closed leaves the index exactly when it leaves the runtime's list - at once
+   *  where the runtime drops it, and when the walk finds it gone where the runtime still lists it until its close
+   *  completes (AUDIT ONESEAT R4). The index used to re-read the runtime on every call and learnt both for free; it is
+   *  asked once now, at the close, which is rare. */
+  _closed(ws) { if (!this.state.getWebSockets().includes(ws)) this._forget(ws); else this._acctIdx = null; }
   _refuse(ws, m, code = CLOSE_POLICY) {
+    this._metrics.c.refusals++; if (m === 'busy') this._metrics.c.busy++;   // SCALE2b
     this._send(ws, JSON.stringify({ t: 'error', m }));
     try { ws.close(code, m); } catch { /* already closed */ }
     this._dead.add(ws);   // AUDIT WORLD34 D1: the runtime calls no webSocketClose for a close the object made
+    this._closed(ws);
   }
   /** AUDIT WORLD34 D1: every socket this object closed itself leaves the room as a peer's close would - the leave
    *  said, the seat re-said, the looks and secrets gone. The runtime delivers webSocketClose for the PEER's close
@@ -643,6 +694,12 @@ export class Room {
   }
   /** The stored world, raw (the JSON the host sent, chunked back together), or null. */
   async _worldRaw() {
+    if (this._worldMemo !== undefined) return this._worldMemo;   // SCALE2b: read once a wake, kept, and set by every write
+    this._worldMemo = await this._worldRead();
+    return this._worldMemo;
+  }
+  /** The stored world, raw, read from storage. */
+  async _worldRead() {
     const meta = await this.state.storage.get(WORLD_META);
     if (!meta || !(meta.chunks > 0)) return null;
     const keys = Array.from({ length: meta.chunks }, (_, i) => worldChunkKey(i));
@@ -662,12 +719,21 @@ export class Room {
    *  finds its record pointing at a party that is gone, and the hello clears it); never an account or its secret. */
   async _sweep() {
     this._looks.clear();
-    const dead = ['hellos'];
+    const dead = ['hellos'];   // SCALE2b: a relay before it kept the hello bucket here - the key goes with the drain
+    this._secrets.clear();   // SCALE2b: nothing is left to hold an id (the list below takes the stored ones)
     for (const prefix of ['look:', 'secret:']) { const m = await this.state.storage.list({ prefix }); for (const k of m.keys()) dead.push(k); }
     this._parties.clear(); for (const k of await this._keysOf('party:')) dead.push(k);   // SOC1: the parties go with the drain; acct: and asecret: stay (AUDIT SOC A4: listed in pages - an unbounded list of a namespace a client can grow is the isolate's memory)
     for (let i = 0; i < dead.length; i += 128) await this.state.storage.delete(dead.slice(i, i + 128));
   }
 
+  /** SCALE2b: an id's secret in this room (null: none) - the kept copy, else storage's, read once and kept. */
+  async _secretOf(id) {
+    if (this._secrets.has(id)) return this._secrets.get(id);
+    const v = await this.state.storage.get(secretKey(id));
+    const held = typeof v === 'string' ? v : null;
+    if (!this._secrets.has(id)) this._secrets.set(id, held);   // a write that landed while storage answered stands
+    return this._secrets.get(id);
+  }
   /** AUDIT SOC A4: every KEY under a prefix, SWEEP_PAGE at a time - the keys alone; a namespace a client can grow (the
    *  parties) never has its records listed whole into memory. */
   async _keysOf(prefix) {
@@ -700,16 +766,16 @@ export class Room {
    *  relayed); `passPatch` ONLY when the frame is really let through. Anything that counts what the room DID - the
    *  pose fan's `turn` - belongs in the second, or it counts what the room was merely told. AUDIT ATTACH: the bucket
    *  and its strikes are the socket's meters; the attachment is written only when one of its own fields moved. */
-  _meter(ws, a, now, patch = {}, passPatch = {}) {
+  _meter(ws, a, now, patch = {}, passPatch = {}, lazy = false) {
     const pass = this._spend(ws, now, poseGate, 'bucket', 'drops', 'too many poses');
-    return this._metered(ws, a, pass, patch, passPatch);
+    return this._metered(ws, a, pass, patch, passPatch, lazy);
   }
   /** AUDIT-SEATS R2: the meter's write, its gate already spent (`pass`) - a battle room's pose spends the gate BEFORE the
    *  referee judges it (the pose arm's note), and is written here only once judged. */
-  _metered(ws, a, pass, patch = {}, passPatch = {}) {
+  _metered(ws, a, pass, patch = {}, passPatch = {}, lazy = false) {
     const write = pass ? { ...patch, ...passPatch } : patch;
     const next = Object.keys(write).length ? { ...a, ...write } : a;
-    if (next !== a) this._setAttach(ws, next);
+    if (next !== a) this._setAttach(ws, next, lazy);
     return pass ? next : null;
   }
   /** WORLD6b-iii(e): the asks' own bucket (WHO_HZ_MAX), the same strikes - a question beside the poses, never starving
@@ -785,9 +851,13 @@ export class Room {
    *  the way (PARK_TTL_MS since their owner last said so) and SAID gone to whoever is here (AUDIT HCC-PARK D5: a
    *  reader kept drawing an expired team until it reconnected). */
   async _parkList(now) {
-    const m = await this.state.storage.list({ prefix: 'park:' });
+    // SCALE2b: listed from storage once a wake and kept (`_parks`, key -> record) - every cell hello listed the whole
+    // namespace; the store and the drop below keep the copy as they write
+    this._parks ??= this.state.storage.list({ prefix: 'park:' }).then((got) => new Map(got));
+    const m = await this._parks;
     const out = [], dead = [];
     for (const [k, v] of m) { if (!v || typeof v.k !== 'string' || now - (v.at ?? 0) > PARK_TTL_MS) dead.push([k, v]); else out.push(v); }
+    for (const [k] of dead) m.delete(k);
     for (let i = 0; i < dead.length; i += 128) await this.state.storage.delete(dead.slice(i, i + 128).map(([k]) => k));
     for (const [, v] of dead) if (v && typeof v.k === 'string') this._parkFan({ t: 'park', k: v.k, id: v.id, data: null }, v.sub);
     return out;
@@ -804,7 +874,7 @@ export class Room {
     const list = await this._parkList(now);
     const had = list.find((e) => e.k === k) ?? null;
     if (had && had.id === id && had.name === name && JSON.stringify(had.r) === JSON.stringify(r)) {
-      if (now - (had.at ?? 0) > PARK_REFRESH_MS) await this.state.storage.put(parkKey(k), { ...had, at: now });
+      if (now - (had.at ?? 0) > PARK_REFRESH_MS) { const fresh = { ...had, at: now }; (await this._parks)?.set(parkKey(k), fresh); await this.state.storage.put(parkKey(k), fresh); }
       return;
     }
     const byAge = (x, y) => (x.at ?? 0) - (y.at ?? 0);
@@ -814,6 +884,7 @@ export class Room {
     const others = list.filter((e) => e.k !== k && !gone.has(e.k)).sort(byAge);
     for (const e of others.slice(0, Math.max(0, others.length - PARK_CELL_MAX + 1))) await this._parkDrop(e.k);
     const rec = { k, sub, id, name, r, at: now };
+    (await this._parks)?.set(parkKey(k), rec);   // SCALE2b: the kept copy
     await this.state.storage.put(parkKey(k), rec);
     this._parkFan({ t: 'park', k, id, name, at: now, data: r }, sub);
   }
@@ -823,6 +894,7 @@ export class Room {
   async _parkDrop(k, before = Infinity) {
     const had = await this.state.storage.get(parkKey(k));
     if (!had || (had.at ?? 0) > before) return;
+    (await this._parks)?.delete(parkKey(k));   // SCALE2b: the kept copy
     await this.state.storage.delete(parkKey(k));
     this._parkFan({ t: 'park', k, id: had.id, data: null }, had.sub);
   }
@@ -833,13 +905,13 @@ export class Room {
     const rooms = this.env?.ROOMS;
     if (!rooms?.idFromName || !rooms?.get) return;
     try {
-      await rooms.get(rooms.idFromName(parkRegistryRoom(k))).fetch(new Request(`https://relay.internal${PARK_INTERNAL_REG}`, { method: 'POST', body: JSON.stringify({ owner: k, cell, at }) }));
+      await rooms.get(rooms.idFromName(parkRegistryRoom(k))).fetch(new Request(`https://relay.internal${PARK_INTERNAL_REG}`, { method: 'POST', body: JSON.stringify({ owner: k, cell, at }), signal: AbortSignal.timeout(ROOM_CALL_MS) }));
     } catch (e) { console.warn('[park] registry', e?.message ?? e); }
   }
   /** Tell a cell to drop an owner's record said no later than `at`. */
   async _parkTellDrop(cell, k, at) {
     const rooms = this.env?.ROOMS;
-    try { await rooms?.get(rooms.idFromName(cell)).fetch(new Request(`https://relay.internal${PARK_INTERNAL_DROP}`, { method: 'POST', body: JSON.stringify({ owner: k, at }) })); }
+    try { await rooms?.get(rooms.idFromName(cell)).fetch(new Request(`https://relay.internal${PARK_INTERNAL_DROP}`, { method: 'POST', body: JSON.stringify({ owner: k, at }), signal: AbortSignal.timeout(ROOM_CALL_MS) })); }
     catch (e) { console.warn('[park] drop', e?.message ?? e); }
   }
   /** HCC-PARK: the doors between objects. REG: this object is an owner's registry - a new cell (or none) drops the
@@ -990,6 +1062,7 @@ export class Room {
     for (const [, b] of this._all()) if (b.id) return;
     const m = await this.state.storage.list({ prefix: 'world:' });
     const dead = [...m.keys()];
+    this._worldMemo = undefined;   // SCALE2b: the kept copy goes with the stored one
     for (let i = 0; i < dead.length; i += 128) await this.state.storage.delete(dead.slice(i, i + 128));
   }
   /** AUDIT SOC A3/A4: ONE PAGE of the hub's storage per firing - the accounts nobody's list names and nobody has seen
@@ -1007,7 +1080,7 @@ export class Room {
     // AUDIT 68 S01-stale-party-pointer-blocks-sweep: a pointer lists the account only while its party does - a deleted
     // party leaves its members' pointers standing until their next hello, which an idle account never sends
     const seats = await this._partiesOf(idle.filter(([, , pid]) => pid).map(([, , pid]) => pid));
-    for (const [k, id, pid] of idle) { const party = pid ? seats.get(pid) : null; if (party && party.members.includes(id)) continue; dead.push(k, acctSecretKey(id)); this._recs.delete(id); }
+    for (const [k, id, pid] of idle) { const party = pid ? seats.get(pid) : null; if (party && party.members.includes(id)) continue; dead.push(k, acctSecretKey(id)); this._recs.delete(id); this._asecrets.delete(id); }
     const parties = await this.state.storage.list({ prefix: 'party:', limit: SWEEP_PAGE, ...(pcur ? { startAfter: pcur } : {}) });
     let plast = null;
     for (const [k, p] of parties) {
@@ -1031,7 +1104,12 @@ export class Room {
   }
 
   async webSocketMessage(ws, message) {
-    try { await this._message(ws, message); } finally { await this._reap(); }
+    this._metrics.c.frames++; this._metrics.c.bytesIn += typeof message === 'string' ? message.length : (message?.byteLength ?? 0);   // SCALE2b
+    try { await this._message(ws, message); } finally { await this._reap(); this._metricsTick(); }
+  }
+  /** SCALE2b: the window's metrics point, when it is due (or `force`d - a drain) - relayScale.js RoomMetrics. */
+  _metricsTick(force = false) {
+    try { this._metrics.flush(this.env?.METRICS, this._kind ?? 'none', this._idx?.size ?? 0, RELAY_VERSION, Date.now(), force); } catch { /* a metric never costs a frame */ }
   }
 
   /**
@@ -1137,7 +1215,7 @@ export class Room {
     // needing a cron that can silently stop running (F9's lesson, one
     // system over).
     const sig = m.tok.slice(m.tok.lastIndexOf('.') + 1);
-    for (const [k, until] of this._spent) if (until <= nowS) this._spent.delete(k);
+    for (const [k, until] of this._spent) { if (until > nowS) break; this._spent.delete(k); }   // SCALE2b: from the oldest, stopping at the first still good - spent tokens arrive in about the order they expire, so a hello no longer walks the whole map
     if (this._spent.has(sig)) return { error: 'token spent' };
     // A BOUND, because a map that only grows is a room that eventually
     // stops. At MAX_TTL_S and the hello gate's own rate this cannot be
@@ -1198,6 +1276,7 @@ export class Room {
 
   async _message(ws, message) {
     let a = this._attach(ws);
+    this._kind ??= a.key ? roomKindOf(a.key) : null;   // SCALE2b: a metric names the room's kind, never the room
     // AUDIT WORLD A1: a large frame - or any frame shaped as a world frame - is the host's memory or nothing, and is
     // answered BEFORE any parse: a socket with no hello is refused, the frame is metered on the pose bucket, and
     // anyone but a world room's host is ignored unparsed (a handover races; parsing 512 KiB for a stranger was the
@@ -1252,6 +1331,7 @@ export class Room {
     if (m.error) { this._refuse(ws, m.error); return; }
     if (m.t === 'hello') {
       const now = Date.now();
+      this._metrics.c.hellos++;   // SCALE2b
       const chat = isChatRoom(a.key);
       // AUDIT-SEATS R3: A BATTLE'S DOOR IS NEVER SHUT BY A STRANGER. The room's hello gate below was spent BEFORE the token
       // was read, so twelve tokenless hellos a second made the next real attacker's hello 'busy' - held from ten minutes
@@ -1267,8 +1347,8 @@ export class Room {
       let gate = null;
       if (!battle && !floor) {
         // the room's hello gate (A6): a storm is 2N frames a cycle for everyone in a place; a channel's hello costs no roster, so its gate runs deeper - never off (AUDIT CHAT A1)
-        gate = tokenGate(await this.state.storage.get('hellos'), now, chat ? CHAT_HELLO_HZ_MAX : HELLO_HZ_MAX);
-        await this.state.storage.put('hellos', gate.bucket);
+        gate = tokenGate(this._hellos, now, chat ? CHAT_HELLO_HZ_MAX : HELLO_HZ_MAX);   // SCALE2b: in memory - see `_hellos`
+        this._hellos = gate.bucket;
         if (!gate.pass) { this._refuse(ws, 'busy', CLOSE_BUSY); return; }
       }
       // ACC1d: the name this socket will wear, and whether the relay vouches for it. AUDIT 68 S01-hello-writes-before-token:
@@ -1309,7 +1389,7 @@ export class Room {
       const seatHeld = isSocialRoom(a.key) && who.subject ? this._otherTabsOf(who.subject, ws, m.id) : [];
       if (seatHeld.length && !m.cl) { this._refuse(ws, SEAT_ELSEWHERE, CLOSE_REPLACED); return; }
       // the id's secret (A3): the first hello mints it, a later one must match
-      const held = await this.state.storage.get(secretKey(m.id));
+      const held = await this._secretOf(m.id);   // SCALE2b: read once an id a wake, kept - see `_secretOf`
       if (held && held !== m.secret) { this._refuse(ws, 'id taken'); return; }
       // a second socket claiming the same id (a reconnect) replaces the
       // first: the first loses the id now, so its close says no leave
@@ -1320,6 +1400,7 @@ export class Room {
         replaced = b;
         this._setAttach(other, { ...b, id: null, replaced: true });
         try { other.close(CLOSE_REPLACED, 'replaced'); } catch { /* gone */ }
+        this._closed(other);   // SCALE2b
         // AUDIT SOC A7: a replaced socket loses its id BEFORE it closes, so its `_leave` says nothing - which is right for
         // the room (the id lives on) and wrong for its ACCOUNT when the replacing hello names another or none: no
         // last-seen, no presence, no `away` stamp, a seat that could never lapse. Its account leaves here.
@@ -1341,9 +1422,9 @@ export class Room {
       // carried over - a claim that closed the account's other tabs, or a reconnect that replaced its own old socket,
       // moved a seat the room never lost, and the sweep below took every party in the hub with it (a stranger's too)
       const carried = !!replaced || (!!m.cl && seatHeld.length > 0);
-      if (!others.length && !carried) { try { await this._sweep(); } catch (e) { console.warn('[room] sweep failed', e?.message ?? e); } if (gate.bucket) await this.state.storage.put('hellos', gate.bucket); }   // AUDIT-SEATS R3: a battle room's fighter spent no stored bucket   // an empty room forgets every look and secret an unclean close left behind - not its hello gate (AUDIT SOC A2: contained - a failed list here made every first hello into an empty hub throw before its welcome)
-      await this.state.storage.put(secretKey(m.id), m.secret);
-      if (!chat) { await this.state.storage.put(lookKey(m.id), m.look); this._looks.set(m.id, m.look); }   // a channel keeps no look: nobody is drawn from it
+      if (!others.length && !carried) { try { await this._sweep(); } catch (e) { console.warn('[room] sweep failed', e?.message ?? e); } }   // AUDIT-SEATS R3: a battle room's fighter spent no stored bucket   // an empty room forgets every look and secret an unclean close left behind - not its hello gate (AUDIT SOC A2: contained - a failed list here made every first hello into an empty hub throw before its welcome)
+      if (held !== m.secret || !this._secrets.has(m.id)) { await this.state.storage.put(secretKey(m.id), m.secret); this._secrets.set(m.id, m.secret); }   // SCALE2b: written when it is new, not on every hello (or when an empty room's sweep, just above, took it)
+      if (!chat && (!this._looks.has(m.id) || JSON.stringify(this._looks.get(m.id)) !== JSON.stringify(m.look))) { await this.state.storage.put(lookKey(m.id), m.look); this._looks.set(m.id, m.look); }   // SCALE2b: and a look when it changed   // a channel keeps no look: nobody is drawn from it
       const guild = who.gi ? { gi: who.gi, gt: who.gt, gm: who.gm } : {};   // GUILD1c: the guild the token carried, when it carried one
       const arena = isArenaRoom(a.key) ? { ar: arenaRatingOk(who.ar), lk: who.kind === 'linked' ? 1 : 0, ...(Number.isSafeInteger(who.cl) && who.cl >= ARENA_CL_MIN && who.cl <= ARENA_CL_MAX ? { cl: who.cl } : {}) } : {};   // ARENA4: the hall queues by the signed rating, and a guest is queued for no rated bout   // ARENA4b: and a ladder bout's vitality is the signed character level's (`cl` - absent from a service before it)
       // AUDIT PRE-MERGE 1003b R5: A FLOOR'S PLACE MOVES WITH ITS RECONNECT - a replaced socket loses its id before its close,
@@ -1494,6 +1575,7 @@ export class Room {
       const ops = [this.state.storage.put(puts)];
       if (old && old.chunks > chunks) ops.push(this.state.storage.delete(Array.from({ length: old.chunks - chunks }, (_, i) => worldChunkKey(chunks + i))));   // a smaller world leaves no stale tail
       await Promise.all(ops);
+      this._worldMemo = raw;   // SCALE2b: the welcome's copy is the one just stored
       // AUDIT WORLD34 C1: the memory rode the welcome ALONE, so two players entering a room together were both handed
       // null and nothing ever re-synced what stood before they touched it. Everyone hello'd whose welcome carried no
       // memory is handed this one, once ({t:'world', id, data} - the host's id, the client checks it), under the foes
@@ -1848,8 +1930,8 @@ export class Room {
       // bucket there is the stands', and a crowd of spectators draining it would refuse a fighter's change of gear 'busy',
       // its socket closed mid-battle
       const battleGate = isBattleRoom(a.key) ? await this._battleHelloGate(a.sub, a.sd, now) : null;
-      const gate = battleGate ?? tokenGate(await this.state.storage.get('hellos'), now, HELLO_HZ_MAX);
-      if (!battleGate) await this.state.storage.put('hellos', gate.bucket);
+      const gate = battleGate ?? tokenGate(this._hellos, now, HELLO_HZ_MAX);   // SCALE2b: the room's hello bucket, in memory
+      if (!battleGate) this._hellos = gate.bucket;
       if (!gate.pass) { this._refuse(ws, 'busy', CLOSE_BUSY); return; }
       await this.state.storage.put(lookKey(a.id), m.look); this._looks.set(a.id, m.look);
       if (this._attach(ws)?.id !== a.id) return;   // replaced while the store was written: the new socket's hello said its own
@@ -2110,10 +2192,11 @@ export class Room {
       const step = battle ? await this._siegeStep(ws, a, m.p, now) : null;
       if (battle && !step) return;
       const turned = posed ? { turn: ((a.turn | 0) + 1) & 0xffff, ...(still ? { kept: now } : {}) } : {};
-      const met = battle ? this._metered(ws, a, true, { pose: m.p }, turned) : this._meter(ws, a, now, { pose: posed ? m.p : a.pose }, turned);
+      const met = battle ? this._metered(ws, a, true, { pose: m.p }, turned) : this._meter(ws, a, now, { pose: posed ? m.p : a.pose }, turned, posed && !stopped);   // SCALE2b: a pose's write is lazy - a stop's is not, it is where the player stands
       if (!met) return;   // over the rate: kept as the latest, not relayed
       if (m.t === 'ping') { this._send(ws, '{"t":"pong"}'); return; }   // a ping that reached the object (the runtime answers the exact one in its sleep)
       if (chat) return;   // a channel is no place: a pose there is kept by no one and reaches no one
+      if (posed) this._metrics.c.poses++;   // SCALE2b: a pose taken - the one a room fans
       // AUDIT-SEATS T2 (Seats-Arc 6.6: "no body drawn to fighters, no collider, excluded from every banner count, a free
       // camera over the town"): A SPECTATOR IS NO BODY - in a battle room a socket that is no fighter (a spectator's pass,
       // or a fighter's before its `in`) keeps its camera on its own attachment and is drawn to nobody: the fan below said
@@ -2426,7 +2509,7 @@ export class Room {
   }
 
   async webSocketClose(ws, code, reason) {
-    try { await this._leave(ws); } finally { await this._reap(); }
+    try { await this._leave(ws); } finally { await this._reap(); this._metricsTick(); }
     try { ws.close(code, reason); } catch { /* already closed */ }
   }
 
@@ -2437,13 +2520,18 @@ export class Room {
     this._gone.add(ws);
     this._dead.delete(ws);
     const a = this._attach(ws);
-    this._forget(ws);
     // AUDIT CHAT A7: a room that drained sweeps its own storage on the way out - the empty-hello sweep never
     // runs in a channel, which is never empty on the way in; what an unclean close left behind goes here
-    const last = this.state.getWebSockets().filter((w) => w !== ws).length === 0;
-    if (last) { try { await this._sweep(); if (isWorldRoom(a.key)) await this.state.storage.setAlarm(Date.now() + WORLD_TTL_MS); } catch { /* the next drain, or the next empty hello */ } }
+    const listed = this.state.getWebSockets();
+    // SCALE2b: out of the index - unless the runtime still lists it (a close this object made, not yet complete: AUDIT
+    // ONESEAT R4), when it stays, said gone, as the old index re-read it, until the walk finds it unlisted
+    if (!listed.includes(ws)) this._forget(ws); else this._acctIdx = null;
+    const last = listed.filter((w) => w !== ws).length === 0;
+    if (last) { try { await this._sweep(); if (isWorldRoom(a.key)) await this.state.storage.setAlarm(Date.now() + WORLD_TTL_MS); } catch { /* the next drain, or the next empty hello */ } this._metricsTick(true); }   // SCALE2b: a drained room says its last window
     if (!a.id) return;   // never said hello, or replaced - the id lives on in another socket
     this._looks.delete(a.id);
+    if (!last) this._secrets.set(a.id, null);   // SCALE2b: the kept copy goes with the stored one (a drain's sweep clears both)
+    this._raidTownsUp.delete(ws);   // SCALE2b: an upload its socket never finished goes with it
     if (!last) { try { await this.state.storage.delete([lookKey(a.id), secretKey(a.id)]); } catch { /* the room forgets it on the next empty hello */ } }
     // ROSTER-G: a channel says its leaves now, as it says its joins - the roster beside the chat is everyone online
     const out = JSON.stringify({ t: 'leave', id: a.id });
@@ -2468,7 +2556,7 @@ export class Room {
   async _arenaPost(key, path, body) {
     const rooms = this.env?.ROOMS;
     if (!rooms?.idFromName || !rooms?.get) return true;
-    try { const res = await rooms.get(rooms.idFromName(key)).fetch(new Request(`https://relay.internal${path}`, { method: 'POST', body: JSON.stringify(body) })); return !!res?.ok; }
+    try { const res = await rooms.get(rooms.idFromName(key)).fetch(new Request(`https://relay.internal${path}`, { method: 'POST', body: JSON.stringify(body), signal: AbortSignal.timeout(ROOM_CALL_MS) })); return !!res?.ok; }
     catch (e) { console.warn('[arena] post', path, e?.message ?? e); return false; }
   }
 
@@ -3137,8 +3225,8 @@ export class Room {
     this._helloBy.set(sub, own.bucket);
     if (!own.pass) return { pass: false };
     if (side !== 'watch') return { pass: true };
-    const stands = tokenGate(await this.state.storage.get('hellos'), now, HELLO_HZ_MAX);
-    await this.state.storage.put('hellos', stands.bucket);
+    const stands = tokenGate(this._hellos, now, HELLO_HZ_MAX);   // SCALE2b: the room's hello bucket, in memory
+    this._hellos = stands.bucket;
     return { pass: stands.pass, bucket: stands.bucket };
   }
   /**
@@ -3747,7 +3835,7 @@ export class Room {
     if (!w) {
       if (this._watch.size >= SOCKETS_MAX) this._watch.delete(this._watch.keys().next().value);
       this._watch.set(sub, (w = { at: -Infinity, moved: -Infinity }));
-    }
+    } else { this._watch.delete(sub); this._watch.set(sub, w); }   // SCALE2b: a watch in use goes to the back - the bound lets the stalest go, never a player still standing here
     if (moved) w.moved = now;
     if (!watchDue(w, now)) return;
     const [x, y] = mapPixelOfWire(p.x, p.z);
@@ -3771,16 +3859,17 @@ export class Room {
   async _gateTellHub(body) {
     const rooms = this.env?.ROOMS;
     if (!rooms?.idFromName || !rooms?.get) return true;
-    try { const res = await rooms.get(rooms.idFromName(SOCIAL_ROOM)).fetch(new Request(`https://relay.internal${GATE_INTERNAL_FELL}`, { method: 'POST', body: JSON.stringify(body) })); return !!res?.ok; }
+    try { const res = await rooms.get(rooms.idFromName(SOCIAL_ROOM)).fetch(new Request(`https://relay.internal${GATE_INTERNAL_FELL}`, { method: 'POST', body: JSON.stringify(body), signal: AbortSignal.timeout(ROOM_CALL_MS) })); return !!res?.ok; }
     catch (e) { console.warn('[gate] hub', e?.message ?? e); return false; }
   }
   /** AUDIT WB A4: the hub hands an account's kept receipt to its hello while the receipt is good, and forgets an expired
    *  one. AUDIT WBX S1: and one its account has said is spent (`_gateSpent`) - a receipt said again was NOT harmless: a
    *  second device's store had not spent it, and rolled its spoils again. */
   async _gateReceiptTo(ws, sub, now) {
+    if (this._noGateRcpt.has(sub)) return;   // SCALE2b: asked before and none held - no write since says otherwise
     const k = gateReceiptKey(sub);
     const kept = await this.state.storage.get(k);
-    if (!kept || typeof kept !== 'object') return;
+    if (!kept || typeof kept !== 'object') { this._noGateRcpt.set(sub, 1); return; }
     if (!(Number.isFinite(kept.e) && now < kept.e * 1000)) { await this.state.storage.delete(k); return; }
     if (kept.spent) return;   // AUDIT WBX2 M3: its account's word that it is spent, kept in its place
     if (Number.isFinite(kept.hold) && now < kept.hold) return;   // AUDIT WBX2 M4: its fighter's own court spends it first
@@ -3829,6 +3918,7 @@ export class Room {
     // day's; M4: a court fighter's is kept from their hellos GATE_HERE_HOLD_MS - their court's floor spends it
     const now = Date.now();
     const keep = [];
+    this._noGateRcpt.clear();   // SCALE2b: receipts are being written - nobody's 'none' stands
     for (const [sub, r] of rc) { const c = readReceipt(r.r); if (c && c.s === sub) keep.push([gateReceiptKey(sub), { d: fell.d, r: r.r, e: c.e, ...(here.has(sub) ? { hold: now + GATE_HERE_HOLD_MS } : {}) }, sub]); }
     const had = new Map();
     for (let i = 0; i < keep.length; i += 128) for (const [k, v] of await this.state.storage.get(keep.slice(i, i + 128).map(([k]) => k))) had.set(k, v);
@@ -3984,7 +4074,7 @@ export class Room {
 
   // ───────────────────────────── RAID3: A TOWN'S RAID ─────────────────────────────
   /** AUDIT RAID R6: a copy kept on the instance, the map bounded. */
-  _raidKeep(id, led) { if (this._raids.size >= RAID_CACHE_MAX && !this._raids.has(id)) this._raids.clear(); this._raids.set(id, led); }
+  _raidKeep(id, led) { this._raids.set(id, led); }   // SCALE2b: bounded at RAID_CACHE_MAX (AUDIT RAID R6), the oldest first
   /** A raid's ledger in this cell by its identity (net/raidLaw.js raidLedgerId - AUDIT RAID R1: the key and the
    *  signature), or null - the instance's copy, else storage's (read once, kept then). */
   async _raidLedgerOf(id) {
@@ -4004,8 +4094,7 @@ export class Room {
   /** A ledger to storage, and the alarm armed for the soonest thing it owes: its hub told again, else its end. */
   async _raidSave(led, now) {
     const id = raidLedgerId(led);
-    if (this._raidSavedAt.size >= RAID_CACHE_MAX && !this._raidSavedAt.has(id)) this._raidSavedAt.clear();   // AUDIT RAID R6
-    this._raidSavedAt.set(id, now);
+    this._raidSavedAt.set(id, now);   // AUDIT RAID R6: bounded (SCALE2b: the oldest first)
     await this.state.storage.put(raidLedgerKey(id), led);
     await this._raidArm(led.cl && !led.told ? now + RAID_TELL_RETRY_MS : this._raidEndsAt(led));
   }
@@ -4126,7 +4215,7 @@ export class Room {
   async _raidTellHub(body) {
     const rooms = this.env?.ROOMS;
     if (!rooms?.idFromName || !rooms?.get) return true;
-    try { const res = await rooms.get(rooms.idFromName(SOCIAL_ROOM)).fetch(new Request(`https://relay.internal${RAID_INTERNAL_CLEAN}`, { method: 'POST', body: JSON.stringify(body) })); return !!res?.ok; }
+    try { const res = await rooms.get(rooms.idFromName(SOCIAL_ROOM)).fetch(new Request(`https://relay.internal${RAID_INTERNAL_CLEAN}`, { method: 'POST', body: JSON.stringify(body), signal: AbortSignal.timeout(ROOM_CALL_MS) })); return !!res?.ok; }
     catch (e) { console.warn('[raid] hub', e?.message ?? e); return false; }
   }
   // ─────────────────────────── WB12d: THE FAITHFUL'S RITE ───────────────────────────
@@ -4303,7 +4392,7 @@ export class Room {
     const rooms = this.env?.ROOMS;
     if (rooms?.idFromName && rooms?.get) {
       try {
-        const res = await rooms.get(rooms.idFromName(SOCIAL_ROOM)).fetch(new Request(`https://relay.internal${RAID_INTERNAL_DAY}`, { method: 'POST', body: JSON.stringify({ d: day }) }));
+        const res = await rooms.get(rooms.idFromName(SOCIAL_ROOM)).fetch(new Request(`https://relay.internal${RAID_INTERNAL_DAY}`, { method: 'POST', body: JSON.stringify({ d: day }), signal: AbortSignal.timeout(ROOM_CALL_MS) }));
         const body = res?.ok ? await res.json() : null;
         if (Array.isArray(body?.ids)) ids = new Set(body.ids.filter((x) => typeof x === 'string'));
       } catch (e) { console.warn('[raid] day', e?.message ?? e); }
@@ -4345,7 +4434,7 @@ export class Room {
     if (!pin || m.h !== pin || (await this._raidTowns())) return;   // not asked for, or held already
     let up = this._raidTownsUp.get(ws);
     if (!up || up.n !== m.n) {
-      if (!up && this._raidTownsUp.size >= 4) this._raidTownsUp.clear();   // a few uploads in flight at most
+      if (!up && this._raidTownsUp.size >= 4) this._raidTownsUp.delete(this._raidTownsUp.keys().next().value);   // a few uploads in flight at most (SCALE2b: the oldest goes, not every one)
       up = { n: m.n, parts: new Array(m.n).fill(null) };
       this._raidTownsUp.set(ws, up);
     }
@@ -4441,6 +4530,7 @@ export class Room {
       puts.push([k, [...kept, { r, until: now + RAID_RC_KEEP_MS }].slice(-RAID_RC_KEEP)]);
       hand.push([acct, r]);
     }
+    if (puts.length) this._noRaidRcpt.clear();   // SCALE2b: receipts are being written - nobody's 'none' stands
     for (let i = 0; i < puts.length; i += 128) await this.state.storage.put(Object.fromEntries(puts.slice(i, i + 128)));
     const newest = new Map();
     for (const [ws, b] of [...this._all()]) {
@@ -4452,9 +4542,10 @@ export class Room {
   }
   /** AUDIT RAID R2: an account's kept raid receipts to its hello - the good ones handed, the rest let go. */
   async _raidReceiptsTo(ws, sub, now) {
+    if (this._noRaidRcpt.has(sub)) return;   // SCALE2b: asked before and none held - no write since says otherwise
     const k = raidReceiptKeyOf(sub);
     const v = await this.state.storage.get(k);
-    if (v === undefined) return;
+    if (v === undefined) { this._noRaidRcpt.set(sub, 1); return; }
     const kept = raidRcLive(v, now);
     if (!kept.length) { await this.state.storage.delete(k); return; }
     if (!Array.isArray(v) || kept.length !== v.length) await this.state.storage.put(k, kept);
@@ -4527,6 +4618,15 @@ export class Room {
   /** The account's record, or null - the instance's copy while it is awake (AUDIT SOC A5: one act read ~500 keys; the
    *  records this object has read are kept on it, and every write goes through _putAcct/_putAccts so the copy IS the
    *  storage's - no other object writes this room's keys), else storage's, kept then. */
+  /** SCALE2b: an account's profile secret in the hub (null: none) - storage's, read once and kept (`_asecrets`); every
+   *  write and delete of one keeps the copy. A hub hello read it twice (the forged retire and the legacy merge). */
+  async _asecretOf(id) {
+    if (this._asecrets.has(id)) return this._asecrets.get(id);
+    const v = await this.state.storage.get(acctSecretKey(id));
+    const held = typeof v === 'string' ? v : null;
+    this._asecrets.set(id, held);
+    return held;
+  }
   async _acct(id) {
     if (this._recs.has(id)) return this._recs.get(id);
     const r = await this.state.storage.get(acctKey(id));
@@ -4534,7 +4634,7 @@ export class Room {
     this._keepRec(id, rec);
     return rec;
   }
-  _keepRec(id, rec) { if (this._recs.size >= RECS_MAX) this._recs.clear(); this._recs.set(id, rec); }
+  _keepRec(id, rec) { this._recs.set(id, rec); }   // SCALE2b: bounded, the oldest first - never cleared whole
   async _putAcct(id, rec) { this._keepRec(id, rec); await this.state.storage.put(acctKey(id), rec); }
   /** Several records written as one batch (a friendship is two records at once, or none). */
   async _putAccts(recs) { const puts = {}; for (const [id, rec] of Object.entries(recs)) { this._keepRec(id, rec); puts[acctKey(id)] = rec; } await this.state.storage.put(puts); }
@@ -4676,9 +4776,9 @@ export class Room {
     // (the merge ACC1b said belongs here, the one place that holds both credentials at once).
     const me = this._attach(ws).sub || m.acct;
     if (me === m.acct) {   // no verified subject (a build before ACC1g's wall): the profile's own law, as it was
-      const held = await this.state.storage.get(acctSecretKey(m.acct));
+      const held = await this._asecretOf(m.acct);
       if (held && held !== m.asecret) { this._sayError(ws, 'account taken'); return; }
-      if (!held) await this.state.storage.put(acctSecretKey(m.acct), m.asecret);
+      if (!held) { await this.state.storage.put(acctSecretKey(m.acct), m.asecret); this._asecrets.set(m.acct, m.asecret); }
     } else {
       // AUDIT FRIENDS-SYNC F1: a profile secret held at the PLAYER's own id was minted by a profile hello that NAMED that
       // id under the old law (a player's id is public: every roster carries `sub`) - that record is nobody's: never
@@ -4698,14 +4798,18 @@ export class Room {
     // the frame asked for - `_named` has already run and `a.name` is
     // its answer. A durable record keyed on an unchecked claim is the
     // shape this slice exists to close.
-    let rec = { ...((await this._acct(me)) ?? newAcct(a.name, now)), name: a.name, seen: now };
+    const had = await this._acct(me);
+    let rec = { ...(had ?? newAcct(a.name, now)), name: a.name, seen: now };
     let party = null;
     if (rec.party) {
       party = await this._livingParty(rec.party, now);
       if (!party || !party.members.includes(me)) { rec.party = null; party = null; }
       else if (party.away?.[me] != null) { const away = { ...party.away }; delete away[me]; party = { ...party, away }; await this._putParty(party); }
     }
-    await this._putAcct(me, rec);
+    // SCALE2b: written when it holds news - a new record, a new name, a party let go - or when its last-seen is
+    // ACCT_SEEN_WRITE_MS stale; otherwise only the kept copy is stamped (every hub hello wrote it)
+    if (!had || had.name !== rec.name || had.party !== rec.party || !(now - (had.seen ?? 0) < ACCT_SEEN_WRITE_MS)) await this._putAcct(me, rec);
+    else this._keepRec(me, { ...rec, seen: had.seen });
     a = this._attach(ws);
     if (a.id !== m.id || !this._setAttach(ws, { ...a, acct: me, party: rec.party })) return;
     await this._sayState(me, rec, now, ws);
@@ -4720,7 +4824,7 @@ export class Room {
    *  (PARTY_OFFLINE_MS). */
   async _mergeLegacy(me, m, name, now) {
     const old = m.acct;
-    const held = await this.state.storage.get(acctSecretKey(old));
+    const held = await this._asecretOf(old);
     if (!held || held !== m.asecret) return;   // never minted here, or not this device's to bring
     const legacy = await this._acct(old);
     const swap = (id) => (id === old ? me : id);
@@ -4744,13 +4848,14 @@ export class Room {
       for (let i = 0; i < all.length; i += 128) await this._putAccts(Object.fromEntries(all.slice(i, i + 128)));   // SLAM5's wall: 1 + 64 friends + 2 x 32 requests is 129 records
     }
     this._recs.set(old, null);
+    this._asecrets.set(old, null);   // SCALE2b: the kept copy
     await this.state.storage.delete([acctKey(old), acctSecretKey(old)]);
     for (const [id, r] of Object.entries(puts)) if (id !== me) await this._sayState(id, r, now);   // the others' pictures name the player now (no socket, no frame)
   }
   /** AUDIT FRIENDS-SYNC F1: a record at the player's own id holding a profile secret (planted under the old law), retired
    *  whole - every record it names forgets it, so nothing it befriended keeps the player's presence. */
   async _retireForged(me, now) {
-    if ((await this.state.storage.get(acctSecretKey(me))) == null) return;
+    if ((await this._asecretOf(me)) == null) return;
     const forged = await this._acct(me);
     const puts = {};
     if (forged) {
@@ -4760,6 +4865,7 @@ export class Room {
       for (let i = 0; i < all.length; i += 128) await this._putAccts(Object.fromEntries(all.slice(i, i + 128)));
     }
     this._recs.set(me, null);
+    this._asecrets.set(me, null);   // SCALE2b: the kept copy
     await this.state.storage.delete([acctKey(me), acctSecretKey(me)]);
     for (const [id, r] of Object.entries(puts)) await this._sayState(id, r, now);
   }

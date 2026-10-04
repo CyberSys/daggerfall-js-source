@@ -396,7 +396,7 @@ test('REALM P0.5: a trade\'s every change to the pack is checkpointed - the good
 test('REALM P0.5 by source: the host checkpoints every slot the exit save writes, quietly, each online frame it is due and through the trade pack', () => {
   const w = src('src/scenes/world.js');
   const frame = w.slice(w.indexOf('const onlineFrame = (now, dt) => {'));
-  assert.match(frame, /_rezSeen = null;[^\n]*\n\s*if \(checkpointDue\(now, _checkpointAt\)\) onlineCheckpoint\(\);/, 'each online frame, past the seat\'s and the dead\'s returns');
+  assert.match(frame, /_rezSeen = null;[^\n]*\n\s*if \(checkpointDue\(now, _checkpointAt\)\) \{ if \(realmSession\?\.idle\) realmSession\.idle\(\(\) => onlineCheckpoint\(\)\); else onlineCheckpoint\(\); \}/, 'each online frame, past the seat\'s and the dead\'s returns (SCALE2b: a realm character\'s through the session\'s idle door, which may answer an unchanged save without a put)');
   assert.match(w, /const tradePack = checkpointedTradePack\(createTradePack\(playerEntity\), \(\) => onlineCheckpoint\(\)\);/);
   assert.match(w, /if \(!checkpointAllowed\(\{ online: !!online, spawned: playerSpawned, seatOut: seatOut\(\), duel: !!duelMgr\?\.duel, walkWaiting: ownWalkWaiting\(playerEntity\) \}\)\) return false;/);
   assert.match(w, /const names = exitAutosaveNames\(playerEntity, \{ deathUp: townTalk\.overlay instanceof DeathScreen \|\| !!modes\?\.deathUp\?\.\(\) \}\);\n\s*for \(const saveName of names\) \{\n\s*if \(modes\) modes\?\.quickSaveNow\(saveName, \{ quiet: true \}\);[^\n]*\n\s*else worldQuickSave\(saveName, \{ quiet: true \}\);/);

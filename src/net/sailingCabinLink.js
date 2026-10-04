@@ -33,7 +33,10 @@ export function createSailingCabinLink({ frame, receive, sweep, Session = Online
       if (link.status !== 'open') return;
       // Full records only on this stationary lane, so a reconnect or failed send
       // cannot lose the boat. The normal exterior frame counter remains shared.
-      if (link.welcomes !== welcome || now - sentAt >= 1000) {
+      // SCALE2b: and only while someone is in that cell to see the boat - the full record every second woke a room
+      // with nobody in it; the first welcome after a joiner (or after the lane comes back) says it at once
+      if (link.othersHere === 0) { sentAt = -Infinity; welcome = -1; }
+      else if (link.welcomes !== welcome || now - sentAt >= 1000) {
         if (link.sendFoes({ ...frame(), k: room })) { welcome = link.welcomes; sentAt = now; }
       }
       sweep(new Set(link.drawable().map((p) => p.id)), now);

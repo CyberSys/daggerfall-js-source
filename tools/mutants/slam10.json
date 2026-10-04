@@ -2,8 +2,8 @@
   {
     "name": "T1-far-by-rank-slice-SLAM6",
     "file": "src/net/wire.js",
-    "old": "  const bucket = (((turn | 0) % share) + share) % share;\n  const out = sorted.slice(0, max);\n  for (let i = max; i < sorted.length; i++) if (hashKey(keyOf(sorted[i])) % share === bucket) out.push(sorted[i]);\n  return out;",
-    "new": "  const slice = Math.ceil((sorted.length - max) / share);\n  const start = max + ((((turn | 0) % share) + share) % share) * slice;\n  return sorted.slice(0, max).concat(sorted.slice(start, start + slice));",
+    "old": "  const bucket = (((turn | 0) % share) + share) % share;\n  for (const x of far) if (hashKey(keyOf(x)) % share === bucket) out.push(x);\n  return out;",
+    "new": "  const slice = Math.ceil(far.length / share);\n  const start = ((((turn | 0) % share) + share) % share) * slice;\n  return out.concat(far.slice(start, start + slice));",
     "tests": [
       "test/slam10.test.js",
       "test/slam6.test.js",
@@ -17,8 +17,8 @@
   {
     "name": "T2-bucket-by-rank-index",
     "file": "src/net/wire.js",
-    "old": "if (hashKey(keyOf(sorted[i])) % share === bucket)",
-    "new": "if (hashKey(i) % share === bucket)",
+    "old": "  for (const x of far) if (hashKey(keyOf(x)) % share === bucket) out.push(x);",
+    "new": "  far.forEach((x, i) => { if (hashKey(i) % share === bucket) out.push(x); });",
     "tests": [
       "test/slam10.test.js",
       "test/slam6.test.js",

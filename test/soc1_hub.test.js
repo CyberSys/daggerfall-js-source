@@ -21,6 +21,7 @@ import {
   FOE_HEALTH_MAX, DROP_STRIKES_MAX, CLOSE_POLICY, FALLBACK_NAME, SEAT_ELSEWHERE,
 } from '../src/net/wire.js';
 import { fakeRoom } from './fakeRoom.mjs';
+import { ACCT_SEEN_WRITE_MS } from '../server/src/relayScale.js';
 
 const rd = (p) => readFileSync(new URL('../' + p, import.meta.url), 'utf8');
 const P = Object.freeze({ px: 100, py: 200, loc: 'Daggerfall', in: 0, h: 50, hm: 60, f: 1000, fm: 2000, m: 10, mm: 20, race: 'Nord', gender: 'male', face: 2 });
@@ -388,7 +389,10 @@ test('SOC1 hub: presence - a friend\'s hello and leave reach its friends alone, 
   assert.ok(ofKind(a, 'presence').slice(before).every((f) => f.online && !f.peers.includes('peer-b')), 'and never offline in between, never the closed tab - the seat moved, nobody logged out');
   assert.equal(ofKind(c, 'presence').length, 0, 'c is nobody\'s friend and hears no presence');
   const seenAtB2 = r.store.get('acct:acct-b').seen;
-  assert.equal(seenAtB2, atMove, 'the record takes every hello\'s clock - and the closed tab\'s leave stamped nothing over it');
+  // SCALE2b re-aimed this line: the record took EVERY hello's clock, a storage write per hub hello whose only news was
+  // the time. It is written when it holds news, or when its stamp is ACCT_SEEN_WRITE_MS stale - so b2's hello, minutes
+  // after b's, wrote nothing; the leave below stamps it, and an online row reads the frame's clock (the line after next)
+  assert.ok(seenAtB2 < atMove && atMove - seenAtB2 < ACCT_SEEN_WRITE_MS, 'the record keeps b\'s first hello\'s clock - b2\'s hello had no news for it - and the closed tab\'s leave stamped nothing over it');
   // AUDIT QS6 F7's FOURTH CATCH, and it turned out to be a mutant with no
   // victim. `S13-seen-stamped-on-first-tab` SURVIVED once the sweep made
   // every record apply again, so the question was what stamping `next`
