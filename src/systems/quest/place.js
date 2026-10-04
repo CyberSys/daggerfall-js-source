@@ -221,12 +221,10 @@ export class Place extends QuestResource {
     if (sd?.siteType !== SITE_TYPES.Building || !(sd.buildingKey > 0) || recordStands(sd)) return false;
     const location = this.siteTown(world);
     if (!location) return false;
-    let found;
-    if (this.p2 === -1 && this.p3 === 0) found = this._collectQuestSitesOfBuildingType(world, location, BT_ALL_VALID, this.p3);
-    else if (this.p2 === -1 && this.p3 === 1) found = this._collectQuestSitesOfBuildingType(world, location, BT_ANY_HOUSE, this.p3);
-    else if (this.p2 === -1 && this.p3 === 2) found = this._collectQuestSitesOfBuildingType(world, location, BT_ANY_SHOP, this.p3);
-    else found = this._collectQuestSitesOfBuildingType(world, location, this.p2, this.p3);
-    if (!found.length && this.p2 >= BT_HOUSE1 && this.p2 <= BT_HOUSE6) found = this._collectQuestSitesOfBuildingType(world, location, BT_ANY_HOUSE, this.p3);
+    // FIELD BUGS 2026-10-04b RESEAT-DECLARED: by the place's DECLARED P2/P3 and its own house fallback - never the -1
+    // that fallback wrote into it, which read as `random` and moved a House1 site into a tavern or a shop
+    const { p2, p3 } = this.declaredSiteLaw();
+    const { found } = this._searchTownSites(world, location, p2, p3);
     if (!found.length) return false;
     const next = this._carryAssignments(sd, found[this._range(found.length)]);
     if (!next) return false;   // AUDIT PRE-MERGE 1003 WD2: a building with no marker to carry them to keeps the record
@@ -283,22 +281,38 @@ export class Place extends QuestResource {
     const location = world.currentLocation?.();
     if (!location?.loaded) throw new Error('Tried to setup a local site but player is not in a location (i.e. player in wilderness).');
 
-    let foundSites;
-    if (this.p2 === -1 && this.p3 === 0) foundSites = this._collectQuestSitesOfBuildingType(world, location, BT_ALL_VALID, this.p3);
-    else if (this.p2 === -1 && this.p3 === 1) foundSites = this._collectQuestSitesOfBuildingType(world, location, BT_ANY_HOUSE, this.p3);
-    else if (this.p2 === -1 && this.p3 === 2) foundSites = this._collectQuestSitesOfBuildingType(world, location, BT_ANY_SHOP, this.p3);
-    else foundSites = this._collectQuestSitesOfBuildingType(world, location, this.p2, this.p3);
-
-    // House-type fallback: there should almost always be a local house
-    const required = this.p2;
-    if (!foundSites.length && required >= BT_HOUSE1 && required <= BT_HOUSE6) {
-      this.p2 = -1;
-      foundSites = this._collectQuestSitesOfBuildingType(world, location, BT_ANY_HOUSE, this.p3);
-    }
+    const { found: foundSites, houseFallback } = this._searchTownSites(world, location, this.p2, this.p3);
+    // House-type fallback: there should almost always be a local house - and DFU writes it into the place (Place.cs:735)
+    if (houseFallback) this.p2 = -1;
     if (!foundSites.length) {
       throw new Error(`Could not find local site for ${this.symbol.original} with P2=${this.p2} in ${location.regionName}/${location.name}.`);
     }
     this.siteDetails = foundSites[this._range(foundSites.length)];
+  }
+
+  /** SetupLocalSite's search (Place.cs:717-736) in one town, by `p2`/`p3`: the wildcard sets, else the building type -
+   *  and where a house type finds none, any house. Answers the sites and whether that house fallback ran. One search,
+   *  the setup's and a moved site's (reseatMovedSite). */
+  _searchTownSites(world, location, p2, p3) {
+    let found;
+    if (p2 === -1 && p3 === 0) found = this._collectQuestSitesOfBuildingType(world, location, BT_ALL_VALID, p3);
+    else if (p2 === -1 && p3 === 1) found = this._collectQuestSitesOfBuildingType(world, location, BT_ANY_HOUSE, p3);
+    else if (p2 === -1 && p3 === 2) found = this._collectQuestSitesOfBuildingType(world, location, BT_ANY_SHOP, p3);
+    else found = this._collectQuestSitesOfBuildingType(world, location, p2, p3);
+    if (!found.length && p2 >= BT_HOUSE1 && p2 <= BT_HOUSE6) {
+      return { found: this._collectQuestSitesOfBuildingType(world, location, BT_ANY_HOUSE, p3), houseFallback: true };
+    }
+    return { found, houseFallback: false };
+  }
+
+  /** FIELD BUGS 2026-10-04b RESEAT-DECLARED: the place's DECLARED P2/P3 - its row of Quests-Places, read again by its
+   *  name. The house fallback writes P2 = -1 into the place (SetupLocalSite, Place.cs:735; SelectRemoteTownSite after
+   *  250 darts, :815), and -1 with a P3 of 0 is `random`, any valid building; a place built by hand, with no row, has
+   *  only what it holds. */
+  declaredSiteLaw() {
+    const table = placesTable();
+    if (!this.name || !table.hasValue(this.name)) return { p2: this.p2, p3: this.p3 };
+    return { p2: customParseInt(table.getValue('p2', this.name)), p3: customParseInt(table.getValue('p3', this.name)) };
   }
 
   // ---- remote sites (Place.cs:755-990) ----
