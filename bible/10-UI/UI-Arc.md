@@ -10674,9 +10674,9 @@ re-resolved the `exterior.js` half of a three-file sentence and left the
 `ExteriorAutomapWindow` construction, `:4101` on a `locationName:`
 field). Both halves are now read by `test/citedrift.test.js` - the
 existing entries only ever captured the exterior number, which is how
-the other half went stale unnoticed. (The rest cite named `world.js:14456`,
+the other half went stale unnoticed. (The rest cite named `world.js:14458`,
 the first of the host's TWO identical `act === 'Rest'` arms; ROAD-H H5
-deleted the second and the cite is `world.js:14462` now.)
+deleted the second and the cite is `world.js:14464` now.)
 
 ## AUDIT 62 F24/F25 - THE SENTINEL SWEEP WAS TWO WINDOWS SHORT (2026-09-07)
 
@@ -18778,6 +18778,11 @@ modes host (a building's pause) and the dungeon's opts all carry the world host'
 or COMING (counting to its start), live first. It derives nothing: each row is its own law's answer -
 - the OBLIVION GATE (`net/gateLaw.js` `gateAt`/`gatePhase`/`gateTimes`): coming to its opening, live to its seal, then
   live to its collapse; the gate after it once this one is under way; where it stands from the omen's site;
+- the SEA SERPENT (`net/serpentLaw.js` `serpentAt`/`serpentPhase`/`serpentTimes` - SERPENT2, 2026-10-04, the owner:
+  "So this also shows in the pause menu timer?", then "This needs to happen"): coming to its rising, live to the storm
+  that closes its waters, then live to its dive; the next serpent once this one is under way; a kill ends its row; the
+  port it lies off from its bells on (the omen's `site.near`). Its own kind, `serpent`, after the gate's, in its ring's
+  colour (`Sea-Serpent.md` section 14);
 - the TOWN RAIDS (the mod's day, `raidState().raids`, in relay ms through `sharedWallMs`): the player's own region's
   whole, coming to a raid's start, live to its withdrawal; every other region's as one row, the soonest and how many
   more (AUDIT TIMERS1 D3); a cleansed or ended raid says nothing;

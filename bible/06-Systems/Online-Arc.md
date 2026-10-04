@@ -7158,7 +7158,7 @@ answers that exact string in the object's sleep, no event, no wake. Only a
 CHANNEL session (chat, `presence: false`) used it. A presence session's
 liveness rode the pose.
 
-**Now (`src/net/wire.js:1143`, `src/net/online.js:2514`):**
+**Now (`src/net/wire.js:1143`, `src/net/online.js:2533`):**
 
 - `HEARTBEAT_MS` 5000 -> 20000. The pose goes when it MOVED (at POSE_HZ, as
   before) or every 20 s standing, as the peers' proof of life and the silence
@@ -14625,3 +14625,28 @@ The design and the record are `11-Multiplayer/Sea-Serpent.md`. What it asks of t
   hears both. A refusal no longer mutes the client; the cell's other changes are the brain's and the room's (one
   timeline rule, the far newcomer, the slain kept, a still fight unwritten). Pins: `test/serpent1_audit2.test.js`;
   mutants: `tools/mutants/serpent1_audit2.json` (14, all dead).
+
+## SERPENT2 (2026-10-04, the owner: "So this also shows in the pause menu timer?", then "This needs to happen, the discord integration needs to happen") - the serpent's herald and its timers
+
+The record is `11-Multiplayer/Sea-Serpent.md` section 14. What it asks of the online arc:
+
+- **A `site` word to the hub** (relay world166; `net/wire.js` `SERPENT_KINDS`, `validSerpentIn`,
+  `SERPENT_SITE_RELAY_MIN`, `relaySupportsSerpentSite`). The `serpent` frame's sixth kind, said to the hub alone - in a
+  cell it is junk: the day, the site's native point to the whole unit, and the port it lies off (`gatePlaceWire`'s
+  law). `net/online.js` `sendSerpentSite` says it once a socket and day, under the serpent frames' own bucket, only to
+  a hub that welcomed the primary socket with 166 or later (`serpentSiteOk`) - an older one closes the socket on a
+  kind it does not know. The world host says it on the serpent's frame from `serpentOmen.ahead()`, the site found from
+  its quiet on.
+- **The hub's vote and its herald** (`server/src/index.js`). The site is kept by the gate's vote law (`serpentsite`,
+  `foldGateSite`, two accounts agreeing). The herald's beat runs on the hub's alarm after the gate's (`_serpentHeraldBeat`,
+  its state `sherald`), and the bells arm that alarm from the first hello (`_serpentHeraldArm`). A kill a cell tells
+  the hub arms it now. Its posts go through the gate's door (`_heraldOf`, `_heraldSend`; `GATE_DISCORD_WEBHOOK`). The
+  bells ping `SERPENT_DISCORD_ROLE` (a var, empty by default) or else the gate's role. The kill is posted for the
+  agreed site alone, never a forged one.
+- **When:** the relay alone (world166) - the service is untouched. A client before it says no site; the herald then
+  names no port and posts no kill until two accounts on a current client agree. Merging deploys world166, which drops
+  connected players once.
+- Pins: `test/serpent2_herald.test.js` (13). `test/discordgates.test.js` stubs the serpent's herald on its hub, so it
+  pins the gate's alone. Mutants: `tools/mutants/serpent2.json` (49, all dead). Re-aimed by content:
+  `discordgates.json` (8: the serpent's copy of the `site` law, the beat and the place made their old text stand twice;
+  `heraldStamp` renamed), `wb12d.json` and `wb13b.json` (`heraldList`).
