@@ -335,6 +335,12 @@ export function mountEnhancedBook(canvasEl, d = {}) {
       if (!el || !ctx) return;
       fit();
       if (book.phase === 'closed' && !book.open && !closing) openBook(book, now());
+      // FIELD BUGS 2026-10-04d BOOK-RISE (the Discord: a Hall of Records "froze; no other key would close it"): A CLOSE
+      // ASKED IS A CLOSE KEPT (Home.md's ASYNC NEVER DROPS). Raum's closeBook refuses a book still riding up (its
+      // 'slide-in'), and exit() had already latched `closing` - so an exit in the rise's 260 ms (Escape, E - the
+      // shelf's own key - a tap, Tab) was dropped and every later one refused by the latch: the book open for good,
+      // the game paused under it. Asked again each frame until the book takes it.
+      if (closing) closeBook(book, now());
       ctx.clearRect(0, 0, uiW, uiH);
       paintBook(ctx, book, uiW, uiH, null, now());
       if (closing && book.phase === 'closed') { const done = onExit; onExit = () => {}; done(); }

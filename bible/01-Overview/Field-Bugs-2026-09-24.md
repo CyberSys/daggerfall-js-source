@@ -983,7 +983,7 @@ set), where the player saw their beast.
 
 The wire was never at fault. `wb` goes out on its edge (`wire.js:1284`),
 through the door (`:1287`) and the easing (`online.js:237`), from the sender
-at `world.js:21846`.
+at `world.js:21880`.
 
 **Fix.** `peerRiders.js` takes a peer whose pose says `wb`, as it takes a
 rider:
@@ -1001,10 +1001,10 @@ The hand-off is RIDE's: `isRiding` is true only once the art is up, so while
 it loads or has failed, and in a build without it, DISC12's enemy sprite
 still stands for them. A beast is never nothing.
 
-The modal passes (`worldModes.js:9120` the dungeon, `:9330` the interior)
+The modal passes (`worldModes.js:9196` the dungeon, `:9406` the interior)
 draw only `host.extraBillboards`. That was `remotePlayers.batches()` alone,
 so a beast drawn by the rider layer would have been nothing indoors and
-underground. It hands over both layers' batches now (`world.js:22155`). A
+underground. It hands over both layers' batches now (`world.js:22189`). A
 rider never reaches those passes: a door dismounts. The eye the layer turns
 its sprites to (`cam.pos`) is live in every mode, because worldModes shares
 world.js's `cam` and sets it each modal frame.
@@ -1071,13 +1071,13 @@ the scene the picture takes in:
 
 **Hosts.** Every Morrowind body in the port goes through `drawThird`. The
 local player's goes through `mwView.mwViewDrawBody` (`mwView.js:395`,
-`:339`), which four files call: `world.js:26461`, `exterior.js:5456`,
-`worldModes.js:9108` and `:9220` (the dungeon and the interior passes),
+`:339`), which four files call: `world.js:26496`, `exterior.js:5460`,
+`worldModes.js:9184` and `:9296` (the dungeon and the interior passes),
 and `dungeon.js:1107`. `dungeonContext.js`, the fourth motor host, builds
 the dungeon for those hosts and draws no body of its own. The other players'
 bodies go through `peerBodies.js:695` (`PeerBodies.draw`, and INVIS-LOOK's `drawVeiled`, by `_drawBodies`). The open world
-calls it at `world.js:26462`, and the modal passes reach it through
-`host.drawPeerBodies` (`worldModes.js:9109`, `:9221`). The fix therefore
+calls it at `world.js:26497`, and the modal passes reach it through
+`host.drawPeerBodies` (`worldModes.js:9185`, `:9297`). The fix therefore
 sits in one place and reaches every host.
 
 The pins are `test/prbow1_bow.test.js`: seven tests, all failing on the

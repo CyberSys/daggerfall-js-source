@@ -1605,7 +1605,8 @@ export class QuestMachine {
     return moved;
   }
   /** One quest's half of reseatMovedSites - the questors first, so a questor's hall moves with them and never by a
-   *  Place's own law (it has none: Place.reseatMovedSite's Scopes.None). */
+   *  Place's own law (it has none: Place.reseatMovedSite's Scopes.None). FIELD BUGS 2026-10-04d QUEST-MARKERS: and every
+   *  building site's markers the curation moves, moved (Place.mendCuratedMarkers) - not counted: no site moved. */
   _reseatMovedOf(quest, world) {
     if (!world || quest.questComplete) return 0;
     let moved = 0;
@@ -1625,6 +1626,7 @@ export class QuestMachine {
       moved++;
       follow(resource);
     }
+    for (const resource of quest.resources.values()) if (resource.isPlace) resource.mendCuratedMarkers?.(world);
     return moved;
   }
   /** QUESTOR-MOVED: a quest that ARRIVED (a partner's share, a resync) is mended as a load mends a save's
@@ -1696,7 +1698,7 @@ export class QuestMachine {
    *  faction ("This effectively shuts down several named NPCs during
    *  main quest") - and TalkManager.cs does not contain the word
    *  Listener at all. The port already ships that reader, at
-   *  src/scenes/worldModes.js:3169. A pending marker over shipped work
+   *  src/scenes/worldModes.js:3194. A pending marker over shipped work
    *  is worse than no marker: it sends the next reader looking for
    *  work that is done, in a file that never had it. */
   addFactionListener(factionID, owner) {

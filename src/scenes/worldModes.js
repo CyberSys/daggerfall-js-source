@@ -29,7 +29,7 @@ import { sharedCartographySpell } from '../systems/partyMap.js';   // PARTY-MAP
 import { isOnlinePage } from '../systems/onlineLane.js';   // RESURRECT1: the shelf's online arm
 import { bloodDecalDeps } from '../combat/bloodSwitch.js';   // BLOOD1a
 import { createBloodMarks } from '../combat/bloodMarks.js';   // BLOOD1a
-import { doorWorldAabb, doorWorldPosition, doorWorldNormal, interiorLanding, exteriorLanding, dungeonEntranceLanding, climbLadder, floorLanding, repositionFeetY } from '../player/enterExit.js';
+import { doorWorldAabb, doorWorldPosition, doorWorldNormal, interiorLanding, exteriorLanding, dungeonEntranceLanding, climbLadder, floorLanding, repositionFeetY, standsOnFloor, interiorVoidRescue, standFromVoid, NOTHING_OF_VALUE_TEXT, INTERIOR_VOID_TEXT } from '../player/enterExit.js';   // FIELD BUGS 2026-10-04d VOID-ENTRY: the floor a landing stands on, the failsafe, and their two lines
 import { WORLD_FRAME } from '../render/renderer.js';   // AUDIT-EL F5
 import { STREAMING_TERRAIN_SCALE, DEFAULT_TERRAIN_SCALE } from '../world/terrainSampler.js';   // TERRAIN-SCALE1: the interior cache's frame and the ground its legacy heights stood on
 import { climbRigInput } from '../player/climbPose.js';   // CLIMB6: the body's limbs on the climb
@@ -186,6 +186,7 @@ import { canAccessService , hasCustomMerchantService, getCustomMerchantService, 
 import {
   receiveArmorDecision, claimArmor, SPYMASTER_GREETING_TEXT_ID,
   receiveHouseDecision, claimHouse, ALREADY_GIVEN_HOUSE,   // H1
+  HOUSE_FLAG_MASK,   // FIELD BUGS 2026-10-04d KNIGHT-HOUSE: the order's gift given back when the service will not hold it
 } from '../systems/knightlyGifts.js';   // G6
 import { mintCondition, setItemFields, itemValueOf } from '../systems/itemTemplates.js';   // G6: the gift's pieces mint like any other item; MAC-N1: with SetItem's name and value
 import { npcServiceKind, freeHealing, freeMagickaRecharge, avoidDeath, AVOID_DEATH_TEXT, DEITY_DESCRIPTIONS } from '../systems/guildServices.js';   // MACRO-4: %gdd
@@ -293,6 +294,7 @@ import {
   HALL_OF_RECORDS_TEXT, HALL_OF_RECORDS_SHUT,   // SEASON1 part three: a seat's Hall of Records
   homeDoorName,   // FIELD BUGS 2026-09-30b HOME-PLAQUE: a nameless house with verbs is a Residence
   homeClaimLayout,   // AUDIT PRE-MERGE 1003 WD1: a hall is bought in its town's layout, as a home is
+  realmDeedAt,   // FIELD BUGS 2026-10-04d KNIGHT-HOUSE: the house the realm gave a knight is theirs, never for sale to them
   homeFootprintM2,   // HOME-PRICE: the ground a house stands on
 } from '../systems/onlineHomes.js';
 import { goldSum, accountWords } from '../systems/homeWords.js';   // AUDIT HOME-PRICE E4: a home's sums and the account they moved in
@@ -362,7 +364,7 @@ import { PotionMakerWindow, preloadPotionArt, potionArtLoaded } from '../ui/poti
 import { ItemMakerWindow, preloadItemMakerArt, itemMakerArtLoaded, ITEM_RECTS, rowLayout as itemMakerRowLayout } from '../ui/itemMakerWindow.js';
 import { createPotion, getMagicItemTemplates, LOOT_NEWER_TEXT } from '../systems/loot.js';   // M2: ItemBuilder.CreatePotion, one minter; G4: the MAGIC.DEF registry
 import { SITE_TYPES } from '../systems/quest/place.js';
-import { placeFoeFreely, questStandBox, rideSceneMarker } from '../systems/quest/sceneMount.js';   // B1: CreateFoe's raycast ring, finally called; TOTEM-CAGE: a stand's box where it IS
+import { placeFoeFreely, questStandBox, rideSceneMarker, markerScenePosition, siteMarkerSpots, standSpot, MARKER_FLOOR_REACH } from '../systems/quest/sceneMount.js';   // B1: CreateFoe's raycast ring, finally called; TOTEM-CAGE: a stand's box where it IS; QUEST-MARKERS: the building's backstop
 import { placeFoeEnv, entityOccupancy, questFoeGender, reviveQuestBehaviour as reviveQuestBehaviourFromSave, heldSpots, holdSpotWhile } from './questFoeHost.js';   // B1 (PlaceFoeFreely reads the fieldOfView import below)   // AUDIT 63 F24: SerializableEnemy.cs:206-217 re-adds the component on restore
 import { standLooseFoe } from './hostEnchant.js';   // ROAD-G G1: SoulBound's break release / the Sanguine Rose, inside a building
 import { ENEMY_BASICS, enemyDisplayName } from '../characters/enemyBasics.js';   // MERGE: FinalizeFoe's Flying lift reads the behaviour flag // WORLD-HOVER H2: GetLocalizedEnemyName - Entity.Name for a live one (.cs:310)
@@ -546,7 +548,7 @@ export function createWorldModes(host) {
    *
    * AUDIT-WH H5. Three hover arms wrote `.Name` - the C# property, as
    * the mod's own source spells it (.cs:764, :725, :777) - and the
-   * record these hosts mint spells it `name` (exterior.js:4041 hands
+   * record these hosts mint spells it `name` (exterior.js:4045 hands
    * `dfLocation`, world.js hands `_questLoc()`; both are the port's
    * location record). `.Name` on it is `undefined`, so all three arms
    * fell to `''`, and `staticDoorName` answers NULL on an empty
@@ -678,7 +680,7 @@ export function createWorldModes(host) {
   // X7: set while an IDENTIFY SPELL's window is open ({chance, cost}),
   // null for the paid guild service. The trade window is one window
   // serving both, exactly as DFU's is.
-  const { getGpuMesh, cpuModels, getTexture, uploadRecord, uploadRecordFrame, arch, palette, getMachineryParts } = pipeline;
+  const { getGpuMesh, cpuModels, getTexture, uploadRecord, uploadRecordFrame, arch, palette, getMachineryParts } = pipeline; const placeHoldOf = (kind, key) => pipeline.holdPlace?.(kind, key) ?? { getGpuMesh, uploadRecord, uploadRecordFrame, release() {}, settle() {} };   // FIELD BUGS 2026-10-04d PLACE-LRU: a building's or a dungeon's hold on the shared caches (scenes/dataPipeline.js holdPlace), handed to its context, which settles it when built and releases it in destroy(); a bare pipeline (a test's) holds nothing
 
   /** ID1: THE INTERIOR'S OWN GROUND PILE.
    *
@@ -1732,14 +1734,14 @@ export function createWorldModes(host) {
    *  the loot piles. */
   const QUEST_ITEM_MARKER_SHIFT = 0.5;
 
-  function standQuestFlatIn(list, getCtx, toScene, inDungeon, archive, record, position, behaviour, staticNpcFactionId = null, hashPosition = null, isItem = false) {
+  function standQuestFlatIn(list, getCtx, toScene, inDungeon, archive, record, position, behaviour, staticNpcFactionId = null, hashPosition = null, isItem = false, fallback = null) {
     const ctx = getCtx();   // capture: an async fill must not cross scenes
     if (!ctx) return null;
     // flatPosition is already scene units with -y (the Place marker
     // law); the interior parents it exactly as its own flats are, the
     // dungeon's marker position IS scene space (dungeonX/Z * RDBSide
     // + flatPosition, markerScenePosition's law).
-    const [x, y, z] = toScene(ctx, position);
+    let [x, y, z] = toScene(ctx, position);
     // AUDIT 24 (wave 22): `hashPosition` is marker.flatPosition, which
     // is what GameObjectHelper.cs:1062 hands SetLayoutData - NOT the
     // target position it stood the billboard at. The two are the same
@@ -1759,6 +1761,14 @@ export function createWorldModes(host) {
       uploadRecord(drawArchive, drawRecord);
       const size = billboardSize(t, drawRecord);
       stand.width = size.w; stand.height = size.h;
+      // FIELD BUGS 2026-10-04d QUEST-MARKERS: a building's marker with no floor within reach under it stands its person
+      // or thing at the site's nearest marker with one, else the room's nearest enter marker (sceneMount.js standSpot) -
+      // the floor asked as each law below asks it: the person's ray from its centre, the item's from just over it
+      if (fallback) {
+        const lift = isItem ? 0.2 : size.h / 2 + 0.2;
+        [x, y, z] = standSpot([x, y, z], fallback(ctx), (p) => Number.isFinite(ctx.collider?.raycast?.([p[0], p[1] + lift, p[2]], [0, -1, 0], MARKER_FLOOR_REACH)));
+        stand.x = x; stand.z = z;
+      }
       // AUDIT 26 F068: an ITEM and an NPC are stood by DIFFERENT laws.
       // The old comment here said AddQuestNPC and AddQuestItem "both
       // call" the align; only AddQuestNPC does (:1040).
@@ -1911,6 +1921,16 @@ export function createWorldModes(host) {
       console.log('[quest] clicked a stand no active quest claims (DFU would fall through to the world here)');
     }
   };
+  /** FIELD BUGS 2026-10-04d QUEST-MARKERS: the building backstop's spots in the room's frame - the site's other markers,
+   *  nearest the marker first (sceneMount.js siteMarkerSpots), then the room's enter markers, nearest first. */
+  const interiorStandSpots = (quest, marker) => (ctx) => {
+    if (!marker?.flatPosition) return [];
+    const own = markerScenePosition(marker);
+    const [ox, oy, oz] = ctx.parentPt(own.x, own.y, own.z);
+    const d2 = (p) => (p[0] - ox) ** 2 + (p[1] - oy) ** 2 + (p[2] - oz) ** 2;
+    const others = siteMarkerSpots(quest?.getPlace?.(marker.placeSymbol)?.siteDetails, marker).map((p) => ctx.parentPt(p.x, p.y, p.z));
+    return [...others, ...[...(ctx.enterMarkers ?? [])].sort((a, b) => d2(a) - d2(b))];
+  };
   const questAdapter = {
     // PlayerGPS.CurrentMapID through the host's scene-context closure.
     currentMapId: () => questSceneCtx?.()?.mapId ?? 0,
@@ -1924,9 +1944,9 @@ export function createWorldModes(host) {
     // exactly that restore. Hard-coded false, the re-entry walk stood
     // every marker foe WHOLE beside the ones the save brought back.
     loadInProgress: () => _enemyRestoreInProgress,
-    standNPC: ({ marker, person, flatData, position, behaviour }) =>
-      standQuestFlat(flatData.archive, flatData.record, position, behaviour, person?.factionId ?? null, marker?.flatPosition ?? null),
-    standItem: ({ item, position, behaviour }) => {
+    standNPC: ({ quest, marker, person, flatData, position, behaviour }) =>
+      standQuestFlat(flatData.archive, flatData.record, position, behaviour, person?.factionId ?? null, marker?.flatPosition ?? null, false, interiorStandSpots(quest, marker)),
+    standItem: ({ quest, item, marker, position, behaviour }) => {
       // AddQuestItem draws the item's WORLD texture (the ground sprite).
       const t = templateByIndex(item.daggerfallUnityItem?.templateIndex);
       if (!t) return null;
@@ -1934,10 +1954,10 @@ export function createWorldModes(host) {
       // TOTEM-CAGE: and never parented here. AddQuestItem's GetDaggerfallMarker (:1144-1148) finds no scene marker in
       // a building - DaggerfallMarker is RDBLayout's alone (RDBLayout.cs:359-366), a building's quest marker carries
       // MarkerID 0 (Place.cs:1503-1506) and an RMB flat carries no action - so a building's quest item stands still.
-      return standQuestFlat(t.worldTextureArchive, t.worldTextureRecord, position, behaviour, null, null, true);
+      return standQuestFlat(t.worldTextureArchive, t.worldTextureRecord, position, behaviour, null, null, true, interiorStandSpots(quest, marker));
     },
     // IF: the marker-time stand, the dungeon adapter's twin.
-    standFoe: ({ foe, gender, position, behaviour }) => {
+    standFoe: ({ quest, marker, foe, gender, position, behaviour }) => {
       if (!interiorCtx || !interiorFoes) return null;
       interiorFoeStands.push(behaviour);
       // ROGUE-IMP (2026-09-26, Triage: "Rogue imp unable to kill hes in the floorboards"): a building's marker is its
@@ -1945,7 +1965,12 @@ export function createWorldModes(host) {
       // dungeon's RDB marker is the centre, and spawnFoe's flyer drop - half the idle sprite - is that convention's). The
       // marker is handed over as FEET, a walker's hair above the floor: a flyer hangs ON the palace floor, where DFU's
       // controller recovery leaves it, never half a sprite under the boards; a walker stands where it always did.
-      interiorFoes.spawnFoe(foe.foeType, interiorCtx.parentPt(position.x, position.y + INTERIOR_MARKER_FEET_LIFT, position.z), {
+      // QUEST-MARKERS (FIELD BUGS 2026-10-04d): a marker with no floor within reach under it stands its foe at the site's
+      // nearest marker with one, else the room's nearest enter marker - never falling through the room
+      const lifted = interiorStandSpots(quest, marker)(interiorCtx).map((p) => [p[0], p[1] + INTERIOR_MARKER_FEET_LIFT, p[2]]);
+      const feet = standSpot(interiorCtx.parentPt(position.x, position.y + INTERIOR_MARKER_FEET_LIFT, position.z), lifted,
+        (p) => Number.isFinite(interiorCtx.collider?.raycast?.([p[0], p[1] + 0.2, p[2]], [0, -1, 0], MARKER_FLOOR_REACH)));
+      interiorFoes.spawnFoe(foe.foeType, feet, {
         gender, questBehaviour: behaviour, feetGiven: true,
         questMarker: true,   // QUEST-PARTY phase 3: every copy of the quest stands it here - it stands once for the party
       }).catch((e) => console.error('[quest] interior marker foe failed:', e?.message ?? e));
@@ -2720,7 +2745,7 @@ export function createWorldModes(host) {
       // The proceeds were weighed before they were paid: a purse that
       // would push the player past MaxEncumbrance becomes a letter of
       // credit instead. B2 gave it its destination - DepositAll_LOC
-      // (banking.js:743, DaggerfallBankingWindow :377-389) takes EVERY
+      // (banking.js:747, DaggerfallBankingWindow :377-389) takes EVERY
       // letter in the pack at face value - so the note that once stood
       // here saying there was nowhere to cash one is retired.
       if (proceeds?.kind === 'letterOfCredit') {
@@ -3379,6 +3404,9 @@ export function createWorldModes(host) {
       // the quest machine is using is not for sale (:169).
       isActiveQuestBuilding: (bs) => (questBridge ? questBridge.machine.isActiveQuestBuilding(dir.mapId, bs.buildingKey, bs.buildingType) : false),   // DISC28-I
       stands: (bs) => houseMeshRadius(bs) > 0,   // AUDIT WD3 H2: a house with no model of its own is no house to sell
+      // FIELD BUGS 2026-10-04d KNIGHT-HOUSE: online, never a building the town's answer names - a player's home, or a deed
+      // the service holds for another knight - which the Seneschal handed on (the market is ReceiveHouse's list too)
+      owned: host.onlineHomes ? (bs) => !!host.onlineHomes.homeAt(dir.mapId, bs.buildingKey) : null,
     });
   }
   /**
@@ -3486,6 +3514,34 @@ export function createWorldModes(host) {
       addPermanentScene: (mapId, key) => addPermanentScene(sceneCache(), interiorSceneName(mapId, key)),
       addNote: (text) => questBridge?.notebook?.addNote?.(text),
     };
+  }
+  /**
+   * FIELD BUGS 2026-10-04d KNIGHT-HOUSE (the Discord: "Houses earned through Knightly Orders still possibly purchaseable?
+   * ... I don't want to risk my Knight House being bought out from under me"): ONLINE, THE ORDER'S HOUSE IS HELD BY THE
+   * ACCOUNT SERVICE. ReceiveHouse wrote Daggerfall's deed into the save and nothing else, so every other door read the
+   * building as nobody's and sold it from under its knight. The host holds it once the checkpoint carrying the deed has
+   * landed (scenes/world.js - the service reads the deed off the record). A hold refused because the building is another
+   * player's now, or its town keeps another layout, GIVES THE GIFT BACK to the order - the deed, its name, its scene and
+   * the order's flag undone, so the Seneschal gives another - as a claim no longer paid for is given back (onlineHomes.js
+   * buyOnlineHome); the deed's note stays, as Daggerfall's SellHouse leaves it. Any other refusal keeps the deed, held at
+   * the next boot.
+   */
+  function holdGrantedHouse(region, membership) {
+    const slot = playerEntity.houses[region];
+    const mapId = Number(slot.mapId) >>> 0, key = slot.buildingKey;
+    Promise.resolve(host.holdRealmDeed({ region, mapId, buildingKey: key })).then((r) => {
+      if (r?.ok || (r?.error !== 'home-taken' && r?.error !== 'home-layout')) return;
+      const now = playerEntity.houses?.[region];
+      if (now?.buildingKey !== key || (Number(now.mapId) >>> 0) !== mapId) return;   // the deed moved on meanwhile
+      playerEntity.houses[region] = { regionIndex: region, location: '', mapId: 0, buildingKey: 0 };
+      membership.flags = (membership.flags ?? 0) & ~HOUSE_FLAG_MASK;
+      removePermanentScene(sceneCache(), interiorSceneName(now.mapId, key));
+      const locId = discoveryLocationId?.();
+      if (locId) undiscoverBuilding(locId, key);
+      townTalk?.say?.(accountRefusalText(r.error));
+      if (r.error === 'home-layout') host.hearHomeLayouts?.();
+      host.saveSoon?.();
+    }).catch((e) => console.error(e));
   }
 
   /** DaggerfallInterior.GetSceneName for the interior the player is
@@ -4275,7 +4331,7 @@ export function createWorldModes(host) {
         // ask, and its miss is DFU's own no-op (DaggerfallBankManager
         // .cs:452-462) rather than a sale at a price of zero.
         const owned = ownedHouseSummary();
-        return sellHouse(playerEntity.bankAccounts, playerEntity.houses, region,
+        const sell = () => sellHouse(playerEntity.bankAccounts, playerEntity.houses, region,
           { meshRadius: owned ? houseMeshRadius(owned) : 0, found: owned !== null, price: deedSellPrice(owned) }, {   // AUDIT HOME-PRICE C1
             removePermanentScene: (mapId, k) => { decorSold(interiorSceneName(mapId, k), region); removePermanentScene(sceneCache(), interiorSceneName(mapId, k)); },   // DECOR1e: its placed pieces' half first
             // the deed named the building "<player>'s residence"; selling
@@ -4285,6 +4341,17 @@ export function createWorldModes(host) {
               if (locId) undiscoverBuilding(locId, k);
             },
           });
+        // FIELD BUGS 2026-10-04d KNIGHT-HOUSE: online, the house the realm gave is held by the account service - the hold
+        // goes first and the deed sells once the service agrees (HOME1's order: credited only once it is gone), or a
+        // building sold here stayed held from every buyer; a deed it never held (`no-home`) sells as Daggerfall's
+        const slot = playerEntity.houses?.[region];
+        if (host.onlineHomes && owned && realmDeedAt(playerEntity.houses, region, slot?.mapId, owned.buildingKey)) {
+          host.onlineHomes.releaseDeed(slot.mapId, owned.buildingKey)
+            .then((r) => { if (r.ok || r.error === 'no-home') sell(); else townTalk?.say?.(accountRefusalText(r.error)); })
+            .catch((e) => console.error(e));
+          return null;
+        }
+        return sell();
       },
       // AssignShipToPlayer/SellShip add and drop BOTH of the ship's
       // scenes (:494-495, :502-503) - the exterior is keyed by the
@@ -5110,6 +5177,11 @@ export function createWorldModes(host) {
           : (rows?.(decision.textId ?? decision.result) ?? []);
         return { rows: refusal.length ? refusal : [{ text: ALREADY_GIVEN_HOUSE, center: true }] };
       }
+      // FIELD BUGS 2026-10-04d KNIGHT-HOUSE: online the house is held by the account service (holdGrantedHouse), and a
+      // building key names a building only in its town's layout - none is given before the room's layouts of the homes'
+      // towns are heard (buyHomeAt's gates, AUDIT WD3 O1/O2/B1)
+      if (host.homeTownsMissing?.()) return { rows: [{ text: accountRefusalText('home-towns'), center: true }] };
+      if (host.homeLayoutsHeard?.() === false) { host.hearHomeLayouts?.(); return { rows: [{ text: accountRefusalText('home-layout'), center: true }] }; }
       allocateHouseToPlayer(playerEntity.houses, region, {
         buildingKey: decision.house.buildingKey,
         mapId: dir?.mapId ?? 0,
@@ -5121,6 +5193,7 @@ export function createWorldModes(host) {
       });
       claimHouse(membership);
       surfacePlayer();
+      if (host.holdRealmDeed) holdGrantedHouse(region, membership);
       return { rows: rows?.(decision.textId) ?? [{ text: 'I have a house for you.', center: true }] };
     }
     if (destination === 'guildServiceTeleport') {
@@ -6080,6 +6153,9 @@ export function createWorldModes(host) {
   function homeOfferPrice(bd) {
     const homes = host.onlineHomes;
     if (!homes || !homeCandidate(bd) || !homes.known(homeTownOf(bd)) || homeOf(bd)) return 0;
+    // FIELD BUGS 2026-10-04d KNIGHT-HOUSE: nor my own house - the deed the realm gave me (a Knightly Order's), which the
+    // service holds from everyone else and leaves out of my town's answer: the plaque offered "Buy it" at my own door
+    if (realmDeedAt(playerEntity.houses, bd.regionIndex ?? 0, homeTownOf(bd), bd.buildingKey)) return 0;
     if (!homePurchasable(bd, { isActiveQuestBuilding: questSiteHere })) return 0;
     return homeListPrice(bd);
   }
@@ -6992,8 +7068,8 @@ export function createWorldModes(host) {
       // (verbatim ownerPosition + buildingMatrix) - context coordinates
       // come back world-frame, landings run in one frame, and the walk
       // through the door is coordinate-seamless.
-      const ctx = await buildInteriorContext(
-        { renderer, getGpuMesh, cpuModels, getTexture, uploadRecord, uploadRecordFrame, palette, getMachineryParts },
+      const buildingHold = placeHoldOf('interior', `${hit.dfBlock?.name ?? ''}:${hit.recordIndex}`); const ctx = await buildInteriorContext(   // FIELD BUGS 2026-10-04d PLACE-LRU: the building is a place
+        { renderer, getGpuMesh: buildingHold.getGpuMesh, cpuModels, getTexture, uploadRecord: buildingHold.uploadRecord, uploadRecordFrame: buildingHold.uploadRecordFrame, palette, getMachineryParts, placeHold: buildingHold },
         // DaggerfallInterior.IsBadInteriorModel (:530-548) keys the
         // 31000-overlap repair on EntryDoor.blockIndex, which
         // RMBLayout.cs:848 mints as blockData.Index. The literal 0 is
@@ -7022,12 +7098,12 @@ export function createWorldModes(host) {
           // building ever enters that dictionary (systems/automap.js).
           dungeonEntranceDiscovered: !!getDungeonAutomap(
             automapDungeonKey(hit.dfLocation?.regionIndex ?? -1, hit.dfLocation?.name ?? ''))?.entranceDiscovered,
-        });
+        }).catch((e) => { buildingHold.release(); if (live()) say(NOTHING_OF_VALUE_TEXT); throw e; });   // PLACE-LRU: a build that throws hands no context back to release it; FIELD BUGS 2026-10-04d VOID-ENTRY: TransitionInterior's catch (PlayerEnterExit.cs:719-730) - a room that will not lay out says DFU's old chestnut; the player stays in the street (the hosts log the throw)
       if (!live()) { abandonContext(ctx); return false; }   // AUDIT 68 X3-transition-build-race: the world moved under the build (a load, a teleport) - nothing is published
       const siblings = entries.filter((e) =>
         e.dfBlock === hit.dfBlock && e.recordIndex === hit.recordIndex);
-      const landing = interiorLanding(
-        doorWorldPosition(hit.door), ctx.enterMarkers, ctx.doors);
+      const landing = interiorLanding(   // FIELD BUGS 2026-10-04d VOID-ENTRY: only a spot with a floor under it (enterExit.js) - the town mods' rooms keep the building's own exterior model, whose door faces OUT, and nearest the enter marker DFU's landing stood over nothing; a room with nowhere to stand is refused, its line DFU's for a room it cannot lay out
+        doorWorldPosition(hit.door), ctx.enterMarkers, ctx.doors, (p) => standsOnFloor(ctx.collider, p)) ?? void say(NOTHING_OF_VALUE_TEXT);
       // NT1 (F054): the context is fully built - GPU billboard batches,
       // voxelfolk meshes - and `interiorCtx` is not yet assigned, so a
       // throw here used to leak the whole build on EVERY E-press at
@@ -7116,7 +7192,7 @@ export function createWorldModes(host) {
       // the playlist is identical. `musicContext()` below reports this
       // host's half of that context.
       player.collider = ctx.collider;
-      const floored = floorLanding(ctx.collider, landing);   // verbatim FixStanding: instant snap, no gravity drop-in
+      const floored = floorLanding(ctx.collider, landing); ctx.voidRescue = interiorVoidRescue(ctx.collider, floored);   // verbatim FixStanding: instant snap, no gravity drop-in   // FIELD BUGS 2026-10-04d VOID-ENTRY: the failsafe's record (frame()) - where the door stood the player and where the void begins under the room, living and dying with the context
       // IS1: a restore lands the SAVED position raw over the door
       // landing (RestorePosition: transform.position = saved, the
       // interior arm) - the landing above still ran, because a
@@ -7798,10 +7874,10 @@ export function createWorldModes(host) {
       // published, never destroyed, and holding the process seams it
       // borrows at construction.
       const waterArchive = getGroundArchive(hit.climateBase, hit.season);
-      await getTexture(waterArchive);
+      await getTexture(waterArchive); const dungeonHold = placeHoldOf('dungeon', `${dfLocation.regionIndex}:${dfLocation.name}`);   // FIELD BUGS 2026-10-04d PLACE-LRU: the dungeon is a place - its hold, handed to the context below
       layingOutLoc = dfLocation;   // OH-E: PlayerEnterExit.Dungeon is assigned before SetDungeon lays it out (PlayerEnterExit.cs:918-919)
       const ctx = await buildDungeonContext(
-        { renderer, arch, getGpuMesh, cpuModels, getTexture, uploadRecord, uploadRecordFrame, palette },
+        { renderer, arch, getGpuMesh: dungeonHold.getGpuMesh, cpuModels, getTexture, uploadRecord: dungeonHold.uploadRecord, uploadRecordFrame: dungeonHold.uploadRecordFrame, palette, placeHold: dungeonHold },
         dfLocation, hit.blocksFile ?? blocks, dfLocation.climate.climateType, {   // WB3b: the court's blocks file answers its one made block
           automapFromLoad: fromLoad,   // MAP-KEEP: a load enters the saved record on the LOAD arm - its colour tier kept, nothing stamped or pruned
           placePlayer: placeLoadedPlayer,   // DIAL-LOAD: the host's load law, for every load the context runs - not routeKey's alone
@@ -8051,7 +8127,7 @@ export function createWorldModes(host) {
               if (p.crouching != null) player.crouching = !!p.crouching;
             },
           },
-        });
+        }).catch((e) => { dungeonHold.release(); throw e; });   // PLACE-LRU: a build that throws hands no context back to release it
       layingOutLoc = null;
       if (!live()) { abandonContext(ctx); return false; }   // AUDIT 68 X3-transition-build-race: the world moved under the build - it hands its seams back and publishes nothing
       dungeonCtx = ctx;
@@ -9167,7 +9243,7 @@ export function createWorldModes(host) {
     // just above: tearing the interior down from INSIDE a click/command
     // dispatch that is itself running off interiorCtx would pull the
     // rug out from under its own caller.
-    if (pendingInteriorExit) { pendingInteriorExit = false; exitInteriorNow(); return true; }
+    if (pendingInteriorExit) { pendingInteriorExit = false; exitInteriorNow(); return true; } else if (standFromVoid(interiorCtx.voidRescue, player)) { cam.pos = [...player.eye]; say(INTERIOR_VOID_TEXT); }   // FIELD BUGS 2026-10-04d VOID-ENTRY: THE FAILSAFE (enterExit.js standFromVoid) - a body below everything the building stands on fell for good, in the black ("Complete darkness and possibly stuck"); it stands again where the door landed it, and is told
     // AUDIT 23 (C12: cross-6 = wts-3) - PlayerAmbientLight.cs:75-80: a
     // night interior takes the darker purple-tinted ambient.
     renderer.setLighting(new Float32Array(isNight(skyMinutes() % 1440) ? INTERIOR_NIGHT_AMBIENT : INTERIOR_AMBIENT), 0);   // TIME1: the sky's night
@@ -9264,7 +9340,7 @@ export function createWorldModes(host) {
           // AUDIT 39r: and the FLASH, which this arm was copied without.
           // An arrow reaches the player through BowDamage ->
           // ApplyDamageToPlayer -> SendDamageToPlayer, the same door as
-          // a blow (world.js:16324's own wave-46 note); the interior
+          // a blow (world.js:16358's own wave-46 note); the interior
           // MELEE hit already flashes inside exteriorFoes, so only this
           // arm - which applies its own damage - was missing it.
           flashPlayerDamage(dmg);   // BA1: RemoveHealth carries the amount
@@ -10206,7 +10282,7 @@ export function createWorldModes(host) {
   addEventListener('mousedown', (e) => {
     // AUDIT-MACK F2: THIS HOST DOES NOT FEED THE HELD SET, and MAC-K1
     // briefly made it. `keys` is not this host's - it arrives on the
-    // host bag (`exterior.js:4103`, `world.js`'s twin), and the OUTER
+    // host bag (`exterior.js:4107`, `world.js`'s twin), and the OUTER
     // host's own mousedown writes `keys.add(mouseCode(e.button))`
     // UNGATED, before any mode test, on a listener that is never
     // removed. So the three button codes were already in the Set while
@@ -11989,9 +12065,9 @@ export function createWorldModes(host) {
      *  .cs:175-176 writes `weaponDrawn`/`usingLeftHand` off it,
      *  :420-421 restores them onto it. The port has FOUR PlayerWeapons
      *  (world.js's, this file's `interiorWeapon` :538, dungeonContext's
-     *  and exterior.js's - which this seam does not reach: that host has no save path at all, its charter exterior.js:3649-3671), and IS1 routed the inside-a-building save to
+     *  and exterior.js's - which this seam does not reach: that host has no save path at all, its charter exterior.js:3653-3675), and IS1 routed the inside-a-building save to
      *  the WORLD host's composer - which reads its own exterior rig
-     *  unconditionally (world.js:12243). So an F9 pressed in a shop
+     *  unconditionally (world.js:12247). So an F9 pressed in a shop
      *  recorded the street's sheath and hand, and the load wrote them
      *  back into the street's rig; the rig actually in the player's
      *  hands was in no envelope at all.
@@ -12030,7 +12106,7 @@ export function createWorldModes(host) {
       if (interiorOverlay instanceof DeathScreen) { interiorOverlay.restoreView(); interiorOverlay = null; }
     },
     /** The restore half - and NOT gated on the mode, deliberately.
-     *  worldQuickLoad calls forceExitToExterior FIRST (world.js:12572)
+     *  worldQuickLoad calls forceExitToExterior FIRST (world.js:12606)
      *  and only re-enters the building at :4217, so the mode at apply
      *  time is whatever the LOAD landed in, not whatever the SAVE was
      *  taken in: an outdoor save loaded while the player was indoors
@@ -12040,7 +12116,7 @@ export function createWorldModes(host) {
      *
      *  FLAG ONLY and presence-gated - both laws now stated once, in
      *  combat/playerWeapon.js's applyWeaponPose, with the citation.
-     *  HARD2c: this used to spell them out, and named `world.js:11148`
+     *  HARD2c: this used to spell them out, and named `world.js:11152`
      *  and `dungeonContext.js:8454` for its two sibling copies - lines
      *  that had moved to :4418 and :5457. Three copies of a two-line
      *  law, and even the comment pointing between them had gone stale. */

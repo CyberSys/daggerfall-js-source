@@ -78,7 +78,7 @@ test('questflatanchor: AlignBillboardToGround runs on the NPC stand, distance 4,
   assert.match(s, /if \(Number\.isFinite\(drop\)\) by = \(origin - drop\) \+ size\.h \* 0\.02;/);
   // ...and the ray is the NPC arm's ALONE - an item never reaches it.
   assert.match(s, /if \(isItem\) \{/, 'the two laws are split by resource');
-  assert.equal((s.match(/standQuestFlat\(t\.worldTextureArchive[^\n]*true\)/g) ?? []).length, 1);
+  assert.equal((s.match(/standQuestFlat\(t\.worldTextureArchive[^\n]*, null, null, true[,)]/g) ?? []).length, 1);   // QUEST-MARKERS: the building's backstop rides after it
   assert.equal((s.match(/standDungeonQuestFlat\(t\.worldTextureArchive[^\n]*true\)/g) ?? []).length, 1);
   // No floor within 4 -> C# returns without moving anything. The
   // guard, not a fallback, is what expresses that.
