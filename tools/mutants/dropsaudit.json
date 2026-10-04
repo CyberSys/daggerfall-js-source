@@ -83,8 +83,8 @@
   {
     "name": "DA-F3-the-stats-page-undressed",
     "file": "src/ui/enhancedMenu.js",
-    "old": "  const detail = el('div', 'px-qdetail px-sys');",
-    "new": "  const detail = el('div', 'px-qdetail');",
+    "old": "  const detail = el('div', 'px-qdetail px-sys');   // DROPS-AUDIT F3",
+    "new": "  const detail = el('div', 'px-qdetail');   // DROPS-AUDIT F3",
     "tests": [
       "test/dropsaudit.test.js"
     ]

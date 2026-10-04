@@ -313,8 +313,10 @@ test('actual indoor transition keeps the fleet active only for a sailing cabin, 
 test('the shipped boat producer sends a stationary cabin fleet and publishes both cabin edges immediately', () => {
   const r = rig(); r.boat(3);
   const modes = { sailingCabin: null };
+  // PIN MOVED (TOUGHER-SHIPS + HOLDINGS' merge of main's #574): the producer reads each boat's name through the Fleet's host
+  // (HOLDINGS - her name on the boats' word); none named here
   const args = { csaRuntime: r.s.rt, csaOn: () => true, gamePaused: () => false, worldTimeScale: () => 1,
-    csaAnimatorOf: animatorOf, campToWire: (p) => p, modes, csaWireRecord, csaRecordKey };
+    csaAnimatorOf: animatorOf, campToWire: (p) => p, modes, csaWireRecord, csaRecordKey, fleetHost: null };
   const producer = new Function(...Object.keys(args), `let _csaWordKey = null; return (${worldFunction('csaWord')});`)(...Object.values(args));
   const deck = {}; assert.equal(producer(deck, true), true); assert.equal(deck.sa.cabin, undefined);
   modes.sailingCabin = { uid: 101 }; const cabin = {};

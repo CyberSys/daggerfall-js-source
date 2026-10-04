@@ -254,11 +254,12 @@
   {
     "name": "OWS2-launch-deed",
     "file": "src/systems/comeSailAway.js",
-    "old": "    if (item?.templateIndex !== BOAT_PARTS_TEMPLATE) return null;\n    if (state.placing) StopPlacing();",
+    "old": "    if (item?.templateIndex !== BOAT_PARTS_TEMPLATE || partsStanding(item)) return null;   // AUDIT HOLDINGS F1\n    if (state.placing) StopPlacing();",
     "new": "    if (state.placing) StopPlacing();",
     "tests": [
       "test/ows2_crossing.test.js"
-    ]
+    ],
+    "note": "AUDIT HOLDINGS (PIN MOVED): re-aimed by content to the line the audit's fix rewrote - its law the same."
   },
   {
     "name": "OWS2-launch-item-kept",

@@ -9,7 +9,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 
 import {
-  findHarbour, createWaterGrid, errandFor, stepErrand, footprintClear, hullSize, offsetErrand,
+  findHarbour, createWaterGrid, errandFor, stepErrand, footprintClear, hullSize, offsetErrand, alongside,
   HARBOUR_REACH, BERTH_SPACING, BERTH_HULL, MOUTH_CLEAR, PATH_NODES, DWELL_S, BERTH_SNAP_M, STALL_S, VOYAGE_DIST, LURK_R, PATROL_R,
 } from '../src/systems/naval/shipLife.js';
 import { createSeaShip, stepCaptain, WIND_RATED } from '../src/systems/naval/navalAI.js';
@@ -128,7 +128,10 @@ test('SHIP-LIFE THE LIFE OF A MERCHANTMAN, by the real captains: in from the sea
       if (k === 'moored' && at == null) at = t;
       if (k === 'moored' && at != null && t - at > 60 && !held) held = { pos: [...ship.pos], yaw: ship.yaw, t };   // eased on over MOOR_EASE_S
       if (k === 'moored' && held && t - held.t > 30 && t - held.t < 31) {
-        assert.ok(Math.hypot(ship.pos[0] - berth.pos[0], ship.pos[2] - berth.pos[1]) < 1, `${cls} alongside her berth`);
+        // PIN MOVED (QUAYS): alongside its quay for her own hull (shipLife.js alongside) - a coaster lies in by the
+        // Carrack's beam less hers, where the berth's own point left her six metres off the quay's face
+        const quayside = alongside(berth, ship.hull, harbour.hull);
+        assert.ok(Math.hypot(ship.pos[0] - quayside[0], ship.pos[2] - quayside[1]) < 1, `${cls} alongside her berth`);
         assert.ok(wrapD(ship.yaw - berth.yaw) < 2 * DEG, 'lying along it');
         assert.ok(ship.speed === 0 && ship.sails < 0.05, 'her way off, her sails stowed');
         assert.ok(Math.hypot(ship.pos[0] - held.pos[0], ship.pos[2] - held.pos[2]) < 0.01, 'still');
@@ -165,7 +168,8 @@ test('SHIP-LIFE A FIGHT COMES FIRST: a navy cutter moored at her berth answers a
     for (let t = 60; t < 1500 && !back; t += 0.1) {
       world.now = t; stepCaptain(ship, world);
       if (ship.errand?.kind === 'arrive' && ship.speed > 1) sailedBack = true;
-      back = ship.errand?.kind === 'moored' && Math.hypot(ship.pos[0] - b.pos[0], ship.pos[2] - b.pos[1]) < 2;
+      const quayside = alongside(b, ship.hull, harbour.hull);   // PIN MOVED (QUAYS): alongside its quay for her hull
+      back = ship.errand?.kind === 'moored' && Math.hypot(ship.pos[0] - quayside[0], ship.pos[2] - quayside[1]) < 2;
     }
     assert.ok(sailedBack, 'she sails back to it - never slid across the water');
     assert.ok(back, `${cls} moored again (${ship.errand?.kind} at ${ship.pos.map((v) => v.toFixed(0))})`);
@@ -227,8 +231,8 @@ test('SHIP-LIFE THE HARBOUR ROLL, by the real host: ashore in a port town, its h
   assert.ok(m.length >= HARBOUR_ROLL[0] && m.length <= HARBOUR_ROLL[1], `moored: ${m.length}`);
   const harbour = findHarbour({ rect: TOWN, isWater: coast });
   for (const e of m) {
-    const b = harbour.berths[e.ship.errand.berth];
-    assert.ok(Math.hypot(e.ship.pos[0] - b.pos[0], e.ship.pos[2] - b.pos[1]) < 0.5 && e.ship.sails === 0, 'at her berth, sails stowed');
+    const b = alongside(harbour.berths[e.ship.errand.berth], e.ship.hull, harbour.hull);   // PIN MOVED (QUAYS): stood alongside its quay for her hull
+    assert.ok(Math.hypot(e.ship.pos[0] - b[0], e.ship.pos[2] - b[1]) < 0.5 && e.ship.sails === 0, 'at her berth, sails stowed');
     assert.notEqual(e.ship.hull, 3, 'no galley moors');
   }
   const key = (hh) => [...hh.host._sea.values()].map((e) => `${e.ship.seed}:${e.ship.cls.id}:${e.ship.errand?.berth}`).sort().join('|');

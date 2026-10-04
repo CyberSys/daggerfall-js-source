@@ -1,8 +1,8 @@
 // @ts-check
 // COMPANION-ROSTER (2026-10-02, Mac: "Spare should allow you to free the enemy, which then adds them as a companion,
 // which you could keep send them away or keep them with you ... Companion slots should still be limited and will need a
-// new enhanced plus UI feature") - THE COMPANIONS PAGE on the Enhanced pause menu's Stats rail (ui/enhancedMenu.js
-// pauseStats), beside the Revenants page.
+// new enhanced plus UI feature") - THE COMPANIONS PAGE on the Enhanced pause menu's Holdings rail (ui/enhancedMenu.js
+// pauseHoldings - HOLDINGS moved it off the Stats rail, 2026-10-03), beside the Revenants page.
 //
 //  - THE SLOTS: a strip of COMPANION_SLOTS wells (systems/companionSlots.js) - each filled one shows who stands in it (a
 //    sworn revenant's portrait, a hand of the crew by name), each open one says so - so the limit is a thing the player
