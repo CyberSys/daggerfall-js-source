@@ -21950,10 +21950,10 @@ export async function bootWorld(canvas, renderer, params, status) {
     // now draws, which the enemy sprite gives way to, would be nothing at all indoors and underground
     // (and DISC23-B's walkers: a peer standing as their chosen set gives the class sprite way just the same, so the
     // merge of the two hands their batches here too)
-    extraBillboards: () => [...(remotePlayers?.batches() ?? []), ...(peerRiders?.batches() ?? []), ...(peerWalkers?.batches() ?? []), ...(gateCourt?.batches() ?? []), ...(csaOn() ? csa.batches() : []), ...((modes?.mode ?? 'exterior') === 'dungeon' ? arenaBouts.batches() : [])],   // WB4: and the Burning Court's boss; CSA-C: a boat's crew and lanterns where it stands indoors
+    extraBillboards: () => [...(remotePlayers?.batches() ?? []), ...(peerRiders?.batches() ?? []), ...(peerWalkers?.batches() ?? []), ...(gateCourt?.batches() ?? []), ...(csaOn() && !modes?.sailingCabin ? csa.batches() : []), ...((modes?.mode ?? 'exterior') === 'dungeon' ? arenaBouts.batches() : [])],   // WB4: and the Burning Court's boss; CSA-C: a boat's crew and lanterns where it stands indoors (CABIN-HULL: never in a ship's cabin - the fleet's are the street's)
     drawModeMeshes: () => { if (csaOn() && !modes?.sailingCabin) { csa.draw(renderer); csaDrawParticlesOpaque(); } },   // CSA-C: a boat placed on a dungeon's water (UpdateBoatVisibility's inside arm keeps it active there); CSA-F: its wake's and splashes' quads and its flag; CABIN-HULL: never in a ship's cabin - the fleet kept afloat there is the street's, and her hull drawn round the room cut its floor into planks and holes
     csaDrawParticlesBlended: () => { if (csaOn() && !modes?.sailingCabin) csaDrawParticlesBlended(); },   // CSA-F: ...and its drops, after the mode's last world draw (CABIN-HULL: none below deck)
-    modeLights: () => (csaOn() ? csa.lights(cam.pos) : []),   // CSA-C: ...and its lit lanterns
+    modeLights: () => (csaOn() && !modes?.sailingCabin ? csa.lights(cam.pos) : []),   // CSA-C: ...and its lit lanterns (CABIN-HULL: none lights her cabin from outside)
     csaActivationPick: (eye, dir) => csaActivationPick(eye, dir),   // CSA-D: ...and the one ray on it, in the building's or the dungeon's ladder
     csaActivate: (pick) => csaActivate(pick),
     csaDrawWindWidget: () => csaDrawWindWidget(),   // CSA-E: the wind widget over a mode's HUD

@@ -61,5 +61,23 @@
     "tests": [
       "test/fb1003b_cabinhull.test.js"
     ]
+  },
+  {
+    "name": "CABINHULL-billboards-in-cabin",
+    "file": "src/scenes/world.js",
+    "old": "...(csaOn() && !modes?.sailingCabin ? csa.batches() : [])",
+    "new": "...(csaOn() ? csa.batches() : [])",
+    "tests": [
+      "test/fb1003b_cabinhull.test.js"
+    ]
+  },
+  {
+    "name": "CABINHULL-lights-in-cabin",
+    "file": "src/scenes/world.js",
+    "old": "    modeLights: () => (csaOn() && !modes?.sailingCabin ? csa.lights(cam.pos) : []),",
+    "new": "    modeLights: () => (csaOn() ? csa.lights(cam.pos) : []),",
+    "tests": [
+      "test/fb1003b_cabinhull.test.js"
+    ]
   }
 ]

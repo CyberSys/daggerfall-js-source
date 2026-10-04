@@ -44,7 +44,8 @@ function liftWorld(s) {
     let { colliderPoses, invertAffine, boxColliderTriangles, csaModeCollider, csaColliderBoats, csaColliderMesh, _csaBoatIds, _csaBoatSerial, csa, modes,
           collider, csaRuntime, csaOn, raycastColliders, RAY_DISTANCE, csaActivationModelOf, bedSleepingOn, csaCustomModelOf, BED_MODELS, CSA_TRIGGER_MODEL,
           getInteractionMode, DEFAULT_ACTIVATION_DISTANCE, CSA_ACTIVATION_DISTANCE, csaAboard, csaPeerActivate, toggleRest, _restFromBed, plaqueActionFor,
-          csaBoatVerb, hasSailingCabin, csaOpenBoatMenu, csaCall, worldPlaqueOn, renderer, csaDrawParticlesOpaque, csaDrawParticlesBlended } = s;
+          csaBoatVerb, hasSailingCabin, csaOpenBoatMenu, csaCall, worldPlaqueOn, renderer, csaDrawParticlesOpaque, csaDrawParticlesBlended,
+          remotePlayers, peerRiders, peerWalkers, gateCourt, arenaBouts, cam } = s;
     ${cutLine('  const _csaBuckets = new Map();')}${cutLine('  const csaBoatId = (boat) =>')}
     ${cut('  const csaShapeOf = (c) =>', ');\n')}${cutLine('  const CSA_RIGID_EPS =')}${cut('  function csaCarry(b, m) {')}
     ${cut('  function csaSyncColliders() {')}
@@ -52,7 +53,7 @@ function liftWorld(s) {
     ${cut('  function csaPeerActivationPick(eye, dir) {')}
     ${cut('  const csaActivate = (pick) => {', '\n  };\n')}
     const host = {
-    ${cutLine('    drawModeMeshes: () =>')}${cutLine('    csaDrawParticlesBlended: () =>')}    };
+    ${cutLine('    extraBillboards: () =>')}${cutLine('    drawModeMeshes: () =>')}${cutLine('    csaDrawParticlesBlended: () =>')}${cutLine('    modeLights: () =>')}    };
     return { sync: csaSyncColliders, pick: csaActivationPick, peerPick: csaPeerActivationPick, activate: csaActivate, host, boatId: csaBoatId };`;
   // eslint-disable-next-line no-new-func
   return new Function('s', body)(s);
@@ -89,12 +90,13 @@ async function rig() {
   const calls = { draw: 0, opaque: 0, blended: 0, menus: 0, verbs: 0, peerPress: 0 };
   const w = liftWorld({
     colliderPoses, invertAffine, boxColliderTriangles, csaModeCollider: () => colliders[modes.mode], csaColliderBoats: () => s.rt.AllBoats, csaColliderMesh: geometry,
-    _csaBoatIds: new WeakMap(), _csaBoatSerial: 0, csa: { get boats() { return s.rt.AllBoats; }, peerBoats: [hers], draw: () => { calls.draw++; } }, modes, collider: colliders.exterior,
+    _csaBoatIds: new WeakMap(), _csaBoatSerial: 0, csa: { get boats() { return s.rt.AllBoats; }, peerBoats: [hers], draw: () => { calls.draw++; }, batches: () => ['crew'], lights: () => ['lantern'] }, modes, collider: colliders.exterior,
     csaRuntime: s.rt, csaOn: () => true, raycastColliders, RAY_DISTANCE, csaActivationModelOf: activationModelOf, bedSleepingOn: () => false, csaCustomModelOf: customModelOf,
     BED_MODELS: [], CSA_TRIGGER_MODEL: TRIGGER_MODEL, getInteractionMode: () => 'grab', DEFAULT_ACTIVATION_DISTANCE, CSA_ACTIVATION_DISTANCE: ACTIVATION_DISTANCE,
     csaAboard: aboard, csaPeerActivate: () => { calls.peerPress++; }, toggleRest: () => {}, _restFromBed: false, plaqueActionFor, csaBoatVerb: () => { calls.verbs++; },
     hasSailingCabin, csaOpenBoatMenu: () => { calls.menus++; }, csaCall: (f) => f(), worldPlaqueOn: () => false, renderer: {},
     csaDrawParticlesOpaque: () => { calls.opaque++; }, csaDrawParticlesBlended: () => { calls.blended++; },
+    arenaBouts: { batches: () => [] }, cam: { pos: [0, 0, 0] },
   });
   // the shipped access, over this world: the cabin record and the landing are its own
   const entered = [];
@@ -199,14 +201,16 @@ test('CABIN-HULL: below deck no boat answers a press - her hull under the room\'
   assert.deepEqual(r.s.player.position.map((v) => +v.toFixed(4)), board.map((v) => +v.toFixed(4)), 'on deck: her ladder\'s press stands me at its place (BoardBoat)');
 });
 
-test('CABIN-HULL: below deck the fleet is not drawn in the room - neither her hull nor its wake, splashes and drops; in a dungeon (a boat on its water) and outside the host\'s arms draw as before (mutants: drawModeMeshes\' cabin guard; csaDrawParticlesBlended\'s)', async () => {
+test('CABIN-HULL: below deck the fleet is not drawn in the room - neither her hull nor its wake, splashes and drops; in a dungeon (a boat on its water) and outside the host\'s arms draw as before; nor its crew, lanterns and lights (mutants: drawModeMeshes\' cabin guard; csaDrawParticlesBlended\'s; extraBillboards\'; modeLights\')', async () => {
   const r = await rig();
   r.standAboard();
   await r.goBelow();
   r.w.host.drawModeMeshes(); r.w.host.csaDrawParticlesBlended();
   assert.deepEqual([r.calls.draw, r.calls.opaque, r.calls.blended], [0, 0, 0], 'nothing of the fleet drawn in her cabin');
+  assert.deepEqual([r.w.host.extraBillboards(), r.w.host.modeLights()], [[], []], 'her crew and lanterns neither stand nor light in her cabin');
   r.comeUp();
   r.modes.mode = 'dungeon';   // a dungeon's frame: the boat UpdateBoatVisibility keeps on its water is drawn there
   r.w.host.drawModeMeshes(); r.w.host.csaDrawParticlesBlended();
   assert.deepEqual([r.calls.draw, r.calls.opaque, r.calls.blended], [1, 1, 1], 'a dungeon\'s frame draws its boat, its quads and its drops');
+  assert.deepEqual([r.w.host.extraBillboards(), r.w.host.modeLights()], [['crew'], ['lantern']], 'and its crew and lanterns');
 });
