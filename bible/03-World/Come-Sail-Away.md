@@ -2658,8 +2658,8 @@ travel (OW6's threats), refused the travel view, a camp's placing and every rest
 comes up onto a deck (Deep Waters even freezes its swimmers while the player is on a boat). The hull's own sweep never
 met them (`csaSphereCastAll` returns no entity): the "slowdown" was these gates.
 
-So the world host latches each foe's reach every exterior frame, after the foes move and the deck's leash
-(`systems/foeReach.js` `markFoeReach`): ABOARD - `playerAfloat` (a helm, a deck, another player's boat, a sea ship's deck)
+So the world host latches each foe's reach every exterior frame, once the street's foes, its watch and its raids have
+had their frame (`systems/foeReach.js` `markFoeReach`): ABOARD - `playerAfloat` (a helm, a deck, another player's boat, a sea ship's deck)
 and not swimming - a foe IN THE WATER (an aquatic one, EnemyMotor's `swims`, or one whose controller centre stands under
 the sea's top, `tvSeaY`) is `ai.unreachable`; else none is. `areEnemiesNearby` passes an unreachable foe over, strict
 and resting alike, so the one sweep answers the time scale, rest and its channel, a journey, the travel view, fast
