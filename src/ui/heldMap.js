@@ -1867,7 +1867,7 @@ export class HeldMapWindow {
       const btn = (label, on, title, act) => {
         const b = el('button', `act hmkeyflt${on ? ' on' : ''}`, label);
         b.type = 'button'; b.tabIndex = -1;
-        b.onpointerdown = (e) => e.preventDefault?.();
+        b.onpointerdown = (ev) => ev.preventDefault?.();   // never the focus (the key's own law)
         b.title = title;
         b.setAttribute?.('aria-pressed', on ? 'true' : 'false');
         b.onclick = () => this._toggleWho(act);
@@ -1883,7 +1883,7 @@ export class HeldMapWindow {
   /** OW-WHO: a press on the players' row - the shared switch flipped (or the Renown floor stepped), the sheet drawn
    *  again. Dead under a box, as the key's own filters are. */
   _toggleWho(which) {
-    if (this._phase !== 'map' || this._top || this._info) return;
+    if (this._top || this._info || this._phase !== 'map') return;
     if (which === 'renown') cycleTravelViewRenown(); else toggleTravelViewWho(which);
     this._dirty = true;
     this._renderKey();

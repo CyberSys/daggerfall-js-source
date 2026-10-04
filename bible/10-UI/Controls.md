@@ -404,3 +404,11 @@ buttons on its fixed art, Slide's among them, unbound.
   post-processing) and the Transport window's letters - F, H, C, S behind the Transport key - read off the shortcut
   table, as words and keys with no buttons. A mod's own keys are named on its Features tile too, read-only, with one
   press through to this page.
+
+## PAD-BINDS and PAD-ARRANGE (FIELD BUGS 2026-10-04e)
+
+The Controller bindings window (Enhanced Plus) has an Overworld and a Quick dial row, and both are d-pad tap or hold
+choices - the Overworld on no key at all is the host's own door (`padAction`). Under a window LT raises the hotbar to
+be arranged: A takes a slot in hand and puts it down (a swap or a move), Y clears one; with the pad in hand "Add to
+hotbar" puts the new entry in hand and asks for a slot - A on it, or a bumper and the slot's own button on the
+crossbar. The record: `01-Overview/Field-Bugs-2026-10-04e.md`.

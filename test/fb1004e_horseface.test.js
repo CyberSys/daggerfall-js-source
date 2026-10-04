@@ -64,3 +64,28 @@ test('HORSE-FACE: the floating origin\'s shift moves the sprite\'s own feet - an
   b.tick(1 / 60, at([-819.2, 0, 0.6], Math.PI / 2, 0));
   assert.deepEqual(b.state().lastMoveDirection.map((v) => Math.round(v)), [0, 0, 1], 'the world moved under the feet: still the walk\'s facing');
 });
+
+test('HORSE-FACE: a ride is no placing - strafing past PLACE_JUMP_M a frame keeps the move\'s facing, never the view\'s; the host\'s origin shift reaches the body (mutants: the moving gate gone; mwViewRebase forgets the body)', async () => {
+  const b = await liveBody();
+  // strafing +x with the view looking +z (yaw 0): the move's facing is +x, the view's +z
+  const strafe = (x) => ({ riding: true, motion: { forward: 0, strafe: 1, standing: false, speed: 9, grounded: true, height: 1.8, riding: true }, feet: [x, 0, 0], yaw: 0, cameraPos: [x, 2, -6] });
+  for (let i = 0; i < 30; i++) b.tick(1 / 60, strafe(i * 0.2));
+  assert.deepEqual(b.state().lastMoveDirection.map((v) => Math.round(v)), [1, 0, 0], 'strafing: the move\'s facing');
+  let x = 6;
+  for (let i = 0; i < 12; i++) {
+    x += 3 * PLACE_JUMP_M;
+    b.tick(1 / 60, strafe(x));
+    assert.deepEqual(b.state().lastMoveDirection.map((v) => Math.round(v)), [1, 0, 0], `frame ${i}: a gallop's frame is no placing - never the view's +z`);
+  }
+  const { readFileSync } = await import('node:fs');
+  assert.match(readFileSync(new URL('../src/player/mwView.js', import.meta.url), 'utf8'), /export function mwViewRebase\(delta\) \{\n\s*eotbCamera\.onPositionUpdate\(delta\);\n\s*eotbWagon\.rebase\(delta\);\n\s*eotbBody\.rebase\(delta\);/);
+});
+
+test('HORSE-FACE: a body carried with no input of its own (placed every frame - a journey\'s autopilot, a cart) never paints the placing\'s -1 (mutant: the -1 written back)', async () => {
+  const b = await liveBody();
+  const carried = (x) => ({ riding: true, motion: { forward: 0, strafe: 0, standing: false, speed: 9, grounded: true, height: 1.8, riding: true }, feet: [x, 0, 0], yaw: Math.PI / 2, cameraPos: [x - 6, 2, 0] });
+  const seen = [];
+  for (let i = 0; i < 60; i++) { b.tick(1 / 60, carried(i * 3 * PLACE_JUMP_M)); seen.push(b.state().shown?.orientation ?? null); }
+  assert.ok(!seen.includes(-1), `every frame a real view: ${seen.join(',')}`);
+  assert.ok(seen.slice(20).every((o) => o === seen.at(-1)), 'and one view, settled');
+});

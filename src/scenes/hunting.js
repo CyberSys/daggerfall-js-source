@@ -36,6 +36,7 @@ export const HUNT_PENDING_NEAR_M = 30;
 export function createHunting({
   entity, env, showOverlay = null, overlayActive = () => false, advanceMinutes = null, spawnBeast = null,
   inflictPoison = null, inflictDisease = null, tally = null, rolls = Math.random, enemiesNear = null,
+  held = () => false,   // HUNT-ROAD (FIELD BUGS 2026-10-04e): the host's word that the roll is held - the player's switch, on the road
 } = {}) {
   let _lastMinute = null;
   let _win = null;
@@ -48,6 +49,7 @@ export function createHunting({
     if (minute === _lastMinute) return null;
     _lastMinute = minute;
     if (_win || overlayActive()) return null;
+    if (held()) return null;   // HUNT-ROAD: this minute passes unrolled - never banked for the road's end
     const ev = huntRoll(survivalOf(entity, minute), { ...e, minute }, rolls);
     return ev ? open(ev, e) : null;
   }

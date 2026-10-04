@@ -1273,7 +1273,7 @@ export function paintCarriageWheel(ctx, x, y, beside = true) {
   ctx.strokeStyle = PEN.halo; ctx.lineWidth = HARBOUR_HALO;
   wheelPath(ctx, wx, wy, CARRIAGE_WHEEL_R);
   ctx.stroke();
-  ctx.strokeStyle = PEN.line; ctx.lineWidth = HARBOUR_PEN;
+  ctx.lineWidth = HARBOUR_PEN; ctx.strokeStyle = PEN.line;
   wheelPath(ctx, wx, wy, CARRIAGE_WHEEL_R);
   ctx.stroke();
 }

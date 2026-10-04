@@ -558,6 +558,7 @@ import { computeEntityMods, registerEntityFold, EMPTY_MODS } from '../systems/en
 import { createSeatEdicts, FESTIVE_FOLD, festiveMods } from '../systems/seatEdicts.js';   // SEAT1d: a held seat as this client lives it
 import { SPELL_CAST_SOUND } from '../systems/enemySpells.js';   // SET3: the Wrath's and Eventide's sounds are the cast sounds of their schools
 import { itemLongName } from '../systems/itemInfo.js';   // SIGIL1: the weapon's name as its tooltip reads it
+import { trivialOnRoad, roadCompany, wandererCount } from '../systems/roadEncounters.js';   // WILD-ROAD: the road's wanderers - a rat passed by, a patrol now and then
 import { partySizeOf, partyExtraFoes, partyGroupMembers } from '../systems/partyScale.js';   // PSCALE1: a fight weighs the party - its count, and the foes more an outdoor encounter stands
 import { GROUP_ROLL_RADIUS } from '../systems/campEncounters.js';   // PSCALE1: outdoors, the party a roll stands for is the camp's own group
 import { SOLITARY_TYPES } from '../characters/mobileFactions.js';   // AUDIT PSCALE1 COUNT-2: a solitary foe meets a party alone
@@ -8292,6 +8293,10 @@ export async function bootWorld(canvas, renderer, params, status) {
     spawnBeast: ({ mobileType, count }) => { const feet = walkMode && playerSpawned ? player.pos : cam.pos; for (let i = 0; i < count; i++) _standEncounterFoe({ mobileType, ...SPAWNER_ARMS.wilderness }, feet); },
     inflictPoison, inflictDisease, tally: (id) => tallySkill(playerEntity, id, 1),
     enemiesNear: () => huntFoesNear(),   // HUNT-FOES: a foe come near closes the ask or the search
+    // HUNT-ROAD (FIELD BUGS 2026-10-04e, Discord: "the random hunting y/n prompts that stop you completely"): the
+    // player's own switch (systems/features.js 'hunt-on-road', ON by default - TO-FIELD3's law, Mac's: the wilderness
+    // rolls at the traveller) - off, no hunt is rolled while a journey runs or the Overworld is up
+    held: () => getPref('huntOnRoad') === false && onTheRoad(),
   });
   // FORAGE4 (bible/06-Systems/Foraging.md 13.1): online, QAE's `raise time by` is a wait on the hunt's busy page, in
   // the same slot - opened only when the slot is free (the tool's box and the pack closed first), the quest's boxes
@@ -8722,6 +8727,8 @@ export async function bootWorld(canvas, renderer, params, status) {
   // camp meal and a forage/hunt search (CAMP-REST, 2026-09-19). Only the GROUP roll reads it; lone wanderers still roll.
   /** AUDIT LIVED1b P1: `spawns: false` walks the minutes with the wanderers' roll left out - a party mirror's night
    *  (PSCALE1 COUNT-1: the rester's roll is the party's), whose watch is still the follower's own. */
+  /** WILD-ROAD / HUNT-ROAD: the traveller is on the road - a Travel Options journey running, or the Overworld's view up. */
+  const onTheRoad = () => !!travelOptions?.isTravelActive || !!travelView?.active;
   function runEncounterTick(playerFeet, isResting = false, { spawns = true } = {}) {
     // LIVED1: the catch-up loop walks the CHARACTER's own minutes - DFU's is PlayerEntity.Update's, on the one clock
     // the player owns. Online a rest's hours move that clock (the ticker's advance), so the loop rolls them as it
@@ -8800,7 +8807,13 @@ export async function bootWorld(canvas, renderer, params, status) {
         // The band and the line-of-sight flag ride in on the hit -
         // they are the spawner's arguments and differ per arm.
         // PSCALE1: and the party's extra foes beside it - one more for every two players past the first, up to three
-        for (let k = 0, n = SOLITARY_TYPES.has(hit.mobileType) ? 1 : 1 + partyExtraFoes(partySize()); k < n; k++) _standEncounterFoe(hit, playerFeet);   // AUDIT PSCALE1 COUNT-2: a Lich, a Dragonling, a Giant is a singular 'uh oh' (mobileFactions.js SOLITARY_TYPES) - never a squad
+        // WILD-ROAD (FIELD BUGS 2026-10-04e, systems/roadEncounters.js): ON THE ROAD - a journey running or the Overworld up -
+        // with the switch on, a wanderer far beneath the traveller is passed by (the minute goes, nothing stands, nothing
+        // stops), and the rest bring company now and then; off the road, or the switch off, DFU's wanderer as it was
+        const _road = getPref('roadEncounters') !== false && onTheRoad();
+        if (_road && trivialOnRoad(hit.mobileType, effectiveLevel(playerEntity))) continue;
+        const _company = _road ? roadCompany(hit.mobileType, effectiveLevel(playerEntity), Math.random()) : 0;
+        for (let k = 0, n = wandererCount(hit.mobileType, partyExtraFoes(partySize()), _company); k < n; k++) _standEncounterFoe(hit, playerFeet);   // AUDIT PSCALE1 COUNT-2: a Lich, a Dragonling, a Giant is a singular 'uh oh' (mobileFactions.js SOLITARY_TYPES) - never a squad
         break;
       }
       // CAMP1 - GROUP ENCOUNTERS (camps and packs, systems/campEncounters.js):
@@ -9536,7 +9549,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   // and dungeonContext.js:3067 mounts the same one, gated on
   // `opts.enchantCtx !== false` because setDefaultEnchantCtx is a
   // session singleton and EC1 already routes THIS host's mount into
-  // that context through modes.dungeonCtx - so worldModes.js:7240
+  // that context through modes.dungeonCtx - so worldModes.js:7241
   // passes false beside its `chargen: false` and only the standalone
   // ?dungeon route mounts its own. S40 filled isResting
   // in - the sentence that stood here said it "stays absent above
@@ -15431,7 +15444,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   // exterior -> the townTalk overlay, interior OR dungeon -> the mode
   // machine's slot. U43-ii shipped the dungeon half: showQuestBox
   // offers the window to `modes.showQuestOverlay` below, and
-  // worldModes answers it in BOTH modes (worldModes.js:10936-11000 -
+  // worldModes answers it in BOTH modes (worldModes.js:10937-11001 -
   // dungeon routes to dungeonCtx.showOverlay), so a dungeon popup is
   // shown rather than logged loudly and dropped.
   // AUDIT 24 (wave 21): DaggerfallMessageBox.Show() is a
@@ -24420,7 +24433,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
       near.add(d.id);
       // AUDIT NAMES: and one on a journey (their region mark's `tv`) keeps the arrow they wore from afar
       marks.push({ key: `peer:${d.id}`, at: [f[0], f[1] + h, f[2]], label: d.name ?? '', kind: `${party ? 'party' : 'traveller'}${isShipMark(t?.p) ? ' ship' : ''}${t?.p.tv ? ' journey' : ''}`, edge: party || !!t, badge: tvBadgeOf(d),
-        kin: travellerKin({ friend: !!social?.isFriendPeer(d.id), gt: d.gt }, myGuildTag()), lv: d.lv ?? null });   // OW-KIN / OW-WHO: who they are to me, and their Renown   // OWS1: at sea (their region mark says so), a ship
+        kin: travellerKin({ friend: !!social?.isFriendPeer(d.id), gt: d.gt }, myGuildTag()), lv: d.lv ?? null });   // OWS1: at sea (their region mark says so), a ship; OW-KIN / OW-WHO: who they are to me, and their Renown
     }
     // TV3: THE REGION'S TRAVELLERS - their marks, beyond the pose range (inside it they are the players above); a party
     // member's in the party's colour; one outside the picture held at its edge, pointing

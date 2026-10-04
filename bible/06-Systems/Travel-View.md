@@ -1821,3 +1821,13 @@ drops its group. The diamond stood at the nodes' mean, which in a scattered pixe
 stands on the node nearest that mean now. `scenes/travelView.js` copied every mark but its colour, so every diamond was
 brass in play - the colour is carried. And the decluttered travellers went last in the draw order, a crowd's dot over
 my party's - every mark keeps its order now, a crowd where its first member stood.
+
+## OW-NODE-KM, OW-HUBS, OW-KIN, OW-WHO, SEAT-TIP, HORSE-FACE (FIELD BUGS 2026-10-04e)
+
+The Overworld's block gains a Players section (Friends, Guild, Others, the least Renown) and the node reach (any, 0.5,
+1, 2 km) - one store with the travel map's (`systems/travelViewFilters.js`); a friend's name is drawn in the friends'
+blue and a guild-mate's in violet; a town whose gate stands a carriage driver wears a brass wheel; a seat's plate under
+the pointer shows its card (who holds it, this week's battle). Every new field a mark carries rides `scenes/travelView.js`
+through to the readout. The rider's Eye Of The Beholder sprite faces its travel again: a gallop under the time scale had
+been read as a placing every frame (ARENA-FIX 14's -1, painted as orientation 7). The record:
+`01-Overview/Field-Bugs-2026-10-04e.md`.

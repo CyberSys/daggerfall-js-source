@@ -145,22 +145,25 @@
   {
     "name": "FB0929D-MAPKEY-the-key-forgets-the-band",
     "file": "src/ui/heldMap.js",
-    "old": "    const sig = [band, inks ? 1 : 0, dpr, ...groups.map((g) => (this.filters[g.filter] ? 1 : 0))].join('|');",
-    "new": "    const sig = [inks ? 1 : 0, dpr, ...groups.map((g) => (this.filters[g.filter] ? 1 : 0))].join('|');",
+    "old": "    const sig = [band, inks ? 1 : 0, dpr, ...groups.map((g) => (this.filters[g.filter] ? 1 : 0)),",
+    "new": "    const sig = [inks ? 1 : 0, dpr, ...groups.map((g) => (this.filters[g.filter] ? 1 : 0)),",
+    "note": "re-aimed BY CONTENT (FIELD BUGS 2026-10-04e OW-WHO): the signature grew the players' row on its next line",
     "tests": ["test/fb0929d_mapkey.test.js"]
   },
   {
     "name": "FB0929D-MAPKEY-the-key-forgets-the-palette",
     "file": "src/ui/heldMap.js",
-    "old": "    const sig = [band, inks ? 1 : 0, dpr, ...groups.map((g) => (this.filters[g.filter] ? 1 : 0))].join('|');",
-    "new": "    const sig = [band, dpr, ...groups.map((g) => (this.filters[g.filter] ? 1 : 0))].join('|');",
+    "old": "    const sig = [band, inks ? 1 : 0, dpr, ...groups.map((g) => (this.filters[g.filter] ? 1 : 0)),",
+    "new": "    const sig = [band, dpr, ...groups.map((g) => (this.filters[g.filter] ? 1 : 0)),",
+    "note": "re-aimed BY CONTENT (FIELD BUGS 2026-10-04e OW-WHO): the signature grew the players' row on its next line",
     "tests": ["test/fb0929d_mapkey.test.js"]
   },
   {
     "name": "FB0929D-MAPKEY-the-key-forgets-the-filters",
     "file": "src/ui/heldMap.js",
-    "old": "    const sig = [band, inks ? 1 : 0, dpr, ...groups.map((g) => (this.filters[g.filter] ? 1 : 0))].join('|');",
-    "new": "    const sig = [band, inks ? 1 : 0, dpr].join('|');",
+    "old": "    const sig = [band, inks ? 1 : 0, dpr, ...groups.map((g) => (this.filters[g.filter] ? 1 : 0)),\n",
+    "new": "    const sig = [band, inks ? 1 : 0, dpr,\n",
+    "note": "re-aimed BY CONTENT (FIELD BUGS 2026-10-04e OW-WHO): the signature grew the players' row on its next line",
     "tests": ["test/fb0929d_mapkey.test.js"]
   },
   {

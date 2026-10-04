@@ -489,7 +489,9 @@ suites updated where the law moved); mutants `tools/mutants/arenafix.json` (43, 
    armourer at his anvil 334:14, the cook 184:16, 334:7, 334:17, 334:18), every one lit; then four chained beasts (a
    Grizzly Bear, a Sabertooth Tiger, a Giant Scorpion, a bear - real bodies, passive, each its own always-held bout tag:
    they target nobody, nobody them; struck, held at the yield floor and the keepers' warning said); the deep cellars
-   quiet. The Pit Master's choice opens the PRACTICE BOUT: the bout law over a pit stage (`arenaPitStage` - the pit's
+   quiet [SUPERSEDED at FIELD BUGS 2026-10-04e UNDERCROFT-DEEP, `01-Overview/Field-Bugs-2026-10-04e.md`: a whole RDB
+   block from the stair and from every place the hall took, the keep's own foes stand again; no rest within that reach
+   is broken]. The Pit Master's choice opens the PRACTICE BOUT: the bout law over a pit stage (`arenaPitStage` - the pit's
    centre, a 6 m ring, the fighters along its passage), a sparring fighter of the player's tier (`practiceBout`), no purse,
    no ladder step, no crowd, no music, his own call and his word after. The Keeper reads the Hall (`hallOfChampions`):
    this save's Grand Champion, each tier whose champion fell (its number and name, the title it gave), or "No name is cut
@@ -1007,3 +1009,12 @@ bookmaker's "wager" is a "bet" on every press and line. `ui/arenaWindow.js`, `ui
 `arena3_window`, `arena5_plaques`, `arena_fix`, `audit1003b_client`); no test added or removed. Mutant records whose
 text moved re-aimed by content (`audit1003_ui.json` AUDIT-1003-U10-lapsed-unsaid, `audit1003b.json`
 AUDIT1003b-U9-DRAW-NO-RESULT; both dead).
+
+## FIELD BUGS 2026-10-04e - the first tournament's report
+
+Draugr, after the first tournament: arrows spent on the sand were never handed back (ARENA-ARROWS - the quiver is counted
+as a bout begins and refunded with the healers, `systems/arenaQuiver.js`); the Curse of Daggerfall's ghosts came for
+fighters at the gate (CURSE-OFF-SAND - its waves wait outside the grounds and off the arena's two levels,
+`systems/arenaGround.js`); a two-against-one's pair seemed to fight each other (ARENA-TEAMS - an area spell's blast passes
+a bout teammate by, and a Grand Melee's HUD says "each alone"); the undercroft held no enemies (UNDERCROFT-DEEP, above).
+The record: `01-Overview/Field-Bugs-2026-10-04e.md`.
