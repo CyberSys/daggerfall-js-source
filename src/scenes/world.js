@@ -6335,7 +6335,9 @@ export async function bootWorld(canvas, renderer, params, status) {
   });
   /** BOAT-MENU: a boat of mine's boxes and its rows (systems/csaBoatMenu.js) - what the plaque lists and the picker. */
   const _csaBoxes = new WeakMap();   // BOAT-MENU: boat -> { root, variant, boxes } - the walk once per hull and style, not each frame the plaque asks
-  const legacyCabinItems = () => [...(playerEntity.items ?? []), ...(playerEntity.wagonItems ?? [])];
+  // CABIN-TITLES: and the Fleet's book - HOLDINGS took a ship's deed out of the pack into it, so a ship laid up there
+  // stopped counting, and a bank cabin auto-linked to the one ship afloat as if she were the only one of her size
+  const legacyCabinItems = () => [...(playerEntity.items ?? []), ...(playerEntity.wagonItems ?? []), ...fleetBook()];
   const ensureBankCabinLink = (chosenUid = null) => csaRuntime?.state.TemporaryShip ? { status: 'unmatched' }
     : linkBankCabin(playerEntity, csaRuntime?.AllBoats ?? [], legacyCabinItems(), chosenUid);
   const csaBoatMenu = (boat) => {
@@ -11196,7 +11198,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     const link = result.link;
     if (link.type !== playerEntity.ownedShip) return false;
     const boat = csaRuntime.AllBoats.find((b) => b.uid === link.uid && b.hull === link.hull && !b.inside);
-    if (!boat?.MapPixel) { townTalk.say('Launch your linked ship using its existing deed or packed parts first.'); return true; }
+    if (!boat?.MapPixel) { townTalk.say('Summon your linked ship from Holdings > Fleet, or place her parts, first.'); return true; }
     if (csaRuntime.isSailing()) { townTalk.say('Leave the helm before entering the cabin.'); return true; }
     modes?.forceExitToExterior({ cacheScene: !loading });
     cabinLink.close();
