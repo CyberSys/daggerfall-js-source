@@ -378,7 +378,7 @@ test('PLACE-LRU THE FOUR HOSTS: the world host holds each pixel and lets it go; 
   const M = rd('src/scenes/worldModes.js');
   assert.match(M, /const placeHoldOf = \(kind, key\) => pipeline\.holdPlace\?\.\(kind, key\) \?\? \{ getGpuMesh, uploadRecord, uploadRecordFrame, release\(\) \{\}, settle\(\) \{\} \};/);
   assert.match(M, /const buildingHold = placeHoldOf\('interior', [^\n]*\); const ctx = await buildInteriorContext\([^\n]*\n\s*\{ renderer, getGpuMesh: buildingHold\.getGpuMesh, cpuModels, getTexture, uploadRecord: buildingHold\.uploadRecord, uploadRecordFrame: buildingHold\.uploadRecordFrame, palette, getMachineryParts, placeHold: buildingHold \},/);
-  assert.match(M, /\}\)\.catch\(\(e\) => \{ buildingHold\.release\(\); throw e; \}\);/);
+  assert.match(M, /\}\)\.catch\(\(e\) => \{ buildingHold\.release\(\); if \(live\(\)\) say\(NOTHING_OF_VALUE_TEXT\); throw e; \}\);/);
   assert.match(M, /await getTexture\(waterArchive\); const dungeonHold = placeHoldOf\('dungeon', [^\n]*\);[^\n]*\n\s*layingOutLoc = dfLocation;[^\n]*\n\s*const ctx = await buildDungeonContext\(\n\s*\{ renderer, arch, getGpuMesh: dungeonHold\.getGpuMesh, cpuModels, getTexture, uploadRecord: dungeonHold\.uploadRecord, uploadRecordFrame: dungeonHold\.uploadRecordFrame, palette, placeHold: dungeonHold \},/);
   assert.match(M, /\}\)\.catch\(\(e\) => \{ dungeonHold\.release\(\); throw e; \}\);/);
   // scenes/dungeonContext.js - wired: settled when built, released last in destroy()

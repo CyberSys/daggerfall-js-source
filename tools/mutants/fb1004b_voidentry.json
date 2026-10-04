@@ -146,18 +146,18 @@
   {
     "name": "VOIDENTRY-host-build-silent",
     "file": "src/scenes/worldModes.js",
-    "old": "        }).catch((e) => { if (live()) say(NOTHING_OF_VALUE_TEXT); throw e; });",
-    "new": "        }).catch((e) => { throw e; });",
+    "old": "        }).catch((e) => { buildingHold.release(); if (live()) say(NOTHING_OF_VALUE_TEXT); throw e; });",
+    "new": "        }).catch((e) => { buildingHold.release(); throw e; });",
     "tests": ["test/fb1004b_voidentry.test.js"],
-    "note": "TransitionInterior's catch says the old chestnut (PlayerEnterExit.cs:725)"
+    "note": "TransitionInterior's catch says the old chestnut (PlayerEnterExit.cs:725). INTEGRATION (FIELD BUGS 2026-10-04b, PIN MOVED): PLACE-LRU and VOID-ENTRY wrote this one catch line on two branches; merged as one line, each mutant re-aimed by content at its own half."
   },
   {
     "name": "VOIDENTRY-host-build-said-when-moved",
     "file": "src/scenes/worldModes.js",
-    "old": "        }).catch((e) => { if (live()) say(NOTHING_OF_VALUE_TEXT); throw e; });",
-    "new": "        }).catch((e) => { say(NOTHING_OF_VALUE_TEXT); throw e; });",
+    "old": "        }).catch((e) => { buildingHold.release(); if (live()) say(NOTHING_OF_VALUE_TEXT); throw e; });",
+    "new": "        }).catch((e) => { buildingHold.release(); say(NOTHING_OF_VALUE_TEXT); throw e; });",
     "tests": ["test/fb1004b_voidentry.test.js"],
-    "note": "a build the world moved under (a load, a teleport) is no house refusing anyone"
+    "note": "a build the world moved under (a load, a teleport) is no house refusing anyone. INTEGRATION (FIELD BUGS 2026-10-04b, PIN MOVED): PLACE-LRU and VOID-ENTRY wrote this one catch line on two branches; merged as one line, each mutant re-aimed by content at its own half."
   },
   {
     "name": "VOIDENTRY-host-no-record",

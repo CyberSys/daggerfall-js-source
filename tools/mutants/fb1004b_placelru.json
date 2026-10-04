@@ -382,12 +382,12 @@
   {
     "name": "PLACE-LRU-worldModes-a-failed-building-keeps-its-hold",
     "file": "src/scenes/worldModes.js",
-    "old": "}).catch((e) => { buildingHold.release(); throw e; });",
-    "new": "});",
+    "old": "}).catch((e) => { buildingHold.release(); if (live()) say(NOTHING_OF_VALUE_TEXT); throw e; });",
+    "new": "}).catch((e) => { if (live()) say(NOTHING_OF_VALUE_TEXT); throw e; });",
     "tests": [
       "test/fb1004b_placelru.test.js"
     ],
-    "note": "a throwing build keeps its hold"
+    "note": "a throwing build keeps its hold. INTEGRATION (FIELD BUGS 2026-10-04b, PIN MOVED): PLACE-LRU and VOID-ENTRY wrote this one catch line on two branches; merged as one line, each mutant re-aimed by content at its own half."
   },
   {
     "name": "PLACE-LRU-worldModes-the-dungeon-gets-no-hold",
