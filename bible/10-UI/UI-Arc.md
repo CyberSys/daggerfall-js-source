@@ -947,7 +947,7 @@ still push CLASSIC canvas windows as children under the DOM, and so
 does the pack's USE arm.
 
     THE SPELLBOOK       FIVE construction sites across FOUR hosts:
-                        worldModes.js:2546 (the factory) and :1904 (a
+                        worldModes.js:2559 (the factory) and :1904 (a
                         HAND-ROLLED second one, 342 lines below it in
                         the same file),
                         dungeonContext.js:1384, world.js:4983,
@@ -957,7 +957,7 @@ does the pack's USE arm.
                         close-then-hand-over ordering U55 got
                         backwards. No law needs extracting first.
     THE LOGBOOK         THREE sites: charSheetNav.js:53,
-    / NOTEBOOK          world.js:13671, dungeonContext.js:8988. A seam
+    / NOTEBOOK          world.js:13671, dungeonContext.js:8989. A seam
                         wants making, as U52's and U53's did.
     HISTORY             ONE site (charSheetNav.js:61), and it reads
                         only the entity's backStory. The small one.
@@ -8711,7 +8711,7 @@ same answer: `ui/spellbookDoor.js`, with each host handing it only
 what that host knows.
 
 THE "HAND-ROLLED DUPLICATE" WAS NOT ONE. The board recorded
-worldModes.js:3449 as a second book built by hand 342 lines below the
+worldModes.js:3462 as a second book built by hand 342 lines below the
 factory. Read closely it is the SPELL MERCHANT'S SHOP - buyMode, with
 `offered`, the building's quality, the shop name, the haggling skills
 and the classic clock. A different question with different deps, and
@@ -9421,7 +9421,7 @@ and firing THAT twice is a second PopToHUD.
 
 ### Why only two of the four hosts crashed
 
-`worldModes.js:8563` and `dungeonContext.js:2122` answer the same
+`worldModes.js:8576` and `dungeonContext.js:2122` answer the same
 `onClose` by nulling their slot and never disposing - nothing to
 re-enter. Only the two hosts that come through `townTalk.closeOverlay`
 dispose. **The four-hosts rule caught this one by accident**: the two
@@ -10150,7 +10150,7 @@ to the wrong code.
   so the edge was a silent no-op and one press glued a slider to the
   pointer for the rest of the popup's life, with the runaway value then
   written by the grid's save. `ControlsWindow.release()` forwards it now,
-  the ROAD-E E1 shape `ui/itemMakerWindow.js:210` has carried since
+  the ROAD-E E1 shape `ui/itemMakerWindow.js:207` has carried since
   Wave E, and it is `HorizontalSlider.cs:148-154`'s else arm.
 - **The wheel arm was dead.** `sliderScroll` ported MouseScrollUp/Down
   (:180-190) with no caller anywhere. `MouseControlsWindow.wheel(dir)`
