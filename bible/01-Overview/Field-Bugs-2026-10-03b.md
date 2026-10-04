@@ -1,4 +1,4 @@
-# FIELD BUGS 2026-10-03b - the trees on the hills drawn, the Totem riding its cage, the Aetheric pieces the maker refuses, a ship's cabin without her hull
+# FIELD BUGS 2026-10-03b - the trees on the hills drawn, a questor seated in the town as it stands, the Totem riding its cage, the Aetheric pieces the maker refuses, a ship's cabin without her hull
 
 The Discord's bug reports of 2026-10-03, handed over as screenshots: *"Floating trees in Tamhope"* (Rissa), *"Bugged
 Quest"* (RyuDouro: "the NPC to deliver no longer exists in the same shop"; TutucoGOD: "the NPC doesn't exist on the
@@ -11,6 +11,7 @@ by tests that fail on the record's own code (14cd193b1), the new pins mutation-c
 | | Report | What it was | Done |
 |---|---|---|---|
 | 1 | "Floating trees in Tamhope" (Rissa) | six Beautiful Villages blocks stand TEXTURE.504's trees on the RMB Resource Pack's hills at the author's heights, and the port's stand-in mounds are a fraction of the pack's size - 121 of 130 trees hung more than 1.5 m over what is drawn | TREES-SEATED |
+| 2 | "me and my friend cant deliver quest because the NPC to deliver no longer exists in the same shop" (RyuDouro) / "I can't deliver a quest because the NPC doesn't exist on the location provide" (TutucoGOD) | a `group Questor` is known to the return click by four numbers its building's block mints; #545 laid the towns out again online, where a save's records pin nothing, so a quest taken before it named nobody - and the reseat moved the questor's hall to the town's apothecary (a P2 of 0 read as Alchemist) | QUESTOR-MOVED |
 | 4 | "Im about to end my mainquest but the Totem of tiber Septim isnt here" (Shortstori) | DFU parents a quest item to its marker so it rides that marker's action - the treasury cage that raises the Totem; the port stood it at the marker's start, so the cage rose empty, and online the castle room remembers the raised cage for good | TOTEM-CAGE |
 | 5 | "You can enchant Ruhn's gear, lol" | an Aetheric piece carries no DFU enchantment, so DFU's one item refusal (IsEnchanted) never met it: the maker listed the Regalia, the Broker's ware and the raid sets as plain Daedric and spent their whole budget over their powers | AETHERIC-MAKER |
 | 6 | "i got into my boats interior and then got out and i'm in the void" (Regi) | a ship's cabin is built at her own root with her fleet kept afloat outside, and the host's indoor arms stood that fleet in the room - her decks in its collider and drawn through it (the planks and holes), her ladder and her helm pressed from it, which stood the player on her deck in the building's frame: her hull alone in the black | CABIN-HULL |
@@ -52,6 +53,48 @@ either way. Whether Tamhope's own grid holds one of the six blocks needs the pla
 (`maps.getLocationByName('Glenpoint', 'Tamhope').exterior.exteriorData.blockNames`); the cause is the six blocks'
 wherever they stand (TVRNAS0x are the roadside taverns' too). The far ring's stride-4 ground is not re-read, as for
 NATURE-GROUND.
+
+## QUESTOR-MOVED (2)
+
+`systems/quest/person.js` reseatMovedQuestor; `systems/quest/machine.js` reseatMovedSites, _reseatMovedOf,
+_reseatArrived, movedQuestorName, receiveSharedQuest, updateSharedQuest; `systems/quest/place.js` reseatMovedSite,
+siteTown, townBlockGrid; `scenes/world.js` questWorld.townLayoutsKnown; `scenes/worldModes.js` npcDisplayName. Both
+reports are merchant quests: K0C00Y09 ("bring %g2 back to __qgiver_ ... wanted =enemy_ alive", The Champion
+Athenaeum, a library) and K0C00Y05 (The Lost Child, a tavern). In both, `_qgiver_` is `group Questor`: the NPC clicked
+at the offer, bound by SetupQuestorNPC, and known to the return click only by the four numbers
+QuestMachine.IsNPCDataEqual compares - the person record's position hash and name seed, the building key and the map
+id - all minted by the building's own block. #545 laid 7,727 towns out again for everyone online, and online a save's
+records pin nothing (only the service's homes do). So a quest taken before it named a questor whom no building as it
+now stands holds: `clicked npc _qgiver_` never fired, the NPC was a stranger (and could offer new work), and the quest
+could not be handed in. This was the one record AUDIT WD3 S5 left unmended. Now the load's `reseatMovedSites` seats
+such a questor again in the town as it stands: in the building the journal names (`__qgiver_`, the hall's own name),
+else the first named building holding a person of the questor's faction and look; on the person there of that faction
+and look, else of that faction, else the first. Each candidate's record comes from the questor pool's own walk
+(`talkTopics.js` questorCandidateBuildings, SetLayoutData's law), so it is exactly the record a click on them mints.
+There is no roll, so a party's two copies are mended alike. The questor keeps the journal's name, and the NPC answers
+to it (`movedQuestorName`, only where the questor's seed and the NPC's differ - a questor bound where they stand keeps
+DFU's one name). The hall moves with its questor, re-stamped, and its site link follows. The latent half:
+`Place.reseatMovedSite` chose the hall again too, by a P2 of 0 it never had - Alchemist - so a pre-update questor's
+`__qgiver_` could name the town's apothecary. A Place minted where the player stood (Scopes.None) is no longer chosen
+again by a Place's law. "Me and my friend": a share or a resync that lands with a copy from before the mods is mended
+on arrival, once the host knows its towns' layouts (`townLayoutsKnown`, the world seam's); before that, the load's
+reseat mends it, and the hall's link follows. The same mend covers a questor whose town moved for any other reason: a
+town pack that failed to load in one session and loaded in the next (or the reverse), a home pin landing late,
+Daggerfall city's arena cell. THE FOUR HOSTS: world.js (the seam) and worldModes.js (the interior's one name
+derivation, mounted by the world and exterior hosts) are wired; exterior.js's standalone seam has no online homes and
+answers "known" by its absence; dungeonContext.js stands no questor met in a building (key 0).
+`test/fb1003b_questor.test.js` builds every fixture from its producer: the Person and its hall through the setup chain
+off a clicked NPC, every click by collectInteriorPeople + staticNpcData, the building stood in by the directory walk,
+a party copy by the share envelope. `test/wd3_layoutPins.test.js` and `test/audit1003_wd.test.js` give their
+hand-built sites the scope a declared Place parses to; `test/audit24_onehome.test.js` reads the name derivation's new
+first arm. `03-World/Beautiful-Towns.md`'s exception is retired, Audit-WD3's "Not changed" bullet is struck, and
+Port-Ledger WD3 departure (8) names the questor.
+
+**Said, not fixed.** A town where neither the journal's building nor any named building holding the questor's faction
+and look stands keeps the record, and the questor stays unreachable there; standing them as a quest flat at a marker
+is the next step if that is ever met. The re-seated person is the mod's own person of the hall, who may wear another
+look than the questor did. A questor met in a house (no named hall) is never re-seated. AUDIT PRE-MERGE 1003 D17's row
+is history and says what was true then.
 
 ## TOTEM-CAGE (4)
 
@@ -153,4 +196,4 @@ before the pixels round her have streamed; streaming stays frozen indoors, so th
 
 Mutation lists: `tools/mutants/fb1003b.json` (AETHERIC-MAKER, 3, 3 dead), `tools/mutants/fb1003b_trees.json`
 (TREES-SEATED, 18, 18 dead), `tools/mutants/fb1003b_cabin.json` (CABIN-HULL, 9, 9 dead),
-`tools/mutants/fb1003b_totem.json` (TOTEM-CAGE, 14, 14 dead).
+`tools/mutants/fb1003b_totem.json` (TOTEM-CAGE, 14, 14 dead), `tools/mutants/fb1003b_questor.json` (QUESTOR-MOVED, 22, 22 dead).
