@@ -8,7 +8,7 @@
 // stays where it was - the drop the motor's own fall check refuses, EnemyMotor's FallCheck, characters/enemyMotor.js
 // _fallCheck). A departure: DFU's controllers block, the port's pools push.
 import { worldAabb } from '../player/activate.js';   // AUDIT TACT C6: an action door's box
-import { CAPSULE_HEIGHT, CAPSULE_RADIUS, STEP_OFFSET } from '../player/motor.js';   // FIELD BUGS 2026-10-04b CRATE-FREE: a freed body keeps its own floor, a step at most
+import { CAPSULE_HEIGHT, CAPSULE_RADIUS, STEP_OFFSET } from '../player/motor.js';   // FIELD BUGS 2026-10-04d CRATE-FREE: a freed body keeps its own floor, a step at most
 import { FALL_CHECK_DROP } from './enemyMotor.js';
 
 /** How fast a body is pushed out of another, metres a second. */
@@ -220,7 +220,7 @@ export function actionDoorSpots(objects, near, range = 30) {
   return out;
 }
 
-// ---- FIELD BUGS 2026-10-04b CRATE-FREE (Discord: "Vital quest enemies stuck in dungeon crates ... there are a few rooms
+// ---- FIELD BUGS 2026-10-04d CRATE-FREE (Discord: "Vital quest enemies stuck in dungeon crates ... there are a few rooms
 // where they are stuck in crates"; the screenshot a giant stood INSIDE a wooden crate, its head over the lid) - NO FOE
 // STANDS INSIDE A MODEL -------------------------------------------------------------------------------------------------
 //

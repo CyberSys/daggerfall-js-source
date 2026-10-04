@@ -76,7 +76,7 @@ function closest(points, p) {
   return best;
 }
 
-/** FIELD BUGS 2026-10-04b VOID-ENTRY: `points` nearest `p` first, in `closest`'s own measure - so the first is its pick
+/** FIELD BUGS 2026-10-04d VOID-ENTRY: `points` nearest `p` first, in `closest`'s own measure - so the first is its pick
  *  (the sort is stable, and a tie keeps the array's order as its strict `<` does). */
 function byDistance(points, p) {
   return points.map((point) => {
@@ -87,14 +87,14 @@ function byDistance(points, p) {
   }).sort((a, b) => a.d - b.d).map((e) => e.point);
 }
 
-/** FIELD BUGS 2026-10-04b VOID-ENTRY: what DaggerfallUI.AddHUDText says when TransitionInterior cannot lay a building
+/** FIELD BUGS 2026-10-04d VOID-ENTRY: what DaggerfallUI.AddHUDText says when TransitionInterior cannot lay a building
  *  out (PlayerEnterExit.cs:723-729, "use that old chestnut") - Internal_Strings `thisHouseHasNothingOfValue`
  *  (Internal_Strings_en.asset m_Id 8). The port says it for a room that stands nowhere it could be landed in, too. */
 export const NOTHING_OF_VALUE_TEXT = 'This house has nothing of value.';
-/** FIELD BUGS 2026-10-04b VOID-ENTRY: the failsafe's own line (the port's - DFU has no failsafe): a body that fell
+/** FIELD BUGS 2026-10-04d VOID-ENTRY: the failsafe's own line (the port's - DFU has no failsafe): a body that fell
  *  below everything a building stands on is stood again at the door it came in by. */
 export const INTERIOR_VOID_TEXT = 'There was no floor beneath you. You are back at the door.';
-/** FIELD BUGS 2026-10-04b VOID-ENTRY: how far under the lowest triangle a building has a body may be before it is in
+/** FIELD BUGS 2026-10-04d VOID-ENTRY: how far under the lowest triangle a building has a body may be before it is in
  *  the void - nothing can stand it there, and a room's collider has no ground of its own to catch it. */
 export const INTERIOR_VOID_DROP = 10;
 
@@ -103,7 +103,7 @@ export const INTERIOR_VOID_DROP = 10;
  * closest enter marker -> closest interior door + normal * 0.75, with
  * the marker + up * 1.08 fallback.
  *
- * FIELD BUGS 2026-10-04b VOID-ENTRY ("Entering a house sent me to the
+ * FIELD BUGS 2026-10-04d VOID-ENTRY ("Entering a house sent me to the
  * void", Warvale): `standsAt(p)` - is there a floor under p (the host
  * asks standsOnFloor over the room's collider). Beautiful Villages and
  * Beautiful Cities keep a copy of the building's own EXTERIOR model -
@@ -392,14 +392,14 @@ function footprintFloorY(collider, pos, maxDist) {
   return bestFloorY;
 }
 
-/** FIELD BUGS 2026-10-04b VOID-ENTRY: whether floorLanding STANDS a body at `pos` - its footprint meets a floor, or
+/** FIELD BUGS 2026-10-04d VOID-ENTRY: whether floorLanding STANDS a body at `pos` - its footprint meets a floor, or
  *  the collider's ground is under it - rather than handing it to gravity. A building's collider has no ground
  *  (heightAt -Infinity), so over nothing this is false, and the body would fall for good. */
 export function standsOnFloor(collider, pos, maxDist = 10) {
   return footprintFloorY(collider, pos, maxDist) > -Infinity || Number.isFinite(collider.heightAt?.(pos[0], pos[2]));
 }
 
-/** FIELD BUGS 2026-10-04b VOID-ENTRY: THE FAILSAFE's record for a room just entered - `at`, where the door stood the
+/** FIELD BUGS 2026-10-04d VOID-ENTRY: THE FAILSAFE's record for a room just entered - `at`, where the door stood the
  *  player (the floored landing), and `belowY`, INTERIOR_VOID_DROP under the lowest triangle the room's collider holds;
  *  null for a collider that holds none. The host keeps it on the context, so it lives and dies with the room. */
 export function interiorVoidRescue(collider, at) {
@@ -407,7 +407,7 @@ export function interiorVoidRescue(collider, at) {
   return box ? { at, belowY: box.min[1] - INTERIOR_VOID_DROP } : null;
 }
 
-/** FIELD BUGS 2026-10-04b VOID-ENTRY: THE FAILSAFE. A body below `rescue.belowY` is under everything the building
+/** FIELD BUGS 2026-10-04d VOID-ENTRY: THE FAILSAFE. A body below `rescue.belowY` is under everything the building
  *  stands on - nothing can catch it there, and it falls for good, in the black, every door and light out of reach
  *  ("Complete darkness and possibly stuck"): a floorless half of a room walked off (Daggerfall's own desert blocks),
  *  a save or a Recall anchor made in the void (RestorePosition lands it there raw). It stands again where the door

@@ -29,11 +29,12 @@
   {
     "name": "HOME2-the-arm-unsaid",
     "file": "src/systems/onlineHomes.js",
-    "old": "label: armed ? `Click again to buy: ${price} gold` : `Buy it: ${price} gold` },",
-    "new": "label: `Buy it: ${price} gold` },",
+    "old": "label: armed ? `Click again to buy: ${gold(price)} gold` : `Buy it: ${gold(price)} gold` },",
+    "new": "label: `Buy it: ${gold(price)} gold` },",
     "tests": [
       "test/home2.test.js"
-    ]
+    ],
+    "note": "HOME-PRICE (PIN MOVED, re-aimed by content): the line now says every sum with its thousands (gold())."
   },
   {
     "name": "HOME2-the-entry-stuck",

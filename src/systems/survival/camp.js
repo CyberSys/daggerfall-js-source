@@ -59,7 +59,7 @@ export const FIRE_MINUTES = 480;
 /** Cooking one food, and with a skillet (SURVIVAL_USE_TEXT.skillet: "twice as fast"). */
 export const COOK_MINUTES = 30;
 export const SKILLET_COOK_MINUTES = 15;
-/** One owner stands at most this many camps at once (the wire's bound too). FIELD BUGS 2026-10-04b CAMP-CAP: a placing
+/** One owner stands at most this many camps at once (the wire's bound too). FIELD BUGS 2026-10-04d CAMP-CAP: a placing
  *  at it is never refused - it strikes the owner's oldest (placeCampItem's `strike`, strikeCamp). */
 export const CAMPS_PER_OWNER = 4;
 export const CAMP_KIND = Object.freeze({ Tent: 'tent', Fire: 'fire' });
@@ -68,7 +68,7 @@ export const CAMP_TEXT = Object.freeze({
   noTentBelow: 'There is no room to pitch a tent down here. A fire will do.',
   inWater: 'You cannot make camp in the water.',
   noGround: 'There is no level ground here.',
-  // FIELD BUGS 2026-10-04b CAMP-CAP: the cap's refusal ("You have enough camps standing already.") locked a character
+  // FIELD BUGS 2026-10-04d CAMP-CAP: the cap's refusal ("You have enough camps standing already.") locked a character
   // out of camping for good with four left anywhere in the world - a placing at the cap strikes the oldest instead
   struckCamp: 'Your oldest camp is packed away.',
   struckFire: 'Your oldest Campfire is packed away.',
@@ -190,13 +190,13 @@ export function spendCampNight(camp, now, fieldCook = false) {
  * { now, owner, feet, yaw, probe, place, standing (this owner's count), id } - REST2 spends no charge on any placing
  *   (PROF9's Field Cook keeps a night's fuel instead: spendCampNight).
  * Returns { ok, text, camp, spent, strike } - `strike` (a placing that stands) how many of the owner's oldest camps
- *   go for it to stand (FIELD BUGS 2026-10-04b CAMP-CAP).
+ *   go for it to stand (FIELD BUGS 2026-10-04d CAMP-CAP).
  */
 export function placeCampItem(item, list, { now = 0, owner = null, feet = [0, 0, 0], yaw = 0, probe = null, place = {}, standing = 0, id = null } = {}) {
   const jar = isEmberJar(item);   // REST6: one night's fire, EMBER_JAR_MINUTES lit, never picked up
   const kind = isCampingEquipment(item) ? CAMP_KIND.Tent : isCampfireKit(item) || jar ? CAMP_KIND.Fire : null;
   if (!kind) return { ok: false, text: null, camp: null, spent: false };
-  // FIELD BUGS 2026-10-04b CAMP-CAP: THE CAP IS NO REFUSAL. Refused here, four camps left anywhere refused every placing
+  // FIELD BUGS 2026-10-04d CAMP-CAP: THE CAP IS NO REFUSAL. Refused here, four camps left anywhere refused every placing
   // after them for good (no camp burns away - REST2). A placing every rule below lets stand strikes the owner's oldest
   // (scenes/camps.js placeItem); one refused for any other reason strikes nothing.
   const strike = Math.max(0, (standing | 0) - CAMPS_PER_OWNER + 1);
@@ -230,7 +230,7 @@ export function packCamp(camp) {
   return { item, text: tent ? CAMP_TEXT.packed : CAMP_TEXT.pickedUp };
 }
 
-/** FIELD BUGS 2026-10-04b CAMP-CAP: STRIKE a camp where it stands - the owner's oldest, for a placing at the cap. The gear
+/** FIELD BUGS 2026-10-04d CAMP-CAP: STRIKE a camp where it stands - the owner's oldest, for a placing at the cap. The gear
  *  is packCamp's, as the menu's Pack gives it (the tent's Camping Equipment with its wear, a Campfire with its charges,
  *  a fire with no fuel of its own nothing); only the words are the strike's, one line. Returns { item, text }. */
 export function strikeCamp(camp) {

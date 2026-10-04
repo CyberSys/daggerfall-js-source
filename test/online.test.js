@@ -22,7 +22,7 @@ import {
   POSE_HZ, HEARTBEAT_MS, WORLD_CELL, PEER_TIMEOUT_MS, BACKOFF_MIN_MS, BACKOFF_MAX_MS, DEFAULT_SERVER, SNAP_WORLD_UNITS, SNAP_SCENE_UNITS,
   slug, worldRoom, roomKeyFor, poseChanged, lerpPose, peerId, peerSecret, OnlineSession,
 } from '../src/net/online.js';
-import { WORLD_CELL as WIRE_CELL, RANGE_PIXELS, PIXEL_UNITS, POSE_BOUND, CLOSE_REPLACED, CLOSE_POLICY, CLOSE_BUSY, roomOf, validPose, relayUrl } from '../src/net/wire.js';
+import { WORLD_CELL as WIRE_CELL, RANGE_PIXELS, PIXEL_UNITS, POSE_BOUND, CLOSE_REPLACED, CLOSE_POLICY, CLOSE_BUSY, roomOf, validPose, relayUrl, POSE_TS_MOD } from '../src/net/wire.js';
 import * as relay from '../server/src/relay.js';
 import { composeLook, lookKey, peerStubEntity, alphaBounds, cropRgba, LOOK_ITEM_FIELDS, LOOK_GROUPS, PEER_ARCHIVE, PEER_HEIGHT, DOLLS_MAX, DOLL_RETRY_MS, RemotePlayers } from '../src/net/remotePlayers.js';
 import { LOOK_GROUPS as WIRE_GROUPS, LOOK_ITEM_FIELDS as WIRE_FIELDS } from '../src/net/wire.js';
@@ -116,7 +116,7 @@ test('ONLINE1: the session over a fake socket, on its own clock - hello on open,
   assert.equal(s.sendPose(pose(1)), false, 'nothing goes before the socket opens');
   sockets[0].open();
   assert.equal(s.status, 'open'); assert.equal(s.statusLine(), null);
-  assert.deepEqual(sockets[0].sent[0], { t: 'hello', id: 'mac-0001', secret: 'shh-shh-shh-0001', name: 'Mac', look: { race: 'Nord', gender: 'male', faceIndex: 2, items: [] }, pose: pose(1) }, 'the hello carries the id, its secret and the latest pose');
+  assert.deepEqual(sockets[0].sent[0], { t: 'hello', id: 'mac-0001', secret: 'shh-shh-shh-0001', name: 'Mac', look: { race: 'Nord', gender: 'male', faceIndex: 2, items: [] }, pose: { ...pose(1), ts: now % POSE_TS_MOD } }, 'the hello carries the id, its secret and the latest pose - stamped with when it is said (SCALE2b)');
   assert.equal(s.sendPose(pose(2)), true); now += 20; assert.equal(s.sendPose(pose(3)), false, 'twenty ms later: throttled');
   now += 100; assert.equal(s.sendPose(pose(3)), true, 'a tenth of a second: sent'); now += 100; assert.equal(s.sendPose(pose(3)), false, 'unmoved: not sent');
   assert.equal(sockets[0].sent.filter((m) => m.t === 'pose').length, 2); assert.equal(POSE_HZ, 10);
@@ -141,12 +141,14 @@ test('ONLINE1: the session over a fake socket, on its own clock - hello on open,
   now += PEER_TIMEOUT_MS + 1; s.tick();
   assert.equal(s.peers.size, 2, 'silent past the timeout: still known'); assert.equal(s.drawable().length, 0, '...but hidden');
   sockets[0].receive({ t: 'pose', id: 'bob-0001', p: pose(22) }); assert.equal(s.drawable().length, 1, 'a pose brings the peer back');
-  // the welcome merges: a reconnect keeps where a known peer is drawn
-  s.peers.get('bob-0001').shown = pose(22.5);
+  // the welcome merges: a reconnect keeps where a known peer is drawn (NET-SMOOTH: read off his walk, part way along)
+  now += 30; s.tick();
+  const drawn = s.peers.get('bob-0001').shown.x;
+  assert.ok(drawn > 21 && drawn < 22, `part way from 21 to 22 (${drawn})`);
   sockets[0].receive({ t: 'welcome', id: 'mac-0001', peers: [{ id: 'bob-0001', name: 'Bob', look: {}, pose: pose(30) }] });
   // SLAM14 (AUDIT SLAM FINAL B2): Zed, not in the roster, is UNCONFIRMED - the roster names the nearest, not the present
   assert.equal(s.peers.size, 2, 'Zed, not in the roster, is kept'); assert.deepEqual(Object.keys(s.peers.get('zed-0001').unconfirmed), [s.room], 'stamped unconfirmed for this room');
-  assert.equal(s.peers.get('bob-0001').from.x, 22.5, 'Bob eases from where he was drawn');
+  assert.equal(s.peers.get('bob-0001').from.x, drawn, 'Bob eases from where he was drawn');
   now = s.peers.get('zed-0001').seenAt + PEER_TIMEOUT_MS + 1; s.tick();
   assert.equal(s.peers.size, 1, 'and Zed, unconfirmed and silent past the timeout, is gone');
   // the relay's frames are checked by the wire's own law

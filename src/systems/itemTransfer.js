@@ -96,6 +96,34 @@ export const REFUSAL = Object.freeze({
 });
 
 /**
+ * "Send click to quest system" (DaggerfallInventoryWindow.cs:2027-2037)
+ * - the FIRST act of RemoteItemListScroller_OnItemClick, ahead of the
+ * action-mode branch, so a quest item clicked on the REMOTE list (a
+ * pile, a body, a container) clicks its quest's Item whatever the mode,
+ * a look included. The ClickedItem trigger polls that click
+ * (`clicked item _x_` - O0A0AL00's note in the stolen robes, the
+ * letters a foe carries). The right click is the same member
+ * (RemoteItemListScroller_OnItemRightClick, :2070-2073).
+ *
+ * WHERE-ROBES (FIELD BUGS 2026-10-04c): ONE HOME, because the port has
+ * more doors onto a remote row than DFU's one list - each skin's row,
+ * the enhanced skin's menu and its pad's quick act, and quick loot,
+ * which takes a row with no window at all. Three of those took the
+ * item and never sent the click, and the trigger never fired.
+ *
+ * C# guards the quest and then NREs on a missing symbol (its second
+ * `if` re-tests the quest); the port answers nothing, as
+ * questTransferRefused below does. Answers whether an Item was clicked.
+ */
+export function sendQuestItemClick(item, getQuest = null) {
+  if (!item?.questItem) return false;
+  const questItem = getQuest?.(item.questUID)?.getItem?.(item.questSymbol) ?? null;
+  if (!questItem) return false;
+  questItem.setPlayerClicked();
+  return true;
+}
+
+/**
  * TransferItem's QUEST arm (DaggerfallInventoryWindow.cs:1480-1505) as
  * ONE export, because DFU's is one member with THREE callers - the
  * local list's Remove click, the remote list's, and every staging
@@ -137,24 +165,6 @@ export function questTransferRefused(item, { fromLocal, toWagon = false, getQues
   // permanent status back.
   if (questItem.madePermanent) makeItemPermanent(item);
   return false;
-}
-
-/**
- * FIELD BUGS 2026-10-04b LOOT-CLICK: "Send click to quest system" - the FIRST act of RemoteItemListScroller_OnItemClick
- * (DaggerfallInventoryWindow.cs:2027-2037), ahead of its action-mode branch: a quest item clicked in the REMOTE list (a
- * body, a container, the ground) has its resource's PlayerClicked set, whatever the click then does - and the
- * ClickedItem trigger (`clicked item _item_`) polls that flag. ONE door for every take off the remote side: the classic
- * window's pick, the enhanced window's click, right-click and take, and quick loot's row and lot - which put the item
- * in the pack and never told its quest, so R0C20Y07's sapphire, taken off the giant's body, never raised the friend it
- * gates. Answers whether a resource heard it. DFU dereferences the Item it found unguarded; a symbol its quest no
- * longer holds is nothing here, as the windows' own chain had it.
- */
-export function sendQuestItemClick(item, getQuest = null) {
-  if (!item?.questItem) return false;
-  const resource = getQuest?.(item.questUID)?.getItem?.(item.questSymbol) ?? null;
-  if (!resource) return false;
-  resource.setPlayerClicked();
-  return true;
 }
 
 /** key "wagonFullGold" - the drop-gold clamp's box, Internal_Strings.csv:815

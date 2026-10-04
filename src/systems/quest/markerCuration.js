@@ -1,4 +1,4 @@
-// FIELD BUGS 2026-10-04b QUEST-MARKERS: THE TOWN PACKS' QUEST MARKERS NO PLAYER CAN REACH, STOOD ON THE FLOOR.
+// FIELD BUGS 2026-10-04d QUEST-MARKERS: THE TOWN PACKS' QUEST MARKERS NO PLAYER CAN REACH, STOOD ON THE FLOOR.
 //
 // A quest's person, foe or item stands at the building marker its Place picks (Place.cs AssignQuestResource ->
 // GetSiteMarker; a person snapped to the floor within 4 m, an item never). The town-mods audit (2026-10-04) measured
@@ -13,7 +13,7 @@
 // THE PORT'S CURATION, as layoutPins.js CURATED_CLASSIC curates the TVRNAS blocks: each such marker, keyed by the pack
 // that lays it out, the block, the building's record and the marker's own position, STANDS AT ITS MEASURED FLOOR SPOT -
 // the nearest floor a person walks to from the room's entrance, with half a metre of floor round it
-// (tools/townQuestMarkers.mjs measured it off the player's own ARCH3D, and test/fb1004b_questmarkers.test.js measures it
+// (tools/townQuestMarkers.mjs measured it off the player's own ARCH3D, and test/fb1004d_questmarkers.test.js measures it
 // again). A MOVE, not a drop: the building keeps every marker DFU's quest law counts and indexes - `marker N`,
 // anymarker's two lists, the spawn-to-item fallback, every draw over the lists - and only where one stands changes.
 import { worldDataVendorCarries, blockReplacementFilename } from '../../formats/worldDataReplacement.js';

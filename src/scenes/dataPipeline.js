@@ -2,7 +2,7 @@
 // caches, lifted verbatim so any scene that hosts transitions (world,
 // exterior) can lazy-load models and archives it never preloaded -
 // interiors and dungeons reference meshes outside the host's own set.
-// Caches are per-scene. FIELD BUGS 2026-10-04b PLACE-LRU: what a place
+// Caches are per-scene. FIELD BUGS 2026-10-04d PLACE-LRU: what a place
 // asks for through its hold (`holdPlace`) is freed once no standing or
 // kept place holds it (scenes/placeHolds.js); what is asked for outside
 // any place is kept for good, as everything once was.
@@ -20,7 +20,7 @@ import { dyeToken, changeDyeBitmap } from '../characters/dyes.js';   // DW3: the
 import { ROTOR, MACHINERY, MACHINERY_MODEL_ID, MACHINERY_CHILDREN, PLANK_GEAR, ROLLER } from '../world/windmillMesh.js';   // WM2b/WM2d/WM4b: the vendored mill and its machinery, uploaded like any other model
 import { skinnedBody } from '../world/windmills.js';   // WM2e: its walls and roof follow the climate
 import { flatFaceOverride } from '../characters/staticNpc.js';   // RR2: FLATS.CFG's dictionary, as a mod rewrites it
-import { createPlaceHolds } from './placeHolds.js';   // FIELD BUGS 2026-10-04b PLACE-LRU
+import { createPlaceHolds } from './placeHolds.js';   // FIELD BUGS 2026-10-04d PLACE-LRU
 
 /** ROAD-H H4: `fetch` defaults to the one data seam every scene uses
  *  (shared.js's fetchBytes) and is a parameter for the same reason
@@ -257,7 +257,7 @@ export function createDataPipeline({ renderer, arch, palette, fetch = fetchBytes
   const gpuMeshes = new Map(); // shared across pixels and places; freed when no place holds one (PLACE-LRU, below)
   const meshPromises = new Map(); // IN-FLIGHT builds, getTexture's shape
   const cpuModels = new Map(); // id -> {positions, indices} for the collider
-  // FIELD BUGS 2026-10-04b PLACE-LRU: THE PLACES' HOLD ON THESE CACHES (scenes/placeHolds.js). `gpuMeshes`, the
+  // FIELD BUGS 2026-10-04d PLACE-LRU: THE PLACES' HOLD ON THESE CACHES (scenes/placeHolds.js). `gpuMeshes`, the
   // renderer's pictures and its tile arrays kept every model, picture and ground a session had met - a town's
   // buildings, a climate's walls, a dungeon's blocks and its foes' frames - on the GPU for good. A place now holds what
   // it asks for through its hold (`holdPlace`), a model holds the pictures its build uploaded, and what nobody holds and
@@ -474,7 +474,7 @@ export function createDataPipeline({ renderer, arch, palette, fetch = fetchBytes
     return parts;
   }
 
-  // FIELD BUGS 2026-10-04b PLACE-LRU: THE TWO KINDS OF ASKER. The doors every host was handed stay the doors it was
+  // FIELD BUGS 2026-10-04d PLACE-LRU: THE TWO KINDS OF ASKER. The doors every host was handed stay the doors it was
   // handed, and what they get is PINNED - kept for good, as everything was: the UI's pictures, the foes' frames
   // outdoors, the arrows and the wagon, a fixed city's models. A place's build asks through its HOLD instead
   // (`holdPlace`), and what it gets is held while it stands and while it is kept, and freed after.
@@ -519,6 +519,6 @@ export function createDataPipeline({ renderer, arch, palette, fetch = fetchBytes
   // handout this bag once carried was taken by no scene, which is how the Steel Light Flail drew nothing.
   return { textureFiles, getTexture, getTextureSize, uploadRecord: pinnedUpload, uploadRecordFrame: pinnedUploadFrame, getGpuMesh: pinnedGpuMesh, getWindmillMeshes, getMachineryParts, gpuMeshes, cpuModels, palette,
     markClassicArt, isClassicArt,   // AUDIT GN2-PF5
-    holdPlace, keepPlaces: (kind, n) => holds.keep(kind, n), placeStats: () => holds.stats(),   // FIELD BUGS 2026-10-04b PLACE-LRU
+    holdPlace, keepPlaces: (kind, n) => holds.keep(kind, n), placeStats: () => holds.stats(),   // FIELD BUGS 2026-10-04d PLACE-LRU
     loadFlats, flatCaption, flatFaceIndex, flatsFile: () => flats };
 }

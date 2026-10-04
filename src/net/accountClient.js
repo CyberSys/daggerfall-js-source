@@ -191,7 +191,7 @@ export const REFUSALS = Object.freeze({
   // HOME1, the online homes (server-account/src/homes.js). A player meets these at a front door, beside the price.
   'homes-need-account': 'Owning a home needs a username and a password. Give this account one and you can buy one.',
   'home-taken': 'Somebody else owns this home now.',
-  'no-deed': 'Your house\'s deed is not in your saved game yet. It will be kept for you once the game has saved.',   // FIELD BUGS 2026-10-04b KNIGHT-HOUSE: the hold reads the deed off the realm record
+  'no-deed': 'Your house\'s deed is not in your saved game yet. It will be kept for you once the game has saved.',   // FIELD BUGS 2026-10-04d KNIGHT-HOUSE: the hold reads the deed off the realm record
   'home-update': 'This game is out of date. Reload it to buy a home.',   // WD3 (AUDIT WD3 B2): a build from before the town mods
   'home-towns': 'The towns could not be loaded as the other players here see them. Reload the game to buy a home.',   // WD3 (AUDIT WD3 B1): a town mod's pack did not load
   'home-layout': 'The town records here are still being read. Try again in a moment.',   // WD3: the town is built again as the room's (scenes/world.js hearHomeLayouts)
@@ -1109,7 +1109,7 @@ export function accountHomes({ fetch, storage }) {
     arenaMove: ({ mapId, from, to, character, realm = null }) => post('/v1/homes/arena-move', { mapId, from, to, character, ...(realm ? { realm } : {}) }),
     arenaMoves: (character) => post('/v1/homes/arena-moves', { character }),
     arenaSeen: (mapId, from) => post('/v1/homes/arena-seen', { mapId, from }),
-    // FIELD BUGS 2026-10-04b KNIGHT-HOUSE: the building a deed the realm gave names (a Knightly Order's house), held off the
+    // FIELD BUGS 2026-10-04d KNIGHT-HOUSE: the building a deed the realm gave names (a Knightly Order's house), held off the
     // character's record from anyone else's claim; and that hold given up as the deed sells at the bank
     deed: ({ mapId, buildingKey, region, character, layout = null }) => post('/v1/homes/deed', { mapId, buildingKey, region, character, layout: layout || null }),
     releaseDeed: (mapId, buildingKey) => post('/v1/homes/release', { mapId, buildingKey, deed: true }),

@@ -366,13 +366,26 @@ export const TOTEM_ARCHIVE = 211;
 export const TOTEM_RECORD = 54;
 export const TOTEM_TEXT = 'The Totem of Tiber Septim';
 
+/** The item a quest ITEM stand is named by - `((Item)qrb.TargetResource)
+ *  .DaggerfallUnityItem` (.cs:509), the Item resource's own
+ *  `daggerfallUnityItem` (quest/item.js). WHERE-ROBES (FIELD BUGS
+ *  2026-10-04c): both hosts' namers read `res.daggerfallItem ?? res.item`,
+ *  fields no resource has, so every quest item in the world stood
+ *  nameless - O0A0AL00's robes a bare pile of cloth beside a wardrobe
+ *  that said "Wardrobe" - and only the Totem, named by hand, ever read.
+ *  A Person or a Foe carries none, so it answers null (and the namers
+ *  gate on them first, the mod's `is Item`). */
+export const questStandItem = (resource) => resource?.daggerfallUnityItem ?? null;
+
 /** A quest resource's word - items only; a quest PERSON or FOE stand
- *  answers nothing, exactly as the mod's `is Item` gate does.
- *  `getQuest` is QuestMachine.GetQuest, which ResolveItemLongName's
- *  quest-letter arm asks for itself (itemInfo.js questLetterName). */
+ *  answers nothing, exactly as the mod's `is Item` gate does. */
 export function questResourceName(item, { archive = -1, record = -1, getQuest = null } = {}) {
   if (archive === TOTEM_ARCHIVE && record === TOTEM_RECORD) return TOTEM_TEXT;
   if (!item) return null;
+  // AUDIT WHERE-ROBES N1: `getQuest` is the host's quest resolver. ResolveItemLongName's quest-letter arm
+  // (ItemHelper.cs:334-350) finds the letter's quest through QuestMachine.Instance and says "Letter: <signoff>"; the
+  // port's arm (itemInfo.js questLetterName) runs only with the resolver handed in, so a quest letter standing in the
+  // world read "Parchment" - a branch no one met until ROBES-NAME named the stands at all.
   // AUDIT-WH M4: `ResolveItemLongName(item, FALSE)` (.cs:509). The
   // second argument is `differentiatePlantIngredients`, which DFU
   // defaults TRUE - it is what puts "(northern)"/"(southern)" on the
@@ -383,28 +396,6 @@ export function questResourceName(item, { archive = -1, record = -1, getQuest = 
   // Rose". The port's own resolver already carries the switch; this
   // is the one caller that turns it off.
   return itemLongName(item, { differentiatePlantIngredients: false, getQuest }) || null;
-}
-
-/** FIELD BUGS 2026-10-04b QUEST-ITEM-NAMED: a quest STAND's word, the
- *  arm above over what a host's mount stood (scenes/worldModes.js
- *  standQuestFlatIn: `{ behaviour, archive, record }`) - ONE door for
- *  the interior's ladder and the dungeon's. The mod names the item the
- *  behaviour carries, `((Item)qrb.TargetResource).DaggerfallUnityItem`
- *  (.cs:489, :509), and the port's Item resource keeps it as
- *  `daggerfallUnityItem` (systems/quest/item.js). Both hosts read
- *  `daggerfallItem ?? item`, which no resource has, so every quest item a
- *  building or a dungeon stood was nameless under the crosshair while
- *  the room's wardrobes were named - the Priestess Robes a thief's letter
- *  sends for (O0A0AL00) lay unread, and a male thief took the wardrobe's
- *  Priest Robes instead. Only the Totem, named by its billboard, read. */
-export function questStandName(stand) {
-  const res = stand?.behaviour?.targetResource ?? null;
-  if (!res?.isItem) return null;   // .cs:489 - `TargetResource is Item`
-  const t = questResourceName(res.daggerfallUnityItem ?? null, {
-    archive: stand.archive ?? -1, record: stand.record ?? -1,
-    getQuest: (uid) => stand.behaviour.machine?.getQuest?.(uid) ?? null,
-  });
-  return t ? { title: t } : null;
 }
 
 // ── DOORS ───────────────────────────────────────────────────────

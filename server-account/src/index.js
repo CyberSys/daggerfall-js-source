@@ -102,7 +102,7 @@
 //   POST /v1/homes/arena-move { mapId, from, to, character, realm? } -> { ok, from, to, refund, pieces, items, tenancies, withdrawn, hidden, hall?, realm?, repeat? }
 //   POST /v1/homes/arena-moves { character }           -> { moves: [{ mapId, from, to, refund, movedAt, hall? }] }   (not yet read)
 //   POST /v1/homes/arena-seen { mapId, from }          -> { ok, seen }
-// FIELD BUGS 2026-10-04b KNIGHT-HOUSE, a deed the realm gave (a Knightly Order's house) held off the record, and its hold
+// FIELD BUGS 2026-10-04d KNIGHT-HOUSE, a deed the realm gave (a Knightly Order's house) held off the record, and its hold
 // given up as the deed sells at the bank:
 //   POST /v1/homes/deed { mapId, buildingKey, region, character, layout } -> { ok, home } | { ok, repeat }
 //   POST /v1/homes/release { mapId, buildingKey, deed: true }  -> { ok, price: 0, decorCount: 0, decorBack: 0 }
@@ -166,7 +166,7 @@ import { arenaSeasonOf } from '../../src/net/arenaLaw.js';
 import { sendLetter, inboxOf, readLetter, deleteLetter } from './letters.js';   // MAIL1: the letters' routes
 import { reportRenownXp, renownTrackOf, renownTracksOf, renownCharacterOk } from './renownTracks.js';   // RENOWN1: Renown's track - RENOWN-CHAR: a character's again
 import { claimRaid, raidRecordOf } from './raids.js';   // RAID4: the towns defended
-import { claimHome, releaseHome, setHomeEntry, homesInTown, homesOf, setHomeLook, homeLayouts, arenaMoveHome, arenaMovesOf, arenaMoveSeen, holdDeed } from './homes.js';   // HOME1: the online homes' routes; HOME-LOOK: its outside; WD3: the towns' layouts; ARENA4b: the homes the arena displaced, moved; FIELD BUGS 2026-10-04b KNIGHT-HOUSE: a deed held
+import { claimHome, releaseHome, setHomeEntry, homesInTown, homesOf, setHomeLook, homeLayouts, arenaMoveHome, arenaMovesOf, arenaMoveSeen, holdDeed } from './homes.js';   // HOME1: the online homes' routes; HOME-LOOK: its outside; WD3: the towns' layouts; ARENA4b: the homes the arena displaced, moved; FIELD BUGS 2026-10-04d KNIGHT-HOUSE: a deed held
 import { roomsOf, offerRoom, withdrawRoom, rentRoom, collectRent } from './rent.js';   // HOME-RENT: a home's rooms, rented
 import {
   foundGuild, guildOf, invitesOf, inviteToGuild, answerInvite, leaveGuild, removeFromGuild, rankGuildMember, renameGuildRanks,
@@ -1019,7 +1019,7 @@ const service = {
           return 'error' in r ? no(r.error, 400, origin) : json(r, 200, origin);
         }
         if (path === '/v1/homes/deed') {
-          // FIELD BUGS 2026-10-04b KNIGHT-HOUSE: A DEED THE REALM GAVE, HELD - the building a realm character's record holds
+          // FIELD BUGS 2026-10-04d KNIGHT-HOUSE: A DEED THE REALM GAVE, HELD - the building a realm character's record holds
           // Daggerfall's deed to (a Knightly Order's house) kept from anyone else's claim (homes.js holdDeed)
           const r = await holdDeed(hctx, who.player, body);
           if (!('error' in r)) return json(r, 200, origin);

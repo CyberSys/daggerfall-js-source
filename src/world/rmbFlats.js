@@ -38,7 +38,7 @@ import { GLOBAL_SCALE } from './meshReader.js';
 import { applyBillboardXml } from './billboardXml.js';   // MM1: the xml scale registry (a leaf)
 import { textureReplacementEnabled, hasTextureReplacement } from '../systems/textureReplacement.js';   // AUDIT MM1: DFU's two gates on the xml scale
 import { flatFieldFor, sowField } from './flatFields.js';   // WD3: a scene model that is a field of flats (the town mods' crops)
-import { PROPS_OFFSET_Y } from './rmbLayout.js';   // FIELD BUGS 2026-10-04b CROPS: a field's batch stands where its misc model does
+import { PROPS_OFFSET_Y } from './rmbLayout.js';   // FIELD BUGS 2026-10-04d CROPS: a field's batch stands where its misc model does
 
 const BLOCK_FLATS_OFFSET_Y = -6;
 const NATURE_FLATS_OFFSET_Y = -2;
@@ -167,7 +167,7 @@ export function scaledBillboardSize(size, scale) {
  * @param {number} natureArchive - climate nature archive
  *   (dfLocation.climate.natureArchive).
  * @param {{climateIndex?:?number, solid?:?Function}} [fields] - FIELD BUGS
- *   2026-10-04b CROPS: for a crop field's batch, the raw climate it reads and
+ *   2026-10-04d CROPS: for a crop field's batch, the raw climate it reads and
  *   the block's solids it keeps a metre off (world/flatFields.js
  *   blockSolids); a caller with neither sows every plant of the climate's
  *   nature archive.
@@ -205,7 +205,7 @@ export function collectBlockFlats(dfBlock, natureArchive, { climateIndex = null,
   // WD3: a scene model that is a FIELD OF FLATS (world/flatFields.js - the RMB Resource Pack's crop batches, which
   // Beautiful Cities lays over its farmland): the plants it sows, the climate's, round the spot the block places it.
   // Asked with a nature archive only - the climate picks the plant (a caller reading markers passes none).
-  // FIELD BUGS 2026-10-04b CROPS: the batch is the misc model's prefab, so it stands where RMBLayout.AddProps stands
+  // FIELD BUGS 2026-10-04d CROPS: the batch is the misc model's prefab, so it stands where RMBLayout.AddProps stands
   // the model - propsOffsetY under its record - and every plant's foot is there (CreateBillboard: the batch's own y).
   if (natureArchive >= NATURE_ARCHIVE_MIN && natureArchive <= NATURE_ARCHIVE_MAX) {
     for (const obj of rmb.misc3dObjectRecords ?? []) {

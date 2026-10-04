@@ -188,8 +188,8 @@ same item; the name is the template's).
 - **Cold, not gone.** A cold Campfire is still a record: its owner can relight it (free) or pick it up. Online a
   stale owner's records are swept with the owner (`camps.js` `sweepOwners`), as today. The cap stays
   `CAMPS_PER_OWNER` 4, and a placing at it is never refused: it packs the owner's OLDEST camp away where it stands,
-  its gear home as Pack gives it (FIELD BUGS 2026-10-04b CAMP-CAP - the refusal had locked characters out of camping
-  for good, `01-Overview/Field-Bugs-2026-10-04b.md`).
+  its gear home as Pack gives it (FIELD BUGS 2026-10-04d CAMP-CAP - the refusal had locked characters out of camping
+  for good, `01-Overview/Field-Bugs-2026-10-04d.md`).
 - **The record.** `campWire` already carries `w` (0..255) and `k` 1 (fire): charges ride `w`, so a client one build
   behind still validates the record (`validCampRecord` refuses a new `k`, not a new meaning of `w`). Pick-up mints
   541 with `currentCondition = w` (`mintCondition`'s field, `src/systems/itemTemplates.js`), the info card's "N uses

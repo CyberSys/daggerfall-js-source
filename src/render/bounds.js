@@ -196,7 +196,7 @@ export function batchSphere(b, out) {
 }
 
 /**
- * FIELD BUGS 2026-10-04b CULL-SIZE (Discord, "Disappearing Horse? It's there
+ * FIELD BUGS 2026-10-04d CULL-SIZE (Discord, "Disappearing Horse? It's there
  * but it gets culled on its right side"): THE RADIUS REACHES THE QUAD AT THE
  * SIZE IT IS DRAWN AT. createBillboardBatch adds the half-diagonal of the
  * size a batch is BORN with, and a producer that writes its size every frame

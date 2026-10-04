@@ -25,7 +25,7 @@
     "tests": [
       "test/arena4b_homes.test.js"
     ],
-    "note": "FIELD BUGS 2026-10-04b KNIGHT-HOUSE (PIN MOVED, re-aimed by content): the carried list names `deed` last now."
+    "note": "FIELD BUGS 2026-10-04d KNIGHT-HOUSE (PIN MOVED, re-aimed by content): the carried list names `deed` last now."
   },
   {
     "name": "ARENA4B-TENANCY-UNMOVED",
@@ -143,7 +143,7 @@
     "tests": [
       "test/arena4b_homes.test.js"
     ],
-    "note": "FIELD BUGS 2026-10-04b KNIGHT-HOUSE (PIN MOVED, re-aimed by content): holdDeed asks the same cell's question - aimed at the claim's, whose next line is WD3 B2's."
+    "note": "FIELD BUGS 2026-10-04d KNIGHT-HOUSE (PIN MOVED, re-aimed by content): holdDeed asks the same cell's question - aimed at the claim's, whose next line is WD3 B2's."
   },
   {
     "name": "ARENA4B-HALL-GUARD",

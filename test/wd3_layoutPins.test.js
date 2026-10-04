@@ -348,7 +348,7 @@ test('WD3 the port\'s curation (AUDIT WD3 G2): a TAVERN location laid out on Bea
   const grids = new Map([[TAV, ['TVRNAS00.RMB']], [VIL, ['TVRNAS06.RMB', 'TVRNAL01.RMB']], [ROAD, ['TVRNAL01.RMB']]]);
   const types = new Map([[TAV, 6], [VIL, 2], [ROAD, 6]]);
   configureLayoutPins({ gridOf: (k) => grids.get(k) ?? null, locationTypeOf: (k) => types.get(k) ?? null });
-  assert.deepEqual(CURATED_CLASSIC.map((c) => [c.vendor, c.locationType ?? null, [...(c.blocks ?? [])], c.locations?.length ?? 0]), [[BV, 6, ['TVRNAS00.RMB', 'TVRNAS06.RMB'], 0], [BV, null, [], 34]]);   // FIELD BUGS 2026-10-04b TEMPLE-HOME: and 34 temples by their keys (test/fb1004b_templehome.test.js)
+  assert.deepEqual(CURATED_CLASSIC.map((c) => [c.vendor, c.locationType ?? null, [...(c.blocks ?? [])], c.locations?.length ?? 0]), [[BV, 6, ['TVRNAS00.RMB', 'TVRNAS06.RMB'], 0], [BV, null, [], 34]]);   // FIELD BUGS 2026-10-04d TEMPLE-HOME: and 34 temples by their keys (test/fb1004d_templehome.test.js)
   assert.deepEqual([...(curatedOut(TAV) ?? [])], [BV]);
   assert.equal(curatedOut(VIL), null, 'a village is the author\'s');
   assert.equal(curatedOut(ROAD), null, 'a tavern on another block keeps its rebuilt tavern');

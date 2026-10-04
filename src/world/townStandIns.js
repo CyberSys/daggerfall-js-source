@@ -316,7 +316,7 @@ function platform() { const m = new MeshBuilder(); m.box([361, 1], [0, 0, 0], [4
  *  that origin: centred, its top would wall up the temples' front doors (AUDIT WD3 T1). Its top here is the temples'
  *  floor, 1.6 m up, and the rest goes into the ground. */
 function foundation() { const m = new MeshBuilder(); m.box([317, 0], [0, -2.4, 0], [16, 8, 16], 0.5); return m.build(); }
-/** FIELD BUGS 2026-10-04b DOMES: the pack's three domes as its own meshes stand them, measured off its published files
+/** FIELD BUGS 2026-10-04d DOMES: the pack's three domes as its own meshes stand them, measured off its published files
  *  (Assets/Meshes/Buildings "HF Dome 03.fbx" for 53182 and 53194, "HF Dome 04.fbx" for 53187): octagons in centimetres,
  *  at their prefabs' scale of 4.6875, which Daggerfall Unity keeps (MeshReplacement.ImportCustomGameobject multiplies a
  *  prefab's own scale in; its turn it overwrites). A drum 4.8 m across stands ON the origin, 3.63 m high; the dome
@@ -409,7 +409,7 @@ export const RMBRP_PIECES = Object.freeze({
   ...Object.fromEntries(Object.entries(RMBRP_STALLS).map(([id, cloth]) => [id, () => stall(cloth)])),
   53160: platform,
   53170: foundation,
-  // FIELD BUGS 2026-10-04b DOMES: 53182's pictures its RuntimeMaterials' three; 53187's names only its dome (38_1), its
+  // FIELD BUGS 2026-10-04d DOMES: 53182's pictures its RuntimeMaterials' three; 53187's names only its dome (38_1), its
   // drum the stand-in's own as before; 53194's names none (the pack's own pictures), its pair the stand-in's as before
   53182: () => domeModel({ low: [12, 1], high: [6, 2], spire: [6, 3] }), 53187: () => domeModel({ low: [38, 1], high: [38, 1] }),
   53194: () => domeModel({ low: [12, 1], high: [6, 3], spire: [6, 3] }),

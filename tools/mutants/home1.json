@@ -2,12 +2,12 @@
   {
     "name": "HOME1-claim-a-guest-owns",
     "file": "server-account/src/homes.js",
-    "old": "  if (accountKind(player) !== 'linked') return { error: 'homes-need-account' };\n  if (!homeMapIdOk(mapId) || !homeBuildingKeyOk(buildingKey) || !homeRegionOk(region) || !homePriceOk(price))",
-    "new": "  if (!homeMapIdOk(mapId) || !homeBuildingKeyOk(buildingKey) || !homeRegionOk(region) || !homePriceOk(price))",
+    "old": "  if (accountKind(player) !== 'linked') return { error: 'homes-need-account' };\n  if (!homeMapIdOk(mapId) || !homeBuildingKeyOk(buildingKey) || !homeRegionOk(region) || !Number.isSafeInteger(price)",
+    "new": "  if (!homeMapIdOk(mapId) || !homeBuildingKeyOk(buildingKey) || !homeRegionOk(region) || !Number.isSafeInteger(price)",
     "tests": [
       "test/home1.test.js"
     ],
-    "note": "ARENA4b (PIN MOVED, re-aimed by content): homes.js arenaMoveHome asks the same guest's question first - aimed at the claim's, whose next line reads `buildingKey`. FIELD BUGS 2026-10-04b KNIGHT-HOUSE (PIN MOVED, re-aimed by content): holdDeed asks the same guest's question - aimed at the claim's, whose next line asks the price."
+    "note": "ARENA4b (PIN MOVED, re-aimed by content): homes.js arenaMoveHome asks the same guest's question first - aimed at the claim's, whose next line reads `buildingKey`. FIELD BUGS 2026-10-04d KNIGHT-HOUSE (PIN MOVED, re-aimed by content): holdDeed asks the same guest's question - aimed at the claim's, whose next line asks the price. MERGE OF MAIN INTO FIELD BUGS 2026-10-04d (PIN MOVED, re-aimed by content): HOME-PRICE asks the claim's price by `Number.isSafeInteger` now - aimed at the claim's line, which holdDeed's (asking the layout) does not share."
   },
   {
     "name": "HOME1-claim-cap-unread",
@@ -26,7 +26,7 @@
     "tests": [
       "test/home1.test.js"
     ],
-    "note": "FIELD BUGS 2026-10-04b KNIGHT-HOUSE (PIN MOVED, re-aimed by content): the cap counts the homes bought (`deed = 0`)."
+    "note": "FIELD BUGS 2026-10-04d KNIGHT-HOUSE (PIN MOVED, re-aimed by content): the cap counts the homes bought (`deed = 0`)."
   },
   {
     "name": "HOME1-claim-two-owners",
@@ -36,7 +36,7 @@
     "tests": [
       "test/home1.test.js"
     ],
-    "note": "FIELD BUGS 2026-10-04b KNIGHT-HOUSE (PIN MOVED, re-aimed by content): the deed's hold is an INSERT OR IGNORE too - aimed at the claim's, whose column list ends at `layout`."
+    "note": "FIELD BUGS 2026-10-04d KNIGHT-HOUSE (PIN MOVED, re-aimed by content): the deed's hold is an INSERT OR IGNORE too - aimed at the claim's, whose column list ends at `layout`."
   },
   {
     "name": "HOME1-claim-repeat-refused",
@@ -64,7 +64,7 @@
     "tests": [
       "test/home1.test.js"
     ],
-    "note": "FIELD BUGS 2026-10-04b KNIGHT-HOUSE (PIN MOVED, re-aimed by content): holdDeed counts the same hour - aimed at the claim's, whose next line is realmClaim."
+    "note": "FIELD BUGS 2026-10-04d KNIGHT-HOUSE (PIN MOVED, re-aimed by content): holdDeed counts the same hour - aimed at the claim's, whose next line is realmClaim."
   },
   {
     "name": "HOME1-release-anyones",
@@ -141,11 +141,12 @@
   {
     "name": "HOME1-price-bound-off-by-one",
     "file": "src/net/homeLaw.js",
-    "old": "v > 0 && v <= HOME_PRICE_MAX;",
-    "new": "v > 0 && v < HOME_PRICE_MAX;",
+    "old": "v >= HOME_PRICE_MIN && v <= HOME_PRICE_MAX && v % HOME_PRICE_STEP === 0;",
+    "new": "v >= HOME_PRICE_MIN && v < HOME_PRICE_MAX && v % HOME_PRICE_STEP === 0;",
     "tests": [
       "test/home1.test.js"
-    ]
+    ],
+    "note": "HOME-PRICE (PIN MOVED, re-aimed by content): the price is a range now, floor and top. AUDIT HOME-PRICE (PIN MOVED, re-aimed by content): the price is whole hundreds too (L2)."
   },
   {
     "name": "HOME1-route-wall-gone",
@@ -282,7 +283,7 @@
     "tests": [
       "test/home1.test.js"
     ],
-    "note": "FIELD BUGS 2026-10-04b KNIGHT-HOUSE (PIN MOVED, re-aimed by content): homeAt names `own` before the deed's question."
+    "note": "FIELD BUGS 2026-10-04d KNIGHT-HOUSE (PIN MOVED, re-aimed by content): homeAt names `own` before the deed's question."
   },
   {
     "name": "HOME1-the-claims-character",

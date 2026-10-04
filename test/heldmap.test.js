@@ -397,8 +397,8 @@ test('U61: the world host builds through the door, once, and gates on it', () =>
     'ONE construction seam, as G5 demanded');
   assert.doesNotMatch(src, /new TravelMapWindow\(/, 'no host constructs past the door');
   assert.doesNotMatch(src, /travelMapArtLoaded/, 'hosts ask the DOOR, never the raw art');
-  assert.equal([...src.matchAll(/if \(!travelMapDoorReady\(\)\)/g)].length, 2,
-    'BOTH openers gate on the door predicate');
+  assert.equal([...src.matchAll(/if \(!travelMapDoorReady\(\)\)/g)].length, 3,
+    'EVERY opener gates on the door predicate');   // AUDIT IT1 W6 (PIN MOVED): the driver's map's, which now says why
   const bag = src.slice(src.indexOf('createTravelMapWindow({'));
   assert.match(bag, /\bwoods,/, 'the ink rides the one dep bag');
   assert.match(bag, /getPlayerPixel: playerTravelOrigin/, '...and so does the player pixel');
@@ -1818,7 +1818,7 @@ test('TV1: the sheet\'s Overworld door - shown only where the host can lift the 
   // the world host hands both reads, and the commit is the one home every hook fires from
   const w = read('src/scenes/world.js');
   assert.match(w, /onTravelView: \(\) => \{ travelView\?\.enter\(\); \},/);
-  assert.match(w, /travelViewAllowed: \(\) => !!travelView && travelViewAllowed\(\)\.ok,/);
+  assert.match(w, /travelViewAllowed: \(\) => !extra\.immersive && !!travelView && travelViewAllowed\(\)\.ok,/);   // IT1 (PIN MOVED): a driver's map has no Overworld door
   assert.match(read('src/ui/heldMap.js'), /else if \(c\?\.kind === 'travelView'\) this\.deps\.onTravelView\?\.\(\);/);
 });
 

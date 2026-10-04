@@ -2418,7 +2418,7 @@ ENUMERATED** applied to the one place a grant is usually a row:
 
 | | held when |
 |---|---|
-| **Founder** | registered, and first played by `FOUNDER_UNTIL`: `min(created_at, registered_at) <= FOUNDER_UNTIL` since FOUNDER3 (it read `registered_at` alone before; 1790294400 — 2026-09-25T00:00:00Z since FOUNDER2; it was 1790121600, 2026-09-23T00:00:00Z) |
+| **Founder** | registered, and first played by `FOUNDER_UNTIL`: `min(created_at, registered_at, first_played_at) <= FOUNDER_UNTIL` - `first_played_at` since FOUNDER4 (the first contact of a row the account shares a character with, migration 0078), the two before it since FOUNDER3 (it read `registered_at` alone before; 1790294400 — 2026-09-25T00:00:00Z since FOUNDER2; it was 1790121600, 2026-09-23T00:00:00Z) |
 | **Developer** | the handle is in `env.DEVELOPER_HANDLES` |
 | **sprout** | `nowS - created_at < SPROUT_S` (two weeks) |
 | **dev** | the same list as the Developer title |
@@ -3821,7 +3821,8 @@ it".
   - Still registered accounts only. A guest from before the cutoff holds it the moment it registers.
   - The guard on `registered_at` stays first, because D1 gives a guest a NULL `registered_at`, which `Math.min` reads as 0.
 - **Not reached.** A player who played as a guest in one browser and registered in another has two rows and nothing
-  linking them. The account's row was first seen when it registered.
+  linking them. The account's row was first seen when it registered. FOUNDER4 (2026-10-04) reaches it where the two
+  rows share a character; two rows that share none are still not linked.
 - The account service is `acct15`, and the rule takes effect on that deploy.
 - Pins: `test/founder3.test.js` (4), including the service end to end (a guest first seen before the cutoff, registered
   through the Worker after it, wears Founder on its signed token). ACC3's, TITLE-N's and SHADOW-FANG's non-founder
@@ -4462,16 +4463,120 @@ broken arcs of violet runic script: beads on the line, curled ends, combs and a 
   credit) and the account's to acct73. Seven older records re-aimed by content (`herald.json`, `penitent.json`,
   `shadowfang.json`, `ribbon.json`, `wb9g.json` 3) and the version records in `soc1.json` and `gatekeys.json`.
 
-## KNIGHT-HOUSE — a deed the realm gave, held off its character's record (2026-10-04, acct75)
+## PRIMARCH — GA00250's own: the Primarch, its glyph and the Golden Radiance (2026-10-04, world162, acct76)
 
-FIELD BUGS 2026-10-04b (`01-Overview/Field-Bugs-2026-10-04b.md`; the law is `06-Systems/Online-Arc.md` KNIGHT-HOUSE).
+The owner: "The details here are for a custom title, glyph, and aura for ga00250", over GA00250's own words: "the title
+will be Primarch, the color will be that light gold color that you guys use in some places in the game menu" - with a
+screenshot of their name in the pause menu's pixel face ("that color") and a swatch - and "can the aura be a golden
+light around the character? like i've seen some rare mobs with it" (the elite foes' glow, `systems/hitFlash.js`
+ELITE_GLOW_GLSL: the sprite warmed toward gold, an edge of light round the silhouette, embers rising off it). No glyph
+was described at first; after the first push GA00250 sent a picture of a three-barred cross: "i'd like to that be the
+glyph design if possible. with the same color of the name".
+
+- **The grant** (`server-account/wrangler.toml`, `server-account/src/titles.js`): `PRIMARCH_HANDLES = "GA00250"`,
+  TITLE-N's handle-list law (`TIER_LISTS.primarch`, `TIER_GLYPH.primarch`) and AEGIS's: the second list that grants an
+  aura (`TIER_AURA.primarch = 'radiance'`), derived from the config at every ask as the Oblivion Ward is - held while the
+  handle is listed, gone from the next token once it is not, case-folded, never a guest's. Nothing else had to move:
+  AEGIS already made `aurasHeld`, `auraWorn` and `auraRefusal` read the config at every caller. No staff command rides it.
+- **The vocabulary** (`src/net/identityToken.js`, in the relay bundle): `primarch` joins TITLES and GLYPHS last, and
+  `radiance` joins AURAS after `oblivionward`. A relay before it refuses a token carrying any of the three
+  (`claimsValid`), so the relay is **world162** and the account service **acct76** (acct75 here until HOME-PRICE took it); the account deploy waits for the
+  relay's `/health` to serve world162. No frame changes shape.
+- **The title** (`src/ui/playerBadge.js`): "Primarch" in ONE colour, as asked - #d8cfae, the pixel menu's text
+  (`ui/enhancedStyle.js .px-mname`, the very rule the screenshot's name is drawn by; the screenshot's letters sample at
+  #d4ccb0 through its JPEG, the swatch at #e5e09e). A pin holds the title to that rule, so the two cannot drift. A
+  one-colour title wears every face's black text shadow (no gradient, no `TITLE_EDGE`); it read on all five grounds - a
+  night sky, a day sky, stone, grass and snow - in Chromium at 13 to 64 px. It is paler and greyer than the Founder's
+  and the Crowned's golds and warmer than the Champion's silver. (The name under it is drawn in `--bone`, #e9e4d9: the
+  two are near, which is the colour GA00250 chose.)
+- **The glyph** (GA00250's reference, drawn after it): THE THREE-BARRED CROSS - the shaft the full height up the
+  middle, a short bar near its head, the long crossbar under it (the glyph's widest), and low down a footrest as wide as
+  the head bar, slanting down to the right as the reference's does. Its widths and heights are the reference's, measured
+  off it; the shaft and bars are a little thicker (1.6 units against its 1.35) so the footrest's slant still reads at a
+  name's 13 px - chosen in Chromium over the reference's own thickness and a wider-barred one on the five grounds at 13
+  to 64 px. Filled, in "the same color of the name": the Primarch's gold, #d8cfae, the colour GA00250's name wears in
+  the menu they pointed at (the title's, as every grant's glyph is). Every bar is wound the shaft's way round, so the
+  fill is whole where they cross it. `t` on the classic face (a cross with its foot turned); "Primarch" on the account
+  card. (The first push drew the port's own glyph, a sword raised between two feathered wings; GA00250's cross replaced
+  it before merge, and world162's undeployed row was re-hashed in place for its word's comment.)
+- **The Golden Radiance** (`src/render/auraRing.js`, the aura pass WB9g built): the third look of the same program
+  (`uAura` 2, AURA_LOOK - its column's radius 0.6 m and height 2.2 m, no symbols). Light ABOUT THE BODY rather than a
+  mark at the feet. THE WALL: a column the body's width standing past the crown (the walking body is 1.8 m), lit as a
+  glowing shell is - faint where the eye looks through it across the body, brightest at its two edges where the eye
+  looks along it (the horizontal facing of its surface to the eye) - so it reads as a halo up the silhouette, never a
+  gold wash over the wearer; shafts of noise climbing it, whole to the chest and gone at its top, breathing; eighteen
+  golden motes rising its height at their own places and paces (the elite's embers). Seen from inside it - the wearer's
+  own first person - the column is not drawn (the fragment half reads the feet, `uAt`, beside the eye) and its motes are
+  dimmer: the wearer's own view is never veiled in gold. THE GROUND: a pool of the light, brightest at the feet and gone
+  before the quad's edge; a white-gold ring at the column's foot; twelve rays across the pool, turning a turn in 30 s.
+  It kindles up: the ground lights as the others' do and the column rises from the feet to past the crown. Its glow is a
+  gold a step paler than the elite's (#ffbd47) and its heart the title's own #d8cfae. Every rate is a whole number of
+  cycles over the clock (`radianceRatesWhole`), every pattern round a whole number, so no seam and no jump at the wrap.
+  THE FOUR HOSTS, untouched: the pass's hosts are AEGIS's (`scenes/world.js`, `scenes/worldModes.js`,
+  `scenes/dungeonContext.js`; `scenes/exterior.js` draws no aura - FLAGGED, unchanged).
+- **Seen**: the title and glyph in Chromium over the five grounds at 13 to 64 px; the radiance in a real WebGL2 round a
+  stand-in body from a third-person camera, from low, from above, from far, close, at half kindled, and from the
+  wearer's own eye looking level and looking down. `tools/auraProbe.mjs` now draws all three auras: 33/33 (the ring
+  whole and golden, the pool, no seam, no jump at the wrap, the column bright at its edges and faint across, dark beside
+  it and over the crown, nothing unkindled, risen to the waist at half kindled, no veil from inside).
+- Pins: `test/primarch.test.js` (11). `tools/mutants/primarch.json` (34, all dead). The vocabulary's exact lists in
+  `acc3titles.test.js` and `titlen.test.js` moved, and `aegis.test.js`'s newest-word and one-list pins (PIN MOVED); the
+  relay's pins moved to world162 crediting PRIMARCH (`auditbounty1.test.js` holds the credit), the account's to acct76.
+  Seven older records re-aimed by content, all dead (`aegis.json` 4, `herald.json`, `penitent.json`,
+  `shadowfang.json`), and the version records in `soc1.json` and `gatekeys.json`.
+
+## FOUNDER4 — Founder through a shared character (2026-10-04, acct76, migration 0078)
+
+Mac: "Before we merge this. We need to find a way to grant the founder title to everyone before the previous cut off
+date. Since people are still missing their founders title". Asked which ways (carry over a held guest session at
+sign-in; link shared characters; grant by name; move the cutoff later), Mac chose one: "Link shared characters".
+
+- **The cause.** FOUNDER3 reads Founder off when an account first played, its row's `created_at`, and said what it
+  could not reach: a player who played as a guest in one place and registered in another has two rows and nothing
+  linking them. The desktop app made that common. It is its own origin (`dagger://game`, `app/main.cjs`), so its
+  storage is not the browser's: a browser guest from before the cutoff who installed it and registered there has an
+  account first seen after the cutoff, and their play before it on a guest row nothing names. Signing in does not help
+  after the fact either - a device that signs in keeps only the new session (`ui/accountFlow.js doLogin`), and the
+  guest's secret is gone.
+- **The link** (`server-account/migrations/0078_founder_links.sql`): a CHARACTER both rows hold. A character's id is
+  minted on the player's own machine (`systems/characterId.js`, a UUID or a stamp and a random tail) and never told to
+  another player - the relay keys what it shares by a hash of the account and the id (`net/wire.js parkKeyOf`) - so a
+  character on two rows is one player's save on both. A row holds a character when the service recorded it there: a
+  cloud save of it (`saves.character_id`), its Renown track (`renown_tracks.char_id`), the realm's census of it
+  (`realm_census.char_id`), a realm character brought in from it (`realm_characters.origin_id`) or a customs pass spent
+  on it (`realm_passes.origin_id`). A realm character's own id is minted by the service for one account and links
+  nothing.
+- **The fact** (`players.first_played_at`): the earliest first play (FOUNDER3's: `created_at`, or `registered_at` where
+  earlier) of a row the account shares a character with, written only where it is EARLIER than the account's own, NULL
+  everywhere else. One hop - the row that holds the character, never a row linked through a row in between. Guests are
+  filled too, so a desktop guest linked to a browser guest from before the cutoff holds Founder the moment it registers.
+  It is a fact about when the player played, as `created_at` is, and grants nothing: `titles.js firstPlayed` reads it
+  beside the two it read, and Founder is still that against FOUNDER_UNTIL at every ask. The instant does not move and
+  nobody who holds Founder loses it. The players-column pin (`accountworker.test.js`) carries it.
+- **Once, at the deploy.** The migration gathers the holdings into a table of its own, indexed both ways, fills the
+  column in one statement and drops the table (0035's precedent). A character carried onto a new account after the
+  deploy is not linked by it; the statement can be run again by hand against the live database to count late arrivals.
+- **Not reached.** Two rows that share no character: a player who played before the cutoff and has not brought a single
+  character's save, track or realm character onto the new account, or whose old storage is gone with the characters in
+  it. Moving the cutoff, a by-name list and a sign-in carry-over were offered and not chosen.
+- The account service is still `acct76` - PRIMARCH's, undeployed, one deploy for both - and the rule takes effect when
+  that deploy applies 0078. No relay change: Founder is already in the token's vocabulary.
+- Pins: `test/founder4.test.js` (5) - the law; the migration run over a seeded database (each of the five records, the
+  earliest of several linked rows, nothing without a shared character or without an earlier one, one hop, guests
+  filled); its shape (the five sources, no table left behind); and the real Worker before and after 0078 (Founder in
+  the wardrobe and on the signed token). `tools/mutants/founder4.json` (12, all dead); three of `founder3.json`'s
+  re-aimed by content at the new `firstPlayed` (6, all dead). The acct76 pins credit FOUNDER4 beside PRIMARCH.
+
+## KNIGHT-HOUSE — a deed the realm gave, held off its character's record (2026-10-04, acct77)
+
+FIELD BUGS 2026-10-04d (`01-Overview/Field-Bugs-2026-10-04d.md`; the law is `06-Systems/Online-Arc.md` KNIGHT-HOUSE).
 A Knightly Order's house was Daggerfall's deed in the save and nothing on this service, so every other player's claim
-on it landed and the knight's own claim paid for it again. Migration `0078_home_deed.sql` adds `homes.deed`;
+on it landed and the knight's own claim paid for it again. Migration `0079_home_deed.sql` adds `homes.deed`;
 `POST /v1/homes/deed` (`server-account/src/homes.js` holdDeed) reads the character's realm record and refuses `no-deed` unless the
 record holds that deed (`src/net/homeLaw.js` homeDeedOf, which the client's door reads too) in the layout the hold names;
 otherwise it writes the building's row marked `deed` (price and paid 0) in the town's one layout, counted against the
 hour's claims. Every other claim on it answers 409 `home-taken`; the owner's is a repeat that pays nothing; the town's
 answer leaves the row out for its own character and marks it `deed` for everyone else; the cap of three counts the
 homes bought (`deed = 0`); `/v1/homes/release` with `deed: true` removes only the caller's own deed row, and a deed's row
-is never sold as a home. `HOME_MOVE_CARRIED` carries `deed`. `ACCOUNT_VERSION` acct75 in both the Worker and
-`wrangler.toml`; twelve version pins moved. Deploy order: the service (0078, then acct75), then the client.
+is never sold as a home. `HOME_MOVE_CARRIED` carries `deed`. `ACCOUNT_VERSION` acct77 in both the Worker and
+`wrangler.toml`; twelve version pins moved. Deploy order: the service (0079, then acct77), then the client.

@@ -12,7 +12,14 @@
 // veil standing up off the ring, nothing before it kindles, and half of it drawn round at half kindled; and its floating
 // symbols aloft over the ring, to the chest, where the fire has nothing.
 //
-//     node tools/auraProbe.mjs [--shots <dir>]     (writes aura.png / aura_side.png / ward.png / ward_side.png there)
+// PRIMARCH (2026-10-04): and THE GOLDEN RADIANCE, the third - its ring whole and golden round the feet, its pool bright
+// at the feet and gone past its reach, its column standing to past the crown and brightest at its two edges (light ROUND
+// the body, never a wash over it), dark over the crown, no seam where the ring closes, no jump at the wrap, nothing
+// before it kindles and the column risen to the waist at half kindled - and from inside it (the wearer's own first
+// person) no gold veil over the view.
+//
+//     node tools/auraProbe.mjs [--shots <dir>]     (writes aura.png / aura_side.png / ward.png / ward_side.png /
+//                                                   radiance.png / radiance_side.png there)
 import { chromium } from 'playwright';
 import http from 'node:http';
 import { readFileSync, existsSync } from 'node:fs';
@@ -24,7 +31,7 @@ const shotsAt = process.argv.includes('--shots') ? process.argv[process.argv.ind
 const out = []; const check = (n, ok, d = '') => { out.push(ok); console.log(`${ok ? 'ok  ' : 'FAIL'} ${n}${d ? ` - ${d}` : ''}`); };
 
 const PAGE = `<!doctype html><html><body style="margin:0;background:#000"><canvas id=c width=640 height=480></canvas><script type=module>
-import { AuraRingRenderer, AURA_RING_R, AURA_CLOCK_PERIOD, WARD_RING_R, WARD_RUNE_R } from '/src/render/auraRing.js';
+import { AuraRingRenderer, AURA_RING_R, AURA_CLOCK_PERIOD, WARD_RING_R, WARD_RUNE_R, RADIANCE_R, RADIANCE_H, RADIANCE_POOL_R } from '/src/render/auraRing.js';
 const gl = document.getElementById('c').getContext('webgl2', { alpha: false, preserveDrawingBuffer: true });
 const vs = \`#version 300 es
 layout(location=0) in vec2 p; uniform mat4 vp; void main(){ gl_Position = vp * vec4(p.x, 0.0, p.y, 1.0); }\`;
@@ -41,10 +48,10 @@ try { pass = new AuraRingRenderer(gl); } catch (e) { err = String(e.message ?? e
 const persp = (f, a, n, fa) => { const t = 1 / Math.tan(f / 2); return new Float32Array([t / a, 0, 0, 0, 0, t, 0, 0, 0, 0, (fa + n) / (n - fa), -1, 0, 0, 2 * fa * n / (n - fa), 0]); };
 const look = (e, c) => { const u = [0, 1, 0]; const z = [e[0] - c[0], e[1] - c[1], e[2] - c[2]]; let l = Math.hypot(...z); z.forEach((v, i) => { z[i] = v / l; }); const x = [u[1] * z[2] - u[2] * z[1], u[2] * z[0] - u[0] * z[2], u[0] * z[1] - u[1] * z[0]]; l = Math.hypot(...x); x.forEach((v, i) => { x[i] = v / l; }); const y = [z[1] * x[2] - z[2] * x[1], z[2] * x[0] - z[0] * x[2], z[0] * x[1] - z[1] * x[0]]; return new Float32Array([x[0], y[0], z[0], 0, x[1], y[1], z[1], 0, x[2], y[2], z[2], 0, -(x[0] * e[0] + x[1] * e[1] + x[2] * e[2]), -(y[0] * e[0] + y[1] * e[1] + y[2] * e[2]), -(z[0] * e[0] + z[1] * e[1] + z[2] * e[2]), 1]); };
 const mul = (a, b) => { const o = new Float32Array(16); for (let c = 0; c < 4; c++) for (let r = 0; r < 4; r++) for (let k = 0; k < 4; k++) o[c * 4 + r] += a[k * 4 + r] * b[c * 4 + k]; return o; };
-window.probe = { err, linked: pass ? gl.getProgramParameter(pass.program, gl.LINK_STATUS) : false, ringR: AURA_RING_R, period: AURA_CLOCK_PERIOD, wardR: WARD_RING_R, runeR: WARD_RUNE_R };
+window.probe = { err, linked: pass ? gl.getProgramParameter(pass.program, gl.LINK_STATUS) : false, ringR: AURA_RING_R, period: AURA_CLOCK_PERIOD, wardR: WARD_RING_R, runeR: WARD_RUNE_R, radR: RADIANCE_R, radH: RADIANCE_H, poolR: RADIANCE_POOL_R };
 /** Draw the floor and the aura at the origin from \`eye\` at \`t\` seconds, kindled \`kindle\`; read back \`pts\` (world). */
-window.draw = (eye, t, kindle, pts, aura) => {
-  const proj = persp(0.9, 640 / 480, 0.05, 100), view = look(eye, [0, 0.2, 0]), vp = mul(proj, view);
+window.draw = (eye, t, kindle, pts, aura, at = [0, 0.2, 0]) => {   // PRIMARCH: \`at\` - where the eye looks (the first person looks level)
+  const proj = persp(0.9, 640 / 480, 0.05, 100), view = look(eye, at), vp = mul(proj, view);
   gl.enable(gl.DEPTH_TEST); gl.clearColor(0, 0, 0, 1); gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
   gl.useProgram(pr); gl.uniformMatrix4fv(gl.getUniformLocation(pr, 'vp'), false, vp); gl.bindVertexArray(vao); gl.drawArrays(gl.TRIANGLES, 0, 6); gl.bindVertexArray(null);
   pass.draw([{ at: [0, 0, 0], seed: 0.37, kindle, aura }], proj, view, new Float32Array(eye), t, null);
@@ -150,6 +157,45 @@ try {
   if (shotsAt) { await page.evaluate(([e]) => window.draw(e, 5.3, 1, [], 'oblivionward'), [[0, 0.9, 3.4]]); await page.locator('#c').screenshot({ path: join(shotsAt, 'ward_symbols.png') }); }
   check('symbols float over the ward, to the chest', wardAir.every((n) => n >= 3), `lit points of ${air.length} at four moments: ${wardAir.join(' ')}`);
   check('and none over the fire', fireAir.every((n) => n === 0), fireAir.join(' '));
+  // ── PRIMARCH: THE GOLDEN RADIANCE ──
+  const RR = p.radR, radAt = (eye, t, k, pts, at) => page.evaluate(([e, tt, kk, ps, a]) => window.draw(e, tt, kk, ps, 'radiance', a ?? undefined), [eye, t, k, pts, at ?? null]);
+  const rring = Array.from({ length: 24 }, (_, i) => { const a = (i / 24) * Math.PI * 2; return [Math.cos(a) * RR, 0.05, Math.sin(a) * RR]; });
+  const rtop = await radAt(above, 3.5, 1, [...rring, [0.2, 0.05, 0.1], [p.poolR + 0.1, 0.05, 0], [0, 0.05, -(p.poolR + 0.1)]]);
+  if (shotsAt) await page.locator('#c').screenshot({ path: join(shotsAt, 'radiance.png') });
+  check('the radiance draws without a GL error', rtop.error === 0 && rtop.drawn === 1, `error ${rtop.error}, drawn ${rtop.drawn}`);
+  const rLum = rtop.px.slice(0, 24).map(lum);
+  check('its ring is whole round the feet', rLum.every((v) => v > 300), rLum.join(' '));
+  const golds = rtop.px.slice(0, 24).filter((c) => c[0] >= c[1] && c[1] > c[2] && c[0] > c[2] * 1.15).length;
+  check('in gold - red, then green, over blue', golds >= 22, `${golds}/24: ${JSON.stringify(rtop.px.slice(0, 3))}`);
+  check('its pool lit at the feet, dark past its reach', lum(rtop.px[24]) > 90 && lum(rtop.px[25]) < 60 && lum(rtop.px[26]) < 60, JSON.stringify(rtop.px.slice(24)));
+  let rSeam = 0, rNear = 0;
+  for (const t of [2.5, 7.25, 31.75]) for (const r of [RR, RR + 0.3]) {
+    const got = await radAt(over, t, 1, [[-r, 0.05, -0.012], [-r, 0.05, 0.012], [Math.cos(2.2) * r, 0.05, Math.sin(2.2) * r], [Math.cos(2.2 + 0.025) * r, 0.05, Math.sin(2.2 + 0.025) * r]]);
+    rSeam += Math.abs(lum(got.px[0]) - lum(got.px[1])); rNear += Math.abs(lum(got.px[2]) - lum(got.px[3]));
+  }
+  check('no seam behind the wearer where the radiance closes', rSeam <= Math.max(90, rNear * 2), `across the seam ${rSeam}, beside it ${rNear}`);
+  const rBefore = await radAt(above, p.period - 1 / 240, 1, rring.slice(0, 12)), rAfter = await radAt(above, 1 / 240, 1, rring.slice(0, 12));
+  const rJump = rBefore.px.map((c, i) => Math.abs(lum(c) - lum(rAfter.px[i])));
+  check('no jump where the clock wraps', Math.max(...rJump) <= 45, rJump.join(' '));
+  // from the side at the chest: the column's two edges bright, its middle (where it crosses the body) faint, the air
+  // beside it and over the crown dark - at four moments, so a mote passing is not mistaken for the column
+  const sideEye = [0, 1.2, 4], sidePts = [[-RR, 1.0, 0], [RR, 1.0, 0], [0, 1.0, RR], [-(RR + 0.45), 1.0, 0], [RR + 0.45, 1.0, 0], [0, p.radH + 0.35, 0]];
+  let edge = 0, middle = 0, beside = 0, crown = 0;
+  for (const t of [2.0, 5.3, 9.1, 47.7]) {
+    const got = await radAt(sideEye, t, 1, sidePts, [0, 1.1, 0]);
+    edge += Math.min(lum(got.px[0]), lum(got.px[1])); middle += lum(got.px[2]); beside += Math.max(lum(got.px[3]), lum(got.px[4])); crown += lum(got.px[5]);
+  }
+  if (shotsAt) { await radAt(sideEye, 5.3, 1, [], [0, 1.1, 0]); await page.locator('#c').screenshot({ path: join(shotsAt, 'radiance_side.png') }); }
+  check('the column stands about the body - bright at its edges, faint across it', edge > 4 * 120 && edge > 2 * middle, `edges ${edge}, across ${middle} (summed over four moments)`);
+  check('dark beside the column and over the crown', beside < 4 * 60 && crown < 4 * 60, `beside ${beside}, over the crown ${crown}`);
+  const rcold = await radAt(above, 3.5, 0, rring.slice(0, 6));
+  check('unkindled, nothing is drawn', rcold.px.every((c) => lum(c) < 70), JSON.stringify(rcold.px));
+  const rHalf = await radAt(sideEye, 9.1, 0.5, [[-RR, 0.3, 0], [RR, 0.3, 0], [-RR, 1.9, 0], [RR, 1.9, 0]], [0, 1.1, 0]);
+  check('half kindled, the column risen to the waist and no higher', Math.min(lum(rHalf.px[0]), lum(rHalf.px[1])) > 90 && Math.max(lum(rHalf.px[2]), lum(rHalf.px[3])) < 60, JSON.stringify(rHalf.px));
+  // the wearer's own first person: the eye inside the column, looking level - the view not veiled in gold
+  const veil = [];
+  for (const t of [2.0, 5.3, 9.1, 47.7]) veil.push((await radAt([0, 1.65, 0], t, 1, [[0, 1.6, -3], [1.5, 1.4, -3], [-1.5, 1.4, -3], [0, 2.2, -3]], [0, 1.6, -3])).px.map(lum).reduce((a, b) => a + b, 0));
+  check('from inside it, no gold veil over the view', veil.every((v) => v < 4 * 60), veil.join(' '));
   check('no page error', errs.length === 0, errs.join('; '));
 } finally {
   await browser.close();

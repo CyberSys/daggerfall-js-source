@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// FIELD BUGS 2026-10-04b QUEST-MARKERS: THE TOWN PACKS' QUEST MARKERS, MEASURED - the list the port's curation carries
+// FIELD BUGS 2026-10-04d QUEST-MARKERS: THE TOWN PACKS' QUEST MARKERS, MEASURED - the list the port's curation carries
 // (src/systems/quest/markerCuration.js CURATED_QUEST_MARKERS), made from the player's own data, as tools/rmbrpHills.mjs
 // measured the RMB Resource Pack's hills.
 //

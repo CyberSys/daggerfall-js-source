@@ -1,4 +1,4 @@
-// FIELD BUGS 2026-10-04b PLACE-LRU (the Discord: "After long plays there are consistent GPU memory leaks that do not
+// FIELD BUGS 2026-10-04d PLACE-LRU (the Discord: "After long plays there are consistent GPU memory leaks that do not
 // lower down even after closing the tab ... Related to play length ... Idling does not increase mem usage"; a player's
 // follow-up: "world instances are cached. visiting new cities generates a mesh for them but does never dispose of them
 // after leaving that place ... needs to have a limit of chunks being stored with minimum set for chunks visible by

@@ -29,7 +29,9 @@ import { generateBuildingName } from '../../world/buildingNames.js';
 import { surname, firstName, getNameBankOfRegion, GENDERS } from '../../characters/nameHelper.js';
 import { RDB_RESOURCE_TYPES } from '../../formats/blocksFile.js';
 import { stampLayout, layoutStampOfMapId, recordStands } from '../layoutPins.js';   // WD3: a building site keeps its town's layout
-import { curatedMarkerSpot, curateSiteMarkers } from './markerCuration.js';   // FIELD BUGS 2026-10-04b QUEST-MARKERS: the town packs' unreachable markers, on the floor
+import { curatedMarkerSpot, curateSiteMarkers } from './markerCuration.js';   // FIELD BUGS 2026-10-04d QUEST-MARKERS: the town packs' unreachable markers, on the floor
+import { questReachOn, questReachPixels, nearbyIndices, indicesWithin } from './questReach.js';   // NEARBY-QUESTS
+import { longitudeLatitudeToMapPixel } from '../../formats/mapsFile.js';
 
 export const Scopes = Object.freeze({ None: 'none', Local: 'local', Remote: 'remote', Fixed: 'fixed' });
 
@@ -216,7 +218,7 @@ export class Place extends QuestResource {
    * stamped anew. Answers whether its record changed.
    * QUESTOR-MOVED: a questor's hall is not such a site - it moves with its questor (person.js reseatMovedQuestor).
    *
-   * FIELD BUGS 2026-10-04b RESEAT-GAPS: A SITE NO BUILDING OF ITS KIND STANDS FOR IS UNSEATED. It used to keep its old
+   * FIELD BUGS 2026-10-04d RESEAT-GAPS: A SITE NO BUILDING OF ITS KIND STANDS FOR IS UNSEATED. It used to keep its old
    * key, which names another building in the town as it stands - a stranger's house, a shop, or nothing - whose interior
    * its markers do not belong to: its quest's person or thing stood at another building's coordinates there, `pc at`
    * fired inside it, a house was opened to the quest's holder as the quest's (IsActiveQuestBuilding), talk and the town
@@ -235,7 +237,7 @@ export class Place extends QuestResource {
     if (recordStands(held)) return sd.unseated ? this._seatBack(held) : false;
     const location = this.siteTown(world);
     if (!location) return false;
-    // FIELD BUGS 2026-10-04b RESEAT-DECLARED: by the place's DECLARED P2/P3 and its own house fallback - never the -1
+    // FIELD BUGS 2026-10-04d RESEAT-DECLARED: by the place's DECLARED P2/P3 and its own house fallback - never the -1
     // that fallback wrote into it, which read as `random` and moved a House1 site into a tavern or a shop
     const { p2, p3 } = this.declaredSiteLaw();
     const { found } = this._searchTownSites(world, location, p2, p3);
@@ -261,7 +263,7 @@ export class Place extends QuestResource {
     return true;
   }
 
-  /** FIELD BUGS 2026-10-04b QUEST-MARKERS: a building site enumerated before the curation (a save's, a party member's
+  /** FIELD BUGS 2026-10-04d QUEST-MARKERS: a building site enumerated before the curation (a save's, a party member's
    *  copy) holds the markers it was given - one, maybe, where no player reaches it, what was assigned to it standing
    *  there. The load's mend moves each one the curation moves (markerCuration.js), what it holds with it - in the
    *  building the site's key names as its town stands, only where the site stands in that layout. Answers how many. */
@@ -348,7 +350,7 @@ export class Place extends QuestResource {
     return { found, houseFallback: false };
   }
 
-  /** FIELD BUGS 2026-10-04b RESEAT-DECLARED: the place's DECLARED P2/P3 - its row of Quests-Places, read again by its
+  /** FIELD BUGS 2026-10-04d RESEAT-DECLARED: the place's DECLARED P2/P3 - its row of Quests-Places, read again by its
    *  name. The house fallback writes P2 = -1 into the place (SetupLocalSite, Place.cs:735; SelectRemoteTownSite after
    *  250 darts, :815), and -1 with a P3 of 0 is `random`, any valid building; a place built by hand, with no row, has
    *  only what it holds. */
@@ -386,6 +388,26 @@ export class Place extends QuestResource {
     const playerLocationIndex = world.currentLocationIndex?.() ?? -1;
     if (!regionData || regionData.locationCount === 0) return false;
 
+    // NEARBY-QUESTS: the towns within the reach, each tried once in a drawn order, then within twice it; only then
+    // DFU's darts over the whole region below (a quest that wants a building no near town has must still start)
+    const reach = this._questReach(world);
+    if (reach) {
+      const towns = [];
+      for (let i = 0; i < regionData.locationCount; i++) {
+        if (i !== playerLocationIndex && !this._isDungeonType(regionData.mapTable[i].locationType)) towns.push(i);
+      }
+      for (const r of [reach.pixels, reach.pixels * 2]) {
+        const pool = indicesWithin(regionData, towns, reach.origin, r);
+        if (pool === null) break;   // an unmeasured town: DFU's darts
+        if (this._tryTownPool(world, regionIndex, regionData, pool, requiredBuildingType)) return true;
+        if (requiredBuildingType >= BT_HOUSE1 && requiredBuildingType <= BT_HOUSE6) {
+          // DFU's house fallback (the 250th dart), at once here: no near town has that house - any house will do
+          requiredBuildingType = BT_ANY_HOUSE; this.p2 = -1;
+          if (this._tryTownPool(world, regionIndex, regionData, pool, requiredBuildingType)) return true;
+        }
+      }
+    }
+
     let attempts = 0;
     let found = false;
     while (!found) {
@@ -401,23 +423,51 @@ export class Place extends QuestResource {
       const locationIndex = this._range(regionData.locationCount);
       if (locationIndex === playerLocationIndex) continue;
       if (this._isDungeonType(regionData.mapTable[locationIndex].locationType)) continue;
-      const location = world.maps.getLocation(regionIndex, locationIndex);
-      if (!location?.loaded) continue;
-
-      let foundSites;
-      if (this.p2 === -1 && this.p3 === 0) foundSites = this._collectQuestSitesOfBuildingType(world, location, BT_ALL_VALID, this.p3);
-      else if (this.p2 === -1 && this.p3 === 1) foundSites = this._collectQuestSitesOfBuildingType(world, location, BT_ANY_HOUSE, this.p3);
-      else {
-        // The MAPS.BSA directory pre-check (can be inaccurate, always
-        // followed by the full block walk)
-        if (!this._hasBuildingType(location, requiredBuildingType)) continue;
-        foundSites = this._collectQuestSitesOfBuildingType(world, location, this.p2, this.p3);
-      }
-      if (!foundSites.length) continue;
-      this.siteDetails = foundSites[this._range(foundSites.length)];
-      found = true;
+      found = this._tryTownLocation(world, regionIndex, locationIndex, requiredBuildingType);
     }
     return found;
+  }
+
+  /** One dart's landing (SelectRemoteTownSite's loop body from the location load on, lifted verbatim so the darts and
+   *  NEARBY-QUESTS' pools share it): the site set and true, or false and nothing drawn. */
+  _tryTownLocation(world, regionIndex, locationIndex, requiredBuildingType) {
+    const location = world.maps.getLocation(regionIndex, locationIndex);
+    if (!location?.loaded) return false;
+
+    let foundSites;
+    if (this.p2 === -1 && this.p3 === 0) foundSites = this._collectQuestSitesOfBuildingType(world, location, BT_ALL_VALID, this.p3);
+    else if (this.p2 === -1 && this.p3 === 1) foundSites = this._collectQuestSitesOfBuildingType(world, location, BT_ANY_HOUSE, this.p3);
+    else {
+      // The MAPS.BSA directory pre-check (can be inaccurate, always
+      // followed by the full block walk)
+      if (!this._hasBuildingType(location, requiredBuildingType)) return false;
+      foundSites = this._collectQuestSitesOfBuildingType(world, location, this.p2, this.p3);
+    }
+    if (!foundSites.length) return false;
+    this.siteDetails = foundSites[this._range(foundSites.length)];
+    return true;
+  }
+
+  /** NEARBY-QUESTS: each town of `pool` once, in an order the quest's roll draws (Fisher-Yates), until one holds a site. */
+  _tryTownPool(world, regionIndex, regionData, pool, requiredBuildingType) {
+    const order = pool.slice();
+    for (let i = order.length - 1; i > 0; i--) { const j = this._range(i + 1); [order[i], order[j]] = [order[j], order[i]]; }
+    for (const locationIndex of order) if (this._tryTownLocation(world, regionIndex, locationIndex, requiredBuildingType)) return true;
+    return false;
+  }
+
+  /** NEARBY-QUESTS: the reach this quest's remote sites are drawn within - { origin, pixels } - or null for DFU's own
+   *  region-wide draw (the row off, or no pixel to measure from). The origin is the travel reckoning's own
+   *  (world.playerPixel, the quest clock's), else the player's location's pixel. */
+  _questReach(world) {
+    if (!questReachOn()) return null;
+    let origin = world.playerPixel?.() ?? null;
+    if (!origin) {
+      const t = world.currentLocation?.()?.mapTableData;
+      if (t) origin = longitudeLatitudeToMapPixel(t.longitude, t.latitude);
+    }
+    if (!origin || !Number.isFinite(origin.x) || !Number.isFinite(origin.y)) return null;
+    return { origin, pixels: questReachPixels(this.parentQuest?.hooks?.playerLevel?.() ?? 1) };
   }
 
   /** SelectRemoteDungeonSite (:880-935): types 0-16 only (17-18 carry
@@ -428,8 +478,10 @@ export class Place extends QuestResource {
     const regionData = world.maps.getRegion(regionIndex);
     if (!regionData || regionData.locationCount === 0) return false;
 
-    const foundIndices = this._collectDungeonIndicesOfType(regionData, dungeonTypeIndex);
+    let foundIndices = this._collectDungeonIndicesOfType(regionData, dungeonTypeIndex);
     if (!foundIndices.length) return false;
+    const reach = this._questReach(world);   // NEARBY-QUESTS: the dungeons within reach, or the nearest few
+    if (reach) foundIndices = nearbyIndices(regionData, foundIndices, reach.origin, reach.pixels);
     const index = this._range(foundIndices.length);
     const location = world.maps.getLocation(regionIndex, foundIndices[index]);
     if (!location?.loaded) return false;
@@ -464,11 +516,13 @@ export class Place extends QuestResource {
     const regionIndex = world.currentRegionIndex();
     const regionData = world.maps.getRegion(regionIndex);
     if (!regionData || regionData.locationCount === 0) return false;
-    const foundIndices = [];
+    let foundIndices = [];
     for (let i = 0; i < regionData.locationCount; i++) {
       if (locationTypeIndex === -1 || regionData.mapTable[i].locationType === locationTypeIndex) foundIndices.push(i);
     }
     if (!foundIndices.length) return false;
+    const reach = this._questReach(world);   // NEARBY-QUESTS
+    if (reach) foundIndices = nearbyIndices(regionData, foundIndices, reach.origin, reach.pixels);
     const location = world.maps.getLocation(regionIndex, foundIndices[this._range(foundIndices.length)]);
     if (!location?.loaded) return false;
     this.siteDetails = {
@@ -633,7 +687,7 @@ export class Place extends QuestResource {
   _isBuildingAssigned(activeQuestSites, parentQuestPlaces, location, summary, buildingKey) {
     // Guild halls are excluded from the same-building check (N0B10Y03:
     // the questor's hall hosts the quest's own action)
-    // FIELD BUGS 2026-10-04b RESEAT-GAPS: and a site holds a building only where its key names it - in the layout it was
+    // FIELD BUGS 2026-10-04d RESEAT-GAPS: and a site holds a building only where its key names it - in the layout it was
     // chosen in (recordStands). A moved site not chosen again yet - the sibling the load's re-seat comes to next, another
     // quest's - names a stranger by its old key, and that stranger was taken from the choice: two sites that both left a
     // town's only House2 could both be kept out of it.
@@ -718,7 +772,7 @@ export class Place extends QuestResource {
     const recordData = blockData.rmbBlock.subRecords[recordIndex];
     for (const obj of recordData?.interior?.blockFlatObjectRecords ?? []) {
       if (obj.textureArchive !== EDITOR_FLAT_ARCHIVE) continue;
-      // FIELD BUGS 2026-10-04b QUEST-MARKERS: a town pack's marker no player can reach stands at its measured floor spot
+      // FIELD BUGS 2026-10-04d QUEST-MARKERS: a town pack's marker no player can reach stands at its measured floor spot
       const [x, y, z] = curatedMarkerSpot(blockData, recordIndex, obj.textureRecord, obj.xPos, obj.yPos, obj.zPos) ?? [obj.xPos, obj.yPos, obj.zPos];
       const position = { x: x * GLOBAL_SCALE, y: -y * GLOBAL_SCALE, z: z * GLOBAL_SCALE };
       if (obj.textureRecord === SPAWN_MARKER_RECORD) spawn.push(this._createQuestMarker(MARKER_TYPES.QuestSpawn, position));

@@ -49,7 +49,7 @@
 // systems/court.js:249 (ItemCollection.GetCreditAmount, ItemCollection
 // .cs:108-118), spent letters-before-coins with the shortfall returned
 // by deductGold at court.js:291 (DeductGoldAmount, PlayerEntity.cs
-// :1324-1354), banked at systems/banking.js:748/:766, and described by
+// :1324-1354), banked at systems/banking.js:749/:767, and described by
 // the 1007 text at systems/itemInfo.js:106. Nothing was ever owed at
 // THIS surface anyway - DaggerfallInventoryWindow.cs has no
 // letter-of-credit arm at all.
@@ -1032,7 +1032,7 @@ export class NativeInventoryWindow {
     // as taking it. The ClickedItem trigger polls hasPlayerClicked.
     // Only the REMOTE list does this; LocalItemListScroller_OnItemClick
     // (:1974-2007) has no such call.
-    if (it.questItem) sendQuestItemClick(it, this.hooks.getQuest ?? null);   // LOOT-CLICK: the one door every remote take calls
+    sendQuestItemClick(it, this.hooks.getQuest ?? null);   // WHERE-ROBES: the one home every remote door shares
     if (mode === 'info') { this._info(it); return; }
     if (mode === 'use') { this._use(it, remote); return; }   // U25 (:2048-2051)
     if (mode === 'remove' || mode === 'equip') {

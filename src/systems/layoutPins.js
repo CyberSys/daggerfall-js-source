@@ -109,7 +109,7 @@ export function stampVendors(stamp) {
  * whose grid names one of them - Daggerfall's own tavern stands, as a pin would stand it, and its records are stamped
  * so; the villages that lay those blocks out among their own are the author's. A save's own pin on the town wins.
  *
- * FIELD BUGS 2026-10-04b TEMPLE-HOME: and a TEMPLE WITH NO HOUSE. Beautiful Villages replaces the location files of 34
+ * FIELD BUGS 2026-10-04d TEMPLE-HOME: and a TEMPLE WITH NO HOUSE. Beautiful Villages replaces the location files of 34
  * of Arkay's standalone temples (ReligionTemple) with its TEMPASA2 alone - the temple and 25 House5, none a house a
  * quest seats anyone in (Place.cs's validHouseTypes, House1-4) - where Daggerfall's TEMPAAA0 stands its houses round
  * the temple. A quest person given no scope has a home in the town it is set up in half the time (Person.cs
@@ -284,7 +284,7 @@ export function layoutRecordsOf({ houses = [], rooms = [], sites = [], questors 
   for (const h of houses ?? []) if (h && h.buildingKey > 0 && h.mapId) out.push({ locationKey: locationKeyOfMapId(h.mapId), stamp: h.layout, kind: 'house' });
   for (const r of rooms ?? []) if (r && r.buildingKey > 0 && r.mapId) out.push({ locationKey: locationKeyOfMapId(r.mapId), stamp: r.layout, kind: 'room' });
   for (const site of sites ?? []) {
-    const s = site?.unseated ? { ...site, ...site.unseated } : site;   // FIELD BUGS 2026-10-04b RESEAT-GAPS: an unseated site still asks for the layout it was chosen in (place.js reseatMovedSite)
+    const s = site?.unseated ? { ...site, ...site.unseated } : site;   // FIELD BUGS 2026-10-04d RESEAT-GAPS: an unseated site still asks for the layout it was chosen in (place.js reseatMovedSite)
     if (s && s.buildingKey > 0 && s.mapId) out.push({ locationKey: locationKeyOfMapId(s.mapId), stamp: s.layout, kind: 'quest' });
   }
   for (const q of questors ?? []) if (q && q.buildingKey > 0 && q.mapID) out.push({ locationKey: locationKeyOfMapId(q.mapID), stamp: q.layout, kind: 'questor' });

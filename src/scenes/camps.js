@@ -36,7 +36,7 @@ import {
   TENT_MODEL, FIRE_FLAT, FIRE_LIGHT_RANGE, CAMP_REACH, CAMP_KIND, CAMP_TEXT, CAMPS_PER_OWNER,
   placeCampItem, packCamp, stokeFire, fireLit, campExpired, tentPos, nearestFire, campInfoText, campMenu, campSpot, campDecision,
   cookables, cookFood, hasSkillet, campWire, mergeOwnerCamps, BY_FIRE_REACH, FIRE_MINUTES, spendCampNight,
-  strikeCamp,   // FIELD BUGS 2026-10-04b CAMP-CAP: a placing at the cap strikes the oldest
+  strikeCamp,   // FIELD BUGS 2026-10-04d CAMP-CAP: a placing at the cap strikes the oldest
 } from '../systems/survival/camp.js';
 import { isCampfireKit, CAMPFIRE_USES } from '../systems/survival/items.js';   // REST2: the Campfire is online's for everyone
 import { isBedroll, isEmberJar, isFirewood, spendCharge, REST_ITEM_TEXT, FIREWOOD_NIGHTS, BEDROLL_CHANNEL_SECONDS } from '../systems/restItems.js';   // REST6: the Bedroll, the Ember Jar, Firewood
@@ -166,19 +166,21 @@ export function createCamps({
   // REST2 (bible/06-Systems/Rest-Arc.md section 3): ONLINE THE FIRES ARE EVERYONE'S. A rest online is an act at a fire
   // or a bed (systems/restAct.js), so the Campfire, the camps it stands and the world's braziers are the rest's, not the
   // arc's alone: online every door below opens with the arc Off too. Offline Off is SURV-OFFSIGHT's, unchanged.
+  // ENDLESS PROVISIONS (2026-10-04, Mac: the Campfire Kit and Rations for everyone - "i can use and find all those without
+  // climates and calories"): A CAMP IS EVERY TIER'S. It is placed, seen, named, rested at, cooked at, stoked and packed with
+  // the arc Off, offline too - `seen` is every camp, and the ray, the menu and the click read it. What stays the arc's offline
+  // is the WARMTH: `shown` (byFire, the felt temperature's fire) and a world hearth's menu - there is no felt temperature
+  // to warm. This supersedes SURV-OFFSIGHT's "Off sees, never uses".
   const usable = () => survivalOn() || sharedClockOn();
   const shown = () => (usable() ? camps : NO_CAMPS);
-  const seen = () => (usable() ? camps : camps.filter((c) => !mine(c)));
+  const seen = () => camps;
 
   /** THE PLACING: the pack's use of Camping Equipment or a Campfire Kit lands here (useItem's 'pitchCamp' / 'placeFire'). */
   function placeItem(item, list) {
     // REST6: the Bedroll and Firewood are uses, not camps - the Bedroll's spot and its rest, Firewood's fire
     if (isFirewood(item)) return feedFire(item, list);
     if (isBedroll(item)) return layBedroll(item, list);
-    // AUDIT SURV-TIERS: a player's own camp stood with the arc off could be
-    // neither seen nor used (`seen`, `shown`, above) - so it is not stood,
-    // and the refusal says what would change it (CAMP-SILENT, below).
-    if (!survivalOn() && !(sharedClockOn() && (isCampfireKit(item) || isEmberJar(item)))) { say(CAMP_TEXT.arcOff); return false; }   // REST2: online a Campfire with the arc Off too; REST6: and an Ember Jar
+    // ENDLESS PROVISIONS: no arc gate - a camp is stood in every tier (`seen`, above); the camp law's own checks below
     // CAMP-SILENT (2026-09-22, DragynDance on Discord: "camp kits don't
     // work for me"). USING AN ITEM ALWAYS SAYS SOMETHING. Every other
     // arm below refuses with words - in town, indoors, foes near, no
@@ -215,14 +217,14 @@ export function createCamps({
     });
     if (r.text) say(r.text);
     if (!r.ok) return false;
-    const struck = strikeOldest(r.strike);   // FIELD BUGS 2026-10-04b CAMP-CAP: at the cap my oldest goes, before this one stands
+    const struck = strikeOldest(r.strike);   // FIELD BUGS 2026-10-04d CAMP-CAP: at the cap my oldest goes, before this one stands
     stand(r.camp);
     if (struck) say(struck);
     onChanged?.();
     return true;
   }
   /**
-   * FIELD BUGS 2026-10-04b CAMP-CAP (Discord, 2026-10-04, several players: "Placing 5 or so tents around the world and
+   * FIELD BUGS 2026-10-04d CAMP-CAP (Discord, 2026-10-04, several players: "Placing 5 or so tents around the world and
    * leaving them behind means I can no longer place any new tents or campfires at all", "I'm completely locked out of
    * camping anywhere"). THE CAP STRIKES THE OLDEST; IT NEVER REFUSES. This pool holds every camp of mine wherever it
    * stands - the streaming sweep spares them (AUDIT SURV B), the save carries them all and a load stands them all -
@@ -322,7 +324,7 @@ export function createCamps({
    * kit's fire cannot be stoked, as ever, and with the arc Off nothing is tended (nothing of it is used).
    */
   function tendWhileResting(t) {
-    if (!survivalOn() || !entity?.isResting || entity.restKind !== REST_KIND.Camp) return;
+    if (!entity?.isResting || entity.restKind !== REST_KIND.Camp) return;   // ENDLESS PROVISIONS: a camp used in every tier is tended in every tier
     const feet = camera?.()?.feet;
     if (!feet) return;
     for (const c of camps) {
@@ -419,7 +421,7 @@ export function createCamps({
     const jar = c.rec.kind === CAMP_KIND.Fire && !!c.rec.jar;
     const out = { title: c.rec.kind === CAMP_KIND.Tent ? 'Camp' : jar ? (mine(c) ? 'Your Ember Jar fire' : 'Ember Jar fire') : mine(c) ? 'Your Campfire' : 'Campfire' };
     if (c.rec.kind === CAMP_KIND.Fire && mine(c) && !jar) out.subs = [CAMP_TEXT.fuelLeft(c.rec.wear | 0)];
-    if (usable()) out.actions = campMenu(c.rec, now(), mine(c), { online: sharedClockOn() }).map((r) => ({ id: r.key, label: r.text }));
+    out.actions = campMenu(c.rec, now(), mine(c), { online: sharedClockOn() }).map((r) => ({ id: r.key, label: r.text }));   // ENDLESS PROVISIONS: every tier's
     return out;
   }
   /** Info and Talk name it; Grab and Steal open the menu. REST2: `lit` is the plaque's lit row (quickLoot.js
@@ -440,7 +442,6 @@ export function createCamps({
     const c = forKey(key);
     if (!c) return false;
     if (mode === 'info' || mode === 'dialogue') { say(campInfoText(c.rec, now(), mine(c))); return true; }
-    if (!usable()) return true;   // SURV-OFFSIGHT (the third pass): with the arc Off the click is taken and opens nothing - REST2: offline
     if (lit && campMenu(c.rec, now(), mine(c), { online: sharedClockOn() }).some((r) => r.key === lit)) { act(c, lit); return true; }
     openMenu(c);
     return true;

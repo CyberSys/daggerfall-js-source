@@ -9,7 +9,7 @@
 // (world/rmbFlats.js asks for each of a block's scene models), the plant the climate's, the nudges seeded by the
 // spot so a field stands the same every visit.
 //
-// FIELD BUGS 2026-10-04b CROPS: read again off the component's own source (drcarademono/rmb-resource-pack,
+// FIELD BUGS 2026-10-04d CROPS: read again off the component's own source (drcarademono/rmb-resource-pack,
 // Scripts/RMBCropBillboardBatch.cs) and its four prefabs (Prefabs/Crops/5321x.prefab). The field is the component's
 // own law now, where the port's had drifted from it:
 //   - GenerateBillboardPositions runs `for (float x = -rangeX / 2; x <= rangeX / 2; ...)` over an INT rangeX, so the
@@ -40,7 +40,7 @@ export function _resetFlatFields() { _fields.clear(); }
 export const CROP_ARCHIVE = 301;
 export function cropRecordsFor(natureArchive, climateIndex = null) {
   if (natureArchive >= 505 && natureArchive % 2 === 1) return [511, [22]];   // winter, outside the desert and the south
-  if (climateIndex === CLIMATES.Desert2) return [CROP_ARCHIVE, [20]];   // FIELD BUGS 2026-10-04b CROPS: Desert2's own
+  if (climateIndex === CLIMATES.Desert2) return [CROP_ARCHIVE, [20]];   // FIELD BUGS 2026-10-04d CROPS: Desert2's own
   switch (natureArchive) {
     case 510: return [CROP_ARCHIVE, [0, 1]];       // Mountain
     case 503: return [CROP_ARCHIVE, [2]];          // Desert
@@ -54,7 +54,7 @@ export function cropRecordsFor(natureArchive, climateIndex = null) {
 export const CROP_OVERLAP_RADIUS = 1;
 
 /** The flats a field sows round (x, y, z) - metres, the block's own frame; `y` the batch's own, where every plant's foot
- *  stands - in the world's axes (FIELD BUGS 2026-10-04b CROPS: the batch's turn is never read): { archive, record, x,
+ *  stands - in the world's axes (FIELD BUGS 2026-10-04d CROPS: the batch's turn is never read): { archive, record, x,
  *  y, z } each. `solid(x, y, z, r)` answers whether anything solid stands within `r` of a plant's foot (IsOverlapping;
  *  none asked, none refused); `climateIndex` the raw climate (cropRecordsFor). */
 export function sowField(spec, natureArchive, x, y, z, { climateIndex = null, solid = null } = {}) {
@@ -97,7 +97,7 @@ function pointTriangleDist2(px, py, pz, ax, ay, az, bx, by, bz, cx, cy, cz) {
 }
 
 /**
- * FIELD BUGS 2026-10-04b CROPS: IsOverlapping over a block's own solids - `Physics.OverlapSphere(position, radius)`
+ * FIELD BUGS 2026-10-04d CROPS: IsOverlapping over a block's own solids - `Physics.OverlapSphere(position, radius)`
  * against everything but the terrain, here the triangles of the block's placed models as the hosts draw and collide
  * them (`models` layoutRmbBlock's, the block's frame; `meshOf(placed)` the host's mesh for it, or null where it stands
  * nothing). A mesh collider is its surface to a sphere, so a foot deep inside a closed model, farther than the radius

@@ -105,7 +105,7 @@ test('AUDIT WORLD6b-iii(b) A2/A4/A5/A7: a halo\'s terminal close is REMEMBERED (
   s.setHalo(['world:2,12']);
   assert.equal(h2.closed, null, 'A5: the halo rides out the blip'); assert.equal(s.peers.has('eve-0003'), true);
   now += 1000;
-  assert.equal(s.sendPose({ ...pose, x: 9 }), true, 'my pose still goes'); assert.equal(h2.sent.at(-1), JSON.stringify({ t: 'pose', p: { ...pose, x: 9 } }), 'through the halo');
+  assert.equal(s.sendPose({ ...pose, x: 9 }), true, 'my pose still goes'); assert.equal(h2.sent.at(-1), JSON.stringify({ t: 'pose', p: { ...pose, x: 9, ts: JSON.parse(h2.sent.at(-1)).p.ts } }), 'through the halo'); assert.ok(Number.isInteger(JSON.parse(h2.sent.at(-1)).p.ts), 'stamped with when it was said (SCALE2b)');
   now += 60000; s.tick();
   assert.equal(sockets.length, 4, 'the primary retried'); sockets[3].open(); assert.equal(s.status, 'open'); assert.equal(h2.closed, null);
   // A7: a halo that never opens

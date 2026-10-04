@@ -160,7 +160,7 @@ handed over at any smith of its town; a rented room is honoured at any inn of
 its town; a save or a Recall anchor made inside stands the player outside
 rather than through a stranger's door; a quest's building site is chosen again
 in the town as it stands, by the place's DECLARED P2/P3 and DFU's own house
-fallback (FIELD BUGS 2026-10-04b RESEAT-DECLARED: the fallback's stored p2 of -1
+fallback (FIELD BUGS 2026-10-04d RESEAT-DECLARED: the fallback's stored p2 of -1
 had read as "any building", a house turned into a tavern or a shop), keeping
 what was assigned to it (`Place.reseatMovedSite`, `QuestMachine.reseatMovedSites`),
 and a site no building of its kind stands for is UNSEATED - its key none, its
@@ -204,20 +204,20 @@ elsewhere.
   #1, #2 and #7), and 18 of Daggerfall's own 11,452. Each of DFU's two landing arms takes only a spot with a floor
   under it now, in DFU's own order, so no landing DFU makes on a floor moves (`player/enterExit.js` `interiorLanding`'s
   `standsAt`); a room with nowhere to stand is refused in DFU's own words, "This house has nothing of value."; and a
-  body ten metres under a room's lowest triangle is stood back at its door (FIELD BUGS 2026-10-04b VOID-ENTRY).
+  body ten metres under a room's lowest triangle is stood back at its door (FIELD BUGS 2026-10-04d VOID-ENTRY).
 - **The port's curation: a temple with no house.** Beautiful Villages replaces the location files of 34 of Arkay's
   standalone temples with its `TEMPASA2` alone - the temple and 25 House5, none a house a quest seats anyone in - so a
   temple quest whose person takes a local home (half of them: Person.cs AssignHomeTown) could not be made, and the
   questor said "You're too late..." (C0B00Y01 505 times in 544, C0B00Y03 273). The 34 are kept Daggerfall's own BY
   THEIR LOCATION KEYS (`layoutPins.js` `CURATED_CLASSIC`'s second row, asked before any type or grid, since the mod
   replaces their files); the twelve villages laying `TEMPASA2` out among their own houses stay the author's (FIELD BUGS
-  2026-10-04b TEMPLE-HOME).
+  2026-10-04d TEMPLE-HOME).
 - **The port's curation: quest markers no player reaches.** Six of the packs' interior designs (51 interiors, 1,105
   buildings in 665 towns) hold a quest marker no one can reach - under the floor, in an attic, inside a stair, outside a
   wall. Each of the eight stands at its measured floor spot, keyed by pack, block, record, kind and position
   (`systems/quest/markerCuration.js`, measured by `tools/townQuestMarkers.mjs`); a save's sites are mended at the load;
   and any building marker with no floor within 4 m under it stands its person, foe or item at the site's nearest marker
-  that has one (FIELD BUGS 2026-10-04b QUEST-MARKERS).
+  that has one (FIELD BUGS 2026-10-04d QUEST-MARKERS).
 - **The port's curation: a tavern with no tavern.** Beautiful Villages rebuilds
   `TVRNAS00` and `TVRNAS06` as houses (the classic blocks hold three taverns
   each) and leaves the 274 roadside taverns standing on them (their location
@@ -276,7 +276,8 @@ elsewhere.
   never renumber or grow it.
 - **Houses for sale.** Every building the bank or a door can sell in either
   mod stands on a classic model (measured: 1,658 village houses and 3,358 city
-  houses), so every price is DFU's own `GetHousePrice` over the ARCH3D radius.
+  houses), so every price reads the ARCH3D record: the bank's DFU's own `GetHousePrice` over its radius, a door's
+  online price (HOME-PRICE) its ground - `06-Systems/Economy-Arc.md`.
   Beautiful Cities' 224 `House5` records whose one model is a wall piece
   (`53210`) and two `House2` with none have no exterior door and are no
   residence: nothing sells them - the bank's market skips a house with no model
@@ -324,8 +325,8 @@ one stand-in, on while either mod that places it is loaded.
 | its hills | 23 ids | 47 | a mound of the climate's grass or rock, by the catalogue's size - smaller than the pack's own meshes (measured on its published files by `tools/rmbrpHills.mjs`: most 3-4x too narrow - 1.7-4.5x across the 23 - and 2-7x too low), so the trees six village blocks stand on the pack's hills (RESIAS08, TVRNAS00, 01, 03, TEMPASH3, WEAPAS02: 130 of `TEXTURE.504`, a metre to 13 m up) are seated on the mound or the ground drawn under them (TREES-SEATED, `world/townStandIns.js` `blockHillSeat`) |
 | its market stalls | 17 ids | 32 | a stall the pack's size (3.2 m across the counter, 4.9 m along it), its awning the cloth each prefab names (`TEXTURE.049` or `449`) |
 | its docks | `53140`-`53144` | 16 | measured off the pack's meshes: a plank deck whose top is the origin, five-sided piles 5 m below it and 1 m above, a ramp or five steps - which land where the author's do (GENRAS00's ramps at the long dock's two ends; TEMPASH3's three flights across the T-dock's wing) |
-| its platform, foundation and domes | `53160`, `53170`, `53182`, `53187`, `53194` | 22 | stone blocks, classic textures, and the three domes at the pack's own profile (FIELD BUGS 2026-10-04b DOMES, measured off its HF Dome 03/04 meshes at the prefabs' 4.6875: an octagonal drum 4.8 m across on the ground to 3.63 m, the dome to 8.43 m, 03's spire to 10.75 m - they had been a 3.6 m cap over a drum sunk in the roofs they stand on) - the foundation the pack's 16 x 8 x 16 m block, its top the floor of the two temples it stands under (centred, as the pack's mesh is, it walled up their front doors; no stand-in covers any door of either pack's towns) |
-| its crop fields | `53211`-`53214` | 252 | RMBCropBillboardBatch's own law (FIELD BUGS 2026-10-04b CROPS, read again off the component's source): a grid over C#'s integer halves (an 85 m field from -42 to 42, a 35 m one from -17 to 15) in the world's axes - the batch's turn is never read - a plant every 4 m nudged up to half a metre, at the field's own height, none within a metre of the block's models (IsOverlapping, `blockSolids`), each a random pick of the climate's crop billboard (`TEXTURE.301`: wheat in the woodlands, corn in the mountains, sunflowers in the south, vines in swamp and rainforest, the second desert's own record 20; `511_22` stubble in winter), seeded by the spot so a field stands the same every visit (`world/flatFields.js`, sown by `world/rmbFlats.js`) |
+| its platform, foundation and domes | `53160`, `53170`, `53182`, `53187`, `53194` | 22 | stone blocks, classic textures, and the three domes at the pack's own profile (FIELD BUGS 2026-10-04d DOMES, measured off its HF Dome 03/04 meshes at the prefabs' 4.6875: an octagonal drum 4.8 m across on the ground to 3.63 m, the dome to 8.43 m, 03's spire to 10.75 m - they had been a 3.6 m cap over a drum sunk in the roofs they stand on) - the foundation the pack's 16 x 8 x 16 m block, its top the floor of the two temples it stands under (centred, as the pack's mesh is, it walled up their front doors; no stand-in covers any door of either pack's towns) |
+| its crop fields | `53211`-`53214` | 252 | RMBCropBillboardBatch's own law (FIELD BUGS 2026-10-04d CROPS, read again off the component's source): a grid over C#'s integer halves (an 85 m field from -42 to 42, a 35 m one from -17 to 15) in the world's axes - the batch's turn is never read - a plant every 4 m nudged up to half a metre, at the field's own height, none within a metre of the block's models (IsOverlapping, `blockSolids`), each a random pick of the climate's crop billboard (`TEXTURE.301`: wheat in the woodlands, corn in the mountains, sunflowers in the south, vines in swamp and rainforest, the second desert's own record 20; `511_22` stubble in winter), seeded by the spot so a field stands the same every visit (`world/flatFields.js`, sown by `world/rmbFlats.js`) |
 | its city-wall piece | `53210` | 224 | the middle 128 units of Daggerfall's own wall segment (`445`) out of the player's ARCH3D - its stone, its climate - cut and moved onto the piece's line (FIELD BUGS 2026-10-03c, below) |
 
 **The city walls' corners** (FIELD BUGS 2026-10-03c,
@@ -347,7 +348,7 @@ so it is solid as the wall is. A quarter of the placements (the two corners'
 pieces along their north line) turn it the other way across the wall, as the
 author did, so there the 445's inner face looks out - the stone is the same.
 
-**Why the hole held a player** (FIELD BUGS 2026-10-04b CITY-WALLS; Discord: "small chunks of walls seem to be
+**Why the hole held a player** (FIELD BUGS 2026-10-04d CITY-WALLS; Discord: "small chunks of walls seem to be
 missing in some cities ... I was stuck inside invisible walls after investigating the hole in the wall", posted
 before CITY-WALL merged). Daggerfall's wall segment `445`, its gates `446`/`447` and the arms of its tower `444` are
 HOLLOW: below the walkway each is two long faces and no ends. Through a corner's hole the player walked into that

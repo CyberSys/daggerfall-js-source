@@ -109,7 +109,7 @@ function tavern() {
     door: { blockIndex: door.blockIndex, recordIndex: door.recordIndex, doorIndex: door.doorIndex, buildingKey: 7 },
     building: { buildingKey: 7, buildingType: BUILDING_TYPES.Tavern, regionIndex: 0, quality: 10, factionId: 0, nameSeed: 1 },
   };
-  // FIELD BUGS 2026-10-04b VOID-ENTRY: its one model is its floor - the law lands a player only where a floor stands, and
+  // FIELD BUGS 2026-10-04d VOID-ENTRY: its one model is its floor - the law lands a player only where a floor stands, and
   // refuses a room with none (this record's model was not in the stub's ARCH3D: a room of nothing)
   const floor = { modelIdNum: 42, positions: new Float32Array([-5, 0, -5, 5, 0, -5, 5, 0, 5, -5, 0, 5]), indices: new Uint32Array([0, 1, 2, 0, 2, 3]), subMeshes: [], doors: [] };
   const cpuModels = new Map();

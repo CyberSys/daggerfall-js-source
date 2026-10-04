@@ -24,7 +24,7 @@ import * as acorn from 'acorn';
 import { flyerSpawnFeet, flyerStandFeet, floorUnderHang, feetFromCentre, enemyControllerHeight } from '../src/characters/enemyAnchor.js';
 import { ENEMY_BASICS } from '../src/characters/enemyBasics.js';
 import { EnemyAI } from '../src/characters/enemyMotor.js';
-import { freeLodgedFeet } from '../src/characters/foeSpacing.js';   // FIELD BUGS 2026-10-04b CRATE-FREE: the build's stand (a free name there, the module's own import)
+import { freeLodgedFeet } from '../src/characters/foeSpacing.js';   // FIELD BUGS 2026-10-04d CRATE-FREE: the build's stand (a free name there, the module's own import)
 import { Collider } from '../src/player/collider.js';
 import { effectiveLevel } from '../src/systems/mentorMode.js';   // SOFTCAP2: the mentor's level the spawn sites read (a free name there, the module's own import)
 
@@ -72,7 +72,7 @@ function context(collider, idleH) {
   const foes = [];
   const state = {
     ENEMY_BASICS, collider, foes, flyerStandFeet, enemyControllerHeight,
-    freeLodgedFeet,   // FIELD BUGS 2026-10-04b CRATE-FREE: the build's stand, the real one (no flyer here stands in a model)
+    freeLodgedFeet,   // FIELD BUGS 2026-10-04d CRATE-FREE: the build's stand, the real one (no flyer here stands in a model)
     MobileUnit: class { static resolveGender(g) { return g === 'female' ? 'female' : 'male'; } },
     idleSpriteHeight: () => idleH,
     getTexture: async () => ({ getFrameCount: () => 1 }),

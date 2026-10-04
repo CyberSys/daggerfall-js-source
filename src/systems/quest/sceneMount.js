@@ -274,7 +274,7 @@ export function questStandBox(s) {
   return { min: [x - s.width / 2, y, z - s.width / 2], max: [x + s.width / 2, y + s.height, z + s.width / 2] };
 }
 
-// ---- FIELD BUGS 2026-10-04b QUEST-MARKERS: the building's backstop ----
+// ---- FIELD BUGS 2026-10-04d QUEST-MARKERS: the building's backstop ----
 //
 // A building's quest marker with nothing under it - an author's marker outside the walls or under the floor, a void
 // the town packs' curation does not list (markerCuration.js lists every one the packs were measured to hold) - stood

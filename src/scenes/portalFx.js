@@ -27,6 +27,10 @@ export const PORTAL_MS = Object.freeze({ open: 360, hold: 700, close: 420, short
 export const PORTAL_BACK = 0.35;
 /** The magic school's cast (DAGGER.SND - systems/enemySpells.js SPELL_CAST_SOUND's last). */
 export const PORTAL_SOUND = 349;
+/** QUIET-COMPANIONS (FIELD BUGS 2026-10-04b): the least time between two portal sounds of one set (ms). The whole
+ *  party arrives at every door, each through its own portal, and three casts rang over each other; now one rings,
+ *  the portals all still open. */
+export const PORTAL_SOUND_GAP_MS = 1500;
 
 const clamp01 = (x) => (x < 0 ? 0 : x > 1 ? 1 : x);
 const NONE = Object.freeze([]);   // no portal standing: the frame's batches() allocates nothing
@@ -99,6 +103,7 @@ export function createPortalSet({ renderer, audio = null, now = () => performanc
   /** @type {{ at: number, feet: number[], short: boolean, batch: any, origin: number[] }[]} */
   const list = [];
   let eye = null;
+  let soundAt = -Infinity;   // QUIET-COMPANIONS: the set's last portal sound
   function open(feet, { short = false, quiet = false } = {}) {
     if (!renderer?.createBillboardBatch || !feet) return null;
     ensurePortalArt(renderer);
@@ -109,7 +114,7 @@ export function createPortalSet({ renderer, audio = null, now = () => performanc
     batch.conceal = { mode: 3, alpha: 0, t: 0, phase: 0 };
     const p = { at: now(), feet: at, short, batch, origin: batch.origin };
     list.push(p);
-    if (!quiet) { try { audio?.play3dId?.(PORTAL_SOUND, at, 0.9, { maxDistance: 24 }); } catch { /* silent */ } }   // a sound ID (DAGGER.SND's), not an index - AUDIT 58's law
+    if (!quiet && p.at - soundAt >= PORTAL_SOUND_GAP_MS) { soundAt = p.at; try { audio?.play3dId?.(PORTAL_SOUND, at, 0.9, { maxDistance: 24 }); } catch { /* silent */ } }   // a sound ID (DAGGER.SND's), not an index - AUDIT 58's law
     return p;
   }
   /** One frame: each portal's size, frame and glow; the closed ones freed. `viewEye` the camera (it stands behind). */

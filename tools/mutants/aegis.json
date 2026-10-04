@@ -42,12 +42,12 @@
   {
     "name": "AEGIS-the-glyph-filled",
     "file": "src/ui/playerBadge.js",
-    "old": "laurel: true, aegis: true });",
-    "new": "laurel: true, aegis: false });",
+    "old": "laurel: true, aegis: true, primarch: false });",
+    "new": "laurel: true, aegis: false, primarch: false });",
     "tests": [
       "test/aegis.test.js"
     ],
-    "note": "Filled, the pillars and the ring are one blot."
+    "note": "Filled, the pillars and the ring are one blot. PRIMARCH (re-aimed by content): the line gained GA00250's primarch."
   },
   {
     "name": "AEGIS-the-middle-pillar-short",
@@ -82,12 +82,12 @@
   {
     "name": "AEGIS-the-wards-button-in-the-fire",
     "file": "src/ui/playerBadge.js",
-    "old": "oblivionward: 'aegis' });",
-    "new": "oblivionward: 'gatebreaker' });",
+    "old": "oblivionward: 'aegis', radiance: 'primarch' });",
+    "new": "oblivionward: 'gatebreaker', radiance: 'primarch' });",
     "tests": [
       "test/aegis.test.js"
     ],
-    "note": "The Oblivion Ward's button on the card painted in Dagon's fire."
+    "note": "The Oblivion Ward's button on the card painted in Dagon's fire. PRIMARCH (re-aimed by content): the line gained the radiance's paint."
   },
   {
     "name": "AEGIS-the-list-renamed",
@@ -102,12 +102,12 @@
   {
     "name": "AEGIS-the-ward-without-the-list",
     "file": "server-account/src/titles.js",
-    "old": "export const TIER_AURA = Object.freeze({ aegis: 'oblivionward' });",
-    "new": "export const TIER_AURA = Object.freeze({});",
+    "old": "export const TIER_AURA = Object.freeze({ aegis: 'oblivionward', primarch: 'radiance' });",
+    "new": "export const TIER_AURA = Object.freeze({ primarch: 'radiance' });",
     "tests": [
       "test/aegis.test.js"
     ],
-    "note": "The list grants the title and the glyph and no aura."
+    "note": "The list grants the title and the glyph and no aura. PRIMARCH (re-aimed by content): the line gained GA00250's radiance, which stays."
   },
   {
     "name": "AEGIS-the-brokers-first",
@@ -162,12 +162,12 @@
   {
     "name": "AEGIS-the-vocabulary-without-the-ward",
     "file": "src/net/identityToken.js",
-    "old": "export const AURAS = Object.freeze(['dagonfire', 'oblivionward']);",
-    "new": "export const AURAS = Object.freeze(['dagonfire']);",
+    "old": "export const AURAS = Object.freeze(['dagonfire', 'oblivionward', 'radiance']);",
+    "new": "export const AURAS = Object.freeze(['dagonfire', 'radiance']);",
     "tests": [
       "test/aegis.test.js"
     ],
-    "note": "The relay refuses Sureme's token."
+    "note": "The relay refuses Sureme's token. PRIMARCH (re-aimed by content): the list gained the radiance, which stays."
   },
   {
     "name": "AEGIS-a-gap-in-the-ring",

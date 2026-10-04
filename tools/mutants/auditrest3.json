@@ -409,8 +409,8 @@
   {
     "name": "AUDITREST3-H12-the-hover-reads-no-lane",
     "file": "src/scenes/camps.js",
-    "old": "if (usable()) out.actions = campMenu(c.rec, now(), mine(c), { online: sharedClockOn() })",
-    "new": "if (usable()) out.actions = campMenu(c.rec, now(), mine(c), { online: false })",
+    "old": "    out.actions = campMenu(c.rec, now(), mine(c), { online: sharedClockOn() })",
+    "new": "    out.actions = campMenu(c.rec, now(), mine(c), { online: false })",
     "tests": [
       "test/auditrest3.test.js",
       "test/auditrest2_camps.test.js"

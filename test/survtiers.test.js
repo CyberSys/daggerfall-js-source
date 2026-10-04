@@ -990,7 +990,7 @@ test('AUDIT SURV-TIERS (the second pass): before six the enhanced tavern says th
 // see another player's now - the flame, its light, the tent - and nothing
 // of any camp is its to use. Its own, stood while the arc was on, stay out
 // of sight with the rest of the arc.
-test('SURV-OFFSIGHT: Off sees another player\'s camp - the flame, its light, the tent, and (the third pass) the ray, its name and a look - and uses none of it; its own stay out of sight; on, every camp is seen and used', async () => {
+test('SURV-OFFSIGHT: Off sees another player\'s camp - the flame, its light, the tent, and (the third pass) the ray, its name and a look - and (ENDLESS PROVISIONS) uses all of it too; on, every camp is seen and used', async () => {
   const { createCamps, FIRE_LIGHT_UP } = await import('../src/scenes/camps.js');
   const { TENT_MODEL, FIRE_LIGHT_RANGE, CAMP_TEXT } = await import('../src/systems/survival/camp.js');
   setWorldMinutes(100);
@@ -1030,11 +1030,13 @@ test('SURV-OFFSIGHT: Off sees another player\'s camp - the flame, its light, the
     assert.deepEqual(use(), { warm: [true, true], clicked: [true, true], menus: 2 }, `${tier}: and used - warmth, and a menu on each`);
   }
   setPref(SURVIVAL_PREF, SURVIVAL_STORED[SURVIVAL_OFF]);
+  // ENDLESS PROVISIONS (2026-10-04, Mac: the Campfire Kit and Rations for EVERYONE): supersedes SURV-OFFSIGHT. Off
+  // sees every camp and uses every camp - the menu, the click, the rest, the cooking - and only the WARMTH stays the arc's.
   assert.deepEqual(sight(), {
-    flames: [[20, 0, 20]], lights: [[20, FIRE_LIGHT_UP, 20, FIRE_LIGHT_RANGE]], tents: 1,
-    targets: ['camp:p:1', 'camp:p:1'], names: [null, { title: 'Camp' }],
-  }, 'Off: the peer\'s flame, its light, its tent, the ray on it and its name - and none of this player\'s own');
-  assert.deepEqual(use(), { warm: [false, false], clicked: [false, true], menus: 0 }, 'Off: no warmth, and the click the peer\'s camp takes opens nothing - seen, not used');
+    flames: [[1, 0, 1], [20, 0, 20]], lights: [[1, FIRE_LIGHT_UP, 1, FIRE_LIGHT_RANGE], [20, FIRE_LIGHT_UP, 20, FIRE_LIGHT_RANGE]], tents: 2,
+    targets: ['camp:pOLD:1:90', 'camp:pOLD:1:90', 'camp:p:1', 'camp:p:1'], names: [{ title: 'Camp', actions: [{ id: 'rest', label: 'Rest here' }, { id: 'cook', label: 'Cook food' }, { id: 'pack', label: 'Pack up the camp' }] }, { title: 'Camp', actions: [{ id: 'rest', label: 'Rest here' }, { id: 'cook', label: 'Cook food' }] }],   // REST2: the plaque's rows - its own tent packs, a peer's does not
+  }, 'Off: every camp seen - this player\'s own too');
+  assert.deepEqual(use(), { warm: [false, false], clicked: [true, true], menus: 2 }, 'Off: no warmth (the felt temperature is the arc\'s), but a menu on each camp');
   said.length = 0;
   assert.deepEqual([pool.activate('camp:p:1', 'dialogue'), said], [true, [CAMP_TEXT.seeCamp]], 'a look says what it is');
   assert.equal(pool.fireNear([20, 0, 20]), true, 'the world still has the fire - the rest\'s place reads it (AUDIT SURV-TIERS)');
