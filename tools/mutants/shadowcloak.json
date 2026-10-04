@@ -29,8 +29,8 @@
   {
     "name": "SHADOWCLOAK-adds-and-never-shades",
     "file": "src/render/auraRing.js",
-    "old": "glyphs: CLOAK_WISPS, mesh: 'cloak', shade: true })",
-    "new": "glyphs: CLOAK_WISPS, mesh: 'cloak', shade: false })",
+    "old": "shreds: CLOAK_SHREDS, mesh: 'cloak', shade: true })",
+    "new": "shreds: CLOAK_SHREDS, mesh: 'cloak' })",
     "tests": [
       "test/shadowcloak.test.js"
     ]
@@ -72,10 +72,37 @@
     ]
   },
   {
-    "name": "SHADOWCLOAK-the-hood-under-the-crown",
+    "name": "SHADOWCLOAK-the-hood-too-tall",
     "file": "src/render/auraRing.js",
-    "old": "export const CLOAK_H = 1.97;",
-    "new": "export const CLOAK_H = 1.75;",
+    "old": "export const CLOAK_H = 1.88;",
+    "new": "export const CLOAK_H = 1.97;",
+    "tests": [
+      "test/shadowcloak.test.js"
+    ]
+  },
+  {
+    "name": "SHADOWCLOAK-the-hood-off-the-eye",
+    "file": "src/render/auraRing.js",
+    "old": "export const CLOAK_HOOD_Y = 1.68;",
+    "new": "export const CLOAK_HOOD_Y = 1.6;",
+    "tests": [
+      "test/shadowcloak.test.js"
+    ]
+  },
+  {
+    "name": "SHADOWCLOAK-the-hood-tipped-back",
+    "file": "src/render/auraRing.js",
+    "old": "export const CLOAK_PEAK_BACK_M = 0.05;",
+    "new": "export const CLOAK_PEAK_BACK_M = 0.12;",
+    "tests": [
+      "test/shadowcloak.test.js"
+    ]
+  },
+  {
+    "name": "SHADOWCLOAK-the-hood-off-the-head",
+    "file": "src/render/auraRing.js",
+    "old": "export const CLOAK_HOOD_BACK_M = 0.035;",
+    "new": "export const CLOAK_HOOD_BACK_M = 0.09;",
     "tests": [
       "test/shadowcloak.test.js"
     ]
@@ -83,17 +110,44 @@
   {
     "name": "SHADOWCLOAK-a-rate-off-whole",
     "file": "src/render/auraRing.js",
-    "old": "scan: 1 / 3, sweep:",
-    "new": "scan: 0.31, sweep:",
+    "old": "billow: 1 / 5, wave:",
+    "new": "billow: 1 / 5.5, wave:",
     "tests": [
       "test/shadowcloak.test.js"
     ]
   },
   {
-    "name": "SHADOWCLOAK-the-parting-dropped",
+    "name": "SHADOWCLOAK-a-shreds-rate-off-whole",
     "file": "src/render/auraRing.js",
-    "old": "  if (edgeM < 0.0) discard;\n",
+    "old": "orbit: 1 / 60, spin:",
+    "new": "orbit: 1 / 70, spin:",
+    "tests": [
+      "test/shadowcloak.test.js"
+    ]
+  },
+  {
+    "name": "SHADOWCLOAK-the-opening-dropped",
+    "file": "src/render/auraRing.js",
+    "old": "  if (edgeM < 0.0 && brooch <= 0.0) discard;\n",
     "new": "",
+    "tests": [
+      "test/shadowcloak.test.js"
+    ]
+  },
+  {
+    "name": "SHADOWCLOAK-the-collar-open",
+    "file": "src/render/auraRing.js",
+    "old": "* (1.0 - smoothstep(${g3(CLOAK_CLASP_Y - 0.2)}, ${g3(CLOAK_CLASP_Y)}, y));",
+    "new": "* 1.0;",
+    "tests": [
+      "test/shadowcloak.test.js"
+    ]
+  },
+  {
+    "name": "SHADOWCLOAK-the-face-closed",
+    "file": "src/render/auraRing.js",
+    "old": "  return max(body, ${g3(CLOAK_OPEN.face)} * sqrt(max(0.0, 1.0 - fy * fy)));",
+    "new": "  return body;",
     "tests": [
       "test/shadowcloak.test.js"
     ]
@@ -110,7 +164,7 @@
   {
     "name": "SHADOWCLOAK-the-back-drape-dropped",
     "file": "src/render/auraRing.js",
-    "old": " + ${CLOAK_BACK_M.toFixed(3)} * cloakBackOf(u) * s;",
+    "old": " + ${g3(CLOAK_BACK_M)} * cloakBackOf(u) * pow(s, 1.2);",
     "new": ";",
     "tests": [
       "test/shadowcloak.test.js"
@@ -128,17 +182,44 @@
   {
     "name": "SHADOWCLOAK-the-folds-dropped",
     "file": "src/render/auraRing.js",
-    "old": "  float folds = ${CLOAK_FOLD_M.toFixed(3)} * cloakFoldOf(u)",
-    "new": "  float folds = 0.0 * cloakFoldOf(u)",
+    "old": " + ${g3(CLOAK_FOLD_M)} * cloakFoldOf(u) * cloakDrapeOf(y)",
+    "new": "",
     "tests": [
       "test/shadowcloak.test.js"
     ]
   },
   {
-    "name": "SHADOWCLOAK-the-wisps-never-rise",
+    "name": "SHADOWCLOAK-the-emblems-never-rise",
     "file": "src/render/auraRing.js",
-    "old": "  float y = y0 + (1.0 - (1.0 - age) * (1.0 - age)) * ${CLOAK_WISP_RISE.toFixed(2)};",
-    "new": "  float y = y0;",
+    "old": "y0 + (1.0 - (1.0 - age) * (1.0 - age)) * ${g3(CLOAK_EMBLEM_RISE)}",
+    "new": "y0",
+    "tests": [
+      "test/shadowcloak.test.js"
+    ]
+  },
+  {
+    "name": "SHADOWCLOAK-the-card-mirrored",
+    "file": "src/render/auraRing.js",
+    "old": "w = c + vec3(-toEye.y, 0.0, toEye.x) * o.x",
+    "new": "w = c + vec3(toEye.y, 0.0, -toEye.x) * o.x",
+    "tests": [
+      "test/shadowcloak.test.js"
+    ]
+  },
+  {
+    "name": "SHADOWCLOAK-the-two-sides-one",
+    "file": "src/render/auraRing.js",
+    "old": "  if (uSide == 1 ? toward <= 0.0 : toward > 0.0) discard;\n",
+    "new": "",
+    "tests": [
+      "test/shadowcloak.test.js"
+    ]
+  },
+  {
+    "name": "SHADOWCLOAK-the-lining-not-red",
+    "file": "src/render/auraRing.js",
+    "old": "col = CLOAK_LINING * (0.35",
+    "new": "col = CLOAK_SHADOW * (0.35",
     "tests": [
       "test/shadowcloak.test.js"
     ]
@@ -146,35 +227,8 @@
   {
     "name": "SHADOWCLOAK-the-rim-dropped",
     "file": "src/render/auraRing.js",
-    "old": "  float rim = pow(1.0 - abs(toward), 2.0);",
+    "old": "  float rim = pow(1.0 - abs(toward), 3.0);",
     "new": "  float rim = 0.0;",
-    "tests": [
-      "test/shadowcloak.test.js"
-    ]
-  },
-  {
-    "name": "SHADOWCLOAK-the-inside-lit-whole",
-    "file": "src/render/auraRing.js",
-    "old": "  float outer = toward > 0.0 ? 1.0 : 0.45;",
-    "new": "  float outer = 1.0;",
-    "tests": [
-      "test/shadowcloak.test.js"
-    ]
-  },
-  {
-    "name": "SHADOWCLOAK-the-mark-dropped",
-    "file": "src/render/auraRing.js",
-    "old": "  col += (CLOAK_HOT * (1.0 - smoothstep(0.0, 0.004, sig)) * 0.9 + CLOAK_CRIMSON * exp(-max(sig, 0.0) * 60.0) * 0.6) * breath;\n",
-    "new": "",
-    "tests": [
-      "test/shadowcloak.test.js"
-    ]
-  },
-  {
-    "name": "SHADOWCLOAK-the-trim-dropped",
-    "file": "src/render/auraRing.js",
-    "old": "  float trim = exp(-pow(edgeM - 0.012, 2.0) / 0.00002)",
-    "new": "  float trim = 0.0 * exp(-pow(edgeM - 0.012, 2.0) / 0.00002)",
     "tests": [
       "test/shadowcloak.test.js"
     ]
@@ -191,7 +245,7 @@
   {
     "name": "SHADOWCLOAK-standing-whole-before-it-kindles",
     "file": "src/render/auraRing.js",
-    "old": "  if (v > build + 0.004) discard;\n",
+    "old": "  if (grown < 0.0) discard;\n",
     "new": "",
     "tests": [
       "test/shadowcloak.test.js"
@@ -200,8 +254,8 @@
   {
     "name": "SHADOWCLOAK-the-hem-never-torn",
     "file": "src/render/auraRing.js",
-    "old": "  if (hemM < 0.0) discard;\n",
-    "new": "",
+    "old": "  if (edgeM >= 0.0 && (tear < 0.0 || hemM < 0.0)) {",
+    "new": "  if (false) {",
     "tests": [
       "test/shadowcloak.test.js"
     ]
@@ -209,53 +263,179 @@
   {
     "name": "SHADOWCLOAK-the-pool-dropped",
     "file": "src/render/auraRing.js",
-    "old": "  float shade = pool * (0.48 + 0.32 * mist);",
-    "new": "  float shade = 0.0 * pool * mist;",
+    "old": "  float shade = pool * (0.5 + 0.35 * mist);",
+    "new": "  float shade = 0.0;",
     "tests": [
       "test/shadowcloak.test.js"
     ]
   },
   {
-    "name": "SHADOWCLOAK-a-dash-too-many",
+    "name": "SHADOWCLOAK-the-glyph-swapped",
     "file": "src/render/auraRing.js",
-    "old": "  float du = fract((u + t ${hzGlsl(CLOAK_HZ.dashes)}) * ${g1(CLOAK_DASHES)});",
-    "new": "  float du = fract((u + t ${hzGlsl(CLOAK_HZ.dashes)}) * 25.0);",
+    "old": "export const CLOAK_GLYPH = GLYPH_PATH.shadowfang;",
+    "new": "export const CLOAK_GLYPH = GLYPH_PATH.penitent;",
     "tests": [
       "test/shadowcloak.test.js"
     ]
   },
   {
-    "name": "SHADOWCLOAK-a-seam-in-the-dashes",
+    "name": "SHADOWCLOAK-the-fill-rule",
     "file": "src/render/auraRing.js",
-    "old": "  float du = fract((u + t ${hzGlsl(CLOAK_HZ.dashes)}) * ${g1(CLOAK_DASHES)});",
-    "new": "  float du = fract((u + t ${hzGlsl(CLOAK_HZ.dashes)}) * 24.5);",
+    "old": "  return (mod(n, 2.0) > 0.5 ? -1.0 : 1.0) * sqrt(d);\n}\nfloat cloakEyeD",
+    "new": "  return sqrt(d);\n}\nfloat cloakEyeD",
     "tests": [
       "test/shadowcloak.test.js"
     ]
   },
   {
-    "name": "SHADOWCLOAK-the-wisps-never-burn",
+    "name": "SHADOWCLOAK-a-chord-dropped",
     "file": "src/render/auraRing.js",
-    "old": "  return vec4((CLOAK_CRIMSON * 1.3 * burn + CLOAK_HOT * 0.6 * ember + ",
-    "new": "  return vec4((CLOAK_HOT * 0.0 * ember + ",
+    "old": "for (let k = 1; k <= steps; k++)",
+    "new": "for (let k = 2; k <= steps; k++)",
     "tests": [
       "test/shadowcloak.test.js"
     ]
   },
   {
-    "name": "SHADOWCLOAK-the-wisps-never-fade",
+    "name": "SHADOWCLOAK-the-emblem-off-the-back",
     "file": "src/render/auraRing.js",
-    "old": "  float fade = smoothstep(0.0, 0.15, age) * (1.0 - age) * smoothstep(0.8, 1.0, uKindle);",
-    "new": "  float fade = smoothstep(0.8, 1.0, uKindle);",
+    "old": "      col = col * (1.0 - 0.5 * em.a) + em.rgb * (0.6 + 0.4 * toward);",
+    "new": "      col = col * (1.0 - 0.5 * em.a);",
     "tests": [
       "test/shadowcloak.test.js"
     ]
   },
   {
-    "name": "SHADOWCLOAK-wisps-before-the-cloak",
+    "name": "SHADOWCLOAK-the-glyph-mirrored-on-the-back",
     "file": "src/render/auraRing.js",
-    "old": "  float fade = smoothstep(0.0, 0.15, age) * (1.0 - age) * smoothstep(0.8, 1.0, uKindle);",
-    "new": "  float fade = smoothstep(0.0, 0.15, age) * (1.0 - age);",
+    "old": "vec2 sp = vec2((0.5 - u) * circ",
+    "new": "vec2 sp = vec2((u - 0.5) * circ",
+    "tests": [
+      "test/shadowcloak.test.js"
+    ]
+  },
+  {
+    "name": "SHADOWCLOAK-the-clasp-dropped",
+    "file": "src/render/auraRing.js",
+    "old": "    vec3 b = CLOAK_SHADOW * 0.5 + cloakEmblemAt(cp, 0.12).rgb * 1.3;",
+    "new": "    vec3 b = CLOAK_SHADOW * 0.5;",
+    "tests": [
+      "test/shadowcloak.test.js"
+    ]
+  },
+  {
+    "name": "SHADOWCLOAK-the-mantle-unstitched",
+    "file": "src/render/auraRing.js",
+    "old": "    col += CLOAK_CRIMSON * exp(-pow(me - 0.005, 2.0) / 0.00001) * 0.4 * breath;\n",
+    "new": "",
+    "tests": [
+      "test/shadowcloak.test.js"
+    ]
+  },
+  {
+    "name": "SHADOWCLOAK-the-trim-dropped",
+    "file": "src/render/auraRing.js",
+    "old": "  col += CLOAK_CRIMSON * trim * 0.75 * breath",
+    "new": "  col += CLOAK_CRIMSON * 0.0 * breath",
+    "tests": [
+      "test/shadowcloak.test.js"
+    ]
+  },
+  {
+    "name": "SHADOWCLOAK-the-trim-down-the-closed-collar",
+    "file": "src/render/auraRing.js",
+    "old": " * step(0.001, cloakOpenHalf(y))",
+    "new": "",
+    "tests": [
+      "test/shadowcloak.test.js"
+    ]
+  },
+  {
+    "name": "SHADOWCLOAK-the-seams-never-open",
+    "file": "src/render/auraRing.js",
+    "old": "    if (seam < 0.0 || cloakHash(",
+    "new": "    if (cloakHash(",
+    "tests": [
+      "test/shadowcloak.test.js"
+    ]
+  },
+  {
+    "name": "SHADOWCLOAK-the-pieces-never-go",
+    "file": "src/render/auraRing.js",
+    "old": " < rip * 1.3 - 0.2) discard;",
+    "new": " < -1.0) discard;",
+    "tests": [
+      "test/shadowcloak.test.js"
+    ]
+  },
+  {
+    "name": "SHADOWCLOAK-the-tear-without-embers",
+    "file": "src/render/auraRing.js",
+    "old": "  col += mix(CLOAK_CRIMSON, CLOAK_EMBER, 0.4) * torn * 0.9;\n",
+    "new": "",
+    "tests": [
+      "test/shadowcloak.test.js"
+    ]
+  },
+  {
+    "name": "SHADOWCLOAK-the-burst-dropped",
+    "file": "src/render/auraRing.js",
+    "old": " + rip * (0.15 + 0.35 * cloakBackOf(u));",
+    "new": ";",
+    "tests": [
+      "test/shadowcloak.test.js"
+    ]
+  },
+  {
+    "name": "SHADOWCLOAK-the-shreds-ring",
+    "file": "src/render/auraRing.js",
+    "old": "float r = mix(cloakRadius(u0, y0), ${g3(CLOAK_SHRED_AT.r[0])}",
+    "new": "float r = mix(cloakRadius(u0, y0), 0.2",
+    "tests": [
+      "test/shadowcloak.test.js"
+    ]
+  },
+  {
+    "name": "SHADOWCLOAK-the-shreds-never-burn",
+    "file": "src/render/auraRing.js",
+    "old": "(mix(CLOAK_CRIMSON, CLOAK_EMBER, 0.35) * burn * 0.7",
+    "new": "(mix(CLOAK_CRIMSON, CLOAK_EMBER, 0.35) * 0.0 * 0.7",
+    "tests": [
+      "test/shadowcloak.test.js"
+    ]
+  },
+  {
+    "name": "SHADOWCLOAK-the-beasts-own-eye-veiled",
+    "file": "src/render/auraRing.js",
+    "old": "float gate = mix(0.35, 1.0, smoothstep(0.55, 1.0, length(uCamPos.xz - uAt.xz)));",
+    "new": "float gate = 1.0;",
+    "tests": [
+      "test/shadowcloak.test.js"
+    ]
+  },
+  {
+    "name": "SHADOWCLOAK-the-emblems-never-fade",
+    "file": "src/render/auraRing.js",
+    "old": "float life = clamp(min(s.x / 0.2, (1.0 - s.x) / 0.35), 0.0, 1.0);",
+    "new": "float life = 1.0;",
+    "tests": [
+      "test/shadowcloak.test.js"
+    ]
+  },
+  {
+    "name": "SHADOWCLOAK-emblems-before-the-cloak",
+    "file": "src/render/auraRing.js",
+    "old": "* smoothstep(0.8, 1.0, uKindle) * (1.0 - cloakRipOf());",
+    "new": "* (1.0 - cloakRipOf());",
+    "tests": [
+      "test/shadowcloak.test.js"
+    ]
+  },
+  {
+    "name": "SHADOWCLOAK-emblems-through-the-tear",
+    "file": "src/render/auraRing.js",
+    "old": "* smoothstep(0.8, 1.0, uKindle) * (1.0 - cloakRipOf());",
+    "new": "* smoothstep(0.8, 1.0, uKindle);",
     "tests": [
       "test/shadowcloak.test.js"
     ]
@@ -297,6 +477,60 @@
     ]
   },
   {
+    "name": "SHADOWCLOAK-one-side-of-the-cloth",
+    "file": "src/render/auraRing.js",
+    "old": "for (const side of [0, 1])",
+    "new": "for (const side of [1])",
+    "tests": [
+      "test/shadowcloak.test.js"
+    ]
+  },
+  {
+    "name": "SHADOWCLOAK-the-torn-cloth-still-drawn",
+    "file": "src/render/auraRing.js",
+    "old": "if (torn < CLOAK_RIP_S) for",
+    "new": "for",
+    "tests": [
+      "test/shadowcloak.test.js"
+    ]
+  },
+  {
+    "name": "SHADOWCLOAK-the-shreds-never-drawn",
+    "file": "src/render/auraRing.js",
+    "old": "(look.glyphs + (look.shreds && torn >= 0 ? look.shreds : 0)) * 6",
+    "new": "look.glyphs * 6",
+    "tests": [
+      "test/shadowcloak.test.js"
+    ]
+  },
+  {
+    "name": "SHADOWCLOAK-the-tear-never-set",
+    "file": "src/render/auraRing.js",
+    "old": "gl.uniform1f(U.uTorn, torn);",
+    "new": "gl.uniform1f(U.uTorn, -1);",
+    "tests": [
+      "test/shadowcloak.test.js"
+    ]
+  },
+  {
+    "name": "SHADOWCLOAK-the-steps-wrap-dropped",
+    "file": "src/render/auraRing.js",
+    "old": "CLOAK_RIP_S + ((s - CLOAK_RIP_S) % AURA_CLOCK_PERIOD)",
+    "new": "s",
+    "tests": [
+      "test/shadowcloak.test.js"
+    ]
+  },
+  {
+    "name": "SHADOWCLOAK-turned-back-never-rekindles",
+    "file": "src/render/auraRing.js",
+    "old": "if (w.beastAt !== null) { w.beastAt = null; w.since = t; }",
+    "new": "if (w.beastAt !== null) { w.beastAt = null; }",
+    "tests": [
+      "test/shadowcloak.test.js"
+    ]
+  },
+  {
     "name": "SHADOWCLOAK-my-facing-the-views",
     "file": "src/scenes/world.js",
     "old": "_auraSelf.yaw = player.bodyYawFor(cam.yaw);",
@@ -310,6 +544,24 @@
     "file": "src/scenes/world.js",
     "old": "w.yaw = peerBodyYaw(d.shown) ?? 0;",
     "new": "w.yaw = 0;",
+    "tests": [
+      "test/shadowcloak.test.js"
+    ]
+  },
+  {
+    "name": "SHADOWCLOAK-my-beast-form-ignored",
+    "file": "src/scenes/world.js",
+    "old": "auraBeastStep(_auraSelf, !!liveLycanthropy(playerEntity)?.isTransformed, t);",
+    "new": "auraBeastStep(_auraSelf, false, t);",
+    "tests": [
+      "test/shadowcloak.test.js"
+    ]
+  },
+  {
+    "name": "SHADOWCLOAK-a-peers-beast-form-ignored",
+    "file": "src/scenes/world.js",
+    "old": "auraBeastStep(w, !!d.shown.wb, t);",
+    "new": "auraBeastStep(w, false, t);",
     "tests": [
       "test/shadowcloak.test.js"
     ]

@@ -54,9 +54,27 @@
 // It kindles UP: the ground lights as the fire's does, and the column rises from the feet to past the crown. Every rate
 // whole over the clock (radianceRatesWhole). No third draw.
 //
+// SHADOW-CLOAK (2026-10-04, Mac, for SirMcMobdon: "A holo shadow cloak with red accents. Extremely detailed"; then "less
+// digital, adjust hood since it's at a weird orientation, not as tall, more cape like, change the floating elements to
+// be more emblem like", "For the emblems have it use that user's glyph", "when the user transforms into a werewolf have
+// this rip apart with fragments floating around"): THE HOLO SHADOW CLOAK, the fourth look - a CAPE ON THE BODY in the
+// Shadow Fang's black and crimson, its hood up:
+//   - THE WALL is its own mesh (auraCloakGrid), shaped in the vertex half round the wearer's facing (`uYaw`): hung from
+//     the shoulders, clasped at the throat, open below it, flaring and trailing longest down the back, the hood round
+//     the head. It SHADES - drawn premultiplied (AURA_LOOK `shade`) so it darkens what is behind it - and its two sides
+//     are two draws (`uSide`), the far before the near. A dense shadow outside, a red lining, a mantle, embroidery
+//     down its edges, a hem fraying into smoke.
+//   - THE EMBLEM is the wearer's own glyph: the badge's path (ui/playerBadge.js GLYPH_PATH.shadowfang) cut into edges
+//     (glyphEdges) and filled in the shader - on its back, as its clasp, and on the THIRD DRAW's cards rising off it.
+//   - THE GROUND: a pool of shadow under it.
+//   - TORN when its wearer turns beast (`uTorn`, auraBeastStep): it splits and goes, and the third draw's cards past
+//     the emblems are its shreds, floating round the beast.
+// Every rate whole over the clock (cloakRatesWhole). It follows the wearer's feet and facing, not their skeleton.
+//
 // Not a DFU member. Ledger A (WB).
 import { FOG_FACTOR_GLSL } from './labGrass.js';
 import { buildProgram } from './glProgram.js';
+import { GLYPH_PATH, GLYPH_DETAIL } from '../ui/playerBadge.js';   // SHADOW-CLOAK: the wearer's own glyph, its emblem
 
 /** The ring's radius about the feet (m), the ground quad's half-width, the flames' height, and the ground's lift. */
 export const AURA_RING_R = 0.85;
@@ -129,64 +147,85 @@ export const radianceRatesWhole = () => [...Object.values(RADIANCE_HZ), ...Objec
  *  #ffad29), and the white-gold at the ring's heart and in the motes - the Primarch's own light gold (ui/playerBadge.js
  *  PRIMARCH_GOLD, the menu's #d8cfae). RGB 0..1. */
 export const RADIANCE_RGB = Object.freeze({ gold: Object.freeze([1, 0.741, 0.278]), heart: Object.freeze([0.847, 0.812, 0.682]) });
-/** SHADOW-CLOAK: THE HOLO SHADOW CLOAK'S MEASURES (m above the feet, the walking body 1.8 m - player/motor.js
- *  CAPSULE_HEIGHT): the hood's peak, the shoulders the cloak hangs from, the neck it draws in to; its radius about the
- *  body at the hem, the shoulders, the neck and round the hood; how far its back hangs behind the body and the hood's peak
- *  falls back behind the head. The mesh's steps round and up. */
-export const CLOAK_H = 1.97;
-export const CLOAK_SHOULDER_Y = 1.46;
-export const CLOAK_NECK_Y = 1.6;
-export const CLOAK_HEM_R = 0.48;
-export const CLOAK_SHOULDER_R = 0.34;
-export const CLOAK_NECK_R = 0.2;
-export const CLOAK_HOOD_R = 0.21;
-export const CLOAK_BACK_M = 0.1;
-export const CLOAK_HOOD_BACK_M = 0.1;
+/** SHADOW-CLOAK: THE SHADOW CLOAK'S MEASURES (m above the feet; the walking body is 1.8 m, its eye at 1.7 - player/motor.js
+ *  CAPSULE_HEIGHT, EYE_HEIGHT). A CAPE hung from the shoulders and clasped at the throat, its hood up: the hood's peak
+ *  a hand over the crown, the hood's middle at the eye, the neck the cape draws in to over the shoulders, the clasp, and
+ *  the shoulders it hangs from. */
+export const CLOAK_H = 1.88;
+export const CLOAK_HOOD_Y = 1.68;
+export const CLOAK_NECK_Y = 1.53;
+export const CLOAK_CLASP_Y = 1.43;
+export const CLOAK_SHOULDER_Y = 1.42;
+/** Its radius about the body: across the shoulders, at the hem, round the neck and round the hood; how much further out
+ *  than its sides its back hangs at the hem; how far behind the body's middle the hood sits (the face forward of the
+ *  head's middle), and how much further back its peak falls. */
+export const CLOAK_SHOULDER_R = 0.27;
+export const CLOAK_HEM_R = 0.4;
+export const CLOAK_NECK_R = 0.15;
+export const CLOAK_HOOD_R = 0.165;
+export const CLOAK_BACK_M = 0.14;
+export const CLOAK_HOOD_BACK_M = 0.035;
+export const CLOAK_PEAK_BACK_M = 0.05;
+/** The hem's height down the back (a cape trails longest there) and at its front edges. */
+export const CLOAK_HEM_Y = Object.freeze({ back: 0.1, edge: 0.26 });
 /** How much narrower front to back than across it is: at the shoulders (a body is broader than it is deep) and at the
- *  hem, where the cloth has fallen round. And the folds' depth (m) at the hem. */
-export const CLOAK_SQUASH = Object.freeze({ shoulder: 0.3, hem: 0.05 });
-export const CLOAK_FOLD_M = 0.014;
+ *  hem, where the cloth has fallen round; and round the hood, narrower across than deep (as a head is). The folds' depth
+ *  (m) at the hem. The mesh's steps round and up. */
+export const CLOAK_SQUASH = Object.freeze({ shoulder: 0.32, hem: 0.1, hood: 0.1 });
+export const CLOAK_FOLD_M = 0.022;
 export const CLOAK_ROUND = 48;
-export const CLOAK_ROWS = 40;
-/** Its parting at the front, half its width in turns: at the hem, at the shoulders, the throat, and the hood's face. */
-export const CLOAK_OPEN = Object.freeze({ hem: 0.115, shoulder: 0.07, throat: 0.045, face: 0.165 });
-/** Its pattern counts round the body (each a whole number, so the cloak closes on itself): the folds, the lattice's
- *  cells, the rain's columns; and on the ground the emitter's dashes, the bezel's ticks and the brackets. */
+export const CLOAK_ROWS = 48;
+/** Its opening at the front, half its width in turns: at the hem and at the chest - closing from there to the clasp,
+ *  where its edges meet - and the hood's face at its widest; the face's middle (m up) and half its height. */
+export const CLOAK_OPEN = Object.freeze({ hem: 0.2, chest: 0.13, face: 0.12 });
+export const CLOAK_FACE = Object.freeze({ y: 1.665, h: 0.135 });
+/** Its pattern counts round the body (each a whole number, so the cape closes on itself): the folds and the mantle's
+ *  scallops. The mantle over the shoulders: its edge's height. */
 export const CLOAK_FOLDS = 14;
-export const CLOAK_HEX_ROUND = 28;
-export const CLOAK_RAIN = 40;
-export const CLOAK_DASHES = 24;
-export const CLOAK_TICKS = 60;
-export const CLOAK_BRACKETS = 3;
-/** On the ground: the shadow's pool, the emitter ring just outside the hem, the bezel and the brackets. */
-export const CLOAK_POOL_R = 0.95;
-export const CLOAK_EMITTER_R = CLOAK_HEM_R + 0.06;
-export const CLOAK_BEZEL_R = 0.86;
-export const CLOAK_BRACKET_R = 1.0;
-/** The Shadow Fang's mark on its back: its middle's height (m) and its ring's radius. */
-export const CLOAK_SIGIL_Y = 1.14;
-export const CLOAK_SIGIL_R = 0.14;
-/** THE WISPS, its third draw: shadow peeling off its back and shoulders and rising as it burns away - how many at once,
- *  the seconds a wisp lasts (wisp k's is CLOAK_WISP_LIFE[k mod 3], each dividing AURA_CLOCK_PERIOD), how high one climbs
- *  (m), and its card (m). */
-export const CLOAK_WISPS = 10;
-export const CLOAK_WISP_LIFE = Object.freeze([4, 5, 6]);
-export const CLOAK_WISP_RISE = 0.9;
-export const CLOAK_WISP_W = 0.18;
-export const CLOAK_WISP_H = 0.34;
-/** Its rates (Hz), each a whole number of cycles over AURA_CLOCK_PERIOD: the scan climbing the cloak, the sweep round the
- *  ground, the emitter's dashes, the bezel's ticks the other way, the brackets, the hem's billow and the ripple running
- *  down it, the rain's slowest fall (the others two and three times it), the light's breath; and the moments a flicker
- *  or a glitch may fall in (a hash of each moment says whether one does). */
-export const CLOAK_HZ = Object.freeze({ scan: 1 / 3, sweep: 1 / 4, dashes: 1 / 20, ticks: 1 / 30, brackets: 1 / 15, billow: 1 / 5, ripple: 1 / 2, rain: 1 / 4, pulse: 1 / 4, flicker: 8, glitch: 2, shred: 4 });
-/** Its flows in lattice cells a second (the shadow's smoke up the cloth, the ground's mist turning and drawn in). */
-export const CLOAK_FLOW = Object.freeze({ smoke: 0.5, mist: 0.25, swirl: 0.1 });
+export const CLOAK_SCALLOPS = 16;
+export const CLOAK_MANTLE_Y = 1.2;
+/** The embroidery along its edges and hem, a band of wolf's teeth: the band's width in from the edge and a tooth's
+ *  length along it (m). */
+export const CLOAK_TRIM = Object.freeze({ band: 0.034, tooth: 0.045 });
+/** On the ground: the shadow's pool. */
+export const CLOAK_POOL_R = 0.85;
+/** THE EMBLEM: the wearer's own glyph - SirMcMobdon's, the Shadow Fang's wolf's head (ui/playerBadge.js GLYPH_PATH
+ *  and its eye, GLYPH_DETAIL), the very path the badge draws - on a disc of shadow ringed in crimson. On the cape's back
+ *  (its middle's height and its disc's radius, m) and at the clasp (its disc's). */
+export const CLOAK_GLYPH = GLYPH_PATH.shadowfang;
+export const CLOAK_GLYPH_EYE = GLYPH_DETAIL.shadowfang.path;
+export const CLOAK_SIGIL_Y = 0.98;
+export const CLOAK_SIGIL_R = 0.15;
+export const CLOAK_CLASP_R = 0.04;
+/** THE EMBLEMS, its third draw: the emblem rising off its back, turning a little as it climbs, drawn in out of smoke and
+ *  falling back to smoke - how many at once, the seconds one lasts (emblem k's is CLOAK_EMBLEM_LIFE[k mod 3], each
+ *  dividing AURA_CLOCK_PERIOD), how high one climbs (m) and its card, square (m). */
+export const CLOAK_EMBLEMS = 5;
+export const CLOAK_EMBLEM_LIFE = Object.freeze([5, 6, 8]);
+export const CLOAK_EMBLEM_RISE = 0.75;
+export const CLOAK_EMBLEM_M = 0.22;
+/** THE BEAST FORM: the wearer turned lycanthrope tears the cloak apart - the seconds the tear takes - and its shreds
+ *  float round the beast, drawn with the emblems' cards: how many, a shred's card (m), the radii and heights they float
+ *  at (m), and their rates (Hz, each whole over the clock - a shred goes round at one to three times `orbit`, either
+ *  way, and turns in its own plane at one or two times `spin`). */
+export const CLOAK_RIP_S = 1.2;
+export const CLOAK_SHREDS = 14;
+export const CLOAK_SHRED_M = 0.17;
+export const CLOAK_SHRED_AT = Object.freeze({ r: Object.freeze([0.7, 1.15]), y: Object.freeze([0.3, 2.1]) });
+export const CLOAK_SHRED_HZ = Object.freeze({ orbit: 1 / 60, spin: 1 / 10, tumble: 1 / 6, bob: 1 / 5 });
+/** Its rates (Hz), each a whole number of cycles over AURA_CLOCK_PERIOD: the cape's billow and the wave running down
+ *  it, and the breath of its light. */
+export const CLOAK_HZ = Object.freeze({ billow: 1 / 5, wave: 1 / 3, pulse: 1 / 4 });
+/** Its flows in lattice cells a second: the smoke stirring in the cloth and falling off its hem, the ground's mist drawn
+ *  in and turning. */
+export const CLOAK_FLOW = Object.freeze({ smoke: 0.25, hem: 0.5, mist: 0.25, swirl: 0.1 });
 /** Every cloak rate whole over the clock. Pure. */
-export const cloakRatesWhole = () => [...Object.values(CLOAK_HZ), ...Object.values(CLOAK_FLOW)]
+export const cloakRatesWhole = () => [...Object.values(CLOAK_HZ), ...Object.values(CLOAK_FLOW), ...Object.values(CLOAK_SHRED_HZ)]
   .every((r) => Number.isInteger(Math.round(r * AURA_CLOCK_PERIOD * 1e6) / 1e6));
-/** Its light: the Shadow Fang's crimson (ui/playerBadge.js TITLE_GRADIENT.shadowfang's end, #d3193c), its hot heart, and
- *  the shadow's own black (the gradient's start, #0d0709) - the cloth is shadow, the light is red. RGB 0..1. */
-export const CLOAK_RGB = Object.freeze({ crimson: Object.freeze([0.827, 0.098, 0.235]), hot: Object.freeze([1, 0.55, 0.6]), shadow: Object.freeze([0.051, 0.027, 0.035]) });
+/** Its colours: the Shadow Fang's crimson (ui/playerBadge.js TITLE_GRADIENT.shadowfang's end, #d3193c), an ember's red
+ *  for where it burns brightest, the shadow's own black (the gradient's start, #0d0709) and the lining's deep red - the
+ *  cloth is shadow, lined and edged in red. RGB 0..1. */
+export const CLOAK_RGB = Object.freeze({ crimson: Object.freeze([0.827, 0.098, 0.235]), ember: Object.freeze([1, 0.36, 0.28]), shadow: Object.freeze([0.051, 0.027, 0.035]), lining: Object.freeze([0.32, 0.02, 0.06]) });
 
 /** AEGIS: HOW EACH AURA IS DRAWN - its kind in the shader (`uAura`), its ring's radius, its wall's height and how many
  *  symbols float off it (the third draw - none for the fire). A pin walks AURAS and requires one each. SHADOW-CLOAK: and,
@@ -196,7 +235,7 @@ export const AURA_LOOK = Object.freeze({
   dagonfire: Object.freeze({ kind: 0, ringR: AURA_RING_R, flameH: AURA_FLAME_H, glyphs: 0 }),
   oblivionward: Object.freeze({ kind: 1, ringR: WARD_RING_R, flameH: WARD_WALL_H, glyphs: WARD_GLYPHS }),   // and its floating symbols
   radiance: Object.freeze({ kind: 2, ringR: RADIANCE_R, flameH: RADIANCE_H, glyphs: 0 }),   // PRIMARCH: the column about the body
-  shadowcloak: Object.freeze({ kind: 3, ringR: CLOAK_HEM_R, flameH: CLOAK_H, glyphs: CLOAK_WISPS, mesh: 'cloak', shade: true }),   // SHADOW-CLOAK: the cloak on the body, and its wisps
+  shadowcloak: Object.freeze({ kind: 3, ringR: CLOAK_HEM_R, flameH: CLOAK_H, glyphs: CLOAK_EMBLEMS, shreds: CLOAK_SHREDS, mesh: 'cloak', shade: true }),   // SHADOW-CLOAK: the cape on the body, its emblems, and its shreds when it tears
 });
 /** The look a wearer's aura is drawn with - Dagon's Fire for one that names none (the fire was the only aura before). */
 export const auraLookOf = (aura) => (typeof aura === 'string' && Object.hasOwn(AURA_LOOK, aura) ? AURA_LOOK[aura] : AURA_LOOK.dagonfire);
@@ -425,9 +464,35 @@ vec3 radianceWall(vec2 q) {
   return col * clamp((uKindle * 1.25 - v) / 0.15, 0.0, 1.0);
 }
 `;
+/** SHADOW-CLOAK: A GLYPH'S OUTLINE AS STRAIGHT EDGES - an SVG path of absolute M, L, Q and Z (ui/playerBadge.js
+ *  GLYPH_PATH's shapes), each quadratic cut into `steps` chords and each figure closed, as [ax, ay, bx, by] in the
+ *  glyph's own 16-unit box, y down; no edge of no length; any other command refused. Pure. */
+export function glyphEdges(path, steps = 4) {
+  const tok = String(path).match(/[A-Za-z]|-?(?:\d+\.?\d*|\.\d+)/g) ?? [];
+  const out = [];
+  let i = 0, cmd = null, at = null, start = null;
+  const num = () => { const v = Number(tok[i++]); if (!Number.isFinite(v)) throw new Error(`glyphEdges: a number wanted in ${path}`); return v; };
+  const edge = (b) => { if (at && (at[0] !== b[0] || at[1] !== b[1])) out.push([at[0], at[1], b[0], b[1]]); at = b; };
+  while (i < tok.length) {
+    if (/[A-Za-z]/.test(tok[i])) cmd = tok[i++];
+    if (cmd === 'M') { if (start) edge(start); at = [num(), num()]; start = at; cmd = 'L'; }   // pairs after a move are lines
+    else if (cmd === 'L') edge([num(), num()]);
+    else if (cmd === 'Q') {
+      const a = at, c = [num(), num()], b = [num(), num()];
+      for (let k = 1; k <= steps; k++) { const t = k / steps, r = 1 - t; edge([r * r * a[0] + 2 * r * t * c[0] + t * t * b[0], r * r * a[1] + 2 * r * t * c[1] + t * t * b[1]]); }
+    } else if (cmd === 'Z') { if (start) edge(start); cmd = null; }
+    else throw new Error(`glyphEdges: '${cmd}' is not drawn here`);
+  }
+  if (start) edge(start);   // an open figure closed, to be filled
+  return out;
+}
+const CLOAK_GLYPH_EDGES = glyphEdges(CLOAK_GLYPH), CLOAK_EYE_EDGES = glyphEdges(CLOAK_GLYPH_EYE);
+const glyphEdgesGlsl = (name, edges) => `const vec4 ${name}[${edges.length}] = vec4[${edges.length}](${edges.map((e) => `vec4(${e.map((x) => x.toFixed(3)).join(', ')})`).join(', ')});`;
 /** SHADOW-CLOAK: THE CLOAK'S SHAPE, both halves' - its frame off the wearer's facing, its radius about the body at a
- *  height, its parting at the front, and the moments a band of it glitches. `u` turns round from the front's middle (0)
- *  by the wearer's right, so the mesh's seam (u 0 = 1) lies inside the parting, where nothing is drawn. */
+ *  height, how far behind the body's middle it stands there, and its opening at the front. `u` turns round from the
+ *  front's middle (0) by the wearer's right, so the mesh's seam (u 0 = 1) lies inside the opening below the clasp and in
+ *  the hood's face, and the collar between them closes whole over it. */
+const g1 = (x) => x.toFixed(1), g3 = (x) => x.toFixed(3);
 const CLOAK_SHAPE_GLSL = `
 const float CLOAK_TAU = 6.283185307179586;
 float cloakHash(vec2 p) { p = fract(p * vec2(233.34, 851.73)); p += dot(p, p + 23.45); return fract(p.x * p.y); }
@@ -436,250 +501,275 @@ vec2 cloakFwd() { return vec2(sin(uYaw), cos(uYaw)); }
 vec2 cloakBearing(float u) { float th = u * CLOAK_TAU; return cloakFwd() * cos(th) + vec2(cos(uYaw), -sin(uYaw)) * sin(th); }
 // 0 at the front's middle, 1 down the back
 float cloakBackOf(float u) { return 0.5 - 0.5 * cos(u * CLOAK_TAU); }
-// the folds round the cloth: -1 in a crease .. 1 on a ridge, uneven so they read as cloth and not as fluting
-float cloakFoldOf(float u) { return cos(u * CLOAK_TAU * ${CLOAK_FOLDS.toFixed(1)} + 0.8 * sin(u * CLOAK_TAU * 3.0)); }
-// the radius about the body at y (m up) on bearing u: from broad shoulders - narrower front to back than across, as a
-// body is - straight down and flaring at the hem, hanging further out behind; up from the shoulders onto the hood's
-// base round the neck; the hood swelling round the head and closing to its peak
+// where in its folds the cloth is round the body - uneven, so they read as cloth and not as fluting - and the fold
+// itself: -1 in a crease .. 1 on a ridge
+float cloakFoldPhase(float u) { return u * CLOAK_TAU * ${g1(CLOAK_FOLDS)} + 0.8 * sin(u * CLOAK_TAU * 3.0); }
+float cloakFoldOf(float u) { return cos(cloakFoldPhase(u)); }
+// how much the cape hangs free at y: none over the shoulders, all of it toward the hem - the folds' depth and the billow
+float cloakDrapeOf(float y) { return smoothstep(0.05, 0.9, 1.0 - y / ${g3(CLOAK_SHOULDER_Y)}); }
+// the radius about its axis at y (m up) on bearing u: the cape from the shoulders - narrower front to back than across,
+// as a body is - falling and flaring to the hem, its back hanging further out; over the shoulders in to the neck; the
+// hood round the head, narrower across than deep, closing over the crown
 float cloakRadius(float u, float y) {
   float c2 = pow(cos(u * CLOAK_TAU), 2.0);
-  float shoulder = ${CLOAK_SHOULDER_R.toFixed(3)} * (1.0 - ${CLOAK_SQUASH.shoulder.toFixed(3)} * c2);
-  if (y < ${CLOAK_SHOULDER_Y.toFixed(3)}) {
-    float s = 1.0 - y / ${CLOAK_SHOULDER_Y.toFixed(3)};
-    float squash = mix(${CLOAK_SQUASH.shoulder.toFixed(3)}, ${CLOAK_SQUASH.hem.toFixed(3)}, smoothstep(0.0, 0.8, s));
-    return mix(${CLOAK_SHOULDER_R.toFixed(3)}, ${CLOAK_HEM_R.toFixed(3)}, pow(s, 1.6)) * (1.0 - squash * c2) + ${CLOAK_BACK_M.toFixed(3)} * cloakBackOf(u) * s;
+  if (y < ${g3(CLOAK_SHOULDER_Y)}) {
+    float s = 1.0 - y / ${g3(CLOAK_SHOULDER_Y)};
+    float squash = mix(${g3(CLOAK_SQUASH.shoulder)}, ${g3(CLOAK_SQUASH.hem)}, smoothstep(0.0, 0.8, s));
+    return mix(${g3(CLOAK_SHOULDER_R)}, ${g3(CLOAK_HEM_R)}, pow(s, 1.3)) * (1.0 - squash * c2) + ${g3(CLOAK_BACK_M)} * cloakBackOf(u) * pow(s, 1.2);
   }
-  if (y < ${CLOAK_NECK_Y.toFixed(3)}) return mix(shoulder, ${CLOAK_NECK_R.toFixed(3)}, smoothstep(${CLOAK_SHOULDER_Y.toFixed(3)}, ${CLOAK_NECK_Y.toFixed(3)}, y));
-  float s = clamp((y - ${CLOAK_NECK_Y.toFixed(3)}) / ${(CLOAK_H - CLOAK_NECK_Y).toFixed(3)}, 0.0, 1.0);
-  float swell = mix(${CLOAK_NECK_R.toFixed(3)}, ${CLOAK_HOOD_R.toFixed(3)}, smoothstep(0.0, 0.3, s)) * (1.0 + 0.08 * c2);
-  return swell * sqrt(max(0.0, 1.0 - pow(max(0.0, s - 0.4) / 0.6, 2.0)));
+  float across = 1.0 - ${g3(CLOAK_SQUASH.hood)} * (1.0 - c2);
+  if (y < ${g3(CLOAK_NECK_Y)}) return mix(${g3(CLOAK_SHOULDER_R)} * (1.0 - ${g3(CLOAK_SQUASH.shoulder)} * c2), ${g3(CLOAK_NECK_R)} * across, smoothstep(${g3(CLOAK_SHOULDER_Y)}, ${g3(CLOAK_NECK_Y)}, y));
+  if (y < ${g3(CLOAK_HOOD_Y)}) return mix(${g3(CLOAK_NECK_R)}, ${g3(CLOAK_HOOD_R)}, smoothstep(${g3(CLOAK_NECK_Y)}, ${g3(CLOAK_HOOD_Y)}, y)) * across;
+  float s = (y - ${g3(CLOAK_HOOD_Y)}) / ${g3(CLOAK_H - CLOAK_HOOD_Y)};
+  return ${g3(CLOAK_HOOD_R)} * across * sqrt(max(0.0, 1.0 - s * s));
 }
-// how far the hood's axis has fallen back behind the head at y (m): its peak hangs back
-float cloakHoodBack(float y) { return ${CLOAK_HOOD_BACK_M.toFixed(3)} * smoothstep(${(CLOAK_NECK_Y + 0.05).toFixed(3)}, ${CLOAK_H.toFixed(3)}, y); }
-// the parting at the front, half its width in turns: hanging open below the collar and wider toward the hem, a narrow
-// throat over the shoulders, the hood's face open
+// how far behind the body's middle its axis stands at y (m): the cape's on the body; the hood's behind the face, its
+// peak fallen back a little further
+float cloakAxisBack(float y) { return ${g3(CLOAK_HOOD_BACK_M)} * smoothstep(${g3(CLOAK_SHOULDER_Y)}, ${g3(CLOAK_NECK_Y)}, y) + ${g3(CLOAK_PEAK_BACK_M)} * smoothstep(${g3(CLOAK_HOOD_Y)}, ${g3(CLOAK_H)}, y); }
+// the opening at the front, half its width in turns: wide at the hem, narrowing up the chest and closed at the clasp
+// where its edges meet; the collar whole round the throat; the hood's face open
 float cloakOpenHalf(float y) {
-  float body = mix(${CLOAK_OPEN.hem.toFixed(3)}, ${CLOAK_OPEN.shoulder.toFixed(3)}, smoothstep(0.0, ${CLOAK_SHOULDER_Y.toFixed(3)}, y));
-  float collar = smoothstep(${(CLOAK_SHOULDER_Y - 0.05).toFixed(3)}, ${(CLOAK_SHOULDER_Y + 0.04).toFixed(3)}, y);
-  float face = ${CLOAK_OPEN.face.toFixed(3)} * smoothstep(${(CLOAK_NECK_Y - 0.02).toFixed(3)}, ${(CLOAK_NECK_Y + 0.1).toFixed(3)}, y) * (1.0 - smoothstep(${(CLOAK_H - 0.2).toFixed(3)}, ${(CLOAK_H - 0.04).toFixed(3)}, y));
-  return max(mix(body, ${CLOAK_OPEN.throat.toFixed(3)}, collar), face);
+  float body = mix(${g3(CLOAK_OPEN.hem)}, ${g3(CLOAK_OPEN.chest)}, smoothstep(0.0, ${g3(CLOAK_CLASP_Y - 0.2)}, y)) * (1.0 - smoothstep(${g3(CLOAK_CLASP_Y - 0.2)}, ${g3(CLOAK_CLASP_Y)}, y));
+  float fy = (y - ${g3(CLOAK_FACE.y)}) / ${g3(CLOAK_FACE.h)};
+  return max(body, ${g3(CLOAK_OPEN.face)} * sqrt(max(0.0, 1.0 - fy * fy)));
 }
-// THE GLITCH: now and then (a hash of each half second) bands of the cloak slip sideways, as a projection skips - the
-// slip in metres along the cloth at y (0 when none)
-float cloakGlitch(float y, float t) {
-  float slot = mod(floor(t * ${CLOAK_HZ.glitch.toFixed(1)}), ${(CLOAK_HZ.glitch * AURA_CLOCK_PERIOD).toFixed(1)});
-  float band = floor(y * 9.0);
-  float on = step(0.86, cloakHash(vec2(slot, 4.2))) * step(0.55, cloakHash(vec2(slot * 0.73 + band, 9.1)));
-  return on * (cloakHash(vec2(band, slot + 2.0)) - 0.5) * 0.07;
-}
+// THE TEAR: how far the cloak has torn apart (0 whole .. 1 gone) - \`uTorn\` the seconds since its wearer turned beast,
+// negative while they have not
+float cloakRipOf() { return uTorn < 0.0 ? 0.0 : clamp(uTorn / ${g3(CLOAK_RIP_S)}, 0.0, 1.0); }
 `;
-/** SHADOW-CLOAK: THE CLOAK'S LIGHT AND SHADOW - the fragment half's. Each answers premultiplied: the light it adds (rgb)
- *  and how much of what is behind it the shadow covers (a). */
-const g1 = (x) => x.toFixed(1), g3 = (x) => x.toFixed(3);
+/** SHADOW-CLOAK: THE CLOAK'S CLOTH, ITS GROUND AND ITS EMBLEMS - the fragment half's. Each answers premultiplied: the
+ *  light it adds (rgb) and how much of what is behind it the shadow covers (a). */
 const CLOAK_FS_GLSL = `
 const vec3 CLOAK_CRIMSON = ${v3(CLOAK_RGB.crimson)};
-const vec3 CLOAK_HOT = ${v3(CLOAK_RGB.hot)};
+const vec3 CLOAK_EMBER = ${v3(CLOAK_RGB.ember)};
 const vec3 CLOAK_SHADOW = ${v3(CLOAK_RGB.shadow)};
+const vec3 CLOAK_LINING = ${v3(CLOAK_RGB.lining)};
 float cloakBreath() { return 0.85 + 0.15 * sin(uTime * CLOAK_TAU ${hzGlsl(CLOAK_HZ.pulse)}); }
-// a hexagonal lattice: how far p (in cells) is from its cell's nearest edge - 0 on an edge, 0.5 at a cell's middle
-float cloakHex(vec2 p) {
-  vec2 a = mod(p, vec2(1.0, 1.7320508)) - vec2(0.5, 0.8660254);
-  vec2 b = mod(p - vec2(0.5, 0.8660254), vec2(1.0, 1.7320508)) - vec2(0.5, 0.8660254);
-  vec2 g = dot(a, a) < dot(b, b) ? a : b;
-  vec2 ag = abs(g);
-  return 0.5 - max(dot(ag, vec2(0.5, 0.8660254)), ag.x);
+// THE WEARER'S GLYPH (ui/playerBadge.js GLYPH_PATH.shadowfang, SirMcMobdon's wolf's head, and its eye - GLYPH_DETAIL),
+// cut into straight edges (glyphEdges) in its own 16-unit box, y down as its path is: the distance to its outline,
+// negative inside (even-odd, as the badge fills it)
+${glyphEdgesGlsl('CLOAK_GLYPH_EDGES', CLOAK_GLYPH_EDGES)}
+${glyphEdgesGlsl('CLOAK_EYE_EDGES', CLOAK_EYE_EDGES)}
+float cloakSeg2(vec2 p, vec4 e) { vec2 ab = e.zw - e.xy, w = p - e.xy; vec2 q = w - ab * clamp(dot(w, ab) / dot(ab, ab), 0.0, 1.0); return dot(q, q); }
+float cloakCross(vec2 p, vec4 e) { float c = step(e.y, p.y) - step(e.w, p.y); return c != 0.0 && p.x < e.x + (p.y - e.y) * (e.z - e.x) / (e.w - e.y) ? 1.0 : 0.0; }
+float cloakGlyphD(vec2 p) {
+  float d = 1e9, n = 0.0;
+  for (int i = 0; i < ${CLOAK_GLYPH_EDGES.length}; i++) { d = min(d, cloakSeg2(p, CLOAK_GLYPH_EDGES[i])); n += cloakCross(p, CLOAK_GLYPH_EDGES[i]); }
+  return (mod(n, 2.0) > 0.5 ? -1.0 : 1.0) * sqrt(d);
 }
-// THE RAIN: columns of the projection's script falling down the cloth - a bright head and its trail of characters,
-// some columns at a time, each at one of three paces
-float cloakRain(float u, float y, float t) {
-  float cu = u * ${g1(CLOAK_RAIN)};
-  float col = floor(cu);
-  float hc = cloakHash(vec2(col, 1.3));
-  if (hc < 0.45) return 0.0;
-  float pace = 1.0 + floor(cloakHash(vec2(col, 7.7)) * 3.0);
-  float tail = y / ${g3(CLOAK_H)} - (1.0 - fract(t ${hzGlsl(CLOAK_HZ.rain)} * pace + hc));
-  if (tail < 0.0) return 0.0;
-  float lane = 1.0 - smoothstep(0.06, 0.16, abs(fract(cu) - 0.5));
-  float row = y * 34.0;
-  float glyph = step(0.38, cloakHash(vec2(col, floor(row)))) * (1.0 - smoothstep(0.32, 0.42, abs(fract(row) - 0.5)));
-  return lane * glyph * (exp(-tail * 7.0) + 2.0 * exp(-tail * 180.0));
+float cloakEyeD(vec2 p) {
+  float d = 1e9, n = 0.0;
+  for (int i = 0; i < ${CLOAK_EYE_EDGES.length}; i++) { d = min(d, cloakSeg2(p, CLOAK_EYE_EDGES[i])); n += cloakCross(p, CLOAK_EYE_EDGES[i]); }
+  return (mod(n, 2.0) > 0.5 ? -1.0 : 1.0) * sqrt(d);
 }
-// a stroke from a to b, its half-width wa at a and wb at b: the distance from p to its edge (m)
-float cloakTaper(vec2 p, vec2 a, vec2 b, float wa, float wb) { vec2 pa = p - a, ba = b - a; float h = clamp(dot(pa, ba) / dot(ba, ba), 0.0, 1.0); return length(pa - ba * h) - mix(wa, wb, h); }
-// THE SHADOW FANG'S MARK on the cloak's back (p in m about its middle, x across, y up): the wolf's two fangs curving to
-// their points, its slanted eyes over them, and a ring broken at its top and its foot
-float cloakSigil(vec2 p) {
-  vec2 q = vec2(abs(p.x), p.y);
-  float fang = min(min(cloakTaper(q, vec2(0.05, 0.05), vec2(0.056, 0.0), 0.017, 0.015), cloakTaper(q, vec2(0.056, 0.0), vec2(0.046, -0.05), 0.015, 0.009)), cloakTaper(q, vec2(0.046, -0.05), vec2(0.022, -0.095), 0.009, 0.0));
-  float eye = cloakTaper(q, vec2(0.028, 0.085), vec2(0.082, 0.108), 0.007, 0.004);
-  float ring = max(abs(length(p) - ${g3(CLOAK_SIGIL_R)}) - 0.006, 0.045 - q.x);
-  return min(min(fang, eye), ring);
+// THE EMBLEM at p in its own measure (its disc's edge at 1.4, x across to the eye's right, y up; w a pixel's width in
+// it): the wearer's glyph filled in crimson deepening down to the mane, its outline lit, its eye an ember; a ring about
+// it and a fine ring outside that, on a disc of shadow - the light it gives (rgb) and its disc (a)
+vec4 cloakEmblemAt(vec2 p, float w) {
+  float l = length(p);
+  vec2 g = vec2(8.0 + p.x * 7.0, 8.0 - p.y * 7.0);   // into the glyph's box: seven of its units to one
+  float gd = cloakGlyphD(g) / 7.0;
+  float fill = 1.0 - smoothstep(-w, 0.0, gd);
+  float ring = 1.0 - smoothstep(0.0, w, abs(l - 1.2) - 0.035);
+  float fine = 1.0 - smoothstep(0.0, w, abs(l - 1.33) - 0.014);
+  vec3 col = CLOAK_CRIMSON * (fill * mix(0.2, 0.62, smoothstep(-0.9, 0.9, p.y)) + 0.5 * exp(-gd * gd / (w * w * 2.0)) + 0.1 * exp(-max(gd, 0.0) * 14.0) + ring * 0.62 + fine * 0.32);
+  col = mix(col, CLOAK_EMBER, (1.0 - smoothstep(-w, 0.0, cloakEyeD(g) / 7.0)) * 0.9);
+  return vec4(col * cloakBreath(), 1.0 - smoothstep(1.37, 1.42, l));
+}
+// THE EMBROIDERY m metres in from an edge, \`along\` it: a line at the edge, a band of wolf's teeth inside it, a fine line
+// at the band's inner side
+float cloakTrim(float m, float along) {
+  if (m < 0.0 || m > ${g3(CLOAK_TRIM.band + 0.012)}) return 0.0;
+  float tooth = abs(fract(along / ${g3(CLOAK_TRIM.tooth)}) - 0.5) * 2.0;
+  float line = 0.009 + tooth * ${g3(CLOAK_TRIM.band - 0.018)};
+  return exp(-pow(m - 0.004, 2.0) / 0.00001) + 0.7 * exp(-pow(m - line, 2.0) / 0.00001) + 0.45 * exp(-pow(m - ${g3(CLOAK_TRIM.band)}, 2.0) / 0.000006);
 }
 vec4 cloakWall(vec2 q) {
   float u = q.x, v = q.y, y = v * uFlameH, t = uTime;
-  // KINDLED UP, built as a projection is: nothing over the line the build has reached, a hot line along it
-  float build = uKindle * 1.15 - 0.075;
-  if (v > build + 0.004) discard;
-  float r = max(cloakRadius(u, y), 0.04);
-  // THE PARTING at the front: metres into the cloth from its edge
-  float edgeM = (min(u, 1.0 - u) - cloakOpenHalf(y)) * CLOAK_TAU * r;
-  if (edgeM < 0.0) discard;
-  // THE HEM, torn - and coming apart over its last hand's breadth in blocks, each moment its own, as a projection does
-  float hemM = y - (0.03 + 0.05 * vnoiseP(vec2(u * 30.0, 0.5), vec2(30.0, 8.0)) + 0.09 * pow(vnoiseP(vec2(u * 11.0, 2.5), vec2(11.0, 8.0)), 3.0));
-  if (hemM < 0.0) discard;
-  float shred = mod(floor(t * ${g1(CLOAK_HZ.shred)}), ${g1(CLOAK_HZ.shred * AURA_CLOCK_PERIOD)});
-  if (cloakHash(floor(vec2(u * 120.0, y * 42.0)) + vec2(0.0, shred * 0.37)) < (1.0 - smoothstep(0.0, 0.14, hemM)) * 0.75) discard;
-  float breath = cloakBreath();
-  // a glitching band's patterns slip with the cloth
-  float g = cloakGlitch(y, t);
-  float ug = u + g / (CLOAK_TAU * r);
-  // THE SHADOW: denser where the eye looks along the cloth (its edges against the world) than through it, smoke
-  // climbing it, scanlines through it, its folds
+  // KINDLED: drawn in out of smoke from the hem up - nothing past the line the kindling has reached, embers along it
+  float grown = uKindle * 1.25 - 0.1 - v - (vnoiseP(vec2(u * 16.0, y * 5.0), vec2(16.0, 64.0)) - 0.5) * 0.2;
+  if (grown < 0.0) discard;
+  float r = max(cloakRadius(u, y), 0.04), circ = CLOAK_TAU * r;
+  float su = u > 0.5 ? u - 1.0 : u;   // signed round from the front: the wearer's right positive
+  // THE CLASP at the throat, where the opening's edges meet - whole over them (seen from the front: its x the eye's right)
+  vec2 cp = vec2(-su * circ, y - ${g3(CLOAK_CLASP_Y - 0.012)}) * ${g3(1.4 / CLOAK_CLASP_R)};
+  float brooch = 1.0 - smoothstep(1.37, 1.42, length(cp));
+  // THE OPENING at the front: metres into the cloth from its edge
+  float edgeM = (abs(su) - cloakOpenHalf(y)) * circ;
+  if (edgeM < 0.0 && brooch <= 0.0) discard;
+  // TORN, when its wearer turns beast: seams opening across it, its pieces gone one after another, embers along every
+  // tear - the cells of a warped grid round and up it, twelve round so it closes on itself
+  float rip = cloakRipOf(), torn = 0.0;
+  if (rip > 0.0) {
+    vec2 c = vec2(u * 12.0, y * 6.0) + (vec2(vnoiseP(vec2(u * 24.0, y * 9.0), vec2(24.0, 64.0)), vnoiseP(vec2(u * 24.0 + 7.0, y * 9.0), vec2(24.0, 64.0))) - 0.5) * 0.7;
+    vec2 f = fract(c);
+    float seam = min(min(f.x, 1.0 - f.x), min(f.y, 1.0 - f.y)) - rip * 0.3;
+    if (seam < 0.0 || cloakHash(vec2(mod(floor(c.x), 12.0), floor(c.y)) + 0.5) < rip * 1.3 - 0.2) discard;
+    torn = exp(-seam * seam / 0.0015);
+  }
+  // the cloth's facing - round the body, bent by its folds, and tilted by its lean in and out as it rises (the hood's
+  // top, the shoulders) - toward the eye its outside, away from it its lining. ITS TWO SIDES ARE TWO DRAWS: the far
+  // (\`uSide\` 0) laid first and the near (1) over it, so one row's far cloth never lies over the next row's near
+  float drape = cloakDrapeOf(y);
+  float phase = cloakFoldPhase(u), fold = cos(phase) * drape;
+  vec2 bn = cloakBearing(u + 0.02 * sin(phase) * drape);
+  float lean = (cloakRadius(u, y + 0.01) - cloakRadius(u, y - 0.01)) * 50.0 - (cloakAxisBack(y + 0.01) - cloakAxisBack(y - 0.01)) * 50.0 * dot(cloakFwd(), bn);
   vec3 e = uCamPos - vWorld;
-  vec2 ex = dot(e.xz, e.xz) > 1e-8 ? normalize(e.xz) : cloakBearing(u);
-  float toward = dot(cloakBearing(u), ex);
-  float rim = pow(1.0 - abs(toward), 2.0);
-  // the cloth's inside (its far side, seen through the near or through the parting) lit less, so the near side reads
-  float outer = toward > 0.0 ? 1.0 : 0.45;
-  float smoke = fbmP(vec2(ug * 14.0, y * 2.4 - t * ${g3(CLOAK_FLOW.smoke)}), vec2(14.0, ${g1(CLOAK_FLOW.smoke * AURA_CLOCK_PERIOD)}));
-  float scan = 0.5 + 0.5 * cos(y * 340.0);
-  float fold = cloakFoldOf(ug) * smoothstep(0.0, 0.6, 1.0 - y / ${g3(CLOAK_SHOULDER_Y)});
-  // the interference a projection carries: broad bands drifting down it
-  float drift = 0.5 + 0.5 * sin(y * 16.0 + t * CLOAK_TAU ${hzGlsl(CLOAK_HZ.ripple)});
-  float shade = (0.6 + 0.28 * rim + 0.24 * smoke) * (0.82 + 0.18 * scan) * (0.82 + 0.18 * fold) * (0.92 + 0.08 * drift);
-  vec3 col = CLOAK_SHADOW * shade * 0.5;
-  col += CLOAK_CRIMSON * (rim * rim * 0.6 + 0.04 * pow(scan, 10.0) * (0.4 + rim) + 0.09 * pow(max(fold, 0.0), 3.0) * (0.3 + rim) * (0.5 + smoke) + 0.025 * drift) * breath;
-  // THE SCAN climbing the cloak every few seconds, the lattice lit in its wake and flaring here and there
-  float sd = v - (fract(t ${hzGlsl(CLOAK_HZ.scan)}) * 1.3 - 0.15);
-  float swept = sd < 0.0 ? exp(sd * 9.0) : 0.0;
-  col += (CLOAK_HOT * 0.4 + CLOAK_CRIMSON * 0.45) * (exp(-sd * sd / 0.00003) + 0.35 * exp(-pow(sd + 0.03, 2.0) / 0.00001)) * (0.4 + 0.6 * rim + 0.3 * smoke);
-  float hx = cloakHex(vec2(ug * ${g1(CLOAK_HEX_ROUND)}, y / 0.075));
-  float flare = smoothstep(0.66, 0.82, vnoiseP(vec2(ug * 10.0, y * 3.0 + mod(floor(t * ${g1(CLOAK_HZ.glitch)}), ${g1(CLOAK_HZ.glitch * AURA_CLOCK_PERIOD)}) * 1.7), vec2(10.0, 4096.0)));
-  col += CLOAK_CRIMSON * exp(-hx * hx / 0.0012) * (0.03 + 0.8 * swept + 0.4 * flare) * 0.5;
-  // THE RAIN of its script
-  col += mix(CLOAK_CRIMSON, CLOAK_HOT, 0.3) * cloakRain(ug, y, t) * 0.55;
-  // THE TRIMS: a hot line along the parting and a dashed one inside it; the circuit across the shoulders with its
-  // nodes; the torn hem lit along its tear
-  float trim = exp(-pow(edgeM - 0.012, 2.0) / 0.00002) + 0.5 * exp(-pow(edgeM - 0.042, 2.0) / 0.00001) * step(0.5, fract(y * 12.0));
-  float hem = exp(-pow(hemM - 0.016, 2.0) / 0.00003);
-  float yy = y - ${g3(CLOAK_SHOULDER_Y - 0.03)};
-  float yoke = exp(-yy * yy / 0.00002) + 0.5 * exp(-pow(yy + 0.035, 2.0) / 0.00001);
-  float nx = (fract(ug * 12.0 + 0.5) - 0.5) / 12.0 * CLOAK_TAU * r;
-  float node = exp(-(nx * nx + yy * yy) / 0.00012);
-  col += (CLOAK_HOT * 0.55 + CLOAK_CRIMSON) * (trim * 1.1 + hem * 0.9 + yoke * 0.6 + node * 0.8) * breath;
-  // THE MARK on its back, burning through the shadow
-  float sig = cloakSigil(vec2((u - 0.5) * CLOAK_TAU * r + g, y - ${g3(CLOAK_SIGIL_Y)}));
-  col += (CLOAK_HOT * (1.0 - smoothstep(0.0, 0.004, sig)) * 0.9 + CLOAK_CRIMSON * exp(-max(sig, 0.0) * 60.0) * 0.6) * breath;
-  // the build's front, while it builds
-  col = col * outer + (CLOAK_HOT + CLOAK_CRIMSON) * exp(-pow((v - build) * 90.0, 2.0)) * 1.5;
-  shade *= mix(0.85, 1.0, outer);
-  // FLICKER: now and then the whole projection stutters - thinner, brighter
-  float flick = cloakHash(vec2(mod(floor(t * ${g1(CLOAK_HZ.flicker)}), ${g1(CLOAK_HZ.flicker * AURA_CLOCK_PERIOD)}), 2.9)) > 0.965 ? 0.5 : 1.0;
+  float toward = dot(normalize(vec3(bn.x, -lean, bn.y)), dot(e, e) > 1e-8 ? normalize(e) : vec3(bn.x, 0.0, bn.y));
+  if (uSide == 1 ? toward <= 0.0 : toward > 0.0) discard;
   // never from inside it: the wearer's own first person sees no shadow over the view
   float outside = smoothstep(0.55, 1.0, length(uCamPos.xz - uAt.xz));
-  return vec4(col * outside * (2.0 - flick), clamp(shade, 0.0, 0.92) * flick * outside);
+  float breath = cloakBreath();
+  // THE HEM, longest down the back and ragged, its last hand's breadth coming apart into smoke that falls from it
+  float hemM = y - mix(${g3(CLOAK_HEM_Y.edge)}, ${g3(CLOAK_HEM_Y.back)}, cloakBackOf(u)) - 0.035 * vnoiseP(vec2(u * 24.0, 0.5), vec2(24.0, 8.0)) - 0.05 * pow(vnoiseP(vec2(u * 9.0, 2.5), vec2(9.0, 8.0)), 3.0);
+  float smoke = fbmP(vec2(u * 16.0, y * 3.0 + t * ${g3(CLOAK_FLOW.hem)}), vec2(16.0, ${g1(CLOAK_FLOW.hem * AURA_CLOCK_PERIOD)}));
+  float fray = 1.0 - smoothstep(0.0, 0.1, hemM);
+  float tear = smoke - fray * 0.8;
+  if (edgeM >= 0.0 && (tear < 0.0 || hemM < 0.0)) {
+    // what has come apart: smoke trailing off the hem, a hand below it at most, a crimson glow in it
+    float trail = smoothstep(0.25, 0.65, smoke) * (1.0 - smoothstep(0.0, 0.12, -hemM)) * 0.55;
+    if (trail <= 0.002) discard;
+    return vec4(CLOAK_CRIMSON * trail * 0.05 * breath * outside, trail * outside);
+  }
+  float rim = pow(1.0 - abs(toward), 3.0);
+  float stir = fbmP(vec2(u * 10.0, y * 2.0 - t * ${g3(CLOAK_FLOW.smoke)}), vec2(10.0, ${g1(CLOAK_FLOW.smoke * AURA_CLOCK_PERIOD)}));
+  vec3 col;
+  float shade;
+  if (toward > 0.0) {
+    // ITS OUTSIDE: shadow, dense and dark and stirring, the folds' ridges catching a crimson sheen, a crimson rim
+    // where it turns away
+    shade = 0.86 + 0.08 * rim - 0.1 * stir;
+    col = CLOAK_SHADOW * (0.5 + 0.5 * toward) * (0.8 + 0.2 * fold) + CLOAK_CRIMSON * (0.25 * rim + 0.06 * pow(max(fold, 0.0), 3.0) * toward) * breath;
+    // THE MANTLE over the shoulders: its scalloped edge stitched in crimson, its shadow on the cape under it
+    float me = y - ${g3(CLOAK_MANTLE_Y)} + 0.03 * sin(3.14159265 * fract(u * ${g1(CLOAK_SCALLOPS)}));
+    shade += 0.06 * step(0.0, me);
+    col *= 1.0 - 0.6 * exp(-pow(me + 0.012, 2.0) / 0.0001);
+    col += CLOAK_CRIMSON * exp(-pow(me - 0.005, 2.0) / 0.00001) * 0.4 * breath;
+    // THE EMBLEM on its back, on a disc of deeper shadow and burning through it (seen from behind: its x the eye's right)
+    vec2 sp = vec2((0.5 - u) * circ, y - ${g3(CLOAK_SIGIL_Y)}) * ${g3(1.4 / CLOAK_SIGIL_R)};
+    if (length(sp) < 1.45) {
+      vec4 em = cloakEmblemAt(sp, 0.04);
+      col = col * (1.0 - 0.5 * em.a) + em.rgb * (0.6 + 0.4 * toward);
+      shade += 0.08 * em.a;
+    }
+  } else {
+    // ITS LINING, seen through the opening and inside the hood: a deep red, brightest where it faces the eye
+    shade = 0.86;
+    col = CLOAK_LINING * (0.35 + 0.45 * (-toward) + 0.2 * fold) + CLOAK_CRIMSON * 0.1 * rim * breath;
+  }
+  // THE EMBROIDERY down its front edges and round the hood's face, where it is open, and along its hem
+  float trim = max(cloakTrim(edgeM, y) * step(0.001, cloakOpenHalf(y)), cloakTrim(hemM, su * circ));
+  col += CLOAK_CRIMSON * trim * 0.75 * breath * (toward > 0.0 ? 1.0 : 0.6);
+  // the hem's tear smouldering where it comes apart
+  col += mix(CLOAK_CRIMSON, CLOAK_EMBER, 0.3) * exp(-tear * tear / 0.0008) * fray * 0.4 * breath;
+  // THE CLASP: a brooch of the emblem over the meeting edges
+  if (brooch > 0.0) {
+    vec3 b = CLOAK_SHADOW * 0.5 + cloakEmblemAt(cp, 0.12).rgb * 1.3;
+    col = edgeM < 0.0 ? b * brooch : mix(col, b, brooch);
+    shade = edgeM < 0.0 ? 0.9 * brooch : mix(shade, 0.9, brooch);
+  }
+  // the tear's embers
+  col += mix(CLOAK_CRIMSON, CLOAK_EMBER, 0.4) * torn * 0.9;
+  // kindling, embers along the line it has reached
+  col += (CLOAK_EMBER * 0.5 + CLOAK_CRIMSON) * exp(-grown * grown / 0.0006) * (1.0 - smoothstep(0.9, 1.0, uKindle));
+  return vec4(col * outside, clamp(shade, 0.0, 0.94) * outside);
 }
 vec4 cloakGround(vec2 p) {
   float r = length(p), a = atan(p.y, p.x);
   if (r > uGroundR) discard;
-  float u = fract(a / CLOAK_TAU), t = uTime, breath = cloakBreath();
-  // THE SHADOW it pools under it, smoke turning in it and drawn in toward the feet
+  float u = fract(a / CLOAK_TAU), t = uTime;
+  // THE SHADOW it pools under it, mist turning in it and drawn in toward the feet
   float mist = fbmP(vec2(u * 12.0 + t * ${g3(CLOAK_FLOW.swirl)}, r * 3.0 + t * ${g3(CLOAK_FLOW.mist)}), vec2(12.0, ${g1(CLOAK_FLOW.mist * AURA_CLOCK_PERIOD)}));
-  float pool = 1.0 - smoothstep(0.3, ${g3(CLOAK_POOL_R)}, r);
-  float shade = pool * (0.48 + 0.32 * mist);
-  vec3 col = CLOAK_CRIMSON * pool * pool * 0.06 * breath;
-  // THE EMITTER just outside the hem: dashes turning round it, a hairline inside it
-  float dr = r - ${g3(CLOAK_EMITTER_R)};
-  float du = fract((u + t ${hzGlsl(CLOAK_HZ.dashes)}) * ${g1(CLOAK_DASHES)});
-  float dash = smoothstep(0.08, 0.16, du) * (1.0 - smoothstep(0.84, 0.92, du));
-  col += (CLOAK_HOT * 0.5 + CLOAK_CRIMSON) * exp(-dr * dr / 0.00008) * dash * breath + CLOAK_CRIMSON * exp(-dr * dr / 0.0015) * 0.12;
-  float dh = r - ${g3(CLOAK_EMITTER_R - 0.045)};
-  col += CLOAK_CRIMSON * exp(-dh * dh / 0.00002) * 0.35;
-  // THE BEZEL: a fine circle, its ticks turning the other way, a longer one every fifth
-  float tu = (u - t ${hzGlsl(CLOAK_HZ.ticks)}) * ${g1(CLOAK_TICKS)};
-  float ti = floor(tu + 0.5);
-  float tl = mod(ti, 5.0) < 0.5 ? 0.05 : 0.025;
-  float dTick = length(vec2(abs(tu - ti) / ${g1(CLOAK_TICKS)} * CLOAK_TAU * r, max(0.0, max(${g3(CLOAK_BEZEL_R)} - r, r - ${g3(CLOAK_BEZEL_R)} - tl))));
-  float dz = r - ${g3(CLOAK_BEZEL_R)};
-  col += CLOAK_CRIMSON * (exp(-dTick * dTick / 0.000012) * 0.45 + exp(-dz * dz / 0.000008) * 0.3);
-  // THE BRACKETS: arcs turning about it all, their ends turned in
-  float bu = fract((u + t ${hzGlsl(CLOAK_HZ.brackets)}) * ${g1(CLOAK_BRACKETS)});
-  float arc = smoothstep(0.3, 0.32, bu) * (1.0 - smoothstep(0.68, 0.7, bu));
-  float db = r - ${g3(CLOAK_BRACKET_R)};
-  float capD = min(abs(bu - 0.31), abs(bu - 0.69)) / ${g1(CLOAK_BRACKETS)} * CLOAK_TAU * r;
-  float cap = exp(-capD * capD / 0.00002) * step(r, ${g3(CLOAK_BRACKET_R)}) * step(${g3(CLOAK_BRACKET_R - 0.05)}, r);
-  col += CLOAK_CRIMSON * (exp(-db * db / 0.00003) * arc + cap) * 0.55 * breath;
-  // THE SWEEP: a wedge of light turning inside the bezel, the lattice lit in its wake
-  float su = fract(t ${hzGlsl(CLOAK_HZ.sweep)} - u);
-  float within = (1.0 - smoothstep(${g3(CLOAK_BEZEL_R - 0.06)}, ${g3(CLOAK_BEZEL_R)}, r)) * smoothstep(0.1, 0.25, r);
-  float wake = exp(-su * 7.0) * within;
-  float lead = min(su, 1.0 - su) * CLOAK_TAU * r;
-  float hx = cloakHex(p / 0.085);
-  float clear = smoothstep(${g3(CLOAK_HEM_R)}, ${g3(CLOAK_HEM_R + 0.08)}, r);   // none of it under the cloak, where the shadow pools
-  col += CLOAK_CRIMSON * (wake * 0.12 + exp(-hx * hx / 0.002) * wake * 0.55 * clear + exp(-lead * lead / 0.0002) * within * 0.5) * breath;
+  float pool = 1.0 - smoothstep(0.25, ${g3(CLOAK_POOL_R)}, r);
+  float shade = pool * (0.5 + 0.35 * mist);
+  // a dull crimson in the mist under the hem - the light of its embers on the ground
+  float under = exp(-pow(r - ${g3(CLOAK_HEM_R * 0.95)}, 2.0) / 0.02) * smoothstep(0.5, 0.8, mist) * pool;
+  vec3 col = CLOAK_CRIMSON * (pool * pool * 0.05 + under * 0.14) * cloakBreath();
   // KINDLED out from the feet; the quad's edge soft
   float vis = (1.0 - smoothstep(uKindle * 1.4 - 0.1, uKindle * 1.4, r)) * (1.0 - smoothstep(uGroundR - 0.2, uGroundR, r));
   return vec4(col * vis, clamp(shade, 0.0, 0.9) * vis);
 }
-// A WISP (uv its card's 0..1, s its age and its number): a puff of the cloak's shadow burning away at its edges as it
-// rises - smoke inside, a crimson line where it burns, gone as it ends
-vec4 cloakWisp(vec2 uv, vec3 s) {
-  float age = s.x;
-  // A TONGUE OF SHADOW: broad at its root and drawn to a point as it rises, its edges eaten by noise from the tip down,
-  // more of it gone the older it is; a broken crimson line where it burns
-  float x = (uv.x - 0.5 - 0.16 * uv.y * sin(uv.y * 5.0 + s.z * 2.3 + age * 4.0)) / mix(0.42, 0.08, uv.y);   // curling as it rises
-  float n = fbmP(uv * vec2(3.0, 5.0) + vec2(s.z * 3.1, -age * 2.4), vec2(64.0));
-  float body = (1.0 - x * x) * smoothstep(0.0, 0.25, uv.y) + (n - 0.5) * 0.9 - age * 0.5 - uv.y * 0.35;
-  float smoke = smoothstep(0.0, 0.45, body);
-  float burn = exp(-body * body / 0.006) * (0.55 + 0.45 * vnoiseP(uv * vec2(9.0, 14.0) + s.z, vec2(64.0)));
-  float ember = exp(-body * body / 0.0006);
-  float fade = smoothstep(0.0, 0.15, age) * (1.0 - age) * smoothstep(0.8, 1.0, uKindle);
-  float edge = smoothstep(0.0, 0.08, min(min(uv.x, 1.0 - uv.x), min(uv.y, 1.0 - uv.y)));
-  return vec4((CLOAK_CRIMSON * 1.3 * burn + CLOAK_HOT * 0.6 * ember + CLOAK_SHADOW * smoke * 0.3) * fade * edge, smoke * fade * 0.32 * edge);
+// AN EMBLEM (uv its card's 0..1, s its age and its number): the wearer's emblem on its disc of shadow, drawn in out of
+// smoke as it rises off the back and falling back to smoke at its end, embers where it forms and where it breaks; none
+// while the cloak is still forming, and fading as it tears
+vec4 cloakEmblem(vec2 uv, vec3 s) {
+  vec2 p = (uv - 0.5) * 3.0;   // its measure: the disc's edge at 1.4, the card's at 1.5
+  float life = clamp(min(s.x / 0.2, (1.0 - s.x) / 0.35), 0.0, 1.0);
+  float held = life * 1.1 - 0.05 - vnoiseP(p * 2.2 + vec2(s.z * 7.1, s.z * 3.7), vec2(64.0));
+  if (held < 0.0) return vec4(0.0);
+  float form = smoothstep(0.0, 0.03, held);
+  vec4 em = cloakEmblemAt(p, 0.05);
+  float ember = exp(-held * held / 0.002) * (1.0 - smoothstep(0.85, 1.0, life)) * em.a;
+  float gate = (1.0 - smoothstep(1.4, 1.5, max(abs(p.x), abs(p.y)))) * smoothstep(0.8, 1.0, uKindle) * (1.0 - cloakRipOf());
+  return vec4((em.rgb * form * 0.85 + mix(CLOAK_CRIMSON, CLOAK_EMBER, 0.4) * ember * 0.6) * gate, em.a * 0.82 * form * gate);
+}
+// A SHRED (uv its card's 0..1, s its number): a scrap torn off the cloak - shadow with a ragged edge smouldering crimson,
+// some with a strip of the hem's wolf's teeth along them; dimmer from inside their ring (the beast's own eye)
+vec4 cloakShred(vec2 uv, vec3 s) {
+  vec2 p = (uv - 0.5) * 2.0;
+  float h = cloakHash(vec2(s.z, 6.1));
+  float shape = 0.74 - max(abs(p.x) * (0.75 + 0.5 * h), abs(p.y)) - (vnoiseP(p * 2.2 + s.z * 5.3, vec2(64.0)) - 0.5) * 0.55 - (vnoiseP(p * 6.0 + s.z * 3.1, vec2(64.0)) - 0.5) * 0.18;
+  if (shape < -0.04) return vec4(0.0);
+  float inside = smoothstep(-0.02, 0.02, shape);
+  float burn = exp(-shape * shape / 0.002);
+  float teeth = step(0.5, cloakHash(vec2(s.z, 3.3))) * exp(-pow(p.y + 0.42 - abs(fract(p.x * 2.5) - 0.5) * 0.36, 2.0) / 0.002) * inside;
+  float gate = mix(0.35, 1.0, smoothstep(0.55, 1.0, length(uCamPos.xz - uAt.xz)));
+  vec3 col = CLOAK_SHADOW * 0.4 * inside + (mix(CLOAK_CRIMSON, CLOAK_EMBER, 0.35) * burn * 0.7 + CLOAK_CRIMSON * teeth * 0.6) * cloakBreath();
+  return vec4(col * gate, inside * 0.85 * gate);
 }
 `;
-/** SHADOW-CLOAK: where the cloak's mesh stands, and its wisps' flights - the vertex half's alone. */
+/** SHADOW-CLOAK: where the cloak's mesh stands, and its emblems' flights - the vertex half's alone. */
 const CLOAK_VS_GLSL = `
-// the hem's billow and a ripple running down the cloth - most at the hem and down the back, none at the shoulders
+// the cape's billow and a wave running down it - most at the hem and down the back, none at the shoulders
 float cloakBillow(float u, float y, float t) {
-  float s = clamp(1.0 - y / ${CLOAK_SHOULDER_Y.toFixed(3)}, 0.0, 1.0);
   float th = u * CLOAK_TAU;
-  float w = 0.024 * sin(3.0 * th + t * CLOAK_TAU ${hzGlsl(CLOAK_HZ.billow)}) + 0.012 * sin(5.0 * th - t * CLOAK_TAU ${hzGlsl(CLOAK_HZ.ripple)} + y * 6.0);
-  return w * pow(s, 1.5) * (0.35 + 0.65 * cloakBackOf(u));
+  float w = 0.035 * sin(2.0 * th + y * 2.0 + t * CLOAK_TAU ${hzGlsl(CLOAK_HZ.billow)}) + 0.016 * sin(5.0 * th + y * 6.0 + t * CLOAK_TAU ${hzGlsl(CLOAK_HZ.wave)});
+  return w * pow(cloakDrapeOf(y), 1.5) * (0.3 + 0.7 * cloakBackOf(u));
 }
 vec3 cloakPoint(vec2 q, float t) {
-  float u = q.x, y = q.y * uFlameH;
-  float folds = ${CLOAK_FOLD_M.toFixed(3)} * cloakFoldOf(u) * smoothstep(0.05, 0.85, 1.0 - y / ${CLOAK_SHOULDER_Y.toFixed(3)});
-  vec2 d = cloakBearing(u) * (cloakRadius(u, y) + folds + cloakBillow(u, y, t)) - cloakFwd() * cloakHoodBack(y);
-  d += cloakBearing(u + 0.25) * cloakGlitch(y, t);
-  return uAt + vec3(d.x, uLift + y, d.y);
+  float u = q.x, y = q.y * uFlameH, rip = cloakRipOf();
+  float r = cloakRadius(u, y) + ${g3(CLOAK_FOLD_M)} * cloakFoldOf(u) * cloakDrapeOf(y) + cloakBillow(u, y, t) + rip * (0.15 + 0.35 * cloakBackOf(u));   // bursting out as it tears
+  vec2 d = cloakBearing(u) * r - cloakFwd() * cloakAxisBack(y);
+  return uAt + vec3(d.x, y + rip * 0.2 * q.y, d.y);
 }
-// a wisp k at the clock t: where it is about the feet (xyz, m) and its age (w, 0 peeling off .. 1 gone); each lasts its
-// life and the next peels off somewhere else on the back half, from the hip to the shoulders, rising, drifting back
-float cloakWispOf(float k, float t) {
-  float life = ${CLOAK_WISP_LIFE[0].toFixed(1)} + mod(k, 3.0);
-  float n = floor(t / life + fract(k * 0.618034));
-  return mod(n, ${AURA_CLOCK_PERIOD.toFixed(1)} / life);   // which wisp this is wraps with the clock (the lives divide its period)
-}
-vec4 cloakWispFlight(float k, float t) {
-  float life = ${CLOAK_WISP_LIFE[0].toFixed(1)} + mod(k, 3.0);
+// emblem k's life (s): CLOAK_EMBLEM_LIFE[k mod 3]
+float cloakEmblemLife(float k) { float m = mod(k, 3.0); return m < 0.5 ? ${g1(CLOAK_EMBLEM_LIFE[0])} : m < 1.5 ? ${g1(CLOAK_EMBLEM_LIFE[1])} : ${g1(CLOAK_EMBLEM_LIFE[2])}; }
+// which of emblem k's flights the clock t is in - wrapping with the clock (the lives divide its period)
+float cloakEmblemOf(float k, float t) { float life = cloakEmblemLife(k); return mod(floor(t / life + fract(k * 0.618034)), ${g1(AURA_CLOCK_PERIOD)} / life); }
+// emblem k at the clock t: where it is about the feet (xyz, m) and its age (w, 0 rising off the back .. 1 gone); each
+// flight rises off the back somewhere else between the shoulder blades and the shoulders, drifting out behind
+vec4 cloakEmblemFlight(float k, float t) {
+  float life = cloakEmblemLife(k);
   float age = fract(t / life + fract(k * 0.618034));
-  float n = cloakWispOf(k, t);
-  float u = 0.5 + (cloakHash(vec2(k * 17.0 + n, 4.1)) - 0.5) * 0.7;
-  float y0 = 0.35 + cloakHash(vec2(k * 5.0 + n, 8.3)) * 1.1;
-  float y = y0 + (1.0 - (1.0 - age) * (1.0 - age)) * ${CLOAK_WISP_RISE.toFixed(2)};
-  vec2 d = cloakBearing(u) * (cloakRadius(u, y0) + 0.03 + 0.14 * age) - cloakFwd() * 0.1 * age;
-  return vec4(d.x, uLift + y, d.y, age);
+  float n = cloakEmblemOf(k, t);
+  float u = 0.5 + (cloakHash(vec2(k * 17.0 + n, 4.1)) - 0.5) * 0.45;
+  float y0 = 1.05 + cloakHash(vec2(k * 5.0 + n, 8.3)) * 0.35;
+  vec2 d = cloakBearing(u) * (cloakRadius(u, y0) + 0.08 + 0.3 * age);
+  return vec4(d.x, y0 + (1.0 - (1.0 - age) * (1.0 - age)) * ${g3(CLOAK_EMBLEM_RISE)}, d.y, age);
+}
+// shred j, \`since\` seconds after the cloak tore: where it is about the feet (xyz, m) - torn off the cape at its own place
+// and flung out, then floating round the beast at its own height and pace, either way round, bobbing - and its turn in
+// its own plane (w, radians). Every rate whole over the clock, which \`since\` wraps with past the tear (auraBeastStep)
+vec4 cloakShredFlight(float j, float since) {
+  float u0 = 0.12 + cloakHash(vec2(j, 2.7)) * 0.76;
+  float y0 = 0.35 + cloakHash(vec2(j, 5.3)) * 1.0;
+  float burst = 1.0 - pow(1.0 - clamp(since / ${g3(CLOAK_RIP_S)}, 0.0, 1.0), 3.0);
+  float pace = (1.0 + floor(cloakHash(vec2(j, 9.1)) * 3.0)) * (mod(j, 2.0) < 0.5 ? 1.0 : -1.0);
+  float r = mix(cloakRadius(u0, y0), ${g3(CLOAK_SHRED_AT.r[0])} + cloakHash(vec2(j, 7.7)) * ${g3(CLOAK_SHRED_AT.r[1] - CLOAK_SHRED_AT.r[0])}, burst);
+  float y = mix(y0, ${g3(CLOAK_SHRED_AT.y[0])} + cloakHash(vec2(j, 1.3)) * ${g3(CLOAK_SHRED_AT.y[1] - CLOAK_SHRED_AT.y[0])}, burst) + 0.07 * burst * sin(since * CLOAK_TAU ${hzGlsl(CLOAK_SHRED_HZ.bob)} + j * 1.7);
+  vec2 d = cloakBearing(u0 + since * pace ${hzGlsl(CLOAK_SHRED_HZ.orbit)}) * r;
+  return vec4(d.x, y, d.y, since * CLOAK_TAU * (1.0 + floor(cloakHash(vec2(j, 4.4)) * 2.0)) ${hzGlsl(CLOAK_SHRED_HZ.spin)} + j);
 }
 `;
 export const AURA_VS = HEAD + `layout(location = 0) in vec2 aP;   // the ground: a corner -1..1; the flames: x the step round 0..1, y up 0..1; a symbol: x its number * 2 + the corner's u, y its v
 uniform mat4 uVP;
 uniform int uKind;      // 0 the ground, 1 the flames, 2 the ward's floating symbols (AEGIS)
-uniform int uAura;      // SHADOW-CLOAK: the cloak's wall is its own mesh, and its third draw its wisps
+uniform int uAura;      // SHADOW-CLOAK: the cloak's wall is its own mesh, and its third draw its emblems
 uniform vec3 uAt;       // the feet
 uniform float uGroundR, uRingR, uFlameH, uLift;
 uniform float uTime;    // AEGIS: a symbol's flight
 uniform float uYaw;     // SHADOW-CLOAK: the wearer's facing
+uniform float uTorn;    // SHADOW-CLOAK: the seconds since the wearer turned beast (negative while not) - the tear, the shreds
 uniform vec3 uCamPos;   // AEGIS: the eye a symbol faces
 out vec2 vP;            // the ground: metres about the feet; the flames: (the angle's share, the height's); a symbol: its card's uv
 out vec3 vWorld;
@@ -700,17 +790,32 @@ void main() {
     vP = aP;
     w = uAt + vec3(cos(a) * uRingR, uLift + aP.y * uFlameH, sin(a) * uRingR);
   } else if (uAura == 3) {
-    // SHADOW-CLOAK: A WISP - its card at its flight's place, upright, turned round the vertical to the eye, growing as
-    // it burns away
+    // SHADOW-CLOAK: AN EMBLEM - its card at its flight's place, upright, turned round the vertical to the eye and
+    // turning a little either way of it as it climbs, as a medal hung on a thread does; past the emblems, A SHRED of the
+    // torn cloak - turning in its own plane and tumbling
     float k = floor(aP.x * 0.5);
     vP = vec2(aP.x - k * 2.0, aP.y);
-    vec4 f = cloakWispFlight(k, uTime);
+    vec4 f;
+    vec2 o;
+    if (k < ${g1(CLOAK_EMBLEMS)}) {
+      f = cloakEmblemFlight(k, uTime);
+      o = (vP - 0.5) * ${g3(CLOAK_EMBLEM_M)} * (0.85 + 0.3 * f.w);
+      o.x *= cos(0.55 * sin(f.w * CLOAK_TAU + k * 1.3));
+      vS = vec3(f.w, 0.0, k);
+    } else {
+      float j = k - ${g1(CLOAK_EMBLEMS)}, since = max(uTorn, 0.0);
+      f = cloakShredFlight(j, since);
+      o = (vP - 0.5) * ${g3(CLOAK_SHRED_M)};
+      o = vec2(o.x * cos(f.w) - o.y * sin(f.w), o.x * sin(f.w) + o.y * cos(f.w));
+      o.x *= cos(since * CLOAK_TAU ${hzGlsl(CLOAK_SHRED_HZ.tumble)} + j);
+      vS = vec3(0.0, 1.0, j);
+    }
     vec3 c = uAt + f.xyz;
     vec2 toEye = uCamPos.xz - c.xz;
     toEye = dot(toEye, toEye) > 1e-8 ? normalize(toEye) : vec2(0.0, 1.0);
-    vec2 o = (vP - 0.5) * vec2(${CLOAK_WISP_W.toFixed(2)}, ${CLOAK_WISP_H.toFixed(2)}) * (1.0 + 0.8 * f.w);
-    w = c + vec3(toEye.y, 0.0, -toEye.x) * o.x + vec3(0.0, o.y, 0.0);
-    vS = vec3(f.w, 0.0, k);
+    // the card's x the eye's own right as the frame shows it (world/mat4.js HANDEDNESS: world +x on screen right), so
+    // the glyph faces the way the badge's does
+    w = c + vec3(-toEye.y, 0.0, toEye.x) * o.x + vec3(0.0, o.y, 0.0);
   } else {
     // AEGIS: A FLOATING SYMBOL - its card at its flight's place, upright and turned round the vertical to face the eye,
     // tilting a little as it climbs and growing as it fades
@@ -735,7 +840,9 @@ in vec3 vS;             // AEGIS: a floating symbol's age, rune and number
 uniform int uKind;
 uniform int uAura;      // AEGIS: 0 Dagon's Fire, 1 the Oblivion Ward, 2 the Golden Radiance (AURA_LOOK - PRIMARCH), 3 the Holo Shadow Cloak (SHADOW-CLOAK)
 uniform vec3 uAt;       // PRIMARCH: the feet - the axis the radiance's column stands on
-uniform float uYaw;     // SHADOW-CLOAK: the wearer's facing - the cloak's parting is at their front
+uniform float uYaw;     // SHADOW-CLOAK: the wearer's facing - the cloak's opening is at their front
+uniform int uSide;      // SHADOW-CLOAK: which side of the cloth this draw lays - 0 the far, 1 the near
+uniform float uTorn;    // SHADOW-CLOAK: the seconds since the wearer turned beast (negative while not)
 uniform float uTime, uSeed, uKindle, uRingR, uGroundR, uFlameH;
 uniform int uFogMode;
 uniform float uFogDensity;
@@ -747,7 +854,7 @@ const float TAU = 6.283185307179586;
 ${WARD_GLSL}${RADIANCE_GLSL}${CLOAK_SHAPE_GLSL}${CLOAK_FS_GLSL}
 void main() {
   if (uAura == 3) {   // SHADOW-CLOAK: premultiplied - the light it adds, and how much the shadow covers; both fogged
-    vec4 c = uKind == 0 ? cloakGround(vP) : uKind == 1 ? cloakWall(vP) : cloakWisp(vP, vS);
+    vec4 c = uKind == 0 ? cloakGround(vP) : uKind == 1 ? cloakWall(vP) : vS.y > 0.5 ? cloakShred(vP, vS) : cloakEmblem(vP, vS);
     float f = fogFactorAt(vWorld) * uKindle;
     o = vec4(c.rgb * f, c.a * f);
     return;
@@ -836,15 +943,33 @@ export function auraCloakGrid() {
   }
   return new Float32Array(out);
 }
-/** The cards the third draw has to hand: the most any look floats (the ward's symbols, the cloak's wisps). */
-export const AURA_CARDS = Math.max(...Object.values(AURA_LOOK).map((l) => l.glyphs));
+/** The cards the third draw has to hand: the most any look floats (the ward's symbols, the cloak's emblems and shreds). */
+export const AURA_CARDS = Math.max(...Object.values(AURA_LOOK).map((l) => l.glyphs + ('shreds' in l ? l.shreds : 0)));
+
+/** SHADOW-CLOAK: THE BEAST FORM, a wearer's step each frame - `beast` whether they stand turned lycanthrope, `t` the
+ *  clock (s). Turned, the cloak tears: `w.torn` the seconds since the turn, wrapped whole past the tear by the clock's
+ *  period (the shreds' rates are whole over it, so their flights meet themselves); -1 while they are not. A wearer
+ *  first seen already turned is already torn; turned back, its cloak kindles again from nothing (`w.since`). Writes `w`
+ *  and returns it. */
+export function auraBeastStep(w, beast, t) {
+  if (w.beastAt === undefined) w.beastAt = beast ? t - CLOAK_RIP_S : null;
+  if (beast) {
+    if (w.beastAt === null) w.beastAt = t;
+    const s = Math.max(0, t - w.beastAt);
+    w.torn = s <= CLOAK_RIP_S ? s : CLOAK_RIP_S + ((s - CLOAK_RIP_S) % AURA_CLOCK_PERIOD);
+  } else {
+    if (w.beastAt !== null) { w.beastAt = null; w.since = t; }
+    w.torn = -1;
+  }
+  return w;
+}
 
 export class AuraRingRenderer {
   constructor(gl) {
     this.gl = gl;
     this.program = buildProgram(gl, AURA_VS, AURA_FS, 'aura ring');
     this.u = {};
-    for (const n of ['uVP', 'uKind', 'uAura', 'uAt', 'uGroundR', 'uRingR', 'uFlameH', 'uLift', 'uTime', 'uSeed', 'uKindle', 'uFogMode', 'uFogDensity', 'uFogRange', 'uCamPos', 'uFocus', 'uYaw']) this.u[n] = gl.getUniformLocation(this.program, n);
+    for (const n of ['uVP', 'uKind', 'uAura', 'uAt', 'uGroundR', 'uRingR', 'uFlameH', 'uLift', 'uTime', 'uSeed', 'uKindle', 'uFogMode', 'uFogDensity', 'uFogRange', 'uCamPos', 'uFocus', 'uYaw', 'uSide', 'uTorn']) this.u[n] = gl.getUniformLocation(this.program, n);
     this.quadVao = gl.createVertexArray();
     gl.bindVertexArray(this.quadVao);
     this.quadBuf = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, this.quadBuf);
@@ -904,7 +1029,9 @@ export class AuraRingRenderer {
       const look = auraLookOf(w.aura);   // AEGIS: the fire or the ward, at its own radius and height
       gl.uniform1i(U.uAura, look.kind);
       gl.uniform1f(U.uRingR, look.ringR); gl.uniform1f(U.uFlameH, look.flameH);
-      gl.uniform1f(U.uYaw, Number.isFinite(w.yaw) ? w.yaw : 0);   // SHADOW-CLOAK: the facing its parting is at
+      gl.uniform1f(U.uYaw, Number.isFinite(w.yaw) ? w.yaw : 0);   // SHADOW-CLOAK: the facing its opening is at
+      const torn = Number.isFinite(w.torn) ? w.torn : -1;
+      gl.uniform1f(U.uTorn, torn);   // SHADOW-CLOAK: turned beast, the cloak torn (auraBeastStep)
       // SHADOW-CLOAK: a look that SHADES is drawn premultiplied - its light added, what is behind it covered by its alpha
       // - and every other look as it always was, its light added whole
       if (look.shade) gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
@@ -912,9 +1039,9 @@ export class AuraRingRenderer {
       gl.bindVertexArray(this.quadVao);
       gl.drawArrays(gl.TRIANGLES, 0, 6);
       gl.uniform1i(U.uKind, 1);
-      if (look.mesh === 'cloak') {   // SHADOW-CLOAK: the cloak's cloth, not the strip
+      if (look.mesh === 'cloak') {   // SHADOW-CLOAK: the cloak's cloth, not the strip - none left once it has torn
         gl.bindVertexArray(this.cloakVao);
-        gl.drawArrays(gl.TRIANGLES, 0, CLOAK_ROUND * CLOAK_ROWS * 6);
+        if (torn < CLOAK_RIP_S) for (const side of [0, 1]) { gl.uniform1i(U.uSide, side); gl.drawArrays(gl.TRIANGLES, 0, CLOAK_ROUND * CLOAK_ROWS * 6); }   // the far side, then the near over it
       } else {
         gl.bindVertexArray(this.flameVao);
         gl.drawArrays(gl.TRIANGLES, 0, AURA_STEPS * 6);
@@ -922,7 +1049,7 @@ export class AuraRingRenderer {
       if (look.glyphs) {   // AEGIS: the ward's floating symbols, a third draw
         gl.uniform1i(U.uKind, 2);
         gl.bindVertexArray(this.glyphVao);
-        gl.drawArrays(gl.TRIANGLES, 0, look.glyphs * 6);
+        gl.drawArrays(gl.TRIANGLES, 0, (look.glyphs + (look.shreds && torn >= 0 ? look.shreds : 0)) * 6);   // SHADOW-CLOAK: and its shreds, torn
       }
       if (look.shade) gl.blendFunc(gl.ONE, gl.ONE);
       this.drawn++;

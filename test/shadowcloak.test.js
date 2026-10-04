@@ -4,10 +4,14 @@
 // with red accents. Extremely detailed". SirMcMobdon already holds Shadow Fang (SHADOW-FANG: the black-and-crimson
 // title, the wolf's-head glyph, the werewolf's skin), so the cloak rides the same handle list - the third list to grant
 // an aura (TIER_AURA) - and wears the title's own black and crimson. It is the aura pass's fourth look
-// (render/auraRing.js AURA_LOOK): not a mark on the ground nor light round the body but a CLOAK ON IT - a hooded mantle
-// hung from the shoulders, parted at the wearer's front (the facing every host now hands the pass), drawn premultiplied
-// so its shadow darkens what is behind it and its crimson light is added; the Shadow Fang's mark on its back; a ground of
-// shadow and crimson rings under it; wisps of its shadow burning away. Its shader is RUN here.
+// (render/auraRing.js AURA_LOOK): not a mark on the ground nor light round the body but a CLOAK ON IT. Seen, the owner
+// asked for it "less digital", its hood "at a weird orientation" adjusted, "not as tall, more cape like", and its
+// floating elements "more emblem like" - "for the emblems have it use that user's glyph" - and "when the user transforms
+// into a werewolf have this rip apart with fragments floating around". So: a cape clasped at the throat with its hood
+// up round the head, open at the wearer's front (the facing every host hands the pass), lined in red, embroidered,
+// drawn premultiplied so its shadow darkens what is behind it; the wearer's glyph on its back, at its clasp and rising
+// off it; a pool of shadow under it; torn apart when its wearer turns beast, its shreds floating round them. Its shader
+// is RUN here.
 import './modsOff.js';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -15,19 +19,21 @@ import { readFileSync } from 'node:fs';
 import { webcrypto } from 'node:crypto';
 import { fakeRoom } from './fakeRoom.mjs';
 import { TITLES, GLYPHS, AURAS, claimsValid, mintToken, verifyToken, importPublicKeyB64 } from '../src/net/identityToken.js';
-import { AURA_TEXT, AURA_PAINT, TITLE_GRADIENT } from '../src/ui/playerBadge.js';
+import { AURA_TEXT, AURA_PAINT, TITLE_GRADIENT, GLYPH_PATH, GLYPH_DETAIL } from '../src/ui/playerBadge.js';
 import { isStaff } from '../src/net/staffCommands.js';
 import {
   titlesHeld, glyphsOf, titleWorn, aurasHeld, auraWorn, auraRefusal, wardrobeOf, TIER_LISTS, TIER_GLYPH, TIER_AURA,
 } from '../server-account/src/titles.js';
 import { RELAY_VERSION } from '../src/net/wire.js';
-import { CAPSULE_HEIGHT } from '../src/player/motor.js';
+import { CAPSULE_HEIGHT, EYE_HEIGHT } from '../src/player/motor.js';
 import { standService } from './accountDb.mjs';
 import {
   AURA_LOOK, auraLookOf, AURA_RING_R, AURA_GROUND_R, AURA_LIFT_M, AURA_STEPS, AURA_CLOCK_PERIOD, AURA_VS, AURA_FS, AURA_CARDS,
-  CLOAK_H, CLOAK_SHOULDER_Y, CLOAK_NECK_Y, CLOAK_HEM_R, CLOAK_SHOULDER_R, CLOAK_HOOD_R, CLOAK_BACK_M, CLOAK_HOOD_BACK_M, CLOAK_SQUASH,
-  CLOAK_ROUND, CLOAK_ROWS, CLOAK_OPEN, CLOAK_DASHES, CLOAK_POOL_R, CLOAK_EMITTER_R, CLOAK_SIGIL_Y, CLOAK_WISPS, CLOAK_WISP_LIFE,
-  CLOAK_HZ, CLOAK_FLOW, CLOAK_RGB, cloakRatesWhole, auraCloakGrid, AuraRingRenderer, WARD_GLYPHS, RADIANCE_R, RADIANCE_H,
+  CLOAK_H, CLOAK_HOOD_Y, CLOAK_NECK_Y, CLOAK_CLASP_Y, CLOAK_SHOULDER_Y, CLOAK_HEM_R, CLOAK_SHOULDER_R, CLOAK_NECK_R, CLOAK_HOOD_R,
+  CLOAK_BACK_M, CLOAK_HOOD_BACK_M, CLOAK_PEAK_BACK_M, CLOAK_HEM_Y, CLOAK_SQUASH, CLOAK_ROUND, CLOAK_ROWS, CLOAK_OPEN, CLOAK_FACE,
+  CLOAK_MANTLE_Y, CLOAK_POOL_R, CLOAK_GLYPH, CLOAK_GLYPH_EYE, CLOAK_SIGIL_Y, CLOAK_SIGIL_R, CLOAK_CLASP_R, CLOAK_EMBLEMS,
+  CLOAK_EMBLEM_LIFE, CLOAK_RIP_S, CLOAK_SHREDS, CLOAK_SHRED_AT, CLOAK_SHRED_HZ, CLOAK_HZ, CLOAK_FLOW, CLOAK_RGB, cloakRatesWhole,
+  auraCloakGrid, glyphEdges, auraBeastStep, AuraRingRenderer, WARD_GLYPHS, RADIANCE_R, RADIANCE_H,
 } from '../src/render/auraRing.js';
 import { glslFunctions, GlslDiscard } from './glsl.mjs';
 
@@ -52,7 +58,7 @@ test('SHADOW-CLOAK vocabulary: the cloak joins AURAS last, "Holo Shadow Cloak" i
   assert.equal(AURA_PAINT.shadowcloak, 'shadowfang', 'its button in the Shadow Fang\'s black and crimson');
   assert.ok(TITLES.includes(AURA_PAINT.shadowcloak));
   for (const a of AURAS) assert.ok(Object.hasOwn(AURA_LOOK, a), `a look for ${a}`);
-  assert.deepEqual({ ...AURA_LOOK.shadowcloak }, { kind: 3, ringR: CLOAK_HEM_R, flameH: CLOAK_H, glyphs: CLOAK_WISPS, mesh: 'cloak', shade: true }, 'the fourth kind: the hem\'s radius, the hood\'s height, its wisps, its own mesh, and a look that shades');
+  assert.deepEqual({ ...AURA_LOOK.shadowcloak }, { kind: 3, ringR: CLOAK_HEM_R, flameH: CLOAK_H, glyphs: CLOAK_EMBLEMS, shreds: CLOAK_SHREDS, mesh: 'cloak', shade: true }, 'the fourth kind: the hem\'s radius, the hood\'s height, its emblems and its shreds, its own mesh, and a look that shades');
   assert.equal(new Set(Object.values(AURA_LOOK).map((l) => l.kind)).size, AURAS.length, 'a kind each');
   assert.equal(auraLookOf('shadowcloak'), AURA_LOOK.shadowcloak);
   for (const a of ['dagonfire', 'oblivionward', 'radiance']) assert.ok(!AURA_LOOK[a].shade && !AURA_LOOK[a].mesh, `${a} still adds its light whole, on the strip`);
@@ -61,7 +67,8 @@ test('SHADOW-CLOAK vocabulary: the cloak joins AURAS last, "Holo Shadow Cloak" i
   assert.deepEqual(rgb(CLOAK_RGB.crimson), rgb(crimson), 'the light: the Shadow Fang\'s crimson');
   assert.deepEqual(rgb(CLOAK_RGB.shadow), rgb(black), 'the shadow: the Shadow Fang\'s black');
   assert.ok(CLOAK_RGB.crimson[0] > 3 * CLOAK_RGB.crimson[1] && CLOAK_RGB.crimson[0] > 3 * CLOAK_RGB.crimson[2], 'red accents: red over everything');
-  assert.ok(CLOAK_RGB.hot[0] >= CLOAK_RGB.hot[1] && CLOAK_RGB.hot[0] >= CLOAK_RGB.hot[2] && lum(CLOAK_RGB.hot) > lum(CLOAK_RGB.crimson), 'its heart a hotter, paler red');
+  assert.ok(CLOAK_RGB.ember[0] >= CLOAK_RGB.ember[1] && CLOAK_RGB.ember[1] >= CLOAK_RGB.ember[2] && lum(CLOAK_RGB.ember) > lum(CLOAK_RGB.crimson), 'where it burns brightest an ember\'s red - no hot pink');
+  assert.ok(CLOAK_RGB.lining[0] > 4 * CLOAK_RGB.lining[1] && lum(CLOAK_RGB.lining) < lum(CLOAK_RGB.crimson), 'lined in a deeper red');
 });
 
 test('SHADOW-CLOAK grant: SHADOW_FANG_HANDLES still names SirMcMobdon, and the list now grants the cloak with the title and the glyph, case-folded; worn while held, read off the config alone; off the list all three go, a guest holds none, the other lists\' holders hold their own and not it (mutants: the aura\'s grant, the list\'s key)', () => {
@@ -147,118 +154,194 @@ test('SHADOW-CLOAK token and relay: a token may carry the cloak and verifies; th
 // ── THE CLOAK'S SHAPE ───────────────────────────────────────────────
 
 const I = [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1];
-const BASE = { uSeed: 0.37, uRingR: CLOAK_HEM_R, uGroundR: AURA_GROUND_R, uFlameH: CLOAK_H, uFogMode: 0, uFogDensity: 0, uFogRange: [0, 1], uAt: [0, 0, 0], uFocus: [0, 0, 0, 0], uLift: AURA_LIFT_M, uVP: I, uAura: 3 };
-/** The vertex half's answer: where a mesh point (or a wisp's corner) stands. */
-const vsAt = (kind, aP, { t = 13.5, yaw = 0, at = [0, 0, 0], eye = [0, 1.2, -5] } = {}) => {
-  const f = glslFunctions(AURA_VS, { ...BASE, aP, uKind: kind, uTime: t, uYaw: yaw, uAt: at, uCamPos: eye });
+const BASE = { uSeed: 0.37, uRingR: CLOAK_HEM_R, uGroundR: AURA_GROUND_R, uFlameH: CLOAK_H, uFogMode: 0, uFogDensity: 0, uFogRange: [0, 1], uAt: [0, 0, 0], uFocus: [0, 0, 0, 0], uLift: AURA_LIFT_M, uVP: I, uAura: 3, uSide: 1, uTorn: -1 };
+/** The vertex half's answer: where a mesh point (or an emblem's or a shred's corner) stands. */
+const vsAt = (kind, aP, { t = 13.5, yaw = 0, at = [0, 0, 0], eye = [0, 1.2, -5], torn = -1 } = {}) => {
+  const f = glslFunctions(AURA_VS, { ...BASE, aP, uKind: kind, uTime: t, uYaw: yaw, uAt: at, uCamPos: eye, uTorn: torn });
   f.main();
   return { w: f.globals.vWorld, vP: f.globals.vP, vS: f.globals.vS };
 };
-/** The fragment half's answer, premultiplied: [light r, g, b, how much it covers] - or 'discard'. */
-const fsAt = (kind, vP, { t = 13.5, yaw = 0, kindle = 1, world = null, eye = [0, 1.2, -5], s = [0, 0, 0], fog = null, at = [0, 0, 0] } = {}) => {
-  const w = world ?? (kind === 1 ? vsAt(1, vP, { t, yaw, at }).w : [0, 0, 0]);
-  const f = glslFunctions(AURA_FS, { ...BASE, vP, vWorld: w, vS: s, uKind: kind, uTime: t, uYaw: yaw, uKindle: kindle, uCamPos: eye, uAt: at, uFogMode: fog ? 2 : 0, uFogDensity: fog?.density ?? 0 });
+/** One draw's answer, premultiplied: [light r, g, b, how much it covers] - or 'discard'. `side` the cloth's draw (0 the
+ *  far, 1 the near). */
+const fsSide = (kind, vP, side, { t = 13.5, yaw = 0, kindle = 1, world = null, eye = [0, 1.2, -5], s = [0, 0, 0], fog = null, at = [0, 0, 0], torn = -1 } = {}) => {
+  const w = world ?? (kind === 1 ? vsAt(1, vP, { t, yaw, at, torn }).w : [0, 0, 0]);
+  const f = glslFunctions(AURA_FS, { ...BASE, vP, vWorld: w, vS: s, uKind: kind, uTime: t, uYaw: yaw, uKindle: kindle, uCamPos: eye, uAt: at, uFogMode: fog ? 2 : 0, uFogDensity: fog?.density ?? 0, uSide: side, uTorn: torn });
   try { f.main(); } catch (e) { if (e instanceof GlslDiscard) return 'discard'; throw e; }
   return f.globals.o;
 };
-/** A quiet moment: no glitch and no flicker falls in it (the shader's own hashes, run). */
+/** The frame's answer: the cloth's from whichever of its two draws lays the fragment. */
+const fsAt = (kind, vP, o = {}) => {
+  if (kind !== 1) return fsSide(kind, vP, 1, o);
+  const near = fsSide(1, vP, 1, o);
+  return near !== 'discard' ? near : fsSide(1, vP, 0, o);
+};
+/** The shader's own functions, to ask the shape and the glyph directly. */
+const F = glslFunctions(AURA_FS, { ...BASE, vP: [0, 0], vWorld: [0, 0, 0], vS: [0, 0, 0], uKind: 1, uTime: 13.5, uYaw: 0, uKindle: 1, uCamPos: [0, 1.2, -5] });
+/** Even-odd, as the badge fills its path and the shader its edges. */
+const insideOf = (edges, [x, y]) => { let n = 0; for (const [ax, ay, bx, by] of edges) if ((ay <= y) !== (by <= y) && x < ax + (y - ay) * (bx - ax) / (by - ay)) n++; return n % 2 === 1; };
+const segD = ([ax, ay, bx, by], [x, y]) => { const ex = bx - ax, ey = by - ay, h = Math.max(0, Math.min(1, ((x - ax) * ex + (y - ay) * ey) / (ex * ex + ey * ey))); return Math.hypot(x - ax - ex * h, y - ay - ey * h); };
+const EDGES = glyphEdges(CLOAK_GLYPH), EYE = glyphEdges(CLOAK_GLYPH_EYE);
+const outlineD = (g) => Math.min(...EDGES.map((e) => segD(e, g)));
+/** Points of the glyph's box well inside the wolf (not its eye) and well outside it but inside the emblem's ring. */
+const GRID = Array.from({ length: 31 * 31 }, (_, i) => [0.5 + (i % 31) * 0.5, 0.5 + Math.floor(i / 31) * 0.5]);
+const IN_HEAD = GRID.filter((g) => insideOf(EDGES, g) && !insideOf(EYE, g) && outlineD(g) > 0.7 && Math.min(...EYE.map((e) => segD(e, g))) > 0.7);
+const OUT_HEAD = GRID.filter((g) => !insideOf(EDGES, g) && outlineD(g) > 0.9 && Math.hypot(g[0] - 8, g[1] - 8) < 7.0);
+const EYE_AT = [(9.3 + 11.8 + 9.8) / 3, (4.7 + 5.5 + 6.2) / 3];
+/** The emblem's measure at a point of the glyph's box (seven of its units to one, y up). */
+const measureOf = ([gx, gy]) => [(gx - 8) / 7, (8 - gy) / 7];
 const QUIET = 13.2;
 
-test('SHADOW-CLOAK the law: a hood standing past the crown, shoulders clear of the body, the hem inside the fire\'s ring; broader across the shoulders than deep; parted at the front, wider toward the hem, a narrow throat, the hood\'s face open; the mesh whole; every rate whole over the clock; the wisps\' lives divide it (mutants: the hood, the parting, a rate off whole)', () => {
-  assert.ok(CLOAK_H > CAPSULE_HEIGHT + 0.1, 'the hood\'s peak over the crown (the walking body 1.8 m)');
-  assert.ok(CLOAK_SHOULDER_Y < CAPSULE_HEIGHT && CLOAK_NECK_Y > CLOAK_SHOULDER_Y && CLOAK_NECK_Y < CAPSULE_HEIGHT - 0.1, 'hung from the shoulders, the hood\'s base at the neck');
-  assert.ok(CLOAK_SHOULDER_R >= 0.3 && CLOAK_SHOULDER_R < CLOAK_HEM_R, 'shoulders clear of the body, narrower than the hem');
-  assert.ok(CLOAK_HEM_R + CLOAK_BACK_M < AURA_RING_R && CLOAK_EMITTER_R < CLOAK_POOL_R && CLOAK_POOL_R < AURA_GROUND_R, 'its hem and its ground inside the fire\'s ring and the ground quad');
-  assert.ok(CLOAK_HOOD_R > 0.15 && CLOAK_HOOD_R < CLOAK_SHOULDER_R, 'a hood round the head');
+test('SHADOW-CLOAK the law: a CAPE clasped at the throat, its hood up round the head - its peak a hand over the crown and no more, its middle at the eye; broader across the shoulders than deep; open at the front below the clasp and at the hood\'s face, the collar whole between; trailing longest down the back; the mesh whole; every rate whole over the clock; the emblems\' lives divide it; and nothing of the projection it was - no lattice, no rain of script, no glitch (mutants: the hood, the opening, a rate off whole)', () => {
+  assert.ok(CLOAK_H > CAPSULE_HEIGHT && CLOAK_H <= CAPSULE_HEIGHT + 0.1, `the hood's peak over the crown, a hand at most - "not as tall" (${CLOAK_H})`);
+  assert.ok(Math.abs(CLOAK_HOOD_Y - EYE_HEIGHT) < 0.03, 'the hood\'s middle at the eye');
+  assert.ok(CLOAK_SHOULDER_Y <= CLOAK_CLASP_Y && CLOAK_CLASP_Y < CLOAK_NECK_Y && CLOAK_NECK_Y < CLOAK_HOOD_Y, 'hung from the shoulders, clasped at the throat, drawn in to the neck');
+  assert.ok(CLOAK_FACE.y - CLOAK_FACE.h >= CLOAK_CLASP_Y + 0.05 && CLOAK_FACE.y + CLOAK_FACE.h <= CLOAK_H - 0.05, 'the face open between the collar and a brow over it');
+  assert.ok(CLOAK_SHOULDER_R < CLOAK_HEM_R && CLOAK_HEM_R + CLOAK_BACK_M < AURA_RING_R && CLOAK_POOL_R < AURA_GROUND_R, 'flaring to its hem, inside the fire\'s ring; its ground inside the quad');
+  assert.ok(CLOAK_HOOD_R > 0.12 && CLOAK_HOOD_R < CLOAK_SHOULDER_R && CLOAK_NECK_R < CLOAK_HOOD_R, 'a hood round the head, swelling from the neck');
   assert.ok(CLOAK_SQUASH.shoulder > CLOAK_SQUASH.hem, 'a body is broader than it is deep');
-  assert.ok(CLOAK_OPEN.hem > CLOAK_OPEN.shoulder && CLOAK_OPEN.shoulder > CLOAK_OPEN.throat && CLOAK_OPEN.face > CLOAK_OPEN.hem, 'the parting: wider to the hem, narrow at the throat, the face open');
+  assert.ok(CLOAK_HEM_Y.back < CLOAK_HEM_Y.edge, 'a cape trails longest down the back');
+  assert.ok(CLOAK_OPEN.hem > CLOAK_OPEN.chest && CLOAK_OPEN.chest > 0 && CLOAK_OPEN.face > 0, 'open wider toward the hem; the face open');
   assert.equal(auraCloakGrid().length, CLOAK_ROUND * CLOAK_ROWS * 12, 'two triangles a cell');
   const g = auraCloakGrid();
   assert.deepEqual([Math.min(...g), Math.max(...g)], [0, 1], 'u and v from 0 to 1');
   assert.ok(cloakRatesWhole(), 'every cloak rate whole over the clock');
-  for (const r of [...Object.values(CLOAK_HZ), ...Object.values(CLOAK_FLOW)]) assert.ok(Number.isInteger(Math.round(r * AURA_CLOCK_PERIOD * 1e6) / 1e6), `whole: ${r}`);
-  for (const l of CLOAK_WISP_LIFE) assert.equal(AURA_CLOCK_PERIOD % l, 0, `a wisp's life divides the clock: ${l}`);
-  assert.equal(AURA_CARDS, Math.max(WARD_GLYPHS, CLOAK_WISPS), 'the third draw has cards enough for the most any look floats');
+  for (const r of [...Object.values(CLOAK_HZ), ...Object.values(CLOAK_FLOW), ...Object.values(CLOAK_SHRED_HZ)]) assert.ok(Number.isInteger(Math.round(r * AURA_CLOCK_PERIOD * 1e6) / 1e6), `whole: ${r}`);
+  for (const l of CLOAK_EMBLEM_LIFE) assert.equal(AURA_CLOCK_PERIOD % l, 0, `an emblem's life divides the clock: ${l}`);
+  assert.equal(AURA_CARDS, Math.max(WARD_GLYPHS, CLOAK_EMBLEMS + CLOAK_SHREDS), 'the third draw has cards enough for the most any look floats');
+  for (const gone of ['cloakHex', 'cloakRain', 'cloakGlitch', 'cloakWisp', 'flicker']) assert.ok(!AURA_VS.includes(gone) && !AURA_FS.includes(gone), `"less digital": no ${gone}`);
 });
 
-test('SHADOW-CLOAK the vertex half, RUN: the cloth stands at the hem\'s radius at the feet and closes at the hood\'s peak, behind the head; its parting faces the wearer\'s facing - turned with them; its back hangs further than its front; broader across the shoulders than deep; the folds in the cloth; wisps peel off the back half and rise (mutants: the facing ignored, the back drape dropped, the squash dropped, the folds dropped, the wisps\' rise)', () => {
+test('SHADOW-CLOAK the emblem is the wearer\'s glyph: the badge\'s own path (ui/playerBadge.js GLYPH_PATH.shadowfang, its eye GLYPH_DETAIL\'s) cut into edges that close on themselves, and the shader\'s outline of it the path\'s - inside where the badge fills, outside where it does not; a path the cut cannot draw is refused (mutants: the glyph swapped, the fill\'s rule, a chord dropped)', () => {
+  assert.equal(CLOAK_GLYPH, GLYPH_PATH.shadowfang, 'SirMcMobdon\'s own glyph, the path the badge draws');
+  assert.equal(CLOAK_GLYPH_EYE, GLYPH_DETAIL.shadowfang.path, 'and its eye');
+  for (const edges of [EDGES, EYE]) {
+    for (let i = 0; i < edges.length; i++) {
+      const [, , bx, by] = edges[i], [nx, ny] = edges[(i + 1) % edges.length];
+      assert.ok(Math.hypot(bx - nx, by - ny) < 1e-9, `edge ${i} meets the next: one closed figure`);
+      assert.ok(edges[i].every((x) => x >= 0 && x <= 16), 'inside the glyph\'s box');
+    }
+  }
+  const area = EDGES.reduce((s, [ax, ay, bx, by]) => s + (ax * by - bx * ay) / 2, 0);
+  assert.ok(Math.abs(area) > 60, `a head, not a sliver (${Math.abs(area).toFixed(1)} of the box's 256)`);
+  assert.equal(EDGES.length, (CLOAK_GLYPH.match(/L/g).length + CLOAK_GLYPH.match(/Q/g).length * 4 + 1), 'every line, each curve in four chords, and the close');
+  assert.ok(IN_HEAD.length > 40 && OUT_HEAD.length > 20, `points either side to ask (${IN_HEAD.length} in, ${OUT_HEAD.length} out)`);
+  const pick = (a, n) => Array.from({ length: n }, (_, i) => a[Math.floor((i * a.length) / n)]);
+  for (const p of pick(IN_HEAD, 12)) assert.ok(F.cloakGlyphD(p) < -0.5, `inside the wolf at ${p}`);
+  for (const p of pick(OUT_HEAD, 12)) assert.ok(F.cloakGlyphD(p) > 0.5, `outside it at ${p}`);
+  assert.ok(F.cloakEyeD(EYE_AT) < 0, 'its eye');
+  assert.throws(() => glyphEdges('M1 1C2 2 3 3 4 4Z'), /not drawn here/, 'a cubic is refused, never drawn wrong');
+});
+
+test('SHADOW-CLOAK the vertex half, RUN: the cape stands round the body from the feet and closes at the hood\'s peak; its opening faces the wearer\'s facing - turned with them; its back hangs further than its front; broader across the shoulders than deep; the hood round the head - every bearing clear of it, its middle just behind the face, its peak fallen back a little; folds in the cloth; emblems rise off the back half; torn, it bursts outward and its shreds fly out to float round the beast, the same at the wrap (mutants: the facing ignored, the back drape dropped, the squash dropped, the hood off the head, the folds dropped, the burst, the shreds\' ring)', () => {
   const near = (p, q, e = 1e-6) => p.every((x, i) => Math.abs(x - q[i]) < e);
-  // facing: with yaw 0 the front (u 0) is +z; a quarter turn later it is +x
-  const front0 = vsAt(1, [0, 0.3], { t: QUIET }).w, front90 = vsAt(1, [0, 0.3], { t: QUIET, yaw: Math.PI / 2 }).w;
-  assert.ok(front0[2] > 0.3 && Math.abs(front0[0]) < 1e-6, `yaw 0: the parting at +z (${front0.map((x) => x.toFixed(3))})`);
-  assert.ok(front90[0] > 0.3 && Math.abs(front90[2]) < 1e-6, `yaw a quarter turn: at +x (${front90.map((x) => x.toFixed(3))})`);
-  // the back hangs further than the front, at the knee
-  const back = vsAt(1, [0.5, 0.25], { t: QUIET }).w, front = vsAt(1, [0, 0.25], { t: QUIET }).w;
+  const front0 = vsAt(1, [0, 0.5 / CLOAK_H], { t: QUIET }).w, front90 = vsAt(1, [0, 0.5 / CLOAK_H], { t: QUIET, yaw: Math.PI / 2 }).w;
+  assert.ok(front0[2] > 0.2 && Math.abs(front0[0]) < 1e-6, `yaw 0: the front at +z (${front0.map((x) => x.toFixed(3))})`);
+  assert.ok(front90[0] > 0.2 && Math.abs(front90[2]) < 1e-6, `yaw a quarter turn: at +x (${front90.map((x) => x.toFixed(3))})`);
+  const back = vsAt(1, [0.5, 0.5 / CLOAK_H], { t: QUIET }).w, front = vsAt(1, [0, 0.5 / CLOAK_H], { t: QUIET }).w;
   assert.ok(-back[2] > front[2] + 0.05, `the back hangs further out (${(-back[2]).toFixed(3)} behind, ${front[2].toFixed(3)} in front)`);
-  // at the shoulders: broader across (u 0.25, the right) than deep (u 0.5, the back)
   const vS = (CLOAK_SHOULDER_Y - 0.02) / CLOAK_H;
   const side = vsAt(1, [0.25, vS], { t: QUIET }).w, behind = vsAt(1, [0.5, vS], { t: QUIET }).w;
   assert.ok(Math.abs(side[0]) > Math.abs(behind[2]) + 0.05, `broader than deep (${Math.abs(side[0]).toFixed(3)} across, ${Math.abs(behind[2]).toFixed(3)} deep)`);
-  assert.ok(Math.abs(side[0]) >= 0.3, 'clear of the body\'s shoulders');
-  // the foot and the peak
   const foot = vsAt(1, [0.3, 0], { t: QUIET }).w;
-  assert.ok(Math.abs(foot[1] - AURA_LIFT_M) < 1e-9 && Math.hypot(foot[0], foot[2]) > CLOAK_HEM_R - 0.05, 'at the feet, out at the hem');
+  assert.ok(Math.abs(foot[1]) < 1e-9 && Math.hypot(foot[0], foot[2]) > CLOAK_HEM_R - 0.05, 'from the feet, out at the hem');
   const peak = vsAt(1, [0.37, 1], { t: QUIET }).w;
-  assert.ok(near(peak, [0, AURA_LIFT_M + CLOAK_H, -CLOAK_HOOD_BACK_M], 1e-6), `the hood closes at its peak, fallen back behind the head (${peak.map((x) => x.toFixed(3))})`);
-  // folds: round the knee the radius rises and falls, more than the billow alone
-  const radii = Array.from({ length: 96 }, (_, i) => { const p = vsAt(1, [0.25 + (i / 96) * 0.5, 0.2], { t: QUIET }).w; return Math.hypot(p[0], p[2]); });
+  assert.ok(near(peak, [0, CLOAK_H, -(CLOAK_HOOD_BACK_M + CLOAK_PEAK_BACK_M)]), `the hood closes at its peak, a little behind the head (${peak.map((x) => x.toFixed(3))})`);
+  assert.ok(CLOAK_HOOD_BACK_M + CLOAK_PEAK_BACK_M < 0.1, 'fallen back a little, never tipped off the head');
+  // the hood round the head at the eye: every bearing clear of a head's 0.1 m, its middle just behind the face
+  const ring = Array.from({ length: 24 }, (_, i) => vsAt(1, [i / 24, CLOAK_HOOD_Y / CLOAK_H], { t: QUIET }).w);
+  for (const p of ring) { assert.ok(Math.abs(p[1] - CLOAK_HOOD_Y) < 1e-9); assert.ok(Math.hypot(p[0], p[2]) > 0.11, `clear of the head (${p.map((x) => x.toFixed(3))})`); }
+  const mid = (ring[0][2] + ring[12][2]) / 2;
+  assert.ok(mid < 0 && mid > -0.06, `its middle just behind the face (${mid.toFixed(3)})`);
+  assert.ok(Math.abs(ring[6][0] + ring[18][0]) < 1e-6, 'and square to the wearer, side to side');
+  const radii = Array.from({ length: 96 }, (_, i) => { const p = vsAt(1, [0.25 + (i / 96) * 0.5, 0.4 / CLOAK_H], { t: QUIET }).w; return Math.hypot(p[0], p[2]); });
   let turns = 0;
   for (let i = 1; i < 95; i++) if ((radii[i] - radii[i - 1]) * (radii[i + 1] - radii[i]) < 0) turns++;
   assert.ok(turns >= 8, `folds in the cloth (${turns} turns round its back half)`);
-  // the wisps: on the back half (behind the body), rising as they age
   let behindN = 0;
-  for (let k = 0; k < CLOAK_WISPS; k++) {
-    const life = CLOAK_WISP_LIFE[k % 3];
-    const t0 = (Math.floor(QUIET / life) + 0.2) * life;   // a fifth of the way into some flight
+  for (let k = 0; k < CLOAK_EMBLEMS; k++) {
+    const life = CLOAK_EMBLEM_LIFE[k % 3];
+    const t0 = (Math.floor(QUIET / life) + 0.2) * life;
     const a = vsAt(2, [k * 2 + 0.5, 0.5], { t: t0 }), b = vsAt(2, [k * 2 + 0.5, 0.5], { t: t0 + life * 0.5 });
-    if (a.w[2] < 0.05) behindN++;
-    if (Math.abs(b.vS[0] - a.vS[0] - 0.5) < 1e-6) assert.ok(b.w[1] > a.w[1] + 0.1, `wisp ${k} rises`);
+    assert.equal(a.vS[1], 0, 'an emblem\'s card');
+    if (a.w[2] < -0.1) behindN++;
+    if (Math.abs(b.vS[0] - a.vS[0] - 0.5) < 1e-6) assert.ok(b.w[1] > a.w[1] + 0.1, `emblem ${k} rises`);
   }
-  assert.ok(behindN >= CLOAK_WISPS - 2, `off the back half (${behindN}/${CLOAK_WISPS} behind the body)`);
+  assert.ok(behindN >= CLOAK_EMBLEMS - 1, `off the back (${behindN}/${CLOAK_EMBLEMS} behind the body)`);
+  // an emblem's card reads as the badge does: its x the eye's right as the frame shows it (world/mat4.js HANDEDNESS -
+  // looking north, +x on screen right), so the wolf faces the way the badge's does
+  const l = vsAt(2, [0, 0.5], { eye: [0, 1.2, -5] }).w, rt = vsAt(2, [1, 0.5], { eye: [0, 1.2, -5] }).w;
+  assert.ok(rt[0] > l[0] + 0.1, `the card's right toward +x for an eye looking north (${l[0].toFixed(3)} to ${rt[0].toFixed(3)})`);
+  // torn: the cloth bursts out; the shreds fly from the cloth to their ring and float there
+  const whole = vsAt(1, [0.5, 0.5 / CLOAK_H], { t: QUIET }).w, burst = vsAt(1, [0.5, 0.5 / CLOAK_H], { t: QUIET, torn: CLOAK_RIP_S }).w;
+  assert.ok(-burst[2] > -whole[2] + 0.3, `torn, it bursts out (${(-whole[2]).toFixed(3)} to ${(-burst[2]).toFixed(3)})`);
+  for (let j = 0; j < CLOAK_SHREDS; j++) {
+    const k = CLOAK_EMBLEMS + j;
+    const at0 = vsAt(2, [k * 2 + 0.5, 0.5], { torn: 0 }), far = vsAt(2, [k * 2 + 0.5, 0.5], { torn: CLOAK_RIP_S + 7.3, t: 40 });
+    assert.equal(at0.vS[1], 1, 'a shred\'s card');
+    assert.ok(Math.hypot(at0.w[0], at0.w[2]) < CLOAK_HEM_R + CLOAK_BACK_M + 0.12, `shred ${j} tears off the cloth`);
+    const r = Math.hypot(far.w[0], far.w[2]);
+    assert.ok(r > CLOAK_SHRED_AT.r[0] - 0.12 && r < CLOAK_SHRED_AT.r[1] + 0.12 && far.w[1] > CLOAK_SHRED_AT.y[0] - 0.15 && far.w[1] < CLOAK_SHRED_AT.y[1] + 0.15, `shred ${j} floats round the beast (${r.toFixed(2)} out, ${far.w[1].toFixed(2)} up)`);
+    const wrapA = vsAt(2, [k * 2 + 0.5, 0.5], { torn: CLOAK_RIP_S + 3.1 }), wrapB = vsAt(2, [k * 2 + 0.5, 0.5], { torn: CLOAK_RIP_S + 3.1 + AURA_CLOCK_PERIOD });
+    assert.ok(near(wrapA.w, wrapB.w, 1e-3), `shred ${j}: the same at the wrap`);
+  }
 });
 
-test('SHADOW-CLOAK the cloth, RUN: parted at the front at every height - the mesh\'s seam inside the parting; shadow behind and crimson light on it, premultiplied - neither nothing nor a solid wall; denser at its edges than across the body; the inside dimmer; the Shadow Fang\'s mark lit on its back; its trims hot along the parting; the hem torn; none of it from inside (the wearer\'s first person); built up from the feet as it kindles; the wrap whole (mutants: the parting dropped, the rim dropped, the mark dropped, the trim dropped, the inside fade dropped, the build dropped)', () => {
+test('SHADOW-CLOAK the cloth, RUN: open below the clasp and at the hood\'s face, the collar whole between - the mesh\'s seam inside the opening or under the clasp; each fragment laid by ONE of its two draws, the far before the near; its outside shadow and its lining red - premultiplied, neither nothing nor a wall; denser at its edges; the wearer\'s glyph on its back, lit inside the wolf and dark beside it, its eye an ember; the clasp the emblem too; the mantle\'s stitched edge; the embroidery down the opening; the hem torn into trailing smoke; none of it from inside (the wearer\'s first person); drawn in from the hem as it kindles; the wrap whole (mutants: the opening, the side split, the lining, the rim, the emblem, the clasp, the mantle, the trim, the build)', () => {
   const eyeBack = [0, 1.2, -5], eyeSide = [5, 1.2, 0], eyeFront = [0, 1.2, 5];
-  for (let i = 0; i <= 20; i++) {
-    const v = 0.03 + (i / 20) * 0.95;
-    assert.equal(fsAt(1, [0.005, v], { t: QUIET }), 'discard', `the parting at the front, v ${v.toFixed(2)}`);
-    assert.equal(fsAt(1, [0.995, v], { t: QUIET }), 'discard', `and either side of the seam, v ${v.toFixed(2)}`);
+  for (let y = 0.4; y < CLOAK_CLASP_Y - 0.04; y += 0.1) for (const u of [0.005, 0.995]) assert.equal(fsAt(1, [u, y / CLOAK_H], { t: QUIET, eye: eyeFront }), 'discard', `open at the front, ${y.toFixed(2)} m`);
+  for (const dy of [-0.05, 0, 0.05]) assert.equal(fsAt(1, [0.005, (CLOAK_FACE.y + dy) / CLOAK_H], { t: QUIET, eye: eyeFront }), 'discard', 'the hood\'s face open');
+  for (const y of [CLOAK_CLASP_Y + 0.03, CLOAK_NECK_Y - 0.01]) assert.notEqual(fsAt(1, [0.005, y / CLOAK_H], { t: QUIET, eye: eyeFront }), 'discard', `the collar whole at ${y.toFixed(2)} m`);
+  // one draw each: the near lays what faces the eye, the far the rest
+  for (const [p, eye] of [[[0.45, 0.4], eyeBack], [[0.45, 0.4], eyeFront], [[0.25, 0.6], eyeSide], [[0.7, 0.5], eyeSide], [[0.5, 0.95], eyeBack]]) {
+    const [far, nearS] = [fsSide(1, p, 0, { t: QUIET, eye }), fsSide(1, p, 1, { t: QUIET, eye })];
+    assert.ok((far === 'discard') !== (nearS === 'discard'), `${p} from ${eye}: laid once`);
   }
-  // the back, face on from behind: covered and lit, premultiplied
-  const backMid = fsAt(1, [0.42, 0.4], { t: QUIET, eye: eyeBack });
-  assert.ok(backMid[3] > 0.5 && backMid[3] < 0.95, `a shadow over what is behind it, not a wall (${backMid[3].toFixed(3)})`);
-  assert.ok(backMid[0] > backMid[1] && backMid[0] > backMid[2], 'its light red');
-  // the rim: from behind, the cloth at the sides (looked along) covers more than the cloth across the back (looked through)
+  assert.notEqual(fsSide(1, [0.45, 0.4], 1, { t: QUIET, eye: eyeBack }), 'discard', 'the back faces an eye behind: the near draw\'s');
+  assert.notEqual(fsSide(1, [0.45, 0.4], 0, { t: QUIET, eye: eyeFront }), 'discard', 'and an eye in front sees its lining: the far draw\'s');
+  const outside = fsAt(1, [0.42, 0.45], { t: QUIET, eye: eyeBack }), lining = fsAt(1, [0.42, 0.45], { t: QUIET, eye: eyeFront });
+  assert.ok(outside[3] > 0.7 && outside[3] < 0.95, `a dense shadow over what is behind it, not a wall (${outside[3].toFixed(3)})`);
+  assert.ok(lum(outside) < 0.2, `its outside dark (${lum(outside).toFixed(3)})`);
+  assert.ok(lining[0] > outside[0] + 0.1 && lining[0] > 3 * lining[1], `its lining red (${lining.slice(0, 3).map((x) => x.toFixed(3))})`);
   let edge = 0, across = 0;
   for (const t of [QUIET, 41.2, 77.7]) { edge += fsAt(1, [0.25, 0.35], { t, eye: eyeBack })[3] + fsAt(1, [0.75, 0.35], { t, eye: eyeBack })[3]; across += 2 * fsAt(1, [0.44, 0.35], { t, eye: eyeBack })[3]; }
-  assert.ok(edge > across * 1.1, `denser at its edges (${(edge / 6).toFixed(3)} vs ${(across / 6).toFixed(3)})`);
-  // the inside: the back seen from the front through the parting is lit less than the same cloth seen from behind
-  const outsideLit = lum(fsAt(1, [0.42, 0.3], { t: QUIET, eye: eyeBack })), insideLit = lum(fsAt(1, [0.42, 0.3], { t: QUIET, eye: eyeFront }));
-  assert.ok(insideLit < outsideLit * 0.7, `the inside dimmer (${insideLit.toFixed(3)} vs ${outsideLit.toFixed(3)})`);
-  // the mark: its fang lit against the plain cloth beside it, on the back, at its height
-  const r = (u, y) => { const p = vsAt(1, [u, y / CLOAK_H], { t: QUIET }).w; return Math.hypot(p[0], p[2] + 0); };
-  const uFang = 0.5 + 0.053 / (TAU * r(0.5, CLOAK_SIGIL_Y));
-  const onFang = lum(fsAt(1, [uFang, CLOAK_SIGIL_Y / CLOAK_H], { t: QUIET, eye: eyeBack }));
-  const offMark = lum(fsAt(1, [0.5 + 0.3 / (TAU * r(0.5, CLOAK_SIGIL_Y)), (CLOAK_SIGIL_Y - 0.3) / CLOAK_H], { t: QUIET, eye: eyeBack }));
-  assert.ok(onFang > offMark + 1.0, `the Shadow Fang's mark lit on the back (${onFang.toFixed(3)} on a fang vs ${offMark.toFixed(3)} on the cloth)`);
-  // the trim: hot just inside the parting's edge, against the cloth a hand further in
-  const y = 0.9, rr = r(0.2, y), open = CLOAK_OPEN.hem + (CLOAK_OPEN.shoulder - CLOAK_OPEN.hem) * (3 * (y / CLOAK_SHOULDER_Y) ** 2 - 2 * (y / CLOAK_SHOULDER_Y) ** 3);
-  const uTrim = open + 0.012 / (TAU * rr);
+  assert.ok(edge > across * 1.03, `denser at its edges (${(edge / 6).toFixed(3)} vs ${(across / 6).toFixed(3)})`);
+  // the glyph on its back: lit inside the wolf, dark beside it inside the disc, its eye an ember
+  const onBack = ([gx, gy]) => {
+    const [mx, my] = measureOf([gx, gy]), x = (mx * CLOAK_SIGIL_R) / 1.4, y = CLOAK_SIGIL_Y + (my * CLOAK_SIGIL_R) / 1.4;
+    let u = 0.5;
+    for (let i = 0; i < 3; i++) u = 0.5 - x / (TAU * F.cloakRadius(u, y));
+    return fsAt(1, [u, y / CLOAK_H], { t: QUIET, eye: [0, CLOAK_SIGIL_Y, -3] });
+  };
+  const ins = IN_HEAD.filter((_, i) => i % 9 === 0).map((g) => lum(onBack(g))), outs = OUT_HEAD.filter((_, i) => i % 5 === 0).map((g) => lum(onBack(g)));
+  assert.ok(Math.min(...ins) > Math.max(...outs) + 0.05, `the wolf lit (${Math.min(...ins).toFixed(3)} at its dimmest) and beside it dark (${Math.max(...outs).toFixed(3)} at its brightest)`);
+  const eyeLit = onBack(EYE_AT);
+  assert.ok(eyeLit[1] > 0.1 && eyeLit[0] > eyeLit[1] * 1.5, `its eye an ember (${eyeLit.slice(0, 3).map((x) => x.toFixed(3))})`);
+  // the clasp: the emblem's ring lit at the throat, over the meeting edges
+  const claspRing = fsAt(1, [0.5 + 0.5 - (1.2 * CLOAK_CLASP_R / 1.4) / (TAU * F.cloakRadius(0, CLOAK_CLASP_Y - 0.012)), (CLOAK_CLASP_Y - 0.012) / CLOAK_H], { t: QUIET, eye: eyeFront });
+  const beside = fsAt(1, [0.06, (CLOAK_CLASP_Y - 0.012) / CLOAK_H], { t: QUIET, eye: eyeFront });
+  assert.ok(lum(claspRing) > lum(beside) + 0.3, `the clasp's ring lit (${lum(claspRing).toFixed(3)} vs ${lum(beside).toFixed(3)})`);
+  assert.notEqual(fsAt(1, [0.002, (CLOAK_CLASP_Y - 0.03) / CLOAK_H], { t: QUIET, eye: eyeFront }), 'discard', 'whole over the opening under it');
+  // the mantle's stitched edge across the back
+  const stitch = lum(fsAt(1, [0.5, (CLOAK_MANTLE_Y + 0.005) / CLOAK_H], { t: QUIET, eye: eyeBack })), below = lum(fsAt(1, [0.5, (CLOAK_MANTLE_Y - 0.06) / CLOAK_H], { t: QUIET, eye: eyeBack }));
+  assert.ok(stitch > below + 0.15, `the mantle's edge stitched in crimson (${stitch.toFixed(3)} vs ${below.toFixed(3)})`);
+  // the embroidery: lit just inside the opening's edge, against the cloth a hand further in
+  const y = 0.9, rr = F.cloakRadius(0.2, y), open = F.cloakOpenHalf(y);
+  const uTrim = open + 0.004 / (TAU * rr);
   const trim = lum(fsAt(1, [uTrim, y / CLOAK_H], { t: QUIET, eye: eyeFront })), cloth = lum(fsAt(1, [uTrim + 0.1 / (TAU * rr), y / CLOAK_H], { t: QUIET, eye: eyeFront }));
-  assert.ok(trim > cloth + 0.8, `a hot trim along the parting (${trim.toFixed(3)} vs ${cloth.toFixed(3)})`);
-  // the hem: torn, so below the lowest tear nothing at any bearing, and the cloth whole a hand above the highest
-  for (let i = 0; i < 24; i++) assert.equal(fsAt(1, [0.2 + (i / 24) * 0.6, 0.02 / CLOAK_H], { t: QUIET, eye: eyeBack }), 'discard', 'below the tear');
-  assert.notEqual(fsAt(1, [0.4, 0.4 / CLOAK_H], { t: QUIET, eye: eyeBack }), 'discard', 'the cloth whole above it');
-  // from inside it: the eye at the wearer's own - no shadow over the view and no light
+  assert.ok(trim > cloth + 0.3, `embroidered along the opening (${trim.toFixed(3)} vs ${cloth.toFixed(3)})`);
+  const collar = fsAt(1, [0.002, (CLOAK_NECK_Y - 0.035) / CLOAK_H], { t: QUIET, eye: eyeFront });
+  assert.ok(lum(collar) < 0.15, `and none down the collar, where it is closed (${lum(collar).toFixed(3)})`);
+  // the hem: torn into smoke - well below it nothing, just below it no more than smoke, the cloth whole above it
+  for (let i = 0; i < 12; i++) assert.equal(fsAt(1, [0.15 + (i / 12) * 0.12, 0.03 / CLOAK_H], { t: QUIET, eye: eyeFront }), 'discard', 'below the trailing smoke, nothing');
+  for (let i = 0; i < 12; i++) { const c = fsAt(1, [0.4 + (i / 12) * 0.2, 0.05 / CLOAK_H], { t: QUIET, eye: eyeBack }); if (c !== 'discard') assert.ok(c[3] <= 0.56, 'just below the hem, smoke'); }
+  assert.ok(fsAt(1, [0.45, 0.6 / CLOAK_H], { t: QUIET, eye: eyeBack })[3] > 0.7, 'the cloth whole above it');
   for (const [u, vv] of [[0.42, 0.85], [0.3, 0.6], [0.7, 0.75], [0.2, 0.9]]) {
     const c = fsAt(1, [u, vv], { t: QUIET, eye: [0, 1.65, 0.05] });
     if (c !== 'discard') assert.deepEqual(c.map((x) => +x.toFixed(6)), [0, 0, 0, 0], `nothing from inside it (${u}, ${vv})`);
   }
-  // kindled up: at half, the knee drawn and the shoulders not
   assert.equal(fsAt(1, [0.4, 0.95], { t: QUIET, kindle: 0.5 }), 'discard', 'half kindled: not yet at the hood');
-  assert.ok(fsAt(1, [0.4, 0.2], { t: QUIET, kindle: 0.5, eye: eyeBack })[3] > 0.2, 'and the knee built');
-  assert.equal(fsAt(1, [0.4, 0.1], { t: QUIET, kindle: 0 }), 'discard', 'unkindled: nothing');
-  // the wrap
+  assert.ok(fsAt(1, [0.4, 0.3], { t: QUIET, kindle: 0.5, eye: eyeBack })[3] > 0.2, 'and the knee drawn');
+  assert.equal(fsAt(1, [0.4, 0.2], { t: QUIET, kindle: 0 }), 'discard', 'unkindled: nothing');
   for (let i = 0; i < 10; i++) {
     const p = [0.2 + (i / 10) * 0.6, 0.15 + (i % 5) * 0.15];
     const a = fsAt(1, p, { t: 0, eye: eyeSide }), b = fsAt(1, p, { t: AURA_CLOCK_PERIOD, eye: eyeSide });
@@ -267,48 +350,95 @@ test('SHADOW-CLOAK the cloth, RUN: parted at the front at every height - the mes
   }
 });
 
-test('SHADOW-CLOAK the ground, RUN: a pool of shadow at the feet, none past it; the emitter just outside the hem whole round the feet in crimson dashes; the bezel and the brackets about it; no seam where the angle closes; the wrap whole; unkindled nothing; the quad\'s corners round (mutants: the pool dropped, the dashes\' count, a seam)', () => {
+test('SHADOW-CLOAK the tear, RUN: turned beast, the cloth splits along seams and loses its pieces one after another, embers along the tears; torn through, nothing of it is left; and the step that keeps each wearer\'s tear - torn from the turn, already torn when first seen turned, wrapped whole past the tear, the cloak kindling again from nothing when they turn back (mutants: the seams, the pieces, the step\'s wrap, the re-kindle)', () => {
+  const eyeBack = [0, 1.2, -5];
+  // on the plain cloth: clear of the emblem on its back, the mantle and the hem's smoulder
+  const pts = Array.from({ length: 40 }, (_, i) => [[0.3, 0.33, 0.36, 0.39, 0.61, 0.64, 0.67, 0.7][i % 8], (0.5 + Math.floor(i / 8) * 0.06) / CLOAK_H]);
+  const wholeN = pts.filter((p) => fsAt(1, p, { t: QUIET, eye: eyeBack }) !== 'discard').length;
+  const early = pts.map((p) => fsAt(1, p, { t: QUIET, eye: eyeBack, torn: 0.3 * CLOAK_RIP_S }));
+  const earlyN = early.filter((c) => c !== 'discard').length;
+  assert.equal(wholeN, pts.length, 'whole before the turn');
+  assert.ok(earlyN < wholeN && earlyN > wholeN * 0.2, `tearing: some of it gone, some still there (${earlyN}/${wholeN})`);
+  assert.ok(early.some((c) => c !== 'discard' && c[0] > 0.3 && c[0] > 2 * c[2]), 'embers along the tears');
+  for (const p of pts) assert.equal(fsAt(1, p, { t: QUIET, eye: eyeBack, torn: CLOAK_RIP_S }), 'discard', `torn through: nothing at ${p}`);
+  // the seams open first - before any piece goes - and by three quarters most of it is gone
+  const dense = Array.from({ length: 96 }, (_, i) => [0.3 + (i % 12) * 0.035, (0.45 + Math.floor(i / 12) * 0.04) / CLOAK_H]);
+  const seams = dense.filter((p) => fsAt(1, p, { t: QUIET, eye: eyeBack, torn: 0.15 * CLOAK_RIP_S }) === 'discard').length;
+  assert.ok(seams >= 5, `the seams open first (${seams} of ${dense.length} split)`);
+  const left = dense.filter((p) => fsAt(1, p, { t: QUIET, eye: eyeBack, torn: 0.75 * CLOAK_RIP_S }) !== 'discard').length;
+  assert.ok(left <= dense.length * 0.2, `by three quarters its pieces are going (${left} of ${dense.length} left)`);
+  for (const p of dense) assert.equal(fsAt(1, p, { t: QUIET, eye: eyeBack, torn: CLOAK_RIP_S }), 'discard', `and through, every piece gone - the seams alone never reach a piece's middle (${p})`);
+  // the step
+  const w = {};
+  auraBeastStep(w, false, 10);
+  assert.equal(w.torn, -1, 'a man: not torn');
+  auraBeastStep(w, true, 20);
+  assert.equal(w.torn, 0, 'turned: the tear begins');
+  auraBeastStep(w, true, 20 + CLOAK_RIP_S / 2);
+  assert.ok(Math.abs(w.torn - CLOAK_RIP_S / 2) < 1e-9, 'and runs');
+  auraBeastStep(w, true, 20 + CLOAK_RIP_S + 3);
+  const a = w.torn;
+  auraBeastStep(w, true, 20 + CLOAK_RIP_S + 3 + AURA_CLOCK_PERIOD);
+  assert.ok(Math.abs(w.torn - a) < 1e-9 && a >= CLOAK_RIP_S, `wrapped whole past the tear (${a} and ${w.torn})`);
+  auraBeastStep(w, false, 500);
+  assert.deepEqual([w.torn, w.since], [-1, 500], 'turned back: whole, kindling again from now');
+  const seen = auraBeastStep({}, true, 900);
+  assert.ok(Math.abs(seen.torn - CLOAK_RIP_S) < 1e-9, 'first seen already turned: already torn, no tear replayed');
+});
+
+test('SHADOW-CLOAK the ground, RUN: a pool of shadow at the feet, mist in it and a dull crimson under the hem, none past it; no seam where the angle closes; the wrap whole; unkindled nothing; the quad\'s corners round; the fog thins it (mutants: the pool dropped, a seam)', () => {
   const at = (r, a) => [Math.cos(a) * r, Math.sin(a) * r];
   const feet = fsAt(0, at(0.12, 0.7), { t: QUIET });
   assert.ok(feet[3] > 0.4, `the shadow pooled at the feet (${feet[3].toFixed(3)})`);
   for (let i = 0; i < 12; i++) assert.ok(fsAt(0, at(CLOAK_POOL_R + 0.03, (i / 12) * TAU), { t: QUIET })[3] < 0.02, 'none past the pool');
-  // the dashes: round the emitter, CLOAK_DASHES bright runs and their gaps, in crimson
-  const ring = Array.from({ length: 480 }, (_, i) => fsAt(0, at(CLOAK_EMITTER_R, (i / 480) * TAU), { t: QUIET }));
-  const l = ring.map(lum), mid = (Math.max(...l) + Math.min(...l)) / 2;
-  let crossings = 0;
-  for (let i = 0; i < 480; i++) if ((l[i] - mid) * (l[(i + 1) % 480] - mid) < 0) crossings++;
-  assert.equal(crossings, 2 * CLOAK_DASHES, `${CLOAK_DASHES} dashes round the feet`);
-  for (const c of ring.filter((x) => lum(x) > mid)) assert.ok(c[0] > c[1] * 1.3 && c[0] > c[2] * 1.2, `in crimson: ${c.slice(0, 3).map((x) => x.toFixed(2))}`);
-  // the angle closes at +x (atan's u 0 = 1): either side of it, the same ground
-  for (const t of [QUIET, 2.5, 7.25, 31.75]) for (const r of [0.12, 0.4, CLOAK_EMITTER_R, 0.75, 0.86, 1.0]) {
+  const under = Array.from({ length: 48 }, (_, i) => fsAt(0, at(CLOAK_HEM_R * 0.95, (i / 48) * TAU), { t: QUIET }));
+  assert.ok(under.some((c) => c[0] > 0.03 && c[0] > 3 * c[1]), 'a dull crimson in the mist under the hem');
+  for (const t of [QUIET, 2.5, 7.25, 31.75]) for (const r of [0.12, 0.4, CLOAK_HEM_R, 0.75]) {
     const a = fsAt(0, [r, 1e-7], { t }), b = fsAt(0, [r, -1e-7], { t });
     assert.ok(a.every((x, k) => Math.abs(x - b[k]) < 1e-3), `no seam at ${r}, ${t} s`);
   }
   for (let i = 0; i < 12; i++) {
-    const p = at([0.2, CLOAK_EMITTER_R, 0.86, 1.0][i % 4], i * 0.61);
+    const p = at([0.2, CLOAK_HEM_R, 0.6, 0.8][i % 4], i * 0.61);
     const a = fsAt(0, p, { t: 0 }), b = fsAt(0, p, { t: AURA_CLOCK_PERIOD });
     assert.ok(a.every((x, k) => Math.abs(x - b[k]) < 1e-6), `the ground at the wrap is the ground at zero (${p.map((x) => x.toFixed(2))})`);
   }
-  assert.deepEqual(fsAt(0, at(CLOAK_EMITTER_R, 1.0), { t: QUIET, kindle: 0 }).map((x) => +x.toFixed(6)), [0, 0, 0, 0], 'unkindled: nothing');
+  assert.deepEqual(fsAt(0, at(0.3, 1.0), { t: QUIET, kindle: 0 }).map((x) => +x.toFixed(6)), [0, 0, 0, 0], 'unkindled: nothing');
   assert.equal(fsAt(0, [AURA_GROUND_R * 0.8, AURA_GROUND_R * 0.8], { t: QUIET }), 'discard', 'the quad\'s corners are round');
-  const fogged = fsAt(0, at(CLOAK_EMITTER_R, 1.0), { t: QUIET, world: [0, 0, 400], fog: { density: 0.01 } });
-  assert.ok(lum(fogged) + fogged[3] < (lum(ring[76]) + ring[76][3]) * 0.1, 'the fog thins its light and its shadow alike');
+  const fogged = fsAt(0, at(0.3, 1.0), { t: QUIET, world: [0, 0, 400], fog: { density: 0.01 } });
+  assert.ok(lum(fogged) + fogged[3] < (lum(feet) + feet[3]) * 0.1, 'the fog thins its light and its shadow alike');
 });
 
-test('SHADOW-CLOAK the wisps, RUN: a tongue of shadow burning crimson at its edge, gone as it peels off and gone at its end, and none while the cloak is still building (mutants: the burn dropped, the fade dropped, the kindle gate dropped)', () => {
-  let burning = 0, shadow = 0;
-  for (let k = 0; k < 6; k++) for (let i = 0; i < 9; i++) for (let j = 0; j < 9; j++) {
-    const c = fsAt(2, [0.1 + i * 0.1, 0.05 + j * 0.1], { t: QUIET, s: [0.35, 0, k] });
-    if (c[0] > 0.1 && c[0] > 2 * c[1]) burning++;
-    if (c[3] > 0.1) shadow++;
+test('SHADOW-CLOAK the emblems and the shreds, RUN: an emblem is the wearer\'s glyph on a disc of shadow - the wolf lit, beside it dark, its eye an ember - and nothing as it begins and as it ends, none while the cloak is forming, none once it has torn; a shred is a scrap of the shadow with a smouldering torn edge, dimmer to the beast\'s own eye (mutants: the emblem\'s glyph, the fade, the kindle gate, the tear\'s gate, the shred\'s burn, the beast\'s own eye)', () => {
+  const card = (g) => { const [mx, my] = measureOf(g); return [mx / 3 + 0.5, my / 3 + 0.5]; };
+  const ins = IN_HEAD.filter((_, i) => i % 9 === 0).map((g) => fsAt(2, card(g), { t: QUIET, s: [0.5, 0, 1] }));
+  const outs = OUT_HEAD.filter((_, i) => i % 5 === 0).map((g) => fsAt(2, card(g), { t: QUIET, s: [0.5, 0, 1] }));
+  assert.ok(Math.min(...ins.map(lum)) > Math.max(...outs.map(lum)) + 0.05, 'the wolf lit, beside it dark');
+  assert.ok(Math.min(...outs.map((c) => c[3])) > 0.5, 'on a disc of shadow');
+  const eye = fsAt(2, card(EYE_AT), { t: QUIET, s: [0.5, 0, 1] });
+  assert.ok(eye[1] > 0.1 && eye[0] > eye[1] * 1.5, 'its eye an ember');
+  for (const age of [0, 1]) for (const g of [IN_HEAD[3], OUT_HEAD[2], EYE_AT]) assert.deepEqual(fsAt(2, card(g), { t: QUIET, s: [age, 0, 2] }).map((x) => +x.toFixed(6)), [0, 0, 0, 0], `nothing at age ${age}`);
+  for (const g of [IN_HEAD[3], EYE_AT]) {
+    assert.deepEqual(fsAt(2, card(g), { t: QUIET, s: [0.5, 0, 2], kindle: 0.6 }).map((x) => +x.toFixed(6)), [0, 0, 0, 0], 'none while the cloak forms');
+    assert.deepEqual(fsAt(2, card(g), { t: QUIET, s: [0.5, 0, 2], torn: CLOAK_RIP_S }).map((x) => +x.toFixed(6)), [0, 0, 0, 0], 'none once it has torn');
   }
-  assert.ok(burning >= 10, `crimson where it burns (${burning} points)`);
-  assert.ok(shadow >= 10, `shadow inside it (${shadow} points)`);
-  for (const age of [0, 1]) for (const p of [[0.5, 0.2], [0.5, 0.4], [0.4, 0.3]]) assert.deepEqual(fsAt(2, p, { t: QUIET, s: [age, 0, 2] }).map((x) => +x.toFixed(6)), [0, 0, 0, 0], `nothing at age ${age}`);
-  for (const p of [[0.5, 0.2], [0.5, 0.4], [0.4, 0.3]]) assert.deepEqual(fsAt(2, p, { t: QUIET, s: [0.35, 0, 2], kindle: 0.6 }).map((x) => +x.toFixed(6)), [0, 0, 0, 0], 'none while the cloak builds');
+  let burning = 0, shadow = 0, outsideSum = 0, insideSum = 0;
+  const plain = Array.from({ length: CLOAK_SHREDS }, (_, j) => j).filter((j) => F.cloakHash([j, 3.3]) < 0.5);   // the shreds with no strip of the hem's teeth
+  assert.ok(plain.length >= 3, 'some shreds plain');
+  for (let j = 0; j < 6; j++) for (let i = 0; i < 9; i++) for (let k = 0; k < 9; k++) {
+    const uv = [0.1 + i * 0.1, 0.1 + k * 0.1];
+    const c = fsAt(2, uv, { t: QUIET, s: [0, 1, j], torn: 5, eye: [0, 1.2, -5] });
+    if (plain.includes(j) && c[0] > 0.1 && c[0] > 2 * c[1]) burning++;
+    if (c[3] > 0.5) shadow++;
+    outsideSum += lum(c) + c[3];
+    const own = fsAt(2, uv, { t: QUIET, s: [0, 1, j], torn: 5, eye: [0, 1.7, 0.05] });
+    insideSum += lum(own) + own[3];
+  }
+  assert.ok(burning >= 6, `a smouldering torn edge, on a shred with no teeth to redden it (${burning} points)`);
+  assert.ok(shadow >= 60, `shadow inside it (${shadow} points)`);
+  assert.ok(insideSum < outsideSum * 0.5, `dimmer to the beast's own eye (${insideSum.toFixed(1)} vs ${outsideSum.toFixed(1)})`);
 });
 
-test('SHADOW-CLOAK the draw: the cloak drawn PREMULTIPLIED on its own mesh with its wisps, the blend handed back whole for the next wearer; each wearer\'s facing set beside its place; the fire, the ward and the radiance drawn as before - one program for the four (mutants: the blend not set, the blend not restored, the mesh, the facing)', () => {
+test('SHADOW-CLOAK the draw: the cloak premultiplied - its ground, its cloth\'s far side then its near (two draws of its mesh), its emblems - and the blend handed back whole; each wearer\'s facing and tear set beside its place; torn, its shreds drawn with its emblems, and once torn through no cloth at all; the fire and the radiance as before - one program for the four (mutants: the blend not set, not restored, the two sides, the shreds\' cards, the torn cloth still drawn, the facing, the tear)', () => {
   const calls = [];
   const gl = new Proxy({ VERTEX_SHADER: 1, FRAGMENT_SHADER: 2, COMPILE_STATUS: 3, LINK_STATUS: 4, ARRAY_BUFFER: 5, STATIC_DRAW: 6, FLOAT: 7, TRIANGLES: 8, BLEND: 9, ONE: 10, CULL_FACE: 11, POLYGON_OFFSET_FILL: 12, ONE_MINUS_SRC_ALPHA: 13 }, {
     get(tg, k) {
@@ -320,28 +450,37 @@ test('SHADOW-CLOAK the draw: the cloak drawn PREMULTIPLIED on its own mesh with 
   assert.equal(calls.filter((c) => c[0] === 'createProgram').length, 1, 'one program for the four auras');
   const meshData = calls.filter((c) => c[0] === 'bufferData').map((c) => c[2].length);
   assert.ok(meshData.includes(CLOAK_ROUND * CLOAK_ROWS * 12), 'the cloak\'s mesh uploaded');
-  assert.ok(meshData.includes(AURA_CARDS * 12), 'cards enough for the wisps');
-  const M = new Float32Array(I);
+  assert.ok(meshData.includes(AURA_CARDS * 12), 'cards enough for the emblems and the shreds');
+  const M = new Float32Array(I), MESH = CLOAK_ROUND * CLOAK_ROWS * 6;
   calls.length = 0;
   r.draw([{ at: [1, 0, 1], aura: 'shadowcloak', yaw: 0.75 }, { at: [5, 0, 5], aura: 'radiance', yaw: 2 }, { at: [9, 0, 9], aura: 'dagonfire' }], M, M, [0, 0, 0], 10);
   assert.equal(r.drawn, 3);
   const per = (name, kind) => calls.filter((c) => c[0] === kind && c[1] === name).map((c) => c[2]);
   assert.deepEqual(per('uAura', 'uniform1i'), [3, 2, 0]);
   assert.deepEqual(per('uYaw', 'uniform1f'), [0.75, 2, 0], 'each wearer\'s facing - none given, none turned');
+  assert.deepEqual(per('uTorn', 'uniform1f'), [-1, -1, -1], 'none torn');
+  assert.deepEqual(per('uSide', 'uniform1i'), [0, 1], 'the cloth\'s far side, then its near');
   assert.deepEqual(per('uRingR', 'uniform1f'), [CLOAK_HEM_R, RADIANCE_R, AURA_RING_R]);
   assert.deepEqual(per('uFlameH', 'uniform1f'), [CLOAK_H, RADIANCE_H, 0.62]);
-  const draws = calls.filter((c) => c[0] === 'drawArrays').map((c) => c[3]);
-  assert.deepEqual(draws, [6, CLOAK_ROUND * CLOAK_ROWS * 6, CLOAK_WISPS * 6, 6, AURA_STEPS * 6, 6, AURA_STEPS * 6], 'the cloak\'s ground, its cloth and its wisps; the radiance\'s two; the fire\'s two');
-  // the blend: premultiplied around the cloak's three draws and added again before the radiance's
+  const draws = () => calls.filter((c) => c[0] === 'drawArrays').map((c) => c[3]);
+  assert.deepEqual(draws(), [6, MESH, MESH, CLOAK_EMBLEMS * 6, 6, AURA_STEPS * 6, 6, AURA_STEPS * 6], 'the cloak\'s ground, its cloth twice and its emblems; the radiance\'s two; the fire\'s two');
   const seq = calls.filter((c) => c[0] === 'blendFunc' || c[0] === 'drawArrays').map((c) => (c[0] === 'blendFunc' ? `blend ${c[1]},${c[2]}` : 'draw'));
-  assert.deepEqual(seq, ['blend 10,10', 'blend 10,13', 'draw', 'draw', 'draw', 'blend 10,10', 'draw', 'draw', 'draw', 'draw'], 'added; premultiplied for the cloak; added again for the others');
+  assert.deepEqual(seq, ['blend 10,10', 'blend 10,13', 'draw', 'draw', 'draw', 'draw', 'blend 10,10', 'draw', 'draw', 'draw', 'draw'], 'added; premultiplied for the cloak; added again for the others');
   assert.equal(calls.filter((c) => c[0] === 'useProgram').length, 1, 'the program bound once for the frame');
+  calls.length = 0;
+  r.draw([{ at: [1, 0, 1], aura: 'shadowcloak', torn: 0.5 }], M, M, [0, 0, 0], 10);
+  assert.deepEqual([per('uTorn', 'uniform1f'), draws()], [[0.5], [6, MESH, MESH, (CLOAK_EMBLEMS + CLOAK_SHREDS) * 6]], 'tearing: the cloth still drawn, and its shreds with its emblems');
+  calls.length = 0;
+  r.draw([{ at: [1, 0, 1], aura: 'shadowcloak', torn: CLOAK_RIP_S + 4 }], M, M, [0, 0, 0], 10);
+  assert.deepEqual(draws(), [6, (CLOAK_EMBLEMS + CLOAK_SHREDS) * 6], 'torn through: its ground and its shreds, no cloth');
 });
 
-test('SHADOW-CLOAK the hosts: the one gather every host draws through hands each wearer\'s facing - mine my body\'s own, as its third person is drawn, a peer\'s off their pose (to the wall on a climb) - on the aura\'s own import line, so no cite below it moved', () => {
+test('SHADOW-CLOAK the hosts: the one gather every host draws through hands each wearer\'s facing - mine my body\'s own, as its third person is drawn, a peer\'s off their pose (to the wall on a climb) - and each wearer\'s beast form - mine my own lycanthropy turned, a peer\'s the pose\'s `wb` - on lines that were already there, so no cite below them moved', () => {
   const w = rd('src/scenes/world.js');
-  assert.match(w, /import \{ AuraRingRenderer, auraWearers, AURA_KINDLE_S \} from '\.\.\/render\/auraRing\.js'; import \{ peerBodyYaw \} from '\.\.\/net\/peerClimb\.js';/);
-  assert.match(w, /_auraSelf\.aura = mine; _auraSelf\.yaw = player\.bodyYawFor\(cam\.yaw\);/, 'mine: the body\'s facing');
-  assert.match(w, /w\.at\[2\] = p\[2\]; w\.yaw = peerBodyYaw\(d\.shown\) \?\? 0;/, 'a peer\'s: their pose\'s');
+  assert.match(w, /import \{ AuraRingRenderer, auraWearers, auraBeastStep, AURA_KINDLE_S \} from '\.\.\/render\/auraRing\.js'; import \{ peerBodyYaw \} from '\.\.\/net\/peerClimb\.js';/);
+  assert.match(w, /_auraSelf\.aura = mine; _auraSelf\.yaw = player\.bodyYawFor\(cam\.yaw\); auraBeastStep\(_auraSelf, !!liveLycanthropy\(playerEntity\)\?\.isTransformed, t\);/, 'mine: the body\'s facing, and turned beast');
+  assert.match(w, /w\.at\[2\] = p\[2\]; w\.yaw = peerBodyYaw\(d\.shown\) \?\? 0; auraBeastStep\(w, !!d\.shown\.wb, t\);/, 'a peer\'s: their pose\'s');
+  assert.match(w, /auraBeastStep\(_auraSelf[^\n]*\n\s+_auraSelf\.kindle = Math\.min\(1, \(t - _auraSelf\.since\)/, 'stepped before the kindling is read, so turning back kindles it again');
+  assert.match(w, /auraBeastStep\(w, [^\n]*\n\s+w\.kindle = Math\.min\(1, \(t - w\.since\)/, 'a peer\'s too');
   assert.match(w, /const drawVeiledPeerBodies = \(\) => \{ peerBodies\?\.drawVeiled\(\); drawAuras\(\);/, 'drawn through the hook the street, the building and the dungeon all call');
 });
