@@ -234,7 +234,7 @@ test('PROF5 tab: the five views - Materials (cheapest first, here or its region 
   buttons().find((b) => b.textContent === 'My listings').onclick();
   await new Promise((r) => setTimeout(r, 0));
   assert.match(text(), /Iron Ore - 5 of 10 left3 silver each/);
-  assert.match(text(), /Listing fee 1 silver, kept if you cancel\. It stands on the boards of Daggerfall for 72 hours/);
+  assert.match(text(), /Listing fee 1 silver, kept if you cancel\. It stands on every board in the Bay for 72 hours \(a buyer outside Daggerfall pays a courier\)/);   // GLOBAL-MARKET (PIN MOVED: "the boards of Daggerfall")
   await buttons().find((b) => b.textContent === 'Cancel').onclick();
   assert.deepEqual(calls.at(-1)[0], 'cancel');
   // Orders: Fill from the Stores
@@ -242,7 +242,7 @@ test('PROF5 tab: the five views - Materials (cheapest first, here or its region 
   await new Promise((r) => setTimeout(r, 0));
   assert.match(text(), /Mithril Ore140 of 200 wanted at 8 silver eachmedian 8\.5/);
   await buttons().find((b) => b.textContent.startsWith('Fill 50')).onclick();
-  assert.deepEqual(calls.at(-1), ['fill', { region: 17, order: 'O', units: 50, hubs: HUBS }]);
+  assert.deepEqual(calls.at(-1), ['fill', { region: 17, order: 'O', units: 50, hubs: HUBS, least: 400 - 20 }]);   // GLOBAL-MARKET (PIN MOVED): the pay agreed - the tax on the order's running total, no courier here
   assert.match(text(), /Post a buy order/);
   // History
   buttons().find((b) => b.textContent === 'History').onclick();

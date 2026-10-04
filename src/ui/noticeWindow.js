@@ -23,8 +23,8 @@
 // the reader's own guild's board (net/noticeBook.js readGuild), which its members pin to and its Officers keep. The
 // board standing in a guild's hall opens this tab alone (`guildOnly`): the hall's private board, Seats-Arc 8.2.
 //
-// PROF5 (2026-09-29, Mac: "Continue"): THE MARKET TAB beside them (ui/marketTab.js) - the Bay's listings, the region's
-// buy orders, this account's own and the History - shown while the market is this account's (`market`, the host's: the
+// PROF5 (2026-09-29, Mac: "Continue"): THE MARKET TAB beside them (ui/marketTab.js) - the Bay's listings, the Bay's
+// buy orders (GLOBAL-MARKET: every board's), this account's own and the History - shown while the market is this account's (`market`, the host's: the
 // board, the professions and the Marks all open to it). Its region is handed to it on its own, not through Work's.
 //
 // THE HOUSE'S SHAPE, as the bounty board's (ui/bountyWindow.js) and the Broker's before it: a lazy chunk the door

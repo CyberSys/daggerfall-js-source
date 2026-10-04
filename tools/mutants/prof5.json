@@ -654,15 +654,6 @@
     ]
   },
   {
-    "name": "PROF5-svc-fill-anywhere",
-    "file": "server-account/src/market.js",
-    "old": "  if (Number(o.region) !== region) return { error: 'market-elsewhere' };",
-    "new": "",
-    "tests": [
-      "test/prof5_service.test.js"
-    ]
-  },
-  {
     "name": "PROF5-svc-fill-no-room",
     "file": "server-account/src/market.js",
     "old": "        AND COALESCE((SELECT SUM(qty) FROM prof_stores WHERE player = o.poster AND char_id = o.char_id AND material = o.material), 0) + ?4 <= ?12",

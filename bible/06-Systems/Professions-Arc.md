@@ -808,9 +808,10 @@ etc".
   Apothecaries' sixteen reagents (`MINED_KEYS`; marketLaw.js `storesForm`) - every DFU template of theirs, a looted
   Unicorn Horn, Saint's Hair or Ectoplasm as much as one withdrawn from the Stores, since the pack cannot tell the two apart.
 - **Priced in Marks.**
-- **Regional markets** - DECIDED: a listing stands on the boards of the region it was listed in. A buyer in that
-  region takes it at once; a buyer anywhere else pays the **courier fee** and the goods reach their Stores after the
-  **courier's time**. So a signature material (4.7) is cheap at home and dear abroad, and hauling is a trade.
+- **One market, regional prices** - DECIDED (GLOBAL-MARKET, 10.9): a listing stands on every board of the Bay. A buyer
+  in the region it was listed in takes it at once; a buyer anywhere else pays the **courier fee** and the goods reach
+  their Stores after the **courier's time**. So a signature material (4.7) is cheap at home and dear abroad, and
+  hauling is a trade.
 - **Buyout first, bids later** - DECIDED: PROF5 ships buyouts (a listed price, taken whole or, for materials, in part);
   **PROF5b** adds timed auctions for **Masterworks only** - 24 hours, a 5% minimum raise, and a bid in the last 2
   minutes adds 2 (BUILT, section 27).
@@ -820,7 +821,8 @@ etc".
 ### 10.3 Buy orders
 
 A standing order ("buy 200 Mithril Ore at 8 each") on a board: the Marks are escrowed when it is posted; any gatherer
-in that region fills it straight from their Stores, in whole or in part; at most **20** an account; unfilled after 7
+at any board fills it straight from their Stores, in whole or in part (from another region, the courier comes out of the
+pay - GLOBAL-MARKET, 10.9); at most **20** an account; unfilled after 7
 days, the rest is returned.
 
 ### 10.4 Fees, the Tithe and couriers
@@ -976,6 +978,28 @@ buyer had.
   B7) and sells only for Marks - from its maker's listing or, R2-S2, from another account's pack (`market.js` listGood,
   `market-drakes-goods`) alike; the refusal says "Goods bought with silver, and pieces made with them, sell only for silver".
 - **As built**: `06-Systems/Online-Arc.md` GOLD-MARKET (acct40, `0041_gold_market.sql`).
+
+### 10.9 GLOBAL-MARKET - every board is the Bay's market (DECIDED and BUILT 2026-10-04, Mac: "ensure the market is global")
+
+FOUND: the listings were the Bay's already - the Materials, Crafted, Goods and Auctions views read every region's, each
+row's courier quoted to the reader's board - but a buy order stood on the boards of its own region alone: the Orders view
+read `region = ?1` and a fill from any other board was refused `market-elsewhere`; and the List form said a listing
+"stands on the boards of" the lister's region, which it never did.
+
+- **Buy orders, the Bay's**: the Orders view reads every board's open orders, dearest first (a family's chosen from the
+  500 dearest, then the hundred shown), each with its road from the reader's board.
+- **A fill from another region pays the courier** - by the load, the buy's formula (10.4), out of the filler's pay
+  (the filler is the one not going): burnt from the order's escrow, its Tithe share to the seat of the filler's board
+  (as a buy's courier share is the buyer's board's). The units reach the orderer's Stores **at once**, as a fill here -
+  DECIDED: an order's units have no road table, and the poster has paid already; the fee is what keeps prices regional.
+  A fill whose courier would take all it pays is refused before anything moves (`market-courier-dear`); the tab names
+  the pay and does not offer such a fill, and a fill carries the pay its filler agreed (`least`) - a pay moved under it
+  is `market-price-moved`. Both hubs are witnessed (SEAT0 3.2), as a buy's.
+- **The words**: a listing, an auction and an order "stand on every board in the Bay", a buyer, bidder or gatherer
+  outside the lister's region paying a courier.
+- **Not changed**: a home's trader (HOME-VENDOR) stays a stall a buyer visits - its stock is bought at it alone.
+- **As built**: `server-account/src/market.js` marketRead (orders) and marketFill; `src/ui/marketTab.js` orderRow;
+  `test/globalmarket.test.js`; `tools/mutants/globalmarket.json`.
 
 ## 11. Writs - the Work tab
 
@@ -1958,9 +1982,10 @@ Mac's instruction - "make the decisions ... This is your baby"), and what was fo
   price) at most the Marks cap (`bad-price`), posted at a board for **7 days** - never a material nothing yields, the
   Daedric and Warforged ingots and the Bear Hide (`marketLaw.js` UNYIELDED, `market-unyielded`; the catalogue leaves
   them out) - AUDIT 30 N6; AUDIT 32 R8: since PROF7 the Daedric and Warforged ingots and Standard-bearer's Silk, the Bear
-  Hide Hunting's now; **the Marks are escrowed when it is posted**, no fee (10.4 names none). Any character at a
-  board of the order's region **fills it from its Stores**, in whole or in part, **bought units first**; the filler is
-  paid the price less the tax from the escrow (on the order's running total, as a listing's - AUDIT 30); the units reach
+  Hide Hunting's now; **the Marks are escrowed when it is posted**, no fee (10.4 names none). Any character at any
+  board (GLOBAL-MARKET, 10.9) **fills it from its Stores**, in whole or in part, **bought units first**; the filler is
+  paid the price less the tax from the escrow (on the order's running total, as a listing's - AUDIT 30) and, from another
+  region, less the courier (10.9); the units reach
   the orderer's posting character's Stores **at once, as bought** (an order buys "here" - where it was posted), refused
   past that Stores' room (`market-order-full`). Its own poster may not fill it. A cancel or the seventh day returns the
   rest of the escrow.
@@ -2008,7 +2033,8 @@ Mac's instruction - "make the decisions ... This is your baby"), and what was fo
   stock answer never told the Marks book its balance; every market and stock answer does now). Crafted - each piece's
   name as its record mints it, its quality, maker and wear, cheapest landed first too. My listings - this account's,
   with Cancel, the fee kept, and **List** (a Stores material, or a piece chosen from the pack and the home's things),
-  and its buy orders with Withdraw. Orders - the region's open orders with **Fill N from the Stores** and each one's
+  and its buy orders with Withdraw. Orders - every board's open orders (GLOBAL-MARKET, 10.9), each "here" or its region and
+  what a fill pays, with **Fill N from the Stores** and each one's
   median (no line - AUDIT 30 N8), this account's own among them with **Withdraw** (AUDIT 30 R6: this line said
   Cancel), and **Post an order**. History. **On the road**, atop the tab while anything travels: "40 Mithril Ore from
   Wayrest - 32 minutes".

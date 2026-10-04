@@ -647,11 +647,14 @@ export async function marketRead(ctx, player, env, { character, region, view, fa
     };
   }
   if (view === 'orders') {
-    const { results = [] } = await db.prepare(`SELECT * FROM market_orders WHERE state = 'open' AND region = ?1 AND expires_at > ?2
-      ORDER BY price DESC, at LIMIT ${MARKET_SHOWN}`).bind(region, nowS).all();
-    const rows = results.filter((o) => !family || material(o.material)?.family === family);
+    // GLOBAL-MARKET: every board's open orders, dearest first - a family's chosen before the cutoff, as the Crafted
+    // view's - each with its road from this board (a fill from another region pays the courier out of its pay)
+    const { results = [] } = await db.prepare(`SELECT * FROM market_orders WHERE state = 'open' AND expires_at > ?1
+      ORDER BY price DESC, at LIMIT 500`).bind(nowS).all();
+    const rows = results.filter((o) => !family || material(o.material)?.family === family).slice(0, MARKET_SHOWN);
+    const quotes = await quote(rows, () => 1);
     const medians = await mediansOf(db, [...new Set(rows.map((o) => o.material))], today);
-    return { ...(await base()), orders: rows.map((o) => orderView(o, me)), medians: Object.fromEntries(medians) };
+    return { ...(await base()), orders: rows.map((o, i) => ({ ...orderView(o, me), road: quotes[i] })), medians: Object.fromEntries(medians) };
   }
   // history - pruned first (section 20: 90 days)
   const keepFrom = today - MARKET_KEEP_DAYS;
@@ -1255,17 +1258,20 @@ export async function marketOrder(ctx, player, env, { character, region, materia
 }
 
 /**
- * FILL: `{ character, region, order, units, hubs?, rid }` - `units` of an open order of this board's region from this
- * character's Stores (bought first); the pay out of the escrow less the tax, the units to the orderer's Stores at once
- * as bought (refused past their room).
+ * FILL: `{ character, region, order, units, hubs?, rid, least?, board? }` - `units` of an open order of any board from
+ * this character's Stores (bought first); the pay out of the escrow less the tax and, GLOBAL-MARKET, the courier when the
+ * order stands in another region than this board's (by the load, as a buy's - the filler's not going, burnt, its Tithe
+ * share to this board's seat); the units to the orderer's Stores at once as bought (refused past their room). `least` the
+ * least pay the filler agreed to - a courier or a tax moved past it is `market-price-moved`.
  */
-export async function marketFill(ctx, player, env, { character, region, order: id, units, hubs, rid } = {}) {
+export async function marketFill(ctx, player, env, { character, region, order: id, units, hubs, rid, least = null, board = null } = {}) {
   const { db, nowS, rand } = ctx;
   const refused = asks(player, { character, rid });
   if (refused) return refused;
   const me = player.id;
   const answer = async (row, extra = {}) => ({
-    ok: true, ...extra, fill: { order: row.order_id, material: row.material, units: Number(row.units), price: Number(row.price), pay: Number(row.pay), tax: Number(row.tax) },
+    ok: true, ...extra, fill: { order: row.order_id, material: row.material, units: Number(row.units), price: Number(row.price), pay: Number(row.pay), tax: Number(row.tax),
+      courier: Number(row.units) * Number(row.price) - Number(row.pay) - Number(row.tax) },   // GLOBAL-MARKET: what the road took of it
     store: await storeOf(db, me, row.char_id, row.material), balance: await balanceOf(db, me),
   });
   const prior = await db.prepare('SELECT * FROM market_fills WHERE filler = ?1 AND rid = ?2').bind(me, rid).first();
@@ -1279,15 +1285,22 @@ export async function marketFill(ctx, player, env, { character, region, order: i
   const o = await db.prepare('SELECT * FROM market_orders WHERE id = ?1').bind(id).first();
   if (!o || o.state !== 'open' || Number(o.expires_at) <= nowS) return { error: 'market-gone' };
   if (o.poster === me) return { error: 'market-own' };
-  if (Number(o.region) !== region) return { error: 'market-elsewhere' };
   if (units > Number(o.left_units)) return { error: 'market-short' };
   const total = units * Number(o.price);
   // AUDIT 30 L6: the tax of the order's running total - what it has bought before this fill
   const tax = saleTaxOn((Number(o.units) - Number(o.left_units)) * Number(o.price), total);
-  const pay = total - tax;
+  const own = hubsOf(hubs);
+  // GLOBAL-MARKET: an order of another region filled from here - the courier carries the units to it, out of the pay
+  const to = Number(o.region);
+  const road = courierOf(await hubsAt(db, [region, to], own), region, to, units);
+  if (!road) return { error: 'market-no-road' };
+  const pay = total - tax - road.courier;
+  if (pay < 1) return { error: 'market-courier-dear' };
+  if (Number.isSafeInteger(least) && pay < least) return { error: 'market-price-moved' };
+  const ct = road.courier > 0 ? await titheAt(db, nowS, region, boardOf(board)) : null;
+  const fillTithe = ct ? titheOf(road.courier, ct.pct) : 0;   // the buy's courier share (SEAT1d), the filler's board's
   const nonce = mintId(rand);
   const day = utcDay(nowS);
-  const own = hubsOf(hubs);
   const filled = 'EXISTS (SELECT 1 FROM market_fills WHERE filler = ?1 AND rid = ?5 AND n = ?6)';
   await db.batch([
     // THE DECISION: the order open with the units and their escrow, the filler's units, the orderer's room, the filler's
@@ -1295,13 +1308,13 @@ export async function marketFill(ctx, player, env, { character, region, order: i
     db.prepare(`INSERT OR IGNORE INTO market_fills (filler, rid, char_id, order_id, poster, material, units, price, pay, tax, at, day, n)
       SELECT ?1, ?2, ?3, o.id, o.poster, o.material, ?4, o.price, ?5, ?6, ?7, ?8, ?9 FROM market_orders o
       WHERE o.id = ?10 AND o.state = 'open' AND o.expires_at > ?7 AND o.poster != ?1 AND o.region = ?11 AND o.left_units >= ?4
-        AND o.escrow >= o.price * ?4 AND o.price * ?4 = ?5 + ?6
+        AND o.escrow >= o.price * ?4 AND o.price * ?4 = ?5 + ?6 + ?15
         AND o.left_units = ?14   -- the running total the tax was taken on (AUDIT 30 L6)
         AND NOT EXISTS (SELECT 1 FROM marks_ledger WHERE actor = ?1 AND rid = ?2 || ':fill')   -- AUDIT 30 S3
         AND ${spendableSql('?1', '?3', 'o.material')} >= ?4   -- GOLD-MARKET: a Drakes order is never filled with gold's units
         AND COALESCE((SELECT SUM(qty) FROM prof_stores WHERE player = o.poster AND char_id = o.char_id AND material = o.material), 0) + ?4 <= ?12
         AND COALESCE((SELECT balance FROM marks WHERE account = ?1), 0) + ?5 <= ?13`)
-      .bind(me, rid, character, units, pay, tax, nowS, day, nonce, id, region, STORES_MAX, MARKS_MAX, Number(o.left_units)),
+      .bind(me, rid, character, units, pay, tax, nowS, day, nonce, id, to, STORES_MAX, MARKS_MAX, Number(o.left_units), road.courier),
     // the order drawn down, a filled one closed
     db.prepare(`UPDATE market_orders SET left_units = left_units - ?3, escrow = escrow - price * ?3,
         state = CASE WHEN left_units = ?3 THEN 'filled' ELSE state END, closed_at = CASE WHEN left_units = ?3 THEN ?4 ELSE closed_at END
@@ -1318,10 +1331,18 @@ export async function marketFill(ctx, player, env, { character, region, order: i
     db.prepare(`INSERT INTO marks_ledger (src_kind, src_id, dst_kind, dst_id, kind, amount, day, at, actor, who, rid)
       SELECT 'escrow', order_id, 'burn', NULL, 'market-tax', tax, day, at, filler, material, rid || ':filltax'
       FROM market_fills WHERE filler = ?1 AND rid = ?2 AND n = ?3 AND tax > 0`).bind(me, rid, nonce),
+    // GLOBAL-MARKET: the courier out of the escrow, burnt - its Tithe share to this board's seat's holder, or burnt
+    db.prepare(`INSERT INTO marks_ledger (src_kind, src_id, dst_kind, dst_id, kind, amount, day, at, actor, who, rid)
+      SELECT 'escrow', order_id, 'burn', NULL, 'courier', ?4, day, at, filler, material, rid || ':fillcourier'
+      FROM market_fills WHERE filler = ?1 AND rid = ?2 AND n = ?3 AND ?4 > 0`).bind(me, rid, nonce, road.courier - fillTithe),
+    ...(fillTithe > 0 ? [db.prepare(`INSERT INTO marks_ledger (src_kind, src_id, dst_kind, dst_id, kind, amount, day, at, actor, who, rid)
+      SELECT 'escrow', order_id, CASE WHEN ${titheEnd('?4', '?5')} THEN 'guild' ELSE 'burn' END, CASE WHEN ${titheEnd('?4', '?5')} THEN ?4 END,
+        'tithe', ?5, day, at, filler, material, rid || ':fillctithe'
+      FROM market_fills WHERE filler = ?1 AND rid = ?2 AND n = ?3`).bind(me, rid, nonce, ct.guild, fillTithe)] : []),
     db.prepare(`INSERT INTO market_prices (day, material, price, units)
       SELECT day, material, price, units FROM market_fills WHERE filler = ?1 AND rid = ?2 AND n = ?3
       ON CONFLICT (day, material, price) DO UPDATE SET units = market_prices.units + excluded.units`).bind(me, rid, nonce),
-    ...witnessStatements(db, player, nowS, [region], own, 'EXISTS (SELECT 1 FROM market_fills WHERE filler = ?6 AND rid = ?7 AND n = ?8)', [me, rid, nonce]),
+    ...witnessStatements(db, player, nowS, [region, to], own, 'EXISTS (SELECT 1 FROM market_fills WHERE filler = ?6 AND rid = ?7 AND n = ?8)', [me, rid, nonce]),
   ]);
   const made = await db.prepare('SELECT * FROM market_fills WHERE filler = ?1 AND rid = ?2').bind(me, rid).first();
   if (made?.n === nonce) return answer(made);

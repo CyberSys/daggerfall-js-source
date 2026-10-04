@@ -6,7 +6,8 @@
 // first, each "here" or its region with its courier and time, its 7-day median and line; the picked row's "Buy N for P
 // Marks + C courier?"; the Weavers' counter's Linen and Wool), CRAFTED (the pieces listed - each its name as its record
 // mints it, its quality, maker and wear), MY LISTINGS (this account's, Cancel; List a Stores material or a crafted
-// piece), ORDERS (the region's buy orders, Fill N from the Stores; this account's, Withdraw; Post an order) and HISTORY
+// piece), ORDERS (the Bay's buy orders - GLOBAL-MARKET: every board's, each "here" or its region, a fill from afar paying the
+// courier out of its pay - Fill N from the Stores; this account's, Withdraw; Post an order) and HISTORY
 // (the week's traded materials and their lines; "Your trades"). Above them, while anything travels, ON THE ROAD; below,
 // Your Marks.
 //
@@ -42,7 +43,7 @@ import { accountRefusalText } from '../net/accountClient.js';
 import { MARKET_MOVED } from '../net/marketBook.js';   // AUDIT 31 B8
 import {
   MARKET_VIEWS, MARKET_FAMILIES, CRAFTED_FAMILIES, MARKET_PRICE_MAX, MARKET_UNITS_MAX, MARKET_LISTINGS_MAX, MARKET_ORDERS_MAX,
-  listingFee, saleTax, sellerGets, courierFee, wearOf, wearText, medianText, marketCatalogue, AUCTION_S, AUCTION_RAISE_PCT, AUCTION_LATE_S, AUCTION_ADD_S, AUCTION_BID_MAX,
+  listingFee, saleTax, saleTaxOn, sellerGets, courierFee, wearOf, wearText, medianText, marketCatalogue, AUCTION_S, AUCTION_RAISE_PCT, AUCTION_LATE_S, AUCTION_ADD_S, AUCTION_BID_MAX,
   goldText, goldSaleOf, GOODS_FAMILIES, MARKET_HELD_MAX,
 } from '../net/marketLaw.js';
 import { QUALITY_NAMES, MASTERWORK } from '../net/recipeLaw.js';
@@ -241,6 +242,9 @@ export function createMarketTab(m, ui) {
   const courierOf = (row, units) => (row.region === m.region ? 0 : row.road ? courierFee(units, row.road.road) * (row.currency === 'gold' ? MARK_WORTH_GOLD : 1) : null);
   /** AUDIT 30 U16: a unit's price landed here - its courier's share of the pick's. */
   const landed = (row) => { const n = pickOf(row), c = courierOf(row, n); return c == null ? Infinity : row.price + c / n; };
+  /** GLOBAL-MARKET: what a fill of `n` units of an order pays this filler - its price less the tax on the order's running
+   *  total (saleTaxOn, as the service takes it) and the courier to the order's region; null with no road. */
+  const fillPay = (o, n) => { const c = courierOf(o, n); return c == null ? null : n * o.price - saleTaxOn((o.units - o.left) * o.price, n * o.price) - c; };
   const roadText = (row) => {
     if (row.region === m.region) return '';
     if (!row.road) return ' no courier knows the road';
@@ -587,11 +591,11 @@ export function createMarketTab(m, ui) {
       hint.textContent = full ? `You have ${listingsMax} listings standing, the most one account may here. Cancel one, or wait for one to sell.`
         // GOLD-MARKET: no fee now - each sale pays its share and the tax; the gold is held for the seller to collect
         // MARKET-ANY: a piece from the pack - where it goes, and why gold alone
-        : st.list.kind === 'item' ? `No fee to list: its sale pays 1% and ${saleTax(100)}% tax out of its price. It leaves your pack now and stands on the boards of ${m.regionName} for 72 hours; the gold is held for you to collect into your bank (${goldText(goldSaleOf(0, worth()).gets)} if it sells). If you cancel, or it does not sell, it comes back to your pack. A piece from your pack sells for gold alone.`
-        : gold ? `No fee to list: each sale pays 1% and ${saleTax(100)}% tax out of its price. It stands on the boards of ${m.regionName} for 72 hours; the gold is held for you to collect into your bank (${goldText(goldSaleOf(0, worth()).gets)} if it all sells). Only what you gathered, made of your own or gold-bought goods, or bought with gold sells for gold - not goods bought with silver, nor pieces made with them.`
+        : st.list.kind === 'item' ? `No fee to list: its sale pays 1% and ${saleTax(100)}% tax out of its price. It leaves your pack now and stands on every board in the Bay for 72 hours (a buyer outside ${m.regionName} pays a courier); the gold is held for you to collect into your bank (${goldText(goldSaleOf(0, worth()).gets)} if it sells). If you cancel, or it does not sell, it comes back to your pack. A piece from your pack sells for gold alone.`
+        : gold ? `No fee to list: each sale pays 1% and ${saleTax(100)}% tax out of its price. It stands on every board in the Bay for 72 hours (a buyer outside ${m.regionName} pays a courier); the gold is held for you to collect into your bank (${goldText(goldSaleOf(0, worth()).gets)} if it all sells). Only what you gathered, made of your own or gold-bought goods, or bought with gold sells for gold - not goods bought with silver, nor pieces made with them.`
         : st.list.kind === 'auction'
-          ? `Listing fee ${marksText(fee)}, kept if you cancel (only while no bid stands). It stands on the boards of ${m.regionName} for ${AUCTION_S / 3600} hours; each bid must be ${AUCTION_RAISE_PCT}% over the last, and a bid with less than ${AUCTION_LATE_S / 60} minutes left adds ${AUCTION_ADD_S / 60} more. The highest bid buys it; you receive it less ${less}.`
-          : `Listing fee ${marksText(fee)}, kept if you cancel. It stands on the boards of ${m.regionName} for 72 hours; a sale pays you its price less ${less} (${marksText(sellerGets(worth(), pct ?? 0))} if it all sells${pct == null ? ', before any Tithe' : ''}).`;
+          ? `Listing fee ${marksText(fee)}, kept if you cancel (only while no bid stands). It stands on every board in the Bay for ${AUCTION_S / 3600} hours; each bid must be ${AUCTION_RAISE_PCT}% over the last, and a bid with less than ${AUCTION_LATE_S / 60} minutes left adds ${AUCTION_ADD_S / 60} more. A bidder outside ${m.regionName} pays a courier. The highest bid buys it; you receive it less ${less}.`
+          : `Listing fee ${marksText(fee)}, kept if you cancel. It stands on every board in the Bay for 72 hours (a buyer outside ${m.regionName} pays a courier); a sale pays you its price less ${less} (${marksText(sellerGets(worth(), pct ?? 0))} if it all sells${pct == null ? ', before any Tithe' : ''}).`;
       b.disabled = ui.busy() || full || !can() || (!gold && short(fee));
     };
     price.oninput = () => { st.list.price = intOf(price.value, 1, MARKET_PRICE_MAX); refresh(); };
@@ -616,7 +620,7 @@ export function createMarketTab(m, ui) {
     const refresh = () => {
       const cost = st.post.units * st.post.price;
       hint.textContent = full ? `You have ${MARKET_ORDERS_MAX} orders standing, the most one account may.`
-        : `${marksText(cost)} held for it while it stands (7 days); what is not filled comes back.`;
+        : `${marksText(cost)} held for it while it stands (7 days) on every board in the Bay - a gatherer outside ${m.regionName} pays the courier to bring it here; what is not filled comes back.`;
       b.disabled = ui.busy() || full || !st.post.material || short(cost);
     };
     units.oninput = () => { st.post.units = intOf(units.value, 1, MARKET_UNITS_MAX); refresh(); };
@@ -641,12 +645,21 @@ export function createMarketTab(m, ui) {
     const most = Math.max(1, Math.min(have, o.left));
     const count = () => intOf(st.fills[o.id] ?? Math.min(have, o.left), 1, most);
     const inp = numberInput(count(), 1, most, `Units of ${m.name(o.material)} to fill`, `fill|${o.id}`);
-    const b = button('primary market-fill', '', () => act(() => m.book.fill({ region: m.region, order: o.id, units: count(), hubs: m.hubs }),
-      (d) => `Filled: ${marksText(d?.fill?.pay ?? 0)}.`));
-    const refresh = () => { b.textContent = `Fill ${count()} from the Stores`; b.disabled = ui.busy() || have < 1; };
+    const b = button('primary market-fill', '', () => { const n = count(); return act(() => m.book.fill({ region: m.region, order: o.id, units: n, hubs: m.hubs, least: fillPay(o, n) ?? 1, ...at() }),
+      (d) => `Filled: ${marksText(d?.fill?.pay ?? 0)}.`); });
+    // GLOBAL-MARKET: what a fill pays here - the price less the tax and, from another region, the courier
+    const says = el('span', 'notice-tip');
+    says.setAttribute('aria-live', 'polite');
+    const refresh = () => {
+      const n = count(), pay = fillPay(o, n), c = courierOf(o, n);
+      b.textContent = `Fill ${n} from the Stores`;
+      b.disabled = ui.busy() || have < 1 || pay == null || pay < 1;
+      says.textContent = `${have.toLocaleString('en-US')} in your Stores - ${c == null ? `the couriers do not know the road to ${m.regionNameOf(o.region)} yet`
+        : pay < 1 ? `the courier to ${m.regionNameOf(o.region)} would take all it pays` : `pays you ${marksText(pay)}${c ? ` after ${c} courier and tax` : ' after tax'}`}`;
+    };
     inp.oninput = () => { st.fills[o.id] = intOf(inp.value, 1, most); refresh(); };
     refresh();
-    li.append(inp, b, el('span', 'notice-tip', `${have.toLocaleString('en-US')} in your Stores`));
+    li.append(el('span', 'market-where', where(o)), inp, b, says);
     return li;
   }
 
@@ -812,7 +825,7 @@ export function createMarketTab(m, ui) {
       // AUDIT 30 U7: this account's own orders stand among the region's, Withdraw beside them
       const orders = st.data?.orders ?? [];
       for (const o of orders) ul.append(orderRow(o));
-      if (st.data && !orders.length) ul.append(el('li', 'notice-empty', `No buy orders stand on the boards of ${m.regionName}.`));
+      if (st.data && !orders.length) ul.append(el('li', 'notice-empty', 'No buy orders stand on the Bay\'s boards.'));
       box.append(ul, orderForm());
     } else box.append(historyNode());
     const held = m.book.state.held ?? 0;

@@ -7,10 +7,11 @@
 // A LISTING is a Stores material (escrowed by the service - the units
 // leave the Stores at once) or a crafted piece with a provenance id (the
 // piece leaves the save), at a price in Marks, for 72 hours, standing on
-// every board of the region it was listed in. A buyer in that region
-// takes it at once; a buyer anywhere else pays the COURIER and waits for
-// it - so a signature material is cheap at home and dear abroad, and
-// hauling is a trade (10.2).
+// every board of the Bay (GLOBAL-MARKET). A buyer in the region it was
+// listed in takes it at once; a buyer anywhere else pays the COURIER and
+// waits for it - so a signature material is cheap at home and dear
+// abroad, and hauling is a trade (10.2). A buy order stands on every
+// board too; a fill from another region pays the courier out of its pay.
 //
 // THE ROAD. The courier is charged by the map pixels between the two
 // regions' hub towns (HUB1). The service holds no ARENA2, so it learns a
