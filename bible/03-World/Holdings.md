@@ -90,6 +90,10 @@ it there (`deedInPack` reads the book too):
 - **A small boat's** title (the Large Boat's) is spent on placing, as the mod spends its deed; laid up, it is made again.
   Summoned while she lies afar with no berth known, she is placed from a deed of the moment in a list of its own, never
   entered in the book (F2), and the page's sweep never takes the deed a placing holds.
+- **A bank ship's cabin** links to a ship by her title in the book as it did by her deed in the pack
+  (`world.js` legacyCabinItems hands boatCabinOwnership the book beside the pack and the wagon - CABIN-TITLES,
+  `03-World/Come-Sail-Away.md`): without it a ship laid up was no candidate, and the large bank cabin went to the one
+  large ship afloat while another lay laid up.
 - **Her rig** as she stands is her record's and her title's (a Large Boat's picked again - F3): read at every sweep and as
   she is sent away, so she is laid up and called back in it.
 
