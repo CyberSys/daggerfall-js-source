@@ -302,6 +302,8 @@ export function createComeSailAwayPeers({ pool, selfId = () => null, log = conso
       ...[...retained.values()].map((s) => ({ owner: s.owner, boats: [{ hull: s.hull, variant: s.variant, position: [...s.position], boat: s.boat }] }))],
     /** CSA-K: the boat standing for an owner's place in their word, or null. */
     boatAt: (owner, slot) => [...retained.values()].find((s) => s.owner === owner && s.slot === slot)?.boat ?? shown.get(owner)?.[slot]?.boat ?? null,
+    /** HOLDINGS: the name another player gave her (their word's `n`, read through the ledger's law), or ''. */
+    nameAt: (owner, slot) => live.get(owner)?.boats?.[slot]?.name ?? '',
     /** CSA-K: where a boat of a peer's stands in their word - `{ owner, slot }` - or null (not a peer's, or gone). */
     placeOf(boat) {
       const held = retained.get(boat);

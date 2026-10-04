@@ -320,7 +320,9 @@ test('CSA-H: the host\'s seams - the two use handlers on the item-use door (the 
   assert.match(w, /if \(modes\?\.mountWindow\?\.\(win\)\) _csaPicker = win;/);
   assert.match(w, /const csaShelfStocked = \(items\) => \{ if \(csaOn\(\) && Array\.isArray\(items\)\) assignVariantsToShopItems\(mintShelfBoatUids\(items, csaNewItemUid\), \(min, max\) => min \+ Math\.floor\(Math\.random\(\) \* \(max - min\)\)\); return items; \};/);
   // SHIP-PACK (PIN MOVED): and the pack itself, which a ship's deed is found in and taken from as she is picked up
-  assert.match(w, /items: \{ create: \(templateIndex\) => mintBoatItem\(templateIndex, csaNewItemUid\(\)\), addToPlayer: \(item\) => addItem\(\(playerEntity\.items \?\?= \[\]\), item\), player: \(\) => \(playerEntity\.items \?\?= \[\]\) \},/);
+  // PIN MOVED (HOLDINGS, bible/03-World/Holdings.md): the items' seam carries the Fleet's book after the pack (titles, retitle) -
+  // the pin reads the three the mod's own laws use, up to the pack, and test/fleet.test.js pins the two it added
+  assert.match(w, /items: \{ create: \(templateIndex\) => mintBoatItem\(templateIndex, csaNewItemUid\(\)\), addToPlayer: \(item\) => addItem\(\(playerEntity\.items \?\?= \[\]\), item\), player: \(\) => \(playerEntity\.items \?\?= \[\]\),/);
   const m = src('scenes/worldModes.js');
   // THE MERGE: CSA-H's subscriber is one of PlayerActivate.OnLootSpawned's (FORAGE3's one home), by its mod's name, a
   // shop shelf's alone - and both shelf doors raise it, after Roleplay Realism's subscribers

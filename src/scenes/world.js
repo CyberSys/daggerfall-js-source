@@ -221,6 +221,11 @@ import { fishKind } from './fishHost.js';   // PROF8: Fishing's casts and school
 import { utcDayOfMs } from '../net/nodeLaw.js';   // PROF8: a haul's UTC day
 import { registerPlayerKillListener } from '../systems/playerKills.js';   // PROF7: the player's own kill stamps a body
 import { setProfessionsPages } from '../ui/profPages.js';   // PROF1: the Professions and Stores pages on the character sheet's rail
+import { setHoldingsProvider, stableProviderFor } from '../ui/holdingsPages.js';   // HOLDINGS: the Stable and the Fleet pages on the pause menu's Holdings tab
+import { fleetBook, fleetShip, titleDeed, knowShip, retitle, setShipPort, forgetShip, fleetSaveSlot, FLEET_SAVE_VENDOR } from '../systems/fleet.js';   // HOLDINGS: the Fleet's ledger and its book of titles
+import { createFleetHost } from './fleetHost.js';   // HOLDINGS: the Fleet page's host half
+import { createQuayPool } from './quayPool.js';   // QUAYS: a harbour's quays, stood off its berths, and the gangways
+import { HARBOUR_REACH } from '../systems/naval/shipLife.js';   // AUDIT HOLDINGS O1: the harbour's scan reach, its pixels built before it is sounded
 import { withdrawIntoPack, materialLabel, materialCountLabel } from '../systems/profItems.js';   // PROF1: a Stores material as DFU's own item
 import { smeltRecipe, stockOf, WEAVERS_STOCK, APOTHECARY_STOCK, professionName } from '../net/professionLaw.js';   // PROF2: a smelt's product, for its word; PROF4: a counter's; PROF5: the Weavers'
 import { createMarketBook } from '../net/marketBook.js';   // PROF5: the market's book
@@ -1138,6 +1143,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   status('indexing locations');
   const locationIndex = new Map();
   let bountyFarms = null;   // BOUNTY-FARM: the farm pool, made beside the bounty pack's stander; read late (a transition, a load, the frame)
+  let quays = null;   // QUAYS: the harbours' quays (scenes/quayPool.js), made beside the farms; read late (a transition, a load, the frame)
   const _bountyFarmLocs = [];   // BOUNTY-FARM: the game's own farmsteads - the nearest lends a farm bounty its buildings
   const _bountyDungeonPixels = new Map();   // BOUNTY1: the game's own dungeons, by pixel -> name, for a board's underground hunts
   const _bountyGraveyardPixels = new Set();   // BOUNTY-GRAVEYARD: the game's own graveyards, by pixel - a board's hunt there stands outside
@@ -6409,10 +6415,15 @@ export async function bootWorld(canvas, renderer, params, status) {
   /** CSA-D: the plaque's word for a boat - the port's own (DFU names nothing): the hull's name. */
   const csaHoverName = (key) => {
     const peer = typeof key === 'string' ? /^csaPeer:(.+):(\d+):[^:]+$/.exec(key) : null;   // CSA-K: another player's boat - its hull, and whose (a peer's wagon's plaque, HCC-TIP)
-    if (peer) { const boat = csaPeers.boatAt(peer[1], Number(peer[2])); return boat ? { title: CSA_HULL_NAMES[boat.hull] ?? 'Boat', subs: [ownedLine(peerName(peer[1]))] } : null; }
+    if (peer) {
+      const boat = csaPeers.boatAt(peer[1], Number(peer[2]));
+      if (!boat) return null;
+      const hullName = CSA_HULL_NAMES[boat.hull] ?? 'Boat', named = csaPeers.nameAt?.(peer[1], Number(peer[2])) ?? '';   // HOLDINGS: her captain's name for her
+      return { title: named || hullName, subs: [...(named ? [hullName] : []), ownedLine(peerName(peer[1]))] };
+    }
     const mine = csaBoatOfKey(key);
     if (!mine) return null;
-    const title = CSA_HULL_NAMES[mine.boat.hull] ?? 'Boat';
+    const title = fleetHost?.nameOf(mine.boat) || (CSA_HULL_NAMES[mine.boat.hull] ?? 'Boat');   // HOLDINGS: her name, else her hull's
     // AUDIT BOAT-MENU C1: none at a helm - the pad's d-pad is the helm's there, and a list under a crosshair looking
     // down at her own deck took it (and any other boat of mine's helm was a press away, unleft)
     if (mine.part === 'bed' || csaRuntime?.isSailing()) return { title };
@@ -6553,6 +6564,9 @@ export async function bootWorld(canvas, renderer, params, status) {
   /** SerializeItems / DeserializeItems: the save's own item copy (save.js) - AUDIT WK-D11: ONE codec, the cargo's and
    *  the companions' packs both (two identical literals stood in step only while nobody touched one). */
   const packedItemsCodec = Object.freeze({ serialize: (items) => (items ?? []).map((it) => ({ ...it })), deserialize: (records) => (records ?? []).map((it) => setItemFields({ ...it })) });
+  /** HOLDINGS: the Fleet page's host half (scenes/fleetHost.js) - stood once the sea fight is (below); the boats' refits
+   *  are read through it from the first frame (null until then: none). */
+  let fleetHost = null;
   const csaRuntime = csaOn() ? createComeSailAwayRuntime({
     pool: csa,
     passengersAboard: csaPassengersOn,
@@ -6579,6 +6593,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     wayScale: (underSail) => naval?.wayScale(underSail) ?? 1,   // AUDIT NAV1 (the helm): her hurts in her way - the canvas left, a wreck's oars
     sailRefused: () => naval?.sailRefused() ?? null,   // ...and no sail on a wreck or a rig shot away, said once
     brake: () => naval?.brake() ?? 0,   // ...and a heave-to's brake beside a struck ship
+    warp: (boat, s) => naval?.warp?.(boat, s) ?? null,   // QUAYS: her hands warping her in alongside a harbour's quay
     handling: () => getPref('naval-handling') ?? 'responsive',   // HELM-WAY: the Features row's Ship handling
     midScreenText: (text, seconds) => setMidScreenText(text, seconds),
     log: (text) => console.log(text),
@@ -6645,7 +6660,11 @@ export async function bootWorld(canvas, renderer, params, status) {
     // CSA-H: the items, the cargo, the variants and the ports
     isPortTown: (x, y) => csaIsPortTown(x, y),
     nearestPort: () => csaNearestPort(),   // DEED-PORT: the refusal names where to go
-    items: { create: (templateIndex) => mintBoatItem(templateIndex, csaNewItemUid()), addToPlayer: (item) => addItem((playerEntity.items ??= []), item), player: () => (playerEntity.items ??= []) },   // ItemBuilder.CreateItem; AddItem(item, AddPosition.Back); SHIP-PACK: the pack a ship's deed is found in
+    items: { create: (templateIndex) => mintBoatItem(templateIndex, csaNewItemUid()), addToPlayer: (item) => addItem((playerEntity.items ??= []), item), player: () => (playerEntity.items ??= []),   // ItemBuilder.CreateItem; AddItem(item, AddPosition.Back); SHIP-PACK: the pack a ship's deed is found in
+      // HOLDINGS (bible/03-World/Holdings.md): a ship's title is the Fleet's book's, where the mod's laws find it as they
+      // found the pack's deed; a crewed ship's parts placed spend her parts, her title kept there (made if it is not)
+      titles: () => fleetBook(), retitle: (boat, parts) => { knowShip(boat.uid, boat.hull, boat.variant, parts?.value); setShipPort(boat.uid, null); return !!retitle(boat.uid); } },   // AUDIT HOLDINGS Q8: placed anew, no port of before - made fast, the docking says hers
+    refit: (boat) => fleetHost?.refit(boat) ?? null,   // HOLDINGS: her Hold and Rigging refits, where the helm reads its rates
     closeInventory: () => { _csaInventoryClosed = true; },   // the class's CloseWindow, carried out on the use's result (below)
     openCargo: (cargo) => csaOpenCargo(cargo),
     openListPicker: (rows, onPick) => csaOpenListPicker(rows, onPick),
@@ -7126,6 +7145,7 @@ export async function bootWorld(canvas, renderer, params, status) {
       sails: b.Sails.reduce((m, sail, k) => (csaAnimatorOf(sail) && !csaAnimatorOf(sail).GetBool('Stowed') ? m | (1 << k) : m), 0),
       helm: csaRuntime.isSailing() && b === csaRuntime.state.CurrentBoat, light: !!b.LightOn,
       ...(way && way.boat === b ? { velocity: way.velocity.map((v) => v * scale), turn: way.turn * scale } : null),
+      name: fleetHost?.nameOf(b) ?? '',   // HOLDINGS: her name, for every other player to read over her
     }));
     const rec = csaWireRecord(view, campToWire);
     if (rec && modes?.sailingCabin) rec.cabin = 1;
@@ -7278,7 +7298,17 @@ export async function bootWorld(canvas, renderer, params, status) {
     if (!t) return null;
     const r = locationWorldRect(t.loc, t.x, t.y);
     const [ax, az] = state.localFromWorld(r.minX, r.minZ), [bx, bz] = state.localFromWorld(r.maxX, r.maxZ);
-    return { key: `port:${t.id}`, name: t.name, rect: { minX: Math.min(ax, bx), maxX: Math.max(ax, bx), minZ: Math.min(az, bz), maxZ: Math.max(az, bz) } };   // SHIP-TAGS: her name, the words a ship bound there is read by
+    const rect = { minX: Math.min(ax, bx), maxX: Math.max(ax, bx), minZ: Math.min(az, bz), maxZ: Math.max(az, bz) };
+    // AUDIT HOLDINGS O1: whether every pixel the harbour's scan reads (the rect grown HARBOUR_REACH) is built - a pixel
+    // not built reads as land, so a harbour sounded early found its shore at the streamed world's edge and two players
+    // arriving by different roads found different berths and stood different quays; asked only before it is sounded
+    const ready = () => {
+      const x0 = rect.minX - HARBOUR_REACH, z0 = rect.minZ - HARBOUR_REACH, sx = rect.maxX - rect.minX + 2 * HARBOUR_REACH, sz = rect.maxZ - rect.minZ + 2 * HARBOUR_REACH;
+      const nx = Math.ceil(sx / 400), nz = Math.ceil(sz / 400);   // under 400 m apart, both edges read: no pixel (819.2 m) between two
+      for (let i = 0; i <= nx; i++) for (let k = 0; k <= nz; k++) if (!csaPixelAt(x0 + (sx * i) / nx, z0 + (sz * k) / nz)) return false;
+      return true;
+    };
+    return { key: `port:${t.id}`, name: t.name, rect, ready };   // SHIP-TAGS: her name, the words a ship bound there is read by
   };
   /** DECK-WALK: a point in a hull's deck frame (her mesh node's, systems/naval/navalDeck.js) to the world, where her
    *  node stands, rolls and pitches now - and back; into `out` when given. */
@@ -7485,6 +7515,9 @@ export async function bootWorld(canvas, renderer, params, status) {
     seaY: () => tvSeaY(),
     isWater: navalIsWater,
     harbourNear: navalHarbourNear,   // SHIP-LIFE: the port town near the player, which the host finds a harbour off
+    shipName: (boat) => fleetHost?.nameOf(boat) ?? '',   // QUAYS: her name, in the gangway's word
+    quayLaid: (key, index) => quays?.laid(key, index) ?? true,   // AUDIT HOLDINGS Q9: no gangway onto a quay not yet laid
+    dockedPort: (boat, port) => { const r = boat?.uid ? fleetShip(boat.uid) : null; if (r && (r.port?.name ?? null) !== port) setShipPort(boat.uid, port == null ? null : { name: port }); },   // QUAYS: the Fleet's word of the port she lies made fast at
     groundY: (x, z) => surfaceAt(x, z),
     feet: () => player.feetAt(),
     look: () => ({
@@ -7543,7 +7576,8 @@ export async function bootWorld(canvas, renderer, params, status) {
       // placing spends a small boat's deed from, the terrain under her for her placing, and her dead kept on her deck as
       // my hull takes her place in the water (navalCarry carries them on it)
       mintUid: () => csaNewItemUid(),
-      packDeed: (item) => { addItem((playerEntity.items ??= []), item); surfacePlayer(); return () => playerEntity.items; },
+      packDeed: (item) => { titleDeed(item, { port: null }); return () => fleetBook(); },   // HOLDINGS: a prize's title to the Fleet's book, never the pack
+      forgetDeed: (item) => forgetShip(item?.UID),   // AUDIT HOLDINGS F8: a failed claim's record forgotten with her title
       terrainAt: (p) => csaTerrainOf(csaPixelAt(p[0], p[2])),
       redeck: (from, to) => { for (const f of _deckBodies) if (f.deckBoat === from) f.deckBoat = to; },
     },
@@ -7579,11 +7613,38 @@ export async function bootWorld(canvas, renderer, params, status) {
     warmAshesOn: () => warmAshesOn(),
     raiderSpent: (id) => { seaRaidSpend(id); tvRaid.chase.delete(id); },   // NAV-R: the Overworld's law - spent for its life; THE MERGE (OW6): and said to the cell
     setting: (key) => (key === 'ShipsAtSea' ? getPref('naval-ships') : key === 'RaidPrize' ? getPref('naval-raid-prize') !== false : key === 'Boarders' ? getPref('naval-boarders') !== false
-      : key === 'AimCamera' ? getPref('naval-aim-camera') !== false : undefined),
+      : key === 'AimCamera' ? getPref('naval-aim-camera') !== false : key === 'AutoRepair' ? getPref('naval-auto-repair') !== false : undefined),
     random: Math.random,   // THE ENGINE-PRNG RULE (Port-Ledger A)
+    refit: (boat) => fleetHost?.refit(boat) ?? null,   // HOLDINGS: her Hull and Guns refits (the Fleet's ledger)
   });
   naval.setEnabled(navalOn());   // the switch's state from the first frame (navalFrame follows it after)
   registerModSaveData(NAVAL_SAVE_VENDOR, naval);   // the player's boats' hurts, the crowns' notoriety, a raid a load carries
+  // HOLDINGS (bible/03-World/Holdings.md): THE FLEET'S LEDGER - every ship's title, name and refits - its own save slot,
+  // carried whether Come Sail Away runs or not (AUDIT REALM2 C3's law: an off boot never loses a record); and the
+  // Holdings tab's two pages over this host's horse, wagon and boats
+  registerModSaveData(FLEET_SAVE_VENDOR, fleetSaveSlot);
+  /** AUDIT HOLDINGS F8: Come Sail Away's port reach as its setting says (Controls/PortLocationSearchRange - the mod's
+   *  portSearchRange, which every deed's law reads). */
+  const csaPortRange = () => { try { return Number(modSetting(COME_SAIL_AWAY_VENDOR, 'Controls.PortLocationSearchRange') ?? 3) | 0; } catch { return 3; } };
+  fleetHost = csaRuntime ? createFleetHost({
+    csa: () => (csaOn() ? csaRuntime : null),
+    naval: () => (navalOn() ? naval : null),
+    pack: () => (playerEntity.items ??= []),
+    gold: () => totalGoldAmount(playerEntity),
+    pay: (n) => { deductGold(playerEntity, n); surfacePlayer(); },
+    accounts: () => playerEntity.bankAccounts ?? [],
+    regionName: (i) => REGION_NAMES[i] ?? null,
+    where: () => { const px = playerTravelPixel(); return { inside: (modes?.mode ?? 'exterior') !== 'exterior', pixel: { X: px.x, Y: px.y }, feet: dwPlayerObjectPosition() }; },
+    nearPort: () => !!csaRuntime.IsNearPort(csaPortRange()),   // the deed's own reach (DEED-PORT) - AUDIT HOLDINGS F8: its setting's, as the deed reads it (PortLocationSearchRange), never IsNearPort's bare three
+    nearestPort: () => csaNearestPort(),
+    terrainAt: (p) => csaTerrainOf(csaPixelAt(p[0], p[2])),
+    passengersAboard: (boat) => csaPassengersOn(boat),
+    changed: () => surfacePlayer(),
+  }) : null;
+  setHoldingsProvider({
+    ...stableProviderFor({ runtime: hccRuntime, on: hccOn, hasHorse: () => hasTransport(TRANSPORT_HORSE), hasCart: () => hasTransport(TRANSPORT_SMALL_CART) }),
+    fleet: fleetHost ? { model: () => fleetHost.model(), offer: (uid) => fleetHost.offer(uid), act: (uid, verb, arg) => fleetHost.act(uid, verb, arg) } : null,
+  });
   /** The sea emptied: a transition, a teleport, the arc switched off - its window with it. */
   const navalClear = () => { naval?.clear(); navalFlames.clear(); navalCrew.clear(); closeNavalPlunder(); closeNavalYard(); drawNavalHud(null); drawNavalTags([]); drawCrewBars([]); drawCrewLines([]); };
   const navalTransition = () => navalClear();
@@ -7696,7 +7757,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   };
   /** AUDIT CC-A5: my boats always say who is away - an empty set brings the last of the party home onto her deck. */
   const NO_HANDS_AWAY = new Set();
-  const _crewCtx = { battle: false, struck: false, muster: 0, avoid: null, order: null, sings: true, line: null, asleep: false, work: 0, call: null, lookout: -1 }, _crewMe = [0, 0, 0], _crewThem = [0, 0, 0];
+  const _crewCtx = { battle: false, struck: false, muster: 0, avoid: null, order: null, sings: true, line: null, asleep: false, work: 0, call: null, roles: null, lookout: -1 }, _crewMe = [0, 0, 0], _crewThem = [0, 0, 0];
   const _crewSeed = (s) => { let h = 0x811c9dc5; for (let i = 0; i < s.length; i++) h = Math.imul(h ^ s.charCodeAt(i), 0x01000193); return h >>> 0; };
   /** AUDIT NAV2 F9: my boat's crew seeded as a room seeds her (comeSailAwayPeers peerKey, `${whose}:${which}` - which,
    *  her place among my word's boats: csaWord's order, the active ones) so her owner and every reader stand one crew;
@@ -7749,6 +7810,7 @@ export async function bootWorld(canvas, renderer, params, status) {
       _crewCtx.call = ship.mine?.call ?? null;
       if (ship.mine) ship.mine.call = null;
       _crewCtx.lookout = ship.mine?.lookout ?? -1;   // AUDIT WK-W10: her card's Lookout at her bow (the sea's and a peer's: none named)
+      _crewCtx.roles = ship.mine?.roles ?? null;   // HOLDINGS: each of my hands at his role's post (the sea's and a peer's: none)
       if (walkMode && playerSpawned) {   // me on her deck: never walked through
         intoDeck(m, player.pos, _crewMe);
         if (Math.abs(_crewMe[1] - (ship.deck.heightAt(_crewMe[0], _crewMe[2]) || 0)) < 2) _crewCtx.avoid = _crewMe;
@@ -9337,7 +9399,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   // and dungeonContext.js:3066 mounts the same one, gated on
   // `opts.enchantCtx !== false` because setDefaultEnchantCtx is a
   // session singleton and EC1 already routes THIS host's mount into
-  // that context through modes.dungeonCtx - so worldModes.js:7066
+  // that context through modes.dungeonCtx - so worldModes.js:7077
   // passes false beside its `chargen: false` and only the standalone
   // ?dungeon route mounts its own. S40 filled isResting
   // in - the sentence that stood here said it "stays absent above
@@ -9651,6 +9713,24 @@ export async function bootWorld(canvas, renderer, params, status) {
     feet: () => (walkMode && playerSpawned ? player.feetAt() : cam.pos),
     mode: () => _mode(),
     enhanced: () => isEnhanced(),
+  });
+  // QUAYS (bible/03-World/Holdings.md section 7): THE PORT'S QUAYS - each berth of a harbour the naval host found off the
+  // terrain stood with its quay, its jetty to the shore, its piles, bollards, lanterns and cargo (systems/naval/quays.js,
+  // world/quayModel.js), from the time its mouth is in sight of a ship sailing in; the gangways run out to my ships made
+  // fast at them. THE FOUR HOSTS: on the street alone, this host's - a building's frame (worldModes.js) and a dungeon's
+  // (dungeonContext.js) have no sea, and the standalone street (exterior.js) no naval host to find a harbour.
+  quays = createQuayPool({
+    renderer,
+    prepare: async (model) => { for (const sm of model.subMeshes) { await getTexture(sm.textureArchive); uploadRecord(sm.textureArchive, sm.textureRecord, { opaque: true }); } },
+    collider: () => collider,
+    harbours: () => (navalOn() ? naval?.harbourList?.() ?? [] : []),
+    seaY: () => tvSeaY(),
+    // AUDIT HOLDINGS Q6: a full-detail pixel's ground alone - a far pixel's coarse one (its stride past 1) planned a
+    // jetty off a surface the refined pixel buries or leaves hanging, and two players planned it apart
+    groundAt: (x, z) => { const p = csaPixelAt(x, z); return p && (p._stride ?? 1) === 1 ? surfaceAt(x, z) : NaN; },
+    feet: () => (walkMode && playerSpawned ? player.feetAt() : cam.pos),
+    mode: () => _mode(),
+    gangways: () => (navalOn() ? naval?.gangways?.() ?? [] : []),
   });
   // HOME-YARD (2026-09-30, asked: "allowing for prop placement on the outside within the limits of their house"): THE
   // TOWN'S YARDS AND THE OWNER'S DECORATOR OUTSIDE (scenes/homeYards.js) - every online home's pieces outside, stood in
@@ -10866,6 +10946,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     // reason, rather than because a splice happened to run first.
     doorGeneration += 1;   // WORLD-HOVER: the origin was re-anchored, so every door's WORLD matrix moved with it
     bountyFarms?.destroyAll();   // BOUNTY-FARM: the frame moves under it - it stands again from the bounty, in the new one
+    quays?.destroyAll();   // QUAYS: and the quays - stood again off the harbours found in the new one
     riteHost?.destroyAll();   // WB12d: and the faithful's circle - its faithful went with the live pools; it stands again the next frame
     csaReanchor(state.initOffset);   // FIELD-CSA1: and every placed boat with it
     _streamSince = null;   // PERF-EXT24 (the review): the sweep ended the old world's stream - the new one's two seconds start at its first pump
@@ -12513,6 +12594,7 @@ export async function bootWorld(canvas, renderer, params, status) {
         droppedLoot.restoreWorld(restandRows(w.piles), (nx, nz) => state.localFromWorld(nx, nz), state.compensation[1]);
         droppedTorches.restore(restandAt('position')(w.droppedTorches), (p) => { const [lx, lz] = state.localFromWorld(p[0], p[2]); return [lx, p[1] + state.compensation[1], lz]; });   // HT1
         bountyFarms?.destroyAll();   // BOUNTY-FARM: a load - the farms stand again from the loaded bounties
+        quays?.destroyAll();   // QUAYS: and the quays, off the harbours found again
         camps.dropOwn();   // AUDIT SURV-TIERS (the third pass): the save says which camps are mine - the pitch after it is undone, not kept beside the gear it gave back
         camps.restore(restandAt('pos')(w.camps), campFromNatives);   // SURV3
         // F216/F217: the pools re-mint through their one spawn chain,
@@ -15123,7 +15205,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   // exterior -> the townTalk overlay, interior OR dungeon -> the mode
   // machine's slot. U43-ii shipped the dungeon half: showQuestBox
   // offers the window to `modes.showQuestOverlay` below, and
-  // worldModes answers it in BOTH modes (worldModes.js:10761-10825 -
+  // worldModes answers it in BOTH modes (worldModes.js:10772-10836 -
   // dungeon routes to dungeonCtx.showOverlay), so a dungeon popup is
   // shown rather than logged loudly and dropped.
   // AUDIT 24 (wave 21): DaggerfallMessageBox.Show() is a
@@ -25516,7 +25598,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
           if (_lockFoe) lockOn.toggle(_lockFoe);
           else if (_tapLockOnly) { /* TS1: the stick-half tap found no foe - it opens nothing */ }
           else if (!_act.pressCast && plaquePeerAct(cam.pos, useFwd)) { /* ACT-MENU: a player the plaque named nearest, and the verb it lit - never on a press that cast (AUDIT DISC7 A1) */ }
-          else if (!_race.loot && !_race.drop && naval?.activate()) { /* NAV-D: grapples thrown on a struck ship, a rail gone over, a prize's hold opened - a body or a pile under the ray still takes the click first */ }
+          else if (!_race.loot && !_race.drop && naval?.activate({ boatTrigger: !!_race.boatWins })) { /* NAV-D: grapples thrown on a struck ship, a rail gone over, a prize's hold opened - a body or a pile under the ray still takes the click first; AUDIT HOLDINGS Q4: her own helm, hold or door under the ray before the gangway */ }
           // AUDIT 65 MC-2: ONE enemy arm, at the RAY's reach, still
           // decided against every rival above - DFU's one raycast
           // (:314) reaches MobileEnemyCheck (:419) only for the thing
@@ -25702,6 +25784,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
       if (csaRuntime) csaCall(() => csaRuntime.OnPositionUpdate(r.offset)); else csa.offsetAll(r.offset);
       csaPeers.rebase(r.offset);   // CSA-J: the peers' eased places with the world
       naval?.offsetAll(r.offset); navalFlames.offsetAll(r.offset);   // NAV-H: the sea's ships, their shots, smoke and fires - before their buckets stand again below
+      quays?.offsetAll();   // AUDIT HOLDINGS Q7: the quays' still colliders stood again where the berths (moved just above) lie
       csaSyncColliders(); yards?.rebase();   // CSA-D: the boats' buckets stand where the shift put them before any motor step meets them   // CSA-C: the mod's own FloatingOrigin.OnPositionUpdate (its kept bug: a boat out of sight stays behind)   // FB1001 YARD-RECENTRE: and the yards' pieces with their buckets, in place - their frame ran above the shift, and the draw is below (one line, so no line cite moves)
       hitEffects.offsetAll(r.offset);   // AUDIT 24 (wave 39): a splash mid-animation follows the origin too
       for (const q of [_wodArrival.origin, _wodArrival.loadAt]) if (q) { q[0] += r.offset[0]; q[1] += r.offset[1]; q[2] += r.offset[2]; }   // WOD6
@@ -26096,6 +26179,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     try { if (gatePool?.frame(dt)) warmGateVeil(); } catch (e) { console.warn('[gate] pool', e?.message ?? e); }   // AUDIT WB D5: a gate stands - the step's veil is built ahead
     try { sigilBroker?.frame(dt); } catch (e) { console.warn('[broker] pool', e?.message ?? e); }   // SET7: the Broker stands where the clock stands her - BROKER-CAGE: in her cage at the faithful's circle
     try { riteHost?.frame(); } catch (e) { console.warn('[rite] host', e?.message ?? e); }   // WB12d: the faithful's circle, before the lights (its braziers light the ground)
+    try { quays?.frame(); } catch (e) { console.warn('[quays] pool', e?.message ?? e); }   // QUAYS: the harbours' quays stood or taken down, before the lights (their lanterns) and the world pass
     // Lanterns on 17:00-08:00, flickering verbatim; pixel-local lights
     // placed under the current compensation, nearest 16 to the camera.
     // WOD2: the mod's lights burn at every hour and each carries its own
@@ -26105,6 +26189,9 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     // both branches below make the calls they always made.
     const wodLit = wod ? _wodLitCount() : 0;   // AUDIT BRANCH (WoD) n: with the mod off, no walk of the built pixels at all
     const csaLit = csaOn() ? csa.lights(cam.pos) : [];   // AUDIT PRE-MERGE 0928 R2: the boats' lit lanterns are scene lights - in the selection below with the street's, never the player's extras
+    // QUAYS: the quays' lanterns, in the lanterns' hours, scene lights beside the boats' in the town lanterns' colour -
+    // AUDIT HOLDINGS Q3: never the player's extras, which are never cut and pushed the street's nearest out of the cap
+    if (lightsOnAt(minute)) for (const l of quays?.lights() ?? []) csaLit.push({ x: l.x, y: l.y, z: l.z, range: l.range, color: CITY_LIGHT_COLOR_F32 });
     if (lightsOnAt(minute)) {
       worldLightAnimator.tick(dt);
       // PERF-LIGHTS (2026-09-19): THE LANTERNS ARE A POOL, NOT A FRESH
@@ -26166,6 +26253,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     camps.draw(renderer);   // SURV3: the tents, the cart's own pass
     hcc.draw(renderer);   // HCC: the trailing / parked / following wagon and its cargo, mine and the peers' (the horses ride the flats' pass)
     bountyFarms?.draw(renderer);   // BOUNTY-FARM: a held farm bounty's farmstead
+    quays?.draw(renderer);   // QUAYS: the harbours' quays and the gangways to my ships made fast
     yards?.draw(renderer);   // HOME-YARD: the pieces outside the town's homes, and the one being placed
     if (csaOn()) csa.draw(renderer);   // CSA-B: the boats - the hulls, the classic models their helpers stand, the baked sails
 

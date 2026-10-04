@@ -427,7 +427,7 @@ function feedOn({ at = { x: 200, y: 200 }, clock = 1.7e12 } = {}) {
 
 test('SEA-LANES THE WORLD\'S FEED: before the frame poses the sea\'s ships, every LANE_LIST_MS the world hands the host every packet of the lanes about the player at the shared clock (AUDIT BAY A19 PIN MOVED: those within LANE_LIST_M of the player) - the lanes of the map\'s own ports (Travel Options\' list, by its water and the ocean\'s climate), a lane\'s way sounded once and only near the player, each packet in the scene with her seeds, her leg, her ports by key and name and her home port\'s region', () => {
   assert.match(WORLD, /if \(_mode\(\) === 'exterior' && !gamePaused\(\) && !_loading\) laneShips\(\);[^\n]*\n\s*naval\.frame\(dt \* worldTimeScale\(\)/, 'stood and steered before the frame poses them, outdoors and running');
-  assert.match(WORLD, /return \{ key: `port:\$\{t\.id\}`, name: t\.name, rect:/, 'the harbour named, its key a lane port\'s');
+  assert.match(WORLD, /return \{ key: `port:\$\{t\.id\}`, name: t\.name, rect, ready \};/, 'the harbour named, its key a lane port\'s');   // PIN MOVED (AUDIT HOLDINGS O1): and whether its scan's pixels are built
   // the clock where the lane's first packet lies at her home port, by the player
   const [lane] = laneNetwork(FEED_PORTS.map((p) => ({ id: p.y * 1000 + p.x, name: p.name, px: p.x, py: p.y, region: 1 })), open);
   const way = laneWay(lane, water, waterNative);

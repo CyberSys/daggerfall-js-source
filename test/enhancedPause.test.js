@@ -546,7 +546,10 @@ test('PX26: the pause window lands on the page the door was pressed for', () => 
     'the reset runs first, then the landing');
   // The tabbed window IS the pause home face, so a landing sets the
   // TAB and leaves the section alone.
-  assert.match(menu, /if \(\['quests', 'stats', 'system'\]\.includes\(at\)\) pauseTab = at;/);
+  // PIN MOVED (HOLDINGS, bible/03-World/Holdings.md): the tabs a landing may name are the strip's own list, Holdings among
+  // them (test/holdings.test.js pins the strip)
+  assert.match(menu, /if \(PAUSE_TAB_IDS\.includes\(at\)\) pauseTab = at;/);
+  assert.match(menu, /export const PAUSE_TAB_IDS = Object\.freeze\(PAUSE_TABS\.map\(\(\[id\]\) => id\)\);/);
   assert.doesNotMatch(mount.slice(0, mount.indexOf('render()')), /section = 'journal'/);
   const door = read('src/ui/pauseDoor.js');
   assert.match(door, /at: hooks\.at \?\? null/);
