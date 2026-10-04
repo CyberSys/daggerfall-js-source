@@ -51,7 +51,7 @@ import { loadQuestTables } from '../src/systems/quest/tables.js';
 import { Place, SITE_TYPES } from '../src/systems/quest/place.js';
 import { Foe } from '../src/systems/quest/foe.js';
 import { PlaceFoe } from '../src/systems/quest/actions.js';
-import { addQuestResourceObjects, markerScenePosition } from '../src/systems/quest/sceneMount.js';
+import { addQuestResourceObjects, markerScenePosition, siteMarkerSpots, standSpot, MARKER_FLOOR_REACH } from '../src/systems/quest/sceneMount.js';
 import { createExteriorFoes } from '../src/scenes/exteriorFoes.js';
 import { effectiveLevel } from '../src/systems/mentorMode.js';
 
@@ -429,8 +429,13 @@ test('CRATE-FREE interior: a building\'s quest marker inside a house crate - wor
   assert.ok(inCrate([position.x, 0, position.z], [12, 10]), 'the marker is inside the crate');
   const pool = foePool(c);
   const stood = [];
-  const state = { interiorCtx: { parentPt: (x, y, z) => [x, y, z] }, interiorFoes: { spawnFoe: (...a) => pool.spawnFoe(...a).then((f) => { stood.push(f); return f; }) }, interiorFoeStands: [], console };
-  const adapter = mount(`${WM.declSrc('INTERIOR_MARKER_FEET_LIFT')}\n${WM.declSrc('questAdapter')}\nreturn questAdapter;`, state);
+  // INTEGRATION (FIELD BUGS 2026-10-04b, PIN MOVED): QUEST-MARKERS' backstop runs in the same stand - the room's
+  // collider (the host's own) and the backstop's spots join the scope; the marker has a floor under it, so it stands
+  const state = {
+    interiorCtx: { parentPt: (x, y, z) => [x, y, z], collider: c }, interiorFoes: { spawnFoe: (...a) => pool.spawnFoe(...a).then((f) => { stood.push(f); return f; }) }, interiorFoeStands: [], console,
+    markerScenePosition, siteMarkerSpots, standSpot, MARKER_FLOOR_REACH,
+  };
+  const adapter = mount(`${WM.declSrc('INTERIOR_MARKER_FEET_LIFT')}\n${WM.declSrc('interiorStandSpots')}\n${WM.declSrc('questAdapter')}\nreturn questAdapter;`, state);
   adapter.standFoe({ foe: { foeType: GIANT }, gender: 'male', position, behaviour: { bindHost() {}, start() {} } });
   await settle();
   assert.equal(stood.length, 1);
