@@ -384,7 +384,8 @@ test('TELL2: the glint on the batch - written only when it changes, cleared at n
   setBatchGlint(b, [1, 0.4, 0.1, 0.5]);
   assert.equal(b.glint, g, 'the same glint is not rewritten');
   setBatchGlint(b, [1, 0.4, 0.1, 0.6]);
-  assert.notEqual(b.glint, g);
+  assert.deepEqual(b.glint, [1, 0.4, 0.1, 0.6]);   // PIN MOVED (AUDIT TELL U9): rewritten in place, no array a frame
+  assert.equal(b.glint, g, 'the same array');
   setBatchGlint(b, [1, 0.4, 0.1, 0]);
   assert.equal(b.glint, undefined, 'strength 0 is none');
   setBatchGlint(b, [1, 0.4, 0.1, 0.6]);

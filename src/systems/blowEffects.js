@@ -49,20 +49,25 @@ export function queueBlowEffect(fx, dmg, dir, foe) {
   if (fx) _queue.push({ fx, dmg, dir, foe });
 }
 
-let _downUntil = -Infinity, _guardUntil = -Infinity;
-/** Is the local player knocked down now? The swing and the cast ask (the hosts' rig gate, scenes/hostMagic.js). */
-export const knockedDown = (now = tacticsNow()) => now < _downUntil;
+let _downUntil = -Infinity, _guardUntil = -Infinity, _downMotor = null;
+/** Is the local player knocked down now? The swing and the cast ask (the hosts' rig gate, scenes/hostMagic.js).
+ *  AUDIT TELL L9: while the body the knockdown took is down too - a placement (motor.spawn: a load, a rise, a
+ *  teleport) stands it up, and the swing and the cast with it; the clock alone bounds it, so a body a host left is
+ *  never down for good. */
+export const knockedDown = (now = tacticsNow()) => now < _downUntil && (_downMotor?.isDown?.() ?? true);
 
 /**
  * The host's player frame: every queued landing applied - the motor's push, rattle and knockdown (`motor` the
  * player's PlayerMotor), the camera's dip (`shake(k)`), a bleed begun on `entity`.
  */
 export function drainBlowEffects({ motor = null, entity = null, shake = null, now = tacticsNow() } = {}) {
+  if (entity && !(entity.health > 0)) { _queue.length = 0; return; }   // AUDIT TELL L1: a dead body takes nothing
   while (_queue.length) {
     const { fx, dmg, dir, foe } = /** @type {any} */ (_queue.shift());
-    if (fx.knockdown && now >= _guardUntil) {
-      _downUntil = now + BLOW_EFFECT.KNOCKDOWN_S; _guardUntil = _downUntil + BLOW_EFFECT.KNOCKDOWN_GUARD;
-      motor?.blowKnockDown?.(BLOW_EFFECT.KNOCKDOWN_S, BLOW_EFFECT.KNOCKDOWN_DROP);   // it takes any push with it
+    // AUDIT TELL L4: the body says whether it can go down (a climb, a hold, a mantle, a swim, a levitation cannot) -
+    // refused, the guard stands unspent and the blow pushes as any other
+    if (fx.knockdown && now >= _guardUntil && motor?.blowKnockDown?.(BLOW_EFFECT.KNOCKDOWN_S, BLOW_EFFECT.KNOCKDOWN_DROP) !== false) {   // it takes any push with it
+      _downUntil = now + BLOW_EFFECT.KNOCKDOWN_S; _guardUntil = _downUntil + BLOW_EFFECT.KNOCKDOWN_GUARD; _downMotor = motor;
     } else if (fx.push > 0 && dir) {
       const l = Math.hypot(dir[0], dir[1]);
       if (l > 0) motor?.blowPush?.((dir[0] / l) * fx.push, (dir[1] / l) * fx.push);
@@ -74,6 +79,7 @@ export function drainBlowEffects({ motor = null, entity = null, shake = null, no
 
 /** BLEED: `total` more over BLEED_TICKS ticks; a second bleed adds what the first had left. */
 export function startBleed(entity, total, foe, now = tacticsNow()) {
+  if (!(entity?.health > 0)) return;   // AUDIT TELL L1: a dead body never bleeds - its tick would hurt a corpse into a second death
   const b = entity.bleed;
   const left = b ? b.per * b.left : 0;
   entity.bleed = { per: (left + total) / BLOW_EFFECT.BLEED_TICKS, left: BLOW_EFFECT.BLEED_TICKS, next: now + BLOW_EFFECT.BLEED_EVERY, health: entity.health, foe };
@@ -83,19 +89,31 @@ export function startBleed(entity, total, foe, now = tacticsNow()) {
 export function tickBleed(entity, hurt, now = tacticsNow()) {
   const b = entity?.bleed;
   if (!b) return 0;
-  if (entity.health > b.health) { entity.bleed = null; return 0; }   // healed: a spell, a potion, a bandage, a rest
+  if (entity.health > b.health || !(entity.health > 0)) { entity.bleed = null; return 0; }   // healed: a spell, a potion, a bandage, a rest; AUDIT TELL L1: or dead
   let dealt = 0;
   while (entity.bleed && now >= b.next && b.left > 0) {
-    const n = Math.max(1, Math.round(b.per));
-    if (b.foe) markPlayerHarm(b.foe, { ms: HARM_MARK_STRUCK_MS });   // REVENANT-HARM: its blow's, still
-    hurt(n);
-    dealt += n;
+    // AUDIT TELL L5: the whole is dealt and no more - each tick its share of what is left, rounded, the rest carried
+    // (a bleed of 1 was three ticks of 1)
+    const rem = b.per * b.left;
+    const n = Math.round(rem / b.left);
+    if (n > 0) {
+      if (b.foe) markPlayerHarm(b.foe, { ms: HARM_MARK_STRUCK_MS });   // REVENANT-HARM: its blow's, still
+      hurt(n);
+      dealt += n;
+    }
     b.left--; b.next += BLOW_EFFECT.BLEED_EVERY;
+    b.per = b.left > 0 ? (rem - n) / b.left : 0;
     b.health = entity.health;
     if (b.left <= 0 || !(entity.health > 0)) entity.bleed = null;
   }
   return dealt;
 }
 
+/** AUDIT TELL L2: a load - the queue, the knockdown and its guard forgotten, and `entity`'s bleed ended (the last
+ *  game's landings are nobody's in this one; save.js restorePlayer). The motor's own are its placement's (spawn). */
+export function resetBlowEffects(entity = null) {
+  _queue.length = 0; _downUntil = -Infinity; _guardUntil = -Infinity; _downMotor = null;
+  if (entity) entity.bleed = null;
+}
 /** Tests: the queue and the knockdown forgotten. */
-export function _resetBlowEffectsForTests() { _queue.length = 0; _downUntil = -Infinity; _guardUntil = -Infinity; }
+export function _resetBlowEffectsForTests() { resetBlowEffects(); }

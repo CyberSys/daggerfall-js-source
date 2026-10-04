@@ -1,5 +1,5 @@
 // @ts-check
-// TACT4 - THE THREE SHAPES (bible/12-Enhanced-AI/Tactics-Arc.md), a LEAF: the ground's pass (render/foeTelegraph.js) is
+// TACT4 - THE SHAPES (three at TACT4, bible/12-Enhanced-AI/Tactics-Arc.md; four more since TELL6), a LEAF: the ground's pass (render/foeTelegraph.js) is
 // on the renderer's boot graph and must not bring the brain with it (test/boot2.test.js holds the entry's reach), so the
 // numbers both read live here, importing nothing. ai/foeBlows.js re-exports them.
 
@@ -17,7 +17,7 @@ export const BLOW = Object.freeze({
   // `arc` seconds the jump to the point
   leap: Object.freeze({ windup: 1.0, r: 1.8, mult: 1.6, from: 3, range: 9, arc: 0.35 }),
   // TELL6 (8.1): the aimed shot - a line from the archer to its target, locked at its start; the arrow leaves along it
-  // half again as fast (`speed`) and x`mult` its damage. The arrow's own flight decides: stepping off the line dodges it
+  // x1.3 as fast (`speed`) and x`mult` its damage. The arrow's own flight decides: stepping off the line dodges it
   aimed: Object.freeze({ windup: 0.6, halfW: 0.25, mult: 1.4, speed: 1.3 }),
 });
 

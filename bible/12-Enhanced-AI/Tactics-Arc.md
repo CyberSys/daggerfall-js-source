@@ -181,7 +181,8 @@ Every version of the door grief, fixed without asking further (Mac: "stop asking
   1 m ahead, x1.75, 0.9 s). The families: beasts lunge; brutes (giants, the Orc Warlord, Daedroth, the Daedra Lord,
   atronachs, gargoyles, dreugh) slam and sweep; blades (orcs, skeletons, mummies, vampires, frost and fire daedra,
   seducers, lamias, centaurs, every class but the three casters, the watch) sweep and lunge; the casters, the spectral,
-  the small and the flying none. The tier (Mac): level 10 and up, or an elite.
+  the small and the flying none. The tier (Mac): level 10 and up, or an elite (since TELL7 a champion and a revenant
+  too, and four more shapes since TELL6 - the ring, the charge, the leap, the aimed shot: `Feud-Arc.md` sections 8-9).
 - **When** - from the brain (`ai/tactics.js`): a melee-token holder in reach of the local player, its cooldown (8-15 s;
   since TELL7 by its tier, `Feud-Arc.md` section 9)
   spent, no other foe winding up within 20 m of the player, a 1-in-10 roll a classic tick. It STANDS the wind-up, its
@@ -193,21 +194,23 @@ Every version of the door grief, fixed without asking further (Mac: "stop asking
   stood held at its raised arm, and the landing releases it, `Feud-Arc.md` section 4.1; since TELL4 a miss leaves
   its foe overreached, open to an answer, section 6); the host's own hit resolution asks `blowConnects`
   in place of its reach test and `blowScaled` on DFU's damage roll (armour, skill, the party's weighing and all) - in
-  the street's encounters, the watch, and the dungeon (the interior's foes are the street's pool). A blow is only
-  ever at the local player.
+  the street's encounters, the watch, and the dungeon (the interior's foes are the street's pool). A blow was only
+  ever at the local player until TELL8 (`Feud-Arc.md` section 10): a wind-up rides the foe stream, a foe winds up at
+  the peer it hunts, and each client judges its own feet.
 - **The ground** - `render/foeTelegraph.js` (`renderer.drawFoeTelegraphs`): one flat quad at the foe's feet, the shape
   the fragment's own `inBlow` (pinned point for point), a dim rim at once, filling outward through the wind-up, a
   flash at the landing (since TELL2 the world boss's readable line - a keyline, a brighten "now", premultiplied over
   the floor, never lost near the player, `Feud-Arc.md` section 4.4); depth-tested, unwritten; drawn under the bodies beside the blood marks in the street,
   the building, the dungeon and both standalone hosts.
   `tools/foeTelegraphProbe.mjs` compiles, links and draws the three shapes in a real WebGL2 context (Chromium) and
-  reads the frame back: lit inside, the ground untouched beside and behind, dimmer through the wind-up (12 held).
-- **Not built** - online, a peer does not see another's foe's telegraph (the wind-up does not ride the foe stream yet),
-  and a blow is never at a peer; a block halving it (the port has no player block).
+  reads the frame back: lit inside, the ground untouched beside and behind, dimmer through the wind-up (12 held at
+  TACT4; 34 since AUDIT TELL - every shape, the keyline, iron, the contrast, the shatter).
+- **Not built** - a block halving it (the port has no player block). (Online - a peer seeing another's foe's
+  telegraph, a blow at a peer - was built by TELL8, `Feud-Arc.md` section 10.)
 - Pins `test/tact4.test.js` (13); mutants `tools/mutants/tact4.json` (30), all dead.
-- **Next:** `Feud-Arc.md` (FEUD, proposed 2026-10-04: "player's can easily stun these enemies") - poise and the
-  stagger, a held swing with a glint and cues, iron blows, the punish window, feints and chains, four new shapes, and the
-  wind-ups on the foe stream. Nothing here changes until a TELL slice ships.
+- **Next:** `Feud-Arc.md` (FEUD, 2026-10-04: "player's can easily stun these enemies") - poise and the stagger, a held
+  swing with a glint and cues, iron blows, the punish window, feints and chains, four new shapes, and the wind-ups on
+  the foe stream: TELL1-TELL9 and AUDIT TELL shipped; its records there are the law from them on.
 
 ## AUDIT TACT - 2026-10-02 (Mac: "Audit this and ensure perfection")
 

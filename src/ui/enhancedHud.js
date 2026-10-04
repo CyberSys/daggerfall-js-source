@@ -963,7 +963,7 @@ export function drawEnhancedHud(vitals, heading01, dt = 0, opts = {}) {
   if (!t) {
     if (last.foe !== null) { last.foe = null; parts.foe.classList.remove('on'); }
     last.foeRef = null;
-    if (last.foePoise !== null) { last.foePoise = null; parts.foe.classList.remove('poised'); parts.foePoise.className = 'hud-foepoise'; }
+    if (last.foePoise !== null) { last.foePoise = null; last.foePoiseRef = null; parts.foe.classList.remove('poised'); parts.foePoise.className = 'hud-foepoise'; }
   } else {
     if (last.foe !== t.name) { last.foe = t.name; parts.foe.classList.add('on'); }
     // FRAME1b: the loss readout follows the FOE, not its name. Keyed on the
@@ -992,10 +992,12 @@ export function drawEnhancedHud(vitals, heading01, dt = 0, opts = {}) {
     // TELL9 (11.1): the poise track - its state a class (the sheet's colour, the hatch, the flash), its fill, its word
     const p = t.poise;
     const pk = p ? p.state : '';
-    if (last.foePoise !== pk) {
-      last.foePoise = pk;
+    if (last.foePoise !== pk || last.foePoiseRef !== ref) {
+      // AUDIT TELL U4: the flash is a break's - THIS foe going into its stagger, never the bar turned onto one already in it
+      const flash = pk === 'staggered' && last.foePoiseRef === ref && last.foePoise !== 'staggered';
+      last.foePoise = pk; last.foePoiseRef = ref;
       parts.foe.classList.toggle('poised', !!p);
-      parts.foePoise.className = `hud-foepoise${p ? ` ${p.state}` : ''}`;
+      parts.foePoise.className = `hud-foepoise${p ? ` ${p.state}` : ''}${flash ? ' flash' : ''}`;
     }
     if (p) {
       width(parts.foePoiseFill, 'foePoiseFill', p.fill * 100);

@@ -186,6 +186,7 @@ export function setBatchGlint(batch, g) {
   const cur = batch.glint;
   if (!g || !(g[3] > 0)) { if (cur) batch.glint = undefined; return; }
   if (cur && cur[0] === g[0] && cur[1] === g[1] && cur[2] === g[2] && cur[3] === g[3]) return;
+  if (cur) { cur[0] = g[0]; cur[1] = g[1]; cur[2] = g[2]; cur[3] = g[3]; return; }   // AUDIT TELL U9: a glint that changes every frame is rewritten in place - no array a frame
   batch.glint = [g[0], g[1], g[2], g[3]];
 }
 let _reducedAt = -Infinity, _reduced = false;

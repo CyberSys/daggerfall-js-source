@@ -98,6 +98,7 @@ uniform float uNow;   // TELL2: 0..1 through the last stretch before the landing
 uniform float uNearFloor;   // TELL2: the fog's floor for a mark near the player (0 none)
 uniform float uIron;   // TELL3: 1 an iron blow - its second rim and its hatch
 uniform float uCut;   // TELL5: a cut feint's fade, 1..0 (0 none) - it goes out dashed
+uniform float uShatter;   // AUDIT TELL (3.2): a broken wind-up's shatter, 1..0 (0 none) - white and cracked, going out
 uniform float uContrast;   // TELL9: 1 the player's telegraph contrast - the bolder line, the white keyline, the dots
 in vec3 vWorld;
 uniform int uFogMode;
@@ -122,7 +123,9 @@ void main() {
     float ang = d < 1e-9 ? 0.0 : acos(clamp(along / d, -1.0, 1.0));
     inside = d <= uP.x && (d < 0.5 || ang <= uP.y);
     edge = d / uP.x;
-    dist = inside ? min(uP.x - d, d >= 0.5 ? (uP.y - ang) * d : 1e3) : max(d - uP.x, d >= 0.5 ? (ang - uP.y) * d : 0.0);
+    // AUDIT TELL U8: the disc at its feet is the shape's too (ai/foeBlows.js inBlow) and wears the outline - behind the
+    // arc its rim is the edge, and outside both the nearer of the two is
+    dist = inside ? (d < 0.5 && ang > uP.y ? 0.5 - d : min(uP.x - d, d >= 0.5 ? (uP.y - ang) * d : 1e3)) : min(max(d - uP.x, (ang - uP.y) * d), d - 0.5);
   } else if (uKind == 2) {
     float d = length(vec2(across, along - uP.y));
     inside = d <= uP.x;
@@ -134,14 +137,21 @@ void main() {
     edge = max(0.0, (d - uP.x) / (uP.y - uP.x));
     dist = inside ? min(d - uP.x, uP.y - d) : (d < uP.x ? uP.x - d : d - uP.y);
   }
-  // TELL2: the line, the keyline and the glow reach a little past the outline; nothing else outside it is drawn
-  if (!inside && dist > 0.5) discard;
+  // TELL2: the line, the keyline and the glow reach a little past the outline; nothing else outside it is drawn - AUDIT
+  // TELL U10: drawn as nothing (below), never dropped ahead of the style's derivatives, which a 2x2 block shares
+  bool beyond = !inside && dist > 0.5;
   // AUDIT TACT D9: fogged as the ground it lies on - never a glow through the murk; TELL2: never lost a step away
   float fogK = max(fogFactorAt(vWorld), uNearFloor);
   oColor = telegraphStyle(dist, inside ? 1.0 : 0.0, edge, uT, uNow, uFlash, uColor, fogK);
   if (uIron > 0.5) oColor = telegraphIron(oColor, dist, inside ? 1.0 : 0.0, vec2(across, along), uColor, fogK);   // TELL3
   if (uContrast > 0.5) oColor = telegraphContrast(oColor, dist, inside ? 1.0 : 0.0, vec2(across, along), uIron, uColor, fogK);   // TELL9
+  if (uShatter > 0.0) {   // AUDIT TELL (3.2): the mark white and whole-filled, broken into shards along two crossing cracks
+    float cr = min(abs(fract(across * 1.9 + along * 0.7) - 0.5), abs(fract(along * 1.3 - across * 0.6) - 0.5));
+    float shard = inside ? smoothstep(0.04, 0.09, cr) : 1.0;
+    oColor = telegraphStyle(dist, inside ? 1.0 : 0.0, edge, 1.0, 0.0, 0.0, vec3(1.0), fogK) * (uShatter * shard);
+  }
   if (uCut > 0.0) oColor *= uCut * step(0.5, fract((across + along) * 2.5));   // TELL5: a feint cut - dashed, fading
+  if (beyond) oColor = vec4(0.0);   // AUDIT TELL U10: premultiplied nothing - the blend leaves the floor as it was
 }`;
 
 const QUAD = new Float32Array([-1, -1, 1, -1, 1, 1, -1, -1, 1, 1, -1, 1]);
@@ -154,7 +164,7 @@ export class FoeTelegraphPass {
     this.gl = gl;
     this.program = buildProgram(gl, VS, FS, 'foeTelegraph');
     this.u = {};
-    for (const n of ['uVP', 'uOrigin', 'uYaw', 'uHalf', 'uLift', 'uKind', 'uT', 'uFlash', 'uColor', 'uP', 'uSlope', 'uFogMode', 'uFogDensity', 'uFogRange', 'uCamPos', 'uFocus', 'uNow', 'uNearFloor', 'uIron', 'uCut', 'uContrast']) this.u[n] = gl.getUniformLocation(this.program, n);
+    for (const n of ['uVP', 'uOrigin', 'uYaw', 'uHalf', 'uLift', 'uKind', 'uT', 'uFlash', 'uColor', 'uP', 'uSlope', 'uFogMode', 'uFogDensity', 'uFogRange', 'uCamPos', 'uFocus', 'uNow', 'uNearFloor', 'uIron', 'uCut', 'uContrast', 'uShatter']) this.u[n] = gl.getUniformLocation(this.program, n);
     this.vao = gl.createVertexArray();
     gl.bindVertexArray(this.vao);
     this.vbo = gl.createBuffer();
@@ -208,6 +218,7 @@ export class FoeTelegraphPass {
       gl.uniform1f(U.uNearFloor, nearFloor > 0 ? nearFloor : 0);
       gl.uniform1f(U.uIron, b.guard === 'iron' ? 1 : 0);   // TELL3
       gl.uniform1f(U.uCut, phase.cut > 0 ? phase.cut : 0);   // TELL5
+      gl.uniform1f(U.uShatter, phase.shatter > 0 ? phase.shatter : 0);   // AUDIT TELL (3.2)
       const c = b.color ?? [1, 0.42, 0.12];
       gl.uniform3f(U.uColor, c[0], c[1], c[2]);
       gl.drawArrays(gl.TRIANGLES, 0, 6);

@@ -142,6 +142,7 @@ export const GUARD_INDOOR_DOOR_OFFSET = CAPSULE_RADIUS + 0.1;   // 0.45
 export function createCityGuards({ renderer, collider, fetchBytes, getTexture, uploadRecordFrame, playerEntity, audio, onPlayerHurt, currentMinute, rand = Math.random, say = null,
   hitEffects = null, groundStands = null,   // AUDIT 24 (wave 39): the host's one blood/effect pool; FALL-HOLD: exteriorFoes.js's ground law - the watch has no distance cull at all
   levelBonus = null,   // SEAT1d (Seats-Arc 7.6): CURFEW - () => the levels a watchman is posted stronger (at night in a Curfew town)
+  shake = null,   // AUDIT TELL H6: the host's camera kick (its player's maxShake), for my blow that staggers a watchman
   // GameObjectHelper.CreateEnemyCorpseMarker (:836-839) hands an
   // OUTSIDE corpse to StreamingWorld.TrackLooseObject, which stamps it
   // with the streamer's CURRENT map pixel (:462-476). exteriorFoes
@@ -759,7 +760,7 @@ export function createCityGuards({ renderer, collider, fetchBytes, getTexture, u
    *  which arrowFlight.js calls unconditionally (arrowFlight.js:324)
    *  because `dealDamage` is inside its own `dmg > 0` fork - so the
    *  door is PUBLIC (the returned surface below), exactly as the
-   *  encounter pool's is (exteriorFoes.js:2909). */
+   *  encounter pool's is (exteriorFoes.js:2910). */
   function handleAttackFromPlayer(g, playerFeet = null) {
     if (!g?.ai) return;
     // DISC19-F (AUDIT DISC19): A BLOW ON A DEFENDER IS ASSAULT. The
@@ -918,10 +919,10 @@ export function createCityGuards({ renderer, collider, fetchBytes, getTexture, u
     // Hurt - and the blow weighs on his poise; past it the wind-up breaks and he is staggered, the breaking blow's shove
     // half again as hard. Not winding up, this answers null and DFU's knockback stands (hostCombat.windupDoor's one law)
     const _tell = (g.ai?._tac?.state !== 'windup' && g.ai?._tac?.state !== 'overreach') ? null : windupDoor(g, damage, {   // only a watchman winding up (TELL4: or overreached) builds the blow's bag
-      kind, weapon, round, peer, striker, from: striker?.ai?.feet ?? playerFeet, wc,   // TELL8: a peer's blow's class
+      kind, weapon, round, peer, striker, from: striker?.ai?.feet ?? playerFeet, wc, fromPlayer,   // TELL8: a peer's blow's class; AUDIT TELL U6: whose blow
       claws: fromPlayer && !peer && !weapon && !!playerEntity?.isInBeastForm,
       weight: () => enemyWeightClassicUnits(true, 'male', guardWeight, g.entity?.items),
-    }, { audio, hitEffects });
+    }, { audio, hitEffects, shake: fromPlayer && !peer && !striker ? shake : null });   // AUDIT TELL H6: the watch's stagger kicks my camera as every pool's does
     if (_tell === 'hold') return;
     if (knockDir && weaponKnockbackApplies(g.ai.knockbackSpeed, true, guardWeight)) {
       // EW1: a guard is the one foe whose kit is never empty - the
@@ -1198,11 +1199,12 @@ export function createCityGuards({ renderer, collider, fetchBytes, getTexture, u
           // `PlayerObject.SendMessage("RemoveHealth", damage)` - which
           // is ShowPlayerDamage.Flash's trigger. An enemy's BLOW
           // flashes the screen; the poison it carries does not.
-          landBlowEffect(g, dmg, playerFeet);   // TELL6e: what a telegraphed blow's landing does (its word spent, landed or not)
+          const hp0 = playerEntity.health;   // AUDIT TELL L8: what the blow did is what reached health
           if (dmg > 0) { onPlayerHurt?.(dmg, wpn, { guardLevel: g.entity.level }); flashPlayerDamage(dmg); }   // G2: the host's arrest interception rides this; WERE-FRIGHT: with the striker's level, for a beast's roar
           // C2-slice (combat-9): a connected attack that LOST the
           // roll rings the miss sound (ApplyDamageToPlayer's else)
           else audio?.play3d?.(enemyMissSound(wpn), gmid, 1, { maxDistance: 16 });
+          landBlowEffect(g, hp0 - playerEntity.health, playerFeet);   // TELL6e: what a telegraphed blow's landing does (its word spent, landed or not); AUDIT TELL L8: after the court's word - a blow it took, or a shield, does nothing more
         } else {
           // C2-slice (combat-9): the out-of-reach whiff rings too
           audio?.play3d?.(enemyMissSound(wpn), gmid, 1, { maxDistance: 16 });

@@ -24,6 +24,11 @@ export const TELL = Object.freeze({
   WEIGHT_MEDIUM: 200,
   WEIGHT_HEAVY: 700,
   WEIGHT_MASSIVE: 1500,
+  // AUDIT TELL (the duel harness, tools/tellDuel.mjs - section 28's MASSIVE): a massive foe's poise is never under this,
+  // whatever its health rolled - a Giant rolls 18 to 74, and at 0.5 of that the largest single front blow in the game
+  // (a daedric warhammer at Strength 100: 34 x 1.725 = 58.6) broke most of them, a reference player's steel one (31)
+  // half of them. The mass is the kind's, not the roll's.
+  POISE_FLOOR_MASSIVE: 60,
   // ...and by what the foe is
   POISE_ELITE: 1.5,             // an elite (eliteFoes.js, `eliteFoe`)
   POISE_ELITE_DUNGEON: 1.25,    // an Elite Dungeon's foe (`elite`)
@@ -125,9 +130,12 @@ export function poiseSpecial(entity) {
   return s;
 }
 
-/** P: the poise of a foe (its entity; DFU's `weight`, classic units, kit and all). */
+/** P: the poise of a foe (its entity; DFU's `weight`, classic units, kit and all). AUDIT TELL: a massive one's at least
+ *  POISE_FLOOR_MASSIVE before what it is. */
 export function poiseOf(entity, weight) {
-  return kindHealth(entity) * TELL.POISE_W[weightClass(weight)] * poiseSpecial(entity);
+  const c = weightClass(weight);
+  const base = kindHealth(entity) * TELL.POISE_W[c];
+  return (c === 'massive' ? Math.max(base, TELL.POISE_FLOOR_MASSIVE) : base) * poiseSpecial(entity);
 }
 
 /** How long a foe of `weight` stays staggered (seconds). */

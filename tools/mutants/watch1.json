@@ -38,8 +38,8 @@
   {
     "name": "WATCH1-a-watchman-goes-through-the-foes-door",
     "file": "src/scenes/exteriorFoes.js",
-    "old": "    if (onWatch) _net.watch.hurt(f, dmg, at, dir, data.wc != null ? hitClassOf(data) : null);   // (the provenance - a peer's, not this player's - is the host's to add: world.js hands `{ fromPlayer: false, peer: true }`); TELL8: and its blow's class\n    else damageFoe(f, dmg, at, dir, { fromPlayer: true, kind, peer: true, peerId: from, whole: data.z === 1, ...(data.wc != null ? { wc: hitClassOf(data) } : {}) });",
-    "new": "    damageFoe(f, dmg, at, dir, { fromPlayer: true, kind, peer: true, peerId: from, whole: data.z === 1, ...(data.wc != null ? { wc: hitClassOf(data) } : {}) });",
+    "old": "    if (onWatch) _net.watch.hurt(f, dmg, at, dir, data.wc != null ? hitClassOf(data) : null, kind);   // (the provenance - a peer's, not this player's - is the host's to add: world.js hands `{ fromPlayer: false, peer: true }`); TELL8: and its blow's class; AUDIT TELL P1: and its kind (a shaft weighs as a shaft)\n    else damageFoe(f, dmg, at, dir, { fromPlayer: true, kind, peer: true, peerId: from, whole: data.z === 1, ...(data.wc != null ? { wc: hitClassOf(data) } : {}) });   // AUDIT PSCALE1 DOORS-1: a peer's kill is a kill; TELL8: its blow's class",
+    "new": "    damageFoe(f, dmg, at, dir, { fromPlayer: true, kind, peer: true, peerId: from, whole: data.z === 1, ...(data.wc != null ? { wc: hitClassOf(data) } : {}) });   // AUDIT PSCALE1 DOORS-1: a peer's kill is a kill; TELL8: its blow's class",
     "tests": [
       "test/watch1.test.js"
     ],
@@ -48,8 +48,8 @@
   {
     "name": "WATCH1-a-peers-blow-on-my-watch-is-my-blow",
     "file": "src/scenes/world.js",
-    "old": "      watch: { list: () => cityGuards.guards, hurt: (g, dmg, at, dir, wc = null) => cityGuards.hurtGuard(g, dmg, at, dir, { fromPlayer: false, peer: true, wc }) },",
-    "new": "      watch: { list: () => cityGuards.guards, hurt: (g, dmg, at, dir, wc = null) => cityGuards.hurtGuard(g, dmg, at, dir, { peer: true, wc }) },",
+    "old": "      watch: { list: () => cityGuards.guards, hurt: (g, dmg, at, dir, wc = null, kind = 'melee') => cityGuards.hurtGuard(g, dmg, at, dir, { fromPlayer: false, peer: true, wc, kind }) },",
+    "new": "      watch: { list: () => cityGuards.guards, hurt: (g, dmg, at, dir, wc = null, kind = 'melee') => cityGuards.hurtGuard(g, dmg, at, dir, { peer: true, wc, kind }) },",
     "tests": [
       "test/watch1.test.js"
     ],
@@ -58,7 +58,7 @@
   {
     "name": "WATCH1-the-net-carries-no-watch",
     "file": "src/scenes/world.js",
-    "old": "      watch: { list: () => cityGuards.guards, hurt: (g, dmg, at, dir, wc = null) => cityGuards.hurtGuard(g, dmg, at, dir, { fromPlayer: false, peer: true, wc }) },",
+    "old": "      watch: { list: () => cityGuards.guards, hurt: (g, dmg, at, dir, wc = null, kind = 'melee') => cityGuards.hurtGuard(g, dmg, at, dir, { fromPlayer: false, peer: true, wc, kind }) },",
     "new": "",
     "tests": [
       "test/watch1.test.js"
@@ -158,8 +158,8 @@
   {
     "name": "AUDIT-WATCH1-A4-the-host-hands-no-provenance",
     "file": "src/scenes/world.js",
-    "old": "cityGuards.hurtGuard(g, dmg, at, dir, { fromPlayer: false, peer: true, wc }) },",
-    "new": "cityGuards.hurtGuard(g, dmg, at, dir, { fromPlayer: false, wc }) },",
+    "old": "cityGuards.hurtGuard(g, dmg, at, dir, { fromPlayer: false, peer: true, wc, kind }) },",
+    "new": "cityGuards.hurtGuard(g, dmg, at, dir, { fromPlayer: false, wc, kind }) },",
     "tests": [
       "test/watch1.test.js"
     ],

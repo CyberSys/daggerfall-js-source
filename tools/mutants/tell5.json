@@ -382,7 +382,7 @@
   {
     "name": "TELL5-never-feint",
     "file": "src/ai/tactics.js",
-    "old": "  if (chain === 0 && shape !== 'aimed' && feints(blowFamily(ent.mobileType), ent, n - (s.lastFeint ?? -Infinity)) && Math.random() < TELL.FEINT_CHANCE) {",
+    "old": "  if (chain === 0 && shape !== 'aimed' && !GAP_CLOSERS.includes(shape) && feints(blowFamily(ent.mobileType), ent, n - (s.lastFeint ?? -Infinity)) && Math.random() < TELL.FEINT_CHANCE) {",
     "new": "  if (false) {",
     "tests": [
       "test/tell5_patterns.test.js"
@@ -391,8 +391,8 @@
   {
     "name": "TELL5-feint-anyone",
     "file": "src/ai/tactics.js",
-    "old": "  if (chain === 0 && shape !== 'aimed' && feints(blowFamily(ent.mobileType), ent, n - (s.lastFeint ?? -Infinity)) && Math.random()",
-    "new": "  if (chain === 0 && shape !== 'aimed' && Math.random()",
+    "old": "  if (chain === 0 && shape !== 'aimed' && !GAP_CLOSERS.includes(shape) && feints(blowFamily(ent.mobileType), ent, n - (s.lastFeint ?? -Infinity)) && Math.random()",
+    "new": "  if (chain === 0 && shape !== 'aimed' && !GAP_CLOSERS.includes(shape) && Math.random()",
     "tests": [
       "test/tell5_patterns.test.js"
     ]

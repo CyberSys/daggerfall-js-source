@@ -47,13 +47,14 @@ window.draw = (kind, when, fog = null, slope = null, nearFloor = 0, guard = 'poi
   if (slope) blow.slope = slope;
   if (kind === 'leap') blow.ahead = 3;   // TELL6: its point, 3 m out
   if (kind === 'aimed') blow.ahead = 6;   // TELL6: its line, 6 m to its target
-  const n = pass.draw([{ blow, phase: blowPhase(blow, at), nearFloor }], proj, view, fog, { contrast });   // TELL9: the preference said outright
+  const phase = when === 'shatter' ? { t: 0.5, flash: 0, shatter: 1 } : when === 'shatter-late' ? { t: 0.5, flash: 0, shatter: 0.3 } : blowPhase(blow, at);   // AUDIT TELL (3.2): a broken one, going out
+  const n = pass.draw([{ blow, phase, nearFloor }], proj, view, fog, { contrast });   // TELL9: the preference said outright
   // read the ground at a world point
   const px = (x, z) => { const v = [x, 0, z, 1]; const c = [0,0,0,0]; for (let r = 0; r < 4; r++) c[r] = vp[r]*v[0] + vp[4+r]*v[1] + vp[8+r]*v[2] + vp[12+r]*v[3];
     const sx = Math.round((c[0]/c[3]*0.5+0.5)*511), sy = Math.round((c[1]/c[3]*0.5+0.5)*511); const o = new Uint8Array(4); gl.readPixels(sx, sy, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, o); return ch === 2 ? o[2] : o[0]; };
   let ch = 0;
   const blue = (x, z) => { ch = 2; const v = px(x, z); ch = 0; return v; };   // TELL9: white is lit in blue too, the amber line is not
-  return { n, err: gl.getError(), probes: { ahead: px(0, 1.8), beside: px(3.5, 1.8), behind: px(0, -2.5), far: px(0, 4.0), wide: px(1.5, 1.5), keyline: px(0.70, 1.8), keyW: px(0.78, 1.8), keyWBlue: blue(0.78, 1.8), inner: px(0.35, 1.8), feet: px(0, 0.8), out: px(0, 4.9), lane7: px(0, 7.0), laneWide: px(0.7, 3.0), hatch: Array.from({ length: 13 }, (_, i) => px(0, 2.5 + i * 0.03)) }, png: document.getElementById('c').toDataURL() };
+  return { n, err: gl.getError(), probes: { ahead: px(0, 1.8), beside: px(3.5, 1.8), behind: px(0, -2.5), far: px(0, 4.0), wide: px(1.5, 1.5), keyline: px(0.70, 1.8), keyW: px(0.78, 1.8), keyWBlue: blue(0.78, 1.8), keyD: px(0.745, 1.8), aheadBlue: blue(0, 1.8), rear: px(0, -0.49), rearOut: px(0, -0.62), inner: px(0.35, 1.8), feet: px(0, 0.8), out: px(0, 4.9), lane7: px(0, 7.0), laneWide: px(0.7, 3.0), hatch: Array.from({ length: 13 }, (_, i) => px(0, 2.5 + i * 0.03)) }, png: document.getElementById('c').toDataURL() };
 };
 window.ready = true;
 </script></body></html>`;
@@ -134,7 +135,18 @@ try {
   check('TELL9: contrast - the line twice as thick (where the dark keyline was, the line)', boldW.probes.keyline > GROUND + 30 && poiseW.probes.keyline < GROUND - 8, `${poiseW.probes.keyline} -> ${boldW.probes.keyline}`);
   check('TELL9: contrast - a white keyline outside it (lit in blue as in red)', boldW.probes.keyW > GROUND + 40 && boldW.probes.keyWBlue > GROUND + 40 && poiseW.probes.keyWBlue < GROUND + 12, JSON.stringify({ plain: [poiseW.probes.keyW, poiseW.probes.keyWBlue], bold: [boldW.probes.keyW, boldW.probes.keyWBlue] }));
   check('TELL9: contrast - a poise mark\'s fill dotted; iron keeps its hatch alone', spread(boldW.probes.hatch) > 10 && boldIron.probes.hatch.every((v, i) => Math.abs(v - ironW.probes.hatch[i]) < 4), JSON.stringify({ poise: boldW.probes.hatch, iron: boldIron.probes.hatch, ironPlain: ironW.probes.hatch }));
-  if (shotsAt) { for (const [n, r] of [['contrast-poise', boldW], ['contrast-iron', boldIron], ['plain-poise', poiseW]]) writeFileSync(join(shotsAt, `${n}.png`), Buffer.from(r.png.split(',')[1], 'base64')); }
+  // AUDIT TELL U2: the contrast keeps a dark band between its line and its white keyline - white on snow is no edge
+  check('AUDIT TELL U2: contrast - a dark band between the line and the white keyline', boldW.probes.keyD < GROUND - 4, JSON.stringify({ keyline: boldW.probes.keyline, keyD: boldW.probes.keyD, keyW: boldW.probes.keyW }));
+  // AUDIT TELL U8: the sweep's disc at its feet wears the outline behind the arc, and the floor past it is the floor's
+  const sweepW = await page.evaluate(() => window.draw('sweep', 'wind'));
+  check('AUDIT TELL U8: the sweep\'s rear disc is outlined behind its foe', sweepW.probes.rear > sweepW.probes.ahead + 30 && sweepW.probes.rearOut < GROUND, JSON.stringify({ rear: sweepW.probes.rear, rearOut: sweepW.probes.rearOut, ahead: sweepW.probes.ahead }));
+  // AUDIT TELL (3.2): a broken wind-up shatters - white (lit in blue, as the amber fill is not), cracked, going out
+  const shat = await page.evaluate(() => window.draw('lunge', 'shatter'));
+  const shatLate = await page.evaluate(() => window.draw('lunge', 'shatter-late'));
+  check('AUDIT TELL (3.2): the shatter draws, no GL error', shat.n === 1 && shat.err === 0 && shatLate.err === 0, JSON.stringify({ n: shat.n, err: shat.err }));
+  check('AUDIT TELL (3.2): the shatter is white and cracked - never the landing\'s whole flash', shat.probes.aheadBlue > GROUND + 40 && poiseW.probes.aheadBlue < GROUND + 12 && spread(shat.probes.hatch) > 10, JSON.stringify({ aheadBlue: shat.probes.aheadBlue, hatch: shat.probes.hatch }));
+  check('AUDIT TELL (3.2): the shatter goes out', shatLate.probes.ahead < shat.probes.ahead - 30 && shatLate.probes.ahead >= GROUND - 2, `${shat.probes.ahead} -> ${shatLate.probes.ahead}`);
+  if (shotsAt) { for (const [n, r] of [['contrast-poise', boldW], ['contrast-iron', boldIron], ['plain-poise', poiseW], ['shatter', shat], ['sweep-wind', sweepW]]) writeFileSync(join(shotsAt, `${n}.png`), Buffer.from(r.png.split(',')[1], 'base64')); }
 } finally {
   await browser.close();
   server.close();

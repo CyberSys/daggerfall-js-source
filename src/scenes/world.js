@@ -3430,12 +3430,12 @@ export async function bootWorld(canvas, renderer, params, status) {
    *  AUDIT-FIELD F7: A FLOOR, NOT THE WHOLE DISTANCE. The first cut
    *  called 64 "more than the fastest accelerated step", which is true
    *  of a fixed physics STEP and false of a FRAME: the motor moves
-   *  `speed * min(dt, MAX_FRAME_DT) * scale` in one go (motor.js:1481),
+   *  `speed * min(dt, MAX_FRAME_DT) * scale` in one go (motor.js:1491),
    *  and the frame that hitches is exactly the frame in which the
    *  streamer is behind. A horse at the shipped default limit of sixty
    *  covers ~65 units in a 10 fps frame and ~120 at the mod's ceiling of
    *  a hundred - past a 64-unit probe, off the built world, and once the
-   *  motor is airborne `airControl` is false (motor.js:3160) so zeroing
+   *  motor is airborne `airControl` is false (motor.js:3170) so zeroing
    *  the drive on the NEXT frame no longer steers: the fall is already
    *  paid for. `travelLookahead` measures the frame that is about to
    *  run instead, and keeps 64 as its floor. */
@@ -8423,6 +8423,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   const cityGuards = createCityGuards({
     renderer, collider, fetchBytes, getTexture, uploadRecordFrame, playerEntity, audio, hitEffects, groundStands: (x, z) => Number.isFinite(heightAt(x, z)),   // FALL-HOLD: a watchman over a pixel not built is held, not stepped
     playerWeaponSheathed: () => !!weaponRig.playerWeapon.sheathed,   // AUDIT 24 (wave 42): pacification's drawn-weapon penalty
+    shake: (k) => betterAmbience.weaponKick(k),   // AUDIT TELL H6: my blow that staggers a watchman kicks the camera
     raidHere: () => raidDefendingHere(),   // RAID-GUARDS: a raid on in this town spares its defenders every blow of the player's
     levelBonus: () => seatEdicts.guardLevelBonus(Math.floor(skyMinutes())),   // SEAT1d: a Curfew's night watch - AUDIT SEATS-3 E1: the sky's night (TIME1), the one the town sees
     fightHere: () => areEnemiesNearby([...cityGuards.guards, ...exteriorFoes.foes]),   // PROTECT-FIGHT: under the protection, a fight spares the street's walkers
@@ -9582,9 +9583,9 @@ export async function bootWorld(canvas, renderer, params, status) {
     // encounter pool's remover for both. That was not a leak: removeFoe
     // (exteriorFoes.js:575-580) never looks the record up in `foes`, and
     // both pools share this host's one renderer, so a struck WATCHMAN
-    // got exactly what removeGuard (cityGuards.js:1645-1663) gives it -
+    // got exactly what removeGuard (cityGuards.js:1647-1665) gives it -
     // batch freed, `dead = true`, no corpse, skipped by the next AI pass
-    // (cityGuards.js:1045) and spliced out at the end of it (:1243).
+    // (cityGuards.js:1046) and spliced out at the end of it (:1245).
     // Routing by POOL MEMBERSHIP is an OWNERSHIP fix: each pool owns the
     // teardown of its own records so the two can diverge safely, and
     // removeFoe's `questBehaviour?.notifyDestroyed()` (exteriorFoes.js
@@ -12215,7 +12216,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     // so an F9 pressed inside a shop recorded the street's sheath and
     // hand. The mode host answers for the rig that is actually drawn
     // and null outside interior mode (the dungeon owns its own
-    // composer, dungeonContext.js:8457), so exterior mode and a
+    // composer, dungeonContext.js:8459), so exterior mode and a
     // pre-seam mode host compose exactly as before, per field.
     const wp = modes?.weaponPose?.() ?? null;
     const snap = snapshotPlayer(playerEntity, {
@@ -14671,7 +14672,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     lookFilter.add(e.movementX * lookScale(), -e.movementY * lookScale() * lookInvert());
   });
   // U41: `!townTalk.overlayActive` is the dungeon host's own gate
-  // (dungeon.js:253, "a right-click on a window is the window's...
+  // (dungeon.js:254, "a right-click on a window is the window's...
   // never a swing"), which these two hosts never got. It matters now
   // that the travel map makes RMB a ROUTINE gesture - its zoom - and
   // an ungated one fires a readied spell or looses an arrow at the
@@ -17459,7 +17460,7 @@ export async function bootWorld(canvas, renderer, params, status) {
       // rides the cell's stream as puppets at every peer, and a peer's blow on one lands through the watch's own
       // door as NOT this player's blow (no Murder of mine for a watchman a peer kills). The crime itself stays the
       // criminal's: a peer who strikes my watch commits nothing, and my murder marks no one else.
-      watch: { list: () => cityGuards.guards, hurt: (g, dmg, at, dir, wc = null) => cityGuards.hurtGuard(g, dmg, at, dir, { fromPlayer: false, peer: true, wc }) },   // AUDIT WATCH1 A4: and a PEER's - no reveal, no notice, no pile; TELL8: and its blow's class
+      watch: { list: () => cityGuards.guards, hurt: (g, dmg, at, dir, wc = null, kind = 'melee') => cityGuards.hurtGuard(g, dmg, at, dir, { fromPlayer: false, peer: true, wc, kind }) },   // AUDIT WATCH1 A4: and a PEER's - no reveal, no notice, no pile; TELL8: and its blow's class
       toWire: (feet) => { const wc = state.worldCoords(feet); return [wc.x, feet[1] - state.compensation[1], wc.z]; },
       toScene: (p) => { const l = state.localFromWorld(p[0], p[2]); return [l[0], p[1] + state.compensation[1], l[1]]; },
     });
@@ -18278,7 +18279,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     onStart: (d) => {
       profileWin?.hide();
       _duelWall = { c: d.c, s: d.s, alpha: 0, live: true };
-      _duelFoe = { entity: { name: peerName(d.peer) ?? 'Your opponent', health: 1, maxHealth: 1 }, dead: false };
+      _duelFoe = { entity: { name: peerName(d.peer) ?? 'Your opponent', health: 1, maxHealth: 1 }, dead: false, duel: true };   // AUDIT TELL U7: `duel` - no foe's wind-up takes the bar from it (ui/hudFoeTarget.js markFoeThreat)
       _duelSent.clear();
       audio.playOneShot(SOUND.Parry6, 1);   // the blades cross: the count begins
     },
@@ -24863,7 +24864,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     const fwd = [Math.sin(cam.yaw) * Math.cos(cam.pitch), Math.sin(cam.pitch), Math.cos(cam.yaw) * Math.cos(cam.pitch)];
     const right = [Math.cos(cam.yaw), 0, -Math.sin(cam.yaw)];   // HANDEDNESS (mat4's law): screen-right = (cos, 0, -sin) under the mirrored projection - Unity's own right
     noteLocalPlayer(walkMode && playerSpawned ? player.pos : cam.pos, fwd);   // TACT2: where I stand and face - a foe behind me sees my back (ai/tactics.js)
-    tickTactics(foeFrameDt(_questBoxHoldsFoes() ? 0 : dt));   // AUDIT TACT D10/A3: the brain's clock is the foes' own step - held when they are
+    tickTactics(foeFrameDt(_questBoxHoldsFoes() || (_mode() === 'dungeon' && !!modes?.dungeonCtx?.uiOverlayActive) ? 0 : dt));   // AUDIT TACT D10/A3: the brain's clock is the foes' own step - held when they are; AUDIT TELL H1: a dungeon's window holds its foes, and their wind-ups with them
 
     // Modal frame (worldModes.js): interior/dungeon consume the frame
     // entirely - the early return also freezes streaming (the
@@ -27207,11 +27208,11 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
         // AFTER the damage fork closes (:615), so a shaft that lost the
         // roll still enrages what it hit and wakes the area. ROAD-G G1
         // (review): the WATCH carries the pair now
-        // (cityGuards.js:782-787), so this seam ROUTES by pool exactly
+        // (cityGuards.js:783-788), so this seam ROUTES by pool exactly
         // as `dealDamage` above it does, instead of excluding the
         // guards - a zero-damage shaft into a pacified watchman has to
         // reach the same door the zero-damage SWING already reaches
-        // (cityGuards.js:1364). DFU makes no pool distinction:
+        // (cityGuards.js:1366). DFU makes no pool distinction:
         // AssignBowDamageToTarget's player arm (DaggerfallMissile.cs
         // :660-688) calls WeaponDamage, so :630 runs for the shaft as
         // for the swing.

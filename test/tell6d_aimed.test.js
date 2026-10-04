@@ -2,7 +2,7 @@
 // it", then "Go" on every call). A class archer of the whole set (an elite, a champion, a revenant - section 9's table:
 // an ordinary archer of the tier keeps DFU's plain shot) aims one shot in three at the local player while it holds a
 // ranged token: the line from it to its target is drawn on the ground and LOCKED (0.6 s, 0.5 m wide); at the landing
-// the arrow leaves along it half again as fast, and strikes for x1.4. No blowConnects - the arrow's own flight
+// the arrow leaves along it x1.3 as fast, and strikes for x1.4. No blowConnects - the arrow's own flight
 // decides: stepping off the line is the dodge. No held swing, no feint, no window.
 // The law (its numbers, its line and the ground's mirror, the locked bearing, the arrow's speed and weight end to end
 // through the formulas); ON THE REAL MOTOR an elite archer's aimed shot - wound up instead of a plain one, its line
@@ -35,7 +35,7 @@ beforeEach(() => { resetTactics(); resetBlows(); T = 0; setPref('enhancedAI', tr
 
 // ── the law ─────────────────────────────────────────────────────────
 
-test('TELL6d: the aimed shot - 0.6 s, a line 0.5 m wide to its target, x1.4, half again as fast; one shot in three; the ground draws its line its own length (mutants: any number moved; the line not its length)', () => {
+test('TELL6d: the aimed shot - 0.6 s, a line 0.5 m wide to its target, x1.4, x1.3 as fast; one shot in three; the ground draws its line its own length (mutants: any number moved; the line not its length)', () => {
   assert.deepEqual({ ...BLOW.aimed }, { windup: 0.6, halfW: 0.25, mult: 1.4, speed: 1.3 });
   assert.equal(TELL.AIMED_SHARE, 1 / 3);
   const b = makeBlow('aimed', [0, 0, 0], 0, 0);
@@ -52,7 +52,7 @@ test('TELL6d: the aimed shot - 0.6 s, a line 0.5 m wide to its target, x1.4, hal
   assert.match(rd('src/render/foeTelegraph.js'), /else if \(b\.kind === 'aimed'\) gl\.uniform4f\(U\.uP, b\.ahead \?\? 0, P\.halfW, 0, 0\);/);
 });
 
-test('TELL6d: the loose - the arrow\'s pitch kept, its heading the line\'s; half again as fast in flight; x1.4 where it strikes, end to end through the formulas (mutants: the bearing unlocked; the speed or the weight lost)', () => {
+test('TELL6d: the loose - the arrow\'s pitch kept, its heading the line\'s; x1.3 as fast in flight; x1.4 where it strikes, end to end through the formulas (mutants: the bearing unlocked; the speed or the weight lost)', () => {
   const dir = [0.6, -0.2, 0.7746];   // DFU's aim at my live transform (a dip and all)
   const shot = { yaw: Math.PI / 2, fired: true };
   const d = aimedDirection(dir, shot);
@@ -66,7 +66,7 @@ test('TELL6d: the loose - the arrow\'s pitch kept, its heading the line\'s; half
   assert.equal(aimedArrowMeta(null), null);
   assert.deepEqual(aimedBlowInfo({ aimed: true }), { aimed: true });
   assert.equal(aimedBlowInfo({}), null);
-  // its flight, half again as fast
+  // its flight, x1.3 as fast
   const fl = new ArrowFlight({ getGpuMesh: () => null });
   fl.fire([0, 1, 0], [0, 0, 1], { enemy: true });
   fl.fire([0, 1, 0], [0, 0, 1], { enemy: true, speedScale: 1.3 });

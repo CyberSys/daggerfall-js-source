@@ -65,7 +65,7 @@ import { GRAVITY, FIXED_DT, MAX_FRAME_DT, CLASSIC_TO_UNITY_RATIO, FALL_DAMAGE_TH
 import { wrapAngle } from '../world/mat4.js';   // ONCRASH1: the port's one angle wrap, which cannot loop
 import { MOBILE_TYPES } from './mobileTypes.js';
 import { coverDistance } from '../ai/cover.js';   // TACT1: billboards are cover (sight, the clear shot)
-import { tacticsStep, tacticsNow } from '../ai/tactics.js';   // TACT2: the tactics brain; TELL1: its clock, for the stagger's end
+import { tacticsStep, tacticsNow, breakWindup } from '../ai/tactics.js';   // TACT2: the tactics brain; TELL1: its clock, for the stagger's end
 
 // C15 knockback (EnemyMotor.KnockbackMovement): classic units through
 // the speed ratio. Stored speed clamps at 40; motion caps at 25; the
@@ -1606,6 +1606,7 @@ export class EnemyAI {
    * anim with it), and a frightened man keeps running once the shove is spent.
    */
   flee(fromFeet, seconds) {
+    breakWindup(this);   // AUDIT TELL B1: a routed foe's wind-up goes with its fight
     this.fleeFrom = [fromFeet[0], fromFeet[1], fromFeet[2]];
     this.fleeLeft = seconds;
     // AUDIT WERE-FRIGHT F3: NOT its hostility. IsHostile false is DFU's PASSIVE foe - a blow on one turns the area
@@ -1873,6 +1874,9 @@ export class EnemyAI {
     const foeTarget = this._armedTargeting && this.target != null && !this.target.isPlayer;
     this.canAct = !paralyzed && !knocked && !locked && (this.isHostile || foeTarget);
     if (!this.canAct || paused) this._tacSkipped = true;   // AUDIT TACT D1/A3: a step it could not decide - the brain's word for a knock, never a clock's
+    // AUDIT TELL B1 (OPEN 4): a paralysis, a knock or a Calm BREAKS a wind-up, a run or a chain here and now - the brain is
+    // not asked while the foe cannot act, and a blow that waited for it held every blow, glinted and landed untold after
+    if (!this.canAct && this._tac?.state && !locked) breakWindup(this);
     if (targeting && targetFeet == null) {
       this.inSight = false;
       this.detected = false;
@@ -2144,5 +2148,7 @@ export class EnemyAI {
       p[0] += offset[0]; p[1] += offset[1]; p[2] += offset[2];
     }
     this.lastGroundedY += offset[1];
+    const head = this._tac?.dash?.head;   // AUDIT TELL B10: a charge's run sweeps from where it last stood - in the world, which moved
+    if (head) { head[0] += offset[0]; head[1] += offset[2]; }
   }
 }

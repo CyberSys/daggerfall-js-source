@@ -968,10 +968,10 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
     // and the blow weighs on its poise meter; past its poise the wind-up breaks and the foe is staggered, the breaking
     // blow's shove written half again as hard. Not winding up, this answers null and DFU's knockback stands
     const _tell = (f.ai?._tac?.state !== 'windup' && f.ai?._tac?.state !== 'overreach') ? null : windupDoor(f, damage, {   // only a foe winding up (TELL4: or overreached) builds the blow's bag
-      kind, weapon, round, peer, striker, from: striker?.ai?.feet ?? playerFeet, wc,   // TELL8: a peer's blow's class
+      kind, weapon, round, peer, striker, from: striker?.ai?.feet ?? playerFeet, wc, fromPlayer,   // TELL8: a peer's blow's class; AUDIT TELL U6: whose blow
       claws: fromPlayer && !peer && !weapon && !!playerEntity?.isInBeastForm,
       weight: () => enemyWeightClassicUnits(isClass, f.gender, mobileWeight, f.entity?.items),
-    }, { audio, hitEffects, shake: fromPlayer && !peer ? shake : null, rolls });
+    }, { audio, hitEffects, shake: fromPlayer && !peer && !striker ? shake : null, rolls });   // AUDIT TELL H6: my own blow's kick alone
     if (_tell === 'hold') return;
     if (knockDir && weaponKnockbackApplies(f.ai.knockbackSpeed, isClass, mobileWeight)) {
       // EW1: the foe's own kit is half of DFU's weight
@@ -1121,12 +1121,13 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
       // is ShowPlayerDamage.Flash's trigger. An enemy's BLOW
       // flashes the screen; the poison it carries does not.
       // PSCALE1: `dmg` is the blow already weighed for the party beside me (partyHit, where it is declared above).
-      landBlowEffect(f, dmg, playerFeet);   // TELL6e: what a telegraphed blow's landing does (its word spent, landed or not)
+      const hp0 = playerEntity.health;   // AUDIT TELL L8: what the blow did is what reached health
       if (dmg > 0) { onPlayerHurt?.(dmg, wpn); flashPlayerDamage(dmg); }
       // C2-slice (combat-9): a connected attack that LOST the
       // roll rings the miss sound (ApplyDamageToPlayer's else)
       // AUDIT FINAL F10: and a blow the party's weighing took to nothing is the door's word on it all the same
       else { playerBlowCameToNothing(playerEntity); audio?.play3d?.(enemyMissSound(wpn), mid, 1, { maxDistance: 16 }); }
+      landBlowEffect(f, hp0 - playerEntity.health, playerFeet);   // TELL6e: what a telegraphed blow's landing does (its word spent, landed or not); AUDIT TELL L8: one withheld or absorbed does nothing more
     } else {
       // C2-slice (combat-9): the out-of-reach whiff rings too
       audio?.play3d?.(enemyMissSound(wpn), mid, 1, { maxDistance: 16 });
@@ -2680,7 +2681,7 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
     // (DaggerfallEntityBehaviour.cs:203's `source == Player` gate, F035's law: no aggro turn, and a watchman a peer
     // kills is no Murder of mine - the crime stays whose it was, Multiplayer.md's lock). The knockback still lands
     // (the gate is knockDir's), the shield still absorbs, the corpse still falls and rides the next frame as `d: 1`.
-    if (onWatch) _net.watch.hurt(f, dmg, at, dir, data.wc != null ? hitClassOf(data) : null);   // (the provenance - a peer's, not this player's - is the host's to add: world.js hands `{ fromPlayer: false, peer: true }`); TELL8: and its blow's class
+    if (onWatch) _net.watch.hurt(f, dmg, at, dir, data.wc != null ? hitClassOf(data) : null, kind);   // (the provenance - a peer's, not this player's - is the host's to add: world.js hands `{ fromPlayer: false, peer: true }`); TELL8: and its blow's class; AUDIT TELL P1: and its kind (a shaft weighs as a shaft)
     else damageFoe(f, dmg, at, dir, { fromPlayer: true, kind, peer: true, peerId: from, whole: data.z === 1, ...(data.wc != null ? { wc: hitClassOf(data) } : {}) });   // AUDIT PSCALE1 DOORS-1: a peer's kill is a kill; TELL8: its blow's class
     // WORLD6b-iii(e): the shaft, where BowDamage puts it (:145-147) - the body's pile says so (o) and the grant carries it.
     // AUDIT WORLD6b-iii(e) A1: BOUNDED - HIT_ARROWS_MAX Arrows a body from peers' shafts, past it the blow lands and no

@@ -186,7 +186,7 @@
   {
     "name": "TELL6b-run-dropped",
     "file": "src/ai/tactics.js",
-    "old": "  if (s.state === 'dash') return dashTurn(ai, s, now);\n",
+    "old": "  if (s.state === 'dash') return dashTurn(ai, s, now, skipped);\n",
     "new": "",
     "tests": [
       "test/tell6b_charge.test.js"
@@ -213,8 +213,8 @@
   {
     "name": "TELL6b-pool-unasked",
     "file": "src/ai/tactics.js",
-    "old": "    const shapes = blowPool(ai, ent, dist, dist <= reach + 0.5, dx, dz);",
-    "new": "    const shapes = blowPool(ai, ent, dist, true, dx, dz);",
+    "old": "    const shapes = blowPool(ai, ent, dist, dist <= reach + 0.5, tdx, tdz);",
+    "new": "    const shapes = blowPool(ai, ent, dist, true, tdx, tdz);",
     "tests": [
       "test/tell6b_charge.test.js"
     ]

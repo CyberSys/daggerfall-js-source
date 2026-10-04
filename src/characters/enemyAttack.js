@@ -221,7 +221,7 @@ export class EnemyAttack {
         if (!oneShot && withinYaw(ai.yaw, dx, dz, ATTACK_YAW_DEG) && ai._tacShoot !== false && this.rolls() < BOW_SHOT_CHANCE) {   // TACT2: no ranged token, no shot (unset with the switch off)
           if (ai._aimReady === true && this.rolls() < TELL.AIMED_SHARE) { ai._wantAimed = true; continue; }   // TELL6d: this shot aimed - the brain winds it up (never set with the switch off)
           const strike = STRIKES[Math.floor(this.rolls() * STRIKES.length)];
-          if (machineAttack(this.machine, strike)) { this.firedRanged = true; this.swingSeq++; this._held = false; ai._tacShot = (ai._tacShot ?? 0) + 1; }   // AUDIT TACT A2: a shot spends the ranged token
+          if (machineAttack(this.machine, strike)) { this.firedRanged = true; this.swingSeq++; this._held = false; ai._tacShot = (ai._tacShot ?? 0) + 1; ai._blowShot = null; }   // AUDIT TACT A2: a shot spends the ranged token; AUDIT TELL B11: a plain shot is never an aimed one a Hurt cut short (its bearing and its weight)
         }
         continue;
       }

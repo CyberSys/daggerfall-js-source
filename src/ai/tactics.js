@@ -33,7 +33,7 @@
 import { getPref } from '../systems/uiPrefs.js';
 import { ENEMY_BASICS } from '../characters/enemyBasics.js';
 import { MOBILE_TYPES } from '../characters/mobileTypes.js';
-import { throwsBlows, blowShapesOf, blowFamily, makeBlow, fitBlowToGround, inBlow, setLiveBlow, windupNear, offsetBlows, BLOW, BLOW_CHANCE, BLOW_COLOR, IRON_COLOR, BLOW_VERDICT_LIFE } from './foeBlows.js';   // TACT4; TELL3: iron; TELL5: the family, the shapes' lengths
+import { throwsBlows, blowShapesOf, blowFamily, makeBlow, fitBlowToGround, inBlow, setLiveBlow, shatterBlow, windupNear, offsetBlows, BLOW, BLOW_CHANCE, BLOW_COLOR, IRON_COLOR, BLOW_VERDICT_LIFE, BLOW_STALE } from './foeBlows.js';   // TACT4; TELL3: iron; TELL5: the family, the shapes' lengths
 import { coverDistance } from './cover.js';   // TELL6: a charge's lane must be free of cover
 import { GRAVITY } from '../player/motor.js';   // TELL6c: a leap's hop on the motor's own gravity
 import { tacticsNow, setTacticsClock, tickTactics } from './tacticsClock.js';   // AUDIT TACT D10/A3
@@ -112,6 +112,10 @@ export function offsetTactics(offset) {
 export const boardsHeld = () => _boards.size;
 
 const LOCAL = Object.freeze({ local: true });
+/** TELL8: a stagger or an overreach a puppet's owner says stands, on the puppet's entity until its owner says it ended -
+ *  finite, as the fold reads `Number.isFinite` (staggeredNow); its home here, so a foe handed over (tacticsStep) can tell
+ *  its owner's word from its own. ai/puppetBlows.js writes it. */
+export const PUPPET_HELD_UNTIL = 1e9;
 /** TELL8 (bible/12-Enhanced-AI/Feud-Arc.md 10.2, OPEN 9): the feet a telegraphed blow is aimed at - mine for the
  *  local player's key, else a PEER's the foe hunts (its candidate's, refreshed each frame in this frame's coordinates);
  *  null for any other target (a foe, a peer with no pose). Each client judges its own feet at the landing (10.3); the
@@ -145,7 +149,26 @@ export function releaseTactics(ai) {
   setLiveBlow(ai, null);   // TACT4: a wind-up dies with its foe's place
   clearBlowState(ai);
   ai._tacDir = null; ai._tacStrike = undefined; ai._tacShoot = undefined;
+  ai._aimReady = false; ai._wantAimed = false; ai._blowShot = null;   // AUDIT TELL B4: an archer's aimed shot goes too (DFU's bow roll, whole again)
 }
+/** AUDIT TELL B1/B2 (bible/12-Enhanced-AI/Feud-Arc.md, the AUDIT TELL record): a wind-up, a charge's run or a chain's
+ *  gap BROKEN where the brain was not asked - a paralysis or a Calm (the motor's CanAct), a flight, a pool not stepped
+ *  (an interior visit, a held window): the mark gone, the held swing dropped, the cooldown begun, no verdict for any
+ *  later swing. A blow is told or it is nothing. Answers whether there was one to break. */
+export function breakWindup(ai) {
+  const s = ai?._tac;
+  if (!s || s.puppet || (s.state !== 'windup' && s.state !== 'dash' && s.state !== 'chain')) return false;
+  const cooled = clock() + blowCooldown(ai.vitals?.());
+  setLiveBlow(ai, null);
+  s.blow = null; s.dash = null; s.state = 'engage'; s.blowReady = cooled;
+  clearBlowState(ai); dropSwing(ai);
+  ai._tacDir = null;
+  return true;
+}
+/** AUDIT TELL B1: a brain state the brain has not seen this long (on the foes' own clock - capped a frame,
+ *  ai/tacticsClock.js, so no slow frame reaches it) was not stepped: its wind-up tells nothing now. A puppet's is seen by
+ *  its frames (ai/puppetBlows.js). */
+const unseen = (s, now) => s?.seen != null && now - s.seen > BLOW_STALE;
 /** AUDIT TACT A4/D5/D6: a blow's landing state, spent - no verdict, weight or forced swing left for a later swing. */
 function clearBlowState(ai) { ai._blowVerdict = null; ai._blowMult = undefined; ai._blowSwing = false; }
 /** TELL2: a wind-up's held swing dropped (its wind-up broke, a paralysis, its place gone) - the sprite and the attack
@@ -158,7 +181,7 @@ function dropSwing(ai) { ai._blowHold = 'cancel'; ai._blowWind = false; }
  *  and its weight goes on the poise meter (`windupStruck`). The switch off, never. */
 export function windupHolds(ai) {
   const s = ai?._tac;
-  return !!s && s.state === 'windup' && !!s.blow && tacticsSwitchOn();
+  return !!s && s.state === 'windup' && !!s.blow && ai.canAct !== false && !unseen(s, clock()) && tacticsSwitchOn();   // AUDIT TELL B1: a foe that cannot act holds nothing
 }
 /**
  * TELL1: a blow of weight `v` (ai/tells.js blowWeight) landed on a foe winding up - `ent` its entity, `weight` DFU's
@@ -178,7 +201,7 @@ export function windupStruck(ai, ent, weight, v) {
   if (!Number.isFinite(b.poise)) b.poise = poiseOf(ent, weight);
   b.taken = (b.taken ?? 0) + (v > 0 ? v : 0);
   if (b.taken < b.poise) return 'hold';
-  setLiveBlow(ai, null); s.blow = null;
+  shatterBlow(ai, now); s.blow = null;   // AUDIT TELL (3.2): its mark shatters
   s.blowReady = now + blowCooldown(ent);   // TELL7: by its tier
   clearBlowState(ai);
   dropSwing(ai);
@@ -203,25 +226,29 @@ function stagger(ai, s, ent, weight, now) {
  *  feint (a feint never glints - the glint is the honest tell). `reduced` the viewer's reduced motion. */
 export function foeGlint(ai, now = clock(), reduced = false) {
   const s = ai?._tac, b = s?.state === 'windup' ? s.blow : null;
-  if (!b || b.feint) return null;
+  if (!b || b.feint || unseen(s, now)) return null;   // AUDIT TELL B1: a wind-up nobody is stepping tells nothing
   const k = glintStrength(now - b.start, b.land - now, reduced);
   if (!(k > 0)) return null;
   const c = b.color ?? BLOW_COLOR;
-  return [c[0], c[1], c[2], k];
+  _glint[0] = c[0]; _glint[1] = c[1]; _glint[2] = c[2]; _glint[3] = k;   // AUDIT TELL U9: the one array, refilled - its reader copies it (systems/hitFlash.js setBatchGlint)
+  return _glint;
 }
+const _glint = [0, 0, 0, 0];
 /**
  * TELL9 (section 11.1): what the target bar's POISE TRACK shows for `ai` - null for a foe with no brain or with the
  * switch off (no track at all: the classic motor's fight), else `{ state, fill, word }`: 'empty' outside a wind-up;
  * 'windup' amber, `fill` the meter's share of its poise (0 before the first blow sets it); 'iron' red and full, "Iron";
- * 'staggered' white and full, "Staggered"; 'open' through an overreach, "Open". A charge's run is its wind-up still; a
- * feint reads as any wind-up (the bar tells no more than the ground) and a cut one is gone.
+ * 'staggered' white and full, "Staggered"; 'open' through an overreach, "Open". A feint reads as any wind-up (the bar
+ * tells no more than the ground) and a cut one is gone; a charge's run is its landing, empty (AUDIT TELL: it holds no
+ * poise - the doors' law; it was read as its wind-up).
  */
 export function poiseTrack(ai) {
   const s = ai?._tac;
   if (!s || !tacticsSwitchOn()) return null;
+  if (unseen(s, clock())) return { state: 'empty', fill: 0, word: '' };   // AUDIT TELL B1: a state nobody is stepping
   if (s.state === 'staggered') return { state: 'staggered', fill: 1, word: 'Staggered' };
   if (s.state === 'overreach') return { state: 'open', fill: 0, word: 'Open' };
-  const b = s.state === 'windup' ? s.blow : s.state === 'dash' ? s.dash?.blow ?? null : null;
+  const b = s.state === 'windup' ? s.blow : null;   // AUDIT TELL: a charge's run is its landing - its poise is spent (a blow on it is DFU's)
   if (!b) return { state: 'empty', fill: 0, word: '' };
   if (b.guard === 'iron') return { state: 'iron', fill: 1, word: 'Iron' };
   return { state: 'windup', fill: b.poise > 0 ? Math.min(1, (b.taken ?? 0) / b.poise) : 0, word: '' };
@@ -244,13 +271,13 @@ registerBlowTakenMod('tell-overreach', (attacker, target) => (overreachedNow(tar
 /** TELL4: its blow missed me (`perfect`: my feet were inside it TELL_LATE before the landing) - OVERREACHED for
  *  `punishSeconds`: locked as a stagger locks (the motor's CanAct), its swing's follow-through standing (the sprite's
  *  `'spent'`), every blow it takes x`PUNISH_TAKEN`, the first that lands staggering it. It keeps its melee token. */
-function beginOverreach(ai, s, b, now, perfect) {
+function beginOverreach(ai, s, b, now, perfect, atMe = true) {
   s.state = 'overreach'; s.until = now + punishSeconds(b.kind, b.guard, perfect);
   ai.overreachUntil = s.until;
   const ent = ai.vitals?.();
   if (ent) ent.overreachUntil = s.until;
   ai._blowHold = 'spent';   // the strike goes out; then its follow-through stands (characters/mobileUnit.js)
-  if (perfect) ai._perfectAt = now;   // the tag's and the bright ring's (scenes/hostCombat.js tellCues)
+  if (perfect && atMe) ai._perfectAt = now;   // the tag's and the bright ring's (scenes/hostCombat.js tellCues) - mine alone (AUDIT TELL O5)
   ai._tacStrike = false; ai._tacShoot = false; ai.moving = false;
 }
 /** TELL4: the window shut - by its time, a stagger, or its place gone. The swing goes with it: let go after its strike,
@@ -310,13 +337,22 @@ function take(b, kind, ai, now, cap) {
 export function tacticsStep(ai, dx, dz) {
   ai._tacDir = null;
   ai._tacSpeed = 1;
-  if (!tacticsSwitchOn()) { if (ai._tac) releaseTactics(ai); ai._tac = null; ai._tacStrike = undefined; ai._tacShoot = undefined; return false; }
+  if (!tacticsSwitchOn()) { if (ai._tac) releaseTactics(ai); ai._tac = null; ai._tacStrike = undefined; ai._tacShoot = undefined; ai._aimReady = false; ai._wantAimed = false; ai._blowShot = null; return false; }   // AUDIT TELL B4: DFU's bow roll whole again
   const now = clock();
-  if (ai._tac?.puppet) { setLiveBlow(ai, null); ai._tac = null; }   // TELL8: a puppet's synthetic state (ai/puppetBlows.js) is no brain's - a foe handed to me thinks afresh
+  if (ai._tac?.puppet) {   // TELL8: a puppet's synthetic state (ai/puppetBlows.js) is no brain's - a foe handed to me thinks afresh
+    setLiveBlow(ai, null); ai._tac = null;
+    // AUDIT TELL B5: and its owner's words with it - the held swing (every later swing would stand at its raised arm), the
+    // landing's verdict and effect, and the stagger or overreach its owner said stood (x1.25, x1.3 for good)
+    clearBlowState(ai); ai._blowHold = false; ai._blowWind = false; ai._blowFx = null; ai._perfectAt = null; ai._blowLandedAt = null;
+    const pe = ai.vitals?.();
+    if (pe) { if (pe.staggerUntil === PUPPET_HELD_UNTIL) pe.staggerUntil = 0; if (pe.overreachUntil === PUPPET_HELD_UNTIL) pe.overreachUntil = 0; }
+  }
   const s = ai._tac ?? (ai._tac = { key: null, kind: 'melee', state: 'wait', until: 0, slot: Math.random() * Math.PI * 2, hp: [], fled: false, seen: now, swung: 0, shot: 0, kiting: false, meleeUntil: 0, leased: 0, kiteUntil: 0, kiteReady: 0, backUntil: 0, backoffReady: 0, faceUntil: 0 });
   // AUDIT TACT D1/A3: a step it did not decide - knocked back, paralysed, held - is the MOTOR's word (`_tacSkipped`,
   // set when it could not act), never a gap on any clock: a slow frame is not a knock
-  const skipped = !!ai._tacSkipped;
+  // AUDIT TELL B1: ...and a gap on the foes' own clock past BLOW_STALE is the same word - the brain was not asked (a
+  // flight, a pool not stepped, a held window): its wind-up, run or chain breaks rather than land untold
+  const skipped = !!ai._tacSkipped || unseen(s, now);
   ai._tacSkipped = false;
   s.seen = now;
   const dist = ai._dist;
@@ -345,13 +381,15 @@ export function tacticsStep(ai, dx, dz) {
   }
   // TELL5 (7.4): a chain - its landing's strike drawn, the next blow winds up from the new facing (it keeps its token)
   if (s.state === 'chain') {
-    if (now < s.chainAt) { ai._tacStrike = false; ai._tacShoot = false; ai.moving = false; return true; }
-    const ent = ai.vitals?.(), tf = targetFeet(ai, targetKey(ai));   // TELL8: at me, or at the peer it hunts
+    // AUDIT TELL B9: and the first blow's verdict spent first - a speed-drained sprite steps slower than the gap, and the
+    // chain's held swing would re-hold the first blow's strike (CHAIN_SPEND_MAX the cap: a verdict nothing spends)
+    if (now < s.chainAt || (ai._blowVerdict != null && now < s.chainAt + CHAIN_SPEND_MAX)) { ai._tacStrike = false; ai._tacShoot = false; ai.moving = false; return true; }
+    const ck = targetKey(ai), ent = ai.vitals?.(), tf = ck === s.chainKey ? targetFeet(ai, ck) : null;   // TELL8: at me, or at the peer it hunts; AUDIT TELL B8: the same one
     if (ent && tf && ai.canAct !== false && !skipped) beginWindup(ai, s, ent, s.chainShape, tf[0] - ai.feet[0], tf[2] - ai.feet[2], now, s.chainN);
-    else s.state = 'engage';   // knocked, paralysed or turned away in the gap: the chain is spent
+    else { s.state = 'engage'; clearBlowState(ai); }   // knocked, paralysed or turned away in the gap: the chain is spent
   }
   // TELL6 (8.1): a charge running its lane - committed; the verdict swept between its turns
-  if (s.state === 'dash') return dashTurn(ai, s, now);
+  if (s.state === 'dash') return dashTurn(ai, s, now, skipped);
   // TACT4: a wind-up, once begun, is committed - it lands where it was aimed whether or not the target stays in sight
   if (s.state === 'windup' && s.blow) return windupTurn(ai, s, now, skipped);
   if (s.key !== key) { releaseTactics(ai); s.key = key; s.state = 'wait'; }
@@ -461,9 +499,11 @@ export function tacticsStep(ai, dx, dz) {
   const tf = s.state === 'engage' ? targetFeet(ai, key) : null;
   if (s.state === 'engage' && b.melee.has(ai) && tf && ai.canAct !== false && now >= (s.blowReady ?? 0)) {   // AUDIT TACT: a token holder's, never an opportunist's
     const ent = ai.vitals?.();
-    const shapes = blowPool(ai, ent, dist, dist <= reach + 0.5, dx, dz);
+    // AUDIT TELL B7: aimed at its TARGET's feet - the motor's (dx, dz) is its destination, a detour's point or a search's
+    const tdx = tf[0] - ai.feet[0], tdz = tf[2] - ai.feet[2];
+    const shapes = blowPool(ai, ent, dist, dist <= reach + 0.5, tdx, tdz);
     if (shapes.length && !windupNear(tf, now, ai) && Math.random() < BLOW_CHANCE) {
-      beginWindup(ai, s, ent, shapes[Math.floor(Math.random() * shapes.length)], dx, dz, now);
+      beginWindup(ai, s, ent, shapes[Math.floor(Math.random() * shapes.length)], tdx, tdz, now);
     }
   }
   if (s.state === 'windup') return windupTurn(ai, s, now, skipped);
@@ -496,11 +536,13 @@ function beginWindup(ai, s, ent, shape, dx, dz, now, chain = 0) {
     : windupSeconds(BLOW[shape].windup, ent, { guard });
   const b = fitBlowToGround(makeBlow(shape, ai.feet, Math.atan2(dx, dz), now, guard === 'iron' ? IRON_COLOR : BLOW_COLOR, guard, windup), ai.collider);   // AUDIT TACT D8: on the ground it marks
   b.chain = chain; b.trackedAt = now;
+  b.n = ai._blowN = ((ai._blowN ?? 0) + 1) & 255;   // AUDIT TELL O2: its serial on the wire (ai/puppetBlows.js `wn`)
+  b.key = targetKey(ai);   // AUDIT TELL B8: whom it is aimed at - a foe that turns on another breaks it (the owner and the struck peer agree)
   if (shape === 'leap') { b.ahead = Math.min(BLOW.leap.range, Math.hypot(dx, dz)); b.jumpAt = b.land - BLOW.leap.arc; fitBlowToGround(b, ai.collider); }   // TELL6c: its point - my feet now, locked
   if (shape === 'aimed') b.ahead = Math.hypot(dx, dz);   // TELL6d: its line to me, locked
   const n = (s.windups ?? 0) + 1;
   s.windups = n;
-  if (chain === 0 && shape !== 'aimed' && feints(blowFamily(ent.mobileType), ent, n - (s.lastFeint ?? -Infinity)) && Math.random() < TELL.FEINT_CHANCE) {
+  if (chain === 0 && shape !== 'aimed' && !GAP_CLOSERS.includes(shape) && feints(blowFamily(ent.mobileType), ent, n - (s.lastFeint ?? -Infinity)) && Math.random() < TELL.FEINT_CHANCE) {
     b.feint = true; b.cutAt = b.start + TELL.FEINT_AT * (b.land - b.start); s.lastFeint = n;
   }
   s.blow = b;
@@ -520,9 +562,12 @@ function windupTurn(ai, s, now, skipped) {
     return false;
   }
   const key = targetKey(ai);
+  const b0 = s.blow;
+  // AUDIT TELL B8: a foe turned on another than the one its blow is aimed at breaks it - its mark goes, nobody is judged
+  // (the owner's landing at its new target and the struck peer's at its old one judged two players by one blow)
+  if (b0.key !== undefined && key !== b0.key) { breakWindup(ai); return false; }
   const atMe = !!_me && key === LOCAL;
   const tf = targetFeet(ai, key);   // TELL8: my feet, or the peer's it is aimed at (the owner's view - 6.3)
-  const b0 = s.blow;
   // TELL5 (7.3): a feint - cut at FEINT_AT, and a plain DFU blow at once: DFU's damage and reach, no verdict, no weight
   if (b0.feint && now >= b0.cutAt) {
     b0.cut = now;   // its mark fades out dashed (ai/foeBlows.js blowPhase)
@@ -542,7 +587,7 @@ function windupTurn(ai, s, now, skipped) {
   if (tf && s.blow.lateIn == null && now >= s.blow.land - TELL.TELL_LATE && now < s.blow.land) s.blow.lateIn = inBlow(s.blow, tf[0], tf[2]);
   if (b0.kind === 'leap' && now >= b0.jumpAt && now < b0.land) return leapStep(ai, b0);   // TELL6c: the jump
   if (now >= s.blow.land && b0.kind === 'aimed') {   // TELL6d: loosed along its line - the arrow's flight decides; no verdict, no window
-    ai._blowLandedAt = now;
+    ai._blowLandedAt = now; s.landed = { blow: b0, at: now };   // AUDIT TELL O2: its landing, for the wire
     if (atMe) ai._blowShot = { yaw: b0.yaw, at: now, fired: false };   // the attack component draws, the sprite looses
     s.blowReady = cooled; s.state = 'wait'; s.blow = null;
     return false;
@@ -553,7 +598,9 @@ function windupTurn(ai, s, now, skipped) {
     // TELL8: at a peer as at me - the owner's view of the peer's feet decides its window; the peer's own, the blow
     if (tf && s.blow.kind === 'charge') { beginDash(ai, s, s.blow, now, cooled); return true; }   // TELL6: its landing is its run
     ai._blowLandedAt = now;   // TELL2: the landing, for the LAND cue (scenes/hostCombat.js tellCues)
-    if (tf) return resolveLanding(ai, s, s.blow, inBlow(s.blow, tf[0], tf[2]), now, cooled, atMe);
+    // AUDIT TELL B3: a leap lands on its disc only where its foe got to - a ledge or a wall that stopped the jump whiffs
+    const arrived = b0.kind !== 'leap' || Math.hypot(ai.feet[0] - (b0.origin[0] + Math.sin(b0.yaw) * b0.ahead), ai.feet[2] - (b0.origin[2] + Math.cos(b0.yaw) * b0.ahead)) <= BLOW.leap.r;
+    if (tf) return resolveLanding(ai, s, s.blow, arrived && inBlow(s.blow, tf[0], tf[2]), now, cooled, atMe);
     clearBlowState(ai); dropSwing(ai);
     s.blowReady = cooled; s.state = 'engage'; s.blow = null;
     ai._tacStrike = true;
@@ -569,6 +616,7 @@ function windupTurn(ai, s, now, skipped) {
  *  damage (the struck peer's own judgement, through its puppet): no verdict, weight or effect is left to land here. */
 function resolveLanding(ai, s, b, verdict, now, cooled, atMe = true) {
   ai._blowLandedAt = now;
+  s.landed = { blow: b, at: now };   // AUDIT TELL O2: its landing, said to the peers for WIRE_LANDED_S (ai/puppetBlows.js)
   ai._blowVerdict = atMe ? verdict : null;
   ai._blowMult = atMe ? b.mult : undefined; ai._blowAt = now; ai._blowSwing = true;
   ai._blowFx = atMe && verdict ? { kind: b.kind, iron: b.guard === 'iron', at: now } : null;   // TELL6e: what it does where its damage lands (scenes/hostCombat.js landBlowEffect)
@@ -581,14 +629,14 @@ function resolveLanding(ai, s, b, verdict, now, cooled, atMe = true) {
   if (!GAP_CLOSERS.includes(b.kind) && (b.chain ?? 0) < 1 && chains(blowFamily(ent?.mobileType), ent, shapes) && Math.random() < TELL.CHAIN_CHANCE) {
     const next = chainShape(b.kind, shapes);
     if (next) {
-      s.state = 'chain'; s.chainAt = now + TELL.CHAIN_GAP; s.chainShape = next; s.chainN = (b.chain ?? 0) + 1;
+      s.state = 'chain'; s.chainAt = now + TELL.CHAIN_GAP; s.chainShape = next; s.chainN = (b.chain ?? 0) + 1; s.chainKey = b.key ?? targetKey(ai);   // AUDIT TELL B8: at the same target
       b.chainUntil = s.chainAt + 0.2;   // still its foe's one wind-up near me through the gap (foeBlows.windupNear)
       ai._tacStrike = false; ai._tacShoot = false; ai.moving = false;
       return true;
     }
   }
   // TELL4 (6.1): it missed - OVERREACHED; inside at the late sample and out at the landing, a perfect dodge
-  if (!verdict) { beginOverreach(ai, s, b, now, b.lateIn === true); return true; }
+  if (!verdict) { beginOverreach(ai, s, b, now, b.lateIn === true, atMe); return true; }   // AUDIT TELL O5: a peer's perfect dodge is the peer's to see
   s.state = 'engage';
   ai._tacStrike = true;
   return false;
@@ -631,6 +679,8 @@ export function gapCloses(ai, kind, dist, dx, dz, ent = null) {
   return true;
 }
 const DOWN = Object.freeze([0, -1, 0]);
+/** AUDIT TELL B9: how long a chain waits past its gap for the first blow's verdict to be spent (s). */
+const CHAIN_SPEND_MAX = 0.6;
 /** TELL6c: the leap's jump - its last BLOW.leap.arc seconds, from where it crouched to its point, a hop on the motor's
  *  own gravity; the verdict at its landing, at the point. */
 function leapStep(ai, b) {
@@ -648,6 +698,7 @@ function leapStep(ai, b) {
  *  until the verdict. */
 function beginDash(ai, s, b, now, cooled) {
   s.state = 'dash';
+  s.landed = { blow: b, at: now };   // AUDIT TELL O2: the run is its landing
   s.dash = { blow: b, until: now + BLOW.charge.cross, head: [ai.feet[0], ai.feet[2]], cooled };
   b.dashUntil = s.dash.until + 0.1;   // its foe's one wind-up near me while it runs (foeBlows.windupNear)
   return dashStep(ai, b);
@@ -660,9 +711,12 @@ function dashStep(ai, b) {
 }
 /** The charge's turn: my feet within its half-width of the stretch it ran since the last - a hit, and it stops; its time
  *  out, or a wall - a miss. */
-function dashTurn(ai, s, now) {
+function dashTurn(ai, s, now, skipped = false) {
   const d = s.dash, b = d?.blow;
   if (!b) { s.state = 'engage'; return false; }
+  // AUDIT TELL B2/B8: a run the motor did not let it decide (a paralysis, a knock), or one whose foe turned on another,
+  // ends with no verdict - never judged where it froze
+  if (skipped || ai.canAct === false || ai.hurtKnock || ai.knockbackSpeed > 0 || (b.key !== undefined && targetKey(ai) !== b.key)) { breakWindup(ai); return false; }
   const h = [ai.feet[0], ai.feet[2]];
   const key = targetKey(ai), tf = targetFeet(ai, key);   // TELL8: my feet, or the peer's it runs at (the owner's view)
   const hit = !!tf && segDist(tf[0], tf[2], d.head[0], d.head[1], h[0], h[1]) <= BLOW.charge.halfW;

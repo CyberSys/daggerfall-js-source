@@ -41,8 +41,8 @@
   {
     "name": "ATACT-A2-shot-uncounted",
     "file": "src/characters/enemyAttack.js",
-    "old": "if (machineAttack(this.machine, strike)) { this.firedRanged = true; this.swingSeq++; this._held = false; ai._tacShot = (ai._tacShot ?? 0) + 1; }   // AUDIT TACT A2",
-    "new": "if (machineAttack(this.machine, strike)) { this.firedRanged = true; this.swingSeq++; this._held = false; }   // AUDIT TACT A2",
+    "old": "if (machineAttack(this.machine, strike)) { this.firedRanged = true; this.swingSeq++; this._held = false; ai._tacShot = (ai._tacShot ?? 0) + 1; ai._blowShot = null; }   // AUDIT TACT A2",
+    "new": "if (machineAttack(this.machine, strike)) { this.firedRanged = true; this.swingSeq++; this._held = false; ai._blowShot = null; }   // AUDIT TACT A2",
     "tests": [
       "test/audittact.test.js"
     ]
@@ -151,7 +151,7 @@
   {
     "name": "ATACT-D3-blows-unshifted",
     "file": "src/ai/foeBlows.js",
-    "old": "  for (const b of _live.values()) { b.origin[0] += offset[0]; b.origin[1] += offset[1]; b.origin[2] += offset[2]; }",
+    "old": "  for (const b of [..._live.values(), ..._shards.map((x) => x.blow)]) { b.origin[0] += offset[0]; b.origin[1] += offset[1]; b.origin[2] += offset[2]; }",
     "new": "  void offset;",
     "tests": [
       "test/audittact.test.js"

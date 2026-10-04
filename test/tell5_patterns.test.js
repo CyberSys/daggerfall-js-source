@@ -105,7 +105,12 @@ function run(foes, secs, player, each = null) {
   for (let s = 0; s < Math.round(secs / DT); s++) {
     T += DT;
     noteLocalPlayer(player, [0, 0, 1]);
-    for (const f of foes) { f.ai.update(DT, player); f.atk.update(DT, f.ai, player); }
+    for (const f of foes) {
+      f.ai.update(DT, player); f.atk.update(DT, f.ai, player);
+      // PIN MOVED (AUDIT TELL B9: a chain waits for its first blow's verdict to be spent) - the host's door spends it at
+      // the sprite's strike, a frame step after the landing (this rig has no sprite)
+      if (f.ai._blowVerdict != null && T - (f.ai._blowAt ?? T) >= 0.1) blowConnects(f.ai, false, T);
+    }
     each?.(s);
   }
 }

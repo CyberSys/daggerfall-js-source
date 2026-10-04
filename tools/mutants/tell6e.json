@@ -65,8 +65,8 @@
   {
     "name": "TELL6e-guard-ignored",
     "file": "src/systems/blowEffects.js",
-    "old": "    if (fx.knockdown && now >= _guardUntil) {",
-    "new": "    if (fx.knockdown) {",
+    "old": "    if (fx.knockdown && now >= _guardUntil && motor?.blowKnockDown?.(",
+    "new": "    if (fx.knockdown && motor?.blowKnockDown?.(",
     "tests": [
       "test/tell6e_landing.test.js"
     ]
@@ -119,8 +119,8 @@
   {
     "name": "TELL6e-heal-ignored",
     "file": "src/systems/blowEffects.js",
-    "old": "  if (entity.health > b.health) { entity.bleed = null; return 0; }",
-    "new": "",
+    "old": "  if (entity.health > b.health || !(entity.health > 0)) { entity.bleed = null; return 0; }",
+    "new": "  if (!(entity.health > 0)) { entity.bleed = null; return 0; }",
     "tests": [
       "test/tell6e_landing.test.js"
     ]
@@ -264,8 +264,8 @@
   {
     "name": "TELL6e-pool-unasked-exteri",
     "file": "src/scenes/exteriorFoes.js",
-    "old": "landBlowEffect(f, dmg, playerFeet);",
-    "new": "void dmg;",
+    "old": "landBlowEffect(f, hp0 - playerEntity.health, playerFeet);",
+    "new": "void hp0;",
     "tests": [
       "test/tell6e_landing.test.js"
     ]
@@ -273,8 +273,8 @@
   {
     "name": "TELL6e-pool-unasked-dungeo",
     "file": "src/scenes/dungeonContext.js",
-    "old": "landBlowEffect(f, dmg, playerFeet);",
-    "new": "void dmg;",
+    "old": "landBlowEffect(f, hp0 - playerEntity.health, playerFeet);",
+    "new": "void hp0;",
     "tests": [
       "test/tell6e_landing.test.js"
     ]
@@ -282,8 +282,8 @@
   {
     "name": "TELL6e-pool-unasked-cityGu",
     "file": "src/scenes/cityGuards.js",
-    "old": "landBlowEffect(g, dmg, playerFeet);",
-    "new": "void dmg;",
+    "old": "landBlowEffect(g, hp0 - playerEntity.health, playerFeet);",
+    "new": "void hp0;",
     "tests": [
       "test/tell6e_landing.test.js"
     ]

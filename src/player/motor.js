@@ -659,8 +659,14 @@ export class PlayerMotor {
   blowPush(vx, vz) { this._pushX = vx; this._pushZ = vz; }
   /** TELL6e: a rattle - `seconds` at `share` of the walk. */
   blowRattle(seconds, share) { this._rattleLeft = Math.max(this._rattleLeft, seconds); this._rattleShare = share; }
-  /** TELL6e: a knockdown - `seconds` with no move, the eye `drop` metres down at once and up again at its end. */
-  blowKnockDown(seconds, drop) { this._downLeft = seconds; this._downFor = seconds; this._downDrop = drop; this._pushX = 0; this._pushZ = 0; }
+  /** TELL6e: a knockdown - `seconds` with no move, the eye `drop` metres down at once and up again at its end.
+   *  AUDIT TELL L4: refused (false) to a body the hands hold (a climb, a hold, a mantle) or the water or the air does
+   *  (a swim, a levitation) - nothing there goes down; systems/blowEffects.js pushes it instead. */
+  blowKnockDown(seconds, drop) {
+    if (this.climb?.isClimbing || this._wall || this._pkMove || this.swimming || this.levitating) return false;
+    this._downLeft = seconds; this._downFor = seconds; this._downDrop = drop; this._pushX = 0; this._pushZ = 0;
+    return true;
+  }
   /** TELL6e: is the body down (a knockdown)? */
   isDown() { return this._downLeft > 0; }
   /** TELL6e: the eye's drop under a knockdown now - down over its first 0.15 s, up over its last 0.3 s. */
@@ -673,11 +679,14 @@ export class PlayerMotor {
   _pushStep(dt) {
     const v = Math.hypot(this._pushX, this._pushZ);
     if (!(v > 0)) return;
+    // AUDIT TELL L3: a body the motor holds (a teleport's settle) or the hands do (a climb, a hold, a mantle) takes no
+    // push - it is dropped, never stored for the moment they let go
+    if (this.freezeMotor > 0 || this.climb?.isClimbing || this._wall || this._pkMove) { this._pushX = 0; this._pushZ = 0; return; }
     const dx = this._pushX * dt, dz = this._pushZ * dt;
     const o = [this.pos[0] + dx * 4, this.pos[1] + 0.5, this.pos[2] + dz * 4];   // the ground a little ahead of the step
     const below = this.collider.surfaceHit ? this.collider.surfaceHit(o, PUSH_DOWN, BLOW_PUSH_EDGE + 0.5)?.dist : this.collider.raycast?.(o, PUSH_DOWN, BLOW_PUSH_EDGE + 0.5);
     if (!Number.isFinite(below)) { this._pushX = 0; this._pushZ = 0; return; }   // an edge: no cliff takes a push
-    this.collider.move(this.pos, dx, 0, dz, this.height, true);
+    this.collider.move(this.pos, dx, 0, dz, this.height, this.grounded && !this.jumping && !this.swimming && !this.levitating);   // AUDIT TELL L3: snapped to the ground only from it - a jump, a swim, a levitation is never pulled down
     const nv = Math.max(0, v - BLOW_PUSH_DECAY * dt);
     this._pushX *= nv / v; this._pushZ *= nv / v;
   }
@@ -986,6 +995,7 @@ export class PlayerMotor {
     this._pkOffEdge = null;   // AUDIT CLIMB-ARC L6: nor a run off an edge (a press after it is no late leap)...
     this._pkLeap = null;      // ...nor a leap's flight (the catch looks no old way)
     this._pkRestore = null;   // AUDIT CLIMB2 H1: a placement's own record follows it (restoreFall), never an older one
+    this._pushX = 0; this._pushZ = 0; this._downLeft = 0; this._rattleLeft = 0;   // AUDIT TELL L2: nor a blow's push, knockdown or rattle
     this._heightReset();   // a pending height action does not ride a teleport/load
     this.holdFrame();   // DISC8-G: a landing reported before the warp is not the arrival's
   }

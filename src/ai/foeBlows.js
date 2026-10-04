@@ -1,17 +1,18 @@
 // @ts-check
 // TACT4 - TELEGRAPHED BLOWS (bible/12-Enhanced-AI/Tactics-Arc.md; Mac, 2026-10-02: "Introducing new attack patterns
 // and smaller telegraphed attacks (like our world boss) but not overdoing it"; his calls: one or two, tier-based -
-// level 10 and up, or an elite foe).
+// level 10 and up, or an elite foe; since TELL7 a champion and a revenant too).
 //
 // The world boss's language at a foe's scale: a short wind-up with its shape drawn on the ground where it will land,
-// resolved by where the player's feet stand at the landing (net/gateStrike.js's law). Three shapes - the LUNGE (a short
-// lane ahead), the SWEEP (a front cone), the SLAM (a disc just ahead) - one or two per family. A blow is the foe's own
+// resolved by where the player's feet stand at the landing (net/gateStrike.js's law). Three shapes at TACT4 - the LUNGE
+// (a short lane ahead), the SWEEP (a front cone), the SLAM (a disc just ahead) - and four since TELL6 (the RING, the
+// CHARGE, the LEAP, the AIMED shot: Feud-Arc.md 8.1), each family its own (ai/blowShapes.js). A blow is the foe's own
 // blow, delayed and shaped: at the landing the brain (ai/tactics.js) forces the swing, and the host's ordinary hit
 // resolution asks `blowConnects` (the shape's verdict, in place of the reach test) and `blowScaled` (the shape's
 // weight on DFU's own damage roll - armour, skill and all).
 //
 // Sparingly: a cooldown per foe, at most one wind-up near the player at a time, only from a foe holding a melee token
-// in reach (TACT2) - TELL8: at the local player or a peer it hunts (each client judging its own feet, ai/puppetBlows.js),
+// in reach (TACT2; since TELL6 a charge and a leap from their own bands, an aimed shot from a bow's) - TELL8: at the local player or a peer it hunts (each client judging its own feet, ai/puppetBlows.js),
 // one at a time near each. With the Enhanced AI switch off the brain never starts one, and both helpers answer the
 // classic value.
 
@@ -160,6 +161,18 @@ export function blowPhase(b, now) {
 const _live = new Map();
 export function liveBlows() { return _live; }
 export function setLiveBlow(ai, b) { if (b) _live.set(ai, b); else _live.delete(ai); }
+/** AUDIT TELL (bible/12-Enhanced-AI/Feud-Arc.md 3.2, built at last): a wind-up its poise broke SHATTERS - its mark a
+ *  white, cracked flash going out over BLOW_SHATTER, never a landing's look (which is white-hot and whole). */
+export const BLOW_SHATTER = 0.25;
+/** The shattering marks: `{ blow, at }`, drawn until BLOW_SHATTER past `at`. */
+const _shards = [];
+/** `ai`'s live wind-up broken by a blow on its poise: no longer live (setLiveBlow's null) and shattering from `now`. A
+ *  cut feint or a blow at or past its landing has no mark to break. */
+export function shatterBlow(ai, now) {
+  const b = _live.get(ai);
+  _live.delete(ai);
+  if (b && b.cut == null && now < b.land) _shards.push({ blow: b, at: now });
+}
 /** Is any foe winding up within BLOW_NEAR of `feet`? (one at a time near the player) */
 export function windupNear(feet, now, except = null) {
   for (const [ai, b] of _live) {
@@ -181,16 +194,25 @@ export function drawableBlows(now, near = null, range = 40) {
     if (near && d > range) continue;
     out.push({ blow: b, phase, nearFloor: d <= TELL_NEAR_M ? TELL_NEAR_FLOOR : 0 });
   }
+  for (let i = _shards.length - 1; i >= 0; i--) {   // AUDIT TELL (3.2): the broken ones, going out
+    const { blow: b, at } = _shards[i];
+    const after = now - at;
+    if (!(after >= 0 && after <= BLOW_SHATTER)) { _shards.splice(i, 1); continue; }
+    const d = near ? Math.hypot(b.origin[0] - near[0], b.origin[2] - near[2]) : Infinity;
+    if (near && d > range) continue;
+    const t = Math.max(0, Math.min(1, (at - b.start) / (b.land - b.start)));
+    out.push({ blow: b, phase: { t, flash: 0, shatter: 1 - after / BLOW_SHATTER }, nearFloor: d <= TELL_NEAR_M ? TELL_NEAR_FLOOR : 0 });
+  }
   return out;
 }
 /** AUDIT TACT D4: a blow whose foe is no longer stepped (dead, despawned, left behind in another host) is no one's. */
 const gone = (ai, now) => ai?._tac?.seen != null && now - ai._tac.seen > BLOW_STALE;
 /** AUDIT TACT D3: a floating-origin recentre moves every live wind-up with the world. */
 export function offsetBlows(offset) {
-  for (const b of _live.values()) { b.origin[0] += offset[0]; b.origin[1] += offset[1]; b.origin[2] += offset[2]; }
+  for (const b of [..._live.values(), ..._shards.map((x) => x.blow)]) { b.origin[0] += offset[0]; b.origin[1] += offset[1]; b.origin[2] += offset[2]; }   // AUDIT TELL: a shattering one too
 }
 /** Tests: forget every blow. */
-export function resetBlows() { _live.clear(); }
+export function resetBlows() { _live.clear(); _shards.length = 0; }
 
 /**
  * The host's hit resolution, asked in place of its reach test: a foe whose telegraphed blow just landed answers the

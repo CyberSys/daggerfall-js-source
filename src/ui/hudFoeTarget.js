@@ -58,7 +58,7 @@ export function markFoeThreat(foe) {
   if (!foe?.entity || foe.dead) return;
   const bout = foe.entity.bout;
   if (bout && !bout.chained) return;
-  if (_foe && _foe !== foe && !_foe.dead && _sinceStruck < THREAT_YIELD_S) return;
+  if (_foe && _foe !== foe && !_foe.dead && (_sinceStruck < THREAT_YIELD_S || _foe.duel)) return;   // AUDIT TELL U7: nor while my duel's opponent holds it (its health comes only as the duel's word does)
   _foe = foe;
   _left = FOE_TARGET_SECONDS;
 }

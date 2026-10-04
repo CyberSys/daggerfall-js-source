@@ -153,8 +153,8 @@
   {
     "name": "TELL2-feint-glints",
     "file": "src/ai/tactics.js",
-    "old": "  if (!b || b.feint) return null;\n  const k = glintStrength",
-    "new": "  if (!b) return null;\n  const k = glintStrength",
+    "old": "  if (!b || b.feint || unseen(s, now)) return null;",
+    "new": "  if (!b || unseen(s, now)) return null;",
     "tests": [
       "test/tell2_tell.test.js"
     ]
@@ -437,8 +437,8 @@
   {
     "name": "TELL2-near-floor-far",
     "file": "src/ai/foeBlows.js",
-    "old": "nearFloor: d <= TELL_NEAR_M ? TELL_NEAR_FLOOR : 0",
-    "new": "nearFloor: d <= 2 * TELL_NEAR_M ? TELL_NEAR_FLOOR : 0",
+    "old": "out.push({ blow: b, phase, nearFloor: d <= TELL_NEAR_M ? TELL_NEAR_FLOOR : 0 });",
+    "new": "out.push({ blow: b, phase, nearFloor: d <= 2 * TELL_NEAR_M ? TELL_NEAR_FLOOR : 0 });",
     "tests": [
       "test/tell2_tell.test.js"
     ]

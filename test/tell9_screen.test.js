@@ -57,7 +57,7 @@ function fakeDocument() {
 
 // ── the poise track's law ───────────────────────────────────────────
 
-test('TELL9: the poise track - none without the switch or a brain; empty outside a wind-up; amber filling toward its poise; red "Iron"; white "Staggered"; "Open" through an overreach; a charge\'s run its wind-up still; a feint read as any wind-up, a cut one gone (mutants: each state; the fill unclamped; the switch unread)', () => {
+test('TELL9: the poise track - none without the switch or a brain; empty outside a wind-up; amber filling toward its poise; red "Iron"; white "Staggered"; "Open" through an overreach; a charge\'s run its landing (AUDIT TELL); a feint read as any wind-up, a cut one gone (mutants: each state; the fill unclamped; the switch unread)', () => {
   const blow = (o = {}) => ({ guard: 'poise', ...o });
   assert.equal(poiseTrack(null), null);
   assert.equal(poiseTrack({}), null, 'the classic motor has no brain: no track at all');
@@ -68,8 +68,10 @@ test('TELL9: the poise track - none without the switch or a brain; empty outside
   assert.deepEqual(poiseTrack({ _tac: { state: 'windup', blow: blow({ guard: 'iron' }) } }), { state: 'iron', fill: 1, word: 'Iron' });
   assert.deepEqual(poiseTrack({ _tac: { state: 'staggered' } }), { state: 'staggered', fill: 1, word: 'Staggered' });
   assert.deepEqual(poiseTrack({ _tac: { state: 'overreach' } }), { state: 'open', fill: 0, word: 'Open' });
-  assert.deepEqual(poiseTrack({ _tac: { state: 'dash', dash: { blow: blow({ poise: 20, taken: 5 }) } } }), { state: 'windup', fill: 0.25, word: '' }, 'a charge running: its landing still to come');
-  assert.deepEqual(poiseTrack({ _tac: { state: 'dash', dash: { blow: blow({ guard: 'iron' }) } } }).state, 'iron');
+  // PIN MOVED (AUDIT TELL: a charge's run is its landing - a blow on it is DFU's, so the track claims no poise for it)
+  assert.deepEqual(poiseTrack({ _tac: { state: 'dash', dash: { blow: blow({ poise: 20, taken: 5 }) } } }), { state: 'empty', fill: 0, word: '' }, 'a charge running: its landing');
+  assert.deepEqual(poiseTrack({ _tac: { state: 'dash', dash: { blow: blow({ guard: 'iron' }) } } }).state, 'empty');
+  assert.deepEqual(poiseTrack({ _tac: { state: 'windup', seen: -5, blow: blow({ guard: 'iron' }) } }), { state: 'empty', fill: 0, word: '' }, 'AUDIT TELL B1: a wind-up nobody steps tells nothing');
   assert.deepEqual(poiseTrack({ _tac: { state: 'windup', blow: blow({ feint: true, poise: 10, taken: 5 }) } }), { state: 'windup', fill: 0.5, word: '' }, 'a feint tells no more on the bar than on the ground');
   assert.deepEqual(poiseTrack({ _tac: { state: 'windup', blow: null } }), { state: 'empty', fill: 0, word: '' }, 'a cut feint: its blow is gone');
   setPref('enhancedAI', false);
@@ -366,9 +368,10 @@ test('TELL9: the enhanced HUD draws the track under the foe\'s health - its stat
   assert.match(css, /\.hud-foe\.poised \.hud-foepoise \{ display: block; \}/);
   assert.match(css, /\.hud-foepoise\.windup \.hud-poisefill \{ background: #e0a43a; \}/);
   assert.match(css, /\.hud-foepoise\.iron \.hud-poisefill \{ background: repeating-linear-gradient\(/, 'iron never by colour alone');
-  assert.match(css, /\.hud-foepoise\.staggered \.hud-poisefill \{ background: #fff; animation: hud-poise-flash/);
-  assert.match(css, /@media \(prefers-reduced-motion: reduce\) \{ \.hud-foepoise\.staggered \.hud-poisefill \{ animation: none; \} \}/);
-  assert.match(css, /body:has\(\.hud-foe\.on\.poised\) \.qtrack \{ --qt-clear: calc\(18px \+ 28px \* var\(--hud-scale, 1\) \+ 30px \+ 58px \* var\(--hud-scale, 1\)\); \}/);
+  // PIN MOVED (AUDIT TELL U3/U4): the flash on THIS foe's break alone; the word under the track, which the card clears
+  assert.match(css, /\.hud-foepoise\.staggered \.hud-poisefill \{ background: #fff; \}\n\.hud-foepoise\.staggered\.flash \.hud-poisefill \{ animation: hud-poise-flash/);
+  assert.match(css, /@media \(prefers-reduced-motion: reduce\) \{ \.hud-foepoise\.staggered\.flash \.hud-poisefill \{ animation: none; \} \}/);
+  assert.match(css, /body:has\(\.hud-foe\.on\.poised\) \.qtrack \{ --qt-clear: calc\(18px \+ 28px \* var\(--hud-scale, 1\) \+ 30px \+ 74px \* var\(--hud-scale, 1\)\); \}/);
   assert.match(css, /\.hitnum-word \{/);
   assert.match(css, /\.hitnum-perfect \{/);
   assert.match(rd('src/scenes/hostCombat.js'), /setFoePoiseReader\(\(f\) => poiseTrack\(f\?\.ai\)\);/, 'the host registers the brain\'s reading (the HUD imports no brain)');

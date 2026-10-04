@@ -140,6 +140,7 @@ export async function bootDungeon(canvas, renderer, params, status) {
   const ctx = await buildDungeonContext(
     { ...pipeline, renderer, arch, palette }, dfLocation, blocks, dfLocation.climate.climateType, { activateHeld: () => held(keys, 'ActivateCenterObject') || _tapArmed > 0, actionDown: (action) => held(keys, action),   // KB1: registry actions
       // HT1: the torch keys /* AUDIT 62 F8: the finger's press too - it was 'Mouse0' in the held set until the tap stopped speaking a literal code */ foes: !params.has('nofoes'), playerClass: params.has('class') ? Number(params.get('class')) : undefined, playerSpell: params.has('spell') ? Number(params.get('spell')) : undefined, playerWeapon: params.get('weapon') ?? undefined,
+      shakeCamera: (k) => betterAmbience.weaponKick(k),   // AUDIT TELL H6: the stagger's kick of my own blow (and an execution's), as the world host gives its dungeons
       // AUDIT 26 F222/F223: the dev scene's half of the pose. The cam
       // is created AFTER the context (from startSpawn), so the seam
       // closes over the slot lazily.
@@ -153,7 +154,7 @@ export async function bootDungeon(canvas, renderer, params, status) {
       motorState: () => (_motorRef ? { eyeLevel: _motorRef.eye[1] - _motorRef.pos[1], capsule: _motorRef.height } : null),
       placePlayer: placeLoadedPlayer,   // DIAL-LOAD: the host's load law, for every load the context runs - not routeKey's alone
       // MAC1 J: this host's canvas, for the pause door's relock. The
-      // context owns none of its own (dungeonContext.js:8477), so each
+      // context owns none of its own (dungeonContext.js:8479), so each
       // dungeon host hands its own in and the resume gesture carries
       // the pointer back with it (ui/pauseDoor.js:143-167).
       relock: () => requestLook(canvas) });
@@ -1115,7 +1116,7 @@ export async function bootDungeon(canvas, renderer, params, status) {
     // (the blood pool's clock runs inside ctx.drawFoes now - both dungeon
     // hosts call it, so neither can forget it; 2026-08-27)
     noteLocalPlayer(player.pos, [Math.sin(cam.yaw), 0, Math.cos(cam.yaw)]);   // TACT2: where I stand and face
-    tickTactics(foeFrameDt(dt));   // AUDIT TACT D10/A3: the brain's clock is the foes' own step
+    tickTactics(foeFrameDt(ctx.uiOverlayActive ? 0 : dt));   // AUDIT TACT D10/A3: the brain's clock is the foes' own step; AUDIT TELL H1: held under the window that holds them (the return below, above drawFoes)
     renderer.drawFoeTelegraphs?.(drawableBlows(tacticsNow(), player.pos));   // TACT4: a foe's wind-up on the ground
     ctx.bloodMarks?.draw?.(camRight, UP_Y);   // BLOOD1 AUDIT 3: the context's ring, drawn by THIS host beside the level's flats and under them - it used to ride drawFoes' gate, so a cleared level drew no blood at all
     renderer.drawBillboards([...ctx.billboardBatches, ...ctx.campBatches(), ...ctx.torchBatches()], camRight, UP_Y);   // HT1: the dropped torches on the same pass

@@ -951,13 +951,13 @@ does the pack's USE arm.
                         HAND-ROLLED second one, 342 lines below it in
                         the same file),
                         dungeonContext.js:1393, world.js:5038,
-                        exterior.js:2796. It is the only window TWO
+                        exterior.js:2798. It is the only window TWO
                         enhanced screens already push - the sheet's
                         button and the pack's USE hand-off, whose
                         close-then-hand-over ordering U55 got
                         backwards. No law needs extracting first.
     THE LOGBOOK         THREE sites: charSheetNav.js:53,
-    / NOTEBOOK          world.js:13757, dungeonContext.js:9028. A seam
+    / NOTEBOOK          world.js:13758, dungeonContext.js:9030. A seam
                         wants making, as U52's and U53's did.
     HISTORY             ONE site (charSheetNav.js:61), and it reads
                         only the entity's backStory. The small one.
@@ -4866,7 +4866,7 @@ literal with no duplicates; all 71 display labels match DFU's recovered
 FALL.EXE text exactly; every secondary list matches its DFU array in
 order; the builder is reconstructed on re-entry on both sides, so the
 pick lists reset; a career's flags survive the save round trip (the
-career is spread as plain CFG data, save.js:340,529 - worth checking
+career is spread as plain CFG data, save.js:341,529 - worth checking
 because AUDIT 17h caught exactly this shape dropping player
 reputation); and parseCareerData leaves every numeric field finite and
 unsigned under the maximal fourteen-pick set.
@@ -9481,7 +9481,7 @@ cited and ported somewhere in `src/`. FOUR were not:
 |---|---|---|
 | DaggerfallUseMagicItemWindow | 139 | **CLOSED, UI1** - see below |
 | DaggerfallMerchantServicePopupWindow | 175 | **CLOSED, UI2** - see below |
-| DaggerfallTransportWindow | 264 | OPEN, and it is a SYSTEM gap wearing a UI hat: `motor.js:908` reads `riding: false` with "the transport arc pends". The window is the last tenth of that arc, not a slice on its own |
+| DaggerfallTransportWindow | 264 | OPEN, and it is a SYSTEM gap wearing a UI hat: `motor.js:917` reads `riding: false` with "the transport arc pends". The window is the last tenth of that arc, not a slice on its own |
 | DaggerfallUnityMouseControlsWindow | - | NOT A GAP: DFU's own mouse-settings screen, and the port's settings surface (U29) carries those keys already |
 
 ### UI1 CLOSED: the use-magic-item window
@@ -9525,7 +9525,7 @@ the art-less fallback.
 ### What is left
 
 `DaggerfallTransportWindow` alone, and it wants its own arc: the window
-is trivial, `TransportManager` is not - `motor.js:908` reads
+is trivial, `TransportManager` is not - `motor.js:917` reads
 `riding: false` with "the transport arc pends". With UI1 and UI2
 closed, **58 of DFU's 60 real windows are ported**, and the 59th is a
 system's last tenth.
@@ -10674,9 +10674,9 @@ re-resolved the `exterior.js` half of a three-file sentence and left the
 `ExteriorAutomapWindow` construction, `:4101` on a `locationName:`
 field). Both halves are now read by `test/citedrift.test.js` - the
 existing entries only ever captured the exterior number, which is how
-the other half went stale unnoticed. (The rest cite named `world.js:14217`,
+the other half went stale unnoticed. (The rest cite named `world.js:14218`,
 the first of the host's TWO identical `act === 'Rest'` arms; ROAD-H H5
-deleted the second and the cite is `world.js:14223` now.)
+deleted the second and the cite is `world.js:14224` now.)
 
 ## AUDIT 62 F24/F25 - THE SENTINEL SWEEP WAS TWO WINDOWS SHORT (2026-09-07)
 
@@ -15575,9 +15575,9 @@ whether an entry MATCHES and asserts nothing.
 Following it out was worse than the symptom. Five Ledger rows cite a
 PAIR - `` `world.js:N`, `exterior.js:M` `` - and the table captured `M`
 alone. So `M` was re-resolved at every wave for a year and `N` was never
-read: `world.js:11405` named a line that is 8950, `:1937` one that is
+read: `world.js:11406` named a line that is 8950, `:1937` one that is
 1215, `:1094` one that is 2194, `:3903` one that is 3066, `:3920` one
-that is 8907. `world.js:11107-11144` and `dungeonContext.js:1935` were
+that is 8907. `world.js:11108-11145` and `dungeonContext.js:1935` were
 stale the same way. Seven numbers re-resolved BY CONTENT, every
 uncaptured half de-baked to `\d+`, and eight new entries added so every
 number in a pair is captured. The half nobody reads cannot rot in
@@ -15878,7 +15878,7 @@ that through `InputManager` (:1084-1108, one poll a frame in
 `GetKeyDown` at all, so every consumer wrote its own out of the only
 read there was.
 
-`motor.js:1467` had already named this bug's twin from the other side:
+`motor.js:1477` had already named this bug's twin from the other side:
 "a render frame that accumulates less than one physics step swallowed
 the press" - the fix there moved `_heightAction` out of the fixed-step
 loop. The half that remained was the host's.

@@ -8,7 +8,7 @@
 //
 //   - `ui/spellMakerWindow.js` declared "RECORDED DEPARTURES" and closed
 //     the first with "Ledger A carries the widget row already
-//     (Port-Ledger.md:895)". Section A carried no widget row at all -
+//     (Port-Ledger.md:896)". Section A carried no widget row at all -
 //     the AUDIT 17m / F7 shape, a claim of approval standing in for one -
 //     and :686 was the stat-colour NIT row by then. The row exists now
 //     (Ledger A, TB1) and the sites cite it BY NAME.
@@ -566,7 +566,7 @@ const SOURCE_CITES = [
   // the line goes red at the citation instead of at a reader.
   ['src/characters/playerEntity.js', /exterior\.js:(\d+) and applyHeadlessChargen/,
     EX, /createChargenFlow\(fetchBytes\)\.then/],
-  ['src/combat/weaponRig.js', /\(exterior\.js:(\d+), world\.js:9309\)/,
+  ['src/combat/weaponRig.js', /\(exterior\.js:(\d+), world\.js:9310\)/,
     EX, /^ {4}say: \(l\) => townTalk\.say\(l\),$/],
   ['src/scenes/dungeonContext.js', /exterior\.js:(\d+) and worldModes\.js:\d+/,
     EX, /onPlayerArrowHitFoe: \(m, t\) => playerArrowHitFoe\(/],
@@ -679,9 +679,9 @@ const SOURCE_CITES = [
   ['src/ui/restWindow.js', /exterior\.js:\d+, ui\/input\.js:(\d+)\)/,
     'src/ui/input.js', /case 'Rest': return ctx\.toggleRest \? \(ctx\.toggleRest\(\), true\) : false;/],   // KB1: the arm answers its door
   ['test/daychange.test.js', /exterior\.js:(\d+), world\.js:3410/, EX, /playerTicker\.advance\(60\);/],
-  ['test/overlayreentry.test.js', /exterior\.js:(\d+) and world\.js:8434/,
+  ['test/overlayreentry.test.js', /exterior\.js:(\d+) and world\.js:8435/,
     EX, /if \(townTalk\.overlay\?\.isRestWindow\) townTalk\.closeOverlay\?\.\(\);/],
-  ['test/overlayreentry.test.js', /exterior\.js:(\d+), world\.js:8434/,
+  ['test/overlayreentry.test.js', /exterior\.js:(\d+), world\.js:8435/,
     EX, /if \(townTalk\.overlay\?\.isRestWindow\) townTalk\.closeOverlay\?\.\(\);/],
   ['test/probehygiene.test.js', /keydown ladder, exterior\.js:(\d+)-\d+/,
     EX, /addEventListener\('keydown', \(e\) => \{/],
@@ -700,8 +700,8 @@ const SOURCE_CITES = [
   // and the table captured ONE, with a sixth number baked into the pick - so
   // citeMerge bumped the LITERAL at the BOX1/TI3 merge and left the doc, and
   // four of the five had been stale for waves (`worldModes.js:8732` for a line
-  // that is 5921, `world.js:22906` for 8836, `interior.js:326` for 329,
-  // `dungeon.js:987` for 959). Every one is captured now, against the
+  // that is 5921, `world.js:22907` for 8836, `interior.js:326` for 329,
+  // `dungeon.js:988` for 959). Every one is captured now, against the
   // projection each host really builds.
   ['bible/10-UI/Settings-Screen-Spec.md', /`exterior\.js:(\d+)`, `dungeon\.js:\d+`/, EX, /^ {6}fieldOfView\(\)( \+ climbFeel\.fovRad\(\))?,/],   // CLIMB4: the climb's kick on the lens
   ['bible/10-UI/Settings-Screen-Spec.md', /`exterior\.js:\d+`, `dungeon\.js:(\d+)`/, 'src/scenes/dungeon.js', /^ {4}const proj = mirrorProjectionX\(perspective\(fieldOfView\(\)( \+ climbFeel\.fovRad\(\))?, largeHudWorldAspect/],
@@ -722,7 +722,7 @@ const SOURCE_CITES = [
   // PAIRS never checked. Five Ledger rows cite `world.js:N`, `exterior.js:M`
   // and this table captured M alone - so M was resolved at every wave and N
   // was never read at all. All five N's were stale by thousands of lines
-  // (`world.js:11405` for a line that is 8950; `:1937` for 1215; `:3866` for
+  // (`world.js:11406` for a line that is 8950; `:1937` for 1215; `:3866` for
   // 2194; `:3903` for 3066; `:3920` for 8907), and citeMerge rewrote one of
   // them INSIDE THE PICK REGEX at the QS6 merge - which is WM3's hazard
   // exactly: a literal in the pick decides whether the entry matches at all,
@@ -760,7 +760,7 @@ const SOURCE_CITES = [
   // ROAD-G G1 (review): BOTH ends, because the half-shifted range is
   // exactly the defect this file exists to catch - the leading number
   // was re-resolved and the trailing one left where it was, leaving a
-  // range that cannot exist (`exterior.js:1804-1458`).
+  // range that cannot exist (`exterior.js:1806-1458`).
   ['bible/01-Overview/Port-Ledger.md', /`exterior\.js:(\d+)-\d+` build `createDetectFeed`/,
     EX, /const detectFeed = createDetectFeed\(playerEntity, \{/],
   ['bible/01-Overview/Port-Ledger.md', /`exterior\.js:\d+-(\d+)` build `createDetectFeed`/,
@@ -974,7 +974,7 @@ test('CD6: every `src/` line Port-Status cites is the line it describes', () => 
 //
 // The G1 lane re-resolved ~180 `:NNN` cites after moving code in four
 // hosts, and the pass advanced only the LEADING number of every
-// multi-number citation: `cityGuards.js:1031-935`, `world.js:15387-15292`,
+// multi-number citation: `cityGuards.js:1032-936`, `world.js:15388-15293`,
 // `worldModes.js:1578 against :1345`. Forty of them came out as ranges
 // that cannot exist, and every pin in this file was green throughout,
 // because each one resolves a single number a human chose to list.

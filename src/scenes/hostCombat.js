@@ -657,11 +657,11 @@ export function applyDamageToNonPlayer(attacker, target, {
  * player in a beast's form), `weight` (DFU's weight in classic units, or a function answering it - read only when the
  * foe is winding up). `fx`: the pool's `audio`, `hitEffects`, `shake` (the player's own blow only) and `rolls`.
  */
-export function windupDoor(f, damage, { kind = 'melee', weapon = null, round = false, peer = false, striker = null, from = null, claws = false, weight = 0, wc = null } = {}, fx = {}) {
+export function windupDoor(f, damage, { kind = 'melee', weapon = null, round = false, peer = false, striker = null, from = null, claws = false, weight = 0, wc = null, fromPlayer = true } = {}, fx = {}) {   // AUDIT TELL U6: `fromPlayer` the pool's provenance - a foe's own spell, a SetHealth(0), is nobody's word
   if (f?.ai && overreachOpen(f.ai)) {   // TELL4: no meter to weigh - the blow lands, and the first staggers it
     const word = windupStruck(f.ai, f.entity, typeof weight === 'function' ? weight() : weight, 0);
     windupFeedback(word, f, fx);
-    if (!peer && !striker) windupTag(word, f, true);   // TELL9: my blow's word
+    if (fromPlayer && !peer && !striker) windupTag(word, f, true);   // TELL9: my blow's word
     return word;
   }
   if (!f?.ai || !windupHolds(f.ai)) return null;
@@ -676,7 +676,7 @@ export function windupDoor(f, damage, { kind = 'melee', weapon = null, round = f
   const w = typeof weight === 'function' ? weight() : weight;
   const word = windupStruck(f.ai, f.entity, w, v);
   windupFeedback(word, f, fx);
-  if (!peer && !striker) windupTag(word, f, false);   // TELL9: my blow's word
+  if (fromPlayer && !peer && !striker) windupTag(word, f, false);   // TELL9: my blow's word
   return word;
 }
 /** TELL9 (section 11.2): the word my own blow on a telegraphing foe raises with its number (ui/hitNumbers.js tagHit) -
@@ -709,6 +709,7 @@ export function windupFeedback(word, f, { audio = null, hitEffects = null, shake
 }
 
 // ---- TELL2: THE EAR (bible/12-Enhanced-AI/Feud-Arc.md section 4.3) ----
+const NO_CUES = Object.freeze([]);   // AUDIT TELL U9: what a foe with nothing telegraphed plays
 /**
  * A telegraphed blow's three cues, in the world boss's order (world/gateBoss.js BOSS_CUES), each once, through the
  * foes' own device settings (playEnemyClip's: a metre above the feet, linear to the attract radius by `hearing`):
@@ -725,6 +726,7 @@ export function tellCues(f, audio, hearing = 1, now = tacticsNow()) {
   if (!ai) return null;
   const s = ai._tac, b = s?.state === 'windup' ? s.blow : s?.state === 'dash' ? s.dash?.blow ?? null : null;   // TELL6: a charge's run is its landing still to come
   const c = f._tellCue ?? (f._tellCue = { blow: null, released: false, land: false, seq: 0 });
+  if (!b && !c.blow && !c.land) return NO_CUES;   // AUDIT TELL U9: a foe with nothing telegraphed costs nothing a frame
   const played = [];
   const at = [ai.feet[0], ai.feet[1] + 1, ai.feet[2]];
   const play = (clip, pitch, volume = 1) => {
@@ -796,7 +798,7 @@ export function aimedDirection(dir, shot) {
   const h = Math.hypot(dir[0], dir[2]);
   return [Math.sin(shot.yaw) * h, dir[1], Math.cos(shot.yaw) * h];
 }
-/** The arrow's own word for an aimed shot: half again as fast (BLOW.aimed.speed), and its damage weighed at contact. */
+/** The arrow's own word for an aimed shot: x1.3 as fast (BLOW.aimed.speed), and its damage weighed at contact. */
 export function aimedArrowMeta(shot) {
   return shot ? { aimed: true, speedScale: BLOW.aimed.speed } : null;
 }

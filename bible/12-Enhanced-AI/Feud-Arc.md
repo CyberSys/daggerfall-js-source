@@ -1,4 +1,4 @@
-# Feud - blows with weight, revenants with memory (FEUD, proposed 2026-10-04)
+# Feud - blows with weight, revenants with memory (FEUD, 2026-10-04 - TELL1-TELL9 and AUDIT TELL built; RVN1-RVN13 next)
 
 Mac, 2026-10-04: *"I want to improve the revenant system to be more complex, less easy to accomplish and more detailed.
 Would love some ideas. I also want to improve the enemies telegraph/wind up attacks because player's can easily stun
@@ -211,10 +211,15 @@ value, as TACT4's do; TACT2's five-foe seeded pin and C15's knockback pins hold 
     | light | under 200 | 0.20 | Rat 2, Giant Bat 80, Skeletal Warrior 80 |
     | medium | 200-699 | 0.30 | Spider 400, Orc 600, Daedroth 400, Vampire 400, Lich 300, every class foe |
     | heavy | 700-1499 | 0.40 | Orc Warlord 700, Fire and Frost Daedra 800, Grizzly 1000, the atronachs 1000, Daedra Lord 1000 |
-    | massive | 1500 and up | 0.50 | Giant 3000, Zombie 4000 |
+    | massive | 1500 and up | 0.50, and never under 60 (AUDIT TELL) | Giant 3000, Zombie 4000 |
 
   - `S`: an elite (`eliteFoe`) 1.5; an Elite Dungeon foe (`elite`) 1.25; a champion 1.25 (Stalwart 1.5); a revenant
     1 + 0.1 a rank (and its adaptations, 13.2).
+  - AUDIT TELL (section 28's harness): a MASSIVE foe's `H0 x W` is at least `POISE_FLOOR_MASSIVE` 60, before `S`. A Giant
+    rolls 18 to 74 health, so 0.5 of it left the weak rolls' poise at 9 - under the largest single front blow in the
+    game (a daedric warhammer at Strength 100: 34 x 1.725 = 58.6), and under a reference player's steel one (31). The
+    mass is the kind's, not the roll's: no single front blow breaks one now; two good ones, a party, the back or a
+    weakness still do.
 
 - **A blow's weight** `v` on the meter, for every blow that lands during the wind-up:
 
@@ -889,6 +894,7 @@ gets the value in the last column.
 |---|---|---|
 | `POISE_W` light / medium / heavy / massive | 0.20 / 0.30 / 0.40 / 0.50 | 3.1 |
 | the weight bounds | 200 / 700 / 1500 | 3.1 |
+| `POISE_FLOOR_MASSIVE` (AUDIT TELL, the duel harness) | 60 | 3.1, 28 |
 | `POISE_S` elite / Elite Dungeon / champion / Stalwart / revenant a rank | 1.5 / 1.25 / 1.25 / 1.5 / +0.1 | 3.1 |
 | `POISE_K` blunt / axe / long / short / hands / claws / two-handed / arrow / spell | 1.5 / 1.25 / 1.0 / 0.7 / 0.6 / 1.0 / x1.15 / 0.5 / 0.75 | 3.1 |
 | `POISE_BACK` / `POISE_WEAK` | 1.5 / 2 | 3.1 |
@@ -941,8 +947,8 @@ revenant at each rank; a thousand seeded fights a cell. It prints a table, and t
 
 | Target | Measured as |
 |---|---|
-| A light weapon rarely breaks alone | a dagger, solo, at a medium foe's front: 15% of wind-ups or fewer |
-| A heavy weapon usually does | a warhammer, the same: 60% or more |
+| A light weapon rarely breaks alone | a dagger, solo, at a medium foe's front: 15% of the wind-ups its blows land on or fewer |
+| A heavy weapon usually does | a warhammer, the same: 60% or more (of the wind-ups it lands on - AUDIT TELL: one swing at most comes in a wind-up, and DFU's hit roll on it, so a miss or a late swing breaks nothing whatever the weapon) |
 | Massive means massive | no single blow of a non-weakness weapon at a giant's front breaks it |
 | Dodging pays | a perfect dodger kills a rank-3 revenant at least 25% faster than one who trades blows |
 | The will is learnable | a rank-3 revenant fought with its weakness kneels 90% of the time or more; without it, but dodging, 70% or more; by trading blows alone, 20% or less |
@@ -1397,7 +1403,7 @@ RVN5-RVN7; RVN8-RVN11; RVN12 and RVN13 with the audit.
 - **Who** - a class archer (a bow) of the whole set (`aimsShots`): an elite, a champion, a revenant. Section 8.1 says
   "a tier archer"; section 9's table gives an ordinary archer of the tier "-" and the whole set "the aimed shot", and
   TELL7's law (an ordinary foe keeps what TACT4 gave it) agrees - read so.
-- **The shape** - `BLOW.aimed` (0.6 s, a line 0.5 m wide from the archer to its target, x1.4, half again as fast);
+- **The shape** - `BLOW.aimed` (0.6 s, a line 0.5 m wide from the archer to its target, x1.4, its flight x1.3 as fast);
   `inBlow` and the ground's mirror run its line to its target and no further (`ahead` its length, locked at its start);
   drawn on the lane's branch in a quad its own length. It never tracks, never feints, never chains, opens no window
   (the arrow's flight decides - stepping off the line is the dodge).
@@ -1415,12 +1421,13 @@ RVN5-RVN7; RVN8-RVN11; RVN12 and RVN13 with the audit.
   nothing).
 - `tools/foeTelegraphProbe.mjs` gains the line (to its target, thin, stopping there: 25 held).
 - Pins `test/tell6d_aimed.test.js` (5): the numbers, the line and its mirror; the loose (its bearing and pitch, the
-  shot taken once and never before its draw, its flight half again as fast, its weight end to end through the
+  shot taken once and never before its draw, its flight x1.3 as fast, its weight end to end through the
   formulas); ON THE MOTOR an elite archer's shot wound up instead of loosed - its line to me locked, no held swing, its
   glint, its draw at the landing, no window - and an ordinary archer's never; the pools, the hosts and the ear wired.
   Mutant records re-aimed by content: `audittact` A2, `tell2` (two), `tell4`, `tell5` (two), `tell6a` (two), `tell6c`
   (two). Cites re-resolved (`tools/citeShift.mjs`), two by hand (`chargenSession.js`, `Port-Ledger.md`). Pins moved:
-  `exteriorfoes` and `roadh_tail` (three: the shaft's word, `fireArrow`'s eighth argument, the hosts' `onArrow`). The
+  `exteriorfoes` and `roadh_tail` (three: the shaft's word, `fireArrow`'s eighth argument, the hosts' `onArrow`);
+  `tell1_poise` (the table's `AIMED_SHARE`). The
   hosts name `aimedBlowInfo` only for an aimed arrow (`m.aimed ? ... : null`) - `auditpscale1` lifts the dungeon's
   arrow hit into a bare function, which must not meet a name it never needs.
 - Mutants `tools/mutants/tell6d.json` (33), all dead.
@@ -1457,8 +1464,7 @@ RVN5-RVN7; RVN8-RVN11; RVN12 and RVN13 with the audit.
   first's remainder, its HUD row); the pools' word (fresh, damaging, spent either way); the helper's tick through the
   host's door; ON THE MOTOR the brain's stamp for a hit and none for a miss; the hosts, the pools and the gates wired.
   Pins moved: `audittact` D (the watch's weighed blow asks for its landing); `audit39_worldmodes` #34,
-  `audit39_worldstate` #59 and 39r, `interiorfoes` IF and `perfrig1` (the rigs' flag takes the knockdown); `disc8`
-  DISC8-G (exterior's frame above its hold); `duel_wall` DUEL1 (the step's emptied input, the push before the ring's
+  `audit39_worldstate` #59 and 39r, `interiorfoes` IF and `perfrig1` (the rigs' flag takes the knockdown); `duel_wall` DUEL1 (the step's emptied input, the push before the ring's
   clamp). Mutant records re-aimed by content: `duel` (the motor's step), `survtiers` (one cite) and `survtiers3` (three
   cites) - the hosts' cites the shift moved. Cites re-resolved (`tools/citeShift.mjs`) and 24 by hand, aligned by their
   HEAD lines' content; the open flags regenerated (`tools/regenOpenFlags.mjs`).
@@ -1572,3 +1578,108 @@ RVN5-RVN7; RVN8-RVN11; RVN12 and RVN13 with the audit.
   Cites re-resolved (`tools/citeShift.mjs`, 91) and two by hand, by their HEAD lines' content.
 - Mutants `tools/mutants/tell8.json` (58), all dead.
 
+
+### AUDIT TELL - 2026-10-04 (Mac: "Let's do a comprehensive audit over everything ensuring perfection")
+
+TELL1-TELL9 read again whole - the brain, the wire, the landing on the player, the four hosts and three pools, the screen
+and the ground - every finding verified against the code before it was fixed. "Every host" in the records above is the
+four by name: `scenes/world.js`, `scenes/exterior.js`, `scenes/worldModes.js` (a building and a dungeon under either)
+and `scenes/dungeon.js`; the pools are `exteriorFoes.js` (the street, a building's foes), `cityGuards.js` (the watch)
+and `dungeonContext.js`.
+
+- **The brain (B1-B11)** - a wind-up, a charge's run or a chain's gap is BROKEN where the brain was not asked
+  (`tactics.breakWindup`): the motor's CanAct (a paralysis, a knock, a Calm), a flight, a step the foes' own clock did
+  not take past `BLOW_STALE` (a pool not stepped, a held window) - before, it held every blow, glinted and landed
+  untold; `windupHolds`, `foeGlint` and `poiseTrack` say nothing of a state nobody stepped (B1). The run breaks as the
+  wind-up does - a skipped step, CanAct, a knock, its foe turned on another (B2). A leap lands on its disc only where
+  its foe got to (B3). A released place takes the archer's aimed shot (B4). A puppet handed to me drops its owner's held
+  swing, verdict, effect and the stagger or overreach it said stood (B5). No feint on a gap closer (B6). The engage
+  branch aims at its TARGET's feet, not the motor's destination (B7). A blow knows whom it is aimed at (`b.key`): a foe
+  that turns on another breaks it, and a chain fires only at its own target (B8). A chain waits for the first blow's
+  verdict to be spent, at most `CHAIN_SPEND_MAX` 0.6 s (B9). A recentre moves a run's head (B10). A plain shot drops a
+  stale aimed one (B11).
+- **Online (O2-O7, relay `world163`)** - the owner SAYS its landing: for `WIRE_LANDED_S` 0.5 s after it the record
+  carries the blow with `wk` +`WIRE_LANDED` 32 and `wl` 0, and every blow its serial `wn` (its foe's own count, mod
+  256) - a receiver whose clock runs behind lands it on that word instead of reading the field gone as a break; a new
+  serial lands the live one first (a chain), the same serial after its landing is nothing new, an overreach record lands
+  it (O2). A brain that was mine gives up its tokens when its record makes it a puppet (O4). A perfect dodge is the
+  dodger's own - the owner stamps none at a peer (O5). A puppet's gap-closer lets its one blow through at me alone, once
+  (O6). `HIT_CLASS_K_MAX` 175 - a two-handed blunt weapon's K (1.725) rode the wire clamped (O7). `wire.js` moved, so
+  `RELAY_VERSION` **world163** and its `relayversion` row.
+- **The landing on the player (L1-L9)** - a dead body takes nothing: no bleed begun, a running one ends, the queue
+  dropped (L1: a bleed's tick on a corpse was a second death, two revenants for one). A load forgets the last game's
+  landings (`resetBlowEffects`, `save.restorePlayer`), and a placement (`motor.spawn`) stands the body up and stills it
+  (L2, L7). No push on a body the motor or the hands hold (a teleport's settle, a climb, a hold, a mantle) - dropped,
+  never stored for the let-go - and a push snaps to the ground only from it (L3). Nothing knocks down a climber, a
+  hold, a mantle, a swimmer or a levitator: the motor refuses, the guard stands unspent and the blow pushes instead
+  (L4). The bleed deals its whole and no more - a bleed of 1 was three ticks of 1 (L5). The pools ask with what reached
+  health, after the hurt - the court's interception, a shield, `/god` - never the roll (L8). `knockedDown()` follows
+  the body the knockdown took (L9). The hosts: the foes' clock held under a dungeon's window in all three that host one
+  (H1); the building's blow frame runs under a window as the street's do (L6/H5 - its foes keep their clock there); the
+  stagger's camera kick reaches the watch, the exterior route's street pool and its modes, and the standalone dungeon,
+  for my own blow alone (H6); a peer's blow on a building's watch carries its class and kind (P1); the dungeon's back
+  flag judged from the blow's own feet, as the local door judges it.
+- **The screen and the ground (U1-U10)** - every band of the mark metres-capped (`TELEGRAPH_BAND_CAP` 0.1,
+  `CONTRAST_BAND_CAP` 0.0625), so a grazing look no longer cut the keyline and the glow off at the 0.5 m the pass draws
+  (U1); the contrast keeps a dark band between its line and its white keyline (U2); the poise word centred under the
+  track and the quest card clearing it (U3); the flash on THIS foe's break alone, never on a bar turned onto a
+  staggered one (U4); the card re-measured when the track comes or goes (U5); a foe's own spell or a SetHealth(0) raises
+  no word of mine (U6); no foe's wind-up takes the bar from my duel's opponent (U7); the sweep's rear disc outlined (U8);
+  nothing allocated a frame for a foe with nothing telegraphed or a glint that changes (U9); nothing past 0.5 m is
+  dropped ahead of the derivatives - drawn as nothing instead (U10).
+- **The arc's promises, built at last** - THE SHATTER (3.2): a wind-up its poise broke (or a puppet's its owner
+  staggered) is drawn `BLOW_SHATTER` 0.25 s more - white, whole-filled, cracked into shards, going out (`uShatter`),
+  never the landing's whole white flash and never live (`foeBlows.shatterBlow`). THE BLEED'S DRIPS (8.2):
+  `bloodBleed`'s ledger drips a sweep's wound whatever the health - at least `WOUND_SHARE` 0.5 of the drops every
+  `WOUND_WAIT` 1 s (the hosts' view says `wound`). The dungeon stream's gap is FLAGGED where FEUD writes its fields
+  (10.1, 32).
+- **The duel harness (section 28)** - `tools/tellDuel.mjs`: the real brain, motor and attack component on a real
+  collider's floor, the real foe (`makeEnemyEntity`, `promoteEliteFoe`), the real roll (`calculateAttackDamage`) and
+  swing tempo (the weapon in the hand), a seeded player at the foe's front who trades blows or dodges; armed with the
+  least metal that bites (a werewolf silver, a Daedra Lord mithril). A thousand fights a cell, 30 s each (243 s):
+
+  | Weapon | Foe | wind-ups at me | struck | broken | of struck |
+  |---|---|---|---|---|---|
+  | Dagger | Orc | 2087 | 1036 | 11 | 1.1% |
+  | Dagger | Orc (elite) | 2133 | 817 | 1 | 0.1% |
+  | Dagger | Werewolf (silver) | 2102 | 793 | 0 | 0% |
+  | Dagger | Giant | 1048 | 332 | 0 | 0% |
+  | Longsword | Orc | 2095 | 871 | 570 | 65.4% |
+  | Longsword | Orc (elite) | 2061 | 710 | 287 | 40.4% |
+  | Longsword | Werewolf (silver) | 2106 | 693 | 213 | 30.7% |
+  | Longsword | Giant | 1048 | 272 | 0 | 0% |
+  | Warhammer | Orc | 2088 | 699 | 632 | 90.4% |
+  | Warhammer | Orc (elite) | 2033 | 502 | 373 | 74.3% |
+  | Warhammer | Werewolf (silver) | 2082 | 556 | 400 | 71.9% |
+  | Warhammer | Daedra Lord (mithril) | 1054 | 25 | 3 | 12.0% |
+  | Warhammer | Giant | 1081 | 232 | 0 | 0% |
+
+  (A Daedra Lord's wind-ups are iron one in two, and DFU's hit roll lands 3.3% of a level-10 player's swings on the
+  level-20 lord - 64% on an orc, 36% on a giant; an elite's iron is about a third of all its wind-ups.) LIGHT holds (1.1% <= 15%), HEAVY holds (90.4% >= 60%), FAIR holds (out of the shape by 70%
+  of its wind-up, 0 of 11 483 wind-ups landed), and MASSIVE held only once TUNED: at `POISE_W.massive` 0.5 alone a
+  Giant's poise followed its 18-74 health roll down to 9, and a reference player's steel warhammer (31) or longsword
+  (16) broke the weak rolls in one blow - `POISE_FLOOR_MASSIVE` 60 now stands above the largest single front blow in
+  the game (a daedric warhammer at Strength 100: 34 x 1.725 = 58.6, 97.7% of it). Section 28's two break targets read
+  "of the wind-ups its blows land on": one swing at most comes in a wind-up, and DFU's hit roll on it - a miss breaks
+  nothing whatever the weapon. The revenant's targets (dodging pays, the will, the ranks) are RVN's, measured when it
+  lands; a class Warrior needs its CLASS*.CFG (ARENA2's data, not in the repository).
+- `tools/foeTelegraphProbe.mjs` gains the contrast's dark band, the rear disc and the shatter (white, cracked, going
+  out): **34 held** in Chromium.
+- **Not built here** - the live Playwright run of a real fight (no ARENA2 in this tree); RVN's harness rows.
+- Pins `test/audittell.test.js` (25), and two in `test/tell8_online.test.js` (O2; B8, O4, O6). Pins moved (each
+  marked): `tell5_patterns` (the rig spends the verdict a frame step after its landing; B9), `tell9_screen` (a charge's
+  run reads empty, an unseen state; the word and the flash, U3/U4), `tell8_online` (`wn` on every record; P1),
+  `audittact` (H1 in three hosts; the watch's L8), `tell6e_landing` (the building's frame, L6; the pools' word, L8),
+  `watch1` (P1, two), `tell2_tell` (the glint in place, U9), `tell1_poise` (the floor in the table and the law, the
+  giant's hold; a test's name that named a light foe it never staggered), `tell6d_aimed` (its flight x1.3, not "half
+  again"), `world2` (the dungeon stream's FLAGGED gap above its wind-up), `world6b`, `world6biiid` and `world6biiie`
+  (the watch's door with a blow's kind, P1), `relayversion` (the world163 row) and the relay's 25 pins
+  (`staffTeleport` lists world163).
+- Mutants `tools/mutants/audittell.json` (78), all dead. Mutant records re-aimed by content (58): `tell8` (25), `tell9`
+  (7), `tell6e` (5), `tell4` (4), `watch1` (4), `tell5`, `tell6b`, `tell2`, `tact4` and `audittact` (two each),
+  `tell6d`, `blood1` and `soc1` (one each) - every one judged again, all dead (`TELL8-gap-forever` survived its first
+  re-judging and has its pin now); and `survtiers` and `survtiers3` (one each: the hosts' cites the shift moved).
+  Cites re-resolved (`tools/citeShift.mjs`, 310) and 21 by hand, aligned by their HEAD lines' content; Port-Status's
+  section-2 identifiers and prose ledger cites moved for the new section-A row (271 rows, 256 standing); the open
+  flags regenerated (nine - this record's) and every page that counts them; an edit of this audit's own that split
+  `exterior.js`'s `climbFeel` from its comment put back.

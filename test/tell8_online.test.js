@@ -14,10 +14,10 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { setPref } from '../src/systems/uiPrefs.js';
 import { validFoeRecord, hitClassField, hitClassOf, HIT_CLASS_K_MAX, FOE_WINDUP_MS, FOE_WINDUP_REACH, POSE_BOUND, RELAY_VERSION } from '../src/net/wire.js';
-import { setTacticsClock, resetTactics, noteLocalPlayer, tacticsStep, foeGlint, poiseTrack, LOCAL_TARGET, staggeredNow, overreachedNow } from '../src/ai/tactics.js';
+import { setTacticsClock, resetTactics, noteLocalPlayer, tacticsStep, foeGlint, poiseTrack, LOCAL_TARGET, staggeredNow, overreachedNow, tokensOut } from '../src/ai/tactics.js';
 import { makeBlow, resetBlows, liveBlows, drawableBlows, blowConnects, blowScaled, BLOW, IRON_COLOR, BLOW_COLOR } from '../src/ai/foeBlows.js';
 import { TELL } from '../src/ai/tells.js';
-import { WIRE_KINDS, WIRE_IRON, WIRE_FEINT, WIRE_LAND_MS, PUPPET_HELD_UNTIL, blowWire, blowWireKey, applyBlowRecord, puppetBlowTurn, puppetGapLanded, blowClassOf, puppetBlow } from '../src/ai/puppetBlows.js';
+import { WIRE_KINDS, WIRE_IRON, WIRE_FEINT, WIRE_LANDED, WIRE_LANDED_S, WIRE_LAND_MS, PUPPET_HELD_UNTIL, blowWire, blowWireKey, applyBlowRecord, puppetBlowTurn, puppetGapLanded, blowClassOf, puppetBlow } from '../src/ai/puppetBlows.js';
 import { blowTakenScale } from '../src/systems/blowTaken.js';
 import { windupDoor, landBlowEffect } from '../src/scenes/hostCombat.js';
 import { _resetBlowEffectsForTests } from '../src/systems/blowEffects.js';
@@ -35,23 +35,24 @@ const near = (a, b, e = 1e-6) => Math.abs(a - b) <= e;
 
 test('TELL8: the record\'s law - the wind-up\'s four fields together (its shape and flags, yaw, landing, origin), a point with them, the stagger or the overreach; each malformed one refuses the record (mutants: a field let through unbounded; the four apart)', () => {
   const base = { i: 3, t: 7, f: [1, 2, 3] };
-  const w = { wk: 0, wy: 0.5, wl: 700, wo: [10, 2, -4] };
+  const w = { wk: 0, wy: 0.5, wl: 700, wo: [10, 2, -4], wn: 4 };
   assert.deepEqual(validFoeRecord({ ...base, ...w, wp: 3.5, ws: 1 }), { ...base, ...w, wp: 3.5, ws: 1 });
-  assert.deepEqual(validFoeRecord({ ...base, wk: 6 | WIRE_IRON | WIRE_FEINT, wy: 7, wl: 0, wo: [0, 0, 0] }).wy, 7 - 2 * Math.PI, 'the yaw wrapped, as `y`');
+  assert.deepEqual(validFoeRecord({ ...base, wk: 6 | WIRE_IRON | WIRE_FEINT, wy: 7, wl: 0, wo: [0, 0, 0], wn: 9 }).wy, 7 - 2 * Math.PI, 'the yaw wrapped, as `y`');
   assert.deepEqual(validFoeRecord({ ...base, ws: 2 }), { ...base, ws: 2 }, 'a stagger or an overreach rides alone');
   assert.deepEqual(validFoeRecord(base), base, 'none: an old record reads as before');
   for (const [bad, why] of [
-    [{ wk: 7 }, 'shape 7 is none'], [{ wk: 32 }, 'past the flags'], [{ wk: -1 }, 'negative'], [{ wk: 1.5 }, 'whole'],
+    [{ wk: 7 }, 'shape 7 is none'], [{ wk: 64 }, 'past the flags'], [{ wn: 256 }, 'a serial past a byte'], [{ wn: -1 }, 'a serial below'], [{ wn: 1.5 }, 'a whole serial'], [{ wk: -1 }, 'negative'], [{ wk: 1.5 }, 'whole'],
     [{ wy: NaN }, 'a yaw'], [{ wl: FOE_WINDUP_MS + 1 }, 'a landing past 3 s'], [{ wl: -1 }, 'a landing past'], [{ wl: 2.5 }, 'whole ms'],
     [{ wo: [1, 2] }, 'three'], [{ wo: [POSE_BOUND * 2, 0, 0] }, 'bounded as `f`'], [{ wo: [0, 1e6, 0] }, 'its height bounded'],
     [{ wp: -1 }, 'a point behind'], [{ wp: FOE_WINDUP_REACH + 1 }, 'a point too far'],
   ]) assert.equal(validFoeRecord({ ...base, ...w, ...bad }), null, why);
-  for (const k of ['wk', 'wy', 'wl', 'wo']) { const r = { ...base, ...w }; delete r[k]; assert.equal(validFoeRecord(r), null, `${k} missing: the four ride together`); }
+  for (const k of ['wk', 'wy', 'wl', 'wo', 'wn']) { const r = { ...base, ...w }; delete r[k]; assert.equal(validFoeRecord(r), null, `${k} missing: the five ride together`); }
+  assert.equal(validFoeRecord({ ...base, ...w, wk: 0 | WIRE_LANDED, wl: 0 }).wk, WIRE_LANDED, 'AUDIT TELL O2: a landing said after it');
   assert.equal(validFoeRecord({ ...base, wp: 2 }), null, 'a point with no wind-up');
   for (const ws of [0, 3, '1', true]) assert.equal(validFoeRecord({ ...base, ws }), null, `ws ${ws}`);
   assert.equal(WIRE_LAND_MS, FOE_WINDUP_MS, 'the writer\'s ceiling is the reader\'s');
   assert.deepEqual([...WIRE_KINDS], ['lunge', 'sweep', 'slam', 'ring', 'charge', 'leap', 'aimed']);
-  assert.equal(RELAY_VERSION, 'world162');
+  assert.equal(RELAY_VERSION, 'world163');   // AUDIT TELL moved it on (world162 was TELL8's)
 });
 
 test('TELL8: the owner\'s word - a live wind-up\'s shape, iron and feint flags, yaw, landing in ms (clamped), origin through the record\'s projection and point; none for a cut feint, a landed blow or a puppet; the stagger and the overreach; the dedupe key never carries `wl` (mutants: a flag dropped; wl in the key)', () => {
@@ -60,7 +61,7 @@ test('TELL8: the owner\'s word - a live wind-up\'s shape, iron and feint flags, 
   const ai = { _tac: { state: 'windup', blow: b } };
   const toWire = (p) => [p[0] * 2, p[1], p[2] * 2];
   const r = blowWire(ai, 10.4, toWire);
-  assert.deepEqual(r, { wk: 5 | WIRE_IRON | WIRE_FEINT, wy: 0.25, wl: Math.round((b.land - 10.4) * 1000), wo: [10, 1, 10], wp: 6.12 });
+  assert.deepEqual(r, { wk: 5 | WIRE_IRON | WIRE_FEINT, wy: 0.25, wl: Math.round((b.land - 10.4) * 1000), wo: [10, 1, 10], wn: 0, wp: 6.12 });
   const later = blowWire(ai, 10.6, toWire);
   assert.equal(blowWireKey(r), blowWireKey(later), 'the key holds as the landing runs down');
   assert.notEqual(r.wl, later.wl);
@@ -81,7 +82,7 @@ test('TELL8: the owner\'s word - a live wind-up\'s shape, iron and feint flags, 
 
 test('TELL8: the puppet\'s state - its mark from `wl` (landing at now + wl, part-filled by the shape\'s length), its colour, its glint (none for a feint), the bar\'s track; tracking turns it; a late record after its landing is no second blow (mutants: the start not part-filled; a new blow per record; the landed blow reborn)', () => {
   const ai = { feet: [0, 0, 0] };
-  applyBlowRecord(ai, { wk: 2 | WIRE_IRON, wy: 0.3, wl: 400, wo: [0, 0, 3] }, { origin: [0, 0, 3] });
+  applyBlowRecord(ai, { wk: 2 | WIRE_IRON, wy: 0.3, wl: 400, wo: [0, 0, 3], wn: 1 }, { origin: [0, 0, 3] });
   const b = puppetBlow(ai);
   assert.ok(b);
   assert.equal(b.kind, 'slam');
@@ -97,18 +98,18 @@ test('TELL8: the puppet\'s state - its mark from `wl` (landing at now + wl, part
   puppetBlowTurn(ai, null, 10.35);
   assert.equal(drawableBlows(10.36, [0, 0, 0]).length, 1, 'kept seen by its frames - records come only when it changes');
   // the same blow again (a re-sent record, its tracking turned): updated, not reborn
-  applyBlowRecord(ai, { wk: 2 | WIRE_IRON, wy: 0.6, wl: 300, wo: [0.1, 0, 3] }, { origin: [0.1, 0, 3] });
+  applyBlowRecord(ai, { wk: 2 | WIRE_IRON, wy: 0.6, wl: 300, wo: [0.1, 0, 3], wn: 1 }, { origin: [0.1, 0, 3] });
   assert.equal(puppetBlow(ai), b);
   assert.equal(b.yaw, 0.6);
   assert.ok(near(b.land, 10.4), 'its landing kept');
   // the landing, on this machine's clock; then a record written before it, read after it
   T = 10.45; puppetBlowTurn(ai, null, T);
   assert.equal(ai._tac.state, 'engage');
-  applyBlowRecord(ai, { wk: 2 | WIRE_IRON, wy: 0.6, wl: 50, wo: [0.1, 0, 3] }, { origin: [0.1, 0, 3] });
+  applyBlowRecord(ai, { wk: 2 | WIRE_IRON, wy: 0.6, wl: 50, wo: [0.1, 0, 3], wn: 1 }, { origin: [0.1, 0, 3] });
   assert.equal(ai._tac.state, 'engage', 'the landed blow is not wound up again');
   // a feint: no glint; a sweep
   const fai = { feet: [0, 0, 0] };
-  applyBlowRecord(fai, { wk: 1 | WIRE_FEINT, wy: 0, wl: 600, wo: [0, 0, 0] }, { origin: [0, 0, 0] });
+  applyBlowRecord(fai, { wk: 1 | WIRE_FEINT, wy: 0, wl: 600, wo: [0, 0, 0], wn: 1 }, { origin: [0, 0, 0] });
   assert.equal(puppetBlow(fai).feint, true);
   assert.deepEqual([...puppetBlow(fai).color], [...BLOW_COLOR]);
   assert.equal(foeGlint(fai, 10.1), null, 'a feint never glints');
@@ -116,14 +117,14 @@ test('TELL8: the puppet\'s state - its mark from `wl` (landing at now + wl, part
 
 test('TELL8: the field gone - a feint\'s cut dashes its mark and lets its swing go on, a break drops the mark and cancels the held arm once; the stagger and the overreach on the puppet and its entity, so my roll takes x1.25 and x1.3 (mutants: the cancel never sent; the fold infinite - unread)', () => {
   const ai = { feet: [0, 0, 0] }, ent = {};
-  applyBlowRecord(ai, { wk: 0 | WIRE_FEINT, wy: 0, wl: 500, wo: [0, 0, 0] }, { origin: [0, 0, 0], entity: ent });
+  applyBlowRecord(ai, { wk: 0 | WIRE_FEINT, wy: 0, wl: 500, wo: [0, 0, 0], wn: 1 }, { origin: [0, 0, 0], entity: ent });
   const fb = puppetBlow(ai);
   assert.deepEqual(puppetBlowTurn(ai, null, 10.1), { hold: true, staggered: false }, 'held through its wind-up');
   T = 10.2; applyBlowRecord(ai, {}, { entity: ent });
   assert.equal(fb.cut, 10.2, 'cut: its mark fades dashed');
   assert.deepEqual(puppetBlowTurn(ai, null, 10.25), { hold: false, staggered: false }, 'its held swing goes on as a plain blow');
   // a break: a stagger arrives with the field gone
-  applyBlowRecord(ai, { wk: 0, wy: 0, wl: 500, wo: [0, 0, 0] }, { origin: [0, 0, 0], entity: ent });
+  applyBlowRecord(ai, { wk: 0, wy: 0, wl: 500, wo: [0, 0, 0], wn: 2 }, { origin: [0, 0, 0], entity: ent });
   T = 10.4; applyBlowRecord(ai, { ws: 1 }, { entity: ent });
   assert.equal(liveBlows().has(ai), false, 'its mark gone');
   assert.equal(ai._tac.state, 'staggered');
@@ -145,7 +146,7 @@ test('TELL8: the field gone - a feint\'s cut dashes its mark and lets its swing 
 });
 
 test('TELL8: each judges their own feet - a puppet\'s blow AT ME lands on my feet: in it the verdict, its weight and its effect for the host\'s door; out of it a dodge; inside at the late sample and out at the landing a perfect dodge; an onlooker judges nothing; an aimed shot\'s arrow is its owner\'s (mutants: the verdict judged at an onlooker; the weight unset; the perfect never)', () => {
-  const at = (me) => { const ai = { feet: [0, 0, 0] }; applyBlowRecord(ai, { wk: 0, wy: 0, wl: 500, wo: [0, 0, 0] }, { origin: [0, 0, 0], me }); return ai; };
+  const at = (me) => { const ai = { feet: [0, 0, 0] }; applyBlowRecord(ai, { wk: 0, wy: 0, wl: 500, wo: [0, 0, 0], wn: 1 }, { origin: [0, 0, 0], me }); return ai; };
   // in the lane at the landing: a hit
   let ai = at(true);
   assert.equal(ai._tac.key, LOCAL_TARGET, 'at me: the cues mark the bar\'s foe');
@@ -174,21 +175,21 @@ test('TELL8: each judges their own feet - a puppet\'s blow AT ME lands on my fee
   assert.equal(ai._blowLandedAt, 11.6, 'its landing still sounds');
   // an aimed shot: held never, judged never
   const sh = { feet: [0, 0, 0] };
-  applyBlowRecord(sh, { wk: 6, wy: 0, wl: 400, wo: [0, 0, 0], wp: 8 }, { origin: [0, 0, 0], me: true });
+  applyBlowRecord(sh, { wk: 6, wy: 0, wl: 400, wo: [0, 0, 0], wp: 8, wn: 1 }, { origin: [0, 0, 0], me: true });
   assert.equal(puppetBlow(sh).ahead, 8);
   assert.equal(puppetBlowTurn(sh, [0, 0, 4], T).hold, false);
   T = 12.1; puppetBlowTurn(sh, [0, 0, 4], T);
   assert.equal(sh._blowVerdict, undefined);
   // a charge or a leap that landed lets its long stride through the host's leap gate
   const lp = { feet: [0, 0, 0] };
-  applyBlowRecord(lp, { wk: 5, wy: 0, wl: 300, wo: [0, 0, 0], wp: 5 }, { origin: [0, 0, 0], me: true });
+  applyBlowRecord(lp, { wk: 5, wy: 0, wl: 300, wo: [0, 0, 0], wp: 5, wn: 1 }, { origin: [0, 0, 0], me: true });
   assert.equal(puppetGapLanded(lp, T), false);
   T = 12.5; puppetBlowTurn(lp, [0, 0, 5], T);
   assert.equal(puppetGapLanded(lp, T), true);
   assert.equal(lp._blowVerdict, true, 'the leap\'s disc at its point');
   assert.equal(puppetGapLanded(lp, T + 2), false, 'a verdict\'s life');
   const ln = { feet: [0, 0, 0] };
-  applyBlowRecord(ln, { wk: 0, wy: 0, wl: 300, wo: [0, 0, 0] }, { origin: [0, 0, 0], me: true });
+  applyBlowRecord(ln, { wk: 0, wy: 0, wl: 300, wo: [0, 0, 0], wn: 1 }, { origin: [0, 0, 0], me: true });
   T = 13; puppetBlowTurn(ln, [0, 0, 2], T);
   assert.equal(puppetGapLanded(ln, T), false, 'a lunge carries no stride past a walk');
 });
@@ -196,7 +197,7 @@ test('TELL8: each judges their own feet - a puppet\'s blow AT ME lands on my fee
 test('TELL8: on a real sprite - the puppet\'s swing starts at its wind-up\'s record, holds its raised arm to the landing and strikes after it (mutants: the hold never passed)', () => {
   const mobile = new MobileUnit(M.Orc, ENEMY_BASICS[M.Orc], () => 8, () => 0.99);
   const ai = { feet: [0, 0, 0] };
-  applyBlowRecord(ai, { wk: 0, wy: 0, wl: 600, wo: [0, 0, 0] }, { origin: [0, 0, 0], me: true });
+  applyBlowRecord(ai, { wk: 0, wy: 0, wl: 600, wo: [0, 0, 0], wn: 1 }, { origin: [0, 0, 0], me: true });
   let struck = null, first = true;
   for (let i = 0; i < 120 && struck == null; i++) {
     T = 10 + i / 60;
@@ -251,7 +252,7 @@ test('TELL8: the owner\'s real brain winds up at a peer it hunts (OPEN 9), aimed
 
 test('TELL8: a puppet handed to me (its owner gone - the heir) thinks afresh: the synthetic state and its mark are dropped at its first step (mutants: the stale state kept)', () => {
   const ai = { feet: [0, 0, 0], _armedTargeting: false, _dist: Infinity, inSight: false, detected: false };
-  applyBlowRecord(ai, { wk: 0, wy: 0, wl: 500, wo: [0, 0, 0] }, { origin: [0, 0, 0] });
+  applyBlowRecord(ai, { wk: 0, wy: 0, wl: 500, wo: [0, 0, 0], wn: 1 }, { origin: [0, 0, 0] });
   assert.ok(liveBlows().has(ai));
   tacticsStep(ai, 0, 1);
   assert.equal(liveBlows().has(ai), false);
@@ -296,7 +297,7 @@ test('TELL8: the hosts by source - both pools write the wind-up into the record 
   assert.match(x, /const _wc = f\.ai\?\._tac\?\.state === 'windup' \? blowClassOf\(f\.ai, \{ kind, weapon, claws: !weapon && !!playerEntity\?\.isInBeastForm, round \}, playerFeet\) : null;/);
   assert.match(x, /\.\.\.\(_wc \? \{ wc: hitClassField\(_wc\) \} : \{\}\),/);
   assert.match(x, /whole: data\.z === 1, \.\.\.\(data\.wc != null \? \{ wc: hitClassOf\(data\) \} : \{\}\) \}\);/);
-  assert.match(x, /if \(onWatch\) _net\.watch\.hurt\(f, dmg, at, dir, data\.wc != null \? hitClassOf\(data\) : null\);/);
+  assert.match(x, /if \(onWatch\) _net\.watch\.hurt\(f, dmg, at, dir, data\.wc != null \? hitClassOf\(data\) : null, kind\);/);   // PIN MOVED (AUDIT TELL P1: and its kind)
   assert.match(d, /if \(!f\.dead && f\.ai\._tac && !f\.ai\._tac\.puppet\) Object\.assign\(r, blowWire\(f\.ai, tacticsNow\(\)\)\);/);
   assert.match(d, /\$\{r\.v\}\$\{r\.wk !== undefined \|\| r\.ws !== undefined \? `,\$\{blowWireKey\(r\)\}` : ''\}`;/);
   assert.match(d, /applyBlowRecord\(f\.ai, r, \{ origin: r\.wo \?\? null, me: _to != null && _me != null && _to === _me, entity: f\.entity, collider \}\);/);
@@ -305,7 +306,84 @@ test('TELL8: the hosts by source - both pools write the wind-up into the record 
   assert.match(d, /hold: _puppet \? \(_pb\?\.hold \?\? false\) : f\.ai\._blowHold,/);
   assert.equal((d.match(/\.\.\.\(_wc \? \{ wc: hitClassField\(_wc\) \} : \{\}\),/g) ?? []).length, 2, 'both of the dungeon\'s lanes');
   assert.match(d, /whole: data\.z === 1, \.\.\.\(data\.wc != null \? \{ wc: hitClassOf\(data\) \} : \{\}\) \}\);/);
-  assert.match(rd('src/scenes/world.js'), /hurt: \(g, dmg, at, dir, wc = null\) => cityGuards\.hurtGuard\(g, dmg, at, dir, \{ fromPlayer: false, peer: true, wc \}\) \},/);
+  assert.match(rd('src/scenes/world.js'), /hurt: \(g, dmg, at, dir, wc = null, kind = 'melee'\) => cityGuards\.hurtGuard\(g, dmg, at, dir, \{ fromPlayer: false, peer: true, wc, kind \}\) \},/);   // PIN MOVED (AUDIT TELL P1: and its kind)
   assert.match(rd('src/scenes/cityGuards.js'), /from: striker\?\.ai\?\.feet \?\? playerFeet, wc,/);
   assert.match(rd('test/relayversion.test.js'), /world162: '[0-9a-f]{64}',   \/\/ TELL8/);
 });
+
+// ── AUDIT TELL: the landing on the wire, the blow's serial ─────────
+
+test('AUDIT TELL O2: the owner SAYS its landing (+32, wl 0) for WIRE_LANDED_S after it, under the blow\'s serial; a receiver whose clock runs behind lands the blow on that word - never reads the field gone as a break; an overreach record lands it too; a chain\'s next serial lands the one before; a break still cancels (mutants: the landing unsaid; the landed record ignored; the serial unread)', () => {
+  // the owner
+  const b = makeBlow('lunge', [0, 0, 0], 0, 9.3); b.n = 7;
+  const owner = { _tac: { state: 'engage', landed: { blow: b, at: 10 } } };
+  assert.deepEqual(blowWire(owner, 10.2), { wk: WIRE_LANDED, wy: 0, wl: 0, wo: [0, 0, 0], wn: 7 });
+  assert.deepEqual(blowWire(owner, 10 + WIRE_LANDED_S + 0.01), {}, 'said for WIRE_LANDED_S, then nothing');
+  assert.notEqual(blowWireKey({ wk: 0, wn: 7, wy: 0, wo: [0, 0, 0] }), blowWireKey({ wk: WIRE_LANDED, wn: 7, wy: 0, wo: [0, 0, 0] }), 'the landing re-sends');
+  // a receiver behind: its own landing is 0.9 s off when its owner's word comes
+  const at = () => { const ai = { feet: [0, 0, 0] }; applyBlowRecord(ai, { wk: 0, wy: 0, wl: 900, wo: [0, 0, 0], wn: 3 }, { origin: [0, 0, 0], me: true }); puppetBlowTurn(ai, [0, 0, 2], T); return ai; };
+  let ai = at();
+  T = 10.3; applyBlowRecord(ai, { wk: WIRE_LANDED, wy: 0, wl: 0, wo: [0, 0, 0], wn: 3 }, { origin: [0, 0, 0], me: true });
+  assert.equal(ai._tac.state, 'engage', 'landed on its owner\'s word');
+  assert.equal(ai._blowVerdict, true, 'judged on my feet');
+  assert.equal(liveBlows().get(ai)?.land, 10.3, 'its mark flashes now');
+  T = 10.5; applyBlowRecord(ai, {}, { origin: null, me: true });
+  assert.equal(puppetBlowTurn(ai, [0, 0, 2], T).hold, false, 'the field gone after: no cancel');
+  // an overreach record before its landing here: it landed there
+  ai = at();
+  T = 10.6; applyBlowRecord(ai, { ws: 2 }, { origin: null, me: true });
+  assert.equal(ai._blowVerdict, true);
+  assert.equal(ai._tac.state, 'overreach');
+  // a chain: its next serial lands the one before, then winds up
+  ai = at();
+  T = 10.9; applyBlowRecord(ai, { wk: 1, wy: 0, wl: 400, wo: [0, 0, 0], wn: 4 }, { origin: [0, 0, 0], me: true });
+  assert.equal(ai._blowVerdict, true, 'the first landed');
+  assert.equal(puppetBlow(ai).kind, 'sweep', 'the second wound up');
+  assert.equal(puppetBlow(ai).n, 4);
+  // the same serial after it landed here (my clock ahead): nothing new
+  T = 11.6; puppetBlowTurn(ai, [0, 0, 2], T);
+  assert.equal(ai._tac.state, 'engage');
+  applyBlowRecord(ai, { wk: 1, wy: 0, wl: 100, wo: [0, 0, 0], wn: 4 }, { origin: [0, 0, 0], me: true });
+  assert.equal(ai._tac.state, 'engage', 'not wound up again');
+  // a break still cancels
+  ai = at();
+  T = 12; applyBlowRecord(ai, {}, { origin: null, me: true });
+  assert.equal(puppetBlowTurn(ai, [0, 0, 2], T).hold, 'cancel');
+  assert.equal(ai._blowVerdict, undefined);
+});
+
+test('AUDIT TELL B8 + O4 + O6: a foe that turns on another mid-wind-up breaks it (one blow, one judge); a seat handed back gives up its brain\'s tokens; the gap-closers\' leap gate opens for a charge AT ME, once (mutants: the turn landed; the tokens kept; the gate reopened)', () => {
+  noteLocalPlayer([50, 0, 50], [0, 0, 1]);
+  const peer = { isPlayer: true, isPeer: true, id: 'p3', feet: [0, 0, 2] };
+  const ent = { health: 100, maxHealth: 100, mobileType: M.Orc, level: 12 };
+  const ai = { feet: [0, 0, 0], yaw: 0, _armedTargeting: true, target: peer, _dist: 2, inSight: true, detected: true, canAct: true, stopDistance: 2.25, speed: 4, vitals: () => ent };
+  const rnd = Math.random;
+  Math.random = () => 0;
+  try { for (let i = 0; i < 40 && ai._tac?.state !== 'windup'; i++) { T += 1 / 16; tacticsStep(ai, 0, 2); } } finally { Math.random = rnd; }
+  assert.equal(ai._tac.state, 'windup');
+  const b = ai._tac.blow;
+  ai.target = { isPlayer: true, isPeer: true, id: 'p4', feet: [0, 0, 2] };   // turned on another
+  T += 1 / 16; tacticsStep(ai, 0, 2);
+  assert.equal(liveBlows().has(ai), false, 'its mark gone');
+  assert.notEqual(ai._tac.blow, b);
+  assert.equal(ai._blowVerdict, null);
+  assert.ok(Object.keys(blowWire(ai, T)).every((k) => k !== 'wk'), 'and its peers are told it broke');
+  // a seat handed back: the real brain's tokens go before the synthetic state takes its place
+  const mine = { feet: [0, 0, 0], yaw: 0, _armedTargeting: false, _dist: 2, inSight: true, detected: true, canAct: true, stopDistance: 2.25, speed: 4, vitals: () => ent };
+  T += 1 / 16; tacticsStep(mine, 0, 2);
+  assert.ok(mine._tac && !mine._tac.puppet);
+  applyBlowRecord(mine, { ws: 1 }, { entity: ent });
+  assert.ok(mine._tac.puppet);
+  assert.equal(tokensOut(LOCAL_TARGET, 'melee') + tokensOut(LOCAL_TARGET, 'ranged'), 0, 'no token held by a brain that is gone');
+  // the leap gate: a charge AT ME, once; a charge at another, never
+  const ch = { feet: [0, 0, 0] };
+  applyBlowRecord(ch, { wk: 4, wy: 0, wl: 100, wo: [0, 0, 0], wn: 1 }, { origin: [0, 0, 0], me: false });
+  T += 0.2; puppetBlowTurn(ch, [0, 0, 3], T);
+  assert.equal(puppetGapLanded(ch, T), false, 'a charge at another opens nothing for me');
+  const cm = { feet: [0, 0, 0] };
+  applyBlowRecord(cm, { wk: 4, wy: 0, wl: 100, wo: [0, 0, 0], wn: 1 }, { origin: [0, 0, 0], me: true });
+  T += 0.2; puppetBlowTurn(cm, [0, 0, 3], T);
+  assert.equal(puppetGapLanded(cm, T), true);
+  assert.equal(puppetGapLanded(cm, T), false, 'once');
+});
+
