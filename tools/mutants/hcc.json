@@ -417,10 +417,10 @@
     ]
   },
   {
-    "name": "HCC-rebase-forgets-trail",
+    "name": "HCC-rebase-forgets-hitch",
     "file": "src/systems/horseCart.js",
-    "old": "    trail.offset(d); hitchedWagonPath.offset(d); horseFollower.offset(d);",
-    "new": "    hitchedWagonPath.offset(d); horseFollower.offset(d);",
+    "old": "    hitch.offset(d); if (hitchSeed) hitchSeed = vadd(hitchSeed, d); horseFollower.offset(d);",
+    "new": "    if (hitchSeed) hitchSeed = vadd(hitchSeed, d); horseFollower.offset(d);",
     "tests": [
       "test/hcc_runtime.test.js"
     ]

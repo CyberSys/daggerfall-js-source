@@ -18,10 +18,10 @@
     ]
   },
   {
-    "name": "AUDIT-BRANCH-IL3-and-for-or",
+    "name": "AUDIT-BRANCH-IL3-seed-forgets-wagon",
     "file": "src/systems/horseCart.js",
-    "old": "    if (!recorded || !hitchedWagonPathInitialized) {",
-    "new": "    if (!recorded && !hitchedWagonPathInitialized) {",
+    "old": "      seed = wagonActive() ? [...wagonPosition()] : null;",
+    "new": "      seed = null;",
     "tests": [
       "test/audit_hcc_branch.test.js"
     ]
