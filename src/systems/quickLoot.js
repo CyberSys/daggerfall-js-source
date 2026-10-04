@@ -46,7 +46,7 @@ import { setClassicLootFrame } from './classicLootFrame.js';   // DISC22-C: a le
 import { getPref } from './uiPrefs.js';
 import { itemNameParts, itemStatRows } from './itemInfo.js';   // RF6: the long name's name part, the same one the plaque's rows wear; QUICK-LOOT-STATS: and the rows the lit one says about itself
 import { nextSelection, selectedRow, hoverItemAt } from './worldHover.js';   // the fold's LAW and the row -> item walk, both driven there
-import { planTake, applyTransfer } from './itemTransfer.js';   // QL-WEIGHT1: the window's own plan and move - the carry gate, the summoned and quest guards, the split, the gold door
+import { planTake, applyTransfer, sendQuestItemClick } from './itemTransfer.js';   // QL-WEIGHT1: the window's own plan and move - the carry gate, the summoned and quest guards, the split, the gold door; LOOT-CLICK: and its click to the quest
 import { isMap } from './useItem.js';   // the map the window USES rather than takes (F156) - left for the window here
 import { racialSuppressInventory } from './lycanthropy.js';   // DISC10-E L3: the beast takes nothing into a pack it cannot open
 import { audio } from './audio.js';   // SND1: the take's own sound
@@ -105,6 +105,9 @@ function takeSound() {
 }
 function takeThrough(playerEntity, items, item, getQuest, moved = null) {
   if (isMap(item)) return null;
+  // FIELD BUGS 2026-10-04b LOOT-CLICK: the press is the remote list's click, and that click's first act tells the quest -
+  // ahead of the plan, so a quest item the pack then refuses has been clicked too, as the window's has
+  sendQuestItemClick(item, getQuest);
   const plan = planTake(item, { bag: playerEntity.items ?? [], entity: playerEntity, getQuest });
   if (!plan.ok) return { refusal: plan.refusal };
   if (plan.sound === 'gold' || !_tookSound) _tookSound = plan.sound === 'gold' ? 'gold' : 'click';

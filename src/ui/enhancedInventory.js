@@ -107,7 +107,7 @@ import { noticeHold, noticeRelease } from './enhancedNotice.js';   // ENH-NOTICE
 // from the classic window so this pane runs them rather than a second
 // reading of them.
 import {
-  planStore, planTake, applyTransfer, planDropGold, WAGON_KG_LIMIT,
+  planStore, planTake, applyTransfer, planDropGold, WAGON_KG_LIMIT, sendQuestItemClick,   // LOOT-CLICK: the remote click's word to the quest
   HOW_MANY_ITEMS, parseSplitAmount,   // DISC25-F: the split popup's law, as the card's field
 } from '../systems/itemTransfer.js';
 import { howManyField } from './howManyField.js';   // DISC25-F: the card's field, one constructor for both counters
@@ -1507,7 +1507,7 @@ function stow(item) {
   if (amount == null) { notice = HOW_MANY_ITEMS(plan.amount); render(); return; }
   // MAC-O6: the same cue this window's `take()` gained - storing (selling,
   // banking, dropping into a wagon or a pile) is a transfer too, and
-  // planStore already hands back the sound (itemTransfer.js:261), unread
+  // planStore already hands back the sound (itemTransfer.js:279), unread
   // until now.
   audio.playOneShot(plan.sound === 'gold' ? SOUND.GoldPieces : SOUND.ButtonClick, 1);   // SND1: a take always sounds - the click, or the gold
   // PX24 (Mac: an action taken closes the tooltip): the transfer
@@ -1533,9 +1533,12 @@ function stow(item) {
   render();
 }
 
-/** REMOTE -> LOCAL, through the same ladder. */
+/** REMOTE -> LOCAL, through the same ladder. LOOT-CLICK (FIELD BUGS 2026-10-04b): a take off the remote list is DFU's
+ *  remote click, whose first act tells the quest - the card's Take, the right-click menu's and the pad's quick act took
+ *  a quest item off a body without it, and only the row's own click said it. */
 function take(item) {
   notice = null;
+  sendQuestItemClick(item, deps.getQuest ?? null);
   const from = remoteTarget(deps, sessionState());
   const bag = deps.items?.() ?? [];
   const plan = planTake(item, {
@@ -1545,7 +1548,7 @@ function take(item) {
   });
   if (!plan.ok) return refuse(plan.refusal);
   // AUDIT INV2 B-F2: the map is an interception in EITHER direction
-  // (itemTransfer.js:283, "F156: either direction") - taking one off a
+  // (itemTransfer.js:301, "F156: either direction") - taking one off a
   // pile reveals and consumes it, exactly as stowing one does. The
   // classic window routes both; this one routed neither.
   if (plan.map) { use(item, remoteTarget(deps, sessionState())); return; }
@@ -2292,6 +2295,7 @@ function showTip(item, from, row) {
   placeBeside(tipEl, row);
 }
 function openMenu(item, from, x, y) {
+  if (from === 'remote') sendQuestItemClick(item, deps.getQuest ?? null);   // LOOT-CLICK: a right-click on the remote list is DFU's click there (RemoteItemListScroller_OnItemRightClick), its word to the quest first
   hideTip(); closeMenu();
   const acts = itemActs(item, from, { qty: false });
   const buttons = [...acts.querySelectorAll('button')];
@@ -2416,7 +2420,7 @@ function itemRow(item, from = 'local') {
     // which is why this sits behind `from === 'remote'` rather than in
     // the pick itself.
     if (from === 'remote' && item.questItem) {
-      deps.getQuest?.(item.questUID)?.getItem?.(item.questSymbol)?.setPlayerClicked();
+      sendQuestItemClick(item, deps.getQuest ?? null);   // LOOT-CLICK: the one door every remote take calls
     }
     // IG7 (Mac: "opening a container or body and clicking to loot an
     // item - the item isn't picked up properly and the tooltip
