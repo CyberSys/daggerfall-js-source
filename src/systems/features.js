@@ -207,6 +207,12 @@ export const MOD_CURATED = Object.freeze({
   // beside Cautiously - the other half of the mod's rule (ui/travelPopUp.js isPlayerControlledTravel). TO-FIELD2 turned
   // it on and FT14 took the pane it could be turned off in, so a trip stopping at inns - Recklessly's too - was always
   // a journey and no dial on any screen said why.
+  // IT1: the four a player reaches for first - whether the carriage is the only fast travel, what the driver charges,
+  // whether he crosses into another region, and whether he will put you on a ship. The rest - what he takes you to, the
+  // ship captain's dials, the map's dots - stay in the mod's own pane.
+  'immersive-travel': Object.freeze([
+    'General.DisableNormalTravel', 'General.DailyCarriageFee', 'General.RegionLockedCarriages', 'ShipTravel.DisableShipTravelOutsideDocks',
+  ]),
   'travel-options': Object.freeze([
     'CautiousTravel.PlayerControlledCautiousTravel', 'StopAtInnsTravel.PlayerControlledInnsTravel', 'ShipTravel.OnlyFromPorts',
     'GeneralOptions.LocationPause', 'TimeAcceleration.AccelerationLimit',
@@ -734,6 +740,10 @@ export const FEATURES = Object.freeze([
   // TO-LIVE (2026-10-02): its other dials are read again as they change
   // (scenes/world.js refreshTravelOptionsSettings).
   modFeature('travel-options', 'Takes effect when the world next loads.', 'world'),
+  // IT1 (2026-10-04): IMMERSIVE TRAVEL - `world`, the carriages at the city gates. Its gate blocks and its two factions
+  // are laid when the game loads (the world-data door latches its blocks, the faction dictionary is built at the load);
+  // its fares and its rules are read as a driver's map opens.
+  modFeature('immersive-travel', 'Takes effect when the game is next started (an in-game Load keeps what it started with); its fares and rules at the next map.', 'world'),
   // WOD1 (2026-09-23): WORLD OF DAGGERFALL - `world`, because it is the
   // wilderness itself. Read at the world's mount, like the roads it
   // consults: the loader's list is built once per world.

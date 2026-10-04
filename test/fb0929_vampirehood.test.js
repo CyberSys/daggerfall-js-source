@@ -154,7 +154,7 @@ test('VAMP-HOOD: ONE hood law - vampirism reads survival/temperature.js cloakSta
   // the travel map's door, the party's refusal and the arrival clamp are world.js's alone: exterior.js mounts no map
   // (its header), and the interior and dungeon hosts are inside, where the door refuses before any sun rung
   const world = read('src/scenes/world.js');
-  assert.equal((world.match(/racialFastTravelBlock\(playerEntity, nowMin\)/g) ?? []).length, 2, 'the map door and the party\'s refusal');
+  assert.equal((world.match(/racialFastTravelBlock\(playerEntity, nowMin\)/g) ?? []).length, 3, 'the map door, the party\'s refusal and the driver\'s map online (AUDIT IT1 W2, PIN MOVED)');
   for (const host of ['exterior', 'worldModes', 'dungeonContext']) {
     assert.doesNotMatch(read(`src/scenes/${host}.js`), /racialFastTravelBlock|racialSunAverse|arrivalClampMinutes/,
       `${host}.js has no travel door - flagged, nothing to wire`);

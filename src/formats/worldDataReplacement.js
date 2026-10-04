@@ -118,8 +118,36 @@ function assetJson(a, fileName, maps) {
 }
 /** ModManager.TryGetAsset(fileName): the JSON, or null. `maps` is the
  *  MapsFile asking (a location file of a pack is an edit of its classic
- *  location). */
-function tryGetAsset(fileName, maps = null) { const a = liveAsset(fileName); return a ? assetJson(a, fileName, maps) : null; }
+ *  location). IT1: with every live layer laid on it. */
+function tryGetAsset(fileName, maps = null) { const a = liveAsset(fileName); return layered(fileName, a ? assetJson(a, fileName, maps) : null); }
+
+// ---- IT1: A LAYER - one mod's records laid onto whichever file the door serves under a name ----
+// DFU serves one mod's file a name, whole: the last loaded wins (TryGetAsset above). Immersive Travel ships Daggerfall's
+// four city-gate blocks with a carriage, its horses and a driver in them, and Beautiful Cities ships the same four
+// names (and 52 wall-and-farm composites built on them) at a higher priority - so by DFU's rule a city laid out by
+// Beautiful Cities has no driver, and online, where the room owns both, none would stand anywhere. On the owner's
+// word ("Add carriages to either"), a layer is the port's departure from the whole-file rule: its records are laid
+// onto the file the door serves - another mod's, or none of them being live, nothing (the mod's own file, a WD1
+// patch of the classic block, already carries them). `owns(json)` names the mod's own files so they are never laid
+// twice; `apply(json, fileName)` answers a NEW json (the served one is the door's and another mod's, never edited).
+const _layers = [];
+/** A layer: { vendor, isOn(), match(fileName), owns(json), apply(json, fileName) }. Answers whether it was added. */
+export function registerWorldDataLayer(layer) {
+  if (!layer || typeof layer.match !== 'function' || typeof layer.apply !== 'function') return false;
+  const at = _layers.findIndex((l) => l.vendor === layer.vendor);
+  if (at >= 0) _layers.splice(at, 1);   // a mod registering its layer again replaces it
+  _layers.push(layer);
+  return true;
+}
+function layered(fileName, json) {
+  if (json == null || !_layers.length) return json;
+  let out = json;
+  for (const l of _layers) {
+    if (!l.match(fileName) || !(l.isOn?.() ?? true) || l.owns?.(json)) continue;
+    out = l.apply(out, fileName) ?? out;
+  }
+  return out;
+}
 /** ModManager.FindAssets<TextAsset>(worldData, extension): every asset
  *  whose name ends so, in registration order (the C#'s list). The JSON is
  *  read when asked for - a pack's 7,000 location files are never rebuilt
@@ -180,7 +208,7 @@ export function _resetWorldDataReplacement({ assets = true } = {}) {
   regions = new Map(); locations = new Map(); blocks = new Map(); buildings = new Map();
   nextBlockIndex = 0; newBlockNames = new Map(); newBlockIndices = new Map(); _blocksFile = null;
   _refused.clear(); _quietLocations = false; _doorLatched = null;
-  if (assets) { _assets.clear(); _portBlocks.clear(); _locationEdits.length = 0; }
+  if (assets) { _assets.clear(); _portBlocks.clear(); _locationEdits.length = 0; _layers.length = 0; }   // IT1: the layers with the assets
 }
 
 // ---- ARENA1: THE PORT'S OWN WORLD DATA - not a mod's, so behind no switch ----

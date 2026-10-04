@@ -439,5 +439,16 @@ export const CREDITS = Object.freeze({
       terms: 'Ported 1:1 from the shipped bundle - the quests verbatim, the script read off its IL, his own textures carried; six bugs mended and recorded - see vendor/foraging/README.md for the permission record.',
       vendor: Object.freeze(['foraging']),
     }),
+    // IT1: kkgobkk's carriages at the gates.
+    Object.freeze({
+      title: 'Immersive Travel',
+      version: '1.5',
+      author: 'kkgobkk',
+      what: 'Carriages at the city gates (IT1): a carriage, its horses and a driver wait outside the walled cities, and the driver takes you to a town or village for a fare - a daily fee on top of any nights at an inn. Online, the driver\u2019s carriage is the fast travel over land. Ported 1:1 off the mod\u2019s compiled assembly.',
+      terms: 'Ported 1:1 from the shipped bundle, read off its compiled assembly; the four gate blocks as the author\u2019s edit over your own game files - see vendor/immersive-travel/README.md for the permission record.',
+      contact: 'kkgobkk, through the Nexus page (daggerfallunity mod 986)',
+      vendor: Object.freeze(['immersive-travel']),
+      link: 'https://www.nexusmods.com/daggerfallunity/mods/986',
+    }),
   ]),
 });
