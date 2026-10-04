@@ -1,4 +1,5 @@
-// FIELD BUGS 2026-10-04e - WILD-ROAD and HUNT-ROAD (bible/01-Overview/Field-Bugs-2026-10-04e.md, report 4).
+// FIELD BUGS 2026-10-04e - WILD-ROAD (bible/01-Overview/Field-Bugs-2026-10-04e.md, report 4; its HUNT-ROAD went with
+// HUNT-OUT's text hunt, removed on main).
 //
 // Discord (Private Joker, "Wilderness Encounter Chances"): "perhaps encounters can be scaled with player level or some
 // other metric. having to completely halt my travel because 1 rat chose today to die can be quite the interruption.
@@ -15,7 +16,6 @@ import { MOBILE_TYPES as M } from '../src/characters/mobileTypes.js';
 import { SOLITARY_TYPES } from '../src/characters/mobileFactions.js';
 import { amGroupRollOwner } from '../src/systems/campEncounters.js';
 import { partyExtraFoes } from '../src/systems/partyScale.js';
-import { createHunting } from '../src/scenes/hunting.js';
 import { FEATURES } from '../src/systems/features.js';
 
 const read = (p) => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8');
@@ -76,6 +76,9 @@ function stands(over = {}) {
 }
 
 test('WILD-ROAD mounted: on the road a level 10 rides past a rat and stands an orc patrol now and then; off the road, or with the switch off, DFU\'s wanderer as it was (mutants: the road never asked; the switch ignored; no company stood)', () => {
+  const row = FEATURES.find((f) => f.id === 'road-encounters');
+  assert.equal(row?.control.key, 'roadEncounters', 'the World switch the arm reads');
+  assert.equal(row.control.initial, true, 'on by default');
   assert.deepEqual(stands({ road: true }), [], 'on the road: the rat passed by');
   assert.deepEqual(stands({ road: false }), [M.Rat], 'off the road: the rat stands');
   assert.deepEqual(stands({ road: true, pref: false }), [M.Rat], 'the switch off: DFU\'s wanderer');
@@ -98,34 +101,4 @@ test('WILD-ROAD: the road is a journey under way or the Overworld up, never a re
   assert.equal(onTheRoad({ travelOptions: { isTravelActive: true, state: { autopilot: {} } } }), true, 'a journey under way');
   assert.equal(onTheRoad({ travelView: { active: true } }), true, 'the Overworld up');
   assert.equal(onTheRoad({ travelView: { active: true }, playerEntity: { isResting: true } }), false, 'resting: a camp, not the road');
-});
-
-test('HUNT-ROAD: the player\'s switch holds the hunt\'s roll on the road - on by default (TO-FIELD3, Mac\'s: the wilderness rolls at the traveller); held, the minute passes unrolled and is never banked (mutants: the hold ignored; the hold banks the minute)', async () => {
-  const row = FEATURES.find((f) => f.id === 'hunt-on-road');
-  assert.equal(row?.control.key, 'huntOnRoad');
-  assert.equal(row.control.initial, true, 'Mac\'s law by default');
-  const road = FEATURES.find((f) => f.id === 'road-encounters');
-  assert.equal(road?.control.key, 'roadEncounters');
-  assert.equal(road.control.initial, true);
-  const { setPref, _resetForTests } = await import('../src/systems/uiPrefs.js');
-  const { newSurvival } = await import('../src/systems/survival/needs.js');
-  _resetForTests(); setPref('survival', 'hard');
-  try {
-    let held = true, minute = 600, rolled = 0;
-    const WILD = { luck: 50, winter: false, outdoors: true, inLocationRect: false, night: false, enemiesNear: false, resting: false, climateIndex: 232 };
-    const entity = { isPlayer: true, level: 5, health: 30, maxHealth: 40, fatigue: 20 * 64, items: [], survival: newSurvival(0), stats: { luck: 50 }, career: {} };
-    const h = createHunting({ entity, env: () => ({ ...WILD, minute }), held: () => held, rolls: () => { rolled++; return 0.99; }, showOverlay: () => {} });
-    h.tick();
-    assert.equal(rolled, 0, 'held: no roll');
-    held = false;
-    h.tick();
-    assert.equal(rolled, 0, 'the same minute, never rolled again once it passed held');
-    minute++;
-    h.tick();
-    assert.ok(rolled > 0, 'the next minute off the road rolls');
-  } finally { _resetForTests(); }
-  const W = read('src/scenes/world.js');
-  assert.match(W, /held: \(\) => getPref\('huntOnRoad'\) === false && onTheRoad\(\),/);
-  assert.match(W, /if \(_mode\(\) === 'exterior'\) hunting\.tick\(\);/, 'the roll is still the overworld host\'s mode (TO-FIELD3\'s pin)');
-  assert.match(read('src/scenes/hunting.js'), /_lastMinute = minute;\n\s*if \(_win \|\| overlayActive\(\)\) return null;\n\s*if \(held\(\)\) return null;/);
 });

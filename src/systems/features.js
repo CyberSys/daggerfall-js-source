@@ -1056,18 +1056,6 @@ export const FEATURES = Object.freeze([
     kinds: Object.freeze(['enhanced']),
     control: Object.freeze({ store: 'prefs', key: 'roadEncounters', initial: true, online: 'player' }),
   }),
-  // HUNT-ROAD (FIELD BUGS 2026-10-04e, Discord: "the random hunting y/n prompts that stop you completely"): the hunt's
-  // roll held on the road (scenes/hunting.js `held`). ON by default - TO-FIELD3, Mac's: the wilderness rolls at the
-  // traveller - and the player's own to turn off.
-  Object.freeze({
-    id: 'hunt-on-road',
-    group: 'world',
-    title: 'Hunting while travelling',
-    note: 'Hunting chances can come up while you travel and stop the journey. Off, no hunt is rolled while you travel.',
-    effect: 'Takes effect at once.',
-    kinds: Object.freeze(['enhanced']),
-    control: Object.freeze({ store: 'prefs', key: 'huntOnRoad', initial: true, online: 'player' }),
-  }),
   // DISC19-F (2026-09-24, Discord through Mac: "enhance guard
   // interaction"): THE WATCH DEFENDS THE TOWN (systems/townWatch.js) -
   // the port's own. DFU's combat watch exists only for a crime; this
@@ -1089,7 +1077,7 @@ export const FEATURES = Object.freeze([
   // calories/README.md), not a port. The one switch for the whole of
   // it: the felt temperature and the five needs on the world minute,
   // the food, water and camping items the store shelves and a new
-  // character carries, camps and campfires, the costed rest, hunting.
+  // character carries, camps and campfires, the costed rest.
   // Off is the classic game: no needs, no provisions minted.
   // SURV-TIERS (2026-09-23): the one switch is three tiers now - Off,
   // Casual (the default: the needs only borrow stamina, and a rest,

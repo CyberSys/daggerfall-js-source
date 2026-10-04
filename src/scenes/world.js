@@ -193,22 +193,19 @@ import { PLAYED_STEP_MAX_SECONDS } from '../systems/quest/clock.js';   // WORLD7
 import { mintQuestFoeWave, placeFoeEnv, entityOccupancy, questFoeGender, reviveQuestBehaviour, heldSpots, holdSpotWhile, questBoxHoldsFoes, questShareTag, sharedQuestFoe, partnerStandsQuestFoes, questBehaviourFor, adoptsOrphanQuestFoe, isPrivateQuestFoe, KeptKillLedger, creditKeptKills } from './questFoeHost.js';   // B1   // AUDIT 63r F24: SerializableEnemy.cs:206-217's quest-link arm, the one home both hosts use
 import { ENEMY_BASICS } from '../characters/enemyBasics.js';   // MERGE: FinalizeFoe's Flying lift reads the behaviour flag
 import { markFoeReach } from '../systems/foeReach.js';   // WATER-FOES: a foe in the water reaches no one aboard
-import { intermittentEnemySpawn, setEnemyAlert, areEnemiesNearby, foeHostile, quietNights } from '../systems/encounters.js';   // OW6: foeHostile, the one hostility gate   // REST5: a carried night wakes to no ambush
-import { nightDue, setNightListener, nightStamp, nightKindOf, isNightStamp, carriedNightEnd, REST_ACT_TEXT } from '../systems/restAct.js';   // REST5: the party's night   // AUDIT REST-PARTY: and where it was slept   // AUDIT REST II: the mark asked lazily (P5), and what a carried night says (P3)
-import { createNightWatch, carriedNightAction, carriedRestKind } from '../systems/partyRestLaw.js';   // AUDIT REST-PARTY: the party's night, pinned by execution   // AUDIT REST II P1/P2: its watch
+import { intermittentEnemySpawn, setEnemyAlert, areEnemiesNearby, foeHostile } from '../systems/encounters.js';   // OW6: foeHostile, the one hostility gate   // CAMP-ROLL: REST5's quietNights moved with the carried night's sequence (scenes/shared.js restCampNight)
+import { nightDue, setNightListener, nightStamp, nightKindOf, isNightStamp, carriedNightEnd, REST_ACT_TEXT, campStamp, campMarkOf } from '../systems/restAct.js';   // REST5: the party's night   // AUDIT REST-PARTY: and where it was slept   // AUDIT REST II: the mark asked lazily (P5), and what a carried night says (P3)
+import { createNightWatch, carriedNightAction, createCampWatch, campPasses } from '../systems/partyRestLaw.js';   // AUDIT REST-PARTY: the party's night, pinned by execution   // AUDIT REST II P1/P2: its watch   // CAMP-ROLL: the camp's one roll
 import { ambushNight } from '../systems/restAct.js';   // AUDIT REST-PARTY A1: a resting encounter stood breaks the night that rolled it
 import { createStandingWatch, installLegalNotices } from './standingHost.js';   // REP1: the watch's stop; REP5: the law's notices
-import { SPAWNER_ARMS } from '../systems/encounters.js';   // SURV6: the hunt's beast stands on the wilderness arm
-import { skillValue } from '../systems/skills.js';   // SURV6: the hunter's four skills
+import { skillValue } from '../systems/skills.js';   // TO1: the avoid-encounter roll's live Stealth
 import { refreshMentor, mentorStatusText, effectiveLevel } from '../systems/mentorMode.js';
 import { setMasterSkillsGate, MASTER_SKILLS_DUNGEON_TEXT } from '../systems/masterSkills.js';   // SOFTCAP3
 import { isOnlinePage, ONLINE_LAND_TRAVEL_REFUSAL } from '../systems/onlineLane.js';   // SOFTCAP3: Master Skills is online only; AUDIT TRAVEL-ONLINE T7: the map's floor
 import { readImmersiveTravelSettings, immersiveTravelLoaded, IT_POPUP } from '../systems/immersiveTravel.js';   // IT1: Immersive Travel - a driver's map and its fast travel; AUDIT IT1 W4: the mod loaded for the game
 // SOFTCAP1: mentor mode, the party's overlay
-import { inflictDisease } from '../systems/diseases.js';   // SURV6: a foul pool's water
-import { createHunting, HUNT_PENDING_NEAR_M } from './hunting.js';   // SURV6: hunting, foraging and the water search as real-time events
 import { createForagingWait } from './foragingWait.js';
-import { createMarksBook } from '../net/marksBook.js';   // MARKS1: the account's Marks - the balance, the Bank's sale, a guild's treasury   // FORAGE4: online, Foraging's quest time is a wait on the hunt's page
+import { createMarksBook } from '../net/marksBook.js';   // MARKS1: the account's Marks - the balance, the Bank's sale, a guild's treasury   // FORAGE4: online, Foraging's quest time is a wait on the wait page
 import { createNoticeBook, parseNoteCommand, planNoteAnswer, NOTE_LETTER_LOST } from '../net/noticeBook.js';   // NOTICE1: this device's Notice Boards - a town's board read, a note pinned
 import { createNoticeOverlay, closeNoticeDoor, noticeDoorOpen } from '../ui/noticeDoor.js';   // NOTICE1: the board's window, through its one door
 import { createProfBook } from '../net/profBook.js';   // PROF1: this character's professions - its Stores, its day, its harvests kept until answered
@@ -288,7 +285,7 @@ import { TIDE_EFFECTS } from '../net/tideLaw.js';   // SEASON1 part two: a Storm
 import { hallOfRecordsWindow } from '../ui/hallOfRecords.js';   // SEASON1 part three: a seat's Chronicle as a book (Seats-Arc 9.2)
 import { hasSpecialAbility, SPECIAL_ABILITY } from '../systems/rest.js';   // F-slice: the NoRegen restore gate
 import { locationCompassDirection, buildingCompassDirection, findFactionByTypeAndRegion, directionHintString } from '../systems/talk.js';   // wave 26: %di's remote arm + the region-faction search; the LOCAL arm beside it; SPAWNED-DUNGEONS2b: the same eight-word compass
-import { seasonValue, SEASONS, MINUTES_PER_DAY, dateFromClassicMinutes, dateTimeString, midDateTimeString, isDayFromMinutes } from '../systems/gameDate.js';   // AUDIT 23 (wts-1); Q4-v: the notebook's header shapes
+import { seasonValue, MINUTES_PER_DAY, dateFromClassicMinutes, dateTimeString, midDateTimeString, isDayFromMinutes } from '../systems/gameDate.js';   // AUDIT 23 (wts-1); Q4-v: the notebook's header shapes
 import { regionPriceAdjustment, worldPriceTiltOf, TRANSPORT_HORSE, TRANSPORT_SMALL_CART } from '../systems/shopStock.js';   // Q4-v: CreateGold's regional term (the shops' own producer); U41: Items.Contains(Transportation, ...)
 import { getNameBankOfRegion, getRandomFullName } from '../characters/nameHelper.js';   // AUDIT 23 (characters-5); AUDIT 58: MacroHelper.GetRandomFullName, one home
 import { createHitEffects, setSplashObserver } from './hitEffects.js';
@@ -512,7 +509,7 @@ import { createTravelSteer, createColliderProbe, steerDrive } from '../systems/t
 import { exteriorSurfaces, downProbe, rayDistanceFor, ON_EXTERIOR_WATER, exteriorSwimming } from '../player/exteriorSurface.js';   // ROAD-B (b3): PlayerMotor's three exterior surface methods; OT1: IsPlayerSwimming above ground
 import { isOnFoot } from '../systems/transport.js';   // TransportManager.IsOnFoot - the raycast's reach and the mounted footstep gate
 import { floorLanding } from '../player/enterExit.js';   // FixStanding for the exterior arrivals (2026-08-27)
-import { jumpSpeedMultiplier, isEnhancedJumping, tallySkill, SKILLS } from '../systems/skills.js';   // TO1: the avoid-encounter roll reads skillValue live (imported above, SURV6) Stealth   // AUDIT 64 F2: CheckAirControl's IsEnhancedJumping disjunct
+import { jumpSpeedMultiplier, isEnhancedJumping, tallySkill, SKILLS } from '../systems/skills.js';   // TO1: the avoid-encounter roll reads skillValue live (imported above) Stealth   // AUDIT 64 F2: CheckAirControl's IsEnhancedJumping disjunct
 import { playerEntity, surfacePlayer, hurtPlayer, playerBlowCameToNothing, setDeathPresenter, presentPlayerDeath, setAvoidDeathHook, registerDuelFell, duelSpare, setStaffPowers, staffPowers, registerLevitateWard, registerFreeFlight } from '../characters/playerEntity.js';   // AUDIT-SEATS G5: a siege's ward on Levitate   // AUDIT-SEATS G4: a spectator's flight
 import { SOUND } from '../systems/soundClips.js';
 import { createWeaponRig, autoBuildArms, armIdentityOf, armBuiltFor, armsReady, sheetHolderOf, buildArmsFor, prebuildArmsForSave } from '../combat/weaponRig.js';   // MWA1: the arms at boot; MWA3: the identity the arm should stand for, beside the one it does; MW-EARLY: and before the world is read
@@ -523,7 +520,7 @@ import { storesIn, spendStore, mintStores } from '../systems/naval/navalStores.j
 import { orderRows } from '../systems/naval/shipCrew.js';   // SHIP-CREW: the orders list   // SEA-REPAIR: carpenter's stores in a hold   // E4: PlayerEntity.CarriedWeight carries the gold counter's own term
 import { calculateAttackDamage } from '../combat/formulas.js';   // X2-slice: enemy-arrow impacts
 import { inflictPoison } from '../systems/poisons.js';   // X2-slice: poisoned enemy arrows
-import { weaponTypeForItem, WEAPON_TYPES } from '../combat/fpsWeapon.js';
+import { weaponTypeForItem } from '../combat/fpsWeapon.js';
 import { getStaticDoors } from '../world/staticDoors.js';
 import { spaceAcross, clearDoorways, doorSpotsNear, spacingSkips } from '../characters/foeSpacing.js';   // TACT3: the crowd and the door
 import { Collider } from '../player/collider.js';
@@ -551,6 +548,14 @@ import { seatArrivalLine, seatHallOf, seatBannerOf, boardTithePct } from '../net
 import { hallMay } from '../net/hallLaw.js';   // SEAT-HALL: a palace's keepers are a hall's
 import { createOnlineHomes, moveArenaHomes, homeSceneName, homeTownBlocks, holdRealmDeeds, homeClaimLayout, checkpointLanded } from '../systems/onlineHomes.js';   // HOME1: the account service's homes, one town at a time; ARENA4b: the ones the arena displaced, moved; HOME-PRICE: a town's size; FIELD BUGS 2026-10-04d KNIGHT-HOUSE: a deed the realm gave, held
 import { townBoardRows, townHomeRows } from '../ui/townMapMarks.js';   // TOWN-MARKS: the Notice Boards and the player housing on the town map
+import { setVendorWaypoint, clearVendorWaypoint, vendorWaypoint, vendorWaypointKey, vendorWaypointVersion, isVendorWaypoint, vendorWaypointLabel } from '../systems/vendorWaypoint.js';   // HOME-VENDOR: the trader's waypoint
+import { setVendorPage } from '../ui/vendorPage.js';   // HOME-VENDOR: the Vendor page, under the Professions
+import { goldText as vendorGoldText } from '../net/marketLaw.js';   // HOME-VENDOR: a trader's price in words
+import { homeMayEnter as vendorDoorOpen } from '../net/homeLaw.js';   // HOME-VENDOR: only the traders whose door lets this player in
+import { itemStatRows } from '../systems/itemInfo.js';   // HOME-VENDOR: a trader's piece's stats, the look panel's own rows
+import { rarityLines, lootRarityOn } from '../systems/lootRarity.js';   // HOME-VENDOR: and its tier and affixes
+import { magicPowersLines } from '../systems/itemPowers.js';   // HOME-VENDOR: and an enchanted piece's powers
+import { itemIsIdentified } from '../systems/tradeModes.js';   // HOME-VENDOR: known, or "powers unknown"
 import { setSigilOnline, setSigilRenown } from '../systems/sigil.js';   // SIGIL1: a weapon won online carries a sigil, woken by my Renown
 import { setSetsDueling, setsDueling, drinkWorn, setSetsWearer } from '../systems/sigilSets.js';   // SET2: the duel's word - sets sleep in one; SET4: the drink, whole; SET5: the wearer a tooltip reads
 import { lootHudChips } from '../systems/lootPowers.js'; import { setSetPowersVoice, setHudChips, heldPlayerBlow, remarkPlayerBlow } from '../systems/sigilSetPowers.js'; import '../systems/lootDrought.js'; import '../systems/lootCodex.js'; import { createLootLines } from './lootLines.js';   // SET3: what the sets DO - every power registered at import; its voice is this host's; SET5: its chips; LOOT4: and lootPowers.js beside it, what a loot piece DOES (the Loot arc), every kind registered at import; LOOT8: lootDrought.js, the drought's finder and take listener, registered at import; LOOT10: lootCodex.js, the codex's take listener, round sweep and record; LOOT11: the lines of light over a find
@@ -1168,6 +1173,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   const _bandPlacePixels = new Set();   // AUDIT OW4 B2 / AUDIT OW5 B2: the land a band may NOT stand on (below)
   const _layoutKeyPixel = new Map();   // WD3: a town's location key -> its pixel in the index (the layout pins' refresh)
   const _layoutKeyOfMapId = new Map();   // WD3: a town's map id (unsigned) -> its location key (a save's records name towns so)
+  const _townOfMapId = new Map();   // HOME-VENDOR: a town's map id (unsigned) -> { name, px, py, region } - a trader's town, named and found
   for (let r = 0; r < maps.regionCount; r++) {
     const region = maps.getRegion(r);
     if (!region) continue;
@@ -1180,6 +1186,7 @@ export async function bootWorld(canvas, renderer, params, status) {
       if (l < baseCount) { _hubRows.push(loc); _bandPlacePixels.add(`${p.x},${p.y}`); }   // OW6: the band's places
       _layoutKeyPixel.set(makeLocationKey(r, l), `${p.x},${p.y}`);   // WD3
       _layoutKeyOfMapId.set(loc.mapTableData.mapId >>> 0, makeLocationKey(r, l));   // WD3
+      _townOfMapId.set(loc.mapTableData.mapId >>> 0, { name: String(loc.name ?? ''), px: p.x, py: p.y, region: r });   // HOME-VENDOR
       if (l < baseCount) {   // BOUNTY1: the game's own rows alone - a mod's addition stands on one client and not another
         _bountyLocPixels.add(`${p.x},${p.y}`);   // the pixels a hunt's ground may not be
         // a dungeon a board may name - the game's own, never a town's (a city's castle is the city's)
@@ -2110,6 +2117,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   let tvDng = { at: null, dg: -1, list: [] };   // TV6: the dungeons about the traveller (above its readers: BOOT-TDZ - a load empties it)
   let tvFind = { at: null, dg: -1, n: -1, list: [] };   // AUDIT OW5 D1: the find's own, uncapped (above its readers: BOOT-TDZ - a load empties it)
   const _tvBountyHold = new Map();   // BOUNTY-OVERWORLD: each held bounty's kept scene point, by bounty id
+  const _tvVendorHold = {};   // HOME-VENDOR: the trader's waypoint's kept scene point (tvSceneKept's holder)
   const _tvPartyHold = new Map();   // AUDIT OW5 P6: each party member's kept scene point (PERF-TV's own holder), by account
   const TV_FIND_REACH = 4;   // AUDIT OW5 D1: map pixels about the traveller's that a kilometre from the feet can reach
   let tvBandSeen = { at: null, life: -1, list: [] };   // TV7: the bands about the traveller, this life's (above its readers: BOOT-TDZ)
@@ -5129,19 +5137,16 @@ export async function bootWorld(canvas, renderer, params, status) {
     //
     // TO-FIELD3 (Mac, 2026-09-18): "remove the changes the past session
     // did to the traveling system... journeys no longer sit as resting
-    // (needs charge normally again, health ticks back), and hunting
-    // rolls fire during travel again."
+    // (needs charge normally again, health ticks back)."
     //
     // TO-FIELD sat an accelerated journey as `resting` to take the
     // port's own fatigue surcharge off a 60x ride. It is REMOVED on
     // Mac's word, and the whole of it: `resting` is not a fatigue knob,
-    // it is the needs' one word for "sat still", and three other laws
-    // read it. It held the bare-skin block's naked-cold and sunburn
-    // ticks and the byFire exposure damage (needs.js:544, :520) - the
-    // health Mac wants ticking - and, the one TO-FIELD never counted,
-    // it shut the HUNTING roll off entirely (hunting.js:120 refuses on
-    // `resting`), so a traveller could not hunt on the road at all.
-    // One flag, four laws; the journey takes the world as it finds it.
+    // it is the needs' one word for "sat still", and other laws read
+    // it. It held the bare-skin block's naked-cold and sunburn ticks
+    // and the byFire exposure damage (needs.js:544, :520) - the health
+    // Mac wants ticking. One flag, several laws; the journey takes the
+    // world as it finds it.
     //
     // WHAT THIS RESTORES, said plainly so it is not rediscovered as a
     // bug: the needs stack starving 4, parched 6 or dehydrated 12,
@@ -5986,7 +5991,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   const hcc = createHorseCartPool({
     renderer, meshes: { getGpuMesh, cpuModels }, collider: () => collider, now: () => performance.now() / 1000,
     threats: hccThreats, selfId: () => online?.id ?? null, peerName: (id) => peerName(id),
-    onChanged: () => { _hccDirty = true; }, toWire: (p) => campToWire(p), log: console,   // AUDIT HCC O5: the change key in the wire frame (campToWire is the pose's law, declared with the stream below; read only once frames run)
+    onChanged: () => { _hccDirty = true; }, toWire: (p) => campToWire(p), log: console, peerAnchor: (id) => { const sh = _peerMapPoses.get(id); return sh && (sh.rd | 0) === 2 ? onlineToScene(sh) : null; },   // AUDIT HCC O5: the change key in the wire frame (campToWire is the pose's law, declared with the stream below; read only once frames run); WAGON-HITCH: where another player's cart rider stands as drawn this frame (`rd` 2, the cart - the pose peerRiders stands them on, boat-adjusted; the online frame fills the map before the pool steps), so their trailing wagon hangs from the rider seen here rather than easing apart from it
   });
   hcc.setPeerLook((id) => (_hiddenPeers.has(id) ? 'hidden' : (_veils.get(id) ?? null)));   // AUDIT (pre-merge) I-B: a concealed owner's team is concealed with it (last frame's word - the pool steps before the peers sync)
   hccGroundMoved = hcc.groundMoved;   // DISC20-C
@@ -8255,49 +8260,12 @@ export async function bootWorld(canvas, renderer, params, status) {
     if (_hccSettingsKey !== null) hccRuntime.handleSettingsChanged();
     _hccSettingsKey = k;
   };
-  // SURV6 - HUNTING, FORAGING AND THE WATER SEARCH (survival/hunting.js,
-  // scenes/hunting.js): once a game minute in the wilderness by day
-  // with no foe near, the luck roll; an event opens the Yes/No box in
-  // the overlay slot, the search runs its game minutes in real seconds
-  // on the busy page, the outcome lands in the pack (or on the body),
-  // the minutes pass offline (online the clock stands, WORLD5), and
-  // "the hunted" stands on the wilderness arm as an encounter would.
-  // This host alone: exterior.js lives inside the town rect.
   /** SEA-HUNT: the player afloat - at a helm (Come Sail Away sailing), on a boat's deck (its "I'm On A Boat"), aboard
-   *  another player's boat, on a sea ship's deck (the naval host's aboard), or swimming. The land's own business - the
-   *  hunt, a bounty's trail, a wilderness band's chase - is none of theirs there. */
+   *  another player's boat, on a sea ship's deck (the naval host's aboard), or swimming. The land's own business - a
+   *  bounty's trail, a wilderness band's chase - is none of theirs there. */
   const playerAfloat = () => !!csaRuntime?.isSailing?.() || (playerEntity.activeEffects ?? []).some((e) => isBoatEffectBundle(e?.bundleName))
     || !!csaAboard.aboard?.boat || !!naval?.aboard?.() || (walkMode && playerSpawned && !!player.isPlayerSwimming);
-  /** HUNT-FOES (FIELD BUGS 2026-10-02): a foe that sees me, or one still loading within HUNT_PENDING_NEAR_M of my feet
-   *  (spawnFoe is async - the frame's encounter roll runs before the hunt's, and a foe on its way is in no pool yet), is
-   *  near: no hunt opens over it, and one open is closed. A stand loading far off (a site's garrison as its block
-   *  streams in) is no foe near. */
-  const huntFoesNear = () => {
-    if (duelEnemyNear() || areEnemiesNearby(exteriorFoePool())) return true;   // AUDIT: a duel's foe is a peer, in no pool - every other gate here asks it
-    const f = walkMode && playerSpawned ? player.pos : cam.pos;
-    return exteriorFoes.pendingFeet().some((p) => Math.hypot(p[0] - f[0], p[2] - f[2]) <= HUNT_PENDING_NEAR_M);
-  };
-  const hunting = createHunting({
-    entity: playerEntity,
-    env: () => ({
-      minute: Math.floor(ownMinutes()), climateIndex: maps.getClimateIndex(playerTravelPixel().x, playerTravelPixel().y),   // LIVED1: the hunt's minute is the body's (its needs, its catch's age); the winter below is the sky's
-      luck: liveStat(playerEntity, 'luck'), winter: seasonValue(dateFromClassicMinutes(skyMinutes())) === SEASONS.Winter,   // TIME1: the sky's winter
-      outdoors: _mode() === 'exterior' && !(walkMode && playerSpawned && player.isPlayerSwimming), afloat: playerAfloat(), inLocationRect: _musicInLocationRect(), night: isNight(minuteNow()),   // SEA-HUNT: nothing is hunted from a deck
-      enemiesNear: huntFoesNear(), resting: !!playerEntity.isResting || !!playerEntity.preventEnemySpawns,
-      hasBow: weaponTypeForItem(weaponRig.playerWeapon.weapon) === WEAPON_TYPES.Bow,
-      skills: { archery: skillValue(playerEntity, SKILLS.Archery), stealth: skillValue(playerEntity, SKILLS.Stealth), criticalStrike: skillValue(playerEntity, SKILLS.CriticalStrike), climbing: skillValue(playerEntity, SKILLS.Climbing) },
-    }),
-    showOverlay: (w) => townTalk.showOverlay(w), overlayActive: () => townTalk.overlayActive,
-    advanceMinutes: (n, { quiet = false } = {}) => { playerTicker.advance(n); if (!quiet) runEncounterTick(walkMode && playerSpawned ? player.pos : cam.pos, true); },   // CAMP-REST: the search's minutes are spent through the tick as a skip - no group roll on the replay; AUDIT HUNT-FOES: none at all when the box was taken away
-    spawnBeast: ({ mobileType, count }) => { const feet = walkMode && playerSpawned ? player.pos : cam.pos; for (let i = 0; i < count; i++) _standEncounterFoe({ mobileType, ...SPAWNER_ARMS.wilderness }, feet); },
-    inflictPoison, inflictDisease, tally: (id) => tallySkill(playerEntity, id, 1),
-    enemiesNear: () => huntFoesNear(),   // HUNT-FOES: a foe come near closes the ask or the search
-    // HUNT-ROAD (FIELD BUGS 2026-10-04e, Discord: "the random hunting y/n prompts that stop you completely"): the
-    // player's own switch (systems/features.js 'hunt-on-road', ON by default - TO-FIELD3's law, Mac's: the wilderness
-    // rolls at the traveller) - off, no hunt is rolled while a journey runs or the Overworld is up
-    held: () => getPref('huntOnRoad') === false && onTheRoad(),
-  });
-  // FORAGE4 (bible/06-Systems/Foraging.md 13.1): online, QAE's `raise time by` is a wait on the hunt's busy page, in
+  // FORAGE4 (bible/06-Systems/Foraging.md 13.1): online, QAE's `raise time by` is a wait on the wait page, in
   // the same slot - opened only when the slot is free (the tool's box and the pack closed first), the quest's boxes
   // held behind it, a foe near (the rest test, a duel's foe with it) ending it with the rest forgiven
   const foragingWait = createForagingWait({
@@ -8722,11 +8690,11 @@ export async function bootWorld(canvas, renderer, params, status) {
   // Fast travel resets the anchor (PreventEnemySpawns parity - DFU
   // suppresses the whole post-travel window).
   let _lastEncMinutes = null;
-  // `isResting` = "these minutes are a skip, not a walk": a rest window's sub-tick, but also the exhaustion collapse, a
-  // camp meal and a forage/hunt search (CAMP-REST, 2026-09-19). Only the GROUP roll reads it; lone wanderers still roll.
+  // `isResting` = "these minutes are a skip, not a walk": a rest window's sub-tick, but also the exhaustion collapse and
+  // a camp meal (CAMP-REST, 2026-09-19). Only the GROUP roll reads it; lone wanderers still roll.
   /** AUDIT LIVED1b P1: `spawns: false` walks the minutes with the wanderers' roll left out - a party mirror's night
    *  (PSCALE1 COUNT-1: the rester's roll is the party's), whose watch is still the follower's own. */
-  /** WILD-ROAD / HUNT-ROAD: the traveller is on the road - a Travel Options journey under way (walkJourneying's own test:
+  /** WILD-ROAD: the traveller is on the road - a Travel Options journey under way (walkJourneying's own test:
    *  the window up and its autopilot steering), or the Overworld's view up - and not resting (a rest's minutes are a
    *  camp's, and its wanderer wakes the sleeper as DFU's does). */
   const onTheRoad = () => !playerEntity.isResting && (!!(travelOptions?.isTravelActive && travelOptions.state?.autopilot) || !!travelView?.active);
@@ -9547,10 +9515,10 @@ export async function bootWorld(canvas, renderer, params, status) {
   // ?dungeon host RAN every CastWhenUsed / CastWhenStrikes / SoulBound
   // / affinity arm against no ctx at all. They are optional-chained, so
   // it WAS silent. WAVE D closed it: the body is scenes/hostEnchant.js
-  // and dungeonContext.js:3068 mounts the same one, gated on
+  // and dungeonContext.js:3071 mounts the same one, gated on
   // `opts.enchantCtx !== false` because setDefaultEnchantCtx is a
   // session singleton and EC1 already routes THIS host's mount into
-  // that context through modes.dungeonCtx - so worldModes.js:7241
+  // that context through modes.dungeonCtx - so worldModes.js:7251
   // passes false beside its `chargen: false` and only the standalone
   // ?dungeon route mounts its own. S40 filled isResting
   // in - the sentence that stood here said it "stays absent above
@@ -9709,7 +9677,7 @@ export async function bootWorld(canvas, renderer, params, status) {
    *  arguments - which is exactly how DFU's call sites differ. */
   const _standEncounterFoe = (hit, feet) => {
     if ((exteriorFoes.encounterRoom?.() ?? Infinity) <= 0) return null;   // AUDIT OW5b E1: the pool full, spawnFoe's own cap stands nobody - and no journey is stopped for a foe that never comes
-    const env = placeFoeEnv({
+    const base = placeFoeEnv({
       collider,
       playerFeet: [feet[0], feet[1] + 0.9, feet[2]],
       playerYawRad: cam.yaw,
@@ -9717,11 +9685,14 @@ export async function bootWorld(canvas, renderer, params, status) {
       isOccupied: entityOccupancy((f) => f.ai?.feet ?? f.feet, _placingPool, feet),   // AUDIT PSCALE1 COUNT-3: and the spots a stand in flight already holds
     });
     let spot = null;
-    for (let i = 0; i < LOOSE_FOE_PLACE_ATTEMPTS && !spot; i++) {
-      spot = placeFoeFreely(env, {
-        minDistance: hit.minDistance, maxDistance: hit.maxDistance,
-        lineOfSightCheck: hit.lineOfSightCheck,
-      });
+    for (const env of campPasses(base, campFeet(), hit.minDistance)) {
+      for (let i = 0; i < LOOSE_FOE_PLACE_ATTEMPTS && !spot; i++) {
+        spot = placeFoeFreely(env, {
+          minDistance: hit.minDistance, maxDistance: hit.maxDistance,
+          lineOfSightCheck: hit.lineOfSightCheck,
+        });
+      }
+      if (spot) break;
     }
     if (!spot) return null;
     ambushNight();   // AUDIT REST-PARTY A1: a night running now (restAct.js runRestNight) breaks at its next sub-tick - spawnFoe stands the foe after its awaits
@@ -10658,6 +10629,8 @@ export async function bootWorld(canvas, renderer, params, status) {
     onEnemyBreak: () => { playerEntity._restEnemyBreakAt = performance.now(); },
     // PARTY-REST19: see checkCanceledByFollower's own doc comment above.
     canceledByFollower: () => checkCanceledByFollower(),
+    // CAMP-ROLL: the camp's one roll (campRest, below - read at the call, after it stands)
+    camp: { open: (night) => campRest.open(night), verdict: () => campRest.verdict(), settle: () => campRest.settle(), close: () => campRest.close() },
     place: () => ({
       inTownOutside: _isPlayerInTownStrict(),
       inTownLocation: isPlayerInTown(_musicLocationType()),
@@ -12280,7 +12253,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     // so an F9 pressed inside a shop recorded the street's sheath and
     // hand. The mode host answers for the rig that is actually drawn
     // and null outside interior mode (the dungeon owns its own
-    // composer, dungeonContext.js:8427), so exterior mode and a
+    // composer, dungeonContext.js:8430), so exterior mode and a
     // pre-seam mode host compose exactly as before, per field.
     const wp = modes?.weaponPose?.() ?? null;
     const snap = snapshotPlayer(playerEntity, {
@@ -12689,7 +12662,6 @@ export async function bootWorld(canvas, renderer, params, status) {
       // before the save is read over the entity it was building for.
       modes?.abortTransition?.();
       await modes?.transitionSettled?.();
-      if (hunting.window) townTalk.closeOverlay(hunting.window);   // AUDIT HUNT-FOES: a hunt's box over the load is the replaced game's - closed before the save is read (its minutes quiet, no beast), never closed later over the loaded one
       if (csaRuntime) csaCall(() => csaRuntime.OnStartLoad());   // CSA-D: ComeSailAway.OnStartLoad - the riders dropped, the helm left; CSA-J (the audit): AHEAD of the save's player (SaveLoadManager.cs:1378, the restore at :1497) - its StopSailing hands a lent ship back, and after restorePlayer it took the loaded character's own
       const extras = restorePlayer(playerEntity, snap, spellsByIndex);
       if (!extras) { townTalk.say('Save version mismatch.'); return; }
@@ -13009,7 +12981,6 @@ export async function bootWorld(canvas, renderer, params, status) {
       townTalk.say('Could not import the classic save.');
       return false;
     }
-    if (hunting.window) townTalk.closeOverlay(hunting.window);   // AUDIT HUNT-FOES: as the quickload's
     const extras = restorePlayer(playerEntity, bundle.snap, spellsByIndex);
     if (!extras) return false;
     autoBuildArms(playerEntity);   // MWA1: the classic save's character too
@@ -13692,6 +13663,8 @@ export async function bootWorld(canvas, renderer, params, status) {
       quests: () => (marksOn() ? questMapMarks(questTracker.views, questTracker.tracked()?.id ?? null, questPixel) : []),
       // BOUNTY1 (Mac: "board quests can be a green circle", then black - green is the party's): each held bounty's pixel, on both maps
       bounties: () => bountyHost?.mapMarks() ?? [],
+      // HOME-VENDOR: the trader's waypoint - its town's pixel, the house's owner and the town, on both maps (ui/vendorMapMark.js)
+      vendor: () => { const wp = vendorWaypoint(); const t = wp ? _townOfMapId.get(wp.map) : null; return t ? { px: t.px, py: t.py, label: `Trader: ${wp.owner || 'a'}'s house`, town: t.name } : null; },
       // HUB1: each region's hub, marked and named - online alone (systems/regionHubs.js); offline the map is DFU's
       hubAt: params.has('online') ? (summary) => hubAtMapId(regionHubs, summary?.mapID ?? summary?.mapId) : null,
       // SEAT1a: each seat's ring (and a crown's crown, a March's and a Free Land's second ring) - while the seats are open
@@ -13878,9 +13851,13 @@ export async function bootWorld(canvas, renderer, params, status) {
       townBoards: () => townBoardMarks(b),
       townHomes: () => townHomeRows({
         buildings: summaries, mapId: dfLoc.mapTableData?.mapId, regionIndex: dfLoc.regionIndex, houses: playerEntity.houses ?? null,
-        homeAt: onlineHomes ? (mapId, buildingKey) => onlineHomes.homeAt(mapId, buildingKey) : null,
+        homeAt: onlineHomes ? (mapId, buildingKey) => {
+          const h = onlineHomes.homeAt(mapId, buildingKey);
+          // HOME-VENDOR: the trader's waypoint names its house on the town map
+          return h && isVendorWaypoint(mapId, buildingKey) ? { ...h, own: false, owner: vendorWaypointLabel(h.owner) } : h;
+        } : null,
       }),
-      townHomesVersion: () => onlineHomes?.version() ?? 0,
+      townHomesVersion: () => (onlineHomes?.version() ?? 0) + vendorWaypointVersion() * 100_000,   // HOME-VENDOR: a waypoint moved repaints
     }));
     onlineHomes?.ensure(dfLoc.mapTableData?.mapId);   // TOWN-MARKS: a town heard from long ago is asked again, and its homes mark when it answers
   };
@@ -15445,7 +15422,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   // exterior -> the townTalk overlay, interior OR dungeon -> the mode
   // machine's slot. U43-ii shipped the dungeon half: showQuestBox
   // offers the window to `modes.showQuestOverlay` below, and
-  // worldModes answers it in BOTH modes (worldModes.js:10937-11001 -
+  // worldModes answers it in BOTH modes (worldModes.js:10948-11012 -
   // dungeon routes to dungeonCtx.showOverlay), so a dungeon popup is
   // shown rather than logged loudly and dropped.
   // AUDIT 24 (wave 21): DaggerfallMessageBox.Show() is a
@@ -18247,6 +18224,7 @@ export async function bootWorld(canvas, renderer, params, status) {
       send: (act) => socialLink()?.sendSocial(act) ?? false,   // false is the rate gate's answer: the panel keeps the button and says "try again"
       keepLetter: (letter) => keepLetterInJournal(letter),   // JOURNAL1: a letter kept in my journal, as a page is
       journey: () => partyTravel,   // PARTY-UI: the Party tab's Journey - the session is made later in this host, so it is read when drawn
+      canLead: () => !!socialLink()?.partyLeadOk,   // PARTY-LEAD: Make leader, through a hub that knows the act
       canOpen: () => !gamePaused() && !(townTalk.hudCovered || (modes?.hudCovered ?? false)),
       onOpen: () => surfaceOpen('social'),   // AUDIT SOC B6: counted with the chat's and the F-menu's - the first up frees the mouse, the last down takes it back
       onClose: () => surfaceClose('social'),
@@ -19392,6 +19370,17 @@ export async function bootWorld(canvas, renderer, params, status) {
   // one memo, which the look's map question shares, so the compass (every street frame) and the held map's poll never
   // re-read a region (MapsFile keeps one in memory)
   const questPixel = (find) => questPlacePixel(maps, find?.regionName ?? '', find?.locationName ?? '');
+  /** HOME-VENDOR: THE TRADER'S WAYPOINT ON THE COMPASS - its town's pixel, from the street, until the player stands in it
+   *  (there the town map names the house); null with none set. */
+  const vendorCompassMark = () => {
+    const wp = vendorWaypoint();
+    if (!wp || (modes?.mode ?? 'exterior') !== 'exterior') return null;
+    const t = _townOfMapId.get(wp.map);
+    const here = playerTravelPixel();
+    if (!t || (here && here.x === t.px && here.y === t.py)) return null;
+    const tr = state.pixelTranslation(t.px, t.py);
+    return [tr[0] + TERRAIN_SIZE / 2, tr[2] + TERRAIN_SIZE / 2];
+  };
   /** GUIDE5: the tracker's quest's place on the compass - the centre of its map pixel in THIS scene's frame (the
    *  streaming host's pixelTranslation, the gate's own sum), on the street only (buildings and dungeons steer by
    *  their own frames), and only while the marks are on and the place is on the player's map. */
@@ -19478,7 +19467,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   const socialActText = (k, who) => (k === 'friend.request' ? `Friend request sent to ${who}`
     : k === 'party.invite' ? `Party invite sent to ${who}`
       : k === 'friend.remove' ? `${who} is no longer your friend` : 'Sent');
-  /** PARTY-REST1: RestWindow's own `mode` string ('loiter'|'timed'|'full', restWindow.js:680) to the wire's small
+  /** PARTY-REST1: RestWindow's own `mode` string ('loiter'|'timed'|'full', restWindow.js:691) to the wire's small
    *  numbers (net/wire.js validPartyPose: 0/1/2) - the one place the three hosts' restState getters (worldModes.js,
    *  dungeonContext.js) and this host's own outdoor overlay converge, so the mapping is written once. */
   const partyRestModeCode = (mode) => (mode === 'timed' ? 1 : mode === 'full' ? 2 : 0);
@@ -19999,7 +19988,7 @@ export async function bootWorld(canvas, renderer, params, status) {
         busy: () => playerEntity.isResting || playerEntity.isLoitering || !!townTalk.overlay || mirrorRestRefused(),
         town: () => !!hostRestDeps()?.restPlace?.()?.inTownOutside,   // AUDIT REST II P4: the act's own first refusal (restWindow.js _openAct)
       });
-      if (!act) continue;
+      if (!act || (act === 'busy' && _campWatch.isOpen())) continue;   // CAMP-ROLL: my rest window is watching the camp - it sleeps that night itself (restAct.js campNightStep), so nothing is said
       const name = m.name || 'A party member';
       if (act === 'far') setMidScreenText(REST_ACT_TEXT.carriedFar(name), 4);   // PARTY-REST-FAR1's word and its four seconds, said once a night
       else if (act === 'busy') setMidScreenText(REST_ACT_TEXT.carriedSkipped(name), 4);
@@ -20010,15 +19999,13 @@ export async function bootWorld(canvas, renderer, params, status) {
   };
   const sleepCarriedNight = (name, theirs) => {
     const bag = hostRestDeps();
-    if (!bag?.restNight) return;
+    if (!bag?.restCampNight) return;
     const night = nightDue(playerEntity, ownMinutes());
-    const kind = carriedRestKind(bag.placeKind?.() ?? null, theirs);   // AUDIT REST-PARTY: by their fire, not on the ground beside it
     let r = null;
-    quietNights(() => {
-      if (kind) bag.overrideRestKind?.(() => kind);   // read by the open below; the close clears it (createRestDeps setResting)
-      bag.setResting(true);
-      try { r = night ? bag.restNight({ carried: true }) : bag.restShort(); } finally { bag.setResting(false); }
-    });
+    // AUDIT REST-PARTY: by their fire, not on the ground beside it; CAMP-ROLL: the carried night's one sequence
+    // (scenes/shared.js restCampNight - the kind read, the override, the open, the night, its rolls quiet), the rest
+    // windows' camp wait its other caller; the close is mine
+    try { r = bag.restCampNight(theirs, night); } finally { bag.setResting(false); }
     // AUDIT REST II P3: a night slept whole says so; one a foe broke or a prevent-rest condition cut says its own line -
     // AUDIT REST III C3: and each raises the skills, as the window's close gives the rester (EndRest's every arm)
     const end = carriedNightEnd(name, night, r, bag.endLines);
@@ -20026,6 +20013,31 @@ export async function bootWorld(canvas, renderer, params, status) {
     if (end.text) setMidScreenText(end.text, 5);
   };
   setNightListener((kind) => { if (social && sharedClockOn()) { _partyRestJustStartedAt = nightStamp(social.now(), kind ?? undefined); _partyComposedAt = -Infinity; } });
+  // CAMP-ROLL (2026-10-04, the player: "In a party, or with other players. Every player spawns their own enemies when
+  // resting"; then "Do it"): ONE ROLL A CAMP - systems/partyRestLaw.js's own note says the whole of it. This is the
+  // host's half: the rest windows (both skins) open the camp when an act's channel opens on a night (my stamp takes the
+  // open mark, sent at once), ask it at the channel's end and through the wait (restAct.js campNightStep), settle it at
+  // the end (an open mark with no night heard becomes `done`) and close it with the window (createRestDeps setResting).
+  // A camp mate is a present member here within the party's 15 m (nearAccount, the night's own reach), not resting
+  // alone. The outdoor host and the dungeon's carry it (createRestDeps `camp`); a building rolls nothing (encounters.js:
+  // inside and no dungeon), so worldModes' interior bag carries none; the ?exterior dev host has no party.
+  const _campWatch = createCampWatch({ kindOf: nightKindOf, campOf: campMarkOf });
+  const campStampNow = (which) => { _partyRestJustStartedAt = campStamp(social.now(), which); _partyComposedAt = -Infinity; };
+  const campRest = {
+    open: (night) => {
+      if (!night || !social?.party || !sharedClockOn() || !restTogether()) { _campWatch.close(); return; }
+      _campWatch.open(social.others(), social.now());
+      campStampNow('open');
+    },
+    verdict: () => (social?.party && sharedClockOn() ? _campWatch.verdict({
+      me: social.acct, members: social.others(), now: social.now(),
+      inCamp: (m) => memberPresent(m) && nearAccount(m.acct, m.p),
+    }) : null),
+    settle: () => { if (social && campMarkOf(_partyRestJustStartedAt) === 'open') campStampNow('done'); },
+    close: () => { campRest.settle(); _campWatch.close(); },
+  };
+  /** CAMP-ROLL: the feet of the camp mates beside me - the band an ambush I roll at rest keeps from each of them. */
+  const campFeet = () => (playerEntity.isResting ? partyNear().filter((m) => { const row = social?.others().find((o) => o.acct === m.acct); return !!row && !restsAlone(row) && nearAccount(m.acct, row.p); }).map((m) => m.feet) : []);
   const partyRestHere = () => !sharedClockOn() && !!social?.party && !modes?.insidePartyRestExempt && restTogether();   // REST-OPT: resting alone is a rest of my own
   const partyRestGate = () => {
     if (!social?.party) return null;
@@ -20748,6 +20760,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     return showNoticeWindow({
       town: { name: town.name, mapId: town.mapId }, rumour: rumour ?? [], bountyLine: !!town.bountyLine,
       gate: () => noticeGateCard(), answer: (note) => answerNote(note), work, market,
+      vendors: market ? vendorBoardHost(region) : null,   // HOME-VENDOR: the region's traders, searched, a waypoint set on one
       guilds: true,   // GUILD1e: the Guilds tab - the town's recruitment posters, and the reader's own guild's board
       seatBattle: (st, f) => siegeEnter(st, f), seatRoyal: (st, r, w) => royalEnter(st, r, w), seatRecords: (st) => openRecordsFromBoard(st), seat: seatAt ? { seat: seatAt, book: seatBook, nameOf: (k) => seatAtMapId(townSeats, k)?.name ?? null, port: coastalAt(town.px, town.py, seaPixel, csaIsPortTown(town.px, town.py)), countName: materialCountLabel } : null,   // SEAT1b: a seat town's standings   // SEAT2a part four: the battle's door
     });
@@ -20774,6 +20787,108 @@ export async function bootWorld(canvas, renderer, params, status) {
     townTalk.showOverlay(ov);
     return true;
   };
+  // ═══ HOME-VENDOR (net/vendorLaw.js): THE TRADERS - a home's stall, the board's Vendors tab, the Vendor page ═══
+  /** The region the player stands in (the purse's and the page's), or null. */
+  const vendorRegionHere = () => { const p = playerTravelPixel(); try { const r = p ? maps.getRegionIndexAt(p.x, p.y) : null; return Number.isInteger(r) && r >= 0 ? r : null; } catch { return null; } };
+  const vendorTownOf = (map) => _townOfMapId.get(Number(map) >>> 0)?.name || 'a town';
+  const vendorNameOf = (it) => { try { return marketGoods.goodName(it); } catch { return 'a piece'; } };
+  /** A trader's piece LOOKED AT - `{ rows, magic }`: the look panel's own stat rows (systems/itemInfo.js itemStatRows -
+   *  damage, armour, hands, material, condition, weight), and its magic as the trade window says it (its tier with its
+   *  affixes and set, and an enchanted piece's powers - or "powers unknown" unidentified). Null for no piece. */
+  const vendorItemStats = (it) => {
+    if (!it || typeof it !== 'object') return null;
+    let rows = [], magic = [];
+    try { rows = itemStatRows(it).map((r) => (r.label ? `${r.label}: ${r.text}` : r.text)); } catch { rows = []; }
+    try { magic = rarityLines(it, { sigil: true, set: true, lore: false }); } catch { magic = []; }
+    try {
+      if (!(it.rarity && lootRarityOn()) && isEnchanted(it)) {
+        for (const t of magicPowersLines(it, { identified: itemIsIdentified(it) })) if (t && !magic.includes(t)) magic.push(t);
+      }
+    } catch { /* a piece whose powers cannot be read says none */ }
+    return { rows, magic };
+  };
+  const vendorSaid = (r, ok) => (r?.ok ? { ok: true, text: ok } : { ok: false, text: accountRefusalText(r?.error) });
+  /** A trader's piece BOUGHT at its stall: off the purse at its own price, its delivery collected into the pack at once. */
+  const vendorBuy = async (vendor, row) => {
+    const hub = marketHubs[row.region];
+    const r = await marketBook.buy({ region: row.region, listing: row.id, units: 1, max: row.price, hubs: hub ? { [row.region]: hub } : {}, currency: 'gold', vendor }, marketMint);
+    if (r?.ok && r.data?.delivery?.id) await marketBook.collectGood(r.data.delivery.id);
+    return vendorSaid(r, `Bought ${vendorNameOf(row.item)} for ${vendorGoldText(row.price)}.`);
+  };
+  /** A piece TAKEN BACK off my trader: the listing cancelled, the piece collected back into the pack at once. */
+  const vendorTake = async (row) => {
+    const r = await marketBook.cancel(row.id, marketMint);
+    if (r?.ok && r.data?.delivery?.id) await marketBook.collectGood(r.data.delivery.id);
+    return vendorSaid(r, `${vendorNameOf(row.item)} is back in your pack.`);
+  };
+  /** A piece from my pack PUT UP at my trader, for gold, for the trader's thirty days. */
+  const vendorPut = async (vendor, item, price) => {
+    const g = marketGoods.good(item);
+    if (!g?.offered || !(g.pick >= 0)) return { ok: false, text: accountRefusalText('market-good-gone') };
+    const region = vendorRegionHere() ?? 0;
+    const r = await marketBook.list({ region, kind: 'item', item: g.offered, pick: g.pick, price, hubs: {}, currency: 'gold', vendor }, null, g);
+    return vendorSaid(r, `${vendorNameOf(item)} is up for sale at ${vendorGoldText(price)}.`);
+  };
+  /** A row's waypoint SET on its trader's house. */
+  const vendorWaypointOn = (row) => {
+    const ok = setVendorWaypoint({ map: row.map, buildingKey: row.buildingKey, owner: row.owner ?? '', town: vendorTownOf(row.map) });
+    if (ok) townTalk.say(`Waypoint set: ${row.owner ?? 'a trader'}'s house in ${vendorTownOf(row.map)}. A gold coin marks it on your world map.`);
+    return ok;
+  };
+  /** THE TRADERS THIS PLAYER MAY REACH (Mac: "Show only traders whose house a given player can actually enter"): the
+   *  region's directory kept to the houses whose door lets this character in - the door's own law (net/homeLaw.js
+   *  homeMayEnter: theirs, public, their party's owner, their guild's, a room they rent); the service says each door, the
+   *  party's names are the relay's. A row with no door said is kept (an older service). */
+  const vendorReachable = async (region) => {
+    const r = await marketBook.vendors(region);
+    if (!r?.ok) return r;
+    const partyNames = (social?.others?.() ?? []).map((m) => m.name).filter((n) => typeof n === 'string' && n.length > 0);
+    const rows = (r.data?.rows ?? []).filter((row) => !row.home || vendorDoorOpen(row.home, { partyNames }));
+    return { ...r, data: { ...r.data, rows } };
+  };
+  const vendorMarketOpen = () => !!marketBook && profBook?.state.open === true && marksBook?.state?.open !== false;
+  /** The board's Vendors tab: the region's traders, read fresh. */
+  const vendorBoardHost = (region) => ({
+    mode: 'board', region, regionName: REGION_NAMES[region] ?? 'the region',
+    read: () => vendorReachable(region), nameOf: vendorNameOf, townOf: vendorTownOf, stats: vendorItemStats,
+    waypoint: vendorWaypointOn, waypointKey: () => vendorWaypointKey(), clearWaypoint: () => clearVendorWaypoint(),
+  });
+  /** A TRADER PRESSED in its home (worldModes.js openHomeVendor): its stall, in the Notice Board's window - the owner
+   *  stocking it, a visitor buying. False where the market is not this account's (worldModes says so). */
+  const openHomeVendorWindow = ({ vendor, own = false, owner = '' } = {}) => {
+    if (!vendorMarketOpen() || !noticeBook || !vendor) return false;
+    const who = own ? 'Your trader' : `${owner || 'A'}'s trader`;
+    return showNoticeWindow({
+      town: { name: who, mapId: 0 },
+      traderOnly: { title: who, sub: own ? 'What you have put up for sale here. Visitors buy it at this stall.' : 'Goods for sale, paid from your purse.' },
+      vendors: {
+        mode: 'stall', own, owner,
+        read: async () => {
+          const r = await marketBook.vendorStock(vendor);
+          const v = r?.ok ? r.data?.vendor : null;
+          if (v && isVendorWaypoint(v.map, v.buildingKey)) clearVendorWaypoint();   // the trader reached: the waypoint's work is done
+          return r;
+        },
+        nameOf: vendorNameOf, stats: vendorItemStats, purse: () => marketBook.purse(vendorRegionHere() ?? 0),
+        buy: (row) => vendorBuy(vendor, row), take: (row) => vendorTake(row),
+        goods: () => marketGoods.goods(), put: (item, price) => vendorPut(vendor, item, price),
+      },
+    });
+  };
+  // THE VENDOR PAGE (ui/vendorPage.js): my traders, their stock, what they sold and the gold it holds; every region's
+  // traders searched, a waypoint set
+  setVendorPage({
+    shown: () => vendorMarketOpen() && marketBook.goldOk === true,
+    mine: () => marketBook.myVendors(), search: (region) => vendorReachable(region),
+    regionHere: vendorRegionHere, regionNames: REGION_NAMES, nameOf: vendorNameOf, townOf: vendorTownOf, stats: vendorItemStats,
+    take: (row) => vendorTake(row), collectGold: async () => {
+      const region = vendorRegionHere();
+      if (region == null) return { ok: false, text: 'Collect your takings where a region\'s bank can hold them.' };
+      const r = await marketBook.collectGold(region);
+      return vendorSaid(r, `Your takings are in your account in ${REGION_NAMES[region] ?? 'this region'}.`);
+    },
+    waypoint: vendorWaypointOn, waypointKey: () => vendorWaypointKey(), waypoint0: () => vendorWaypoint(), clearWaypoint: () => clearVendorWaypoint(),
+  });
   /** GUILD1e (Seats-Arc 8.2): THE BOARD IN A GUILD'S HALL PRESSED - the Notice Board's window on the guild's own notes
    *  alone (`guildOnly`), under the guild's name; no town's board is read. The service asks whether this character is a
    *  member (a visitor's press never reaches here - worldModes.js says the board is the guild's). */
@@ -22209,6 +22324,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     partyRestHere: () => partyRestHere(),   // OVH4: whether a rest here is the party's - the party card on either skin (restDoor.js)
     // STRANGER-REST1: shared with this host's own outdoor toggleRest and dungeonContext.js's - see strangerRestGate's doc comment.
     strangerRestGate: () => strangerRestGate(),
+    campRest,   // CAMP-ROLL: the camp's one roll, for the dungeon's rest bag (worldModes.js forwards it)
     // PARTY-REST5: shared with this host's own outdoor rest deps and dungeonContext.js's, forwarded the same way
     // partyRestGate/strangerRestGate already are - see outdoorRestDeps' own `onEnemyBreak` doc comment.
     onEnemyBreak: () => { playerEntity._restEnemyBreakAt = performance.now(); },
@@ -22569,6 +22685,7 @@ export async function bootWorld(canvas, renderer, params, status) {
         return { key: seat.key, name: g.name ?? '', member: seatHallOf(seat, guildBook?.guild?.id ?? null), heraldry: seatBannerOf(seat) };
       },
     },
+    homeVendor: { open: (o) => openHomeVendorWindow(o) },   // HOME-VENDOR: a trader pressed in its home (worldModes.js openHomeVendor)
     guildHall: {
       info: () => {
         const g = guildBook;
@@ -24413,6 +24530,18 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
       marks.push({ key: `bounty:${b.id}`, at: tvSceneKept(h, x, z, TV_PLACE_LIFT), label: `Bounty: ${b.label}`, sub: farDistanceText(km), kind: 'bounty', edge: true, pick: true });   // BOUNTY-SNAP: pressable, on its ring alone (ui/travelViewHud.js pickBox)
     }
     for (const id of [..._tvBountyHold.keys()]) if (!bountyIds.has(id)) _tvBountyHold.delete(id);   // a bounty over lets its point go
+    // HOME-VENDOR: THE TRADER'S WAYPOINT - its town's pixel, in Travel Options' mark's own yellow (`target`), named for
+    // the house and held at the edge off the picture with its distance, as a bounty is
+    {
+      const wp = vendorWaypoint();
+      const t = wp ? _townOfMapId.get(wp.map) : null;
+      if (t) {
+        const o = mapPixelToWorldCoords(t.px, t.py);
+        const x = o.x + 16384, z = o.z + 16384;
+        const km = (Math.hypot(x - here.x, z - here.z) / 32768) * PIXEL_KM;
+        marks.push({ key: `vendor:${wp.map}:${wp.buildingKey}`, at: tvSceneKept(_tvVendorHold, x, z, TV_PLACE_LIFT), label: `Trader: ${wp.owner || 'a'}'s house`, sub: `${t.name} · ${farDistanceText(km)}`, kind: 'target', edge: true });
+      }
+    }
     // AUDIT DEEP2 B-1: THE JOURNEY'S END IS NEVER OFF THE SCREEN UNSEEN - held at the edge as a far place is (a far town's
     // plate gave way to a flag drawn above the picture, and the destination was gone for the whole journey), a place's
     // with its distance, and a click on a place's flag is its journey again (after a stop there is no ground to click)
@@ -24429,9 +24558,9 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     // down under the view (drawPeerNames) and these stand for them
     const near = new Set();
     const book = travellerBook.live(Date.now());
-    const myGt = myGuildTag();   // OW-KIN: asked once a frame, not once a player
     const sharing = new Map();   // the region's travellers by id: the players who share where they are with it
     for (const t of book) sharing.set(t.id, t);
+    const myGt = myGuildTag();   // OW-KIN: asked once a frame, not once a player
     // the room's drawable peers, as this frame's onlineFrame sifted them (it runs before the readout): the concealed
     // (`_hiddenPeers`) and the veiled (`_veils`) are never marked
     for (const d of online?.drawable?.() ?? []) {
@@ -26568,7 +26697,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     sigilBroker?.draw(renderer);   // BROKER-CAGE: the Sigil Broker's cage beside it, and its door
     gatePool?.draw(renderer);   // WB2: the Oblivion Gate's stone
     camps.draw(renderer);   // SURV3: the tents, the cart's own pass
-    hcc.draw(renderer);   // HCC: the trailing / parked / following wagon and its cargo, mine and the peers' (the horses ride the flats' pass)
+    hcc.draw(renderer, null, tvf ? { selfGrow: tvf.grow, grow: peerGrow } : undefined);   // HCC: the trailing / parked / following wagon and its cargo, mine and the peers' (the horses ride the flats' pass); WAGON-HITCH x OW-BIG: a cart's wagon grown with its rider under the Overworld
     bountyFarms?.draw(renderer);   // BOUNTY-FARM: a held farm bounty's farmstead
     quays?.draw(renderer);   // QUAYS: the harbours' quays and the gangways to my ships made fast
     yards?.draw(renderer);   // HOME-YARD: the pieces outside the town's homes, and the one being placed
@@ -27044,26 +27173,6 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     // HCC: the horse billboards on the flats' axis (the runtime ticked above, hccTick - AUDIT HCC H1)
     if (hcc.enabled && _mode() === 'exterior') livePersonBatches.push(...hcc.batches());
     if (csaOn() && _mode() === 'exterior') pushSeenShipFlats(csa.batches(), livePersonBatches);   // CSA-B: the boats' crews and lanterns; SHIP-FLATS: none under a pixel
-    // TO-FIELD3 (Mac, 2026-09-18): "hunting rolls fire during travel
-    // again". TO-FIELD held SURV6's roll while an accelerated journey
-    // ran; the gate is REMOVED on Mac's word, with the `resting` flag
-    // above that was holding the roll a second time from inside
-    // (hunting.js:120).
-    //
-    // WHAT IT MEANS, said plainly so it is not rediscovered as a bug:
-    // the roll fires once a GAME minute, and a journey spends those at
-    // up to a hundred times real time, so a wilderness ride rolls it
-    // every few real seconds. Every event opens a Yes/No box through
-    // `townTalk.showOverlay`, and the mod reads a foreign window on top
-    // as a reason to stop (TravelOptionsMod.cs:1348-1356,
-    // `interruptTravel`). A long wilderness journey will therefore be
-    // interrupted by game, often. That is the wilderness being alive
-    // while you cross it, which is what was asked for; anyone who would
-    // rather ride through it turns the survival mod's hunting off - or,
-    // HUNT-ROAD (FIELD BUGS 2026-10-04e), only its roll on the road: the
-    // World switch 'Hunting while travelling' (`hunting`'s `held` above;
-    // on by default, so this law stands as Mac asked).
-    if (_mode() === 'exterior') hunting.tick();   // SURV6: the minute's hunting roll; the window takes the slot
     foragingWait.tick();   // FORAGE4: online, a standing wait takes the slot when it is free, and writes its seconds left for the save
     // PERF-CROWD (2026-09-19): and the live crowd is culled too. This list
     // is the townspeople, the city watch, the exterior foes, the ground
@@ -27105,48 +27214,56 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     // WX2: what falls is what the front SHOWS - under the enhanced sky the
     // outgoing rain tapers after the sim has cleared and the incoming
     // holds off until the deck is in. Classic: the sim's mode, as W1.
-    const precipShown = enhancedFront ? fx.shown : precipMode;
-    if (precipShown === 'sand') {
-      // WEATHER2d: THE SANDSTORM'S SAND - the wisps' program in the sand's look, the front's intensity its
-      // strength, on the one wind's rate and travel; the rain program never draws it
-      if (sand && !_dwPrecipOff) {
-        sand.draw({ on: true, strength01: fx.intensity, windV: wd.windV, step: wd.step, gust: wd.gust }, proj, view, new Float32Array(wxEye), now / 1000);
+    // RAIN-OVER-GRASS (Mac: "the rain, rains behind the grass texture"): what falls - the rain, the snow, the sand and
+    // the wisps - writes no depth, so every pass drawn AFTER it painted over it: the grass field and the halls' banners
+    // stood in front of rain falling nearer the eye. It is drawn once the opaque world is whole (below, after the banners).
+    const drawFalling = () => {
+      const precipShown = enhancedFront ? fx.shown : precipMode;
+      if (precipShown === 'sand') {
+        // WEATHER2d: THE SANDSTORM'S SAND - the wisps' program in the sand's look, the front's intensity its
+        // strength, on the one wind's rate and travel; the rain program never draws it
+        if (sand && !_dwPrecipOff) {
+          sand.draw({ on: true, strength01: fx.intensity, windV: wd.windV, step: wd.step, gust: wd.gust }, proj, view, new Float32Array(wxEye), now / 1000);
+          renderer.markForeignPass();
+        }
+      } else if (precipShown && precip) {   // W1 review: the gate is the MODE, never the object - the renderer outlives a clear-up
+        // EE8: the enhanced profile rides the switch, and the wind that drives
+        // its rain is the SKY'S OWN - the deck's wind from the eased weather
+        // row - INTEGRATED here as travel, so a change in the wind moves what
+        // falls next and never what has already fallen.
+        precip.enhanced = !!sky?.cloudShadow;
+        if (precip.enhanced) {
+          precip.intensity = fx.intensity;   // WX2: the front's share of the profile
+          // WX1: THE LAB'S WIND LAW, term for term - the rate handed to the
+          // shader is the lab's metres a second WITHOUT the gust, and the
+          // travel integrated on the CPU carries it, as grass-proto.html's
+          // frame() does. WIND3: both come from the ONE mapping now
+          // (systems/windDrive.js, `wd` above) - the same rate the grass,
+          // the wisps and the flats take, and WIND1's gust in place of the
+          // fixed three-sine stack this block had kept.
+          precip.windV[0] = wd.windV[0]; precip.windV[1] = wd.windV[1];
+          precip.windOff[0] += wd.step[0]; precip.windOff[1] += wd.step[1];
+        }
+        // AUDIT-TO1 J1: DisableWeatherAndSound stops the rain/snow PARTICLES
+        // for the journey (:1218-1223) and restores them at its end; the sim,
+        // the front and the wind carry on underneath, which is what the mod's
+        // `PlayerWeather` disable leaves running too.
+        // OW-RAIN (Mac: "it stops raining (you can still hear it) ... when you move on the overworld map"): the Overworld's
+        // click is a Travel Options journey, whose DisableWeatherAndSound stood the particles down while the rain loop
+        // played on - but the Overworld's journey is SEEN, the world going on under it, so what falls keeps falling there
+        if ((!_travelWeatherOff || tvf) && !_dwPrecipOff) {
+          precip.draw(precipShown, proj, view, new Float32Array(wxEye), camRight, now / 1000);
+          renderer.markForeignPass();   // EV6: so did the rain
+        }
+      }
+      // WIND3: THE WISPS - the wind, seen (render/windWisps.js). After the
+      // rain and before the grass, on the same integrated wind; a foreign
+      // pass like the rain. Their row is read every frame.
+      if (wisps && wd.on && wispsOn() && !_dwAirOff) {
+        wisps.draw(wd, proj, view, new Float32Array(wxEye), now / 1000);
         renderer.markForeignPass();
       }
-    } else if (precipShown && precip) {   // W1 review: the gate is the MODE, never the object - the renderer outlives a clear-up
-      // EE8: the enhanced profile rides the switch, and the wind that drives
-      // its rain is the SKY'S OWN - the deck's wind from the eased weather
-      // row - INTEGRATED here as travel, so a change in the wind moves what
-      // falls next and never what has already fallen.
-      precip.enhanced = !!sky?.cloudShadow;
-      if (precip.enhanced) {
-        precip.intensity = fx.intensity;   // WX2: the front's share of the profile
-        // WX1: THE LAB'S WIND LAW, term for term - the rate handed to the
-        // shader is the lab's metres a second WITHOUT the gust, and the
-        // travel integrated on the CPU carries it, as grass-proto.html's
-        // frame() does. WIND3: both come from the ONE mapping now
-        // (systems/windDrive.js, `wd` above) - the same rate the grass,
-        // the wisps and the flats take, and WIND1's gust in place of the
-        // fixed three-sine stack this block had kept.
-        precip.windV[0] = wd.windV[0]; precip.windV[1] = wd.windV[1];
-        precip.windOff[0] += wd.step[0]; precip.windOff[1] += wd.step[1];
-      }
-      // AUDIT-TO1 J1: DisableWeatherAndSound stops the rain/snow PARTICLES
-      // for the journey (:1218-1223) and restores them at its end; the sim,
-      // the front and the wind carry on underneath, which is what the mod's
-      // `PlayerWeather` disable leaves running too.
-      if (!_travelWeatherOff && !_dwPrecipOff) {
-        precip.draw(precipShown, proj, view, new Float32Array(wxEye), camRight, now / 1000);
-        renderer.markForeignPass();   // EV6: so did the rain
-      }
-    }
-    // WIND3: THE WISPS - the wind, seen (render/windWisps.js). After the
-    // rain and before the grass, on the same integrated wind; a foreign
-    // pass like the rain. Their row is read every frame.
-    if (wisps && wd.on && wispsOn() && !_dwAirOff) {
-      wisps.draw(wd, proj, view, new Float32Array(wxEye), now / 1000);
-      renderer.markForeignPass();
-    }
+    };
     // BOLT: the burning channels, over what the world drew and behind what stands in front of them - from the eye the
     // view was built from (mwv.eye: a third-person camera stands metres off the head, cam.pos)
     if (boltsGl && boltFrame.bolts.length && !_dwAirOff) {
@@ -27331,6 +27448,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
         fog: { mode: renderer._fogMode, density: renderer._fogDensity, range: renderer._fogRange, color: renderer._fogColor, camPos: renderer._camPos, dw: renderer._dwFog, focus: renderer._focus },
       })) renderer.markForeignPass();
     }
+    drawFalling();   // RAIN-OVER-GRASS: after the grass and the banners, before the translucent bodies and the fires
     drawVeiledPeerBodies();   // INVIS-LOOK: the concealed peers' bodies, translucent - after the opaque world, the flats and the grass
     // DUEL1: THE RINGS' WALLS - my own duel's, rising in and dying away, and every duel the cells around me say stands
     // (each once: both duellists say it). After the grass, from the view's own eye (mwv.eye, the bolts' law), fogged as
@@ -27661,7 +27779,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
           hudHidden: townTalk.hudHidden,   // MAP-FIELD2: the held map takes the vitals and the status icons with it, on both skins
           detected: _detected, playerXZ: [enchantFeet()[0], enchantFeet()[2]],
           gate: gateCompassMark(),   // WB1: the Oblivion Gate on the compass, while the player stands in its ring
-          quest: questCompassMark(),   // GUIDE5: the tracker's quest's place on the compass, on the street
+          quest: vendorCompassMark() ?? questCompassMark(),   // GUIDE5: the tracker's quest's place on the compass, on the street; HOME-VENDOR: a trader's waypoint first, while it is set
           party: partyCompass(),   // COMPASS-PARTY: the party's marks - the bodies drawn here, the rest where their poses say
           ships: navalOn() && _mode() === 'exterior' ? naval?.compassShips() ?? null : null, boats: csaRuntime && _mode() === 'exterior' ? boatCompassPoints(csaRuntime.AllBoats, csaBoatUnderMe(), enchantFeet(), state, TERRAIN_SIZE) : null,   // AUDIT NAV1 (the helm): the sea's ships on the compass; BOAT-MARK: my own boats, from anywhere on the street (under the travel view too), the one at my helm left out
           nodes: professionMarks(),   // NODE-MARKS: every profession's nodes near (PROF2: a Prospector's veins within 200 m, PROF0 3.3); PROF7: a Tracker's animals within 100 m

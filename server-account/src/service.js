@@ -249,6 +249,8 @@ export const ROUTES = new Set([
   '/v1/market/read', '/v1/market/list', '/v1/market/buy', '/v1/market/cancel', '/v1/market/order', '/v1/market/fill',
   '/v1/market/unorder', '/v1/market/collect', '/v1/market/report', '/v1/market/remove', '/v1/market/auction', '/v1/market/bid',
   '/v1/market/gold',
+  // HOME-VENDOR: a home's trader's stock, and the region's traders
+  '/v1/market/vendor', '/v1/market/vendors', '/v1/market/myvendors',
   // REALM P1: the realm's characters (realm.js). The listing and the five that change one; the save itself rides a
   // path that names the character, matched by `realmPathOf`.
   '/v1/realm', '/v1/realm/create', '/v1/realm/customs', '/v1/realm/join', '/v1/realm/leave', '/v1/realm/delete',

@@ -44,6 +44,7 @@ import { BOUNTY_RING_CSS, BOUNTY_FILL_CSS } from './bountyMapMark.js';   // BOUN
 import { RAID_MARK_CSS } from './eventMapMarks.js';   // EVENT-TIP: a town under attack
 import { QUEST_MARK_CSS, QUEST_MARK_LIFT } from './questMarks.js';   // GUIDE5: where a quest points
 import { wheelPath } from './carriageWheel.js';   // OW-HUBS: a carriage town's wheel beside its mark
+import { paintVendorMark } from './vendorMapMark.js';   // HOME-VENDOR: the trader's waypoint's coin
 import { seatMapMark, SEAT_RING_SIEGE } from '../net/townSeatLaw.js';   // SEAT1a: how a seat is marked - its ring, a crown, a second ring; SEAT1c: held, Contested, a siege week
 
 // ── THE INK (skin): the pen and its washes ───────────────────────────────────────────────
@@ -1087,6 +1088,8 @@ export function paintInkOverlay(ctx, view, opts) {
   // GUIDE5: where the quests point, over the raids and under the party - the diamond above its place, the followed
   // quest's filled
   for (const m of opts.quests ?? []) if (visible(m.x, m.y)) paintQuestMark(ctx, view, m);
+  // HOME-VENDOR: the trader's waypoint - its coin over the quests' diamonds, its town ringed in gold, under the party
+  if (opts.vendor && visible(opts.vendor.x, opts.vendor.y)) paintVendorMark(ctx, view, opts.vendor, toPaper, { halo: PEN.halo, name: PEN.name });
   // TV3: the region's travellers, under the party - a smaller ring and a smaller name, a stranger's; OWS1: one at sea
   // inked as a ship
   for (const t of opts.travellers ?? []) {

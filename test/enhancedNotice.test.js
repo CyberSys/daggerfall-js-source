@@ -459,7 +459,7 @@ test('ENH-NOTICE2: the service flow - plain text steps ride the panel in place, 
   });
 });
 
-test('ENH-NOTICE2: THE ROSTER - the eight windows drawn on both skins that raise their own click-anywhere box, and (ENH-NOTICE3) the model, the three DOM windows and the hunt - no more and no fewer', () => {
+test('ENH-NOTICE2: THE ROSTER - the eight windows drawn on both skins that raise their own click-anywhere box, and (ENH-NOTICE3) the model, the three DOM windows and the wait page - no more and no fewer', () => {
   const ROSTER = ['potionMakerWindow', 'itemMakerWindow', 'spellMakerWindow', 'bankWindow', 'restWindow', 'covenWindow', 'guildServiceWindow', 'guildServiceWindows'];
   for (const f of ROSTER) {
     const src = rd(`src/ui/${f}.js`);
@@ -470,10 +470,10 @@ test('ENH-NOTICE2: THE ROSTER - the eight windows drawn on both skins that raise
   // nobody else imports the seam: the two homes take noticeDraw; the
   // PopupText model takes drawEnhancedToasts (ENH-NOTICE3 - the HUD line
   // as a toast); the DOM-native windows that raise a box of their own
-  // take noticeHold; the hunt window's busy page takes noticeFrame; the
+  // take noticeHold; Foraging's wait page takes noticeFrame; the
   // quest herald (GUIDE3) takes drawEnhancedToasts as PopupText does.
   const importers = readdirSync(new URL('../src/ui/', import.meta.url)).filter((f) => f.endsWith('.js') && /from '\.\/enhancedNotice\.js'/.test(rd(`src/ui/${f}`))).map((f) => f.replace(/\.js$/, '')).sort();
-  assert.deepEqual(importers, [...ROSTER, 'actionText', 'talkWindow', 'hudText', 'enhancedTavern', 'enhancedInventory', 'heldMap', 'huntWindow', 'questHerald'].sort());
+  assert.deepEqual(importers, [...ROSTER, 'actionText', 'talkWindow', 'hudText', 'enhancedTavern', 'enhancedInventory', 'heldMap', 'questHerald', 'waitWindow'].sort());
 });
 
 // ── ENH-NOTICE3 (2026-09-21, Mac: "All mods, including climates and
@@ -565,15 +565,15 @@ test('ENH-NOTICE3 (AUDIT): a box raised over toasts stands ABOVE them - the pane
 test('ENH-NOTICE3 (AUDIT B2-B4): THE HINT TELLS THE TRUTH - the default is the box\'s, a window whose box clears on its own terms passes false or its own caption, a toast never carries one', () => {
   withSkin('enhanced', (doc) => {
     fakeClock();
-    const box = {}; const inv = {}; const hunt = {};
+    const box = {}; const inv = {}; const page = {};
     noticeHold(box, ['The door is locked.']);
     noticeHold(inv, ['You cannot carry any more.'], { hint: false });
-    assert.equal(noticeFrame(hunt, ['You search...'], { hint: 'Escape to walk away' }), true);
+    assert.equal(noticeFrame(page, ['You search...'], { hint: 'Escape to walk away' }), true);
     const hints = panelsOf(doc).map((p) => p.children.find((c) => c.className === 'notice-hint')?.textContent ?? null);
     assert.deepEqual(hints, [NOTICE_HINT, null, 'Escape to walk away'],
       'mutants: the option ignored (a refusal nothing dismisses promising "click or press a key"); the caption not the window\'s own');
     // a caption can change under the same owner (a page whose key changes)
-    noticeFrame(hunt, ['You search...'], { hint: 'Any key' });
+    noticeFrame(page, ['You search...'], { hint: 'Any key' });
     assert.equal(panelsOf(doc)[2].children.find((c) => c.className === 'notice-hint').textContent, 'Any key');
     drawEnhancedToasts({ rows: ['a'], ids: [1] }, doc, 'town1');
     assert.equal(panelsOf(doc).at(-1).children.find((c) => c.className === 'notice-hint'), undefined, 'a toast is never dismissed');

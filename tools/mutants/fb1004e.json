@@ -928,25 +928,5 @@
       "test/fb1004e_road.test.js"
     ],
     "note": "no patrol ever"
-  },
-  {
-    "name": "HUNTROAD-the-hold-ignored",
-    "file": "src/scenes/hunting.js",
-    "old": "    if (held()) return null;   // HUNT-ROAD",
-    "new": "    // HUNT-ROAD",
-    "tests": [
-      "test/fb1004e_road.test.js"
-    ],
-    "note": "the report: the hunt's box stops the road whatever the switch"
-  },
-  {
-    "name": "HUNTROAD-the-hold-banks-the-minute",
-    "file": "src/scenes/hunting.js",
-    "old": "    _lastMinute = minute;\n    if (_win || overlayActive()) return null;\n    if (held()) return null;",
-    "new": "    if (held()) return null;\n    _lastMinute = minute;\n    if (_win || overlayActive()) return null;",
-    "tests": [
-      "test/fb1004e_road.test.js"
-    ],
-    "note": "the held minute rolled at the road's end"
   }
 ]

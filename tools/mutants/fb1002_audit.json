@@ -81,60 +81,6 @@
     ]
   },
   {
-    "name": "AUDIT-HUNT-busy-gate-gone",
-    "file": "src/ui/huntWindow.js",
-    "old": "    if (this.phase !== HUNT_PHASE.Busy) return;\n",
-    "new": "",
-    "tests": [
-      "test/fb1002_audit.test.js"
-    ]
-  },
-  {
-    "name": "AUDIT-HUNT-never-quiet",
-    "file": "src/scenes/hunting.js",
-    "old": "        if (outcome) advanceMinutes?.(minutes, { quiet: !searched });",
-    "new": "        if (outcome) advanceMinutes?.(minutes, { quiet: false });",
-    "tests": [
-      "test/fb1002_audit.test.js"
-    ]
-  },
-  {
-    "name": "AUDIT-HUNT-always-quiet",
-    "file": "src/scenes/hunting.js",
-    "old": "        if (outcome) advanceMinutes?.(minutes, { quiet: !searched });",
-    "new": "        if (outcome) advanceMinutes?.(minutes, { quiet: true });",
-    "tests": [
-      "test/fb1002_audit.test.js"
-    ]
-  },
-  {
-    "name": "AUDIT-HUNT-host-quiet-unread",
-    "file": "src/scenes/world.js",
-    "old": "playerTicker.advance(n); if (!quiet) runEncounterTick(",
-    "new": "playerTicker.advance(n); if (quiet || !quiet) runEncounterTick(",
-    "tests": [
-      "test/fb1002_audit.test.js"
-    ]
-  },
-  {
-    "name": "AUDIT-HUNT-load-leaves-it",
-    "file": "src/scenes/world.js",
-    "old": "      if (hunting.window) townTalk.closeOverlay(hunting.window);   // AUDIT HUNT-FOES: a hunt's box over the load is the replaced game's",
-    "new": "      // AUDIT HUNT-FOES: a hunt's box over the load is the replaced game's",
-    "tests": [
-      "test/fb1002_audit.test.js"
-    ]
-  },
-  {
-    "name": "AUDIT-HUNT-duel-unseen",
-    "file": "src/scenes/world.js",
-    "old": "    if (duelEnemyNear() || areEnemiesNearby(exteriorFoePool())) return true;",
-    "new": "    if (areEnemiesNearby(exteriorFoePool())) return true;",
-    "tests": [
-      "test/fb1002_audit.test.js"
-    ]
-  },
-  {
     "name": "AUDIT-HUSH-crossfade-unsettled",
     "file": "src/systems/comeSailAway.js",
     "old": "    if (fading == null) startFading(CrossfadeAudioSourceCoroutine(from, to, duration), () => { audioStop(from); audioPlay(to); to.volume = loopVolume(); });",

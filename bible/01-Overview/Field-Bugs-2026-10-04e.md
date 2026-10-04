@@ -18,7 +18,7 @@ no ARENA2, so every claim is the suites' and the mounted host slices'.
 | 3 | "Highlight fast travel hubs (cities with carriages)"; ItMustBeMonday: "WHEEL icon for carriage places" | no map said which towns stand a carriage driver | OW-HUBS |
 | 3 | "Change name colors of players in your guild or friend list" | the names knew only the party | OW-KIN |
 | 3 | "More filters for players in general (filter by guild, friend, level etc), both in Overworld map and travel map" | one Travellers switch on the Overworld, none on the travel map | OW-WHO |
-| 4 | Private Joker: "having to completely halt my travel because 1 rat chose today to die ... the random hunting y/n prompts that stop you completely ... let it be for something important or dangerous. a roving orc patrol, a bandit holdup" | DFU's wanderer keeps its table's bottom in reach at every level, and a journey stops for every one (AUDIT OW5b E1); TO-FIELD3 rolls the hunt on the road | WILD-ROAD, HUNT-ROAD |
+| 4 | Private Joker: "having to completely halt my travel because 1 rat chose today to die ... the random hunting y/n prompts that stop you completely ... let it be for something important or dangerous. a roving orc patrol, a bandit holdup" | DFU's wanderer keeps its table's bottom in reach at every level, and a journey stops for every one (AUDIT OW5b E1); TO-FIELD3 rolled the hunt on the road | WILD-ROAD (the hunt's prompts: HUNT-OUT, below) |
 | 5 | the owner: "hover tooltips for capturable cities/towns that show occupation" | the held map rings a seat but answers its hover with the town's name; the Overworld had no card at all; the held map's I box said "unheld" whoever held it | SEAT-TIP |
 | 6 | the owner: "When on the horse in the overworld, the sprite doesnt face the direction of travel" | ARENA-FIX 14's placing (feet past PLACE_JUMP_M in a frame) fired every frame of a gallop under the time scale, and its -1 orientation was painted by the walk loop as orientation 7 | HORSE-FACE |
 
@@ -202,12 +202,12 @@ seats are. Recorded: a touch screen has no hover, so the Overworld shows it no c
 own pick, travelViewHudPickAt) - the travel map's I box says the holder there. Pins: `test/fb1004e_overworld.test.js`; PIN MOVED:
 `seat1a_client`.
 
-## WILD-ROAD, HUNT-ROAD (4)
+## WILD-ROAD (4)
 
 `systems/roadEncounters.js` (new: trivialOnRoad, roadCompany, wandererCount), `scenes/world.js` runEncounterTick
 (`onTheRoad` - a Travel Options journey under way, its window up and its autopilot steering (walkJourneying's own
 test), or the Overworld up; never while resting - a rest's minutes are a camp's, and its wanderer wakes the sleeper as
-DFU's does), `systems/features.js` ('road-encounters' and 'hunt-on-road', the World group). ON THE ROAD, with
+DFU's does), `systems/features.js` ('road-encounters', the World group). ON THE ROAD, with
 Encounters on the road on (the default):
 - a wanderer whose own level is a third of the traveller's or less is passed by - a Rat from level 3 ("A level 1 ...
   can take care of the rat problems"), an Imp from 6, a Giant Bat from 9, an Orc from 15, a Giant from 30, a Lich from
@@ -223,17 +223,16 @@ wanderer's roll is world.js's runEncounterTick, which the mode machine rings in 
 an outdoor journey's, so exterior.js, worldModes.js and dungeonContext.js have no road to ask. A departure (Ledger A,
 WILD-ROAD).
 
-HUNTING WHILE TRAVELLING stays ON by default - TO-FIELD3, Mac's: "hunting rolls fire during travel again", the wilderness
-rolls at the traveller. The switch is the player's ("Off, no hunt is rolled while you travel."): off, no hunt is rolled
-while a journey is under way or the Overworld is up
-(`scenes/hunting.js` `held` - the minute passes unrolled and is never banked for the road's end). The roll is still the
-overworld host's mode (TO-FIELD3's pins hold, and its comment names the switch). Not changed: the roaming bands
-(TV7/OW6) and the camps - they are groups already and the Wilderness camps & packs switch is theirs. Pins:
-`test/fb1004e_road.test.js` (the law - the imp, the giant, the lich, the class foe; runEncounterTick's head mounted -
-the rat passed by on the road and met off it, the switch, a level 2's rat, the patrol, two minutes whose rat's minute
-passes and the orc's stands; `onTheRoad` mounted - the window up with no journey, a journey, the Overworld, a rest; the
-hunt held);
-PIN MOVED: `auditpscale1` (the mount names the road's words), `features`, `ft18_features`.
+THE HUNTING PROMPTS the report named are gone whole: main's HUNT-OUT (`06-Systems/Climates-Calories.md`, 2026-10-04,
+"I want to remove the text based hunting minigame entirely") removed SURV6's text hunt - its roll, its Yes/No box and
+`scenes/hunting.js` - while this slice stood. The slice's HUNT-ROAD (a World switch, Hunting while travelling, holding
+that roll on the road) had nothing left to hold and was taken out at the merge of main: its feature row, its `held` door
+and its pins. Not changed: the roaming bands (TV7/OW6) and the camps - they are groups already and the Wilderness camps
+& packs switch is theirs. Pins: `test/fb1004e_road.test.js` (the law - the imp, the giant, the lich, the class foe;
+runEncounterTick's head mounted - the switch's row, the rat passed by on the road and met off it, the switch, a level
+2's rat, the patrol, two minutes whose rat's minute passes and the orc's stands; `onTheRoad` mounted - the window up
+with no journey, a journey, the Overworld, a rest); PIN MOVED: `auditpscale1` (the mount names the road's words),
+`features`, `ft18_features`, `ft8_combatvisuals`.
 
 ## HORSE-FACE (6)
 
@@ -252,7 +251,7 @@ rebase, and mwViewRebase's call). `test/arena_fix.test.js`'s ARENA-FIX 14 pins h
 ## The gates
 
 Lint, the types, the bible's gates and the changed files' suites run clean before the push; `tools/mutants/fb1004e.json`
-(95 records, every one dead - its audit pass added the tally's, the seam's, the road's guards, the hand's click, the
+(93 records, every one dead - its audit pass added the tally's, the seam's, the road's guards, the hand's click, the
 legend's and the wheel's ground). Re-aimed BY CONTENT where this slice moved their text: `pscale1.json` and `auditpscale1.json` (the
 wanderer's count, roadEncounters.js wandererCount), `fb0929d_mapkey.json` (the key's signature grew the players' row),
 `hub1.json` (the I box names the holder), `ows1.json`, `tv3.json`, `tv5.json` (the marks' new fields) and `arenafix.json`

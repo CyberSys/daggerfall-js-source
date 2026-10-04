@@ -3,11 +3,10 @@
 // FORAGING'S ONLINE WAIT, COMPOSED FOR A HOST - bible/06-Systems/
 // Foraging.md 13.1. Online the shared clock is nobody's to move
 // (WORLD5), so Quest Actions Extension's `raise time by H:MM` is a wait
-// the player sits through instead: the busy page C&C's hunt already has
-// (ui/huntWindow.js - THE ONE CONSTRUCTION SEAM, with `ask`, `escape`
-// and `result` off and `interruptWhen` a foe near), at C&C's
-// HUNT_WAIT_PER_HOUR real seconds a game hour (huntRealSeconds,
-// imported, not copied).
+// the player sits through instead: the wait page (ui/waitWindow.js -
+// once C&C's hunt page, whose busy page it kept when the text hunt was
+// removed, 2026-10-04; `interruptWhen` a foe near), at WAIT_PER_HOUR
+// real seconds a game hour (waitRealSeconds).
 //
 //   entity         - the player; `foragingWait` on it is the wait's
 //                    record - `{ seconds, label, held }` - so the
@@ -34,14 +33,20 @@
 // window (the host's frame ticks it only with the slot free).
 // ═══════════════════════════════════════════════════════════════════
 
-import { HuntWindow } from '../ui/huntWindow.js';
-import { huntRealSeconds } from '../systems/survival/hunting.js';
+import { WaitWindow } from '../ui/waitWindow.js';
+
+/** The wait's pace: this many REAL seconds a game hour - roughly ten times the rest window's REST_WAIT_PER_HOUR
+ *  (0.75): a rest is a skip, a wait is sat through. (C&C's hunt's HUNT_WAIT_PER_HOUR, moved here with the hunt's
+ *  removal - this page is its one reader.) */
+export const WAIT_PER_HOUR = 8;
+/** A wait of `minutes` game minutes, in real seconds (to the hundredth). */
+export const waitRealSeconds = (minutes) => Math.round((minutes / 60) * WAIT_PER_HOUR * 100) / 100;
 
 /** The page's line: the quest's own DisplayName, the author's words ("Chop and Gather Wood..."). */
 export const waitLine = (label) => `${label || 'Time passes'}...`;
 /** The longest wait a SAVED record may hold: eight game hours, the build's Mining quadruple (Q7) - a save edited to a
  *  day of waiting is cut to this, never obeyed. A wait built in play is the sum of what the quests raised, uncut. */
-export const FORAGING_WAIT_MAX_SECONDS = huntRealSeconds(8 * 60);
+export const FORAGING_WAIT_MAX_SECONDS = waitRealSeconds(8 * 60);
 /** The most boxes a saved record keeps behind its wait. */
 export const FORAGING_WAIT_HELD_MAX = 16;
 /** A saved record, made safe: `{ seconds, label, held }` - seconds finite in [0, the max], a short string label, the
@@ -109,7 +114,7 @@ export function createForagingWait({ entity, showOverlay = null, overlayActive =
   /** The quest's `raise time by`, online: `gameSeconds` of the clock as a wait of real seconds, joined to any standing. */
   function add(gameSeconds, label = null) {
     if (!entity || !(gameSeconds > 0)) return 0;
-    const real = huntRealSeconds(gameSeconds / 60);
+    const real = waitRealSeconds(gameSeconds / 60);
     const r = record();
     if (r && r.seconds > 0) {
       _win?.extend(real);
@@ -123,9 +128,8 @@ export function createForagingWait({ entity, showOverlay = null, overlayActive =
   function open() {
     const r = record();
     const gen = _gen;
-    _win = new HuntWindow({
-      busy: waitLine(r.label), seconds: r.seconds,
-      ask: false, escape: false, result: false, interruptWhen: () => !!enemiesNear(),
+    _win = new WaitWindow({
+      busy: waitLine(r.label), seconds: r.seconds, interruptWhen: () => !!enemiesNear(),
       onClosed: () => {
         _win = null;
         if (gen === _gen) write(0);   // done, or forgiven: a foe near, or the slot taken - the held boxes wait for the slot (tick)

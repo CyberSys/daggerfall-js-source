@@ -205,6 +205,18 @@ hold - so a common herb, a body and the net's haul could not be played there. No
 - **The prompts**: with a pad in hand the professions' prompts and lines name its button (B, LT, Circle) - the sea's
   readout's law (AUDIT NAV1); else the key.
 
+## SHIFT-STOW - Shift in the pack (2026-10-04, Mac: "shift click to deposit items (like materials) needs to be a thing")
+
+Law 2's: Shift is the pack's own modifier, not a registry action. It is read the way the classic window reads Control
+(CM5) - a state from its down edge to its up edge - and, on both skins, off the pointer itself (`shiftKey` on the
+click, the classic window's hover). Shift and the LEFT button on a pack item put the whole stack into the player's own
+store beside it - the wagon, their storage, and (enhanced) the Materials Bag - in any action mode, with no how-many
+popup; Control's popup is DFU's and stays as it was. The ground, a corpse, a container and a reward tray keep the
+plain click. A right click stays the mode swap. The classic window's latch is per key (one Shift let go while the
+other is held is still Shift), is never trusted across the page losing the keyboard, and a held Shift's repeated down
+edge answers no box (AUDIT SHIFT-STOW). Shift is also Run's default key: holding Run while clicking a pack item beside
+the wagon deposits it. Port-Ledger A, SHIFT AND A CLICK STOW THE WHOLE STACK.
+
 ## The defaults
 
 Generated from `ACTION_GROUPS` and the two default tables; the enhanced pane draws exactly these groups. Held so by `test/audit0928_input.test.js` (AUDIT PRE-MERGE 0928 D2: the Come Sail Away table had shown two of its nine rows).

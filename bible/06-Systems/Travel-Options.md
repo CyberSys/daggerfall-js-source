@@ -656,11 +656,10 @@ third was a thing the port never said out loud.
   The wait is the ride-out's own sentence, deliberately, so the two read
   alike.
 
-> **HUNT-ROAD (FIELD BUGS 2026-10-04e)** keeps TO-FIELD3's roll ON by default and gives the player a switch of their
-> own, Hunting while travelling: off, no hunt is rolled while a journey is under way or the Overworld is up
-> (`scenes/hunting.js` `held`). Beside it, WILD-ROAD's Encounters on the road passes a wanderer far beneath the traveller
-> by. The road is a journey under way (the window up and its autopilot steering) or the Overworld - never a rest. The record:
-> `01-Overview/Field-Bugs-2026-10-04e.md`.
+> **WILD-ROAD (FIELD BUGS 2026-10-04e)**: Encounters on the road (a World switch, on) passes a wanderer far beneath the
+> traveller by, and the rest sometimes come as a patrol. The road is a journey under way (the window up and its autopilot
+> steering) or the Overworld - never a rest. (Its HUNT-ROAD, a switch holding TO-FIELD3's hunt on the road, went with
+> HUNT-OUT's removal of the hunt, at the merge of main.) The record: `01-Overview/Field-Bugs-2026-10-04e.md`.
 
 > **TO-FIELD3 (Mac, 2026-09-18) REVERSED THE TWO GAMEPLAY CHANGES BELOW.**
 > "Remove the changes the past session did to the traveling system... the
@@ -670,7 +669,9 @@ third was a thing the port never said out loud.
 >
 > Both are gone. `survivalEnv` feeds the journey the world it is actually
 > in (`world.js`, the same one sentence `exterior.js` reads), and the
-> hunting roll is the overworld host's mode and nothing else. The bullets
+> hunting roll was the overworld host's mode and nothing else - until
+> HUNT-OUT (2026-10-04) removed the text hunt whole, its roll with it
+> (`06-Systems/Climates-Calories.md`). The bullets
 > below are KEPT rather than struck, because their arithmetic is right
 > and whoever reads this next should know exactly what was traded away
 > and what it costs.
@@ -681,10 +682,10 @@ third was a thing the port never said out loud.
 > construction never stops to eat, drink or sleep. A RECKLESS journey has
 > no stop of its own and can collapse; a CAUTIOUS one is paused at the
 > fatigue floor by the mod's own watch. The bare-skin health ticks and
-> the byFire exposure damage run again. And the hunting roll fires once a
+> the byFire exposure damage run again. And the hunting roll fired once a
 > GAME minute at up to a hundred times real time, opening a box the mod
-> answers with `interruptTravel()` - so a long wilderness ride WILL be
-> interrupted, often.
+> answers with `interruptTravel()` - so a long wilderness ride was
+> interrupted, often, until HUNT-OUT took the roll out.
 >
 > That is the loop as Mac wants it played: camp out, stop at inns, or
 > travel cautiously. The survival mod's own switch turns all of it off
@@ -692,10 +693,11 @@ third was a thing the port never said out loud.
 >
 > **And one thing the change that set it never counted:** `resting` is
 > not a fatigue knob, it is the needs' one word for "sat still", and
-> FOUR laws read it - the two fatigue drains it was aimed at, the two
-> health arms F12 later disclosed, and SURV6's hunting roll, which
-> refuses outright on `resting` (`hunting.js:120`). One flag reached
-> three laws nobody had asked it to reach. That is the lesson worth
+> FOUR laws read it then - the two fatigue drains it was aimed at, the
+> two health arms F12 later disclosed, and SURV6's hunting roll, which
+> refused outright on `resting` (its `huntRoll`, DELETED with the hunt by
+> HUNT-OUT; the other three still read it). One flag reached three laws
+> nobody had asked it to reach. That is the lesson worth
 > keeping out of this whole exchange.
 
 - **Instant exhaustion - the port's own needs charged at the mod's
@@ -756,7 +758,8 @@ third was a thing the port never said out loud.
   whenever roads integration is on and a key is set: *"On the road,
   press K to follow it."*
 
-- **AUDIT-FIELD F10: and SURV6's hunting roll is held with them.** The
+- **AUDIT-FIELD F10: and SURV6's hunting roll is held with them.** (RETIRED with the hunt itself, HUNT-OUT
+  2026-10-04 - there is no roll left to hold.) The
   wilderness roll fires once a GAME minute, so an accelerated ride rolled
   it every few real seconds, and every event opens a Yes/No box through
   `townTalk.showOverlay` - which the mod reads as a foreign window on top
@@ -807,7 +810,7 @@ which `InitLocationRects` keeps refreshing the rects MID-journey
 (`:606-612`, `autopilot == null || destinationName != null`;
 `travelOptions.js:695-698`). A town's ring reaches into its neighbour
 pixels; the crossing fired `OnMapPixelChanged`, the host's
-`locationTileRect` answered null for the neighbour (world.js:13385 -
+`locationTileRect` answered null for the neighbour (world.js:13356 -
 null both for a pixel not yet built and for one with no location),
 `SetLocationRects` nulled both rects (`:602-604`), and the walk's own
 `OnArrival` (`circumnavigateLocation`, `:753-797`) read

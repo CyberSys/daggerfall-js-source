@@ -294,9 +294,9 @@ test('AUDIT SEATS-3 D2: THE MARKET\'S READ SAYS THE BOARD\'S LISTING CAP - `list
   assert.equal((await read([402, 151])).listingsMax, marketHallListings(MARKET_LISTINGS_MAX, 1), 'Anticlere\'s board');
   assert.equal(marketHallListings(MARKET_LISTINGS_MAX, 1), 37);
   const mk = src('market.js');
-  assert.match(mk, /if \(kind === 'item'\) return listGood\(ctx, player, env, \{ character, region, item, pick, price, hubs, rid, currency, realm, board \}\);/);
+  assert.match(mk, /if \(kind === 'item'\) return listGood\(ctx, player, env, \{ character, region, item, pick, price, hubs, rid, currency, realm, board, vendor \}\);/);   // PIN MOVED (HOME-VENDOR): and the trader it is stocked at
   assert.match(mk, /const listingsMax = await listingsCapAt\(db, nowS, boardOf\(board\)\);[^\n]*\n\s*if \(Number\(open\?\.n \?\? 0\) >= listingsMax\) return \{ error: 'market-listings-max' \};\n\s*\/\/ THE RECORD'S OWN PIECE/);
-  assert.match(mk, /JSON\.stringify\(moved\), listingsMax\),/);
+  assert.match(mk, /JSON\.stringify\(moved\), listingsMax,\n\s*vend\?\.map \?\? null, vend\?\.id \?\? null\),/);   // PIN MOVED (HOME-VENDOR): the trader's stall after the cap
 });
 
 test('AUDIT SEATS-3 E2: THE WARDROBE\'S OTHER DOORS KEEP A CHARTER\'S TITLES - an aura worn or taken off answers the wardrobe with the guildmaster\'s "warden" still held and worn, as the account read and the title\'s equip do; the insignia and the Patreon unlink are read the same way (mutants: the aura on the bare row; the insignia; the unlink)', async (t) => {
