@@ -392,6 +392,7 @@ const MARKET_STATUS = Object.freeze({
   'market-no-road': 409, 'market-price-moved': 409, 'market-seller-full': 409, 'market-listings-max': 409, 'market-orders-max': 409,
   'market-not-yours': 409, 'market-listed': 409, 'market-order-full': 409, 'market-elsewhere': 409, 'market-other-character': 409,
   'market-on-road': 409, 'market-courier-dear': 409,   // GLOBAL-MARKET: a fill from afar whose courier would take all its pay
+  'market-taxed-out': 409,   // MARKET-AUDIT S2: a fill its tax would leave paying nothing
   'market-not-listable': 409, 'market-uncollected': 409, 'market-standing': 409, 'market-unyielded': 409,   // AUDIT 30
   'market-no-record': 409,   // AUDIT 31 H1
   'auction-not-masterwork': 409, 'auction-low': 409, 'auction-leading': 409, 'auction-bid-standing': 409,   // PROF5b

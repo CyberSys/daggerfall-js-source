@@ -289,7 +289,9 @@ test('GOLD-MARKET wiring: the host gives the market book the realm act over the 
   const w = src('src/scenes/world.js');
   // PIN MOVED (FIELD BUGS 2026-10-01, MARKET-ANY): the realm hook carries the session's abandon too, and the goods' receive beside it
   assert.match(w, /realm: realmSession \? \{ act: \(o\) => realmGoldAct\(\{ \.\.\.o, session: realmSession, checkpoint: \(\) => onlineCheckpoint\(\) \}\), abandon: \(why\) => realmSession\.abandon\(why\) \} : null, goods: realmSession \? \{ receive: \(rec\) => marketGoods\.receive\(rec\) \} : null,\n\s+wallet: realmSession \? \(region\) => \{/);
-  assert.match(w, /pay: \(n\) => \{ const owed = deductGold\(playerEntity, n\); if \(account && owed > 0\) account\.accountGold -= owed; \},\n\s+credit: \(n\) => addGold\(playerEntity, n\),/);
+  // MARKET-AUDIT (PIN MOVED: `deductGold`, its refusal's `credit` the whole cost as coins): the pay answers the undo of exactly
+  // what it took - the purse's coins, a letter's value, the bank's gold
+  assert.match(w, /pay: \(n\) => \{ const \{ owed, undo \} = deductGoldUndoable\(playerEntity, n\); const fromBank = account && owed > 0 \? owed : 0; if \(fromBank\) account\.accountGold -= fromBank; return \(\) => \{ undo\(\); if \(fromBank\) account\.accountGold \+= fromBank; \}; \},\n\s+credit: \(n\) => addGold\(playerEntity, n\),/);
   assert.match(src('src/net/accountClient.js'), /gold: \(req\) => post\('\/v1\/market\/gold', req\),/);
   assert.match(src('server-account/src/index.js'), /'\/v1\/market\/gold': \(\) => marketGoldCollect\(mctx, who\.player, env, body\),/);
   assert.match(src('server-account/src/index.js'), /'\/v1\/market\/buy': \(\) => marketBuy\(mctx, who\.player, env, body\),/);

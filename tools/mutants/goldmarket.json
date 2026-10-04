@@ -56,7 +56,7 @@
   {
     "name": "GOLDMARKET-seller-share-whole",
     "file": "server-account/src/market.js",
-    "old": "total - tax - tithe - fee FROM market_sales WHERE buyer = ?1 AND rid = ?2 AND n = ?3",
+    "old": "MAX(0, total - tax - tithe - fee) FROM market_sales WHERE buyer = ?1 AND rid = ?2 AND n = ?3",
     "new": "total FROM market_sales WHERE buyer = ?1 AND rid = ?2 AND n = ?3",
     "tests": [
       "test/goldmarket_service.test.js"
@@ -191,7 +191,7 @@
   {
     "name": "GOLDMARKET-book-reserves-nothing",
     "file": "src/net/marketBook.js",
-    "old": "reserve: () => { w.pay(cost); return () => w.credit(cost); }",
+    "old": "reserve: () => { const undo = w.pay(cost); return typeof undo === 'function' ? undo : () => w.credit(cost); }",
     "new": "reserve: () => () => {}",
     "tests": [
       "test/goldmarket_client.test.js"

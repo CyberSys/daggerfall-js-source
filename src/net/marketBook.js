@@ -85,13 +85,14 @@ export function mintMarketRid() {
  *   marks?: { set?: (n: number) => void } | null, stores?: { apply?: (s: any) => void } | null,
  *   holds?: ((provenance: string) => boolean) | null, sleep?: (ms: number) => Promise<void>,
  *   realm?: { act: (o: any) => Promise<any>, abandon?: (why: string) => void } | null,
- *   wallet?: ((region: number) => { gold: () => number, pay: (n: number) => void, credit: (n: number) => void, bank: (n: number) => void }) | null,
+ *   wallet?: ((region: number) => { gold: () => number, pay: (n: number) => ((() => void) | void), credit: (n: number) => void, bank: (n: number) => void }) | null,
  *   goods?: { receive: (item: any) => boolean } | null }} o
  *   `stores` - the professions' book (AUDIT 30 U1: what an answer says of the Stores is its count too); `holds` - AUDIT 31
  *   H1: whether another book keeps an act on a piece (the writs' kept fill), so it is not taken twice; GOLD-MARKET:
  *   `realm` - a realm character's act on its record (systems/realmSaves.js realmGoldAct over the playing session), null
  *   for any other character (no gold trade); `wallet` - the save's gold as it pays at a board's region (the purse, its
- *   letters, then that region's account - realmGoldLaw payFromSave's order) and `bank`, gold into that region's account;
+ *   letters, then that region's account - realmGoldLaw payFromSave's order; MARKET-AUDIT: answering the undo of exactly what it
+ *   took, `credit` the whole cost only where it answers none) and `bank`, gold into that region's account;
  *   MARKET-ANY: `goods.receive(item)` - a piece from a pack, as the service put it into the record, into the save's pack
  *   (false: this game will not hold it - the session is abandoned, and a join reads the record)
  */
@@ -201,7 +202,9 @@ export function createMarketBook({ door, storage = null, character, now = () => 
     if (!force && hit && now() - hit.at < MARKET_CACHE_MS) return { ok: !hit.error, data: hit.data, error: hit.error, stale: hit.stale };
     const g = gen;
     const pk = `${g}|${key}`;
-    if (pending.has(pk)) return pending.get(pk);
+    // MARKET-AUDIT: a read that joins one under way is answered as that one's asker is - an act's answer overtaking it is
+    // read again, never `null` (the tab threw on it, and stood blank)
+    if (pending.has(pk)) return pending.get(pk).then((out) => out ?? read(view, q, { force: true }));
     const p = (async () => {
       const a = await ask(() => door.read({ character: character(), view, ...q }));
       if (g !== gen) return null;
@@ -264,7 +267,9 @@ export function createMarketBook({ door, storage = null, character, now = () => 
     const cost = entry.body.max;
     const r = heard(await realm.act({
       needsAnswer: true,
-      ...(first ? { reserve: () => { w.pay(cost); return () => w.credit(cost); } } : { apply: (/** @type {any} */ a) => { if (!a?.data?.repeat) w.pay(cost); } }),
+      // MARKET-AUDIT: a refusal gives back exactly what the payment took (the purse's coins, a letter's value, the bank's) - the
+      // whole cost credited as coins turned a letter of credit and the bank's gold into a purse past carrying
+      ...(first ? { reserve: () => { const undo = w.pay(cost); return typeof undo === 'function' ? undo : () => w.credit(cost); } } : { apply: (/** @type {any} */ a) => { if (!a?.data?.repeat) w.pay(cost); } }),
       call: (/** @type {any} */ at) => door.buy({ ...entry.body, realm: at }),
     }));
     if (slot() !== key) return { ok: false, kept: true, error: 'other-character', text: MARKET_KEPT_TEXT };
@@ -384,9 +389,12 @@ export function createMarketBook({ door, storage = null, character, now = () => 
         const gold = currency === 'gold';
         if (gold && !(realm && wallet)) return { ok: false, error: 'market-gold-realm' };
         if (gold && wallet(ask.region).gold() < ask.max) return { ok: false, error: 'realm-gold' };
+        const key = slot();
+        // MARKET-AUDIT: a press again of a buy kept unanswered is that buy asked again with its own id - a fresh id bought twice
+        const was = keptOf(key).buys.find((b) => b.body?.listing === ask.listing);
+        if (was) return was.gold ? goldBuy(was, mint, key, false) : keptAct('buys', was, () => door.buy(was.body), mint, key);
         const rid = mintMarketRid();
         const body = { character: character(), ...ask, rid };
-        const key = slot();
         keep('buys', { rid, body, ...(gold ? { gold: true } : {}) }, key);
         return gold ? goldBuy({ rid, body }, mint, key, true) : keptAct('buys', { rid }, () => door.buy(body), mint, key);
       });
@@ -402,6 +410,8 @@ export function createMarketBook({ door, storage = null, character, now = () => 
     collectGood(delivery) { return once(`good|${delivery}`, () => collectGood(delivery)); },
     /** HOME-VENDOR: the Vendor page's read - my traders, their stock, what they sold, the gold it holds. */
     async myVendors() { return heard(await ask(() => door.myVendors(character()))) ?? { ok: false, error: 'server' }; },
+    /** MARKET-AUDIT U7: the character the book acts for - a delivery to another of the account's waits for that one. */
+    me: () => character(),
     /** GOLD-MARKET: whether this character trades in gold - a realm character's (its gold is its record's). */
     get goldOk() { return !!(realm && wallet); },
     /** GOLD-MARKET: the gold the save can pay at a board of `region` (the purse, its letters, that region's account), or

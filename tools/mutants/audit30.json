@@ -20,7 +20,7 @@
   {
     "name": "AUDIT30-S3-a-spent-sale-id-bought-again",
     "file": "server-account/src/market.js",
-    "old": "        AND NOT EXISTS (SELECT 1 FROM marks_ledger WHERE actor = ?1 AND rid = ?2 || ':sale')   -- AUDIT 30 S3\n",
+    "old": "        AND NOT EXISTS (SELECT 1 FROM marks_ledger WHERE actor = ?1 AND rid IN (?2 || ':sale', ?2 || ':tax', ?2 || ':tithe'))   -- AUDIT 30 S3; MARKET-AUDIT S1: a sale paying its seller nothing spends its id by its tax's or Tithe's line\n",
     "new": "",
     "tests": [
       "test/audit30_service.test.js"
@@ -155,7 +155,7 @@
   {
     "name": "AUDIT30-U15-the-seller-s-listed-total",
     "file": "server-account/src/market.js",
-    "old": "'sold', kind, material, provenance, units, price, total - tax - tithe - fee, at",
+    "old": "'sold', kind, material, provenance, units, price, MAX(0, total - tax - tithe - fee), at",
     "new": "'sold', kind, material, provenance, units, price, total, at",
     "tests": [
       "test/audit30_service.test.js"

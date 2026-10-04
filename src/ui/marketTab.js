@@ -42,8 +42,8 @@
 import { accountRefusalText } from '../net/accountClient.js';
 import { MARKET_MOVED } from '../net/marketBook.js';   // AUDIT 31 B8
 import {
-  MARKET_VIEWS, MARKET_FAMILIES, CRAFTED_FAMILIES, MARKET_PRICE_MAX, MARKET_UNITS_MAX, MARKET_LISTINGS_MAX, MARKET_ORDERS_MAX,
-  listingFee, saleTax, saleTaxOn, sellerGets, courierFee, wearOf, wearText, medianText, marketCatalogue, AUCTION_S, AUCTION_RAISE_PCT, AUCTION_LATE_S, AUCTION_ADD_S, AUCTION_BID_MAX,
+  MARKET_VIEWS, MARKET_FAMILIES, CRAFTED_FAMILIES, MARKET_PRICE_MAX, MARKET_UNITS_MAX, MARKET_LISTINGS_MAX, MARKET_ORDERS_MAX, MARKET_WORTH_MAX,
+  listingFee, saleTax, fillTaxOn, sellerGets, courierFee, wearOf, wearText, medianText, marketCatalogue, AUCTION_S, AUCTION_RAISE_PCT, AUCTION_LATE_S, AUCTION_ADD_S, AUCTION_BID_MAX,
   goldText, goldSaleOf, GOODS_FAMILIES, MARKET_HELD_MAX,
 } from '../net/marketLaw.js';
 import { QUALITY_NAMES, MASTERWORK } from '../net/recipeLaw.js';
@@ -148,14 +148,17 @@ export function medianLineNode(line) {
  *   goods?: () => Array<{ item: any, name: string, why: string|null }>, good?: (item: any) => { offered: any, pick: number, take: () => ((() => void) | null) },
  *   goodName?: (rec: any) => string,
  *   board?: number[]|null, tithe?: () => number|null,
+ *   carried?: () => Map<string, number>, putIn?: (key: string, n: number) => Promise<{ ok: boolean, error?: string }>,
  * }} m the host's market (scenes/world.js); `drop` - a piece a settled listing took, out of the save (AUDIT 30 C3); MARKET-ANY:
  *   `goods` - the pack's pieces, each with why it may not list (null: it may), `good(item)` - the piece's wire record, its
  *   index in the save and its taking, `goodName` - a pack piece's record named as the pack names it; PROF12: `apothecaries` the
  *   Apothecaries' counter's sixteen (PROF0 4.5)
  *   SEAT1d: `board` the board's town pixel - a listing's, an auction's and a buy's courier's Tithe is its seat's;
- *   AUDIT SEATS-3 D3: `tithe()` that seat's Tithe in whole percents (0: unheld), or null while the seats' list is unread
+ *   AUDIT SEATS-3 D3: `tithe()` that seat's Tithe in whole percents (0: unheld), or null while the seats' list is unread;
+ *   MARKET-BAG (bible/06-Systems/Materials-Bag.md 6): `carried()` what the bag and the pack hold of each material that may go into
+ *   the Stores (profBook carriedUsable), `putIn(key, n)` the Stores' shortfall of `n` put in from them (profBook ensureInStores)
  * @param {{ busy: () => boolean, run: (start: () => Promise<any>) => Promise<void>, rerender: () => void, nowS: () => number,
- *   alive: () => boolean }} ui the window's
+ *   alive: () => boolean, hush?: () => void }} ui the window's (`hush` - MARKET-AUDIT U6: the last act's word let go)
  */
 export function createMarketTab(m, ui) {
   /** SEAT1d (Seats-Arc 7.2): the board's town pixel on every post and buy - the seat whose bailiwick it is takes the Tithe. */
@@ -215,17 +218,20 @@ export function createMarketTab(m, ui) {
     if (r?.settled) load(true);
     return { ok: !!r?.ok, text: r?.settled ? 'The counting-house has settled what it held for you.' : (r?.ok ? '' : accountRefusalText(r?.error)) };
   });
+  /** MARKET-AUDIT U7: whether a delivery is this character's - another of the account's waits for that one (the book's settle
+   *  collects this character's alone), and is never asked after here. */
+  const mine = (x) => x.character == null || m.book.me?.() == null || x.character === m.book.me();
   /** AUDIT 30 U10: a piece arrived while the tab stands is collected - each delivery asked once a showing (a refusal is
    *  said, and the next showing asks again). */
   const tried = new Set();
-  const arrived = () => (m.book.state.road ?? []).filter((x) => (x.kind === 'piece' || x.kind === 'item') && x.ready && !tried.has(x.id));   // MARKET-ANY: a pack's piece too
+  const arrived = () => (m.book.state.road ?? []).filter((x) => (x.kind === 'piece' || x.kind === 'item') && x.ready && mine(x) && !tried.has(x.id));   // MARKET-ANY: a pack's piece too
   const collectArrived = () => { if (arrived().length && !ui.busy()) settle(); };
   /** On the tab shown: the kept acts settled (and the arrived pieces collected), then the view read. */
   async function open() {
     if (m.book.pending || arrived().length) await settle();
     await load(false);
   }
-  const go = (view) => { st.view = view; st.picked = null; st.family = null; st.tier = 0; st.data = m.book.cached(view, q()); load(false); };
+  const go = (view) => { ui.hush?.(); st.view = view; st.picked = null; st.family = null; st.tier = 0; st.data = m.book.cached(view, q()); load(false); };   // MARKET-AUDIT U6: the last act's word is its view's
   /** An act through the window's door; its word, then the view read again - a press the market says has moved too. */
   const act = (start, okText) => ui.run(async () => {
     const r = await start();
@@ -234,7 +240,17 @@ export function createMarketTab(m, ui) {
     return { ok: false, text: r?.text ?? accountRefusalText(r?.error) };
   });
   /** What the Stores may spend or sell for Drakes of a material - never what gold bought (GOLD-MARKET's wall). */
-  const held = (key) => listableUnits(m.stores().get(key), 'marks');
+  const inStores = (key) => listableUnits(m.stores().get(key), 'marks');
+  /** MARKET-BAG (FIELD, 2026-10-04: "the market board is broken" - since BAG1 every harvest is carried, and the List form and
+   *  Fill read the Stores alone: a gatherer had nothing to sell): what the bag and the pack carry of it, put in first. */
+  const carriedOf = (key) => Math.max(0, Math.floor(Number(m.carried?.().get(key)) || 0));
+  const held = (key) => inStores(key) + carriedOf(key);
+  /** MARKET-BAG: the Stores' shortfall of `n` put in from the bag and the pack (as a station's inputs are), then the act -
+   *  a put-in refused is the act's word, and nothing is asked. */
+  const fromCarried = async (key, n, then) => {
+    if (m.putIn && n > inStores(key)) { const r = await m.putIn(key, n); if (!r?.ok) return { ok: false, error: r?.error ?? 'materials-short' }; }
+    return then();
+  };
   const where = (row) => (row.region === m.region ? 'here' : m.regionNameOf(row.region));
   /** The units a row's pick starts at, and its courier's quote is for. */
   const pickOf = (row) => (row.kind === 'piece' || row.kind === 'auction' || row.kind === 'item' ? 1 : Math.max(1, Math.min(row.units, PICK_UNITS)));
@@ -243,8 +259,8 @@ export function createMarketTab(m, ui) {
   /** AUDIT 30 U16: a unit's price landed here - its courier's share of the pick's. */
   const landed = (row) => { const n = pickOf(row), c = courierOf(row, n); return c == null ? Infinity : row.price + c / n; };
   /** GLOBAL-MARKET: what a fill of `n` units of an order pays this filler - its price less the tax on the order's running
-   *  total (saleTaxOn, as the service takes it) and the courier to the order's region; null with no road. */
-  const fillPay = (o, n) => { const c = courierOf(o, n); return c == null ? null : n * o.price - saleTaxOn((o.units - o.left) * o.price, n * o.price) - c; };
+   *  total (fillTaxOn, as the service takes it) and the courier to the order's region; null with no road. */
+  const fillPay = (o, n) => { const c = courierOf(o, n); return c == null ? null : n * o.price - fillTaxOn((o.units - o.left) * o.price, n * o.price, c === 0 && n === o.left) - c; };   // MARKET-AUDIT S2: the service's own tax
   const roadText = (row) => {
     if (row.region === m.region) return '';
     if (!row.road) return ' no courier knows the road';
@@ -275,7 +291,8 @@ export function createMarketTab(m, ui) {
       const from = x.from == null ? '' : ` from ${m.regionNameOf(x.from)}`;
       const what = x.kind === 'material' ? `${x.units} ${m.countName(x.material, x.units)}` : x.kind === 'item' ? goodName(x.item) : m.pieceName(x.piece);
       const when = x.kind === 'material' ? (x.waiting ? 'arrived - waiting for room in your Stores' : arrivalText(x.arrivesAt, ui.nowS()))
-        : x.why === 'returned' ? 'back from the market' : arrivalText(x.arrivesAt, ui.nowS());
+        : !mine(x) && x.ready ? 'waiting for another of your characters'   // MARKET-AUDIT U7: never "arrived" forever
+          : x.why === 'returned' ? 'back from the market' : arrivalText(x.arrivesAt, ui.nowS());
       box.append(el('p', 'market-roadline', `${what}${from} - ${when}`));
     }
     return box;
@@ -488,9 +505,9 @@ export function createMarketTab(m, ui) {
 
   /** MARKET-ANY: how the service says a crafted piece the save holds may list ("My listings" reads it, `ways`) - `yours`,
    *  `other`, `elsewhere`, `none` - or null while it has not said. */
-  const heldState = (pv) => (st.view === 'mine' ? st.data?.ways?.[pv] ?? null : null);
+  const heldState = (pv) => (st.view !== 'mine' ? null : st.data?.ways?.[pv] ?? (st.data?.ways && !heldIds().includes(pv) ? 'unasked' : null));   // MARKET-AUDIT U3: past MARKET_HELD_MAX, never asked
   /** A crafted piece offered as one: the service's `yours` - or, from a service that names none, every one (as before). */
-  const pieceListedAsCrafted = (pv) => (st.data?.ways ? heldState(pv) === 'yours' : true);
+  const pieceListedAsCrafted = (pv) => (st.data?.ways ? ['yours', 'unasked'].includes(/** @type {string} */ (heldState(pv))) : true);
   /** Why a pack piece with a maker's record does not list from the pack (null: it does - its record names another). */
   const craftedWhy = (item) => {
     if (typeof item?.provenance !== 'string') return null;
@@ -498,7 +515,7 @@ export function createMarketTab(m, ui) {
     // AUDIT PROF-541 R2-C7: a dish of your own make spoiled since it was cooked lists neither way - its record mints it
     // fresh (smithItems.js asMinted), so the Crafted list leaves it out - and is said so, never "list it as a crafted piece"
     if (h === 'yours' && (item.foodStage ?? 0) > 0) return SPOILED_DISH_WHY;
-    return h === 'other' || h === 'none' ? null : h === 'yours' ? 'your own make - list it as a crafted piece' : h === 'elsewhere' ? 'on the market already' : 'being looked up';
+    return h === 'other' || h === 'none' || h === 'unasked' ? null : h === 'yours' ? 'your own make - list it as a crafted piece' : h === 'elsewhere' ? 'on the market already' : 'being looked up';
   };
   function listForm() {
     const box = el('div', 'market-listform');
@@ -522,19 +539,29 @@ export function createMarketTab(m, ui) {
     const full = (m.book.state.counts?.listings ?? 0) >= listingsMax;
     let can = () => false, send = () => {}, worth = () => 0;
     if (st.list.kind === 'material') {
-      // GOLD-MARKET: the units a listing in its currency may take - never the other currency's bought ones
-      const stores = [...m.stores().values()].filter((s) => listableUnits(s, cur) > 0);
-      if (!stores.some((s) => s.material === st.list.material)) st.list.material = stores[0]?.material ?? '';
-      const most = listableUnits(m.stores().get(st.list.material), cur);
+      // GOLD-MARKET: the units a listing in its currency may take - never the other currency's bought ones. MARKET-BAG: a
+      // silver listing's what the bag and the pack carry too, put in first (a gold listing's are its Stores' own and gold's)
+      const listable = (key) => (gold ? listableUnits(m.stores().get(key), cur) : held(key));
+      const keys = [...new Set([...m.stores().keys(), ...(gold ? [] : [...(m.carried?.().keys() ?? [])])])].filter((k) => listable(k) > 0);
+      if (!keys.includes(st.list.material)) st.list.material = keys[0] ?? '';
+      const most = listable(st.list.material);
       st.list.units = intOf(st.list.units, 1, Math.max(1, Math.min(most, MARKET_UNITS_MAX)));
       const units = numberInput(st.list.units, 1, Math.max(1, Math.min(most, MARKET_UNITS_MAX)), 'Units to list', 'list-units');
-      units.oninput = () => { st.list.units = intOf(units.value, 1, Math.max(1, Math.min(most, MARKET_UNITS_MAX))); refresh(); };
-      box.append(select(stores.map((s) => [s.material, `${m.name(s.material)} (${listableUnits(s, cur).toLocaleString('en-US')})`]), st.list.material, (v) => { st.list.material = v; ui.rerender(); }, 'Material'),
-        el('span', 'notice-label', 'Units'), units, el('span', 'notice-label', `${unitWord} each`), price);
+      const carriedSaid = el('p', 'notice-tip');
+      const sayCarried = () => {
+        const short = gold || !st.list.material ? 0 : Math.max(0, st.list.units - inStores(st.list.material));
+        carriedSaid.textContent = short ? `${plural(short, 'unit')} of it ${short === 1 ? 'goes' : 'go'} into your Stores from your bag and pack first.` : '';
+      };
+      units.oninput = () => { st.list.units = intOf(units.value, 1, Math.max(1, Math.min(most, MARKET_UNITS_MAX))); sayCarried(); refresh(); };
+      box.append(keys.length ? select(keys.map((k) => [k, `${m.name(k)} (${listable(k).toLocaleString('en-US')})`]), st.list.material, (v) => { st.list.material = v; ui.rerender(); }, 'Material')
+        : el('span', 'notice-tip', gold ? 'Your Stores hold nothing that sells for gold.' : 'You have no materials to sell - in your Stores, your bag or your pack.'),
+      el('span', 'notice-label', 'Units'), units, el('span', 'notice-label', `${unitWord} each`), price, carriedSaid);
       worth = () => st.list.units * st.list.price;
-      can = () => !!st.list.material && most >= st.list.units;
-      send = () => act(() => m.book.list({ region: m.region, kind: 'material', material: st.list.material, units: st.list.units, price: st.list.price, hubs: m.hubs, ...at(), ...(gold ? { currency: 'gold' } : {}) }),
+      can = () => !!st.list.material && most >= st.list.units && worth() <= MARKET_WORTH_MAX;   // MARKET-AUDIT: the worth the service takes
+      const req = () => ({ region: m.region, kind: 'material', material: st.list.material, units: st.list.units, price: st.list.price, hubs: m.hubs, ...at(), ...(gold ? { currency: 'gold' } : {}) });
+      send = () => act(() => (gold ? m.book.list(req()) : fromCarried(st.list.material, st.list.units, () => m.book.list(req()))),
         `Listed ${st.list.units} ${m.countName(st.list.material, st.list.units)} at ${priceText(st.list.price, cur)} each.`);
+      sayCarried();
     } else if (st.list.kind === 'item') {
       // MARKET-ANY: every piece of the pack that may go, and of the rest why not - a crafted piece as the service says
       const all = (m.goods?.() ?? []).map((g) => ({ ...g, why: g.why ?? craftedWhy(g.item) }));
@@ -567,7 +594,10 @@ export function createMarketTab(m, ui) {
       const elsewhere = all.filter((p) => heldState(p.item.provenance) === 'elsewhere').length;
       if (!pieces.some((p) => p.item.provenance === st.list.piece)) st.list.piece = pieces[0]?.item.provenance ?? '';
       const chosen = pieces.find((p) => p.item.provenance === st.list.piece) ?? null;
-      box.append(pieces.length ? select(pieces.map((p) => [p.item.provenance, `${p.name}${p.where === 'home' ? ' (your home)' : ''}`]), st.list.piece, (v) => { st.list.piece = v; ui.rerender(); }, 'Crafted piece')
+      // MARKET-AUDIT U2: each its quality (an auction's are all Masterworks) and wear - a Crude, a Fine and a worn piece of one
+      // name were three like options
+      const pieceLabel = (p) => [p.name, auction ? null : QUALITY_NAMES[p.item.quality] ?? null, wearText(wearOf(p.item)), p.where === 'home' ? 'your home' : null].filter(Boolean).join(', ');
+      box.append(pieces.length ? select(pieces.map((p) => [p.item.provenance, pieceLabel(p)]), st.list.piece, (v) => { st.list.piece = v; ui.rerender(); }, 'Crafted piece')
         : el('span', 'notice-tip', auction ? 'You carry no Masterwork to auction.' : 'You carry no crafted piece to sell.'),
       el('span', 'notice-label', auction ? 'Opening bid in silver' : `Price in ${unitWord}`), price);
       if (others) box.append(el('p', 'notice-tip', `${plural(others, 'crafted piece')} you hold ${others === 1 ? 'names' : 'name'} another owner in ${others === 1 ? 'its' : 'their'} maker's record: only that owner sells ${others === 1 ? 'it' : 'them'} as a crafted piece. ${goldOk() && m.goods ? 'List it as a piece from your pack, for gold.' : ''}`.trim()));
@@ -589,6 +619,7 @@ export function createMarketTab(m, ui) {
       const pct = m.tithe?.() ?? null;
       const less = pct == null ? `${saleTax(100)}% tax and the seat's Tithe, if its town's seat is held` : pct > 0 ? `${saleTax(100)}% tax and the seat's ${pct}% Tithe` : `${saleTax(100)}% tax`;
       hint.textContent = full ? `You have ${listingsMax} listings standing, the most one account may here. Cancel one, or wait for one to sell.`
+        : worth() > MARKET_WORTH_MAX ? `A listing's whole worth is at most ${priceText(MARKET_WORTH_MAX, cur)} - list fewer, or ask less.`   // MARKET-AUDIT: never offered to be refused
         // GOLD-MARKET: no fee now - each sale pays its share and the tax; the gold is held for the seller to collect
         // MARKET-ANY: a piece from the pack - where it goes, and why gold alone
         : st.list.kind === 'item' ? `No fee to list: its sale pays 1% and ${saleTax(100)}% tax out of its price. It leaves your pack now and stands on every board in the Bay for 72 hours (a buyer outside ${m.regionName} pays a courier); the gold is held for you to collect into your bank (${goldText(goldSaleOf(0, worth()).gets)} if it sells). If you cancel, or it does not sell, it comes back to your pack. A piece from your pack sells for gold alone.`
@@ -645,8 +676,11 @@ export function createMarketTab(m, ui) {
     const most = Math.max(1, Math.min(have, o.left));
     const count = () => intOf(st.fills[o.id] ?? Math.min(have, o.left), 1, most);
     const inp = numberInput(count(), 1, most, `Units of ${m.name(o.material)} to fill`, `fill|${o.id}`);
-    const b = button('primary market-fill', '', () => { const n = count(); return act(() => m.book.fill({ region: m.region, order: o.id, units: n, hubs: m.hubs, least: fillPay(o, n) ?? 1, ...at() }),
+    // MARKET-BAG: what the Stores lack of it put in from the bag and the pack first, as a station's inputs are
+    const b = button('primary market-fill', '', () => { const n = count(); return act(() => fromCarried(o.material, n, () => m.book.fill({ region: m.region, order: o.id, units: n, hubs: m.hubs, least: fillPay(o, n) ?? 1, ...at() })),
       (d) => `Filled: ${marksText(d?.fill?.pay ?? 0)}.`); });
+    const stores = inStores(o.material), carried = carriedOf(o.material);
+    const haveText = `${stores.toLocaleString('en-US')} in your Stores${carried ? `, ${carried.toLocaleString('en-US')} carried` : ''}`;
     // GLOBAL-MARKET: what a fill pays here - the price less the tax and, from another region, the courier
     const says = el('span', 'notice-tip');
     says.setAttribute('aria-live', 'polite');
@@ -654,8 +688,8 @@ export function createMarketTab(m, ui) {
       const n = count(), pay = fillPay(o, n), c = courierOf(o, n);
       b.textContent = `Fill ${n} from the Stores`;
       b.disabled = ui.busy() || have < 1 || pay == null || pay < 1;
-      says.textContent = `${have.toLocaleString('en-US')} in your Stores - ${c == null ? `the couriers do not know the road to ${m.regionNameOf(o.region)} yet`
-        : pay < 1 ? `the courier to ${m.regionNameOf(o.region)} would take all it pays` : `pays you ${marksText(pay)}${c ? ` after ${c} courier and tax` : ' after tax'}`}`;
+      says.textContent = `${haveText} - ${c == null ? `the couriers do not know the road to ${m.regionNameOf(o.region)} yet`
+        : pay < 1 ? (c ? `the courier to ${m.regionNameOf(o.region)} would take all it pays` : 'after the tax it pays nothing - fill more at once') : `pays you ${marksText(pay)}${c ? ` after ${c} courier and tax` : ' after tax'}`}`;
     };
     inp.oninput = () => { st.fills[o.id] = intOf(inp.value, 1, most); refresh(); };
     refresh();
@@ -687,7 +721,8 @@ export function createMarketTab(m, ui) {
         el('span', 'market-price', `${priceText(l.price, l.currency)}${l.kind === 'material' ? ' each' : ''}`),
         el('span', 'market-where', l.region === m.region ? 'here' : m.regionNameOf(l.region)),
         el('span', 'market-state', l.state === 'open' ? `${plural(Math.max(0, Math.ceil((l.expiresAt - ui.nowS()) / 3600)), 'hour')} left` : l.state));
-      if (l.state === 'open') li.append(button('market-cancel', 'Cancel', () => act(() => m.book.cancel(l.id, m.mint), 'Cancelled. The goods are back; the fee is kept.')));
+      // MARKET-AUDIT: a gold listing (a pack's piece among them) paid no fee to keep
+      if (l.state === 'open') li.append(button('market-cancel', 'Cancel', () => act(() => m.book.cancel(l.id, m.mint), l.currency === 'gold' ? 'Cancelled. The goods are back.' : 'Cancelled. The goods are back; the fee is kept.')));
       ul.append(li);
     }
     if (!rows.length && st.data) ul.append(el('li', 'notice-empty', 'You have nothing on the market.'));
@@ -780,7 +815,9 @@ export function createMarketTab(m, ui) {
         ? 'The counting-house is not answering. The market cannot be read now.' : accountRefusalText(st.error));
       if (!shut) p.append(button('notice-retry', 'Try again', () => load(true)));
       box.append(p);
-      return box;
+      // MARKET-AUDIT U5: a read that failed leaves the view's filters (a filter may be what to change) and the counters,
+      // which read nothing of the market - only a shut market is the word alone
+      if (shut) return box;
     }
     if (st.loading && !st.data) box.append(el('p', 'notice-empty', 'Reading the market...'));
     if (st.view === 'auctions') {

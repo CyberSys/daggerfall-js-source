@@ -310,7 +310,7 @@ import { drinkAtSource, isWaterSourceFlat, isDrySourceFlat, WATER_SOURCE_MODELS,
 import { survivalOn } from '../systems/survival/switch.js';   // HT1: Handheld Torches' dropped lights, thrown torches and burning foes   // AUDIT 24 (wave 39): EnemyBlood.ShowBloodSplash
 import { createCityGuards } from './cityGuards.js';   // G1
 import { createArrestFlow } from './arrestFlow.js';
-import { clearCrimeOnLocationExit, addGold, goldAmount, deductGold, totalGoldAmount, deductGoldPieces } from '../systems/court.js';   // AUDIT 17e F6   // G2   // F-slice: travel gold; U41: GetGoldAmount + the pieces half of DeductFastTravelGold
+import { clearCrimeOnLocationExit, addGold, goldAmount, deductGold, deductGoldUndoable, totalGoldAmount, deductGoldPieces } from '../systems/court.js';   // AUDIT 17e F6   // G2   // F-slice: travel gold; U41: GetGoldAmount + the pieces half of DeductFastTravelGold
 import { makeInView } from '../player/cameraView.js';   // AUDIT 17e F24
 import { isBackFacing, SIGHT_RADIUS, foeFrameDt } from '../characters/enemyMotor.js';   // OW6: SIGHT_RADIUS, a foe's own sight (a camp's is its own)   // DUEL1: a duel opponent's blow from behind me is a backstab's chance
 import { markFoeStruck } from '../ui/hudFoeTarget.js';   // DUEL1: my duel opponent's health, on the enhanced HUD's target bar
@@ -1423,7 +1423,9 @@ export async function bootWorld(canvas, renderer, params, status) {
         const account = playerEntity.bankAccounts[goldRegion(playerEntity.bankAccounts, region)] ?? null;   // EMPIRE-ACCOUNT: the Empire's account
         return {
           gold: () => totalGoldAmount(playerEntity) + Math.max(0, account?.accountGold ?? 0),
-          pay: (n) => { const owed = deductGold(playerEntity, n); if (account && owed > 0) account.accountGold -= owed; },
+          // MARKET-AUDIT: and its undo - exactly what it took back where it was (court.js deductGoldUndoable); a refusal's
+          // `credit` of the whole cost turned letters and the bank's gold into purse coins
+          pay: (n) => { const { owed, undo } = deductGoldUndoable(playerEntity, n); const fromBank = account && owed > 0 ? owed : 0; if (fromBank) account.accountGold -= fromBank; return () => { undo(); if (fromBank) account.accountGold += fromBank; }; },
           credit: (n) => addGold(playerEntity, n),
           // collected: into that region's account, the purse where there is none (realmGoldLaw creditSave's `bank`)
           bank: (n) => { if (account) account.accountGold = (Number.isFinite(account.accountGold) ? account.accountGold : 0) + n; else addGold(playerEntity, n); },
@@ -21033,6 +21035,10 @@ export async function bootWorld(canvas, renderer, params, status) {
       board: [town.px, town.py],   // SEAT1d (Seats-Arc 7.2): the board's town - the seat whose bailiwick takes the Tithe
       tithe: () => (seatBook?.open === true ? boardTithePct(seatBook.data?.seats ?? [], region, [town.px, town.py]) : null),   // AUDIT SEATS-3 D3: its rate as the seats' list says it (null: not read)
       pieces: marketPieces, take: marketTake, putBack: marketPutBack, mint: marketMint, pieceName: marketPieceName, drop: marketDrop, goods: () => marketGoods.goods(), good: (it) => marketGoods.good(it), goodName: (rec) => marketGoods.goodName(rec),   // MARKET-ANY: a piece from the pack, for gold
+      // MARKET-BAG (FIELD, 2026-10-04: "the market board is broken"): since BAG1 a harvest is carried - what the bag and the
+      // pack hold counts toward a silver listing and a fill, its shortfall put into the Stores first, as a station's inputs
+      carried: () => new Map([...profBook.state.carried.keys()].map((k) => [k, profBook.carriedUsable(k)])),
+      putIn: (key, n) => profBook.ensureInStores([{ key, n }]),
       weavers: WEAVERS_STOCK,
       apothecaries: APOTHECARY_STOCK,   // PROF12 (PROF0 4.5): the supplier's second counter - the potion recipes' sixteen
       stock: async (key, n) => {

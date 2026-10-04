@@ -75,6 +75,7 @@ import {
   AUCTION_S, AUCTION_LATE_S, AUCTION_ADD_S, AUCTION_GRACE_S, bidOk, auctionNext, auctionable,
   currencyOk, goldSaleOf, MARKET_GOLD_HELD_MAX,
   goodRefusal, goodFamily, GOOD_GROUP_FAMILIES, MARKET_HELD_MAX,   // MARKET-ANY
+  fillTaxOn,   // MARKET-AUDIT S2
 } from '../../src/net/marketLaw.js';
 import { MASTERWORK, PROVENANCE_RE } from '../../src/net/recipeLaw.js';
 import { takeTradeGoods, giveTradeGoods } from '../../src/net/realmTradeLaw.js';   // MARKET-ANY: a piece out of one record and into another, as a trade moves it
@@ -647,11 +648,12 @@ export async function marketRead(ctx, player, env, { character, region, view, fa
     };
   }
   if (view === 'orders') {
-    // GLOBAL-MARKET: every board's open orders, dearest first - a family's chosen before the cutoff, as the Crafted
-    // view's - each with its road from this board (a fill from another region pays the courier out of its pay)
-    const { results = [] } = await db.prepare(`SELECT * FROM market_orders WHERE state = 'open' AND expires_at > ?1
-      ORDER BY price DESC, at LIMIT 500`).bind(nowS).all();
-    const rows = results.filter((o) => !family || material(o.material)?.family === family).slice(0, MARKET_SHOWN);
+    // GLOBAL-MARKET: every board's open orders, dearest first, each with its road from this board (a fill from another
+    // region pays the courier out of its pay) - MARKET-AUDIT S4: a family's chosen in the query, before the cutoff, as the
+    // Materials view's (a hundred dearer orders of any other family hid it)
+    const familyKeys = family ? JSON.stringify([...marketCatalogue().map((c) => c.key), ...UNYIELDED].filter((k) => material(k)?.family === family)) : null;
+    const { results: rows = [] } = await db.prepare(`SELECT * FROM market_orders WHERE state = 'open' AND expires_at > ?1
+      AND (?2 IS NULL OR material IN (SELECT value FROM json_each(?2))) ORDER BY price DESC, at LIMIT ${MARKET_SHOWN}`).bind(nowS, familyKeys).all();
     const quotes = await quote(rows, () => 1);
     const medians = await mediansOf(db, [...new Set(rows.map((o) => o.material))], today);
     return { ...(await base()), orders: rows.map((o, i) => ({ ...orderView(o, me), road: quotes[i] })), medians: Object.fromEntries(medians) };
@@ -682,7 +684,7 @@ export async function marketRead(ctx, player, env, { character, region, view, fa
   // MARKET-ANY: a piece from a pack named by its listing's record (`good`)
   const goodSql = "CASE WHEN kind = 'item' THEN (SELECT item FROM market_listings l WHERE l.id = market_sales.listing) END";
   const { results: sales = [] } = await db.prepare(`SELECT 'bought' AS side, kind, material, provenance, units, price, total + courier AS total, at, currency, ${goodSql} AS good FROM market_sales WHERE buyer = ?1 AND at > ?2
-    UNION ALL SELECT 'sold', kind, material, provenance, units, price, total - tax - tithe - fee, at, currency, ${goodSql} FROM market_sales WHERE seller = ?1 AND at > ?2
+    UNION ALL SELECT 'sold', kind, material, provenance, units, price, MAX(0, total - tax - tithe - fee), at, currency, ${goodSql} FROM market_sales WHERE seller = ?1 AND at > ?2
     UNION ALL SELECT 'filled', 'material', material, NULL, units, price, pay, at, 'marks', NULL FROM market_fills WHERE filler = ?1 AND at > ?2
     UNION ALL SELECT 'ordered', 'material', material, NULL, units, price, units * price, at, 'marks', NULL FROM market_fills WHERE poster = ?1 AND at > ?2
     UNION ALL SELECT 'won', 'piece', NULL, a.provenance, 1, a.high, a.high + b.courier, a.closed_at, 'marks', NULL FROM market_auctions a JOIN market_bids b ON b.id = a.high_bid
@@ -1013,7 +1015,7 @@ export async function marketBuy(ctx, player, env, { character, region, listing: 
       FROM market_listings l WHERE l.id = ?16 AND l.state = 'open' AND l.expires_at > ?13 AND l.seller != ?1 AND l.own + l.bought >= ?4
         AND l.price * ?4 = ?5
         AND l.own + l.bought = ?20   -- the running total the tax was taken on (AUDIT 30 L6)
-        AND NOT EXISTS (SELECT 1 FROM marks_ledger WHERE actor = ?1 AND rid = ?2 || ':sale')   -- AUDIT 30 S3
+        AND NOT EXISTS (SELECT 1 FROM marks_ledger WHERE actor = ?1 AND rid IN (?2 || ':sale', ?2 || ':tax', ?2 || ':tithe'))   -- AUDIT 30 S3; MARKET-AUDIT S1: a sale paying its seller nothing spends its id by its tax's or Tithe's line
         AND COALESCE((SELECT balance FROM marks WHERE account = ?1), 0) >= ?5 + ?8
         AND COALESCE((SELECT balance FROM marks WHERE account = l.seller), 0) + ?17 <= ?18
         AND (?12 = 0 OR l.kind = 'piece'
@@ -1027,7 +1029,7 @@ export async function marketBuy(ctx, player, env, { character, region, listing: 
     // the Marks: the proceeds to the seller, the tax and the courier burnt
     db.prepare(`INSERT INTO marks_ledger (src_kind, src_id, dst_kind, dst_id, kind, amount, day, at, actor, who, rid)
       SELECT 'account', buyer, 'account', seller, 'market-sale', total - tax - tithe, day, at, buyer, listing, rid || ':sale'
-      FROM market_sales WHERE buyer = ?1 AND rid = ?2 AND n = ?3`).bind(me, rid, nonce),
+      FROM market_sales WHERE buyer = ?1 AND rid = ?2 AND n = ?3 AND total - tax - tithe > 0`).bind(me, rid, nonce),   // MARKET-AUDIT S1: a one-Mark unit its tax took whole pays its seller nothing - no line of 0 (the ledger's CHECK threw the sale, 500)
     db.prepare(`INSERT INTO marks_ledger (src_kind, src_id, dst_kind, dst_id, kind, amount, day, at, actor, who, rid)
       SELECT 'account', buyer, 'burn', NULL, 'market-tax', tax, day, at, buyer, listing, rid || ':tax'
       FROM market_sales WHERE buyer = ?1 AND rid = ?2 AND n = ?3 AND tax > 0`).bind(me, rid, nonce),
@@ -1123,8 +1125,8 @@ async function buyWithGold(ctx, player, { character, region, l, units, max, rid,
         WHERE id = ?6 AND ${sold}`).bind(me, rid, nonce, units, nowS, l.id),
       // the seller's share, held for its character until its own record collects it
       db.prepare(`INSERT INTO market_gold (player, char_id, gold)
-        SELECT seller, (SELECT char_id FROM market_listings WHERE id = listing), total - tax - tithe - fee FROM market_sales WHERE buyer = ?1 AND rid = ?2 AND n = ?3
-        ON CONFLICT (player, char_id) DO UPDATE SET gold = market_gold.gold + excluded.gold`).bind(me, rid, nonce),
+        SELECT seller, (SELECT char_id FROM market_listings WHERE id = listing), MAX(0, total - tax - tithe - fee) FROM market_sales WHERE buyer = ?1 AND rid = ?2 AND n = ?3
+        ON CONFLICT (player, char_id) DO UPDATE SET gold = market_gold.gold + excluded.gold`).bind(me, rid, nonce),   // MARKET-AUDIT S3: goldSaleOf's floor - a 1-gold unit's tax and fee past it broke the CHECK, said `stores-full`
       // a material here, into the Stores as gold's (the wall)
       db.prepare(`INSERT INTO prof_stores (player, char_id, material, origin, qty)
         SELECT buyer, char_id, material, 'gold', units FROM market_sales WHERE buyer = ?1 AND rid = ?2 AND n = ?3 AND kind = 'material' AND delivered = 1
@@ -1287,15 +1289,17 @@ export async function marketFill(ctx, player, env, { character, region, order: i
   if (o.poster === me) return { error: 'market-own' };
   if (units > Number(o.left_units)) return { error: 'market-short' };
   const total = units * Number(o.price);
-  // AUDIT 30 L6: the tax of the order's running total - what it has bought before this fill
-  const tax = saleTaxOn((Number(o.units) - Number(o.left_units)) * Number(o.price), total);
   const own = hubsOf(hubs);
   // GLOBAL-MARKET: an order of another region filled from here - the courier carries the units to it, out of the pay
   const to = Number(o.region);
   const road = courierOf(await hubsAt(db, [region, to], own), region, to, units);
   if (!road) return { error: 'market-no-road' };
+  // AUDIT 30 L6: the tax of the order's running total - what it has bought before this fill; MARKET-AUDIT S2: its last units
+  // here pay at least a Mark (marketLaw fillTaxOn), and any other fill the tax or the courier would leave paying nothing
+  // is refused, said why
+  const tax = fillTaxOn((Number(o.units) - Number(o.left_units)) * Number(o.price), total, road.courier === 0 && units === Number(o.left_units));
   const pay = total - tax - road.courier;
-  if (pay < 1) return { error: 'market-courier-dear' };
+  if (pay < 1) return { error: road.courier > 0 ? 'market-courier-dear' : 'market-taxed-out' };
   if (Number.isSafeInteger(least) && pay < least) return { error: 'market-price-moved' };
   const ct = road.courier > 0 ? await titheAt(db, nowS, region, boardOf(board)) : null;
   const fillTithe = ct ? titheOf(road.courier, ct.pct) : 0;   // the buy's courier share (SEAT1d), the filler's board's

@@ -108,6 +108,10 @@ export const saleTax = (total) => Math.floor((total * MARKET_TAX_PCT) / 100);
  *  5% of the running total, rounded down, less what the earlier sales paid - so a listing bought a unit at a time pays
  *  the tax it would have paid bought whole, and splitting a sale saves nothing. */
 export const saleTaxOn = (before, total) => saleTax(before + total) - saleTax(before);
+/** MARKET-AUDIT S2: the tax on a fill of `total` out of an order that has bought `before` - saleTaxOn's, except that the
+ *  order's LAST units (`last`) pay their filler at least a Mark: a one-Mark order's twentieth unit, taxed whole, could never
+ *  be filled (a fill pays at least a Mark - market_fills.pay). Any other fill the tax would leave paying nothing is refused. */
+export const fillTaxOn = (before, total, last = false) => { const t = saleTaxOn(before, total); return last && total >= 1 && total - t < 1 ? total - 1 : t; };
 /** The Tithe on a sale at `pct` hundredths, rounded down (nought until SEAT1). */
 export const saleTithe = (total, pct = MARKET_TITHE_PCT) => Math.floor((Math.max(0, total) * Math.max(0, pct)) / 100);   // AUDIT-SEATS L10: townSeatLaw.js titheOf's rule, a negative none
 /** AUDIT-SEATS L4: the Tithe on a sale of `total` out of a listing that has already sold `before` - as saleTaxOn: the

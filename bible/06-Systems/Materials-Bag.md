@@ -148,8 +148,11 @@ words). Every unit the service hands over is minted - into the bag, the pack, th
 (`giveCarried`), as a withdrawal always came: the service counted them carried. A station's refusal after some inputs
 went in says so ("1 of the materials went into your Stores first - the next try spends them there."); a press while a
 put-in of an input is unanswered says `deposit-kept` at once, and no craft is kept (the second audit's K4-K10). DFU's own potion maker reads and spends the bag
-after the cart (`scenes/worldModes.js`). The market, the guild Stores and Disenchanting read the Stores alone, as they
-did: a material is listed, given to the guild or sold back from the Stores, so it is put in first.
+after the cart (`scenes/worldModes.js`). The guild Stores and Disenchanting read the Stores alone, as they did: a
+material is given to the guild or sold back from the Stores, so it is put in first. The market's silver listing and its
+buy-order fill count what is carried and put the shortfall in first, as a station does (MARKET-BAG, 2026-10-04 -
+Professions-Arc 10.10: reading the Stores alone, a gatherer's List form offered nothing and every order said "0 in your
+Stores"); a gold listing takes its Stores' own and gold's units alone.
 
 ## 7. Edges
 

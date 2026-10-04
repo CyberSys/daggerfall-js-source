@@ -414,6 +414,7 @@ export const REFUSALS = Object.freeze({
   'market-order-full': 'The buyer\'s Stores cannot hold that many more.',
   'market-elsewhere': 'That order is filled at the boards of its own region.',
   'market-courier-dear': 'The courier to that order\'s region would cost all it pays. Fill it nearer, or fill more at once.',   // GLOBAL-MARKET
+  'market-taxed-out': 'Filled alone, that would pay you nothing once the tax is taken. Fill more at once.',   // MARKET-AUDIT S2
   'market-other-character': 'That is on its way to another of your characters.',
   'market-on-road': 'The courier has not arrived yet.',
   // AUDIT 30

@@ -1001,6 +1001,39 @@ read `region = ?1` and a fill from any other board was refused `market-elsewhere
 - **As built**: `server-account/src/market.js` marketRead (orders) and marketFill; `src/ui/marketTab.js` orderRow;
   `test/globalmarket.test.js`; `tools/mutants/globalmarket.json`.
 
+### 10.10 MARKET-AUDIT - the board audited (2026-10-04, Mac: "I think the ingame market board is broken. Please audit this")
+
+Three lanes - the service, the client's book, the tab and its host - read the market end to end over the real Worker
+and reproduced each finding before it was fixed (`test/marketaudit.test.js`, `tools/mutants/marketaudit.json`).
+
+- **MARKET-BAG - the break a player sees.** Since BAG1 every harvest is carried (bag, then pack), and the List form and
+  a fill read the Stores alone: a gatherer's List form offered no material and every order said "0 in your Stores",
+  Fill shut, with no word why. What is carried now counts toward a silver listing and a fill, and its shortfall goes
+  into the Stores first (`profBook.ensureInStores`, a station's own way); the form says how many go in. A gold listing
+  stays its Stores' own and gold's units (the wall, 10.8).
+- **The service.** S1: a one-Mark unit its running-total tax took whole (every twentieth unit of a one-Mark listing)
+  wrote a seller's line of 0, which the ledger refuses - a 500, the buy kept and asked again for ever; such a sale now
+  pays its seller nothing and writes no line. S2: a fill its tax left paying nothing was refused as "the buyer's Stores
+  cannot hold that many" (market_fills.pay is at least a Mark) - now `market-taxed-out`, and an order's LAST units pay
+  their filler a Mark, the tax short by it (`marketLaw.js` fillTaxOn), so no order is left unfillable. S3: a gold unit
+  whose tax and fee passed its price broke `market_gold`'s CHECK and was said `stores-full` - the held share floors at
+  nothing (goldSaleOf's own floor). S4: the Orders view's family read after its cutoff - in the query now.
+- **The book.** B1: a refused gold buy gave its whole cost back as purse coins (`addGold`) whatever paid it - a letter of
+  credit and the bank's gold turned into coin, checkpointed into the record; the wallet's pay answers the undo of exactly
+  what it took (`court.js` deductGoldUndoable, and the bank's share). B2: a read that joined one under way answered null
+  when an act overtook it - the tab threw and stood blank; it is read again. B4: Buy pressed again after a lost answer
+  minted a fresh id and bought twice; it asks the kept buy again with its own.
+- **The tab.** U2: crafted pieces of one name are told apart by quality and wear. U3: a piece past the 64 the read
+  names (`MARKET_HELD_MAX`) is offered both ways, the service's refusal saying which is wrong - it was never offered. U4:
+  a market that shuts while its tab is read keeps the tab and its shut word (AUDIT 30 U11's word was unreachable). U5: a
+  failed read keeps the view's filters and the counters. U6: an act's word stays with its view. U7: another character's
+  delivery says it waits for that one, and is not asked after.
+- **Not changed, named.** Other realm-gold acts pay with the same `credit`-the-whole-cost undo (`guildBook.js`,
+  `decorTool.js`, `homeRent.js`, `onlineHomes.js`) - outside the market, each its own slice. A 200 whose body is lost
+  reads as an empty success at the account door (`accountClient.js` call) - every route's, not the market's. The
+  minute's cache is not keyed by account. `MARKET-ANY-service-the-goods-family-unfiltered` survives on the base too (the
+  Goods view's family is filtered in its query since the LATTY patch; the JS filter after it is redundant).
+
 ## 11. Writs - the Work tab
 
 - **Court writs** (the faucet): every region with a seat or hub posts **6 x max(1, ceil(active / 100)) a UTC day** (a
