@@ -352,7 +352,7 @@ test('RR3 the merchant service: the registry, the gate, the route, the popup\'s 
   assert.match(wm, /hasCustomMerchantService,\s*\/\/ RR3/);
   assert.match(wm, /const custom = getCustomMerchantService\(pn\.factionID\);/);
   assert.match(wm, /label: custom \? getCustomMerchantServiceLabel\(pn\.factionID\) : undefined,/);
-  assert.match(wm, /function openCustomMerchantService\(service\) \{[\s\S]*?messageBox: \(text\) => mountInterior\(new ActionTextBox\(\[text\]\)\),[\s\S]*?const win = openTradeWindow\(\{ items \}, b, 'Buy'\);/);
+  assert.match(wm, /function openCustomMerchantService\(service\) \{[\s\S]*?messageBox: \(text\) => \(mode === 'interior' \? mountInterior\(new ActionTextBox\(\[text\]\)\) : mountServiceWindow\(new ActionTextBox\(\[text\]\)\)\),[\s\S]*?const win = openTradeWindow\(\{ items \}, b, 'Buy'\);/);   // IT1 (PIN MOVED): a street merchant's box in the street's slot
   assert.match(rd('src/ui/merchantServiceWindow.js'), /const label = this\.hooks\.label \?\? merchantServiceLabel\(this\.hooks\.service\);/);
   // the reset seam
   _resetMerchantServices();
