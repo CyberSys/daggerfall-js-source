@@ -33,9 +33,9 @@
 import { getPref } from '../systems/uiPrefs.js';
 import { ENEMY_BASICS } from '../characters/enemyBasics.js';
 import { MOBILE_TYPES } from '../characters/mobileTypes.js';
-import { throwsBlows, blowShapesOf, blowFamily, makeBlow, fitBlowToGround, inBlow, setLiveBlow, windupNear, offsetBlows, BLOW, BLOW_CHANCE, BLOW_COOLDOWN_MIN, BLOW_COOLDOWN_MAX, BLOW_COLOR, IRON_COLOR } from './foeBlows.js';   // TACT4; TELL3: iron; TELL5: the family, the shapes' lengths
+import { throwsBlows, blowShapesOf, blowFamily, makeBlow, fitBlowToGround, inBlow, setLiveBlow, windupNear, offsetBlows, BLOW, BLOW_CHANCE, BLOW_COLOR, IRON_COLOR } from './foeBlows.js';   // TACT4; TELL3: iron; TELL5: the family, the shapes' lengths
 import { tacticsNow, setTacticsClock, tickTactics } from './tacticsClock.js';   // AUDIT TACT D10/A3
-import { TELL, poiseOf, staggerSeconds, glintStrength, blowGuard, punishSeconds, windupSeconds, feints, chains, chainShape, trackYaw } from './tells.js';   // TELL1: poise and the stagger (bible/12-Enhanced-AI/Feud-Arc.md section 3); TELL3: a blow's guard; TELL4: the punish window; TELL5: patterns
+import { TELL, poiseOf, staggerSeconds, glintStrength, blowGuard, punishSeconds, windupSeconds, feints, chains, chainShape, trackYaw, blowCooldown } from './tells.js';   // TELL1: poise and the stagger (bible/12-Enhanced-AI/Feud-Arc.md section 3); TELL3: a blow's guard; TELL4: the punish window; TELL5: patterns; TELL7: the cooldowns
 import { registerBlowTakenMod } from '../systems/blowTaken.js';   // TELL1: a staggered foe takes more - the leaf the formulas read
 
 export const tacticsSwitchOn = () => getPref('enhancedAI') === true;
@@ -167,7 +167,7 @@ export function windupStruck(ai, ent, weight, v) {
   b.taken = (b.taken ?? 0) + (v > 0 ? v : 0);
   if (b.taken < b.poise) return 'hold';
   setLiveBlow(ai, null); s.blow = null;
-  s.blowReady = now + BLOW_COOLDOWN_MIN + Math.random() * (BLOW_COOLDOWN_MAX - BLOW_COOLDOWN_MIN);
+  s.blowReady = now + blowCooldown(ent);   // TELL7: by its tier
   clearBlowState(ai);
   dropSwing(ai);
   handOn(ai, s, now);
@@ -417,7 +417,7 @@ export function tacticsStep(ai, dx, dz) {
   if (s.state === 'engage' && b.melee.has(ai) && key === LOCAL && _me && dist <= reach + 0.5 && ai.canAct !== false && now >= (s.blowReady ?? 0)) {   // AUDIT TACT: a token holder's, never an opportunist's
     const ent = ai.vitals?.();
     if (throwsBlows(ent) && !windupNear(_me.feet, now, ai) && Math.random() < BLOW_CHANCE) {
-      const shapes = blowShapesOf(ent.mobileType);
+      const shapes = blowShapesOf(ent.mobileType, ent);   // TELL7: an elite's, a champion's or a revenant's whole set
       beginWindup(ai, s, ent, shapes[Math.floor(Math.random() * shapes.length)], dx, dz, now);
     }
   }
@@ -464,7 +464,7 @@ function beginWindup(ai, s, ent, shape, dx, dz, now, chain = 0) {
 /** TACT4: the wind-up's turn - broken by a knock or a paralysis (a step the motor did not let the brain decide), else
  *  stood, its aim locked, until the landing: where my feet stand decides it, and the swing comes now. */
 function windupTurn(ai, s, now, skipped) {
-  const cooled = now + BLOW_COOLDOWN_MIN + Math.random() * (BLOW_COOLDOWN_MAX - BLOW_COOLDOWN_MIN);
+  const cooled = now + blowCooldown(ai.vitals?.());   // TELL7: by its tier
   if (skipped || ai.canAct === false || ai.hurtKnock || ai.knockbackSpeed > 0) {
     setLiveBlow(ai, null); s.blow = null; s.state = 'engage'; s.blowReady = cooled;
     clearBlowState(ai);
@@ -501,7 +501,7 @@ function windupTurn(ai, s, now, skipped) {
       s.blowReady = cooled; s.blow = null;
       // TELL5 (7.4): a chain - hit or miss, a second blow at once; the punish window waits for its last
       const ent = ai.vitals?.();
-      const shapes = ent ? blowShapesOf(ent.mobileType) : [];
+      const shapes = ent ? blowShapesOf(ent.mobileType, ent) : [];
       if ((b.chain ?? 0) < 1 && chains(blowFamily(ent?.mobileType), ent, shapes) && Math.random() < TELL.CHAIN_CHANCE) {
         const next = chainShape(b.kind, shapes);
         if (next) {

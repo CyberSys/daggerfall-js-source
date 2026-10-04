@@ -36,7 +36,7 @@ beforeEach(() => { resetTactics(); resetBlows(); T = 0; setPref('enhancedAI', tr
 // ── the law ─────────────────────────────────────────────────────────
 
 test('TELL1: the table is the arc\'s section 27 (mutants: any number moved)', () => {
-  assert.deepEqual({ ...TELL, POISE_W: { ...TELL.POISE_W }, STAGGER_S: { ...TELL.STAGGER_S }, PUNISH_S: { ...TELL.PUNISH_S }, CHAIN_NEXT: { ...TELL.CHAIN_NEXT } }, {
+  assert.deepEqual({ ...TELL, POISE_W: { ...TELL.POISE_W }, STAGGER_S: { ...TELL.STAGGER_S }, PUNISH_S: { ...TELL.PUNISH_S }, CHAIN_NEXT: { ...TELL.CHAIN_NEXT }, COOLDOWN: { ...TELL.COOLDOWN } }, {
     POISE_W: { light: 0.2, medium: 0.3, heavy: 0.4, massive: 0.5 },
     WEIGHT_MEDIUM: 200, WEIGHT_HEAVY: 700, WEIGHT_MASSIVE: 1500,
     POISE_ELITE: 1.5, POISE_ELITE_DUNGEON: 1.25, POISE_CHAMPION: 1.25, POISE_STALWART: 1.5, POISE_REVENANT_RANK: 0.1,
@@ -53,6 +53,7 @@ test('TELL1: the table is the arc\'s section 27 (mutants: any number moved)', ()
     TRACK_RATE: 120, TRACK_SHARE: 0.5, FEINT_CHANCE: 1 / 5, FEINT_AT: 0.55, FEINT_GAP: 3, FEINT_FADE: 0.15,
     CHAIN_CHANCE: 0.35, CHAIN_WINDUP: 0.5, CHAIN_FLOOR: 0.45, CHAIN_GAP: 0.15,
     CHAIN_NEXT: { sweep: 'lunge', lunge: 'sweep', slam: 'sweep', ring: 'slam' },
+    COOLDOWN: { ordinary: [8, 15], champion: [7, 13], elite: [6, 11] }, COOLDOWN_RANK: 0.08,
   });
 });
 

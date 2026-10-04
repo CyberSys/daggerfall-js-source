@@ -2,8 +2,8 @@
   {
     "name": "TACT4-tier-floor",
     "file": "src/ai/foeBlows.js",
-    "old": "  return (entity.level ?? 0) >= BLOW_TIER_LEVEL || entity.elite === true || entity.eliteFoe === true;",
-    "new": "  return (entity.level ?? 0) >= 0 || entity.elite === true || entity.eliteFoe === true;",
+    "old": "  return (entity.level ?? 0) >= BLOW_TIER_LEVEL || isElite(entity) || !!entity.champion || !!entity.revenant;",
+    "new": "  return (entity.level ?? 0) >= 0 || isElite(entity) || !!entity.champion || !!entity.revenant;",
     "tests": [
       "test/tact4.test.js"
     ]
@@ -11,8 +11,8 @@
   {
     "name": "TACT4-elite-ignored",
     "file": "src/ai/foeBlows.js",
-    "old": "  return (entity.level ?? 0) >= BLOW_TIER_LEVEL || entity.elite === true || entity.eliteFoe === true;",
-    "new": "  return (entity.level ?? 0) >= BLOW_TIER_LEVEL || entity.eliteFoe === true;",
+    "old": "  return (entity.level ?? 0) >= BLOW_TIER_LEVEL || isElite(entity) || !!entity.champion || !!entity.revenant;",
+    "new": "  return (entity.level ?? 0) >= BLOW_TIER_LEVEL || entity.eliteFoe === true || !!entity.champion || !!entity.revenant;",
     "tests": [
       "test/tact4.test.js"
     ]

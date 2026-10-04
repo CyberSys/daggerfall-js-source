@@ -16,14 +16,15 @@
 
 import { MOBILE_TYPES } from '../characters/mobileTypes.js';
 import { tacticsNow } from './tacticsClock.js';   // AUDIT TACT: the foes' own time
+import { TELL, isElite, wholeSet } from './tells.js';   // TELL7: the tier, the whole set, the cooldowns' one home
 
 const M = MOBILE_TYPES;
 
 export { BLOW } from './blowShapes.js';   // the shapes' one home - a leaf the ground's pass reads too
 import { BLOW, TELL_NEAR_M, TELL_NEAR_FLOOR, TELL_IRON_EXTRA, TELL_FEINT_FADE as FEINT_FADE } from './blowShapes.js';
 export const BLOW_TIER_LEVEL = 10;      // Mac: level 10 and up, or an elite
-export const BLOW_COOLDOWN_MIN = 8;     // seconds between one foe's blows
-export const BLOW_COOLDOWN_MAX = 15;
+export const BLOW_COOLDOWN_MIN = TELL.COOLDOWN.ordinary[0];   // seconds between one foe's blows (TELL7: an ordinary foe's; ai/tells.js blowCooldown by tier)
+export const BLOW_COOLDOWN_MAX = TELL.COOLDOWN.ordinary[1];
 export const BLOW_CHANCE = 1 / 10;      // a classic tick in reach with a token: the roll to wind one up
 export const BLOW_NEAR = 20;            // at most one wind-up from any foe within this of the player
 export const BLOW_FLASH = 0.3;          // the landing's flash on the ground (seconds)
@@ -44,25 +45,48 @@ const FAMILY = new Map([
   [M.VampireAncient, BLADE], [M.FrostDaedra, BLADE], [M.FireDaedra, BLADE], [M.DaedraSeducer, BLADE], [M.Lamia, BLADE],
 ]);
 const CASTERS = new Set([M.Mage, M.Sorcerer, M.Healer]);
-
-/** TELL5: the kind's family - 'beast', 'brute' or 'blade' (null: none throws a telegraphed blow). */
-export function blowFamily(mobileType) {
-  const s = blowShapesOf(mobileType);
-  return s === BEAST ? 'beast' : s === BRUTE ? 'brute' : s === BLADE ? 'blade' : null;
+/** TELL7 (section 9): what an elite, a champion or a revenant adds to its family's - the ring (the massive brute, the
+ *  atronachs, the Daedra Lord), the charge (the chargers), the leap (the leapers). A shape joins only once it exists
+ *  (TELL6 brings them; `BLOW` is their one home). The archers' aimed shot is a ranged token's, not a family's. */
+const RING_KINDS = new Set([M.Giant, M.IronAtronach, M.FleshAtronach, M.DaedraLord]);
+const CHARGERS = new Set([M.GrizzlyBear, M.SabertoothTiger, M.Wereboar, M.Centaur, M.OrcWarlord]);
+const LEAPERS = new Set([M.Spider, M.Werewolf, M.SabertoothTiger, M.Vampire]);
+/** TELL7: the shapes the whole set adds to this kind's family, whether or not they exist yet. */
+export function extraShapesOf(mobileType) {
+  const out = [];
+  if (RING_KINDS.has(mobileType)) out.push('ring');
+  if (CHARGERS.has(mobileType)) out.push('charge');
+  if (LEAPERS.has(mobileType)) out.push('leap');
+  return out;
 }
-/** The shapes this kind may throw ([] for none). */
-export function blowShapesOf(mobileType) {
+
+/** The kind's family's own shapes (TACT4's one or two). */
+function familyShapes(mobileType) {
   if (FAMILY.has(mobileType)) return FAMILY.get(mobileType);
   if (mobileType >= 128 && mobileType !== M.None) return CASTERS.has(mobileType) ? [] : BLADE;   // the classes and the watch
   return [];
 }
-/** Is this body of the tier that telegraphs (Mac: level 10 and up, or an elite)? */
+/** TELL5: the kind's family - 'beast', 'brute' or 'blade' (null: none throws a telegraphed blow). */
+export function blowFamily(mobileType) {
+  const s = familyShapes(mobileType);
+  return s === BEAST ? 'beast' : s === BRUTE ? 'brute' : s === BLADE ? 'blade' : null;
+}
+/** The shapes this kind may throw ([] for none). TELL7: an elite, a champion or a revenant (`entity`) throws its
+ *  family's whole set; an ordinary foe of the tier keeps TACT4's one or two (Mac, 2026-10-02). */
+export function blowShapesOf(mobileType, entity = null) {
+  const base = familyShapes(mobileType);
+  if (!base.length || !wholeSet(entity)) return base;
+  const add = extraShapesOf(mobileType).filter((k) => k in BLOW && !base.includes(k));
+  return add.length ? [...base, ...add] : base;
+}
+/** Is this body of the tier that telegraphs (Mac: level 10 and up, or an elite)? TELL7: a champion too, and a revenant
+ *  at any level; the level is the entity's live one (Meaner Monsters' too, after its row). */
 export function blowTier(entity) {
   if (!entity) return false;
-  return (entity.level ?? 0) >= BLOW_TIER_LEVEL || entity.elite === true || entity.eliteFoe === true;
+  return (entity.level ?? 0) >= BLOW_TIER_LEVEL || isElite(entity) || !!entity.champion || !!entity.revenant;
 }
 /** Does this foe telegraph at all? */
-export const throwsBlows = (entity) => blowTier(entity) && blowShapesOf(entity.mobileType).length > 0;
+export const throwsBlows = (entity) => blowTier(entity) && blowShapesOf(entity.mobileType, entity).length > 0;
 
 /** A blow wound up at `origin` facing `yaw` (atan2(dx, dz)), at `now`. TELL3: its `guard` - 'poise' (TELL1's meter) or
  *  'iron' (no meter: it lands; its wind-up TELL_IRON_EXTRA longer). TELL5: `windup` its drawn length (ai/tells.js

@@ -6,7 +6,7 @@ these enemies and breath more depth into it"*; then, on the sixteen ideas offere
 detailed arc. I want this to be perfect and insanely detailed"*.
 
 **Status: DESIGNED 2026-10-04 - Mac: "Go" on every call of section 31, each as recommended. Built slice by slice
-(section 30's order) - TELL1 to TELL5 built; each slice's record is at the foot.**
+(section 30's order; TELL7 before TELL6) - TELL1 to TELL5 and TELL7 built; each slice's record is at the foot.**
 Two halves that lean on each other. **TELL** (TELL1-TELL9) gives a foe's telegraphed blow weight: poise, a body that
 winds up, a cost for missing. **RVN** (RVN1-RVN13) gives a revenant a memory of how it was beaten, a secret, a last
 stand, a name for its worst blow, a band, a lair, and a reason to fear leaving it alone. The predecessors are
@@ -1296,3 +1296,25 @@ RVN5-RVN7; RVN8-RVN11; RVN12 and RVN13 with the audit.
   `tell3_iron` (the giant's drawn length; an Elite Dungeon's foe an elite), `tell1_poise` (the table). Mutant records
   re-aimed by content: `audittact` D4, `tact4`, `tell2` (two), `tell3` (five and three for the elite), `tell4`.
 - Mutants `tools/mutants/tell5.json` (45), all dead.
+
+### TELL7 - BUILT 2026-10-04 (the Enhanced AI switch on, every host) - before TELL6
+
+- **The order** - built ahead of TELL6: the new shapes need "who throws what" to reach the motor, and this slice is
+  that law; each TELL6 shape joins the whole set the moment it exists.
+- **The tier** - `ai/foeBlows.js blowTier`: level 10 and up (the entity's live level - Meaner Monsters' after its row),
+  an elite (either flag), a champion, a revenant at any level.
+- **The whole set** - `blowShapesOf(mobileType, entity)`: an elite, a champion or a revenant (`ai/tells.js wholeSet`)
+  adds its kind's ring (the Giant, the Iron and Flesh Atronachs, the Daedra Lord), charge (the Grizzly, the Sabertooth,
+  the Wereboar, the Centaur, the Orc Warlord) and leap (the Spider, the Werewolf, the Sabertooth, the Vampire) -
+  `extraShapesOf` - each only once it exists in `BLOW`; an ordinary foe of the tier keeps TACT4's one or two. The
+  archers' aimed shot rides a ranged token, not a family (TELL6). The brain asks it for a wind-up and for a chain.
+- **The cooldowns** - `ai/tells.js blowCooldown`: an ordinary foe 8-15 s, a champion 7-13, an elite 6-11 (the best of
+  its tiers), a revenant less 8% a rank (rank 5: 4.8-9); an elite revenant the elite's less its rank. A last stand's
+  x0.7 joins with RVN4. `BLOW_COOLDOWN_MIN`/`MAX` read the ordinary range from the table, its one home.
+- **Still one at a time** - unchanged (`windupNear`, a chain one).
+- Pins `test/tell7_tier.test.js` (5): the tier (the live level); the whole set and what it adds, existing shapes
+  only; the cooldowns; ON THE MOTOR a level-1 revenant telegraphing where an ordinary level-1 orc never does, each
+  tier's cooldown on the pinned roll. Pin moved: `tell1_poise` (the table). Mutant records re-aimed by content:
+  `tact4` (two), `tell1`.
+- Mutants `tools/mutants/tell7.json` (16): 14 dead; 2 recorded equivalent until TELL6's ring exists (a family's
+  shapes are its whole set until then) - they go stale, and are answered, there.

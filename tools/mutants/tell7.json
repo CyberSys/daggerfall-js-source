@@ -1,0 +1,153 @@
+[
+  {
+    "name": "TELL7-champion-range",
+    "file": "src/ai/tells.js",
+    "old": "champion: Object.freeze([7, 13]),",
+    "new": "champion: Object.freeze([8, 15]),",
+    "tests": [
+      "test/tell7_tier.test.js",
+      "test/tell1_poise.test.js"
+    ]
+  },
+  {
+    "name": "TELL7-elite-range",
+    "file": "src/ai/tells.js",
+    "old": "elite: Object.freeze([6, 11]) }),",
+    "new": "elite: Object.freeze([8, 15]) }),",
+    "tests": [
+      "test/tell7_tier.test.js",
+      "test/tell1_poise.test.js"
+    ]
+  },
+  {
+    "name": "TELL7-rank-share",
+    "file": "src/ai/tells.js",
+    "old": "  COOLDOWN_RANK: 0.08,",
+    "new": "  COOLDOWN_RANK: 0.1,",
+    "tests": [
+      "test/tell7_tier.test.js",
+      "test/tell1_poise.test.js"
+    ]
+  },
+  {
+    "name": "TELL7-tier-order",
+    "file": "src/ai/tells.js",
+    "old": "  const [lo, hi] = isElite(ent) ? C.elite : ent?.champion ? C.champion : C.ordinary;",
+    "new": "  const [lo, hi] = ent?.champion ? C.champion : isElite(ent) ? C.elite : C.ordinary;",
+    "tests": [
+      "test/tell7_tier.test.js"
+    ]
+  },
+  {
+    "name": "TELL7-rank-ignored",
+    "file": "src/ai/tells.js",
+    "old": "  return (lo + (hi - lo) * roll) * (rank > 0 ? 1 - TELL.COOLDOWN_RANK * rank : 1);",
+    "new": "  return lo + (hi - lo) * roll;",
+    "tests": [
+      "test/tell7_tier.test.js"
+    ]
+  },
+  {
+    "name": "TELL7-whole-set-everyone",
+    "file": "src/ai/tells.js",
+    "old": "export const wholeSet = (ent) => isElite(ent) || !!ent?.champion || !!ent?.revenant;",
+    "new": "export const wholeSet = (ent) => true;",
+    "tests": [
+      "test/tell7_tier.test.js"
+    ]
+  },
+  {
+    "name": "TELL7-whole-set-no-revenant",
+    "file": "src/ai/tells.js",
+    "old": "export const wholeSet = (ent) => isElite(ent) || !!ent?.champion || !!ent?.revenant;",
+    "new": "export const wholeSet = (ent) => isElite(ent) || !!ent?.champion;",
+    "tests": [
+      "test/tell7_tier.test.js"
+    ]
+  },
+  {
+    "name": "TELL7-tier-no-champion",
+    "file": "src/ai/foeBlows.js",
+    "old": "  return (entity.level ?? 0) >= BLOW_TIER_LEVEL || isElite(entity) || !!entity.champion || !!entity.revenant;",
+    "new": "  return (entity.level ?? 0) >= BLOW_TIER_LEVEL || isElite(entity) || !!entity.revenant;",
+    "tests": [
+      "test/tell7_tier.test.js"
+    ]
+  },
+  {
+    "name": "TELL7-tier-no-revenant",
+    "file": "src/ai/foeBlows.js",
+    "old": "  return (entity.level ?? 0) >= BLOW_TIER_LEVEL || isElite(entity) || !!entity.champion || !!entity.revenant;",
+    "new": "  return (entity.level ?? 0) >= BLOW_TIER_LEVEL || isElite(entity) || !!entity.champion;",
+    "tests": [
+      "test/tell7_tier.test.js"
+    ]
+  },
+  {
+    "name": "TELL7-ring-kinds",
+    "file": "src/ai/foeBlows.js",
+    "old": "const RING_KINDS = new Set([M.Giant, M.IronAtronach, M.FleshAtronach, M.DaedraLord]);",
+    "new": "const RING_KINDS = new Set([M.Giant, M.IronAtronach, M.FleshAtronach, M.DaedraLord, M.Daedroth]);",
+    "tests": [
+      "test/tell7_tier.test.js"
+    ]
+  },
+  {
+    "name": "TELL7-chargers",
+    "file": "src/ai/foeBlows.js",
+    "old": "const CHARGERS = new Set([M.GrizzlyBear, M.SabertoothTiger, M.Wereboar, M.Centaur, M.OrcWarlord]);",
+    "new": "const CHARGERS = new Set([M.GrizzlyBear, M.SabertoothTiger, M.Wereboar, M.Centaur]);",
+    "tests": [
+      "test/tell7_tier.test.js"
+    ]
+  },
+  {
+    "name": "TELL7-leapers",
+    "file": "src/ai/foeBlows.js",
+    "old": "const LEAPERS = new Set([M.Spider, M.Werewolf, M.SabertoothTiger, M.Vampire]);",
+    "new": "const LEAPERS = new Set([M.Spider, M.Werewolf, M.SabertoothTiger]);",
+    "tests": [
+      "test/tell7_tier.test.js"
+    ]
+  },
+  {
+    "name": "TELL7-unbuilt-shapes",
+    "file": "src/ai/foeBlows.js",
+    "old": "  const add = extraShapesOf(mobileType).filter((k) => k in BLOW && !base.includes(k));",
+    "new": "  const add = extraShapesOf(mobileType).filter((k) => !base.includes(k));",
+    "tests": [
+      "test/tell7_tier.test.js"
+    ]
+  },
+  {
+    "name": "TELL7-set-ignored",
+    "file": "src/ai/foeBlows.js",
+    "old": "  if (!base.length || !wholeSet(entity)) return base;",
+    "new": "  return base;",
+    "tests": [
+      "test/tell7_tier.test.js"
+    ],
+    "equivalent": true,
+    "why": "until TELL6 brings a shape of the whole set (the ring, the charge, the leap), a family's shapes are its whole set - TELL6a's ring kills it, and this record goes stale then"
+  },
+  {
+    "name": "TELL7-brain-ordinary-clock",
+    "file": "src/ai/tactics.js",
+    "old": "  const cooled = now + blowCooldown(ai.vitals?.());   // TELL7: by its tier",
+    "new": "  const cooled = now + blowCooldown(null);   // TELL7: by its tier",
+    "tests": [
+      "test/tell7_tier.test.js"
+    ]
+  },
+  {
+    "name": "TELL7-brain-own-set",
+    "file": "src/ai/tactics.js",
+    "old": "      const shapes = blowShapesOf(ent.mobileType, ent);   // TELL7",
+    "new": "      const shapes = blowShapesOf(ent.mobileType);   // TELL7",
+    "tests": [
+      "test/tell7_tier.test.js"
+    ],
+    "equivalent": true,
+    "why": "until TELL6 brings a shape of the whole set (the ring, the charge, the leap), a family's shapes are its whole set - TELL6a's ring kills it, and this record goes stale then"
+  }
+]

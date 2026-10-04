@@ -128,7 +128,7 @@
   {
     "name": "TELL1-no-cooldown",
     "file": "src/ai/tactics.js",
-    "old": "  s.blowReady = now + BLOW_COOLDOWN_MIN + Math.random() * (BLOW_COOLDOWN_MAX - BLOW_COOLDOWN_MIN);\n  clearBlowState(ai);\n  dropSwing(ai);\n  handOn(ai, s, now);",
+    "old": "  s.blowReady = now + blowCooldown(ent);   // TELL7: by its tier\n  clearBlowState(ai);\n  dropSwing(ai);\n  handOn(ai, s, now);",
     "new": "  s.blowReady = now;\n  clearBlowState(ai);\n  dropSwing(ai);\n  handOn(ai, s, now);",
     "tests": [
       "test/tell1_poise.test.js"

@@ -90,6 +90,9 @@ export const TELL = Object.freeze({
   CHAIN_FLOOR: 0.45,            // ...never under this
   CHAIN_GAP: 0.15,              // the landing's strike drawn before the chain winds up (a frame step and a margin)
   CHAIN_NEXT: Object.freeze({ sweep: 'lunge', lunge: 'sweep', slam: 'sweep', ring: 'slam' }),   // a sweep then a lunge; a slam then a sweep; a ring then a slam
+  // TELL7: the cooldowns by tier (seconds between one foe's blows)
+  COOLDOWN: Object.freeze({ ordinary: Object.freeze([8, 15]), champion: Object.freeze([7, 13]), elite: Object.freeze([6, 11]) }),
+  COOLDOWN_RANK: 0.08,          // a revenant's, less this a rank
 });
 
 /** The weight class of a foe of `weight` classic units. */
@@ -245,4 +248,17 @@ export function trackYaw(yaw, want, dt) {
   d = Math.atan2(Math.sin(d), Math.cos(d));
   const max = (TELL.TRACK_RATE * Math.PI / 180) * Math.max(0, dt);
   return yaw + Math.max(-max, Math.min(max, d));
+}
+
+// ── TELL7: THE TIER AND THE COOLDOWNS (bible/12-Enhanced-AI/Feud-Arc.md section 9) ───────────────────────────────────
+/** TELL7: an elite, a champion or a revenant (any rank) - who throws its family's whole set of shapes. */
+export const wholeSet = (ent) => isElite(ent) || !!ent?.champion || !!ent?.revenant;
+/** TELL7 (9): the seconds before this foe's next telegraphed blow - an ordinary foe's 8-15, a champion's 7-13, an elite's
+ *  6-11 (the best of its tiers), a revenant's less 8% a rank (rank 5: 4.8-9 of an ordinary's). `roll` in [0, 1). A last
+ *  stand's x0.7 joins with RVN4. */
+export function blowCooldown(ent = null, roll = Math.random()) {
+  const C = TELL.COOLDOWN;
+  const [lo, hi] = isElite(ent) ? C.elite : ent?.champion ? C.champion : C.ordinary;
+  const rank = revenantRank(ent);
+  return (lo + (hi - lo) * roll) * (rank > 0 ? 1 - TELL.COOLDOWN_RANK * rank : 1);
 }

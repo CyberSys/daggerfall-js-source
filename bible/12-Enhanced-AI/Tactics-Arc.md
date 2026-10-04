@@ -182,7 +182,8 @@ Every version of the door grief, fixed without asking further (Mac: "stop asking
   atronachs, gargoyles, dreugh) slam and sweep; blades (orcs, skeletons, mummies, vampires, frost and fire daedra,
   seducers, lamias, centaurs, every class but the three casters, the watch) sweep and lunge; the casters, the spectral,
   the small and the flying none. The tier (Mac): level 10 and up, or an elite.
-- **When** - from the brain (`ai/tactics.js`): a melee-token holder in reach of the local player, its cooldown (8-15 s)
+- **When** - from the brain (`ai/tactics.js`): a melee-token holder in reach of the local player, its cooldown (8-15 s;
+  since TELL7 by its tier, `Feud-Arc.md` section 9)
   spent, no other foe winding up within 20 m of the player, a 1-in-10 roll a classic tick. It STANDS the wind-up, its
   aim locked; a paralysis, or a shove no blow's door wrote (a charging horse's), breaks it - a landed blow does not
   since TELL1 (`Feud-Arc.md` section 3): it holds, and weighs on the foe's poise until the wind-up breaks and the foe is
