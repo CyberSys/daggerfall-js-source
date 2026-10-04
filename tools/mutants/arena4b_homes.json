@@ -20,11 +20,12 @@
   {
     "name": "ARENA4B-CARRY-COLUMN",
     "file": "server-account/src/homes.js",
-    "old": "'rent_due', 'look', 'layout']);",
-    "new": "'rent_due', 'layout']);",
+    "old": "'rent_due', 'look', 'layout', 'deed']);",
+    "new": "'rent_due', 'layout', 'deed']);",
     "tests": [
       "test/arena4b_homes.test.js"
-    ]
+    ],
+    "note": "FIELD BUGS 2026-10-04d KNIGHT-HOUSE (PIN MOVED, re-aimed by content): the carried list names `deed` last now."
   },
   {
     "name": "ARENA4B-TENANCY-UNMOVED",
@@ -137,11 +138,12 @@
   {
     "name": "ARENA4B-CLAIM-GUARD",
     "file": "server-account/src/homes.js",
-    "old": "if (homeInArenaCell(mapId, buildingKey)) return { error: 'home-arena' };",
-    "new": "if (false) return { error: 'home-arena' };",
+    "old": "if (homeInArenaCell(mapId, buildingKey)) return { error: 'home-arena' };\n  // WD3 (AUDIT WD3 B2)",
+    "new": "if (false) return { error: 'home-arena' };\n  // WD3 (AUDIT WD3 B2)",
     "tests": [
       "test/arena4b_homes.test.js"
-    ]
+    ],
+    "note": "FIELD BUGS 2026-10-04d KNIGHT-HOUSE (PIN MOVED, re-aimed by content): holdDeed asks the same cell's question - aimed at the claim's, whose next line is WD3 B2's."
   },
   {
     "name": "ARENA4B-HALL-GUARD",

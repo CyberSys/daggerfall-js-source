@@ -552,8 +552,8 @@
   {
     "name": "AUDIT-DEEP-R7-leaned-tops-pop",
     "file": "src/render/bounds.js",
-    "old": "  out[3] = s[3] + (b.size?.h ?? 0) * _flatLean;",
-    "new": "  out[3] = s[3];",
+    "old": "  out[3] = batchReach(b) + (b.size?.h ?? 0) * _flatLean;",
+    "new": "  out[3] = batchReach(b);",
     "tests": [
       "test/tv1_travel_view.test.js"
     ],

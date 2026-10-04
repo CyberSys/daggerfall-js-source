@@ -92,7 +92,7 @@ test('SLAM3: a peer is eased over the interval IT keeps, so a slow sender walks 
   assert.ok(p.shown.x >= 19.9, 'and arrives at the end of his own interval');
 });
 
-test('SLAM3: the measured interval is bounded both ways, and a peer with no interval yet falls back to the default (mutants: an unbounded gap, so one late frame makes a peer crawl for ever; a zero gap, which snaps)', () => {
+test('SLAM3 (re-aimed by NET-SMOOTH): the measured interval is bounded both ways - a bunch and a pause are not rates, and a peer with no interval yet falls back to the default (mutants: a pause counted as a rate, so a peer who stops and goes crawls; a bunch counted, so a backlog drags the cadence to nothing)', () => {
   let now = 100000;
   const { s, ws } = open({ now: () => now });
   ws.receive({ t: 'welcome', id: 'mac-0001', host: 'mac-0001', peers: [{ id: 'bob-0001', name: 'Bob', look: {}, pose: pose(0) }] });
@@ -100,14 +100,29 @@ test('SLAM3: the measured interval is bounded both ways, and a peer with no inte
   assert.equal(p.gap, undefined, 'nothing measured yet');
   s.tick();
   assert.ok(p.shown, 'and it still eases, on the default');
-  // a burst: two poses in the same instant must not make the gap zero
+  // a burst: two poses in the same instant are delivered together - faster than any client may speak (GAP_MIN_MS) -
+  // and are not a rate at all; the second is walked to, not snapped to
   ws.receive({ t: 'pose', id: 'bob-0001', p: pose(1) });
   ws.receive({ t: 'pose', id: 'bob-0001', p: pose(2) });
-  assert.ok(p.gap >= GAP_MIN_MS, `a burst floors at ${GAP_MIN_MS}, got ${p.gap}`);
-  // a long silence must not make the next move crawl
+  assert.equal(p.gap, undefined, 'a bunch measured nothing');
+  now += 50; s.tick();
+  assert.ok(p.shown.x > 0 && p.shown.x < 2, `walked toward the burst, not snapped to its end (${p.shown.x})`);
+  // a steady 250 ms, then a long silence: the silence is a pause, and the next move does not make the peer crawl
+  for (let k = 3; k <= 6; k++) { now += 250; ws.receive({ t: 'pose', id: 'bob-0001', p: pose(k) }); }
+  assert.equal(p.gap, 250, 'the interval he keeps');
   now += 60000;
-  ws.receive({ t: 'pose', id: 'bob-0001', p: pose(3) });
-  assert.equal(p.gap, GAP_MAX_MS, 'a silence ceilings at the bound, not a minute');
+  ws.receive({ t: 'pose', id: 'bob-0001', p: pose(7) });
+  assert.equal(p.gap, 250, 'a silence of a minute is a pause, not his interval');
+  // stop and go - two steps, three seconds standing, again and again: the standing is never her interval
+  for (let k = 0; k < 4; k++) {
+    now += 3000; ws.receive({ t: 'pose', id: 'bob-0001', p: pose(100 + k * 3) });
+    assert.equal(p.gap, 250, `pause ${k + 1}: the standing is not his interval`);
+    now += 250; ws.receive({ t: 'pose', id: 'bob-0001', p: pose(101 + k * 3) });
+    assert.equal(p.gap, 250, 'and the step after it walks at the steps\' interval');
+  }
+  // an interval past GAP_MAX_MS but short of a pause counts as GAP_MAX_MS
+  for (let k = 8; k <= 10; k++) { now += 1500; ws.receive({ t: 'pose', id: 'bob-0001', p: pose(k) }); }
+  assert.equal(p.gap, GAP_MAX_MS, 'the slow interval ceilings at the bound');
 });
 
 test('PINS (AUDIT SLAM S4/S5): the crowded rate ROUNDS, it does not floor - and the ease interval floors at 50 ms, because a burst of two poses a millisecond apart must not make the ease a snap (mutants: Math.floor, which survived the whole suite; GAP_MIN_MS 50 -> 1)', () => {

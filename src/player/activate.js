@@ -381,7 +381,7 @@ export function pickActivatable(eye, dir, targets, collider) {
  * `distance` is widened to RAY_DISTANCE so it can WIN the pick
  * therefore carries its real `reach` beside it, and the ladder speaks
  * the refusal when the winner came back out of reach. This is the
- * bulletin board's idiom (scenes/worldModes.js:6225-6238) given a
+ * bulletin board's idiom (scenes/worldModes.js:6344-6357) given a
  * field, not a second pick: one ray, one winner, the gate downstream.
  * Targets that were never widened answer `reach === distance`, which
  * the pre-gate has already enforced, so they can never refuse.
@@ -507,6 +507,24 @@ function nearestActivatableHit(eye, dir, targets, collider) {
         targetKeys ??= new Set(targets.map((t) => t.key));
         if (targetKeys.has(firstHit.key)) continue;
       }
+      // AUDIT WHERE-ROBES P3: and when the first surface IS its own, it is struck there and not at its box's entry - a
+      // decor dresser's mirror behind a candle on its top took the candle's press, the bug WHERE-ROBES fixed for the
+      // building's own furniture. Only its own surface moves it: a piece whose box stands with no bucket of its own (a
+      // model with no geometry to collide) is still met at its box, as before.
+      if (firstHit.key === target.key) d = Math.max(d, firstHit.dist);
+    } else if (target.surface === true && collider.raycastHit && d <= bestDist) {   // a box entered past the best can lose only further: no cast
+      // WHERE-ROBES (FIELD BUGS 2026-10-04c): CASTLE1's law again, for a box merely ENTERED whose model's triangles sit
+      // in the collider's SHARED bucket (a building's furniture, filed under the interior's own key, so no key names
+      // it). DFU meets furniture only at its mesh (PlayerActivate.cs:314), and the box standing in for it is mostly
+      // air: a shelf's open front, the space over a mattress under its headboard, a dresser's top under its mirror. A
+      // quest item standing there is a trigger sphere (GameObjectHelper.cs:1158) that DFU's ray reaches FIRST, and the
+      // box's entry beat it on every press - O0A0AL00's robes could not be picked up off a bed or a dresser. So the
+      // furniture is struck at the first surface the ray meets, and only when that surface lies inside its box (a
+      // triangle's home is its own AABB): a ray that crosses the box and meets nothing of it never struck it.
+      firstHit ??= collider.raycastHit(eye, dir, RAY_DISTANCE);   // the one cast, DISC19-E's arm's too
+      if (!Number.isFinite(firstHit.dist)) continue;
+      if (!boxContains(target.aabb, [eye[0] + dir[0] * firstHit.dist, eye[1] + dir[1] * firstHit.dist, eye[2] + dir[2] * firstHit.dist], 0.15)) continue;
+      d = Math.max(d, firstHit.dist);
     }
     if (d > bestDist) continue;
     // Two boxes struck at the same distance - the foyer piece and the

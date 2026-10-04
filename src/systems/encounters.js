@@ -337,6 +337,9 @@ export const RESTING_DISTANCE = 12;
 export function areEnemiesNearby(foes, { resting = false, includingPacified = false } = {}) {
   for (const f of foes ?? []) {
     if (!f || f.dead || !f.ai) continue;
+    // WATER-FOES (systems/foeReach.js): a foe in the water while the player is aboard a boat cannot reach them - the
+    // host latches it each frame, and it is no enemy nearby (a departure: the mod's helm asks the C# as it is)
+    if (f.ai.unreachable) continue;
     // AUDIT WORLD3 C3: "nearby" means near ME. Since WORLD3 a foe's detected/inSight pair can be its sense of ANOTHER
     // player (a peer candidate on the host's target machine) and `_dist` the distance to that player - so a foe across
     // the dungeon fighting the joiner refused the host's rest and, through onExhausted, killed it. The motor latches

@@ -97,14 +97,14 @@ test('bats 1: both spawn hosts build the capsule from the idle sprite and drop a
   // motor in test/disc28_flyer.test.js - this line holds only the branch's shape, Flying against the ground align
   assert.match(d, /const pos = behaviour === 'Flying' \? flyerStandFeet\(collider, \[e\.x, e\.y, e\.z\], idleH, feetGiven\) : D\.floorLanding\(collider, \[e\.x, e\.y \+ 0\.2, e\.z\]\);/);
   assert.doesNotMatch(d, /const canFly = behaviour === 'Flying' \|\| behaviour === 'Spectral';/, 'a Spectral grounds at the layout');
-  assert.equal([...d.matchAll(/height: enemyControllerHeight\(idleH, /g)].length, 2, 'the class and monster branches both size the capsule');
+  assert.equal([...d.matchAll(/^\s+height: enemyControllerHeight\(idleH, /gm)].length, 2, 'the class and monster branches both size the capsule');   // FIELD BUGS 2026-10-04d CRATE-FREE: the AI's option lines - the stand's frees pass the same height inline
   assert.equal([...d.matchAll(/gender: e\.gender, idleH, marker: \[e\.x, e\.y, e\.z\], src: e \}\);/g)].length, 2, 'both records carry the idle height for the draw (and the layout marker, REVIEW 2026-09-05)');
   assert.match(d, /o\[1\] = spriteOriginY\(f\.ai\.feet\[1\], f\.idleH, szH, _bh\);/, 'the dungeon draw pins a flyer\'s centre');   // FB0930-FOE-RAYS: the record's height as drawn (the casting 1.35 on a local, not the cache)
   const x = src('src/scenes/exteriorFoes.js');
   // REVIEW 2026-09-05: a DELTA on the live pending array (offsetAll may
   // have recentred it during the awaits), gated off for a restore whose
   // position already IS feet.
-  assert.match(x, /const idleH = idleSpriteHeight\(tex\);\n(?:\s+\/\/[^\n]*\n)*\s+if \(transformY\) \{\n[\s\S]{0,500}?\n\s+\} else if \(groundAlign\) \{\n[\s\S]{0,700}?\n\s+\} else if \(behaviour === 'Flying' && !feetGiven\) pending\.feet\[1\] -= idleH \/ 2 \+ 0\.1;\n\s+const ai = new EnemyAI\(/,   // WOD3: CreateFoeGameObjects' own drop is the other arm; DW-E4: a transform set straight is the first
+  assert.match(x, /const idleH = idleSpriteHeight\(tex\);\n(?:\s+\/\/[^\n]*\n)*\s+if \(transformY\) \{\n[\s\S]{0,500}?\n\s+\} else if \(groundAlign\) \{\n[\s\S]{0,700}?\n\s+\} else if \(behaviour === 'Flying' && !feetGiven\) pending\.feet\[1\] -= idleH \/ 2 \+ 0\.1;\n(?:\s+\/\/ FIELD BUGS 2026-10-04d CRATE-FREE:[^\n]*\n\s+if \(!puppet\) freeLodgedFeet\(collider, pending\.feet, [^\n]*\n)?\s+const ai = new EnemyAI\(/,   // WOD3: CreateFoeGameObjects' own drop is the other arm; DW-E4: a transform set straight is the first; FIELD BUGS 2026-10-04d CRATE-FREE: the stand freed from a model after the drop
     'the exterior pool reads the sprite BEFORE the AI stands, and drops a flyer from FinalizeFoe\'s lifted centre as a delta');
   // AUDIT 63 F24 widened the option bag with the revived quest link;
   // `feetGiven: true` is the clause this pin is about and still stands.

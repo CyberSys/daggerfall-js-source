@@ -58,17 +58,17 @@
   {
     "name": "ASLH-B6-sailings-lost",
     "file": "src/scenes/navalHost.js",
-    "old": "    harbours.clear(); grids = new Map();",
-    "new": "    harbours.clear(); departedByPort.clear(); grids = new Map();",
+    "old": "    rolled = new WeakSet(); grids = new Map();",
+    "new": "    rolled = new WeakSet(); departedByPort.clear(); grids = new Map();",
     "tests": [
       "test/auditshiplife_host.test.js"
     ]
   },
   {
     "name": "ASLH-B7-null-kept",
-    "file": "src/scenes/navalHost.js",
-    "old": "if (!h.harbour && clock - h.at >= HARBOUR_RETRY_S && near.ready?.() !== false) { h.harbour = sound(); h.at = clock; }",
-    "new": "if (false) { h.harbour = sound(); h.at = clock; }",
+    "file": "src/systems/naval/harbourBook.js",
+    "old": "else if (!h.harbour && clock - h.at >= HARBOUR_RETRY_S && near.ready?.() !== false) { h.harbour = sound(); h.at = clock; }",
+    "new": "else if (false) { h.harbour = sound(); h.at = clock; }",
     "tests": [
       "test/auditshiplife_host.test.js"
     ],

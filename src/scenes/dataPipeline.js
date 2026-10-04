@@ -2,7 +2,10 @@
 // caches, lifted verbatim so any scene that hosts transitions (world,
 // exterior) can lazy-load models and archives it never preloaded -
 // interiors and dungeons reference meshes outside the host's own set.
-// Caches are per-scene and never destroyed (the world's contract).
+// Caches are per-scene. FIELD BUGS 2026-10-04d PLACE-LRU: what a place
+// asks for through its hold (`holdPlace`) is freed once no standing or
+// kept place holds it (scenes/placeHolds.js); what is asked for outside
+// any place is kept for good, as everything once was.
 
 import { TextureFile } from '../formats/textureFile.js'; import { changeMask } from '../formats/baseImageFile.js';   // HM1: the item icons' removeMask (one line: the cites below stand)
 import { FlatsFile } from '../formats/flatsFile.js';   // NPC1: captions + portrait indices
@@ -17,6 +20,7 @@ import { dyeToken, changeDyeBitmap } from '../characters/dyes.js';   // DW3: the
 import { ROTOR, MACHINERY, MACHINERY_MODEL_ID, MACHINERY_CHILDREN, PLANK_GEAR, ROLLER } from '../world/windmillMesh.js';   // WM2b/WM2d/WM4b: the vendored mill and its machinery, uploaded like any other model
 import { skinnedBody } from '../world/windmills.js';   // WM2e: its walls and roof follow the climate
 import { flatFaceOverride } from '../characters/staticNpc.js';   // RR2: FLATS.CFG's dictionary, as a mod rewrites it
+import { createPlaceHolds } from './placeHolds.js';   // FIELD BUGS 2026-10-04d PLACE-LRU
 
 /** ROAD-H H4: `fetch` defaults to the one data seam every scene uses
  *  (shared.js's fetchBytes) and is a parameter for the same reason
@@ -250,15 +254,70 @@ export function createDataPipeline({ renderer, arch, palette, fetch = fetchBytes
       renderer.uploadEmissionTexture(archive, key, color32, { white: true, replacement });
     }
   };
-  const gpuMeshes = new Map(); // shared across pixels, never destroyed
+  const gpuMeshes = new Map(); // shared across pixels and places; freed when no place holds one (PLACE-LRU, below)
   const meshPromises = new Map(); // IN-FLIGHT builds, getTexture's shape
   const cpuModels = new Map(); // id -> {positions, indices} for the collider
+  // FIELD BUGS 2026-10-04d PLACE-LRU: THE PLACES' HOLD ON THESE CACHES (scenes/placeHolds.js). `gpuMeshes`, the
+  // renderer's pictures and its tile arrays kept every model, picture and ground a session had met - a town's
+  // buildings, a climate's walls, a dungeon's blocks and its foes' frames - on the GPU for good. A place now holds what
+  // it asks for through its hold (`holdPlace`), a model holds the pictures its build uploaded, and what nobody holds and
+  // nothing pinned is freed here: the model's VAO and buffers with its CPU copy, a picture, an emission map, a tile
+  // array. An evicted model is made INERT - its VAO handle gone - so a holder that outlived its place draws nothing
+  // rather than binding a deleted VAO over another's buffers.
+  const holds = createPlaceHolds({
+    free: {
+      mesh: (key) => {
+        const gpu = gpuMeshes.get(key);
+        if (!gpu) return false;   // still building (it comes loose again as it lands), or a model this data set lacks
+        gpuMeshes.delete(key);
+        cpuModels.delete(key);
+        renderer.destroyMesh?.(gpu);
+        gpu.vao = null;
+        return true;
+      },
+      tex: (k) => (k[0] === 'e' ? renderer.evictEmissionTexture?.(k.slice(2)) : renderer.evictTexture?.(k.slice(2))),
+      tile: (archive) => renderer.releaseTileArray?.(archive),
+    },
+  });
+  /** PLACE-LRU: run `fn` (an upload door - synchronous) and hear every key the renderer's two upload doors named in
+   *  it, hit or miss: `t:` a picture, `e:` an emission map. */
+  function uploadsOf(fn) {
+    const keys = [], outer = renderer._uploadSink;
+    renderer._uploadSink = (emission, key) => { keys.push(`${emission ? 'e' : 't'}:${key}`); outer?.(emission, key); };
+    try { return { value: fn(), keys }; } finally { renderer._uploadSink = outer; }
+  }
+  /** PLACE-LRU: how a picture a place held is made again - its door's own arguments - for the draw's miss door
+   *  (renderer._textureMissed): a foe outdoors drawing a frame a dungeon uploaded, after the dungeon was dropped. One
+   *  remake a key; the remade picture is pinned (whoever drew it holds it through no place). */
+  const remakes = new Map();   // 't:' key -> [archive, record, opts, frame]
+  const learnRemake = (keys, recipe) => { for (const k of keys) if (k[0] === 't') remakes.set(k, recipe); };
+  const missedBefore = renderer.textureMiss;
+  renderer.textureMiss = (key) => {
+    const r = remakes.get(`t:${key}`);
+    if (r) {
+      remakes.delete(`t:${key}`);
+      try {
+        const { keys } = uploadsOf(() => (r[3] === undefined ? uploadRecord(r[0], r[1], r[2]) : uploadRecordFrame(r[0], r[1], r[3])));
+        for (const k of keys) holds.pin('tex', k);
+      } catch (e) { console.warn(`[place-lru] ${key} could not be made again:`, e?.message ?? e); }
+      const tex = renderer.textures?.get?.(key);
+      if (tex) return tex;
+    }
+    return missedBefore ? missedBefore(key) : null;
+  };
+  /** PLACE-LRU: a model's own picture for one sub-mesh - its material, uploaded by `upload` - heard as it goes up,
+   *  into `pictures`, which the model holds (holds.meshBuilt) for as long as it stands. */
+  const meshPicture = (pictures, sm, upload) => {
+    const heard = uploadsOf(upload).keys;
+    learnRemake(heard, [sm.textureArchive, sm.textureRecord, { opaque: true }]);
+    pictures.push(...heard);
+  };
   /** AUDIT 39: the COMPLETED cache is not enough on its own. A build
    *  awaits its texture archives, and two cold callers for one model id
    *  - a teleport's buildPixel racing the pump's, two adjacent pixels
    *  sharing a building - each ran createMesh and the second `set`
    *  overwrote the first, leaking a VAO and its buffers for the
-   *  session (nothing destroys a gpuMeshes entry). The in-flight map is
+   *  session (an entry is destroyed only once no place holds it - PLACE-LRU). The in-flight map is
    *  the law getTexture above and buildPixel already carry.
    *  AUDIT 68 S18-uploadpart-no-inflight: ONE door for every mesh key -
    *  the mill's body, sail and machinery parts (uploadPart) kept a
@@ -314,7 +373,8 @@ export function createDataPipeline({ renderer, arch, palette, fetch = fetchBytes
     const dfMesh = patchSeams(modelIdNum, arch.getMesh(index));   // DUNGEON-SEAMS: the holes in Daggerfall's own stairs and ceilings closed - on a copy, the archive's mesh is shared
     for (const sm of dfMesh.subMeshes) await getTexture(sm.textureArchive);
     const model = dfMeshToModel(dfMesh, getTextureSize);
-    for (const sm of model.subMeshes) uploadRecord(sm.textureArchive, sm.textureRecord, { opaque: true });   // a mesh material: alphaIndex -1
+    const pictures = [];   // PLACE-LRU: what this model's build put up, the model's to hold
+    for (const sm of model.subMeshes) meshPicture(pictures, sm, () => uploadRecord(sm.textureArchive, sm.textureRecord, { opaque: true }));   // a mesh material: alphaIndex -1
     const gpu = renderer.createMesh(model);
     // WORLD-HOVER: the record carries its OWN id. The map was keyed by it
     // and the value did not know it, so anything handed a cpu record - the
@@ -323,6 +383,7 @@ export function createDataPipeline({ renderer, arch, palette, fetch = fetchBytes
     // whichever caller happened to still have it. The model knows.
     cpuModels.set(modelIdNum, { modelIdNum, positions: model.positions, indices: model.indices, subMeshes: model.subMeshes, doors: model.doors, normals: model.normals, uvs: model.uvs });   // PERF4: the static batch merges the whole vertex
     gpuMeshes.set(modelIdNum, gpu);
+    holds.meshBuilt(modelIdNum, pictures);   // PLACE-LRU
     return gpu;
   }
   /** ARENA1: a classic model as dfMeshToModel mints it (no seam patched - a copy of it in a custom model is the
@@ -364,14 +425,17 @@ export function createDataPipeline({ renderer, arch, palette, fetch = fetchBytes
   // climates - one mesh per skin, however many mills wear it.
   const ROTOR_KEY = -41600;
   const bodyKey = (climateBase, isWinter) => -(50000 + climateBase * 2 + (isWinter ? 1 : 0));
-  const uploadPart = (key, model) => cachedMesh(key, () => uploadModel(key, model));
+  // PLACE-LRU: a mill's parts are the host's for the scene (world.js keeps the first mill's for every sail) - pinned
+  const uploadPart = (key, model) => { holds.pin('mesh', key); return cachedMesh(key, () => uploadModel(key, model)); };
   async function uploadModel(key, model) {
-    for (const sm of model.subMeshes) {
-      await getTexture(sm.textureArchive);
-      uploadRecord(sm.textureArchive, sm.textureRecord, { opaque: true });
-    }
+    for (const sm of model.subMeshes) await getTexture(sm.textureArchive);
+    // PLACE-LRU: the uploads, the mesh and its holds in ONE synchronous run, as buildGpuMesh's - a sweep between two
+    // of them could free a picture the model was about to hold
+    const pictures = [];
+    for (const sm of model.subMeshes) meshPicture(pictures, sm, () => uploadRecord(sm.textureArchive, sm.textureRecord, { opaque: true }));
     const gpu = renderer.createMesh(model);
     gpuMeshes.set(key, gpu);
+    holds.meshBuilt(key, pictures);   // PLACE-LRU
     return gpu;
   }
 
@@ -410,10 +474,51 @@ export function createDataPipeline({ renderer, arch, palette, fetch = fetchBytes
     return parts;
   }
 
+  // FIELD BUGS 2026-10-04d PLACE-LRU: THE TWO KINDS OF ASKER. The doors every host was handed stay the doors it was
+  // handed, and what they get is PINNED - kept for good, as everything was: the UI's pictures, the foes' frames
+  // outdoors, the arrows and the wagon, a fixed city's models. A place's build asks through its HOLD instead
+  // (`holdPlace`), and what it gets is held while it stands and while it is kept, and freed after.
+  const pinnedUpload = (archive, record, opts) => {
+    const { value, keys } = uploadsOf(() => uploadRecord(archive, record, opts));
+    for (const k of keys) holds.pin('tex', k);
+    return value;   // DW3: the icon's variant, as uploadRecord answers it
+  };
+  const pinnedUploadFrame = (archive, record, frame) => {
+    const { keys } = uploadsOf(() => uploadRecordFrame(archive, record, frame));
+    for (const k of keys) holds.pin('tex', k);
+  };
+  const pinnedGpuMesh = (modelIdNum, breathe = null) => { holds.pin('mesh', modelIdNum); return getGpuMesh(modelIdNum, breathe); };
+  /** PLACE-LRU: A PLACE'S HOLD - a streamed pixel's (scenes/world.js buildPixelNow), a building's or a dungeon's
+   *  (scenes/worldModes.js). The three doors a build asks through, each holding what it gets for the place - a model
+   *  before its build is awaited, a picture as it goes up - and the place's two moments: `release()` as it goes (kept
+   *  a while, then dropped) and `settle()` once it stands again (its last visit's keep dropped). `tileArray(archive)`
+   *  holds a ground archive's tile array, which the world host uploads itself. */
+  function holdPlace(kind, key) {
+    const h = holds.place(kind, key);
+    return {
+      getGpuMesh: (modelIdNum, breathe = null) => { h.hold('mesh', modelIdNum); return getGpuMesh(modelIdNum, breathe); },
+      uploadRecord: (archive, record, opts) => {
+        const { value, keys } = uploadsOf(() => uploadRecord(archive, record, opts));
+        for (const k of keys) h.hold('tex', k);
+        learnRemake(keys, [archive, record, opts]);
+        return value;
+      },
+      uploadRecordFrame: (archive, record, frame) => {
+        const { keys } = uploadsOf(() => uploadRecordFrame(archive, record, frame));
+        for (const k of keys) h.hold('tex', k);
+        learnRemake(keys, [archive, record, undefined, frame]);
+      },
+      tileArray: (archive) => h.hold('tile', archive),
+      release: () => h.release(),
+      settle: () => h.settle(),
+    };
+  }
+
   loadFlats();   // warm it with the scene; the getters answer null until it lands
   // DISC22-D: the icon doors' per-record decode is the drawer's own (ui/itemScroller.js preloadIconRecord) - the
   // handout this bag once carried was taken by no scene, which is how the Steel Light Flail drew nothing.
-  return { textureFiles, getTexture, getTextureSize, uploadRecord, uploadRecordFrame, getGpuMesh, getWindmillMeshes, getMachineryParts, gpuMeshes, cpuModels, palette,
+  return { textureFiles, getTexture, getTextureSize, uploadRecord: pinnedUpload, uploadRecordFrame: pinnedUploadFrame, getGpuMesh: pinnedGpuMesh, getWindmillMeshes, getMachineryParts, gpuMeshes, cpuModels, palette,
     markClassicArt, isClassicArt,   // AUDIT GN2-PF5
+    holdPlace, keepPlaces: (kind, n) => holds.keep(kind, n), placeStats: () => holds.stats(),   // FIELD BUGS 2026-10-04d PLACE-LRU
     loadFlats, flatCaption, flatFaceIndex, flatsFile: () => flats };
 }

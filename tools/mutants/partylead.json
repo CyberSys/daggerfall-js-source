@@ -56,8 +56,8 @@
  {
   "name": "PARTY-LEAD-the-floor-too-early",
   "file": "src/net/wire.js",
-  "old": "export const PARTY_LEAD_RELAY_MIN = 162;",
-  "new": "export const PARTY_LEAD_RELAY_MIN = 161;",
+  "old": "export const PARTY_LEAD_RELAY_MIN = 164;",
+  "new": "export const PARTY_LEAD_RELAY_MIN = 163;",
   "tests": [
    "test/partylead.test.js"
   ]

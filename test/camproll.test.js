@@ -224,6 +224,12 @@ test('CAMP-ROLL the classic window: the channel opens the camp; at its end a wai
   near = true;
   mine.w.tick(0.1);
   assert.deepEqual(mine.w.endLines, [`text ${REST_TEXT.enemiesNearby}`], 'a foe in reach while waiting ends it through the channel\'s own end check');
+  // LOITER-ANYWHERE (main): the channel's loiter leaves the act - and the camp is settled, so no mate waits on me
+  const loit = await classic([]);
+  const before = loit.calls.settled;
+  loit.w.input('char:3');
+  assert.equal(loit.w.mode, 'loiter');
+  assert.equal(loit.calls.settled, before + 1, 'settled the moment the act became a loiter');
   const roll = await classic([{ act: 'roll' }]);
   roll.w.tick(REST_CHANNEL_SECONDS + 0.1);
   assert.equal(roll.calls.night, 1);
@@ -283,7 +289,7 @@ test('CAMP-ROLL by source: both windows open the camp and take the one step; the
     const s = rd(f);
     assert.match(s, /deps\.camp\?\.open\?\.\(!!(this\._act|act)\.night\);/, `${f}: opened with the channel`);
     assert.match(s, /campNightStep\((this\.)?deps, (this\._actPlan|_actPlan), (this|overlay)\._remainingHoursRented\)/, `${f}: the one step`);
-    assert.match(s, /deps\.camp\?\.settle\?\.\(\);/, `${f}: settled at the end`);
+    assert.equal((s.match(/deps\.camp\?\.settle\?\.\(\);/g) ?? []).length, 2, `${f}: settled at the end, and when the act becomes a loiter (LOITER-ANYWHERE)`);
     assert.match(s, /state === 'campWait'\) \{ if \(channelBroken\(/, `${f}: the wait is still the hold`);
     assert.match(s, /REST_ACT_TEXT\.campWait\(/, f);
   }

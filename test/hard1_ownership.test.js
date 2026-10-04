@@ -171,6 +171,9 @@ const CONTEXTS = [
   {
     file: 'src/scenes/hostMagic.js',
     teardowns: ['destroy'],
+    declared: {
+      giftGate: 'GIFT-QUIET\'s gate is a closure over a Map of a few lines\' last-said times (64 at most) - no batch, mesh, loop or listener; it goes with the engine',
+    },
     // NOT a leak and NOT resource-free: a HAND-OFF. The pool mints
     // batches and gives each one away as it is born, so the owner is
     // the list, and the list is freed. The proof is required below.

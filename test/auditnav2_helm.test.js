@@ -226,10 +226,11 @@ test('AUDIT NAV2 F18 the in-irons word is the helm\'s own: under the responsive 
     else assert.equal(off, null, 'the mod\'s rudder waits on her way: she lies there');
   }
   assert.match(CSA.IRONS_HELM_TEXT ?? '', /^In irons - the wind is dead ahead\. Put the helm over, or strike sail and row her round\.$/);
-  const keyOf = (a) => ({ BoatSailUp: 'UP', BoatSailDown: 'DOWN', TurnLeft: 'LEFT', TurnRight: 'RIGHT', MoveForwards: 'W' })[a] ?? '';
+  const keyOf = (a) => ({ BoatSailUp: 'UP', BoatSailDown: 'DOWN', TurnLeft: 'LEFT', TurnRight: 'RIGHT', MoveForwards: 'W', MoveBackwards: 'S' })[a] ?? '';
   const irons = (responsive) => ({ hull: 2, hasSails: true, inIrons: true, responsive });
-  assert.equal(helmHint(irons(true), { keyOf, mouseFree: true }), 'In irons - put the helm over (LEFT RIGHT), or strike sail (DOWN) and row her round (W)');
-  assert.equal(helmHint(irons(false), { keyOf, mouseFree: true }), 'In irons - strike sail (DOWN) and row her round (W)', 'the mod\'s own helm: as it was');
+  // PIN MOVED (HELM-LADDER): one rung down strikes the last of her sail and puts her on her oars - its two keys, no row key
+  assert.equal(helmHint(irons(true), { keyOf, mouseFree: true }), 'In irons - put the helm over (LEFT RIGHT), or strike sail (S DOWN) and row her round');
+  assert.equal(helmHint(irons(false), { keyOf, mouseFree: true }), 'In irons - strike sail (S DOWN) and row her round', 'the mod\'s own helm: as it was');
   assert.equal(helmHint(irons(true), { touch: true }), 'In irons - put the helm over, or strike sail and row her round', 'a finger: the words alone');
 });
 

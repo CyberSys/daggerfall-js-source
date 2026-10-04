@@ -28,7 +28,8 @@
 import { GLOBAL_SCALE, RAY_DISTANCE } from '../player/activate.js';
 import { worldMinutes, sharedClockOn } from '../systems/worldTick.js';   // REST2: online the fires are every player's, the arc on or off
 import { FlatAnim } from '../render/flatAnimation.js';
-import { trs } from '../world/mat4.js';
+import { trs, multiply, wrapAngle } from '../world/mat4.js';
+import { intoDeck, outOfDeck } from '../systems/naval/navalDeck.js';   // DECK-CAMP: a camp on a boat's deck rides her frame
 import { localAabb, transformedAabb } from '../render/frustum.js';
 import { ListPickerWindow } from '../ui/listPicker.js';
 import { survivalOn } from '../systems/survival/switch.js';   // AUDIT SURV-TIERS: Off keeps what stands and uses none of it (shown, below); SURV-OFFSIGHT: it sees another's (seen)
@@ -36,6 +37,8 @@ import {
   TENT_MODEL, FIRE_FLAT, FIRE_LIGHT_RANGE, CAMP_REACH, CAMP_KIND, CAMP_TEXT, CAMPS_PER_OWNER,
   placeCampItem, packCamp, stokeFire, fireLit, campExpired, tentPos, nearestFire, campInfoText, campMenu, campSpot, campDecision,
   cookables, cookFood, hasSkillet, campWire, mergeOwnerCamps, BY_FIRE_REACH, FIRE_MINUTES, spendCampNight,
+  strikeCamp,   // FIELD BUGS 2026-10-04d CAMP-CAP: a placing at the cap strikes the oldest
+  validDeck, deckYaw, TENT_BEHIND,
 } from '../systems/survival/camp.js';
 import { isCampfireKit, CAMPFIRE_USES } from '../systems/survival/items.js';   // REST2: the Campfire is online's for everyone
 import { isBedroll, isEmberJar, isFirewood, spendCharge, REST_ITEM_TEXT, FIREWOOD_NIGHTS, BEDROLL_CHANNEL_SECONDS } from '../systems/restItems.js';   // REST6: the Bedroll, the Ember Jar, Firewood
@@ -55,6 +58,9 @@ const NO_CAMPS = Object.freeze([]);
  *  surfaceHit, mesh or terrain, whichever is nearer; a collider without that door keeps the bucket raycast, not null. */
 const groundProbe = (col) => (col?.surfaceHit ? (o, d, m) => col.surfaceHit(o, d, m).dist
   : (col?.raycast ? (o, d, m) => col.raycast(o, d, m) : null));
+/** DECK-CAMP: a camp of this player's whose boat is gone - packed, laid up, sailed off with her owner - for this long
+ *  (s), the boats settled (never a load's or a re-anchor's passing absence), is packed back into the pack. */
+export const DECK_GONE_S = 2;
 /** REST2: a world fire's rows - nobody's to pack or stoke, so rest and cook alone. */
 const HEARTH_ROWS = Object.freeze([Object.freeze({ key: 'rest', text: CAMP_TEXT.menuRest }), Object.freeze({ key: 'cook', text: CAMP_TEXT.menuCook })]);
 
@@ -76,6 +82,11 @@ export function createCamps({
   say = () => {}, showOverlay = null, openRest = null, advanceMinutes = null, selfId = () => null, onChanged = null,
   hearths = null,   // HEARTH1: the host's own braziers and fire bowls, in the host's frame - see below
   fieldCook = null,   // PROF9: a Field Cook's own Campfire keeps its fuel (survival/camp.js spendCampNight)
+  // DECK-CAMP: the host's boats - `at(pos)` -> { ref: { mine: true, uid } | { peer, uid }, m } for the boat whose deck
+  // stands under a camp's spot (m her node's world matrix), or null; `resolve(ref)` -> { m } while she stands to be
+  // seen, { hidden: true } while she is out of sight or not known yet, { gone: true } once she is no more. A host that
+  // passes none (a dungeon's, the standalone street's) stands every camp where it was placed.
+  deck = null,
 } = {}) {
   const camps = [];   // { rec, batch, anim, pixelKey, mine }
   let _nextId = 0;
@@ -113,7 +124,10 @@ export function createCamps({
   }
   function mountFire(c) {
     if (c.batch || !_fire || !renderer?.createBillboardBatch) return;
-    c.batch = renderer.createBillboardBatch(FIRE_FLAT.archive, FIRE_FLAT.record, _fire.size, [c.rec.pos]);
+    // DECK-CAMP: a fire on a deck is built about its own foot and moved by the batch's origin each frame (navalCrew.js's
+    // way) - never rebuilt as she sails
+    c.batch = renderer.createBillboardBatch(FIRE_FLAT.archive, FIRE_FLAT.record, _fire.size, [c.rec.deck ? [0, 0, 0] : c.rec.pos]);
+    if (c.rec.deck) c.batch.origin = [c.rec.pos[0], c.rec.pos[1], c.rec.pos[2]];
     c.batch.frame = 0;
     c.anim = _fire.count > 1 ? new FlatAnim(FIRE_FLAT.archive, _fire.count, false) : null;
   }
@@ -124,7 +138,8 @@ export function createCamps({
 
   /** Stand one record (a fresh placing, a restore, an owner's word). */
   function stand(rec, { owner = null } = {}) {
-    const c = { rec, batch: null, anim: null, pixelKey: pixelKeyAt?.(rec.pos) ?? null, owner };
+    // DECK-CAMP: a camp on a deck is her's, not a pixel's - the streaming sweep never takes it where she sailed from
+    const c = { rec, batch: null, anim: null, pixelKey: rec.deck ? null : pixelKeyAt?.(rec.pos) ?? null, owner, hidden: !!rec.deck, deckM: null, goneFor: 0 };
     camps.push(c);
     ensureFire(); mountFire(c);
     if (rec.kind === CAMP_KIND.Tent) ensureTent();
@@ -165,19 +180,23 @@ export function createCamps({
   // REST2 (bible/06-Systems/Rest-Arc.md section 3): ONLINE THE FIRES ARE EVERYONE'S. A rest online is an act at a fire
   // or a bed (systems/restAct.js), so the Campfire, the camps it stands and the world's braziers are the rest's, not the
   // arc's alone: online every door below opens with the arc Off too. Offline Off is SURV-OFFSIGHT's, unchanged.
+  // ENDLESS PROVISIONS (2026-10-04, Mac: the Campfire Kit and Rations for everyone - "i can use and find all those without
+  // climates and calories"): A CAMP IS EVERY TIER'S. It is placed, seen, named, rested at, cooked at, stoked and packed with
+  // the arc Off, offline too - `seen` is every camp, and the ray, the menu and the click read it. What stays the arc's offline
+  // is the WARMTH: `shown` (byFire, the felt temperature's fire) and a world hearth's menu - there is no felt temperature
+  // to warm. This supersedes SURV-OFFSIGHT's "Off sees, never uses".
   const usable = () => survivalOn() || sharedClockOn();
-  const shown = () => (usable() ? camps : NO_CAMPS);
-  const seen = () => (usable() ? camps : camps.filter((c) => !mine(c)));
+  // DECK-CAMP: a camp on a boat out of sight (Come Sail Away hides her past a pixel, and indoors) is out of sight with her
+  const visible = (c) => !c.hidden;
+  const shown = () => (usable() ? camps.filter(visible) : NO_CAMPS);
+  const seen = () => camps.filter(visible);
 
   /** THE PLACING: the pack's use of Camping Equipment or a Campfire Kit lands here (useItem's 'pitchCamp' / 'placeFire'). */
   function placeItem(item, list) {
     // REST6: the Bedroll and Firewood are uses, not camps - the Bedroll's spot and its rest, Firewood's fire
     if (isFirewood(item)) return feedFire(item, list);
     if (isBedroll(item)) return layBedroll(item, list);
-    // AUDIT SURV-TIERS: a player's own camp stood with the arc off could be
-    // neither seen nor used (`seen`, `shown`, above) - so it is not stood,
-    // and the refusal says what would change it (CAMP-SILENT, below).
-    if (!survivalOn() && !(sharedClockOn() && (isCampfireKit(item) || isEmberJar(item)))) { say(CAMP_TEXT.arcOff); return false; }   // REST2: online a Campfire with the arc Off too; REST6: and an Ember Jar
+    // ENDLESS PROVISIONS: no arc gate - a camp is stood in every tier (`seen`, above); the camp law's own checks below
     // CAMP-SILENT (2026-09-22, DragynDance on Discord: "camp kits don't
     // work for me"). USING AN ITEM ALWAYS SAYS SOMETHING. Every other
     // arm below refuses with words - in town, indoors, foes near, no
@@ -214,9 +233,77 @@ export function createCamps({
     });
     if (r.text) say(r.text);
     if (!r.ok) return false;
-    stand(r.camp);
+    const struck = strikeOldest(r.strike);   // FIELD BUGS 2026-10-04d CAMP-CAP: at the cap my oldest goes, before this one stands
+    // DECK-CAMP: placed on a boat's deck, it is hers - its point and heading in her frame, by her number
+    const on = deck?.at?.(r.camp.pos) ?? null;
+    if (on?.m && on.ref) {
+      const d = validDeck({ ...on.ref, local: intoDeck(on.m, r.camp.pos, [0, 0, 0]), yaw: r.camp.yaw - deckYaw(on.m) });
+      if (d) r.camp.deck = d;
+    }
+    const c = stand(r.camp);
+    if (r.camp.deck && on?.m) { c.hidden = false; c.deckM = on.m; }
+    if (struck) say(struck);
     onChanged?.();
     return true;
+  }
+  /**
+   * FIELD BUGS 2026-10-04d CAMP-CAP (Discord, 2026-10-04, several players: "Placing 5 or so tents around the world and
+   * leaving them behind means I can no longer place any new tents or campfires at all", "I'm completely locked out of
+   * camping anywhere"). THE CAP STRIKES THE OLDEST; IT NEVER REFUSES. This pool holds every camp of mine wherever it
+   * stands - the streaming sweep spares them (AUDIT SURV B), the save carries them all and a load stands them all -
+   * and no camp burns away (REST2), so four left anywhere refused every placing after them with "You have enough camps
+   * standing already.", and only a walk back to one undid it. Now the first `n` of mine go: the oldest, as this pool
+   * holds them in the order they were placed (a placing appends; a load and a teleport stand the save's rows in the
+   * order the pool wrote them). Each is packed where it stands, as the menu's Pack packs it (camp.js strikeCamp), its
+   * gear into the pack - and so it leaves every store at once: this pool now; the next save, which holds the pack it
+   * went into (no save holds both); and the room, told by the placing's one onChanged AFTER the strike (a cell's full
+   * foes frame, a dungeon's act, which its host's memory follows). A copy anywhere else - a peer's view, a room's
+   * memory not yet told - is never this pool's own, so no door mints the gear twice. Answers the one line, or null.
+   */
+  function strikeOldest(n) {
+    let line = null;
+    for (const c of camps.filter(mine).slice(0, n | 0)) {
+      const r = strikeCamp(c.rec);
+      if (r.item && entity) (entity.items ??= []).push(r.item);   // CAMP-CAP: home as act's Pack hands it
+      drop(c);
+      line = r.text;
+    }
+    return line;
+  }
+
+  /**
+   * DECK-CAMP: EVERY CAMP ON A DECK POSED OFF HER, once a frame after the boats moved (the host's, before its lights and
+   * its world pass): its point out of her frame, its heading turned with her, the flame's batch moved. Out of sight
+   * (or not known yet - a load's boats still standing) it is hidden with her. A camp of this player's whose boat is
+   * gone for DECK_GONE_S is packed back into the pack, the gear and its charges with it (packCamp) - a peer's waits on
+   * its owner's word.
+   */
+  function ride(dt = 0) {
+    if (!deck?.resolve) return;
+    let changed = false;
+    for (let i = camps.length - 1; i >= 0; i--) {
+      const c = camps[i], d = c.rec.deck;
+      if (!d) continue;
+      const at = deck.resolve(d) ?? { hidden: true };
+      if (at.m) {
+        c.deckM = at.m;
+        c.rec.pos = outOfDeck(at.m, d.local, c.rec.pos);
+        c.rec.yaw = wrapAngle(deckYaw(at.m) + d.yaw);
+        c.hidden = false; c.goneFor = 0;
+        if (c.batch) c.batch.origin = [c.rec.pos[0], c.rec.pos[1], c.rec.pos[2]];
+        continue;
+      }
+      c.hidden = true; c.deckM = null;
+      if (!at.gone || !mine(c)) { c.goneFor = 0; continue; }
+      c.goneFor += Math.max(0, dt);
+      if (c.goneFor < DECK_GONE_S) continue;
+      const r = packCamp(c.rec);
+      if (r.item && entity) (entity.items ??= []).push(r.item);
+      say(CAMP_TEXT.packedWithBoat);
+      drop(c);
+      changed = true;
+    }
+    if (changed) onChanged?.();
   }
 
   // ---- REST6: FIREWOOD AND THE BEDROLL -------------------------------------------------------------------------------
@@ -295,7 +382,7 @@ export function createCamps({
    * kit's fire cannot be stoked, as ever, and with the arc Off nothing is tended (nothing of it is used).
    */
   function tendWhileResting(t) {
-    if (!survivalOn() || !entity?.isResting || entity.restKind !== REST_KIND.Camp) return;
+    if (!entity?.isResting || entity.restKind !== REST_KIND.Camp) return;   // ENDLESS PROVISIONS: a camp used in every tier is tended in every tier
     const feet = camera?.()?.feet;
     if (!feet) return;
     for (const c of camps) {
@@ -326,12 +413,29 @@ export function createCamps({
       : lit;
     return near.slice(0, CAMP_LIGHTS_MAX).map((c) => ({ x: c.rec.pos[0], y: c.rec.pos[1] + FIRE_LIGHT_UP, z: c.rec.pos[2], range: FIRE_LIGHT_RANGE }));
   }
-  const tentMatrix = (rec) => { const p = tentPos(rec); return trs(p[0], p[1], p[2], 0, rec.yaw * 180 / Math.PI, 0); };
+  /** A tent's matrix. DECK-CAMP: on a deck, laid in her frame - she rolls and pitches it with her. */
+  const tentMatrix = (c) => {
+    const rec = c.rec, d = rec.deck;
+    if (d && c.deckM) {
+      // her node's rotation alone (its columns unit - a hull's model scale is hers, never the tent's), at the tent's
+      // own point on her deck, turned on her by the camp's heading
+      const m = c.deckM, R = new Float32Array(16);
+      for (let k = 0; k < 3; k++) {
+        const n = Math.hypot(m[4 * k], m[4 * k + 1], m[4 * k + 2]) || 1;
+        for (let i = 0; i < 3; i++) R[4 * k + i] = m[4 * k + i] / n;
+      }
+      const at = outOfDeck(m, [d.local[0] - Math.sin(d.yaw) * TENT_BEHIND, d.local[1], d.local[2] - Math.cos(d.yaw) * TENT_BEHIND], [0, 0, 0]);
+      R[12] = at[0]; R[13] = at[1]; R[14] = at[2]; R[15] = 1;
+      return multiply(R, trs(0, 0, 0, 0, d.yaw * 180 / Math.PI, 0));
+    }
+    const p = tentPos(rec);
+    return trs(p[0], p[1], p[2], 0, rec.yaw * 180 / Math.PI, 0);
+  };
   /** The tents, in the host's world pass. */
   function draw(r = renderer, texRemap = null) {
     if (!_tent?.gpu || !r?.drawMesh) return 0;
     let n = 0;
-    for (const c of seen()) if (c.rec.kind === CAMP_KIND.Tent) { r.drawMesh(_tent.gpu, tentMatrix(c.rec), texRemap); n++; }
+    for (const c of seen()) if (c.rec.kind === CAMP_KIND.Tent) { r.drawMesh(_tent.gpu, tentMatrix(c), texRemap); n++; }
     return n;
   }
 
@@ -355,7 +459,7 @@ export function createCamps({
       const p = c.rec.pos;
       out.push({ key: `camp:${c.rec.id}`, aabb: { min: [p[0] - FIRE_HALF, p[1], p[2] - FIRE_HALF], max: [p[0] + FIRE_HALF, p[1] + 1, p[2] + FIRE_HALF] }, distance: RAY_DISTANCE, reach: CAMP_REACH });
       if (c.rec.kind === CAMP_KIND.Tent) {
-        const m = tentMatrix(c.rec);
+        const m = tentMatrix(c);
         const tp = tentPos(c.rec);
         const box = _tent?.box ? transformedAabb(_tent.box, m) : [tp[0] - 1.5, tp[1], tp[2] - 1.5, tp[0] + 1.5, tp[1] + 2, tp[2] + 1.5];
         out.push({ key: `camp:${c.rec.id}`, aabb: { min: [box[0], box[1], box[2]], max: [box[3], box[4], box[5]] }, distance: RAY_DISTANCE, reach: CAMP_REACH });
@@ -392,7 +496,7 @@ export function createCamps({
     const jar = c.rec.kind === CAMP_KIND.Fire && !!c.rec.jar;
     const out = { title: c.rec.kind === CAMP_KIND.Tent ? 'Camp' : jar ? (mine(c) ? 'Your Ember Jar fire' : 'Ember Jar fire') : mine(c) ? 'Your Campfire' : 'Campfire' };
     if (c.rec.kind === CAMP_KIND.Fire && mine(c) && !jar) out.subs = [CAMP_TEXT.fuelLeft(c.rec.wear | 0)];
-    if (usable()) out.actions = campMenu(c.rec, now(), mine(c), { online: sharedClockOn() }).map((r) => ({ id: r.key, label: r.text }));
+    out.actions = campMenu(c.rec, now(), mine(c), { online: sharedClockOn() }).map((r) => ({ id: r.key, label: r.text }));   // ENDLESS PROVISIONS: every tier's
     return out;
   }
   /** Info and Talk name it; Grab and Steal open the menu. REST2: `lit` is the plaque's lit row (quickLoot.js
@@ -413,7 +517,6 @@ export function createCamps({
     const c = forKey(key);
     if (!c) return false;
     if (mode === 'info' || mode === 'dialogue') { say(campInfoText(c.rec, now(), mine(c))); return true; }
-    if (!usable()) return true;   // SURV-OFFSIGHT (the third pass): with the arc Off the click is taken and opens nothing - REST2: offline
     if (lit && campMenu(c.rec, now(), mine(c), { online: sharedClockOn() }).some((r) => r.key === lit)) { act(c, lit); return true; }
     openMenu(c);
     return true;
@@ -565,7 +668,11 @@ export function createCamps({
   /** A floating-origin recenter moves the pool. */
   function offsetAll(offset) {
     const [dx, dy, dz] = offset;
-    for (const c of camps) { c.rec.pos[0] += dx; c.rec.pos[1] += dy; c.rec.pos[2] += dz; if (c.batch) remount(c); }
+    for (const c of camps) {
+      c.rec.pos[0] += dx; c.rec.pos[1] += dy; c.rec.pos[2] += dz;
+      if (c.rec.deck) { if (c.batch) c.batch.origin = [c.rec.pos[0], c.rec.pos[1], c.rec.pos[2]]; }   // DECK-CAMP: moved, never rebuilt (ride poses it off her next)
+      else if (c.batch) remount(c);
+    }
     if (_bedroll) { _bedroll.pos[0] += dx; _bedroll.pos[1] += dy; _bedroll.pos[2] += dz; }   // AUDIT REST F10: the laid spot rides the origin too
   }
   /** This player's own camps for the save and the scene cache, in the host's frame. */
@@ -580,7 +687,8 @@ export function createCamps({
       const n = /^[^:]+:(\d+)(?::|$)/.exec(String(r.id ?? ''));
       if (n) _nextId = Math.max(_nextId, Number(n[1]));
       const p = fromWorld(r.pos);
-      stand({ id: String(r.id ?? `me:${++_nextId}`), owner: r.owner ?? null, kind: r.kind, pos: [p[0], p[1], p[2]], yaw: Number(r.yaw) || 0, litUntil: Number.isFinite(r.litUntil) ? r.litUntil : null, wear: r.wear | 0, placedAt: r.placedAt ?? null, ...(r.jar === true ? { jar: true } : {}), ...(r.fuel === true ? { fuel: true } : {}) });   // REST6: an Ember Jar's fire stays one; AUDIT REST F12: a Campfire its own fuel
+      const deckAt = validDeck(r.deck);   // DECK-CAMP: on her deck still - posed off her once she stands again
+      stand({ id: String(r.id ?? `me:${++_nextId}`), owner: r.owner ?? null, kind: r.kind, pos: [p[0], p[1], p[2]], yaw: Number(r.yaw) || 0, litUntil: Number.isFinite(r.litUntil) ? r.litUntil : null, wear: r.wear | 0, placedAt: r.placedAt ?? null, ...(r.jar === true ? { jar: true } : {}), ...(r.fuel === true ? { fuel: true } : {}), ...(deckAt ? { deck: deckAt } : {}) });   // REST6: an Ember Jar's fire stays one; AUDIT REST F12: a Campfire its own fuel
       if (own().length >= CAMPS_PER_OWNER) break;
     }
   }
@@ -626,12 +734,17 @@ export function createCamps({
     const theirs = Array.isArray(records) ? records.filter((r) => !ownIds.has(r?.i)) : records;
     // AUDIT 68 S18-camps-applyowner-dead: the owner's word, parsed - every camp handed in beside it was that owner's,
     // so the merge kept none of them, and the `before` map was written and never read
-    const fresh = mergeOwnerCamps([], owner, theirs, toScene);
-    // keep a batch whose record is unchanged in place; re-stand the rest
+    const fresh = mergeOwnerCamps([], owner, theirs, toScene, selfId?.() ?? null);
+    // keep a batch whose record is unchanged in place; re-stand the rest. DECK-CAMP: a camp on a deck is unchanged while
+    // it stays where it is ON HER - its scene point moves with her every frame
+    const moved = (r, rec) => (r.deck || rec.deck
+      ? !r.deck || !rec.deck || !!r.deck.mine !== !!rec.deck.mine || r.deck.peer !== rec.deck.peer || r.deck.uid !== rec.deck.uid
+        || r.deck.local.some((v, i) => Math.abs(v - rec.deck.local[i]) > 0.01)
+      : r.pos.some((v, i) => Math.abs(v - rec.pos[i]) > 0.01));
     for (const c of camps.filter((x) => x.owner === owner)) {
       const r = fresh.find((x) => x.id === c.rec.id);
-      if (!r || r.kind !== c.rec.kind || r.pos.some((v, i) => Math.abs(v - c.rec.pos[i]) > 0.01)) drop(c);
-      else { c.rec.litUntil = r.litUntil; c.rec.wear = r.wear; c.rec.yaw = r.yaw; fresh.splice(fresh.indexOf(r), 1); }
+      if (!r || r.kind !== c.rec.kind || moved(r, c.rec)) drop(c);
+      else { c.rec.litUntil = r.litUntil; c.rec.wear = r.wear; if (!c.rec.deck) c.rec.yaw = r.yaw; fresh.splice(fresh.indexOf(r), 1); }
     }
     for (const r of fresh) stand(r, { owner });
     _owners.set(owner, { at: nowMs });
@@ -664,7 +777,7 @@ export function createCamps({
   }
 
   return {
-    placeItem, tick, tend, batches, lights, draw, targets, hoverName, activate, openMenu, openCook, byFire, fireNear, spendNightNear,
+    placeItem, ride, tick, tend, batches, lights, draw, targets, hoverName, activate, openMenu, openCook, byFire, fireNear, spendNightNear,   // DECK-CAMP: ride
     restPointAt, bedrollNear, packOwnFires,   // REST6; AUDIT REST F1
     destroyAll, dropOwn, collectPixel, offsetAll, snapshot, restore, wireRecords, applyOwner, sweepOwners, sweepColdAbsent,
     get camps() { return camps; }, own,

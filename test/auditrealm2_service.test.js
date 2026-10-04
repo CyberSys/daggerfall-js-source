@@ -23,7 +23,7 @@ import { createWeapon } from '../src/combat/enemyEquipment.js';
 import { validLootItem } from '../src/systems/loot.js';
 import { GUILD_FOUND_GOLD, GUILD_FOUND_RENOWN } from '../src/net/guildLaw.js';
 import { renownXpFor } from '../src/net/renown.js';
-import { homeSaleRefund } from '../src/net/homeLaw.js';
+import { homeSaleRefund, HOME_PRICE_MIN } from '../src/net/homeLaw.js';
 import { ACCEPTED } from '../src/net/legalLaw.js';   // TERMS1: a request that makes an account carries the versions ticked
 
 const src = (p) => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8');
@@ -201,8 +201,9 @@ test('AUDIT REALM2 S2: a house, a piece and a founding are a realm character\'s 
   const s = await stand();
   const P = await s.account();
   const house = { mapId: 12345, buildingKey: 777, region: 17, layout: null };
-  assert.deepEqual(Object.values(await s.call('/v1/homes/claim', { ...house, character: 'madeUpId01', price: 1 }, P.secret)), [400, { error: 'realm-only' }]);
-  for (let k = 1; k <= 3; k++) assert.equal((await s.call('/v1/homes/claim', { ...house, buildingKey: 1000 + k, character: `fake${k}0000`, price: 1 }, P.secret)).body.error, 'realm-only');
+  // HOME-PRICE (PIN MOVED): a price of 1 is no home's online now (refused before the id is read) - the cheapest one is
+  assert.deepEqual(Object.values(await s.call('/v1/homes/claim', { ...house, character: 'madeUpId01', price: HOME_PRICE_MIN }, P.secret)), [400, { error: 'realm-only' }]);
+  for (let k = 1; k <= 3; k++) assert.equal((await s.call('/v1/homes/claim', { ...house, buildingKey: 1000 + k, character: `fake${k}0000`, price: HOME_PRICE_MIN }, P.secret)).body.error, 'realm-only');
   assert.deepEqual(s.rows('SELECT COUNT(*) AS n FROM homes'), [{ n: 0 }], 'no building taken');
   // an offline character that played online before the realm: census'd, its home and its guild from before the realm
   const origin = 'offline-0001';
@@ -264,14 +265,14 @@ test('AUDIT REALM2 S3: every realm act whose batch COMMITS and then throws keeps
     assert.ok(s.saveStands(R.id), `${path}: the save the row names stands`);
     assert.equal((await s.load(R.id, P.secret)).seq, at.seq + 1);
   };
-  await lost('/v1/homes/claim', { ...house, character: R.id, price: 1_000 });
+  await lost('/v1/homes/claim', { ...house, character: R.id, price: HOME_PRICE_MIN });   // HOME-PRICE (PIN MOVED): a price inside the online range, where it was 1,000
   await lost('/v1/homes/decor/place', { mapId: 7, buildingKey: 9, character: R.id, piece: { id: 'p1', model: 41000, flat: null, pos: [0, 0, 0], rot: [0, 0, 0], scale: 1, light: null, storage: false, paid: 40 } });
   await lost('/v1/homes/release', { mapId: 7, buildingKey: 9 });
   await lost('/v1/guilds/found', { character: R.id, name: 'Lost Answers', tag: 'LOST' });
   await lost('/v1/guilds/deposit', { character: R.id, gold: 1_000 });
   const save = (await s.load(R.id, P.secret)).save;
-  assert.deepEqual([save.goldPieces, save.bankAccounts[17].accountGold], [500_000 - 1_000 - 40 - GUILD_FOUND_GOLD - 1_000, homeSaleRefund(1_000) + 20],
-    'each landed once: the house, the piece, the founding and the deposit paid, the sale\'s share and the piece\'s half into the region\'s account');
+  assert.deepEqual([save.goldPieces, save.bankAccounts[17].accountGold], [500_000 - HOME_PRICE_MIN - 40 - GUILD_FOUND_GOLD - 1_000, homeSaleRefund(HOME_PRICE_MIN) + 20],
+    'each landed once: the house, the piece, the founding and the deposit paid, the sale\'s share and the piece\'s half into the Empire\'s account');   // AUDIT HOME-PRICE D7: index 17, EMPIRE-ACCOUNT's
   assert.deepEqual(s.rows('SELECT treasury FROM guilds'), [{ treasury: 1_000 }]);
 });
 

@@ -286,5 +286,23 @@
   "tests": [
    "test/camproll.test.js"
   ]
+ },
+ {
+  "name": "CAMP-ROLL-a-loiter-leaves-the-camp-open",
+  "file": "src/ui/restWindow.js",
+  "old": "    this.deps.camp?.settle?.();   // CAMP-ROLL: a loiter is no night",
+  "new": "    // CAMP-ROLL: a loiter is no night",
+  "tests": [
+   "test/camproll.test.js"
+  ]
+ },
+ {
+  "name": "CAMP-ROLL-enhanced-a-loiter-leaves-the-camp-open",
+  "file": "src/ui/enhancedRest.js",
+  "old": "overlay._loiterOffer = true; deps.camp?.settle?.(); overlay.state = 'hours';",
+  "new": "overlay._loiterOffer = true; overlay.state = 'hours';",
+  "tests": [
+   "test/camproll.test.js"
+  ]
  }
 ]

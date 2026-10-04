@@ -278,6 +278,9 @@ export function createComeSailAwayPeers({ pool, selfId = () => null, log = conso
       return wire ? list?.find((s) => s?.boat.uid === uid && s.hull === wire.hull)?.boat ?? null : null;
     },
     isBelowDeck: (owner) => !!live.get(owner)?.cabin,
+    /** DECK-CAMP: whether an owner's word still names a boat of hers by number - stood or not (out of sight, a frame
+     *  away) - so a camp on her waits for her rather than being packed away. */
+    hasBoat: (owner, uid) => !!live.get(owner)?.boats?.some((b) => b.uid === uid),
     /** NAV-H: the boats other players stand at their helms, where each is and how it moves - the sea's contacts
      *  (scenes/navalHost.js): a pirate hunts them as it hunts mine. A boat that stands nowhere (a hidden owner's) is
      *  nobody's contact. */

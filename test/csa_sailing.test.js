@@ -13,8 +13,9 @@ import {
   createComeSailAwayRuntime, NO_WATER_LEVEL, ACTIVATION_DISTANCE, ACTIVATIONS, activationModelOf, BOAT_ACTIONS, HANDLING,
   OAR_FATIGUE, CARGO_WEIGHTS, TEMPORARY_SHIP_SCENES, TIME_SCALES, vNormalized, vEquals, vProjectOnPlane, vMoveTowards,
   mathfMoveTowards, mathfClamp, yawOfForward, PASSENGERS_ABOARD_TEXT, NICE_BOAT_TEXT, boardPlaceOf, carriedPoint, yawDelta,
-  IRONS_TELL_DEG, IRONS_TELL_WAY, IRONS_TELL_S, IRONS_TEXT,
+  IRONS_TELL_DEG, IRONS_TELL_WAY, IRONS_TELL_S, IRONS_TEXT, OAR_RUNG_TEXT, OAR_ASTERN_TEXT,
 } from '../src/systems/comeSailAway.js';
+import { helmButtons, helmHint } from '../src/ui/enhancedHelm.js';   // HELM-LADDER: the sails' button is the toggle, the line the ladder
 import { animatorOf } from '../src/systems/comeSailAwayBoat.js';
 import { quatRotate, quatAngleAxis } from '../src/world/quat.js';
 
@@ -101,15 +102,20 @@ function scene(opts = {}) {
   };
   const rt = createComeSailAwayRuntime(deps);
   rt.on('OnUpdateSailing', (v) => out.sailing.push(v));
-  /** One frame as the host runs it: the end of the last frame's coroutines, FixedUpdate, Update, LateUpdate. */
+  /** One frame as the host runs it: the end of the last frame's coroutines, FixedUpdate, Update, LateUpdate.
+   *  HELM-LADDER: a key that goes down is a press that frame (the world's latch edge) - and one held as the helm is
+   *  taken is pressed at the helm, so a scene `held: ['MoveForwards']` puts her oars to pulling ahead, one rung. */
+  let downBefore = new Set();
   const frame = ({ press = [] } = {}) => {
     started.clear();
     for (const a of press) started.add(a);
+    for (const a of held) if (!downBefore.has(a)) started.add(a);
     rt.endOfFrame();
     rt.fixedUpdate();
     rt.update();
     rt.lateUpdate();
     started.clear();
+    downBefore = rt.isSailing() ? new Set(held) : new Set();
   };
   const place = (hull = 1, variant = 0, position = [100, 34, 200], direction = [0, 0, 1]) => rt.PlaceBoat(position, direction, hull, variant, terrains[0]);
   return { rt, out, player, input, held, frame, place, deps, setTimeScale: (s) => { timeScale = s; }, terrains };
@@ -209,9 +215,10 @@ test('CSA-D: rowing forward - Update pins the player and freezes the motor, Move
   // the fatigue: the first frame's check read last frame's zero target; the timer then climbs 0.25 a frame and the
   // frame after it reaches one it pays and restarts - frame 6, then frame 11
   assert.deepEqual(s.out.fatigue, [OAR_FATIGUE]);
-  // coasting: with no key the sails' 0.2 acceleration takes the speed down (kept - moveAccel's third arm)
+  // coasting: the oars at rest (HELM-LADDER: a rung down - letting the key go rows on) and the sails' 0.2 acceleration
+  // takes the speed down (kept - moveAccel's third arm)
   s.held.clear();
-  s.frame();
+  s.frame({ press: ['MoveBackwards'] });
   assert.deepEqual(s.out.fatigue, [OAR_FATIGUE, OAR_FATIGUE], 'frame 11 still pays: the check reads the target the frame before set');
   assert.deepEqual(s.rt.state.MoveVectorTarget, [0, 0, 0]);
   closeV(s.rt.state.MoveVectorCurrent, [0, 0, 2 - 0.05], 1e-6);
@@ -232,14 +239,15 @@ test('CSA-D: the turns - right is TurnTarget 1 at turnSpeedOar 20 by turnAccelOa
   s.held.clear(); s.held.add('MoveLeft');
   s.frame();
   assert.equal(s.rt.state.TurnTarget, -1);
-  // backwards with a side key: the helm reversed
-  s.held.clear(); s.held.add('MoveBackwards'); s.held.add('MoveRight');
-  s.frame();
+  // backwards with a side key: the helm reversed (HELM-LADDER: from pulling ahead, two rungs down - at rest, backing water)
+  s.held.clear(); s.held.add('MoveRight');
+  s.frame({ press: ['MoveBackwards'] });
+  s.frame({ press: ['MoveBackwards'] });
   assert.equal(s.rt.state.TurnTarget, -1, 'back and right: -1');
   assert.deepEqual(s.rt.state.MoveVectorTarget, [0, 0, -1]);
-  // Run with a side key: a strafe, no turn
+  // Run with a side key: a strafe, no turn (the oars a rung up, at rest)
   s.held.clear(); s.held.add('Run'); s.held.add('MoveRight');
-  s.frame();
+  s.frame({ press: ['MoveForwards'] });
   assert.equal(s.rt.state.TurnTarget, 0);
   assert.deepEqual(s.rt.state.MoveVectorTarget, [0.5, 0, 0]);
   // the node the C# asks for each: forward - the CENTRE (0); back - the bow (1), the port's the STERN (2: FIELD BUGS
@@ -248,7 +256,8 @@ test('CSA-D: the turns - right is TurnTarget 1 at turnSpeedOar 20 by turnAccelOa
   s.terrains[0].tileMap.fill(0);
   s.held.clear(); s.held.add('MoveForwards');
   s.rt.state.CurrentBoat.NodeTileMapIndices = n;
-  const target = (nodes, keys) => { s.held.clear(); for (const k of keys) s.held.add(k); s.rt.state.lastBoatPosition = boat.GameObject.position; s.rt.state.lastBoatDirection = forwardOf(boat.GameObject); n.splice(0, 5, ...nodes); s.rt.update(); return [...s.rt.state.MoveVectorTarget]; };
+  // HELM-LADDER: the oars' rung the keys name - pulling ahead, backing water, else at rest
+  const target = (nodes, keys) => { s.held.clear(); for (const k of keys) s.held.add(k); s.rt.state.oarThrottle = keys.includes('MoveForwards') ? 1 : keys.includes('MoveBackwards') ? -1 : 0; s.rt.state.lastBoatPosition = boat.GameObject.position; s.rt.state.lastBoatDirection = forwardOf(boat.GameObject); n.splice(0, 5, ...nodes); s.rt.update(); return [...s.rt.state.MoveVectorTarget]; };
   assert.deepEqual(target([1, 0, 0, 0, 0], ['MoveForwards']), [0, 0, 0], 'the centre off water refuses forward');
   assert.deepEqual(target([0, 1, 0, 0, 0], ['MoveForwards']), [0, 0, 1], '...the bow does not');
   assert.deepEqual(target([0, 1, 0, 0, 0], ['MoveBackwards']), [0, 0, -1], 'ASTERN: the bow off water backs off it');
@@ -842,35 +851,57 @@ test('CSA-K: the laws another player\'s boat shares with mine, one export each -
 
 const stowed = (sail) => animatorOf(sail).GetBool('Stowed');
 
-test('HELM-KEYS more and less sail (the port\'s, DECLARED): with the assist\'s square sails the arrows\' two steps are the mod\'s own raise and lower - a step with nowhere to go says so, a sailless boat says what the mod says; nothing moves the rudder (mutants: more sail lowering, less sail raising, the refusals unsaid)', () => {
+test('HELM-LADDER (the port\'s, DECLARED; was HELM-KEYS more and less sail): W and the up arrow climb one ladder, S and the down arrow come down it - backing water, at rest, pulling ahead, her sails - a rung a press, each said; the rung kept with no key held; down from her sails she pulls ahead on her oars; a step with nowhere to go says so, and a sailless boat stops at her oars (mutants: the arrows apart from W and S; the oars held; a lowered sail leaving her at rest)', () => {
   const s = scene();
   const boat = s.place(4, 0);
   s.rt.StartSailing(boat);
+  assert.equal(s.rt.state.oarThrottle, 0, 'a helm taken: the oars at rest');
   s.out.hud.length = 0;
   s.frame({ press: [BOAT_ACTIONS.sailUp] });
-  assert.equal(s.rt.state.sailPosition, 1, 'up: made sail');
+  assert.equal(s.rt.state.oarThrottle, 1, 'up: the oars pulling ahead');
+  assert.equal(s.out.hud.at(-1), OAR_RUNG_TEXT[1]);
+  for (let i = 0; i < 4; i++) s.frame();
+  assert.deepEqual(s.rt.state.MoveVectorTarget, [0, 0, 1], 'no key held: she rows on at her rung');
+  s.frame({ press: ['MoveForwards'] });
+  assert.equal(s.rt.state.sailPosition, 1, 'W: the same ladder - made sail');
+  assert.equal(s.rt.state.oarThrottle, 0, 'the oars shipped under sail');
   assert.ok(s.out.hud.includes('Sail raised!'), 'the mod\'s own word');
   s.frame({ press: [BOAT_ACTIONS.sailUp] });
   assert.equal(s.out.hud.at(-1), 'All sail is set.', 'up again: nowhere to go');
-  s.frame({ press: [BOAT_ACTIONS.sailDown] });
-  assert.equal(s.rt.state.sailPosition, 0, 'down: struck');
+  s.frame({ press: ['MoveBackwards'] });
+  assert.equal(s.rt.state.sailPosition, 0, 'S: struck');
   assert.ok(boat.Sails.every(stowed), 'every sail stowed');
+  assert.equal(s.rt.state.oarThrottle, 1, 'and she pulls ahead on her oars');
   s.frame({ press: [BOAT_ACTIONS.sailDown] });
-  assert.equal(s.out.hud.at(-1), 'The sails are stowed.');
+  assert.equal(s.rt.state.oarThrottle, 0, 'down: the oars at rest');
+  assert.equal(s.out.hud.at(-1), OAR_RUNG_TEXT[0]);
+  s.frame({ press: ['MoveBackwards'] });
+  assert.equal(s.rt.state.oarThrottle, -1, 'backing water');
+  assert.equal(s.out.hud.at(-1), OAR_RUNG_TEXT[-1]);
+  s.frame();
+  assert.deepEqual(s.rt.state.MoveVectorTarget, [0, 0, -1], 'astern at her rung');
+  s.frame({ press: [BOAT_ACTIONS.sailDown] });
+  assert.equal(s.rt.state.oarThrottle, -1, 'the foot of the ladder');
+  assert.equal(s.out.hud.at(-1), OAR_ASTERN_TEXT);
   const row = scene();
   const rowboat = row.place(0, 0);
   row.rt.StartSailing(rowboat);
   row.frame({ press: [BOAT_ACTIONS.sailUp] });
-  assert.equal(row.out.hud.at(-1), 'Boat does not have any sail.', 'the mod\'s own refusal');
+  row.frame({ press: [BOAT_ACTIONS.sailUp] });
+  assert.equal(row.out.hud.at(-1), 'Boat does not have any sail.', 'the mod\'s own refusal at the top of a rowboat\'s ladder');
   assert.equal(row.rt.state.sailPosition, 0);
+  assert.equal(row.rt.state.oarThrottle, 1, 'she rows on');
+  row.rt.StopSailing();
+  assert.equal(row.rt.state.oarThrottle, 0, 'the oars shipped with the helm left');
 });
 
-test('HELM-KEYS more and less sail step through the square sails where they are the player\'s (the assist\'s AutoStowSquareSails off, a hull with both kinds): all her canvas, then the fore-and-aft alone, then none - and back up the same way; the panel knows when more can be made (mutants: the square step skipped, the order reversed)', () => {
+test('HELM-LADDER through the square sails where they are the player\'s (the assist\'s AutoStowSquareSails off, a hull with both kinds; was HELM-KEYS): up past her oars, all her canvas; down, the square sails first, then the fore-and-aft and onto her oars - and the sails\' button is the mod\'s own toggle from any rung', () => {
   const s = scene({ settings: { 'SailingAssist.AutoStowSquareSails': false } });
   const boat = s.place(4, 0);
   assert.ok(boat.SailsSquare.length > 0 && (boat.SailsLateen.length > 0 || boat.SailsGaff.length > 0), 'the Carrack carries both kinds');
   s.rt.StartSailing(boat);
   assert.equal(s.rt.helmPanelState().moreSail, true, 'stowed: more can be made');
+  s.frame({ press: [BOAT_ACTIONS.sailUp] });
   s.frame({ press: [BOAT_ACTIONS.sailUp] });
   assert.ok(boat.Sails.every((x) => !stowed(x)), 'all her canvas');
   assert.equal(s.rt.helmPanelState().moreSail, false, 'all set');
@@ -878,6 +909,7 @@ test('HELM-KEYS more and less sail step through the square sails where they are 
   assert.equal(s.rt.state.sailPosition, 1, 'still under sail');
   assert.ok(boat.SailsSquare.every(stowed), 'the square sails taken in first');
   assert.ok(boat.Sails.filter((x) => !boat.SailsSquare.includes(x)).every((x) => !stowed(x)), 'the fore-and-aft standing');
+  assert.equal(s.rt.state.oarThrottle, 0, 'no oar under sail');
   assert.equal(s.rt.helmPanelState().moreSail, true, 'the square sails can be made again');
   s.frame({ press: [BOAT_ACTIONS.sailUp] });
   assert.ok(boat.SailsSquare.every((x) => !stowed(x)), 'up: the square sails again');
@@ -885,6 +917,21 @@ test('HELM-KEYS more and less sail step through the square sails where they are 
   s.frame({ press: [BOAT_ACTIONS.sailDown] });
   assert.equal(s.rt.state.sailPosition, 0, 'two steps down: none');
   assert.ok(boat.Sails.every(stowed));
+  assert.equal(s.rt.state.oarThrottle, 1, 'she pulls ahead');
+  // the panel's sails button: the toggle, raising her canvas from her oars without a rung between
+  const btn = helmButtons(s.rt.helmPanelState()).find((b) => b.act === 'sails');
+  assert.equal(btn.action, BOAT_ACTIONS.toggleSail);
+  s.frame({ press: [btn.action] });
+  assert.equal(s.rt.state.sailPosition, 1, 'raised from her oars at a touch');
+});
+
+test('HELM-LADDER the world\'s seam by source: W and S are pressed through the frame\'s down ring like the sail keys, and stand down with them under the travel view (AUDIT NAV2 F17: a journey holds the helm there); the panel\'s line teaches the one ladder', () => {
+  const w = readFileSync(new URL('../src/scenes/world.js', import.meta.url), 'utf8');
+  // the panel's line: her oars and her sails on W, S and the arrows, her rudder on A, D and the side arrows - every key bound
+  const keyOf = (a) => ({ MoveForwards: 'W', MoveBackwards: 'S', MoveLeft: 'A', MoveRight: 'D', BoatSailUp: '↑', BoatSailDown: '↓', TurnLeft: '←', TurnRight: '→' })[a] ?? '';
+  assert.equal(helmHint({ hasSails: true }, { keyOf, mouseFree: true }), 'Oars & sails W S ↑ ↓ · Steer A D ← →');
+  assert.equal(helmHint({ hasSails: false }, { keyOf, mouseFree: true }), 'Oars W S ↑ ↓ · Steer A D ← →', 'a rowboat\'s ladder is her oars');
+  assert.match(w, /started: \(action\) => \(pressed\(latch\.edge, keys, action\) && !\(travelView\?\.active && \[CSA_BOAT_ACTIONS\.sailUp, CSA_BOAT_ACTIONS\.sailDown, CSA_BOAT_ACTIONS\.toggleSail, 'MoveForwards', 'MoveBackwards'\]\.includes\(action\)\)\) \|\| csaHelmInput\.edges\.has\(action\),/);
 });
 
 test('HELM-KEYS in irons: her sails up, her bow within IRONS_TELL_DEG of the wind\'s eye and her way under IRONS_TELL_WAY for IRONS_TELL_S running - the helm is told once how she comes out, again only after she has been out of them; the panel says it while it lasts; a sail just raised is not lying in irons (mutants: told every frame, told at once, the wind\'s sense reversed, the way unread)', () => {
@@ -897,7 +944,7 @@ test('HELM-KEYS in irons: her sails up, her bow within IRONS_TELL_DEG of the win
   const lie = (seconds) => { for (let t = 0; t < seconds; t += 0.25) { s.rt.state.windVectorCurrent = ahead; s.frame(); } };
   const told = () => s.out.hud.filter((t) => t === IRONS_TEXT).length;
   s.rt.state.windVectorCurrent = ahead;
-  s.frame({ press: [BOAT_ACTIONS.sailUp] });
+  s.frame({ press: [BOAT_ACTIONS.toggleSail] });   // HELM-LADDER: the toggle raises her sails from her oars at rest
   assert.equal(s.out.hud.at(-1), 'Sail raised!', 'a sail just raised into the wind: not yet in irons');
   assert.equal(s.rt.helmPanelState().inIrons, false);
   lie(IRONS_TELL_S - 0.5);

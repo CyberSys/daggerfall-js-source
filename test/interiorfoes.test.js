@@ -224,10 +224,11 @@ test('IF: quest foes stand from BUILDING MARKERS too - DFU\'s second path into a
   // this slice built. (Found by the scout sweep AFTER the first
   // commit: the flag was worded differently enough to survive the
   // grep that found the other four.)
-  assert.match(WM, /standFoe: \(\{ foe, gender, position, behaviour \}\) => \{\n\s+if \(!interiorCtx \|\| !interiorFoes\) return null;/);
+  assert.match(WM, /standFoe: \(\{ quest, marker, foe, gender, position, behaviour \}\) => \{\n\s+if \(!interiorCtx \|\| !interiorFoes\) return null;/);   // QUEST-MARKERS: the site's marker, for the backstop
   // ROGUE-IMP re-aim: the marker is the flat's base on the floor, handed over as FEET (test/rogueimp.test.js)
-  assert.match(WM, /interiorFoes\.spawnFoe\(foe\.foeType, interiorCtx\.parentPt\(position\.x, position\.y \+ INTERIOR_MARKER_FEET_LIFT, position\.z\)/,
-    'parented exactly as this host\'s own flats are');
+  assert.match(WM, /const feet = standSpot\(interiorCtx\.parentPt\(position\.x, position\.y \+ INTERIOR_MARKER_FEET_LIFT, position\.z\), lifted,/,
+    'parented exactly as this host\'s own flats are');   // QUEST-MARKERS: through the building's backstop
+  assert.match(WM, /interiorFoes\.spawnFoe\(foe\.foeType, feet, \{/);
   assert.match(WM, /gender, questBehaviour: behaviour, feetGiven: true,/, 'and the resource behaviour binds at the stand');
   // the behaviour joins the scene walk and leaves with the teardown,
   // the dungeon adapter's own shape

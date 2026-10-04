@@ -1187,13 +1187,16 @@ cruise to random waypoints; a port had no ships at all. `systems/naval/shipLife.
 
 - **THE HARBOUR OFF THE TERRAIN** (`findHarbour`). No dock data exists - a port town is a flag in its exterior data -
   so the world hands the host the port town within a pixel of the player and its footprint in the scene
-  (`world.js navalHarbourNear`: `locationWorldRect` through the floating origin's `localFromWorld`), and the host finds
-  its harbour once: the town's rect grown HARBOUR_REACH walked on a SHORE_STEP grid for water beside land; each shore
+  (`world.js navalHarbourNear`: `locationWorldRect` through the floating origin's `localFromWorld`), and its harbour is
+  found once (HARBOUR-BOOK: the world's book, `systems/naval/harbourBook.js`, sounded whatever runs on the water - the
+  host reads it; `03-World/Holdings.md` section 7): the town's rect grown HARBOUR_REACH walked on a SHORE_STEP grid for water beside land; each shore
   point stood off the land along the shore's normal by her half width and BERTH_MARGIN is a BERTH lying parallel to the
   shore - kept only where her whole footprint (sized for BERTH_HULL, the Carrack) floats in the water of the deepest keel that
   berths (AUDIT GALLEON-2 GN1: `deepestBerther` over BERTH_HULLS - sounded for the Carrack alone, every berth was land
   to a hull 2 drawing 4.7 m, and her merchant galleons, navy cutters and pirate brigs froze at them for good; off Iliac
-  Puddle No More's carved shelf the berths lie 40-52 m off the shore now, 16-28 before), and BERTH_SPACING of her
+  Puddle No More's carved shelf the berths lie some 92 m off the shore, 80 before - HARBOUR-BOOK corrected GN1's 40-52 and
+  16-28, which read the bathymetry's depth without the floor's shore fit: within SHORE_TERRAIN_FIT_METERS (180 m) of the
+  coast the floor is lifted toward the sea's own top, 3.2 m deep only ~69 m out and 4.7 m ~80), and BERTH_SPACING of her
   length from every other, the nearest the town first, HARBOUR_BERTHS at most. Each berth has its APPROACH, open water
   APPROACH_LENGTHS astern of it and APPROACH_OUT off the shore. The MOUTH is the first point out along the berths' mean
   normal with MOUTH_CLEAR of open water all round. A town with no shore, or a harbour with no way out, has none.
@@ -1398,6 +1401,22 @@ followers; all of this is the port's own, over CREW-COMPANIONS.
   ready, a companion knocked out (`_knockedOut`, the frame before he is carried aboard), or another player's companion
   (a puppet - his effects are his owner's). His spells and his whole ride with him from place to place
   (`crewAshore.js`: each new body stands with the last one's live entries and its max health) - not through a save.
+- **GIFT-QUIET (2026-10-04: "sometimes theres notification spam when putting a spell on companion")**: a gift's lines
+  - the armed ready's ("Press button to fire spell." and `COMPANION_ARMED_LINE` / `ALLY_ARMED_LINE`), the caster's
+  ("You cast Heal on Hilda.", one or many, a companion's or a party mate's) and a party mate's on the receiving end
+  ("Bran casts Heal on you.", `world.js online.onCast`) - are said at most once in `allyCast.js GIFT_LINE_QUIET_S`
+  (10 s) of real time, through one gate (`createGiftLineGate`; `hostMagic.js sayGift`). Every cast near a companion
+  said three different lines, so the notice stack's repeat guard (`ui/hudText.js` NOTICE-SPAM, the back row only)
+  never caught them: six heals a second apart held eleven Enhanced plates at once, now three. THE AUDIT (2026-10-04):
+  the window is counted from when a line was SAID, never refreshed by asking - and on the real clock, not an engine's
+  frames, which stopped with the engine (the world's, under a dungeon) and stretched at a low frame rate; and an ARM
+  unlike the last ready's (`sayArm`: a mate's or my companion's, aimed or near, or none) is said whatever the window -
+  a heal armed near her, fired on the spot once she stepped off, then armed again as she came back, said nothing, and
+  readying again to find out held it silent. The classic ready line outside an arm (`readySpell`'s tail), a heal's
+  "You are healed" (alone, it merges at the back) and every other line are untouched. THE FOUR HOSTS: one route for
+  all of them, `say` -> `hudText.add` -> the Enhanced notice panel - `world.js`'s engine on the street and, through
+  `worldModes.js`, in a building; `dungeonContext.js`'s own underground; `exterior.js`'s hands no companion or mate
+  seam, so no gift line is said there. `test/giftquiet.test.js`; `tools/mutants/giftquiet.json`: 17 mutants, all dead.
 - **The pack** (`crewCompanions.js` - each companion's live `items`, saved with the party through the host's item
   codec, `packedItemsCodec`, the cargo's own). Activating my companion in Info, Grab or Talk within
   `TREASURE_ACTIVATION_DISTANCE` (else "You are too far away", as any storage) opens it (`player/

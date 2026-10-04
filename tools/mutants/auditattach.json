@@ -34,7 +34,7 @@
   {
     "name": "AT-pose-write-skipped",
     "file": "server/src/index.js",
-    "old": "    if (next !== a) this._setAttach(ws, next);",
+    "old": "    if (next !== a) this._setAttach(ws, next, lazy);",
     "new": "",
     "tests": ["test/auditattach.test.js"],
     "note": "The pose, its turn and its keepalive stamp are never written: a wake (and the range gate) reads a stale pose."

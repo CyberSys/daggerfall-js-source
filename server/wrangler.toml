@@ -105,6 +105,16 @@ GATE_DISCORD_ROLE = "1555589839825670258"
 [observability]
 enabled = true
 
+# SCALE2b (2026-10-04): the relay's metrics - one Analytics Engine point per
+# room per five minutes in which anything happened (server/src/relayScale.js
+# RoomMetrics says every field, and how to query it). The dataset is created
+# by its first write; no player is identified in any point (the room's kind,
+# the relay's version and counts). A relay without the binding serves exactly
+# as before.
+[[analytics_engine_datasets]]
+binding = "METRICS"
+dataset = "daggerfall_relay"
+
 [[durable_objects.bindings]]
 name = "ROOMS"
 class_name = "Room"

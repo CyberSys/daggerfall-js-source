@@ -53,7 +53,8 @@ Four read-only audits covered the relay (`server/src/index.js`), the account ser
 |---|---|---|---|
 | SCALE1 | The account service's half: fewer writes per request, metrics, indexes, the 100-parameter fix, gated deploys, D1 bookmark before migrations, client retry discipline | No | **Shipped in this PR** |
 | SCALE2 | The reconnect wave, from the client - NO relay deploy: one token for a connect's rooms (reused within a minute, never twice into one room, one mint on the wire), a tokenless refusal asked again while signed in, the channels' rejoin jittered | No | **Shipped** (after SCALE1) |
-| SCALE2b | The relay's own, ONE announced relay deploy: the O(1) socket index, the hello path in memory, bounded caches, cross-room timeouts, relay metrics, idle rooms allowed to sleep (foes and memory only when someone else is there) | Yes, once | Next |
+| NET-SMOOTH | Other players drawn without jumping back, from the client - NO relay deploy: the snap in the room's own units, one source room per peer (handed to a room that is ahead), introductions' stale poses ignored, a play-out along waypoints at 0.75x-2x with a jitter cushion | No | **Shipped** (2026-10-04, `06-Systems/Online-Arc.md` NET-SMOOTH) |
+| SCALE2b | The relay's own, ONE announced relay deploy: the O(1) socket index, the hello path in memory, bounded caches, cross-room timeouts, relay metrics, idle rooms allowed to sleep (foes and memory only when someone else is there) | Yes, once | **Shipped** (2026-10-04, in world162 beside PRIMARCH; one deploy) |
 | SCALE3 | The load harness: a Node bot fleet (guest → token → hello → poses, chat and checkpoints at real rates) against local workerd, then a staging pair; the deploy-storm scenario | No | After SCALE2 |
 | SCALE4 | D1 discipline: sweeps moved to a `scheduled()` cron, retention for the tables that only grow, the witness tables redesigned, reads made write-free and served from read replicas (Sessions API), one heartbeat replacing the mail, beat and board polls, 304s | No | After SCALE3's numbers |
 | SCALE5 | Past about 1-2k players: the hub split (presence and social state per account, world chat over shard rooms), slimmer or binary poses, pose-only halo frames | Yes | When the metrics say |
@@ -118,3 +119,89 @@ The relay was split out of SCALE2 on reading: every piece of the reconnect storm
 - ACC1d-8 / 9 / 10 / 12
 - the three TOKEN-WAIT mutants
 - RENOWN1's character mutant
+
+## NET-SMOOTH: shipped (client only, no relay deploy)
+
+Mac, 2026-10-04: "Sometimes other players rubberband, I want to continue to improve performance and future proof for
+larger amounts of players". Asked, Mac chose client fixes first and a batched relay deploy later. The record is
+`06-Systems/Online-Arc.md` NET-SMOOTH. For scale it matters in three ways:
+- **A crowd degrades smoothly.** SLAM3 slows a crowded sender and SLAM6 gives far listeners one pose in four. Before,
+  the rate changes as a peer crossed a tier made the peer dash; now a backlog or a promotion is walked at no more than
+  twice the pace, and a demotion is walked over its own interval.
+- **More halos, no more jumping.** Every halo a player holds is another copy of every nearby pose. One source room per
+  peer makes the copies harmless however many rooms overlap.
+- **The relay batch is unchanged by it.** SCALE2b still owns the relay's O(N) work and the hello path. A sequence and a
+  send time on the pose belong to that deploy, and NET-SMOOTH is written to read them when they come.
+
+## SCALE2b: shipped (the one relay deploy)
+
+Mac, 2026-10-04, of the phase NET-SMOOTH left for later: "I definitely want to do all these changes in full. No
+exceptions". Every item of the SCALE2b row, plus the pose's send time NET-SMOOTH was waiting for, rides **world162** -
+PRIMARCH's version, never deployed - so they cost players one drop between them. The relay's constants and its one
+helper are `server/src/relayScale.js`, not the entrypoint: a module Worker reads every named export of its entrypoint
+as an entrypoint (the account probe's lesson).
+
+**The socket index** (`_all`). It asked the runtime for the whole socket list and walked it against the index on every
+call - three times a pose, nine a hello - O(N) whether or not anything had changed. It is kept now by the doors that
+change the set: the accept in `fetch` adopts (`_adopt`), a leave forgets, and a close this object makes asks the
+runtime once (`_closed`) - a socket it still lists until the close completes (AUDIT ONESEAT R4) stays, as the old
+index re-read it. Trusted for `IDX_TRUST_MS` (1 s); past that one walk takes in anything missed and keeps every entry it
+has (an entry's attachment is newer than the stored one - below).
+
+**The hello path in memory.**
+- The room's hello bucket was read from storage and written back on every hello, a storm included. It refills whole
+  in a second, so it is the instance's now (`_hellos`) - the last of the object's own buckets that was in storage.
+- An id's secret is read once a wake and kept (`_secretOf`) - an id at a time, never listed: a deploy drops sockets
+  without their leave, and a hub that never drains keeps every secret such a drop left behind. A secret is written when
+  it is new, a look when it changed. A reconnect wrote both every time.
+- A place's memory was read whole (up to 512 KiB) on every hello. It is read once a wake and set by every publish
+  (`_worldMemo`).
+- A cell's parked teams were listed on every hello. Listed once a wake, kept by the store and the drop (`_parks`).
+- The hub: an account record is written when it holds news or its last-seen is `ACCT_SEEN_WRITE_MS` (10 min) stale -
+  the leave stamps it exactly and an online row reads the frame's clock; the profile secrets are kept (`_asecretOf`);
+  an account with no gate receipt or raid receipts is remembered as such until one is written.
+- Measured on the fake object: a reconnect's hello writes nothing and reads nothing (it was a bucket read and write,
+  a secret read and write, a look write and a parks list).
+
+**The pose path.** A pose rewrote the socket's whole attachment (about 2 KiB stored by the runtime). The index takes it
+at once - every reader reads that - and the runtime's copy, which only a wake reads, is written at most every
+`ATTACH_LAZY_MS` (2 s), and at once for a stop (where a player stands is what a wake must see). The fan picked the
+nearest `POSE_FAN_MAX` by sorting every listener on every moving pose; it selects them now in linear time and sorts the
+32 alone - the same set in the same order, ties in list order (pinned against the old sort on random rooms).
+
+**Bounded caches.** `Bounded` (relayScale.js): past its bound the OLDEST goes, never the whole map. `_recs` and `_cool`
+cleared themselves whole when full - a read storm and a spam window; `_parties` had no bound (`PARTIES_MAX` now);
+the raid caches cleared at 64; the Watch's map now keeps a player in use at the back; an unfinished towns upload goes
+with its socket; the spent-token sweep stops at the first still good instead of walking the map every hello.
+
+**Deadlines.** Six calls between rooms had none - the park registry and its drop, an arena post, a gate's kill, a raid's
+cleanse and its day - and an awaited call holds its handler. Each carries `AbortSignal.timeout(ROOM_CALL_MS)` (5 s);
+every caller already treated a failure as a miss to retry or let lapse.
+
+**Metrics.** `RoomMetrics` writes one Analytics Engine point (`METRICS`, dataset `daggerfall_relay`) per room per
+`METRICS_WINDOW_MS` (5 min) in which anything happened, and at a drain: the room's kind and the relay's version beside
+counts - hellos, busy refusals, frames and bytes in, poses, frames and bytes out, storage reads and writes, refusals.
+The storage is counted through a Proxy over the state (`countedState`). Nothing names a player. Five minutes keeps a
+thousand live rooms inside the plan's included ten million points a month.
+
+**The pose's send time** (`ts`, wire.js `POSE_TS_MOD`): see `06-Systems/Online-Arc.md` SCALE2b. One field orders every
+room's copy of a pose and spaces a peer's waypoints by the time its sender kept.
+
+**Rooms that sleep** (the audit's "Each client" list, the client half):
+- the foes stream and the own lane say nothing to a room with nobody else in it (`othersHere`), and owe their next
+  frame full - the first after a joiner arrives carries every foe;
+- an unchanged memory is not published again inside `WORLD_REPUBLISH_MS` (5 min) - after a welcome or a host change,
+  or a change, it goes at once;
+- the periodic realm checkpoint of a save that says nothing new (the landed one but for its clock and its look -
+  `idleKeyOf`) is answered without a put, inside `REALM_IDLE_CHECKPOINT_MS` (10 min); an act's checkpoint, an exit's
+  and a hidden page's always go (`realmSession.idle`);
+- the party map and its minute's resync go only with a mate online; the cabin lane's boat record only while someone is
+  in that cell.
+
+**Not done here:** the hub split, binary poses and the load harness are SCALE3 and SCALE5, unchanged. Nothing here has
+been measured live - the metrics above are how it will be.
+
+**Pins.** `test/scale2b.test.js` (15). `tools/mutants/scale2b.json`. Re-aimed: the hello bucket's storage pins
+(online_relay, chat1, world1, profile2), ONLINE1's and CHAT1's pose-frame pins (the send time), SOC1's last-seen pin,
+CHAT1's meter regex, REALM P0.5's checkpoint regex; `test/fakeRoom.mjs` and slam5's harness bring a socket in by the
+object's own door (`_adopt`), as `fetch` does.

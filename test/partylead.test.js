@@ -1,8 +1,8 @@
 // PARTY-LEAD (2026-10-04, the player: "add a make person party leader option for the leader when in a party"): THE LEAD
-// HANDED ON. The hub's `party.lead` act (world162): the leader names a seated member who is online and the lead is
+// HANDED ON. The hub's `party.lead` act (world164 - world162 on its branch, renumbered past main's PRIMARCH and SUNBABY1 at the merge): the leader names a seated member who is online and the lead is
 // theirs - every member hears the `party.leader` note a leave already says, then the party as it stands. A member may
 // not, nor may the leader name themself, a stranger or an away seat. An older hub closes the socket on an act it does
-// not know, so the client sends it, and the panel offers it (test/soc3_socialpanel.test.js), only through world162 on.
+// not know, so the client sends it, and the panel offers it (test/soc3_socialpanel.test.js), only through world164 on.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
@@ -14,17 +14,17 @@ import { relayVersionAtLeast } from './relayVersion.mjs';
 import { fakeRoom } from './fakeRoom.mjs';
 import { SOCIAL_ROOM } from '../src/net/wire.js';
 
-test('PARTY-LEAD wire: the act names an account, as a kick does; the relay that knows it is world162 on, and this tree ships it (mutants: the act naming nothing; the floor a relay too early; too late)', () => {
+test('PARTY-LEAD wire: the act names an account, as a kick does; the relay that knows it is world164 on, and this tree ships it (mutants: the act naming nothing; the floor a relay too early; too late)', () => {
   assert.equal(SOCIAL_ACTS['party.lead'], 'acct');
   assert.deepEqual(validSocialAct({ k: 'party.lead', acct: 'acct-b' }), { k: 'party.lead', acct: 'acct-b' });
   assert.equal(validSocialAct({ k: 'party.lead' }), null, 'a lead handed to nobody');
   assert.equal(validSocialAct({ k: 'party.lead', peer: 'peer-b' }), null, 'by account, never by tab');
-  assert.equal(PARTY_LEAD_RELAY_MIN, 162);
-  assert.equal(relaySupportsPartyLead('world161'), false, 'GUILD2\'s relay closes the socket on it');
-  assert.equal(relaySupportsPartyLead('world162'), true);
+  assert.equal(PARTY_LEAD_RELAY_MIN, 164);
+  assert.equal(relaySupportsPartyLead('world163'), false, 'SUNBABY1\'s relay closes the socket on it');
+  assert.equal(relaySupportsPartyLead('world164'), true);
   assert.equal(relaySupportsPartyLead('world170'), true);
   assert.equal(relaySupportsPartyLead(null), false);
-  assert.ok(relayVersionAtLeast(162), 'the relay this tree builds knows it');
+  assert.ok(relayVersionAtLeast(164), 'the relay this tree builds knows it');
   assert.equal(relaySupportsPartyLead(RELAY_VERSION), true);
   assert.equal(noteText({ code: 'party.leader', acct: 'acct-b', name: 'Bob' }, 'acct-b'), 'You lead the party now');
   assert.equal(noteText({ code: 'party.leader', acct: 'acct-b', name: 'Bob' }, 'acct-a'), 'Bob leads the party now');
@@ -69,8 +69,8 @@ test('PARTY-LEAD hub: the leader hands the lead to an online member - every memb
   assert.equal(r.store.get('party:' + pid).leader, 'acct-a', 'and can come back');
 }));
 
-test('PARTY-LEAD client: the act leaves only through a hub that said world162 or later - an older one would close the socket on it (mutants: the gate missing; the flag never set from the welcome)', () => {
-  for (const [version, ok] of [['world161', false], ['world162', true]]) {
+test('PARTY-LEAD client: the act leaves only through a hub that said world164 or later - an older one would close the socket on it (mutants: the gate missing; the flag never set from the welcome)', () => {
+  for (const [version, ok] of [['world163', false], ['world164', true]]) {
     const sockets = [];
     class FakeWS {
       constructor() { this.sent = []; sockets.push(this); }

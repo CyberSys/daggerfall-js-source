@@ -107,8 +107,7 @@ test('PROFILE2 relay: the look is metered - one a socket per 1/LOOK_HZ_MAX s (th
   const busy = fakeRoom('world:4,12');
   const x = busy.connect(), y = busy.connect();
   await busy.hello(x, 'peer-0011'); await busy.hello(y, 'peer-0012');
-  const bucket = await busy.state.storage.get('hellos');
-  await busy.state.storage.put('hellos', { ...bucket, tokens: 0, at: Date.now() });
+  busy.room._hellos = { ...busy.room._hellos, tokens: 0, at: Date.now() };   // SCALE2b: the room's hello bucket is the instance's
   await busy.raw(x, JSON.stringify({ t: 'look', look: LOOK_B }));
   assert.equal(x.closed?.code, CLOSE_BUSY, 'refused busy, exactly as a hello past HELLO_HZ_MAX is');
   assert.equal(y.sent.filter((m) => m.t === 'join' && m.id === 'peer-0011').length, 0, 'nothing fanned');
