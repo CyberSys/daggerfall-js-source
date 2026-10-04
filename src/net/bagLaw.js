@@ -20,7 +20,9 @@
 //
 // A harvest lands in the MATERIALS BAG when the character owns one and
 // it has room, else in the PACK - as the very item a withdrawal from
-// the Stores always minted (systems/profItems.js). The Stores stay: a
+// the Stores always minted (systems/profItems.js) - and past the pack's
+// weight before a unit is lost (PACK-OVER, FIELD BUGS 2026-10-04: every
+// unit the service counts is made, as a withdrawal's is). The Stores stay: a
 // character's storage, reached in a town (bible: the Stores page), and
 // the market's, the writs' and the guild Stores' one door, as before.
 //
@@ -67,6 +69,9 @@ export const BAG_ROW = Object.freeze({
 export const isBagItem = (item) => item?.templateIndex === BAG_TEMPLATE && item?.group === 'UselessItems2';
 /** Whether a list (the pack) holds one - DFU's HasCart, for the bag: owning one is holding one. */
 export const hasBag = (items) => Array.isArray(items) && items.some(isBagItem);
+/** ONE-BAG (2026-10-04, Mac: "you shouldnt be able to hold multiple gathering bags"): whether any of `lists` - the pack, a
+ *  trade's basket, the wagon - holds a Materials Bag other than `item` (the one being taken, which may sit in one of them). */
+export const holdsOtherBag = (lists, item = null) => (lists ?? []).some((l) => Array.isArray(l) && l.some((x) => x !== item && isBagItem(x)));
 
 /** The bag as a capacity the transfer ladder reads (systems/inventorySession.js storeCapacityOf's shape - the
  *  companion's pack's): its kg and its words ("Your Materials Bag cannot carry any more."). */
@@ -126,12 +131,15 @@ export const carriedUsable = (c, held) => carriedSpendable(clampCarried(c, held)
  *  and what found no room said beside them. */
 export function goodsWhere(d) {
   if (d?.carry !== true) return 'to your Stores';
-  const p = d.put ?? { bag: 0, pack: 0, left: 0 };
+  // PACK-OVER (FIELD BUGS 2026-10-04): what went into the pack past its weight (`over`) is the pack's, and said so
+  const put = d.put ?? { bag: 0, pack: 0, left: 0 };
+  const p = { ...put, pack: (put.pack | 0) + (put.over | 0) };
   const left = `left where ${p.left === 1 ? 'it was' : 'they were'} gathered`;
   // AUDIT2 BAG1 K11: none of it carried - said as such, never "to your bag" of goods that went nowhere
   if (!(p.bag > 0) && !(p.pack > 0) && p.left > 0) return `- all ${left}: no room in your bag or pack`;
   const to = p.bag > 0 && p.pack > 0 ? 'to your bag and pack' : p.pack > 0 ? 'to your pack' : 'to your bag';
-  return p.left > 0 ? `${to} - ${p.left} ${left}: no room` : to;
+  const said = (put.over | 0) > 0 ? `${to} - your pack is over its weight` : to;
+  return p.left > 0 ? `${said} - ${p.left} ${left}: no room` : said;
 }
 
 /** AUDIT2 BAG1 K10: why a station's work stayed in the Stores (net/profBook.js carryOut's `why`) - a refusal's own words
@@ -175,14 +183,19 @@ export const BAG_WORDS = Object.freeze({
   // what the bag has no room for too
   where: 'Gathered goods go into your Materials Bag, then your pack. Every General Store sells the bag.',
   /** the bag's own refusals (systems/materialsBag.js bagStoreRefusal, inventorySession.js planBagToggle) - AUDIT BAG1:
-   *  `full` and `second` were never said (the capacity ladder says a full bag; the shop shelves none to a second) */
+   *  `full` was never said (the capacity ladder says a full bag) */
   onlyMaterials: 'Only crafting materials go in the Materials Bag.',
+  /** ONE-BAG: a second bag taken, bought or picked up (systems/itemTransfer.js planTake, scenes/worldModes.js doBuy) */
+  second: 'You already have a Materials Bag.',
   none: 'You have no Materials Bag. Every General Store sells one.',
   notEmpty: 'Empty your Materials Bag first.',
   /** AUDIT BAG1 H1: a reward tray is up - a piece taken from the bag beside it was taken as the reward */
   reward: 'Choose your reward first - your Materials Bag opens after.',
   /** a node's prompt when neither the bag nor the pack has room for one more unit */
   noRoom: 'No room in your bag or pack',
+  /** PACK-OVER (FIELD BUGS 2026-10-04): a harvest's goods minted into the pack past its weight - said beside the haul card,
+   *  which counts the goods and not the weight (scenes/gatherHost.js) */
+  overWeight: 'Your pack is over its weight. Put materials in your Stores in any town, or carry them in a Materials Bag.',
   /** the Stores page, away from a town */
   town: 'Your Stores are kept in town. Go to any town to put materials in or take them out.',
 });

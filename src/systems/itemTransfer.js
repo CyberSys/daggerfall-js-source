@@ -50,7 +50,7 @@ import { entityMaxEncumbrance } from '../combat/formulas.js';
 import { makeItemPermanent } from './quest/item.js';   // TransferItem's MakePermanent arm (:1502-1504)
 import { getBool } from './settings.js';   // GUI/CanDropQuestItems
 import { setLightSource } from './lightSource.js';   // DISC7: the light in hand's one door
-import { BAG_WORDS, isBagItem } from '../net/bagLaw.js';   // BAG1: a loaded Materials Bag never leaves the pack
+import { BAG_WORDS, isBagItem, holdsOtherBag } from '../net/bagLaw.js';   // BAG1: a loaded Materials Bag never leaves the pack; ONE-BAG: one to a character
 
 /** ItemHelper.WagonKgLimit (:56). */
 export const WAGON_KG_LIMIT = 750;
@@ -85,6 +85,9 @@ export const REFUSAL = Object.freeze({
   /** BAG1: the Materials Bag leaves the pack only empty - the cart's own rule (tradeModes.js), said here because a bag
    *  dropped, chested or carted with materials in it would strand them in a list nobody owns. */
   bagLoaded: { reason: 'bagLoaded', text: BAG_WORDS.notEmpty },
+  /** ONE-BAG (2026-10-04, Mac: "you shouldnt be able to hold multiple gathering bags"): one Materials Bag to a character -
+   *  a second is never taken into the pack, bought into a basket or carried off a shelf. */
+  secondBag: { reason: 'secondBag', text: BAG_WORDS.second },
   /** The drop-gold field's own refusal, and it is SILENT because DFU's
    *  is: an amount below 1 or above the purse is REFUSED OUTRIGHT
    *  rather than clamped (:1272-1300), and the field simply does not
@@ -281,6 +284,11 @@ export function planTake(item, {
   // future transfer path to rediscover.
   if (isSummoned(item)) return { ok: false, refusal: REFUSAL.summoned };
   if (isMap(item)) return { ok: true, map: true, amount: item.stackCount ?? 1 };   // F156: either direction
+  // ONE-BAG: a Materials Bag is never taken while another is held - in the pack, in a trade's basket (the trade windows'
+  // `bag` is both) or in the wagon; the bag being taken is not "another", wherever it sits. AUDIT ONE-BAG 1: nor is one out of
+  // the character's own wagon a bag taken - it is already theirs, and two held from before were locked in the wagon for good
+  const ownWagon = Array.isArray(entity?.wagonItems) && entity.wagonItems.includes(item);
+  if (isBagItem(item) && !ownWagon && holdsOtherBag([bag, entity?.wagonItems], item)) return { ok: false, refusal: REFUSAL.secondBag };
   // AUDIT 26: the quest arm, the OTHER caller. `from` is remoteItems
   // here, so the refusal cannot fire without CanDropQuestItems, and
   // picking the item back up CLEARS PlayerDropped (:1499-1500) - which

@@ -1,0 +1,101 @@
+[
+  {
+    "name": "ENDLESS-the-restock-unwired",
+    "file": "src/scenes/worldModes.js",
+    "old": "      restockEndless(shelf.items, staged);   // ENDLESS-STOCK",
+    "new": "      // ENDLESS-STOCK",
+    "tests": [
+      "test/fb1004_endless.test.js"
+    ]
+  },
+  {
+    "name": "ENDLESS-the-keyed-list-unwired",
+    "file": "src/scenes/worldModes.js",
+    "old": "    restockEndless(shelf.items, [it]);   // ENDLESS-STOCK: the keyed list's purchase, as the counter's\n",
+    "new": "",
+    "tests": [
+      "test/fb1004_endless.test.js"
+    ]
+  },
+  {
+    "name": "ENDLESS-the-bag-not-endless",
+    "file": "src/systems/shopStock.js",
+    "old": "export const isEndlessStock = (item) => isBagItem(item) || (isSurvivalItem(item) && isCampfireKit(item));",
+    "new": "export const isEndlessStock = (item) => isSurvivalItem(item) && isCampfireKit(item);",
+    "tests": [
+      "test/fb1004_endless.test.js"
+    ]
+  },
+  {
+    "name": "ENDLESS-the-campfire-not-endless",
+    "file": "src/systems/shopStock.js",
+    "old": "export const isEndlessStock = (item) => isBagItem(item) || (isSurvivalItem(item) && isCampfireKit(item));",
+    "new": "export const isEndlessStock = (item) => isBagItem(item);",
+    "tests": [
+      "test/fb1004_endless.test.js"
+    ]
+  },
+  {
+    "name": "ENDLESS-every-row-endless",
+    "file": "src/systems/shopStock.js",
+    "old": "    if (!isEndlessStock(it)) continue;\n    const fresh = isBagItem(it)",
+    "new": "    const fresh = isBagItem(it)",
+    "tests": [
+      "test/fb1004_endless.test.js"
+    ]
+  },
+  {
+    "name": "ENDLESS-a-campfire-of-any-group",
+    "file": "src/systems/shopStock.js",
+    "old": "export const isEndlessStock = (item) => isBagItem(item) || (isSurvivalItem(item) && isCampfireKit(item));",
+    "new": "export const isEndlessStock = (item) => isBagItem(item) || isCampfireKit(item);",
+    "tests": [
+      "test/fb1004_endless.test.js"
+    ]
+  },
+  {
+    "name": "ENDLESS-the-bag-minted-for-a-campfire",
+    "file": "src/systems/shopStock.js",
+    "old": "    const fresh = isBagItem(it)\n      ? mintCondition(",
+    "new": "    const fresh = true\n      ? mintCondition(",
+    "tests": [
+      "test/fb1004_endless.test.js"
+    ]
+  },
+  {
+    "name": "ENDLESS-the-buyers-record-put-back",
+    "file": "src/systems/shopStock.js",
+    "old": "    if (fresh) { addItem(shelfItems, fresh); n++; }",
+    "new": "    if (fresh) { addItem(shelfItems, it); n++; }",
+    "tests": [
+      "test/fb1004_endless.test.js"
+    ]
+  },
+  {
+    "name": "ENDLESS-the-buy-back-open-online",
+    "file": "src/systems/shopStock.js",
+    "old": "  && !(isOnlinePage() && isEndlessStock(item));",
+    "new": ";",
+    "tests": [
+      "test/fb1004_endless.test.js"
+    ]
+  },
+  {
+    "name": "ENDLESS-the-buy-back-closed-offline",
+    "file": "src/systems/shopStock.js",
+    "old": "  && !(isOnlinePage() && isEndlessStock(item));",
+    "new": "  && !isEndlessStock(item);",
+    "tests": [
+      "test/fb1004_endless.test.js"
+    ]
+  },
+  {
+    "name": "ENDLESS-endless-offline",
+    "file": "src/systems/shopStock.js",
+    "old": "  if (!Array.isArray(shelfItems) || !isOnlinePage()) return 0;",
+    "new": "  if (!Array.isArray(shelfItems)) return 0;",
+    "tests": [
+      "test/fb1004_endless.test.js"
+    ]
+  }
+]

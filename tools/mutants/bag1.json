@@ -120,17 +120,17 @@
   {
     "name": "BAG1-shelved-offline",
     "file": "src/systems/shopStock.js",
-    "old": "    if (isOnlinePage() && !ownsBag && shelfIndex === 0) add(",
-    "new": "    if (!ownsBag && shelfIndex === 0) add(",
+    "old": "    if (isOnlinePage()) add({ group: 'UselessItems2', templateIndex: BAG_TEMPLATE });",
+    "new": "    add({ group: 'UselessItems2', templateIndex: BAG_TEMPLATE });",
     "tests": [
       "test/bag1_client.test.js"
     ]
   },
   {
-    "name": "BAG1-a-second-bag",
+    "name": "BAG-SHELF-none-to-a-bag-owner",
     "file": "src/systems/shopStock.js",
-    "old": "    if (isOnlinePage() && !ownsBag && shelfIndex === 0) add(",
-    "new": "    if (isOnlinePage() && shelfIndex === 0) add(",
+    "old": "    if (isOnlinePage()) add({ group: 'UselessItems2', templateIndex: BAG_TEMPLATE });",
+    "new": "    if (isOnlinePage() && !(playerEntity.items ?? []).some((it) => it?.templateIndex === BAG_TEMPLATE)) add({ group: 'UselessItems2', templateIndex: BAG_TEMPLATE });",
     "tests": [
       "test/bag1_client.test.js"
     ]
@@ -677,10 +677,10 @@
     ]
   },
   {
-    "name": "AUDIT2-BAG1-H8-a-bag-a-shelf",
+    "name": "BAG-SHELF-the-first-shelf-alone",
     "file": "src/systems/shopStock.js",
-    "old": "    if (isOnlinePage() && !ownsBag && shelfIndex === 0) add(",
-    "new": "    if (isOnlinePage() && !ownsBag) add(",
+    "old": "    if (isOnlinePage()) add({ group: 'UselessItems2', templateIndex: BAG_TEMPLATE });",
+    "new": "    if (isOnlinePage() && shelfIndex === 0) add({ group: 'UselessItems2', templateIndex: BAG_TEMPLATE });",
     "tests": [
       "test/bag1_client.test.js"
     ]

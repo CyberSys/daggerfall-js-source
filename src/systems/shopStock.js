@@ -55,7 +55,7 @@ import { findFactionByTypeAndRegion } from './talk.js';           // S41: Persis
 import { MERCHANTS_FACTION_ID } from './guilds.js';               // S41: FactionIDs.The_Merchants, one home
 import { turnOnConditionFlag, turnOffConditionFlag, REGION_FLAGS, REGION_COUNT } from './regionConditions.js';   // S42: the store S41's flag was waiting on
 import { isOnlinePage } from './onlineLane.js';   // REALM P0.4: online, a shop pays at most half what it asks
-import { BAG_TEMPLATE, hasBag } from '../net/bagLaw.js';   // BAG1: the Materials Bag, at every General Store online
+import { BAG_TEMPLATE, isBagItem } from '../net/bagLaw.js';   // BAG1: the Materials Bag, at every General Store online
 
 // ItemGroups ids used by the shelf tables (DaggerfallUnityEnums).
 const GROUP_NAMES = Object.freeze({
@@ -104,7 +104,10 @@ export const SHOP_BUYS_GROUPS = Object.freeze({
   [BUILDING_TYPES.PawnShop]: ['Armor', 'Books', 'MensClothing', 'WomensClothing', 'Gems', 'Jewellery', 'ReligiousItems', 'Weapons', 'UselessItems2', 'Paintings'],
   [BUILDING_TYPES.WeaponSmith]: ['Armor', 'Weapons'],
 });
-export const shopBuysItem = (buildingType, item) => (SHOP_BUYS_GROUPS[buildingType] ?? []).includes(item.group);
+export const shopBuysItem = (buildingType, item) => (SHOP_BUYS_GROUPS[buildingType] ?? []).includes(item.group)
+  // AUDIT ENDLESS-STOCK F1/F2: online no shop buys back what never sells out - bought at a cheap shop and sold at a dear one
+  // (the online asking price is halved, the buy-back cap is not) it was gold for nothing, and a sold one made any shelf endless
+  && !(isOnlinePage() && isEndlessStock(item));
 
 /** RMBLayout.IsShop, verbatim (the nine stocked storefronts). */
 export function isShop(buildingType) {
@@ -143,7 +146,7 @@ export const MAGIC_ITEMS_ENUM_TEMPLATE = 0;
 import { BOOK_TEMPLATE, createRegularMagicItem, createRandomPotion, randomlyAddPotionRecipe, getMagicItemTemplates, createRandomWeapon, createRandomArmor, createRandomClothing } from './loot.js';   // G4: the guild shelves' two minters (AUDIT 26 F129/F130: + the recipe arm and the registry)
 import { SPELLBOOK_TEMPLATE_INDEX } from './spellMaker.js';   // G4: one home for MiscItems 132
 import { restItemsStock } from './restItems.js';   // REST6: the Bedroll, the Ember Jar, Firewood and the draughts
-import { provisionsStock, campfireStock } from './survival/items.js';   // SURV2: the general store's provisions shelf   // REST2: and online the Campfire alone, the arc Off
+import { provisionsStock, campfireStock, createSurvivalItem, isSurvivalItem, isCampfireKit, TEMPLATE as SURVIVAL_TEMPLATE } from './survival/items.js';   // SURV2: the general store's provisions shelf   // REST2: and online the Campfire alone, the arc Off
 import { sharedClockOn } from './worldTick.js';
 import { healingShelfCount, mintHealingPotion } from './healingSupply.js';   // POTION-COMMON: the shelf's Potions of Healing
 import { survivalOn } from './survival/switch.js';   // SURV2: the one switch
@@ -210,6 +213,27 @@ export const needsRestock = (container, today) => (container?.stockedDate ?? 0) 
 export const stockSearched = (container, today) => Number.isFinite(container?.openedOn) && container.openedOn > 0
   && container.openedOn === container.stockedDate && !needsRestock(container, today);
 
+/** ENDLESS-STOCK (2026-10-04, Mac: "I want the gathering bag to be unlimited purchases in stores. It shouldnt run out,
+ *  same with campfires"): the rows a shop never sells out of - the Materials Bag and the Campfire. */
+export const isEndlessStock = (item) => isBagItem(item) || (isSurvivalItem(item) && isCampfireKit(item));
+/** ENDLESS-STOCK: a purchase's endless rows put back on the shelf they were bought from - a fresh one for each (neither
+ *  stacks), minted as the shelf mints it (worldModes.js commitTrade's Buy). Only a purchase restocks: a row taken from a
+ *  closed shop's shelf is stolen, and stays gone. Online alone; and online no shop buys one back (shopBuysItem), so the only
+ *  endless rows on a shelf are the ones it stocked itself. Answers how many went back. */
+export function restockEndless(shelfItems, bought) {
+  // AUDIT ENDLESS-STOCK F4: online alone, as the bag is - offline a shelf sells out as Daggerfall's does
+  if (!Array.isArray(shelfItems) || !isOnlinePage()) return 0;
+  let n = 0;
+  for (const it of bought ?? []) {
+    if (!isEndlessStock(it)) continue;
+    const fresh = isBagItem(it)
+      ? mintCondition(setItemFields({ group: 'UselessItems2', templateIndex: BAG_TEMPLATE }))
+      : createSurvivalItem(SURVIVAL_TEMPLATE.Campfire);
+    if (fresh) { addItem(shelfItems, fresh); n++; }
+  }
+  return n;
+}
+
 /** StockShopShelf, verbatim. Returns the item list; every item
  *  carries value = its DaggerfallUnityItem base value.
  *
@@ -247,12 +271,12 @@ export function stockShopShelf({ buildingType, quality }, playerEntity = {}, { r
     add({ group: 'Transportation', templateIndex: TRANSPORT_HORSE });
     add({ group: 'Transportation', templateIndex: TRANSPORT_SMALL_CART });
     // BAG1 (bible/06-Systems/Materials-Bag.md): THE MATERIALS BAG beside the cart, at every General Store - online alone,
-    // where the professions are (nothing offline gathers into it), and by name, as the horse and the cart are; never to a
-    // player who carries one (a second bag holds nothing more - the bag is one list, as the wagon is). AUDIT2 BAG1 H8: on
-    // the shop's first shelf alone - the horse and the cart are on every shelf as DFU stocks them, but a bag on each one
-    // showed a shop of several shelves selling one bag several times over
-    const ownsBag = hasBag(playerEntity.items ?? []);
-    if (isOnlinePage() && !ownsBag && shelfIndex === 0) add({ group: 'UselessItems2', templateIndex: BAG_TEMPLATE });
+    // where the professions are (nothing offline gathers into it), and by name, as the horse and the cart are.
+    // BAG-SHELF (FIELD BUGS 2026-10-04, "nobody can find material bags in store"): on EVERY shelf, whoever stocks it, as
+    // the horse and the cart are. AUDIT2 H8 had put it on the first shelf alone, and BAG1 left it off a shelf stocked by a
+    // character who carried one - but online a shelf's stock is the room's for the day, so one bag-owner's open hid it
+    // from everyone, and the first shelf is just the first model the building lists
+    if (isOnlinePage()) add({ group: 'UselessItems2', templateIndex: BAG_TEMPLATE });
     // SURV2: the provisions shelf - rations, bread, fruit, skins, fire
     // kits, and camping gear and a skillet in a better shop. Minted by
     // their own module (their templates are the port's), after the
