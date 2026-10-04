@@ -27,6 +27,26 @@ export const SCAR_DODGED = 3;
 export const SCAR_BACK = 3;
 /** RVN2: a revenant holds at most its rank's adaptations, and never more than this. */
 export const ADAPT_MAX = 3;
+/** RVN2 (section 13.2): what each adaptation does. Never immunity: a weapon class falls to `TAKEN_FLOOR` at the least,
+ *  an element by `RESIST` on the saving throw; nothing touches its weakness (RVN3). RVN2, as built: the arc's +50 was
+ *  immunity - DFU's throw starts at 50 and answers 0 at 100, BEFORE its 95 cap (spellcast.js savingThrow) - so +25,
+ *  DFU's own Resistant: about x0.55 of a plain body's expected damage at Willpower 50, beside the classes' x0.6-0.75. */
+export const ADAPT = Object.freeze({
+  TAKEN: Object.freeze({ mailed: Object.freeze(['blade', 0.7]), braced: Object.freeze(['blunt', 0.75]), hewnHard: Object.freeze(['axe', 0.7]), unflinching: Object.freeze(['h2h', 0.6]), arrowWise: Object.freeze(['arrow', 0.7]) }),
+  TAKEN_FLOOR: 0.6,
+  RESIST_OF: Object.freeze({ fireproof: 'fire', rimebound: 'frost', grounded: 'shock', venomBlooded: 'poison', spellScarred: 'magic' }),
+  RESIST: 25,
+  BRACED_POISE: 1.4,
+  STEADFAST_POISE: 1.5,
+  STEADFAST_IRON: 0.5,          // one blow in two iron
+  PATIENT_TRACK: 0.7,           // it tracks through this share of a wind-up (TELL5's 0.5)
+  PATIENT_FEINT: 1 / 3,         // a blade feints one wind-up in this (TELL5's 1 in 5)
+  PATIENT_WIND: Object.freeze([0.85, 1.35]),   // its wind-ups' lengths, U(these) (TELL5's 0.9-1.25)
+  ARROW_SPEED: 20,              // Speed while its target is past...
+  ARROW_FAR: 8,                 // ...this many metres
+  RELENTLESS_SPEED: 25,
+  NIGHT_BLOWS: 1.15,            // a Night-stalker's blows (it comes only by night)
+});
 /** RVN3: from this rank its will must be broken; this many staggers break it. */
 export const WILL_RANK = 3;
 export const WILL_STAGGERS = 2;
@@ -234,11 +254,71 @@ export const sanitizeLoyalty = (v, personality) => (Number.isFinite(v) ? Math.ma
 const sanitizeLair = (v) => (v && typeof v === 'object' && Number.isInteger(v.px) && Number.isInteger(v.py) && typeof v.name === 'string' && v.name
   ? { px: v.px, py: v.py, name: v.name.slice(0, 80), region: Number.isInteger(v.region) ? v.region : -1 } : null);
 
-// ── RVN2's adaptations (section 13.2) ───────────────────────────────
-/** The adaptations a revenant can learn (their effects are RVN2's). */
+// ── RVN2's adaptations (section 13) ─────────────────────────────────
+/** The adaptations a revenant can learn. */
 export const ADAPTATIONS = Object.freeze(['mailed', 'braced', 'hewnHard', 'unflinching', 'arrowWise', 'fireproof', 'rimebound', 'grounded', 'venomBlooded', 'spellScarred', 'silverScarred', 'steadfast', 'patient', 'watchful', 'relentless', 'nightStalker']);
 const ADAPT_SET = new Set(ADAPTATIONS);
 export const isAdaptation = (v) => typeof v === 'string' && ADAPT_SET.has(v);
+/** What a scar teaches (13.2's "learned from"); a kill by night (the `night` scar with `slew`) teaches the Night-stalker. */
+const TEACHES = Object.freeze({
+  blade: 'mailed', blunt: 'braced', axe: 'hewnHard', h2h: 'unflinching', arrow: 'arrowWise',
+  fire: 'fireproof', frost: 'rimebound', shock: 'grounded', poison: 'venomBlooded', magic: 'spellScarred',
+  silver: 'silverScarred', staggered: 'steadfast', dodged: 'patient', back: 'watchful', routed: 'relentless',
+});
+/** The kinds silver doubles against - DFU's Skeletal Warrior and PCAAO's six (combat/pcaao.js SILVER_DOUBLED_CAREERS):
+ *  the only ones a silver scar teaches. */
+export const SILVER_DOUBLED_KINDS = Object.freeze(new Set([M.SkeletalWarrior, M.Werewolf, M.Ghost, M.Wraith, M.Vampire, M.Mummy, M.Wereboar]));
+/** RVN2 (13.1): the fight's lesson - the first of its scars (`kinds`, feudScars' order: its leading source first) that
+ *  teaches an adaptation `learned` does not hold. Decided here: a leading scar it already holds passes the lesson to the
+ *  next (a revenant that has learned your blade learns the next thing you lean on); `mixed`, `other` and a deed teach
+ *  nothing but the two that do (a kill by night; being run from - RVN10's `routed`); an element its `career` already
+ *  resists or shrugs off teaches nothing (DFU's tolerance is its own - stacked, it was immunity). Null for none. */
+export function lessonOf(kinds, learned, mobileType, career = null) {
+  const held = new Set(learned ?? []);
+  const slew = kinds.includes('slew');
+  for (const k of kinds) {
+    const a = k === 'night' ? (slew ? 'nightStalker' : null) : TEACHES[k] ?? null;
+    if (!a || held.has(a)) continue;
+    if (a === 'silverScarred' && !SILVER_DOUBLED_KINDS.has(mobileType)) continue;   // its kind's silver double is none to lose
+    if (ADAPT.RESIST_OF[a] && weaknessShut(ADAPT.RESIST_OF[a], career)) continue;
+    return a;
+  }
+  return null;
+}
+/** RVN2 (13.1): `learned` with `a` learned at `rank` - at most min(rank, ADAPT_MAX), the oldest forgotten. */
+export const withLesson = (learned, a, rank) => [...(learned ?? []).filter((x) => x !== a), a].slice(-Math.max(1, Math.min(rank | 0, ADAPT_MAX)));
+/** RVN2: what a revenant's adaptations do to it, as its stand carries them (`entity.revenant.edge` - the brain, the
+ *  motor, the doors and the formulas read it there; every number is ADAPT's): `taken` by blow class, `resist` by
+ *  element, its poise, iron share, tracking share, feint chance and wind-up band (null: TELL's), Speed past a distance,
+ *  and the flags. NOTHING TOUCHES ITS WEAKNESS (`weak`): no class or element of it is taken less, and a silver weakness
+ *  keeps silver's double. Frozen. */
+export function adaptEdge(learned, weak = null) {
+  const has = (a) => (learned ?? []).includes(a);
+  /** @type {Record<string, number>} */
+  const taken = {};
+  for (const [a, [cls, m]] of Object.entries(ADAPT.TAKEN)) if (has(a) && cls !== weak) taken[cls] = Math.max(ADAPT.TAKEN_FLOOR, Number(m));
+  /** @type {Record<string, number>} */
+  const resist = {};
+  for (const [a, el] of Object.entries(ADAPT.RESIST_OF)) if (has(a) && el !== weak) resist[el] = ADAPT.RESIST;
+  return Object.freeze({
+    taken: Object.freeze(taken), resist: Object.freeze(resist),
+    poise: (has('braced') ? ADAPT.BRACED_POISE : 1) * (has('steadfast') ? ADAPT.STEADFAST_POISE : 1),
+    iron: has('steadfast') ? ADAPT.STEADFAST_IRON : 0,
+    track: has('patient') ? ADAPT.PATIENT_TRACK : null,
+    feint: has('patient') ? ADAPT.PATIENT_FEINT : null,
+    wind: has('patient') ? ADAPT.PATIENT_WIND : null,
+    farSpeed: has('arrowWise') ? ADAPT.ARROW_SPEED : 0, farAt: ADAPT.ARROW_FAR, closes: has('arrowWise'),
+    watchful: has('watchful'), silverScarred: has('silverScarred') && weak !== 'silver', relentless: has('relentless'), nightStalker: has('nightStalker'),
+    weak: isWeakness(weak) ? weak : null,
+  });
+}
+/** RVN2: a blow's class as an adaptation weighs it - an arrow; a weapon's class; bare hands a person's (the player's, a
+ *  class foe's) - a monster's own body is none of them. */
+export function adaptBlowClass(attacker, weapon, kind) {
+  if (kind === 'arrow') return 'arrow';
+  if (weapon) return weaponFeudClass(weapon).cls;
+  return attacker?.isPlayer || (attacker?.mobileType ?? -1) >= 128 ? 'h2h' : 'other';
+}
 
 // ── the record, whole (section 26) ──────────────────────────────────
 /** RVN1: every field FEUD adds to a revenant's record, read back (a save, the mirror, a merge) - each checked by its
@@ -248,7 +328,7 @@ export function feudFields(r, { id, mobileType, rank }) {
   const fights = Number.isInteger(r.fights) && r.fights >= 0 ? r.fights : (r.kills | 0) + (r.escapes | 0) + (r.returns | 0);
   return {
     scars: sanitizeScars(r.scars),
-    learned: Array.isArray(r.learned) ? [...new Set(r.learned.filter(isAdaptation))].slice(-ADAPT_MAX) : [],
+    learned: Array.isArray(r.learned) ? [...new Set(r.learned.filter(isAdaptation))].slice(-Math.min(rank, ADAPT_MAX)) : [],   // RVN2: at most its rank's
     weak: isWeakness(r.weak) ? r.weak : drawWeakness(id, mobileType),
     weakKnown: /** @type {0|1|2} */ (r.weakKnown === 1 || r.weakKnown === 2 ? r.weakKnown : 0),
     sig: rank >= SIG_RANK ? (isSignature(r.sig) ? r.sig : drawSignature(id, mobileType)) : null,

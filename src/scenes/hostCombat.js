@@ -252,8 +252,9 @@ export function tallySwingSkills(player, weapon) {
 /** The tally is INSIDE the chance calculation in DFU, so every
  *  back-facing swing counts a Backstabbing use whether or not the x3
  *  roll lands. No host tallied it, so Backstabbing could never rise. */
-export function backstabChanceOf(player, isEnemyFacingAwayFromPlayer) {
+export function backstabChanceOf(player, isEnemyFacingAwayFromPlayer, foe = null) {
   if (!isEnemyFacingAwayFromPlayer) return 0;
+  if (foe?.entity?.revenant?.edge?.watchful === true) return 0;   // RVN2: a Watchful revenant - never unaware, no backstab (nor its tally)
   tallySkill(player, SKILLS.Backstabbing, 1);
   return skillValue(player, SKILLS.Backstabbing);
 }
@@ -675,7 +676,8 @@ export function windupDoor(f, damage, { kind = 'melee', weapon = null, round = f
       ? blowK({ kind, weapon: striker.entity?.weapon ?? null, claws: !((striker.mobileType ?? 0) >= 128), round, peer })
       : blowK({ kind, weapon, claws, round, peer });
   const back = peer ? !!wc?.back : behind(blow.origin, blow.yaw, from);
-  const v = blowWeight(damage, k, peer ? { back, weak: !!wc?.weak } : { back });
+  const watchful = f.entity?.revenant?.edge?.watchful === true;   // RVN2: a Watchful revenant's poise takes no back multiplier
+  const v = blowWeight(damage, k, peer ? { back: back && !watchful, weak: !!wc?.weak } : { back: back && !watchful });
   const w = typeof weight === 'function' ? weight() : weight;
   const word = windupStruck(f.ai, f.entity, w, v);
   windupFeedback(word, f, fx);

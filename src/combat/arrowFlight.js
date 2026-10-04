@@ -299,7 +299,7 @@ export function playerArrowHitFoe(m, foe, {
   const dmg = calculateAttackDamage(playerEntity, foe.entity, {
     weapon: m.weapon ?? null,
     damageMod: swing.damage, toHitMod: swing.toHit,
-    backstabChance: backstabChanceOf(playerEntity, back),
+    backstabChance: backstabChanceOf(playerEntity, back, foe),
     weaponAnimTime: playerWeapon?.lastDrawMs ?? 0,   // PCO1: the draw's length, for Roleplay Realism's archery
     rolls, onInflictPoison, say,
     unaware: foeUnaware(foe),   // SET2: a shaft at a foe that had not noticed me - Nightfall Strike's "arrows too"

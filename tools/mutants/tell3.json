@@ -114,8 +114,8 @@
   {
     "name": "TELL3-elite-never",
     "file": "src/ai/tells.js",
-    "old": "  if (isElite(ent) && (roll ?? Math.random()) < TELL.IRON_ELITE) return 'iron';",
-    "new": "",
+    "old": "Math.max(isElite(ent) ? TELL.IRON_ELITE : 0,",
+    "new": "Math.max(0,",
     "tests": [
       "test/tell3_iron.test.js"
     ]
@@ -123,8 +123,8 @@
   {
     "name": "TELL3-elite-always",
     "file": "src/ai/tells.js",
-    "old": "  if (isElite(ent) && (roll ?? Math.random()) < TELL.IRON_ELITE) return 'iron';",
-    "new": "  if (isElite(ent)) return 'iron';",
+    "old": "  if (share > 0 && (roll ?? Math.random()) < share) return 'iron';",
+    "new": "  if (share > 0) return 'iron';",
     "tests": [
       "test/tell3_iron.test.js"
     ]
@@ -132,8 +132,8 @@
   {
     "name": "TELL3-gold-only",
     "file": "src/ai/tells.js",
-    "old": "  if (isElite(ent) && (roll ?? Math.random()) < TELL.IRON_ELITE) return 'iron';",
-    "new": "  if (ent?.eliteFoe === true && (roll ?? Math.random()) < TELL.IRON_ELITE) return 'iron';",
+    "old": "Math.max(isElite(ent) ? TELL.IRON_ELITE",
+    "new": "Math.max(ent?.eliteFoe === true ? TELL.IRON_ELITE",
     "tests": [
       "test/tell3_iron.test.js"
     ]
@@ -141,8 +141,8 @@
   {
     "name": "TELL3-roll-always-drawn",
     "file": "src/ai/tells.js",
-    "old": "  if (isElite(ent) && (roll ?? Math.random()) < TELL.IRON_ELITE) return 'iron';",
-    "new": "  const r = roll ?? Math.random();\n  if (isElite(ent) && r < TELL.IRON_ELITE) return 'iron';",
+    "old": "  if (share > 0 && (roll ?? Math.random()) < share) return 'iron';",
+    "new": "  const r = roll ?? Math.random();\n  if (share > 0 && r < share) return 'iron';",
     "tests": [
       "test/tell3_iron.test.js"
     ]

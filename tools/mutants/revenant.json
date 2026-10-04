@@ -74,8 +74,8 @@
   {
     "name": "REVENANT-early",
     "file": "src/systems/revenant.js",
-    "old": "  const due = living.filter((r) => r.dueAt <= now)",
-    "new": "  const due = living.filter((r) => r.dueAt <= now + 99999)",
+    "old": "  const due = living.filter((r) => r.dueAt <= now && (night",
+    "new": "  const due = living.filter((r) => r.dueAt <= now + 99999 && (night",
     "tests": [
       "test/revenant.test.js"
     ]

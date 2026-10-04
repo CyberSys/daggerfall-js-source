@@ -426,7 +426,10 @@ test('RVN1 THE VALIDATORS: a scar of no kind or no minute dropped, the latest si
     sworn: true, companion: { state: 'away', loyalty: 140 },
   })], []);
   assert.deepEqual(r.scars.map((s) => s.k), ['night', 'slew', 'mixed', 'back', 'arrow', 'silver']);
-  assert.deepEqual(r.learned, ['braced', 'watchful', 'patient'], 'the latest three, once each, only adaptations');
+  // PIN MOVED (RVN2: a revenant holds its rank's adaptations - at rank 1, one)
+  assert.deepEqual(r.learned, ['patient'], 'its rank\'s (one), the latest, once each, only adaptations');
+  const [r5] = N.mergeRevenants([older({ rank: 5, learned: ['mailed', 'mailed', 'nope', 'braced', 'watchful', 'patient'] })], []);
+  assert.deepEqual(r5.learned, ['braced', 'watchful', 'patient'], 'at most three');
   assert.equal(r.weak, F.drawWeakness('rvn-older-1', M.Orc));
   assert.equal(r.weakKnown, 0);
   assert.equal(r.sig, null, 'rank 1 keeps none');

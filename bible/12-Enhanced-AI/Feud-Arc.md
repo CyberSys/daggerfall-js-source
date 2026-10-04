@@ -1,4 +1,4 @@
-# Feud - blows with weight, revenants with memory (FEUD, 2026-10-04 - TELL1-TELL9, AUDIT TELL and RVN1 built; RVN2-RVN13 next)
+# Feud - blows with weight, revenants with memory (FEUD, 2026-10-04 - TELL1-TELL9, AUDIT TELL, RVN1 and RVN2 built; RVN3-RVN13 next)
 
 Mac, 2026-10-04: *"I want to improve the revenant system to be more complex, less easy to accomplish and more detailed.
 Would love some ideas. I also want to improve the enemies telegraph/wind up attacks because player's can easily stun
@@ -7,7 +7,7 @@ detailed arc. I want this to be perfect and insanely detailed"*.
 
 **Status: DESIGNED 2026-10-04 - Mac: "Go" on every call of section 31, each as recommended. Built slice by slice
 (section 30's order; TELL7 before TELL6, TELL6 shape by shape) - TELL1 to TELL9 built (TELL6 in five parts), AUDIT
-TELL, and RVN1; each slice's record is at the foot.**
+TELL, RVN1 and RVN2; each slice's record is at the foot.**
 Two halves that lean on each other. **TELL** (TELL1-TELL9) gives a foe's telegraphed blow weight: poise, a body that
 winds up, a cost for missing. **RVN** (RVN1-RVN13) gives a revenant a memory of how it was beaten, a secret, a last
 stand, a name for its worst blow, a band, a lair, and a reason to fear leaving it alone. The predecessors are
@@ -566,7 +566,8 @@ client.
 
 ### 13.1 Learning
 
-At each deed, the fight's leading scar becomes an **adaptation**, if it is not held already. A revenant holds
+At each deed, the fight's leading scar becomes an **adaptation**, if it is not held already (RVN2, as built: one it
+holds passes the lesson to the next of the fight's scars - `revenantFeud.lessonOf`). A revenant holds
 `min(rank, ADAPT_MAX)` (`ADAPT_MAX` 3); past that, the oldest is forgotten. Never more than one learned a deed.
 
 ### 13.2 The table
@@ -578,7 +579,7 @@ At each deed, the fight's leading scar becomes an **adaptation**, if it is not h
 | Hewn-hard | axes | axes x0.7 |
 | Unflinching | hand-to-hand | hands x0.6 |
 | Arrow-wise | archery | arrows x0.7; +20 Speed while its target is past 8 m; the charge or the leap if its kind has one |
-| Fireproof, Rimebound, Grounded, Venom-blooded, Spell-scarred | an element | +50 resistance to it (`entityMods.registerEntityFold`, read by `spellcast.savingThrow`) |
+| Fireproof, Rimebound, Grounded, Venom-blooded, Spell-scarred | an element (never one its career already resists or is immune to) | +25 resistance to it (`entityMods.registerEntityFold`, read by `spellcast.savingThrow`) - RVN2, as built: +50 was immunity (the throw starts at 50 and answers 0 at 100, before its 95 cap); +25 is DFU's own Resistant |
 | Silver-scarred | silver (40%) | its kind's silver double gone (only a kind that has one: DFU's Skeletal Warrior, PCAAO's six) |
 | Steadfast | staggered twice in a fight | poise x1.5; one blow in two iron |
 | Patient | three blows dodged in a fight | tracks to 0.7; feints one in three (a blade); wind-ups x U(0.85, 1.35) |
@@ -586,7 +587,8 @@ At each deed, the fight's leading scar becomes an **adaptation**, if it is not h
 | Relentless | you ran from it (21.2) | +25 Speed; never culled while it hunts the player |
 | Night-stalker | it killed you by night | returns only by night; blows x1.15 by night |
 
-- **Never immunity**: the least a weapon class falls to is x0.6, an element +50; nothing touches its weakness (14).
+- **Never immunity**: the least a weapon class falls to is x0.6, an element +25 (RVN2: +50 was immunity - see the
+  table); nothing touches its weakness (14).
 - **Where**: weapon classes through `registerBlowTakenMod('revenant')` (3.2's registry, keyed on `entity.revenant`);
   elements through `registerEntityFold('revenant')`; Speed on `stats.speed` at the stand (`applyRevenant`); the rest in
   the brain, read through `ai.vitals?.().revenant`.
@@ -921,7 +923,7 @@ gets the value in the last column.
 | cooldowns: ordinary / champion / elite / revenant a rank / last stand | 8-15 / 7-13 / 6-11 s / -8% / x0.7 | 9 |
 | `SCAR_SHARE` | 0.4 | 12 |
 | `ADAPT_MAX` | 3 (at most the rank) | 13.1 |
-| the adaptations | section 13.2's table | 13.2 |
+| the adaptations (`revenantFeud.js ADAPT`) | section 13.2's table; an element +25 (RVN2) | 13.2 |
 | the weakness / daylight | x1.5 / x1.25 | 14.1 |
 | `WILL_RANK` / `WILL_STAGGERS` | 3 / 2 | 14.2 |
 | `LAST_STAND_HEALTH` rank 3 / 4 / 5 | 0.35 / 0.45 / 0.55 | 15.2 |
@@ -1744,3 +1746,52 @@ and `dungeonContext.js`.
   equivalent to its fallback (the row deleted, the fallback commented and its mutant recorded). Mutant records
   re-aimed by content (8): `tell9` (3), `audittell`, `tell8`, `set2`, `revenant` and `revenantvoice` (one each) - all
   judged again, all dead.
+
+### RVN2 - BUILT 2026-10-04 (the loot-rarity row on; the brain's parts with the Enhanced AI switch; every host)
+
+- **Learning** - `revenantFeud.lessonOf(kinds, learned, mobileType, career)`: the first of the fight's scars
+  (`feudScars`' order - its leading source first) that teaches an adaptation it does not hold; decided here: one it
+  holds passes the lesson on (it learns the next thing you lean on), `mixed`, `other` and a plain deed teach nothing, a
+  kill begun by night (`night` with `slew`) teaches the Night-stalker and RVN10's `routed` the Relentless, silver only a
+  kind silver doubles against (`SILVER_DOUBLED_KINDS`: DFU's Skeletal Warrior, PCAAO's six), an element only where its
+  career has no tolerance of it (stacked on DFU's own it was immunity). `withLesson`: at most `min(rank, ADAPT_MAX)`, the
+  oldest forgotten; `feudFields` holds a record read back to its rank's. `revenantDeed` learns one a deed, after its scars.
+- **The edge** - `revenantFeud.adaptEdge(learned, weak)`, frozen, every number `ADAPT`'s; `revenant.js revenantStamp` puts
+  it on the entity with the name, rank, learned and weakness at the deed (the foe that did it, at once) and at the stand
+  (`applyRevenant`). The brain, the motor, the doors and the formulas read `entity.revenant.edge`. A sworn one's stamp
+  (`revenantCompanions.js`) carries none - decided here: what it learned it learned against the player.
+- **Weapon classes** - `registerBlowTakenMod('revenant')` (the formulas' tail and a spell's landing): Mailed blades
+  x0.7, Hewn-hard axes x0.7, Braced blunt x0.75, Unflinching bare hands x0.6, Arrow-wise arrows x0.7 (`adaptBlowClass`: a
+  bow's shaft an arrow, a weapon its class, bare hands a person's - decided here: a monster's own body is none of them).
+  Nothing touches its weakness: its class is left out of `taken`, and a blow of its metal is untouched.
+- **Elements** - `registerEntityFold('revenant')`: `resist[element]` +25 (the correction above), folded at the stand and
+  the deed (`computeEntityMods`) and on every magic round after; never its weakness's element.
+- **Silver-scarred** - `formulas.registerSilverDoubleVeto` / `silverDoubles(target)`, asked by both cores where they
+  double silver (`weaponAttackDamage`'s Skeletal Warrior; `pcaaoWeaponAttackDamage`'s seven); a silver weakness keeps it.
+- **The brain's table** (`ai/tells.js`) - `poiseSpecial` x `edge.poise` (Braced 1.4, Steadfast 1.5); `blowGuard` iron on
+  the larger of an elite's third and Steadfast's half, one roll, drawn only where either is; `windupSeconds` on Patient's
+  U(0.85, 1.35); `feintChance` (Patient's one in three) and `trackShare` (Patient's 0.7), which `ai/tactics.js` reads.
+- **The brain** - `beginWindup` draws its feint against `feintChance`; `windupTurn` tracks through `trackShare`; an
+  Arrow-wise revenant out of reach winds up its charge or leap with no `BLOW_CHANCE` roll whenever its lane is free
+  (decided here: "the charge or the leap if its kind has one" read as it always closes).
+- **The motor** - `characters/enemyMotor.js speed` adds `_edgeSpeed()`: Arrow-wise +20 while its target is past 8 m.
+- **The doors** - `hostCombat.backstabChanceOf(player, facing, foe)` answers 0 for a Watchful one (no tally), every door
+  handing the foe in (`arrowFlight.js`, the dungeon's swing, the street's, the watch's); `playerWeapon.foeUnaware`
+  false; `windupDoor` weighs no back multiplier on its poise (the ledger still counts the back hit).
+- **The stand** - Relentless +25 on `stats.speed`; a Night-stalker's blows x1.15 (decided here: at its stand - it comes
+  only by night, `revenantToReturn`); `exteriorFoes.js` never culls a Relentless one hunting me (`_relentless`).
+- **The page** - "Learned: Arrow-wise, Mailed." (`learnedWords`); RVN12 adds each one's effect.
+- **Four hosts** - `scenes/world.js` WIRED (the street pool's cull and backstab door; the rest is host-blind: the
+  formulas, both cores, the brain, the motor, the fold); `scenes/exterior.js` WIRED the same - FLAGGED (section 32): no
+  `fates`; `scenes/worldModes.js` WIRED (its interior pool and the watch's door); `scenes/dungeonContext.js` WIRED (its
+  swing's backstab; `scenes/dungeon.js` hosts it).
+- **Not built here** - a peer's blow on my revenant rolls against its puppet, which carries no adaptations until
+  RVN13's `ad`; the taunt that names one (RVN12's `{how}`).
+- Pins `test/rvn2_adapt.test.js` (11). Pins moved (each marked `PIN MOVED (RVN2: ...)`): `rvn1_ledger` (a record holds
+  its rank's), `audit18_hosts_dungeon` (the shaft hands its foe to the backstab), `auditworld6bii` and `questparty2` (the
+  cull's A2 and Q4). The edge's class reader is `adaptBlowClass` (the gate's one-name law: `ai/puppetBlows.js` owns
+  `blowClassOf`).
+- Mutants `tools/mutants/rvn2.json` (62), all dead: five survived the first runs (the sanitize cap, a monster's claws -
+  a rat's bite too small to weigh, the career at the real deed, the shaft's backstab door and its three siblings, the
+  page's row) and each has its pin. Mutant records re-aimed by content (12): `tell3` (4), `tell5` (2), `rvn1` (2),
+  `auditqp`, `revenant`, `set2` and `tell6b` (one each) - all judged again, all dead.

@@ -37,7 +37,7 @@ import { throwsBlows, blowShapesOf, blowFamily, makeBlow, fitBlowToGround, inBlo
 import { coverDistance } from './cover.js';   // TELL6: a charge's lane must be free of cover
 import { GRAVITY } from '../player/motor.js';   // TELL6c: a leap's hop on the motor's own gravity
 import { tacticsNow, setTacticsClock, tickTactics } from './tacticsClock.js';   // AUDIT TACT D10/A3
-import { TELL, poiseOf, staggerSeconds, glintStrength, blowGuard, punishSeconds, windupSeconds, feints, chains, chainShape, trackYaw, blowCooldown, wholeSet } from './tells.js';   // TELL1: poise and the stagger (bible/12-Enhanced-AI/Feud-Arc.md section 3); TELL3: a blow's guard; TELL4: the punish window; TELL5: patterns; TELL7: the cooldowns
+import { TELL, poiseOf, staggerSeconds, glintStrength, blowGuard, punishSeconds, windupSeconds, feints, chains, chainShape, trackYaw, blowCooldown, wholeSet, feintChance, trackShare } from './tells.js';   // TELL1: poise and the stagger (bible/12-Enhanced-AI/Feud-Arc.md section 3); TELL3: a blow's guard; TELL4: the punish window; TELL5: patterns; TELL7: the cooldowns
 import { registerBlowTakenMod } from '../systems/blowTaken.js';   // TELL1: a staggered foe takes more - the leaf the formulas read
 import { noteFeud } from '../systems/feudLedger.js';   // RVN1: a blow of its I dodged, in its fight's ledger (a leaf - the brain brings no revenant system)
 
@@ -503,8 +503,10 @@ export function tacticsStep(ai, dx, dz) {
     const ent = ai.vitals?.();
     // AUDIT TELL B7: aimed at its TARGET's feet - the motor's (dx, dz) is its destination, a detour's point or a search's
     const tdx = tf[0] - ai.feet[0], tdz = tf[2] - ai.feet[2];
-    const shapes = blowPool(ai, ent, dist, dist <= reach + 0.5, tdx, tdz);
-    if (shapes.length && !windupNear(tf, now, ai) && Math.random() < BLOW_CHANCE) {
+    const near = dist <= reach + 0.5;
+    const shapes = blowPool(ai, ent, dist, near, tdx, tdz);
+    // RVN2: an Arrow-wise revenant out of reach closes with its charge or its leap whenever its lane is free (no roll)
+    if (shapes.length && !windupNear(tf, now, ai) && ((!near && ent?.revenant?.edge?.closes === true) || Math.random() < BLOW_CHANCE)) {
       beginWindup(ai, s, ent, shapes[Math.floor(Math.random() * shapes.length)], tdx, tdz, now);
     }
   }
@@ -544,7 +546,7 @@ function beginWindup(ai, s, ent, shape, dx, dz, now, chain = 0) {
   if (shape === 'aimed') b.ahead = Math.hypot(dx, dz);   // TELL6d: its line to me, locked
   const n = (s.windups ?? 0) + 1;
   s.windups = n;
-  if (chain === 0 && shape !== 'aimed' && !GAP_CLOSERS.includes(shape) && feints(blowFamily(ent.mobileType), ent, n - (s.lastFeint ?? -Infinity)) && Math.random() < TELL.FEINT_CHANCE) {
+  if (chain === 0 && shape !== 'aimed' && !GAP_CLOSERS.includes(shape) && feints(blowFamily(ent.mobileType), ent, n - (s.lastFeint ?? -Infinity)) && Math.random() < feintChance(ent)) {   // RVN2: a Patient one's one in three
     b.feint = true; b.cutAt = b.start + TELL.FEINT_AT * (b.land - b.start); s.lastFeint = n;
   }
   s.blow = b;
@@ -580,7 +582,7 @@ function windupTurn(ai, s, now, skipped) {
     return false;
   }
   // TELL5 (7.2): a lunge (and TELL6's charge) turns after my feet through the first TRACK_SHARE of its wind-up, then locks
-  if (tf && TELL.TRACKERS.includes(b0.kind) && now < b0.start + TELL.TRACK_SHARE * (b0.land - b0.start)) {
+  if (tf && TELL.TRACKERS.includes(b0.kind) && now < b0.start + trackShare(ai.vitals?.()) * (b0.land - b0.start)) {   // RVN2: a Patient one tracks longer
     const y = trackYaw(b0.yaw, Math.atan2(tf[0] - b0.origin[0], tf[2] - b0.origin[2]), now - (b0.trackedAt ?? b0.start));
     b0.trackedAt = now;
     if (y !== b0.yaw) { b0.yaw = y; ai.yaw = y; fitBlowToGround(b0, ai.collider); }   // the foe turns with its mark

@@ -298,7 +298,7 @@
   {
     "name": "TELL5-no-tracking",
     "file": "src/ai/tactics.js",
-    "old": "  if (tf && TELL.TRACKERS.includes(b0.kind) && now < b0.start + TELL.TRACK_SHARE * (b0.land - b0.start)) {",
+    "old": "  if (tf && TELL.TRACKERS.includes(b0.kind) && now < b0.start + trackShare(ai.vitals?.()) * (b0.land - b0.start)) {",
     "new": "  if (false) {",
     "tests": [
       "test/tell5_patterns.test.js"
@@ -382,7 +382,7 @@
   {
     "name": "TELL5-never-feint",
     "file": "src/ai/tactics.js",
-    "old": "  if (chain === 0 && shape !== 'aimed' && !GAP_CLOSERS.includes(shape) && feints(blowFamily(ent.mobileType), ent, n - (s.lastFeint ?? -Infinity)) && Math.random() < TELL.FEINT_CHANCE) {",
+    "old": "  if (chain === 0 && shape !== 'aimed' && !GAP_CLOSERS.includes(shape) && feints(blowFamily(ent.mobileType), ent, n - (s.lastFeint ?? -Infinity)) && Math.random() < feintChance(ent)) {",
     "new": "  if (false) {",
     "tests": [
       "test/tell5_patterns.test.js"

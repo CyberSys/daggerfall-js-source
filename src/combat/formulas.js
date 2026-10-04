@@ -436,6 +436,18 @@ export function handToHandAttackDamage(attacker, target, damageMod, isPlayer, ro
 
 export const SKELETAL_WARRIOR_INDEX = 15;   // MonsterCareers.SkeletalWarrior
 
+/** RVN2 (bible/12-Enhanced-AI/Feud-Arc.md 13.2): NAMED VETOES on silver's double against a kind it doubles against -
+ *  `fn(target) -> true` keeps silver to its plain damage on that target (a Silver-scarred revenant's: its kind's double
+ *  gone). With none registered, or none answering true, DFU's double stands - in both cores (this one's Skeletal Warrior,
+ *  PCAAO's six beside it). A veto that throws is no veto. */
+const _silverVetoes = new Map();
+export function registerSilverDoubleVeto(name, fn) { if (typeof fn === 'function') _silverVetoes.set(name, fn); else _silverVetoes.delete(name); }
+/** Does silver double against `target` (its kind aside - the cores ask only for a kind it doubles against)? */
+export function silverDoubles(target) {
+  for (const fn of _silverVetoes.values()) { try { if (fn(target) === true) return false; } catch { /* a veto that throws is none */ } }
+  return true;
+}
+
 // ---- CalculateWeaponAttackDamage ----
 /** AUDIT 18: the pre-resolved `targetGroup` parameter is GONE. DFU
  *  passes the TARGET ENTITY to GetBonusOrPenaltyByEnemyType
@@ -448,7 +460,7 @@ export function weaponAttackDamage(attacker, target, damageMod, weapon, rolls = 
   let damage = weaponDamageMods(weapon, wMin + Math.floor(rolls() * (wMax + 1 - wMin))) + damageMod;   // RF1: the weapon's own modifiers over ITS roll, before the swing's mods
   if (!target.isPlayer && target.careerIndex === SKELETAL_WARRIOR_INDEX) {
     if ((weapon.flags & 0x10) === 0) damage = Math.trunc(damage / 2);   // edged-weapon rule
-    if (weapon.material === 2) damage *= 2;                             // Silver
+    if (weapon.material === 2 && silverDoubles(target)) damage *= 2;    // Silver (RVN2: unless a veto keeps it plain)
   }
   damage += damageModifier(liveStat(attacker, 'strength'));
   damage += WEAPON_MATERIAL_MODIFIER[weapon.material] ?? 0;   // half of the in-game display, per the source comment

@@ -362,7 +362,7 @@
   {
     "name": "RVN1-the-fold-dropped",
     "file": "src/systems/revenant.js",
-    "old": "  r.scars = withScars(r.scars, feudScars(ledger, deedName), now);\n",
+    "old": "  r.scars = withScars(r.scars, kinds, now);\n",
     "new": "",
     "tests": [
       "test/rvn1_ledger.test.js"
@@ -461,7 +461,7 @@
   {
     "name": "RVN1-learned-unvalidated",
     "file": "src/systems/revenantFeud.js",
-    "old": "[...new Set(r.learned.filter(isAdaptation))].slice(-ADAPT_MAX)",
+    "old": "[...new Set(r.learned.filter(isAdaptation))].slice(-Math.min(rank, ADAPT_MAX))",
     "new": "r.learned.filter(isAdaptation)",
     "tests": [
       "test/rvn1_ledger.test.js"

@@ -371,3 +371,16 @@ and both escapes) folds it into the record's **scars** - the latest six: its lea
 more, else `mixed`; staggered twice, three blows dodged, three at its back, a night fight, the deed - and counts the
 fight. The page says them ("Scarred by arrows, fought by night."). What the scars teach a revenant is RVN2's.
 
+
+## 18. What it learns: adaptations (FEUD RVN2, 2026-10-04)
+
+At each deed it learns one lesson of the fight - the first of its scars that teaches something it does not hold - and
+keeps its rank's worth (three at most), the oldest forgotten (`systems/revenantFeud.js lessonOf`, `withLesson`). What it
+learned stands with it (`entity.revenant.edge`, `adaptEdge`): **Mailed**, **Hewn-hard**, **Braced**, **Unflinching** and
+**Arrow-wise** take a weapon class less (x0.6 at the least); **Fireproof**, **Rimebound**, **Grounded**, **Venom-blooded**
+and **Spell-scarred** +25 on the saving throw against their element (DFU's own Resistant - never immunity); a
+**Silver-scarred** one loses its kind's silver double; **Steadfast** a heavier poise and one blow in two iron; **Patient**
+longer tracking, more feints, wider wind-ups; **Watchful** never unaware (no backstab); **Arrow-wise** faster at range
+and closing with its charge or leap; **Relentless** faster and never culled while it hunts; **Night-stalker** comes only
+by night, its blows heavier. Nothing touches its weakness. The page lists what it learned. The law and every number:
+`bible/12-Enhanced-AI/Feud-Arc.md` section 13 and its RVN2 record.

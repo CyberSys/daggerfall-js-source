@@ -760,7 +760,7 @@ export function createCityGuards({ renderer, collider, fetchBytes, getTexture, u
    *  which arrowFlight.js calls unconditionally (arrowFlight.js:324)
    *  because `dealDamage` is inside its own `dmg > 0` fork - so the
    *  door is PUBLIC (the returned surface below), exactly as the
-   *  encounter pool's is (exteriorFoes.js:2911). */
+   *  encounter pool's is (exteriorFoes.js:2912). */
   function handleAttackFromPlayer(g, playerFeet = null) {
     if (!g?.ai) return;
     // DISC19-F (AUDIT DISC19): A BLOW ON A DEFENDER IS ASSAULT. The
@@ -1327,7 +1327,7 @@ export function createCityGuards({ renderer, collider, fetchBytes, getTexture, u
     // per foe - and CalculateBackstabChance's Backstabbing tally
     // (FormulaHelper.cs:975-990) ran nowhere in the port.
     for (const { foe, damage } of playerWeapon.resolveHit(live, playerEntity, canSee, rand,
-      (g) => backstabChanceOf(playerEntity, isBackFacing(g.ai.yaw, g.ai.feet, eye)), say,
+      (g) => backstabChanceOf(playerEntity, isBackFacing(g.ai.yaw, g.ai.feet, eye), g), say,
       (g, pt) => inflictPoison(g.entity, pt, false, { currentMinute: Math.floor(currentMinute()) }))) {   // C2-slice (combat-11)
       any = true;
       if (damage > 0) {

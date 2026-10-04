@@ -213,7 +213,7 @@
   {
     "name": "TELL6b-pool-unasked",
     "file": "src/ai/tactics.js",
-    "old": "    const shapes = blowPool(ai, ent, dist, dist <= reach + 0.5, tdx, tdz);",
+    "old": "    const shapes = blowPool(ai, ent, dist, near, tdx, tdz);",
     "new": "    const shapes = blowPool(ai, ent, dist, true, tdx, tdz);",
     "tests": [
       "test/tell6b_charge.test.js"

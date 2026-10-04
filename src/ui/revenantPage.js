@@ -46,6 +46,7 @@ export const REVENANT_PAGE_CSS = `
 .px-sys .rvn-deeds { font-size: 12px; color: #e9e4d9; }
 .px-sys .rvn-come { font-size: 12px; color: #b8b0a0; }
 .px-sys .rvn-scars { font-size: 11px; color: #c9a27a; }
+.px-sys .rvn-learned { font-size: 11px; color: #e0a54a; }
 .px-sys .rvn-history { margin: 3px 0 0; padding: 0; list-style: none; display: flex; flex-wrap: wrap; gap: 2px 10px; font-size: 10px; color: #8b8578; }
 .px-sys .rvn-history li::before { content: '\\25C6 '; color: #c08a3e; }
 .px-sys .rvn-row.is-fallen .rvn-face img { filter: grayscale(1) brightness(0.6); }
@@ -53,7 +54,7 @@ export const REVENANT_PAGE_CSS = `
   border-top: 3px solid #8c3a32; transform: rotate(-38deg); }
 .px-sys .rvn-row.is-fallen .rvn-name { color: #b8b0a0; text-decoration: line-through; text-decoration-color: #8c3a32; }
 :root[data-plus-theme="stone"] .px-sys .rvn-sub, :root[data-plus-theme="stone"] .px-sys .rvn-history { color: #e2d9c4; }
-:root[data-plus-theme="stone"] .px-sys .rvn-come, :root[data-plus-theme="stone"] .px-sys .rvn-scars { color: #efe8d8; }
+:root[data-plus-theme="stone"] .px-sys .rvn-come, :root[data-plus-theme="stone"] .px-sys .rvn-scars, :root[data-plus-theme="stone"] .px-sys .rvn-learned { color: #efe8d8; }
 `;
 
 function ensureStyle(doc) {
@@ -99,6 +100,17 @@ const SCAR_WORDS = Object.freeze({
   poison: 'poison', magic: 'magic', other: 'strange blows', silver: 'silver', mixed: 'many ways', staggered: 'staggered', dodged: 'outmanoeuvred',
   back: 'struck from behind', night: 'fought by night',
 });
+/** RVN2 (section 13.2; RVN12 completes the page): an adaptation's name. */
+export const ADAPT_NAMES = Object.freeze({
+  mailed: 'Mailed', braced: 'Braced', hewnHard: 'Hewn-hard', unflinching: 'Unflinching', arrowWise: 'Arrow-wise',
+  fireproof: 'Fireproof', rimebound: 'Rimebound', grounded: 'Grounded', venomBlooded: 'Venom-blooded', spellScarred: 'Spell-scarred',
+  silverScarred: 'Silver-scarred', steadfast: 'Steadfast', patient: 'Patient', watchful: 'Watchful', relentless: 'Relentless', nightStalker: 'Night-stalker',
+});
+/** What it learned, oldest first (the order it forgets them in). */
+export function learnedWords(r) {
+  const names = (r?.learned ?? []).map((a) => ADAPT_NAMES[a]).filter(Boolean);
+  return names.length ? `Learned: ${names.join(', ')}.` : '';
+}
 /** Its scars, newest first and each once - the ways it was hurt and what it learned (a deed's scar is the history's). */
 export function scarWords(r) {
   const seen = new Set();
@@ -158,6 +170,8 @@ function row(el, r, now, kindName) {
   text.append(el('span', 'rvn-come', fallen ? `${FATE_WORDS[r.fate] ?? 'Fell'} ${agoWords(r.defeatedAt ?? now, now)}.` : come.line));
   const scars = fallen ? '' : scarWords(r);   // RVN1: what its fights left on it
   if (scars) text.append(el('span', 'rvn-scars', scars));
+  const learned = fallen ? '' : learnedWords(r);   // RVN2: and what it learned of them
+  if (learned) text.append(el('span', 'rvn-learned', learned));
   const hist = (r.history ?? []).slice(-5);
   if (hist.length) {
     const ul = el('ul', 'rvn-history');

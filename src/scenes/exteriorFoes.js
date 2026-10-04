@@ -1425,8 +1425,9 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
       // there when you come back.
       // DW-E4: nor a MANAGED one - the deep's foes stand, as DFU's loose enemies do, until the mod's own spawner releases
       // them (their pixel's group leaving, the lane switched off, a transient reset); its cap bounds them, not this cull
+      const _relentless = f.entity?.revenant?.edge?.relentless === true && f.ai.isHostile;   // RVN2: a Relentless revenant hunting me is never culled (a load or a sweep ends its stand)
       const _cullAt = f.campId != null ? CAMP_CULL_DISTANCE : ENCOUNTER_CULL_DISTANCE;
-      if (!f.placed && !f.managed && _playerDist > _cullAt && !(f.ai.detected && f.ai.targetIsLocalPlayer !== false) && !(_qTag(f) && partyNearFoe(f, _cullAt))) {   // DROPS-AUDIT CAMP-CULL; AUDIT (pre-merge) Q4: a shared quest's foe stands while a party member is near it
+      if (!f.placed && !f.managed && _playerDist > _cullAt && !(f.ai.detected && f.ai.targetIsLocalPlayer !== false) && !(_qTag(f) && partyNearFoe(f, _cullAt)) && !_relentless) {   // DROPS-AUDIT CAMP-CULL; AUDIT (pre-merge) Q4: a shared quest's foe stands while a party member is near it
         releaseFoeBatch(f);
         f.dead = true;
         f.questBehaviour?.notifyDestroyed();   // B1: Destroy(gameObject) - the resource uncouples
@@ -1613,7 +1614,7 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
       { const v = lycanthropeAttackVoice(playerEntity, rolls); if (v != null) audio?.playOneShot?.(v, 1); }   // V4: OnWeaponHitEntity's transformed voice (10% attack / 20% bark)
     }
     for (const { foe, damage } of playerWeapon.resolveHit(live, playerEntity, canSee, rolls,
-      (f) => backstabChanceOf(playerEntity, isBackFacing(f.ai.yaw, f.ai.feet, eye)), say,
+      (f) => backstabChanceOf(playerEntity, isBackFacing(f.ai.yaw, f.ai.feet, eye), f), say,
       (f, pt) => poisonFoe(f, pt))) {   // C2-slice (combat-11); WORLD6b-iii(e): through the one poison door (a puppet's rides the hit)
       any = true;
       if (damage > 0) {

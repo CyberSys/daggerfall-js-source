@@ -546,7 +546,13 @@ export class EnemyAI {
   /** TakeAction:432 - `(entity.Stats.LiveSpeed + dfWalkBase) *
    *  GlobalScale`, re-derived on every pass rather than captured. A
    *  READ, not a field, so nothing can freeze it back. */
-  get speed() { return enemyMoveSpeed(this._liveSpeed()); }
+  get speed() { return enemyMoveSpeed(this._liveSpeed() + this._edgeSpeed()); }
+  /** RVN2 (bible/12-Enhanced-AI/Feud-Arc.md 13.2): an Arrow-wise revenant's Speed while its target is far (its stand's
+   *  `revenant.edge`, systems/revenantFeud.js ADAPT) - none for any other body. */
+  _edgeSpeed() {
+    const e = this.vitals?.()?.revenant?.edge;
+    return e?.farSpeed > 0 && this._dist > e.farAt ? e.farSpeed : 0;
+  }
 
   /** CH4 (the senses verify pass): the CLASSIC-gated senses halves.
    *  DFU's FixedUpdate runs the spawn-band recompute (:260-310) and

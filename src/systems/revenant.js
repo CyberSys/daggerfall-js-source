@@ -61,7 +61,10 @@ import { getSeed, setSeed, srand } from '../formats/dfRandom.js';
 import { personalityFor, isPersonality, personalityLabel, voiceLine, beastBody, possessive, MUTE_KINDS } from './revenantPersonality.js';   // REVENANT-VOICE: who it is, and how it talks
 // FEUD, Part B (bible/12-Enhanced-AI/Feud-Arc.md sections 12-26): what a revenant remembers - its record's new fields and
 // the draws it is born with (systems/revenantFeud.js), and the fight's ledger (systems/feudLedger.js, a leaf)
-import { feudFields, newFeudFields, feudScars, withScars, weaponFeudClass, drawSignature, sanitizeLoyalty, hashStr, SIG_RANK } from './revenantFeud.js';
+import { feudFields, newFeudFields, feudScars, withScars, weaponFeudClass, drawSignature, sanitizeLoyalty, hashStr, SIG_RANK, lessonOf, withLesson, adaptEdge, adaptBlowClass, ADAPT } from './revenantFeud.js';
+import { registerBlowTakenMod } from './blowTaken.js';   // RVN2: what its adaptations take off a blow (the leaf the formulas and a spell's landing read)
+import { registerEntityFold, newMods, EMPTY_MODS, computeEntityMods } from './entityMods.js';   // RVN2: its elemental adaptations on the saving throw
+import { registerSilverDoubleVeto } from '../combat/formulas.js';   // RVN2: a Silver-scarred one's double gone
 import { setFeudGate, setFeudClock, noteFeudHarm, noteFeudBackstab, takeFeud } from './feudLedger.js';
 
 // ── the numbers ─────────────────────────────────────────────────────
@@ -157,6 +160,8 @@ const laterDay = (a, b) => (a == null ? b : b == null ? a : Math.max(a, b));
 
 export const revenantOn = () => lootRarityOn();
 const nowMinutes = () => { try { return Math.floor(ownMinutes()); } catch { return 0; } };
+/** Does the sky read night now (TIME1's sky - the world's offline)? */
+const skyIsNight = () => { try { return isNight(skyMinutes()); } catch { return false; } };
 const firstWord = (s) => String(s ?? '').trim().split(/\s+/)[0] || 'stranger';
 const pick = (list, rolls) => list[Math.min(list.length - 1, Math.floor(rolls() * list.length))];
 // AUDIT (2026-10-02): `{p}'s` the possessive the trophies spell ("Varis' Shadow"); a function replacement, so a `$` in
@@ -167,6 +172,10 @@ const joinName = (given, epithet) => (/^the /.test(epithet) ? `${given} ${epithe
 /** REVENANT-VOICE: the id a special foe's voice is drawn from - its record's, or (a foe that speaks before it is one: it
  *  breaks and runs) one minted on it then and kept, so the revenant it becomes speaks as it already did. */
 const voiceIdOf = (entity) => entity?.revenant?.id ?? (entity._voiceId ??= mintCharacterId());
+/** RVN2: what a standing revenant carries of its record - its name and rank (FOE-TITLE, TELL's tier), what it learned and
+ *  its weakness, and `edge`, what they do (systems/revenantFeud.js adaptEdge: the brain, the motor, the doors and the
+ *  formulas read it there). */
+const revenantStamp = (r) => ({ id: r.id, name: r.name, rank: r.rank, learned: [...(r.learned ?? [])], weak: r.weak ?? null, edge: adaptEdge(r.learned, r.weak) });
 
 /** A REVENANT'S GIVEN NAME: DFU's own banks - a monster's from Monster1/Monster2, a class foe's (a person) a first
  *  name from one of the eight races' banks - drawn on a stream SEEDED by the revenant's id, the shared DFRandom put
@@ -364,10 +373,15 @@ export function revenantDeed(player, entity, deedName, { mobileType = entity?.mo
   r.dueAt = dueFrom(now, rolls);
   deed(r, deedName, now);
   // RVN1 (section 12): the fight folded into its SCARS - its leading source, its lessons, the deed - and counted
-  r.scars = withScars(r.scars, feudScars(ledger, deedName), now);
+  const kinds = feudScars(ledger, deedName);
+  r.scars = withScars(r.scars, kinds, now);
   r.fights = (r.fights | 0) + 1;
+  // RVN2 (13.1): and one lesson LEARNED of it - at most its rank's adaptations, the oldest forgotten
+  const lesson = lessonOf(kinds, r.learned, r.mobileType, entity.career ?? null);
+  if (lesson) r.learned = withLesson(r.learned, lesson, r.rank);
   // the foe that did it wears its name at once - while it still stands (a killer over my body), it IS the revenant
-  entity.revenant = { id: r.id, name: r.name, rank: r.rank };
+  entity.revenant = revenantStamp(r);   // RVN2: and what it learned, at once
+  computeEntityMods(entity);
   r.out = deedName === 'slew';
   r.outAt = r.out ? Date.now() : 0;
   touch(r);
@@ -415,12 +429,32 @@ registerPlayerStruckListener('revenant', (attacker, target) => {
 // backstab), my spells at their landing (scenes/hostMagic.js) and every later round (systems/effects.js), the brain's
 // overreach and the doors' staggers and back hits beside them. The deed folds it (revenantDeed).
 setFeudGate((entity) => revenantCandidate(entity));
-setFeudClock(() => ({ now: nowMinutes(), night: isNight(skyMinutes()) }));
+setFeudClock(() => ({ now: nowMinutes(), night: skyIsNight() }));
 registerPlayerStrikeListener('feud', (attacker, target, damage, weapon, info) => {
   const { cls, silver } = weaponFeudClass(weapon);
   noteFeudHarm(target, cls, damage, { silver });
   if (info?.backstab) noteFeudBackstab(target);
 });
+// RVN2 (section 13.2): WHAT IT LEARNED, on every blow it takes - a weapon class through the target's registry (the
+// formulas' tail and a spell's landing read it; a spell weighs by its element, below), never below x0.6, and never a
+// blow of its weakness (a metal's: its weapon's; a class's: adaptEdge leaves it out)
+const METAL_WEAKNESS = Object.freeze({ 2: 'silver', 3: 'elven', 4: 'dwarven' });
+registerBlowTakenMod('revenant', (attacker, target, weapon, info) => {
+  const edge = target?.revenant?.edge;
+  if (!edge || info?.kind === 'spell') return 1;
+  if (edge.weak && weapon && METAL_WEAKNESS[weapon.material] === edge.weak) return 1;
+  return edge.taken[adaptBlowClass(attacker, weapon, info?.kind)] ?? 1;
+});
+// ...an element on its saving throw (+25, DFU's own Resistant - never immunity: ADAPT.RESIST)
+registerEntityFold('revenant', (entity) => {
+  const resist = entity?.revenant?.edge?.resist;
+  if (!resist || !Object.keys(resist).length) return EMPTY_MODS;
+  const m = newMods();
+  Object.assign(m.resist, resist);
+  return m;
+});
+// ...and a Silver-scarred one's silver double gone (both cores ask, formulas.js silverDoubles)
+registerSilverDoubleVeto('revenant', (target) => target?.revenant?.edge?.silverScarred === true);
 
 /** THE FLEE ROLL: does this special foe, under REVENANT_FLEE_HEALTH of its health for the first time, run? */
 export function rollRevenantFlee(entity, rolls = Math.random) {
@@ -529,7 +563,8 @@ export function revenantToReturn(player, { now = nowMinutes(), rolls = Math.rand
   ensureMirror(player);
   const living = livingRevenants();
   if (living.some((r) => r.out)) return null;
-  const due = living.filter((r) => r.dueAt <= now).sort((a, b) => b.rank - a.rank || a.dueAt - b.dueAt);
+  const night = skyIsNight();
+  const due = living.filter((r) => r.dueAt <= now && (night || !(r.learned ?? []).includes('nightStalker'))).sort((a, b) => b.rank - a.rank || a.dueAt - b.dueAt);   // RVN2: a Night-stalker comes only by night
   if (!due.length || rolls() >= REVENANT_RETURN_CHANCE) return null;
   // CLAIMED from here: its stand crosses awaits (the career's bytes, the sprite) and the next roll must not stand it twice
   due[0].out = true;
@@ -549,12 +584,18 @@ export function revenantSpawnOptions(r, playerLevel) {
  *  OUT from here until the foe dies, escapes or leaves the world. */
 export function applyRevenant(entity, r, { now = nowMinutes() } = {}) {
   if (!entity || !r) return false;
-  entity.revenant = { id: r.id, name: r.name, rank: r.rank };
+  entity.revenant = revenantStamp(r);   // RVN2: what it learned stands with it
   entity.maxHealth = Math.max(1, Math.round((entity.maxHealth || 1) * (1 + REVENANT_HEALTH_PER_RANK * r.rank)));
   entity.health = entity.maxHealth;
   entity.healthMult = (entity.healthMult ?? 1) * (1 + REVENANT_HEALTH_PER_RANK * r.rank);   // TELL1: what was stood on the kind's own health (ai/tells.js kindHealth - its poise)
   const prior = Number.isFinite(entity.damageScale) && entity.damageScale > 0 ? entity.damageScale : 1;
   entity.damageScale = prior * (1 + REVENANT_DAMAGE_PER_RANK * r.rank);
+  // RVN2 (13.2): a Relentless one's Speed (on its stats, at the stand); a Night-stalker's blows (it comes only by night -
+  // revenantToReturn); an elemental one's saving throw (the fold, folded now - a stand has had no magic round yet)
+  const edge = entity.revenant.edge;
+  if (edge.relentless && entity.stats) entity.stats.speed = (entity.stats.speed ?? 0) + ADAPT.RELENTLESS_SPEED;
+  if (edge.nightStalker && skyIsNight()) entity.damageScale *= ADAPT.NIGHT_BLOWS;
+  computeEntityMods(entity);
   r.out = true; r.outAt = Date.now(); r.returns++;
   r.fights = (r.fights | 0) + 1;   // RVN1: a return is a fight (an older record's count is kills + escapes + returns)
   deed(r, 'returned', now);

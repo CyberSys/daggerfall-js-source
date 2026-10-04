@@ -127,6 +127,8 @@ export function poiseSpecial(entity) {
   if (entity.champion) s *= entity.champion === 'stalwart' ? TELL.POISE_STALWART : TELL.POISE_CHAMPION;
   const rank = entity.revenant?.rank | 0;
   if (rank > 0) s *= 1 + TELL.POISE_REVENANT_RANK * rank;
+  const edge = entity.revenant?.edge?.poise;   // RVN2: Braced, Steadfast (systems/revenantFeud.js ADAPT)
+  if (edge > 0) s *= edge;
   return s;
 }
 
@@ -198,12 +200,14 @@ export function glintStrength(sinceStart, toLand, reduced = false) {
 
 /** TELL3 (section 5): a blow's guard as it is wound up - 'iron' for the slam and the ring of a heavy or massive body
  *  (`weight` DFU's, in classic units), and one blow in IRON_ELITE from an elite (`isElite`: the ELITE FOES gold or an
- *  Elite Dungeon's - section 9's reading of the word, taken at TELL5); else 'poise'. `roll` in [0, 1), drawn only for an elite. The revenant's iron (its signature from rank 3, a last stand,
- *  a Steadfast one) joins with the slices that make them (RVN2, RVN4, RVN5). */
+ *  Elite Dungeon's - section 9's reading of the word, taken at TELL5); RVN2: a Steadfast revenant's one in two (its
+ *  stand's `revenant.edge.iron` - the larger share where both are, on the one roll); else 'poise'. `roll` in [0, 1), drawn
+ *  only for those. The revenant's other iron (its signature from rank 3, a last stand) joins with RVN4 and RVN5. */
 export function blowGuard(kind, weight, ent = null, roll = null) {
   const cls = weightClass(weight);
   if (TELL.IRON_SHAPES.includes(kind) && (cls === 'heavy' || cls === 'massive')) return 'iron';
-  if (isElite(ent) && (roll ?? Math.random()) < TELL.IRON_ELITE) return 'iron';
+  const share = Math.max(isElite(ent) ? TELL.IRON_ELITE : 0, ent?.revenant?.edge?.iron > 0 ? ent.revenant.edge.iron : 0);
+  if (share > 0 && (roll ?? Math.random()) < share) return 'iron';
   return 'poise';
 }
 
@@ -225,9 +229,9 @@ export const higherTier = (ent) => isElite(ent) || !!ent?.champion || revenantRa
 /** TELL5 (7.1): a wind-up's length - its shape's `base` (s) times U(WINDUP_VARY) (`roll` in [0, 1)), an elite's
  *  x WINDUP_ELITE, a revenant's x(1 - WINDUP_RANK a rank); iron's extra after; never under `floor`. A chain's passes its
  *  own base and floor and `roll` null (no draw: a chain is quick by law). The fill runs on it, so the mark tells the truth.
- *  @param {number} base @param {object|null} [ent] @param {{ guard?: string, roll?: number|null, floor?: number }} [opts] */
+ *  @param {number} base @param {any} [ent] @param {{ guard?: string, roll?: number|null, floor?: number }} [opts] */
 export function windupSeconds(base, ent = null, { guard = 'poise', roll = Math.random(), floor = TELL.TELL_MIN_WINDUP } = {}) {
-  const [lo, hi] = TELL.WINDUP_VARY;
+  const [lo, hi] = ent?.revenant?.edge?.wind ?? TELL.WINDUP_VARY;   // RVN2: a Patient revenant's wider band
   let w = base * (roll == null ? 1 : lo + (hi - lo) * roll);
   if (isElite(ent)) w *= TELL.WINDUP_ELITE;
   const rank = revenantRank(ent);
@@ -239,6 +243,10 @@ export function windupSeconds(base, ent = null, { guard = 'poise', roll = Math.r
 export function feints(family, ent, sinceFeint = Infinity) {
   return family === 'blade' && higherTier(ent) && sinceFeint >= TELL.FEINT_GAP;
 }
+/** RVN2: a feinting foe's chance to feint a wind-up - TELL5's, a Patient revenant's one in three (its stand's edge). */
+export const feintChance = (ent) => ent?.revenant?.edge?.feint ?? TELL.FEINT_CHANCE;
+/** RVN2: the share of a tracker's wind-up it turns through - TELL5's half, a Patient revenant's longer. */
+export const trackShare = (ent) => ent?.revenant?.edge?.track ?? TELL.TRACK_SHARE;
 /** TELL5 (7.4): may this foe chain - a brute of the higher tier, an elite, a revenant of rank 3 or more - with two shapes
  *  or more to chain between? */
 export function chains(family, ent, shapes) {
