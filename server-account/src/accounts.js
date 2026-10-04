@@ -386,11 +386,12 @@ export async function equipTitle({ db, nowS }, player, env, title) {
 
 /**
  * WB9g - WEAR ONE AURA, OR NONE. equipTitle's law at the feet: refused against what the player HOLDS, derived now (a
- * bought aura is held because the row records the sale); `null` takes it off and is always allowed. Answers the
+ * bought aura is held because the row records the sale; AEGIS: a listed title's, because the config lists the handle);
+ * `null` takes it off and is always allowed. Answers the
  * wardrobe after the write.
  */
 export async function equipAura({ db, nowS }, player, env, aura) {
-  const why = auraRefusal(aura, player);
+  const why = auraRefusal(aura, player, env);   // AEGIS: a list's aura is held off the config
   if (why) return { error: why };
   await db.prepare('UPDATE players SET aura = ?, last_seen = ? WHERE id = ?').bind(aura, nowS, player.id).run();
   return { ok: true, ...wardrobeOf({ ...player, aura }, env, nowS) };
