@@ -209,8 +209,8 @@
   {
     "name": "TELL9-door-peer-tags",
     "file": "src/scenes/hostCombat.js",
-    "old": "  if (fromPlayer && !peer && !striker) windupTag(word, f, false);",
-    "new": "  windupTag(word, f, false);",
+    "old": "  if (mine) { windupTag(word, f, false); feudNoteWord(word, f, back); }",
+    "new": "  windupTag(word, f, false); if (mine) feudNoteWord(word, f, back);",
     "tests": [
       "test/tell9_screen.test.js"
     ]
@@ -218,8 +218,8 @@
   {
     "name": "TELL9-door-untagged",
     "file": "src/scenes/hostCombat.js",
-    "old": "  if (fromPlayer && !peer && !striker) windupTag(word, f, false);   // TELL9: my blow's word\n",
-    "new": "",
+    "old": "  if (mine) { windupTag(word, f, false); feudNoteWord(word, f, back); }",
+    "new": "  if (mine) { feudNoteWord(word, f, back); }",
     "tests": [
       "test/tell9_screen.test.js"
     ]
@@ -227,8 +227,8 @@
   {
     "name": "TELL9-door-open-untagged",
     "file": "src/scenes/hostCombat.js",
-    "old": "    if (fromPlayer && !peer && !striker) windupTag(word, f, true);   // TELL9: my blow's word\n",
-    "new": "",
+    "old": "    if (mine) { windupTag(word, f, true); feudNoteWord(word, f, false); }",
+    "new": "    if (mine) { feudNoteWord(word, f, false); }",
     "tests": [
       "test/tell9_screen.test.js"
     ]

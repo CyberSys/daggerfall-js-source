@@ -40,6 +40,7 @@ import { ATTRACT_RADIUS, ignoreHumanSounds } from '../characters/enemySounds.js'
 import { enemyDisplayName, ENEMY_BASICS } from '../characters/enemyBasics.js';   // AUDIT 24 (wave 42); TELL1: the bark a breaking blow wrings out
 import { windupHolds, windupStruck, tacticsNow, overreachOpen, poiseTrack, LOCAL_TARGET } from '../ai/tactics.js';   // TELL1: poise and the stagger (bible/12-Enhanced-AI/Feud-Arc.md section 3); TELL2: the cues' clock; TELL4: the punish window
 import { blowK, blowWeight, behind, TELL } from '../ai/tells.js';
+import { noteFeud } from '../systems/feudLedger.js';   // RVN1: my staggers and back hits, in a fight's ledger (a leaf)
 import { BLOW } from '../ai/blowShapes.js';   // TELL6d: the aimed shot's speed
 import { blowEffectOf, queueBlowEffect, drainBlowEffects, tickBleed } from '../systems/blowEffects.js';   // TELL6e: what a landing does to the player
 import { BLOW_VERDICT_LIFE } from '../ai/foeBlows.js';   // TELL1: a blow's weight on the poise meter; TELL2: the cues' numbers
@@ -658,10 +659,11 @@ export function applyDamageToNonPlayer(attacker, target, {
  * foe is winding up). `fx`: the pool's `audio`, `hitEffects`, `shake` (the player's own blow only) and `rolls`.
  */
 export function windupDoor(f, damage, { kind = 'melee', weapon = null, round = false, peer = false, striker = null, from = null, claws = false, weight = 0, wc = null, fromPlayer = true } = {}, fx = {}) {   // AUDIT TELL U6: `fromPlayer` the pool's provenance - a foe's own spell, a SetHealth(0), is nobody's word
+  const mine = fromPlayer && !peer && !striker;
   if (f?.ai && overreachOpen(f.ai)) {   // TELL4: no meter to weigh - the blow lands, and the first staggers it
     const word = windupStruck(f.ai, f.entity, typeof weight === 'function' ? weight() : weight, 0);
     windupFeedback(word, f, fx);
-    if (fromPlayer && !peer && !striker) windupTag(word, f, true);   // TELL9: my blow's word
+    if (mine) { windupTag(word, f, true); feudNoteWord(word, f, false); }   // TELL9: my blow's word; RVN1: its ledger
     return word;
   }
   if (!f?.ai || !windupHolds(f.ai)) return null;
@@ -672,12 +674,19 @@ export function windupDoor(f, damage, { kind = 'melee', weapon = null, round = f
     : striker
       ? blowK({ kind, weapon: striker.entity?.weapon ?? null, claws: !((striker.mobileType ?? 0) >= 128), round, peer })
       : blowK({ kind, weapon, claws, round, peer });
-  const v = blowWeight(damage, k, peer ? { back: !!wc?.back, weak: !!wc?.weak } : { back: behind(blow.origin, blow.yaw, from) });
+  const back = peer ? !!wc?.back : behind(blow.origin, blow.yaw, from);
+  const v = blowWeight(damage, k, peer ? { back, weak: !!wc?.weak } : { back });
   const w = typeof weight === 'function' ? weight() : weight;
   const word = windupStruck(f.ai, f.entity, w, v);
   windupFeedback(word, f, fx);
-  if (fromPlayer && !peer && !striker) windupTag(word, f, false);   // TELL9: my blow's word
+  if (mine) { windupTag(word, f, false); feudNoteWord(word, f, back); }   // TELL9: my blow's word; RVN1: its ledger
   return word;
+}
+/** RVN1 (Feud-Arc.md section 12): my blow on a telegraphing foe, in its fight's ledger - a stagger it dealt, and a blow
+ *  at its back (judged as the poise judges it: behind the wind-up's own facing). */
+function feudNoteWord(word, f, back) {
+  if (word === 'stagger') noteFeud(f?.entity, 'staggers');
+  if (back) noteFeud(f?.entity, 'backHits');
 }
 /** TELL9 (section 11.2): the word my own blow on a telegraphing foe raises with its number (ui/hitNumbers.js tagHit) -
  *  "Stagger" at a break that staggers, "Holds" on a wind-up it does not break, "Open" on an overreached foe it could

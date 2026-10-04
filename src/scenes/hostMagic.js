@@ -65,6 +65,7 @@ import { knockedDown } from '../systems/blowEffects.js';   // TELL6e: knocked do
 import { sparedByPlayer, isShipmate } from '../combat/friendlyFire.js';   // SHIPMATES: who the player's spells pass by, and whose blasts pass the player by
 import { coverDistance, coverStep } from '../ai/cover.js';   // TACT1: billboards are cover; AUDIT TACT B5: met by touch
 import { blowTaken } from '../systems/blowTaken.js';   // TELL1: what a spell's target takes (a staggered foe a quarter more)
+import { noteFeudHarm, elementFeudClass } from '../systems/feudLedger.js';   // RVN1: my spell, in its fight's ledger (a leaf)
 
 /**
  * AUDIT SET M4: whether a burst from feet `a` reaches feet `b` through `collider` - chest to chest, a wall between is
@@ -483,7 +484,14 @@ export function createPlayerMagic({
     // TELL1 (bible/12-Enhanced-AI/Feud-Arc.md 3.2): the landing's damage through what the TARGET takes (a staggered foe a
     // quarter more - systems/blowTaken.js, the formulas' tail's law for a spell); a kill and a later round as they come
     const striker = caster?.entity ?? playerEntity;
-    const landing = sinks?.hurt ? { ...sinks, hurt: (n, o) => sinks.hurt(o?.whole || o?.round ? n : blowTaken(n, striker, foe.entity, null, { kind: 'spell', element: spell?.element ?? null }), o) } : sinks;
+    // RVN1 (Feud-Arc.md section 12): MY spell's landing goes in the fight's ledger by its element (a later round is
+    // systems/effects.js's to write - the round sink's own law); a peer's (its stand-in caster) and a foe's never
+    const mine = striker === playerEntity;
+    const landing = sinks?.hurt ? { ...sinks, hurt: (n, o) => {
+      const d = o?.whole || o?.round ? n : blowTaken(n, striker, foe.entity, null, { kind: 'spell', element: spell?.element ?? null });
+      if (mine && !o?.round) noteFeudHarm(foe.entity, elementFeudClass(spell?.element), d);
+      return sinks.hurt(d, o);
+    } } : sinks;
     const r = applySpell(spell, casterLevel, foe.entity, landing, rolls, caster, ctx);
     // STRIKE-SHARED (2026-09-29): ANOTHER PLAYER'S strike spell, landed here on the foe I own (`ctx.peerCaster` its id).
     // The trap's line is its caster's and not mine to speak, and a new trap is marked with whose it is - its soul goes

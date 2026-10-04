@@ -1,4 +1,4 @@
-# Feud - blows with weight, revenants with memory (FEUD, 2026-10-04 - TELL1-TELL9 and AUDIT TELL built; RVN1-RVN13 next)
+# Feud - blows with weight, revenants with memory (FEUD, 2026-10-04 - TELL1-TELL9, AUDIT TELL and RVN1 built; RVN2-RVN13 next)
 
 Mac, 2026-10-04: *"I want to improve the revenant system to be more complex, less easy to accomplish and more detailed.
 Would love some ideas. I also want to improve the enemies telegraph/wind up attacks because player's can easily stun
@@ -6,8 +6,8 @@ these enemies and breath more depth into it"*; then, on the sixteen ideas offere
 detailed arc. I want this to be perfect and insanely detailed"*.
 
 **Status: DESIGNED 2026-10-04 - Mac: "Go" on every call of section 31, each as recommended. Built slice by slice
-(section 30's order; TELL7 before TELL6, TELL6 shape by shape) - TELL1 to TELL9 built (TELL6 in five parts); each
-slice's record is at the foot.**
+(section 30's order; TELL7 before TELL6, TELL6 shape by shape) - TELL1 to TELL9 built (TELL6 in five parts), AUDIT
+TELL, and RVN1; each slice's record is at the foot.**
 Two halves that lean on each other. **TELL** (TELL1-TELL9) gives a foe's telegraphed blow weight: poise, a body that
 winds up, a cost for missing. **RVN** (RVN1-RVN13) gives a revenant a memory of how it was beaten, a secret, a last
 stand, a name for its worst blow, a band, a lair, and a reason to fear leaving it alone. The predecessors are
@@ -540,8 +540,9 @@ client.
 
 ## 12. The ledger of wounds (RVN1)
 
-- **A fight's ledger**, `f._feud`, opened on a revenant candidate (`revenantCandidate`) the first time the player
-  harms it:
+- **A fight's ledger**, `entity._feud` (RVN1, as built: on the foe's ENTITY - every seam that writes it holds the
+  entity, and the brain and the effects hold nothing else; `systems/feudLedger.js`, a leaf), opened on a revenant
+  candidate (`revenantCandidate`) the first time anything is written for it:
   - `dmg`: what the player dealt, by `blade`, `blunt`, `axe`, `h2h`, `arrow`, `fire`, `frost`, `shock`, `poison`,
     `magic`, `other`;
   - `silver`: what the player dealt with silver;
@@ -551,8 +552,10 @@ client.
 - **Written from**:
   - `formulas.registerPlayerStrikeListener` - every landed melee blow and arrow, with its final damage and its weapon
     (`weapons.weaponSkillUsed` for the class, `material` for silver, a bow for archery, none for hands);
-  - `hostMagic.applySpellToFoe` (`spell.element`), and the sinks' later rounds (`effects.js` entries carry `element`;
-    the sinks drop it today - FEUD adds it to their options).
+  - `hostMagic.applySpellToFoe` (`spell.element`), and the later rounds - written in `effects.js runEffectRound`
+    itself (RVN1, as built: the entry carries `element` and its caster, so the round notes it once for every host; no
+    sink's options change);
+  - the brain's overreach at me (`dodged`, `perfect`) and the poise door's word on my blow (`staggers`, `backHits`).
 - **Folded at the deed** (`revenantDeed`, the one home the kill and both escape paths reach): the fight's leading
   source - 40% or more of the damage dealt (`SCAR_SHARE`) - is a **scar** (`scars`, the latest six, `{k, at}`); with
   none leading, `mixed`. `staggers >= 2`, `dodged >= 3`, `backHits >= 3`, a night fight and the deed itself add their
@@ -1683,3 +1686,61 @@ and `dungeonContext.js`.
   section-2 identifiers and prose ledger cites moved for the new section-A row (271 rows, 256 standing); the open
   flags regenerated (nine - this record's) and every page that counts them; an edit of this audit's own that split
   `exterior.js`'s `climbFeel` from its comment put back.
+
+### RVN1 - BUILT 2026-10-04 (the loot-rarity row on - the revenants' switch; every host)
+
+- **The ledger** - `systems/feudLedger.js`, a LEAF (it imports nothing: the brain, the effects and the doors write it,
+  and none may bring the revenant system). It lives on the foe's ENTITY (`entity._feud` - section 12 named the pool
+  record; every seam that writes it holds the entity, and the brain and the effects hold nothing else), opened the
+  first time anything is written for a body the gate passes: `dmg` by `FEUD_CLASSES`, `silver`, `staggers`, `dodged`,
+  `perfect`, `backHits`, `backstab`, `weak` (RVN3 writes it), `night` (the sky's minute when it opens), `place` (the
+  pool's `_feudPlace`, else `street`) and `start` (the character's minute). `revenant.js` hands it the gate
+  (`revenantCandidate`) and the clock (`ownMinutes`, `worldClock.isNight(skyMinutes())`) once, at import. Never the
+  player's, whatever a gate says.
+- **Written from** - the formulas' tail: `registerPlayerStrikeListener('feud')` (the blow's final damage; its class by
+  `revenantFeud.weaponFeudClass` - the skill through `weapons.weaponSkillUsed`, a bow's shaft an arrow, none
+  hand-to-hand; silver by `WEAPON_MATERIALS.Silver`), and the tail now hands every strike listener a fifth argument,
+  `{ backstab }` (the formula's own note). `hostMagic.applySpellToFoe`'s landing (my spell alone - its striker the
+  player, never a peer's stand-in or a foe - by `elementFeudClass(spell.element)`, the amount as the target took it
+  after `blowTaken`; a round left to the round). `effects.js runEffectRound` (my round on a foe - no caster, or the
+  player and no peer - by `a.element`; the sinks unchanged). `ai/tactics.js beginOverreach` (at me: `dodged`, and
+  `perfect` on TELL4's late sample). `scenes/hostCombat.js windupDoor` (my blow alone - `fromPlayer`, no peer, no
+  striker - one `mine` for the tag and the ledger: `staggers` on a stagger, `backHits` on a blow behind the wind-up's
+  own facing, judged as the poise judges it).
+- **The place** - `scenes/exteriorFoes.js spawnFoe` tags `street`, or `building` where its host says the player is
+  inside (`worldModes.js`'s interior pool); both of `scenes/dungeonContext.js buildFoeAt`'s builds (a person, a monster)
+  tag `dungeon`. A snapshot copies named fields only: a ledger never rides a save.
+- **The fold** - `revenantDeed` takes the ledger first (whatever its answer - a judged one's, a plain foe's) and, for
+  the record it writes, adds `feudScars(ledger, deed)` at the deed's minute (`withScars`, the latest six) and counts the
+  fight; `applyRevenant` counts a return. A rank-up to 2 or more draws the signature on the id.
+- **The record** - `systems/revenantFeud.js` (every RVN number at its top, section 27's): `feudFields` - section 26's
+  table, each field's validator and an older record's value - spread into `sanitize`; `newFeudFields` for a record born
+  now (its weakness drawn against its career's tolerance flags, `entity.career`); `sanitizeCompanion(c, personality)`
+  adds `loyalty` (`LOYALTY_START`, else 60); the store's `lastDay` (`sanitizeDay`; the mirror's and the save's merged
+  by `laterDay`) in the slot, the mirror, the restore and a new game. The deed union gains `felled`, `routed`,
+  `festered`, `deserted`, `betrayed`, `laststand`, and `ui/revenantPage.js DEED_WORDS` words them.
+- **The draws** - on the id's own stream (`idStream`: FNV-1a, then mulberry32; `revenant.js` takes `hashStr` from
+  here), never the shared DFRandom: the weakness from section 14.1's pool by kind (`weaknessPool`; decided here: an
+  OPPOSITE only for the fire and frost daedra and atronachs - the Daedroth, a Seducer, the Daedra Lord and the iron and
+  flesh atronachs have no element; a monster the table does not name is a beast), never an element its career resists
+  or shrugs off; the signature by family (`signatureFamily` - the brain's `blowFamily` table read without the brain; a
+  caster, a spectral, a small kind and a flyer the pyre); the kin (`kinPool` - a person its class's family, an orc its
+  faction's, the undead theirs, a beast, a vermin or a fish its own kind; decided here: a solitary kind - a giant, a
+  daedra, a lich, an atronach, `mobileFactions.SOLITARY_TYPES` - rides alone), three drawn (`RETINUE`'s most).
+- **The page** - a living revenant's scars in words under its due line (`scarWords`, newest first, each once - a deed's
+  scar is its history's); RVN12 completes the rest.
+- **Four hosts** - `scenes/world.js` WIRED (the street pool's tag and doors; the seams are the formulas', the cast
+  engine's, the effects' and the brain's, host-blind); `scenes/exterior.js` WIRED the same - FLAGGED, as section 32
+  says: it builds its pool without `fates`, so its revenants die outright; `scenes/worldModes.js` WIRED (its interior
+  pool, `building`); `scenes/dungeonContext.js` WIRED (both builds `dungeon`; `scenes/dungeon.js` hosts it).
+- **Online** - the ledger is mine: a peer's blow, spell and round write nothing in it, and my blow on a peer's puppet
+  writes one that no deed folds (a puppet's deeds are its owner's - RVN13's to carry).
+- **Section 32's corrections** - `06-Systems/Revenants.md` already said the Holdings tab and `world153` (read
+  again); it gains the fields (section 5) and the ledger (section 17).
+- Pins `test/rvn1_ledger.test.js` (16). Pins moved (each marked `PIN MOVED (RVN1: ...)`): `tell1_poise` (the landing
+  notes between the take and the sink), `audittell` (one `mine` for U6's tag and the ledger).
+- Mutants `tools/mutants/rvn1.json` (85), all dead: three survived their first run - the player under an always-open
+  gate and an older record whose draw was the mutant's own `fire` (each pinned now), and the beast row in `kinPool`,
+  equivalent to its fallback (the row deleted, the fallback commented and its mutant recorded). Mutant records
+  re-aimed by content (8): `tell9` (3), `audittell`, `tell8`, `set2`, `revenant` and `revenantvoice` (one each) - all
+  judged again, all dead.

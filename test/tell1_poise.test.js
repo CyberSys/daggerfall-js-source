@@ -315,7 +315,8 @@ test('TELL1: a staggered foe takes a quarter more - the registry, the formulas\'
   const fm = rd('src/combat/formulas.js');
   assert.match(fm, /const m = mentorDamageTakenMult\(target\);\n\s*if \(m > 1\) damage = Math\.max\(1, Math\.round\(damage \* m\)\);\n\s*\}\n(\s*\/\/[^\n]*\n)*\s*damage = blowTaken\(damage, attacker, target, weapon, /, 'after mentor mode, before the reports');
   const hm = rd('src/scenes/hostMagic.js');
-  assert.match(hm, /hurt: \(n, o\) => sinks\.hurt\(o\?\.whole \|\| o\?\.round \? n : blowTaken\(n, striker, foe\.entity, null, \{ kind: 'spell'/, 'a spell\'s landing; a kill and a round as they come');
+  // PIN MOVED (RVN1: the landing notes my spell in its fight's ledger between the take and the sink)
+  assert.match(hm, /hurt: \(n, o\) => \{\n\s*const d = o\?\.whole \|\| o\?\.round \? n : blowTaken\(n, striker, foe\.entity, null, \{ kind: 'spell'[^\n]*\n[^\n]*\n\s*return sinks\.hurt\(d, o\);/, 'a spell\'s landing; a kill and a round as they come (RVN1: the ledger notes it between)');
   assert.match(hm, /const r = applySpell\(spell, casterLevel, foe\.entity, landing, rolls, caster, ctx\);/);
 });
 

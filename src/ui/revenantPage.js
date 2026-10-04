@@ -45,6 +45,7 @@ export const REVENANT_PAGE_CSS = `
 .px-sys .rvn-blurb { font-size: 11px; font-style: italic; color: #b8b0a0; }
 .px-sys .rvn-deeds { font-size: 12px; color: #e9e4d9; }
 .px-sys .rvn-come { font-size: 12px; color: #b8b0a0; }
+.px-sys .rvn-scars { font-size: 11px; color: #c9a27a; }
 .px-sys .rvn-history { margin: 3px 0 0; padding: 0; list-style: none; display: flex; flex-wrap: wrap; gap: 2px 10px; font-size: 10px; color: #8b8578; }
 .px-sys .rvn-history li::before { content: '\\25C6 '; color: #c08a3e; }
 .px-sys .rvn-row.is-fallen .rvn-face img { filter: grayscale(1) brightness(0.6); }
@@ -52,7 +53,7 @@ export const REVENANT_PAGE_CSS = `
   border-top: 3px solid #8c3a32; transform: rotate(-38deg); }
 .px-sys .rvn-row.is-fallen .rvn-name { color: #b8b0a0; text-decoration: line-through; text-decoration-color: #8c3a32; }
 :root[data-plus-theme="stone"] .px-sys .rvn-sub, :root[data-plus-theme="stone"] .px-sys .rvn-history { color: #e2d9c4; }
-:root[data-plus-theme="stone"] .px-sys .rvn-come { color: #efe8d8; }
+:root[data-plus-theme="stone"] .px-sys .rvn-come, :root[data-plus-theme="stone"] .px-sys .rvn-scars { color: #efe8d8; }
 `;
 
 function ensureStyle(doc) {
@@ -87,7 +88,27 @@ export function deedWords(r) {
   const s = parts.join(', ');
   return s ? s.charAt(0).toUpperCase() + s.slice(1) + '.' : '';
 }
-const DEED_WORDS = Object.freeze({ slew: 'killed you', fled: 'escaped', returned: 'came back', fell: 'fell', yielded: 'yielded', executed: 'executed', spared: 'spared', released: 'released' });
+const DEED_WORDS = Object.freeze({
+  slew: 'killed you', fled: 'escaped', returned: 'came back', fell: 'fell', yielded: 'yielded', executed: 'executed', spared: 'spared', released: 'released',
+  // RVN1 (bible/12-Enhanced-AI/Feud-Arc.md section 26): the deeds FEUD adds, worded with the union
+  felled: 'felled your companion', routed: 'routed you', festered: 'grew bolder', deserted: 'deserted you', betrayed: 'betrayed you', laststand: 'made its last stand',
+});
+/** RVN1 (section 12; RVN12 completes the page): what a scar says - the way it was hurt, or what it learned of the fight. */
+const SCAR_WORDS = Object.freeze({
+  blade: 'blades', blunt: 'blunt weapons', axe: 'axes', h2h: 'fists', arrow: 'arrows', fire: 'fire', frost: 'frost', shock: 'shock',
+  poison: 'poison', magic: 'magic', other: 'strange blows', silver: 'silver', mixed: 'many ways', staggered: 'staggered', dodged: 'outmanoeuvred',
+  back: 'struck from behind', night: 'fought by night',
+});
+/** Its scars, newest first and each once - the ways it was hurt and what it learned (a deed's scar is the history's). */
+export function scarWords(r) {
+  const seen = new Set();
+  const out = [];
+  for (const s of [...(r?.scars ?? [])].reverse()) {
+    const w = SCAR_WORDS[s?.k];
+    if (w && !seen.has(w)) { seen.add(w); out.push(w); }
+  }
+  return out.length ? `Scarred by ${out.join(', ')}.` : '';
+}
 /** REVENANT-FATE: how a fallen one ended, in the page's words. */
 const FATE_WORDS = Object.freeze({ executed: 'Executed', released: 'Released' });
 
@@ -135,6 +156,8 @@ function row(el, r, now, kindName) {
   const deeds = deedWords(r);
   if (deeds) text.append(el('span', 'rvn-deeds', deeds));
   text.append(el('span', 'rvn-come', fallen ? `${FATE_WORDS[r.fate] ?? 'Fell'} ${agoWords(r.defeatedAt ?? now, now)}.` : come.line));
+  const scars = fallen ? '' : scarWords(r);   // RVN1: what its fights left on it
+  if (scars) text.append(el('span', 'rvn-scars', scars));
   const hist = (r.history ?? []).slice(-5);
   if (hist.length) {
     const ul = el('ul', 'rvn-history');

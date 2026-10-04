@@ -742,6 +742,12 @@
    "why": "a moon power's night"
   },
   {
+   "file": "src/systems/revenant.js",
+   "has": "setFeudClock(() => ({ now: nowMinutes(), night: isNight(skyMinutes()) }));",
+   "clock": "sky",
+   "why": "RVN1: whether a fight with a revenant began by night (its ledger's night scar)"
+  },
+  {
    "file": "src/systems/save.js",
    "has": "? Math.floor(worldMinutes()), worldMinutes",
    "clock": "event",

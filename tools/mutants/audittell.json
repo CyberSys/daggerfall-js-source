@@ -498,8 +498,8 @@
   {
     "name": "AUDITTELL-U6-tag",
     "file": "src/scenes/hostCombat.js",
-    "old": "  if (fromPlayer && !peer && !striker) windupTag(word, f, false);",
-    "new": "  if (!peer && !striker) windupTag(word, f, false);",
+    "old": "  const mine = fromPlayer && !peer && !striker;",
+    "new": "  const mine = !peer && !striker;",
     "tests": [
       "test/audittell.test.js"
     ]

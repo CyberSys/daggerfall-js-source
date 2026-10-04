@@ -200,7 +200,7 @@
   {
     "name": "SET2-the-strike-listeners-never-told",
     "file": "src/combat/formulas.js",
-    "old": "    for (const fn of _playerStrikeListeners.values()) { try { fn(attacker, target, damage, weapon); } catch { /* a set is not the blow's problem */ } }\n",
+    "old": "    for (const fn of _playerStrikeListeners.values()) { try { fn(attacker, target, damage, weapon, info); } catch { /* a set is not the blow's problem */ } }\n",
     "new": "",
     "tests": [
       "test/set2_seams.test.js"

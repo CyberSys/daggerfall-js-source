@@ -44,13 +44,14 @@
 import { lootRarityOn } from './lootRarity.js';
 import { registerPlayerBlowLanded } from './sigilSetPowers.js';
 import { registerPlayerHurtListener } from '../characters/playerEntity.js';   // REVENANT-HARM: a death no blow names
-import { registerPlayerStruckListener } from '../combat/formulas.js';   // REVENANT-HARM: a foe's blow leaves its mark (its poison's ticks come later)
+import { registerPlayerStruckListener, registerPlayerStrikeListener } from '../combat/formulas.js';   // REVENANT-HARM: a foe's blow leaves its mark (its poison's ticks come later); RVN1: my blow, in its fight's ledger
 import { markPlayerHarm, playerHarmMark, clearPlayerHarm, HARM_MARK_STRUCK_MS } from './harmMark.js';
 import { playerDoor } from './playerDoor.js';
 import { registerModSaveData } from './modSaveData.js';
 import { appStorage } from './appStorage.js';
 import { characterIdOf, mintCharacterId } from './characterId.js';
-import { ownMinutes } from './worldTick.js';
+import { ownMinutes, skyMinutes } from './worldTick.js';
+import { isNight } from '../world/worldClock.js';   // RVN1: a fight begun by night
 import { tieredGear } from './eliteFoes.js';
 import { goldStack } from './inventory.js';
 import { enemyDisplayName, ENEMY_BASICS } from '../characters/enemyBasics.js';
@@ -58,6 +59,10 @@ import { KNIGHT_CITY_WATCH } from '../characters/mobileTypes.js';
 import { firstName, monsterName, BANK_TYPES, GENDERS } from '../characters/nameHelper.js';
 import { getSeed, setSeed, srand } from '../formats/dfRandom.js';
 import { personalityFor, isPersonality, personalityLabel, voiceLine, beastBody, possessive, MUTE_KINDS } from './revenantPersonality.js';   // REVENANT-VOICE: who it is, and how it talks
+// FEUD, Part B (bible/12-Enhanced-AI/Feud-Arc.md sections 12-26): what a revenant remembers - its record's new fields and
+// the draws it is born with (systems/revenantFeud.js), and the fight's ledger (systems/feudLedger.js, a leaf)
+import { feudFields, newFeudFields, feudScars, withScars, weaponFeudClass, drawSignature, sanitizeLoyalty, hashStr, SIG_RANK } from './revenantFeud.js';
+import { setFeudGate, setFeudClock, noteFeudHarm, noteFeudBackstab, takeFeud } from './feudLedger.js';
 
 // ── the numbers ─────────────────────────────────────────────────────
 /** A revenant is a foe of this level or more (LOOT7's champion floor, ELITE-FLOOR's). */
@@ -124,19 +129,31 @@ export const REVENANT_EPITHETS = Object.freeze({
 // REVENANT-VOICE: what each says, in its own personality's voice, is systems/revenantPersonality.js's.
 
 // ── the store ───────────────────────────────────────────────────────
-/** @typedef {{ deed: 'slew'|'fled'|'returned'|'fell'|'yielded'|'executed'|'spared'|'released', at: number }} RevenantDeed */
+/** RVN1 (section 26): the deeds FEUD adds - felled (RVN10), routed (RVN10), festered (RVN9), deserted and betrayed
+ *  (RVN11), laststand (RVN4).
+ *  @typedef {{ deed: 'slew'|'fled'|'returned'|'fell'|'yielded'|'executed'|'spared'|'released'|'felled'|'routed'|'festered'|'deserted'|'betrayed'|'laststand', at: number }} RevenantDeed */
 /** REVENANT-COMPANION: a sworn one's place - walking with the player, sent away (called back at will), or resting after
- *  a fall (`until` the character's minute it is fit again) - its health carried between places, and its pack.
- *  @typedef {{ state: 'with'|'away'|'resting', health: number|null, maxHealth: number|null, until: number|null, items: any[] }} RevenantCompanion */
+ *  a fall (`until` the character's minute it is fit again) - its health carried between places, and its pack. RVN1:
+ *  its `loyalty` (0-100, RVN11's - its personality's start when sworn).
+ *  @typedef {{ state: 'with'|'away'|'resting', health: number|null, maxHealth: number|null, until: number|null, items: any[], loyalty: number }} RevenantCompanion */
 /** @typedef {{ id: string, rev: number, mobileType: number, gender: 'male'|'female', given: string, epithet: string,
  *   name: string, rank: number, kills: number, escapes: number, returns: number, trait: string|null, elite: boolean,
  *   born: number, dueAt: number, out: boolean, outAt: number, defeated: boolean, defeatedAt: number|null,
  *   notice: string|null, history: RevenantDeed[], archive: number|null, personality: string,
  *   fate: 'executed'|'sworn'|'released'|null, sworn: boolean, swornAt: number|null, companion: RevenantCompanion|null,
- *   gone?: boolean }} RevenantRecord */
+ *   scars: {k: string, at: number}[], learned: string[], weak: string, weakKnown: 0|1|2, sig: string|null, kin: number[],
+ *   lair: {px: number, py: number, name: string, region: number}|null, lairKnown: boolean, took: any[], wrath: number,
+ *   fights: number, gone?: boolean }} RevenantRecord */
+// RVN1 (section 26): every field after `companion` is FEUD's, its law and an older record's value systems/revenantFeud.js
+// feudFields; the signature's name, the band's name and the epithets are derived from them, never stored
 
-/** @type {{ list: RevenantRecord[], mirrorId: string|null }} */
-const _state = { list: [], mirrorId: null };
+/** RVN1: `lastDay` - the character's last day festering was counted to (RVN9's), kept with the list.
+ *  @type {{ list: RevenantRecord[], mirrorId: string|null, lastDay: number|null }} */
+const _state = { list: [], mirrorId: null, lastDay: null };
+/** RVN1: a day read back (a save, the mirror) - a whole day, else none. */
+const sanitizeDay = (v) => (Number.isInteger(v) && v >= 0 ? v : null);
+/** RVN1: two days as one - the later (a reload never counts a day twice). */
+const laterDay = (a, b) => (a == null ? b : b == null ? a : Math.max(a, b));
 
 export const revenantOn = () => lootRarityOn();
 const nowMinutes = () => { try { return Math.floor(ownMinutes()); } catch { return 0; } };
@@ -146,13 +163,6 @@ const pick = (list, rolls) => list[Math.min(list.length - 1, Math.floor(rolls() 
 // a typed name is a letter, never a pattern
 const fill = (s, { p = '', n = '' } = {}) => s.replace(/\{p\}'s/g, () => possessive(p)).replace(/\{p\}/g, () => p).replace(/\{n\}/g, () => n);
 const joinName = (given, epithet) => (/^the /.test(epithet) ? `${given} ${epithet}` : `${given}, ${epithet}`);
-
-/** A small stable hash (FNV-1a) of a string - a name's seed. */
-function hashStr(s) {
-  let h = 0x811c9dc5;
-  for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 0x01000193) >>> 0; }
-  return h >>> 0;
-}
 
 /** REVENANT-VOICE: the id a special foe's voice is drawn from - its record's, or (a foe that speaks before it is one: it
  *  breaks and runs) one minted on it then and kept, so the revenant it becomes speaks as it already did. */
@@ -202,13 +212,14 @@ const isStr = (v) => typeof v === 'string';
 const isNum = (v) => Number.isFinite(v);
 const FATES = new Set(['executed', 'sworn', 'released']);
 /** REVENANT-COMPANION: a sworn one's place read back - the shape checked; anything odd walks with the player whole. */
-function sanitizeCompanion(c) {
+function sanitizeCompanion(c, personality = null) {
   const state = c?.state === 'away' || c?.state === 'resting' ? c.state : 'with';
   const hp = Number(c?.health), max = Number(c?.maxHealth);
   return {
     state, health: c?.health != null && Number.isFinite(hp) && hp > 0 ? hp : null, maxHealth: c?.maxHealth != null && Number.isFinite(max) && max > 0 ? max : null,
     until: state === 'resting' && isNum(c?.until) ? c.until : null,
     items: Array.isArray(c?.items) ? c.items.filter((it) => it && typeof it === 'object') : [],
+    loyalty: sanitizeLoyalty(c?.loyalty, personality),   // RVN1 (section 26): 0-100, else its personality's start (RVN11's)
   };
 }
 /** A record read back (a save, the app's storage) - the shape checked, anything else dropped. */
@@ -216,6 +227,7 @@ function sanitize(r) {
   if (r && isStr(r.id) && r.id && r.gone === true) return { id: r.id, rev: isNum(r.rev) ? r.rev : 0, gone: true };   // a tombstone: the id and its revision alone
   if (!r || !isStr(r.id) || !r.id || !Number.isInteger(r.mobileType) || !isStr(r.given) || !isStr(r.epithet)) return null;
   const rank = Math.max(1, Math.min(REVENANT_MAX_RANK, Number.isInteger(r.rank) ? r.rank : 1));
+  const personality = isPersonality(r.personality) ? r.personality : personalityFor(r.id, r.mobileType);   // REVENANT-VOICE: an older record's, drawn from its id as a new one's is
   return {
     id: r.id, rev: isNum(r.rev) ? r.rev : 0, mobileType: r.mobileType, gender: r.gender === 'female' ? 'female' : 'male',
     given: r.given, epithet: r.epithet, name: isStr(r.name) && r.name ? r.name : joinName(r.given, r.epithet), rank,
@@ -226,11 +238,12 @@ function sanitize(r) {
     defeated: !!r.defeated, defeatedAt: isNum(r.defeatedAt) ? r.defeatedAt : null,
     notice: isStr(r.notice) ? r.notice : null,
     archive: Number.isInteger(r.archive) ? r.archive : null,
-    personality: isPersonality(r.personality) ? r.personality : personalityFor(r.id, r.mobileType),   // REVENANT-VOICE: an older record's, drawn from its id as a new one's is
+    personality,
     // REVENANT-FATE: how it ended (or did not) - executed, sworn to the player, released by the player
     fate: FATES.has(r.fate) ? r.fate : null, sworn: !!r.sworn && !r.defeated, swornAt: isNum(r.swornAt) ? r.swornAt : null,
-    companion: r.sworn && !r.defeated ? sanitizeCompanion(r.companion) : null,
+    companion: r.sworn && !r.defeated ? sanitizeCompanion(r.companion, personality) : null,
     history: Array.isArray(r.history) ? r.history.filter((d) => d && isStr(d.deed) && isNum(d.at)).slice(-HISTORY_MAX) : [],
+    ...feudFields(r, { id: r.id, mobileType: r.mobileType, rank }),   // RVN1 (section 26): FEUD's fields, each by its law
   };
 }
 /** Two lists as one: per id, the higher revision. */
@@ -250,8 +263,8 @@ const storeKey = (id) => `${REVENANT_STORE_PREFIX}${id}`;
 function ensureMirror(player) {
   const id = player ? characterIdOf(player) : null;
   if (!id || _state.mirrorId === id) return;
-  let kept = [];
-  try { const raw = appStorage()?.getItem(storeKey(id)); if (raw) kept = JSON.parse(raw)?.list ?? []; } catch { /* a bad mirror is no mirror */ }
+  let kept = [], keptDay = null;
+  try { const raw = appStorage()?.getItem(storeKey(id)); if (raw) { const m = JSON.parse(raw); kept = m?.list ?? []; keptDay = sanitizeDay(m?.lastDay); } } catch { /* a bad mirror is no mirror */ }
   const live = _state.list.map((r) => ({ id: r.id, out: r.out, outAt: r.outAt }));
   // AUDIT (2026-10-02): A SWORN ONE'S PACK IS THE SAVE'S. The mirror outlives a load (a revenant remembers), but a pack
   // is inventory: the save's own copy says what is in it (none, where the save never knew it sworn) - else a load handed
@@ -259,6 +272,7 @@ function ensureMirror(player) {
   // released after it, comes back as the save had it: its pack is no one's to lose.
   const saved = new Map(_state.list.filter((r) => !r.gone).map((r) => [r.id, r]));
   _state.list = mergeRevenants(_state.list, kept);
+  _state.lastDay = laterDay(_state.lastDay, keptDay);   // RVN1: festering's day, the later of the two
   for (const l of live) { const r = revenantById(l.id); if (r) { r.out = l.out; r.outAt = l.outAt; } }   // a live stand is this session's, not the mirror's
   for (let i = 0; i < _state.list.length; i++) {
     const r = _state.list[i], s = saved.get(r.id);
@@ -270,7 +284,7 @@ function ensureMirror(player) {
 }
 function persist() {
   if (!_state.mirrorId) return;
-  try { appStorage()?.setItem(storeKey(_state.mirrorId), JSON.stringify({ v: 1, list: _state.list })); } catch { /* storage full or gone: the save still keeps it */ }
+  try { appStorage()?.setItem(storeKey(_state.mirrorId), JSON.stringify({ v: 1, list: _state.list, lastDay: _state.lastDay })); } catch { /* storage full or gone: the save still keeps it */ }
 }
 const touch = (r) => { r.rev = (r.rev | 0) + 1; };
 /** A record forgotten: its place in the list becomes a tombstone (its id and a newer revision), which a merge keeps over
@@ -311,6 +325,7 @@ export function revenantCandidate(entity, rec = null) {
  *  the record, or null when it may not be one. `mobileType`/`gender` from the pool's record where the entity lacks
  *  them. */
 export function revenantDeed(player, entity, deedName, { mobileType = entity?.mobileType, gender = 'male', rec = null, archive = null, now = nowMinutes(), rolls = Math.random } = {}) {
+  const ledger = takeFeud(entity);   // RVN1: the fight is over - its ledger taken whatever the answer (it dies with the fight)
   if (!revenantCandidate(entity, rec) || !Number.isInteger(mobileType)) return null;
   ensureMirror(player);
   const pName = player?.name ?? '';
@@ -322,6 +337,7 @@ export function revenantDeed(player, entity, deedName, { mobileType = entity?.mo
   if (r) {
     r.rank = Math.min(REVENANT_MAX_RANK, r.rank + 1);
     r.epithet = revenantEpithet(deedName, r.rank, pName, rolls, r.epithet);
+    if (r.rank >= SIG_RANK && !r.sig) r.sig = drawSignature(r.id, r.mobileType);   // RVN1 (RVN5's field): its signature, drawn on its id at rank 2
   } else {
     const id = voiceIdOf(entity);   // REVENANT-VOICE: the id its voice was drawn from while it fled, if it spoke before it was one
     const given = revenantGivenName(id, mobileType, gender);
@@ -333,6 +349,7 @@ export function revenantDeed(player, entity, deedName, { mobileType = entity?.mo
       archive: Number.isInteger(archive) ? archive : null,   // REVENANT-CARD: the sprite it wore (a retextured kind's own), for its portrait
       personality: personalityFor(id, mobileType),   // REVENANT-VOICE: who it is - one per id
       fate: null, sworn: false, swornAt: null, companion: null,   // REVENANT-FATE: not judged yet
+      ...newFeudFields(id, mobileType, 1, entity.career ?? null),   // RVN1 (section 26): its draws (the weakness never what its career shrugs off), and nothing yet learned
     };
     _state.list.push(r);
     // past the cap: the weakest, oldest living one is forgotten - a tombstone, so no older save raises it again
@@ -346,6 +363,9 @@ export function revenantDeed(player, entity, deedName, { mobileType = entity?.mo
   if (deedName === 'slew') { r.kills++; r.notice = 'slew'; } else { r.escapes++; r.notice = null; }
   r.dueAt = dueFrom(now, rolls);
   deed(r, deedName, now);
+  // RVN1 (section 12): the fight folded into its SCARS - its leading source, its lessons, the deed - and counted
+  r.scars = withScars(r.scars, feudScars(ledger, deedName), now);
+  r.fights = (r.fights | 0) + 1;
   // the foe that did it wears its name at once - while it still stands (a killer over my body), it IS the revenant
   entity.revenant = { id: r.id, name: r.name, rank: r.rank };
   r.out = deedName === 'slew';
@@ -389,6 +409,17 @@ registerPlayerBlowLanded('revenant', onBlowLanded);
 registerPlayerHurtListener('revenant', onPlayerHurt);
 registerPlayerStruckListener('revenant', (attacker, target) => {
   if (target?.isPlayer && !target.peer && attacker && !attacker.isPlayer) markPlayerHarm(attacker, { ms: HARM_MARK_STRUCK_MS });
+});
+// RVN1 (section 12): THE LEDGER OF WOUNDS - a body that may be (or is) a revenant keeps one while I fight it; my landed
+// blow and arrow go in it at the formulas' tail (their final damage, by the weapon's class; silver by its metal; a
+// backstab), my spells at their landing (scenes/hostMagic.js) and every later round (systems/effects.js), the brain's
+// overreach and the doors' staggers and back hits beside them. The deed folds it (revenantDeed).
+setFeudGate((entity) => revenantCandidate(entity));
+setFeudClock(() => ({ now: nowMinutes(), night: isNight(skyMinutes()) }));
+registerPlayerStrikeListener('feud', (attacker, target, damage, weapon, info) => {
+  const { cls, silver } = weaponFeudClass(weapon);
+  noteFeudHarm(target, cls, damage, { silver });
+  if (info?.backstab) noteFeudBackstab(target);
 });
 
 /** THE FLEE ROLL: does this special foe, under REVENANT_FLEE_HEALTH of its health for the first time, run? */
@@ -464,7 +495,7 @@ export function revenantSpared(player, entity, { now = nowMinutes(), state = 'wi
   const r = entity?.revenant?.id ? (ensureMirror(player), revenantById(entity.revenant.id)) : null;
   if (!r || r.defeated || r.sworn) return null;
   r.sworn = true; r.fate = 'sworn'; r.swornAt = now; r.out = false; r.notice = null;
-  r.companion = sanitizeCompanion({ state, health, maxHealth });
+  r.companion = sanitizeCompanion({ state, health, maxHealth }, r.personality);   // RVN1: sworn at its personality's loyalty
   deed(r, 'spared', now);
   touch(r);
   persist();
@@ -476,7 +507,7 @@ export function revenantCompanionUpdate(player, id, change) {
   ensureMirror(player);
   const r = revenantById(id);
   if (!r || !r.sworn || r.defeated) return null;
-  r.companion ??= sanitizeCompanion(null);
+  r.companion ??= sanitizeCompanion(null, r.personality);
   const out = change(r.companion, r);
   if (out === 'release') {
     r.sworn = false; r.fate = 'released'; r.defeated = true; r.defeatedAt = nowMinutes(); r.companion = null;
@@ -525,6 +556,7 @@ export function applyRevenant(entity, r, { now = nowMinutes() } = {}) {
   const prior = Number.isFinite(entity.damageScale) && entity.damageScale > 0 ? entity.damageScale : 1;
   entity.damageScale = prior * (1 + REVENANT_DAMAGE_PER_RANK * r.rank);
   r.out = true; r.outAt = Date.now(); r.returns++;
+  r.fights = (r.fights | 0) + 1;   // RVN1: a return is a fight (an older record's count is kills + escapes + returns)
   deed(r, 'returned', now);
   touch(r);
   persist();
@@ -746,13 +778,13 @@ export function takeRevenantNotice(player) {
 
 // ── the save ────────────────────────────────────────────────────────
 registerModSaveData(REVENANT_SAVE, {
-  newSaveData: () => ({ v: 1, list: [] }),
+  newSaveData: () => ({ v: 1, list: [], lastDay: null }),
   // AUDIT (2026-10-02): one standing as the save is made comes back later (REVENANT_LOST_MINUTES), not at once beside
   // the street's copy of it - the street's save leaves it out (scenes/exteriorFoes.js snapshotWorld)
-  getSaveData: () => ({ v: 1, list: _state.list.map((r) => (r.gone ? r : { ...r, out: false, outAt: 0, dueAt: r.out ? Math.max(r.dueAt, nowMinutes() + REVENANT_LOST_MINUTES) : r.dueAt })) }),
-  restoreSaveData: (rec) => { _state.list = mergeRevenants(rec?.list ?? [], []); _state.mirrorId = null; clearPlayerHarm(); },   // the last game's harm is no one's death in this one
-  newGame: () => { _state.list = []; _state.mirrorId = null; clearPlayerHarm(); },
+  getSaveData: () => ({ v: 1, list: _state.list.map((r) => (r.gone ? r : { ...r, out: false, outAt: 0, dueAt: r.out ? Math.max(r.dueAt, nowMinutes() + REVENANT_LOST_MINUTES) : r.dueAt })), lastDay: _state.lastDay }),
+  restoreSaveData: (rec) => { _state.list = mergeRevenants(rec?.list ?? [], []); _state.lastDay = sanitizeDay(rec?.lastDay); _state.mirrorId = null; clearPlayerHarm(); },   // the last game's harm is no one's death in this one
+  newGame: () => { _state.list = []; _state.lastDay = null; _state.mirrorId = null; clearPlayerHarm(); },
 });
 
 /** Tests only: forget everything. */
-export function _resetRevenantForTests() { _state.list = []; _state.mirrorId = null; }
+export function _resetRevenantForTests() { _state.list = []; _state.mirrorId = null; _state.lastDay = null; }

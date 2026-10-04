@@ -114,6 +114,13 @@ Two places, merged per record by `rev`:
 A reload of an older save keeps every revenant made since, and never raises one already slain. Another character's
 revenants are its own.
 
+**FEUD's fields (RVN1, 2026-10-04).** The record carries `scars`, `learned`, `weak`, `weakKnown`, `sig`, `kin`, `lair`,
+`lairKnown`, `took`, `wrath`, `fights` and a sworn one's `companion.loyalty` - each checked by its validator when read
+back, and an older record's derived (its weakness, signature at rank 2 and up, and kin drawn on its id; its fights
+`kills + escapes + returns`; a loyalty its personality's start). The law is `systems/revenantFeud.js feudFields`
+(`bible/12-Enhanced-AI/Feud-Arc.md` section 26). The slot and the mirror also keep `lastDay` (RVN9's festering day),
+read back a whole day or none, the later of the two kept.
+
 ## 6. Online
 
 A revenant is its character's own memory. A returning one is my own foe, streamed as any: its kind, health, trait, glow
@@ -351,3 +358,16 @@ every finding fixed (`test/revenant_audit.test.js`, `tools/mutants/revenantaudit
   the burst's red flash on the hit flash's own clock; a body more gone than whole casts no shadow; the lane's edge
   decoded into its linear light; the portal's sound by its ID; the leave hand-offs wait for the foe loop (a splice under
   it skipped a foe for a frame).
+
+## 17. Memory: the ledger of wounds (FEUD RVN1, 2026-10-04)
+
+Mac: "I want to improve the revenant system to be more complex, less easy to accomplish and more detailed" - the arc is
+`bible/12-Enhanced-AI/Feud-Arc.md` (Part B). A body that may become (or already is) a revenant (`revenantCandidate`)
+keeps a **ledger** while the player fights it (`systems/feudLedger.js`, a leaf on `entity._feud`): what the player
+dealt by weapon class (`blade`, `blunt`, `axe`, `h2h`, `arrow`) and element (`fire`, `frost`, `shock`, `poison`,
+`magic`), silver apart; the staggers, the blows dodged (perfectly too), the blows at its back, a backstab; whether the
+fight began by night, and where (`street`, `building`, `dungeon`). The deed (`revenantDeed`, the one home of the kill
+and both escapes) folds it into the record's **scars** - the latest six: its leading source at 40% of the damage or
+more, else `mixed`; staggered twice, three blows dodged, three at its back, a night fight, the deed - and counts the
+fight. The page says them ("Scarred by arrows, fought by night."). What the scars teach a revenant is RVN2's.
+

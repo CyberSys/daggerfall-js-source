@@ -517,8 +517,8 @@
   {
     "name": "TELL8-door-peer-back-owner",
     "file": "src/scenes/hostCombat.js",
-    "old": "  const v = blowWeight(damage, k, peer ? { back: !!wc?.back, weak: !!wc?.weak } : { back: behind(blow.origin, blow.yaw, from) });",
-    "new": "  const v = blowWeight(damage, k, { back: behind(blow.origin, blow.yaw, from) });",
+    "old": "  const back = peer ? !!wc?.back : behind(blow.origin, blow.yaw, from);",
+    "new": "  const back = behind(blow.origin, blow.yaw, from);",
     "tests": [
       "test/tell8_online.test.js"
     ]

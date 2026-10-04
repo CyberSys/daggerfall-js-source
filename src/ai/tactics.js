@@ -39,6 +39,7 @@ import { GRAVITY } from '../player/motor.js';   // TELL6c: a leap's hop on the m
 import { tacticsNow, setTacticsClock, tickTactics } from './tacticsClock.js';   // AUDIT TACT D10/A3
 import { TELL, poiseOf, staggerSeconds, glintStrength, blowGuard, punishSeconds, windupSeconds, feints, chains, chainShape, trackYaw, blowCooldown, wholeSet } from './tells.js';   // TELL1: poise and the stagger (bible/12-Enhanced-AI/Feud-Arc.md section 3); TELL3: a blow's guard; TELL4: the punish window; TELL5: patterns; TELL7: the cooldowns
 import { registerBlowTakenMod } from '../systems/blowTaken.js';   // TELL1: a staggered foe takes more - the leaf the formulas read
+import { noteFeud } from '../systems/feudLedger.js';   // RVN1: a blow of its I dodged, in its fight's ledger (a leaf - the brain brings no revenant system)
 
 export const tacticsSwitchOn = () => getPref('enhancedAI') === true;
 
@@ -278,6 +279,7 @@ function beginOverreach(ai, s, b, now, perfect, atMe = true) {
   if (ent) ent.overreachUntil = s.until;
   ai._blowHold = 'spent';   // the strike goes out; then its follow-through stands (characters/mobileUnit.js)
   if (perfect && atMe) ai._perfectAt = now;   // the tag's and the bright ring's (scenes/hostCombat.js tellCues) - mine alone (AUDIT TELL O5)
+  if (atMe && ent) { noteFeud(ent, 'dodged'); if (perfect) noteFeud(ent, 'perfect'); }   // RVN1 (Feud-Arc.md 12): my dodge - a peer's is its own fight
   ai._tacStrike = false; ai._tacShoot = false; ai.moving = false;
 }
 /** TELL4: the window shut - by its time, a stagger, or its place gone. The swing goes with it: let go after its strike,

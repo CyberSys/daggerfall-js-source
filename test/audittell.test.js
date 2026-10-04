@@ -340,7 +340,8 @@ test('AUDIT TELL H1/L6/H6/P1 by source: the foes\' clock held under a dungeon\'s
     assert.match(rd(p), /shake: fromPlayer && !peer && !striker \? (?:opts\.shakeCamera|shake) : null/, `${p}: my own blow's kick alone`);
     assert.match(rd(p), /from: striker\?\.ai\?\.feet \?\? playerFeet, wc, fromPlayer,/, `${p}: U6 - whose blow, to the door`);
   }
-  assert.match(rd('src/scenes/hostCombat.js'), /if \(fromPlayer && !peer && !striker\) windupTag\(word, f, true\);[\s\S]*if \(fromPlayer && !peer && !striker\) windupTag\(word, f, false\);/, 'U6: a foe\'s own spell, a SetHealth(0), raises no word of mine');
+  // PIN MOVED (RVN1: one `mine` for the tag and the fight's ledger)
+  assert.match(rd('src/scenes/hostCombat.js'), /const mine = fromPlayer && !peer && !striker;[\s\S]*if \(mine\) \{ windupTag\(word, f, true\);[\s\S]*if \(mine\) \{ windupTag\(word, f, false\);/, 'U6: a foe\'s own spell, a SetHealth(0), raises no word of mine (RVN1: one `mine` for the tag and the ledger)');
   assert.match(wm, /hurt: \(g, dmg, at, dir, wc = null, kind = 'melee'\) => interiorGuards\?\.hurtGuard\(g, dmg, at, dir, \{ fromPlayer: false, peer: true, wc, kind \}\)/, 'P1: the building\'s watch as the street\'s');
   assert.match(rd('src/scenes/dungeonContext.js'), /blowClassOf\(foe\.ai, \{ kind, weapon, claws: !weapon && !!playerEntity\?\.isInBeastForm, round \}, playerFeet\) : null;/, 'the back judged from the blow\'s own feet, as the local door judges it');
 });

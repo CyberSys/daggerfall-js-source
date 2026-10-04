@@ -820,7 +820,8 @@ export function calculateAttackDamage(attacker, target, { weapon = null, damageM
   // core's crits, materials and armour, which PCAAO's apply after the blow modifiers), so a power that shares the blow
   // (Ruhn's Cleave) shares what landed, never the number before the struck foe's own armour took its part
   if (attacker.isPlayer && !attacker.peer && !target.isPlayer && damage > 0) {
-    for (const fn of _playerStrikeListeners.values()) { try { fn(attacker, target, damage, weapon); } catch { /* a set is not the blow's problem */ } }
+    const info = { backstab: notes.backstab };   // RVN1: and whether it was a backstab (the fight's ledger, systems/feudLedger.js)
+    for (const fn of _playerStrikeListeners.values()) { try { fn(attacker, target, damage, weapon, info); } catch { /* a set is not the blow's problem */ } }
   }
   return report(damage);
 }
@@ -853,7 +854,8 @@ const _playerStruckListeners = new Map();
  *  `null` removes; the Ring of Namira keeps its one slot above. Reporting only - an answer is ignored. */
 export function registerPlayerStruckListener(name, fn) { if (typeof fn === 'function') _playerStruckListeners.set(name, fn); else _playerStruckListeners.delete(name); }
 const _playerStrikeListeners = new Map();
-/** AUDIT SET M2: NAMED listeners at the same tail for the other direction - `fn(attacker, target, damage, weapon)`, told
+/** AUDIT SET M2: NAMED listeners at the same tail for the other direction - `fn(attacker, target, damage, weapon, info)`
+ *  (RVN1: `info.backstab` - the blow landed as a backstab), told
  *  when MY attack (never a peer's resolved here) resolves with damage on a foe (never a player: a duel's blow is its
  *  own), the damage final, before any host subtracts it. A name re-registered replaces, `null` removes; an answer is
  *  ignored. */
