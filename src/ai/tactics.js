@@ -35,7 +35,7 @@ import { ENEMY_BASICS } from '../characters/enemyBasics.js';
 import { MOBILE_TYPES } from '../characters/mobileTypes.js';
 import { throwsBlows, blowShapesOf, makeBlow, fitBlowToGround, inBlow, setLiveBlow, windupNear, offsetBlows, BLOW_CHANCE, BLOW_COOLDOWN_MIN, BLOW_COOLDOWN_MAX, BLOW_COLOR, IRON_COLOR } from './foeBlows.js';   // TACT4; TELL3: iron
 import { tacticsNow, setTacticsClock, tickTactics } from './tacticsClock.js';   // AUDIT TACT D10/A3
-import { TELL, poiseOf, staggerSeconds, glintStrength, blowGuard } from './tells.js';   // TELL1: poise and the stagger (bible/12-Enhanced-AI/Feud-Arc.md section 3); TELL3: a blow's guard
+import { TELL, poiseOf, staggerSeconds, glintStrength, blowGuard, punishSeconds } from './tells.js';   // TELL1: poise and the stagger (bible/12-Enhanced-AI/Feud-Arc.md section 3); TELL3: a blow's guard; TELL4: the punish window
 import { registerBlowTakenMod } from '../systems/blowTaken.js';   // TELL1: a staggered foe takes more - the leaf the formulas read
 
 export const tacticsSwitchOn = () => getPref('enhancedAI') === true;
@@ -128,6 +128,7 @@ export function releaseTactics(ai) {
     if (k !== LOCAL && !b.melee.size && !b.ranged.size && !b.waiting.size) _boards.delete(k);   // AUDIT TACT A7: no dead target held
   }
   if (ai._tac) { ai._tac.key = null; if (ai._tac.state === 'windup') { ai._tac.state = 'wait'; dropSwing(ai); } ai._tac.blow = null; }
+  if (ai._tac?.state === 'overreach') { ai._tac.state = 'wait'; endOverreach(ai); }   // TELL4: its window goes with its place
   setLiveBlow(ai, null);   // TACT4: a wind-up dies with its foe's place
   clearBlowState(ai);
   ai._tacDir = null; ai._tacStrike = undefined; ai._tacShoot = undefined;
@@ -157,6 +158,7 @@ export function windupHolds(ai) {
  * Answers null (no wind-up here: DFU's knockback, as ever), 'hold', 'break' or 'stagger'.
  */
 export function windupStruck(ai, ent, weight, v) {
+  if (overreachOpen(ai)) return punishStruck(ai, ent, weight);   // TELL4: an overreached foe - the first blow staggers it
   if (!windupHolds(ai)) return null;
   const s = ai._tac, b = s.blow, now = clock();
   if (b.guard === 'iron') return 'hold';   // TELL3: iron takes no poise - it lands (a paralysis alone stops it, windupTurn)
@@ -167,10 +169,18 @@ export function windupStruck(ai, ent, weight, v) {
   s.blowReady = now + BLOW_COOLDOWN_MIN + Math.random() * (BLOW_COOLDOWN_MAX - BLOW_COOLDOWN_MIN);
   clearBlowState(ai);
   dropSwing(ai);
-  const bd = s.key != null ? _boards.get(s.key) : null;
-  if (bd) { bd.melee.delete(ai); bd.waiting.set(ai, now); }   // the token goes on to whoever waited longest
+  handOn(ai, s, now);
   ai._tacStrike = false; ai._tacShoot = false; ai.moving = false;
   if (now < (s.staggerReady ?? -Infinity)) { s.state = 'wait'; return 'break'; }   // no stunlock: a stagger, then 3 s of none
+  return stagger(ai, s, ent, weight, now);
+}
+/** Its melee token goes on to whoever waited longest. */
+function handOn(ai, s, now) {
+  const bd = s.key != null ? _boards.get(s.key) : null;
+  if (bd) { bd.melee.delete(ai); bd.waiting.set(ai, now); }
+}
+/** TELL1 (3.2): STAGGERED for its weight's length - one law for a broken wind-up and an overreach answered (TELL4). */
+function stagger(ai, s, ent, weight, now) {
   s.state = 'staggered'; s.until = now + staggerSeconds(weight); s.staggerReady = s.until + TELL.STAGGER_IMMUNE;
   ai.staggerUntil = s.until;   // the motor's hold (characters/enemyMotor.js _step)
   if (ent) ent.staggerUntil = s.until;   // ...and what every blow at it reads (the fold below)
@@ -190,6 +200,48 @@ export function foeGlint(ai, now = clock(), reduced = false) {
 export const staggeredNow = (ent, now = clock()) => Number.isFinite(ent?.staggerUntil) && now < ent.staggerUntil;
 // TELL1: a staggered foe takes a quarter more from every blow - the formulas' tail and a spell's landing read this
 registerBlowTakenMod('tell-stagger', (attacker, target) => (staggeredNow(target) ? TELL.STAGGER_TAKEN : 1));
+
+// ── TELL4: THE PUNISH WINDOW (bible/12-Enhanced-AI/Feud-Arc.md section 6) ──────────────────────────────────────────
+/** Is this foe OVERREACHED now - its telegraphed blow landed on no feet, and it stands spent, open to an answer? */
+export function overreachOpen(ai) {
+  const s = ai?._tac;
+  return !!s && s.state === 'overreach' && clock() < s.until && tacticsSwitchOn();
+}
+/** TELL4: is this entity overreached now (on the brain's clock)? */
+export const overreachedNow = (ent, now = clock()) => Number.isFinite(ent?.overreachUntil) && now < ent.overreachUntil;
+// TELL4: an overreached foe takes 30% more from every blow - the same registry the stagger's quarter rides
+registerBlowTakenMod('tell-overreach', (attacker, target) => (overreachedNow(target) ? TELL.PUNISH_TAKEN : 1));
+/** TELL4: its blow missed me (`perfect`: my feet were inside it TELL_LATE before the landing) - OVERREACHED for
+ *  `punishSeconds`: locked as a stagger locks (the motor's CanAct), its swing's follow-through standing (the sprite's
+ *  `'spent'`), every blow it takes x`PUNISH_TAKEN`, the first that lands staggering it. It keeps its melee token. */
+function beginOverreach(ai, s, b, now, perfect) {
+  s.state = 'overreach'; s.until = now + punishSeconds(b.kind, b.guard, perfect);
+  ai.overreachUntil = s.until;
+  const ent = ai.vitals?.();
+  if (ent) ent.overreachUntil = s.until;
+  ai._blowHold = 'spent';   // the strike goes out; then its follow-through stands (characters/mobileUnit.js)
+  if (perfect) ai._perfectAt = now;   // the tag's and the bright ring's (scenes/hostCombat.js tellCues)
+  ai._tacStrike = false; ai._tacShoot = false; ai.moving = false;
+}
+/** TELL4: the window shut - by its time, a stagger, or its place gone. The swing goes with it: let go after its strike,
+ *  dropped before one (a stagger in the frame step between the landing and the strike - no strike, and never the list's
+ *  later one under the stagger's Hurt). */
+function endOverreach(ai) {
+  ai.overreachUntil = 0;
+  const ent = ai.vitals?.();
+  if (ent) ent.overreachUntil = 0;
+  if (ai._blowHold === 'spent') dropSwing(ai);
+}
+/** TELL4: a blow landed on an overreached foe - it staggers (3.2's law: its weight's length, its token handed on), unless
+ *  inside STAGGER_IMMUNE of its last stagger, where the blow is a plain one (null: DFU's knockback). */
+function punishStruck(ai, ent, weight) {
+  const s = ai._tac, now = clock();
+  if (now < (s.staggerReady ?? -Infinity)) return null;
+  endOverreach(ai);
+  handOn(ai, s, now);
+  ai._tacStrike = false; ai._tacShoot = false; ai.moving = false;
+  return stagger(ai, s, ent, weight, now);
+}
 /** How many tokens of `kind` the target `key` has out (tests, probes). */
 export function tokensOut(key, kind) { return _boards.get(key)?.[kind]?.size ?? 0; }
 export const LOCAL_TARGET = LOCAL;
@@ -249,6 +301,14 @@ export function tacticsStep(ai, dx, dz) {
     if (now < s.until) { ai._tacStrike = false; ai._tacShoot = false; ai.moving = false; return true; }
     s.state = 'recover'; s.until = now + TACT.RECOVER_MIN + Math.random() * (TACT.RECOVER_MAX - TACT.RECOVER_MIN);
     s.backUntil = now + TACT.RECOVER_HOP;
+  }
+  // TELL4: overreached - locked as a stagger is; spent, the beat after a blow, its token handed on (TACT2's RECOVER)
+  if (s.state === 'overreach') {
+    if (now < s.until) { ai._tacStrike = false; ai._tacShoot = false; ai.moving = false; return true; }
+    endOverreach(ai);
+    s.state = 'recover'; s.until = now + TACT.RECOVER_MIN + Math.random() * (TACT.RECOVER_MAX - TACT.RECOVER_MIN);
+    s.backUntil = now + TACT.RECOVER_HOP;
+    handOn(ai, s, now);
   }
   // TACT4: a wind-up, once begun, is committed - it lands where it was aimed whether or not the target stays in sight
   if (s.state === 'windup' && s.blow) return windupTurn(ai, s, now, skipped);
@@ -388,14 +448,25 @@ function windupTurn(ai, s, now, skipped) {
     dropSwing(ai);
     return false;
   }
+  const atMe = _me && targetKey(ai) === LOCAL;
+  // TELL4 (6.2): my feet, sampled once - the first turn inside TELL_LATE of the landing
+  if (atMe && s.blow.lateIn == null && now >= s.blow.land - TELL.TELL_LATE && now < s.blow.land) s.blow.lateIn = inBlow(s.blow, _me.feet[0], _me.feet[2]);
   if (now >= s.blow.land) {
     ai._blowLandedAt = now;   // TELL2: the landing, for the LAND cue (scenes/hostCombat.js tellCues)
     // AUDIT TACT A4/D6: only ever at ME - a wind-up whose foe has turned on another lands on no one here
-    if (_me && targetKey(ai) === LOCAL) {
-      ai._blowVerdict = inBlow(s.blow, _me.feet[0], _me.feet[2]);
-      ai._blowMult = s.blow.mult; ai._blowAt = now; ai._blowSwing = true;
+    if (atMe) {
+      const b = s.blow;
+      ai._blowVerdict = inBlow(b, _me.feet[0], _me.feet[2]);
+      ai._blowMult = b.mult; ai._blowAt = now; ai._blowSwing = true;
       ai._blowHold = false;   // TELL2: the held swing strikes on its next frame
-    } else { clearBlowState(ai); dropSwing(ai); }
+      s.blowReady = cooled; s.blow = null;
+      // TELL4 (6.1): it missed - OVERREACHED; inside at the late sample and out at the landing, a perfect dodge
+      if (!ai._blowVerdict) { beginOverreach(ai, s, b, now, b.lateIn === true); return true; }
+      s.state = 'engage';
+      ai._tacStrike = true;
+      return false;
+    }
+    clearBlowState(ai); dropSwing(ai);
     s.blowReady = cooled; s.state = 'engage'; s.blow = null;
     ai._tacStrike = true;
     return false;

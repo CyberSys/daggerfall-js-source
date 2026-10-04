@@ -6136,7 +6136,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     // and the blow weighs on its poise meter; past its poise the wind-up breaks and the foe is staggered, the breaking
     // blow's shove written half again as hard. Not winding up, this answers null and DFU's knockback stands (the
     // street's door, hostCombat.windupDoor's one law)
-    const _tell = foe.ai?._tac?.state !== 'windup' ? null : windupDoor(foe, damage, {   // only a foe winding up builds the blow's bag
+    const _tell = (foe.ai?._tac?.state !== 'windup' && foe.ai?._tac?.state !== 'overreach') ? null : windupDoor(foe, damage, {   // only a foe winding up (TELL4: or overreached) builds the blow's bag
       kind, weapon, round, peer, striker, from: striker?.ai?.feet ?? playerFeet,
       claws: fromPlayer && !peer && !weapon && !!playerEntity?.isInBeastForm,
       weight: () => enemyWeightClassicUnits(!!foe.entity.isClass, foe.gender, ENEMY_BASICS[foe.mobileType]?.weight ?? 0, foe.entity?.items),

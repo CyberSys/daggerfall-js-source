@@ -917,7 +917,7 @@ export function createCityGuards({ renderer, collider, fetchBytes, getTexture, u
     // TELL1 (bible/12-Enhanced-AI/Feud-Arc.md section 3): a watchman WINDING UP holds through the blow - no shove, no
     // Hurt - and the blow weighs on his poise; past it the wind-up breaks and he is staggered, the breaking blow's shove
     // half again as hard. Not winding up, this answers null and DFU's knockback stands (hostCombat.windupDoor's one law)
-    const _tell = g.ai?._tac?.state !== 'windup' ? null : windupDoor(g, damage, {   // only a watchman winding up builds the blow's bag
+    const _tell = (g.ai?._tac?.state !== 'windup' && g.ai?._tac?.state !== 'overreach') ? null : windupDoor(g, damage, {   // only a watchman winding up (TELL4: or overreached) builds the blow's bag
       kind, weapon, round, peer, striker, from: striker?.ai?.feet ?? playerFeet,
       claws: fromPlayer && !peer && !weapon && !!playerEntity?.isInBeastForm,
       weight: () => enemyWeightClassicUnits(true, 'male', guardWeight, g.entity?.items),

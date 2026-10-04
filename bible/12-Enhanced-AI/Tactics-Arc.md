@@ -189,7 +189,8 @@ Every version of the door grief, fixed without asking further (Mac: "stop asking
   staggered. Once begun it is committed - it lands where it was aimed though the target slips out of its sight.
 - **The landing** - where the player's feet stand (noted each frame) is the verdict; the swing comes at once (the
   attack component's forced swing, past DFU's clock and reach - since TELL2 the swing began with the wind-up and
-  stood held at its raised arm, and the landing releases it, `Feud-Arc.md` section 4.1); the host's own hit resolution asks `blowConnects`
+  stood held at its raised arm, and the landing releases it, `Feud-Arc.md` section 4.1; since TELL4 a miss leaves
+  its foe overreached, open to an answer, section 6); the host's own hit resolution asks `blowConnects`
   in place of its reach test and `blowScaled` on DFU's damage roll (armour, skill, the party's weighing and all) - in
   the street's encounters, the watch, and the dungeon (the interior's foes are the street's pool). A blow is only
   ever at the local player.

@@ -38,7 +38,7 @@ import { bloodHit } from '../combat/bloodDecals.js';   // BLOOD1b: the blow, in 
 import { KNIGHT_CITY_WATCH } from '../characters/mobileTypes.js';
 import { ATTRACT_RADIUS, ignoreHumanSounds } from '../characters/enemySounds.js';   // AUDIT 24 (wave 41); TELL2: a person's wind-up is a swing, not a voice
 import { enemyDisplayName, ENEMY_BASICS } from '../characters/enemyBasics.js';   // AUDIT 24 (wave 42); TELL1: the bark a breaking blow wrings out
-import { windupHolds, windupStruck, tacticsNow } from '../ai/tactics.js';   // TELL1: poise and the stagger (bible/12-Enhanced-AI/Feud-Arc.md section 3); TELL2: the cues' clock
+import { windupHolds, windupStruck, tacticsNow, overreachOpen } from '../ai/tactics.js';   // TELL1: poise and the stagger (bible/12-Enhanced-AI/Feud-Arc.md section 3); TELL2: the cues' clock; TELL4: the punish window
 import { blowK, blowWeight, behind, TELL } from '../ai/tells.js';   // TELL1: a blow's weight on the poise meter; TELL2: the cues' numbers
 import { comprehendLanguagesChance } from '../systems/effects.js';   // X11: the pacification bonus DFU reads inside its own formula
 
@@ -643,7 +643,8 @@ export function applyDamageToNonPlayer(attacker, target, {
  * again - goes on the foe's poise meter (ai/tactics.js windupStruck). Answers null when the foe is not winding up (the
  * door's knockback stands, DFU's to the bit), else the brain's word: 'hold' (the door writes no shove and plays no
  * Hurt), 'break' (the wind-up only broke - its last stagger too recent - and the blow knocks as DFU's does) or
- * 'stagger' (the door writes the breaking blow's shove at TELL.STAGGER_KNOCK).
+ * 'stagger' (the door writes the breaking blow's shove at TELL.STAGGER_KNOCK). TELL4: a foe OVERREACHED (its blow
+ * missed) is open too - the first blow that lands staggers it ('stagger'), unless its last stagger is too recent (null).
  *
  * `opts`: the door's `kind`, the striking `weapon` (the player's), `round` (a spell's later round), `peer`, `striker`
  * (a foe's record - its own weapon, its own body for a monster), `from` (where the blow came from), `claws` (the
@@ -651,6 +652,11 @@ export function applyDamageToNonPlayer(attacker, target, {
  * foe is winding up). `fx`: the pool's `audio`, `hitEffects`, `shake` (the player's own blow only) and `rolls`.
  */
 export function windupDoor(f, damage, { kind = 'melee', weapon = null, round = false, peer = false, striker = null, from = null, claws = false, weight = 0 } = {}, fx = {}) {
+  if (f?.ai && overreachOpen(f.ai)) {   // TELL4: no meter to weigh - the blow lands, and the first staggers it
+    const word = windupStruck(f.ai, f.entity, typeof weight === 'function' ? weight() : weight, 0);
+    windupFeedback(word, f, fx);
+    return word;
+  }
   if (!f?.ai || !windupHolds(f.ai)) return null;
   const blow = f.ai._tac.blow;
   const k = striker
@@ -687,7 +693,8 @@ export function windupFeedback(word, f, { audio = null, hitEffects = null, shake
  *   RELEASE TELL.RELEASE_LEAD before its landing - the low swing at TELL.RELEASE_PITCH;
  *   LAND at the strike frame that follows its landing (the sprite's `meleeSeq`) - the kind's attack sound, always
  *   (DFU's half-the-time roll stays on its plain swings).
- * A wind-up that breaks plays neither of the last two; a feint (TELL5) no WIND. Called once a frame per live foe,
+ * A wind-up that breaks plays neither of the last two; a feint (TELL5) no WIND. TELL4: a perfect dodge rings at its
+ * landing - `SOUND.Parry6` at TELL.PERFECT_PITCH. Called once a frame per live foe,
  * after its sprite's update. Answers the cues it played this frame (tests).
  */
 export function tellCues(f, audio, hearing = 1, now = tacticsNow()) {
@@ -715,7 +722,10 @@ export function tellCues(f, audio, hearing = 1, now = tacticsNow()) {
   else if (c.blow) {
     // landed (the brain stamped its landing at or after this blow's), or broken - only a landing strikes; its strike may
     // already be this frame's (the sprite stepped past the release before this call)
-    c.land = ai._blowLandedAt != null && ai._blowLandedAt >= c.blow.land - 1e-6 && ai._blowHold === false;
+    const landed = ai._blowLandedAt != null && ai._blowLandedAt >= c.blow.land - 1e-6;
+    c.land = landed && (ai._blowHold === false || ai._blowHold === 'spent');   // TELL4: a miss strikes too, then stands spent
+    // TELL4 (6.2): a perfect dodge - the bright parry ring, at the landing
+    if (landed && ai._perfectAt != null && ai._perfectAt >= c.blow.land - 1e-6) play(SOUND.Parry6, TELL.PERFECT_PITCH);
     c.blow = null;
   }
   if (c.land && (f.mobile?.meleeSeq ?? 0) !== c.seq) {

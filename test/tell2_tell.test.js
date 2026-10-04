@@ -241,7 +241,9 @@ test('TELL2: END TO END on the real sprite - no strike while it winds up, its st
     const after = f.hits.slice(hits0);
     assert.ok(after.length >= 1, 'it struck');
     assert.ok(after[0] >= blow.land - 1e-9, `never before the landing (${after[0]} < ${blow.land})`);
-    assert.ok(after[0] - blow.land <= STEP + DT + 1e-9, `within a frame step of it (${(after[0] - blow.land).toFixed(3)})`);
+    // the brain hears its landing on its next classic tick (16 Hz); the sprite strikes on its next frame step after that
+    assert.ok(after[0] - f.ai._blowLandedAt <= STEP + DT + 1e-9, `within a frame step of it (${(after[0] - f.ai._blowLandedAt).toFixed(3)})`);
+    assert.ok(f.ai._blowLandedAt - blow.land < 1 / 16 + DT + 1e-9, 'heard on the brain\'s next tick (its 16 Hz, inside a frame)');
     assert.equal(lowered, false, 'the raised arm stood');
   }
 });

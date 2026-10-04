@@ -119,8 +119,8 @@
   {
     "name": "TELL1-token-kept",
     "file": "src/ai/tactics.js",
-    "old": "  if (bd) { bd.melee.delete(ai); bd.waiting.set(ai, now); }",
-    "new": "  if (false) { bd.melee.delete(ai); bd.waiting.set(ai, now); }",
+    "old": "  if (bd) { bd.melee.delete(ai); bd.waiting.set(ai, now); }\n}\n/** TELL1 (3.2)",
+    "new": "  if (false) { bd.melee.delete(ai); bd.waiting.set(ai, now); }\n}\n/** TELL1 (3.2)",
     "tests": [
       "test/tell1_poise.test.js"
     ]
@@ -128,8 +128,8 @@
   {
     "name": "TELL1-no-cooldown",
     "file": "src/ai/tactics.js",
-    "old": "  s.blowReady = now + BLOW_COOLDOWN_MIN + Math.random() * (BLOW_COOLDOWN_MAX - BLOW_COOLDOWN_MIN);\n  clearBlowState(ai);\n  dropSwing(ai);\n  const bd",
-    "new": "  s.blowReady = now;\n  clearBlowState(ai);\n  dropSwing(ai);\n  const bd",
+    "old": "  s.blowReady = now + BLOW_COOLDOWN_MIN + Math.random() * (BLOW_COOLDOWN_MAX - BLOW_COOLDOWN_MIN);\n  clearBlowState(ai);\n  dropSwing(ai);\n  handOn(ai, s, now);",
+    "new": "  s.blowReady = now;\n  clearBlowState(ai);\n  dropSwing(ai);\n  handOn(ai, s, now);",
     "tests": [
       "test/tell1_poise.test.js"
     ]
@@ -182,7 +182,7 @@
   {
     "name": "TELL1-motor-acts",
     "file": "src/characters/enemyMotor.js",
-    "old": "    this.canAct = !paralyzed && !knocked && !staggered && (this.isHostile || foeTarget);",
+    "old": "    this.canAct = !paralyzed && !knocked && !locked && (this.isHostile || foeTarget);",
     "new": "    this.canAct = !paralyzed && !knocked && (this.isHostile || foeTarget);",
     "tests": [
       "test/tell1_poise.test.js"
@@ -191,7 +191,7 @@
   {
     "name": "TELL1-motor-walks",
     "file": "src/characters/enemyMotor.js",
-    "old": "    if (paralyzed || paused || staggered || !(this.isHostile || foeTarget)) this.moving = false;",
+    "old": "    if (paralyzed || paused || locked || !(this.isHostile || foeTarget)) this.moving = false;",
     "new": "    if (paralyzed || paused || !(this.isHostile || foeTarget)) this.moving = false;",
     "tests": [
       "test/tell1_poise.test.js"

@@ -36,7 +36,7 @@ beforeEach(() => { resetTactics(); resetBlows(); T = 0; setPref('enhancedAI', tr
 // ── the law ─────────────────────────────────────────────────────────
 
 test('TELL1: the table is the arc\'s section 27 (mutants: any number moved)', () => {
-  assert.deepEqual({ ...TELL, POISE_W: { ...TELL.POISE_W }, STAGGER_S: { ...TELL.STAGGER_S } }, {
+  assert.deepEqual({ ...TELL, POISE_W: { ...TELL.POISE_W }, STAGGER_S: { ...TELL.STAGGER_S }, PUNISH_S: { ...TELL.PUNISH_S } }, {
     POISE_W: { light: 0.2, medium: 0.3, heavy: 0.4, massive: 0.5 },
     WEIGHT_MEDIUM: 200, WEIGHT_HEAVY: 700, WEIGHT_MASSIVE: 1500,
     POISE_ELITE: 1.5, POISE_ELITE_DUNGEON: 1.25, POISE_CHAMPION: 1.25, POISE_STALWART: 1.5, POISE_REVENANT_RANK: 0.1,
@@ -47,6 +47,8 @@ test('TELL1: the table is the arc\'s section 27 (mutants: any number moved)', ()
     GLINT_PULSE: 0.9, GLINT_PULSE_S: 0.15, GLINT_STEADY: 0.2, TELL_NOW: 0.2, GLINT_REDUCED: 0.45, RELEASE_LEAD: 0.25,
     WIND_PITCH: 0.85, WIND_CLASS_PITCH: 0.6, WIND_CLASS_VOLUME: 0.6, RELEASE_PITCH: 0.45, NEAR_M: 6, NEAR_FLOOR: 0.6,
     IRON_SHAPES: ['slam', 'ring'], IRON_ELITE: 1 / 3, IRON_EXTRA: 0.2,
+    PUNISH_S: { lunge: 1.0, sweep: 0.8, slam: 1.2, ring: 1.0, charge: 1.4, leap: 1.2 }, PUNISH_IRON: 0.3, PUNISH_TAKEN: 1.3,
+    TELL_LATE: 0.25, PERFECT_WINDOW: 1.5, PERFECT_PITCH: 1.25,
   });
 });
 
@@ -413,21 +415,22 @@ test('TELL1: the foe-vs-foe payload writes no knockback on a foe winding up - it
 
 test('TELL1: every door asks the poise door where it writes DFU\'s knock, passes the player\'s weapon, and holds the Hurt through a stagger; the spells\' rounds and the arrows\' kinds reach the doors (mutants: a door left on the old law)', () => {
   const ex = rd('src/scenes/exteriorFoes.js');
-  assert.match(ex, /const _tell = f\.ai\?\._tac\?\.state !== 'windup' \? null : windupDoor\(f, damage, \{[^\n]*\n\s*kind, weapon, round, peer, striker, from: striker\?\.ai\?\.feet \?\? playerFeet,/);
+  // PIN MOVED (TELL4, bible/12-Enhanced-AI/Feud-Arc.md 6.1): an overreached foe asks the door too (the first blow staggers it)
+  assert.match(ex, /const _tell = \(f\.ai\?\._tac\?\.state !== 'windup' && f\.ai\?\._tac\?\.state !== 'overreach'\) \? null : windupDoor\(f, damage, \{[^\n]*\n\s*kind, weapon, round, peer, striker, from: striker\?\.ai\?\.feet \?\? playerFeet,/);
   assert.match(ex, /if \(_tell === 'hold'\) return;\n\s*if \(knockDir && weaponKnockbackApplies\(f\.ai\.knockbackSpeed, isClass, mobileWeight\)\) \{/);
   assert.match(ex, /f\.ai\.knockbackSpeed = weaponKnockbackSpeed\(damage, w\) \* \(_tell === 'stagger' \? TELL\.STAGGER_KNOCK : 1\);/);
   assert.match(ex, /damageFoe\(foe, damage, playerFeet, lookDir, \{ weapon: playerWeapon\.strikingWeapon \}\);/);
   assert.match(ex, /hurting: f\.ai\.hurtKnock \|\| f\.ai\.staggered,/);
   assert.match(ex, /hurt: \(n, o\) => damageFoe\(f, n, null, null, \{ fromPlayer: false, kind: 'spell', whole: !!o\?\.whole, round: !!o\?\.round \}\),/);
   const g = rd('src/scenes/cityGuards.js');
-  assert.match(g, /const _tell = g\.ai\?\._tac\?\.state !== 'windup' \? null : windupDoor\(g, damage, \{/);
+  assert.match(g, /const _tell = \(g\.ai\?\._tac\?\.state !== 'windup' && g\.ai\?\._tac\?\.state !== 'overreach'\) \? null : windupDoor\(g, damage, \{/);   // PIN MOVED (TELL4)
   assert.match(g, /if \(_tell === 'hold'\) return;\n\s*if \(knockDir && weaponKnockbackApplies\(g\.ai\.knockbackSpeed, true, guardWeight\)\) \{/);
   assert.match(g, /g\.ai\.knockbackSpeed = weaponKnockbackSpeed\(damage, w\) \* \(_tell === 'stagger' \? TELL\.STAGGER_KNOCK : 1\);/);
   assert.match(g, /damageGuard\(foe, damage, playerFeet, lookDir, \{ weapon: playerWeapon\.strikingWeapon \}\);/);
   assert.match(g, /hurting: g\.ai\.hurtKnock \|\| g\.ai\.staggered,/);
   assert.match(g, /hurtFromFoe: \(dmg, dir, striker = null\) => damageGuard\(g, dmg, null, dir \?\? null, \{ fromPlayer: false, striker \}\)/);
   const d = rd('src/scenes/dungeonContext.js');
-  assert.match(d, /const _tell = foe\.ai\?\._tac\?\.state !== 'windup' \? null : windupDoor\(foe, damage, \{/);
+  assert.match(d, /const _tell = \(foe\.ai\?\._tac\?\.state !== 'windup' && foe\.ai\?\._tac\?\.state !== 'overreach'\) \? null : windupDoor\(foe, damage, \{/);   // PIN MOVED (TELL4)
   assert.match(d, /if \(_tell === 'hold'\) return;\n\s*if \(knockDir && foe\.ai\) \{/);
   assert.match(d, /foe\.ai\.knockbackSpeed = weaponKnockbackSpeed\(damage, w\) \* \(_tell === 'stagger' \? TELL\.STAGGER_KNOCK : 1\);/);
   assert.match(d, /damageFoe\(foe, damage, playerFeet, lookDir, \{ weapon: playerWeapon\.strikingWeapon \}\);/);
@@ -444,6 +447,8 @@ test('TELL1: every door asks the poise door where it writes DFU\'s knock, passes
   ]) assert.match(rd(file), re, file);
   assert.match(rd('src/scenes/hostCombat.js'), /if \(target\.ai && !windupHolds\(target\.ai\) && enemyKnockbackApplies\(/);
   const mo = rd('src/characters/enemyMotor.js');
-  assert.match(mo, /this\.canAct = !paralyzed && !knocked && !staggered && \(this\.isHostile \|\| foeTarget\);/);
-  assert.match(mo, /if \(paralyzed \|\| paused \|\| staggered \|\| !\(this\.isHostile \|\| foeTarget\)\) this\.moving = false;/);
+  // PIN MOVED (TELL4, Feud-Arc.md 6.1): the stagger's lock is `locked` - a stagger or an overreach
+  assert.match(mo, /const locked = staggered \|\| overreached;/);
+  assert.match(mo, /this\.canAct = !paralyzed && !knocked && !locked && \(this\.isHostile \|\| foeTarget\);/);
+  assert.match(mo, /if \(paralyzed \|\| paused \|\| locked \|\| !\(this\.isHostile \|\| foeTarget\)\) this\.moving = false;/);
 });

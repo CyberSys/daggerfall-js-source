@@ -6,7 +6,7 @@ these enemies and breath more depth into it"*; then, on the sixteen ideas offere
 detailed arc. I want this to be perfect and insanely detailed"*.
 
 **Status: DESIGNED 2026-10-04 - Mac: "Go" on every call of section 31, each as recommended. Built slice by slice
-(section 30's order) - TELL1, TELL2 and TELL3 built; each slice's record is at the foot.**
+(section 30's order) - TELL1 to TELL4 built; each slice's record is at the foot.**
 Two halves that lean on each other. **TELL** (TELL1-TELL9) gives a foe's telegraphed blow weight: poise, a body that
 winds up, a cost for missing. **RVN** (RVN1-RVN13) gives a revenant a memory of how it was beaten, a secret, a last
 stand, a name for its worst blow, a band, a lair, and a reason to fear leaving it alone. The predecessors are
@@ -1214,3 +1214,45 @@ RVN5-RVN7; RVN8-RVN11; RVN12 and RVN13 with the audit.
   ground's rim, hatch and uniform. Pin moved: `tell1_poise` (its giant's and elite's wind-ups pinned poise - a giant's
   slam is iron now; the table grew).
 - Mutants `tools/mutants/tell3.json` (24), all dead.
+
+### TELL4 - BUILT 2026-10-04 (the Enhanced AI switch on, every host)
+
+- **The law** - `ai/tells.js`: `PUNISH_S` (lunge 1.0, sweep 0.8, slam 1.2, ring 1.0, charge 1.4, leap 1.2 s),
+  `PUNISH_IRON` 0.3, `PUNISH_TAKEN` 1.3, `TELL_LATE` 0.25, `PERFECT_WINDOW` 1.5, `PERFECT_PITCH` 1.25;
+  `punishSeconds(kind, guard, perfect)` (a shape with no row takes the lunge's).
+- **Overreach** - `ai/tactics.js windupTurn`: a landing at me whose verdict is false begins the window
+  (`beginOverreach`): state `overreach` for `punishSeconds`, `ai.overreachUntil` and `entity.overreachUntil` on the
+  brain's clock, the swing released to strike and then stand (`_blowHold = 'spent'`), its melee token kept. The
+  window's end (the brain's next turn past it) is TACT2's RECOVER - its hop, its beat, its token handed on. Its place
+  gone (`releaseTactics`) ends it. `characters/enemyMotor.js _step`: `overreached` joins the stagger's lock as `locked`
+  (CanAct, the walk latch, the detour timers, the follow) - its Hurt is not asked.
+- **The spent pose** - `characters/mobileUnit.js`: a held swing's strike is `_struck`; under `'spent'` its
+  follow-through - the frame after its strike - STANDS. Read for section 6.1's "the attack's last frame": a list's last
+  entries are its second strike and its rest pose (the orc's `[..., -1, 5, 0]`), so the frame the world boss's
+  SPENT_FRAME stands for is the one after the blow. When the word goes the swing is over (to idle); a list's second
+  strike is never played out of an overreach. The window's end and a stagger drop the swing (`'cancel'`) - a stagger
+  in the frame step between the landing and the strike strikes nothing.
+- **The answer** - `windupStruck` asks `overreachOpen` first: the first blow that lands staggers (`punishStruck`: its
+  weight's `STAGGER_S`, the window shut, the token on, `STAGGER_IMMUNE` begun); inside the guard it is a plain blow
+  (null: DFU's knockback). `scenes/hostCombat.js windupDoor` opens to an overreached foe (no meter: the first blow
+  staggers it, with TELL1's clang and the x1.5 shove); the three doors' fast path asks for `'overreach'` beside
+  `'windup'`. The fold `tell-overreach` (x1.3) rides the TELL1 registry the formulas' tail and a spell's landing read.
+- **The perfect dodge** - the brain samples my feet once, the first turn inside `TELL_LATE` of the landing
+  (`blow.lateIn`); inside then and out at the landing: the window x1.5 and `ai._perfectAt` stamped (TELL9's tag).
+  `tellCues` rings `SOUND.Parry6` at `PERFECT_PITCH` at the landing, once; a miss still LANDs in the ear at its strike.
+- **The bound** - one missed blow buys at most a perfect dodge of an iron charge's window, (1.4 + 0.3) x 1.5 = 2.55 s,
+  then a light foe's 1.4 s stagger: 3.95 s (section 6.1's 3.1 s left the perfect window out), then 3 s of
+  `STAGGER_IMMUNE` and the blow's cooldown.
+- **Not built here** - a peer's (6.3, TELL8); the "Perfect" tag on the target bar (TELL9); the charge, the leap and the
+  ring's windows ride their shapes in TELL6.
+- Pins `test/tell4_punish.test.js` (11): the windows and the bound; ON THE REAL MOTOR a miss overreaching (its window,
+  the lock, the token kept, the stand, then RECOVER and the token on, the pose let go), a landing opening none, a late
+  dodge perfect and an early one plain, the first blow staggering (its length, the window shut, the token, its Hurt)
+  and inside the guard not, its place gone and the switch off; the x1.3; the spent pose on three real lists (and its
+  Hurt, and a DFU swing never spent); END TO END one strike and the pose through the window; the door; the ear. Pins
+  moved: `tell1_poise` (the doors' fast path, the motor's `locked`, the table); `tell2_tell`'s end-to-end bound read
+  from the brain's landing (its 16 Hz tick, then a frame step - the old bound off the blow's own time was too tight).
+  The stagger's law and the token's hand-on are one helper each (`stagger`, `handOn`), shared by a broken wind-up and an
+  answered overreach. Mutant records re-aimed by content: `audittact` D6, `tact4` (two), `tell1` (seven), `tell2`
+  (four).
+- Mutants `tools/mutants/tell4.json` (40), all dead.

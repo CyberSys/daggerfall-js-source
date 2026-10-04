@@ -66,6 +66,13 @@ export const TELL = Object.freeze({
   IRON_SHAPES: Object.freeze(['slam', 'ring']),   // a heavy or massive body's iron shapes (the ring is TELL6's)
   IRON_ELITE: 1 / 3,            // an elite's blow is iron one time in this
   IRON_EXTRA: TELL_IRON_EXTRA,  // an iron wind-up runs this much longer (ai/blowShapes.js)
+  // TELL4: the punish window and the perfect dodge
+  PUNISH_S: Object.freeze({ lunge: 1.0, sweep: 0.8, slam: 1.2, ring: 1.0, charge: 1.4, leap: 1.2 }),   // a missed blow's overreach
+  PUNISH_IRON: 0.3,             // ...an iron one's, this much longer
+  PUNISH_TAKEN: 1.3,            // every blow an overreached foe takes
+  TELL_LATE: 0.25,              // the feet sampled this long before the landing: inside then, outside at it, a perfect dodge
+  PERFECT_WINDOW: 1.5,          // ...whose window is this much longer
+  PERFECT_PITCH: 1.25,          // ...and whose parry ring is bright (SOUND.Parry6)
 });
 
 /** The weight class of a foe of `weight` classic units. */
@@ -168,4 +175,11 @@ export function blowGuard(kind, weight, ent = null, roll = null) {
   if (TELL.IRON_SHAPES.includes(kind) && (cls === 'heavy' || cls === 'massive')) return 'iron';
   if (ent?.eliteFoe === true && (roll ?? Math.random()) < TELL.IRON_ELITE) return 'iron';
   return 'poise';
+}
+
+/** TELL4 (section 6.1): how long a missed blow of `kind` leaves its foe overreached - its shape's `PUNISH_S`, an iron
+ *  blow's `PUNISH_IRON` longer, a perfect dodge's `PERFECT_WINDOW` times that. A shape with no row: the lunge's. */
+export function punishSeconds(kind, guard = 'poise', perfect = false) {
+  const base = TELL.PUNISH_S[kind] ?? TELL.PUNISH_S.lunge;
+  return (base + (guard === 'iron' ? TELL.PUNISH_IRON : 0)) * (perfect ? TELL.PERFECT_WINDOW : 1);
 }

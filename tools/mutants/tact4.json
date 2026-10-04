@@ -200,7 +200,7 @@
   {
     "name": "TACT4-verdict-always",
     "file": "src/ai/tactics.js",
-    "old": "      ai._blowVerdict = inBlow(s.blow, _me.feet[0], _me.feet[2]);",
+    "old": "      ai._blowVerdict = inBlow(b, _me.feet[0], _me.feet[2]);",
     "new": "      ai._blowVerdict = true;",
     "tests": [
       "test/tact4.test.js"
@@ -209,8 +209,8 @@
   {
     "name": "TACT4-no-forced-swing",
     "file": "src/ai/tactics.js",
-    "old": "    ai._blowMult = s.blow.mult; ai._blowAt = now; ai._blowSwing = true;",
-    "new": "    ai._blowMult = s.blow.mult; ai._blowAt = now;",
+    "old": "      ai._blowMult = b.mult; ai._blowAt = now; ai._blowSwing = true;",
+    "new": "      ai._blowMult = b.mult; ai._blowAt = now;",
     "tests": [
       "test/tact4.test.js"
     ]

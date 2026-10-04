@@ -11,8 +11,8 @@
   {
     "name": "TELL2-second-strike-held",
     "file": "src/characters/mobileUnit.js",
-    "old": "        else { this.doMeleeDamage = true; this.meleeSeq++; this._underHold = false; }",
-    "new": "        else { this.doMeleeDamage = true; this.meleeSeq++; }",
+    "old": "        else { this.doMeleeDamage = true; this.meleeSeq++; this._underHold = false; this._struck = this._heldSwing; }",
+    "new": "        else { this.doMeleeDamage = true; this.meleeSeq++; this._struck = this._heldSwing; }",
     "tests": [
       "test/tell2_tell.test.js"
     ]
@@ -38,8 +38,8 @@
   {
     "name": "TELL2-any-swing-held",
     "file": "src/characters/mobileUnit.js",
-    "old": "      this._underHold = this._hold === true;\n    }",
-    "new": "      this._underHold = true;\n    }",
+    "old": "      this._underHold = this._hold === true;\n      this._heldSwing",
+    "new": "      this._underHold = true;\n      this._heldSwing",
     "tests": [
       "test/tell2_tell.test.js"
     ]
@@ -65,8 +65,8 @@
   {
     "name": "TELL2-no-meleeseq",
     "file": "src/characters/mobileUnit.js",
-    "old": "        else { this.doMeleeDamage = true; this.meleeSeq++; this._underHold = false; }",
-    "new": "        else { this.doMeleeDamage = true; this._underHold = false; }",
+    "old": "        else { this.doMeleeDamage = true; this.meleeSeq++; this._underHold = false; this._struck = this._heldSwing; }",
+    "new": "        else { this.doMeleeDamage = true; this._underHold = false; this._struck = this._heldSwing; }",
     "tests": [
       "test/tell2_tell.test.js"
     ]
@@ -302,7 +302,7 @@
   {
     "name": "TELL2-break-lands",
     "file": "src/scenes/hostCombat.js",
-    "old": "    c.land = ai._blowLandedAt != null && ai._blowLandedAt >= c.blow.land - 1e-6 && ai._blowHold === false;",
+    "old": "    c.land = landed && (ai._blowHold === false || ai._blowHold === 'spent');",
     "new": "    c.land = true;",
     "tests": [
       "test/tell2_tell.test.js"

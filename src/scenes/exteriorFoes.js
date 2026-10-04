@@ -960,7 +960,7 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
     // TELL1 (bible/12-Enhanced-AI/Feud-Arc.md section 3): a foe WINDING UP holds through the blow - no shove, no Hurt -
     // and the blow weighs on its poise meter; past its poise the wind-up breaks and the foe is staggered, the breaking
     // blow's shove written half again as hard. Not winding up, this answers null and DFU's knockback stands
-    const _tell = f.ai?._tac?.state !== 'windup' ? null : windupDoor(f, damage, {   // only a foe winding up builds the blow's bag
+    const _tell = (f.ai?._tac?.state !== 'windup' && f.ai?._tac?.state !== 'overreach') ? null : windupDoor(f, damage, {   // only a foe winding up (TELL4: or overreached) builds the blow's bag
       kind, weapon, round, peer, striker, from: striker?.ai?.feet ?? playerFeet,
       claws: fromPlayer && !peer && !weapon && !!playerEntity?.isInBeastForm,
       weight: () => enemyWeightClassicUnits(isClass, f.gender, mobileWeight, f.entity?.items),

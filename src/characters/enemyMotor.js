@@ -533,6 +533,8 @@ export class EnemyAI {
     this.hurtKnock = false;    // per-step: speed above the hurt threshold (the scene's hurting input)
     this.staggerUntil = 0;     // TELL1: a broken wind-up's stagger ends here, on the brain's clock (ai/tactics.js windupStruck)
     this.staggered = false;    // per-step: staggered - CanAct false, its Hurt held (the scene's hurting input with hurtKnock)
+    this.overreachUntil = 0;   // TELL4: a missed telegraphed blow's punish window ends here, on the brain's clock (ai/tactics.js)
+    this.overreached = false;  // per-step: overreached - CanAct false as staggered, its swing's follow-through standing (no Hurt)
     this._dist = Infinity;
     // P13 stealth state (EnemySenses fields)
     this.hasEncounteredPlayer = false;
@@ -1783,6 +1785,11 @@ export class EnemyAI {
     // one), so it exists only with the Enhanced AI switch on, which alone stands a wind-up to break.
     const staggered = this.staggerUntil > 0 && tacticsNow() < this.staggerUntil;
     this.staggered = staggered;
+    // TELL4 (Feud-Arc.md 6.1): OVERREACHED - its telegraphed blow missed - locked as a stagger locks, but its Hurt is not
+    // asked (the sprite stands at its swing's follow-through). `locked` carries both wherever the stagger's lock reads.
+    const overreached = this.overreachUntil > 0 && tacticsNow() < this.overreachUntil;
+    this.overreached = overreached;
+    const locked = staggered || overreached;
     // AUDIT 26 F010: CanAct, EXPOSED. HandleParalysis and
     // KnockbackMovement clear it (:255, :317) and the attack/cast
     // components' bow-roll and spell branches live behind
@@ -1810,7 +1817,7 @@ export class EnemyAI {
     // HandleParalysis and KnockbackMovement have settled CanAct, and
     // BEFORE TakeAction reads avoidObstaclesTimer (:166-172).
     this._clock += dt;
-    this._updateDetourTimers(dt, !paralyzed && !knocked && !staggered);
+    this._updateDetourTimers(dt, !paralyzed && !knocked && !locked);
     // MT-i: the host's targeting context arms the classic target
     // machine - a closure over the pool's shared candidate list
     // (enemyTargets.runTargetMachine; a hook, not an import, so the
@@ -1864,7 +1871,7 @@ export class EnemyAI {
     this.targetIsLocalPlayer = !this._armedTargeting || (this.target != null && this.target.isPlayer === true && this.target.isPeer !== true);
     // MT-iii's hostility narrowing, now on THIS step's target machine.
     const foeTarget = this._armedTargeting && this.target != null && !this.target.isPlayer;
-    this.canAct = !paralyzed && !knocked && !staggered && (this.isHostile || foeTarget);
+    this.canAct = !paralyzed && !knocked && !locked && (this.isHostile || foeTarget);
     if (!this.canAct || paused) this._tacSkipped = true;   // AUDIT TACT D1/A3: a step it could not decide - the brain's word for a knock, never a clock's
     if (targeting && targetFeet == null) {
       this.inSight = false;
@@ -1903,10 +1910,10 @@ export class EnemyAI {
     // transform starts; the port's `moving` is a LATCH the classic
     // tick sets, and a latch left standing would walk the Seducer on
     // for up to a classic tick after DFU's has stopped dead.
-    if (paralyzed || paused || staggered || !(this.isHostile || foeTarget)) this.moving = false;
+    if (paralyzed || paused || locked || !(this.isHostile || foeTarget)) this.moving = false;
     // CREW-COMPANIONS: a companion (the host's `follow`) with no foe to fight - or one chased too far from its
     // leader - keeps to the leader instead: the pursuit's own turn-then-walk, aimed at the leader's feet.
-    this._following = !!this.follow && !paralyzed && !paused && !knocked && !staggered && this._followWanted();
+    this._following = !!this.follow && !paralyzed && !paused && !knocked && !locked && this._followWanted();
     if (this._following) this._followTicks(classicTicks, dt);
 
     // C15 KnockbackMovement, verbatim: runs INSTEAD of pursuit (and
