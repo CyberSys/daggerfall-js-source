@@ -1,13 +1,15 @@
-# FIELD BUGS 2026-10-04 - a gatherer's goods in the pack, past its weight; the Materials Bag on every shelf
+# FIELD BUGS 2026-10-04 - a gatherer's goods in the pack, past its weight; the Materials Bag on every shelf, and it and the Campfire never sold out
 
 Mac, from play the day after BAG1 shipped: *"People are doing gathering without a crafting bag and theyre not seeing
-the materials in their inventory"*, then *"Also nobody can find material bags in store"*. Each fix below is pinned by
+the materials in their inventory"*, then *"Also nobody can find material bags in store"*, then *"I want the gathering
+bag to be unlimited purchases in stores. It shouldnt run out, same with campfires"*. Each fix below is pinned by
 tests that fail on the code before it, and its pins are mutation-checked.
 
 | | Report | What it was | Done |
 |---|---|---|---|
 | 1 | "People are doing gathering without a crafting bag and theyre not seeing the materials in their inventory" (Mac) | a carried harvest (BAG1) was minted into the bag, then the pack up to its weight, and the rest was "left where it was gathered" - counted carried by the service and never made. A DFU pack is carried to its limit (every loot take is weighed against it), and with no bag the pack is all there is, so a loaded character gathered goods it never saw | PACK-OVER |
 | 2 | "Also nobody can find material bags in store" (Mac) | the bag stood on a General Store's first shelf alone and was left off a shelf stocked by a character who carried one; the first shelf is just the first model the building lists, and online a shelf's stock is the room's for the day, so one bag-owner's open hid it from everyone | BAG-SHELF |
+| 3 | "I want the gathering bag to be unlimited purchases in stores. It shouldnt run out, same with campfires" (Mac) | a shop shelf is a container: a purchase took its one bag and its two to four Campfires off for the day, and online a shelf is the whole building's | ENDLESS-STOCK |
 
 ## PACK-OVER (1)
 
@@ -54,3 +56,21 @@ until its restock. The four hosts: shelves are stocked in `scenes/worldModes.js`
 exterior.js, world.js and dungeonContext.js stock no shop shelf. Pinned in `test/bag1_client.test.js` (BAG1 bought: a
 bag-owner's shelf and a second shelf both shelve it); `tools/mutants/bag1.json`'s shelf records retargeted (the first
 shelf alone, none to a bag-owner, offline) - 89, all dead.
+
+## ENDLESS-STOCK (3)
+
+`systems/shopStock.js` isEndlessStock, restockEndless; `scenes/worldModes.js` commitTrade, doBuy. A shelf's rows are its
+stock until the game day turns (A2's restock law), and a purchase splices the bought rows off it - so a General Store
+sold its bag (one a shelf, BAG-SHELF) and its Campfires (two to four, REST2; a Pawn Shop's 0-2) and had none until the
+next day, and online that shelf is the building's (WORLD6a), so one buyer emptied it for everyone. The Materials Bag and
+the Campfire are endless now: both purchases - the counter's (commitTrade's Buy arm) and the keyed list's (doBuy) -
+after they take the bought rows off the shelf, put a fresh one back for each endless row - minted as the shelf mints it (the bag through `setItemFields`, the Campfire through
+`createSurvivalItem`, full), never the record the buyer took. A Campfire is the survival group's template 541; neither
+stacks, so one row bought is one row back. No other door calls it: a row taken from a closed shop's shelf is stolen
+(PT1) and is not put back, and the horse, the cart and the rest of a shelf sell out as before. A Pawn Shop that
+rolled no Campfire still has none to sell. Online the restocked shelf is what the window's close publishes to the
+room. The four hosts: shop shelves are stocked and bought from in `scenes/worldModes.js` alone. Pinned by
+`test/fb1004_endless.test.js` (4: the bag bought five times and still one on the shelf, a fresh record; ten Campfires
+bought and the shelf as stocked, three in one purchase three back, fresh and whole; nothing else restocked; the two
+purchases' calls and no other, by source); `tools/mutants/fb1004_endless.json` (8, all dead). DECOR2b's counter pin
+reads `decorDeliver` straight after the purchase's loop, so the restock stands after it.

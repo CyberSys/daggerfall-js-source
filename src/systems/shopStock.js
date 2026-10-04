@@ -55,7 +55,7 @@ import { findFactionByTypeAndRegion } from './talk.js';           // S41: Persis
 import { MERCHANTS_FACTION_ID } from './guilds.js';               // S41: FactionIDs.The_Merchants, one home
 import { turnOnConditionFlag, turnOffConditionFlag, REGION_FLAGS, REGION_COUNT } from './regionConditions.js';   // S42: the store S41's flag was waiting on
 import { isOnlinePage } from './onlineLane.js';   // REALM P0.4: online, a shop pays at most half what it asks
-import { BAG_TEMPLATE } from '../net/bagLaw.js';   // BAG1: the Materials Bag, at every General Store online
+import { BAG_TEMPLATE, isBagItem } from '../net/bagLaw.js';   // BAG1: the Materials Bag, at every General Store online
 
 // ItemGroups ids used by the shelf tables (DaggerfallUnityEnums).
 const GROUP_NAMES = Object.freeze({
@@ -143,7 +143,7 @@ export const MAGIC_ITEMS_ENUM_TEMPLATE = 0;
 import { BOOK_TEMPLATE, createRegularMagicItem, createRandomPotion, randomlyAddPotionRecipe, getMagicItemTemplates, createRandomWeapon, createRandomArmor, createRandomClothing } from './loot.js';   // G4: the guild shelves' two minters (AUDIT 26 F129/F130: + the recipe arm and the registry)
 import { SPELLBOOK_TEMPLATE_INDEX } from './spellMaker.js';   // G4: one home for MiscItems 132
 import { restItemsStock } from './restItems.js';   // REST6: the Bedroll, the Ember Jar, Firewood and the draughts
-import { provisionsStock, campfireStock } from './survival/items.js';   // SURV2: the general store's provisions shelf   // REST2: and online the Campfire alone, the arc Off
+import { provisionsStock, campfireStock, createSurvivalItem, isSurvivalItem, isCampfireKit, TEMPLATE as SURVIVAL_TEMPLATE } from './survival/items.js';   // SURV2: the general store's provisions shelf   // REST2: and online the Campfire alone, the arc Off
 import { sharedClockOn } from './worldTick.js';
 import { healingShelfCount, mintHealingPotion } from './healingSupply.js';   // POTION-COMMON: the shelf's Potions of Healing
 import { survivalOn } from './survival/switch.js';   // SURV2: the one switch
@@ -209,6 +209,25 @@ export const needsRestock = (container, today) => (container?.stockedDate ?? 0) 
  *  refills the drawer: a searched container is only ever the stock the player saw. */
 export const stockSearched = (container, today) => Number.isFinite(container?.openedOn) && container.openedOn > 0
   && container.openedOn === container.stockedDate && !needsRestock(container, today);
+
+/** ENDLESS-STOCK (2026-10-04, Mac: "I want the gathering bag to be unlimited purchases in stores. It shouldnt run out,
+ *  same with campfires"): the rows a shop never sells out of - the Materials Bag and the Campfire. */
+export const isEndlessStock = (item) => isBagItem(item) || (isSurvivalItem(item) && isCampfireKit(item));
+/** ENDLESS-STOCK: a purchase's endless rows put back on the shelf they were bought from - a fresh one for each (neither
+ *  stacks), minted as the shelf mints it (worldModes.js commitTrade's Buy). Only a purchase restocks: a row taken from a
+ *  closed shop's shelf is stolen, and stays gone. Answers how many went back. */
+export function restockEndless(shelfItems, bought) {
+  if (!Array.isArray(shelfItems)) return 0;
+  let n = 0;
+  for (const it of bought ?? []) {
+    if (!isEndlessStock(it)) continue;
+    const fresh = isBagItem(it)
+      ? mintCondition(setItemFields({ group: 'UselessItems2', templateIndex: BAG_TEMPLATE }))
+      : createSurvivalItem(SURVIVAL_TEMPLATE.Campfire);
+    if (fresh) { addItem(shelfItems, fresh); n++; }
+  }
+  return n;
+}
 
 /** StockShopShelf, verbatim. Returns the item list; every item
  *  carries value = its DaggerfallUnityItem base value.
