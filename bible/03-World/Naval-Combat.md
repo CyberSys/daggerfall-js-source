@@ -1398,6 +1398,16 @@ followers; all of this is the port's own, over CREW-COMPANIONS.
   ready, a companion knocked out (`_knockedOut`, the frame before he is carried aboard), or another player's companion
   (a puppet - his effects are his owner's). His spells and his whole ride with him from place to place
   (`crewAshore.js`: each new body stands with the last one's live entries and its max health) - not through a save.
+- **GIFT-QUIET (2026-10-04: "sometimes theres notification spam when putting a spell on companion")**: a gift's lines
+  - the armed ready's ("Press button to fire spell." and `COMPANION_ARMED_LINE` / `ALLY_ARMED_LINE`) and the
+  caster's ("You cast Heal on Hilda.", one or many) - go through `hostMagic.js sayGift`: said once, then held back
+  while they are asked for again inside `allyCast.js GIFT_LINE_QUIET_S` (10 s of the cast engine's own clock, each
+  asking keeping the window open), and said again after a pause that long. Every cast near a companion said three
+  different lines, so the notice stack's repeat guard (`ui/hudText.js` NOTICE-SPAM, the back row only) never caught
+  them: six heals a second apart held eleven Enhanced plates at once, now three. The classic ready line outside an arm
+  (`readySpell`'s tail), a heal's "You are healed" and every other line are untouched - one route for all of them
+  (`say` -> `hudText.add` -> the Enhanced notice panel, in all three hosts). `test/giftquiet.test.js`;
+  `tools/mutants/giftquiet.json`: 5 mutants, all dead.
 - **The pack** (`crewCompanions.js` - each companion's live `items`, saved with the party through the host's item
   codec, `packedItemsCodec`, the cargo's own). Activating my companion in Info, Grab or Talk within
   `TREASURE_ACTIVATION_DISTANCE` (else "You are too far away", as any storage) opens it (`player/

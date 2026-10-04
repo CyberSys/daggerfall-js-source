@@ -52,7 +52,7 @@ import { potentEffect } from '../net/alchemyLaw.js';   // PROF12: a Potent potio
 import { SPELL_CAST_SOUND } from '../systems/enemySpells.js';
 import { tallySkill } from '../systems/skills.js';
 import { morphSelf } from '../systems/lycanthropy.js';   // V2a: the MorphSelf arm the ONE cast engine wires
-import { allyCastable, allyReachFor, allyCastFrame, allyCastCasterLine, allyCastCasterLineMany, allyCastSpell, PERSON_RADIUS, ALLY_TOUCH_REACH, ALLY_ARM_RADIUS, ALLY_ARMED_LINE, COMPANION_ARMED_LINE, companionCastable } from '../systems/allyCast.js';   // SPELL-GIFT: the arm near a mate, the line it says, and the area's one line; AUDIT WK-M4: what my companion can use
+import { allyCastable, allyReachFor, allyCastFrame, allyCastCasterLine, allyCastCasterLineMany, allyCastSpell, PERSON_RADIUS, ALLY_TOUCH_REACH, ALLY_ARM_RADIUS, ALLY_ARMED_LINE, COMPANION_ARMED_LINE, companionCastable, GIFT_LINE_QUIET_S } from '../systems/allyCast.js';   // SPELL-GIFT: the arm near a mate, the line it says, and the area's one line; AUDIT WK-M4: what my companion can use
 import { hasResurrect, RESURRECT_REACH, RESURRECT_TEXT, pickFallenBody } from '../systems/resurrect.js';   // RESURRECT1: a fallen party member's body is the target   // ALLY-CAST: a beneficial spell at the party mate under the crosshair
 import { billboardSize, centredBase } from '../world/rmbFlats.js';
 import { createMagicCandle } from './magicCandle.js';   // X11: the Light effect's candle
@@ -173,6 +173,19 @@ export function createPlayerMagic({
   spellRefusal = null,
 }) {
   const playerCaster = () => ({ entity: playerEntity, sinks: playerSinks });
+  /** GIFT-QUIET (systems/allyCast.js GIFT_LINE_QUIET_S): a gift's line - an armed ready's, a caster's - said once, then
+   *  held back while it is asked for again inside the window (each asking keeps it open). The clock is this engine's
+   *  own (update's dt), so a paused game holds it. */
+  let _giftClock = 0;
+  const _giftSaid = new Map();
+  function sayGift(line) {
+    if (!line) return;
+    const last = _giftSaid.get(line);
+    _giftSaid.set(line, _giftClock);
+    if (last !== undefined && _giftClock - last < GIFT_LINE_QUIET_S) return;
+    if (_giftSaid.size > 64) for (const [k, t] of _giftSaid) if (_giftClock - t >= GIFT_LINE_QUIET_S) _giftSaid.delete(k);
+    say(line);
+  }
   /** HOME-MAGIC: the place's refusal SAID, and the ready dropped with it (the silence gate's own shape) - true when a
    *  cast is barred here. A host's seam that throws bars nothing. */
   function barredHere() {
@@ -255,7 +268,7 @@ export function createPlayerMagic({
     const gift = allyCastSpell({ name: sp?.name, element: sp?.element, effects: sp?.effects, icon: sp?.icon }, { companion: true });
     if (!gift) return false;
     applySpellToFoe(gift, effectiveLevel(playerEntity), rec, null, { allyCast: true }, foeSinks(rec, false));
-    if (!quiet) say(allyCastCasterLine(sp.name, mark.name));
+    if (!quiet) sayGift(allyCastCasterLine(sp.name, mark.name));   // GIFT-QUIET
     return true;
   }
   /** COMPANION-KIT: a blast's gift to every companion in it - one line for all of them, as SPELL-GIFT's. */
@@ -263,7 +276,7 @@ export function createPlayerMagic({
     const names = [];
     for (const t of marks) if (giveToCompanion(t, sp, { quiet: true })) names.push(t.name);
     const line = allyCastCasterLineMany(sp.name, names);
-    if (line) say(line);
+    if (line) sayGift(line);   // GIFT-QUIET
     return names.length;
   }
   /** COMPANION-KIT: the companion the crosshair is on within `reach` - the aim passing within his body's radius of his
@@ -361,7 +374,7 @@ export function createPlayerMagic({
   function giveToAlly(mark, sp, { quiet = false } = {}) {
     let sent = false;
     try { sent = !!castAtAlly?.(mark.id, allyCastFrame(sp, effectiveLevel(playerEntity), mark.id)); } catch { sent = false; }
-    if (sent && !quiet) say(allyCastCasterLine(sp.name, mark.name));
+    if (sent && !quiet) sayGift(allyCastCasterLine(sp.name, mark.name));   // GIFT-QUIET
     return sent;
   }
   /** SPELL-GIFT (Tabitha: "Area at Range & Area around Caster don't have good tooltips or UI elements"): a blast that
@@ -370,7 +383,7 @@ export function createPlayerMagic({
     const names = [];
     for (const t of marks) if (giveToAlly(t, sp, { quiet: true })) names.push(t.name);
     const line = allyCastCasterLineMany(sp.name, names);
-    if (line) say(line);
+    if (line) sayGift(line);   // GIFT-QUIET
     return names.length;
   }
   // Classic click-to-cast: DFU's armed state IS the readied spell -
@@ -791,7 +804,7 @@ export function createPlayerMagic({
       lastCastCost = cost;
       tallyCastSkills(sp);
       surfacePlayer();
-      say(allyCastCasterLine(sp.name, ally.name));
+      sayGift(allyCastCasterLine(sp.name, ally.name));   // GIFT-QUIET
       return done(true);
     }
     // COMPANION-KIT: ...or MY COMPANION under the crosshair - the same reach, given here
@@ -969,7 +982,7 @@ export function createPlayerMagic({
       // the mate says "Cast Heal on Bran", and the next click resolves through releaseFrame's ally arm, or through
       // the CasterOnly arm as ever if they moved. A free ready (A7) fires on the spot as DFU's does; so does one
       // with nobody there.
-      if (!free && allyCastable(sp) && allyInReach(lastAim?.eye ?? null, lastAim?.dir ?? null, ALLY_TOUCH_REACH, sp)) { say(PRESS_BUTTON_TO_FIRE_SPELL); return true; }
+      if (!free && allyCastable(sp) && allyInReach(lastAim?.eye ?? null, lastAim?.dir ?? null, ALLY_TOUCH_REACH, sp)) { sayGift(PRESS_BUTTON_TO_FIRE_SPELL); return true; }
       // COMPANION-KIT: a CasterOnly gift ARMS with my companion under the crosshair, or near - the two arms of ALLY-CAST
       // here for a body of mine (companionMarksFor holds a free ready and a spell not his to him): the click gives it to
       // him, or, aimed anywhere else, to me.
@@ -977,13 +990,13 @@ export function createPlayerMagic({
       // and both crosshair arms before either near arm. My companion's two used to stand ahead of all of ALLY-CAST's, so a
       // ready with a mate under the crosshair and my companion near said "Aim at your companion..." and the click gave it
       // to the mate; with a mate near as well, the near line is the mate's (ALLY_ARMED_LINE).
-      if (companionInReach(lastAim?.eye ?? null, lastAim?.dir ?? null, ALLY_TOUCH_REACH, sp)) { say(PRESS_BUTTON_TO_FIRE_SPELL); return true; }
+      if (companionInReach(lastAim?.eye ?? null, lastAim?.dir ?? null, ALLY_TOUCH_REACH, sp)) { sayGift(PRESS_BUTTON_TO_FIRE_SPELL); return true; }
       // SPELL-GIFT (2026-09-27, Tabitha: "a LARGE amount of buffs & spells just don't work when cast on another person"):
       // ...AND WITH A MATE NEAR, not only one already under the crosshair (systems/allyCast.js ALLY_ARM_RADIUS). Readied
       // first and aimed after - the way anyone casts - the buff had gone off on the caster on the spot. Armed, the click
       // gives it to the mate under the crosshair, or, aimed anywhere else, to the caster, as CasterOnly always does.
-      if (!free && allyCastable(sp) && allyNear(lastAim?.eye ?? null, sp)) { say(PRESS_BUTTON_TO_FIRE_SPELL); say(ALLY_ARMED_LINE); return true; }
-      if (companionNear(lastAim?.eye ?? null, sp)) { say(PRESS_BUTTON_TO_FIRE_SPELL); say(COMPANION_ARMED_LINE); return true; }
+      if (!free && allyCastable(sp) && allyNear(lastAim?.eye ?? null, sp)) { sayGift(PRESS_BUTTON_TO_FIRE_SPELL); sayGift(ALLY_ARMED_LINE); return true; }
+      if (companionNear(lastAim?.eye ?? null, sp)) { sayGift(PRESS_BUTTON_TO_FIRE_SPELL); sayGift(COMPANION_ARMED_LINE); return true; }
       if (!free && hasResurrect(sp)) { say(fallenInReach(lastAim?.eye ?? null, lastAim?.dir ?? null) ? PRESS_BUTTON_TO_FIRE_SPELL : RESURRECT_TEXT.aim); return true; }   // RESURRECT1: a caster-only Resurrect waits for the click, aimed at the body
       return castInput(null, null) !== false;
     }
@@ -1038,6 +1051,7 @@ export function createPlayerMagic({
     // (systems/playerDoor.js: what a set's power reaches past the one blow through)
     _doorFeet = playerFeet ?? null;
     setPlayerDoor(_door);
+    if (Number.isFinite(dt) && dt > 0) _giftClock += dt;   // GIFT-QUIET: the gift lines' window runs on this engine's frames
     // FA1: the missile flats' clock rides the module's OWN update, not
     // each host's frame - hostMagic is shared by three of them and a
     // per-host tick is the four-hosts shape waiting to happen.

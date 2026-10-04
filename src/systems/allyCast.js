@@ -87,6 +87,14 @@ export const ALLY_ARM_RADIUS = 10;
 export const ALLY_ARMED_LINE = 'Aim at a party member to cast it on them, or anywhere else to cast it on yourself.';
 /** COMPANION-KIT: ...and the same word with my companion near (scenes/hostMagic.js companionNear). */
 export const COMPANION_ARMED_LINE = 'Aim at your companion to cast it on them, or anywhere else to cast it on yourself.';
+/** GIFT-QUIET (2026-10-04: "sometimes theres notification spam when putting a spell on companion"): how long, in seconds
+ *  of the cast engine's own clock, a gift's lines hold back once said - the armed ready's ("Press button to fire
+ *  spell." and the line above it) and the caster's ("You cast Heal on Hilda."). Each was a new toast every cast, and
+ *  told apart from the line before it, so the notice stack's repeat guard (ui/hudText.js NOTICE-SPAM: the back row
+ *  only) never caught them: a heal cast again and again near a companion stacked three plates a cast. A line asked for
+ *  again inside the window is not said, and the asking keeps the window open; after a pause of this long it is said
+ *  again. */
+export const GIFT_LINE_QUIET_S = 10;
 
 /** SPELL-GIFT (Tabitha: "Allow casting of buffs on players outside party ... Many spells should be blacklisted [Spells
  *  that can be considered annoyances like levitate reducing movespeed, etc.]", with her INITIAL PLAYER2PLAYER SPELL

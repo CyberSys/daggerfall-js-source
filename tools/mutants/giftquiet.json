@@ -1,0 +1,47 @@
+[
+  {
+    "name": "GQ-said-every-time",
+    "file": "src/scenes/hostMagic.js",
+    "old": "    if (last !== undefined && _giftClock - last < GIFT_LINE_QUIET_S) return;\n",
+    "new": "",
+    "tests": [
+      "test/giftquiet.test.js"
+    ]
+  },
+  {
+    "name": "GQ-clock-still",
+    "file": "src/scenes/hostMagic.js",
+    "old": "    if (Number.isFinite(dt) && dt > 0) _giftClock += dt;",
+    "new": "    void dt;",
+    "tests": [
+      "test/giftquiet.test.js"
+    ]
+  },
+  {
+    "name": "GQ-asking-not-refreshing",
+    "file": "src/scenes/hostMagic.js",
+    "old": "    _giftSaid.set(line, _giftClock);\n    if (last !== undefined && _giftClock - last < GIFT_LINE_QUIET_S) return;\n",
+    "new": "    if (last !== undefined && _giftClock - last < GIFT_LINE_QUIET_S) return;\n    _giftSaid.set(line, _giftClock);\n",
+    "tests": [
+      "test/giftquiet.test.js"
+    ]
+  },
+  {
+    "name": "GQ-near-companion-plain",
+    "file": "src/scenes/hostMagic.js",
+    "old": "{ sayGift(PRESS_BUTTON_TO_FIRE_SPELL); sayGift(COMPANION_ARMED_LINE); return true; }",
+    "new": "{ say(PRESS_BUTTON_TO_FIRE_SPELL); say(COMPANION_ARMED_LINE); return true; }",
+    "tests": [
+      "test/giftquiet.test.js"
+    ]
+  },
+  {
+    "name": "GQ-companion-cast-line-plain",
+    "file": "src/scenes/hostMagic.js",
+    "old": "    if (!quiet) sayGift(allyCastCasterLine(sp.name, mark.name));",
+    "new": "    if (!quiet) say(allyCastCasterLine(sp.name, mark.name));",
+    "tests": [
+      "test/giftquiet.test.js"
+    ]
+  }
+]

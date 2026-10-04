@@ -56,7 +56,7 @@
   {
     "name": "CK-gift-unsaid",
     "file": "src/scenes/hostMagic.js",
-    "old": "    if (!quiet) say(allyCastCasterLine(sp.name, mark.name));\n    return true;",
+    "old": "    if (!quiet) sayGift(allyCastCasterLine(sp.name, mark.name));   // GIFT-QUIET\n    return true;",
     "new": "    return true;",
     "tests": [
       "test/companionkit.test.js"
@@ -83,8 +83,8 @@
   {
     "name": "CK-near-unarmed",
     "file": "src/scenes/hostMagic.js",
-    "old": "      if (companionNear(lastAim?.eye ?? null, sp)) { say(PRESS_BUTTON_TO_FIRE_SPELL); say(COMPANION_ARMED_LINE); return true; }",
-    "new": "      if (false) { say(PRESS_BUTTON_TO_FIRE_SPELL); say(COMPANION_ARMED_LINE); return true; }",
+    "old": "      if (companionNear(lastAim?.eye ?? null, sp)) { sayGift(PRESS_BUTTON_TO_FIRE_SPELL); sayGift(COMPANION_ARMED_LINE); return true; }",
+    "new": "      if (false) { sayGift(PRESS_BUTTON_TO_FIRE_SPELL); sayGift(COMPANION_ARMED_LINE); return true; }",
     "tests": [
       "test/companionkit.test.js"
     ]
