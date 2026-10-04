@@ -2582,6 +2582,45 @@ Pins: `test/galleon_model.test.js` THE BAKE (the six beams, the twins and statio
 FACE OUT (the open-topped beams face by face), HER DECK BEAMS, HER PICTURES (each 64 x 64), HER LIVERY IN SLICES;
 `tools/mutants/galleon.json`'s GALLEON2 records. Drawn offline again, not seen in a browser.
 
+### Main merged in, and HOLDINGS on her (GALLEON-HOLDINGS, 2026-10-04 - OURS)
+
+The arc reached main by a pull request of its own, never opened before: it lived on
+`claude/enhanced-ai-feedback-ygvvj6` (TACT5's branch, #544, reused), and main had moved 324 commits past it
+(#547-#584). The merge: 85 files and 163 hunks, 143 of them cites alone - taken at main's line, then
+`tools/citeMerge.mjs origin/main 39b19e07b --apply --struck` (211 moved; 22 struck rows both sides carry word for
+word left as they stand, no gate reading them). The twenty real hunks kept both sides:
+
+- **TOUGHER-SHIPS** (#549) toughens her as every hull: `tough(420)` and `tough(160)` on her build and on the mod's
+  galleon kept as her stand-in (`MOD_SMALL_SHIP_BUILD`) alike - 672 / 256 - and `firstBuildOf` reads the build that
+  stands.
+- **HOLDINGS**' crew posts: a hand off her main deck walks back down first (AUDIT GN-D10), then keeps his post; a man
+  at his post is no man to talk to. The posts' extent fell back on the whole deck's `ext`, which this arc renamed to her
+  main deck's `mainExt` - that is what it reads.
+- `navalWire.js` carries this arc's laid broadsides (`g`) beside QUAYS' `w`; both F24 station pins stand.
+
+**HER GANGWAY** (`quays.js` `gangwaySide`). QUAYS measured where a gangway meets the Small Ship off the mod's galleon
+(`[7.65, 4.14]`), and the merge left Mac's galleon's plank there: its head 2.3 m off her side and 2.6 m under her main
+deck, hanging over the quay. Read off her own colliders, her waist's bulwark stands 5.33 m out to some 6.9 m up, her
+entry port open in it from z -0.5 to 1.5 over 6.25 m; her main deck is 6.20 m up. So her `GANGWAY_SIDE` is
+`[5.45, 6.7]` - 0.12 m off her side, half a metre over her main deck as the Carrack's and the galley's are - and
+`gangwaySide(hull)` answers the mod's galleon's (`MOD_SMALL_SHIP_GANGWAY`) while hers is the build that stands (AUDIT
+GN-G4); `navalHost.js` `gangwayOf` reads it. A plank from 6.7 m wants 8.8 m of quay to climb at GANGWAY_SLOPE, and a
+quay is 4.5 m deep: hers stops GANGWAY_BACK short of its back, as `gangwayFoot` always had it, and climbs 47.3 degrees
+over 6.94 m (the Carrack's 30 over 5.08). AUDIT HOLDINGS Q1 and QUAYS THE GANGWAY, which held every ship's at 30, are
+PIN MOVED to that stop; QUAYS ALONGSIDE, which held the Small Ship at the berth's point as wide as the Carrack, to hers
+2.57 m in (5.86 m a side to 8.43) and the mod's galleon at it. Steeper than any plank but the Rowboat's (49, down): a
+deeper quay where she berths, or a stair at her side, is the decision it leaves.
+
+**HER CARPENTER** (`crewLife.js` `rolePosts`). HOLDINGS stands him 1.1 m to starboard of her hatch; hers stands to port
+of her open fore hatchway (AUDIT GN-D7), so the post asked in the hole found her deck across it, 3.5 m off (CREW-ROLES'
+"by her hatch" failed on the merge). Where her deck lies to port of the hatch and not to starboard he stands to port,
+facing it; on every other hull his post is where HOLDINGS put it.
+
+Pins: `test/galleonholdings.test.js` (4) - every docking hull's head within 0.25 m of her side at her main deck, a
+ship's half a metre over it (the mod's galleon's numbers on hers fail by 2.3 m); hers in her entry port, her bulwark
+either side; the host's plank from the build that stands; the Carpenter on all four hulls with a deck.
+`tools/mutants/galleonholdings.json` (13, all dead). Measured over Come Sail Away's real pool; not seen in a browser.
+
 ## What was already waiting in the port
 
 - Iliac Puddle No More's swim stands down on a boat
