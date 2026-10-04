@@ -183,6 +183,17 @@ export function landWakingDebt(s, now) {
   return true;
 }
 
+/** SLEEP PAYS ITS DEBT BY ITS QUALITY: `minutes` asleep `sleeping` ('bed' | 'camp' | 'rough') take what they pay off the
+ *  record's debt, never below the tier's rough floor, and the sleeper is awake from `now`. The minute law pays its
+ *  minute here; REST-SLEEP1's short rest (systems/restAct.js sleepShortRest) a night's minutes at once, no clock moving. */
+export function paySleep(s, sleeping, minutes, now, rules = HARD_RULES) {
+  const rate = sleeping === 'rough' ? 0.5 : 1.5;   // hours of debt per hour asleep
+  const floor = sleeping === 'rough' ? SLEEP_FLOOR_AT[rules.roughSleepFloor] ?? 0 : 0;   // SURV-TIERS: Hard's rough night never pays below tired; Casual's pays down to nothing
+  const next = s.sleepDebt - rate * minutes / 60;
+  s.sleepDebt = s.sleepDebt >= floor ? Math.max(floor, next) : Math.max(0, next);   // AUDIT SURV A: the floor holds from above and never lifts a rested sleeper up to it
+  s.awakeSince = now;
+}
+
 export function survivalStatMods(s, temp, now, { endurance = 50, rules = HARD_RULES, vampire = false } = {}) {
   const mods = {};
   const sub = (keys, n) => { if (n > 0) for (const k of keys) mods[k] = (mods[k] ?? 0) - n; };
@@ -474,11 +485,7 @@ export function survivalMinute(entity, now, env = {}, deps = {}) {
   if (!vampire) {
     if (landWakingDebt(s, now)) say?.(SURVIVAL_TEXT.wakingEnd);   // REST6: the salts' hour is over
     if (sleeping) {
-      const rate = sleeping === 'rough' ? 0.5 : 1.5;   // hours of debt per hour asleep
-      const floor = sleeping === 'rough' ? SLEEP_FLOOR_AT[rules.roughSleepFloor] ?? 0 : 0;   // SURV-TIERS: Hard's rough night never pays below tired; Casual's pays down to nothing
-      const next = s.sleepDebt - rate / 60;
-      s.sleepDebt = s.sleepDebt >= floor ? Math.max(floor, next) : Math.max(0, next);   // AUDIT SURV A: the floor holds from above and never lifts a rested sleeper up to it
-      s.awakeSince = now;
+      paySleep(s, sleeping, 1, now, rules);
     } else if (awakeHours(s, now) > NEED.AWAKE_FREE_HOURS) {
       s.sleepDebt = Math.min(NEED.SLEEP_DEBT_MAX, s.sleepDebt + 1 / 60);
     }

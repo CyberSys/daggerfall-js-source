@@ -123,7 +123,8 @@ Bedroll. Climates & Calories off, the rest kinds still decide nothing but the yi
   quests nothing for it.
 - **The night interval.** A night passes at most once per **120 lived minutes of the character's clock** - ten real
   minutes of play, since lived time runs at TimeScale 12 - counted from the last night (OPEN 2). Inside it a rest is a
-  **short rest**: the yield's healing lands, no clock moves, nothing ages. The status widget shows **Rested** (a buff
+  **short rest**: the yield's healing lands, no clock moves, nothing ages [REST-SLEEP1: and the sleep need is paid as a
+  night of its kind pays it - As built]. The status widget shows **Rested** (a buff
   tile, its minutes left at its foot, as NEED-TIER's need tiles say their stage) while the interval runs.
 - **Why a night and not zero.** Section 7's census found 29 systems that read rested time. Under a night each keeps
   DFU's meaning - a buff wears off overnight, a disease takes its day, hunger grows, a room's night is spent, a
@@ -138,7 +139,7 @@ Bedroll. Climates & Calories off, the rest kinds still decide nothing but the yi
 | Bed | full | paid as eight bed hours (1.5 h an hour: 12 h of debt) | no | none (indoors) |
 | Camp (any fire, a tent) | full | paid as eight camp hours (1.5 h an hour) | no | one roll |
 | Rough (Bedroll) | Casual: full; Hard: eight hours at DFU's rates, halved (`REST_COST`) | eight rough hours (0.5 h an hour) | 4 h, as today | one roll; two in Hard |
-| Short rest (inside the interval) | as the kind; nothing else | nothing | no | none |
+| Short rest (inside the interval) | as the kind; nothing else | nothing [REST-SLEEP1: as the kind's night - As built] | no | none |
 
 Full is the recommendation (OPEN 3) - a fire is a sanctuary, and the fight before it was the price. The alternative
 is eight hours at DFU's rates (`src/systems/rest.js` `healthRecoveryRate` and the fatigue and magicka eighths), which
@@ -829,6 +830,20 @@ Mac: "Go" - every recommendation of section 15 taken. Slices REST1-REST6 and RES
     `AUDITCLIMB2-G1` dies), beside the known `AUDIT29-A17`.
   - **Left open, said:** R0C11Y03's journal counts down the delivery's `_1stparton_` after the heart is delivered (its
     only reader can no longer fire) - early, never late (D5).
+- **REST-SLEEP1** (2026-10-04, from play: *"Seems like if you have to wait for night to pass you cannot rest again to
+  remove the tiredness/drowsy debuffs until the time passes"*). A short rest paid nothing of the sleep need (2.4's row),
+  and the need has no other payer (section 7, row 9) - so a night that left its sleeper Tired or Drowsy held them there,
+  at the fire, for the whole ten real minutes: a foe's break in the night's first hour (a wilderness night is broken
+  more often than not, and a broken night still stamps the interval - AUDIT REST-PARTY's reading), a rough night's third
+  of a bed's rate, or a debt past the twelve hours a night pays (Exhausted at the cap wakes Exhausted). A short rest now
+  pays the debt as a night of its kind would - its 480 minutes at the kind's rate, a bed's or a fire's twelve hours, the
+  ground's four, Hard's rough floor kept - and still moves no clock: nothing ages, nothing rolls, no fuel is spent, no
+  night is stamped. ONE PAY: the minute law's sleeping branch is lifted into `survival/needs.js` `paySleep` (a minute
+  through it is the same arithmetic as before, bit for bit), and the short rest pays through it
+  (`src/systems/restAct.js` `sleepShortRest`, called by createRestDeps' `restShort`, so both skins and the party's
+  carried short rest take it). With the arc off there is no need to pay, and a vampire has none (the minute law freezes
+  the debt). `test/restsleep1_shortrest.test.js`, `tools/mutants/restsleep1.json` (11, all dead); SURV1's and AUDIT
+  SURV's floor records re-aimed by content to the lifted lines.
 - **REST7 - crafting: NOT BUILT, deliberately.** The recipes are a source like the shelves, so they could not open
   before `REST_ITEMS_ONLINE` does; adding them now changes the account service's bundle (an `acct` bump) for rows that
   stay shut. They ride the release that turns the switch on, with the shelves.
@@ -879,3 +894,5 @@ Mac: "Go" - every recommendation of section 15 taken. Slices REST1-REST6 and RES
   medium findings (the joiner's encounter one trial, not two; the same dungeon's own load and the camps outside; a
   blind draw pin) and fourteen more fixed, pinned and mutation-proven; the AUDIT REST II record and the patch notes
   corrected.
+- 2026-10-04: REST-SLEEP1 (As built, from play): a short rest pays the sleep need as a night of its kind pays it -
+  Tired or Drowsy no longer waits out the night interval at the fire; still no clock moved.

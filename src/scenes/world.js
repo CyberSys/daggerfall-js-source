@@ -5066,7 +5066,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     // Mac's word, and the whole of it: `resting` is not a fatigue knob,
     // it is the needs' one word for "sat still", and three other laws
     // read it. It held the bare-skin block's naked-cold and sunburn
-    // ticks and the byFire exposure damage (needs.js:531, :507) - the
+    // ticks and the byFire exposure damage (needs.js:538, :514) - the
     // health Mac wants ticking - and, the one TO-FIELD never counted,
     // it shut the HUNTING roll off entirely (hunting.js:120 refuses on
     // `resting`), so a traveller could not hunt on the road at all.
