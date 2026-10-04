@@ -20,6 +20,7 @@ uniform float uYaw, uPitch, uTanHalfFov, uAspect;
 uniform float uWeight;   // the event's weight, 0..1
 uniform float uTime;     // real seconds - the flowers' drift and the giggle
 uniform vec3 uSunDir;    // the sun baby (sunbabySunDir)
+uniform vec2 uFace;      // SUNBABY2: the face it wears - x the wrath, y Todd (sunbabyPhase)
 out vec4 outColor;
 ${SUNBABY_GLSL}
 void main() {
@@ -28,10 +29,10 @@ void main() {
   vec3 r1 = vec3(ray.x, ray.y * cp + ray.z * sp, -ray.y * sp + ray.z * cp);
   float cy = cos(uYaw), sy = sin(uYaw);
   vec3 dir = normalize(vec3(r1.x * cy + r1.z * sy, r1.y, -r1.x * sy + r1.z * cy));
-  outColor = vec4(sunbabySky(dir, uSunDir, uTime), clamp(uWeight, 0.0, 1.0));
+  outColor = vec4(sunbabySky(dir, uSunDir, uTime, uFace), clamp(uWeight, 0.0, 1.0));
 }`;
 
-export const SUNBABY_UNIFORMS = Object.freeze(['uYaw', 'uPitch', 'uTanHalfFov', 'uAspect', 'uWeight', 'uTime', 'uSunDir']);
+export const SUNBABY_UNIFORMS = Object.freeze(['uYaw', 'uPitch', 'uTanHalfFov', 'uAspect', 'uWeight', 'uTime', 'uSunDir', 'uFace']);
 
 /** The flower sky's real-second clock wraps here, so the drift stays inside a float's fraction. */
 const TIME_WRAP_S = 3600;
@@ -52,6 +53,9 @@ export class SunbabySkyRenderer {
     gl.bindVertexArray(null);
     /** The event's weight, 0..1 - the host's (world/sunbabySky.js createSunbaby). */
     this.weight = 0;
+    /** SUNBABY2: the faces' weights, 0..1 - the wrath's and Todd's (world/sunbabySky.js sunbabyPhase); the baby the rest. */
+    this.evil = 0;
+    this.todd = 0;
     this.t0 = typeof performance !== 'undefined' ? performance.now() : 0;
   }
 
@@ -69,6 +73,7 @@ export class SunbabySkyRenderer {
     gl.uniform1f(u.uWeight, this.weight);
     gl.uniform1f(u.uTime, ((now - this.t0) / 1000) % TIME_WRAP_S);
     gl.uniform3fv(u.uSunDir, sunbabySunDir(this.weight));
+    gl.uniform2f(u.uFace, this.evil, this.todd);   // SUNBABY2
     gl.disable(gl.CULL_FACE);   // the triangle winds CCW under a CW front face, as the sky's
     gl.bindVertexArray(this.vao);
     gl.drawArrays(gl.TRIANGLES, 0, 3);
