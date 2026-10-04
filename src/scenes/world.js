@@ -38,7 +38,7 @@ import { createArenaSound } from '../systems/arenaSound.js';   // ARENA2: the cr
 import { arenaScoreSongs, ARENA_SCORE_SILENCE } from '../systems/arenaScore.js';   // ARENA2: the march and the fanfare
 import { drawArenaHud } from '../ui/arenaHud.js';   // ARENA2: the versus bar, the crowd's meter, the clock
 import { setPlayerBout } from '../characters/enemyTargets.js';   // ARENA2: the bout team's player arm
-import { keptOffArenaGround } from '../systems/arenaGround.js';   // CURSE-OFF-SAND: the curse's dead keep off the arena's grounds
+import { keptOffArenaGround, ARENA_GROUND_M } from '../systems/arenaGround.js';   // CURSE-OFF-SAND: the curse's dead keep off the arena's grounds
 import { exhibitionFor, nextLadderBout, arenaLadderRestore, practiceBout } from '../systems/arenaLadder.js';   // ARENA2: the hour's exhibition, the ladder's next bout
 import { arenaReplaysRestore } from '../systems/arenaReplay.js';   // ARENA5: your ladder replay
 import { createArenaGate, nearArenaGate } from './arenaGate.js';   // ARENA3; ARENA4b: the Herald's choice and the pause door's banner too
@@ -561,7 +561,6 @@ import { itemLongName } from '../systems/itemInfo.js';   // SIGIL1: the weapon's
 import { trivialOnRoad, roadCompany, wandererCount } from '../systems/roadEncounters.js';   // WILD-ROAD: the road's wanderers - a rat passed by, a patrol now and then
 import { partySizeOf, partyExtraFoes, partyGroupMembers } from '../systems/partyScale.js';   // PSCALE1: a fight weighs the party - its count, and the foes more an outdoor encounter stands
 import { GROUP_ROLL_RADIUS } from '../systems/campEncounters.js';   // PSCALE1: outdoors, the party a roll stands for is the camp's own group
-import { SOLITARY_TYPES } from '../characters/mobileFactions.js';   // AUDIT PSCALE1 COUNT-2: a solitary foe meets a party alone
 import {
   realmIo, openRealmBoot, createRealmSession, realmSummaryOf, setRealmNotice, realmCreate, realmPut, realmBootSearch, realmRefusalText,
   sayRealmSave, REALM_OFFLINE_TEXT, REALM_EXIT_WAIT_MS, whenPageHides, whenPageGoes, realmTradeEscrow, realmGoldAct, realmDoorShut,
@@ -8644,7 +8643,7 @@ export async function bootWorld(canvas, renderer, params, status) {
    *  on every screen) while I am outside near the colosseum; walked away from - or left through any door - it goes, unsaid,
    *  for the hour (AUDIT PRE-MERGE 1003 W8: `_arenaHourRun` starts each hour's bout once, and nothing clears it - a walk
    *  back finds the sand empty until the next hour's). Answers the stage this frame stands (the instance's when I am in it). */
-  const ARENA_NEAR_M = 150, ARENA_FAR_M = 260;
+  const ARENA_NEAR_M = ARENA_GROUND_M, ARENA_FAR_M = 260;   // CURSE-OFF-SAND: the grounds the curse keeps off are this reach (systems/arenaGround.js)
   function arenaStageNow() {
     const mode = modes?.mode ?? 'exterior';
     if (mode === 'dungeon') return modes?.arenaFloorStage?.() ?? modes?.arenaPitStage?.() ?? null;   // ARENA-FIX 4: the undercroft's training pit
@@ -8727,8 +8726,10 @@ export async function bootWorld(canvas, renderer, params, status) {
   // camp meal and a forage/hunt search (CAMP-REST, 2026-09-19). Only the GROUP roll reads it; lone wanderers still roll.
   /** AUDIT LIVED1b P1: `spawns: false` walks the minutes with the wanderers' roll left out - a party mirror's night
    *  (PSCALE1 COUNT-1: the rester's roll is the party's), whose watch is still the follower's own. */
-  /** WILD-ROAD / HUNT-ROAD: the traveller is on the road - a Travel Options journey running, or the Overworld's view up. */
-  const onTheRoad = () => !!travelOptions?.isTravelActive || !!travelView?.active;
+  /** WILD-ROAD / HUNT-ROAD: the traveller is on the road - a Travel Options journey under way (walkJourneying's own test:
+   *  the window up and its autopilot steering), or the Overworld's view up - and not resting (a rest's minutes are a
+   *  camp's, and its wanderer wakes the sleeper as DFU's does). */
+  const onTheRoad = () => !playerEntity.isResting && (!!(travelOptions?.isTravelActive && travelOptions.state?.autopilot) || !!travelView?.active);
   function runEncounterTick(playerFeet, isResting = false, { spawns = true } = {}) {
     // LIVED1: the catch-up loop walks the CHARACTER's own minutes - DFU's is PlayerEntity.Update's, on the one clock
     // the player owns. Online a rest's hours move that clock (the ticker's advance), so the loop rolls them as it
@@ -9546,7 +9547,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   // ?dungeon host RAN every CastWhenUsed / CastWhenStrikes / SoulBound
   // / affinity arm against no ctx at all. They are optional-chained, so
   // it WAS silent. WAVE D closed it: the body is scenes/hostEnchant.js
-  // and dungeonContext.js:3067 mounts the same one, gated on
+  // and dungeonContext.js:3068 mounts the same one, gated on
   // `opts.enchantCtx !== false` because setDefaultEnchantCtx is a
   // session singleton and EC1 already routes THIS host's mount into
   // that context through modes.dungeonCtx - so worldModes.js:7241
@@ -12279,7 +12280,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     // so an F9 pressed inside a shop recorded the street's sheath and
     // hand. The mode host answers for the rig that is actually drawn
     // and null outside interior mode (the dungeon owns its own
-    // composer, dungeonContext.js:8426), so exterior mode and a
+    // composer, dungeonContext.js:8427), so exterior mode and a
     // pre-seam mode host compose exactly as before, per field.
     const wp = modes?.weaponPose?.() ?? null;
     const snap = snapshotPlayer(playerEntity, {
@@ -15839,6 +15840,12 @@ export async function bootWorld(canvas, renderer, params, status) {
      *  `count` inactive handles, one QuestResourceBehaviour each;
      *  activation (bindHost + start) waits for placement. */
     createFoeGameObjects: (foe, count) => mintQuestFoeWave(questBridge.machine, foe, count),
+    /** CURSE-OFF-SAND (FIELD BUGS 2026-10-04e): CreateFoe's spawn event passes while the player stands where the wave is
+     *  kept off (systems/arenaGround.js - the Curse of Daggerfall's dead off the arena's grounds, its floor and
+     *  undercroft): outside, the city's arena grounds; inside, the mode machine's answer. */
+    foeKeptOff: (foe) => ((modes?.mode ?? 'exterior') !== 'exterior'
+      ? !!modes?.questFoeKeptOff?.(foe)
+      : keptOffArenaGround({ questName: foe?.parentQuest?.questName, feet: player.pos, centre: arenaCityPixel() ? arenaCityStage.centre() : null })),
     /** CreateFoe.TryPlacement (:183-211): the INSIDE arms live with
      *  the modes host (dungeon places, interior pends - see the FLAG
      *  there); outside, IsPlayerInLocationRect picks the location ring
@@ -15855,8 +15862,6 @@ export async function bootWorld(canvas, renderer, params, status) {
         return modes?.tryPlaceQuestFoe?.(handle) ?? false;
       }
       if (!(walkMode && playerSpawned)) return false;
-      // CURSE-OFF-SAND (FIELD BUGS 2026-10-04e): the Curse of Daggerfall's wave waits outside the arena's grounds
-      if (keptOffArenaGround({ questName: handle.foe?.parentQuest?.questName, feet: player.pos, centre: arenaCityPixel() ? arenaCityStage.centre() : null })) return false;
       // NAV-D: a raid the sea fight started (a pirate grappled a crewed boat) stands its waves on the deck they board -
       // the boat's own, not the wilderness ring (scenes/navalHost.js placeQuestFoe): Warm Ashes' "Your crew quickly
       // spring into action!" is a fight on your planks
@@ -23334,7 +23339,14 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
   };
   /** SEAT-TIP (FIELD BUGS 2026-10-04e): a town that can be taken - its card for the Overworld's hover (who holds it,
    *  this week's battle), or null; while the seats are open (seatHere). */
-  const seatTipAt = (mapId) => seatTipOf(seatHere(mapId));
+  const _seatTipFns = new Map();
+  /** ...as a function the readout asks only of the plate under the pointer (one kept a town), or null for no seat. */
+  const seatTipAt = (mapId) => {
+    if (seatBook?.open !== true || !seatAtMapId(townSeats, mapId)) return null;
+    let f = _seatTipFns.get(mapId);
+    if (!f) _seatTipFns.set(mapId, (f = () => seatTipOf(seatHere(mapId))));
+    return f;
+  };
   const tvPlaceSummary = (px, py) => {
     const loc = locationIndex.get(`${px},${py}`);
     const row = loc?.name ? travelLocationSummaryAt(mapDict, px, py) : null;
@@ -24417,6 +24429,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     // down under the view (drawPeerNames) and these stand for them
     const near = new Set();
     const book = travellerBook.live(Date.now());
+    const myGt = myGuildTag();   // OW-KIN: asked once a frame, not once a player
     const sharing = new Map();   // the region's travellers by id: the players who share where they are with it
     for (const t of book) sharing.set(t.id, t);
     // the room's drawable peers, as this frame's onlineFrame sifted them (it runs before the readout): the concealed
@@ -24433,7 +24446,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
       near.add(d.id);
       // AUDIT NAMES: and one on a journey (their region mark's `tv`) keeps the arrow they wore from afar
       marks.push({ key: `peer:${d.id}`, at: [f[0], f[1] + h, f[2]], label: d.name ?? '', kind: `${party ? 'party' : 'traveller'}${isShipMark(t?.p) ? ' ship' : ''}${t?.p.tv ? ' journey' : ''}`, edge: party || !!t, badge: tvBadgeOf(d),
-        kin: travellerKin({ friend: !!social?.isFriendPeer(d.id), gt: d.gt }, myGuildTag()), lv: d.lv ?? null });   // OWS1: at sea (their region mark says so), a ship; OW-KIN / OW-WHO: who they are to me, and their Renown
+        kin: travellerKin({ friend: !!social?.isFriendPeer(d.id), gt: d.gt }, myGt), lv: d.lv ?? null });   // OWS1: at sea (their region mark says so), a ship; OW-KIN / OW-WHO: who they are to me, and their Renown
     }
     // TV3: THE REGION'S TRAVELLERS - their marks, beyond the pose range (inside it they are the players above); a party
     // member's in the party's colour; one outside the picture held at its edge, pointing
@@ -24446,7 +24459,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
       const kind = social?.isPartyPeer(t.id) ? 'party' : 'traveller';
       const ship = isShipMark(t.p);   // OWS1: at sea, a ship - riding the sea's top
       marks.push({ key: `trav:${t.id}`, at: tvSceneKept(t, w.x, w.z, 2, ship), label: t.name, kind: `${kind}${ship ? ' ship' : ''}${t.p.tv ? ' journey' : ''}`, edge: true, badge: tvBadgeOf(t),
-        kin: travellerKin({ friend: !!social?.isFriendPeer(t.id), gt: t.gt }, myGuildTag()), lv: t.lv ?? null });   // OW-KIN / OW-WHO
+        kin: travellerKin({ friend: !!social?.isFriendPeer(t.id), gt: t.gt }, myGt), lv: t.lv ?? null });   // OW-KIN / OW-WHO
       near.add(t.id);
     }
     // AUDIT OW5 P6: MY PARTY, WHEREVER THEY ARE - the held map draws them from the party's own poses (partyMarkers); here
@@ -27046,7 +27059,10 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     // `interruptTravel`). A long wilderness journey will therefore be
     // interrupted by game, often. That is the wilderness being alive
     // while you cross it, which is what was asked for; anyone who would
-    // rather ride through it turns the survival mod's hunting off.
+    // rather ride through it turns the survival mod's hunting off - or,
+    // HUNT-ROAD (FIELD BUGS 2026-10-04e), only its roll on the road: the
+    // World switch 'Hunting while travelling' (`hunting`'s `held` above;
+    // on by default, so this law stands as Mac asked).
     if (_mode() === 'exterior') hunting.tick();   // SURV6: the minute's hunting roll; the window takes the slot
     foragingWait.tick();   // FORAGE4: online, a standing wait takes the slot when it is free, and writes its seconds left for the save
     // PERF-CROWD (2026-09-19): and the live crowd is culled too. This list

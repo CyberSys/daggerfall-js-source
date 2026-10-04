@@ -6,9 +6,11 @@
 // dead came for the player at the gate, in the stands and between bouts - and indoors, on the floor's instance and in
 // the undercroft. The arena's grounds are kept: within ARENA_GROUND_M of the colosseum's sand (the hosts' own
 // ARENA_NEAR_M, where the hour's bout is stood for a player outside), and the arena's two made levels, a curse wave is
-// REFUSED - `false`, TryPlacement's own failed shape, so the wave waits and is tried again on the next machine tick:
-// the curse is not lifted, it waits outside the gate. Only the curse: any other quest's foes are placed as DFU places
-// them. Pure. Not a DFU member (the arena is the port's own, Ledger A ARENA).
+// KEPT OFF at CreateFoe's spawn event (quest/actions.js `world.foeKeptOff` - the hosts' quest world asks this): it passes
+// as a hidden Foe's does, the interval spent and no wave pending, so the curse is not lifted - its next interval's wave
+// comes once the player is off the grounds. (Not at placement: a wave left pending raises the encounter event every
+// machine tick, and broke a rest there each tick.) Only the curse: any other quest's foes are placed as DFU places them.
+// Pure. Not a DFU member - Ledger A (CURSE-OFF-SAND; the arena is the port's own, ARENA2).
 
 import { questNameIn } from './quest/machine.js';
 

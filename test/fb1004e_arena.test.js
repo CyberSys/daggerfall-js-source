@@ -6,7 +6,9 @@
 // ARENA-ARROWS, CURSE-OFF-SAND, ARENA-TEAMS, UNDERCROFT-DEEP.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
+import { QuestMachine } from '../src/systems/quest/machine.js';
+import { loadQuestTables } from '../src/systems/quest/tables.js';
 
 import { createArenaBouts } from '../src/scenes/arenaBouts.js';
 import { newArenaLadder, nextLadderBout } from '../src/systems/arenaLadder.js';
@@ -17,7 +19,9 @@ import { boutTeammates } from '../src/combat/friendlyFire.js';
 import { boutGate } from '../src/characters/enemyTargets.js';
 import { arenaHudModel } from '../src/ui/arenaHud.js';
 import { undercroftPopulation, deepFoesOf, undercroftHallNear, UNDERCROFT_DEEP_M, UNDERCROFT_BEASTS, UNDERCROFT_PEOPLE } from '../src/world/arenaUndercroft.js';
-import { spendArrow, ARROW_TEMPLATE } from '../src/systems/inventory.js';
+import { spendAmmoFor, ARROW_TEMPLATE } from '../src/systems/inventory.js';
+import { startShotTally, stopShotTally, noteShot, noteShotRecoverable } from '../src/systems/shotTally.js';
+import { playerArrowHitFoe } from '../src/combat/arrowFlight.js';
 import { PELLET_TEMPLATE } from '../src/characters/thunderlockIds.js';
 
 const read = (p) => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8');
@@ -27,32 +31,61 @@ const realArrows = (items) => items.filter((i) => i.templateIndex === ARROW_TEMP
 
 // ── ARENA-ARROWS ────────────────────────────────────────────────────────────────────────────────────────────────────
 
-test('ARENA-ARROWS law: the quiver is counted as the bout begins and what it spent is handed back - real stacks only, never more than went in, a stack spent to nothing stood again (mutants: conjured counted; a refund past the mark; the empty stack lost)', () => {
+test('ARENA-ARROWS law: the quiver is counted as the bout begins and what it LOOSED is handed back - real stacks only, never more than went in or was loosed, a stack spent to nothing stood again (mutants: conjured counted; a refund past the mark; the drop handed back; the tally unread; the empty stack lost)', () => {
   assert.deepEqual([...QUIVER_TEMPLATES], [ARROW_TEMPLATE, PELLET_TEMPLATE], 'every ammunition inventory.js spendAmmoFor spends');
   const items = [arrows(20), arrows(3, { timeForItemToDisappear: 99 }), arrows(4, { questItem: true })];
   const mark = markQuiver(items);
   assert.deepEqual(mark.map((m) => [m.template, m.count]), [[ARROW_TEMPLATE, 20]], 'the twenty real arrows - not the conjured, not the quest\'s');
-  for (let i = 0; i < 5; i++) spendArrow(items);   // three conjured first, then two real
+  startShotTally(items);
+  for (let i = 0; i < 5; i++) spendAmmoFor(items, null);   // three conjured first, then two real
+  const shots = stopShotTally();
+  assert.deepEqual([...shots], [[ARROW_TEMPLATE, 2]], 'the tally counts the two real shots');
   assert.equal(realArrows(items.filter((i) => !i.questItem)), 18);
-  assert.equal(refundQuiver(items, mark), 2, 'the two real arrows the bout spent');
+  assert.equal(refundQuiver(items, mark, shots), 2, 'the two real arrows the bout loosed');
   assert.equal(items.find((i) => !i.questItem && !i.timeForItemToDisappear).stackCount, 20, 'onto the stack they came off');
-  assert.equal(refundQuiver(items, mark), 0, 'nothing twice');
+  assert.equal(refundQuiver(items, mark, shots), 0, 'nothing twice');
+  // DROPPED, not loosed: the dropped stack still lies on the sand - it never comes back as well
+  const drop = [arrows(30)];
+  const md = markQuiver(drop);
+  drop[0].stackCount -= 12;   // twelve dropped
+  assert.equal(refundQuiver(drop, md, new Map([[ARROW_TEMPLATE, 3]])), 3, 'the three loosed, not the twelve dropped');
+  assert.equal(drop[0].stackCount, 21);
+  assert.equal(refundQuiver([arrows(10)], markQuiver([arrows(15)]), null), 0, 'nothing loosed (no tally), nothing paid');
   // spent to nothing
   const two = [arrows(2), { name: 'Pellet', group: 'Weapons', templateIndex: PELLET_TEMPLATE, stackCount: 6 }];
   const m2 = markQuiver(two);
-  spendArrow(two); spendArrow(two);
+  spendAmmoFor(two, null); spendAmmoFor(two, null);
   two.find((i) => i.templateIndex === PELLET_TEMPLATE).stackCount = 1;
   assert.equal(two.some((i) => i.templateIndex === ARROW_TEMPLATE), false, 'the quiver emptied');
-  assert.equal(refundQuiver(two, m2), 2 + 5);
+  assert.equal(refundQuiver(two, m2, new Map([[ARROW_TEMPLATE, 2], [PELLET_TEMPLATE, 5]])), 2 + 5);
   assert.equal(two.find((i) => i.templateIndex === ARROW_TEMPLATE)?.stackCount, 2, 'a new stack off the copy');
   assert.equal(two.find((i) => i.templateIndex === PELLET_TEMPLATE)?.stackCount, 6, 'and the Thunderlock\'s pellets too');
   // more than went in: nothing
   const grown = [arrows(5)];
   const m3 = markQuiver(grown);
   grown[0].stackCount = 9;
-  assert.equal(refundQuiver(grown, m3), 0);
+  assert.equal(refundQuiver(grown, m3, new Map([[ARROW_TEMPLATE, 4]])), 0);
   assert.equal(grown[0].stackCount, 9);
-  assert.equal(refundQuiver(null, m3), 0); assert.equal(refundQuiver(grown, null), 0);
+  assert.equal(refundQuiver(null, m3, shots), 0); assert.equal(refundQuiver(grown, null, shots), 0);
+});
+
+test('ARENA-ARROWS tally: a real round spent from the watched pack is a shot, a shaft lodged in a foe that can be looted is not - one in a bout fighter or a relay opponent\'s stand-in is lost and pays (mutants: the conjured round counted; any pack counted; the lodge uncounted; the bout fighter\'s lodge uncounted)', () => {
+  const pack = [arrows(4, { timeForItemToDisappear: 9 }), arrows(10)], other = [arrows(10)];
+  startShotTally(pack);
+  spendAmmoFor(pack, null);   // conjured
+  spendAmmoFor(other, null);   // not the watched pack
+  spendAmmoFor(pack, null); spendAmmoFor(pack, null); spendAmmoFor(pack, null);   // the rest conjured
+  for (let i = 0; i < 4; i++) spendAmmoFor(pack, null);   // four real
+  const bow = { weapon: { templateIndex: 130, name: 'Long Bow' }, pos: [0, 0, 0] };
+  const foe = (extra = {}) => ({ dead: false, entity: { items: [], basics: {}, level: 1, stats: {}, skills: {}, ...extra }, ai: { feet: [0, 0, 0], yaw: 0, height: 1.8 } });
+  const player = { level: 1, items: pack, stats: {}, skills: {} };
+  playerArrowHitFoe(bow, foe(), { playerEntity: player });   // a wild foe: lootable
+  playerArrowHitFoe(bow, foe({ bout: { id: 'b' } }), { playerEntity: player });   // a bout fighter: lost
+  playerArrowHitFoe(bow, { ...foe(), rival: 'p1' }, { playerEntity: player });   // a relay opponent's stand-in: lost
+  assert.deepEqual([...stopShotTally()], [[ARROW_TEMPLATE, 3]], 'four real shots, one lodged where it can be looted');
+  noteShot(pack, ARROW_TEMPLATE); noteShotRecoverable(ARROW_TEMPLATE);
+  assert.equal(stopShotTally(), null, 'stopped: nothing counted after');
+  assert.match(read('src/systems/inventory.js'), /const real = !isSummoned\(getItem\(list, opts\.group, template, opts\)\);\n  if \(!removeOne\(list, template, opts\)\) return false;\n  if \(real\) noteShot\(list, template\);/);
 });
 
 /** test/audit1003_bouts.test.js's rig, cut down: a ladder bout on a fake floor, the driver's doors logged. */
@@ -78,21 +111,34 @@ async function ladderRig(items) {
   return { A, P, foes, log, step };
 }
 
-test('ARENA-ARROWS driven: a ladder bout fought with the bow - its healers hand back every real arrow it spent, and say so (mutants: no mark at the bout; no refund at the heal)', async () => {
+test('ARENA-ARROWS driven: a ladder bout fought with the bow - its healers hand back every real arrow it loosed, never one dropped, and say so (mutants: no mark at the bout; no refund at the heal; the drop handed back)', async () => {
   const items = [arrows(12), arrows(2, { timeForItemToDisappear: 50 })];
   const r = await ladderRig(items);
   for (let i = 0; i < 200 && r.A.bout()?.phase !== 'fight'; i++) r.step(100);
   assert.equal(r.A.bout().phase, 'fight');
-  for (let i = 0; i < 7; i++) spendArrow(r.P.items);   // two conjured, then five real
-  assert.equal(realArrows(r.P.items), 7);
+  for (let i = 0; i < 7; i++) spendAmmoFor(r.P.items, null);   // two conjured, then five real
+  r.P.items.find((i) => i.templateIndex === ARROW_TEMPLATE && !i.timeForItemToDisappear).stackCount -= 2;   // and two dropped on the sand
+  assert.equal(realArrows(r.P.items), 5);
   const f = r.foes[0];
   f.entity.health = 0; f.entity.bout.out = true; f.entity.bout.hooks.floor?.(f, { fromPlayer: true });
   for (let i = 0; i < 400 && r.A.bout()?.phase !== 'done'; i++) r.step(100);
   assert.equal(r.A.bout().phase, 'done');
   assert.ok(r.log.heal >= 1, 'the healers came');
-  assert.equal(realArrows(r.P.items), 12, 'every real arrow back');
+  assert.equal(realArrows(r.P.items), 10, 'every real arrow loosed back - the two dropped are not');
   assert.ok(r.log.say.includes(ARENA_TEXT.ammoBack(5)), `said: ${r.log.say.join(' | ')}`);
   assert.equal(r.A.refundQuiver(), 0, 'and paid once - a later let-go hands back nothing more');
+});
+
+test('ARENA-ARROWS driven: a bout dismissed before its healers stops its tally - the let-go\'s heal pays what the bout loosed, never a shot taken after it went (mutants: the tally left running; the dismissed quiver dropped)', async () => {
+  const r = await ladderRig([arrows(20)]);
+  for (let i = 0; i < 200 && r.A.bout()?.phase !== 'fight'; i++) r.step(100);
+  assert.equal(r.A.bout().phase, 'fight');
+  for (let i = 0; i < 3; i++) spendAmmoFor(r.P.items, null);
+  r.A.dismiss();   // a session's let-go: the bout first (scenes/arenaOnline.js letGoPriv)...
+  for (let i = 0; i < 4; i++) spendAmmoFor(r.P.items, null);   // ...shots after it are no bout's
+  assert.equal(r.A.refundQuiver(), 3, '...then the healers: the three the bout loosed');
+  assert.equal(realArrows(r.P.items), 16);
+  assert.equal(r.A.refundQuiver(), 0, 'paid once');
 });
 
 test('ARENA-ARROWS: a private session\'s bout let go before its healers hands the quiver back too (the world host\'s session door)', () => {
@@ -143,11 +189,43 @@ test('CURSE-OFF-SAND: the Curse of Daggerfall\'s wave waits outside the arena\'s
   assert.equal(keptOffArenaGround({ questName: 'M0B00Y16', feet: near, centre }), false, 'another quest\'s foe');
   assert.equal(keptOffArenaGround({ questName: 'M0B00Y16', inArenaLevel: true }), false);
   assert.equal(keptOffArenaGround({ questName: null, feet: near, centre }), false);
-  // the hosts that place a quest's foes: both exteriors, and the modes host for the dungeon arm (the floor's instance and
-  // the undercroft are dungeon levels; dungeonContext.js stands what worldModes.js places - THE FOUR HOSTS RULE)
-  assert.match(read('src/scenes/world.js'), /if \(keptOffArenaGround\(\{ questName: handle\.foe\?\.parentQuest\?\.questName, feet: player\.pos, centre: arenaCityPixel\(\) \? arenaCityStage\.centre\(\) : null \}\)\) return false;/);
-  assert.match(read('src/scenes/exterior.js'), /if \(keptOffArenaGround\(\{ questName: handle\.foe\?\.parentQuest\?\.questName, feet, centre: arenaCityOrigin \? arenaCityStage\.centre\(\) : null \}\)\) return false;/);
-  assert.match(read('src/scenes/worldModes.js'), /if \(keptOffArenaGround\(\{ questName: handle\.foe\?\.parentQuest\?\.questName, inArenaLevel: isArenaFloor\(dungeonLoc\) \|\| isArenaUndercroft\(dungeonLoc\) \}\)\) return false;/);
+  // the hosts whose quest world CreateFoe asks: both exteriors, and the modes host for the dungeon arm (the floor's
+  // instance and the undercroft are dungeon levels; dungeonContext.js stands what worldModes.js places - THE FOUR HOSTS
+  // RULE). No host refuses at PLACEMENT any more - a pending wave raises the encounter event every tick it waits
+  for (const host of ['world.js', 'exterior.js']) {
+    assert.match(read(`src/scenes/${host}`), /foeKeptOff: \(foe\) => \(\(modes\?\.mode \?\? 'exterior'\) !== 'exterior'\n\s*\? !!modes\?\.questFoeKeptOff\?\.\(foe\)\n\s*: keptOffArenaGround\(\{ questName: foe\?\.parentQuest\?\.questName, feet: player\.pos, centre: arenaCity(Pixel\(\)|Origin) \? arenaCityStage\.centre\(\) : null \}\)\),/, host);
+    const src = read(`src/scenes/${host}`), at = src.indexOf('tryPlaceFoe: (handle) => {');
+    assert.ok(at > 0 && !src.slice(at, at + 6000).includes('keptOffArenaGround'), `${host}: no refusal at placement`);
+  }
+  assert.match(read('src/scenes/worldModes.js'), /questFoeKeptOff\(foe\) \{\n\s*return mode === 'dungeon' && keptOffArenaGround\(\{ questName: foe\?\.parentQuest\?\.questName, inArenaLevel: isArenaFloor\(dungeonLoc\) \|\| isArenaUndercroft\(dungeonLoc\) \}\);/);
+});
+
+test('CURSE-OFF-SAND driven: a wave kept off passes at CreateFoe\'s spawn event as a hidden Foe\'s does - no wave pending, so no encounter event raised every tick to break a rest on the grounds; off the grounds the next interval\'s wave comes (mutants: the seam unasked)', () => {
+  const VENDOR = new URL('../vendor/dfu-quests/Tables/', import.meta.url);
+  const sources = {};
+  for (const f of readdirSync(VENDOR)) if (f.endsWith('.txt')) sources[f.replace('.txt', '')] = readFileSync(new URL(f, VENDOR), 'utf8').replace(/^\uFEFF/, '');
+  loadQuestTables(sources);
+  const kept = { v: true };
+  const world = {
+    currentRegionIndex: () => 0, isPlayerInLocationRect: () => true, created: 0, placed: 0, raised: 0, asked: [],
+    createFoeGameObjects: (foe, count) => { world.created++; return Array.from({ length: count }, (_, i) => ({ i })); },
+    tryPlaceFoe: () => { world.placed++; return true; }, raiseOnEncounterEvent() { world.raised++; },
+    foeKeptOff: (foe) => { world.asked.push(foe?.symbol?.name ?? null); return kept.v; },
+  };
+  const clock = { t: 100000 };
+  const m = new QuestMachine({ nowSeconds: () => clock.t, world, questClockStepMax: () => Infinity, showPopup() {} });
+  const q = m.scheduleQuest(['Quest: __QK', 'QRC:', 'Message:  1011', ' x', '', 'QBN:', 'Foe _ghost_ is 2 Ghost', '', ' create foe _ghost_ every 60 minutes 9 times with 100% success'], 0, { rolls: () => 0.4 });
+  const act = [...q.tasks.values()].flatMap((t) => t.actions).find((a) => a.constructor.name === 'CreateFoe');
+  assert.ok(act);
+  for (let i = 0; i < 12 * 60; i++) { clock.t += 60; m.tick(); }   // twelve hours resting on the grounds
+  assert.ok(world.asked.length >= 10, `the seam was asked at each spawn event: ${world.asked.length}`);
+  assert.equal(world.created, 0, 'no wave made');
+  assert.equal(act.spawnInProgress, false, 'none pending');
+  assert.equal(world.raised, 0, 'and no encounter event - the rest is never broken');
+  kept.v = false;
+  for (let i = 0; i < 61; i++) { clock.t += 60; m.tick(); }
+  assert.equal(world.created, 1, 'off the grounds: the next interval\'s wave');
+  assert.equal(world.placed, 2, 'both stood');
 });
 
 // ── UNDERCROFT-DEEP ─────────────────────────────────────────────────────────────────────────────────────────────────

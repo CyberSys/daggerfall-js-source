@@ -102,7 +102,7 @@
   {
     "name": "PADARRANGE-the-hand-outlives-the-window",
     "file": "src/ui/enhancedHotbar.js",
-    "old": "dragEnd(false); hand = null; arranging = false; raiseSync(); }",
+    "old": "dragEnd(false); hand = null; arranging = false; handPress = -1; raiseSync(); }",
     "new": "dragEnd(false); raiseSync(); }",
     "tests": [
       "test/fb1004e_padarrange.test.js"
@@ -128,6 +128,86 @@
       "test/fb1004e_padarrange.test.js"
     ],
     "note": "the bumpers said to be the tabs while they place"
+  },
+  {
+    "name": "PADARRANGE-put-down-on-the-press",
+    "file": "src/ui/enhancedHotbar.js",
+    "old": "{ e.preventDefault(); handPress = i; return; }",
+    "new": "{ e.preventDefault(); placeHotbarHand(i); return; }",
+    "tests": [
+      "test/fb1004e_padarrange.test.js"
+    ],
+    "note": "the bar tucks under the cursor before the release, and the click lands on the window beneath"
+  },
+  {
+    "name": "PADARRANGE-any-click-places",
+    "file": "src/ui/enhancedHotbar.js",
+    "old": "    if (!hand || handPress !== i) return;",
+    "new": "    if (!hand) return;",
+    "tests": [
+      "test/fb1004e_padarrange.test.js"
+    ],
+    "note": "a press begun elsewhere puts the hand down where it was let go"
+  },
+  {
+    "name": "PADARRANGE-the-cleared-slot-kept-in-hand",
+    "file": "src/ui/enhancedHotbar.js",
+    "old": "    if (hand?.kind === 'slot' && hand.slot === i) { hand = null; handPress = -1; raiseSync(); }",
+    "new": "",
+    "tests": [
+      "test/fb1004e_padarrange.test.js"
+    ],
+    "note": "Y clears the slot and the hand still holds it"
+  },
+  {
+    "name": "PADARRANGE-the-hand-kept-off-the-pad",
+    "file": "src/ui/enhancedHotbar.js",
+    "old": "  if ((hand || arranging) && !padInHand()) { hand = null; arranging = false; handPress = -1; raiseSync(); }\n",
+    "new": "",
+    "tests": [
+      "test/fb1004e_padarrange.test.js"
+    ],
+    "note": "the mouse takes over and the bar stands raised with nothing to lower it"
+  },
+  {
+    "name": "PADARRANGE-the-row-of-tens-tabs-taken",
+    "file": "src/ui/gamepadInput.js",
+    "old": "inHand = !!xbApi?.holding?.() && !!xbApi?.crossbar?.();",
+    "new": "inHand = !!xbApi?.holding?.();",
+    "tests": [
+      "test/fb1004e_padarrange.test.js"
+    ],
+    "note": "in hand on the row of ten the bumpers place nothing and turn no tab"
+  },
+  {
+    "name": "PADARRANGE-x-quick-acts-while-placing",
+    "file": "src/ui/gamepadInput.js",
+    "old": "        if (free('JoystickButton2')) {",
+    "new": "        if (edge('JoystickButton2')) {",
+    "tests": [
+      "test/fb1004e_padarrange.test.js"
+    ],
+    "note": "LB + X places and also wears the item under the cursor"
+  },
+  {
+    "name": "PADBINDS-the-cleared-row-said-to-swap",
+    "file": "src/ui/plusPadBinds.js",
+    "old": "cleared: !!other && !old }",
+    "new": "cleared: false }",
+    "tests": [
+      "test/fb1004e_padarrange.test.js"
+    ],
+    "note": "an action left with no button is said to have taken the old one"
+  },
+  {
+    "name": "PADARRANGE-the-bumper-still-a-tab",
+    "file": "src/ui/gamepadInput.js",
+    "old": "      if (!inHand && edge('JoystickButton4')) cycleTab(-1);",
+    "new": "      if (edge('JoystickButton4')) cycleTab(-1);",
+    "tests": [
+      "test/fb1004e_padarrange.test.js"
+    ],
+    "note": "LB held to place also turns the window's tab"
   },
   {
     "name": "HORSEFACE-the-placing-paints-minus-one",
@@ -182,8 +262,8 @@
   {
     "name": "ARENAARROWS-a-refund-past-the-mark",
     "file": "src/systems/arenaQuiver.js",
-    "old": "    if (!(missing > 0)) continue;",
-    "new": "    if (!(missing !== 0)) continue;",
+    "old": "    if (!(owed > 0)) continue;",
+    "new": "    if (!(owed !== 0)) continue;",
     "tests": [
       "test/fb1004e_arena.test.js"
     ],
@@ -192,17 +272,117 @@
   {
     "name": "ARENAARROWS-the-empty-stack-lost",
     "file": "src/systems/arenaQuiver.js",
-    "old": "    else addItem(items, { ...m.proto, stackCount: missing });",
-    "new": "",
+    "old": "    addItem(items, { ...m.proto, stackCount: owed });",
+    "new": "    if (items.some((it) => counted(it, m.template))) addItem(items, { ...m.proto, stackCount: owed });",
     "tests": [
       "test/fb1004e_arena.test.js"
     ],
     "note": "a quiver spent to nothing comes back empty"
   },
   {
+    "name": "ARENAARROWS-the-drop-handed-back",
+    "file": "src/systems/arenaQuiver.js",
+    "old": "    const owed = Math.min(m.count - now, loosed?.get(m.template) ?? 0);",
+    "new": "    const owed = m.count - now;",
+    "tests": [
+      "test/fb1004e_arena.test.js"
+    ],
+    "note": "an arrow dropped on the sand comes back while the dropped stack still lies there"
+  },
+  {
+    "name": "ARENAARROWS-the-tally-unread",
+    "file": "src/systems/arenaQuiver.js",
+    "old": "loosed?.get(m.template) ?? 0",
+    "new": "loosed?.get(m.template) ?? Infinity",
+    "tests": [
+      "test/fb1004e_arena.test.js"
+    ],
+    "note": "nothing counted reads as everything loosed"
+  },
+  {
+    "name": "SHOTTALLY-the-conjured-round-counted",
+    "file": "src/systems/inventory.js",
+    "old": "  if (real) noteShot(list, template);",
+    "new": "  noteShot(list, template);",
+    "tests": [
+      "test/fb1004e_arena.test.js"
+    ],
+    "note": "a conjured round is counted a shot"
+  },
+  {
+    "name": "SHOTTALLY-any-pack-counted",
+    "file": "src/systems/shotTally.js",
+    "old": "  if (watching && list === watching.list) watching",
+    "new": "  if (watching) watching",
+    "tests": [
+      "test/fb1004e_arena.test.js"
+    ],
+    "note": "a round spent from any pack is the bout's shot"
+  },
+  {
+    "name": "SHOTTALLY-stop-keeps-counting",
+    "file": "src/systems/shotTally.js",
+    "old": "  watching = null;\n  return w ? w.shots : null;",
+    "new": "  return w ? w.shots : null;",
+    "tests": [
+      "test/fb1004e_arena.test.js"
+    ],
+    "note": "the tally runs on after it is stopped"
+  },
+  {
+    "name": "SHOTTALLY-the-lodge-uncounted",
+    "file": "src/combat/arrowFlight.js",
+    "old": "    if (!foe.entity.bout && foe.rival == null) noteShotRecoverable(ARROW_TEMPLATE);",
+    "new": "",
+    "tests": [
+      "test/fb1004e_arena.test.js"
+    ],
+    "note": "a shaft that can be looted back is paid as well"
+  },
+  {
+    "name": "SHOTTALLY-the-bout-fighters-lodge-uncounted",
+    "file": "src/combat/arrowFlight.js",
+    "old": "if (!foe.entity.bout && foe.rival == null)",
+    "new": "if (foe.rival == null)",
+    "tests": [
+      "test/fb1004e_arena.test.js"
+    ],
+    "note": "a shaft lost in a bout fighter is read as lootable"
+  },
+  {
+    "name": "SHOTTALLY-the-rivals-lodge-uncounted",
+    "file": "src/combat/arrowFlight.js",
+    "old": "if (!foe.entity.bout && foe.rival == null)",
+    "new": "if (!foe.entity.bout)",
+    "tests": [
+      "test/fb1004e_arena.test.js"
+    ],
+    "note": "a shaft lost in a relay opponent's stand-in is read as lootable"
+  },
+  {
+    "name": "ARENAARROWS-the-tally-left-running",
+    "file": "src/scenes/arenaBouts.js",
+    "old": "const shots = stopShotTally() ?? new Map();",
+    "new": "const shots = new Map();",
+    "tests": [
+      "test/fb1004e_arena.test.js"
+    ],
+    "note": "a dismissed bout's tally runs on into the wild, its count never read"
+  },
+  {
+    "name": "ARENAARROWS-the-dismissed-quiver-dropped",
+    "file": "src/scenes/arenaBouts.js",
+    "old": "if (quiver.C === C) quiver.shots = shots; else quiver = null;",
+    "new": "quiver = null;",
+    "tests": [
+      "test/fb1004e_arena.test.js"
+    ],
+    "note": "a session let go before its healers pays nothing"
+  },
+  {
     "name": "ARENAARROWS-no-mark-at-the-bout",
     "file": "src/scenes/arenaBouts.js",
-    "old": "    if (ladder) { deps.setPlayerBout?.(cur.playerTag); markMine(); }",
+    "old": "    if (ladder) { deps.setPlayerBout?.(cur.playerTag); markMine(cur); }",
     "new": "    if (ladder) { deps.setPlayerBout?.(cur.playerTag); }",
     "tests": [
       "test/fb1004e_arena.test.js"
@@ -212,7 +392,7 @@
   {
     "name": "ARENAARROWS-no-refund-at-the-heal",
     "file": "src/scenes/arenaBouts.js",
-    "old": "    if (C.ladder) { deps.heal?.(); deps.say?.(ARENA_TEXT.healed); refundMine(); C.lastHealth",
+    "old": "    if (C.ladder) { deps.heal?.(); deps.say?.(ARENA_TEXT.healed); refundMine(C); C.lastHealth",
     "new": "    if (C.ladder) { deps.heal?.(); deps.say?.(ARENA_TEXT.healed); C.lastHealth",
     "tests": [
       "test/fb1004e_arena.test.js"
@@ -310,6 +490,26 @@
     "note": "the floor's instance and the undercroft let the dead in"
   },
   {
+    "name": "CURSEOFFSAND-the-seam-unasked",
+    "file": "src/systems/quest/actions.js",
+    "old": "      if (world.foeKeptOff?.(foe)) return;\n",
+    "new": "",
+    "tests": [
+      "test/fb1004e_arena.test.js"
+    ],
+    "note": "the curse's wave comes on the grounds"
+  },
+  {
+    "name": "CURSEOFFSAND-the-dungeon-arm-unasked",
+    "file": "src/scenes/worldModes.js",
+    "old": "      return mode === 'dungeon' && keptOffArenaGround(",
+    "new": "      return false && keptOffArenaGround(",
+    "tests": [
+      "test/fb1004e_arena.test.js"
+    ],
+    "note": "the floor's instance and the undercroft let the dead in"
+  },
+  {
     "name": "UNDERCROFTDEEP-the-reach-dropped",
     "file": "src/world/arenaUndercroft.js",
     "old": "  for (const m of order.slice(i)) if (!undercroftHallNear(out, [m.x, m.y, m.z])) out.deep.push",
@@ -348,6 +548,16 @@
       "test/fb1004e_overworld.test.js"
     ],
     "note": "no guild-mate is ever named in violet"
+  },
+  {
+    "name": "OWKIN-no-guild-of-mine-matched",
+    "file": "src/systems/travelViewFilters.js",
+    "old": "  if (myTag && p?.gt && ",
+    "new": "  if (p?.gt && ",
+    "tests": [
+      "test/fb1004e_overworld.test.js"
+    ],
+    "note": "a player whose tag is NULL read as my guild-mate when I have none"
   },
   {
     "name": "OWWHO-a-kin-switch-ignored",
@@ -472,7 +682,7 @@
   {
     "name": "SEATTIP-the-held-map-tip-dropped",
     "file": "src/ui/heldMap.js",
-    "old": "      const tip = m.seat ? readTip(seatTipOf(m.seat)) : null;",
+    "old": "      const tip = m.seat ? readTip(seatTipOf(m.seat), { textMax: SEAT_TIP_TEXT_MAX }) : null;",
     "new": "      const tip = null;",
     "tests": [
       "test/fb1004e_overworld.test.js"
@@ -510,6 +720,106 @@
     "note": "every traveller a stranger on the travel map"
   },
   {
+    "name": "OWHUBS-the-wheel-on-the-mark",
+    "file": "src/ui/inkMap.js",
+    "old": "(beside ? [x - markReach(m) - CARRIAGE_WHEEL_R - 1, y - 1] : [x, y])",
+    "new": "(beside ? [x - 9, y - 1] : [x, y])",
+    "tests": [
+      "test/fb1004e_overworld.test.js"
+    ],
+    "note": "a hub or seat town's wheel lies on its circle and ring"
+  },
+  {
+    "name": "OWHUBS-the-wheels-ground-unreserved",
+    "file": "src/ui/inkMap.js",
+    "old": "    if (m.carriage) {   // OW-HUBS: and a carriage town's wheel beside it\n",
+    "new": "    if (false) {   // OW-HUBS: and a carriage town's wheel beside it\n",
+    "tests": [
+      "test/fb1004e_overworld.test.js"
+    ],
+    "note": "a neighbour's name is lettered over the wheel"
+  },
+  {
+    "name": "OWHUBS-the-left-name-on-the-wheel",
+    "file": "src/ui/inkMap.js",
+    "old": "(m.carriage ? markReach(m) + 2 * CARRIAGE_WHEEL_R + 2 : glyph)",
+    "new": "glyph",
+    "tests": [
+      "test/fb1004e_overworld.test.js"
+    ],
+    "note": "a carriage town's own name set left lies on its wheel"
+  },
+  {
+    "name": "SEATTIP-the-seats-lines-cut-at-80",
+    "file": "src/ui/travelViewHud.js",
+    "old": "readTip(typeof tip === 'function' ? tip() : tip, { textMax: SEAT_TIP_TEXT_MAX })",
+    "new": "readTip(typeof tip === 'function' ? tip() : tip)",
+    "tests": [
+      "test/fb1004e_overworld.test.js"
+    ],
+    "note": "a holder's and a battle's lines cut mid-sentence"
+  },
+  {
+    "name": "SEATTIP-readTip-ignores-the-bound",
+    "file": "src/ui/eventMapMarks.js",
+    "old": ".map((l) => String(l ?? '').slice(0, textMax))",
+    "new": ".map((l) => String(l ?? '').slice(0, TIP_TEXT_MAX))",
+    "tests": [
+      "test/fb1004e_overworld.test.js"
+    ],
+    "note": "every card cut at 80"
+  },
+  {
+    "name": "SEATTIP-measured-each-frame",
+    "file": "src/ui/travelViewHud.js",
+    "old": "  if (!tipSize || tipSize.vw !== vw) {",
+    "new": "  if (true) {",
+    "tests": [
+      "test/fb1004e_overworld.test.js"
+    ],
+    "note": "a layout read forced every frame the card stands"
+  },
+  {
+    "name": "SEATTIP-the-blocks-controls-a-plate",
+    "file": "src/ui/travelViewHud.js",
+    "old": "i >= 0 && pointer && !pointer.ui; i--)",
+    "new": "i >= 0 && pointer; i--)",
+    "tests": [
+      "test/fb1004e_overworld.test.js"
+    ],
+    "note": "a plate under the block lit, its card over the buttons"
+  },
+  {
+    "name": "SEATTIP-a-function-tip-unread",
+    "file": "src/ui/travelViewHud.js",
+    "old": "typeof tip === 'function' ? tip() : tip",
+    "new": "tip",
+    "tests": [
+      "test/fb1004e_overworld.test.js"
+    ],
+    "note": "a seat's lazy card never shown"
+  },
+  {
+    "name": "OWWHO-the-legend-the-books",
+    "file": "src/ui/heldMap.js",
+    "old": "    const trav = this._trav.filter((t) => playerShown(t));",
+    "new": "    const trav = this._trav;",
+    "tests": [
+      "test/fb1004e_overworld.test.js"
+    ],
+    "note": "the legend says the kins the switches hide"
+  },
+  {
+    "name": "OWWHO-the-press-leaves-the-legend",
+    "file": "src/ui/heldMap.js",
+    "old": "    this._renderLegend();   // the kins it hid leave the legend with their marks\n",
+    "new": "",
+    "tests": [
+      "test/fb1004e_overworld.test.js"
+    ],
+    "note": "the legend stale until the travellers move"
+  },
+  {
     "name": "WILDROAD-the-ratio-loosened",
     "file": "src/systems/roadEncounters.js",
     "old": "  return lv * TRIVIAL_LEVEL_RATIO <= playerLevel;",
@@ -520,14 +830,44 @@
     "note": "a level 2 rides past its rat"
   },
   {
-    "name": "WILDROAD-the-solitary-let-through",
+    "name": "WILDROAD-class-foes-trivial",
     "file": "src/systems/roadEncounters.js",
-    "old": "  if (solitary(mobileType)) return false;\n  const lv",
-    "new": "  const lv",
+    "old": "(ENEMY_BASICS)[mobileType]?.level;",
+    "new": "(ENEMY_BASICS)[mobileType]?.level ?? 0;",
     "tests": [
       "test/fb1004e_road.test.js"
     ],
-    "note": "a solitary terror passed by"
+    "note": "a class foe read as level 0 and passed by"
+  },
+  {
+    "name": "WILDROAD-the-loop-stops",
+    "file": "src/scenes/world.js",
+    "old": "if (_road && trivialOnRoad(hit.mobileType, effectiveLevel(playerEntity))) continue;",
+    "new": "if (_road && trivialOnRoad(hit.mobileType, effectiveLevel(playerEntity))) break;",
+    "tests": [
+      "test/fb1004e_road.test.js"
+    ],
+    "note": "a rat passed by ends the minutes' rolls"
+  },
+  {
+    "name": "WILDROAD-the-window-alone-the-road",
+    "file": "src/scenes/world.js",
+    "old": "!!(travelOptions?.isTravelActive && travelOptions.state?.autopilot)",
+    "new": "!!travelOptions?.isTravelActive",
+    "tests": [
+      "test/fb1004e_road.test.js"
+    ],
+    "note": "the Travel Options window up with no journey read as the road"
+  },
+  {
+    "name": "WILDROAD-a-rest-the-road",
+    "file": "src/scenes/world.js",
+    "old": "const onTheRoad = () => !playerEntity.isResting && (",
+    "new": "const onTheRoad = () => (",
+    "tests": [
+      "test/fb1004e_road.test.js"
+    ],
+    "note": "a rest on a journey reads as the road"
   },
   {
     "name": "WILDROAD-the-chance-inverted",

@@ -833,6 +833,10 @@ export function placeNames(marks, view, band, { paperW, paperH, measure }) {
     const [px, py] = toPaper(view, m.x, m.y);
     const r = markReach(m) + 1;   // HUB1: a hub's circle is ground its glyph holds
     boxes.push({ x: px - r, y: py - r, w: r * 2, h: r * 2 });
+    if (m.carriage) {   // OW-HUBS: and a carriage town's wheel beside it
+      const [wx, wy] = carriageWheelAt(m, px, py), wr = CARRIAGE_WHEEL_R + 1;
+      boxes.push({ x: wx - wr, y: wy - wr, w: wr * 2, h: wr * 2 });
+    }
   }
   const hits = (box) => boxes.some((b) => b.x < box.x + box.w && b.x + b.w > box.x && b.y < box.y + box.h && b.y + b.h > box.y);
   for (const m of sorted) {
@@ -858,7 +862,7 @@ export function placeNames(marks, view, band, { paperW, paperH, measure }) {
     // that matched none of them. The box is RETURNED now.
     const cands = [
       { x: px + glyph + 3, base: py + size * 0.35 },
-      { x: px - glyph - 3 - w, base: py + size * 0.35 },
+      { x: px - (m.carriage ? markReach(m) + 2 * CARRIAGE_WHEEL_R + 2 : glyph) - 3 - w, base: py + size * 0.35 },   // OW-HUBS: past a carriage town's wheel
       { x: px - w * 0.5, base: py - glyph - 5 },
       { x: px - w * 0.5, base: py + glyph + 2 + size * 0.85 },
     ];
@@ -999,7 +1003,7 @@ export function paintInkStatic(ctx, model, view, opts) {
     const ink = shown.has(m.colorIndex);
     if (ink) inked.push([m, ...toPaper(view, m.x, m.y)]);
     if (opts.ports && m.port) harbours.push([ink, ...toPaper(view, m.x, m.y)]);
-    if (m.carriage) wheels.push([ink, ...toPaper(view, m.x, m.y)]);
+    if (m.carriage) wheels.push([ink, ...toPaper(view, m.x, m.y), m]);
   }
   // HUB1: a hub's circle goes down FIRST - its glyph's halo and ink then sit on it, so the town reads on the colour
   for (const [m, x, y] of inked) if (m.hub) paintHubCircle(ctx, x, y, markReach(m) - (m.seat ? SEAT_RING_PAD : 0), !!m.hub.capital);
@@ -1013,7 +1017,7 @@ export function paintInkStatic(ctx, model, view, opts) {
   // the band inks the place, ON the place where it does not (far inks the cities alone, and the map opens far) - so the
   // ports the quays stand at read from the first look. MAP2 drew them at mid and near only.
   for (const [beside, x, y] of harbours) paintHarbour(ctx, x, y, beside);
-  for (const [beside, x, y] of wheels) paintCarriageWheel(ctx, x, y, beside);   // OW-HUBS
+  for (const [beside, x, y, m] of wheels) paintCarriageWheel(ctx, x, y, beside, m);   // OW-HUBS
   // MAP2: the mod's MARK (TravelOptionsMapWindow.cs:532-550, drawn in
   // MarkLocationColor) - a ring on the marked place at EVERY band, whether
   // or not the band inks the place itself: the mark is the thing the
@@ -1265,11 +1269,14 @@ export function paintHarbour(ctx, x, y, beside = true) {
   anchorPath(ctx, ax, ay);
   ctx.stroke();
 }
-/** OW-HUBS (FIELD BUGS 2026-10-04e): a carriage town's wheel - LEFT of its mark (the anchor stands right), or on the
- *  place where the band inks no mark there; the anchor's halo and pen. Skin. */
+/** OW-HUBS (FIELD BUGS 2026-10-04e): a carriage town's wheel - LEFT of its mark (the anchor stands right), clear of all
+ *  the mark's ink (markReach: its glyph, a hub's circle, a seat's ring - and names keep clear of it, placeNames), or on
+ *  the place where the band inks no mark there; the anchor's halo and pen. Skin. */
 export const CARRIAGE_WHEEL_R = 3.6;
-export function paintCarriageWheel(ctx, x, y, beside = true) {
-  const wx = beside ? x - 9 : x, wy = beside ? y - 1 : y;
+/** Where mark `m`'s wheel stands, its mark at paper (x, y). */
+export const carriageWheelAt = (m, x, y, beside = true) => (beside ? [x - markReach(m) - CARRIAGE_WHEEL_R - 1, y - 1] : [x, y]);
+export function paintCarriageWheel(ctx, x, y, beside = true, m = {}) {
+  const [wx, wy] = carriageWheelAt(m ?? {}, x, y, beside);
   ctx.strokeStyle = PEN.halo; ctx.lineWidth = HARBOUR_HALO;
   wheelPath(ctx, wx, wy, CARRIAGE_WHEEL_R);
   ctx.stroke();

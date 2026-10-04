@@ -1305,7 +1305,8 @@ still look for the box ENH-NOTICE3 moved onto the notice panel - its own repair,
 ## OW-WHO, OW-KIN, OW-HUBS, SEAT-TIP on the travel map (FIELD BUGS 2026-10-04e)
 
 The region's travellers are filtered by the Overworld's own Players switches (the key gains a Players row while any are
-drawn) and drawn in their kin's colour (the legend names a friend's and a guild-mate's); a carriage town wears a wheel
-left of its mark, at every band; a seat answers its hover with the EVENT-TIP card (who holds it, this week's battle), and
-the I box names a held seat's holder - it read "unheld" whoever held it. The record:
+in the book) and drawn in their kin's colour (the legend names a friend's and a guild-mate's while one is drawn); a
+carriage town wears a wheel left of its mark, clear of its hub circle and seat ring, at every band, and names keep off
+it; a seat answers its hover with the EVENT-TIP card (who holds it, this week's battle - a seat's lines bounded at 160,
+not 80), and the I box names a held seat's holder - it read "unheld" whoever held it. The record:
 `01-Overview/Field-Bugs-2026-10-04e.md`.

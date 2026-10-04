@@ -657,8 +657,9 @@ third was a thing the port never said out loud.
   alike.
 
 > **HUNT-ROAD (FIELD BUGS 2026-10-04e)** keeps TO-FIELD3's roll ON by default and gives the player a switch of their
-> own, Hunting while travelling: off, no hunt is rolled while a journey runs or the Overworld is up (`scenes/hunting.js`
-> `held`). Beside it, WILD-ROAD's Encounters on the road passes a wanderer far beneath the traveller by. The record:
+> own, Hunting while travelling: off, no hunt is rolled while a journey is under way or the Overworld is up
+> (`scenes/hunting.js` `held`). Beside it, WILD-ROAD's Encounters on the road passes a wanderer far beneath the traveller
+> by. The road is a journey under way (the window up and its autopilot steering) or the Overworld - never a rest. The record:
 > `01-Overview/Field-Bugs-2026-10-04e.md`.
 
 > **TO-FIELD3 (Mac, 2026-09-18) REVERSED THE TWO GAMEPLAY CHANGES BELOW.**
@@ -806,7 +807,7 @@ which `InitLocationRects` keeps refreshing the rects MID-journey
 (`:606-612`, `autopilot == null || destinationName != null`;
 `travelOptions.js:695-698`). A town's ring reaches into its neighbour
 pixels; the crossing fired `OnMapPixelChanged`, the host's
-`locationTileRect` answered null for the neighbour (world.js:13384 -
+`locationTileRect` answered null for the neighbour (world.js:13385 -
 null both for a pixel not yet built and for one with no location),
 `SetLocationRects` nulled both rects (`:602-604`), and the walk's own
 `OnArrival` (`circumnavigateLocation`, `:753-797`) read

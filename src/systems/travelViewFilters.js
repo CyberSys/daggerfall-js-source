@@ -25,6 +25,7 @@
 // A player is shown while the Travellers switch is on, their kin's switch is on and their Renown reaches the floor.
 // ═══════════════════════════════════════════════════════════════════
 import { appStorage } from './appStorage.js';
+import { FRIEND_CSS } from '../net/social.js';   // OW-KIN: the friends' blue is the chat's own
 
 export const TV_FILTER_GROUPS = Object.freeze(['towns', 'distant', 'dungeons', 'enemies', 'travellers', 'gathering']);
 export const TV_FILTER_STORE_KEY = 'dfjs.overworld.filters';
@@ -116,7 +117,7 @@ export const TV_WHO_TEXT = Object.freeze({
 });
 /** OW-KIN: a player's names are coloured by who they are to me - my party's green stays the party's (net/social.js). */
 export const TV_KIN_COLORS = Object.freeze({
-  friend: '#8fd0ff',   // net/social.js FRIEND_CSS - the chat's and the roster's friend blue
+  friend: FRIEND_CSS,   // the chat's and the roster's friend blue, one home
   guild: '#c9a6ff',    // a guild-mate's violet - none of the party's green, the friends' blue, the tag's steel or the renown's amber
 });
 /** OW-KIN: the legend's words for the two colours. */

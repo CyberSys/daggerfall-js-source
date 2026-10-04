@@ -29,7 +29,8 @@ import { bowDamageArrow } from './enemyEquipment.js';   // MAC-N1: the recovered
 import { backstabChanceOf, enemyPainVoice } from '../scenes/hostCombat.js';
 import { isBackFacing } from '../characters/enemyMotor.js';
 import { hitSoundFor, ENEMY_HIT_VOLUME } from '../systems/soundClips.js';
-import { addItem } from '../systems/inventory.js';
+import { addItem, ARROW_TEMPLATE } from '../systems/inventory.js';
+import { noteShotRecoverable } from '../systems/shotTally.js';   // ARENA-ARROWS: a recoverable shaft is no shot the healers pay
 import { orbArchiveFor, ORB_RECORD, noteOrbColour, ORB_SCALE } from '../characters/thunderlockIds.js';   // FIELD-GUN14: what this weapon's shot LOOKS like - the leaf, so no cycle   // FIELD-GUN17: ...and what colour it is, sampled the one moment the texture is in hand   // FIELD-GUN18: ...and how big it is drawn
 import { playerWeaponHitEntity } from '../systems/worldTick.js';   // DISC10-D H1: OnWeaponHitEntity's one dispatcher (worldTick never reaches this module - no cycle)
 import { sparedByPlayer } from './friendlyFire.js';   // SHIPMATES: the player's shaft passes their own crew by
@@ -240,7 +241,7 @@ export class ArrowFlight {
  *
  * WAVE D: four bodies became FOUR CALLERS. dungeonContext.js's
  * `m.fromPlayer` block - the arm this function was extracted FROM -
- * now calls it (dungeonContext.js:3474), so the copy that survived
+ * now calls it (dungeonContext.js:3475), so the copy that survived
  * the extraction is gone. It was not a harmless copy: it still
  * splashed at the arrow tip, the exact bug AUDIT 39r/R16 fixed here.
  * DaggerfallMissile.cs:681-687 routes an arrow into
@@ -331,6 +332,7 @@ export function playerArrowHitFoe(m, foe, {
   // leaf the orb is, so the two answers cannot drift apart.
   if (foe.entity?.items && !orbArchiveFor(m.weapon)) {
     addItem(foe.entity.items, bowDamageArrow());   // MAC-N1: one minter, not a bare literal with no value
+    if (!foe.entity.bout && foe.rival == null) noteShotRecoverable(ARROW_TEMPLATE);   // ARENA-ARROWS: lodged in a pack that can be looted - not the bout's to pay (a bout fighter's goes with it, and a relay opponent's stand-in is no corpse)
   }
   // DISC10-D H1: the shaft is a WeaponDamage like the swing
   // (DaggerfallMissile.cs:680-687 -> WeaponManager.cs:627-635), so its last

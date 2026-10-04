@@ -507,7 +507,7 @@ export const DOESNT_NEED_IDENTIFY = 'This does not need to be identified.';
 //    "N of M identified"; the window opens from openIdentifyWindow
 //    (worldModes.js:10452), the entry point the magic arc owed.
 //  - the LETTER OF CREDIT is tender and bankable: minted at systems/
-//    inventory.js:69, summed by creditAmount at systems/court.js:249,
+//    inventory.js:70, summed by creditAmount at systems/court.js:249,
 //    spent letters-before-coins by deductGold at court.js:291, and
 //    moved at systems/banking.js:753 depositAllLetters / :771
 //    withdrawLetter.

@@ -9,7 +9,8 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 
-import { trivialOnRoad, roadCompany, wandererCount, TRIVIAL_LEVEL_RATIO, ROAD_PARTY_MAX, CLASS_FOE_MIN } from '../src/systems/roadEncounters.js';
+import { trivialOnRoad, roadCompany, wandererCount, TRIVIAL_LEVEL_RATIO, ROAD_PARTY_MAX } from '../src/systems/roadEncounters.js';
+import { ENEMY_BASICS } from '../src/characters/enemyBasics.js';
 import { MOBILE_TYPES as M } from '../src/characters/mobileTypes.js';
 import { SOLITARY_TYPES } from '../src/characters/mobileFactions.js';
 import { amGroupRollOwner } from '../src/systems/campEncounters.js';
@@ -21,16 +22,21 @@ const read = (p) => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8');
 const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/\/\/[^\n]*/g, ' ');
 const mount = (src, scope, tail) => { const k = Object.keys(scope); return new Function(...k, `${src}\n${tail}`)(...k.map((x) => scope[x])); };
 
-test('WILD-ROAD law: a monster a third of the traveller\'s level or less is passed by on the road - a rat from level 3, an orc from 15; a class foe and a solitary terror never (mutants: the ratio loosened; class foes trivial; the solitary let through)', () => {
+test('WILD-ROAD law: a monster a third of the traveller\'s level or less is passed by on the road - a rat from level 3, an imp from 6, an orc from 15, a giant from 30; a class foe never (mutants: the ratio loosened; class foes trivial)', () => {
   assert.equal(TRIVIAL_LEVEL_RATIO, 3);
   assert.equal(trivialOnRoad(M.Rat, 2), false, 'a level 2 is stopped by a rat - "a level 1 ... can take care of the rat problems"');
   assert.equal(trivialOnRoad(M.Rat, 3), true);
   assert.equal(trivialOnRoad(M.Orc, 14), false);
   assert.equal(trivialOnRoad(M.Orc, 15), true);
-  assert.equal(trivialOnRoad(CLASS_FOE_MIN + 2, 40), false, 'a class foe is built at the traveller\'s level');
-  const imp = M.Imp;
-  assert.ok(SOLITARY_TYPES.has(imp));
-  assert.equal(trivialOnRoad(imp, 40), false, 'a solitary kind is never passed by');
+  assert.equal(ENEMY_BASICS[130].level, undefined, 'a class foe has no level of its own - it is built at the traveller\'s');
+  assert.equal(trivialOnRoad(130, 99), false, 'so it is never passed by');
+  // a SOLITARY kind is solitary in company (never part of a camp, PSCALE1), not in danger: an Imp is level 2
+  assert.ok(SOLITARY_TYPES.has(M.Imp));
+  assert.equal(trivialOnRoad(M.Imp, 5), false);
+  assert.equal(trivialOnRoad(M.Imp, 6), true, 'an imp from level 6');
+  assert.equal(trivialOnRoad(M.Giant, 29), false);
+  assert.equal(trivialOnRoad(M.Giant, 30), true, 'a giant from 30');
+  assert.equal(trivialOnRoad(M.Lich, 59), false, 'a lich stops anyone short of 60');
   assert.equal(trivialOnRoad(-1, 40), false);
   assert.equal(trivialOnRoad(M.Rat, NaN), false);
 });
@@ -77,8 +83,21 @@ test('WILD-ROAD mounted: on the road a level 10 rides past a rat and stands an o
   assert.deepEqual(stands({ road: true, mobileType: M.Orc }), [M.Orc], 'an orc, alone most rolls');
   assert.deepEqual(stands({ road: true, mobileType: M.Orc, roll: 0 }), [M.Orc, M.Orc], 'and now and then a patrol');
   assert.deepEqual(stands({ road: false, mobileType: M.Orc, roll: 0 }), [M.Orc], 'never off the road');
+  const seq = (...ids) => { let i = 0; return () => ({ mobileType: ids[i++] }); };
+  assert.deepEqual(stands({ road: true, scope: { span: 2, intermittentEnemySpawn: seq(M.Rat, M.Orc) } }), [M.Orc], 'the rat\'s minute passes and the next minute still rolls - the loop goes on');
   const W = read('src/scenes/world.js');
-  assert.match(W, /const onTheRoad = \(\) => !!travelOptions\?\.isTravelActive \|\| !!travelView\?\.active;/, 'the road: a journey, or the Overworld up');
+  assert.match(W, /const onTheRoad = \(\) => !playerEntity\.isResting && \(!!\(travelOptions\?\.isTravelActive && travelOptions\.state\?\.autopilot\) \|\| !!travelView\?\.active\);/, 'the road: a journey under way, or the Overworld up - never a rest');
+});
+
+test('WILD-ROAD: the road is a journey under way or the Overworld up, never a rest (mutants: the window alone the road; a rest the road)', () => {
+  const W = read('src/scenes/world.js');
+  const at = W.indexOf('const onTheRoad = ');
+  const onTheRoad = (o) => new Function('playerEntity', 'travelOptions', 'travelView', `${W.slice(at, W.indexOf('\n', at))}\nreturn onTheRoad();`)(o.playerEntity ?? { isResting: false }, o.travelOptions ?? null, o.travelView ?? null);
+  assert.equal(onTheRoad({}), false, 'standing in the wild');
+  assert.equal(onTheRoad({ travelOptions: { isTravelActive: true, state: { autopilot: null } } }), false, 'the Travel Options window up, no journey steering');
+  assert.equal(onTheRoad({ travelOptions: { isTravelActive: true, state: { autopilot: {} } } }), true, 'a journey under way');
+  assert.equal(onTheRoad({ travelView: { active: true } }), true, 'the Overworld up');
+  assert.equal(onTheRoad({ travelView: { active: true }, playerEntity: { isResting: true } }), false, 'resting: a camp, not the road');
 });
 
 test('HUNT-ROAD: the player\'s switch holds the hunt\'s roll on the road - on by default (TO-FIELD3, Mac\'s: the wilderness rolls at the traveller); held, the minute passes unrolled and is never banked (mutants: the hold ignored; the hold banks the minute)', async () => {

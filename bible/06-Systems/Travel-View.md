@@ -1827,7 +1827,9 @@ my party's - every mark keeps its order now, a crowd where its first member stoo
 The Overworld's block gains a Players section (Friends, Guild, Others, the least Renown) and the node reach (any, 0.5,
 1, 2 km) - one store with the travel map's (`systems/travelViewFilters.js`); a friend's name is drawn in the friends'
 blue and a guild-mate's in violet; a town whose gate stands a carriage driver wears a brass wheel; a seat's plate under
-the pointer shows its card (who holds it, this week's battle). Every new field a mark carries rides `scenes/travelView.js`
+the pointer shows its card (who holds it, this week's battle) - made only for the hovered plate, measured once, never
+over the block's own controls, and not on a touch screen (no hover there). On a touch screen the filters scroll within
+their section. Every new field a mark carries rides `scenes/travelView.js`
 through to the readout. The rider's Eye Of The Beholder sprite faces its travel again: a gallop under the time scale had
 been read as a placing every frame (ARENA-FIX 14's -1, painted as orientation 7). The record:
 `01-Overview/Field-Bugs-2026-10-04e.md`.

@@ -395,14 +395,15 @@ export function attachGamepad(canvas, hooks = {}, { getPads = null, dispatch = s
       for (const c of MENU_BUTTONS) { wanted.delete(c); if (c !== 'JoystickButton0' && c !== 'JoystickButton1' && c !== 'JoystickAxis10Button0') swallowed.add(c); }
       // PAD-ARRANGE (FIELD BUGS 2026-10-04e): THE HOTBAR UNDER A WINDOW. LT raises the bar to be arranged (again lowers
       // it); with a slot or a new entry IN HAND on the crossbar, a bumper held and a slot's own button puts it there -
-      // the bumpers are then the bar's, never the tabs'. A button that placed is the bar's until it is let go, so the A
-      // under LB never also clicks. A press held across the window's edge (P.stale) is nothing here.
+      // the bumpers are then the bar's, never the tabs' (on the row of ten they place nothing, so they stay the tabs').
+      // A button that placed is the bar's until it is let go, so the A under LB never also clicks. A press held across
+      // the window's edge (P.stale) is nothing here.
       const xbApi = crossbarApi();
       for (const c of [...P.placeTaken]) if (!menuDown.has(c)) P.placeTaken.delete(c);
       if (edge(HOTBAR_ARRANGE_CODE) && !P.stale.has(HOTBAR_ARRANGE_CODE)) { try { if (xbApi?.canArrange?.()) xbApi.arrange?.(); } catch (e) { console.warn('[gamepad] arrange:', e?.message ?? e); } }
       let inHand = false;
-      try { inHand = !!xbApi?.holding?.(); } catch { inHand = false; }
-      if (inHand && (lb || rb) && xbApi?.crossbar?.()) {
+      try { inHand = !!xbApi?.holding?.() && !!xbApi?.crossbar?.(); } catch { inHand = false; }
+      if (inHand && (lb || rb)) {
         const hset = lb && rb ? P.setOrder : lb ? 0 : 1;
         for (const code of CROSSBAR_CODES) {
           if (!edge(code) || P.stale.has(code) || P.placeTaken.has(code)) continue;

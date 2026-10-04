@@ -8,12 +8,12 @@
 // at every level, and a journey (Travel Options) or the Overworld stops for every wanderer it meets (AUDIT OW5b E1,
 // journeyMet) - so a level 20 traveller was pulled off the road by a rat.
 //
-// ON THE ROAD - a Travel Options journey running, or the Overworld's raised view up - with the switch on (systems/
-// features.js 'road-encounters', on by default; off is DFU's wanderer, unchanged):
+// ON THE ROAD - a Travel Options journey under way, or the Overworld's raised view up, and not resting - with the switch
+// on (systems/features.js 'road-encounters', on by default; off is DFU's wanderer, unchanged):
 //   - a TRIVIAL wanderer is passed by: a monster whose own level (ENEMY_BASICS) is at most a third of the traveller's
-//     (TRIVIAL_LEVEL_RATIO) - a Rat from level 3, a Giant Bat from 9, an Orc from 15. The minute passes, nothing stands
-//     and nothing stops. A class foe (id 128 and up) is built at the traveller's own level and is never trivial; a
-//     solitary terror (a Lich, a Giant) never is either.
+//     (TRIVIAL_LEVEL_RATIO) - a Rat from level 3, an Imp from 6, a Giant Bat from 9, an Orc from 15, a Giant from 30, a
+//     Lich from 60. The minute passes, nothing stands and nothing stops. A class foe (id 128 and up) has no level of its
+//     own there - it is built at the traveller's - and is never trivial.
 //   - the rest come in COMPANY now and then, a patrol of their own kind: from level 5, a chance of level/50 (at most
 //     two in five) of one more, then one more each six levels past five (ROAD_COMPANY_MAX at most) - an orc patrol, a
 //     brigands' holdup. Never a solitary kind (mobileFactions.js SOLITARY_TYPES - the PSCALE1 law), and never past
@@ -28,8 +28,6 @@ const solitary = (t) => /** @type {Set<number>} */ (SOLITARY_TYPES).has(t);
 
 /** A monster this many times weaker (by level) than the traveller is passed by on the road. */
 export const TRIVIAL_LEVEL_RATIO = 3;
-/** The first class foe's id (mobileTypes.js: a class enemy is 128 + its class) - built at the player's level. */
-export const CLASS_FOE_MIN = 128;
 /** From this level a wanderer may bring company on the road. */
 export const ROAD_COMPANY_LEVEL = 5;
 /** At most this many more with it, and this many in all with the party's own extras. */
@@ -41,9 +39,7 @@ export const ROAD_PARTY_MAX = 4;
  * @param {number} mobileType @param {number} playerLevel
  */
 export function trivialOnRoad(mobileType, playerLevel) {
-  if (!Number.isInteger(mobileType) || mobileType < 0 || mobileType >= CLASS_FOE_MIN) return false;
-  if (solitary(mobileType)) return false;
-  const lv = /** @type {any} */ (ENEMY_BASICS)[mobileType]?.level;
+  const lv = /** @type {any} */ (ENEMY_BASICS)[mobileType]?.level;   // none for a class foe (built at the traveller's level)
   if (!Number.isFinite(lv) || !Number.isFinite(playerLevel)) return false;
   return lv * TRIVIAL_LEVEL_RATIO <= playerLevel;
 }

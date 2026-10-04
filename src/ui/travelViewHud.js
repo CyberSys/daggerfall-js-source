@@ -40,7 +40,7 @@ import { drawShield } from './heraldryArt.js';   // AUDIT HERALDRY H4: the guild
 import { TV_FILTER_GROUPS, TV_FILTER_TEXT, travelViewFilters, toggleTravelViewFilter, onTravelViewFilters, markShown, countGroups } from '../systems/travelViewFilters.js';   // OW-FILTER
 import { TV_WHO_GROUPS, TV_WHO_TEXT, TV_KIN_COLORS, travelViewWho, toggleTravelViewWho, cycleTravelViewRenown, cycleTravelViewNodeKm } from '../systems/travelViewFilters.js';   // OW-WHO / OW-NODE-KM / OW-KIN
 import { wheelPath } from './carriageWheel.js';   // OW-HUBS: a carriage town's wheel on its dot
-import { placeTip, readTip, tipKey } from './eventMapMarks.js';   // SEAT-TIP: the held map's card, at the pointer here too
+import { placeTip, readTip, tipKey, SEAT_TIP_TEXT_MAX } from './eventMapMarks.js';   // SEAT-TIP: the held map's card, at the pointer here too
 import { tickHudLayout } from './hudLayout.js';   // HUD-MOVE: the Overworld's block and the travel bar move too
 import { travelPathMode, setTravelPathMode, onTravelPathMode, TRAVEL_PATH_MODES, TRAVEL_PATH_TEXT } from '../systems/travelPathMode.js';   // OW-PATH: the Roads / Free switch
 
@@ -433,24 +433,29 @@ function paintFilters(f) {
   if (parts?.renownBtn) parts.renownBtn.textContent = TV_WHO_TEXT.renown(w.renown);
   if (parts?.nodeBtn) parts.nodeBtn.textContent = TV_WHO_TEXT.nodeKm(w.nodeKm);
 }
-/** SEAT-TIP: the hovered mark's card at the pointer, or none - written only when its words change. */
-let tipShown = '';
+/** SEAT-TIP: the hovered mark's card at the pointer, or none. `tip` is the mark's card or a function that makes it
+ *  (a seat's, asked only of the plate under the pointer); its words written only when they change, its box measured
+ *  once a card (a layout read each frame forced one), and its place written only when it moves. */
+let tipShown = '', tipSize = null, tipAt = '';
 function showMarkTip(tip, at, vw, vh) {
   const box = parts?.tip;
   if (!box) return;
-  const t = tip && at ? readTip(tip) : null;
-  if (!t) { if (tipShown) { tipShown = ''; box.style.display = 'none'; } return; }
+  const t = tip && at ? readTip(typeof tip === 'function' ? tip() : tip, { textMax: SEAT_TIP_TEXT_MAX }) : null;
+  if (!t) { if (tipShown) { tipShown = ''; tipSize = null; tipAt = ''; box.style.display = 'none'; } return; }
   const key = tipKey(t);
   if (key !== tipShown) {
-    tipShown = key;
+    tipShown = key; tipSize = null; tipAt = '';
     const d = box.ownerDocument;
     box.replaceChildren?.();
     const line = (cls, text) => { const n = d.createElement('div'); n.className = cls; n.textContent = text; return n; };
     box.append(line('hmtip-title', t.title), ...t.lines.map((l) => line('hmtip-line', l)));
     box.style.display = 'block';
   }
-  const r = box.getBoundingClientRect?.() ?? { width: 0, height: 0 };
-  const p = placeTip(at.x, at.y, r.width, r.height, vw, vh);
+  if (!tipSize || tipSize.vw !== vw) { const r = box.getBoundingClientRect?.() ?? { width: 0, height: 0 }; tipSize = { w: r.width, h: r.height, vw }; }
+  const p = placeTip(at.x, at.y, tipSize.w, tipSize.h, vw, vh);
+  const pos = `${p.left},${p.top}`;
+  if (pos === tipAt) return;
+  tipAt = pos;
   box.style.left = `${p.left}px`;
   box.style.top = `${p.top}px`;
 }
@@ -501,7 +506,7 @@ function syncDock(doc) {
 function resetMarks() { hits = []; drawnKeys = []; canvasDrew = false; canvasSig = []; furniture.at = -Infinity; }
 /** PERF-TV: the pointer's place over the page, followed while the readout stands (a plate under it is lit, and the
  *  cursor says it takes a click) - passive, never a handler that could stop the view's own. */
-const onPointerMoveHud = (e) => { pointer = { x: e.clientX, y: e.clientY }; };
+const onPointerMoveHud = (e) => { pointer = { x: e.clientX, y: e.clientY, ui: !!(root && e.target && e.target !== root && root.contains?.(e.target)) }; };   // SEAT-TIP: `ui` - over the block's own controls, not the land
 /** AUDIT DEEP2 E10: a finger lifted leaves no hover behind (a drag ended over a plate lit it until the next touch). */
 const onPointerUpHud = (e) => { if (e.pointerType === 'touch') pointer = null; };
 let pointerWin = null;
@@ -886,7 +891,7 @@ function drawMarks(marks, vw, vh, dpr, feet = null) {
     if (b.y0 < notchDepth(furniture.topNotch, b.x0, b.x1) || b.y1 > vh - notchDepth(furniture.footNotch, b.x0, b.x1)) q.fade = true;
   }
   let hover = null;
-  for (let i = placed.length - 1; i >= 0 && pointer; i--) {
+  for (let i = placed.length - 1; i >= 0 && pointer && !pointer.ui; i--) {   // SEAT-TIP: the block's controls over a plate are the block's - no plate lit, no card
     const q = placed[i];
     if (!q.m.pick) continue;
     const b = pickBox(q, vw);   // BOUNTY-SNAP

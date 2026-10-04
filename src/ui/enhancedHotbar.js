@@ -114,19 +114,26 @@ export function setHotbarDragging(on) {
 // With the pad the live device and a window up, now:
 //  - LT raises the bar to be ARRANGED, and again lowers it (gamepadInput.js; the window prompts say so);
 //  - A on a filled slot takes it IN HAND; A on another slot puts it there (a swap, or a move onto an empty one); A on
-//    the same slot puts it back. Y clears a slot, as the right-click always has;
+//    the same slot puts it back. Y clears a slot, as the right-click always has. The hand is put down on the press's
+//    CLICK, never its pointerdown: put down on the press, the bar tucked under the cursor before the release, and the
+//    pad's release (and its click) landed on whatever the bar had covered - a loot row taken, an item card shut;
 //  - "Add to hotbar" (the item card, the spellbook) puts the new entry IN HAND and raises the bar instead of taking the
 //    first free slot: A on a slot places it, or - on the crossbar - a bumper held and the slot's own button does.
-// The last window closing lets go of whatever is in hand. The mouse and the finger are unchanged: they drag.
+// The last window closing lets go of whatever is in hand, and so does the mouse or the keyboard taking the hands back
+// (the bar would stand raised over the pack's foot with nothing able to lower it but the window's close). The mouse and
+// the finger are unchanged: they drag.
 let hand = null;         // { kind: 'item', item, name } | { kind: 'spell', spell, name } | { kind: 'slot', slot, name }
 let arranging = false;   // the bar raised under a window by LT
+let handPress = -1;      // the slot a press began on while something was in hand - put down on that press's click
 const padInHand = () => { try { return controllerLook(); } catch { return false; } };
+// The words name no button: the prompt bar under the window draws each in the live pad's own glyph (a PlayStation
+// pad's, a rebound Select's), and the bar's hint stands beside it.
 export const PAD_ARRANGE_TEXT = Object.freeze({
   choose: (name) => `Choose a hotbar slot for ${name}.`,
   picked: (name) => `${name} is in hand - choose a slot for it.`,
-  hint: 'A on a slot takes it in hand, A on another puts it there. Y clears a slot. LT: done.',
-  hintHand: 'Choose a slot: A on it - or hold LB or RB and press its button.',
-  hintHandRow: 'Choose a slot: A on it.',
+  hint: 'Select a slot to take it in hand, then another to put it there. Options clears a slot.',
+  hintHand: 'Choose a slot: select it - or hold a bumper and press the slot\'s button.',
+  hintHandRow: 'Choose a slot: select it.',
 });
 /** The bar's raise and its picked slot, from every reason it may be up under a window. */
 function raiseSync() {
@@ -150,6 +157,7 @@ export function placeHotbarHand(i) {
   if (!hand || !(i >= 0 && i < HOTBAR_CAPACITY)) return false;
   const h = hand;
   hand = null;
+  handPress = -1;
   let ok = true;
   if (h.kind === 'slot') {
     if (i !== h.slot) { swapHotbarSlots(h.slot, i); strike(i, true); showCaption(HOTBAR_TEXT.added(h.name, i + 1)); }
@@ -377,6 +385,8 @@ export function drawEnhancedHotbar(entity, opts = {}) {
  *  a window that pauses the frame still sees its drop land at once. */
 function paint() {
   if (!bar) return;
+  // PAD-ARRANGE: the mouse or the keyboard took the hands back - the pad's hand and its raised bar go with the pad
+  if ((hand || arranging) && !padInHand()) { hand = null; arranging = false; handPress = -1; raiseSync(); }
   const on = hotbarMode();
   const dropping = on && dropOwners.size > 0;
   const shown = on && (dropping || !lastHidden);
@@ -635,7 +645,7 @@ function onMouse(e) {
 export function setHotbarDropMode(owner, on, entity = null) {
   if (on) { dropOwners.add(owner); if (entity) dropEntity = entity; }
   else dropOwners.delete(owner);
-  if (!dropOwners.size) { dropEntity = null; dragEnd(false); hand = null; arranging = false; raiseSync(); }   // PAD-ARRANGE: the last window lets go
+  if (!dropOwners.size) { dropEntity = null; dragEnd(false); hand = null; arranging = false; handPress = -1; raiseSync(); }   // PAD-ARRANGE: the last window lets go
   lastSig = null;
   if (!bar && on && hotbarMode() && typeof document !== 'undefined') build();
   paint();
@@ -836,7 +846,7 @@ function dragEnd(commit) {
 function bindSlot(node, i) {
   node.addEventListener('pointerdown', (e) => {
     if (editable()) {
-      if (hand && (e.button ?? 0) === 0) { e.preventDefault(); placeHotbarHand(i); return; }   // PAD-ARRANGE: the hand put down
+      if (hand && (e.button ?? 0) === 0) { e.preventDefault(); handPress = i; return; }   // PAD-ARRANGE: the hand is put down on this press's click
       if (!hotbarEntry(i)) return;
       const s = slots[i];
       e.preventDefault();   // no text selection, no focus theft - the press is the bar's
@@ -864,13 +874,20 @@ function bindSlot(node, i) {
     e.stopPropagation();
   });
   node.addEventListener('mouseup', (e) => { if (hbTook?.node === node && hbTook.button === e.button) e.stopPropagation(); });
+  // PAD-ARRANGE: the press that began on this slot with something in hand puts it down here, on its click - the bar still
+  // raised under the cursor, so the release and its click are the slot's and never the window's beneath it
+  node.addEventListener('click', (e) => {
+    if (!hand || handPress !== i) return;
+    e.stopPropagation?.();
+    placeHotbarHand(i);
+  });
   node.addEventListener('contextmenu', (e) => {
     if (!editable()) return;
     e.preventDefault();
     const name = hotbarEntry(i)?.name;
     if (!name) return;
     clearHotbarSlot(i);
-    if (hand?.kind === 'slot' && hand.slot === i) { hand = null; raiseSync(); }   // PAD-ARRANGE: the slot in hand cleared
+    if (hand?.kind === 'slot' && hand.slot === i) { hand = null; handPress = -1; raiseSync(); }   // PAD-ARRANGE: the slot in hand cleared
     showCaption(HOTBAR_TEXT.removed(name));
     lastSig = null; paint();
   });

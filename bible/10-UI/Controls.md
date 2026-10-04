@@ -408,7 +408,8 @@ buttons on its fixed art, Slide's among them, unbound.
 ## PAD-BINDS and PAD-ARRANGE (FIELD BUGS 2026-10-04e)
 
 The Controller bindings window (Enhanced Plus) has an Overworld and a Quick dial row, and both are d-pad tap or hold
-choices - the Overworld on no key at all is the host's own door (`padAction`). Under a window LT raises the hotbar to
-be arranged: A takes a slot in hand and puts it down (a swap or a move), Y clears one; with the pad in hand "Add to
-hotbar" puts the new entry in hand and asks for a slot - A on it, or a bumper and the slot's own button on the
-crossbar. The record: `01-Overview/Field-Bugs-2026-10-04e.md`.
+choices while the crossbar is in force - the Overworld on no key at all is the host's own door (`padAction`, the
+Overworld's alone). Under a window LT raises the hotbar to be arranged: A takes a slot in hand and puts it down on the
+press's click (a swap or a move), Y clears one; with the pad in hand "Add to hotbar" puts the new entry in hand and
+asks for a slot - A on it, or a bumper and the slot's own button on the crossbar (LB + X places too, never the quick
+act); on the row of ten the bumpers stay the tabs'. The mouse taking the hands back lets go of the hand. The record: `01-Overview/Field-Bugs-2026-10-04e.md`.

@@ -104,7 +104,7 @@ import { getDaggerfallDistance, MatchesCutOff } from '../systems/editDistance.js
 import { checkLocationDiscovered, flipTravelMapFilter, travelMapDotColors } from './travelMapWindow.js';   // MAP-KEY: the classic's filter flip and its dots' colours
 import { readGateMark, gateMarkKey, GATE_RING_CSS, GATE_LEGEND_TEXT } from './gateMapMark.js';   // WB1: the Oblivion Gate's ring, read as the party is
 import { readBountyMarks, bountyMarksKey, BOUNTY_RING_CSS, BOUNTY_LEGEND_TEXT, BOUNTY_LEGEND_RIM_CSS } from './bountyMapMark.js';   // BOUNTY1: held bounties' black circles, read as the gate's ring is
-import { readRaidMarks, raidMarksKey, placeTip, tipKey, readTip, RAID_MARK_CSS, RAID_LEGEND_TEXT, RAID_HIT_PX } from './eventMapMarks.js';   // EVENT-TIP: the raided towns, and the card a world event answers a hover with
+import { readRaidMarks, raidMarksKey, placeTip, tipKey, readTip, RAID_MARK_CSS, RAID_LEGEND_TEXT, RAID_HIT_PX, SEAT_TIP_TEXT_MAX } from './eventMapMarks.js';   // EVENT-TIP: the raided towns, and the card a world event answers a hover with
 import { readQuestMarks, questMarksKey, QUEST_MARK_CSS, QUEST_LEGEND_TEXT, QUEST_HIT_PX, QUEST_MARK_LIFT, QUEST_RAID_LIFT, QUEST_FOLLOWED_TEXT } from './questMarks.js';   // GUIDE5: where the quests point
 import {
   buildInkModel, buildInkMarks, paintInkStatic, paintInkOverlay, zoomBand, clampView, scaleMinOf, SCALE_MAX,   // MAP-FIELD2: placeNames is inkMap's law still, but this sheet no longer inks the names
@@ -1741,18 +1741,19 @@ export class HeldMapWindow {
     const leg = this._chrome?.legend;
     if (!leg) return;
     leg.innerHTML = '';
-    if (!this._party.length && !this._gate && !this._bounties.length && !this._raids.length && !this._trav.length && !this._quests.length) { leg.classList.toggle('open', false); leg.style.display = 'none'; return; }
+    const trav = this._trav.filter((t) => playerShown(t));   // OW-WHO: the legend speaks for the players the sheet draws
+    if (!this._party.length && !this._gate && !this._bounties.length && !this._raids.length && !trav.length && !this._quests.length) { leg.classList.toggle('open', false); leg.style.display = 'none'; return; }
     if (this._party.length) {
       const dot = el('span', 'hmlegdot');
       dot.style.background = this._party.some((m) => m.online) ? PARTY_MARK_CSS : PARTY_OFFLINE_CSS;
       leg.append(dot, el('span', 'hmlegtext', PARTY_LEGEND_TEXT));
     }
-    if (this._trav.length) {   // TV3: and the region's travellers, while there are any
+    if (trav.length) {   // TV3: and the region's travellers, while any is drawn
       const dot = el('span', 'hmlegdot');
       dot.style.background = TRAVELLER_MARK_CSS;
       leg.append(dot, el('span', 'hmlegtext', TRAVELLER_LEGEND_TEXT));
-      for (const [kin, word] of Object.entries(TV_KIN_LEGEND)) {   // OW-KIN: and a friend's, a guild-mate's, while there are any
-        if (!this._trav.some((t) => t.kin === kin)) continue;
+      for (const [kin, word] of Object.entries(TV_KIN_LEGEND)) {   // OW-KIN: and a friend's, a guild-mate's, while any is drawn
+        if (!trav.some((t) => t.kin === kin)) continue;
         const k = el('span', 'hmlegdot');
         k.style.background = TV_KIN_COLORS[kin];
         leg.append(k, el('span', 'hmlegtext', word));
@@ -1862,7 +1863,7 @@ export class HeldMapWindow {
     // Overworld's own switches (systems/travelViewFilters.js - one store, so both maps answer alike)
     if (this._trav.length) {
       const row = el('div', 'hmkeyrow');
-      row.append(el('span', 'hmkeyname', TV_WHO_TEXT.title));
+      row.append(el('span', 'hmkeywho', TV_WHO_TEXT.title));   // never .hmkeyname: a phone hides those, and the grid would shift
       const btns = el('div', 'hmkeykinds');
       const btn = (label, on, title, act) => {
         const b = el('button', `act hmkeyflt${on ? ' on' : ''}`, label);
@@ -1887,6 +1888,7 @@ export class HeldMapWindow {
     if (which === 'renown') cycleTravelViewRenown(); else toggleTravelViewWho(which);
     this._dirty = true;
     this._renderKey();
+    this._renderLegend();   // the kins it hid leave the legend with their marks
   }
 
   /** MAP-KEY: a press on the key - the classic window's own flip on the LIVE store (flipTravelMapFilter), then the
@@ -3175,7 +3177,7 @@ export class HeldMapWindow {
       const hub = m.hub ? ` (${hubMapWord(m.hub)})` : '';
       // SEAT-TIP (FIELD BUGS 2026-10-04e): a seat - a town that can be taken - answers with its card: who holds it, and
       // this week's battle (the mark's seat is the one the poll dressed; the EVENT-TIP card shows it)
-      const tip = m.seat ? readTip(seatTipOf(m.seat)) : null;
+      const tip = m.seat ? readTip(seatTipOf(m.seat), { textMax: SEAT_TIP_TEXT_MAX }) : null;
       return { label: (region && name ? `${region} : ${name}` : name) + hub, cursor: 'pointer', ...(tip ? { tip } : {}) };
     }
     // EVENT-TIP: the gate's ring holds an area - anywhere in it that is not a place answers with the gate's card

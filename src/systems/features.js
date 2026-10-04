@@ -1063,7 +1063,7 @@ export const FEATURES = Object.freeze([
     id: 'hunt-on-road',
     group: 'world',
     title: 'Hunting while travelling',
-    note: 'Hunting chances can come up while you travel and stop the journey. Off holds them until you are off the road.',
+    note: 'Hunting chances can come up while you travel and stop the journey. Off, no hunt is rolled while you travel.',
     effect: 'Takes effect at once.',
     kinds: Object.freeze(['enhanced']),
     control: Object.freeze({ store: 'prefs', key: 'huntOnRoad', initial: true, online: 'player' }),

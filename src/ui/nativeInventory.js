@@ -44,7 +44,7 @@
 // as the computed remote target, the 750kg gates, the dungeon exit
 // rule); Use mode, the 1016 info text and the IsLightSource equip
 // branch at U25 (AUDIT 23 trimmed that list). The LETTER OF CREDIT
-// went last and whole: minted at systems/inventory.js:69
+// went last and whole: minted at systems/inventory.js:70
 // (DaggerfallTradeWindow.cs:1044-1048), summed by creditAmount at
 // systems/court.js:249 (ItemCollection.GetCreditAmount, ItemCollection
 // .cs:108-118), spent letters-before-coins with the shortfall returned

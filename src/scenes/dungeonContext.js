@@ -396,7 +396,8 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
   const dungeon = layoutDungeon(dfLocation, blocks, getModelPre);
   // ARENA-FIX 4: THE ARENA UNDERCROFT IS THE FIGHTERS' HALL (world/arenaUndercroft.js): its people, the training pit's
   // dummy, the Hall of Champions' trophies and the beasts' chains stood at the layout's own markers, as flats of the
-  // block they stand in (a copy of the layout - the laid block is shared); its beasts below, and no random foe
+  // block they stand in (a copy of the layout - the laid block is shared); its beasts below, and no random foe in the
+  // hall's reach (UNDERCROFT-DEEP, FIELD BUGS 2026-10-04e: the deep cellars past it stand the keep's own again)
   const _undercroftHall = isArenaUndercroft(dfLocation) ? undercroftPopulation(dungeon.blocks) : null;
   if (_undercroftHall) {
     for (const [bi, b] of dungeon.blocks.entries()) {
@@ -1036,7 +1037,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
   // The extras are pulled back from walls by a ray through this dungeon's own collider (every
   // peer has the same geometry, so every peer builds the same list - the foe frame's index law).
   // The ray starts at chest height so a step or a floor seam does not read as a wall.
-  // ARENA-FIX 4: the hall stands no random foe - only the beast tier's chained beasts, passive at their markers (the undercroft is the city's own keep, never an elite spawn)
+  // ARENA-FIX 4: the hall stands no random foe - only the beast tier's chained beasts, passive at their markers (the undercroft is the city's own keep, never an elite spawn); UNDERCROFT-DEEP: past the hall's reach the keep's own foes stand again (below)
   const _hallBeasts = _undercroftHall ? _undercroftHall.beasts.map((b, i) => ({ x: b.x, y: b.y, z: b.z, mobileType: b.mobileType, fixed: true, reaction: 'passive', gender: 'unspecified', spawnDistanceType: 0, loadID: 0x55430100 + i, blockIndex: -1, arenaChained: i })) : null;
   const enemies = dfLocation?.elite
     ? expandEliteEnemies(_layoutEnemies, {
@@ -2162,7 +2163,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
   // owned, and destroy() hands it back (the _prevPassiveHost idiom this
   // file already uses for its other process-global seams). A bare null
   // would not do: on ?world and ?exterior the previous holder is the
-  // host's own townTalk sink (world.js:16599 / exterior.js:3940), set
+  // host's own townTalk sink (world.js:16604 / exterior.js:3944), set
   // once at boot and never again, so nulling on the way out of the
   // first dungeon would silently un-file every mid-screen label above
   // ground for the rest of the session - MC-1's own bug, re-opened.
@@ -4259,8 +4260,8 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
               // AUDIT 39 (#64) / THE FOUR HOSTS RULE - SHIPPED (wave D):
               // this host was the FOURTH BODY of the player-arrow law
               // and is now the fourth CALLER. combat/arrowFlight.js's
-              // playerArrowHitFoe is the one copy world.js:27400,
-              // exterior.js:5603 and worldModes.js:9366 already ran;
+              // playerArrowHitFoe is the one copy world.js:27416,
+              // exterior.js:5607 and worldModes.js:9366 already ran;
               // the flag said the divergence would bite and it already
               // had. This copy splashed at the ARROW TIP
               // (`[m.pos[0], m.pos[1], m.pos[2]]`) on the claim that

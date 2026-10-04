@@ -96,7 +96,9 @@ export function bindPlusRow(store, rowId, code, { save = saveKeyBinds } = {}) {
   writeRow(store, row, code);
   store.rev = (store.rev ?? 0) + 1;
   try { save(store); } catch { /* the bind stands for this session */ }
-  return { ok: true, swapped: other ? other.label : null };
+  // PAD-BINDS (FIELD BUGS 2026-10-04e): a row that had no button gives the other row nothing back - it is left UNBOUND,
+  // and the note says so (the Overworld and Quick dial rows start unbound, and every other button is a row's)
+  return { ok: true, swapped: other ? other.label : null, cleared: !!other && !old };
 }
 
 /** Clear a row (not a `keep` row). */
@@ -192,7 +194,7 @@ export function openPlusPadBinds() {
       holdUntilRelease(code);
       armedRow = null;
       clearTimeout(armTimer);
-      note = r.ok ? (r.swapped ? `Bound. ${r.swapped} took the old button.` : 'Bound.') : `Not bound: ${r.reason}.`;
+      note = r.ok ? (r.cleared ? `Bound. ${r.swapped} is unbound now.` : r.swapped ? `Bound. ${r.swapped} took the old button.` : 'Bound.') : `Not bound: ${r.reason}.`;   // PAD-BINDS: an action left with no button is said, never "took the old button"
       noteWarn = !r.ok;
       render();
       return;

@@ -12,7 +12,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createBindings, resetDefaults, getBinding } from '../src/systems/inputActions.js';
-import { applyPlusPadLayout, registerCrossbar, crossbarApi, setPlusDpad, plusDpadMap, DPAD_CHOICES, windowPrompts, HOTBAR_ARRANGE_CODE } from '../src/ui/plusPad.js';
+import { applyPlusPadLayout, registerCrossbar, crossbarApi, registerQuickAct, quickActApi, setPlusDpad, plusDpadMap, DPAD_CHOICES, windowPrompts, HOTBAR_ARRANGE_CODE } from '../src/ui/plusPad.js';
 import { bindPlusRow, PLUS_BIND_ROWS, rowCode } from '../src/ui/plusPadBinds.js';
 import { setBindings } from '../src/ui/input.js';
 import { attachGamepad } from '../src/ui/gamepadInput.js';
@@ -27,7 +27,7 @@ const noSave = { save() {} };
 const newPad = () => ({ connected: true, mapping: 'standard', id: 'Xbox 360 Controller (XInput STANDARD GAMEPAD)', axes: [0, 0, 0, 0], buttons: Array.from({ length: 17 }, () => ({ pressed: false, value: 0 })) });
 const canvas = { dispatchEvent() {}, getBoundingClientRect: () => ({ left: 0, top: 0, width: 800, height: 600 }), style: {} };
 
-test('PAD-BINDS: the Controller bindings window has an Overworld and a Quick dial row on the registry\'s own actions, and binding them writes the secondary dict (mutants: either row gone; a row on the wrong action)', () => {
+test('PAD-BINDS: the Controller bindings window has an Overworld and a Quick dial row on the registry\'s own actions, and binding them writes the secondary dict; a row taking a button from one with none to give back says that row is unbound (mutants: either row gone; a row on the wrong action; the cleared row said to have taken the old button)', async () => {
   const ow = PLUS_BIND_ROWS.find((r) => r.id === 'overworld');
   const qd = PLUS_BIND_ROWS.find((r) => r.id === 'quickdial');
   assert.deepEqual(ow && { sec: ow.sec, label: ow.label, keep: !!ow.keep }, { sec: 'TravelView', label: 'Overworld', keep: false });
@@ -39,6 +39,20 @@ test('PAD-BINDS: the Controller bindings window has an Overworld and a Quick dia
   assert.equal(bindPlusRow(s, 'quickdial', 'JoystickButton9', noSave).ok, true);
   assert.equal(getBinding(s, 'QuickDial', false), 'JoystickButton9', 'R3 the quick dial');
   assert.equal(getBinding(s, 'QuickDial'), 'Tab', 'the keyboard keeps its own Tab');
+  // a row with no button taking one another row holds: that row is left UNBOUND, and the window says so
+  const jump = PLUS_BIND_ROWS.find((r) => r.id === 'jump');
+  const jumpCode = rowCode(s, jump);
+  assert.ok(jumpCode, 'Jump ships with a button');
+  const t = plusStore();
+  const r = bindPlusRow(t, 'overworld', jumpCode, noSave);
+  assert.deepEqual({ ok: r.ok, swapped: r.swapped, cleared: r.cleared }, { ok: true, swapped: 'Jump', cleared: true });
+  assert.equal(rowCode(t, jump), null, 'Jump has no button now');
+  const r2 = bindPlusRow(t, 'jump', rowCode(t, PLUS_BIND_ROWS.find((x) => x.id === 'run')), noSave);
+  assert.equal(r2.cleared, true, 'and the swap the other way is a clearing too, Jump having none');
+  const r3 = bindPlusRow(t, 'jump', rowCode(t, PLUS_BIND_ROWS.find((x) => x.id === 'crouch')), noSave);
+  assert.deepEqual({ swapped: r3.swapped, cleared: r3.cleared }, { swapped: 'Crouch', cleared: false }, 'a row with a button swaps it');
+  const { readFileSync } = await import('node:fs');
+  assert.match(readFileSync(new URL('../src/ui/plusPadBinds.js', import.meta.url), 'utf8'), /note = r\.ok \? \(r\.cleared \? `Bound\. \$\{r\.swapped\} is unbound now\.` : r\.swapped \? `Bound\. \$\{r\.swapped\} took the old button\.` : 'Bound\.'\)/, 'the note');
 });
 
 test('PAD-BINDS: the d-pad offers Quick dial and Overworld for a tap or a hold - Quick dial presses its key, the Overworld (on no key) is the host\'s padAction (mutants: either choice gone; the unbound action dropped)', () => {
@@ -89,16 +103,23 @@ test('PAD-ARRANGE prompts: a window with a bar to arrange shows LT; in hand on t
   assert.equal(HOTBAR_ARRANGE_CODE, 'JoystickAxis9Button0', 'LT');
 });
 
-test('PAD-ARRANGE poller: under a window LT asks the bar to arrange; with something in hand LB + A places slot 7 and A never also clicks, and the bumper turns no tab (mutants: LT ignored; the place swallowed nothing; the bumper still a tab)', () => {
-  const prev = globalThis.window;
+test('PAD-ARRANGE poller: under a window LT asks the bar to arrange; with something in hand on the crossbar LB + A places slot 7 and A never also clicks, LB + X places and never quick-acts, and the bumper turns no tab - on the row of ten it still does (mutants: LT ignored; the place swallowed nothing; the bumper still a tab; the row of ten\'s tabs taken)', () => {
+  const prev = globalThis.window, prevDoc = globalThis.document;
   globalThis.window = { addEventListener() {}, removeEventListener() {}, dispatchEvent() {} };
+  // a pack window's two category tabs (plusPad.js TAB_GROUPS' first strip), each click logged
+  const tabsClicked = [];
+  const tab = (k) => ({ getClientRects: () => [1], classList: { contains: () => false }, getAttribute: () => null, closest: () => null, click: () => tabsClicked.push(k) });
+  const tabs = [tab(0), tab(1)];
+  const strip = { getClientRects: () => [1], closest: () => null, querySelectorAll: (sel) => (sel === '.packtab' ? tabs : []) };
+  globalThis.document = { querySelectorAll: (sel) => (sel === '.packtabs' ? [strip] : []), elementFromPoint: () => null };
   resetPrefs(); resetSettings();
   setPref('plusPadLayout', 0);
   const store = plusStore(); setBindings(store);
-  let holding = false, arranged = 0;
+  let holding = false, arranged = 0, onCrossbar = true, quick = 0;
   const placed = [], clicks = [];
-  const wasXb = crossbarApi();
-  registerCrossbar({ inForce: () => false, press() {}, setActive() {}, canArrange: () => true, arranging: () => holding, arrange: () => { arranged++; }, holding: () => holding, crossbar: () => true, place: (i) => { placed.push(i); holding = false; } });
+  const wasXb = crossbarApi(), wasQuick = quickActApi();
+  registerCrossbar({ inForce: () => false, press() {}, setActive() {}, canArrange: () => true, arranging: () => holding, arrange: () => { arranged++; }, holding: () => holding, crossbar: () => onCrossbar, place: (i) => { placed.push(i); holding = false; } });
+  registerQuickAct({ available: () => true, act: () => { quick++; } });
   const pad = newPad();
   const gp = attachGamepad(canvas, { overlayActive: () => true, paused: () => false, attack() {}, look() {} },
     { getPads: () => [pad], dispatch() {}, makeEvent: (type, init) => { if (type === 'pointerdown') clicks.push(init.button); return { type, ...init }; } });
@@ -120,7 +141,29 @@ test('PAD-ARRANGE poller: under a window LT asks the bar to arrange; with someth
     pad.buttons[0] = { pressed: false, value: 0 }; tick();
     pad.buttons[0] = { pressed: true, value: 1 }; tick();
     assert.deepEqual(clicks, [0], 'a fresh A with nothing in hand is a click again');
-  } finally { gp.dispose(); registerCrossbar(wasXb); globalThis.window = prev; resetPrefs(); }
+    pad.buttons[0] = { pressed: false, value: 0 }; tick();
+    assert.deepEqual(tabsClicked, [], 'the bumper held to place turned no tab');
+    // LB + X: X's own crossbar slot, never the quick act at the cursor
+    holding = true;
+    pad.buttons[4] = { pressed: true, value: 1 }; tick();
+    pad.buttons[2] = { pressed: true, value: 1 }; tick();
+    assert.equal(placed.length, 2, 'LB + X placed');
+    assert.equal(quick, 0, 'and X was not also the quick act');
+    pad.buttons[2] = { pressed: false, value: 0 }; pad.buttons[4] = { pressed: false, value: 0 }; tick();
+    pad.buttons[2] = { pressed: true, value: 1 }; tick();
+    assert.equal(quick, 1, 'a fresh X with nothing in hand is the quick act again');
+    pad.buttons[2] = { pressed: false, value: 0 }; tick();
+    // nothing in hand: the bumpers turn the tabs
+    pad.buttons[5] = { pressed: true, value: 1 }; tick();
+    pad.buttons[5] = { pressed: false, value: 0 }; tick();
+    assert.deepEqual(tabsClicked, [1], 'RB with nothing in hand: the next tab');
+    // in hand on the row of ten: nothing to place with, so the bumpers stay the tabs'
+    holding = true; onCrossbar = false;
+    pad.buttons[4] = { pressed: true, value: 1 }; tick();
+    pad.buttons[4] = { pressed: false, value: 0 }; tick();
+    assert.deepEqual(tabsClicked, [1, 1], 'LB on the row of ten: the tab before');
+    assert.equal(placed.length, 2, 'and nothing placed');
+  } finally { gp.dispose(); registerCrossbar(wasXb); registerQuickAct(wasQuick); globalThis.window = prev; globalThis.document = prevDoc; resetPrefs(); }
 });
 
 /** The bar's module, mounted on a fake page whose nodes keep their listeners (a slot is pressed by its own). */
@@ -158,6 +201,8 @@ async function withBar(fn) {
 const sword = () => ({ name: 'Longsword', shortName: 'Longsword', itemGroup: 3, groupIndex: 6, templateIndex: 6, stackCount: 1, currentCondition: 100, maxCondition: 100 });
 const potion = () => ({ name: 'Potion of Healing', shortName: 'Potion of Healing', itemGroup: 21, groupIndex: 0, templateIndex: 0, stackCount: 1 });
 const press = (n, button = 0) => n.fire('pointerdown', { button, pointerId: 1, clientX: 5, clientY: 5, pointerType: 'mouse', preventDefault() {} });
+/** A whole press with something in hand: down, and the click its release makes - the click puts it down. */
+const choose = (n) => { press(n); n.fire('click', { stopPropagation() {} }); };
 
 test('PAD-ARRANGE bar: with the pad in hand "Add to hotbar" puts the entry IN HAND and raises the tucked bar; A on a slot puts it there; the mouse still takes the first free slot (mutants: the first free slot with the pad; the bar left tucked)', async () => {
   await withBar(async ({ hb, dom, slot }) => {
@@ -173,7 +218,10 @@ test('PAD-ARRANGE bar: with the pad in hand "Add to hotbar" puts the entry IN HA
     assert.ok(bar.classList.contains('dragging'), 'the bar is up to be reached');
     assert.equal(crossbarApi().holding(), true, 'the pad layer sees the hand');
     press(slot(11));
-    assert.equal(hotbarEntry(11)?.name, hotbarEntryForItem(it).name, 'A on crossbar slot 12 put it there');
+    assert.equal(hotbarEntry(11), null, 'the press alone puts nothing down - the bar stays raised under the cursor for its release');
+    assert.ok(bar.classList.contains('dragging'));
+    slot(11).fire('click', { stopPropagation() {} });
+    assert.equal(hotbarEntry(11)?.name, hotbarEntryForItem(it).name, 'A on crossbar slot 12 put it there, on the press\'s click');
     assert.equal(hb.hotbarHand(), null);
     assert.ok(!bar.classList.contains('dragging'), 'and the bar tucks again');
     // the mouse: unchanged
@@ -203,7 +251,7 @@ test('PAD-ARRANGE bar: LT raises the bar; A takes a slot in hand and A on anothe
     dom.win.fire('pointerup', { pointerId: 1, clientX: 5, clientY: 5 });
     assert.deepEqual(hb.hotbarHand(), { kind: 'slot', name: nameA, slot: 0 }, 'A took slot 1 in hand');
     assert.ok(slot(0).classList.contains('hb-inhand'), 'and it shows');
-    press(slot(3));
+    choose(slot(3));
     assert.equal(hotbarEntry(3)?.name, nameA, 'A on slot 4 put it there');
     assert.equal(hotbarEntry(0)?.name, nameB, 'the two swapped');
     // the crossbar's own button
@@ -220,5 +268,43 @@ test('PAD-ARRANGE bar: LT raises the bar; A takes a slot in hand and A on anothe
     assert.equal(hb.hotbarHand(), null, 'the last window lets go of the hand');
     assert.equal(hb.hotbarArranging(), false);
     assert.equal(hotbarEntry(9)?.name, nameA, 'and the slot it held is where it was');
+  });
+});
+
+test('PAD-ARRANGE bar: the hand is put down only by the click of a press that began on that slot; Y (the context press) on the slot in hand clears it and lets go; the mouse taking the hands back drops the hand and lowers the bar (mutants: put down on the press; any click places; the cleared slot kept in hand; the hand kept off the pad)', async () => {
+  await withBar(async ({ hb, dom, slot }) => {
+    const a = sword(), b = potion();
+    setHotbarSlot(0, hotbarEntryForItem(a));
+    setHotbarSlot(5, hotbarEntryForItem(b));
+    const nameA = hotbarEntry(0).name;
+    hb.setHotbarDropMode('pack', true, { items: [a, b] });
+    const bar = dom.all(dom.body).find((n) => n.classList.contains('hb'));
+    setControllerLook(true);
+    crossbarApi().arrange();
+    press(slot(0));
+    dom.win.fire('pointerup', { pointerId: 1, clientX: 5, clientY: 5 });
+    assert.equal(hb.hotbarHand()?.slot, 0, 'slot 1 in hand');
+    // a press on slot 3 whose click lands on slot 4: neither is chosen
+    press(slot(2));
+    slot(3).fire('click', { stopPropagation() {} });
+    assert.equal(hb.hotbarHand()?.slot, 0, 'still in hand');
+    assert.equal(hotbarEntry(3), null);
+    assert.equal(hotbarEntry(2), null);
+    // Y on the slot in hand: cleared, and nothing left in hand
+    slot(0).fire('contextmenu', { preventDefault() {} });
+    assert.equal(hotbarEntry(0), null, 'Y cleared slot 1');
+    assert.equal(hb.hotbarHand(), null, 'and the hand that held it is empty');
+    // the mouse takes the hands back: the pad's hand goes and the bar lowers
+    press(slot(5));
+    dom.win.fire('pointerup', { pointerId: 1, clientX: 5, clientY: 5 });
+    assert.equal(hb.hotbarHand()?.slot, 5);
+    setControllerLook(false);
+    hb.setHotbarDropMode('chest', true);   // any repaint
+    assert.equal(hb.hotbarHand(), null, 'off the pad, no hand');
+    assert.equal(hb.hotbarArranging(), false);
+    assert.ok(!bar.classList.contains('dragging'), 'the bar tucked again');
+    assert.equal(hotbarEntry(5)?.name, hotbarEntryForItem(b).name, 'the slot where it was');
+    assert.notEqual(nameA, null);
+    hb.setHotbarDropMode('chest', false); hb.setHotbarDropMode('pack', false);
   });
 });
