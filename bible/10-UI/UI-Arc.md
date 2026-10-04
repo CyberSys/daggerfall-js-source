@@ -14340,7 +14340,7 @@ items off your character."*
 
 It did not, and the whole of the reason is one line. INV1 hung the
 gesture on the pack's rows - `itemRow`'s `if (from === 'local')
-dragFrom(row, item)` (`ui/enhancedInventory.js:2402`) - and made the
+dragFrom(row, item)` (`ui/enhancedInventory.js:2406`) - and made the
 body a drop TARGET, with `equippedList` saying so in its own comment:
 *"the body is the equip target - `dragFrom`'s pointerup finds it by hit
 test, so the map needs no handler of its own"*. True for the direction
@@ -18804,3 +18804,45 @@ the live pause face online (no relay or ARENA2 here). Pins: `test/timers1.test.j
 (9: the gate, the seat week, the battles, the raids and the two days, the order, the words, the window over a fake
 document - drawn, moved, a row gone, offline said - the hourglass and its placing, the wiring through all the hosts);
 `test/outsideTap.test.js` (the fourth scrim, the hourglass in the keep list).
+
+## WAGON-FILTER and SHIFT-STOW - the player's own stores, filtered and filled (2026-10-04, Mac: "The wagon needs a filter option and shift click to deposit items (like materials) needs to be a thing")
+
+Port-Ledger A: THE PLAYER'S OWN STORES, FILTERED and SHIFT AND A CLICK STOW THE WHOLE STACK.
+
+**The filter (enhanced skin).** DFU's window filters only the local list. Its four tabs are AddLocalItem's
+(`nativeInventory.js tabAccepts`), and the remote list - the wagon, a chest, a corpse - is shown whole. A wagon holds
+750 kg, so finding one ingot in it meant scrolling the lot.
+
+- **Where it shows.** The remote pane of the player's OWN store: the wagon, their storage (SHIP-STORE) and the
+  Materials Bag (`ui/storeFilter.js STORE_FILTER_KINDS`). It sits between the head and the rows, as fixed furniture
+  (PX21e: the rows scroll, never the frame).
+- **The search.** It reads the row's own name (`itemLine`), trimmed, lower-cased and capped at 40. Typing refills the
+  rows in place, so the field is never rebuilt under the caret. A chip's repaint keeps the field's focus and caret
+  (`render`'s own arm). Back in the field clears it, then leaves it.
+- **The chips.** All, then MATERIALS, then the pack's nine pages, each with its count. Materials is the Materials
+  Bag's own test (`materialsBag.js isMaterialItem`) and crosses the pages: an ingot is Misc and a herb Ingredients.
+  The pages are `packPages.js pageOf`, never a second copy. Only what the store holds is shown, and the lit chip
+  stays at nought rather than vanishing from under the hand.
+- **What does not change.** A take is `take(item)`, so a filtered list takes that piece out of the whole store. A
+  corpse, a container, the ground and a reward tray keep their whole list. The filter is fresh at every open.
+- **The classic skin draws none.** THE NATIVE-WINDOW RULE: DFU's parchment has no such control and no source for one.
+
+**Shift (both skins).**
+
+- **The gesture.** Shift and the left button on a pack item put the whole stack - or what the store still takes -
+  into the player's own store, in one press and in any action mode, through the one ladder (`planStore`).
+- **Enhanced.** The arm is `itemRow`'s, ahead of the double click, so a refused piece clicked twice is never worn.
+  The card's how-many field does not apply. A line under the store's head says the gesture (`SHIFT_STOW_HINT`, in the
+  store's own verb), hidden on a touch screen, which has no Shift.
+- **Classic.** Shift is held as Control is (`_shiftDown`: the down edge, the up edge, and the pointer's `shiftKey` on
+  every hover). `_pick(slot, 'remove', true)` is Remove's own transfer, without TransferItem's split popup. Only the
+  wagon and the player's storage take it (`_shiftStores`); the classic skin has no bag pane.
+
+**Seen.** By execution on the fake document (`test/invdrag.mjs`), not in a browser here: no ARENA2 in the container.
+
+**Proof.** `test/shiftstow.test.js` (5): the filter law; the enhanced pane narrowed by a chip and a search, a take
+from the narrowed list, and no bar over a corpse; Shift into the wagon, a plain click still a pick, the refused piece
+never worn, nothing on the ground; the 750 kg taking what fits, and the storage; the classic latch, the arm in Info
+mode, no popup on a partial fit, the ground and a right click unchanged. Mutants: `tools/mutants/shiftstow.json` (11,
+all dead).
+

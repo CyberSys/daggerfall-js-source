@@ -20,8 +20,8 @@
   {
     "name": "PR-WAGON1-their-wagon-a-wall-again",
     "file": "src/scenes/horseCartPool.js",
-    "old": "      if (p.wagon) { p.shownWagon = easeToward(p.shownWagon, p.wagon.position, dt); p.shownRotation = p.shownRotation ? quatSlerp(p.shownRotation, p.wagon.rotation, 1 - Math.exp(-12 * dt)) : [...p.wagon.rotation]; }\n",
-    "new": "      if (p.wagon) { p.shownWagon = easeToward(p.shownWagon, p.wagon.position, dt); p.shownRotation = p.shownRotation ? quatSlerp(p.shownRotation, p.wagon.rotation, 1 - Math.exp(-12 * dt)) : [...p.wagon.rotation]; }\n      if (p.wagon?.kind === HCC_WIRE_KIND.Deployed && _parts) p.bucketKey = standBox(`hccWagon:${owner}`, wagonMatrix(p.wagon.position, p.wagon.rotation), p.bucketKey);\n",
+    "old": "      else if (p.wagon) { p.hitch = null; p.shownWagon = easeToward(p.shownWagon, p.wagon.position, dt); p.shownRotation = p.shownRotation ? quatSlerp(p.shownRotation, p.wagon.rotation, 1 - Math.exp(-12 * dt)) : [...p.wagon.rotation]; }\n",
+    "new": "      else if (p.wagon) { p.hitch = null; p.shownWagon = easeToward(p.shownWagon, p.wagon.position, dt); p.shownRotation = p.shownRotation ? quatSlerp(p.shownRotation, p.wagon.rotation, 1 - Math.exp(-12 * dt)) : [...p.wagon.rotation]; }\n      if (p.wagon?.kind === HCC_WIRE_KIND.Deployed && _parts) p.bucketKey = standBox(`hccWagon:${owner}`, wagonMatrix(p.wagon.position, p.wagon.rotation), p.bucketKey);\n",
     "tests": [
       "test/prwagon1.test.js"
     ]

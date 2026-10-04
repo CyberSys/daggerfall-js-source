@@ -4676,6 +4676,27 @@ html.plus-pad-prompts-visible .px-over > .px-stage:not(.px-acctstage):not(.px-ti
 .piletab.on { color: rgb(243,239,44); border-color: var(--brass); cursor: default; }
 .piletabname { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .piletabn { color: #d8cfae; font-variant-numeric: tabular-nums; }
+/* WAGON-FILTER (2026-10-04, Mac: "The wagon needs a filter option"): the player's own store - the wagon, their
+   storage, the Materials Bag - carries a search over its category chips, between the head and the rows. Fixed
+   furniture like the head (PX21e: the rows scroll, never the frame); the chips wrap like the pile's tabs and wear
+   their dress, the lit one the brass. */
+.storefilter { display: flex; flex-direction: column; gap: 8px; padding: 10px 12px 8px; flex: 0 0 auto;
+  border-bottom: 2px solid rgba(125,116,96,0.3); }
+.storesearch { font: inherit; font-size: 13px; min-height: 36px; padding: 0 10px; width: 100%; box-sizing: border-box;
+  color: #d8cfae; background: rgba(0,0,0,0.35); border: 1px solid rgba(125,116,96,0.45); border-radius: 0; }
+.storesearch::placeholder { color: #9c937d; }
+.storesearch:focus { outline: none; border-color: var(--brass); }
+.storechips { display: flex; flex-wrap: wrap; gap: 6px; }
+.storechip { font: inherit; font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase;
+  min-height: 30px; padding: 4px 9px; display: inline-flex; align-items: center; gap: 6px;
+  color: #9c937d; background: rgba(0,0,0,0.35); border: 1px solid rgba(125,116,96,0.45);
+  cursor: pointer; text-shadow: 2px 2px 0 rgba(0,0,0,0.7); }
+.storechip:hover, .storechip:focus-visible { outline: none; color: #d8cfae; border-color: var(--brass); }
+.storechip.on { color: rgb(243,239,44); border-color: var(--brass); }
+.storechipn { color: #d8cfae; font-variant-numeric: tabular-nums; }
+.storehint { margin: 0; font-size: 11px; letter-spacing: 0.06em; color: #9c937d; text-align: center;
+  text-shadow: 2px 2px 0 rgba(0,0,0,0.7); }
+@media (pointer: coarse) { .storehint { display: none; } }   /* SHIFT-STOW: a touch screen has no Shift to tell of */
 /* NOT MULTICOL. column-count was the obvious answer and it is the
    wrong one: a multicol box that is also a SCROLL container fragments
    in the block direction, so the overflow columns went below the fold

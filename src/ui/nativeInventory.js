@@ -266,6 +266,11 @@ const isControlCode = (code, e = null) =>
   code === 'ControlLeft' || code === 'ControlRight'
   || e?.code === 'ControlLeft' || e?.code === 'ControlRight'
   || e?.key === 'Control';
+/** SHIFT-STOW: the Shift key's two codes, read the way Control's are. */
+const isShiftCode = (code, e = null) =>
+  code === 'ShiftLeft' || code === 'ShiftRight'
+  || e?.code === 'ShiftLeft' || e?.code === 'ShiftRight'
+  || e?.key === 'Shift';
 
 /** AUDIT 17e F36 - RefreshArmourValues' displayed number
  *  (PaperDoll.cs:159-173): (100 - armorValue) / 5, plus armorMod
@@ -455,6 +460,9 @@ export class NativeInventoryWindow {
     // exactly what TransferItem polls (:1516).
     this.inputBox = null;
     this._controlDown = false;
+    // SHIFT-STOW (2026-10-04, Mac: "shift click to deposit items (like materials) needs to be a thing"): Shift held as
+    // Control is - a state from its down edge to its up edge, and the pointer's own word on every move (hover)
+    this._shiftDown = false;
     this._icon = makeIconDrawer(hooks.icons, () => hooks.entity);   // AUDIT 17f: icons follow the wearer's morphology
     this._accessoryIcon = makeAccessoryIconDrawer(hooks.icons, () => hooks.entity);   // the twelve worn slots
     if (hooks.entity) refreshPaperDoll(hooks.entity);   // U8g: the doll composes fresh on open
@@ -891,7 +899,16 @@ export class NativeInventoryWindow {
     return this.mode;
   }
 
-  _pick(slot, mode = this.mode) {
+  /** SHIFT-STOW: whether the remote list is one of the player's own stores - the wagon, or their storage (SHIP-STORE's
+   *  `loot.storage`). A corpse, a container, a reward tray and the ground keep the plain click. */
+  _shiftStores() {
+    const t = remoteTargetType(this.hooks, { usingWagon: this.usingWagon, chooseOne: this.chooseOne });
+    return t === REMOTE_TARGET_TYPES.Wagon || (t === REMOTE_TARGET_TYPES.Loot && this.hooks.loot?.storage === true);
+  }
+
+  /** `whole` (SHIFT-STOW): the Remove moves what the plan allows - the whole stack, or what the store still takes -
+   *  without TransferItem's split popup. */
+  _pick(slot, mode = this.mode, whole = false) {
     this._clampScroll();
     const it = this._filtered()[this.scroll + slot];
     if (!it) return;
@@ -952,7 +969,7 @@ export class NativeInventoryWindow {
         audio.playOneShot(SOUND.ButtonClick, 1);   // DoTransferItem (:1583)
         applyTransfer(it, { ...plan, amount }, this.hooks.items(), to, { entity: this.hooks.entity, fromLocal: true });   // F157: a lit torch leaving the pack goes out
       };
-      if (this._splitRequired(it, plan)) { this._openSplit(it, plan.amount, perform); return; }
+      if (!whole && this._splitRequired(it, plan)) { this._openSplit(it, plan.amount, perform); return; }
       perform(plan.amount);
       return;
     }
@@ -1094,6 +1111,7 @@ export class NativeInventoryWindow {
   input(code, e = null) {
     // CM5: Input.GetKey(Control)'s down edge; keyup below is the other
     if (isControlCode(code, e)) this._controlDown = true;
+    if (isShiftCode(code, e)) this._shiftDown = true;   // SHIFT-STOW
     if (this.inputBox) {
       this.inputBox.input(code, e);   // the pushed box owns the keyboard
       if (this.inputBox.done) this.inputBox = null;
@@ -1290,6 +1308,9 @@ export class NativeInventoryWindow {
     // (BaseScreenComponent.cs:725-733 dispatches per component rect),
     // so record it ahead of every guard below.
     this._mouse = [vx, vy];
+    // SHIFT-STOW: the pointer says whether Shift is down on every move - a Shift pressed before the window opened, or
+    // let go while the page had no focus, is right again by the time the cursor reaches a row
+    if (typeof e?.shiftKey === 'boolean') this._shiftDown = e.shiftKey;
     // MAC-N2: VerticalScrollBar.Update (:101-130) - while button 0 is
     // held the latched thumb follows the cursor, wherever the cursor
     // goes (DFU keeps dragging off the bar); the frame it reads the
@@ -1507,7 +1528,10 @@ export class NativeInventoryWindow {
     // needs the scroll index and the list length.
     const hit = scrollerHit(R.localList, vx, vy, this.scroll, this._filtered().length);
     if (hit) {
-      if (hit.kind === 'slot') this._pick(hit.slot, mode);
+      // SHIFT-STOW: Shift and the left button on a pack row put the whole stack into the player's own store beside it
+      // (the wagon, their storage) whatever the action mode - Remove's own transfer, with no how-many popup
+      if (hit.kind === 'slot' && !right && !middle && this._shiftDown && this._shiftStores()) this._pick(hit.slot, 'remove', true);
+      else if (hit.kind === 'slot') this._pick(hit.slot, mode);
       // MAC-N2: a press ON the thumb latches the drag (VerticalScrollBar
       // .Update :110-113) - button 0 alone, as GetMouseButton(0) is.
       else if (hit.kind === 'thumb') { if (!right) this._drag = { which: 'scroll', latch: beginScrollerDrag(R.localList, vy, this.scroll) }; }
@@ -1537,6 +1561,7 @@ export class NativeInventoryWindow {
   /** ROAD-E E1's key-up half: only the Control state reads it here. */
   keyup(code, e = null) {
     if (isControlCode(code, e)) this._controlDown = false;
+    if (isShiftCode(code, e)) this._shiftDown = false;   // SHIFT-STOW
   }
 
   draw(renderer, canvas, font) {

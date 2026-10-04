@@ -988,6 +988,11 @@ redrawn); `tools/mutants/tv3.json` and `tv5.json` (the OVERWORLD-NAMES records).
   sprites (`net/remotePlayers.js`), the Morrowind bodies (`net/peerBodies.js`, `drawThird`'s `grow` and the view's
   lean, culled by their grown reach); their names over the grown heads; none casts a giant's shadow, no walker hangs
   a lantern. `test/fb1001_overworld.test.js`.
+- **OW-WAGON** (WAGON-HITCH, 2026-10-04, Mac: "the wagon when attached to the horse should show in the overworld if
+  attached"): the cart's trailing wagon is drawn grown with its rider, about the point it hangs from - mine by the
+  view's own step (`frame().grow`, handed to `hcc.draw` as `selfGrow`), another player's by `peerGrow` at their rider.
+  A wagon at its own size hung a speck under the grown horse. Only the draw grows; the pose the runtime keeps, parks,
+  saves and sends is the wagon's own. `06-Systems/Horse-Cart-And-Cargo.md` WAGON-HITCH, `test/wagonhitch.test.js`.
 
 **Proof.** `test/heldmap.test.js`, `test/tv5_far_places.test.js`, `test/eotb_body.test.js`,
 `test/tv1_travel_view.test.js`; `tools/mutants/ow1.json` (14 records, all dead).

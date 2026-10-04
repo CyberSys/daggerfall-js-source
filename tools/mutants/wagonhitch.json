@@ -1,0 +1,83 @@
+[
+  {
+    "name": "WAGON-HITCH-horizontal-eased-again",
+    "file": "src/systems/horseFollow.js",
+    "old": "  next.position = [next.lastValidPosition[0], y, next.lastValidPosition[2]];",
+    "new": "  next.position = w.active ? vlerp(w.position, [next.lastValidPosition[0], y, next.lastValidPosition[2]], 1 - Math.exp(-POSITION_SMOOTHING_RATE * dt)) : [next.lastValidPosition[0], y, next.lastValidPosition[2]];",
+    "tests": [
+      "test/wagonhitch.test.js"
+    ]
+  },
+  {
+    "name": "WAGON-HITCH-the-mod-trail-length",
+    "file": "src/systems/horseCart.js",
+    "old": "    const next = hitchedPoseStep(phys, wagonVisual.pose, hitchPoint, forward, HITCHED_HORSE_LOCAL_Z, dt, seed);",
+    "new": "    const next = hitchedPoseStep(phys, wagonVisual.pose, hitchPoint, forward, WAGON_FOLLOW_DISTANCE, dt, seed);",
+    "tests": [
+      "test/wagonhitch.test.js"
+    ]
+  },
+  {
+    "name": "WAGON-HITCH-drive-off-seed-dropped",
+    "file": "src/systems/horseCart.js",
+    "old": "    hitchSeed = seed;",
+    "new": "    hitchSeed = null;",
+    "tests": [
+      "test/wagonhitch.test.js"
+    ]
+  },
+  {
+    "name": "WAGON-HITCH-height-snapped",
+    "file": "src/systems/horseFollow.js",
+    "old": "    y = w.position[1] + (next.lastValidPosition[1] - w.position[1]) * posT;",
+    "new": "    y = next.lastValidPosition[1];",
+    "tests": [
+      "test/wagonhitch.test.js"
+    ]
+  },
+  {
+    "name": "WAGON-HITCH-tilt-snapped",
+    "file": "src/systems/horseFollow.js",
+    "old": "    up = vsqr(u) > MATHF_EPSILON ? vnorm(u) : targetUp;",
+    "new": "    up = targetUp;",
+    "tests": [
+      "test/wagonhitch.test.js"
+    ]
+  },
+  {
+    "name": "WAGON-HITCH-jump-not-relaid",
+    "file": "src/systems/horseCart.js",
+    "old": "    if (hitch.observe(m.position)) relayHitch();",
+    "new": "    hitch.observe(m.position);",
+    "tests": [
+      "test/audit_hcc_branch.test.js"
+    ]
+  },
+  {
+    "name": "WAGON-HITCH-grown-about-the-wagon",
+    "file": "src/scenes/horseCartPool.js",
+    "old": "  const x = hitch[0] + (position[0] - hitch[0]) * g, z = hitch[2] + (position[2] - hitch[2]) * g;",
+    "new": "  const x = position[0], z = position[2];",
+    "tests": [
+      "test/wagonhitch.test.js"
+    ]
+  },
+  {
+    "name": "WAGON-HITCH-following-team-grown",
+    "file": "src/scenes/horseCartPool.js",
+    "old": "      const g = s.wagon.kind === HCC_WIRE_KIND.Trailing && s.wagon.hitch ? selfGrow : 1;",
+    "new": "      const g = s.wagon.hitch ? selfGrow : 1;",
+    "tests": [
+      "test/wagonhitch.test.js"
+    ]
+  },
+  {
+    "name": "WAGON-HITCH-peer-anchor-ignored",
+    "file": "src/scenes/horseCartPool.js",
+    "old": "      if (anchor) hitchPeerWagon(p, anchor, dt);",
+    "new": "      if (anchor && false) hitchPeerWagon(p, anchor, dt);",
+    "tests": [
+      "test/wagonhitch.test.js"
+    ]
+  }
+]

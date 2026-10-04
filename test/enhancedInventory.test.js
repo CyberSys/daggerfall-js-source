@@ -99,7 +99,7 @@ test('U53: encumbrance is the same expression the sheet and the classic window u
     'LIVE strength - a drained player must not be told they can carry the undrained amount');
   // ...and the OTHER half. PlayerEntity.CarriedWeight (:184) is the
   // items PLUS the gold counter's weight, and the pane composes it by
-  // hand (enhancedInventory.js:234-256) because it is handed the list
+  // hand (enhancedInventory.js:235-257) because it is handed the list
   // and not the entity - so it must still land on inventory
   // .carriedWeight's answer.
   assert.equal(m.encumbrance.now, Math.trunc(carriedWeight(e)));
@@ -1241,7 +1241,7 @@ test('PX21e: the loot window never scrolls - it grows, then widens, and its head
   assert.match(css, /\.loot-win \.remotehead \{ flex: 0 0 auto; \}/);
   assert.match(css, /\.loot-win \.remotelist \{ flex: 1; min-height: 0; overflow-y: auto;/);
   assert.match(src, /const list = el\('div', 'remotelist'\);/);
-  assert.match(src, /for \(const it of remote\.items\) list\.append\(itemRow\(it, 'remote'\)\);/);
+  assert.match(src, /for \(const it of shown\) list\.append\(itemRow\(it, 'remote'\)\);/);   // WAGON-FILTER: the rows a store's filter shows, into the same list
   assert.doesNotMatch(src, /for \(const it of remote\.items\) col\.append\(/, 'the rows left the column');
   // A LONG PILE WIDENS rather than scrolling.
   assert.match(src, /export const LOOT_ONE_COLUMN = 8;/);

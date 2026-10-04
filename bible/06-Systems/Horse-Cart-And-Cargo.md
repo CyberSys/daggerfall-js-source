@@ -32,7 +32,9 @@ WithPlayer, None, FollowingPlayer):
   settled a metre over the ground along its normal and smoothed (12 / 10
   per second), its wheels turning by the longitudinal travel over their
   radius, its cargo pieces (twelve classic models) showing by the wagon's
-  fullness (25 / 50 / 75 / 90 % of the 750 kg).
+  fullness (25 / 50 / 75 / 90 % of the 750 kg). The port departs here
+  (WAGON-HITCH, below): its moving wagon hangs on its shafts, 3.1 m from
+  the rider or the horse, with no ease in the horizontal.
 - **Dismounting** parks the wagon where it trailed (the mode set by the
   transport window, the quick-mount key or a script is OBSERVED, not
   intercepted) with the horse hitched 3.1 m ahead of it; riding the horse
@@ -610,3 +612,103 @@ merge").**
   (the HCC-ONLINE paragraph and DISC20-C's ray), the Port-Ledger AUDIT HCC row,
   and the hcc_pool and disc20 rows in Testing.md still described the box
   PR-WAGON1 took away. They now say what the pins hold.
+
+## WAGON-HITCH - the wagon on its shafts (2026-10-04)
+
+Mac: "the wagon when attached to the horse should show in the overworld if
+attached and currently it sort of rubberbands and doesn't attach to the
+horse properly." Port-Ledger A, THE WAGON ON ITS SHAFTS.
+
+**The cause, measured** on the fake flat world (`test/hccWorld.mjs`)
+before anything changed. The mod lays the moving wagon on a trail point
+2.5 m back and eases it there at 12 per second (`ApplyGroundedPose`), so
+it trails its own target by speed / 12:
+
+| Case | The mod's law |
+|---|---|
+| Cart at rest | 2.5 m behind the rider |
+| Cart at the ride's 7.6 m/s | 3.07 m, back to 2.5 m inside 0.3 s on the stop |
+| Frames of 1/90 and 1/30 s alternating | 3.031 / 3.038 m, frame by frame |
+| A following team setting off | 0.8 m off its horse (the horse turned back past the wagon), then 2.9 m |
+
+That is the rubber band, and the gap that moved under the horse is why the
+team never looked hitched. Under the Overworld it was worse: the traveller
+is drawn up to twelve times their size (OW-BIG), and the wagon hung a speck
+under the grown horse.
+
+**The law now** (`horseFollow.js`):
+
+- `hitchAxle` - the axle `length` from the hitch, on the line from where it
+  stood (the trailer law), facing the hitch. One home: the runtime and the
+  pool's peer wagons stand on it.
+- `hitchedPoseStep` - that axle on the ground the mod's own probe finds,
+  a metre up the normal, facing the hitch along the ground's plane. The
+  height and the tilt alone are eased, at the mod's 12 and 10. It stays
+  hidden until it first grounds; over ground not yet built it keeps its last
+  height and stays on its shafts.
+- `WagonHitch` - the last hitch, and whether it JUMPED past the mod's 20 m.
+- The length is HITCHED_HORSE_LOCAL_Z, 3.1 m - the mod's own distance from
+  a parked wagon to its hitched horse. Parked, ridden and following, the
+  team stands alike.
+
+**The runtime** (`horseCart.js`):
+
+- **Riding the cart:** the hitch is the rider (the player's centre, the
+  cart's horse under them). A jump re-lays the wagon behind the team.
+  SeedTrail's reset is kept whole as `relayHitch`: the ground state, the
+  moving world pose and the wheels are forgotten, and the wagon is hidden
+  until it grounds - AUDIT BRANCH IL2 still holds.
+- **The following team:** the hitch is the horse. It is first laid from
+  where it was parked. A horse that jumps or is recovered from stuck takes
+  it along from where it stood, snapped - the IL's re-seed from the wagon
+  [IL_51ef-IL_51f9]; IL3 re-aimed to the shafts. The 15 m emergency
+  separation cannot arise on shafts, and has no arm.
+- **Mounting** a parked or following team (`hitchDeployedWagon`) drives
+  the wagon off from where it stood (`hitchSeed`), rather than laying it
+  behind the camera.
+- **A dismount** parks the wagon where it hung, so the hitched horse comes
+  to stand where the rider sat.
+
+**The presentation** (`horseCartPool.js`):
+
+- **Under the Overworld,** the cart's trailing wagon is DRAWN grown with
+  its rider about the hitch (`grownHitchedPosition`). The axle stands `g`
+  times as far on its line, the model is `g` times its size, and the wheels
+  rest on the ground found there. `selfGrow` is the view's own step for
+  mine; `grow` is OW-PEERS' `peerGrow` for another player's.
+- **Not grown:** a parked wagon (a world object) and a following team
+  (beside a horse billboard drawn at its own size).
+- **What is kept:** only the draw grows. The pose the runtime keeps, parks,
+  saves and sends stays the wagon's own, as the traveller's capsule does.
+- **Another player's cart wagon** hangs from their rider as this client
+  draws them (`peerAnchor`, `hitchPeerWagon`): the eased pose peerRiders
+  stands the rider on, `rd` 2. The height is the word's, eased; the tilt is
+  the word's ground. Before, their rider eased over a send interval and the
+  wagon's word on its own 12-per-second clock, and the two came apart at
+  speed. A parked wagon is never pulled.
+
+**The record kept.** The IL's `WagonTrail` and `groundedPoseStep` stay in
+`horseFollow.js`, pinned by `test/hcc_follow.test.js` and named by
+`test/hcc_scope.test.js`. They no longer place a drawn wagon.
+
+**THE FOUR HOSTS:**
+
+- `world.js`: wired - the seam and the draw's two grows.
+- `exterior.js`: runs the same runtime and pool, and has no travel view
+  and no peers, so it needs neither.
+- `worldModes.js`, `dungeonContext.js`: tick the runtime indoors and draw
+  no wagon (pinned).
+
+**Verification.**
+
+- **The pins:** `test/wagonhitch.test.js` (10). The gap held at 3.1 m on
+  every frame, riding (uneven frames, the stop, a turn) and following. The
+  drive-off from the parked place, and the horse standing where the rider
+  sat. `hitchedPoseStep`'s hidden, lost-ground, height and tilt arms.
+  `hitchAxle` and `WagonHitch`. The grown position and draw, and a
+  following team not grown. Another player's wagon on its shafts at every
+  frame, and a parked one never pulled. The host's wiring.
+- **The mutants:** `tools/mutants/wagonhitch.json`, 9, all dead. The
+  re-aimed records of `hcc.json`, `auditbranch.json`, `auditinvis.json` and
+  `prwagon1.json` are all dead too.
+

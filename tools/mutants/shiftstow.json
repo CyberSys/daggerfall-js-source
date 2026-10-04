@@ -1,0 +1,101 @@
+[
+  {
+    "name": "SHIFT-STOW-enhanced-arm-gone",
+    "file": "src/ui/enhancedInventory.js",
+    "old": "    if (from === 'local' && e?.shiftKey && remote && STORE_FILTER_KINDS.has(remote.kind)) {",
+    "new": "    if (false) {",
+    "tests": [
+      "test/shiftstow.test.js"
+    ]
+  },
+  {
+    "name": "SHIFT-STOW-enhanced-arm-on-the-ground",
+    "file": "src/ui/enhancedInventory.js",
+    "old": "    if (from === 'local' && e?.shiftKey && remote && STORE_FILTER_KINDS.has(remote.kind)) {",
+    "new": "    if (from === 'local' && e?.shiftKey && remote) {",
+    "tests": [
+      "test/shiftstow.test.js"
+    ]
+  },
+  {
+    "name": "SHIFT-STOW-enhanced-double-click-first",
+    "file": "src/ui/enhancedInventory.js",
+    "old": "    if (from === 'local' && e?.shiftKey && remote && STORE_FILTER_KINDS.has(remote.kind)) {",
+    "new": "    if (from === 'local' && e?.shiftKey && remote && STORE_FILTER_KINDS.has(remote.kind) && !equipByDoubleClick(secondClick(item, item, e))) {",
+    "tests": [
+      "test/shiftstow.test.js"
+    ]
+  },
+  {
+    "name": "WAGON-FILTER-rows-unfiltered",
+    "file": "src/ui/enhancedInventory.js",
+    "old": "  const shown = filtering ? filterStore(remote.items, storeFilter, storeNameOf) : remote.items;",
+    "new": "  const shown = remote.items;",
+    "tests": [
+      "test/shiftstow.test.js"
+    ]
+  },
+  {
+    "name": "WAGON-FILTER-bar-on-every-remote",
+    "file": "src/ui/enhancedInventory.js",
+    "old": "  if (STORE_FILTER_KINDS.has(remote.kind)) col.append(storeFilterBar(list, filtering));",
+    "new": "  col.append(storeFilterBar(list, true));",
+    "tests": [
+      "test/shiftstow.test.js"
+    ]
+  },
+  {
+    "name": "WAGON-FILTER-materials-read-as-a-page",
+    "file": "src/ui/storeFilter.js",
+    "old": "cat === 'materials' ? isMaterialItem(it) : pageOf(it) === cat",
+    "new": "pageOf(it) === cat",
+    "tests": [
+      "test/shiftstow.test.js"
+    ]
+  },
+  {
+    "name": "WAGON-FILTER-query-unlowered",
+    "file": "src/ui/storeFilter.js",
+    "old": "String(nameOf(it) ?? '').toLowerCase().includes(q)",
+    "new": "String(nameOf(it) ?? '').includes(q)",
+    "tests": [
+      "test/shiftstow.test.js"
+    ]
+  },
+  {
+    "name": "SHIFT-STOW-classic-latch-never-raised",
+    "file": "src/ui/nativeInventory.js",
+    "old": "    if (isShiftCode(code, e)) this._shiftDown = true;   // SHIFT-STOW",
+    "new": "",
+    "tests": [
+      "test/shiftstow.test.js"
+    ]
+  },
+  {
+    "name": "SHIFT-STOW-classic-hover-unread",
+    "file": "src/ui/nativeInventory.js",
+    "old": "    if (typeof e?.shiftKey === 'boolean') this._shiftDown = e.shiftKey;",
+    "new": "",
+    "tests": [
+      "test/shiftstow.test.js"
+    ]
+  },
+  {
+    "name": "SHIFT-STOW-classic-popup-kept",
+    "file": "src/ui/nativeInventory.js",
+    "old": "      if (!whole && this._splitRequired(it, plan)) { this._openSplit(it, plan.amount, perform); return; }",
+    "new": "      if (this._splitRequired(it, plan)) { this._openSplit(it, plan.amount, perform); return; }",
+    "tests": [
+      "test/shiftstow.test.js"
+    ]
+  },
+  {
+    "name": "SHIFT-STOW-classic-arm-on-the-ground",
+    "file": "src/ui/nativeInventory.js",
+    "old": "    return t === REMOTE_TARGET_TYPES.Wagon || (t === REMOTE_TARGET_TYPES.Loot && this.hooks.loot?.storage === true);",
+    "new": "    return true;",
+    "tests": [
+      "test/shiftstow.test.js"
+    ]
+  }
+]
