@@ -134,7 +134,7 @@ test('FOUNDER4 the migration\'s shape: the column added once, the holdings gathe
   assert.deepEqual(tables(db), tables(before), 'no table left behind');
   assert.ok(!db.prepare("SELECT name FROM sqlite_master WHERE name LIKE 'founder_holdings%'").all().length, 'nor its index');
   assert.ok(db.prepare('PRAGMA table_info(players)').all().some((c) => c.name === 'first_played_at' && c.type === 'INTEGER' && !c.notnull));
-  assert.equal(MIGRATIONS.at(-1), FILE, 'the newest migration');
+  assert.equal(MIGRATIONS.at(-2), FILE, 'the newest migration but one');   // PIN MOVED (HOME-VENDOR): 0079_home_vendors.sql after it, two columns and an index, no table
 });
 
 // ── THE SERVICE, end to end ─────────────────────────────────────────
