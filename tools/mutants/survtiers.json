@@ -655,8 +655,8 @@
   {
     "name": "SURVTIERS-off-shows-the-camps-it-keeps",
     "file": "src/scenes/camps.js",
-    "old": "  const shown = () => (usable() ? camps : NO_CAMPS);",
-    "new": "  const shown = () => camps;",
+    "old": "  const shown = () => (usable() ? camps.filter(visible) : NO_CAMPS);",
+    "new": "  const shown = () => camps.filter(visible);",
     "tests": [
       "test/auditsurv.test.js"
     ]
@@ -973,8 +973,8 @@
   {
     "name": "SURVOFFSIGHT-off-sees-no-camp",
     "file": "src/scenes/camps.js",
-    "old": "  const seen = () => (usable() ? camps : camps.filter((c) => !mine(c)));",
-    "new": "  const seen = () => (usable() ? camps : NO_CAMPS);",
+    "old": "  const seen = () => (usable() ? camps.filter(visible) : camps.filter((c) => !mine(c) && visible(c)));",
+    "new": "  const seen = () => (usable() ? camps.filter(visible) : NO_CAMPS);",
     "tests": [
       "test/survtiers.test.js"
     ]
@@ -982,8 +982,8 @@
   {
     "name": "SURVOFFSIGHT-off-sees-its-own",
     "file": "src/scenes/camps.js",
-    "old": "  const seen = () => (usable() ? camps : camps.filter((c) => !mine(c)));",
-    "new": "  const seen = () => camps;",
+    "old": "  const seen = () => (usable() ? camps.filter(visible) : camps.filter((c) => !mine(c) && visible(c)));",
+    "new": "  const seen = () => camps.filter(visible);",
     "tests": [
       "test/survtiers.test.js"
     ]
@@ -991,8 +991,8 @@
   {
     "name": "SURVOFFSIGHT-off-sees-only-its-own",
     "file": "src/scenes/camps.js",
-    "old": "  const seen = () => (usable() ? camps : camps.filter((c) => !mine(c)));",
-    "new": "  const seen = () => (usable() ? camps : camps.filter((c) => mine(c)));",
+    "old": "  const seen = () => (usable() ? camps.filter(visible) : camps.filter((c) => !mine(c) && visible(c)));",
+    "new": "  const seen = () => (usable() ? camps.filter(visible) : camps.filter((c) => mine(c) && visible(c)));",
     "tests": [
       "test/survtiers.test.js"
     ]
