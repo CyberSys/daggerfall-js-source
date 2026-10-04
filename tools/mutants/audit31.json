@@ -313,8 +313,8 @@
   {
     "name": "AUDIT31-svc-reclaim-keeps",
     "file": "server-account/src/guilds.js",
-    "old": "    AND treasury = 0 AND NOT EXISTS (SELECT 1 FROM guild_marks WHERE guild_id = guilds.id AND balance > 0) AND NOT ${guildKeepsSql('guilds.id')}`)",
-    "new": "`)",
+    "old": "    AND treasury = 0 AND NOT EXISTS (SELECT 1 FROM guild_marks WHERE guild_id = guilds.id AND balance > 0) AND NOT ${guildKeepsSql('guilds.id')}`).bind(key, t).run();",
+    "new": "`).bind(key, t).run();",
     "tests": [
       "test/audit31_service.test.js"
     ]
@@ -749,11 +749,12 @@
   {
     "name": "AUDIT31-guild-look-cached",
     "file": "src/ui/socialPanel.js",
-    "old": "  const lookAtGuild = () => { guildUi.storesAsked = false; if (guild?.stale?.()) guild.refresh(); };",
-    "new": "  const lookAtGuild = () => { if (guild?.stale?.()) guild.refresh(); };",
+    "old": "  const lookAtGuild = () => { guildUi.storesAsked = false; guildUi.vaultAsked = false; if (guild?.stale?.()) guild.refresh(); };",
+    "new": "  const lookAtGuild = () => { guildUi.vaultAsked = false; if (guild?.stale?.()) guild.refresh(); };",
     "tests": [
       "test/audit31_client.test.js"
-    ]
+    ],
+    "note": "AUDIT BAG1 + GUILD2 (PIN MOVED): re-aimed by content - the look resets the vault's read too."
   },
   {
     "name": "AUDIT31-guild-switch-unpainted",

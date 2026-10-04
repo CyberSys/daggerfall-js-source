@@ -31,11 +31,16 @@
 //                           a two-value Genders always overwrites it)
 //   standItem({ quest, marker, item, position, behaviour })
 //                         - stand the item billboard; the dungeon
-//                           half-treasure-marker drop, the half-size
-//                           raise, and the duplicate-markerID parent
-//                           workaround (GetDaggerfallMarker's
-//                           unique-or-null law) are the host's, keyed
-//                           off marker.markerID
+//                           half-treasure-marker drop and the
+//                           half-size raise are the host's. So is the
+//                           PARENTING (AddQuestItem :1144-1148): the
+//                           dungeon host hands its stand the travel of
+//                           the scene marker sceneMarkerMover below
+//                           finds by marker.markerID - the
+//                           unique-or-null law (GetDaggerfallMarker)
+//                           is sceneMarkerOf's, here. TOTEM-CAGE
+//                           (FIELD BUGS 2026-10-03b): no host did it,
+//                           and the Totem stayed where its cage began.
 //
 // KEPT QUIRKS: enableItems is DEAD - AddQuestResourceObjects takes it
 // but never passes it down, so items always stand (C#); the walk
@@ -49,6 +54,7 @@
 import { QuestResourceBehaviour } from './resourceBehaviour.js';
 import { GENDERS } from '../../characters/nameHelper.js';
 import { RDB_SIDE } from '../../world/rdbLayout.js';
+import { MARKER_TYPES } from './place.js';   // TOTEM-CAGE: the two records that carry a DaggerfallMarker
 
 /** FactionFile.GetFlatData: archive packs above bit 7. */
 export const getFlatData = (flat) => ({ archive: flat >> 7, record: flat & 0x7f });
@@ -195,6 +201,77 @@ function addQuestItem(machine, adapter, siteType, quest, marker, item) {
   if (host) behaviour.bindHost(host);
   item.questResourceBehaviour = behaviour;
   behaviour.start();
+}
+
+// ---- TOTEM-CAGE: the quest item's scene marker (AddQuestItem :1144-1148, GetDaggerfallMarker :1165-1186) ----
+//
+// FIELD BUGS 2026-10-03b (Shortstori on Discord: "Im about to end my mainquest but the Totem of Tiber Septim isnt
+// here"). DFU stands a quest item at its marker's LAYOUT point and then parents it to the marker's scene object - "This
+// ensures mobile quest objects parented to action marker translates correctly" - because an RDB marker can carry an
+// action of its own (RDBLayout.cs:403-406 runs AddActionFlatHelper for every flat with Action > 0, editor flats too),
+// and DFU's own note names the case: "raising treasure room cage for totem in Daggerfall castle". S0000008 places the
+// Totem at DaggerfallCastle2's item marker 5 ("hidden in the treasury", its log says). The port registered an acting
+// marker as a moving flat (dungeonContext.js, ActionSystem.addMoveFlat) but stood the quest item at the marker's start
+// and left it there, so the cage rose without the Totem. Online the cage's pose is the castle room's memory
+// (WORLD3/WORLD34) and never resets - the room never drains - so every player came in to the raised cage, empty. The
+// laws below are the parenting as data; the dungeon host (scenes/worldModes.js dungeonQuestAdapter.standItem) hands
+// its stand the mover's live offset.
+
+/** GetDaggerfallMarker (GameObjectHelper.cs:1165-1186) over a laid-out dungeon (world/dungeonLayout.js layoutDungeon's
+ *  `blocks`): the ONE quest or item marker - archive 199 records 11/18, the two RDBLayout.cs:359-366 gives a
+ *  DaggerfallMarker - whose MarkerID is `markerID`. The ID is block position + object position on both sides: the
+ *  layout's `loadID` (world/rdbLayout.js) and the quest marker's `markerID` (place.js _enumerateDungeonQuestMarkers).
+ *  Null when none is, and null when MORE than one is - DFU's workaround: a block laid twice mints its IDs twice, and
+ *  the marker must be unique or null ("to prevent bad parenting behaviour"). A fixed-treasure (216) record carries no
+ *  `loadID`, so it never answers. Answers `{ index, marker }`: the block instance and its layout marker record. */
+export function sceneMarkerOf(blocks, markerID) {
+  let found = null;
+  for (let index = 0; index < (blocks?.length ?? 0); index++) {
+    for (const marker of blocks[index]?.layout?.markers ?? []) {
+      if (marker.record !== MARKER_TYPES.QuestSpawn && marker.record !== MARKER_TYPES.QuestItem) continue;
+      if (marker.loadID !== markerID) continue;
+      if (found) return null;
+      found = { index, marker };
+    }
+  }
+  return found;
+}
+
+/** The scene marker's MOTION, which is all the parenting carries: the ActionSystem object the dungeon host registered
+ *  for the acting marker (dungeonContext.js registers it under its block instance and object position, the chain's
+ *  own key) - answered only when it MOVES (a move-flag flat; its `offset` is the travel, written in place by the
+ *  tween, a remote act and a restore alike). A marker with no action, or one that only relays a chain, carries the item
+ *  nowhere: null. */
+export function sceneMarkerMover(blocks, actions, markerID) {
+  const at = sceneMarkerOf(blocks, markerID);
+  const o = at ? actions?.objectAt?.(at.index, at.marker.position) ?? null : null;
+  return o?.kind === 'moveFlat' ? o : null;
+}
+
+/** The parenting itself: `stand` rides `offset`, its scene marker's live travel (sceneMarkerMover's `offset`, which the
+ *  ActionSystem writes IN PLACE - the tween, a peer's act and the room memory's restore alike). The stand keeps it as
+ *  `off` (questStandBox reads it) and its billboard batch draws through it as its origin uniform - set now, or by the
+ *  host's fill when the batch is minted later (the host calls this again then). The array is the mover's: nothing is
+ *  allocated, and the stand lets it go when it is freed. A dead stand, or no offset, rides nothing.
+ *  The travel is read WHOLE, from the marker's start: DFU's reparent keeps the item's world position at the moment it
+ *  is parented, which is the marker's start on every path DFU has but one - the layout stands the item and a load's
+ *  action state lands after it. Online the room's word lands in either order (a welcome before a re-mount), so the
+ *  whole travel is the only reading that agrees with DFU's entry and load. The one difference: a quest that hot-places
+ *  an item onto a marker that ALREADY moved this visit stands it on the marker, where DFU leaves it off by the travel. */
+export function rideSceneMarker(stand, offset) {
+  if (!stand || stand.dead || !offset) return;
+  stand.off = offset;
+  if (stand.batch) stand.batch.origin = offset;
+}
+
+/** Where a stood quest flat IS now, as its activation box: the billboard's footprint (`width` square, `height` tall,
+ *  base-anchored) over its placed base plus `off`, the travel of the scene marker it rides (null for a stand that
+ *  rides none). Read live, so the box is wherever the marker is - in whatever order the scene learnt the marker's
+ *  pose. */
+export function questStandBox(s) {
+  const o = s.off;
+  const x = o ? s.x + o[0] : s.x, y = o ? s.y + o[1] : s.y, z = o ? s.z + o[2] : s.z;
+  return { min: [x - s.width / 2, y, z - s.width / 2], max: [x + s.width / 2, y + s.height, z + s.width / 2] };
 }
 
 // ---- PlaceFoeFreely (CreateFoe.cs:260-345) - the raycast ring ----

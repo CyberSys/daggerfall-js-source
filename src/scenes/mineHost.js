@@ -32,7 +32,7 @@
 // harvest (`ask`) to the service.
 // ═══════════════════════════════════════════════════════════════════
 import { veins, boulders, nodeKey, VEIN_TABLES, dungeonVeins, dveinKey } from '../net/nodeLaw.js';
-import { tierOpen, TIER_RANKS, PROF_RANK_MAX, pickAxeBand, minedMaterial, storesFullIn, GROUND_WHERE, GROUND_WHERE_WORDS } from '../net/professionLaw.js';
+import { tierOpen, TIER_RANKS, PROF_RANK_MAX, pickAxeBand, minedMaterial, storesFullIn, fullWordsIn, GROUND_WHERE, GROUND_WHERE_WORDS } from '../net/professionLaw.js';
 import { natureStandsAt, groundAt, insideRocks } from '../world/terrainNature.js';   // NODE-CLEAR: the rock check's one home
 import { WORLD_MAP_TILE_DIM } from '../world/terrainTiles.js';
 import { TERRAIN_SIZE } from '../world/terrainSampler.js';
@@ -311,9 +311,9 @@ export function mineRecord(node) {
  * `rest` naming what is missing (worked today, being counted, the day's cap, the rank, the Pick-Axe, the Stores' room);
  * a rank short carries the rank it needs (`needsRank` - VEIN-NEED says the player's own beside it).
  * @param {{ node: any, taken: boolean, counting: boolean, rank: number, pick: boolean, storesFull: (key: string) => boolean,
- *   today: number, cap: number }} o
+ *   today: number, cap: number, fullWords?: string }} o
  */
-export function minePlan({ node, taken, counting, rank, pick, storesFull, today, cap }) {
+export function minePlan({ node, taken, counting, rank, pick, storesFull, today, cap, fullWords = 'Stores full' }) {   // BAG1: `fullWords` the book's
   const harvest = node.what === 'boulder' ? 'stone' : 'ore';
   const name = node.what === 'boulder' ? 'the stone' : materialLabel(node.material);
   const verb = node.what === 'boulder' ? 'Quarry the stone' : `Mine ${name}`;
@@ -323,7 +323,7 @@ export function minePlan({ node, taken, counting, rank, pick, storesFull, today,
   if (today >= cap) return { harvest, verb, rest: `${rankWord} - ${today} of ${cap} today`, ready: false, full: true };
   if (!tierOpen(rank, node.tier)) return { harvest, verb, rest: `needs Mining ${TIER_RANKS[node.tier - 1]}`, ready: false, needsRank: TIER_RANKS[node.tier - 1] };
   if (!pick) return { harvest, verb, rest: 'needs a Pick-Axe', ready: false };
-  if (storesFull(node.material)) return { harvest, verb, rest: `Stores full - ${materialLabel(node.material)}`, ready: false };
+  if (storesFull(node.material)) return { harvest, verb, rest: `${fullWords} - ${materialLabel(node.material)}`, ready: false };
   return { harvest, verb, rest: rankWord, ready: true };
 }
 
@@ -331,9 +331,9 @@ export function minePlan({ node, taken, counting, rank, pick, storesFull, today,
  * PROF2b: WHAT E DOES AT A MOTHERLODE - minePlan's shape: struck today by this character (or being counted), the
  * account's one found, an Apprentice's Mining (MOTHERLODE_RANK, not tier 6's), the Pick-Axe, the Stores' room. The
  * day's sixty are a vein's; a Motherlode is none of them.
- * @param {{ node: any, taken: boolean, counting: boolean, found: boolean, rank: number, pick: boolean, storesFull: (key: string) => boolean }} o
+ * @param {{ node: any, taken: boolean, counting: boolean, found: boolean, rank: number, pick: boolean, storesFull: (key: string) => boolean, fullWords?: string }} o
  */
-export function motherlodePlan({ node, taken, counting, found, rank, pick, storesFull }) {
+export function motherlodePlan({ node, taken, counting, found, rank, pick, storesFull, fullWords = 'Stores full' }) {   // BAG1
   const name = materialLabel(node.material);
   const verb = `Strike the Motherlode of ${name}`;
   if (taken) return { harvest: 'ore', verb: 'The Motherlode - struck today', rest: '', ready: false };
@@ -341,7 +341,7 @@ export function motherlodePlan({ node, taken, counting, found, rank, pick, store
   if (found) return { harvest: 'ore', verb, rest: 'your Motherlode today is found', ready: false };
   if (rank < MOTHERLODE_RANK) return { harvest: 'ore', verb, rest: `needs Mining ${MOTHERLODE_RANK}`, ready: false, needsRank: MOTHERLODE_RANK };
   if (!pick) return { harvest: 'ore', verb, rest: 'needs a Pick-Axe', ready: false };
-  if (storesFull(node.material)) return { harvest: 'ore', verb, rest: `Stores full - ${name}`, ready: false };
+  if (storesFull(node.material)) return { harvest: 'ore', verb, rest: `${fullWords} - ${name}`, ready: false };
   return { harvest: 'ore', verb, rest: `Mining ${rank}`, ready: true };
 }
 
@@ -389,13 +389,13 @@ export function mineKind({ book, lodes = null, marks = null }) {
       if (n.what === 'motherlode') {   // PROF2b
         const plan = motherlodePlan({
           node: n, taken: book.taken(n.key, 'ore'), counting: book.counting(n.key, 'ore'), found: !!lodes?.found?.(), rank: rank('mining'),
-          pick: !!foragingToolIn(entity, FT.PickAxe), storesFull: (key) => storesFullIn(book, key),
+          pick: !!foragingToolIn(entity, FT.PickAxe), storesFull: (key) => storesFullIn(book, key), fullWords: fullWordsIn(book),
         });
         return { ...plan, profession: 'mining' };
       }
       const plan = minePlan({
         node: n, taken: book.taken(n.key, harvestOf(n)), counting: book.counting(n.key, harvestOf(n)), rank: rank('mining'),
-        pick: !!foragingToolIn(entity, FT.PickAxe), storesFull: (key) => storesFullIn(book, key),   // STORES-ROOM: every origin, as the service counts
+        pick: !!foragingToolIn(entity, FT.PickAxe), storesFull: (key) => storesFullIn(book, key), fullWords: fullWordsIn(book),   // STORES-ROOM: every origin, as the service counts
         today: book.state.today?.mining ?? 0, cap: book.state.caps?.harvests ?? 60,
       });
       return { ...plan, profession: 'mining' };
@@ -412,6 +412,8 @@ export function mineKind({ book, lodes = null, marks = null }) {
           master: rank('mining') >= PROF_RANK_MAX, gentle: getPref('gentleActs') === true,
         }),
         harvest: plan.harvest, tool: foragingToolIn(entity, FT.PickAxe), profession: 'mining', label: '',
+        // AUDIT BAG1 B4: the ore a vein or a Motherlode is, for the held count - a boulder's stone is the service's roll
+        ...(n.what === 'boulder' ? {} : { material: n.material }),
         hand: (a) => (a.tool ? { ...PICK_HAND, ...pickHandFrame(a.act.swing) } : null),
         // AUDIT SILVER-WAYS D5: the receipt asked again at the act's end - the newest standing then (one the relay handed
         // during a long act), the start's where none newer stands

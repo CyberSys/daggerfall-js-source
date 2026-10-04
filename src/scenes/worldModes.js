@@ -359,7 +359,7 @@ import { PotionMakerWindow, preloadPotionArt, potionArtLoaded } from '../ui/poti
 import { ItemMakerWindow, preloadItemMakerArt, itemMakerArtLoaded, ITEM_RECTS, rowLayout as itemMakerRowLayout } from '../ui/itemMakerWindow.js';
 import { createPotion, getMagicItemTemplates, LOOT_NEWER_TEXT } from '../systems/loot.js';   // M2: ItemBuilder.CreatePotion, one minter; G4: the MAGIC.DEF registry
 import { SITE_TYPES } from '../systems/quest/place.js';
-import { placeFoeFreely } from '../systems/quest/sceneMount.js';   // B1: CreateFoe's raycast ring, finally called
+import { placeFoeFreely, questStandBox, rideSceneMarker } from '../systems/quest/sceneMount.js';   // B1: CreateFoe's raycast ring, finally called; TOTEM-CAGE: a stand's box where it IS
 import { placeFoeEnv, entityOccupancy, questFoeGender, reviveQuestBehaviour as reviveQuestBehaviourFromSave, heldSpots, holdSpotWhile } from './questFoeHost.js';   // B1 (PlaceFoeFreely reads the fieldOfView import below)   // AUDIT 63 F24: SerializableEnemy.cs:206-217 re-adds the component on restore
 import { standLooseFoe } from './hostEnchant.js';   // ROAD-G G1: SoulBound's break release / the Sanguine Rose, inside a building
 import { ENEMY_BASICS, enemyDisplayName } from '../characters/enemyBasics.js';   // MERGE: FinalizeFoe's Flying lift reads the behaviour flag // WORLD-HOVER H2: GetLocalizedEnemyName - Entity.Name for a live one (.cs:310)
@@ -543,7 +543,7 @@ export function createWorldModes(host) {
    *
    * AUDIT-WH H5. Three hover arms wrote `.Name` - the C# property, as
    * the mod's own source spells it (.cs:764, :725, :777) - and the
-   * record these hosts mint spells it `name` (exterior.js:4042 hands
+   * record these hosts mint spells it `name` (exterior.js:4043 hands
    * `dfLocation`, world.js hands `_questLoc()`; both are the port's
    * location record). `.Name` on it is `undefined`, so all three arms
    * fell to `''`, and `staticDoorName` answers NULL on an empty
@@ -1483,7 +1483,7 @@ export function createWorldModes(host) {
   });
   const npcDisplayName = (npcData) => {
     const dict = townTalk?.factionDict ?? null;
-    return staticNpcName(npcData, { getFaction: (id) => dict?.get(id) ?? null, nameBank: currentNameBank() });
+    return questBridge?.machine?.movedQuestorName?.(npcData) ?? staticNpcName(npcData, { getFaction: (id) => dict?.get(id) ?? null, nameBank: currentNameBank() });   // QUESTOR-MOVED: a questor seated again where their town's layout moved (Person.reseatMovedQuestor) answers to the journal's name - DFU's questor and NPC are one name
   };
   /** ARENA-FIX 2: A STOOD PERSON'S OFFICE - the arena gate's people (world/arenaCity.js arenaGatePersonName: "The Herald
    *  of the Arena", "Red Banner Recruiter", ...) and the undercroft's (the Pit Master, the Keeper of the Hall), or null:
@@ -1712,10 +1712,10 @@ export function createWorldModes(host) {
    *  billboard is CENTRE-anchored, so the base ends up ON the marker
    *  inside a building and half a height BELOW it inside a dungeon.
    *  This port's billboard shader is BOTTOM-anchored (position = base,
-   *  the C11 law dungeonContext.js:2315 states), so the same visual
+   *  the C11 law dungeonContext.js:2316 states), so the same visual
    *  result needs the shift on the DUNGEON side - which is exactly the
    *  shift the dungeon's own RDB flats already take
-   *  (dungeonContext.js:2200, `y - size.h / 2`), and which a building's
+   *  (dungeonContext.js:2201, `y - size.h / 2`), and which a building's
    *  flats correctly do not (interiorContext.js passes its centers
    *  straight through).
    *
@@ -1744,7 +1744,7 @@ export function createWorldModes(host) {
     // whole RDB block once the dungeon mount lands, which would have
     // given the NPC a different hash - and therefore a different
     // nameSeed fallback and a different generated NAME - than DFU.
-    const stand = { ctx, archive, record, x, y, z, marker: hashPosition ?? position, width: 0, height: 0, batch: null, active: true, dead: false, behaviour };
+    const stand = { ctx, archive, record, x, y, z, marker: hashPosition ?? position, width: 0, height: 0, batch: null, active: true, dead: false, behaviour, off: null };   // TOTEM-CAGE: `off` the travel of the scene marker it rides (host.follow)
     // NUDE-FLATS: a person's picture is the clothed stand-in while Show
     // Nudity is off - Azura summoned, or a questor who kept a nude
     // figure's billboard indices from the click. The stand keeps the born
@@ -1791,6 +1791,7 @@ export function createWorldModes(host) {
       }
       stand.y = by;
       stand.batch = renderer.createBillboardBatch(drawArchive, drawRecord, size, [[x, by, z]]);
+      rideSceneMarker(stand, stand.off);   // TOTEM-CAGE: a follow that came before the fill draws from the batch's first frame
       if (stand.active) ctx.billboardBatches.push(stand.batch);
     })().catch((e) => console.error('[quest] stand fill failed:', e));
     const unhook = () => {
@@ -1817,6 +1818,9 @@ export function createWorldModes(host) {
         const i = list.indexOf(stand);
         if (i >= 0) list.splice(i, 1);
       },
+      /** TOTEM-CAGE: AddQuestItem's parenting (GameObjectHelper.cs:1144-1148) - the stand rides `offset`, its scene
+       *  marker's live travel (systems/quest/sceneMount.js sceneMarkerMover / rideSceneMarker). */
+      follow: (offset) => rideSceneMarker(stand, offset),
     };
     list.push(stand);
     return stand.host;
@@ -1837,7 +1841,7 @@ export function createWorldModes(host) {
       const isPerson = s.behaviour?.targetResource?.isPerson === true;
       out.push({
         key: `questflat:${i}`,
-        aabb: { min: [s.x - s.width / 2, s.y, s.z - s.width / 2], max: [s.x + s.width / 2, s.y + s.height, s.z + s.width / 2] },
+        aabb: questStandBox(s),   // TOTEM-CAGE: where the stand IS - a stand riding an acting marker is clicked where it rode to
         distance: isPerson ? STATIC_NPC_ACTIVATION_DISTANCE : DEFAULT_ACTIVATION_DISTANCE,
       });
     });
@@ -1924,6 +1928,9 @@ export function createWorldModes(host) {
       const t = templateByIndex(item.daggerfallUnityItem?.templateIndex);
       if (!t) return null;
       // F068: an item is placed, not aligned - no ray.
+      // TOTEM-CAGE: and never parented here. AddQuestItem's GetDaggerfallMarker (:1144-1148) finds no scene marker in
+      // a building - DaggerfallMarker is RDBLayout's alone (RDBLayout.cs:359-366), a building's quest marker carries
+      // MarkerID 0 (Place.cs:1503-1506) and an RMB flat carries no action - so a building's quest item stands still.
       return standQuestFlat(t.worldTextureArchive, t.worldTextureRecord, position, behaviour, null, null, true);
     },
     // IF: the marker-time stand, the dungeon adapter's twin.
@@ -2041,11 +2048,17 @@ export function createWorldModes(host) {
     loadInProgress: () => _enemyRestoreInProgress,   // AUDIT 63 F24: GameObjectHelper.cs:1073-1076, the dungeon adapter's twin
     standNPC: ({ marker, person, flatData, position, behaviour }) =>
       standDungeonQuestFlat(flatData.archive, flatData.record, position, behaviour, person?.factionId ?? null, marker?.flatPosition ?? null),
-    standItem: ({ item, position, behaviour }) => {
+    standItem: ({ item, marker, position, behaviour }) => {
       const t = templateByIndex(item.daggerfallUnityItem?.templateIndex);
       if (!t) return null;
       // F068: an item is placed, not aligned - no ray.
-      return standDungeonQuestFlat(t.worldTextureArchive, t.worldTextureRecord, position, behaviour, null, null, true);
+      const host = standDungeonQuestFlat(t.worldTextureArchive, t.worldTextureRecord, position, behaviour, null, null, true);
+      // TOTEM-CAGE (FIELD BUGS 2026-10-03b): "Parent to scene marker (if any) - This ensures mobile quest objects parented
+      // to action marker translates correctly" (GameObjectHelper.cs:1144-1148). An acting marker moves (the Totem's, in
+      // Castle Daggerfall's treasury cage); the item rides it - the cage this player raised, a peer's raise heard live,
+      // the raise the castle room remembers.
+      host?.follow(dungeonCtx?.questMarkerMover?.(marker?.markerID)?.offset);
+      return host;
     },
     standFoe: ({ foe, gender, position, behaviour }) => {
       if (!dungeonCtx) return null;
@@ -3749,7 +3762,8 @@ export function createWorldModes(host) {
     if (!hallMemberHere()) { say(hallBoardShutLine(hallNameHere())); return; }
     if (!host.guildHall?.openBoard?.(hallNameHere())) say(HALL_BOARD_COLD);
   }
-  /** GUILD1d: THE GUILD'S CHEST - the guild Stores, on the Guild tab (the host's social panel); said where it cannot open. */
+  /** GUILD1d: THE GUILD'S CHEST - the guild Stores, on the Guild tab (the host's social panel); said where it cannot open.
+   *  GUILD2b: the guild's vault now, the item storage a chest is (bible/11-Multiplayer/Guild-Overhaul.md) - the Stores a page beside it. */
   function openHallChest() {
     if (!host.guildHall?.openStores?.()) say(HALL_CHEST_SHUT);
   }
@@ -5081,13 +5095,15 @@ export function createWorldModes(host) {
       // scans pack AND wagon for any ingredient, and refuses with
       // NoPotionIngredients (34) when there is none - the record id
       // had shipped with zero callers and the mixer opened empty.
-      if (![...(playerEntity.items ?? []), ...(playerEntity.wagonItems ?? [])].some(isIngredient)) {
+      if (![...(playerEntity.items ?? []), ...(playerEntity.wagonItems ?? []), ...(playerEntity.bagItems ?? [])].some(isIngredient)) {   // BAG1: and the Materials Bag's herbs
         return { rows: rows(NO_POTION_INGREDIENTS), closesWindow: true };
       }
       let potionWin = null;
       potionWin = new PotionMakerWindow({
         packItems: () => (playerEntity.items ??= []),
-        wagonItems: () => (playerEntity.wagonItems ??= []),
+        // BAG1: THE SECOND LIST the walk reads is the cart's, and the Materials Bag's after it - the herbs a player gathered
+        // are DFU's own plants, and DFU's mixer takes them wherever they are carried (read here, spent by takeOne below)
+        wagonItems: () => [...(playerEntity.wagonItems ??= []), ...(playerEntity.bagItems ?? [])],
         // AUDIT 58: Refresh's gold label is GetGoldAmount
         // (DaggerfallPotionMakerWindow.cs:138) - coins PLUS letters of
         // credit (PlayerEntity.cs:1313-1316), the same reader the item
@@ -5132,7 +5148,9 @@ export function createWorldModes(host) {
           // (:338, :345) - the walk must not spend an enchanted twin
           // of the plain reagent that went in the pot. (X11b's lesson
           // stands: removeOne takes a TEMPLATE INDEX, not the item.)
-          return removeOne(list, templateIndex, { group, allowEnchantedItem: false });
+          if (removeOne(list, templateIndex, { group, allowEnchantedItem: false })) return true;
+          // BAG1: the second list's second half - the Materials Bag, after the cart
+          return where !== 'pack' && removeOne(playerEntity.bagItems ?? [], templateIndex, { group, allowEnchantedItem: false });
         },
         icons: { getTexture, uploadRecord, textures: renderer.textures },
         entity: playerEntity,
@@ -7928,7 +7946,7 @@ export function createWorldModes(host) {
           hudMessageSink: (t) => questBridge?.notebook?.addMessage(t),
           // MAC1 J: and the relock the dungeon's pause door needs, on
           // the same threading - the context owns no canvas of its own
-          // (dungeonContext.js:8433), so the OUTER host's one rides in.
+          // (dungeonContext.js:8435), so the OUTER host's one rides in.
           // This is the most-played pause door of the six: world.js
           // gates its own Escape ladder on exterior mode, so underground
           // the key falls to routeKey -> ui/input.js:847 -> the
@@ -9176,7 +9194,7 @@ export function createWorldModes(host) {
           // AUDIT 39r: and the FLASH, which this arm was copied without.
           // An arrow reaches the player through BowDamage ->
           // ApplyDamageToPlayer -> SendDamageToPlayer, the same door as
-          // a blow (world.js:16144's own wave-46 note); the interior
+          // a blow (world.js:16217's own wave-46 note); the interior
           // MELEE hit already flashes inside exteriorFoes, so only this
           // arm - which applies its own damage - was missing it.
           flashPlayerDamage(dmg);   // BA1: RemoveHealth carries the amount
@@ -10118,7 +10136,7 @@ export function createWorldModes(host) {
   addEventListener('mousedown', (e) => {
     // AUDIT-MACK F2: THIS HOST DOES NOT FEED THE HELD SET, and MAC-K1
     // briefly made it. `keys` is not this host's - it arrives on the
-    // host bag (`exterior.js:4104`, `world.js`'s twin), and the OUTER
+    // host bag (`exterior.js:4105`, `world.js`'s twin), and the OUTER
     // host's own mousedown writes `keys.add(mouseCode(e.button))`
     // UNGATED, before any mode test, on a listener that is never
     // removed. So the three button codes were already in the Set while
@@ -11901,9 +11919,9 @@ export function createWorldModes(host) {
      *  .cs:175-176 writes `weaponDrawn`/`usingLeftHand` off it,
      *  :420-421 restores them onto it. The port has FOUR PlayerWeapons
      *  (world.js's, this file's `interiorWeapon` :538, dungeonContext's
-     *  and exterior.js's - which this seam does not reach: that host has no save path at all, its charter exterior.js:3647-3669), and IS1 routed the inside-a-building save to
+     *  and exterior.js's - which this seam does not reach: that host has no save path at all, its charter exterior.js:3648-3670), and IS1 routed the inside-a-building save to
      *  the WORLD host's composer - which reads its own exterior rig
-     *  unconditionally (world.js:12113). So an F9 pressed in a shop
+     *  unconditionally (world.js:12186). So an F9 pressed in a shop
      *  recorded the street's sheath and hand, and the load wrote them
      *  back into the street's rig; the rig actually in the player's
      *  hands was in no envelope at all.
@@ -11942,7 +11960,7 @@ export function createWorldModes(host) {
       if (interiorOverlay instanceof DeathScreen) { interiorOverlay.restoreView(); interiorOverlay = null; }
     },
     /** The restore half - and NOT gated on the mode, deliberately.
-     *  worldQuickLoad calls forceExitToExterior FIRST (world.js:12442)
+     *  worldQuickLoad calls forceExitToExterior FIRST (world.js:12515)
      *  and only re-enters the building at :4217, so the mode at apply
      *  time is whatever the LOAD landed in, not whatever the SAVE was
      *  taken in: an outdoor save loaded while the player was indoors
@@ -11952,8 +11970,8 @@ export function createWorldModes(host) {
      *
      *  FLAG ONLY and presence-gated - both laws now stated once, in
      *  combat/playerWeapon.js's applyWeaponPose, with the citation.
-     *  HARD2c: this used to spell them out, and named `world.js:11018`
-     *  and `dungeonContext.js:8445` for its two sibling copies - lines
+     *  HARD2c: this used to spell them out, and named `world.js:11091`
+     *  and `dungeonContext.js:8447` for its two sibling copies - lines
      *  that had moved to :4418 and :5457. Three copies of a two-line
      *  law, and even the comment pointing between them had gone stale. */
     applyWeaponPose(pose) {

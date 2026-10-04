@@ -183,7 +183,7 @@ export function stashedItemLists(snap) {
 }
 /** Every list of the character's own things where liquid wealth can lie, in the order customs takes from them: the
  *  stashes, then the wagon, then the pack. (The banks and the purse are counts, not lists.) */
-export const carriedItemLists = (/** @type {any} */ snap) => [...stashedItemLists(snap), ...lists(snap?.wagonItems), ...lists(snap?.items)];
+export const carriedItemLists = (/** @type {any} */ snap) => [...stashedItemLists(snap), ...lists(snap?.wagonItems), ...lists(snap?.bagItems), ...lists(snap?.items)];   // BAG1: the Materials Bag's, between the wagon and the pack
 
 /** OPEN (AUDIT REALM2 T3), as the allowance is: the price customs counts a Daggerfall house at. The realm's bank buys a
  *  house back at the deed's share of its building's model radius x 1280 (banking.js houseSellPrice), a measure no save

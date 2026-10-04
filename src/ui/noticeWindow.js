@@ -44,6 +44,7 @@ import {
   BOUNTY_BOARD_LINE, noteIsNew,
 } from '../net/boardLaw.js';
 import { accountRefusalText } from '../net/accountClient.js';   // PROF1: a writ's refusal, in words
+import { movedFirstText } from '../net/bagLaw.js';   // AUDIT2 BAG1 K8: what went into the Stores before a refusal
 import { createMarketTab } from './marketTab.js';   // PROF5: the Market tab
 import { createWorkTab } from './workTab.js';   // PROF6: the Work tab's guild writs and commissions
 import { createSeatTab } from './seatTab.js';   // SEAT1b: the Seat tab - a seat town's standings, pledges and Tribute
@@ -213,7 +214,7 @@ export function mountNoticeBoard(host, deps) {
   // PROF6: the Work tab's guild writs and commissions - their own door, as the market's
   let workBusy = false;
   const workMore = work?.writs ? createWorkTab({
-    writs: work.writs, held: (m) => work.book.held(m), region: work.region, regionName: work.regionName,
+    writs: work.writs, held: (m) => work.book.held(m), carrying: () => work.book.carrying?.() === true, region: work.region, regionName: work.regionName,   // AUDIT BAG1: whose count `held` is
     regionNameOf: work.regionNameOf ?? ((r) => String(r)), countName: work.countName, pieces: work.pieces ?? (() => []),
     reload: () => { work.book.forgetWrits?.(); loadWrits(true); },   // AUDIT 31 B7: a read begun before the act is read again
   }, {
@@ -405,11 +406,11 @@ export function mountNoticeBoard(host, deps) {
       const full = (work.book.state.writs?.today ?? 0) >= (work.book.state.writs?.max ?? 3);
       const b = button('primary notice-take', 'Take', () => takeWrit(w));
       b.disabled = busy || workBusy || held < w.qty || full;   // AUDIT 31 B10: nor while a guild writ's or a commission's act is out
-      if (held < w.qty) b.title = 'Your Stores do not hold enough';
+      if (held < w.qty) b.title = work.book.carrying?.() ? 'You do not hold enough - in your Stores, your Materials Bag and your pack together' : 'Your Stores do not hold enough';   // BAG1; AUDIT BAG1: and the pack
       else if (full) b.title = 'You have filled all the Court writs a day allows';
       take.append(b);
     }
-    take.append(el('span', null, `${held.toLocaleString('en-US')} in your Stores`));
+    take.append(el('span', null, `${held.toLocaleString('en-US')} ${work.book.carrying?.() ? 'held' : 'in your Stores'}`));   // BAG1: the Stores' and what is carried
     li.append(take, el('span', 'notice-seal', ''));
     return li;
   }
@@ -417,14 +418,14 @@ export function mountNoticeBoard(host, deps) {
   async function takeWrit(w) {
     if (busy || workBusy) return;
     busy = true; render();
-    const r = await work.book.deliver(w.id, work.region);
+    const r = await work.book.deliver(w.id, work.region, { material: w.material, qty: w.qty });   // AUDIT BAG1 B9: the card's own word
     if (!alive) return;
     busy = false;
     if (r?.ok) {
       writs = work.book.state && writs ? { ...writs, writs: writs.writs.map((x) => (x.id === w.id ? { ...x, state: 'mine' } : x)), today: r.data?.today ?? writs.today } : writs;
       word = { ok: true, text: work.onTaken?.(r) || `Writ filled: ${r.data?.pay ?? w.pay} silver.` };
     } else {
-      word = { ok: false, text: accountRefusalText(r?.error) };
+      word = { ok: false, text: `${accountRefusalText(r?.error)}${movedFirstText(r)}` };
       if (r?.error === 'writ-taken' || r?.error === 'writ-expired') loadWrits(true);
     }
     render();

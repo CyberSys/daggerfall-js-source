@@ -558,7 +558,8 @@ is fixed below or stated in section 8.
   what is no set piece answers no set; an unidentified set piece's tooltip still says its sigil and its set.
 - **C - drops, economy, wire, saves, tooltips.** The drink reads the weapon in the MODE's hand (indoors and
   underground the street rig is never readied), and the hour's Renown cap is the shared clock's hour, as the
-  service's. An enchanted Aetheric piece breaks and stays under PCAAO, as a Legendary does. A Test Room character
+  service's. An enchanted Aetheric piece breaks and stays under PCAAO, as a Legendary does. (Since AETHERIC-MAKER, FIELD BUGS 2026-10-03b, the item maker refuses an Aetheric piece - out of its list, and its
+  decision answers `refused` - as salvage and the Reforge do; a piece enchanted before keeps its rows.) A Test Room character
   plays offline (section 8). The wire's item law cross-checks the marks: a set's sigil only on a piece a set counts,
   a blow only on a weapon, the Regalia's set only on an Aetheric piece and an Aetheric piece only as its record mints
   it, the sigil projected to its own keys (`aetheric.js validSetMarks`). The price in gold is section 7's. Two lore

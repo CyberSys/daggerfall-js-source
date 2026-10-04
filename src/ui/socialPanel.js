@@ -51,15 +51,20 @@ import { LETTER_SUBJECT_MAX, LETTER_BODY_MAX, LETTER_LINES_MAX, cleanBody } from
 import {
   GUILD_FOUND_GOLD, GUILD_FOUND_RENOWN, GUILD_MEMBERS_MAX, GUILD_NAME_MAX, GUILD_RANK_NAME_MAX, GUILD_RANK_NAMES,
   guildMay, guildMayMove, guildOutranks, guildNameOf, guildTagOf, guildRankNamesOf, GUILD_MOVE_MAX,
+  GUILD_RANK_MASTER, GUILD_RANK_OFFICER, GUILD_RANK_RECRUIT, GUILD_RENAME_GOLD,   // GUILD2a: a new name, for a price
 } from '../net/guildLaw.js';   // GUILD1b: the Guild tab's rules are the service's
+import { VAULT_RANK_DEFAULTS, VAULT_LIMIT_CHOICES, GUILD_VAULT_SLOTS, vaultStandingText, vaultMayTake, vaultMayPut } from '../net/guildVaultLaw.js';   // GUILD2b: the vault
+import { tradeRefusal } from '../systems/tradePack.js';   // GUILD2b: what may leave a pack, for the vault as for a trade
+import { isLocked } from '../systems/itemLock.js';   // AUDIT2 GUILD2 U4: a locked piece stays in the pack
 import { GUILD_DEPOSIT_UNSURE } from '../net/guildBook.js';
 import { LETTER_OF_CREDIT_TEXT } from '../systems/tradeModes.js';   // GUILD-LETTER: the trade window's own line for a letter of credit
 import { writMay, guildMoveOk, writBudgetOk, GUILD_STORES_MAX, WRIT_BUDGET_MAX } from '../net/writLaw.js';   // PROF6: the guild Stores' and the writ budget's ranks and bounds
 import { STORES_MAX } from '../net/professionLaw.js';   // AUDIT 31 U8: a character's Stores' most of a material
 import { marksText, MARKS_FAUCETS } from '../net/marksLaw.js';   // MARKS1: the Marks treasury's words   // MAIL1: the form's caps are the service's
 import { glyphBadges, glyphSvgNode, titleBadge } from './playerBadge.js';   // MAIL1: a sender's glyphs, in the one drawing every DOM face uses
-import { HERALDRY_COLOURS, HERALDRY_DEVICES, HERALDRY_UNHELD, HERALDRY_CHANGE_DRAKES, heraldryOf, heraldrySame, heraldryText, heraldryDeviceName } from '../net/heraldryLaw.js';   // GUILD1d
-import { bannerSvg } from './heraldryArt.js';   // GUILD1d: the guild's banner, drawn
+import { HERALDRY_COLOURS, HERALDRY_DEVICES, HERALDRY_UNHELD, HERALDRY_CHANGE_DRAKES, heraldryOf, heraldrySame, heraldryText, heraldryDeviceName,
+  HERALDRY_DIVISIONS, HERALDRY_DIVISION_NAMES, heraldryColourOf, heraldryInk } from '../net/heraldryLaw.js';   // GUILD1d; GUILD2c: the divisions, the device's colour
+import { bannerSvg, shieldSvg } from './heraldryArt.js';   // GUILD1d: the guild's banner, drawn; GUILD2c: and its shield
 import { GUILD_HALL_PRICE_MULT, GUILD_HALL_ENTRIES, GUILD_HALL_ENTRY_WORDS, hallMay } from '../net/hallLaw.js';   // GUILD1d: the hall
 import { homeSaleRefund } from '../net/homeLaw.js';   // GUILD1d: what the hall sells back for
 import { REGION_NAMES } from '../formats/mapsTables.js';   // GUILD1d: where the hall stands
@@ -111,10 +116,30 @@ export const guildHallGoldText = (hallGold, treasury) => (Number.isFinite(hallGo
   ? `${hallGold.toLocaleString('en-US')} gold of the treasury's ${Number(treasury ?? 0).toLocaleString('en-US')} can buy a hall - the gold realm characters put in. A bank account's gold never does.`
   : null);
 export const GUILD_HERALDRY_NONE_TEXT = 'Your guild has no heraldry yet.';
+/** GUILD2 (bible/11-Multiplayer/Guild-Overhaul.md): the pages' own sentences. */
+export const GUILD_RENAME_COST_TEXT = `A new name or tag costs ${GUILD_RENAME_GOLD.toLocaleString('en-US')} gold from the treasury - gold your realm characters put in - and the next may come a fortnight later. The old name is free for anyone at once.`;
+/** GUILD2a: when the next new name may come, from `at` (epoch seconds). */
+export const guildRenameSoonText = (at, nowS) => {
+  const days = Math.max(1, Math.ceil((at - nowS) / 86_400));
+  return `The guild took a new name lately: the next may come in ${days} ${days === 1 ? 'day' : 'days'}.`;
+};
+export const GUILD_VAULT_REACH_TEXT = 'The vault is reached in any town. Read it here; put in and take out in town.';
+export const GUILD_VAULT_EMPTY_TEXT = 'The vault is empty. Put a piece in from your pack below.';
+/** GUILD2c: why a draft of arms will not stand, in the law's own terms (heraldryLaw.js heraldryOf). */
+export function armsWhy(h) {
+  if (!h) return 'arms to raise';
+  if (h.field === HERALDRY_UNHELD) return 'Ash only as the border';
+  if (h.field === h.border) return 'a border unlike the field';
+  const ink = h.charge ?? h.border;
+  if (ink === h.field || (h.division && h.division !== 'plain' && ink === h.field2)) return 'a device that stands out from the field';
+  if (h.division && h.division !== 'plain' && (h.field2 === h.field || h.field2 === HERALDRY_UNHELD)) return 'two different field colours, never Ash';
+  if (h.division && h.division !== 'plain' && h.field2 === h.border) return 'a border unlike either field colour';   // AUDIT GUILD2 G13
+  return 'arms the law allows';
+}
 /** AUDIT SILVER-WAYS A3: the day's guild deeds, as the Guild tab says them (marksLaw.js MARKS_FAUCETS.deed). */
 export const guildDeedsText = (n, max) => `Guild deeds today: ${Math.max(0, Number(n) || 0)} of ${max}. When ${MARKS_FAUCETS.deed.members} members of ${Math.round(MARKS_FAUCETS.deed.tenureS / 86_400)} days defend the same town or close the same gate, the treasury earns ${marksText(MARKS_FAUCETS.deed.amount)}.`;
 /** GUILD1d: a treasury ledger line's verb - a deposit and a withdrawal, and the hall's own moves (0043's `moved_kind`). */
-export const GUILD_LEDGER_WORDS = Object.freeze({ deposit: 'put in', withdraw: 'took out', hall: 'bought the hall for', 'hall-sale': 'sold the hall for', 'hall-piece': 'took down a hall piece - back into the treasury:', grant: 'awarded the guild' });   // GUILD-GRANT: the operator's award (tools/grantGuildGold.mjs)
+export const GUILD_LEDGER_WORDS = Object.freeze({ deposit: 'put in', withdraw: 'took out', hall: 'bought the hall for', 'hall-sale': 'sold the hall for', 'hall-piece': 'took down a hall piece - back into the treasury:', rename: 'renamed the guild for', grant: 'awarded the guild' });   // AUDIT2 GUILD2: a rename's line read "put in" - a payment out said as one in; GUILD-GRANT: the operator's award (tools/grantGuildGold.mjs)
 /** AUDIT GUILD1d R5: a Drakes ledger line's verb - a heraldry changed is the treasury paying, never a deposit. */
 export const GUILD_MARKS_LEDGER_WORDS = Object.freeze({
   deposit: 'put in', withdraw: 'took out', heraldry: 'changed the heraldry for',
@@ -125,10 +150,15 @@ export const GUILD_MARKS_LEDGER_WORDS = Object.freeze({
 export const guildHallSoldText = (r) => `The hall is sold. ${Number(r?.data?.back ?? 0).toLocaleString('en-US')} gold went back into the treasury.`;
 /** GUILD1d: where a hall stands, in words. */
 export const guildHallWhereText = (hall) => `Your hall stands in ${REGION_NAMES[hall?.region] ?? 'the Iliac Bay'}.`;
-/** GUILD1b: a guild act's answer in words - the service's sentence (REFUSALS), or the tab's own for the purse. */
-export function guildWordText(error) {
+/** GUILD1b: a guild act's answer in words - the service's sentence (REFUSALS), or the tab's own for the purse. AUDIT2
+ *  GUILD2 S2/S7: `r` the answer, its reason said where it names one - the word the name filter caught (net/nameFilter.js's
+ *  own law: a player with a real name knows the filter is wrong rather than guessing), and when the next new name may
+ *  come (`nowS` the clock it is counted from). */
+export function guildWordText(error, r = null, nowS = Math.floor(Date.now() / 1000)) {
   if (error === 'gold') return GUILD_GOLD_SHORT_TEXT;
   if (error === 'guild-unsure') return GUILD_DEPOSIT_UNSURE;
+  if (error === 'guild-name-word' && typeof r?.why === 'string' && r.why) return `A guild's name and tag may not carry "${r.why}" - a word the realm keeps out of names.`;
+  if (error === 'guild-rename-soon' && Number.isSafeInteger(r?.at) && r.at > nowS) return guildRenameSoonText(r.at, nowS);
   return accountRefusalText(error);
 }
 /** GUILD-LETTER (FIELD BUGS 2026-09-30): a guild act's word once done - and a withdrawal paid as a letter of credit (the
@@ -243,6 +273,30 @@ ${PIXELIFY_FIVE_FACE}
 textarea.dfsocial-field { resize: vertical; min-height: 120px; line-height: 1.4; }
 .dfsocial-count { font-size: 11px; color: var(--dim, #9a9486); text-align: right; }
 .dfsocial-count.over { color: #e0704a; }
+
+/* GUILD2 (bible/11-Multiplayer/Guild-Overhaul.md): THE GUILD PAGE - its header (the banner beside the name), its page
+   strip (wrapping: seven pages are wider than the panel at a phone's width), a member's vault grant beneath its row, and
+   the arms' choices drawn - colour swatches and shield tiles, the one picked ringed in brass. */
+.dfsocial-guildhead { flex-direction: row; align-items: center; gap: 10px; }
+.dfsocial-guildhead img { flex: none; filter: drop-shadow(0 1px 2px rgba(0,0,0,.5)); }
+.dfsocial-subtabs { flex: none; display: flex; flex-wrap: wrap; gap: 2px; padding: 4px 0; border-bottom: 1px solid var(--iron, #2b323b); }
+.dfsocial-subtab { background: none; border: 0; border-bottom: 2px solid transparent; color: var(--dim, #9a9486); font: inherit; font-size: 11px;
+  letter-spacing: .05em; text-transform: uppercase; padding: 4px 6px; cursor: pointer; }
+.dfsocial-subtab.active { color: var(--bone, #e9e4d9); border-bottom-color: var(--brass, #c08a3e); }
+.dfsocial-grant { flex: none; display: flex; flex-wrap: wrap; gap: 4px; align-items: center; padding: 0 0 6px 14px; }
+.dfsocial-grant .dfsocial-field { width: auto; flex: 1 1 120px; }
+.dfsocial-arms { flex: none; display: flex; flex-direction: column; gap: 2px; }
+.dfsocial-armspics { flex: none; display: flex; gap: 12px; align-items: flex-end; padding: 4px 0; }
+.dfsocial-armspics img { filter: drop-shadow(0 1px 2px rgba(0,0,0,.5)); }
+.dfsocial-tagchip { font-size: 12px; font-weight: 600; padding: 1px 6px; border: 2px solid; border-radius: 3px; }
+.dfsocial-swatches, .dfsocial-tiles { flex: none; display: flex; flex-wrap: wrap; gap: 4px; padding: 2px 0 4px; }
+.dfsocial-swatch { width: 20px; height: 20px; border: 1px solid rgba(0,0,0,.6); border-radius: 3px; padding: 0; cursor: pointer; }
+.dfsocial-swatch.on, .dfsocial-tile.on { outline: 2px solid var(--brass, #c08a3e); outline-offset: 1px; }
+.dfsocial-swatch[disabled] { opacity: .25; cursor: default; }
+.dfsocial-tile { background: rgba(0,0,0,.25); border: 1px solid var(--iron, #2b323b); border-radius: 3px; padding: 2px; cursor: pointer; line-height: 0; }
+.dfsocial.touch .dfsocial-subtab { min-height: 44px; padding: 8px 10px; }
+.dfsocial.touch .dfsocial-swatch { width: 44px; height: 44px; }
+.dfsocial.touch .dfsocial-tile { padding: 8px; }
 
 /* AUDIT SOC C8: THE FINGER'S OWN SIZES. Every control this panel draws was built at the mouse's scale - the tabs 29
    tall, Close 27x19, Invite and Remove 22 - and online forces the enhanced lane on a phone as readily as on a
@@ -416,7 +470,9 @@ export function createSocialPanel({ social, send = null, mail = null, guild = nu
   // 'remove:<member>', 'hand:<member>') - the first press arms it, the second does it, SOCIAL_CONFIRM_MS disarms it
   const guildUi = { word: '', bad: false, draft: { name: '', tag: '', handle: '', gold: '', ranks: null }, arm: null, armAt: -Infinity };
   // AUDIT 31 H2: and the guild Stores read again at each look - they move while the tab is shut
-  const lookAtGuild = () => { guildUi.storesAsked = false; if (guild?.stale?.()) guild.refresh(); };
+  // AUDIT GUILD2 M2: and the vault read again at each look - read once a session, a piece another member took stood with
+  // its Take until the panel was reloaded
+  const lookAtGuild = () => { guildUi.storesAsked = false; guildUi.vaultAsked = false; if (guild?.stale?.()) guild.refresh(); };
 
   /** One act out. A refusal that is the RATE GATE's (`send` answered false) is not the player's fault and not the
    *  row's: the button stays as it was and the note says so, because the act was right and the moment was not. */
@@ -848,7 +904,7 @@ export function createSocialPanel({ social, send = null, mail = null, guild = nu
     guildUi.word = ''; guildUi.arm = null; ui++;
     Promise.resolve(promise).then((r) => {
       guildUi.bad = !r?.ok;
-      guildUi.word = r?.ok ? guildDoneText(typeof okWord === 'function' ? okWord(r) : okWord, r) : guildWordText(r?.error);   // AUDIT GUILD1d R13: or the answer's own words
+      guildUi.word = r?.ok ? guildDoneText(typeof okWord === 'function' ? okWord(r) : okWord, r) : guildWordText(r?.error, r, Math.floor(social.now() / 1000));   // AUDIT GUILD1d R13: or the answer's own words; AUDIT2 GUILD2 S2/S7: and its reason
       if (r?.ok) after?.(r);
       ui++;
     });
@@ -1023,74 +1079,93 @@ export function createSocialPanel({ social, send = null, mail = null, guild = nu
     if (acts.children.length) out.push(acts);
     return out;
   };
-  /** GUILD1d (Seats-Arc 8.1): THE HERALDRY - the banner, every member's to see; the guildmaster's to choose: two colours
-   *  (Ash never the field) and a device, the first free and each change after it paid from the Drake treasury. The banner
-   *  drawn is the draft while one is being chosen. */
-  const guildHeraldryNodes = (g, v, me) => {
-    const out = [el('div', 'dfsocial-sec', 'Heraldry')];
-    const d = guildUi.draft;
-    const may = hallMay(me, 'heraldry');
-    // AUDIT GUILD1d R10: a draft is one guild's, from one heraldry - another guild's tab (another character playing), or a
-    // heraldry changed under it, starts it again from what stands
-    const from = `${v.id}|${JSON.stringify(v.heraldry ?? null)}`;
-    if (d.heraldryFrom !== from) { d.heraldry = null; d.heraldryFrom = from; }
-    if (may && !d.heraldry) d.heraldry = { ...(v.heraldry ?? { field: 'azure', border: 'gold', device: 'wolf' }) };
-    const shown = may ? heraldryOf(d.heraldry) ?? v.heraldry : v.heraldry;
-    const pic = el('div', 'dfsocial-banner');
-    const img = doc.createElement('img');   // our own drawing as a picture - never markup (SOC3)
-    const drawDraft = (h) => {
-      img.src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(bannerSvg(h, { width: 44 }))}`;
-      img.setAttribute('alt', h ? heraldryText(h) : 'An undrawn banner');
-    };
-    drawDraft(shown);
-    img.setAttribute('width', '44'); img.setAttribute('height', '132');
-    pic.append(img, el('div', 'dfsocial-note', v.heraldry ? heraldryText(v.heraldry) : GUILD_HERALDRY_NONE_TEXT));
-    out.push(pic);
-    if (!may) return out;
-    const pick = (label, options, value, onPick) => {
-      const sel = doc.createElement('select');
-      sel.className = 'dfsocial-field';
-      sel.setAttribute('aria-label', label);
-      for (const [k, text] of options) { const o = doc.createElement('option'); o.value = k; o.textContent = text; if (k === value) o.selected = true; sel.append(o); }
-      // AUDIT GUILD1d R11: the picture and the button drawn again in place - a repaint took the focused select away from a
-      // keyboard at every step
-      sel.addEventListener('change', () => { onPick(sel.value); drawDraft(heraldryOf(d.heraldry) ?? v.heraldry); paintLiveBtns(); });
-      return sel;
-    };
-    const form = el('div', 'dfsocial-form');
-    form.append(el('div', 'dfsocial-label', 'Field'), pick('The field', HERALDRY_COLOURS.filter((c) => c.key !== HERALDRY_UNHELD).map((c) => [c.key, c.name]), d.heraldry.field, (k) => { d.heraldry.field = k; }));
-    form.append(el('div', 'dfsocial-label', 'Border'), pick('The border', HERALDRY_COLOURS.map((c) => [c.key, c.name]), d.heraldry.border, (k) => { d.heraldry.border = k; }));
-    form.append(el('div', 'dfsocial-label', 'Device'), pick('The device', HERALDRY_DEVICES.map((k) => [k, heraldryDeviceName(k)]), d.heraldry.device, (k) => { d.heraldry.device = k; }));
-    form.append(el('div', 'dfsocial-empty', v.heraldry ? `A change costs ${marksText(HERALDRY_CHANGE_DRAKES)} from the silver treasury.` : 'The first choice is free.'));
-    out.push(form);
-    const acts = el('div', 'dfsocial-acts');
-    acts.append(liveBtn(v.heraldry ? 'Change it' : 'Raise it', () => {
-      const h = heraldryOf(d.heraldry);
-      const why = g.busy ? 'a moment' : !h ? 'two different colours - Ash only as the border'
-        : heraldrySame(h, v.heraldry) ? 'already your heraldry'
-          : v.heraldry && !('marks' in v) ? accountRefusalText('marks-closed')   // AUDIT GUILD1d R12: Drakes not this account's
-            : v.heraldry && Number(v.marks ?? 0) < HERALDRY_CHANGE_DRAKES ? `${marksText(HERALDRY_CHANGE_DRAKES)} in the silver treasury` : '';
-      return { enabled: !why, why };
-    }, { run: () => guildDo(g.setHeraldry(d.heraldry), 'The guild\'s banner is raised.', () => { d.heraldry = null; }) }));
-    out.push(acts);
+  // ═══ GUILD2 (bible/11-Multiplayer/Guild-Overhaul.md): THE GUILD PAGE, IN PAGES ══════════════════════════════════════
+  // Asked: "the guild page needs an overhaul". GUILD1b's tab was one scroll - roster, invites, two treasuries and their
+  // ledgers, the hall, the heraldry, the guild Stores, the rank names and leaving, every section under the one before. It
+  // is pages now, under the guild's own header (its banner, its name and tag, the reader's rank): Overview, Members,
+  // Treasury, Vault, (the guild) Stores where the professions are this account's, Arms, Settings. Each page keeps every
+  // control and sentence the section it took over had, so a refusal still says its reason beside its button.
+
+  /** The pages the tab shows, in order - the guild Stores only where the professions are this account's. */
+  const guildPagesOf = (g) => [
+    ['overview', 'Overview'], ['members', 'Members'], ['treasury', 'Treasury'], ['vault', 'Vault'],
+    ...(g.profStores?.writs && g.profStores.open?.() === true ? [['stores', 'Stores']] : []),
+    ['arms', 'Arms'], ['settings', 'Settings'],
+  ];
+  /** Our own drawing as a picture - never markup (SOC3). */
+  const svgPicture = (svg, w, h, alt) => {
+    const img = doc.createElement('img');
+    img.src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
+    img.setAttribute('width', String(w)); img.setAttribute('height', String(h)); img.setAttribute('alt', alt);
+    return img;
+  };
+  const selectOf = (label, options, value, onPick) => {
+    const s = doc.createElement('select');
+    s.className = 'dfsocial-field';
+    s.setAttribute('aria-label', label);
+    for (const [k, text] of options) { const o = doc.createElement('option'); o.value = k; o.textContent = text; if (k === value) o.selected = true; s.append(o); }
+    s.addEventListener('change', () => { onPick(s.value); paintLiveBtns(); });
+    return s;
+  };
+
+  /** THE HEADER over every page: the banner, the name and tag, the reader's rank and the treasury (GUILD1b's line). */
+  const guildHead = (v, me) => {
+    const head = el('div', 'dfsocial-letterhead dfsocial-guildhead');
+    head.append(svgPicture(bannerSvg(v.heraldry, { width: 24 }), 24, 72, v.heraldry ? heraldryText(v.heraldry) : 'An undrawn banner'));
+    const who = el('div', 'dfsocial-who');
+    who.append(el('div', 'dfsocial-subject', `${v.name} [${v.tag}]`),
+      el('div', 'dfsocial-sub', `You are ${rankName(v, me)} - the treasury holds ${Number(v.treasury).toLocaleString('en-US')} gold`),
+      el('div', 'dfsocial-sub', `${v.members.length}/${GUILD_MEMBERS_MAX} members - the vault ${v.vault?.used ?? 0}/${v.vault?.max ?? GUILD_VAULT_SLOTS}`));
+    head.append(who);
+    return head;
+  };
+  /** AUDIT2 GUILD2 U9: the strip's buttons as last drawn, by page - the focus put back on the page turned to. */
+  let stripBtns = new Map();
+  /** THE PAGE STRIP: a tab for each page, the one up marked. */
+  const guildStrip = (g, page) => {
+    const strip = el('div', 'dfsocial-subtabs');
+    strip.setAttribute('role', 'tablist');
+    stripBtns = new Map();
+    for (const [id, label] of guildPagesOf(g)) {
+      const b = el('button', `dfsocial-subtab${id === page ? ' active' : ''}`, label);
+      stripBtns.set(id, b);
+      b.type = 'button'; b.dataset.page = id;
+      b.setAttribute('role', 'tab'); b.setAttribute('aria-selected', id === page ? 'true' : 'false');
+      b.addEventListener('click', () => {
+        if (guildUi.page === id) return;
+        guildUi.page = id; guildUi.arm = null;
+        if (id === 'vault') guildUi.vaultAsked = false;   // AUDIT GUILD2 M2: the vault read again at each turn to its page
+        ui++; if (open) repaint();
+        // AUDIT2 GUILD2 U9: the keyboard's focus on the page turned to - the strip is drawn again, and the focus fell to
+        // the body with the old button
+        if (open) stripBtns.get(id)?.focus?.();
+      });
+      strip.append(b);
+    }
+    return strip;
+  };
+
+  /** OVERVIEW: the arms in words, the hall, and where the reader stands at the vault. */
+  const guildOverviewNodes = (g, v, me) => {
+    const out = [el('div', 'dfsocial-sec', 'The guild')];
+    out.push(el('div', 'dfsocial-note', v.heraldry ? heraldryText(v.heraldry) : GUILD_HERALDRY_NONE_TEXT));
+    if (v.vault?.me) out.push(el('div', 'dfsocial-note', `At the vault: ${vaultStandingText(v.vault.me)}.`));
+    out.push(...guildHallNodes(g, v, me));
     return out;
   };
 
-  /** In a guild: its header, its roster with what my rank may do to each, its invitations out, its treasury and
-   *  ledger, its rank names, and leaving or disbanding. */
-  const guildMemberBody = (g, v) => {
+  /** MEMBERS: the roster with what my rank may do to each - and, the guildmaster's, each member's standing at the vault -
+   *  then the invitations out. */
+  const guildMembersNodes = (g, v, me) => {
     const out = [];
-    const me = v.rank;
-    const busy = g.busy;
-    const wait = { enabled: !busy, why: 'a moment' };
-    const head = el('div', 'dfsocial-letterhead');
-    head.append(el('div', 'dfsocial-subject', `${v.name} [${v.tag}]`),
-      el('div', 'dfsocial-sub', `You are ${rankName(v, me)} - the treasury holds ${Number(v.treasury).toLocaleString('en-US')} gold`));
-    out.push(head);
-    // THE ROSTER
+    const wait = { enabled: !g.busy, why: 'a moment' };
+    const d = guildUi.draft;
+    d.grants ??= {};
     out.push(el('div', 'dfsocial-sec', `Members (${v.members.length}/${GUILD_MEMBERS_MAX})`));
+    const mayGrant = guildMay(me, 'vaultGrant');
     for (const m of v.members) {
-      const r = personRow({ name: m.you ? `${m.name} (you)` : m.name, sub: rankName(v, m.rank) });
+      const standing = m.vault ? ` - ${vaultStandingText(m.vault)}${m.vault.granted ? ' (granted)' : ''}` : '';
+      const r = personRow({ name: m.you ? `${m.name} (you)` : m.name, sub: `${rankName(v, m.rank)}${standing}` });
       const mayMove = [guildMayMove(me, m.rank, m.rank - 1), guildMayMove(me, m.rank, m.rank + 1)];
       const mayRemove = guildMay(me, 'remove') && guildOutranks(me, m.rank);
       const mayHand = guildMay(me, 'handOver');
@@ -1110,8 +1185,47 @@ export function createSocialPanel({ social, send = null, mail = null, guild = nu
         }
       }
       out.push(r);
+      // GUILD2b: THE LEADER'S GRANT - a member's standing at the vault set, or revoked back to its rank's
+      if (mayGrant && m.rank !== GUILD_RANK_MASTER) {
+        const was = m.vault?.granted ? m.vault.level : '';
+        // AUDIT2 GUILD2 U7: a draft is of the standing it was made from - a grant, a rank moved, or another officer's Set
+        // since starts it again from what stands (a draft kept over it read as "unchanged" against the new, or set the old)
+        const from = `${m.rank}|${was}|${m.vault?.limit ?? 0}`;
+        if (d.grants[m.member]?.from !== from) d.grants[m.member] = { level: was, limit: m.vault?.limit ?? 0, from };
+        const draft = d.grants[m.member];
+        const form = el('div', 'dfsocial-grant');
+        const def = VAULT_RANK_DEFAULTS[m.rank] ?? VAULT_RANK_DEFAULTS[GUILD_RANK_RECRUIT];
+        const same = () => (draft.level || '') === (was || '') && (draft.level !== 'withdraw' || (draft.limit ?? 0) === (m.vault?.limit ?? 0));
+        // AUDIT GUILD2: DRAWN AGAIN IN PLACE at a pick of the level (the limit's select comes and goes with "Takes out"),
+        // the keyboard's focus kept on the level - the whole panel was painted again and the focus lost with it
+        const drawGrant = (focusLevel = false) => {
+          liveBtns = liveBtns.filter((x) => x.grant !== m.member);
+          const level = selectOf(`${m.name}'s vault access`, [['', `As ${rankName(v, m.rank)} (${vaultStandingText(def)})`], ['none', 'No access'], ['deposit', 'Puts in'], ['withdraw', 'Takes out']],
+            draft.level, (x) => {
+              // AUDIT GUILD2: a member made a withdrawer starts at an Officer's ten a day - the limit's select read 0, "Any
+              // number", and a Set unread made the vault anyone's to empty
+              if (x === 'withdraw' && draft.level !== 'withdraw' && m.vault?.level !== 'withdraw') draft.limit = VAULT_RANK_DEFAULTS[GUILD_RANK_OFFICER].limit;
+              draft.level = x;
+              drawGrant(true);
+            });
+          const kids = [level];
+          if (draft.level === 'withdraw') {
+            kids.push(selectOf(`${m.name}'s takes a day`, VAULT_LIMIT_CHOICES.map((n) => [String(n), n ? `${n} a day` : 'Any number']), String(draft.limit ?? 0),
+              (x) => { draft.limit = Number(x) || 0; }));
+          }
+          kids.push(liveBtn('Set', () => ({ enabled: !g.busy && !same(), why: g.busy ? 'a moment' : 'unchanged' }), {
+            run: () => guildDo(g.vaultGrant(m.member, draft.level || null, draft.level === 'withdraw' ? draft.limit ?? 0 : 0),
+              `${m.name}: ${draft.level ? vaultStandingText({ level: draft.level, limit: draft.limit ?? 0 }) : `as their rank (${vaultStandingText(def)})`}.`,
+              () => { delete d.grants[m.member]; }),
+          }));
+          liveBtns[liveBtns.length - 1].grant = m.member;
+          form.replaceChildren(...kids);
+          if (focusLevel) level.focus?.();
+        };
+        drawGrant();
+        out.push(form);
+      }
     }
-    const d = guildUi.draft;
     // INVITE
     if (guildMay(me, 'invite')) {
       out.push(el('div', 'dfsocial-sec', 'Invite'));
@@ -1124,7 +1238,13 @@ export function createSocialPanel({ social, send = null, mail = null, guild = nu
       out.push(acts);
       for (const inv of v.invites ?? []) out.push(personRow({ name: inv.name, sub: `invited by ${inv.by}` }));
     }
-    // THE TREASURY
+    return out;
+  };
+
+  /** TREASURY: the gold and its ledger, the silver and its lines (GUILD1b and MARKS1's sections, whole). */
+  const guildTreasuryNodes = (g, v, me) => {
+    const out = [];
+    const d = guildUi.draft;
     out.push(el('div', 'dfsocial-sec', 'Treasury'));
     const tform = el('div', 'dfsocial-form');
     guildField(tform, 'Gold', d.gold, 7, (x) => { d.gold = x; });
@@ -1162,13 +1282,233 @@ export function createSocialPanel({ social, send = null, mail = null, guild = nu
       out.push(macts);
       for (const l of v.marksLedger ?? []) out.push(personRow({ name: `${l.who} ${GUILD_MARKS_LEDGER_WORDS[l.kind] ?? GUILD_MARKS_LEDGER_WORDS.deposit} ${marksText(Number(l.amount))}` }));   // AUDIT GUILD1d R5
     }
-    // GUILD1d (Seats-Arc 8): THE HALL AND THE HERALDRY
-    out.push(...guildHallNodes(g, v, me), ...guildHeraldryNodes(g, v, me));
-    // PROF6 (Professions-Arc 7, 28): THE GUILD STORES - any member deposits from the character's Stores (bought first;
-    // their own kept theirs), Officers and the Guildmaster withdraw (the withdrawer's own first); every move on the
-    // ledger. Beside them the Officers' writ budget a week, the Guildmaster's to set.
-    const ps = g.profStores;
-    if (ps?.writs && ps.open?.() === true) out.push(...guildStoresNodes(g, ps, me));
+    return out;
+  };
+
+  /** GUILD2b: THE VAULT - the guild's pieces, each with its depositor; Take for a member who may, Put in from the pack for
+   *  one who may; reached in a town (the host's word), read again at each look at the page. */
+  const guildVaultNodes = (g, v) => {
+    const out = [];
+    const d = guildUi.draft;
+    const whose = `${v.id}|${guildWho()}`;
+    if (guildUi.vaultFor !== whose) { guildUi.vaultFor = whose; guildUi.vaultAsked = false; }
+    if (!guildUi.vaultAsked && g.readVault) {
+      guildUi.vaultAsked = true;
+      Promise.resolve(g.readVault()).then(() => { ui++; }, () => { ui++; });
+    }
+    const vv = g.vaultNow ? g.vaultNow() : g.vaultView;   // AUDIT GUILD2 M3: this character's and guild's alone
+    const st = vv?.me ?? v.vault?.me ?? null;
+    out.push(el('div', 'dfsocial-sec', `Vault (${vv?.items?.length ?? v.vault?.used ?? 0}/${vv?.max ?? v.vault?.max ?? GUILD_VAULT_SLOTS})`));
+    out.push(el('div', 'dfsocial-note', `Your standing: ${vaultStandingText(st)}${st?.level === 'withdraw' && st.limit ? ` - ${Number(st.taken ?? 0)} of ${st.limit} taken today` : ''}.`));
+    // AUDIT GUILD2 M1: the town is read at the press and on the live pass, never once at the build - a page left open
+    // on the road kept Take alive and sent takes out of town
+    const reachNow = () => g.pack?.reach?.() !== false;
+    const reach = reachNow();
+    if (!reach) out.push(el('div', 'dfsocial-empty', GUILD_VAULT_REACH_TEXT));
+    if (!vv) {
+      out.push(el('div', 'dfsocial-note', g.vaultError ? `The vault cannot be read now: ${guildWordText(g.vaultError)}` : 'Reading the vault...'));
+      if (g.vaultError) {
+        const again = el('div', 'dfsocial-acts');
+        again.append(btn('Try again', { enabled: !g.busy, why: 'a moment', run: () => { guildUi.vaultAsked = false; ui++; if (open) repaint(); } }));
+        out.push(again);
+      }
+      return out;
+    }
+    const mayTake = vaultMayTake(st, st?.taken ?? 0);
+    const takeOf = () => { const why = !reachNow() ? 'in a town' : g.busy ? 'a moment' : ''; return { enabled: !why, why }; };
+    const takeRun = (run) => () => { if (reachNow()) run(); };
+    if (!vv.items.length) out.push(el('div', 'dfsocial-empty', GUILD_VAULT_EMPTY_TEXT));
+    for (const it of vv.items) {
+      const r = personRow({ name: it.count > 1 ? `${it.name} x${it.count}` : it.name, sub: `put in by ${it.by}` });
+      if (mayTake) {
+        const acts = rowActs(r);
+        acts.append(liveBtn('Take', takeOf, { run: takeRun(() => guildDo(g.vaultTake(it.slot), `${it.name} taken into your pack.`)) }));
+        if (it.count > 1) acts.append(liveBtn('Take one', takeOf, { run: takeRun(() => guildDo(g.vaultTake(it.slot, 1), `One ${it.name} taken into your pack.`)) }));
+      }
+      out.push(r);
+    }
+    // PUT IN, from the pack - what may leave it (systems/tradePack.js tradeRefusal: never a worn, a quest's, a summoned,
+    // a bound piece, gold, a boat's or the Materials Bag)
+    if (vaultMayPut(st) && g.pack) {
+      // AUDIT2 GUILD2 U4: and never a locked piece - a lock closes every way out of the pack a trade is (itemLock.js)
+      const offers = (g.pack.items?.() ?? []).filter((it) => it && tradeRefusal(it) == null && !isLocked(it));
+      out.push(el('div', 'dfsocial-sec', 'Put in'));
+      // AUDIT2 GUILD2 U10: the pick is a piece, not a place in the list - a put-in shifted the list under an index, and
+      // the next Put in offered the piece after it; and it is this guild's (another guild's tab starts again)
+      if (d.vaultFor !== v.id) { d.vaultFor = v.id; d.vaultPick = null; d.vaultCount = ''; }
+      if (!offers.length) out.push(el('div', 'dfsocial-empty', 'Nothing in your pack can go in the vault.'));
+      else {
+        if (!offers.includes(d.vaultPick)) d.vaultPick = offers[0];
+        const byKey = new Map(offers.map((it, i) => [String(i), it]));
+        const form = el('div', 'dfsocial-form');
+        form.append(selectOf('A piece of your pack', offers.map((it, i) => [String(i), (it.stackCount ?? 1) > 1 ? `${it.name ?? 'an item'} x${it.stackCount}` : String(it.name ?? 'an item')]), String(offers.indexOf(d.vaultPick)), (k) => { d.vaultPick = byKey.get(k) ?? null; }));
+        guildField(form, 'How many (all of it when empty)', d.vaultCount ?? '', 4, (x) => { d.vaultCount = x; });
+        out.push(form);
+        const countOf = (it) => { const t = String(d.vaultCount ?? '').trim(); if (!t) return it.stackCount ?? 1; return /^\d+$/.test(t) ? Number(t) : 0; };
+        const acts = el('div', 'dfsocial-acts');
+        acts.append(liveBtn('Put in', () => {
+          const it = offers.includes(d.vaultPick) ? d.vaultPick : null;
+          const n = it ? countOf(it) : 0;
+          const why = !reachNow() ? 'in a town' : g.busy ? 'a moment' : !it ? 'a piece' : !(n >= 1 && n <= (it.stackCount ?? 1)) ? `1 to ${it.stackCount ?? 1}` : (vv.items.length >= vv.max ? 'the vault is full' : '');
+          return { enabled: !why, why };
+        }, { run: () => { const it = offers.includes(d.vaultPick) ? d.vaultPick : null; if (it && reachNow()) guildDo(g.vaultPut(it, countOf(it)), `${it.name ?? 'The piece'} put in the vault.`, () => { d.vaultCount = ''; }); } }));
+        out.push(acts);
+      }
+    }
+    if (vv.log?.length) out.push(el('div', 'dfsocial-label', 'The latest'));
+    for (const l of vv.log ?? []) out.push(personRow({ name: `${l.who} ${l.kind === 'take' ? 'took out' : 'put in'} ${l.count > 1 ? `${l.count} ` : ''}${l.name}` }));
+    return out;
+  };
+
+  /**
+   * GUILD2c: THE ARMS - the banner, the shield and the tag as they will stand, every member's to see; the guildmaster's
+   * to choose: a field (plain or divided, its second colour), a border, a device of forty, the device's own colour - each
+   * a row of the choices themselves drawn, never a list of words. The first raising is free; each change after it is
+   * paid from the Drake treasury (GUILD1d's law). Drawn again in place at each pick, the focus kept on the pick.
+   */
+  const guildArmsNodes = (g, v, me) => {
+    const out = [el('div', 'dfsocial-sec', 'Arms')];
+    const d = guildUi.draft;
+    const may = hallMay(me, 'heraldry');
+    // AUDIT GUILD1d R10: a draft is one guild's, from one heraldry - another guild's tab, or a heraldry changed under it,
+    // starts it again from what stands
+    const from = `${v.id}|${JSON.stringify(v.heraldry ?? null)}`;
+    if (d.heraldryFrom !== from) { d.heraldry = null; d.heraldryFrom = from; }
+    if (may && !d.heraldry) d.heraldry = { division: 'plain', field2: null, charge: null, ...(v.heraldry ?? { field: 'azure', border: 'gold', device: 'wolf' }) };
+    const box = el('div', 'dfsocial-arms');
+    /** @type {Map<string, any>} */
+    const focus = new Map();
+    const draw = (keep = null) => {
+      focus.clear();
+      liveBtns = liveBtns.filter((x) => !x.arms);
+      box.replaceChildren(...armsInner(g, v, may, focus, draw));
+      if (keep) focus.get(keep)?.focus?.();
+    };
+    draw();
+    out.push(box);
+    return out;
+  };
+  /** The arms page's inside - the pictures, then (the guildmaster's) the choices and the raising. */
+  const armsInner = (g, v, may, focus, draw) => {
+    const d = guildUi.draft;
+    const h = may ? d.heraldry : null;
+    const shown = (may ? heraldryOf(h) : null) ?? v.heraldry;
+    const out = [];
+    const pics = el('div', 'dfsocial-armspics');
+    pics.append(svgPicture(bannerSvg(shown, { width: 44 }), 44, 132, shown ? heraldryText(shown) : 'An undrawn banner'));
+    if (shown) pics.append(svgPicture(shieldSvg(shown, { size: 44 }), 44, 46, heraldryText(shown)));
+    const tagChip = el('span', 'dfsocial-tagchip', `<${v.tag}>`);
+    const fc = heraldryColourOf(shown?.field ?? 'argent'), bc = heraldryColourOf(shown?.border ?? 'ash');
+    tagChip.style.background = fc?.hex ?? '#e6e6e6';
+    tagChip.style.borderColor = bc?.hex ?? '#8a8a8a';
+    tagChip.style.color = heraldryColourOf(heraldryInk(shown) ?? 'sable')?.hex ?? '#1d1d1d';
+    pics.append(tagChip);
+    out.push(pics, el('div', 'dfsocial-note', shown ? heraldryText(shown) : GUILD_HERALDRY_NONE_TEXT));
+    if (!may || !h) return out;
+    const pick = (key, apply) => () => { apply(); draw(key); paintLiveBtns(); };
+    // AUDIT GUILD2: A SWATCH IS OPEN ONLY WHERE THE LAW TAKES THE ARMS IT MAKES - the pick tried on a copy and read by
+    // heraldryOf, the one judge. Each row asked a rule of its own, which missed the device against the second colour: the
+    // swatch stood open, the pick made arms the law refused, and Raise went dead with nothing drawn of the draft
+    const swatches = (label, key, value, set) => {
+      out.push(el('div', 'dfsocial-label', label));
+      const row = el('div', 'dfsocial-swatches');
+      // AUDIT2 GUILD2 U14: a swatch shut says why - the law's own words (armsWhy) on its title and its label; a shut
+      // swatch said only its colour's name, and a player read it as broken
+      const refusal = (k) => { if (k === value) return ''; const t = { ...h }; set(k, t); return heraldryOf(t) ? '' : armsWhy(t); };
+      /** @type {Map<string, number>} */
+      const shut = new Map();
+      for (const c of HERALDRY_COLOURS) {
+        const b = el('button', `dfsocial-swatch${c.key === value ? ' on' : ''}`);
+        b.type = 'button';
+        b.style.background = c.hex;
+        const why = refusal(c.key);
+        if (why) shut.set(why, (shut.get(why) ?? 0) + 1);
+        const said = why ? `${c.name} - shut: the arms need ${why}` : c.name;
+        b.setAttribute('title', said); b.setAttribute('aria-label', `${label}: ${said}`); b.setAttribute('aria-pressed', c.key === value ? 'true' : 'false');
+        if (why) b.disabled = true;
+        b.addEventListener('click', () => { if (!b.disabled) pick(`${key}:${c.key}`, () => set(c.key, h))(); });
+        focus.set(`${key}:${c.key}`, b);
+        row.append(b);
+      }
+      out.push(row);
+      // drawn as well as titled (AUDIT SOC C11's law: a title is nothing on a phone)
+      if (shut.size) out.push(el('div', 'dfsocial-why', `Shut: the arms need ${[...shut.keys()].join(', and ')}.`));
+    };
+    const tiles = (label, key, values, value, svgOf, nameOf, set) => {
+      out.push(el('div', 'dfsocial-label', label));
+      const row = el('div', 'dfsocial-tiles');
+      for (const x of values) {
+        const b = el('button', `dfsocial-tile${x === value ? ' on' : ''}`);
+        b.type = 'button';
+        b.setAttribute('title', nameOf(x)); b.setAttribute('aria-label', `${label}: ${nameOf(x)}`); b.setAttribute('aria-pressed', x === value ? 'true' : 'false');
+        const svg = svgOf(x);
+        if (svg) b.append(svgPicture(svg, 28, 29, nameOf(x)));
+        b.addEventListener('click', () => pick(`${key}:${x}`, () => set(x))());
+        focus.set(`${key}:${x}`, b);
+        row.append(b);
+      }
+      out.push(row);
+    };
+    const ink = (t = h) => t.charge ?? t.border;
+    /** A colour no one of the arms' others is - for a second field colour newly asked. */
+    const freeColour = (not) => HERALDRY_COLOURS.find((c) => c.key !== HERALDRY_UNHELD && !not.includes(c.key))?.key ?? 'argent';
+    // THE FIELD'S DIVISION, each drawn on the draft's own colours
+    const asDrawn = (over) => heraldryOf({ ...h, ...over }) ?? heraldryOf({ field: h.field, border: h.border, device: h.device });
+    tiles('Field', 'division', HERALDRY_DIVISIONS, h.division ?? 'plain',
+      (x) => shieldSvg(asDrawn(x === 'plain' ? { division: 'plain', field2: null } : { division: x, field2: h.field2 ?? freeColour([h.field, ink(), h.border]) }), { size: 28 }),
+      (x) => HERALDRY_DIVISION_NAMES[x], (x) => { h.division = x; h.field2 = x === 'plain' ? null : h.field2 ?? freeColour([h.field, ink(), h.border]); });
+    swatches('Field colour', 'field', h.field, (k, t) => { t.field = k; if (t.field2 === k) t.field2 = freeColour([k, ink(t), t.border]); });
+    if ((h.division ?? 'plain') !== 'plain') swatches('Second colour', 'field2', h.field2, (k, t) => { t.field2 = k; });
+    swatches('Border', 'border', h.border, (k, t) => { t.border = k; });
+    tiles('Device', 'device', HERALDRY_DEVICES, h.device, (x) => shieldSvg(asDrawn({ device: x }), { size: 28 }), heraldryDeviceName, (x) => { h.device = x; });
+    swatches('Device colour (its border\'s, unless chosen)', 'charge', ink(), (k, t) => { t.charge = k === t.border ? null : k; });
+    out.push(el('div', 'dfsocial-empty', v.heraldry ? `A change costs ${marksText(HERALDRY_CHANGE_DRAKES)} from the silver treasury.` : 'The first choice is free.'));
+    const acts = el('div', 'dfsocial-acts');
+    const raise = liveBtn(v.heraldry ? 'Change it' : 'Raise it', () => {
+      const nh = heraldryOf(d.heraldry);
+      const why = g.busy ? 'a moment' : !nh ? armsWhy(d.heraldry)
+        : heraldrySame(nh, v.heraldry) ? 'already your heraldry'
+          : v.heraldry && !('marks' in v) ? accountRefusalText('marks-closed')   // AUDIT GUILD1d R12: Drakes not this account's
+            : v.heraldry && Number(v.marks ?? 0) < HERALDRY_CHANGE_DRAKES ? `${marksText(HERALDRY_CHANGE_DRAKES)} in the silver treasury` : '';
+      return { enabled: !why, why };
+    }, { run: () => guildDo(g.setHeraldry(d.heraldry), 'The guild\'s banner is raised.', () => { d.heraldry = null; }) });
+    liveBtns[liveBtns.length - 1].arms = true;
+    acts.append(raise);
+    out.push(acts);
+    return out;
+  };
+
+  /** SETTINGS: a new name (the guildmaster's, for a price), the rank names, and leaving or disbanding. */
+  const guildSettingsNodes = (g, v, me) => {
+    const out = [];
+    const d = guildUi.draft;
+    const busy = g.busy;
+    // GUILD2a: A NEW NAME
+    if (guildMay(me, 'rename')) {
+      out.push(el('div', 'dfsocial-sec', 'A new name'));
+      if (d.renameFrom !== `${v.id}|${v.name}|${v.tag}`) { d.renameFrom = `${v.id}|${v.name}|${v.tag}`; d.newName = v.name; d.newTag = v.tag; }
+      const form = el('div', 'dfsocial-form');
+      guildField(form, 'Guild name', d.newName ?? '', GUILD_NAME_MAX, (x) => { d.newName = x; });
+      guildField(form, 'Tag', d.newTag ?? '', 4, (x) => { d.newTag = x; });
+      form.append(el('div', 'dfsocial-empty', GUILD_RENAME_COST_TEXT));
+      const nowS = Math.floor(social.now() / 1000);
+      if (Number.isSafeInteger(v.renameAt) && v.renameAt > nowS) form.append(el('div', 'dfsocial-note', guildRenameSoonText(v.renameAt, nowS)));
+      out.push(form);
+      const typed = () => ({ name: guildNameOf(d.newName ?? ''), tag: guildTagOf(d.newTag ?? '') });
+      const of = () => {
+        const t = typed();
+        const why = busy ? 'a moment' : !t.name || !t.tag ? 'a name of 3 to 32 characters and a tag of 2 to 4 letters or digits'
+          : t.name === v.name && t.tag === v.tag ? 'already the guild\'s'
+            : Number.isSafeInteger(v.renameAt) && v.renameAt > Math.floor(social.now() / 1000) ? 'not yet'
+              : Number(v.hallGold ?? 0) < GUILD_RENAME_GOLD ? `${GUILD_RENAME_GOLD.toLocaleString('en-US')} of the realm's gold in the treasury` : '';
+        return { enabled: !why, why };
+      };
+      const acts = el('div', 'dfsocial-acts');
+      acts.append(armed('rename')
+        ? liveBtn(`Sure? ${GUILD_RENAME_GOLD.toLocaleString('en-US')} gold`, of, { warn: true, run: () => { const t = typed(); guildDo(g.rename(t.name, t.tag), `The guild is ${t.name} [${t.tag}] now.`); } })
+        : liveBtn('Rename', of, { run: () => arm('rename') }));
+      out.push(acts);
+    }
     // THE RANK NAMES
     if (guildMay(me, 'renameRanks')) {
       out.push(el('div', 'dfsocial-sec', 'Rank names'));
@@ -1182,22 +1522,40 @@ export function createSocialPanel({ social, send = null, mail = null, guild = nu
       out.push(racts);
     }
     // LEAVING
+    out.push(el('div', 'dfsocial-sec', 'Leaving'));
     const acts = el('div', 'dfsocial-acts');
     const alone = v.members.length === 1;
     const master = guildMay(me, 'disband');
-    const leaveWhy = master && !alone ? 'hand the guild on first' : master && v.treasury > 0 ? 'take the gold out first' : master && v.hall ? 'sell the hall first' : 'a moment';
-    const canLeave = !busy && (!master || (alone && v.treasury === 0 && !v.hall));   // GUILD1d: a guild holding a hall never goes
+    const keeps = (v.vault?.used ?? 0) > 0;   // GUILD2b: a vault holding pieces holds the guild too
+    const leaveWhy = master && !alone ? 'hand the guild on first' : master && v.treasury > 0 ? 'take the gold out first' : master && v.hall ? 'sell the hall first' : master && keeps ? 'empty the vault first' : 'a moment';
+    const canLeave = !busy && (!master || (alone && v.treasury === 0 && !v.hall && !keeps));   // GUILD1d: a guild holding a hall never goes
     // AUDIT 28 M3: the Marks treasury never holds a guild back - a guild that goes gives what it holds to its guildmaster
     if (master && (v.marks ?? 0) > 0) out.push(el('div', 'dfsocial-note', `If the guild is disbanded, its ${marksText(Number(v.marks))} goes to you.`));
     acts.append(armed('leave') ? btn('Sure?', { warn: true, enabled: canLeave, why: leaveWhy, run: () => guildDo(g.leave(), 'You left the guild.') })
       : btn('Leave', { enabled: canLeave, why: leaveWhy, run: () => arm('leave') }));
     if (master) {
-      const why = v.treasury > 0 ? 'take the gold out first' : v.hall ? 'sell the hall first' : 'a moment';
-      const can = !busy && v.treasury === 0 && !v.hall;
+      const why = v.treasury > 0 ? 'take the gold out first' : v.hall ? 'sell the hall first' : keeps ? 'empty the vault first' : 'a moment';
+      const can = !busy && v.treasury === 0 && !v.hall && !keeps;
       acts.append(armed('disband') ? btn('Sure?', { warn: true, enabled: can, why, run: () => guildDo(g.disband(), 'The guild is disbanded.') })
         : btn('Disband', { warn: true, enabled: can, why, run: () => arm('disband') }));
     }
     out.push(acts);
+    return out;
+  };
+
+  /** In a guild: its header, its page strip, and the page up. */
+  const guildMemberBody = (g, v) => {
+    const me = v.rank;
+    const pages = guildPagesOf(g).map(([id]) => id);
+    const page = pages.includes(guildUi.page) ? guildUi.page : 'overview';
+    const out = [guildHead(v, me), guildStrip(g, page)];
+    if (page === 'members') out.push(...guildMembersNodes(g, v, me));
+    else if (page === 'treasury') out.push(...guildTreasuryNodes(g, v, me));
+    else if (page === 'vault') out.push(...guildVaultNodes(g, v, me));
+    else if (page === 'stores') out.push(...guildStoresNodes(g, g.profStores, me));   // PROF6 (Professions-Arc 7, 28)
+    else if (page === 'arms') out.push(...guildArmsNodes(g, v, me));
+    else if (page === 'settings') out.push(...guildSettingsNodes(g, v, me));
+    else out.push(...guildOverviewNodes(g, v, me));
     return out;
   };
 
@@ -1378,10 +1736,13 @@ export function createSocialPanel({ social, send = null, mail = null, guild = nu
     },
     /** MAIL1: which view the Letters tab is on - for the pins. */
     lettersView: () => letters.mode,
-    /** GUILD1b: the panel open on the Guild tab, a fresh look taken if the last one is old. False without a guild book. */
-    openGuild() {
+    /** GUILD1b: the panel open on the Guild tab, a fresh look taken if the last one is old. False without a guild book.
+     *  GUILD2: at one of its pages when named ('members', 'vault', 'stores'...) - a page the guild does not show (the guild
+     *  Stores offline) opens the Overview; unnamed, the page last up. */
+    openGuild(page = null) {
       if (!guild) return false;
       tab = 'guild'; confirm = null; ui++;
+      if (typeof page === 'string') { guildUi.page = page; guildUi.arm = null; }
       lookAtGuild();
       if (open) { repaint(); return true; }
       return openPanel();

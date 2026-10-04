@@ -61,7 +61,7 @@
   {
     "name": "GATHERSAID-stores-where-unsaid",
     "file": "src/scenes/gatherHost.js",
-    "old": "      if (!storesSaid) { storesSaid = true; hud.toast(storesWhereLine(deps.keyLabel?.('Professions') ?? '')); }\n",
+    "old": "      if (!storesSaid) { storesSaid = true; hud.toast(storesWhereLine(deps.keyLabel?.('Professions') ?? '', d.carry === true)); }\n",
     "new": "",
     "tests": [
       "test/gathersaid.test.js",
@@ -72,8 +72,8 @@
   {
     "name": "GATHERSAID-stores-where-every-time",
     "file": "src/scenes/gatherHost.js",
-    "old": "      if (!storesSaid) { storesSaid = true; hud.toast(storesWhereLine(deps.keyLabel?.('Professions') ?? '')); }",
-    "new": "      hud.toast(storesWhereLine(deps.keyLabel?.('Professions') ?? ''));",
+    "old": "      if (!storesSaid) { storesSaid = true; hud.toast(storesWhereLine(deps.keyLabel?.('Professions') ?? '', d.carry === true)); }",
+    "new": "      hud.toast(storesWhereLine(deps.keyLabel?.('Professions') ?? '', d.carry === true));",
     "tests": [
       "test/gathersaid.test.js"
     ],

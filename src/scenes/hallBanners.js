@@ -20,6 +20,7 @@
 // hosts: world.js WIRED (the streets); worldModes.js and dungeonContext.js
 // stand no street; exterior.js (the bench) not wired - it draws no online homes.
 // ═══════════════════════════════════════════════════════════════════
+import { heraldryKey } from '../net/heraldryLaw.js';   // GUILD2c: a banner's whole arms as its key
 import { BANNER_W_M, BANNERS_MAX } from '../render/bannerPass.js';
 import { doorFaceSign } from '../systems/siegeField.js';
 
@@ -82,7 +83,10 @@ export function hallBannerAnchors(frame) {
 }
 
 /** A heraldry's texture key. */
-export const bannerKeyOf = (h) => `${h.field}|${h.border}|${h.device}`;
+// GUILD2c: a divided or recoloured banner keys by its whole arms (heraldryLaw.js heraldryKey) - two banners sharing a field,
+// a border and a device but parted differently are two textures; a plain banner (and a seat's device-less cloth) keeps
+// GUILD1d's key, so every texture already cached keeps its name
+export const bannerKeyOf = (h) => (h?.division || h?.charge ? heraldryKey(h) : `${h.field}|${h.border}|${h.device}`);
 
 /**
  * THE STREETS' BANNERS. `deps`: `built()` the world's built pixels (each `{ px, py, homeTown, homeFrames }`), `homes` the

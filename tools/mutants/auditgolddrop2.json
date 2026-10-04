@@ -2,8 +2,8 @@
   {
     "name": "AUDIT2-GOLD-DROP-1-the-button-takes-its-height-back",
     "file": "src/ui/enhancedStyle.js",
-    "old": "margin: -6px 0 -6px 12px; min-height: 32px;",
-    "new": "margin: 0 0 0 12px; min-height: 32px;",
+    "old": ".pack-shell .packgold .goldbtn { align-self: center; margin: -6px 0 -6px 12px; min-height: 32px;",
+    "new": ".pack-shell .packgold .goldbtn { align-self: center; margin: 0 0 0 12px; min-height: 32px;",
     "tests": [
       "test/golddrop.test.js"
     ]
@@ -11,8 +11,8 @@
   {
     "name": "AUDIT2-GOLD-DROP-1-drawn-at-44-under-a-finger",
     "file": "src/ui/enhancedStyle.js",
-    "old": "  .pack-shell .packgold .goldbtn { position: relative; }\n",
-    "new": "  .pack-shell .packgold .goldbtn { position: relative; min-height: 44px; }\n",
+    "old": "  .pack-shell .packgold .goldbtn, .pack-shell .packbar .bagbtn { position: relative; }\n",
+    "new": "  .pack-shell .packgold .goldbtn, .pack-shell .packbar .bagbtn { position: relative; min-height: 44px; }\n",
     "tests": [
       "test/golddrop.test.js"
     ]
@@ -128,7 +128,7 @@
   {
     "name": "AUDIT2-GOLD-DROP-3-the-button-wide-at-320",
     "file": "src/ui/enhancedStyle.js",
-    "old": "  .pack-shell .packgold .goldbtn { padding: 0 8px; }\n",
+    "old": "  .pack-shell .packgold .goldbtn, .pack-shell .packbar .bagbtn { padding: 0 8px; }\n",
     "new": "",
     "tests": [
       "test/golddrop.test.js"
