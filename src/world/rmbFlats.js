@@ -45,6 +45,13 @@ export const EDITOR_FLATS_ARCHIVE = 199;
 export const LIGHTS_ARCHIVE = 210;
 const NATURE_ARCHIVE_MIN = 500; // ClimateTextureSet.Nature_RainForest
 const NATURE_ARCHIVE_MAX = 511; // ClimateTextureSet.Nature_Mountains_Snow
+/** TREES-SEATED: an archive in the nature range - AddExteriorBlockFlats' own test (RMBLayout.cs:421, master), which swaps such a
+ *  sub-record flat to the climate's archive. A MISC flat in the range keeps the archive it names (AddMiscBlockFlats,
+ *  :326-380, swaps nothing), so a block's tree can be a nature archive that is not the pixel's. */
+export const isNatureArchive = (archive) => archive >= NATURE_ARCHIVE_MIN && archive <= NATURE_ARCHIVE_MAX;
+/** TREES-SEATED: where a nature flat stands on the location's plane - AddNatureFlats' `natureFlatsOffsetY`, scaled
+ *  (the ground scenery's y below). */
+export const NATURE_FLATS_Y = NATURE_FLATS_OFFSET_Y * GLOBAL_SCALE;
 
 /**
  * World-unit billboard size for a texture record, verbatim

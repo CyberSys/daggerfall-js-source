@@ -77,7 +77,7 @@ import { spherePlanes, batchVisible, setFlatLean, batchSphere } from '../render/
 import { withMoonAmbient } from '../render/enhancedSky.js';   // EV5: secunda rides the ambient
 import { FarRingRenderer, ringDisabled, ringHeight } from '../render/farRing.js';   // EV8: the province's mountains on the horizon
 import { syncLightingLane, lanternColor } from '../render/enhancedLighting.js';   // EL1: the Enhanced Lighting lane, installed at mount
-import { collectBlockFlats, billboardSize, mobileBillboardSize, centredBase, classicBillboardSize } from '../world/rmbFlats.js';
+import { collectBlockFlats, billboardSize, mobileBillboardSize, centredBase, classicBillboardSize, isNatureArchive, NATURE_FLATS_Y } from '../world/rmbFlats.js'; import { blockHillSeat, seatNatureFlat } from '../world/townStandIns.js';   // TREES-SEATED: a block's trees on the hills drawn under them
 import { textureReplacementEnabled, hasTextureReplacement, preloadTextureRecord, decodePng, decodedTextureTopDown } from '../systems/textureReplacement.js';   // DW-E2: a decoration's replacement (UnderwaterDecorationReplacementCache)
 import { SeasonHelper } from '../systems/seasonsIliacBay.js';   // SIB1: Seasons of the Iliac Bay's SeasonHelper
 import { loadSeasonsTextures, seasonsInstalled } from '../systems/seasonsIliacBayAssets.js';   // SIB1: its textures, from the player's own copy of the mod
@@ -3864,7 +3864,7 @@ export async function bootWorld(canvas, renderer, params, status) {
             }
           }
         }
-        // No RMB ground plane on terrain (addGroundPlane = false).
+        const hillSeat = blockHillSeat(b.layout.models);   // TREES-SEATED: the block's hills as the port draws them, null for none of ours. No RMB ground plane on terrain (addGroundPlane = false).
         const blockFlats = collectBlockFlats(b.dfBlock, natureArchive);
         // AUDIT 26 (F019): ...and the same flats' STATIC NPCs
         // (RMBLayout.cs:366-378 / :442-454 - the non-zero FactionID
@@ -3913,13 +3913,13 @@ export async function bootWorld(canvas, renderer, params, status) {
           // read it - it simply never reaches a batch.
           if (flat.editor) continue;
           const fx = locLocal[0] + b.originX + flat.x, fz = locLocal[2] + b.originZ + flat.z;
-          // NATURE-GROUND (2026-09-26, Ilvi: "a lot of floating sprites across Illiac Bay"): a tree, a bush, a rock -
-          // the block's ground scenery and its nature flats - stands on the DRAWN ground, as the wilderness's own do.
-          // The plane holds only inside the flattened rect; in the band past it the ground was only eased toward the
-          // plane, and they hung over it or sank into it (DFU's too: RMBLayout.AddNatureFlats reads no terrain). Inside
-          // the rect the lift is exactly 0. What else a block stands keeps the plane - a lamp, a sign, an animal may be on a model.
+          // NATURE-GROUND (2026-09-26, Ilvi: "a lot of floating sprites across Illiac Bay"): the block's ground scenery and nature
+          // flats stand on the DRAWN ground - the plane holds only inside the flattened rect, the band past it is only eased toward
+          // it (DFU's too: AddNatureFlats reads no terrain); inside the rect the lift is exactly 0. A lamp, a sign, an animal keep the
+          // plane. TREES-SEATED (Rissa: "Floating trees in Tamhope"): in a block whose hills the port draws as its stand-ins, a flat
+          // of the nature range (the 504 trees stood on the pack's bigger hills) stands on the higher of the ground and the mounds.
           const lift = flat.archive === natureArchive ? groundOffPlane(samples, avg, fx, fz) : 0;
-          addFlat(flat.archive, flat.record, fx, locLocal[1] + flat.y + lift, fz);
+          addFlat(flat.archive, flat.record, fx, locLocal[1] + (hillSeat && isNatureArchive(flat.archive) ? seatNatureFlat(hillSeat, flat.x, flat.z, NATURE_FLATS_Y + groundOffPlane(samples, avg, fx, fz)) : flat.y + lift), fz);
         }
         for (const light of collectCityLights(b.dfBlock, lightSize)) {
           const lp = [
