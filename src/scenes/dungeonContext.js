@@ -247,7 +247,7 @@ import { avoidDeath, AVOID_DEATH_TEXT } from '../systems/guildServices.js';   //
 import { activationTargets, liveFoeTargets, liveFoeFor, pickActivatableHit, RAY_DISTANCE, TREASURE_ACTIVATION_DISTANCE, presentNpcInfoText } from '../player/activate.js';   // SEARCH1: an Info look at a searchable
 import { raceWinner } from '../player/activationRace.js';   // WORLD-HOVER H2: the ONE precedence the press and the plaque share
 import { composeActivationTargets, composeNamer } from '../systems/worldHover.js';
-import { worldTooltipsOn, hideInteractTooltip, corpseName, mobileEntityName, liveEntityName, lootPileName, actionName, actionDoorName } from '../systems/worldTooltips.js';   // WORLD-HOVER: the mod's ladder, arm by arm   // WORLD-HOVER: the composition law is pure, so it lives with the model and can be DRIVEN   // WORLD-HOVER: the ONE construction seam composes the action objects' targets here; AUDIT 65 MC-2: the ray's reach, and each family's own
+import { worldTooltipsOn, hideInteractTooltip, corpseName, mobileEntityName, liveEntityName, lootPileName, actionName, actionDoorName } from '../systems/worldTooltips.js'; import { questFoeSubs } from '../systems/questFoeLine.js';   // QUEST-FOE-LINE: a quest's foe says whose it is; WORLD-HOVER: the mod's ladder, arm by arm   // WORLD-HOVER: the composition law is pure, so it lives with the model and can be DRIVEN   // WORLD-HOVER: the ONE construction seam composes the action objects' targets here; AUDIT 65 MC-2: the ray's reach, and each family's own
 import { worldHoverFrame, destroyWorldPlaque } from '../ui/worldPlaque.js';   // PX21c, WORLD-HOVER: one seam, one plaque
 import { quickLootTake, plaqueActionFor } from '../systems/quickLoot.js'; import { showPickups } from '../ui/pickupFeed.js';   // QUICK-LOOT B4: the take, through the window's own door; PICKUP-FEED: what a take moved, as cards (the take's `took`)
 import { combatVisualsOn, foeDraw, markConcealedHit } from '../systems/combatVisuals.js';   // ECV1: what the enhanced skin draws for a concealed foe
@@ -7676,7 +7676,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
       const f = liveFoeFor(foes, key, 'mobileFoe');
       if (!f) return null;
       const t = mobileEntityName(liveEntityName(f, enemyDisplayName(f.mobileType)), { hostile: !!f.ai?.isHostile && !f.yielded });   // HOVER-PLAIN: a hostile foe is never named here, a champion, an elite or a revenant included - its name stands on its health bar alone; a kneeling revenant (still hostile in its motor) is done fighting, so it says so below
-      return t ? { title: f.yielded ? `${t} - beaten` : t } : null;   // REVENANT-FATE (the 2026-10-02 audit): a kneeling revenant says so, as the street's does
+      return t ? { title: f.yielded ? `${t} - beaten` : t, subs: questFoeSubs(f) } : null;   // REVENANT-FATE (the 2026-10-02 audit): a kneeling revenant says so, as the street's does; QUEST-FOE-LINE (FIELD BUGS 2026-10-04f): a quest's foe at peace says whose it is
     }
     if (key.startsWith('door:') || key.startsWith('act:')) {
       const o = actions.objects.get(key) ?? null;
