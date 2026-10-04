@@ -4463,7 +4463,7 @@ broken arcs of violet runic script: beads on the line, curled ends, combs and a 
   credit) and the account's to acct73. Seven older records re-aimed by content (`herald.json`, `penitent.json`,
   `shadowfang.json`, `ribbon.json`, `wb9g.json` 3) and the version records in `soc1.json` and `gatekeys.json`.
 
-## PRIMARCH — GA00250's own: the Primarch, its glyph and the Golden Radiance (2026-10-04, world162, acct75)
+## PRIMARCH — GA00250's own: the Primarch, its glyph and the Golden Radiance (2026-10-04, world162, acct76)
 
 The owner: "The details here are for a custom title, glyph, and aura for ga00250", over GA00250's own words: "the title
 will be Primarch, the color will be that light gold color that you guys use in some places in the game menu" - with a
@@ -4480,7 +4480,7 @@ glyph design if possible. with the same color of the name".
   AEGIS already made `aurasHeld`, `auraWorn` and `auraRefusal` read the config at every caller. No staff command rides it.
 - **The vocabulary** (`src/net/identityToken.js`, in the relay bundle): `primarch` joins TITLES and GLYPHS last, and
   `radiance` joins AURAS after `oblivionward`. A relay before it refuses a token carrying any of the three
-  (`claimsValid`), so the relay is **world162** and the account service **acct75**; the account deploy waits for the
+  (`claimsValid`), so the relay is **world162** and the account service **acct76** (acct75 here until HOME-PRICE took it); the account deploy waits for the
   relay's `/health` to serve world162. No frame changes shape.
 - **The title** (`src/ui/playerBadge.js`): "Primarch" in ONE colour, as asked - #d8cfae, the pixel menu's text
   (`ui/enhancedStyle.js .px-mname`, the very rule the screenshot's name is drawn by; the screenshot's letters sample at
@@ -4521,11 +4521,11 @@ glyph design if possible. with the same color of the name".
   it and over the crown, nothing unkindled, risen to the waist at half kindled, no veil from inside).
 - Pins: `test/primarch.test.js` (11). `tools/mutants/primarch.json` (34, all dead). The vocabulary's exact lists in
   `acc3titles.test.js` and `titlen.test.js` moved, and `aegis.test.js`'s newest-word and one-list pins (PIN MOVED); the
-  relay's pins moved to world162 crediting PRIMARCH (`auditbounty1.test.js` holds the credit), the account's to acct75.
+  relay's pins moved to world162 crediting PRIMARCH (`auditbounty1.test.js` holds the credit), the account's to acct76.
   Seven older records re-aimed by content, all dead (`aegis.json` 4, `herald.json`, `penitent.json`,
   `shadowfang.json`), and the version records in `soc1.json` and `gatekeys.json`.
 
-## FOUNDER4 — Founder through a shared character (2026-10-04, acct75, migration 0078)
+## FOUNDER4 — Founder through a shared character (2026-10-04, acct76, migration 0078)
 
 Mac: "Before we merge this. We need to find a way to grant the founder title to everyone before the previous cut off
 date. Since people are still missing their founders title". Asked which ways (carry over a held guest session at
@@ -4559,10 +4559,10 @@ sign-in; link shared characters; grant by name; move the cutoff later), Mac chos
 - **Not reached.** Two rows that share no character: a player who played before the cutoff and has not brought a single
   character's save, track or realm character onto the new account, or whose old storage is gone with the characters in
   it. Moving the cutoff, a by-name list and a sign-in carry-over were offered and not chosen.
-- The account service is still `acct75` - PRIMARCH's, undeployed, one deploy for both - and the rule takes effect when
+- The account service is still `acct76` - PRIMARCH's, undeployed, one deploy for both - and the rule takes effect when
   that deploy applies 0078. No relay change: Founder is already in the token's vocabulary.
 - Pins: `test/founder4.test.js` (5) - the law; the migration run over a seeded database (each of the five records, the
   earliest of several linked rows, nothing without a shared character or without an earlier one, one hop, guests
   filled); its shape (the five sources, no table left behind); and the real Worker before and after 0078 (Founder in
   the wardrobe and on the signed token). `tools/mutants/founder4.json` (12, all dead); three of `founder3.json`'s
-  re-aimed by content at the new `firstPlayed` (6, all dead). The acct75 pins credit FOUNDER4 beside PRIMARCH.
+  re-aimed by content at the new `firstPlayed` (6, all dead). The acct76 pins credit FOUNDER4 beside PRIMARCH.

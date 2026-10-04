@@ -433,7 +433,8 @@ test('NAV-H the world host: one naval host on Come Sail Away\'s pool, its record
   assert.match(w, /else if \(!_race\.loot && !_race\.drop && naval\?\.activate\(\{ boatTrigger: !!_race\.boatWins \}\)\) \{/);   // PIN MOVED (AUDIT HOLDINGS Q4): her own trigger under the ray named, the gangway yielding to it
   assert.match(w, /csaDrawParticlesBlended\(\);[^\n]*\n(?:[^\n]*\n){0,3}\s*if \(naval\?\.enabled\) navalRender\.draw\(naval\.drawFrame\(\)\);/);
   assert.equal((w.match(/thunderlockMuzzleLight\(playerEntity, player\.feetAt\(\), cam\.yaw\), \.\.\.\(naval\?\.enabled \? naval\.lights\(\) : \[\]\), \.\.\.peerTorchLights\(\)/g) ?? []).length, 2, 'both light lists');
-  assert.match(w, /csaPeers\.rebase\(r\.offset\);[^\n]*\n\s+naval\?\.offsetAll\(r\.offset\); navalFlames\.offsetAll\(r\.offset\);/);
+  // PIN MOVED (HARBOUR-BOOK): the world's harbours moved first, then the sea that reads them
+  assert.match(w, /csaPeers\.rebase\(r\.offset\);[^\n]*\n\s+harbourBook\.offsetAll\(r\.offset\);[^\n]*\n\s+naval\?\.offsetAll\(r\.offset\); navalFlames\.offsetAll\(r\.offset\);/);
   assert.ok((w.match(/navalTransition\(\);/g) ?? []).length >= 4, 'every transition empties the sea');
   assert.match(w, /naval\?\.placeQuestFoe\(handle\.foe\?\.parentQuest \?\? null, /);   // AUDIT NAV1 (B10): and the held spots passed over (test/navaudit_boarding.test.js)
   assert.match(w, /naval\?\.raidEnded\(q\);/);

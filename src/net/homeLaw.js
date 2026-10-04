@@ -27,8 +27,46 @@ export const HOME_CAP = 3;
 export const HOME_ENTRIES = Object.freeze(['private', 'party', 'public', 'guild']);
 /** A home bought is its owner's alone until they say otherwise. */
 export const HOME_ENTRY_DEFAULT = 'private';
-/** The dearest price a claim may name (a Daggerfall house's is its model's radius x 1280 - tens of thousands). */
-export const HOME_PRICE_MAX = 10_000_000;
+// ═══ HOME-PRICE (2026-10-04) — WHAT A HOME COSTS ONLINE ════════════════════════════════════════════════════════════
+//
+// The ask: "We need to make house pricing make sense online"; offered three ways, the choice was to price a house "by
+// what you get (its footprint, scaled by town size) inside a fixed range the server enforces". Daggerfall prices a
+// house off its model's bounding RADIUS x 1280 (systems/banking.js housePrice, GetHousePrice) - a sphere that grows
+// with a roof's height and a wing's reach as much as with the rooms - so online a door asked anything from a few
+// thousand to over 800,000 (a hall at one door asked 1,274,880 from a treasury, half again a house of 849,920 - FIELD
+// BUGS 2026-10-03, HALL-GOLD), and a cottage could cost more than a manor. Online it is the GROUND the building stands on, in square metres of its
+// model's box, at HOME_PRICE_PER_M2, raised by the town's size (homeTownFactor), rounded to HOME_PRICE_STEP and held
+// to HOME_PRICE_MIN..HOME_PRICE_MAX.
+// Offline Daggerfall's own price stands (the bank's market and its buy-back). Online the bank buys a deed back at
+// this price too (AUDIT HOME-PRICE C1: a knightly order's free house); customs counts every deed at its own constant
+// (net/realmGoldLaw.js CUSTOMS_HOUSE_PRICE), never either price.
+//
+// THE SERVICE HOLDS THE RANGE (homePriceOk): it bundles no ARENA2, so it cannot measure a building, but no claim names
+// a price outside the range or off its hundreds - a build from before it, which still asks Daggerfall's, is asked to
+// update (all but about one house in a hundred: AUDIT HOME-PRICE L2).
+
+/** Gold a square metre of the ground a home stands on. */
+export const HOME_PRICE_PER_M2 = 300;
+/** The cheapest a home costs, and the dearest. */
+export const HOME_PRICE_MIN = 5_000;
+export const HOME_PRICE_MAX = 250_000;
+/** A home's price is a whole number of these. */
+export const HOME_PRICE_STEP = 100;
+/** The most RMB blocks a town has - 8 x 8 (MAPS.BSA's exterior width and height). */
+export const HOME_TOWN_BLOCKS_MAX = 64;
+/** How much a town's size raises what its homes cost: 1 in a one-block hamlet, farm or manor, rising with the town's
+ *  side (the square root of its blocks) - 1.5 at 3 x 3, 2 at 5 x 5, 2.75 at 8 x 8. An unknown size is one block. */
+export function homeTownFactor(blocks) {
+  const n = Number.isFinite(blocks) ? Math.min(HOME_TOWN_BLOCKS_MAX, Math.max(1, Math.trunc(blocks))) : 1;
+  return (3 + Math.sqrt(n)) / 4;
+}
+/** WHAT A HOME COSTS ONLINE: `footprintM2` the ground its model stands on (square metres), `townBlocks` its town's
+ *  blocks. 0 for a building nobody can measure - it is not for sale. */
+export function homeOnlinePrice(footprintM2, townBlocks) {
+  if (!(Number.isFinite(footprintM2) && footprintM2 > 0)) return 0;
+  const price = Math.round((footprintM2 * HOME_PRICE_PER_M2 * homeTownFactor(townBlocks)) / HOME_PRICE_STEP) * HOME_PRICE_STEP;
+  return Math.min(HOME_PRICE_MAX, Math.max(HOME_PRICE_MIN, price));
+}
 /** Claims an account may make an hour - a cap stops a hoard, this stops a claim-and-release churn. */
 export const HOME_CLAIMS_MAX = 20;
 export const HOME_CLAIMS_WINDOW_S = 3600;
@@ -43,7 +81,11 @@ export const HOME_KEY_MAX = 1 << 24;
 export const homeMapIdOk = (v) => Number.isSafeInteger(v) && v > 0 && v <= 0xffffffff;
 export const homeBuildingKeyOk = (v) => Number.isSafeInteger(v) && v > 0 && v <= HOME_KEY_MAX;
 export const homeRegionOk = (v) => Number.isSafeInteger(v) && v >= 0 && v <= HOME_REGION_MAX;
-export const homePriceOk = (v) => Number.isSafeInteger(v) && v > 0 && v <= HOME_PRICE_MAX;
+/** HOME-PRICE: a price inside the range a home costs online, in whole hundreds - the service's one check of a claim's
+ *  price. AUDIT HOME-PRICE L2: the hundreds are the law's (homeOnlinePrice rounds to HOME_PRICE_STEP), and a build from
+ *  before it asks Daggerfall's radius x 1280, a whole hundred about one house in a hundred - the range alone let it buy
+ *  any house whose old price fell inside it, at that price. */
+export const homePriceOk = (v) => Number.isSafeInteger(v) && v >= HOME_PRICE_MIN && v <= HOME_PRICE_MAX && v % HOME_PRICE_STEP === 0;
 export const homeEntryOk = (v) => typeof v === 'string' && HOME_ENTRIES.includes(v);
 /** REALM P2.2b: the share of what a home cost that selling it pays back - Daggerfall's deed share (systems/banking.js
  *  DEED_SELL_MULT, pinned equal) - so the service credits a realm character's record the sum its client credits. */

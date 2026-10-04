@@ -9,6 +9,8 @@
 // English, short lines, " - " between clauses and never a long dash, no engine words. The crowd talks as an Iliac Bay
 // crowd would - rough, partisan, a little funny. Lines that take a name are functions; everything is frozen.
 
+import { goldSum } from './homeWords.js';   // AUDIT HOME-PRICE C4: a home's sums with their thousands
+
 const F = Object.freeze;
 
 export const ARENA_TEXT = F({
@@ -42,7 +44,7 @@ export const ARENA_TEXT = F({
    *  bought from the catalogue paid back whole, a guild hall's letter (its keepers'), a room whose tenant the move
    *  carried, and the service's refusals (net/accountClient.js REFUSALS reads them). */
   homeMove: F({
-    refund: (gold) => `${gold} gold for your catalogue pieces was refunded to your bank account.`,
+    refund: (gold) => `${goldSum(gold)} gold for your catalogue pieces was refunded to your bank account.`,
     hallMoved: F([
       'A letter from the Daggerfall Bank:',
       '',

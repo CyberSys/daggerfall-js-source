@@ -242,8 +242,9 @@ function blockInstanceOf(blocks, d) {
  *  (the interior host's shop identity: type/quality/seed/faction).
  *  HOME1: and the building's MODEL (`modelIdNum`, locationBuildings'
  *  own read below - the first 3D object of its subrecord), because a
- *  house bought at its own door is priced off that model's radius
- *  (banking.js housePrice, what Daggerfall's bank asks); the block's
+ *  house bought at its own door is priced off that model (HOME-PRICE:
+ *  the ground its ARCH3D box stands on, net/homeLaw.js
+ *  homeOnlinePrice - the bank's radius x 1280 is offline's); the block's
  *  building data carries no model, so the door's record had none and
  *  every house read as unpriceable. */
 export function buildingDataForDoor(exteriorBuildings, blocks, door, { locationIndex = 0 } = {}) {

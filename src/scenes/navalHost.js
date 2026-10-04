@@ -62,7 +62,8 @@ import { wrapAngle, multiply } from '../world/mat4.js';   // ONCRASH1: the port'
 import { createShipDamage, shotDamage, shotMen, ballMen, SHIP_STATES, SINK_SECONDS, SINK_CLEAR, sinkAngles, sinkDepth, BRACE_TAKEN, FIRE_CHANCE, WRECKED_OARS, repairCost, STRUCK_AT } from '../systems/naval/navalDamage.js';
 import { createGunDeck, aimSolution, volleyLaunches, bearingOf, sideForBearing, toWorld, RIPPLE_S, READY_FLASH_S } from '../systems/naval/navalGunnery.js';
 import { hullBuild, firstBuildOf, batteryOf, batteriesOf, GUNS, classById, classFor, shipNames, crownOf, classLine, SIDES, SIDE_DIR, BARREL, NAVAL_FACTIONS, HULL } from '../systems/naval/navalShips.js';
-import { findHarbour, createWaterGrid, errandFor, errandRng, dwellOf, offsetErrand, offsetHarbour, alongside, BERTH_SNAP_M, BERTH_WAY } from '../systems/naval/shipLife.js';   // SHIP-LIFE
+import { createWaterGrid, errandFor, errandRng, dwellOf, offsetErrand, alongside, BERTH_SNAP_M, BERTH_WAY } from '../systems/naval/shipLife.js';   // SHIP-LIFE
+import { createHarbourBook, HARBOUR_RETRY_S } from '../systems/naval/harbourBook.js';   // HARBOUR-BOOK: the harbours, the world's and mine
 import { hash32 } from '../world/spawnedDungeons.js';
 import { mulberry32 } from '../combat/bloodArt.js';
 import { orientedBox, arcPoints, flatUnit, NAVAL_DEG, rangeAt, segmentBoxEntry, shotPosition, landing } from '../systems/naval/navalBallistics.js';
@@ -169,9 +170,8 @@ export const LINER_PORT_M = 500;
 /** AUDIT SHIP-LIFE B3: the level a harbour's ships are drawn at - the port's, never a player's (two players' levels
  *  drew two fleets into one port's berths). */
 export const HARBOUR_LEVEL = 10;
-/** AUDIT SHIP-LIFE B7: a port whose shore gave no harbour is sounded again after this (s) - the terrain streams in
- *  nearest-first, and a harbour sounded on arrival met unbuilt water. */
-export const HARBOUR_RETRY_S = 10;
+/** AUDIT SHIP-LIFE B7 (HARBOUR-BOOK: kept with the harbours now, systems/naval/harbourBook.js). */
+export { HARBOUR_RETRY_S };
 /** The port's key folded into a seed - a string's own hash (FNV-1a). */
 const keyHash = (k) => { let h = 0x811c9dc5; for (let i = 0; i < k.length; i++) h = Math.imul(h ^ k.charCodeAt(i), 0x01000193); return h >>> 0; };
 /** A ball's report heard as the near boom within this (m); past it the far one. */
@@ -567,10 +567,16 @@ export function createNavalHost(deps) {
    *  lifeDt, lifeN, list, deck, prize, lost, sinkUnder, colours } */
   const sea = new Map();
   let seq = 0;
-  /** SHIP-LIFE: the harbours found near the player - key -> { key, harbour (shipLife.js findHarbour, or null: a port
-   *  with no shore to berth at - sounded again after HARBOUR_RETRY_S), rolled (its moored ships stood), at (when it
-   *  was sounded) } - and the water grids a hull's ways are planned on (the scene's; made again when the origin moves). */
-  const harbours = new Map();
+  /** SHIP-LIFE: the harbours found near the player (systems/naval/harbourBook.js - key -> { key, name, harbour
+   *  (shipLife.js findHarbour, or null: a port with no shore to berth at), at }) - and the water grids a hull's ways are
+   *  planned on (the scene's; made again when the origin moves). HARBOUR-BOOK: the world's book (`deps.harbourBook`),
+   *  which the world sounds, moves and empties whether the sea runs or not - its quays stand off it with Naval Combat
+   *  off; made without one (the tests), a book of my own that my frame steps, my origin moves and my clear empties. */
+  const ownBook = !deps.harbourBook;
+  const harbours = deps.harbourBook ?? createHarbourBook({ harbourNear: () => deps.harbourNear?.() ?? null, isWater: (x, z, h) => deps.isWater(x, z, h) });
+  /** The harbours whose moored ships stand (harbourFrame's roll), by their sounding - one found again is rolled anew,
+   *  and my sea's clear forgets them all (its ships went with it). */
+  let rolled = new WeakSet();
   let grids = new Map();
   /** AUDIT SHIP-LIFE B6: the seeds that sailed from each port today - port key -> { day, seeds } - kept across the sea's
    *  clear (a door's visit found the harbour again and stood a ship that had sailed at her berth once more). */
@@ -3409,13 +3415,9 @@ export function createNavalHost(deps) {
     return best;
   }
   // ── QUAYS: docking at a harbour's quays (systems/naval/quays.js; the quays themselves, scenes/quayPool.js) ─────────
-  /** The harbours I know with their berths, for the quays the world stands off them (the berths moved with the world in
-   *  place - offsetAll's offsetHarbour). */
-  function harbourList() {
-    const out = [];
-    for (const h of harbours.values()) if (h.harbour?.berths?.length) out.push({ key: h.key, name: h.name ?? null, harbour: h.harbour });
-    return out;
-  }
+  /** The harbours I know with their berths (the book's - its berths moved with the world in place, harbourBook.js
+   *  offsetAll). HARBOUR-BOOK: the world's quays read the world's book itself, whether my sea runs or not. */
+  function harbourList() { return harbours.list(); }
   /** Whether berth `i` of harbour `key` is free for `boat` to dock at: no ship of the sea moored at it or lying still by
    *  it, no other boat (mine, another player's) lying at it. A ship only coming in to it is put off it (dockAt). */
   function dockFree(key, i, boat) {
@@ -3589,11 +3591,9 @@ export function createNavalHost(deps) {
    *  the stander's alone to launch, as every ship is - and gone past HARBOUR_LEAVE, to be stood again the same on the
    *  player's return (those that sailed today not again). */
   function harbourFrame(seaY) {
-    const near = deps.harbourNear?.() ?? null;
-    const sound = () => findHarbour({ rect: near.rect, isWater: (x, z, h) => deps.isWater(x, z, h) });
-    // AUDIT HOLDINGS O1: sounded once every pixel its scan reads is built (`near.ready`) - never off a half-streamed shore
-    if (near && !harbours.has(near.key)) { if (near.ready?.() !== false) harbours.set(near.key, { key: near.key, name: near.name ?? null, harbour: sound(), rolled: false, at: clock }); }
-    else if (near) { const h = harbours.get(near.key); if (!h.harbour && clock - h.at >= HARBOUR_RETRY_S && near.ready?.() !== false) { h.harbour = sound(); h.at = clock; } }   // AUDIT SHIP-LIFE B7
+    // AUDIT HOLDINGS O1, AUDIT SHIP-LIFE B7: sounded once its ground is built, again after a sounding that found none -
+    // HARBOUR-BOOK: by the world each frame, or here off a book of my own
+    if (ownBook) harbours.step(clock);
     const feet = deps.feet();
     const day = where().day ?? 0;
     for (const h of harbours.values()) {
@@ -3601,22 +3601,22 @@ export function createNavalHost(deps) {
       const departed = departedOf(h.key, day);
       const d = Math.hypot(h.harbour.mouth[0] - feet[0], h.harbour.mouth[1] - feet[2]);
       if (d > HARBOUR_LEAVE) {
-        if (h.rolled) for (const e of [...sea.values()]) if (!e.owner && e.fromHarbour === h.key && e.ship.errand?.kind === 'moored') retire(e);   // SHIP-FADE
-        h.rolled = false;
+        if (rolled.has(h.harbour)) for (const e of [...sea.values()]) if (!e.owner && e.fromHarbour === h.key && e.ship.errand?.kind === 'moored') retire(e);   // SHIP-FADE
+        rolled.delete(h.harbour);
         continue;
       }
       if (d > HARBOUR_STAND || !rollsHarbour(h.harbour.mouth)) continue;
       const r = mulberry32(hash32(keyHash(h.key), day >>> 0, HARBOUR_SALT));
       const n = Math.min(h.harbour.berths.length, HARBOUR_ROLL[0] + Math.floor(r() * (HARBOUR_ROLL[1] - HARBOUR_ROLL[0] + 1)));
       const seedOf = (i) => hash32(keyHash(h.key), day >>> 0, i, HARBOUR_SALT);
-      if (h.rolled) {
+      if (rolled.has(h.harbour)) {
         // AUDIT BAY A20: the port's own a player sailing off lets go of (out of their word) - taken over where they
         // lie by the one who rolls the port now (they faded out of their berths under my eyes, the roll long done)
         const own = new Set(Array.from({ length: n }, (_, i) => seedOf(i)));
         for (const e of [...sea.values()]) if (e.owner && e.retiring && own.has(e.ship.seed) && e.ship.damage.state === SHIP_STATES.afloat) { adopt(e); e.retiring = false; }
         continue;
       }
-      h.rolled = true;
+      rolled.add(h.harbour);
       for (let i = 0; i < n; i++) {
         const seed = seedOf(i);
         const faction = r() < HARBOUR_NAVY ? 'navy' : 'merchant';
@@ -4378,7 +4378,7 @@ export function createNavalHost(deps) {
     if (boarding) for (const p of [boarding.from, boarding.to]) { p.pos[0] += o[0]; p.pos[2] += o[2]; }
     shots.offsetAll(o);
     effects.offsetAll(o);
-    for (const h of harbours.values()) offsetHarbour(h.harbour, o);   // SHIP-LIFE: the harbours with the world - and the grids made again in it
+    if (ownBook) harbours.offsetAll(o);   // SHIP-LIFE: the harbours with the world (HARBOUR-BOOK: the world's moves its own) - and the grids made again in it
     grids = new Map();
   }
   /** A transition, a fast travel, a load, a room change: the sea empties (its ships were never a save's). */
@@ -4388,7 +4388,8 @@ export function createNavalHost(deps) {
     effects.clear();
     wireVolleys = []; wireBarrels = [];
     gunfire = [];   // AUDIT NAV2 F8: the guns heard go with the sea they were fired on
-    harbours.clear(); grids = new Map();   // SHIP-LIFE: found again, and their ships stood again, where the world is next
+    if (ownBook) harbours.clear();   // SHIP-LIFE: found again where the world is next (HARBOUR-BOOK: the world empties its own at a transition)
+    rolled = new WeakSet(); grids = new Map();   // and their ships stood again
     warping = null; gangwaySaid = null;   // AUDIT HOLDINGS Q9: no warp nor gangway word carried across
     claims.clear(); granted.clear();
     myCasks.clear();   // KEEP-PLUNDER
