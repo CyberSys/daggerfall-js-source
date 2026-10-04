@@ -65,16 +65,11 @@ loading requires that boat in the loaded save, never one from the previous chara
 The interior frame remains axis-aligned, matching the translation-relative decor
 cache even when the boat turns between visits.
 
-**CABIN-CLEAR (2026-10-04, Mac: "The classic style ship is broken. its two ships
-clipped inside of eachother"; "from the ship deed it spawns in a dark void outside the
-game world and you can move around another ship under construction").** The room is
-laid where her hull floats, and the exterior fleet stays afloat below deck
-(`keepExteriorBoats`), so the modal pass's Come Sail Away hooks - meant for a boat on
-a dungeon's water, and asking only whether the mod was on - drew her hull, her hands
-and lanterns, lit her lamps and pointed the ray at her, through the room's walls in
-the void of an interior. The hooks ask `csaModeShown` (world.js): the mod on and no
-sailing cabin. The fleet stays afloat for its passengers and its word; the room only
-stops drawing it. `test/cabinclear.test.js`, `tools/mutants/cabinclear.json`.
+**Mac's "The classic style ship is broken. its two ships clipped inside of eachother" and
+"from the ship deed it spawns in a dark void outside the game world and you can move
+around another ship under construction" (2026-10-04)** are the sailing cabin drawing
+her own fleet through its walls - CABIN-HULL below, which fixed it on main the same
+day (#579).
 OPEN FOR MAC: "Bank ownership and bank ship scenes stay independent" (above) is not
 what the code does - `boatCabinOwnership.js linkBankCabin` links the bank ship to the
 one matching sailing ship WITHOUT asking (from her menu, Enter cabin and every load
@@ -89,7 +84,12 @@ the helm, change sails, change cargo or add a second sailing simulation.
 
 The cabin is private to the owning player, but passengers may remain on deck.
 Cabin entry keeps the exterior fleet active and its existing online cell/halo
-connection at the boat anchor. The normal boat stream carries a `cabin: 1` flag;
+connection at the boat anchor. The kept fleet stands outside the room: every
+hull, the owner's and every peer's, stays in the street's collider, and the
+cabin neither draws a boat nor answers a press on one (CABIN-HULL, FIELD BUGS
+2026-10-03b - the room is built at her root, so her decks had crossed it as
+floors, and a press there on her ladder or her helm stood the player on her
+deck in the building's frame, her hull alone in the black). The normal boat stream carries a `cabin: 1` flag;
 full heartbeats continue while indoors. The exterior foes stream supplies an empty
 actor envelope using its existing sequence counter. The owner's indoor position,
 movement, casts and lights are not sent outside. Updated peers hide the below-deck
@@ -114,7 +114,9 @@ interior path. Standalone `exterior.js` has no sailing runtime or world-save
 composer and offers no cabin entry. `dungeonContext.js` has no exterior sailing
 boat and offers no cabin entry. No second interior builder is added.
 
-`test/sailingcabins.test.js` exercises real deed launch/pack/relaunch and runtime
+`test/fb1003b_cabinhull.test.js` pins the fleet out of the room (the street's
+collider, the picks, the press, the draw) and the deck solid under the first step
+back. `test/sailingcabins.test.js` exercises real deed launch/pack/relaunch and runtime
 save data, menu routing, per-boat cache persistence, failures and the shipped host
 entry/exit/restore and network functions, long-running cabin heartbeats, and
 occupied-deck retention on owner loss. Actual ARENA2 rendering, doorway clearance

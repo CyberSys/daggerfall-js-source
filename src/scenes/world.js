@@ -77,7 +77,7 @@ import { spherePlanes, batchVisible, setFlatLean, batchSphere } from '../render/
 import { withMoonAmbient } from '../render/enhancedSky.js';   // EV5: secunda rides the ambient
 import { FarRingRenderer, ringDisabled, ringHeight } from '../render/farRing.js';   // EV8: the province's mountains on the horizon
 import { syncLightingLane, lanternColor } from '../render/enhancedLighting.js';   // EL1: the Enhanced Lighting lane, installed at mount
-import { collectBlockFlats, billboardSize, mobileBillboardSize, centredBase, classicBillboardSize } from '../world/rmbFlats.js';
+import { collectBlockFlats, billboardSize, mobileBillboardSize, centredBase, classicBillboardSize, isNatureArchive, NATURE_FLATS_Y } from '../world/rmbFlats.js'; import { blockHillSeat, seatNatureFlat } from '../world/townStandIns.js';   // TREES-SEATED: a block's trees on the hills drawn under them
 import { textureReplacementEnabled, hasTextureReplacement, preloadTextureRecord, decodePng, decodedTextureTopDown } from '../systems/textureReplacement.js';   // DW-E2: a decoration's replacement (UnderwaterDecorationReplacementCache)
 import { SeasonHelper } from '../systems/seasonsIliacBay.js';   // SIB1: Seasons of the Iliac Bay's SeasonHelper
 import { loadSeasonsTextures, seasonsInstalled } from '../systems/seasonsIliacBayAssets.js';   // SIB1: its textures, from the player's own copy of the mod
@@ -3926,7 +3926,7 @@ export async function bootWorld(canvas, renderer, params, status) {
             }
           }
         }
-        // No RMB ground plane on terrain (addGroundPlane = false).
+        const hillSeat = blockHillSeat(b.layout.models);   // TREES-SEATED: the block's hills as the port draws them, null for none of ours. No RMB ground plane on terrain (addGroundPlane = false).
         const blockFlats = collectBlockFlats(b.dfBlock, natureArchive);
         // AUDIT 26 (F019): ...and the same flats' STATIC NPCs
         // (RMBLayout.cs:366-378 / :442-454 - the non-zero FactionID
@@ -3975,13 +3975,13 @@ export async function bootWorld(canvas, renderer, params, status) {
           // read it - it simply never reaches a batch.
           if (flat.editor) continue;
           const fx = locLocal[0] + b.originX + flat.x, fz = locLocal[2] + b.originZ + flat.z;
-          // NATURE-GROUND (2026-09-26, Ilvi: "a lot of floating sprites across Illiac Bay"): a tree, a bush, a rock -
-          // the block's ground scenery and its nature flats - stands on the DRAWN ground, as the wilderness's own do.
-          // The plane holds only inside the flattened rect; in the band past it the ground was only eased toward the
-          // plane, and they hung over it or sank into it (DFU's too: RMBLayout.AddNatureFlats reads no terrain). Inside
-          // the rect the lift is exactly 0. What else a block stands keeps the plane - a lamp, a sign, an animal may be on a model.
+          // NATURE-GROUND (2026-09-26, Ilvi: "a lot of floating sprites across Illiac Bay"): the block's ground scenery and nature
+          // flats stand on the DRAWN ground - the plane holds only inside the flattened rect, the band past it is only eased toward
+          // it (DFU's too: AddNatureFlats reads no terrain); inside the rect the lift is exactly 0. A lamp, a sign, an animal keep the
+          // plane. TREES-SEATED (Rissa: "Floating trees in Tamhope"): in a block whose hills the port draws as its stand-ins, a flat
+          // of the nature range (the 504 trees stood on the pack's bigger hills) stands on the higher of the ground and the mounds.
           const lift = flat.archive === natureArchive ? groundOffPlane(samples, avg, fx, fz) : 0;
-          addFlat(flat.archive, flat.record, fx, locLocal[1] + flat.y + lift, fz);
+          addFlat(flat.archive, flat.record, fx, locLocal[1] + (hillSeat && isNatureArchive(flat.archive) ? seatNatureFlat(hillSeat, flat.x, flat.z, NATURE_FLATS_Y + groundOffPlane(samples, avg, fx, fz)) : flat.y + lift), fz);
         }
         for (const light of collectCityLights(b.dfBlock, lightSize)) {
           const lp = [
@@ -6020,13 +6020,6 @@ export async function bootWorld(canvas, renderer, params, status) {
   // the colliders and the rays never did, so a mod switched off mid-game left an invisible deck standing
   const _csaOnAtLoad = latchModLoaded('come-sail-away', (() => { try { return modSetting('come-sail-away', 'Enabled') !== false; } catch { return false; } })());   // AUDIT PRE-MERGE 0928 S4: and the mod's other doors (the shelf's rows, its keys, its effect's restore) read this answer too
   const csaOn = () => _csaOnAtLoad;
-  /** CABIN-CLEAR (2026-10-04, Mac: "it spawns in a dark void outside the game world and you can move around another ship
-   *  under construction"): the boats a modal pass draws, lights and points at - Come Sail Away's, but never from a
-   *  sailing cabin. Indoors the pool holds only a boat on a dungeon's water (UpdateBoatVisibility's inside arm); a cabin
-   *  keeps the WHOLE exterior fleet afloat (keepExteriorBoats - its passengers, its word), and the bank ship's room is
-   *  laid where her hull floats (scenes/sailingCabin.js), so the room drew her - hull, hands, lanterns and the ray on
-   *  them - through its own walls. A cabin is never entered from a dungeon's water (hasSailingCabin: !boat.inside). */
-  const csaModeShown = () => csaOn() && !modes?.sailingCabin;
   const csa = createComeSailAwayPool({ renderer, pipeline, log: console });
   /** NAV-H: the naval host (made below, with Come Sail Away's runtime) - declared here, beside the pool whose sea list
    *  it fills, because the boats' colliders, rays and particles below read its ships. */
@@ -6126,9 +6119,9 @@ export async function bootWorld(canvas, renderer, params, status) {
     return true;
   }
   function csaSyncColliders() {
-    const col = csaModeCollider();
+    const col = modes?.sailingCabin ? collider : csaModeCollider();   // CABIN-HULL (FIELD BUGS 2026-10-03b, Regi: "i got into my boats interior and then got out and i'm in the void"): below deck the fleet stays afloat OUTSIDE (keepExteriorBoats) - in the street's collider, never the room's. The cabin is built at her own root, so her decks stood in the room as floors and walls (the ladder's box and the helm's rows within reach of a press), and the deck the way out lands on had gone with the room
     const want = new Set();
-    const peers = (modes?.mode ?? 'exterior') === 'exterior' ? csa.peerBoats : [];   // FIELD BUGS 2026-10-01b (Mac: "Players aren't colliding with other players' boats and can't stand on board"): ANOTHER PLAYER'S BOAT STANDS IN MY COLLIDER AS MINE DOES - every one that stands, her hull and her deck's furniture, aboard her or not. CSA-K stood one only while I was aboard it (PR-WAGON1's "Others' wagons don't block", which Mac's word sets aside for boats): her hull was walked and swum through and her deck no floor to step, climb or come up onto (scenes/comeSailAwayAboard.js: standing on her is aboard her). THE FOUR HOSTS: on the street alone, this host's - a building's frame (worldModes.js) and a dungeon's (dungeonContext.js) stand no one's boat, and the standalone street (exterior.js) has no peers
+    const peers = (modes?.mode ?? 'exterior') === 'exterior' || modes?.sailingCabin ? csa.peerBoats : [];   // CABIN-HULL: and every peer's, below deck as on deck; FIELD BUGS 2026-10-01b (Mac: "Players aren't colliding with other players' boats and can't stand on board"): ANOTHER PLAYER'S BOAT STANDS IN MY COLLIDER AS MINE DOES - every one that stands, her hull and her deck's furniture, aboard her or not. CSA-K stood one only while I was aboard it (PR-WAGON1's "Others' wagons don't block", which Mac's word sets aside for boats): her hull was walked and swum through and her deck no floor to step, climb or come up onto (scenes/comeSailAwayAboard.js: standing on her is aboard her). THE FOUR HOSTS: on the street alone, this host's - a building's frame (worldModes.js) and a dungeon's (dungeonContext.js) stand no one's boat, and the standalone street (exterior.js) has no peers
     for (const boat of peers.length ? [...csaColliderBoats(), ...peers] : csaColliderBoats()) {   // NAV-H: and the sea's ships near enough to board and to ram
       if (!boat.GameObject?.activeSelf) continue;
       const id = csaBoatId(boat);
@@ -6290,7 +6283,7 @@ export async function bootWorld(canvas, renderer, params, status) {
    * DefaultActivationDistance while its bed sleeping is on (RoleplayRealism.cs:124-129) - and nothing's else.
    */
   function csaActivationPick(eye, dir) {
-    if (!csaRuntime) return null;
+    if (!csaRuntime || modes?.sailingCabin) return null;   // CABIN-HULL: below deck no boat's box or hull answers a press - a hull press opened her rows in the room, and Board or the helm stood me on her deck still in the building's frame: her hull drawn in the black, nothing else (the void)
     let best = null;
     for (const boat of csa.boats) {
       if (!boat.GameObject?.activeSelf) continue;
@@ -6321,7 +6314,7 @@ export async function bootWorld(canvas, renderer, params, status) {
    * pick YIELDS (PR-WAGON1): anything firm under the ray takes the press first, a boat of mine among them.
    */
   function csaPeerActivationPick(eye, dir) {
-    if (!csaOn()) return null;
+    if (!csaOn() || modes?.sailingCabin) return null;   // CABIN-HULL: nor another's
     const p = csaAboard.pick(eye, dir, RAY_DISTANCE);
     if (!p) return null;
     const wall = csaModeCollider()?.raycastHit(eye, dir, p.distance, _csaBuckets.size ? { skip: _csaBuckets.keys() } : null);
@@ -6447,7 +6440,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     });
   };
   const csaActivate = (pick) => {
-    if (pick?.peer) { csaPeerActivate(pick); return; }   // CSA-K
+    if (modes?.sailingCabin) return;   /* CABIN-HULL: nothing of a boat is pressed below deck, whoever holds the pick */ if (pick?.peer) { csaPeerActivate(pick); return; }   // CSA-K
     if (pick?.bed) {
       if (pick.distance <= DEFAULT_ACTIVATION_DISTANCE) { if ((modes?.mode ?? 'exterior') === 'exterior') { _restFromBed = true; try { toggleRest(); } finally { _restFromBed = false; } } else modes?.restFromBed?.(); }
       return;
@@ -9473,7 +9466,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   // and dungeonContext.js:3067 mounts the same one, gated on
   // `opts.enchantCtx !== false` because setDefaultEnchantCtx is a
   // session singleton and EC1 already routes THIS host's mount into
-  // that context through modes.dungeonCtx - so worldModes.js:7082
+  // that context through modes.dungeonCtx - so worldModes.js:7095
   // passes false beside its `chargen: false` and only the standalone
   // ?dungeon route mounts its own. S40 filled isResting
   // in - the sentence that stood here said it "stays absent above
@@ -12203,7 +12196,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     // so an F9 pressed inside a shop recorded the street's sheath and
     // hand. The mode host answers for the rig that is actually drawn
     // and null outside interior mode (the dungeon owns its own
-    // composer, dungeonContext.js:8418), so exterior mode and a
+    // composer, dungeonContext.js:8419), so exterior mode and a
     // pre-seam mode host compose exactly as before, per field.
     const wp = modes?.weaponPose?.() ?? null;
     const snap = snapshotPlayer(playerEntity, {
@@ -15285,7 +15278,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   // exterior -> the townTalk overlay, interior OR dungeon -> the mode
   // machine's slot. U43-ii shipped the dungeon half: showQuestBox
   // offers the window to `modes.showQuestOverlay` below, and
-  // worldModes answers it in BOTH modes (worldModes.js:10777-10841 -
+  // worldModes answers it in BOTH modes (worldModes.js:10790-10854 -
   // dungeon routes to dungeonCtx.showOverlay), so a dungeon popup is
   // shown rather than logged loudly and dropped.
   // AUDIT 24 (wave 21): DaggerfallMessageBox.Show() is a
@@ -15506,9 +15499,9 @@ export async function bootWorld(canvas, renderer, params, status) {
     // DaggerfallBankManager.IsHouseOwned reads the CURRENT region's
     // owned-house slot (:140-148) - banking.js's own law, H1's home.
     isHouseOwned: (buildingKey) => isHouseOwned(playerEntity.houses ?? [], _questRegionIndex(), buildingKey),
-    // HOME1: nor a player's online home - a quest must not send its player into a house its owner keeps shut. The
-    // towns this page has heard from (systems/onlineHomes.js); one not heard from yet answers no.
+    // HOME1: nor a player's online home - a quest must not send its player into a house its owner keeps shut. The towns this page has heard from (systems/onlineHomes.js); one not heard from yet answers no.
     isPlayerHome: (mapId, buildingKey) => !!onlineHomes?.homeAt(mapId, buildingKey),
+    townLayoutsKnown: () => !homeLayoutsOnline || _serverLayoutRecords !== null,   // QUESTOR-MOVED: a shared quest is mended on arrival only once the towns' layouts are known (applyLayoutPins' own gate, AUDIT WD3 S5)
     // Place's _getBuildingName bag - townTalk's ONE name bag, so the
     // quest's generated names and the talk directory's cannot drift.
     buildingNameOpts: () => townTalk.nameOpts?.() ?? {},
@@ -15691,8 +15684,8 @@ export async function bootWorld(canvas, renderer, params, status) {
       if (m !== 'exterior') {
         // QUEST-PARTY phase 3b/3c: in a building or a dungeon the member who shared this quest, in the room and near,
         // stands the wave (through a relay whose own lane carries it here); this copy counts it as placed, as the open
-        // air's does
-        if ((m === 'interior' || m === 'dungeon') && online?.ownOk && isWorldRoom(online.room) && partnerStandsQuestFoes({ questName: handle.foe?.parentQuest?.questName, sharerOf: (q) => _liveSharer(q), inMyParty: (a) => !!social?.inMyParty(a), peers: peersNear(), accountOfPeer: (id) => social?.accountOfPeer(id), myFeet: player.pos })) return true;
+        // air's does - VERMIN-SHARED: only while the sharer's foe of this wave's Foe stands here; else this copy stands its own
+        if ((m === 'interior' || m === 'dungeon') && online?.ownOk && isWorldRoom(online.room) && partnerStandsQuestFoes({ questName: handle.foe?.parentQuest?.questName, symbol: handle.foe?.symbol?.name, sharerOf: (q) => _liveSharer(q), inMyParty: (a) => !!social?.inMyParty(a), peers: peersNear(), accountOfPeer: (id) => social?.accountOfPeer(id), myFeet: player.pos, foes: modes?.insideFoes?.() ?? [] })) return true;
         return modes?.tryPlaceQuestFoe?.(handle) ?? false;
       }
       if (!(walkMode && playerSpawned)) return false;
@@ -15712,8 +15705,8 @@ export async function bootWorld(canvas, renderer, params, status) {
       }
       const feet = player.pos;
       // QUEST-PARTY: the member who shared this quest stands near - that copy stands the wave and this one sees it
-      // through the stream; here it counts as placed (its message and its count run on) and no foe stands twice
-      if (partnerStandsQuestFoes({ questName: handle.foe?.parentQuest?.questName, sharerOf: (q) => _liveSharer(q), inMyParty: (a) => !!social?.inMyParty(a), peers: peersNear(), accountOfPeer: (id) => social?.accountOfPeer(id), myFeet: feet })) return true;
+      // through the stream; here it counts as placed (its message and its count run on) - VERMIN-SHARED: only while the sharer's foe of this Foe stands here
+      if (partnerStandsQuestFoes({ questName: handle.foe?.parentQuest?.questName, symbol: handle.foe?.symbol?.name, sharerOf: (q) => _liveSharer(q), inMyParty: (a) => !!social?.inMyParty(a), peers: peersNear(), accountOfPeer: (id) => social?.accountOfPeer(id), myFeet: feet, foes: exteriorFoes.foes })) return true;
       const env = placeFoeEnv({
         collider,
         // origin at the controller centre - DFU casts from
@@ -22035,11 +22028,11 @@ export async function bootWorld(canvas, renderer, params, status) {
     // now draws, which the enemy sprite gives way to, would be nothing at all indoors and underground
     // (and DISC23-B's walkers: a peer standing as their chosen set gives the class sprite way just the same, so the
     // merge of the two hands their batches here too)
-    extraBillboards: () => [...(remotePlayers?.batches() ?? []), ...(peerRiders?.batches() ?? []), ...(peerWalkers?.batches() ?? []), ...(gateCourt?.batches() ?? []), ...(csaModeShown() ? csa.batches() : []), ...((modes?.mode ?? 'exterior') === 'dungeon' ? arenaBouts.batches() : [])],   // WB4: and the Burning Court's boss; CSA-C: a boat's crew and lanterns where it stands indoors
-    drawModeMeshes: () => { if (csaModeShown()) { csa.draw(renderer); csaDrawParticlesOpaque(); } },   // CSA-C: a boat placed on a dungeon's water (UpdateBoatVisibility's inside arm keeps it active there); CSA-F: its wake's and splashes' quads and its flag
-    csaDrawParticlesBlended: () => { if (csaModeShown()) csaDrawParticlesBlended(); },   // CSA-F: ...and its drops, after the mode's last world draw
-    modeLights: () => (csaModeShown() ? csa.lights(cam.pos) : []),   // CSA-C: ...and its lit lanterns
-    csaActivationPick: (eye, dir) => (csaModeShown() ? csaActivationPick(eye, dir) : null),   // CSA-D: ...and the one ray on it, in the building's or the dungeon's ladder; CABIN-CLEAR: none from a cabin
+    extraBillboards: () => [...(remotePlayers?.batches() ?? []), ...(peerRiders?.batches() ?? []), ...(peerWalkers?.batches() ?? []), ...(gateCourt?.batches() ?? []), ...(csaOn() && !modes?.sailingCabin ? csa.batches() : []), ...((modes?.mode ?? 'exterior') === 'dungeon' ? arenaBouts.batches() : [])],   // WB4: and the Burning Court's boss; CSA-C: a boat's crew and lanterns where it stands indoors (CABIN-HULL: never in a ship's cabin - the fleet's are the street's)
+    drawModeMeshes: () => { if (csaOn() && !modes?.sailingCabin) { csa.draw(renderer); csaDrawParticlesOpaque(); } },   // CSA-C: a boat placed on a dungeon's water (UpdateBoatVisibility's inside arm keeps it active there); CSA-F: its wake's and splashes' quads and its flag; CABIN-HULL: never in a ship's cabin - the fleet kept afloat there is the street's, and her hull drawn round the room cut its floor into planks and holes
+    csaDrawParticlesBlended: () => { if (csaOn() && !modes?.sailingCabin) csaDrawParticlesBlended(); },   // CSA-F: ...and its drops, after the mode's last world draw (CABIN-HULL: none below deck)
+    modeLights: () => (csaOn() && !modes?.sailingCabin ? csa.lights(cam.pos) : []),   // CSA-C: ...and its lit lanterns (CABIN-HULL: none lights her cabin from outside)
+    csaActivationPick: (eye, dir) => csaActivationPick(eye, dir),   // CSA-D: ...and the one ray on it, in the building's or the dungeon's ladder
     csaActivate: (pick) => csaActivate(pick),
     csaDrawWindWidget: () => csaDrawWindWidget(),   // CSA-E: the wind widget over a mode's HUD
     csaOnPlayerDeath: () => { if (csaRuntime) csaCall(() => csaRuntime.OnPlayerDeath()); },   // CSA-J (the audit): PlayerEntity.OnDeath and OnExhausted reach ComeSailAway.OnPlayerDeath in every mode (Start 1059-1060)

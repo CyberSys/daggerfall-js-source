@@ -308,12 +308,11 @@
   {
     "name": "WB4-the-body-not-drawn",
     "file": "src/scenes/world.js",
-    "old": ", ...(gateCourt?.batches() ?? []), ...(csaModeShown() ? csa.batches() : []), ...((modes?.mode ?? 'exterior') === 'dungeon' ? arenaBouts.batches() : [])],   // WB4: and the Burning Court's boss",
-    "new": ", ...(csaModeShown() ? csa.batches() : []), ...((modes?.mode ?? 'exterior') === 'dungeon' ? arenaBouts.batches() : [])],   // WB4: and the Burning Court's boss",
+    "old": ", ...(gateCourt?.batches() ?? []), ...(csaOn() && !modes?.sailingCabin ? csa.batches() : []), ...((modes?.mode ?? 'exterior') === 'dungeon' ? arenaBouts.batches() : [])],   // WB4: and the Burning Court's boss",
+    "new": ", ...(csaOn() && !modes?.sailingCabin ? csa.batches() : []), ...((modes?.mode ?? 'exterior') === 'dungeon' ? arenaBouts.batches() : [])],   // WB4: and the Burning Court's boss",
     "tests": [
       "test/wb4_gate_boss.test.js"
-    ],
-    "note": "CABIN-CLEAR (PIN MOVED): re-aimed by content - the modal billboards ask csaModeShown (no sailing cabin) where they asked csaOn."
+    ]
   },
   {
     "name": "WB4-the-glow-not-handed",

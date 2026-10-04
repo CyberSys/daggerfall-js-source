@@ -457,8 +457,7 @@ test('WB4 the seams, by source: the world host makes the court on the link, fram
   assert.match(w, /feet: \(\) => \(playerSpawned && modes\?\.gateArenaDay\?\.\(\) != null \? player\.feetAt\(\) : null\),/);
   // the frame's own, every online frame after the court's day is read (AUDIT WBX F10's is a second, in the collapse alone)
   assert.match(w, /gateLink\.leave\(\);\n    try \{ gateCourt\?\.frame\(\); \} catch[^\n]*\/\/ WB4: the fight on this screen/);
-  // PIN MOVED (CABIN-CLEAR): Come Sail Away's crew and lanterns ask csaModeShown - the mod on and no sailing cabin
-  assert.match(w, /extraBillboards: \(\) => \[[^\n]*\.\.\.\(gateCourt\?\.batches\(\) \?\? \[\]\)(?:, \.\.\.\(csaModeShown\(\) \? csa\.batches\(\) : \[\]\))?(?:, \.\.\.\(\(modes\?\.mode \?\? 'exterior'\) === 'dungeon' \? arenaBouts\.batches\(\) : \[\]\))?\],/);   // CSA-C: a boat's flats may follow; ARENA2: and the arena floor's crowd
+  assert.match(w, /extraBillboards: \(\) => \[[^\n]*\.\.\.\(gateCourt\?\.batches\(\) \?\? \[\]\)(?:, \.\.\.\(csaOn\(\) && !modes\?\.sailingCabin \? csa\.batches\(\) : \[\]\))?(?:, \.\.\.\(\(modes\?\.mode \?\? 'exterior'\) === 'dungeon' \? arenaBouts\.batches\(\) : \[\]\))?\],/);   // CSA-C: a boat's flats may follow; ARENA2: and the arena floor's crowd
   assert.match(w, /gateCourtLights: \(\) => gateCourt\?\.lights\(\) \?\? \[\],/);
   // WB6b: the telegraph's pass and the air's life share the hook - either drawn marks the seam, once
   assert.match(w, /const told = gateCourt\?\.drawPass\(proj, view, eye, [^\n]*\);\n[^\n]*\n[^\n]*\n\s+if \(told \|\| lived\) renderer\.markForeignPass\(\);/);
