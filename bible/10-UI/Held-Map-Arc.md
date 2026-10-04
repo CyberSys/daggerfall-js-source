@@ -162,10 +162,17 @@ skins cannot drift:
 - **The ports filter.** `portsFilterAllows` over `hasPort`, asked
   BEFORE DFU's own discovery test by the marks, the find box and the
   journal's click-through alike; a harbour glyph (an anchor) beside
-  every port's mark at the mid and near bands while the mod restricts
-  ship travel to ports; a Ports button in the foot row shown under the
-  same condition, and P as its key (the sheet's own spelling). Per-open,
-  as the classic one is (departure 6).
+  every port's mark ~~at the mid and near bands while the mod restricts
+  ship travel to ports~~ - PORT-MAP (2026-10-04, Mac: "Also ports don't
+  show on my map"): at EVERY band, beside the mark the band inks and ON
+  the place where it inks none (the map opens far, which inks the cities
+  alone), haloed then inked in the full pen (`HARBOUR_HALO`,
+  `HARBOUR_PEN`), whether or not the mod restricts ship travel - the
+  quays stand at every port (`03-World/Holdings.md` 7);
+  `test/portmap.test.js`, `tools/mutants/portmap.json`; a Ports button in
+  the foot row shown while the mod restricts ship travel to ports, and P
+  as its key (the sheet's own spelling). Per-open, as the classic one is
+  (departure 6).
 - **The mark.** The middle click marks the place under the cursor and a
   second clears it, through `travelMapMarkedMapId` in the shared store
   (AUDIT-TO1 G4), inked as a ring in `MarkLocationColor` at EVERY band -

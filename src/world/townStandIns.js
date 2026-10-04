@@ -15,6 +15,8 @@
 //   - the PAINTINGS (Rosy's 69420-69464, New Paintings 79010-79030): Daggerfall's own framed paintings - the six of the
 //     Interior_Paintings set (twenty-four pictures across the climates), which the climate swap changes from region to region as it does a classic wall's -
 //     on a frame hung where each id hangs;
+//   - the RMB Resource Pack's CITY-WALL PIECE (53210): the middle of Daggerfall's own wall segment out of the player's
+//     ARCH3D, closing the gap the author left it at every corner of Beautiful Cities' walls;
 //   - DET's pieces, shared with Detailed Ships: world/detStandIns.js;
 //   - Cliffworms' Items (archive 1210 - his bottles, and the classic pieces he moved there): Detailed Ships' pictures of
 //     them, by the same author and carried with his leave, shared (systems/detailedShips.js);
@@ -390,6 +392,86 @@ export const RMBRP_PIECES = Object.freeze({
   53143: dockRamp, 53144: dockSteps,
 });
 
+// ---- the RMB Resource Pack's city-wall piece ------------------------------------------------------------------------
+/** FIELD BUGS 2026-10-03c (Discord: "missing holes in the out walls of Alik'ra"; "Saw the same thing in Chesterwark").
+ *  Beautiful Cities turns its walls round corners of its own - WALLAA12 to WALLAA15, the 112 composites built on them.
+ *  Each stands its corner tower (444) where Daggerfall's corners stand it, 64 units in from where the two wall lines
+ *  cross, whose edge is where Daggerfall's walls begin, 448 units along each line; but the first wall segment (445) of
+ *  each line stands a whole segment out from the tower and begins at 576. The author closes the 128 units between with
+ *  the RMB Resource Pack's wall piece, model 53210 - two a corner block, 224 in all - and with nothing standing for it
+ *  every turn of every city's wall was a hole wide enough to walk through.
+ *  Read off how it is placed (four corners, two lines each, both turns of the piece along a line): its wall stands
+ *  on the 445s' own line 128 units along its +z, and fills the gap's 128 units centred 128 along its +x. It stands in as
+ *  exactly that, out of the player's own ARCH3D - the middle 128 units of the 445 (Daggerfall's wall, its stone, its
+ *  climate) moved onto the piece's line and lifted the one unit the author sank the piece (YPos 1 to the 445s' 0). */
+export const CITY_WALL_PIECE = 53210;
+export const CITY_WALL_MODEL = 445;
+/** In classic units: the gap's middle in the piece's frame (x along the wall, z across it), its length, the lift. */
+export const CITY_WALL_FILL = Object.freeze({ x: 128, z: 128, length: 128, lift: 1 });
+
+/** How near a cut plane a vertex stands ON it, in metres: a model's float32 positions put a face meant to lie at
+ *  x = 1.6 m at 1.600000023841858, a hair outside the slab (AUDIT CITY-WALL S1). */
+const SLICE_ON_PLANE_M = 1e-5;
+/** A model's triangles (dfMeshToModel's shape) cut to the slab `x0 <= x <= x1` in metres - each kept part's position,
+ *  normal and uv interpolated along its cut edges, its winding kept: the same faces, shorter. A face lying ON a cut is
+ *  the slab's own end face when it looks out of the slab (kept: it closes a merlon the cut ends in) and the outside's
+ *  face when it looks in (dropped: it would stand over the gap beside the cut). No doors. Answers null when nothing of
+ *  the model lies in the slab. */
+export function sliceModelX(model, x0, x1) {
+  const { positions: P, normals: N, uvs: T, indices: I } = model;
+  const vert = (i) => [P[i * 3], P[i * 3 + 1], P[i * 3 + 2], N[i * 3], N[i * 3 + 1], N[i * 3 + 2], T[i * 2], T[i * 2 + 1]];
+  const snap = (d) => (Math.abs(d) <= SLICE_ON_PLANE_M ? 0 : d);
+  const below = (v) => snap(v[0] - x0), above = (v) => snap(x1 - v[0]);
+  const clip = (poly, side) => {   // Sutherland-Hodgman against one plane: side(v) >= 0 is kept
+    const out = [];
+    for (let k = 0; k < poly.length; k++) {
+      const a = poly[k], b = poly[(k + 1) % poly.length], da = side(a), db = side(b);
+      if (da >= 0) out.push(a);
+      if ((da > 0 && db < 0) || (da < 0 && db > 0)) { const s = da / (da - db); out.push(a.map((v, j) => v + (b[j] - v) * s)); }
+    }
+    return out;
+  };
+  const pos = [], nrm = [], uv = [], idx = [], subMeshes = [];
+  const push = (v) => {
+    const l = Math.hypot(v[3], v[4], v[5]) || 1;
+    pos.push(v[0], v[1], v[2]); nrm.push(v[3] / l, v[4] / l, v[5] / l); uv.push(v[6], v[7]);
+    return pos.length / 3 - 1;
+  };
+  const area2 = (a, b, c) => {
+    const u = [b[0] - a[0], b[1] - a[1], b[2] - a[2]], w = [c[0] - a[0], c[1] - a[1], c[2] - a[2]];
+    return Math.hypot(u[1] * w[2] - u[2] * w[1], u[2] * w[0] - u[0] * w[2], u[0] * w[1] - u[1] * w[0]);
+  };
+  for (const sm of model.subMeshes) {
+    const start = idx.length;
+    for (let t = sm.startIndex; t < sm.startIndex + sm.primitiveCount * 3; t += 3) {
+      const tri = [vert(I[t]), vert(I[t + 1]), vert(I[t + 2])];
+      if (tri.every((v) => below(v) === 0) && !(tri[0][3] < 0)) continue;   // on the low cut, looking into the slab
+      if (tri.every((v) => above(v) === 0) && !(tri[0][3] > 0)) continue;   // on the high cut, looking into the slab
+      const poly = clip(clip(tri, below), above);
+      for (let k = 1; k < poly.length - 1; k++) {
+        if (area2(poly[0], poly[k], poly[k + 1]) < 1e-12) continue;   // a sliver the cut left on its plane
+        idx.push(push(poly[0]), push(poly[k]), push(poly[k + 1]));
+      }
+    }
+    const count = (idx.length - start) / 3;
+    if (count) subMeshes.push({ textureArchive: sm.textureArchive, textureRecord: sm.textureRecord, startIndex: start, primitiveCount: count });
+  }
+  if (!idx.length) return null;
+  return { positions: new Float32Array(pos), normals: new Float32Array(nrm), uvs: new Float32Array(uv), indices: new Uint32Array(idx), subMeshes, doors: [] };
+}
+
+/** The wall piece's stand-in out of the player's own wall segment `wall` (the 445, dfMeshToModel's shape) - null
+ *  without it, so nothing is built (or kept) before the pipeline can hand the 445 over. */
+export function cityWallFillModel(wall) {
+  if (!wall?.positions?.length) return null;
+  const half = (CITY_WALL_FILL.length / 2) * U;
+  const cut = sliceModelX(wall, -half, half);
+  if (!cut) return null;
+  const d = [CITY_WALL_FILL.x * U, CITY_WALL_FILL.lift * U, CITY_WALL_FILL.z * U];
+  for (let i = 0; i < cut.positions.length; i++) cut.positions[i] += d[i % 3];
+  return cut;
+}
+
 // ---- the table clutter of archive 56790 ----------------------------------------------------------------------
 /** Archive 56790 is no peer's the manifests name and no catalogue lists (4,827 placements: on tables, at 0.75 m, and on
  *  shelves and ledges, 1.75-2.4 m, among the candles and the food). Each record stands in as a piece of Daggerfall's
@@ -429,6 +511,7 @@ export function installTownStandIns(isOn = () => true) {
   for (const [id, build] of Object.entries(ROSYS_PIECES)) registerCustomModel(Number(id), build, isOn);
   for (const [id, spec] of Object.entries(TOWN_CROP_FIELDS)) registerFlatField(Number(id), spec, isOn);
   for (const [id, build] of Object.entries(RMBRP_PIECES)) registerCustomModel(Number(id), build, isOn);
+  registerCustomModel(CITY_WALL_PIECE, (ctx) => cityWallFillModel(ctx?.classicModel?.(CITY_WALL_MODEL)), isOn, { needs: [CITY_WALL_MODEL] });
   const cloths = [];
   for (const [colour, c] of TOWN_BED_COLOURS.entries()) {
     for (const [cloth, rec] of TOWN_BEDCLOTHS.entries()) {

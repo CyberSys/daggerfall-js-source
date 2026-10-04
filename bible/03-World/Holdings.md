@@ -249,6 +249,17 @@ within GANGWAY_FACING (cos 0.7) of square. Its word is said once each time the p
 alongside first - but never over her own helm, hold or door under the ray (Q4: `boatTrigger`, Come Sail Away's trigger
 first). Under way, no gangway.
 
+**A SHIP OUT OF SIGHT KEEPS HER BERTH** (BERTH-HIDDEN, 2026-10-04 - found chasing Mac's "The classic style ship is
+broken. its two ships clipped inside of eachother", which was the sailing cabin's: `Come-Sail-Away.md` CABIN-HULL). Come Sail Away hides a boat more than a map pixel off, and every boat while the player is
+indoors (`UpdateBoatVisibility`); she lies where she lay all the same (FIELD-CSA1: she rides the origin in sight or not).
+The berths asked only the boats it shows (`myBoats`), so a ship made fast at a quay was a free berth to the port's roll,
+which stands from HARBOUR_STAND (1,200 m off the mouth - two pixels from her, coming in): it moored its own ship at her
+berth, and she stood again inside it as the player came within a pixel. A berth asks of every boat of mine placed
+outdoors, shown or not (`berthBoats` - a dungeon's, `inside`, lies in its own place), and of another player's boat
+hidden under its owner at its helm (`comeSailAwayPeers.js` O4: it stands nowhere and is posed all along) - the roll, the
+sea's errands, Summon (`freeBerth`) and the warp (`dockFree`) through `boatAtBerth`. The shots, the fires and the crew
+still read the shown ones. `test/berthhidden.test.js`, `tools/mutants/berthhidden.json`.
+
 THE FOUR HOSTS: `scenes/world.js` stands the quays and hands the warp; a building's frame (`worldModes.js`) and a
 dungeon's (`dungeonContext.js`) have no sea, and the standalone street (`exterior.js`) no naval host to find a harbour.
 
@@ -303,5 +314,6 @@ and refusal, the word's names, the page), `test/crewroles.test.js` (the posts gi
 crew keeping them against a no-roles control, the First Mate's voice, the Crew panel), `test/quays.test.js` (the quay off a
 berth, the shore walked, what stands on it, its model, alongside, docking's law, the pool, the real host's docking and
 gangway, Come Sail Away's seam, the Fleet's word, the world's wiring), `test/auditholdings.test.js` (AUDIT HOLDINGS,
-`01-Overview/Audit-Holdings.md`: a pin a finding); `tools/mutants/holdings.json`, `tools/mutants/quays.json`,
-`tools/mutants/auditholdings.json`.
+`01-Overview/Audit-Holdings.md`: a pin a finding), `test/berthhidden.test.js` (BERTH-HIDDEN: a ship out of sight keeps
+her berth); `tools/mutants/holdings.json`, `tools/mutants/quays.json`, `tools/mutants/auditholdings.json`,
+`tools/mutants/berthhidden.json`.

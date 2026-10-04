@@ -989,9 +989,12 @@ export function paintInkStatic(ctx, model, view, opts) {
   // a crowded coast would come out with bites taken out of it - which
   // is worse than the tangle the halo is here to fix.
   const inked = [];
+  const harbours = [];   // PORT-MAP: [beside, x, y] - a port's anchor, at every band
   for (const m of model.marks) {
-    if (!shown.has(m.colorIndex) || !visible(m.x, m.y)) continue;
-    inked.push([m, ...toPaper(view, m.x, m.y)]);
+    if (!visible(m.x, m.y)) continue;
+    const ink = shown.has(m.colorIndex);
+    if (ink) inked.push([m, ...toPaper(view, m.x, m.y)]);
+    if (opts.ports && m.port) harbours.push([ink, ...toPaper(view, m.x, m.y)]);
   }
   // HUB1: a hub's circle goes down FIRST - its glyph's halo and ink then sit on it, so the town reads on the colour
   for (const [m, x, y] of inked) if (m.hub) paintHubCircle(ctx, x, y, markReach(m) - (m.seat ? SEAT_RING_PAD : 0), !!m.hub.capital);
@@ -1000,8 +1003,11 @@ export function paintInkStatic(ctx, model, view, opts) {
   for (const [m, x, y] of inked) paintGlyph(ctx, m.kind, x, y, true);
   for (const [m, x, y] of inked) {
     paintGlyph(ctx, m.kind, x, y, false, opts.inks?.[m.kind]);   // MAP-KEY: in its classic dot's hue, where there is a palette
-    if (opts.ports && m.port && band !== 'far') paintHarbour(ctx, x, y);
   }
+  // PORT-MAP (2026-10-04, Mac: "Also ports don't show on my map"): a port's anchor at EVERY band - beside its mark where
+  // the band inks the place, ON the place where it does not (far inks the cities alone, and the map opens far) - so the
+  // ports the quays stand at read from the first look. MAP2 drew them at mid and near only.
+  for (const [beside, x, y] of harbours) paintHarbour(ctx, x, y, beside);
   // MAP2: the mod's MARK (TravelOptionsMapWindow.cs:532-550, drawn in
   // MarkLocationColor) - a ring on the marked place at EVERY band, whether
   // or not the band inks the place itself: the mark is the thing the
@@ -1239,10 +1245,22 @@ export function paintQuestMark(ctx, view, m) {
  *  much further down than the last (AUDIT SOC D2's law, on ink). */
 export const PARTY_LABEL_STACK = 13;
 
-/** MAP2: the harbour glyph - a small anchor beside a port's mark. Skin. */
-export function paintHarbour(ctx, x, y) {
-  const ax = x + 8, ay = y - 1;
-  ctx.strokeStyle = PEN.soft; ctx.lineWidth = 1.1;
+/** PORT-MAP: the anchor's pens - a parchment halo under the full pen, so it reads on a crowded coast as a glyph does. */
+export const HARBOUR_PEN = 1.3;
+export const HARBOUR_HALO = 3.4;
+/** MAP2: the harbour glyph - a small anchor beside a port's mark (`beside`), or on the port's own place where the band
+ *  inks no mark there (PORT-MAP). Skin. */
+export function paintHarbour(ctx, x, y, beside = true) {
+  const ax = beside ? x + 8 : x, ay = beside ? y - 1 : y;
+  ctx.strokeStyle = PEN.halo; ctx.lineWidth = HARBOUR_HALO;
+  anchorPath(ctx, ax, ay);
+  ctx.stroke();
+  ctx.strokeStyle = PEN.line; ctx.lineWidth = HARBOUR_PEN;
+  anchorPath(ctx, ax, ay);
+  ctx.stroke();
+}
+/** The anchor's one path: its shank, its stock and its flukes. */
+function anchorPath(ctx, ax, ay) {
   ctx.beginPath();
   ctx.moveTo(ax, ay - 4); ctx.lineTo(ax, ay + 3);        // the shank
   ctx.moveTo(ax - 2.5, ay - 2); ctx.lineTo(ax + 2.5, ay - 2);   // the stock
@@ -1250,7 +1268,6 @@ export function paintHarbour(ctx, x, y) {
   // the arc's start with a stray diagonal (AUDIT-MAP A6)
   ctx.moveTo(ax + 3 * Math.cos(Math.PI * 0.15), ay + 0.5 + 3 * Math.sin(Math.PI * 0.15));
   ctx.arc(ax, ay + 0.5, 3, Math.PI * 0.15, Math.PI * 0.85);
-  ctx.stroke();
 }
 
 /** HUB1 (Mac: "a color coded circle indicator ... for distinguishing"): a region's hub sits in a coloured circle
