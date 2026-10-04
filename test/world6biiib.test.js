@@ -60,7 +60,9 @@ test('WORLD6b-iii(b): the session - a halo room is hello\'d into and posed into;
     assert.equal(hw.url, 'wss://relay.test/room/world:2,12', 'the halo\'s own room');
     assert.equal(s.inRoom('world:2,12'), false, 'not until it opens');
     hw.open();
-    assert.equal(hw.sent[0], JSON.stringify({ t: 'hello', id: 'mac-0001', secret: 'secret-of-mac-0001', name: 'Mac', look: s.look, pose }), 'the hello, my pose in it');
+    const helloTs = JSON.parse(hw.sent[0]).pose.ts;   // SCALE2b: the hello's pose is stamped with when it is said
+    assert.ok(Number.isInteger(helloTs));
+    assert.equal(hw.sent[0], JSON.stringify({ t: 'hello', id: 'mac-0001', secret: 'secret-of-mac-0001', name: 'Mac', look: s.look, pose: { ...pose, ts: helloTs } }), 'the hello, my pose in it');
     assert.equal(s.inRoom('world:2,12'), true); assert.equal(s.inRoom('world:3,12'), true); assert.equal(s.inRoom('world:9,9'), false);
     assert.equal(s.status, 'open', 'my own socket untouched'); assert.equal(s.room, 'world:3,12');
     hw.receive({ t: 'welcome', id: 'mac-0001', peers: [{ id: 'eve-0003', name: 'Eve', look, pose }, { id: 'bob-0002', name: 'Bob', look, pose }], host: null, world: null });
@@ -68,12 +70,13 @@ test('WORLD6b-iii(b): the session - a halo room is hello\'d into and posed into;
     // the pose goes to every room, the foes and the chat to my own
     now += 1000;
     assert.equal(s.sendPose({ ...pose, x: 5 }), true);
-    assert.equal(ws.sent.at(-1), JSON.stringify({ t: 'pose', p: { ...pose, x: 5 } })); assert.equal(hw.sent.at(-1), JSON.stringify({ t: 'pose', p: { ...pose, x: 5 } }), 'the halo hears my pose');
+    const said = JSON.stringify({ t: 'pose', p: { ...pose, x: 5, ts: JSON.parse(ws.sent.at(-1)).p.ts } });   // SCALE2b: stamped - and the SAME stamp on both rooms' copies
+    assert.equal(ws.sent.at(-1), said); assert.equal(hw.sent.at(-1), said, 'the halo hears my pose');
     const foes = { n: 1, k: 'world:3,12', full: 1, f: [] };
     assert.equal(s.sendFoes(foes), true);
-    assert.equal(ws.sent.at(-1), JSON.stringify({ t: 'foes', data: foes })); assert.equal(hw.sent.at(-1), JSON.stringify({ t: 'pose', p: { ...pose, x: 5 } }), 'no foes frame to the halo: my own cell\'s fan reaches everyone in range');
+    assert.equal(ws.sent.at(-1), JSON.stringify({ t: 'foes', data: foes })); assert.equal(hw.sent.at(-1), said, 'no foes frame to the halo: my own cell\'s fan reaches everyone in range');
     assert.equal(s.sendChat('hello'), true);
-    assert.equal(ws.sent.at(-1), JSON.stringify({ t: 'chat', text: 'hello' })); assert.equal(hw.sent.at(-1), JSON.stringify({ t: 'pose', p: { ...pose, x: 5 } }), 'nor a line');
+    assert.equal(ws.sent.at(-1), JSON.stringify({ t: 'chat', text: 'hello' })); assert.equal(hw.sent.at(-1), said, 'nor a line');
     // Eve's foes and her foe's blow at me come through the halo
     const evesFoes = { n: 1, k: 'world:2,12', full: 1, f: [] };
     hw.receive({ t: 'foes', id: 'eve-0003', data: evesFoes });

@@ -56,7 +56,7 @@ function strictRoom(key) {
       send(s) { this.sent.push(JSON.parse(s)); },
       close(c, r) { this.closed = { code: c, reason: r }; const i = sockets.indexOf(ws); if (i >= 0) sockets.splice(i, 1); },
       serializeAttachment(a) { this.att = JSON.parse(JSON.stringify(a)); }, deserializeAttachment() { return this.att; } };
-    state.acceptWebSocket(ws); return ws;
+    state.acceptWebSocket(ws); room._adopt?.(ws, ws.att); return ws;   // SCALE2b: in by the object's door, as Room.fetch's
   };
   return { room, connect, token, get maxKeys() { return maxKeys; } };
 }

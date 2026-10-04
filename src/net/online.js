@@ -77,8 +77,9 @@ import { wrapAngle } from '../world/mat4.js';   // ONCRASH1: the port's one angl
 
 import { isGateRoom } from './gateLaw.js';   // WB3: a gate's arena is one room of its own
 import { isBattleRoom, isRoyalRoom } from './siegeRef.js';   // SEAT2a part four: a siege's battle is one room of its own   // CROWN1 part two: and a Royal Tourney's
+import { privateInteriorOf } from './privateInterior.js';   // NET-SMOOTH: an owned interior's poses are MapsFile's frame
 import { isArenaRoom, validArenaIn } from './arenaLaw.js';   // ARENA4: the arena's hall and its bouts
-import { poseChanged, SOCKETS_MAX, WORLD_CELL, RANGE_PIXELS, PIXEL_UNITS, CLOSE_REPLACED, CLOSE_POLICY, CLOSE_BUSY, WORLD_FRAME_MAX, worldFrameMaxFor, isCellRoom, hitOwnerOf, validPose, validLook, sanitizeName, readBadge, readAura, readRibbon, sanitizeChat, chatGate, redGate, dmGate, relaySupportsDm, muteGate, subOf, mutedUntilOf, worldRoom, inRange, relayUrl, isWorldRoom, isChatRoom, foesGate, FOES_FRAME_MAX, MAX_FRAME_BYTES, hitGate, actGate, actFrameFits, whoGate, WHO_RETRY_MS, HEARTBEAT_MS, PING_MS, relayVersionOf, chatInGate, CHAT_ROOM_HZ_MAX, socialGate, partyGate, validPartyPose, validSocialFrame, validPartyFrame, PARTY_SEND_MS, validSocialAct, socialInGate, noteInGate, partyInGate, SOCIAL_IN_HZ_MAX, NOTE_IN_HZ_MAX, INBOUND_FRAME_MAX, questInGate, validQuestFrame, QUEST_SEND_MS, QUEST_HUB_MIN_MS, PARTY_MAX, tokenGate, validTradeData, tradeGate, tradeInGate, validCastData, castGate, castInGate, CAST_FRAME_MAX, CAST_IN_HZ_MAX, relaySupportsCast, TRADE_IN_HZ_MAX, relaySupportsTrade, TRADE_FRAME_MAX, parkGate, relaySupportsPark, PARK_CELL_MAX, PARK_KEY_RE, PARK_TTL_MS, relaySupportsChannels, CHAT_LINE_CHANNELS, partyChatInGate, PARTY_CHAT_ROOM_HZ_MAX, relaySupportsRoll, rollGate, validRollSpec, validRoll, relaySupportsEmote, validCardData, cardGate, cardInGate, CARD_FRAME_MAX, CARD_IN_HZ_MAX, relaySupportsCard, validPageData, pageGate, pageInGate, PAGE_FRAME_MAX, PAGE_IN_HZ_MAX, relaySupportsPage, validDuelData, duelGate, duelInGate, DUEL_FRAME_MAX, DUEL_IN_HZ_MAX, relaySupportsDuel, readRenown, renownGate, relaySupportsRenown, RENOWN_ORDER_KEEP_MS, RENOWN_RESEND_MS, lookGate, relaySupportsLook, relaySupportsPartyTravel, relaySupportsRestOpt, relaySupportsEvent, relayKnowsLiveEvent, eventGate, validLiveEvent, LIVE_EVENTS, isSocialRoom, validGateIn, validGateOut, gateGate, relaySupportsGate, relaySupportsOwn, relaySupportsGateSpent, relaySupportsGateSite, relaySupportsGateHeal, gatePlaceWire, readGuildTag, relaySupportsGuild, GUILD_ORDER_KEEP_MS, guildChatInGate, GUILD_CHAT_ROOM_HZ_MAX, validRaidIn, validRaidOut, raidGate, relaySupportsRaid, validRaidTownsIn, isRegionRoom, validTravellerMark, validTravellerFrame, relaySupportsTravellers, travInGate, TRAV_SEND_MIN_MS, TRAV_WELCOME_MAX, TRAV_STALE_MS, relaySupportsPartyWalk, relaySupportsPartyMap, validAmapFrame, amapBody, AMAP_SEND_MS, AMAP_HUB_MIN_MS, validSiegeIn, validSiegeOut, siegeGate, relayFightsBattles, relayRunsRoyal, validRiteIn, validRiteOut, riteGate, relaySupportsRite, arenaGate, relaySupportsArena, readArenaOut } from './wire.js';   // SOC2: the hub's law, at home; AUDIT SOC B3/B11/B20: the act's projection, the inbound gates, the inbound bound
+import { poseChanged, POSE_TS_MOD, poseTsDiff, SOCKETS_MAX, WORLD_CELL, RANGE_PIXELS, PIXEL_UNITS, CLOSE_REPLACED, CLOSE_POLICY, CLOSE_BUSY, WORLD_FRAME_MAX, worldFrameMaxFor, isCellRoom, hitOwnerOf, validPose, validLook, sanitizeName, readBadge, readAura, readRibbon, sanitizeChat, chatGate, redGate, dmGate, relaySupportsDm, muteGate, subOf, mutedUntilOf, worldRoom, inRange, relayUrl, isWorldRoom, isChatRoom, foesGate, FOES_FRAME_MAX, MAX_FRAME_BYTES, hitGate, actGate, actFrameFits, whoGate, WHO_RETRY_MS, HEARTBEAT_MS, PING_MS, relayVersionOf, chatInGate, CHAT_ROOM_HZ_MAX, socialGate, partyGate, validPartyPose, validSocialFrame, validPartyFrame, PARTY_SEND_MS, validSocialAct, socialInGate, noteInGate, partyInGate, SOCIAL_IN_HZ_MAX, NOTE_IN_HZ_MAX, INBOUND_FRAME_MAX, questInGate, validQuestFrame, QUEST_SEND_MS, QUEST_HUB_MIN_MS, PARTY_MAX, tokenGate, validTradeData, tradeGate, tradeInGate, validCastData, castGate, castInGate, CAST_FRAME_MAX, CAST_IN_HZ_MAX, relaySupportsCast, TRADE_IN_HZ_MAX, relaySupportsTrade, TRADE_FRAME_MAX, parkGate, relaySupportsPark, PARK_CELL_MAX, PARK_KEY_RE, PARK_TTL_MS, relaySupportsChannels, CHAT_LINE_CHANNELS, partyChatInGate, PARTY_CHAT_ROOM_HZ_MAX, relaySupportsRoll, rollGate, validRollSpec, validRoll, relaySupportsEmote, validCardData, cardGate, cardInGate, CARD_FRAME_MAX, CARD_IN_HZ_MAX, relaySupportsCard, validPageData, pageGate, pageInGate, PAGE_FRAME_MAX, PAGE_IN_HZ_MAX, relaySupportsPage, validDuelData, duelGate, duelInGate, DUEL_FRAME_MAX, DUEL_IN_HZ_MAX, relaySupportsDuel, readRenown, renownGate, relaySupportsRenown, RENOWN_ORDER_KEEP_MS, RENOWN_RESEND_MS, lookGate, relaySupportsLook, relaySupportsPartyTravel, relaySupportsRestOpt, relaySupportsEvent, relayKnowsLiveEvent, eventGate, validLiveEvent, LIVE_EVENTS, isSocialRoom, validGateIn, validGateOut, gateGate, relaySupportsGate, relaySupportsOwn, relaySupportsGateSpent, relaySupportsGateSite, relaySupportsGateHeal, gatePlaceWire, readGuildTag, relaySupportsGuild, GUILD_ORDER_KEEP_MS, guildChatInGate, GUILD_CHAT_ROOM_HZ_MAX, validRaidIn, validRaidOut, raidGate, relaySupportsRaid, validRaidTownsIn, isRegionRoom, validTravellerMark, validTravellerFrame, relaySupportsTravellers, travInGate, TRAV_SEND_MIN_MS, TRAV_WELCOME_MAX, TRAV_STALE_MS, relaySupportsPartyWalk, relaySupportsPartyMap, validAmapFrame, amapBody, AMAP_SEND_MS, AMAP_HUB_MIN_MS, validSiegeIn, validSiegeOut, siegeGate, relayFightsBattles, relayRunsRoyal, validRiteIn, validRiteOut, riteGate, relaySupportsRite, arenaGate, relaySupportsArena, readArenaOut } from './wire.js';   // SOC2: the hub's law, at home; AUDIT SOC B3/B11/B20: the act's projection, the inbound gates, the inbound bound
 import { RAID_TOWNS_CHUNK } from './raidLaw.js';   // RAID-ROLL: the towns table's pieces
 import { owGate, validOwIn, validOwOut, relaySupportsOverworld, OW_WORD_IDS_MAX, OW_WORD_ROWS_MAX } from './wire.js';   // OW6L: the overworld ledger's frame, both ways
 import { owIdInCell, owRowInCell, owRowSane } from './overworldLaw.js';   // OW6L: and the cell's law, held at home before a word is said
@@ -157,6 +158,9 @@ export const BACKOFF_MIN_MS = 1000;
 export const BACKOFF_MAX_MS = 8000;
 /** How often a world room's host publishes the room's memory (WORLD1); the relay drops one sooner than WORLD_MIN_MS. */
 export const WORLD_PUBLISH_MS = 15000;
+/** SCALE2b: a host whose room's memory has not changed says it again at least this often (world.js worldPublish skips
+ *  an unchanged memory otherwise - the room already holds it). */
+export const WORLD_REPUBLISH_MS = 5 * 60 * 1000;
 /** WORLD2: how often the host streams its changed foes (5 a second - under FOES_HZ_MAX with room for a burst). */
 export const FOES_MS = 200;
 /** WORLD2: how often the stream carries EVERY layout foe, not the changed alone - a dropped delta heals within it. */
@@ -243,6 +247,121 @@ export function lerpPose(from, to, t) {
 
 /** The distance between two poses on the ground. */
 const groundDist = (a, b) => Math.hypot(a.x - b.x, a.z - b.z);
+
+// ═══ NET-SMOOTH (2026-10-04, Mac: "Sometimes other players rubberband, I want to continue to improve performance and
+// future proof for larger amounts of players") ════════════════════════════════════════════════════════════════════
+//
+// FOUR CAUSES OF A PEER DRAWN JUMPING BACK OR DASHING, all of them here, none needing the relay:
+//   1. THE SNAP IN THE WRONG UNITS. The scene frame's snap (SNAP_SCENE_UNITS, 30 - metres in a dungeon) was taken for
+//      every room not named `world:` - but a siege's battle, a Royal Tourney and an owned interior or boat carry their
+//      poses in MapsFile's frame too (scenes/world.js `nativeFrame`), 40 to the metre: a 0.75 m snap, so a runner at
+//      10 Hz (0.8 m a pose) teleported on nearly every pose. The snap is the ROOM's frame's now (nativePoseRoom).
+//   2. ONE POSE, SEVERAL ROOMS, NO ORDER. A player's pose goes down its cell's socket AND every halo's (sendPose), each
+//      room a Durable Object of its own; a listener sharing two of them hears it twice, and the two copies need not
+//      arrive in order. Only an identical copy was dropped (C6) - an OLDER copy landing second was eased toward, and
+//      the peer walked backwards. The frame carries no sequence to order them by, so a peer is heard through ONE room
+//      at a time (`src`): another room's copy says the peer is alive and moves nothing, until the source falls silent
+//      (SOURCE_STALE_GAPS intervals, SOURCE_STALE_MIN_MS at least) or lets the peer go - or the other room proves itself
+//      AHEAD, bringing the source's own poses sooner (SOURCE_LEADS in a row), and takes the peer. One socket's frames
+//      arrive in the order they were sent.
+//   3. A HELLO'S POSE REPLAYED. A peer opening a halo is announced to that room by a `join` carrying the pose it said
+//      hello with, and a halo of mine opening hears a roster of the poses that room last held - each older than what
+//      the peer's source room is saying. An introduction's pose moves a peer only from its source room, or when no
+//      source is live.
+//   4. AN EASE THAT RESTARTED ON EVERY POSE. It ran from where the peer was drawn to the newest pose over the newest
+//      interval between ARRIVALS (halved at most per pose, SLAM10) - so a stall's backlog, landing in one burst, cut
+//      the corners at up to 4x and parked the peer between; and it restarted from where the peer was drawn the frame
+//      BEFORE, so every pose cost the peer one frozen frame. A peer is PLAYED OUT now: its poses are waypoints on a
+//      path (`path`), spaced in the peer's own time (`c`, ms of its walk), and a cursor (`cur`) walks the path at a
+//      rate (`rate`) set at each arrival from how much path is still ahead of it (rateFor) - kept one interval and a
+//      jitter cushion ahead, never faster than PLAY_RATE_MAX (twice the peer's pace) to catch up, never slower than PLAY_RATE_MIN
+//      to let the cushion fill. The cushion is the farthest of the recent intervals from the cadence (cushionOf). A
+//      backlog is walked at twice the pace, never dashed across; a line that jitters walks on its cushion instead of
+//      stopping at every late pose.
+//      The interval is the MEDIAN of the last CADENCE_SAMPLES intervals between moves (cadenceOf): an interval under
+//      GAP_MIN_MS (faster than any client may speak - two poses delivered together) or past PAUSE_MS (a pause) is not
+//      counted. A pose's own segment of the path is that interval (segmentFor), unless its own spacing says the rate
+//      has changed before the median can: under 1/FAST_SHARE of it, a faster rate (the far tier promoting me); past
+//      twice it after a moving pose, a slower rate or a stall - walked over half the silence, at most twice the pace.
+
+/** NET-SMOOTH 1: the rooms whose poses are MapsFile's frame (scenes/world.js `nativeFrame`): a world cell, a siege's
+ *  battle or a Royal Tourney (the overworld's own rooms), and an owned interior or boat. */
+export const nativePoseRoom = (key) => isCellRoom(key) || isBattleRoom(key) || !!privateInteriorOf(key);
+/** NET-SMOOTH 1: the snap distance for a pose heard in this room, in that room's own units. */
+export const snapUnitsFor = (key) => (nativePoseRoom(key) ? SNAP_WORLD_UNITS : SNAP_SCENE_UNITS);
+/** NET-SMOOTH 4: how many of a peer's last intervals its cadence is the median of - five, so two late or early poses
+ *  never move it and a real change of rate (a crowd, the relay's far tier) is taken in three. */
+export const CADENCE_SAMPLES = 5;
+/** NET-SMOOTH 4: a silence longer than this is a pause (the peer stood still, or its line stalled), not a rate. Twice
+ *  GAP_MAX_MS, because GAP_MAX_MS is itself a real rate - the relay's far tier at a crowd's pace is one pose a second
+ *  exactly, and its jitter carries some intervals past it; between the two an interval counts as GAP_MAX_MS. */
+export const PAUSE_MS = 2 * GAP_MAX_MS;
+/** NET-SMOOTH 4: the bounds on the play-out rate - at most twice the peer's pace to catch up (SLAM10's own bound on a
+ *  catch-up), at least three quarters of it while the cushion fills. */
+export const PLAY_RATE_MAX = 2;
+export const PLAY_RATE_MIN = 0.75;
+/** NET-SMOOTH 4: a pose spaced under 1/FAST_SHARE of the cadence after the last is a faster rate starting. Three, so a
+ *  jittering line's early pose is not mistaken for one. */
+export const FAST_SHARE = 3;
+/** NET-SMOOTH 4: the most waypoints a peer's path holds - a longer backlog lets its oldest go past the segment being
+ *  walked (the path straightens; the peer's time along it is kept, so nothing dashes). */
+export const PATH_MAX = 8;
+/** NET-SMOOTH 2: a peer's source room is given up after this many of its intervals of silence, and never sooner than
+ *  SOURCE_STALE_MIN_MS. */
+export const SOURCE_STALE_GAPS = 3;
+export const SOURCE_STALE_MIN_MS = 500;
+/** NET-SMOOTH 2: another room that brought the source's pose at least SOURCE_LEAD_MIN_MS sooner, SOURCE_LEADS times in a
+ *  row, becomes the source; the last LEAD_KEEP poses another room brought are remembered to tell. */
+export const SOURCE_LEAD_MIN_MS = 25;
+export const SOURCE_LEADS = 3;
+export const LEAD_KEEP = 4;
+/** SCALE2b: a TIMED pose (one carrying its send time, wire.js `ts`) older than the newest applied is a late copy and
+ *  moves nothing - unless nothing newer has been applied for this long, when the sender's clock is taken to have
+ *  started over (a clock set back) and its stream is followed from there. */
+export const TS_RESYNC_MS = 2000;
+/** SCALE2b: how many of a timed peer's arrivals its play-out delay is read off - each one's lateness against its own
+ *  send time (`offs`); the earliest is the line's fastest, the spread is its jitter. */
+export const OFFSET_SAMPLES = 8;
+
+/** NET-SMOOTH 4: the median of a peer's sampled intervals, or the ordinary interval before any. Pure. */
+export function cadenceOf(samples) {
+  if (!Array.isArray(samples) || !samples.length) return 1000 / POSE_HZ;
+  const s = [...samples].sort((a, b) => a - b), mid = s.length >> 1;
+  return s.length % 2 ? s[mid] : (s[mid - 1] + s[mid]) / 2;
+}
+/** NET-SMOOTH 4: the jitter cushion - the farthest of the samples from the cadence, never more than the cadence itself.
+ *  The farthest, not a mean: the cushion is there for the late pose, and a cushion of the typical lateness is
+ *  overrun by every pose later than typical (on a line jittering 0-60 ms, twice the mean distance stood its peer still
+ *  on 12 frames in four seconds, and this on none). Pure. */
+export function cushionOf(samples, cadence) {
+  if (!Array.isArray(samples) || !samples.length) return 0;
+  return Math.min(cadence, Math.max(...samples.map((x) => Math.abs(x - cadence))));
+}
+/** NET-SMOOTH 4: the length of a new pose's segment, in the peer's own time: the cadence, or what the pose's own spacing
+ *  (`since`, null for the first) says before the median can - a faster rate, or after a MOVING pose a slower rate or a
+ *  stall, walked over half the silence (GAP_MAX_MS at most). Pure. */
+export function segmentFor(since, cadence, wasMoving) {
+  if (since == null || !(since >= GAP_MIN_MS)) return cadence;
+  if (since < cadence / FAST_SHARE) return since;
+  return wasMoving ? Math.max(cadence, Math.min(GAP_MAX_MS, since) / 2) : cadence;
+}
+/** NET-SMOOTH 4: the play-out rate once a pose lands - the path still ahead (`ahead`, ms of the peer's time) less the
+ *  cushion, walked over the next interval (the cadence, or the new segment when that is longer), within PLAY_RATE_MIN and
+ *  PLAY_RATE_MAX. A steady stream plays at exactly 1. A slower rate's segment (longer than the cadence: half its silence,
+ *  already up to twice the pace) is never played faster than 1. Pure. */
+export const rateFor = (ahead, cushion, cadence, segment) => Math.max(PLAY_RATE_MIN, Math.min(segment > cadence ? 1 : PLAY_RATE_MAX, (ahead - cushion) / Math.max(cadence, segment)));
+/** NET-SMOOTH 4: the pose drawn at `c` along a path of waypoints `{ pose, c }` (c ascending): the first before it
+ *  starts, the last once it is walked, eased between the two it falls between. Pure. */
+export function poseAlong(path, c) {
+  if (!Array.isArray(path) || !path.length) return null;
+  if (c <= path[0].c) return lerpPose(path[0].pose, path[0].pose, 0);
+  const last = path[path.length - 1];
+  if (c >= last.c) return lerpPose(last.pose, last.pose, 1);
+  let i = 0;
+  while (i < path.length - 2 && path[i + 1].c <= c) i++;
+  const a = path[i], b = path[i + 1];
+  return lerpPose(a.pose, b.pose, (c - a.c) / (b.c - a.c));
+}
 
 /** A token minted once and kept in storage under `key`, or fresh when storage will not keep it. */
 export function keptToken(storage, key, re, mint) {   // SOC2: exported for the ACCOUNT's pair (net/social.js accountId) - the same keeping, another storage
@@ -629,7 +748,7 @@ export class OnlineSession {
   _member(room, id, p, now, told = true) {
     this._roomSet(room).add(id);
     const have = this.peers.get(id);
-    if (have) { if (have.unconfirmed) this._confirm(have, room); if (told) this._refresh(have, p, now); return; }   // SLAM14 B2: named or heard here - confirmed here
+    if (have) { if (have.unconfirmed) this._confirm(have, room); if (told) this._refresh(have, p, now, room); return; }   // SLAM14 B2: named or heard here - confirmed here; NET-SMOOTH 3: heard in this room
     // SLAM9: A STRANGER THIS SESSION ONCE KNEW IS STOOD AS ITSELF. The welcome names the nearest ROSTER_MAX and prunes
     // the rest of the room's roster (the merge-not-wipe law is about the peers it DOES name); so one socket blip -
     // a Wi-Fi hiccup, a Durable Object eviction - dropped everyone past the nearest 64, and their next pose re-stood
@@ -713,6 +832,7 @@ export class OnlineSession {
   _unmember(room, id) {
     this._rooms.get(room)?.delete(id);
     const p = this.peers.get(id);
+    if (p?.src === room) p.src = null;   // NET-SMOOTH 2: the room that spoke for it let it go - the next room heard speaks
     if (p?.unconfirmed) this._confirm(p, room);   // SLAM14 B2: gone from this room is an answer too
     if (!this._held(id)) this.peers.delete(id);
   }
@@ -731,6 +851,7 @@ export class OnlineSession {
     for (const k of [...this._inAmap.keys()]) if (k.startsWith(`${room}|`)) this._inAmap.delete(k);   // PARTY-MAP
     this._inAmapRoom.delete(room);
     if (s) for (const id of s) if (!this._held(id)) this.peers.delete(id);
+    for (const p of this.peers.values()) if (p.src === room) p.src = null;   // NET-SMOOTH 2: nor is it anyone's source
   }
   _openHalo(room, backoff = BACKOFF_MIN_MS) {
     if (!this.url || !this._WS) return;
@@ -1189,7 +1310,7 @@ export class OnlineSession {
   /** The hello as the wire has it - the account beside the peer when this session holds one (SOC2: the hub link's;
    *  a session without it sends the hello every build before SOC1 sent, key for key). */
   _helloFrame() {
-    const frame = { t: 'hello', id: this.id, secret: this.secret, name: this.name, look: this.look, pose: this.presence ? this._pose : null };
+    const frame = { t: 'hello', id: this.id, secret: this.secret, name: this.name, look: this.look, pose: this.presence && this._pose ? { ...this._pose, ts: this._stampTs() } : null };   // SCALE2b: the hello's pose is a pose said now
     // ACC1d: only when there IS one. A `tok: null` would be a malformed
     // token rather than an absent one, and wire.js refuses that - which
     // is right, and is why the key is not written at all when empty.
@@ -1352,6 +1473,13 @@ export class OnlineSession {
     try { this._ws.send(JSON.stringify(o)); this.stats.sent++; return true; } catch { return false; }
   }
 
+  /** SCALE2b: this session's send time for a pose going out now (wire.js POSE_TS_MOD) - its wall clock in ms, never
+   *  less than one past the last it stamped, so two poses said in one millisecond still order. */
+  _stampTs() {
+    this._tsLast = Math.max((this._tsLast ?? -Infinity) + 1, Math.floor(this._now()));
+    return this._tsLast % POSE_TS_MOD;
+  }
+
   /** The frame's pose: sent at POSE_HZ when it moved, and every HEARTBEAT_MS regardless. A channel session refuses it (AUDIT CHAT D3). */
   sendPose(pose) {
     if (!this.presence) return false;
@@ -1363,8 +1491,10 @@ export class OnlineSession {
     // WORLD6b-iii(b): the halo rooms hear my pose too - their fans range me by it and their rosters place me. AUDIT
     // WORLD6b-iii(b) A5: through every OPEN socket, my own cell's down or not (the halos rode out nothing while the
     // fan sat behind the primary's send)
-    let went = this._send({ t: 'pose', p: pose });
-    if (this._halo.size) { const s = JSON.stringify({ t: 'pose', p: pose }); for (const [, h] of this._halo) if (h.status === 'open' && h.ws) { try { h.ws.send(s); this.stats.sent++; went = true; } catch { /* the close will say */ } } }
+    if (!(this._ws && this.status === 'open') && ![...this._halo.values()].some((h) => h.status === 'open' && h.ws)) return false;   // nowhere to say it: nothing stamped
+    const out = { ...pose, ts: this._stampTs() };   // SCALE2b: one send time for every room's copy - that is what lets a listener order them
+    let went = this._send({ t: 'pose', p: out });
+    if (this._halo.size) { const s = JSON.stringify({ t: 'pose', p: out }); for (const [, h] of this._halo) if (h.status === 'open' && h.ws) { try { h.ws.send(s); this.stats.sent++; went = true; } catch { /* the close will say */ } } }
     if (!went) return false;
     this._lastSent = { ...pose }; this._lastSentAt = now; this.stats.poses++;
     return true;
@@ -1376,7 +1506,7 @@ export class OnlineSession {
   sendDeath() {
     const last = this._pose ?? this._lastSent;
     if (!this.presence || !last) return false;
-    const s = JSON.stringify({ t: 'pose', p: { ...last, mv: 0, dd: 1 } });
+    const s = JSON.stringify({ t: 'pose', p: { ...last, mv: 0, dd: 1, ts: this._stampTs() } });
     let went = false;
     if (this._ws && this.status === 'open') { try { this._ws.send(s); this.stats.sent++; went = true; } catch { /* the close will say */ } }
     for (const [, h] of this._halo) if (h.status === 'open' && h.ws) { try { h.ws.send(s); this.stats.sent++; went = true; } catch { /* the close will say */ } }
@@ -2240,10 +2370,11 @@ export class OnlineSession {
         // its latest pose came on.
         if (!p.told || p.recall) p.heardIn = room;
         if (p.unconfirmed) this._confirm(p, room);   // SLAM14 B2: a pose is proof it is still here
-        this._arrive(p, pose, now); return;
+        this._arrive(p, pose, now, room); return;   // NET-SMOOTH 2: heard through this room
       }
       this._member(room, m.id, { id: m.id, name: null, look: null, pose: m.p }, now, false);   // sanitizeName's own default stands over its head until the answer lands
       const stood = this.peers.get(m.id);
+      if (stood && stood.src == null) { stood.src = room; stood.srcAt = now; }   // NET-SMOOTH 2: stood by a pose, this room speaks for it
       if (stood && (!stood.told || stood.recall)) stood.heardIn = room;   // the socket the ask goes down (`_askRound`) - the one this stranger is heard through
     } else if (m.t === 'chat') {
       // CHAT1: checked by the relay's own law (B7) - the id's shape, the name's, the line's; `mine` is the sender's own line back
@@ -2410,7 +2541,7 @@ export class OnlineSession {
   }
 
   /** A known peer said hello again: its name and look are the new ones, its pose arrives as any other. */
-  _refresh(p, m, now) {
+  _refresh(p, m, now, room = this.room) {
     p.name = sanitizeName(m.name); p.look = validLook(m.look); p.told = true; p.recall = false;   // SLAM6: an introduction, so the asks stop (SLAM14: the recall's too)
     // ACC3: THE NEWEST HELLO'S BADGE, whatever it is - including none.
     // A player who takes a title off and reconnects must lose it here
@@ -2424,34 +2555,139 @@ export class OnlineSession {
     if (subOf(m)) p.sub = subOf(m);   // MOD1: a place room's hello names no account; a channel's does - keep the one we were told
     this._remember(p.id, p);   // SLAM9: and it is kept, so a blip cannot un-introduce it
     const pose = validPose(m.pose);
-    if (pose) this._arrive(p, pose, now); else p.seenAt = now;
+    if (pose) this._arrive(p, pose, now, room, true); else p.seenAt = now;   // NET-SMOOTH 3: an introduction's pose, from this room
   }
 
-  /** A pose in: eased from where the peer is drawn, or snapped there when it jumped. */
-  _arrive(p, pose, now) {
-    if (p.pose && !poseChanged(p.pose, pose)) { p.seenAt = now; return; }   // AUDIT WORLD6b-iii(b) C6: the same pose again (through a second room, or a standing heartbeat) is seen, not re-eased
-    // SLAM3: how long this peer took between the last two poses it really moved on - the interval its own ease runs
-    // over. Bounded both ways: a burst must not make it snap, and a long silence must not make it crawl back.
-    // Measured MOVE to MOVE, never from the welcome: `at` is also stamped when a roster entry first names this peer,
-    // and the time between hearing OF somebody and seeing them move is not an interval they are keeping. A peer's
-    // first real move therefore has no gap yet and eases on the default.
-    // SLAM10 (AUDIT SLAM): AND THE INTERVAL MAY NOT COLLAPSE FASTER THAN BY HALF. The ease is a lag interpolator -
-    // `from` is where the peer is drawn, `to` the newest pose - so the drawn figure trails by one interval. When
-    // SLAM6 promotes me into a sender's near tier its interval falls from 1000 ms (one in POSE_FAR_SHARE at the
-    // crowd rate) to 250 ms in a single step, and the whole accumulated lag has to be burned inside one 250 ms
-    // segment: measured, a peer walking at 5 u/s was drawn at 20.6 u/s for a quarter second - a dash, under
-    // JUMP_UNITS so the rig plays the walk at 4x rather than snapping. Halving at most per pose caps the catch-up
-    // at twice the peer's real speed and converges in two intervals; growing is unbounded as before (a silence
-    // must still ceiling, not crawl), and the steady state is untouched.
-    if (p.movedAt != null) {
-      const g = Math.min(GAP_MAX_MS, Math.max(GAP_MIN_MS, now - p.movedAt));
-      p.gap = p.gap != null ? Math.max(g, p.gap * 0.5) : g;
+  /** A pose in: eased from where the peer is drawn, or snapped there when it jumped. NET-SMOOTH: heard through `room`,
+   *  and `intro` when it rode an introduction (a welcome's roster, a join) rather than a pose frame. */
+  _arrive(p, pose, now, room = this.room, intro = false) {
+    if (Number.isInteger(pose.ts)) return this._arriveTimed(p, pose, now, room, intro);   // SCALE2b: a pose that says when it was said
+    if (p.timed) { p.timed = false; p.path = null; p.cadence = []; }   // SCALE2b: a peer gone back to untimed poses (an older relay) starts its walk over
+    // NET-SMOOTH 2/3: ONE ROOM SPEAKS FOR A PEER. Another room's copy of a pose, or an introduction from a room that is
+    // not the source, says the peer is alive and moves nothing while the source is live.
+    const fromSource = p.src == null || p.src === room;
+    if (!fromSource && this._srcLive(p, now)) {
+      if (!intro) { (p.alts ??= []).push({ room, pose, at: now }); if (p.alts.length > LEAD_KEEP) p.alts.shift(); }
+      p.seenAt = now; return;
     }
+    if (!intro) {
+      // NET-SMOOTH 2: THE ROOM THAT IS AHEAD SPEAKS. The source is whichever room spoke first, and a slower Durable
+      // Object kept the peer late for as long as it lived. A pose the source brings that another room already brought
+      // SOURCE_LEAD_MIN_MS sooner is a lead; SOURCE_LEADS of them in a row hand that room the peer - at the moment it
+      // has just proven itself ahead, so its next pose is newer than anything the old source said.
+      const seen = p.src === room ? p.alts?.find((a) => a.room !== room && !poseChanged(a.pose, pose)) : null;
+      if (seen && now - seen.at >= SOURCE_LEAD_MIN_MS) {
+        p.leads = seen.room === p.leadRoom ? (p.leads ?? 0) + 1 : 1;
+        p.leadRoom = seen.room;
+      } else p.leads = 0;
+      p.src = room; p.srcAt = now;
+      if (p.leads >= SOURCE_LEADS && this._rooms.get(p.leadRoom)?.has(p.id) && this.inRoom(p.leadRoom)) { p.src = p.leadRoom; p.leads = 0; p.alts = []; }
+    }
+    if (p.pose && !poseChanged(p.pose, pose)) { p.seenAt = now; return; }   // AUDIT WORLD6b-iii(b) C6: the same pose again (through a second room, or a standing heartbeat) is seen, not re-eased
+    // SLAM3: the interval this peer keeps between the poses it really moved on, measured MOVE to MOVE (never from the
+    // welcome: hearing OF a peer is not an interval it keeps). NET-SMOOTH 4: the median of its last CADENCE_SAMPLES -
+    // it was the newest arrival's spacing, halved at most per pose (SLAM10), so a backlog's burst drew it to the floor.
+    const since = p.movedAt != null ? now - p.movedAt : null;
+    if (since != null && since >= GAP_MIN_MS && since <= PAUSE_MS) {
+      (p.cadence ??= []).push(Math.min(GAP_MAX_MS, since));
+      if (p.cadence.length > CADENCE_SAMPLES) p.cadence.shift();
+      p.gap = cadenceOf(p.cadence);
+    }
+    const wasMoving = !!(p.pose && (p.pose.mv | 0));
     p.movedAt = now;
-    const snap = String(this.room ?? '').startsWith('world:') ? SNAP_WORLD_UNITS : SNAP_SCENE_UNITS;
-    const from = p.shown && groundDist(p.shown, pose) <= snap ? { ...p.shown } : { ...pose };
-    p.from = from; p.pose = pose; p.at = now; p.seenAt = now;
-    p.shown = { ...from };
+    this._play(p, now);
+    const shown = (p.path?.length ? poseAlong(p.path, p.cur) : null) ?? p.shown ?? pose;   // where it is drawn NOW, not a frame ago
+    if (groundDist(shown, pose) > snapUnitsFor(room)) {   // NET-SMOOTH 1: in the units of the room it was heard in
+      p.path = [{ pose: { ...pose }, c: 0 }]; p.cur = 0; p.rate = 1; p.playAt = now;
+      p.from = { ...pose }; p.pose = pose; p.at = now; p.seenAt = now; p.shown = { ...pose };
+      return;
+    }
+    // NET-SMOOTH 4: A WAYPOINT, one segment past the last; the rate is set for the path now ahead of the cursor.
+    const cadence = p.gap ?? 1000 / POSE_HZ;
+    if (!p.path?.length) { p.path = [{ pose: { ...shown }, c: 0 }]; p.cur = 0; p.playAt = now; }
+    const end = p.path[p.path.length - 1].c, seg = segmentFor(since, cadence, wasMoving);
+    p.path.push({ pose: { ...pose }, c: end + seg });
+    if (p.path.length > PATH_MAX) p.path.splice(2, p.path.length - PATH_MAX);   // the oldest ahead past the one being walked
+    p.rate = rateFor(end + seg - p.cur, cushionOf(p.cadence, cadence), cadence, seg);
+    p.from = { ...shown }; p.pose = pose; p.at = now; p.seenAt = now;
+  }
+
+  /** SCALE2b: A TIMED POSE IN - one carrying its send time (wire.js `ts`), which the relay passes from world162 on.
+   *  What NET-SMOOTH had to guess, the sender now says:
+   *   - ORDER: the newest send time wins, whichever room brings it, and an older or repeated copy moves nothing - so
+   *     every pose arrives by the quickest room, and an introduction's old pose (a join, a roster) is simply older;
+   *   - SPACING: a waypoint's place on the path (`c`) is its send time, so the path is walked at the pace the sender
+   *     kept, not the pace the network delivered;
+   *   - DELAY: each arrival's lateness against its send time (`offs`) gives the line's fastest (the earliest) and its
+   *     jitter (the spread); the cursor is steered to the send time `now - D`, D = the fastest + one interval + the
+   *     jitter (at most one interval) - one interval so there is always a pose ahead of it, the jitter so a late one
+   *     still arrives before it is needed. Steady, that is a rate of exactly 1 whatever the line does; behind (a
+   *     backlog, a promotion to the near tier), at most PLAY_RATE_MAX; ahead, never under PLAY_RATE_MIN.
+   *  A standing peer's silence is not walked: a pose after a still one starts its move one interval before its send
+   *  time, and a moving one's segment is at most GAP_MAX_MS - the time before it stands at the last waypoint, and a
+   *  cursor waiting at the end of the path is moved across that dead time rather than racing it. */
+  _arriveTimed(p, pose, now, room, intro) {
+    if (!p.timed) {   // first timed pose, or back from untimed ones: the walk starts over from where the peer is drawn
+      p.timed = true; p.path = null; p.cadence = []; p.offs = []; p.tsU = null; p.movedU = null;
+      if (Number.isInteger(p.pose?.ts)) { p.tsRaw = p.pose.ts; p.tsU = p.pose.ts; p.tsAt = p.seenAt ?? now; }   // a roster's pose is the newest heard so far
+    }
+    let u;
+    if (p.tsU == null) u = pose.ts;
+    else {
+      const d = poseTsDiff(pose.ts, p.tsRaw);
+      if (d > 0) u = p.tsU + d;
+      else if (now - (p.tsAt ?? -Infinity) <= TS_RESYNC_MS) { p.seenAt = now; return; }   // a late copy, or the same one again
+      else { u = pose.ts; p.path = null; p.cadence = []; p.offs = []; p.movedU = null; }   // the sender's clock started over
+    }
+    p.tsRaw = pose.ts; p.tsU = u; p.tsAt = now; p.src = room; p.srcAt = now;
+    if (!intro) { p.offs.push(now - u); if (p.offs.length > OFFSET_SAMPLES) p.offs.shift(); }   // a roster's pose was said long ago: not a lateness
+    if (p.pose && !poseChanged(p.pose, pose)) { p.seenAt = now; return; }   // C6: the same pose, said again
+    const dt = p.movedU != null ? u - p.movedU : null;   // the interval the SENDER kept - no jitter in it
+    if (dt != null && dt >= GAP_MIN_MS && dt <= PAUSE_MS) {
+      p.cadence.push(Math.min(GAP_MAX_MS, dt));
+      if (p.cadence.length > CADENCE_SAMPLES) p.cadence.shift();
+      p.gap = cadenceOf(p.cadence);
+    }
+    const wasMoving = !!(p.pose && (p.pose.mv | 0));
+    p.movedU = u;
+    this._play(p, now);
+    const shown = (p.path?.length ? poseAlong(p.path, p.cur) : null) ?? p.shown ?? pose;
+    if (groundDist(shown, pose) > snapUnitsFor(room)) {   // NET-SMOOTH 1
+      p.path = [{ pose: { ...pose }, c: u }]; p.cur = u; p.rate = 1; p.playAt = now;
+      p.from = { ...pose }; p.pose = pose; p.at = now; p.seenAt = now; p.shown = { ...pose };
+      return;
+    }
+    const cadence = p.gap ?? 1000 / POSE_HZ;
+    if (!p.path?.length) { p.path = [{ pose: { ...shown }, c: u - cadence }]; p.cur = u - cadence; p.playAt = now; }
+    const end = p.path[p.path.length - 1].c, at = Math.max(u, end + 1);
+    const longest = wasMoving ? GAP_MAX_MS : cadence;
+    if (at - end > longest) p.path.push({ pose: { ...p.path[p.path.length - 1].pose }, c: at - longest });   // stood there till then
+    const startsAt = p.path[p.path.length - 1].c;
+    p.path.push({ pose: { ...pose }, c: at });
+    if (p.path.length > PATH_MAX) p.path.splice(2, p.path.length - PATH_MAX);
+    const offs = p.offs.length ? p.offs : [now - u];
+    const fastest = Math.min(...offs);
+    const target = now - (fastest + cadence + Math.min(cadence, Math.max(...offs) - fastest));
+    if (p.cur >= end && !wasMoving) p.cur = Math.max(p.cur, Math.min(target, startsAt));   // waiting at the end: the standing is skipped
+    p.rate = Math.max(PLAY_RATE_MIN, Math.min(PLAY_RATE_MAX, 1 + (target - p.cur) / cadence));
+    p.from = { ...shown }; p.pose = pose; p.at = now; p.seenAt = now;
+  }
+
+  /** NET-SMOOTH 4: the peer's cursor along its path, moved on to `now` at its rate; waypoints behind it let go. */
+  _play(p, now) {
+    if (!p.path?.length) return;
+    const end = p.path[p.path.length - 1].c;
+    p.cur = Math.min(end, (p.cur ?? 0) + Math.max(0, now - (p.playAt ?? now)) * (p.rate ?? 1));
+    p.playAt = now;
+    while (p.path.length > 1 && p.path[1].c <= p.cur) p.path.shift();
+  }
+
+  /** NET-SMOOTH 2: is a peer's source room still speaking for it - heard within SOURCE_STALE_GAPS of its intervals
+   *  (SOURCE_STALE_MIN_MS at least), still holding the peer, and a room this session still holds? */
+  _srcLive(p, now) {
+    if (p.src == null || p.srcAt == null) return false;
+    if (now - p.srcAt > Math.max(SOURCE_STALE_MIN_MS, SOURCE_STALE_GAPS * (p.gap ?? 1000 / POSE_HZ))) return false;
+    return !!this._rooms.get(p.src)?.has(p.id) && this.inRoom(p.src);
   }
 
   /** Once a frame, on the session's own clock: the retry, the easing
@@ -2485,13 +2721,12 @@ export class OnlineSession {
       // when the silence law hides it - the moment it would have vanished from the screen in any case
       if (p.unconfirmed && now - p.seenAt > PEER_TIMEOUT_MS) for (const room of Object.keys(p.unconfirmed)) this._unmember(room, p.id);
       if (!p.pose) continue;
-      // SLAM3: EASED OVER THE INTERVAL THIS PEER IS ACTUALLY KEEPING, not over an assumed 1/POSE_HZ. The assumption
-      // was already wrong for anyone on a slow line or a throttled tab - the ease finished early and the peer stood
-      // still until the next pose, which is the stutter AUDIT MWBODY A8 describes for the yaw - and SLAM3 makes it
-      // wrong for EVERYONE in a crowd, because a crowded sender deliberately speaks less often. The gap is measured
-      // at arrival and bounded, so one late frame cannot make a peer crawl.
-      const t = (now - p.at) / (p.gap ?? (1000 / POSE_HZ));
-      p.shown = lerpPose(p.from ?? p.pose, p.pose, t);
+      // SLAM3: EASED OVER THE INTERVAL THIS PEER IS ACTUALLY KEEPING, not over an assumed 1/POSE_HZ - a crowded sender
+      // deliberately speaks less often. NET-SMOOTH 4: walked along its waypoints (`path`, written by _arrive), the ones
+      // already passed let go; a peer with none yet stands at its pose.
+      if (!p.path?.length) { p.path = [{ pose: { ...(p.shown ?? p.pose) }, c: 0 }]; p.cur = 0; p.rate = 1; p.playAt = now; }
+      this._play(p, now);
+      p.shown = poseAlong(p.path, p.cur);
     }
   }
 

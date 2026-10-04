@@ -70,9 +70,9 @@ test('HELM-WAY her way on and off: under sail the responsive helm gathers way at
   near(quick.s.rt.properties.turnAccel(), classic.s.rt.properties.turnAccel() * HELM_WAY.turnAccelSail, 1e-5, 'the helm');
   for (const h of [classic, quick]) h.s.rt.LowerSails();
   near(quick.s.rt.properties.moveAccel(), classic.s.rt.properties.moveAccel() * HELM_WAY.coast, 1e-5, 'the coast, sails struck');
-  for (const h of [classic, quick]) h.s.held.add('MoveForwards');
+  for (const h of [classic, quick]) h.s.rt.state.oarThrottle = 1;   // HELM-LADDER: the oars pulling ahead at their rung
   near(quick.s.rt.properties.moveAccel(), classic.s.rt.properties.moveAccel(), 1e-9, 'the oars pulled: the mod\'s own');
-  for (const h of [classic, quick]) { h.s.held.clear(); h.s.held.add('MoveRight'); }
+  for (const h of [classic, quick]) { h.s.rt.state.oarThrottle = 0; h.s.held.clear(); h.s.held.add('MoveRight'); }
   near(quick.s.rt.properties.turnAccel(), classic.s.rt.properties.turnAccel(), 1e-9, 'an oar turn: the mod\'s own');
   assert.ok(HELM_WAY.sailAccel > 1 && HELM_WAY.coast > 1 && HELM_WAY.turnAccelSail > 1);
 });

@@ -5,7 +5,7 @@
 // glyph, online players only), and a look of its own (world/sunbabySky.js, render/sunbabySkyRenderer.js).
 //
 // THE PINS, BY THE DOOR THEY GUARD:
-//   the wire     - the word appended; the relay that first knows it (an older one CLOSES the socket on a word it does
+//   the wire     - the word appended; the relay that first knows it (world163) (an older one CLOSES the socket on a word it does
 //                  not know, so knowing the frame is not enough)
 //   the relay    - a REAL Room: a dev stages the sun baby in the hub, kept and said on a late joiner's welcome
 //   the session  - the word staged only on a relay that knows it
@@ -45,12 +45,12 @@ test('SUNBABY1 wire: the sun baby is a live event word, appended after the dread
   assert.equal(validLiveEvent({ kind: 'sunbaby', at: 1_700_000_000_000 }), true);
 });
 
-test('SUNBABY1 wire: each word is staged only on a relay that knows IT - the sun baby from world162, the dread from EVENT1\'s world110; a word with no row is known by none (mutants: the row at world161; the row check dropped)', () => {
+test('SUNBABY1 wire: each word is staged only on a relay that knows IT - the sun baby from world163, the dread from EVENT1\'s world110; a word with no row is known by none (mutants: the row at world162; the row check dropped)', () => {
   assert.deepEqual(Object.keys(LIVE_EVENT_RELAY_MIN), [...LIVE_EVENTS], 'one row a word, in the words\' order');
   assert.equal(LIVE_EVENT_RELAY_MIN.dread, EVENT_RELAY_MIN);
-  assert.equal(LIVE_EVENT_RELAY_MIN.sunbaby, 162);
-  assert.equal(relayKnowsLiveEvent('world161', 'sunbaby'), false, 'world161 answers the word "bad stage" and closes the socket');
-  assert.equal(relayKnowsLiveEvent('world162', 'sunbaby'), true);
+  assert.equal(LIVE_EVENT_RELAY_MIN.sunbaby, 163);
+  assert.equal(relayKnowsLiveEvent('world162', 'sunbaby'), false, 'world162 (PRIMARCH) answers the word "bad stage" and closes the socket');
+  assert.equal(relayKnowsLiveEvent('world163', 'sunbaby'), true);
   assert.equal(relayKnowsLiveEvent('world161', 'dread'), true);
   assert.equal(relayKnowsLiveEvent('world109', 'dread'), false);
   assert.equal(relayKnowsLiveEvent(RELAY_VERSION, 'sunbaby'), true, 'the relay this build ships knows it');
@@ -87,12 +87,12 @@ const session = () => {
 };
 const welcome = (extra = {}) => JSON.stringify({ t: 'welcome', id: 'peer-0001', peers: [], n: 1, v: RELAY_VERSION, now: Date.now(), ...extra });
 
-test('SUNBABY1 session: /event sunbaby is sent only to a relay that knows the word - a world161 hub knows the frame and the dread but would close on this; the end ("") is any stage relay\'s (mutants: the word gate dropped; the version never kept)', () => {
+test('SUNBABY1 session: /event sunbaby is sent only to a relay that knows the word - a world162 hub knows the frame and the dread but would close on this; the end ("") is any stage relay\'s (mutants: the word gate dropped; the version never kept)', () => {
   const { s } = session();
   const out = [];
   s._send = (f) => { out.push(f); return true; };
-  s._receive(welcome({ v: 'world161' }));
-  assert.equal(s.eventOk, true, 'world161 knows the stage frame');
+  s._receive(welcome({ v: 'world162' }));
+  assert.equal(s.eventOk, true, 'world162 knows the stage frame');
   assert.equal(s.sendStage('sunbaby'), false, 'but not the word');
   assert.deepEqual(out, []);
   assert.equal(s.sendStage('dread'), true, 'the dread it knows');

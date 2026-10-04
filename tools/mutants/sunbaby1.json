@@ -7,10 +7,10 @@
     "tests": ["test/sunbaby1_event.test.js"]
   },
   {
-    "name": "SUNBABY1-wire-row-at-161",
+    "name": "SUNBABY1-wire-row-at-162",
     "file": "src/net/wire.js",
-    "old": "export const LIVE_EVENT_RELAY_MIN = Object.freeze({ dread: EVENT_RELAY_MIN, sunbaby: 162 });",
-    "new": "export const LIVE_EVENT_RELAY_MIN = Object.freeze({ dread: EVENT_RELAY_MIN, sunbaby: 161 });",
+    "old": "export const LIVE_EVENT_RELAY_MIN = Object.freeze({ dread: EVENT_RELAY_MIN, sunbaby: 163 });",
+    "new": "export const LIVE_EVENT_RELAY_MIN = Object.freeze({ dread: EVENT_RELAY_MIN, sunbaby: 162 });",
     "tests": ["test/sunbaby1_event.test.js"]
   },
   {
