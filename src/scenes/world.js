@@ -6039,9 +6039,9 @@ export async function bootWorld(canvas, renderer, params, status) {
     return true;
   }
   function csaSyncColliders() {
-    const col = csaModeCollider();
+    const col = modes?.sailingCabin ? collider : csaModeCollider();   // CABIN-HULL (FIELD BUGS 2026-10-03b, Regi: "i got into my boats interior and then got out and i'm in the void"): below deck the fleet stays afloat OUTSIDE (keepExteriorBoats) - in the street's collider, never the room's. The cabin is built at her own root, so her decks stood in the room as floors and walls (the ladder's box and the helm's rows within reach of a press), and the deck the way out lands on had gone with the room
     const want = new Set();
-    const peers = (modes?.mode ?? 'exterior') === 'exterior' ? csa.peerBoats : [];   // FIELD BUGS 2026-10-01b (Mac: "Players aren't colliding with other players' boats and can't stand on board"): ANOTHER PLAYER'S BOAT STANDS IN MY COLLIDER AS MINE DOES - every one that stands, her hull and her deck's furniture, aboard her or not. CSA-K stood one only while I was aboard it (PR-WAGON1's "Others' wagons don't block", which Mac's word sets aside for boats): her hull was walked and swum through and her deck no floor to step, climb or come up onto (scenes/comeSailAwayAboard.js: standing on her is aboard her). THE FOUR HOSTS: on the street alone, this host's - a building's frame (worldModes.js) and a dungeon's (dungeonContext.js) stand no one's boat, and the standalone street (exterior.js) has no peers
+    const peers = (modes?.mode ?? 'exterior') === 'exterior' || modes?.sailingCabin ? csa.peerBoats : [];   // CABIN-HULL: and every peer's, below deck as on deck; FIELD BUGS 2026-10-01b (Mac: "Players aren't colliding with other players' boats and can't stand on board"): ANOTHER PLAYER'S BOAT STANDS IN MY COLLIDER AS MINE DOES - every one that stands, her hull and her deck's furniture, aboard her or not. CSA-K stood one only while I was aboard it (PR-WAGON1's "Others' wagons don't block", which Mac's word sets aside for boats): her hull was walked and swum through and her deck no floor to step, climb or come up onto (scenes/comeSailAwayAboard.js: standing on her is aboard her). THE FOUR HOSTS: on the street alone, this host's - a building's frame (worldModes.js) and a dungeon's (dungeonContext.js) stand no one's boat, and the standalone street (exterior.js) has no peers
     for (const boat of peers.length ? [...csaColliderBoats(), ...peers] : csaColliderBoats()) {   // NAV-H: and the sea's ships near enough to board and to ram
       if (!boat.GameObject?.activeSelf) continue;
       const id = csaBoatId(boat);
@@ -6203,7 +6203,7 @@ export async function bootWorld(canvas, renderer, params, status) {
    * DefaultActivationDistance while its bed sleeping is on (RoleplayRealism.cs:124-129) - and nothing's else.
    */
   function csaActivationPick(eye, dir) {
-    if (!csaRuntime) return null;
+    if (!csaRuntime || modes?.sailingCabin) return null;   // CABIN-HULL: below deck no boat's box or hull answers a press - a hull press opened her rows in the room, and Board or the helm stood me on her deck still in the building's frame: her hull drawn in the black, nothing else (the void)
     let best = null;
     for (const boat of csa.boats) {
       if (!boat.GameObject?.activeSelf) continue;
@@ -6234,7 +6234,7 @@ export async function bootWorld(canvas, renderer, params, status) {
    * pick YIELDS (PR-WAGON1): anything firm under the ray takes the press first, a boat of mine among them.
    */
   function csaPeerActivationPick(eye, dir) {
-    if (!csaOn()) return null;
+    if (!csaOn() || modes?.sailingCabin) return null;   // CABIN-HULL: nor another's
     const p = csaAboard.pick(eye, dir, RAY_DISTANCE);
     if (!p) return null;
     const wall = csaModeCollider()?.raycastHit(eye, dir, p.distance, _csaBuckets.size ? { skip: _csaBuckets.keys() } : null);
@@ -6360,7 +6360,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     });
   };
   const csaActivate = (pick) => {
-    if (pick?.peer) { csaPeerActivate(pick); return; }   // CSA-K
+    if (modes?.sailingCabin) return;   /* CABIN-HULL: nothing of a boat is pressed below deck, whoever holds the pick */ if (pick?.peer) { csaPeerActivate(pick); return; }   // CSA-K
     if (pick?.bed) {
       if (pick.distance <= DEFAULT_ACTIVATION_DISTANCE) { if ((modes?.mode ?? 'exterior') === 'exterior') { _restFromBed = true; try { toggleRest(); } finally { _restFromBed = false; } } else modes?.restFromBed?.(); }
       return;
@@ -21757,8 +21757,8 @@ export async function bootWorld(canvas, renderer, params, status) {
     // (and DISC23-B's walkers: a peer standing as their chosen set gives the class sprite way just the same, so the
     // merge of the two hands their batches here too)
     extraBillboards: () => [...(remotePlayers?.batches() ?? []), ...(peerRiders?.batches() ?? []), ...(peerWalkers?.batches() ?? []), ...(gateCourt?.batches() ?? []), ...(csaOn() ? csa.batches() : []), ...((modes?.mode ?? 'exterior') === 'dungeon' ? arenaBouts.batches() : [])],   // WB4: and the Burning Court's boss; CSA-C: a boat's crew and lanterns where it stands indoors
-    drawModeMeshes: () => { if (csaOn()) { csa.draw(renderer); csaDrawParticlesOpaque(); } },   // CSA-C: a boat placed on a dungeon's water (UpdateBoatVisibility's inside arm keeps it active there); CSA-F: its wake's and splashes' quads and its flag
-    csaDrawParticlesBlended: () => { if (csaOn()) csaDrawParticlesBlended(); },   // CSA-F: ...and its drops, after the mode's last world draw
+    drawModeMeshes: () => { if (csaOn() && !modes?.sailingCabin) { csa.draw(renderer); csaDrawParticlesOpaque(); } },   // CSA-C: a boat placed on a dungeon's water (UpdateBoatVisibility's inside arm keeps it active there); CSA-F: its wake's and splashes' quads and its flag; CABIN-HULL: never in a ship's cabin - the fleet kept afloat there is the street's, and her hull drawn round the room cut its floor into planks and holes
+    csaDrawParticlesBlended: () => { if (csaOn() && !modes?.sailingCabin) csaDrawParticlesBlended(); },   // CSA-F: ...and its drops, after the mode's last world draw (CABIN-HULL: none below deck)
     modeLights: () => (csaOn() ? csa.lights(cam.pos) : []),   // CSA-C: ...and its lit lanterns
     csaActivationPick: (eye, dir) => csaActivationPick(eye, dir),   // CSA-D: ...and the one ray on it, in the building's or the dungeon's ladder
     csaActivate: (pick) => csaActivate(pick),
