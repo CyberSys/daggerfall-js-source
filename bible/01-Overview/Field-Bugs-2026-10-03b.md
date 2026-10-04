@@ -1,4 +1,4 @@
-# FIELD BUGS 2026-10-03b - the trees on the hills drawn, a questor seated in the town as it stands, the Totem riding its cage, the Aetheric pieces the maker refuses, a ship's cabin without her hull
+# FIELD BUGS 2026-10-03b - the trees on the hills drawn, a questor seated in the town as it stands, a shared quest's vermin alike, the Totem riding its cage, the Aetheric pieces the maker refuses, a ship's cabin without her hull
 
 The Discord's bug reports of 2026-10-03, handed over as screenshots: *"Floating trees in Tamhope"* (Rissa), *"Bugged
 Quest"* (RyuDouro: "the NPC to deliver no longer exists in the same shop"; TutucoGOD: "the NPC doesn't exist on the
@@ -12,6 +12,7 @@ by tests that fail on the record's own code (14cd193b1), the new pins mutation-c
 |---|---|---|---|
 | 1 | "Floating trees in Tamhope" (Rissa) | six Beautiful Villages blocks stand TEXTURE.504's trees on the RMB Resource Pack's hills at the author's heights, and the port's stand-in mounds are a fraction of the pack's size - 121 of 130 trees hung more than 1.5 m over what is drawn | TREES-SEATED |
 | 2 | "me and my friend cant deliver quest because the NPC to deliver no longer exists in the same shop" (RyuDouro) / "I can't deliver a quest because the NPC doesn't exist on the location provide" (TutucoGOD) | a `group Questor` is known to the return click by four numbers its building's block mints; #545 laid the towns out again online, where a save's records pin nothing, so a quest taken before it named nobody - and the reseat moved the questor's hall to the town's apothecary (a P2 of 0 read as Alchemist) | QUESTOR-MOVED |
+| 3 | "Every time we look around inside the guild nothing seems to have spawned, even though the first spider did spawn and we killed it" (Starempire42) | each copy of a shared quest rolled The Exterminator's `pick one of` itself and the resync traded the picks at every kill, while the receiver threw its own wave away whenever the sharer stood near - the spider wave lived in the receiver's copy and never stood | VERMIN-SHARED |
 | 4 | "Im about to end my mainquest but the Totem of tiber Septim isnt here" (Shortstori) | DFU parents a quest item to its marker so it rides that marker's action - the treasury cage that raises the Totem; the port stood it at the marker's start, so the cage rose empty, and online the castle room remembers the raised cage for good | TOTEM-CAGE |
 | 5 | "You can enchant Ruhn's gear, lol" | an Aetheric piece carries no DFU enchantment, so DFU's one item refusal (IsEnchanted) never met it: the maker listed the Regalia, the Broker's ware and the raid sets as plain Daedric and spent their whole budget over their powers | AETHERIC-MAKER |
 | 6 | "i got into my boats interior and then got out and i'm in the void" (Regi) | a ship's cabin is built at her own root with her fleet kept afloat outside, and the host's indoor arms stood that fleet in the room - her decks in its collider and drawn through it (the planks and holes), her ladder and her helm pressed from it, which stood the player on her deck in the building's frame: her hull alone in the black | CABIN-HULL |
@@ -95,6 +96,41 @@ and look stands keeps the record, and the questor stays unreachable there; stand
 is the next step if that is ever met. The re-seated person is the mod's own person of the hall, who may wear another
 look than the questor did. A questor met in a house (no named hall) is never re-seated. AUDIT PRE-MERGE 1003 D17's row
 is history and says what was true then.
+
+## VERMIN-SHARED (3)
+
+`systems/quest/actions.js` sharedPickRoll, PickOneOf; `systems/quest/machine.js` the `sharedCopy` hook;
+`scenes/questFoeHost.js` partnerStandsQuestFoes' `symbol` and `foes`, sharerFoeStands; `scenes/world.js` tryPlaceFoe's
+two partner calls. The Exterminator (A0C00Y07) picks its vermin once, at the house (`pick one of _S.04_ _S.05_ _S.06_
+_S.07_`, :139-140; "preventing multiple spawns by using static pick", :137), and spawns it every three minutes while
+the player is inside (:150-168) - its `_house_` is any building, a Mages Guild hall among them. Each copy of a shared
+quest rolled its own pick. The resync (`machine.updateSharedQuest`) takes the partner's task flags whole while the pick
+stays complete, so two copies that rolled apart traded picks at every crossing sync - and a kill crosses every time,
+because the sharer's copy counts its own foe's death and the receiver's counts the puppet's. Meanwhile QUEST-PARTY's
+receiver counted its wave as placed whenever the sharer stood near, whatever the sharer's copy was standing. So after
+the first spider the spider wave lived in the receiver's copy and was thrown away there, and the sharer's copy stood
+the receiver's roll (bats) - or, with the sharer's machine paused by a window, nothing at all. Now a copy kept in step
+with the party (its name shared, and it that name's live copy - AUDIT Q7) draws `sharedPickRoll`: the port's one
+string hash over the copy's `shareId`, the task's symbol name and the action's place, through its one seeded die
+(`wind.js` seededFirst). Every copy starts the same task. Solo, offline and a copy no longer kept in step draw DFU's
+roll (PickOneOf.cs; Port-Ledger A, VERMIN-SHARED, online only). And the receiver defers only while its pool holds a live
+foe of the sharer's for that quest and that Foe - a building's or the street's puppet in `puppet`, a dungeon's own-lane
+puppet in `_ownFrom`; otherwise it stands its own wave, as CreateFoe.TryPlacement always places (CreateFoe.cs:183-212).
+Solo play was never affected. THE FOUR HOSTS: world.js is wired (both arms); worldModes.js and dungeonContext.js are
+reached through `insideFoes` and needed no change; exterior.js is FLAGGED - the dev host has no session, party or
+share, and stands every wave. `test/fb1003b_vermin.test.js` runs the real machine, the real share path, the real
+OnlineSession floors, world.js's lifted sync, seam and partner calls, and two real pools; before the fix it reproduces
+the report - a spider, killed, then bats only. `test/questparty.test.js` and `test/questparty3b.test.js` re-aimed, and
+`tools/mutants/questparty.json`'s QP-sharer-anywhere and QP-world-receiver-stands-its-own with them (still dead);
+Port-Ledger's QUEST-PARTY phase 1 and 3b rows and `06-Systems/Online-Arc.md`'s wave sentences narrowed.
+
+**Said, not fixed.** A kill can count twice: each copy counts the kills it sees, and the resync keeps the larger count,
+so a partner's envelope already carrying a kill that lands before this copy's own credit for it (a puppet's fall)
+counts that one kill twice - reproduced, the quest closed on two spiders; a clean fix carries each kill's identity in
+the envelope, not a small change. A member outside the house keeps resetting the inside copy's wave timer: the `pc
+at` flag ping-pongs through the resyncs, so with one member in and one out the waves come about two-thirds as often.
+Two waves in one interval are possible - the two copies' wave clocks are each their own. And a pick re-drawn in a
+shared copy (its task rearmed) draws its first number again; no corpus quest re-draws one.
 
 ## TOTEM-CAGE (4)
 
@@ -196,4 +232,4 @@ before the pixels round her have streamed; streaming stays frozen indoors, so th
 
 Mutation lists: `tools/mutants/fb1003b.json` (AETHERIC-MAKER, 3, 3 dead), `tools/mutants/fb1003b_trees.json`
 (TREES-SEATED, 18, 18 dead), `tools/mutants/fb1003b_cabin.json` (CABIN-HULL, 9, 9 dead),
-`tools/mutants/fb1003b_totem.json` (TOTEM-CAGE, 14, 14 dead), `tools/mutants/fb1003b_questor.json` (QUESTOR-MOVED, 22, 22 dead).
+`tools/mutants/fb1003b_totem.json` (TOTEM-CAGE, 14, 14 dead), `tools/mutants/fb1003b_questor.json` (QUESTOR-MOVED, 22, 22 dead), `tools/mutants/fb1003b_vermin.json` (VERMIN-SHARED, 18, 18 dead).
