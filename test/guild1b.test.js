@@ -258,7 +258,8 @@ test('GUILD1b the officer\'s view: members and recruits promoted and demoted wit
   ];
   const ledger = [{ at: 5, who: 'Cass', kind: 'deposit', amount: 500, balance: 500 }];
   const { door, panel, frame } = await tabRig({ guild: view({ rank: 1, members, treasury: 500, ledger }) });
-  panel.openGuild(); await frame();
+  // GUILD2 (PIN MOVED): the tab is pages now - the roster on Members, the gold on Treasury, the rank names on Settings
+  panel.openGuild('members'); await frame();
   const rowOf = (n) => find(panel.root, 'dfsocial-row').find((r) => texts(r).includes(n));
   assert.equal(buttons(rowOf('Aldric'), 'Promote').length + buttons(rowOf('Aldric'), 'Remove').length, 0, 'the guildmaster is not an officer\'s to touch');
   assert.equal(buttons(rowOf('Bran'), 'Promote').length, 0, 'a member is never made an officer by an officer');
@@ -271,6 +272,7 @@ test('GUILD1b the officer\'s view: members and recruits promoted and demoted wit
   button(rowOf('Cass'), 'Sure?').fire('click');
   await frame();
   assert.deepEqual(door.calls.find((c) => c[0] === 'remove'), ['remove', 'char-a', 'm4']);
+  panel.openGuild('treasury'); await frame();
   const gold = find(panel.root, 'dfsocial-field').find((f) => f.attrs['aria-label'] === 'Gold');
   gold.value = '100'; gold.fire('input');
   panel.openGuild(); await frame();
@@ -278,27 +280,30 @@ test('GUILD1b the officer\'s view: members and recruits promoted and demoted wit
   assert.equal(button(panel.root, 'Withdraw').disabled, true, 'but only the guildmaster withdraws');
   assert.ok(texts(button(panel.root, 'Withdraw')).includes('the guildmaster\'s alone'));
   assert.ok(texts(panel.root).includes('Cass put in 500'));
+  panel.openGuild('settings'); await frame();
   assert.equal(buttons(panel.root, 'Rename ranks').length, 0);
   assert.equal(buttons(panel.root, 'Disband').length, 0);
 });
 
 test('GUILD1b the guildmaster\'s view: alone with gold in the treasury, Leave and Disband stand disabled and say to take the gold out; with the treasury empty, Disband arms and the second press disbands; with members, Leave says to hand the guild on; the rank names are theirs to change (mutants: a disband with gold in it, leaving members behind, a rename offered to nobody)', async () => {
+  // GUILD2 (PIN MOVED): leaving, disbanding and the rank names are the Settings page's; handing on is the roster's
   const rich = await tabRig({ guild: view({ treasury: 40 }) });
-  rich.panel.openGuild(); await rich.frame();
+  rich.panel.openGuild('settings'); await rich.frame();
   assert.equal(button(rich.panel.root, 'Disband').disabled, true);
   assert.ok(texts(button(rich.panel.root, 'Disband')).includes('take the gold out first'));
   assert.equal(button(rich.panel.root, 'Leave').disabled, true);
   const poor = await tabRig({ guild: view({ treasury: 0 }) });
-  poor.panel.openGuild(); await poor.frame();
+  poor.panel.openGuild('settings'); await poor.frame();
   button(poor.panel.root, 'Disband').fire('click');
   button(poor.panel.root, 'Sure?').fire('click');
   await poor.frame();
   assert.ok(poor.door.calls.some((c) => c[0] === 'disband'));
   const members = [{ member: 'm1', name: 'Aldric', rank: 0, joinedAt: 1, you: true }, { member: 'm2', name: 'Mara', rank: 3, joinedAt: 2, you: false }];
   const led = await tabRig({ guild: view({ members }) });
-  led.panel.openGuild(); await led.frame();
+  led.panel.openGuild('settings'); await led.frame();
   assert.ok(texts(button(led.panel.root, 'Leave')).includes('hand the guild on first'));
   assert.equal(buttons(led.panel.root, 'Rename ranks').length, 1);
+  led.panel.openGuild('members'); await led.frame();
   assert.equal(buttons(led.panel.root, 'Make guildmaster').length, 1);
 });
 

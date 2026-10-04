@@ -722,8 +722,8 @@
   {
     "name": "AH-C7-the-stores-key-misnamed",
     "file": "src/scenes/gatherHost.js",
-    "old": "the pause menu's Holdings > Stores${key ? ` (${key} opens your Professions)` : ''}.`;",
-    "new": "${key ? `${key} opens your Stores page` : 'the pause menu\\'s Stores page'}.`;",
+    "old": "the pause menu's Holdings > Stores${key ? ` (${key} opens your Professions)` : ''}.`);",
+    "new": "${key ? `${key} opens your Stores page` : 'the pause menu\\'s Stores page'}.`);",
     "tests": [
       "test/classicpages.test.js"
     ]

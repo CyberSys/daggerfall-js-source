@@ -63,6 +63,7 @@ import { isFirewood } from './restItems.js';
 import { isPotion } from './useItem.js';   // ESSENTIALS-HALF: the potion, by DFU's own IsPotion   // JAN1: the one value read; RRI2: ConditionPercentage, the Sell arm's third argument
 import { HOLIDAYS } from './holidays.js';
 import { GUILDS } from './guilds.js';
+import { isBagItem } from '../net/bagLaw.js';   // BAG1: a loaded Materials Bag is never sold (the cart's rule)
 import {
   cureOfferMessageOffset, TRADE_MESSAGE_BASE_ID, NOT_ENOUGH_GOLD_ID,
 } from './guildServiceActions.js';
@@ -461,11 +462,14 @@ export function localListAccepts(mode, item, { accepts = () => true, enchanted =
  *  owes it TransferItem's own guards on top of this. */
 export function localClickDecision(mode, item, {
   inBasket = () => false, allowMagicRepairs = false, usingIdentifySpell = false,
-  wagonLoaded = false, usedWagon = null,
+  wagonLoaded = false, usedWagon = null, bagLoaded = false,
 } = {}) {
   switch (mode) {
     case 'Sell':
     case 'SellMagic':
+      // BAG1: the Materials Bag is the cart's own case, said - a bag sold with materials in it would strand them in a list
+      // nobody owns (systems/materialsBag.js bagMayLeave)
+      if (isBagItem(item) && bagLoaded) return { kind: 'refuse', refusal: 'bagLoaded' };
       // "Are we trying to sell the non empty wagon?" (:789-794).
       // PlayerEntity.Items.GetItem(Transportation, Small_cart) is the
       // cart the player actually owns, and the click is dropped
@@ -501,7 +505,7 @@ export const DOESNT_NEED_IDENTIFY = 'This does not need to be identified.';
 //    (:161) feeds worldModes.js:2409-2429, which spends the magicka
 //    ONCE for the whole list whatever the outcome and tells the player
 //    "N of M identified"; the window opens from openIdentifyWindow
-//    (worldModes.js:10287), the entry point the magic arc owed.
+//    (worldModes.js:10292), the entry point the magic arc owed.
 //  - the LETTER OF CREDIT is tender and bankable: minted at systems/
 //    inventory.js:69, summed by creditAmount at systems/court.js:249,
 //    spent letters-before-coins by deductGold at court.js:291, and

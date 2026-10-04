@@ -366,8 +366,8 @@
   {
     "name": "AUDIT-GUILD1d-R11-repaint-under-the-keyboard",
     "file": "src/ui/socialPanel.js",
-    "old": "sel.addEventListener('change', () => { onPick(sel.value); drawDraft(heraldryOf(d.heraldry) ?? v.heraldry); paintLiveBtns(); });",
-    "new": "sel.addEventListener('change', () => { onPick(sel.value); ui++; if (open) repaint(); });",
+    "old": "const pick = (key, apply) => () => { apply(); draw(key); paintLiveBtns(); };",
+    "new": "const pick = (key, apply) => () => { apply(); ui++; if (open) repaint(); };",
     "tests": [
       "test/auditguild1d.test.js"
     ]
