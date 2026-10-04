@@ -11,8 +11,8 @@
   {
     "name": "REVENANT-FATE-a-blow-kills-it-kneeling",
     "file": "src/scenes/exteriorFoes.js",
-    "old": "    if (f.yielded || f.executing || f.sparing || f.leaving) return;   // REVENANT-FATE: a beaten revenant takes no blow",
-    "new": "    if (f.leaving) return;   // REVENANT-FATE: a beaten revenant takes no blow",
+    "old": "    if (f.yielded || f.executing || f.sparing || f.leaving || f.roaring) return;   // REVENANT-FATE: a beaten revenant takes no blow",
+    "new": "    if (f.leaving || f.roaring) return;   // REVENANT-FATE: a beaten revenant takes no blow",
     "tests": [
       "test/revenant_fate.test.js"
     ]

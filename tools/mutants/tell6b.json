@@ -177,8 +177,8 @@
   {
     "name": "TELL6b-run-chains",
     "file": "src/ai/tactics.js",
-    "old": "  if (!GAP_CLOSERS.includes(b.kind) && (b.chain ?? 0) < 1 &&",
-    "new": "  if ((b.chain ?? 0) < 1 &&",
+    "old": "  if (!GAP_CLOSERS.includes(b.kind) && (b.chain ?? 0) < chainMax(ent) &&",
+    "new": "  if ((b.chain ?? 0) < chainMax(ent) &&",
     "tests": [
       "test/tell6b_charge.test.js"
     ]

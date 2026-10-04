@@ -37,7 +37,7 @@ import { throwsBlows, blowShapesOf, blowFamily, makeBlow, fitBlowToGround, inBlo
 import { coverDistance } from './cover.js';   // TELL6: a charge's lane must be free of cover
 import { GRAVITY } from '../player/motor.js';   // TELL6c: a leap's hop on the motor's own gravity
 import { tacticsNow, setTacticsClock, tickTactics } from './tacticsClock.js';   // AUDIT TACT D10/A3
-import { TELL, poiseOf, staggerSeconds, glintStrength, blowGuard, punishSeconds, windupSeconds, feints, chains, chainShape, trackYaw, blowCooldown, wholeSet, feintChance, trackShare } from './tells.js';   // TELL1: poise and the stagger (bible/12-Enhanced-AI/Feud-Arc.md section 3); TELL3: a blow's guard; TELL4: the punish window; TELL5: patterns; TELL7: the cooldowns
+import { TELL, poiseOf, staggerSeconds, glintStrength, blowGuard, punishSeconds, windupSeconds, feints, chains, chainShape, trackYaw, blowCooldown, wholeSet, feintChance, trackShare, chainMax } from './tells.js';   // TELL1: poise and the stagger (bible/12-Enhanced-AI/Feud-Arc.md section 3); TELL3: a blow's guard; TELL4: the punish window; TELL5: patterns; TELL7: the cooldowns
 import { registerBlowTakenMod } from '../systems/blowTaken.js';   // TELL1: a staggered foe takes more - the leaf the formulas read
 import { noteFeud } from '../systems/feudLedger.js';   // RVN1: a blow of its I dodged, in its fight's ledger (a leaf - the brain brings no revenant system)
 
@@ -555,6 +555,25 @@ function beginWindup(ai, s, ent, shape, dx, dz, now, chain = 0) {
   const swings = shape !== 'aimed';   // TELL6d: a shot draws no held swing - its landing looses it (ai._blowShot)
   ai._blowHold = swings; ai._blowWind = swings;   // TELL2: the swing begins now and stands at its raised arm until the landing
 }
+/** RVN4 (bible/12-Enhanced-AI/Feud-Arc.md 15.2): ITS LAST STAND'S ROAR - an iron ring about its feet wound up for
+ *  `seconds` and landing as the roar ends (TELL6a's shape, TELL6e's push and rattle), whatever its kind's shapes. Its
+ *  wind-up before is dropped. The switch off, a puppet, or no brain yet: nothing (the pool holds the motor - the roar
+ *  alone). Answers whether it was wound. */
+export function beginRoar(ai, ent, seconds, now = clock()) {
+  const s = ai?._tac;
+  if (!s || s.puppet || !ent || !tacticsSwitchOn()) return false;
+  if (s.blow) { setLiveBlow(ai, null); s.blow = null; }
+  s.dash = null;
+  const b = fitBlowToGround(makeBlow('ring', ai.feet, ai.yaw, now, IRON_COLOR, 'iron', seconds), ai.collider);
+  b.chain = 0; b.trackedAt = now; b.roar = true;
+  b.n = ai._blowN = ((ai._blowN ?? 0) + 1) & 255;   // its serial on the wire, as any wind-up's
+  b.key = targetKey(ai);
+  s.blow = b;
+  setLiveBlow(ai, b);
+  s.state = 'windup';
+  ai._blowHold = true; ai._blowWind = true;
+  return true;
+}
 /** TACT4: the wind-up's turn - broken by a knock or a paralysis (a step the motor did not let the brain decide), else
  *  stood, its aim locked, until the landing: where my feet stand decides it, and the swing comes now. */
 function windupTurn(ai, s, now, skipped) {
@@ -630,7 +649,7 @@ function resolveLanding(ai, s, b, verdict, now, cooled, atMe = true) {
   // charge - its foe ends its lane past its target
   const ent = ai.vitals?.();
   const shapes = ent ? blowShapesOf(ent.mobileType, ent).filter((k) => !GAP_CLOSERS.includes(k)) : [];
-  if (!GAP_CLOSERS.includes(b.kind) && (b.chain ?? 0) < 1 && chains(blowFamily(ent?.mobileType), ent, shapes) && Math.random() < TELL.CHAIN_CHANCE) {
+  if (!GAP_CLOSERS.includes(b.kind) && (b.chain ?? 0) < chainMax(ent) && chains(blowFamily(ent?.mobileType), ent, shapes) && Math.random() < TELL.CHAIN_CHANCE) {   // RVN4: phase two chains to three
     const next = chainShape(b.kind, shapes);
     if (next) {
       s.state = 'chain'; s.chainAt = now + TELL.CHAIN_GAP; s.chainShape = next; s.chainN = (b.chain ?? 0) + 1; s.chainKey = b.key ?? targetKey(ai);   // AUDIT TELL B8: at the same target

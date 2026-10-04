@@ -471,7 +471,7 @@ test('TELL2: all three pools wire it - the hold into the sprite, the strike clip
     assert.ok(src.includes(`${v}.ai._blowHold !== true`), `${file}: the strike clip held`);
     const upd = src.indexOf(hold), cue = src.indexOf(`tellCues(${v}, audio, acuteHearingMultiplier(playerEntity));`, upd);   // PIN MOVED (TELL8: a puppet's cues stand in its own branch too - the owner's are the first after its sprite)
     assert.ok(cue > upd && cue - upd < 400, `${file}: the cues right after the sprite`);
-    assert.ok(src.includes(`setBatchGlint(${v}.batch, foeGlint(${v}.ai, undefined, prefersReducedMotion()));`), `${file}: the glint`);
+    assert.ok(src.includes(`setBatchGlint(${v}.batch, foeGlint(${v}.ai, undefined, prefersReducedMotion())`), `${file}: the glint`);   // PIN MOVED (RVN4: else phase two's rim, after it)
   }
   // PIN MOVED (TELL8: a puppet's cues are its own - its owner's wind-up rides the wire, ai/puppetBlows.js)
   assert.ok(!/if \(!_puppet\) tellCues\(f, audio/.test(rd('src/scenes/dungeonContext.js')), 'a puppet\'s cues play here');

@@ -328,8 +328,8 @@
   {
     "name": "RVN3-the-street-tear-touchable",
     "file": "src/scenes/exteriorFoes.js",
-    "old": "    if (f.yielded || f.executing || f.sparing || f.leaving) return;",
-    "new": "    if (f.yielded || f.executing || f.sparing) return;",
+    "old": "    if (f.yielded || f.executing || f.sparing || f.leaving || f.roaring) return;",
+    "new": "    if (f.yielded || f.executing || f.sparing || f.roaring) return;",
     "tests": [
       "test/rvn3_weak.test.js"
     ]
@@ -382,8 +382,8 @@
   {
     "name": "RVN3-the-dungeon-tear-touchable",
     "file": "src/scenes/dungeonContext.js",
-    "old": "    if (foe.yielded || foe.executing || foe.sparing || foe.leaving) return;",
-    "new": "    if (foe.yielded || foe.executing || foe.sparing) return;",
+    "old": "    if (foe.yielded || foe.executing || foe.sparing || foe.leaving || foe.roaring) return;",
+    "new": "    if (foe.yielded || foe.executing || foe.sparing || foe.roaring) return;",
     "tests": [
       "test/rvn3_weak.test.js"
     ]

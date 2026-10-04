@@ -319,6 +319,7 @@ test('RVN3 THE WILL: from rank 3 a revenant my fight has not broken does not kne
   const pool = rig(p);
   const f = await pool.spawnFoe(2, [0, 0, 0], { feetGiven: true, level: 6, revenant: r });
   frame(pool);
+  f._lastStood = true;   // PIN MOVED (RVN4: a rank-3 one's last stand comes first - stood already, the will alone is asked)
   assert.equal(FT.revenantWillHolds(f), true);
   pool.damageFoe(f, 99999, [0, 0, 3], null, { fromPlayer: true });
   assert.equal(f.yielded, undefined, 'it does not kneel');
@@ -350,6 +351,7 @@ test('RVN3 THE WILL: from rank 3 a revenant my fight has not broken does not kne
   const pool2 = rig(p);
   const g = await pool2.spawnFoe(2, [0, 0, 0], { feetGiven: true, level: 6, revenant: r2 });
   frame(pool2);
+  g._lastStood = true;
   L.noteFeud(g.entity, 'staggers'); L.noteFeud(g.entity, 'staggers');
   pool2.damageFoe(g, 99999, [0, 0, 3], null, { fromPlayer: true });
   assert.ok(g.yielded, 'broken, it kneels');
@@ -357,6 +359,7 @@ test('RVN3 THE WILL: from rank 3 a revenant my fight has not broken does not kne
   const r3 = revenantOf(p, 3);
   const h = await pool2.spawnFoe(2, [1, 0, 0], { feetGiven: true, level: 6, revenant: r3 });
   frame(pool2);
+  h._lastStood = true;
   L.noteFeudHarm(h.entity, h.entity.revenant.weak === 'daylight' ? 'blade' : (F.WEAKNESS_METALS.includes(h.entity.revenant.weak) ? 'blade' : h.entity.revenant.weak), 5, { metal: F.WEAKNESS_METALS.includes(h.entity.revenant.weak) ? h.entity.revenant.weak : null });
   if (h.entity.revenant.weak === 'daylight') h.entity._feud.weak++;   // the sky's: struck by day (the rig's clock is the night's)
   assert.ok(h.entity._feud.weak > 0);
@@ -372,6 +375,7 @@ test('RVN3 THE WILL: from rank 3 a revenant my fight has not broken does not kne
   const r5 = revenantOf(p, 3);
   const z = await pool2.spawnFoe(2, [3, 0, 0], { feetGiven: true, level: 6, revenant: r5 });
   frame(pool2);
+  z._lastStood = true;
   pool2.damageFoe(z, 99999, [0, 0, 3], null, { fromPlayer: true, whole: true });
   assert.equal(z.leaving, undefined);
   assert.equal(z.yielded, undefined);
@@ -382,7 +386,7 @@ test('RVN3 the dungeon\'s doors: the will at its yield seam, the tear-away its e
   const d = read('src/scenes/dungeonContext.js');
   assert.match(d, /revenantMayYield\(foe\)\) \{ if \(revenantWillHolds\(foe\)\) tearAwayDungeonFoe\(foe\); else yieldDungeonFoe\(foe\); return; \}/);
   assert.match(d, /function tearAwayDungeonFoe\(f\) \{[\s\S]{0,300}beginTearAway\(f, \(\) => escapeDungeonFoe\(f, \{ unbroken: true \}\)\);/);
-  assert.match(d, /if \(foe\.yielded \|\| foe\.executing \|\| foe\.sparing \|\| foe\.leaving\) return;/);
+  assert.match(d, /if \(foe\.yielded \|\| foe\.executing \|\| foe\.sparing \|\| foe\.leaving \|\| foe\.roaring\) return;/);   // PIN MOVED (RVN4: nor one roaring)
   assert.match(d, /unbroken \? revenantUnbrokenEvent\(r, playerEntity\?\.name, \{ archive: f\.mobileArchive \}\)/);
 });
 

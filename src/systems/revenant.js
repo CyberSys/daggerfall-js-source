@@ -748,8 +748,8 @@ const KICKERS = Object.freeze({
   yield: 'Yields', executed: 'Executed', spared: 'Sworn to you', slip: 'Slipped away',
   // REVENANT-COMPANION: sworn to the player
   arrive: 'Companion', dismiss: 'Sent away', downed: 'Companion down', kill: 'Companion', battle: 'Companion', release: 'Released',
-  // RVN3: its weakness found or hinted; its will unbroken
-  weakness: 'Weakness', unbroken: 'Unbroken',
+  // RVN3: its weakness found or hinted; its will unbroken; RVN4: its last stand
+  weakness: 'Weakness', unbroken: 'Unbroken', laststand: 'Last stand',
 });
 /** @typedef {{ kind: string, kicker: string, id: string|null, name: string, rank: number, sub: string, mood: string|null,
  *   portrait: { archive: number, record: number } | null, speech: string|null, body: string|null, line: string }} RevenantEvent */
@@ -815,6 +815,21 @@ export function revenantWeaknessEvent(r, { found = false, archive = null } = {})
 export function revenantUnbrokenEvent(r, playerName, { rolls = Math.random, archive = null } = {}) {
   const body = `${r.given} staggers into the smoke, unbroken.`;
   return revenantEvent('unbroken', r, { speech: voiceParts(r, 'escape', playerName, rolls).speech, body, line: body, archive });
+}
+/** RVN4 (section 15): ITS LAST STAND, written on its record - the deed (`laststand`) at the character's minute. Answers
+ *  the record, or null for one that is no revenant of mine. */
+export function revenantLastStand(player, entity, { now = nowMinutes() } = {}) {
+  const r = entity?.revenant?.id ? (ensureMirror(player), revenantById(entity.revenant.id)) : null;
+  if (!r || r.defeated || r.sworn) return null;
+  deed(r, 'laststand', now);
+  touch(r);
+  persist();
+  return r;
+}
+/** RVN4: its last stand, as the card says it - it rises again, its words the cornered's. */
+export function revenantLastStandEvent(r, playerName, { rolls = Math.random, archive = null } = {}) {
+  const body = `${r.given} rises again - its last stand.`;
+  return revenantEvent('laststand', r, { speech: voiceParts(r, 'cornered', playerName, rolls).speech, body, line: body, archive });
 }
 /** RVN3 (14.1): ITS FLINCH - a revenant of mine under FLINCH_HEALTH of its health, its weakness unknown, shies from it:
  *  once a stand (`f._flinched`), the record hinted (`weakKnown` 1). Answers the event to say, or null. */

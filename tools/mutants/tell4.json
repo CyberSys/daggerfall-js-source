@@ -243,8 +243,8 @@
   {
     "name": "TELL4-motor-unlocked",
     "file": "src/characters/enemyMotor.js",
-    "old": "    const locked = staggered || overreached;",
-    "new": "    const locked = staggered;",
+    "old": "    const locked = staggered || overreached || (this.roarUntil > 0",
+    "new": "    const locked = staggered || (this.roarUntil > 0",
     "tests": [
       "test/tell4_punish.test.js",
       "test/tell1_poise.test.js"

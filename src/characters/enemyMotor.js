@@ -535,6 +535,7 @@ export class EnemyAI {
     this.staggered = false;    // per-step: staggered - CanAct false, its Hurt held (the scene's hurting input with hurtKnock)
     this.overreachUntil = 0;   // TELL4: a missed telegraphed blow's punish window ends here, on the brain's clock (ai/tactics.js)
     this.overreached = false;  // per-step: overreached - CanAct false as staggered, its swing's follow-through standing (no Hurt)
+    this.roarUntil = 0;        // RVN4: a last stand's roar holds it here, on the brain's clock, the Enhanced AI switch off (on, its ring's wind-up holds it)
     this._dist = Infinity;
     // P13 stealth state (EnemySenses fields)
     this.hasEncounteredPlayer = false;
@@ -1796,7 +1797,7 @@ export class EnemyAI {
     // asked (the sprite stands at its swing's follow-through). `locked` carries both wherever the stagger's lock reads.
     const overreached = this.overreachUntil > 0 && tacticsNow() < this.overreachUntil;
     this.overreached = overreached;
-    const locked = staggered || overreached;
+    const locked = staggered || overreached || (this.roarUntil > 0 && tacticsNow() < this.roarUntil);   // RVN4: a roar's hold
     // AUDIT 26 F010: CanAct, EXPOSED. HandleParalysis and
     // KnockbackMovement clear it (:255, :317) and the attack/cast
     // components' bow-roll and spell branches live behind

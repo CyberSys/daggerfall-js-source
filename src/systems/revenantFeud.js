@@ -55,6 +55,22 @@ export const WILL_STAGGERS = 2;
 export const WEAK = Object.freeze({ STRUCK: 1.5, DAYLIGHT: 1.25, RESIST: -50 });
 /** RVN3 (14.1): under this share of its health with its weakness unknown, it flinches - once a stand. */
 export const FLINCH_HEALTH = 0.5;
+/** RVN4 (section 15): from this rank, once a stand, the blow that would kneel or kill it brings it back - to this share
+ *  of its health by rank; its roar (s) - no blow reaches it, and (the Enhanced AI switch on) an iron ring about its feet
+ *  lands as it ends; then PHASE TWO for the rest of the stand. */
+export const LAST_STAND_RANK = 3;
+export const LAST_STAND_HEALTH = Object.freeze({ 3: 0.35, 4: 0.45, 5: 0.55 });
+export const LAST_STAND_ROAR = 1.2;
+export const PHASE_TWO = Object.freeze({
+  BLOWS: 1.2,                   // its blows (damageScale)
+  SPEED: 20,                    // Speed
+  WINDUP: 0.85,                 // its wind-ups' lengths
+  COOLDOWN: 0.7,                // its cooldowns between telegraphed blows
+  CHAIN_MAX: 2,                 // chained blows after the first - three in all (TELL5's one)
+  IRON: 0.5,                    // one blow in two iron
+  SIZE: 1.1,                    // stood larger (ELITE FOES' precedent)
+  GLINT: Object.freeze([1.0, 0.36, 0.12, 0.5]),   // its rim, ember red, steady (TELL2's outline lane, under its wind-ups' glints)
+});
 /** RVN5: from this rank a revenant has a signature blow. */
 export const SIG_RANK = 2;
 /** RVN6: its band's size by rank (1 to 5). */
@@ -184,6 +200,14 @@ export function drawWeakness(id, mobileType, career = null) {
   const pool = weaknessPool(mobileType).filter(([w]) => !(ELEMENT_FLAG[w] && (shut & ELEMENT_FLAG[w])));
   return weighted(pool.length ? pool : [['blunt', 1]], idStream(id, 'weak')) ?? 'blunt';
 }
+/** RVN4: its last stand's share of its health at `rank` (none under LAST_STAND_RANK). */
+export const lastStandHealth = (rank) => LAST_STAND_HEALTH[Math.min(5, rank | 0)] ?? 0;
+/** RVN4: phase two as the brain, the motor and the pools read it (`entity.revenant.p2`) - every number PHASE_TWO's. */
+export const phaseTwo = () => Object.freeze({ windup: PHASE_TWO.WINDUP, cooldown: PHASE_TWO.COOLDOWN, chainMax: PHASE_TWO.CHAIN_MAX, iron: PHASE_TWO.IRON, size: PHASE_TWO.SIZE });
+/** RVN4: the rim a body in phase two wears (null for any other) - the pools draw it where no wind-up glints. */
+export const lastStandGlint = (entity) => (entity?.revenant?.p2 ? PHASE_TWO.GLINT : null);
+/** RVN4: the size a body in phase two is stood at. */
+export const lastStandSize = (entity) => entity?.revenant?.p2?.size ?? 1;
 /** A weapon's metal as a weakness names it (silver, elven, dwarven), or null. */
 const METAL_OF = Object.freeze({ 2: 'silver', 3: 'elven', 4: 'dwarven' });
 export const metalOf = (weapon) => (weapon && Number.isInteger(weapon.material) ? METAL_OF[weapon.material] ?? null : null);

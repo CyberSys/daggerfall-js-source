@@ -395,3 +395,12 @@ will must be broken in the fight: strike its weakness, or stagger it twice. Unbr
 kneel - it tears away into the smoke, an escape that ranks it up. A Disintegrate kills it outright. The page says its
 weakness as known and the will's rule. The law: `bible/12-Enhanced-AI/Feud-Arc.md` section 14 and its RVN3 record.
 
+## 20. The last stand (FEUD RVN4, 2026-10-04)
+
+From rank 3, once a fight, the blow that would kneel or kill a revenant brings it back instead - to 35%, 45% or 55% of
+its health by rank - roaring: for 1.2 seconds no blow reaches it, and (Enhanced AI on) an iron ring about its feet lands
+as the roar ends; with the switch off it stands and roars. Then phase two for the rest of the fight: heavier and quicker
+blows, more Speed, shorter wind-ups and cooldowns, chains of three, iron one in two, an ember rim and a tenth more size.
+A Disintegrate still kills. The page names it from rank 3. The law: `bible/12-Enhanced-AI/Feud-Arc.md` section 15 and its
+RVN4 record.
+

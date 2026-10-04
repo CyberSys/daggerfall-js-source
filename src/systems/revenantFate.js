@@ -21,7 +21,7 @@
 //
 // PURE but for the clock and the records it is handed - the pools (scenes/exteriorFoes.js, scenes/dungeonContext.js)
 // call in, and draw what it answers.
-import { revenantById, revenantOn, revenantYielded, revenantExecuted, revenantSpared, revenantMomentEvent, revenantPortrait, revenantRankNumeral } from './revenant.js';
+import { revenantById, revenantOn, revenantYielded, revenantExecuted, revenantSpared, revenantMomentEvent, revenantPortrait, revenantRankNumeral, revenantLastStand, revenantLastStandEvent } from './revenant.js';
 import { revenantTrophy, trophyKindWords } from './revenantTrophy.js';
 import { PERSONALITIES } from './revenantPersonality.js';
 import { retinueHasRoom, swornPlace, REVENANT_RETINUE_MAX, setRetinuePlayer, holdSworn } from './revenantCompanions.js';
@@ -29,7 +29,7 @@ import { companionsWithYou, COMPANION_SLOTS } from './companionSlots.js';
 import { enemyDisplayName } from '../characters/enemyBasics.js';
 import { DISSOLVE_EMBER, DISSOLVE_ARCANE } from './dissolve.js';
 import { clearPlayerHarm } from './harmMark.js';   // AUDIT (2026-10-02): a beaten one's harm is no one's death
-import { willMatters, willBroken } from './revenantFeud.js';   // RVN3: the will (bible/12-Enhanced-AI/Feud-Arc.md 14.2)
+import { willMatters, willBroken, LAST_STAND_RANK, LAST_STAND_ROAR, PHASE_TWO, lastStandHealth, phaseTwo } from './revenantFeud.js';   // RVN3: the will (bible/12-Enhanced-AI/Feud-Arc.md 14.2); RVN4: the last stand (15)
 
 /** How long a beaten revenant kneels before it slips away (ms). */
 export const REVENANT_YIELD_MS = 90000;
@@ -49,6 +49,42 @@ export function revenantMayYield(f) {
   return !!r && !r.defeated && !r.sworn;
 }
 
+/** RVN4 (bible/12-Enhanced-AI/Feud-Arc.md 15.1): IS ITS LAST STAND DUE - one of my own revenants (never a puppet, a
+ *  companion, one held by its fate) of rank LAST_STAND_RANK and up, not stood in this stand yet? */
+export function revenantLastStandDue(f) {
+  const id = f?.entity?.revenant?.id;
+  if (!id || f._lastStood || f.puppet || f.companion != null || fateHeld(f) || !revenantOn()) return false;
+  const r = revenantById(id);
+  return !!r && !r.defeated && !r.sworn && (r.rank | 0) >= LAST_STAND_RANK;
+}
+/** RVN4 (15.2): ITS LAST STAND - the blow that would kneel or kill it brings it back to its rank's share of its health;
+ *  its ROAR (`f.roaring`, LAST_STAND_ROAR): no blow reaches it - the pools hold its motor (`ai.roarUntil`, the brain's
+ *  clock) unless `roar(seconds)` (the brain's iron ring, the Enhanced AI switch on) answers it wound one; then PHASE
+ *  TWO for the rest of the stand (`entity.revenant.p2`, the brain's numbers; its blows and its Speed here). Its deed
+ *  written; answers its card's event. */
+export function beginLastStand(player, f, { now = Date.now(), clock = 0, roar = null, rolls = Math.random } = {}) {
+  const e = f.entity;
+  const r = revenantById(e?.revenant?.id);
+  f._lastStood = true;
+  f.fleeing = false;
+  e.health = Math.max(1, Math.round((e.maxHealth || 1) * lastStandHealth(r?.rank)));
+  f.roaring = { at: now, until: now + LAST_STAND_ROAR * 1000 };
+  // no brain to roar with (the switch off): its motor held and its swing raised for the roar (the pool lets it go)
+  if (!(typeof roar === 'function' && roar(LAST_STAND_ROAR)) && f.ai) { f.ai.roarUntil = clock + LAST_STAND_ROAR; f.ai._blowHold = true; f._roarHeld = true; }
+  e.revenant = { ...e.revenant, p2: phaseTwo() };
+  e.damageScale = (Number.isFinite(e.damageScale) && e.damageScale > 0 ? e.damageScale : 1) * PHASE_TWO.BLOWS;
+  if (e.stats) e.stats.speed = (e.stats.speed ?? 0) + PHASE_TWO.SPEED;
+  const rr = revenantLastStand(player, e);
+  return rr ? revenantLastStandEvent(rr, player?.name, { archive: f.archive ?? f.mobileArchive ?? null, rolls }) : null;
+}
+/** RVN4: the roar over - blows reach it again (the pools ask each frame). */
+export function roarStep(f, now = Date.now()) {
+  if (f?.roaring && now >= f.roaring.until) {
+    f.roaring = null;
+    if (f._roarHeld) { f._roarHeld = false; if (f.ai) f.ai._blowHold = 'cancel'; }   // its raised swing let go, striking nothing
+  }
+  return !!f?.roaring;
+}
 /** THE TEAR-AWAY's dissolve: its body ashes out on the ember lane over this long (ms) after a short beat, then it is gone
  *  - inside the leaving hold (`f.leaving`, 900 ms), whose hand-off is its escape. */
 export const TEAR_MS = Object.freeze({ delay: 120, ms: 720 });

@@ -220,8 +220,9 @@ test('AUDIT B1/B4/B6: the window holds the wait; one held is no swing\'s, spell\
   const x = read('src/scenes/exteriorFoes.js'), d = read('src/scenes/dungeonContext.js');
   assert.match(x, /const live = dropFateHeld\(foes\.filter\(\(f\) => !f\.dead && !isShipmate\(f\)\)\);/);
   assert.match(d, /const live = dropFateHeld\(foes\.filter\(\(f\) => !f\.dead && f\.companion == null\)\);/);
-  assert.match(read('src/scenes/hostMagic.js'), /if \(foe\?\.yielded \|\| foe\?\.executing \|\| foe\?\.sparing \|\| foe\?\.leaving\) return null;/);
-  assert.match(read('src/combat/arrowFlight.js'), /if \(foe\.yielded \|\| foe\.executing \|\| foe\.sparing \|\| foe\.leaving\) return 0;/, 'the player\'s shaft lands nothing on one held (every host\'s one copy)');
+  // PIN MOVED (RVN4: nor one roaring its last stand - the spell's door and the shaft's)
+  assert.match(read('src/scenes/hostMagic.js'), /if \(foe\?\.yielded \|\| foe\?\.executing \|\| foe\?\.sparing \|\| foe\?\.leaving \|\| foe\?\.roaring\) return null;/);
+  assert.match(read('src/combat/arrowFlight.js'), /if \(foe\.yielded \|\| foe\.executing \|\| foe\.sparing \|\| foe\.leaving \|\| foe\.roaring\) return 0;/, 'the player\'s shaft lands nothing on one held (every host\'s one copy)');
   assert.match(read('src/scenes/world.js'), /else if \(rec\.yielded\) rec\.yielded\.judging = \(\) => !w\.done;/, 'the host holds it while its window stands');
   // the pile takes the pack - the record keeps none
   fresh();

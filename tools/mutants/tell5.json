@@ -327,7 +327,7 @@
   {
     "name": "TELL5-never-chain",
     "file": "src/ai/tactics.js",
-    "old": "  if (!GAP_CLOSERS.includes(b.kind) && (b.chain ?? 0) < 1 && chains(blowFamily(ent?.mobileType), ent, shapes) && Math.random() < TELL.CHAIN_CHANCE) {",
+    "old": "  if (!GAP_CLOSERS.includes(b.kind) && (b.chain ?? 0) < chainMax(ent) && chains(blowFamily(ent?.mobileType), ent, shapes) && Math.random() < TELL.CHAIN_CHANCE) {",
     "new": "  if (false) {",
     "tests": [
       "test/tell5_patterns.test.js"
@@ -336,7 +336,7 @@
   {
     "name": "TELL5-chain-of-chains",
     "file": "src/ai/tactics.js",
-    "old": "  if (!GAP_CLOSERS.includes(b.kind) && (b.chain ?? 0) < 1 && chains(",
+    "old": "  if (!GAP_CLOSERS.includes(b.kind) && (b.chain ?? 0) < chainMax(ent) && chains(",
     "new": "  if (!GAP_CLOSERS.includes(b.kind) && (b.chain ?? 0) < 9 && chains(",
     "tests": [
       "test/tell5_patterns.test.js"

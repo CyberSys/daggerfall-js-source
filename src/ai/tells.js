@@ -206,7 +206,7 @@ export function glintStrength(sinceStart, toLand, reduced = false) {
 export function blowGuard(kind, weight, ent = null, roll = null) {
   const cls = weightClass(weight);
   if (TELL.IRON_SHAPES.includes(kind) && (cls === 'heavy' || cls === 'massive')) return 'iron';
-  const share = Math.max(isElite(ent) ? TELL.IRON_ELITE : 0, ent?.revenant?.edge?.iron > 0 ? ent.revenant.edge.iron : 0);
+  const share = Math.max(isElite(ent) ? TELL.IRON_ELITE : 0, ent?.revenant?.edge?.iron > 0 ? ent.revenant.edge.iron : 0, ent?.revenant?.p2?.iron > 0 ? ent.revenant.p2.iron : 0);   // RVN4: phase two's half
   if (share > 0 && (roll ?? Math.random()) < share) return 'iron';
   return 'poise';
 }
@@ -236,6 +236,7 @@ export function windupSeconds(base, ent = null, { guard = 'poise', roll = Math.r
   if (isElite(ent)) w *= TELL.WINDUP_ELITE;
   const rank = revenantRank(ent);
   if (rank > 0) w *= 1 - TELL.WINDUP_RANK * rank;
+  if (ent?.revenant?.p2?.windup > 0) w *= ent.revenant.p2.windup;   // RVN4: phase two's quicker wind-ups
   if (guard === 'iron') w += TELL.IRON_EXTRA;
   return Math.max(floor, w);
 }
@@ -247,6 +248,8 @@ export function feints(family, ent, sinceFeint = Infinity) {
 export const feintChance = (ent) => ent?.revenant?.edge?.feint ?? TELL.FEINT_CHANCE;
 /** RVN2: the share of a tracker's wind-up it turns through - TELL5's half, a Patient revenant's longer. */
 export const trackShare = (ent) => ent?.revenant?.edge?.track ?? TELL.TRACK_SHARE;
+/** RVN4: how many blows may chain after a first - TELL5's one, phase two's two (three in all). */
+export const chainMax = (ent) => (ent?.revenant?.p2?.chainMax > 0 ? ent.revenant.p2.chainMax : 1);
 /** TELL5 (7.4): may this foe chain - a brute of the higher tier, an elite, a revenant of rank 3 or more - with two shapes
  *  or more to chain between? */
 export function chains(family, ent, shapes) {
@@ -278,5 +281,5 @@ export function blowCooldown(ent = null, roll = Math.random()) {
   const C = TELL.COOLDOWN;
   const [lo, hi] = isElite(ent) ? C.elite : ent?.champion ? C.champion : C.ordinary;
   const rank = revenantRank(ent);
-  return (lo + (hi - lo) * roll) * (rank > 0 ? 1 - TELL.COOLDOWN_RANK * rank : 1);
+  return (lo + (hi - lo) * roll) * (rank > 0 ? 1 - TELL.COOLDOWN_RANK * rank : 1) * (ent?.revenant?.p2?.cooldown > 0 ? ent.revenant.p2.cooldown : 1);   // RVN4: phase two's x0.7
 }

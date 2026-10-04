@@ -41,8 +41,8 @@
   {
     "name": "TELL7-rank-ignored",
     "file": "src/ai/tells.js",
-    "old": "  return (lo + (hi - lo) * roll) * (rank > 0 ? 1 - TELL.COOLDOWN_RANK * rank : 1);",
-    "new": "  return lo + (hi - lo) * roll;",
+    "old": "  return (lo + (hi - lo) * roll) * (rank > 0 ? 1 - TELL.COOLDOWN_RANK * rank : 1) * (ent?.revenant?.p2?.cooldown",
+    "new": "  return (lo + (hi - lo) * roll) * 1 * (ent?.revenant?.p2?.cooldown",
     "tests": [
       "test/tell7_tier.test.js"
     ]
@@ -117,7 +117,9 @@
     "new": "  const add = extraShapesOf(mobileType).filter((k) => !base.includes(k));",
     "tests": [
       "test/tell7_tier.test.js"
-    ]
+    ],
+    "equivalent": true,
+    "why": "Every shape the whole set adds (the ring, the charge, the leap) has its BLOW row since TELL6 built them, so the filter keeps all of them and no pin can tell it from none. Kept as the guard for a shape named in the set before its row exists - found surviving when RVN4 re-judged the file, recorded rather than dropped."
   },
   {
     "name": "TELL7-set-ignored",

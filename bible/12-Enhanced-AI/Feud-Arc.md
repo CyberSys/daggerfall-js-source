@@ -1,4 +1,4 @@
-# Feud - blows with weight, revenants with memory (FEUD, 2026-10-04 - TELL1-TELL9, AUDIT TELL and RVN1-RVN3 built; RVN4-RVN13 next)
+# Feud - blows with weight, revenants with memory (FEUD, 2026-10-04 - TELL1-TELL9, AUDIT TELL and RVN1-RVN4 built; RVN5-RVN13 next)
 
 Mac, 2026-10-04: *"I want to improve the revenant system to be more complex, less easy to accomplish and more detailed.
 Would love some ideas. I also want to improve the enemies telegraph/wind up attacks because player's can easily stun
@@ -7,7 +7,7 @@ detailed arc. I want this to be perfect and insanely detailed"*.
 
 **Status: DESIGNED 2026-10-04 - Mac: "Go" on every call of section 31, each as recommended. Built slice by slice
 (section 30's order; TELL7 before TELL6, TELL6 shape by shape) - TELL1 to TELL9 built (TELL6 in five parts), AUDIT
-TELL, and RVN1 to RVN3; each slice's record is at the foot.**
+TELL, and RVN1 to RVN4; each slice's record is at the foot.**
 Two halves that lean on each other. **TELL** (TELL1-TELL9) gives a foe's telegraphed blow weight: poise, a body that
 winds up, a cost for missing. **RVN** (RVN1-RVN13) gives a revenant a memory of how it was beaten, a secret, a last
 stand, a name for its worst blow, a band, a lair, and a reason to fear leaving it alone. The predecessors are
@@ -1846,3 +1846,44 @@ and `dungeonContext.js`.
   have pins. Mutant records re-aimed by content (6): `revenantfate` (3), `audittell`, `rvn1`, `rvn2` (one each); one
   retired with its line - `rvn2`'s `RVN2-a-metal-weakness-touched` (61 now): the mod's metal check is unreachable, a
   blow of a metal weakness being x1.5 ahead of every adaptation.
+
+### RVN4 - BUILT 2026-10-04 (the loot-rarity row on; the roar's ring and phase two's brain with the Enhanced AI switch; every host)
+
+- **The law** - `systems/revenantFeud.js`: `LAST_STAND_RANK` 3, `LAST_STAND_HEALTH` (0.35 / 0.45 / 0.55), `LAST_STAND_ROAR`
+  1.2 s, `PHASE_TWO` (blows x1.2, +20 Speed, wind-ups x0.85, cooldowns x0.7, two chained blows - three in all, iron
+  one in two, x1.1, its rim's colour); `lastStandHealth`, `phaseTwo()` (the numbers the brain reads, frozen),
+  `lastStandGlint`, `lastStandSize`.
+- **The seam** - both damage doors, ahead of the will and the yield and of the soul trap (no soul taken by that blow):
+  `revenantFate.revenantLastStandDue(f)` - one of my own revenants (never a puppet, a companion, one held by its fate),
+  rank 3 and up, not stood this stand (`f._lastStood`); never against a Disintegrate's whole; underground never a
+  room's shared foe online (the yield's gate). Its record's id is asked first - a plain foe's death never reaches the
+  online test (the gate caught the dungeon's lifted door: its harness stubs no `onlineRoom`, as nothing before asked it). Decided here: it asks no `fates` - `exterior.js`'s pool, which has none,
+  stands it too (its revenants then die outright, as section 32 FLAGS).
+- **The stand** - `beginLastStand`: its rank's share of its health; `f.roaring` for the roar - every door refuses it
+  (both pools', a spell's landing, a shaft); its card (*Last stand*: "Grushnak rises again - its last stand.", the
+  cornered's words) and its deed (`revenantLastStand`: `laststand` in its history). The pools' `lastStand` plays its
+  bark low, the camera's kick; `roarStep` ends the roar.
+- **The roar** - the switch on: `ai/tactics.js beginRoar` winds an IRON RING about its feet whatever its kind's shapes
+  (TELL6a's shape, its wind-up the roar - the brain stands it and its held swing; it lands as the roar ends, TELL6e's
+  push and rattle); the switch off: the motor held (`enemyMotor.roarUntil`, a lock beside the stagger's, on the brain's
+  clock - every host ticks it) and its swing raised, let go striking nothing when the roar is spent.
+- **Phase two** - stamped on the entity (`revenant.p2`): the brain's table reads it (`windupSeconds`, `blowCooldown`,
+  `blowGuard` - the largest iron share of an elite's, Steadfast's and phase two's, one roll - and `chainMax`, which
+  `resolveLanding` chains to); its blows (`damageScale`) and Speed (`stats.speed`) at the stand. Decided here: its rim is
+  TELL2's outline lane in ember red, steady, where no wind-up glints (`setBatchGlint(..., foeGlint(...) ??
+  lastStandGlint(...))`) - the elite lane's rim is blue in its shader, and a second colour there was a shader change for
+  one state; its size multiplies the elite's in both pools.
+- **The page** - from rank 3, "Last stand: once a fight it rises again, at 35% of its health." (`lastStandWords`).
+- **Four hosts** - `scenes/world.js` WIRED (the street pool's seam, roar, rim and size; the spell's refusal through the
+  cast engine); `scenes/exterior.js` WIRED the same (the stand asks no fates) - FLAGGED (section 32): no `fates`;
+  `scenes/worldModes.js` WIRED (its interior pool); `scenes/dungeonContext.js` WIRED (its seam - never a room's shared
+  foe - roar, rim and size; `scenes/dungeon.js` hosts it).
+- **Not built here** - rank 5's band running to it, and its kin stepping out of a portal: the band is RVN6's, and is
+  built with it; `p2` on the wire (RVN13); the last stand's own words (RVN12 - the cornered's stand in).
+- Pins `test/rvn4_stand.test.js` (8). Pins moved (each marked `PIN MOVED (RVN4: ...)`): `tell1_poise` (the motor's
+  lock), `tell2_tell` (the pools' glint, its rim after it), `revenant_audit` (the spell's and the shaft's refusals),
+  `rvn3_weak` (a rank-3 one's last stand comes first - the will's pins stand it already; the dungeon's refusal).
+- Mutants `tools/mutants/rvn4.json` (49): 48 dead, 1 recorded equivalent (the ring's own iron wind-up is the roar's
+  1.2 s; the roar's own mutant is killed). Mutant records re-aimed by content (9): `tell5` (2), `rvn3` (2),
+  `revenantfate`, `rvn2`, `tell4`, `tell6b`, `tell7` (one each) - all judged again: dead, but `tell7`'s
+  `TELL7-unbuilt-shapes`, recorded equivalent (since TELL6 every shape of the whole set has its row; not this slice's).
