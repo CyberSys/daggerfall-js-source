@@ -54,7 +54,8 @@ test('AUDIT SPELL-GIFT B1 + B7: the receiver refuses my duel opponent\'s gift wh
   assert.match(on, /if \(duelMgr\.fighting && id === duelMgr\.opponent\) return;/);
   assert.match(on, /if \(!mate && !\(peersNear\(\) \?\? \[\]\)\.some\(\(p\) => p\.id === id\)\) return;/);
   assert.match(on, /const loud = mate \|\| !\(t - \(_strangerCastSaid\.get\(id\) \?\? -Infinity\) < STRANGER_CAST_SAY_MS\);\s*\n\s*if \(loud && !mate\) _strangerCastSaid\.set\(id, t\);/);
-  assert.match(on, /if \(loud\) townTalk\.say\(allyCastTargetLine\(who, spell\.name\)\);/);
+  // PIN MOVED (GIFT-QUIET, 2026-10-04): a stranger's line still rides `loud`; a party mate's goes through the gift gate
+  assert.match(on, /const targetLine = allyCastTargetLine\(who, spell\.name\);\s*\n\s*if \(loud && \(!mate \|\| _mateGiftGate\(targetLine\)\)\) townTalk\.say\(targetLine\);/);
   assert.match(W, /const STRANGER_CAST_SAY_MS = 3000;/);
 });
 
