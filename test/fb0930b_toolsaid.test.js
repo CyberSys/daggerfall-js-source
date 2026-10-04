@@ -456,12 +456,12 @@ test('TOOL-USE: the Professions page says a tool\'s Use at the node is the key\'
   assert.match(GATHER_HOW.herbalism, /herb patch/);
   assert.match(GATHER_HOW.mining, /ore vein or a boulder/);
   assert.match(GATHER_HOW.logging, /tree/);
-  assert.match(GATHER_HOW.herbalism, /Using the Sickle or the Basket from your hotbar or quick slot at the patch is the same as the key - the Sickle picks the herbs, the Basket searches for food\. Used from your pack, they only point the way\.$/);
-  assert.match(GATHER_HOW.mining, /Using the Pick-Axe from your hotbar or quick slot there is the same as the key\. Used from your pack, it only points the way\.$/);
-  assert.match(GATHER_HOW.logging, /Using the Wood-Axe from your hotbar or quick slot there is the same as the key\. Used from your pack, it only points the way\.$/);
+  assert.match(GATHER_HOW.herbalism, /The Sickle or Basket also works from your hotbar or a quick slot\. Used from your pack, a tool just tells you where it works\.$/);
+  assert.match(GATHER_HOW.mining, /It also works from your hotbar or a quick slot\. Used from your pack, a tool just tells you where it works\.$/);
+  assert.match(GATHER_HOW.logging, /It also works from your hotbar or a quick slot\. Used from your pack, a tool just tells you where it works\.$/);
   for (const k of ['herbalism', 'mining', 'logging']) assert.doesNotMatch(GATHER_HOW[k], /Foraging|earns no XP/);
   // PIN MOVED (2026-10-01 part four, TOUCH-HOLD): and the Skinning Knife's Use
-  assert.match(STORES_EMPTY_LINE, /or use the Sickle, Basket, Pick-Axe, Wood-Axe, Skinning Knife or Fishing-Net from your hotbar or quick slot there\. A tool used from your pack gathers nothing: it only points the way\.$/);
+  assert.match(STORES_EMPTY_LINE, /or use the matching tool from your hotbar or a quick slot\. Tools used from your pack gather nothing\.$/);
   const src = readFileSync(new URL('../src/ui/profPages.js', import.meta.url), 'utf8');
   assert.match(src, /if \(GATHER_HOW\[_sel\]\) pane\.append\(el\('p', 'px-note', GATHER_HOW\[_sel\]\)\);/);
   assert.match(src, /: STORES_EMPTY_LINE\)\);/);

@@ -268,12 +268,12 @@ test('PROF12 pages: Alchemy and Enchanting practised on the Professions page - t
     assert.match(page.text(), /Brewer3 potions a brew at Journeyman\./);
     assert.match(page.text(), /Orc Strength, Stamina, Healing, Water Walkingrank 0/);
     assert.match(page.text(), /Purificationrank 90/);
-    assert.match(page.text(), /Alchemy is brewed at an alchemy station/);
+    assert.match(page.text(), /Brew at an alchemy station/);
     assert.doesNotMatch(page.text(), /not practised in the Bay yet/);
     page.buttonStarting('Enchanting').onclick();
     page.draw();
-    assert.match(page.text(), /Enchanting rises by disenchanting crafted pieces into Arcane Essence at an enchanting station/);
-    assert.match(page.text(), /from Journeyman your rank takes a share off its gold/);
+    assert.match(page.text(), /Level Enchanting by disenchanting crafted pieces into Arcane Essence at an enchanting station/);
+    assert.match(page.text(), /From Journeyman, your rank lowers its cost/);
     assert.doesNotMatch(page.text(), /not practised in the Bay yet/);
   } finally { page.done(); setProfessionsPages(null); }
 });
