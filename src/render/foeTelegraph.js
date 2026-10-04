@@ -2,8 +2,10 @@
 // TACT4 - A FOE'S TELEGRAPH ON THE GROUND (bible/12-Enhanced-AI/Tactics-Arc.md): the world boss's floor telegraph
 // (render/gateTelegraph.js) at a foe's scale - one flat quad at the foe's feet, the shape the fragment's question
 // against ai/foeBlows.js inBlow (the pins hold `blowField` to it point for point, and the shader's text to it): a dim
-// outline at once, filling outward as the wind-up runs, a bright flash at the landing. Added onto the frame (ONE, ONE)
-// so it only brightens what it lies on, depth-tested and never depth-written, lifted and offset off the ground.
+// outline at once, filling outward as the wind-up runs, a bright flash at the landing. Depth-tested and never
+// depth-written, lifted and offset off the ground. TELL2 (bible/12-Enhanced-AI/Feud-Arc.md 4.4): drawn in the boss's
+// readable line (render/telegraphStyle.js), premultiplied over the frame (ONE, ONE_MINUS_SRC_ALPHA) - it was added on
+// (ONE, ONE), which could only brighten; TELL3: an iron blow's second rim and hatch.
 import { buildProgram } from './glProgram.js';
 import { FOG_FACTOR_GLSL } from './labGrass.js';   // AUDIT TACT D9: the renderer's one fog block
 import { BLOW, TELL_NOW } from '../ai/blowShapes.js';   // the leaf - the brain stays off the renderer's boot graph
@@ -70,6 +72,7 @@ uniform vec3 uColor;
 uniform vec4 uP;   // lunge: len, halfW / sweep: r, halfArc / slam: r, ahead
 uniform float uNow;   // TELL2: 0..1 through the last stretch before the landing
 uniform float uNearFloor;   // TELL2: the fog's floor for a mark near the player (0 none)
+uniform float uIron;   // TELL3: 1 an iron blow - its second rim and its hatch
 in vec3 vWorld;
 uniform int uFogMode;
 uniform float uFogDensity;
@@ -105,6 +108,7 @@ void main() {
   // AUDIT TACT D9: fogged as the ground it lies on - never a glow through the murk; TELL2: never lost a step away
   float fogK = max(fogFactorAt(vWorld), uNearFloor);
   oColor = telegraphStyle(dist, inside ? 1.0 : 0.0, edge, uT, uNow, uFlash, uColor, fogK);
+  if (uIron > 0.5) oColor = telegraphIron(oColor, dist, inside ? 1.0 : 0.0, vec2(across, along), uColor, fogK);   // TELL3
 }`;
 
 const QUAD = new Float32Array([-1, -1, 1, -1, 1, 1, -1, -1, 1, 1, -1, 1]);
@@ -117,7 +121,7 @@ export class FoeTelegraphPass {
     this.gl = gl;
     this.program = buildProgram(gl, VS, FS, 'foeTelegraph');
     this.u = {};
-    for (const n of ['uVP', 'uOrigin', 'uYaw', 'uHalf', 'uLift', 'uKind', 'uT', 'uFlash', 'uColor', 'uP', 'uSlope', 'uFogMode', 'uFogDensity', 'uFogRange', 'uCamPos', 'uFocus', 'uNow', 'uNearFloor']) this.u[n] = gl.getUniformLocation(this.program, n);
+    for (const n of ['uVP', 'uOrigin', 'uYaw', 'uHalf', 'uLift', 'uKind', 'uT', 'uFlash', 'uColor', 'uP', 'uSlope', 'uFogMode', 'uFogDensity', 'uFogRange', 'uCamPos', 'uFocus', 'uNow', 'uNearFloor', 'uIron']) this.u[n] = gl.getUniformLocation(this.program, n);
     this.vao = gl.createVertexArray();
     gl.bindVertexArray(this.vao);
     this.vbo = gl.createBuffer();
@@ -164,6 +168,7 @@ export class FoeTelegraphPass {
       gl.uniform1f(U.uFlash, phase.flash);
       gl.uniform1f(U.uNow, phase.flash > 0 ? 0 : nowShare(b, phase));   // TELL2
       gl.uniform1f(U.uNearFloor, nearFloor > 0 ? nearFloor : 0);
+      gl.uniform1f(U.uIron, b.guard === 'iron' ? 1 : 0);   // TELL3
       const c = b.color ?? [1, 0.42, 0.12];
       gl.uniform3f(U.uColor, c[0], c[1], c[2]);
       gl.drawArrays(gl.TRIANGLES, 0, 6);

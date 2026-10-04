@@ -6,7 +6,7 @@ these enemies and breath more depth into it"*; then, on the sixteen ideas offere
 detailed arc. I want this to be perfect and insanely detailed"*.
 
 **Status: DESIGNED 2026-10-04 - Mac: "Go" on every call of section 31, each as recommended. Built slice by slice
-(section 30's order) - TELL1 and TELL2 built; each slice's record is at the foot.**
+(section 30's order) - TELL1, TELL2 and TELL3 built; each slice's record is at the foot.**
 Two halves that lean on each other. **TELL** (TELL1-TELL9) gives a foe's telegraphed blow weight: poise, a body that
 winds up, a cost for missing. **RVN** (RVN1-RVN13) gives a revenant a memory of how it was beaten, a secret, a last
 stand, a name for its worst blow, a band, a lair, and a reason to fear leaving it alone. The predecessors are
@@ -1184,3 +1184,33 @@ RVN5-RVN7; RVN8-RVN11; RVN12 and RVN13 with the audit.
   shadow); three cites by hand (`roadg_pools`, `chargenSession.js`, `Port-Ledger.md`). Mutant records re-aimed by
   content: `audit0928_render`, `audittact` (three), `perfextb`, `tact2`, `tact4`, `tell1`.
 - Mutants `tools/mutants/tell2.json` (54), all dead.
+
+### TELL3 - BUILT 2026-10-04 (the Enhanced AI switch on, every host)
+
+- **The guard** - `ai/foeBlows.js makeBlow(kind, origin, yaw, now, color, guard)`: every blow says `guard` 'poise' or
+  'iron' (anything else is poise); an iron wind-up runs `TELL_IRON_EXTRA` (0.2 s, `ai/blowShapes.js`) longer.
+  `IRON_COLOR` [1.0, 0.12, 0.08] beside `BLOW_COLOR`.
+- **Who throws iron** - `ai/tells.js blowGuard(kind, weight, ent, roll)`: the slam and the ring (`TELL.IRON_SHAPES`; the
+  ring is TELL6's) of a heavy or massive body by DFU's own weight - the Giant, the Orc Warlord (700, heavy at the
+  bound), the Daedra Lord and the Iron and Flesh Atronachs; the Daedroth's, the Gargoyle's and the Dreugh's slams stay
+  poise - and one blow in three (`TELL.IRON_ELITE`) from an elite, read as the ELITE FOES gold (`entity.eliteFoe`), not
+  the Elite Dungeon's doubling; the roll drawn only for an elite whose shape has not decided. The brain
+  (`ai/tactics.js`) asks it as it winds up, with the kind's own weight (no class throws an iron shape), and colours the
+  blow by it. The revenant's iron (its signature from rank 3, a last stand, a Steadfast one) joins with RVN2, RVN4 and
+  RVN5, in `blowGuard`.
+- **Iron takes no poise** - `windupStruck` answers 'hold' to every blow on an iron wind-up and weighs none: the doors
+  write no knockback (TELL1's hold), the meter is never set. A paralysis still breaks it (OPEN 4, `windupTurn`, its held
+  swing dropped). A charging horse's shove - no blow's door - still breaks it as it breaks any wind-up: a body moved off
+  its mark cannot land it there.
+- **Never by colour alone** - `render/telegraphStyle.js telegraphIron` over the style: a second line `IRON_INSET`
+  (0.25 m) inside the outline and a diagonal hatch every `IRON_HATCH` (0.35 m) across the fill inside it;
+  `render/foeTelegraph.js` sets `uIron` per blow. Its glint is red (the blow's colour, TELL2). The target bar's "Iron"
+  is TELL9's. `tools/foeTelegraphProbe.mjs` reads the second rim and the hatch off a real frame (19 held).
+- **Not built here** - an iron miss's longer window (TELL4); the target bar's word (TELL9); a revenant's iron (RVN).
+- Pins `test/tell3_iron.test.js` (9): the numbers; the guard by shape and weight, every brute by its own; an elite's
+  third (and an Elite Dungeon's foe not one; the roll's draw); the blow's length and guard; ON THE REAL MOTOR a giant's
+  slam iron - every blow held, none weighed, its mark standing, landing where aimed at its longer landing, red on its
+  body - a paralysis still stopping it, an elite orc's sweep iron where a plain orc's breaks; the door's hold; the
+  ground's rim, hatch and uniform. Pin moved: `tell1_poise` (its giant's and elite's wind-ups pinned poise - a giant's
+  slam is iron now; the table grew).
+- Mutants `tools/mutants/tell3.json` (24), all dead.

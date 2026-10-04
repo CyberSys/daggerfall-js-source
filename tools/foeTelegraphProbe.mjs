@@ -36,12 +36,12 @@ const vp = new Float32Array(16);
 for (let c = 0; c < 4; c++) for (let r = 0; r < 4; r++) vp[c*4+r] = proj[r]*view[c*4] + proj[4+r]*view[c*4+1] + proj[8+r]*view[c*4+2] + proj[12+r]*view[c*4+3];
 const pass = new FoeTelegraphPass(gl);
 window.err = gl.getError();
-window.draw = (kind, when, fog = null, slope = null, nearFloor = 0) => {
+window.draw = (kind, when, fog = null, slope = null, nearFloor = 0, guard = 'poise') => {
   gl.viewport(0, 0, 512, 512);
   gl.clearColor(0, 0, 0, 1); gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
   gl.enable(gl.DEPTH_TEST); gl.disable(gl.CULL_FACE); gl.useProgram(pr); gl.uniformMatrix4fv(gl.getUniformLocation(pr, 'vp'), false, vp);
   gl.bindVertexArray(vao); gl.drawArrays(gl.TRIANGLES, 0, 6); gl.bindVertexArray(null);
-  const blow = makeBlow(kind, [0, 0, 0], 0, 10);   // at the origin, facing +z
+  const blow = makeBlow(kind, [0, 0, 0], 0, 10, null, guard);   // at the origin, facing +z (TELL3: its guard; one colour for both, so the shape alone tells them)
   const share = when === 'mid' ? 0.5 : when === 'now' ? 0.95 : 0.4;   // TELL2: halfway, and inside the last stretch
   const at = when === 'land' ? blow.land + 0.02 : 10 + (blow.land - 10) * share;   // the landing's flash, or that far through the wind-up
   if (slope) blow.slope = slope;
@@ -49,7 +49,7 @@ window.draw = (kind, when, fog = null, slope = null, nearFloor = 0) => {
   // read the ground at a world point
   const px = (x, z) => { const v = [x, 0, z, 1]; const c = [0,0,0,0]; for (let r = 0; r < 4; r++) c[r] = vp[r]*v[0] + vp[4+r]*v[1] + vp[8+r]*v[2] + vp[12+r]*v[3];
     const sx = Math.round((c[0]/c[3]*0.5+0.5)*511), sy = Math.round((c[1]/c[3]*0.5+0.5)*511); const o = new Uint8Array(4); gl.readPixels(sx, sy, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, o); return o[0]; };
-  return { n, err: gl.getError(), probes: { ahead: px(0, 1.8), beside: px(3.5, 1.8), behind: px(0, -2.5), far: px(0, 4.0), wide: px(1.5, 1.5), keyline: px(0.70, 1.8) }, png: document.getElementById('c').toDataURL() };
+  return { n, err: gl.getError(), probes: { ahead: px(0, 1.8), beside: px(3.5, 1.8), behind: px(0, -2.5), far: px(0, 4.0), wide: px(1.5, 1.5), keyline: px(0.70, 1.8), inner: px(0.35, 1.8), hatch: Array.from({ length: 13 }, (_, i) => px(0, 2.5 + i * 0.03)) }, png: document.getElementById('c').toDataURL() };
 };
 window.ready = true;
 </script></body></html>`;
@@ -100,6 +100,12 @@ try {
   const lost = await page.evaluate((f) => window.draw('lunge', 'land', { ...f, range: new Float32Array(f.range), camPos: new Float32Array(f.camPos) }), { ...thick, range: [...thick.range], camPos: [...thick.camPos] });
   const kept = await page.evaluate((f) => window.draw('lunge', 'land', { ...f, range: new Float32Array(f.range), camPos: new Float32Array(f.camPos) }, null, 0.6), { ...thick, range: [...thick.range], camPos: [...thick.camPos] });
   check('TELL2: a mark near the player keeps its floor through thick fog', Math.abs(lost.probes.ahead - GROUND) < 6 && kept.probes.ahead > GROUND + 40, JSON.stringify({ lost: lost.probes.ahead, kept: kept.probes.ahead }));
+  // TELL3: an iron blow is never told by colour alone - a second line a quarter-metre inside, a hatch across its fill
+  const poiseW = await page.evaluate(() => window.draw('lunge', 'wind'));
+  const ironW = await page.evaluate(() => window.draw('lunge', 'wind', null, null, 0, 'iron'));
+  check('TELL3: the iron mark draws a second rim inside its outline', ironW.probes.inner > poiseW.probes.inner + 15, `${poiseW.probes.inner} -> ${ironW.probes.inner}`);
+  const spread = (a) => Math.max(...a) - Math.min(...a);
+  check('TELL3: the iron mark hatches its fill; the poise mark\'s is even', spread(ironW.probes.hatch) > 10 && spread(poiseW.probes.hatch) < 4, JSON.stringify({ iron: ironW.probes.hatch, poise: poiseW.probes.hatch }));
 } finally {
   await browser.close();
   server.close();

@@ -46,6 +46,7 @@ test('TELL1: the table is the arc\'s section 27 (mutants: any number moved)', ()
     STAGGER_KNOCK: 1.5, STAGGER_TAKEN: 1.25, STAGGER_IMMUNE: 3,
     GLINT_PULSE: 0.9, GLINT_PULSE_S: 0.15, GLINT_STEADY: 0.2, TELL_NOW: 0.2, GLINT_REDUCED: 0.45, RELEASE_LEAD: 0.25,
     WIND_PITCH: 0.85, WIND_CLASS_PITCH: 0.6, WIND_CLASS_VOLUME: 0.6, RELEASE_PITCH: 0.45, NEAR_M: 6, NEAR_FLOOR: 0.6,
+    IRON_SHAPES: ['slam', 'ring'], IRON_ELITE: 1 / 3, IRON_EXTRA: 0.2,
   });
 });
 
@@ -246,6 +247,9 @@ test('TELL1: no stunlock - a wind-up broken inside STAGGER_IMMUNE of a stagger\'
 test('TELL1: the weight class sets the length - a giant is staggered 0.8 s, a bat-light foe 1.4 s; an elite\'s poise is half again', () => {
   const g = foe({ mobileType: M.Giant });
   assert.ok(untilWindup([g], g, [0, 0, 0]));
+  // PIN MOVED (TELL3, bible/12-Enhanced-AI/Feud-Arc.md 5: a giant's slam is iron, one elite blow in three too - no poise
+  // to weigh): the blow this pins is one with a poise (test/tell3_iron.test.js pins the iron)
+  g.ai._tac.blow.guard = 'poise';
   const t0 = T;
   assert.equal(windupStruck(g.ai, g.ent, 3000, 49.9), 'hold', 'a giant of 100: poise 50');
   assert.equal(windupStruck(g.ai, g.ent, 3000, 0.2), 'stagger');
@@ -254,6 +258,7 @@ test('TELL1: the weight class sets the length - a giant is staggered 0.8 s, a ba
   const e = foe();
   e.ent.eliteFoe = true;
   assert.ok(untilWindup([e], e, [0, 0, 0]));
+  e.ai._tac.blow.guard = 'poise';   // PIN MOVED (TELL3): as above
   assert.equal(windupStruck(e.ai, e.ent, ORC_W, 44.9), 'hold', 'an elite orc: 45');
   assert.equal(windupStruck(e.ai, e.ent, ORC_W, 0.2), 'stagger');
 });

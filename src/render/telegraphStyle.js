@@ -11,6 +11,13 @@
 //   - THE LANDING: white-hot at once, fading (`flash`).
 // Premultiplied colour out, for the pass's blend (ONE, ONE_MINUS_SRC_ALPHA). `fogK` the fog's factor (with the near floor
 // already taken), applied to both.
+// TELL3 (section 5): AN IRON BLOW, never by colour alone - a second line IRON_INSET inside the first, and a diagonal
+// hatch across its fill every IRON_HATCH metres (`telegraphIron`, over the style above).
+
+/** TELL3: the iron mark's second rim, metres inside its outline. */
+export const IRON_INSET = 0.25;
+/** TELL3: the iron hatch's spacing along its diagonal, metres. */
+export const IRON_HATCH = 0.35;
 
 export const TELEGRAPH_STYLE_GLSL = `
 // edge: metres to the shape's outline (unsigned); fin: 1 inside, 0 outside; s: the fill coordinate (0 its root, 1 its far
@@ -31,4 +38,14 @@ vec4 telegraphStyle(float edge, float fin, float s, float t, float nowK, float f
     a = fin * (0.35 + 0.35 * flash) + core * 0.6;
   }
   return vec4(rgb * fogK, clamp(a, 0.0, 1.0) * fogK);
+}
+// TELL3: the iron mark over the style's colour - p the fragment's place in the shape's own frame (across, along)
+vec4 telegraphIron(vec4 o, float edge, float fin, vec2 p, vec3 col, float fogK) {
+  float aa = max(fwidth(edge), 1e-4);
+  float inner = fin * (1.0 - smoothstep(aa, 2.2 * aa, abs(edge - ${IRON_INSET.toFixed(3)})));
+  float u = (p.x + p.y) / ${IRON_HATCH.toFixed(3)};
+  float fu = max(fwidth(u), 1e-4);
+  float hatch = fin * (1.0 - smoothstep(0.12, 0.12 + fu, abs(fract(u) - 0.5))) * step(${IRON_INSET.toFixed(3)} + 2.2 * aa, edge);
+  vec3 rgb = col * (inner * 0.9 + hatch * 0.35);
+  return vec4(o.rgb + rgb * fogK, clamp(o.a + (inner * 0.55 + hatch * 0.18) * fogK, 0.0, 1.0));
 }`;

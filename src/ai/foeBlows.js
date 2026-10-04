@@ -20,7 +20,7 @@ import { tacticsNow } from './tacticsClock.js';   // AUDIT TACT: the foes' own t
 const M = MOBILE_TYPES;
 
 export { BLOW } from './blowShapes.js';   // the shapes' one home - a leaf the ground's pass reads too
-import { BLOW, TELL_NEAR_M, TELL_NEAR_FLOOR } from './blowShapes.js';
+import { BLOW, TELL_NEAR_M, TELL_NEAR_FLOOR, TELL_IRON_EXTRA } from './blowShapes.js';
 export const BLOW_TIER_LEVEL = 10;      // Mac: level 10 and up, or an elite
 export const BLOW_COOLDOWN_MIN = 8;     // seconds between one foe's blows
 export const BLOW_COOLDOWN_MAX = 15;
@@ -59,10 +59,12 @@ export function blowTier(entity) {
 /** Does this foe telegraph at all? */
 export const throwsBlows = (entity) => blowTier(entity) && blowShapesOf(entity.mobileType).length > 0;
 
-/** A blow wound up at `origin` facing `yaw` (atan2(dx, dz)), at `now`. */
-export function makeBlow(kind, origin, yaw, now, color = null) {
+/** A blow wound up at `origin` facing `yaw` (atan2(dx, dz)), at `now`. TELL3: its `guard` - 'poise' (TELL1's meter) or
+ *  'iron' (no meter: it lands; its wind-up TELL_IRON_EXTRA longer). */
+export function makeBlow(kind, origin, yaw, now, color = null, guard = 'poise') {
   const P = BLOW[kind];
-  return { kind, origin: [origin[0], origin[1], origin[2]], yaw, start: now, land: now + P.windup, mult: P.mult, color };
+  const iron = guard === 'iron';
+  return { kind, origin: [origin[0], origin[1], origin[2]], yaw, start: now, land: now + P.windup + (iron ? TELL_IRON_EXTRA : 0), mult: P.mult, color, guard: iron ? 'iron' : 'poise' };
 }
 
 /**
@@ -169,3 +171,6 @@ export function blowScaled(ai, dmg) {
 
 /** The colour a blow is drawn in - the boss's weight, a foe's ember. */
 export const BLOW_COLOR = Object.freeze([1.0, 0.42, 0.12]);
+/** TELL3 (section 5): an iron blow's colour - its mark, its glint. Never by colour alone: the mark's second rim and its
+ *  hatch (render/telegraphStyle.js) say it too. */
+export const IRON_COLOR = Object.freeze([1.0, 0.12, 0.08]);

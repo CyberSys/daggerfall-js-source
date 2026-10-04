@@ -15,7 +15,7 @@
 import { weaponSkillUsed } from '../characters/weapons.js';
 import { SKILLS } from '../systems/skills.js';
 import { getItemHands, ITEM_HANDS } from '../characters/equipTable.js';
-import { TELL_NOW, TELL_NEAR_M, TELL_NEAR_FLOOR } from './blowShapes.js';   // TELL2: the ground's numbers, homed in the leaf the renderer reads
+import { TELL_NOW, TELL_NEAR_M, TELL_NEAR_FLOOR, TELL_IRON_EXTRA } from './blowShapes.js';   // TELL2: the ground's numbers, homed in the leaf the renderer reads; TELL3: the iron wind-up's extra
 
 /** Every TELL number on one table (section 27). Seconds, shares, multipliers. */
 export const TELL = Object.freeze({
@@ -62,6 +62,10 @@ export const TELL = Object.freeze({
   RELEASE_PITCH: 0.45,
   NEAR_M: TELL_NEAR_M,          // a wind-up this near the player... (ai/blowShapes.js)
   NEAR_FLOOR: TELL_NEAR_FLOOR,  // ...draws at no less than this through the fog
+  // TELL3: iron blows - no poise; they land
+  IRON_SHAPES: Object.freeze(['slam', 'ring']),   // a heavy or massive body's iron shapes (the ring is TELL6's)
+  IRON_ELITE: 1 / 3,            // an elite's blow is iron one time in this
+  IRON_EXTRA: TELL_IRON_EXTRA,  // an iron wind-up runs this much longer (ai/blowShapes.js)
 });
 
 /** The weight class of a foe of `weight` classic units. */
@@ -153,4 +157,15 @@ export function glintStrength(sinceStart, toLand, reduced = false) {
   if (sinceStart < TELL.GLINT_PULSE_S) k = Math.max(k, TELL.GLINT_PULSE - (TELL.GLINT_PULSE - TELL.GLINT_STEADY) * (sinceStart / TELL.GLINT_PULSE_S));
   if (toLand < TELL.TELL_NOW) k = Math.max(k, TELL.GLINT_STEADY + (1 - TELL.GLINT_STEADY) * (1 - toLand / TELL.TELL_NOW));
   return k;
+}
+
+/** TELL3 (section 5): a blow's guard as it is wound up - 'iron' for the slam and the ring of a heavy or massive body
+ *  (`weight` DFU's, in classic units), and one blow in IRON_ELITE from an elite (`ent.eliteFoe`, the ELITE FOES system);
+ *  else 'poise'. `roll` in [0, 1), drawn only for an elite. The revenant's iron (its signature from rank 3, a last stand,
+ *  a Steadfast one) joins with the slices that make them (RVN2, RVN4, RVN5). */
+export function blowGuard(kind, weight, ent = null, roll = null) {
+  const cls = weightClass(weight);
+  if (TELL.IRON_SHAPES.includes(kind) && (cls === 'heavy' || cls === 'massive')) return 'iron';
+  if (ent?.eliteFoe === true && (roll ?? Math.random()) < TELL.IRON_ELITE) return 'iron';
+  return 'poise';
 }

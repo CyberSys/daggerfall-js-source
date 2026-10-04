@@ -18,3 +18,5 @@ export const TELL_NOW = 0.2;
 export const TELL_NEAR_M = 6;
 /** ...draws at no less than this through the fog (a dungeon's black murk swallowed a mark a step away). */
 export const TELL_NEAR_FLOOR = 0.6;
+/** TELL3 (section 5): an IRON blow's wind-up runs this much longer than its shape's. */
+export const TELL_IRON_EXTRA = 0.2;

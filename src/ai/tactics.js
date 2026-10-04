@@ -33,9 +33,9 @@
 import { getPref } from '../systems/uiPrefs.js';
 import { ENEMY_BASICS } from '../characters/enemyBasics.js';
 import { MOBILE_TYPES } from '../characters/mobileTypes.js';
-import { throwsBlows, blowShapesOf, makeBlow, fitBlowToGround, inBlow, setLiveBlow, windupNear, offsetBlows, BLOW_CHANCE, BLOW_COOLDOWN_MIN, BLOW_COOLDOWN_MAX, BLOW_COLOR } from './foeBlows.js';   // TACT4
+import { throwsBlows, blowShapesOf, makeBlow, fitBlowToGround, inBlow, setLiveBlow, windupNear, offsetBlows, BLOW_CHANCE, BLOW_COOLDOWN_MIN, BLOW_COOLDOWN_MAX, BLOW_COLOR, IRON_COLOR } from './foeBlows.js';   // TACT4; TELL3: iron
 import { tacticsNow, setTacticsClock, tickTactics } from './tacticsClock.js';   // AUDIT TACT D10/A3
-import { TELL, poiseOf, staggerSeconds, glintStrength } from './tells.js';   // TELL1: poise and the stagger (bible/12-Enhanced-AI/Feud-Arc.md section 3)
+import { TELL, poiseOf, staggerSeconds, glintStrength, blowGuard } from './tells.js';   // TELL1: poise and the stagger (bible/12-Enhanced-AI/Feud-Arc.md section 3); TELL3: a blow's guard
 import { registerBlowTakenMod } from '../systems/blowTaken.js';   // TELL1: a staggered foe takes more - the leaf the formulas read
 
 export const tacticsSwitchOn = () => getPref('enhancedAI') === true;
@@ -152,12 +152,14 @@ export function windupHolds(ai) {
  * fills against the foe's poise (set at the first blow: its kind's health by its weight, by what it is); at the poise
  * the wind-up BREAKS - its mark gone, the blow's cooldown begun, its melee token handed on - and the foe is STAGGERED
  * for its weight's `STAGGER_S`: nothing it decides (the motor's CanAct), its Hurt held, every blow it takes
- * x`STAGGER_TAKEN`. Inside `STAGGER_IMMUNE` of its last stagger's end a broken wind-up only breaks.
+ * x`STAGGER_TAKEN`. Inside `STAGGER_IMMUNE` of its last stagger's end a broken wind-up only breaks. TELL3: an IRON
+ * blow (its `guard`) takes no poise - every blow holds it, nothing fills.
  * Answers null (no wind-up here: DFU's knockback, as ever), 'hold', 'break' or 'stagger'.
  */
 export function windupStruck(ai, ent, weight, v) {
   if (!windupHolds(ai)) return null;
   const s = ai._tac, b = s.blow, now = clock();
+  if (b.guard === 'iron') return 'hold';   // TELL3: iron takes no poise - it lands (a paralysis alone stops it, windupTurn)
   if (!Number.isFinite(b.poise)) b.poise = poiseOf(ent, weight);
   b.taken = (b.taken ?? 0) + (v > 0 ? v : 0);
   if (b.taken < b.poise) return 'hold';
@@ -348,7 +350,9 @@ export function tacticsStep(ai, dx, dz) {
     const ent = ai.vitals?.();
     if (throwsBlows(ent) && !windupNear(_me.feet, now, ai) && Math.random() < BLOW_CHANCE) {
       const shapes = blowShapesOf(ent.mobileType);
-      s.blow = fitBlowToGround(makeBlow(shapes[Math.floor(Math.random() * shapes.length)], ai.feet, Math.atan2(dx, dz), now, BLOW_COLOR), ai.collider);   // AUDIT TACT D8: on the ground it marks
+      const shape = shapes[Math.floor(Math.random() * shapes.length)];
+      const guard = blowGuard(shape, ENEMY_BASICS[ent.mobileType]?.weight ?? 0, ent);   // TELL3: iron or poise (the kind's own weight - no class throws an iron shape)
+      s.blow = fitBlowToGround(makeBlow(shape, ai.feet, Math.atan2(dx, dz), now, guard === 'iron' ? IRON_COLOR : BLOW_COLOR, guard), ai.collider);   // AUDIT TACT D8: on the ground it marks
       setLiveBlow(ai, s.blow);
       s.state = 'windup';
       ai._blowHold = true; ai._blowWind = true;   // TELL2: the swing begins now and stands at its raised arm until the landing
