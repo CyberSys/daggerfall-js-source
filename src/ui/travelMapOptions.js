@@ -92,6 +92,7 @@ export function drawRegionPageWithPaths(dotsBuf, outlineBuf, {
     summaryAt, discovered, colorIndexOf, colors, pathsAt,   // AUDIT-TO1 L6: politicAt is handed in and NOT read - see below
     showPaths = [true, true, false, false], onlyLargeDots = false,
     markedMapId = -1, markColor = null, outlineOn = false, outlineColor = 0,
+    largeOf = null,   // IT1: the dot's size by the whole summary - Immersive Travel's two maps answer their own IsLocationLarge
   } = deps;
   dotsBuf.fill(0);
   outlineBuf.fill(0);
@@ -126,7 +127,7 @@ export function drawRegionPageWithPaths(dotsBuf, outlineBuf, {
       if (index === -1) continue;
       if (outlineOn) outlineBuf[offset] = outlineColor;
       drawLocation(dotsBuf, offset5, width5, colors[index] ?? 0,
-        isLocationLarge(summary.locationType, onlyLargeDots),
+        largeOf ? largeOf(summary) : isLocationLarge(summary.locationType, onlyLargeDots),
         { highlight: summary.mapID === markedMapId || summary.mapId === markedMapId, markColor: mark });
     }
   }

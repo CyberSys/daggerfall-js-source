@@ -409,8 +409,8 @@
   {
     "name": "AUDITREST3-H12-the-hover-reads-no-lane",
     "file": "src/scenes/camps.js",
-    "old": "if (usable()) out.actions = campMenu(c.rec, now(), mine(c), { online: sharedClockOn() })",
-    "new": "if (usable()) out.actions = campMenu(c.rec, now(), mine(c), { online: false })",
+    "old": "    out.actions = campMenu(c.rec, now(), mine(c), { online: sharedClockOn() })",
+    "new": "    out.actions = campMenu(c.rec, now(), mine(c), { online: false })",
     "tests": [
       "test/auditrest3.test.js",
       "test/auditrest2_camps.test.js"
@@ -447,20 +447,22 @@
   {
     "name": "AUDITREST3-C6-the-classic-window-unasked",
     "file": "src/ui/restWindow.js",
-    "old": ", () => this.deps.restAct?.() ?? null)) this._finishAct();",
-    "new": ")) this._finishAct();",
+    "old": ", () => this.deps.restAct?.() ?? null)) this._finishAct(); else { this._actHealth = channelHealTick(",
+    "new": ")) this._finishAct(); else { this._actHealth = channelHealTick(",
     "tests": [
       "test/auditrest2_party.test.js"
-    ]
+    ],
+    "note": "CAMP-ROLL (re-aimed by content): the camp wait's line carries the same call - aimed at the channel's own, by its note."
   },
   {
     "name": "AUDITREST3-C6-the-enhanced-card-unasked",
     "file": "src/ui/enhancedRest.js",
-    "old": ", () => deps.restAct?.() ?? null)) finishAct();",
-    "new": ")) finishAct();",
+    "old": ", () => deps.restAct?.() ?? null)) finishAct(); else { overlay._actHealth = channelHealTick(",
+    "new": ")) finishAct(); else { overlay._actHealth = channelHealTick(",
     "tests": [
       "test/auditrest2_party.test.js"
-    ]
+    ],
+    "note": "CAMP-ROLL (re-aimed by content): the camp wait's line carries the same call - aimed at the channel's own, by what follows it."
   },
   {
     "name": "AUDITREST3-E4-the-layout-s-braziers-stay",

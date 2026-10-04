@@ -22,8 +22,8 @@
   {
     "name": "A1-cooldown-forgotten-every-act",
     "file": "server/src/index.js",
-    "old": "if (this._cool.size >= COOL_MAX) this._cool.clear();",
-    "new": "this._cool.clear();",
+    "old": "    this._cool.set(key, now);   // SCALE2b: bounded, the oldest first",
+    "new": "    this._cool.clear(); this._cool.set(key, now);   // SCALE2b: bounded, the oldest first",
     "tests": [
       "test/auditsoc.test.js"
     ]

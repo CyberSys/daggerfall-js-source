@@ -49,7 +49,7 @@
 // systems/court.js:249 (ItemCollection.GetCreditAmount, ItemCollection
 // .cs:108-118), spent letters-before-coins with the shortfall returned
 // by deductGold at court.js:291 (DeductGoldAmount, PlayerEntity.cs
-// :1324-1354), banked at systems/banking.js:744/:762, and described by
+// :1324-1354), banked at systems/banking.js:749/:767, and described by
 // the 1007 text at systems/itemInfo.js:106. Nothing was ever owed at
 // THIS surface anyway - DaggerfallInventoryWindow.cs has no
 // letter-of-credit arm at all.
@@ -84,7 +84,7 @@ import {
 // AUDIT 26's quest arm is a rung of it and travelled with it, so the
 // window no longer carries the settings or quest-resource imports it
 // needed to run that rung itself.
-import { planStore, planTake, applyTransfer, planDropGold, WAGON_KG_LIMIT as WAGON_KG_LIMIT_LOCAL, HOW_MANY_ITEMS, SPLIT_INPUT_MAX, parseSplitAmount, splitRequired } from '../systems/itemTransfer.js';
+import { planStore, planTake, applyTransfer, planDropGold, WAGON_KG_LIMIT as WAGON_KG_LIMIT_LOCAL, HOW_MANY_ITEMS, SPLIT_INPUT_MAX, parseSplitAmount, splitRequired, sendQuestItemClick } from '../systems/itemTransfer.js';
 // U57: which list is the remote one, and what opening and closing
 // this window decide.
 import {
@@ -1062,7 +1062,7 @@ export class NativeInventoryWindow {
     // as taking it. The ClickedItem trigger polls hasPlayerClicked.
     // Only the REMOTE list does this; LocalItemListScroller_OnItemClick
     // (:1974-2007) has no such call.
-    if (it.questItem) this.hooks.getQuest?.(it.questUID)?.getItem?.(it.questSymbol)?.setPlayerClicked();
+    sendQuestItemClick(it, this.hooks.getQuest ?? null);   // WHERE-ROBES: the one home every remote door shares
     if (mode === 'info') { this._info(it); return; }
     if (mode === 'use') { this._use(it, remote); return; }   // U25 (:2048-2051)
     if (mode === 'remove' || mode === 'equip') {

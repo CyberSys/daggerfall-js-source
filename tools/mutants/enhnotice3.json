@@ -909,11 +909,12 @@
   {
     "name": "MAP-teleport-fee-refusal-not-on-the-panel",
     "file": "src/ui/heldMap.js",
-    "old": "(feeRefused ? 'You do not have enough gold.' : null) || null) : null;",
-    "new": "null) : null;",
+    "old": "(feeRefused ? 'You do not have enough gold.' : null) || this._itRefusal || null) : null;",
+    "new": "this._itRefusal || null) : null;",
     "tests": [
       "test/heldmap.test.js"
-    ]
+    ],
+    "note": "IT1 (PIN MOVED): re-aimed by content - Immersive Travel’s arm sits beside the line this record mutates."
   },
   {
     "name": "HUNT-parchment-drawn-under-the-panel",

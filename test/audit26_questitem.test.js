@@ -37,7 +37,7 @@ test('F068: an item is PLACED and an NPC is ALIGNED - two laws, one function', (
   const elseAt = arm.indexOf('} else {');
   assert.ok(elseAt > 0 && ray > elseAt, 'an item never reaches the raycast');
   // and both item call sites say so
-  assert.equal((wm.match(/standQuestFlat\(t\.worldTextureArchive[^\n]*, true\)/g) ?? []).length, 1);
+  assert.equal((wm.match(/standQuestFlat\(t\.worldTextureArchive[^\n]*, null, null, true[,)]/g) ?? []).length, 1);   // QUEST-MARKERS: the building's backstop rides after it
   assert.equal((wm.match(/standDungeonQuestFlat\(t\.worldTextureArchive[^\n]*, true\)/g) ?? []).length, 1);
   // the old comment claimed BOTH members align - that was the defect
   assert.equal(wm.includes('AddQuestNPC/AddQuestItem\n      // both call'), false);

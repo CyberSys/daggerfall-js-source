@@ -12,7 +12,7 @@ import worker from '../server-account/src/index.js';
 import { ROUTES, OPEN_ROUTES } from '../server-account/src/service.js';
 import { _resetKeyForTests } from '../server-account/src/signing.js';
 import {
-  HOME_CAP, HOME_ENTRIES, HOME_ENTRY_DEFAULT, HOME_PRICE_MAX, HOME_CLAIMS_MAX, HOME_KEY_MAX,
+  HOME_CAP, HOME_ENTRIES, HOME_ENTRY_DEFAULT, HOME_PRICE_MIN, HOME_PRICE_MAX, HOME_CLAIMS_MAX, HOME_KEY_MAX,
   homeMapIdOk, homeBuildingKeyOk, homeRegionOk, homePriceOk, homeEntryOk, homeMayEnter,
 } from '../src/net/homeLaw.js';
 import { accountHomes, REFUSALS, SESSION_KEY } from '../src/net/accountClient.js';
@@ -85,7 +85,7 @@ const home = (extra = {}) => ({ mapId: 1291010263, buildingKey: 0x10203, region:
 /** AUDIT REALM2 S2: the record a realm character buys with - rich enough for every house a pin claims. */
 const RICH = (name) => ({ name, level: 9, goldPieces: 10_000_000, items: [], bankAccounts: new Array(62).fill(0).map(() => ({ accountGold: 0 })) });
 
-test('HOME1 the law: a home is a town\'s unsigned map id and a building key inside the key\'s widest value, a region 0..61, a whole price up to ten million; three a character; private until the owner says party or public; the owner always walks in, anyone when public, the owner\'s party when party (matched on the relay\'s handle, any case), nobody else (mutants: the cap, a bound, the party matched on nothing, private open)', () => {
+test('HOME1 the law: a home is a town\'s unsigned map id and a building key inside the key\'s widest value, a region 0..61, a whole price inside the online range (HOME-PRICE); three a character; private until the owner says party or public; the owner always walks in, anyone when public, the owner\'s party when party (matched on the relay\'s handle, any case), nobody else (mutants: the cap, a bound, the party matched on nothing, private open)', () => {
   assert.equal(HOME_CAP, 3);
   assert.deepEqual(HOME_ENTRIES, ['private', 'party', 'public', 'guild']);   // GUILD1d (re-aimed by content): the owner's guild
   assert.equal(HOME_ENTRY_DEFAULT, 'private');
@@ -93,7 +93,8 @@ test('HOME1 the law: a home is a town\'s unsigned map id and a building key insi
   assert.deepEqual([homeBuildingKeyOk(1), homeBuildingKeyOk(HOME_KEY_MAX), homeBuildingKeyOk(0), homeBuildingKeyOk(HOME_KEY_MAX + 1)], [true, true, false, false]);
   assert.equal(HOME_KEY_MAX, 1 << 24, 'talkTopics makeBuildingKey spells key 0 as 1<<24');
   assert.deepEqual([homeRegionOk(0), homeRegionOk(61), homeRegionOk(62), homeRegionOk(-1)], [true, true, false, false]);
-  assert.deepEqual([homePriceOk(1), homePriceOk(HOME_PRICE_MAX), homePriceOk(0), homePriceOk(HOME_PRICE_MAX + 1), homePriceOk(2.5)], [true, true, false, false, false]);
+  // HOME-PRICE (PIN MOVED): the range a home costs online, its floor and its top - never 1 gold, never ten million
+  assert.deepEqual([homePriceOk(HOME_PRICE_MIN), homePriceOk(HOME_PRICE_MAX), homePriceOk(HOME_PRICE_MIN - 1), homePriceOk(HOME_PRICE_MAX + 1), homePriceOk(0), homePriceOk(5000.5)], [true, true, false, false, false, false]);
   assert.deepEqual([homeEntryOk('party'), homeEntryOk('friends'), homeEntryOk(null)], [true, false, false], 'an entry the law does not know');   // GUILD1d (re-aimed by content): `guild` is an entry now
   const row = (entry, mine = false) => ({ owner: 'Aldric', entry, mine });
   assert.equal(homeMayEnter(null), true, 'a building nobody owns: its own law stands');
@@ -130,7 +131,7 @@ test('HOME1 the service: a town\'s homes are any session\'s to read (a guest\'s 
   // the claim
   const c = await buy(aldric, A);
   assert.equal(c.status, 200);
-  assert.deepEqual(c.body, { ok: true, home: { mapId: home().mapId, buildingKey: home().buildingKey, region: 17, character: A.id, entry: 'private', price: 42000, boughtAt: T0 }, realm: { seq: 2 } });
+  assert.deepEqual(c.body, { ok: true, home: { mapId: home().mapId, buildingKey: home().buildingKey, region: 17, character: A.id, entry: 'private', price: 42000, boughtAt: T0 }, refund: homeSaleRefund(42000), realm: { seq: 2 } });   // AUDIT HOME-PRICE C2: the claim says what its sale pays
   assert.deepEqual(await call('POST', '/v1/homes/claim', home({ buildingKey: 9 }), aldric), { status: 400, body: { error: 'realm-only' } }, 'no other id buys a house');
   // one owner a building
   const taken = await buy(mara, M);
@@ -144,7 +145,7 @@ test('HOME1 the service: a town\'s homes are any session\'s to read (a guest\'s 
   const asMara = (await call('POST', '/v1/homes/town', { mapId: home().mapId }, mara)).body.homes;
   assert.deepEqual(asMara, [{ buildingKey: home().buildingKey, owner: 'Aldric', entry: 'private', mine: false }], 'the handle on the door, never a character or a price');
   const asAldric = (await call('POST', '/v1/homes/town', { mapId: home().mapId }, aldric)).body.homes;
-  assert.deepEqual(asAldric, [{ buildingKey: home().buildingKey, owner: 'Aldric', entry: 'private', mine: true, character: A.id }]);
+  assert.deepEqual(asAldric, [{ buildingKey: home().buildingKey, owner: 'Aldric', entry: 'private', mine: true, character: A.id }]);   // AUDIT HOME-PRICE L3: the sale's sum is told to the character named (test/homeprice.test.js), and this read names none
   // two claims racing for one building: another's lands between this claim's read and its write - the claim's own write
   // lands only on a building nobody holds, so this one is taken and its record pays nothing
   const raw = env.DB._raw;
@@ -265,7 +266,7 @@ test('HOME1 the client\'s law: a home can be Daggerfall\'s for-sale house or an 
   assert.equal(homeBelongsLine(row('public')), 'This belongs to Aldric.');
   assert.deepEqual(HOME_ENTRY_WORDS, { private: 'Only me', party: 'My party', public: 'Anyone', guild: 'My guild' });   // GUILD1d: and the owner's guild
   assert.deepEqual([homeEntryLine('party'), homeEntryLine('friends')], ['Who may enter: My party.', 'Who may enter: Only me.']);   // GUILD1d (re-aimed by content): `guild` is an entry now
-  assert.equal(homeForSaleLine(12800), 'Can be your home: 12800 gold');
+  assert.equal(homeForSaleLine(12800), 'Can be your home: 12,800 gold');   // HOME-PRICE: every sum with its thousands
 });
 
 /** A fake account service for the registry: its town answers are scripted, and every call is counted. */
@@ -473,7 +474,7 @@ test('HOME1 the wiring by source: the home answers at the door BEFORE Daggerfall
   assert.match(src('src/systems/quest/place.js'), /if \(world\.isPlayerHome\?\.\(location\.mapTableData\?\.mapId, buildingKey\)\) continue;/);
 });
 
-test('HOME1 the door knows its house\'s model: the record a door resolves to carries the model its price is measured from - the SAME model the town\'s directory names for that building (the first 3D object of its subrecord) - so a house bought at its door costs what Daggerfall\'s bank asks for it (mutants: the model unread at the door)', () => {
+test('HOME1 the door knows its house\'s model: the record a door resolves to carries the model its price is measured from - the SAME model the town\'s directory names for that building (the first 3D object of its subrecord) - so the bank and the door price one building off one model: the bank Daggerfall\'s radius x 1280 offline, the door its ground online (AUDIT HOME-PRICE D8: test/homeprice.test.js) (mutants: the model unread at the door)', () => {
   const dfBlock = {
     name: 'HOME1TST.RMB', index: 7,
     rmbBlock: {
@@ -496,5 +497,5 @@ test('HOME1 the door knows its house\'s model: the record a door resolves to car
   const listed = locationBuildings([], blocks).find((x) => x.buildingKey === bd.buildingKey);
   assert.equal(listed.modelIdNum, bd.modelIdNum, 'the directory\'s model for the same building - one price, at the bank and at the door');
   assert.equal(buildingDataForDoor([], blocks, { dfBlock, recordIndex: 0, position: [10, 0, 10] }).modelIdNum, 524, 'the FIRST object of the subrecord');
-  assert.equal(housePrice(40), 51200, 'Daggerfall\'s price: the radius x 1280');
+  assert.equal(housePrice(40), 51200, 'the bank\'s price, offline: the radius x 1280');
 });

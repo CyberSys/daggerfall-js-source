@@ -59,7 +59,8 @@ export const FIRE_MINUTES = 480;
 /** Cooking one food, and with a skillet (SURVIVAL_USE_TEXT.skillet: "twice as fast"). */
 export const COOK_MINUTES = 30;
 export const SKILLET_COOK_MINUTES = 15;
-/** One owner stands at most this many camps at once (the wire's bound too). */
+/** One owner stands at most this many camps at once (the wire's bound too). FIELD BUGS 2026-10-04d CAMP-CAP: a placing
+ *  at it is never refused - it strikes the owner's oldest (placeCampItem's `strike`, strikeCamp). */
 export const CAMPS_PER_OWNER = 4;
 export const CAMP_KIND = Object.freeze({ Tent: 'tent', Fire: 'fire' });
 
@@ -67,7 +68,13 @@ export const CAMP_TEXT = Object.freeze({
   noTentBelow: 'There is no room to pitch a tent down here. A fire will do.',
   inWater: 'You cannot make camp in the water.',
   noGround: 'There is no level ground here.',
-  tooMany: 'You have enough camps standing already.',
+  // FIELD BUGS 2026-10-04d CAMP-CAP: the cap's refusal ("You have enough camps standing already.") locked a character
+  // out of camping for good with four left anywhere in the world - a placing at the cap strikes the oldest instead
+  struckCamp: 'Your oldest camp is packed away.',
+  struckFire: 'Your oldest Campfire is packed away.',
+  struckOut: 'Your oldest fire is put out.',
+  // DECK-CAMP: a camp of yours on a boat that is no more (packed, laid up, sailed off with her owner) - back in the pack
+  packedWithBoat: 'Your camp aboard was struck and stowed in your pack.',
   // CAMP-SILENT: the host could not say where the player is standing.
   // It should never happen; the point is that it cannot happen SILENTLY
   // (a player reported camping kits that "don't work", and a refusal
@@ -141,6 +148,35 @@ export function campSpot(feet, yaw, probe) {
   return { pos: [x, ground ?? feet[1], z], ground };
 }
 
+// ---- DECK-CAMP (2026-10-04, from the field: "Campfires placed on a boat dont attach to a boat") --------------------
+/**
+ * A CAMP ON A BOAT'S DECK RIDES HER. Come Sail Away's boats stand in the world's collider (world.js csaSyncColliders), so
+ * a camp's spot found her deck - and the camp kept the scene point it was stood at while she sailed on from under it.
+ * A camp placed on a boat (the host's `deck.at`) carries `deck`: WHICH boat - `{ mine: true, uid }` one of this
+ * player's own, `{ peer, uid }` another player's (their online id), by her number (the deed's UID: a boat object never
+ * outlives a load, comeSailAway.js applySaveData) - and WHERE on her: `local`, the point in her deck's frame (her mesh
+ * node's, navalDeck.js intoDeck - the swell's roll and pitch with it), and `yaw`, the camp's heading less hers. The
+ * pool poses it off her each frame (scenes/camps.js ride). Sea ships and a boat with no number take none.
+ */
+/** The farthest a deck's point stands off her node (m) - a Carrack's half length and more, never the world's bounds. */
+export const DECK_LOCAL_BOUND = 120;
+export const DECK_LOCAL_Y_BOUND = 60;
+const ID_OK = /^[A-Za-z0-9_:.-]{1,48}$/;
+/** A deck address projected, or null - the save's and the restore's law (the wire's is validCampRecord's `d`). */
+export function validDeck(d) {
+  if (!d || typeof d !== 'object' || Array.isArray(d)) return null;
+  const mine = d.mine === true;
+  if (!mine && !(typeof d.peer === 'string' && ID_OK.test(d.peer))) return null;
+  if (!Number.isSafeInteger(d.uid) || d.uid < 1) return null;
+  const l = d.local;
+  if (!Array.isArray(l) || l.length !== 3 || !l.every(Number.isFinite)) return null;
+  if (Math.abs(l[0]) > DECK_LOCAL_BOUND || Math.abs(l[2]) > DECK_LOCAL_BOUND || Math.abs(l[1]) > DECK_LOCAL_Y_BOUND) return null;
+  if (!Number.isFinite(d.yaw)) return null;
+  return { ...(mine ? { mine: true } : { peer: d.peer }), uid: d.uid, local: [l[0], l[1], l[2]], yaw: wrapAngle(d.yaw) };
+}
+/** A deck's heading (radians, the port's yaw: forward [sin, 0, cos]) off her node's matrix (column-major). */
+export const deckYaw = (m) => Math.atan2(m[8], m[10]);
+
 /** The tent's own spot: behind the fire, facing it. */
 export const tentPos = (camp) => [camp.pos[0] - Math.sin(camp.yaw) * TENT_BEHIND, camp.pos[1], camp.pos[2] - Math.cos(camp.yaw) * TENT_BEHIND];
 
@@ -184,13 +220,17 @@ export function spendCampNight(camp, now, fieldCook = false) {
  * with its uses riding the record (REST2: none spent), the record. `ctx` =
  * { now, owner, feet, yaw, probe, place, standing (this owner's count), id } - REST2 spends no charge on any placing
  *   (PROF9's Field Cook keeps a night's fuel instead: spendCampNight).
- * Returns { ok, text, camp, spent }.
+ * Returns { ok, text, camp, spent, strike } - `strike` (a placing that stands) how many of the owner's oldest camps
+ *   go for it to stand (FIELD BUGS 2026-10-04d CAMP-CAP).
  */
 export function placeCampItem(item, list, { now = 0, owner = null, feet = [0, 0, 0], yaw = 0, probe = null, place = {}, standing = 0, id = null } = {}) {
   const jar = isEmberJar(item);   // REST6: one night's fire, EMBER_JAR_MINUTES lit, never picked up
   const kind = isCampingEquipment(item) ? CAMP_KIND.Tent : isCampfireKit(item) || jar ? CAMP_KIND.Fire : null;
   if (!kind) return { ok: false, text: null, camp: null, spent: false };
-  if (standing >= CAMPS_PER_OWNER) return { ok: false, text: CAMP_TEXT.tooMany, camp: null, spent: false };
+  // FIELD BUGS 2026-10-04d CAMP-CAP: THE CAP IS NO REFUSAL. Refused here, four camps left anywhere refused every placing
+  // after them for good (no camp burns away - REST2). A placing every rule below lets stand strikes the owner's oldest
+  // (scenes/camps.js placeItem); one refused for any other reason strikes nothing.
+  const strike = Math.max(0, (standing | 0) - CAMPS_PER_OWNER + 1);
   const spot = campSpot(feet, yaw, probe);
   const d = campDecision(kind, { ...place, ground: spot.ground });
   if (!d.ok) return { ok: false, text: d.text, camp: null, spent: false };
@@ -203,13 +243,13 @@ export function placeCampItem(item, list, { now = 0, owner = null, feet = [0, 0,
   if (jar) {
     camp.jar = true; camp.litUntil = now + EMBER_JAR_MINUTES;
     if ((item.stackCount ?? 1) > 1) item.stackCount -= 1; else { const j = Array.isArray(list) ? list.indexOf(item) : -1; if (j >= 0) list.splice(j, 1); }
-    return { ok: true, text: REST_ITEM_TEXT.emberLit, camp, spent: true };
+    return { ok: true, text: REST_ITEM_TEXT.emberLit, camp, spent: true, strike };
   }
   if (kind === CAMP_KIND.Fire) camp.fuel = true;   // AUDIT REST F12: a Campfire's own fuel - cold, it stands (an old save's kit fire, none, is swept)
   const i = Array.isArray(list) ? list.indexOf(item) : -1;
   if (i >= 0) list.splice(i, 1);
   const text = kind === CAMP_KIND.Tent ? CAMP_TEXT.pitched : CAMP_TEXT.lit;
-  return { ok: true, text, camp, spent: false };
+  return { ok: true, text, camp, spent: false, strike };
 }
 
 /** PACK a camp: the gear back with its wear (a tent) - REST2: and a Campfire back with its charges. Returns { item, text }. */
@@ -219,6 +259,14 @@ export function packCamp(camp) {
   const item = createSurvivalItem(tent ? TEMPLATE.CampingEquipment : TEMPLATE.Campfire);
   if (item) item.currentCondition = Math.max(0, Math.min(item.maxCondition ?? camp.wear, camp.wear | 0));
   return { item, text: tent ? CAMP_TEXT.packed : CAMP_TEXT.pickedUp };
+}
+
+/** FIELD BUGS 2026-10-04d CAMP-CAP: STRIKE a camp where it stands - the owner's oldest, for a placing at the cap. The gear
+ *  is packCamp's, as the menu's Pack gives it (the tent's Camping Equipment with its wear, a Campfire with its charges,
+ *  a fire with no fuel of its own nothing); only the words are the strike's, one line. Returns { item, text }. */
+export function strikeCamp(camp) {
+  const { item } = packCamp(camp);
+  return { item, text: !item ? CAMP_TEXT.struckOut : camp.kind === CAMP_KIND.Tent ? CAMP_TEXT.struckCamp : CAMP_TEXT.struckFire };
 }
 
 /** AUDIT REST II H5: the Campfires a save left standing in a dungeon the load does not enter - an online page wakes at
@@ -294,10 +342,15 @@ export function campMenu(camp, now, mine, { online = false } = {}) {
 const ID_RE = /^[A-Za-z0-9_:.-]{1,48}$/;
 const q2 = (v) => Math.round(v * 100) / 100;
 const q3 = (v) => Math.round(v * 1000) / 1000;
-/** One camp as its owner says it: i the id, k the kind (0 tent, 1 fire), p the world frame's [x, y, z], y the yaw, u the minute its fire dies, w the wear. */
+/** One camp as its owner says it: i the id, k the kind (0 tent, 1 fire), p the world frame's [x, y, z], y the yaw, u the minute its fire dies, w the wear.
+ *  DECK-CAMP: and `d`, a camp on a boat - [her owner ('' the sender's own, else that player's id), her number, the
+ *  deck's x, y, z, the yaw on her] - so every client poses it off the same hull. */
 export const campWire = (camp, toWire = (p) => p) => {
   const p = toWire(camp.pos);
-  return { i: camp.id, k: camp.kind === CAMP_KIND.Tent ? 0 : 1, p: [q2(p[0]), q2(p[1]), q2(p[2])], y: q3(camp.yaw), u: Number.isFinite(camp.litUntil) ? Math.round(camp.litUntil) : -1, w: camp.wear | 0 };
+  const out = { i: camp.id, k: camp.kind === CAMP_KIND.Tent ? 0 : 1, p: [q2(p[0]), q2(p[1]), q2(p[2])], y: q3(camp.yaw), u: Number.isFinite(camp.litUntil) ? Math.round(camp.litUntil) : -1, w: camp.wear | 0 };
+  const d = validDeck(camp.deck);
+  if (d) out.d = [d.mine ? '' : d.peer, d.uid, q3(d.local[0]), q3(d.local[1]), q3(d.local[2]), q3(d.yaw)];
+  return out;
 };
 /** The record projected, or null: a field outside its law refuses the record WHOLE (wire.js's rule). */
 export function validCampRecord(r) {
@@ -309,21 +362,36 @@ export function validCampRecord(r) {
   if (!Number.isFinite(r.y)) return null;
   if (!Number.isFinite(r.u) || r.u < -1 || r.u > 2 ** 31) return null;
   if (!Number.isInteger(r.w) || r.w < 0 || r.w > 255) return null;
-  return { i: r.i, k: r.k, p: [r.p[0], r.p[1], r.p[2]], y: wrapAngle(r.y), u: r.u, w: r.w };
+  let d = null;
+  if (r.d !== undefined) {   // DECK-CAMP: a deck's address, whole or the record refused
+    const a = r.d;
+    if (!Array.isArray(a) || a.length !== 6 || typeof a[0] !== 'string' || (a[0] !== '' && !ID_OK.test(a[0]))) return null;
+    if (!validDeck({ ...(a[0] === '' ? { mine: true } : { peer: a[0] }), uid: a[1], local: [a[2], a[3], a[4]], yaw: a[5] })) return null;
+    d = [a[0], a[1], a[2], a[3], a[4], wrapAngle(a[5])];
+  }
+  return { i: r.i, k: r.k, p: [r.p[0], r.p[1], r.p[2]], y: wrapAngle(r.y), u: r.u, w: r.w, ...(d ? { d } : {}) };
 }
-/** A projected record as a camp of `owner`, in this scene's frame. */
-export function campFromWire(r, owner, toScene = (p) => p) {
+/** A projected record as a camp of `owner`, in this scene's frame. DECK-CAMP: its boat read from where THIS player
+ *  stands - the sender's own boat is that peer's, one named by `selfId` this player's own, any other that player's. */
+export function campFromWire(r, owner, toScene = (p) => p, selfId = null) {
   const p = toScene(r.p);
-  return { id: r.i, owner, kind: r.k === 0 ? CAMP_KIND.Tent : CAMP_KIND.Fire, pos: [p[0], p[1], p[2]], yaw: r.y, litUntil: r.u < 0 ? null : r.u, wear: r.w, placedAt: null };
+  const camp = { id: r.i, owner, kind: r.k === 0 ? CAMP_KIND.Tent : CAMP_KIND.Fire, pos: [p[0], p[1], p[2]], yaw: r.y, litUntil: r.u < 0 ? null : r.u, wear: r.w, placedAt: null };
+  if (r.d) {
+    const [who, uid, x, y, z, yaw] = r.d;
+    const ref = who === '' ? { peer: owner } : selfId != null && who === selfId ? { mine: true } : { peer: who };
+    const d = validDeck({ ...ref, uid, local: [x, y, z], yaw });
+    if (d) camp.deck = d;
+  }
+  return camp;
 }
 /** An owner's word replaces that owner's camps and no one else's; at most CAMPS_PER_OWNER of them. */
-export function mergeOwnerCamps(camps, owner, records, toScene = (p) => p) {
+export function mergeOwnerCamps(camps, owner, records, toScene = (p) => p, selfId = null) {
   const kept = (camps ?? []).filter((c) => c.owner !== owner);
   const fresh = [];
   for (const raw of Array.isArray(records) ? records : []) {
     const r = validCampRecord(raw);
     if (!r || fresh.some((c) => c.id === r.i)) continue;
-    fresh.push(campFromWire(r, owner, toScene));
+    fresh.push(campFromWire(r, owner, toScene, selfId));
     if (fresh.length >= CAMPS_PER_OWNER) break;
   }
   return [...kept, ...fresh];

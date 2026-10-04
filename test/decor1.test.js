@@ -396,7 +396,7 @@ test('DECOR1 the catalogue - "Everything Daggerfall furnishes": every interior P
   assert.equal(keys(filterDecor(cat, { sort: 'price', radiusOf })).at(-1) !== 'm41120', true, 'an unmeasured piece sorts last by price');
   assert.deepEqual(keys(filterDecor(cat, { kinds: ['storage'], sort: 'name' })), ['m41811', 'm41003']);
   assert.deepEqual([decorSize(0.2), decorSize(0.5), decorSize(1.25), decorSize(null)], ['small', 'medium', 'large', null]);
-  assert.equal(Object.keys(DECOR_KINDS).length, 13);   // HOME-DOORS: and the doors, hung in a doorway
+  assert.equal(Object.keys(DECOR_KINDS).length, 14);   // HOME-DOORS: and the doors, hung in a doorway; HOME-VENDOR: and the people
 });
 
 // DECOR1c: a room's pool over fakes of the host's own seams - the pipeline's meshes and textures, the renderer, the room's
@@ -565,3 +565,11 @@ test('DECOR1c the room\'s host (worldModes.js): one pool on the room\'s own coll
   assert.match(w, /\n    homeDecor,   \/\/ DECOR1c/);
 });
 
+
+test('HOME-VENDOR the catalogue: the people Daggerfall stands in its rooms are pieces too - kind Vendors, named Vendor N - so a home may stand one and make it its trader (mutants: the people unread; read as decorations)', () => {
+  const blocks = [{ rmbBlock: { subRecords: [{ interior: { block3dObjectRecords: [], blockFlatObjectRecords: [], blockDoorRecords: [],
+    blockPeopleRecords: [{ textureArchive: 182, textureRecord: 3 }, { textureArchive: 182, textureRecord: 3 }, { textureArchive: 184, textureRecord: 17 }] } }] } }];
+  const people = decorCatalogue(collectDecor(blocks)).filter((e) => e.kind === 'people');
+  assert.deepEqual(people.map((e) => [e.key, e.count, e.name]), [['f182.3', 2, 'Vendor 1'], ['f184.17', 1, 'Vendor 2']]);
+  assert.equal(DECOR_KINDS.people, 'Vendors');
+});

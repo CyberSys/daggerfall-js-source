@@ -274,6 +274,42 @@ export function questStandBox(s) {
   return { min: [x - s.width / 2, y, z - s.width / 2], max: [x + s.width / 2, y + s.height, z + s.width / 2] };
 }
 
+// ---- FIELD BUGS 2026-10-04d QUEST-MARKERS: the building's backstop ----
+//
+// A building's quest marker with nothing under it - an author's marker outside the walls or under the floor, a void
+// the town packs' curation does not list (markerCuration.js lists every one the packs were measured to hold) - stood
+// its person in the air (AlignBillboardToGround finds no floor within 4 m and leaves the billboard where it is,
+// GameObjectHelper.cs:1040), its item likewise (AddQuestItem never rays) and its foe falling. The interior host stands it
+// at the site's nearest marker with a floor under it instead, else at the room's nearest enter marker; a marker with a
+// floor under it stands exactly as DFU stands it. Daggerfall's own blocks hold one such design (WEAPAL02 #1, SENT6 #11:
+// three markers over nothing), which no town of the game lays out.
+
+/** AlignBillboardToGround's reach (GameObjectHelper.cs:1040, a distance of 4) - how far under a building's quest marker a
+ *  floor must be for the marker to stand anything. */
+export const MARKER_FLOOR_REACH = 4;
+
+/** The site's other quest markers where markerScenePosition puts them (the building's own frame), nearest `marker`
+ *  first: every spawn and item marker of the site but those standing where it stands. */
+export function siteMarkerSpots(siteDetails, marker) {
+  const own = marker?.flatPosition ? markerScenePosition(marker) : null;
+  if (!own) return [];
+  const d2 = (p) => (p.x - own.x) ** 2 + (p.y - own.y) ** 2 + (p.z - own.z) ** 2;
+  return [...(siteDetails?.questSpawnMarkers ?? []), ...(siteDetails?.questItemMarkers ?? [])]
+    .filter((m) => m?.flatPosition)
+    .map(markerScenePosition)
+    .filter((p) => d2(p) > 1e-9)
+    .sort((a, b) => d2(a) - d2(b));
+}
+
+/** THE BACKSTOP'S LAW: where a building's quest resource stands - `own` when `hasFloor(own)`, else the first of
+ *  `spots` (in the host's order: the site's other markers nearest first, then the enter markers nearest first) with a
+ *  floor, else `own`, as DFU stands it. */
+export function standSpot(own, spots, hasFloor) {
+  if (hasFloor(own)) return own;
+  for (const p of spots ?? []) if (hasFloor(p)) return p;
+  return own;
+}
+
 // ---- PlaceFoeFreely (CreateFoe.cs:260-345) - the raycast ring ----
 
 /** The ring constants; TryPlacement's wilderness arm widens to 8/25

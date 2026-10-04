@@ -90,11 +90,12 @@ function pool(entity, said = []) {
 test('REST2 the pool: online a Campfire stands with the arc Off; a night at your own spends its charge (a friend\'s nothing); the plaque\'s rows name it and its fuel; the lit row is what a press does - Pick up hands it back', () => {
   _resetForTests(); setPref('survival', false);
   setWorldMinutes(1000);
-  const entity = { items: [createSurvivalItem(TEMPLATE.Campfire)] };
+  const entity = { items: [createSurvivalItem(TEMPLATE.Campfire), createSurvivalItem(TEMPLATE.Campfire)] };
   const said = [];
   const off = pool(entity, said);
-  assert.equal(off.placeItem(entity.items[0], entity.items), false, 'offline with the arc Off: no camp, as ever');
-  assert.equal(said.at(-1), CAMP_TEXT.arcOff);
+  // PIN MOVED (ENDLESS PROVISIONS, 2026-10-04: a camp is every tier's): offline with the arc Off a Campfire stands too
+  assert.equal(off.placeItem(entity.items[0], entity.items), true, 'offline with the arc Off: the Campfire stands');
+  assert.notEqual(said.at(-1), CAMP_TEXT.arcOff);
   setSharedClock(() => 1000);
   const p = pool(entity, said);
   assert.equal(p.placeItem(entity.items[0], entity.items), true, 'online: the rest\'s tool, the arc Off');

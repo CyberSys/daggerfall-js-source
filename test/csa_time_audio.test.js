@@ -260,7 +260,7 @@ test('CSA-G: the oars\' events on the vendored Rowboat - rowing, its Rudder Rowi
   assert.ok(boat.OarParticles.every((p) => !p.isPlaying));
   calls.length = 0;
   s.rt.StartSailing(boat);
-  for (let i = 0; i < 60; i++) s.frame();
+  for (let i = 0; i < 60; i++) s.frame(i ? {} : { press: ['MoveForwards'] });   // HELM-LADDER: a rung up, her oars pulling ahead
   const names = calls.map((c) => c[0]);
   assert.ok(names.length >= 6, `${names}`);
   const cycle = ['OarEvent_Sweep', 'OarEvent_Out', 'OarEvent_In'];
@@ -285,7 +285,7 @@ test('CSA-G: the Trireme\'s strokes are heard - its rudder\'s own AudioSource (s
   assert.deepEqual([src.m_Volume, src.m_Pitch, src.MinDistance, src.MaxDistance], [1, 1.5, 1, 500]);
   assert.equal(src.panLevelCustomCurve.m_Curve[0].value, f(0.9), 'the spatial blend the port plays fully positional');
   s.rt.StartSailing(boat);
-  for (let i = 0; i < 40; i++) s.frame();
+  for (let i = 0; i < 40; i++) s.frame(i ? {} : { press: ['MoveForwards'] });   // HELM-LADDER: a rung up, her oars pulling ahead
   const heard = s.out.audio.filter((e) => e[0] === 'oneShot');
   assert.ok(heard.length >= 3, `${heard.length}`);
   for (const e of heard) {

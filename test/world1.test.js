@@ -137,14 +137,14 @@ test('WORLD1: the Room - the host is the hello\'d socket in the room longest, sa
   assert.equal(r.store.get('world:meta').by, 'bbbb-0002', 'the new host publishes');
   // the drain: looks, secrets and the bucket go; the world stays
   await r.drop(b); await r.drop(c);
-  assert.equal(r.store.has('secret:bbbb-0002'), false); assert.equal(r.store.has('look:cccc-0003'), false); assert.equal(r.store.has('hellos'), false);
+  assert.equal(r.store.has('secret:bbbb-0002'), false); assert.equal(r.store.has('look:cccc-0003'), false); assert.equal(r.store.has('hellos'), false);   // SCALE2b: never stored now
   assert.equal(r.store.get('world:meta').by, 'bbbb-0002', 'the room\'s memory outlives an empty room');
   assert.equal(r.store.get('world:0'), JSON.stringify(small));
   // the empty hello: the same sweep, the same memory, the joiner handed it
   const d = r.connect(); await r.hello(d, 'dddd-0004', at(1, 1));
   assert.deepEqual(welcomeOf(d).world, small, 'a joiner into an empty room gets what the last host left');
   assert.equal(welcomeOf(d).host, 'dddd-0004');
-  assert.equal(r.store.has('hellos'), true, 'the bucket re-minted');
+  assert.ok(r.room._hellos, 'the bucket re-minted (SCALE2b: on the instance)');
   // a place that keeps no world
   const town = fakeRoom('town:m9');
   const t = town.connect(); await town.hello(t, 'town-0001', at(1, 1));
@@ -225,8 +225,8 @@ test('WORLD1: the hosts by source - the dungeon host\'s shared world is the layo
   assert.match(m, /if \(dungeonCtx\) \{\s*host\.onDungeonLeave\?\.\(\);[^\n]*\n\s*teardownDungeonQuestFlats\(\);\s*dungeonCtx\.overlayWindow/, 'a load or a teleport out: the same hook');
   assert.equal((m.match(/host\.onDungeonLeave\?\.\(\)/g) ?? []).length, 2, 'the two teardowns, no third');
   const w = rd('src/scenes/world.js');
-  assert.match(w, /import \{ OnlineSession, roomKeyFor, DEFAULT_SERVER, WORLD_PUBLISH_MS, FOES_MS, FOES_FULL_MS, FOES_STALE_MS \} from '\.\.\/net\/online\.js';/);
-  assert.match(w, /const worldPublish = \(now, force = false\) => \{\s*if \(!online \|\| !online\.isHost\(\) \|\| online\.status !== 'open' \|\| !isWorldRoom\(online\.room\)\) return false;\s*if \(!force && now - _worldPublishedAt < WORLD_PUBLISH_MS\) return false;\s*const shared = modes\?\.placeSharedWorld\?\.\(\);[^\n]*\s*if \(!shared\) return false;\s*_worldPublishedAt = now;\s*const ok = online\.sendWorld\(shared, \{ final: force \}\);\s*if \(!ok\) console\.warn\([^\n]*\);\s*return ok;\s*\};/, 'the host\'s alone, into a world room alone (AUDIT WORLD B8), on the publish clock unless forced - and forced is the farewell (B5); a refusal said once, never retried at frame rate (B9)');
+  assert.match(w, /import \{ OnlineSession, roomKeyFor, DEFAULT_SERVER, WORLD_PUBLISH_MS, WORLD_REPUBLISH_MS, FOES_MS, FOES_FULL_MS, FOES_STALE_MS \} from '\.\.\/net\/online\.js';/);
+  assert.match(w, /const worldPublish = \(now, force = false\) => \{\s*if \(!online \|\| !online\.isHost\(\) \|\| online\.status !== 'open' \|\| !isWorldRoom\(online\.room\)\) return false;\s*if \(!force && now - _worldPublishedAt < WORLD_PUBLISH_MS\) return false;\s*const shared = modes\?\.placeSharedWorld\?\.\(\);[^\n]*\s*if \(!shared\) return false;\s*_worldPublishedAt = now;\s*const said = JSON\.stringify\(shared\), key = `\$\{online\.room\}\|\$\{online\.welcomes\}\|\$\{online\.host \?\? ''\}`;\s*if \(!force && said === _worldSaid && key === _worldSaidKey && now - _worldSaidAt < WORLD_REPUBLISH_MS\) return false;[^\n]*\s*const ok = online\.sendWorld\(shared, \{ final: force \}\);\s*if \(!ok\) console\.warn\([^\n]*\);\s*else \{ _worldSaid = said; _worldSaidAt = now; _worldSaidKey = key; \}\s*return ok;\s*\};/, 'the host\'s alone, into a world room alone (AUDIT WORLD B8), on the publish clock unless forced - and forced is the farewell (B5); a refusal said once, never retried at frame rate (B9); SCALE2b: an unchanged memory not said again in the same room, welcome and host inside WORLD_REPUBLISH_MS - remembered only when it went');
   assert.match(w, /online\.onWorld = \(shared\) => \{ if \(modes\?\.restorePlaceSharedWorld\?\.\(shared\)\)/, 'the welcome\'s memory lands on the standing place (WORLD6a: a dungeon or a building)');
   assert.match(w, /online\.onHost = \(id, mine\) => \{ if \(mine\) \{ _worldPublishedAt = -Infinity; _foesFullAt = -Infinity; \} else if \(id && isWorldRoom\(online\.room\)\) _foesInAt = performance\.now\(\); modes\?\.setDungeonAuthority\?\.\(dungeonAuthority\(\)\); \};/, 'a new host publishes at once (AUDIT WORLD6b A9: a cell\'s seat is no heartbeat) - and streams every foe at once, and the seat decides who steps them (WORLD2); another\'s word is its first heartbeat (AUDIT WORLD2 C5)');
   assert.match(w, /online\.tick\(\);\s*if \(cabin && key\) cabinLink\.tick\(online, cabin, worldCoordToMapPixel\(cabin\.origin\[0\], cabin\.origin\[2\]\), now\);\s*(?:\/\/[^\n]*\n\s*)*if \(online\.room !== _foesRoom\) \{ const seam = isCellRoom\(online\.room\) && isCellRoom\(_foesRoom\); _foesRoom = online\.room; _foesFullAt = -Infinity; _ownFullAt = -Infinity; if \(!seam\) \{ exteriorFoes\.clearPuppets\(\); modes\?\.clearOwnPuppets\?\.\(\); \} \}[^\n]*\n\s*if \(isCellRoom\(online\.room\)\) \{ const ids = ownerIds\(\); if \(ids\) exteriorFoes\.pruneOwners\(ids, now\); \} else if \(isWorldRoom\(online\.room\)\) \{ const ids = ownerIds\(\); if \(ids\) modes\?\.pruneOwnOwners\?\.\(ids, now, FOES_STALE_MS\); \}[^\n]*\n\s*worldPublish\(now\);/, 'every frame asks (WORLD6b: after the cell\'s puppet housekeeping; AUDIT WORLD6b C3/C7)');

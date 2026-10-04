@@ -646,17 +646,19 @@
   {
     "name": "SURVTIERS-off-eats-at-hard",
     "file": "src/systems/useItem.js",
-    "old": "rules: survivalRules() ?? SURVIVAL_RULES.casual });",
-    "new": "rules: survivalRules() ?? undefined });",
+    "old": "rules: survivalRules() ?? SURVIVAL_RULES.casual, offMeal: survivalRules() == null });",
+    "new": "rules: survivalRules() ?? undefined, offMeal: survivalRules() == null });",
     "tests": [
       "test/survtiers.test.js"
-    ]
+    ],
+    "equivalent": true,
+    "why": "ENDLESS PROVISIONS (2026-10-04): with the arc Off useItem hands offMeal, and eatFood's Off meal never reads the rules (it never sickens) - so the Off tier's Casual fallback is read by no Off meal. Kept for the arm the fallback still guards: a tier whose rules read null."
   },
   {
     "name": "SURVTIERS-off-shows-the-camps-it-keeps",
     "file": "src/scenes/camps.js",
-    "old": "  const shown = () => (usable() ? camps : NO_CAMPS);",
-    "new": "  const shown = () => camps;",
+    "old": "  const shown = () => (usable() ? camps.filter(visible) : NO_CAMPS);",
+    "new": "  const shown = () => camps.filter(visible);",
     "tests": [
       "test/auditsurv.test.js"
     ]
@@ -671,10 +673,10 @@
     ]
   },
   {
-    "name": "SURVTIERS-off-stands-a-camp-it-cannot-show",
+    "name": "ENDLESS-off-refuses-a-camp-again",
     "file": "src/scenes/camps.js",
-    "old": "    if (!survivalOn() && !(sharedClockOn() && (isCampfireKit(item) || isEmberJar(item)))) { say(CAMP_TEXT.arcOff); return false; }",
-    "new": "",
+    "old": "    // ENDLESS PROVISIONS: no arc gate - a camp is stood in every tier (`seen`, above); the camp law's own checks below\n",
+    "new": "    if (!survivalOn()) { say(CAMP_TEXT.arcOff); return false; }\n",
     "tests": [
       "test/auditsurv.test.js"
     ],
@@ -963,36 +965,36 @@
   {
     "name": "SURVTIERS-the-potion-cite-falls-short",
     "file": "src/systems/potions.js",
-    "old": "exterior.js:2701) and useItem.js:379",
-    "new": "exterior.js:2701) and useItem.js:351",
+    "old": "exterior.js:2706) and useItem.js:379",
+    "new": "exterior.js:2706) and useItem.js:351",
     "tests": [
       "test/citedrift.test.js"
     ],
-    "note": "HOOD-SAID (FIELD BUGS 2026-09-30, PIN MOVED): toggleHood and its import moved useItem.js's drink line from 316 to 347; the cite and its short mutant move with it. FIELD BUGS 2026-09-30 (PIN MOVED): re-aimed by content to the cite the batch's cite shift moved. MEND-AIM (PIN MOVED): the use door's aim options moved the drink line to 351. THE SEATS ARC'S MERGE of main's #502-#509 and #504 (PIN MOVED): re-aimed by content to the cite citeMerge moved. FIELD BUGS 2026-10-01 part five (re-aimed by content): the merge of #504 moved the cites it names. MERGE OF MAIN (#538) INTO THE TACTICS ARC (PIN MOVED): re-aimed by content to the cite citeMerge moved. ARENA4b (PIN MOVED): re-aimed by content to the cite citeShift moved (exterior.js and world.js lost the Herald's old imports). AUDIT PRE-MERGE 1003 (PIN MOVED): re-aimed by content to the cite citeShift moved (exterior.js and world.js each gained the Watch guard's line). REST1+REST2 (PIN MOVED): re-aimed by content to the cite the slice's cite shift moved. THE REST ARC'S MERGE of main's #545 (PIN MOVED): re-aimed by content to the cite citeMerge moved. TOUGHER-SHIPS + HOLDINGS' merge of main's #554 (PIN MOVED): re-aimed by content to the cite citeMerge moved."
+    "note": "HOOD-SAID (FIELD BUGS 2026-09-30, PIN MOVED): toggleHood and its import moved useItem.js's drink line from 316 to 347; the cite and its short mutant move with it. FIELD BUGS 2026-09-30 (PIN MOVED): re-aimed by content to the cite the batch's cite shift moved. MEND-AIM (PIN MOVED): the use door's aim options moved the drink line to 351. THE SEATS ARC'S MERGE of main's #502-#509 and #504 (PIN MOVED): re-aimed by content to the cite citeMerge moved. FIELD BUGS 2026-10-01 part five (re-aimed by content): the merge of #504 moved the cites it names. MERGE OF MAIN (#538) INTO THE TACTICS ARC (PIN MOVED): re-aimed by content to the cite citeMerge moved. ARENA4b (PIN MOVED): re-aimed by content to the cite citeShift moved (exterior.js and world.js lost the Herald's old imports). AUDIT PRE-MERGE 1003 (PIN MOVED): re-aimed by content to the cite citeShift moved (exterior.js and world.js each gained the Watch guard's line). REST1+REST2 (PIN MOVED): re-aimed by content to the cite the slice's cite shift moved. THE REST ARC'S MERGE of main's #545 (PIN MOVED): re-aimed by content to the cite citeMerge moved. TOUGHER-SHIPS + HOLDINGS' merge of main's #554 (PIN MOVED): re-aimed by content to the cite citeMerge moved. FIELD BUGS 2026-10-04d (PIN MOVED): re-aimed by content to the cite citeShift moved (exterior.js gained CROPS's field solids; world.js KNIGHT-HOUSE's deed hold and CROPS's). MERGE OF MAIN INTO FIELD BUGS 2026-10-04d (PIN MOVED): re-aimed by content to the cite citeMerge moved."
   },
   {
-    "name": "SURVOFFSIGHT-off-sees-no-camp",
+    "name": "ENDLESS-off-sees-no-camp",
     "file": "src/scenes/camps.js",
-    "old": "  const seen = () => (usable() ? camps : camps.filter((c) => !mine(c)));",
-    "new": "  const seen = () => (usable() ? camps : NO_CAMPS);",
+    "old": "  const seen = () => camps.filter(visible);",
+    "new": "  const seen = () => (usable() ? camps.filter(visible) : NO_CAMPS);",
     "tests": [
       "test/survtiers.test.js"
     ]
   },
   {
-    "name": "SURVOFFSIGHT-off-sees-its-own",
+    "name": "ENDLESS-off-sees-only-others-the-superseded-offsight",
     "file": "src/scenes/camps.js",
-    "old": "  const seen = () => (usable() ? camps : camps.filter((c) => !mine(c)));",
-    "new": "  const seen = () => camps;",
+    "old": "  const seen = () => camps.filter(visible);",
+    "new": "  const seen = () => (usable() ? camps.filter(visible) : camps.filter((c) => !mine(c) && visible(c)));",
     "tests": [
       "test/survtiers.test.js"
     ]
   },
   {
-    "name": "SURVOFFSIGHT-off-sees-only-its-own",
+    "name": "ENDLESS-off-sees-only-its-own",
     "file": "src/scenes/camps.js",
-    "old": "  const seen = () => (usable() ? camps : camps.filter((c) => !mine(c)));",
-    "new": "  const seen = () => (usable() ? camps : camps.filter((c) => mine(c)));",
+    "old": "  const seen = () => camps.filter(visible);",
+    "new": "  const seen = () => (usable() ? camps.filter(visible) : camps.filter((c) => mine(c) && visible(c)));",
     "tests": [
       "test/survtiers.test.js"
     ]
@@ -1052,10 +1054,10 @@
     ]
   },
   {
-    "name": "SURVOFFSIGHT-off-opens-the-menu-of-what-it-sees",
+    "name": "ENDLESS-off-opens-no-menu-again",
     "file": "src/scenes/camps.js",
-    "old": "    if (!usable()) return true;   // SURV-OFFSIGHT (the third pass): with the arc Off the click is taken and opens nothing - REST2: offline\n",
-    "new": "",
+    "old": "    if (lit && campMenu(c.rec, now(), mine(c), { online: sharedClockOn() }).some((r) => r.key === lit)) { act(c, lit); return true; }",
+    "new": "    if (!usable()) return true;\n    if (lit && campMenu(c.rec, now(), mine(c), { online: sharedClockOn() }).some((r) => r.key === lit)) { act(c, lit); return true; }",
     "tests": [
       "test/survtiers.test.js"
     ]

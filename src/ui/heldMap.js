@@ -88,7 +88,7 @@ import { locationSummaryAt } from '../systems/mapDirectory.js';
 import { calculateTravelTime, calculateTripCost, travelDays } from '../systems/travel.js';
 import { guildFastTravel } from '../systems/guildVariants.js';   // TP1: GuildManager.FastTravel
 import {
-  travelMapFilters, travelMapPopUpState, setTravelMapPopUpState, travelMapSaveData,
+  travelMapFilters, freshTravelMapFilters, travelMapPopUpState, freshTravelMapPopUpState, setTravelMapPopUpState, travelMapSaveData,
   travelMapMarkedMapId, setTravelMapMarkedMapId,   // MAP2: the mod's mark outlives the window (AUDIT-TO1 G4)
 } from '../systems/travelMapState.js';
 // AUDIT-TO1 C1/C2/C3: the mod's laws on the DEFAULT skin, as the pure
@@ -105,6 +105,7 @@ import { checkLocationDiscovered, flipTravelMapFilter, travelMapDotColors } from
 import { readGateMark, gateMarkKey, GATE_RING_CSS, GATE_LEGEND_TEXT } from './gateMapMark.js';   // WB1: the Oblivion Gate's ring, read as the party is
 import { readBountyMarks, bountyMarksKey, BOUNTY_RING_CSS, BOUNTY_LEGEND_TEXT, BOUNTY_LEGEND_RIM_CSS } from './bountyMapMark.js';   // BOUNTY1: held bounties' black circles, read as the gate's ring is
 import { readRaidMarks, raidMarksKey, placeTip, tipKey, readTip, RAID_MARK_CSS, RAID_LEGEND_TEXT, RAID_HIT_PX } from './eventMapMarks.js';   // EVENT-TIP: the raided towns, and the card a world event answers a hover with
+import { readVendorMark, vendorMarkKey, VENDOR_MARK_CSS, VENDOR_RIM_CSS, VENDOR_LEGEND_TEXT } from './vendorMapMark.js';   // HOME-VENDOR: the trader's waypoint
 import { readQuestMarks, questMarksKey, QUEST_MARK_CSS, QUEST_LEGEND_TEXT, QUEST_HIT_PX, QUEST_MARK_LIFT, QUEST_RAID_LIFT, QUEST_FOLLOWED_TEXT } from './questMarks.js';   // GUIDE5: where the quests point
 import {
   buildInkModel, buildInkMarks, paintInkStatic, paintInkOverlay, zoomBand, clampView, scaleMinOf, SCALE_MAX,   // MAP-FIELD2: placeNames is inkMap's law still, but this sheet no longer inks the names
@@ -167,6 +168,7 @@ import { seatInfoLine } from '../net/townSeatLaw.js';   // SEAT1a: a seat's Char
 // this module to get it). Re-exported here, where MAP-FIELD put it.
 export { appRootFrom, APP_ROOT } from '../systems/appRoot.js';
 import { APP_ROOT } from '../systems/appRoot.js';
+import { IT_POPUP, IT_TEXT, itMapRefusal, itMapPaths, itPopUpDefaults, itTogglePress, itTrip, playerPopUpRefusal, seafarerDiscovered } from '../systems/immersiveTravel.js';   // IT1: Immersive Travel's maps and popups, on this sheet
 import { retroScreenRect } from '../systems/retroMode.js';   // DISC25-B: DFU's CustomScreenRect, the pillarbox's screen
 
 export const HELD_MAP_URL = new URL('art/held-map.png', APP_ROOT ?? globalThis.document?.baseURI ?? 'https://invalid.invalid/').href;
@@ -526,9 +528,21 @@ export class HeldMapWindow {
     // the knuckles is not a HUD under a window (windowStack.hidesHud).
     this.hidesHud = true;
     this.filters = travelMapFilters();   // the LIVE store object, edited in place (the classic law)
+    // AUDIT IT1 C1: a driver's or a captain's sheet is a NEW CarriageMap (CarriageTravelService IL_05a2) - its own
+    // filters, every place shown, and its roads and tracks the mod's DrawRoads / DrawTracks with Basic Roads (the
+    // .cctor IL_1538-1579), never the player's chips; a chip flipped on it is its own
+    if (deps.immersive) {
+      const [roads, tracks] = itMapPaths(deps.immersive.settings);
+      this.filters = { ...freshTravelMapFilters(), roads: !roads, tracks: !tracks };
+    }
     this._inks = null;     // MAP-KEY: each kind's ink once a palette answers (_markInks)
     this._keySig = '';     // MAP-KEY: what the key last said, so it is rebuilt only when that changes
     this.teleportationTravel = false;    // one-shot, cleared on close
+    // IT1: IMMERSIVE TRAVEL. `_it` is a driver's or a captain's map - `{ kind, settings }` (the mod's CarriageMap built
+    // CreatedByNPC, its SeafarersMap); null for the player's own, which asks `deps.immersiveSettings` for the mod's
+    // DisableNormalTravel. `_itRefusal` is the mod's box over the sheet - a place refused - until the next pick.
+    this._it = deps.immersive ?? null;
+    this._itRefusal = null;
     this._gotoPlace = null;              // one-shot, consumed on first tick
     this._ticked = false;
 
@@ -630,6 +644,9 @@ export class HeldMapWindow {
     // GUIDE5: where the quests point (the host's `quests`, on the same poll) - each place the player's map holds
     this._quests = [];
     this._questsKey = '';
+    // HOME-VENDOR: the trader's waypoint (the host's `vendor`, on the same poll) - one coin, apart from the yellow mark
+    this._vendor = null;
+    this._vendorKey = '';
     this._tipKey = '';
     this._hoverAt = null;   // where the pointer last hovered, paper and client - a poll refreshes the card under it
     this._tipUntil = null;  // WB13c: a tap's card stands until this clock
@@ -1168,7 +1185,7 @@ export class HeldMapWindow {
           // says of where a ship may sail from (the Ports filter, the P key,
           // still the mod's: _portsShown)
           ports: true,
-          markedMapId: this.markedMapId,
+          markedMapId: this._it ? -1 : this.markedMapId,   // AUDIT IT1 C1: the mod's maps draw no mark
           markColor: rgbaCss(this._to?.settings?.markLocationColor),
           inks: this._markInks(),   // MAP-KEY: each kind in its classic dot's hue, or the pen with no palette
         });
@@ -1189,6 +1206,7 @@ export class HeldMapWindow {
           bounties: this._bounties,   // BOUNTY1
           raids: this._raids,   // EVENT-TIP: the towns under attack
           quests: this._quests,   // GUIDE5: where the quests point
+          vendor: this._vendor,   // HOME-VENDOR: the trader's waypoint
           travellers: this._trav.map((t) => ({ x: t.x, y: t.y, name: t.name, color: TRAVELLER_MARK_CSS, journey: t.journey, ship: t.ship })),   // TV3; OWS1: at sea, a ship
           pulse: env.pulse,
         });
@@ -1695,6 +1713,10 @@ export class HeldMapWindow {
       lift: this._raids.some((r) => r.px === m.px && r.py === m.py) ? QUEST_RAID_LIFT : QUEST_MARK_LIFT }));
     const questsKey = `${questMarksKey(quests)}#${quests.map((m) => m.lift).join(',')}`;
     if (questsKey !== this._questsKey) { this._questsKey = questsKey; this._quests = quests; gateMoved = true; this._dirty = true; }
+    // HOME-VENDOR: the trader's waypoint rides the same poll (set or cleared with the map open)
+    const vendor = readVendorMark(this.deps.vendor, this._size);
+    const vendorKey = vendorMarkKey(vendor);
+    if (vendorKey !== this._vendorKey) { this._vendorKey = vendorKey; this._vendor = vendor; gateMoved = true; this._dirty = true; }
     // TV3: the region's travellers ride the same poll, on their own key
     const trav = readTravellerMarks(this.deps.travellers, this._size);
     const travKey = travellerMarksKey(trav);
@@ -1726,7 +1748,7 @@ export class HeldMapWindow {
     const leg = this._chrome?.legend;
     if (!leg) return;
     leg.innerHTML = '';
-    if (!this._party.length && !this._gate && !this._bounties.length && !this._raids.length && !this._trav.length && !this._quests.length) { leg.classList.toggle('open', false); leg.style.display = 'none'; return; }
+    if (!this._party.length && !this._gate && !this._bounties.length && !this._raids.length && !this._trav.length && !this._quests.length && !this._vendor) { leg.classList.toggle('open', false); leg.style.display = 'none'; return; }
     if (this._party.length) {
       const dot = el('span', 'hmlegdot');
       dot.style.background = this._party.some((m) => m.online) ? PARTY_MARK_CSS : PARTY_OFFLINE_CSS;
@@ -1766,6 +1788,12 @@ export class HeldMapWindow {
     };
     if (this._quests.some((q) => q.tracked)) diamond(true, QUEST_FOLLOWED_TEXT);
     if (this._quests.some((q) => !q.tracked)) diamond(false, QUEST_LEGEND_TEXT);
+    if (this._vendor) {   // HOME-VENDOR: the coin explains itself
+      const dot = el('span', 'hmlegdot');
+      dot.style.background = VENDOR_MARK_CSS;
+      dot.style.boxShadow = `0 0 0 2px ${VENDOR_RIM_CSS}`;
+      leg.append(dot, el('span', 'hmlegtext', VENDOR_LEGEND_TEXT));
+    }
     leg.classList.toggle('open', true);
     leg.style.display = 'flex';
   }
@@ -1973,6 +2001,8 @@ export class HeldMapWindow {
    *  and the journal's click-through all ask this, as the classic
    *  window's override is asked by all three. */
   _discovered(summary) {
+    // IT1: a driver's or a captain's map is the mod's over DFU's window, never Travel Options' (no ports filter); a captain's shows only the places by a dock with ShowOnlyDocks on (SeafarersMap.checkLocationDiscovered)
+    if (this._it) return this._it.kind === IT_POPUP.seafarer ? seafarerDiscovered(summary, checkLocationDiscovered(summary), this._it.settings) : checkLocationDiscovered(summary);
     if (!portsFilterAllows(this.portsFilter, summary?.mapID ?? summary?.mapId)) return false;
     return checkLocationDiscovered(summary);
   }
@@ -2053,6 +2083,7 @@ export class HeldMapWindow {
    *  place under the cursor, or clears the mark when it is already this
    *  one. The ring is inked by paintInk in MarkLocationColor. */
   _markLocationHandler(sx, sy) {
+    if (this._it) return;   // AUDIT IT1 C1: CarriageMap has no MarkLocationHandler
     if (!this._onSheet([sx, sy])) return;   // AUDIT-MAP2: off the paper is off the map
     const m = this._markerAt(sx, sy);
     if (!m) return;
@@ -2181,7 +2212,21 @@ export class HeldMapWindow {
    *  the host can honour it (AUDIT-TO1 I4, coordsAllowed: never online).
    *  Never on a teleport visit: a bare pixel is no place to appear. */
   _coordsAllowedHere() {
-    return !!this._to?.settings?.targetCoordsAllowed && (this.deps.coordsAllowed?.() ?? true) && !this.teleportationTravel;
+    return !this._it && !!this._to?.settings?.targetCoordsAllowed && (this.deps.coordsAllowed?.() ?? true) && !this.teleportationTravel;   // IT1: a driver's map is DFU's, with no bare-pixel arm
+  }
+
+  /** IT1: the mod's refusal of the place picked, or null - a driver's or a captain's map asks CreatePopUpWindow's NPC
+   *  arm (itMapRefusal), the player's own map ImmersiveTravelPopUp.OnPush's (DisableNormalTravel): both put the mod's
+   *  box over the map, and the second pops its popup with it, so on this sheet both are one notice and no panel. */
+  _itRefusalHere() {
+    const summary = this._selected?.summary;
+    if (!summary || this._selected.coords) return null;
+    if (this._it) {
+      return itMapRefusal(this._it.kind, this._it.settings, {
+        here: this.deps.itHere?.() ?? {}, summary, politicAt: (x, y) => this.deps.maps?.getPoliticIndex?.(x, y) ?? 0,
+      });
+    }
+    return playerPopUpRefusal(this.deps.immersiveSettings?.() ?? null, summary.locationType);
   }
 
   _regionNameAt(px, py) {
@@ -2217,6 +2262,7 @@ export class HeldMapWindow {
   }
 
   _select(mark) {
+    this._itRefusal = null;   // IT1: the mod's box goes with the pick it refused
     this._closePanel();
     if (!mark) { this._selected = null; this._dirty = true; this._renderCard(); return; }
     this._selected = { ...mark, name: mark.name || (mark.summary ? this._summaryName(mark.summary) : '') };
@@ -2234,20 +2280,31 @@ export class HeldMapWindow {
     // armed (:1162-1182), so a fast-travel panel here would commit into an
     // onTravel the teleport host never hands over
     if (kind === 'travel' && this.teleportationTravel) kind = 'teleport';
+    // IT1: the mod asks first - a refused place is its box over the sheet and no panel
+    if (kind === 'travel') {
+      this._itRefusal = null;   // AUDIT IT1 H-L1: asked again at every press, as the classic asks at every pick
+      const refusal = this._itRefusalHere();
+      if (refusal) { this._itRefusal = IT_TEXT[refusal]; this._renderCard(); return; }
+    }
     this._panel = kind;
     if (kind === 'travel') {
       const d = this.deps;
       const readOnce = (v) => (typeof v === 'function' ? !!v() : !!v);
+      const it = this._it?.kind ?? null;   // IT1: the mod's popup - its own defaults, never the remembered toggles
       this._panelState = {
         // the three remembered choices open the panel (the classic
         // popup's Object.assign from the store)
-        opts: { ...travelMapPopUpState() },
+        // AUDIT IT1 M1: the player's own map while the mod is on and Travel Options off is the mod's CarriageMap,
+        // whose CreatePopUpWindow builds DFU's popup NEW at every pick (IL_0870-0885) - its own three, not the store's
+        opts: it ? itPopUpDefaults(it, this._it.settings)
+          : (d.immersiveSettings?.() && !this._to) ? freshTravelMapPopUpState() : { ...travelMapPopUpState() },
+        it,
         // transports are SNAPSHOT at open - a horse bought mid-trip is
         // not a thing (DFU OnPush)
         hasHorse: readOnce(d.hasHorse), hasCart: readOnce(d.hasCart), hasShip: readOnce(d.hasShip),
         trip: null, confirm: false, notice: null,
-        // AUDIT-TO1 C2: the mod, for its ship laws
-        to: d.travelOptions?.() ?? null,
+        // AUDIT-TO1 C2: the mod, for its ship laws - IT1: none over the mod's popup, which is DFU's
+        to: it ? null : (d.travelOptions?.() ?? null),
       };
       this._refreshTrip();
       // AUDIT-TO1 C2: OnPush's guard (TravelOptionsPopUp.cs:53-67) over
@@ -2306,7 +2363,7 @@ export class HeldMapWindow {
    *  goes, however it goes. */
   _rememberPanel() {
     const o = this._panelState?.opts;
-    if (o) setTravelMapPopUpState(o);
+    if (o && !this._panelState.it) setTravelMapPopUpState(o);   // IT1: the mod's popups are new each time - nothing of theirs is kept
   }
 
   /** ONE JOURNEY for the card's bill: the walk priced once by
@@ -2330,6 +2387,20 @@ export class HeldMapWindow {
     if (!st?.opts || !this._selected) return;
     const sel = this._selected;
     const dest = sel.coords ? { x: Math.floor(sel.x), y: Math.floor(sel.y) } : getPixelFromPixelID(sel.summary.id);
+    // IT1: the mod's popup bills its own calculator's trip (systems/immersiveTravel.js itTrip) - DFU's fast travel,
+    // never walked, never Travel Options' scaled fare nor online's half
+    if (st.it) {
+      const t = itTrip(st.it, this._it.settings, {
+        start: this.deps.getPlayerPixel(), end: dest, opts: st.opts,
+        hasHorse: st.hasHorse, hasCart: st.hasCart, hasShip: st.hasShip, freeTavernRooms: !!this.deps.freeTavernRooms?.(),
+        getClimateIndex: this.deps.getClimateIndex, playerEntity: this.deps.playerEntity?.() ?? null,
+        calc: { calculateTravelTime, guildFastTravel },
+      });
+      st.trip = { ...t, days: travelDays(t.minutes), online: !!this.deps.noWorldTime?.(), walked: false };
+      st.notice = null;
+      this._renderCard();
+      return;
+    }
     const time = this._journey(dest, {
       speedCautious: st.opts.speedCautious,
       sleepModeInn: st.opts.sleepModeInn,
@@ -2392,6 +2463,11 @@ export class HeldMapWindow {
   _toggleOpt(key) {
     const st = this._panelState;
     if (!st?.opts) return;
+    // IT1: the mod's popup - T and N are the foot/horse and inn buttons' toggles, which the mod overrides
+    if (st.it && key !== 'speedCautious') {
+      this._itPress(key === 'travelShip' ? 'transportToggle' : 'sleepToggle', { campOutButton: false });
+      return;
+    }
     const settings = st.to?.settings;
     // AUDIT-TO1 C2 (TravelOptionsPopUp.cs:182-189, the ship click): under
     // the ports restriction, SELECTING the ship is refused with the
@@ -2406,6 +2482,17 @@ export class HeldMapWindow {
     // when the trip cannot sail
     if (key === 'sleepModeInn' && !st.opts.sleepModeInn && settings?.shipTravelPortsOnly
       && shipTravelRefusal({ settings, ...this._shipCtx() })) st.opts.travelShip = false;
+    this._refreshTrip();
+  }
+
+  /** IT1: a press on the mod's popup (systems/immersiveTravel.js itTogglePress) - a refusal is the mod's box, on this
+   *  sheet the panel's click-anywhere notice; the base arm re-bills the trip. A CLICK on either button of a pair goes
+   *  through every time, as DFU's handler runs on every click: the mod's refusal answers even the button already lit. */
+  _itPress(press, opts = {}) {
+    const st = this._panelState;
+    if (!st?.it) return;
+    const refusal = itTogglePress(st.it, st.opts, this._it.settings, press, opts);
+    if (refusal) { st.notice = IT_TEXT[refusal]; this._renderCard(); return; }
     this._refreshTrip();
   }
 
@@ -2453,7 +2540,8 @@ export class HeldMapWindow {
       travelShip: st.opts.travelShip,
       // AUDIT-TO1 C1: the popup's own word for a WALKED trip
       // (TravelOptionsPopUp.cs:80-83), which world.js forks on
-      playerControlled: isPlayerControlledTravel(st.to?.settings, st.opts),
+      playerControlled: st.it ? false : isPlayerControlledTravel(st.to?.settings, st.opts),
+      ...(st.it ? { immersive: st.it } : {}),   // IT1: a driver's trip - DFU's fast travel, which world.js lets through online
     };
     const computed = {
       // AUDIT-MAP D1: a walked trip hands its WALKED estimate - the popup's
@@ -3134,7 +3222,7 @@ export class HeldMapWindow {
     //   - the ship refusal (_toggleOpt below) is one of
     //     TravelOptionsPopUp.cs:168-180's three message boxes, which the
     //     classic twin still draws as a buttonless parchment
-    //     (ui/travelPopUp.js:669-675, `this.top` with no MB_BUTTONS)
+    //     (ui/travelPopUp.js:744-751, `this.top` with no MB_BUTTONS)
     //   - "not enough gold" (_confirmDiseased below) is
     //     DaggerfallTravelPopUp.cs:394-406, showNotEnoughGoldPopup,
     //     `messageBox.ClickAnywhereToClose = true` over TEXT.RSC 454
@@ -3156,7 +3244,7 @@ export class HeldMapWindow {
     // turned closes the card, and a refusal still in its state must not
     // stand on the panel over a card that is gone (re-audit B6).
     const cardUp = !!this._selected && this._phase === 'map';
-    const cardNotice = cardUp ? ((this._panel === 'travel' && this._panelState?.notice) || (feeRefused ? 'You do not have enough gold.' : null) || null) : null;
+    const cardNotice = cardUp ? ((this._panel === 'travel' && this._panelState?.notice) || (feeRefused ? 'You do not have enough gold.' : null) || this._itRefusal || null) : null;   // IT1: the mod's refusal of the place
     // (The `!onPanel` arms of this window - the info block drawn into
     // .hmbox, the card's own hmnotice/hmprompt lines - are its
     // classic-skin fork and unreachable in the shipping game:
@@ -3181,6 +3269,8 @@ export class HeldMapWindow {
       for (const q of at.flatMap((x) => x.quests ?? [])) card.append(el('p', 'hmquest', q.left ? `${q.title} - ${q.left}` : q.title));
     }
 
+    // IT1: the mod's refusal, in the card where the panel cannot carry it (the classic-skin fork, as the fee's below)
+    if (this._itRefusal && !onPanel) card.append(el('p', 'hmnotice', this._itRefusal));
     if (this._panel === 'teleport') {
       // AUDIT-TO1 C3: the fee first. No purse for it: the mod's
       // notEnoughGold box, and the map closes (:497-500). ENH-NOTICE3:
@@ -3220,6 +3310,9 @@ export class HeldMapWindow {
         card.append(row);
         return;
       }
+      // IT1: whose ride this is - a driver's or a captain's (the classic popup is DFU's art and says nothing; this card
+      // is the port's own, and a player at a driver's map should know the fare is his)
+      if (st.it) card.append(el('p', 'hmmeta', st.it === IT_POPUP.seafarer ? 'A ship captain\u2019s passage' : 'A carriage ride'));
       const pairs = [
         ['Speed', 'speedCautious', 'Cautiously', 'Recklessly'],
         ['Passage', 'travelShip', 'By ship', 'By land'],
@@ -3232,7 +3325,12 @@ export class HeldMapWindow {
           const b = el('button', `hmpick${st.opts[key] === value ? ' on' : ''}`, label);
           // a click ASSIGNS its member; the hotkeys toggle - the
           // popup's own asymmetry
-          b.onclick = () => { if (st.opts[key] !== value) this._toggleOpt(key); };
+          b.onclick = () => {
+            // IT1: the mod's popup hears every click (its handlers override the base's)
+            if (st.it && key === 'travelShip') { this._itPress('transportClick', { ship: value }); return; }
+            if (st.it && key === 'sleepModeInn') { this._itPress('sleepClick', { inn: value }); return; }
+            if (st.opts[key] !== value) this._toggleOpt(key);
+          };
           row.append(b);
         }
         card.append(row);

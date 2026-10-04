@@ -119,10 +119,12 @@ HELM-KEYS (2026-09-29, the player: "Arrow keys should not only control your ship
 sails. I also want to find a way to make the ship controls more intuitive instead of a bunch of buttons and key
 binds") - THE ARROWS ARE THE HELM (DECLARED, the Port-Ledger's HELM-KEYS row):
 
-- **Up and down make and take in sail** - `BoatSailUp` (More sail) and `BoatSailDown` (Less sail), the port's own two
-  steps through the mod's own sail states (`systems/comeSailAway.js MoreSail, LessSail`): stowed, raised; and where the
-  square sails are the player's own (the assist's AutoStowSquareSails off, a hull with both kinds) all her canvas, the
-  fore-and-aft alone, none. A step with nowhere to go says so. End still toggles, the brackets still trim.
+- **Up and down, W and S: one ladder** (HELM-LADDER, 2026-10-04, from the field: "WASD and Arrow keys should function
+  the same when controlling") - `MoveForwards` or `BoatSailUp` climbs a rung a press, `MoveBackwards` or `BoatSailDown`
+  comes down one (`systems/comeSailAway.js ladderUp, ladderDown`): the oars backing water, at rest, pulling ahead, then
+  her sails and, where the square sails are the player's own (the assist's AutoStowSquareSails off, a hull with both
+  kinds), all her canvas - More sail and Less sail's steps above the oars. The oars keep their rung with no key held. A
+  step with nowhere to go says so. End still toggles all her canvas, the brackets still trim.
 - **Left and right steer**: at a helm DFU's `TurnLeft` and `TurnRight` - the arrows - are the RUDDER's, as A and D are
   (`inputActions.js HELM_RUDDER_ACTIONS`, read through the mod's own input seam, its rudder's swing too), and the
   keyboard look does not turn the view with them there. One action, one meaning - a turn - read by whoever the hands
@@ -132,9 +134,8 @@ binds") - THE ARROWS ARE THE HELM (DECLARED, the Port-Ledger's HELM-KEYS row):
   onto the partner's own key (a player's own rebind of the arrow is never shared onto) and, on a saved file, only
   while More sail is keyless and not unbound on purpose. The two are never live together: a helm's hands are on the
   wheel, and the professions read no choice there (`world.js`). The down arrow was free.
-- **The helm panel teaches them**: its line under the name is the helm's hand at a glance - the sails on the arrows,
-  the rudder on the turn keys, as bound now - and its sails' button presses More and Less sail, so its hint is the
-  arrow. IN IRONS (her sails up, her bow within IRONS_TELL_DEG of the wind's eye, her way ahead through the water under
+- **The helm panel teaches them**: its line under the name is the helm's hand at a glance - her oars and her sails on
+  W, S and the arrows, the rudder on A, D and the turn keys, as bound now - and its sails' button is the toggle (End). IN IRONS (her sails up, her bow within IRONS_TELL_DEG of the wind's eye, her way ahead through the water under
   IRONS_TELL_WAY - sternway counts, never the sea's current: AUDIT NAV2 F15) the helm is told once how she comes out -
   under the Classic helm strike sail and row her round, under the Responsive one put the helm over first (AUDIT NAV2
   F18) - and the panel's line says it, with the keys, while it lasts. AUDIT NAV2 F17: while an Overworld journey holds

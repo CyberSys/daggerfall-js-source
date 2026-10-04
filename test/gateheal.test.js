@@ -285,7 +285,8 @@ function fakeDoc() {
 test('GATE-HEAL the plumbing, read: the ally-cast door - which never hears my own spell and turns the fallen away - tells the court what another\'s spell moved and whose it was; the court\'s word goes out as the wire\'s `heal`; the relay judges it by applyHeal from the receiver\'s own pose, the caster by peer id (mutants: the door silent; the word never sent)', () => {
   assert.match(read('src/net/online.js'), /_directedIn\(m, now, kind, buckets, gate, hz, valid, deliver\) \{\n\s*if \(typeof m\.id !== 'string' \|\| m\.id === this\.id\) return;/, 'my own never comes through the door');
   const w = read('src/scenes/world.js');
-  assert.match(w, /online\.onCast = \(id, d\) => \{[\s\S]{0,200}if \(playerEntity\.health <= 0 \|\| modes\?\.deathUp\?\.\(\)\) return;[\s\S]{0,1400}const healed = Math\.max\(0, Math\.trunc\(playerEntity\.health - before\)\);[\s\S]{0,200}if \(healed > 0\) gateCourt\?\.healedBy\?\.\(id, healed\);/);
+  // PIN MOVED (GIFT-QUIET, 2026-10-04): the gap to the heal 1700, not 1400 - the receiver's line now names its gate
+  assert.match(w, /online\.onCast = \(id, d\) => \{[\s\S]{0,200}if \(playerEntity\.health <= 0 \|\| modes\?\.deathUp\?\.\(\)\) return;[\s\S]{0,1700}const healed = Math\.max\(0, Math\.trunc\(playerEntity\.health - before\)\);[\s\S]{0,200}if \(healed > 0\) gateCourt\?\.healedBy\?\.\(id, healed\);/);
   assert.match(w, /sendHeal: \(heal\) => !!online\?\.sendGate\?\.\(\{ k: 'heal', \.\.\.heal \}\),/);
   const r = read('server/src/index.js');
   assert.match(r, /if \(m\.k === 'heal'\) \{\n\s*const pose = a\.pose \? this\._courtOf\(a\.pose\) : null;/);

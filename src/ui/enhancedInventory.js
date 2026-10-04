@@ -109,6 +109,7 @@ import { noticeHold, noticeRelease } from './enhancedNotice.js';   // ENH-NOTICE
 import {
   planStore, planTake, applyTransfer, planDropGold, WAGON_KG_LIMIT,
   HOW_MANY_ITEMS, parseSplitAmount,   // DISC25-F: the split popup's law, as the card's field
+  sendQuestItemClick,   // WHERE-ROBES: DFU's remote-click quest send, one home for every door onto a loot row
 } from '../systems/itemTransfer.js';
 import { howManyField } from './howManyField.js';   // DISC25-F: the card's field, one constructor for both counters
 import {
@@ -1365,7 +1366,9 @@ export function inventoryQuickAct(target) {
   const row = target?.closest?.('.itemrow');
   const item = row?._padItem;
   if (!item || !row.isConnected) return false;
-  if (row._padFrom === 'remote') { take(item); return true; }
+  // WHERE-ROBES: the pad's X on a loot row is a click on it, so it sends the quest click as the row's own click does -
+  // without it a quest item taken by X never reached its `clicked item` trigger
+  if (row._padFrom === 'remote') { sendQuestItemClick(item, deps.getQuest ?? null); take(item); return true; }
   const act = localPrimaryAct(item, deps.entity);
   if (!act) use(item);
   else if (act.kind === 'takeOff') takeOff(item.equipSlot);
@@ -1511,7 +1514,7 @@ function stow(item) {
   if (amount == null) { notice = HOW_MANY_ITEMS(plan.amount); render(); return; }
   // MAC-O6: the same cue this window's `take()` gained - storing (selling,
   // banking, dropping into a wagon or a pile) is a transfer too, and
-  // planStore already hands back the sound (itemTransfer.js:261), unread
+  // planStore already hands back the sound (itemTransfer.js:289), unread
   // until now.
   audio.playOneShot(plan.sound === 'gold' ? SOUND.GoldPieces : SOUND.ButtonClick, 1);   // SND1: a take always sounds - the click, or the gold
   // PX24 (Mac: an action taken closes the tooltip): the transfer
@@ -1549,7 +1552,7 @@ function take(item) {
   });
   if (!plan.ok) return refuse(plan.refusal);
   // AUDIT INV2 B-F2: the map is an interception in EITHER direction
-  // (itemTransfer.js:283, "F156: either direction") - taking one off a
+  // (itemTransfer.js:311, "F156: either direction") - taking one off a
   // pile reveals and consumes it, exactly as stowing one does. The
   // classic window routes both; this one routed neither.
   if (plan.map) { use(item, remoteTarget(deps, sessionState())); return; }
@@ -2299,6 +2302,10 @@ function showTip(item, from, row) {
 }
 function openMenu(item, from, x, y) {
   hideTip(); closeMenu();
+  // WHERE-ROBES: the menu is the RIGHT click (a long press, the pad's Y), and DFU's right click on a loot row is the
+  // same member as the left (RemoteItemListScroller_OnItemRightClick, :2070-2073) - the quest click goes first, a menu
+  // closed unused included, as a look counts. Its Take and Use then ran with no click at all.
+  if (from === 'remote') sendQuestItemClick(item, deps.getQuest ?? null);
   const acts = itemActs(item, from, { qty: false });
   const buttons = [...acts.querySelectorAll('button')];
   if (!buttons.length) return;
@@ -2432,9 +2439,7 @@ function itemRow(item, from = 'local') {
     // LocalItemListScroller_OnItemClick (:1974-2007) has no such call,
     // which is why this sits behind `from === 'remote'` rather than in
     // the pick itself.
-    if (from === 'remote' && item.questItem) {
-      deps.getQuest?.(item.questUID)?.getItem?.(item.questSymbol)?.setPlayerClicked();
-    }
+    if (from === 'remote') sendQuestItemClick(item, deps.getQuest ?? null);
     // IG7 (Mac: "opening a container or body and clicking to loot an
     // item - the item isn't picked up properly and the tooltip
     // remains"): a LOOT-SIDE click TAKES, immediately. DFU's remote

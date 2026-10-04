@@ -80,12 +80,14 @@ test('EL1: the row is the Features home\'s, on by default, forced on online', ()
   assert.deepEqual(f.kinds, ['enhanced']);
   assert.deepEqual(f.control, {
     store: 'prefs', key: 'enhancedLighting', initial: true, online: 'player',   // OL-LIGHT: the player's online too
-    // FLICKER-FIX: Steady shadows (on) and the Shadow debug log (off) are parts of the row, the player's online too
-    also: [{ store: 'prefs', key: 'steadyShadows', initial: true, online: 'player' }, { store: 'prefs', key: 'shadowDebug', initial: false, online: 'player' }],
-    parts: [{ key: 'enhancedLighting', label: 'Lighting' }, { key: 'steadyShadows', label: 'Steady shadows' }, { key: 'shadowDebug', label: 'Shadow debug log' }],
+    // FLICKER-FIX: Steady shadows (on) and the Shadow debug log (off) are parts of the row, the player's online too;
+    // STEADY-BALANCE: and the Calmer eye (off), its own chip now
+    also: [{ store: 'prefs', key: 'steadyShadows', initial: true, online: 'player' }, { store: 'prefs', key: 'shadowDebug', initial: false, online: 'player' }, { store: 'prefs', key: 'calmEye', initial: false, online: 'player' }],
+    parts: [{ key: 'enhancedLighting', label: 'Lighting' }, { key: 'steadyShadows', label: 'Steady shadows' }, { key: 'calmEye', label: 'Calmer eye' }, { key: 'shadowDebug', label: 'Shadow debug log' }],
   });
   assert.equal(PREF_DEFAULTS.enhancedLighting, true, 'on by default like the other enhanced visuals');
   assert.equal(PREF_DEFAULTS.steadyShadows, true); assert.equal(PREF_DEFAULTS.shadowDebug, false);   // FLICKER-FIX
+  assert.equal(PREF_DEFAULTS.calmEye, false);   // STEADY-BALANCE
   assert.equal(featureForControl('prefs', 'enhancedLighting'), f);
   assert.match(f.effect, /when the world next loads/);
 });

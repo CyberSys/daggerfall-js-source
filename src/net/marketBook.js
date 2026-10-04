@@ -391,6 +391,17 @@ export function createMarketBook({ door, storage = null, character, now = () => 
         return gold ? goldBuy({ rid, body }, mint, key, true) : keptAct('buys', { rid }, () => door.buy(body), mint, key);
       });
     },
+    /** HOME-VENDOR (net/vendorLaw.js): A HOME'S TRADER'S STOCK - `{ ok, data: { vendor, rows } }` - and THE REGION'S
+     *  TRADERS - `{ ok, data: { region, rows } }`; read fresh each time (a visitor's look, the board's tab), never cached:
+     *  a sale at a stall moves them. A trader's piece is listed through `list` and bought through `buy`, `vendor` in the
+     *  request (`{ map, id }`). */
+    async vendorStock(vendor) { return heard(await ask(() => door.vendor(vendor))) ?? { ok: false, error: 'server' }; },
+    async vendors(region) { return heard(await ask(() => door.vendors(region, character()))) ?? { ok: false, error: 'server' }; },
+    /** HOME-VENDOR: A PIECE FROM A PACK COLLECTED AT ONCE - a trader's sale's delivery, or a piece taken back off a trader -
+     *  into the record and the pack (collectGood), on the answer that named it, without waiting for a read of the road. */
+    collectGood(delivery) { return once(`good|${delivery}`, () => collectGood(delivery)); },
+    /** HOME-VENDOR: the Vendor page's read - my traders, their stock, what they sold, the gold it holds. */
+    async myVendors() { return heard(await ask(() => door.myVendors(character()))) ?? { ok: false, error: 'server' }; },
     /** GOLD-MARKET: whether this character trades in gold - a realm character's (its gold is its record's). */
     get goldOk() { return !!(realm && wallet); },
     /** GOLD-MARKET: the gold the save can pay at a board of `region` (the purse, its letters, that region's account), or

@@ -63,8 +63,8 @@
   {
     "name": "X7-kept-in-ordinary-patch",
     "file": "server/src/index.js",
-    "old": "this._meter(ws, a, now, { pose: posed ? m.p : a.pose }, turned)",
-    "new": "this._meter(ws, a, now, { pose: posed ? m.p : a.pose, ...(still ? { kept: now } : {}) }, posed ? { turn: ((a.turn | 0) + 1) & 0xffff } : {})",
+    "old": "this._meter(ws, a, now, { pose: posed ? m.p : a.pose }, turned, posed && !stopped)",
+    "new": "this._meter(ws, a, now, { pose: posed ? m.p : a.pose, ...(still ? { kept: now } : {}) }, posed ? { turn: ((a.turn | 0) + 1) & 0xffff } : {}, posed && !stopped)",
     "tests": [
       "test/slam13.test.js"
     ]

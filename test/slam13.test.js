@@ -132,7 +132,7 @@ test('SLAM13 A2: `kept` rides the PASS patch - a keepalive the gate refused was 
     h.tick(50);   // one token
     await r.pose(ws[0], at(POSE_HZ_MAX * 0.1, 0));   // the honest heartbeat: the last WHOLE fan was t0, well past the floor
     assert.equal(ws.slice(1).filter((s, i) => ofType(s, 'pose').length === heardBefore[i] + 1).length, n - 1, 'heard whole by every listener - the refused one did not count as a whole fan');
-    assert.equal(ws[0].att.kept, h.clock, 'and this one is the fan `kept` names');
+    assert.equal(r.room._attach(ws[0]).kept, h.clock, 'and this one is the fan `kept` names (SCALE2b: on the index every reader reads - the runtime\'s copy of a pose that is not a stop is written lazily)');
   } finally { h.done(); }
 });
 

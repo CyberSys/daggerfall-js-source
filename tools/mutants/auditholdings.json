@@ -230,9 +230,9 @@
   },
   {
     "name": "AH-O1-sounded-off-a-streaming-shore",
-    "file": "src/scenes/navalHost.js",
-    "old": "    if (near && !harbours.has(near.key)) { if (near.ready?.() !== false) harbours.set(",
-    "new": "    if (near && !harbours.has(near.key)) { if (true) harbours.set(",
+    "file": "src/systems/naval/harbourBook.js",
+    "old": "    if (!h) { if (near.ready?.() !== false) book.set(",
+    "new": "    if (!h) { if (true) book.set(",
     "tests": [
       "test/auditholdings.test.js"
     ]

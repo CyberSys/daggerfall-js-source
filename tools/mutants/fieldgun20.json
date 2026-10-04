@@ -46,8 +46,8 @@
   {
     "name": "FIELD-GUN20-7-a-block-flat-is-centred-too",
     "file": "src/world/rmbFlats.js",
-    "old": "export function collectBlockFlats(dfBlock, natureArchive) {\n  const rmb = dfBlock.rmbBlock;\n  const flats = [];",
-    "new": "export function collectBlockFlats(dfBlock, natureArchive) {\n  const rmb = dfBlock.rmbBlock;\n  const flats = [];\n  void centredBase([0, 0, 0], null);",
+    "old": "export function collectBlockFlats(dfBlock, natureArchive, { climateIndex = null, solid = null } = {}) {\n  const rmb = dfBlock.rmbBlock;\n  const flats = [];",
+    "new": "export function collectBlockFlats(dfBlock, natureArchive, { climateIndex = null, solid = null } = {}) {\n  const rmb = dfBlock.rmbBlock;\n  const flats = [];\n  void centredBase([0, 0, 0], null);",
     "tests": ["test/thunderlock.test.js"],
     "note": "The other half of the law: a flat DFU AlignToBase-s must not take the missile's anchor."
   }

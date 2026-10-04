@@ -8,7 +8,7 @@
 // stays where it was - the drop the motor's own fall check refuses, EnemyMotor's FallCheck, characters/enemyMotor.js
 // _fallCheck). A departure: DFU's controllers block, the port's pools push.
 import { worldAabb } from '../player/activate.js';   // AUDIT TACT C6: an action door's box
-import { CAPSULE_HEIGHT, CAPSULE_RADIUS } from '../player/motor.js';
+import { CAPSULE_HEIGHT, CAPSULE_RADIUS, STEP_OFFSET } from '../player/motor.js';   // FIELD BUGS 2026-10-04d CRATE-FREE: a freed body keeps its own floor, a step at most
 import { FALL_CHECK_DROP } from './enemyMotor.js';
 
 /** How fast a body is pushed out of another, metres a second. */
@@ -218,5 +218,126 @@ export function actionDoorSpots(objects, near, range = 30) {
     out.push({ pos: [cx, cy, cz], normal: ex < ez ? [1, 0, 0] : [0, 0, 1] });   // a door is thin across its doorway
   }
   return out;
+}
+
+// ---- FIELD BUGS 2026-10-04d CRATE-FREE (Discord: "Vital quest enemies stuck in dungeon crates ... there are a few rooms
+// where they are stuck in crates"; the screenshot a giant stood INSIDE a wooden crate, its head over the lid) - NO FOE
+// STANDS INSIDE A MODEL -------------------------------------------------------------------------------------------------
+//
+// A crate is a MODEL (TEXTURE.090's crate faces, systems/searchables.js CRATES - five one-sided faces, 0.3 to 2.1 m tall),
+// solid as DFU makes it: RDBLayout.AddModels combines it into the block's mesh collider, and the dungeon files it in its
+// 'dungeon' bucket (dungeonContext.js). The collider's push is facing-blind - the centre away from the nearest point - so
+// a body whose centre stands INSIDE a closed model is pushed back in by the model's own walls, and never walks out. DFU's
+// is not held there: Unity's sweep reads no back face, and its CharacterController depenetrates from what it starts in
+// (enableOverlapRecovery) - the law collider.js already keeps for a hull in a rock (ROCK-FREE's hullSweepAll). The foes'
+// motor has no such pass, so the stand frees the body: one lodged in a model is set on the nearest spot of its own floor
+// that is reached by passing only the skin it stands in. A body that is not lodged is left exactly where its law stood it.
+
+/** CRATE-FREE: how high over its feet a body is asked whether it stands in a model - a knee. A lid lower than this is one
+ *  the body's lower sphere is already set ON (collider.js PH1's one-way floor); every lid that holds a body is higher. */
+export const LODGE_KNEE = 0.5;
+/** CRATE-FREE: how far the knee's line up and its four bearings look for the lid and the walls of the skin it stands in. */
+export const LODGE_REACH = 4;
+/** CRATE-FREE: how far a face may reach inside a body's radius and the body still fit - the collider's own skin (a body
+ *  resting on its floor touches it at its radius exactly). */
+export const FIT_SKIN = 0.02;
+/** CRATE-FREE: the rings a lodged body's spot is sought on, nearest first, in metres. */
+export const FREE_RINGS = Object.freeze([0.5, 0.75, 1, 1.25, 1.5, 2, 2.5, 3]);
+/** CRATE-FREE: the bearings round each ring - literals and one IEEE constant (the four axes, then the four diagonals:
+ *  dungeonFires.js ringOf's), so every client of a room frees a body to the same spot. */
+const FREE_BEARINGS = Object.freeze([[1, 0], [-1, 0], [0, 1], [0, -1],
+  [Math.SQRT1_2, Math.SQRT1_2], [Math.SQRT1_2, -Math.SQRT1_2], [-Math.SQRT1_2, Math.SQRT1_2], [-Math.SQRT1_2, -Math.SQRT1_2]]);
+const KNEE_BEARINGS = Object.freeze([[1, 0, 0], [-1, 0, 0], [0, 0, 1], [0, 0, -1]]);
+const UP = [0, 1, 0];
+/** CRATE-FREE: how far past a face met from behind the next ray starts (the ray answers nothing nearer than 1e-4). */
+const PASS_SKIN = 1e-3;
+const _knee = [0, 0, 0], _bead = [0, 0, 0];
+
+/** CRATE-FREE: does a body `height` tall fit at `feet` - no face within its radius (less the skin) of its axis? Beads a
+ *  radius apart up the axis, each asked of the collider's OverlapSphere (sphereOverlaps). Not how far the resolve would
+ *  move it (penetrationAt): a lid straight over a body pushes it down onto the floor that holds it up, and moves it not
+ *  at all. */
+export function bodyFits(collider, feet, height = CAPSULE_HEIGHT) {
+  const top = feet[1] + Math.max(CAPSULE_RADIUS, height - CAPSULE_RADIUS);
+  _bead[0] = feet[0]; _bead[2] = feet[2];
+  for (let y = feet[1] + CAPSULE_RADIUS; ; y = Math.min(top, y + CAPSULE_RADIUS)) {
+    _bead[1] = y;
+    if (collider.sphereOverlaps(_bead, CAPSULE_RADIUS - FIT_SKIN)) return false;
+    if (y >= top) return true;
+  }
+}
+
+/**
+ * CRATE-FREE: does a body standing at `feet` stand INSIDE a model - a crate, a barrel, a bed - rather than in the room
+ * round it? A face's own winding says which way it looks (the world pass draws front faces alone - dungeonFires.js
+ * colliderFireProbe reads a floor by it), and inside a solid every face is met from behind: the line straight up from the
+ * body's knee meets a lid's BACK, and two of the knee's four bearings at least meet walls' backs (a crate in a corner
+ * meets the room's two walls first; under a table or a walkway with no underside the room is open round it). A room's
+ * own shell looks in at it, and a model whose faces look both ways holds it in DFU too. Whatever its height: a body in a
+ * crate taller than itself (41833, a 2.1 m cube) is held by its walls all the same. A collider that cannot answer - no
+ * raycastHit to read a face's side by, no sphereOverlaps for the free's fit (bodyFits) - holds nobody.
+ */
+export function lodgedIn(collider, feet) {
+  if (!feet || typeof collider?.raycastHit !== 'function' || typeof collider.sphereOverlaps !== 'function') return false;
+  _knee[0] = feet[0]; _knee[1] = feet[1] + LODGE_KNEE; _knee[2] = feet[2];
+  const lid = collider.raycastHit(_knee, UP, LODGE_REACH);
+  if (lid?.back !== true || !Number.isFinite(lid.dist)) return false;
+  let walls = 0;
+  for (const dir of KNEE_BEARINGS) {
+    const h = collider.raycastHit(_knee, dir, LODGE_REACH);
+    if (h?.back === true && Number.isFinite(h.dist)) walls++;
+  }
+  return walls >= 2;
+}
+
+/** CRATE-FREE: does the line from `from` along the unit `dir` run `dist` meeting no face that looks at it? The faces it
+ *  meets from behind - the skin of the solid it starts in - it passes. */
+export function clearPast(collider, from, dir, dist) {
+  const p = [from[0], from[1], from[2]];
+  let left = dist;
+  for (let n = 0; n < 8 && left > 0; n++) {
+    const h = collider.raycastHit(p, dir, left);
+    if (!Number.isFinite(h?.dist)) return true;
+    if (h.back !== true) return false;   // a face that looks at the line: a wall, the next crate
+    const step = h.dist + PASS_SKIN;
+    p[0] += dir[0] * step; p[1] += dir[1] * step; p[2] += dir[2] * step;
+    left -= step;
+  }
+  return left <= 0;
+}
+
+/** CRATE-FREE: the floor under (x, z) within a step of `y0` - a face that looks up (one met from behind is a ceiling's
+ *  top, never a floor), or the collider's analytic ground; null for none. */
+function floorNear(collider, x, y0, z) {
+  _from[0] = x; _from[1] = y0 + STEP_OFFSET; _from[2] = z;
+  const h = collider.raycastHit(_from, DOWN, 2 * STEP_OFFSET);
+  let y = Number.isFinite(h?.dist) && h.back !== true ? _from[1] - h.dist : -Infinity;
+  const g = collider.heightAt?.(x, z);
+  if (Number.isFinite(g) && g > y && g <= _from[1] && g >= y0 - STEP_OFFSET) y = g;
+  return y > -Infinity ? y : null;
+}
+
+/**
+ * CRATE-FREE: a body lodged in a model (lodgedIn) set free, `feet` moved in place: the nearest spot (FREE_RINGS round
+ * FREE_BEARINGS) on its own floor - a step up or down at most; a flyer keeps its height - that the line from its knee
+ * reaches passing only the skin it stands in (clearPast), where a body fits (bodyFits) and stands in nothing. Answers
+ * whether it moved; a body with no such spot within the rings stands where it stood, as it did before.
+ */
+export function freeLodgedFeet(collider, feet, { height = CAPSULE_HEIGHT, airborne = false } = {}) {
+  if (!lodgedIn(collider, feet)) return false;
+  const fit = Math.min(height, CAPSULE_HEIGHT);   // the room's own body: a giant under a low ceiling is the motor's (SQUEEZE1)
+  const knee = [feet[0], feet[1] + LODGE_KNEE, feet[2]];
+  for (const r of FREE_RINGS) {
+    for (const [ux, uz] of FREE_BEARINGS) {
+      const x = feet[0] + ux * r, z = feet[2] + uz * r;
+      const y = airborne ? feet[1] : floorNear(collider, x, feet[1], z);
+      if (y == null || !clearPast(collider, knee, [ux, 0, uz], r)) continue;
+      const spot = [x, y, z];
+      if (!bodyFits(collider, spot, fit) || lodgedIn(collider, spot)) continue;
+      feet[0] = x; feet[1] = y; feet[2] = z;
+      return true;
+    }
+  }
+  return false;
 }
 

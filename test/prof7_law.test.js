@@ -288,7 +288,7 @@ test('PROF7 law: Trophy Hunter, Couturier and Saddler are named and never chosen
   assert.deepEqual([specOk('hunting', 100, 'trophy-hunter'), specOk('hunting', 100, 'butcher'), specOk('hunting', 50, 'tanner'), specOk('outfitting', 50, 'tailor'), specOk('outfitting', 100, 'couturier')], [false, true, true, true, false]);
   assert.deepEqual(CRAFTED_FAMILIES.slice(-6, -3).map(([f]) => f), ['leather', 'clothing', 'furnishings']);   // PIN MOVED (PROF11): the mason's stonework lists after the loom's three; PIN MOVED (PROF9): and the fire's dishes after it; PIN MOVED (PROF10): and the jeweller's pieces after them
   assert.deepEqual(['leather-helm:cured', 'garment-141:linen', 'rug-237:wool', 'skins-244:bear', 'fishingnet:linen', 'knife:iron', 'arrows:harpy'].map(pieceListable), [true, true, true, true, true, true, false]);
-  assert.deepEqual([DECOR_STATIONS.at(-3), DECOR_STATION_FEES.loom, DECOR_STATION_NAMES.loom], ['loom', 50_000, 'Loom']);   // PIN MOVED (PROF11): the mason's bench a seventh after it; PIN MOVED (PROF10): the jeweller's bench an eighth
+  assert.deepEqual([DECOR_STATIONS.at(-4), DECOR_STATION_FEES.loom, DECOR_STATION_NAMES.loom], ['loom', 50_000, 'Loom']);   // PIN MOVED (PROF11): the mason's bench a seventh after it; PIN MOVED (PROF10): the jeweller's bench an eighth; PIN MOVED (HOME-VENDOR): the hired trader a ninth
   // a day's rot: a plain Raw Meat rolls every day; a Butcher's every other, aged half its days
   const rolls = () => 0.99;   // the highest roll: whatever may spoil, spoils
   const plain = { templateIndex: CC.RawMeat }, slow = { templateIndex: CC.RawMeat, slowRot: true };

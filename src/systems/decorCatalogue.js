@@ -48,11 +48,12 @@ export const DECOR_KINDS = Object.freeze({
   bed: 'Beds', storage: 'Storage', shelf: 'Shelves', furniture: 'Furniture', door: 'Doors',   // HOME-DOORS
   light: 'Lights', clothing: 'Clothing', boxes: 'Boxes and bottles', arms: 'Arms and armour',
   books: 'Books and scrolls', misc: 'Odds and ends', treasure: 'Treasure', decor: 'Decorations',
+  people: 'Vendors',   // HOME-VENDOR (Mac: "People category sounds wrong call it vendors"): the people Daggerfall stands in its rooms - a home's trader is one of them, made the vendor station
 });
 /** A kind's own word for one piece of it, where the game gives none. */
 const KIND_ONE = Object.freeze({
   bed: 'Bed', storage: 'Cupboard', shelf: 'Shelves', furniture: 'Furniture', door: 'Door', light: 'Light', clothing: 'Clothing',
-  boxes: 'Box', arms: 'Arms', books: 'Books', misc: 'Odds and ends', treasure: 'Treasure', decor: 'Decoration',
+  boxes: 'Box', arms: 'Arms', books: 'Books', misc: 'Odds and ends', treasure: 'Treasure', decor: 'Decoration', people: 'Vendor',
 });
 /** The flat archives Daggerfall files its interior dressing under (lootDataTables.js DROP_ICON_ARCHIVES names five of
  *  them for the inventory's drop icons; 210 is the lights, 216 the treasure piles). Any other is a decoration. */
@@ -86,7 +87,7 @@ export const decorKey = (what) => (what.model != null ? `m${what.model}` : `f${w
  * `count` how many times Daggerfall places it (the panel's "most common first"). `into` is a Map to add to - the scan
  * (systems/decorScan.js) reads the blocks a few at a time into one.
  * @param {Iterable<any>} dfBlocks
- * @param {Map<string, {model: number|null, flat: number[]|null, count: number}>} [into]
+ * @param {Map<string, {model: number|null, flat: number[]|null, count: number, person?: boolean}>} [into]
  */
 export function collectDecor(dfBlocks, into = new Map()) {
   const out = into;
@@ -117,6 +118,14 @@ export function collectDecor(dfBlocks, into = new Map()) {
         if (!Number.isSafeInteger(a) || !Number.isSafeInteger(r) || a === EDITOR_FLATS_ARCHIVE || r < 0) continue;
         add({ model: null, flat: [a, r] });
       }
+      // HOME-VENDOR: and the PEOPLE it stands in them (blockPeopleRecords - interiorPeople.js's own) - a person placed is a
+      // figure standing, and one made the vendor station is a home's trader (net/vendorLaw.js)
+      for (const f of interior?.blockPeopleRecords ?? []) {
+        const a = f?.textureArchive;
+        const r = f?.textureRecord;
+        if (!Number.isSafeInteger(a) || !Number.isSafeInteger(r) || a === EDITOR_FLATS_ARCHIVE || r < 0) continue;
+        add({ model: null, flat: [a, r], person: true });
+      }
     }
   }
   return out;
@@ -142,7 +151,7 @@ export function decorFlatLight(flat) {
 export function decorCatalogue(collected) {
   const entries = [];
   for (const [key, c] of collected ?? []) {
-    const kind = c.model != null ? modelKind(c.model) : flatKind(c.flat[0]);
+    const kind = c.model != null ? modelKind(c.model) : c.person ? 'people' : flatKind(c.flat[0]);   // HOME-VENDOR
     const light = c.flat ? decorFlatLight(c.flat) : null;
     const own = c.model != null
       ? (kind === 'storage' ? HOUSE_CONTAINER_NAMES[c.model] : kind === 'bed' ? 'Bed' : null)

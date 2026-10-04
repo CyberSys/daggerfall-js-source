@@ -536,7 +536,7 @@ test('audit18 hosts: BOTH exterior hosts take the fog colour from the shared law
     assert.doesNotMatch(s, /sky\.renderer\.fogColor = sky\.renderer\.clearColor;/);
   }
   const shared = src('src/scenes/shared.js');
-  assert.match(shared, /fogColorFor\(fogNow\) \{\s*\n\s*const c = dynamic\?\.fogColor \?\? outdoorFogColor\(fogNow, \(enhancedSky \?\? dynamicSky \?\? sky\)\.clearColor\);\s*\n\s*return dreadW > 0 \? dreadGrade\(c, dreadW\) : c;/,
+  assert.match(shared, /fogColorFor\(fogNow\) \{\s*\n\s*const own = dynamic\?\.fogColor \?\? outdoorFogColor\(fogNow, \(enhancedSky \?\? dynamicSky \?\? sky\)\.clearColor\);\s*\n\s*const c = sunbabyW > 0 \? sunbabyHaze\(own, sunbabyW\) : own;[^\n]*\n\s*return dreadW > 0 \? dreadGrade\(c, dreadW\) : c;/,   // SUNBABY1 (PIN MOVED): the sun baby's haze between the law and the dread's grade
     'the controller answers SetSkyFogColor over the sky it holds, or the mod\u2019s own colour');
 });
 

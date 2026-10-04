@@ -35,8 +35,8 @@
   {
     "name": "TRAVEL-ONLINE-4-the-wrong-reason",
     "file": "src/ui/enhancedMenu.js",
-    "old": "ONLINE_TRAVEL_VENDORS.includes(vendor) ? ONLINE_TRAVEL_NOTE : ONLINE_SHARED_NOTE);",
-    "new": "ONLINE_SHARED_NOTE);",
+    "old": "ONLINE_TRAVEL_VENDORS.includes(vendor) ? ONLINE_TRAVEL_NOTE : ONLINE_CARRIAGE_VENDORS",
+    "new": "ONLINE_CARRIAGE_VENDORS",
     "tests": [
       "test/travelonline.test.js",
       "test/modsonline.test.js"

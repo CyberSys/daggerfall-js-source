@@ -35,7 +35,7 @@ briefly shared a name.
 **Why the findings are numbered from F3.** The tree cites `AUDIT 58 F3`,
 `F4` and `F5` by number **37 times across 14 files** - `src/world/terrainGenClient.js:147`,
 `src/world/terrainGenWorker.js:45`, `src/world/terrainHelper.js:2`,
-`src/world/roadsCache.js:17`, `src/scenes/world.js:167`,
+`src/world/roadsCache.js:17`, `src/scenes/world.js:168`,
 `src/formats/woodsFile.js:93`, `test/modsettings.test.js`,
 `test/audit58_terrainhelper.test.js`, `test/ledger.test.js:245`,
 `test/citedrift.test.js`, `Port-Ledger.md:82-83`, `Testing.md` - and
@@ -153,7 +153,7 @@ the audit's sharpest terrain finding is the record beside it -
 **`Audit-51.md` recorded a departure for exactly this transposition and
 recorded it on the wrong index**, on the tile read, where `y*tDim + x` IS
 the mod's own `Idx(x, y, tDim)` and there was nothing to correct. The
-correction is at `src/world/roadPainter.js:467` now, with the layout
+correction is at `src/world/roadPainter.js:480` now, with the layout
 spelled out at `:273-281`, and the Audit-51 row says so.
 
 F3, F4 and F5 above are the rest of this band.
@@ -168,7 +168,7 @@ now has a name per host.
 readers asked one.** `interiorFoes` and `interiorGuards` are both live
 inside a building; the senses feed, the enchant pool and the rest refusal
 each walked only the first, so the indoor city watch was invisible to all
-three (`src/scenes/worldModes.js:1258-1352`). **The exterior host mounted no
+three (`src/scenes/worldModes.js:1263-1357`). **The exterior host mounted no
 enchant ctx at all** - the session has ONE, and that host set none, so
 every enchantment payload that needs a foe idled in the host a player
 spends most of their time in (`setDefaultEnchantCtx` is imported at
