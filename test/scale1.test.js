@@ -159,9 +159,17 @@ test('SCALE1 C: every statement the audit found reading a whole table finds its 
   // expression as the index does, or the planner cannot use it
   for (const f of ['market.js', 'writs.js', 'decor.js']) {
     const text = src(`server-account/src/${f}`);
-    const asked = text.match(/json_extract\(\s*item[^)]*\)/g) ?? [];
-    assert.ok(asked.length > 0, `${f} asks the decor's provenance`);
-    for (const e of asked) assert.equal(e, "json_extract(item, '$.pv')", `${f}: ${e}`);
+    // Goods-family listing filters also extract item.group. Inspect the decor SELECTs themselves,
+    // without filtering on the expected JSON path: a wrong or missing provenance path must fail.
+    const asked = [...text.matchAll(/SELECT 1 FROM home_decor WHERE ([^\n]+)/g)];
+    const expected = { 'market.js': 4, 'writs.js': 3, 'decor.js': 1 };
+    assert.equal(asked.length, expected[f], `${f} retains every audited decor provenance query`);
+    for (const [, predicate] of asked) {
+      const e = /^\s*(json_extract\(\s*item[^)]*\))/.exec(predicate)?.[1];
+      assert.equal(e, "json_extract(item, '$.pv')", `${f}: ${predicate}`);
+      assert.ok(plan(`SELECT 1 FROM home_decor WHERE ${e} = ?`).includes('idx_home_decor_pv'),
+        `${f}: the actual decor expression uses its provenance index`);
+    }
   }
 });
 

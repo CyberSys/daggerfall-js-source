@@ -92,11 +92,12 @@
   {
     "name": "NAV-F-the-fate-not-told",
     "file": "src/ui/navalPlunderWindow.js",
-    "old": "      button('Scuttle her', 'dfnaval-btn dfnaval-scuttle', () => { m.fate?.('scuttle'); exit('fate'); }),",
-    "new": "      button('Scuttle her', 'dfnaval-btn dfnaval-scuttle', () => { exit('fate'); }),",
+    "old": "      button('Scuttle her', 'dfnaval-btn dfnaval-scuttle', () => settle('scuttle')),",
+    "new": "      button('Scuttle her', 'dfnaval-btn dfnaval-scuttle', () => exit('fate')),",
     "tests": [
       "test/nav_f_ui.test.js"
-    ]
+    ],
+    "note": "Repatch 8761: re-aimed at the same fate/return behavior after guarded passenger return; behavioral assertions retained."
   },
   {
     "name": "NAV-F-a-listener-left-behind",
