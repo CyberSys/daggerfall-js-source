@@ -265,6 +265,20 @@ test('the bare bridge: absent ctx seams answer the headless charter values', () 
   assert.equal(bridge.offerFlow.deps.getGuildFactionId(5), 0, 'GetGuildFactionId falls to 0 with no seam');
 });
 
+test('QGOLD2: the gold mint\'s onlinePage is the page\'s own lane (?online), not a host\'s', () => {
+  const d = createQuestBridge({ data: { readListTable: () => null, getQuestSourceLines: () => null } }).machine.deps;
+  const had = Object.prototype.hasOwnProperty.call(globalThis, 'location');
+  const saved = globalThis.location;
+  try {
+    globalThis.location = /** @type {any} */ ({ search: '?online' });
+    assert.equal(d.onlinePage(), true);
+    globalThis.location = /** @type {any} */ ({ search: '' });
+    assert.equal(d.onlinePage(), false);
+  } finally {
+    if (had) globalThis.location = saved; else delete globalThis.location;
+  }
+});
+
 // ---------------------------------------------------------------
 // The end-to-end guild offer over the data seams
 // ---------------------------------------------------------------

@@ -493,6 +493,7 @@ export class QuestMachine {
       // the current region's PriceAdjustment.
       getGuild: (factionId) => this.deps.getGuild?.(factionId) ?? null,
       regionPriceAdjustment: () => this.deps.regionPriceAdjustment?.() ?? 0,
+      onlinePage: () => !!this.deps.onlinePage?.(),   // QGOLD2: online, the gold mint pays twice (item.js)
       // The player-inventory seams (Q2b-ii; Q4 wires the real
       // inventory): give/remove take the minted item OBJECT;
       // carriesQuestItem answers ItemCollection.Contains(Item)'s

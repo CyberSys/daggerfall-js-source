@@ -1,0 +1,65 @@
+[
+  {
+    "name": "QGOLD2-online-pays-dfus-purse",
+    "file": "src/systems/quest/item.js",
+    "old": "    if (hooks?.onlinePage?.()) amount *= ONLINE_QUEST_GOLD_MULTIPLIER;   // QGOLD2: online, both arms pay twice\n",
+    "new": "",
+    "tests": [
+      "test/questitems.test.js"
+    ]
+  },
+  {
+    "name": "QGOLD2-offline-pays-twice-too",
+    "file": "src/systems/quest/item.js",
+    "old": "    if (hooks?.onlinePage?.()) amount *= ONLINE_QUEST_GOLD_MULTIPLIER;",
+    "new": "    amount *= ONLINE_QUEST_GOLD_MULTIPLIER;",
+    "tests": [
+      "test/questitems.test.js"
+    ]
+  },
+  {
+    "name": "QGOLD2-the-multiplier-is-two",
+    "file": "src/systems/quest/item.js",
+    "old": "export const ONLINE_QUEST_GOLD_MULTIPLIER = 2;",
+    "new": "export const ONLINE_QUEST_GOLD_MULTIPLIER = 3;",
+    "tests": [
+      "test/questitems.test.js"
+    ]
+  },
+  {
+    "name": "QGOLD2-the-floor-before-the-doubling",
+    "file": "src/systems/quest/item.js",
+    "old": "    if (amount < 1) amount = 1;\n    if (hooks?.onlinePage?.()) amount *= ONLINE_QUEST_GOLD_MULTIPLIER;",
+    "new": "    if (hooks?.onlinePage?.()) amount *= ONLINE_QUEST_GOLD_MULTIPLIER;\n    if (amount < 1) amount = 1;",
+    "tests": [
+      "test/questitems.test.js"
+    ]
+  },
+  {
+    "name": "QGOLD2-the-machine-drops-the-lane",
+    "file": "src/systems/quest/machine.js",
+    "old": "      onlinePage: () => !!this.deps.onlinePage?.(),",
+    "new": "      onlinePage: () => false,",
+    "tests": [
+      "test/questitems.test.js"
+    ]
+  },
+  {
+    "name": "QGOLD2-the-bridge-never-says-online",
+    "file": "src/scenes/questBridge.js",
+    "old": "    onlinePage: () => isOnlinePage(),",
+    "new": "    onlinePage: () => false,",
+    "tests": [
+      "test/questbridge.test.js"
+    ]
+  },
+  {
+    "name": "QGOLD2-the-bridge-always-says-online",
+    "file": "src/scenes/questBridge.js",
+    "old": "    onlinePage: () => isOnlinePage(),",
+    "new": "    onlinePage: () => true,",
+    "tests": [
+      "test/questbridge.test.js"
+    ]
+  }
+]

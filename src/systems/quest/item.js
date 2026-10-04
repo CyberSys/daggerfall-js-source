@@ -40,6 +40,10 @@ import { itemLongName } from '../itemInfo.js';   // MAC-D: ResolveItemLongName, 
 import { alterReward } from '../guilds.js';
 import { CLOTHING_DYES } from '../../characters/dyes.js';
 
+/** QGOLD2 (2026-10-04, bible/06-Systems/Quest-Arc.md "QGOLD2"): ONLINE, A QUEST'S GOLD IS TWICE DFU'S. Applied at the
+ *  mint, so the questor's offer quotes what GivePc pays; offline the purse is DFU's own. */
+export const ONLINE_QUEST_GOLD_MULTIPLIER = 2;
+
 /** DaggerfallUnityItem.MakePermanent (DaggerfallUnityItem.cs:1240-
  *  1248): drops quest-item status so the item survives quest end. */
 export function makeItemPermanent(dfItem) {
@@ -323,6 +327,7 @@ export class Item extends QuestResource {
       amount = rangeLow + Math.floor(rolls() * (rangeHigh + 1 - rangeLow));
     }
     if (amount < 1) amount = 1;
+    if (hooks?.onlinePage?.()) amount *= ONLINE_QUEST_GOLD_MULTIPLIER;   // QGOLD2: online, both arms pay twice
     return this._link(goldStack(amount));
   }
 

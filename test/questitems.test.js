@@ -14,7 +14,7 @@ import { fileURLToPath } from 'node:url';
 
 import { loadQuestTables } from '../src/systems/quest/tables.js';
 import { QuestMachine, QUEST_MESSAGES } from '../src/systems/quest/machine.js';
-import { Item, makeItemPermanent } from '../src/systems/quest/item.js';
+import { Item, makeItemPermanent, ONLINE_QUEST_GOLD_MULTIPLIER } from '../src/systems/quest/item.js';
 import { QuestListsManager, MEMBERSHIP_STATUS } from '../src/systems/quest/questLists.js';
 import { GUILD_GROUPS, SOCIAL_GROUPS } from '../src/formats/factionFile.js';
 import { CLOTHING_DYES } from '../src/characters/dyes.js';
@@ -41,6 +41,7 @@ function makeMachine(deps = {}) {
     playerGender: () => deps.gender ?? 'male',
     getGuild: (factionId) => { calls.push(['getGuild', factionId]); return deps.guild ?? null; },
     regionPriceAdjustment: () => deps.priceAdjustment ?? 0,
+    onlinePage: () => deps.online ?? false,
     isPlayerInTown: () => m.inTown,
     addGold: capture('addGold'),
     addHUDText: capture('addHUDText'),
@@ -172,6 +173,19 @@ test('mint: the no-range gold formula - level path, the playerMod clamp, and the
   const m4 = makeMachine({ guild: { guildGroup: GUILD_GROUPS.GeneralPopulace, rank: 9, power: 80, isNonMember: true } });
   const q4 = schedule(m4, ['Item _g_ gold', '', 'variable _pad_'], { rolls: () => 0.5, factionId: 42 });
   assert.equal(q4.getResource({ name: 'g' }).daggerfallUnityItem.stackCount, 87);
+});
+
+test('QGOLD2: online, quest gold is twice DFU\'s - both arms, after the floor; offline the purse is DFU\'s own', () => {
+  const goldOf = (deps, qbn, rolls) => schedule(makeMachine(deps), [qbn, '', 'variable _pad_'], { rolls }).getResource({ name: 'g' }).daggerfallUnityItem.stackCount;
+  assert.equal(ONLINE_QUEST_GOLD_MULTIPLIER, 2);
+  // The formula arm: the level path's 735 above, twice.
+  assert.equal(goldOf({ level: 10, priceAdjustment: 400, online: true }, 'Item _g_ gold', () => 0.5), 1470);
+  assert.equal(goldOf({ level: 10, priceAdjustment: 400, online: false }, 'Item _g_ gold', () => 0.5), 735);
+  // The range arm: 5 + floor(0.5 * 21) = 15, twice.
+  assert.equal(goldOf({ online: true }, 'Item _g_ gold range 5 to 25', () => 0.5), 30);
+  assert.equal(goldOf({ online: false }, 'Item _g_ gold range 5 to 25', () => 0.5), 15);
+  // The floor of 1 is DFU's purse; the doubling is laid on it.
+  assert.equal(goldOf({ online: true }, 'Item _g_ gold range 0 to 0', () => 0), 2);
 });
 
 test('mint: an unknown item name throws, as DFU', () => {

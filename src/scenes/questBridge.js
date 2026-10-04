@@ -73,6 +73,7 @@ import { GUILD_GROUPS } from '../formats/factionFile.js';
 import { expandMacroValues, setMacroWorld } from '../systems/quest/questMacros.js';   // GQL1: the wait box's %pcf
 import { firstName } from '../systems/talkSession.js';
 import { getBool } from '../systems/settings.js';
+import { isOnlinePage } from '../systems/onlineLane.js';   // QGOLD2: online, quest gold is twice DFU's
 import { noteOfferPending } from '../ui/pendingOffer.js';   // AUDIT 58: DaggerfallUI's GivePc.OnOfferPending subscription
 import { getTitle } from '../systems/guilds.js';
 import { addQuestResourceObjects } from '../systems/quest/sceneMount.js';
@@ -305,6 +306,7 @@ export function createQuestBridge(ctx, { label = 'host' } = {}) {
     onOfferPending: (givePc) => noteOfferPending(givePc),
     getGuild: (fid) => ctx.getGuild?.(fid) ?? null,
     regionPriceAdjustment: () => ctx.regionPriceAdjustment?.() ?? 0,
+    onlinePage: () => isOnlinePage(),   // QGOLD2: the page's lane, not a host's - the quest gold mint pays twice online
     changeReputation: (fid, amount, propagate) => ctx.changeReputation?.(fid, amount, propagate),
     changeLegalRep: (amount) => ctx.changeLegalRep?.(amount),
     makePcDiseased: (t) => ctx.makePcDiseased?.(t),

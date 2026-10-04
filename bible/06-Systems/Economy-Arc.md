@@ -90,6 +90,7 @@ current design "does not work in an enjoyable manner"):
   and since KIT-CEILING a smith's - gold such a client can write for itself
   (`06-Systems/Professions-Arc.md`, "What the listing carries").
 - **Sources scale; sinks do not.** Gate spoils, raid thanks and quest rewards
+  (online twice DFU's since QGOLD2, 2026-10-04 - `06-Systems/Quest-Arc.md`)
   climb with level and item values climb with material (DFU's x512 ladder),
   while the recurring costs are flat and online's essentials were halved
   (`src/systems/shopStock.js`). The biggest faucet by the formulas (not

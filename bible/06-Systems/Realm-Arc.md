@@ -96,7 +96,7 @@ Items have no unique ids: "the port's items have no UID" (`save.js`), and "the p
   gold grows with level.
 - **Hourly respawn, online only.** Dead layout foes and emptied piles come back after one real hour.
 - **Loot rarity.** Forced on online. Luck adds 2 per mille over 50 to every threshold (`lootRarity.js`).
-- **Quest gold.** At most about 7.5k. A shared quest pays every member their own roll (`questShare.js`).
+- **Quest gold.** At most about 7.5k by DFU's formula, twice that online since QGOLD2 (2026-10-04, `06-Systems/Quest-Arc.md`). A shared quest pays every member their own roll (`questShare.js`).
 - **Gate spoils.** Per account, per gate, and a gate comes every 2 real hours:
   - 250 × level × (0.8 to 1.2) in gold;
   - a Sigil Stone;

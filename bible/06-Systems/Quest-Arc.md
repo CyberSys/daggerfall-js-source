@@ -6467,3 +6467,17 @@ the item, the saved action state lands after it); online the room's word can lan
 travel is the only reading that agrees. The one difference: a quest that hot-places an item onto a marker that already
 moved this visit stands it on the marker, where DFU's reparent leaves it off by the travel.
 `test/fb1003b_totem.test.js`; `tools/mutants/fb1003b_totem.json`. `01-Overview/Field-Bugs-2026-10-03b.md` TOTEM-CAGE.
+
+## QGOLD2 - ONLINE, A QUEST'S GOLD IS TWICE DFU'S (2026-10-04, "I want to increase quest rewards")
+
+Asked how: twice, online alone, a fixed rule (no switch). Offline the purse stays CreateGold's own (Port-Doctrine's
+1:1); online is the port's lane, where the economy's other departures already live (`06-Systems/Economy-Arc.md`).
+
+The doubling is laid on at the mint (`quest/item.js` `_createGold`, `ONLINE_QUEST_GOLD_MULTIPLIER` 2), after both arms
+and after DFU's floor of 1 - so the classic formula and a script's `range LOW to HIGH` both pay twice, and the questor's
+offer quotes the amount GivePc pays, because the quote reads the minted stack. The machine's `onlinePage` hook carries
+the fact; the bridge answers it from the page's lane (`isOnlinePage`, `?online`), not from a host, so the four hosts
+need nothing. A party's shared quest still splits the (doubled) purse in shares (REALM P0.4, `shareQuestGold`). A quest
+minted before this change keeps the stack it was minted with. Item rewards are untouched.
+
+`test/questitems.test.js`, `test/questbridge.test.js`; `tools/mutants/qgold2.json` (7 dead).
