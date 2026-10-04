@@ -44,8 +44,8 @@
   {
     "name": "QP-sharer-anywhere",
     "file": "src/scenes/questFoeHost.js",
-    "old": "    if (dx * dx + dz * dz <= radius * radius) return true;",
-    "new": "    return true;",
+    "old": "    if (dx * dx + dz * dz <= radius * radius) return sharerFoeStands({ foes, sharer, questName, symbol, accountOfPeer });",
+    "new": "    return sharerFoeStands({ foes, sharer, questName, symbol, accountOfPeer });",
     "tests": ["test/questparty.test.js"]
   },
   {
@@ -177,8 +177,8 @@
   {
     "name": "QP-world-receiver-stands-its-own",
     "file": "src/scenes/world.js",
-    "old": "accountOfPeer: (id) => social?.accountOfPeer(id), myFeet: feet })) return true;",
-    "new": "accountOfPeer: (id) => social?.accountOfPeer(id), myFeet: feet })) return false;",
+    "old": "accountOfPeer: (id) => social?.accountOfPeer(id), myFeet: feet, foes: exteriorFoes.foes })) return true;",
+    "new": "accountOfPeer: (id) => social?.accountOfPeer(id), myFeet: feet, foes: exteriorFoes.foes })) return false;",
     "tests": ["test/questparty.test.js"]
   },
   {

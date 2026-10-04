@@ -121,8 +121,8 @@
   {
     "name": "AUDITREST2-Q-Q5-quest-arc-pair-back",
     "file": "bible/06-Systems/Quest-Arc.md",
-    "old": "(`actions.js:2792`/`:2799`)",
-    "new": "(`actions.js:2791`/`:2798`)",
+    "old": "(`actions.js:2807`/`:2814`)",
+    "new": "(`actions.js:2806`/`:2813`)",
     "tests": [
       "test/auditrest2_quests.test.js"
     ]
@@ -130,8 +130,8 @@
   {
     "name": "AUDITREST2-Q-Q5-questguards-pair-back",
     "file": "test/questguards.test.js",
-    "old": "(actions.js:2792/:2799) and the task",
-    "new": "(actions.js:2791/:2798) and the task",
+    "old": "(actions.js:2807/:2814) and the task",
+    "new": "(actions.js:2806/:2813) and the task",
     "tests": [
       "test/auditrest2_quests.test.js"
     ]
@@ -139,8 +139,8 @@
   {
     "name": "AUDITREST2-Q-Q5-qx1-pair-back",
     "file": "test/qx1_exterior_host.test.js",
-    "old": "(actions.js:2792/:2799 - no effects",
-    "new": "(actions.js:2791/:2798 - no effects",
+    "old": "(actions.js:2807/:2814 - no effects",
+    "new": "(actions.js:2806/:2813 - no effects",
     "tests": [
       "test/auditrest2_quests.test.js"
     ]
@@ -148,8 +148,8 @@
   {
     "name": "AUDITREST2-Q-Q5-qx1-doors-back",
     "file": "test/qx1_exterior_host.test.js",
-    "old": "(actions.js:2738 - C# subscribes",
-    "new": "(actions.js:2737 - C# subscribes",
+    "old": "(actions.js:2753 - C# subscribes",
+    "new": "(actions.js:2752 - C# subscribes",
     "tests": [
       "test/auditrest2_quests.test.js"
     ]
@@ -157,8 +157,8 @@
   {
     "name": "AUDITREST2-Q-Q5-exterior-doors-back",
     "file": "src/scenes/exterior.js",
-    "old": "// actions.js:2738). This host",
-    "new": "// actions.js:2737). This host",
+    "old": "// actions.js:2753). This host",
+    "new": "// actions.js:2752). This host",
     "tests": [
       "test/auditrest2_quests.test.js"
     ]
@@ -166,8 +166,8 @@
   {
     "name": "AUDITREST2-Q-Q5-encounters-range-back",
     "file": "src/systems/encounters.js",
-    "old": "systems/quest/actions.js:2333-2355 here.",
-    "new": "systems/quest/actions.js:2332-2354 here.",
+    "old": "systems/quest/actions.js:2348-2370 here.",
+    "new": "systems/quest/actions.js:2347-2369 here.",
     "tests": [
       "test/auditrest2_quests.test.js"
     ]

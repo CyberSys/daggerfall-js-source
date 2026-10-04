@@ -14,8 +14,8 @@
 //
 // THE NIGHT INTERVAL. A night passes at most once per NIGHT_INTERVAL_MINUTES of the character's clock since the last
 // one ended (two hours: ten real minutes of play, the character's clock running at TimeScale 12). Inside it a rest is
-// a SHORT REST: it heals, and nothing else - no clock moves, nothing ages, no encounter rolls. A fire is a place to
-// recover, never a fast-forward button.
+// a SHORT REST: it heals and it sleeps - the sleep need paid as a night of its kind pays it (REST-SLEEP1) - and nothing
+// else: no clock moves, nothing ages, no encounter rolls. A fire is a place to recover, never a fast-forward button.
 //
 // THE YIELD. A night at a bed or a fire, or any rest the tier prices whole (Casual's rough, or the arc off), ends full:
 // health, fatigue and magicka (online no career rests short of its magicka - REST-MANA1). A rough night the tier prices
@@ -26,6 +26,8 @@
 
 import { RestSession, REST_TEXT, REST_WAIT_PER_HOUR, MINUTES_PER_TICK } from './restSession.js';
 import { restCost, REST_KIND } from './survival/rest.js';
+import { paySleep } from './survival/needs.js';   // REST-SLEEP1: the short rest sleeps by the minute law's own pay
+import { liveVampirism } from './racialLive.js';
 import { roomRemainingHours } from './tavern.js';   // AUDIT REST II P6: an old save's room, its nights read off its hours
 
 /** A night: DFU's customary eight hours, on the character's own clock. */
@@ -169,6 +171,22 @@ export function topUpRest(entity, kind, rules, { night = true, maxFatigueOf = (e
   entity.health = fill(entity.health, entity.maxHealth ?? 0, frac);
   entity.fatigue = fill(entity.fatigue, maxFatigueOf(entity), frac);
   if (Number.isFinite(entity.maxMagicka)) entity.magicka = fill(entity.magicka, entity.maxMagicka, frac);
+}
+
+/** REST-SLEEP1 (2026-10-04, from play: "if you have to wait for night to pass you cannot rest again to remove the
+ *  tiredness/drowsy debuffs until the time passes"): A SHORT REST SLEEPS. Inside the night interval a rest paid nothing
+ *  of the sleep need, and the need has no other payer (the arc's census, row 9) - so a night that left its sleeper
+ *  Tired or Drowsy (a foe's break in its first hour, which still stamps the interval; a rough night's third of a bed's
+ *  rate; a debt past the twelve hours a night pays) held the attributes down for the whole ten real minutes, at the
+ *  fire, with nothing to do but wait. A short rest pays the debt as a night of its kind would - its eight hours at the
+ *  kind's rate through the minute law's own pay (survival/needs.js paySleep), the tier's rough floor kept - and still
+ *  moves no clock. `rules` are the tier's (null with the arc off: no need to pay); a vampire has no need (the minute
+ *  law freezes the debt). Answers whether it slept. */
+export function sleepShortRest(entity, kind, rules, now) {
+  const s = entity?.survival;
+  if (!rules || !s || typeof s !== 'object' || liveVampirism(entity)) return false;
+  paySleep(s, kind, NIGHT_MINUTES, now, rules);
+  return true;
 }
 
 /** AUDIT REST II P6: A ROOM COUNTS NIGHTS (the arc's OPEN 10, section 5: "a room rented for N days buys N nights ... and
