@@ -118,9 +118,9 @@ Re-run at AUDIT PRE-MERGE 1003 on PR #545's head, without ARENA2: the same 35 de
 - **The service's layout check before the claim's batch** (`AWD3-CLAIM-OVER-LAYOUT`, equivalent as recorded). Since R5,
   the claim's own write refuses a town's other layout and answers `home-layout`. The check before it is kept as the
   fast refusal, with no record prepared, and removing it changes no answer.
-- **A questor met indoors before the mods, online** (S5's one record not mended, `03-World/Beautiful-Towns.md`). The
+- ~~**A questor met indoors before the mods, online** (S5's one record not mended, `03-World/Beautiful-Towns.md`). The
   return to them asks for an NPC who no longer stands in that layout. The patch notes (the pull request's, REL6)
-  say so since AUDIT PRE-MERGE 1003 D17.
+  say so since AUDIT PRE-MERGE 1003 D17.~~ Mended by FIELD BUGS 2026-10-03b (QUESTOR-MOVED, `Person.reseatMovedQuestor`).
 - **Unnumbered in the commits.** The first pass also corrected the record's counts, the windmills, the pieces shared
   with Detailed Ships and the offline gate. The follow-up and `cbd307e98` shifted cites and re-aimed mutants and
   source pins to lines the fixes had moved.

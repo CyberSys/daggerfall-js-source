@@ -1477,7 +1477,7 @@ export function createWorldModes(host) {
   });
   const npcDisplayName = (npcData) => {
     const dict = townTalk?.factionDict ?? null;
-    return staticNpcName(npcData, { getFaction: (id) => dict?.get(id) ?? null, nameBank: currentNameBank() });
+    return questBridge?.machine?.movedQuestorName?.(npcData) ?? staticNpcName(npcData, { getFaction: (id) => dict?.get(id) ?? null, nameBank: currentNameBank() });   // QUESTOR-MOVED: a questor seated again where their town's layout moved (Person.reseatMovedQuestor) answers to the journal's name - DFU's questor and NPC are one name
   };
   /** ARENA-FIX 2: A STOOD PERSON'S OFFICE - the arena gate's people (world/arenaCity.js arenaGatePersonName: "The Herald
    *  of the Arena", "Red Banner Recruiter", ...) and the undercroft's (the Pit Master, the Keeper of the Hall), or null:
