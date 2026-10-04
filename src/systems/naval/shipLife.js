@@ -107,6 +107,14 @@ export function hullSize(hull) {
   return { length: b.bowZ - b.aftZ, halfWidth: b.halfWidth, bowZ: b.bowZ, aftZ: b.aftZ };
 }
 
+/** QUAYS (systems/naval/quays.js): where a hull lies alongside a berth's quay - the berth is sounded for `harbourHull`
+ *  (BERTH_HULL, the Carrack) and its quay stands off that hull's side, so a narrower one lies in toward it by the
+ *  difference and a wider one out from it: her side always the quay's gap off its face. `[x, z]`. */
+export function alongside(berth, hull, harbourHull = BERTH_HULL) {
+  const off = hullSize(hull).halfWidth - hullSize(harbourHull).halfWidth;
+  return [berth.pos[0] + berth.normal[0] * off, berth.pos[1] + berth.normal[1] * off];
+}
+
 /** Whether her whole footprint at `pos` ([x, z]) heading `yaw` floats: her centreline bow to stern and both sides. */
 export function footprintClear(pos, yaw, hull, isWater) {
   const { halfWidth, bowZ, aftZ } = hullSize(hull);
@@ -436,7 +444,7 @@ export function stepErrand(ship, dt, ctx) {
         ship.errand = { kind: 'depart', harbour: e.harbour, berth: e.berth, path: null, i: 0 };
         return stepErrand(ship, dt, ctx);
       }
-      return { hold: { pos: b.pos, yaw: b.yaw } };
+      return { hold: { pos: alongside(b, ship.hull, hb.hull), yaw: b.yaw } };   // QUAYS: her side to its quay
     }
     case 'depart': {
       if (!hb) { ship.errand = null; return null; }
@@ -471,12 +479,20 @@ export function stepErrand(ship, dt, ctx) {
     case 'arrive': {
       const b = hb?.berths[e.berth];
       if (!b) { ship.errand = null; return null; }
+      // AUDIT HOLDINGS Q5: her berth looked at again on the way in - taken since she chose it (a player's ship made fast
+      // there, here or on another player's screen, whose putOff never reaches the ship I stand) - another free berth,
+      // else out
+      if (ctx.free && !ctx.free(e.harbour, e.berth, ship)) {
+        const other = hb.berths.findIndex((_, i) => i !== e.berth && ctx.free(e.harbour, i, ship));
+        ship.errand = other >= 0 && ship.hull !== 3 ? { kind: 'arrive', harbour: e.harbour, berth: other, path: null, i: 0 } : outbound(errandRng(ship.seed ^ Math.floor(ship.clock)), here, ctx.grid(ship.hull).clear);
+        return stepErrand(ship, dt, ctx);
+      }
       const p = way(b.pos, b.approach);
       if (!p) return giveUp();
       const left = remaining(ship, e);
       if (dist2(here, b.pos) <= BERTH_SNAP_M && ship.speed <= BERTH_WAY) {
         ship.errand = { kind: 'moored', harbour: e.harbour, berth: e.berth, until: ship.clock + dwellOf(errandRng(ship.seed ^ Math.floor(ship.clock))), path: null, i: 0 };
-        return { hold: { pos: b.pos, yaw: b.yaw } };
+        return { hold: { pos: alongside(b, ship.hull, hb.hull), yaw: b.yaw } };   // QUAYS: eased in alongside its quay
       }
       const sails = left >= ARRIVE_EASE_M ? 1 : Math.max(ARRIVE_SAILS, left / ARRIVE_EASE_M);
       // the last leg, into a berth the harbour sounded: no swing off the shore she lies along

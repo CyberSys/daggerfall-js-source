@@ -184,7 +184,8 @@ test('SHIP-PACK a fast travel packs the ship sailed when her deed is in the pack
 });
 
 test('SHIP-PACK the world\'s seams: the pack handed to the runtime (where her deed is found); the boat menu told when her deed is not in the pack; a landfall packs a ship only with her deed, else she is left moored (mutants: the pack seam, the menu\'s word, the landfall unguarded)', () => {
-  assert.match(WORLD, /player: \(\) => \(playerEntity\.items \?\?= \[\]\) \},/);
+  // PIN MOVED (HOLDINGS): the pack's seam, the Fleet's book's two after it (titles, retitle - test/fleet.test.js)
+  assert.match(WORLD, /player: \(\) => \(playerEntity\.items \?\?= \[\]\),/);
   assert.match(WORLD, /noDeed: !!csaRuntime\?\.deedMissing\?\.\(boat\),/);
   assert.match(WORLD, /if \(tvSea\.means\?\.again && boat\.packable && csaPassengersOn\(boat\) === 0 && !csaRuntime\.deedMissing\(boat\)\) csaCall\(\(\) => csaRuntime\.PackBoat\(boat, true\)\);/);
 });

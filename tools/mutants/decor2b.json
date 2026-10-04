@@ -330,11 +330,12 @@
   {
     "name": "DECOR2b-the-keyed-list-carrying-furniture",
     "file": "src/scenes/worldModes.js",
-    "old": "    if (isFurnishing(it)) decorDeliver([it]);   // DECOR2b: the furnisher delivers\n    else addItem(playerEntity.items, it);",
-    "new": "    addItem(playerEntity.items, it);",
+    "old": "    if (isFurnishing(it)) decorDeliver([it]);   // DECOR2b: the furnisher delivers",
+    "new": "    if (false) decorDeliver([it]);   // DECOR2b: the furnisher delivers",
     "tests": [
       "test/decor2b.test.js"
-    ]
+    ],
+    "note": "AUDIT HOLDINGS (PIN MOVED): re-aimed by content to the line the audit's fix rewrote - its law the same."
   },
   {
     "name": "DECOR2b-the-steal-with-no-delivery",

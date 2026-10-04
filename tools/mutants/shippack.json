@@ -38,11 +38,12 @@
   {
     "name": "SHPK-deed-kept",
     "file": "src/systems/comeSailAway.js",
-    "old": "      if (deed) removeItem(deps.items.player(), deed);   // SHIP-PACK: her deed goes with her\n",
+    "old": "      if (deed) removeExact(inBook(deed) ? deps.items.titles() : deps.items.player(), deed);",
     "new": "",
     "tests": [
       "test/shippack.test.js"
-    ]
+    ],
+    "note": "AUDIT HOLDINGS (PIN MOVED): re-aimed by content to the line the audit's fix rewrote - its law the same."
   },
   {
     "name": "SHPK-new-number",
@@ -119,8 +120,8 @@
   {
     "name": "SHPK-parts-kept",
     "file": "src/systems/comeSailAway.js",
-    "old": "      else if (state.placeItem.templateIndex === BOAT_PARTS_TEMPLATE) swapItem(",
-    "new": "      else if (state.placeItem.templateIndex === -1) swapItem(",
+    "old": "      else if (state.placeItem.templateIndex === BOAT_PARTS_TEMPLATE) {",
+    "new": "      else if (state.placeItem.templateIndex === -1) {",
     "tests": [
       "test/shippack.test.js"
     ]
@@ -191,8 +192,8 @@
   {
     "name": "SHPK-world-pack-seam",
     "file": "src/scenes/world.js",
-    "old": ", player: () => (playerEntity.items ??= []) },   // ItemBuilder",
-    "new": " },   // ItemBuilder",
+    "old": ", player: () => (playerEntity.items ??= []),   // ItemBuilder",
+    "new": ",   // ItemBuilder",
     "tests": [
       "test/shippack.test.js"
     ]
