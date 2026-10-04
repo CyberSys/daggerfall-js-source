@@ -277,6 +277,10 @@ export function onlineForcedPref(key, search) {
  * So: what the lane forces is the floor the room stands on, and the
  * three switches that spend a stranger's evening. (CORPSE-FOOD, 2026-09-23: the food itself is the room's - minted online whatever the tier, survival/switch.js corpseFoodOn - and the tier stays the player's.)
  */
+/** AUDIT TRAVEL-ONLINE T7: what the map says if a trip over land ever reaches fast travel online (world.js's fork) -
+ *  unreachable while the room holds Travel Options' switches, said rather than teleported should it ever be reached. */
+export const ONLINE_LAND_TRAVEL_REFUSAL = 'Online, a journey over land is travelled, not skipped. Turn on Travel Options and try again.';
+
 export const ONLINE_ROOM_MOD_KEYS = Object.freeze({
   'roads-hazelnut': Object.freeze({
     Enabled: true,        // which network is painted, and so which beds are smoothed
@@ -314,12 +318,15 @@ export const ONLINE_ROOM_MOD_KEYS = Object.freeze({
   // the mod's journey, or the Overworld's on the enhanced skin - never Daggerfall's fast travel, which online is a
   // teleport (it arrives at the world's present: no world time to spend). Three switches reached that teleport: the mod
   // off, and either of the two dials that send a Cautious or an Inns trip down the journey (ui/travelPopUp.js
-  // isPlayerControlledTravel; TO-LIVE put both on the tile). All three are the room's, at the shipped defaults. A ship's
-  // passage, and a party's journey to its leader (both DFU's fast travel by design), are not touched.
+  // isPlayerControlledTravel; TO-LIVE put both on the tile). AUDIT TRAVEL-ONLINE T1: and a fourth - the ports rule. Off,
+  // nothing knocks the ship toggle (on by default, travelMapState.js) off a trip from the wilderness to an inland place,
+  // and a ship is never walked: the teleport again, free with Camp Out. All four are the room's, at the shipped defaults.
+  // A ship's passage from a port, and a party's journey to its leader (DFU's fast travel by design), are not touched.
   'travel-options': Object.freeze({
     Enabled: true,
     'CautiousTravel.PlayerControlledCautiousTravel': true,
     'StopAtInnsTravel.PlayerControlledInnsTravel': true,
+    'ShipTravel.OnlyFromPorts': true,
   }),
   // DW-A to DW-D (2026-09-25): the fourth floor, and more than a floor. Iliac
   // Puddle No More carves the sea out from under the terrain - the switch

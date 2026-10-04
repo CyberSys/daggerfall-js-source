@@ -343,12 +343,19 @@ export const CITY_WALL_MODEL = 445;
 /** In classic units: the gap's middle in the piece's frame (x along the wall, z across it), its length, the lift. */
 export const CITY_WALL_FILL = Object.freeze({ x: 128, z: 128, length: 128, lift: 1 });
 
+/** How near a cut plane a vertex stands ON it, in metres: a model's float32 positions put a face meant to lie at
+ *  x = 1.6 m at 1.600000023841858, a hair outside the slab (AUDIT CITY-WALL S1). */
+const SLICE_ON_PLANE_M = 1e-5;
 /** A model's triangles (dfMeshToModel's shape) cut to the slab `x0 <= x <= x1` in metres - each kept part's position,
- *  normal and uv interpolated along its cut edges, its winding kept: the same faces, shorter. No doors. Answers null when
- *  nothing of the model lies in the slab. */
+ *  normal and uv interpolated along its cut edges, its winding kept: the same faces, shorter. A face lying ON a cut is
+ *  the slab's own end face when it looks out of the slab (kept: it closes a merlon the cut ends in) and the outside's
+ *  face when it looks in (dropped: it would stand over the gap beside the cut). No doors. Answers null when nothing of
+ *  the model lies in the slab. */
 export function sliceModelX(model, x0, x1) {
   const { positions: P, normals: N, uvs: T, indices: I } = model;
   const vert = (i) => [P[i * 3], P[i * 3 + 1], P[i * 3 + 2], N[i * 3], N[i * 3 + 1], N[i * 3 + 2], T[i * 2], T[i * 2 + 1]];
+  const snap = (d) => (Math.abs(d) <= SLICE_ON_PLANE_M ? 0 : d);
+  const below = (v) => snap(v[0] - x0), above = (v) => snap(x1 - v[0]);
   const clip = (poly, side) => {   // Sutherland-Hodgman against one plane: side(v) >= 0 is kept
     const out = [];
     for (let k = 0; k < poly.length; k++) {
@@ -371,7 +378,10 @@ export function sliceModelX(model, x0, x1) {
   for (const sm of model.subMeshes) {
     const start = idx.length;
     for (let t = sm.startIndex; t < sm.startIndex + sm.primitiveCount * 3; t += 3) {
-      const poly = clip(clip([vert(I[t]), vert(I[t + 1]), vert(I[t + 2])], (v) => v[0] - x0), (v) => x1 - v[0]);
+      const tri = [vert(I[t]), vert(I[t + 1]), vert(I[t + 2])];
+      if (tri.every((v) => below(v) === 0) && !(tri[0][3] < 0)) continue;   // on the low cut, looking into the slab
+      if (tri.every((v) => above(v) === 0) && !(tri[0][3] > 0)) continue;   // on the high cut, looking into the slab
+      const poly = clip(clip(tri, below), above);
       for (let k = 1; k < poly.length - 1; k++) {
         if (area2(poly[0], poly[k], poly[k + 1]) < 1e-12) continue;   // a sliver the cut left on its plane
         idx.push(push(poly[0]), push(poly[k]), push(poly[k + 1]));

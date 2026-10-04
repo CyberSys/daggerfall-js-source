@@ -368,23 +368,32 @@ must be assigned there, never re-declared. Mutants
    `MsgPlayerControlled` and an hours:minutes estimate.
 
    **TRAVEL-ONLINE** (2026-10-03, Mac: *"Remove instant travel
-   online"*). The fallback this item kept was still reachable from three
-   switches: the mod off (online it was the player's, MODS-ONLINE-2), and
+   online"*). The fallback this item kept was still reachable from four
+   switches: the mod off (online it was the player's, MODS-ONLINE-2),
    either of the two dials that send a Cautious or an Inns trip down the
    journey (TO-LIVE put both on the tile) - each turned every such trip
-   back into the teleport. All three are the ROOM's now
-   (`systems/onlineLane.js` `ONLINE_ROOM_MOD_KEYS`, at the shipped
-   defaults: `Enabled`, `CautiousTravel.PlayerControlledCautiousTravel`,
-   `StopAtInnsTravel.PlayerControlledInnsTravel`), so online
-   `isPlayerControlledTravel` answers yes for every land trip whatever
-   the player's store says, and the Mods pane locks the three with their
-   own reason ("every trip is travelled, and no one arrives
-   instantly"). Offline every switch is the player's, as before. Not
-   touched: a ship's passage (the mod has no voyage, and the islands are
-   reached no other way) and a party's journey to its leader - both
-   DFU's fast travel by design - nor the Mages Guild's teleport and
-   Recall, which are spells and services, not trips. `test/travelonline.test.js`
-   (2); `tools/mutants/travelonline.json` (4, all dead).
+   back into the teleport - and the ports rule (AUDIT T1: off, nothing
+   knocks the ship toggle, on by default, off a trip from the wilderness
+   to an inland place, and a ship is never walked). All four are the
+   ROOM's now (`systems/onlineLane.js` `ONLINE_ROOM_MOD_KEYS`, at the
+   shipped defaults: `Enabled`, `CautiousTravel.PlayerControlledCautiousTravel`,
+   `StopAtInnsTravel.PlayerControlledInnsTravel`, `ShipTravel.OnlyFromPorts`),
+   so online `isPlayerControlledTravel` answers yes for every trip over
+   land whatever the player's store says, and the Mods pane locks the four
+   with their own reason ("every trip over land is travelled, and ships
+   sail only from ports"). Under the switches, a floor (AUDIT T7): online
+   the map's fork refuses a trip over land at fast travel's door
+   (`ONLINE_LAND_TRAVEL_REFUSAL`) - unreachable while the room holds them.
+   Offline every switch is the player's, as before. Not touched: a ship's
+   passage from a port (the mod has no voyage, and the islands are reached
+   no other way) and a party's journey to its leader - both DFU's fast
+   travel by design - nor the Mages Guild's teleport and Recall, which are
+   spells and services, not trips. Put to Mac rather than decided here: a
+   passage from one port to another over no water is still a ship, as
+   the mod's own `HasNoOceanTravel` lets it be; and Travel Options' paid
+   teleportation (any Mages Guild rank) stays the player's dial.
+   `test/travelonline.test.js` (3); `tools/mutants/travelonline.json`
+   (all dead).
 10. **A message box over the journey PAUSES it rather than interrupting
     it** (AUDIT-TO1 H1). DFU's `DaggerfallUI.MessageBox` pushes a window,
     so the mod's own help (`:1005-1014`) trips the "any other window"
@@ -1383,7 +1392,7 @@ entity has - so every scaled fare haggled at Mercantile 0: on a trip of 300 in i
 x3, a traveller at Mercantile 90 was billed a novice's 1686 for a 1068 fare. It reads `skillValue(e,
 SKILLS.Mercantile)` now, the same read every counter makes, so a worn Enhances Skill haggles too. The split this page
 called faithful was; its haggle's Mercantile was not. Both maps and a party's fare bill through it (`travelFareDeps`),
-and the dials are the player's own online (`ONLINE_PLAYERS_OWN_MODS`), where MERC-CAP reads the skill no further than
+and the dials are the player's own online (all but the four TRAVEL-ONLINE gives the room), where MERC-CAP reads the skill no further than
 100. Offline, past 233 the mod's own call bills under nothing, as a room does - put to Mac with MERC-CAP.
 
 ## Pins

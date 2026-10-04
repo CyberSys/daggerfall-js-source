@@ -52,10 +52,11 @@ The four hosts: `scenes/world.js` and `scenes/exterior.js` build every exterior 
 (interiors) never meets it - it is an exterior subrecord's model; `scenes/dungeonContext.js`'s pre-pass asks the registry
 without a context and would read GetModelData's false, but no dungeon block places it.
 
-The tests: `test/fb1003b_citywall.test.js` (4) - the law off the pack (224 placements in 112 corner composites, two
-each, alone and sunk a unit; the 196 standing on lines of the author's own 445s each filling 448-576 off the crossing,
-every 445 on its line beginning at 576 + 1024k, 135 of them abutting one at 576); the stand-in from a stand-in 445 (its
-bounds, its picture, its winding, the cut faces' uvs where the wall's own were, nothing without a 445); the install
+The tests: `test/fb1003b_citywall.test.js` (5) - the law off the pack (224 placements in 112 corner composites, two
+each, alone and sunk a unit; in all 224 the two pieces' own lines cross 64 units from the corner tower's subrecord on
+both axes, and each piece fills 448-576 off that crossing; the 210 on lines of the author's own 445s with every 445
+beginning at 576 + 1024k, 147 of them abutting one at 576); the stand-in from a stand-in 445 (its bounds, its picture,
+its winding, the cut faces' uvs where the wall's own were, nothing without a 445) and at its cuts (below); the install
 (behind the switch, its need the 445, a build without the 445 never kept); and the real pipeline building it out of a
 fake ARCH3D's 445 for the renderer and the collider. `test/wd3_standins.test.js` reads the new shape: `53210` off the
 not-stood-in list, 225 stand-ins in the ARENA2 coverage, and its ARENA2 door sweep handing the build the player's 445.
@@ -63,8 +64,29 @@ not-stood-in list, 225 stand-ins in the ARENA2 coverage, and its ARENA2 door swe
 
 **Not verified here.** This tree has no ARENA2, so the ARENA2 half of `test/wd3_standins.test.js` - the coverage count
 and the sweep that no stand-in walls up an exterior door - did not run with the piece in it; nor was it seen rendered.
-Two things only the player's data can show: the 28 placements whose line is all Daggerfall's own segments (read by
-reference, `$c`, from `WALLAA04`) were checked only through the other 196, which the same blocks share; and the tower's
-edge at 448 is read from where Daggerfall's corners meet their walls, not from `444`'s own mesh. **Said, not fixed:** a
+Two things only the player's data can show: the 14 placements whose line is all Daggerfall's own segments (read by
+reference, `$c`, from `WALLAA04`) meet a segment at 576 only if that block's wall is the same 445 (their span and their
+tower are read from the pack); and the tower's edge at 448 is read from where Daggerfall's corners meet their walls,
+not from `444`'s own mesh. **Said, not fixed:** a
 quarter of the placements - the `WALLAA12` and `WALLAA13` pieces on their north line, 56 - turn the piece the other way
 across the wall, as the author placed them, so there the 445's inner face is the one that looks out.
+
+## AUDIT CITY-WALL (2026-10-04)
+
+Mac: "Audit and ensure any other areas arent broken also" - four lenses over this page's change and the three that
+rode with it (DEATH-TENTH, TRAVEL-ONLINE, RATIONS-HUNGRY; their findings are on their own pages). For the wall:
+
+- **S1 (fixed): a face lying ON a cut was dropped.** A model's positions are float32, so a vertex meant to stand at
+  x = 1.6 m (64 units) stands at 1.6000000238 - outside the slab by 2.4e-8 - and every face on either cut went,
+  whichever way it looked. A merlon the cut ends in lost its end face and stood open to the eye. `sliceModelX` now reads
+  a vertex within `SLICE_ON_PLANE_M` (1e-5 m) of a cut as on it, and keeps a face wholly on a cut only when it looks
+  out of the slab (the slab's own end) - the outside's face that looks in would stand over the gap beside the cut, so
+  it goes. Pinned: the fifth test (four merlons with their sides on the cuts).
+- **The law now reads all 224 from the pack.** The two pieces of a corner block run on two lines, and their crossing is
+  64 units from the corner tower's subrecord on both axes in all 112 blocks - so every piece's 448-576 is checked
+  without ARENA2; 210 stand on lines of the author's own 445s. The count of the unread placements above was wrong (28;
+  it is 14) and is corrected.
+- **Notes, not changed.** Each piece's `House5` subrecord now stands a building and a home frame, as every stand-in's
+  does: `dfMeshSize` reads ARCH3D, so its hit box is of no size and never hit, and the market still sells none. The cut
+  ends are open by design, meeting the tower at 448 and a 445 at 576 where Daggerfall's own segments meet. Every
+  consumer of the registry and the pipeline was walked - the build is never kept without the 445, never twice.

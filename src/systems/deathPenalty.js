@@ -20,12 +20,15 @@
 // rule, and offline nothing reads it.
 import { goldPiecesOf } from './inventory.js';
 
-export const DEATH_GOLD_FRACTION = 0.1;
+/** AUDIT DEATH-TENTH: the share as a divisor - `g / 10` is exact for every whole purse, where `g * 0.1` rounds up past
+ *  3 x 2^51 (0.1 is a hair over a tenth in binary) and charged a coin more than a tenth. */
+export const DEATH_GOLD_DIVISOR = 10;
+export const DEATH_GOLD_FRACTION = 1 / DEATH_GOLD_DIVISOR;
 
 /** What a purse of `gold` loses to a death. Any input that is not a usable count loses nothing. */
 export function deathGoldLoss(gold) {
   const g = Number.isFinite(gold) ? Math.max(0, Math.floor(gold)) : 0;
-  return Math.floor(g * DEATH_GOLD_FRACTION);
+  return Math.floor(g / DEATH_GOLD_DIVISOR);
 }
 
 /**

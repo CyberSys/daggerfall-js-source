@@ -4,23 +4,32 @@
     "file": "src/systems/onlineLane.js",
     "old": "  'travel-options': Object.freeze({\n    Enabled: true,\n",
     "new": "  'travel-options': Object.freeze({\n",
-    "tests": ["test/travelonline.test.js", "test/modsonline.test.js"],
+    "tests": [
+      "test/travelonline.test.js",
+      "test/modsonline.test.js"
+    ],
     "note": "Travel Options off online would be fast travel - the teleport - for every trip."
   },
   {
     "name": "TRAVEL-ONLINE-2-cautiously-the-player's",
     "file": "src/systems/onlineLane.js",
-    "old": "    'CautiousTravel.PlayerControlledCautiousTravel': true,\n    'StopAtInnsTravel.PlayerControlledInnsTravel': true,\n  }),",
-    "new": "    'StopAtInnsTravel.PlayerControlledInnsTravel': true,\n  }),",
-    "tests": ["test/travelonline.test.js", "test/modsonline.test.js"],
+    "old": "    'CautiousTravel.PlayerControlledCautiousTravel': true,\n    'StopAtInnsTravel.PlayerControlledInnsTravel': true,\n    'ShipTravel.OnlyFromPorts': true,",
+    "new": "    'StopAtInnsTravel.PlayerControlledInnsTravel': true,\n    'ShipTravel.OnlyFromPorts': true,",
+    "tests": [
+      "test/travelonline.test.js",
+      "test/modsonline.test.js"
+    ],
     "note": "Cautiously's dial off online would teleport a cautious trip."
   },
   {
     "name": "TRAVEL-ONLINE-3-inns-the-player's",
     "file": "src/systems/onlineLane.js",
-    "old": "    'CautiousTravel.PlayerControlledCautiousTravel': true,\n    'StopAtInnsTravel.PlayerControlledInnsTravel': true,\n  }),",
-    "new": "    'CautiousTravel.PlayerControlledCautiousTravel': true,\n  }),",
-    "tests": ["test/travelonline.test.js", "test/modsonline.test.js"],
+    "old": "    'CautiousTravel.PlayerControlledCautiousTravel': true,\n    'StopAtInnsTravel.PlayerControlledInnsTravel': true,\n    'ShipTravel.OnlyFromPorts': true,",
+    "new": "    'CautiousTravel.PlayerControlledCautiousTravel': true,\n    'ShipTravel.OnlyFromPorts': true,",
+    "tests": [
+      "test/travelonline.test.js",
+      "test/modsonline.test.js"
+    ],
     "note": "Inns' dial off online would teleport a trip that stops at inns."
   },
   {
@@ -28,7 +37,31 @@
     "file": "src/ui/enhancedMenu.js",
     "old": "ONLINE_TRAVEL_VENDORS.includes(vendor) ? ONLINE_TRAVEL_NOTE : ONLINE_SHARED_NOTE);",
     "new": "ONLINE_SHARED_NOTE);",
-    "tests": ["test/travelonline.test.js", "test/modsonline.test.js"],
+    "tests": [
+      "test/travelonline.test.js",
+      "test/modsonline.test.js"
+    ],
     "note": "The locked travel switches would say a dungeon's monsters are the reason."
+  },
+  {
+    "name": "TRAVEL-ONLINE-5-the-ports-the-player's",
+    "file": "src/systems/onlineLane.js",
+    "old": "    'StopAtInnsTravel.PlayerControlledInnsTravel': true,\n    'ShipTravel.OnlyFromPorts': true,\n  }),",
+    "new": "    'StopAtInnsTravel.PlayerControlledInnsTravel': true,\n  }),",
+    "tests": [
+      "test/travelonline.test.js",
+      "test/modsonline.test.js"
+    ],
+    "note": "AUDIT T1: the ports rule off online leaves the ship toggle on a wilderness trip inland - the teleport, free with Camp Out."
+  },
+  {
+    "name": "TRAVEL-ONLINE-6-no-floor",
+    "file": "src/scenes/world.js",
+    "old": "      if (isOnlinePage() && !opts?.travelShip) { townTalk.say(ONLINE_LAND_TRAVEL_REFUSAL); hudFade.clearFade(); } else fastTravelTo(pick, opts, computed);",
+    "new": "      fastTravelTo(pick, opts, computed);",
+    "tests": [
+      "test/travelonline.test.js"
+    ],
+    "note": "AUDIT T7: with the mod ever missing online, every trip over land would be the teleport."
   }
 ]

@@ -1640,3 +1640,13 @@ mod's DLL is not in the tree, and the starving auto-eat was already written up a
 
 `test/rationshungry.test.js` (2); `test/surv1_model.test.js`'s sleep test eats a sack twelve hours into its rest;
 `tools/mutants/rationshungry.json` (4, all dead).
+
+AUDIT RATIONS-HUNGRY (2026-10-04): nothing assumed a sack vanished only at Starving (the comment on `eatRations` did,
+and says hungry now). What it costs, said for Mac rather than changed: Hungry itself costs nothing in either tier - the
+fatigue and Hard's stats begin at Starving - so a sack now buys 710 minutes instead of 1430, about two a day where one
+was; the starting kit's two last 35 hours, not 59, and a day's food at the shelf's 20 gold is about 40 where it was 20.
+The answer, if it is too dear, is in the data (the kit, the shelf), not the trigger. A jump says "You eat some rations."
+once however many it eats (four in two days); an eight-hour night now eats one about two times in three, without
+waking anyone (no rest reads hunger, and the line goes to the HUD as the skin's drink does); a freshly fed player
+refuses a dish or a Casual tavern meal "not hungry enough" twice as often, and perishables want eating by hand before
+Hungry now, since the sack - which never spoils - goes first.

@@ -10,10 +10,10 @@ import { readFileSync } from 'node:fs';
 
 import { readTravelOptionsSettings, TRAVEL_OPTIONS_VENDOR } from '../src/systems/travelOptions.js';
 import { modSetting, setModSetting, _resetModSettings } from '../src/systems/modSettings.js';
-import { ONLINE_ROOM_MOD_KEYS, ONLINE_PLAYERS_OWN_MODS } from '../src/systems/onlineLane.js';
-import { isPlayerControlledTravel } from '../src/ui/travelPopUp.js';
+import { ONLINE_ROOM_MOD_KEYS, ONLINE_PLAYERS_OWN_MODS, ONLINE_LAND_TRAVEL_REFUSAL } from '../src/systems/onlineLane.js';
+import { isPlayerControlledTravel, enforceShipRestriction } from '../src/ui/travelPopUp.js';
 
-const CAUTIOUS = 'CautiousTravel.PlayerControlledCautiousTravel', INNS = 'StopAtInnsTravel.PlayerControlledInnsTravel';
+const CAUTIOUS = 'CautiousTravel.PlayerControlledCautiousTravel', INNS = 'StopAtInnsTravel.PlayerControlledInnsTravel', PORTS = 'ShipTravel.OnlyFromPorts';
 const read = (p) => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8');
 function online(fn) {
   const had = Object.getOwnPropertyDescriptor(globalThis, 'location');
@@ -31,7 +31,7 @@ const landTrips = () => {
 test('TRAVEL-ONLINE: online every land trip is travelled, whatever the player turned off - the mod, Cautiously, Inns; offline the same switches still give Daggerfall\'s fast travel (mutants: each of the three keys)', () => {
   _resetModSettings();
   try {
-    assert.deepEqual({ ...ONLINE_ROOM_MOD_KEYS[TRAVEL_OPTIONS_VENDOR] }, { Enabled: true, [CAUTIOUS]: true, [INNS]: true });
+    assert.deepEqual({ ...ONLINE_ROOM_MOD_KEYS[TRAVEL_OPTIONS_VENDOR] }, { Enabled: true, [CAUTIOUS]: true, [INNS]: true, [PORTS]: true });
     assert.ok(!ONLINE_PLAYERS_OWN_MODS.includes(TRAVEL_OPTIONS_VENDOR), 'no longer every switch the player\'s');
     for (const [key, value] of [[CAUTIOUS, false], [INNS, false], ['Enabled', false]]) {
       setModSetting(TRAVEL_OPTIONS_VENDOR, key, value);
@@ -53,6 +53,24 @@ test('TRAVEL-ONLINE by source: the world loads the mod through modSetting (the r
   assert.match(w, /travelOptions = travelOptionsOn \? createTravelOptions\(\{/);
   const menu = read('src/ui/enhancedMenu.js');
   assert.match(menu, /const ONLINE_TRAVEL_VENDORS = Object\.freeze\(\['travel-options'\]\);/);
-  assert.match(menu, /const ONLINE_TRAVEL_NOTE = 'On for everyone online: every trip is travelled, and no one arrives instantly\.[^']*';/);
-  assert.match(menu, /Travel Options is on for everyone, so every trip is travelled\./, 'the pane\'s own line names it');
+  assert.match(menu, /const ONLINE_TRAVEL_NOTE = 'On for everyone online: every trip over land is travelled, and ships sail only from ports\.[^']*';/);
+  assert.match(menu, /Travel Options is on for everyone, so every trip over land is travelled and ships sail only from ports\./, 'the pane\'s own line names it');
+  // AUDIT TRAVEL-ONLINE T7: the floor under the switches - online a trip over land never reaches fast travel's teleport
+  assert.match(w, /if \(isOnlinePage\(\) && !opts\?\.travelShip\) \{ townTalk\.say\(ONLINE_LAND_TRAVEL_REFUSAL\); hudFade\.clearFade\(\); \} else fastTravelTo\(pick, opts, computed\);/);
+  assert.match(ONLINE_LAND_TRAVEL_REFUSAL, /^Online, a journey over land is travelled/);
+});
+
+test('TRAVEL-ONLINE (AUDIT T1): the ports rule is the room\'s too - with it off in the player\'s store, a trip from the wilderness to an inland place on the ship toggle (on by default) stays a ship, and a ship is never walked: the teleport; online the rule holds, the ship is knocked off and the trip is walked (mutant: the ports key)', () => {
+  _resetModSettings();
+  try {
+    setModSetting(TRAVEL_OPTIONS_VENDOR, PORTS, false);
+    const wilds = { currentLocationMapId: null, isOnShip: false, destinationMapId: null, oceanPixels: 0 };
+    const trip = () => {
+      const settings = readTravelOptionsSettings(modSetting);
+      const opts = enforceShipRestriction(settings, { speedCautious: true, sleepModeInn: true, travelShip: true }, wilds);
+      return [opts.travelShip, isPlayerControlledTravel(settings, opts)];
+    };
+    assert.deepEqual(trip(), [true, false], 'offline, the rule off: a ship from the wilderness - fast travel');
+    assert.deepEqual(online(trip), [false, true], 'online: no port here, so no ship - and the trip is walked');
+  } finally { _resetModSettings(); }
 });

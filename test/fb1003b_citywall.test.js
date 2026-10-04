@@ -63,18 +63,18 @@ const faces = (m) => {
 };
 
 // ---- the law, off the author's own placements ------------------------------------------------------------------------
-test('CITY-WALL the law: 224 wall pieces, two in each of the 112 corner composites (WALLAA12-15), each alone in its subrecord and sunk one unit - and every one checkable from the pack alone fills its line from 448 to 576 units off the crossing, where the 445s begin (mutants: the fill\'s middle, its length)', () => {
+test('CITY-WALL the law: 224 wall pieces, two in each of the 112 corner composites (WALLAA12-15), each alone in its subrecord and sunk one unit; in every one the two pieces\' lines cross 64 units from the corner tower\'s subrecord on both axes, each piece fills its line from 448 to 576 units off that crossing, and every 445 of the author\'s on the line begins where it ends (mutants: the fill\'s middle, its line, its length)', () => {
   const pack = JSON.parse(zlib.gunzipSync(readFileSync(join(ROOT, 'vendor/beautiful-cities/WorldDataPack/beautiful-cities.pack.json.gz'))).toString('utf8'));
   const P = (v) => (typeof v === 'string' ? JSON.parse(v) : v);
   const nodes = pack.nodes.map(P);
   const deref = (v) => (v && typeof v === 'object' && !Array.isArray(v) && v.$n !== undefined && Object.keys(v).length === 1 ? deref(nodes[v.$n]) : v);
   const at = (M, p) => [0, 1, 2].map((k) => M[k] * p[0] + M[4 + k] * p[1] + M[8 + k] * p[2] + M[12 + k]);
   const files = new Set();
-  let placed = 0, checked = 0, abutting = 0, classicLines = 0;
+  let placed = 0, withWalls = 0, abutting = 0;
   for (const [name, entry] of Object.entries(pack.files)) {
     const op = P(entry)[2].find((o) => o[0] === 's' && JSON.stringify(o[1]) === '["RmbBlock","SubRecords"]');
     if (!op) continue;
-    const walls = [], fills = [];
+    const walls = [], fills = [], towers = [];
     for (const sr of op[2].map(deref)) {
       const ext = deref(sr.Exterior);
       if (ext.$c) continue;   // a classic subrecord's exterior, by reference - Daggerfall's own models, read only with ARENA2
@@ -85,6 +85,7 @@ test('CITY-WALL the law: 224 wall pieces, two in each of the 112 corner composit
         const [id, , x, y, z, rx, ry, rz] = r;
         const M = multiply(S, trs(x, -y, z, -rx / RD, -ry / RD, -rz / RD));
         if (id === CITY_WALL_MODEL) walls.push([at(M, [-512, 0, 0]), at(M, [512, 0, 0])]);
+        if (id === 444) towers.push([sr.XPos, 4096 - sr.ZPos]);   // the corner tower's subrecord
         if (id === CITY_WALL_PIECE) {
           assert.equal(rows.length, 1, `${name}: the piece alone in its subrecord`);
           assert.deepEqual([x, y, z, rx, ry, rz], [0, 1, 0, 0, 0, 0], `${name}: on its subrecord's origin, sunk a unit, unturned`);
@@ -96,27 +97,31 @@ test('CITY-WALL the law: 224 wall pieces, two in each of the 112 corner composit
     files.add(name);
     placed += fills.length;
     assert.equal(fills.length, 2, `${name}: one piece a line`);
-    const along = (s) => (Math.abs(s[1][0] - s[0][0]) > 1 ? 'x' : 'z');
-    const lines = { x: walls.filter((s) => along(s) === 'x'), z: walls.filter((s) => along(s) === 'z') };
-    if (!lines.x.length || !lines.z.length) { classicLines++; continue; }   // a line whose every segment is Daggerfall's own
-    const zOfX = lines.x[0][0][2], xOfZ = lines.z[0][0][0];
-    for (const s of lines.x) assert.ok(Math.abs(s[0][2] - zOfX) < 1e-6 && Math.abs(s[1][2] - zOfX) < 1e-6, `${name}: one line`);
-    for (const s of lines.z) assert.ok(Math.abs(s[0][0] - xOfZ) < 1e-6 && Math.abs(s[1][0] - xOfZ) < 1e-6, `${name}: one line`);
+    // the stand-in's span in each piece's own frame: its two ends on the line 128 along +z
+    const span = fills.map((M) => [-1, 1].map((sg) => at(M, [CITY_WALL_FILL.x + (sg * CITY_WALL_FILL.length) / 2, 0, CITY_WALL_FILL.z])));
+    const along = (e) => (Math.abs(e[1][0] - e[0][0]) > 1 ? 'x' : 'z');
+    const onX = span.find((e) => along(e) === 'x'), onZ = span.find((e) => along(e) === 'z');
+    assert.ok(onX && onZ, `${name}: one piece on each of the corner's two lines`);
+    const zOfX = onX[0][2], xOfZ = onZ[0][0];   // where the two lines run - the corner is where they cross
+    assert.equal(towers.length, 1, `${name}: one corner tower`);
+    assert.deepEqual([Math.abs(towers[0][0] - xOfZ), Math.abs(towers[0][1] - zOfX)], [64, 64], `${name}: the tower 64 units in from the crossing, as Daggerfall's corners stand it`);
     const off = (p) => +Math.hypot(p[0] - xOfZ, p[2] - zOfX).toFixed(6);   // off the crossing, along the line
-    for (const M of fills) {
-      const ends = [-1, 1].map((s) => at(M, [CITY_WALL_FILL.x + (s * CITY_WALL_FILL.length) / 2, 0, CITY_WALL_FILL.z]));
-      const k = Math.abs(ends[1][0] - ends[0][0]) > 1 ? 'x' : 'z';
-      for (const e of ends) assert.ok(k === 'x' ? Math.abs(e[2] - zOfX) < 1e-6 : Math.abs(e[0] - xOfZ) < 1e-6, `${name}: on the 445s' line`);
+    for (const ends of [onX, onZ]) {
       assert.deepEqual(ends.map(off).sort((a, b) => a - b), [448, 576], `${name}: from the tower's edge to the first segment`);
-      const starts = lines[k].map((s) => Math.min(off(s[0]), off(s[1])));
-      assert.ok(starts.every((s) => s >= 576 && (s - 576) % 1024 === 0), `${name}: the 445s begin where the piece ends, a segment apart (${starts})`);
+      const k = along(ends);
+      const line = walls.filter((w) => (k === 'x' ? Math.abs(w[0][2] - zOfX) < 1e-6 && Math.abs(w[1][2] - zOfX) < 1e-6 : Math.abs(w[0][0] - xOfZ) < 1e-6 && Math.abs(w[1][0] - xOfZ) < 1e-6));
+      const parallel = walls.filter((w) => (Math.abs(w[1][0] - w[0][0]) > 1 ? 'x' : 'z') === k);
+      assert.equal(line.length, parallel.length, `${name}: every 445 running that way stands on the piece's line`);
+      if (!line.length) continue;   // a line whose every segment is Daggerfall's own, by reference
+      withWalls++;
+      const starts = line.map((w) => Math.min(off(w[0]), off(w[1])));
+      assert.ok(starts.every((st) => st >= 576 && (st - 576) % 1024 === 0), `${name}: the 445s begin where the piece ends, a segment apart (${starts})`);
       if (starts.includes(576)) abutting++;
-      checked++;
     }
   }
   assert.deepEqual([placed, files.size], [224, 112]);
   assert.ok([...files].every((n) => /^WALLAA1[2-5]\.[A-Z]{6}\d\d\.RMB\.json$/.test(n)), 'only the corner composites');
-  assert.deepEqual([checked, classicLines, abutting], [196, 14, 135], 'the rest stand on lines of Daggerfall\'s own segments, read only with ARENA2');
+  assert.deepEqual([withWalls, abutting], [210, 147], 'the rest stand on lines of Daggerfall\'s own segments, read only with ARENA2');
 });
 
 // ---- the stand-in -----------------------------------------------------------------------------------------------------
@@ -146,6 +151,25 @@ test('CITY-WALL the stand-in: the middle 128 units of the player\'s 445 - every 
   const half = sliceModelX(wall, 0, 600 * U);
   assert.deepEqual(units(boundsOf(half).hi).slice(0, 1), [512], 'a slab past one end keeps that end\'s cap');
   assert.ok(faces(half).against === 0);
+});
+
+test('CITY-WALL the stand-in at its cuts (AUDIT CITY-WALL S1): a face lying ON a cut - float32 puts 1.6 m at 1.6000000238 - is kept when it looks out of the slab (a merlon\'s end the cut closes on) and dropped when it looks in (the next merlon\'s side, over the gap); nothing else of the outside is kept (mutants: the on-plane snap, which side is kept)', () => {
+  // four merlons a unit tall above a plain wall face, their sides ON the cuts at x = -64 and +64 units:
+  // [-128,-64] and [64,128] outside the slab, [-64,0] and [0,64] inside it
+  const m = new MeshBuilder(), tex = [17, 2];
+  for (const [a, b] of [[-128, -64], [-64, 0], [0, 64], [64, 128]]) m.box(tex, [((a + b) / 2) * U, 0.5 * U, 0], [(b - a) * U, U, 16 * U]);
+  const cut = sliceModelX(m.build(), -64 * U, 64 * U);
+  const ends = [];
+  for (let t = 0; t < cut.indices.length; t += 3) {
+    const i = cut.indices[t], nx = Math.round(cut.normals[i * 3]);
+    const x = Math.round(cut.positions[i * 3] / U);
+    if (nx !== 0 && Math.abs(x) === 64) ends.push(`${x}:${nx > 0 ? '+x' : '-x'}`);   // a face on a cut (the merlons' faces at 0 are the slab's own inside)
+  }
+  assert.deepEqual([...new Set(ends)].sort(), ['-64:-x', '64:+x'], 'the two merlons\' outer ends kept, the outside merlons\' inner sides dropped');
+  assert.equal(ends.length, 4, 'each a whole face (two triangles)');
+  const xs = [...cut.positions].filter((_, k) => k % 3 === 0).map((x) => x / U);
+  assert.ok(xs.every((x) => x >= -64 - 1e-3 && x <= 64 + 1e-3), 'nothing of the outside');
+  assert.ok(faces(cut).against === 0);
 });
 
 // ---- the install -------------------------------------------------------------------------------------------------------

@@ -13073,7 +13073,12 @@ THE HOLDINGS ARC above left "the gold lost on death (the original pillars 5 and 
   words.
 
 `test/deathpenalty.test.js` (5); `test/donline1_respawn.test.js` and `test/risestuck.test.js` allow the line;
-`tools/mutants/bounty1.json` DEATH-PENALTY-1 to 5, dead (DEATH-TENTH re-aimed the first: a fifth, not a tenth).
+`tools/mutants/bounty1.json` DEATH-PENALTY-1 to 6, dead (DEATH-TENTH re-aimed the first: a fifth, not a tenth).
+AUDIT DEATH-TENTH (2026-10-04): the share is a DIVISOR (`DEATH_GOLD_DIVISOR` 10; `DEATH_GOLD_FRACTION` is its
+reciprocal) - `g * 0.1` rounds UP past 3 x 2^51 (0.1 is a hair over a tenth in binary), charging a purse ending in 9 a
+coin more than a tenth; `g / 10` is exact for every whole purse (the pin: 6,755,399,441,055,749 loses
+675,539,944,105,574; DEATH-PENALTY-6 the mutant). Out of play's reach - a realm character is born with 10,000 at most -
+and the file's own "rounded down, in the player's favour" all the same.
 
 ## NOTICE1 (2026-09-28, Mac: "The new notice board should be a physical object that houses quests, the player auction house, etc"; "Go") - the Notice Board
 

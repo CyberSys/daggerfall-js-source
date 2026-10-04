@@ -383,10 +383,11 @@ layout pins above, and by four more things the stand-ins needed:
 - `test/wd3_online.test.js` - the service's layouts on the real service over
   SQLite, the client's ask and the room's switches.
 - `test/fb1003b_citywall.test.js` - the city walls' corners: the law off the
-  pack (all 224 pieces; the 196 on lines of the author's own segments each
-  filling 448-576 units off the crossing, the segments beginning where it
-  ends), the stand-in cut from a 445, its install, and the real pipeline
-  building it from ARCH3D for the renderer and the collider.
+  pack (all 224 pieces filling 448-576 units off the crossing of their two
+  lines, the tower 64 units in from it; the 210 on lines of the author's own
+  segments, the segments beginning where it ends), the stand-in cut from a
+  445 and its faces on the cuts, its install, and the real pipeline building
+  it from ARCH3D for the renderer and the collider.
 - `test/wd3_standins.test.js` - every stand-in above, its install and gates;
   with ARENA2 the coverage of both packs' every placement, the housing names,
   and the alias beds built from the player's own ARCH3D.

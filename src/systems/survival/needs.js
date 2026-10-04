@@ -612,7 +612,7 @@ export function drinkWater(entity, now, say = null) {
 }
 
 /** Rations: a sack feeds one meal's worth (FOOD[Rations].satiety) and
- *  the marker lands at now - 10 so a starving player is fed at once. */
+ *  the marker lands at now - 10 so a hungry or starving player is fed at once. */
 export function eatRations(entity, sack, now, say = null) {
   const s = survivalOf(entity, now);
   const items = entity.items ?? [];

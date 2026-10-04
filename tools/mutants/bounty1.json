@@ -182,8 +182,8 @@
   {
     "name": "DEATH-PENALTY-1-a-fifth-not-a-tenth",
     "file": "src/systems/deathPenalty.js",
-    "old": "export const DEATH_GOLD_FRACTION = 0.1;",
-    "new": "export const DEATH_GOLD_FRACTION = 0.2;",
+    "old": "export const DEATH_GOLD_DIVISOR = 10;",
+    "new": "export const DEATH_GOLD_DIVISOR = 5;",
     "tests": [
       "test/deathpenalty.test.js",
       "test/donline1_respawn.test.js",
@@ -193,8 +193,8 @@
   {
     "name": "DEATH-PENALTY-2-rounded-against-the-player",
     "file": "src/systems/deathPenalty.js",
-    "old": "  return Math.floor(g * DEATH_GOLD_FRACTION);",
-    "new": "  return Math.ceil(g * DEATH_GOLD_FRACTION);",
+    "old": "  return Math.floor(g / DEATH_GOLD_DIVISOR);",
+    "new": "  return Math.ceil(g / DEATH_GOLD_DIVISOR);",
     "tests": [
       "test/deathpenalty.test.js",
       "test/donline1_respawn.test.js",
@@ -233,5 +233,15 @@
       "test/donline1_respawn.test.js",
       "test/risestuck.test.js"
     ]
+  },
+  {
+    "name": "DEATH-PENALTY-6-times-a-tenth",
+    "file": "src/systems/deathPenalty.js",
+    "old": "  return Math.floor(g / DEATH_GOLD_DIVISOR);",
+    "new": "  return Math.floor(g * DEATH_GOLD_FRACTION);",
+    "tests": [
+      "test/deathpenalty.test.js"
+    ],
+    "note": "AUDIT DEATH-TENTH: 0.1 is a hair over a tenth in binary - past 3 x 2^51 a purse ending in 9 lost a coin more than a tenth."
   }
 ]

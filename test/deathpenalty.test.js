@@ -14,6 +14,7 @@ test('a tenth of the purse, rounded down in the player\'s favour', () => {
   assert.equal(deathGoldLoss(1009), 100);
   assert.equal(deathGoldLoss(10), 1);
   assert.equal(deathGoldLoss(9), 0);
+  assert.equal(deathGoldLoss(6755399441055749), 675539944105574, 'AUDIT DEATH-TENTH: rounded down past 3 x 2^51 too, where g * 0.1 rounded up');
   assert.equal(deathGoldLoss(0), 0);
   for (const bad of [NaN, undefined, null, -50, Infinity]) assert.equal(deathGoldLoss(bad), 0, String(bad));
 });
