@@ -772,7 +772,33 @@ export class QuestAudioSource {
     if (typeof dur === 'number' && dur > 0) this._endsAt = this._clock() + dur;
     return dur;
   }
+
+  /** The quest machine's `playSound` hook, whole - the ONE body both hosts that own a machine call (world.js,
+   *  exterior.js). PlaySound.cs:110-116's busy skip (busy: false, nothing stamped, the action tries again next tick;
+   *  idle: played through the ID door and true), and QUIET-VENGEANCE: a sound on QUIET_QUEST_SOUNDS plays at its
+   *  volume and no sooner than its gap (real seconds) after its last play - inside the gap it answers false exactly
+   *  as a busy source does, so the action keeps its interval due and plays the moment the gap is out. */
+  playQuestSound(id) {
+    if (this.isPlaying()) return false;
+    const quiet = QUIET_QUEST_SOUNDS[id] ?? null;
+    if (quiet) {
+      const now = this._clock();
+      if (now < (this._quietUntil?.get(id) ?? -Infinity)) return false;
+      (this._quietUntil ??= new Map()).set(id, now + quiet.gapS);
+    }
+    this.playOneShotId(id, quiet ? quiet.volume : 1);
+    return true;
+  }
 }
+
+/** QUIET-VENGEANCE (FIELD BUGS 2026-10-04b, Mac: "Reduce Lysandus VENGENANCE audio"): the quest sounds the port plays
+ *  softer and sparser than DFU, by Quests-Sounds id. `386, vengence` is S0000977's `play sound vengence 5 0` - King
+ *  Lysandus' ghost in Daggerfall at night, every five game minutes for as long as the player is there (about every 25
+ *  real seconds at the classic time scale), at full volume and with no position. Here at 0.4 of it, and once a minute
+ *  at most. Port-Ledger A. */
+export const QUIET_QUEST_SOUNDS = Object.freeze({
+  386: Object.freeze({ volume: 0.4, gapS: 60 }),
+});
 
 /** Real seconds, monotonic - `performance.now()` where there is one. */
 export function defaultAudioClock() {
