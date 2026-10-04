@@ -1,0 +1,54 @@
+# TEMPORARY (2026-10-04) - the account service answers 500 on sign-in (the deploy smoke's guest
+# sign-in since 00:49 UTC; players' logins land back on the title). Reads the live Worker's own
+# error log for ninety seconds of the players' own traffic and one refused login (it opens no
+# account), and prints ONLY the service's '[account]' error lines (path and stack), the outcomes'
+# counts and the database's size - no URL, address or body, this repository's Actions logs being
+# public. To be deleted once the cause is known.
+name: diag-accounts
+
+on:
+  pull_request:
+    paths:
+      - .github/workflows/diag-accounts.yml
+
+permissions:
+  contents: read
+
+jobs:
+  diag:
+    runs-on: ubuntu-latest
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      WRANGLER: npx --yes wrangler@4
+    defaults:
+      run:
+        working-directory: server-account
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: The database's size and limits
+        run: |
+          set -uo pipefail
+          $WRANGLER d1 info daggerfall-accounts 2>&1 | grep -v -i -E 'uuid|database_id|^\s*id\b' || true
+      - name: The live error log over ninety seconds of traffic and one refused login
+        run: |
+          set -uo pipefail
+          base="https://daggerfall-accounts.mackcothran.workers.dev"
+          $WRANGLER tail daggerfall-accounts --format json > /tmp/tail.jsonl 2>/tmp/tail.err &
+          tail_pid=$!
+          sleep 20
+          code=$(curl -sS --max-time 20 -o /tmp/login.json -w '%{http_code}' -X POST "$base/v1/auth/login" \
+            -H 'content-type: application/json' -d '{"handle":"diagnostics-no-such-handle","password":"not-a-real-password"}' || echo 000)
+          echo "refused login -> $code $(head -c 200 /tmp/login.json)"
+          sleep 70
+          kill "$tail_pid" 2>/dev/null || true
+          echo "--- the service's own error lines (path and stack only) ---"
+          jq -r '(.logs // [])[] | .message | if type == "array" then map(tostring) | join(" ") else tostring end | select(startswith("[account]"))' /tmp/tail.jsonl 2>/dev/null | head -c 6000 || true
+          echo "--- uncaught exceptions (name and message only) ---"
+          jq -r '(.exceptions // [])[] | "\(.name): \(.message)"' /tmp/tail.jsonl 2>/dev/null | sort | uniq -c | head -20 || true
+          echo "--- outcomes seen while tailing ---"
+          jq -r '.outcome' /tmp/tail.jsonl 2>/dev/null | sort | uniq -c || true
+          echo "--- tail's own complaints ---"
+          head -c 1500 /tmp/tail.err || true
