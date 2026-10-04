@@ -987,6 +987,7 @@ directory by `test/audit18_bible_docs.test.js`:
   world.js (pixel/model/batch grains) and exterior.js (per-drawList-row,
   per-batch); `?cull=off` is the escape hatch. Simulation never gates -
   see `07-Rendering/Enhanced-Visuals-Arc.md`.
+- `sunbabySkyRenderer.js` - SUNBABY1: the sun baby's sky, a live event's (`/event sunbaby`, `06-Systems/Online-Arc.md`): one fullscreen pass at the far plane over whichever sky the lane draws and over the volumetric clouds, blended by the event's weight - a nursery-blue dome of drifting flowers and a giggling baby-faced sun, all procedural, its shader generated from `world/sunbabySky.js`'s tables; nothing drawn at weight 0, built the first time the event shows.
 - `staticBatch.js` - PERF4 STATIC BATCHES PER PIXEL: a streamed pixel's static RMB
   models merged once at build time into one mesh grouped by resolved texture, one
   draw call per texture instead of one per sub-mesh per model; the gates and the

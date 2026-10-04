@@ -1328,6 +1328,13 @@ export class Renderer {
     // minted under one "archive_record", so release frees what was made
     // instead of guessing suffixes ('#smooth#travelto' was never tried).
     this._texKeysByBase = new Map();   // "archive_record" -> Set<cache key>
+    this._texBaseOf = new Map();   // FIELD BUGS 2026-10-04d PLACE-LRU: cache key -> its "archive_record", so evictTexture leaves _texKeysByBase as it found it
+    /** FIELD BUGS 2026-10-04d PLACE-LRU: told every key an upload NAMES, hit or miss - the data pipeline's ear while a
+     *  place asks (scenes/dataPipeline.js uploadsOf), which is how a place learns what it holds; null otherwise. */
+    this._uploadSink = null;
+    /** FIELD BUGS 2026-10-04d PLACE-LRU: a draw's miss on a key - the data pipeline makes again a picture it let go
+     *  (scenes/placeHolds.js) and answers it, or null. Null until a pipeline installs it. */
+    this.textureMiss = null;
     /** @type {Set<string> | undefined} */
     this._placeholders = new Set();   // WD3 (AUDIT WD3 T3): keys holding a stand-in's clear placeholder - a real picture replaces one
     this.emissionTextures = new Map(); // "archive_record" -> window mask
@@ -4020,6 +4027,7 @@ void main() { vec4 t = texture(uTex, vUV); if (t.a < 0.5) discard; outColor = ve
     // today and its key is unique, so nothing was broken - but a cache
     // that quietly ignores an argument is a trap, not a cache.
     const key = `${archive}_${record}${opts.smooth ? '#smooth' : ''}${opts.opaque ? '#opaque' : ''}${opts.mips === false ? (opts.variant ?? '#ui') : ''}${opts.alpha ? '#alpha' : ''}`;   // INCIDENT 2026-09-04: DFU caches materials per alphaIndex; REVIEW 2026-09-05: the un-mipped UI variant of a world archive (item icons) keys apart too; AUDIT 61: `variant: ''` keeps the plain batch key for world art uploaded without a chain (a mod atlas built mipChain:false - SIB1)
+    this._uploadSink?.(false, key);   // FIELD BUGS 2026-10-04d PLACE-LRU: a hit is asked for too - the place asking holds it
     if (this.textures.has(key)) {
       // WD3 (AUDIT WD3 T3): a stand-in's clear placeholder (no picture at the time - a fetch that failed, a gate shut) is
       // never the key's for good: a real picture asked under it later takes its place
@@ -4072,8 +4080,60 @@ void main() { vec4 t = texture(uTex, vUV); if (t.a < 0.5) discard; outColor = ve
     let keys = this._texKeysByBase.get(base);
     if (!keys) this._texKeysByBase.set(base, keys = new Set());
     keys.add(key);
+    (this._texBaseOf ??= new Map()).set(key, base);   // FIELD BUGS 2026-10-04d PLACE-LRU (a bare prototype's too, as _placeholders)
     this._texGen++;   // EV2: cached sub-mesh lookups refresh
     return tex;
+  }
+
+  /** FIELD BUGS 2026-10-04d PLACE-LRU: LET GO OF ONE CACHE KEY - exactly that key, never a variant beside it
+   *  (releaseTexture frees a whole "archive_record" and every variant under it). The data pipeline's eviction
+   *  (scenes/placeHolds.js): a picture no standing or kept place holds and nothing pinned. A sub-mesh stamped with it
+   *  looks again (the generation, AUDIT 39 F51's law), and a draw that still wants it asks `textureMiss`. */
+  evictTexture(key) {
+    const tex = this.textures.get(key);
+    if (tex === undefined) return false;
+    this.textures.delete(key);
+    this._placeholders?.delete(key);
+    const base = this._texBaseOf?.get(key);
+    this._texBaseOf?.delete(key);
+    const keys = base === undefined ? null : this._texKeysByBase.get(base);
+    if (keys) { keys.delete(key); if (!keys.size) this._texKeysByBase.delete(base); }
+    if (tex) this.gl.deleteTexture(tex);
+    if (this._tex0Bound === tex) this._tex0Bound = null;
+    this._texGen++;
+    return true;
+  }
+
+  /** FIELD BUGS 2026-10-04d PLACE-LRU: the same, for an emission map (keyed "archive_record" alone). */
+  evictEmissionTexture(key) {
+    const tex = this.emissionTextures.get(key);
+    if (tex === undefined) return false;
+    this.emissionTextures.delete(key);
+    this.emissionWhite.delete(key);
+    if (tex) this.gl.deleteTexture(tex);
+    if (this._tex1Bound === tex) this._tex1Bound = null;
+    this._texGen++;
+    return true;
+  }
+
+  /** FIELD BUGS 2026-10-04d PLACE-LRU: a ground archive's tile array no standing or kept pixel holds. */
+  releaseTileArray(archive) {
+    const tex = this.tileArrays.get(archive);
+    if (tex === undefined) return false;
+    this.tileArrays.delete(archive);
+    if (tex) this.gl.deleteTexture(tex);
+    this._tArrayTex = null;   // the bound-array shadow (PERF-TEX2) let go with it: the next terrain draw binds its own
+    return true;
+  }
+
+  /** FIELD BUGS 2026-10-04d PLACE-LRU: A DRAW'S MISS, MADE GOOD. A key the data pipeline let go that something still
+   *  draws - a foe outdoors whose frames a dungeon uploaded, a flat whose place was dropped under it - is made again
+   *  here, on unit 0, before the caller binds it, as the first upload made it. Null when nobody can make it (a picture
+   *  never uploaded, or not the pipeline's): the draw skips it, as a miss always has. */
+  _textureMissed(key) {
+    if (!this.textureMiss) return null;
+    this._activeTexture(this.gl.TEXTURE0);
+    return this.textureMiss(key) ?? null;
   }
 
   /** AUDIT 17e F27 / EVERY ALLOCATION HAS AN OWNER: release one
@@ -4095,6 +4155,7 @@ void main() { vec4 t = texture(uTex, vUV); if (t.a < 0.5) discard; outColor = ve
     if (keys) {
       this._texKeysByBase.delete(base);
       for (const key of keys) {
+        this._texBaseOf?.delete(key);   // FIELD BUGS 2026-10-04d PLACE-LRU
         const tex = this.textures.get(key);
         if (!tex) continue;
         this.textures.delete(key);
@@ -4923,6 +4984,7 @@ void main() { vec4 t = texture(uTex, vUV); if (t.a < 0.5) discard; outColor = ve
    *  (MaterialReader.cs:448-453, EmissionColor = Color.white). */
   uploadEmissionTexture(archive, record, color32, opts = {}) {
     const key = `${archive}_${record}`;
+    this._uploadSink?.(true, key);   // FIELD BUGS 2026-10-04d PLACE-LRU: hit or miss, as uploadTexture's
     if (opts.white) this.emissionWhite.add(key);
     if (this.emissionTextures.has(key)) return this.emissionTextures.get(key);
     const gl = this.gl;
@@ -5849,7 +5911,7 @@ void main() { vec4 t = texture(uTex, vUV); if (t.a < 0.5) discard; outColor = ve
     let lastW = NaN, lastH = NaN, lastOx = NaN, lastOy = NaN, lastOz = NaN;
     const drawOne = (b) => {
       const key = billboardKey(b);   // FA1/MAC4: the key follows every field it is made of (billboardKey.js)
-      const tex = this.textures.get(key);
+      const tex = this.textures.get(key) ?? this._textureMissed(key);   // FIELD BUGS 2026-10-04d PLACE-LRU: a picture let go is made again
       if (!tex) return;
       // CSA-B: `emissionOff` - a flat whose material's _EmissionColor is black (Come Sail Away's SetLights on an
       // unlit lantern) binds no emission map; a change of it forgets the last key, so a lit and an unlit lantern of
@@ -6093,7 +6155,9 @@ void main() { vec4 t = texture(uTex, vUV); if (t.a < 0.5) discard; outColor = ve
         // being re-minted on every one of those misses.
         const key = sm._evKey ?? (sm._evKey = `${sm.textureArchive}_${sm.textureRecord}`);
         const resolved = texRemap && texRemap.has(key) ? texRemap.get(key) : key;
-        tex = this.textures.get(resolved + '#opaque') ?? this.textures.get(resolved);   // the mesh material (alphaIndex -1) first
+        // FIELD BUGS 2026-10-04d PLACE-LRU: a material let go is made again BEFORE the flat's cutout of the same record
+        // can stand in for it (the INCIDENT 2026-09-04 slits)
+        tex = this.textures.get(resolved + '#opaque') ?? this._textureMissed(resolved + '#opaque') ?? this.textures.get(resolved) ?? this._textureMissed(resolved);   // the mesh material (alphaIndex -1) first
         if (tex) {
           sm._evTex = tex;
           sm._evEmis = this.emissionTextures.get(resolved) || this._blackTex;

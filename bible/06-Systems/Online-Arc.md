@@ -4786,7 +4786,7 @@ with a marked top-left pixel on its last row).
 
 *"During online play, certain enemies cant be damaged."*
 
-`src/scenes/worldModes.js:8013` read, on one physical line:
+`src/scenes/worldModes.js:8089` read, on one physical line:
 
 ```js
 useMagicItem: (item) => host.useMagicItem?.(item),   // HT1: the torch keys onFoeHit: (hit) => host.onFoeHit?.(hit),   // WORLD2: a puppet's blow goes to the host
@@ -4928,7 +4928,7 @@ arrival, that is not rare. The blow is dropped instead.
   foe's maul, and your own Daedroth all do literally nothing to a
   puppet. The first two are WORLD2's law on purpose; the third is a gap
   in it.
-- **A foe's blast on a puppet is credited to ME.** `world.js:9422` and
+- **A foe's blast on a puppet is credited to ME.** `world.js:9433` and
   `:2925` pass `foeSinks: (f) => enchantFoeSinks(f)`, dropping the
   provenance argument `applySpellToFoe` hands them (`hostMagic.js:487`)
   - the same shape AUDIT WORLD6b-iii(a) B2 fixed one layer down.
@@ -7158,7 +7158,7 @@ answers that exact string in the object's sleep, no event, no wake. Only a
 CHANNEL session (chat, `presence: false`) used it. A presence session's
 liveness rode the pose.
 
-**Now (`src/net/wire.js:1142`, `src/net/online.js:2471`):**
+**Now (`src/net/wire.js:1142`, `src/net/online.js:2474`):**
 
 - `HEARTBEAT_MS` 5000 -> 20000. The pose goes when it MOVED (at POSE_HZ, as
   before) or every 20 s standing, as the peers' proof of life and the silence
@@ -10042,6 +10042,39 @@ home's alone - they are about other players.
 - Known limits: the lot is a box round the footprint (a building turned off the grid has a wider lot); yard pieces are
   not activation targets; the street's wandering folk are not steered round them.
 
+### KNIGHT-HOUSE - a house a Knightly Order gives is its knight's on every door (FIELD BUGS 2026-10-04d)
+
+The Discord: "Houses earned through Knightly Orders still possibly purchaseable? ... I don't want to risk my Knight
+House being bought out from under me" - at the knight's own door, "To Arde's residence", "Go in", "Buy it: 554330
+gold". The order's gift (KnightlyOrder.ReceiveHouse, `systems/banking.js` allocateHouseToPlayer) is Daggerfall's deed in
+the save and nothing else, and HOME1's offer read only the service's list: the knight was offered their own house, every
+other player the same - whose claim then took it (measured on the real service: 200) - and the knight's own claim paid
+for it again. Online the bank sells no house (HOME1), so the order's gift is the one deed made in the realm.
+
+- **The knight's door.** A building the character's own deed names - one the realm gave, standing in its layout
+  (`net/homeLaw.js` homeDeedOf, `systems/onlineHomes.js` realmDeedAt) - is never priced to it (`homeOfferPrice`). A deed
+  customs carried in is an offline house and stays HOME1's ("Stay offline only").
+- **Held from everyone else.** The account service HOLDS such a deed's building (`/v1/homes/deed`,
+  `server-account/src/homes.js` holdDeed, migration 0079 `homes.deed`): read off the character's realm record (the deed
+  must stand in it, to that building, in the layout the hold names), written as a claim's row marked `deed` - nothing
+  paid, outside the three homes a character may buy. Every other claim on it is `home-taken`; the owner's is a repeat
+  that pays nothing. To every other reader it is the knight's home, shut; the knight's own answer leaves it out (its
+  door, storage and bed are Daggerfall's, off the deed). The Seneschal holds the house it gives once the checkpoint
+  carrying it lands, waiting first for the room's town layouts (a building key names a building only in its layout); a
+  building taken meanwhile gives the gift back (the deed, the order's flag, the scene, the discovery). Every boot holds
+  the deeds from before.
+- **The market and the bank.** The houses for sale (the bank's and the Seneschal's, `banking.js` housesForSale `owned`)
+  leave out any building the town's answer names - a player's home or another knight's house. The deed's sale at the
+  bank gives the hold up first (`releaseDeed`); a deed the service never held sells as Daggerfall's.
+- **Deploy the account service first** (migration 0079, then the `acct77` Worker). A new client on an old service: the
+  holds answer 404 and the deed is kept - the knight's door is mended, nobody else is kept off until the service
+  lands. An old client on a new service: the knight's house is the knight's to everyone else; the knight's old build
+  still offers "Buy it", and its claim is answered as a repeat that pays nothing.
+- **Not reconciled:** a knight's house another player claimed before this stands theirs (the knight's hold answers
+  `home-taken`). Four hosts: `worldModes.js` (the door, the market, the Seneschal, the bank) and `world.js` (the boot's
+  holds) WIRED; `exterior.js` builds worldModes offline with no registry (Daggerfall's law stands); `dungeonContext.js`
+  has no house door. Pinned by `test/fb1004d_knight_house.test.js`; `tools/mutants/fb1004d_knight_house.json`.
+
 ### THE AUDIT (2026-09-30, asked: "let's do a nice audit on this. Just want to make sure it's perfect")
 
 Four lanes read the slices adversarially (the rent and its gold, the doors, the look and the yard, the merge and the
@@ -10102,7 +10135,7 @@ and `test/decor2b.test.js` (the sale's line, the tap under a flight) and the ACC
 - **The catalogue** (`systems/decorCatalogue.js`): the people Daggerfall stands in its rooms (`blockPeopleRecords`) are
   catalogue pieces too, kind Vendors (Mac: "People category sounds wrong call it vendors") - placed, one is made the
   trader.
-- **The service** (`server-account/src/market.js` over `migrations/0079_home_vendors.sql` - `market_listings.vendor_map`,
+- **The service** (`server-account/src/market.js` over `migrations/0080_home_vendors.sql` - `market_listings.vendor_map`,
   `vendor_id`; routes `/v1/market/vendor`, `/vendors`, `/myvendors`). A listing named at a trader is the owner's
   character's own trader (`vendor-not-yours`), in the HOME's region whatever the client says; it is filtered out of the
   goods view, so no regional board shows it. A buy of a trader's piece must name its own stall (`vendor-only`,
@@ -14437,3 +14470,21 @@ The stall row is the order paying off: the other room never stalled, and every p
 
 **Pinned** in `test/scale2b.test.js` (the stamp, the order, the resync, the pace on a jittering line, the standing),
 beside the relay's half. ONLINE1's and CHAT1's pose-frame pins re-aimed at the stamped pose.
+
+## SUNBABY1 (2026-10-04, "develop a command like /event dread that turns the sky into pretty flowers, clears weather and shows the sun as a big laughing baby ... Like teletubbies") - a second live event: the sun baby, world163
+
+EVENT1's door, a second word on it: `/event sunbaby` (or `/event sunbaby on`) stages it, `/event sunbaby off` or `/event off` ends it - the dev glyph, asked of the token by the relay, online players only, exactly as the dread. Everything EVENT1 built carries it (the `stage` frame, the hub's storage, the welcome's `ev`, `OnlineSession._setEvent`); the parts below are what is new.
+
+**The wire - a word, and the relay that first knows it.** `LIVE_EVENTS` appends `sunbaby` (`['dread', 'sunbaby']` - never reordered). The relay's `stage` arm reads LIVE_EVENTS, so it takes the word with no change of its own - but a relay before it answers the word `bad stage` and CLOSES the socket, so knowing the frame (`EVENT_RELAY_MIN` 110) is no longer knowing every word on it. `LIVE_EVENT_RELAY_MIN` names the first relay that knows each word (`dread` 110, `sunbaby` 163) and `relayKnowsLiveEvent(v, kind)` reads it; the session keeps the welcome's version (`eventV`) and `sendStage` sends a word only to a relay that knows it (the end, `''`, is any stage relay's). world.js says a word an older relay does not know in words ("The server cannot stage that event yet."). RELAY_VERSION world163 (`test/relayversion.test.js` row; world162 on its branch, renumbered past main's PRIMARCH at the merge); the exact-version pins moved to it, each marked. An old client reads the word as no event (EVENT1's law), so it is safe against every build before it.
+
+**The look - world/sunbabySky.js and render/sunbabySkyRenderer.js.** The dread is a grade because it keeps the sky's own light; this event replaces the sky, so it is ONE fullscreen pass drawn by the sky controller after the sky and its volumetric clouds (`createSkyController().draw`), at the far plane under LEQUAL (the land stands over it, as over any sky), blended by the event's weight - over the classic panorama, the port's dome and Dynamic Skies alike. A nursery-blue dome (`SUNBABY_ZENITH`, `SUNBABY_HORIZON`) full of drifting, slowly turning five- and six-petalled flowers in six colours on two layers of a ceiling grid (big overhead, small toward the horizon, faded into a pale band at it), and the SUN BABY: a big baby face (`SUNBABY_SUN_RADIUS` 0.19 rad, the rays reaching ~1.8 times it) in a gold rim with turning rays - eyes squeezed shut with laughing, rosy cheeks, a button nose, one curl, and a wide open mouth that giggles in bursts while the head bobs and tilts. All procedural, no texture and no game data; the GLSL (`SUNBABY_GLSL`) is generated from the tables, so a colour lives in one place, and every derivative its anti-aliasing reads is taken before a branch. The pass is built the first time the event shows (a session that never sees one never compiles it; a failed build warns and costs only the flowers) and draws nothing at weight 0.
+
+**The weather clears.** While the word is staged (`createSunbaby().on`, at once - the sky fades on its own clock) the host SHOWS `SUNBABY_WEATHER` ('sunny'): `shownWeather()` is what every door that applies the weather applies (the frame's drain, the teleport's, the travel's, the respawn roll's), so the rain, the snow, the storm and its thunder, the overcast haze and the sky's own word all go; the weather front walks the falling drops off as it walks any change. It is the SHOWN weather, never the sim's - the sim's word is the world's (rolled on the shared clock, carried on the weather map, saved) and comes back the frame the event ends. While staged the sky's frame (`use`) stands on the clear day whole - no weather-map storm cell in the clouds, no violence, no approaching front (`setSunbaby(w, on)`) - and the distant storms (WEATHER3d) strike nowhere.
+
+**Always a bright day under it.** The flower sky is a day sky at any hour, so the land sits under the sky it sees: the ambient is lifted toward `SUNBABY_AMBIENT` (noon's, warmed) by the weight and never dimmed (`sunbabyLight`, over the dread's light in the one `setLighting` call), the haze leans to the flower sky's horizon (`sunbabyHaze`, in `fogColorFor`), and the water mirrors its blue (`sunbabyWaterSky`, in `waterSky` on either lane).
+
+**It rises.** `createSunbaby`: a change the player watched walks over `SUNBABY_FADE_S` (8 s) each way and the sun baby rises with it out of the east (`sunbabySunDir`: from `SUNBABY_SUN_SET_DEG` -24 under the land to `SUNBABY_SUN_ELEV_DEG` 30, eased so it slows as it climbs, on `SUNBABY_SUN_BEARING`), and sets the same way; a welcome's word is whole.
+
+**The four hosts.** world.js (the streaming world - the online host, where the hub link lives) is WIRED. exterior.js (`?exterior`) has no hub link and stages no event - FLAGGED, as EVENT1 left it. worldModes.js (interiors) and dungeonContext.js draw no sky - FLAGGED: the event is outside, where the sky is (an indoor ear still hears the street's clear day: `setHeardWeather` takes the shown word).
+
+**Records.** test/sunbaby1_event.test.js (12): the word and its relay row, a real Room staging it and saying it on a late welcome, the session's word gate, the command, the fade and the rise, the land's haze, light and water, the GLSL from the tables, the pass over a recording GL (nothing at 0, every state put back, every allocation freed), and the host seams in shared.js and world.js. tools/mutants/sunbaby1.json (20, all dead). EVENT1's pins moved where the host's text moved (the hub's `onEvent`, the light) and two were made to fail again: the word's gate stands before the frame's, so `EVENT1-session-old-relay-sent` and `EVENT1-session-off-hub-sent` SURVIVED until the old-relay pin asked the END of an event and the off-hub session was given a relay that knows its words (event1.json: 44, all dead). The cite shift applied. Deploying world163 drops every connected player once (the relay's own law).
