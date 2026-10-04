@@ -335,6 +335,9 @@ export function injectSocialStyle(doc = document) {
   (doc.head ?? doc.body).append(el);
 }
 
+/** PARTY-LEAD: the party row's button that hands the lead on. */
+export const MAKE_LEADER_TEXT = 'Make leader';
+
 /** What is left of an invitation, in a row's words: "1:58 left", "12s left", "expired" at the end. `ms` is what
  *  remains of it, on the relay's clock (net/social.js now()). */
 export function inviteLeftText(ms) {
@@ -387,7 +390,7 @@ export function friendOrder(friends) {
  * a panel with something above it IGNORES the key (does not close, does not stop it), and the one that handles it
  * calls `stopImmediatePropagation` so no other window listener - the host's pause door included - sees that press.
  */
-export function createSocialPanel({ social, send = null, mail = null, guild = null, keepLetter = null, journey = () => null, canOpen = () => true, onOpen = null, onClose = null, above = () => false, overlay = overlayOpen, doc = document, win = globalThis, touch = isTouchDevice() } = {}) {
+export function createSocialPanel({ social, send = null, mail = null, guild = null, keepLetter = null, journey = () => null, canLead = () => false, canOpen = () => true, onOpen = null, onClose = null, above = () => false, overlay = overlayOpen, doc = document, win = globalThis, touch = isTouchDevice() } = {}) {
   injectSocialStyle(doc);
   const el = (tag, cls, text) => { const n = doc.createElement(tag); n.className = cls; if (text != null) n.textContent = text; return n; };
 
@@ -452,6 +455,7 @@ export function createSocialPanel({ social, send = null, mail = null, guild = nu
   let paintedWho = '';
   const guildWho = () => { try { return String(guild?.profStores?.character?.() ?? ''); } catch { return ''; } };
   let paintedJourney = '';   // PARTY-UI: the journey the body was painted with (journeyKey)
+  let paintedLead = false;   // PARTY-LEAD: whether the hub knew party.lead when the body was painted
   let ticking = [];                            // [{ el, expires }] - the countdowns drawn right now
   let liveSubs = [];                           // [{ el, of() }] - the sub-texts that go stale on the CLOCK alone (B8)
   let liveBtns = [];                           // [{ b, of() }] - GUILD-LIVE: the buttons whose state is read off a draft
@@ -704,6 +708,9 @@ export function createSocialPanel({ social, send = null, mail = null, guild = nu
         // Leave and Accept silently did nothing. The row object `m` is the picture's own and applyParty writes its `p`.
         if (n.subNode) liveSubs.push({ el: n.subNode, of: () => partyPoseText(m.p) });
         // KICK IS THE LEADER'S (SOC1's law, and the hub refuses anyone else) - so it is drawn for nobody else
+        // PARTY-LEAD: the lead handed on - the leader's alone too, through a hub that knows the act (canLead), to a seat
+        // that is online (the hub refuses an away seat: AUDIT PARTY8's lead nobody could use)
+        if (!me && leads && canLead()) n.append(btn(MAKE_LEADER_TEXT, { enabled: m.online !== false, why: 'offline', run: () => act({ k: 'party.lead', acct: m.acct }) }));
         if (!me && leads) n.append(btn('Kick', { warn: true, run: () => act({ k: 'party.kick', acct: m.acct }) }));
         out.push(n);
       }
@@ -1590,6 +1597,7 @@ export function createSocialPanel({ social, send = null, mail = null, guild = nu
   const repaint = () => {
     painted = social.version; paintedUi = ui; paintedMail = mail?.version ?? 0; paintedGuild = guild?.version ?? 0; paintedWho = guildWho();
     paintedJourney = journeyKey();   // PARTY-UI
+    paintedLead = !!canLead();   // PARTY-LEAD
     ticking = []; liveSubs = []; liveBtns = [];
     for (const [id, t] of tabBtns) {
       t.b.className = `dfsocial-tab${id === tab ? ' active' : ''}`;
@@ -1635,6 +1643,7 @@ export function createSocialPanel({ social, send = null, mail = null, guild = nu
     }
     if (lapsed) ui++;
     if (journeyKey() !== paintedJourney) ui++;   // PARTY-UI: a round opened, an answer landed, a journey began - the block again
+    if (!!canLead() !== paintedLead) ui++;   // PARTY-LEAD: the hub's word came (or a reconnect lost it) - Make leader drawn or taken away
   };
 
   /** THE TOAST, which is the panel's one part that draws while the panel is shut. It goes away on either button, at

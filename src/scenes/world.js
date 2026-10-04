@@ -192,9 +192,9 @@ import { PLAYED_STEP_MAX_SECONDS } from '../systems/quest/clock.js';   // WORLD7
 import { mintQuestFoeWave, placeFoeEnv, entityOccupancy, questFoeGender, reviveQuestBehaviour, heldSpots, holdSpotWhile, questBoxHoldsFoes, questShareTag, sharedQuestFoe, partnerStandsQuestFoes, questBehaviourFor, adoptsOrphanQuestFoe, isPrivateQuestFoe, KeptKillLedger, creditKeptKills } from './questFoeHost.js';   // B1   // AUDIT 63r F24: SerializableEnemy.cs:206-217's quest-link arm, the one home both hosts use
 import { ENEMY_BASICS } from '../characters/enemyBasics.js';   // MERGE: FinalizeFoe's Flying lift reads the behaviour flag
 import { markFoeReach } from '../systems/foeReach.js';   // WATER-FOES: a foe in the water reaches no one aboard
-import { intermittentEnemySpawn, setEnemyAlert, areEnemiesNearby, foeHostile, quietNights } from '../systems/encounters.js';   // OW6: foeHostile, the one hostility gate   // REST5: a carried night wakes to no ambush
-import { nightDue, setNightListener, nightStamp, nightKindOf, isNightStamp, carriedNightEnd, REST_ACT_TEXT } from '../systems/restAct.js';   // REST5: the party's night   // AUDIT REST-PARTY: and where it was slept   // AUDIT REST II: the mark asked lazily (P5), and what a carried night says (P3)
-import { createNightWatch, carriedNightAction, carriedRestKind } from '../systems/partyRestLaw.js';   // AUDIT REST-PARTY: the party's night, pinned by execution   // AUDIT REST II P1/P2: its watch
+import { intermittentEnemySpawn, setEnemyAlert, areEnemiesNearby, foeHostile } from '../systems/encounters.js';   // OW6: foeHostile, the one hostility gate   // CAMP-ROLL: REST5's quietNights moved with the carried night's sequence (scenes/shared.js restCampNight)
+import { nightDue, setNightListener, nightStamp, nightKindOf, isNightStamp, carriedNightEnd, REST_ACT_TEXT, campStamp, campMarkOf } from '../systems/restAct.js';   // REST5: the party's night   // AUDIT REST-PARTY: and where it was slept   // AUDIT REST II: the mark asked lazily (P5), and what a carried night says (P3)
+import { createNightWatch, carriedNightAction, createCampWatch, campPasses } from '../systems/partyRestLaw.js';   // AUDIT REST-PARTY: the party's night, pinned by execution   // AUDIT REST II P1/P2: its watch   // CAMP-ROLL: the camp's one roll
 import { ambushNight } from '../systems/restAct.js';   // AUDIT REST-PARTY A1: a resting encounter stood breaks the night that rolled it
 import { createStandingWatch, installLegalNotices } from './standingHost.js';   // REP1: the watch's stop; REP5: the law's notices
 import { SPAWNER_ARMS } from '../systems/encounters.js';   // SURV6: the hunt's beast stands on the wilderness arm
@@ -9530,7 +9530,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   // ?dungeon host RAN every CastWhenUsed / CastWhenStrikes / SoulBound
   // / affinity arm against no ctx at all. They are optional-chained, so
   // it WAS silent. WAVE D closed it: the body is scenes/hostEnchant.js
-  // and dungeonContext.js:3067 mounts the same one, gated on
+  // and dungeonContext.js:3070 mounts the same one, gated on
   // `opts.enchantCtx !== false` because setDefaultEnchantCtx is a
   // session singleton and EC1 already routes THIS host's mount into
   // that context through modes.dungeonCtx - so worldModes.js:7240
@@ -9692,7 +9692,7 @@ export async function bootWorld(canvas, renderer, params, status) {
    *  arguments - which is exactly how DFU's call sites differ. */
   const _standEncounterFoe = (hit, feet) => {
     if ((exteriorFoes.encounterRoom?.() ?? Infinity) <= 0) return null;   // AUDIT OW5b E1: the pool full, spawnFoe's own cap stands nobody - and no journey is stopped for a foe that never comes
-    const env = placeFoeEnv({
+    const base = placeFoeEnv({
       collider,
       playerFeet: [feet[0], feet[1] + 0.9, feet[2]],
       playerYawRad: cam.yaw,
@@ -9700,11 +9700,14 @@ export async function bootWorld(canvas, renderer, params, status) {
       isOccupied: entityOccupancy((f) => f.ai?.feet ?? f.feet, _placingPool, feet),   // AUDIT PSCALE1 COUNT-3: and the spots a stand in flight already holds
     });
     let spot = null;
-    for (let i = 0; i < LOOSE_FOE_PLACE_ATTEMPTS && !spot; i++) {
-      spot = placeFoeFreely(env, {
-        minDistance: hit.minDistance, maxDistance: hit.maxDistance,
-        lineOfSightCheck: hit.lineOfSightCheck,
-      });
+    for (const env of campPasses(base, campFeet(), hit.minDistance)) {
+      for (let i = 0; i < LOOSE_FOE_PLACE_ATTEMPTS && !spot; i++) {
+        spot = placeFoeFreely(env, {
+          minDistance: hit.minDistance, maxDistance: hit.maxDistance,
+          lineOfSightCheck: hit.lineOfSightCheck,
+        });
+      }
+      if (spot) break;
     }
     if (!spot) return null;
     ambushNight();   // AUDIT REST-PARTY A1: a night running now (restAct.js runRestNight) breaks at its next sub-tick - spawnFoe stands the foe after its awaits
@@ -10641,6 +10644,8 @@ export async function bootWorld(canvas, renderer, params, status) {
     onEnemyBreak: () => { playerEntity._restEnemyBreakAt = performance.now(); },
     // PARTY-REST19: see checkCanceledByFollower's own doc comment above.
     canceledByFollower: () => checkCanceledByFollower(),
+    // CAMP-ROLL: the camp's one roll (campRest, below - read at the call, after it stands)
+    camp: { open: (night) => campRest.open(night), verdict: () => campRest.verdict(), settle: () => campRest.settle(), close: () => campRest.close() },
     place: () => ({
       inTownOutside: _isPlayerInTownStrict(),
       inTownLocation: isPlayerInTown(_musicLocationType()),
@@ -12263,7 +12268,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     // so an F9 pressed inside a shop recorded the street's sheath and
     // hand. The mode host answers for the rig that is actually drawn
     // and null outside interior mode (the dungeon owns its own
-    // composer, dungeonContext.js:8426), so exterior mode and a
+    // composer, dungeonContext.js:8429), so exterior mode and a
     // pre-seam mode host compose exactly as before, per field.
     const wp = modes?.weaponPose?.() ?? null;
     const snap = snapshotPlayer(playerEntity, {
@@ -15425,7 +15430,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   // exterior -> the townTalk overlay, interior OR dungeon -> the mode
   // machine's slot. U43-ii shipped the dungeon half: showQuestBox
   // offers the window to `modes.showQuestOverlay` below, and
-  // worldModes answers it in BOTH modes (worldModes.js:10936-11000 -
+  // worldModes answers it in BOTH modes (worldModes.js:10937-11001 -
   // dungeon routes to dungeonCtx.showOverlay), so a dungeon popup is
   // shown rather than logged loudly and dropped.
   // AUDIT 24 (wave 21): DaggerfallMessageBox.Show() is a
@@ -18221,6 +18226,7 @@ export async function bootWorld(canvas, renderer, params, status) {
       send: (act) => socialLink()?.sendSocial(act) ?? false,   // false is the rate gate's answer: the panel keeps the button and says "try again"
       keepLetter: (letter) => keepLetterInJournal(letter),   // JOURNAL1: a letter kept in my journal, as a page is
       journey: () => partyTravel,   // PARTY-UI: the Party tab's Journey - the session is made later in this host, so it is read when drawn
+      canLead: () => !!socialLink()?.partyLeadOk,   // PARTY-LEAD: Make leader, through a hub that knows the act
       canOpen: () => !gamePaused() && !(townTalk.hudCovered || (modes?.hudCovered ?? false)),
       onOpen: () => surfaceOpen('social'),   // AUDIT SOC B6: counted with the chat's and the F-menu's - the first up frees the mouse, the last down takes it back
       onClose: () => surfaceClose('social'),
@@ -19452,7 +19458,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   const socialActText = (k, who) => (k === 'friend.request' ? `Friend request sent to ${who}`
     : k === 'party.invite' ? `Party invite sent to ${who}`
       : k === 'friend.remove' ? `${who} is no longer your friend` : 'Sent');
-  /** PARTY-REST1: RestWindow's own `mode` string ('loiter'|'timed'|'full', restWindow.js:680) to the wire's small
+  /** PARTY-REST1: RestWindow's own `mode` string ('loiter'|'timed'|'full', restWindow.js:690) to the wire's small
    *  numbers (net/wire.js validPartyPose: 0/1/2) - the one place the three hosts' restState getters (worldModes.js,
    *  dungeonContext.js) and this host's own outdoor overlay converge, so the mapping is written once. */
   const partyRestModeCode = (mode) => (mode === 'timed' ? 1 : mode === 'full' ? 2 : 0);
@@ -19973,7 +19979,7 @@ export async function bootWorld(canvas, renderer, params, status) {
         busy: () => playerEntity.isResting || playerEntity.isLoitering || !!townTalk.overlay || mirrorRestRefused(),
         town: () => !!hostRestDeps()?.restPlace?.()?.inTownOutside,   // AUDIT REST II P4: the act's own first refusal (restWindow.js _openAct)
       });
-      if (!act) continue;
+      if (!act || (act === 'busy' && _campWatch.isOpen())) continue;   // CAMP-ROLL: my rest window is watching the camp - it sleeps that night itself (restAct.js campNightStep), so nothing is said
       const name = m.name || 'A party member';
       if (act === 'far') setMidScreenText(REST_ACT_TEXT.carriedFar(name), 4);   // PARTY-REST-FAR1's word and its four seconds, said once a night
       else if (act === 'busy') setMidScreenText(REST_ACT_TEXT.carriedSkipped(name), 4);
@@ -19984,15 +19990,13 @@ export async function bootWorld(canvas, renderer, params, status) {
   };
   const sleepCarriedNight = (name, theirs) => {
     const bag = hostRestDeps();
-    if (!bag?.restNight) return;
+    if (!bag?.restCampNight) return;
     const night = nightDue(playerEntity, ownMinutes());
-    const kind = carriedRestKind(bag.placeKind?.() ?? null, theirs);   // AUDIT REST-PARTY: by their fire, not on the ground beside it
     let r = null;
-    quietNights(() => {
-      if (kind) bag.overrideRestKind?.(() => kind);   // read by the open below; the close clears it (createRestDeps setResting)
-      bag.setResting(true);
-      try { r = night ? bag.restNight({ carried: true }) : bag.restShort(); } finally { bag.setResting(false); }
-    });
+    // AUDIT REST-PARTY: by their fire, not on the ground beside it; CAMP-ROLL: the carried night's one sequence
+    // (scenes/shared.js restCampNight - the kind read, the override, the open, the night, its rolls quiet), the rest
+    // windows' camp wait its other caller; the close is mine
+    try { r = bag.restCampNight(theirs, night); } finally { bag.setResting(false); }
     // AUDIT REST II P3: a night slept whole says so; one a foe broke or a prevent-rest condition cut says its own line -
     // AUDIT REST III C3: and each raises the skills, as the window's close gives the rester (EndRest's every arm)
     const end = carriedNightEnd(name, night, r, bag.endLines);
@@ -20000,6 +20004,31 @@ export async function bootWorld(canvas, renderer, params, status) {
     if (end.text) setMidScreenText(end.text, 5);
   };
   setNightListener((kind) => { if (social && sharedClockOn()) { _partyRestJustStartedAt = nightStamp(social.now(), kind ?? undefined); _partyComposedAt = -Infinity; } });
+  // CAMP-ROLL (2026-10-04, the player: "In a party, or with other players. Every player spawns their own enemies when
+  // resting"; then "Do it"): ONE ROLL A CAMP - systems/partyRestLaw.js's own note says the whole of it. This is the
+  // host's half: the rest windows (both skins) open the camp when an act's channel opens on a night (my stamp takes the
+  // open mark, sent at once), ask it at the channel's end and through the wait (restAct.js campNightStep), settle it at
+  // the end (an open mark with no night heard becomes `done`) and close it with the window (createRestDeps setResting).
+  // A camp mate is a present member here within the party's 15 m (nearAccount, the night's own reach), not resting
+  // alone. The outdoor host and the dungeon's carry it (createRestDeps `camp`); a building rolls nothing (encounters.js:
+  // inside and no dungeon), so worldModes' interior bag carries none; the ?exterior dev host has no party.
+  const _campWatch = createCampWatch({ kindOf: nightKindOf, campOf: campMarkOf });
+  const campStampNow = (which) => { _partyRestJustStartedAt = campStamp(social.now(), which); _partyComposedAt = -Infinity; };
+  const campRest = {
+    open: (night) => {
+      if (!night || !social?.party || !sharedClockOn() || !restTogether()) { _campWatch.close(); return; }
+      _campWatch.open(social.others(), social.now());
+      campStampNow('open');
+    },
+    verdict: () => (social?.party && sharedClockOn() ? _campWatch.verdict({
+      me: social.acct, members: social.others(), now: social.now(),
+      inCamp: (m) => memberPresent(m) && nearAccount(m.acct, m.p),
+    }) : null),
+    settle: () => { if (social && campMarkOf(_partyRestJustStartedAt) === 'open') campStampNow('done'); },
+    close: () => { campRest.settle(); _campWatch.close(); },
+  };
+  /** CAMP-ROLL: the feet of the camp mates beside me - the band an ambush I roll at rest keeps from each of them. */
+  const campFeet = () => (playerEntity.isResting ? partyNear().filter((m) => { const row = social?.others().find((o) => o.acct === m.acct); return !!row && !restsAlone(row) && nearAccount(m.acct, row.p); }).map((m) => m.feet) : []);
   const partyRestHere = () => !sharedClockOn() && !!social?.party && !modes?.insidePartyRestExempt && restTogether();   // REST-OPT: resting alone is a rest of my own
   const partyRestGate = () => {
     if (!social?.party) return null;
@@ -22183,6 +22212,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     partyRestHere: () => partyRestHere(),   // OVH4: whether a rest here is the party's - the party card on either skin (restDoor.js)
     // STRANGER-REST1: shared with this host's own outdoor toggleRest and dungeonContext.js's - see strangerRestGate's doc comment.
     strangerRestGate: () => strangerRestGate(),
+    campRest,   // CAMP-ROLL: the camp's one roll, for the dungeon's rest bag (worldModes.js forwards it)
     // PARTY-REST5: shared with this host's own outdoor rest deps and dungeonContext.js's, forwarded the same way
     // partyRestGate/strangerRestGate already are - see outdoorRestDeps' own `onEnemyBreak` doc comment.
     onEnemyBreak: () => { playerEntity._restEnemyBreakAt = performance.now(); },

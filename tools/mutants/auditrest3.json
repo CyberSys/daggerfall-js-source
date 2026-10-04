@@ -447,20 +447,22 @@
   {
     "name": "AUDITREST3-C6-the-classic-window-unasked",
     "file": "src/ui/restWindow.js",
-    "old": ", () => this.deps.restAct?.() ?? null)) this._finishAct();",
-    "new": ")) this._finishAct();",
+    "old": "this._actHealth, this.deps.vitals?.()?.health, () => this.deps.restAct?.() ?? null)) this._finishAct(); return; }   // AUDIT REST III C6",
+    "new": "this._actHealth, this.deps.vitals?.()?.health)) this._finishAct(); return; }   // AUDIT REST III C6",
     "tests": [
       "test/auditrest2_party.test.js"
-    ]
+    ],
+    "note": "CAMP-ROLL (re-aimed by content): the camp wait's line carries the same call - aimed at the channel's own, by its note."
   },
   {
     "name": "AUDITREST3-C6-the-enhanced-card-unasked",
     "file": "src/ui/enhancedRest.js",
-    "old": ", () => deps.restAct?.() ?? null)) finishAct();",
-    "new": ")) finishAct();",
+    "old": ", () => deps.restAct?.() ?? null)) finishAct(); else updateChannel(); return; }",
+    "new": ")) finishAct(); else updateChannel(); return; }",
     "tests": [
       "test/auditrest2_party.test.js"
-    ]
+    ],
+    "note": "CAMP-ROLL (re-aimed by content): the camp wait's line carries the same call - aimed at the channel's own, by what follows it."
   },
   {
     "name": "AUDITREST3-E4-the-layout-s-braziers-stay",

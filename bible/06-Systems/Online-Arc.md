@@ -4786,7 +4786,7 @@ with a marked top-left pixel on its last row).
 
 *"During online play, certain enemies cant be damaged."*
 
-`src/scenes/worldModes.js:8079` read, on one physical line:
+`src/scenes/worldModes.js:8080` read, on one physical line:
 
 ```js
 useMagicItem: (item) => host.useMagicItem?.(item),   // HT1: the torch keys onFoeHit: (hit) => host.onFoeHit?.(hit),   // WORLD2: a puppet's blow goes to the host
@@ -4801,7 +4801,7 @@ appended its own note to the end of the line that already carried
 **Why that is an invulnerable enemy.** Online, a joiner applies no local
 damage to a layout foe - `damageFoe`'s non-authority arm hands the blow
 to the room's host through `opts.onFoeHit?.(...)` and RETURNS
-(`dungeonContext.js:5846`). With the property missing that call is a
+(`dungeonContext.js:5849`). With the property missing that call is a
 no-op on `undefined`: no damage, no frame, no warning, nothing on the
 console. Every layout foe in every online dungeon absorbed every blow
 from everyone but the room's authority, for eight slices, in silence.
@@ -7158,7 +7158,7 @@ answers that exact string in the object's sleep, no event, no wake. Only a
 CHANNEL session (chat, `presence: false`) used it. A presence session's
 liveness rode the pose.
 
-**Now (`src/net/wire.js:1142`, `src/net/online.js:2474`):**
+**Now (`src/net/wire.js:1143`, `src/net/online.js:2477`):**
 
 - `HEARTBEAT_MS` 5000 -> 20000. The pose goes when it MOVED (at POSE_HZ, as
   before) or every 20 s standing, as the peers' proof of life and the silence
@@ -14458,3 +14458,25 @@ EVENT1's door, a second word on it: `/event sunbaby` (or `/event sunbaby on`) st
 **The four hosts.** world.js (the streaming world - the online host, where the hub link lives) is WIRED. exterior.js (`?exterior`) has no hub link and stages no event - FLAGGED, as EVENT1 left it. worldModes.js (interiors) and dungeonContext.js draw no sky - FLAGGED: the event is outside, where the sky is (an indoor ear still hears the street's clear day: `setHeardWeather` takes the shown word).
 
 **Records.** test/sunbaby1_event.test.js (12): the word and its relay row, a real Room staging it and saying it on a late welcome, the session's word gate, the command, the fade and the rise, the land's haze, light and water, the GLSL from the tables, the pass over a recording GL (nothing at 0, every state put back, every allocation freed), and the host seams in shared.js and world.js. tools/mutants/sunbaby1.json (20, all dead). EVENT1's pins moved where the host's text moved (the hub's `onEvent`, the light) and two were made to fail again: the word's gate stands before the frame's, so `EVENT1-session-old-relay-sent` and `EVENT1-session-off-hub-sent` SURVIVED until the old-relay pin asked the END of an event and the off-hub session was given a relay that knows its words (event1.json: 44, all dead). The cite shift applied. Deploying world163 drops every connected player once (the relay's own law).
+
+## PARTY-LEAD (2026-10-04, the player: "add a make person party leader option for the leader when in a party") - the lead handed on
+
+The party's lead moved only when its leader left (the longest-standing seat that is online took it - AUDIT PARTY8). Now
+the leader's Party tab offers **Make leader** beside Kick on every other seat (`src/ui/socialPanel.js`): an offline seat
+draws it dead and says "offline", and a member, my own seat and a hub that does not know the act draw none. The hub's
+`party.lead` act (`server/src/index.js` `_partyLead`) is the leader's alone, as a kick is; never oneself; a seated
+member; and online - a lead handed to an away seat would leave nobody able to kick (AUDIT PARTY8). Every member hears
+the `party.leader` note a leave already says ("You lead the party now" / "Ada leads the party now"), then the party as
+it stands; the old leader is a member, and the new one may hand it back.
+
+THE RELAY: world164 (world162 on its branch, renumbered past main's PRIMARCH and SUNBABY1 at the merge). `SOCIAL_ACTS`
+gains the kind, and an older hub's parser CLOSES the socket on an act it does not
+know (validSocialAct, CLOSE_POLICY) - so the client sends it only through world164 or later (`PARTY_LEAD_RELAY_MIN`,
+`OnlineSession.partyLeadOk` off the welcome, `sendSocial` refusing it otherwise), and the panel offers it only then,
+repainting when the hub's word changes. NOT YET DEPLOYED: the merge deploys the relay (`relay-deploy.yml`, keyed on
+RELAY_VERSION). Not DFU's - Daggerfall Unity has no parties.
+
+Pinned: `test/partylead.test.js` (3: the wire and the floor, the hub's refusals and the hand-over, the client's gate),
+`test/soc3_socialpanel.test.js` PARTY-LEAD (the button), `tools/mutants/partylead.json` (14, all dead). The relay pins
+moved to world164 (`test/relayversion.test.js` its row); soc1's S25 record aimed at the kick's own check (the lead asks
+the same first question), and relayversion's R1 at the hub's new last method.

@@ -2,11 +2,12 @@
   {
     "name": "R1-index-edited-under-shipped-version",
     "file": "server/src/index.js",
-    "old": "    this._sayNote(them, 'party.kicked', them, trec?.name ?? null);\n    return null;\n  }\n}",
-    "new": "    this._sayNote(them, 'party.kicked', them, trec?.name ?? null);\n    return null;\n  }\n}\n// a comment is a different bundle",
+    "old": "    await this._sayParty(next, now);\n    return null;\n  }\n}",
+    "new": "    await this._sayParty(next, now);\n    return null;\n  }\n}\n// a comment is a different bundle",
     "tests": [
       "test/relayversion.test.js"
-    ]
+    ],
+    "note": "PARTY-LEAD (re-aimed by content): _partyLead is the hub class's last method now."
   },
   {
     "name": "R2-wire-edited",
