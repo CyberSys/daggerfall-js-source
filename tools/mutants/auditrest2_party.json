@@ -393,8 +393,8 @@
  {
   "name": "AUDITREST2-P-P8-the-classic-hold-to-its-end",
   "file": "src/ui/restWindow.js",
-  "old": "if (channelBroken(this._act, this._pendingEnemySpawn,",
-  "new": "if (this._actT >= this._act.channelSeconds && channelBroken(this._act, this._pendingEnemySpawn,",
+  "old": "{ this._actT += dt; if (channelBroken(this._act, this._pendingEnemySpawn,",
+  "new": "{ this._actT += dt; if (this._actT >= this._act.channelSeconds && channelBroken(this._act, this._pendingEnemySpawn,",
   "tests": [
    "test/auditrest2_party.test.js",
    "test/rest1_act.test.js"
@@ -404,8 +404,8 @@
  {
   "name": "AUDITREST2-P-P8-the-enhanced-hold-to-its-end",
   "file": "src/ui/enhancedRest.js",
-  "old": "if (channelBroken(act, overlay._pendingEnemySpawn,",
-  "new": "if (_actT >= act.channelSeconds && channelBroken(act, overlay._pendingEnemySpawn,",
+  "old": "{ _actT += dt; if (channelBroken(act, overlay._pendingEnemySpawn,",
+  "new": "{ _actT += dt; if (_actT >= act.channelSeconds && channelBroken(act, overlay._pendingEnemySpawn,",
   "tests": [
    "test/auditrest2_party.test.js",
    "test/rest1_act.test.js"

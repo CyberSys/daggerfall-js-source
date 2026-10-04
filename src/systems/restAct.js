@@ -56,6 +56,7 @@ export const REST_ACT_TEXT = Object.freeze({
   carriedSkipped: (name) => `${name} rests here - you are too busy to rest with them.`,
   carriedFar: (name) => `${name} rested a night without you - come within 15 m of them to rest with the party.`,   // AUDIT REST-PARTY: PARTY-REST-FAR1's word, online
   carriedTown: (name) => `${name} rests here - it is illegal to camp in town.`,   // AUDIT REST II P4: the act's own town law, for a member it would carry
+  campWait: (name) => `Resting with ${name}...`,   // CAMP-ROLL: a camp mate's night is the camp's - held until it lands
 });
 
 /** Whether a night may pass now: none yet, the interval run out, or a clock behind the stamp (a load from another
@@ -318,3 +319,35 @@ export const nightKindOf = (t) => {
   return null;
 };
 export const isNightStamp = (t) => nightKindOf(t) !== null;
+
+/** CAMP-ROLL (2026-10-04): THE CAMP'S TWO MARKS, on the same field and the same law as a night's - `open`, my act's
+ *  channel opened on a night (I may roll the camp's night), and `done`, it ended with no night heard (a short rest, a
+ *  stop, a foe, a prevent-rest condition). Neither is a night: nightKindOf answers null for both, so the party's night
+ *  watch never carries anyone on one. An older build's window open lands on `open` one time in a thousand, and costs a
+ *  follower at most CAMP_WAIT_MS (partyRestLaw.js). */
+export const CAMP_MARKS = Object.freeze({ open: 774, done: 773 });
+export const campStamp = (t, which) => Math.floor(t / 1000) * 1000 + (which === 'open' ? CAMP_MARKS.open : CAMP_MARKS.done);
+/** 'open', 'done', or null for a stamp that is neither. */
+export const campMarkOf = (t) => {
+  if (!Number.isFinite(t)) return null;
+  const ms = ((t % 1000) + 1000) % 1000;
+  return ms === CAMP_MARKS.open ? 'open' : ms === CAMP_MARKS.done ? 'done' : null;
+};
+
+/** CAMP-ROLL: THE ACT'S NIGHT IS THE CAMP'S. At the channel's end, and every frame of the wait after it, both rest
+ *  windows (restWindow.js, enhancedRest.js) hand the act's plan here, and the host's camp (`deps.camp`, world.js
+ *  campRest) answers whose night it is: mine to roll (no camp, no party, offline, or I am the camp's roller), a camp
+ *  mate's to await (`wait`), a camp mate's that landed (`night` - slept as theirs: their spot, no roll of mine), or a
+ *  camp mate's that a foe broke (`enemy`). A short rest and a candle's kneel roll nothing and ask nothing. Answers
+ *  `{ wait: name }` while the wait holds, else `{ r }` - the result the window ends on. */
+export function campNightStep(deps, act, rentedHours = -1) {
+  const v = act?.night && !act.meditate ? deps.camp?.verdict?.() ?? null : null;
+  if (v?.act === 'wait') return { wait: v.name || 'A party member' };
+  if (v?.act === 'enemy') { deps.onEnemyBreak?.(); return { r: { textId: REST_TEXT.enemiesNearby, enemyBroke: true, died: false } }; }
+  if (v?.act === 'night') {
+    const r = deps.restCampNight?.(v.kind, true) ?? null;
+    const end = carriedNightEnd(v.name || 'A party member', true, r, deps.endLines);
+    return { r: r && end.text ? { ...r, textId: null, text: end.text } : r };
+  }
+  return { r: act?.night ? deps.restNight?.({ rentedHours }) : deps.restShort?.() };
+}
