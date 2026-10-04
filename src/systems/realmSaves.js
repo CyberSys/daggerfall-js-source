@@ -355,7 +355,7 @@ const putMayClear = (/** @type {any} */ r) => REALM_ACT_TRANSIENT.includes(r.err
  * a put is refused or unanswered or the session leaves; a put that lands with nothing newer behind it drops the copy.
  * @param {{ io: any, id: string, lease: string, seq: number, gzip?: boolean, onLost?: (error: string) => void,
  *   later?: (fn: () => void, ms: number) => (() => void), hidden?: () => boolean, watchHidden?: (fn: () => void) => void,
- *   pack?: (text: string) => Promise<string | null> }} at
+ *   pack?: (text: string) => Promise<string | null>, now?: () => number }} at
  */
 export function createRealmSession({
   io, id, lease, seq, gzip = false, onLost = () => {},

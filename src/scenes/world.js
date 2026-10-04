@@ -200,6 +200,7 @@ import { skillValue } from '../systems/skills.js';   // SURV6: the hunter's four
 import { refreshMentor, mentorStatusText, effectiveLevel } from '../systems/mentorMode.js';
 import { setMasterSkillsGate, MASTER_SKILLS_DUNGEON_TEXT } from '../systems/masterSkills.js';   // SOFTCAP3
 import { isOnlinePage, ONLINE_LAND_TRAVEL_REFUSAL } from '../systems/onlineLane.js';   // SOFTCAP3: Master Skills is online only; AUDIT TRAVEL-ONLINE T7: the map's floor
+import { readImmersiveTravelSettings, immersiveTravelLoaded, IT_POPUP } from '../systems/immersiveTravel.js';   // IT1: Immersive Travel - a driver's map and its fast travel; AUDIT IT1 W4: the mod loaded for the game
 // SOFTCAP1: mentor mode, the party's overlay
 import { inflictDisease } from '../systems/diseases.js';   // SURV6: a foul pool's water
 import { createHunting, HUNT_PENDING_NEAR_M } from './hunting.js';   // SURV6: hunting, foraging and the water search as real-time events
@@ -9484,7 +9485,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   // and dungeonContext.js:3067 mounts the same one, gated on
   // `opts.enchantCtx !== false` because setDefaultEnchantCtx is a
   // session singleton and EC1 already routes THIS host's mount into
-  // that context through modes.dungeonCtx - so worldModes.js:7101
+  // that context through modes.dungeonCtx - so worldModes.js:7117
   // passes false beside its `chargen: false` and only the standalone
   // ?dungeon route mounts its own. S40 filled isResting
   // in - the sentence that stood here said it "stays absent above
@@ -13083,6 +13084,53 @@ export async function bootWorld(canvas, renderer, params, status) {
    *  window, armed. Only this host answers, because only this host
    *  has a streaming world to land in; the interior arm reads it off
    *  `host` and a host without one refuses the service. */
+  /** IT1: PLAYERGPS FOR IMMERSIVE TRAVEL - what its laws ask of where the player stands: CurrentMapPixel (the live
+   *  pixel), CurrentMapID and CurrentLocationType (the location on it, 0 / None in the wild), CurrentRegionIndex (the
+   *  pixel's region - AUDIT IT1 L1: PlayerGPS.cs:165-186's, politic 64 the High Rock sea coast's 31, which the ship
+   *  rule's IsPlayerInTown asks for; the raw politic - 128 never answered it). */
+  function itHere() {
+    const px = playerTravelPixel();
+    return {
+      x: px.x, y: px.y,
+      mapId: _musicLoc?.mapTableData?.mapId ?? 0,
+      locationType: _musicLoc?.mapTableData?.locationType ?? LOCATION_TYPES.None,
+      regionIndex: maps.getRegionIndexAt(px.x, px.y),
+    };
+  }
+  /** IT1: the mod's settings while it is on, else null - the player's own map's DisableNormalTravel reads them. */
+  const immersiveSettingsIfOn = () => (immersiveTravelLoaded() ? readImmersiveTravelSettings() : null);   // AUDIT IT1 W4: loaded for the game
+  /** IT1: CARRIAGETRAVELSERVICE / SHIPTRAVELSERVICE'S PUSH (systems/immersiveTravel.js immersiveTravelService) - the
+   *  mod's own map, a driver's (`carriage`) or a captain's (`seafarer`), into the street's slot the merchant popup
+   *  stood in. It is pushed past DaggerfallUI's travel-map door: none of that door's refusals but the enemies the
+   *  service already asked (the sun, a quest's offer, a party's question) is the mod's. Its trips are DFU's fast
+   *  travel, priced by the mod - online too: fast travel over land (onlineLane.js IT1), never through the travel map's floor. A party is not
+   *  asked to ride along (PARTY-TRAVEL's round is the travel map's; a hired carriage is the hirer's). */
+  function openImmersiveMap(kind) {
+    // AUDIT IT1 W6: a map that does not open says why, as the travel map's door says its own - the popup had closed
+    // on nothing (a click that landed after the player stepped indoors, the classic art not loaded)
+    if ((modes?.mode ?? 'exterior') !== 'exterior') { townTalk.say(CANNOT_TRAVEL_INDOORS_TEXT); return null; }
+    if (!travelMapDoorReady()) { townTalk.say('(the travel map art is unavailable)'); return null; }
+    if (!immersiveTravelLoaded() || (kind !== IT_POPUP.carriage && kind !== IT_POPUP.seafarer)) return null;
+    // AUDIT IT1 W2: ONLINE, THE SUN. Offline a sun-averse traveller who rides by day lands after dark - fastTravelTo's
+    // arrival clamp (DaggerfallTravelPopUp.cs:350, "regardless of travel type") - so the mod asks nothing. Online the
+    // world's clock skips that clamp and the travel map's door refuses them by day instead (LIVED1); a driver's map,
+    // pushed past that door as the mod pushes it, refuses the same, said the same.
+    if (sharedClockOn()) {
+      const nowMin = Math.floor(skyMinutes());
+      if (careerSunDamage(playerEntity.career) && isDayFromMinutes(nowMin)) { sayWithNightfall(SUNLIGHT_TRAVEL_TEXT); return null; }
+      const ftb = racialFastTravelBlock(playerEntity, nowMin);
+      if (ftb) { sayWithNightfall(ftb.text); if (ftb.hint) townTalk.say(ftb.hint); return null; }
+    }
+    const settings = readImmersiveTravelSettings();
+    const win = buildTravelMapWindow({
+      immersive: { kind, settings },
+      travelOptions: () => null,   // the mod's map is DaggerfallTravelMapWindow's, not Travel Options'
+      onTravel: (pick, opts, computed) => { fastTravelTo(pick, { ...opts, immersive: opts?.immersive ?? kind }, computed); },
+    });
+    if (!win) return null;
+    townTalk.showOverlay(win);
+    return win;
+  }
   function openTeleportMap() {
     if (!travelMapDoorReady()) return null;
     let win = null;
@@ -13590,6 +13638,9 @@ export async function bootWorld(canvas, renderer, params, status) {
       // the enum's own name is spaced out ("GeneralStore" -> "General
       // Store"). Recorded in bible/06-Systems/Travel-Options.md.
       buildingTypeName: (t) => (Object.keys(TALK_BUILDING_TYPES).find((k) => TALK_BUILDING_TYPES[k] === t) ?? String(t)).replace(/([a-z])([A-Z])/g, '$1 $2'),
+      // IT1: the mod's reads - its DisableNormalTravel over the player's own map, and PlayerGPS for its laws
+      immersiveSettings: immersiveSettingsIfOn,
+      itHere,
       // MAP3: THE MORROWIND HELD POSE. When the Morrowind arm is the
       // thing drawn on screen, the held map hands its sheet to the rig
       // (combat/fpArm.js holdPaper) and lays its ink over the sheet's
@@ -13603,7 +13654,7 @@ export async function bootWorld(canvas, renderer, params, status) {
       // TV1: the sheet's Overworld door - shown where the view can rise (the open air, the enhanced lane), and taken
       // once the sheet is down (the commit's own moment, AUDIT MAP-FIELD's one home)
       onTravelView: () => { travelView?.enter(); },
-      travelViewAllowed: () => !!travelView && travelViewAllowed().ok,
+      travelViewAllowed: () => !extra.immersive && !!travelView && travelViewAllowed().ok,   // IT1: a driver's map has no Overworld door
     });
   }
   /** AUDIT 63 F9: RevealGuildHallOnMap on this host (ThievesGuild.cs
@@ -15296,7 +15347,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   // exterior -> the townTalk overlay, interior OR dungeon -> the mode
   // machine's slot. U43-ii shipped the dungeon half: showQuestBox
   // offers the window to `modes.showQuestOverlay` below, and
-  // worldModes answers it in BOTH modes (worldModes.js:10796-10860 -
+  // worldModes answers it in BOTH modes (worldModes.js:10812-10876 -
   // dungeon routes to dungeonCtx.showOverlay), so a dungeon popup is
   // shown rather than logged loudly and dropped.
   // AUDIT 24 (wave 21): DaggerfallMessageBox.Show() is a
@@ -16418,11 +16469,8 @@ export async function bootWorld(canvas, renderer, params, status) {
     // the hook never did it: `386, vengence` rang record INDEX 386
     // (MaleGasp) instead of the record whose id is 386, and the
     // table's out-of-range ids (`11146, halt`) rang nothing at all.
-    playSound: (id) => {
-      if (questAudioSource.isPlaying()) return false;
-      questAudioSource.playOneShotId(id);
-      return true;
-    },
+    // QUIET-VENGEANCE: the skip, the ID door and the quiet sounds are the source's one body (playQuestSound).
+    playSound: (id) => questAudioSource.playQuestSound(id),
     // PlaySong hands a MIDI.BSA record name; the SongFiles member was
     // resolved in the action (systems/songFiles.js), which is where
     // DaggerfallSongPlayer.Play does it. DFU's quest song plays ONCE
@@ -22471,6 +22519,11 @@ export async function bootWorld(canvas, renderer, params, status) {
     // its whole dependency list - maps, the player pixel, the climate
     // reader - is the world's.
     openTeleportMap,
+    // IT1: the Fast Travel service's two reads - a driver's or a captain's map (only this host has a world to travel
+    // in), and AreEnemiesNearby(false, false), the strict pool the travel map's own door asks
+    openImmersiveMap,
+    travelEnemiesNearby: () => duelEnemyNear() || areEnemiesNearby([...cityGuards.guards, ...exteriorFoes.foes]) || navalHostileNear(),
+    travelEnemiesText: CANNOT_TRAVEL_ENEMIES_TEXT,
     // G6: the knightly smith's gift needs THIS host's inventory
     // window in choose-one mode - one builder, one dependency list.
     makeInventory: (extra) => (inventoryDoorReady() ? makeInventoryWindow(extra) : null),
